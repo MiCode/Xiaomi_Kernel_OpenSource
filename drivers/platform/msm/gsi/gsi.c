@@ -92,6 +92,9 @@ static void __gsi_config_ieob_irq(int ee, uint32_t mask, uint32_t val)
 			GSI_EE_n_CNTXT_SRC_IEOB_IRQ_MSK_OFFS(ee));
 	gsi_writel((curr & ~mask) | (val & mask), gsi_ctx->base +
 			GSI_EE_n_CNTXT_SRC_IEOB_IRQ_MSK_OFFS(ee));
+	if (gsi_ctx->per.ver == GSI_VER_2_2)
+		gsi_ctx->chan_ieob_mask = ((gsi_ctx->chan_ieob_mask & ~mask) |
+						(val & mask));
 }
 
 static void __gsi_config_glob_irq(int ee, uint32_t mask, uint32_t val)
@@ -561,10 +564,29 @@ static void gsi_handle_ieob(int ee)
 	unsigned long cntr;
 	uint32_t msk;
 
-	ch = gsi_readl(gsi_ctx->base +
-		GSI_EE_n_CNTXT_SRC_IEOB_IRQ_OFFS(ee));
-	msk = gsi_readl(gsi_ctx->base +
-		GSI_EE_n_CNTXT_SRC_IEOB_IRQ_MSK_OFFS(ee));
+	if (gsi_ctx->per.ver == GSI_VER_2_2) {
+		/* Masking IEOB global interrupt*/
+		__gsi_config_type_irq(ee,
+				1 << GSI_EE_n_CNTXT_TYPE_IRQ_MSK_IEOB_SHFT, 0);
+		ch = gsi_readl(gsi_ctx->base +
+				GSI_EE_n_CNTXT_SRC_IEOB_IRQ_OFFS(ee));
+		msk = gsi_readl(gsi_ctx->base +
+				GSI_EE_n_CNTXT_SRC_IEOB_IRQ_MSK_OFFS(ee));
+		if (gsi_ctx->chan_ieob_mask != msk)
+			gsi_ctx->ieob_mask_miss_match_cnt++;
+		/* In GSI 2.2 there is a limitation that can lead
+		 * to losing an interrupt because of wrong IEOB IRQ mask value.
+		 * For these versions an explicit considering  mask value for
+		 * all the event channel.
+		 */
+		msk = 0xffff;
+	} else {
+		ch = gsi_readl(gsi_ctx->base +
+				GSI_EE_n_CNTXT_SRC_IEOB_IRQ_OFFS(ee));
+		msk = gsi_readl(gsi_ctx->base +
+				GSI_EE_n_CNTXT_SRC_IEOB_IRQ_MSK_OFFS(ee));
+	}
+
 	gsi_writel(ch & msk, gsi_ctx->base +
 		GSI_EE_n_CNTXT_SRC_IEOB_IRQ_CLR_OFFS(ee));
 
@@ -610,6 +632,11 @@ check_again:
 				goto check_again;
 			spin_unlock_irqrestore(&ctx->ring.slock, flags);
 		}
+	}
+	if (gsi_ctx->per.ver == GSI_VER_2_2) {
+		/* Unmasking IEOB global interrupt*/
+		__gsi_config_type_irq(ee,
+			1 << GSI_EE_n_CNTXT_TYPE_IRQ_MSK_IEOB_SHFT, ~0);
 	}
 }
 
@@ -1100,6 +1127,7 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 		    props->emulator_intcntrlr_client_isr;
 	}
 
+	gsi_ctx->chan_ieob_mask = 0;
 	gsi_ctx->per = *props;
 	gsi_ctx->per_registered = true;
 	mutex_init(&gsi_ctx->mlock);
