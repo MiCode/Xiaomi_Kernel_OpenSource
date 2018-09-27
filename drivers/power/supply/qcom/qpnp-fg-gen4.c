@@ -223,9 +223,11 @@ struct fg_gen4_chip {
 	struct votable		*pl_disable_votable;
 	struct votable		*cp_disable_votable;
 	struct votable		*parallel_current_en_votable;
+	struct votable		*mem_attn_irq_en_votable;
 	struct work_struct	esr_calib_work;
 	struct alarm		esr_fast_cal_timer;
 	struct delayed_work	pl_enable_work;
+	struct delayed_work	pl_current_en_work;
 	struct completion	mem_attn;
 	char			batt_profile[PROFILE_LEN];
 	enum slope_limit_status	slope_limit_sts;
@@ -2151,16 +2153,6 @@ out:
 	return rc;
 }
 
-static void fg_gen4_parallel_current_config(struct fg_gen4_chip *chip)
-{
-	struct fg_dev *fg = &chip->fg;
-	bool input_present = is_input_present(fg), en;
-
-	en = fg->charge_done ? false : input_present;
-
-	vote(chip->parallel_current_en_votable, FG_PARALLEL_EN_VOTER, en, 0);
-}
-
 static int fg_gen4_esr_fcc_config(struct fg_gen4_chip *chip)
 {
 	struct fg_dev *fg = &chip->fg;
@@ -2788,6 +2780,7 @@ static struct fg_irq_info fg_irqs[FG_GEN4_IRQ_MAX] = {
 	[MEM_ATTN_IRQ] = {
 		.name		= "mem-attn",
 		.handler	= fg_mem_attn_irq_handler,
+		.wakeable	= true,
 	},
 	[DMA_GRANT_IRQ] = {
 		.name		= "dma-grant",
@@ -2989,6 +2982,36 @@ out:
 	vote(fg->awake_votable, ESR_CALIB, false, 0);
 }
 
+static void pl_current_en_work(struct work_struct *work)
+{
+	struct fg_gen4_chip *chip = container_of(work,
+				struct fg_gen4_chip,
+				pl_current_en_work.work);
+	struct fg_dev *fg = &chip->fg;
+	bool input_present = is_input_present(fg), en;
+
+	en = fg->charge_done ? false : input_present;
+
+	/*
+	 * If mem_attn_irq is disabled and parallel summing current
+	 * configuration needs to be modified, then enable mem_attn_irq and
+	 * wait for 1 second before doing it.
+	 */
+	if (get_effective_result(chip->parallel_current_en_votable) != en &&
+		!get_effective_result(chip->mem_attn_irq_en_votable)) {
+		vote(chip->mem_attn_irq_en_votable, MEM_ATTN_IRQ_VOTER,
+			true, 0);
+		schedule_delayed_work(&chip->pl_current_en_work,
+			msecs_to_jiffies(1000));
+		return;
+	}
+
+	if (!get_effective_result(chip->mem_attn_irq_en_votable))
+		return;
+
+	vote(chip->parallel_current_en_votable, FG_PARALLEL_EN_VOTER, en, 0);
+}
+
 static void pl_enable_work(struct work_struct *work)
 {
 	struct fg_gen4_chip *chip = container_of(work,
@@ -3080,7 +3103,7 @@ static void status_change_work(struct work_struct *work)
 	if (rc < 0)
 		pr_err("Error in adjusting FCC for ESR, rc=%d\n", rc);
 
-	fg_gen4_parallel_current_config(chip);
+	schedule_delayed_work(&chip->pl_current_en_work, 0);
 
 	ttf_update(chip->ttf, input_present);
 	fg->prev_charge_status = fg->charge_status;
@@ -3603,6 +3626,8 @@ static int fg_parallel_current_en_cb(struct votable *votable, void *data,
 			BATT_INFO_FG_CNV_CHAR_CFG(fg), rc);
 
 	fg_dbg(fg, FG_STATUS, "Parallel current summing: %d\n", enable);
+
+	vote(chip->mem_attn_irq_en_votable, MEM_ATTN_IRQ_VOTER, false, 0);
 	return rc;
 }
 
@@ -3643,6 +3668,27 @@ static int fg_gen4_delta_esr_irq_en_cb(struct votable *votable, void *data,
 
 	return 0;
 }
+
+static int fg_gen4_mem_attn_irq_en_cb(struct votable *votable, void *data,
+					int enable, const char *client)
+{
+	struct fg_dev *fg = data;
+
+	if (!fg->irqs[MEM_ATTN_IRQ].irq)
+		return 0;
+
+	if (enable) {
+		enable_irq(fg->irqs[MEM_ATTN_IRQ].irq);
+		enable_irq_wake(fg->irqs[MEM_ATTN_IRQ].irq);
+	} else {
+		disable_irq_wake(fg->irqs[MEM_ATTN_IRQ].irq);
+		disable_irq_nosync(fg->irqs[MEM_ATTN_IRQ].irq);
+	}
+
+	fg_dbg(fg, FG_STATUS, "%sabled mem_attn irq\n", enable ? "en" : "dis");
+	return 0;
+}
+
 /* All init functions below this */
 
 static int fg_alg_init(struct fg_gen4_chip *chip)
@@ -4506,6 +4552,7 @@ static void fg_gen4_cleanup(struct fg_gen4_chip *chip)
 	cancel_work(&fg->status_change_work);
 	cancel_delayed_work_sync(&fg->profile_load_work);
 	cancel_delayed_work_sync(&fg->sram_dump_work);
+	cancel_delayed_work_sync(&chip->pl_current_en_work);
 
 	power_supply_unreg_notifier(&fg->nb);
 	debugfs_remove_recursive(fg->dfs_root);
@@ -4521,6 +4568,9 @@ static void fg_gen4_cleanup(struct fg_gen4_chip *chip)
 
 	if (chip->parallel_current_en_votable)
 		destroy_votable(chip->parallel_current_en_votable);
+
+	if (chip->mem_attn_irq_en_votable)
+		destroy_votable(chip->mem_attn_irq_en_votable);
 
 	dev_set_drvdata(fg->dev, NULL);
 }
@@ -4563,6 +4613,7 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&fg->profile_load_work, profile_load_work);
 	INIT_DELAYED_WORK(&fg->sram_dump_work, sram_dump_work);
 	INIT_DELAYED_WORK(&chip->pl_enable_work, pl_enable_work);
+	INIT_DELAYED_WORK(&chip->pl_current_en_work, pl_current_en_work);
 
 	fg->awake_votable = create_votable("FG_WS", VOTE_SET_ANY,
 					fg_awake_cb, fg);
@@ -4588,6 +4639,15 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	if (IS_ERR(chip->delta_esr_irq_en_votable)) {
 		rc = PTR_ERR(chip->delta_esr_irq_en_votable);
 		chip->delta_esr_irq_en_votable = NULL;
+		goto exit;
+	}
+
+	chip->mem_attn_irq_en_votable = create_votable("FG_MEM_ATTN_IRQ",
+						VOTE_SET_ANY,
+						fg_gen4_mem_attn_irq_en_cb, fg);
+	if (IS_ERR(chip->mem_attn_irq_en_votable)) {
+		rc = PTR_ERR(chip->mem_attn_irq_en_votable);
+		chip->mem_attn_irq_en_votable = NULL;
 		goto exit;
 	}
 
@@ -4673,6 +4733,9 @@ static int fg_gen4_probe(struct platform_device *pdev)
 
 	/* Keep BSOC_DELTA_IRQ disabled until we require it */
 	vote(fg->delta_bsoc_irq_en_votable, DELTA_BSOC_IRQ_VOTER, false, 0);
+
+	/* Keep MEM_ATTN_IRQ disabled until we require it */
+	vote(chip->mem_attn_irq_en_votable, MEM_ATTN_IRQ_VOTER, false, 0);
 
 	rc = fg_debugfs_create(fg);
 	if (rc < 0) {
@@ -4761,9 +4824,6 @@ static int fg_gen4_suspend(struct device *dev)
 	struct fg_gen4_chip *chip = dev_get_drvdata(dev);
 	struct fg_dev *fg = &chip->fg;
 
-	if (fg->irqs[MEM_ATTN_IRQ].irq)
-		disable_irq_nosync(fg->irqs[MEM_ATTN_IRQ].irq);
-
 	cancel_delayed_work_sync(&chip->ttf->ttf_work);
 	if (fg_sram_dump)
 		cancel_delayed_work_sync(&fg->sram_dump_work);
@@ -4774,9 +4834,6 @@ static int fg_gen4_resume(struct device *dev)
 {
 	struct fg_gen4_chip *chip = dev_get_drvdata(dev);
 	struct fg_dev *fg = &chip->fg;
-
-	if (fg->irqs[MEM_ATTN_IRQ].irq)
-		enable_irq(fg->irqs[MEM_ATTN_IRQ].irq);
 
 	schedule_delayed_work(&chip->ttf->ttf_work, 0);
 	if (fg_sram_dump)
