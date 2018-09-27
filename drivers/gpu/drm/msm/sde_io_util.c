@@ -389,27 +389,41 @@ error:
 } /* msm_dss_get_clk */
 EXPORT_SYMBOL(msm_dss_get_clk);
 
+int msm_dss_single_clk_set_rate(struct dss_clk *clk)
+{
+	int rc = 0;
+
+	if (!clk) {
+		DEV_ERR("invalid clk struct\n");
+		return -EINVAL;
+	}
+
+	DEV_DBG("%pS->%s: set_rate '%s'\n",
+			__builtin_return_address(0), __func__,
+			clk->clk_name);
+
+	if (clk->type != DSS_CLK_AHB) {
+		rc = clk_set_rate(clk->clk, clk->rate);
+		if (rc)
+			DEV_ERR("%pS->%s: %s failed. rc=%d\n",
+					__builtin_return_address(0),
+					__func__,
+					clk->clk_name, rc);
+	}
+
+	return rc;
+} /* msm_dss_single_clk_set_rate */
+EXPORT_SYMBOL(msm_dss_single_clk_set_rate);
+
 int msm_dss_clk_set_rate(struct dss_clk *clk_arry, int num_clk)
 {
 	int i, rc = 0;
 
 	for (i = 0; i < num_clk; i++) {
 		if (clk_arry[i].clk) {
-			if (clk_arry[i].type != DSS_CLK_AHB) {
-				DEV_DBG("%pS->%s: '%s' rate %ld\n",
-					__builtin_return_address(0), __func__,
-					clk_arry[i].clk_name,
-					clk_arry[i].rate);
-				rc = clk_set_rate(clk_arry[i].clk,
-					clk_arry[i].rate);
-				if (rc) {
-					DEV_ERR("%pS->%s: %s failed. rc=%d\n",
-						__builtin_return_address(0),
-						__func__,
-						clk_arry[i].clk_name, rc);
-					break;
-				}
-			}
+			rc = msm_dss_single_clk_set_rate(&clk_arry[i]);
+			if (rc)
+				break;
 		} else {
 			DEV_ERR("%pS->%s: '%s' is not available\n",
 				__builtin_return_address(0), __func__,
