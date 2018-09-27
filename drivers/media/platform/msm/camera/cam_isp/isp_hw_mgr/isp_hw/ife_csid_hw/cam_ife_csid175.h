@@ -52,6 +52,7 @@ static struct cam_ife_csid_pxl_reg_offset  cam_ife_csid_175_ipp_reg_offset = {
 	.csid_pxl_timestamp_perv1_eof_addr   = 0x2ac,
 	/* configurations */
 	.pix_store_en_shift_val              = 7,
+	.early_eof_en_shift_val              = 29,
 };
 
 static struct cam_ife_csid_pxl_reg_offset  cam_ife_csid_175_ppp_reg_offset = {
@@ -91,6 +92,7 @@ static struct cam_ife_csid_pxl_reg_offset  cam_ife_csid_175_ppp_reg_offset = {
 	.csid_pxl_timestamp_perv1_eof_addr   = 0x7ac,
 	/* configurations */
 	.pix_store_en_shift_val              = 7,
+	.early_eof_en_shift_val              = 29,
 };
 
 
@@ -328,6 +330,8 @@ static struct cam_ife_csid_common_reg_offset
 	.ipp_irq_mask_all                             = 0x7FFF,
 	.rdi_irq_mask_all                             = 0x7FFF,
 	.ppp_irq_mask_all                             = 0xFFFF,
+	.measure_en_hbi_vbi_cnt_mask                  = 0xC,
+	.format_measure_en_val                        = 1,
 };
 
 static struct cam_ife_csid_reg_offset cam_ife_csid_175_reg_offset = {
