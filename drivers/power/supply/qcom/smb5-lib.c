@@ -1037,6 +1037,7 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	vote(chg->pl_enable_votable_indirect, USBIN_V_VOTER, false, 0);
 	vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true, SDP_100_MA);
 	vote(chg->usb_icl_votable, SW_QC3_VOTER, false, 0);
+	vote(chg->usb_icl_votable, HVDCP2_ICL_VOTER, false, 0);
 
 	/* Remove SW thermal regulation WA votes */
 	vote(chg->usb_icl_votable, SW_THERM_REGULATION_VOTER, false, 0);
@@ -2191,6 +2192,7 @@ static void smblib_hvdcp_adaptive_voltage_change(struct smb_charger *chg)
 		}
 
 		smblib_hvdcp_set_fsw(chg, stat & QC_2P0_STATUS_MASK);
+		vote(chg->usb_icl_votable, HVDCP2_ICL_VOTER, false, 0);
 	}
 
 	if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP_3) {
@@ -2290,8 +2292,12 @@ int smblib_dp_dm(struct smb_charger *chg, int val)
 			break;
 		}
 
-		if (stat & QC_5V_BIT)
+		if (stat & QC_5V_BIT) {
+			/* Force 1A ICL before requesting higher voltage */
+			vote(chg->usb_icl_votable, HVDCP2_ICL_VOTER,
+					true, 1000000);
 			smblib_hvdcp_set_fsw(chg, QC_9V_BIT);
+		}
 
 		rc = smblib_force_vbus_voltage(chg, FORCE_9V_BIT);
 		if (rc < 0)
@@ -2311,8 +2317,12 @@ int smblib_dp_dm(struct smb_charger *chg, int val)
 			break;
 		}
 
-		if ((stat & QC_9V_BIT) || (stat & QC_5V_BIT))
+		if ((stat & QC_9V_BIT) || (stat & QC_5V_BIT)) {
+			/* Force 1A ICL before requesting higher voltage */
+			vote(chg->usb_icl_votable, HVDCP2_ICL_VOTER,
+					true, 1000000);
 			smblib_hvdcp_set_fsw(chg, QC_12V_BIT);
+		}
 
 		rc = smblib_force_vbus_voltage(chg, FORCE_12V_BIT);
 		if (rc < 0)
@@ -4796,6 +4806,7 @@ static void typec_src_removal(struct smb_charger *chg)
 	vote(chg->usb_icl_votable, SW_QC3_VOTER, false, 0);
 	vote(chg->usb_icl_votable, OTG_VOTER, false, 0);
 	vote(chg->usb_icl_votable, CTM_VOTER, false, 0);
+	vote(chg->usb_icl_votable, HVDCP2_ICL_VOTER, false, 0);
 
 	/* reset usb irq voters */
 	vote(chg->usb_irq_enable_votable, PD_VOTER, false, 0);
