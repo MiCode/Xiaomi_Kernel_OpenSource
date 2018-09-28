@@ -58,7 +58,8 @@ enum profile_data {
 	POWER_UP_END,
 	POWER_DOWN_END,
 	POWER_UP_START,
-	NUM_UNIT,
+	ALT_UNIT,
+	NUM_UNIT = ALT_UNIT,
 };
 
 struct msm_rpmh_master_data {
@@ -96,6 +97,7 @@ struct rpmh_master_stats_prv_data {
 
 static struct msm_rpmh_master_stats apss_master_stats;
 static void __iomem *rpmh_unit_base;
+static uint32_t use_alt_unit;
 
 static DEFINE_MUTEX(rpmh_stats_mutex);
 
@@ -178,6 +180,17 @@ void msm_rpmh_master_stats_update(void)
 		return;
 
 	for (i = POWER_DOWN_END; i < NUM_UNIT; i++) {
+		if (i == use_alt_unit) {
+			profile_unit[i].value = readl_relaxed(
+						rpmh_unit_base + GET_ADDR(
+						REG_DATA_LO, ALT_UNIT));
+			profile_unit[i].value |= ((uint64_t)
+						readl_relaxed(
+						rpmh_unit_base + GET_ADDR(
+						REG_DATA_HI, ALT_UNIT)) << 32);
+			continue;
+		}
+
 		profile_unit[i].valid = readl_relaxed(rpmh_unit_base +
 						GET_ADDR(REG_VALID, i));
 
@@ -232,6 +245,12 @@ static int msm_rpmh_master_stats_probe(struct platform_device *pdev)
 		pr_err("sysfs_create_file failed\n");
 		goto fail_sysfs;
 	}
+
+	ret = of_property_read_u32(pdev->dev.of_node,
+					"qcom,use-alt-unit",
+					&use_alt_unit);
+	if (ret)
+		use_alt_unit = -1;
 
 	rpmh_unit_base = of_iomap(pdev->dev.of_node, 0);
 	if (!rpmh_unit_base) {
