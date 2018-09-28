@@ -2514,7 +2514,6 @@ static int qg_setup_battery(struct qpnp_qg *chip)
 	return 0;
 }
 
-
 static struct ocv_all ocv[] = {
 	[S7_PON_OCV] = { 0, 0, "S7_PON_OCV"},
 	[S3_GOOD_OCV] = { 0, 0, "S3_GOOD_OCV"},
@@ -2528,12 +2527,30 @@ static int qg_determine_pon_soc(struct qpnp_qg *chip)
 	int rc = 0, batt_temp = 0, i;
 	bool use_pon_ocv = true;
 	unsigned long rtc_sec = 0;
-	u32 ocv_uv = 0, soc = 0, shutdown[SDAM_MAX] = {0};
+	u32 ocv_uv = 0, soc = 0, pon_soc = 0, shutdown[SDAM_MAX] = {0};
 	char ocv_type[20] = "NONE";
 
 	if (!chip->profile_loaded) {
 		qg_dbg(chip, QG_DEBUG_PON, "No Profile, skipping PON soc\n");
 		return 0;
+	}
+
+	/* read all OCVs */
+	for (i = S7_PON_OCV; i < PON_OCV_MAX; i++) {
+		rc = qg_read_ocv(chip, &ocv[i].ocv_uv,
+					&ocv[i].ocv_raw, i);
+		if (rc < 0)
+			pr_err("Failed to read %s OCV rc=%d\n",
+					ocv[i].ocv_type, rc);
+		else
+			qg_dbg(chip, QG_DEBUG_PON, "%s OCV=%d\n",
+					ocv[i].ocv_type, ocv[i].ocv_uv);
+	}
+
+	rc = qg_get_battery_temp(chip, &batt_temp);
+	if (rc) {
+		pr_err("Failed to read BATT_TEMP at PON rc=%d\n", rc);
+		goto done;
 	}
 
 	rc = get_rtc_time(&rtc_sec);
@@ -2548,47 +2565,50 @@ static int qg_determine_pon_soc(struct qpnp_qg *chip)
 		goto use_pon_ocv;
 	}
 
-	qg_dbg(chip, QG_DEBUG_PON, "Shutdown: Valid=%d SOC=%d OCV=%duV time=%dsecs, time_now=%ldsecs\n",
+	rc = lookup_soc_ocv(&pon_soc, ocv[S7_PON_OCV].ocv_uv, batt_temp, false);
+	if (rc < 0) {
+		pr_err("Failed to lookup S7_PON SOC rc=%d\n", rc);
+		goto done;
+	}
+
+	qg_dbg(chip, QG_DEBUG_PON, "Shutdown: Valid=%d SOC=%d OCV=%duV time=%dsecs temp=%d, time_now=%ldsecs temp_now=%d S7_soc=%d\n",
 			shutdown[SDAM_VALID],
 			shutdown[SDAM_SOC],
 			shutdown[SDAM_OCV_UV],
 			shutdown[SDAM_TIME_SEC],
-			rtc_sec);
+			shutdown[SDAM_TEMP],
+			rtc_sec, batt_temp,
+			pon_soc);
 	/*
 	 * Use the shutdown SOC if
-	 * 1. The device was powered off for < ignore_shutdown_time
-	 * 2. SDAM read is a success & SDAM data is valid
+	 * 1. SDAM read is a success & SDAM data is valid
+	 * 2. The device was powered off for < ignore_shutdown_time
+	 * 2. Batt temp has not changed more than shutdown_temp_diff
 	 */
-	if (shutdown[SDAM_VALID] && is_between(0,
-			chip->dt.ignore_shutdown_soc_secs,
-			(rtc_sec - shutdown[SDAM_TIME_SEC]))) {
-		use_pon_ocv = false;
-		ocv_uv = shutdown[SDAM_OCV_UV];
-		soc = shutdown[SDAM_SOC];
-		strlcpy(ocv_type, "SHUTDOWN_SOC", 20);
-		qg_dbg(chip, QG_DEBUG_PON, "Using SHUTDOWN_SOC @ PON\n");
-	}
+	if (!shutdown[SDAM_VALID])
+		goto use_pon_ocv;
+
+	if (!is_between(0, chip->dt.ignore_shutdown_soc_secs,
+			(rtc_sec - shutdown[SDAM_TIME_SEC])))
+		goto use_pon_ocv;
+
+	if (!is_between(0, chip->dt.shutdown_temp_diff,
+			abs(shutdown[SDAM_TEMP] -  batt_temp)))
+		goto use_pon_ocv;
+
+	if ((chip->dt.shutdown_soc_threshold != -EINVAL) &&
+			!is_between(0, chip->dt.shutdown_soc_threshold,
+			abs(pon_soc - shutdown[SDAM_SOC])))
+		goto use_pon_ocv;
+
+	use_pon_ocv = false;
+	ocv_uv = shutdown[SDAM_OCV_UV];
+	soc = shutdown[SDAM_SOC];
+	strlcpy(ocv_type, "SHUTDOWN_SOC", 20);
+	qg_dbg(chip, QG_DEBUG_PON, "Using SHUTDOWN_SOC @ PON\n");
 
 use_pon_ocv:
 	if (use_pon_ocv == true) {
-		rc = qg_get_battery_temp(chip, &batt_temp);
-		if (rc) {
-			pr_err("Failed to read BATT_TEMP at PON rc=%d\n", rc);
-			goto done;
-		}
-
-		/* read all OCVs */
-		for (i = S7_PON_OCV; i < PON_OCV_MAX; i++) {
-			rc = qg_read_ocv(chip, &ocv[i].ocv_uv,
-						&ocv[i].ocv_raw, i);
-			if (rc < 0)
-				pr_err("Failed to read %s OCV rc=%d\n",
-						ocv[i].ocv_type, rc);
-			else
-				qg_dbg(chip, QG_DEBUG_PON, "%s OCV=%d\n",
-					ocv[i].ocv_type, ocv[i].ocv_uv);
-		}
-
 		if (ocv[S3_LAST_OCV].ocv_raw == FIFO_V_RESET_VAL) {
 			if (!ocv[SDAM_PON_OCV].ocv_uv) {
 				strlcpy(ocv_type, "S7_PON_SOC", 20);
@@ -3069,6 +3089,7 @@ static int qg_alg_init(struct qpnp_qg *chip)
 #define DEFAULT_CL_MAX_DEC_DECIPERC	20
 #define DEFAULT_CL_MIN_LIM_DECIPERC	500
 #define DEFAULT_CL_MAX_LIM_DECIPERC	100
+#define DEFAULT_SHUTDOWN_TEMP_DIFF	60	/* 6 degC */
 #define DEFAULT_ESR_QUAL_CURRENT_UA	130000
 #define DEFAULT_ESR_QUAL_VBAT_UV	7000
 #define DEFAULT_ESR_DISABLE_SOC		1000
@@ -3254,6 +3275,12 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 	else
 		chip->dt.ignore_shutdown_soc_secs = temp;
 
+	rc = of_property_read_u32(node, "qcom,shutdown-temp-diff", &temp);
+	if (rc < 0)
+		chip->dt.shutdown_temp_diff = DEFAULT_SHUTDOWN_TEMP_DIFF;
+	else
+		chip->dt.shutdown_temp_diff = temp;
+
 	chip->dt.hold_soc_while_full = of_property_read_bool(node,
 					"qcom,hold-soc-while-full");
 
@@ -3296,6 +3323,12 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 		chip->dt.esr_min_ibat_ua = ESR_CHG_MIN_IBAT_UA;
 	else
 		chip->dt.esr_min_ibat_ua = (int)temp;
+
+	rc = of_property_read_u32(node, "qcom,shutdown_soc_threshold", &temp);
+	if (rc < 0)
+		chip->dt.shutdown_soc_threshold = -EINVAL;
+	else
+		chip->dt.shutdown_soc_threshold = temp;
 
 	chip->dt.qg_ext_sense = of_property_read_bool(node, "qcom,qg-ext-sns");
 
