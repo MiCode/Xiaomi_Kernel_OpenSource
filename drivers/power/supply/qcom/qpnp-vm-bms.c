@@ -2227,6 +2227,15 @@ static int get_current_cc(struct qpnp_bms_chip *chip)
 	return current_charge;
 }
 
+static int get_charge_full(struct qpnp_bms_chip *chip)
+{
+
+	if (chip->batt_data)
+		return chip->batt_data->fcc * 1000;
+
+	return -EINVAL;
+}
+
 static enum power_supply_property bms_power_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_STATUS,
@@ -2241,6 +2250,7 @@ static enum power_supply_property bms_power_props[] = {
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_CYCLE_COUNT,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
+	POWER_SUPPLY_PROP_CHARGE_FULL,
 };
 
 static int
@@ -2320,6 +2330,9 @@ static int qpnp_vm_bms_power_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
 		val->intval = get_current_cc(chip);
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_FULL:
+		val->intval = get_charge_full(chip);
 		break;
 	default:
 		return -EINVAL;
