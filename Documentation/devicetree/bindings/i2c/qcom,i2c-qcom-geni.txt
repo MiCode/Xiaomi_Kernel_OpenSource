@@ -17,6 +17,9 @@ Required properties:
 Optional property:
  - qcom,clk-freq-out : Desired I2C bus clock frequency in Hz.
    When missing default to 400000Hz.
+ - qcom,disable-autosuspend : Disable autosuspend for I2C controller and
+   I2C clients should call pm_runtime_get_sync()/put_sync() for the
+   I2C controller.
 
 Child nodes should conform to i2c bus binding.
 
