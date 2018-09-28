@@ -308,6 +308,20 @@ First Level Node - QGAUGE device
 	Definition: Boolean property to support external-rsense based
 		    configuration.
 
+- qcom,shutdown-temp-diff
+	Usage:      optional
+	Value type: <u32>
+	Definition: The allowed battery temperature in deci-degree difference
+		    between shutdown and power-on to continue with the shutdown
+		    SOC. If not specified the default value is 6 degrees C (60).
+
+- qcom,shutdown-soc-threshold
+	Usage:      optional
+	Value type: <u32>
+	Definition: The SOC difference allowed between PON and SHUTDOWN SOC
+		    for the shutdown SOC to be used. If the difference is
+		    beyond this value the PON SOC is used.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by QGAUGE driver
 ==========================================================
