@@ -3665,13 +3665,15 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		if (ret)
 			goto put_dwc3;
 	} else {
-		if (dwc3_is_otg_or_drd(dwc) ||
-				dwc->dr_mode == USB_DR_MODE_PERIPHERAL) {
-			dev_dbg(mdwc->dev, "%s: no extcon, simulate vbus connect\n",
+		if ((dwc3_is_otg_or_drd(dwc) &&
+		     !of_property_read_bool(node, "qcom,default-mode-host")) ||
+		     dwc->dr_mode == USB_DR_MODE_PERIPHERAL) {
+			dev_dbg(mdwc->dev, "%s: no extcon, start peripheral mode\n",
 								__func__);
 			mdwc->vbus_active = true;
-		} else if (dwc->dr_mode == USB_DR_MODE_HOST) {
-			dev_dbg(mdwc->dev, "DWC3 in host only mode\n");
+		} else {
+			dev_dbg(mdwc->dev, "%s: no extcon, start host mode\n",
+								__func__);
 			mdwc->id_state = DWC3_ID_GROUND;
 		}
 
