@@ -1530,6 +1530,7 @@ static void adv7533_video_setup(struct adv7533 *pdata,
 {
 	u32 h_total, hpw, hfp, hbp;
 	u32 v_total, vpw, vfp, vbp;
+	int dsi_pixel_clock_divider = 0x00;
 
 	if (!pdata || !cfg) {
 		pr_err("%s: invalid input\n", __func__);
@@ -1557,6 +1558,26 @@ static void adv7533_video_setup(struct adv7533 *pdata,
 		v_total, cfg->v_active, cfg->v_front_porch,
 		cfg->v_pulse_width, cfg->v_back_porch);
 
+	/* 0x16: dsi pclk divider control.
+	 * bit2: 1 = manual dsi pclk divider control; 0 = automatic dsi
+	 *   pclk divider generation.
+	 * bit3-7: the signal sets the dsi pclk divider setting when bit2
+	 *   is enable.
+	 *
+	 * If bit2=0 means automatically select dsi pclk divider, so
+	 * other bits(divider factor) has no impact.
+	 *
+	 * If bit2=1, the divider factor should be related to lane num below
+	 * 4lanes : divide by 3; 3lanes : divide by 4; 2lanes : divide by 6
+	 * So the value of 0x16 can be set as follow:
+	 * 4 lanes : 0x1C(00011 100)
+	 * 3 lanes : 0x24(00100 100)
+	 * 2 lanes : 0x34(00110 100)
+	 *
+	 * Here, use automatic dsi pclk divider generation, so set 0x00
+	 * to cec 0x16 register for all lanes numbers.
+	 */
+	adv7533_write(pdata, I2C_ADDR_CEC_DSI, 0x16, dsi_pixel_clock_divider);
 
 	/* h_width */
 	adv7533_write(pdata, I2C_ADDR_CEC_DSI, 0x28, ((h_total & 0xFF0) >> 4));
