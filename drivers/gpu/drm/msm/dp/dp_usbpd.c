@@ -467,13 +467,13 @@ static int dp_usbpd_simulate_attention(struct dp_hpd *dp_hpd, int vdo)
 	struct dp_usbpd *dp_usbpd;
 	struct dp_usbpd_private *pd;
 
+	dp_usbpd = container_of(dp_hpd, struct dp_usbpd, base);
 	if (!dp_usbpd) {
 		pr_err("invalid input\n");
 		rc = -EINVAL;
 		goto error;
 	}
 
-	dp_usbpd = container_of(dp_hpd, struct dp_usbpd, base);
 	pd = container_of(dp_usbpd, struct dp_usbpd_private, dp_usbpd);
 
 	pd->vdo = vdo;
@@ -546,10 +546,10 @@ void dp_usbpd_put(struct dp_hpd *dp_hpd)
 	struct dp_usbpd *dp_usbpd;
 	struct dp_usbpd_private *usbpd;
 
+	dp_usbpd = container_of(dp_hpd, struct dp_usbpd, base);
 	if (!dp_usbpd)
 		return;
 
-	dp_usbpd = container_of(dp_hpd, struct dp_usbpd, base);
 	usbpd = container_of(dp_usbpd, struct dp_usbpd_private, dp_usbpd);
 
 	usbpd_unregister_svid(usbpd->pd, &usbpd->svid_handler);
