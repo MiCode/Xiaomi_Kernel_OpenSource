@@ -1514,7 +1514,7 @@ static int msm_compr_configure_dsp_for_capture(struct snd_compr_stream *cstream)
 
 static int msm_compr_map_ion_fd(struct msm_compr_audio *prtd, int fd)
 {
-	ion_phys_addr_t paddr;
+	ion_phys_addr_t paddr = 0;
 	size_t pa_len = 0;
 	int ret = 0;
 
@@ -1544,7 +1544,7 @@ done:
 
 static int msm_compr_unmap_ion_fd(struct msm_compr_audio *prtd)
 {
-	ion_phys_addr_t paddr;
+	ion_phys_addr_t paddr = 0;
 	size_t pa_len = 0;
 	int ret = 0;
 
@@ -1759,7 +1759,7 @@ static int msm_compr_playback_free(struct snd_compr_stream *cstream)
 	int dir = IN, ret = 0, stream_id;
 	unsigned long flags;
 	uint32_t stream_index;
-	ion_phys_addr_t paddr;
+	ion_phys_addr_t paddr = 0;
 	size_t pa_len = 0;
 
 	pr_debug("%s\n", __func__);

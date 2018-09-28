@@ -7742,7 +7742,7 @@ fail_cmd:
 int q6asm_audio_map_shm_fd(struct audio_client *ac, struct ion_client **client,
 			struct ion_handle **handle, int fd)
 {
-	ion_phys_addr_t paddr;
+	ion_phys_addr_t paddr = 0;
 	size_t pa_len = 0;
 	int ret;
 	int sz = 0;
