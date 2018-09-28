@@ -1654,6 +1654,9 @@ static enum drm_mode_status dp_display_validate_mode(
 	struct dp_panel *dp_panel;
 	struct dp_debug *debug;
 	enum drm_mode_status mode_status = MODE_BAD;
+	bool in_list = false;
+	struct dp_mst_connector *mst_connector;
+	int hdis, vdis, vref, ar, _hdis, _vdis, _vref, _ar;
 
 	if (!dp_display || !mode || !panel) {
 		pr_err("invalid params\n");
@@ -1697,6 +1700,58 @@ static enum drm_mode_status dp_display_validate_mode(
 		goto end;
 	}
 
+	/*
+	 * If the connector exists in the mst connector list and if debug is
+	 * enabled for that connector, use the mst connector settings from the
+	 * list for validation. Otherwise, use non-mst default settings.
+	 */
+	mutex_lock(&debug->dp_mst_connector_list.lock);
+
+	if (list_empty(&debug->dp_mst_connector_list.list)) {
+		mutex_unlock(&debug->dp_mst_connector_list.lock);
+		goto verify_default;
+	}
+
+	list_for_each_entry(mst_connector, &debug->dp_mst_connector_list.list,
+			list) {
+		if (mst_connector->con_id == dp_panel->connector->base.id) {
+			in_list = true;
+
+			if (!mst_connector->debug_en) {
+				mode_status = MODE_OK;
+				mutex_unlock(
+				&debug->dp_mst_connector_list.lock);
+				goto end;
+			}
+
+			hdis = mst_connector->hdisplay;
+			vdis = mst_connector->vdisplay;
+			vref = mst_connector->vrefresh;
+			ar = mst_connector->aspect_ratio;
+
+			_hdis = mode->hdisplay;
+			_vdis = mode->vdisplay;
+			_vref = mode->vrefresh;
+			_ar = mode->picture_aspect_ratio;
+
+			if (hdis == _hdis && vdis == _vdis && vref == _vref &&
+					ar == _ar) {
+				mode_status = MODE_OK;
+				mutex_unlock(
+				&debug->dp_mst_connector_list.lock);
+				goto end;
+			}
+
+			break;
+		}
+	}
+
+	mutex_unlock(&debug->dp_mst_connector_list.lock);
+
+	if (in_list)
+		goto end;
+
+verify_default:
 	if (debug->debug_en && (mode->hdisplay != debug->hdisplay ||
 			mode->vdisplay != debug->vdisplay ||
 			mode->vrefresh != debug->vrefresh ||
@@ -1894,6 +1949,7 @@ static int dp_display_mst_connector_install(struct dp_display *dp_display,
 	struct dp_panel_in panel_in;
 	struct dp_panel *dp_panel;
 	struct dp_display_private *dp;
+	struct dp_mst_connector *mst_connector;
 
 	if (!dp_display || !connector) {
 		pr_err("invalid input\n");
@@ -1902,8 +1958,11 @@ static int dp_display_mst_connector_install(struct dp_display *dp_display,
 
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
 
+	mutex_lock(&dp->session_lock);
+
 	if (!dp->mst.drm_registered) {
 		pr_debug("drm mst not registered\n");
+		mutex_unlock(&dp->session_lock);
 		return -EPERM;
 	}
 
@@ -1918,6 +1977,7 @@ static int dp_display_mst_connector_install(struct dp_display *dp_display,
 	if (IS_ERR(dp_panel)) {
 		rc = PTR_ERR(dp_panel);
 		pr_err("failed to initialize panel, rc = %d\n", rc);
+		mutex_unlock(&dp->session_lock);
 		return rc;
 	}
 
@@ -1926,11 +1986,27 @@ static int dp_display_mst_connector_install(struct dp_display *dp_display,
 		rc = PTR_ERR(dp_panel->audio);
 		pr_err("[mst] failed to initialize audio, rc = %d\n", rc);
 		dp_panel->audio = NULL;
+		mutex_unlock(&dp->session_lock);
 		return rc;
 	}
 
 	DP_MST_DEBUG("dp mst connector installed. conn:%d\n",
 			connector->base.id);
+
+	mutex_lock(&dp->debug->dp_mst_connector_list.lock);
+
+	mst_connector = kmalloc(sizeof(struct dp_mst_connector),
+			GFP_KERNEL);
+	mst_connector->debug_en = false;
+	mst_connector->conn = connector;
+	mst_connector->con_id = connector->base.id;
+	INIT_LIST_HEAD(&mst_connector->list);
+
+	list_add(&mst_connector->list,
+			&dp->debug->dp_mst_connector_list.list);
+
+	mutex_unlock(&dp->debug->dp_mst_connector_list.lock);
+	mutex_unlock(&dp->session_lock);
 
 	return 0;
 }
@@ -1942,6 +2018,7 @@ static int dp_display_mst_connector_uninstall(struct dp_display *dp_display,
 	struct sde_connector *sde_conn;
 	struct dp_panel *dp_panel;
 	struct dp_display_private *dp;
+	struct dp_mst_connector *con_to_remove, *temp_con;
 
 	if (!dp_display || !connector) {
 		pr_err("invalid input\n");
@@ -1950,14 +2027,18 @@ static int dp_display_mst_connector_uninstall(struct dp_display *dp_display,
 
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
 
+	mutex_lock(&dp->session_lock);
+
 	if (!dp->mst.drm_registered) {
 		pr_debug("drm mst not registered\n");
+		mutex_unlock(&dp->session_lock);
 		return -EPERM;
 	}
 
 	sde_conn = to_sde_connector(connector);
 	if (!sde_conn->drv_panel) {
 		pr_err("invalid panel for connector:%d\n", connector->base.id);
+		mutex_unlock(&dp->session_lock);
 		return -EINVAL;
 	}
 
@@ -1967,6 +2048,19 @@ static int dp_display_mst_connector_uninstall(struct dp_display *dp_display,
 
 	DP_MST_DEBUG("dp mst connector uninstalled. conn:%d\n",
 			connector->base.id);
+
+	mutex_lock(&dp->debug->dp_mst_connector_list.lock);
+
+	list_for_each_entry_safe(con_to_remove, temp_con,
+			&dp->debug->dp_mst_connector_list.list, list) {
+		if (con_to_remove->con_id == connector->base.id) {
+			list_del(&con_to_remove->list);
+			kfree(con_to_remove);
+		}
+	}
+
+	mutex_unlock(&dp->debug->dp_mst_connector_list.lock);
+	mutex_unlock(&dp->session_lock);
 
 	return rc;
 }
