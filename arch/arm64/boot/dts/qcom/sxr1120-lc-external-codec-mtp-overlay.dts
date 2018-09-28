@@ -31,3 +31,7 @@
 	qcom,msm-id = <370 0x0>;
 	qcom,board-id = <8 9>;
 };
+
+&int_codec {
+	status = "disabled";
+};

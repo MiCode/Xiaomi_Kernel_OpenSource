@@ -24,3 +24,7 @@
 	compatible = "qcom,sxr1120-mtp", "qcom,sxr1120", "qcom,mtp";
 	qcom,board-id = <8 9>;
 };
+
+&int_codec {
+	status = "disabled";
+};
