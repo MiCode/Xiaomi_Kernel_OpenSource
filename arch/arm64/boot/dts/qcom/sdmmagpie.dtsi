@@ -1009,6 +1009,8 @@
 		qcom,pet-time = <9360>;
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
+		qcom,scandump-sizes = <0x10100 0x10100 0x10100 0x10100
+				       0x10100 0x10100 0x25900 0x25900>;
 	};
 
 	eud: qcom,msm-eud@88e0000 {
