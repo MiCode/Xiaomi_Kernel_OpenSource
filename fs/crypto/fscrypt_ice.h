@@ -40,17 +40,10 @@ char *fscrypt_get_ice_encryption_salt(const struct inode *inode);
 bool fscrypt_is_ice_encryption_info_equal(const struct inode *inode1,
 					const struct inode *inode2);
 
-static inline size_t fscrypt_get_ice_encryption_key_size(
-					const struct inode *inode)
-{
-	return FS_AES_256_XTS_KEY_SIZE / 2;
-}
+size_t fscrypt_get_ice_encryption_key_size(const struct inode *inode);
 
-static inline size_t fscrypt_get_ice_encryption_salt_size(
-					const struct inode *inode)
-{
-	return FS_AES_256_XTS_KEY_SIZE / 2;
-}
+size_t fscrypt_get_ice_encryption_salt_size(const struct inode *inode);
+
 #else
 static inline bool fscrypt_should_be_processed_by_ice(const struct inode *inode)
 {

@@ -89,6 +89,7 @@ struct thread_info {
 #define TIF_RESTORE_SIGMASK	20
 #define TIF_SINGLESTEP		21
 #define TIF_32BIT		22	/* 32bit process */
+#define TIF_SSBD		23	/* Wants SSB mitigation */
 #define TIF_MM_RELEASED		24
 
 #define _TIF_SIGPENDING		(1 << TIF_SIGPENDING)
