@@ -26,7 +26,8 @@
 / {
 	model = "Qualcomm Technologies, Inc. SDM710 PM660 + PM660A MTP";
 	compatible = "qcom,sdm670-mtp", "qcom,sdm670", "qcom,mtp";
-	qcom,msm-id = <360 0x0>;
+	qcom,msm-id =	<360 0x0>,
+			<393 0x0>;
 	qcom,board-id = <8 0>;
 	qcom,pmic-id = <0x0001001b 0x0001011a 0x0 0x0>,
 		       <0x0001001b 0x0002001a 0x0 0x0>,
