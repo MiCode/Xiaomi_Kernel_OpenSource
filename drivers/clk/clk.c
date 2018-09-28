@@ -3236,10 +3236,14 @@ static void clk_summary_show_subtree(struct seq_file *s, struct clk_core *c,
 	if (!c)
 		return;
 
+	if (c->ops->bus_vote)
+		c->ops->bus_vote(c->hw, true);
 	clk_summary_show_one(s, c, level);
 
 	hlist_for_each_entry(child, &c->children, child_node)
 		clk_summary_show_subtree(s, child, level + 1);
+	if (c->ops->bus_vote)
+		c->ops->bus_vote(c->hw, false);
 }
 
 static int clk_summary_show(struct seq_file *s, void *data)
@@ -3287,6 +3291,9 @@ static void clk_dump_subtree(struct seq_file *s, struct clk_core *c, int level)
 	if (!c)
 		return;
 
+	if (c->ops->bus_vote)
+		c->ops->bus_vote(c->hw, true);
+
 	clk_dump_one(s, c, level);
 
 	hlist_for_each_entry(child, &c->children, child_node) {
@@ -3295,6 +3302,9 @@ static void clk_dump_subtree(struct seq_file *s, struct clk_core *c, int level)
 	}
 
 	seq_putc(s, '}');
+
+	if (c->ops->bus_vote)
+		c->ops->bus_vote(c->hw, false);
 }
 
 static int clk_dump_show(struct seq_file *s, void *data)
@@ -3596,7 +3606,15 @@ void clk_debug_print_hw(struct clk_core *clk, struct seq_file *f)
 	if (!clk->ops->list_registers)
 		return;
 
+	clk_prepare_lock();
+	if (clk->ops->bus_vote)
+		clk->ops->bus_vote(clk->hw, true);
+
 	clk->ops->list_registers(f, clk->hw);
+
+	if (clk->ops->bus_vote)
+		clk->ops->bus_vote(clk->hw, false);
+	clk_prepare_unlock();
 }
 EXPORT_SYMBOL(clk_debug_print_hw);
 
@@ -3604,7 +3622,15 @@ static int print_hw_show(struct seq_file *m, void *unused)
 {
 	struct clk_core *c = m->private;
 
+	clk_prepare_lock();
+	if (c->ops->bus_vote)
+		c->ops->bus_vote(c->hw, true);
+
 	clk_debug_print_hw(c, m);
+
+	if (c->ops->bus_vote)
+		c->ops->bus_vote(c->hw, false);
+	clk_prepare_unlock();
 
 	return 0;
 }
