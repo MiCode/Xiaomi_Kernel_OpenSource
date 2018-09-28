@@ -147,7 +147,7 @@ int32_t VL_write_multi(struct vl_data *dev, uint8_t index, uint8_t *pdata,
 			int32_t count)
 {
 	int32_t status = STATUS_OK;
-	uint8_t *buffer;
+	uint8_t buffer[64];
 
 #ifdef VL_LOG_ENABLE
 	int32_t i = 0;
@@ -166,7 +166,6 @@ int32_t VL_write_multi(struct vl_data *dev, uint8_t index, uint8_t *pdata,
 #endif
 	if ((count + 1) > VL_MAX_I2C_XFER_SIZE)
 		return STATUS_FAIL;
-	buffer =  VL_GetLocalBuffer(dev, (count+1));
 	buffer[0] = index;
 	memcpy(&buffer[1], pdata, count);
 	status = VL_I2CWrite(dev, buffer, (count+1));
