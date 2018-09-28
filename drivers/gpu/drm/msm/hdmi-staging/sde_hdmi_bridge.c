@@ -125,6 +125,15 @@ static void sde_hdmi_clear_hdr_info(struct drm_bridge *bridge)
 	connector->hdr_supported = false;
 }
 
+static void sde_hdmi_clear_colorimetry(struct drm_bridge *bridge)
+{
+	struct sde_hdmi_bridge *sde_hdmi_bridge = to_hdmi_bridge(bridge);
+	struct hdmi *hdmi = sde_hdmi_bridge->hdmi;
+	struct drm_connector *connector = hdmi->connector;
+
+	connector->color_enc_fmt = 0;
+}
+
 static void sde_hdmi_clear_vsdb_info(struct drm_bridge *bridge)
 {
 	struct sde_hdmi_bridge *sde_hdmi_bridge = to_hdmi_bridge(bridge);
@@ -676,6 +685,8 @@ static void _sde_hdmi_bridge_disable(struct drm_bridge *bridge)
 	sde_hdmi_clear_vsdbs(bridge);
 	/* Clear HDMI VCDB block info */
 	sde_hdmi_clear_vcdb_info(bridge);
+	/* Clear HDMI colorimetry data block info */
+	sde_hdmi_clear_colorimetry(bridge);
 
 	mutex_unlock(&display->display_lock);
 }
