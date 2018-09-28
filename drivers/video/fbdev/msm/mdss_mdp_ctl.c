@@ -77,13 +77,15 @@ static inline u64 fudge_factor(u64 val, u32 numer, u32 denom)
 	u64 result = val;
 
 	if (val) {
-		u64 temp = -1UL;
+		u64 temp = U64_MAX;
 
 		do_div(temp, val);
 		if (temp > numer) {
 			/* no overflow, so we can do the operation*/
 			result = (val * (u64)numer);
 			do_div(result, denom);
+		} else {
+			pr_warn("Overflow, skip fudge factor\n");
 		}
 	}
 	return result;
