@@ -7,6 +7,7 @@
 #include <linux/err.h>
 #include <linux/platform_device.h>
 #include <linux/module.h>
+#include <linux/msm-bus.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/clk.h>
@@ -14,7 +15,49 @@
 #include <linux/regmap.h>
 #include <linux/mfd/syscon.h>
 
+#include <dt-bindings/msm/msm-bus-ids.h>
+
 #include "clk-debug.h"
+
+#define MSM_BUS_VECTOR(_src, _dst, _ab, _ib)	\
+{						\
+	.src = _src,				\
+	.dst = _dst,				\
+	.ab = _ab,				\
+	.ib = _ib,				\
+}
+
+static struct msm_bus_vectors clk_measure_vectors[] = {
+	MSM_BUS_VECTOR(MSM_BUS_MASTER_AMPSS_M0,
+			MSM_BUS_SLAVE_CAMERA_CFG, 0, 0),
+	MSM_BUS_VECTOR(MSM_BUS_MASTER_AMPSS_M0,
+			MSM_BUS_SLAVE_VENUS_CFG, 0, 0),
+	MSM_BUS_VECTOR(MSM_BUS_MASTER_AMPSS_M0,
+			MSM_BUS_SLAVE_DISPLAY_CFG, 0, 0),
+	MSM_BUS_VECTOR(MSM_BUS_MASTER_AMPSS_M0,
+			MSM_BUS_SLAVE_CAMERA_CFG, 0, 1),
+	MSM_BUS_VECTOR(MSM_BUS_MASTER_AMPSS_M0,
+			MSM_BUS_SLAVE_VENUS_CFG, 0, 1),
+	MSM_BUS_VECTOR(MSM_BUS_MASTER_AMPSS_M0,
+			MSM_BUS_SLAVE_DISPLAY_CFG, 0, 1),
+};
+
+static struct msm_bus_paths clk_measure_usecases[] = {
+	{
+		.num_paths = 3,
+		.vectors = &clk_measure_vectors[0],
+	},
+	{
+		.num_paths = 3,
+		.vectors = &clk_measure_vectors[3],
+	}
+};
+
+static struct msm_bus_scale_pdata clk_measure_scale_table = {
+	.usecase = clk_measure_usecases,
+	.num_usecases = ARRAY_SIZE(clk_measure_usecases),
+	.name = "clk_measure",
+};
 
 static struct measure_clk_data debug_mux_priv = {
 	.ctl_reg = 0x62038,
@@ -870,6 +913,12 @@ static int clk_debug_kona_probe(struct platform_device *pdev)
 	ret = map_debug_bases(pdev, "qcom,npucc", NPU_CC);
 	if (ret)
 		return ret;
+
+	gcc_debug_mux.bus_cl_id =
+		msm_bus_scale_register_client(&clk_measure_scale_table);
+
+	if (!gcc_debug_mux.bus_cl_id)
+		return -EPROBE_DEFER;
 
 	clk = devm_clk_register(&pdev->dev, &gcc_debug_mux.hw);
 	if (IS_ERR(clk)) {
