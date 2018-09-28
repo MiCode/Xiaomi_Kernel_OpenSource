@@ -1342,8 +1342,10 @@ static int f2fs_write_node_page(struct page *page,
 	}
 
 	if (__is_valid_data_blkaddr(ni.blk_addr) &&
-		!f2fs_is_valid_blkaddr(sbi, ni.blk_addr, DATA_GENERIC))
+		!f2fs_is_valid_blkaddr(sbi, ni.blk_addr, DATA_GENERIC)) {
+		up_read(&sbi->node_write);
 		goto redirty_out;
+	}
 
 	set_page_writeback(page);
 	fio.blk_addr = ni.blk_addr;
