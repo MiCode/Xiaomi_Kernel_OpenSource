@@ -734,10 +734,8 @@ int qmi_rmnet_set_powersave_mode(void *port, uint8_t enable)
 		return rc;
 	}
 
-	if (enable) {
+	if (enable)
 		dfc_qmi_wq_flush(qmi);
-		rmnet_enable_all_flows(port);
-	}
 
 	return 0;
 }
@@ -802,6 +800,11 @@ static void qmi_rmnet_check_stats(struct work_struct *work)
 		}
 		qmi->ps_enabled = 1;
 		clear_bit(PS_WORK_ACTIVE_BIT, &qmi->ps_work_active);
+
+		/* Enable flow after clear the bit so a new
+		 * work can be triggered.
+		 */
+		rmnet_enable_all_flows(real_work->port);
 
 		if (rmnet_get_powersave_notif(real_work->port))
 			qmi_rmnet_ps_on_notify(real_work->port);
