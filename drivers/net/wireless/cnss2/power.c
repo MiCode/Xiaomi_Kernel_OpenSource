@@ -346,6 +346,11 @@ int cnss_power_on_device(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
 
+	if (plat_priv->powered_on) {
+		cnss_pr_dbg("Already powered up");
+		return 0;
+	}
+
 	ret = cnss_vreg_on(plat_priv);
 	if (ret) {
 		cnss_pr_err("Failed to turn on vreg, err = %d\n", ret);
@@ -357,6 +362,7 @@ int cnss_power_on_device(struct cnss_plat_data *plat_priv)
 		cnss_pr_err("Failed to select pinctrl state, err = %d\n", ret);
 		goto vreg_off;
 	}
+	plat_priv->powered_on = true;
 
 	return 0;
 vreg_off:
@@ -367,8 +373,14 @@ out:
 
 void cnss_power_off_device(struct cnss_plat_data *plat_priv)
 {
+	if (!plat_priv->powered_on) {
+		cnss_pr_dbg("Already powered down");
+		return;
+	}
+
 	cnss_select_pinctrl_state(plat_priv, false);
 	cnss_vreg_off(plat_priv);
+	plat_priv->powered_on = false;
 }
 
 void cnss_set_pin_connect_status(struct cnss_plat_data *plat_priv)
