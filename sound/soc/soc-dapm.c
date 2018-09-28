@@ -2741,8 +2741,7 @@ static int snd_soc_dapm_add_path(struct snd_soc_dapm_context *dapm,
 		dapm_mark_dirty(widgets[dir], "Route added");
 	}
 
-	if (dapm->card->instantiated && path->connect)
-		dapm_path_invalidate(path);
+	dapm_path_invalidate(path);
 
 	return 0;
 err:
