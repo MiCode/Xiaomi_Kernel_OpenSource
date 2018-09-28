@@ -1,6 +1,6 @@
 /* Qualcomm Crypto Engine driver.
  *
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2456,7 +2456,7 @@ static int _qce_sps_add_sg_data(struct qce_device *pce_dev,
 	while (nbytes > 0) {
 		if (NULL == sg_src) {
 			pr_err("qce50.c: _qce_sps_add_sg_data, sg_src = NULL");
-			break;
+			return -ENOENT;
 		}
 		len = min(nbytes, sg_dma_len(sg_src));
 		nbytes -= len;
