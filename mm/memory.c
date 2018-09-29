@@ -1977,7 +1977,7 @@ int apply_to_page_range(struct mm_struct *mm, unsigned long addr,
 	unsigned long end = addr + size;
 	int err;
 
-	if (WARN_ON(addr >= end))
+	if (WARN_ON(addr >= end - 1))
 		return -EINVAL;
 
 	pgd = pgd_offset(mm, addr);
