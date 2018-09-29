@@ -98,6 +98,35 @@
 			};
 		};
 
+		micbias_supply_en_pins: micbias_supply_en_pins {
+			micbias_supply_en_active: micbias_supply_en_active {
+				mux {
+					pins = "gpio126";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio126";
+					drive-strength = <16>;
+					output-high;
+				};
+			};
+
+			micbias_supply_en_sleep: micbias_supply_en_sleep {
+				mux {
+					pins = "gpio126";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio126";
+					drive-strength = <16>;
+					bias-disable;
+					output-low;
+				};
+			};
+		};
+
 		qupv3_se0_spi_pins: qupv3_se0_spi_pins {
 			qupv3_se0_spi_active: qupv3_se0_spi_active {
 				mux {
