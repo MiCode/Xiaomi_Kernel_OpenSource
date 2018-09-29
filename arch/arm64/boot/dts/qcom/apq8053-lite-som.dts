@@ -108,6 +108,23 @@
 		pinctrl-0 = <&sec_tlmm_lines_act &ext_amp_ctrl_active>;
 		pinctrl-1 = <&sec_tlmm_lines_sus &ext_amp_ctrl_sleep>;
 	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		input-name = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&gpio_key_active>;
+		vol_up {
+			label = "volume_up";
+			gpios = <&tlmm 85 0x1>;
+			linux,input-type = <1>;
+			linux,code = <115>;
+			debounce-interval = <15>;
+			linux,can-disable;
+			gpio-key,wakeup;
+		};
+	};
+
 };
 
 &cdc_pdm_comp_lines_act {
@@ -304,14 +321,6 @@
 };
 
 &spmi_bus {
-	qcom,pm8953@0 {
-		qcom,power-on@800 {
-			qcom,resin-gpiobase = <1019>;
-			qcom,pon_2 {
-				/delete-property/ linux,code;
-			};
-		};
-	};
 	qcom,pmi8950@2 {
 		qcom,leds@a100 {
 			compatible = "qcom,leds-qpnp";
