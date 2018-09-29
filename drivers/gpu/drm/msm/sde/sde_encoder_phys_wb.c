@@ -643,6 +643,7 @@ static int _sde_enc_phys_wb_validate_cwb(struct sde_encoder_phys *phys_enc,
 {
 	struct sde_crtc_state *cstate = to_sde_crtc_state(crtc_state);
 	struct sde_rect wb_roi = {0,};
+	struct sde_rect pu_roi = {0,};
 	int data_pt;
 	int ds_outw = 0;
 	int ds_outh = 0;
@@ -681,12 +682,11 @@ static int _sde_enc_phys_wb_validate_cwb(struct sde_encoder_phys *phys_enc,
 	}
 
 	/* validate conn roi against pu rect */
-	if (!sde_kms_rect_is_null(&cstate->crtc_roi)) {
-		if (wb_roi.w != cstate->crtc_roi.w ||
-				wb_roi.h != cstate->crtc_roi.h) {
+	if (cstate->user_roi_list.num_rects) {
+		sde_kms_rect_merge_rectangles(&cstate->user_roi_list, &pu_roi);
+		if (wb_roi.w != pu_roi.w || wb_roi.h != pu_roi.h) {
 			SDE_ERROR("invalid wb roi with pu [%dx%d vs %dx%d]\n",
-					wb_roi.w, wb_roi.h, cstate->crtc_roi.w,
-					 cstate->crtc_roi.h);
+					wb_roi.w, wb_roi.h, pu_roi.w, pu_roi.h);
 			ret = -EINVAL;
 			goto exit;
 		}

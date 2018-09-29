@@ -950,7 +950,7 @@ static int sde_encoder_virt_atomic_check(
 		}
 	}
 
-	if (!ret && drm_atomic_crtc_needs_modeset(crtc_state)) {
+	if (!ret && (crtc_state->mode_changed || crtc_state->active_changed)) {
 		struct sde_rect mode_roi, roi;
 
 		mode_roi.x = 0;
