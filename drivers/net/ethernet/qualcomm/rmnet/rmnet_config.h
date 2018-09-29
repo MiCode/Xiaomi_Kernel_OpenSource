@@ -110,6 +110,11 @@ struct rmnet_priv {
 	void __rcu *qos_info;
 };
 
+enum rmnet_dl_marker_prio {
+	RMNET_PERF,
+	RMNET_SHS,
+};
+
 enum rmnet_trace_func {
 	RMNET_MODULE,
 	NW_STACK_MODULE,
