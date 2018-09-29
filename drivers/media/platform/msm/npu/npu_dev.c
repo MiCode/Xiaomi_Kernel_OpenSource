@@ -308,6 +308,7 @@ int npu_enable_core_power(struct npu_device *npu_dev)
 void npu_disable_core_power(struct npu_device *npu_dev)
 {
 	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
+	struct npu_thermalctrl *thermalctrl = &npu_dev->thermalctrl;
 
 	if (!pwr->pwr_vote_num)
 		return;
@@ -316,12 +317,11 @@ void npu_disable_core_power(struct npu_device *npu_dev)
 		npu_suspend_devbw(npu_dev);
 		npu_disable_core_clocks(npu_dev);
 		npu_disable_regulators(npu_dev);
+		pwr->active_pwrlevel = thermalctrl->pwr_level;
+		pwr->uc_pwrlevel = pwr->max_pwrlevel;
+		pr_debug("setting back to power level=%d\n",
+			pwr->active_pwrlevel);
 	}
-	/* init the power levels back to default */
-	pwr->active_pwrlevel = pwr->default_pwrlevel;
-	pwr->uc_pwrlevel = pwr->default_pwrlevel;
-	pr_debug("setting back to default power level=%d\n",
-		pwr->default_pwrlevel);
 }
 
 static int npu_enable_core_clocks(struct npu_device *npu_dev)
@@ -373,21 +373,23 @@ static int npu_set_power_level(struct npu_device *npu_dev)
 	int i, ret = 0;
 	uint32_t pwr_level_to_set;
 
-	if (!pwr->pwr_vote_num) {
-		pr_err("power is not enabled during set request\n");
-		return -EINVAL;
-	}
-
 	/* get power level to set */
 	pwr_level_to_set = npu_calc_power_level(npu_dev);
+	pwr->active_pwrlevel = pwr_level_to_set;
+
+	if (!pwr->pwr_vote_num) {
+		pr_debug("power is not enabled during set request\n");
+		return 0;
+	}
 
 	/* if the same as current, dont do anything */
-	if (pwr_level_to_set == pwr->active_pwrlevel)
+	if (pwr_level_to_set == pwr->active_pwrlevel) {
+		pr_debug("power level %d doesn't change\n", pwr_level_to_set);
 		return 0;
+	}
 
 	pr_debug("setting power level to [%d]\n", pwr_level_to_set);
 
-	pwr->active_pwrlevel = pwr_level_to_set;
 	pwrlevel = &npu_dev->pwrctrl.pwrlevels[pwr->active_pwrlevel];
 
 	for (i = 0; i < npu_dev->core_clk_num; i++) {
