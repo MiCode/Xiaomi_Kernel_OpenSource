@@ -1951,6 +1951,9 @@ static void __mdss_dsi_update_video_mode_total(struct mdss_panel_data *pdata,
 		return;
 	}
 
+	if (ctrl_pdata->timing_db_mode)
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x1e8, 0x1);
+
 	vsync_period =
 		mdss_panel_get_vtotal(&pdata->panel_info);
 	hsync_period =
@@ -1960,23 +1963,13 @@ static void __mdss_dsi_update_video_mode_total(struct mdss_panel_data *pdata,
 	new_dsi_v_total =
 		((vsync_period - 1) << 16) | (hsync_period - 1);
 
-	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x2C,
-			(current_dsi_v_total | 0x8000000));
-	if (new_dsi_v_total & 0x8000000) {
-		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x2C,
-				new_dsi_v_total);
-	} else {
-		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x2C,
-				(new_dsi_v_total | 0x8000000));
-		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x2C,
-				(new_dsi_v_total & 0x7ffffff));
-	}
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x2C, new_dsi_v_total);
 
 	if (ctrl_pdata->timing_db_mode)
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x1e4, 0x1);
 
-	pr_debug("%s new_fps:%d vsync:%d hsync:%d frame_rate:%d\n",
-			__func__, new_fps, vsync_period, hsync_period,
+	pr_debug("%s new_fps:%d new_vtotal:0x%X cur_vtotal:0x%X frame_rate:%d\n",
+			__func__, new_fps, new_dsi_v_total, current_dsi_v_total,
 			ctrl_pdata->panel_data.panel_info.mipi.frame_rate);
 
 	ctrl_pdata->panel_data.panel_info.current_fps = new_fps;

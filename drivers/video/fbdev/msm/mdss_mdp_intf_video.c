@@ -1204,16 +1204,7 @@ static int mdss_mdp_video_vfp_fps_update(struct mdss_mdp_video_ctx *ctx,
 	new_vsync_period_f0 = (vsync_period * hsync_period);
 
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_VSYNC_PERIOD_F0,
-			current_vsync_period_f0 | 0x800000);
-	if (new_vsync_period_f0 & 0x800000) {
-		mdp_video_write(ctx, MDSS_MDP_REG_INTF_VSYNC_PERIOD_F0,
 			new_vsync_period_f0);
-	} else {
-		mdp_video_write(ctx, MDSS_MDP_REG_INTF_VSYNC_PERIOD_F0,
-			new_vsync_period_f0 | 0x800000);
-		mdp_video_write(ctx, MDSS_MDP_REG_INTF_VSYNC_PERIOD_F0,
-			new_vsync_period_f0 & 0x7fffff);
-	}
 
 	pr_debug("if:%d vtotal:%d htotal:%d f0:0x%x nw_f0:0x%x\n",
 		ctx->intf_num, vsync_period, hsync_period,
@@ -1430,6 +1421,11 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl, int new_fps)
 				if (sctx)
 					mdss_mdp_fetch_end_config(sctx, ctl);
 			}
+
+			/*
+			 * Make sure controller setting committed
+			 */
+			wmb();
 
 			/*
 			 * MDP INTF registers support DB on targets
@@ -1743,7 +1739,9 @@ static void mdss_mdp_fetch_start_config(struct mdss_mdp_video_ctx *ctx,
 	h_total = mdss_panel_get_htotal(pinfo, true);
 
 	fetch_start = (v_total - pinfo->prg_fet) * h_total + 1;
-	fetch_enable = BIT(31);
+
+	fetch_enable = mdp_video_read(ctx, MDSS_MDP_REG_INTF_CONFIG);
+	fetch_enable |= BIT(31);
 
 	if (pinfo->dynamic_fps && (pinfo->dfps_update ==
 			DFPS_IMMEDIATE_CLK_UPDATE_MODE))
