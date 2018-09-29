@@ -80,6 +80,7 @@ its hardware characteristcs.
 		- "qcom,coresight-csr"
 		- "qcom,coresight-hwevent"
 		- "qcom,coresight-dummy"
+		- "qcom,coresight-remote-etm"
 
 	* port or ports: same as above.
 
@@ -165,6 +166,10 @@ its hardware characteristcs.
 
 	* qcom,timestamp-support:boolean, indicates CSR support sys interface to read
 	  timestamp value.
+
+* Required property for Remote ETMs:
+
+	* qcom,inst-id: must be present. QMI instance id for remote ETMs.
 
 Example:
 
