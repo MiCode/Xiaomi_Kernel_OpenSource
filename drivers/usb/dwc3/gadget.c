@@ -1209,7 +1209,7 @@ static u32 dwc3_calc_trbs_left(struct dwc3_ep *dep)
 	 */
 	if (dep->trb_enqueue == dep->trb_dequeue) {
 		tmp = dwc3_ep_prev_trb(dep, dep->trb_enqueue);
-		if (tmp->ctrl & DWC3_TRB_CTRL_HWO)
+		if (!tmp || tmp->ctrl & DWC3_TRB_CTRL_HWO)
 			return 0;
 
 		return DWC3_TRB_NUM - 1;
