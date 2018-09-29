@@ -146,7 +146,7 @@
 &tavil_snd {
 	status = "okay";
 	compatible = "qcom,qcs605-asoc-snd-tavil";
-	qcom,model = "qcs605-tavil-snd-card";
+	qcom,model = "qcs605-ipc-tavil-snd-card";
 	qcom,audio-routing =
 		"AIF4 VI", "MCLK",
 		"RX_BIAS", "MCLK",
