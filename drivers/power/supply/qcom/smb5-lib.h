@@ -71,6 +71,7 @@ enum print_reason {
 #define AICL_THRESHOLD_VOTER		"AICL_THRESHOLD_VOTER"
 #define MOISTURE_VOTER			"MOISTURE_VOTER"
 #define USBOV_DBC_VOTER			"USBOV_DBC_VOTER"
+#define FCC_STEPPER_VOTER		"FCC_STEPPER_VOTER"
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -405,6 +406,7 @@ struct smb_charger {
 	bool			aicl_max_reached;
 	bool			moisture_present;
 	bool			moisture_protection_enabled;
+	bool			fcc_stepper_enable;
 
 	/* workaround flag */
 	u32			wa_flags;
