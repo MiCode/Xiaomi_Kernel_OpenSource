@@ -143,7 +143,9 @@ struct coresight_device *coresight_get_sink(struct list_head *path);
 struct coresight_device *coresight_get_enabled_sink(bool reset);
 struct list_head *coresight_build_path(struct coresight_device *csdev,
 				       struct coresight_device *sink);
-void coresight_release_path(struct list_head *path);
+struct coresight_device *coresight_get_source(struct list_head *path);
+void coresight_release_path(struct coresight_device *csdev,
+			    struct list_head *path);
 
 #ifdef CONFIG_CORESIGHT_SOURCE_ETM3X
 extern int etm_readl_cp14(u32 off, unsigned int *val);
