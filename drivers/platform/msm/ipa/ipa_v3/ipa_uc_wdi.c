@@ -2541,6 +2541,9 @@ int ipa3_write_qmapid_gsi_wdi_pipe(u32 clnt_hdl, u8 qmap_id)
 	struct ipa3_ep_context *ep;
 	union __packed gsi_channel_scratch gsi_scratch;
 	int retry_cnt = 0;
+	u32 source_pipe_bitmask = 0;
+	bool disable_force_clear = false;
+	struct ipahal_ep_cfg_ctrl_scnd ep_ctrl_scnd = { 0 };
 
 	memset(&gsi_scratch, 0, sizeof(gsi_scratch));
 	ep = &ipa3_ctx->ep[clnt_hdl];
@@ -2554,6 +2557,25 @@ int ipa3_write_qmapid_gsi_wdi_pipe(u32 clnt_hdl, u8 qmap_id)
 	}
 	if (ep->gsi_offload_state == (IPA_WDI_CONNECTED | IPA_WDI_ENABLED |
 						IPA_WDI_RESUMED)) {
+		source_pipe_bitmask = 1 <<
+			ipa3_get_ep_mapping(ep->client);
+		result = ipa3_enable_force_clear(clnt_hdl,
+				false, source_pipe_bitmask);
+		if (result) {
+			/*
+			 * assuming here modem SSR, AP can remove
+			 * the delay in this case
+			 */
+			IPAERR("failed to force clear %d\n", result);
+			IPAERR("remove delay from SCND reg\n");
+			ep_ctrl_scnd.endp_delay = false;
+			ipahal_write_reg_n_fields(
+					IPA_ENDP_INIT_CTRL_SCND_n, clnt_hdl,
+					&ep_ctrl_scnd);
+		} else {
+			disable_force_clear = true;
+		}
+
 retry_gsi_stop:
 		result = ipa3_stop_gsi_channel(clnt_hdl);
 		if (result != 0 && result != -GSI_STATUS_AGAIN &&
@@ -2588,6 +2610,10 @@ retry_gsi_stop:
 			goto fail_start_channel;
 		}
 	}
+
+	if (disable_force_clear)
+		ipa3_disable_force_clear(clnt_hdl);
+
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	return 0;
 fail_start_channel:
