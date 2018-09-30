@@ -42,6 +42,9 @@ its hardware characteristcs.
 		- Coresight Address Translation Unit (CATU)
 			"arm,coresight-catu", "arm,primecell";
 
+		- Trigger Generation Unit:
+			"arm,primecell";
+
 	* reg: physical base address and length of the register
 	  set(s) of the component.
 
@@ -85,6 +88,16 @@ its hardware characteristcs.
 	* port or ports: same as above.
 
 	* coresight-name: unique descriptive name of the component.
+
+* Additional required property for coresight-tgu devices:
+	* tgu-steps: must be present. Indicates number of steps supported
+	  by the TGU.
+	* tgu-conditions: must be present. Indicates the number of conditions
+	  supported by the TGU.
+	* tgu-regs: must be present. Indicates the number of regs supported
+	  by the TGU.
+	* tgu-timer-counters: must be present. Indicates the number of timers and
+	  counters available in the TGU to do a comparision.
 
 * Optional properties for all components:
 	* reg-names: names corresponding to each reg property value.
@@ -428,5 +441,22 @@ Example:
 		};
 	};
 };
+
+5. TGUs
+	ipcb_tgu: tgu@6b0c000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b999>;
+		reg = <0x06B0C000 0x1000>;
+		reg-names = "tgu-base";
+		tgu-steps = <3>;
+		tgu-conditions = <4>;
+		tgu-regs = <4>;
+		tgu-timer-counters = <8>;
+
+		coresight-name = "coresight-tgu-ipcb";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
 [1]. There is currently two version of STM: STM32 and STM500.  Both
 have the same HW interface and as such don't need an explicit binding name.
