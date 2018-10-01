@@ -19,7 +19,7 @@
 #include "sde_irq.h"
 #include "sde_core_irq.h"
 
-static uint32_t g_sde_irq_status;
+uint32_t g_sde_irq_status;
 
 void sde_irq_update(struct msm_kms *msm_kms, bool enable)
 {
