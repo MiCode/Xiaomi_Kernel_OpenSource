@@ -318,7 +318,7 @@ int cam_smmu_unmap_stage2_iova(int handle, int ion_fd);
  */
 int cam_smmu_alloc_firmware(int32_t smmu_hdl,
 	dma_addr_t *iova,
-	uint64_t *kvaddr,
+	uintptr_t *kvaddr,
 	size_t *len);
 
 /**
