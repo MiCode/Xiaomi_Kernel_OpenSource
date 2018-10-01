@@ -595,14 +595,76 @@ static void mhi_assign_of_node(struct mhi_controller *mhi_cntrl,
 	}
 }
 
+static ssize_t time_show(struct device *dev,
+			 struct device_attribute *attr,
+			 char *buf)
+{
+	struct mhi_device *mhi_dev = to_mhi_device(dev);
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+	u64 t_host, t_device;
+	int ret;
+
+	ret = mhi_get_remote_time_sync(mhi_dev, &t_host, &t_device);
+	if (ret) {
+		MHI_ERR("Failed to obtain time, ret:%d\n", ret);
+		return ret;
+	}
+
+	return scnprintf(buf, PAGE_SIZE, "local: %llu remote: %llu (ticks)\n",
+			 t_host, t_device);
+}
+static DEVICE_ATTR_RO(time);
+
+static ssize_t time_us_show(struct device *dev,
+			    struct device_attribute *attr,
+			    char *buf)
+{
+	struct mhi_device *mhi_dev = to_mhi_device(dev);
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+	u64 t_host, t_device;
+	int ret;
+
+	ret = mhi_get_remote_time_sync(mhi_dev, &t_host, &t_device);
+	if (ret) {
+		MHI_ERR("Failed to obtain time, ret:%d\n", ret);
+		return ret;
+	}
+
+	return scnprintf(buf, PAGE_SIZE, "local: %llu remote: %llu (us)\n",
+			 TIME_TICKS_TO_US(t_host), TIME_TICKS_TO_US(t_device));
+}
+static DEVICE_ATTR_RO(time_us);
+
+static struct attribute *mhi_tsync_attrs[] = {
+	&dev_attr_time.attr,
+	&dev_attr_time_us.attr,
+	NULL,
+};
+
+static const struct attribute_group mhi_tsync_group = {
+	.attrs = mhi_tsync_attrs,
+};
+
+void mhi_destroy_timesync(struct mhi_controller *mhi_cntrl)
+{
+	if (mhi_cntrl->mhi_tsync) {
+		sysfs_remove_group(&mhi_cntrl->mhi_dev->dev.kobj,
+				   &mhi_tsync_group);
+		kfree(mhi_cntrl->mhi_tsync);
+		mhi_cntrl->mhi_tsync = NULL;
+	}
+}
+
+int mhi_create_timesync_sysfs(struct mhi_controller *mhi_cntrl)
+{
+	return sysfs_create_group(&mhi_cntrl->mhi_dev->dev.kobj,
+				  &mhi_tsync_group);
+}
+
 static void mhi_create_time_sync_dev(struct mhi_controller *mhi_cntrl)
 {
 	struct mhi_device *mhi_dev;
-	struct mhi_timesync *mhi_tsync = mhi_cntrl->mhi_tsync;
 	int ret;
-
-	if (!mhi_tsync || !mhi_tsync->db)
-		return;
 
 	if (!MHI_IN_MISSION_MODE(mhi_cntrl->ee))
 		return;
@@ -1779,6 +1841,62 @@ int mhi_poll(struct mhi_device *mhi_dev,
 }
 EXPORT_SYMBOL(mhi_poll);
 
+int mhi_get_remote_time_sync(struct mhi_device *mhi_dev,
+			     u64 *t_host,
+			     u64 *t_dev)
+{
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+	struct mhi_timesync *mhi_tsync = mhi_cntrl->mhi_tsync;
+	int ret;
+
+	/* not all devices support time feature */
+	if (!mhi_tsync)
+		return -EIO;
+
+	/* bring to M0 state */
+	ret = __mhi_device_get_sync(mhi_cntrl);
+	if (ret)
+		return ret;
+
+	mutex_lock(&mhi_tsync->lpm_mutex);
+
+	read_lock_bh(&mhi_cntrl->pm_lock);
+	if (unlikely(MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state))) {
+		MHI_ERR("MHI is not in active state, pm_state:%s\n",
+			to_mhi_pm_state_str(mhi_cntrl->pm_state));
+		ret = -EIO;
+		goto error_invalid_state;
+	}
+
+	/* disable link level low power modes */
+	ret = mhi_cntrl->lpm_disable(mhi_cntrl, mhi_cntrl->priv_data);
+	if (ret)
+		goto error_invalid_state;
+
+	/*
+	 * time critical code to fetch device times,
+	 * delay between these two steps should be
+	 * deterministic as possible.
+	 */
+	preempt_disable();
+	local_irq_disable();
+
+	*t_host = mhi_cntrl->time_get(mhi_cntrl, mhi_cntrl->priv_data);
+	*t_dev = readq_relaxed_no_log(mhi_tsync->time_reg);
+
+	local_irq_enable();
+	preempt_enable();
+
+	mhi_cntrl->lpm_enable(mhi_cntrl, mhi_cntrl->priv_data);
+
+error_invalid_state:
+	mhi_cntrl->wake_put(mhi_cntrl, false);
+	read_unlock_bh(&mhi_cntrl->pm_lock);
+	mutex_unlock(&mhi_tsync->lpm_mutex);
+
+	return ret;
+}
+EXPORT_SYMBOL(mhi_get_remote_time_sync);
 
 /**
  * mhi_get_remote_time - Get external modem time relative to host time
