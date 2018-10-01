@@ -25,6 +25,7 @@
 #include "cam_debug_util.h"
 #include "cam_packet_util.h"
 #include "cam_context_utils.h"
+#include "cam_common_util.h"
 
 static const char isp_dev_name[] = "isp";
 
@@ -2031,7 +2032,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	int rc = 0, i;
 	struct cam_ctx_request           *req = NULL;
 	struct cam_isp_ctx_req           *req_isp;
-	uint64_t                          packet_addr;
+	uintptr_t                         packet_addr;
 	struct cam_packet                *packet;
 	size_t                            len = 0;
 	struct cam_hw_prepare_update_args cfg;
@@ -2061,16 +2062,16 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	/* for config dev, only memory handle is supported */
 	/* map packet from the memhandle */
 	rc = cam_mem_get_cpu_buf((int32_t) cmd->packet_handle,
-		(uint64_t *) &packet_addr, &len);
+		&packet_addr, &len);
 	if (rc != 0) {
 		CAM_ERR(CAM_ISP, "Can not get packet address");
 		rc = -EINVAL;
 		goto free_req;
 	}
 
-	packet = (struct cam_packet *) (packet_addr + cmd->offset);
+	packet = (struct cam_packet *)(packet_addr + (uint32_t)cmd->offset);
 	CAM_DBG(CAM_ISP, "pack_handle %llx", cmd->packet_handle);
-	CAM_DBG(CAM_ISP, "packet address is 0x%llx", packet_addr);
+	CAM_DBG(CAM_ISP, "packet address is 0x%zx", packet_addr);
 	CAM_DBG(CAM_ISP, "packet with length %zu, offset 0x%llx",
 		len, cmd->offset);
 	CAM_DBG(CAM_ISP, "Packet request id %lld",
@@ -2226,7 +2227,7 @@ static int __cam_isp_ctx_acquire_dev_in_available(struct cam_context *ctx,
 	CAM_DBG(CAM_ISP, "start copy %d resources from user",
 		 cmd->num_resources);
 
-	if (copy_from_user(isp_res, (void __user *)cmd->resource_hdl,
+	if (copy_from_user(isp_res, u64_to_user_ptr(cmd->resource_hdl),
 		sizeof(*isp_res)*cmd->num_resources)) {
 		rc = -EFAULT;
 		goto free_res;
@@ -2235,7 +2236,7 @@ static int __cam_isp_ctx_acquire_dev_in_available(struct cam_context *ctx,
 	param.context_data = ctx;
 	param.event_cb = ctx->irq_cb_intf;
 	param.num_acq = cmd->num_resources;
-	param.acquire_info = (uint64_t) isp_res;
+	param.acquire_info = (uintptr_t) isp_res;
 
 	/* call HW manager to reserve the resource */
 	rc = ctx->hw_mgr_intf->hw_acquire(ctx->hw_mgr_intf->hw_mgr_priv,
