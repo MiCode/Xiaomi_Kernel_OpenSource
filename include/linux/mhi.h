@@ -605,6 +605,20 @@ int mhi_get_remote_time_sync(struct mhi_device *mhi_dev,
 			     u64 *t_host,
 			     u64 *t_dev);
 
+/**
+ * mhi_get_mhi_state - Return MHI state of device
+ * @mhi_cntrl: MHI controller
+ */
+enum mhi_dev_state mhi_get_mhi_state(struct mhi_controller *mhi_cntrl);
+
+/**
+ * mhi_set_mhi_state - Set device state
+ * @mhi_cntrl: MHI controller
+ * @state: state to set
+ */
+void mhi_set_mhi_state(struct mhi_controller *mhi_cntrl,
+		       enum mhi_dev_state state);
+
 #ifndef CONFIG_ARCH_QCOM
 
 #ifdef CONFIG_MHI_DEBUG

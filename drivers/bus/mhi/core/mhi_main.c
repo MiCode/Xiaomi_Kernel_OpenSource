@@ -181,7 +181,7 @@ enum mhi_ee mhi_get_exec_env(struct mhi_controller *mhi_cntrl)
 	return (ret) ? MHI_EE_MAX : exec;
 }
 
-enum mhi_dev_state mhi_get_m_state(struct mhi_controller *mhi_cntrl)
+enum mhi_dev_state mhi_get_mhi_state(struct mhi_controller *mhi_cntrl)
 {
 	u32 state;
 	int ret = mhi_read_reg_field(mhi_cntrl, mhi_cntrl->regs, MHISTATUS,
@@ -1232,7 +1232,7 @@ void mhi_ctrl_ev_task(unsigned long data)
 	if (!ret) {
 		write_lock_irq(&mhi_cntrl->pm_lock);
 		if (MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
-			state = mhi_get_m_state(mhi_cntrl);
+			state = mhi_get_mhi_state(mhi_cntrl);
 		if (state == MHI_STATE_SYS_ERR) {
 			MHI_ERR("MHI system error detected\n");
 			pm_state = mhi_tryset_pm_state(mhi_cntrl,
@@ -1281,7 +1281,7 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 
 	write_lock_irq(&mhi_cntrl->pm_lock);
 	if (MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
-		state = mhi_get_m_state(mhi_cntrl);
+		state = mhi_get_mhi_state(mhi_cntrl);
 	if (state == MHI_STATE_SYS_ERR) {
 		MHI_ERR("MHI system error detected\n");
 		pm_state = mhi_tryset_pm_state(mhi_cntrl,
