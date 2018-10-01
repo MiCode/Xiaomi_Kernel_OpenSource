@@ -339,8 +339,6 @@ static int a6xx_gmu_hfi_start(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 
-	gmu_core_regrmw(device, A6XX_GMU_GMU2HOST_INTR_MASK,
-			HFI_IRQ_MSGQ_MASK, 0);
 	gmu_core_regwrite(device, A6XX_GMU_HFI_CTRL_INIT, 1);
 
 	if (timed_poll_check(device,
