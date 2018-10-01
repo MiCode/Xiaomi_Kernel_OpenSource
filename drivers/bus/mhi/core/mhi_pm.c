@@ -498,6 +498,11 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 		TO_MHI_STATE_STR(mhi_cntrl->dev_state),
 		to_mhi_pm_state_str(transition_state));
 
+	/* We must notify MHI control driver so it can clean up first */
+	if (transition_state == MHI_PM_SYS_ERR_PROCESS)
+		mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
+				     MHI_CB_SYS_ERROR);
+
 	mutex_lock(&mhi_cntrl->pm_mutex);
 	write_lock_irq(&mhi_cntrl->pm_lock);
 	prev_state = mhi_cntrl->pm_state;
