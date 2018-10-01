@@ -496,6 +496,11 @@ void mmc_add_host_debugfs(struct mmc_host *host)
 		&host->cmdq_thist_enabled))
 		goto err_node;
 
+	if (!debugfs_create_bool("crash_on_err",
+		0600, root,
+		&host->crash_on_err))
+		goto err_node;
+
 #ifdef CONFIG_MMC_RING_BUFFER
 	if (!debugfs_create_file("ring_buffer", 0400,
 				root, host, &mmc_ring_buffer_fops))
