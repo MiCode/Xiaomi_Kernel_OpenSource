@@ -2690,16 +2690,17 @@ static int __dwc3_cleanup_done_trbs(struct dwc3 *dwc, struct dwc3_ep *dep,
 static int dwc3_cleanup_done_reqs(struct dwc3 *dwc, struct dwc3_ep *dep,
 		const struct dwc3_event_depevt *event, int status)
 {
-	struct dwc3_request	*req, *n;
+	struct dwc3_request	*req;
 	struct dwc3_trb		*trb;
 	bool			ioc = false;
 	int			ret;
 
-	list_for_each_entry_safe(req, n, &dep->started_list, list) {
+	while (!list_empty(&dep->started_list)) {
 		unsigned length;
 		unsigned actual;
 		int chain;
 
+		req = next_request(&dep->started_list);
 		if (req->trb->ctrl & DWC3_TRB_CTRL_HWO)
 			return 0;
 
