@@ -155,14 +155,17 @@
 		label = "wb_display";
 	};
 
-};
+	ext_disp: qcom,msm-ext-disp {
+		compatible = "qcom,msm-ext-disp";
 
-&sde_dp {
-	qcom,dp-usbpd-detection = <&pm6150_pdphy>;
+		ext_disp_audio_codec: qcom,msm-ext-disp-audio-codec-rx {
+			compatible = "qcom,msm-ext-disp-audio-codec-rx";
+		};
+	};
 };
 
 &mdss_mdp {
-	connectors = <&sde_rscc &sde_wb &sde_dp &sde_dsi>;
+	connectors = <&sde_rscc &sde_wb &sde_dsi>;
 };
 
 &dsi_sim_vid {
