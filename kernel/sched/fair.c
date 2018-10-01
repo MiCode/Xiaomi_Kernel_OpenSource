@@ -7785,7 +7785,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 
 	if (target_cpu == -1 && isolated_candidate != -1 &&
 	    cpu_isolated(prev_cpu))
-		target_cpu == isolated_candidate;
+		target_cpu = isolated_candidate;
 
 out:
 	return target_cpu;
