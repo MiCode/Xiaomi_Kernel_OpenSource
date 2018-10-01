@@ -282,6 +282,14 @@ void sde_encoder_recovery_events_handler(struct drm_encoder *encoder,
 int sde_encoder_in_clone_mode(struct drm_encoder *enc);
 
 /**
+ * sde_encoder_is_primary_display - checks if underlying display is primary
+ *     display or not.
+ * @drm_enc:    Pointer to drm encoder structure
+ * @Return:     true if it is primary display. false if secondary display
+ */
+bool sde_encoder_is_primary_display(struct drm_encoder *enc);
+
+/**
  * sde_encoder_control_idle_pc - control enable/disable of idle power collapse
  * @drm_enc:    Pointer to drm encoder structure
  * @enable:	enable/disable flag
