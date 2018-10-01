@@ -583,12 +583,6 @@
 			reg = <0 0x95a10000 0 0x5000>;
 		};
 
-		pil_gpu_mem: gpu_region@95a15000 {
-			compatible = "removed-dma-pool";
-			no-map;
-			reg = <0 0x95a15000 0 0x2000>;
-		};
-
 		npu_mem: npu_region@95a80000 {
 			compatible = "removed-dma-pool";
 			no-map;
@@ -3063,6 +3057,7 @@
 };
 
 #include "sdmmagpie-audio.dtsi"
+#include "sdmmagpie-gpu.dtsi"
 
 &usb0 {
 	extcon = <&pm6150_pdphy>, <&pm6150_charger>, <&eud>;
