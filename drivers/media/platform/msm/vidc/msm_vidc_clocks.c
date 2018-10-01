@@ -185,14 +185,6 @@ static int fill_dynamic_stats(struct msm_vidc_inst *inst,
 	vote_data->input_cr = min_input_cr;
 	vote_data->use_dpb_read = false;
 
-	/* Check if driver can vote for lower bus BW */
-	if (inst->clk_data.load < inst->clk_data.load_norm) {
-		vote_data->compression_ratio = max_cr;
-		vote_data->complexity_factor = min_cf;
-		vote_data->input_cr = max_input_cr;
-		vote_data->use_dpb_read = true;
-	}
-
 	dprintk(VIDC_PROF,
 		"Input CR = %d Recon CR = %d Complexity Factor = %d\n",
 			vote_data->input_cr, vote_data->compression_ratio,
