@@ -255,6 +255,7 @@ static int smb5_chg_config_init(struct smb5 *chip)
 		chip->chg.smb_version = PM6150_SUBTYPE;
 		chg->param = smb5_pm8150b_params;
 		chg->name = "pm6150_charger";
+		chg->wa_flags |= SW_THERM_REGULATION_WA;
 		break;
 	case PMI632_SUBTYPE:
 		chip->chg.smb_version = PMI632_SUBTYPE;
@@ -439,79 +440,45 @@ static int smb5_parse_dt(struct smb5 *chip)
 	chg->fcc_stepper_enable = of_property_read_bool(node,
 					"qcom,fcc-stepping-enable");
 
-	rc = of_property_match_string(node, "io-channel-names",
-			"usb_in_voltage");
-	if (rc >= 0) {
-		chg->iio.usbin_v_chan = iio_channel_get(chg->dev,
-				"usb_in_voltage");
-		if (IS_ERR(chg->iio.usbin_v_chan)) {
-			rc = PTR_ERR(chg->iio.usbin_v_chan);
-			if (rc != -EPROBE_DEFER)
-				dev_err(chg->dev, "USBIN_V channel unavailable, %ld\n",
-						rc);
-			chg->iio.usbin_v_chan = NULL;
-			return rc;
-		}
-	}
+	/* Extract ADC channels */
+	rc = smblib_get_iio_channel(chg, "usb_in_voltage",
+					&chg->iio.usbin_v_chan);
+	if (rc < 0)
+		return rc;
 
-	rc = of_property_match_string(node, "io-channel-names",
-			"chg_temp");
-	if (rc >= 0) {
-		chg->iio.temp_chan = iio_channel_get(chg->dev, "chg_temp");
-		if (IS_ERR(chg->iio.temp_chan)) {
-			rc = PTR_ERR(chg->iio.temp_chan);
-			if (rc != -EPROBE_DEFER)
-				dev_err(chg->dev, "CHG_TEMP channel unavailable, %ld\n",
-						rc);
-			chg->iio.temp_chan = NULL;
-			return rc;
-		}
-	}
+	rc = smblib_get_iio_channel(chg, "chg_temp", &chg->iio.temp_chan);
+	if (rc < 0)
+		return rc;
 
-	rc = of_property_match_string(node, "io-channel-names",
-			"usb_in_current");
-	if (rc >= 0) {
-		chg->iio.usbin_i_chan = iio_channel_get(chg->dev,
-				"usb_in_current");
-		if (IS_ERR(chg->iio.usbin_i_chan)) {
-			rc = PTR_ERR(chg->iio.usbin_i_chan);
-			if (rc != -EPROBE_DEFER)
-				dev_err(chg->dev, "USBIN_I channel unavailable, %ld\n",
-						rc);
-			chg->iio.usbin_i_chan = NULL;
-			return rc;
-		}
-	}
+	rc = smblib_get_iio_channel(chg, "usb_in_current",
+					&chg->iio.usbin_i_chan);
+	if (rc < 0)
+		return rc;
 
-	rc = of_property_match_string(node, "io-channel-names",
-			"sbux_res");
-	if (rc >= 0) {
-		chg->iio.sbux_chan = iio_channel_get(chg->dev,
-				"sbux_res");
-		if (IS_ERR(chg->iio.sbux_chan)) {
-			rc = PTR_ERR(chg->iio.sbux_chan);
-			if (rc != -EPROBE_DEFER)
-				dev_err(chg->dev, "USBIN_V channel unavailable, %ld\n",
-						rc);
-			chg->iio.sbux_chan = NULL;
-			return rc;
-		}
-	}
+	rc = smblib_get_iio_channel(chg, "sbux_res", &chg->iio.sbux_chan);
+	if (rc < 0)
+		return rc;
 
-	rc = of_property_match_string(node, "io-channel-names",
-			"vph_voltage");
-	if (rc >= 0) {
-		chg->iio.vph_v_chan = iio_channel_get(chg->dev,
-				"vph_voltage");
-		if (IS_ERR(chg->iio.vph_v_chan)) {
-			rc = PTR_ERR(chg->iio.vph_v_chan);
-			if (rc != -EPROBE_DEFER)
-				dev_err(chg->dev, "vph_voltage channel unavailable, %ld\n",
-						rc);
-			chg->iio.vph_v_chan = NULL;
-			return rc;
-		}
-	}
+	rc = smblib_get_iio_channel(chg, "vph_voltage", &chg->iio.vph_v_chan);
+	if (rc < 0)
+		return rc;
+
+	rc = smblib_get_iio_channel(chg, "die_temp", &chg->iio.die_temp_chan);
+	if (rc < 0)
+		return rc;
+
+	rc = smblib_get_iio_channel(chg, "conn_temp",
+					&chg->iio.connector_temp_chan);
+	if (rc < 0)
+		return rc;
+
+	rc = smblib_get_iio_channel(chg, "skin_temp", &chg->iio.skin_temp_chan);
+	if (rc < 0)
+		return rc;
+
+	rc = smblib_get_iio_channel(chg, "smb_temp", &chg->iio.smb_temp_chan);
+	if (rc < 0)
+		return rc;
 
 	return 0;
 }
@@ -1769,6 +1736,21 @@ static int smb5_init_hw(struct smb5 *chip)
 		return rc;
 	}
 
+	/*
+	 * If SW thermal regulation WA is active then all the HW temperature
+	 * comparators need to be disabled to prevent HW thermal regulation,
+	 * apart from DIE_TEMP analog comparator for SHDN regulation.
+	 */
+	if (chg->wa_flags & SW_THERM_REGULATION_WA) {
+		rc = smblib_write(chg, MISC_THERMREG_SRC_CFG_REG,
+					THERMREG_DIE_CMP_SRC_EN_BIT);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't disable HW thermal regulation rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
 	/* Use SW based VBUS control, disable HW autonomous mode */
 	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
 		HVDCP_AUTH_ALG_EN_CFG_BIT | HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT,
@@ -2169,6 +2151,7 @@ static int smb5_determine_initial_status(struct smb5 *chip)
 	batt_temp_changed_irq_handler(0, &irq_data);
 	wdog_bark_irq_handler(0, &irq_data);
 	typec_or_rid_detection_change_irq_handler(0, &irq_data);
+	wdog_snarl_irq_handler(0, &irq_data);
 
 	return 0;
 }
@@ -2366,6 +2349,8 @@ static struct smb_irq_info smb5_irqs[] = {
 	/* MISCELLANEOUS IRQs */
 	[WDOG_SNARL_IRQ] = {
 		.name		= "wdog-snarl",
+		.handler	= wdog_snarl_irq_handler,
+		.wake		= true,
 	},
 	[WDOG_BARK_IRQ] = {
 		.name		= "wdog-bark",
