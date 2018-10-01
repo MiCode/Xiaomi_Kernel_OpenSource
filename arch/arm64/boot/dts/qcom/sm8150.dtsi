@@ -3612,8 +3612,10 @@
 		reg = <0xa0000000 0x10000000>,
 		      <0xb0000000 0x10000>;
 		reg-names = "smmu_iova_base", "smmu_iova_ipa";
-		pinctrl-names = "disabled";
-		pinctrl-0 = <>;
+		wlan-en-gpio = <&tlmm 169 0>;
+		pinctrl-names = "wlan_en_active", "wlan_en_sleep";
+		pinctrl-0 = <&cnss_wlan_en_active>;
+		pinctrl-1 = <&cnss_wlan_en_sleep>;
 		qcom,wlan-rc-num = <0>;
 		qcom,wlan-ramdump-dynamic = <0x400000>;
 
