@@ -83,5 +83,8 @@ obj-$(CONFIG_UPROBE_EVENTS) += trace_uprobe.o
 
 obj-$(CONFIG_TRACEPOINT_BENCHMARK) += trace_benchmark.o
 obj-$(CONFIG_QCOM_RTB) += msm_rtb.o
-
+obj-$(CONFIG_IPC_LOGGING) += ipc_logging.o
+ifdef CONFIG_DEBUG_FS
+obj-$(CONFIG_IPC_LOGGING) += ipc_logging_debug.o
+endif
 libftrace-y := ftrace.o
