@@ -301,3 +301,9 @@
 		dma-coherent;
 	};
 };
+
+&kgsl_smmu {
+	qcom,actlr =
+		/* All CBs of GFX: +15 deep PF */
+		<0x0 0x7ff 0x303>;
+};
