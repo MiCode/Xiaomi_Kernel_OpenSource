@@ -88,6 +88,9 @@
 #define ICNSS_ASSERT(_condition) do { } while (0)
 #endif
 
+#define icnss_fatal_err(_fmt, ...)					\
+	icnss_pr_err("fatal: "_fmt, ##__VA_ARGS__)
+
 enum icnss_debug_quirks {
 	HW_ALWAYS_ON,
 	HW_DEBUG_ENABLE,

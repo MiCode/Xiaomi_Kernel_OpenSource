@@ -943,8 +943,8 @@ static int icnss_pd_restart_complete(struct icnss_priv *priv)
 
 	ret = priv->ops->reinit(&priv->pdev->dev);
 	if (ret < 0) {
-		icnss_pr_err("Driver reinit failed: %d, state: 0x%lx\n",
-			     ret, priv->state);
+		icnss_fatal_err("Driver reinit failed: %d, state: 0x%lx\n",
+				ret, priv->state);
 		if (!priv->allow_recursive_recovery)
 			ICNSS_ASSERT(false);
 		goto out_power_off;
@@ -1100,8 +1100,8 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 	}
 
 	if (test_bit(ICNSS_PD_RESTART, &priv->state) && event_data->crashed) {
-		icnss_pr_err("PD Down while recovery inprogress, crashed: %d, state: 0x%lx\n",
-			     event_data->crashed, priv->state);
+		icnss_fatal_err("PD Down while recovery inprogress, crashed: %d, state: 0x%lx\n",
+				event_data->crashed, priv->state);
 		if (!priv->allow_recursive_recovery)
 			ICNSS_ASSERT(0);
 		goto out;
