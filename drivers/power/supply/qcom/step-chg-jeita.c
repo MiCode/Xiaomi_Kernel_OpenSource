@@ -54,6 +54,7 @@ struct step_chg_info {
 	bool			step_chg_cfg_valid;
 	bool			sw_jeita_cfg_valid;
 	bool			soc_based_step_chg;
+	bool			ocv_based_step_chg;
 	bool			batt_missing;
 	int			jeita_fcc_index;
 	int			jeita_fv_index;
@@ -265,6 +266,16 @@ static int get_step_chg_jeita_setting_from_profile(struct step_chg_info *chip)
 				POWER_SUPPLY_PROP_CAPACITY;
 		chip->step_chg_config->param.prop_name = "SOC";
 		chip->step_chg_config->param.hysteresis = 0;
+	}
+
+	chip->ocv_based_step_chg =
+		of_property_read_bool(profile_node, "qcom,ocv-based-step-chg");
+	if (chip->ocv_based_step_chg) {
+		chip->step_chg_config->param.psy_prop =
+				POWER_SUPPLY_PROP_VOLTAGE_OCV;
+		chip->step_chg_config->param.prop_name = "OCV";
+		chip->step_chg_config->param.hysteresis = 10000;
+		chip->step_chg_config->param.use_bms = true;
 	}
 
 	chip->step_chg_cfg_valid = true;
