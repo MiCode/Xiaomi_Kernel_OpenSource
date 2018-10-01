@@ -60,18 +60,20 @@
 		csi-vdd-voltage = <1200000>;
 		mipi-csi-vdd-supply = <&pm6150l_l3>;
 		clocks = <&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
+			<&clock_camcc CAM_CC_CSIPHY0_CLK>,
 			<&clock_camcc CAM_CC_CSIPHY1_CLK>,
 			<&clock_camcc CAM_CC_CSI1PHYTIMER_CLK_SRC>,
 			<&clock_camcc CAM_CC_CSI1PHYTIMER_CLK>;
 		clock-names = "cphy_rx_clk_src",
+			"csiphy0_clk",
 			"csiphy1_clk",
 			"csi1phytimer_clk_src",
 			"csi1phytimer_clk";
 		src-clock-name = "csi1phytimer_clk_src";
 		clock-cntl-level = "svs_l1", "turbo";
 		clock-rates =
-			<400000000 0 300000000 0>,
-			<400000000 0 300000000 0>;
+			<400000000 0 0 300000000 0>,
+			<400000000 0 0 300000000 0>;
 
 		status = "ok";
 	};
@@ -90,18 +92,20 @@
 		csi-vdd-voltage = <1200000>;
 		mipi-csi-vdd-supply = <&pm6150l_l3>;
 		clocks = <&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
+			<&clock_camcc CAM_CC_CSIPHY0_CLK>,
 			<&clock_camcc CAM_CC_CSIPHY2_CLK>,
 			<&clock_camcc CAM_CC_CSI2PHYTIMER_CLK_SRC>,
 			<&clock_camcc CAM_CC_CSI2PHYTIMER_CLK>;
 		clock-names = "cphy_rx_clk_src",
+			"csiphy0_clk",
 			"csiphy2_clk",
 			"csi2phytimer_clk_src",
 			"csi2phytimer_clk";
 		src-clock-name = "csi2phytimer_clk_src";
 		clock-cntl-level = "svs_l1", "turbo";
 		clock-rates =
-			<400000000 0 300000000 0>,
-			<400000000 0 300000000 0>;
+			<400000000 0 0 300000000 0>,
+			<400000000 0 0 300000000 0>;
 		status = "ok";
 	};
 
@@ -119,18 +123,20 @@
 		csi-vdd-voltage = <1200000>;
 		mipi-csi-vdd-supply = <&pm6150l_l3>;
 		clocks = <&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
+			<&clock_camcc CAM_CC_CSIPHY0_CLK>,
 			<&clock_camcc CAM_CC_CSIPHY2_CLK>,
 			<&clock_camcc CAM_CC_CSI2PHYTIMER_CLK_SRC>,
 			<&clock_camcc CAM_CC_CSI2PHYTIMER_CLK>;
 		clock-names = "cphy_rx_clk_src",
+			"csiphy0_clk",
 			"csiphy3_clk",
 			"csi3phytimer_clk_src",
 			"csi3phytimer_clk";
 		src-clock-name = "csi3phytimer_clk_src";
 		clock-cntl-level = "svs_l1", "turbo";
 		clock-rates =
-			<400000000 0 300000000 0>,
-			<400000000 0 300000000 0>;
+			<400000000 0 0 300000000 0>,
+			<400000000 0 0 300000000 0>;
 		status = "ok";
 	};
 
@@ -1038,7 +1044,9 @@
 			"slow_ahb_clk_src",
 			"cpas_ahb_clk",
 			"camnoc_axi_clk_src",
-			"camnoc_axi_clk";
+			"camnoc_axi_clk",
+			"icp_clk_src",
+			"icp_clk";
 		clocks =
 			<&clock_gcc GCC_CAMERA_AHB_CLK>,
 			<&clock_gcc GCC_CAMERA_HF_AXI_CLK>,
@@ -1046,15 +1054,17 @@
 			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
 			<&clock_camcc CAM_CC_CPAS_AHB_CLK>,
 			<&clock_camcc CAM_CC_CAMNOC_AXI_CLK_SRC>,
-			<&clock_camcc CAM_CC_CAMNOC_AXI_CLK>;
+			<&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
+			<&clock_camcc CAM_CC_ICP_CLK_SRC>,
+			<&clock_camcc CAM_CC_ICP_CLK>;
 		src-clock-name = "camnoc_axi_clk_src";
 		clock-rates =
-			<0 0 0 0 0 0 0>,
-			<0 0 0 80000000 0 150000000 0>,
-			<0 0 0 80000000 0 240000000 0>,
-			<0 0 0 80000000 0 320000000 0>,
-			<0 0 0 80000000 0 400000000 0>,
-			<0 0 0 80000000 0 480000000 0>;
+			<0 0 0 0 0 0 0 0 0>,
+			<0 0 0 80000000 0 150000000 0 600000000 0>,
+			<0 0 0 80000000 0 240000000 0 600000000 0>,
+			<0 0 0 80000000 0 320000000 0 600000000 0>,
+			<0 0 0 80000000 0 400000000 0 600000000 0>,
+			<0 0 0 80000000 0 480000000 0 600000000 0>;
 		clock-cntl-level = "suspend", "lowsvs", "svs",
 			"svs_l1", "nominal", "turbo";
 		control-camnoc-axi-clk;
@@ -1095,25 +1105,29 @@
 		client-names =
 			"csiphy0", "csiphy1", "csiphy2", "csiphy3",
 			"cci0", "cci1",
-			"csid0", "csid1", "csid2", "csid3",
-			"ife0", "ife1", "ife2", "ife3",
+			"csid0", "csid1", "csid2",
+			"iferdi0", "ifenrdi0", "iferdi1", "ifenrdi1",
+			"iferdi2", "ifenrdi2",
 			"ipe0", "ipe1", "cam-cdm-intf0", "cpas-cdm0",
 			"bps0", "icp0", "jpeg-dma0", "jpeg-enc0",
 			"fd0", "lrmecpas0";
 		client-axi-port-names =
-			"cam_hf_1", "cam_hf_2", "cam_hf_1", "cam_hf_2",
-			"cam_sf_1", "cam_sf_1",
-			"cam_hf_1", "cam_hf_2", "cam_hf_1", "cam_hf_2",
-			"cam_hf_1", "cam_hf_2", "cam_hf_1", "cam_hf_2",
-			"cam_sf_1", "cam_sf_1", "cam_sf_1", "cam_sf_1",
-			"cam_sf_1", "cam_sf_1", "cam_sf_1", "cam_sf_1",
-			"cam_sf_1", "cam_sf_1";
+			"cam_hf_0", "cam_hf_0", "cam_hf_0", "cam_hf_0",
+			"cam_sf_0", "cam_sf_0",
+			"cam_hf_0", "cam_hf_0", "cam_hf_0",
+			"cam_hf_1", "cam_hf_0", "cam_hf_1", "cam_hf_0",
+			"cam_hf_1", "cam_hf_0",
+			"cam_sf_0", "cam_sf_0", "cam_sf_0", "cam_sf_0",
+			"cam_sf_0", "cam_sf_1", "cam_sf_0", "cam_sf_0",
+			"cam_sf_0", "cam_sf_0";
 		client-bus-camnoc-based;
 		qcom,axi-port-list {
 			qcom,axi-port1 {
-				qcom,axi-port-name = "cam_hf_1";
+				/* this port is clubbed port of two ports
+				   and for all Non rdi traffic*/
+				qcom,axi-port-name = "cam_hf_0";
 				qcom,axi-port-mnoc {
-					qcom,msm-bus,name = "cam_hf_1_mnoc";
+					qcom,msm-bus,name = "cam_hf_0_mnoc";
 					qcom,msm-bus-vector-dyn-vote;
 					qcom,msm-bus,num-cases = <2>;
 					qcom,msm-bus,num-paths = <1>;
@@ -1124,7 +1138,7 @@
 					MSM_BUS_SLAVE_EBI_CH0 0 0>;
 				};
 				qcom,axi-port-camnoc {
-					qcom,msm-bus,name = "cam_hf_1_camnoc";
+					qcom,msm-bus,name = "cam_hf_0_camnoc";
 					qcom,msm-bus-vector-dyn-vote;
 					qcom,msm-bus,num-cases = <2>;
 					qcom,msm-bus,num-paths = <1>;
@@ -1136,31 +1150,57 @@
 				};
 			};
 			qcom,axi-port2 {
-				qcom,axi-port-name = "cam_hf_2";
+				/* this port is for rdi only WR*/
+				qcom,axi-port-name = "cam_hf_1";
 				qcom,axi-port-mnoc {
-					qcom,msm-bus,name = "cam_hf_2_mnoc";
+					qcom,msm-bus,name = "cam_hf_1_mnoc";
 					qcom,msm-bus-vector-dyn-vote;
 					qcom,msm-bus,num-cases = <2>;
 					qcom,msm-bus,num-paths = <1>;
 					qcom,msm-bus,vectors-KBps =
-					<MSM_BUS_MASTER_CAMNOC_HF1
+					<MSM_BUS_MASTER_CAMNOC_RT
 					MSM_BUS_SLAVE_EBI_CH0 0 0>,
-					<MSM_BUS_MASTER_CAMNOC_HF1
+					<MSM_BUS_MASTER_CAMNOC_RT
 					MSM_BUS_SLAVE_EBI_CH0 0 0>;
 				};
 				qcom,axi-port-camnoc {
-					qcom,msm-bus,name = "cam_hf_2_camnoc";
+					qcom,msm-bus,name = "cam_hf_1_camnoc";
 					qcom,msm-bus-vector-dyn-vote;
 					qcom,msm-bus,num-cases = <2>;
 					qcom,msm-bus,num-paths = <1>;
 					qcom,msm-bus,vectors-KBps =
-					<MSM_BUS_MASTER_CAMNOC_HF1_UNCOMP
+					<MSM_BUS_MASTER_CAMNOC_RT_UNCOMP
 					MSM_BUS_SLAVE_CAMNOC_UNCOMP 0 0>,
-					<MSM_BUS_MASTER_CAMNOC_HF1_UNCOMP
+					<MSM_BUS_MASTER_CAMNOC_RT_UNCOMP
 					MSM_BUS_SLAVE_CAMNOC_UNCOMP 0 0>;
 				};
 			};
 			qcom,axi-port3 {
+				qcom,axi-port-name = "cam_sf_0";
+				qcom,axi-port-mnoc {
+					qcom,msm-bus,name = "cam_sf_0_mnoc";
+					qcom,msm-bus-vector-dyn-vote;
+					qcom,msm-bus,num-cases = <2>;
+					qcom,msm-bus,num-paths = <1>;
+					qcom,msm-bus,vectors-KBps =
+					<MSM_BUS_MASTER_CAMNOC_SF
+					MSM_BUS_SLAVE_EBI_CH0 0 0>,
+					<MSM_BUS_MASTER_CAMNOC_SF
+					MSM_BUS_SLAVE_EBI_CH0 0 0>;
+				};
+				qcom,axi-port-camnoc {
+					qcom,msm-bus,name = "cam_sf_0_camnoc";
+					qcom,msm-bus-vector-dyn-vote;
+					qcom,msm-bus,num-cases = <2>;
+					qcom,msm-bus,num-paths = <1>;
+					qcom,msm-bus,vectors-KBps =
+					<MSM_BUS_MASTER_CAMNOC_SF_UNCOMP
+					MSM_BUS_SLAVE_CAMNOC_UNCOMP 0 0>,
+					<MSM_BUS_MASTER_CAMNOC_SF_UNCOMP
+					MSM_BUS_SLAVE_CAMNOC_UNCOMP 0 0>;
+				};
+			};
+			qcom,axi-port4 {
 				qcom,axi-port-name = "cam_sf_1";
 				qcom,axi-port-mnoc {
 					qcom,msm-bus,name = "cam_sf_1_mnoc";
@@ -1168,9 +1208,9 @@
 					qcom,msm-bus,num-cases = <2>;
 					qcom,msm-bus,num-paths = <1>;
 					qcom,msm-bus,vectors-KBps =
-					<MSM_BUS_MASTER_CAMNOC_SF
+					<MSM_BUS_MASTER_CAMNOC_NRT
 					MSM_BUS_SLAVE_EBI_CH0 0 0>,
-					<MSM_BUS_MASTER_CAMNOC_SF
+					<MSM_BUS_MASTER_CAMNOC_NRT
 					MSM_BUS_SLAVE_EBI_CH0 0 0>;
 				};
 				qcom,axi-port-camnoc {
@@ -1179,12 +1219,13 @@
 					qcom,msm-bus,num-cases = <2>;
 					qcom,msm-bus,num-paths = <1>;
 					qcom,msm-bus,vectors-KBps =
-					<MSM_BUS_MASTER_CAMNOC_SF_UNCOMP
+					<MSM_BUS_MASTER_CAMNOC_NRT_UNCOMP
 					MSM_BUS_SLAVE_CAMNOC_UNCOMP 0 0>,
-					<MSM_BUS_MASTER_CAMNOC_SF_UNCOMP
+					<MSM_BUS_MASTER_CAMNOC_NRT_UNCOMP
 					MSM_BUS_SLAVE_CAMNOC_UNCOMP 0 0>;
 				};
 			};
+
 		};
 	};
 };

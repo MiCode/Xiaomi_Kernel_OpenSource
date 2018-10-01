@@ -74,13 +74,13 @@
 		actuator-src = <&actuator_rear>;
 		cam_vio-supply = <&pm8009_l7>;
 		cam_vana-supply = <&pm8009_l5>;
-		cam_vdig-supply = <&pm8009_l4>;
+		cam_vdig-supply = <&pm8009_l1>;
 		cam_clk-supply = <&titan_top_gdsc>;
 		regulator-names = "cam_vio", "cam_vana", "cam_vdig",
 			"cam_clk";
 		rgltr-cntrl-support;
-		rgltr-min-voltage = <1800000 2850000 1100000 0>;
-		rgltr-max-voltage = <1800000 2850000 1100000 0>;
+		rgltr-min-voltage = <1800000 2800000 1100000 0>;
+		rgltr-max-voltage = <1800000 2800000 1100000 0>;
 		rgltr-load-current = <0 80000 105000 0>;
 		gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
@@ -136,6 +136,7 @@
 		sensor-mode = <0>;
 		cci-master = <1>;
 		status = "ok";
+		clocks = <&clock_camcc CAM_CC_MCLK1_CLK>;
 		clock-names = "cam_clk";
 		clock-cntl-level = "turbo";
 		clock-rates = <24000000>;
@@ -152,8 +153,8 @@
 		regulator-names = "cam_vio", "cam_vana", "cam_vdig",
 			"cam_clk";
 		rgltr-cntrl-support;
-		rgltr-min-voltage = <1800000 2800000 1040000 0>;
-		rgltr-max-voltage = <1800000 2800000 1040000 0>;
+		rgltr-min-voltage = <1800000 2800000 1050000 0>;
+		rgltr-max-voltage = <1800000 2800000 1050000 0>;
 		rgltr-load-current = <0 80000 105000 0 0>;
 		gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
@@ -169,7 +170,8 @@
 		gpio-req-tbl-label = "CAMIF_MCLK2",
 					"CAM_RESET2";
 		sensor-mode = <0>;
-		cci-master = <1>;
+		cci-device = <1>;
+		cci-master = <0>;
 		status = "ok";
 		clocks = <&clock_camcc CAM_CC_MCLK2_CLK>;
 		clock-names = "cam_clk";
@@ -182,7 +184,7 @@
 		compatible = "qcom,cam-sensor";
 		reg = <0x0>;
 		csiphy-sd-index = <0>;
-		sensor-position-roll = <270>;
+		sensor-position-roll = <90>;
 		sensor-position-pitch = <0>;
 		sensor-position-yaw = <180>;
 		led-flash-src = <&led_flash_rear>;
@@ -190,13 +192,13 @@
 		actuator-src = <&actuator_rear>;
 		cam_vio-supply = <&pm8009_l7>;
 		cam_vana-supply = <&pm8009_l5>;
-		cam_vdig-supply = <&pm8009_l4>;
+		cam_vdig-supply = <&pm8009_l1>;
 		cam_clk-supply = <&titan_top_gdsc>;
 		regulator-names = "cam_vio", "cam_vana", "cam_vdig",
 			"cam_clk";
 		rgltr-cntrl-support;
-		rgltr-min-voltage = <1800000 2850000 1100000 0>;
-		rgltr-max-voltage = <1800000 2850000 1100000 0>;
+		rgltr-min-voltage = <1800000 2800000 1100000 0>;
+		rgltr-max-voltage = <1800000 2800000 1100000 0>;
 		rgltr-load-current = <0 80000 105000 0>;
 		gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
@@ -225,7 +227,7 @@
 		compatible = "qcom,cam-sensor";
 		reg = <0x1>;
 		csiphy-sd-index = <1>;
-		sensor-position-roll = <270>;
+		sensor-position-roll = <90>;
 		sensor-position-pitch = <0>;
 		sensor-position-yaw = <180>;
 		led-flash-src = <&led_flash_rear_aux>;
@@ -279,8 +281,8 @@
 		regulator-names = "cam_vio", "cam_vana", "cam_vdig",
 			"cam_clk";
 		rgltr-cntrl-support;
-		rgltr-min-voltage = <1800000 2800000 1040000 0>;
-		rgltr-max-voltage = <1800000 2800000 1040000 0>;
+		rgltr-min-voltage = <1800000 2800000 1050000 0>;
+		rgltr-max-voltage = <1800000 2800000 1050000 0>;
 		rgltr-load-current = <0 80000 105000 0>;
 		gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
