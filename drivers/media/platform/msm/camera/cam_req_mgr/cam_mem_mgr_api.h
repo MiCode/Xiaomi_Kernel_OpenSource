@@ -43,7 +43,7 @@ struct cam_mem_mgr_request_desc {
  * @region     : Region to which allocated memory belongs
  */
 struct cam_mem_mgr_memory_desc {
-	uint64_t kva;
+	uintptr_t kva;
 	uint32_t iova;
 	int32_t smmu_hdl;
 	uint32_t mem_handle;
@@ -92,7 +92,7 @@ int cam_mem_get_io_buf(int32_t buf_handle, int32_t mmu_handle,
  *
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
-int cam_mem_get_cpu_buf(int32_t buf_handle, uint64_t *vaddr_ptr,
+int cam_mem_get_cpu_buf(int32_t buf_handle, uintptr_t *vaddr_ptr,
 	size_t *len);
 
 static inline bool cam_mem_is_secure_buf(int32_t buf_handle)

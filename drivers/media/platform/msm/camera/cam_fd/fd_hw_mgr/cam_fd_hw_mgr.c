@@ -417,7 +417,7 @@ static int cam_fd_packet_generic_blob_handler(void *user_data,
 		uint32_t *get_raw_results = (uint32_t *)blob_data;
 
 		if (sizeof(uint32_t) != blob_size) {
-			CAM_ERR(CAM_FD, "Invalid blob size %lu %u",
+			CAM_ERR(CAM_FD, "Invalid blob size %zu %u",
 				sizeof(uint32_t), blob_size);
 			return -EINVAL;
 		}
@@ -430,7 +430,7 @@ static int cam_fd_packet_generic_blob_handler(void *user_data,
 			(struct cam_fd_soc_clock_bw_request *)blob_data;
 
 		if (sizeof(struct cam_fd_soc_clock_bw_request) != blob_size) {
-			CAM_ERR(CAM_FD, "Invalid blob size %lu %u",
+			CAM_ERR(CAM_FD, "Invalid blob size %zu %u",
 				sizeof(struct cam_fd_soc_clock_bw_request),
 				blob_size);
 			return -EINVAL;
@@ -537,7 +537,7 @@ static int cam_fd_mgr_util_prepare_io_buf_info(int32_t iommu_hdl,
 	uint32_t i, j, plane, num_out_buf, num_in_buf;
 	struct cam_buf_io_cfg *io_cfg;
 	dma_addr_t io_addr[CAM_PACKET_MAX_PLANES];
-	uint64_t cpu_addr[CAM_PACKET_MAX_PLANES];
+	uintptr_t cpu_addr[CAM_PACKET_MAX_PLANES];
 	size_t size;
 	bool need_io_map, need_cpu_map;
 
@@ -583,7 +583,7 @@ static int cam_fd_mgr_util_prepare_io_buf_info(int32_t iommu_hdl,
 				rc = cam_mem_get_io_buf(
 					io_cfg[i].mem_handle[plane],
 					iommu_hdl, &io_addr[plane], &size);
-				if ((rc) || (io_addr[plane] >> 32)) {
+				if (rc) {
 					CAM_ERR(CAM_FD,
 						"Invalid io buf %d %d %d %d",
 						io_cfg[i].direction,
@@ -599,7 +599,8 @@ static int cam_fd_mgr_util_prepare_io_buf_info(int32_t iommu_hdl,
 				rc = cam_mem_get_cpu_buf(
 					io_cfg[i].mem_handle[plane],
 					&cpu_addr[plane], &size);
-				if (rc) {
+				if (rc || ((io_addr[plane] & 0xFFFFFFFF)
+					!= io_addr[plane])) {
 					CAM_ERR(CAM_FD,
 						"Invalid cpu buf %d %d %d %d",
 						io_cfg[i].direction,
@@ -1088,8 +1089,10 @@ static int cam_fd_mgr_hw_get_caps(void *hw_mgr_priv, void *hw_get_caps_args)
 	struct cam_fd_hw_mgr *hw_mgr = hw_mgr_priv;
 	struct cam_query_cap_cmd *query = hw_get_caps_args;
 	struct cam_fd_query_cap_cmd query_fd;
+	void __user *caps_handle =
+		u64_to_user_ptr(query->caps_handle);
 
-	if (copy_from_user(&query_fd, (void __user *)query->caps_handle,
+	if (copy_from_user(&query_fd, caps_handle,
 		sizeof(struct cam_fd_query_cap_cmd))) {
 		CAM_ERR(CAM_FD, "Failed in copy from user, rc=%d", rc);
 		return -EFAULT;
@@ -1106,7 +1109,7 @@ static int cam_fd_mgr_hw_get_caps(void *hw_mgr_priv, void *hw_get_caps_args)
 		query_fd.hw_caps.wrapper_version.major,
 		query_fd.hw_caps.wrapper_version.minor);
 
-	if (copy_to_user((void __user *)query->caps_handle, &query_fd,
+	if (copy_to_user(caps_handle, &query_fd,
 		sizeof(struct cam_fd_query_cap_cmd)))
 		rc = -EFAULT;
 

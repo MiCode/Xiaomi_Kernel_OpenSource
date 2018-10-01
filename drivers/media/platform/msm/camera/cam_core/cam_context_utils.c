@@ -272,7 +272,7 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 	int rc = 0;
 	struct cam_ctx_request *req = NULL;
 	struct cam_hw_prepare_update_args cfg;
-	uint64_t packet_addr;
+	uintptr_t packet_addr;
 	struct cam_packet *packet;
 	size_t len = 0;
 	int32_t i = 0, j = 0;
@@ -315,8 +315,7 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 	/* for config dev, only memory handle is supported */
 	/* map packet from the memhandle */
 	rc = cam_mem_get_cpu_buf((int32_t) cmd->packet_handle,
-		(uint64_t *) &packet_addr,
-		&len);
+		&packet_addr, &len);
 	if (rc != 0) {
 		CAM_ERR(CAM_CTXT, "[%s][%d] Can not get packet address",
 			ctx->dev_name, ctx->ctx_id);
@@ -324,7 +323,8 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 		goto free_req;
 	}
 
-	packet = (struct cam_packet *) (packet_addr + cmd->offset);
+	packet = (struct cam_packet *) ((uint8_t *)packet_addr +
+		(uint32_t)cmd->offset);
 
 	/* preprocess the configuration */
 	memset(&cfg, 0, sizeof(cfg));
