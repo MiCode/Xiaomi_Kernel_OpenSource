@@ -216,6 +216,9 @@ struct clk_duty {
  *		clock that is below rate_max. Return -ENXIO in case there is
  *		no frequency table.
  *
+ * @bus_vote:	Votes for bandwidth on certain config slaves to connect
+ *		ports in order to gain access to clock controllers.
+ *
  * The clk_enable/clk_disable and clk_prepare/clk_unprepare pairs allow
  * implementations to split any work between atomic (enable) and sleepable
  * (prepare) contexts.  If enabling a clock requires code that might sleep,
@@ -264,6 +267,7 @@ struct clk_ops {
 							struct clk_hw *hw);
 	long		(*list_rate)(struct clk_hw *hw, unsigned int n,
 							unsigned long rate_max);
+	void		(*bus_vote)(struct clk_hw *hw, bool enable);
 };
 
 /**
@@ -278,6 +282,7 @@ struct clk_ops {
  * @vdd_class: voltage scaling requirement class
  * @rate_max: maximum clock rate in Hz supported at each voltage level
  * @num_rate_max: number of maximum voltage level supported
+ * @bus_cl_id: client id registered with the bus driver used for bw votes
  */
 struct clk_init_data {
 	const char		*name;
@@ -288,6 +293,7 @@ struct clk_init_data {
 	struct clk_vdd_class	*vdd_class;
 	unsigned long		*rate_max;
 	int			num_rate_max;
+	unsigned int		bus_cl_id;
 };
 
 struct regulator;
