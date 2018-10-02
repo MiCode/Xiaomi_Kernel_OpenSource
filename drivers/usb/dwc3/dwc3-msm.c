@@ -184,7 +184,7 @@ static const struct usb_irq usb_irq_info[USB_MAX_IRQ] = {
 static const char * const gsi_op_strings[] = {
 	"EP_CONFIG", "START_XFER", "STORE_DBL_INFO",
 	"ENABLE_GSI", "UPDATE_XFER", "RING_DB",
-	"END_XFER", "GET_CH_INFO", "PREPARE_TRBS",
+	"END_XFER", "GET_CH_INFO", "GET_XFER_IDX", "PREPARE_TRBS",
 	"FREE_TRBS", "SET_CLR_BLOCK_DBL", "CHECK_FOR_SUSP",
 	"EP_DISABLE" };
 
