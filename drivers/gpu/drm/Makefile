@@ -84,6 +84,7 @@ obj-$(CONFIG_DRM_QXL) += qxl/
 obj-$(CONFIG_DRM_BOCHS) += bochs/
 obj-$(CONFIG_DRM_VIRTIO_GPU) += virtio/
 obj-$(CONFIG_DRM_MSM) += msm/
+obj-$(CONFIG_DRM_MSM_HYP) += msm-hyp/
 obj-$(CONFIG_DRM_TEGRA) += tegra/
 obj-$(CONFIG_DRM_STM) += stm/
 obj-$(CONFIG_DRM_STI) += sti/
