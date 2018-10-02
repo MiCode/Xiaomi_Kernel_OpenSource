@@ -73,7 +73,7 @@ static int qcedev_setup_context_bank(struct context_bank_info *cb,
 	pr_info("%s Attached %s and create mapping\n", __func__, dev_name(dev));
 	pr_info("%s Context Bank name:%s, is_secure:%d, start_addr:%#x\n",
 			__func__, cb->name, cb->is_secure, cb->start_addr);
-	pr_info("%s size:%#x, dev:%pK, mapping:%pK\n", __func__, cb->size,
+	pr_debug("%s size:%#x, dev:%pK, mapping:%pK\n", __func__, cb->size,
 			cb->dev, cb->mapping);
 	return rc;
 
