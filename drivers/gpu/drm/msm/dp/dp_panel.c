@@ -835,11 +835,11 @@ static int dp_panel_read_edid(struct dp_panel *dp_panel,
 {
 	int ret = 0;
 	struct dp_panel_private *panel;
+	struct edid *edid;
 
 	if (!dp_panel) {
 		pr_err("invalid input\n");
-		ret = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
 
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
@@ -857,6 +857,9 @@ static int dp_panel_read_edid(struct dp_panel *dp_panel,
 		goto end;
 	}
 end:
+	edid = dp_panel->edid_ctrl->edid;
+	dp_panel->audio_supported = drm_detect_monitor_audio(edid);
+
 	return ret;
 }
 

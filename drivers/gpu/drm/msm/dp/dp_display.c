@@ -721,10 +721,8 @@ static int dp_display_process_hpd_low(struct dp_display_private *dp)
 
 		dp_panel = dp->active_panels[idx];
 
-		if (dp_panel->audio_supported) {
+		if (dp_panel->audio_supported)
 			dp_panel->audio->off(dp_panel->audio);
-			dp_panel->audio_supported = false;
-		}
 	}
 
 	mutex_unlock(&dp->session_lock);
@@ -1422,7 +1420,6 @@ static int dp_display_post_enable(struct dp_display *dp_display, void *panel)
 {
 	struct dp_display_private *dp;
 	struct dp_panel *dp_panel;
-	struct edid *edid;
 
 	if (!dp_display || !panel) {
 		pr_err("invalid input\n");
@@ -1448,9 +1445,6 @@ static int dp_display_post_enable(struct dp_display *dp_display, void *panel)
 	}
 
 	dp_display_stream_post_enable(dp, dp_panel);
-
-	edid = dp_panel->edid_ctrl->edid;
-	dp_panel->audio_supported = drm_detect_monitor_audio(edid);
 
 	if (dp_panel->audio_supported) {
 		dp_panel->audio->bw_code = dp->link->link_params.bw_code;
