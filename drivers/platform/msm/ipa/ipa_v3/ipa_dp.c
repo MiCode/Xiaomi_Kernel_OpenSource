@@ -1824,6 +1824,17 @@ static void ipa3_replenish_rx_cache(struct ipa3_sys_context *sys)
 			idx = 0;
 		}
 	}
+	goto done;
+
+fail_dma_mapping:
+	sys->free_skb(rx_pkt->data.skb);
+fail_skb_alloc:
+	kmem_cache_free(ipa3_ctx->rx_pkt_wrapper_cache, rx_pkt);
+fail_kmem_cache_alloc:
+	if (rx_len_cached == 0)
+		queue_delayed_work(sys->wq, &sys->replenish_rx_work,
+				msecs_to_jiffies(1));
+done:
 	if (idx) {
 		ret = gsi_queue_xfer(sys->ep->gsi_chan_hdl, idx,
 			gsi_xfer_elem_array, true);
@@ -1834,18 +1845,7 @@ static void ipa3_replenish_rx_cache(struct ipa3_sys_context *sys)
 			IPAERR("failed to provide buffer: %d\n", ret);
 			WARN_ON(1);
 		}
-		idx = 0;
 	}
-	return;
-
-fail_dma_mapping:
-	sys->free_skb(rx_pkt->data.skb);
-fail_skb_alloc:
-	kmem_cache_free(ipa3_ctx->rx_pkt_wrapper_cache, rx_pkt);
-fail_kmem_cache_alloc:
-	if (rx_len_cached == 0)
-		queue_delayed_work(sys->wq, &sys->replenish_rx_work,
-				msecs_to_jiffies(1));
 }
 
 static void ipa3_replenish_rx_cache_recycle(struct ipa3_sys_context *sys)
@@ -1937,6 +1937,17 @@ static void ipa3_replenish_rx_cache_recycle(struct ipa3_sys_context *sys)
 			idx = 0;
 		}
 	}
+	goto done;
+fail_dma_mapping:
+	spin_lock_bh(&sys->spinlock);
+	list_add_tail(&rx_pkt->link, &sys->rcycl_list);
+	INIT_LIST_HEAD(&rx_pkt->link);
+	spin_unlock_bh(&sys->spinlock);
+fail_kmem_cache_alloc:
+	if (rx_len_cached == 0)
+		queue_delayed_work(sys->wq, &sys->replenish_rx_work,
+		msecs_to_jiffies(1));
+done:
 	if (idx) {
 		ret = gsi_queue_xfer(sys->ep->gsi_chan_hdl, idx,
 			gsi_xfer_elem_array, true);
@@ -1947,18 +1958,7 @@ static void ipa3_replenish_rx_cache_recycle(struct ipa3_sys_context *sys)
 			IPAERR("failed to provide buffer: %d\n", ret);
 			WARN_ON(1);
 		}
-		idx = 0;
 	}
-	return;
-fail_dma_mapping:
-	spin_lock_bh(&sys->spinlock);
-	list_add_tail(&rx_pkt->link, &sys->rcycl_list);
-	INIT_LIST_HEAD(&rx_pkt->link);
-	spin_unlock_bh(&sys->spinlock);
-fail_kmem_cache_alloc:
-	if (rx_len_cached == 0)
-		queue_delayed_work(sys->wq, &sys->replenish_rx_work,
-		msecs_to_jiffies(1));
 }
 
 static inline void __trigger_repl_work(struct ipa3_sys_context *sys)
