@@ -292,7 +292,7 @@ int mhi_init_dev_ctxt(struct mhi_controller *mhi_cntrl)
 		chan_ctxt->chstate = MHI_CH_STATE_DISABLED;
 		chan_ctxt->brstmode = mhi_chan->db_cfg.brstmode;
 		chan_ctxt->pollcfg = mhi_chan->db_cfg.pollcfg;
-		chan_ctxt->chtype = mhi_chan->dir;
+		chan_ctxt->chtype = mhi_chan->type;
 		chan_ctxt->erindex = mhi_chan->er_index;
 
 		mhi_chan->ch_state = MHI_CH_STATE_DISABLED;
@@ -939,6 +939,15 @@ static int of_parse_ch_cfg(struct mhi_controller *mhi_cntrl,
 					   &mhi_chan->dir);
 		if (ret)
 			goto error_chan_cfg;
+
+		/*
+		 * For most channels, chtype is identical to channel directions,
+		 * if not defined, assign ch direction to chtype
+		 */
+		ret = of_property_read_u32(child, "mhi,chan-type",
+					   &mhi_chan->type);
+		if (ret)
+			mhi_chan->type = (enum mhi_ch_type)mhi_chan->dir;
 
 		ret = of_property_read_u32(child, "mhi,ee", &mhi_chan->ee_mask);
 		if (ret)
