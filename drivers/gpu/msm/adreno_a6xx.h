@@ -135,6 +135,39 @@ static inline int timed_poll_check(struct kgsl_device *device,
 	return -ETIMEDOUT;
 }
 
+static inline int timed_poll_check_rscc(struct kgsl_device *device,
+		unsigned int offset, unsigned int expected_ret,
+		unsigned int timeout, unsigned int mask)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	unsigned long t;
+	unsigned int value;
+
+	t = jiffies + msecs_to_jiffies(timeout);
+
+	do {
+		if (adreno_is_a650(adreno_dev))
+			adreno_rscc_regread(adreno_dev, offset, &value);
+		else
+			gmu_core_regread(device, offset + RSCC_OFFSET_LEGACY,
+						&value);
+		if ((value & mask) == expected_ret)
+			return 0;
+		/* Wait 100us to reduce unnecessary AHB bus traffic */
+		usleep_range(10, 100);
+	} while (!time_after(jiffies, t));
+
+	/* Double check one last time */
+	if (adreno_is_a650(adreno_dev))
+		adreno_rscc_regread(adreno_dev, offset, &value);
+	else
+		gmu_core_regread(device, offset + RSCC_OFFSET_LEGACY, &value);
+	if ((value & mask) == expected_ret)
+		return 0;
+
+	return -ETIMEDOUT;
+}
+
 /*
  * read_AO_counter() - Returns the 64bit always on counter value
  *
