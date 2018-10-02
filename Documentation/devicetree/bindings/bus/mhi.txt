@@ -1,0 +1,317 @@
+MHI Host Interface
+
+MHI used by the host to control and communicate with modem over
+high speed peripheral bus.
+
+==============
+Node Structure
+==============
+
+Main node properties:
+
+- mhi,max-channels
+  Usage: required
+  Value type: <u32>
+  Definition: Maximum number of channels supported by this controller
+
+- mhi,timeout
+  Usage: optional
+  Value type: <u32>
+  Definition: Maximum timeout in ms wait for state and cmd completion
+
+- mhi,time-sync
+  Usage: optional
+  Value type: <bool>
+  Definition: Set true, if the external device support MHI get time
+	feature for time synchronization between host processor and
+	external modem.
+
+- mhi,use-bb
+  Usage: optional
+  Value type: <bool>
+  Definition: Set true, if PCIe controller does not have full access to host
+	DDR, and we're using a dedicated memory pool like cma, or
+	carveout pool. Pool must support atomic allocation.
+
+- mhi,buffer-len
+  Usage: optional
+  Value type: <bool>
+  Definition: MHI automatically pre-allocate buffers for some channel.
+	Set the length of buffer size to allocate. If not default
+	size MHI_MAX_MTU will be used.
+
+============================
+mhi channel node properties:
+============================
+
+- reg
+  Usage: required
+  Value type: <u32>
+  Definition: physical channel number
+
+- label
+  Usage: required
+  Value type: <string>
+  Definition: given name for the channel
+
+- mhi,num-elements
+  Usage: optional
+  Value type: <u32>
+  Definition: Number of elements transfer ring support
+
+- mhi,event-ring
+  Usage: required
+  Value type: <u32>
+  Definition: Event ring index associated with this channel
+
+- mhi,chan-dir
+  Usage: required
+  Value type: <u32>
+  Definition: Channel direction as defined by enum dma_data_direction
+	0 = Bidirectional data transfer
+	1 = UL data transfer
+	2 = DL data transfer
+	3 = No direction, not a regular data transfer channel
+
+- mhi,ee
+  Usage: required
+  Value type: <u32>
+  Definition: Channel execution enviornment (EE) mask as defined by enum
+	mhi_ch_ee_mask
+		BIT(0) = Channel supported in PBL EE
+		BIT(1) = Channel supported in SBL EE
+		BIT(2) = Channel supported in AMSS EE
+		BIT(3) = Channel supported in RDDM EE
+		BIT(4) = Channel supported in WFW EE
+		BIT(5) = Channel supported in PTHRU EE
+		BIT(6) = Channel supported in EDL EE
+
+- mhi,pollcfg
+  Usage: optional
+  Value type: <u32>
+  Definition: MHI poll configuration, valid only when burst mode is enabled
+	0 = Use default (device specific) polling configuration
+	For UL channels, value specifies the timer to poll MHI context in
+	milliseconds.
+	For DL channels, the threshold to poll the MHI context in multiple of
+	eight ring element.
+
+- mhi,data-type
+  Usage: required
+  Value type: <u32>
+  Definition: Data transfer type accepted as defined by enum MHI_XFER_TYPE
+	0 = accept cpu address for buffer
+	1 = accept skb
+	2 = accept scatterlist
+	3 = offload channel, does not accept any transfer type
+
+- mhi,doorbell-mode
+  Usage: required
+  Value type: <u32>
+  Definition: Channel doorbell mode configuration as defined by enum
+	MHI_BRSTMODE
+	2 = burst mode disabled
+	3 = burst mode enabled
+
+- mhi,lpm-notify
+  Usage: optional
+  Value type: <bool>
+  Definition: This channel master require low power mode enter and exit
+  notifications from mhi bus master.
+
+- mhi,offload-chan
+  Usage: optional
+  Value type: <bool>
+  Definition: Client managed channel, MHI host only involved in setting up
+	the data path, not involved in active data path.
+
+- mhi,db-mode-switch
+  Usage: optional
+  Value type: <bool>
+  Definition: Must switch to doorbell mode whenever MHI M0 state transition
+	happens.
+
+- mhi,auto-queue
+  Usage: optional
+  Value type: <bool>
+  Definition: MHI bus driver will pre-allocate buffers for this channel and
+	queue to hardware. If set, client not allowed to queue buffers. Valid
+	only for downlink direction.
+
+- mhi,auto-start
+  Usage: optional
+  Value type: <bool>
+  Definition: MHI host driver to automatically start channels once mhi device
+	driver probe is complete. This should be only set true if initial
+	handshake iniaitead by external modem.
+
+==========================
+mhi event node properties:
+==========================
+
+- mhi,num-elements
+  Usage: required
+  Value type: <u32>
+  Definition: Number of elements event ring support
+
+- mhi,intmod
+  Usage: required
+  Value type: <u32>
+  Definition: interrupt moderation time in ms
+
+- mhi,msi
+  Usage: required
+  Value type: <u32>
+  Definition: MSI associated with this event ring
+
+- mhi,chan
+  Usage: optional
+  Value type: <u32>
+  Definition: Dedicated channel number, if it's a dedicated event ring
+
+- mhi,priority
+  Usage: required
+  Value type: <u32>
+  Definition: Event ring priority, set to 1 for now
+
+- mhi,brstmode
+  Usage: required
+  Value type: <u32>
+  Definition: Event doorbell mode configuration as defined by
+	enum MHI_BRSTMODE
+		2 = burst mode disabled
+		3 = burst mode enabled
+
+- mhi,data-type
+  Usage: optional
+  Value type: <u32>
+  Definition: Type of data this event ring will process as defined
+	by enum mhi_er_data_type
+		0 = process data packets (default)
+		1 = process mhi control packets
+
+- mhi,hw-ev
+  Usage: optional
+  Value type: <bool>
+  Definition: Event ring associated with hardware channels
+
+- mhi,client-manage
+  Usage: optional
+  Value type: <bool>
+  Definition: Client manages the event ring (use by napi_poll)
+
+- mhi,offload
+  Usage: optional
+  Value type: <bool>
+  Definition: Event ring associated with offload channel
+
+
+Children node properties:
+
+MHI drivers that require DT can add driver specific information as a child node.
+
+- mhi,chan
+  Usage: Required
+  Value type: <string>
+  Definition: Channel name
+
+========
+Example:
+========
+mhi_controller {
+	mhi,max-channels = <105>;
+
+	mhi_chan@0 {
+		reg = <0>;
+		label = "LOOPBACK";
+		mhi,num-elements = <64>;
+		mhi,event-ring = <2>;
+		mhi,chan-dir = <1>;
+		mhi,data-type = <0>;
+		mhi,doorbell-mode = <2>;
+		mhi,ee = <0x4>;
+	};
+
+	mhi_chan@1 {
+		reg = <1>;
+		label = "LOOPBACK";
+		mhi,num-elements = <64>;
+		mhi,event-ring = <2>;
+		mhi,chan-dir = <2>;
+		mhi,data-type = <0>;
+		mhi,doorbell-mode = <2>;
+		mhi,ee = <0x4>;
+	};
+
+	mhi_event@0 {
+		mhi,num-elements = <32>;
+		mhi,intmod = <1>;
+		mhi,msi = <1>;
+		mhi,chan = <0>;
+		mhi,priority = <1>;
+		mhi,bstmode = <2>;
+		mhi,data-type = <1>;
+	};
+
+	mhi_event@1 {
+		mhi,num-elements = <256>;
+		mhi,intmod = <1>;
+		mhi,msi = <2>;
+		mhi,chan = <0>;
+		mhi,priority = <1>;
+		mhi,bstmode = <2>;
+	};
+
+	mhi,timeout = <500>;
+
+	children_node {
+		mhi,chan = "LOOPBACK"
+		<driver specific properties>
+	};
+};
+
+================
+Children Devices
+================
+
+MHI netdev properties
+
+- mhi,chan
+  Usage: required
+  Value type: <string>
+  Definition: Channel name MHI netdev support
+
+- mhi,mru
+  Usage: required
+  Value type: <u32>
+  Definition: Largest packet size interface can receive in bytes.
+
+- mhi,interface-name
+  Usage: optional
+  Value type: <string>
+  Definition: Interface name to be given so clients can identify it
+
+- mhi,recycle-buf
+  Usage: optional
+  Value type: <bool>
+  Definition: Set true if interface support recycling buffers.
+
+- aliases
+  Usage: required
+  Value type: <string>
+  Definition: mhi net_device should have numbered alias in the alias node,
+	in the form of mhi_netdevN, N = 0, 1..n for each network interface.
+
+========
+Example:
+========
+
+aliases {
+	mhi_netdev0 = &mhi_netdev_0;
+};
+
+mhi_netdev_0: mhi_rmnet@0 {
+	mhi,chan = "IP_HW0";
+	mhi,interface-name = "rmnet_mhi";
+	mhi,mru = <0x4000>;
+};
