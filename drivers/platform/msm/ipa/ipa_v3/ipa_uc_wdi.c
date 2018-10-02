@@ -1941,8 +1941,8 @@ int ipa3_disconnect_wdi_pipe(u32 clnt_hdl)
 	ipa3_delete_dflt_flt_rules(clnt_hdl);
 	ipa_release_uc_smmu_mappings(ep->client);
 
-	memset(&ipa3_ctx->ep[clnt_hdl], 0, sizeof(struct ipa3_ep_context));
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
+	memset(&ipa3_ctx->ep[clnt_hdl], 0, sizeof(struct ipa3_ep_context));
 
 	IPADBG("client (ep: %d) disconnected\n", clnt_hdl);
 
