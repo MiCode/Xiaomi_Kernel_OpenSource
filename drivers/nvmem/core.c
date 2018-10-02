@@ -457,22 +457,6 @@ out:
 	return rval;
 }
 
-static struct nvmem_cell *
-nvmem_find_cell_by_index(struct nvmem_device *nvmem, int index)
-{
-	struct nvmem_cell *cell = NULL;
-	int i = 0;
-
-	mutex_lock(&nvmem_mutex);
-	list_for_each_entry(cell, &nvmem->cells, node) {
-		if (index == i++)
-			break;
-	}
-	mutex_unlock(&nvmem_mutex);
-
-	return cell;
-}
-
 static int nvmem_add_cells_from_of(struct nvmem_device *nvmem)
 {
 	struct device_node *parent, *child;
@@ -909,6 +893,22 @@ static struct nvmem_cell *nvmem_cell_get_from_list(const char *cell_id)
 }
 
 #if IS_ENABLED(CONFIG_OF)
+static struct nvmem_cell *
+nvmem_find_cell_by_index(struct nvmem_device *nvmem, int index)
+{
+	struct nvmem_cell *cell = NULL;
+	int i = 0;
+
+	mutex_lock(&nvmem_mutex);
+	list_for_each_entry(cell, &nvmem->cells, node) {
+		if (index == i++)
+			break;
+	}
+	mutex_unlock(&nvmem_mutex);
+
+	return cell;
+}
+
 /**
  * of_nvmem_cell_get() - Get a nvmem cell from given device node and cell id
  *
