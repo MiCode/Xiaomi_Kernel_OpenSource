@@ -3258,6 +3258,8 @@ static ssize_t speed_store(struct device *dev, struct device_attribute *attr,
 		req_speed = USB_SPEED_HIGH;
 	else if (sysfs_streq(buf, "super"))
 		req_speed = USB_SPEED_SUPER;
+	else if (sysfs_streq(buf, "ssp"))
+		req_speed = USB_SPEED_SUPER_PLUS;
 	else
 		return -EINVAL;
 

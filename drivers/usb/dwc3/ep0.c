@@ -419,9 +419,23 @@ static int dwc3_ep0_handle_u1(struct dwc3 *dwc, enum usb_device_state state,
 			(dwc->speed != DWC3_DSTS_SUPERSPEED_PLUS))
 		return -EINVAL;
 
-	if (dwc->usb3_u1u2_disable && !enable_dwc3_u1u2)
+	/* Ignore all other checks if u1/u2 is enabled from user */
+	if (enable_dwc3_u1u2)
+		goto enable_u1;
+
+	/*
+	 * STAR: "9001276244: LFPS Handshake Interoperability Issues"
+	 * has two part workaround, first part is to disable u1/u2
+	 * in case of SSP to avoid interoperability issues.
+	 */
+	if (dwc->revision == DWC3_USB31_REVISION_170A &&
+		(dwc->speed == DWC3_DSTS_SUPERSPEED_PLUS))
 		return -EINVAL;
 
+	if (dwc->usb3_u1u2_disable)
+		return -EINVAL;
+
+enable_u1:
 	reg = dwc3_readl(dwc->regs, DWC3_DCTL);
 	if (set)
 		reg |= DWC3_DCTL_INITU1ENA;
@@ -444,9 +458,23 @@ static int dwc3_ep0_handle_u2(struct dwc3 *dwc, enum usb_device_state state,
 			(dwc->speed != DWC3_DSTS_SUPERSPEED_PLUS))
 		return -EINVAL;
 
-	if (dwc->usb3_u1u2_disable && !enable_dwc3_u1u2)
+	/* Ignore all other checks if u1/u2 is enabled from user */
+	if (enable_dwc3_u1u2)
+		goto enable_u2;
+
+	/*
+	 * STAR: "9001276244: LFPS Handshake Interoperability Issues"
+	 * has two part workaround, first part is to disable u1/u2
+	 * in case of SSP to avoid interoperability issues.
+	 */
+	if (dwc->revision == DWC3_USB31_REVISION_170A &&
+		(dwc->speed == DWC3_DSTS_SUPERSPEED_PLUS))
 		return -EINVAL;
 
+	if (dwc->usb3_u1u2_disable)
+		return -EINVAL;
+
+enable_u2:
 	reg = dwc3_readl(dwc->regs, DWC3_DCTL);
 	if (set)
 		reg |= DWC3_DCTL_INITU2ENA;
@@ -714,16 +742,33 @@ static int dwc3_ep0_set_config(struct dwc3 *dwc, struct usb_ctrlrequest *ctrl)
 				usb_gadget_set_state(&dwc->gadget,
 						USB_STATE_CONFIGURED);
 
-			if (!dwc->usb3_u1u2_disable || enable_dwc3_u1u2) {
-				/*
-				 * Enable transition to U1/U2 state when
-				 * nothing is pending from application.
-				 */
-				reg = dwc3_readl(dwc->regs, DWC3_DCTL);
-				reg |= (DWC3_DCTL_ACCEPTU1ENA |
-							DWC3_DCTL_ACCEPTU2ENA);
-				dwc3_writel(dwc->regs, DWC3_DCTL, reg);
-			}
+			/*
+			 * Ignore all other checks if u1/u2 is enabled
+			 * from user
+			 */
+			if (enable_dwc3_u1u2)
+				goto enable_u1u2;
+			/*
+			 * STAR:"9001276244: LFPS Handshake Interoperability
+			 * Issues" has two part workaround, first part is to
+			 * disable u1/u2 in case of SSP to avoid
+			 * interoperability issues.
+			 */
+			if (dwc->revision == DWC3_USB31_REVISION_170A &&
+				(dwc->speed == DWC3_DSTS_SUPERSPEED_PLUS))
+				break;
+
+			if (dwc->usb3_u1u2_disable)
+				break;
+enable_u1u2:
+			/*
+			 * Enable transition to U1/U2 state when
+			 * nothing is pending from application.
+			 */
+			reg = dwc3_readl(dwc->regs, DWC3_DCTL);
+			reg |= (DWC3_DCTL_ACCEPTU1ENA |
+						DWC3_DCTL_ACCEPTU2ENA);
+			dwc3_writel(dwc->regs, DWC3_DCTL, reg);
 		}
 		break;
 

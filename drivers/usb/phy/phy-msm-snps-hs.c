@@ -28,6 +28,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/usb/phy.h>
 #include <linux/reset.h>
+#include <linux/debugfs.h>
 
 #define USB2_PHY_USB_PHY_UTMI_CTRL0		(0x3c)
 #define OPMODE_MASK				(0x3 << 3)
@@ -66,6 +67,11 @@
 
 #define USB2PHY_USB_PHY_RTUNE_SEL		(0xb4)
 #define RTUNE_SEL				BIT(0)
+
+#define TXPREEMPAMPTUNE0(x)			(x << 6)
+#define TXPREEMPAMPTUNE0_MASK			(BIT(7) | BIT(6))
+#define USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X1	0x70
+#define TXVREFTUNE0_MASK			0xF
 
 #define USB_HSPHY_3P3_VOL_MIN			3050000 /* uV */
 #define USB_HSPHY_3P3_VOL_MAX			3300000 /* uV */
@@ -111,6 +117,11 @@ struct msm_hsphy {
 	int			emu_init_seq_len;
 	int			*emu_dcm_reset_seq;
 	int			emu_dcm_reset_seq_len;
+
+	/* debugfs entries */
+	struct dentry		*root;
+	u8			txvref_tune0;
+	u8			pre_emphasis;
 };
 
 static void msm_hsphy_enable_clocks(struct msm_hsphy *phy, bool on)
@@ -398,6 +409,23 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 		hsusb_phy_write_seq(phy->base, phy->param_override_seq,
 				phy->param_override_seq_cnt, 0);
 
+	if (phy->pre_emphasis) {
+		u8 val = TXPREEMPAMPTUNE0(phy->pre_emphasis) &
+				TXPREEMPAMPTUNE0_MASK;
+		if (val)
+			msm_usb_write_readback(phy->base,
+				USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X1,
+				TXPREEMPAMPTUNE0_MASK, val);
+	}
+
+	if (phy->txvref_tune0) {
+		u8 val = phy->txvref_tune0 & TXVREFTUNE0_MASK;
+
+		msm_usb_write_readback(phy->base,
+			USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X1,
+			TXVREFTUNE0_MASK, val);
+	}
+
 	if (phy->phy_rcal_reg) {
 		rcal_code = readl_relaxed(phy->phy_rcal_reg) & phy->rcal_mask;
 
@@ -591,6 +619,13 @@ static int msm_hsphy_regulator_init(struct msm_hsphy *phy)
 		return PTR_ERR(phy->dpdm_rdev);
 
 	return 0;
+}
+
+static void msm_hsphy_create_debugfs(struct msm_hsphy *phy)
+{
+	phy->root = debugfs_create_dir(dev_name(phy->phy.dev), NULL);
+	debugfs_create_x8("pre_emphasis", 0644, phy->root, &phy->pre_emphasis);
+	debugfs_create_x8("txvref_tune0", 0644, phy->root, &phy->txvref_tune0);
 }
 
 static int msm_hsphy_probe(struct platform_device *pdev)
@@ -800,6 +835,8 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	msm_hsphy_create_debugfs(phy);
+
 	return 0;
 
 err_ret:
@@ -812,6 +849,8 @@ static int msm_hsphy_remove(struct platform_device *pdev)
 
 	if (!phy)
 		return 0;
+
+	debugfs_remove_recursive(phy->root);
 
 	usb_remove_phy(&phy->phy);
 	clk_disable_unprepare(phy->ref_clk_src);
