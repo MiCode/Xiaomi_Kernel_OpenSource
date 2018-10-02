@@ -1584,6 +1584,7 @@ static int disp_cc_sm8150_probe(struct platform_device *pdev)
 				"Unable to get vdd_mm regulator\n");
 		return PTR_ERR(vdd_mm.regulator[0]);
 	}
+	vdd_mm.use_max_uV = true;
 
 	ret = disp_cc_sm8150_fixup(pdev, regmap);
 	if (ret)
