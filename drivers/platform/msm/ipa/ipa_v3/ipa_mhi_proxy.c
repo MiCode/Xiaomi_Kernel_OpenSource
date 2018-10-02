@@ -935,8 +935,11 @@ static int imp_remove(struct platform_device *pdev)
 	IMP_FUNC_ENTRY();
 	mhi_driver_unregister(&mhi_driver);
 	mutex_lock(&imp_ctx->mutex);
-	if (!imp_ctx->in_lpm)
+	if (!imp_ctx->in_lpm && (imp_ctx->state == IMP_READY ||
+		imp_ctx->state == IMP_STARTED)) {
+		IMP_DBG("devote IMP with state= %d\n", imp_ctx->state);
 		IPA_ACTIVE_CLIENTS_DEC_SPECIAL("IMP");
+	}
 	imp_ctx->in_lpm = false;
 	imp_ctx->lpm_disabled = false;
 
