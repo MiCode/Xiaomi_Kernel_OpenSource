@@ -46,3 +46,21 @@ config QCOM_GPI_DMA_DEBUG
 	help
 	  Enable detailed logging for QCOM GPI driver. Extra logging will be
 	  helpful when debugging critical issues.
+
+config QCOM_PCI_EDMA
+	tristate "Qualcomm Technologies Inc PCIe eDMA support"
+	select DMA_ENGINE
+	help
+	  Enable support for the QCOM PCIe eDMA. This DMA is part of QCOM
+	  PCIe controller that provides DMA capabilities for clients.
+	  By using PCIe eDMA driver, clients can use a standardize
+	  interface that is protocol independent to transfer data between DDR
+	  and peripheral.
+
+config QCOM_PCI_EDMA_DEBUG
+	bool "Qualcomm Technologies Inc PCIe eDMA debug support"
+	depends on QCOM_PCI_EDMA
+	help
+	  Enable detailed logging for QCOM PCIe eDMA driver. Should
+	  only be enabled for debugging purpose since excessive logging
+	  of all channels information and activity will decrease throughput.
