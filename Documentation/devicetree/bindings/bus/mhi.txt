@@ -144,6 +144,13 @@ mhi channel node properties:
   Definition: Time sensitive data channel, host should process all pending data
 	before system suspend.
 
+- mhi,chan-type
+  Usage: optional
+  Value type: <u32>
+  Definition: By default, chan-type is same as 'chan,dir' property except
+	in some special channels, chan type supplement chan direction.
+	3 = default no direction, or inbound coalesced channel
+
 ==========================
 mhi event node properties:
 ==========================
