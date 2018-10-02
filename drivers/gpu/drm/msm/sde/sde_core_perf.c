@@ -550,7 +550,7 @@ void sde_core_perf_crtc_update_uidle(struct drm_crtc *crtc,
 	mutex_lock(&sde_core_perf_lock);
 
 	if (!kms->perf.catalog->uidle_cfg.uidle_rev ||
-		!kms->perf.catalog->uidle_cfg.debugfs_ctrl) {
+		(enable && !kms->perf.catalog->uidle_cfg.debugfs_ctrl)) {
 		SDE_DEBUG("uidle is not enabled %d %d\n",
 			kms->perf.catalog->uidle_cfg.uidle_rev,
 			kms->perf.catalog->uidle_cfg.debugfs_ctrl);
@@ -1106,6 +1106,8 @@ int sde_core_perf_debugfs_init(struct sde_core_perf *perf,
 
 	debugfs_create_u32("uidle_perf_cnt", 0600, perf->debugfs_root,
 			&sde_kms->catalog->uidle_cfg.debugfs_perf);
+	debugfs_create_bool("uidle_enable", 0600, perf->debugfs_root,
+			&sde_kms->catalog->uidle_cfg.debugfs_ctrl);
 
 	return 0;
 }
