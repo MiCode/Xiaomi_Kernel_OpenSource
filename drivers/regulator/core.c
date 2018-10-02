@@ -4755,6 +4755,8 @@ regulator_register(const struct regulator_desc *regulator_desc,
 
 	dev_set_drvdata(&rdev->dev, rdev);
 	rdev_init_debugfs(rdev);
+	rdev->proxy_consumer = regulator_proxy_consumer_register(dev,
+							config->of_node);
 
 	/* try to resolve regulators supply since a new one was registered */
 	class_for_each_device(&regulator_class, NULL, NULL,
@@ -4794,6 +4796,7 @@ void regulator_unregister(struct regulator_dev *rdev)
 			regulator_disable(rdev->supply);
 		regulator_put(rdev->supply);
 	}
+	regulator_proxy_consumer_unregister(rdev->proxy_consumer);
 	rdev_deinit_debugfs(rdev);
 	mutex_lock(&regulator_list_mutex);
 	flush_work(&rdev->disable_work.work);
