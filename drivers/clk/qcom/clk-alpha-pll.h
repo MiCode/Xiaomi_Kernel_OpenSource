@@ -13,19 +13,24 @@ enum {
 	CLK_ALPHA_PLL_TYPE_HUAYRA,
 	CLK_ALPHA_PLL_TYPE_BRAMMO,
 	CLK_ALPHA_PLL_TYPE_FABIA,
+	CLK_ALPHA_PLL_TYPE_LUCID,
 	CLK_ALPHA_PLL_TYPE_MAX,
 };
 
 enum {
 	PLL_OFF_L_VAL,
+	PLL_OFF_CAL_L_VAL,
 	PLL_OFF_ALPHA_VAL,
 	PLL_OFF_ALPHA_VAL_U,
 	PLL_OFF_USER_CTL,
 	PLL_OFF_USER_CTL_U,
+	PLL_OFF_USER_CTL_U1,
 	PLL_OFF_CONFIG_CTL,
 	PLL_OFF_CONFIG_CTL_U,
+	PLL_OFF_CONFIG_CTL_U1,
 	PLL_OFF_TEST_CTL,
 	PLL_OFF_TEST_CTL_U,
+	PLL_OFF_TEST_CTL_U1,
 	PLL_OFF_STATUS,
 	PLL_OFF_OPMODE,
 	PLL_OFF_FRAC,
@@ -43,6 +48,7 @@ struct pll_vco {
 /**
  * struct clk_alpha_pll - phase locked loop (PLL)
  * @offset: base address of registers
+ * @inited: flag that's set when the PLL is initialized
  * @vco_table: array of VCO settings
  * @regs: alpha pll register map (see @clk_alpha_pll_regs)
  * @clkr: regmap clock handle
@@ -50,6 +56,8 @@ struct pll_vco {
 struct clk_alpha_pll {
 	u32 offset;
 	const u8 *regs;
+	struct alpha_pll_config *config;
+	bool inited;
 
 	const struct pll_vco *vco_table;
 	size_t num_vco;
@@ -89,6 +97,7 @@ struct alpha_pll_config {
 	u32 alpha_hi;
 	u32 config_ctl_val;
 	u32 config_ctl_hi_val;
+	u32 config_ctl_hi1_val;
 	u32 main_output_mask;
 	u32 aux_output_mask;
 	u32 aux2_output_mask;
@@ -113,9 +122,14 @@ extern const struct clk_ops clk_alpha_pll_fabia_ops;
 extern const struct clk_ops clk_alpha_pll_fixed_fabia_ops;
 extern const struct clk_ops clk_alpha_pll_postdiv_fabia_ops;
 
+extern const struct clk_ops clk_alpha_pll_lucid_ops;
+extern const struct clk_ops clk_alpha_pll_fixed_lucid_ops;
+extern const struct clk_ops clk_alpha_pll_postdiv_lucid_ops;
+
 void clk_alpha_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 			     const struct alpha_pll_config *config);
 void clk_fabia_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 				const struct alpha_pll_config *config);
-
+int clk_lucid_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
+				const struct alpha_pll_config *config);
 #endif
