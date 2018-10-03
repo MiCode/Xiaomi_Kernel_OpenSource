@@ -248,6 +248,12 @@
 			reg = <0x0 0x80700000 0x0 0x140000>;
 		};
 
+		cmd_db: reserved-memory@80820000 {
+			reg = <0x0 0x80820000 0x0 0x20000>;
+			compatible = "qcom,cmd-db";
+			no-map;
+		};
+
 		smem_mem: smem_region@80900000 {
 			no-map;
 			reg = <0x0 0x80900000 0x0 0x200000>;
@@ -261,12 +267,6 @@
 		qtee_apps_mem: qtee_apps_region@81e00000 {
 			no-map;
 			reg = <0x0 0x81e00000 0x0 0x2600000>;
-		};
-
-		cmd_db: reserved-memory@85fe0000 {
-			reg = <0x0 0x85fe0000 0x0 0x20000>;
-			compatible = "qcom,cmd-db";
-			no-map;
 		};
 
 		pil_camera_mem: pil_camera_region@86000000 {
