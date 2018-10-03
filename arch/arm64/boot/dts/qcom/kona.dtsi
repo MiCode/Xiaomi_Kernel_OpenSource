@@ -364,7 +364,7 @@
 		reg-names = "llcc_base", "llcc_broadcast_base";
 	};
 
-	timer {
+	arch_timer: timer {
 		compatible = "arm,armv8-timer";
 		interrupts = <GIC_PPI 13 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>,
 			     <GIC_PPI 14 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>,
@@ -373,7 +373,7 @@
 		clock-frequency = <19200000>;
 	};
 
-	timer@0x17c20000{
+	memtimer: timer@17c20000 {
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
@@ -381,7 +381,7 @@
 		reg = <0x17c20000 0x1000>;
 		clock-frequency = <19200000>;
 
-		frame@0x17c21000 {
+		frame@17c21000 {
 			frame-number = <0>;
 			interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>;
@@ -417,7 +417,7 @@
 			status = "disabled";
 		};
 
-		frame@17c2b0000 {
+		frame@17c2b000 {
 			frame-number = <5>;
 			interrupts = <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>;
 			reg = <0x17c2b000 0x1000>;
@@ -441,7 +441,7 @@ qcom,msm-imem@146bf000 {
 
 		restart_reason@65c {
 			compatible = "qcom,msm-imem-restart_reason";
-			reg = <0x65c 4>;
+			reg = <0x65c 0x4>;
 		};
 
 		dload_type@1c {
@@ -451,17 +451,17 @@ qcom,msm-imem@146bf000 {
 
 		boot_stats@6b0 {
 			compatible = "qcom,msm-imem-boot_stats";
-			reg = <0x6b0 32>;
+			reg = <0x6b0 0x20>;
 		};
 
 		kaslr_offset@6d0 {
 			compatible = "qcom,msm-imem-kaslr_offset";
-			reg = <0x6d0 12>;
+			reg = <0x6d0 0xc>;
 		};
 
 		pil@94c {
 			compatible = "qcom,msm-imem-pil";
-			reg = <0x94c 200>;
+			reg = <0x94c 0xc8>;
 		};
 	};
 
@@ -719,7 +719,7 @@ qcom,msm-imem@146bf000 {
 		mboxes = <&ipcc_mproc IPCC_CLIENT_APSS IPCC_MPROC_SIGNAL_SMP2P>;
 	};
 
-	apps_rsc: rsc@0x18200000 {
+	apps_rsc: rsc@18200000 {
 		label = "apps_rsc";
 		compatible = "qcom,rpmh-rsc";
 		reg = <0x18200000 0x10000>,
