@@ -30,24 +30,18 @@
 			&& (value) <= (right)))
 
 struct step_chg_cfg {
-	u32			psy_prop;
-	char			*prop_name;
-	int			hysteresis;
-	struct range_data	fcc_cfg[MAX_STEP_CHG_ENTRIES];
+	struct step_chg_jeita_param	param;
+	struct range_data		fcc_cfg[MAX_STEP_CHG_ENTRIES];
 };
 
 struct jeita_fcc_cfg {
-	u32			psy_prop;
-	char			*prop_name;
-	int			hysteresis;
-	struct range_data	fcc_cfg[MAX_STEP_CHG_ENTRIES];
+	struct step_chg_jeita_param	param;
+	struct range_data		fcc_cfg[MAX_STEP_CHG_ENTRIES];
 };
 
 struct jeita_fv_cfg {
-	u32			psy_prop;
-	char			*prop_name;
-	int			hysteresis;
-	struct range_data	fv_cfg[MAX_STEP_CHG_ENTRIES];
+	struct step_chg_jeita_param	param;
+	struct range_data		fv_cfg[MAX_STEP_CHG_ENTRIES];
 };
 
 struct step_chg_info {
@@ -267,9 +261,10 @@ static int get_step_chg_jeita_setting_from_profile(struct step_chg_info *chip)
 	chip->soc_based_step_chg =
 		of_property_read_bool(profile_node, "qcom,soc-based-step-chg");
 	if (chip->soc_based_step_chg) {
-		chip->step_chg_config->psy_prop = POWER_SUPPLY_PROP_CAPACITY,
-		chip->step_chg_config->prop_name = "SOC";
-		chip->step_chg_config->hysteresis = 0;
+		chip->step_chg_config->param.psy_prop =
+				POWER_SUPPLY_PROP_CAPACITY;
+		chip->step_chg_config->param.prop_name = "SOC";
+		chip->step_chg_config->param.hysteresis = 0;
 	}
 
 	chip->step_chg_cfg_valid = true;
@@ -459,15 +454,15 @@ static int handle_step_chg_config(struct step_chg_info *chip)
 	}
 
 	rc = power_supply_get_property(chip->batt_psy,
-			chip->step_chg_config->psy_prop, &pval);
+			chip->step_chg_config->param.psy_prop, &pval);
 	if (rc < 0) {
 		pr_err("Couldn't read %s property rc=%d\n",
-			chip->step_chg_config->prop_name, rc);
+			chip->step_chg_config->param.prop_name, rc);
 		return rc;
 	}
 
 	rc = get_val(chip->step_chg_config->fcc_cfg,
-			chip->step_chg_config->hysteresis,
+			chip->step_chg_config->param.hysteresis,
 			chip->step_index,
 			pval.intval,
 			&chip->step_index,
@@ -487,7 +482,7 @@ static int handle_step_chg_config(struct step_chg_info *chip)
 	vote(chip->fcc_votable, STEP_CHG_VOTER, true, fcc_ua);
 
 	pr_debug("%s = %d Step-FCC = %duA\n",
-		chip->step_chg_config->prop_name, pval.intval, fcc_ua);
+		chip->step_chg_config->param.prop_name, pval.intval, fcc_ua);
 
 update_time:
 	chip->step_last_update_time = ktime_get();
@@ -527,15 +522,15 @@ static int handle_jeita(struct step_chg_info *chip)
 		goto reschedule;
 
 	rc = power_supply_get_property(chip->batt_psy,
-			chip->jeita_fcc_config->psy_prop, &pval);
+			chip->jeita_fcc_config->param.psy_prop, &pval);
 	if (rc < 0) {
 		pr_err("Couldn't read %s property rc=%d\n",
-				chip->jeita_fcc_config->prop_name, rc);
+				chip->jeita_fcc_config->param.prop_name, rc);
 		return rc;
 	}
 
 	rc = get_val(chip->jeita_fcc_config->fcc_cfg,
-			chip->jeita_fcc_config->hysteresis,
+			chip->jeita_fcc_config->param.hysteresis,
 			chip->jeita_fcc_index,
 			pval.intval,
 			&chip->jeita_fcc_index,
@@ -552,7 +547,7 @@ static int handle_jeita(struct step_chg_info *chip)
 	vote(chip->fcc_votable, JEITA_VOTER, fcc_ua ? true : false, fcc_ua);
 
 	rc = get_val(chip->jeita_fv_config->fv_cfg,
-			chip->jeita_fv_config->hysteresis,
+			chip->jeita_fv_config->param.hysteresis,
 			chip->jeita_fv_index,
 			pval.intval,
 			&chip->jeita_fv_index,
@@ -767,9 +762,9 @@ int qcom_step_chg_init(struct device *dev,
 	if (!chip->step_chg_config)
 		return -ENOMEM;
 
-	chip->step_chg_config->psy_prop = POWER_SUPPLY_PROP_VOLTAGE_NOW;
-	chip->step_chg_config->prop_name = "VBATT";
-	chip->step_chg_config->hysteresis = 100000;
+	chip->step_chg_config->param.psy_prop = POWER_SUPPLY_PROP_VOLTAGE_NOW;
+	chip->step_chg_config->param.prop_name = "VBATT";
+	chip->step_chg_config->param.hysteresis = 100000;
 
 	chip->jeita_fcc_config = devm_kzalloc(dev,
 			sizeof(struct jeita_fcc_cfg), GFP_KERNEL);
@@ -778,12 +773,12 @@ int qcom_step_chg_init(struct device *dev,
 	if (!chip->jeita_fcc_config || !chip->jeita_fv_config)
 		return -ENOMEM;
 
-	chip->jeita_fcc_config->psy_prop = POWER_SUPPLY_PROP_TEMP;
-	chip->jeita_fcc_config->prop_name = "BATT_TEMP";
-	chip->jeita_fcc_config->hysteresis = 10;
-	chip->jeita_fv_config->psy_prop = POWER_SUPPLY_PROP_TEMP;
-	chip->jeita_fv_config->prop_name = "BATT_TEMP";
-	chip->jeita_fv_config->hysteresis = 10;
+	chip->jeita_fcc_config->param.psy_prop = POWER_SUPPLY_PROP_TEMP;
+	chip->jeita_fcc_config->param.prop_name = "BATT_TEMP";
+	chip->jeita_fcc_config->param.hysteresis = 10;
+	chip->jeita_fv_config->param.psy_prop = POWER_SUPPLY_PROP_TEMP;
+	chip->jeita_fv_config->param.prop_name = "BATT_TEMP";
+	chip->jeita_fv_config->param.hysteresis = 10;
 
 	INIT_DELAYED_WORK(&chip->status_change_work, status_change_work);
 	INIT_DELAYED_WORK(&chip->get_config_work, get_config_work);
