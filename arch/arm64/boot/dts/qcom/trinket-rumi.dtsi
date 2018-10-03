@@ -45,6 +45,10 @@
 	};
 };
 
+&qupv3_se4_2uart {
+	status = "ok";
+};
+
 &usb0 {
 	/delete-property/ extcon;
 	dwc3@4e00000 {

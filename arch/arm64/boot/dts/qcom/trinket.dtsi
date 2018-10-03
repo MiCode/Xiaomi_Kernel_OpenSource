@@ -28,6 +28,10 @@
 	qcom,msm-id = <394 0x0>;
 	interrupt-parent = <&intc>;
 
+	aliases {
+		serial0 = &qupv3_se4_2uart;
+	};
+
 	cpus {
 		#address-cells = <2>;
 		#size-cells = <0>;
@@ -1222,8 +1226,10 @@
 		cell-index = <0>;
 	};
 };
+
 #include "pmi632.dtsi"
 #include "pm6125.dtsi"
+#include "trinket-qupv3.dtsi"
 #include "trinket-pinctrl.dtsi"
 #include "trinket-ion.dtsi"
 #include "pm6125-rpm-regulator.dtsi"
