@@ -4059,10 +4059,13 @@ static int dwc3_msm_pm_suspend(struct device *dev)
 	}
 
 	ret = dwc3_msm_suspend(mdwc, false);
-	if (!ret)
-		atomic_set(&mdwc->pm_suspended, 1);
+	if (ret)
+		return ret;
 
-	return ret;
+	flush_work(&mdwc->bus_vote_w);
+	atomic_set(&mdwc->pm_suspended, 1);
+
+	return 0;
 }
 
 static int dwc3_msm_pm_freeze(struct device *dev)
@@ -4091,10 +4094,13 @@ static int dwc3_msm_pm_freeze(struct device *dev)
 	mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
 
 	ret = dwc3_msm_suspend(mdwc, true);
-	if (!ret)
-		atomic_set(&mdwc->pm_suspended, 1);
+	if (ret)
+		return ret;
 
-	return ret;
+	flush_work(&mdwc->bus_vote_w);
+	atomic_set(&mdwc->pm_suspended, 1);
+
+	return 0;
 }
 
 static int dwc3_msm_pm_resume(struct device *dev)
