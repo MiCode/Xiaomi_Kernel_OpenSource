@@ -19,6 +19,7 @@
 #include <dt-bindings/clock/qcom,dispcc-trinket.h>
 #include <dt-bindings/clock/qcom,gpucc-trinket.h>
 #include <dt-bindings/clock/qcom,videocc-sm6150.h>
+#include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. TRINKET";
@@ -1024,6 +1025,8 @@
 };
 #include "trinket-pinctrl.dtsi"
 #include "trinket-ion.dtsi"
+#include "pm6125-rpm-regulator.dtsi"
+#include "trinket-regulator.dtsi"
 #include "trinket-gdsc.dtsi"
 #include "trinket-usb.dtsi"
 
