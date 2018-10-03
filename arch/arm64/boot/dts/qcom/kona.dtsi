@@ -589,7 +589,7 @@ qcom,msm-imem@146bf000 {
 			"ref_clk",
 			"ref_aux_clk";
 		clocks = <&clock_rpmh RPMH_CXO_CLK>,
-			<&clock_gcc GCC_UFS_MEM_CLKREF_CLK>,
+			<&clock_gcc GCC_UFS_1X_CLKREF_EN>,
 			<&clock_gcc GCC_UFS_PHY_PHY_AUX_CLK>;
 
 		status = "disabled";
