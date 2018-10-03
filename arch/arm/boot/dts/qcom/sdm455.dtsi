@@ -1,0 +1,45 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "sdm630.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDM455";
+	compatible = "qcom,sdm455";
+	qcom,msm-id = <385 0x0>;
+	qcom,msm-name = "SDM455";
+};
+
+&soc {
+	mdss_dp_ctrl: qcom,dp_ctrl@c990000 {
+		status = "disabled";
+	};
+
+	mdss_dp_pll: qcom,mdss_dp_pll@c011000 {
+		status = "disabled";
+	};
+};
+
+&mdss_mdp {
+
+	/delete-property/ qcom,mdss-ad-off;
+	/delete-property/ qcom,max-dest-scaler-input-width;
+	/delete-property/ qcom,max-dest-scaler-output-width;
+	qcom,mdss-scaler-offsets {
+		qcom,mdss-vig-scaler-off = <0xa00>;
+		qcom,mdss-vig-scaler-lut-off = <0xb00>;
+		/delete-property/ qcom,mdss-has-dest-scaler;
+		/delete-property/ qcom,mdss-dest-block-off;
+		/delete-property/ qcom,mdss-dest-scaler-off;
+		/delete-property/ qcom,mdss-dest-scaler-lut-off;
+	};
+};

@@ -723,7 +723,7 @@ bool is_scm_armv8(void)
 
 	ret = scm_call_qcpe(x0 | SMC64_MASK, &desc);
 
-	ret1 = desc.arginfo;
+	ret1 = desc.ret[0];
 
 	if (ret || !ret1) {
 		/* Try SMC32 call */
@@ -1009,7 +1009,7 @@ s32 scm_call_atomic1_1(u32 svc, u32 cmd, u32 arg1, u32 *ret1)
 	if (ret < 0)
 		return scm_remap_error(ret);
 
-	*ret1 = desc.arginfo;
+	*ret1 = desc.ret[0];
 
 	return 0;
 }
@@ -1117,8 +1117,8 @@ s32 scm_call_atomic4_3(u32 svc, u32 cmd, u32 arg1, u32 arg2,
 	if (ret < 0)
 		return scm_remap_error(ret);
 
-	*ret1 = desc.arginfo;
-	*ret2 = desc.args[0];
+	*ret1 = desc.ret[0];
+	*ret2 = desc.ret[1];
 
 	return 0;
 }
@@ -1169,9 +1169,9 @@ s32 scm_call_atomic5_3(u32 svc, u32 cmd, u32 arg1, u32 arg2,
 	if (ret < 0)
 		return scm_remap_error(ret);
 
-	*ret1 = desc.arginfo;
-	*ret2 = desc.args[0];
-	*ret3 = desc.args[1];
+	*ret1 = desc.ret[0];
+	*ret2 = desc.ret[1];
+	*ret3 = desc.ret[2];
 
 	return 0;
 }
@@ -1201,7 +1201,7 @@ u32 scm_get_version(void)
 
 	ret = scm_call_qcpe(x0, &desc);
 
-	version = desc.arginfo;
+	version = desc.ret[0];
 
 	mutex_unlock(&scm_lock);
 
