@@ -44,7 +44,7 @@
 #define MHI_RING_PRIMARY_EVT_ID		1
 #define MHI_1K_SIZE			0x1000
 /* Updated Specification for event start is NER - 2 and end - NER -1 */
-#define MHI_HW_ACC_EVT_RING_START	2
+#define MHI_HW_ACC_EVT_RING_START	3
 #define MHI_HW_ACC_EVT_RING_END		1
 
 #define MHI_HOST_REGION_NUM             2
@@ -495,7 +495,9 @@ static int mhi_hwc_chcmd(struct mhi_dev *mhi, uint chid,
 	case MHI_DEV_RING_EL_START:
 		connect_params.channel_id = chid;
 		connect_params.sys.skip_ep_cfg = true;
-		if ((chid % 2) == 0x0)
+		if (chid == MHI_CLIENT_ADPL_IN)
+			connect_params.sys.client = IPA_CLIENT_MHI_DPL_CONS;
+		else if ((chid % 2) == 0x0)
 			connect_params.sys.client = IPA_CLIENT_MHI_PROD;
 		else
 			connect_params.sys.client = IPA_CLIENT_MHI_CONS;
