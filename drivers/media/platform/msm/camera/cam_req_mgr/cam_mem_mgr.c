@@ -318,10 +318,10 @@ int cam_mem_mgr_cache_ops(struct cam_mem_cache_ops_cmd *cmd)
 	if (dmabuf_flag & ION_FLAG_CACHED) {
 		switch (cmd->mem_cache_ops) {
 		case CAM_MEM_CLEAN_CACHE:
-			cache_dir = DMA_FROM_DEVICE;
+			cache_dir = DMA_TO_DEVICE;
 			break;
 		case CAM_MEM_INV_CACHE:
-			cache_dir = DMA_TO_DEVICE;
+			cache_dir = DMA_FROM_DEVICE;
 			break;
 		case CAM_MEM_CLEAN_INV_CACHE:
 			cache_dir = DMA_BIDIRECTIONAL;
@@ -338,7 +338,8 @@ int cam_mem_mgr_cache_ops(struct cam_mem_cache_ops_cmd *cmd)
 	}
 
 	rc = dma_buf_begin_cpu_access(tbl.bufq[idx].dma_buf,
-		cache_dir);
+		(cmd->mem_cache_ops == CAM_MEM_CLEAN_INV_CACHE) ?
+		DMA_BIDIRECTIONAL : DMA_TO_DEVICE);
 	if (rc) {
 		CAM_ERR(CAM_MEM, "dma begin access failed rc=%d", rc);
 		goto end;
