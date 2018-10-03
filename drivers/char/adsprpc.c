@@ -652,13 +652,18 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, unsigned attr,
 	struct fastrpc_session_ctx *sess;
 	struct fastrpc_apps *apps = fl->apps;
 	int cid = fl->cid;
-	struct fastrpc_channel_ctx *chan = &apps->channel[cid];
+	struct fastrpc_channel_ctx *chan = NULL;
 	struct fastrpc_mmap *map = NULL;
 	struct dma_attrs attrs;
 	dma_addr_t region_start = 0;
 	void *region_vaddr = NULL;
 	unsigned long flags;
 	int err = 0, vmid;
+
+	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS);
+	if (err)
+		goto bail;
+	chan = &apps->channel[cid];
 
 	if (!fastrpc_mmap_find(fl, fd, va, len, mflags, ppmap))
 		return 0;
@@ -2016,6 +2021,9 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	ioctl.attrs = NULL;
 	VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
 		FASTRPC_MODE_PARALLEL, 1, &ioctl)));
+	if (err)
+		pr_err("adsprpc: %s: releasing DSP process failed for %s, returned 0x%x",
+					__func__, current->comm, err);
 bail:
 	return err;
 }
