@@ -123,14 +123,20 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sdmmagpie-idp-overlay.dtbo \
 		sdmmagpie-rumi-overlay.dtbo \
 		sdmmagpie-qrd-overlay.dtbo \
+		sdmmagpiep-idp-overlay.dtbo \
+		sdmmagpiep-qrd-overlay.dtbo
 
 sdmmagpie-idp-overlay.dtbo-base := sdmmagpie.dtb
 sdmmagpie-rumi-overlay.dtbo-base := sdmmagpie.dtb
 sdmmagpie-qrd-overlay.dtbo-base := sdmmagpie.dtb
+sdmmagpiep-idp-overlay.dtbo-base := sdmmagpiep.dtb
+sdmmagpiep-qrd-overlay.dtbo-base := sdmmagpiep.dtb
 else
 dtb-$(CONFIG_ARCH_SDMMAGPIE)	+= sdmmagpie-rumi.dtb \
 	sdmmagpie-idp.dtb \
-	sdmmagpie-qrd.dtb
+	sdmmagpie-qrd.dtb \
+	sdmmagpiep-idp.dtb \
+	sdmmagpiep-qrd.dtb
 endif
 
 dtb-$(CONFIG_ARCH_SDXPRAIRIE) += sdxprairie-rumi.dtb \
