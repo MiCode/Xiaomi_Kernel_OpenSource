@@ -160,6 +160,7 @@ struct ipa_gsb_context {
 	struct mutex iface_lock[MAX_SUPPORTED_IFACE];
 	spinlock_t iface_spinlock[MAX_SUPPORTED_IFACE];
 	u32 pm_hdl;
+	atomic_t disconnect_in_progress;
 };
 
 static struct ipa_gsb_context *ipa_gsb_ctx;
@@ -908,7 +909,7 @@ static int ipa_gsb_disconnect_sys_pipe(void)
 
 int ipa_bridge_disconnect(u32 hdl)
 {
-	int ret;
+	int ret = 0;
 
 	if (!ipa_gsb_ctx) {
 		IPA_GSB_ERR("ipa_gsb_ctx was not initialized\n");
@@ -923,31 +924,33 @@ int ipa_bridge_disconnect(u32 hdl)
 	IPA_GSB_DBG("client hdl: %d\n", hdl);
 
 	mutex_lock(&ipa_gsb_ctx->iface_lock[hdl]);
+	atomic_set(&ipa_gsb_ctx->disconnect_in_progress, 1);
+
 	if (!ipa_gsb_ctx->iface[hdl]) {
 		IPA_GSB_ERR("fail to find interface, hdl: %d\n", hdl);
-		mutex_unlock(&ipa_gsb_ctx->iface_lock[hdl]);
-		return -EFAULT;
+		ret = -EFAULT;
+		goto fail;
 	}
 
 	if (!ipa_gsb_ctx->iface[hdl]->is_connected) {
 		IPA_GSB_DBG("iface was not connected\n");
-		mutex_unlock(&ipa_gsb_ctx->iface_lock[hdl]);
-		return 0;
+		ret = 0;
+		goto fail;
 	}
 
 	if (ipa_gsb_ctx->num_connected_iface == 1) {
 		ret = ipa_gsb_disconnect_sys_pipe();
 		if (ret) {
 			IPA_GSB_ERR("fail to discon pipes\n");
-			mutex_unlock(&ipa_gsb_ctx->iface_lock[hdl]);
-			return -EFAULT;
+			ret = -EFAULT;
+			goto fail;
 		}
 
 		ret = ipa_pm_deactivate_sync(ipa_gsb_ctx->pm_hdl);
 		if (ret) {
 			IPA_GSB_ERR("failed to deactivate ipa pm\n");
-			mutex_unlock(&ipa_gsb_ctx->iface_lock[hdl]);
-			return -EFAULT;
+			ret = -EFAULT;
+			goto fail;
 		}
 	}
 
@@ -964,8 +967,10 @@ int ipa_bridge_disconnect(u32 hdl)
 			ipa_gsb_ctx->num_resumed_iface);
 	}
 
+fail:
+	atomic_set(&ipa_gsb_ctx->disconnect_in_progress, 0);
 	mutex_unlock(&ipa_gsb_ctx->iface_lock[hdl]);
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL(ipa_bridge_disconnect);
 
@@ -1137,6 +1142,11 @@ int ipa_bridge_tx_dp(u32 hdl, struct sk_buff *skb,
 
 	if (!ipa_gsb_ctx->iface[hdl]) {
 		IPA_GSB_ERR("fail to find interface, hdl: %d\n", hdl);
+		return -EFAULT;
+	}
+
+	if (unlikely(atomic_read(&ipa_gsb_ctx->disconnect_in_progress))) {
+		IPA_GSB_ERR("ipa bridge disconnect_in_progress\n");
 		return -EFAULT;
 	}
 
