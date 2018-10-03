@@ -155,10 +155,17 @@ static int mhi_runtime_suspend(struct device *dev)
 {
 	int ret = 0;
 	struct mhi_controller *mhi_cntrl = dev_get_drvdata(dev);
+	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
 
 	MHI_LOG("Enter\n");
 
 	mutex_lock(&mhi_cntrl->pm_mutex);
+
+	if (!mhi_dev->powered_on) {
+		MHI_LOG("Not fully powered, return success\n");
+		mutex_unlock(&mhi_cntrl->pm_mutex);
+		return 0;
+	}
 
 	ret = mhi_pm_suspend(mhi_cntrl);
 	if (ret) {
