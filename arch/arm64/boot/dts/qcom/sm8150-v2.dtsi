@@ -671,6 +671,18 @@
 	reg-names = "kgsl_gmu_reg",
 		"kgsl_gmu_pdc_cfg",
 		"kgsl_gmu_pdc_seq";
+
+	qcom,gpu-acd-table {
+		/* Corresponds to levels in the GPU perf table */
+		qcom,acd-enable-by-level = <0x1e>;
+		qcom,acd-stride = <0x2>;
+		qcom,acd-num-levels = <0x4>;
+
+		qcom,acd-data = <0xa02d5ffd 0x00007611
+				0xa02d5ffd 0x00006911
+				0xa02d5ffd 0x00006111
+				0x802d5ffd 0x00005411>;
+	};
 };
 
 /* NPU overrides */
