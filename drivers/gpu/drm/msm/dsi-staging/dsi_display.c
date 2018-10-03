@@ -4786,12 +4786,6 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 				break;
 			}
 			continue;
-		} else if (index == DSI_SECONDARY) {
-			/*
-			 * secondary display is currently
-			 * supported through boot params only
-			 */
-			break;
 		}
 
 		if (of_property_read_bool(np, disp_active)) {
