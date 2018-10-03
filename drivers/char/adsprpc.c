@@ -796,13 +796,18 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 	struct fastrpc_session_ctx *sess;
 	struct fastrpc_apps *apps = fl->apps;
 	int cid = fl->cid;
-	struct fastrpc_channel_ctx *chan = &apps->channel[cid];
+	struct fastrpc_channel_ctx *chan = NULL;
 	struct fastrpc_mmap *map = NULL;
 	dma_addr_t region_phys = 0;
 	void *region_vaddr = NULL;
 	unsigned long flags;
 	int err = 0, vmid, sgl_index = 0;
 	struct scatterlist *sgl = NULL;
+
+	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS);
+	if (err)
+		goto bail;
+	chan = &apps->channel[cid];
 
 	if (!fastrpc_mmap_find(fl, fd, va, len, mflags, 1, ppmap))
 		return 0;
