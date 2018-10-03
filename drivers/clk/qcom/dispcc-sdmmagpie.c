@@ -104,7 +104,7 @@ static const struct parent_map disp_cc_parent_map_3[] = {
 static const char * const disp_cc_parent_names_3[] = {
 	"bi_tcxo",
 	"disp_cc_pll0",
-	"gpll0",
+	"gcc_disp_gpll0_clk_src",
 	"disp_cc_pll0_out_even",
 	"core_bi_pll_test_se",
 };
@@ -131,7 +131,7 @@ static const struct parent_map disp_cc_parent_map_5[] = {
 
 static const char * const disp_cc_parent_names_5[] = {
 	"bi_tcxo",
-	"gpll0",
+	"gcc_disp_gpll0_clk_src",
 	"core_bi_pll_test_se",
 };
 
@@ -195,6 +195,7 @@ static struct clk_rcg2 disp_cc_mdss_ahb_clk_src = {
 		.name = "disp_cc_mdss_ahb_clk_src",
 		.parent_names = disp_cc_parent_names_5,
 		.num_parents = 3,
+		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
@@ -636,7 +637,7 @@ static struct clk_branch disp_cc_mdss_byte0_intf_clk = {
 				"disp_cc_mdss_byte0_div_clk_src",
 			},
 			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT | CLK_GET_RATE_NOCACHE,
+			.flags = CLK_GET_RATE_NOCACHE,
 			.ops = &clk_branch2_ops,
 		},
 	},
