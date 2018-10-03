@@ -4318,7 +4318,7 @@ static int msm_otg_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&motg->sdp_check, check_for_sdp_connection);
 	INIT_WORK(&motg->notify_charger_work, msm_otg_notify_charger_work);
 	INIT_WORK(&motg->extcon_register_work, msm_otg_extcon_register_work);
-	motg->otg_wq = alloc_ordered_workqueue("k_otg", 0);
+	motg->otg_wq = alloc_ordered_workqueue("k_otg", WQ_FREEZABLE);
 	if (!motg->otg_wq) {
 		pr_err("%s: Unable to create workqueue otg_wq\n",
 			__func__);
