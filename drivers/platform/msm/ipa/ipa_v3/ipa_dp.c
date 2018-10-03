@@ -2660,7 +2660,7 @@ void ipa3_lan_rx_cb(void *priv, enum ipa_dp_evt_type evt, unsigned long data)
 	if (unlikely(src_pipe >= ipa3_ctx->ipa_num_pipes ||
 		!ep->valid ||
 		!ep->client_notify)) {
-		IPAERR("drop pipe=%d ep_valid=%d client_notify=%pK\n",
+		IPAERR_RL("drop pipe=%d ep_valid=%d client_notify=%pK\n",
 		  src_pipe, ep->valid, ep->client_notify);
 		dev_kfree_skb_any(rx_skb);
 		return;
