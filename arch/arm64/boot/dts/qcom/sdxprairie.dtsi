@@ -63,6 +63,7 @@
 	soc: soc { };
 };
 
+#include "sdxprairie-regulator.dtsi"
 
 &soc {
 	#address-cells = <1>;
