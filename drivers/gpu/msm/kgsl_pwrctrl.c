@@ -2760,6 +2760,12 @@ _aware(struct kgsl_device *device)
 		status = gmu_start(device);
 		break;
 	case KGSL_STATE_INIT:
+		/* if GMU already in FAULT */
+		if (kgsl_gmu_isenabled(device) &&
+			test_bit(GMU_FAULT, &gmu->flags)) {
+			status = -EINVAL;
+			break;
+		}
 		status = kgsl_pwrctrl_enable(device);
 		break;
 	/* The following 3 cases shouldn't occur, but don't panic. */
