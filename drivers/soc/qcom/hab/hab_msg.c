@@ -282,6 +282,7 @@ int hab_msg_recv(struct physical_channel *pchan,
 		}
 
 		exp_desc->domid_local = pchan->dom_id;
+		exp_desc->pchan = pchan;
 
 		hab_export_enqueue(vchan, exp_desc);
 		hab_send_export_ack(vchan, pchan, exp_desc);
