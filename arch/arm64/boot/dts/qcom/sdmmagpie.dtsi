@@ -2100,6 +2100,14 @@
 			<&apps_smmu 0x0114 0x0011>;
 	};
 
+	qcom_tzlog: tz-log@146aa720 {
+		compatible = "qcom,tz-log";
+		reg = <0x146aa720 0x3000>;
+		qcom,hyplog-enabled;
+		hyplog-address-offset = <0x410>;
+		hyplog-size-offset = <0x414>;
+	};
+
 	spmi_bus: qcom,spmi@c440000 {
 		compatible = "qcom,spmi-pmic-arb";
 		reg = <0xc440000 0x1100>,
