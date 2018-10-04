@@ -89,3 +89,7 @@
 &usb2_phy1 {
 	status = "disabled";
 };
+
+&qnand_1 {
+	status = "ok";
+};

@@ -899,6 +899,7 @@ static int dp_panel_read_sink_caps(struct dp_panel *dp_panel,
 			count = DP_GET_SINK_COUNT(count);
 			if (!count) {
 				pr_err("no downstream ports connected\n");
+				panel->link->sink_count.count = 0;
 				rc = -ENOTCONN;
 				goto end;
 			}
@@ -1328,11 +1329,6 @@ static int dp_panel_setup_hdr(struct dp_panel *dp_panel,
 		goto end;
 	}
 
-	if (dp_panel->stream_id >= DP_STREAM_MAX) {
-		pr_err("invalid stream id:%d\n", dp_panel->stream_id);
-		return -EINVAL;
-	}
-
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 	hdr = &panel->catalog->hdr_data;
 
@@ -1683,7 +1679,6 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	dp_panel->spd_enabled = true;
 	memcpy(panel->spd_vendor_name, vendor_name, (sizeof(u8) * 8));
 	memcpy(panel->spd_product_description, product_desc, (sizeof(u8) * 16));
-	dp_panel->stream_id = DP_STREAM_MAX;
 	dp_panel->connector = in->connector;
 
 	if (in->base_panel) {

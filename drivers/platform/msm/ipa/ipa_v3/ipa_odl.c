@@ -14,6 +14,7 @@
 #include "ipa_odl.h"
 #include <linux/msm_ipa.h>
 #include <linux/sched/signal.h>
+#include <linux/poll.h>
 
 struct ipa_odl_context *ipa3_odl_ctx;
 
@@ -96,60 +97,65 @@ static ssize_t ipa_odl_ctl_fops_read(struct file *filp, char __user *buf,
 	bool new_state = false;
 
 	start = buf;
-	while (1) {
-		wait_event_interruptible(odl_ctl_msg_wq,
-			ipa3_odl_ctx->odl_ctl_msg_wq_flag == true);
-		ipa3_odl_ctx->odl_ctl_msg_wq_flag = false;
-		if (!ipa3_odl_ctx->odl_state.adpl_open &&
-			!ipa3_odl_ctx->odl_state.odl_disconnected)
-			break;
+	ipa3_odl_ctx->odl_ctl_msg_wq_flag = false;
 
-		if (ipa3_odl_ctx->odl_state.odl_ep_setup)
-			new_state = true;
-		else if (ipa3_odl_ctx->odl_state.odl_disconnected)
-			new_state = false;
-		else {
-			ret = -EAGAIN;
-			break;
-		}
-
-		if (old_state != new_state) {
-			old_state = new_state;
-
-			if (new_state == true)
-				data = 1;
-			else if (new_state == false)
-				data = 0;
-
-			if (copy_to_user(buf, &data,
-				sizeof(data))) {
-				ret = -EFAULT;
-				break;
-			}
-
-			buf += sizeof(data);
-
-			if (data == 1)
-				ipa3_odl_ctx->odl_state.odl_setup_done_sent =
-									true;
-		}
-
-		ret = -EAGAIN;
-		if (filp->f_flags & O_NONBLOCK)
-			break;
-
-		ret = -EINTR;
-		if (signal_pending(current))
-			break;
-
-		if (start != buf)
-			break;
+	if (!ipa3_odl_ctx->odl_state.adpl_open &&
+			!ipa3_odl_ctx->odl_state.odl_disconnected) {
+		IPADBG("Failed to send data odl pipe already disconnected\n");
+		ret = -EFAULT;
+		goto send_failed;
 	}
+
+	if (ipa3_odl_ctx->odl_state.odl_ep_setup)
+		new_state = true;
+	else if (ipa3_odl_ctx->odl_state.odl_disconnected)
+		new_state = false;
+	else {
+		IPADBG("Failed to send data odl already running\n");
+		ret = -EFAULT;
+		goto send_failed;
+	}
+
+	if (old_state != new_state) {
+		old_state = new_state;
+
+		if (new_state == true)
+			data = 1;
+		else if (new_state == false)
+			data = 0;
+
+		if (copy_to_user(buf, &data,
+					sizeof(data))) {
+			IPADBG("Cpoying data to user failed\n");
+			ret = -EFAULT;
+			goto send_failed;
+		}
+
+		buf += sizeof(data);
+
+		if (data == 1)
+			ipa3_odl_ctx->odl_state.odl_setup_done_sent =
+				true;
+	}
+
 
 	if (start != buf && ret != -EFAULT)
 		ret = buf - start;
-
+send_failed:
 	return ret;
+}
+
+static unsigned int ipa_odl_ctl_fops_poll(struct file *file, poll_table *wait)
+{
+	unsigned int mask = 0;
+
+	poll_wait(file, &odl_ctl_msg_wq, wait);
+
+	if (ipa3_odl_ctx->odl_ctl_msg_wq_flag == true) {
+		IPADBG("Sending read mask to odl control pipe\n");
+		mask |= POLLIN | POLLRDNORM;
+	}
+	return mask;
 }
 
 static long ipa_odl_ctl_fops_ioctl(struct file *filp, unsigned int cmd,
@@ -215,7 +221,8 @@ static void delete_first_node(void)
 			kfree(msg->buff);
 			kfree(msg);
 			ipa3_odl_ctx->stats.odl_drop_pkt++;
-			IPA_STATS_DEC_CNT(ipa3_odl_ctx->stats.numer_in_queue);
+			if (atomic_read(&ipa3_odl_ctx->stats.numer_in_queue))
+				atomic_dec(&ipa3_odl_ctx->stats.numer_in_queue);
 		}
 	} else {
 		IPADBG("List Empty\n");
@@ -244,10 +251,11 @@ int ipa3_send_adpl_msg(unsigned long skb_data)
 	msg->buff = data;
 	msg->len = skb->len;
 	mutex_lock(&ipa3_odl_ctx->adpl_msg_lock);
-	if (ipa3_odl_ctx->stats.numer_in_queue >= MAX_QUEUE_TO_ODL)
+	if (atomic_read(&ipa3_odl_ctx->stats.numer_in_queue) >=
+						MAX_QUEUE_TO_ODL)
 		delete_first_node();
 	list_add_tail(&msg->link, &ipa3_odl_ctx->adpl_msg_list);
-	IPA_STATS_INC_CNT(ipa3_odl_ctx->stats.numer_in_queue);
+	atomic_inc(&ipa3_odl_ctx->stats.numer_in_queue);
 	mutex_unlock(&ipa3_odl_ctx->adpl_msg_lock);
 	IPA_STATS_INC_CNT(ipa3_odl_ctx->stats.odl_rx_pkt);
 
@@ -342,7 +350,7 @@ int ipa3_odl_pipe_open(void)
 	IPADBG("Setup endpoint config success\n");
 
 	ipa3_odl_ctx->stats.odl_drop_pkt = 0;
-	ipa3_odl_ctx->stats.numer_in_queue = 0;
+	atomic_set(&ipa3_odl_ctx->stats.numer_in_queue, 0);
 	ipa3_odl_ctx->stats.odl_rx_pkt = 0;
 	ipa3_odl_ctx->stats.odl_tx_diag_pkt = 0;
 	/*
@@ -422,7 +430,7 @@ void ipa3_odl_pipe_cleanup(bool is_ssr)
 	 */
 	ipa3_odl_ctx->odl_ctl_msg_wq_flag = true;
 	ipa3_odl_ctx->stats.odl_drop_pkt = 0;
-	ipa3_odl_ctx->stats.numer_in_queue = 0;
+	atomic_set(&ipa3_odl_ctx->stats.numer_in_queue, 0);
 	ipa3_odl_ctx->stats.odl_rx_pkt = 0;
 	ipa3_odl_ctx->stats.odl_tx_diag_pkt = 0;
 	IPADBG("Wake up odl ctl\n");
@@ -465,7 +473,8 @@ static ssize_t ipa_adpl_read(struct file *filp, char __user *buf, size_t count,
 			msg = list_first_entry(&ipa3_odl_ctx->adpl_msg_list,
 					struct ipa3_push_msg_odl, link);
 			list_del(&msg->link);
-			IPA_STATS_DEC_CNT(ipa3_odl_ctx->stats.numer_in_queue);
+			if (atomic_read(&ipa3_odl_ctx->stats.numer_in_queue))
+				atomic_dec(&ipa3_odl_ctx->stats.numer_in_queue);
 		}
 
 		mutex_unlock(&ipa3_odl_ctx->adpl_msg_lock);
@@ -562,6 +571,7 @@ static const struct file_operations ipa_odl_ctl_fops = {
 	.release = ipa_odl_ctl_fops_release,
 	.read = ipa_odl_ctl_fops_read,
 	.unlocked_ioctl = ipa_odl_ctl_fops_ioctl,
+	.poll = ipa_odl_ctl_fops_poll,
 };
 
 static const struct file_operations ipa_adpl_fops = {

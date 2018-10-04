@@ -20,6 +20,8 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/dfc.h>
 
+#define DFC_IS_ANCILLARY(type) ((type) != AF_INET && (type) != AF_INET6)
+
 #define DFC_MAX_BEARERS_V01 16
 #define DFC_MAX_QOS_ID_V01 2
 
@@ -79,7 +81,7 @@ static void dfc_do_burst_flow_control(struct work_struct *work);
 #define QMI_DFC_INDICATION_REGISTER_RESP_V01_MAX_MSG_LEN 7
 
 #define QMI_DFC_FLOW_STATUS_IND_V01 0x0022
-#define QMI_DFC_FLOW_STATUS_IND_V01_MAX_MSG_LEN 424
+#define QMI_DFC_FLOW_STATUS_IND_V01_MAX_MSG_LEN 540
 
 struct dfc_bind_client_req_msg_v01 {
 	u8 ep_id_valid;
@@ -234,12 +236,74 @@ static struct qmi_elem_info dfc_flow_status_info_type_v01_ei[] = {
 	},
 };
 
+struct dfc_ancillary_info_type_v01 {
+	u8 subs_id;
+	u8 mux_id;
+	u8 bearer_id;
+	u32 reserved;
+};
+
+static struct qmi_elem_info dfc_ancillary_info_type_v01_ei[] = {
+	{
+		.data_type	= QMI_UNSIGNED_1_BYTE,
+		.elem_len	= 1,
+		.elem_size	= sizeof(u8),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= QMI_COMMON_TLV_TYPE,
+		.offset		= offsetof(struct
+					   dfc_ancillary_info_type_v01,
+					   subs_id),
+		.ei_array	= NULL,
+	},
+	{
+		.data_type	= QMI_UNSIGNED_1_BYTE,
+		.elem_len	= 1,
+		.elem_size	= sizeof(u8),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= QMI_COMMON_TLV_TYPE,
+		.offset		= offsetof(struct
+					   dfc_ancillary_info_type_v01,
+					   mux_id),
+		.ei_array	= NULL,
+	},
+	{
+		.data_type	= QMI_UNSIGNED_1_BYTE,
+		.elem_len	= 1,
+		.elem_size	= sizeof(u8),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= QMI_COMMON_TLV_TYPE,
+		.offset		= offsetof(struct
+					   dfc_ancillary_info_type_v01,
+					   bearer_id),
+		.ei_array	= NULL,
+	},
+	{
+		.data_type	= QMI_UNSIGNED_4_BYTE,
+		.elem_len	= 1,
+		.elem_size	= sizeof(u32),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= QMI_COMMON_TLV_TYPE,
+		.offset		= offsetof(struct
+					   dfc_ancillary_info_type_v01,
+					   reserved),
+		.ei_array	= NULL,
+	},
+	{
+		.data_type	= QMI_EOTI,
+		.is_array	= NO_ARRAY,
+		.tlv_type	= QMI_COMMON_TLV_TYPE,
+	},
+};
+
 struct dfc_flow_status_ind_msg_v01 {
 	u8 flow_status_valid;
 	u8 flow_status_len;
 	struct dfc_flow_status_info_type_v01 flow_status[DFC_MAX_BEARERS_V01];
 	u8 eod_ack_reqd_valid;
 	u8 eod_ack_reqd;
+	u8 ancillary_info_valid;
+	u8 ancillary_info_len;
+	struct dfc_ancillary_info_type_v01 ancillary_info[DFC_MAX_BEARERS_V01];
 };
 
 struct dfc_svc_ind {
@@ -399,6 +463,40 @@ static struct qmi_elem_info dfc_flow_status_ind_v01_ei[] = {
 					   dfc_flow_status_ind_msg_v01,
 					   eod_ack_reqd),
 		.ei_array	= NULL,
+	},
+	{
+		.data_type	= QMI_OPT_FLAG,
+		.elem_len	= 1,
+		.elem_size	= sizeof(u8),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= 0x12,
+		.offset		= offsetof(struct
+					   dfc_flow_status_ind_msg_v01,
+					   ancillary_info_valid),
+		.ei_array	= NULL,
+	},
+	{
+		.data_type	= QMI_DATA_LEN,
+		.elem_len	= 1,
+		.elem_size	= sizeof(u8),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= 0x12,
+		.offset		= offsetof(struct
+					   dfc_flow_status_ind_msg_v01,
+					   ancillary_info_len),
+		.ei_array	= NULL,
+	},
+	{
+		.data_type	= QMI_STRUCT,
+		.elem_len	= DFC_MAX_BEARERS_V01,
+		.elem_size	= sizeof(struct
+					 dfc_ancillary_info_type_v01),
+		.is_array	= VAR_LEN_ARRAY,
+		.tlv_type	= 0x12,
+		.offset		= offsetof(struct
+					   dfc_flow_status_ind_msg_v01,
+					   ancillary_info),
+		.ei_array	= dfc_ancillary_info_type_v01_ei,
 	},
 	{
 		.data_type	= QMI_EOTI,
@@ -587,11 +685,18 @@ static int dfc_bearer_flow_ctl(struct net_device *dev,
 		itm = list_entry(p, struct rmnet_flow_map, list);
 
 		if (itm->bearer_id == bearer->bearer_id) {
+			/*
+			 * Do not flow disable ancillary q if ancillary is true
+			 */
+			if (bearer->ancillary && enable == 0 &&
+					DFC_IS_ANCILLARY(itm->ip_type))
+				continue;
+
 			qlen = qmi_rmnet_flow_control(dev, itm->tcm_handle,
 						    enable);
-			trace_dfc_qmi_tc(itm->bearer_id, itm->flow_id,
-					 bearer->grant_size, qlen,
-					 itm->tcm_handle, enable);
+			trace_dfc_qmi_tc(dev->name, itm->bearer_id,
+					 itm->flow_id, bearer->grant_size,
+					 qlen, itm->tcm_handle, enable);
 			rc++;
 		}
 	}
@@ -605,7 +710,7 @@ static int dfc_bearer_flow_ctl(struct net_device *dev,
 }
 
 static int dfc_all_bearer_flow_ctl(struct net_device *dev,
-				struct qos_info *qos, u8 ack_req,
+				struct qos_info *qos, u8 ack_req, u32 ancillary,
 				struct dfc_flow_status_info_type_v01 *fc_info)
 {
 	struct list_head *p;
@@ -621,6 +726,7 @@ static int dfc_all_bearer_flow_ctl(struct net_device *dev,
 			qmi_rmnet_grant_per(bearer_itm->grant_size);
 		bearer_itm->seq = fc_info->seq_num;
 		bearer_itm->ack_req = ack_req;
+		bearer_itm->ancillary = ancillary;
 	}
 
 	enable = fc_info->num_bytes > 0 ? 1 : 0;
@@ -630,7 +736,7 @@ static int dfc_all_bearer_flow_ctl(struct net_device *dev,
 	else
 		netif_tx_stop_all_queues(dev);
 
-	trace_dfc_qmi_tc(0xFF, 0, fc_info->num_bytes, 0, 0, enable);
+	trace_dfc_qmi_tc(dev->name, 0xFF, 0, fc_info->num_bytes, 0, 0, enable);
 
 	if (enable == 0 && ack_req)
 		dfc_send_ack(dev, fc_info->bearer_id,
@@ -641,7 +747,7 @@ static int dfc_all_bearer_flow_ctl(struct net_device *dev,
 }
 
 static int dfc_update_fc_map(struct net_device *dev, struct qos_info *qos,
-			     u8 ack_req,
+			     u8 ack_req, u32 ancillary,
 			     struct dfc_flow_status_info_type_v01 *fc_info)
 {
 	struct rmnet_bearer_map *itm = NULL;
@@ -659,6 +765,7 @@ static int dfc_update_fc_map(struct net_device *dev, struct qos_info *qos,
 		itm->grant_thresh = qmi_rmnet_grant_per(itm->grant_size);
 		itm->seq = fc_info->seq_num;
 		itm->ack_req = ack_req;
+		itm->ancillary = ancillary;
 
 		if (action != -1)
 			rc = dfc_bearer_flow_ctl(dev, itm, qos);
@@ -672,13 +779,14 @@ static int dfc_update_fc_map(struct net_device *dev, struct qos_info *qos,
 static void dfc_do_burst_flow_control(struct work_struct *work)
 {
 	struct dfc_svc_ind *svc_ind = (struct dfc_svc_ind *)work;
-	struct dfc_flow_status_ind_msg_v01 *ind =
-		(struct dfc_flow_status_ind_msg_v01 *)&svc_ind->dfc_info;
+	struct dfc_flow_status_ind_msg_v01 *ind = &svc_ind->dfc_info;
 	struct net_device *dev;
 	struct qos_info *qos;
 	struct dfc_flow_status_info_type_v01 *flow_status;
+	struct dfc_ancillary_info_type_v01 *ai;
 	u8 ack_req = ind->eod_ack_reqd_valid ? ind->eod_ack_reqd : 0;
-	int i;
+	u32 ancillary;
+	int i, j;
 
 	if (unlikely(svc_ind->data->restart_state)) {
 		kfree(svc_ind);
@@ -689,12 +797,27 @@ static void dfc_do_burst_flow_control(struct work_struct *work)
 
 	for (i = 0; i < ind->flow_status_len; i++) {
 		flow_status = &ind->flow_status[i];
+
+		ancillary = 0;
+		if (ind->ancillary_info_valid) {
+			for (j = 0; j < ind->ancillary_info_len; j++) {
+				ai = &ind->ancillary_info[j];
+				if (ai->mux_id == flow_status->mux_id &&
+				    ai->bearer_id == flow_status->bearer_id) {
+					ancillary = ai->reserved;
+					break;
+				}
+			}
+		}
+
 		trace_dfc_flow_ind(svc_ind->data->index,
 				   i, flow_status->mux_id,
 				   flow_status->bearer_id,
 				   flow_status->num_bytes,
 				   flow_status->seq_num,
-				   ack_req);
+				   ack_req,
+				   ancillary);
+
 		dev = rmnet_get_rmnet_dev(svc_ind->data->rmnet_port,
 					  flow_status->mux_id);
 		if (!dev)
@@ -708,9 +831,10 @@ static void dfc_do_burst_flow_control(struct work_struct *work)
 
 		if (unlikely(flow_status->bearer_id == 0xFF))
 			dfc_all_bearer_flow_ctl(
-				dev, qos, ack_req, flow_status);
+				dev, qos, ack_req, ancillary, flow_status);
 		else
-			dfc_update_fc_map(dev, qos, ack_req, flow_status);
+			dfc_update_fc_map(
+				dev, qos, ack_req, ancillary, flow_status);
 
 		spin_unlock_bh(&qos->qos_lock);
 	}
@@ -892,7 +1016,7 @@ void dfc_qmi_burst_check(struct net_device *dev, struct qos_info *qos,
 	struct rmnet_flow_map *itm;
 	u32 start_grant;
 
-	spin_lock(&qos->qos_lock);
+	spin_lock_bh(&qos->qos_lock);
 
 	itm = qmi_rmnet_get_flow_map(qos, mark, ip_type);
 	if (unlikely(!itm))
@@ -902,7 +1026,8 @@ void dfc_qmi_burst_check(struct net_device *dev, struct qos_info *qos,
 	if (unlikely(!bearer))
 		goto out;
 
-	trace_dfc_flow_check(bearer->bearer_id, len, bearer->grant_size);
+	trace_dfc_flow_check(dev->name, bearer->bearer_id,
+			     len, bearer->grant_size);
 
 	if (!bearer->grant_size)
 		goto out;
@@ -924,5 +1049,17 @@ void dfc_qmi_burst_check(struct net_device *dev, struct qos_info *qos,
 		dfc_bearer_flow_ctl(dev, bearer, qos);
 
 out:
-	spin_unlock(&qos->qos_lock);
+	spin_unlock_bh(&qos->qos_lock);
+}
+
+void dfc_qmi_wq_flush(struct qmi_info *qmi)
+{
+	struct dfc_qmi_data *dfc_data;
+	int i;
+
+	for (i = 0; i < MAX_CLIENT_NUM; i++) {
+		dfc_data = (struct dfc_qmi_data *)(qmi->fc_info[i].dfc_client);
+		if (dfc_data)
+			flush_workqueue(dfc_data->dfc_wq);
+	}
 }

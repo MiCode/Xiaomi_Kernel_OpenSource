@@ -1558,23 +1558,27 @@ static int wled_get_max_avail_current(struct led_classdev *led_cdev,
 	pr_debug("v_safe: %lld, i_flash: %lld, v_ph: %lld\n", v_safe_mv,
 		i_flash_ma, v_ph_mv);
 
-	if (wled->num_strings == 3 && wled->leds_per_string == 8 &&
-		v_ph_mv < 3410) {
-		/* For 8s3p, I_sink(mA) = 25.396 * Vph(V) - 26.154 */
-		i_sink_ma = (((25396 * v_ph_mv) / 1000) - 26154) / 1000;
-		i_sink_ma *= wled->num_strings;
-	} else if (wled->num_strings == 3 && wled->leds_per_string == 6 &&
-		v_ph_mv < 2800) {
-		/* For 6s3p, I_sink(mA) = 41.311 * Vph(V) - 52.334 */
-		i_sink_ma = (((41311 * v_ph_mv) / 1000) - 52334) / 1000;
-		i_sink_ma *= wled->num_strings;
-	} else if (wled->num_strings == 4 && wled->leds_per_string == 6 &&
-		v_ph_mv < 3400) {
-		/* For 6s4p, I_sink(mA) = 26.24 * Vph(V) - 24.834 */
-		i_sink_ma = (((26240 * v_ph_mv) / 1000) - 24834) / 1000;
-		i_sink_ma *= wled->num_strings;
-	} else if (v_ph_mv > 3200) {
-		i_sink_ma = max_fsc_ma;
+	i_sink_ma = max_fsc_ma;
+	if (wled->num_strings == 3 && wled->leds_per_string == 8) {
+		if (v_ph_mv < 3410) {
+			/* For 8s3p, I_sink(mA) = 25.396 * Vph(V) - 26.154 */
+			i_sink_ma = (((25396 * v_ph_mv) / 1000) - 26154) / 1000;
+			i_sink_ma *= wled->num_strings;
+		}
+	} else if (wled->num_strings == 3 && wled->leds_per_string == 6) {
+		if (v_ph_mv < 2800) {
+			/* For 6s3p, I_sink(mA) = 41.311 * Vph(V) - 52.334 */
+			i_sink_ma = (((41311 * v_ph_mv) / 1000) - 52334) / 1000;
+			i_sink_ma *= wled->num_strings;
+		}
+	} else if (wled->num_strings == 4 && wled->leds_per_string == 6) {
+		if (v_ph_mv < 3400) {
+			/* For 6s4p, I_sink(mA) = 26.24 * Vph(V) - 24.834 */
+			i_sink_ma = (((26240 * v_ph_mv) / 1000) - 24834) / 1000;
+			i_sink_ma *= wled->num_strings;
+		}
+	} else if (v_ph_mv < 3200) {
+		i_sink_ma = max_fsc_ma / 2;
 	}
 
 	/* Clamp the sink current to maximum FSC */
@@ -2300,6 +2304,8 @@ static int wled_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+	mutex_init(&wled->lock);
+
 	val = WLED_DEFAULT_BRIGHTNESS;
 	of_property_read_u32(pdev->dev.of_node, "default-brightness", &val);
 	wled->brightness = val;
@@ -2329,7 +2335,6 @@ static int wled_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	mutex_init(&wled->lock);
 	platform_set_drvdata(pdev, wled);
 
 	memset(&props, 0, sizeof(struct backlight_properties));

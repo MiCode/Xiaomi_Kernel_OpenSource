@@ -11,6 +11,7 @@
  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/msm/msm-bus-ids.h>
 
 &soc {
 	kgsl_smmu: arm,smmu-kgsl@5040000 {
@@ -144,6 +145,17 @@
 				<GIC_SPI 411 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 412 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 413 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,msm-bus,name = "apps_smmu";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,active-only;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<MSM_BUS_MASTER_GEM_NOC_SNOC>,
+			<MSM_BUS_SLAVE_IMEM_CFG>,
+			<0 0>,
+			<MSM_BUS_MASTER_GEM_NOC_SNOC>,
+			<MSM_BUS_SLAVE_IMEM_CFG>,
+			<0 1000>;
 
 		anoc_1_tbu: anoc_1_tbu@0x15185000 {
 			compatible = "qcom,qsmmuv500-tbu";
@@ -153,6 +165,17 @@
 			qcom,stream-id-range = <0x0 0x400>;
 			qcom,regulator-names = "vdd";
 			vdd-supply = <&hlos1_vote_aggre_noc_mmu_tbu1_gdsc>;
+			qcom,msm-bus,name = "apps_smmu";
+			qcom,msm-bus,num-cases = <2>;
+			qcom,msm-bus,active-only;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps =
+				<MSM_BUS_MASTER_GEM_NOC_SNOC>,
+				<MSM_BUS_SLAVE_IMEM_CFG>,
+				<0 0>,
+				<MSM_BUS_MASTER_GEM_NOC_SNOC>,
+				<MSM_BUS_SLAVE_IMEM_CFG>,
+				<0 1000>;
 		};
 
 		anoc_2_tbu: anoc_2_tbu@0x15189000 {
@@ -163,6 +186,17 @@
 			qcom,stream-id-range = <0x400 0x400>;
 			qcom,regulator-names = "vdd";
 			vdd-supply = <&hlos1_vote_aggre_noc_mmu_tbu2_gdsc>;
+			qcom,msm-bus,name = "apps_smmu";
+			qcom,msm-bus,num-cases = <2>;
+			qcom,msm-bus,active-only;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps =
+				<MSM_BUS_MASTER_GEM_NOC_SNOC>,
+				<MSM_BUS_SLAVE_IMEM_CFG>,
+				<0 0>,
+				<MSM_BUS_MASTER_GEM_NOC_SNOC>,
+				<MSM_BUS_SLAVE_IMEM_CFG>,
+				<0 1000>;
 		};
 
 		mnoc_hf_0_tbu: mnoc_hf_0_tbu@0x1518d000 {
@@ -173,6 +207,17 @@
 			qcom,stream-id-range = <0x800 0x400>;
 			qcom,regulator-names = "vdd";
 			vdd-supply = <&hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc>;
+			qcom,msm-bus,name = "mnoc_hf_0_tbu";
+			qcom,msm-bus,num-cases = <2>;
+			qcom,msm-bus,active-only;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps =
+				<MSM_BUS_MASTER_MDP_PORT0>,
+				<MSM_BUS_SLAVE_MNOC_HF_MEM_NOC>,
+				<0 0>,
+				<MSM_BUS_MASTER_MDP_PORT0>,
+				<MSM_BUS_SLAVE_MNOC_HF_MEM_NOC>,
+				<0 1000>;
 		};
 
 		mnoc_hf_1_tbu: mnoc_hf_1_tbu@0x15191000 {
@@ -183,6 +228,17 @@
 			qcom,stream-id-range = <0xc00 0x400>;
 			qcom,regulator-names = "vdd";
 			vdd-supply = <&hlos1_vote_mmnoc_mmu_tbu_hf1_gdsc>;
+			qcom,msm-bus,name = "mnoc_hf_1_tbu";
+			qcom,msm-bus,num-cases = <2>;
+			qcom,msm-bus,active-only;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps =
+				<MSM_BUS_MASTER_MDP_PORT0>,
+				<MSM_BUS_SLAVE_MNOC_HF_MEM_NOC>,
+				<0 0>,
+				<MSM_BUS_MASTER_MDP_PORT0>,
+				<MSM_BUS_SLAVE_MNOC_HF_MEM_NOC>,
+				<0 1000>;
 		};
 
 		mnoc_sf_0_tbu: mnoc_sf_0_tbu@0x15195000 {
@@ -193,6 +249,17 @@
 			qcom,stream-id-range = <0x1000 0x400>;
 			qcom,regulator-names = "vdd";
 			vdd-supply = <&hlos1_vote_mmnoc_mmu_tbu_sf_gdsc>;
+			qcom,msm-bus,name = "mnoc_sf_0_tbu";
+			qcom,msm-bus,num-cases = <2>;
+			qcom,msm-bus,active-only;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps =
+				<MSM_BUS_MASTER_CAMNOC_SF>,
+				<MSM_BUS_SLAVE_MNOC_SF_MEM_NOC>,
+				<0 0>,
+				<MSM_BUS_MASTER_CAMNOC_SF>,
+				<MSM_BUS_SLAVE_MNOC_SF_MEM_NOC>,
+				<0 1000>;
 		};
 
 		compute_dsp_0_tbu: compute_dsp_0_tbu@0x15199000 {
@@ -202,6 +269,17 @@
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x1400 0x400>;
 			/* No GDSC */
+			qcom,msm-bus,name = "apps_smmu";
+			qcom,msm-bus,num-cases = <2>;
+			qcom,msm-bus,active-only;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps =
+				<MSM_BUS_MASTER_NPU>,
+				<MSM_BUS_SLAVE_CDSP_GEM_NOC>,
+				<0 0>,
+				<MSM_BUS_MASTER_NPU>,
+				<MSM_BUS_SLAVE_CDSP_GEM_NOC>,
+				<0 1000>;
 		};
 
 		adsp_tbu: adsp_tbu@0x1519d000 {
@@ -212,6 +290,17 @@
 			qcom,stream-id-range = <0x1800 0x400>;
 			qcom,regulator-names = "vdd";
 			vdd-supply = <&hlos1_vote_aggre_noc_mmu_audio_tbu_gdsc>;
+			qcom,msm-bus,name = "apps_smmu";
+			qcom,msm-bus,num-cases = <2>;
+			qcom,msm-bus,active-only;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps =
+				<MSM_BUS_MASTER_GEM_NOC_SNOC>,
+				<MSM_BUS_SLAVE_IMEM_CFG>,
+				<0 0>,
+				<MSM_BUS_MASTER_GEM_NOC_SNOC>,
+				<MSM_BUS_SLAVE_IMEM_CFG>,
+				<0 1000>;
 		};
 
 		anoc_1_pcie_tbu: anoc_1_pcie_tbu@0x151a1000 {
@@ -224,6 +313,17 @@
 			vdd-supply = <&hlos1_vote_aggre_noc_mmu_pcie_tbu_gdsc>;
 			clock-names = "gcc_aggre_noc_pcie_tbu_clk";
 			clocks = <&clock_gcc GCC_AGGRE_NOC_PCIE_TBU_CLK>;
+			qcom,msm-bus,name = "apps_smmu";
+			qcom,msm-bus,num-cases = <2>;
+			qcom,msm-bus,active-only;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps =
+				<MSM_BUS_MASTER_GEM_NOC_SNOC>,
+				<MSM_BUS_SLAVE_IMEM_CFG>,
+				<0 0>,
+				<MSM_BUS_MASTER_GEM_NOC_SNOC>,
+				<MSM_BUS_SLAVE_IMEM_CFG>,
+				<0 1000>;
 		};
 	};
 

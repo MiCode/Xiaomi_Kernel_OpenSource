@@ -199,7 +199,7 @@
 		extcon = <&pm8150b_pdphy>, <&pm8150b_pdphy>;
 		eq = /bits/ 8 <0x4 0x4 0x4 0x4>;
 		flat-gain = /bits/ 8 <0x3 0x1 0x1 0x3>;
-		output-comp = /bits/ 8 <0x2 0x2 0x2 0x2>;
+		output-comp = /bits/ 8 <0x3 0x3 0x3 0x3>;
 		loss-match = /bits/ 8 <0x1 0x3 0x3 0x1>;
 	};
 };
@@ -575,6 +575,7 @@
 			   "chg_temp";
 	qcom,battery-data = <&qrd_batterydata>;
 	qcom,sw-jeita-enable;
+	qcom,wd-bark-time-secs = <16>;
 };
 
 &smb1390 {

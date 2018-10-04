@@ -658,8 +658,10 @@ static int _sde_kms_secure_ctrl(struct sde_kms *sde_kms, struct drm_crtc *crtc,
 
 	case ATTACH_ALL_REQ:
 		ret = _sde_kms_attach_all_cb(sde_kms, VMID_CP_PIXEL);
-		if (!ret)
+		if (!ret) {
 			smmu_state->state = ATTACHED;
+			smmu_state->secure_level = SDE_DRM_SEC_NON_SEC;
+		}
 		break;
 
 	case DETACH_SEC_REQ:
@@ -673,8 +675,10 @@ static int _sde_kms_secure_ctrl(struct sde_kms *sde_kms, struct drm_crtc *crtc,
 
 	case ATTACH_SEC_REQ:
 		ret = _sde_kms_attach_sec_cb(sde_kms, VMID_CP_PIXEL);
-		if (!ret)
+		if (!ret) {
 			smmu_state->state = ATTACHED;
+			smmu_state->secure_level = SDE_DRM_SEC_NON_SEC;
+		}
 		break;
 
 	default:
@@ -698,8 +702,9 @@ end:
 	smmu_state->transition_type = NONE;
 	smmu_state->transition_error = ret ? true : false;
 
-	SDE_DEBUG("crtc %d: old_state %d, new_state %d, ret %d\n",
-			DRMID(crtc), old_smmu_state, smmu_state->state, ret);
+	SDE_DEBUG("crtc %d: old_state %d, new_state %d, sec_lvl %d, ret %d\n",
+			DRMID(crtc), old_smmu_state, smmu_state->state,
+			smmu_state->secure_level, ret);
 	SDE_EVT32(DRMID(crtc), smmu_state->state, smmu_state->transition_type,
 			smmu_state->transition_error, smmu_state->secure_level,
 			smmu_state->sui_misr_state, ret, SDE_EVTLOG_FUNC_EXIT);
@@ -2609,7 +2614,7 @@ static int sde_kms_cont_splash_config(struct msm_kms *kms)
 		sde_encoder_update_caps_for_cont_splash(encoder,
 				splash_display, true);
 
-		sde_crtc_update_cont_splash_mixer_settings(crtc);
+		sde_crtc_update_cont_splash_settings(crtc);
 
 		sde_conn = to_sde_connector(connector);
 		if (sde_conn && sde_conn->ops.cont_splash_config)
@@ -3341,12 +3346,18 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 
 	/*
 	 * Attempt continuous splash handoff only if reserved
-	 * splash memory is found.
+	 * splash memory is found & release resources on any error
+	 * in finding display hw config in splash
 	 */
-	if (sde_kms->splash_data.num_splash_regions)
-		sde_rm_cont_splash_res_init(priv, &sde_kms->rm,
+	if (sde_kms->splash_data.num_splash_regions &&
+			sde_rm_cont_splash_res_init(priv, &sde_kms->rm,
 					&sde_kms->splash_data,
-					sde_kms->catalog);
+					sde_kms->catalog)) {
+		SDE_DEBUG("freeing continuous splash resources\n");
+		_sde_kms_unmap_all_splash_regions(sde_kms);
+		memset(&sde_kms->splash_data, 0x0,
+				sizeof(struct sde_splash_data));
+	}
 
 	sde_kms->hw_mdp = sde_rm_get_mdp(&sde_kms->rm);
 	if (IS_ERR_OR_NULL(sde_kms->hw_mdp)) {

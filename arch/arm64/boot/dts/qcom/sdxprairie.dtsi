@@ -256,4 +256,19 @@
 
 #include "sdxprairie-pinctrl.dtsi"
 #include "sdxprairie-ion.dtsi"
+#include "sdxprairie-bus.dtsi"
 #include "msm-arm-smmu-sdxprairie.dtsi"
+#include "sdxprairie-gdsc.dtsi"
+
+&gdsc_usb30 {
+	status = "ok";
+};
+
+&gdsc_emac {
+	status = "ok";
+};
+
+&gdsc_pcie {
+	status = "ok";
+};
+

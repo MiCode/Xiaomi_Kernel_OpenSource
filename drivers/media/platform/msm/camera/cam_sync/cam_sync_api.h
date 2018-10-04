@@ -101,6 +101,29 @@ int cam_sync_signal(int32_t sync_obj, uint32_t status);
 int cam_sync_merge(int32_t *sync_obj, uint32_t num_objs, int32_t *merged_obj);
 
 /**
+ * @brief: get ref count of sync obj
+ *
+ * This function will increment ref count for the sync object, and the ref
+ * count will be decremented when this sync object is signaled.
+ *
+ * @param sync_obj: sync object
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_sync_get_obj_ref(int32_t sync_obj);
+
+/**
+ * @brief: put ref count of sync obj
+ *
+ * This function will decrement ref count for the sync object.
+ *
+ * @param sync_obj: sync object
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_sync_put_obj_ref(int32_t sync_obj);
+
+/**
  * @brief: Destroys a sync object
  *
  * @param sync_obj: int referencing the sync object to be destroyed

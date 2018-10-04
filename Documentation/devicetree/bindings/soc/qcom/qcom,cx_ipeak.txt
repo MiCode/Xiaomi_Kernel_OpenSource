@@ -8,8 +8,8 @@ an interrupt to cDSP block to throttle cDSP's fmax.
 
 Required properties:
 
-- compatible : name of the component used for driver matching, should be
-	       "qcom,cx-ipeak-sdm660"
+- compatible : name of the component used for driver matching, should be one
+	       "qcom,cx-ipeak-sdm660", "qcom,cx-ipeak-sm6150"
 
 - reg : physical base address and length of the register set(s), SRAM and XPU
 	of the component.

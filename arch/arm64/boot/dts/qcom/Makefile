@@ -16,8 +16,10 @@ dtb-$(CONFIG_ARCH_QCS405) += qcs405-rumi.dtb \
 		qcs405-iot-sku7.dtb \
 		qcs405-iot-sku8.dtb \
 		qcs405-iot-sku9.dtb \
+		qcs405-iot-sku10.dtb \
 		qcs403-iot-sku1.dtb \
-		qcs403-iot-sku2.dtb
+		qcs403-iot-sku2.dtb \
+		qcs403-iot-sku3.dtb
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 	dtbo-$(CONFIG_ARCH_SM8150) += \

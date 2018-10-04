@@ -29,7 +29,7 @@ static void wda_svc_config(struct work_struct *work);
 /* **************************************************** */
 #define WDA_SERVICE_ID_V01 0x1A
 #define WDA_SERVICE_VERS_V01 0x01
-#define WDA_TIMEOUT_MS  10000
+#define WDA_TIMEOUT_MS  20
 
 #define QMI_WDA_SET_POWERSAVE_CONFIG_REQ_V01 0x002D
 #define QMI_WDA_SET_POWERSAVE_CONFIG_RESP_V01 0x002D

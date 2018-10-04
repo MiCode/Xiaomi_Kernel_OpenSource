@@ -11,10 +11,6 @@
  */
 
 &soc {
-	qcom,lpass@62400000 {
-		status = "disabled";
-	};
-
 	qcom,glink {
 		modem {
 			status = "disabled";
@@ -83,5 +79,15 @@
 
 	cd-gpios = <&tlmm 99 1>;
 
+	status = "ok";
+};
+
+&usb0 {
+	dwc3@a600000 {
+		dr_mode = "peripheral";
+	};
+};
+
+&qupv3_se0_2uart {
 	status = "ok";
 };

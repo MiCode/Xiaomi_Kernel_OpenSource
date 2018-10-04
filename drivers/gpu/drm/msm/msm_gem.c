@@ -648,12 +648,18 @@ void *msm_gem_get_vaddr(struct drm_gem_object *obj)
 			goto fail;
 		}
 
-		if (obj->import_attach)
+		if (obj->import_attach) {
+			ret = dma_buf_begin_cpu_access(
+				obj->import_attach->dmabuf, DMA_BIDIRECTIONAL);
+			if (ret)
+				goto fail;
+
 			msm_obj->vaddr =
 				dma_buf_vmap(obj->import_attach->dmabuf);
-		else
+		} else {
 			msm_obj->vaddr = vmap(pages, obj->size >> PAGE_SHIFT,
 				VM_MAP, pgprot_writecombine(PAGE_KERNEL));
+		}
 
 		if (msm_obj->vaddr == NULL) {
 			ret = -ENOMEM;
@@ -751,10 +757,13 @@ static void msm_gem_vunmap_locked(struct drm_gem_object *obj)
 	if (!msm_obj->vaddr || WARN_ON(!is_vunmapable(msm_obj)))
 		return;
 
-	if (obj->import_attach)
+	if (obj->import_attach) {
 		dma_buf_vunmap(obj->import_attach->dmabuf, msm_obj->vaddr);
-	else
+		dma_buf_end_cpu_access(obj->import_attach->dmabuf,
+						DMA_BIDIRECTIONAL);
+	} else {
 		vunmap(msm_obj->vaddr);
+	}
 
 	msm_obj->vaddr = NULL;
 }
@@ -1218,11 +1227,16 @@ struct drm_gem_object *msm_gem_import(struct drm_device *dev,
 	msm_obj->sgt = sgt;
 	msm_obj->pages = NULL;
 	/*
-	 * If sg table is NULL, user should call msm_gem_delayed_import to add
-	 * back the sg table to the drm gem object
+	 * 1) If sg table is NULL, user should call msm_gem_delayed_import
+	 * to add back the sg table to the drm gem object.
+	 *
+	 * 2) Add buffer flag unconditionally for all import cases.
+	 *    # Cached buffer will be attached immediately hence sgt will
+	 *      be available upon gem obj creation.
+	 *    # Un-cached buffer will follow delayed attach hence sgt
+	 *      will be NULL upon gem obj creation.
 	 */
-	if (!sgt)
-		msm_obj->flags |= MSM_BO_EXTBUF;
+	msm_obj->flags |= MSM_BO_EXTBUF;
 
 	/*
 	 * For all uncached buffers, there is no need to perform cache

@@ -396,23 +396,23 @@
 		thermal-governor = "step_wise";
 		thermal-sensors = <&tsens0 1>;
 		trips {
-			cpu01_config: cpu01-config {
+			cpu45_config: cpu45-config {
 				temperature = <110000>;
 				hysteresis = <10000>;
 				type = "passive";
 			};
 		};
 		cooling-maps {
-			cpu0_cdev {
-				trip = <&cpu01_config>;
+			cpu4_cdev {
+				trip = <&cpu45_config>;
 				cooling-device =
-					<&CPU0 THERMAL_MAX_LIMIT
+					<&CPU4 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
 			};
-			cpu1_cdev {
-				trip = <&cpu01_config>;
+			cpu5_cdev {
+				trip = <&cpu45_config>;
 				cooling-device =
-					<&CPU1 THERMAL_MAX_LIMIT
+					<&CPU5 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
 			};
 		};
@@ -452,23 +452,23 @@
 		thermal-sensors = <&tsens0 3>;
 		thermal-governor = "step_wise";
 		trips {
-			cpu45_config: cpu45-config {
+			cpu01_config: cpu01-config {
 				temperature = <110000>;
 				hysteresis = <10000>;
 				type = "passive";
 			};
 		};
 		cooling-maps {
-			cpu4_cdev {
-				trip = <&cpu45_config>;
+			cpu0_cdev {
+				trip = <&cpu01_config>;
 				cooling-device =
-					<&CPU4 THERMAL_MAX_LIMIT
+					<&CPU0 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
 			};
-			cpu5_cdev {
-				trip = <&cpu45_config>;
+			cpu1_cdev {
+				trip = <&cpu01_config>;
 				cooling-device =
-					<&CPU5 THERMAL_MAX_LIMIT
+					<&CPU1 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
 			};
 		};

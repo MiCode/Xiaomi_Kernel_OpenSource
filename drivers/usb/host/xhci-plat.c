@@ -274,8 +274,6 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	if (!hcd)
 		return -ENOMEM;
 
-	hcd_to_bus(hcd)->skip_resume = true;
-
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	hcd->regs = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(hcd->regs)) {
@@ -331,13 +329,17 @@ static int xhci_plat_probe(struct platform_device *pdev)
 		goto disable_clk;
 	}
 
-	hcd_to_bus(xhci->shared_hcd)->skip_resume = true;
-
 	if (device_property_read_bool(&pdev->dev, "usb3-lpm-capable"))
 		xhci->quirks |= XHCI_LPM_SUPPORT;
 
 	if (device_property_read_bool(&pdev->dev, "quirk-broken-port-ped"))
 		xhci->quirks |= XHCI_BROKEN_PORT_PED;
+
+	if (!device_property_read_bool(&pdev->dev,
+					"host-poweroff-in-pm-suspend")) {
+		hcd_to_bus(hcd)->skip_resume = true;
+		hcd_to_bus(xhci->shared_hcd)->skip_resume = true;
+	}
 
 	if (device_property_read_u32(&pdev->dev, "xhci-imod-value", &imod))
 		imod = 0;
@@ -437,6 +439,51 @@ static int xhci_plat_remove(struct platform_device *dev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int xhci_plat_suspend(struct device *dev)
+{
+	struct usb_hcd  *hcd = dev_get_drvdata(dev);
+	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
+
+	/*
+	 * 'skip_resume' will be true for targets not supporting PM suspend if
+	 * runtimePM state is active. No need of xhci_plat PM ops in such case.
+	 */
+	if (!xhci || hcd_to_bus(hcd)->skip_resume)
+		return 0;
+
+	dev_dbg(dev, "xhci-plat PM suspend\n");
+
+	/* Disable wakeup capability */
+	return xhci_suspend(xhci, false);
+}
+
+static int xhci_plat_resume(struct device *dev)
+{
+	struct usb_hcd  *hcd = dev_get_drvdata(dev);
+	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
+	int ret;
+
+	/* xhci PM ops not required if 'skip_resume' is true */
+	if (!xhci || hcd_to_bus(hcd)->skip_resume)
+		return 0;
+
+	dev_dbg(dev, "xhci-plat PM resume\n");
+
+	ret = xhci_priv_resume_quirk(hcd);
+	if (ret)
+		return ret;
+
+	/* resume from hibernation/power-collapse */
+	ret = xhci_resume(xhci, true);
+	pm_runtime_disable(dev);
+	pm_runtime_set_active(dev);
+	pm_runtime_enable(dev);
+
+	return ret;
+}
+#endif
+
 static int __maybe_unused xhci_plat_runtime_idle(struct device *dev)
 {
 	/*
@@ -489,7 +536,7 @@ static int __maybe_unused xhci_plat_runtime_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops xhci_plat_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(NULL, NULL)
+	SET_SYSTEM_SLEEP_PM_OPS(xhci_plat_suspend, xhci_plat_resume)
 
 	SET_RUNTIME_PM_OPS(xhci_plat_runtime_suspend,
 			   xhci_plat_runtime_resume,

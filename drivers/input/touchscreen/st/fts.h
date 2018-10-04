@@ -183,6 +183,8 @@ extern struct mutex gestureMask_mutex;
 #endif
 
 struct fts_i2c_platform_data {
+	bool x_flip;
+	bool y_flip;
 	int (*power)(bool on);
 	int irq_gpio;
 	int reset_gpio;

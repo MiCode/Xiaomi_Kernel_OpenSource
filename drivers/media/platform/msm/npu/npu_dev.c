@@ -41,10 +41,6 @@
 
 #define PERF_MODE_DEFAULT 0
 
-#define POWER_LEVEL_MIN_SVS 0
-#define POWER_LEVEL_LOW_SVS 1
-#define POWER_LEVEL_NOMINAL 4
-
 /* -------------------------------------------------------------------------
  * File Scope Prototypes
  * -------------------------------------------------------------------------
@@ -312,6 +308,7 @@ int npu_enable_core_power(struct npu_device *npu_dev)
 void npu_disable_core_power(struct npu_device *npu_dev)
 {
 	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
+	struct npu_thermalctrl *thermalctrl = &npu_dev->thermalctrl;
 
 	if (!pwr->pwr_vote_num)
 		return;
@@ -320,12 +317,11 @@ void npu_disable_core_power(struct npu_device *npu_dev)
 		npu_suspend_devbw(npu_dev);
 		npu_disable_core_clocks(npu_dev);
 		npu_disable_regulators(npu_dev);
+		pwr->active_pwrlevel = thermalctrl->pwr_level;
+		pwr->uc_pwrlevel = pwr->max_pwrlevel;
+		pr_debug("setting back to power level=%d\n",
+			pwr->active_pwrlevel);
 	}
-	/* init the power levels back to default */
-	pwr->active_pwrlevel = pwr->default_pwrlevel;
-	pwr->uc_pwrlevel = pwr->default_pwrlevel;
-	pr_debug("setting back to default power level=%d\n",
-		pwr->default_pwrlevel);
 }
 
 static int npu_enable_core_clocks(struct npu_device *npu_dev)
@@ -364,11 +360,6 @@ static uint32_t npu_calc_power_level(struct npu_device *npu_dev)
 	else
 		ret_level = therm_pwr_level;
 
-	/* adjust the power level */
-	/* force to lowsvs, minsvs not supported */
-	if (ret_level == POWER_LEVEL_MIN_SVS)
-		ret_level = POWER_LEVEL_LOW_SVS;
-
 	pr_debug("%s therm=%d active=%d uc=%d set level=%d\n", __func__,
 		therm_pwr_level, active_pwr_level, uc_pwr_level, ret_level);
 
@@ -382,21 +373,23 @@ static int npu_set_power_level(struct npu_device *npu_dev)
 	int i, ret = 0;
 	uint32_t pwr_level_to_set;
 
-	if (!pwr->pwr_vote_num) {
-		pr_err("power is not enabled during set request\n");
-		return -EINVAL;
-	}
-
 	/* get power level to set */
 	pwr_level_to_set = npu_calc_power_level(npu_dev);
+	pwr->active_pwrlevel = pwr_level_to_set;
+
+	if (!pwr->pwr_vote_num) {
+		pr_debug("power is not enabled during set request\n");
+		return 0;
+	}
 
 	/* if the same as current, dont do anything */
-	if (pwr_level_to_set == pwr->active_pwrlevel)
+	if (pwr_level_to_set == pwr->active_pwrlevel) {
+		pr_debug("power level %d doesn't change\n", pwr_level_to_set);
 		return 0;
+	}
 
 	pr_debug("setting power level to [%d]\n", pwr_level_to_set);
 
-	pwr->active_pwrlevel = pwr_level_to_set;
 	pwrlevel = &npu_dev->pwrctrl.pwrlevels[pwr->active_pwrlevel];
 
 	for (i = 0; i < npu_dev->core_clk_num; i++) {
@@ -432,9 +425,12 @@ int npu_set_uc_power_level(struct npu_device *npu_dev,
 	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
 
 	if (perf_mode == PERF_MODE_DEFAULT)
-		pwr->uc_pwrlevel = POWER_LEVEL_NOMINAL;
+		pwr->uc_pwrlevel = pwr->default_pwrlevel;
 	else
 		pwr->uc_pwrlevel = perf_mode - 1;
+
+	if (pwr->uc_pwrlevel > pwr->max_pwrlevel)
+		pwr->uc_pwrlevel = pwr->max_pwrlevel;
 
 	return npu_set_power_level(npu_dev);
 }
@@ -712,6 +708,8 @@ int npu_enable_irq(struct npu_device *npu_dev)
 	REGW(npu_dev, NPU_MASTERn_IPC_IRQ_OUT(0), 0x0);
 	REGW(npu_dev, NPU_MASTERn_ERROR_IRQ_CLEAR(0), NPU_ERROR_IRQ_MASK);
 	REGW(npu_dev, NPU_MASTERn_ERROR_IRQ_ENABLE(0), NPU_ERROR_IRQ_MASK);
+	REGW(npu_dev, NPU_MASTERn_ERROR_IRQ_OWNER(0), NPU_ERROR_IRQ_MASK);
+	REGW(npu_dev, NPU_MASTERn_WDOG_IRQ_OWNER(0), NPU_WDOG_IRQ_MASK);
 
 	for (i = 0; i < NPU_MAX_IRQ; i++) {
 		if (npu_dev->irq[i].irq != 0) {

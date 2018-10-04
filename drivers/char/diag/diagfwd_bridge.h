@@ -33,6 +33,7 @@ struct diag_remote_dev_ops {
 	int (*queue_read)(int id);
 	int (*write)(int id, unsigned char *buf, int len, int ctxt);
 	int (*fwd_complete)(int id, unsigned char *buf, int len, int ctxt);
+	int (*remote_proc_check)(void);
 };
 
 struct diagfwd_bridge_info {

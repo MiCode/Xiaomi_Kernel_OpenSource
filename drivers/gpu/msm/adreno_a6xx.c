@@ -71,6 +71,7 @@ static const struct adreno_vbif_platform a6xx_vbif_platforms[] = {
 	{ adreno_is_a640, a640_gbif },
 	{ adreno_is_a680, a640_gbif },
 	{ adreno_is_a608, a615_gbif },
+	{ adreno_is_a616, a615_gbif },
 };
 
 struct kgsl_hwcg_reg {
@@ -365,6 +366,7 @@ static const struct {
 	{adreno_is_a640, a640_hwcg_regs, ARRAY_SIZE(a640_hwcg_regs)},
 	{adreno_is_a680, a640_hwcg_regs, ARRAY_SIZE(a640_hwcg_regs)},
 	{adreno_is_a608, a608_hwcg_regs, ARRAY_SIZE(a608_hwcg_regs)},
+	{adreno_is_a616, a615_hwcg_regs, ARRAY_SIZE(a615_hwcg_regs)},
 };
 
 static struct a6xx_protected_regs {
@@ -611,7 +613,7 @@ __get_gmu_ao_cgc_mode_cntl(struct adreno_device *adreno_dev)
 {
 	if (adreno_is_a608(adreno_dev))
 		return 0x00000022;
-	else if (adreno_is_a615(adreno_dev))
+	if (adreno_is_a615(adreno_dev) || adreno_is_a616(adreno_dev))
 		return 0x00000222;
 	else
 		return 0x00020202;
@@ -622,7 +624,7 @@ __get_gmu_ao_cgc_delay_cntl(struct adreno_device *adreno_dev)
 {
 	if (adreno_is_a608(adreno_dev))
 		return 0x00000011;
-	else if (adreno_is_a615(adreno_dev))
+	if (adreno_is_a615(adreno_dev) || adreno_is_a616(adreno_dev))
 		return 0x00000111;
 	else
 		return 0x00010111;
@@ -633,7 +635,7 @@ __get_gmu_ao_cgc_hyst_cntl(struct adreno_device *adreno_dev)
 {
 	if (adreno_is_a608(adreno_dev))
 		return 0x00000055;
-	else if (adreno_is_a615(adreno_dev))
+	if (adreno_is_a615(adreno_dev) || adreno_is_a616(adreno_dev))
 		return 0x00000555;
 	else
 		return 0x00005555;
@@ -747,7 +749,8 @@ static void a6xx_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 		+ sizeof(a6xx_ifpc_pwrup_reglist), a6xx_pwrup_reglist,
 		sizeof(a6xx_pwrup_reglist));
 
-	if (adreno_is_a615(adreno_dev) || adreno_is_a608(adreno_dev)) {
+	if (adreno_is_a615(adreno_dev) || adreno_is_a608(adreno_dev) ||
+		adreno_is_a616(adreno_dev)) {
 		for (i = 0; i < ARRAY_SIZE(a615_pwrup_reglist); i++) {
 			r = &a615_pwrup_reglist[i];
 			kgsl_regread(KGSL_DEVICE(adreno_dev),
@@ -902,9 +905,9 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_UCHE_MODE_CNTL, (glbl_inv << 29) |
 						(mal << 23) | (bit << 21));
 
-	/* Set hang detection threshold to 0x1FFFFF * 16 cycles */
+	/* Set hang detection threshold to 0x3FFFFF * 16 cycles */
 	kgsl_regwrite(device, A6XX_RBBM_INTERFACE_HANG_INT_CNTL,
-					  (1 << 30) | 0x1fffff);
+					(1 << 30) | 0x3fffff);
 
 	kgsl_regwrite(device, A6XX_UCHE_CLIENT_PF, 1);
 
@@ -1580,6 +1583,9 @@ static void a6xx_err_callback(struct adreno_device *adreno_dev, int bit)
 	case A6XX_INT_UCHE_TRAP_INTR:
 		KGSL_DRV_CRIT_RATELIMIT(device, "UCHE: Trap interrupt\n");
 		break;
+	case A6XX_INT_TSB_WRITE_ERROR:
+		KGSL_DRV_CRIT_RATELIMIT(device, "TSB: Write error interrupt\n");
+		break;
 	default:
 		KGSL_DRV_CRIT_RATELIMIT(device, "Unknown interrupt %d\n", bit);
 	}
@@ -1751,7 +1757,8 @@ static void a6xx_cp_callback(struct adreno_device *adreno_dev, int bit)
 	 (1 << A6XX_INT_RBBM_ATB_BUS_OVERFLOW) |	\
 	 (1 << A6XX_INT_RBBM_HANG_DETECT) |		\
 	 (1 << A6XX_INT_UCHE_OOB_ACCESS) |		\
-	 (1 << A6XX_INT_UCHE_TRAP_INTR))
+	 (1 << A6XX_INT_UCHE_TRAP_INTR) |		\
+	 (1 << A6XX_INT_TSB_WRITE_ERROR))
 
 static struct adreno_irq_funcs a6xx_irq_funcs[32] = {
 	ADRENO_IRQ_CALLBACK(NULL),              /* 0 - RBBM_GPU_IDLE */
@@ -1784,7 +1791,7 @@ static struct adreno_irq_funcs a6xx_irq_funcs[32] = {
 	ADRENO_IRQ_CALLBACK(a6xx_err_callback), /* 25 - UCHE_TRAP_INTR */
 	ADRENO_IRQ_CALLBACK(NULL), /* 26 - DEBBUS_INTR_0 */
 	ADRENO_IRQ_CALLBACK(NULL), /* 27 - DEBBUS_INTR_1 */
-	ADRENO_IRQ_CALLBACK(NULL), /* 28 - UNUSED */
+	ADRENO_IRQ_CALLBACK(a6xx_err_callback), /* 28 - TSBWRITEERROR */
 	ADRENO_IRQ_CALLBACK(NULL), /* 29 - UNUSED */
 	ADRENO_IRQ_CALLBACK(NULL), /* 30 - ISDB_CPU_IRQ */
 	ADRENO_IRQ_CALLBACK(NULL), /* 31 - ISDB_UNDER_DEBUG */
@@ -1793,14 +1800,6 @@ static struct adreno_irq_funcs a6xx_irq_funcs[32] = {
 static struct adreno_irq a6xx_irq = {
 	.funcs = a6xx_irq_funcs,
 	.mask = A6XX_INT_MASK,
-};
-
-static struct adreno_snapshot_sizes a6xx_snap_sizes = {
-	.cp_pfp = 0x33,
-};
-
-static struct adreno_snapshot_data a6xx_snapshot_data = {
-	.sect_sizes = &a6xx_snap_sizes,
 };
 
 static struct adreno_coresight_register a6xx_coresight_regs[] = {
@@ -2700,6 +2699,7 @@ static const struct {
 } a6xx_efuse_funcs[] = {
 	{ adreno_is_a615, a6xx_efuse_speed_bin },
 	{ adreno_is_a608, a6xx_efuse_speed_bin },
+	{ adreno_is_a616, a6xx_efuse_speed_bin },
 };
 
 static void a6xx_check_features(struct adreno_device *adreno_dev)
@@ -2905,6 +2905,18 @@ static const struct adreno_reg_offsets a6xx_reg_offsets = {
 	.offset_0 = ADRENO_REG_REGISTER_MAX,
 };
 
+static void a6xx_perfcounter_init(struct adreno_device *adreno_dev)
+{
+	/*
+	 * A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_4/5 is not present on A608.
+	 * Mark them as broken so that they can't be used.
+	 */
+	if (adreno_is_a608(adreno_dev)) {
+		a6xx_pwrcounters_gpmu[4].countable = KGSL_PERFCOUNTER_BROKEN;
+		a6xx_pwrcounters_gpmu[5].countable = KGSL_PERFCOUNTER_BROKEN;
+	}
+}
+
 static int a6xx_perfcounter_update(struct adreno_device *adreno_dev,
 	struct adreno_perfcount_register *reg, bool update_reg)
 {
@@ -2973,7 +2985,6 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.start = a6xx_start,
 	.snapshot = a6xx_snapshot,
 	.irq = &a6xx_irq,
-	.snapshot_data = &a6xx_snapshot_data,
 	.irq_trace = trace_kgsl_a5xx_irq_status,
 	.num_prio_levels = KGSL_PRIORITY_MAX_RB_LEVELS,
 	.platform_setup = a6xx_platform_setup,
@@ -3004,6 +3015,7 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.preemption_context_destroy = a6xx_preemption_context_destroy,
 	.sptprac_is_on = a6xx_sptprac_is_on,
 	.ccu_invalidate = a6xx_ccu_invalidate,
+	.perfcounter_init = a6xx_perfcounter_init,
 	.perfcounter_update = a6xx_perfcounter_update,
 	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
 };

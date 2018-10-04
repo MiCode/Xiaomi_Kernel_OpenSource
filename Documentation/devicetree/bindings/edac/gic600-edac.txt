@@ -1,0 +1,40 @@
+* GIC EDAC node:
+
+GIC EDAC node is defined to describe on-chip error or fault detection and correction
+for GIC RAM. GICT(GIC trace and debug) register map describes the syndrome information
+and GICT support is available from GIC-600 onwards.
+
+GIC EDAC reports all Single Bit Error and Double Bit Error found in GIC RAM.
+Current GIC ECC implementation is interrupt based. GIC scrub feature helps
+to avoid potential errors accumulation of particular error location by a write-back
+of all valid RAM entries periodically.
+
+GICT identifies software programming errors, correctable and uncorrectable
+errors of Shared Peripheral Interrupt(SPI) RAM, Software Generated Interrupt(SGI) RAM,
+Private Peripheral Interrupt(PPI) RAM, Locality-Specific Peripheral Interrupt(LPI) RAM
+and Interrupt Translation Service (ITS) RAM.
+For every error record following information available -
+	ERRXSTATUS - Error Record Status Register
+	ERRXMISC0 - Error Record Miscellaneous Register 0
+	ERRXMISC1 - Error Record Miscellaneous Register 1
+	ERRXADDR  - Error Record Address Resister
+
+The following section describes the DT node binding for gic-erp.
+
+Required properties:
+- compatible		: "arm,gic-600-erp".
+- reg-names		: GIC Trace, GIC Distributor, GIC Redistributor bases
+- interrupt-config	: SPI interrupt numbers of Fault and Error interrupts
+			  to configure GICT_ERRORQCR0, GICT_ERRORQCR1 registers respectively.
+- interrupts		: Interrupts for Fault and Error IRQs
+
+gict: gict@17a20000 {
+	compatible = "arm,gic-600-erp";
+	reg = <0x17a20000 0x10000>;	/* GICT */
+	reg-names = "gict-base";
+	interrupt-config = <46, 17>;
+	interrupt-names = "gict-fault", "gict-err";
+	interrupts = <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 17 IRQ_TYPE_LEVEL_HIGH>;
+};
+

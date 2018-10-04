@@ -60,7 +60,7 @@ const char *const mpeg_video_vidc_extradata[] = {
 	"Extradata LTR",
 	"Extradata macroblock metadata",
 	"Extradata VQZip SEI",
-	"Extradata YUV Stats",
+	"Extradata HDR10+ Metadata",
 	"Extradata ROI QP",
 	"Extradata output crop",
 	"Extradata display colour SEI",
@@ -2240,7 +2240,7 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 	msm_vidc_handle_hw_error(core);
 	if (response->status == VIDC_ERR_NOC_ERROR) {
 		dprintk(VIDC_WARN, "Got NOC error");
-		MSM_VIDC_ERROR(false);
+		MSM_VIDC_ERROR(true);
 	}
 
 	dprintk(VIDC_DBG, "Calling core_release\n");
@@ -5343,6 +5343,9 @@ enum hal_extradata_id msm_comm_get_hal_extradata_index(
 	case V4L2_MPEG_VIDC_EXTRADATA_UBWC_CR_STATS_INFO:
 		ret = HAL_EXTRADATA_UBWC_CR_STATS_INFO;
 		break;
+	case V4L2_MPEG_VIDC_EXTRADATA_HDR10PLUS_METADATA:
+		ret = HAL_EXTRADATA_HDR10PLUS_METADATA;
+		break;
 	default:
 		dprintk(VIDC_WARN, "Extradata not found: %d\n", index);
 		break;
@@ -6247,7 +6250,6 @@ struct msm_vidc_buffer *msm_comm_get_buffer_using_device_planes(
 int msm_comm_flush_vidc_buffer(struct msm_vidc_inst *inst,
 		struct msm_vidc_buffer *mbuf)
 {
-	int rc;
 	struct vb2_buffer *vb;
 	u32 port;
 
@@ -6283,7 +6285,7 @@ int msm_comm_flush_vidc_buffer(struct msm_vidc_inst *inst,
 	}
 	mutex_unlock(&inst->bufq[port].lock);
 
-	return rc;
+	return 0;
 }
 
 int msm_comm_qbuf_cache_operations(struct msm_vidc_inst *inst,

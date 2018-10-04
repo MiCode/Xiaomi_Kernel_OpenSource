@@ -613,21 +613,31 @@ int imp_handle_vote_req(bool vote)
 		mutex_unlock(&imp_ctx->mutex);
 		return -EPERM;
 	}
+	mutex_unlock(&imp_ctx->mutex);
 
+	/*
+	 * Unlock the mutex before calling into mhi for clock vote
+	 * to avoid deadlock on imp mutex.
+	 * Calls into mhi are synchronous and imp callbacks are
+	 * executed from mhi context.
+	 */
 	if (vote) {
 		ret = mhi_device_get_sync(imp_ctx->md.mhi_dev);
 		if (ret) {
 			IMP_ERR("mhi_sync_get failed %d\n", ret);
-			mutex_unlock(&imp_ctx->mutex);
 			return ret;
 		}
-		imp_ctx->lpm_disabled = true;
 	} else {
 		mhi_device_put(imp_ctx->md.mhi_dev);
-		imp_ctx->lpm_disabled = false;
 	}
 
+	mutex_lock(&imp_ctx->mutex);
+	if (vote)
+		imp_ctx->lpm_disabled = true;
+	else
+		imp_ctx->lpm_disabled = false;
 	mutex_unlock(&imp_ctx->mutex);
+
 	return 0;
 }
 

@@ -87,6 +87,8 @@ struct cam_vfe_bus_ver2_reg_offset_common {
 	uint32_t addr_sync_cfg;
 	uint32_t addr_sync_frame_hdr;
 	uint32_t addr_sync_no_sync;
+	uint32_t debug_status_cfg;
+	uint32_t debug_status_0;
 };
 
 /*

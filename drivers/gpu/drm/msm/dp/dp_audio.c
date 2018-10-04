@@ -39,8 +39,11 @@ struct dp_audio_private {
 	struct completion hpd_comp;
 	struct workqueue_struct *notify_workqueue;
 	struct delayed_work notify_delayed_work;
+	struct mutex ops_lock;
 
 	struct dp_audio dp_audio;
+
+	atomic_t acked;
 };
 
 static u32 dp_audio_get_header(struct dp_catalog_audio *catalog,
@@ -416,14 +419,14 @@ static int dp_audio_info_setup(struct platform_device *pdev,
 		return rc;
 	}
 
-	mutex_lock(&audio->dp_audio.ops_lock);
+	mutex_lock(&audio->ops_lock);
 
 	audio->channels = params->num_of_channels;
 
 	if (audio->panel->stream_id >= DP_STREAM_MAX) {
 		pr_err("invalid stream id: %d\n", audio->panel->stream_id);
 		rc = -EINVAL;
-		mutex_unlock(&audio->dp_audio.ops_lock);
+		mutex_unlock(&audio->ops_lock);
 		return rc;
 	}
 
@@ -432,7 +435,7 @@ static int dp_audio_info_setup(struct platform_device *pdev,
 	dp_audio_safe_to_exit_level(audio);
 	dp_audio_enable(audio, true);
 
-	mutex_unlock(&audio->dp_audio.ops_lock);
+	mutex_unlock(&audio->ops_lock);
 	return rc;
 }
 
@@ -506,10 +509,11 @@ static void dp_audio_teardown_done(struct platform_device *pdev)
 	if (IS_ERR(audio))
 		return;
 
-	mutex_lock(&audio->dp_audio.ops_lock);
+	mutex_lock(&audio->ops_lock);
 	dp_audio_enable(audio, false);
-	mutex_unlock(&audio->dp_audio.ops_lock);
+	mutex_unlock(&audio->ops_lock);
 
+	atomic_set(&audio->acked, 1);
 	complete_all(&audio->hpd_comp);
 
 	pr_debug("audio engine disabled\n");
@@ -542,8 +546,10 @@ static int dp_audio_ack_done(struct platform_device *pdev, u32 ack)
 
 	pr_debug("acknowledging audio (%d)\n", ack_hpd);
 
-	if (!audio->engine_on)
+	if (!audio->engine_on) {
+		atomic_set(&audio->acked, 1);
 		complete_all(&audio->hpd_comp);
+	}
 end:
 	return rc;
 }
@@ -566,16 +572,13 @@ end:
 	return rc;
 }
 
-static int dp_audio_register_ext_disp(struct dp_audio *dp_audio)
+static int dp_audio_register_ext_disp(struct dp_audio_private *audio)
 {
 	int rc = 0;
 	struct device_node *pd = NULL;
 	const char *phandle = "qcom,ext-disp";
 	struct msm_ext_disp_init_data *ext;
 	struct msm_ext_disp_audio_codec_ops *ops;
-	struct dp_audio_private *audio;
-
-	audio = container_of(dp_audio, struct dp_audio_private, dp_audio);
 
 	ext = &audio->ext_audio_data;
 	ops = &ext->codec_ops;
@@ -624,15 +627,12 @@ end:
 	return rc;
 }
 
-static int dp_audio_deregister_ext_disp(struct dp_audio *dp_audio)
+static int dp_audio_deregister_ext_disp(struct dp_audio_private *audio)
 {
 	int rc = 0;
 	struct device_node *pd = NULL;
 	const char *phandle = "qcom,ext-disp";
 	struct msm_ext_disp_init_data *ext;
-	struct dp_audio_private *audio;
-
-	audio = container_of(dp_audio, struct dp_audio_private, dp_audio);
 
 	ext = &audio->ext_audio_data;
 
@@ -669,9 +669,14 @@ static int dp_audio_notify(struct dp_audio_private *audio, u32 state)
 	int rc = 0;
 	struct msm_ext_disp_init_data *ext = &audio->ext_audio_data;
 
-	if (!ext->intf_ops.audio_notify)
-		goto end;
+	atomic_set(&audio->acked, 0);
 
+	if (!ext->intf_ops.audio_notify) {
+		pr_err("audio notify not defined\n");
+		goto end;
+	}
+
+	reinit_completion(&audio->hpd_comp);
 	rc = ext->intf_ops.audio_notify(audio->ext_pdev,
 			&ext->codec, state);
 	if (rc) {
@@ -679,8 +684,10 @@ static int dp_audio_notify(struct dp_audio_private *audio, u32 state)
 		goto end;
 	}
 
-	reinit_completion(&audio->hpd_comp);
-	rc = wait_for_completion_timeout(&audio->hpd_comp, HZ * 5);
+	if (atomic_read(&audio->acked))
+		goto end;
+
+	rc = wait_for_completion_timeout(&audio->hpd_comp, HZ * 4);
 	if (!rc) {
 		pr_err("timeout. state=%d err=%d\n", state, rc);
 		rc = -ETIMEDOUT;
@@ -688,6 +695,30 @@ static int dp_audio_notify(struct dp_audio_private *audio, u32 state)
 	}
 
 	pr_debug("success\n");
+end:
+	return rc;
+}
+
+static int dp_audio_config(struct dp_audio_private *audio, u32 state)
+{
+	int rc = 0;
+	struct msm_ext_disp_init_data *ext = &audio->ext_audio_data;
+
+	if (!ext || !ext->intf_ops.audio_config) {
+		pr_err("audio_config not defined\n");
+		goto end;
+	}
+
+	/*
+	 * DP Audio sets default STREAM_0 only, other streams are
+	 * set by audio driver based on the hardware/software support.
+	 */
+	if (audio->panel->stream_id == DP_STREAM_0) {
+		rc = ext->intf_ops.audio_config(audio->ext_pdev,
+				&ext->codec, state);
+		if (rc)
+			pr_err("failed to config audio, err=%d\n", rc);
+	}
 end:
 	return rc;
 }
@@ -713,15 +744,9 @@ static int dp_audio_on(struct dp_audio *dp_audio)
 
 	audio->session_on = true;
 
-	if (ext->intf_ops.audio_config) {
-		rc = ext->intf_ops.audio_config(audio->ext_pdev,
-				&ext->codec,
-				EXT_DISPLAY_CABLE_CONNECT);
-		if (rc) {
-			pr_err("failed to config audio, err=%d\n", rc);
-			goto end;
-		}
-	}
+	rc = dp_audio_config(audio, EXT_DISPLAY_CABLE_CONNECT);
+	if (rc)
+		goto end;
 
 	rc = dp_audio_notify(audio, EXT_DISPLAY_CABLE_CONNECT);
 	if (rc)
@@ -757,13 +782,7 @@ static int dp_audio_off(struct dp_audio *dp_audio)
 
 	pr_debug("success\n");
 end:
-	if (ext->intf_ops.audio_config) {
-		rc = ext->intf_ops.audio_config(audio->ext_pdev,
-				&ext->codec,
-				EXT_DISPLAY_CABLE_DISCONNECT);
-		if (rc)
-			pr_err("failed to config audio, err=%d\n", rc);
-	}
+	dp_audio_config(audio, EXT_DISPLAY_CABLE_DISCONNECT);
 
 	audio->session_on = false;
 	audio->engine_on  = false;
@@ -830,16 +849,18 @@ struct dp_audio *dp_audio_get(struct platform_device *pdev,
 	audio->panel = panel;
 	audio->catalog = catalog;
 
+	atomic_set(&audio->acked, 0);
+
 	dp_audio = &audio->dp_audio;
 
-	mutex_init(&dp_audio->ops_lock);
+	mutex_init(&audio->ops_lock);
 
 	dp_audio->on  = dp_audio_on;
 	dp_audio->off = dp_audio_off;
-	dp_audio->register_ext_disp = dp_audio_register_ext_disp;
-	dp_audio->deregister_ext_disp = dp_audio_deregister_ext_disp;
 
 	catalog->init(catalog);
+
+	dp_audio_register_ext_disp(audio);
 
 	return dp_audio;
 
@@ -857,7 +878,10 @@ void dp_audio_put(struct dp_audio *dp_audio)
 		return;
 
 	audio = container_of(dp_audio, struct dp_audio_private, dp_audio);
-	mutex_destroy(&dp_audio->ops_lock);
+
+	dp_audio_deregister_ext_disp(audio);
+
+	mutex_destroy(&audio->ops_lock);
 
 	dp_audio_destroy_notify_workqueue(audio);
 

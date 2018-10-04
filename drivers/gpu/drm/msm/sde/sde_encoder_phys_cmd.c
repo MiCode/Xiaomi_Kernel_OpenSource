@@ -333,9 +333,11 @@ static void sde_encoder_phys_cmd_ctl_start_irq(void *arg, int irq_idx)
 		 * Handle rare cases where the ctl_start_irq is received
 		 * after rd_ptr_irq. If it falls within a threshold, it is
 		 * guaranteed the frame would be picked up in the current TE.
-		 * Signal retire fence immediately in such case.
+		 * Signal retire fence immediately in such case. The threshold
+		 * timer adds extra line time duration based on lowest panel
+		 * fps for qsync enabled case.
 		 */
-		if ((time_diff_us <= SDE_ENC_CTL_START_THRESHOLD_US)
+		if ((time_diff_us <= cmd_enc->ctl_start_threshold)
 			    && atomic_add_unless(
 				&phys_enc->pending_retire_fence_cnt, -1, 0)) {
 
@@ -520,12 +522,14 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 				| SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE;
 	struct drm_connector *conn;
 	int event;
+	u32 pending_kickoff_cnt;
 
 	if (!phys_enc || !phys_enc->hw_pp || !phys_enc->hw_ctl)
 		return -EINVAL;
 
 	conn = phys_enc->connector;
 	cmd_enc->pp_timeout_report_cnt++;
+	pending_kickoff_cnt = atomic_read(&phys_enc->pending_kickoff_cnt);
 
 	if (sde_encoder_phys_cmd_is_master(phys_enc)) {
 		 /* trigger the retire fence if it was missed */
@@ -540,8 +544,11 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 
 	SDE_EVT32(DRMID(phys_enc->parent), phys_enc->hw_pp->idx - PINGPONG_0,
 			cmd_enc->pp_timeout_report_cnt,
-			atomic_read(&phys_enc->pending_kickoff_cnt),
+			pending_kickoff_cnt,
 			frame_event);
+
+	/* decrement the kickoff_cnt before checking for ESD status */
+	atomic_add_unless(&phys_enc->pending_kickoff_cnt, -1, 0);
 
 	/* check if panel is still sending TE signal or not */
 	if (sde_connector_esd_status(phys_enc->connector))
@@ -553,7 +560,7 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 				"pp:%d kickoff timed out ctl %d koff_cnt %d\n",
 				phys_enc->hw_pp->idx - PINGPONG_0,
 				phys_enc->hw_ctl->idx - CTL_0,
-				atomic_read(&phys_enc->pending_kickoff_cnt));
+				pending_kickoff_cnt);
 
 		SDE_EVT32(DRMID(phys_enc->parent), SDE_EVTLOG_FATAL);
 		sde_encoder_helper_unregister_irq(phys_enc, INTR_IDX_RDPTR);
@@ -578,8 +585,6 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 	phys_enc->enable_state = SDE_ENC_ERR_NEEDS_HW_RESET;
 
 exit:
-	atomic_add_unless(&phys_enc->pending_kickoff_cnt, -1, 0);
-
 	if (phys_enc->parent_ops.handle_frame_done)
 		phys_enc->parent_ops.handle_frame_done(
 				phys_enc->parent, phys_enc, frame_event);
@@ -890,7 +895,8 @@ void sde_encoder_phys_cmd_irq_control(struct sde_encoder_phys *phys_enc,
 	}
 }
 
-static int _get_tearcheck_threshold(struct sde_encoder_phys *phys_enc)
+static int _get_tearcheck_threshold(struct sde_encoder_phys *phys_enc,
+	u32 *extra_frame_trigger_time)
 {
 	struct drm_connector *conn = phys_enc->connector;
 	u32 qsync_mode;
@@ -899,6 +905,7 @@ static int _get_tearcheck_threshold(struct sde_encoder_phys *phys_enc)
 	struct sde_encoder_phys_cmd *cmd_enc =
 			to_sde_encoder_phys_cmd(phys_enc);
 
+	*extra_frame_trigger_time = 0;
 	if (!conn || !conn->state)
 		return 0;
 
@@ -952,6 +959,8 @@ static int _get_tearcheck_threshold(struct sde_encoder_phys *phys_enc)
 
 		SDE_EVT32(qsync_mode, qsync_min_fps, extra_time_ns, default_fps,
 			yres, threshold_lines);
+
+		*extra_frame_trigger_time = extra_time_ns;
 	}
 
 exit:
@@ -968,7 +977,7 @@ static void sde_encoder_phys_cmd_tearcheck_config(
 	struct sde_hw_tear_check tc_cfg = { 0 };
 	struct drm_display_mode *mode;
 	bool tc_enable = true;
-	u32 vsync_hz;
+	u32 vsync_hz, extra_frame_trigger_time;
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
 
@@ -1032,10 +1041,14 @@ static void sde_encoder_phys_cmd_tearcheck_config(
 	 */
 	tc_cfg.sync_cfg_height = 0xFFF0;
 	tc_cfg.vsync_init_val = mode->vdisplay;
-	tc_cfg.sync_threshold_start = _get_tearcheck_threshold(phys_enc);
+	tc_cfg.sync_threshold_start = _get_tearcheck_threshold(phys_enc,
+			&extra_frame_trigger_time);
 	tc_cfg.sync_threshold_continue = DEFAULT_TEARCHECK_SYNC_THRESH_CONTINUE;
 	tc_cfg.start_pos = mode->vdisplay;
 	tc_cfg.rd_ptr_irq = mode->vdisplay + 1;
+
+	cmd_enc->ctl_start_threshold = (extra_frame_trigger_time / 1000) +
+			SDE_ENC_CTL_START_THRESHOLD_US;
 
 	SDE_DEBUG_CMDENC(cmd_enc,
 		"tc %d intf %d vsync_clk_speed_hz %u vtotal %u vrefresh %u\n",
@@ -1054,11 +1067,12 @@ static void sde_encoder_phys_cmd_tearcheck_config(
 		tc_cfg.hw_vsync_mode, tc_cfg.vsync_count,
 		tc_cfg.vsync_init_val);
 	SDE_DEBUG_CMDENC(cmd_enc,
-		"tc %d intf %d cfgheight %u thresh_start %u thresh_cont %u\n",
+		"tc %d intf %d cfgheight %u thresh_start %u thresh_cont %u ctl_start_threshold:%d\n",
 		phys_enc->hw_pp->idx - PINGPONG_0,
 		phys_enc->hw_intf->idx - INTF_0,
 		tc_cfg.sync_cfg_height,
-		tc_cfg.sync_threshold_start, tc_cfg.sync_threshold_continue);
+		tc_cfg.sync_threshold_start, tc_cfg.sync_threshold_continue,
+		cmd_enc->ctl_start_threshold);
 
 	if (phys_enc->has_intf_te) {
 		phys_enc->hw_intf->ops.setup_tearcheck(phys_enc->hw_intf,
@@ -1330,6 +1344,7 @@ static int sde_encoder_phys_cmd_prepare_for_kickoff(
 	struct sde_encoder_phys_cmd *cmd_enc =
 			to_sde_encoder_phys_cmd(phys_enc);
 	int ret;
+	u32 extra_frame_trigger_time;
 
 	if (!phys_enc || !phys_enc->hw_pp) {
 		SDE_ERROR("invalid encoder\n");
@@ -1356,7 +1371,8 @@ static int sde_encoder_phys_cmd_prepare_for_kickoff(
 
 	if (sde_connector_qsync_updated(phys_enc->connector)) {
 		tc_cfg.sync_threshold_start =
-			_get_tearcheck_threshold(phys_enc);
+			_get_tearcheck_threshold(phys_enc,
+				&extra_frame_trigger_time);
 		if (phys_enc->has_intf_te &&
 				phys_enc->hw_intf->ops.update_tearcheck)
 			phys_enc->hw_intf->ops.update_tearcheck(
@@ -1364,8 +1380,12 @@ static int sde_encoder_phys_cmd_prepare_for_kickoff(
 		else if (phys_enc->hw_pp->ops.update_tearcheck)
 			phys_enc->hw_pp->ops.update_tearcheck(
 					phys_enc->hw_pp, &tc_cfg);
+
+		cmd_enc->ctl_start_threshold =
+			(extra_frame_trigger_time / 1000) +
+				SDE_ENC_CTL_START_THRESHOLD_US;
 		SDE_EVT32(DRMID(phys_enc->parent),
-				tc_cfg.sync_threshold_start);
+		    tc_cfg.sync_threshold_start, cmd_enc->ctl_start_threshold);
 	}
 
 	SDE_DEBUG_CMDENC(cmd_enc, "pp:%d pending_cnt %d\n",
@@ -1672,6 +1692,7 @@ struct sde_encoder_phys *sde_encoder_phys_cmd_init(
 	phys_enc->enc_spinlock = p->enc_spinlock;
 	phys_enc->vblank_ctl_lock = p->vblank_ctl_lock;
 	cmd_enc->stream_sel = 0;
+	cmd_enc->ctl_start_threshold = SDE_ENC_CTL_START_THRESHOLD_US;
 	phys_enc->enable_state = SDE_ENC_DISABLED;
 	sde_encoder_phys_cmd_init_ops(&phys_enc->ops);
 	phys_enc->comp_type = p->comp_type;

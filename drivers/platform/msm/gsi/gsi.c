@@ -574,12 +574,12 @@ static void gsi_handle_ieob(int ee)
 				GSI_EE_n_CNTXT_SRC_IEOB_IRQ_MSK_OFFS(ee));
 		if (gsi_ctx->chan_ieob_mask != msk)
 			gsi_ctx->ieob_mask_miss_match_cnt++;
-		/* In GSI 2.2 and 2.5 there is a limitation that can lead
+		/* In GSI 2.2 there is a limitation that can lead
 		 * to losing an interrupt because of wrong IEOB IRQ mask value.
 		 * For these versions an explicit considering  mask value for
 		 * all the event channel.
 		 */
-		msk = gsi_ctx->chan_ieob_mask;
+		msk = 0xffff;
 	} else {
 		ch = gsi_readl(gsi_ctx->base +
 				GSI_EE_n_CNTXT_SRC_IEOB_IRQ_OFFS(ee));

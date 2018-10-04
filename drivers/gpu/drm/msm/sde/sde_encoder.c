@@ -445,6 +445,13 @@ int sde_encoder_in_clone_mode(struct drm_encoder *drm_enc)
 		sde_enc->cur_master->in_clone_mode;
 }
 
+bool sde_encoder_is_primary_display(struct drm_encoder *drm_enc)
+{
+	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
+
+	return sde_enc && sde_enc->disp_info.is_primary;
+}
+
 int sde_encoder_in_cont_splash(struct drm_encoder *drm_enc)
 {
 	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
@@ -3177,6 +3184,72 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 	sde_rm_release(&sde_kms->rm, drm_enc);
 }
 
+void sde_encoder_helper_phys_disable(struct sde_encoder_phys *phys_enc,
+		struct sde_encoder_phys_wb *wb_enc)
+{
+	struct sde_encoder_virt *sde_enc;
+
+	if (wb_enc) {
+		if (sde_encoder_helper_reset_mixers(phys_enc,
+				wb_enc->fb_disable))
+			return;
+
+		if (wb_enc->hw_wb->ops.bind_pingpong_blk) {
+			wb_enc->hw_wb->ops.bind_pingpong_blk(wb_enc->hw_wb,
+					false, phys_enc->hw_pp->idx);
+
+			if (phys_enc->hw_ctl->ops.update_bitmask_wb)
+				phys_enc->hw_ctl->ops.update_bitmask_wb(
+						phys_enc->hw_ctl,
+						wb_enc->hw_wb->idx, true);
+		}
+	} else {
+		if (phys_enc->hw_intf->ops.bind_pingpong_blk) {
+			phys_enc->hw_intf->ops.bind_pingpong_blk(
+					phys_enc->hw_intf, false,
+					phys_enc->hw_pp->idx);
+
+			if (phys_enc->hw_ctl->ops.update_bitmask_intf)
+				phys_enc->hw_ctl->ops.update_bitmask_intf(
+						phys_enc->hw_ctl,
+						phys_enc->hw_intf->idx, true);
+		}
+	}
+
+	if (phys_enc->hw_pp && phys_enc->hw_pp->ops.reset_3d_mode) {
+		phys_enc->hw_pp->ops.reset_3d_mode(phys_enc->hw_pp);
+
+		if (phys_enc->hw_ctl->ops.update_bitmask_merge3d &&
+				phys_enc->hw_pp->merge_3d)
+			phys_enc->hw_ctl->ops.update_bitmask_merge3d(
+					phys_enc->hw_ctl,
+					phys_enc->hw_pp->merge_3d->idx, true);
+	}
+
+	if (phys_enc->hw_cdm && phys_enc->hw_cdm->ops.bind_pingpong_blk &&
+			phys_enc->hw_pp) {
+		phys_enc->hw_cdm->ops.bind_pingpong_blk(phys_enc->hw_cdm,
+				false, phys_enc->hw_pp->idx);
+
+		if (phys_enc->hw_ctl->ops.update_bitmask_cdm)
+			phys_enc->hw_ctl->ops.update_bitmask_cdm(
+					phys_enc->hw_ctl,
+					phys_enc->hw_cdm->idx, true);
+	}
+
+	sde_enc = to_sde_encoder_virt(phys_enc->parent);
+
+	if (phys_enc == sde_enc->cur_master && phys_enc->hw_pp &&
+			phys_enc->hw_pp->merge_3d &&
+			phys_enc->hw_ctl->ops.reset_post_disable)
+		phys_enc->hw_ctl->ops.reset_post_disable(
+				phys_enc->hw_ctl, &phys_enc->intf_cfg_v1,
+				phys_enc->hw_pp->merge_3d->idx);
+
+	phys_enc->hw_ctl->ops.trigger_flush(phys_enc->hw_ctl);
+	phys_enc->hw_ctl->ops.trigger_start(phys_enc->hw_ctl);
+}
+
 static enum sde_intf sde_encoder_get_intf(struct sde_mdss_cfg *catalog,
 		enum sde_intf_type type, u32 controller_id)
 {
@@ -3822,7 +3895,7 @@ static void _sde_encoder_update_master(struct drm_encoder *drm_enc,
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		enum sde_enc_split_role prv_role, new_role;
-		bool active;
+		bool active = false;
 
 		phys = sde_enc->phys_encs[i];
 		if (!phys || !phys->ops.update_split_role || !phys->hw_pp)

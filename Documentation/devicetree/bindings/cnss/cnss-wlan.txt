@@ -35,6 +35,10 @@ Optional properties:
   - vdd-wlan-xtal-aon-supply: phandle to the LDO-4 regulator. This is needed
                               on platforms where XTAL regulator depends on
                               always on regulator in VDDmin.
+  - vdd-wlan-ctrl1-supply: phandle to the DBU1 - 1.8V for QCA6595 or 3.3V for
+                           QCA6174 on auto platform.
+  - vdd-wlan-ctrl2-supply: phandle to the DBU4 - 2.2V for QCA6595 or 3.85V for
+                           QCA6696 on auto platform.
   - vdd-wlan-core-supply: phandle to the 1.3V CORE regulator for QCA6174
   - vdd-wlan-sp2t-supply: phandle to the 2.7V SP2T regulator for QCA6174
   - qcom,smmu-s1-enable: Boolean property to decide whether to enable SMMU

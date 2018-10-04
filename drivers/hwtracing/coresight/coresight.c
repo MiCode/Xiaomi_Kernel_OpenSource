@@ -812,6 +812,7 @@ static ssize_t enable_source_store(struct device *dev,
 		if (ret)
 			return ret;
 	} else {
+		atomic_set(csdev->refcnt, 1);
 		coresight_disable(csdev);
 	}
 
@@ -1058,6 +1059,7 @@ static ssize_t reset_source_sink_store(struct bus_type *bus,
 		csdev = coresight_get_source(cspath->path);
 		if (!csdev)
 			continue;
+		atomic_set(csdev->refcnt, 1);
 		__coresight_disable(csdev);
 	}
 

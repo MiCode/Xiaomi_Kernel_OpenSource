@@ -15,6 +15,7 @@
 #define pr_fmt(fmt)	"[drm-dp] %s: " fmt, __func__
 
 #include <linux/debugfs.h>
+#include <linux/slab.h>
 
 #include "dp_power.h"
 #include "dp_catalog.h"
@@ -34,6 +35,8 @@ struct dp_debug_private {
 
 	u8 *dpcd;
 	u32 dpcd_size;
+
+	u32 mst_con_id;
 
 	char exe_mode[SZ_32];
 	char reg_dump[SZ_32];
@@ -149,7 +152,7 @@ static ssize_t dp_debug_write_edid(struct file *file,
 			goto bail;
 		}
 
-		if (edid_buf_index < debug->edid_size)
+		if (debug->edid && (edid_buf_index < debug->edid_size))
 			debug->edid[edid_buf_index++] = d;
 
 		buf_t += char_to_nib;
@@ -275,10 +278,8 @@ static ssize_t dp_debug_write_hpd(struct file *file,
 	struct dp_debug_private *debug = file->private_data;
 	char buf[SZ_8];
 	size_t len = 0;
-	int const orientation_mask = 0x4;
 	int const hpd_data_mask = 0x7;
 	int hpd = 0;
-	int orientation = 0;
 
 	if (!debug)
 		return -ENODEV;
@@ -297,13 +298,10 @@ static ssize_t dp_debug_write_hpd(struct file *file,
 		goto end;
 
 	hpd &= hpd_data_mask;
-	orientation = hpd & orientation_mask ?
-		ORIENTATION_CC2 : ORIENTATION_CC1;
 
 	debug->dp_debug.psm_enabled = !!(hpd & BIT(1));
 
-	debug->hpd->simulate_connect(debug->hpd, !!(hpd & BIT(0)),
-			orientation);
+	debug->hpd->simulate_connect(debug->hpd, !!(hpd & BIT(0)));
 end:
 	return len;
 }
@@ -345,6 +343,112 @@ static ssize_t dp_debug_write_edid_modes(struct file *file,
 clear:
 	pr_debug("clearing debug modes\n");
 	debug->dp_debug.debug_en = false;
+end:
+	return len;
+}
+
+static ssize_t dp_debug_write_edid_modes_mst(struct file *file,
+		const char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	struct dp_mst_connector *mst_connector;
+	char buf[SZ_32];
+	char *read_buf;
+	size_t len = 0;
+
+	int hdisplay = 0, vdisplay = 0, vrefresh = 0, aspect_ratio = 0;
+	int con_id = 0, offset = 0, debug_en = 0;
+	bool in_list = false;
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		goto end;
+
+	len = min_t(size_t, count, SZ_32 - 1);
+	if (copy_from_user(buf, user_buff, len))
+		goto end;
+
+	buf[len] = '\0';
+	read_buf = buf;
+
+	mutex_lock(&debug->dp_debug.dp_mst_connector_list.lock);
+	while (sscanf(read_buf, "%d %d %d %d %d %d%n", &debug_en, &con_id,
+			&hdisplay, &vdisplay, &vrefresh, &aspect_ratio,
+			&offset) == 6) {
+		list_for_each_entry(mst_connector,
+				&debug->dp_debug.dp_mst_connector_list.list,
+				list) {
+			if (mst_connector->con_id == con_id) {
+				in_list = true;
+				mst_connector->debug_en = (bool) debug_en;
+				mst_connector->hdisplay = hdisplay;
+				mst_connector->vdisplay = vdisplay;
+				mst_connector->vrefresh = vrefresh;
+				mst_connector->aspect_ratio = aspect_ratio;
+			}
+		}
+
+		if (!in_list)
+			pr_debug("dp connector id %d is invalid\n", con_id);
+
+		in_list = false;
+		read_buf += offset;
+	}
+	mutex_unlock(&debug->dp_debug.dp_mst_connector_list.lock);
+end:
+	return len;
+}
+
+static ssize_t dp_debug_write_mst_con_id(struct file *file,
+		const char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	struct dp_mst_connector *mst_connector;
+	char buf[SZ_32];
+	size_t len = 0;
+	int con_id = 0;
+	bool in_list = false;
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		goto end;
+
+	/* Leave room for termination char */
+	len = min_t(size_t, count, SZ_32 - 1);
+	if (copy_from_user(buf, user_buff, len))
+		goto clear;
+
+	buf[len] = '\0';
+
+	if (kstrtoint(buf, 10, &con_id) != 0)
+		goto clear;
+
+	if (!con_id)
+		goto clear;
+
+	/* Verify that the connector id is for a valid mst connector. */
+	mutex_lock(&debug->dp_debug.dp_mst_connector_list.lock);
+	list_for_each_entry(mst_connector,
+			&debug->dp_debug.dp_mst_connector_list.list, list) {
+		if (mst_connector->con_id == con_id) {
+			in_list = true;
+			debug->mst_con_id = con_id;
+			break;
+		}
+	}
+	mutex_unlock(&debug->dp_debug.dp_mst_connector_list.lock);
+
+	if (!in_list)
+		pr_err("invalid connector id %u\n", con_id);
+
+	goto end;
+clear:
+	pr_debug("clearing mst_con_id\n");
+	debug->mst_con_id = 0;
 end:
 	return len;
 }
@@ -598,6 +702,56 @@ static ssize_t dp_debug_read_connected(struct file *file,
 	return len;
 }
 
+static ssize_t dp_debug_write_hdcp(struct file *file,
+		const char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	char buf[SZ_8];
+	size_t len = 0;
+	int hdcp = 0;
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	/* Leave room for termination char */
+	len = min_t(size_t, count, SZ_8 - 1);
+	if (copy_from_user(buf, user_buff, len))
+		goto end;
+
+	buf[len] = '\0';
+
+	if (kstrtoint(buf, 10, &hdcp) != 0)
+		goto end;
+
+	debug->dp_debug.hdcp_disabled = !hdcp;
+end:
+	return len;
+}
+
+static ssize_t dp_debug_read_hdcp(struct file *file,
+		char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	u32 len = 0;
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	len = sizeof(debug->dp_debug.hdcp_status);
+
+	if (copy_to_user(user_buff, debug->dp_debug.hdcp_status, len))
+		return -EFAULT;
+
+	*ppos += len;
+	return len;
+}
+
 static int dp_debug_check_buffer_overflow(int rc, int *max_size, int *len)
 {
 	if (rc >= *max_size) {
@@ -653,6 +807,183 @@ static ssize_t dp_debug_read_edid_modes(struct file *file,
 			break;
 	}
 	mutex_unlock(&connector->dev->mode_config.mutex);
+
+	if (copy_to_user(user_buff, buf, len)) {
+		kfree(buf);
+		rc = -EFAULT;
+		goto error;
+	}
+
+	*ppos += len;
+	kfree(buf);
+
+	return len;
+error:
+	return rc;
+}
+
+static ssize_t dp_debug_read_edid_modes_mst(struct file *file,
+		char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	struct dp_mst_connector *mst_connector;
+	char *buf;
+	u32 len = 0, ret = 0, max_size = SZ_4K;
+	int rc = 0;
+	struct drm_connector *connector;
+	struct drm_display_mode *mode;
+	bool in_list = false;
+
+	if (!debug) {
+		pr_err("invalid data\n");
+		rc = -ENODEV;
+		goto error;
+	}
+
+	mutex_lock(&debug->dp_debug.dp_mst_connector_list.lock);
+	list_for_each_entry(mst_connector,
+			&debug->dp_debug.dp_mst_connector_list.list, list) {
+		if (mst_connector->con_id == debug->mst_con_id) {
+			connector = mst_connector->conn;
+			in_list = true;
+		}
+	}
+	mutex_unlock(&debug->dp_debug.dp_mst_connector_list.lock);
+
+	if (!in_list) {
+		pr_err("connector %u not in mst list\n", debug->mst_con_id);
+		rc = -EINVAL;
+		goto error;
+	}
+
+	if (!connector) {
+		pr_err("connector is NULL\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
+	if (*ppos)
+		goto error;
+
+	buf = kzalloc(SZ_4K, GFP_KERNEL);
+	if (!buf) {
+		rc = -ENOMEM;
+		goto error;
+	}
+
+	mutex_lock(&connector->dev->mode_config.mutex);
+	list_for_each_entry(mode, &connector->modes, head) {
+		ret = snprintf(buf + len, max_size,
+				"%s %d %d %d %d %d 0x%x\n",
+				mode->name, mode->vrefresh,
+				mode->picture_aspect_ratio, mode->htotal,
+				mode->vtotal, mode->clock, mode->flags);
+		if (dp_debug_check_buffer_overflow(ret, &max_size, &len))
+			break;
+	}
+	mutex_unlock(&connector->dev->mode_config.mutex);
+
+	if (copy_to_user(user_buff, buf, len)) {
+		kfree(buf);
+		rc = -EFAULT;
+		goto error;
+	}
+
+	*ppos += len;
+	kfree(buf);
+
+	return len;
+error:
+	return rc;
+}
+
+static ssize_t dp_debug_read_mst_con_id(struct file *file,
+		char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	char *buf;
+	u32 len = 0, ret = 0, max_size = SZ_4K;
+	int rc = 0;
+
+	if (!debug) {
+		pr_err("invalid data\n");
+		rc = -ENODEV;
+		goto error;
+	}
+
+	if (*ppos)
+		goto error;
+
+	buf = kzalloc(SZ_4K, GFP_KERNEL);
+	if (!buf) {
+		rc = -ENOMEM;
+		goto error;
+	}
+
+	ret = snprintf(buf, max_size, "%u\n", debug->mst_con_id);
+	len += ret;
+
+	if (copy_to_user(user_buff, buf, len)) {
+		kfree(buf);
+		rc = -EFAULT;
+		goto error;
+	}
+
+	*ppos += len;
+	kfree(buf);
+
+	return len;
+error:
+	return rc;
+}
+
+static ssize_t dp_debug_read_mst_conn_info(struct file *file,
+		char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	struct dp_mst_connector *mst_connector;
+	char *buf;
+	u32 len = 0, ret = 0, max_size = SZ_4K;
+	int rc = 0;
+	struct drm_connector *connector;
+
+	if (!debug) {
+		pr_err("invalid data\n");
+		rc = -ENODEV;
+		goto error;
+	}
+
+	if (*ppos)
+		goto error;
+
+	buf = kzalloc(SZ_4K, GFP_KERNEL);
+	if (!buf) {
+		rc = -ENOMEM;
+		goto error;
+	}
+
+	mutex_lock(&debug->dp_debug.dp_mst_connector_list.lock);
+	list_for_each_entry(mst_connector,
+			&debug->dp_debug.dp_mst_connector_list.list, list) {
+		/* Do not print info for head node */
+		if (mst_connector->con_id == -1)
+			continue;
+
+		connector = mst_connector->conn;
+
+		if (!connector) {
+			pr_err("connector for id %d is NULL\n",
+					mst_connector->con_id);
+			continue;
+		}
+
+		ret = snprintf(buf + len, max_size,
+				"conn name:%s, conn id:%d\n", connector->name,
+				connector->base.id);
+		if (dp_debug_check_buffer_overflow(ret, &max_size, &len))
+			break;
+	}
+	mutex_unlock(&debug->dp_debug.dp_mst_connector_list.lock);
 
 	if (copy_to_user(user_buff, buf, len)) {
 		kfree(buf);
@@ -1034,7 +1365,14 @@ static ssize_t dp_debug_write_sim(struct file *file,
 
 		if (dp_debug_get_dpcd_buf(debug))
 			goto error;
+
+		debug->dp_debug.sim_mode = true;
+		debug->aux->set_sim_mode(debug->aux, true,
+			debug->edid, debug->dpcd);
 	} else {
+		debug->aux->set_sim_mode(debug->aux, false, NULL, NULL);
+		debug->dp_debug.sim_mode = false;
+
 		if (debug->edid) {
 			devm_kfree(debug->dev, debug->edid);
 			debug->edid = NULL;
@@ -1045,11 +1383,6 @@ static ssize_t dp_debug_write_sim(struct file *file,
 			debug->dpcd = NULL;
 		}
 	}
-
-	debug->dp_debug.sim_mode = !!sim;
-
-	debug->aux->set_sim_mode(debug->aux, debug->dp_debug.sim_mode,
-			debug->edid, debug->dpcd);
 end:
 	return len;
 error:
@@ -1162,6 +1495,23 @@ static const struct file_operations edid_modes_fops = {
 	.write = dp_debug_write_edid_modes,
 };
 
+static const struct file_operations edid_modes_mst_fops = {
+	.open = simple_open,
+	.read = dp_debug_read_edid_modes_mst,
+	.write = dp_debug_write_edid_modes_mst,
+};
+
+static const struct file_operations mst_conn_info_fops = {
+	.open = simple_open,
+	.read = dp_debug_read_mst_conn_info,
+};
+
+static const struct file_operations mst_con_id_fops = {
+	.open = simple_open,
+	.read = dp_debug_read_mst_con_id,
+	.write = dp_debug_write_mst_con_id,
+};
+
 static const struct file_operations hpd_fops = {
 	.open = simple_open,
 	.write = dp_debug_write_hpd,
@@ -1237,6 +1587,12 @@ static const struct file_operations max_pclk_khz_fops = {
 	.read = dp_debug_max_pclk_khz_read,
 };
 
+static const struct file_operations hdcp_fops = {
+	.open = simple_open,
+	.write = dp_debug_write_hdcp,
+	.read = dp_debug_read_hdcp,
+};
+
 static int dp_debug_init(struct dp_debug *dp_debug)
 {
 	int rc = 0;
@@ -1271,6 +1627,33 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 	if (IS_ERR_OR_NULL(file)) {
 		rc = PTR_ERR(file);
 		pr_err("[%s] debugfs create edid_modes failed, rc=%d\n",
+		       DEBUG_NAME, rc);
+		goto error_remove_dir;
+	}
+
+	file = debugfs_create_file("edid_modes_mst", 0644, dir,
+					debug, &edid_modes_mst_fops);
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs create edid_modes_mst failed, rc=%d\n",
+		       DEBUG_NAME, rc);
+		goto error_remove_dir;
+	}
+
+	file = debugfs_create_file("mst_con_id", 0644, dir,
+					debug, &mst_con_id_fops);
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs create mst_con_id failed, rc=%d\n",
+		       DEBUG_NAME, rc);
+		goto error_remove_dir;
+	}
+
+	file = debugfs_create_file("mst_con_info", 0644, dir,
+					debug, &mst_conn_info_fops);
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs create mst_conn_info failed, rc=%d\n",
 		       DEBUG_NAME, rc);
 		goto error_remove_dir;
 	}
@@ -1412,6 +1795,15 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 		goto error_remove_dir;
 	}
 
+	file = debugfs_create_file("hdcp", 0644, dir,
+					debug, &hdcp_fops);
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs hdcp failed, rc=%d\n",
+			DEBUG_NAME, rc);
+		goto error_remove_dir;
+	}
+
 	return 0;
 
 error_remove_dir:
@@ -1474,6 +1866,16 @@ struct dp_debug *dp_debug_get(struct dp_debug_in *in)
 	}
 
 	dp_debug->get_edid = dp_debug_get_edid;
+
+	INIT_LIST_HEAD(&dp_debug->dp_mst_connector_list.list);
+
+	/*
+	 * Do not associate the head of the list with any connector in order to
+	 * maintain backwards compatibility with the SST use case.
+	 */
+	dp_debug->dp_mst_connector_list.con_id = -1;
+	dp_debug->dp_mst_connector_list.conn = NULL;
+	dp_debug->dp_mst_connector_list.debug_en = false;
 
 	return dp_debug;
 error:

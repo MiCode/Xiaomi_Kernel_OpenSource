@@ -1906,6 +1906,7 @@ static int clk_fabia_pll_prepare(struct clk_hw *hw)
 	unsigned long calibration_freq, freq_hz;
 	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
 	const struct pll_vco *vco;
+	struct clk_hw *parent;
 	u64 a;
 	u32 cal_l, regval, off = pll->offset;
 	int ret;
@@ -1928,8 +1929,12 @@ static int clk_fabia_pll_prepare(struct clk_hw *hw)
 	calibration_freq = ((pll->vco_table[0].min_freq +
 				pll->vco_table[0].max_freq) * 54)/100;
 
+	parent = clk_hw_get_parent(hw);
+	if (!parent)
+		return -EINVAL;
+
 	freq_hz = alpha_pll_round_rate(pll, calibration_freq,
-			clk_hw_get_rate(clk_hw_get_parent(hw)), &cal_l, &a);
+			clk_hw_get_rate(parent), &cal_l, &a);
 	/*
 	 * Due to a limited number of bits for fractional rate programming, the
 	 * rounded up rate could be marginally higher than the requested rate.

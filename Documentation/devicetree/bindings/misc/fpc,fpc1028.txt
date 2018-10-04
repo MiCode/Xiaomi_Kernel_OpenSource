@@ -1,0 +1,85 @@
+Fingerprint Cards AB. Fpc1028 driver
+
+The fpc1028 fingerprint sensor is connected to the host processor via SPI.
+The sensor will generates interrupts when the user touches the sensor.
+The host controller is expected to read data over SPI and pass the data to
+the rest of the system.
+
+This binding document describes the properties for this module.
+
+Properties:
+
+- compatible
+  Usage:      required
+  Value type: <string>
+  Definition: It must be "fpc,fpc1020"
+
+- interrupts
+  Usage:      required
+  Value type: <prop-encoded-array>
+  Definition: Peripheral interrupt specifier.
+
+- interrupt-parent
+  Usage:      required
+  Value type: <phandle>
+  Definition: phandle of the interrupt controller which services the
+  summary interrupt.
+
+- fpc,gpio_rst
+  Usage:      required
+  Value type: <prop-encoded-array>
+  Definition: GPIO which connecting to the reset pin of fpc1028
+
+- fpc,gpio_irq
+  Usage:      required
+  Value type: <prop-encoded-array>
+  Definition: Specifies the GPIO which connecting to the irq pin of fpc1028.
+
+- vcc_spi-supply
+  Usage:      required
+  Value type: <phandle>
+  Definition: The phandle of the regulator which supplies fpc1028 spi bus core.
+
+- vcc_io-supply
+  Usage:      required
+  Value type: <phandle>
+  Definition: The phandle of the regulator which supplies fpc1028 io pins.
+
+- vcc_ana-supply
+  Usage:      required
+  Value type: <phandle>
+  Definition: The phandle of the regulator which supplies fpc1028 analog circuit.
+
+- pinctrl-names:
+  Usage:      required
+  Value type: <string>
+  Definition: Pinctrl state names for each pin group configuration.
+  eg:"fpc1020_reset_reset", "fpc1020_reset_active", "fpc1020_irq_active".
+  refer to "Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt"
+
+- pinctrl-n:
+  Usage:      required
+  Value type: <string>
+  Definition: pinctrl state for each pin group
+  refer to "Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt"
+
+
+Example:
+
+	fpc1020 {
+			compatible = "fpc,fpc1020";
+			interrupt-parent = <&tlmm>;
+			interrupts = <48 0>;
+			fpc,gpio_rst = <&tlmm 124 0x0>;
+			fpc,gpio_irq = <&tlmm 48 0>;
+			vcc_spi-supply = <&pm8953_l5>;
+			vdd_io-supply  = <&pm8953_l5>;
+			vdd_ana-supply = <&pm8953_l5>;
+			fpc,enable-on-boot;
+			pinctrl-names = "fpc1020_reset_reset",
+					"fpc1020_reset_active",
+					"fpc1020_irq_active";
+			pinctrl-0 = <&msm_gpio_124>;
+			pinctrl-1 = <&msm_gpio_124_output_high>;
+			pinctrl-2 = <&msm_gpio_48>;
+		};

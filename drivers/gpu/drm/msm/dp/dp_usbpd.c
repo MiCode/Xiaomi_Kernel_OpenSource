@@ -430,8 +430,7 @@ static void dp_usbpd_response_cb(struct usbpd_svid_handler *hdlr, u8 cmd,
 	}
 }
 
-static int dp_usbpd_simulate_connect(struct dp_hpd *dp_hpd, bool hpd,
-		int orientation)
+static int dp_usbpd_simulate_connect(struct dp_hpd *dp_hpd, bool hpd)
 {
 	int rc = 0;
 	struct dp_usbpd *dp_usbpd;
@@ -448,7 +447,6 @@ static int dp_usbpd_simulate_connect(struct dp_hpd *dp_hpd, bool hpd,
 
 	dp_usbpd->base.hpd_high = hpd;
 	pd->forced_disconnect = !hpd;
-	pd->dp_usbpd.base.orientation = orientation;
 	pd->dp_usbpd.base.alt_mode_cfg_done = hpd;
 
 	pr_debug("hpd_high=%d, forced_disconnect=%d, orientation=%d\n",
@@ -469,13 +467,13 @@ static int dp_usbpd_simulate_attention(struct dp_hpd *dp_hpd, int vdo)
 	struct dp_usbpd *dp_usbpd;
 	struct dp_usbpd_private *pd;
 
+	dp_usbpd = container_of(dp_hpd, struct dp_usbpd, base);
 	if (!dp_usbpd) {
 		pr_err("invalid input\n");
 		rc = -EINVAL;
 		goto error;
 	}
 
-	dp_usbpd = container_of(dp_hpd, struct dp_usbpd, base);
 	pd = container_of(dp_usbpd, struct dp_usbpd_private, dp_usbpd);
 
 	pd->vdo = vdo;
@@ -548,10 +546,10 @@ void dp_usbpd_put(struct dp_hpd *dp_hpd)
 	struct dp_usbpd *dp_usbpd;
 	struct dp_usbpd_private *usbpd;
 
+	dp_usbpd = container_of(dp_hpd, struct dp_usbpd, base);
 	if (!dp_usbpd)
 		return;
 
-	dp_usbpd = container_of(dp_hpd, struct dp_usbpd, base);
 	usbpd = container_of(dp_usbpd, struct dp_usbpd_private, dp_usbpd);
 
 	usbpd_unregister_svid(usbpd->pd, &usbpd->svid_handler);

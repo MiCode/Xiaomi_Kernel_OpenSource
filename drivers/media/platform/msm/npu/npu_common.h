@@ -46,7 +46,7 @@
 #define NUM_TOTAL_CLKS          20
 #define NPU_MAX_REGULATOR_NUM	2
 #define NPU_MAX_DT_NAME_LEN	    21
-#define NPU_MAX_PWRLEVELS		7
+#define NPU_MAX_PWRLEVELS		8
 
 /* -------------------------------------------------------------------------
  * Data Structures
@@ -240,6 +240,6 @@ int npu_set_uc_power_level(struct npu_device *npu_dev,
 	uint32_t pwr_level);
 
 int fw_init(struct npu_device *npu_dev);
-void fw_deinit(struct npu_device *npu_dev, bool fw_alive, bool ssr);
+void fw_deinit(struct npu_device *npu_dev, bool ssr);
 
 #endif /* _NPU_COMMON_H */

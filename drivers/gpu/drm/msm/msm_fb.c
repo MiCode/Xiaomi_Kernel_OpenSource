@@ -403,7 +403,7 @@ struct drm_framebuffer *msm_framebuffer_init(struct drm_device *dev,
 		}
 	}
 
-	if (num_planes > ARRAY_SIZE(msm_fb->planes)) {
+	if (num_planes > ARRAY_SIZE(msm_fb->planes) - 1) {
 		ret = -EINVAL;
 		goto fail;
 	}

@@ -40,8 +40,9 @@ enum sde_hdcp_state {
 
 enum sde_hdcp_version {
 	HDCP_VERSION_NONE,
-	HDCP_VERSION_1X,
-	HDCP_VERSION_2P2
+	HDCP_VERSION_1X = BIT(0),
+	HDCP_VERSION_2P2 = BIT(1),
+	HDCP_VERSION_MAX = BIT(2),
 };
 
 struct sde_hdcp_init_data {
@@ -72,6 +73,7 @@ struct sde_hdcp_ops {
 	int (*authenticate)(void *hdcp_ctrl);
 	bool (*feature_supported)(void *input);
 	void (*force_encryption)(void *input, bool enable);
+	bool (*sink_support)(void *input);
 	void (*off)(void *hdcp_ctrl);
 };
 
@@ -98,8 +100,8 @@ static inline const char *sde_hdcp_version(enum sde_hdcp_version hdcp_version)
 
 void *sde_hdcp_1x_init(struct sde_hdcp_init_data *init_data);
 void sde_hdcp_1x_deinit(void *input);
-struct sde_hdcp_ops *sde_hdcp_1x_start(void *input);
+struct sde_hdcp_ops *sde_hdcp_1x_get(void *input);
 void *sde_dp_hdcp2p2_init(struct sde_hdcp_init_data *init_data);
 void sde_dp_hdcp2p2_deinit(void *input);
-struct sde_hdcp_ops *sde_dp_hdcp2p2_start(void *input);
+struct sde_hdcp_ops *sde_dp_hdcp2p2_get(void *input);
 #endif /* __SDE_HDCP_H__ */

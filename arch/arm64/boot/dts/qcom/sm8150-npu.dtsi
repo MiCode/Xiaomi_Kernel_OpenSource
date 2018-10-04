@@ -78,29 +78,6 @@
 			initial-pwrlevel = <4>;
 			qcom,npu-pwrlevel@0 {
 				reg = <0>;
-				clk-freq = <9600000
-						19200000
-						19200000
-						19200000
-						19200000
-						9600000
-						60000000
-						19200000
-						19200000
-						30000000
-						19200000
-						19200000
-						19200000
-						19200000
-						9600000
-						19200000
-						0
-						0
-						0
-						0>;
-			};
-			qcom,npu-pwrlevel@1 {
-				reg = <1>;
 				clk-freq = <300000000
 						19200000
 						100000000
@@ -122,8 +99,8 @@
 						0
 						0>;
 			};
-			qcom,npu-pwrlevel@2 {
-				reg = <2>;
+			qcom,npu-pwrlevel@1 {
+				reg = <1>;
 				clk-freq = <350000000
 						19200000
 						150000000
@@ -145,8 +122,8 @@
 						0
 						0>;
 			};
-			qcom,npu-pwrlevel@3 {
-				reg = <3>;
+			qcom,npu-pwrlevel@2 {
+				reg = <2>;
 				clk-freq = <400000000
 						19200000
 						200000000
@@ -168,8 +145,8 @@
 						0
 						0>;
 			};
-			qcom,npu-pwrlevel@4 {
-				reg = <4>;
+			qcom,npu-pwrlevel@3 {
+				reg = <3>;
 				clk-freq = <600000000
 						19200000
 						300000000
@@ -191,8 +168,8 @@
 						0
 						0>;
 			};
-			qcom,npu-pwrlevel@5 {
-				reg = <5>;
+			qcom,npu-pwrlevel@4 {
+				reg = <4>;
 				clk-freq = <715000000
 						19200000
 						350000000

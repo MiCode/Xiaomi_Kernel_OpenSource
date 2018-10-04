@@ -16,6 +16,7 @@
 #include "dsi-panel-sim-dualmipi-video.dtsi"
 #include "dsi-panel-sim-dualmipi-cmd.dtsi"
 #include "dsi-panel-sim-dualmipi-dsc375-cmd.dtsi"
+#include "dsi-panel-sim-sec-hd-cmd.dtsi"
 #include "dsi-panel-sharp-dsc-4k-video.dtsi"
 #include "dsi-panel-sharp-dsc-4k-cmd.dtsi"
 #include "dsi-panel-nt35597-truly-dualmipi-wqxga-video.dtsi"
@@ -357,6 +358,41 @@
 		qcom,dsi-panel = <&dsi_dual_nt36850_truly_cmd>;
 	};
 
+	dsi_nt35695b_truly_fhd_cmd_sec_display: qcom,dsi-display@20 {
+		label = "dsi_nt35695b_truly_fhd_cmd_display";
+		qcom,display-type = "secondary";
+
+		qcom,dsi-ctrl-num = <1>;
+		qcom,dsi-phy-num = <1>;
+		qcom,dsi-select-clocks = "src_byte_clk1", "src_pixel_clk1";
+
+		qcom,dsi-panel = <&dsi_nt35695b_truly_fhd_cmd>;
+
+	};
+
+	dsi_nt35695b_truly_fhd_video_sec_display: qcom,dsi-display@21 {
+		label = "dsi_nt35695b_truly_fhd_video_display";
+		qcom,display-type = "secondary";
+
+		qcom,dsi-ctrl-num = <1>;
+		qcom,dsi-phy-num = <1>;
+		qcom,dsi-select-clocks = "src_byte_clk1", "src_pixel_clk1";
+
+		qcom,dsi-panel = <&dsi_nt35695b_truly_fhd_video>;
+	};
+
+	dsi_sim_sec_hd_cmd_display: qcom,dsi-display@22 {
+
+		label = "dsi_sim_sec_hd_cmd_display";
+		qcom,display-type = "secondary";
+
+		qcom,dsi-ctrl-num = <1>;
+		qcom,dsi-phy-num = <1>;
+		qcom,dsi-select-clocks = "src_byte_clk1", "src_pixel_clk1";
+
+		qcom,dsi-panel = <&dsi_sim_sec_hd_cmd>;
+	};
+
 	sde_dsi: qcom,dsi-display-primary {
 		compatible = "qcom,dsi-display";
 		label = "primary";
@@ -433,8 +469,9 @@
 		vdd-supply = <&display_panel_avdd_eldo>;
 
 		qcom,dsi-display-list =
-			<&dsi_nt35695b_truly_fhd_cmd_display
-			&dsi_nt35695b_truly_fhd_video_display>;
+			<&dsi_nt35695b_truly_fhd_cmd_sec_display
+			&dsi_nt35695b_truly_fhd_video_sec_display
+			&dsi_sim_sec_hd_cmd_display>;
 	};
 
 	sde_wb: qcom,wb-display@0 {
@@ -467,7 +504,7 @@
 };
 
 &mdss_mdp {
-	connectors = <&sde_rscc &sde_wb &sde_dp &sde_dsi>;
+	connectors = <&sde_rscc &sde_wb &sde_dp &sde_dsi &sde_dsi1>;
 };
 
 /* PHY TIMINGS REVISION T */
@@ -605,12 +642,34 @@
 
 &dsi_nt35695b_truly_fhd_cmd {
 	qcom,ulps-enabled;
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_hs_mode";
+	qcom,mdss-dsi-panel-status-value = <0x9c>;
+	qcom,mdss-dsi-panel-on-check-value = <0x9c>;
+	qcom,mdss-dsi-panel-status-read-length = <1>;
+
 	qcom,mdss-dsi-display-timings {
 		timing@0 {
 			qcom,mdss-dsi-panel-phy-timings = [00 1e 08 07 24 22
 				08 08 05 02 04 00 19 17];
 			qcom,display-topology = <1 0 1>;
 			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_sim_sec_hd_cmd {
+	qcom,ulps-enabled;
+	qcom,mdss-dsi-display-timings {
+		timing@0 {
+			qcom,mdss-dsi-panel-phy-timings = [00 1e 08 07 24 22
+				08 08 05 02 04 00 19 17];
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
+			qcom,panel-roi-alignment = <720 40 720 40 720 40>;
+			qcom,partial-update-enabled = "single_roi";
 		};
 	};
 };
@@ -628,6 +687,15 @@
 };
 
 &dsi_sharp_1080_cmd {
+	qcom,ulps-enabled;
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_hs_mode";
+	qcom,mdss-dsi-panel-status-value = <0x9c>;
+	qcom,mdss-dsi-panel-on-check-value = <0x9c>;
+	qcom,mdss-dsi-panel-status-read-length = <1>;
+
 	qcom,mdss-dsi-display-timings {
 		timing@0{
 			qcom,mdss-dsi-panel-phy-timings = [00 1A 06 06 22 20 07

@@ -459,7 +459,8 @@ static int gmu_memory_probe(struct kgsl_device *device,
 	}
 
 	/* Allocates & maps GMU crash dump memory */
-	if (adreno_is_a630(adreno_dev)) {
+	if (adreno_is_a630(adreno_dev) || adreno_is_a615(adreno_dev) ||
+		adreno_is_a616(adreno_dev)) {
 		gmu->dump_mem = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL,
 				DUMPMEM_SIZE, (IOMMU_READ | IOMMU_WRITE));
 		if (IS_ERR(gmu->dump_mem)) {

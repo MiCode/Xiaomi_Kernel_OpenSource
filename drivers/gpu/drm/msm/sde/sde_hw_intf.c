@@ -69,6 +69,7 @@
 #define INTF_MISR_SIGNATURE		0x184
 
 #define INTF_MUX                        0x25C
+#define INTF_STATUS                     0x26C
 #define INTF_AVR_CONTROL                0x270
 #define INTF_AVR_MODE                   0x274
 #define INTF_AVR_TRIGGER                0x278
@@ -387,6 +388,21 @@ static void sde_hw_intf_get_status(
 	}
 }
 
+static void sde_hw_intf_v1_get_status(
+		struct sde_hw_intf *intf,
+		struct intf_status *s)
+{
+	struct sde_hw_blk_reg_map *c = &intf->hw;
+
+	s->is_en = SDE_REG_READ(c, INTF_STATUS) & BIT(0);
+	if (s->is_en) {
+		s->frame_count = SDE_REG_READ(c, INTF_FRAME_COUNT);
+		s->line_count = SDE_REG_READ(c, INTF_LINE_COUNT);
+	} else {
+		s->line_count = 0;
+		s->frame_count = 0;
+	}
+}
 static void sde_hw_intf_setup_misr(struct sde_hw_intf *intf,
 						bool enable, u32 frame_count)
 {
@@ -625,6 +641,7 @@ static void _setup_intf_ops(struct sde_hw_intf_ops *ops,
 		ops->get_autorefresh = sde_hw_intf_get_autorefresh_config;
 		ops->poll_timeout_wr_ptr = sde_hw_intf_poll_timeout_wr_ptr;
 		ops->vsync_sel = sde_hw_intf_vsync_sel;
+		ops->get_status = sde_hw_intf_v1_get_status;
 	}
 }
 

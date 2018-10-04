@@ -35,6 +35,7 @@
 
 #define FW_DBG_MODE_PAUSE        (1 << 0)
 #define FW_DBG_MODE_INC_TIMEOUT  (1 << 1)
+#define FW_DBG_DISABLE_WDOG      (1 << 2)
 
 /* -------------------------------------------------------------------------
  * Data Structures
@@ -76,6 +77,7 @@ struct npu_host_ctx {
 	struct work_struct irq_work;
 	struct workqueue_struct *wq;
 	struct completion loopback_done;
+	struct completion fw_deinit_done;
 	int32_t network_num;
 	struct npu_network networks[MAX_LOADED_NETWORK];
 	bool sys_cache_disable;

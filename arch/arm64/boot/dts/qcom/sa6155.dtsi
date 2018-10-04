@@ -19,3 +19,20 @@
 	qcom,msm-name = "SA6155";
 	qcom,msm-id = <384 0x10000>;
 };
+
+&qusb_phy0 {
+	vdd-supply = <&L5A>;
+	vdda18-supply = <&L12A>;
+	vdda33-supply = <&L13A>;
+};
+
+&usb_qmp_phy {
+	vdd-supply = <&L5A>;
+	core-supply = <&L12A>;
+};
+
+&qusb_phy1 {
+	vdd-supply = <&L5A>;
+	vdda18-supply = <&L12A>;
+	vdda33-supply = <&L13A>;
+};

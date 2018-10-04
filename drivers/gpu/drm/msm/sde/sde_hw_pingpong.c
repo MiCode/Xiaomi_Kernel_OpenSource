@@ -112,6 +112,7 @@ static struct sde_hw_merge_3d *_sde_pp_merge_3d_init(enum sde_merge_3d idx,
 {
 	struct sde_hw_merge_3d *c;
 	struct sde_merge_3d_cfg *cfg;
+	static u32 merge3d_init_mask;
 
 	if (idx < MERGE_3D_0)
 		return NULL;
@@ -130,6 +131,13 @@ static struct sde_hw_merge_3d *_sde_pp_merge_3d_init(enum sde_merge_3d idx,
 	c->idx = idx;
 	c->caps = cfg;
 	_setup_merge_3d_ops(&c->ops, c->caps);
+
+	if (!(merge3d_init_mask & BIT(idx))) {
+		sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name,
+				c->hw.blk_off, c->hw.blk_off + c->hw.length,
+				c->hw.xin_id);
+		merge3d_init_mask |= BIT(idx);
+	}
 
 	return c;
 }

@@ -147,6 +147,13 @@ int32_t npu_interrupt_raise_m0(struct npu_device *npu_dev)
 	return ret;
 }
 
+int32_t npu_interrupt_raise_dsp(struct npu_device *npu_dev)
+{
+	npu_reg_write(npu_dev, NPU_MASTERn_IPC_IRQ_OUT_CTRL(1), 0x8);
+
+	return 0;
+}
+
 /* -------------------------------------------------------------------------
  * Functions - ION Memory
  * -------------------------------------------------------------------------

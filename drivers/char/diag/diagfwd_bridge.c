@@ -319,7 +319,9 @@ uint16_t diag_get_remote_device_mask(void)
 
 	for (i = 0; i < NUM_REMOTE_DEV; i++) {
 		if (bridge_info[i].inited &&
-		    bridge_info[i].type == DIAG_DATA_TYPE) {
+		    bridge_info[i].type == DIAG_DATA_TYPE &&
+		    (bridge_info[i].dev_ops->remote_proc_check &&
+		    bridge_info[i].dev_ops->remote_proc_check())) {
 			remote_dev |= 1 << i;
 		}
 	}

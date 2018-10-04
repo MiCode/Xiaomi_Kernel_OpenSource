@@ -44,6 +44,13 @@
 			interrupt-controller;
 			#interrupt-cells = <2>;
 		};
+
+		smp2p_wlan_1_in: qcom,smp2p-wlan-1-in {
+			qcom,entry-name = "wlan";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+
 	};
 
 	qcom,smp2p-adsp@1799000c {
@@ -100,6 +107,12 @@
 			qcom,entry-name = "sleepstate";
 			#qcom,smem-state-cells = <1>;
 		};
+
+		sleepstate_smp2p_in: qcom,sleepstate-in {
+			qcom,entry-name = "sleepstate_see";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
 	};
 
 	qcom,smp2p-cdsp@1799000c {
@@ -131,17 +144,11 @@
 			interrupt-controller;
 			#interrupt-cells = <2>;
 		};
+
+		smp2p_qvrexternal5_out: qcom,smp2p-qvrexternal5-out {
+			qcom,entry-name = "qvrexternal";
+			#qcom,smem-state-cells = <1>;
+		};
 	};
 
-	/* wlan - inbound entry from mss/WLAN PD */
-	smp2pgpio_wlan_1_in: qcom,smp2pgpio-wlan-1-in {
-		compatible = "qcom,smp2pgpio";
-		qcom,entry-name = "wlan";
-		qcom,remote-pid = <1>;
-		qcom,is-inbound;
-		gpio-controller;
-		#gpio-cells = <2>;
-		interrupt-controller;
-		#interrupt-cells = <2>;
-	};
 };

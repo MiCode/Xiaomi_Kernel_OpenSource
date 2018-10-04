@@ -692,24 +692,60 @@ static int generic_online_page(struct page *page)
 	return 0;
 }
 
+static void __free_pages_hotplug(struct page *page, unsigned int order)
+{
+	unsigned int nr_pages = 1 << order;
+	struct page *p = page;
+	unsigned int loop;
+
+	adjust_managed_page_count(page, nr_pages);
+	for (loop = 0; loop < nr_pages; loop++, p++) {
+		__online_page_set_limits(p);
+		ClearPageReserved(p);
+		set_page_count(p, 0);
+	}
+
+	set_page_refcounted(page);
+	__free_pages(page, order);
+}
+
+static void  __free_pages_memory(unsigned long start,
+			unsigned long nr_pages, void *arg)
+{
+	unsigned long order;
+	unsigned long onlined_pages = *(unsigned long *)arg;
+	struct page *page;
+	unsigned long i;
+	unsigned long phy_addr;
+
+	for (i = 0; i < nr_pages; i += (1UL << order)) {
+		order = min(MAX_ORDER - 1UL, __ffs(start + i));
+		page = pfn_to_page(start + i);
+		phy_addr = page_to_phys(page);
+
+		if (phy_addr >= bootloader_memory_limit)
+			break;
+
+		while ((1UL << order) > nr_pages - i ||
+			phy_addr + ((1UL << order) * PAGE_SIZE)
+			> bootloader_memory_limit)
+			order--;
+
+		__free_pages_hotplug(page, order);
+		onlined_pages += (1UL << order);
+	}
+
+	*(unsigned long *)arg = onlined_pages;
+}
+
 static int online_pages_range(unsigned long start_pfn, unsigned long nr_pages,
 			void *arg)
 {
-	unsigned long i;
-	unsigned long onlined_pages = *(unsigned long *)arg;
-	struct page *page;
-	int ret;
 	if (PageReserved(pfn_to_page(start_pfn)))
-		for (i = 0; i < nr_pages; i++) {
-			page = pfn_to_page(start_pfn + i);
-			ret = (*online_page_callback)(page);
-			if (!ret)
-				onlined_pages++;
-		}
+		__free_pages_memory(start_pfn, nr_pages, arg);
 
 	online_mem_sections(start_pfn, start_pfn + nr_pages);
 
-	*(unsigned long *)arg = onlined_pages;
 	return 0;
 }
 

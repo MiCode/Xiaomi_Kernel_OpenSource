@@ -780,9 +780,8 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 	int ret = 0;
 	struct device *dev;
 	struct dma_iommu_mapping *mapping;
-	int atomic_ctx = 1;
-	int s1_bypass = 1;
-	int fast = 1;
+	int atomic_ctx = 1, s1_bypass = 1, fast = 1, cb_stall_disable = 1,
+		no_cfre = 1;
 
 	cnss_pr_dbg("Initializing SMMU\n");
 
@@ -814,6 +813,24 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 					    &fast);
 		if (ret) {
 			pr_err("Failed to set SMMU fast attribute, err = %d\n",
+			       ret);
+			goto release_mapping;
+		}
+
+		ret = iommu_domain_set_attr(mapping->domain,
+					    DOMAIN_ATTR_CB_STALL_DISABLE,
+					    &cb_stall_disable);
+		if (ret) {
+			pr_err("Failed to set SMMU cb_stall_disable attribute, err = %d\n",
+			       ret);
+			goto release_mapping;
+		}
+
+		ret = iommu_domain_set_attr(mapping->domain,
+					    DOMAIN_ATTR_NO_CFRE,
+					    &no_cfre);
+		if (ret) {
+			pr_err("Failed to set SMMU no_cfre attribute, err = %d\n",
 			       ret);
 			goto release_mapping;
 		}
@@ -1863,6 +1880,11 @@ static void cnss_mhi_notify_status(struct mhi_controller *mhi_ctrl, void *priv,
 	plat_priv = pci_priv->plat_priv;
 
 	cnss_pr_dbg("MHI status cb is called with reason %d\n", reason);
+
+	if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) {
+		cnss_pr_dbg("Driver unload is in progress, ignore device error\n");
+		return;
+	}
 
 	if (pci_priv->driver_ops && pci_priv->driver_ops->update_status)
 		pci_priv->driver_ops->update_status(pci_priv->pci_dev,

@@ -45,6 +45,10 @@
 		qcom,latency-level = "ultra";
 	};
 
+	trans_loopback: qcom,msm-transcode-loopback {
+		compatible = "qcom,msm-transcode-loopback";
+	};
+
 	compress: qcom,msm-compress-dsp {
 		compatible = "qcom,msm-compress-dsp";
 	};

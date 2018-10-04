@@ -222,9 +222,11 @@ struct fg_gen4_chip {
 	struct votable		*delta_esr_irq_en_votable;
 	struct votable		*pl_disable_votable;
 	struct votable		*cp_disable_votable;
+	struct votable		*parallel_current_en_votable;
 	struct work_struct	esr_calib_work;
 	struct alarm		esr_fast_cal_timer;
 	struct delayed_work	pl_enable_work;
+	struct completion	mem_attn;
 	char			batt_profile[PROFILE_LEN];
 	enum slope_limit_status	slope_limit_sts;
 	int			ki_coeff_full_soc[2];
@@ -1577,12 +1579,24 @@ static void clear_battery_profile(struct fg_dev *fg)
 #define BOOTLOADER_LOAD_BIT	BIT(1)
 #define BOOTLOADER_RESTART_BIT	BIT(2)
 #define HLOS_RESTART_BIT	BIT(3)
+#define FIRST_PROFILE_LOAD_BIT	BIT(4)
 static bool is_profile_load_required(struct fg_gen4_chip *chip)
 {
 	struct fg_dev *fg = &chip->fg;
 	u8 buf[PROFILE_COMP_LEN], val;
-	bool profiles_same = false;
-	int rc;
+	bool profiles_same = false, valid_integrity = false;
+	int rc, i;
+	u8 white_list_values[] = {
+		HLOS_RESTART_BIT,
+		BOOTLOADER_LOAD_BIT,
+		BOOTLOADER_LOAD_BIT | BOOTLOADER_RESTART_BIT,
+		BOOTLOADER_RESTART_BIT | HLOS_RESTART_BIT,
+		BOOTLOADER_LOAD_BIT | FIRST_PROFILE_LOAD_BIT,
+		BOOTLOADER_LOAD_BIT | BOOTLOADER_RESTART_BIT |
+			FIRST_PROFILE_LOAD_BIT,
+		HLOS_RESTART_BIT | BOOTLOADER_RESTART_BIT |
+			FIRST_PROFILE_LOAD_BIT,
+	};
 
 	rc = fg_sram_read(fg, PROFILE_INTEGRITY_WORD,
 			PROFILE_INTEGRITY_OFFSET, &val, 1, FG_IMA_DEFAULT);
@@ -1597,8 +1611,14 @@ static bool is_profile_load_required(struct fg_gen4_chip *chip)
 
 		/* Whitelist the values */
 		val &= ~PROFILE_LOAD_BIT;
-		if (val != HLOS_RESTART_BIT && val != BOOTLOADER_LOAD_BIT &&
-			val != (BOOTLOADER_LOAD_BIT | BOOTLOADER_RESTART_BIT)) {
+		for (i = 0; i < ARRAY_SIZE(white_list_values); i++)  {
+			if (val == white_list_values[i]) {
+				valid_integrity = true;
+				break;
+			}
+		}
+
+		if (!valid_integrity) {
 			val |= PROFILE_LOAD_BIT;
 			pr_warn("Garbage value in profile integrity word: 0x%x\n",
 				val);
@@ -2131,6 +2151,16 @@ out:
 	return rc;
 }
 
+static void fg_gen4_parallel_current_config(struct fg_gen4_chip *chip)
+{
+	struct fg_dev *fg = &chip->fg;
+	bool input_present = is_input_present(fg), en;
+
+	en = fg->charge_done ? false : input_present;
+
+	vote(chip->parallel_current_en_votable, FG_PARALLEL_EN_VOTER, en, 0);
+}
+
 static int fg_gen4_esr_fcc_config(struct fg_gen4_chip *chip)
 {
 	struct fg_dev *fg = &chip->fg;
@@ -2379,6 +2409,17 @@ static int fg_gen4_esr_fast_calib_config(struct fg_gen4_chip *chip, bool en)
 }
 
 /* All irq handlers below this */
+
+static irqreturn_t fg_mem_attn_irq_handler(int irq, void *data)
+{
+	struct fg_dev *fg = data;
+	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
+
+	fg_dbg(fg, FG_IRQ, "irq %d triggered\n", irq);
+	complete_all(&chip->mem_attn);
+
+	return IRQ_HANDLED;
+}
 
 static irqreturn_t fg_mem_xcp_irq_handler(int irq, void *data)
 {
@@ -2744,6 +2785,10 @@ static struct fg_irq_info fg_irqs[FG_GEN4_IRQ_MAX] = {
 		.handler	= fg_dummy_irq_handler,
 	},
 	/* MEM_IF irqs */
+	[MEM_ATTN_IRQ] = {
+		.name		= "mem-attn",
+		.handler	= fg_mem_attn_irq_handler,
+	},
 	[DMA_GRANT_IRQ] = {
 		.name		= "dma-grant",
 		.handler	= fg_dummy_irq_handler,
@@ -3035,6 +3080,8 @@ static void status_change_work(struct work_struct *work)
 	rc = fg_gen4_esr_fcc_config(chip);
 	if (rc < 0)
 		pr_err("Error in adjusting FCC for ESR, rc=%d\n", rc);
+
+	fg_gen4_parallel_current_config(chip);
 
 	ttf_update(chip->ttf, input_present);
 	fg->prev_charge_status = fg->charge_status;
@@ -3501,6 +3548,60 @@ static int fg_gen4_ttf_awake_voter(void *data, bool val)
 
 	vote(fg->awake_votable, TTF_AWAKE_VOTER, val, 0);
 	return 0;
+}
+
+static int fg_wait_for_mem_attn(struct fg_gen4_chip *chip)
+{
+	struct fg_dev *fg = &chip->fg;
+	int rc, retries = 2;
+	ktime_t now;
+	s64 time_us;
+
+	reinit_completion(&chip->mem_attn);
+	now = ktime_get();
+
+	while (retries--) {
+		/* Wait for MEM_ATTN completion */
+		rc = wait_for_completion_interruptible_timeout(
+			&chip->mem_attn, msecs_to_jiffies(1000));
+		if (rc > 0) {
+			rc = 0;
+			break;
+		} else if (!rc) {
+			rc = -ETIMEDOUT;
+		}
+	}
+
+	time_us = ktime_us_delta(ktime_get(), now);
+	if (rc < 0)
+		pr_err("wait for mem_attn timed out rc=%d\n", rc);
+
+	fg_dbg(fg, FG_STATUS, "mem_attn wait time: %lld us\n", time_us);
+	return rc;
+}
+
+static int fg_parallel_current_en_cb(struct votable *votable, void *data,
+					int enable, const char *client)
+{
+	struct fg_dev *fg = data;
+	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
+	int rc;
+	u8 val, mask;
+
+	/* Wait for MEM_ATTN interrupt */
+	rc = fg_wait_for_mem_attn(chip);
+	if (rc < 0)
+		return rc;
+
+	val = enable ? SMB_MEASURE_EN_BIT : 0;
+	mask = SMB_MEASURE_EN_BIT;
+	rc = fg_masked_write(fg, BATT_INFO_FG_CNV_CHAR_CFG(fg), mask, val);
+	if (rc < 0)
+		pr_err("Error in writing to 0x%04x, rc=%d\n",
+			BATT_INFO_FG_CNV_CHAR_CFG(fg), rc);
+
+	fg_dbg(fg, FG_STATUS, "Parallel current summing: %d\n", enable);
+	return rc;
 }
 
 static int fg_delta_bsoc_irq_en_cb(struct votable *votable, void *data,
@@ -4416,6 +4517,9 @@ static void fg_gen4_cleanup(struct fg_gen4_chip *chip)
 	if (chip->delta_esr_irq_en_votable)
 		destroy_votable(chip->delta_esr_irq_en_votable);
 
+	if (chip->parallel_current_en_votable)
+		destroy_votable(chip->parallel_current_en_votable);
+
 	dev_set_drvdata(fg->dev, NULL);
 }
 
@@ -4451,6 +4555,7 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	mutex_init(&fg->charge_full_lock);
 	init_completion(&fg->soc_update);
 	init_completion(&fg->soc_ready);
+	init_completion(&chip->mem_attn);
 	INIT_WORK(&fg->status_change_work, status_change_work);
 	INIT_WORK(&chip->esr_calib_work, esr_calib_work);
 	INIT_DELAYED_WORK(&fg->profile_load_work, profile_load_work);
@@ -4481,6 +4586,15 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	if (IS_ERR(chip->delta_esr_irq_en_votable)) {
 		rc = PTR_ERR(chip->delta_esr_irq_en_votable);
 		chip->delta_esr_irq_en_votable = NULL;
+		goto exit;
+	}
+
+	chip->parallel_current_en_votable = create_votable("FG_SMB_MEAS_EN",
+						VOTE_SET_ANY,
+						fg_parallel_current_en_cb, fg);
+	if (IS_ERR(chip->parallel_current_en_votable)) {
+		rc = PTR_ERR(chip->parallel_current_en_votable);
+		chip->parallel_current_en_votable = NULL;
 		goto exit;
 	}
 
@@ -4645,6 +4759,9 @@ static int fg_gen4_suspend(struct device *dev)
 	struct fg_gen4_chip *chip = dev_get_drvdata(dev);
 	struct fg_dev *fg = &chip->fg;
 
+	if (fg->irqs[MEM_ATTN_IRQ].irq)
+		disable_irq_nosync(fg->irqs[MEM_ATTN_IRQ].irq);
+
 	cancel_delayed_work_sync(&chip->ttf->ttf_work);
 	if (fg_sram_dump)
 		cancel_delayed_work_sync(&fg->sram_dump_work);
@@ -4655,6 +4772,9 @@ static int fg_gen4_resume(struct device *dev)
 {
 	struct fg_gen4_chip *chip = dev_get_drvdata(dev);
 	struct fg_dev *fg = &chip->fg;
+
+	if (fg->irqs[MEM_ATTN_IRQ].irq)
+		enable_irq(fg->irqs[MEM_ATTN_IRQ].irq);
 
 	schedule_delayed_work(&chip->ttf->ttf_work, 0);
 	if (fg_sram_dump)
