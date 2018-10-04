@@ -623,3 +623,4 @@
 	};
 };
 #include "trinket-pinctrl.dtsi"
+#include "trinket-ion.dtsi"
