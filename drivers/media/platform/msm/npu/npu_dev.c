@@ -1116,9 +1116,9 @@ static int npu_exec_network_v2(struct npu_client *client,
 		return -EINVAL;
 	}
 
-	if (req.stats_buf_size > MSM_NPU_MAX_STATS_BUF_SIZE) {
+	if (req.stats_buf_size > NPU_MAX_STATS_BUF_SIZE) {
 		pr_err("Invalid stats buffer size %d max %d\n",
-			req.stats_buf_size, MSM_NPU_MAX_STATS_BUF_SIZE);
+			req.stats_buf_size, NPU_MAX_STATS_BUF_SIZE);
 		return -EINVAL;
 	}
 

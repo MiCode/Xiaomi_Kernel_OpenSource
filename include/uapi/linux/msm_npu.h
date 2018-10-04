@@ -58,7 +58,6 @@
 #define MSM_NPU_MAX_OUTPUT_LAYER_NUM 4
 #define MSM_NPU_MAX_PATCH_LAYER_NUM (MSM_NPU_MAX_INPUT_LAYER_NUM +\
 	MSM_NPU_MAX_OUTPUT_LAYER_NUM)
-#define MSM_NPU_MAX_STATS_BUF_SIZE 65536
 
 /* -------------------------------------------------------------------------
  * Data Structures

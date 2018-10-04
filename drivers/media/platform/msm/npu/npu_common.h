@@ -47,6 +47,7 @@
 #define NPU_MAX_REGULATOR_NUM	2
 #define NPU_MAX_DT_NAME_LEN	    21
 #define NPU_MAX_PWRLEVELS		8
+#define NPU_MAX_STATS_BUF_SIZE 16384
 
 /* -------------------------------------------------------------------------
  * Data Structures

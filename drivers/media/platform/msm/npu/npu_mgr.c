@@ -478,7 +478,7 @@ static struct npu_network *alloc_network(struct npu_host_ctx *ctx,
 		network->fw_error = false;
 		network->cmd_pending = false;
 		network->client = client;
-		network->stats_buf = kzalloc(MSM_NPU_MAX_STATS_BUF_SIZE,
+		network->stats_buf = kzalloc(NPU_MAX_STATS_BUF_SIZE,
 			GFP_KERNEL);
 		if (!network->stats_buf) {
 			free_network(ctx, network->id);
