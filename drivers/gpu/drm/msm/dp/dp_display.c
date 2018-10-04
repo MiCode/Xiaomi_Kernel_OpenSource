@@ -403,7 +403,6 @@ static int dp_display_initialize_hdcp(struct dp_display_private *dp)
 	return 0;
 error:
 	dp_display_deinitialize_hdcp(dp);
-	dp->debug->hdcp_disabled = true;
 
 	return rc;
 }
@@ -1054,6 +1053,7 @@ static void dp_display_deinit_sub_modules(struct dp_display_private *dp)
 static int dp_init_sub_modules(struct dp_display_private *dp)
 {
 	int rc = 0;
+	bool hdcp_disabled;
 	struct device *dev = &dp->pdev->dev;
 	struct dp_hpd_cb *cb = &dp->hpd_cb;
 	struct dp_ctrl_in ctrl_in = {
@@ -1180,7 +1180,7 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 		goto error_hpd;
 	}
 
-	dp_display_initialize_hdcp(dp);
+	hdcp_disabled = !!dp_display_initialize_hdcp(dp);
 
 	debug_in.panel = dp->panel;
 	debug_in.hpd = dp->hpd;
@@ -1197,6 +1197,8 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 		dp->debug = NULL;
 		goto error_debug;
 	}
+
+	dp->debug->hdcp_disabled = hdcp_disabled;
 
 	return rc;
 error_debug:
