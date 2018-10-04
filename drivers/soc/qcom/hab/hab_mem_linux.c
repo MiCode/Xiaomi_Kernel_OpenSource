@@ -738,7 +738,8 @@ int habmem_imp_hyp_mmap(struct file *filp, struct vm_area_struct *vma)
 
 	read_lock(&imp_ctx->implist_lock);
 	list_for_each_entry(pglist, &imp_ctx->imp_list, list) {
-		if (pglist->index == vma->vm_pgoff) {
+		if ((pglist->index == vma->vm_pgoff) &&
+			((length <= pglist->npages * PAGE_SIZE))) {
 			bfound = 1;
 			break;
 		}
