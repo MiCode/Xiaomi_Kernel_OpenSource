@@ -1604,7 +1604,6 @@ static void dpu_crtc_disable(struct drm_crtc *crtc)
 	struct drm_encoder *encoder;
 	struct msm_drm_private *priv;
 	int ret;
-	unsigned long flags;
 
 	if (!crtc || !crtc->dev || !crtc->dev->dev_private || !crtc->state) {
 		DPU_ERROR("invalid crtc\n");
@@ -1619,9 +1618,6 @@ static void dpu_crtc_disable(struct drm_crtc *crtc)
 
 	if (dpu_kms_is_suspend_state(crtc->dev))
 		_dpu_crtc_set_suspend(crtc, true);
-
-	/* Disable/save vblank irq handling */
-	drm_crtc_vblank_off(crtc);
 
 	mutex_lock(&dpu_crtc->crtc_lock);
 
@@ -1660,6 +1656,7 @@ static void dpu_crtc_disable(struct drm_crtc *crtc)
 		dpu_power_handle_unregister_event(dpu_crtc->phandle,
 				dpu_crtc->power_event);
 
+
 	memset(dpu_crtc->mixers, 0, sizeof(dpu_crtc->mixers));
 	dpu_crtc->num_mixers = 0;
 	dpu_crtc->mixers_swapped = false;
@@ -1669,13 +1666,6 @@ static void dpu_crtc_disable(struct drm_crtc *crtc)
 	cstate->bw_split_vote = false;
 
 	mutex_unlock(&dpu_crtc->crtc_lock);
-
-	if (crtc->state->event && !crtc->state->active) {
-		spin_lock_irqsave(&crtc->dev->event_lock, flags);
-		drm_crtc_send_vblank_event(crtc, crtc->state->event);
-		crtc->state->event = NULL;
-		spin_unlock_irqrestore(&crtc->dev->event_lock, flags);
-	}
 }
 
 static void dpu_crtc_enable(struct drm_crtc *crtc,
@@ -1714,9 +1704,6 @@ static void dpu_crtc_enable(struct drm_crtc *crtc,
 	dpu_crtc->enabled = true;
 
 	mutex_unlock(&dpu_crtc->crtc_lock);
-
-	/* Enable/restore vblank irq handling */
-	drm_crtc_vblank_on(crtc);
 
 	dpu_crtc->power_event = dpu_power_handle_register_event(
 		dpu_crtc->phandle,
