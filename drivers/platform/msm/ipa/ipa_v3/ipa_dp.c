@@ -1526,6 +1526,8 @@ static void ipa3_wq_handle_rx(struct work_struct *work)
 	if (sys->ep->napi_enabled) {
 		if (!ipa3_ctx->use_ipa_pm)
 			IPA_ACTIVE_CLIENTS_INC_SPECIAL("NAPI");
+		else
+			ipa_pm_activate_sync(sys->pm_hdl);
 		sys->ep->client_notify(sys->ep->priv,
 				IPA_CLIENT_START_POLL, 0);
 	} else
