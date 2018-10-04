@@ -238,6 +238,12 @@ config USB_F_QDSS
 config USB_F_GSI
 	tristate
 
+config USB_F_MTP
+	tristate
+
+config USB_F_PTP
+	tristate
+
 # this first set of drivers all depend on bulk-capable hardware.
 
 config USB_CONFIGFS
@@ -582,6 +588,27 @@ config USB_CONFIGFS_F_GSI
 	  over GSI. This driver provides USB RMNET/RNDIS/ECM/MBIM/DPL
 	  related functionalities using GSI hardware accelerated data
 	  path and control path.
+
+config USB_CONFIGFS_F_MTP
+	bool "MTP gadget"
+	select USB_F_MTP
+	depends on USB_CONFIGFS
+	help
+	  The Media Transfer Protocol (MTP) function mounts USB gadget
+	  as a media device but unlike Mass Storage Gadget, MTP operates
+	  at the file level. Thus exposing the relevant content but hiding
+	  the system/restricted files.
+
+config USB_CONFIGFS_F_PTP
+	bool "PTP gadget"
+	select USB_F_PTP
+	depends on USB_CONFIGFS && USB_CONFIGFS_F_MTP
+	help
+	  The Picture Transfer Protocol (PTP) function driver is a wrapper
+	  around MTP function driver. This function driver mounts USB gadget
+	  as a media device but unlike Mass Storage Gadget, PTP operates
+	  at the file level. Thus exposing the relevant content but hiding
+	  the system/restricted files.
 
 choice
 	tristate "USB Gadget precomposed configurations"
