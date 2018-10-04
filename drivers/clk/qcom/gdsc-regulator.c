@@ -73,8 +73,6 @@ enum gdscr_status {
 	DISABLED,
 };
 
-static DEFINE_MUTEX(gdsc_seq_lock);
-
 static inline u32 gdsc_mb(struct gdsc *gds)
 {
 	u32 reg;
@@ -184,15 +182,11 @@ static int gdsc_enable(struct regulator_dev *rdev)
 	uint32_t regval, hw_ctrl_regval = 0x0;
 	int i, ret = 0;
 
-	mutex_lock(&gdsc_seq_lock);
-
 	if (sc->parent_regulator) {
 		ret = regulator_set_voltage(sc->parent_regulator,
 				RPMH_REGULATOR_LEVEL_LOW_SVS, INT_MAX);
-		if (ret) {
-			mutex_unlock(&gdsc_seq_lock);
+		if (ret)
 			return ret;
-		}
 	}
 
 	if (sc->root_en || sc->force_root_en)
@@ -331,8 +325,6 @@ end:
 	if (sc->parent_regulator)
 		regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
 
-	mutex_unlock(&gdsc_seq_lock);
-
 	return ret;
 }
 
@@ -342,15 +334,11 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	uint32_t regval;
 	int i, ret = 0;
 
-	mutex_lock(&gdsc_seq_lock);
-
 	if (sc->parent_regulator) {
 		ret = regulator_set_voltage(sc->parent_regulator,
 				RPMH_REGULATOR_LEVEL_LOW_SVS, INT_MAX);
-		if (ret) {
-			mutex_unlock(&gdsc_seq_lock);
+		if (ret)
 			return ret;
-		}
 	}
 
 	if (sc->force_root_en)
@@ -406,8 +394,6 @@ static int gdsc_disable(struct regulator_dev *rdev)
 
 	sc->is_gdsc_enabled = false;
 
-	mutex_unlock(&gdsc_seq_lock);
-
 	return ret;
 }
 
@@ -417,20 +403,15 @@ static unsigned int gdsc_get_mode(struct regulator_dev *rdev)
 	uint32_t regval;
 	int ret;
 
-	mutex_lock(&gdsc_seq_lock);
-
 	if (sc->parent_regulator) {
 		ret = regulator_set_voltage(sc->parent_regulator,
 					RPMH_REGULATOR_LEVEL_LOW_SVS, INT_MAX);
-		if (ret) {
-			mutex_unlock(&gdsc_seq_lock);
+		if (ret)
 			return ret;
-		}
 
 		ret = regulator_enable(sc->parent_regulator);
 		if (ret) {
 			regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
-			mutex_unlock(&gdsc_seq_lock);
 			return ret;
 		}
 	}
@@ -441,8 +422,6 @@ static unsigned int gdsc_get_mode(struct regulator_dev *rdev)
 		regulator_disable(sc->parent_regulator);
 		regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
 	}
-
-	mutex_unlock(&gdsc_seq_lock);
 
 	if (regval & HW_CONTROL_MASK)
 		return REGULATOR_MODE_FAST;
@@ -456,20 +435,15 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 	uint32_t regval;
 	int ret = 0;
 
-	mutex_lock(&gdsc_seq_lock);
-
 	if (sc->parent_regulator) {
 		ret = regulator_set_voltage(sc->parent_regulator,
 				RPMH_REGULATOR_LEVEL_LOW_SVS, INT_MAX);
-		if (ret) {
-			mutex_unlock(&gdsc_seq_lock);
+		if (ret)
 			return ret;
-		}
 
 		ret = regulator_enable(sc->parent_regulator);
 		if (ret) {
 			regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
-			mutex_unlock(&gdsc_seq_lock);
 			return ret;
 		}
 	}
@@ -515,8 +489,6 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 		regulator_disable(sc->parent_regulator);
 		regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
 	}
-
-	mutex_unlock(&gdsc_seq_lock);
 
 	return ret;
 }
