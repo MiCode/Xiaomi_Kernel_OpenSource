@@ -54,6 +54,7 @@ struct step_chg_info {
 	bool			step_chg_cfg_valid;
 	bool			sw_jeita_cfg_valid;
 	bool			soc_based_step_chg;
+	bool			ocv_based_step_chg;
 	bool			batt_missing;
 	int			jeita_fcc_index;
 	int			jeita_fv_index;
@@ -267,6 +268,16 @@ static int get_step_chg_jeita_setting_from_profile(struct step_chg_info *chip)
 		chip->step_chg_config->param.hysteresis = 0;
 	}
 
+	chip->ocv_based_step_chg =
+		of_property_read_bool(profile_node, "qcom,ocv-based-step-chg");
+	if (chip->ocv_based_step_chg) {
+		chip->step_chg_config->param.psy_prop =
+				POWER_SUPPLY_PROP_VOLTAGE_OCV;
+		chip->step_chg_config->param.prop_name = "OCV";
+		chip->step_chg_config->param.hysteresis = 10000;
+		chip->step_chg_config->param.use_bms = true;
+	}
+
 	chip->step_chg_cfg_valid = true;
 	rc = read_range_data_from_node(profile_node,
 			"qcom,step-chg-ranges",
@@ -453,8 +464,13 @@ static int handle_step_chg_config(struct step_chg_info *chip)
 		goto update_time;
 	}
 
-	rc = power_supply_get_property(chip->batt_psy,
-			chip->step_chg_config->param.psy_prop, &pval);
+	if (chip->step_chg_config->param.use_bms)
+		rc = power_supply_get_property(chip->bms_psy,
+				chip->step_chg_config->param.psy_prop, &pval);
+	else
+		rc = power_supply_get_property(chip->batt_psy,
+				chip->step_chg_config->param.psy_prop, &pval);
+
 	if (rc < 0) {
 		pr_err("Couldn't read %s property rc=%d\n",
 			chip->step_chg_config->param.prop_name, rc);
@@ -521,8 +537,13 @@ static int handle_jeita(struct step_chg_info *chip)
 	if (elapsed_us < STEP_CHG_HYSTERISIS_DELAY_US)
 		goto reschedule;
 
-	rc = power_supply_get_property(chip->batt_psy,
-			chip->jeita_fcc_config->param.psy_prop, &pval);
+	if (chip->jeita_fcc_config->param.use_bms)
+		rc = power_supply_get_property(chip->bms_psy,
+				chip->jeita_fcc_config->param.psy_prop, &pval);
+	else
+		rc = power_supply_get_property(chip->batt_psy,
+				chip->jeita_fcc_config->param.psy_prop, &pval);
+
 	if (rc < 0) {
 		pr_err("Couldn't read %s property rc=%d\n",
 				chip->jeita_fcc_config->param.prop_name, rc);
@@ -650,7 +671,7 @@ static void status_change_work(struct work_struct *work)
 	int reschedule_step_work_us = 0;
 	union power_supply_propval prop = {0, };
 
-	if (!is_batt_available(chip))
+	if (!is_batt_available(chip) || !is_bms_available(chip))
 		goto exit_work;
 
 	handle_battery_insertion(chip);

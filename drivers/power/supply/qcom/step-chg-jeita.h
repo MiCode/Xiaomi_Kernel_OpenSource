@@ -19,6 +19,7 @@ struct step_chg_jeita_param {
 	u32			psy_prop;
 	char			*prop_name;
 	int			hysteresis;
+	bool			use_bms;
 };
 
 struct range_data {
