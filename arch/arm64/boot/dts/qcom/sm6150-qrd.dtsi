@@ -107,10 +107,14 @@
 &pm6150_charger {
 	io-channels = <&pm6150_vadc ADC_USB_IN_V_16>,
 		      <&pm6150_vadc ADC_USB_IN_I>,
-		      <&pm6150_vadc ADC_CHG_TEMP>;
+		      <&pm6150_vadc ADC_CHG_TEMP>,
+		      <&pm6150_vadc ADC_DIE_TEMP>,
+		      <&pm6150_vadc ADC_AMUX_THM4_PU2>;
 	io-channel-names = "usb_in_voltage",
 			   "usb_in_current",
-			   "chg_temp";
+			   "chg_temp",
+			   "die_temp",
+			   "conn_temp";
 	qcom,battery-data = <&mtp_batterydata>;
 	qcom,step-charging-enable;
 	qcom,sw-jeita-enable;
