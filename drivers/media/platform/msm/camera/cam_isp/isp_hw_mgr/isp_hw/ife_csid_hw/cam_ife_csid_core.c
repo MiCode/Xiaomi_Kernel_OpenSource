@@ -45,6 +45,9 @@
 /* Max number of sof irq's triggered in case of SOF freeze */
 #define CAM_CSID_IRQ_SOF_DEBUG_CNT_MAX 12
 
+/* Max CSI Rx irq error count threshold value */
+#define CAM_IFE_CSID_MAX_IRQ_ERROR_COUNT               100
+
 static int cam_ife_csid_is_ipp_ppp_format_supported(
 	uint32_t in_format)
 {
@@ -435,6 +438,7 @@ static int cam_ife_csid_global_reset(struct cam_ife_csid_hw *csid_hw)
 	if (val != 0)
 		CAM_ERR(CAM_ISP, "CSID:%d IRQ value after reset rc = %d",
 			csid_hw->hw_intf->hw_idx, val);
+	csid_hw->error_irq_count = 0;
 
 	return rc;
 }
@@ -1122,6 +1126,8 @@ static int cam_ife_csid_disable_hw(struct cam_ife_csid_hw *csid_hw)
 			csid_hw->hw_intf->hw_idx);
 
 	csid_hw->hw_info->hw_state = CAM_HW_STATE_POWER_DOWN;
+	csid_hw->error_irq_count = 0;
+
 	return rc;
 }
 
@@ -2981,10 +2987,12 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 	if (irq_status_rx & CSID_CSI2_RX_ERROR_CPHY_EOT_RECEPTION) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d CPHY_EOT_RECEPTION",
 			 csid_hw->hw_intf->hw_idx);
+		csid_hw->error_irq_count++;
 	}
 	if (irq_status_rx & CSID_CSI2_RX_ERROR_CPHY_SOT_RECEPTION) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d CPHY_SOT_RECEPTION",
 			 csid_hw->hw_intf->hw_idx);
+		csid_hw->error_irq_count++;
 	}
 	if (irq_status_rx & CSID_CSI2_RX_ERROR_CPHY_PH_CRC) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d CPHY_PH_CRC",
@@ -3009,6 +3017,12 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 	if (irq_status_rx & CSID_CSI2_RX_ERROR_UNBOUNDED_FRAME) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d UNBOUNDED_FRAME",
 			 csid_hw->hw_intf->hw_idx);
+	}
+
+	if (csid_hw->error_irq_count >
+		CAM_IFE_CSID_MAX_IRQ_ERROR_COUNT) {
+		fatal_err_detected = true;
+		csid_hw->error_irq_count = 0;
 	}
 
 	if (fatal_err_detected)
@@ -3344,6 +3358,8 @@ int cam_ife_csid_hw_probe_init(struct cam_hw_intf  *csid_hw_intf,
 	}
 
 	ife_csid_hw->csid_debug = 0;
+	ife_csid_hw->error_irq_count = 0;
+
 	return 0;
 err:
 	if (rc) {
