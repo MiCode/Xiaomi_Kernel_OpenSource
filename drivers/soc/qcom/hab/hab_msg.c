@@ -76,8 +76,9 @@ hab_msg_dequeue(struct virtual_channel *vchan, struct hab_message **msg,
 				ret = 0;
 				*rsize = message->sizebytes;
 			} else {
-				pr_err("rcv buffer too small %d < %zd\n",
-					   *rsize, message->sizebytes);
+				pr_err("vcid %x rcv buf too small %d < %zd\n",
+					   vchan->id, *rsize,
+					   message->sizebytes);
 				*rsize = message->sizebytes;
 				message = NULL;
 				ret = -EOVERFLOW; /* come back again */
@@ -281,7 +282,13 @@ int hab_msg_recv(struct physical_channel *pchan,
 			break;
 		}
 
-		exp_desc->domid_local = pchan->dom_id;
+		if (pchan->vmid_local != exp_desc->domid_remote ||
+			pchan->vmid_remote != exp_desc->domid_local)
+			pr_err("corrupted vmid %d != %d %d != %d\n",
+				pchan->vmid_local, exp_desc->domid_remote,
+				pchan->vmid_remote, exp_desc->domid_local);
+		exp_desc->domid_remote = pchan->vmid_remote;
+		exp_desc->domid_local = pchan->vmid_local;
 		exp_desc->pchan = pchan;
 
 		hab_export_enqueue(vchan, exp_desc);
