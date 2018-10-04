@@ -2745,6 +2745,13 @@ static void dwc3_resume_work(struct work_struct *w)
 					ORIENTATION_CC2 : ORIENTATION_CC1;
 
 		dbg_event(0xFF, "cc_state", mdwc->typec_orientation);
+
+		ret = extcon_get_property(edev, extcon_id,
+				EXTCON_PROP_USB_TYPEC_MED_HIGH_CURRENT, &val);
+		if (!ret)
+			dwc->gadget.is_selfpowered = val.intval;
+		else
+			dwc->gadget.is_selfpowered = 0;
 	}
 
 	/*
