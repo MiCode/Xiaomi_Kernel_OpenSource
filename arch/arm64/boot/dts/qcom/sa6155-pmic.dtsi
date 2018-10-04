@@ -147,6 +147,7 @@
 	/delete-node/ rf_pa0_therm-therm;
 	/delete-node/ camera_flash-therm;
 	/delete-node/ quiet-therm;
+	/delete-node/ quiet-therm-step;
 	/delete-node/ aoss-lowf;
 	/delete-node/ cpuss-0-lowf;
 	/delete-node/ cpuss-1-lowf;
