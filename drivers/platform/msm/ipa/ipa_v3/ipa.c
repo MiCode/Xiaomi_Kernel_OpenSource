@@ -2703,9 +2703,9 @@ int _ipa_init_sram_v3(void)
 		IPA_MEM_PART(modem_hdr_proc_ctx_ofst));
 	if (ipa_get_hw_type() >= IPA_HW_v4_5) {
 		ipa3_sram_set_canary(ipa_sram_mmio,
-			IPA_MEM_PART(apps_hdr_proc_ctx_ofst) - 4);
+			IPA_MEM_PART(nat_tbl_ofst) - 12);
 		ipa3_sram_set_canary(ipa_sram_mmio,
-			IPA_MEM_PART(apps_hdr_proc_ctx_ofst));
+			IPA_MEM_PART(nat_tbl_ofst) - 8);
 		ipa3_sram_set_canary(ipa_sram_mmio,
 			IPA_MEM_PART(nat_tbl_ofst) - 4);
 		ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(nat_tbl_ofst));

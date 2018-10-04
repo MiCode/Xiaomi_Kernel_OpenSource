@@ -2602,7 +2602,7 @@ static struct ipa3_mem_partition ipa_4_5_mem_part = {
 	.apps_hdr_size_ddr		= 0x800,
 	.modem_hdr_proc_ctx_ofst	= 0xad0,
 	.modem_hdr_proc_ctx_size	= 0x200,
-	.apps_hdr_proc_ctx_ofst		= 0xcd8,
+	.apps_hdr_proc_ctx_ofst		= 0xcd0,
 	.apps_hdr_proc_ctx_size		= 0x200,
 	.apps_hdr_proc_ctx_size_ddr	= 0x0,
 	.nat_tbl_ofst			= 0xee0,
@@ -5152,6 +5152,33 @@ int ipa3_init_mem_partition(enum ipa_hw_type type)
 	if (IPA_MEM_PART(pdn_config_ofst) & 7) {
 		IPAERR("PDN CONFIG OFST 0x%x is unaligned\n",
 			IPA_MEM_PART(pdn_config_ofst));
+		return -ENODEV;
+	}
+
+	/*
+	 * Routing rules points to hdr_proc_ctx in 32byte offsets from base.
+	 * Base is modem hdr_proc_ctx first address.
+	 * AP driver install APPS hdr_proc_ctx starting at the beginning of
+	 * apps hdr_proc_ctx part.
+	 * So first apps hdr_proc_ctx offset at some routing
+	 * rule will be modem_hdr_proc_ctx_size >> 5 (32B).
+	 */
+	if (IPA_MEM_PART(modem_hdr_proc_ctx_size) & 31) {
+		IPAERR("MODEM HDR PROC CTX SIZE 0x%x is not 32B aligned\n",
+			IPA_MEM_PART(modem_hdr_proc_ctx_size));
+		return -ENODEV;
+	}
+
+	/*
+	 * AP driver when installing routing rule, it calcs the hdr_proc_ctx
+	 * offset by local offset (from base of apps part) +
+	 * modem_hdr_proc_ctx_size. This is to get offset from modem part base.
+	 * Thus apps part must be adjacent to modem part
+	 */
+	if (IPA_MEM_PART(apps_hdr_proc_ctx_ofst) !=
+		IPA_MEM_PART(modem_hdr_proc_ctx_ofst) +
+		IPA_MEM_PART(modem_hdr_proc_ctx_size)) {
+		IPAERR("APPS HDR PROC CTX SIZE not adjacent to MODEM one!\n");
 		return -ENODEV;
 	}
 
