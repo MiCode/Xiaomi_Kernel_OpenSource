@@ -894,6 +894,11 @@
 			compatible = "qcom,msm-imem-pil";
 			reg = <0x94c 200>;
 		};
+
+		diag_dload@c8 {
+			compatible = "qcom,msm-imem-diag-dload";
+			reg = <0xc8 200>;
+		};
 	};
 
 	restart@c264000 {
@@ -2192,7 +2197,12 @@
 #include "pm8009.dtsi"
 #include "sdmmagpie-regulator.dtsi"
 #include "sdmmagpie-coresight.dtsi"
+#include "sdmmagpie-usb.dtsi"
 #include "sdmmagpie-thermal.dtsi"
+
+&usb0 {
+	extcon = <&pm6150_pdphy>, <&pm6150_charger>, <&eud>;
+};
 
 &pm6150_vadc {
 	rf_pa0_therm {
