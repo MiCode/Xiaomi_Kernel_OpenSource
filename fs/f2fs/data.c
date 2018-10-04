@@ -575,7 +575,8 @@ static struct bio *f2fs_grab_read_bio(struct inode *inode, block_t blkaddr,
 			  REQ_NOENCRYPT :
 			  0));
 
-	if (f2fs_encrypted_file(inode))
+	if (f2fs_encrypted_file(inode) &&
+		!fscrypt_using_hardware_encryption(inode))
 		post_read_steps |= 1 << STEP_DECRYPT;
 	if (post_read_steps) {
 		ctx = mempool_alloc(bio_post_read_ctx_pool, GFP_NOFS);
