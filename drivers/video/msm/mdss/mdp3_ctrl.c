@@ -423,9 +423,9 @@ static int mdp3_ctrl_async_blit_req(struct msm_fb_data_type *mfd,
 			MDP3_DMA_OUTPUT_SEL_DSI_VIDEO)) {
 		rc = wait_for_completion_timeout(&session->secure_completion,
 			msecs_to_jiffies(84));
-		if (rc) {
+		if (!rc) {
 			pr_err("Timed out waiting for completion of secure display\n");
-			return rc;
+			return -EINVAL;
 		}
 	}
 
