@@ -61,7 +61,7 @@
 		qcom,auxpcm-audio-intf = <1>;
 		qcom,spdif-audio-intf = <1>;
 		qcom,wcn-btfm = <1>;
-		qcom,msm-mi2s-master = <1>, <0>, <1>, <1>, <1>;
+		qcom,msm-mi2s-master = <1>, <0>, <1>, <1>, <1>, <1>;
 
 		qcom,ep92-name = "ep92.3-0064";
 		qcom,ep92-busnum  = <3>;
