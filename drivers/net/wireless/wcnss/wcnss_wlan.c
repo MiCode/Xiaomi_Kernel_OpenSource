@@ -2368,6 +2368,12 @@ static void wcnss_nvbin_dnld(void)
 		goto out;
 	}
 
+	if (nv->size <= 4) {
+		pr_err("wcnss: %s: request_firmware failed for %s (file size = %zu)\n",
+		       __func__, NVBIN_FILE, nv->size);
+		goto out;
+	}
+
 	/* First 4 bytes in nv blob is validity bitmap.
 	 * We cannot validate nv, so skip those 4 bytes.
 	 */
