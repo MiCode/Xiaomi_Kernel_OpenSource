@@ -511,38 +511,30 @@ struct rw_semaphore *rwsem_wake(struct rw_semaphore *sem)
 	unsigned long flags;
 
 	/*
-	 * If a spinner is present, there is a chance that the load of
-	 * rwsem_has_spinner() in rwsem_wake() can be reordered with
-	 * respect to decrement of rwsem count in __up_write() leading
-	 * to wakeup being missed.
-	 *
-	 * spinning writer                  up_write caller
-	 * ---------------                  -----------------------
-	 * [S] osq_unlock()                 [L] osq
-	 *  spin_lock(wait_lock)
-	 *  sem->count=0xFFFFFFFF00000001
-	 *            +0xFFFFFFFF00000000
-	 *  count=sem->count
-	 *  MB
-	 *                                   sem->count=0xFFFFFFFE00000001
-	 *                                             -0xFFFFFFFF00000001
-	 *                                   RMB
-	 *                                   spin_trylock(wait_lock)
-	 *                                   return
-	 * rwsem_try_write_lock(count)
-	 * spin_unlock(wait_lock)
-	 * schedule()
-	 *
-	 * Reordering of atomic_long_sub_return_release() in __up_write()
-	 * and rwsem_has_spinner() in rwsem_wake() can cause missing of
-	 * wakeup in up_write() context. In spinning writer, sem->count
-	 * and local variable count is 0XFFFFFFFE00000001. It would result
-	 * in rwsem_try_write_lock() failing to acquire rwsem and spinning
-	 * writer going to sleep in rwsem_down_write_failed().
-	 *
-	 * The smp_rmb() here is to make sure that the spinner state is
-	 * consulted after sem->count is updated in up_write context.
-	 */
+	* __rwsem_down_write_failed_common(sem)
+	*   rwsem_optimistic_spin(sem)
+	*     osq_unlock(sem->osq)
+	*   ...
+	*   atomic_long_add_return(&sem->count)
+	*
+	*      - VS -
+	*
+	*              __up_write()
+	*                if (atomic_long_sub_return_release(&sem->count) < 0)
+	*                  rwsem_wake(sem)
+	*                    osq_is_locked(&sem->osq)
+	*
+	* And __up_write() must observe !osq_is_locked() when it observes the
+	* atomic_long_add_return() in order to not miss a wakeup.
+	*
+	* This boils down to:
+	*
+	* [S.rel] X = 1                [RmW] r0 = (Y += 0)
+	*         MB                         RMB
+	* [RmW]   Y += 1               [L]   r1 = X
+	*
+	* exists (r0=1 /\ r1=0)
+	*/
 	smp_rmb();
 
 	/*
