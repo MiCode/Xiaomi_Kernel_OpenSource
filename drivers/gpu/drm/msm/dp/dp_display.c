@@ -1131,6 +1131,7 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 	panel_in.link = dp->link;
 	panel_in.connector = dp->dp_display.base_connector;
 	panel_in.base_panel = NULL;
+	panel_in.parser = dp->parser;
 
 	dp->panel = dp_panel_get(&panel_in);
 	if (IS_ERR(dp->panel)) {
@@ -1972,6 +1973,7 @@ static int dp_display_mst_connector_install(struct dp_display *dp_display,
 	panel_in.link = dp->link;
 	panel_in.connector = connector;
 	panel_in.base_panel = dp->panel;
+	panel_in.parser = dp->parser;
 
 	dp_panel = dp_panel_get(&panel_in);
 	if (IS_ERR(dp_panel)) {

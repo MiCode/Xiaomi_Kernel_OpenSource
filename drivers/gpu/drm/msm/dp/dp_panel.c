@@ -68,6 +68,7 @@ struct dp_panel_private {
 	struct dp_panel dp_panel;
 	struct dp_aux *aux;
 	struct dp_link *link;
+	struct dp_parser *parser;
 	struct dp_catalog_panel *catalog;
 	bool custom_edid;
 	bool custom_dpcd;
@@ -1097,6 +1098,8 @@ static int dp_panel_read_sink_caps(struct dp_panel *dp_panel,
 		pr_err("panel edid read failed, set failsafe mode\n");
 		return rc;
 	}
+
+	dp_panel->widebus_en = panel->parser->has_widebus;
 end:
 	return rc;
 }
@@ -1348,6 +1351,8 @@ static int dp_panel_config_timing(struct dp_panel *dp_panel)
 	data |= pinfo->h_active;
 
 	catalog->dp_active = data;
+
+	catalog->widebus_en = pinfo->widebus_en;
 
 	panel->catalog->timing_cfg(catalog);
 	panel->panel_on = true;
@@ -1697,6 +1702,8 @@ static void dp_panel_config_msa(struct dp_panel *dp_panel)
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 	catalog = panel->catalog;
 
+	catalog->widebus_en = dp_panel->widebus_en;
+
 	fixed_nvid = dp_panel_use_fixed_nvid(dp_panel);
 	rate = drm_dp_bw_code_to_link_rate(panel->link->link_params.bw_code);
 	stream_rate_khz = dp_panel->pinfo.pixel_clk_khz;
@@ -1833,6 +1840,8 @@ static void dp_panel_convert_to_dp_mode(struct dp_panel *dp_panel,
 
 	dp_mode->timing.bpp = dp_panel_get_mode_bpp(dp_panel,
 			dp_mode->timing.bpp, dp_mode->timing.pixel_clk_khz);
+
+	dp_mode->timing.widebus_en = dp_panel->widebus_en;
 }
 
 struct dp_panel *dp_panel_get(struct dp_panel_in *in)
@@ -1859,6 +1868,7 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	panel->aux = in->aux;
 	panel->catalog = in->catalog;
 	panel->link = in->link;
+	panel->parser = in->parser;
 
 	dp_panel = &panel->dp_panel;
 	dp_panel->max_bw_code = DP_LINK_BW_8_1;
@@ -1866,6 +1876,8 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	memcpy(panel->spd_vendor_name, vendor_name, (sizeof(u8) * 8));
 	memcpy(panel->spd_product_description, product_desc, (sizeof(u8) * 16));
 	dp_panel->connector = in->connector;
+
+	dp_panel->widebus_en = panel->parser->has_widebus;
 
 	if (in->base_panel) {
 		memcpy(dp_panel->dpcd, in->base_panel->dpcd,
