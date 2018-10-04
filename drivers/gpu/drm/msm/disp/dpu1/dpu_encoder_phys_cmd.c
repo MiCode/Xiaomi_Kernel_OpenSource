@@ -349,7 +349,7 @@ end:
 	return ret;
 }
 
-static void dpu_encoder_phys_cmd_irq_control(struct dpu_encoder_phys *phys_enc,
+void dpu_encoder_phys_cmd_irq_control(struct dpu_encoder_phys *phys_enc,
 		bool enable)
 {
 	struct dpu_encoder_phys_cmd *cmd_enc;
