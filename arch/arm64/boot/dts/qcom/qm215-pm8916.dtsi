@@ -77,18 +77,9 @@
 		/delete-property/ qcom,wcnss-adc_tm;
 	};
 
-	/delete-node/ qcom,gcc-mdss@1800000;
-
 	/delete-node/ qcom,csid@1b30000;
 	/delete-node/ qcom,csid@1b30400;
 	/delete-node/ qcom,csid@1b30800;
-
-	/delete-node/ qcom,mdss_mdp@1a00000;
-	/delete-node/ qcom,mdss_dsi@0;
-	/delete-node/ qcom,mdss_wb_panel;
-	/delete-node/ qcom,mdss_rotator;
-	/delete-node/ qcom,mdss_dsi_pll@1a94a00;
-	/delete-node/ qcom,mdss_dsi_pll@1a96a00;
 
 	/* mem_acc */
 	/delete-node/ regulator@01946004;
@@ -105,5 +96,71 @@
 &spmi_bus {
 	pm8916@1 {
 		/delete-node/ msm8x16_wcd_codec@f000;
+	};
+};
+
+&pm8916_gpios {
+	disp_vdda_en_default: disp_vdda_en_default {
+		pins = "gpio3";
+		function = "normal";
+		power-source = <0>;
+		drive-strength = <8>;
+		output-high;
+	};
+};
+
+&pm8916_mpps {
+	backlight_mpp {
+		backlight_pwm_en_default: backlight_pwm_en_default {
+			pins = "mpp4";
+			function = "digital";
+			qcom,dtest = <1>;
+			power-source = <0>;
+			output-low;
+		};
+	};
+};
+
+&soc {
+	disp_vdda_eldo1: gpio-regulator@0 {
+		compatible = "regulator-fixed";
+		reg = <0x00 0x00>;
+		regulator-name = "disp_vdda_eldo1";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+		regulator-enable-ramp-delay = <135>;
+		enable-active-high;
+		gpio = <&pm8916_gpios 3 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&disp_vdda_en_default>;
+		vin-supply = <&pm8916_s3>;
+	};
+};
+
+&mdss_dsi0_pll {
+	vddio-supply = <&pm8916_l6>;
+};
+
+&mdss_dsi0 {
+	/delete-property/ vdd-supply;
+	vddio-supply = <&pm8916_l6>;
+};
+
+&mdss_dsi {
+	vdda-supply = <&disp_vdda_eldo1>;
+	vddio-supply = <&pm8916_l6>;
+
+	qcom,phy-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,phy-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1744000>;
+			qcom,supply-max-voltage = <1904000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
 	};
 };
