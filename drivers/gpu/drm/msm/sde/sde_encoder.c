@@ -3232,11 +3232,11 @@ void sde_encoder_helper_phys_disable(struct sde_encoder_phys *phys_enc,
 	sde_enc = to_sde_encoder_virt(phys_enc->parent);
 
 	if (phys_enc == sde_enc->cur_master && phys_enc->hw_pp &&
-			phys_enc->hw_pp->merge_3d &&
 			phys_enc->hw_ctl->ops.reset_post_disable)
 		phys_enc->hw_ctl->ops.reset_post_disable(
 				phys_enc->hw_ctl, &phys_enc->intf_cfg_v1,
-				phys_enc->hw_pp->merge_3d->idx);
+				phys_enc->hw_pp->merge_3d ?
+				phys_enc->hw_pp->merge_3d->idx : 0);
 
 	phys_enc->hw_ctl->ops.trigger_flush(phys_enc->hw_ctl);
 	phys_enc->hw_ctl->ops.trigger_start(phys_enc->hw_ctl);
