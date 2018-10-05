@@ -36,7 +36,13 @@ static void mdp3_vsync_intr_handler(int type, void *arg)
 	struct mdp3_notification retire_client;
 	unsigned int wait_for_next_vs;
 
+	if (!dma) {
+		pr_err("dma is null\n");
+		return;
+	}
+
 	pr_debug("mdp3_vsync_intr_handler\n");
+	MDSS_XLOG(0x111, dma->vsync_period);
 	spin_lock(&dma->dma_lock);
 	vsync_client = dma->vsync_client;
 	retire_client = dma->retire_client;
@@ -61,6 +67,11 @@ static void mdp3_dma_done_intr_handler(int type, void *arg)
 	struct mdp3_dma *dma = (struct mdp3_dma *)arg;
 	struct mdp3_notification dma_client;
 
+	if (!dma) {
+		pr_err("dma is null\n");
+		return;
+	}
+
 	pr_debug("mdp3_dma_done_intr_handler\n");
 	spin_lock(&dma->dma_lock);
 	dma_client = dma->dma_notifier_client;
@@ -75,6 +86,11 @@ static void mdp3_hist_done_intr_handler(int type, void *arg)
 {
 	struct mdp3_dma *dma = (struct mdp3_dma *)arg;
 	u32 isr, mask;
+
+	if (!dma) {
+		pr_err("dma is null\n");
+		return;
+	}
 
 	isr = MDP3_REG_READ(MDP3_REG_DMA_P_HIST_INTR_STATUS);
 	mask = MDP3_REG_READ(MDP3_REG_DMA_P_HIST_INTR_ENABLE);
@@ -674,7 +690,7 @@ static int mdp3_dmap_update(struct mdp3_dma *dma, void *buf,
 			ATRACE_BEGIN("mdp3_wait_for_dma_comp");
 retry_dma_done:
 			rc = wait_for_completion_timeout(&dma->dma_comp,
-				KOFF_TIMEOUT);
+			 dma_timeout_value(dma));
 			if (rc <= 0 && --retry_count) {
 				int  vsync_status;
 
@@ -735,7 +751,7 @@ retry_dma_done:
 		ATRACE_BEGIN("mdp3_wait_for_vsync_comp");
 retry_vsync:
 		rc = wait_for_completion_timeout(&dma->vsync_comp,
-			KOFF_TIMEOUT);
+			 dma_timeout_value(dma));
 		if (rc <= 0 && --retry_count) {
 			int vsync = MDP3_REG_READ(MDP3_REG_INTR_STATUS) &
 					(1 << MDP3_INTR_LCDC_START_OF_FRAME);

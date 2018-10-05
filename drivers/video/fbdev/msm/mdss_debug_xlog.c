@@ -486,8 +486,8 @@ void mdss_dump_reg(const char *dump_name, u32 reg_dump_flag, char *addr,
 		}
 	}
 
-	if (!from_isr)
-		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+	if (!from_isr && mdata->debug_inf.debug_enable_clock)
+		mdata->debug_inf.debug_enable_clock(MDP_BLOCK_POWER_ON);
 
 	for (i = 0; i < len; i++) {
 		u32 x0, x4, x8, xc;
@@ -511,8 +511,8 @@ void mdss_dump_reg(const char *dump_name, u32 reg_dump_flag, char *addr,
 		addr += 16;
 	}
 
-	if (!from_isr)
-		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
+	if (!from_isr && mdata->debug_inf.debug_enable_clock)
+		mdata->debug_inf.debug_enable_clock(MDP_BLOCK_POWER_OFF);
 }
 
 static void mdss_dump_reg_by_ranges(struct mdss_debug_base *dbg,
