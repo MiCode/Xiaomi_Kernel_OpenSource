@@ -1201,7 +1201,6 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		.msg_rx_cb		= phy_msg_received,
 		.shutdown_cb		= phy_shutdown,
 		.frame_filter_val	= FRAME_FILTER_EN_SOP |
-					  FRAME_FILTER_EN_SOPI |
 					  FRAME_FILTER_EN_HARD_RESET,
 	};
 	union power_supply_propval val = {0};
@@ -1262,6 +1261,10 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 			phy_params.data_role = pd->current_dr;
 			phy_params.power_role = pd->current_pr;
+
+			if (pd->vconn_enabled)
+				phy_params.frame_filter_val |=
+					FRAME_FILTER_EN_SOPI;
 
 			ret = pd_phy_open(&phy_params);
 			if (ret) {
@@ -1449,6 +1452,10 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 			phy_params.data_role = pd->current_dr;
 			phy_params.power_role = pd->current_pr;
+
+			if (pd->vconn_enabled)
+				phy_params.frame_filter_val |=
+					FRAME_FILTER_EN_SOPI;
 
 			ret = pd_phy_open(&phy_params);
 			if (ret) {
@@ -2008,6 +2015,9 @@ static void vconn_swap(struct usbpd *pd)
 	int ret;
 
 	if (pd->vconn_enabled) {
+		pd_phy_update_frame_filter(FRAME_FILTER_EN_SOP |
+					   FRAME_FILTER_EN_HARD_RESET);
+
 		pd->current_state = PE_VCS_WAIT_FOR_VCONN;
 		kick_sm(pd, VCONN_ON_TIME);
 	} else {
@@ -2025,6 +2035,10 @@ static void vconn_swap(struct usbpd *pd)
 		}
 
 		pd->vconn_enabled = true;
+
+		pd_phy_update_frame_filter(FRAME_FILTER_EN_SOP |
+					   FRAME_FILTER_EN_SOPI |
+					   FRAME_FILTER_EN_HARD_RESET);
 
 		/*
 		 * Small delay to ensure Vconn has ramped up. This is well
