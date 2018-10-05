@@ -450,7 +450,7 @@ int gmu_dcvs_set(struct gmu_device *gmu,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int perf_idx = INVALID_DCVS_IDX, bw_idx = INVALID_DCVS_IDX;
-	int ret;
+	int ret = 0;
 
 	if (gpu_pwrlevel < gmu->num_gpupwrlevels - 1)
 		perf_idx = gmu->num_gpupwrlevels - gpu_pwrlevel - 1;
@@ -462,23 +462,22 @@ int gmu_dcvs_set(struct gmu_device *gmu,
 		(bw_idx == INVALID_DCVS_IDX))
 		return -EINVAL;
 
-	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG)) {
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
 		ret = gpudev->rpmh_gpu_pwrctrl(adreno_dev,
 			GMU_DCVS_NOHFI, perf_idx, bw_idx);
+	else if (test_bit(GMU_HFI_ON, &gmu->flags))
+		ret = hfi_send_dcvs_vote(gmu, perf_idx, bw_idx, ACK_NONBLOCK);
 
-		if (ret) {
-			dev_err_ratelimited(&gmu->pdev->dev,
-				"Failed to set GPU perf idx %d, bw idx %d\n",
-				perf_idx, bw_idx);
+	if (ret) {
+		dev_err_ratelimited(&gmu->pdev->dev,
+			"Failed to set GPU perf idx %d, bw idx %d\n",
+			perf_idx, bw_idx);
 
-			adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
-			adreno_dispatcher_schedule(device);
-		}
-
-		return ret;
+		adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
+		adreno_dispatcher_schedule(device);
 	}
 
-	return hfi_send_dcvs_vote(gmu, perf_idx, bw_idx, ACK_NONBLOCK);
+	return ret;
 }
 
 struct rpmh_arc_vals {
