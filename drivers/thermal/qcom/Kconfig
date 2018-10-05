@@ -20,6 +20,15 @@ config QTI_VIRTUAL_SENSOR
 	  sensors to query for temperature and the aggregation logic to
 	  determine the virtual sensor temperature.
 
+config QTI_QMI_SENSOR
+	bool "QTI QMI sensor driver"
+	depends on QCOM_QMI_HELPERS && THERMAL_OF
+	help
+	   This enables to list the QTI remote subsystem temperature sensors.
+	   This driver can read the temperature of the remote sensor.
+	   These sensors can take thresholds and notify the thermal
+	   framework when the threshold is reached.
+
 config QTI_BCL_PMIC5
 	bool "BCL driver for BCL peripherals in PMIC5"
 	depends on SPMI && THERMAL_OF
