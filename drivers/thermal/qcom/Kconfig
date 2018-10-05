@@ -60,3 +60,14 @@ config QTI_QMI_COOLING_DEVICE
 	   remote subsystem voltage restriction at low temperatures etc.
 	   The QMI cooling device will interface with remote subsystem
 	   using QTI QMI interface.
+
+config REGULATOR_COOLING_DEVICE
+	bool "Regulator voltage floor cooling device"
+	depends on REGULATOR && THERMAL_OF
+	help
+	  This implements a mitigation device to place a minimum voltage floor
+	  on a particular regulator. This mitigation device will be used by low
+	  temperature reliability rules to mitigate a regulator at nominal
+	  voltage.
+
+	  If you want this support, you should say Y here.
