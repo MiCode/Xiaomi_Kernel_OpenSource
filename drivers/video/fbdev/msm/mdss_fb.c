@@ -2100,7 +2100,10 @@ static int mdss_fb_blank(int blank_mode, struct fb_info *info)
 	int ret;
 	struct mdss_panel_data *pdata;
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+	ktime_t start, end;
+	s64 actual_time;
 
+	start = ktime_get();
 	ret = mdss_fb_pan_idle(mfd);
 	if (ret) {
 		pr_warn("mdss_fb_pan_idle for fb%d failed. ret=%d\n",
@@ -2133,7 +2136,12 @@ static int mdss_fb_blank(int blank_mode, struct fb_info *info)
 	}
 
 	ret = mdss_fb_blank_sub(blank_mode, info, mfd->op_enable);
-	MDSS_XLOG(blank_mode);
+	end = ktime_get();
+	actual_time = ktime_ms_delta(end, start);
+
+	MDSS_XLOG(blank_mode, actual_time);
+	pr_debug("blank_mode: %d and transition time: %lldms\n",
+					blank_mode, actual_time);
 
 end:
 	mutex_unlock(&mfd->mdss_sysfs_lock);
