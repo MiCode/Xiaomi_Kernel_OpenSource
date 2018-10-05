@@ -368,6 +368,13 @@ First Level Node - FG Gen4 device
 		    decrease when the battery SOC is low but not converging to
 		    zero with battery voltage dropping rapidly below Vcutoff.
 
+- qcom,five-pin-battery
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property that when specified indicates that a
+		    five pin battery is used. Based on this, time to full
+		    calculations would use the Rbatt calculated properly.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by FG Gen4 driver
 ==========================================================
