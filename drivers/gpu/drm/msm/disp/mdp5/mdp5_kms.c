@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2018, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -169,8 +169,6 @@ static void mdp5_complete_commit(struct msm_kms *kms, struct drm_atomic_state *s
 	struct mdp5_kms *mdp5_kms = to_mdp5_kms(to_mdp_kms(kms));
 	struct device *dev = &mdp5_kms->pdev->dev;
 	struct mdp5_global_state *global_state;
-
-	drm_atomic_helper_wait_for_vblanks(mdp5_kms->dev, state);
 
 	global_state = mdp5_get_existing_global_state(mdp5_kms);
 
