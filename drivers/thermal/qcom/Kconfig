@@ -10,6 +10,16 @@ config QCOM_TSENS
 	  Also able to set threshold temperature for both hot and cold and update
 	  when a threshold is reached.
 
+config QTI_VIRTUAL_SENSOR
+	bool "QTI Virtual Sensor driver"
+	depends on THERMAL_OF
+	help
+	  This driver has the information about the virtual sensors used by
+	  QTI chipset's and registers the virtual sensors to a thermal zone.
+	  The virtual sensor information includes the underlying thermal
+	  sensors to query for temperature and the aggregation logic to
+	  determine the virtual sensor temperature.
+
 config QTI_BCL_PMIC5
 	bool "BCL driver for BCL peripherals in PMIC5"
 	depends on SPMI && THERMAL_OF
