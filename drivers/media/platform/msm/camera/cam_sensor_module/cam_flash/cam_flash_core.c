@@ -1181,7 +1181,7 @@ int cam_flash_pmic_pkt_parser(struct cam_flash_ctrl *fctrl, void *arg)
 	struct cam_cmd_buf_desc *cmd_desc = NULL;
 	struct common_header *cmn_hdr;
 	struct cam_config_dev_cmd config;
-	struct cam_req_mgr_add_request add_req;
+	struct cam_req_mgr_add_request add_req = {0};
 	struct cam_flash_init *cam_flash_info = NULL;
 	struct cam_flash_set_rer *flash_rer_info = NULL;
 	struct cam_flash_set_on_off *flash_operation_info = NULL;
@@ -1342,6 +1342,9 @@ int cam_flash_pmic_pkt_parser(struct cam_flash_ctrl *fctrl, void *arg)
 			for (i = 0; i < flash_operation_info->count; i++)
 				flash_data->led_current_ma[i]
 				= flash_operation_info->led_current_ma[i];
+
+			if (flash_data->opcode == CAMERA_SENSOR_FLASH_OP_OFF)
+				add_req.skip_before_applying |= SKIP_NEXT_FRAME;
 		}
 		break;
 		default:
@@ -1471,7 +1474,7 @@ update_req_mgr:
 
 		if ((csl_packet->header.op_code & 0xFFFFF) ==
 			CAM_FLASH_PACKET_OPCODE_SET_OPS)
-			add_req.skip_before_applying = 1;
+			add_req.skip_before_applying |= 1;
 		else
 			add_req.skip_before_applying = 0;
 

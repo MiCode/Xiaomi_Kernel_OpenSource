@@ -403,9 +403,52 @@ static int __cam_req_mgr_send_req(struct cam_req_mgr_core_link *link,
 	struct cam_req_mgr_connected_device *dev = NULL;
 	struct cam_req_mgr_apply_request     apply_req;
 	struct cam_req_mgr_link_evt_data     evt_data;
+	struct cam_req_mgr_tbl_slot          *slot = NULL;
 
 	apply_req.link_hdl = link->link_hdl;
 	apply_req.report_if_bubble = 0;
+
+	for (i = 0; i < link->num_devs; i++) {
+		dev = &link->l_dev[i];
+		if (!dev)
+			continue;
+		pd = dev->dev_info.p_delay;
+		if (pd >= CAM_PIPELINE_DELAY_MAX) {
+			CAM_WARN(CAM_CRM, "pd %d greater than max",
+				pd);
+			continue;
+		}
+
+		idx = link->req.apply_data[pd].idx;
+		slot = &dev->pd_tbl->slot[idx];
+		/*
+		 * Just let flash go for this request and other
+		 * device get restricted
+		 */
+
+		if ((slot->skip_next_frame != true) ||
+			(slot->dev_hdl != dev->dev_hdl))
+			continue;
+
+		if (!(dev->dev_info.trigger & trigger))
+			continue;
+
+		apply_req.dev_hdl = dev->dev_hdl;
+		apply_req.request_id =
+			link->req.apply_data[pd].req_id;
+		apply_req.trigger_point = trigger;
+		if (dev->ops && dev->ops->apply_req) {
+			rc = dev->ops->apply_req(&apply_req);
+			if (rc)
+				return rc;
+			CAM_DBG(CAM_REQ,
+				"SEND: link_hdl: %x pd: %d req_id %lld",
+				link->link_hdl, pd, apply_req.request_id);
+			slot->skip_next_frame = false;
+			slot->is_applied = true;
+			return -EAGAIN;
+		}
+	}
 
 	for (i = 0; i < link->num_devs; i++) {
 		dev = &link->l_dev[i];
@@ -430,8 +473,15 @@ static int __cam_req_mgr_send_req(struct cam_req_mgr_core_link *link,
 			apply_req.request_id =
 				link->req.apply_data[pd].req_id;
 			idx = link->req.apply_data[pd].idx;
+			slot = &dev->pd_tbl->slot[idx];
 			apply_req.report_if_bubble =
 				in_q->slot[idx].recover;
+
+			if ((slot->dev_hdl == dev->dev_hdl) &&
+				(slot->is_applied == true)) {
+				slot->is_applied = false;
+				continue;
+			}
 
 			trace_cam_req_mgr_apply_request(link, &apply_req, dev);
 
@@ -1661,10 +1711,15 @@ int cam_req_mgr_process_add_req(void *priv, void *data)
 	}
 
 	slot = &tbl->slot[idx];
-	if (add_req->skip_before_applying > slot->inject_delay) {
-		slot->inject_delay = add_req->skip_before_applying;
-		CAM_DBG(CAM_CRM, "Req_id %llu injecting delay %u",
-			add_req->req_id, add_req->skip_before_applying);
+	slot->is_applied = false;
+	if ((add_req->skip_before_applying & 0xFF) > slot->inject_delay) {
+		slot->inject_delay = (add_req->skip_before_applying & 0xFF);
+		slot->dev_hdl = add_req->dev_hdl;
+		if (add_req->skip_before_applying & SKIP_NEXT_FRAME)
+			slot->skip_next_frame = true;
+		CAM_DBG(CAM_CRM, "Req_id %llu injecting delay %llu",
+			add_req->req_id,
+			(add_req->skip_before_applying & 0xFF));
 	}
 
 	if (slot->state != CRM_REQ_STATE_PENDING &&
