@@ -2053,7 +2053,7 @@ static int dp_display_mst_connector_uninstall(struct dp_display *dp_display,
 
 	list_for_each_entry_safe(con_to_remove, temp_con,
 			&dp->debug->dp_mst_connector_list.list, list) {
-		if (con_to_remove->con_id == connector->base.id) {
+		if (con_to_remove->conn == connector) {
 			list_del(&con_to_remove->list);
 			kfree(con_to_remove);
 		}

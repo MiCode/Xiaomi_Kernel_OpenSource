@@ -372,7 +372,7 @@ static ssize_t dp_debug_write_edid_modes_mst(struct file *file,
 {
 	struct dp_debug_private *debug = file->private_data;
 	struct dp_mst_connector *mst_connector;
-	char buf[SZ_32];
+	char buf[SZ_512];
 	char *read_buf;
 	size_t len = 0;
 
@@ -386,7 +386,7 @@ static ssize_t dp_debug_write_edid_modes_mst(struct file *file,
 	if (*ppos)
 		goto end;
 
-	len = min_t(size_t, count, SZ_32 - 1);
+	len = min_t(size_t, count, SZ_512 - 1);
 	if (copy_from_user(buf, user_buff, len))
 		goto end;
 
