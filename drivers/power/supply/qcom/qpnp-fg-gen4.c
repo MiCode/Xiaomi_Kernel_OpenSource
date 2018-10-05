@@ -247,6 +247,7 @@ struct fg_gen4_chip {
 	bool			esr_fcc_ctrl_en;
 	bool			rslow_low;
 	bool			rapid_soc_dec_en;
+	bool			vbatt_low;
 };
 
 struct bias_config {
@@ -449,8 +450,6 @@ static struct fg_sram_param pm8150b_v2_sram_params[] = {
 	PARAM(ESR_CAL_TEMP_MAX, ESR_PULSE_THRESH_WORD, ESR_CAL_TEMP_MAX_OFFSET,
 		1, 1, 1, 0, fg_encode_default, NULL),
 };
-
-static bool is_batt_empty(struct fg_dev *fg);
 
 /* All get functions below */
 
@@ -714,7 +713,7 @@ static int fg_gen4_get_prop_capacity(struct fg_dev *fg, int *val)
 		return 0;
 	}
 
-	if (is_batt_empty(fg)) {
+	if (chip->vbatt_low) {
 		*val = EMPTY_SOC;
 		return 0;
 	}
@@ -2489,17 +2488,22 @@ static irqreturn_t fg_vbatt_low_irq_handler(int irq, void *data)
 	fg_dbg(fg, FG_IRQ, "irq %d triggered vbatt_mv: %d msoc_raw:%d\n", irq,
 		vbatt_mv, msoc_raw);
 
-	if (chip->dt.rapid_soc_dec_en && vbatt_mv < chip->dt.cutoff_volt_mv) {
-		/*
-		 * Set this flag so that slope limiter coefficient cannot be
-		 * configured during rapid SOC decrease.
-		 */
-		chip->rapid_soc_dec_en = true;
+	if (vbatt_mv < chip->dt.cutoff_volt_mv) {
+		if (chip->dt.rapid_soc_dec_en) {
+			/*
+			 * Set this flag so that slope limiter coefficient
+			 * cannot be configured during rapid SOC decrease.
+			 */
+			chip->rapid_soc_dec_en = true;
 
-		rc = fg_gen4_rapid_soc_config(chip, true);
-		if (rc < 0)
-			pr_err("Error in configuring for rapid SOC reduction rc:%d\n",
-				rc);
+			rc = fg_gen4_rapid_soc_config(chip, true);
+			if (rc < 0)
+				pr_err("Error in configuring for rapid SOC reduction rc:%d\n",
+					rc);
+		} else {
+			/* Set the flag to show 0% */
+			chip->vbatt_low = true;
+		}
 	}
 
 	if (batt_psy_initialized(fg))
@@ -2835,36 +2839,6 @@ static struct fg_irq_info fg_irqs[FG_GEN4_IRQ_MAX] = {
 		.wakeable	= true,
 	},
 };
-
-static bool is_batt_empty(struct fg_dev *fg)
-{
-	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
-	u8 status;
-	int rc, vbatt_uv, msoc;
-
-	rc = fg_read(fg, BATT_SOC_INT_RT_STS(fg), &status, 1);
-	if (rc < 0) {
-		pr_err("failed to read addr=0x%04x, rc=%d\n",
-			BATT_SOC_INT_RT_STS(fg), rc);
-		return false;
-	}
-
-	if (!(status & MSOC_EMPTY_BIT))
-		return false;
-
-	rc = fg_get_battery_voltage(fg, &vbatt_uv);
-	if (rc < 0) {
-		pr_err("failed to get battery voltage, rc=%d\n", rc);
-		return false;
-	}
-
-	rc = fg_get_msoc(fg, &msoc);
-	if (!rc)
-		pr_warn_ratelimited("batt_soc_rt_sts: %x vbatt: %d uV msoc:%d\n",
-			status, vbatt_uv, msoc);
-
-	return ((vbatt_uv < chip->dt.cutoff_volt_mv * 1000) ? true : false);
-}
 
 static enum alarmtimer_restart fg_esr_fast_cal_timer(struct alarm *alarm,
 							ktime_t time)
