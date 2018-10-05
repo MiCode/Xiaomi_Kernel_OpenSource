@@ -2168,6 +2168,9 @@ static int adreno_stop(struct kgsl_device *device)
 	/* Save physical performance counter values before GPU power down*/
 	adreno_perfcounter_save(adreno_dev);
 
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, prepare_stop))
+		gmu_dev_ops->prepare_stop(adreno_dev);
+
 	if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_clear))
 		gmu_dev_ops->oob_clear(adreno_dev, oob_gpu);
 
