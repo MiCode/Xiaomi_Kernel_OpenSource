@@ -26,6 +26,7 @@
  * @ctx: JPEG base context storage
  * @ctx_jpeg: JPEG private context storage
  * @jpeg_mutex: Jpeg dev mutex
+ * @open_cnt: Open device count
  */
 struct cam_jpeg_dev {
 	struct cam_subdev sd;
@@ -33,5 +34,6 @@ struct cam_jpeg_dev {
 	struct cam_context ctx[CAM_CTX_MAX];
 	struct cam_jpeg_context ctx_jpeg[CAM_CTX_MAX];
 	struct mutex jpeg_mutex;
+	int32_t open_cnt;
 };
 #endif /* __CAM_JPEG_DEV_H__ */

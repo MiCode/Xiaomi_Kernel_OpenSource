@@ -624,7 +624,8 @@ static void cam_hw_cdm_work(struct work_struct *work)
 }
 
 static void cam_hw_cdm_iommu_fault_handler(struct iommu_domain *domain,
-	struct device *dev, unsigned long iova, int flags, void *token)
+	struct device *dev, unsigned long iova, int flags, void *token,
+	uint32_t buf_info)
 {
 	struct cam_hw_info *cdm_hw = NULL;
 	struct cam_cdm *core = NULL;
@@ -910,7 +911,7 @@ int cam_hw_cdm_probe(struct platform_device *pdev)
 		CAM_ERR(CAM_CDM, "cpas-cdm get iommu handle failed");
 		goto unlock_release_mem;
 	}
-	cam_smmu_reg_client_page_fault_handler(cdm_core->iommu_hdl.non_secure,
+	cam_smmu_set_client_page_fault_handler(cdm_core->iommu_hdl.non_secure,
 		cam_hw_cdm_iommu_fault_handler, cdm_hw);
 
 	rc = cam_smmu_ops(cdm_core->iommu_hdl.non_secure, CAM_SMMU_ATTACH);
@@ -1034,7 +1035,7 @@ release_platform_resource:
 	flush_workqueue(cdm_core->work_queue);
 	destroy_workqueue(cdm_core->work_queue);
 destroy_non_secure_hdl:
-	cam_smmu_reg_client_page_fault_handler(cdm_core->iommu_hdl.non_secure,
+	cam_smmu_set_client_page_fault_handler(cdm_core->iommu_hdl.non_secure,
 		NULL, cdm_hw);
 	if (cam_smmu_destroy_handle(cdm_core->iommu_hdl.non_secure))
 		CAM_ERR(CAM_CDM, "Release iommu secure hdl failed");
@@ -1106,8 +1107,8 @@ int cam_hw_cdm_remove(struct platform_device *pdev)
 
 	if (cam_smmu_destroy_handle(cdm_core->iommu_hdl.non_secure))
 		CAM_ERR(CAM_CDM, "Release iommu secure hdl failed");
-	cam_smmu_reg_client_page_fault_handler(cdm_core->iommu_hdl.non_secure,
-		NULL, cdm_hw);
+	cam_smmu_unset_client_page_fault_handler(
+		cdm_core->iommu_hdl.non_secure, cdm_hw);
 
 	mutex_destroy(&cdm_hw->hw_mutex);
 	kfree(cdm_hw->soc_info.soc_private);
