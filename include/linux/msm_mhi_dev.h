@@ -67,7 +67,7 @@ struct mhi_req {
 	u32                             snd_cmpl;
 	void                            *context;
 	size_t                          len;
-	size_t                          actual_len;
+	size_t                          transfer_len;
 	uint32_t                        rd_offset;
 	struct mhi_dev_client           *client;
 	struct list_head                list;
