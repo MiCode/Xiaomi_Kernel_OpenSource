@@ -50,3 +50,13 @@ config QTI_BCL_SOC_DRIVER
 
 	  If you want this support, you should say Y here.
 
+config QTI_QMI_COOLING_DEVICE
+	bool "QTI QMI cooling devices"
+	depends on QCOM_QMI_HELPERS && THERMAL_OF
+	help
+	   This enables the QTI remote subsystem cooling devices. These cooling
+	   devices will be used by QTI chipset to place various remote
+	   subsystem mitigations like remote processor passive mitigation,
+	   remote subsystem voltage restriction at low temperatures etc.
+	   The QMI cooling device will interface with remote subsystem
+	   using QTI QMI interface.

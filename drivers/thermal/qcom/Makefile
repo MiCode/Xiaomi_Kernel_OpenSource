@@ -4,3 +4,4 @@ obj-$(CONFIG_QTI_VIRTUAL_SENSOR) += qti_virtual_sensor.o
 obj-$(CONFIG_QTI_QMI_SENSOR) += thermal_sensor_service_v01.o qmi_sensors.o
 obj-$(CONFIG_QTI_BCL_PMIC5) += bcl_pmic5.o
 obj-$(CONFIG_QTI_BCL_SOC_DRIVER) += bcl_soc.o
+obj-$(CONFIG_QTI_QMI_COOLING_DEVICE) += thermal_mitigation_device_service_v01.o qmi_cooling.o
