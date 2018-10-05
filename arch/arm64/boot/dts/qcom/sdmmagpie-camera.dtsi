@@ -198,4 +198,150 @@
 			};
 		};
 	};
+
+	qcom,cam-icp {
+		compatible = "qcom,cam-icp";
+		compat-hw-name = "qcom,a5",
+			"qcom,ipe0",
+			"qcom,ipe1",
+			"qcom,bps";
+		num-a5 = <1>;
+		num-ipe = <2>;
+		num-bps = <1>;
+		status = "ok";
+	};
+
+	cam_a5: qcom,a5@ac00000 {
+		cell-index = <0>;
+		compatible = "qcom,cam-a5";
+		reg = <0xac00000 0x6000>,
+			<0xac10000 0x8000>,
+			<0xac18000 0x3000>;
+		reg-names = "a5_qgic", "a5_sierra", "a5_csr";
+		reg-cam-base = <0x00000 0x10000 0x18000>;
+		interrupts = <0 463 0>;
+		interrupt-names = "a5";
+		regulator-names = "camss-vdd";
+		camss-vdd-supply = <&titan_top_gdsc>;
+		clock-names =
+			"soc_fast_ahb",
+			"icp_ahb_clk",
+			"icp_clk_src",
+			"icp_clk";
+		clocks =
+			<&clock_camcc CAM_CC_FAST_AHB_CLK_SRC>,
+			<&clock_camcc CAM_CC_ICP_AHB_CLK>,
+			<&clock_camcc CAM_CC_ICP_CLK_SRC>,
+			<&clock_camcc CAM_CC_ICP_CLK>;
+
+		clock-rates =
+			<200000000 0 400000000 0>,
+			<400000000 0 600000000 0>;
+		clock-cntl-level = "svs", "turbo";
+		fw_name = "CAMERA_ICP.elf";
+		ubwc-cfg = <0x73 0x1CF>;
+		status = "ok";
+	};
+
+	cam_ipe0: qcom,ipe0 {
+		cell-index = <0>;
+		compatible = "qcom,cam-ipe";
+		reg = <0xac87000 0x3000>;
+		reg-names = "ipe0_top";
+		reg-cam-base = <0x87000>;
+		regulator-names = "ipe0-vdd";
+		ipe0-vdd-supply = <&ipe_0_gdsc>;
+		clock-names =
+			"ipe_0_ahb_clk",
+			"ipe_0_areg_clk",
+			"ipe_0_axi_clk",
+			"ipe_0_clk_src",
+			"ipe_0_clk";
+		src-clock-name = "ipe_0_clk_src";
+		clock-control-debugfs = "true";
+		clocks =
+			<&clock_camcc CAM_CC_IPE_0_AHB_CLK>,
+			<&clock_camcc CAM_CC_IPE_0_AREG_CLK>,
+			<&clock_camcc CAM_CC_IPE_0_AXI_CLK>,
+			<&clock_camcc CAM_CC_IPE_0_CLK_SRC>,
+			<&clock_camcc CAM_CC_IPE_0_CLK>;
+
+		clock-rates =
+			<0 0 0 340000000 0>,
+			<0 0 0 430000000 0>,
+			<0 0 0 520000000 0>,
+			<0 0 0 600000000 0>,
+			<0 0 0 600000000 0>;
+		clock-cntl-level = "lowsvs", "svs", "svs_l1",
+				"nominal", "turbo";
+		status = "ok";
+	};
+
+	cam_ipe1: qcom,ipe1 {
+		cell-index = <1>;
+		compatible = "qcom,cam-ipe";
+		reg = <0xac91000 0x3000>;
+		reg-names = "ipe1_top";
+		reg-cam-base = <0x91000>;
+		regulator-names = "ipe1-vdd";
+		ipe1-vdd-supply = <&ipe_1_gdsc>;
+		clock-names =
+			"ipe_1_ahb_clk",
+			"ipe_1_areg_clk",
+			"ipe_1_axi_clk",
+			"ipe_1_clk_src",
+			"ipe_1_clk";
+		src-clock-name = "ipe_1_clk_src";
+		clock-control-debugfs = "true";
+		clocks =
+			<&clock_camcc CAM_CC_IPE_1_AHB_CLK>,
+			<&clock_camcc CAM_CC_IPE_1_AREG_CLK>,
+			<&clock_camcc CAM_CC_IPE_1_AXI_CLK>,
+			<&clock_camcc CAM_CC_IPE_0_CLK_SRC>,
+			<&clock_camcc CAM_CC_IPE_1_CLK>;
+
+		clock-rates =
+			<0 0 0 340000000 0>,
+			<0 0 0 430000000 0>,
+			<0 0 0 520000000 0>,
+			<0 0 0 600000000 0>,
+			<0 0 0 600000000 0>;
+		clock-cntl-level = "lowsvs", "svs", "svs_l1",
+				"nominal", "turbo";
+		status = "ok";
+	};
+
+	cam_bps: qcom,bps {
+		cell-index = <0>;
+		compatible = "qcom,cam-bps";
+		reg = <0xac6f000 0x3000>;
+		reg-names = "bps_top";
+		reg-cam-base = <0x6f000>;
+		regulator-names = "bps-vdd";
+		bps-vdd-supply = <&bps_gdsc>;
+		clock-names =
+			"bps_ahb_clk",
+			"bps_areg_clk",
+			"bps_axi_clk",
+			"bps_clk_src",
+			"bps_clk";
+		src-clock-name = "bps_clk_src";
+		clock-control-debugfs = "true";
+		clocks =
+			<&clock_camcc CAM_CC_BPS_AHB_CLK>,
+			<&clock_camcc CAM_CC_BPS_AREG_CLK>,
+			<&clock_camcc CAM_CC_BPS_AXI_CLK>,
+			<&clock_camcc CAM_CC_BPS_CLK_SRC>,
+			<&clock_camcc CAM_CC_BPS_CLK>;
+
+		clock-rates =
+			<0 0 0 200000000 0>,
+			<0 0 0 400000000 0>,
+			<0 0 0 480000000 0>,
+			<0 0 0 600000000 0>,
+			<0 0 0 600000000 0>;
+		clock-cntl-level = "lowsvs", "svs", "svs_l1",
+				"nominal", "turbo";
+		status = "ok";
+	};
 };
