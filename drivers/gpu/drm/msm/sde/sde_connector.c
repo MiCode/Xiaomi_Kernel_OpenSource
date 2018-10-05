@@ -19,6 +19,8 @@
 #include "sde_splash.h"
 #include <linux/workqueue.h>
 #include <linux/atomic.h>
+#include <linux/cpu.h>
+#include <linux/device.h>
 
 #define SDE_DEBUG_CONN(c, fmt, ...) SDE_DEBUG("conn%d " fmt,\
 		(c) ? (c)->base.base.id : -1, ##__VA_ARGS__)
@@ -574,7 +576,14 @@ void sde_connector_prepare_fence(struct drm_connector *connector)
 
 static void wake_up_cpu(struct work_struct *work)
 {
-	if (!cpu_up(1))
+	struct device *cpu_dev = NULL;
+
+	cpu_dev = get_cpu_device(1);
+	if (!cpu_dev) {
+		pr_err("Could not get cpu1 device\n");
+		return;
+	}
+	if (!device_online(cpu_dev))
 		pr_info("cpu1 is online\n");
 }
 
