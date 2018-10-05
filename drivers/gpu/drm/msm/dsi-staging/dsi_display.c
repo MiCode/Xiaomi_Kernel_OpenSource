@@ -1327,7 +1327,7 @@ static ssize_t debugfs_alter_esd_check_mode(struct file *file,
 	if (ZERO_OR_NULL_PTR(buf))
 		return -ENOMEM;
 
-	if (copy_from_user(buf, user_buf, user_len)) {
+	if (copy_from_user(buf, user_buf, len)) {
 		rc = -EINVAL;
 		goto error;
 	}
