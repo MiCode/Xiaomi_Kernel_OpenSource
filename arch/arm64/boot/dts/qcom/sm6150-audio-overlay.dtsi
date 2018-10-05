@@ -374,7 +374,7 @@
 	clock_audio_rx_1: rx_core_clk {
 		compatible = "qcom,audio-ref-clk";
 		qcom,codec-ext-clk-src = <AUDIO_LPASS_MCLK_4>;
-		qcom,codec-lpass-ext-clk-freq = <19200000>;
+		qcom,codec-lpass-ext-clk-freq = <22579200>;
 		qcom,codec-lpass-clk-id = <0x30E>;
 		#clock-cells = <1>;
 	};
@@ -382,7 +382,7 @@
 	clock_audio_rx_2: rx_npl_clk {
 		compatible = "qcom,audio-ref-clk";
 		qcom,codec-ext-clk-src = <AUDIO_LPASS_MCLK_5>;
-		qcom,codec-lpass-ext-clk-freq = <19200000>;
+		qcom,codec-lpass-ext-clk-freq = <22579200>;
 		qcom,codec-lpass-clk-id = <0x30F>;
 		#clock-cells = <1>;
 	};
