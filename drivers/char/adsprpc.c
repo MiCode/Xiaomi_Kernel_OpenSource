@@ -272,6 +272,7 @@ struct fastrpc_channel_ctx {
 	struct completion workport;
 	struct notifier_block nb;
 	struct mutex smd_mutex;
+	struct mutex rpmsg_mutex;
 	int sesscount;
 	int ssrcount;
 	void *handle;
@@ -1781,16 +1782,21 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 
 	if (fl->ssrcount != channel_ctx->ssrcount) {
 		err = -ECONNRESET;
+		mutex_unlock(&channel_ctx->smd_mutex);
 		goto bail;
 	}
+	mutex_unlock(&channel_ctx->smd_mutex);
+
+	mutex_lock(&channel_ctx->rpmsg_mutex);
 	VERIFY(err, !IS_ERR_OR_NULL(channel_ctx->rpdev));
 	if (err) {
 		err = -ECONNRESET;
+		mutex_unlock(&channel_ctx->rpmsg_mutex);
 		goto bail;
 	}
 	err = rpmsg_send(channel_ctx->rpdev->ept, (void *)msg, sizeof(*msg));
+	mutex_unlock(&channel_ctx->rpmsg_mutex);
  bail:
-	mutex_unlock(&channel_ctx->smd_mutex);
 	return err;
 }
 
@@ -1810,6 +1816,7 @@ static void fastrpc_init(struct fastrpc_apps *me)
 		/* All channels are secure by default except CDSP */
 		me->channel[i].secure = SECURE_CHANNEL;
 		mutex_init(&me->channel[i].smd_mutex);
+		mutex_init(&me->channel[i].rpmsg_mutex);
 	}
 	/* Set CDSP channel to non secure */
 	me->channel[CDSP_DOMAIN_ID].secure = NON_SECURE_CHANNEL;
@@ -2672,9 +2679,9 @@ static int fastrpc_rpmsg_probe(struct rpmsg_device *rpdev)
 	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS);
 	if (err)
 		goto bail;
-	mutex_lock(&gcinfo[cid].smd_mutex);
+	mutex_lock(&gcinfo[cid].rpmsg_mutex);
 	gcinfo[cid].rpdev = rpdev;
-	mutex_unlock(&gcinfo[cid].smd_mutex);
+	mutex_unlock(&gcinfo[cid].rpmsg_mutex);
 	pr_info("adsprpc: %s: opened rpmsg channel for %s\n",
 		__func__, gcinfo[cid].subsys);
 bail:
@@ -2706,9 +2713,9 @@ static void fastrpc_rpmsg_remove(struct rpmsg_device *rpdev)
 	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS);
 	if (err)
 		goto bail;
-	mutex_lock(&gcinfo[cid].smd_mutex);
+	mutex_lock(&gcinfo[cid].rpmsg_mutex);
 	gcinfo[cid].rpdev = NULL;
-	mutex_unlock(&gcinfo[cid].smd_mutex);
+	mutex_unlock(&gcinfo[cid].rpmsg_mutex);
 	fastrpc_notify_drivers(me, cid);
 	pr_info("adsprpc: %s: closed rpmsg channel of %s\n",
 		__func__, gcinfo[cid].subsys);
@@ -2990,6 +2997,15 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 	if (err)
 		return err;
 
+	mutex_lock(&me->channel[cid].rpmsg_mutex);
+	VERIFY(err, NULL != me->channel[cid].rpdev);
+	if (err) {
+		err = -ENOTCONN;
+		mutex_unlock(&me->channel[cid].rpmsg_mutex);
+		goto bail;
+	}
+	mutex_unlock(&me->channel[cid].rpmsg_mutex);
+
 	mutex_lock(&me->channel[cid].smd_mutex);
 	if (me->channel[cid].ssrcount !=
 				 me->channel[cid].prevssrcount) {
@@ -2997,16 +3013,13 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 			VERIFY(err, 0);
 			if (err) {
 				err = -ENOTCONN;
+				mutex_unlock(&me->channel[cid].smd_mutex);
 				goto bail;
 			}
 		}
 	}
 	fl->ssrcount = me->channel[cid].ssrcount;
-	VERIFY(err, NULL != me->channel[cid].rpdev);
-	if (err) {
-		err = -ENOTCONN;
-		goto bail;
-	}
+
 	if (cid == ADSP_DOMAIN_ID && me->channel[cid].ssrcount !=
 			 me->channel[cid].prevssrcount) {
 		mutex_lock(&fl->map_mutex);
@@ -3017,9 +3030,9 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 		me->channel[cid].prevssrcount =
 					me->channel[cid].ssrcount;
 	}
+	mutex_unlock(&me->channel[cid].smd_mutex);
 
 bail:
-	mutex_unlock(&me->channel[cid].smd_mutex);
 	return err;
 }
 
