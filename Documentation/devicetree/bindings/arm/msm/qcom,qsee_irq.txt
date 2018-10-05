@@ -11,7 +11,8 @@ the control registers.
 	Usage: required
 	Value type: <string>
 	Definition: must be one of:
-		    "qcom,sm8150-qsee-irq"
+		    "qcom,sm8150-qsee-irq",
+		    "qcom,kona-qsee-irq"
 
 - syscon:
 	usage: required
