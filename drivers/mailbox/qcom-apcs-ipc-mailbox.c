@@ -131,6 +131,7 @@ static const struct of_device_id qcom_apcs_ipc_of_match[] = {
 	{ .compatible = "qcom,sdm845-apss-shared", .data = (void *)12 },
 	{ .compatible = "qcom,sm8150-apcs-hmss-global", .data = (void *) 12 },
 	{ .compatible = "qcom,sm8150-spcs-global", .data = (void *)0 },
+	{ .compatible = "qcom,kona-spcs-global", .data = (void *)0 },
 	{}
 };
 MODULE_DEVICE_TABLE(of, qcom_apcs_ipc_of_match);
