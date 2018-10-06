@@ -43,3 +43,17 @@
 		/delete-property/ qcom,mdss-dest-scaler-lut-off;
 	};
 };
+
+&soc {
+	/delete-node/ devfreq_memlat_0;
+	devfreq_memlat_0: qcom,arm-memlat-mon-0 {
+		compatible = "qcom,arm-memlat-mon";
+		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
+		qcom,target-dev = <&memlat_cpu0>;
+		qcom,core-dev-table =
+			< 1113600 762 >,
+			< 1344000 2086 >,
+			< 1670400 4943 >,
+			< 2016000 5163 >;
+	};
+};
