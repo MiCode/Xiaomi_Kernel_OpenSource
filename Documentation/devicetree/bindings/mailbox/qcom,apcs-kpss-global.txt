@@ -14,6 +14,7 @@ platforms.
 		    "qcom,sdm845-apss-shared"
 		    "qcom,sm8150-apcs-hmss-global"
 		    "qcom,sm8150-spcs-global"
+		    "qcom,kona-spcs-global"
 - reg:
 	Usage: required
 	Value type: <prop-encoded-array>
