@@ -307,3 +307,9 @@
 		/* All CBs of GFX: +15 deep PF */
 		<0x0 0x7ff 0x303>;
 };
+
+&apps_smmu {
+	qcom,actlr =
+		/* HF and SF TBUs: +3 deep PF */
+		<0x800 0x7ff 0x103>;
+};
