@@ -525,9 +525,10 @@ static int cam_cpastop_poweron(struct cam_hw_info *cpas_hw)
 		}
 	}
 
-	if ((soc_private && ((soc_private->soc_id == SDM710_SOC_ID) ||
+	if (soc_private && ((soc_private->soc_id == SDM710_SOC_ID) ||
+		(soc_private->soc_id == SDM712_SOC_ID) ||
 		((soc_private->soc_id == SDM670_SOC_ID) &&
-		(soc_private->hw_rev == SDM670_V1_1))))) {
+		(soc_private->hw_rev == SDM670_V1_1)))) {
 
 		struct cam_cpas_reg *reg_info;
 		int tcsr_index;
@@ -585,9 +586,10 @@ static int cam_cpastop_poweroff(struct cam_hw_info *cpas_hw)
 		}
 	}
 
-	if ((soc_private && ((soc_private->soc_id == SDM710_SOC_ID)
+	if (soc_private && ((soc_private->soc_id == SDM710_SOC_ID)
+		|| (soc_private->soc_id == SDM712_SOC_ID)
 		|| ((soc_private->soc_id == SDM670_SOC_ID) &&
-		(soc_private->hw_rev == SDM670_V1_1))))) {
+		(soc_private->hw_rev == SDM670_V1_1)))) {
 
 		struct cam_cpas_reg *reg_info;
 		int tcsr_index;
