@@ -375,10 +375,10 @@ static int npu_set_power_level(struct npu_device *npu_dev)
 
 	/* get power level to set */
 	pwr_level_to_set = npu_calc_power_level(npu_dev);
-	pwr->active_pwrlevel = pwr_level_to_set;
 
 	if (!pwr->pwr_vote_num) {
 		pr_debug("power is not enabled during set request\n");
+		pwr->active_pwrlevel = pwr_level_to_set;
 		return 0;
 	}
 
@@ -389,7 +389,7 @@ static int npu_set_power_level(struct npu_device *npu_dev)
 	}
 
 	pr_debug("setting power level to [%d]\n", pwr_level_to_set);
-
+	pwr->active_pwrlevel = pwr_level_to_set;
 	pwrlevel = &npu_dev->pwrctrl.pwrlevels[pwr->active_pwrlevel];
 
 	for (i = 0; i < npu_dev->core_clk_num; i++) {
@@ -468,7 +468,7 @@ static void npu_suspend_devbw(struct npu_device *npu_dev)
 	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
 	int ret;
 
-	if (pwr->bwmon_enabled) {
+	if (pwr->bwmon_enabled && pwr->devbw) {
 		pwr->bwmon_enabled = 0;
 		ret = devfreq_suspend_devbw(pwr->devbw);
 		if (ret)
@@ -483,7 +483,7 @@ static void npu_resume_devbw(struct npu_device *npu_dev)
 	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
 	int ret;
 
-	if (!pwr->bwmon_enabled) {
+	if (!pwr->bwmon_enabled && pwr->devbw) {
 		pwr->bwmon_enabled = 1;
 		npu_restore_bw_registers(npu_dev);
 		ret = devfreq_resume_devbw(pwr->devbw);
@@ -533,7 +533,10 @@ static int npu_enable_clocks(struct npu_device *npu_dev, bool post_pil)
 	struct npu_pwrlevel *pwrlevel =
 		&npu_dev->pwrctrl.pwrlevels[pwr->active_pwrlevel];
 
-	for (i = 0; i < npu_dev->core_clk_num; i++) {
+	for (i = 0; i < ARRAY_SIZE(npu_clock_order); i++) {
+		if (!core_clks[i].clk)
+			continue;
+
 		if (post_pil) {
 			if (!npu_is_post_clock(core_clks[i].clk_name))
 				continue;
@@ -570,6 +573,9 @@ static int npu_enable_clocks(struct npu_device *npu_dev, bool post_pil)
 
 	if (rc) {
 		for (i--; i >= 0; i--) {
+			if (!core_clks[i].clk)
+				continue;
+
 			if (post_pil) {
 				if (!npu_is_post_clock(core_clks[i].clk_name))
 					continue;
@@ -590,7 +596,10 @@ static void npu_disable_clocks(struct npu_device *npu_dev, bool post_pil)
 	int i = 0;
 	struct npu_clk *core_clks = npu_dev->core_clks;
 
-	for (i = (npu_dev->core_clk_num)-1; i >= 0 ; i--) {
+	for (i = ARRAY_SIZE(npu_clock_order) - 1; i >= 0 ; i--) {
+		if (!core_clks[i].clk)
+			continue;
+
 		if (post_pil) {
 			if (!npu_is_post_clock(core_clks[i].clk_name))
 				continue;
@@ -751,9 +760,10 @@ int npu_enable_sys_cache(struct npu_device *npu_dev)
 		npu_dev->sys_cache = llcc_slice_getd(&(npu_dev->pdev->dev),
 			"npu");
 		if (IS_ERR_OR_NULL(npu_dev->sys_cache)) {
-			pr_debug("unable to init sys cache\n");
+			pr_warn("unable to init sys cache\n");
 			npu_dev->sys_cache = NULL;
-			return -ENODEV;
+			npu_dev->host_ctx.sys_cache_disable = true;
+			return 0;
 		}
 
 		/* set npu side regs - program SCID */
@@ -1274,22 +1284,16 @@ static int npu_parse_dt_clock(struct npu_device *npu_dev)
 		rc = -EINVAL;
 		goto clk_err;
 	}
-	if (num_clk != NUM_TOTAL_CLKS) {
-		pr_err("number of clocks is invalid [%d] should be [%d]\n",
-			num_clk, NUM_TOTAL_CLKS);
-		rc = -EINVAL;
-		goto clk_err;
-	}
 
 	npu_dev->core_clk_num = num_clk;
 	for (i = 0; i < num_clk; i++) {
 		of_property_read_string_index(pdev->dev.of_node, "clock-names",
 							i, &clock_name);
-		for (j = 0; j < num_clk; j++) {
+		for (j = 0; j < ARRAY_SIZE(npu_clock_order); j++) {
 			if (!strcmp(npu_clock_order[j], clock_name))
 				break;
 		}
-		if (j == num_clk) {
+		if (j == ARRAY_SIZE(npu_clock_order)) {
 			pr_err("clock is not in ordered list\n");
 			rc = -EINVAL;
 			goto clk_err;
@@ -1364,7 +1368,7 @@ static int npu_of_parse_pwrlevels(struct npu_device *npu_dev,
 		uint32_t i = 0;
 		uint32_t j = 0;
 		uint32_t index;
-		uint32_t clk_array_values[NUM_TOTAL_CLKS];
+		uint32_t clk_array_values[NUM_MAX_CLK_NUM];
 		uint32_t clk_rate;
 		struct npu_pwrlevel *level;
 
@@ -1396,13 +1400,13 @@ static int npu_of_parse_pwrlevels(struct npu_device *npu_dev,
 			if (npu_is_exclude_rate_clock(clock_name))
 				continue;
 
-			for (j = 0; j < npu_dev->core_clk_num; j++) {
+			for (j = 0; j < ARRAY_SIZE(npu_clock_order); j++) {
 				if (!strcmp(npu_clock_order[j],
 					clock_name))
 					break;
 			}
 
-			if (j == npu_dev->core_clk_num) {
+			if (j == ARRAY_SIZE(npu_clock_order)) {
 				pr_err("pwrlevel clock is not in ordered list\n");
 				return -EINVAL;
 			}
@@ -1466,9 +1470,8 @@ static int npu_pwrctrl_init(struct npu_device *npu_dev)
 			return ret;
 		}
 	} else {
-		pr_err("bwdev is not defined in dts\n");
+		pr_warn("bwdev is not defined in dts\n");
 		pwr->devbw = NULL;
-		ret = -EINVAL;
 	}
 
 	return ret;

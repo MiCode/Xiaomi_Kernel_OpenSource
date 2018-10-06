@@ -2176,6 +2176,16 @@
 		qcom,firmware-name = "venus";
 		memory-region = <&pil_video_mem>;
 	};
+
+	qcom,npu@0x9800000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0x9800000 0x800000>;
+
+		status = "ok";
+		qcom,pas-id = <23>;
+		qcom,firmware-name = "npu";
+		memory-region = <&npu_mem>;
+	};
 };
 
 #include "sdmmagpie-pinctrl.dtsi"
@@ -2425,3 +2435,5 @@
 		qcom,hw-settle-time = <200>;
 	};
 };
+
+#include "sdmmagpie-npu.dtsi"
