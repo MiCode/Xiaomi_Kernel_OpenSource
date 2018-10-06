@@ -16,7 +16,7 @@
 #include "sdmmagpie-rumi.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDMMAGPIE RUMI";
+	model = "Qualcomm Technologies, Inc. SDMMAGPIE PM6150 RUMI";
 	compatible = "qcom,sdmmagpie-rumi", "qcom,sdmmagpie", "qcom,rumi";
 	qcom,board-id = <15 0>;
 };
