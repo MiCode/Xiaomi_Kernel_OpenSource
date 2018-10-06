@@ -1134,6 +1134,43 @@
 				  "l3-scu-faultirq";
 	};
 
+	sp_scsr: mailbox@188501c {
+		compatible = "qcom,kona-spcs-global";
+		reg = <0x188501c 0x4>;
+
+		#mbox-cells = <1>;
+	};
+
+	sp_scsr_block: syscon@1880000 {
+		compatible = "syscon";
+		reg = <0x1880000 0x10000>;
+	};
+
+	intsp: qcom,qsee_irq {
+		compatible = "qcom,kona-qsee-irq";
+
+		syscon = <&sp_scsr_block>;
+		interrupts = <0 348 IRQ_TYPE_LEVEL_HIGH>,
+			     <0 349 IRQ_TYPE_LEVEL_HIGH>;
+
+		interrupt-names = "sp_ipc0",
+				  "sp_ipc1";
+
+		interrupt-controller;
+		#interrupt-cells = <3>;
+	};
+
+	qcom,qsee_irq_bridge {
+		compatible = "qcom,qsee-ipc-irq-bridge";
+
+		qcom,qsee-ipc-irq-spss {
+			qcom,dev-name = "qsee_ipc_irq_spss";
+			label = "spss";
+			interrupt-parent = <&intsp>;
+			interrupts = <1 0 IRQ_TYPE_LEVEL_HIGH>;
+		};
+	};
+
 	qcom,glink {
 		compatible = "qcom,glink";
 		#address-cells = <1>;
@@ -1240,6 +1277,23 @@
 				qcom,notify-edges = <&glink_adsp>,
 						    <&glink_slpi>;
 			};
+		};
+
+		glink_spss: spss {
+			qcom,remote-pid = <8>;
+			transport = "spss";
+			mboxes = <&sp_scsr 0>;
+			mbox-names = "spss_spss";
+			interrupt-parent = <&intsp>;
+			interrupts = <0 0 IRQ_TYPE_LEVEL_HIGH>;
+
+			reg = <0x1885008 0x8>,
+			      <0x1885010 0x4>;
+			reg-names = "qcom,spss-addr",
+				    "qcom,spss-size";
+
+			label = "spss";
+			qcom,glink-label = "spss";
 		};
 	};
 
