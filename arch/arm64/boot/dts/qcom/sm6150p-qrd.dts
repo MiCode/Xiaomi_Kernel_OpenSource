@@ -16,7 +16,7 @@
 #include "sm6150-qrd.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SM6150P QRD";
+	model = "Qualcomm Technologies, Inc. SM6150P PM6150 QRD";
 	compatible = "qcom,sm6150p-qrd", "qcom,sm6150p", "qcom,qrd";
 	qcom,board-id = <11 0>;
 };
