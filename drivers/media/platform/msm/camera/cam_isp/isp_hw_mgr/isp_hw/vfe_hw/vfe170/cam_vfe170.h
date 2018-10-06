@@ -234,6 +234,8 @@ static struct cam_vfe_bus_ver2_hw_info vfe170_bus_hw_info = {
 		.addr_sync_cfg                = 0x0000207C,
 		.addr_sync_frame_hdr          = 0x00002080,
 		.addr_sync_no_sync            = 0x00002084,
+		.debug_status_cfg             = 0x0000226C,
+		.debug_status_0               = 0x00002270,
 	},
 	.num_client = 20,
 	.bus_client_reg = {

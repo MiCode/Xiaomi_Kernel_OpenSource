@@ -37,6 +37,7 @@ Optional property:
  - synaptics,bus-lpm-cur-uA	   : I2C bus idle mode current setting.
  - synaptics,swap-axes		   : specify whether to swap axes.
  - synaptics,resume-in-workqueue	: specify whether to defer the resume to workqueue.
+ - synaptics,fw-name		   : name of firmware .img file in /lib/firmware
  - clock-names			: Clock names used for secure touch. They are: "iface_clk", "core_clk"
  - clocks			: Defined if 'clock-names' DT property is defined. These clocks
 				  are associated with the underlying I2C bus.

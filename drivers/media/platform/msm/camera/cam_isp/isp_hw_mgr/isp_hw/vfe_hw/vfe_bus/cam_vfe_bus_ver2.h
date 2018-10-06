@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -83,6 +83,8 @@ struct cam_vfe_bus_ver2_reg_offset_common {
 	uint32_t addr_sync_cfg;
 	uint32_t addr_sync_frame_hdr;
 	uint32_t addr_sync_no_sync;
+	uint32_t debug_status_cfg;
+	uint32_t debug_status_0;
 };
 
 /*

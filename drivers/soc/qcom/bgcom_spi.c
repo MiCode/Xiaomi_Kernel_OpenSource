@@ -565,9 +565,11 @@ int bgcom_ahb_write(void *handle, uint32_t ahb_start_addr,
 		memset(fxd_mem_buffer, 0, txn_len);
 		tx_buf = fxd_mem_buffer;
 		is_cma_used = true;
-	} else
+	} else {
+		pr_info("DMA memory used for size[%d]\n", txn_len);
 		tx_buf = dma_zalloc_coherent(&spi->dev, txn_len,
 						&dma_hndl, GFP_KERNEL);
+	}
 
 	if (!tx_buf) {
 		mutex_unlock(&cma_buffer_lock);
@@ -924,7 +926,10 @@ static irqreturn_t bg_irq_tasklet_hndlr(int irq, void *device)
 {
 	struct bg_spi_priv *bg_spi = device;
 	/* check if call-back exists */
-	if (list_empty(&cb_head)) {
+	if (!atomic_read(&bg_is_spi_active)) {
+		pr_debug("Interrupt received in suspend state\n");
+		return IRQ_HANDLED;
+	} else if (list_empty(&cb_head)) {
 		pr_debug("No callback registered\n");
 		return IRQ_HANDLED;
 	} else if (spi_state == BGCOM_SPI_BUSY) {
@@ -1056,6 +1061,7 @@ static int bgcom_pm_suspend(struct device *dev)
 	if (ret == 0) {
 		bg_spi->bg_state = BGCOM_STATE_SUSPEND;
 		atomic_set(&bg_is_spi_active, 0);
+		disable_irq(bg_irq);
 	}
 	pr_info("suspended with : %d\n", ret);
 	return ret;
@@ -1072,7 +1078,8 @@ static int bgcom_pm_resume(struct device *dev)
 	atomic_set(&bg_is_spi_active, 1);
 	ret = bgcom_resume(&clnt_handle);
 	if (ret == 0)
-		pr_info("Bgcom resumed\n");
+		enable_irq(bg_irq);
+	pr_info("Bgcom resumed with : %d\n", ret);
 	return ret;
 }
 

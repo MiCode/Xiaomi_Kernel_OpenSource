@@ -925,6 +925,7 @@ void ipc_log_context_free(struct kref *kref)
 int ipc_log_context_destroy(void *ctxt)
 {
 	struct ipc_log_context *ilctxt = (struct ipc_log_context *)ctxt;
+	struct dfunc_info *df_info = NULL, *tmp = NULL;
 	unsigned long flags;
 
 	if (!ilctxt)
@@ -935,6 +936,10 @@ int ipc_log_context_destroy(void *ctxt)
 	spin_lock(&ilctxt->context_lock_lhb1);
 	ilctxt->destroyed = true;
 	complete_all(&ilctxt->read_avail);
+	list_for_each_entry_safe(df_info, tmp, &ilctxt->dfunc_info_list, list) {
+		list_del(&df_info->list);
+		kfree(df_info);
+	}
 	spin_unlock(&ilctxt->context_lock_lhb1);
 
 	write_lock_irqsave(&context_list_lock_lha1, flags);

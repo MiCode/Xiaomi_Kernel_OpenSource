@@ -137,6 +137,7 @@ struct cam_lrme_core {
 	struct cam_lrme_frame_request    *req_submit;
 	struct cam_lrme_cdm_info         *hw_cdm_info;
 	uint32_t                          hw_idx;
+	bool                              dump_flag;
 };
 
 /**

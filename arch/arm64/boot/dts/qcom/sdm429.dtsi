@@ -218,6 +218,10 @@
 	status = "disabled";
 };
 
+&qseecom_ta_mem {
+	size = <0 0x400000>;
+};
+
 &clock_gcc_mdss {
 	compatible = "qcom,gcc-mdss-sdm429";
 	clocks = <&mdss_dsi0_pll clk_dsi0pll_pixel_clk_src>,

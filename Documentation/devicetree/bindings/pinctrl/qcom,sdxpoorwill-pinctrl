@@ -11,7 +11,17 @@ SDXPOORWILLS platform.
 - reg:
 	Usage: required
 	Value type: <prop-encoded-array>
-	Definition: the base address and size of the TLMM register space.
+	Definition: the base address and size of the TLMM register space
+		    provided as "pinctrl_regs", optional base address of
+		    PDC mux selection registers provided as "pdc_regs"
+		    and optional base address of shared SPI config
+		    registers provided as "spi_cfg_regs".
+
+- reg-names:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: Provides labels for the reg property.
+
 
 - interrupts:
 	Usage: required
@@ -178,6 +188,7 @@ Example:
 	tlmm: pinctrl@03900000 {
 		compatible = "qcom,sdxpoorwills-pinctrl";
 		reg = <0x03900000 0x300000>;
+		reg-names = "pinctrl_regs", "pdc_regs";
 		interrupts = <0 212 0>;
 		gpio-controller;
 		#gpio-cells = <2>;
