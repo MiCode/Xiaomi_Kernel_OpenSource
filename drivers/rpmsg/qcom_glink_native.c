@@ -1614,7 +1614,7 @@ static int qcom_glink_rx_open(struct qcom_glink *glink, unsigned int rcid,
 
 		ret = rpmsg_register_device(rpdev);
 		if (ret)
-			goto free_rpdev;
+			goto rcid_remove;
 
 		channel->rpdev = rpdev;
 	}
@@ -1622,9 +1622,6 @@ static int qcom_glink_rx_open(struct qcom_glink *glink, unsigned int rcid,
 
 	return 0;
 
-free_rpdev:
-	CH_INFO(channel, "free_rpdev\n");
-	kfree(rpdev);
 rcid_remove:
 	CH_INFO(channel, "rcid_remove\n");
 	spin_lock_irqsave(&glink->idr_lock, flags);
