@@ -234,6 +234,8 @@ config USB_F_ACC
 
 config USB_F_QDSS
 	tristate
+config USB_F_GSI
+	tristate
 
 # this first set of drivers all depend on bulk-capable hardware.
 
@@ -569,6 +571,16 @@ config USB_CONFIGFS_F_QDSS
 	  USB. USB QDSS function driver which allows communication
 	  between USB BAM and QDSS BAM for QDSS debug functionality
 	  over USB.
+
+config USB_CONFIGFS_F_GSI
+	bool "USB GSI function"
+	select USB_F_GSI
+	depends on USB_CONFIGFS
+	help
+	  Generic function driver to support h/w acceleration to IPA
+	  over GSI. This driver provides USB RMNET/RNDIS/ECM/MBIM/DPL
+	  related functionalities using GSI hardware accelerated data
+	  path and control path.
 
 choice
 	tristate "USB Gadget precomposed configurations"
