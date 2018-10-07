@@ -252,61 +252,73 @@
 		};
 
 		pil_camera_mem: pil_camera_region@86000000 {
+			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x0 0x86000000 0x0 0x500000>;
 		};
 
 		pil_wlan_fw_mem: pil_wlan_fw_region@86500000 {
+			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x0 0x86500000 0x0 0x100000>;
 		};
 
 		pil_ipa_fw_mem: pil_ipa_fw_region@86600000 {
+			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x0 0x86600000 0x0 0x10000>;
 		};
 
 		pil_ipa_gsi_mem: pil_ipa_gsi_region@86610000 {
+			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x0 0x86610000 0x0 0x5000>;
 		};
 
 		pil_gpu_mem: pil_gpu_region@86615000 {
+			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x0 0x86615000 0x0 0x2000>;
 		};
 
 		pil_npu_mem: pil_npu_region@86680000 {
+			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x0 0x86680000 0x0 0x80000>;
 		};
 
 		pil_video_mem: pil_video_region@86700000 {
+			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x0 0x86700000 0x0 0x500000>;
 		};
 
 		pil_cvp_mem: pil_cvp_region@86c00000 {
+			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x0 0x86c00000 0x0 0x500000>;
 		};
 
 		pil_cdsp_mem: pil_cdsp_region@87100000 {
+			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x0 0x87100000 0x0 0x800000>;
 		};
 
 		pil_slpi_mem: pil_slpi_region@87900000 {
+			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x0 0x87900000 0x0 0x1400000>;
 		};
 
 		pil_adsp_mem: pil_adsp_region@88d00000 {
+			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x0 0x88d00000 0x0 0x1a00000>;
 		};
 
 		pil_spss_mem: pil_spss_region@8a700000 {
+			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x0 0x8a700000 0x0 0x100000>;
 		};
