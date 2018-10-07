@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1265,7 +1265,15 @@ static int msm_vidc_decide_work_mode_ar50(struct msm_vidc_inst *inst)
 			break;
 		}
 	} else if (inst->session_type == MSM_VIDC_ENCODER) {
+		u32 rc_mode = 0;
+
 		pdata.video_work_mode = VIDC_WORK_MODE_1;
+		rc_mode =  msm_comm_g_ctrl_for_id(inst,
+				V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
+		if (rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_VBR ||
+		    rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_MBR ||
+		    rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_MBR_VFR)
+			pdata.video_work_mode = VIDC_WORK_MODE_2;
 	} else {
 		return -EINVAL;
 	}
