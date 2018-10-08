@@ -201,6 +201,13 @@
 		qcom,rmnet-ipa-ssr;
 	};
 
+	qcom,ipa_fws {
+		compatible = "qcom,pil-tz-generic";
+		qcom,pas-id = <0xf>;
+		qcom,firmware-name = "ipa_fws";
+		qcom,pil-force-shutdown;
+	};
+
 	ipa_hw: qcom,ipa@01e00000 {
 		compatible = "qcom,ipa";
 		reg = <0x1e00000 0xc0000>,
