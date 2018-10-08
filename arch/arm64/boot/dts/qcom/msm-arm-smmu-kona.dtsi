@@ -34,7 +34,7 @@
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x3DC5000 0x1000>,
 				<0x3DC2200 0x8>;
-			reg-names = "base", "status";
+			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x0 0x400>;
 		};
 
@@ -42,7 +42,7 @@
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x3DC9000 0x1000>,
 				<0x3DC2208 0x8>;
-			reg-names = "base", "status";
+			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x400 0x400>;
 		};
 	};
