@@ -615,7 +615,6 @@
 	qcom,battery-data = <&mtp_batterydata>;
 	qcom,step-charging-enable;
 	qcom,sw-jeita-enable;
-	qcom,wd-bark-time-secs = <16>;
 };
 
 &smb1390 {
