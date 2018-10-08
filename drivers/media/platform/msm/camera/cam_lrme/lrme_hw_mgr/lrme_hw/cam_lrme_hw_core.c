@@ -128,7 +128,7 @@ static void cam_lrme_hw_util_fill_we_reg(struct cam_lrme_hw_io_buffer *io_buf,
 	/* client stride */
 	cam_lrme_cdm_write_reg_val_pair(reg_val_pair, num_cmd,
 		hw_info->bus_wr_reg.bus_client_reg[index].wr_stride,
-		io_buf->io_cfg->planes[0].meta_stride);
+		io_buf->io_cfg->planes[0].plane_stride);
 	CAM_DBG(CAM_LRME, "plane_stride %d",
 		io_buf->io_cfg->planes[0].plane_stride);
 }
