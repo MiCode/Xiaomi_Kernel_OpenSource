@@ -463,10 +463,7 @@ int ion_secure_page_pool_shrink(
 		sg = sg_next(sg);
 	}
 
-	ret = ion_hyp_unassign_sg(&sgt, &vmid, 1, true, true);
-	if (ret == -EADDRNOTAVAIL)
-		goto out3;
-	else if (ret < 0)
+	if (ion_hyp_unassign_sg(&sgt, &vmid, 1, true))
 		goto out2;
 
 	list_for_each_entry_safe(page, tmp, &pages, lru) {
@@ -477,8 +474,6 @@ int ion_secure_page_pool_shrink(
 	sg_free_table(&sgt);
 	return freed;
 
-out2:
-	sg_free_table(&sgt);
 out1:
 	/* Restore pages to secure pool */
 	list_for_each_entry_safe(page, tmp, &pages, lru) {
@@ -486,7 +481,7 @@ out1:
 		ion_page_pool_free(pool, page);
 	}
 	return 0;
-out3:
+out2:
 	/*
 	 * The security state of the pages is unknown after a failure;
 	 * They can neither be added back to the secure pool nor buddy system.

@@ -99,8 +99,7 @@ static int populate_vm_list(unsigned long flags, unsigned int *vm_list,
 }
 
 int ion_hyp_unassign_sg(struct sg_table *sgt, int *source_vm_list,
-			int source_nelems, bool clear_page_private,
-			bool try_lock)
+			int source_nelems, bool clear_page_private)
 {
 	u32 dest_vmid = VMID_HLOS;
 	u32 dest_perms = PERM_READ | PERM_WRITE | PERM_EXEC;
@@ -114,16 +113,11 @@ int ion_hyp_unassign_sg(struct sg_table *sgt, int *source_vm_list,
 		goto out;
 	}
 
-	if (try_lock)
-		ret = try_hyp_assign_table(sgt, source_vm_list, source_nelems,
-					   &dest_vmid, &dest_perms, 1);
-	else
-		ret = hyp_assign_table(sgt, source_vm_list, source_nelems,
-				       &dest_vmid, &dest_perms, 1);
+	ret = hyp_assign_table(sgt, source_vm_list, source_nelems,
+			       &dest_vmid, &dest_perms, 1);
 	if (ret) {
-		if (!try_lock)
-			pr_err("%s: Unassign call failed.\n",
-			       __func__);
+		pr_err("%s: Unassign call failed.\n",
+		       __func__);
 		goto out;
 	}
 	if (clear_page_private)
@@ -199,7 +193,7 @@ int ion_hyp_unassign_sg_from_flags(struct sg_table *sgt, unsigned long flags,
 	}
 
 	ret = ion_hyp_unassign_sg(sgt, source_vm_list, source_nelems,
-				  set_page_private, false);
+				  set_page_private);
 
 out_free_source:
 	kfree(source_vm_list);
