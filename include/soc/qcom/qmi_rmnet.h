@@ -1,0 +1,125 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ */
+
+#ifndef _QMI_RMNET_H
+#define _QMI_RMNET_H
+
+#include <linux/netdevice.h>
+#include <linux/skbuff.h>
+
+struct qmi_rmnet_ps_ind {
+	void (*ps_on_handler)(void *port);
+	void (*ps_off_handler)(void *port);
+	struct list_head list;
+};
+
+
+#ifdef CONFIG_QCOM_QMI_RMNET
+void qmi_rmnet_qmi_exit(void *qmi_pt, void *port);
+void qmi_rmnet_change_link(struct net_device *dev, void *port, void *tcm_pt);
+void qmi_rmnet_enable_all_flows(struct net_device *dev);
+#else
+static inline void qmi_rmnet_qmi_exit(void *qmi_pt, void *port)
+{
+}
+
+static inline void
+qmi_rmnet_change_link(struct net_device *dev, void *port, void *tcm_pt)
+{
+}
+
+static inline void
+qmi_rmnet_enable_all_flows(struct net_device *dev)
+{
+}
+#endif
+
+#ifdef CONFIG_QCOM_QMI_DFC
+void *qmi_rmnet_qos_init(struct net_device *real_dev, u8 mux_id);
+void qmi_rmnet_qos_exit(struct net_device *dev, void *qos);
+void qmi_rmnet_burst_fc_check(struct net_device *dev,
+			      int ip_type, u32 mark, unsigned int len);
+int qmi_rmnet_get_queue(struct net_device *dev, struct sk_buff *skb);
+#else
+static inline void *
+qmi_rmnet_qos_init(struct net_device *real_dev, u8 mux_id)
+{
+	return NULL;
+}
+
+static inline void qmi_rmnet_qos_exit(struct net_device *dev, void *qos)
+{
+}
+
+static inline void
+qmi_rmnet_burst_fc_check(struct net_device *dev,
+			 int ip_type, u32 mark, unsigned int len)
+{
+}
+
+static inline int qmi_rmnet_get_queue(struct net_device *dev,
+				       struct sk_buff *skb)
+{
+	return 0;
+}
+#endif
+
+#ifdef CONFIG_QCOM_QMI_POWER_COLLAPSE
+int qmi_rmnet_set_powersave_mode(void *port, uint8_t enable);
+void qmi_rmnet_work_init(void *port);
+void qmi_rmnet_work_exit(void *port);
+void qmi_rmnet_work_maybe_restart(void *port);
+void qmi_rmnet_work_restart(void *port);
+
+int qmi_rmnet_ps_ind_register(void *port,
+			      struct qmi_rmnet_ps_ind *ps_ind);
+int qmi_rmnet_ps_ind_deregister(void *port,
+				struct qmi_rmnet_ps_ind *ps_ind);
+void qmi_rmnet_ps_off_notify(void *port);
+void qmi_rmnet_ps_on_notify(void *port);
+
+#else
+static inline int qmi_rmnet_set_powersave_mode(void *port, uint8_t enable)
+{
+	return 0;
+}
+static inline void qmi_rmnet_work_init(void *port)
+{
+}
+static inline void qmi_rmnet_work_restart(void *port)
+{
+
+}
+static inline void qmi_rmnet_work_exit(void *port)
+{
+}
+
+static inline void qmi_rmnet_work_maybe_restart(void *port)
+{
+
+}
+
+static inline int qmi_rmnet_ps_ind_register(struct rmnet_port *port,
+				     struct qmi_rmnet_ps_ind *ps_ind)
+{
+	return 0;
+}
+static inline int qmi_rmnet_ps_ind_deregister(struct rmnet_port *port,
+				       struct qmi_rmnet_ps_ind *ps_ind)
+{
+	return 0;
+}
+
+static inline void qmi_rmnet_ps_off_notify(struct rmnet_port *port)
+{
+
+}
+
+static inline void qmi_rmnet_ps_on_notify(struct rmnet_port *port)
+{
+
+}
+#endif
+#endif /*_QMI_RMNET_H*/

@@ -1,13 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0
 /* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 and
- * only version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  *
  * RMNET Data ingress/egress handler
  *
@@ -16,19 +8,58 @@
 #include <linux/netdevice.h>
 #include <linux/netdev_features.h>
 #include <linux/if_arp.h>
+#include <linux/ip.h>
+#include <linux/ipv6.h>
 #include <net/sock.h>
+#include <linux/tracepoint.h>
 #include "rmnet_private.h"
 #include "rmnet_config.h"
 #include "rmnet_vnd.h"
 #include "rmnet_map.h"
 #include "rmnet_handlers.h"
+#ifdef CONFIG_QCOM_QMI_HELPERS
+#include <soc/qcom/rmnet_qmi.h>
+#include <soc/qcom/qmi_rmnet.h>
+
+#endif
 
 #define RMNET_IP_VERSION_4 0x40
 #define RMNET_IP_VERSION_6 0x60
+#define CREATE_TRACE_POINTS
+#include <trace/events/rmnet.h>
+
+EXPORT_TRACEPOINT_SYMBOL(rmnet_shs_low);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_shs_high);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_shs_err);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_shs_wq_low);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_shs_wq_high);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_shs_wq_err);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_perf_low);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_perf_high);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_perf_err);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_low);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_high);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_err);
 
 /* Helper Functions */
 
-static void rmnet_set_skb_proto(struct sk_buff *skb)
+static int rmnet_check_skb_can_gro(struct sk_buff *skb)
+{
+	switch (skb->protocol) {
+	case htons(ETH_P_IP):
+		if (ip_hdr(skb)->protocol == IPPROTO_TCP)
+			return 0;
+		break;
+	case htons(ETH_P_IPV6):
+		if (ipv6_hdr(skb)->nexthdr == IPPROTO_TCP)
+			return 0;
+		/* Fall through */
+	}
+
+	return -EPROTONOSUPPORT;
+}
+
+void rmnet_set_skb_proto(struct sk_buff *skb)
 {
 	switch (skb->data[0] & 0xF0) {
 	case RMNET_IP_VERSION_4:
@@ -42,22 +73,55 @@ static void rmnet_set_skb_proto(struct sk_buff *skb)
 		break;
 	}
 }
+EXPORT_SYMBOL(rmnet_set_skb_proto);
+
+/* Shs hook handler */
+
+int (*rmnet_shs_skb_entry)(struct sk_buff *skb,
+			   struct rmnet_port *port) __rcu __read_mostly;
+EXPORT_SYMBOL(rmnet_shs_skb_entry);
 
 /* Generic handler */
 
-static void
-rmnet_deliver_skb(struct sk_buff *skb)
+void
+rmnet_deliver_skb(struct sk_buff *skb, struct rmnet_port *port)
 {
+	int (*rmnet_shs_stamp)(struct sk_buff *skb, struct rmnet_port *port);
 	struct rmnet_priv *priv = netdev_priv(skb->dev);
 
+	trace_rmnet_low(RMNET_MODULE, RMNET_DLVR_SKB, 0xDEF, 0xDEF,
+			0xDEF, 0xDEF, (void *)skb, NULL);
 	skb_reset_transport_header(skb);
 	skb_reset_network_header(skb);
-	rmnet_vnd_rx_fixup(skb, skb->dev);
+	rmnet_vnd_rx_fixup(skb->dev, skb->len);
 
 	skb->pkt_type = PACKET_HOST;
 	skb_set_mac_header(skb, 0);
-	gro_cells_receive(&priv->gro_cells, skb);
+
+	rmnet_shs_stamp = rcu_dereference(rmnet_shs_skb_entry);
+	if (rmnet_shs_stamp) {
+		rmnet_shs_stamp(skb, port);
+		return;
+	}
+
+	if (port->data_format & RMNET_INGRESS_FORMAT_DL_MARKER) {
+		if (!rmnet_check_skb_can_gro(skb) &&
+		    port->dl_marker_flush >= 0) {
+			struct napi_struct *napi = get_current_napi_context();
+
+			napi_gro_receive(napi, skb);
+			port->dl_marker_flush++;
+		} else {
+			netif_receive_skb(skb);
+		}
+	} else {
+		if (!rmnet_check_skb_can_gro(skb))
+			gro_cells_receive(&priv->gro_cells, skb);
+		else
+			netif_receive_skb(skb);
+	}
 }
+EXPORT_SYMBOL(rmnet_deliver_skb);
 
 /* MAP handler */
 
@@ -70,6 +134,11 @@ __rmnet_map_ingress_handler(struct sk_buff *skb,
 	u8 mux_id;
 
 	if (RMNET_MAP_GET_CD_BIT(skb)) {
+		if (port->data_format & RMNET_INGRESS_FORMAT_DL_MARKER) {
+			if (!rmnet_map_flow_command(skb, port, false))
+				return;
+		}
+
 		if (port->data_format & RMNET_FLAGS_INGRESS_MAP_COMMANDS)
 			return rmnet_map_command(skb, port);
 
@@ -98,19 +167,27 @@ __rmnet_map_ingress_handler(struct sk_buff *skb,
 			skb->ip_summed = CHECKSUM_UNNECESSARY;
 	}
 
+#ifdef CONFIG_QCOM_QMI_HELPERS
+	if (port->data_format & RMNET_INGRESS_FORMAT_PS)
+		qmi_rmnet_work_maybe_restart(port);
+#endif
+
 	skb_trim(skb, len);
-	rmnet_deliver_skb(skb);
+	rmnet_deliver_skb(skb, port);
 	return;
 
 free_skb:
 	kfree_skb(skb);
 }
 
+int (*rmnet_perf_deag_entry)(struct sk_buff *skb,
+			     struct rmnet_port *port) __rcu __read_mostly;
+EXPORT_SYMBOL(rmnet_perf_deag_entry);
+
 static void
 rmnet_map_ingress_handler(struct sk_buff *skb,
 			  struct rmnet_port *port)
 {
-	struct sk_buff *skbn;
 
 	if (skb->dev->type == ARPHRD_ETHER) {
 		if (pskb_expand_head(skb, ETH_HLEN, 0, GFP_ATOMIC)) {
@@ -122,10 +199,30 @@ rmnet_map_ingress_handler(struct sk_buff *skb,
 	}
 
 	if (port->data_format & RMNET_FLAGS_INGRESS_DEAGGREGATION) {
-		while ((skbn = rmnet_map_deaggregate(skb, port)) != NULL)
-			__rmnet_map_ingress_handler(skbn, port);
+		int (*rmnet_perf_core_deaggregate)(struct sk_buff *skb,
+						   struct rmnet_port *port);
+		/* Deaggregation and freeing of HW originating
+		 * buffers is done within here
+		 */
+		rmnet_perf_core_deaggregate =
+					rcu_dereference(rmnet_perf_deag_entry);
+		if (rmnet_perf_core_deaggregate) {
+			rmnet_perf_core_deaggregate(skb, port);
+		} else {
+			struct sk_buff *skbn;
 
-		consume_skb(skb);
+			while (skb) {
+				struct sk_buff *skb_frag =
+						skb_shinfo(skb)->frag_list;
+
+				skb_shinfo(skb)->frag_list = NULL;
+				while ((skbn = rmnet_map_deaggregate(skb, port))
+					!= NULL)
+					__rmnet_map_ingress_handler(skbn, port);
+				consume_skb(skb);
+				skb = skb_frag;
+			}
+		}
 	} else {
 		__rmnet_map_ingress_handler(skb, port);
 	}
@@ -151,6 +248,11 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 			return -ENOMEM;
 	}
 
+#ifdef CONFIG_QCOM_QMI_HELPERS
+	if (port->data_format & RMNET_INGRESS_FORMAT_PS)
+		qmi_rmnet_work_maybe_restart(port);
+#endif
+
 	if (port->data_format & RMNET_FLAGS_EGRESS_MAP_CKSUMV4)
 		rmnet_map_checksum_uplink_packet(skb, orig_dev);
 
@@ -160,8 +262,26 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 
 	map_header->mux_id = mux_id;
 
-	skb->protocol = htons(ETH_P_MAP);
+	if (port->data_format & RMNET_EGRESS_FORMAT_AGGREGATION) {
+		int non_linear_skb;
 
+		if (rmnet_map_tx_agg_skip(skb, required_headroom))
+			goto done;
+
+		non_linear_skb = (orig_dev->features & NETIF_F_GSO) &&
+				 skb_is_nonlinear(skb);
+
+		if (non_linear_skb) {
+			if (unlikely(__skb_linearize(skb)))
+				goto done;
+		}
+
+		rmnet_map_tx_aggregate(skb, port);
+		return -EINPROGRESS;
+	}
+
+done:
+	skb->protocol = htons(ETH_P_MAP);
 	return 0;
 }
 
@@ -192,6 +312,8 @@ rx_handler_result_t rmnet_rx_handler(struct sk_buff **pskb)
 	if (skb->pkt_type == PACKET_LOOPBACK)
 		return RX_HANDLER_PASS;
 
+	trace_rmnet_low(RMNET_MODULE, RMNET_RCV_FROM_PND, 0xDEF,
+			0xDEF, 0xDEF, 0xDEF, NULL, NULL);
 	dev = skb->dev;
 	port = rmnet_get_port(dev);
 
@@ -207,6 +329,7 @@ rx_handler_result_t rmnet_rx_handler(struct sk_buff **pskb)
 done:
 	return RX_HANDLER_CONSUMED;
 }
+EXPORT_SYMBOL(rmnet_rx_handler);
 
 /* Modifies packet as per logical endpoint configuration and egress data format
  * for egress device configured in logical endpoint. Packet is then transmitted
@@ -218,7 +341,11 @@ void rmnet_egress_handler(struct sk_buff *skb)
 	struct rmnet_port *port;
 	struct rmnet_priv *priv;
 	u8 mux_id;
+	int err;
+	u32 skb_len;
 
+	trace_rmnet_low(RMNET_MODULE, RMNET_TX_UL_PKT, 0xDEF, 0xDEF, 0xDEF,
+			0xDEF, (void *)skb, NULL);
 	sk_pacing_shift_update(skb->sk, 8);
 
 	orig_dev = skb->dev;
@@ -230,10 +357,16 @@ void rmnet_egress_handler(struct sk_buff *skb)
 	if (!port)
 		goto drop;
 
-	if (rmnet_map_egress_handler(skb, port, mux_id, orig_dev))
+	skb_len = skb->len;
+	err = rmnet_map_egress_handler(skb, port, mux_id, orig_dev);
+	if (err == -ENOMEM) {
 		goto drop;
+	} else if (err == -EINPROGRESS) {
+		rmnet_vnd_tx_fixup(orig_dev, skb_len);
+		return;
+	}
 
-	rmnet_vnd_tx_fixup(skb, orig_dev);
+	rmnet_vnd_tx_fixup(orig_dev, skb_len);
 
 	dev_queue_xmit(skb);
 	return;

@@ -108,6 +108,36 @@ config QCOM_QMI_HELPERS
 	  clients and this helpers provide the common functionality needed for
 	  doing this from a kernel driver.
 
+config QCOM_QMI_RMNET
+	bool "QTI QMI Rmnet Helpers"
+	depends on QCOM_QMI_HELPERS
+	depends on RMNET
+	help
+	  Helper for handling interfaces between kernel clients and rmnet
+	  driver. It enables the rmnet driver to create/delete DFC/WDA
+	  clients and provides the common functionality for data flow control
+	  and power save features.
+
+config QCOM_QMI_DFC
+	bool "Enable burst mode flow control"
+	depends on QCOM_QMI_RMNET
+	help
+	  Say y here to enable support for burst mode data flow control.
+	  DFC client provides an interface to the modem dfc service and
+	  does burst mode flow control. It enables the flow on receiving flow
+	  status indication and disables flows while grant size is reached.
+	  If unsure or not use burst mode flow control, say 'N'.
+
+config QCOM_QMI_POWER_COLLAPSE
+	bool "Enable power save features"
+	depends on QCOM_QMI_RMNET
+	help
+	  Say y here to enable support for power save features.
+	  It provides an interface to offload uplink flow control based on
+	  detected flow status.
+	  If unsure or not use power save feature, say 'N'.
+
+
 config QCOM_RMTFS_MEM
 	tristate "Qualcomm Remote Filesystem memory driver"
 	depends on ARCH_QCOM
