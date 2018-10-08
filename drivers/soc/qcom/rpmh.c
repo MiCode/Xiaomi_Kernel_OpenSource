@@ -78,14 +78,13 @@ static struct rpmh_ctrlr *get_rpmh_ctrlr(const struct device *dev)
 
 static int check_ctrlr_state(struct rpmh_ctrlr *ctrlr, enum rpmh_state state)
 {
-	unsigned long flags;
 	int ret = 0;
 
 	/* Do not allow setting active votes when in solver mode */
-	spin_lock_irqsave(&ctrlr->cache_lock, flags);
+	spin_lock(&ctrlr->cache_lock);
 	if (ctrlr->in_solver_mode && state == RPMH_ACTIVE_ONLY_STATE)
 		ret = -EBUSY;
-	spin_unlock_irqrestore(&ctrlr->cache_lock, flags);
+	spin_unlock(&ctrlr->cache_lock);
 
 	return ret;
 }
@@ -103,18 +102,11 @@ static int check_ctrlr_state(struct rpmh_ctrlr *ctrlr, enum rpmh_state state)
 int rpmh_mode_solver_set(const struct device *dev, bool enable)
 {
 	struct rpmh_ctrlr *ctrlr = get_rpmh_ctrlr(dev);
-	unsigned long flags;
 
-	for (;;) {
-		spin_lock_irqsave(&ctrlr->cache_lock, flags);
-		if (rpmh_rsc_ctrlr_is_idle(ctrlr_to_drv(ctrlr))) {
-			ctrlr->in_solver_mode = enable;
-			spin_unlock_irqrestore(&ctrlr->cache_lock, flags);
-			break;
-		}
-		spin_unlock_irqrestore(&ctrlr->cache_lock, flags);
-		udelay(10);
-	}
+	spin_lock(&ctrlr->cache_lock);
+	rpmh_rsc_mode_solver_set(ctrlr_to_drv(ctrlr), enable);
+	ctrlr->in_solver_mode = enable;
+	spin_unlock(&ctrlr->cache_lock);
 
 	return 0;
 }
