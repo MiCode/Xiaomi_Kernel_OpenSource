@@ -1305,14 +1305,19 @@ static int mhi_driver_probe(struct device *dev)
 	bool auto_start = false;
 	int ret;
 
+	/* bring device out of lpm */
+	ret = mhi_device_get_sync(mhi_dev);
+	if (ret)
+		return ret;
 
+	ret = -EINVAL;
 	if (ul_chan) {
 		/* lpm notification require status_cb */
 		if (ul_chan->lpm_notify && !mhi_drv->status_cb)
-			return -EINVAL;
+			goto exit_probe;
 
 		if (!ul_chan->offload_ch && !mhi_drv->ul_xfer_cb)
-			return -EINVAL;
+			goto exit_probe;
 
 		ul_chan->xfer_cb = mhi_drv->ul_xfer_cb;
 		mhi_dev->status_cb = mhi_drv->status_cb;
@@ -1321,10 +1326,10 @@ static int mhi_driver_probe(struct device *dev)
 
 	if (dl_chan) {
 		if (dl_chan->lpm_notify && !mhi_drv->status_cb)
-			return -EINVAL;
+			goto exit_probe;
 
 		if (!dl_chan->offload_ch && !mhi_drv->dl_xfer_cb)
-			return -EINVAL;
+			goto exit_probe;
 
 		mhi_event = &mhi_cntrl->mhi_event[dl_chan->er_index];
 
@@ -1334,7 +1339,7 @@ static int mhi_driver_probe(struct device *dev)
 		 * cb whenever there are pending data
 		 */
 		if (mhi_event->cl_manage && !mhi_drv->status_cb)
-			return -EINVAL;
+			goto exit_probe;
 
 		dl_chan->xfer_cb = mhi_drv->dl_xfer_cb;
 
@@ -1347,6 +1352,9 @@ static int mhi_driver_probe(struct device *dev)
 
 	if (!ret && auto_start)
 		mhi_prepare_for_transfer(mhi_dev);
+
+exit_probe:
+	mhi_device_put(mhi_dev);
 
 	return ret;
 }
