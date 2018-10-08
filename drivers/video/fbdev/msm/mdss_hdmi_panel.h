@@ -28,6 +28,7 @@
  * @infoframe: set to true if infoframes should be sent to sink
  * @is_it_content: set to true if content is IT
  * @scrambler: set to true if scrambler needs to be enabled
+ * @dc_enable: set to true if deep color is enabled
  */
 struct hdmi_panel_data {
 	struct mdss_panel_info *pinfo;
@@ -39,6 +40,7 @@ struct hdmi_panel_data {
 	bool infoframe;
 	bool is_it_content;
 	bool scrambler;
+	bool dc_enable;
 };
 
 /**
@@ -48,15 +50,12 @@ struct hdmi_panel_data {
  * @off: pointer to a function which powers off the panel
  * @vendor: pointer to a function which programs vendor specific infoframe
  * @update_fps: pointer to a function which updates fps
- * @get_vic: pointer to a function which get the vic from panel information.
  */
 struct hdmi_panel_ops {
 	int (*on)(void *input);
 	int (*off)(void *input);
 	void (*vendor)(void *input);
 	int (*update_fps)(void *input, u32 fps);
-	int (*get_vic)(struct mdss_panel_info *pinfo,
-		struct hdmi_util_ds_data *ds_data);
 };
 
 /**
@@ -103,5 +102,8 @@ void *hdmi_panel_init(struct hdmi_panel_init_data *data);
  * @input: hdmi panel data.
  */
 void hdmi_panel_deinit(void *input);
+
+int hdmi_panel_get_vic(struct mdss_panel_info *pinfo,
+				struct hdmi_util_ds_data *ds_data);
 
 #endif /* __MDSS_HDMI_PANEL_H__ */
