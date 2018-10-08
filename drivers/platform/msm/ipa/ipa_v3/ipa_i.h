@@ -761,7 +761,6 @@ struct ipa3_status_stats {
  * @disconnect_in_progress: Indicates client disconnect in progress.
  * @qmi_request_sent: Indicates whether QMI request to enable clear data path
  *					request is sent or not.
- * @napi_enabled: when true, IPA call client callback to start polling
  * @client_lock_unlock: callback function to take mutex lock/unlock for USB
  *				clients
  */
@@ -793,7 +792,6 @@ struct ipa3_ep_context {
 	u32 gsi_offload_state;
 	bool disconnect_in_progress;
 	u32 qmi_request_sent;
-	bool napi_enabled;
 	u32 eot_in_poll_err;
 	bool ep_delay_set;
 
@@ -882,6 +880,7 @@ struct ipa3_sys_context {
 	void (*repl_hdlr)(struct ipa3_sys_context *sys);
 	struct ipa3_repl_ctx repl;
 	u32 pkt_sent;
+	struct napi_struct *napi_obj;
 
 	/* ordering is important - mutable fields go above */
 	struct ipa3_ep_context *ep;

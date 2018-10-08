@@ -120,6 +120,7 @@ struct gsi_chan_stats {
 	unsigned long completed;
 	unsigned long callback_to_poll;
 	unsigned long poll_to_callback;
+	unsigned long poll_pending_irq;
 	unsigned long invalid_tre_error;
 	unsigned long poll_ok;
 	unsigned long poll_empty;
