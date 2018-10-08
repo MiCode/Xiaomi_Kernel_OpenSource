@@ -2000,7 +2000,7 @@ int sched_set_init_task_load(struct task_struct *p, int init_load_pct)
 	return 0;
 }
 
-void init_new_task_load(struct task_struct *p)
+void init_new_task_load(struct task_struct *p, bool idle_task)
 {
 	int i;
 	u32 init_load_windows = sched_init_task_load_windows;
@@ -2018,6 +2018,9 @@ void init_new_task_load(struct task_struct *p)
 
 	/* Don't have much choice. CPU frequency would be bogus */
 	BUG_ON(!p->ravg.curr_window_cpu || !p->ravg.prev_window_cpu);
+
+	if (idle_task)
+		return;
 
 	if (init_load_pct) {
 		init_load_windows = div64_u64((u64)init_load_pct *
