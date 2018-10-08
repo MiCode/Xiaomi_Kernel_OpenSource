@@ -224,4 +224,30 @@ int sde_rm_read_resource_for_splash(struct sde_rm *rm,
 				void *sinfo,
 				struct sde_mdss_cfg *cat);
 
+/**
+ * sde_rm_ext_blk_create_reserve - Create external HW blocks
+ *	in resource manager and reserve for specific encoder.
+ * @rm: SDE Resource Manager handle
+ * @type: external HW block type
+ * @id: external HW block id
+ * @hw: external HW block
+ * @enc: DRM Encoder handle
+ * @Return: 0 on Success otherwise -ERROR
+ */
+int sde_rm_ext_blk_create_reserve(struct sde_rm *rm,
+		enum sde_hw_blk_type type,
+		uint32_t id,
+		void *hw,
+		struct drm_encoder *enc);
+
+/**
+ * sde_rm_ext_blk_destroy - Given the encoder for the display chain, release
+ *	external HW blocks created for that.
+ * @rm: SDE Resource Manager handle
+ * @enc: DRM Encoder handle
+ * @Return: 0 on Success otherwise -ERROR
+ */
+int sde_rm_ext_blk_destroy(struct sde_rm *rm,
+				struct drm_encoder *enc);
+
 #endif /* __SDE_RM_H__ */

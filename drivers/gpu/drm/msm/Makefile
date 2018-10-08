@@ -136,6 +136,9 @@ msm_drm-$(CONFIG_DRM_MSM) += \
 msm_drm-$(CONFIG_DRM_SDE_WB) += sde/sde_wb.o \
 	sde/sde_encoder_phys_wb.o
 
+msm_drm-$(CONFIG_DRM_SDE_SHD) += sde/sde_shd.o \
+	sde/sde_encoder_phys_shd.o
+
 msm_drm-$(CONFIG_DRM_MSM) += \
 	msm_atomic.o \
 	msm_drv.o \

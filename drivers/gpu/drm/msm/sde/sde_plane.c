@@ -1232,6 +1232,7 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 	uint32_t nplanes, src_flags = 0x0;
 	struct sde_plane *psde;
 	struct sde_plane_state *pstate;
+	struct sde_crtc_state *cstate;
 	const struct sde_format *fmt;
 	struct drm_crtc *crtc;
 	struct drm_framebuffer *fb;
@@ -1379,6 +1380,16 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 				src.x += src.w * pp->index;
 				dst.x += dst.w * pp->index;
 			}
+
+			/* add extra offset for shared display */
+			if (crtc->state) {
+				cstate = to_sde_crtc_state(crtc->state);
+				if (cstate->is_shared) {
+					dst.x += cstate->shared_roi.x;
+					dst.y += cstate->shared_roi.y;
+				}
+			}
+
 			pp->pipe_cfg.src_rect = src;
 			pp->pipe_cfg.dst_rect = dst;
 

@@ -202,6 +202,8 @@ struct sde_connector_ops {
  * @property_data: Array of private data for generic property handling
  * @blob_caps: Pointer to blob structure for 'capabilities' property
  * @blob_hdr: Pointer to blob structure for 'hdr_properties' property
+ * @is_shared: connector is shared
+ * @shared_roi: roi of the shared display
  */
 struct sde_connector {
 	struct drm_connector base;
@@ -228,6 +230,8 @@ struct sde_connector {
 	struct msm_property_data property_data[CONNECTOR_PROP_COUNT];
 	struct drm_property_blob *blob_caps;
 	struct drm_property_blob *blob_hdr;
+	bool is_shared;
+	struct sde_rect shared_roi;
 };
 
 /**

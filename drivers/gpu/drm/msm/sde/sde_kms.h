@@ -159,6 +159,8 @@ struct sde_kms {
 	bool has_danger_ctrl;
 	void **hdmi_displays;
 	int hdmi_display_count;
+	int shd_display_count;
+	void **shd_displays;
 
 	/* splash handoff structure */
 	struct sde_splash_info splash_info;

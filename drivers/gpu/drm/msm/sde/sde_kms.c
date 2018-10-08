@@ -28,6 +28,7 @@
 #include "dsi_drm.h"
 #include "sde_wb.h"
 #include "sde_hdmi.h"
+#include "sde_shd.h"
 
 #include "sde_kms.h"
 #include "sde_core_irq.h"
@@ -364,6 +365,8 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 
 	sde_power_resource_enable(&priv->phandle,
 			sde_kms->core_client, true);
+
+	shd_display_prepare_commit(sde_kms, state);
 }
 
 static void sde_kms_commit(struct msm_kms *kms,
@@ -393,6 +396,9 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 
 	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i)
 		sde_crtc_complete_commit(crtc, old_crtc_state);
+
+	shd_display_complete_commit(sde_kms, old_state);
+
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 
 	SDE_EVT32(SDE_EVTLOG_FUNC_EXIT);
@@ -534,8 +540,25 @@ static int _sde_kms_get_displays(struct sde_kms *sde_kms)
 				sde_kms->hdmi_display_count);
 	}
 
+	/* shd */
+	sde_kms->shd_displays = NULL;
+	sde_kms->shd_display_count = shd_display_get_num_of_displays();
+	if (sde_kms->shd_display_count) {
+		sde_kms->shd_displays = kcalloc(sde_kms->shd_display_count,
+				sizeof(void *), GFP_KERNEL);
+		if (!sde_kms->shd_displays)
+			goto exit_deinit_shd;
+		sde_kms->shd_display_count =
+			shd_display_get_displays(sde_kms->shd_displays,
+					sde_kms->shd_display_count);
+	}
+
 	return 0;
 
+exit_deinit_shd:
+	kfree(sde_kms->shd_displays);
+	sde_kms->shd_display_count = 0;
+	sde_kms->shd_displays = NULL;
 exit_deinit_hdmi:
 	sde_kms->hdmi_display_count = 0;
 	sde_kms->hdmi_displays = NULL;
@@ -617,6 +640,13 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.get_csc_type = sde_hdmi_get_csc_type,
 		.set_topology_ctl = sde_hdmi_set_top_ctl,
 	};
+	static const struct sde_connector_ops shd_ops = {
+		.post_init =    shd_connector_post_init,
+		.detect =       shd_connector_detect,
+		.get_modes =    shd_connector_get_modes,
+		.mode_valid =   shd_connector_mode_valid,
+		.get_info =     shd_connector_get_info,
+	};
 	struct msm_display_info info = {0};
 	struct drm_encoder *encoder;
 	void *display, *connector;
@@ -631,7 +661,8 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 
 	max_encoders = sde_kms->dsi_display_count +
 		sde_kms->wb_display_count +
-		sde_kms->hdmi_display_count;
+		sde_kms->hdmi_display_count +
+		sde_kms->shd_display_count;
 
 	if (max_encoders > ARRAY_SIZE(priv->encoders)) {
 		max_encoders = ARRAY_SIZE(priv->encoders);
@@ -791,6 +822,48 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		}
 	}
 
+	/* shd */
+	for (i = 0; i < sde_kms->shd_display_count &&
+			priv->num_encoders < max_encoders; ++i) {
+		display = sde_kms->shd_displays[i];
+		encoder = NULL;
+
+		memset(&info, 0x0, sizeof(info));
+		rc = shd_connector_get_info(&info, display);
+		if (rc) {
+			SDE_ERROR("shd get_info %d failed\n", i);
+			continue;
+		}
+
+		encoder = sde_encoder_init(dev, &info);
+		if (IS_ERR_OR_NULL(encoder)) {
+			SDE_ERROR("shd encoder init failed %d\n", i);
+			continue;
+		}
+
+		rc = shd_drm_bridge_init(display, encoder);
+		if (rc) {
+			SDE_ERROR("shd bridge %d init failed, %d\n", i, rc);
+			sde_encoder_destroy(encoder);
+			continue;
+		}
+
+		connector = sde_connector_init(dev,
+					encoder,
+					NULL,
+					display,
+					&shd_ops,
+					DRM_CONNECTOR_POLL_HPD,
+					info.intf_type);
+		if (connector) {
+			priv->encoders[priv->num_encoders++] = encoder;
+			priv->connectors[priv->num_connectors++] = connector;
+		} else {
+			SDE_ERROR("shd %d connector init failed\n", i);
+			shd_drm_bridge_deinit(display);
+			sde_encoder_destroy(encoder);
+		}
+	}
 	return 0;
 }
 
@@ -982,6 +1055,8 @@ static int sde_kms_postinit(struct msm_kms *kms)
 	 * Allow vblank interrupt to be disabled by drm vblank timer.
 	 */
 	dev->vblank_disable_allowed = true;
+
+	shd_display_post_init(sde_kms);
 
 	return 0;
 }
