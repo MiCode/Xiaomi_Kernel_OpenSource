@@ -2644,10 +2644,10 @@ static int cam_vfe_bus_update_ubwc_3_regs(
 
 	switch (wm_data->format) {
 	case CAM_FORMAT_UBWC_TP10:
-		ubwc_bw_limit = 0x8 | BIT(0);
+		ubwc_bw_limit = (0x8 << 1) | BIT(0);
 		break;
 	case CAM_FORMAT_UBWC_NV12_4R:
-		ubwc_bw_limit = 0xB | BIT(0);
+		ubwc_bw_limit = (0xB << 1) | BIT(0);
 		break;
 	default:
 		ubwc_bw_limit = 0;
