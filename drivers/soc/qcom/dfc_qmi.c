@@ -58,6 +58,7 @@ struct dfc_qmi_data {
 	struct work_struct svc_arrive;
 	struct qmi_handle handle;
 	struct sockaddr_qrtr ssctl;
+	struct svc_info svc;
 	int index;
 	int restart_state;
 };
@@ -618,12 +619,11 @@ out:
 	return ret;
 }
 
-static int dfc_init_service(struct dfc_qmi_data *data, struct qmi_info *qmi)
+static int dfc_init_service(struct dfc_qmi_data *data)
 {
 	int rc;
 
-	rc = dfc_bind_client_req(&data->handle, &data->ssctl,
-				 &qmi->fc_info[data->index].svc);
+	rc = dfc_bind_client_req(&data->handle, &data->ssctl, &data->svc);
 	if (rc < 0)
 		return rc;
 
@@ -884,19 +884,26 @@ static void dfc_svc_init(struct work_struct *work)
 						 svc_arrive);
 	struct qmi_info *qmi;
 
-	qmi = (struct qmi_info *)rmnet_get_qmi_pt(data->rmnet_port);
-	if (!qmi)
-		goto clean_out;
-
-	rc = dfc_init_service(data, qmi);
+	rc = dfc_init_service(data);
 	if (rc < 0)
 		goto clean_out;
 
-	qmi->fc_info[data->index].dfc_client = (void *)data;
 	trace_dfc_client_state_up(data->index,
-				  qmi->fc_info[data->index].svc.instance,
-				  qmi->fc_info[data->index].svc.ep_type,
-				  qmi->fc_info[data->index].svc.iface_id);
+			   data->svc.instance,
+			   data->svc.ep_type,
+			   data->svc.iface_id);
+
+	rtnl_lock();
+	qmi = (struct qmi_info *)rmnet_get_qmi_pt(data->rmnet_port);
+	if (!qmi) {
+		rtnl_unlock();
+		goto clean_out;
+	}
+
+	qmi->dfc_clients[data->index] = (void *)data;
+	rtnl_unlock();
+
+	pr_info("Connection established with the DFC Service\n");
 	return;
 
 clean_out:
@@ -944,7 +951,7 @@ static struct qmi_msg_handler qmi_indication_handler[] = {
 	{},
 };
 
-int dfc_qmi_client_init(void *port, int index, struct qmi_info *qmi)
+int dfc_qmi_client_init(void *port, int index, struct svc_info *psvc)
 {
 	struct dfc_qmi_data *data;
 	int rc = -ENOMEM;
@@ -956,6 +963,7 @@ int dfc_qmi_client_init(void *port, int index, struct qmi_info *qmi)
 	data->rmnet_port = port;
 	data->index = index;
 	data->restart_state = 0;
+	memcpy(&data->svc, psvc, sizeof(data->svc));
 
 	data->dfc_wq = create_singlethread_workqueue("dfc_wq");
 	if (!data->dfc_wq) {
@@ -974,7 +982,7 @@ int dfc_qmi_client_init(void *port, int index, struct qmi_info *qmi)
 
 	rc = qmi_add_lookup(&data->handle, DFC_SERVICE_ID_V01,
 			    DFC_SERVICE_VERS_V01,
-			    qmi->fc_info[index].svc.instance);
+			    psvc->instance);
 	if (rc < 0) {
 		pr_err("%s: failed qmi_add_lookup - rc[%d]\n", __func__, rc);
 		goto err2;
@@ -1058,7 +1066,7 @@ void dfc_qmi_wq_flush(struct qmi_info *qmi)
 	int i;
 
 	for (i = 0; i < MAX_CLIENT_NUM; i++) {
-		dfc_data = (struct dfc_qmi_data *)(qmi->fc_info[i].dfc_client);
+		dfc_data = (struct dfc_qmi_data *)(qmi->dfc_clients[i]);
 		if (dfc_data)
 			flush_workqueue(dfc_data->dfc_wq);
 	}
