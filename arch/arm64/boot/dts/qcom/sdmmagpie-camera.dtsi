@@ -199,6 +199,40 @@
 		};
 	};
 
+	qcom,cam-cdm-intf {
+		compatible = "qcom,cam-cdm-intf";
+		cell-index = <0>;
+		label = "cam-cdm-intf";
+		num-hw-cdm = <1>;
+		cdm-client-names = "vfe",
+			"jpegdma",
+			"jpegenc",
+			"fd",
+			"lrmecdm";
+		status = "ok";
+	};
+
+	qcom,cpas-cdm0@ac48000 {
+		cell-index = <0>;
+		compatible = "qcom,cam170-cpas-cdm0";
+		label = "cpas-cdm";
+		reg = <0xac48000 0x1000>;
+		reg-names = "cpas-cdm";
+		reg-cam-base = <0x48000>;
+		interrupts = <0 468 0>;
+		interrupt-names = "cpas-cdm";
+		regulator-names = "camss";
+		camss-supply = <&titan_top_gdsc>;
+		clock-names = "cam_cc_cpas_slow_ahb_clk",
+			"cam_cc_cpas_ahb_clk";
+		clocks = <&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
+			<&clock_camcc CAM_CC_CPAS_AHB_CLK>;
+		clock-rates = <0 0>;
+		clock-cntl-level = "svs";
+		cdm-client-names = "ife";
+		status = "ok";
+	};
+
 	qcom,cam-isp {
 		compatible = "qcom,cam-isp";
 		arch-compat = "ife";
