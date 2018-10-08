@@ -345,6 +345,61 @@
 		status = "ok";
 	};
 
+	qcom,cam-jpeg {
+		compatible = "qcom,cam-jpeg";
+		compat-hw-name = "qcom,jpegenc",
+			"qcom,jpegdma";
+		num-jpeg-enc = <1>;
+		num-jpeg-dma = <1>;
+		status = "ok";
+	};
+
+	cam_jpeg_enc: qcom,jpegenc@ac4e000 {
+		cell-index = <0>;
+		compatible = "qcom,cam_jpeg_enc";
+		reg-names = "jpege_hw";
+		reg = <0xac4e000 0x4000>;
+		reg-cam-base = <0x4e000>;
+		interrupt-names = "jpeg";
+		interrupts = <0 474 0>;
+		regulator-names = "camss-vdd";
+		camss-vdd-supply = <&titan_top_gdsc>;
+		clock-names =
+			"jpegenc_clk_src",
+			"jpegenc_clk";
+		clocks =
+			<&clock_camcc CAM_CC_JPEG_CLK_SRC>,
+			<&clock_camcc CAM_CC_JPEG_CLK>;
+
+		clock-rates = <600000000 0>;
+		src-clock-name = "jpegenc_clk_src";
+		clock-cntl-level = "nominal";
+		status = "ok";
+	};
+
+	cam_jpeg_dma: qcom,jpegdma@ac52000{
+		cell-index = <0>;
+		compatible = "qcom,cam_jpeg_dma";
+		reg-names = "jpegdma_hw";
+		reg = <0xac52000 0x4000>;
+		reg-cam-base = <0x52000>;
+		interrupt-names = "jpegdma";
+		interrupts = <0 475 0>;
+		regulator-names = "camss-vdd";
+		camss-vdd-supply = <&titan_top_gdsc>;
+		clock-names =
+			"jpegdma_clk_src",
+			"jpegdma_clk";
+		clocks =
+			<&clock_camcc CAM_CC_JPEG_CLK_SRC>,
+			<&clock_camcc CAM_CC_JPEG_CLK>;
+
+		clock-rates = <600000000 0>;
+		src-clock-name = "jpegdma_clk_src";
+		clock-cntl-level = "nominal";
+		status = "ok";
+	};
+
 	qcom,cam-fd {
 		compatible = "qcom,cam-fd";
 		compat-hw-name = "qcom,fd";
