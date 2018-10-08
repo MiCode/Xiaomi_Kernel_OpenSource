@@ -57,6 +57,11 @@
 	clock-output-names = "gcc_clocks";
 };
 
+&clock_debugcc {
+	compatible = "qcom,dummycc";
+	clock-output-names = "dummy_clocks";
+};
+
 &ipa_hw {
 	qcom,ipa-hw-mode = <1>; /* IPA hw type = Virtual */
 };

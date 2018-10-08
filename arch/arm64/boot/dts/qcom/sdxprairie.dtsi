@@ -235,6 +235,15 @@
 		#reset-cells = <1>;
 	};
 
+	clock_debugcc: qcom,cc-debug {
+		compatible = "qcom,debugcc-sdxprairie";
+		qcom,cc-count = <1>;
+		qcom,gcc = <&clock_gcc>;
+		clock-names = "xo_clk_src";
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		#clock-cells = <1>;
+	};
+
 	serial_uart: serial@831000 {
 		compatible = "qcom,msm-uartdm-v1.4", "qcom,msm-uartdm";
 		reg = <0x831000 0x200>;
