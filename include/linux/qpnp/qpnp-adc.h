@@ -455,6 +455,7 @@ enum qpnp_adc_tm_rscale_fn_type {
 	SCALE_R_ABSOLUTE,
 	SCALE_QRD_SKUH_RBATT_THERM,
 	SCALE_QRD_SKUT1_RBATT_THERM,
+	SCALE_QRD_215_RBATT_THERM,
 	SCALE_RSCALE_NONE,
 };
 
@@ -1888,6 +1889,22 @@ int32_t qpnp_adc_qrd_skut1_btm_scaler(struct qpnp_vadc_chip *dev,
 		struct qpnp_adc_tm_btm_param *param,
 		uint32_t *low_threshold, uint32_t *high_threshold);
 /**
+ * qpnp_adc_qrd_215_btm_scaler() - Performs reverse calibration on the
+ *		low/high temperature threshold values passed by the client.
+ *		The function maps the temperature to voltage and applies
+ *		ratiometric calibration on the voltage values for SKUT1 board.
+ * @dev:	Structure device for qpnp vadc
+ * @param:	The input parameters that contain the low/high temperature
+ *		values.
+ * @low_threshold: The low threshold value that needs to be updated with
+ *		the above calibrated voltage value.
+ * @high_threshold: The low threshold value that needs to be updated with
+ *		the above calibrated voltage value.
+ */
+int32_t qpnp_adc_qrd_215_btm_scaler(struct qpnp_vadc_chip *dev,
+		struct qpnp_adc_tm_btm_param *param,
+		uint32_t *low_threshold, uint32_t *high_threshold);
+/**
  * qpnp_adc_tm_scale_therm_voltage_pu2() - Performs reverse calibration
  *		and convert given temperature to voltage on supported
  *		thermistor channels using 100k pull-up.
@@ -2276,6 +2293,10 @@ static inline int32_t qpnp_adc_qrd_skuh_btm_scaler(struct qpnp_vadc_chip *dev,
 		uint32_t *low_threshold, uint32_t *high_threshold)
 { return -ENXIO; }
 static inline int32_t qpnp_adc_qrd_skut1_btm_scaler(struct qpnp_vadc_chip *dev,
+		struct qpnp_adc_tm_btm_param *param,
+		uint32_t *low_threshold, uint32_t *high_threshold)
+{ return -ENXIO; }
+static inline int32_t qpnp_adc_qrd_215_btm_scaler(struct qpnp_vadc_chip *dev,
 		struct qpnp_adc_tm_btm_param *param,
 		uint32_t *low_threshold, uint32_t *high_threshold)
 { return -ENXIO; }

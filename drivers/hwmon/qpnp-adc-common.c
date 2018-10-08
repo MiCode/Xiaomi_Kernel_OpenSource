@@ -1263,6 +1263,19 @@ int32_t qpnp_adc_batt_therm_qrd(struct qpnp_vadc_chip *chip,
 		qpnp_adc_map_voltage_temp(adcmap_batt_therm_qrd,
 			ARRAY_SIZE(adcmap_batt_therm_qrd),
 			batt_thm_voltage, &adc_chan_result->physical);
+	} else {
+
+		qpnp_adc_scale_with_calib_param(adc_code,
+			adc_properties, chan_properties, &batt_thm_voltage);
+
+		adc_chan_result->measurement = batt_thm_voltage;
+
+		return qpnp_adc_map_voltage_temp(
+				adcmap_batt_therm_qrd,
+				ARRAY_SIZE(adcmap_batt_therm_qrd),
+				batt_thm_voltage,
+				&adc_chan_result->physical);
+
 	}
 	return 0;
 }
@@ -2151,6 +2164,64 @@ int32_t qpnp_adc_qrd_skut1_btm_scaler(struct qpnp_vadc_chip *chip,
 	return 0;
 }
 EXPORT_SYMBOL(qpnp_adc_qrd_skut1_btm_scaler);
+
+int32_t qpnp_adc_qrd_215_btm_scaler(struct qpnp_vadc_chip *chip,
+		struct qpnp_adc_tm_btm_param *param,
+		uint32_t *low_threshold, uint32_t *high_threshold)
+{
+	struct qpnp_vadc_linear_graph btm_param;
+	int64_t low_output = 0, high_output = 0;
+	int rc = 0;
+
+	if (param->adc_tm_hc) {
+		pr_debug("Update scaling for VADC_TM_HC\n");
+		return -EINVAL;
+	}
+
+	qpnp_get_vadc_gain_and_offset(chip, &btm_param, CALIB_RATIOMETRIC);
+
+	pr_debug("warm_temp:%d and cool_temp:%d\n", param->high_temp,
+				param->low_temp);
+	rc = qpnp_adc_map_voltage_temp(
+		adcmap_batt_therm_qrd,
+		ARRAY_SIZE(adcmap_batt_therm_qrd),
+		(param->low_temp),
+		&low_output);
+	if (rc) {
+		pr_debug("low_temp mapping failed with %d\n", rc);
+		return rc;
+	}
+
+	pr_debug("low_output:%lld\n", low_output);
+	low_output *= btm_param.dy;
+	low_output = div64_s64(low_output, btm_param.adc_vref);
+	low_output += btm_param.adc_gnd;
+
+	rc = qpnp_adc_map_voltage_temp(
+		adcmap_batt_therm_qrd,
+		ARRAY_SIZE(adcmap_batt_therm_qrd),
+		(param->high_temp),
+		&high_output);
+	if (rc) {
+		pr_debug("high temp mapping failed with %d\n", rc);
+		return rc;
+	}
+
+	pr_debug("high_output:%lld\n", high_output);
+	high_output *= btm_param.dy;
+	high_output = div64_s64(high_output, btm_param.adc_vref);
+	high_output += btm_param.adc_gnd;
+
+	/* btm low temperature correspondes to high voltage threshold */
+	*low_threshold = high_output;
+	/* btm high temperature correspondes to low voltage threshold */
+	*high_threshold = low_output;
+
+	pr_debug("high_volt:%d, low_volt:%d\n", *high_threshold,
+				*low_threshold);
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_adc_qrd_215_btm_scaler);
 
 int32_t qpnp_adc_smb_btm_rscaler(struct qpnp_vadc_chip *chip,
 		struct qpnp_adc_tm_btm_param *param,
