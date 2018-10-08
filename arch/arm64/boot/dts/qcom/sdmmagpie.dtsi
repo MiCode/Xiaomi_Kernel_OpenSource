@@ -1905,6 +1905,7 @@
 #include "sdmmagpie-gdsc.dtsi"
 #include "sdmmagpie-bus.dtsi"
 #include "sdmmagpie-qupv3.dtsi"
+#include "sdmmagpie-camera.dtsi"
 
 &pcie_0_gdsc {
 	status = "ok";
