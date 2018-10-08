@@ -41,6 +41,7 @@
 #define F_SLEW(f, s, h, m, n, sf) { (f), (s), (2 * (h) - 1), (m), (n), (sf) }
 
 static DEFINE_VDD_REGULATORS(vdd_cx, VDD_NUM, 1, vdd_corner);
+static DEFINE_VDD_REGULATORS(vdd_sr_pll, VDD_SR_PLL_NUM, 1, vdd_sr_levels);
 
 enum {
 	P_CORE_BI_PLL_TEST_SE,
@@ -412,6 +413,11 @@ static struct clk_pll gpll6 = {
 		.parent_names = (const char *[]){ "cxo" },
 		.num_parents = 1,
 		.ops = &clk_pll_ops,
+		.vdd_class = &vdd_sr_pll,
+		.rate_max = (unsigned long [VDD_SR_PLL_NUM]) {
+			[VDD_SR_PLL_SVS] = 1080000000,
+		},
+		.num_rate_max = VDD_SR_PLL_NUM,
 	},
 };
 
@@ -2955,6 +2961,14 @@ static int gcc_qcs405_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev,
 				"Unable to get vdd_cx regulator\n");
 		return PTR_ERR(vdd_cx.regulator[0]);
+	}
+
+	vdd_sr_pll.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_sr_pll");
+	if (IS_ERR(vdd_sr_pll.regulator[0])) {
+		if (!(PTR_ERR(vdd_sr_pll.regulator[0]) == -EPROBE_DEFER))
+			dev_err(&pdev->dev,
+				"Unable to get vdd_sr_pll regulator\n");
+		return PTR_ERR(vdd_sr_pll.regulator[0]);
 	}
 
 	clk_alpha_pll_configure(&gpll3_out_main, regmap, &gpll3_config);
