@@ -128,8 +128,10 @@ static void dp_ctrl_push_idle(struct dp_ctrl_private *ctrl,
 	int const idle_pattern_completion_timeout_ms = HZ / 10;
 	u32 state = 0x0;
 
-	if (!ctrl->power_on)
+	if (!ctrl->power_on) {
+		pr_err("CTRL off, return\n");
 		return;
+	}
 
 	if (!ctrl->mst_mode) {
 		state = ST_PUSH_IDLE;
@@ -461,6 +463,8 @@ static int dp_ctrl_link_train(struct dp_ctrl_private *ctrl)
 	ctrl->link->phy_params.p_level = 0;
 	ctrl->link->phy_params.v_level = 0;
 
+	ctrl->catalog->config_ctrl(ctrl->catalog);
+
 	link_info.num_lanes = ctrl->link->link_params.lane_count;
 	link_info.rate = drm_dp_bw_code_to_link_rate(
 		ctrl->link->link_params.bw_code);
@@ -507,6 +511,8 @@ end:
 static int dp_ctrl_setup_main_link(struct dp_ctrl_private *ctrl)
 {
 	int ret = 0;
+
+	ctrl->catalog->mainlink_ctrl(ctrl->catalog, true);
 
 	if (ctrl->link->sink_request & DP_TEST_LINK_PHY_TEST_PATTERN)
 		goto end;
@@ -581,7 +587,7 @@ static int dp_ctrl_link_setup(struct dp_ctrl_private *ctrl)
 	catalog->phy_lane_cfg(catalog, ctrl->orientation,
 				link_params->lane_count);
 
-	while (--link_train_max_retries && !atomic_read(&ctrl->aborted)) {
+	while (--link_train_max_retries || !atomic_read(&ctrl->aborted)) {
 		pr_debug("bw_code=%d, lane_count=%d\n",
 			link_params->bw_code, link_params->lane_count);
 
@@ -708,11 +714,6 @@ static void dp_ctrl_host_deinit(struct dp_ctrl *dp_ctrl)
 	pr_debug("Host deinitialized successfully\n");
 }
 
-static void dp_ctrl_send_video(struct dp_ctrl_private *ctrl)
-{
-	ctrl->catalog->state_ctrl(ctrl->catalog, ST_SEND_VIDEO);
-}
-
 static int dp_ctrl_link_maintenance(struct dp_ctrl *dp_ctrl)
 {
 	int ret = 0;
@@ -725,31 +726,25 @@ static int dp_ctrl_link_maintenance(struct dp_ctrl *dp_ctrl)
 
 	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
 
-	ctrl->aux->state &= ~DP_STATE_LINK_MAINTENANCE_COMPLETED;
-	ctrl->aux->state &= ~DP_STATE_LINK_MAINTENANCE_FAILED;
-
-	if (!ctrl->power_on) {
-		pr_err("ctrl off\n");
+	if (!ctrl->power_on || atomic_read(&ctrl->aborted)) {
+		pr_err("CTRL off, return\n");
 		ret = -EINVAL;
 		goto end;
 	}
 
-	if (atomic_read(&ctrl->aborted))
-		goto end;
-
+	ctrl->aux->state &= ~DP_STATE_LINK_MAINTENANCE_COMPLETED;
+	ctrl->aux->state &= ~DP_STATE_LINK_MAINTENANCE_FAILED;
 	ctrl->aux->state |= DP_STATE_LINK_MAINTENANCE_STARTED;
-	ret = dp_ctrl_setup_main_link(ctrl);
+
+	ctrl->catalog->reset(ctrl->catalog);
+	dp_ctrl_disable_link_clock(ctrl);
+	ret = dp_ctrl_link_setup(ctrl);
+
 	ctrl->aux->state &= ~DP_STATE_LINK_MAINTENANCE_STARTED;
-
-	if (ret) {
+	if (ret)
 		ctrl->aux->state |= DP_STATE_LINK_MAINTENANCE_FAILED;
-		goto end;
-	}
-
-	ctrl->aux->state |= DP_STATE_LINK_MAINTENANCE_COMPLETED;
-
-	dp_ctrl_send_video(ctrl);
-	ret = dp_ctrl_wait4video_ready(ctrl);
+	else
+		ctrl->aux->state |= DP_STATE_LINK_MAINTENANCE_COMPLETED;
 end:
 	return ret;
 }
@@ -844,6 +839,11 @@ static void dp_ctrl_send_phy_test_pattern(struct dp_ctrl_private *ctrl)
 
 	pr_debug("%s: %s\n", success ? "success" : "failed",
 			dp_link_get_phy_test_pattern(pattern_requested));
+}
+
+static void dp_ctrl_send_video(struct dp_ctrl_private *ctrl)
+{
+	ctrl->catalog->state_ctrl(ctrl->catalog, ST_SEND_VIDEO);
 }
 
 static void dp_ctrl_mst_calculate_rg(struct dp_ctrl_private *ctrl,
@@ -1076,9 +1076,6 @@ static void dp_ctrl_stream_off(struct dp_ctrl *dp_ctrl, struct dp_panel *panel)
 		return;
 
 	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
-
-	if (!ctrl->power_on)
-		return;
 
 	panel->hw_cfg(panel, false);
 
