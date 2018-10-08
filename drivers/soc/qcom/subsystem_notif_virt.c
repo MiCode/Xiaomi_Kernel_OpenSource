@@ -43,7 +43,7 @@ struct subsystem_descriptor {
 	enum subsystem_type type;
 	struct notifier_block nb;
 	void *handle;
-	unsigned int ssr_irq;
+	int ssr_irq;
 	struct list_head subsystem_list;
 	struct work_struct work;
 };
@@ -91,7 +91,7 @@ static int subsys_notif_virt_probe(struct platform_device *pdev)
 	struct device_node *child = NULL;
 	const char *ss_type;
 	struct resource *res;
-	struct subsystem_descriptor *subsystem;
+	struct subsystem_descriptor *subsystem = NULL;
 	int ret = 0;
 
 	if (!pdev) {
@@ -193,7 +193,8 @@ static int subsys_notif_virt_probe(struct platform_device *pdev)
 		}
 	}
 
-	INIT_WORK(&subsystem->work, subsystem_notif_wq_func);
+	if (subsystem)
+		INIT_WORK(&subsystem->work, subsystem_notif_wq_func);
 	return 0;
 err:
 	destroy_workqueue(ssr_wq);
