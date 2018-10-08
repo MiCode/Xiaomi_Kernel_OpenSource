@@ -34,7 +34,6 @@ struct dp_debug {
 	bool debug_en;
 	bool sim_mode;
 	bool psm_enabled;
-	bool hdcp_disabled;
 	int aspect_ratio;
 	int vdisplay;
 	int hdisplay;
@@ -42,7 +41,6 @@ struct dp_debug {
 	bool tpg_state;
 	u32 max_pclk_khz;
 	bool force_encryption;
-	char hdcp_status[SZ_128];
 
 	u8 *(*get_edid)(struct dp_debug *dp_debug);
 };

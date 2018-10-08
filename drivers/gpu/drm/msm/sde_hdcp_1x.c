@@ -1374,11 +1374,6 @@ static bool sde_hdcp_1x_feature_supported(void *input)
 	return hdcp1_feature_supported(hdcp->hdcp1_handle);
 }
 
-static bool sde_hdcp_1x_sink_support(void *input)
-{
-	return true;
-}
-
 void sde_hdcp_1x_deinit(void *input)
 {
 	struct sde_hdcp_1x *hdcp = (struct sde_hdcp_1x *)input;
@@ -1497,7 +1492,6 @@ void *sde_hdcp_1x_init(struct sde_hdcp_init_data *init_data)
 		.reauthenticate = sde_hdcp_1x_reauthenticate,
 		.authenticate = sde_hdcp_1x_authenticate,
 		.feature_supported = sde_hdcp_1x_feature_supported,
-		.sink_support = sde_hdcp_1x_sink_support,
 		.off = sde_hdcp_1x_off
 	};
 
@@ -1554,7 +1548,7 @@ error:
 	return NULL;
 } /* hdcp_1x_init */
 
-struct sde_hdcp_ops *sde_hdcp_1x_get(void *input)
+struct sde_hdcp_ops *sde_hdcp_1x_start(void *input)
 {
 	return ((struct sde_hdcp_1x *)input)->ops;
 }

@@ -777,31 +777,6 @@ end:
 	return rc;
 }
 
-static bool dp_hdcp2p2_supported(void *input)
-{
-	struct dp_hdcp2p2_ctrl *ctrl = input;
-	u32 const rxcaps_dpcd_offset = 0x6921d;
-	ssize_t bytes_read = 0;
-	u8 buf[DP_HDCP_RXCAPS_LENGTH];
-
-	pr_debug("Checking sink capability\n");
-
-	bytes_read = drm_dp_dpcd_read(ctrl->init_data.drm_aux,
-			rxcaps_dpcd_offset, &buf, DP_HDCP_RXCAPS_LENGTH);
-	if (bytes_read != DP_HDCP_RXCAPS_LENGTH) {
-		pr_err("RxCaps read failed\n");
-		goto error;
-	}
-
-	pr_debug("HDCP_CAPABLE=%lu\n", (buf[2] & BIT(1)) >> 1);
-	pr_debug("VERSION=%d\n", buf[0]);
-
-	if ((buf[2] & BIT(1)) && (buf[0] == 0x2))
-		return true;
-error:
-	return false;
-}
-
 void sde_dp_hdcp2p2_deinit(void *input)
 {
 	struct dp_hdcp2p2_ctrl *ctrl = (struct dp_hdcp2p2_ctrl *)input;
@@ -834,7 +809,6 @@ void *sde_dp_hdcp2p2_init(struct sde_hdcp_init_data *init_data)
 		.authenticate = dp_hdcp2p2_authenticate,
 		.feature_supported = dp_hdcp2p2_feature_supported,
 		.force_encryption = dp_hdcp2p2_force_encryption,
-		.sink_support = dp_hdcp2p2_supported,
 		.off = dp_hdcp2p2_off,
 		.cp_irq = dp_hdcp2p2_cp_irq,
 	};
@@ -926,8 +900,37 @@ error:
 	return ERR_PTR(rc);
 }
 
-struct sde_hdcp_ops *sde_dp_hdcp2p2_get(void *input)
+static bool dp_hdcp2p2_supported(struct dp_hdcp2p2_ctrl *ctrl)
 {
-	return ((struct dp_hdcp2p2_ctrl *)input)->ops;
+	u32 const rxcaps_dpcd_offset = 0x6921d;
+	ssize_t bytes_read = 0;
+	u8 buf[DP_HDCP_RXCAPS_LENGTH];
+
+	bytes_read = drm_dp_dpcd_read(ctrl->init_data.drm_aux,
+			rxcaps_dpcd_offset, &buf, DP_HDCP_RXCAPS_LENGTH);
+	if (bytes_read != DP_HDCP_RXCAPS_LENGTH) {
+		pr_err("RxCaps read failed\n");
+		goto error;
+	}
+
+	pr_debug("HDCP_CAPABLE=%lu\n", (buf[2] & BIT(1)) >> 1);
+	pr_debug("VERSION=%d\n", buf[0]);
+
+	if ((buf[2] & BIT(1)) && (buf[0] == 0x2))
+		return true;
+
+error:
+	return false;
+}
+
+struct sde_hdcp_ops *sde_dp_hdcp2p2_start(void *input)
+{
+	struct dp_hdcp2p2_ctrl *ctrl = input;
+
+	pr_debug("Checking sink capability\n");
+	if (dp_hdcp2p2_supported(ctrl))
+		return ctrl->ops;
+	else
+		return NULL;
 }
 
