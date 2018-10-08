@@ -2484,6 +2484,9 @@
 };
 
 &pm6150l_vadc {
+	pinctrl-names = "default";
+	pinctrl-0 = <&nvm_therm_default>;
+
 	conn_therm {
 		reg = <ADC_AMUX_THM1_PU2>;
 		label = "conn_therm";
@@ -2513,6 +2516,15 @@
 		qcom,ratiometric;
 		qcom,hw-settle-time = <200>;
 		qcom,pre-scaling = <1 1>;
+	};
+};
+
+&pm6150l_gpios {
+	nvm_therm {
+		nvm_therm_default: nvm_therm_default {
+			pins = "gpio10";
+			bias-high-impedance;
+		};
 	};
 };
 
