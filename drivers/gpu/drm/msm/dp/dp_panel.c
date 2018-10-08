@@ -885,11 +885,21 @@ static void dp_panel_calc_tu_parameters(struct dp_panel *dp_panel,
 	in.nlanes = panel->link->link_params.lane_count;
 	in.bpp = pinfo->bpp;
 	in.pixel_enc = 444;
-	in.dsc_en = 0;
+	in.dsc_en = dp_panel->dsc_en;
 	in.async_en = 0;
-	in.fec_en = 0;
-	in.compress_ratio = 0;
-	in.num_of_dsc_slices = 0;
+	in.fec_en = dp_panel->fec_en;
+	in.num_of_dsc_slices = pinfo->comp_info.dsc_info.slice_per_pkt;
+
+	switch (pinfo->comp_info.comp_ratio) {
+	case MSM_DISPLAY_COMPRESSION_RATIO_2_TO_1:
+		in.compress_ratio = 200;
+		break;
+	case MSM_DISPLAY_COMPRESSION_RATIO_3_TO_1:
+		in.compress_ratio = 300;
+		break;
+	default:
+		in.compress_ratio = 100;
+	}
 
 	_dp_panel_calc_tu(&in, tu_table);
 }
@@ -941,6 +951,603 @@ static void dp_panel_config_tr_unit(struct dp_panel *dp_panel)
 	catalog->valid_boundary2 = valid_boundary2;
 
 	catalog->update_transfer_unit(catalog);
+}
+
+enum dp_dsc_ratio_type {
+	DSC_8BPC_8BPP,
+	DSC_10BPC_8BPP,
+	DSC_12BPC_8BPP,
+	DSC_RATIO_TYPE_MAX
+};
+
+static u32 dp_dsc_rc_buf_thresh[] = {0x0e, 0x1c, 0x2a, 0x38, 0x46, 0x54,
+		0x62, 0x69, 0x70, 0x77, 0x79, 0x7b, 0x7d, 0x7e};
+
+/*
+ * DSC 1.1
+ * Rate control - Min QP values for each ratio type in dp_dsc_ratio_type
+ */
+static char dp_dsc_rc_range_min_qp_1_1[][15] = {
+	{0, 0, 1, 1, 3, 3, 3, 3, 3, 3, 5, 5, 5, 7, 13},
+	{0, 4, 5, 5, 7, 7, 7, 7, 7, 7, 9, 9, 9, 11, 17},
+	{0, 4, 9, 9, 11, 11, 11, 11, 11, 11, 13, 13, 13, 15, 21},
+	};
+
+/*
+ * DSC 1.1 SCR
+ * Rate control - Min QP values for each ratio type in dp_dsc_ratio_type
+ */
+static char dp_dsc_rc_range_min_qp_1_1_scr1[][15] = {
+	{0, 0, 1, 1, 3, 3, 3, 3, 3, 3, 5, 5, 5, 9, 12},
+	{0, 4, 5, 5, 7, 7, 7, 7, 7, 7, 9, 9, 9, 13, 16},
+	{0, 4, 9, 9, 11, 11, 11, 11, 11, 11, 13, 13, 13, 17, 20},
+	};
+
+/*
+ * DSC 1.1
+ * Rate control - Max QP values for each ratio type in dp_dsc_ratio_type
+ */
+static char dp_dsc_rc_range_max_qp_1_1[][15] = {
+	{4, 4, 5, 6, 7, 7, 7, 8, 9, 10, 11, 12, 13, 13, 15},
+	{8, 8, 9, 10, 11, 11, 11, 12, 13, 14, 15, 16, 17, 17, 19},
+	{12, 12, 13, 14, 15, 15, 15, 16, 17, 18, 19, 20, 21, 21, 23},
+	};
+
+/*
+ * DSC 1.1 SCR
+ * Rate control - Max QP values for each ratio type in dp_dsc_ratio_type
+ */
+static char dp_dsc_rc_range_max_qp_1_1_scr1[][15] = {
+	{4, 4, 5, 6, 7, 7, 7, 8, 9, 10, 10, 11, 11, 12, 13},
+	{8, 8, 9, 10, 11, 11, 11, 12, 13, 14, 14, 15, 15, 16, 17},
+	{12, 12, 13, 14, 15, 15, 15, 16, 17, 18, 18, 19, 19, 20, 21},
+	};
+
+/*
+ * DSC 1.1 and DSC 1.1 SCR
+ * Rate control - bpg offset values
+ */
+static char dp_dsc_rc_range_bpg_offset[] = {2, 0, 0, -2, -4, -6, -8, -8,
+		-8, -10, -10, -12, -12, -12, -12};
+
+struct dp_dsc_dto_data {
+	enum msm_display_compression_ratio comp_ratio;
+	u32 org_bpp; /* bits */
+	u32 dto_numerator;
+	u32 dto_denominator;
+};
+
+struct dp_dsc_dto_data dto_tbl[] = {
+	{MSM_DISPLAY_COMPRESSION_RATIO_2_TO_1, 24, 1, 2},
+	{MSM_DISPLAY_COMPRESSION_RATIO_2_TO_1, 30, 5, 8},
+	{MSM_DISPLAY_COMPRESSION_RATIO_3_TO_1, 24, 1, 3},
+	{MSM_DISPLAY_COMPRESSION_RATIO_3_TO_1, 30, 5, 12},
+};
+
+static void _dp_panel_get_dto_m_n(enum msm_display_compression_ratio ratio,
+		u32 org_bpp, u32 *dto_n, u32 *dto_d)
+{
+	u32 idx;
+
+	for (idx = 0; idx < ARRAY_SIZE(dto_tbl); idx++) {
+		if (ratio == dto_tbl[idx].comp_ratio &&
+				org_bpp == dto_tbl[idx].org_bpp) {
+			*dto_n = dto_tbl[idx].dto_numerator;
+			*dto_d = dto_tbl[idx].dto_denominator;
+			return;
+		}
+	}
+}
+
+static int dp_panel_dsc_create_pps_buf_cmd(struct msm_display_dsc_info *dsc,
+		char *buf, int pps_id)
+{
+	char *bp = buf;
+	char data;
+	int i, bpp;
+
+	*bp++ = (dsc->version & 0xff);		/* pps0 */
+	*bp++ = (pps_id & 0xff);		/* pps1 */
+	bp++;					/* pps2, reserved */
+
+	data = dsc->line_buf_depth & 0x0f;
+	data |= ((dsc->bpc & 0xf) << 4);
+	*bp++ = data;				/* pps3 */
+
+	bpp = dsc->bpp;
+	bpp <<= 4;				/* 4 fraction bits */
+	data = (bpp >> 8);
+	data &= 0x03;				/* upper two bits */
+	data |= ((dsc->block_pred_enable & 0x1) << 5);
+	data |= ((dsc->convert_rgb & 0x1) << 4);
+	data |= ((dsc->enable_422 & 0x1) << 3);
+	data |= ((dsc->vbr_enable & 0x1) << 2);
+	*bp++ = data;				/* pps4 */
+	*bp++ = (bpp & 0xff);			/* pps5 */
+
+	*bp++ = ((dsc->pic_height >> 8) & 0xff); /* pps6 */
+	*bp++ = (dsc->pic_height & 0x0ff);	/* pps7 */
+	*bp++ = ((dsc->pic_width >> 8) & 0xff);	/* pps8 */
+	*bp++ = (dsc->pic_width & 0x0ff);	/* pps9 */
+
+	*bp++ = ((dsc->slice_height >> 8) & 0xff);/* pps10 */
+	*bp++ = (dsc->slice_height & 0x0ff);	/* pps11 */
+	*bp++ = ((dsc->slice_width >> 8) & 0xff); /* pps12 */
+	*bp++ = (dsc->slice_width & 0x0ff);	/* pps13 */
+
+	*bp++ = ((dsc->chunk_size >> 8) & 0xff);/* pps14 */
+	*bp++ = (dsc->chunk_size & 0x0ff);	/* pps15 */
+
+	*bp++ = (dsc->initial_xmit_delay >> 8) & 0x3; /* pps16*/
+	*bp++ = (dsc->initial_xmit_delay & 0xff);/* pps17 */
+
+	*bp++ = ((dsc->initial_dec_delay >> 8) & 0xff); /* pps18 */
+	*bp++ = (dsc->initial_dec_delay & 0xff);/* pps19 */
+
+	bp++;					/* pps20, reserved */
+
+	*bp++ = (dsc->initial_scale_value & 0x3f); /* pps21 */
+
+	*bp++ = ((dsc->scale_increment_interval >> 8) & 0xff); /* pps22 */
+	*bp++ = (dsc->scale_increment_interval & 0xff); /* pps23 */
+
+	*bp++ = ((dsc->scale_decrement_interval >> 8) & 0xf); /* pps24 */
+	*bp++ = (dsc->scale_decrement_interval & 0x0ff);/* pps25 */
+
+	bp++;					/* pps26, reserved */
+
+	*bp++ = (dsc->first_line_bpg_offset & 0x1f);/* pps27 */
+
+	*bp++ = ((dsc->nfl_bpg_offset >> 8) & 0xff);/* pps28 */
+	*bp++ = (dsc->nfl_bpg_offset & 0x0ff);	/* pps29 */
+	*bp++ = ((dsc->slice_bpg_offset >> 8) & 0xff);/* pps30 */
+	*bp++ = (dsc->slice_bpg_offset & 0x0ff);/* pps31 */
+
+	*bp++ = ((dsc->initial_offset >> 8) & 0xff);/* pps32 */
+	*bp++ = (dsc->initial_offset & 0x0ff);	/* pps33 */
+
+	*bp++ = ((dsc->final_offset >> 8) & 0xff);/* pps34 */
+	*bp++ = (dsc->final_offset & 0x0ff);	/* pps35 */
+
+	*bp++ = (dsc->min_qp_flatness & 0x1f);	/* pps36 */
+	*bp++ = (dsc->max_qp_flatness & 0x1f);	/* pps37 */
+
+	*bp++ = ((dsc->rc_model_size >> 8) & 0xff);/* pps38 */
+	*bp++ = (dsc->rc_model_size & 0x0ff);	/* pps39 */
+
+	*bp++ = (dsc->edge_factor & 0x0f);	/* pps40 */
+
+	*bp++ = (dsc->quant_incr_limit0 & 0x1f);	/* pps41 */
+	*bp++ = (dsc->quant_incr_limit1 & 0x1f);	/* pps42 */
+
+	data = ((dsc->tgt_offset_hi & 0xf) << 4);
+	data |= (dsc->tgt_offset_lo & 0x0f);
+	*bp++ = data;				/* pps43 */
+
+	for (i = 0; i < ARRAY_SIZE(dp_dsc_rc_buf_thresh); i++)
+		*bp++ = (dsc->buf_thresh[i] & 0xff); /* pps44 - pps57 */
+
+	for (i = 0; i < 15; i++) {		/* pps58 - pps87 */
+		data = (dsc->range_min_qp[i] & 0x1f);
+		data <<= 3;
+		data |= ((dsc->range_max_qp[i] >> 2) & 0x07);
+		*bp++ = data;
+		data = (dsc->range_max_qp[i] & 0x03);
+		data <<= 6;
+		data |= (dsc->range_bpg_offset[i] & 0x3f);
+		*bp++ = data;
+	}
+
+	return 88;
+}
+
+static void dp_panel_dsc_prepare_pps_packet(struct dp_panel *dp_panel)
+{
+	struct dp_panel_private *panel;
+	struct dp_dsc_cfg_data *dsc;
+	u8 *pps, *parity;
+	u32 *pps_word, *parity_word;
+	int i, index_4;
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+	dsc = &panel->catalog->dsc;
+	pps = dsc->pps;
+	pps_word = dsc->pps_word;
+	parity = dsc->parity;
+	parity_word = dsc->parity_word;
+
+	memset(parity, 0, sizeof(dsc->parity));
+
+	dsc->pps_word_len = dsc->pps_len >> 2;
+	dsc->parity_len = dsc->pps_word_len;
+	dsc->parity_word_len = (dsc->parity_len >> 2) + 1;
+
+	for (i = 0; i < dsc->pps_word_len; i++) {
+		index_4 = i << 2;
+		pps_word[i] = pps[index_4 + 0] << 0 |
+				pps[index_4 + 1] << 8 |
+				pps[index_4 + 2] << 16 |
+				pps[index_4 + 3] << 24;
+
+		parity[i] = dp_header_get_parity(pps_word[i]);
+	}
+
+	for (i = 0; i < dsc->parity_word_len; i++) {
+		index_4 = i << 2;
+		parity_word[i] = parity[index_4 + 0] << 0 |
+				   parity[index_4 + 1] << 8 |
+				   parity[index_4 + 2] << 16 |
+				   parity[index_4 + 3] << 24;
+	}
+}
+
+static void _dp_panel_dsc_get_num_extra_pclk(struct msm_display_dsc_info *dsc,
+				enum msm_display_compression_ratio ratio)
+{
+	unsigned int dto_n, dto_d, remainder;
+	int ack_required, last_few_ack_required, accum_ack;
+	int last_few_pclk, last_few_pclk_required;
+	int start, temp, line_width = dsc->pic_width/2;
+	s64 temp1_fp, temp2_fp;
+
+	_dp_panel_get_dto_m_n(ratio, dsc->bpc * 3, &dto_n, &dto_d);
+
+	ack_required = dsc->pclk_per_line;
+
+	/* number of pclk cycles left outside of the complete DTO set */
+	last_few_pclk = line_width % dto_d;
+
+	/* number of pclk cycles outside of the complete dto */
+	temp1_fp = drm_fixp_from_fraction(line_width, dto_d);
+	temp2_fp = drm_fixp_from_fraction(dto_n, 1);
+	temp1_fp = drm_fixp_mul(temp1_fp, temp2_fp);
+	temp = drm_fixp2int(temp1_fp);
+	last_few_ack_required = ack_required - temp;
+
+	/*
+	 * check how many more pclk is needed to
+	 * accommodate the last few ack required
+	 */
+	remainder = dto_n;
+	accum_ack = 0;
+	last_few_pclk_required = 0;
+	while (accum_ack < last_few_ack_required) {
+		last_few_pclk_required++;
+
+		if (remainder >= dto_n)
+			start = remainder;
+		else
+			start = remainder + dto_d;
+
+		remainder = start - dto_n;
+		if (remainder < dto_n)
+			accum_ack++;
+	}
+
+	/* if fewer pclk than required */
+	if (last_few_pclk < last_few_pclk_required)
+		dsc->extra_width = last_few_pclk_required - last_few_pclk;
+	else
+		dsc->extra_width = 0;
+
+	pr_debug("extra pclks required: %d\n", dsc->extra_width);
+}
+
+static void _dp_panel_dsc_bw_overhead_calc(struct dp_panel *dp_panel,
+		struct msm_display_dsc_info *dsc,
+		struct dp_display_mode *dp_mode, u32 dsc_byte_cnt)
+{
+	int num_slices, tot_num_eoc_symbols;
+	int tot_num_hor_bytes, tot_num_dummy_bytes;
+	int dwidth_dsc_bytes, eoc_bytes;
+	u32 num_lanes;
+
+	num_lanes = dp_panel->link_info.num_lanes;
+	num_slices = dsc->slice_per_pkt;
+
+	eoc_bytes = dsc_byte_cnt % num_lanes;
+	tot_num_eoc_symbols = num_lanes * num_slices;
+	tot_num_hor_bytes = dsc_byte_cnt * num_slices;
+	tot_num_dummy_bytes = (num_lanes - eoc_bytes) * num_slices;
+
+	if (!eoc_bytes)
+		tot_num_dummy_bytes = 0;
+
+	dwidth_dsc_bytes = tot_num_hor_bytes + tot_num_eoc_symbols +
+				tot_num_dummy_bytes;
+
+	dp_mode->dsc_overhead_fp = drm_fixp_from_fraction(dwidth_dsc_bytes,
+			tot_num_hor_bytes);
+}
+
+static void dp_panel_dsc_pclk_param_calc(struct dp_panel *dp_panel,
+		struct msm_display_dsc_info *dsc,
+		enum msm_display_compression_ratio ratio,
+		struct dp_display_mode *dp_mode)
+{
+	int slice_per_pkt, slice_per_intf, intf_width;
+	int bytes_in_slice, total_bytes_per_intf;
+	int comp_ratio;
+	s64 temp1_fp, temp2_fp;
+	s64 numerator_fp, denominator_fp;
+	s64 dsc_byte_count_fp;
+	u32 dsc_byte_count, temp1, temp2;
+
+	intf_width = dp_mode->timing.h_active;
+	if (!dsc || !dsc->slice_width || !dsc->slice_per_pkt ||
+		(intf_width < dsc->slice_width))
+		return;
+
+	slice_per_pkt = dsc->slice_per_pkt;
+	slice_per_intf = DIV_ROUND_UP(intf_width, dsc->slice_width);
+
+	if (slice_per_pkt > slice_per_intf)
+		slice_per_pkt = 1;
+
+	bytes_in_slice = DIV_ROUND_UP(dsc->slice_width * dsc->bpp, 8);
+	total_bytes_per_intf = bytes_in_slice * slice_per_intf;
+
+	dsc->bytes_in_slice = bytes_in_slice;
+	dsc->bytes_per_pkt = bytes_in_slice * slice_per_pkt;
+	dsc->pkt_per_line = slice_per_intf / slice_per_pkt;
+
+	switch (ratio) {
+	case MSM_DISPLAY_COMPRESSION_RATIO_2_TO_1:
+		comp_ratio = 200;
+		break;
+	case MSM_DISPLAY_COMPRESSION_RATIO_3_TO_1:
+		comp_ratio = 300;
+		break;
+	default:
+		comp_ratio = 100;
+		break;
+	}
+
+	temp1_fp = drm_fixp_from_fraction(comp_ratio, 100);
+	temp2_fp = drm_fixp_from_fraction(slice_per_pkt * 8, 1);
+	denominator_fp = drm_fixp_mul(temp1_fp, temp2_fp);
+	numerator_fp = drm_fixp_from_fraction(intf_width * dsc->bpc * 3, 1);
+	dsc_byte_count_fp = drm_fixp_div(numerator_fp, denominator_fp);
+	dsc_byte_count = drm_fixp2int_ceil(dsc_byte_count_fp);
+
+	temp1 = dsc_byte_count * slice_per_intf;
+	temp2 = temp1;
+	if (temp1 % 3 != 0)
+		temp1 += 3 - (temp1 % 3);
+
+	dsc->eol_byte_num = temp1 - temp2;
+
+	temp1_fp = drm_fixp_from_fraction(slice_per_intf, 6);
+	temp2_fp = drm_fixp_mul(dsc_byte_count_fp, temp1_fp);
+	dsc->pclk_per_line = drm_fixp2int_ceil(temp2_fp);
+
+	_dp_panel_dsc_get_num_extra_pclk(dsc, ratio);
+	dsc->pclk_per_line--;
+
+	_dp_panel_dsc_bw_overhead_calc(dp_panel, dsc, dp_mode, dsc_byte_count);
+}
+
+static void dp_panel_dsc_populate_static_params(
+		struct msm_display_dsc_info *dsc)
+{
+	int bpp, bpc;
+	int mux_words_size;
+	int groups_per_line, groups_total;
+	int min_rate_buffer_size;
+	int hrd_delay;
+	int pre_num_extra_mux_bits, num_extra_mux_bits;
+	int slice_bits;
+	int data;
+	int final_value, final_scale;
+	int ratio_index, mod_offset;
+
+	dsc->version = 0x11;
+	dsc->scr_rev = 0;
+	dsc->rc_model_size = 8192;
+
+	if (dsc->version == 0x11 && dsc->scr_rev == 0x1)
+		dsc->first_line_bpg_offset = 15;
+	else
+		dsc->first_line_bpg_offset = 12;
+
+	dsc->edge_factor = 6;
+	dsc->tgt_offset_hi = 3;
+	dsc->tgt_offset_lo = 3;
+	dsc->enable_422 = 0;
+	dsc->convert_rgb = 1;
+	dsc->vbr_enable = 0;
+
+	dsc->buf_thresh = dp_dsc_rc_buf_thresh;
+
+	bpp = dsc->bpp;
+	bpc = dsc->bpc;
+
+	if (bpc == 12)
+		ratio_index = DSC_12BPC_8BPP;
+	else if (bpc == 10)
+		ratio_index = DSC_10BPC_8BPP;
+	else
+		ratio_index = DSC_8BPC_8BPP;
+
+	if (dsc->version == 0x11 && dsc->scr_rev == 0x1) {
+		dsc->range_min_qp =
+			dp_dsc_rc_range_min_qp_1_1_scr1[ratio_index];
+		dsc->range_max_qp =
+			dp_dsc_rc_range_max_qp_1_1_scr1[ratio_index];
+	} else {
+		dsc->range_min_qp = dp_dsc_rc_range_min_qp_1_1[ratio_index];
+		dsc->range_max_qp = dp_dsc_rc_range_max_qp_1_1[ratio_index];
+	}
+	dsc->range_bpg_offset = dp_dsc_rc_range_bpg_offset;
+
+	if (bpp <= 10)
+		dsc->initial_offset = 6144;
+	else
+		dsc->initial_offset = 2048;	/* bpp = 12 */
+
+	if (bpc == 12)
+		mux_words_size = 64;
+	else
+		mux_words_size = 48;		/* bpc == 8/10 */
+
+	dsc->line_buf_depth = bpc + 1;
+
+	if (bpc == 8) {
+		dsc->input_10_bits = 0;
+		dsc->min_qp_flatness = 3;
+		dsc->max_qp_flatness = 12;
+		dsc->quant_incr_limit0 = 11;
+		dsc->quant_incr_limit1 = 11;
+	} else if (bpc == 10) { /* 10bpc */
+		dsc->input_10_bits = 1;
+		dsc->min_qp_flatness = 7;
+		dsc->max_qp_flatness = 16;
+		dsc->quant_incr_limit0 = 15;
+		dsc->quant_incr_limit1 = 15;
+	} else { /* 12 bpc */
+		dsc->input_10_bits = 0;
+		dsc->min_qp_flatness = 11;
+		dsc->max_qp_flatness = 20;
+		dsc->quant_incr_limit0 = 19;
+		dsc->quant_incr_limit1 = 19;
+	}
+
+	mod_offset = dsc->slice_width % 3;
+	switch (mod_offset) {
+	case 0:
+		dsc->slice_last_group_size = 2;
+		break;
+	case 1:
+		dsc->slice_last_group_size = 0;
+		break;
+	case 2:
+		dsc->slice_last_group_size = 1;
+		break;
+	default:
+		break;
+	}
+
+	dsc->det_thresh_flatness = 2 << (bpc - 8);
+
+	dsc->initial_xmit_delay = dsc->rc_model_size / (2 * bpp);
+
+	groups_per_line = DIV_ROUND_UP(dsc->slice_width, 3);
+
+	dsc->chunk_size = dsc->slice_width * bpp / 8;
+	if ((dsc->slice_width * bpp) % 8)
+		dsc->chunk_size++;
+
+	/* rbs-min */
+	min_rate_buffer_size =  dsc->rc_model_size - dsc->initial_offset +
+			dsc->initial_xmit_delay * bpp +
+			groups_per_line * dsc->first_line_bpg_offset;
+
+	hrd_delay = DIV_ROUND_UP(min_rate_buffer_size, bpp);
+
+	dsc->initial_dec_delay = hrd_delay - dsc->initial_xmit_delay;
+
+	dsc->initial_scale_value = 8 * dsc->rc_model_size /
+			(dsc->rc_model_size - dsc->initial_offset);
+
+	slice_bits = 8 * dsc->chunk_size * dsc->slice_height;
+
+	groups_total = groups_per_line * dsc->slice_height;
+
+	data = dsc->first_line_bpg_offset * 2048;
+
+	dsc->nfl_bpg_offset = DIV_ROUND_UP(data, (dsc->slice_height - 1));
+
+	pre_num_extra_mux_bits = 3 * (mux_words_size + (4 * bpc + 4) - 2);
+
+	num_extra_mux_bits = pre_num_extra_mux_bits - (mux_words_size -
+		((slice_bits - pre_num_extra_mux_bits) % mux_words_size));
+
+	data = 2048 * (dsc->rc_model_size - dsc->initial_offset
+		+ num_extra_mux_bits);
+	dsc->slice_bpg_offset = DIV_ROUND_UP(data, groups_total);
+
+	data = dsc->initial_xmit_delay * bpp;
+	final_value =  dsc->rc_model_size - data + num_extra_mux_bits;
+
+	final_scale = 8 * dsc->rc_model_size /
+		(dsc->rc_model_size - final_value);
+
+	dsc->final_offset = final_value;
+
+	data = (final_scale - 9) * (dsc->nfl_bpg_offset +
+		dsc->slice_bpg_offset);
+	dsc->scale_increment_interval = (2048 * dsc->final_offset) / data;
+
+	dsc->scale_decrement_interval = groups_per_line /
+		(dsc->initial_scale_value - 8);
+}
+
+struct dp_dsc_slices_per_line {
+	u32 min_ppr;
+	u32 max_ppr;
+	u8 num_slices;
+};
+
+struct dp_dsc_slices_per_line slice_per_line_tbl[] = {
+	{0,     340,    1   },
+	{340,   680,    2   },
+	{680,   1360,   4   },
+	{1360,  3200,   8   },
+	{3200,  4800,   12  },
+	{4800,  6400,   16  },
+	{6400,  8000,   20  },
+	{8000,  9600,   24  }
+};
+
+static int dp_panel_dsc_prepare_basic_params(
+		struct msm_compression_info *comp_info,
+		const struct dp_display_mode *dp_mode,
+		struct dp_panel *dp_panel)
+{
+	int i;
+	struct dp_dsc_slices_per_line *rec;
+	int slice_width;
+	u32 ppr = dp_mode->timing.pixel_clk_khz/1000;
+
+	comp_info->dsc_info.slice_per_pkt = 0;
+	for (i = 0; i < ARRAY_SIZE(slice_per_line_tbl); i++) {
+		rec = &slice_per_line_tbl[i];
+		if ((ppr > rec->min_ppr) && (ppr <= rec->max_ppr)) {
+			comp_info->dsc_info.slice_per_pkt = rec->num_slices;
+			break;
+		}
+	}
+
+	if (comp_info->dsc_info.slice_per_pkt == 0)
+		return -EINVAL;
+
+	slice_width = (dp_mode->timing.h_active /
+				comp_info->dsc_info.slice_per_pkt);
+
+	comp_info->dsc_info.block_pred_enable =
+			dp_panel->sink_dsc_caps.block_pred_en;
+	comp_info->dsc_info.vbr_enable = 0;
+	comp_info->dsc_info.enable_422 = 0;
+	comp_info->dsc_info.convert_rgb = 1;
+	comp_info->dsc_info.input_10_bits = 0;
+
+	comp_info->dsc_info.pic_width = dp_mode->timing.h_active;
+	comp_info->dsc_info.pic_height = dp_mode->timing.v_active;
+	comp_info->dsc_info.slice_width = slice_width;
+
+	if (comp_info->dsc_info.pic_height % 16)
+		comp_info->dsc_info.slice_height = 12;
+	else
+		comp_info->dsc_info.slice_height = 16;
+
+	comp_info->dsc_info.bpc = dp_mode->timing.bpp / 3;
+	comp_info->dsc_info.bpp = comp_info->dsc_info.bpc;
+	comp_info->dsc_info.full_frame_slices =
+		DIV_ROUND_UP(dp_mode->timing.h_active, slice_width);
+
+	comp_info->comp_type = MSM_DISPLAY_COMPRESSION_DSC;
+	comp_info->comp_ratio = MSM_DISPLAY_COMPRESSION_RATIO_3_TO_1;
+	return 0;
 }
 
 static int dp_panel_read_dpcd(struct dp_panel *dp_panel, bool multi_func)
@@ -1166,6 +1773,77 @@ end:
 	return ret;
 }
 
+static void dp_panel_decode_dsc_dpcd(struct dp_panel *dp_panel)
+{
+	s64 fec_overhead_fp = drm_fixp_from_fraction(1, 1);
+
+	if (!dp_panel->dsc_feature_enable || !dp_panel->fec_feature_enable) {
+		pr_debug("source dsc is not supported\n");
+		return;
+	}
+
+	if (dp_panel->dsc_dpcd[0] && dp_panel->fec_dpcd) {
+		dp_panel->sink_dsc_caps.dsc_capable = true;
+		dp_panel->sink_dsc_caps.version = dp_panel->dsc_dpcd[1];
+		dp_panel->sink_dsc_caps.block_pred_en =
+			dp_panel->dsc_dpcd[6] ? true : false;
+
+		if (dp_panel->sink_dsc_caps.version >= 0x11)
+			dp_panel->dsc_en = true;
+	} else {
+		dp_panel->sink_dsc_caps.dsc_capable = false;
+		dp_panel->dsc_en = false;
+	}
+
+	dp_panel->fec_en = dp_panel->dsc_en;
+	dp_panel->widebus_en = dp_panel->dsc_en;
+
+	/* fec_overhead = 1.00 / 0.7488664 */
+	if (dp_panel->fec_en)
+		fec_overhead_fp = drm_fixp_from_fraction(10000000, 7488664);
+
+	dp_panel->fec_overhead_fp = fec_overhead_fp;
+}
+
+static void dp_panel_read_sink_dsc_caps(struct dp_panel *dp_panel)
+{
+	int rlen;
+	struct dp_panel_private *panel;
+	const int fec_cap = 0x90;
+
+	if (!dp_panel) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	dp_panel->dsc_en = false;
+	dp_panel->fec_en = false;
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+
+	if (panel->parser->dsc_feature_enable) {
+		rlen = drm_dp_dpcd_read(panel->aux->drm_aux, DP_DSC_SUPPORT,
+			dp_panel->dsc_dpcd, (DP_RECEIVER_DSC_CAP_SIZE + 1));
+		if (rlen < (DP_RECEIVER_DSC_CAP_SIZE + 1)) {
+			pr_debug("dsc dpcd read failed, rlen=%d\n", rlen);
+			return;
+		}
+
+		print_hex_dump(KERN_DEBUG, "[drm-dp] SINK DSC DPCD: ",
+			DUMP_PREFIX_NONE, 8, 1, dp_panel->dsc_dpcd, rlen,
+			false);
+
+		rlen = drm_dp_dpcd_read(panel->aux->drm_aux, fec_cap,
+			&dp_panel->fec_dpcd, 1);
+		if (rlen < 1) {
+			pr_err("fec dpcd read failed, rlen=%d\n", rlen);
+			return;
+		}
+
+		dp_panel_decode_dsc_dpcd(dp_panel);
+	}
+}
+
 static int dp_panel_read_sink_caps(struct dp_panel *dp_panel,
 	struct drm_connector *connector, bool multi_func)
 {
@@ -1219,6 +1897,10 @@ static int dp_panel_read_sink_caps(struct dp_panel *dp_panel,
 	}
 
 	dp_panel->widebus_en = panel->parser->has_widebus;
+	dp_panel->dsc_feature_enable = panel->parser->dsc_feature_enable;
+	dp_panel->fec_feature_enable = panel->parser->fec_feature_enable;
+
+	dp_panel_read_sink_dsc_caps(dp_panel);
 end:
 	return rc;
 }
@@ -1477,6 +2159,101 @@ static int dp_panel_config_timing(struct dp_panel *dp_panel)
 	panel->panel_on = true;
 end:
 	return rc;
+}
+
+static u32 _dp_panel_calc_be_in_lane(struct dp_panel *dp_panel)
+{
+	struct dp_panel_info *pinfo;
+	struct msm_compression_info *comp_info;
+	u32 dsc_htot_byte_cnt, mod_result;
+	u32 numerator, denominator;
+	s64 temp_fp;
+	u32 be_in_lane = 10;
+
+	pinfo = &dp_panel->pinfo;
+	comp_info = &pinfo->comp_info;
+
+	if (!dp_panel->mst_state)
+		return be_in_lane;
+
+	switch (pinfo->comp_info.comp_ratio) {
+	case MSM_DISPLAY_COMPRESSION_RATIO_2_TO_1:
+		denominator = 16; /* 2 * bits-in-byte */
+		break;
+	case MSM_DISPLAY_COMPRESSION_RATIO_3_TO_1:
+		denominator = 24; /* 3 * bits-in-byte */
+		break;
+	default:
+		denominator = 8; /* 1 * bits-in-byte */
+	}
+
+	numerator = (pinfo->h_active + pinfo->h_back_porch +
+				pinfo->h_front_porch + pinfo->h_sync_width) *
+				pinfo->bpp;
+	temp_fp = drm_fixp_from_fraction(numerator, denominator);
+	dsc_htot_byte_cnt = drm_fixp2int_ceil(temp_fp);
+
+	mod_result = dsc_htot_byte_cnt % 12;
+	if (mod_result == 0)
+		be_in_lane = 8;
+	else if (mod_result <= 3)
+		be_in_lane = 1;
+	else if (mod_result <= 6)
+		be_in_lane = 2;
+	else if (mod_result <= 9)
+		be_in_lane = 4;
+	else if (mod_result <= 11)
+		be_in_lane = 8;
+	else
+		be_in_lane = 10;
+
+	return be_in_lane;
+}
+
+static void dp_panel_config_dsc(struct dp_panel *dp_panel, bool enable)
+{
+	struct dp_catalog_panel *catalog;
+	struct dp_panel_private *panel;
+	struct dp_panel_info *pinfo;
+	struct msm_compression_info *comp_info;
+	struct dp_dsc_cfg_data *dsc;
+	int pps_len;
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+
+	catalog = panel->catalog;
+	dsc = &catalog->dsc;
+	pinfo = &dp_panel->pinfo;
+	comp_info = &pinfo->comp_info;
+
+	if (comp_info->comp_type == MSM_DISPLAY_COMPRESSION_DSC && enable) {
+		pps_len = dp_panel_dsc_create_pps_buf_cmd(&comp_info->dsc_info,
+				dsc->pps, 0);
+		dsc->pps_len = pps_len;
+		dp_panel_dsc_prepare_pps_packet(dp_panel);
+
+		dsc->slice_per_pkt = comp_info->dsc_info.slice_per_pkt - 1;
+		dsc->bytes_per_pkt = comp_info->dsc_info.bytes_per_pkt;
+		dsc->eol_byte_num = comp_info->dsc_info.eol_byte_num;
+		dsc->dto_count = comp_info->dsc_info.pclk_per_line;
+		dsc->be_in_lane = _dp_panel_calc_be_in_lane(dp_panel);
+		dsc->dsc_en = true;
+		dsc->dto_en = true;
+
+		_dp_panel_get_dto_m_n(comp_info->comp_ratio, pinfo->bpp,
+				&dsc->dto_n, &dsc->dto_d);
+	} else {
+		dsc->dsc_en = false;
+		dsc->dto_en = false;
+		dsc->dto_n = 0;
+		dsc->dto_d = 0;
+	}
+
+	catalog->stream_id = dp_panel->stream_id;
+	catalog->dsc_cfg(catalog);
+
+	if (catalog->dsc.dsc_en && enable)
+		catalog->pps_flush(catalog);
 }
 
 static int dp_panel_edid_register(struct dp_panel_private *panel)
@@ -1852,6 +2629,7 @@ static int dp_panel_hw_cfg(struct dp_panel *dp_panel, bool enable)
 		dp_panel_config_ctrl(dp_panel);
 		dp_panel_config_misc(dp_panel);
 		dp_panel_config_msa(dp_panel);
+		dp_panel_config_dsc(dp_panel, enable);
 		dp_panel_config_tr_unit(dp_panel);
 		dp_panel_config_timing(dp_panel);
 	}
@@ -1926,6 +2704,7 @@ static void dp_panel_convert_to_dp_mode(struct dp_panel *dp_panel,
 		struct dp_display_mode *dp_mode)
 {
 	const u32 num_components = 3, default_bpp = 24;
+	struct msm_compression_info *comp_info;
 
 	dp_mode->timing.h_active = drm_mode->hdisplay;
 	dp_mode->timing.h_back_porch = drm_mode->htotal - drm_mode->hsync_end;
@@ -1962,6 +2741,35 @@ static void dp_panel_convert_to_dp_mode(struct dp_panel *dp_panel,
 			dp_mode->timing.bpp, dp_mode->timing.pixel_clk_khz);
 
 	dp_mode->timing.widebus_en = dp_panel->widebus_en;
+
+	if (dp_panel->dsc_en) {
+		comp_info = &dp_mode->timing.comp_info;
+
+		if (dp_panel_dsc_prepare_basic_params(comp_info,
+					dp_mode, dp_panel)) {
+			pr_debug("prepare DSC basic params failed\n");
+			return;
+		}
+
+		dp_panel_dsc_populate_static_params(&comp_info->dsc_info);
+		dp_panel_dsc_pclk_param_calc(dp_panel,
+				&comp_info->dsc_info,
+				comp_info->comp_ratio,
+				dp_mode);
+	}
+	dp_mode->fec_overhead_fp = dp_panel->fec_overhead_fp;
+}
+
+static void dp_panel_update_pps(struct dp_panel *dp_panel, char *pps_cmd)
+{
+	struct dp_catalog_panel *catalog;
+	struct dp_panel_private *panel;
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+
+	catalog = panel->catalog;
+	catalog->stream_id = dp_panel->stream_id;
+	catalog->pps_flush(catalog);
 }
 
 struct dp_panel *dp_panel_get(struct dp_panel_in *in)
@@ -1997,13 +2805,19 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	memcpy(panel->spd_product_description, product_desc, (sizeof(u8) * 16));
 	dp_panel->connector = in->connector;
 
-	dp_panel->widebus_en = panel->parser->has_widebus;
+	dp_panel->dsc_feature_enable = panel->parser->dsc_feature_enable;
+	dp_panel->fec_feature_enable = panel->parser->fec_feature_enable;
 
 	if (in->base_panel) {
 		memcpy(dp_panel->dpcd, in->base_panel->dpcd,
 				DP_RECEIVER_CAP_SIZE + 1);
 		memcpy(&dp_panel->link_info, &in->base_panel->link_info,
 				sizeof(dp_panel->link_info));
+		dp_panel->mst_state = in->base_panel->mst_state;
+		dp_panel->widebus_en = in->base_panel->widebus_en;
+		dp_panel->fec_en = in->base_panel->fec_en;
+		dp_panel->dsc_en = in->base_panel->dsc_en;
+		dp_panel->fec_overhead_fp = in->base_panel->fec_overhead_fp;
 	}
 
 	dp_panel->init = dp_panel_init_panel_info;
@@ -2025,6 +2839,7 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	dp_panel->update_edid = dp_panel_update_edid;
 	dp_panel->read_mst_cap = dp_panel_read_mst_cap;
 	dp_panel->convert_to_dp_mode = dp_panel_convert_to_dp_mode;
+	dp_panel->update_pps = dp_panel_update_pps;
 
 	sde_conn = to_sde_connector(dp_panel->connector);
 	sde_conn->drv_panel = dp_panel;

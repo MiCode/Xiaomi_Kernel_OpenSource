@@ -118,6 +118,8 @@ struct dp_display {
 	void (*convert_to_dp_mode)(struct dp_display *dp_display, void *panel,
 			const struct drm_display_mode *drm_mode,
 			struct dp_display_mode *dp_mode);
+	int (*update_pps)(struct dp_display *dp_display,
+			struct drm_connector *connector, char *pps_cmd);
 };
 
 int dp_display_get_num_of_displays(void);

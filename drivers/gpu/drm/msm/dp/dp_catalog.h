@@ -128,6 +128,7 @@ struct dp_catalog_ctrl {
 			u32 y_frac_enum);
 	void (*channel_dealloc)(struct dp_catalog_ctrl *ctrl,
 			u32 ch, u32 ch_start_timeslot, u32 tot_ch_cnt);
+	void (*fec_config)(struct dp_catalog_ctrl *ctrl, bool enable);
 };
 
 #define HEADER_BYTE_2_BIT	 0
@@ -169,6 +170,26 @@ struct dp_catalog_audio {
 	void (*safe_to_exit_level)(struct dp_catalog_audio *audio);
 };
 
+struct dp_dsc_cfg_data {
+	bool dsc_en;
+	char pps[128];
+	u32 pps_len;
+	u32 pps_word[32];
+	u32 pps_word_len;
+	u8 parity[32];
+	u8 parity_len;
+	u32 parity_word[8];
+	u32 parity_word_len;
+	u32 slice_per_pkt;
+	u32 bytes_per_pkt;
+	u32 eol_byte_num;
+	u32 be_in_lane;
+	u32 dto_en;
+	u32 dto_n;
+	u32 dto_d;
+	u32 dto_count;
+};
+
 struct dp_catalog_panel {
 	u32 total;
 	u32 sync_start;
@@ -198,6 +219,7 @@ struct dp_catalog_panel {
 	enum dp_stream_id stream_id;
 
 	bool widebus_en;
+	struct dp_dsc_cfg_data dsc;
 
 	int (*timing_cfg)(struct dp_catalog_panel *panel);
 	void (*config_hdr)(struct dp_catalog_panel *panel, bool en);
@@ -209,6 +231,8 @@ struct dp_catalog_panel {
 	void (*update_transfer_unit)(struct dp_catalog_panel *panel);
 	void (*config_ctrl)(struct dp_catalog_panel *panel, u32 cfg);
 	void (*config_dto)(struct dp_catalog_panel *panel, bool ack);
+	void (*dsc_cfg)(struct dp_catalog_panel *panel);
+	void (*pps_flush)(struct dp_catalog_panel *panel);
 };
 
 struct dp_catalog;
@@ -281,7 +305,7 @@ static inline u8 dp_header_get_parity(u32 data)
 	u8 iData = 0;
 	u8 i = 0;
 	u8 parity_byte;
-	u8 num_byte = (data & 0xFF00) > 0 ? 8 : 2;
+	u8 num_byte = (data > 0xFF) ? 8 : 2;
 
 	for (i = 0; i < num_byte; i++) {
 		iData = (data >> i*4) & 0xF;

@@ -189,6 +189,12 @@ static inline char *dp_phy_aux_config_type_to_string(u32 cfg_type)
  * @pinctrl: pin-control related data
  * @disp_data: controller's display related data
  * @hw_cfg: DP HW specific settings
+ * @has_mst: MST feature enable status
+ * @has_mst_sideband: MST sideband feature enable status
+ * @no_aux_switch: presence AUX switch status
+ * @dsc_feature_enable: DSC feature enable status
+ * @fec_feature_enable: FEC feature enable status
+ * @has_widebus: widebus (2PPC) feature eanble status
  * @parse: function to be called by client to parse device tree.
  * @get_io: function to be called by client to get io data.
  * @get_io_buf: function to be called by client to get io buffers.
@@ -209,6 +215,8 @@ struct dp_parser {
 	bool has_mst;
 	bool has_mst_sideband;
 	bool no_aux_switch;
+	bool dsc_feature_enable;
+	bool fec_feature_enable;
 	bool has_widebus;
 
 	int (*parse)(struct dp_parser *parser);
