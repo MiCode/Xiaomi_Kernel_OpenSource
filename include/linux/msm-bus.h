@@ -211,7 +211,6 @@ struct msm_bus_scale_pdata *msm_bus_pdata_from_node(
 		struct platform_device *pdev, struct device_node *of_node);
 struct msm_bus_scale_pdata *msm_bus_cl_get_pdata(struct platform_device *pdev);
 struct msm_bus_scale_pdata *msm_bus_cl_get_pdata_from_dev(struct device *dev);
-void msm_bus_cl_clear_pdata(struct msm_bus_scale_pdata *pdata);
 #else
 static inline struct msm_bus_scale_pdata
 *msm_bus_cl_get_pdata(struct platform_device *pdev)
@@ -224,11 +223,11 @@ static inline struct msm_bus_scale_pdata *msm_bus_pdata_from_node(
 {
 	return NULL;
 }
+#endif
 
 static inline void msm_bus_cl_clear_pdata(struct msm_bus_scale_pdata *pdata)
 {
 }
-#endif
 
 #ifdef CONFIG_DEBUG_BUS_VOTER
 int msm_bus_floor_vote_context(const char *name, u64 floor_hz,
