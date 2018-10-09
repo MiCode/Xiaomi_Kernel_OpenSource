@@ -2863,6 +2863,10 @@
 		compatible = "qcom,cx-ipeak-sm6150";
 		reg = <0x1fed000 0x28>;
 	};
+
+	demux {
+		compatible = "qcom,demux";
+	};
 };
 
 #include "pm6150.dtsi"
