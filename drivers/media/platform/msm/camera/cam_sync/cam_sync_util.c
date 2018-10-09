@@ -178,7 +178,7 @@ int cam_sync_deinit_object(struct sync_table_row *table, uint32_t idx)
 	}
 
 	if (row->state == CAM_SYNC_STATE_ACTIVE)
-		CAM_WARN(CAM_SYNC,
+		CAM_DBG(CAM_SYNC,
 			"Destroying an active sync object name:%s id:%i",
 			row->name, row->sync_id);
 
@@ -225,7 +225,7 @@ int cam_sync_deinit_object(struct sync_table_row *table, uint32_t idx)
 		}
 
 		if (child_row->state == CAM_SYNC_STATE_ACTIVE)
-			CAM_WARN(CAM_SYNC,
+			CAM_DBG(CAM_SYNC,
 				"Warning: destroying active child sync obj = %d",
 				child_info->sync_id);
 
@@ -254,7 +254,7 @@ int cam_sync_deinit_object(struct sync_table_row *table, uint32_t idx)
 		}
 
 		if (parent_row->state == CAM_SYNC_STATE_ACTIVE)
-			CAM_WARN(CAM_SYNC,
+			CAM_DBG(CAM_SYNC,
 				"Warning: destroying active parent sync obj = %d",
 				parent_info->sync_id);
 
