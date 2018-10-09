@@ -624,6 +624,7 @@
 			interrupt-names = "sc-irq";
 
 			qcom,pmic-revid = <&pmi632_revid>;
+			qcom,voltage-step-ramp;
 
 			lcdb_ldo_vreg: ldo {
 				label = "ldo";
