@@ -97,10 +97,9 @@
 	status = "ok";
 };
 
-&usb0 {
-	dwc3@a600000 {
-		dr_mode = "peripheral";
-	};
+&usb1 {
+	status = "ok";
+	qcom,default-mode-host;
 };
 
 &qupv3_se0_2uart {
