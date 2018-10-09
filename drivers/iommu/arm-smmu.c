@@ -243,7 +243,6 @@ struct arm_smmu_device {
 #define ARM_SMMU_OPT_SECURE_CFG_ACCESS (1 << 0)
 #define ARM_SMMU_OPT_FATAL_ASF		(1 << 1)
 #define ARM_SMMU_OPT_SKIP_INIT		(1 << 2)
-#define ARM_SMMU_OPT_DYNAMIC		(1 << 3)
 #define ARM_SMMU_OPT_3LVL_TABLES	(1 << 4)
 #define ARM_SMMU_OPT_NO_ASID_RETENTION	(1 << 5)
 #define ARM_SMMU_OPT_STATIC_CB		(1 << 6)
@@ -383,7 +382,6 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_SECURE_CFG_ACCESS, "calxeda,smmu-secure-config-access" },
 	{ ARM_SMMU_OPT_FATAL_ASF, "qcom,fatal-asf" },
 	{ ARM_SMMU_OPT_SKIP_INIT, "qcom,skip-init" },
-	{ ARM_SMMU_OPT_DYNAMIC, "qcom,dynamic" },
 	{ ARM_SMMU_OPT_3LVL_TABLES, "qcom,use-3-lvl-tables" },
 	{ ARM_SMMU_OPT_NO_ASID_RETENTION, "qcom,no-asid-retention" },
 	{ ARM_SMMU_OPT_STATIC_CB, "qcom,enable-static-cb"},
@@ -1711,13 +1709,6 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	}
 
 	dynamic = is_dynamic_domain(domain);
-	if (dynamic && !(smmu->options & ARM_SMMU_OPT_DYNAMIC)) {
-		dev_err(smmu->dev, "dynamic domains not supported\n");
-		ret = -EPERM;
-
-		goto out_unlock;
-	}
-
 	/*
 	 * Mapping the requested stage onto what we support is surprisingly
 	 * complicated, mainly because the spec allows S1+S2 SMMUs without
