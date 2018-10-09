@@ -184,6 +184,7 @@ static int mdss_pll_clock_register(struct platform_device *pdev,
 		break;
 	case MDSS_DP_PLL_14NM:
 		rc = dp_pll_clock_register_14nm(pdev, pll_res);
+		break;
 	case MDSS_HDMI_PLL_28LPM:
 		rc = hdmi_pll_clock_register_28lpm(pdev, pll_res);
 		break;
