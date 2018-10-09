@@ -564,7 +564,6 @@ static void _setup_timeout(struct subsys_desc *source_ss,
 		return;
 	}
 
-	timeout_data->timer.data = (unsigned long) timeout_data;
 	timeout_data->comm_type = comm_type;
 	timeout = jiffies + msecs_to_jiffies(timeout_vals[comm_type]);
 	mod_timer(&timeout_data->timer, timeout);
