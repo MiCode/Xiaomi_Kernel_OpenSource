@@ -20,6 +20,8 @@
 #include <linux/mfd/syscon.h>
 #include <linux/clk/qcom.h>
 
+#include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
+
 /* GDSCR */
 #define PWR_ON_MASK		BIT(31)
 #define CLK_DIS_WAIT_MASK	(0xF << 12)
@@ -61,6 +63,7 @@ struct gdsc {
 	bool			is_gdsc_enabled;
 	bool			allow_clear;
 	bool			reset_aon;
+	bool			vote_supply_voltage;
 	int			clock_count;
 	int			reset_count;
 	int			root_clk_idx;
@@ -159,6 +162,15 @@ static int gdsc_enable(struct regulator_dev *rdev)
 
 	mutex_lock(&gdsc_seq_lock);
 
+	if (sc->vote_supply_voltage) {
+		ret = regulator_set_voltage(sc->rdev->supply,
+				RPMH_REGULATOR_LEVEL_LOW_SVS, INT_MAX);
+		if (ret) {
+			mutex_unlock(&gdsc_seq_lock);
+			return ret;
+		}
+	}
+
 	if (sc->root_en || sc->force_root_en)
 		clk_prepare_enable(sc->clocks[sc->root_clk_idx]);
 
@@ -166,8 +178,8 @@ static int gdsc_enable(struct regulator_dev *rdev)
 	if (regval & HW_CONTROL_MASK) {
 		dev_warn(&rdev->dev, "Invalid enable while %s is under HW control\n",
 				sc->rdesc.name);
-		mutex_unlock(&gdsc_seq_lock);
-		return -EBUSY;
+		ret = -EBUSY;
+		goto end;
 	}
 
 	if (sc->toggle_logic) {
@@ -250,9 +262,7 @@ static int gdsc_enable(struct regulator_dev *rdev)
 					dev_err(&rdev->dev, "%s final state (after additional %d us timeout): 0x%x, GDS_HW_CTRL: 0x%x\n",
 						sc->rdesc.name, sc->gds_timeout,
 						regval, hw_ctrl_regval);
-
-					mutex_unlock(&gdsc_seq_lock);
-					return ret;
+					goto end;
 				}
 			} else {
 				dev_err(&rdev->dev, "%s enable timed out: 0x%x\n",
@@ -264,10 +274,7 @@ static int gdsc_enable(struct regulator_dev *rdev)
 				dev_err(&rdev->dev, "%s final state: 0x%x (%d us after timeout)\n",
 					sc->rdesc.name, regval,
 					sc->gds_timeout);
-
-				mutex_unlock(&gdsc_seq_lock);
-
-				return ret;
+				goto end;
 			}
 		}
 	} else {
@@ -300,6 +307,9 @@ static int gdsc_enable(struct regulator_dev *rdev)
 		clk_disable_unprepare(sc->clocks[sc->root_clk_idx]);
 
 	sc->is_gdsc_enabled = true;
+end:
+	if (sc->vote_supply_voltage)
+		regulator_set_voltage(sc->rdev->supply, 0, INT_MAX);
 
 	mutex_unlock(&gdsc_seq_lock);
 
@@ -313,6 +323,15 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	int i, ret = 0;
 
 	mutex_lock(&gdsc_seq_lock);
+
+	if (sc->vote_supply_voltage) {
+		ret = regulator_set_voltage(sc->rdev->supply,
+				RPMH_REGULATOR_LEVEL_LOW_SVS, INT_MAX);
+		if (ret) {
+			mutex_unlock(&gdsc_seq_lock);
+			return ret;
+		}
+	}
 
 	if (sc->force_root_en)
 		clk_prepare_enable(sc->clocks[sc->root_clk_idx]);
@@ -371,6 +390,9 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	if ((sc->is_gdsc_enabled && sc->root_en) || sc->force_root_en)
 		clk_disable_unprepare(sc->clocks[sc->root_clk_idx]);
 
+	if (sc->vote_supply_voltage)
+		regulator_set_voltage(sc->rdev->supply, 0, INT_MAX);
+
 	sc->is_gdsc_enabled = false;
 
 	mutex_unlock(&gdsc_seq_lock);
@@ -400,6 +422,15 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 	int ret = 0;
 
 	mutex_lock(&gdsc_seq_lock);
+
+	if (sc->vote_supply_voltage) {
+		ret = regulator_set_voltage(sc->rdev->supply,
+				RPMH_REGULATOR_LEVEL_LOW_SVS, INT_MAX);
+		if (ret) {
+			mutex_unlock(&gdsc_seq_lock);
+			return ret;
+		}
+	}
 
 	regmap_read(sc->regmap, REG_OFFSET, &regval);
 
@@ -443,6 +474,9 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 		ret = -EINVAL;
 		break;
 	}
+
+	if (sc->vote_supply_voltage)
+		regulator_set_voltage(sc->rdev->supply, 0, INT_MAX);
 
 	mutex_unlock(&gdsc_seq_lock);
 
@@ -559,6 +593,9 @@ static int gdsc_probe(struct platform_device *pdev)
 
 	sc->force_root_en = of_property_read_bool(pdev->dev.of_node,
 						"qcom,force-enable-root-clk");
+
+	sc->vote_supply_voltage = of_property_read_bool(pdev->dev.of_node,
+					"qcom,vote-parent-supply-voltage");
 
 	for (i = 0; i < sc->clock_count; i++) {
 		const char *clock_name;
@@ -703,6 +740,9 @@ static int gdsc_probe(struct platform_device *pdev)
 			sc->rdesc.name);
 		return PTR_ERR(sc->rdev);
 	}
+
+	if (!sc->rdev->supply)
+		sc->vote_supply_voltage = false;
 
 	return 0;
 }
