@@ -18,8 +18,10 @@
 #include <linux/rwsem.h>
 #include <linux/zsmalloc.h>
 #include <linux/crypto.h>
+#include <linux/spinlock.h>
 
 #include "zcomp.h"
+#include "zram_dedup.h"
 
 /*-- Configurable parameters */
 
@@ -71,6 +73,10 @@ enum zram_pageflags {
 /*-- Data structures */
 
 struct zram_entry {
+	struct rb_node rb_node;
+	u32 len;
+	u32 checksum;
+	unsigned long refcount;
 	unsigned long handle;
 };
 
@@ -95,6 +101,16 @@ struct zram_stats {
 	atomic64_t pages_stored;	/* no. of pages currently stored */
 	atomic_long_t max_used_pages;	/* no. of maximum pages stored */
 	atomic64_t writestall;		/* no. of write slow paths */
+	atomic64_t dup_data_size;	/*
+					 * compressed size of pages
+					 * duplicated
+					 */
+	atomic64_t meta_data_size;	/* size of zram_entries */
+};
+
+struct zram_hash {
+	spinlock_t lock;
+	struct rb_root rb_root;
 };
 
 struct zram {
@@ -102,6 +118,8 @@ struct zram {
 	struct zs_pool *mem_pool;
 	struct zcomp *comp;
 	struct gendisk *disk;
+	struct zram_hash *hash;
+	size_t hash_size;
 	/* Prevent concurrent execution of device init */
 	struct rw_semaphore init_lock;
 	/*
@@ -129,4 +147,6 @@ struct zram {
 	spinlock_t bitmap_lock;
 #endif
 };
+
+void zram_entry_free(struct zram *zram, struct zram_entry *entry);
 #endif
