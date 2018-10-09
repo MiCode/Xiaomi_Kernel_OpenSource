@@ -437,14 +437,6 @@ bool sde_encoder_is_dsc_merge(struct drm_encoder *drm_enc)
 	return false;
 }
 
-int sde_encoder_in_clone_mode(struct drm_encoder *drm_enc)
-{
-	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
-
-	return sde_enc && sde_enc->cur_master &&
-		sde_enc->cur_master->in_clone_mode;
-}
-
 bool sde_encoder_is_primary_display(struct drm_encoder *drm_enc)
 {
 	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
@@ -902,6 +894,28 @@ void sde_encoder_helper_split_config(
 		if (hw_mdptop->ops.setup_pp_split)
 			hw_mdptop->ops.setup_pp_split(hw_mdptop, &cfg);
 	}
+}
+
+bool sde_encoder_in_clone_mode(struct drm_encoder *drm_enc)
+{
+	struct sde_encoder_virt *sde_enc;
+	int i = 0;
+
+	if (!drm_enc)
+		return false;
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+	if (!sde_enc)
+		return false;
+
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+
+		if (phys && phys->in_clone_mode)
+			return true;
+	}
+
+	return false;
 }
 
 static int sde_encoder_virt_atomic_check(
