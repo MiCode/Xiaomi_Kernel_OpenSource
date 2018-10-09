@@ -26,7 +26,7 @@
 	limit-tx-hs-gear = <1>;
 	limit-rx-hs-gear = <1>;
 
-	vdd-hba-supply = <&pm8150_s4>;
+	vdd-hba-supply = <&ufs_phy_gdsc>;
 	vdd-hba-fixed-regulator;
 	vcc-supply = <&pm8150_l17>;
 	vccq2-supply = <&pm8150_s4>;
