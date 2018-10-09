@@ -477,12 +477,15 @@ struct ipa_mhi_alloc_channel_resp_msg_v01 *imp_handle_allocate_channel_req(
 
 	IMP_FUNC_ENTRY();
 
+	mutex_lock(&imp_ctx->mutex);
+
 	memset(resp, 0, sizeof(*resp));
 
 	if (imp_ctx->state != IMP_READY) {
 		IMP_ERR("invalid state %d\n", imp_ctx->state);
 		resp->resp.result = IPA_QMI_RESULT_FAILURE_V01;
 		resp->resp.error = IPA_QMI_ERR_INCOMPATIBLE_STATE_V01;
+		mutex_unlock(&imp_ctx->mutex);
 		return resp;
 	}
 
@@ -493,6 +496,7 @@ struct ipa_mhi_alloc_channel_resp_msg_v01 *imp_handle_allocate_channel_req(
 		IMP_ERR("invalid tr_info_arr_len %d\n", req->tr_info_arr_len);
 		resp->resp.result = IPA_QMI_RESULT_FAILURE_V01;
 		resp->resp.error = IPA_QMI_ERR_NO_MEMORY_V01;
+		mutex_unlock(&imp_ctx->mutex);
 		return resp;
 	}
 
@@ -502,10 +506,9 @@ struct ipa_mhi_alloc_channel_resp_msg_v01 *imp_handle_allocate_channel_req(
 		IMP_ERR("no mapping provided, but smmu is enabled\n");
 		resp->resp.result = IPA_QMI_RESULT_FAILURE_V01;
 		resp->resp.error = IPA_QMI_ERR_INTERNAL_V01;
+		mutex_unlock(&imp_ctx->mutex);
 		return resp;
 	}
-
-	mutex_lock(&imp_ctx->mutex);
 
 	if (imp_ctx->dev_info.smmu_enabled) {
 		/* map CTRL */
