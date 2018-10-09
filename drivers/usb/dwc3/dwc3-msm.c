@@ -105,6 +105,7 @@
 #define	GSI_GENERAL_CFG_REG(offset) (QSCRATCH_REG_OFFSET + offset)
 #define	GSI_RESTART_DBL_PNTR_MASK	BIT(20)
 #define	GSI_CLK_EN_MASK			BIT(12)
+#define	GSI_RESET_MASK			BIT(8)
 #define	BLOCK_GSI_WR_GO_MASK		BIT(1)
 #define	GSI_EN_MASK			BIT(0)
 
@@ -962,10 +963,6 @@ static void gsi_store_ringbase_dbl_info(struct usb_ep *ep,
 		GSI_RING_BASE_ADDR_L(mdwc->gsi_reg[RING_BASE_ADDR_L], (n)),
 		dwc3_trb_dma_offset(dep, &dep->trb_pool[0]));
 
-	if (request->mapped_db_reg_phs_addr_lsb)
-		dma_unmap_resource(dwc->sysdev,
-			request->mapped_db_reg_phs_addr_lsb,
-			PAGE_SIZE, DMA_BIDIRECTIONAL, 0);
 
 	request->mapped_db_reg_phs_addr_lsb = dma_map_resource(dwc->sysdev,
 			(phys_addr_t)request->db_reg_phs_addr_lsb, PAGE_SIZE,
@@ -1478,7 +1475,12 @@ static int dwc3_msm_gsi_ep_op(struct usb_ep *ep,
 		ret = gsi_check_ready_to_suspend(ep, f_suspend);
 		break;
 	case GSI_EP_OP_DISABLE:
+		request = (struct usb_gsi_request *)op_data;
 		ret = ep->ops->disable(ep);
+		if (request->mapped_db_reg_phs_addr_lsb)
+			dma_unmap_resource(dwc->sysdev,
+				request->mapped_db_reg_phs_addr_lsb,
+				PAGE_SIZE, DMA_BIDIRECTIONAL, 0);
 		break;
 	default:
 		dev_err(mdwc->dev, "%s: Invalid opcode GSI EP\n", __func__);
@@ -1937,6 +1939,24 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event,
 		break;
 	case DWC3_GSI_EVT_BUF_SETUP:
 		dev_dbg(mdwc->dev, "DWC3_GSI_EVT_BUF_SETUP\n");
+
+		if (!mdwc->num_gsi_event_buffers)
+			break;
+
+		dbg_log_string("before reset STS:%x\n",
+			dwc3_msm_read_reg(mdwc->base,
+				GSI_IF_STS(mdwc->gsi_reg[IF_STS])));
+		/* soft reset usb gsi interface */
+		dwc3_msm_write_reg_field(mdwc->base,
+			GSI_GENERAL_CFG_REG(mdwc->gsi_reg[GENERAL_CFG_REG]),
+			GSI_RESET_MASK, 1);
+		dwc3_msm_write_reg_field(mdwc->base,
+			GSI_GENERAL_CFG_REG(mdwc->gsi_reg[GENERAL_CFG_REG]),
+			GSI_RESET_MASK, 0);
+		dbg_log_string("after reset STS:%x\n",
+			dwc3_msm_read_reg(mdwc->base,
+				GSI_IF_STS(mdwc->gsi_reg[IF_STS])));
+
 		for (i = 0; i < mdwc->num_gsi_event_buffers; i++) {
 			evt = mdwc->gsi_ev_buff[i];
 			if (!evt)
