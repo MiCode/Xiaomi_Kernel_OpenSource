@@ -236,4 +236,9 @@
 &mdss_mdp {
 	connectors = <&sde_rscc &dsi_dp1 &sde_wb>;
 };
+
+&slpi_tlmm {
+	status = "ok";
+};
+
 #include "sa6155-pcie.dtsi"

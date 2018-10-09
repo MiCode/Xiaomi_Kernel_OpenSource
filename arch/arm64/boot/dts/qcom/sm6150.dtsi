@@ -2929,6 +2929,7 @@
 #include "pm6150.dtsi"
 #include "pm6150l.dtsi"
 #include "sm6150-pinctrl.dtsi"
+#include "sm6150-slpi-pinctrl.dtsi"
 #include "sm6150-regulator.dtsi"
 #include "sm6150-pm.dtsi"
 #include "sm6150-gdsc.dtsi"
