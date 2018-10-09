@@ -21,18 +21,14 @@ struct pages_list {
 	struct page **pages;
 	long npages;
 	uint64_t index; /* for mmap first call */
-	int kernel;
 	void *kva;
-	void *uva;
-	int refcntk;
-	int refcntu;
 	uint32_t userflags;
 	struct file *filp_owner;
 	struct file *filp_mapper;
-	struct dma_buf *dmabuf;
 	int32_t export_id;
 	int32_t vcid;
 	struct physical_channel *pchan;
+	struct kref refcount;
 };
 
 struct importer_context {
@@ -41,6 +37,118 @@ struct importer_context {
 	struct file *filp;
 	rwlock_t implist_lock;
 };
+
+static struct pages_list *pages_list_create(
+	void *imp_ctx,
+	struct export_desc *exp,
+	uint32_t userflags)
+{
+	struct page **pages;
+	struct compressed_pfns *pfn_table =
+		(struct compressed_pfns *)exp->payload;
+	struct pages_list *pglist;
+	unsigned long pfn;
+	int i, j, k = 0, size;
+
+	if (!pfn_table)
+		return ERR_PTR(-EINVAL);
+
+	size = exp->payload_count * sizeof(struct page *);
+	pages = kmalloc(size, GFP_KERNEL);
+	if (!pages)
+		return ERR_PTR(-ENOMEM);
+
+	pglist = kzalloc(sizeof(*pglist), GFP_KERNEL);
+	if (!pglist) {
+		kfree(pages);
+		return ERR_PTR(-ENOMEM);
+	}
+
+	pfn = pfn_table->first_pfn;
+	for (i = 0; i < pfn_table->nregions; i++) {
+		for (j = 0; j < pfn_table->region[i].size; j++) {
+			pages[k] = pfn_to_page(pfn+j);
+			k++;
+		}
+		pfn += pfn_table->region[i].size + pfn_table->region[i].space;
+	}
+
+	pglist->pages = pages;
+	pglist->npages = exp->payload_count;
+	pglist->userflags = userflags;
+	pglist->export_id = exp->export_id;
+	pglist->vcid = exp->vcid_remote;
+	pglist->pchan = exp->pchan;
+
+	kref_init(&pglist->refcount);
+
+	return pglist;
+}
+
+static void pages_list_destroy(struct kref *refcount)
+{
+	struct pages_list *pglist = container_of(refcount,
+				struct pages_list, refcount);
+
+	if (pglist->kva)
+		vunmap(pglist->kva);
+
+	kfree(pglist->pages);
+
+	kfree(pglist);
+}
+
+static void pages_list_get(struct pages_list *pglist)
+{
+	kref_get(&pglist->refcount);
+}
+
+static int pages_list_put(struct pages_list *pglist)
+{
+	return kref_put(&pglist->refcount, pages_list_destroy);
+}
+
+static struct pages_list *pages_list_lookup(
+		struct importer_context *imp_ctx,
+		uint32_t export_id, struct physical_channel *pchan)
+{
+	struct pages_list *pglist, *tmp;
+
+	read_lock(&imp_ctx->implist_lock);
+	list_for_each_entry_safe(pglist, tmp, &imp_ctx->imp_list, list) {
+		if (pglist->export_id == export_id &&
+			pglist->pchan == pchan) {
+			pages_list_get(pglist);
+			read_unlock(&imp_ctx->implist_lock);
+			return pglist;
+		}
+	}
+	read_unlock(&imp_ctx->implist_lock);
+
+	return NULL;
+}
+
+static void pages_list_add(struct importer_context *imp_ctx,
+		struct pages_list *pglist)
+{
+	pages_list_get(pglist);
+
+	write_lock(&imp_ctx->implist_lock);
+	list_add_tail(&pglist->list,  &imp_ctx->imp_list);
+	imp_ctx->cnt++;
+	write_unlock(&imp_ctx->implist_lock);
+}
+
+static void pages_list_remove(struct importer_context *imp_ctx,
+		struct pages_list *pglist)
+{
+	write_lock(&imp_ctx->implist_lock);
+	list_del(&pglist->list);
+	imp_ctx->cnt--;
+	write_unlock(&imp_ctx->implist_lock);
+
+	pages_list_put(pglist);
+}
 
 void *habmm_hyp_allocate_grantable(int page_count,
 		uint32_t *sizebytes)
@@ -192,9 +300,12 @@ static int habmem_get_dma_pages_from_fd(int32_t fd,
 		for (j = 0; j < (s->length >> PAGE_SHIFT); j++) {
 			pages[rc] = nth_page(page, j);
 			rc++;
-			if (WARN_ON(rc >= page_count))
+			if (rc >= page_count)
 				break;
 		}
+
+		if (rc >= page_count)
+			break;
 	}
 
 err:
@@ -320,16 +431,8 @@ void habmem_imp_hyp_close(void *imp_ctx, int kernel)
 	if (!priv)
 		return;
 
-	list_for_each_entry_safe(pglist, pglist_tmp, &priv->imp_list, list) {
-		if (kernel && pglist->kva)
-			vunmap(pglist->kva);
-
-		list_del(&pglist->list);
-		priv->cnt--;
-
-		kfree(pglist->pages);
-		kfree(pglist);
-	}
+	list_for_each_entry_safe(pglist, pglist_tmp, &priv->imp_list, list)
+		pages_list_remove(priv, pglist);
 
 	kfree(priv);
 }
@@ -406,16 +509,70 @@ static int hab_map_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 
 static void hab_map_open(struct vm_area_struct *vma)
 {
+	struct pages_list *pglist =
+	    (struct pages_list *)vma->vm_private_data;
+
+	pages_list_get(pglist);
 }
 
 static void hab_map_close(struct vm_area_struct *vma)
 {
+	struct pages_list *pglist =
+	    (struct pages_list *)vma->vm_private_data;
+
+	pages_list_put(pglist);
+	vma->vm_private_data = NULL;
 }
 
 static const struct vm_operations_struct habmem_vm_ops = {
 	.fault = hab_map_fault,
 	.open = hab_map_open,
 	.close = hab_map_close,
+};
+
+static int hab_buffer_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
+{
+	struct pages_list *pglist = vma->vm_private_data;
+	pgoff_t page_offset;
+	int ret;
+
+	page_offset = ((unsigned long)vmf->virtual_address - vma->vm_start) >>
+		PAGE_SHIFT;
+
+	if (page_offset > pglist->npages)
+		return VM_FAULT_SIGBUS;
+
+	ret = vm_insert_page(vma, (unsigned long)vmf->virtual_address,
+			     pglist->pages[page_offset]);
+
+	switch (ret) {
+	case 0:
+		return VM_FAULT_NOPAGE;
+	case -ENOMEM:
+		return VM_FAULT_OOM;
+	case -EBUSY:
+		return VM_FAULT_RETRY;
+	case -EFAULT:
+	case -EINVAL:
+		return VM_FAULT_SIGBUS;
+	default:
+		WARN_ON(1);
+		return VM_FAULT_SIGBUS;
+	}
+}
+
+static void hab_buffer_open(struct vm_area_struct *vma)
+{
+}
+
+static void hab_buffer_close(struct vm_area_struct *vma)
+{
+}
+
+static const struct vm_operations_struct hab_buffer_vm_ops = {
+	.fault = hab_buffer_fault,
+	.open = hab_buffer_open,
+	.close = hab_buffer_close,
 };
 
 static int hab_mem_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
@@ -431,7 +588,7 @@ static int hab_mem_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 		return -EINVAL;
 
 	vma->vm_flags |= VM_IO | VM_PFNMAP | VM_DONTEXPAND | VM_DONTDUMP;
-	vma->vm_ops = &habmem_vm_ops;
+	vma->vm_ops = &hab_buffer_vm_ops;
 	vma->vm_private_data = pglist;
 	vma->vm_flags |= VM_MIXEDMAP;
 
@@ -440,6 +597,9 @@ static int hab_mem_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 
 static void hab_mem_dma_buf_release(struct dma_buf *dmabuf)
 {
+	struct pages_list *pglist = dmabuf->priv;
+
+	pages_list_put(pglist);
 }
 
 static void *hab_mem_dma_buf_kmap(struct dma_buf *dmabuf,
@@ -470,82 +630,50 @@ static int habmem_imp_hyp_map_fd(void *imp_ctx,
 	uint32_t userflags,
 	int32_t *pfd)
 {
-	struct page **pages;
-	struct compressed_pfns *pfn_table =
-			(struct compressed_pfns *)exp->payload;
 	struct pages_list *pglist;
 	struct importer_context *priv = imp_ctx;
-	unsigned long pfn;
-	int i, j, k = 0;
-	pgprot_t prot = PAGE_KERNEL;
-	int32_t fd, size;
+	int32_t fd = -1;
 	int ret;
+	struct dma_buf *dmabuf;
 	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
 
-	if (!pfn_table || !priv)
+	if (!priv)
 		return -EINVAL;
-	size = exp->payload_count * sizeof(struct page *);
-	pages = kmalloc(size, GFP_KERNEL);
-	if (!pages)
-		return -ENOMEM;
 
-	pglist = kzalloc(sizeof(*pglist), GFP_KERNEL);
-	if (!pglist) {
-		kfree(pages);
-		return -ENOMEM;
-	}
+	pglist = pages_list_lookup(priv, exp->export_id, exp->pchan);
+	if (pglist)
+		goto buffer_ready;
 
-	pfn = pfn_table->first_pfn;
-	for (i = 0; i < pfn_table->nregions; i++) {
-		for (j = 0; j < pfn_table->region[i].size; j++) {
-			pages[k] = pfn_to_page(pfn+j);
-			k++;
-		}
-		pfn += pfn_table->region[i].size + pfn_table->region[i].space;
-	}
+	pglist = pages_list_create(imp_ctx, exp, userflags);
+	if (IS_ERR(pglist))
+		return PTR_ERR(pglist);
 
-	pglist->pages = pages;
-	pglist->npages = exp->payload_count;
-	pglist->kernel = 0;
-	pglist->index = 0;
-	pglist->refcntk = pglist->refcntu = 0;
-	pglist->userflags = userflags;
-	pglist->export_id = exp->export_id;
-	pglist->vcid = exp->vcid_remote;
-	pglist->pchan = exp->pchan;
+	pages_list_add(priv, pglist);
 
-	if (!(userflags & HABMM_IMPORT_FLAGS_CACHED))
-		prot = pgprot_writecombine(prot);
-
+buffer_ready:
 	exp_info.ops = &dma_buf_ops;
-	exp_info.size = exp->payload_count << PAGE_SHIFT;
+	exp_info.size = pglist->npages << PAGE_SHIFT;
 	exp_info.flags = O_RDWR;
 	exp_info.priv = pglist;
-	pglist->dmabuf = dma_buf_export(&exp_info);
-	if (IS_ERR(pglist->dmabuf)) {
-		ret = PTR_ERR(pglist->dmabuf);
-		kfree(pages);
-		kfree(pglist);
-		return ret;
+	dmabuf = dma_buf_export(&exp_info);
+	if (IS_ERR(dmabuf)) {
+		pr_err("export to dmabuf failed\n");
+		ret = PTR_ERR(dmabuf);
+		goto proc_end;
 	}
+	pages_list_get(pglist);
 
-	fd = dma_buf_fd(pglist->dmabuf, O_CLOEXEC);
+	fd = dma_buf_fd(dmabuf, O_CLOEXEC);
 	if (fd < 0) {
-		dma_buf_put(pglist->dmabuf);
-		kfree(pages);
-		kfree(pglist);
-		return -EINVAL;
+		pr_err("dma buf to fd failed\n");
+		dma_buf_put(dmabuf);
+		ret = -EINVAL;
+		goto proc_end;
 	}
 
-	pglist->refcntk++;
-
-	write_lock(&priv->implist_lock);
-	list_add_tail(&pglist->list,  &priv->imp_list);
-	priv->cnt++;
-	write_unlock(&priv->implist_lock);
-
+proc_end:
 	*pfd = fd;
-
+	pages_list_put(pglist);
 	return 0;
 }
 
@@ -554,68 +682,45 @@ static int habmem_imp_hyp_map_kva(void *imp_ctx,
 	uint32_t userflags,
 	void **pkva)
 {
-	struct page **pages;
-	struct compressed_pfns *pfn_table =
-		(struct compressed_pfns *)exp->payload;
 	struct pages_list *pglist;
 	struct importer_context *priv = imp_ctx;
-	unsigned long pfn;
-	int i, j, k = 0, size;
 	pgprot_t prot = PAGE_KERNEL;
 
-	if (!pfn_table || !priv)
+	if (!priv)
 		return -EINVAL;
-	size = exp->payload_count * sizeof(struct page *);
-	pages = kmalloc(size, GFP_KERNEL);
-	if (!pages)
-		return -ENOMEM;
-	pglist = kzalloc(sizeof(*pglist), GFP_KERNEL);
-	if (!pglist) {
-		kfree(pages);
-		return -ENOMEM;
-	}
 
-	pfn = pfn_table->first_pfn;
-	for (i = 0; i < pfn_table->nregions; i++) {
-		for (j = 0; j < pfn_table->region[i].size; j++) {
-			pages[k] = pfn_to_page(pfn+j);
-			k++;
-		}
-		pfn += pfn_table->region[i].size + pfn_table->region[i].space;
-	}
+	pglist = pages_list_lookup(priv, exp->export_id, exp->pchan);
+	if (pglist)
+		goto buffer_ready;
 
-	pglist->pages = pages;
-	pglist->npages = exp->payload_count;
-	pglist->kernel = 1;
-	pglist->refcntk = pglist->refcntu = 0;
-	pglist->userflags = userflags;
-	pglist->export_id = exp->export_id;
-	pglist->vcid = exp->vcid_remote;
-	pglist->pchan = exp->pchan;
+	pglist = pages_list_create(imp_ctx, exp, userflags);
+	if (IS_ERR(pglist))
+		return PTR_ERR(pglist);
+
+	pages_list_add(priv, pglist);
+
+buffer_ready:
+	if (pglist->kva)
+		goto pro_end;
+
+	if (pglist->userflags != userflags) {
+		pr_info("exp %d: userflags: 0x%x -> 0x%x\n",
+			exp->export_id, pglist->userflags, userflags);
+		pglist->userflags = userflags;
+	}
 
 	if (!(userflags & HABMM_IMPORT_FLAGS_CACHED))
 		prot = pgprot_writecombine(prot);
 
 	pglist->kva = vmap(pglist->pages, pglist->npages, VM_MAP, prot);
 	if (pglist->kva == NULL) {
-		kfree(pages);
 		pr_err("%ld pages vmap failed\n", pglist->npages);
-		kfree(pglist);
 		return -ENOMEM;
 	}
 
-	pr_debug("%ld pages vmap pass, return %p\n",
-			pglist->npages, pglist->kva);
-
-	pglist->refcntk++;
-
-	write_lock(&priv->implist_lock);
-	list_add_tail(&pglist->list,  &priv->imp_list);
-	priv->cnt++;
-	write_unlock(&priv->implist_lock);
-
+pro_end:
 	*pkva = pglist->kva;
-
+	pages_list_put(pglist);
 	return 0;
 }
 
@@ -624,52 +729,31 @@ static int habmem_imp_hyp_map_uva(void *imp_ctx,
 	uint32_t userflags,
 	uint64_t *index)
 {
-	struct page **pages;
-	struct compressed_pfns *pfn_table =
-		(struct compressed_pfns *)exp->payload;
 	struct pages_list *pglist;
 	struct importer_context *priv = imp_ctx;
-	unsigned long pfn;
-	int i, j, k = 0, size;
 
-	if (!pfn_table || !priv)
+	if (!priv)
 		return -EINVAL;
-	size = exp->payload_count * sizeof(struct page *);
-	pages = kmalloc(size, GFP_KERNEL);
-	if (!pages)
-		return -ENOMEM;
 
-	pglist = kzalloc(sizeof(*pglist), GFP_KERNEL);
-	if (!pglist) {
-		kfree(pages);
-		return -ENOMEM;
-	}
+	pglist = pages_list_lookup(priv, exp->export_id, exp->pchan);
+	if (pglist)
+		goto buffer_ready;
 
-	pfn = pfn_table->first_pfn;
-	for (i = 0; i < pfn_table->nregions; i++) {
-		for (j = 0; j < pfn_table->region[i].size; j++) {
-			pages[k] = pfn_to_page(pfn+j);
-			k++;
-		}
-		pfn += pfn_table->region[i].size + pfn_table->region[i].space;
-	}
+	pglist = pages_list_create(imp_ctx, exp, userflags);
+	if (IS_ERR(pglist))
+		return PTR_ERR(pglist);
 
-	pglist->pages = pages;
-	pglist->npages = exp->payload_count;
-	pglist->index = page_to_phys(pages[0]) >> PAGE_SHIFT;
-	pglist->refcntk = pglist->refcntu = 0;
-	pglist->userflags = userflags;
-	pglist->export_id = exp->export_id;
-	pglist->vcid = exp->vcid_remote;
-	pglist->pchan = exp->pchan;
+	pages_list_add(priv, pglist);
 
-	write_lock(&priv->implist_lock);
-	list_add_tail(&pglist->list,  &priv->imp_list);
-	priv->cnt++;
-	write_unlock(&priv->implist_lock);
+buffer_ready:
+	if (pglist->index)
+		goto proc_end;
 
+	pglist->index = page_to_phys(pglist->pages[0]) >> PAGE_SHIFT;
+
+proc_end:
 	*index = pglist->index << PAGE_SHIFT;
-
+	pages_list_put(pglist);
 	return 0;
 }
 
@@ -697,37 +781,17 @@ int habmem_imp_hyp_map(void *imp_ctx, struct hab_import *param,
 int habmm_imp_hyp_unmap(void *imp_ctx, struct export_desc *exp, int kernel)
 {
 	struct importer_context *priv = imp_ctx;
-	struct pages_list *pglist, *tmp;
-	int found = 0;
+	struct pages_list *pglist;
 
-	write_lock(&priv->implist_lock);
-	list_for_each_entry_safe(pglist, tmp, &priv->imp_list, list) {
-		if (pglist->export_id == exp->export_id &&
-			pglist->pchan == exp->pchan) {
-			found = 1;
-			list_del(&pglist->list);
-			priv->cnt--;
-			break;
-		}
-	}
-	write_unlock(&priv->implist_lock);
-
-	if (!found) {
+	pglist = pages_list_lookup(priv, exp->export_id, exp->pchan);
+	if (!pglist) {
 		pr_err("failed to find export id %u\n", exp->export_id);
 		return -EINVAL;
 	}
 
-	pr_debug("detach pglist %p, kernel %d, list cnt %d\n",
-		pglist, pglist->kernel, priv->cnt);
+	pages_list_remove(priv, pglist);
 
-	if (pglist->kva)
-		vunmap(pglist->kva);
-
-	if (pglist->dmabuf)
-		dma_buf_put(pglist->dmabuf);
-
-	kfree(pglist->pages);
-	kfree(pglist);
+	pages_list_put(pglist);
 
 	return 0;
 }
@@ -739,12 +803,14 @@ int habmem_imp_hyp_mmap(struct file *filp, struct vm_area_struct *vma)
 	long length = vma->vm_end - vma->vm_start;
 	struct pages_list *pglist;
 	int bfound = 0;
+	int ret = 0;
 
 	read_lock(&imp_ctx->implist_lock);
 	list_for_each_entry(pglist, &imp_ctx->imp_list, list) {
 		if ((pglist->index == vma->vm_pgoff) &&
 			((length <= pglist->npages * PAGE_SIZE))) {
 			bfound = 1;
+			pages_list_get(pglist);
 			break;
 		}
 	}
@@ -758,7 +824,8 @@ int habmem_imp_hyp_mmap(struct file *filp, struct vm_area_struct *vma)
 	if (length > pglist->npages * PAGE_SIZE) {
 		pr_err("Error vma length %ld not matching page list %ld\n",
 			length, pglist->npages * PAGE_SIZE);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto proc_end;
 	}
 
 	vma->vm_ops = &habmem_vm_ops;
@@ -769,6 +836,10 @@ int habmem_imp_hyp_mmap(struct file *filp, struct vm_area_struct *vma)
 		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 
 	return 0;
+
+proc_end:
+	pages_list_put(pglist);
+	return ret;
 }
 
 int habmm_imp_hyp_map_check(void *imp_ctx, struct export_desc *exp)
@@ -777,15 +848,11 @@ int habmm_imp_hyp_map_check(void *imp_ctx, struct export_desc *exp)
 	struct pages_list *pglist;
 	int found = 0;
 
-	read_lock(&priv->implist_lock);
-	list_for_each_entry(pglist, &priv->imp_list, list) {
-		if (pglist->export_id == exp->export_id &&
-			pglist->pchan == exp->pchan) {
-			found = 1;
-			break;
-		}
+	pglist = pages_list_lookup(priv, exp->export_id, exp->pchan);
+	if (pglist) {
+		found = 1;
+		pages_list_put(pglist);
 	}
-	read_unlock(&priv->implist_lock);
 
 	return found;
 }
