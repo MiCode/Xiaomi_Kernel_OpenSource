@@ -18,7 +18,7 @@
 #include "apq8009-memory.dtsi"
 #include <dt-bindings/pinctrl/qcom,pmic-mpp.h>
 #include "msm8909-pm8916-camera.dtsi"
-#include "msm8909-pm8916-camera-sensor-robot.dtsi"
+#include "msm8909-pm8916-camera-sensor-robot-pronto.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. APQ8009 Robot-pronto RefBoard";
