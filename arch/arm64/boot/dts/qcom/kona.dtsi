@@ -738,12 +738,12 @@ qcom,msm-imem@146bf000 {
 		qcom,gds-timeout = <500>;
 	};
 
-	gpu_gx_domain_addr: syscon@0x3d91508 {
+	gpu_gx_domain_addr: syscon@3d91508 {
 		compatible = "syscon";
 		reg = <0x3d91508 0x4>;
 	};
 
-	gpu_gx_sw_reset: syscon@0x3d91008 {
+	gpu_gx_sw_reset: syscon@3d91008 {
 		compatible = "syscon";
 		reg = <0x3d91008 0x4>;
 	};
