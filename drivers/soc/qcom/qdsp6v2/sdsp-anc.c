@@ -38,7 +38,7 @@ struct anc_if_ctl {
 	atomic_t status;
 	wait_queue_head_t wait[AFE_MAX_PORTS];
 	struct task_struct *task;
-	struct anc_get_rpm_resp rpm_calib_data;
+	struct anc_get_algo_module_cali_data_resp cali_data_resp;
 	uint32_t mmap_handle;
 	struct mutex afe_cmd_lock;
 };
@@ -48,33 +48,23 @@ static struct anc_if_ctl this_anc_if;
 static int32_t anc_get_param_callback(uint32_t *payload,
 			uint32_t payload_size)
 {
-	u32 param_id;
-	struct anc_get_rpm_resp *resp =
-		(struct anc_get_rpm_resp *) payload;
-
-	if (!(&(resp->pdata))) {
-		pr_err("%s: Error: resp pdata is NULL\n", __func__);
+	if ((payload_size < (sizeof(uint32_t) +
+		sizeof(this_anc_if.cali_data_resp.pdata))) ||
+		(payload_size > sizeof(this_anc_if.cali_data_resp))) {
+		pr_err("%s: Error: received size %d, calib_data size %zu\n",
+			__func__, payload_size,
+			sizeof(this_anc_if.cali_data_resp));
 		return -EINVAL;
 	}
 
-	param_id = resp->pdata.param_id;
-	if (param_id == AUD_MSVC_PARAM_ID_PORT_ANC_ALGO_RPM) {
-		if (payload_size < sizeof(this_anc_if.rpm_calib_data)) {
-			pr_err("%s: Error: received size %d, calib_data size %zu\n",
-				__func__, payload_size,
-				sizeof(this_anc_if.rpm_calib_data));
-			return -EINVAL;
-		}
-
-		memcpy(&this_anc_if.rpm_calib_data, payload,
-			sizeof(this_anc_if.rpm_calib_data));
-		if (!this_anc_if.rpm_calib_data.status) {
-			atomic_set(&this_anc_if.state, 0);
-	   } else {
-			pr_debug("%s: calib resp status: %d", __func__,
-				this_anc_if.rpm_calib_data.status);
-			atomic_set(&this_anc_if.state, -1);
-		}
+	memcpy(&this_anc_if.cali_data_resp, payload,
+		payload_size);
+	if (!this_anc_if.cali_data_resp.status) {
+		atomic_set(&this_anc_if.state, 0);
+	} else {
+		pr_debug("%s: calib resp status: %d", __func__,
+			this_anc_if.cali_data_resp.status);
+		atomic_set(&this_anc_if.state, -1);
 	}
 
 	return 0;
@@ -465,108 +455,9 @@ int anc_if_tdm_port_stop(u16 port_id)
 	return anc_if_send_cmd_port_stop(port_id);
 }
 
-int anc_if_set_rpm(u16 port_id, u32 rpm)
-{
-	int ret = 0;
-	int index;
-
-	ret = anc_sdsp_interface_prepare();
-	if (ret != 0) {
-		pr_err("%s: Q6 interface prepare failed %d\n", __func__, ret);
-		return ret;
-	}
-
-	index = q6audio_get_port_index(port_id);
-
-	{
-		struct anc_set_rpm_command config;
-
-		memset(&config, 0, sizeof(config));
-		config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
-				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
-		config.hdr.pkt_size = sizeof(config);
-		config.hdr.src_port = 0;
-		config.hdr.dest_port = 0;
-		config.hdr.token = index;
-		config.hdr.opcode = AFE_PORT_CMD_SET_PARAM_V2;
-		config.param.port_id = q6audio_get_port_id(port_id);
-		config.param.payload_size = sizeof(config) -
-			sizeof(struct apr_hdr) -
-			sizeof(config.param);
-		config.param.payload_address_lsw = 0x00;
-		config.param.payload_address_msw = 0x00;
-		config.param.mem_map_handle = 0x00;
-		config.pdata.module_id = AUD_MSVC_MODULE_AUDIO_DEV_ANC_ALGO;
-		config.pdata.param_id = AUD_MSVC_PARAM_ID_PORT_ANC_ALGO_RPM;
-		config.pdata.param_size = sizeof(config.set_rpm);
-		config.set_rpm.minor_version =
-		AUD_MSVC_API_VERSION_DEV_ANC_ALGO_RPM;
-		config.set_rpm.rpm = rpm;
-
-		ret = anc_if_apr_send_pkt(&config, &this_anc_if.wait[index]);
-		if (ret) {
-			pr_err("%s: share resource for port 0x%x failed ret = %d\n",
-					__func__, port_id, ret);
-		}
-	}
-
-	return ret;
-}
-
-int anc_if_set_bypass_mode(u16 port_id, u32 bypass_mode)
-{
-	int ret = 0;
-
-	int index;
-
-	ret = anc_sdsp_interface_prepare();
-	if (ret != 0) {
-		pr_err("%s: Q6 interface prepare failed %d\n", __func__, ret);
-		return ret;
-	}
-
-	index = q6audio_get_port_index(port_id);
-
-	{
-		struct anc_set_bypass_mode_command config;
-
-		memset(&config, 0, sizeof(config));
-		config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
-				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
-		config.hdr.pkt_size = sizeof(config);
-		config.hdr.src_port = 0;
-		config.hdr.dest_port = 0;
-		config.hdr.token = index;
-		config.hdr.opcode = AFE_PORT_CMD_SET_PARAM_V2;
-		config.param.port_id = q6audio_get_port_id(port_id);
-		config.param.payload_size = sizeof(config) -
-			sizeof(struct apr_hdr) -
-			sizeof(config.param);
-		config.param.payload_address_lsw = 0x00;
-		config.param.payload_address_msw = 0x00;
-		config.param.mem_map_handle = 0x00;
-		config.pdata.module_id = AUD_MSVC_MODULE_AUDIO_DEV_ANC_ALGO;
-		config.pdata.param_id =
-		AUD_MSVC_PARAM_ID_PORT_ANC_ALGO_BYPASS_MODE;
-		config.pdata.param_size = sizeof(config.set_bypass_mode);
-		config.set_bypass_mode.minor_version =
-		AUD_MSVC_API_VERSION_DEV_ANC_ALGO_BYPASS_MODE;
-		config.set_bypass_mode.bypass_mode = bypass_mode;
-
-		ret = anc_if_apr_send_pkt(&config, &this_anc_if.wait[index]);
-		if (ret) {
-			pr_err("%s: share resource for port 0x%x failed ret = %d\n",
-					__func__, port_id, ret);
-		}
-	}
-
-	return ret;
-}
-
 int anc_if_set_algo_module_id(u16 port_id, u32 module_id)
 {
 	int ret = 0;
-
 	int index;
 
 	ret = anc_sdsp_interface_prepare();
@@ -595,7 +486,7 @@ int anc_if_set_algo_module_id(u16 port_id, u32 module_id)
 		config.param.payload_address_lsw = 0x00;
 		config.param.payload_address_msw = 0x00;
 		config.param.mem_map_handle = 0x00;
-		config.pdata.module_id = AUD_MSVC_MODULE_AUDIO_DEV_ANC_ALGO;
+		config.pdata.module_id = AFE_MODULE_AUDIO_DEV_INTERFACE;
 		config.pdata.param_id =
 		AUD_MSVC_PARAM_ID_PORT_ANC_ALGO_MODULE_ID;
 		config.pdata.param_size = sizeof(config.set_algo_module_id);
@@ -616,7 +507,6 @@ int anc_if_set_anc_mic_spkr_layout(u16 port_id,
 struct aud_msvc_param_id_dev_anc_mic_spkr_layout_info *set_mic_spkr_layout_p)
 {
 	int ret = 0;
-
 	int index;
 
 	ret = anc_sdsp_interface_prepare();
@@ -645,7 +535,7 @@ struct aud_msvc_param_id_dev_anc_mic_spkr_layout_info *set_mic_spkr_layout_p)
 		config.param.payload_address_lsw = 0x00;
 		config.param.payload_address_msw = 0x00;
 		config.param.mem_map_handle = 0x00;
-		config.pdata.module_id = AUD_MSVC_MODULE_AUDIO_DEV_ANC_ALGO;
+		config.pdata.module_id = AFE_MODULE_AUDIO_DEV_INTERFACE;
 		config.pdata.param_id =
 		AUD_MSVC_PARAM_ID_PORT_ANC_MIC_SPKR_LAYOUT_INFO;
 		config.pdata.param_size = sizeof(config.set_mic_spkr_layout);
@@ -657,6 +547,160 @@ struct aud_msvc_param_id_dev_anc_mic_spkr_layout_info *set_mic_spkr_layout_p)
 			pr_err("%s: anc algo module ID for port 0x%x failed ret = %d\n",
 					__func__, port_id, ret);
 		}
+	}
+
+	return ret;
+}
+
+
+int anc_if_set_algo_module_cali_data(u16 port_id, void *data_p)
+{
+	int ret = 0;
+	int index;
+
+	ret = anc_sdsp_interface_prepare();
+	if (ret != 0) {
+		pr_err("%s: Q6 interface prepare failed %d\n", __func__, ret);
+		return ret;
+	}
+
+	index = q6audio_get_port_index(port_id);
+
+	{
+		struct anc_set_algo_module_cali_data_command *cali_data_cfg_p;
+		void *config_p = NULL;
+		int cmd_size = 0;
+		void *out_payload_p = NULL;
+		uint32_t *in_payload_p = (uint32_t *)data_p;
+
+		uint32_t module_id = *in_payload_p;
+		uint32_t param_id = *(in_payload_p + 1);
+		uint32_t payload_size = *(in_payload_p + 2);
+
+		cmd_size = sizeof(struct anc_set_algo_module_cali_data_command)
+		+ payload_size;
+		config_p = kzalloc(cmd_size, GFP_KERNEL);
+		if (!config_p) {
+			ret = -ENOMEM;
+			return ret;
+		}
+
+		memset(config_p, 0, cmd_size);
+		out_payload_p = config_p
+		+ sizeof(struct anc_set_algo_module_cali_data_command);
+
+		cali_data_cfg_p =
+		(struct anc_set_algo_module_cali_data_command *)config_p;
+
+		cali_data_cfg_p->hdr.hdr_field =
+		APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+		cali_data_cfg_p->hdr.pkt_size = cmd_size;
+		cali_data_cfg_p->hdr.src_port = 0;
+		cali_data_cfg_p->hdr.dest_port = 0;
+		cali_data_cfg_p->hdr.token = index;
+		cali_data_cfg_p->hdr.opcode = AFE_PORT_CMD_SET_PARAM_V2;
+		cali_data_cfg_p->param.port_id = q6audio_get_port_id(port_id);
+		cali_data_cfg_p->param.payload_size = cmd_size -
+			sizeof(struct apr_hdr) -
+			sizeof(struct aud_msvc_port_cmd_set_param_v2);
+		cali_data_cfg_p->param.payload_address_lsw = 0x00;
+		cali_data_cfg_p->param.payload_address_msw = 0x00;
+		cali_data_cfg_p->param.mem_map_handle = 0x00;
+		cali_data_cfg_p->pdata.module_id = module_id;
+		cali_data_cfg_p->pdata.param_id = param_id;
+		cali_data_cfg_p->pdata.param_size = payload_size;
+
+		memcpy(out_payload_p, (in_payload_p + 3), payload_size);
+
+		ret = anc_if_apr_send_pkt(cali_data_cfg_p,
+			&this_anc_if.wait[index]);
+		if (ret)
+			pr_err("%s: anc algo module calibration data for port 0x%x failed ret = %d\n",
+			__func__, port_id, ret);
+
+		kfree(config_p);
+	}
+
+	return ret;
+}
+
+int anc_if_get_algo_module_cali_data(u16 port_id, void *data_p)
+{
+	int ret = 0;
+	int index;
+
+	ret = anc_sdsp_interface_prepare();
+	if (ret != 0) {
+		pr_err("%s: Q6 interface prepare failed %d\n", __func__, ret);
+		return ret;
+	}
+
+	index = q6audio_get_port_index(port_id);
+
+	{
+		struct anc_get_algo_module_cali_data_command *cali_data_cfg_p;
+		void *config_p = NULL;
+		int cmd_size = 0;
+		void *out_payload_p = NULL;
+		uint32_t *in_payload_p = (uint32_t *)data_p;
+
+		uint32_t module_id = *in_payload_p;
+		uint32_t param_id = *(in_payload_p + 1);
+		uint32_t payload_size = *(in_payload_p + 2);
+
+		cmd_size = sizeof(struct anc_get_algo_module_cali_data_command)
+		+ payload_size;
+		config_p = kzalloc(cmd_size, GFP_KERNEL);
+			if (!config_p) {
+			ret = -ENOMEM;
+			return ret;
+		}
+
+		memset(config_p, 0, cmd_size);
+		out_payload_p = config_p +
+		sizeof(struct anc_set_algo_module_cali_data_command);
+
+		cali_data_cfg_p =
+		(struct anc_get_algo_module_cali_data_command *)config_p;
+
+		cali_data_cfg_p->hdr.hdr_field =
+		APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+		cali_data_cfg_p->hdr.pkt_size = cmd_size;
+		cali_data_cfg_p->hdr.src_port = 0;
+		cali_data_cfg_p->hdr.dest_port = 0;
+		cali_data_cfg_p->hdr.token = index;
+		cali_data_cfg_p->hdr.opcode = AFE_PORT_CMD_GET_PARAM_V2;
+		cali_data_cfg_p->param.port_id = q6audio_get_port_id(port_id);
+		cali_data_cfg_p->param.payload_size = cmd_size -
+			sizeof(struct apr_hdr) -
+			sizeof(struct aud_msvc_port_cmd_get_param_v2);
+		cali_data_cfg_p->param.payload_address_lsw = 0x00;
+		cali_data_cfg_p->param.payload_address_msw = 0x00;
+		cali_data_cfg_p->param.mem_map_handle = 0x00;
+		cali_data_cfg_p->param.module_id = module_id;
+		cali_data_cfg_p->param.param_id = param_id;
+		cali_data_cfg_p->pdata.param_size = 0;
+		cali_data_cfg_p->pdata.module_id = 0;
+		cali_data_cfg_p->pdata.param_id = 0;
+
+		ret = anc_if_apr_send_pkt(cali_data_cfg_p,
+		&this_anc_if.wait[index]);
+		if (ret)
+			pr_err("%s: anc algo module calibration data for port 0x%x failed ret = %d\n",
+					__func__, port_id, ret);
+
+		memcpy((in_payload_p + 3),
+		&this_anc_if.cali_data_resp.payload[0], payload_size);
+
+		*in_payload_p = this_anc_if.cali_data_resp.pdata.module_id;
+		*(in_payload_p + 1) =
+		this_anc_if.cali_data_resp.pdata.param_id;
+		*(in_payload_p + 2) =
+		this_anc_if.cali_data_resp.pdata.param_size;
+
+		kfree(config_p);
 	}
 
 	return ret;
@@ -700,7 +744,6 @@ int anc_if_cmd_memory_map(int port_id, phys_addr_t dma_addr_p,
 	mmap_region_cmd = kzalloc(cmd_size, GFP_KERNEL);
 	if (!mmap_region_cmd) {
 		ret = -ENOMEM;
-		pr_err("%s: allocate mmap_region_cmd failed\n", __func__);
 		return ret;
 	}
 

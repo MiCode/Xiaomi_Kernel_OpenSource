@@ -44,17 +44,11 @@ static size_t get_user_anc_cmd_size(int32_t anc_cmd)
 	case ANC_CMD_STOP:
 		size = 0;
 		break;
-	case ANC_CMD_RPM:
-		size = sizeof(struct audio_anc_rpm_info);
-		break;
-	case ANC_CMD_BYPASS_MODE:
-		size = sizeof(struct audio_anc_bypass_mode);
-		break;
 	case ANC_CMD_ALGO_MODULE:
 		size = sizeof(struct audio_anc_algo_module_info);
 		break;
 	case ANC_CMD_ALGO_CALIBRATION:
-		size = sizeof(struct audio_anc_algo_calibration_info);
+		size = sizeof(struct audio_anc_algo_calibration_header);
 		break;
 	default:
 		pr_err("%s:Invalid anc cmd %d!",
@@ -77,8 +71,6 @@ static int call_set_anc(int32_t anc_cmd,
 	case ANC_CMD_STOP:
 		ret = msm_anc_dev_stop();
 		break;
-	case ANC_CMD_RPM:
-	case ANC_CMD_BYPASS_MODE:
 	case ANC_CMD_ALGO_MODULE:
 	case ANC_CMD_ALGO_CALIBRATION:
 		ret = msm_anc_dev_set_info(data, anc_cmd);
@@ -98,7 +90,8 @@ static int call_get_anc(int32_t anc_cmd,
 	int				ret = 0;
 
 	switch (anc_cmd) {
-	case ANC_CMD_RPM:
+	case ANC_CMD_ALGO_CALIBRATION:
+		ret = msm_anc_dev_get_info(data, anc_cmd);
 		break;
 	default:
 		break;
@@ -146,9 +139,9 @@ static long audio_anc_shared_ioctl(struct file *file, unsigned int cmd,
 		pr_err("%s: Could not copy size value from user\n", __func__);
 		ret = -EFAULT;
 		goto done;
-	} else if (size < sizeof(struct audio_anc_packet)) {
+	} else if (size < sizeof(struct audio_anc_header)) {
 		pr_err("%s: Invalid size sent to driver: %d, min size is %zd\n",
-			__func__, size, sizeof(struct audio_anc_packet));
+			__func__, size, sizeof(struct audio_anc_header));
 		ret = -EINVAL;
 		goto done;
 	}

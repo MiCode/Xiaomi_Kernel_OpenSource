@@ -53,8 +53,6 @@ struct anc_tdm_group_set_info {
 
 struct anc_dev_drv_info {
 	uint32_t state;
-	uint32_t rpm;
-	uint32_t bypass_mode;
 	uint32_t algo_module_id;
 };
 
@@ -311,36 +309,14 @@ static int anc_dev_port_stop(int32_t which_port)
 
 int msm_anc_dev_set_info(void *info_p, int32_t anc_cmd)
 {
-	int rc = 0;
+	int rc = -EINVAL;
 
 	switch (anc_cmd) {
-	case ANC_CMD_RPM: {
-		struct audio_anc_rpm_info *rpm_info_p =
-			(struct audio_anc_rpm_info *)info_p;
-
-		if (this_anc_dev_info.state)
-		rc = anc_if_set_rpm(
-			anc_port_cfg[ANC_DEV_PORT_ANC_SPKR].port_id,
-			rpm_info_p->rpm);
-		else
-			this_anc_dev_info.rpm = 0;
-		break;
-	}
-	case ANC_CMD_BYPASS_MODE: {
-		struct audio_anc_bypass_mode *bypass_mode_p =
-			(struct audio_anc_bypass_mode *)info_p;
-
-		if (this_anc_dev_info.state)
-			rc = anc_if_set_bypass_mode(
-			anc_port_cfg[ANC_DEV_PORT_ANC_SPKR].port_id,
-			bypass_mode_p->mode);
-		else
-			this_anc_dev_info.bypass_mode = bypass_mode_p->mode;
-		break;
-	}
 	case ANC_CMD_ALGO_MODULE: {
 		struct audio_anc_algo_module_info *module_info_p =
 		(struct audio_anc_algo_module_info *)info_p;
+
+		rc = 0;
 
 		if (this_anc_dev_info.state)
 			rc = anc_if_set_algo_module_id(
@@ -351,11 +327,49 @@ int msm_anc_dev_set_info(void *info_p, int32_t anc_cmd)
 			module_info_p->module_id;
 		break;
 	}
+	case ANC_CMD_ALGO_CALIBRATION: {
+		rc = -EINVAL;
+		if (this_anc_dev_info.state)
+			rc = anc_if_set_algo_module_cali_data(
+			anc_port_cfg[ANC_DEV_PORT_ANC_SPKR].port_id,
+			info_p);
+		else
+			pr_err("%s: ANC is not running yet\n",
+				__func__);
+		break;
+	}
+	default:
+		pr_err("%s: ANC cmd wrong\n",
+			__func__);
+		break;
 	}
 
 	return rc;
 }
 
+int msm_anc_dev_get_info(void *info_p, int32_t anc_cmd)
+{
+	int rc = -EINVAL;
+
+	switch (anc_cmd) {
+	case ANC_CMD_ALGO_CALIBRATION: {
+		if (this_anc_dev_info.state)
+			rc = anc_if_get_algo_module_cali_data(
+			anc_port_cfg[ANC_DEV_PORT_ANC_SPKR].port_id,
+			info_p);
+		else
+			pr_err("%s: ANC is not running yet\n",
+				__func__);
+		break;
+	}
+	default:
+		pr_err("%s: ANC cmd wrong\n",
+			__func__);
+		break;
+	}
+
+	return rc;
+}
 
 int msm_anc_dev_start(void)
 {
@@ -514,11 +528,6 @@ int msm_anc_dev_start(void)
 		anc_port_cfg[ANC_DEV_PORT_ANC_SPKR].port_id,
 		this_anc_dev_info.algo_module_id);
 
-	if (this_anc_dev_info.bypass_mode != 0)
-		rc = anc_if_set_bypass_mode(
-		anc_port_cfg[ANC_DEV_PORT_ANC_SPKR].port_id,
-		this_anc_dev_info.bypass_mode);
-
 	group_id = get_group_id_from_port_id(
 			anc_port_cfg[ANC_DEV_PORT_ANC_SPKR].port_id);
 
@@ -612,8 +621,6 @@ int msm_anc_dev_stop(void)
 
 	this_anc_dev_info.state = 0;
 	this_anc_dev_info.algo_module_id = 0;
-	this_anc_dev_info.rpm = 0;
-	this_anc_dev_info.bypass_mode = 0;
 
 	pr_debug("%s: ANC devices stop successfully!\n", __func__);
 
