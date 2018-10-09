@@ -1005,6 +1005,9 @@ void imp_handle_modem_shutdown(void)
 {
 	IMP_FUNC_ENTRY();
 
+	if (!imp_ctx)
+		return;
+
 	mutex_lock(&imp_ctx->mutex);
 
 	if (imp_ctx->state == IMP_INVALID) {
