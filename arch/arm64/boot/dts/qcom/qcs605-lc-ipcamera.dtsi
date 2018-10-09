@@ -66,6 +66,15 @@
 			bias-disable;
 			};
 	};
+
+	usb_vbus_det_default: usb_vbus_det_default {
+		config {
+			pins = "gpio26";
+			drive-strength = <2>;
+			bias-pull-up;
+			input-enable;
+		};
+	};
 };
 
 &sdhc_2 {
@@ -81,6 +90,20 @@
 	cd-gpios = <&tlmm 116 0x1>;
 
 	status = "ok";
+};
+
+&soc {
+	extcon_usb1: extcon_usb1 {
+		compatible = "linux,extcon-usb-gpio";
+		id-gpio = <&tlmm 26 0x1>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb_vbus_det_default>;
+	};
+};
+
+&usb0 {
+	extcon = <&extcon_usb1 &extcon_usb1>;
 };
 
 &msm_sdw_codec {
