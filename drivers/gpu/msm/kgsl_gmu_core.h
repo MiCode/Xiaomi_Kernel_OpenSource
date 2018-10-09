@@ -59,6 +59,13 @@ enum gmu_core_flags {
 	GMU_RSCC_SLEEP_SEQ_DONE,
 };
 
+/* GMU Types */
+enum gmu_coretype {
+	GMU_CORE_TYPE_CM3 = 1, /* Cortex M3 core */
+	GMU_CORE_TYPE_PCC = 2, /* Power collapsible controller */
+	GMU_CORE_TYPE_NONE, /* No GMU */
+};
+
 /*
  * OOB requests values. These range from 0 to 7 and then
  * the BIT() offset into the actual value is calculated
@@ -136,6 +143,7 @@ struct gmu_dev_ops {
 			enum oob_request req);
 	void (*oob_clear)(struct adreno_device *adreno_dev,
 			enum oob_request req);
+	void (*bcl_config)(struct adreno_device *adreno_dev, bool on);
 	void (*irq_enable)(struct kgsl_device *device);
 	void (*irq_disable)(struct kgsl_device *device);
 	int (*hfi_start_msg)(struct adreno_device *adreno_dev);
@@ -145,10 +153,12 @@ struct gmu_dev_ops {
 	int (*wait_for_lowest_idle)(struct adreno_device *);
 	int (*wait_for_gmu_idle)(struct adreno_device *);
 	bool (*gx_is_on)(struct adreno_device *);
+	void (*prepare_stop)(struct adreno_device *);
 	int (*ifpc_store)(struct adreno_device *adreno_dev,
 			unsigned int val);
 	unsigned int (*ifpc_show)(struct adreno_device *adreno_dev);
 	void (*snapshot)(struct adreno_device *, struct kgsl_snapshot *);
+	int (*wait_for_active_transition)(struct adreno_device *adreno_dev);
 	const unsigned int gmu2host_intr_mask;
 	const unsigned int gmu_ao_intr_mask;
 };
@@ -173,11 +183,13 @@ struct gmu_core_device {
 	struct gmu_core_ops *core_ops;
 	struct gmu_dev_ops *dev_ops;
 	unsigned long flags;
+	enum gmu_coretype type;
 };
 
-/* GMU core functions */
 extern struct gmu_core_ops gmu_ops;
+extern struct gmu_core_ops rgmu_ops;
 
+/* GMU core functions */
 int gmu_core_probe(struct kgsl_device *device);
 void gmu_core_remove(struct kgsl_device *device);
 int gmu_core_start(struct kgsl_device *device);
@@ -185,6 +197,7 @@ void gmu_core_stop(struct kgsl_device *device);
 int gmu_core_suspend(struct kgsl_device *device);
 void gmu_core_snapshot(struct kgsl_device *device);
 bool gmu_core_gpmu_isenabled(struct kgsl_device *device);
+bool gmu_core_scales_bandwidth(struct kgsl_device *device);
 bool gmu_core_isenabled(struct kgsl_device *device);
 int gmu_core_dcvs_set(struct kgsl_device *device, unsigned int gpu_pwrlevel,
 		unsigned int bus_level);
@@ -198,4 +211,5 @@ void gmu_core_regwrite(struct kgsl_device *device, unsigned int offsetwords,
 		unsigned int value);
 void gmu_core_regrmw(struct kgsl_device *device, unsigned int offsetwords,
 		unsigned int mask, unsigned int bits);
+const char *gmu_core_oob_type_str(enum oob_request req);
 #endif /* __KGSL_GMU_CORE_H */

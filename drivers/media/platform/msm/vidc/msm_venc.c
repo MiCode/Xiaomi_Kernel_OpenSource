@@ -690,7 +690,8 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_NUM_CONCEALED_MB) |
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_ASPECT_RATIO) |
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_LTR) |
-			(1 << V4L2_MPEG_VIDC_EXTRADATA_ROI_QP)
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_ROI_QP) |
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_HDR10PLUS_METADATA)
 			),
 		.qmenu = mpeg_video_vidc_extradata,
 	},
@@ -1759,6 +1760,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		switch (ctrl->val) {
 		case V4L2_MPEG_VIDC_EXTRADATA_ASPECT_RATIO:
 		case V4L2_MPEG_VIDC_EXTRADATA_ROI_QP:
+		case V4L2_MPEG_VIDC_EXTRADATA_HDR10PLUS_METADATA:
 			inst->bufq[OUTPUT_PORT].num_planes = 2;
 			break;
 		case V4L2_MPEG_VIDC_EXTRADATA_LTR:
@@ -1822,7 +1824,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_USELTRFRAME:
 		property_id = HAL_CONFIG_VENC_USELTRFRAME;
 		use_ltr.ref_ltr = ctrl->val;
-		use_ltr.use_constraint = false;
+		use_ltr.use_constraint = true;
 		use_ltr.frames = 0;
 		pdata = &use_ltr;
 		break;
@@ -2085,6 +2087,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			enable.enable = 0;
 		pdata = &enable;
 		inst->clk_data.low_latency_mode = (bool) enable.enable;
+		msm_dcvs_try_enable(inst);
 		break;
 	}
 	case V4L2_CID_MPEG_VIDEO_H264_8X8_TRANSFORM:

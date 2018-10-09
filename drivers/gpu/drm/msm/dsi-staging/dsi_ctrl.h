@@ -393,6 +393,17 @@ int dsi_ctrl_phy_sw_reset(struct dsi_ctrl *dsi_ctrl);
 int dsi_ctrl_phy_reset_config(struct dsi_ctrl *dsi_ctrl, bool enable);
 
 /**
+ * dsi_ctrl_config_clk_gating() - Enable/Disable DSI PHY clk gating
+ * @dsi_ctrl:        DSI controller handle.
+ * @enable:          Enable/disable DSI PHY clk gating
+ * @clk_selection:   clock selection for gating
+ *
+ * Return: error code.
+ */
+int dsi_ctrl_config_clk_gating(struct dsi_ctrl *dsi_ctrl, bool enable,
+		 enum dsi_clk_gate_type clk_selection);
+
+/**
  * dsi_ctrl_soft_reset() - perform a soft reset on DSI controller
  * @dsi_ctrl:         DSI controller handle.
  *
@@ -782,4 +793,11 @@ int dsi_ctrl_update_host_init_state(struct dsi_ctrl *dsi_ctrl, bool en);
  * dsi_ctrl_pixel_format_to_bpp() - returns number of bits per pxl
  */
 int dsi_ctrl_pixel_format_to_bpp(enum dsi_pixel_format dst_format);
+
+/**
+ * dsi_ctrl_set_continuous_clk() - API to set/unset force clock lane HS request.
+ * @dsi_ctrl:                      DSI controller handle.
+ * @enable:			   variable to control continuous clock.
+ */
+void dsi_ctrl_set_continuous_clk(struct dsi_ctrl *dsi_ctrl, bool enable);
 #endif /* _DSI_CTRL_H_ */

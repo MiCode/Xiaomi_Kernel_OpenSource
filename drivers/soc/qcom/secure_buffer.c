@@ -248,10 +248,17 @@ static struct mem_prot_info *get_info_list_from_table(struct sg_table *table,
 #define BATCH_MAX_SIZE SZ_2M
 #define BATCH_MAX_SECTIONS 32
 
-int hyp_assign_table(struct sg_table *table,
+/*
+ *  When -EAGAIN is returned it is safe for the caller to try to call
+ *  __hyp_assign_table again.
+ *
+ *  When -EADDRNOTAVAIL is returned the memory may no longer be in
+ *  a usable state and should no longer be accessed by the HLOS.
+ */
+static int __hyp_assign_table(struct sg_table *table,
 			u32 *source_vm_list, int source_nelems,
 			int *dest_vmids, int *dest_perms,
-			int dest_nelems)
+			int dest_nelems, bool try_lock)
 {
 	int ret = 0;
 	struct scm_desc desc = {0};
@@ -281,10 +288,17 @@ int hyp_assign_table(struct sg_table *table,
 					  &dest_vm_copy_size);
 	if (!dest_vm_copy) {
 		ret = -ENOMEM;
-		goto out_free;
+		goto out_free_src;
 	}
 
-	mutex_lock(&secure_buffer_mutex);
+	if (try_lock) {
+		if (!mutex_trylock(&secure_buffer_mutex)) {
+			ret = -EAGAIN;
+			goto out_free_dest;
+		}
+	} else {
+		mutex_lock(&secure_buffer_mutex);
+	}
 
 	sg_table_copy = get_info_list_from_table(table, &sg_table_copy_size);
 	if (!sg_table_copy) {
@@ -340,6 +354,12 @@ int hyp_assign_table(struct sg_table *table,
 		if (ret) {
 			pr_info("%s: Failed to assign memory protection, ret = %d\n",
 				__func__, ret);
+
+			/*
+			 * Make it clear to clients that the memory may no
+			 * longer be in a usable state.
+			 */
+			ret = -EADDRNOTAVAIL;
 			break;
 		}
 		batch_start = batch_end;
@@ -347,10 +367,29 @@ int hyp_assign_table(struct sg_table *table,
 
 out_unlock:
 	mutex_unlock(&secure_buffer_mutex);
+out_free_dest:
 	kfree(dest_vm_copy);
-out_free:
+out_free_src:
 	kfree(source_vm_copy);
 	return ret;
+}
+
+int hyp_assign_table(struct sg_table *table,
+			u32 *source_vm_list, int source_nelems,
+			int *dest_vmids, int *dest_perms,
+			int dest_nelems)
+{
+	return __hyp_assign_table(table, source_vm_list, source_nelems,
+				  dest_vmids, dest_perms, dest_nelems, false);
+}
+
+int try_hyp_assign_table(struct sg_table *table,
+			u32 *source_vm_list, int source_nelems,
+			int *dest_vmids, int *dest_perms,
+			int dest_nelems)
+{
+	return __hyp_assign_table(table, source_vm_list, source_nelems,
+				  dest_vmids, dest_perms, dest_nelems, true);
 }
 
 int hyp_assign_phys(phys_addr_t addr, u64 size, u32 *source_vm_list,

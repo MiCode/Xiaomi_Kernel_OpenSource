@@ -875,7 +875,7 @@ int kgsl_busmon_get_cur_freq(struct device *dev, unsigned long *freq)
 static int opp_notify(struct notifier_block *nb,
 	unsigned long type, void *in_opp)
 {
-	int result = -EINVAL, level, min_level, max_level;
+	int level, min_level, max_level;
 	struct kgsl_pwrctrl *pwr = container_of(nb, struct kgsl_pwrctrl, nb);
 	struct kgsl_device *device = container_of(pwr,
 			struct kgsl_device, pwrctrl);
@@ -884,20 +884,19 @@ static int opp_notify(struct notifier_block *nb,
 	unsigned long min_freq = 0, max_freq = pwr->pwrlevels[0].gpu_freq;
 
 	if (type != OPP_EVENT_ENABLE && type != OPP_EVENT_DISABLE)
-		return result;
+		return -EINVAL;
 
 	opp = dev_pm_opp_find_freq_floor(dev, &max_freq);
-	dev_pm_opp_put(opp);
-
-	if (IS_ERR(opp)) {
+	if (IS_ERR(opp))
 		return PTR_ERR(opp);
-	}
+
+	dev_pm_opp_put(opp);
 
 	opp = dev_pm_opp_find_freq_ceil(dev, &min_freq);
-	dev_pm_opp_put(opp);
-
 	if (IS_ERR(opp))
 		min_freq = pwr->pwrlevels[pwr->min_pwrlevel].gpu_freq;
+	else
+		dev_pm_opp_put(opp);
 
 	mutex_lock(&device->mutex);
 

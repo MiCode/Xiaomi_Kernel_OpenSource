@@ -39,17 +39,6 @@
 				(t).num_comp_enc == (r).num_enc && \
 				(t).num_intf == (r).num_intf)
 
-#define SINGLE_CTL	1
-
-struct sde_rm_topology_def {
-	enum sde_rm_topology_name top_name;
-	int num_lm;
-	int num_comp_enc;
-	int num_intf;
-	int num_ctl;
-	int needs_split_display;
-};
-
 /**
  * toplogy information to be used when ctl path version does not
  * support driving more than one interface per ctl_path
@@ -1302,6 +1291,12 @@ int sde_rm_cont_splash_res_init(struct msm_drm_private *priv,
 		}
 	}
 
+	if (index != splash_data->num_splash_displays) {
+		SDE_DEBUG("mismatch active displays vs actually enabled :%d/%d",
+				splash_data->num_splash_displays, index);
+		return -EINVAL;
+	}
+
 	return 0;
 }
 
@@ -1443,14 +1438,18 @@ static int _sde_rm_populate_requirements(
 		return -EINVAL;
 	}
 
-	/**
-	 * Set the requirement based on caps if not set from user space
-	 * This will ensure to select LM tied with DS blocks
-	 * Currently, DS blocks are tied with LM 0 and LM 1 (primary display)
+	/*
+	 * select dspp HW block for all dsi displays and ds for only
+	 * primary dsi display.
 	 */
-	if (!RM_RQ_DS(reqs) && rm->hw_mdp->caps->has_dest_scaler &&
-		conn_state->connector->connector_type == DRM_MODE_CONNECTOR_DSI)
-		reqs->top_ctrl |= BIT(SDE_RM_TOPCTL_DS);
+	if (conn_state->connector->connector_type == DRM_MODE_CONNECTOR_DSI) {
+		if (!RM_RQ_DSPP(reqs))
+			reqs->top_ctrl |= BIT(SDE_RM_TOPCTL_DSPP);
+
+		if (!RM_RQ_DS(reqs) && rm->hw_mdp->caps->has_dest_scaler &&
+		    sde_encoder_is_primary_display(enc))
+			reqs->top_ctrl |= BIT(SDE_RM_TOPCTL_DS);
+	}
 
 	/**
 	 * Set the requirement for LM which has CWB support if CWB is

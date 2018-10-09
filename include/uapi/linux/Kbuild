@@ -15,6 +15,7 @@ ifeq ($(wildcard $(srctree)/arch/$(SRCARCH)/include/uapi/asm/kvm_para.h),)
 no-export-headers += kvm_para.h
 endif
 
+header-y += mhi.h
 header-y += sockev.h
 header-y += nfc/
 header-y += seemp_api.h

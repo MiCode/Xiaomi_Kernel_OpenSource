@@ -9,6 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#include "sdmmagpie-thermal-overlay.dtsi"
 
 #include <dt-bindings/gpio/gpio.h>
 
@@ -76,7 +77,7 @@
 	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
 	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off &sdc2_cd_off>;
 
-	cd-gpios = <&tlmm 69 GPIO_ACTIVE_HIGH>;
+	cd-gpios = <&tlmm 69 GPIO_ACTIVE_LOW>;
 
 	status = "ok";
 };

@@ -5896,7 +5896,7 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		msm_pcie_dev[rc_idx].l1ss_supported;
 	msm_pcie_dev[rc_idx].l1_1_pcipm_supported =
 		msm_pcie_dev[rc_idx].l1ss_supported;
-	msm_pcie_dev[rc_idx].l1_1_pcipm_supported =
+	msm_pcie_dev[rc_idx].l1_2_pcipm_supported =
 		msm_pcie_dev[rc_idx].l1ss_supported;
 
 	msm_pcie_dev[rc_idx].common_clk_en =

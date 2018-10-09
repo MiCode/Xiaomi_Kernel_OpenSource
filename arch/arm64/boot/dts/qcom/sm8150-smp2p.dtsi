@@ -44,6 +44,13 @@
 			interrupt-controller;
 			#interrupt-cells = <2>;
 		};
+
+		smp2p_wlan_1_in: qcom,smp2p-wlan-1-in {
+			qcom,entry-name = "wlan";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+
 	};
 
 	qcom,smp2p-adsp@1799000c {
@@ -144,15 +151,4 @@
 		};
 	};
 
-	/* wlan - inbound entry from mss/WLAN PD */
-	smp2pgpio_wlan_1_in: qcom,smp2pgpio-wlan-1-in {
-		compatible = "qcom,smp2pgpio";
-		qcom,entry-name = "wlan";
-		qcom,remote-pid = <1>;
-		qcom,is-inbound;
-		gpio-controller;
-		#gpio-cells = <2>;
-		interrupt-controller;
-		#interrupt-cells = <2>;
-	};
 };

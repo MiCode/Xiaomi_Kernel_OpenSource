@@ -20,7 +20,7 @@
 #include "sm6150-audio-overlay.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SM6150 Command mode display IDP";
+	model = "Command mode display IDP";
 	compatible = "qcom,sm6150-idp", "qcom,sm6150", "qcom,idp";
 	qcom,msm-id = <355 0x0>;
 	qcom,board-id = <34 3>;

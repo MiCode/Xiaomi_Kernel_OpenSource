@@ -254,6 +254,7 @@
 #define DWC3_GUSB3PIPECTL_DISRXDETINP3	BIT(28)
 #define DWC3_GUSB3PIPECTL_UX_EXIT_PX	BIT(27)
 #define DWC3_GUSB3PIPECTL_REQP1P2P3	BIT(24)
+#define DWC3_GUSB3PIPECTL_DISRXDETU3	BIT(22)
 #define DWC3_GUSB3PIPECTL_DEP1P2P3(n)	((n) << 19)
 #define DWC3_GUSB3PIPECTL_DEP1P2P3_MASK	DWC3_GUSB3PIPECTL_DEP1P2P3(7)
 #define DWC3_GUSB3PIPECTL_DEP1P2P3_EN	DWC3_GUSB3PIPECTL_DEP1P2P3(1)
@@ -854,6 +855,7 @@ struct dwc3_scratchpad_array {
 #define DWC3_GSI_EVT_BUF_SETUP			11
 #define DWC3_GSI_EVT_BUF_CLEANUP		12
 #define DWC3_GSI_EVT_BUF_FREE			13
+#define DWC3_CONTROLLER_NOTIFY_CLEAR_DB		14
 
 #define MAX_INTR_STATS				10
 
@@ -1189,6 +1191,12 @@ struct dwc3 {
 	unsigned int		vbus_active:1;
 	/* Indicate if software connect was issued by the usb_gadget_driver */
 	unsigned int		softconnect:1;
+	/*
+	 * If true, PM suspend allowed irrespective of host runtimePM state
+	 * and core will power collapse. This also leads to reset-resume of
+	 * connected devices on PM resume.
+	 */
+	bool			host_poweroff_in_pm_suspend;
 };
 
 #define work_to_dwc(w)		(container_of((w), struct dwc3, drd_work))

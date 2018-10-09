@@ -39,10 +39,10 @@
 		#size-cells = <2>;
 		ranges;
 
-		removed_region0: removed_region@85800000 {
+		removed_region0: removed_region@85a00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x85800000 0x0 0x700000>;
+			reg = <0x0 0x85a00000 0x0 0x500000>;
 		};
 
 		smem_region: smem@85f00000 {
@@ -1053,9 +1053,9 @@
 		};
 	};
 
-	qcom_seecom: qseecom@85800000 {
+	qcom_seecom: qseecom@85a00000 {
 		compatible = "qcom,qseecom";
-		reg = <0x85800000 0x600000>;
+		reg = <0x85a00000 0x400000>;
 		reg-names = "secapp-region";
 		qcom,hlos-num-ce-hw-instances = <1>;
 		qcom,hlos-ce-hw-instance = <0>;
@@ -1068,6 +1068,43 @@
 		qcom,qsee-reentrancy-support = <2>;
 	};
 
+	qcom_rng: qrng@e3000 {
+		compatible = "qcom,msm-rng";
+		reg = <0xe3000 0x1000>;
+		qcom,msm-rng-iface-clk;
+		qcom,no-qrng-config;
+		qcom,msm-bus,name = "msm-rng-noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<1 618 0 0>,            /* No vote */
+			<1 618 0 800>;          /* 100 MB/s */
+		clocks = <&clock_gcc GCC_PRNG_AHB_CLK>;
+		clock-names = "iface_clk";
+	};
+
+	sdcc1_ice: sdcc1ice@7808000 {
+		compatible = "qcom,ice";
+		reg = <0x7808000 0x8000>;
+		qcom,enable-ice-clk;
+		clock-names = "ice_core_clk_src", "ice_core_clk",
+				"bus_clk", "iface_clk";
+		clocks = <&clock_gcc SDCC1_ICE_CORE_CLK_SRC>,
+			 <&clock_gcc GCC_SDCC1_ICE_CORE_CLK>,
+			 <&clock_gcc GCC_SDCC1_AHB_CLK>,
+			 <&clock_gcc GCC_SDCC1_APPS_CLK>;
+		qcom,op-freq-hz = <266666667>, <0>, <0>, <0>;
+		qcom,msm-bus,name = "sdcc_ice_noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<1 757 0 0>,    /* No vote */
+				<1 757 1000 0>; /* Max. bandwidth */
+		qcom,bus-vector-names = "MIN",
+					"MAX";
+		qcom,instance-type = "sdcc";
+	};
+
 	sdhc_1: sdhci@7804000 {
 		compatible = "qcom,sdhci-msm-v5";
 		reg = <0x7804000 0x1000>, <0x7805000 0x1000>;
@@ -1075,6 +1112,7 @@
 
 		interrupts = <0 123 0>, <0 138 0>;
 		interrupt-names = "hc_irq", "pwr_irq";
+		sdhc-msm-crypto = <&sdcc1_ice>;
 
 		qcom,bus-width = <8>;
 		qcom,large-address-bus;
@@ -1109,8 +1147,11 @@
 		qcom,devfreq,freq-table = <50000000 200000000>;
 
 		clocks = <&clock_gcc GCC_SDCC1_AHB_CLK>,
-			<&clock_gcc GCC_SDCC1_APPS_CLK>;
-		clock-names = "iface_clk", "core_clk";
+			<&clock_gcc GCC_SDCC1_APPS_CLK>,
+			<&clock_gcc GCC_SDCC1_ICE_CORE_CLK>;
+		clock-names = "iface_clk", "core_clk", "ice_core_clk";
+
+		qcom,ice-clk-rates = <266666667 160000000>;
 
 		qcom,nonremovable;
 

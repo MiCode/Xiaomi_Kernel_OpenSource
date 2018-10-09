@@ -19,6 +19,7 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/io.h>
+#include <linux/mutex.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
@@ -27,16 +28,17 @@
 #include <linux/regulator/machine.h>
 #include <linux/usb/phy.h>
 #include <linux/reset.h>
+#include <linux/debugfs.h>
 
 #define USB2_PHY_USB_PHY_UTMI_CTRL0		(0x3c)
+#define OPMODE_MASK				(0x3 << 3)
+#define OPMODE_NONDRIVING			(0x1 << 3)
 #define SLEEPM					BIT(0)
 
 #define USB2_PHY_USB_PHY_UTMI_CTRL5		(0x50)
-#define ATERESET				BIT(0)
 #define POR					BIT(1)
 
 #define USB2_PHY_USB_PHY_HS_PHY_CTRL_COMMON0	(0x54)
-#define VATESTENB_MASK				(0x3 << 0)
 #define RETENABLEN				BIT(3)
 #define FSEL_MASK				(0x7 << 4)
 #define FSEL_DEFAULT				(0x3 << 4)
@@ -55,14 +57,8 @@
 #define USB2_SUSPEND_N				BIT(2)
 #define USB2_SUSPEND_N_SEL			BIT(3)
 
-#define USB2_PHY_USB_PHY_HS_PHY_TEST0		(0x80)
-#define TESTDATAIN_MASK				(0xff << 0)
-
-#define USB2_PHY_USB_PHY_HS_PHY_TEST1		(0x84)
-#define TESTDATAOUTSEL				BIT(4)
-#define TOGGLE_2WR				BIT(6)
-
 #define USB2_PHY_USB_PHY_CFG0			(0x94)
+#define UTMI_PHY_DATAPATH_CTRL_OVERRIDE_EN	BIT(0)
 #define UTMI_PHY_CMN_CTRL_OVERRIDE_EN		BIT(1)
 
 #define USB2_PHY_USB_PHY_REFCLK_CTRL		(0xa0)
@@ -71,6 +67,11 @@
 
 #define USB2PHY_USB_PHY_RTUNE_SEL		(0xb4)
 #define RTUNE_SEL				BIT(0)
+
+#define TXPREEMPAMPTUNE0(x)			(x << 6)
+#define TXPREEMPAMPTUNE0_MASK			(BIT(7) | BIT(6))
+#define USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X1	0x70
+#define TXVREFTUNE0_MASK			0xF
 
 #define USB_HSPHY_3P3_VOL_MIN			3050000 /* uV */
 #define USB_HSPHY_3P3_VOL_MAX			3300000 /* uV */
@@ -98,6 +99,7 @@ struct msm_hsphy {
 	bool			power_enabled;
 	bool			suspended;
 	bool			cable_connected;
+	bool			dpdm_enable;
 
 	int			*param_override_seq;
 	int			param_override_seq_cnt;
@@ -105,12 +107,21 @@ struct msm_hsphy {
 	void __iomem		*phy_rcal_reg;
 	u32			rcal_mask;
 
+	struct mutex		phy_lock;
+	struct regulator_desc	dpdm_rdesc;
+	struct regulator_dev	*dpdm_rdev;
+
 	/* emulation targets specific */
 	void __iomem		*emu_phy_base;
 	int			*emu_init_seq;
 	int			emu_init_seq_len;
 	int			*emu_dcm_reset_seq;
 	int			emu_dcm_reset_seq_len;
+
+	/* debugfs entries */
+	struct dentry		*root;
+	u8			txvref_tune0;
+	u8			pre_emphasis;
 };
 
 static void msm_hsphy_enable_clocks(struct msm_hsphy *phy, bool on)
@@ -372,7 +383,8 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 	msm_hsphy_reset(phy);
 
 	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_CFG0,
-	UTMI_PHY_CMN_CTRL_OVERRIDE_EN, UTMI_PHY_CMN_CTRL_OVERRIDE_EN);
+				UTMI_PHY_CMN_CTRL_OVERRIDE_EN,
+				UTMI_PHY_CMN_CTRL_OVERRIDE_EN);
 
 	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_UTMI_CTRL5,
 				POR, POR);
@@ -397,6 +409,23 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 		hsusb_phy_write_seq(phy->base, phy->param_override_seq,
 				phy->param_override_seq_cnt, 0);
 
+	if (phy->pre_emphasis) {
+		u8 val = TXPREEMPAMPTUNE0(phy->pre_emphasis) &
+				TXPREEMPAMPTUNE0_MASK;
+		if (val)
+			msm_usb_write_readback(phy->base,
+				USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X1,
+				TXPREEMPAMPTUNE0_MASK, val);
+	}
+
+	if (phy->txvref_tune0) {
+		u8 val = phy->txvref_tune0 & TXVREFTUNE0_MASK;
+
+		msm_usb_write_readback(phy->base,
+			USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X1,
+			TXVREFTUNE0_MASK, val);
+	}
+
 	if (phy->phy_rcal_reg) {
 		rcal_code = readl_relaxed(phy->phy_rcal_reg) & phy->rcal_mask;
 
@@ -412,26 +441,9 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_HS_PHY_CTRL_COMMON2,
 				VREGBYPASS, VREGBYPASS);
 
-	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_UTMI_CTRL5,
-				ATERESET, ATERESET);
-
-	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_HS_PHY_TEST1,
-				TESTDATAOUTSEL, TESTDATAOUTSEL);
-
-	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_HS_PHY_TEST1,
-				TOGGLE_2WR, TOGGLE_2WR);
-
-	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_HS_PHY_CTRL_COMMON0,
-				VATESTENB_MASK, 0);
-
-	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_HS_PHY_TEST0,
-				TESTDATAIN_MASK, 0);
-
 	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_HS_PHY_CTRL2,
-				USB2_SUSPEND_N_SEL, USB2_SUSPEND_N_SEL);
-
-	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_HS_PHY_CTRL2,
-				USB2_SUSPEND_N, USB2_SUSPEND_N);
+				USB2_SUSPEND_N_SEL | USB2_SUSPEND_N,
+				USB2_SUSPEND_N_SEL | USB2_SUSPEND_N);
 
 	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_UTMI_CTRL0,
 				SLEEPM, SLEEPM);
@@ -443,7 +455,7 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 				USB2_SUSPEND_N_SEL, 0);
 
 	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_CFG0,
-	UTMI_PHY_CMN_CTRL_OVERRIDE_EN, 0);
+				UTMI_PHY_CMN_CTRL_OVERRIDE_EN, 0);
 
 	return 0;
 }
@@ -463,8 +475,14 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 			(phy->phy.flags & PHY_HOST_MODE)) {
 			msm_hsphy_enable_clocks(phy, false);
 		} else {/* Cable disconnect */
-			msm_hsphy_enable_clocks(phy, false);
-			msm_hsphy_enable_power(phy, false);
+			mutex_lock(&phy->phy_lock);
+			if (!phy->dpdm_enable) {
+				msm_hsphy_enable_clocks(phy, false);
+				msm_hsphy_enable_power(phy, false);
+			} else {
+				dev_dbg(uphy->dev, "dpdm reg still active.  Keep clocks/ldo ON\n");
+			}
+			mutex_unlock(&phy->phy_lock);
 		}
 		phy->suspended = true;
 	} else { /* Bus resume and cable connect */
@@ -493,6 +511,121 @@ static int msm_hsphy_notify_disconnect(struct usb_phy *uphy,
 	phy->cable_connected = false;
 
 	return 0;
+}
+
+static int msm_hsphy_dpdm_regulator_enable(struct regulator_dev *rdev)
+{
+	int ret = 0;
+	struct msm_hsphy *phy = rdev_get_drvdata(rdev);
+
+	dev_dbg(phy->phy.dev, "%s dpdm_enable:%d\n",
+				__func__, phy->dpdm_enable);
+
+	mutex_lock(&phy->phy_lock);
+	if (!phy->dpdm_enable) {
+		ret = msm_hsphy_enable_power(phy, true);
+		if (ret) {
+			mutex_unlock(&phy->phy_lock);
+			return ret;
+		}
+
+		msm_hsphy_enable_clocks(phy, true);
+		msm_hsphy_reset(phy);
+
+		/*
+		 * For PMIC charger detection, place PHY in UTMI non-driving
+		 * mode which leaves Dp and Dm lines in high-Z state.
+		 */
+		msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_HS_PHY_CTRL2,
+					USB2_SUSPEND_N_SEL | USB2_SUSPEND_N,
+					USB2_SUSPEND_N_SEL | USB2_SUSPEND_N);
+		msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_UTMI_CTRL0,
+					OPMODE_MASK, OPMODE_NONDRIVING);
+		msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_CFG0,
+					UTMI_PHY_DATAPATH_CTRL_OVERRIDE_EN,
+					UTMI_PHY_DATAPATH_CTRL_OVERRIDE_EN);
+
+		phy->dpdm_enable = true;
+	}
+	mutex_unlock(&phy->phy_lock);
+
+	return ret;
+}
+
+static int msm_hsphy_dpdm_regulator_disable(struct regulator_dev *rdev)
+{
+	int ret = 0;
+	struct msm_hsphy *phy = rdev_get_drvdata(rdev);
+
+	dev_dbg(phy->phy.dev, "%s dpdm_enable:%d\n",
+				__func__, phy->dpdm_enable);
+
+	mutex_lock(&phy->phy_lock);
+	if (phy->dpdm_enable) {
+		if (!phy->cable_connected) {
+			msm_hsphy_enable_clocks(phy, false);
+			ret = msm_hsphy_enable_power(phy, false);
+			if (ret < 0) {
+				mutex_unlock(&phy->phy_lock);
+				return ret;
+			}
+		}
+		phy->dpdm_enable = false;
+	}
+	mutex_unlock(&phy->phy_lock);
+
+	return ret;
+}
+
+static int msm_hsphy_dpdm_regulator_is_enabled(struct regulator_dev *rdev)
+{
+	struct msm_hsphy *phy = rdev_get_drvdata(rdev);
+
+	dev_dbg(phy->phy.dev, "%s dpdm_enable:%d\n",
+			__func__, phy->dpdm_enable);
+
+	return phy->dpdm_enable;
+}
+
+static struct regulator_ops msm_hsphy_dpdm_regulator_ops = {
+	.enable		= msm_hsphy_dpdm_regulator_enable,
+	.disable	= msm_hsphy_dpdm_regulator_disable,
+	.is_enabled	= msm_hsphy_dpdm_regulator_is_enabled,
+};
+
+static int msm_hsphy_regulator_init(struct msm_hsphy *phy)
+{
+	struct device *dev = phy->phy.dev;
+	struct regulator_config cfg = {};
+	struct regulator_init_data *init_data;
+
+	init_data = devm_kzalloc(dev, sizeof(*init_data), GFP_KERNEL);
+	if (!init_data)
+		return -ENOMEM;
+
+	init_data->constraints.valid_ops_mask |= REGULATOR_CHANGE_STATUS;
+	phy->dpdm_rdesc.owner = THIS_MODULE;
+	phy->dpdm_rdesc.type = REGULATOR_VOLTAGE;
+	phy->dpdm_rdesc.ops = &msm_hsphy_dpdm_regulator_ops;
+	phy->dpdm_rdesc.name = kbasename(dev->of_node->full_name);
+
+	cfg.dev = dev;
+	cfg.init_data = init_data;
+	cfg.driver_data = phy;
+	cfg.of_node = dev->of_node;
+
+	phy->dpdm_rdev = devm_regulator_register(dev, &phy->dpdm_rdesc, &cfg);
+	if (IS_ERR(phy->dpdm_rdev))
+		return PTR_ERR(phy->dpdm_rdev);
+
+	return 0;
+}
+
+static void msm_hsphy_create_debugfs(struct msm_hsphy *phy)
+{
+	phy->root = debugfs_create_dir(dev_name(phy->phy.dev), NULL);
+	debugfs_create_x8("pre_emphasis", 0644, phy->root, &phy->pre_emphasis);
+	debugfs_create_x8("txvref_tune0", 0644, phy->root, &phy->txvref_tune0);
 }
 
 static int msm_hsphy_probe(struct platform_device *pdev)
@@ -680,6 +813,7 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 		goto err_ret;
 	}
 
+	mutex_init(&phy->phy_lock);
 	platform_set_drvdata(pdev, phy);
 
 	if (phy->emu_init_seq)
@@ -695,6 +829,14 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	ret = msm_hsphy_regulator_init(phy);
+	if (ret) {
+		usb_remove_phy(&phy->phy);
+		return ret;
+	}
+
+	msm_hsphy_create_debugfs(phy);
+
 	return 0;
 
 err_ret:
@@ -707,6 +849,8 @@ static int msm_hsphy_remove(struct platform_device *pdev)
 
 	if (!phy)
 		return 0;
+
+	debugfs_remove_recursive(phy->root);
 
 	usb_remove_phy(&phy->phy);
 	clk_disable_unprepare(phy->ref_clk_src);

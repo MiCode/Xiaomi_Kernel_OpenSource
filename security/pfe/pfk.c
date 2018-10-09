@@ -219,11 +219,7 @@ static struct inode *pfk_bio_get_inode(const struct bio *bio)
 	if (!page_mapping(bio->bi_io_vec->bv_page))
 		return NULL;
 
-	if (!bio->bi_io_vec->bv_page->mapping->host)
-
-		return NULL;
-
-	return bio->bi_io_vec->bv_page->mapping->host;
+	return page_mapping(bio->bi_io_vec->bv_page)->host;
 }
 
 /**

@@ -160,7 +160,8 @@ size_t ion_system_secure_heap_page_pool_total(struct ion_heap *heap,
 	return total << PAGE_SHIFT;
 }
 
-static void process_one_shrink(struct ion_heap *sys_heap,
+static void process_one_shrink(struct ion_system_secure_heap *secure_heap,
+			       struct ion_heap *sys_heap,
 			       struct prefetch_info *info)
 {
 	struct ion_buffer buffer;
@@ -168,7 +169,7 @@ static void process_one_shrink(struct ion_heap *sys_heap,
 	int ret;
 
 	memset(&buffer, 0, sizeof(struct ion_buffer));
-	buffer.heap = sys_heap;
+	buffer.heap = &secure_heap->heap;
 	buffer.flags = info->vmid;
 
 	pool_size = ion_system_secure_heap_page_pool_total(sys_heap,
@@ -182,6 +183,7 @@ static void process_one_shrink(struct ion_heap *sys_heap,
 	}
 
 	buffer.private_flags = ION_PRIV_FLAG_SHRINKER_FREE;
+	buffer.heap = sys_heap;
 	sys_heap->ops->free(&buffer);
 }
 
@@ -201,7 +203,7 @@ static void ion_system_secure_heap_prefetch_work(struct work_struct *work)
 		spin_unlock_irqrestore(&secure_heap->work_lock, flags);
 
 		if (info->shrink)
-			process_one_shrink(sys_heap, info);
+			process_one_shrink(secure_heap, sys_heap, info);
 		else
 			process_one_prefetch(sys_heap, info);
 
@@ -377,7 +379,7 @@ struct page *alloc_from_secure_pool_order(struct ion_system_heap *heap,
 	struct ion_page_pool *pool;
 
 	if (!is_secure_vmid_valid(vmid))
-		return NULL;
+		return ERR_PTR(-EINVAL);
 
 	pool = heap->secure_pools[vmid][order_to_index(order)];
 	return ion_page_pool_alloc_pool_only(pool);
@@ -399,13 +401,13 @@ struct page *split_page_from_secure_pool(struct ion_system_heap *heap,
 	 * possible.
 	 */
 	page = alloc_from_secure_pool_order(heap, buffer, 0);
-	if (page)
+	if (!IS_ERR(page))
 		goto got_page;
 
 	for (i = NUM_ORDERS - 2; i >= 0; i--) {
 		order = orders[i];
 		page = alloc_from_secure_pool_order(heap, buffer, order);
-		if (!page)
+		if (IS_ERR(page))
 			continue;
 
 		split_page(page, order);
@@ -415,7 +417,7 @@ struct page *split_page_from_secure_pool(struct ion_system_heap *heap,
 	 * Return the remaining order-0 pages to the pool.
 	 * SetPagePrivate flag to mark memory as secure.
 	 */
-	if (page) {
+	if (!IS_ERR(page)) {
 		for (j = 1; j < (1 << order); j++) {
 			SetPagePrivate(page + j);
 			free_buffer_page(heap, buffer, page + j, 0);
@@ -444,7 +446,7 @@ int ion_secure_page_pool_shrink(
 
 	while (freed < nr_to_scan) {
 		page = ion_page_pool_alloc_pool_only(pool);
-		if (!page)
+		if (IS_ERR(page))
 			break;
 		list_add(&page->lru, &pages);
 		freed += (1 << order);
@@ -463,7 +465,10 @@ int ion_secure_page_pool_shrink(
 		sg = sg_next(sg);
 	}
 
-	if (ion_hyp_unassign_sg(&sgt, &vmid, 1, true))
+	ret = ion_hyp_unassign_sg(&sgt, &vmid, 1, true, true);
+	if (ret == -EADDRNOTAVAIL)
+		goto out3;
+	else if (ret < 0)
 		goto out2;
 
 	list_for_each_entry_safe(page, tmp, &pages, lru) {
@@ -474,6 +479,8 @@ int ion_secure_page_pool_shrink(
 	sg_free_table(&sgt);
 	return freed;
 
+out2:
+	sg_free_table(&sgt);
 out1:
 	/* Restore pages to secure pool */
 	list_for_each_entry_safe(page, tmp, &pages, lru) {
@@ -481,7 +488,7 @@ out1:
 		ion_page_pool_free(pool, page);
 	}
 	return 0;
-out2:
+out3:
 	/*
 	 * The security state of the pages is unknown after a failure;
 	 * They can neither be added back to the secure pool nor buddy system.

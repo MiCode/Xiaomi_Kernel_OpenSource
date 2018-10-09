@@ -109,8 +109,8 @@ static struct pdc_pin sm6150_data[] = {
 	{91, 603},/*core_bi_px_gpio_94*/
 	{92, 604},/*core_bi_px_gpio_84*/
 	{93, 605},/*core_bi_px_gpio_102*/
-	{94, 641},/*core_bi_px_gpio_98*/
-	{95, 642},/*core_bi_px_gpio_99*/
+	{94, 641},/*core_bi_px_gpio_99*/
+	{95, 642},/*core_bi_px_gpio_98*/
 	{96, 643},/*core_bi_px_gpio_105*/
 	{97, 644},/*core_bi_px_gpio_107*/
 	{98, 645},/*gp_irq_hvm[68]*/
@@ -140,7 +140,7 @@ static struct pdc_pin sm6150_data[] = {
 	{122, 669},/*core_bi_px_gpio_89*/
 	{123, 670},/*core_bi_px_gpio_51*/
 	{124, 671},/*core_bi_px_gpio_88*/
-	{125, 95},/*core_bi_px_gpio_39*/
+	{125, 672},/*core_bi_px_gpio_39*/
 	{-1},
 };
 

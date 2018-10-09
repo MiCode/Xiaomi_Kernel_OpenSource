@@ -492,6 +492,39 @@ config EDAC_KRYO_ARM64_PANIC_ON_UE
 	   For production builds, you should probably say 'N' here.
 
 
+config EDAC_GIC
+	depends on ARM_GIC_V3
+	tristate "GIC ECC"
+	help
+	   Supports error detection and correction on the
+	   GIC RAMs. Reports correctable and uncorrectable errors caught by
+	   GIC ECC mechanism. GICT(GIC Trace and debug) register map page
+	   describes the syndrome registers GIC and GICT support is available
+	   from GIC600 onwards.
+	   For debugging issues having to do with stability and overall system
+	   health, you should probably say 'Y' here.
+
+config EDAC_GIC_PANIC_ON_CE
+	depends on EDAC_GIC
+	bool "Panic on correctable errors - GIC"
+	help
+	   Forcibly cause a kernel panic if an correctable error (CE) is
+	   detected, even though the error is (by definition) correctable and
+	   would otherwise result in no adverse system effects. This can reduce
+	   debugging times on hardware which may be operating at voltages or
+	   frequencies outside normal specification.
+	   For production builds, you should definitely say 'N' here.
+
+config EDAC_GIC_PANIC_ON_UE
+	depends on EDAC_GIC
+	bool "Panic on un-correctable errors - GIC"
+	help
+	   Forcibly cause a kernel panic if an uncorrectable error (UE) is
+	   detected. This can reduce debugging times on hardware which may
+	   be operating at voltages or frequencies outside
+	   normal specification.
+	   For production builds, you should definitely say 'N' here.
+
 config EDAC_XGENE
 	tristate "APM X-Gene SoC"
 	depends on (ARM64 || COMPILE_TEST)

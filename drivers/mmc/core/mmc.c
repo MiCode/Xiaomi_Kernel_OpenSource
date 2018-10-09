@@ -2952,12 +2952,6 @@ static int mmc_reset(struct mmc_host *host)
 	struct mmc_card *card = host->card;
 	int ret;
 
-	/*
-	 * In the case of recovery, we can't expect flushing the cache to work
-	 * always, but we have a go and ignore errors.
-	 */
-	mmc_flush_cache(host->card);
-
 	if ((host->caps & MMC_CAP_HW_RESET) && host->ops->hw_reset &&
 	     mmc_can_reset(card)) {
 		mmc_host_clk_hold(host);

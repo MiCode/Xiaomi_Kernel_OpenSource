@@ -43,6 +43,8 @@ struct mem_blocks {
 	uint32_t alloc_request;
 	/* Allocation on request from a client*/
 	uint32_t client_request;
+	/* Guard band around the allotted region*/
+	uint32_t guard_band;
 	/* Size required for client */
 	uint32_t size;
 	/*

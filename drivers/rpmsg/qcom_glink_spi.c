@@ -1212,8 +1212,8 @@ static int glink_spi_send_data(struct glink_channel *channel,
 		mutex_lock(&glink->tx_lock);
 	}
 	glink_spi_write(glink, data, intent->addr + intent->offset, chunk_size);
-	glink_spi_tx_write(glink, &req, sizeof(req), NULL, 0);
 	intent->offset += chunk_size;
+	glink_spi_tx_write(glink, &req, sizeof(req), NULL, 0);
 
 	mutex_unlock(&glink->tx_lock);
 	return 0;

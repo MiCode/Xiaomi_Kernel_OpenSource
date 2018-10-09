@@ -60,6 +60,7 @@
 			 <&clock_audio_rx_2 0>;
 		qcom,rx-swr-gpios = <&rx_swr_gpios>;
 		qcom,rx_mclk_mode_muxsel = <0x62c25020>;
+		qcom,rx-bcl-pmic-params = /bits/ 8 <0x00 0x00 0x1E>;
 		swr1: rx_swr_master {
 			compatible = "qcom,swr-mstr";
 			#address-cells = <2>;
@@ -90,6 +91,7 @@
 		clocks = <&clock_audio_wsa_1 0>,
 			 <&clock_audio_wsa_2 0>;
 		qcom,wsa-swr-gpios = <&wsa_swr_gpios>;
+		qcom,wsa-bcl-pmic-params = /bits/ 8 <0x00 0x00 0x1E>;
 		swr0: wsa_swr_master {
 			compatible = "qcom,swr-mstr";
 			#address-cells = <2>;
@@ -138,62 +140,7 @@
 		clock-names = "va_core_clk";
 		clocks = <&clock_audio_va 0>;
 	};
-};
 
-&sm6150_snd {
-	qcom,model = "sm6150-idp-snd-card";
-	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
-	qcom,audio-routing =
-		"AMIC2", "MIC BIAS2",
-		"MIC BIAS2", "Analog Mic2",
-		"TX DMIC0", "MIC BIAS1",
-		"MIC BIAS1", "Digital Mic0",
-		"TX DMIC1", "MIC BIAS1",
-		"MIC BIAS1", "Digital Mic1",
-		"TX DMIC2", "MIC BIAS3",
-		"MIC BIAS3", "Digital Mic2",
-		"TX DMIC3", "MIC BIAS3",
-		"MIC BIAS3", "Digital Mic3",
-		"TX_AIF1 CAP", "VA_MCLK",
-		"TX_AIF2 CAP", "VA_MCLK",
-		"RX AIF1 PB", "VA_MCLK",
-		"RX AIF2 PB", "VA_MCLK",
-		"RX AIF3 PB", "VA_MCLK",
-		"RX AIF4 PB", "VA_MCLK",
-		"HPHL_OUT", "VA_MCLK",
-		"HPHR_OUT", "VA_MCLK",
-		"AUX_OUT", "VA_MCLK",
-		"IN1_HPHL", "HPHL_OUT",
-		"IN2_HPHR", "HPHR_OUT",
-		"IN3_AUX", "AUX_OUT",
-		"TX SWR_ADC0", "ADC1_OUTPUT",
-		"TX SWR_ADC2", "ADC2_OUTPUT",
-		"WSA SRC0_INP", "SRC0",
-		"WSA_TX DEC0_INP", "TX DEC0 MUX",
-		"WSA_TX DEC1_INP", "TX DEC1 MUX",
-		"RX_TX DEC0_INP", "TX DEC0 MUX",
-		"RX_TX DEC1_INP", "TX DEC1 MUX",
-		"RX_TX DEC2_INP", "TX DEC2 MUX",
-		"RX_TX DEC3_INP", "TX DEC3 MUX",
-		"SpkrLeft IN", "WSA_SPK1 OUT",
-		"SpkrRight IN", "WSA_SPK2 OUT",
-		"WSA_SPK1 OUT", "VA_MCLK",
-		"WSA_SPK2 OUT", "VA_MCLK";
-	qcom,msm-mbhc-hphl-swh = <1>;
-	qcom,msm-mbhc-gnd-swh = <1>;
-	qcom,cdc-dmic01-gpios = <&cdc_dmic01_gpios>;
-	qcom,cdc-dmic23-gpios = <&cdc_dmic23_gpios>;
-	asoc-codec  = <&stub_codec>, <&bolero>;
-	asoc-codec-names = "msm-stub-codec.1", "bolero_codec";
-	qcom,wsa-max-devs = <2>;
-	qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0212>,
-			<&wsa881x_0213>, <&wsa881x_0214>;
-	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
-				  "SpkrLeft", "SpkrRight";
-	qcom,codec-aux-devs = <&wcd937x_codec>;
-};
-
-&soc {
 	wcd937x_codec: wcd937x-codec {
 		compatible = "qcom,wcd937x-codec";
 		qcom,rx_swr_ch_map = <0 HPH_L 0x1 0 HPH_L>,
@@ -238,6 +185,66 @@
 					   "cdc-vdd-mic-bias";
 	};
 
+};
+
+&sm6150_snd {
+	qcom,model = "sm6150-idp-snd-card";
+	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
+	qcom,ext-disp-audio-rx = <1>;
+	qcom,audio-routing =
+		"AMIC2", "MIC BIAS2",
+		"MIC BIAS2", "Analog Mic2",
+		"TX DMIC0", "MIC BIAS1",
+		"MIC BIAS1", "Digital Mic0",
+		"TX DMIC1", "MIC BIAS1",
+		"MIC BIAS1", "Digital Mic1",
+		"TX DMIC2", "MIC BIAS3",
+		"MIC BIAS3", "Digital Mic2",
+		"TX DMIC3", "MIC BIAS3",
+		"MIC BIAS3", "Digital Mic3",
+		"TX_AIF1 CAP", "VA_MCLK",
+		"TX_AIF2 CAP", "VA_MCLK",
+		"RX AIF1 PB", "VA_MCLK",
+		"RX AIF2 PB", "VA_MCLK",
+		"RX AIF3 PB", "VA_MCLK",
+		"RX AIF4 PB", "VA_MCLK",
+		"HPHL_OUT", "VA_MCLK",
+		"HPHR_OUT", "VA_MCLK",
+		"AUX_OUT", "VA_MCLK",
+		"IN1_HPHL", "HPHL_OUT",
+		"IN2_HPHR", "HPHR_OUT",
+		"IN3_AUX", "AUX_OUT",
+		"TX SWR_ADC0", "ADC1_OUTPUT",
+		"TX SWR_ADC2", "ADC2_OUTPUT",
+		"WSA SRC0_INP", "SRC0",
+		"WSA_TX DEC0_INP", "TX DEC0 MUX",
+		"WSA_TX DEC1_INP", "TX DEC1 MUX",
+		"RX_TX DEC0_INP", "TX DEC0 MUX",
+		"RX_TX DEC1_INP", "TX DEC1 MUX",
+		"RX_TX DEC2_INP", "TX DEC2 MUX",
+		"RX_TX DEC3_INP", "TX DEC3 MUX",
+		"SpkrLeft IN", "WSA_SPK1 OUT",
+		"SpkrRight IN", "WSA_SPK2 OUT",
+		"WSA_SPK1 OUT", "VA_MCLK",
+		"WSA_SPK2 OUT", "VA_MCLK";
+	qcom,msm-mbhc-hphl-swh = <1>;
+	qcom,msm-mbhc-gnd-swh = <1>;
+	qcom,cdc-dmic01-gpios = <&cdc_dmic01_gpios>;
+	qcom,cdc-dmic23-gpios = <&cdc_dmic23_gpios>;
+	asoc-codec  = <&stub_codec>, <&bolero>, <&ext_disp_audio_codec>;
+	asoc-codec-names = "msm-stub-codec.1", "bolero_codec",
+			   "msm-ext-disp-audio-codec-rx";
+	qcom,wsa-max-devs = <2>;
+	qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0212>,
+			<&wsa881x_0213>, <&wsa881x_0214>;
+	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
+				  "SpkrLeft", "SpkrRight";
+	qcom,codec-aux-devs = <&wcd937x_codec>;
+	qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>,
+				<&lpi_tlmm>, <&bolero>;
+};
+
+&soc {
 	cdc_dmic01_gpios: cdc_dmic01_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
@@ -367,7 +374,7 @@
 	clock_audio_rx_1: rx_core_clk {
 		compatible = "qcom,audio-ref-clk";
 		qcom,codec-ext-clk-src = <AUDIO_LPASS_MCLK_4>;
-		qcom,codec-lpass-ext-clk-freq = <19200000>;
+		qcom,codec-lpass-ext-clk-freq = <22579200>;
 		qcom,codec-lpass-clk-id = <0x30E>;
 		#clock-cells = <1>;
 	};
@@ -375,7 +382,7 @@
 	clock_audio_rx_2: rx_npl_clk {
 		compatible = "qcom,audio-ref-clk";
 		qcom,codec-ext-clk-src = <AUDIO_LPASS_MCLK_5>;
-		qcom,codec-lpass-ext-clk-freq = <19200000>;
+		qcom,codec-lpass-ext-clk-freq = <22579200>;
 		qcom,codec-lpass-clk-id = <0x30F>;
 		#clock-cells = <1>;
 	};
@@ -458,7 +465,7 @@
 
 		cdc-vdd-mic-bias-supply = <&BOB>;
 		qcom,cdc-vdd-mic-bias-voltage = <3296000 3296000>;
-		qcom,cdc-vdd-mic-bias-current = <30400>;
+		qcom,cdc-vdd-mic-bias-current = <30400 1000001>;
 
 		qcom,cdc-static-supplies = "cdc-vdd-buck",
 					   "cdc-buck-sido",

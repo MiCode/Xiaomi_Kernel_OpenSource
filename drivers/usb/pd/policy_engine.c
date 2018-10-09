@@ -550,6 +550,10 @@ static inline void start_usb_peripheral(struct usbpd *pd)
 	val.intval = 1;
 	extcon_set_property(pd->extcon, EXTCON_USB, EXTCON_PROP_USB_SS, val);
 
+	val.intval = pd->typec_mode > POWER_SUPPLY_TYPEC_SOURCE_DEFAULT ? 1 : 0;
+	extcon_set_property(pd->extcon, EXTCON_USB,
+			EXTCON_PROP_USB_TYPEC_MED_HIGH_CURRENT, val);
+
 	extcon_set_state_sync(pd->extcon, EXTCON_USB, 1);
 }
 
@@ -593,14 +597,17 @@ static int usbpd_release_ss_lane(struct usbpd *pd,
 		goto err_exit;
 	}
 
-	if (pd->peer_usb_comm) {
-		ret = extcon_blocking_sync(pd->extcon, EXTCON_USB_HOST, 0);
-		if (ret) {
-			usbpd_err(&pd->dev, "err(%d) for releasing ss lane",
-					ret);
-			goto err_exit;
-		}
+	stop_usb_host(pd);
+
+	/* blocks until USB host is completely stopped */
+	ret = extcon_blocking_sync(pd->extcon, EXTCON_USB_HOST, 0);
+	if (ret) {
+		usbpd_err(&pd->dev, "err(%d) stopping host", ret);
+		goto err_exit;
 	}
+
+	if (pd->peer_usb_comm)
+		start_usb_host(pd, false);
 
 	pd->ss_lane_svid = hdlr->svid;
 
@@ -1194,7 +1201,6 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		.msg_rx_cb		= phy_msg_received,
 		.shutdown_cb		= phy_shutdown,
 		.frame_filter_val	= FRAME_FILTER_EN_SOP |
-					  FRAME_FILTER_EN_SOPI |
 					  FRAME_FILTER_EN_HARD_RESET,
 	};
 	union power_supply_propval val = {0};
@@ -1256,6 +1262,10 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			phy_params.data_role = pd->current_dr;
 			phy_params.power_role = pd->current_pr;
 
+			if (pd->vconn_enabled)
+				phy_params.frame_filter_val |=
+					FRAME_FILTER_EN_SOPI;
+
 			ret = pd_phy_open(&phy_params);
 			if (ret) {
 				WARN_ON_ONCE(1);
@@ -1314,8 +1324,6 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 		if (PD_RDO_OBJ_POS(pd->rdo) != 1 ||
 			PD_RDO_FIXED_CURR(pd->rdo) >
-				PD_SRC_PDO_FIXED_MAX_CURR(*default_src_caps) ||
-			PD_RDO_FIXED_CURR_MINMAX(pd->rdo) >
 				PD_SRC_PDO_FIXED_MAX_CURR(*default_src_caps)) {
 			/* send Reject */
 			ret = pd_send_msg(pd, MSG_REJECT, NULL, 0, SOP_MSG);
@@ -1444,6 +1452,10 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 			phy_params.data_role = pd->current_dr;
 			phy_params.power_role = pd->current_pr;
+
+			if (pd->vconn_enabled)
+				phy_params.frame_filter_val |=
+					FRAME_FILTER_EN_SOPI;
 
 			ret = pd_phy_open(&phy_params);
 			if (ret) {
@@ -2003,9 +2015,19 @@ static void vconn_swap(struct usbpd *pd)
 	int ret;
 
 	if (pd->vconn_enabled) {
+		pd_phy_update_frame_filter(FRAME_FILTER_EN_SOP |
+					   FRAME_FILTER_EN_HARD_RESET);
+
 		pd->current_state = PE_VCS_WAIT_FOR_VCONN;
 		kick_sm(pd, VCONN_ON_TIME);
 	} else {
+		if (!pd->vconn) {
+			pd->vconn = devm_regulator_get(pd->dev.parent, "vconn");
+			if (IS_ERR(pd->vconn)) {
+				usbpd_err(&pd->dev, "Unable to get vconn\n");
+				return;
+			}
+		}
 		ret = regulator_enable(pd->vconn);
 		if (ret) {
 			usbpd_err(&pd->dev, "Unable to enable vconn\n");
@@ -2013,6 +2035,10 @@ static void vconn_swap(struct usbpd *pd)
 		}
 
 		pd->vconn_enabled = true;
+
+		pd_phy_update_frame_filter(FRAME_FILTER_EN_SOP |
+					   FRAME_FILTER_EN_SOPI |
+					   FRAME_FILTER_EN_HARD_RESET);
 
 		/*
 		 * Small delay to ensure Vconn has ramped up. This is well
@@ -2055,6 +2081,13 @@ static int enable_vbus(struct usbpd *pd)
 		msleep(100);	/* need to wait an additional tCCDebounce */
 
 enable_reg:
+	if (!pd->vbus) {
+		pd->vbus = devm_regulator_get(pd->dev.parent, "vbus");
+		if (IS_ERR(pd->vbus)) {
+			usbpd_err(&pd->dev, "Unable to get vbus\n");
+			return -EAGAIN;
+		}
+	}
 	ret = regulator_enable(pd->vbus);
 	if (ret)
 		usbpd_err(&pd->dev, "Unable to enable vbus (%d)\n", ret);
@@ -2126,7 +2159,8 @@ static void usbpd_sm(struct work_struct *w)
 
 	/* Disconnect? */
 	if (pd->current_pr == PR_NONE) {
-		if (pd->current_state == PE_UNKNOWN)
+		if (pd->current_state == PE_UNKNOWN &&
+				pd->current_dr == DR_NONE)
 			goto sm_done;
 
 		if (pd->vconn_enabled) {
@@ -2278,6 +2312,14 @@ static void usbpd_sm(struct work_struct *w)
 			if (!pd->vconn_enabled &&
 					pd->typec_mode ==
 					POWER_SUPPLY_TYPEC_SINK_POWERED_CABLE) {
+				if (!pd->vconn) {
+					pd->vconn = devm_regulator_get(
+						pd->dev.parent, "vconn");
+					if (IS_ERR(pd->vconn)) {
+						usbpd_err(&pd->dev, "Unable to get vconn\n");
+						return;
+					}
+				}
 				ret = regulator_enable(pd->vconn);
 				if (ret)
 					usbpd_err(&pd->dev, "Unable to enable vconn\n");
@@ -4126,22 +4168,12 @@ struct usbpd *usbpd_create(struct device *parent)
 			EXTCON_PROP_USB_TYPEC_POLARITY);
 	extcon_set_property_capability(pd->extcon, EXTCON_USB,
 			EXTCON_PROP_USB_SS);
+	extcon_set_property_capability(pd->extcon, EXTCON_USB,
+			EXTCON_PROP_USB_TYPEC_MED_HIGH_CURRENT);
 	extcon_set_property_capability(pd->extcon, EXTCON_USB_HOST,
 			EXTCON_PROP_USB_TYPEC_POLARITY);
 	extcon_set_property_capability(pd->extcon, EXTCON_USB_HOST,
 			EXTCON_PROP_USB_SS);
-
-	pd->vbus = devm_regulator_get(parent, "vbus");
-	if (IS_ERR(pd->vbus)) {
-		ret = PTR_ERR(pd->vbus);
-		goto put_psy;
-	}
-
-	pd->vconn = devm_regulator_get(parent, "vconn");
-	if (IS_ERR(pd->vconn)) {
-		ret = PTR_ERR(pd->vconn);
-		goto put_psy;
-	}
 
 	pd->vconn_is_external = device_property_present(parent,
 					"qcom,vconn-uses-external-source");

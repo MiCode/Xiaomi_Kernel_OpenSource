@@ -1162,9 +1162,11 @@ static void ipa3_q6_clnt_svc_arrive(struct work_struct *work)
 
 static void ipa3_q6_clnt_svc_exit(struct work_struct *work)
 {
-	ipa3_qmi_ctx->server_sq.sq_family = 0;
-	ipa3_qmi_ctx->server_sq.sq_node = 0;
-	ipa3_qmi_ctx->server_sq.sq_port = 0;
+	if (ipa3_qmi_ctx != NULL) {
+		ipa3_qmi_ctx->server_sq.sq_family = 0;
+		ipa3_qmi_ctx->server_sq.sq_node = 0;
+		ipa3_qmi_ctx->server_sq.sq_port = 0;
+	}
 }
 
 static int ipa3_q6_clnt_svc_event_notify_svc_new(struct qmi_handle *qmi,
@@ -1174,10 +1176,11 @@ static int ipa3_q6_clnt_svc_event_notify_svc_new(struct qmi_handle *qmi,
 		  service->service, service->version, service->instance,
 		  service->node, service->port);
 
-	ipa3_qmi_ctx->server_sq.sq_family = AF_QIPCRTR;
-	ipa3_qmi_ctx->server_sq.sq_node = service->node;
-	ipa3_qmi_ctx->server_sq.sq_port = service->port;
-
+	if (ipa3_qmi_ctx != NULL) {
+		ipa3_qmi_ctx->server_sq.sq_family = AF_QIPCRTR;
+		ipa3_qmi_ctx->server_sq.sq_node = service->node;
+		ipa3_qmi_ctx->server_sq.sq_port = service->port;
+	}
 	if (!workqueues_stopped) {
 		queue_delayed_work(ipa_clnt_req_workqueue,
 			&ipa3_work_svc_arrive, 0);
@@ -1315,8 +1318,10 @@ static void ipa3_qmi_service_init_worker(struct work_struct *work)
 
 	/* start the QMI msg cache */
 	ipa3_qmi_ctx = vzalloc(sizeof(*ipa3_qmi_ctx));
-	if (!ipa3_qmi_ctx)
+	if (!ipa3_qmi_ctx) {
+		IPAWANERR("Failed to allocate the memory to ipa3_qmi_ctx\n");
 		return;
+	}
 
 	ipa3_qmi_ctx->modem_cfg_emb_pipe_flt =
 		ipa3_get_modem_cfg_emb_pipe_flt();

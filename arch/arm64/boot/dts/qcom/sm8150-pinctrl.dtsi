@@ -246,39 +246,48 @@
 				config {
 					pins = "gpio85", "gpio86";
 					drive-strength = <2>;
-					bias-disable;
+					bias-pull-down;
 				};
 			};
 		};
 
 		qupv3_se13_4uart_pins: qupv3_se13_4uart_pins {
-			qupv3_se13_4uart_active: qupv3_se13_4uart_active {
+			qupv3_se13_ctsrx: qupv3_se13_ctsrx {
 				mux {
-					pins = "gpio43", "gpio44", "gpio45",
-								"gpio46";
+					pins = "gpio43", "gpio46";
 					function = "qup13";
 				};
 
 				config {
-					pins = "gpio43", "gpio44", "gpio45",
-								"gpio46";
+					pins = "gpio43", "gpio46";
 					drive-strength = <2>;
 					bias-disable;
 				};
 			};
 
-			qupv3_se13_4uart_sleep: qupv3_se13_4uart_sleep {
+			qupv3_se13_rts: qupv3_se13_rts {
 				mux {
-					pins = "gpio43", "gpio44", "gpio45",
-								"gpio46";
-					function = "gpio";
+					pins = "gpio44";
+					function = "qup13";
 				};
 
 				config {
-					pins = "gpio43", "gpio44", "gpio45",
-								"gpio46";
+					pins = "gpio44";
 					drive-strength = <2>;
-					bias-disable;
+					bias-pull-down;
+				};
+			};
+
+			qupv3_se13_tx: qupv3_se13_tx {
+				mux {
+					pins = "gpio45";
+					function = "qup13";
+				};
+
+				config {
+					pins = "gpio45";
+					drive-strength = <2>;
+					bias-pull-up;
 				};
 			};
 		};
@@ -4272,6 +4281,40 @@
 					drive-strength = <2>;
 				};
 			};
+			emac_phy_intr: emac_phy_intr {
+				mux {
+					pins = "gpio124";
+					function = "emac_phy";
+				};
+				config {
+					pins = "gpio124";
+					bias-disable;  /* NO pull */
+					drive-strength = <8>;
+				};
+			};
+			emac_phy_reset_state: emac_phy_reset_state {
+				mux {
+					pins = "gpio79";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio79";
+					bias-pull-up;
+					drive-strength = <16>;
+				};
+			};
+			emac_pin_pps_0: emac_pin_pps_0 {
+				mux {
+					pins = "gpio81";
+					function = "emac_pps";
+				};
+
+				config {
+					pins = "gpio81";
+					drive-strength = <8>;  /* 8 mA */
+					bias-disable;  /* NO PULL*/
+				};
+			};
 		};
 
 		bt_en_active: bt_en_active {
@@ -4282,6 +4325,32 @@
 
 			config {
 				pins = "gpio172";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		conn_power_1p8_active: conn_power_1p8_active {
+			mux {
+				pins = "gpio173";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio173";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		conn_power_pa_active: conn_power_pa_active {
+			mux {
+				pins = "gpio174";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio174";
 				drive-strength = <2>;
 				bias-pull-up;
 			};

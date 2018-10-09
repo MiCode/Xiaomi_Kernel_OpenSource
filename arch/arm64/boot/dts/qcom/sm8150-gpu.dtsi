@@ -216,7 +216,6 @@
 				qcom,bus-freq = <12>;
 				qcom,bus-min = <10>;
 				qcom,bus-max = <12>;
-				qcom,dvm-val = <0xffffffff>;
 			};
 
 			qcom,gpu-pwrlevel@1 {
@@ -225,7 +224,6 @@
 				qcom,bus-freq = <10>;
 				qcom,bus-min = <9>;
 				qcom,bus-max = <11>;
-				qcom,dvm-val = <0xffffffff>;
 			};
 
 
@@ -235,7 +233,6 @@
 				qcom,bus-freq = <9>;
 				qcom,bus-min = <8>;
 				qcom,bus-max = <10>;
-				qcom,dvm-val = <0xffffffff>;
 			};
 
 			qcom,gpu-pwrlevel@3 {
@@ -244,7 +241,6 @@
 				qcom,bus-freq = <8>;
 				qcom,bus-min = <7>;
 				qcom,bus-max = <9>;
-				qcom,dvm-val = <0xffffffff>;
 			};
 
 
@@ -254,7 +250,6 @@
 				qcom,bus-freq = <5>;
 				qcom,bus-min = <5>;
 				qcom,bus-max = <7>;
-				qcom,dvm-val = <0xffffffff>;
 			};
 
 			qcom,gpu-pwrlevel@5 {
@@ -263,7 +258,6 @@
 				qcom,bus-freq = <4>;
 				qcom,bus-min = <3>;
 				qcom,bus-max = <5>;
-				qcom,dvm-val = <0xffffffff>;
 			};
 
 			qcom,gpu-pwrlevel@6 {
@@ -272,7 +266,6 @@
 				qcom,bus-freq = <0>;
 				qcom,bus-min = <0>;
 				qcom,bus-max = <0>;
-				qcom,dvm-val = <0xffffffff>;
 			};
 		};
 	};
@@ -312,8 +305,12 @@
 		label = "kgsl-gmu";
 		compatible = "qcom,gpu-gmu";
 
-		reg = <0x2c6a000 0x30000>, <0xb200000 0x300000>;
-		reg-names = "kgsl_gmu_reg", "kgsl_gmu_pdc_reg";
+		reg = <0x2c6a000 0x30000>,
+			<0xb280000 0x10000>,
+			<0xb480000 0x10000>;
+		reg-names = "kgsl_gmu_reg",
+			"kgsl_gmu_pdc_cfg",
+			"kgsl_gmu_pdc_seq";
 
 		interrupts = <0 304 0>, <0 305 0>;
 		interrupt-names = "kgsl_hfi_irq", "kgsl_gmu_irq";

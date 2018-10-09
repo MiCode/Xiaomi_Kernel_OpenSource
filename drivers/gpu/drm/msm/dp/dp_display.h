@@ -15,6 +15,7 @@
 #ifndef _DP_DISPLAY_H_
 #define _DP_DISPLAY_H_
 
+#include <linux/list.h>
 #include <drm/drmP.h>
 #include <drm/msm_drm.h>
 
@@ -41,6 +42,18 @@ struct dp_mst_caps {
 	u32 max_streams_supported;
 	u32 max_dpcd_transaction_bytes;
 	struct drm_dp_aux *drm_aux;
+};
+
+struct dp_mst_connector {
+	bool debug_en;
+	int con_id;
+	int hdisplay;
+	int vdisplay;
+	int vrefresh;
+	int aspect_ratio;
+	struct drm_connector *conn;
+	struct mutex lock;
+	struct list_head list;
 };
 
 struct dp_display {

@@ -2304,6 +2304,8 @@ static int wled_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+	mutex_init(&wled->lock);
+
 	val = WLED_DEFAULT_BRIGHTNESS;
 	of_property_read_u32(pdev->dev.of_node, "default-brightness", &val);
 	wled->brightness = val;
@@ -2333,7 +2335,6 @@ static int wled_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	mutex_init(&wled->lock);
 	platform_set_drvdata(pdev, wled);
 
 	memset(&props, 0, sizeof(struct backlight_properties));

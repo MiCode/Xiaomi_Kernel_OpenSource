@@ -20,6 +20,9 @@
 #include "msm_kms.h"
 #include "sde_hw_top.h"
 
+#define SINGLE_CTL	1
+#define DUAL_CTL	2
+
 /**
  * enum sde_rm_topology_name - HW resource use case in use by connector
  * @SDE_RM_TOPOLOGY_NONE:                 No topology in use currently
@@ -77,6 +80,24 @@ enum sde_rm_topology_control {
 enum sde_rm_qsync_modes {
 	SDE_RM_QSYNC_DISABLED,
 	SDE_RM_QSYNC_CONTINUOUS_MODE,
+};
+
+/**
+ * struct sde_rm_topology_def - Topology table definition
+ * @top_name: name identifying this topology
+ * @num_lm:   number of layer mixers used
+ * @num_comp_enc: number of encoders used
+ * @num_intf: number of interface used
+ * @num_ctl: number of control path used
+ * @needs_split_display: If set split display is enabled
+ */
+struct sde_rm_topology_def {
+	enum sde_rm_topology_name top_name;
+	int num_lm;
+	int num_comp_enc;
+	int num_intf;
+	int num_ctl;
+	int needs_split_display;
 };
 
 /**
@@ -245,4 +266,23 @@ int sde_rm_cont_splash_res_init(struct msm_drm_private *priv,
 int sde_rm_update_topology(struct drm_connector_state *conn_state,
 	struct msm_display_topology *topology);
 
+/**
+ * sde_rm_topology_is_dual_ctl - checks if topoloy requires two control paths
+ * @rm: SDE Resource Manager handle
+ * @topology: topology selected for the display
+ * @return: true if two control paths are required or false
+ */
+static inline bool sde_rm_topology_is_dual_ctl(struct sde_rm *rm,
+		enum sde_rm_topology_name topology)
+{
+	if ((!rm) || (topology <= SDE_RM_TOPOLOGY_NONE) ||
+			(topology >= SDE_RM_TOPOLOGY_MAX)) {
+		pr_err("invalid arguments: rm:%d topology:%d\n",
+				rm == NULL, topology);
+
+		return false;
+	}
+
+	return rm->topology_tbl[topology].num_ctl == DUAL_CTL;
+}
 #endif /* __SDE_RM_H__ */

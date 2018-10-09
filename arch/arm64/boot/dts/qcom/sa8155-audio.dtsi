@@ -91,15 +91,19 @@
 	qcom,msm-dai-tdm-sec-rx {
 		compatible = "qcom,msm-dai-tdm";
 		qcom,msm-cpudai-tdm-group-id = <37136>;
-		qcom,msm-cpudai-tdm-group-num-ports = <4>;
-		qcom,msm-cpudai-tdm-group-port-id = <36880 36882 36884 36886>;
+		qcom,msm-cpudai-tdm-group-num-ports = <5>;
+		qcom,msm-cpudai-tdm-group-port-id = <36880 36882 36884
+							36886 36894>;
 		qcom,msm-cpudai-tdm-clk-rate = <12288000>;
-		qcom,msm-cpudai-tdm-clk-internal = <1>;
+		qcom,msm-cpudai-tdm-clk-internal = <0>;
 		qcom,msm-cpudai-tdm-sync-mode = <1>;
-		qcom,msm-cpudai-tdm-sync-src = <1>;
+		qcom,msm-cpudai-tdm-sync-src = <0>;
 		qcom,msm-cpudai-tdm-data-out = <0>;
 		qcom,msm-cpudai-tdm-invert-sync = <0>;
 		qcom,msm-cpudai-tdm-data-delay = <0>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&sec_tdm_active &sec_tdm_dout_active>;
+		pinctrl-1 = <&sec_tdm_sleep &sec_tdm_dout_sleep>;
 		dai_sec_tdm_rx_0: qcom,msm-dai-q6-tdm-sec-rx-0 {
 			compatible = "qcom,msm-dai-q6-tdm";
 			qcom,msm-cpudai-tdm-dev-id = <36880>;
@@ -123,6 +127,12 @@
 			qcom,msm-cpudai-tdm-dev-id = <36886>;
 			qcom,msm-cpudai-tdm-data-align = <0>;
 		};
+
+		dai_sec_tdm_rx_7: qcom,msm-dai-q6-tdm-sec-rx-7 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36894>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
 	};
 
 	qcom,msm-dai-tdm-sec-tx {
@@ -131,12 +141,15 @@
 		qcom,msm-cpudai-tdm-group-num-ports = <4>;
 		qcom,msm-cpudai-tdm-group-port-id = <36881 36883 36885 36887>;
 		qcom,msm-cpudai-tdm-clk-rate = <12288000>;
-		qcom,msm-cpudai-tdm-clk-internal = <1>;
+		qcom,msm-cpudai-tdm-clk-internal = <0>;
 		qcom,msm-cpudai-tdm-sync-mode = <1>;
-		qcom,msm-cpudai-tdm-sync-src = <1>;
+		qcom,msm-cpudai-tdm-sync-src = <0>;
 		qcom,msm-cpudai-tdm-data-out = <0>;
 		qcom,msm-cpudai-tdm-invert-sync = <0>;
 		qcom,msm-cpudai-tdm-data-delay = <0>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&sec_tdm_din_active>;
+		pinctrl-1 = <&sec_tdm_din_sleep>;
 		dai_sec_tdm_tx_0: qcom,msm-dai-q6-tdm-sec-tx-0 {
 			compatible = "qcom,msm-dai-q6-tdm";
 			qcom,msm-cpudai-tdm-dev-id = <36881>;
@@ -175,6 +188,9 @@
 		qcom,msm-cpudai-tdm-data-out = <0>;
 		qcom,msm-cpudai-tdm-invert-sync = <0>;
 		qcom,msm-cpudai-tdm-data-delay = <0>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&tert_tdm_active &tert_tdm_dout_active>;
+		pinctrl-1 = <&tert_tdm_sleep &tert_tdm_dout_sleep>;
 		dai_tert_tdm_rx_0: qcom,msm-dai-q6-tdm-tert-rx-0 {
 			compatible = "qcom,msm-dai-q6-tdm";
 			qcom,msm-cpudai-tdm-dev-id = <36896>;
@@ -209,8 +225,9 @@
 	qcom,msm-dai-tdm-tert-tx {
 		compatible = "qcom,msm-dai-tdm";
 		qcom,msm-cpudai-tdm-group-id = <37153>;
-		qcom,msm-cpudai-tdm-group-num-ports = <4>;
-		qcom,msm-cpudai-tdm-group-port-id = <36897 36899 36901 36903>;
+		qcom,msm-cpudai-tdm-group-num-ports = <5>;
+		qcom,msm-cpudai-tdm-group-port-id = <36897 36899 36901
+							36903 36911>;
 		qcom,msm-cpudai-tdm-clk-rate = <12288000>;
 		qcom,msm-cpudai-tdm-clk-internal = <1>;
 		qcom,msm-cpudai-tdm-sync-mode = <1>;
@@ -218,6 +235,9 @@
 		qcom,msm-cpudai-tdm-data-out = <0>;
 		qcom,msm-cpudai-tdm-invert-sync = <0>;
 		qcom,msm-cpudai-tdm-data-delay = <0>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&tert_tdm_din_active>;
+		pinctrl-1 = <&tert_tdm_din_sleep>;
 		dai_tert_tdm_tx_0: qcom,msm-dai-q6-tdm-tert-tx-0 {
 			compatible = "qcom,msm-dai-q6-tdm";
 			qcom,msm-cpudai-tdm-dev-id = <36897>;
@@ -239,6 +259,12 @@
 		dai_tert_tdm_tx_3: qcom,msm-dai-q6-tdm-tert-tx-3 {
 			compatible = "qcom,msm-dai-q6-tdm";
 			qcom,msm-cpudai-tdm-dev-id = <36903>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_tert_tdm_tx_7: qcom,msm-dai-q6-tdm-tert-tx-7 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36911>;
 			qcom,msm-cpudai-tdm-data-align = <0>;
 		};
 	};
@@ -437,13 +463,14 @@
 				<&dai_pri_tdm_tx_2>, <&dai_pri_tdm_tx_3>,
 				<&dai_sec_tdm_rx_0>, <&dai_sec_tdm_rx_1>,
 				<&dai_sec_tdm_rx_2>, <&dai_sec_tdm_rx_3>,
-				<&dai_sec_tdm_tx_0>, <&dai_sec_tdm_tx_1>,
-				<&dai_sec_tdm_tx_2>, <&dai_sec_tdm_tx_3>,
-				<&dai_tert_tdm_rx_0>, <&dai_tert_tdm_rx_1>,
-				<&dai_tert_tdm_rx_2>, <&dai_tert_tdm_rx_3>,
-				<&dai_tert_tdm_rx_4>, <&dai_tert_tdm_tx_0>,
-				<&dai_tert_tdm_tx_1>, <&dai_tert_tdm_tx_2>,
-				<&dai_tert_tdm_tx_3>, <&dai_quat_tdm_rx_0>,
+				<&dai_sec_tdm_rx_7>, <&dai_sec_tdm_tx_0>,
+				<&dai_sec_tdm_tx_1>, <&dai_sec_tdm_tx_2>,
+				<&dai_sec_tdm_tx_3>, <&dai_tert_tdm_rx_0>,
+				<&dai_tert_tdm_rx_1>, <&dai_tert_tdm_rx_2>,
+				<&dai_tert_tdm_rx_3>, <&dai_tert_tdm_rx_4>,
+				<&dai_tert_tdm_tx_0>, <&dai_tert_tdm_tx_1>,
+				<&dai_tert_tdm_tx_2>, <&dai_tert_tdm_tx_3>,
+				<&dai_tert_tdm_tx_7>, <&dai_quat_tdm_rx_0>,
 				<&dai_quat_tdm_rx_1>, <&dai_quat_tdm_rx_2>,
 				<&dai_quat_tdm_rx_3>, <&dai_quat_tdm_tx_0>,
 				<&dai_quat_tdm_tx_1>, <&dai_quat_tdm_tx_2>,
@@ -469,13 +496,14 @@
 				"msm-dai-q6-tdm.36869", "msm-dai-q6-tdm.36871",
 				"msm-dai-q6-tdm.36880", "msm-dai-q6-tdm.36882",
 				"msm-dai-q6-tdm.36884", "msm-dai-q6-tdm.36886",
-				"msm-dai-q6-tdm.36881", "msm-dai-q6-tdm.36883",
-				"msm-dai-q6-tdm.36885", "msm-dai-q6-tdm.36887",
-				"msm-dai-q6-tdm.36896", "msm-dai-q6-tdm.36898",
-				"msm-dai-q6-tdm.36900", "msm-dai-q6-tdm.36902",
-				"msm-dai-q6-tdm.36904", "msm-dai-q6-tdm.36897",
-				"msm-dai-q6-tdm.36899", "msm-dai-q6-tdm.36901",
-				"msm-dai-q6-tdm.36903", "msm-dai-q6-tdm.36912",
+				"msm-dai-q6-tdm.36894", "msm-dai-q6-tdm.36881",
+				"msm-dai-q6-tdm.36883", "msm-dai-q6-tdm.36885",
+				"msm-dai-q6-tdm.36887", "msm-dai-q6-tdm.36896",
+				"msm-dai-q6-tdm.36898", "msm-dai-q6-tdm.36900",
+				"msm-dai-q6-tdm.36902", "msm-dai-q6-tdm.36904",
+				"msm-dai-q6-tdm.36897", "msm-dai-q6-tdm.36899",
+				"msm-dai-q6-tdm.36901", "msm-dai-q6-tdm.36903",
+				"msm-dai-q6-tdm.36911", "msm-dai-q6-tdm.36912",
 				"msm-dai-q6-tdm.36914", "msm-dai-q6-tdm.36916",
 				"msm-dai-q6-tdm.36918", "msm-dai-q6-tdm.36913",
 				"msm-dai-q6-tdm.36915", "msm-dai-q6-tdm.36917",
@@ -497,5 +525,15 @@
 	status = "disabled";
 	msm_dai_slim {
 		status = "disabled";
+	};
+};
+
+&qupv3_se22_spi {
+	status = "ok";
+	spi_codec@0 {
+		compatible = "qcom,spi-msm-codec-slave";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+		spi-cpha;
 	};
 };

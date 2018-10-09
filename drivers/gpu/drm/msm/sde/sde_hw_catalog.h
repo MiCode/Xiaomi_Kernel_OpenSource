@@ -1057,6 +1057,7 @@ struct sde_perf_cfg {
  * @pipe_order_type    indicate if it is required to specify pipe order
  * @delay_prg_fetch_start indicates if throttling the fetch start is required
  * @has_qsync	       Supports qsync feature
+ * @has_3d_merge_reset Supports 3D merge reset
  * @sui_misr_supported  indicate if secure-ui-misr is supported
  * @sui_block_xin_mask  mask of all the xin-clients to be blocked during
  *                         secure-ui when secure-ui-misr feature is supported
@@ -1102,6 +1103,7 @@ struct sde_mdss_cfg {
 	u32 pipe_order_type;
 	bool delay_prg_fetch_start;
 	bool has_qsync;
+	bool has_3d_merge_reset;
 
 	bool sui_misr_supported;
 	u32 sui_block_xin_mask;

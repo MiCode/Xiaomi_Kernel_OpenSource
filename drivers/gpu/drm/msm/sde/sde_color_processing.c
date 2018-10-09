@@ -137,6 +137,7 @@ enum {
 	SDE_CP_CRTC_DSPP_AD_ASSERTIVENESS,
 	SDE_CP_CRTC_DSPP_AD_BACKLIGHT,
 	SDE_CP_CRTC_DSPP_AD_STRENGTH,
+	SDE_CP_CRTC_DSPP_AD_ROI,
 	SDE_CP_CRTC_DSPP_MAX,
 	/* DSPP features end */
 
@@ -826,6 +827,15 @@ static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 			ad_cfg.hw_cfg = &hw_cfg;
 			hw_dspp->ops.setup_ad(hw_dspp, &ad_cfg);
 			break;
+		case SDE_CP_CRTC_DSPP_AD_ROI:
+			if (!hw_dspp || !hw_dspp->ops.setup_ad) {
+				ret = -EINVAL;
+				continue;
+			}
+			ad_cfg.prop = AD_ROI;
+			ad_cfg.hw_cfg = &hw_cfg;
+			hw_dspp->ops.setup_ad(hw_dspp, &ad_cfg);
+			break;
 		default:
 			ret = -EINVAL;
 			break;
@@ -1217,6 +1227,33 @@ void sde_cp_crtc_resume(struct drm_crtc *crtc)
 	/* placeholder for operations needed during resume */
 }
 
+void sde_cp_crtc_clear(struct drm_crtc *crtc)
+{
+	struct sde_crtc *sde_crtc = NULL;
+	unsigned long flags;
+
+	if (!crtc) {
+		DRM_ERROR("crtc %pK\n", crtc);
+		return;
+	}
+	sde_crtc = to_sde_crtc(crtc);
+	if (!sde_crtc) {
+		DRM_ERROR("sde_crtc %pK\n", sde_crtc);
+		return;
+	}
+
+	mutex_lock(&sde_crtc->crtc_cp_lock);
+	list_del_init(&sde_crtc->active_list);
+	list_del_init(&sde_crtc->dirty_list);
+	list_del_init(&sde_crtc->ad_active);
+	list_del_init(&sde_crtc->ad_dirty);
+	mutex_unlock(&sde_crtc->crtc_cp_lock);
+
+	spin_lock_irqsave(&sde_crtc->spin_lock, flags);
+	list_del_init(&sde_crtc->user_event_list);
+	spin_unlock_irqrestore(&sde_crtc->spin_lock, flags);
+}
+
 static void dspp_pcc_install_property(struct drm_crtc *crtc)
 {
 	char feature_name[256];
@@ -1400,6 +1437,11 @@ static void dspp_ad_install_property(struct drm_crtc *crtc)
 				"SDE_DSPP_AD_V4_BACKLIGHT",
 			SDE_CP_CRTC_DSPP_AD_BACKLIGHT, 0, (BIT(16) - 1),
 			0);
+
+		sde_cp_crtc_install_range_property(crtc, "SDE_DSPP_AD_V4_ROI",
+			SDE_CP_CRTC_DSPP_AD_ROI, 0, U64_MAX, 0);
+		sde_cp_create_local_blob(crtc, SDE_CP_CRTC_DSPP_AD_ROI,
+			sizeof(struct drm_msm_ad4_roi_cfg));
 		break;
 	default:
 		DRM_ERROR("version %d not supported\n", version);
@@ -1563,6 +1605,7 @@ static void sde_cp_update_list(struct sde_cp_node *prop_node,
 	case SDE_CP_CRTC_DSPP_AD_ASSERTIVENESS:
 	case SDE_CP_CRTC_DSPP_AD_BACKLIGHT:
 	case SDE_CP_CRTC_DSPP_AD_STRENGTH:
+	case SDE_CP_CRTC_DSPP_AD_ROI:
 		if (dirty_list)
 			list_add_tail(&prop_node->dirty_list, &crtc->ad_dirty);
 		else
@@ -1613,6 +1656,9 @@ static int sde_cp_ad_validate_prop(struct sde_cp_node *prop_node,
 			break;
 		case SDE_CP_CRTC_DSPP_AD_STRENGTH:
 			ad_prop = AD_STRENGTH;
+			break;
+		case SDE_CP_CRTC_DSPP_AD_ROI:
+			ad_prop = AD_ROI;
 			break;
 		default:
 			/* Not an AD property */

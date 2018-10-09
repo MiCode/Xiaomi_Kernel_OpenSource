@@ -117,7 +117,6 @@ static int validate_user_key(struct fscrypt_info *crypt_info,
 		res = -ENOKEY;
 		goto out;
 	}
-	res = derive_key_aes(ctx->nonce, master_key, crypt_info->ci_raw_key);
 	/* If we don't need to derive, we still want to do everything
 	 * up until now to validate the key. It's cleaner to fail now
 	 * than to fail in block I/O.

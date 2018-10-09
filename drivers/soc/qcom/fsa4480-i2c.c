@@ -38,7 +38,6 @@ struct fsa4480_priv {
 	struct device *dev;
 	struct power_supply *usb_psy;
 	struct notifier_block psy_nb;
-	bool usbc_force_pr_mode;
 	atomic_t usbc_mode;
 	struct work_struct usbc_analog_work;
 	struct blocking_notifier_head fsa4480_notifier;
@@ -270,23 +269,11 @@ static int fsa4480_usbc_analog_setup_switches
 			(struct fsa4480_priv *fsa_priv, bool active)
 {
 	int rc = 0;
-	union power_supply_propval pval;
 
 	dev_dbg(fsa_priv->dev, "%s: setting GPIOs active = %d\n",
 		__func__, active);
 
-	memset(&pval, 0, sizeof(pval));
-
 	if (active) {
-		pval.intval = POWER_SUPPLY_TYPEC_PR_SOURCE;
-		if (power_supply_set_property(fsa_priv->usb_psy,
-				POWER_SUPPLY_PROP_TYPEC_POWER_ROLE, &pval))
-			dev_err(fsa_priv->dev,
-				 "%s: force PR_SOURCE mode unsuccessful\n",
-				 __func__);
-		else
-			fsa_priv->usbc_force_pr_mode = true;
-
 		/* activate switches */
 		fsa4480_usbc_update_settings(fsa_priv, 0x00, 0x9F);
 
@@ -300,17 +287,6 @@ static int fsa4480_usbc_analog_setup_switches
 
 		/* deactivate switches */
 		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
-
-		if (fsa_priv->usbc_force_pr_mode) {
-			pval.intval = POWER_SUPPLY_TYPEC_PR_DUAL;
-			if (power_supply_set_property(fsa_priv->usb_psy,
-				POWER_SUPPLY_PROP_TYPEC_POWER_ROLE, &pval))
-				dev_err(fsa_priv->dev,
-					 "%s: force PR_DUAL unsuccessful\n",
-					 __func__);
-
-			fsa_priv->usbc_force_pr_mode = false;
-		}
 	}
 
 	return rc;

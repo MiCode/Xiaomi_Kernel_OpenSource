@@ -25,7 +25,7 @@
 #define FRAME_QUALITY_STEP 1
 #define HEIC_GRID_DIMENSION 512
 #define CBR_MB_LIMIT                           (((1280+15)/16)*((720+15)/16)*30)
-#define CBR_VFR_MB_LIMIT                       (((640+15)/16)*((480+15)/16)*30)
+#define CBR_VFR_MB_LIMIT                       (((1280+15)/16)*((720+15)/16)*30)
 
 struct vb2_buf_entry {
 	struct list_head list;

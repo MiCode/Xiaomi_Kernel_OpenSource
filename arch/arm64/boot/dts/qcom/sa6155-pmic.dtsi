@@ -78,16 +78,16 @@
 };
 
 &mdss_dsi0 {
-	/delete-property/ vdda-1p2-supply;
+	vdda-1p2-supply = <&pm6155_1_l11>;
 };
 
 &sde_dp {
-	/delete-property/ vdda-1p2-supply;
-	/delete-property/ vdda-0p9-supply;
+	vdda-1p2-supply = <&pm6155_1_l11>;
+	vdda-0p9-supply = <&pm6155_1_l5>;
 };
 
 &mdss_dsi_phy0 {
-	/delete-property/ vdda-0p9-supply;
+	vdda-0p9-supply = <&pm6155_1_l5>;
 };
 
 &cam_csiphy0 {
@@ -109,7 +109,7 @@
 };
 
 &icnss {
-	/delete-property/ vdd-0.8-cx-mx-supply;
+	/delete-property/ vdd-cx-mx-supply;
 	/delete-property/ vdd-1.8-xo-supply ;
 	/delete-property/ vdd-1.3-rfa-supply;
 	/delete-property/ vdd-3.3-ch0-supply;
@@ -147,6 +147,7 @@
 	/delete-node/ rf_pa0_therm-therm;
 	/delete-node/ camera_flash-therm;
 	/delete-node/ quiet-therm;
+	/delete-node/ quiet-therm-step;
 	/delete-node/ aoss-lowf;
 	/delete-node/ cpuss-0-lowf;
 	/delete-node/ cpuss-1-lowf;

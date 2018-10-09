@@ -290,7 +290,7 @@ static void usb_read_work_fn(struct work_struct *work)
 			pr_debug("diag: In %s, error in reading from USB %s, err: %d\n",
 				 __func__, ch->name, err);
 			atomic_set(&ch->read_pending, 0);
-			if (err != -EIO)
+			if (err != -EIO && err != -ESHUTDOWN)
 				queue_work(ch->usb_wq, &(ch->read_work));
 		}
 	} else {
