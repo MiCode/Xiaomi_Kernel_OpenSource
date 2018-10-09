@@ -6074,6 +6074,9 @@ int dsi_display_prepare(struct dsi_display *display)
 
 	dsi_display_set_ctrl_esd_check_flag(display, false);
 
+	/* Set up ctrl isr before enabling core clk */
+	dsi_display_ctrl_isr_configure(display, true);
+
 	if (mode->dsi_mode_flags & DSI_MODE_FLAG_DMS) {
 		if (display->is_cont_splash_enabled) {
 			pr_err("DMS is not supposed to be set on first frame\n");
@@ -6100,9 +6103,6 @@ int dsi_display_prepare(struct dsi_display *display)
 			goto error;
 		}
 	}
-
-	/* Set up ctrl isr before enabling core clk */
-	dsi_display_ctrl_isr_configure(display, true);
 
 	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
 			DSI_CORE_CLK, DSI_CLK_ON);
