@@ -282,7 +282,7 @@ static int smb5_chg_config_init(struct smb5 *chip)
 		break;
 	case PMI632_SUBTYPE:
 		chip->chg.smb_version = PMI632_SUBTYPE;
-		chg->wa_flags |= WEAK_ADAPTER_WA;
+		chg->wa_flags |= WEAK_ADAPTER_WA | USBIN_OV_WA;
 		if (pmic_rev_id->rev4 >= 2)
 			chg->wa_flags |= MOISTURE_PROTECTION_WA;
 		chg->param = smb5_pmi632_params;
@@ -1732,6 +1732,14 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		}
 	}
 
+	/* Disable TypeC and RID change source interrupts */
+	rc = smblib_write(chg, TYPE_C_INTERRUPT_EN_CFG_2_REG, 0);
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"Couldn't configure Type-C interrupts rc=%d\n", rc);
+		return rc;
+	}
+
 	return rc;
 }
 
@@ -2428,7 +2436,7 @@ static struct smb_irq_info smb5_irqs[] = {
 	},
 	[USBIN_OV_IRQ] = {
 		.name		= "usbin-ov",
-		.handler	= default_irq_handler,
+		.handler	= usbin_ov_irq_handler,
 	},
 	[USBIN_PLUGIN_IRQ] = {
 		.name		= "usbin-plugin",

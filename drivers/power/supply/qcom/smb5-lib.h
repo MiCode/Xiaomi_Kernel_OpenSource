@@ -70,6 +70,7 @@ enum print_reason {
 #define FORCE_RECHARGE_VOTER		"FORCE_RECHARGE_VOTER"
 #define AICL_THRESHOLD_VOTER		"AICL_THRESHOLD_VOTER"
 #define MOISTURE_VOTER			"MOISTURE_VOTER"
+#define USBOV_DBC_VOTER			"USBOV_DBC_VOTER"
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -101,6 +102,7 @@ enum {
 	BOOST_BACK_WA			= BIT(0),
 	WEAK_ADAPTER_WA			= BIT(1),
 	MOISTURE_PROTECTION_WA		= BIT(2),
+	USBIN_OV_WA			= BIT(3),
 };
 
 enum {
@@ -348,6 +350,7 @@ struct smb_charger {
 	struct delayed_work	pl_enable_work;
 	struct delayed_work	uusb_otg_work;
 	struct delayed_work	bb_removal_work;
+	struct delayed_work	usbov_dbc_work;
 
 	/* alarm */
 	struct alarm		moisture_protection_alarm;
@@ -406,6 +409,7 @@ struct smb_charger {
 	/* workaround flag */
 	u32			wa_flags;
 	int			boost_current_ua;
+	bool			dbc_usbov;
 
 	/* extcon for VBUS / ID notification to USB for uUSB */
 	struct extcon_dev	*extcon;
@@ -478,6 +482,7 @@ irqreturn_t high_duty_cycle_irq_handler(int irq, void *data);
 irqreturn_t switcher_power_ok_irq_handler(int irq, void *data);
 irqreturn_t wdog_bark_irq_handler(int irq, void *data);
 irqreturn_t typec_or_rid_detection_change_irq_handler(int irq, void *data);
+irqreturn_t usbin_ov_irq_handler(int irq, void *data);
 
 int smblib_get_prop_input_suspend(struct smb_charger *chg,
 				union power_supply_propval *val);

@@ -552,6 +552,18 @@
 
 &pm660_fg {
 	qcom,battery-data = <&mtp_batterydata>;
+	qcom,fg-rsense-sel = <1>;	/* External rsense */
+	qcom,fg-cutoff-voltage = <3400>;
+	qcom,fg-recharge-voltage = <4100>;
+	qcom,fg-use-sw-esr;
+	qcom,fg-esr-pulse-thresh-ma = <40>;
+	qcom,fg-esr-meas-curr-ma = <60>;
+	qcom,fg-cutoff-current = <50>;
+
+	qcom,fg-esr-timer-shutdown = <2048 2048>;
+	qcom,fg-esr-timer-asleep = <512 512>;
+	qcom,fg-sync-sleep-threshold-ma = <30>;
+	qcom,fg-disable-in-twm;
 };
 
 &pm660_pdphy {
