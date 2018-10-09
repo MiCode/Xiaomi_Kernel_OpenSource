@@ -529,8 +529,7 @@ static int a6xx_gmu_oob_set(struct adreno_device *adreno_dev,
 	if (!gmu_core_isenabled(device))
 		return 0;
 
-	if (!adreno_is_a630(adreno_dev) && !adreno_is_a615(adreno_dev) &&
-		!adreno_is_a616(adreno_dev)) {
+	if (!adreno_is_a630(adreno_dev) && !adreno_is_a615_family(adreno_dev)) {
 		set = BIT(30 - req * 2);
 		check = BIT(31 - req);
 
@@ -583,8 +582,7 @@ static inline void a6xx_gmu_oob_clear(struct adreno_device *adreno_dev,
 	if (!gmu_core_isenabled(device))
 		return;
 
-	if (!adreno_is_a630(adreno_dev) && !adreno_is_a615(adreno_dev) &&
-		!adreno_is_a616(adreno_dev)) {
+	if (!adreno_is_a630(adreno_dev) && !adreno_is_a615_family(adreno_dev)) {
 		clear = BIT(31 - req * 2);
 		if (req >= 6) {
 			dev_err(&gmu->pdev->dev,
