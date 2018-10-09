@@ -1986,6 +1986,12 @@ static int __cam_isp_ctx_release_dev_in_top_state(struct cam_context *ctx,
 		(struct cam_isp_context *) ctx->ctx_priv;
 	struct cam_req_mgr_flush_request flush_req;
 
+	if (ctx->link_hdl != -1) {
+		CAM_ERR(CAM_ISP, "ctx expects release dev after unlink");
+		rc =  -EAGAIN;
+		return rc;
+	}
+
 	if (ctx_isp->hw_ctx) {
 		rel_arg.ctxt_to_hw_map = ctx_isp->hw_ctx;
 		ctx->hw_mgr_intf->hw_release(ctx->hw_mgr_intf->hw_mgr_priv,
