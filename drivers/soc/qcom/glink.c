@@ -37,6 +37,7 @@
 #define GLINK_QOS_DEF_NUM_PRIORITY	1
 #define GLINK_QOS_DEF_MTU		2048
 
+#define GLINK_CH_XPRT_NAME_SIZE ((3 * GLINK_NAME_SIZE) + 4)
 #define GLINK_KTHREAD_PRIO 1
 
 /**
@@ -2867,6 +2868,7 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 	size_t intent_size;
 	bool is_atomic =
 		tx_flags & (GLINK_TX_SINGLE_THREADED | GLINK_TX_ATOMIC);
+	char glink_name[GLINK_CH_XPRT_NAME_SIZE];
 	unsigned long flags;
 	void *cookie = NULL;
 
@@ -2901,21 +2903,22 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 		tracer_pkt_log_event(data, GLINK_CORE_TX);
 	}
 
-	/* find matching rx intent (best-fit algorithm for now) */
+	scnprintf(glink_name, GLINK_CH_XPRT_NAME_SIZE, "%s_%s_%s", ctx->name,
+			ctx->transport_ptr->edge, ctx->transport_ptr->name);
+	/* find matching rx intent (first-fit algorithm for now) */
 	if (ch_pop_remote_rx_intent(ctx, size, &riid, &intent_size, &cookie)) {
 		if (!(tx_flags & GLINK_TX_REQ_INTENT)) {
 			/* no rx intent available */
-			GLINK_ERR_CH(ctx,
-				"%s: R[%u]:%zu Intent not present for lcid\n",
-				__func__, riid, size);
+			GLINK_ERR(
+				"%s: %s: R[%u]:%zu Intent not present\n",
+				glink_name, __func__, riid, size);
 			ret = -EAGAIN;
 			goto glink_tx_common_err;
 		}
 		if (is_atomic && !(ctx->transport_ptr->capabilities &
 					  GCAP_AUTO_QUEUE_RX_INT)) {
-			GLINK_ERR_CH(ctx,
-				"%s: Cannot request intent in atomic context\n",
-				__func__);
+			GLINK_ERR("%s: %s: %s\n", glink_name, __func__,
+				"Cannot request intent in atomic context");
 			ret = -EINVAL;
 			goto glink_tx_common_err;
 		}
@@ -2925,8 +2928,8 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 		ret = ctx->transport_ptr->ops->tx_cmd_rx_intent_req(
 				ctx->transport_ptr->ops, ctx->lcid, size);
 		if (ret) {
-			GLINK_ERR_CH(ctx, "%s: Request intent failed %d\n",
-					__func__, ret);
+			GLINK_ERR("%s: %s: Request intent failed %d\n",
+					glink_name, __func__, ret);
 			goto glink_tx_common_err;
 		}
 
@@ -2934,18 +2937,18 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 						&intent_size, &cookie)) {
 			rwref_read_put(&ctx->ch_state_lhb2);
 			if (is_atomic) {
-				GLINK_ERR_CH(ctx,
-				    "%s Intent of size %zu not ready\n",
-				    __func__, size);
+				GLINK_ERR("%s: %s: Intent of size %zu %s\n",
+					glink_name, __func__, size,
+					"not ready");
 				ret = -EAGAIN;
 				goto glink_tx_common_err_2;
 			}
 
 			if (ctx->transport_ptr->local_state == GLINK_XPRT_DOWN
 			    || !ch_is_fully_opened(ctx)) {
-				GLINK_ERR_CH(ctx,
-					"%s: Channel closed while waiting for intent\n",
-					__func__);
+				GLINK_ERR("%s: %s: %s %s\n", glink_name,
+					 __func__, "Channel closed while",
+					"waiting for intent");
 				ret = -EBUSY;
 				goto glink_tx_common_err_2;
 			}
@@ -2954,18 +2957,18 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 			if (!wait_for_completion_timeout(
 					&ctx->int_req_ack_complete,
 					ctx->rx_intent_req_timeout_jiffies)) {
-				GLINK_ERR_CH(ctx,
-					"%s: Intent request ack with size: %zu not granted for lcid\n",
-					__func__, size);
+				GLINK_ERR(
+					"%s: %s: %s %zu not granted for lcid\n",
+					glink_name, __func__,
+					"Intent request ack with size:", size);
 				ret = -ETIMEDOUT;
 				goto glink_tx_common_err_2;
 			}
 
 			if (!ctx->int_req_ack) {
-				GLINK_ERR_CH(ctx,
-				    "%s: Intent Request with size: %zu %s",
-				    __func__, size,
-				    "not granted for lcid\n");
+				GLINK_ERR("%s: %s: %s %zu %s\n", glink_name,
+					__func__, "Intent Request with size:",
+					size, "not granted for lcid");
 				ret = -EAGAIN;
 				goto glink_tx_common_err_2;
 			}
@@ -2974,9 +2977,9 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 			if (!wait_for_completion_timeout(
 					&ctx->int_req_complete,
 					ctx->rx_intent_req_timeout_jiffies)) {
-				GLINK_ERR_CH(ctx,
-					"%s: Intent request with size: %zu not granted for lcid\n",
-					__func__, size);
+				GLINK_ERR("%s: %s: %s %zu %s\n", glink_name,
+					 __func__, "Intent request with size: ",
+					size, "not granted for lcid");
 				ret = -ETIMEDOUT;
 				goto glink_tx_common_err_2;
 			}
