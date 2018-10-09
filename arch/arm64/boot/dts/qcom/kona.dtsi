@@ -445,7 +445,7 @@
 		};
 	};
 
-qcom,msm-imem@146bf000 {
+	qcom,msm-imem@146bf000 {
 		compatible = "qcom,msm-imem";
 		reg = <0x146bf000 0x1000>;
 		ranges = <0x0 0x146bf000 0x1000>;
