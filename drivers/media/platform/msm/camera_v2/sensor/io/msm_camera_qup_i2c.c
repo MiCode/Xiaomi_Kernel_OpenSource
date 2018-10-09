@@ -223,6 +223,8 @@ int32_t msm_camera_qup_i2c_write(struct msm_camera_i2c_client *client,
 	rc = msm_camera_qup_i2c_txdata(client, buf, len);
 	if (rc < 0)
 		S_I2C_DBG("%s fail\n", __func__);
+	kfree(buf);
+	buf = NULL;
 	return rc;
 }
 
@@ -272,6 +274,8 @@ int32_t msm_camera_qup_i2c_write_seq(struct msm_camera_i2c_client *client,
 	rc = msm_camera_qup_i2c_txdata(client, buf, len+num_byte);
 	if (rc < 0)
 		S_I2C_DBG("%s fail\n", __func__);
+	kfree(buf);
+	buf = NULL;
 	return rc;
 }
 
