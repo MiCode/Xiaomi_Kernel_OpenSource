@@ -1454,7 +1454,7 @@ static void _sde_encoder_update_vsync_source(struct sde_encoder_virt *sde_enc,
 	struct msm_mode_info mode_info;
 	int i, rc = 0;
 
-	if (!sde_enc || !disp_info) {
+	if (!sde_enc || !sde_enc->cur_master || !disp_info) {
 		SDE_ERROR("invalid param sde_enc:%d or disp_info:%d\n",
 					sde_enc != NULL, disp_info != NULL);
 		return;
