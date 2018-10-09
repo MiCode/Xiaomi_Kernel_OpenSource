@@ -181,8 +181,8 @@
 
 		qcom,cdc-static-supplies = "cdc-vdd-ldo-rxtx",
 					   "cdc-vddpx-1",
-					   "cdc-vdd-buck",
 					   "cdc-vdd-mic-bias";
+		qcom,cdc-on-demand-supplies = "cdc-vdd-buck";
 	};
 
 };
