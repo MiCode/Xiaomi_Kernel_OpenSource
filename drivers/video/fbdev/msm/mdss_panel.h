@@ -879,14 +879,15 @@ static inline u32 mdss_panel_get_framerate(struct mdss_panel_info *panel_info,
 	case WRITEBACK_PANEL:
 		frame_rate = DEFAULT_FRAME_RATE;
 		break;
+	case SPI_PANEL:
+		frame_rate = panel_info->spi.frame_rate;
+		break;
 	case DTV_PANEL:
 		if (panel_info->dynamic_fps) {
 			frame_rate = panel_info->lcdc.frame_rate;
 			break;
 		}
-	case SPI_PANEL:
-		frame_rate = panel_info->spi.frame_rate;
-		break;
+		/* fall through */
 	default:
 		pixel_total = (panel_info->lcdc.h_back_porch +
 			  panel_info->lcdc.h_front_porch +
