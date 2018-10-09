@@ -290,6 +290,8 @@ of_get_coresight_platform_data(struct device *dev,
 extern int of_get_coresight_csr_name(struct device_node *node,
 				const char **csr_name);
 
+extern struct coresight_cti_data *of_get_coresight_cti_data(
+				struct device *dev, struct device_node *node);
 #else
 static inline int of_coresight_get_cpu(const struct device_node *node)
 { return 0; }
@@ -297,6 +299,8 @@ static inline struct coresight_platform_data *of_get_coresight_platform_data(
 	struct device *dev, const struct device_node *node) { return NULL; }
 static inline int of_get_coresight_csr_name(struct device_node *node,
 		const char **csr_name){ return -EINVAL; }
+static inlint struct coresight_cti_data *of_get_coresight_cti_data(
+		struct device *dev, struct device_node *node) { return NULL; }
 #endif
 
 #endif
