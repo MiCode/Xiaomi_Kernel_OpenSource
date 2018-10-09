@@ -30,6 +30,7 @@
 #include <linux/kthread.h>
 #include <linux/mailbox_client.h>
 #include <linux/ipc_logging.h>
+#include <soc/qcom/subsystem_notif.h>
 
 #include "rpmsg_internal.h"
 #include "qcom_glink_native.h"
@@ -1828,6 +1829,23 @@ static void qcom_glink_set_affinity(struct qcom_glink *glink, u32 *arr,
 		dev_err(glink->dev, "failed to set task affinity\n");
 }
 
+static void qcom_glink_notif_reset(void *data)
+{
+	struct qcom_glink *glink = data;
+	struct glink_channel *channel;
+	unsigned long flags;
+	int cid;
+
+	if (!glink)
+		return;
+	atomic_inc(&glink->in_reset);
+
+	spin_lock_irqsave(&glink->idr_lock, flags);
+	idr_for_each_entry(&glink->lcids, channel, cid) {
+		wake_up(&channel->intent_req_event);
+	}
+	spin_unlock_irqrestore(&glink->idr_lock, flags);
+}
 
 struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 					   unsigned long features,
@@ -1886,6 +1904,13 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 		return ERR_CAST(glink->task);
 	}
 
+	ret = subsys_register_early_notifier(glink->name, XPORT_LAYER_NOTIF,
+					     qcom_glink_notif_reset, glink);
+	if (ret) {
+		dev_err(dev, "failed to register early notif %d\n", ret);
+		return ERR_PTR(ret);
+	}
+
 	irq = of_irq_get(dev->of_node, 0);
 	ret = devm_request_irq(dev, irq,
 			       qcom_glink_native_intr,
@@ -1893,7 +1918,7 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 			       "glink-native", glink);
 	if (ret) {
 		dev_err(dev, "failed to request IRQ\n");
-		return ERR_PTR(ret);
+		goto unregister;
 	}
 
 	glink->irq = irq;
@@ -1901,8 +1926,10 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 	size = of_property_count_u32_elems(dev->of_node, "cpu-affinity");
 	if (size > 0) {
 		arr = kmalloc_array(size, sizeof(u32), GFP_KERNEL);
-		if (!arr)
-			return ERR_PTR(-ENOMEM);
+		if (!arr) {
+			ret = -ENOMEM;
+			goto unregister;
+		}
 		ret = of_property_read_u32_array(dev->of_node, "cpu-affinity",
 						 arr, size);
 		if (!ret)
@@ -1913,7 +1940,7 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 	ret = qcom_glink_send_version(glink);
 	if (ret) {
 		dev_err(dev, "failed to send version %d\n", ret);
-		return ERR_PTR(ret);
+		goto unregister;
 	}
 
 	ret = qcom_glink_create_chrdev(glink);
@@ -1923,6 +1950,10 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 	glink->ilc = ipc_log_context_create(GLINK_LOG_PAGE_CNT, glink->name, 0);
 
 	return glink;
+
+unregister:
+	subsys_unregister_early_notifier(glink->name, XPORT_LAYER_NOTIF);
+	return ERR_PTR(ret);
 }
 EXPORT_SYMBOL_GPL(qcom_glink_native_probe);
 
@@ -1940,16 +1971,10 @@ void qcom_glink_native_remove(struct qcom_glink *glink)
 	int ret;
 	unsigned long flags;
 
-	atomic_inc(&glink->in_reset);
+	subsys_unregister_early_notifier(glink->name, XPORT_LAYER_NOTIF);
+	qcom_glink_notif_reset(glink);
 	disable_irq(glink->irq);
 	cancel_work_sync(&glink->rx_work);
-
-	/* Signal all threads to cancel tx */
-	spin_lock_irqsave(&glink->idr_lock, flags);
-	idr_for_each_entry(&glink->lcids, channel, cid) {
-		wake_up(&channel->intent_req_event);
-	}
-	spin_unlock_irqrestore(&glink->idr_lock, flags);
 
 	ret = device_for_each_child(glink->dev, NULL, qcom_glink_remove_device);
 	if (ret)
