@@ -36,6 +36,8 @@
 #include "../ipa_common_i.h"
 #include "ipa_uc_offload_i.h"
 #include "ipa_pm.h"
+#include <linux/mailbox_client.h>
+#include <linux/mailbox/qmp.h>
 
 #define IPA_DEV_NAME_MAX_LEN 15
 #define DRV_NAME "ipa"
@@ -406,6 +408,8 @@ enum {
 
 #define IPA_TZ_UNLOCK_ATTRIBUTE 0x0C0311
 #define TZ_MEM_PROTECT_REGION_ID 0x10
+
+#define MBOX_TOUT_MS 100
 
 struct ipa3_active_client_htable_entry {
 	struct hlist_node list;
@@ -1648,6 +1652,8 @@ struct ipa3_context {
 	bool vlan_mode_iface[IPA_VLAN_IF_MAX];
 	bool wdi_over_pcie;
 	struct ipa3_wdi2_ctx wdi2_ctx;
+	struct mbox_client mbox_client;
+	struct mbox_chan *mbox;
 };
 
 struct ipa3_plat_drv_res {
@@ -2649,4 +2655,5 @@ int ipa3_get_transport_info(
 	phys_addr_t *phys_addr_ptr,
 	unsigned long *size_ptr);
 irq_handler_t ipa3_get_isr(void);
+void ipa_pc_qmp_enable(void);
 #endif /* _IPA3_I_H_ */
