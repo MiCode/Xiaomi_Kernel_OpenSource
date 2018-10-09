@@ -58,6 +58,11 @@ static const struct drm_prop_enum_list e_qsync_mode[] = {
 	{SDE_RM_QSYNC_DISABLED,	"none"},
 	{SDE_RM_QSYNC_CONTINUOUS_MODE,	"continuous"},
 };
+static const struct drm_prop_enum_list e_frame_trigger_mode[] = {
+	{FRAME_DONE_WAIT_DEFAULT, "default"},
+	{FRAME_DONE_WAIT_SERIALIZE, "serialize_frame_trigger"},
+	{FRAME_DONE_WAIT_POSTED_START, "posted_start"},
+};
 
 static int sde_backlight_device_update_status(struct backlight_device *bd)
 {
@@ -1153,15 +1158,14 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 		c_conn->bl_scale_ad = val;
 		c_conn->bl_scale_dirty = true;
 		break;
-	default:
-		break;
-	}
-
-	if (idx == CONNECTOR_PROP_HDR_METADATA) {
+	case CONNECTOR_PROP_HDR_METADATA:
 		rc = _sde_connector_set_ext_hdr_info(c_conn,
 			c_state, (void *)(uintptr_t)val);
 		if (rc)
 			SDE_ERROR_CONN(c_conn, "cannot set hdr info %d\n", rc);
+		break;
+	default:
+		break;
 	}
 
 	/* check for custom property handling */
@@ -2036,6 +2040,122 @@ exit:
 	return rc;
 }
 
+static int _sde_connector_install_properties(struct drm_device *dev,
+	struct sde_kms *sde_kms, struct sde_connector *c_conn,
+	int connector_type, void *display,
+	struct msm_display_info *display_info)
+{
+	struct dsi_display *dsi_display;
+	int rc;
+
+	msm_property_install_blob(&c_conn->property_info, "capabilities",
+			DRM_MODE_PROP_IMMUTABLE, CONNECTOR_PROP_SDE_INFO);
+
+	rc = sde_connector_set_blob_data(&c_conn->base,
+			NULL, CONNECTOR_PROP_SDE_INFO);
+	if (rc) {
+		SDE_ERROR_CONN(c_conn,
+			"failed to setup connector info, rc = %d\n", rc);
+		return rc;
+	}
+
+	msm_property_install_blob(&c_conn->property_info, "mode_properties",
+			DRM_MODE_PROP_IMMUTABLE, CONNECTOR_PROP_MODE_INFO);
+
+	if (connector_type == DRM_MODE_CONNECTOR_DSI) {
+		dsi_display = (struct dsi_display *)(display);
+		if (dsi_display && dsi_display->panel &&
+			dsi_display->panel->hdr_props.hdr_enabled == true) {
+			msm_property_install_blob(&c_conn->property_info,
+				"hdr_properties",
+				DRM_MODE_PROP_IMMUTABLE,
+				CONNECTOR_PROP_HDR_INFO);
+
+			msm_property_set_blob(&c_conn->property_info,
+				&c_conn->blob_hdr,
+				&dsi_display->panel->hdr_props,
+				sizeof(dsi_display->panel->hdr_props),
+				CONNECTOR_PROP_HDR_INFO);
+		}
+	}
+
+	msm_property_install_volatile_range(
+			&c_conn->property_info, "sde_drm_roi_v1", 0x0,
+			0, ~0, 0, CONNECTOR_PROP_ROI_V1);
+
+	/* install PP_DITHER properties */
+	_sde_connector_install_dither_property(dev, sde_kms, c_conn);
+
+	if (connector_type == DRM_MODE_CONNECTOR_DisplayPort) {
+		struct drm_msm_ext_hdr_properties hdr = {0};
+
+		msm_property_install_blob(&c_conn->property_info,
+				"ext_hdr_properties",
+				DRM_MODE_PROP_IMMUTABLE,
+				CONNECTOR_PROP_EXT_HDR_INFO);
+
+		/* set default values to avoid reading uninitialized data */
+		msm_property_set_blob(&c_conn->property_info,
+			      &c_conn->blob_ext_hdr,
+			      &hdr,
+			      sizeof(hdr),
+			      CONNECTOR_PROP_EXT_HDR_INFO);
+	}
+
+	msm_property_install_volatile_range(&c_conn->property_info,
+		"hdr_metadata", 0x0, 0, ~0, 0, CONNECTOR_PROP_HDR_METADATA);
+
+	msm_property_install_volatile_range(&c_conn->property_info,
+		"RETIRE_FENCE", 0x0, 0, ~0, 0, CONNECTOR_PROP_RETIRE_FENCE);
+
+	msm_property_install_range(&c_conn->property_info, "autorefresh",
+			0x0, 0, AUTOREFRESH_MAX_FRAME_CNT, 0,
+			CONNECTOR_PROP_AUTOREFRESH);
+
+	if (connector_type == DRM_MODE_CONNECTOR_DSI) {
+		if (sde_kms->catalog->has_qsync && display_info->qsync_min_fps)
+			msm_property_install_enum(&c_conn->property_info,
+					"qsync_mode", 0, 0, e_qsync_mode,
+					ARRAY_SIZE(e_qsync_mode),
+					CONNECTOR_PROP_QSYNC_MODE);
+
+		if (display_info->capabilities & MSM_DISPLAY_CAP_CMD_MODE)
+			msm_property_install_enum(&c_conn->property_info,
+				"frame_trigger_mode", 0, 0,
+				e_frame_trigger_mode,
+				ARRAY_SIZE(e_frame_trigger_mode),
+				CONNECTOR_PROP_CMD_FRAME_TRIGGER_MODE);
+	}
+
+	msm_property_install_range(&c_conn->property_info, "bl_scale",
+		0x0, 0, MAX_BL_SCALE_LEVEL, MAX_BL_SCALE_LEVEL,
+		CONNECTOR_PROP_BL_SCALE);
+
+	msm_property_install_range(&c_conn->property_info, "ad_bl_scale",
+		0x0, 0, MAX_AD_BL_SCALE_LEVEL, MAX_AD_BL_SCALE_LEVEL,
+		CONNECTOR_PROP_AD_BL_SCALE);
+
+	c_conn->bl_scale_dirty = false;
+	c_conn->bl_scale = MAX_BL_SCALE_LEVEL;
+	c_conn->bl_scale_ad = MAX_AD_BL_SCALE_LEVEL;
+
+	/* enum/bitmask properties */
+	msm_property_install_enum(&c_conn->property_info, "topology_name",
+			DRM_MODE_PROP_IMMUTABLE, 0, e_topology_name,
+			ARRAY_SIZE(e_topology_name),
+			CONNECTOR_PROP_TOPOLOGY_NAME);
+	msm_property_install_enum(&c_conn->property_info, "topology_control",
+			0, 1, e_topology_control,
+			ARRAY_SIZE(e_topology_control),
+			CONNECTOR_PROP_TOPOLOGY_CONTROL);
+	msm_property_install_enum(&c_conn->property_info, "LP",
+			0, 0, e_power_mode,
+			ARRAY_SIZE(e_power_mode),
+			CONNECTOR_PROP_LP);
+
+	return 0;
+}
+
 struct drm_connector *sde_connector_init(struct drm_device *dev,
 		struct drm_encoder *encoder,
 		struct drm_panel *panel,
@@ -2047,7 +2167,6 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
 	struct sde_connector *c_conn = NULL;
-	struct dsi_display *dsi_display;
 	struct msm_display_info display_info;
 	int rc;
 
@@ -2155,42 +2274,6 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 		}
 	}
 
-	msm_property_install_blob(&c_conn->property_info,
-			"capabilities",
-			DRM_MODE_PROP_IMMUTABLE,
-			CONNECTOR_PROP_SDE_INFO);
-
-	rc = sde_connector_set_blob_data(&c_conn->base,
-			NULL,
-			CONNECTOR_PROP_SDE_INFO);
-	if (rc) {
-		SDE_ERROR_CONN(c_conn,
-			"failed to setup connector info, rc = %d\n", rc);
-		goto error_cleanup_fence;
-	}
-
-	msm_property_install_blob(&c_conn->property_info,
-			"mode_properties",
-			DRM_MODE_PROP_IMMUTABLE,
-			CONNECTOR_PROP_MODE_INFO);
-
-	if (connector_type == DRM_MODE_CONNECTOR_DSI) {
-		dsi_display = (struct dsi_display *)(display);
-		if (dsi_display && dsi_display->panel &&
-			dsi_display->panel->hdr_props.hdr_enabled == true) {
-			msm_property_install_blob(&c_conn->property_info,
-				"hdr_properties",
-				DRM_MODE_PROP_IMMUTABLE,
-				CONNECTOR_PROP_HDR_INFO);
-
-			msm_property_set_blob(&c_conn->property_info,
-				&c_conn->blob_hdr,
-				&dsi_display->panel->hdr_props,
-				sizeof(dsi_display->panel->hdr_props),
-				CONNECTOR_PROP_HDR_INFO);
-		}
-	}
-
 	rc = sde_connector_get_info(&c_conn->base, &display_info);
 	if (!rc && (connector_type == DRM_MODE_CONNECTOR_DSI) &&
 			(display_info.capabilities & MSM_DISPLAY_CAP_VID_MODE))
@@ -2199,74 +2282,10 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 			sde_connector_handle_disp_recovery,
 			c_conn);
 
-	msm_property_install_volatile_range(
-			&c_conn->property_info, "sde_drm_roi_v1", 0x0,
-			0, ~0, 0, CONNECTOR_PROP_ROI_V1);
-
-	/* install PP_DITHER properties */
-	_sde_connector_install_dither_property(dev, sde_kms, c_conn);
-
-	if (connector_type == DRM_MODE_CONNECTOR_DisplayPort) {
-		struct drm_msm_ext_hdr_properties hdr = {0};
-
-		msm_property_install_blob(&c_conn->property_info,
-				"ext_hdr_properties",
-				DRM_MODE_PROP_IMMUTABLE,
-				CONNECTOR_PROP_EXT_HDR_INFO);
-
-		/* set default values to avoid reading uninitialized data */
-		msm_property_set_blob(&c_conn->property_info,
-			      &c_conn->blob_ext_hdr,
-			      &hdr,
-			      sizeof(hdr),
-			      CONNECTOR_PROP_EXT_HDR_INFO);
-	}
-
-	msm_property_install_volatile_range(&c_conn->property_info,
-		"hdr_metadata", 0x0, 0, ~0, 0, CONNECTOR_PROP_HDR_METADATA);
-
-	msm_property_install_volatile_range(&c_conn->property_info,
-		"RETIRE_FENCE", 0x0, 0, ~0, 0, CONNECTOR_PROP_RETIRE_FENCE);
-
-	msm_property_install_range(&c_conn->property_info, "autorefresh",
-			0x0, 0, AUTOREFRESH_MAX_FRAME_CNT, 0,
-			CONNECTOR_PROP_AUTOREFRESH);
-
-	if (connector_type == DRM_MODE_CONNECTOR_DSI) {
-		if (sde_kms->catalog->has_qsync && display_info.qsync_min_fps) {
-
-			msm_property_install_enum(&c_conn->property_info,
-					"qsync_mode", 0, 0, e_qsync_mode,
-					ARRAY_SIZE(e_qsync_mode),
-					CONNECTOR_PROP_QSYNC_MODE);
-		}
-	}
-
-	msm_property_install_range(&c_conn->property_info, "bl_scale",
-		0x0, 0, MAX_BL_SCALE_LEVEL, MAX_BL_SCALE_LEVEL,
-		CONNECTOR_PROP_BL_SCALE);
-
-	msm_property_install_range(&c_conn->property_info, "ad_bl_scale",
-		0x0, 0, MAX_AD_BL_SCALE_LEVEL, MAX_AD_BL_SCALE_LEVEL,
-		CONNECTOR_PROP_AD_BL_SCALE);
-
-	c_conn->bl_scale_dirty = false;
-	c_conn->bl_scale = MAX_BL_SCALE_LEVEL;
-	c_conn->bl_scale_ad = MAX_AD_BL_SCALE_LEVEL;
-
-	/* enum/bitmask properties */
-	msm_property_install_enum(&c_conn->property_info, "topology_name",
-			DRM_MODE_PROP_IMMUTABLE, 0, e_topology_name,
-			ARRAY_SIZE(e_topology_name),
-			CONNECTOR_PROP_TOPOLOGY_NAME);
-	msm_property_install_enum(&c_conn->property_info, "topology_control",
-			0, 1, e_topology_control,
-			ARRAY_SIZE(e_topology_control),
-			CONNECTOR_PROP_TOPOLOGY_CONTROL);
-	msm_property_install_enum(&c_conn->property_info, "LP",
-			0, 0, e_power_mode,
-			ARRAY_SIZE(e_power_mode),
-			CONNECTOR_PROP_LP);
+	rc = _sde_connector_install_properties(dev, sde_kms, c_conn,
+		connector_type, display, &display_info);
+	if (rc)
+		goto error_cleanup_fence;
 
 	rc = msm_property_install_get_status(&c_conn->property_info);
 	if (rc) {
