@@ -427,6 +427,7 @@ struct smb_charger {
 	int			skin_temp;
 	int			connector_temp;
 	int			thermal_status;
+	int			main_fcc_max;
 
 	/* workaround flag */
 	u32			wa_flags;
