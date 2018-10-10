@@ -350,6 +350,7 @@ static int of_read_regs(struct device *dev, struct reg_info **regs_ref,
 	return reg_count;
 }
 
+#if defined(CONFIG_QCOM_BUS_SCALING)
 static int of_read_bus_pdata(struct platform_device *pdev,
 			     struct pil_tz_data *d)
 {
@@ -366,6 +367,34 @@ static int of_read_bus_pdata(struct platform_device *pdev,
 
 	return 0;
 }
+static int do_bus_scaling_request(struct pil_desc *pil, int enable)
+{
+	int rc;
+	struct pil_tz_data *d = desc_to_data(pil);
+
+	if (d->bus_client) {
+		rc = msm_bus_scale_client_update_request(d->bus_client, enable);
+		if (rc) {
+			dev_err(pil->dev, "bandwidth request failed(rc:%d)\n",
+									rc);
+			return rc;
+		}
+	} else
+		WARN(d->enable_bus_scaling, "Bus scaling not set up for %s!\n",
+					d->subsys_desc.name);
+	return 0;
+}
+#else
+static int of_read_bus_pdata(struct platform_device *pdev,
+			     struct pil_tz_data *d)
+{
+	return 0;
+}
+static int do_bus_scaling_request(struct pil_desc *pil, int enable)
+{
+	return 0;
+}
+#endif
 
 static int piltz_resc_init(struct platform_device *pdev, struct pil_tz_data *d)
 {
@@ -532,16 +561,9 @@ static int pil_make_proxy_vote(struct pil_desc *pil)
 	if (d->subsys_desc.no_auth)
 		return 0;
 
-	if (d->bus_client) {
-		rc = msm_bus_scale_client_update_request(d->bus_client, 1);
-		if (rc) {
-			dev_err(pil->dev, "bandwidth request failed(rc:%d)\n",
-									rc);
-			return rc;
-		}
-	} else
-		WARN(d->enable_bus_scaling, "Bus scaling not set up for %s!\n",
-					d->subsys_desc.name);
+	rc = do_bus_scaling_request(pil, 1);
+	if (rc)
+		return rc;
 
 	rc = enable_regulators(d, pil->dev, d->proxy_regs,
 					d->proxy_reg_count, false);
@@ -572,11 +594,7 @@ static void pil_remove_proxy_vote(struct pil_desc *pil)
 
 	disable_regulators(d, d->proxy_regs, d->proxy_reg_count, true);
 
-	if (d->bus_client)
-		msm_bus_scale_client_update_request(d->bus_client, 0);
-	else
-		WARN(d->enable_bus_scaling, "Bus scaling not set up for %s!\n",
-					d->subsys_desc.name);
+	do_bus_scaling_request(pil, 0);
 }
 
 static int pil_init_image_trusted(struct pil_desc *pil,
@@ -705,16 +723,9 @@ static int pil_shutdown_trusted(struct pil_desc *pil)
 	desc.args[0] = proc = d->pas_id;
 	desc.arginfo = SCM_ARGS(1);
 
-	if (d->bus_client) {
-		rc = msm_bus_scale_client_update_request(d->bus_client, 1);
-		if (rc) {
-			dev_err(pil->dev, "bandwidth request failed(rc:%d)\n",
-									rc);
-			return rc;
-		}
-	} else
-		WARN(d->enable_bus_scaling, "Bus scaling not set up for %s!\n",
-					d->subsys_desc.name);
+	rc = do_bus_scaling_request(pil, 1);
+	if (rc)
+		return rc;
 
 	rc = enable_regulators(d, pil->dev, d->proxy_regs,
 					d->proxy_reg_count, true);
@@ -732,11 +743,8 @@ static int pil_shutdown_trusted(struct pil_desc *pil)
 
 	disable_unprepare_clocks(d->proxy_clks, d->proxy_clk_count);
 	disable_regulators(d, d->proxy_regs, d->proxy_reg_count, false);
-	if (d->bus_client)
-		msm_bus_scale_client_update_request(d->bus_client, 0);
-	else
-		WARN(d->enable_bus_scaling, "Bus scaling not set up for %s!\n",
-					d->subsys_desc.name);
+
+	do_bus_scaling_request(pil, 0);
 
 	if (rc)
 		return rc;
@@ -749,11 +757,8 @@ static int pil_shutdown_trusted(struct pil_desc *pil)
 err_clks:
 	disable_regulators(d, d->proxy_regs, d->proxy_reg_count, false);
 err_regulators:
-	if (d->bus_client)
-		msm_bus_scale_client_update_request(d->bus_client, 0);
-	else
-		WARN(d->enable_bus_scaling, "Bus scaling not set up for %s!\n",
-					d->subsys_desc.name);
+	do_bus_scaling_request(pil, 0);
+
 	return rc;
 }
 
