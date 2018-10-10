@@ -47,7 +47,7 @@ MODULE_PARM_DESC(qmi_timeout, "Timeout for QMI message in milliseconds");
 
 #define QMI_WLFW_MAX_RECV_BUF_SIZE	SZ_8K
 
-static bool daemon_support;
+static bool daemon_support = true;
 module_param(daemon_support, bool, 0600);
 MODULE_PARM_DESC(daemon_support, "User space has cnss-daemon support or not");
 
