@@ -196,6 +196,7 @@ struct tmc_drvdata {
 	u32			etr_caps;
 	struct coresight_csr	*csr;
 	const char		*csr_name;
+	bool			enable;
 };
 
 struct etr_buf_operations {
