@@ -4,15 +4,16 @@
 #include <linux/rhashtable.h>
 
 struct netns_frags {
-	struct rhashtable       rhashtable ____cacheline_aligned_in_smp;
-
-	/* Keep atomic mem on separate cachelines in structs that include it */
-	atomic_long_t		mem ____cacheline_aligned_in_smp;
 	/* sysctls */
 	long			high_thresh;
 	long			low_thresh;
 	int			timeout;
 	struct inet_frags	*f;
+
+	struct rhashtable       rhashtable ____cacheline_aligned_in_smp;
+
+	/* Keep atomic mem on separate cachelines in structs that include it */
+	atomic_long_t		mem ____cacheline_aligned_in_smp;
 };
 
 /**
