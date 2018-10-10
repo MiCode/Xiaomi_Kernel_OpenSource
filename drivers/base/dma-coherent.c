@@ -168,9 +168,6 @@ static void *__dma_alloc_from_coherent(struct dma_coherent_mem *mem,
 	int pageno;
 	void *ret;
 
-	if (order > CONFIG_CMA_ALIGNMENT)
-		order = CONFIG_CMA_ALIGNMENT;
-
 	spin_lock_irqsave(&mem->spinlock, flags);
 
 	if (unlikely(size > (mem->size << PAGE_SHIFT)))
