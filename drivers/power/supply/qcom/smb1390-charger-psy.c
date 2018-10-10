@@ -138,6 +138,7 @@ struct smb1390 {
 	struct smb1390_iio	iio;
 	int			irq_status;
 	int			taper_entry_fv;
+	bool			switcher_disabled;
 };
 
 struct smb_irq {
@@ -263,7 +264,8 @@ static int smb1390_get_cp_en_status(struct smb1390 *chip, int id, bool *enable)
 static irqreturn_t default_irq_handler(int irq, void *data)
 {
 	struct smb1390 *chip = data;
-	int i;
+	int i, rc;
+	bool enable;
 
 	for (i = 0; i < NUM_IRQS; ++i) {
 		if (irq == chip->irqs[i]) {
@@ -272,8 +274,18 @@ static irqreturn_t default_irq_handler(int irq, void *data)
 		}
 	}
 
+	rc = smb1390_get_cp_en_status(chip, SWITCHER_EN, &enable);
+	if (!rc) {
+		if (chip->switcher_disabled == enable) {
+			chip->switcher_disabled = !chip->switcher_disabled;
+			if (chip->fcc_votable)
+				rerun_election(chip->fcc_votable);
+		}
+	}
+
 	if (chip->cp_master_psy)
 		power_supply_changed(chip->cp_master_psy);
+
 	return IRQ_HANDLED;
 }
 
@@ -972,6 +984,7 @@ static int smb1390_probe(struct platform_device *pdev)
 	chip->dev = &pdev->dev;
 	spin_lock_init(&chip->status_change_lock);
 	mutex_init(&chip->die_chan_lock);
+	chip->switcher_disabled = true;
 
 	chip->regmap = dev_get_regmap(chip->dev->parent, NULL);
 	if (!chip->regmap) {

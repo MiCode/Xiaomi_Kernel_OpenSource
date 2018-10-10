@@ -70,6 +70,7 @@ struct pl_data {
 	struct power_supply	*batt_psy;
 	struct power_supply	*usb_psy;
 	struct power_supply	*dc_psy;
+	struct power_supply	*cp_master_psy;
 	int			charge_type;
 	int			total_settled_ua;
 	int			pl_settled_ua;
@@ -87,6 +88,7 @@ struct pl_data {
 	struct wakeup_source	*pl_ws;
 	struct notifier_block	nb;
 	bool			pl_disable;
+	bool			cp_disabled;
 	int			taper_entry_fv;
 	int			main_fcc_max;
 	/* debugfs directory */
@@ -476,6 +478,46 @@ static void get_fcc_split(struct pl_data *chip, int total_ua,
 		if (chip->main_fcc_max)
 			*master_ua = min(*master_ua, chip->main_fcc_max);
 	}
+}
+
+static void get_main_fcc_config(struct pl_data *chip, int *total_fcc)
+{
+	union power_supply_propval pval = {0, };
+	int rc;
+
+	if (!chip->cp_master_psy)
+		chip->cp_master_psy =
+			power_supply_get_by_name("charge_pump_master");
+	if (!chip->cp_master_psy)
+		goto out;
+
+	rc = power_supply_get_property(chip->cp_master_psy,
+			POWER_SUPPLY_PROP_CP_SWITCHER_EN, &pval);
+	if (rc < 0) {
+		pr_err("Couldn't get switcher enable status, rc=%d\n", rc);
+		goto out;
+	}
+
+	if (!pval.intval) {
+		/*
+		 * To honor main charger upper FCC limit, on CP switcher
+		 * disable, skip fcc slewing as it will cause delay in limiting
+		 * the charge current flowing through main charger.
+		 */
+		if (!chip->cp_disabled) {
+			chip->fcc_stepper_enable = false;
+			pl_dbg(chip, PR_PARALLEL,
+				"Disabling FCC slewing on CP Switcher disable\n");
+		}
+		chip->cp_disabled = true;
+	} else {
+		chip->cp_disabled = false;
+		pl_dbg(chip, PR_PARALLEL,
+			"CP Switcher is enabled, don't limit main fcc\n");
+		return;
+	}
+out:
+	*total_fcc = min(*total_fcc, chip->main_fcc_max);
 }
 
 static void get_fcc_stepper_params(struct pl_data *chip, int main_fcc_ua,
@@ -1173,8 +1215,7 @@ static int pl_disable_vote_callback(struct votable *votable,
 			(slave_fcc_ua * 100) / total_fcc_ua);
 	} else {
 		if (chip->main_fcc_max)
-			total_fcc_ua = min(total_fcc_ua,
-						chip->main_fcc_max);
+			get_main_fcc_config(chip, &total_fcc_ua);
 
 		if (!chip->fcc_stepper_enable) {
 			if (IS_USBIN(chip->pl_mode))
@@ -1716,6 +1757,7 @@ int qcom_batt_init(int smb_version)
 	}
 
 	chip->pl_disable = true;
+	chip->cp_disabled = true;
 	chip->qcom_batt_class.name = "qcom-battery",
 	chip->qcom_batt_class.owner = THIS_MODULE,
 	chip->qcom_batt_class.class_groups = batt_class_groups;
