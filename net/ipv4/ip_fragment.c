@@ -141,8 +141,8 @@ static bool frag_expire_skip_icmp(u32 user)
  */
 static void ip_expire(unsigned long arg)
 {
-	struct sk_buff *clone, *head;
 	const struct iphdr *iph;
+	struct sk_buff *head;
 	struct net *net;
 	struct ipq *qp;
 	int err;
@@ -185,16 +185,12 @@ static void ip_expire(unsigned long arg)
 	    (skb_rtable(head)->rt_type != RTN_LOCAL))
 		goto out;
 
-	clone = skb_clone(head, GFP_ATOMIC);
+	skb_get(head);
+	spin_unlock(&qp->q.lock);
+	icmp_send(head, ICMP_TIME_EXCEEDED, ICMP_EXC_FRAGTIME, 0);
+	kfree_skb(head);
+	goto out_rcu_unlock;
 
-	/* Send an ICMP "Fragment Reassembly Timeout" message. */
-	if (clone) {
-		spin_unlock(&qp->q.lock);
-		icmp_send(clone, ICMP_TIME_EXCEEDED,
-			  ICMP_EXC_FRAGTIME, 0);
-		consume_skb(clone);
-		goto out_rcu_unlock;
-	}
 out:
 	spin_unlock(&qp->q.lock);
 out_rcu_unlock:
