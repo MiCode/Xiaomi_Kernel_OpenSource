@@ -2495,6 +2495,13 @@ static int smb5_request_interrupts(struct smb5 *chip)
 	if (chg->irq_info[USBIN_ICL_CHANGE_IRQ].irq)
 		chg->usb_icl_change_irq_enabled = true;
 
+	/*
+	 * Disable WDOG SNARL IRQ by default to prevent IRQ storm. If required
+	 * for any application, enable it through votable.
+	 */
+	if (chg->irq_info[WDOG_SNARL_IRQ].irq)
+		vote(chg->wdog_snarl_irq_en_votable, DEFAULT_VOTER, false, 0);
+
 	return rc;
 }
 

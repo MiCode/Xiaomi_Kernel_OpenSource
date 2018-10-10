@@ -1342,10 +1342,13 @@ static int smblib_wdog_snarl_irq_en_vote_callback(struct votable *votable,
 	if (!chg->irq_info[WDOG_SNARL_IRQ].irq)
 		return 0;
 
-	if (enable)
+	if (enable) {
 		enable_irq(chg->irq_info[WDOG_SNARL_IRQ].irq);
-	else
+		enable_irq_wake(chg->irq_info[WDOG_SNARL_IRQ].irq);
+	} else {
+		disable_irq_wake(chg->irq_info[WDOG_SNARL_IRQ].irq);
 		disable_irq_nosync(chg->irq_info[WDOG_SNARL_IRQ].irq);
+	}
 
 	return 0;
 }
