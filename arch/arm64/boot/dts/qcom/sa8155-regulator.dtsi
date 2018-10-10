@@ -664,6 +664,25 @@
 		};
 	};
 
+	rpmh-regulator-ldoc15 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		mboxes = <&apps_rsc 0>;
+		qcom,resource-name = "ldoc15";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 1>;
+		L15C: pm8150_2_l15: regulator-pm8150-2-l15 {
+			regulator-name = "pm8150_2_l15";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1904000>;
+			qcom,init-voltage = <1800000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
+		};
+	};
+
 	rpmh-regulator-ldoc16 {
 		compatible = "qcom,rpmh-vrm-regulator";
 		mboxes = <&apps_rsc 0>;
