@@ -219,8 +219,9 @@ void inet_frags_fini(struct inet_frags *f)
 }
 EXPORT_SYMBOL(inet_frags_fini);
 
-void inet_frags_exit_net(struct netns_frags *nf, struct inet_frags *f)
+void inet_frags_exit_net(struct netns_frags *nf)
 {
+	struct inet_frags *f =nf->f;
 	unsigned int seq;
 	int i;
 
@@ -264,23 +265,23 @@ __acquires(hb->chain_lock)
 	return hb;
 }
 
-static inline void fq_unlink(struct inet_frag_queue *fq, struct inet_frags *f)
+static inline void fq_unlink(struct inet_frag_queue *fq)
 {
 	struct inet_frag_bucket *hb;
 
-	hb = get_frag_bucket_locked(fq, f);
+	hb = get_frag_bucket_locked(fq, fq->net->f);
 	hlist_del(&fq->list);
 	fq->flags |= INET_FRAG_COMPLETE;
 	spin_unlock(&hb->chain_lock);
 }
 
-void inet_frag_kill(struct inet_frag_queue *fq, struct inet_frags *f)
+void inet_frag_kill(struct inet_frag_queue *fq)
 {
 	if (del_timer(&fq->timer))
 		atomic_dec(&fq->refcnt);
 
 	if (!(fq->flags & INET_FRAG_COMPLETE)) {
-		fq_unlink(fq, f);
+		fq_unlink(fq);
 		atomic_dec(&fq->refcnt);
 	}
 }
@@ -294,11 +295,12 @@ static inline void frag_kfree_skb(struct netns_frags *nf, struct inet_frags *f,
 	kfree_skb(skb);
 }
 
-void inet_frag_destroy(struct inet_frag_queue *q, struct inet_frags *f)
+void inet_frag_destroy(struct inet_frag_queue *q)
 {
 	struct sk_buff *fp;
 	struct netns_frags *nf;
 	unsigned int sum, sum_truesize = 0;
+	struct inet_frags *f;
 
 	WARN_ON(!(q->flags & INET_FRAG_COMPLETE));
 	WARN_ON(del_timer(&q->timer) != 0);
@@ -306,6 +308,7 @@ void inet_frag_destroy(struct inet_frag_queue *q, struct inet_frags *f)
 	/* Release all fragment data. */
 	fp = q->fragments;
 	nf = q->net;
+	f = nf->f;
 	while (fp) {
 		struct sk_buff *xp = fp->next;
 
@@ -341,7 +344,7 @@ static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
 			atomic_inc(&qp->refcnt);
 			spin_unlock(&hb->chain_lock);
 			qp_in->flags |= INET_FRAG_COMPLETE;
-			inet_frag_put(qp_in, f);
+			inet_frag_put(qp_in);
 			return qp;
 		}
 	}
