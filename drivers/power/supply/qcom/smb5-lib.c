@@ -2343,19 +2343,28 @@ static int smblib_update_thermal_readings(struct smb_charger *chg)
 	}
 
 	if (chg->sec_chg_selected == POWER_SUPPLY_CHARGER_SEC_CP) {
-		rc = smblib_read_iio_channel(chg, chg->iio.smb_temp_chan,
-					DIV_FACTOR_DECIDEGC, &chg->smb_temp);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't read SMB TEMP channel, rc=%d\n",
+		if (!chg->cp_psy)
+			chg->cp_psy =
+				power_supply_get_by_name("charge_pump_master");
+		if (chg->cp_psy) {
+			rc = power_supply_get_property(chg->cp_psy,
+				POWER_SUPPLY_PROP_CP_DIE_TEMP, &pval);
+			if (rc < 0) {
+				smblib_err(chg, "Couldn't get smb1390 charger temp, rc=%d\n",
 					rc);
-			return rc;
+				return rc;
+			}
+			chg->smb_temp = pval.intval;
+		} else {
+			smblib_dbg(chg, PR_MISC, "Coudln't find cp_psy\n");
+			chg->smb_temp = -ENODATA;
 		}
 	} else if (chg->pl.psy && chg->sec_chg_selected ==
 					POWER_SUPPLY_CHARGER_SEC_PL) {
 		rc = power_supply_get_property(chg->pl.psy,
 				POWER_SUPPLY_PROP_CHARGER_TEMP, &pval);
 		if (rc < 0) {
-			smblib_err(chg, "Couldn't get smb charger temp, rc=%d\n",
+			smblib_err(chg, "Couldn't get smb1355 charger temp, rc=%d\n",
 					rc);
 			return rc;
 		}
