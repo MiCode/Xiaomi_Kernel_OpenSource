@@ -3513,6 +3513,7 @@
 
 	ipa_hw: qcom,ipa@1e00000 {
 		compatible = "qcom,ipa";
+		mboxes = <&qmp_aop 0>;
 		reg = <0x1e00000 0x34000>,
 		      <0x1e04000 0x28000>;
 		reg-names = "ipa-base", "gsi-base";
