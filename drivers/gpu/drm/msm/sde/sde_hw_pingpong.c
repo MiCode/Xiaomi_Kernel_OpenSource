@@ -495,9 +495,10 @@ static void _setup_pingpong_ops(struct sde_hw_pingpong_ops *ops,
 		ops->setup_dither = NULL;
 		break;
 	}
-	if (test_bit(SDE_PINGPONG_MERGE_3D, &hw_cap->features))
+	if (test_bit(SDE_PINGPONG_MERGE_3D, &hw_cap->features)) {
 		ops->setup_3d_mode = sde_hw_pp_setup_3d_merge_mode;
 		ops->reset_3d_mode = sde_hw_pp_reset_3d_merge_mode;
+	}
 };
 
 static struct sde_hw_blk_ops sde_hw_ops = {
