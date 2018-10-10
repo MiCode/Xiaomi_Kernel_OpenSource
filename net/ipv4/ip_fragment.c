@@ -853,6 +853,8 @@ static void __init ip4_frags_ctl_register(void)
 
 static int __net_init ipv4_frags_init_net(struct net *net)
 {
+	int res;
+
 	/* Fragment cache limits.
 	 *
 	 * The fragment memory accounting code, (tries to) account for
@@ -876,9 +878,13 @@ static int __net_init ipv4_frags_init_net(struct net *net)
 	 */
 	net->ipv4.frags.timeout = IP_FRAG_TIME;
 
-	inet_frags_init_net(&net->ipv4.frags);
-
-	return ip4_frags_ns_ctl_register(net);
+	res = inet_frags_init_net(&net->ipv4.frags);
+	if (res < 0)
+		return res;
+	res = ip4_frags_ns_ctl_register(net);
+	if (res < 0)
+		inet_frags_exit_net(&net->ipv4.frags, &ip4_frags);
+	return res;
 }
 
 static void __net_exit ipv4_frags_exit_net(struct net *net)
