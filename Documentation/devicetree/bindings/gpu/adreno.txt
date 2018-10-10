@@ -85,6 +85,8 @@ DCVS Core info
 Optional Properties:
 - qcom,initial-powerlevel: This value indicates which qcom,gpu-pwrlevel should be used at start time
 			   and when coming back out of resume
+- qcom,throttle-pwrlevel:  This value indicates which qcom,gpu-pwrlevel LM throttling
+			   may start to occur
 - qcom,bus-control:	   Boolean. Enables an independent bus vote from the gpu frequency
 - qcom,bus-width:	   Bus width in number of bytes. This enables dynamic AB bus voting based on
 			   bus width and actual bus transactions.
