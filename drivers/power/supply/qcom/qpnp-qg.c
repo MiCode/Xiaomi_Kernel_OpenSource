@@ -2565,7 +2565,8 @@ static int qg_determine_pon_soc(struct qpnp_qg *chip)
 	int rc = 0, batt_temp = 0, i;
 	bool use_pon_ocv = true;
 	unsigned long rtc_sec = 0;
-	u32 ocv_uv = 0, soc = 0, pon_soc = 0, shutdown[SDAM_MAX] = {0};
+	u32 ocv_uv = 0, soc = 0, pon_soc = 0, full_soc = 0, cutoff_soc = 0;
+	u32 shutdown[SDAM_MAX] = {0};
 	char ocv_type[20] = "NONE";
 
 	if (!chip->profile_loaded) {
@@ -2676,11 +2677,36 @@ use_pon_ocv:
 		}
 
 		ocv_uv = CAP(QG_MIN_OCV_UV, QG_MAX_OCV_UV, ocv_uv);
-		rc = lookup_soc_ocv(&soc, ocv_uv, batt_temp, false);
+		rc = lookup_soc_ocv(&pon_soc, ocv_uv, batt_temp, false);
 		if (rc < 0) {
 			pr_err("Failed to lookup SOC@PON rc=%d\n", rc);
 			goto done;
 		}
+
+		rc = lookup_soc_ocv(&full_soc, chip->bp.float_volt_uv,
+							batt_temp, true);
+		if (rc < 0) {
+			pr_err("Failed to lookup FULL_SOC@PON rc=%d\n", rc);
+			goto done;
+		}
+
+		rc = lookup_soc_ocv(&cutoff_soc,
+				chip->dt.vbatt_cutoff_mv * 1000,
+				batt_temp, false);
+		if (rc < 0) {
+			pr_err("Failed to lookup CUTOFF_SOC@PON rc=%d\n", rc);
+			goto done;
+		}
+
+		if ((full_soc - cutoff_soc) > 0 && (pon_soc - cutoff_soc) > 0)
+			soc = DIV_ROUND_UP(((pon_soc - cutoff_soc) * 100),
+						(full_soc - cutoff_soc));
+		else
+			soc = pon_soc;
+
+		qg_dbg(chip, QG_DEBUG_PON, "v_float=%d v_cutoff=%d FULL_SOC=%d CUTOFF_SOC=%d PON_SYS_SOC=%d pon_soc=%d\n",
+			chip->bp.float_volt_uv, chip->dt.vbatt_cutoff_mv * 1000,
+			full_soc, cutoff_soc, pon_soc, soc);
 	}
 done:
 	if (rc < 0) {
