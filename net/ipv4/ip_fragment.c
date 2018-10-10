@@ -205,7 +205,7 @@ static void ip_expire(unsigned long arg)
 	IP_INC_STATS_BH(net, IPSTATS_MIB_REASMFAILS);
 	IP_INC_STATS_BH(net, IPSTATS_MIB_REASMTIMEOUT);
 
-	if (!qp->q.flags & INET_FRAG_FIRST_IN)
+	if (!(qp->q.flags & INET_FRAG_FIRST_IN))
 		goto out;
 
 	/* sk_buff::dev and sk_buff::rbnode are unionized. So we
