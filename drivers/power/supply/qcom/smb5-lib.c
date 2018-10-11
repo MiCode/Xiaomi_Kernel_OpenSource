@@ -911,7 +911,7 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	if (rc < 0)
 		dev_err(chg->dev, "Couldn't disable secondary charger rc=%d\n",
 			rc);
-	mutex_lock(&chg->smb_lock);
+	mutex_unlock(&chg->smb_lock);
 
 	cancel_delayed_work_sync(&chg->pl_enable_work);
 
