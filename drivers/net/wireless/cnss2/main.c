@@ -37,6 +37,7 @@
 #define FW_READY_TIMEOUT		20000
 #define FW_ASSERT_TIMEOUT		5000
 #define CNSS_EVENT_PENDING		2989
+#define CE_MSI_NAME			"CE"
 
 static struct cnss_plat_data *plat_env;
 
@@ -249,7 +250,7 @@ int cnss_wlan_enable(struct device *dev,
 {
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
 	struct wlfw_wlan_cfg_req_msg_v01 req;
-	u32 i;
+	u32 i, ce_id, num_vectors, user_base_data, base_vector;
 	int ret = 0;
 
 	if (plat_priv->device_id == QCA6174_DEVICE_ID)
@@ -299,6 +300,19 @@ int cnss_wlan_enable(struct device *dev,
 		req.svc_cfg[i].pipe_num = config->ce_svc_cfg[i].pipe_num;
 	}
 
+	if (config->num_shadow_reg_cfg) {
+		req.shadow_reg_valid = 1;
+
+		if (config->num_shadow_reg_cfg >
+		    QMI_WLFW_MAX_NUM_SHADOW_REG_V01)
+			req.shadow_reg_len = QMI_WLFW_MAX_NUM_SHADOW_REG_V01;
+		else
+			req.shadow_reg_len = config->num_shadow_reg_cfg;
+		memcpy(req.shadow_reg, config->shadow_reg_cfg,
+		       sizeof(struct wlfw_shadow_reg_cfg_s_v01)
+		       * req.shadow_reg_len);
+	}
+
 	req.shadow_reg_v2_valid = 1;
 	if (config->num_shadow_reg_v2_cfg >
 	    QMI_WLFW_MAX_NUM_SHADOW_REG_V2_V01)
@@ -310,6 +324,30 @@ int cnss_wlan_enable(struct device *dev,
 	       sizeof(struct wlfw_shadow_reg_v2_cfg_s_v01)
 	       * req.shadow_reg_v2_len);
 
+	if (config->rri_over_ddr_cfg_valid) {
+		req.rri_over_ddr_cfg_valid = 1;
+		req.rri_over_ddr_cfg.base_addr_low =
+			config->rri_over_ddr_cfg.base_addr_low;
+		req.rri_over_ddr_cfg.base_addr_high =
+			config->rri_over_ddr_cfg.base_addr_high;
+	}
+
+	if (plat_priv->device_id == QCN7605_DEVICE_ID) {
+		ret = cnss_get_user_msi_assignment(dev, CE_MSI_NAME,
+						   &num_vectors,
+						   &user_base_data,
+						   &base_vector);
+		if (!ret) {
+			req.msi_cfg_valid = 1;
+			req.msi_cfg_len = QMI_WLFW_MAX_NUM_CE_V01;
+			for (ce_id = 0; ce_id < QMI_WLFW_MAX_NUM_CE_V01;
+				ce_id++) {
+				req.msi_cfg[ce_id].ce_id = ce_id;
+				req.msi_cfg[ce_id].msi_vector =
+					(ce_id % num_vectors) + base_vector;
+			}
+		}
+	}
 	ret = cnss_wlfw_wlan_cfg_send_sync(plat_priv, &req);
 	if (ret)
 		goto out;
