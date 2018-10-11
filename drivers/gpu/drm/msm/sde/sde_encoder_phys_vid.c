@@ -875,6 +875,11 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 		ctl->ops.update_bitmask_merge3d(ctl,
 			phys_enc->hw_pp->merge_3d->idx, 1);
 
+	if (phys_enc->hw_intf->cap->type == INTF_DP &&
+		phys_enc->comp_type == MSM_DISPLAY_COMPRESSION_DSC &&
+		phys_enc->comp_ratio && ctl->ops.update_bitmask_periph)
+		ctl->ops.update_bitmask_periph(ctl, intf->idx, 1);
+
 skip_flush:
 	SDE_DEBUG_VIDENC(vid_enc, "update pending flush ctl %d intf %d\n",
 		ctl->idx - CTL_0, intf->idx);
