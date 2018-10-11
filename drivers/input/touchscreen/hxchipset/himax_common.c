@@ -2240,7 +2240,7 @@ void himax_chip_common_deinit(void)
 	kfree(hx_touch_data);
 	kfree(ic_data);
 	kfree(ts->pdata);
-	kfree(ts->report_i2c_data);
+	kfree(ts->i2c_data);
 	kfree(ts);
 	probe_fail_flag = 0;
 }
