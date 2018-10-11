@@ -1366,7 +1366,7 @@ static int qseecom_register_listener(struct qseecom_dev_handle *data,
 	list_add_tail(&new_entry->list, &qseecom.registered_listener_list_head);
 	spin_unlock_irqrestore(&qseecom.registered_listener_list_lock, flags);
 
-	pr_warn("Service %d is registered\n", rcvd_lstnr.listener_id);
+	pr_debug("Service %d is registered\n", rcvd_lstnr.listener_id);
 	return ret;
 }
 
@@ -1440,7 +1440,7 @@ exit:
 	kzfree(ptr_svc);
 
 	data->released = true;
-	pr_warn("Service %d is unregistered\n", data->listener.id);
+	pr_debug("Service %d is unregistered\n", data->listener.id);
 	return ret;
 }
 
@@ -3996,7 +3996,7 @@ static int qseecom_receive_req(struct qseecom_dev_handle *data)
 		if (wait_event_freezable(this_lstnr->rcv_req_wq,
 				__qseecom_listener_has_rcvd_req(data,
 				this_lstnr))) {
-			pr_warn("Interrupted: exiting Listener Service = %d\n",
+			pr_debug("Interrupted: exiting Listener Service = %d\n",
 						(uint32_t)data->listener.id);
 			/* woken up for different reason */
 			return -ERESTARTSYS;
