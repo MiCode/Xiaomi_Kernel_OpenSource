@@ -56,14 +56,20 @@
 		/delete-property/ vdd_cx-supply;
 		/delete-property/ vdd_mx-supply;
 		/delete-property/ vdd_pll-supply;
+		vdd_mss-supply = <&pm8916_s1_level>;
+		vdd_cx-supply = <&pm8916_s1_level>;
+		vdd_mx-supply = <&pm8916_l2_level_ao>;
+		vdd_pll-supply = <&pm8916_l7>;
 	};
 
 	qcom,lpass@c200000 {
 		/delete-property/ vdd_cx-supply;
+		vdd_cx-supply = <&pm8916_s1_level>;
 	};
 
 	qcom,pronto@a21b000 {
 		/delete-property/ vdd_pronto_pll-supply;
+		vdd_pronto_pll-supply = <&pm8916_l7>;
 	};
 
 	qcom,wcnss-wlan@a000000 {
