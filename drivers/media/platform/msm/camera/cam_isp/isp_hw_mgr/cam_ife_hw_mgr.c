@@ -3562,19 +3562,18 @@ static int cam_ife_hw_mgr_do_error_recovery(
  * is associated with this context. if YES
  *  a. It fills the other cores associated with this context.in
  *      affected_core[]
- *  b. Return 0 i.e.SUCCESS
+ *  b. Return 1 if ctx is affected, 0 otherwise
  */
 static int cam_ife_hw_mgr_is_ctx_affected(
 	struct cam_ife_hw_mgr_ctx   *ife_hwr_mgr_ctx,
 	uint32_t *affected_core, uint32_t size)
 {
-
-	int32_t rc = -EPERM;
+	int32_t rc = 0;
 	uint32_t i = 0, j = 0;
 	uint32_t max_idx =  ife_hwr_mgr_ctx->num_base;
 	uint32_t ctx_affected_core_idx[CAM_IFE_HW_NUM_MAX] = {0};
 
-	CAM_DBG(CAM_ISP, "Enter:max_idx = %d", max_idx);
+	CAM_DBG(CAM_ISP, "max_idx = %d", max_idx);
 
 	if ((max_idx >= CAM_IFE_HW_NUM_MAX) ||
 		(size > CAM_IFE_HW_NUM_MAX)) {
@@ -3584,78 +3583,71 @@ static int cam_ife_hw_mgr_is_ctx_affected(
 
 	for (i = 0; i < max_idx; i++) {
 		if (affected_core[ife_hwr_mgr_ctx->base[i].idx])
-			rc = 0;
+			rc = 1;
 		else {
 			ctx_affected_core_idx[j] = ife_hwr_mgr_ctx->base[i].idx;
+			CAM_DBG(CAM_ISP, "Add affected IFE %d for recovery",
+				ctx_affected_core_idx[j]);
 			j = j + 1;
 		}
 	}
 
-	if (rc == 0) {
+	if (rc == 1) {
 		while (j) {
 			if (affected_core[ctx_affected_core_idx[j-1]] != 1)
 				affected_core[ctx_affected_core_idx[j-1]] = 1;
 			j = j - 1;
 		}
 	}
-	CAM_DBG(CAM_ISP, "Exit");
+
 	return rc;
 }
 
 /*
- *  Loop through each context
- *  a. match core_idx
- *  b. For each context from ctx_list Stop the acquired resources
- *  c. Notify CRM with fatal error for the affected isp context
- *  d. For any dual VFE context, if copanion VFE is also serving
- *     other context it should also notify the CRM with fatal error
+ * For any dual VFE context, if non-affected VFE is also serving
+ * another context, then that context should also be notified with fatal error
+ * So Loop through each context and -
+ *   a. match core_idx
+ *   b. Notify CTX with fatal error
  */
-static int  cam_ife_hw_mgr_process_overflow(
-	struct cam_ife_hw_mgr_ctx   *curr_ife_hwr_mgr_ctx,
-	struct cam_isp_hw_error_event_data *error_event_data,
-	uint32_t curr_core_idx,
-	struct cam_hw_event_recovery_data  *recovery_data)
+static int  cam_ife_hw_mgr_find_affected_ctx(
+	struct cam_ife_hw_mgr_ctx             *curr_ife_hwr_mgr_ctx,
+	struct cam_isp_hw_error_event_data    *error_event_data,
+	uint32_t                               curr_core_idx,
+	struct cam_hw_event_recovery_data     *recovery_data)
 {
 	uint32_t affected_core[CAM_IFE_HW_NUM_MAX] = {0};
 	struct cam_ife_hw_mgr_ctx   *ife_hwr_mgr_ctx = NULL;
-	cam_hw_event_cb_func	         ife_hwr_irq_err_cb;
-	struct cam_ife_hw_mgr		*ife_hwr_mgr = NULL;
-	struct cam_hw_stop_args          stop_args;
+	cam_hw_event_cb_func         notify_err_cb;
+	struct cam_ife_hw_mgr       *ife_hwr_mgr = NULL;
+	enum cam_isp_hw_event_type   event_type = CAM_ISP_HW_EVENT_ERROR;
 	uint32_t i = 0;
-
-	CAM_DBG(CAM_ISP, "Enter");
 
 	if (!recovery_data) {
 		CAM_ERR(CAM_ISP, "recovery_data parameter is NULL");
 		return -EINVAL;
 	}
-	recovery_data->no_of_context = 0;
-	/* affected_core is indexed by core_idx*/
-	affected_core[curr_core_idx] = 1;
 
+	recovery_data->no_of_context = 0;
+	affected_core[curr_core_idx] = 1;
 	ife_hwr_mgr = curr_ife_hwr_mgr_ctx->hw_mgr;
 
 	list_for_each_entry(ife_hwr_mgr_ctx,
 		&ife_hwr_mgr->used_ctx_list, list) {
-
 		/*
 		 * Check if current core_idx matches the HW associated
 		 * with this context
 		 */
-		CAM_DBG(CAM_ISP, "Calling match Hw idx");
-		if (cam_ife_hw_mgr_is_ctx_affected(ife_hwr_mgr_ctx,
+		if (!cam_ife_hw_mgr_is_ctx_affected(ife_hwr_mgr_ctx,
 			affected_core, CAM_IFE_HW_NUM_MAX))
 			continue;
 
 		atomic_set(&ife_hwr_mgr_ctx->overflow_pending, 1);
+		notify_err_cb = ife_hwr_mgr_ctx->common.event_cb[event_type];
 
-		ife_hwr_irq_err_cb =
-		ife_hwr_mgr_ctx->common.event_cb[CAM_ISP_HW_EVENT_ERROR];
-
-		stop_args.ctxt_to_hw_map = ife_hwr_mgr_ctx;
-
-		/* Add affected_context in list of recovery data*/
-		CAM_DBG(CAM_ISP, "Add new entry in affected_ctx_list");
+		/* Add affected_context in list of recovery data */
+		CAM_DBG(CAM_ISP, "Add affected ctx %d to list",
+			ife_hwr_mgr_ctx->ctx_index);
 		if (recovery_data->no_of_context < CAM_CTX_MAX)
 			recovery_data->affected_ctx[
 				recovery_data->no_of_context++] =
@@ -3665,18 +3657,17 @@ static int  cam_ife_hw_mgr_process_overflow(
 		 * In the call back function corresponding ISP context
 		 * will update CRM about fatal Error
 		 */
-
-		ife_hwr_irq_err_cb(ife_hwr_mgr_ctx->common.cb_priv,
+		notify_err_cb(ife_hwr_mgr_ctx->common.cb_priv,
 			CAM_ISP_HW_EVENT_ERROR, error_event_data);
-
 	}
+
 	/* fill the affected_core in recovery data */
 	for (i = 0; i < CAM_IFE_HW_NUM_MAX; i++) {
 		recovery_data->affected_core[i] = affected_core[i];
 		CAM_DBG(CAM_ISP, "Vfe core %d is affected (%d)",
 			 i, recovery_data->affected_core[i]);
 	}
-	CAM_DBG(CAM_ISP, "Exit");
+
 	return 0;
 }
 
@@ -3764,6 +3755,7 @@ static int  cam_ife_hw_mgr_handle_camif_error(
 	struct cam_vfe_top_irq_evt_payload      *evt_payload;
 	struct cam_isp_hw_error_event_data       error_event_data = {0};
 	struct cam_hw_event_recovery_data        recovery_data = {0};
+	int rc = 0;
 
 	ife_hwr_mgr_ctx = handler_priv;
 	evt_payload = payload;
@@ -3780,24 +3772,35 @@ static int  cam_ife_hw_mgr_handle_camif_error(
 	case CAM_ISP_HW_ERROR_P2I_ERROR:
 	case CAM_ISP_HW_ERROR_VIOLATION:
 		CAM_ERR(CAM_ISP, "Enter: error_type (%d)", error_status);
+		rc = -EFAULT;
+
+		if (g_ife_hw_mgr.debug_cfg.enable_recovery)
+			error_event_data.recovery_enabled = true;
 
 		error_event_data.error_type =
 				CAM_ISP_HW_ERROR_OVERFLOW;
 
-		cam_ife_hw_mgr_process_overflow(ife_hwr_mgr_ctx,
+		cam_ife_hw_mgr_find_affected_ctx(ife_hwr_mgr_ctx,
 			&error_event_data,
 			core_idx,
 			&recovery_data);
 
+		if (!g_ife_hw_mgr.debug_cfg.enable_recovery) {
+			CAM_DBG(CAM_ISP, "recovery is not enabled");
+			break;
+		}
+
+		CAM_DBG(CAM_ISP, "IFE Mgr recovery is enabled");
 		/* Trigger for recovery */
 		recovery_data.error_type = CAM_ISP_HW_ERROR_OVERFLOW;
 		cam_ife_hw_mgr_do_error_recovery(&recovery_data);
 		break;
 	default:
-		CAM_DBG(CAM_ISP, "None error (%d)", error_status);
+		CAM_DBG(CAM_ISP, "No error (%d)", error_status);
+		break;
 	}
 
-	return 0;
+	return rc;
 }
 
 /*
@@ -4542,7 +4545,7 @@ err:
 	 * the affected context and any successful buf_done event is not
 	 * reported.
 	 */
-	rc = cam_ife_hw_mgr_process_overflow(ife_hwr_mgr_ctx,
+	rc = cam_ife_hw_mgr_find_affected_ctx(ife_hwr_mgr_ctx,
 		&error_event_data, evt_payload->core_index,
 		&recovery_data);
 
@@ -4614,18 +4617,13 @@ int cam_ife_mgr_do_tasklet(void *handler_priv, void *evt_payload_priv)
 	 * for this context it needs to be handled remaining
 	 * interrupts are ignored.
 	 */
-	if (g_ife_hw_mgr.debug_cfg.enable_recovery) {
-		CAM_DBG(CAM_ISP, "IFE Mgr recovery is enabled");
-		rc = cam_ife_hw_mgr_handle_camif_error(ife_hwr_mgr_ctx,
-			evt_payload_priv);
-	} else {
-		CAM_DBG(CAM_ISP, "recovery is not enabled");
-		rc = 0;
-	}
+	rc = cam_ife_hw_mgr_handle_camif_error(ife_hwr_mgr_ctx,
+		evt_payload_priv);
 
 	if (rc) {
-		CAM_ERR(CAM_ISP, "Encountered Error (%d), ignoring other irqs",
-			 rc);
+		CAM_ERR_RATE_LIMIT(CAM_ISP,
+			"Encountered Error (%d), ignoring other irqs",
+			rc);
 		goto put_payload;
 	}
 
