@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -335,6 +335,35 @@
 			mx_vdd_cdev {
 				trip = <&mdm_vpe_trip>;
 				cooling-device = <&mx_cdev 0 0>;
+			};
+		};
+	};
+
+	mdm-core-step {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&tsens0 4>;
+		trips {
+			mdm_step_trip0: mdm-step-trip-0 {
+				temperature = <95000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+			mdm_step_trip1: mdm-step-trip-1 {
+				temperature = <105000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			modem_proc-lv11 {
+				trip = <&mdm_step_trip0>;
+				cooling-device = <&modem_proc 1 1>;
+			};
+			modem_proc_lvl3 {
+				trip = <&mdm_step_trip1>;
+				cooling-device = <&modem_proc 3 3>;
 			};
 		};
 	};
