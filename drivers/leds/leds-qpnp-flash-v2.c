@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"flashv2: %s: " fmt, __func__
@@ -181,6 +181,10 @@ enum strobe_type {
 	LPG_STROBE,
 };
 
+enum wa_flags {
+	PM8150L_IRES_WA = BIT(0),
+};
+
 /*
  * Configurations for each individual LED
  */
@@ -279,6 +283,7 @@ struct qpnp_flash_led {
 	int				num_snodes;
 	int				enable;
 	int				total_current_ma;
+	u32				wa_flags;
 	u16				base;
 	bool				trigger_lmh;
 	bool				trigger_chgr;
@@ -1058,7 +1063,12 @@ static void qpnp_flash_led_node_set(struct flash_node_data *fnode, int value)
 				break;
 			}
 		}
+	} else if (prgm_current_ma <= 20 &&
+			(led->wa_flags & PM8150L_IRES_WA)) {
+		fnode->ires_idx = FLASH_LED_IRES_BASE;
+		fnode->ires_ua = FLASH_LED_IRES_MIN_UA;
 	}
+
 	fnode->current_ma = prgm_current_ma;
 	fnode->cdev.brightness = prgm_current_ma;
 	fnode->current_reg_val = get_current_reg_code(prgm_current_ma,
@@ -2272,6 +2282,9 @@ static int qpnp_flash_led_parse_common_dt(struct qpnp_flash_led *led,
 	pr_debug("PMIC subtype %d Digital major %d\n",
 		led->pdata->pmic_rev_id->pmic_subtype,
 		led->pdata->pmic_rev_id->rev4);
+
+	if (led->pdata->pmic_rev_id->pmic_subtype == PM8150L_SUBTYPE)
+		led->wa_flags |= PM8150L_IRES_WA;
 
 	led->pdata->hdrm_auto_mode_en = of_property_read_bool(node,
 							"qcom,hdrm-auto-mode");
