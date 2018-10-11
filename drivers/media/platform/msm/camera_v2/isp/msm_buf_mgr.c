@@ -676,6 +676,10 @@ static int msm_isp_put_buf_unsafe(struct msm_isp_buf_mgr *buf_mgr,
 		rc = 0;
 		break;
 	case MSM_ISP_BUFFER_STATE_QUEUED:
+		if (IS_ENABLED(CONFIG_MSM_ISP_V1)) {
+			rc = 0;
+			break;
+		}
 	case MSM_ISP_BUFFER_STATE_DIVERTED:
 	default:
 		WARN(1, "%s: bufq 0x%x, buf idx 0x%x, incorrect state = %d",
