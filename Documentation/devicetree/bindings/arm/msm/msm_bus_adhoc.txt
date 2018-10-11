@@ -14,6 +14,7 @@ topology in order to apply client bandwidth requests.
 The mandatory properties for bus driver are:
 
 compatible:		"qcom,msm-bus-device"
+compatible:		"qcom,msm-bus-rsc"
 
 The register space associated with the bus devices are represented with
 the following optional properties:
