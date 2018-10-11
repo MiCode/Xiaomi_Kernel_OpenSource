@@ -59,12 +59,12 @@
 
 &mdss_dsi_active {
 	mux {
-		pins = "gpio61", "gpio93", "gpio94";
+		pins = "gpio60", "gpio93", "gpio94";
 		function = "gpio";
 	};
 
 	config {
-		pins = "gpio61", "gpio93", "gpio94";
+		pins = "gpio60", "gpio93", "gpio94";
 		drive-strength = <8>; /* 8 mA */
 		bias-disable = <0>; /* no pull */
 		output-high;
@@ -73,12 +73,12 @@
 
 &mdss_dsi_suspend {
 	mux {
-		pins = "gpio61", "gpio93", "gpio94";
+		pins = "gpio60", "gpio93", "gpio94";
 		function = "gpio";
 	};
 
 	config {
-		pins = "gpio61", "gpio93", "gpio94";
+		pins = "gpio60", "gpio93", "gpio94";
 		drive-strength = <2>; /* 2 mA */
 		bias-pull-down; /* pull down */
 	};
@@ -119,7 +119,7 @@
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
 
 	qcom,platform-te-gpio = <&tlmm 24 0>;
-	qcom,platform-reset-gpio = <&tlmm 61 0>;
+	qcom,platform-reset-gpio = <&tlmm 60 0>;
 	qcom,platform-bklight-en-gpio = <&tlmm 93 0>;
 	qcom,platform-enable-gpio = <&tlmm 94 0>;
 };
