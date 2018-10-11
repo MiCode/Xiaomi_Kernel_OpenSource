@@ -114,9 +114,8 @@
 		backlight_pwm_en_default: backlight_pwm_en_default {
 			pins = "mpp4";
 			function = "digital";
-			qcom,dtest = <1>;
 			power-source = <0>;
-			output-low;
+			output-high;
 		};
 	};
 };
@@ -147,7 +146,7 @@
 };
 
 &mdss_dsi {
-	vdda-supply = <&disp_vdda_eldo1>;
+	vdda-supply = <&pm8916_l6>;
 	vddio-supply = <&pm8916_l6>;
 
 	qcom,phy-supply-entries {
@@ -157,6 +156,20 @@
 		qcom,phy-supply-entry@0 {
 			reg = <0>;
 			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1744000>;
+			qcom,supply-max-voltage = <1904000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+	};
+
+	qcom,ctrl-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,ctrl-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vdda";
 			qcom,supply-min-voltage = <1744000>;
 			qcom,supply-max-voltage = <1904000>;
 			qcom,supply-enable-load = <100000>;
