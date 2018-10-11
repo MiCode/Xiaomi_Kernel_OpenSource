@@ -1915,6 +1915,16 @@ static void handle_state_src_send_capabilities(struct usbpd *pd,
 	ret = pd_send_msg(pd, MSG_SOURCE_CAPABILITIES, default_src_caps,
 			ARRAY_SIZE(default_src_caps), SOP_MSG);
 	if (ret) {
+		if (pd->pd_connected) {
+			usbpd_set_state(pd, PE_SEND_SOFT_RESET);
+			break;
+		}
+
+		/*
+		 * Technically this is PE_SRC_Discovery, but we can
+		 * handle it by setting a timer to come back to the
+		 * same state for the next retry.
+		 */
 		pd->caps_count++;
 		if (pd->caps_count >= PD_CAPS_COUNT) {
 			usbpd_dbg(&pd->dev, "Src CapsCounter exceeded, disabling PD\n");
