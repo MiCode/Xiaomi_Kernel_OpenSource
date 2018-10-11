@@ -3051,6 +3051,15 @@
 		qcom,hw-settle-time = <200>;
 		qcom,pre-scaling = <1 1>;
 	};
+
+	snoc_cnoc_keepalive: qcom,snoc_cnoc_keepalive {
+		compatible = "qcom,devbw";
+		governor = "powersave";
+		qcom,src-dst-ports = <161 627>;
+		qcom,active-only;
+		status = "ok";
+		qcom,bw-tbl = < 1 >;
+	};
 };
 
 &pm6150_adc_tm {
