@@ -457,6 +457,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.num_protected_regs = 0x20,
 		.busy_mask = 0xFFFFFFFE,
 		.gpmufw_name = "a608_rgmu.bin",
+		.cx_ipeak_gpu_freq = 745000000,
 	},
 	{
 		.gpurev = ADRENO_REV_A616,
