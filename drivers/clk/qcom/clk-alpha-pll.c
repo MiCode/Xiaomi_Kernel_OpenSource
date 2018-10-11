@@ -1213,7 +1213,10 @@ int alpha_pll_lucid_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 	if (config->l)
 		regmap_write(regmap, PLL_L_VAL(pll), config->l);
 
-	regmap_write(regmap, PLL_CAL_L_VAL(pll), LUCID_PLL_CAL_VAL);
+	if (config->cal_l)
+		regmap_write(regmap, PLL_CAL_L_VAL(pll), config->cal_l);
+	else
+		regmap_write(regmap, PLL_CAL_L_VAL(pll), LUCID_PLL_CAL_VAL);
 
 	if (config->alpha)
 		regmap_write(regmap, PLL_ALPHA_VAL(pll), config->alpha);
@@ -1229,9 +1232,29 @@ int alpha_pll_lucid_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 		regmap_write(regmap, PLL_CONFIG_CTL_U1(pll),
 				config->config_ctl_hi1_val);
 
-	if (config->post_div_mask)
-		regmap_update_bits(regmap, PLL_USER_CTL(pll),
-			config->post_div_mask, config->post_div_val);
+	if (config->user_ctl_val)
+		regmap_write(regmap, PLL_USER_CTL(pll),
+				config->user_ctl_val);
+
+	if (config->user_ctl_hi_val)
+		regmap_write(regmap, PLL_USER_CTL_U(pll),
+				config->user_ctl_hi_val);
+
+	if (config->user_ctl_hi1_val)
+		regmap_write(regmap, PLL_USER_CTL_U1(pll),
+				config->user_ctl_hi1_val);
+
+	if (config->test_ctl_val)
+		regmap_write(regmap, PLL_TEST_CTL(pll),
+				config->test_ctl_val);
+
+	if (config->test_ctl_hi_val)
+		regmap_write(regmap, PLL_TEST_CTL_U(pll),
+				config->test_ctl_hi_val);
+
+	if (config->test_ctl_hi1_val)
+		regmap_write(regmap, PLL_TEST_CTL_U1(pll),
+				config->test_ctl_hi1_val);
 
 	regmap_update_bits(regmap, PLL_MODE(pll),
 				 PLL_UPDATE_BYPASS,
