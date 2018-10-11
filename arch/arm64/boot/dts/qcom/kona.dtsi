@@ -44,6 +44,7 @@
 			cache-size = <0x8000>;
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_0>;
+			qcom,freq-domain = <&cpufreq_hw 0 4>;
 			L2_0: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-size = <0x20000>;
@@ -66,6 +67,7 @@
 			cache-size = <0x8000>;
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_1>;
+			qcom,freq-domain = <&cpufreq_hw 0 4>;
 			L2_1: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-size = <0x20000>;
@@ -82,6 +84,7 @@
 			cache-size = <0x8000>;
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_2>;
+			qcom,freq-domain = <&cpufreq_hw 0 4>;
 			L2_2: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-size = <0x20000>;
@@ -98,6 +101,7 @@
 			cache-size = <0x8000>;
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_3>;
+			qcom,freq-domain = <&cpufreq_hw 0 4>;
 			L2_3: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-size = <0x20000>;
@@ -114,6 +118,7 @@
 			cache-size = <0x10000>;
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_4>;
+			qcom,freq-domain = <&cpufreq_hw 1 4>;
 			L2_4: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-size = <0x20000>;
@@ -130,6 +135,7 @@
 			cache-size = <0x10000>;
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_5>;
+			qcom,freq-domain = <&cpufreq_hw 1 4>;
 			L2_5: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-size = <0x20000>;
@@ -146,6 +152,7 @@
 			cache-size = <0x10000>;
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_6>;
+			qcom,freq-domain = <&cpufreq_hw 1 4>;
 			L2_6: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-size = <0x20000>;
@@ -162,6 +169,7 @@
 			cache-size = <0x10000>;
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_7>;
+			qcom,freq-domain = <&cpufreq_hw 2 4>;
 			L2_7: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-size = <0x80000>;
@@ -209,13 +217,28 @@
 		};
 	};
 
+
 	cpu_pmu: cpu-pmu {
 		compatible = "arm,armv8-pmuv3";
 		qcom,irq-is-percpu;
 		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	soc: soc { };
+	soc: soc {
+		cpufreq_hw: qcom,cpufreq-hw {
+			compatible = "qcom,cpufreq-hw";
+			reg = <0x18591000 0x1000>, <0x18592000 0x1000>,
+				<0x18593000 0x1000>;
+			reg-names = "freq-domain0", "freq-domain1",
+				"freq-domain2";
+
+			clocks = <&clock_xo>, <&clock_gcc GPLL0>;
+			clock-names = "xo", "cpu_clk";
+
+			#freq-domain-cells = <2>;
+		};
+	};
+
 	firmware: firmware {
 		android {
 			compatible = "android,firmware";
@@ -232,7 +255,6 @@
 			};
 		};
 	};
-
 
 	reserved-memory {
 		#address-cells = <2>;
