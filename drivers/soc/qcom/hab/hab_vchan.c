@@ -87,7 +87,6 @@ hab_vchan_free(struct kref *ref)
 
 	/* the release vchan from ctx was done earlier in vchan close() */
 	hab_ctx_put(ctx); /* now ctx is not needed from this vchan's view */
-	vchan->ctx = NULL;
 
 	/* release vchan from pchan. no more msg for this vchan */
 	write_lock_bh(&pchan->vchans_lock);
@@ -173,7 +172,10 @@ void hab_vchan_stop(struct virtual_channel *vchan)
 	if (vchan) {
 		vchan->otherend_closed = 1;
 		wake_up(&vchan->rx_queue);
-		wake_up_interruptible(&vchan->ctx->exp_wq);
+		if (vchan->ctx)
+			wake_up_interruptible(&vchan->ctx->exp_wq);
+		else
+			pr_err("NULL ctx for vchan %x\n", vchan->id);
 	}
 }
 
@@ -200,6 +202,18 @@ static int hab_vchans_per_pchan_empty(struct physical_channel *pchan)
 
 	read_lock(&pchan->vchans_lock);
 	empty = list_empty(&pchan->vchannels);
+	if (!empty) {
+		struct virtual_channel *vchan;
+
+		list_for_each_entry(vchan, &pchan->vchannels, pnode) {
+			pr_err("vchan %pK id %x remote id %x session %d ref %d closed %d remote close %d\n",
+				   vchan, vchan->id, vchan->otherend_id,
+				   vchan->session_id,
+				   get_refcnt(vchan->refcount), vchan->closed,
+				   vchan->otherend_closed);
+		}
+
+	}
 	read_unlock(&pchan->vchans_lock);
 
 	return empty;
@@ -220,6 +234,8 @@ static int hab_vchans_empty(int vmid)
 				if (!hab_vchans_per_pchan_empty(pchan)) {
 					empty = 0;
 					spin_unlock_bh(&hab_dev->pchan_lock);
+					pr_info("vmid %d %s's vchans are not closed\n",
+							vmid, pchan->name);
 					break;
 				}
 			}
@@ -239,7 +255,7 @@ void hab_vchans_empty_wait(int vmid)
 	pr_info("waiting for GVM%d's sockets closure\n", vmid);
 
 	while (!hab_vchans_empty(vmid))
-		schedule();
+		usleep_range(10000, 12000);
 
 	pr_info("all of GVM%d's sockets are closed\n", vmid);
 }

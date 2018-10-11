@@ -21,7 +21,7 @@
 	.openlock = __SPIN_LOCK_UNLOCKED(&hab_devices[__num__].openlock)\
 	}
 
-static const char hab_info_str[] = "Change: 16764735 Revision: #76";
+static const char hab_info_str[] = "Change: 17280941 Revision: #81";
 
 /*
  * The following has to match habmm definitions, order does not matter if
@@ -42,15 +42,13 @@ static struct hab_device hab_devices[] = {
 	HAB_DEVICE_CNSTR(DEVICE_DISP5_NAME, MM_DISP_5, 10),
 	HAB_DEVICE_CNSTR(DEVICE_GFX_NAME, MM_GFX, 11),
 	HAB_DEVICE_CNSTR(DEVICE_VID_NAME, MM_VID, 12),
-	HAB_DEVICE_CNSTR(DEVICE_MISC_NAME, MM_MISC, 13),
-	HAB_DEVICE_CNSTR(DEVICE_QCPE1_NAME, MM_QCPE_VM1, 14),
-	HAB_DEVICE_CNSTR(DEVICE_QCPE2_NAME, MM_QCPE_VM2, 15),
-	HAB_DEVICE_CNSTR(DEVICE_QCPE3_NAME, MM_QCPE_VM3, 16),
-	HAB_DEVICE_CNSTR(DEVICE_QCPE4_NAME, MM_QCPE_VM4, 17),
-	HAB_DEVICE_CNSTR(DEVICE_CLK1_NAME, MM_CLK_VM1, 18),
-	HAB_DEVICE_CNSTR(DEVICE_CLK2_NAME, MM_CLK_VM2, 19),
-	HAB_DEVICE_CNSTR(DEVICE_FDE1_NAME, MM_FDE_1, 20),
-	HAB_DEVICE_CNSTR(DEVICE_BUFFERQ1_NAME, MM_BUFFERQ_1, 21),
+	HAB_DEVICE_CNSTR(DEVICE_VID2_NAME, MM_VID_2, 13),
+	HAB_DEVICE_CNSTR(DEVICE_MISC_NAME, MM_MISC, 14),
+	HAB_DEVICE_CNSTR(DEVICE_QCPE1_NAME, MM_QCPE_VM1, 15),
+	HAB_DEVICE_CNSTR(DEVICE_CLK1_NAME, MM_CLK_VM1, 16),
+	HAB_DEVICE_CNSTR(DEVICE_CLK2_NAME, MM_CLK_VM2, 17),
+	HAB_DEVICE_CNSTR(DEVICE_FDE1_NAME, MM_FDE_1, 18),
+	HAB_DEVICE_CNSTR(DEVICE_BUFFERQ1_NAME, MM_BUFFERQ_1, 19),
 };
 
 struct hab_driver hab_driver = {
@@ -1082,15 +1080,25 @@ static int hab_release(struct inode *inodep, struct file *filep)
 	/* notify remote side on vchan closing */
 	list_for_each_entry_safe(vchan, tmp, &ctx->vchannels, node) {
 		list_del(&vchan->node); /* vchan is not in this ctx anymore */
-		hab_vchan_stop_notify(vchan);
+
+		if (!vchan->closed) { /* locally hasn't closed yet */
+			if (!kref_get_unless_zero(&vchan->refcount)) {
+				pr_err("vchan %x %x refcnt %d mismanaged closed %d remote closed %d\n",
+					vchan->id,
+					vchan->otherend_id,
+					get_refcnt(vchan->refcount),
+					vchan->closed, vchan->otherend_closed);
+				continue; /* vchan is already being freed */
+			} else {
+				hab_vchan_stop_notify(vchan);
+				/* put for notify. shouldn't cause free */
+				hab_vchan_put(vchan);
+			}
+		} else
+			continue;
+
 		write_unlock(&ctx->ctx_lock);
-		if (!vchan->closed) {
-			pr_warn("potential leak vc %pK %x remote %x session %d refcnt %d\n",
-					vchan, vchan->id, vchan->otherend_id,
-					vchan->session_id,
-					get_refcnt(vchan->refcount));
-			hab_vchan_put(vchan); /* there is a lock inside */
-		}
+		hab_vchan_put(vchan); /* there is a lock inside */
 		write_lock(&ctx->ctx_lock);
 	}
 
@@ -1324,7 +1332,6 @@ static int __init hab_init(void)
 	dev_t dev;
 
 	place_marker("M - HAB INIT Start");
-
 	result = alloc_chrdev_region(&hab_driver.major, 0, 1, "hab");
 
 	if (result < 0) {
@@ -1379,11 +1386,8 @@ static int __init hab_init(void)
 		} else
 			set_dma_ops(hab_driver.dev, &hab_dma_ops);
 	}
-
 	hab_stat_init(&hab_driver);
-
 	place_marker("M - HAB INIT End");
-
 	return result;
 
 err:

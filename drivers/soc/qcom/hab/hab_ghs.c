@@ -14,6 +14,7 @@
 #include "hab.h"
 #include "hab_ghs.h"
 
+#define GIPC_VM_SET_CNT    22
 static const char * const dt_gipc_path_name[] = {
 	"testgipc1",
 	"testgipc2",
@@ -39,12 +40,41 @@ static const char * const dt_gipc_path_name[] = {
 	"testgipc22",
 };
 
+
+/* same vmid assignment for all the vms. it should matches dt_gipc_path_name */
+int mmid_order[GIPC_VM_SET_CNT] = {
+	MM_AUD_1,
+	MM_AUD_2,
+	MM_AUD_3,
+	MM_AUD_4,
+	MM_CAM_1,
+	MM_CAM_2,
+	MM_DISP_1,
+	MM_DISP_2,
+	MM_DISP_3,
+	MM_DISP_4,
+	MM_DISP_5,
+	MM_GFX,
+	MM_VID,
+	MM_MISC,
+	MM_QCPE_VM1,
+	MM_VID_2, /* newly recycled */
+	0,
+	0,
+	MM_CLK_VM1,
+	MM_CLK_VM2,
+	MM_FDE_1,
+	MM_BUFFERQ_1,
+};
+
 static struct ghs_vmm_plugin_info_s {
 	const char * const *dt_name;
+	int *mmid_dt_mapping;
 	int curr;
 	int probe_cnt;
 } ghs_vmm_plugin_info = {
 	dt_gipc_path_name,
+	mmid_order,
 	0,
 	ARRAY_SIZE(dt_gipc_path_name),
 };
@@ -59,6 +89,33 @@ static void ghs_irq_handler(void *cookie)
 		tasklet_schedule(&dev->task);
 }
 
+static int get_dt_name_idx(int vmid_base, int mmid,
+				struct ghs_vmm_plugin_info_s *plugin_info)
+{
+	int idx = -1;
+	int i;
+
+	if (vmid_base < 0 || vmid_base > plugin_info->probe_cnt /
+						GIPC_VM_SET_CNT) {
+		pr_err("vmid %d overflow expected max %d\n", vmid_base,
+				plugin_info->probe_cnt / GIPC_VM_SET_CNT);
+		return idx;
+	}
+
+	for (i = 0; i < GIPC_VM_SET_CNT; i++) {
+		if (mmid == plugin_info->mmid_dt_mapping[i]) {
+			idx = vmid_base * GIPC_VM_SET_CNT + i;
+			if (idx > plugin_info->probe_cnt) {
+				pr_err("dt name idx %d overflow max %d\n",
+						idx, plugin_info->probe_cnt);
+				idx = -1;
+			}
+			break;
+		}
+	}
+	return idx;
+}
+
 /* static struct physical_channel *habhyp_commdev_alloc(int id) */
 int habhyp_commdev_alloc(void **commdev, int is_be, char *name, int vmid_remote,
 		struct hab_device *mmid_device)
@@ -67,6 +124,7 @@ int habhyp_commdev_alloc(void **commdev, int is_be, char *name, int vmid_remote,
 	struct physical_channel *pchan = NULL;
 	struct physical_channel **ppchan = (struct physical_channel **)commdev;
 	int ret = 0;
+	int dt_name_idx = 0;
 
 	if (ghs_vmm_plugin_info.curr > ghs_vmm_plugin_info.probe_cnt) {
 		pr_err("too many commdev alloc %d, supported is %d\n",
@@ -101,13 +159,25 @@ int habhyp_commdev_alloc(void **commdev, int is_be, char *name, int vmid_remote,
 		gvh_dn = of_find_node_by_path("/aliases");
 		if (gvh_dn) {
 			const char *ep_path = NULL;
-			struct device_node *ep_dn;
+			struct device_node *ep_dn = NULL;
+
+			dt_name_idx = get_dt_name_idx(vmid_remote,
+							mmid_device->id,
+							&ghs_vmm_plugin_info);
+			if (dt_name_idx < 0) {
+				pr_err("failed to find %s for vmid %d ret %d\n",
+						mmid_device->name,
+						mmid_device->id,
+						dt_name_idx);
+				ret = -ENOENT;
+				goto err;
+			}
 
 			ret = of_property_read_string(gvh_dn,
-			ghs_vmm_plugin_info.dt_name[ghs_vmm_plugin_info.curr],
-			&ep_path);
+				ghs_vmm_plugin_info.dt_name[dt_name_idx],
+				&ep_path);
 			if (ret)
-				pr_err("failed to read endpoint string ret %d\n",
+				pr_err("failed to read endpoint str ret %d\n",
 					ret);
 			of_node_put(gvh_dn);
 
@@ -117,22 +187,23 @@ int habhyp_commdev_alloc(void **commdev, int is_be, char *name, int vmid_remote,
 				of_node_put(ep_dn);
 				if (IS_ERR(dev->endpoint)) {
 					ret = PTR_ERR(dev->endpoint);
-					pr_err("KGIPC alloc failed id: %d, ret: %d\n",
-					   ghs_vmm_plugin_info.curr, ret);
+					pr_err("alloc failed %d %s ret %d\n",
+						dt_name_idx, mmid_device->name,
+						ret);
 					goto err;
 				} else {
-					pr_debug("gipc ep found for %d\n",
-						ghs_vmm_plugin_info.curr);
+					pr_debug("gipc ep found for %d %s\n",
+						dt_name_idx, mmid_device->name);
 				}
 			} else {
-				pr_err("of_parse_phandle failed id: %d\n",
-					   ghs_vmm_plugin_info.curr);
+				pr_err("of_parse_phandle failed id %d %s\n",
+					   dt_name_idx, mmid_device->name);
 				ret = -ENOENT;
 				goto err;
 			}
 		} else {
-			pr_err("of_find_compatible_node failed id: %d\n",
-				   ghs_vmm_plugin_info.curr);
+			pr_err("of_find_compatible_node failed id %d %s\n",
+				   dt_name_idx, mmid_device->name);
 			ret = -ENOENT;
 			goto err;
 		}
@@ -149,6 +220,7 @@ int habhyp_commdev_alloc(void **commdev, int is_be, char *name, int vmid_remote,
 	pchan->hyp_data = (void *)dev;
 	pchan->is_be = is_be;
 	strlcpy(dev->name, name, sizeof(dev->name));
+	strlcpy(pchan->name, name, sizeof(pchan->name));
 	*ppchan = pchan;
 	dev->read_data = kmalloc(GIPC_RECV_BUFF_SIZE_BYTES, GFP_KERNEL);
 	if (!dev->read_data) {

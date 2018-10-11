@@ -152,10 +152,13 @@ int hab_open_listen(struct uhab_context *ctx,
 		ret = wait_event_interruptible_timeout(dev->openq,
 			hab_open_request_find(ctx, dev, listen, recv_request),
 			ms_timeout);
-		if (!ret || (-ERESTARTSYS == ret)) {
+		if (!ret) {
+			pr_debug("%s timeout in open listen\n", dev->name);
+			ret = -EAGAIN; /* condition not met */
+		} else if (-ERESTARTSYS == ret) {
 			pr_warn("something failed in open listen ret %d\n",
 					ret);
-			ret = -EAGAIN; /* condition not met */
+			ret = -EINTR; /* condition not met */
 		} else if (ret > 0)
 			ret = 0; /* condition met */
 	} else { /* fe case */
