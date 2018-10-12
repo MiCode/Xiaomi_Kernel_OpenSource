@@ -2203,6 +2203,57 @@ int gsi_alloc_channel(struct gsi_chan_props *props, unsigned long dev_hdl,
 }
 EXPORT_SYMBOL(gsi_alloc_channel);
 
+static int gsi_alloc_ap_channel(unsigned int chan_hdl)
+{
+	struct gsi_chan_ctx *ctx;
+	uint32_t val;
+	int res;
+	int ee;
+	enum gsi_ch_cmd_opcode op = GSI_CH_ALLOCATE;
+
+	if (!gsi_ctx) {
+		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
+		return -GSI_STATUS_NODEV;
+	}
+
+	ctx = &gsi_ctx->chan[chan_hdl];
+	if (ctx->allocated) {
+		GSIERR("chan %d already allocated\n", chan_hdl);
+		return -GSI_STATUS_NODEV;
+	}
+
+	memset(ctx, 0, sizeof(*ctx));
+
+	mutex_init(&ctx->mlock);
+	init_completion(&ctx->compl);
+	atomic_set(&ctx->poll_mode, GSI_CHAN_MODE_CALLBACK);
+
+	mutex_lock(&gsi_ctx->mlock);
+	ee = gsi_ctx->per.ee;
+	gsi_ctx->ch_dbg[chan_hdl].ch_allocate++;
+	val = (((chan_hdl << GSI_EE_n_GSI_CH_CMD_CHID_SHFT) &
+				GSI_EE_n_GSI_CH_CMD_CHID_BMSK) |
+			((op << GSI_EE_n_GSI_CH_CMD_OPCODE_SHFT) &
+			 GSI_EE_n_GSI_CH_CMD_OPCODE_BMSK));
+	gsi_writel(val, gsi_ctx->base +
+			GSI_EE_n_GSI_CH_CMD_OFFS(ee));
+	res = wait_for_completion_timeout(&ctx->compl, GSI_CMD_TIMEOUT);
+	if (res == 0) {
+		GSIERR("chan_hdl=%u timed out\n", chan_hdl);
+		mutex_unlock(&gsi_ctx->mlock);
+		return -GSI_STATUS_TIMED_OUT;
+	}
+	if (ctx->state != GSI_CHAN_STATE_ALLOCATED) {
+		GSIERR("chan_hdl=%u allocation failed state=%d\n",
+				chan_hdl, ctx->state);
+		mutex_unlock(&gsi_ctx->mlock);
+		return -GSI_STATUS_RES_ALLOC_FAILURE;
+	}
+	mutex_unlock(&gsi_ctx->mlock);
+
+	return GSI_STATUS_SUCCESS;
+}
+
 static void __gsi_write_channel_scratch(unsigned long chan_hdl,
 		union __packed gsi_channel_scratch val)
 {
@@ -2219,6 +2270,36 @@ static void __gsi_write_channel_scratch(unsigned long chan_hdl,
 	gsi_writel(val.data.word4, gsi_ctx->base +
 		GSI_EE_n_GSI_CH_k_SCRATCH_3_OFFS(chan_hdl,
 			gsi_ctx->per.ee));
+}
+
+int gsi_write_channel_scratch3_reg(unsigned long chan_hdl,
+		union __packed gsi_wdi_channel_scratch3_reg val)
+{
+	struct gsi_chan_ctx *ctx;
+
+	if (!gsi_ctx) {
+		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
+		return -GSI_STATUS_NODEV;
+	}
+
+	if (chan_hdl >= gsi_ctx->max_ch) {
+		GSIERR("bad params chan_hdl=%lu\n", chan_hdl);
+		return -GSI_STATUS_INVALID_PARAMS;
+	}
+
+	ctx = &gsi_ctx->chan[chan_hdl];
+
+	mutex_lock(&ctx->mlock);
+
+	ctx->scratch.wdi.endp_metadatareg_offset =
+				val.wdi.endp_metadatareg_offset;
+	ctx->scratch.wdi.qmap_id = val.wdi.qmap_id;
+
+	gsi_writel(val.data.word1, gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_3_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+	mutex_unlock(&ctx->mlock);
+	return GSI_STATUS_SUCCESS;
 }
 
 static void __gsi_read_channel_scratch(unsigned long chan_hdl,
@@ -3631,6 +3712,9 @@ int gsi_alloc_channel_ee(unsigned int chan_idx, unsigned int ee, int *code)
 		GSIERR("bad params chan_idx=%d\n", chan_idx);
 		return -GSI_STATUS_INVALID_PARAMS;
 	}
+
+	if (ee == 0)
+		return gsi_alloc_ap_channel(chan_idx);
 
 	mutex_lock(&gsi_ctx->mlock);
 	reinit_completion(&gsi_ctx->gen_ee_cmd_compl);
