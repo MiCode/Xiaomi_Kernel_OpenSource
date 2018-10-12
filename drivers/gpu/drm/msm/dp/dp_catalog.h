@@ -99,7 +99,7 @@ struct dp_catalog_ctrl {
 	u32 isr5;
 
 	void (*state_ctrl)(struct dp_catalog_ctrl *ctrl, u32 state);
-	void (*config_ctrl)(struct dp_catalog_ctrl *ctrl);
+	void (*config_ctrl)(struct dp_catalog_ctrl *ctrl, u8 ln_cnt);
 	void (*lane_mapping)(struct dp_catalog_ctrl *ctrl, bool flipped,
 				char *lane_map);
 	void (*mainlink_ctrl)(struct dp_catalog_ctrl *ctrl, bool enable);

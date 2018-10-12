@@ -703,7 +703,7 @@ static void dp_catalog_ctrl_state_ctrl(struct dp_catalog_ctrl *ctrl, u32 state)
 	wmb();
 }
 
-static void dp_catalog_ctrl_config_ctrl(struct dp_catalog_ctrl *ctrl)
+static void dp_catalog_ctrl_config_ctrl(struct dp_catalog_ctrl *ctrl, u8 ln_cnt)
 {
 	struct dp_catalog_private *catalog;
 	struct dp_io_data *io_data;
@@ -716,6 +716,11 @@ static void dp_catalog_ctrl_config_ctrl(struct dp_catalog_ctrl *ctrl)
 
 	catalog = dp_catalog_get_priv(ctrl);
 	io_data = catalog->io.dp_link;
+
+	cfg = dp_read(catalog->exe_mode, io_data, DP_CONFIGURATION_CTRL);
+	cfg &= ~(BIT(4) | BIT(5));
+	cfg |= (ln_cnt - 1) << 4;
+	dp_write(catalog->exe_mode, io_data, DP_CONFIGURATION_CTRL, cfg);
 
 	cfg = dp_read(catalog->exe_mode, io_data, DP_MAINLINK_CTRL);
 	cfg |= 0x02000000;

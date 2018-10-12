@@ -170,7 +170,8 @@ static void dp_ctrl_configure_source_link_params(struct dp_ctrl_private *ctrl,
 		ctrl->catalog->lane_mapping(ctrl->catalog, ctrl->orientation,
 						ctrl->parser->l_map);
 		ctrl->catalog->mst_config(ctrl->catalog, ctrl->mst_mode);
-		ctrl->catalog->config_ctrl(ctrl->catalog);
+		ctrl->catalog->config_ctrl(ctrl->catalog,
+				ctrl->link->link_params.lane_count);
 		ctrl->catalog->mainlink_ctrl(ctrl->catalog, true);
 	} else {
 		ctrl->catalog->mainlink_ctrl(ctrl->catalog, false);
