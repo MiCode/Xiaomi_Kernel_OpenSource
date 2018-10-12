@@ -23,6 +23,8 @@ struct csiphy_reg_parms_t csiphy_v1_0 = {
 	.csiphy_reset_array_size = 5,
 	.csiphy_2ph_config_array_size = 14,
 	.csiphy_3ph_config_array_size = 19,
+	.csiphy_clock_lane = 0x1,
+	.csiphy_combo_clk_lane = 0x10,
 };
 
 struct csiphy_reg_t csiphy_common_reg_1_0[] = {
