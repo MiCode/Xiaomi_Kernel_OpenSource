@@ -705,11 +705,6 @@ int a6xx_preemption_init(struct adreno_device *adreno_dev)
 	if (kgsl_mmu_get_mmutype(device) != KGSL_MMU_TYPE_IOMMU)
 		return -ENODEV;
 
-	if (adreno_is_a608(adreno_dev)) {
-		adreno_dev->preempt.preempt_level = 0;
-		adreno_dev->preempt.skipsaverestore = false;
-	}
-
 	INIT_WORK(&preempt->work, _a6xx_preemption_worker);
 
 	timer_setup(&preempt->timer, _a6xx_preemption_timer, 0);
