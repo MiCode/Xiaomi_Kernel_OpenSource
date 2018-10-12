@@ -17,3 +17,23 @@
 	compatible = "qcom,qm215";
 	qcom,msm-id = <386 0x0>;
 };
+
+&soc {
+	/delete-node/ devfreq-cpufreq;
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+		target-dev = <&cpubw>;
+		cpu-to-dev-map =
+			<  998400  4248 >,
+			< 1094400  4541 >,
+			< 1305600  5645 >;
+		};
+
+		mincpubw-cpufreq {
+			target-dev = <&mincpubw>;
+			cpu-to-dev-map =
+				<  998400 2270 >,
+				< 1305600 4248 >;
+		};
+	};
+};
