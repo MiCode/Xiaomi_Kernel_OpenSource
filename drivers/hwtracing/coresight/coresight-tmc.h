@@ -14,6 +14,8 @@
 #include <linux/of_address.h>
 #include <linux/amba/bus.h>
 
+#include "coresight-byte-cntr.h"
+
 #define TMC_RSZ			0x004
 #define TMC_STS			0x00c
 #define TMC_RRD			0x010
@@ -221,6 +223,7 @@ struct tmc_drvdata {
 	const char		*csr_name;
 	bool			enable;
 	enum tmc_etr_out_mode	out_mode;
+	struct byte_cntr	*byte_cntr;
 };
 
 struct etr_buf_operations {
@@ -283,6 +286,8 @@ int tmc_read_prepare_etr(struct tmc_drvdata *drvdata);
 int tmc_read_unprepare_etr(struct tmc_drvdata *drvdata);
 void tmc_etr_enable_hw(struct tmc_drvdata *drvdata);
 void tmc_etr_disable_hw(struct tmc_drvdata *drvdata);
+extern struct byte_cntr *byte_cntr_init(struct amba_device *adev,
+					struct tmc_drvdata *drvdata);
 extern const struct coresight_ops tmc_etr_cs_ops;
 ssize_t tmc_etr_get_sysfs_trace(struct tmc_drvdata *drvdata,
 				loff_t pos, size_t len, char **bufpp);

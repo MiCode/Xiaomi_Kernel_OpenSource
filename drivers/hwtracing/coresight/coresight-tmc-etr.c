@@ -1086,8 +1086,10 @@ out:
 	if (free_buf)
 		tmc_etr_free_sysfs_buf(free_buf);
 
-	mutex_unlock(&drvdata->mem_lock);
+	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
+		tmc_etr_byte_cntr_start(drvdata->byte_cntr);
 
+	mutex_unlock(&drvdata->mem_lock);
 	if (!ret)
 		dev_info(drvdata->dev, "TMC-ETR enabled\n");
 
@@ -1135,6 +1137,10 @@ static void tmc_disable_etr_sink(struct coresight_device *csdev)
 	}
 
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
+
+	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
+		tmc_etr_byte_cntr_stop(drvdata->byte_cntr);
+
 	mutex_unlock(&drvdata->mem_lock);
 	dev_info(drvdata->dev, "TMC-ETR disabled\n");
 }
@@ -1176,6 +1182,11 @@ int tmc_read_prepare_etr(struct tmc_drvdata *drvdata)
 
 	/* If drvdata::etr_buf is NULL the trace data has been read already */
 	if (drvdata->etr_buf == NULL) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (drvdata->byte_cntr && drvdata->byte_cntr->enable) {
 		ret = -EINVAL;
 		goto out;
 	}
