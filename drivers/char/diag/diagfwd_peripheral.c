@@ -1304,9 +1304,6 @@ int diagfwd_channel_close(struct diagfwd_info *fwd_info)
 	if (!fwd_info)
 		return -EIO;
 
-	if (fwd_info->type == TYPE_CNTL)
-		flush_workqueue(driver->cntl_wq);
-
 	mutex_lock(&driver->diagfwd_channel_mutex[fwd_info->peripheral]);
 	fwd_info->ch_open = 0;
 	if (fwd_info && fwd_info->c_ops && fwd_info->c_ops->close)
