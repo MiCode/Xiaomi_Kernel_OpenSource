@@ -17,6 +17,7 @@
 #include "qm215-pm8916.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. QM215 QRD";
+	model = "Qualcomm Technologies, Inc. QM215";
 	compatible = "qcom,qm215";
+	qcom,pmic-name = "PM8916";
 };
