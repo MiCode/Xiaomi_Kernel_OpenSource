@@ -191,6 +191,7 @@ struct qseecom_registered_listener_list {
 	phys_addr_t                sb_phys;
 	size_t                     sb_length;
 	wait_queue_head_t          rcv_req_wq;
+	/* rcv_req_flag: -1: not ready; 0: ready and empty; 1: received req */
 	int                        rcv_req_flag;
 	int                        send_resp_flag;
 	bool                       listener_in_use;
@@ -1346,7 +1347,7 @@ static int qseecom_register_listener(struct qseecom_dev_handle *data,
 	if (!new_entry)
 		return -ENOMEM;
 	memcpy(&new_entry->svc, &rcvd_lstnr, sizeof(rcvd_lstnr));
-	new_entry->rcv_req_flag = 0;
+	new_entry->rcv_req_flag = -1;
 
 	new_entry->svc.listener_id = rcvd_lstnr.listener_id;
 	new_entry->sb_length = rcvd_lstnr.sb_size;
@@ -1770,21 +1771,20 @@ static void __qseecom_clean_listener_sglistinfo(
 	}
 }
 
-/* wake up listener receive request wq retry delay (ms) and max attemp count */
-#define QSEECOM_WAKE_LISTENER_RCVWQ_DELAY          10
-#define QSEECOM_WAKE_LISTENER_RCVWQ_MAX_ATTEMP     3
+/* wait listener retry delay (ms) and max attemp count */
+#define QSEECOM_WAIT_LISTENER_DELAY          10
+#define QSEECOM_WAIT_LISTENER_MAX_ATTEMP     3
 
-static int __qseecom_retry_wake_up_listener_rcv_wq(
+static int __is_listener_rcv_wq_not_ready(
 			struct qseecom_registered_listener_list *ptr_svc)
 {
 	int retry = 0;
 
-	while (ptr_svc->rcv_req_flag == 1 &&
-		retry++ < QSEECOM_WAKE_LISTENER_RCVWQ_MAX_ATTEMP) {
-		wake_up_interruptible(&ptr_svc->rcv_req_wq);
-		msleep(QSEECOM_WAKE_LISTENER_RCVWQ_DELAY);
+	while (ptr_svc->rcv_req_flag == -1 &&
+		retry++ < QSEECOM_WAIT_LISTENER_MAX_ATTEMP) {
+		msleep(QSEECOM_WAIT_LISTENER_DELAY);
 	}
-	return ptr_svc->rcv_req_flag == 1;
+	return ptr_svc->rcv_req_flag == -1;
 }
 
 static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
@@ -1815,6 +1815,8 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 		list_for_each_entry(ptr_svc,
 				&qseecom.registered_listener_list_head, list) {
 			if (ptr_svc->svc.listener_id == lstnr) {
+				if (__is_listener_rcv_wq_not_ready(ptr_svc))
+					break;
 				ptr_svc->listener_in_use = true;
 				ptr_svc->rcv_req_flag = 1;
 				wake_up_interruptible(&ptr_svc->rcv_req_wq);
@@ -1855,14 +1857,15 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 			goto err_resp;
 		}
 
-		if (ptr_svc->rcv_req_flag == 1 &&
-			__qseecom_retry_wake_up_listener_rcv_wq(ptr_svc)) {
+		if (ptr_svc->rcv_req_flag == -1) {
 			pr_err("Service %d is not ready to receive request\n",
 					lstnr);
 			rc = -ENOENT;
 			status = QSEOS_RESULT_FAILURE;
 			goto err_resp;
+
 		}
+
 		pr_debug("waking up rcv_req_wq and waiting for send_resp_wq\n");
 
 		/* initialize the new signal mask with all signals*/
@@ -2144,6 +2147,8 @@ static int __qseecom_reentrancy_process_incomplete_cmd(
 		list_for_each_entry(ptr_svc,
 				&qseecom.registered_listener_list_head, list) {
 			if (ptr_svc->svc.listener_id == lstnr) {
+				if (__is_listener_rcv_wq_not_ready(ptr_svc))
+					break;
 				ptr_svc->listener_in_use = true;
 				ptr_svc->rcv_req_flag = 1;
 				wake_up_interruptible(&ptr_svc->rcv_req_wq);
@@ -2184,14 +2189,15 @@ static int __qseecom_reentrancy_process_incomplete_cmd(
 			goto err_resp;
 		}
 
-		if (ptr_svc->rcv_req_flag == 1 &&
-			__qseecom_retry_wake_up_listener_rcv_wq(ptr_svc)) {
+		if (ptr_svc->rcv_req_flag == -1) {
 			pr_err("Service %d is not ready to receive request\n",
 					lstnr);
 			rc = -ENOENT;
 			status = QSEOS_RESULT_FAILURE;
 			goto err_resp;
+
 		}
+
 		pr_debug("waking up rcv_req_wq and waiting for send_resp_wq\n");
 
 		/* initialize the new signal mask with all signals*/
@@ -3977,7 +3983,7 @@ static int __qseecom_listener_has_rcvd_req(struct qseecom_dev_handle *data,
 {
 	int ret;
 
-	ret = (svc->rcv_req_flag != 0);
+	ret = (svc->rcv_req_flag == 1);
 	return ret || data->abort || svc->abort;
 }
 
@@ -3991,6 +3997,7 @@ static int qseecom_receive_req(struct qseecom_dev_handle *data)
 		pr_err("Invalid listener ID\n");
 		return -ENODATA;
 	}
+	this_lstnr->rcv_req_flag = 0;
 
 	while (1) {
 		if (wait_event_freezable(this_lstnr->rcv_req_wq,
