@@ -25,7 +25,7 @@
 #define FG_MEM_IF_PM8150B		0x0D
 #define FG_ADC_RR_PM8150B		0x13
 
-#define FG_SRAM_LEN			960
+#define FG_SRAM_LEN			972
 #define PROFILE_LEN			416
 #define PROFILE_COMP_LEN		24
 #define KI_COEFF_SOC_LEVELS		3
