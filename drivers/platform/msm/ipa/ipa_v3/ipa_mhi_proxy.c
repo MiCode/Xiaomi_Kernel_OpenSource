@@ -709,6 +709,13 @@ static void imp_mhi_shutdown(void)
 			iommu_unmap(cb->mapping->domain, iova_p, size_p);
 		}
 	}
+	if (!imp_ctx->in_lpm &&
+		(imp_ctx->state == IMP_READY ||
+			imp_ctx->state == IMP_STARTED)) {
+		IMP_DBG("devote IMP with state= %d\n", imp_ctx->state);
+		IPA_ACTIVE_CLIENTS_DEC_SPECIAL("IMP");
+	}
+	imp_ctx->in_lpm = false;
 	imp_ctx->state = IMP_PROBED;
 
 	IMP_FUNC_EXIT();
