@@ -13,6 +13,7 @@
 #include <asm/cacheflush.h>
 #include <linux/of_address.h>
 #include <linux/amba/bus.h>
+#include <linux/coresight-cti.h>
 
 #include "coresight-byte-cntr.h"
 
@@ -222,6 +223,8 @@ struct tmc_drvdata {
 	struct coresight_csr	*csr;
 	const char		*csr_name;
 	bool			enable;
+	struct coresight_cti	*cti_flush;
+	struct coresight_cti	*cti_reset;
 	enum tmc_etr_out_mode	out_mode;
 	struct byte_cntr	*byte_cntr;
 };
