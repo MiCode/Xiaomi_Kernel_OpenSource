@@ -546,6 +546,14 @@
 				   0xf0a80b8 0xf0b80b8>;
 	};
 
+	qcom,ghd {
+		compatible = "qcom,gladiator-hang-detect";
+		qcom,threshold-arr = <0x0f1d141c 0x0f1d1420
+				      0x0f1d1424 0x0f1d1428
+				      0x0f1d142c 0x0f1d1430>;
+		qcom,config-reg = <0x0f1d1434>;
+	};
+
 	cpuss_dump: cpuss_dump {
 		compatible = "qcom,cpuss-dump";
 		qcom,l1_i_cache0 {
