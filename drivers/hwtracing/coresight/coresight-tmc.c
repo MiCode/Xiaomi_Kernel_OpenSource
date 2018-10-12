@@ -474,8 +474,12 @@ static ssize_t out_mode_store(struct device *dev,
 		drvdata->out_mode = TMC_ETR_OUT_MODE_USB;
 		spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
-		coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
-		coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
+		if (drvdata->mode != CS_MODE_DISABLED) {
+			coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
+			coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
+			tmc_etr_byte_cntr_stop(drvdata->byte_cntr);
+			tmc_etr_free_mem(drvdata);
+		}
 
 		drvdata->usbch = usb_qdss_open("qdss", drvdata,
 					       usb_notifier);
