@@ -61,6 +61,7 @@ static int npu_send_misc_cmd(struct npu_device *npu_dev, uint32_t q_idx,
 	void *cmd_ptr);
 static int npu_queue_event(struct npu_client *client, struct npu_kevent *evt);
 static int npu_notify_dsp(struct npu_device *npu_dev, bool pwr_up);
+static int npu_notify_aop(struct npu_device *npu_dev, bool on);
 
 /* -------------------------------------------------------------------------
  * Function Definitions - Init / Deinit
@@ -77,6 +78,8 @@ int fw_init(struct npu_device *npu_dev)
 		mutex_unlock(&host_ctx->lock);
 		return 0;
 	}
+
+	npu_notify_aop(npu_dev, true);
 
 	if (npu_enable_core_power(npu_dev)) {
 		ret = -EPERM;
@@ -263,6 +266,8 @@ void fw_deinit(struct npu_device *npu_dev, bool ssr)
 	complete(&host_ctx->fw_deinit_done);
 	mutex_unlock(&host_ctx->lock);
 	pr_debug("firmware deinit complete\n");
+	npu_notify_aop(npu_dev, false);
+
 	return;
 }
 
@@ -445,6 +450,38 @@ static int npu_notify_dsp(struct npu_device *npu_dev, bool pwr_up)
 		pr_warn("No response from dsp\n");
 
 	return ret;
+}
+
+#define MAX_LEN 128
+
+static int npu_notify_aop(struct npu_device *npu_dev, bool on)
+{
+	char buf[MAX_LEN];
+	struct qmp_pkt pkt;
+	int buf_size, rc = 0;
+
+	if (!npu_dev->mbox_aop.chan) {
+		pr_warn("aop mailbox channel is not available\n");
+		return 0;
+	}
+
+	buf_size = snprintf(buf, MAX_LEN, "{class: bcm, res: npu_on, val: %d}",
+		on ? 1 : 0);
+	if (buf_size < 0) {
+		pr_err("prepare qmp notify buf failed\n");
+		return -EINVAL;
+	}
+
+	pr_debug("send msg %s to aop\n", buf);
+	memset(&pkt, 0, sizeof(pkt));
+	pkt.size = (buf_size + 3) & ~0x3;
+	pkt.data = buf;
+
+	rc = mbox_send_message(npu_dev->mbox_aop.chan, &pkt);
+	if (rc < 0)
+		pr_err("qmp message send failed, ret=%d\n", rc);
+
+	return rc;
 }
 
 /* -------------------------------------------------------------------------
