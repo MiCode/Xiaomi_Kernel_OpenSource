@@ -16,6 +16,7 @@
 	model = "Qualcomm Technologies, Inc. QM215";
 	compatible = "qcom,qm215";
 	qcom,msm-id = <386 0x0>;
+	qcom,msm-name = "QM215";
 };
 
 &soc {
