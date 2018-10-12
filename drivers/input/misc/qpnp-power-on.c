@@ -2086,19 +2086,80 @@ static int read_gen2_pon_off_reason(struct qpnp_pon *pon, u16 *reason,
 	return 0;
 }
 
+static int qpnp_pon_configure_s3_reset(struct qpnp_pon *pon)
+{
+	struct device *dev = &pon->pdev->dev;
+	const char *src_name;
+	u32 debounce;
+	u8 src_val;
+	int rc;
+
+	/* Program S3 reset debounce time */
+	rc = of_property_read_u32(dev->of_node, "qcom,s3-debounce", &debounce);
+	if (!rc) {
+		if (debounce > QPNP_PON_S3_TIMER_SECS_MAX) {
+			dev_err(dev, "S3 debounce time %u greater than max supported %u\n",
+				debounce, QPNP_PON_S3_TIMER_SECS_MAX);
+			return -EINVAL;
+		}
+
+		if (debounce != 0)
+			debounce = ilog2(debounce);
+
+		/* S3 debounce is a SEC_ACCESS register */
+		rc = qpnp_pon_masked_write(pon, QPNP_PON_SEC_ACCESS(pon),
+					0xFF, QPNP_PON_SEC_UNLOCK);
+		if (rc)
+			return rc;
+
+		rc = qpnp_pon_masked_write(pon, QPNP_PON_S3_DBC_CTL(pon),
+					QPNP_PON_S3_DBC_DELAY_MASK, debounce);
+		if (rc)
+			return rc;
+	}
+
+	/* Program S3 reset source */
+	rc = of_property_read_string(dev->of_node, "qcom,s3-src", &src_name);
+	if (!rc) {
+		if (!strcmp(src_name, "kpdpwr")) {
+			src_val = QPNP_PON_S3_SRC_KPDPWR;
+		} else if (!strcmp(src_name, "resin")) {
+			src_val = QPNP_PON_S3_SRC_RESIN;
+		} else if (!strcmp(src_name, "kpdpwr-or-resin")) {
+			src_val = QPNP_PON_S3_SRC_KPDPWR_OR_RESIN;
+		} else if (!strcmp(src_name, "kpdpwr-and-resin")) {
+			src_val = QPNP_PON_S3_SRC_KPDPWR_AND_RESIN;
+		} else {
+			dev_err(dev, "Unknown S3 reset source: %s\n",
+				src_name);
+			return -EINVAL;
+		}
+
+		/*
+		 * S3 source is a write once register. If the register has
+		 * been configured by the bootloader then this operation will
+		 * not have an effect.
+		 */
+		rc = qpnp_pon_masked_write(pon, QPNP_PON_S3_SRC(pon),
+					QPNP_PON_S3_SRC_MASK, src_val);
+		if (rc)
+			return rc;
+	}
+
+	return 0;
+}
+
 static int qpnp_pon_probe(struct platform_device *pdev)
 {
 	struct qpnp_pon *pon;
 	unsigned int base;
 	struct device_node *node = NULL;
-	u32 delay = 0, s3_debounce = 0;
+	u32 delay = 0;
 	int rc, sys_reset, index;
 	int reason_index_offset = 0;
 	u8 buf[2];
 	uint pon_sts = 0;
 	u16 poff_sts = 0;
-	const char *s3_src;
-	u8 s3_src_reg;
 	unsigned long flags;
 	uint temp = 0;
 
@@ -2279,77 +2340,9 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 			panic("An UVLO was occurred.");
 	}
 
-	/* program s3 debounce */
-	rc = of_property_read_u32(pon->pdev->dev.of_node,
-				"qcom,s3-debounce", &s3_debounce);
-	if (rc) {
-		if (rc != -EINVAL) {
-			dev_err(&pon->pdev->dev,
-				"Unable to read s3 timer rc:%d\n",
-				rc);
-			goto err_out;
-		}
-	} else {
-		if (s3_debounce > QPNP_PON_S3_TIMER_SECS_MAX) {
-			dev_info(&pon->pdev->dev,
-				"Exceeded S3 max value, set it to max\n");
-			s3_debounce = QPNP_PON_S3_TIMER_SECS_MAX;
-		}
-
-		/* 0 is a special value to indicate instant s3 reset */
-		if (s3_debounce != 0)
-			s3_debounce = ilog2(s3_debounce);
-
-		/* s3 debounce is SEC_ACCESS register */
-		rc = qpnp_pon_masked_write(pon, QPNP_PON_SEC_ACCESS(pon),
-					0xFF, QPNP_PON_SEC_UNLOCK);
-		if (rc) {
-			dev_err(&pdev->dev, "Unable to do SEC_ACCESS rc:%d\n",
-				rc);
-			goto err_out;
-		}
-
-		rc = qpnp_pon_masked_write(pon, QPNP_PON_S3_DBC_CTL(pon),
-				QPNP_PON_S3_DBC_DELAY_MASK, s3_debounce);
-		if (rc) {
-			dev_err(&pdev->dev,
-				"Unable to set S3 debounce rc:%d\n",
-				rc);
-			goto err_out;
-		}
-	}
-
-	/* program s3 source */
-	s3_src = "kpdpwr-and-resin";
-	rc = of_property_read_string(pon->pdev->dev.of_node,
-				"qcom,s3-src", &s3_src);
-	if (rc && rc != -EINVAL) {
-		dev_err(&pon->pdev->dev, "Unable to read s3 timer rc: %d\n",
-			rc);
+	rc = qpnp_pon_configure_s3_reset(pon);
+	if (rc)
 		goto err_out;
-	}
-
-	if (!strcmp(s3_src, "kpdpwr"))
-		s3_src_reg = QPNP_PON_S3_SRC_KPDPWR;
-	else if (!strcmp(s3_src, "resin"))
-		s3_src_reg = QPNP_PON_S3_SRC_RESIN;
-	else if (!strcmp(s3_src, "kpdpwr-or-resin"))
-		s3_src_reg = QPNP_PON_S3_SRC_KPDPWR_OR_RESIN;
-	else /* default combination */
-		s3_src_reg = QPNP_PON_S3_SRC_KPDPWR_AND_RESIN;
-
-	/*
-	 * S3 source is a write once register. If the register has
-	 * been configured by bootloader then this operation will
-	 * not be effective.
-	 */
-	rc = qpnp_pon_masked_write(pon, QPNP_PON_S3_SRC(pon),
-			QPNP_PON_S3_SRC_MASK, s3_src_reg);
-	if (rc) {
-		dev_err(&pdev->dev, "Unable to program s3 source rc: %d\n",
-			rc);
-		goto err_out;
-	}
 
 	dev_set_drvdata(&pdev->dev, pon);
 

@@ -46,7 +46,6 @@ Optional properties:
 				secs. The values range from 0 to 128.
 - qcom,s3-src			The source for stage 3 reset. It can be one of
 				"kpdpwr", "resin", "kpdpwr-or-resin" or
-				"kpdpwr-and-resin". The default value is
 				"kpdpwr-and-resin".
 - qcom,uvlo-panic		If this property is present, the device will
 				set to panic during reboot if this reboot is
