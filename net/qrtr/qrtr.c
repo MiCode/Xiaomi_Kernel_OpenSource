@@ -533,6 +533,17 @@ static int qrtr_node_enqueue(struct qrtr_node *node, struct sk_buff *skb,
 	if (!rc && type == QRTR_TYPE_HELLO)
 		atomic_inc(&node->hello_sent);
 
+	if (rc) {
+		struct qrtr_tx_flow *flow;
+		unsigned long key = (u64)to->sq_node << 32 | to->sq_port;
+
+		mutex_lock(&node->qrtr_tx_lock);
+		flow = radix_tree_lookup(&node->qrtr_tx_flow, key);
+		if (flow)
+			atomic_dec(&flow->pending);
+		mutex_unlock(&node->qrtr_tx_lock);
+	}
+
 	return rc;
 }
 
