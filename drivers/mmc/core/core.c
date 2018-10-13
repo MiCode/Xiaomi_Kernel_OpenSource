@@ -1078,6 +1078,7 @@ void mmc_request_done(struct mmc_host *host, struct mmc_request *mrq)
 				mrq->stop->resp[0], mrq->stop->resp[1],
 				mrq->stop->resp[2], mrq->stop->resp[3]);
 		}
+		mmc_host_clk_release(host);
 	}
 	/*
 	 * Request starter must handle retries - see
@@ -1086,7 +1087,6 @@ void mmc_request_done(struct mmc_host *host, struct mmc_request *mrq)
 	if (mrq->done)
 		mrq->done(mrq);
 
-	mmc_host_clk_release(host);
 }
 
 EXPORT_SYMBOL(mmc_request_done);
