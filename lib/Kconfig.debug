@@ -283,6 +283,17 @@ config PAGE_OWNER
 
 	  If unsure, say N.
 
+config PAGE_OWNER_ENABLE_DEFAULT
+	bool "Enable Track page owner by default"
+	depends on PAGE_OWNER
+	help
+	  This keeps track of what call chain is the owner of a page, may
+	  help to find bare alloc_page(s) leaks. If you include this
+	  feature on your build, it is enabled by default. You should pass
+	  "page_owner=off" to boot parameter in order to disable it. Eats
+	  a fair amount of memory if enabled. See tools/vm/page_owner_sort.c
+	  for user-space helper.
+
 config DEBUG_FS
 	bool "Debug Filesystem"
 	help
