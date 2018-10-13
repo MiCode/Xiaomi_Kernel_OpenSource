@@ -55,3 +55,15 @@ config ION_FORCE_DMA_SYNC
 	  We generally don't want to enable this config as it breaks the
 	  cache maintenance model.
 	  If you're not sure say N here.
+
+config ION_DEFER_FREE_NO_SCHED_IDLE
+	bool "Increases the priority of ION defer free thread"
+	depends on ION
+	help
+	  Certain heaps such as the system heaps make use of a low priority
+	  thread to help free buffer allocations back to the pool which might
+	  result in future allocations requests going to the buddy instead of
+	  the pool when there is a high buffer allocation rate.
+	  Choose this option to remove the SCHED_IDLE flag in case of defer
+	  free thereby increasing the priority of defer free thread.
+	  if you're not sure say Y here.

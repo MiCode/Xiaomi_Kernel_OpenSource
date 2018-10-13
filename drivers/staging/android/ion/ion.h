@@ -29,6 +29,7 @@
 #define ION_SYSTEM_HEAP_NAME	"system"
 #define ION_MM_HEAP_NAME	"mm"
 #define ION_SPSS_HEAP_NAME	"spss"
+#define ION_SECURE_CARVEOUT_HEAP_NAME	"secure_carveout"
 #define ION_QSECOM_HEAP_NAME	"qsecom"
 #define ION_QSECOM_TA_HEAP_NAME	"qsecom_ta"
 #define ION_SECURE_HEAP_NAME	"secure_heap"
@@ -256,12 +257,6 @@ bool ion_buffer_cached(struct ion_buffer *buffer);
 struct ion_device *ion_device_create(void);
 
 /**
- * ion_device_destroy - free and device and it's resource
- * @dev:		the device
- */
-void ion_device_destroy(struct ion_device *dev);
-
-/**
  * ion_device_add_heap - adds a heap to the ion device
  * @dev:		the device
  * @heap:		the heap to add
@@ -357,25 +352,19 @@ size_t ion_heap_freelist_size(struct ion_heap *heap);
  */
 
 struct ion_heap *ion_heap_create(struct ion_platform_heap *heap_data);
-void ion_heap_destroy(struct ion_heap *heap);
 
 struct ion_heap *ion_system_heap_create(struct ion_platform_heap *unused);
-void ion_system_heap_destroy(struct ion_heap *heap);
 struct ion_heap *ion_system_contig_heap_create(struct ion_platform_heap *heap);
-void ion_system_contig_heap_destroy(struct ion_heap *heap);
 
 struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data);
-void ion_carveout_heap_destroy(struct ion_heap *heap);
 
 struct ion_heap *ion_chunk_heap_create(struct ion_platform_heap *heap_data);
-void ion_chunk_heap_destroy(struct ion_heap *heap);
 
 #ifdef CONFIG_CMA
 struct ion_heap *ion_secure_cma_heap_create(struct ion_platform_heap *data);
 void ion_secure_cma_heap_destroy(struct ion_heap *heap);
 
 struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *data);
-void ion_cma_heap_destroy(struct ion_heap *heap);
 #else
 static inline struct ion_heap
 			*ion_secure_cma_heap_create(struct ion_platform_heap *h)
@@ -389,15 +378,14 @@ static inline struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *h)
 {
 	return NULL;
 }
-
-static inline void ion_cma_heap_destroy(struct ion_heap *h) {}
 #endif
 
 struct ion_heap *ion_system_secure_heap_create(struct ion_platform_heap *heap);
-void ion_system_secure_heap_destroy(struct ion_heap *heap);
 
 struct ion_heap *ion_cma_secure_heap_create(struct ion_platform_heap *heap);
-void ion_cma_secure_heap_destroy(struct ion_heap *heap);
+
+struct ion_heap *
+ion_secure_carveout_heap_create(struct ion_platform_heap *heap);
 
 /**
  * functions for creating and destroying a heap pool -- allows you

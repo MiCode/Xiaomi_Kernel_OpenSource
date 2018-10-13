@@ -48,6 +48,11 @@ struct pages_mem {
 	u32 size;
 };
 
+int ion_heap_is_system_heap_type(enum ion_heap_type type)
+{
+	return type == ((enum ion_heap_type)ION_HEAP_TYPE_SYSTEM);
+}
+
 static struct page *alloc_buffer_page(struct ion_system_heap *heap,
 				      struct ion_buffer *buffer,
 				      unsigned long order,
@@ -68,8 +73,8 @@ static struct page *alloc_buffer_page(struct ion_system_heap *heap,
 
 	page = ion_page_pool_alloc(pool, from_pool);
 
-	if (!page)
-		return 0;
+	if (IS_ERR(page))
+		return page;
 
 	if ((MAKE_ION_ALLOC_DMA_READY && vmid <= 0) || !(*from_pool))
 		ion_pages_sync_for_device(dev, page, PAGE_SIZE << order,
@@ -120,7 +125,7 @@ static struct page_info *alloc_largest_available(struct ion_system_heap *heap,
 
 	info = kmalloc(sizeof(*info), GFP_KERNEL);
 	if (!info)
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 
 	for (i = 0; i < NUM_ORDERS; i++) {
 		if (size < order_to_size(orders[i]))
@@ -129,7 +134,7 @@ static struct page_info *alloc_largest_available(struct ion_system_heap *heap,
 			continue;
 		from_pool = !(buffer->flags & ION_FLAG_POOL_FORCE_ALLOC);
 		page = alloc_buffer_page(heap, buffer, orders[i], &from_pool);
-		if (!page)
+		if (IS_ERR(page))
 			continue;
 
 		info->page = page;
@@ -140,7 +145,7 @@ static struct page_info *alloc_largest_available(struct ion_system_heap *heap,
 	}
 	kfree(info);
 
-	return NULL;
+	return ERR_PTR(-ENOMEM);
 }
 
 static struct page_info *
@@ -155,7 +160,7 @@ alloc_from_pool_preferred(struct ion_system_heap *heap,
 
 	info = kmalloc(sizeof(*info), GFP_KERNEL);
 	if (!info)
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 
 	for (i = 0; i < NUM_ORDERS; i++) {
 		if (size < order_to_size(orders[i]))
@@ -164,7 +169,7 @@ alloc_from_pool_preferred(struct ion_system_heap *heap,
 			continue;
 
 		page = alloc_from_secure_pool_order(heap, buffer, orders[i]);
-		if (!page)
+		if (IS_ERR(page))
 			continue;
 
 		info->page = page;
@@ -175,7 +180,7 @@ alloc_from_pool_preferred(struct ion_system_heap *heap,
 	}
 
 	page = split_page_from_secure_pool(heap, buffer);
-	if (page) {
+	if (!IS_ERR(page)) {
 		info->page = page;
 		info->order = 0;
 		info->from_pool = true;
@@ -259,7 +264,7 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 	struct sg_table table_sync = {0};
 	struct scatterlist *sg;
 	struct scatterlist *sg_sync;
-	int ret;
+	int ret = -ENOMEM;
 	struct list_head pages;
 	struct list_head pages_from_pool;
 	struct page_info *info, *tmp_info;
@@ -273,6 +278,13 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 
 	if (size / PAGE_SIZE > totalram_pages / 2)
 		return -ENOMEM;
+
+	if (ion_heap_is_system_heap_type(buffer->heap->type) &&
+	    is_secure_vmid_valid(vmid)) {
+		pr_info("%s: System heap doesn't support secure allocations\n",
+			__func__);
+		return -EINVAL;
+	}
 
 	data.size = 0;
 	INIT_LIST_HEAD(&pages);
@@ -288,8 +300,10 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 						       size_remaining,
 						       max_order);
 
-		if (!info)
+		if (IS_ERR(info)) {
+			ret = PTR_ERR(info);
 			goto err;
+		}
 
 		sz = (1 << info->order) * PAGE_SIZE;
 
@@ -371,7 +385,7 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 
 err_free_sg2:
 	/* We failed to zero buffers. Bypass pool */
-	buffer->flags |= ION_PRIV_FLAG_SHRINKER_FREE;
+	buffer->private_flags |= ION_PRIV_FLAG_SHRINKER_FREE;
 
 	if (vmid > 0)
 		ion_hyp_unassign_sg(table, &vmid, 1, true);
@@ -396,7 +410,7 @@ err:
 		free_buffer_page(sys_heap, buffer, info->page, info->order);
 		kfree(info);
 	}
-	return -ENOMEM;
+	return ret;
 }
 
 void ion_system_heap_free(struct ion_buffer *buffer)
@@ -582,8 +596,10 @@ static void ion_system_heap_destroy_pools(struct ion_page_pool **pools)
 	int i;
 
 	for (i = 0; i < NUM_ORDERS; i++)
-		if (pools[i])
+		if (pools[i]) {
 			ion_page_pool_destroy(pools[i]);
+			pools[i] = NULL;
+		}
 }
 
 /**
@@ -652,26 +668,6 @@ destroy_secure_pools:
 	}
 	kfree(heap);
 	return ERR_PTR(-ENOMEM);
-}
-
-void ion_system_heap_destroy(struct ion_heap *heap)
-{
-	struct ion_system_heap *sys_heap = container_of(heap,
-							struct ion_system_heap,
-							heap);
-	int i, j;
-
-	for (i = 0; i < VMID_LAST; i++) {
-		if (!is_secure_vmid_valid(i))
-			continue;
-		for (j = 0; j < NUM_ORDERS; j++)
-			ion_secure_page_pool_shrink(sys_heap, i, j, UINT_MAX);
-
-		ion_system_heap_destroy_pools(sys_heap->secure_pools[i]);
-	}
-	ion_system_heap_destroy_pools(sys_heap->uncached_pools);
-	ion_system_heap_destroy_pools(sys_heap->cached_pools);
-	kfree(sys_heap);
 }
 
 static int ion_system_contig_heap_allocate(struct ion_heap *heap,
@@ -753,9 +749,4 @@ struct ion_heap *ion_system_contig_heap_create(struct ion_platform_heap *unused)
 	heap->ops = &kmalloc_ops;
 	heap->type = ION_HEAP_TYPE_SYSTEM_CONTIG;
 	return heap;
-}
-
-void ion_system_contig_heap_destroy(struct ion_heap *heap)
-{
-	kfree(heap);
 }

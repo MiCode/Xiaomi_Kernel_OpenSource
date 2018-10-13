@@ -242,8 +242,9 @@ static int ion_heap_deferred_free(void *data)
 
 int ion_heap_init_deferred_free(struct ion_heap *heap)
 {
+#ifndef CONFIG_ION_DEFER_FREE_NO_SCHED_IDLE
 	struct sched_param param = { .sched_priority = 0 };
-
+#endif
 	INIT_LIST_HEAD(&heap->free_list);
 	init_waitqueue_head(&heap->waitqueue);
 	heap->task = kthread_run(ion_heap_deferred_free, heap,
@@ -253,7 +254,9 @@ int ion_heap_init_deferred_free(struct ion_heap *heap)
 		       __func__);
 		return PTR_ERR_OR_ZERO(heap->task);
 	}
+#ifndef CONFIG_ION_DEFER_FREE_NO_SCHED_IDLE
 	sched_setscheduler(heap->task, SCHED_IDLE, &param);
+#endif
 	return 0;
 }
 
@@ -341,6 +344,9 @@ struct ion_heap *ion_heap_create(struct ion_platform_heap *heap_data)
 	case (enum ion_heap_type)ION_HEAP_TYPE_SYSTEM_SECURE:
 		heap = ion_system_secure_heap_create(heap_data);
 		break;
+	case (enum ion_heap_type)ION_HEAP_TYPE_SECURE_CARVEOUT:
+		heap = ion_secure_carveout_heap_create(heap_data);
+		break;
 	default:
 		pr_err("%s: Invalid heap type %d\n", __func__,
 		       heap_data->type);
@@ -360,45 +366,3 @@ struct ion_heap *ion_heap_create(struct ion_platform_heap *heap_data)
 	return heap;
 }
 EXPORT_SYMBOL(ion_heap_create);
-
-void ion_heap_destroy(struct ion_heap *heap)
-{
-	int heap_type;
-
-	if (!heap)
-		return;
-
-	heap_type = heap->type;
-	switch (heap_type) {
-	case ION_HEAP_TYPE_SYSTEM_CONTIG:
-		ion_system_contig_heap_destroy(heap);
-		break;
-	case ION_HEAP_TYPE_SYSTEM:
-		ion_system_heap_destroy(heap);
-		break;
-	case ION_HEAP_TYPE_CARVEOUT:
-		ion_carveout_heap_destroy(heap);
-		break;
-	case ION_HEAP_TYPE_CHUNK:
-		ion_chunk_heap_destroy(heap);
-		break;
-#ifdef CONFIG_CMA
-	case ION_HEAP_TYPE_SECURE_DMA:
-		ion_secure_cma_heap_destroy(heap);
-		break;
-	case ION_HEAP_TYPE_DMA:
-		ion_cma_heap_destroy(heap);
-		break;
-	case (enum ion_heap_type)ION_HEAP_TYPE_HYP_CMA:
-		ion_cma_secure_heap_destroy(heap);
-		break;
-#endif
-	case (enum ion_heap_type)ION_HEAP_TYPE_SYSTEM_SECURE:
-		ion_system_secure_heap_destroy(heap);
-		break;
-	default:
-		pr_err("%s: Invalid heap type %d\n", __func__,
-		       heap->type);
-	}
-}
-EXPORT_SYMBOL(ion_heap_destroy);

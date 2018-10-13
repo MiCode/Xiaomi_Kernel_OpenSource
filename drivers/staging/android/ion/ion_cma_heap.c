@@ -135,17 +135,10 @@ struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *data)
 	return &cma_heap->heap;
 }
 
-void ion_cma_heap_destroy(struct ion_heap *heap)
-{
-	struct ion_cma_heap *cma_heap = to_cma_heap(heap);
-
-	kfree(cma_heap);
-}
-
 static void ion_secure_cma_free(struct ion_buffer *buffer)
 {
 	if (ion_hyp_unassign_sg_from_flags(buffer->sg_table, buffer->flags,
-					   false))
+					   true))
 		return;
 
 	ion_cma_free(buffer);
@@ -163,7 +156,7 @@ static int ion_secure_cma_allocate(struct ion_heap *heap,
 		goto out;
 	}
 
-	ret = ion_hyp_assign_sg_from_flags(buffer->sg_table, flags, false);
+	ret = ion_hyp_assign_sg_from_flags(buffer->sg_table, flags, true);
 	if (ret)
 		goto out_free_buf;
 
@@ -175,11 +168,34 @@ out:
 	return ret;
 }
 
+static void *ion_secure_cma_map_kernel(struct ion_heap *heap,
+				       struct ion_buffer *buffer)
+{
+	if (!hlos_accessible_buffer(buffer)) {
+		pr_info("%s: Mapping non-HLOS accessible buffer disallowed\n",
+			__func__);
+		return NULL;
+	}
+	return ion_heap_map_kernel(heap, buffer);
+}
+
+static int ion_secure_cma_map_user(struct ion_heap *mapper,
+				   struct ion_buffer *buffer,
+				   struct vm_area_struct *vma)
+{
+	if (!hlos_accessible_buffer(buffer)) {
+		pr_info("%s: Mapping non-HLOS accessible buffer disallowed\n",
+			__func__);
+		return -EINVAL;
+	}
+	return ion_heap_map_user(mapper, buffer, vma);
+}
+
 static struct ion_heap_ops ion_secure_cma_ops = {
 	.allocate = ion_secure_cma_allocate,
 	.free = ion_secure_cma_free,
-	.map_user = ion_heap_map_user,
-	.map_kernel = ion_heap_map_kernel,
+	.map_user = ion_secure_cma_map_user,
+	.map_kernel = ion_secure_cma_map_kernel,
 	.unmap_kernel = ion_heap_unmap_kernel,
 };
 
@@ -204,11 +220,4 @@ struct ion_heap *ion_cma_secure_heap_create(struct ion_platform_heap *data)
 	cma_heap->cma = dev->cma_area;
 	cma_heap->heap.type = (enum ion_heap_type)ION_HEAP_TYPE_HYP_CMA;
 	return &cma_heap->heap;
-}
-
-void ion_cma_secure_heap_destroy(struct ion_heap *heap)
-{
-	struct ion_cma_heap *cma_heap = to_cma_heap(heap);
-
-	kfree(cma_heap);
 }

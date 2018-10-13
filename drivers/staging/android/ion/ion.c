@@ -119,6 +119,9 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 		if (!(heap->flags & ION_HEAP_FLAG_DEFER_FREE))
 			goto err2;
 
+		if (ret == -EINTR)
+			goto err2;
+
 		ion_heap_freelist_drain(heap, 0);
 		ret = heap->ops->allocate(heap, buffer, len, flags);
 		if (ret)
@@ -217,7 +220,8 @@ static void *ion_buffer_kmap_get(struct ion_buffer *buffer)
 static void ion_buffer_kmap_put(struct ion_buffer *buffer)
 {
 	if (buffer->kmap_cnt == 0) {
-		WARN(1, "Call dma_buf_begin_cpu_access before dma_buf_end_cpu_access\n");
+		pr_warn_ratelimited("Call dma_buf_begin_cpu_access before dma_buf_end_cpu_access, pid:%d\n",
+				    current->pid);
 		return;
 	}
 
@@ -547,8 +551,10 @@ static int ion_sgl_sync_range(struct device *dev, struct scatterlist *sgl,
 			sg_dma_addr = sg_dma_address(sg);
 
 		len += sg->length;
-		if (len <= offset)
+		if (len <= offset) {
+			sg_dma_addr += sg->length;
 			continue;
+		}
 
 		sg_left = len - offset;
 		sg_offset = sg->length - sg_left;
@@ -1052,7 +1058,7 @@ struct dma_buf *ion_alloc_dmabuf(size_t len, unsigned int heap_id_mask,
 		if (!((1 << heap->id) & heap_id_mask))
 			continue;
 		buffer = ion_buffer_create(heap, dev, len, flags);
-		if (!IS_ERR(buffer))
+		if (!IS_ERR(buffer) || PTR_ERR(buffer) == -EINTR)
 			break;
 	}
 	up_read(&dev->lock);
@@ -1289,12 +1295,3 @@ struct ion_device *ion_device_create(void)
 	return idev;
 }
 EXPORT_SYMBOL(ion_device_create);
-
-void ion_device_destroy(struct ion_device *dev)
-{
-	misc_deregister(&dev->dev);
-	debugfs_remove_recursive(dev->debug_root);
-	/* XXX need to free the heaps and clients ? */
-	kfree(dev);
-}
-EXPORT_SYMBOL(ion_device_destroy);
