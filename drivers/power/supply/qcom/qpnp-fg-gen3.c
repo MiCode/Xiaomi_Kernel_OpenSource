@@ -5986,8 +5986,6 @@ static void fg_gen3_shutdown(struct platform_device *pdev)
 		if (rc < 0)
 			pr_err("Error in disabling FG resets rc=%d\n", rc);
 	}
-
-	fg_cleanup(chip);
 }
 
 static const struct of_device_id fg_gen3_match_table[] = {
