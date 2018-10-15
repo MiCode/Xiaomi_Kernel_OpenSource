@@ -853,11 +853,11 @@
 		clock-names = "apb_pclk";
 	};
 
-	cti_cpu0: cti@6198000{
+	cti_cpu0: cti@61b8000{
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b966>;
 
-		reg = <0x6198000 0x1000>;
+		reg = <0x61b8000 0x1000>;
 		reg-names = "cti-base";
 		coresight-name = "coresight-cti-cpu0";
 		cpu = <&CPU0>;
@@ -868,11 +868,11 @@
 		clock-names = "apb_pclk";
 	};
 
-	cti_cpu1: cti@6199000{
+	cti_cpu1: cti@61b9000{
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b966>;
 
-		reg = <0x6199000 0x1000>;
+		reg = <0x61b9000 0x1000>;
 		reg-names = "cti-base";
 		coresight-name = "coresight-cti-cpu1";
 		cpu = <&CPU1>;
@@ -883,11 +883,11 @@
 		clock-names = "apb_pclk";
 	};
 
-	cti_cpu2: cti@619a000{
+	cti_cpu2: cti@61ba000{
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b966>;
 
-		reg = <0x619a000 0x1000>;
+		reg = <0x61ba000 0x1000>;
 		reg-names = "cti-base";
 		coresight-name = "coresight-cti-cpu2";
 		cpu = <&CPU2>;
@@ -898,11 +898,11 @@
 		clock-names = "apb_pclk";
 	};
 
-	cti_cpu3: cti@619b000{
+	cti_cpu3: cti@61bb000{
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b966>;
 
-		reg = <0x619b000 0x1000>;
+		reg = <0x61bb000 0x1000>;
 		reg-names = "cti-base";
 		coresight-name = "coresight-cti-cpu3";
 		cpu = <&CPU3>;
@@ -913,11 +913,11 @@
 		clock-names = "apb_pclk";
 	};
 
-	cti_cpu4: cti@61b8000{
+	cti_cpu4: cti@6198000{
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b966>;
 
-		reg = <0x61b8000 0x1000>;
+		reg = <0x6198000 0x1000>;
 		reg-names = "cti-base";
 		coresight-name = "coresight-cti-cpu4";
 		cpu = <&CPU4>;
@@ -928,11 +928,11 @@
 		clock-names = "apb_pclk";
 	};
 
-	cti_cpu5: cti@61b9000{
+	cti_cpu5: cti@6199000{
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b966>;
 
-		reg = <0x61b9000 0x1000>;
+		reg = <0x6199000 0x1000>;
 		reg-names = "cti-base";
 		coresight-name = "coresight-cti-cpu5";
 		cpu = <&CPU5>;
@@ -943,11 +943,11 @@
 		clock-names = "apb_pclk";
 	};
 
-	cti_cpu6: cti@61ba000{
+	cti_cpu6: cti@619a000{
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b966>;
 
-		reg = <0x61ba000 0x1000>;
+		reg = <0x619a000 0x1000>;
 		reg-names = "cti-base";
 		coresight-name = "coresight-cti-cpu6";
 		cpu = <&CPU6>;
@@ -958,11 +958,11 @@
 		clock-names = "apb_pclk";
 	};
 
-	cti_cpu7: cti@61bb000{
+	cti_cpu7: cti@619b000{
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b966>;
 
-		reg = <0x61bb000 0x1000>;
+		reg = <0x619b000 0x1000>;
 		reg-names = "cti-base";
 		coresight-name = "coresight-cti-cpu7";
 		cpu = <&CPU7>;
@@ -1195,7 +1195,7 @@
 		      <0x6121fb0 0x4>,
 		      <0x6131000 0x148>,
 		      <0x6131fb0 0x4>,
-		      <0x7105010 0x4>,
+		      <0x78c5010 0x4>,
 		      <0x7885010 0x4>;
 
 		reg-names = "center-wrapper-mux", "center-wrapper-lockaccess",
