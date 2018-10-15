@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,7 +12,16 @@
  */
 
 #include "pmi8937.dtsi"
-#include "msm8940-mtp.dtsi"
+
+&qpnp_smbcharger {
+	qcom,chg-led-sw-controls;
+	qcom,chg-led-support;
+	dpdm-supply = <&usb_otg>;
+};
+
+&usb_otg {
+	extcon = <&qpnp_smbcharger>;
+};
 
 &soc {
 	led_flash0: qcom,camera-flash {
@@ -23,20 +32,4 @@
 		qcom,torch-source = <&pmi8937_torch0 &pmi8937_torch1>;
 		qcom,switch-source = <&pmi8937_switch>;
 	};
-};
-
-&vendor {
-	mtp_batterydata: qcom,battery-data {
-		qcom,batt-id-range-pct = <15>;
-		#include "batterydata-itech-3000mah.dtsi"
-		#include "batterydata-ascent-3450mAh.dtsi"
-	};
-};
-
-&qpnp_fg {
-	qcom,battery-data = <&mtp_batterydata>;
-};
-
-&qpnp_smbcharger {
-	qcom,battery-data = <&mtp_batterydata>;
 };
