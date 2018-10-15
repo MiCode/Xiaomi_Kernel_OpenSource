@@ -1597,6 +1597,10 @@ static void * __init setup_dummy_socinfo(void)
 		dummy_socinfo.id = 338;
 		strlcpy(dummy_socinfo.build_id, "sdm450 - ",
 			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_sda450()) {
+		dummy_socinfo.id = 351;
+		strlcpy(dummy_socinfo.build_id, "sda450 - ",
+			sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_sdm632()) {
 		dummy_socinfo.id = 349;
 		strlcpy(dummy_socinfo.build_id, "sdm632 - ",
