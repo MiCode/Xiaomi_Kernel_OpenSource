@@ -329,7 +329,7 @@
 	};
 
 	qcom,adsp {
-		status = "ok";
+		status = "disabled";
 		compatible = "adsp-shmem-device";
 		memory-region = <&adsp_shmem_device_mem>;
 	};
