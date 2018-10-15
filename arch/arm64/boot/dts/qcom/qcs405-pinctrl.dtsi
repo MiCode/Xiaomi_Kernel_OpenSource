@@ -988,6 +988,20 @@
 			};
 		};
 
+		nxp_i2c_intr: nxp_i2c_intr {
+			mux {
+				pins = "gpio35";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio35";
+				drive-strength = <2>;
+				bias-pull-up;
+				input-enable;
+			};
+		};
+
 		usb3_id_det_default: usb2_id_det_default {
 			config {
 				pins = "gpio116";

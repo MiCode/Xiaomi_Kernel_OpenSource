@@ -1460,6 +1460,16 @@
 		dpdm-supply = <&usb2_phy0>;
 		qcom,otg-enable;
 	};
+
+	usb_typec: usb_typec@3d {
+		compatible = "nxp,5150a";
+		reg = <0x3d>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <35 IRQ_TYPE_LEVEL_LOW>;
+		pintctrl-names = "default";
+		pinctrl-0 = <&nxp_i2c_intr>;
+		status = "disabled";
+	};
 };
 
 &pms405_gpios {
