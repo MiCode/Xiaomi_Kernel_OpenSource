@@ -19,10 +19,10 @@
 	/delete-node/ etm@619d000;
 	/delete-node/ etm@619e000;
 	/delete-node/ etm@619f000;
-	/delete-node/ cti@61b8000;
-	/delete-node/ cti@61b9000;
-	/delete-node/ cti@61ba000;
-	/delete-node/ cti@61bb000;
+	/delete-node/ cti@6198000;
+	/delete-node/ cti@6199000;
+	/delete-node/ cti@619a000;
+	/delete-node/ cti@619b000;
 	/delete-node/ jtagmm@619c000;
 	/delete-node/ jtagmm@619d000;
 	/delete-node/ jtagmm@619e000;
