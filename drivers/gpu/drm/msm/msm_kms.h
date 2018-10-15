@@ -1,4 +1,6 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -84,11 +86,37 @@ static inline void msm_kms_init(struct msm_kms *kms,
 	kms->funcs = funcs;
 }
 
+#ifdef CONFIG_DRM_MSM_MDP4
 struct msm_kms *mdp4_kms_init(struct drm_device *dev);
+#else
+static inline
+struct msm_kms *mdp4_kms_init(struct drm_device *dev) { return NULL; };
+#endif
+#ifdef CONFIG_DRM_MSM_MDP5
 struct msm_kms *mdp5_kms_init(struct drm_device *dev);
 int msm_mdss_init(struct drm_device *dev);
 void msm_mdss_destroy(struct drm_device *dev);
 int msm_mdss_enable(struct msm_mdss *mdss);
 int msm_mdss_disable(struct msm_mdss *mdss);
-
+#else
+static inline int msm_mdss_init(struct drm_device *dev)
+{
+	return 0;
+}
+static inline void msm_mdss_destroy(struct drm_device *dev)
+{
+}
+static inline struct msm_kms *mdp5_kms_init(struct drm_device *dev)
+{
+	return NULL;
+}
+static inline int msm_mdss_enable(struct msm_mdss *mdss)
+{
+	return 0;
+}
+static inline int msm_mdss_disable(struct msm_mdss *mdss)
+{
+	return 0;
+}
+#endif
 #endif /* __MSM_KMS_H__ */

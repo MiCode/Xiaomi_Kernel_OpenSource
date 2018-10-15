@@ -241,4 +241,7 @@ Example:
 		vddio-supply = <&pma8084_l12>;
 
 		qcom,dsi-phy-regulator-ldo-mode;
+		qcom,panel-allow-phy-poweroff;
+		qcom,dsi-phy-regulator-min-datarate-bps = <1200000000>;
+		qcom,panel-force-clock-lane-hs;
 	};

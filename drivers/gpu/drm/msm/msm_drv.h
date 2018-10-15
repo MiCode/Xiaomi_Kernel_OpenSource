@@ -1,4 +1,6 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -258,16 +260,34 @@ struct drm_fb_helper *msm_fbdev_init(struct drm_device *dev);
 void msm_fbdev_free(struct drm_device *dev);
 
 struct hdmi;
+#ifdef CONFIG_DRM_MSM_HDMI
 int msm_hdmi_modeset_init(struct hdmi *hdmi, struct drm_device *dev,
 		struct drm_encoder *encoder);
 void __init msm_hdmi_register(void);
 void __exit msm_hdmi_unregister(void);
+#else
+static inline void __init msm_hdmi_register(void)
+{
+}
+static inline void __exit msm_hdmi_unregister(void)
+{
+}
+#endif
 
 struct msm_edp;
+#ifdef CONFIG_DRM_MSM_EDP
 void __init msm_edp_register(void);
 void __exit msm_edp_unregister(void);
 int msm_edp_modeset_init(struct msm_edp *edp, struct drm_device *dev,
 		struct drm_encoder *encoder);
+#else
+static inline void __init msm_edp_register(void)
+{
+}
+static inline void __exit msm_edp_unregister(void)
+{
+}
+#endif
 
 struct msm_dsi;
 #ifdef CONFIG_DRM_MSM_DSI
@@ -290,8 +310,17 @@ static inline int msm_dsi_modeset_init(struct msm_dsi *msm_dsi,
 }
 #endif
 
+#ifdef CONFIG_DRM_MSM_MDP5
 void __init msm_mdp_register(void);
 void __exit msm_mdp_unregister(void);
+#else
+static inline void __init msm_mdp_register(void)
+{
+}
+static inline void __exit msm_mdp_unregister(void)
+{
+}
+#endif
 
 #ifdef CONFIG_DEBUG_FS
 void msm_gem_describe(struct drm_gem_object *obj, struct seq_file *m);
