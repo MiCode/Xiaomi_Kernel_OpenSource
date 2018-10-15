@@ -17,7 +17,7 @@
 #include "sm6150-rumi.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SM6150 RUMI";
+	model = "Qualcomm Technologies, Inc. SM6150 PM6150 RUMI";
 	compatible = "qcom,sm6150-rumi", "qcom,sm6150", "qcom,rumi";
 	qcom,board-id = <15 0>;
 };

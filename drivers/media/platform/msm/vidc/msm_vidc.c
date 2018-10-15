@@ -931,9 +931,9 @@ int msm_vidc_set_internal_config(struct msm_vidc_inst *inst)
 		 rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR) &&
 		(codec != V4L2_PIX_FMT_VP8)) {
 		if ((rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR &&
-		    mbps < CBR_MB_LIMIT) ||
+		    mbps <= CBR_MB_LIMIT) ||
 		   (rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR &&
-		    mbps < CBR_VFR_MB_LIMIT))
+		    mbps <= CBR_VFR_MB_LIMIT))
 			hrd_buf_size.vbv_hdr_buf_size = 500;
 		else
 			hrd_buf_size.vbv_hdr_buf_size = 1000;

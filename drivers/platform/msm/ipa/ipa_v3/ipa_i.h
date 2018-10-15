@@ -36,6 +36,8 @@
 #include "../ipa_common_i.h"
 #include "ipa_uc_offload_i.h"
 #include "ipa_pm.h"
+#include <linux/mailbox_client.h>
+#include <linux/mailbox/qmp.h>
 
 #define IPA_DEV_NAME_MAX_LEN 15
 #define DRV_NAME "ipa"
@@ -407,6 +409,8 @@ enum {
 #define IPA_TZ_UNLOCK_ATTRIBUTE 0x0C0311
 #define TZ_MEM_PROTECT_REGION_ID 0x10
 
+#define MBOX_TOUT_MS 100
+
 struct ipa3_active_client_htable_entry {
 	struct hlist_node list;
 	char id_string[IPA3_ACTIVE_CLIENTS_LOG_NAME_LEN];
@@ -761,7 +765,6 @@ struct ipa3_status_stats {
  * @disconnect_in_progress: Indicates client disconnect in progress.
  * @qmi_request_sent: Indicates whether QMI request to enable clear data path
  *					request is sent or not.
- * @napi_enabled: when true, IPA call client callback to start polling
  * @client_lock_unlock: callback function to take mutex lock/unlock for USB
  *				clients
  */
@@ -793,7 +796,6 @@ struct ipa3_ep_context {
 	u32 gsi_offload_state;
 	bool disconnect_in_progress;
 	u32 qmi_request_sent;
-	bool napi_enabled;
 	u32 eot_in_poll_err;
 	bool ep_delay_set;
 
@@ -882,6 +884,7 @@ struct ipa3_sys_context {
 	void (*repl_hdlr)(struct ipa3_sys_context *sys);
 	struct ipa3_repl_ctx repl;
 	u32 pkt_sent;
+	struct napi_struct *napi_obj;
 
 	/* ordering is important - mutable fields go above */
 	struct ipa3_ep_context *ep;
@@ -1649,6 +1652,8 @@ struct ipa3_context {
 	bool vlan_mode_iface[IPA_VLAN_IF_MAX];
 	bool wdi_over_pcie;
 	struct ipa3_wdi2_ctx wdi2_ctx;
+	struct mbox_client mbox_client;
+	struct mbox_chan *mbox;
 };
 
 struct ipa3_plat_drv_res {
@@ -1753,6 +1758,8 @@ struct ipa3_plat_drv_res {
  * +-------------------------+
  * |  MODEM HDR              |
  * +-------------------------+
+ * |  APPS HDR (IPA4.5)      |
+ * +-------------------------+
  * |    CANARY               |
  * +-------------------------+
  * |    CANARY               |
@@ -1765,6 +1772,20 @@ struct ipa3_plat_drv_res {
  * +-------------------------+
  * |    CANARY               |
  * +-------------------------+
+ * |    CANARY (IPA4.5)      |
+ * +-------------------------+
+ * |    CANARY (IPA4.5)      |
+ * +-------------------------+
+ * | NAT TABLE (IPA4.5)      |
+ * +-------------------------+
+ * | NAT IDX TABLE (IPA4.5)  |
+ * +-------------------------+
+ * | NAT EXP TABLE (IPA4.5)  |
+ * +-------------------------+
+ * |    CANARY (IPA4.5)      |
+ * +-------------------------+
+ * |    CANARY (IPA4.5)      |
+ * +-------------------------+
  * | PDN CONFIG              |
  * +-------------------------+
  * |    CANARY               |
@@ -1773,57 +1794,27 @@ struct ipa3_plat_drv_res {
  * +-------------------------+
  * | QUOTA STATS             |
  * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
  * | TETH STATS              |
  * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * | V4 FLT STATS            |
- * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * | V6 FLT STATS            |
- * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * | V4 RT STATS             |
- * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * | V6 RT STATS             |
- * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * |    CANARY               |
+ * | FnR STATS               |
  * +-------------------------+
  * | DROP STATS              |
  * +-------------------------+
- * |    CANARY               |
+ * |    CANARY (IPA4.5)      |
  * +-------------------------+
- * |    CANARY               |
+ * |    CANARY (IPA4.5)      |
  * +-------------------------+
- * |  MODEM MEM              |
+ * | MODEM MEM               |
  * +-------------------------+
- * |    CANARY               |
+ * |    Dummy (IPA4.5)       |
  * +-------------------------+
- * |  UC EVENT RING          | From IPA 3.5
+ * |    CANARY (IPA4.5)      |
+ * +-------------------------+
+ * | UC DESC RAM (IPA3.5)    |
  * +-------------------------+
  */
 struct ipa3_mem_partition {
 	u32 ofst_start;
-	u32 nat_ofst;
-	u32 nat_size;
 	u32 v4_flt_hash_ofst;
 	u32 v4_flt_hash_size;
 	u32 v4_flt_hash_size_ddr;
@@ -1868,6 +1859,12 @@ struct ipa3_mem_partition {
 	u32 apps_hdr_proc_ctx_ofst;
 	u32 apps_hdr_proc_ctx_size;
 	u32 apps_hdr_proc_ctx_size_ddr;
+	u32 nat_tbl_ofst;
+	u32 nat_tbl_size;
+	u32 nat_index_tbl_ofst;
+	u32 nat_index_tbl_size;
+	u32 nat_exp_tbl_ofst;
+	u32 nat_exp_tbl_size;
 	u32 modem_comp_decomp_ofst;
 	u32 modem_comp_decomp_size;
 	u32 modem_ofst;
@@ -1891,14 +1888,18 @@ struct ipa3_mem_partition {
 	u32 apps_v6_rt_hash_size;
 	u32 apps_v6_rt_nhash_ofst;
 	u32 apps_v6_rt_nhash_size;
-	u32 uc_event_ring_ofst;
-	u32 uc_event_ring_size;
+	u32 uc_descriptor_ram_ofst;
+	u32 uc_descriptor_ram_size;
 	u32 pdn_config_ofst;
 	u32 pdn_config_size;
 	u32 stats_quota_ofst;
 	u32 stats_quota_size;
 	u32 stats_tethering_ofst;
 	u32 stats_tethering_size;
+	u32 stats_fnr_ofst;
+	u32 stats_fnr_size;
+
+	/* Irrelevant starting IPA4.5 */
 	u32 stats_flt_v4_ofst;
 	u32 stats_flt_v4_size;
 	u32 stats_flt_v6_ofst;
@@ -1907,6 +1908,7 @@ struct ipa3_mem_partition {
 	u32 stats_rt_v4_size;
 	u32 stats_rt_v6_ofst;
 	u32 stats_rt_v6_size;
+
 	u32 stats_drop_ofst;
 	u32 stats_drop_size;
 };
@@ -2653,4 +2655,5 @@ int ipa3_get_transport_info(
 	phys_addr_t *phys_addr_ptr,
 	unsigned long *size_ptr);
 irq_handler_t ipa3_get_isr(void);
+void ipa_pc_qmp_enable(void);
 #endif /* _IPA3_I_H_ */

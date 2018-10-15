@@ -38,6 +38,7 @@
 #include "diag_ipc_logging.h"
 
 #define DEBUG_BUF_SIZE	4096
+#define CMD_SIZE 10
 static struct dentry *diag_dbgfs_dent;
 static int diag_dbgfs_table_index;
 static int diag_dbgfs_mempool_index;
@@ -689,15 +690,14 @@ static ssize_t diag_dbgfs_read_rpmsginfo(struct file *file, char __user *ubuf,
 static ssize_t diag_dbgfs_write_debug(struct file *fp, const char __user *buf,
 				      size_t count, loff_t *ppos)
 {
-	const int size = 10;
-	unsigned char cmd[size];
+	unsigned char cmd[CMD_SIZE];
 	long value = 0;
 	int len = 0;
 
 	if (count < 1)
 		return -EINVAL;
 
-	len = (count < (size - 1)) ? count : size - 1;
+	len = (count < (CMD_SIZE - 1)) ? count : CMD_SIZE - 1;
 	if (copy_from_user(cmd, buf, len))
 		return -EFAULT;
 

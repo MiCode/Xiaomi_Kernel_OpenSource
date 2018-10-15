@@ -41,6 +41,8 @@
 		"MIC BIAS2", "Headset Mic",
 		"DMIC0", "MIC BIAS1",
 		"MIC BIAS1", "Digital Mic0",
+		"DMIC1", "MIC BIAS1",
+		"MIC BIAS1", "Digital Mic1",
 		"DMIC2", "MIC BIAS3",
 		"MIC BIAS3", "Digital Mic2",
 		"DMIC3", "MIC BIAS3",

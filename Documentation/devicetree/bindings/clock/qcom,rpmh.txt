@@ -5,7 +5,8 @@ Required properties:
 		"qcom,rpmh-clk-sm6150",
 		"qcom,rpmh-clk-sm8150",
 		"qcom,rpmh-clk-sdmshrike",
-		"qcom,rpmh-clk-sdmmagpie".
+		"qcom,rpmh-clk-sdmmagpie"
+		"qcom,rpmh-clk-sdxprairie".
 - #clock-cells:	Must contain 1.
 - mboxes:	List of RPMh mailbox phandle and channel identifier tuples.
 - mbox-names:	List of names to identify the RPMh mailboxes used.

@@ -4282,6 +4282,7 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 	struct sde_crtc_irq_info *node = NULL;
 	int ret = 0;
 	struct drm_event event;
+	struct msm_drm_private *priv;
 
 	if (!crtc) {
 		SDE_ERROR("invalid crtc\n");
@@ -4289,6 +4290,7 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 	}
 	sde_crtc = to_sde_crtc(crtc);
 	cstate = to_sde_crtc_state(crtc->state);
+	priv = crtc->dev->dev_private;
 
 	mutex_lock(&sde_crtc->crtc_lock);
 
@@ -4296,6 +4298,12 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 
 	switch (event_type) {
 	case SDE_POWER_EVENT_POST_ENABLE:
+		/* disable mdp LUT memory retention */
+		ret = sde_power_clk_set_flags(&priv->phandle, "lut_clk",
+					CLKFLAG_NORETAIN_MEM);
+		if (ret)
+			SDE_ERROR("disable LUT memory retention err %d\n", ret);
+
 		/* restore encoder; crtc will be programmed during commit */
 		drm_for_each_encoder(encoder, crtc->dev) {
 			if (encoder->crtc != crtc)
@@ -4328,6 +4336,12 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 		}
 		break;
 	case SDE_POWER_EVENT_PRE_DISABLE:
+		/* enable mdp LUT memory retention */
+		ret = sde_power_clk_set_flags(&priv->phandle, "lut_clk",
+					CLKFLAG_RETAIN_MEM);
+		if (ret)
+			SDE_ERROR("enable LUT memory retention err %d\n", ret);
+
 		drm_for_each_encoder(encoder, crtc->dev) {
 			if (encoder->crtc != crtc)
 				continue;
@@ -4448,12 +4462,6 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	power_on = 0;
 	msm_mode_object_event_notify(&crtc->base, crtc->dev, &event,
 			(u8 *)&power_on);
-
-	/* disable mdp LUT memory retention */
-	ret = sde_power_clk_set_flags(&priv->phandle, "lut_clk",
-				CLKFLAG_NORETAIN_MEM);
-	if (ret)
-		SDE_ERROR("failed to disable LUT memory retention %d\n", ret);
 
 	/* destination scaler if enabled should be reconfigured on resume */
 	if (cstate->num_ds_enabled)
@@ -4618,12 +4626,6 @@ static void sde_crtc_enable(struct drm_crtc *crtc,
 	power_on = 1;
 	msm_mode_object_event_notify(&crtc->base, crtc->dev, &event,
 			(u8 *)&power_on);
-
-	/* enable mdp LUT memory retention */
-	ret = sde_power_clk_set_flags(&priv->phandle, "lut_clk",
-					CLKFLAG_RETAIN_MEM);
-	if (ret)
-		SDE_ERROR("failed to enable LUT memory retention %d\n", ret);
 
 	mutex_unlock(&sde_crtc->crtc_lock);
 

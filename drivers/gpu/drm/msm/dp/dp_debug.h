@@ -19,6 +19,7 @@
 #include "dp_link.h"
 #include "dp_usbpd.h"
 #include "dp_aux.h"
+#include "dp_display.h"
 
 /**
  * struct dp_debug
@@ -43,6 +44,7 @@ struct dp_debug {
 	u32 max_pclk_khz;
 	bool force_encryption;
 	char hdcp_status[SZ_128];
+	struct dp_mst_connector dp_mst_connector_list;
 
 	u8 *(*get_edid)(struct dp_debug *dp_debug);
 };

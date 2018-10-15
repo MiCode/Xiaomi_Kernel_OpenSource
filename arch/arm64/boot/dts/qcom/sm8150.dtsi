@@ -574,6 +574,10 @@
 	firmware: firmware {
 		android {
 			compatible = "android,firmware";
+			vbmeta {
+				compatible = "android,vbmeta";
+				parts = "vbmeta,boot,system,vendor,dtbo";
+			};
 			fstab {
 				compatible = "android,fstab";
 				vendor {
@@ -622,25 +626,7 @@
 		pil_wlan_fw_mem: pil_wlan_fw_region@8bc00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x8bc00000 0x0 0x100000>;
-		};
-
-		pil_ipa_fw_mem: pil_ipa_fw_region@8bd00000 {
-			compatible = "removed-dma-pool";
-			no-map;
-			reg = <0x0 0x8bd00000 0x0 0x10000>;
-		};
-
-		pil_ipa_gsi_mem: pil_ipa_gsi_region@8bd10000 {
-			compatible = "removed-dma-pool";
-			no-map;
-			reg = <0x0 0x8bd10000 0x0 0x5000>;
-		};
-
-		pil_gpu_mem: pil_gpu_region@8bd15000 {
-			compatible = "removed-dma-pool";
-			no-map;
-			reg = <0x0 0x8bd15000 0x0 0x2000>;
+			reg = <0x0 0x8bc00000 0x0 0x180000>;
 		};
 
 		pil_npu_mem: pil_npu_region@8bd80000 {
@@ -658,31 +644,49 @@
 		pil_modem_mem: modem_region@8d800000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x8d800000 0x0 0x8f00000>;
+			reg = <0x0 0x8d800000 0x0 0x9600000>;
 		};
 
-		pil_video_mem: pil_video_region@96700000 {
+		pil_video_mem: pil_video_region@96e00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x96700000 0x0 0x500000>;
+			reg = <0x0 0x96e00000 0x0 0x500000>;
 		};
 
-		pil_slpi_mem: pil_slpi_region@96c00000 {
+		pil_slpi_mem: pil_slpi_region@97300000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x96c00000 0x0 0x1400000>;
+			reg = <0x0 0x97300000 0x0 0x1400000>;
 		};
 
-		pil_spss_mem: pil_spss_region@98000000 {
+		pil_ipa_fw_mem: pil_ipa_fw_region@98700000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x98000000 0x0 0x100000>;
+			reg = <0x0 0x98700000 0x0 0x10000>;
 		};
 
-		pil_cdsp_mem: cdsp_regions@98100000 {
+		pil_ipa_gsi_mem: pil_ipa_gsi_region@98710000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x98100000 0x0 0x1400000>;
+			reg = <0x0 0x98710000 0x0 0x5000>;
+		};
+
+		pil_gpu_mem: pil_gpu_region@98715000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x98715000 0x0 0x2000>;
+		};
+
+		pil_spss_mem: pil_spss_region@98800000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x98800000 0x0 0x100000>;
+		};
+
+		pil_cdsp_mem: cdsp_regions@98900000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x98900000 0x0 0x1400000>;
 		};
 
 		qseecom_mem: qseecom_region@0x9e400000 {
@@ -911,6 +915,16 @@
 		interrupt-parent = <&intc>;
 	};
 
+	gict: gict@17a20000 {
+		compatible = "arm,gic-600-erp";
+		reg = <0x17a20000 0x10000>;
+		reg-names = "gict-base";
+		interrupt-config = <46 17>;
+		interrupt-names = "gict-fault", "gict-err";
+		interrupts = <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 17 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
 	pdc: interrupt-controller@0xb220000{
 		compatible = "qcom,pdc-sm8150";
 		reg = <0xb220000 0x400>;
@@ -1130,8 +1144,29 @@
 
 	cpu4_cpu_l3_latmon: qcom,cpu4-cpu-l3-latmon {
 		compatible = "qcom,arm-memlat-mon";
-		qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
+		qcom,cpulist = <&CPU4 &CPU5 &CPU6>;
 		qcom,target-dev = <&cpu4_cpu_l3_lat>;
+		qcom,cachemiss-ev = <0x17>;
+		qcom,core-dev-table =
+			<  300000  300000000 >,
+			<  768000  576000000 >,
+			< 1152000  768000000 >,
+			< 1344000  960000000 >,
+			< 1689600 1228800000 >,
+			< 2016000 1344000000 >;
+	};
+
+	cpu7_cpu_l3_lat: qcom,cpu7-cpu-l3-lat {
+		compatible = "devfreq-simple-dev";
+		clock-names = "devfreq_clk";
+		clocks = <&clock_cpucc L3_CLUSTER2_VOTE_CLK>;
+		governor = "performance";
+	};
+
+	cpu7_cpu_l3_latmon: qcom,cpu7-cpu-l3-latmon {
+		compatible = "qcom,arm-memlat-mon";
+		qcom,cpulist = <&CPU7>;
+		qcom,target-dev = <&cpu7_cpu_l3_lat>;
 		qcom,cachemiss-ev = <0x17>;
 		qcom,core-dev-table =
 			<  300000  300000000 >,
@@ -1320,6 +1355,12 @@
 		qcom,rtb-size = <0x100000>;
 	};
 
+	qcom,aop-ddr-msgs {
+		compatible = "qcom,aop-ddr-msgs";
+		mboxes = <&qmp_aop 0>;
+		mbox-name = "restart-ddr-mbox";
+	};
+
 	qcom,mpm2-sleep-counter@0xc221000 {
 		compatible = "qcom,mpm2-sleep-counter";
 		reg = <0xc221000 0x1000>;
@@ -1493,7 +1534,7 @@
 		reg-names = "osm_l3_base", "osm_pwrcl_base",
 			"osm_perfcl_base", "osm_perfpcl_base";
 		l3-devs = <&cpu0_cpu_l3_lat &cpu4_cpu_l3_lat &cdsp_cdsp_l3_lat
-			&msm_gpu>;
+			&msm_gpu &cpu7_cpu_l3_lat>;
 
 		#clock-cells = <1>;
 	};
@@ -2655,6 +2696,7 @@
 
 			label = "adsp";
 			qcom,glink-label = "lpass";
+			cpu-affinity = <1 2>;
 
 			qcom,adsp_qrtr {
 				qcom,glink-channels = "IPCRTR";
@@ -2809,6 +2851,21 @@
 			qcom,wdsp_data {
 				qcom,glink-channels = "g_glink_audio_data";
 				qcom,intents = <0x1000 2>;
+			};
+
+			qcom,diag_data {
+				qcom,glink-channels = "DIAG_DATA";
+				qcom,intents = <0x4000 2>;
+			};
+
+			qcom,diag_ctrl {
+				qcom,glink-channels = "DIAG_CTRL";
+				qcom,intents = <0x4000 1>;
+			};
+
+			qcom,diag_cmd {
+				qcom,glink-channels = "DIAG_CMD";
+				qcom,intents = <0x4000 1 >;
 			};
 		};
 	};
@@ -3493,6 +3550,7 @@
 
 	ipa_hw: qcom,ipa@1e00000 {
 		compatible = "qcom,ipa";
+		mboxes = <&qmp_aop 0>;
 		reg = <0x1e00000 0x34000>,
 		      <0x1e04000 0x28000>;
 		reg-names = "ipa-base", "gsi-base";
@@ -3607,8 +3665,10 @@
 		reg = <0xa0000000 0x10000000>,
 		      <0xb0000000 0x10000>;
 		reg-names = "smmu_iova_base", "smmu_iova_ipa";
-		pinctrl-names = "disabled";
-		pinctrl-0 = <>;
+		wlan-en-gpio = <&tlmm 169 0>;
+		pinctrl-names = "wlan_en_active", "wlan_en_sleep";
+		pinctrl-0 = <&cnss_wlan_en_active>;
+		pinctrl-1 = <&cnss_wlan_en_sleep>;
 		qcom,wlan-rc-num = <0>;
 		qcom,wlan-ramdump-dynamic = <0x400000>;
 
@@ -3723,8 +3783,6 @@
 			     <0 425 0 /* CE11 */ >;
 		qcom,wlan-msa-memory = <0x100000>;
 		qcom,wlan-msa-fixed-region = <&pil_wlan_fw_mem>;
-		qcom,gpio-force-fatal-error = <&smp2pgpio_wlan_1_in 0 0>;
-		qcom,gpio-early-crash-ind = <&smp2pgpio_wlan_1_in 1 0>;
 
 		vdd-cx-mx-supply = <&pm8150_l1>;
 		vdd-1.8-xo-supply = <&pm8150_l7>;
@@ -3732,6 +3790,12 @@
 		vdd-3.3-ch0-supply = <&pm8150l_l11>;
 		qcom,vdd-cx-mx-config = <752000 752000>;
 		qcom,vdd-3.3-ch0-config = <3104000 3312000>;
+		qcom,smp2p_map_wlan_1_in {
+			interrupts-extended = <&smp2p_wlan_1_in 0 0>,
+					      <&smp2p_wlan_1_in 1 0>;
+			interrupt-names = "qcom,smp2p-force-fatal-error",
+					  "qcom,smp2p-early-crash-ind";
+		};
 	};
 
 	wil6210: qcom,wil6210 {

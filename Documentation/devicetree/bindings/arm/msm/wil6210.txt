@@ -25,6 +25,7 @@ Required properties:
 Optional properties:
 - qcom,sleep-clk-en: GPIO for sleep clock used for low power modes by 11ad card
 - qcom,wigig-en: Enable GPIO connected to 11ad card
+- qcom,wigig-dc: Enable DC to DC GPIO connected to 11ad card
 - qcom,use-ext-supply: Boolean flag to indicate if 11ad SIP uses external power supply
 - vdd-supply: phandle to 11ad VDD regulator node
 - vddio-supply: phandle to 11ad VDDIO regulator node
@@ -45,6 +46,7 @@ Example:
 		qcom,smmu-mapping = <0x20000000 0xe0000000>;
 		qcom,pcie-parent = <&pcie1>;
 		qcom,wigig-en = <&tlmm 94 0>;
+		qcom,wigig-dc = <&tlmm 81 0>;
 		qcom,msm-bus,name = "wil6210";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;

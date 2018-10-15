@@ -3239,6 +3239,33 @@ int gsi_config_channel_mode(unsigned long chan_hdl, enum gsi_chan_mode mode)
 			mode == GSI_CHAN_MODE_CALLBACK) {
 		atomic_set(&ctx->poll_mode, mode);
 		__gsi_config_ieob_irq(gsi_ctx->per.ee, 1 << ctx->evtr->id, ~0);
+
+		/*
+		 * In GSI 2.2 and 2.5 there is a limitation that can lead
+		 * to losing an interrupt. For these versions an
+		 * explicit check is needed after enabling the interrupt
+		 */
+		if (gsi_ctx->per.ver == GSI_VER_2_2 ||
+		    gsi_ctx->per.ver == GSI_VER_2_5) {
+			u32 src = gsi_readl(gsi_ctx->base +
+				GSI_EE_n_CNTXT_SRC_IEOB_IRQ_OFFS(
+					gsi_ctx->per.ee));
+			if (src & (1 << ctx->evtr->id)) {
+				__gsi_config_ieob_irq(
+					gsi_ctx->per.ee, 1 << ctx->evtr->id, 0);
+				gsi_writel(1 << ctx->evtr->id, gsi_ctx->base +
+					GSI_EE_n_CNTXT_SRC_IEOB_IRQ_CLR_OFFS(
+							gsi_ctx->per.ee));
+				spin_unlock_irqrestore(&gsi_ctx->slock, flags);
+				spin_lock_irqsave(&ctx->ring.slock, flags);
+				atomic_set(
+					&ctx->poll_mode, GSI_CHAN_MODE_POLL);
+				spin_unlock_irqrestore(
+					&ctx->ring.slock, flags);
+				ctx->stats.poll_pending_irq++;
+				return -GSI_STATUS_PENDING_IRQ;
+			}
+		}
 		ctx->stats.poll_to_callback++;
 	}
 	spin_unlock_irqrestore(&gsi_ctx->slock, flags);

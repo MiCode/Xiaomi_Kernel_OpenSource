@@ -625,9 +625,9 @@
 			<&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
 			<&clock_camcc CAM_CC_IFE_0_AXI_CLK>;
 		clock-rates =
-			<0 0 0 0 0 0 200000000 0 0 0 360000000 0 0>,
+			<0 0 0 0 0 0 320000000 0 0 0 432000000 0 0>,
 			<0 0 0 0 0 0 540000000 0 0 0 600000000 0 0>;
-		clock-cntl-level = "svs", "turbo";
+		clock-cntl-level = "svs_l1", "turbo";
 		src-clock-name = "ife_csid_clk_src";
 		status = "ok";
 	};
@@ -712,9 +712,9 @@
 			<&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
 			<&clock_camcc CAM_CC_IFE_1_AXI_CLK>;
 		clock-rates =
-			<0 0 0 0 0 0 200000000 0 0 0 360000000 0 0>,
+			<0 0 0 0 0 0 320000000 0 0 0 432000000 0 0>,
 			<0 0 0 0 0 0 540000000 0 0 0 600000000 0 0>;
-		clock-cntl-level = "svs", "turbo";
+		clock-cntl-level = "svs_l1", "turbo";
 		src-clock-name = "ife_csid_clk_src";
 		status = "ok";
 	};
@@ -796,9 +796,9 @@
 			<&clock_camcc CAM_CC_IFE_LITE_CLK_SRC>,
 			<&clock_camcc CAM_CC_CAMNOC_AXI_CLK>;
 		clock-rates =
-			<0 0 0 0 0 0 200000000 0 0 0 360000000 0>,
+			<0 0 0 0 0 0 320000000 0 0 0 432000000 0 0>,
 			<0 0 0 0 0 0 540000000 0 0 0 600000000 0>;
-		clock-cntl-level = "svs", "turbo";
+		clock-cntl-level = "svs_l1", "turbo";
 		src-clock-name = "ife_csid_clk_src";
 		status = "ok";
 	};

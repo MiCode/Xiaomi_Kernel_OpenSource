@@ -28,6 +28,7 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/uaccess.h>
+#include <linux/mailbox/qmp.h>
 
 #include "npu_mgr.h"
 
@@ -43,10 +44,11 @@
 #define ROW_BYTES 16
 #define GROUP_BYTES 4
 
-#define NUM_TOTAL_CLKS          20
+#define NUM_MAX_CLK_NUM			24
 #define NPU_MAX_REGULATOR_NUM	2
 #define NPU_MAX_DT_NAME_LEN	    21
-#define NPU_MAX_PWRLEVELS		7
+#define NPU_MAX_PWRLEVELS		8
+#define NPU_MAX_STATS_BUF_SIZE 16384
 
 /* -------------------------------------------------------------------------
  * Data Structures
@@ -108,7 +110,7 @@ struct npu_mbox {
  * @freq[]:              NPU frequency vote in Hz
  */
 struct npu_pwrlevel {
-	long clk_freq[NUM_TOTAL_CLKS];
+	long clk_freq[NUM_MAX_CLK_NUM];
 };
 
 /*
@@ -184,7 +186,7 @@ struct npu_device {
 	uint32_t npu_phys;
 
 	uint32_t core_clk_num;
-	struct npu_clk core_clks[NUM_TOTAL_CLKS];
+	struct npu_clk core_clks[NUM_MAX_CLK_NUM];
 
 	uint32_t regulator_num;
 	struct npu_regulator regulators[NPU_MAX_DT_NAME_LEN];
@@ -197,7 +199,7 @@ struct npu_device {
 	struct npu_smmu_ctx smmu_ctx;
 	struct npu_debugfs_ctx debugfs_ctx;
 
-	struct npu_mbox mbox[NPU_MAX_MBOX_NUM];
+	struct npu_mbox mbox_aop;
 
 	struct thermal_cooling_device *tcdev;
 	struct npu_pwrctrl pwrctrl;

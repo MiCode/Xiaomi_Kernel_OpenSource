@@ -56,6 +56,24 @@ static const unsigned int a6xx_pc_vs_cluster[] = {
 	0x9100, 0x9108, 0x9300, 0x9306, 0x9980, 0x9981, 0x9B00, 0x9B07,
 };
 
+static const unsigned int a630_rscc_snapshot_registers[] = {
+	0x23400, 0x23434, 0x23436, 0x23436, 0x23480, 0x23484, 0x23489, 0x2348C,
+	0x23491, 0x23494, 0x23499, 0x2349C, 0x234A1, 0x234A4, 0x234A9, 0x234AC,
+	0x23500, 0x23502, 0x23504, 0x23507, 0x23514, 0x23519, 0x23524, 0x2352B,
+	0x23580, 0x23597, 0x23740, 0x23741, 0x23744, 0x23747, 0x2374C, 0x23787,
+	0x237EC, 0x237EF, 0x237F4, 0x2382F, 0x23894, 0x23897, 0x2389C, 0x238D7,
+	0x2393C, 0x2393F, 0x23944, 0x2397F,
+};
+
+static const unsigned int a6xx_rscc_snapshot_registers[] = {
+	0x23400, 0x23434, 0x23436, 0x23436, 0x23440, 0x23440, 0x23480, 0x23484,
+	0x23489, 0x2348C, 0x23491, 0x23494, 0x23499, 0x2349C, 0x234A1, 0x234A4,
+	0x234A9, 0x234AC, 0x23500, 0x23502, 0x23504, 0x23507, 0x23514, 0x23519,
+	0x23524, 0x2352B, 0x23580, 0x23597, 0x23740, 0x23741, 0x23744, 0x23747,
+	0x2374C, 0x23787, 0x237EC, 0x237EF, 0x237F4, 0x2382F, 0x23894, 0x23897,
+	0x2389C, 0x238D7, 0x2393C, 0x2393F, 0x23944, 0x2397F,
+};
+
 static const struct sel_reg {
 	unsigned int host_reg;
 	unsigned int cd_reg;
@@ -1131,7 +1149,7 @@ static size_t a6xx_snapshot_dbgc_debugbus_block(struct kgsl_device *device,
 
 	block_id = block->block_id;
 	/* GMU_GX data is read using the GMU_CX block id on A630 */
-	if ((adreno_is_a630(adreno_dev) || adreno_is_a615(adreno_dev)) &&
+	if ((adreno_is_a630(adreno_dev) || adreno_is_a615_family(adreno_dev)) &&
 		(block_id == A6XX_DBGBUS_GMU_GX))
 		block_id = A6XX_DBGBUS_GMU_CX;
 
@@ -1493,7 +1511,6 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
-	struct adreno_snapshot_data *snap_data = gpudev->snapshot_data;
 	bool sptprac_on, gx_on = true;
 	unsigned int i, roq_size;
 
@@ -1542,10 +1559,18 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 			snapshot, a6xx_snapshot_registers, &a6xx_reg_list[i]);
 	}
 
+	if (adreno_is_a615_family(adreno_dev) || adreno_is_a630(adreno_dev))
+		adreno_snapshot_registers(device, snapshot,
+			a630_rscc_snapshot_registers,
+			ARRAY_SIZE(a630_rscc_snapshot_registers) / 2);
+	else if (adreno_is_a640(adreno_dev) || adreno_is_a680(adreno_dev))
+		adreno_snapshot_registers(device, snapshot,
+			a6xx_rscc_snapshot_registers,
+			ARRAY_SIZE(a6xx_rscc_snapshot_registers) / 2);
+
 	/* CP_SQE indexed registers */
 	kgsl_snapshot_indexed_registers(device, snapshot,
-		A6XX_CP_SQE_STAT_ADDR, A6XX_CP_SQE_STAT_DATA,
-		0, snap_data->sect_sizes->cp_pfp);
+		A6XX_CP_SQE_STAT_ADDR, A6XX_CP_SQE_STAT_DATA, 0, 0x33);
 
 	/* CP_DRAW_STATE */
 	kgsl_snapshot_indexed_registers(device, snapshot,

@@ -5432,6 +5432,9 @@ static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
 	data->version = readl_relaxed(data->tcu_base + TCU_HW_VERSION_HLOS1);
 	smmu->archdata = data;
 
+	if (arm_smmu_is_static_cb(smmu))
+		return 0;
+
 	ret = qsmmuv500_read_actlr_tbl(smmu);
 	if (ret)
 		return ret;

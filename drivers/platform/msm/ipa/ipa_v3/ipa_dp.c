@@ -294,6 +294,7 @@ int ipa3_send(struct ipa3_sys_context *sys,
 	u32 mem_flag = GFP_ATOMIC;
 	const struct ipa_gsi_ep_config *gsi_ep_cfg;
 	bool send_nop = false;
+	unsigned int max_desc;
 
 	if (unlikely(!in_atomic))
 		mem_flag = GFP_KERNEL;
@@ -311,13 +312,17 @@ int ipa3_send(struct ipa3_sys_context *sys,
 		return -EPERM;
 	}
 
-	if (unlikely(num_desc > gsi_ep_cfg->ipa_if_tlv)) {
+	max_desc = gsi_ep_cfg->ipa_if_tlv;
+	if (gsi_ep_cfg->prefetch_mode == GSI_SMART_PRE_FETCH ||
+		gsi_ep_cfg->prefetch_mode == GSI_FREE_PRE_FETCH)
+		max_desc -= gsi_ep_cfg->prefetch_threshold;
+
+	if (unlikely(num_desc > max_desc)) {
 		IPAERR("Too many chained descriptors need=%d max=%d\n",
-			num_desc, gsi_ep_cfg->ipa_if_tlv);
+			num_desc, max_desc);
 		WARN_ON(1);
 		return -EPERM;
 	}
-
 
 	/* initialize only the xfers we use */
 	memset(gsi_xfer, 0, sizeof(gsi_xfer[0]) * num_desc);
@@ -747,27 +752,24 @@ static int ipa3_handle_rx_core(struct ipa3_sys_context *sys, bool process_all,
 /**
  * ipa3_rx_switch_to_intr_mode() - Operate the Rx data path in interrupt mode
  */
-static void ipa3_rx_switch_to_intr_mode(struct ipa3_sys_context *sys)
+static int ipa3_rx_switch_to_intr_mode(struct ipa3_sys_context *sys)
 {
 	int ret;
 
-	if (!atomic_read(&sys->curr_polling_state)) {
-		IPAERR("already in intr mode\n");
-		goto fail;
-	}
 	atomic_set(&sys->curr_polling_state, 0);
 	ipa3_dec_release_wakelock();
 	ret = gsi_config_channel_mode(sys->ep->gsi_chan_hdl,
 		GSI_CHAN_MODE_CALLBACK);
 	if (ret != GSI_STATUS_SUCCESS) {
-		IPAERR("Failed to switch to intr mode.\n");
-		goto fail;
+		if (ret == -GSI_STATUS_PENDING_IRQ) {
+			ipa3_inc_acquire_wakelock();
+			atomic_set(&sys->curr_polling_state, 1);
+		} else {
+			IPAERR("Failed to switch to intr mode.\n");
+		}
 	}
-	return;
 
-fail:
-	queue_delayed_work(sys->wq, &sys->switch_to_intr_work,
-			msecs_to_jiffies(1));
+	return ret;
 }
 
 /**
@@ -780,13 +782,16 @@ fail:
  */
 static void ipa3_handle_rx(struct ipa3_sys_context *sys)
 {
-	int inactive_cycles = 0;
+	int inactive_cycles;
 	int cnt;
+	int ret;
 
 	if (ipa3_ctx->use_ipa_pm)
 		ipa_pm_activate_sync(sys->pm_hdl);
 	else
 		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+start_poll:
+	inactive_cycles = 0;
 	do {
 		cnt = ipa3_handle_rx_core(sys, true, true);
 		if (cnt == 0)
@@ -809,7 +814,10 @@ static void ipa3_handle_rx(struct ipa3_sys_context *sys)
 	} while (inactive_cycles <= POLLING_INACTIVITY_RX);
 
 	trace_poll_to_intr3(sys->ep->client);
-	ipa3_rx_switch_to_intr_mode(sys);
+	ret = ipa3_rx_switch_to_intr_mode(sys);
+	if (ret == -GSI_STATUS_PENDING_IRQ)
+		goto start_poll;
+
 	if (ipa3_ctx->use_ipa_pm)
 		ipa_pm_deferred_deactivate(sys->pm_hdl);
 	else
@@ -824,7 +832,7 @@ static void ipa3_switch_to_intr_rx_work_func(struct work_struct *work)
 	dwork = container_of(work, struct delayed_work, work);
 	sys = container_of(dwork, struct ipa3_sys_context, switch_to_intr_work);
 
-	if (sys->ep->napi_enabled) {
+	if (sys->napi_obj) {
 		/* interrupt mode is done in ipa3_rx_poll context */
 		ipa_assert();
 	} else
@@ -999,7 +1007,7 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	ep->valid = 1;
 	ep->client = sys_in->client;
 	ep->client_notify = sys_in->notify;
-	ep->napi_enabled = sys_in->napi_enabled;
+	ep->sys->napi_obj = sys_in->napi_obj;
 	ep->priv = sys_in->priv;
 	ep->keep_ipa_awake = sys_in->keep_ipa_awake;
 	atomic_set(&ep->avail_fifo_desc,
@@ -1163,7 +1171,7 @@ int ipa3_teardown_sys_pipe(u32 clnt_hdl)
 		return result;
 	}
 
-	if (ep->napi_enabled) {
+	if (ep->sys->napi_obj) {
 		do {
 			usleep_range(95, 105);
 		} while (atomic_read(&ep->sys->curr_polling_state));
@@ -1302,6 +1310,7 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 	int num_frags, f;
 	const struct ipa_gsi_ep_config *gsi_ep;
 	int data_idx;
+	unsigned int max_desc;
 
 	if (unlikely(!ipa3_ctx)) {
 		IPAERR("IPA3 driver was not initialized\n");
@@ -1356,7 +1365,15 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 	 * 1 descriptor needed for the linear portion of skb.
 	 */
 	gsi_ep = ipa3_get_gsi_ep_info(ipa3_ctx->ep[src_ep_idx].client);
-	if (gsi_ep && (num_frags + 3 > gsi_ep->ipa_if_tlv)) {
+	if (unlikely(gsi_ep == NULL)) {
+		IPAERR("failed to get EP %d GSI info\n", src_ep_idx);
+		goto fail_gen;
+	}
+	max_desc =  gsi_ep->ipa_if_tlv;
+	if (gsi_ep->prefetch_mode == GSI_SMART_PRE_FETCH ||
+		gsi_ep->prefetch_mode == GSI_FREE_PRE_FETCH)
+		max_desc -= gsi_ep->prefetch_threshold;
+	if (num_frags + 3 > max_desc) {
 		if (skb_linearize(skb)) {
 			IPAERR("Failed to linear skb with %d frags\n",
 				num_frags);
@@ -1509,11 +1526,12 @@ static void ipa3_wq_handle_rx(struct work_struct *work)
 
 	sys = container_of(work, struct ipa3_sys_context, work);
 
-	if (sys->ep->napi_enabled) {
+	if (sys->napi_obj) {
 		if (!ipa3_ctx->use_ipa_pm)
 			IPA_ACTIVE_CLIENTS_INC_SPECIAL("NAPI");
-		sys->ep->client_notify(sys->ep->priv,
-				IPA_CLIENT_START_POLL, 0);
+		else
+			ipa_pm_activate_sync(sys->pm_hdl);
+		napi_schedule(sys->napi_obj);
 	} else
 		ipa3_handle_rx(sys);
 }
@@ -1667,7 +1685,7 @@ static void ipa3_cleanup_wlan_rx_common_cache(void)
 		&ipa3_ctx->wc_memb.wlan_comm_desc_list, link) {
 		list_del(&rx_pkt->link);
 		dma_unmap_single(ipa3_ctx->pdev, rx_pkt->data.dma_addr,
-				IPA_WLAN_COMM_RX_POOL_LOW, DMA_FROM_DEVICE);
+				IPA_WLAN_RX_BUFF_SZ, DMA_FROM_DEVICE);
 		dev_kfree_skb_any(rx_pkt->data.skb);
 		kmem_cache_free(ipa3_ctx->rx_pkt_wrapper_cache, rx_pkt);
 		ipa3_ctx->wc_memb.wlan_comm_free_cnt--;
@@ -1824,6 +1842,17 @@ static void ipa3_replenish_rx_cache(struct ipa3_sys_context *sys)
 			idx = 0;
 		}
 	}
+	goto done;
+
+fail_dma_mapping:
+	sys->free_skb(rx_pkt->data.skb);
+fail_skb_alloc:
+	kmem_cache_free(ipa3_ctx->rx_pkt_wrapper_cache, rx_pkt);
+fail_kmem_cache_alloc:
+	if (rx_len_cached == 0)
+		queue_delayed_work(sys->wq, &sys->replenish_rx_work,
+				msecs_to_jiffies(1));
+done:
 	if (idx) {
 		ret = gsi_queue_xfer(sys->ep->gsi_chan_hdl, idx,
 			gsi_xfer_elem_array, true);
@@ -1834,18 +1863,7 @@ static void ipa3_replenish_rx_cache(struct ipa3_sys_context *sys)
 			IPAERR("failed to provide buffer: %d\n", ret);
 			WARN_ON(1);
 		}
-		idx = 0;
 	}
-	return;
-
-fail_dma_mapping:
-	sys->free_skb(rx_pkt->data.skb);
-fail_skb_alloc:
-	kmem_cache_free(ipa3_ctx->rx_pkt_wrapper_cache, rx_pkt);
-fail_kmem_cache_alloc:
-	if (rx_len_cached == 0)
-		queue_delayed_work(sys->wq, &sys->replenish_rx_work,
-				msecs_to_jiffies(1));
 }
 
 static void ipa3_replenish_rx_cache_recycle(struct ipa3_sys_context *sys)
@@ -1937,6 +1955,17 @@ static void ipa3_replenish_rx_cache_recycle(struct ipa3_sys_context *sys)
 			idx = 0;
 		}
 	}
+	goto done;
+fail_dma_mapping:
+	spin_lock_bh(&sys->spinlock);
+	list_add_tail(&rx_pkt->link, &sys->rcycl_list);
+	INIT_LIST_HEAD(&rx_pkt->link);
+	spin_unlock_bh(&sys->spinlock);
+fail_kmem_cache_alloc:
+	if (rx_len_cached == 0)
+		queue_delayed_work(sys->wq, &sys->replenish_rx_work,
+		msecs_to_jiffies(1));
+done:
 	if (idx) {
 		ret = gsi_queue_xfer(sys->ep->gsi_chan_hdl, idx,
 			gsi_xfer_elem_array, true);
@@ -1947,18 +1976,7 @@ static void ipa3_replenish_rx_cache_recycle(struct ipa3_sys_context *sys)
 			IPAERR("failed to provide buffer: %d\n", ret);
 			WARN_ON(1);
 		}
-		idx = 0;
 	}
-	return;
-fail_dma_mapping:
-	spin_lock_bh(&sys->spinlock);
-	list_add_tail(&rx_pkt->link, &sys->rcycl_list);
-	INIT_LIST_HEAD(&rx_pkt->link);
-	spin_unlock_bh(&sys->spinlock);
-fail_kmem_cache_alloc:
-	if (rx_len_cached == 0)
-		queue_delayed_work(sys->wq, &sys->replenish_rx_work,
-		msecs_to_jiffies(1));
 }
 
 static inline void __trigger_repl_work(struct ipa3_sys_context *sys)
@@ -2660,7 +2678,7 @@ void ipa3_lan_rx_cb(void *priv, enum ipa_dp_evt_type evt, unsigned long data)
 	if (unlikely(src_pipe >= ipa3_ctx->ipa_num_pipes ||
 		!ep->valid ||
 		!ep->client_notify)) {
-		IPAERR("drop pipe=%d ep_valid=%d client_notify=%pK\n",
+		IPAERR_RL("drop pipe=%d ep_valid=%d client_notify=%pK\n",
 		  src_pipe, ep->valid, ep->client_notify);
 		dev_kfree_skb_any(rx_skb);
 		return;
@@ -2972,7 +2990,7 @@ static int ipa3_assign_policy(struct ipa_sys_connect_params *in,
 					sys->repl_hdlr =
 					   ipa3_replenish_rx_cache;
 				}
-				if (in->napi_enabled && in->recycle_enabled)
+				if (in->napi_obj && in->recycle_enabled)
 					sys->repl_hdlr =
 					 ipa3_replenish_rx_cache_recycle;
 				in->ipa_ep_cfg.aggr.aggr_sw_eof_active
@@ -3250,7 +3268,7 @@ int ipa3_tx_dp_mul(enum ipa_client_type src,
 			desc[1].callback = ipa3_tx_client_rx_pkt_status;
 		}
 
-		IPADBG_LOW("calling ipa3_send_one()\n");
+		IPADBG_LOW("calling ipa3_send()\n");
 		if (ipa3_send(sys, 2, desc, true)) {
 			IPAERR("fail to send skb\n");
 			sys->ep->wstats.rx_pkt_leak += (cnt-1);
@@ -3540,24 +3558,22 @@ void __ipa_gsi_irq_rx_scedule_poll(struct ipa3_sys_context *sys)
 	 */
 	if (ipa3_ctx->use_ipa_pm) {
 		clk_off = ipa_pm_activate(sys->pm_hdl);
-		if (!clk_off && sys->ep->napi_enabled) {
-			sys->ep->client_notify(sys->ep->priv,
-				IPA_CLIENT_START_POLL, 0);
+		if (!clk_off && sys->napi_obj) {
+			napi_schedule(sys->napi_obj);
 			return;
 		}
 		queue_work(sys->wq, &sys->work);
 		return;
 	}
 
-	if (sys->ep->napi_enabled) {
+	if (sys->napi_obj) {
 		struct ipa_active_client_logging_info log;
 
 		IPA_ACTIVE_CLIENTS_PREP_SPECIAL(log, "NAPI");
 		clk_off = ipa3_inc_client_enable_clks_no_block(
 			&log);
 		if (!clk_off) {
-			sys->ep->client_notify(sys->ep->priv,
-				IPA_CLIENT_START_POLL, 0);
+			napi_schedule(sys->napi_obj);
 			return;
 		}
 	}
@@ -3759,7 +3775,7 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 		ep->gsi_mem_info.evt_ring_base_vaddr =
 			gsi_evt_ring_props.ring_base_vaddr;
 
-		if (ep->napi_enabled) {
+		if (ep->sys->napi_obj) {
 			gsi_evt_ring_props.int_modt = IPA_GSI_EVT_RING_INT_MODT;
 			gsi_evt_ring_props.int_modc = IPA_GSI_EVT_RING_INT_MODC;
 		} else {
@@ -4046,6 +4062,7 @@ int ipa3_rx_poll(u32 clnt_hdl, int weight)
 	}
 
 	ep = &ipa3_ctx->ep[clnt_hdl];
+start_poll:
 	while (remain_aggr_weight > 0 &&
 			atomic_read(&ep->sys->curr_polling_state)) {
 		atomic_set(&ipa3_ctx->transport_pm.eot_activity, 1);
@@ -4072,8 +4089,12 @@ int ipa3_rx_poll(u32 clnt_hdl, int weight)
 	}
 	cnt += weight - remain_aggr_weight * IPA_WAN_AGGR_PKT_CNT;
 	if (cnt < weight) {
-		ep->client_notify(ep->priv, IPA_CLIENT_COMP_NAPI, 0);
-		ipa3_rx_switch_to_intr_mode(ep->sys);
+		napi_complete(ep->sys->napi_obj);
+		ret = ipa3_rx_switch_to_intr_mode(ep->sys);
+		if (ret == -GSI_STATUS_PENDING_IRQ &&
+				napi_reschedule(ep->sys->napi_obj))
+			goto start_poll;
+
 		if (ipa3_ctx->use_ipa_pm)
 			ipa_pm_deferred_deactivate(ep->sys->pm_hdl);
 		else

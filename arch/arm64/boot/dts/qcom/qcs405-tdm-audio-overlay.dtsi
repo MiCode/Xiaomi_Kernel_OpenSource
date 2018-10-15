@@ -1,0 +1,75 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "qcs405-tasha.dtsi"
+#include "qcs405-va-bolero.dtsi"
+
+&qcs405_snd {
+	qcom,model = "qcs405-tdm-snd-card";
+	qcom,va-bolero-codec = <1>;
+	qcom,tasha-codec = <1>;
+	asoc-codec = <&stub_codec>, <&bolero>;
+	asoc-codec-names = "msm-stub-codec.1", "bolero_codec";
+	qcom,quin-mi2s-gpios = <&cdc_quin_mi2s_gpios>;
+	tdm-vdd-micb-supply = <&pms405_l7>;
+	qcom,tdm-vdd-micb-voltage = <1800000 1800000>;
+	qcom,tdm-vdd-micb-current = <13000>;
+	qcom,audio-routing =
+		"RX_BIAS", "MCLK",
+		"AMIC3", "MIC BIAS3",
+		"AMIC4", "MIC BIAS4",
+		"MIC BIAS3", "Analog Mic3",
+		"MIC BIAS4", "Analog Mic4",
+		"VA DMIC0", "VA MIC BIAS1",
+		"VA MIC BIAS1", "Digital Mic0",
+		"VA DMIC1", "VA MIC BIAS1",
+		"VA MIC BIAS1", "Digital Mic1",
+		"VA DMIC2", "VA MIC BIAS1",
+		"VA MIC BIAS1", "Digital Mic2",
+		"VA DMIC3", "VA MIC BIAS1",
+		"VA MIC BIAS1", "Digital Mic3",
+		"VA DMIC4", "VA MIC BIAS1",
+		"VA MIC BIAS1", "Digital Mic4",
+		"VA DMIC5", "VA MIC BIAS1",
+		"VA MIC BIAS1", "Digital Mic5",
+		"VA DMIC6", "VA MIC BIAS1",
+		"VA MIC BIAS1", "Digital Mic6",
+		"VA DMIC7", "VA MIC BIAS1",
+		"VA MIC BIAS1", "Digital Mic7";
+	pinctrl-names = "default";
+	pinctrl-0 = <&spdifrx_opt_default>;
+};
+
+&bolero {
+	qcom,num-macros = <1>;
+};
+
+&tdm_quin_tx {
+	qcom,msm-cpudai-tdm-clk-attribute = /bits/ 16 <1>;
+	qcom,msm-cpudai-tdm-sync-mode = <0>;
+	qcom,msm-cpudai-tdm-invert-sync = <0>;
+};
+
+&soc {
+	cdc_quin_mi2s_gpios: msm_cdc_pinctrl_quin {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&quin_mi2s_sck_active &quin_mi2s_ws_active
+			     &quin_mi2s_sd0_active &quin_mi2s_sd1_active
+			     &quin_mi2s_sd2_active &quin_mi2s_sd3_active>;
+		pinctrl-1 = <&quin_mi2s_sck_sleep &quin_mi2s_ws_sleep
+			     &quin_mi2s_sd0_sleep &quin_mi2s_sd1_sleep
+			     &quin_mi2s_sd2_sleep &quin_mi2s_sd3_sleep>;
+		qcom,lpi-gpios;
+	};
+};

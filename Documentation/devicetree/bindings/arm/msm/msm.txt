@@ -62,6 +62,9 @@ SoCs:
 - SDMMAGPIE
   compatible = "qcom,sdmmagpie"
 
+- TRINKET
+  compatible = "qcom,trinket"
+
 Generic board variants:
 
 - CDP device:
@@ -178,3 +181,7 @@ compatible = "qcom,sdxprairie-cdp"
 compatible = "qcom,sdmmagpie-rumi"
 compatible = "qcom,sdmmagpie-idp"
 compatible = "qcom,sdmmagpie-qrd"
+compatible = "qcom,sdmmagpiep-idp"
+compatible = "qcom,sdmmagpiep"
+compatible = "qcom,sdmmagpiep-qrd"
+compatible = "qcom,trinket-rumi"

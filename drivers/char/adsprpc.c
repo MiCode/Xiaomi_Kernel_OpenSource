@@ -272,6 +272,7 @@ struct fastrpc_channel_ctx {
 	struct completion workport;
 	struct notifier_block nb;
 	struct mutex smd_mutex;
+	struct mutex rpmsg_mutex;
 	int sesscount;
 	int ssrcount;
 	void *handle;
@@ -759,13 +760,18 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 	struct fastrpc_session_ctx *sess;
 	struct fastrpc_apps *apps = fl->apps;
 	int cid = fl->cid;
-	struct fastrpc_channel_ctx *chan = &apps->channel[cid];
+	struct fastrpc_channel_ctx *chan = NULL;
 	struct fastrpc_mmap *map = NULL;
 	dma_addr_t region_phys = 0;
 	void *region_vaddr = NULL;
 	unsigned long flags;
 	int err = 0, vmid, sgl_index = 0;
 	struct scatterlist *sgl = NULL;
+
+	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS);
+	if (err)
+		goto bail;
+	chan = &apps->channel[cid];
 
 	if (!fastrpc_mmap_find(fl, fd, va, len, mflags, 1, ppmap))
 		return 0;
@@ -790,7 +796,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 			goto bail;
 		map->phys = (uintptr_t)region_phys;
 		map->size = len;
-		map->va = 0;
+		map->va = (uintptr_t)region_vaddr;
 	} else if (mflags == FASTRPC_DMAHANDLE_NOMAP) {
 		VERIFY(err, !IS_ERR_OR_NULL(map->buf = dma_buf_get(fd)));
 		if (err)
@@ -1781,16 +1787,21 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 
 	if (fl->ssrcount != channel_ctx->ssrcount) {
 		err = -ECONNRESET;
+		mutex_unlock(&channel_ctx->smd_mutex);
 		goto bail;
 	}
+	mutex_unlock(&channel_ctx->smd_mutex);
+
+	mutex_lock(&channel_ctx->rpmsg_mutex);
 	VERIFY(err, !IS_ERR_OR_NULL(channel_ctx->rpdev));
 	if (err) {
 		err = -ECONNRESET;
+		mutex_unlock(&channel_ctx->rpmsg_mutex);
 		goto bail;
 	}
 	err = rpmsg_send(channel_ctx->rpdev->ept, (void *)msg, sizeof(*msg));
+	mutex_unlock(&channel_ctx->rpmsg_mutex);
  bail:
-	mutex_unlock(&channel_ctx->smd_mutex);
 	return err;
 }
 
@@ -1810,6 +1821,7 @@ static void fastrpc_init(struct fastrpc_apps *me)
 		/* All channels are secure by default except CDSP */
 		me->channel[i].secure = SECURE_CHANNEL;
 		mutex_init(&me->channel[i].smd_mutex);
+		mutex_init(&me->channel[i].rpmsg_mutex);
 	}
 	/* Set CDSP channel to non secure */
 	me->channel[CDSP_DOMAIN_ID].secure = NON_SECURE_CHANNEL;
@@ -2035,7 +2047,6 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 						DMA_ATTR_NO_KERNEL_MAPPING |
 						DMA_ATTR_FORCE_NON_COHERENT;
 		err = fastrpc_buf_alloc(fl, memlen, imem_dma_attr, 0, 0, &imem);
-		imem->virt = NULL;
 		if (err)
 			goto bail;
 		fl->init_mem = imem;
@@ -2577,14 +2588,14 @@ static int fastrpc_internal_mmap(struct fastrpc_file *fl,
 								1, &rbuf);
 		if (err)
 			goto bail;
-		rbuf->virt = NULL;
-		err = fastrpc_mmap_on_dsp(fl, ud->flags,
-				(uintptr_t)rbuf->virt,
+		err = fastrpc_mmap_on_dsp(fl, ud->flags, 0,
 				rbuf->phys, rbuf->size, &raddr);
 		if (err)
 			goto bail;
 		rbuf->raddr = raddr;
 	} else {
+		uintptr_t va_to_dsp;
+
 		mutex_lock(&fl->map_mutex);
 		VERIFY(err, !fastrpc_mmap_create(fl, ud->fd, 0,
 				(uintptr_t)ud->vaddrin, ud->size,
@@ -2592,7 +2603,13 @@ static int fastrpc_internal_mmap(struct fastrpc_file *fl,
 		mutex_unlock(&fl->map_mutex);
 		if (err)
 			goto bail;
-		VERIFY(err, 0 == fastrpc_mmap_on_dsp(fl, ud->flags, map->va,
+
+		if (ud->flags == ADSP_MMAP_HEAP_ADDR ||
+				ud->flags == ADSP_MMAP_REMOTE_HEAP_ADDR)
+			va_to_dsp = 0;
+		else
+			va_to_dsp = (uintptr_t)map->va;
+		VERIFY(err, 0 == fastrpc_mmap_on_dsp(fl, ud->flags, va_to_dsp,
 				map->phys, map->size, &raddr));
 		if (err)
 			goto bail;
@@ -2667,9 +2684,9 @@ static int fastrpc_rpmsg_probe(struct rpmsg_device *rpdev)
 	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS);
 	if (err)
 		goto bail;
-	mutex_lock(&gcinfo[cid].smd_mutex);
+	mutex_lock(&gcinfo[cid].rpmsg_mutex);
 	gcinfo[cid].rpdev = rpdev;
-	mutex_unlock(&gcinfo[cid].smd_mutex);
+	mutex_unlock(&gcinfo[cid].rpmsg_mutex);
 	pr_info("adsprpc: %s: opened rpmsg channel for %s\n",
 		__func__, gcinfo[cid].subsys);
 bail:
@@ -2701,9 +2718,9 @@ static void fastrpc_rpmsg_remove(struct rpmsg_device *rpdev)
 	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS);
 	if (err)
 		goto bail;
-	mutex_lock(&gcinfo[cid].smd_mutex);
+	mutex_lock(&gcinfo[cid].rpmsg_mutex);
 	gcinfo[cid].rpdev = NULL;
-	mutex_unlock(&gcinfo[cid].smd_mutex);
+	mutex_unlock(&gcinfo[cid].rpmsg_mutex);
 	fastrpc_notify_drivers(me, cid);
 	pr_info("adsprpc: %s: closed rpmsg channel of %s\n",
 		__func__, gcinfo[cid].subsys);
@@ -2772,13 +2789,16 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 	struct hlist_node *n = NULL;
 	struct fastrpc_mmap *map = NULL, *lmap = NULL;
 	struct fastrpc_perf *perf = NULL, *fperf = NULL;
-	int cid;
+	int cid, err = 0;
 
 	if (!fl)
 		return 0;
 	cid = fl->cid;
 
-	(void)fastrpc_release_current_dsp_process(fl);
+	err = fastrpc_release_current_dsp_process(fl);
+	if (err)
+		pr_err("adsprpc: %s: releasing DSP process failed for %s, returned 0x%x",
+					__func__, current->comm, err);
 
 	spin_lock(&fl->apps->hlock);
 	hlist_del_init(&fl->hn);
@@ -2985,6 +3005,15 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 	if (err)
 		return err;
 
+	mutex_lock(&me->channel[cid].rpmsg_mutex);
+	VERIFY(err, NULL != me->channel[cid].rpdev);
+	if (err) {
+		err = -ENOTCONN;
+		mutex_unlock(&me->channel[cid].rpmsg_mutex);
+		goto bail;
+	}
+	mutex_unlock(&me->channel[cid].rpmsg_mutex);
+
 	mutex_lock(&me->channel[cid].smd_mutex);
 	if (me->channel[cid].ssrcount !=
 				 me->channel[cid].prevssrcount) {
@@ -2992,16 +3021,13 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 			VERIFY(err, 0);
 			if (err) {
 				err = -ENOTCONN;
+				mutex_unlock(&me->channel[cid].smd_mutex);
 				goto bail;
 			}
 		}
 	}
 	fl->ssrcount = me->channel[cid].ssrcount;
-	VERIFY(err, NULL != me->channel[cid].rpdev);
-	if (err) {
-		err = -ENOTCONN;
-		goto bail;
-	}
+
 	if (cid == ADSP_DOMAIN_ID && me->channel[cid].ssrcount !=
 			 me->channel[cid].prevssrcount) {
 		mutex_lock(&fl->map_mutex);
@@ -3012,9 +3038,9 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 		me->channel[cid].prevssrcount =
 					me->channel[cid].ssrcount;
 	}
+	mutex_unlock(&me->channel[cid].smd_mutex);
 
 bail:
-	mutex_unlock(&me->channel[cid].smd_mutex);
 	return err;
 }
 

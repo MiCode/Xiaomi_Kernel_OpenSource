@@ -1092,6 +1092,7 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 	struct device_node *node = pdev->dev.of_node;
 	struct resource *res;
 	unsigned int timeout;
+	unsigned int throt = 4;
 
 	if (of_property_read_string(node, "label", &pdev->name)) {
 		KGSL_CORE_ERR("Unable to read 'label'\n");
@@ -1119,6 +1120,14 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 
 	if (adreno_of_get_pwrlevels(adreno_dev, node))
 		return -EINVAL;
+
+	/* Get throttle power level */
+	of_property_read_u32(node, "qcom,throttle-pwrlevel", &throt);
+
+	if (throt < device->pwrctrl.num_pwrlevels)
+		device->pwrctrl.throttle_mask =
+			GENMASK(device->pwrctrl.num_pwrlevels - 1,
+				device->pwrctrl.num_pwrlevels - 1 - throt);
 
 	/* Get context aware DCVS properties */
 	adreno_of_get_ca_aware_properties(adreno_dev, node);
@@ -1385,21 +1394,19 @@ static int adreno_probe(struct platform_device *pdev)
 
 	/* Get the system cache slice descriptor for GPU */
 	adreno_dev->gpu_llc_slice = adreno_llc_getd(&pdev->dev, "gpu");
-	if (IS_ERR(adreno_dev->gpu_llc_slice)) {
+	if (IS_ERR(adreno_dev->gpu_llc_slice) &&
+			PTR_ERR(adreno_dev->gpu_llc_slice) != -ENOENT)
 		KGSL_DRV_WARN(device,
 			"Failed to get GPU LLC slice descriptor %ld\n",
-		PTR_ERR(adreno_dev->gpu_llc_slice));
-		adreno_dev->gpu_llc_slice = NULL;
-	}
+			PTR_ERR(adreno_dev->gpu_llc_slice));
 
 	/* Get the system cache slice descriptor for GPU pagetables */
 	adreno_dev->gpuhtw_llc_slice = adreno_llc_getd(&pdev->dev, "gpuhtw");
-	if (IS_ERR(adreno_dev->gpuhtw_llc_slice)) {
+	if (IS_ERR(adreno_dev->gpuhtw_llc_slice) &&
+			PTR_ERR(adreno_dev->gpuhtw_llc_slice) != -ENOENT)
 		KGSL_DRV_WARN(device,
 			"Failed to get gpuhtw LLC slice descriptor %ld\n",
-		PTR_ERR(adreno_dev->gpuhtw_llc_slice));
-		adreno_dev->gpuhtw_llc_slice = NULL;
-	}
+			PTR_ERR(adreno_dev->gpuhtw_llc_slice));
 
 #ifdef CONFIG_INPUT
 	if (!device->pwrctrl.input_disable) {
@@ -1476,10 +1483,8 @@ static int adreno_remove(struct platform_device *pdev)
 	adreno_profile_close(adreno_dev);
 
 	/* Release the system cache slice descriptor */
-	if (adreno_dev->gpu_llc_slice)
-		adreno_llc_putd(adreno_dev->gpu_llc_slice);
-	if (adreno_dev->gpuhtw_llc_slice)
-		adreno_llc_putd(adreno_dev->gpuhtw_llc_slice);
+	adreno_llc_putd(adreno_dev->gpu_llc_slice);
+	adreno_llc_putd(adreno_dev->gpuhtw_llc_slice);
 
 	kgsl_pwrscale_close(device);
 
@@ -1867,7 +1872,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 
 	status = kgsl_mmu_start(device);
 	if (status)
-		goto error_pwr_off;
+		goto error_boot_oob_clear;
 
 	status = adreno_ocmem_malloc(adreno_dev);
 	if (status) {
@@ -2091,6 +2096,11 @@ error_oob_clear:
 error_mmu_off:
 	kgsl_mmu_stop(&device->mmu);
 
+error_boot_oob_clear:
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_clear) &&
+		ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
+		gmu_dev_ops->oob_clear(adreno_dev, oob_boot_slumber);
+
 error_pwr_off:
 	/* set the state back to original state */
 	kgsl_pwrctrl_change_state(device, state);
@@ -2163,16 +2173,17 @@ static int adreno_stop(struct kgsl_device *device)
 
 	adreno_ocmem_free(adreno_dev);
 
-	if (adreno_dev->gpu_llc_slice)
-		adreno_llc_deactivate_slice(adreno_dev->gpu_llc_slice);
-	if (adreno_dev->gpuhtw_llc_slice)
-		adreno_llc_deactivate_slice(adreno_dev->gpuhtw_llc_slice);
+	adreno_llc_deactivate_slice(adreno_dev->gpu_llc_slice);
+	adreno_llc_deactivate_slice(adreno_dev->gpuhtw_llc_slice);
 
 	/* Save active coresight registers if applicable */
 	adreno_coresight_stop(adreno_dev);
 
 	/* Save physical performance counter values before GPU power down*/
 	adreno_perfcounter_save(adreno_dev);
+
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, prepare_stop))
+		gmu_dev_ops->prepare_stop(adreno_dev);
 
 	if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_clear))
 		gmu_dev_ops->oob_clear(adreno_dev, oob_gpu);

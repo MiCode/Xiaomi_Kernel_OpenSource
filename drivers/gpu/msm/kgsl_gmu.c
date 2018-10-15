@@ -459,7 +459,7 @@ static int gmu_memory_probe(struct kgsl_device *device,
 	}
 
 	/* Allocates & maps GMU crash dump memory */
-	if (adreno_is_a630(adreno_dev)) {
+	if (adreno_is_a630(adreno_dev) || adreno_is_a615_family(adreno_dev)) {
 		gmu->dump_mem = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL,
 				DUMPMEM_SIZE, (IOMMU_READ | IOMMU_WRITE));
 		if (IS_ERR(gmu->dump_mem)) {
@@ -1308,9 +1308,6 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 	disable_irq(hfi->hfi_interrupt_num);
 
 	tasklet_init(&hfi->tasklet, hfi_receiver, (unsigned long) gmu);
-	INIT_LIST_HEAD(&hfi->msglist);
-	spin_lock_init(&hfi->msglock);
-	spin_lock_init(&hfi->read_queue_lock);
 	hfi->kgsldev = device;
 
 	/* Retrieves GMU/GPU power level configurations*/

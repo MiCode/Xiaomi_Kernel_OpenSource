@@ -35,6 +35,7 @@
 #include "cam_hw_mgr_intf.h"
 #include "cam_icp_hw_mgr_intf.h"
 #include "cam_debug_util.h"
+#include "cam_smmu_api.h"
 
 #define CAM_ICP_DEV_NAME        "cam-icp"
 
@@ -54,6 +55,25 @@ static const struct of_device_id cam_icp_dt_match[] = {
 	{.compatible = "qcom,cam-icp"},
 	{}
 };
+
+static void cam_icp_dev_iommu_fault_handler(
+	struct iommu_domain *domain, struct device *dev, unsigned long iova,
+	int flags, void *token, uint32_t buf_info)
+{
+	int i = 0;
+	struct cam_node *node = NULL;
+
+	if (!token) {
+		CAM_ERR(CAM_ICP, "invalid token in page handler cb");
+		return;
+	}
+
+	node = (struct cam_node *)token;
+
+	for (i = 0; i < node->ctx_size; i++)
+		cam_context_dump_pf_info(&(node->ctx_list[i]), iova,
+			buf_info);
+}
 
 static int cam_icp_subdev_open(struct v4l2_subdev *sd,
 	struct v4l2_subdev_fh *fh)
@@ -96,7 +116,7 @@ static int cam_icp_subdev_close(struct v4l2_subdev *sd,
 
 	mutex_lock(&g_icp_dev.icp_lock);
 	if (g_icp_dev.open_cnt <= 0) {
-		CAM_ERR(CAM_ICP, "ICP subdev is already closed");
+		CAM_DBG(CAM_ICP, "ICP subdev is already closed");
 		rc = -EINVAL;
 		goto end;
 	}
@@ -135,6 +155,7 @@ static int cam_icp_probe(struct platform_device *pdev)
 	int rc = 0, i = 0;
 	struct cam_node *node;
 	struct cam_hw_mgr_intf *hw_mgr_intf;
+	int iommu_hdl = -1;
 
 	if (!pdev) {
 		CAM_ERR(CAM_ICP, "pdev is NULL");
@@ -158,7 +179,8 @@ static int cam_icp_probe(struct platform_device *pdev)
 		goto hw_alloc_fail;
 	}
 
-	rc = cam_icp_hw_mgr_init(pdev->dev.of_node, (uint64_t *)hw_mgr_intf);
+	rc = cam_icp_hw_mgr_init(pdev->dev.of_node, (uint64_t *)hw_mgr_intf,
+		&iommu_hdl);
 	if (rc) {
 		CAM_ERR(CAM_ICP, "ICP HW manager init failed: %d", rc);
 		goto hw_init_fail;
@@ -180,6 +202,9 @@ static int cam_icp_probe(struct platform_device *pdev)
 		CAM_ERR(CAM_ICP, "ICP node init failed");
 		goto ctx_fail;
 	}
+
+	cam_smmu_set_client_page_fault_handler(iommu_hdl,
+		cam_icp_dev_iommu_fault_handler, node);
 
 	g_icp_dev.open_cnt = 0;
 	mutex_init(&g_icp_dev.icp_lock);

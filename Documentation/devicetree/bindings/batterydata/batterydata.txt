@@ -82,10 +82,15 @@ Profile data node optional properties:
 			If yes, the low and high thresholds defined in
 			"qcom,step-chg-ranges" tuples should be assigned as
 			SoC values in percentage.
+- qcom,ocv-based-step-chg: A bool property to indicate if the battery will
+			perform OCV (Open Circuit Voltage) based step charging.
+			If yes, the low and high thresholds defined in
+			"qcom,step-chg-ranges" tuples should be assigned as
+			OCV values in microvolts.
 - qcom,step-chg-ranges: Array of tuples in which a tuple describes a range
 			data of step charging setting.
 			A range contains following 3 integer elements:
-			[0]: the low threshold of battery votlage in uV
+			[0]: the low threshold of battery voltage in uV
 			     or SoC (State of Charge) in percentage when
 			     SoC based step charge is used;
 			[1]: the high threshold of battery voltage in uV

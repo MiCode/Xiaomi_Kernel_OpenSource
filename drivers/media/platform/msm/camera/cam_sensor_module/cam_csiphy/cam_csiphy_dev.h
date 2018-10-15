@@ -60,6 +60,11 @@
 #define CSIPHY_2PH_REGS                  5
 #define CSIPHY_3PH_REGS                  6
 
+#define CSIPHY_MAX_INSTANCES     2
+
+#define CAM_CSIPHY_MAX_DPHY_LANES    4
+#define CAM_CSIPHY_MAX_CPHY_LANES    3
+
 #define ENABLE_IRQ false
 
 #undef CDBG
@@ -89,6 +94,15 @@ enum cam_csiphy_state {
  * @csiphy_version: CSIPhy Version
  * @csiphy_common_array_size: CSIPhy common array size
  * @csiphy_reset_array_size: CSIPhy reset array size
+ * @csiphy_2ph_config_array_size: 2ph settings size
+ * @csiphy_3ph_config_array_size: 3ph settings size
+ * @csiphy_cpas_cp_bits_per_phy: CP bits per phy
+ * @csiphy_cpas_cp_is_interleaved: checks whether cp bits
+ *      are interleaved or not
+ * @csiphy_cpas_cp_2ph_offset: cp register 2ph offset
+ * @csiphy_cpas_cp_3ph_offset: cp register 3ph offset
+ * @csiphy_2ph_clock_lane: clock lane in 2ph
+ * @csiphy_2ph_combo_ck_ln: clk lane in combo 2ph
  */
 struct csiphy_reg_parms_t {
 /*MIPI CSI PHY registers*/
@@ -103,6 +117,12 @@ struct csiphy_reg_parms_t {
 	uint32_t csiphy_reset_array_size;
 	uint32_t csiphy_2ph_config_array_size;
 	uint32_t csiphy_3ph_config_array_size;
+	uint32_t csiphy_cpas_cp_bits_per_phy;
+	uint32_t csiphy_cpas_cp_is_interleaved;
+	uint32_t csiphy_cpas_cp_2ph_offset;
+	uint32_t csiphy_cpas_cp_3ph_offset;
+	uint32_t csiphy_2ph_clock_lane;
+	uint32_t csiphy_2ph_combo_ck_ln;
 };
 
 /**
@@ -113,9 +133,9 @@ struct csiphy_reg_parms_t {
  * @crm_cb: Callback API pointers
  */
 struct intf_params {
-	int32_t device_hdl[2];
-	int32_t session_hdl[2];
-	int32_t link_hdl[2];
+	int32_t device_hdl[CSIPHY_MAX_INSTANCES];
+	int32_t session_hdl[CSIPHY_MAX_INSTANCES];
+	int32_t link_hdl[CSIPHY_MAX_INSTANCES];
 	struct cam_req_mgr_kmd_ops ops;
 	struct cam_req_mgr_crm_cb *crm_cb;
 };
@@ -177,7 +197,7 @@ struct cam_csiphy_param {
 	uint8_t     csiphy_3phase;
 	uint8_t     combo_mode;
 	uint8_t     lane_cnt;
-	uint8_t     secure_mode;
+	uint8_t     secure_mode[CSIPHY_MAX_INSTANCES];
 	uint64_t    settle_time;
 	uint64_t    settle_time_combo_sensor;
 	uint64_t    data_rate;
@@ -208,6 +228,10 @@ struct cam_csiphy_param {
  * @is_acquired_dev_combo_mode:
  *    Flag that mentions whether already acquired
  *   device is for combo mode
+ * @soc_info: SOC information
+ * @cpas_handle: CPAS handle
+ * @config_count: Config reg count
+ * @csiphy_cpas_cp_reg_mask: CP reg mask for phy instance
  */
 struct csiphy_device {
 	struct mutex mutex;
@@ -233,6 +257,7 @@ struct csiphy_device {
 	struct cam_hw_soc_info   soc_info;
 	uint32_t cpas_handle;
 	uint32_t config_count;
+	uint64_t csiphy_cpas_cp_reg_mask[CSIPHY_MAX_INSTANCES];
 };
 
 #endif /* _CAM_CSIPHY_DEV_H_ */

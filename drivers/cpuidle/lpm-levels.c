@@ -339,6 +339,11 @@ static void histtimer_cancel(void)
 {
 	unsigned int cpu = raw_smp_processor_id();
 	struct hrtimer *cpu_histtimer = &per_cpu(histtimer, cpu);
+	ktime_t time_rem;
+
+	time_rem = hrtimer_get_remaining(cpu_histtimer);
+	if (ktime_to_us(time_rem) <= 0)
+		return;
 
 	hrtimer_try_to_cancel(cpu_histtimer);
 }
@@ -384,11 +389,21 @@ static void clusttimer_cancel(void)
 {
 	int cpu = raw_smp_processor_id();
 	struct lpm_cluster *cluster = per_cpu(cpu_lpm, cpu)->parent;
+	ktime_t time_rem;
 
-	hrtimer_try_to_cancel(&cluster->histtimer);
+	time_rem = hrtimer_get_remaining(&cluster->histtimer);
+	if (ktime_to_us(time_rem) > 0)
+		hrtimer_try_to_cancel(&cluster->histtimer);
 
-	if (cluster->parent)
+	if (cluster->parent) {
+		time_rem = hrtimer_get_remaining(
+			&cluster->parent->histtimer);
+
+		if (ktime_to_us(time_rem) <= 0)
+			return;
+
 		hrtimer_try_to_cancel(&cluster->parent->histtimer);
+	}
 }
 
 static enum hrtimer_restart clusttimer_fn(struct hrtimer *h)
@@ -596,7 +611,8 @@ static int cpu_power_select(struct cpuidle_device *dev,
 	int best_level = 0;
 	uint32_t latency_us = pm_qos_request_for_cpu(PM_QOS_CPU_DMA_LATENCY,
 							dev->cpu);
-	s64 sleep_us = ktime_to_us(tick_nohz_get_sleep_length());
+	ktime_t delta_next;
+	s64 sleep_us = ktime_to_us(tick_nohz_get_sleep_length(&delta_next));
 	uint32_t modified_time_us = 0;
 	uint32_t next_event_us = 0;
 	int i, idx_restrict;
@@ -1051,7 +1067,7 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 		 * LPMs(XO and Vmin).
 		 */
 		if (!from_idle)
-			clock_debug_print_enabled();
+			clock_debug_print_enabled(true);
 
 		cpu = get_next_online_cpu(from_idle);
 		cpumask_copy(&cpumask, cpumask_of(cpu));
@@ -1326,7 +1342,7 @@ static bool psci_enter_sleep(struct lpm_cpu *cpu, int idx, bool from_idle)
 }
 
 static int lpm_cpuidle_select(struct cpuidle_driver *drv,
-		struct cpuidle_device *dev)
+		struct cpuidle_device *dev, bool *stop_tick)
 {
 	struct lpm_cpu *cpu = per_cpu(cpu_lpm, dev->cpu);
 
@@ -1399,11 +1415,11 @@ exit:
 	dev->last_residency = ktime_us_delta(ktime_get(), start);
 	update_history(dev, idx);
 	trace_cpu_idle_exit(idx, success);
-	local_irq_enable();
 	if (lpm_prediction && cpu->lpm_prediction) {
 		histtimer_cancel();
 		clusttimer_cancel();
 	}
+	local_irq_enable();
 	return idx;
 }
 

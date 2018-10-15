@@ -433,12 +433,12 @@ static inline bool mmc_card_support_auto_bkops(const struct mmc_card *c)
 
 static inline bool mmc_card_configured_manual_bkops(const struct mmc_card *c)
 {
-	return c->ext_csd.man_bkops_en & EXT_CSD_BKOPS_MANUAL_EN;
+	return c->ext_csd.man_bkops_en;
 }
 
 static inline bool mmc_card_configured_auto_bkops(const struct mmc_card *c)
 {
-	return c->ext_csd.auto_bkops_en & EXT_CSD_BKOPS_AUTO_EN;
+	return c->ext_csd.auto_bkops_en;
 }
 
 static inline bool mmc_enable_qca6574_settings(const struct mmc_card *c)

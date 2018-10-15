@@ -67,8 +67,8 @@
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
 		qcom,proxy-reg-names ="vdd", "vdd_cx";
 		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
-		mboxes = <&qmp_npu0 0>, <&qmp_npu1 0>;
-		mbox-names = "npu_low", "npu_high";
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "aop";
 		#cooling-cells = <2>;
 		qcom,npubw-dev = <&npu_npu_ddr_bw>;
 		qcom,npu-pwrlevels {
@@ -78,29 +78,6 @@
 			initial-pwrlevel = <4>;
 			qcom,npu-pwrlevel@0 {
 				reg = <0>;
-				clk-freq = <9600000
-						19200000
-						19200000
-						19200000
-						19200000
-						9600000
-						60000000
-						19200000
-						19200000
-						30000000
-						19200000
-						19200000
-						19200000
-						19200000
-						9600000
-						19200000
-						0
-						0
-						0
-						0>;
-			};
-			qcom,npu-pwrlevel@1 {
-				reg = <1>;
 				clk-freq = <300000000
 						19200000
 						100000000
@@ -122,8 +99,8 @@
 						0
 						0>;
 			};
-			qcom,npu-pwrlevel@2 {
-				reg = <2>;
+			qcom,npu-pwrlevel@1 {
+				reg = <1>;
 				clk-freq = <350000000
 						19200000
 						150000000
@@ -145,8 +122,8 @@
 						0
 						0>;
 			};
-			qcom,npu-pwrlevel@3 {
-				reg = <3>;
+			qcom,npu-pwrlevel@2 {
+				reg = <2>;
 				clk-freq = <400000000
 						19200000
 						200000000
@@ -168,8 +145,8 @@
 						0
 						0>;
 			};
-			qcom,npu-pwrlevel@4 {
-				reg = <4>;
+			qcom,npu-pwrlevel@3 {
+				reg = <3>;
 				clk-freq = <600000000
 						19200000
 						300000000
@@ -191,8 +168,8 @@
 						0
 						0>;
 			};
-			qcom,npu-pwrlevel@5 {
-				reg = <5>;
+			qcom,npu-pwrlevel@4 {
+				reg = <4>;
 				clk-freq = <715000000
 						19200000
 						350000000

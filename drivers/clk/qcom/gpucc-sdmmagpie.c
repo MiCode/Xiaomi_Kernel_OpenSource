@@ -83,6 +83,7 @@ enum {
 	P_GPU_CC_PLL1_OUT_EVEN,
 	P_GPU_CC_PLL1_OUT_MAIN,
 	P_GPU_CC_PLL1_OUT_ODD,
+	P_CRC_DIV,
 };
 
 static const struct parent_map gpu_cc_parent_map_0[] = {
@@ -123,6 +124,25 @@ static const char * const gpu_cc_parent_names_1[] = {
 	"core_bi_pll_test_se",
 };
 
+static const struct parent_map gpu_cc_parent_map_2[] = {
+	{ P_BI_TCXO, 0 },
+	{ P_CRC_DIV,  1 },
+	{ P_GPU_CC_PLL0_OUT_ODD, 2 },
+	{ P_GPU_CC_PLL1_OUT_EVEN, 3 },
+	{ P_GPU_CC_PLL1_OUT_ODD, 4 },
+	{ P_GPLL0_OUT_MAIN, 5 },
+	{ P_CORE_BI_PLL_TEST_SE, 7 },
+};
+
+static const char * const gpu_cc_parent_names_2[] = {
+	"bi_tcxo",
+	"crc_div",
+	"gpu_cc_pll0_out_odd",
+	"gpu_cc_pll1_out_even",
+	"gpu_cc_pll1_out_odd",
+	"gcc_gpu_gpll0_clk_src",
+	"core_bi_pll_test_se",
+};
 static struct pll_vco fabia_vco[] = {
 	{ 249600000, 2000000000, 0 },
 	{ 125000000, 1000000000, 1 },
@@ -183,6 +203,54 @@ static struct clk_alpha_pll_postdiv gpu_cc_pll0_out_even = {
 	},
 };
 
+static struct clk_fixed_factor crc_div = {
+	.mult = 1,
+	.div = 1,
+	.hw.init = &(struct clk_init_data){
+		.name = "crc_div",
+		.parent_names = (const char *[]){ "gpu_cc_pll0_out_even" },
+		.num_parents = 1,
+		.flags = CLK_SET_RATE_PARENT,
+		.ops = &clk_fixed_factor_ops,
+	},
+};
+
+static struct clk_alpha_pll gpu_cc_pll1 = {
+	.offset = 0x100,
+	.vco_table = fabia_vco,
+	.num_vco = ARRAY_SIZE(fabia_vco),
+	.type = FABIA_PLL,
+	.clkr = {
+		.hw.init = &(struct clk_init_data){
+			.name = "gpu_cc_pll1",
+			.parent_names = (const char *[]){ "bi_tcxo" },
+			.num_parents = 1,
+			.ops = &clk_fabia_pll_ops,
+			.vdd_class = &vdd_mx,
+			.num_rate_max = VDD_NUM,
+			.rate_max = (unsigned long[VDD_NUM]) {
+				[VDD_MIN] = 615000000,
+				[VDD_LOW] = 1066000000,
+				[VDD_LOW_L1] = 1600000000,
+				[VDD_NOMINAL] = 2000000000},
+		},
+	},
+};
+
+static struct clk_alpha_pll_postdiv gpu_cc_pll1_out_even = {
+	.offset = 0x100,
+	.post_div_shift = 8,
+	.post_div_table = post_div_table_fabia_even,
+	.num_post_div = ARRAY_SIZE(post_div_table_fabia_even),
+	.width = 4,
+	.clkr.hw.init = &(struct clk_init_data){
+		.name = "gpu_cc_pll1_out_even",
+		.parent_names = (const char *[]){ "gpu_cc_pll1" },
+		.num_parents = 1,
+		.flags = CLK_SET_RATE_PARENT,
+		.ops = &clk_generic_pll_postdiv_ops,
+	},
+};
 static const struct freq_tbl ftbl_gpu_cc_gmu_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(200000000, P_GPLL0_OUT_MAIN_DIV, 1.5, 0, 0),
@@ -208,16 +276,15 @@ static struct clk_rcg2 gpu_cc_gmu_clk_src = {
 	},
 };
 
-/* PLL would be 2 times. */
 static const struct freq_tbl ftbl_gpu_cc_gx_gfx3d_clk_src[] = {
-	F(180000000, P_GPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
-	F(267000000, P_GPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
-	F(355000000, P_GPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
-	F(430000000, P_GPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
-	F(565000000, P_GPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
-	F(650000000, P_GPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
-	F(750000000, P_GPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
-	F(780000000, P_GPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
+	F(180000000, P_CRC_DIV, 1, 0, 0),
+	F(267000000, P_CRC_DIV, 1, 0, 0),
+	F(355000000, P_CRC_DIV, 1, 0, 0),
+	F(430000000, P_CRC_DIV, 1, 0, 0),
+	F(565000000, P_CRC_DIV, 1, 0, 0),
+	F(650000000, P_CRC_DIV, 1, 0, 0),
+	F(800000000, P_CRC_DIV, 1, 0, 0),
+	F(825000000, P_CRC_DIV, 1, 0, 0),
 	{ }
 };
 
@@ -225,12 +292,12 @@ static struct clk_rcg2 gpu_cc_gx_gfx3d_clk_src = {
 	.cmd_rcgr = 0x101c,
 	.mnd_width = 0,
 	.hid_width = 5,
-	.parent_map = gpu_cc_parent_map_1,
+	.parent_map = gpu_cc_parent_map_2,
 	.freq_tbl = ftbl_gpu_cc_gx_gfx3d_clk_src,
 	.flags = FORCE_ENABLE_RCG,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gpu_cc_gx_gfx3d_clk_src",
-		.parent_names = gpu_cc_parent_names_1,
+		.parent_names = gpu_cc_parent_names_2,
 		.num_parents = 7,
 		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
@@ -243,8 +310,8 @@ static struct clk_rcg2 gpu_cc_gx_gfx3d_clk_src = {
 			[VDD_GX_LOW_L1] = 430000000,
 			[VDD_GX_NOMINAL] = 565000000,
 			[VDD_GX_NOMINAL_L1] = 650000000,
-			[VDD_GX_HIGH] = 750000000,
-			[VDD_GX_HIGH_L1] = 780000000},
+			[VDD_GX_HIGH] = 800000000,
+			[VDD_GX_HIGH_L1] = 825000000},
 	},
 };
 
@@ -276,12 +343,13 @@ static struct clk_branch gpu_cc_acd_cxo_clk = {
 
 static struct clk_branch gpu_cc_ahb_clk = {
 	.halt_reg = 0x1078,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
 		.enable_reg = 0x1078,
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gpu_cc_ahb_clk",
+			.flags = CLK_IS_CRITICAL,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -421,7 +489,7 @@ static struct clk_branch gpu_cc_gx_cxo_clk = {
 
 static struct clk_branch gpu_cc_gx_gfx3d_clk = {
 	.halt_reg = 0x1054,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_SKIP,
 	.clkr = {
 		.enable_reg = 0x1054,
 		.enable_mask = BIT(0),
@@ -488,6 +556,8 @@ static struct clk_regmap *gpu_cc_sdmmagpie_clocks[] = {
 	[GPU_CC_GX_VSENSE_CLK] = &gpu_cc_gx_vsense_clk.clkr,
 	[GPU_CC_PLL0] = &gpu_cc_pll0.clkr,
 	[GPU_CC_PLL0_OUT_EVEN] = &gpu_cc_pll0_out_even.clkr,
+	[GPU_CC_PLL1] = &gpu_cc_pll1.clkr,
+	[GPU_CC_PLL1_OUT_EVEN] = &gpu_cc_pll1_out_even.clkr,
 };
 
 static const struct regmap_config gpu_cc_sdmmagpie_regmap_config = {
@@ -545,6 +615,13 @@ static int gpu_cc_sdmmagpie_probe(struct platform_device *pdev)
 	/* Avoid turning on the rail during clock registration */
 	vdd_gx.skip_handoff = true;
 
+	/* Register clock fixed factor for CRC divide. */
+	ret = devm_clk_hw_register(&pdev->dev, &crc_div.hw);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to register hardware clock\n");
+		return ret;
+	}
+
 	regmap = qcom_cc_map(pdev, &gpu_cc_sdmmagpie_desc);
 	if (IS_ERR(regmap)) {
 		pr_err("Failed to map the gpu_cc registers\n");
@@ -552,6 +629,7 @@ static int gpu_cc_sdmmagpie_probe(struct platform_device *pdev)
 	}
 
 	clk_fabia_pll_configure(&gpu_cc_pll0, regmap, &gpu_cc_pll0_config);
+	clk_fabia_pll_configure(&gpu_cc_pll1, regmap, &gpu_cc_pll0_config);
 
 	ret = qcom_cc_really_probe(pdev, &gpu_cc_sdmmagpie_desc, regmap);
 	if (ret) {

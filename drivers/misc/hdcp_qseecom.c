@@ -146,7 +146,8 @@ const char *HdcpErrors[] = {
 	"HDCP_GET_CONTENT_LEVEL_FAILED",
 	"HDCP_STREAMID_INUSE",
 	"HDCP_STREAM_NOT_FOUND",
-	"HDCP_FORCE_ENCRYPTION_FAILED"
+	"HDCP_FORCE_ENCRYPTION_FAILED",
+	"HDCP_STREAMNUMBER_INUSE"
 };
 
 /* flags set by tz in response message */
@@ -218,6 +219,8 @@ enum {
 	hdcp_cmd_session_init      = SERVICE_CREATE_CMD(16),
 	hdcp_cmd_session_deinit    = SERVICE_CREATE_CMD(17),
 	hdcp_cmd_start_auth        = SERVICE_CREATE_CMD(18),
+	hdcp_cmd_session_open_stream = SERVICE_CREATE_CMD(20),
+	hdcp_cmd_session_close_stream = SERVICE_CREATE_CMD(21),
 	hdcp_cmd_force_encryption  = SERVICE_CREATE_CMD(22),
 };
 
@@ -509,7 +512,32 @@ struct __attribute__ ((__packed__)) hdcp_start_auth_rsp {
 	uint8_t message[MAX_TX_MESSAGE_SIZE];
 };
 
-struct __attribute__ ((__packed__)) hdcp_force_encryption_req {
+struct __attribute__((__packed__)) hdcp_session_open_stream_req {
+	uint32_t commandid;
+	uint32_t sessionid;
+	uint32_t vcpayloadid;
+	uint32_t stream_number;
+	uint32_t streamMediaType;
+};
+
+struct __attribute__((__packed__)) hdcp_session_open_stream_rsp {
+	uint32_t status;
+	uint32_t commandid;
+	uint32_t streamid;
+};
+
+struct __attribute__((__packed__)) hdcp_session_close_stream_req {
+	uint32_t commandid;
+	uint32_t sessionid;
+	uint32_t streamid;
+};
+
+struct __attribute__((__packed__)) hdcp_session_close_stream_rsp {
+	uint32_t status;
+	uint32_t commandid;
+};
+
+struct __attribute__((__packed__)) hdcp_force_encryption_req {
 	uint32_t commandid;
 	uint32_t ctxhandle;
 	uint32_t enable;
@@ -1073,8 +1101,6 @@ static int hdcp2_app_process_msg(struct hdcp2_handle *handle)
 	/* check if it's a repeater */
 	if (rsp_buf->flag == HDCP_TXMTR_SUBSTATE_WAITING_FOR_RECIEVERID_LIST)
 		handle->app_data.repeater_flag = true;
-	else
-		handle->app_data.repeater_flag = false;
 
 	handle->app_data.response.data = rsp_buf->msg;
 	handle->app_data.response.length = rsp_buf->msglen;
@@ -1246,6 +1272,106 @@ int hdcp2_app_comm(void *ctx, enum hdcp2_app_cmd cmd,
 	app_data->repeater_flag = handle->app_data.repeater_flag;
 error:
 	return rc;
+}
+
+static int hdcp2_open_stream_helper(struct hdcp2_handle *handle,
+		uint8_t vc_payload_id,
+		uint8_t stream_number,
+		uint32_t *stream_id)
+{
+	int rc = 0;
+
+	hdcp2_app_init_var(session_open_stream);
+
+	if (!(handle->hdcp_state & HDCP_STATE_SESSION_INIT)) {
+		pr_err("session not initialized\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
+	if (!(handle->hdcp_state & HDCP_STATE_TXMTR_INIT)) {
+		pr_err("txmtr not initialized\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
+	req_buf->sessionid = handle->session_id;
+	req_buf->vcpayloadid = vc_payload_id;
+	req_buf->stream_number = stream_number;
+	req_buf->streamMediaType = 0;
+
+	rc = hdcp2_app_process_cmd(session_open_stream);
+	if (rc)
+		goto error;
+
+	*stream_id = rsp_buf->streamid;
+
+	pr_debug("success\n");
+
+error:
+	return rc;
+}
+
+int hdcp2_open_stream(void *ctx, uint8_t vc_payload_id, uint8_t stream_number,
+		uint32_t *stream_id)
+{
+	struct hdcp2_handle *handle = NULL;
+
+	if (!ctx) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	handle = ctx;
+
+	return hdcp2_open_stream_helper(handle, vc_payload_id, stream_number,
+		stream_id);
+}
+
+static int hdcp2_close_stream_helper(struct hdcp2_handle *handle,
+		uint32_t stream_id)
+{
+	int rc = 0;
+
+	hdcp2_app_init_var(session_close_stream);
+
+	if (!(handle->hdcp_state & HDCP_STATE_SESSION_INIT)) {
+		pr_err("session not initialized\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
+	if (!(handle->hdcp_state & HDCP_STATE_TXMTR_INIT)) {
+		pr_err("txmtr not initialized\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
+	req_buf->sessionid = handle->session_id;
+	req_buf->streamid = stream_id;
+
+	rc = hdcp2_app_process_cmd(session_close_stream);
+
+	if (rc)
+		goto error;
+
+	pr_debug("success\n");
+error:
+	return rc;
+}
+
+int hdcp2_close_stream(void *ctx, uint32_t stream_id)
+{
+	struct hdcp2_handle *handle = NULL;
+
+	if (!ctx) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	handle = ctx;
+
+	return hdcp2_close_stream_helper(handle, stream_id);
 }
 
 void *hdcp2_init(u32 device_type)

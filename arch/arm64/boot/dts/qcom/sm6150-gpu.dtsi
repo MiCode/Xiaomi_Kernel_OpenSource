@@ -98,6 +98,8 @@
 		/* GDSC oxili regulators */
 		vddcx-supply = <&gpu_cx_gdsc>;
 		vdd-supply = <&gpu_gx_gdsc>;
+		/* Cx ipeak limit supprt */
+		qcom,gpu-cx-ipeak = <&cx_ipeak_lm 1>;
 
 		/* CPU latency parameter */
 		qcom,pm-qos-active-latency = <67>;
@@ -162,7 +164,7 @@
 
 				qcom,speed-bin = <0>;
 
-				qcom,initial-pwrlevel = <3>;
+				qcom,initial-pwrlevel = <5>;
 				qcom,ca-target-pwrlevel = <3>;
 
 				/* SVS_L1 */
@@ -177,7 +179,7 @@
 				/* NOM L1 */
 				qcom,gpu-pwrlevel@1 {
 					reg = <1>;
-					qcom,gpu-freq = <706000000>;
+					qcom,gpu-freq = <745000000>;
 					qcom,bus-freq = <10>;
 					qcom,bus-min = <9>;
 					qcom,bus-max = <11>;
@@ -186,7 +188,7 @@
 				/* NOM */
 				qcom,gpu-pwrlevel@2 {
 					reg = <2>;
-					qcom,gpu-freq = <645000000>;
+					qcom,gpu-freq = <700000000>;
 					qcom,bus-freq = <9>;
 					qcom,bus-min = <8>;
 					qcom,bus-max = <10>;
@@ -195,7 +197,7 @@
 				/* SVS L1 */
 				qcom,gpu-pwrlevel@3 {
 					reg = <3>;
-					qcom,gpu-freq = <513000000>;
+					qcom,gpu-freq = <550000000>;
 					qcom,bus-freq = <8>;
 					qcom,bus-min = <7>;
 					qcom,bus-max = <9>;
@@ -204,7 +206,7 @@
 				/* SVS */
 				qcom,gpu-pwrlevel@4 {
 					reg = <4>;
-					qcom,gpu-freq = <400000000>;
+					qcom,gpu-freq = <435000000>;
 					qcom,bus-freq = <7>;
 					qcom,bus-min = <5>;
 					qcom,bus-max = <8>;
@@ -235,7 +237,7 @@
 
 				qcom,speed-bin = <177>;
 
-				qcom,initial-pwrlevel = <3>;
+				qcom,initial-pwrlevel = <5>;
 				qcom,ca-target-pwrlevel = <3>;
 
 				/* SVS_L1 */
@@ -250,7 +252,7 @@
 				/* NOM L1 */
 				qcom,gpu-pwrlevel@1 {
 					reg = <1>;
-					qcom,gpu-freq = <706000000>;
+					qcom,gpu-freq = <745000000>;
 					qcom,bus-freq = <10>;
 					qcom,bus-min = <9>;
 					qcom,bus-max = <11>;
@@ -259,7 +261,7 @@
 				/* NOM */
 				qcom,gpu-pwrlevel@2 {
 					reg = <2>;
-					qcom,gpu-freq = <645000000>;
+					qcom,gpu-freq = <700000000>;
 					qcom,bus-freq = <9>;
 					qcom,bus-min = <8>;
 					qcom,bus-max = <10>;
@@ -268,7 +270,7 @@
 				/* SVS L1 */
 				qcom,gpu-pwrlevel@3 {
 					reg = <3>;
-					qcom,gpu-freq = <513000000>;
+					qcom,gpu-freq = <550000000>;
 					qcom,bus-freq = <8>;
 					qcom,bus-min = <7>;
 					qcom,bus-max = <9>;
@@ -277,7 +279,7 @@
 				/* SVS */
 				qcom,gpu-pwrlevel@4 {
 					reg = <4>;
-					qcom,gpu-freq = <400000000>;
+					qcom,gpu-freq = <435000000>;
 					qcom,bus-freq = <7>;
 					qcom,bus-min = <5>;
 					qcom,bus-max = <8>;
@@ -308,7 +310,7 @@
 
 				qcom,speed-bin = <187>;
 
-				qcom,initial-pwrlevel = <3>;
+				qcom,initial-pwrlevel = <6>;
 				qcom,ca-target-pwrlevel = <4>;
 
 				qcom,gpu-pwrlevel@0 {
@@ -330,7 +332,7 @@
 				/* NOM L1 */
 				qcom,gpu-pwrlevel@2 {
 					reg = <2>;
-					qcom,gpu-freq = <706000000>;
+					qcom,gpu-freq = <745000000>;
 					qcom,bus-freq = <10>;
 					qcom,bus-min = <9>;
 					qcom,bus-max = <11>;
@@ -339,7 +341,7 @@
 				/* NOM */
 				qcom,gpu-pwrlevel@3 {
 					reg = <3>;
-					qcom,gpu-freq = <645000000>;
+					qcom,gpu-freq = <700000000>;
 					qcom,bus-freq = <9>;
 					qcom,bus-min = <8>;
 					qcom,bus-max = <10>;
@@ -348,7 +350,7 @@
 				/* SVS L1 */
 				qcom,gpu-pwrlevel@4 {
 					reg = <4>;
-					qcom,gpu-freq = <513000000>;
+					qcom,gpu-freq = <550000000>;
 					qcom,bus-freq = <8>;
 					qcom,bus-min = <7>;
 					qcom,bus-max = <9>;
@@ -357,7 +359,7 @@
 				/* SVS */
 				qcom,gpu-pwrlevel@5 {
 					reg = <5>;
-					qcom,gpu-freq = <400000000>;
+					qcom,gpu-freq = <435000000>;
 					qcom,bus-freq = <7>;
 					qcom,bus-min = <5>;
 					qcom,bus-max = <8>;
@@ -413,5 +415,33 @@
 			label = "gfx3d_secure";
 			iommus = <&kgsl_smmu 0x2 0x400>;
 		};
+	};
+
+	rgmu: qcom,rgmu@0x0506d000 {
+		label = "kgsl-rgmu";
+		compatible = "qcom,gpu-rgmu";
+
+		reg = <0x506d000 0x31000>;
+		reg-names = "kgsl_rgmu";
+
+		interrupts = <0 304 0>, <0 305 0>;
+		interrupt-names = "kgsl_oob", "kgsl_rgmu";
+
+		regulator-names = "vddcx", "vdd";
+		vddcx-supply = <&gpu_cx_gdsc>;
+		vdd-supply = <&gpu_gx_gdsc>;
+
+		clocks = <&clock_gpucc GPU_CC_CX_GMU_CLK>,
+			<&clock_gpucc GPU_CC_CXO_CLK>,
+			<&clock_gcc GCC_DDRSS_GPU_AXI_CLK>,
+			<&clock_gpucc GPU_CC_AHB_CLK>,
+			<&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
+			<&clock_gcc GCC_GPU_SNOC_DVM_GFX_CLK>,
+			<&clock_gpucc GPU_CC_GX_GFX3D_CLK>;
+
+		clock-names = "gmu", "rbbmtimer", "mem",
+				"iface", "mem_iface",
+				"alt_mem_iface", "core";
+
 	};
 };

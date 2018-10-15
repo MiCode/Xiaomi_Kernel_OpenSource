@@ -18,7 +18,7 @@
 #include <linux/firmware.h>
 #include "kgsl_hfi.h"
 
-#define MAX_GMUFW_SIZE	0x2000	/* in bytes */
+#define MAX_GMUFW_SIZE	0x8000	/* in bytes */
 
 #define BWMEM_SIZE	(12 + (4 * NUM_BW_LEVELS))	/*in bytes*/
 

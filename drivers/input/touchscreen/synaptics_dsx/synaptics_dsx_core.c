@@ -47,6 +47,7 @@
 #endif
 
 #include <linux/msm_drm_notify.h>
+#include <linux/completion.h>
 
 #define INPUT_PHYS_NAME "synaptics_dsx/touch_input"
 #define STYLUS_PHYS_NAME "synaptics_dsx/stylus"
@@ -147,7 +148,7 @@ static int synaptics_rmi4_suspend(struct device *dev);
 
 static int synaptics_rmi4_resume(struct device *dev);
 
-static int synaptics_rmi4_defer_probe(struct platform_device *pdev);
+static void synaptics_rmi4_defer_probe(struct work_struct *work);
 
 static ssize_t synaptics_rmi4_f01_reset_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count);
@@ -4287,22 +4288,57 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev,
 				"%s: Failed to register fb notifier client\n",
 				__func__);
+		goto err_drm_reg;
 	}
 #endif
+
+	rmi4_data->rmi4_probe_wq = create_singlethread_workqueue(
+						"Synaptics_rmi4_probe_wq");
+	if (!rmi4_data->rmi4_probe_wq) {
+		dev_err(&pdev->dev,
+				"%s: Failed to create probe workqueue\n",
+				__func__);
+		goto err_probe_wq;
+	}
+	INIT_WORK(&rmi4_data->rmi4_probe_work, synaptics_rmi4_defer_probe);
+	queue_work(rmi4_data->rmi4_probe_wq, &rmi4_data->rmi4_probe_work);
+
+	return retval;
+
+err_probe_wq:
+#ifdef CONFIG_FB
+	msm_drm_unregister_client(&rmi4_data->fb_notifier);
+#endif
+
+err_drm_reg:
+	kfree(rmi4_data);
+
 	return retval;
 }
 
-static int synaptics_rmi4_defer_probe(struct platform_device *pdev)
+static void synaptics_rmi4_defer_probe(struct work_struct *work)
 {
 	int retval;
-	struct synaptics_rmi4_data *rmi4_data;
+	unsigned char attr_count;
+	struct synaptics_rmi4_data *rmi4_data = container_of(work,
+				struct synaptics_rmi4_data, rmi4_probe_work);
+	struct platform_device *pdev;
 	const struct synaptics_dsx_hw_interface *hw_if;
 	const struct synaptics_dsx_board_data *bdata;
-	unsigned char attr_count;
 
-	rmi4_data = platform_get_drvdata(pdev);
+	pdev = rmi4_data->pdev;
 	hw_if = rmi4_data->hw_if;
 	bdata = hw_if->board_data;
+
+	init_completion(&rmi4_data->drm_init_done);
+	retval = wait_for_completion_interruptible(&rmi4_data->drm_init_done);
+	if (retval < 0) {
+		dev_err(&pdev->dev,
+				"%s: Wait for DRM init was interrupted\n",
+				__func__);
+		goto err_drm_init_wait;
+	}
+
 	retval = synaptics_rmi4_get_reg(rmi4_data, true);
 	if (retval < 0) {
 		dev_err(&pdev->dev,
@@ -4439,8 +4475,9 @@ static int synaptics_rmi4_defer_probe(struct platform_device *pdev)
 	INIT_WORK(&rmi4_data->reset_work, synaptics_rmi4_reset_work);
 	queue_work(rmi4_data->reset_workqueue, &rmi4_data->reset_work);
 #endif
+	rmi4_data->initialized = true;
 
-	return retval;
+	return;
 
 err_sysfs:
 	for (attr_count--; attr_count >= 0; attr_count--) {
@@ -4458,10 +4495,6 @@ err_virtual_buttons:
 	synaptics_rmi4_irq_enable(rmi4_data, false, false);
 
 err_enable_irq:
-#ifdef CONFIG_FB
-	msm_drm_unregister_client(&rmi4_data->fb_notifier);
-#endif
-
 #ifdef USE_EARLYSUSPEND
 	unregister_early_suspend(&rmi4_data->early_suspend);
 #endif
@@ -4492,13 +4525,12 @@ err_set_gpio:
 			devm_pinctrl_put(rmi4_data->ts_pinctrl);
 			rmi4_data->ts_pinctrl = NULL;
 		} else {
-			retval = pinctrl_select_state(
-				rmi4_data->ts_pinctrl,
-				rmi4_data->pinctrl_state_release);
-			if (retval)
+			if (pinctrl_select_state(
+					rmi4_data->ts_pinctrl,
+					rmi4_data->pinctrl_state_release))
 				dev_err(&pdev->dev,
-					"%s: Failed to create sysfs attributes\n",
-					__func__);
+					"%s: Failed to select %s pinstate\n",
+					__func__, PINCTRL_STATE_RELEASE);
 		}
 	}
 
@@ -4506,9 +4538,15 @@ err_enable_reg:
 	synaptics_rmi4_get_reg(rmi4_data, false);
 
 err_get_reg:
+err_drm_init_wait:
+#ifdef CONFIG_FB
+	msm_drm_unregister_client(&rmi4_data->fb_notifier);
+#endif
+	cancel_work_sync(&rmi4_data->rmi4_probe_work);
+	destroy_workqueue(rmi4_data->rmi4_probe_wq);
 	kfree(rmi4_data);
 
-	return retval;
+	return;
 }
 
 static int synaptics_rmi4_remove(struct platform_device *pdev)
@@ -4583,6 +4621,9 @@ static int synaptics_rmi4_remove(struct platform_device *pdev)
 	synaptics_rmi4_enable_reg(rmi4_data, false);
 	synaptics_rmi4_get_reg(rmi4_data, false);
 
+	cancel_work_sync(&rmi4_data->rmi4_probe_work);
+	destroy_workqueue(rmi4_data->rmi4_probe_wq);
+
 	kfree(rmi4_data);
 
 	return 0;
@@ -4605,18 +4646,16 @@ static int synaptics_rmi4_dsi_panel_notifier_cb(struct notifier_block *self,
 		if (event == MSM_DRM_EVENT_BLANK) {
 			transition = *(int *)evdata->data;
 			if (transition == MSM_DRM_BLANK_POWERDOWN) {
-				if (!rmi4_data->initialized)
-					return -ECANCELED;
-				synaptics_rmi4_suspend(&rmi4_data->pdev->dev);
+				if (rmi4_data->initialized)
+					synaptics_rmi4_suspend(
+							&rmi4_data->pdev->dev);
 				rmi4_data->fb_ready = false;
 			} else if (transition == MSM_DRM_BLANK_UNBLANK) {
-				if (!rmi4_data->initialized) {
-					if (synaptics_rmi4_defer_probe(
-							rmi4_data->pdev))
-						return -ECANCELED;
-					rmi4_data->initialized = true;
-				}
-				synaptics_rmi4_resume(&rmi4_data->pdev->dev);
+				if (rmi4_data->initialized)
+					synaptics_rmi4_resume(
+							&rmi4_data->pdev->dev);
+				else
+					complete(&rmi4_data->drm_init_done);
 				rmi4_data->fb_ready = true;
 			}
 		}

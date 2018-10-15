@@ -259,7 +259,7 @@ static void diag_update_pid_and_serial_num(struct diag_context *ctxt)
 	}
 
 update_dload:
-	pr_debug("%s: dload:%p pid:%x serial_num:%s\n",
+	pr_debug("%s: dload:%pK pid:%x serial_num:%s\n",
 				__func__, diag_dload, local_diag_dload.pid,
 				local_diag_dload.serial_number);
 

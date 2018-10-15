@@ -15,7 +15,7 @@
 
 #include <linux/types.h>
 
-#define HFI_QUEUE_SIZE			SZ_4K		/* bytes */
+#define HFI_QUEUE_SIZE			SZ_4K /* bytes, must be base 4dw */
 #define MAX_RCVD_PAYLOAD_SIZE		16		/* dwords */
 #define MAX_RCVD_SIZE			(MAX_RCVD_PAYLOAD_SIZE + 3) /* dwords */
 #define HFI_MAX_MSG_SIZE		(SZ_1K>>2)	/* dwords */
@@ -25,7 +25,11 @@
 #define HFI_QUEUE_DISPATCH_CNT 1
 #define HFI_QUEUE_MAX (HFI_QUEUE_DEFAULT_CNT + HFI_QUEUE_DISPATCH_CNT)
 
-#define HFIMEM_SIZE (HFI_QUEUE_SIZE * (HFI_QUEUE_MAX + 1))
+struct hfi_queue_table;
+
+/* Total header sizes + queue sizes + 16 for alignment */
+#define HFIMEM_SIZE (sizeof(struct hfi_queue_table) + 16 + \
+		(HFI_QUEUE_SIZE * HFI_QUEUE_MAX))
 
 #define HFI_CMD_ID 0
 #define HFI_MSG_ID 1
@@ -38,6 +42,11 @@
 #define HFI_DSP_IDX_BASE 3
 #define HFI_DSP_IDX_0 3
 
+#define HFI_CMD_IDX_LEGACY 0
+#define HFI_DSP_IDX_0_LEGACY 1
+#define HFI_MSG_IDX_LEGACY 4
+#define HFI_DBG_IDX_LEGACY 5
+
 #define HFI_QUEUE_STATUS_DISABLED 0
 #define HFI_QUEUE_STATUS_ENABLED  1
 
@@ -47,26 +56,15 @@
 #define HFI_DBG_PRI 40
 #define HFI_DSP_PRI_0 20
 
-#define HFI_RSP_TIMEOUT 5000 /* msec */
+#define HFI_RSP_TIMEOUT 100 /* msec */
 #define HFI_H2F_CMD_IRQ_MASK BIT(0)
-
-#define HFI_QUEUE_OFFSET(i)		\
-		((sizeof(struct hfi_queue_table)) + \
-		((i) * HFI_QUEUE_SIZE))
-
-#define HOST_QUEUE_START_ADDR(hfi_mem, i) \
-	((hfi_mem)->hostptr + HFI_QUEUE_OFFSET(i))
-
-#define GMU_QUEUE_START_ADDR(hfi_mem, i) \
-	((hfi_mem)->gmuaddr + HFI_QUEUE_OFFSET(i))
 
 #define HFI_IRQ_MSGQ_MASK		BIT(0)
 #define HFI_IRQ_SIDEMSGQ_MASK		BIT(1)
 #define HFI_IRQ_DBGQ_MASK		BIT(2)
 #define HFI_IRQ_CM3_FAULT_MASK		BIT(15)
 #define HFI_IRQ_OOB_MASK		GENMASK(31, 16)
-#define HFI_IRQ_MASK			(HFI_IRQ_MSGQ_MASK |\
-					HFI_IRQ_SIDEMSGQ_MASK |\
+#define HFI_IRQ_MASK			(HFI_IRQ_SIDEMSGQ_MASK |\
 					HFI_IRQ_DBGQ_MASK |\
 					HFI_IRQ_CM3_FAULT_MASK)
 
@@ -588,14 +586,10 @@ struct hfi_context_bad_reply_cmd {
 /**
  * struct pending_cmd - data structure to track outstanding HFI
  *	command messages
- * @msg_complete: a blocking mechanism for sender to wait for ACK
- * @node: a node in pending message queue
  * @sent_hdr: copy of outgoing header for response comparison
  * @results: the payload of received return message (ACK)
  */
 struct pending_cmd {
-	struct completion msg_complete;
-	struct list_head node;
 	uint32_t sent_hdr;
 	uint32_t results[MAX_RCVD_SIZE];
 };
@@ -604,11 +598,7 @@ struct pending_cmd {
  * struct kgsl_hfi - HFI control structure
  * @kgsldev: Point to the kgsl device
  * @hfi_interrupt_num: number of GMU asserted HFI interrupt
- * @msglock: spinlock to protect access to outstanding command message list
- * @read_queue_lock: spinlock to protect against concurrent reading of queues
  * @cmdq_mutex: mutex to protect command queue access from multiple senders
- * @msglist: outstanding command message list. Each message in the list
- *	is waiting for ACK from GMU
  * @tasklet: the thread handling received messages from GMU
  * @version: HFI version number provided
  * @seqnum: atomic counter that is incremented for each message sent. The
@@ -618,10 +608,7 @@ struct pending_cmd {
 struct kgsl_hfi {
 	struct kgsl_device *kgsldev;
 	int hfi_interrupt_num;
-	spinlock_t msglock;
-	spinlock_t read_queue_lock;
 	struct mutex cmdq_mutex;
-	struct list_head msglist;
 	struct tasklet_struct tasklet;
 	uint32_t version;
 	atomic_t seqnum;

@@ -1112,7 +1112,7 @@ static int dp_mst_connector_atomic_check(struct drm_connector *connector,
 		void *display, struct drm_connector_state *new_conn_state)
 {
 	int rc = 0, slots, i;
-	struct drm_atomic_state *state = new_conn_state->state;
+	struct drm_atomic_state *state;
 	struct drm_connector_state *old_conn_state;
 	struct drm_crtc *old_crtc;
 	struct drm_crtc_state *crtc_state;
@@ -1123,6 +1123,11 @@ static int dp_mst_connector_atomic_check(struct drm_connector *connector,
 	struct dp_display_mode dp_mode;
 
 	DP_MST_DEBUG("enter:\n");
+
+	if (!new_conn_state)
+		return rc;
+
+	state = new_conn_state->state;
 
 	old_conn_state = drm_atomic_get_old_connector_state(state, connector);
 
@@ -1160,7 +1165,7 @@ static int dp_mst_connector_atomic_check(struct drm_connector *connector,
 	}
 
 mode_set:
-	if (!new_conn_state || !new_conn_state->crtc)
+	if (!new_conn_state->crtc)
 		return rc;
 
 	crtc_state = drm_atomic_get_new_crtc_state(state, new_conn_state->crtc);

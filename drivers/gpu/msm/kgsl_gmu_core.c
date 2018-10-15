@@ -28,9 +28,33 @@ MODULE_PARM_DESC(nogmu, "Disable the GMU");
 static const struct {
 	char *compat;
 	struct gmu_core_ops *core_ops;
+	enum gmu_coretype type;
 } gmu_subtypes[] = {
-		{"qcom,gpu-gmu", &gmu_ops},
+		{"qcom,gpu-gmu", &gmu_ops, GMU_CORE_TYPE_CM3},
+		{"qcom,gpu-rgmu", &rgmu_ops, GMU_CORE_TYPE_PCC},
 };
+
+struct oob_entry {
+	enum oob_request req;
+	const char *str;
+};
+
+const char *gmu_core_oob_type_str(enum oob_request req)
+{
+	int i;
+	struct oob_entry table[] =  {
+			{ oob_gpu, "oob_gpu"},
+			{ oob_perfcntr, "oob_perfcntr"},
+			{ oob_preempt, "oob_preempt"},
+			{ oob_boot_slumber, "oob_boot_slumber"},
+			{ oob_dcvs, "oob_dcvs"},
+	};
+
+	for (i = 0; i < ARRAY_SIZE(table); i++)
+		if (req == table[i].req)
+			return table[i].str;
+	return "UNKNOWN";
+}
 
 int gmu_core_probe(struct kgsl_device *device)
 {
@@ -45,8 +69,11 @@ int gmu_core_probe(struct kgsl_device *device)
 		node = of_find_compatible_node(device->pdev->dev.of_node,
 				NULL, gmu_subtypes[i].compat);
 
-		if (node != NULL)
+		if (node != NULL) {
 			gmu_core_ops = gmu_subtypes[i].core_ops;
+			device->gmu_core.type = gmu_subtypes[i].type;
+			break;
+		}
 	}
 
 	/* No GMU in dt, no worries...hopefully */
@@ -83,6 +110,16 @@ bool gmu_core_isenabled(struct kgsl_device *device)
 bool gmu_core_gpmu_isenabled(struct kgsl_device *device)
 {
 	return test_bit(GMU_GPMU, &device->gmu_core.flags);
+}
+
+bool gmu_core_scales_bandwidth(struct kgsl_device *device)
+{
+	if (device->gmu_core.type == GMU_CORE_TYPE_PCC)
+		return false;
+	else
+		return gmu_core_gpmu_isenabled(device) &&
+		(adreno_is_a640(ADRENO_DEVICE(device)) ||
+			adreno_is_a680(ADRENO_DEVICE(device)));
 }
 
 int gmu_core_start(struct kgsl_device *device)

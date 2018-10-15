@@ -219,6 +219,8 @@ enum adreno_gpurev {
 	ADRENO_REV_A540 = 540,
 	ADRENO_REV_A608 = 608,
 	ADRENO_REV_A615 = 615,
+	ADRENO_REV_A616 = 616,
+	ADRENO_REV_A618 = 618,
 	ADRENO_REV_A630 = 630,
 	ADRENO_REV_A640 = 640,
 	ADRENO_REV_A680 = 680,
@@ -1283,10 +1285,21 @@ static inline int adreno_is_a6xx(struct adreno_device *adreno_dev)
 }
 
 ADRENO_TARGET(a608, ADRENO_REV_A608)
-ADRENO_TARGET(a615, ADRENO_REV_A615)
 ADRENO_TARGET(a630, ADRENO_REV_A630)
 ADRENO_TARGET(a640, ADRENO_REV_A640)
 ADRENO_TARGET(a680, ADRENO_REV_A680)
+
+/*
+ * All the derived chipsets from A615 needs to be added to this
+ * list such as A616, A618 etc.
+ */
+static inline int adreno_is_a615_family(struct adreno_device *adreno_dev)
+{
+	unsigned int rev = ADRENO_GPUREV(adreno_dev);
+
+	return (rev == ADRENO_REV_A615 || rev == ADRENO_REV_A616 ||
+			rev == ADRENO_REV_A618);
+}
 
 static inline int adreno_is_a630v1(struct adreno_device *adreno_dev)
 {
@@ -1928,7 +1941,7 @@ static inline void adreno_perfcntr_active_oob_put(
 
 static inline bool adreno_has_sptprac_gdsc(struct adreno_device *adreno_dev)
 {
-	if (adreno_is_a615(adreno_dev) || adreno_is_a630(adreno_dev))
+	if (adreno_is_a630(adreno_dev) || adreno_is_a615_family(adreno_dev))
 		return true;
 	else
 		return false;

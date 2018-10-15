@@ -686,6 +686,110 @@
 			};
 		};
 
+		mdss_hdmi_5v_active: mdss_hdmi_5v_active {
+			mux {
+				pins = "gpio109";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio109";
+				bias-pull-up;
+				drive-strength = <16>;
+			};
+		};
+
+		mdss_hdmi_5v_suspend: mdss_hdmi_5v_suspend {
+			mux {
+				pins = "gpio109";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio109";
+				bias-pull-down;
+				drive-strength = <2>;
+			};
+		};
+
+		mdss_hdmi_hpd_active: mdss_hdmi_hpd_active {
+			mux {
+				pins = "gpio106";
+				function = "hdmi_hot";
+			};
+
+			config {
+				pins = "gpio106";
+				bias-pull-down;
+				drive-strength = <16>;
+			};
+		};
+
+		mdss_hdmi_hpd_suspend: mdss_hdmi_hpd_suspend {
+			mux {
+				pins = "gpio106";
+				function = "hdmi_hot";
+			};
+
+			config {
+				pins = "gpio106";
+				bias-pull-down;
+				drive-strength = <2>;
+			};
+		};
+
+		mdss_hdmi_ddc_active: mdss_hdmi_ddc_active {
+			mux {
+				pins = "gpio15", "gpio16";
+				function = "hdmi_ddc";
+			};
+
+			config {
+				pins = "gpio15", "gpio16";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		mdss_hdmi_ddc_suspend: mdss_hdmi_ddc_suspend {
+			mux {
+				pins = "gpio15", "gpio16";
+				function = "hdmi_ddc";
+			};
+
+			config {
+				pins = "gpio15", "gpio16";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		mdss_hdmi_cec_active: mdss_hdmi_cec_active {
+			mux {
+				pins = "gpio14";
+				function = "hdmi_cec";
+			};
+
+			config {
+				pins = "gpio14";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		mdss_hdmi_cec_suspend: mdss_hdmi_cec_suspend {
+			mux {
+				pins = "gpio14";
+				function = "hdmi_cec";
+			};
+
+			config {
+				pins = "gpio14";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
 		pmx_mdss: pmx_mdss {
 			mdss_dsi_active: mdss_dsi_active {
 				mux {
@@ -1161,6 +1265,66 @@
 			};
 		};
 
+		pri_mi2s_sd6 {
+			pri_mi2s_sd6_sleep: pri_mi2s_sd6_sleep {
+				mux {
+					pins = "gpio95";
+					function = "i2s_1";
+				};
+
+				config {
+					pins = "gpio95";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+					input-enable;
+				};
+			};
+
+			pri_mi2s_sd6_active: pri_mi2s_sd6_active {
+				mux {
+					pins = "gpio95";
+					function = "i2s_1";
+				};
+
+				config {
+					pins = "gpio95";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable;           /* NO PULL */
+					output-high;
+				};
+			};
+		};
+
+		pri_mi2s_sd7 {
+			pri_mi2s_sd7_sleep: pri_mi2s_sd7_sleep {
+				mux {
+					pins = "gpio96";
+					function = "i2s_1";
+				};
+
+				config {
+					pins = "gpio96";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+					input-enable;
+				};
+			};
+
+			pri_mi2s_sd7_active: pri_mi2s_sd7_active {
+				mux {
+					pins = "gpio96";
+					function = "i2s_1";
+				};
+
+				config {
+					pins = "gpio96";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable;           /* NO PULL */
+					output-high;
+				};
+			};
+		};
+
 		pca9956b_reset_gpio: pca9956b_reset_gpio {
 			mux {
 				pins = "gpio95";
@@ -1350,7 +1514,7 @@
 
 		/* SPDIF optical input pin */
 		spdifrx_opt {
-			spdifrx_opt_default: spdifrx_opt_default{
+			spdifrx_opt_default: spdifrx_opt_default {
 				mux {
 					pins = "gpio119";
 					function = "spdifrx_opt";
@@ -1361,6 +1525,95 @@
 					drive-strength = <2>; /* 2 mA */
 					bias-pull-down; /* pull down */
 					input-enable;
+				};
+			};
+		};
+
+		/* EP92 HDMI pins */
+		ep_reset_n {
+			ep_reset_n_sleep: ep_reset_n_sleep {
+				mux {
+					pins = "gpio108";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio108";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable;
+					output-high;
+				};
+			};
+
+			ep_reset_n_active: ep_reset_n_active {
+				mux {
+					pins = "gpio108";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio108";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable;
+					output-high;
+				};
+			};
+		};
+
+		ep_mute {
+			ep_mute_sleep: ep_mute_sleep {
+				mux {
+					pins = "gpio104";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio104";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;
+					input-enable;
+				};
+			};
+
+			ep_mute_active: ep_mute_active {
+				mux {
+					pins = "gpio104";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio104";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable;
+				};
+			};
+		};
+
+		ep_int {
+			ep_int_sleep: ep_int_sleep {
+				mux {
+					pins = "gpio107";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio107";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;
+					input-enable;
+				};
+			};
+
+			ep_int_active: ep_int_active {
+				mux {
+					pins = "gpio107";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio107";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable;
 				};
 			};
 		};

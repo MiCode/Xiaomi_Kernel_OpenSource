@@ -14,9 +14,10 @@
 
 #include "sm6150.dtsi"
 #include "sm6150-idp.dtsi"
+#include "sm6150-usbc-idp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SM6150 USBC Audio IDP";
+	model = "Qualcomm Technologies, Inc. SM6150 PM6150 USBC Audio IDP";
 	compatible = "qcom,sm6150-idp", "qcom,sm6150", "qcom,idp";
 	qcom,board-id = <34 2>;
 };

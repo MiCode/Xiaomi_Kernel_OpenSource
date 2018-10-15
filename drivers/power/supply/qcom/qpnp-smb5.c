@@ -220,6 +220,7 @@ module_param_named(
 );
 
 #define PMI632_MAX_ICL_UA	3000000
+#define PM6150_MAX_FCC_UA	3000000
 static int smb5_chg_config_init(struct smb5 *chip)
 {
 	struct smb_charger *chg = &chip->chg;
@@ -255,6 +256,8 @@ static int smb5_chg_config_init(struct smb5 *chip)
 		chip->chg.smb_version = PM6150_SUBTYPE;
 		chg->param = smb5_pm8150b_params;
 		chg->name = "pm6150_charger";
+		chg->wa_flags |= SW_THERM_REGULATION_WA;
+		chg->main_fcc_max = PM6150_MAX_FCC_UA;
 		break;
 	case PMI632_SUBTYPE:
 		chip->chg.smb_version = PMI632_SUBTYPE;
@@ -291,11 +294,7 @@ out:
 #define MICRO_P1A			100000
 #define MICRO_1PA			1000000
 #define OTG_DEFAULT_DEGLITCH_TIME_MS	50
-#define MIN_WD_BARK_TIME		16
 #define DEFAULT_WD_BARK_TIME		64
-#define BITE_WDOG_TIMEOUT_8S		0x3
-#define BARK_WDOG_TIMEOUT_MASK		GENMASK(3, 2)
-#define BARK_WDOG_TIMEOUT_SHIFT		2
 static int smb5_parse_dt(struct smb5 *chip)
 {
 	struct smb_charger *chg = &chip->chg;
@@ -443,79 +442,45 @@ static int smb5_parse_dt(struct smb5 *chip)
 	chg->fcc_stepper_enable = of_property_read_bool(node,
 					"qcom,fcc-stepping-enable");
 
-	rc = of_property_match_string(node, "io-channel-names",
-			"usb_in_voltage");
-	if (rc >= 0) {
-		chg->iio.usbin_v_chan = iio_channel_get(chg->dev,
-				"usb_in_voltage");
-		if (IS_ERR(chg->iio.usbin_v_chan)) {
-			rc = PTR_ERR(chg->iio.usbin_v_chan);
-			if (rc != -EPROBE_DEFER)
-				dev_err(chg->dev, "USBIN_V channel unavailable, %ld\n",
-						rc);
-			chg->iio.usbin_v_chan = NULL;
-			return rc;
-		}
-	}
+	/* Extract ADC channels */
+	rc = smblib_get_iio_channel(chg, "usb_in_voltage",
+					&chg->iio.usbin_v_chan);
+	if (rc < 0)
+		return rc;
 
-	rc = of_property_match_string(node, "io-channel-names",
-			"chg_temp");
-	if (rc >= 0) {
-		chg->iio.temp_chan = iio_channel_get(chg->dev, "chg_temp");
-		if (IS_ERR(chg->iio.temp_chan)) {
-			rc = PTR_ERR(chg->iio.temp_chan);
-			if (rc != -EPROBE_DEFER)
-				dev_err(chg->dev, "CHG_TEMP channel unavailable, %ld\n",
-						rc);
-			chg->iio.temp_chan = NULL;
-			return rc;
-		}
-	}
+	rc = smblib_get_iio_channel(chg, "chg_temp", &chg->iio.temp_chan);
+	if (rc < 0)
+		return rc;
 
-	rc = of_property_match_string(node, "io-channel-names",
-			"usb_in_current");
-	if (rc >= 0) {
-		chg->iio.usbin_i_chan = iio_channel_get(chg->dev,
-				"usb_in_current");
-		if (IS_ERR(chg->iio.usbin_i_chan)) {
-			rc = PTR_ERR(chg->iio.usbin_i_chan);
-			if (rc != -EPROBE_DEFER)
-				dev_err(chg->dev, "USBIN_I channel unavailable, %ld\n",
-						rc);
-			chg->iio.usbin_i_chan = NULL;
-			return rc;
-		}
-	}
+	rc = smblib_get_iio_channel(chg, "usb_in_current",
+					&chg->iio.usbin_i_chan);
+	if (rc < 0)
+		return rc;
 
-	rc = of_property_match_string(node, "io-channel-names",
-			"sbux_res");
-	if (rc >= 0) {
-		chg->iio.sbux_chan = iio_channel_get(chg->dev,
-				"sbux_res");
-		if (IS_ERR(chg->iio.sbux_chan)) {
-			rc = PTR_ERR(chg->iio.sbux_chan);
-			if (rc != -EPROBE_DEFER)
-				dev_err(chg->dev, "USBIN_V channel unavailable, %ld\n",
-						rc);
-			chg->iio.sbux_chan = NULL;
-			return rc;
-		}
-	}
+	rc = smblib_get_iio_channel(chg, "sbux_res", &chg->iio.sbux_chan);
+	if (rc < 0)
+		return rc;
 
-	rc = of_property_match_string(node, "io-channel-names",
-			"vph_voltage");
-	if (rc >= 0) {
-		chg->iio.vph_v_chan = iio_channel_get(chg->dev,
-				"vph_voltage");
-		if (IS_ERR(chg->iio.vph_v_chan)) {
-			rc = PTR_ERR(chg->iio.vph_v_chan);
-			if (rc != -EPROBE_DEFER)
-				dev_err(chg->dev, "vph_voltage channel unavailable, %ld\n",
-						rc);
-			chg->iio.vph_v_chan = NULL;
-			return rc;
-		}
-	}
+	rc = smblib_get_iio_channel(chg, "vph_voltage", &chg->iio.vph_v_chan);
+	if (rc < 0)
+		return rc;
+
+	rc = smblib_get_iio_channel(chg, "die_temp", &chg->iio.die_temp_chan);
+	if (rc < 0)
+		return rc;
+
+	rc = smblib_get_iio_channel(chg, "conn_temp",
+					&chg->iio.connector_temp_chan);
+	if (rc < 0)
+		return rc;
+
+	rc = smblib_get_iio_channel(chg, "skin_temp", &chg->iio.skin_temp_chan);
+	if (rc < 0)
+		return rc;
+
+	rc = smblib_get_iio_channel(chg, "smb_temp", &chg->iio.smb_temp_chan);
+	if (rc < 0)
+		return rc;
 
 	return 0;
 }
@@ -687,7 +652,9 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 						: POWER_SUPPLY_SCOPE_UNKNOWN;
 		break;
 	case POWER_SUPPLY_PROP_SMB_EN_MODE:
+		mutex_lock(&chg->smb_lock);
 		val->intval = chg->sec_chg_selected;
+		mutex_unlock(&chg->smb_lock);
 		break;
 	case POWER_SUPPLY_PROP_SMB_EN_REASON:
 		val->intval = chg->cp_reason;
@@ -919,6 +886,8 @@ static enum power_supply_property smb5_usb_main_props[] = {
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_FLASH_ACTIVE,
 	POWER_SUPPLY_PROP_FLASH_TRIGGER,
+	POWER_SUPPLY_PROP_TOGGLE_STAT,
+	POWER_SUPPLY_PROP_MAIN_FCC_MAX,
 };
 
 static int smb5_usb_main_get_prop(struct power_supply *psy,
@@ -958,6 +927,12 @@ static int smb5_usb_main_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_FLASH_TRIGGER:
 		rc = schgm_flash_get_vreg_ok(chg, &val->intval);
 		break;
+	case POWER_SUPPLY_PROP_TOGGLE_STAT:
+		val->intval = 0;
+		break;
+	case POWER_SUPPLY_PROP_MAIN_FCC_MAX:
+		val->intval = chg->main_fcc_max;
+		break;
 	default:
 		pr_debug("get prop %d is not supported in usb-main\n", psp);
 		rc = -EINVAL;
@@ -992,9 +967,34 @@ static int smb5_usb_main_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_FLASH_ACTIVE:
 		chg->flash_active = val->intval;
 		break;
+	case POWER_SUPPLY_PROP_TOGGLE_STAT:
+		rc = smblib_toggle_smb_en(chg, val->intval);
+		break;
+	case POWER_SUPPLY_PROP_MAIN_FCC_MAX:
+		chg->main_fcc_max = val->intval;
+		rerun_election(chg->fcc_votable);
+		break;
 	default:
 		pr_err("set prop %d is not supported\n", psp);
 		rc = -EINVAL;
+		break;
+	}
+
+	return rc;
+}
+
+static int smb5_usb_main_prop_is_writeable(struct power_supply *psy,
+				enum power_supply_property psp)
+{
+	int rc;
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_TOGGLE_STAT:
+	case POWER_SUPPLY_PROP_MAIN_FCC_MAX:
+		rc = 1;
+		break;
+	default:
+		rc = 0;
 		break;
 	}
 
@@ -1008,6 +1008,7 @@ static const struct power_supply_desc usb_main_psy_desc = {
 	.num_properties	= ARRAY_SIZE(smb5_usb_main_props),
 	.get_property	= smb5_usb_main_get_prop,
 	.set_property	= smb5_usb_main_set_prop,
+	.property_is_writeable = smb5_usb_main_prop_is_writeable,
 };
 
 static int smb5_init_usb_main_psy(struct smb5 *chip)
@@ -1304,6 +1305,7 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_FORCE_RECHARGE:
 		val->intval = 0;
+		break;
 	case POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE:
 		val->intval = chg->fcc_stepper_enable;
 		break;
@@ -1555,20 +1557,18 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		return rc;
 	}
 
-	rc = smblib_write(chg, TYPE_C_INTERRUPT_EN_CFG_1_REG,
-				TYPEC_CCOUT_DETACH_INT_EN_BIT |
-				TYPEC_CCOUT_ATTACH_INT_EN_BIT);
+	/* Use simple write to clear interrupts */
+	rc = smblib_write(chg, TYPE_C_INTERRUPT_EN_CFG_1_REG, 0);
 	if (rc < 0) {
 		dev_err(chg->dev,
 			"Couldn't configure Type-C interrupts rc=%d\n", rc);
 		return rc;
 	}
 
-	rc = smblib_masked_write(chg, TYPE_C_INTERRUPT_EN_CFG_2_REG,
+	/* Use simple write to enable only required interrupts */
+	rc = smblib_write(chg, TYPE_C_INTERRUPT_EN_CFG_2_REG,
 				TYPEC_SRC_BATT_HPWR_INT_EN_BIT |
-				TYPEC_WATER_DETECTION_INT_EN_BIT,
-				TYPEC_SRC_BATT_HPWR_INT_EN_BIT
-				| TYPEC_WATER_DETECTION_INT_EN_BIT);
+				TYPEC_WATER_DETECTION_INT_EN_BIT);
 	if (rc < 0) {
 		dev_err(chg->dev,
 			"Couldn't configure Type-C interrupts rc=%d\n", rc);
@@ -1745,6 +1745,21 @@ static int smb5_init_hw(struct smb5 *chip)
 		dev_err(chg->dev, "Couldn't configure SMB thermal regulation  rc=%d\n",
 				rc);
 		return rc;
+	}
+
+	/*
+	 * If SW thermal regulation WA is active then all the HW temperature
+	 * comparators need to be disabled to prevent HW thermal regulation,
+	 * apart from DIE_TEMP analog comparator for SHDN regulation.
+	 */
+	if (chg->wa_flags & SW_THERM_REGULATION_WA) {
+		rc = smblib_write(chg, MISC_THERMREG_SRC_CFG_REG,
+					THERMREG_DIE_CMP_SRC_EN_BIT);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't disable HW thermal regulation rc=%d\n",
+				rc);
+			return rc;
+		}
 	}
 
 	/* Use SW based VBUS control, disable HW autonomous mode */
@@ -2147,6 +2162,7 @@ static int smb5_determine_initial_status(struct smb5 *chip)
 	batt_temp_changed_irq_handler(0, &irq_data);
 	wdog_bark_irq_handler(0, &irq_data);
 	typec_or_rid_detection_change_irq_handler(0, &irq_data);
+	wdog_snarl_irq_handler(0, &irq_data);
 
 	return 0;
 }
@@ -2344,10 +2360,13 @@ static struct smb_irq_info smb5_irqs[] = {
 	/* MISCELLANEOUS IRQs */
 	[WDOG_SNARL_IRQ] = {
 		.name		= "wdog-snarl",
+		.handler	= wdog_snarl_irq_handler,
+		.wake		= true,
 	},
 	[WDOG_BARK_IRQ] = {
 		.name		= "wdog-bark",
 		.handler	= wdog_bark_irq_handler,
+		.wake		= true,
 	},
 	[AICL_FAIL_IRQ] = {
 		.name		= "aicl-fail",
@@ -2475,6 +2494,13 @@ static int smb5_request_interrupts(struct smb5 *chip)
 	}
 	if (chg->irq_info[USBIN_ICL_CHANGE_IRQ].irq)
 		chg->usb_icl_change_irq_enabled = true;
+
+	/*
+	 * Disable WDOG SNARL IRQ by default to prevent IRQ storm. If required
+	 * for any application, enable it through votable.
+	 */
+	if (chg->irq_info[WDOG_SNARL_IRQ].irq)
+		vote(chg->wdog_snarl_irq_en_votable, DEFAULT_VOTER, false, 0);
 
 	return rc;
 }
@@ -2634,6 +2660,7 @@ static int smb5_probe(struct platform_device *pdev)
 	chg->die_health = -EINVAL;
 	chg->connector_health = -EINVAL;
 	chg->otg_present = false;
+	chg->main_fcc_max = -EINVAL;
 
 	chg->regmap = dev_get_regmap(chg->dev->parent, NULL);
 	if (!chg->regmap) {

@@ -453,6 +453,9 @@ Required properties:
  - clock-names : clock names defined for WSA macro
  - clocks : clock handles defined for WSA  macro
  - qcom,wsa-swr-gpios: phandle for SWR data and clock GPIOs of WSA macro
+ - qcom,wsa-bcl-pmic-params: u8 array of PMIC ID, SID and PPID in same order
+			 required to be configured to receive interrupts
+			 in BCL block of WSA macro
 
 Example:
 
@@ -464,6 +467,7 @@ Example:
 		clocks = <&clock_audio_wsa_1 0>,
 		<&clock_audio_wsa_2 0>;
 		qcom,wsa-swr-gpios = &wsa_swr_gpios;
+		qcom,wsa-bcl-pmic-params = /bits/ 8 <0x00 0x00 0x1E>;
 	};
 };
 
@@ -497,6 +501,9 @@ Required properties:
  - clocks : clock handles defined for RX macro
  - qcom,rx-swr-gpios: phandle for SWR data and clock GPIOs of RX macro
  - qcom,rx_mclk_mode_muxsel: register address for RX macro MCLK mode mux select
+ - qcom,rx-bcl-pmic-params: u8 array of PMIC ID, SID and PPID in same order
+			 required to be configured to receive interrupts
+			 in BCL block of WSA macro
 
 Example:
 
@@ -509,6 +516,7 @@ Example:
 			 <&clock_audio_rx_2 0>;
 		qcom,rx-swr-gpios = <&rx_swr_gpios>;
 		qcom,rx_mclk_mode_muxsel = <0x62C25020>;
+		qcom,rx-bcl-pmic-params = /bits/ 8 <0x00 0x00 0x1E>;
 		swr_1: rx_swr_master {
 			compatible = "qcom,swr-mstr";
 			wcd937x_rx_slave: wcd937x-rx-slave {

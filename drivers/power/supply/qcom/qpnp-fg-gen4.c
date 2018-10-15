@@ -223,9 +223,11 @@ struct fg_gen4_chip {
 	struct votable		*pl_disable_votable;
 	struct votable		*cp_disable_votable;
 	struct votable		*parallel_current_en_votable;
+	struct votable		*mem_attn_irq_en_votable;
 	struct work_struct	esr_calib_work;
 	struct alarm		esr_fast_cal_timer;
 	struct delayed_work	pl_enable_work;
+	struct delayed_work	pl_current_en_work;
 	struct completion	mem_attn;
 	char			batt_profile[PROFILE_LEN];
 	enum slope_limit_status	slope_limit_sts;
@@ -235,6 +237,7 @@ struct fg_gen4_chip {
 	int			esr_actual;
 	int			esr_nominal;
 	int			soh;
+	bool			first_profile_load;
 	bool			ki_coeff_dischg_en;
 	bool			slope_limit_en;
 	bool			esr_fast_calib;
@@ -1579,12 +1582,24 @@ static void clear_battery_profile(struct fg_dev *fg)
 #define BOOTLOADER_LOAD_BIT	BIT(1)
 #define BOOTLOADER_RESTART_BIT	BIT(2)
 #define HLOS_RESTART_BIT	BIT(3)
+#define FIRST_PROFILE_LOAD_BIT	BIT(4)
 static bool is_profile_load_required(struct fg_gen4_chip *chip)
 {
 	struct fg_dev *fg = &chip->fg;
 	u8 buf[PROFILE_COMP_LEN], val;
-	bool profiles_same = false;
-	int rc;
+	bool profiles_same = false, valid_integrity = false;
+	int rc, i;
+	u8 white_list_values[] = {
+		HLOS_RESTART_BIT,
+		BOOTLOADER_LOAD_BIT,
+		BOOTLOADER_LOAD_BIT | BOOTLOADER_RESTART_BIT,
+		BOOTLOADER_RESTART_BIT | HLOS_RESTART_BIT,
+		BOOTLOADER_LOAD_BIT | FIRST_PROFILE_LOAD_BIT,
+		BOOTLOADER_LOAD_BIT | BOOTLOADER_RESTART_BIT |
+			FIRST_PROFILE_LOAD_BIT,
+		HLOS_RESTART_BIT | BOOTLOADER_RESTART_BIT |
+			FIRST_PROFILE_LOAD_BIT,
+	};
 
 	rc = fg_sram_read(fg, PROFILE_INTEGRITY_WORD,
 			PROFILE_INTEGRITY_OFFSET, &val, 1, FG_IMA_DEFAULT);
@@ -1599,8 +1614,14 @@ static bool is_profile_load_required(struct fg_gen4_chip *chip)
 
 		/* Whitelist the values */
 		val &= ~PROFILE_LOAD_BIT;
-		if (val != HLOS_RESTART_BIT && val != BOOTLOADER_LOAD_BIT &&
-			val != (BOOTLOADER_LOAD_BIT | BOOTLOADER_RESTART_BIT)) {
+		for (i = 0; i < ARRAY_SIZE(white_list_values); i++)  {
+			if (val == white_list_values[i]) {
+				valid_integrity = true;
+				break;
+			}
+		}
+
+		if (!valid_integrity) {
 			val |= PROFILE_LOAD_BIT;
 			pr_warn("Garbage value in profile integrity word: 0x%x\n",
 				val);
@@ -1739,6 +1760,13 @@ static void profile_load_work(struct work_struct *work)
 			pr_err("Error in writing to ACT_BATT_CAP rc=%d\n", rc);
 	}
 done:
+	rc = fg_sram_read(fg, PROFILE_INTEGRITY_WORD,
+			PROFILE_INTEGRITY_OFFSET, &val, 1, FG_IMA_DEFAULT);
+	if (!rc && (val & FIRST_PROFILE_LOAD_BIT)) {
+		fg_dbg(fg, FG_STATUS, "First profile load bit is set\n");
+		chip->first_profile_load = true;
+	}
+
 	rc = fg_gen4_bp_params_config(fg);
 	if (rc < 0)
 		pr_err("Error in configuring battery profile params, rc:%d\n",
@@ -2131,16 +2159,6 @@ static int fg_gen4_charge_full_update(struct fg_dev *fg)
 out:
 	mutex_unlock(&fg->charge_full_lock);
 	return rc;
-}
-
-static void fg_gen4_parallel_current_config(struct fg_gen4_chip *chip)
-{
-	struct fg_dev *fg = &chip->fg;
-	bool input_present = is_input_present(fg), en;
-
-	en = fg->charge_done ? false : input_present;
-
-	vote(chip->parallel_current_en_votable, FG_PARALLEL_EN_VOTER, en, 0);
 }
 
 static int fg_gen4_esr_fcc_config(struct fg_gen4_chip *chip)
@@ -2770,6 +2788,7 @@ static struct fg_irq_info fg_irqs[FG_GEN4_IRQ_MAX] = {
 	[MEM_ATTN_IRQ] = {
 		.name		= "mem-attn",
 		.handler	= fg_mem_attn_irq_handler,
+		.wakeable	= true,
 	},
 	[DMA_GRANT_IRQ] = {
 		.name		= "dma-grant",
@@ -2890,9 +2909,8 @@ static void esr_calib_work(struct work_struct *work)
 	 * to disable the interrupt OR ESR fast calibration timer is expired
 	 * OR after one retry, disable ESR fast calibration.
 	 */
-	if ((chip->delta_esr_count >= chip->dt.delta_esr_disable_count) ||
-		chip->esr_fast_cal_timer_expired ||
-		(chip->esr_fast_calib_retry && chip->delta_esr_count > 0)) {
+	if (chip->delta_esr_count >= chip->dt.delta_esr_disable_count ||
+		chip->esr_fast_cal_timer_expired) {
 		rc = fg_gen4_esr_fast_calib_config(chip, false);
 		if (rc < 0)
 			pr_err("Error in configuring esr_fast_calib, rc=%d\n",
@@ -2970,6 +2988,36 @@ static void esr_calib_work(struct work_struct *work)
 	fg_dbg(fg, FG_STATUS, "Wrote ESR delta [0x%x 0x%x]\n", buf[0], buf[1]);
 out:
 	vote(fg->awake_votable, ESR_CALIB, false, 0);
+}
+
+static void pl_current_en_work(struct work_struct *work)
+{
+	struct fg_gen4_chip *chip = container_of(work,
+				struct fg_gen4_chip,
+				pl_current_en_work.work);
+	struct fg_dev *fg = &chip->fg;
+	bool input_present = is_input_present(fg), en;
+
+	en = fg->charge_done ? false : input_present;
+
+	/*
+	 * If mem_attn_irq is disabled and parallel summing current
+	 * configuration needs to be modified, then enable mem_attn_irq and
+	 * wait for 1 second before doing it.
+	 */
+	if (get_effective_result(chip->parallel_current_en_votable) != en &&
+		!get_effective_result(chip->mem_attn_irq_en_votable)) {
+		vote(chip->mem_attn_irq_en_votable, MEM_ATTN_IRQ_VOTER,
+			true, 0);
+		schedule_delayed_work(&chip->pl_current_en_work,
+			msecs_to_jiffies(1000));
+		return;
+	}
+
+	if (!get_effective_result(chip->mem_attn_irq_en_votable))
+		return;
+
+	vote(chip->parallel_current_en_votable, FG_PARALLEL_EN_VOTER, en, 0);
 }
 
 static void pl_enable_work(struct work_struct *work)
@@ -3063,7 +3111,7 @@ static void status_change_work(struct work_struct *work)
 	if (rc < 0)
 		pr_err("Error in adjusting FCC for ESR, rc=%d\n", rc);
 
-	fg_gen4_parallel_current_config(chip);
+	schedule_delayed_work(&chip->pl_current_en_work, 0);
 
 	ttf_update(chip->ttf, input_present);
 	fg->prev_charge_status = fg->charge_status;
@@ -3222,6 +3270,9 @@ static int fg_esr_fast_cal_sysfs(const char *val, const struct kernel_param *kp)
 	if (!chip)
 		return -ENODEV;
 
+	if (fg_esr_fast_cal_en)
+		chip->delta_esr_count = 0;
+
 	rc = fg_gen4_esr_fast_calib_config(chip, fg_esr_fast_cal_en);
 	if (rc < 0)
 		return rc;
@@ -3317,6 +3368,9 @@ static int fg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SOC_REPORTING_READY:
 		pval->intval = fg->soc_reporting_ready;
 		break;
+	case POWER_SUPPLY_PROP_CLEAR_SOH:
+		pval->intval = chip->first_profile_load;
+		break;
 	case POWER_SUPPLY_PROP_SOH:
 		pval->intval = chip->soh;
 		break;
@@ -3363,7 +3417,9 @@ static int fg_psy_set_property(struct power_supply *psy,
 				  const union power_supply_propval *pval)
 {
 	struct fg_gen4_chip *chip = power_supply_get_drvdata(psy);
+	struct fg_dev *fg = &chip->fg;
 	int rc = 0;
+	u8 val, mask;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
@@ -3410,6 +3466,21 @@ static int fg_psy_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SOH:
 		chip->soh = pval->intval;
 		break;
+	case POWER_SUPPLY_PROP_CLEAR_SOH:
+		if (chip->first_profile_load && !pval->intval) {
+			fg_dbg(fg, FG_STATUS, "Clearing first profile load bit\n");
+			val = 0;
+			mask = FIRST_PROFILE_LOAD_BIT;
+			rc = fg_sram_masked_write(fg, PROFILE_INTEGRITY_WORD,
+					PROFILE_INTEGRITY_OFFSET, mask, val,
+					FG_IMA_DEFAULT);
+			if (rc < 0)
+				pr_err("Error in writing to profile integrity word rc=%d\n",
+					rc);
+			else
+				chip->first_profile_load = false;
+		}
+		break;
 	default:
 		break;
 	}
@@ -3427,6 +3498,7 @@ static int fg_property_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ESR_ACTUAL:
 	case POWER_SUPPLY_PROP_ESR_NOMINAL:
 	case POWER_SUPPLY_PROP_SOH:
+	case POWER_SUPPLY_PROP_CLEAR_SOH:
 		return 1;
 	default:
 		break;
@@ -3455,6 +3527,7 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_SHADOW,
 	POWER_SUPPLY_PROP_CYCLE_COUNTS,
 	POWER_SUPPLY_PROP_SOC_REPORTING_READY,
+	POWER_SUPPLY_PROP_CLEAR_SOH,
 	POWER_SUPPLY_PROP_SOH,
 	POWER_SUPPLY_PROP_DEBUG_BATTERY,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
@@ -3583,6 +3656,8 @@ static int fg_parallel_current_en_cb(struct votable *votable, void *data,
 			BATT_INFO_FG_CNV_CHAR_CFG(fg), rc);
 
 	fg_dbg(fg, FG_STATUS, "Parallel current summing: %d\n", enable);
+
+	vote(chip->mem_attn_irq_en_votable, MEM_ATTN_IRQ_VOTER, false, 0);
 	return rc;
 }
 
@@ -3623,6 +3698,27 @@ static int fg_gen4_delta_esr_irq_en_cb(struct votable *votable, void *data,
 
 	return 0;
 }
+
+static int fg_gen4_mem_attn_irq_en_cb(struct votable *votable, void *data,
+					int enable, const char *client)
+{
+	struct fg_dev *fg = data;
+
+	if (!fg->irqs[MEM_ATTN_IRQ].irq)
+		return 0;
+
+	if (enable) {
+		enable_irq(fg->irqs[MEM_ATTN_IRQ].irq);
+		enable_irq_wake(fg->irqs[MEM_ATTN_IRQ].irq);
+	} else {
+		disable_irq_wake(fg->irqs[MEM_ATTN_IRQ].irq);
+		disable_irq_nosync(fg->irqs[MEM_ATTN_IRQ].irq);
+	}
+
+	fg_dbg(fg, FG_STATUS, "%sabled mem_attn irq\n", enable ? "en" : "dis");
+	return 0;
+}
+
 /* All init functions below this */
 
 static int fg_alg_init(struct fg_gen4_chip *chip)
@@ -4486,6 +4582,7 @@ static void fg_gen4_cleanup(struct fg_gen4_chip *chip)
 	cancel_work(&fg->status_change_work);
 	cancel_delayed_work_sync(&fg->profile_load_work);
 	cancel_delayed_work_sync(&fg->sram_dump_work);
+	cancel_delayed_work_sync(&chip->pl_current_en_work);
 
 	power_supply_unreg_notifier(&fg->nb);
 	debugfs_remove_recursive(fg->dfs_root);
@@ -4501,6 +4598,9 @@ static void fg_gen4_cleanup(struct fg_gen4_chip *chip)
 
 	if (chip->parallel_current_en_votable)
 		destroy_votable(chip->parallel_current_en_votable);
+
+	if (chip->mem_attn_irq_en_votable)
+		destroy_votable(chip->mem_attn_irq_en_votable);
 
 	dev_set_drvdata(fg->dev, NULL);
 }
@@ -4543,6 +4643,7 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&fg->profile_load_work, profile_load_work);
 	INIT_DELAYED_WORK(&fg->sram_dump_work, sram_dump_work);
 	INIT_DELAYED_WORK(&chip->pl_enable_work, pl_enable_work);
+	INIT_DELAYED_WORK(&chip->pl_current_en_work, pl_current_en_work);
 
 	fg->awake_votable = create_votable("FG_WS", VOTE_SET_ANY,
 					fg_awake_cb, fg);
@@ -4568,6 +4669,15 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	if (IS_ERR(chip->delta_esr_irq_en_votable)) {
 		rc = PTR_ERR(chip->delta_esr_irq_en_votable);
 		chip->delta_esr_irq_en_votable = NULL;
+		goto exit;
+	}
+
+	chip->mem_attn_irq_en_votable = create_votable("FG_MEM_ATTN_IRQ",
+						VOTE_SET_ANY,
+						fg_gen4_mem_attn_irq_en_cb, fg);
+	if (IS_ERR(chip->mem_attn_irq_en_votable)) {
+		rc = PTR_ERR(chip->mem_attn_irq_en_votable);
+		chip->mem_attn_irq_en_votable = NULL;
 		goto exit;
 	}
 
@@ -4653,6 +4763,9 @@ static int fg_gen4_probe(struct platform_device *pdev)
 
 	/* Keep BSOC_DELTA_IRQ disabled until we require it */
 	vote(fg->delta_bsoc_irq_en_votable, DELTA_BSOC_IRQ_VOTER, false, 0);
+
+	/* Keep MEM_ATTN_IRQ disabled until we require it */
+	vote(chip->mem_attn_irq_en_votable, MEM_ATTN_IRQ_VOTER, false, 0);
 
 	rc = fg_debugfs_create(fg);
 	if (rc < 0) {
@@ -4741,9 +4854,6 @@ static int fg_gen4_suspend(struct device *dev)
 	struct fg_gen4_chip *chip = dev_get_drvdata(dev);
 	struct fg_dev *fg = &chip->fg;
 
-	if (fg->irqs[MEM_ATTN_IRQ].irq)
-		disable_irq_nosync(fg->irqs[MEM_ATTN_IRQ].irq);
-
 	cancel_delayed_work_sync(&chip->ttf->ttf_work);
 	if (fg_sram_dump)
 		cancel_delayed_work_sync(&fg->sram_dump_work);
@@ -4754,9 +4864,6 @@ static int fg_gen4_resume(struct device *dev)
 {
 	struct fg_gen4_chip *chip = dev_get_drvdata(dev);
 	struct fg_dev *fg = &chip->fg;
-
-	if (fg->irqs[MEM_ATTN_IRQ].irq)
-		enable_irq(fg->irqs[MEM_ATTN_IRQ].irq);
 
 	schedule_delayed_work(&chip->ttf->ttf_work, 0);
 	if (fg_sram_dump)

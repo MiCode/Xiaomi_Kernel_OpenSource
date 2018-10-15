@@ -50,6 +50,7 @@ enum cam_ife_hw_mgr_res_type {
  * @parent:              point to the parent resource node.
  * @children:            point to the children resource nodes
  * @child_num:           numbe of the child resource node.
+ * @is_secure            informs whether the resource is in secure mode or not
  *
  */
 struct cam_ife_hw_mgr_res {
@@ -63,6 +64,7 @@ struct cam_ife_hw_mgr_res {
 	struct cam_ife_hw_mgr_res       *parent;
 	struct cam_ife_hw_mgr_res       *child[CAM_IFE_HW_OUT_RES_MAX];
 	uint32_t                         num_children;
+	uint32_t                         is_secure;
 };
 
 
@@ -81,15 +83,17 @@ struct ctx_base_info {
 /**
  * struct cam_ife_hw_mgr_debug - contain the debug information
  *
- * @dentry:              Debugfs entry
- * @csid_debug:          csid debug information
- * @enable_recovery      enable recovery
+ * @dentry:                    Debugfs entry
+ * @csid_debug:                csid debug information
+ * @enable_recovery:           enable recovery
+ * @enable_diag_sensor_status: enable sensor diagnosis status
  *
  */
 struct cam_ife_hw_mgr_debug {
 	struct dentry  *dentry;
 	uint64_t       csid_debug;
 	uint32_t       enable_recovery;
+	uint32_t       camif_debug;
 };
 
 /**
@@ -203,9 +207,10 @@ struct cam_ife_hw_mgr {
  *                      etnry functinon for the IFE HW manager.
  *
  * @hw_mgr_intf:        IFE hardware manager object returned
+ * @iommu_hdl:          Iommu handle to be returned
  *
  */
-int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf);
+int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf, int *iommu_hdl);
 
 /**
  * cam_ife_mgr_do_tasklet_buf_done()

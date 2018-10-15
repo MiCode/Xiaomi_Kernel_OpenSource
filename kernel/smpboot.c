@@ -32,7 +32,7 @@ struct task_struct *idle_thread_get(unsigned int cpu)
 
 	if (!tsk)
 		return ERR_PTR(-ENOMEM);
-	init_idle(tsk, cpu, true);
+	init_idle(tsk, cpu);
 	return tsk;
 }
 

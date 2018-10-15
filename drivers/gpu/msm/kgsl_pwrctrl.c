@@ -226,7 +226,7 @@ static int kgsl_bus_scale_request(struct kgsl_device *device,
 	int ret = 0;
 
 	/* GMU scales BW */
-	if (gmu_core_gpmu_isenabled(device))
+	if (gmu_core_scales_bandwidth(device))
 		ret = gmu_core_dcvs_set(device, INVALID_DCVS_IDX, buslevel);
 	else if (pwr->pcl)
 		/* Linux bus driver scales BW */
@@ -2839,6 +2839,12 @@ _aware(struct kgsl_device *device)
 		status = gmu_core_start(device);
 		break;
 	case KGSL_STATE_INIT:
+		/* if GMU already in FAULT */
+		if (gmu_core_isenabled(device) &&
+			test_bit(GMU_FAULT, &device->gmu_core.flags)) {
+			status = -EINVAL;
+			break;
+		}
 		status = kgsl_pwrctrl_enable(device);
 		break;
 	/* The following 3 cases shouldn't occur, but don't panic. */
