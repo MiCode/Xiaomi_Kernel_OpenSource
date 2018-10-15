@@ -908,10 +908,10 @@
 	dcc: dcc_v2@10a2000 {
 		compatible = "qcom,dcc-v2";
 		reg = <0x10a2000 0x1000>,
-		      <0x10ae000 0x2000>;
+		      <0x10ae400 0x1c00>;
 		reg-names = "dcc-base", "dcc-ram-base";
 
-		dcc-ram-offset = <0x6000>;
+		dcc-ram-offset = <0x400>;
 	};
 
 	system_pm {
