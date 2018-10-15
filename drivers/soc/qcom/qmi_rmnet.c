@@ -33,12 +33,13 @@
 #define FLAG_POWERSAVE_MASK 0x0010
 #define DFC_MODE_MULTIQ 2
 
-unsigned int rmnet_wq_frequency __read_mostly = 4;
+unsigned int rmnet_wq_frequency __read_mostly = 1000;
 module_param(rmnet_wq_frequency, uint, 0644);
-MODULE_PARM_DESC(rmnet_wq_frequency, "Frequency of PS check");
+MODULE_PARM_DESC(rmnet_wq_frequency, "Frequency of PS check in ms");
 
 #define PS_WORK_ACTIVE_BIT 0
-#define PS_INTERVAL (((!rmnet_wq_frequency) ? 1 : rmnet_wq_frequency) * HZ)
+#define PS_INTERVAL (((!rmnet_wq_frequency) ?                             \
+					1 : rmnet_wq_frequency/10) * (HZ/100))
 #define NO_DELAY (0x0000 * HZ)
 
 #ifdef CONFIG_QCOM_QMI_DFC
