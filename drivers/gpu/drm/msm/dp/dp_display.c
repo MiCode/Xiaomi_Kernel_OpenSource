@@ -603,10 +603,11 @@ static void dp_display_host_init(struct dp_display_private *dp)
 	bool flip = false;
 	bool reset;
 
-	if (dp->core_initialized) {
-		pr_debug("DP core already initialized\n");
+	if (dp->core_initialized)
 		return;
-	}
+
+	if (!dp->debug->sim_mode && !dp->parser->no_aux_switch)
+		dp->aux->aux_switch(dp->aux, true, dp->hpd->orientation);
 
 	if (dp->hpd->orientation == ORIENTATION_CC2)
 		flip = true;
@@ -618,19 +619,23 @@ static void dp_display_host_init(struct dp_display_private *dp)
 	dp->aux->init(dp->aux, dp->parser->aux_cfg);
 	enable_irq(dp->irq);
 	dp->core_initialized = true;
+
+	/* log this as it results from user action of cable connection */
+	pr_info("[OK]\n");
 }
 
 static void dp_display_host_deinit(struct dp_display_private *dp)
 {
-	if (!dp->core_initialized) {
-		pr_debug("DP core already off\n");
+	if (!dp->core_initialized)
 		return;
-	}
 
 	if (dp->active_stream_cnt) {
 		pr_debug("active stream present\n");
 		return;
 	}
+
+	if (!dp->debug->sim_mode && !dp->parser->no_aux_switch)
+		dp->aux->aux_switch(dp->aux, false, ORIENTATION_NONE);
 
 	dp->aux->deinit(dp->aux);
 	dp->ctrl->deinit(dp->ctrl);
@@ -638,17 +643,14 @@ static void dp_display_host_deinit(struct dp_display_private *dp)
 	disable_irq(dp->irq);
 	dp->core_initialized = false;
 	dp->aux->state = 0;
+
+	/* log this as it results from user action of cable dis-connection */
+	pr_info("[OK]\n");
 }
 
 static int dp_display_process_hpd_high(struct dp_display_private *dp)
 {
 	int rc = 0;
-
-	if (!dp->debug->sim_mode && !dp->parser->no_aux_switch) {
-		rc = dp->aux->aux_switch(dp->aux, true, dp->hpd->orientation);
-		if (rc)
-			goto end;
-	}
 
 	dp->is_connected = true;
 
@@ -727,10 +729,8 @@ static int dp_display_process_hpd_low(struct dp_display_private *dp)
 
 		dp_panel = dp->active_panels[idx];
 
-		if (dp_panel->audio_supported) {
+		if (dp_panel->audio_supported)
 			dp_panel->audio->off(dp_panel->audio);
-			dp_panel->audio_supported = false;
-		}
 	}
 
 	mutex_unlock(&dp->session_lock);
@@ -766,6 +766,8 @@ static int dp_display_usbpd_configure_cb(struct device *dev)
 		rc = -ENODEV;
 		goto end;
 	}
+
+	dp_display_host_init(dp);
 
 	/* check for hpd high and framework ready */
 	if (dp->hpd->hpd_high && dp_display_framework_ready(dp))
@@ -859,9 +861,6 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 	cancel_delayed_work(&dp->connect_work);
 	cancel_work(&dp->attention_work);
 	flush_workqueue(dp->wq);
-
-	if (!dp->debug->sim_mode && !dp->parser->no_aux_switch)
-		dp->aux->aux_switch(dp->aux, false, ORIENTATION_NONE);
 
 	dp_display_handle_disconnect(dp);
 
@@ -981,7 +980,7 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 		return -ENODEV;
 	}
 
-	DP_MST_DEBUG("mst: hpd_irq:%d, hpd_high:%d, power_on:%d\n",
+	pr_debug("hpd_irq:%d, hpd_high:%d, power_on:%d\n",
 			dp->hpd->hpd_irq, dp->hpd->hpd_high,
 			dp->power_on);
 
@@ -1428,7 +1427,6 @@ static int dp_display_post_enable(struct dp_display *dp_display, void *panel)
 {
 	struct dp_display_private *dp;
 	struct dp_panel *dp_panel;
-	struct edid *edid;
 
 	if (!dp_display || !panel) {
 		pr_err("invalid input\n");
@@ -1454,9 +1452,6 @@ static int dp_display_post_enable(struct dp_display *dp_display, void *panel)
 	}
 
 	dp_display_stream_post_enable(dp, dp_panel);
-
-	edid = dp_panel->edid_ctrl->edid;
-	dp_panel->audio_supported = drm_detect_monitor_audio(edid);
 
 	if (dp_panel->audio_supported) {
 		dp_panel->audio->bw_code = dp->link->link_params.bw_code;
@@ -1568,6 +1563,9 @@ static int dp_display_disable(struct dp_display *dp_display, void *panel)
 	}
 
 	dp->power_on = false;
+
+	/* log this as it results from user action of cable dis-connection */
+	pr_info("[OK]\n");
 end:
 	dp_panel->deinit(dp_panel);
 	mutex_unlock(&dp->session_lock);

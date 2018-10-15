@@ -546,6 +546,9 @@ static int dsi_panel_pinctrl_deinit(struct dsi_panel *panel)
 {
 	int rc = 0;
 
+	if (panel->host_config.ext_bridge_mode)
+		return 0;
+
 	devm_pinctrl_put(panel->pinctrl.pinctrl);
 
 	return rc;
@@ -627,6 +630,9 @@ int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 {
 	int rc = 0;
 	struct dsi_backlight_config *bl = &panel->bl_config;
+
+	if (panel->host_config.ext_bridge_mode)
+		return 0;
 
 	pr_debug("backlight type:%d lvl:%d\n", bl->type, bl_lvl);
 	switch (bl->type) {

@@ -2105,7 +2105,7 @@ retry:
 	}
 
 end:
-	if ((ret != 0) && state)
+	if (state)
 		drm_atomic_state_put(state);
 
 	SDE_DEBUG("sde preclose done, ret:%d\n", ret);
@@ -2220,14 +2220,10 @@ static void sde_kms_lastclose(struct msm_kms *kms,
 		SDE_DEBUG("deadlock backoff on attempt %d\n", i);
 	}
 
-	if (ret) {
-		/**
-		 * on success, atomic state object ownership transfers to
-		 * framework, otherwise, free it here
-		 */
-		drm_atomic_state_put(state);
+	if (ret)
 		SDE_ERROR("failed to run last close: %d\n", ret);
-	}
+
+	drm_atomic_state_put(state);
 }
 
 static int sde_kms_check_secure_transition(struct msm_kms *kms,
@@ -2650,7 +2646,7 @@ static int sde_kms_pm_suspend(struct device *dev)
 	struct drm_modeset_acquire_ctx ctx;
 	struct drm_connector *conn;
 	struct drm_connector_list_iter conn_iter;
-	struct drm_atomic_state *state;
+	struct drm_atomic_state *state = NULL;
 	struct sde_kms *sde_kms;
 	int ret = 0, num_crtcs = 0;
 
@@ -2680,15 +2676,17 @@ retry:
 		drm_atomic_state_put(sde_kms->suspend_state);
 	sde_kms->suspend_state = drm_atomic_helper_duplicate_state(ddev, &ctx);
 	if (IS_ERR_OR_NULL(sde_kms->suspend_state)) {
-		DRM_ERROR("failed to back up suspend state\n");
+		ret = PTR_ERR(sde_kms->suspend_state);
+		DRM_ERROR("failed to back up suspend state, %d\n", ret);
 		sde_kms->suspend_state = NULL;
 		goto unlock;
 	}
 
 	/* create atomic state to disable all CRTCs */
 	state = drm_atomic_state_alloc(ddev);
-	if (IS_ERR_OR_NULL(state)) {
-		DRM_ERROR("failed to allocate crtc disable state\n");
+	if (!state) {
+		ret = -ENOMEM;
+		DRM_ERROR("failed to allocate crtc disable state, %d\n", ret);
 		goto unlock;
 	}
 
@@ -2710,7 +2708,7 @@ retry:
 			if (ret) {
 				DRM_ERROR("failed to set lp2 for conn %d\n",
 						conn->base.id);
-				drm_atomic_state_put(state);
+				drm_connector_list_iter_end(&conn_iter);
 				goto unlock;
 			}
 		}
@@ -2722,7 +2720,7 @@ retry:
 			if (IS_ERR_OR_NULL(crtc_state)) {
 				DRM_ERROR("failed to get crtc %d state\n",
 						conn->state->crtc->base.id);
-				drm_atomic_state_put(state);
+				drm_connector_list_iter_end(&conn_iter);
 				goto unlock;
 			}
 
@@ -2736,7 +2734,6 @@ retry:
 	/* check for nothing to do */
 	if (num_crtcs == 0) {
 		DRM_DEBUG("all crtcs are already in the off state\n");
-		drm_atomic_state_put(state);
 		sde_kms->suspend_block = true;
 		goto unlock;
 	}
@@ -2745,7 +2742,6 @@ retry:
 	ret = drm_atomic_commit(state);
 	if (ret < 0) {
 		DRM_ERROR("failed to disable crtcs, %d\n", ret);
-		drm_atomic_state_put(state);
 		goto unlock;
 	}
 
@@ -2770,6 +2766,11 @@ retry:
 	}
 	drm_connector_list_iter_end(&conn_iter);
 unlock:
+	if (state) {
+		drm_atomic_state_put(state);
+		state = NULL;
+	}
+
 	if (ret == -EDEADLK) {
 		drm_modeset_backoff(&ctx);
 		goto retry;
@@ -2777,7 +2778,7 @@ unlock:
 	drm_modeset_drop_locks(&ctx);
 	drm_modeset_acquire_fini(&ctx);
 
-	return 0;
+	return ret;
 }
 
 static int sde_kms_pm_resume(struct device *dev)
@@ -2823,10 +2824,10 @@ retry:
 			drm_modeset_backoff(&ctx);
 		}
 
-		if (ret < 0) {
+		if (ret < 0)
 			DRM_ERROR("failed to restore state, %d\n", ret);
-			drm_atomic_state_put(sde_kms->suspend_state);
-		}
+
+		drm_atomic_state_put(sde_kms->suspend_state);
 		sde_kms->suspend_state = NULL;
 	}
 

@@ -545,6 +545,26 @@ static int _sde_connector_update_bl_scale(struct sde_connector *c_conn)
 	return rc;
 }
 
+void sde_connector_set_qsync_params(struct drm_connector *connector)
+{
+	struct sde_connector *c_conn = to_sde_connector(connector);
+	u32 qsync_propval;
+
+	if (!connector)
+		return;
+
+	c_conn->qsync_updated = false;
+	qsync_propval = sde_connector_get_property(c_conn->base.state,
+			CONNECTOR_PROP_QSYNC_MODE);
+
+	if (qsync_propval != c_conn->qsync_mode) {
+		SDE_DEBUG("updated qsync mode %d -> %d\n", c_conn->qsync_mode,
+				qsync_propval);
+		c_conn->qsync_updated = true;
+		c_conn->qsync_mode = qsync_propval;
+	}
+}
+
 static int _sde_connector_update_dirty_properties(
 				struct drm_connector *connector)
 {
@@ -559,7 +579,6 @@ static int _sde_connector_update_dirty_properties(
 
 	c_conn = to_sde_connector(connector);
 	c_state = to_sde_connector_state(connector->state);
-	c_conn->qsync_updated = false;
 
 	while ((idx = msm_property_pop_dirty(&c_conn->property_info,
 					&c_state->property_state)) >= 0) {
@@ -574,11 +593,6 @@ static int _sde_connector_update_dirty_properties(
 		case CONNECTOR_PROP_BL_SCALE:
 		case CONNECTOR_PROP_AD_BL_SCALE:
 			_sde_connector_update_bl_scale(c_conn);
-			break;
-		case CONNECTOR_PROP_QSYNC_MODE:
-			c_conn->qsync_updated = true;
-			c_conn->qsync_mode = sde_connector_get_property(
-				connector->state, CONNECTOR_PROP_QSYNC_MODE);
 			break;
 		default:
 			/* nothing to do for most properties */
@@ -2239,15 +2253,12 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 			0x0, 0, AUTOREFRESH_MAX_FRAME_CNT, 0,
 			CONNECTOR_PROP_AUTOREFRESH);
 
-	if (connector_type == DRM_MODE_CONNECTOR_DSI) {
-		if (sde_kms->catalog->has_qsync && display_info.qsync_min_fps) {
-
-			msm_property_install_enum(&c_conn->property_info,
-					"qsync_mode", 0, 0, e_qsync_mode,
-					ARRAY_SIZE(e_qsync_mode),
-					CONNECTOR_PROP_QSYNC_MODE);
-		}
-	}
+	if (connector_type == DRM_MODE_CONNECTOR_DSI &&
+			sde_kms->catalog->has_qsync &&
+			display_info.qsync_min_fps)
+		msm_property_install_enum(&c_conn->property_info, "qsync_mode",
+				0, 0, e_qsync_mode, ARRAY_SIZE(e_qsync_mode),
+				CONNECTOR_PROP_QSYNC_MODE);
 
 	msm_property_install_range(&c_conn->property_info, "bl_scale",
 		0x0, 0, MAX_BL_SCALE_LEVEL, MAX_BL_SCALE_LEVEL,
