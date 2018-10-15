@@ -140,7 +140,7 @@ int msm_dump_data_register(enum msm_dump_table_ids id,
 
 	dmac_flush_range(table, (void *)table + sizeof(struct msm_dump_table));
 
-	if (msm_dump_data_add_minidump(entry))
+	if (msm_dump_data_add_minidump(entry) < 0)
 		pr_err("Failed to add entry in Minidump table\n");
 
 	return 0;

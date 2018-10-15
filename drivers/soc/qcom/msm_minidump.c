@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,7 +40,7 @@ struct md_table {
 	struct md_ss_toc	*md_ss_toc;
 	struct md_global_toc	*md_gbl_toc;
 	struct md_ss_region	*md_regions;
-	struct md_region        entry[MAX_NUM_ENTRIES];
+	struct md_region	entry[MAX_NUM_ENTRIES];
 };
 
 /**
@@ -169,17 +169,10 @@ bool msm_minidump_enabled(void)
 }
 EXPORT_SYMBOL(msm_minidump_enabled);
 
-int msm_minidump_add_region(const struct md_region *entry)
+static inline int validate_region(const struct md_region *entry)
 {
-	u32 entries;
-	struct md_region *mdr;
-	int ret = 0;
-
-	if (!entry)
-		return -EINVAL;
-
-	if ((strlen(entry->name) > MAX_NAME_LENGTH) ||
-		md_check_name(entry->name) || !entry->virt_addr) {
+	if (!entry || (strlen(entry->name) > MAX_NAME_LENGTH) ||
+		!entry->virt_addr) {
 		pr_err("Invalid entry details\n");
 		return -EINVAL;
 	}
@@ -187,6 +180,55 @@ int msm_minidump_add_region(const struct md_region *entry)
 	if (!IS_ALIGNED(entry->size, 4)) {
 		pr_err("size should be 4 byte aligned\n");
 		return -EINVAL;
+	}
+	return 0;
+}
+
+int msm_minidump_update_region(int regno, const struct md_region *entry)
+{
+	struct md_region *mdr;
+	struct md_ss_region *mdssr;
+	struct elfhdr *hdr = minidump_elfheader.ehdr;
+	struct elf_shdr *shdr;
+	struct elf_phdr *phdr;
+
+	if (validate_region(entry) || (regno >= MAX_NUM_ENTRIES))
+		return -EINVAL;
+
+	if (!md_check_name(entry->name)) {
+		pr_err("Region:[%s] does not exist to update.\n", entry->name);
+		return -ENOMEM;
+	}
+
+	mdr = &minidump_table.entry[regno];
+	mdr->virt_addr = entry->virt_addr;
+	mdr->phys_addr = entry->phys_addr;
+
+	mdssr = &minidump_table.md_regions[regno + 1];
+	mdssr->region_base_address = entry->phys_addr;
+
+	shdr = elf_section(hdr, regno + 4);
+	phdr = elf_program(hdr, regno + 1);
+
+	shdr->sh_addr = (elf_addr_t)entry->virt_addr;
+	phdr->p_vaddr = entry->virt_addr;
+	phdr->p_paddr = entry->phys_addr;
+
+	return 0;
+}
+EXPORT_SYMBOL(msm_minidump_update_region);
+
+int msm_minidump_add_region(const struct md_region *entry)
+{
+	u32 entries;
+	struct md_region *mdr;
+
+	if (validate_region(entry))
+		return -EINVAL;
+
+	if (md_check_name(entry->name)) {
+		pr_err("Region name [%s] already registered\n", entry->name);
+		return -EEXIST;
 	}
 
 	spin_lock(&mdt_lock);
@@ -215,7 +257,7 @@ int msm_minidump_add_region(const struct md_region *entry)
 
 	spin_unlock(&mdt_lock);
 
-	return ret;
+	return entries;
 }
 EXPORT_SYMBOL(msm_minidump_add_region);
 
