@@ -100,6 +100,8 @@ struct iommu_pgtbl_info {
 #define IOMMU_DOMAIN_DMA	(__IOMMU_DOMAIN_PAGING |	\
 				 __IOMMU_DOMAIN_DMA_API)
 
+
+#define IOMMU_DOMAIN_NAME_LEN 32
 struct iommu_domain {
 	unsigned type;
 	const struct iommu_ops *ops;
@@ -109,6 +111,7 @@ struct iommu_domain {
 	struct iommu_domain_geometry geometry;
 	void *iova_cookie;
 	bool is_debug_domain;
+	char name[IOMMU_DOMAIN_NAME_LEN];
 };
 
 enum iommu_cap {
@@ -129,6 +132,11 @@ enum iommu_cap {
  * DOMAIN_ATTR_FSL_PAMUV1 corresponds to the above mentioned contraints.
  * The caller can invoke iommu_domain_get_attr to check if the underlying
  * iommu implementation supports these constraints.
+ *
+ * DOMAIN_ATTR_NO_CFRE
+ * Some bus implementations may enter a bad state if iommu reports an error
+ * on context fault. As context faults are not always fatal, this must be
+ * avoided.
  */
 
 enum iommu_attr {
@@ -159,6 +167,7 @@ enum iommu_attr {
 	DOMAIN_ATTR_BITMAP_IOVA_ALLOCATOR,
 	DOMAIN_ATTR_QCOM_MMU500_ERRATA_MIN_IOVA_ALIGN,
 	DOMAIN_ATTR_USE_LLC_NWA,
+	DOMAIN_ATTR_NO_CFRE,
 	DOMAIN_ATTR_MAX,
 };
 
@@ -362,6 +371,9 @@ extern size_t iommu_unmap(struct iommu_domain *domain, unsigned long iova,
 			  size_t size);
 extern size_t iommu_unmap_fast(struct iommu_domain *domain,
 			       unsigned long iova, size_t size);
+extern size_t iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
+				struct scatterlist *sg, unsigned int nents,
+				int prot);
 extern size_t default_iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
 			   struct scatterlist *sg,unsigned int nents, int prot);
 extern phys_addr_t iommu_iova_to_phys(struct iommu_domain *domain, dma_addr_t iova);
@@ -441,13 +453,6 @@ static inline void iommu_tlb_sync(struct iommu_domain *domain)
 {
 	if (domain->ops->iotlb_sync)
 		domain->ops->iotlb_sync(domain);
-}
-
-static inline size_t iommu_map_sg(struct iommu_domain *domain,
-                                 unsigned long iova, struct scatterlist *sg,
-                                 unsigned int nents, int prot)
-{
-       return domain->ops->map_sg(domain, iova, sg, nents, prot);
 }
 
 extern void iommu_trigger_fault(struct iommu_domain *domain,

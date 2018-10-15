@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -32,7 +32,7 @@ struct page *arm_smmu_errata_get_guard_page(int vmid)
 		ret = hyp_assign_phys(page_to_phys(page), PAGE_ALIGN(size),
 				&source_vm, 1,
 				&dest_vm, &dest_perm, 1);
-		if (ret) {
+		if (ret && (ret != -EIO)) {
 			__free_pages(page, get_order(size));
 			page = NULL;
 		}
