@@ -2315,7 +2315,8 @@ static int __cam_req_mgr_unlink(struct cam_req_mgr_core_link *link)
 	if (rc < 0) {
 		CAM_ERR(CAM_CRM, "error destroying link hdl %x rc %d",
 			link->link_hdl, rc);
-	}
+	} else
+		link->link_hdl = -1;
 
 	mutex_unlock(&link->lock);
 	return rc;
@@ -2472,7 +2473,7 @@ setup_failed:
 	__cam_req_mgr_destroy_subdev(link->l_dev);
 create_subdev_failed:
 	cam_destroy_device_hdl(link->link_hdl);
-	link_info->link_hdl = 0;
+	link_info->link_hdl = -1;
 link_hdl_fail:
 	mutex_unlock(&link->lock);
 	__cam_req_mgr_unreserve_link(cam_session, link);
