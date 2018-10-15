@@ -480,6 +480,7 @@ static int32_t cam_flash_platform_probe(struct platform_device *pdev)
 	fctrl->bridge_intf.ops.link_setup = cam_flash_establish_link;
 	fctrl->bridge_intf.ops.apply_req = cam_flash_apply_request;
 	fctrl->bridge_intf.ops.flush_req = cam_flash_flush_request;
+	fctrl->last_flush_req = 0;
 
 	mutex_init(&(fctrl->flash_mutex));
 
@@ -566,6 +567,7 @@ static int32_t cam_flash_i2c_driver_probe(struct i2c_client *client,
 	fctrl->bridge_intf.ops.link_setup = cam_flash_establish_link;
 	fctrl->bridge_intf.ops.apply_req = cam_flash_apply_request;
 	fctrl->bridge_intf.ops.flush_req = cam_flash_flush_request;
+	fctrl->last_flush_req = 0;
 
 	mutex_init(&(fctrl->flash_mutex));
 	fctrl->flash_state = CAM_FLASH_STATE_INIT;
