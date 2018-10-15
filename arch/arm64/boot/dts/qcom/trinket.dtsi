@@ -1019,6 +1019,7 @@
 #include "trinket-ion.dtsi"
 #include "trinket-gdsc.dtsi"
 #include "trinket-usb.dtsi"
+#include "msm-arm-smmu-trinket.dtsi"
 
 &ufs_phy_gdsc {
 	status = "ok";
