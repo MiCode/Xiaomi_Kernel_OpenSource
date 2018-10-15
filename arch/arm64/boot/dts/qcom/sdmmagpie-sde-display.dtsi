@@ -235,6 +235,15 @@
 		cell-index = <0>;
 		label = "wb_display";
 	};
+
+	ext_disp: qcom,msm-ext-disp {
+		status = "disabled";
+		compatible = "qcom,msm-ext-disp";
+
+		ext_disp_audio_codec: qcom,msm-ext-disp-audio-codec-rx {
+			compatible = "qcom,msm-ext-disp-audio-codec-rx";
+		};
+	};
 };
 
 &sde_dp {
