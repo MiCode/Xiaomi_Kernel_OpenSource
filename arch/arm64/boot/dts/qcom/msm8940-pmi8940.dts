@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,22 +11,14 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/kernel.h>
-#include <asm/mach/arch.h>
-#include "board-dt.h"
+/dts-v1/;
 
-static const char *msm8940_dt_match[] __initconst = {
-	"qcom,msm8940",
-	NULL
+#include "msm8940.dtsi"
+#include "msm8940-pmi8940.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM8940 + PMI8940 SOC";
+	compatible = "qcom,msm8940";
+	qcom,pmic-id = <0x10019 0x020040 0x0 0x0>;
+	qcom,pmic-name = "PMI8940";
 };
-
-static void __init msm8940_init(void)
-{
-	board_dt_populate(NULL);
-}
-
-DT_MACHINE_START(MSM8940_DT,
-	"Qualcomm Technologies, Inc. MSM8940 MTP")
-	.init_machine = msm8940_init,
-	.dt_compat = msm8940_dt_match,
-MACHINE_END
