@@ -498,7 +498,7 @@ static int cfg80211_sme_get_conn_ies(struct wireless_dev *wdev,
 	if (!buf)
 		return -ENOMEM;
 
-	if (ies_len) {
+	if (ies_len && ies) {
 		static const u8 before_extcapa[] = {
 			/* not listing IEs expected to be created by driver */
 			WLAN_EID_RSN,
