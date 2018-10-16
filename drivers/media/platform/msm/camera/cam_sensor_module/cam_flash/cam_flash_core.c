@@ -701,12 +701,7 @@ int cam_flash_pmic_apply_setting(struct cam_flash_ctrl *fctrl,
 					fctrl->flash_state);
 					return -EINVAL;
 				}
-				rc = cam_flash_prepare(fctrl, true);
-				if (rc) {
-					CAM_ERR(CAM_FLASH,
-					"Enable Regulator Failed rc = %d", rc);
-					return rc;
-				}
+
 				rc = cam_flash_high(fctrl, flash_data);
 				if (rc)
 					CAM_ERR(CAM_FLASH,
@@ -721,12 +716,7 @@ int cam_flash_pmic_apply_setting(struct cam_flash_ctrl *fctrl,
 					fctrl->flash_state);
 					return -EINVAL;
 				}
-				rc = cam_flash_prepare(fctrl, true);
-				if (rc) {
-					CAM_ERR(CAM_FLASH,
-					"Enable Regulator Failed rc = %d", rc);
-					return rc;
-				}
+
 				rc = cam_flash_low(fctrl, flash_data);
 				if (rc)
 					CAM_ERR(CAM_FLASH,
@@ -740,15 +730,6 @@ int cam_flash_pmic_apply_setting(struct cam_flash_ctrl *fctrl,
 					"LED OFF FAILED: %d",
 					rc);
 					return rc;
-				}
-				if ((fctrl->flash_state ==
-					CAM_FLASH_STATE_START) &&
-					(fctrl->is_regulator_enabled == true)) {
-					rc = cam_flash_prepare(fctrl, false);
-					if (rc)
-						CAM_ERR(CAM_FLASH,
-						"Disable Regulator failed: %d",
-						rc);
 				}
 			}
 		} else if (fctrl->nrt_info.cmn_attr.cmd_type ==
