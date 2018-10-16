@@ -775,6 +775,7 @@ int icnss_call_driver_uevent(struct icnss_priv *priv,
 static int icnss_driver_event_server_arrive(void *data)
 {
 	int ret = 0;
+	bool ignore_assert = false;
 
 	if (!penv)
 		return -ENODEV;
@@ -793,8 +794,10 @@ static int icnss_driver_event_server_arrive(void *data)
 		goto clear_server;
 
 	ret = wlfw_ind_register_send_sync_msg(penv);
-	if (ret < 0)
+	if (ret < 0) {
+		ignore_assert = true;
 		goto err_power_on;
+	}
 
 	if (!penv->msa_va) {
 		icnss_pr_err("Invalid MSA address\n");
@@ -803,8 +806,10 @@ static int icnss_driver_event_server_arrive(void *data)
 	}
 
 	ret = wlfw_msa_mem_info_send_sync_msg(penv);
-	if (ret < 0)
+	if (ret < 0) {
+		ignore_assert = true;
 		goto err_power_on;
+	}
 
 	if (!test_bit(ICNSS_MSA0_ASSIGNED, &penv->state)) {
 		ret = icnss_assign_msa_perm_all(penv,
@@ -815,12 +820,16 @@ static int icnss_driver_event_server_arrive(void *data)
 	}
 
 	ret = wlfw_msa_ready_send_sync_msg(penv);
-	if (ret < 0)
+	if (ret < 0) {
+		ignore_assert = true;
 		goto err_setup_msa;
+	}
 
 	ret = wlfw_cap_send_sync_msg(penv);
-	if (ret < 0)
+	if (ret < 0) {
+		ignore_assert = true;
 		goto err_setup_msa;
+	}
 
 	wlfw_dynamic_feature_mask_send_sync_msg(penv,
 						dynamic_feature_mask);
@@ -841,7 +850,7 @@ err_power_on:
 clear_server:
 	icnss_clear_server(penv);
 fail:
-	ICNSS_ASSERT(0);
+	ICNSS_ASSERT(ignore_assert);
 	return ret;
 }
 
