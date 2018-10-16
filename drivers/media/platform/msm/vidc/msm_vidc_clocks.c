@@ -549,6 +549,7 @@ static unsigned long msm_vidc_calc_freq_ar50(struct msm_vidc_inst *inst,
 	u32 filled_len)
 {
 	u64 freq = 0, vpp_cycles = 0, vsp_cycles = 0;
+	u64 fw_cycles = 0, fw_vpp_cycles = 0;
 	u32 vpp_cycles_per_mb;
 	u32 mbs_per_second;
 	struct msm_vidc_core *core = NULL;
@@ -571,12 +572,17 @@ static unsigned long msm_vidc_calc_freq_ar50(struct msm_vidc_inst *inst,
 	 * between them.
 	 */
 
+	fw_cycles = fps * inst->core->resources.fw_cycles;
+	fw_vpp_cycles = fps * inst->core->resources.fw_vpp_cycles;
+
 	if (inst->session_type == MSM_VIDC_ENCODER) {
 		vpp_cycles_per_mb = inst->flags & VIDC_LOW_POWER ?
 			inst->clk_data.entry->low_power_cycles :
 			inst->clk_data.entry->vpp_cycles;
 
 		vpp_cycles = mbs_per_second * vpp_cycles_per_mb;
+		/* 21 / 20 is minimum overhead factor */
+		vpp_cycles += max(vpp_cycles / 20, fw_vpp_cycles);
 
 		vsp_cycles = mbs_per_second * inst->clk_data.entry->vsp_cycles;
 
@@ -584,6 +590,8 @@ static unsigned long msm_vidc_calc_freq_ar50(struct msm_vidc_inst *inst,
 		vsp_cycles += (inst->clk_data.bitrate * 10) / 7;
 	} else if (inst->session_type == MSM_VIDC_DECODER) {
 		vpp_cycles = mbs_per_second * inst->clk_data.entry->vpp_cycles;
+		/* 21 / 20 is minimum overhead factor */
+		vpp_cycles += max(vpp_cycles / 20, fw_vpp_cycles);
 
 		vsp_cycles = mbs_per_second * inst->clk_data.entry->vsp_cycles;
 		/* 10 / 7 is overhead factor */
@@ -595,6 +603,7 @@ static unsigned long msm_vidc_calc_freq_ar50(struct msm_vidc_inst *inst,
 	}
 
 	freq = max(vpp_cycles, vsp_cycles);
+	freq = max(freq, fw_cycles);
 
 	dprintk(VIDC_DBG, "Update DCVS Load\n");
 	allowed_clks_tbl = core->resources.allowed_clks_tbl;
@@ -622,6 +631,7 @@ static unsigned long msm_vidc_calc_freq_iris1(struct msm_vidc_inst *inst,
 	u32 filled_len)
 {
 	u64 vsp_cycles = 0, vpp_cycles = 0, fw_cycles = 0, freq = 0;
+	u64 fw_vpp_cycles = 0;
 	u32 vpp_cycles_per_mb;
 	u32 mbs_per_second;
 	struct msm_vidc_core *core = NULL;
@@ -645,15 +655,18 @@ static unsigned long msm_vidc_calc_freq_iris1(struct msm_vidc_inst *inst,
 	 * between them.
 	 */
 
+	fw_cycles = fps * inst->core->resources.fw_cycles;
+	fw_vpp_cycles = fps * inst->core->resources.fw_vpp_cycles;
+
 	if (inst->session_type == MSM_VIDC_ENCODER) {
 		vpp_cycles_per_mb = inst->flags & VIDC_LOW_POWER ?
 			inst->clk_data.entry->low_power_cycles :
 			inst->clk_data.entry->vpp_cycles;
 
-		vpp_cycles = mbs_per_second * vpp_cycles_per_mb;
-		/* 21 / 20 is overhead factor */
-		vpp_cycles = (vpp_cycles * 21)/
-				(inst->clk_data.work_route * 20);
+		vpp_cycles = mbs_per_second * vpp_cycles_per_mb /
+				inst->clk_data.work_route;
+		/* 21 / 20 is minimum overhead factor */
+		vpp_cycles += max(vpp_cycles / 20, fw_vpp_cycles);
 
 		vsp_cycles = mbs_per_second * inst->clk_data.entry->vsp_cycles;
 
@@ -667,20 +680,16 @@ static unsigned long msm_vidc_calc_freq_iris1(struct msm_vidc_inst *inst,
 		vsp_cycles += ((u64)inst->clk_data.bitrate * vsp_factor_num) /
 				vsp_factor_den;
 
-		fw_cycles = fps * inst->core->resources.fw_cycles;
-
 	} else if (inst->session_type == MSM_VIDC_DECODER) {
-		vpp_cycles = mbs_per_second * inst->clk_data.entry->vpp_cycles;
-		/* 21 / 20 is overhead factor */
-		vpp_cycles = (vpp_cycles * 21)/
-				(inst->clk_data.work_route * 20);
+		vpp_cycles = mbs_per_second * inst->clk_data.entry->vpp_cycles /
+				inst->clk_data.work_route;
+		/* 21 / 20 is minimum overhead factor */
+		vpp_cycles += max(vpp_cycles / 20, fw_vpp_cycles);
 
 		vsp_cycles = mbs_per_second * inst->clk_data.entry->vsp_cycles;
 
 		/* vsp perf is about 0.5 bits/cycle */
 		vsp_cycles += ((fps * filled_len * 8) * 10) / 5;
-
-		fw_cycles = fps * inst->core->resources.fw_cycles;
 
 	} else {
 		dprintk(VIDC_ERR, "Unknown session type = %s\n", __func__);
