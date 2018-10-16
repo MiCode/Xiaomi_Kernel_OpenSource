@@ -16,6 +16,7 @@
 #include <linux/uaccess.h>
 #include <media/cam_sync.h>
 #include <media/cam_defs.h>
+#include <media/cam_icp.h>
 #include "cam_sync_api.h"
 #include "cam_node.h"
 #include "cam_context.h"
@@ -123,8 +124,30 @@ static int __cam_icp_config_dev_in_ready(struct cam_context *ctx,
 	struct cam_config_dev_cmd *cmd)
 {
 	int rc;
+	size_t len;
+	uintptr_t packet_addr;
+	struct cam_packet *packet;
 
-	rc = cam_context_prepare_dev_to_hw(ctx, cmd);
+	rc = cam_mem_get_cpu_buf((int32_t) cmd->packet_handle,
+		&packet_addr, &len);
+	if (rc) {
+		CAM_ERR(CAM_ICP, "[%s][%d] Can not get packet address",
+			ctx->dev_name, ctx->ctx_id);
+		rc = -EINVAL;
+		return rc;
+	}
+
+	packet = (struct cam_packet *) ((uint8_t *)packet_addr +
+		(uint32_t)cmd->offset);
+
+	if (((packet->header.op_code & 0xff) ==
+		CAM_ICP_OPCODE_IPE_SETTINGS) ||
+		((packet->header.op_code & 0xff) ==
+		CAM_ICP_OPCODE_BPS_SETTINGS))
+		rc = cam_context_config_dev_to_hw(ctx, cmd);
+	else
+		rc = cam_context_prepare_dev_to_hw(ctx, cmd);
+
 	if (rc)
 		CAM_ERR(CAM_ICP, "Failed to prepare device");
 
