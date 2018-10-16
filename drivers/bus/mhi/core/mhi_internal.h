@@ -463,7 +463,8 @@ enum MHI_XFER_TYPE {
 	MHI_XFER_SKB,
 	MHI_XFER_SCLIST,
 	MHI_XFER_NOP, /* CPU offload channel, host does not accept transfer */
-	MHI_XFER_RSC_SKB, /* RSC type, accept skb from client */
+	MHI_XFER_DMA, /* receive dma address, already mapped by client */
+	MHI_XFER_RSC_DMA, /* RSC type, accept premapped buffer */
 };
 
 #define NR_OF_CMD_RINGS (1)
@@ -559,6 +560,7 @@ struct mhi_buf_info {
 	size_t len;
 	void *cb_buf;
 	bool used; /* indicate element is free to use */
+	bool pre_mapped; /* already pre-mapped by client */
 	enum dma_data_direction dir;
 };
 
@@ -703,7 +705,8 @@ int mhi_queue_sclist(struct mhi_device *mhi_dev, struct mhi_chan *mhi_chan,
 		  void *buf, size_t len, enum MHI_FLAGS mflags);
 int mhi_queue_nop(struct mhi_device *mhi_dev, struct mhi_chan *mhi_chan,
 		  void *buf, size_t len, enum MHI_FLAGS mflags);
-
+int mhi_queue_dma(struct mhi_device *mhi_dev, struct mhi_chan *mhi_chan,
+		  void *buf, size_t len, enum MHI_FLAGS mflags);
 
 /* register access methods */
 void mhi_db_brstmode(struct mhi_controller *mhi_cntrl, struct db_cfg *db_cfg,

@@ -977,7 +977,6 @@ static int of_parse_ch_cfg(struct mhi_controller *mhi_cntrl,
 			mhi_chan->gen_tre = mhi_gen_tre;
 			mhi_chan->queue_xfer = mhi_queue_buf;
 			break;
-		case MHI_XFER_RSC_SKB:
 		case MHI_XFER_SKB:
 			mhi_chan->queue_xfer = mhi_queue_skb;
 			break;
@@ -987,6 +986,10 @@ static int of_parse_ch_cfg(struct mhi_controller *mhi_cntrl,
 			break;
 		case MHI_XFER_NOP:
 			mhi_chan->queue_xfer = mhi_queue_nop;
+			break;
+		case MHI_XFER_DMA:
+		case MHI_XFER_RSC_DMA:
+			mhi_chan->queue_xfer = mhi_queue_dma;
 			break;
 		default:
 			goto error_chan_cfg;
