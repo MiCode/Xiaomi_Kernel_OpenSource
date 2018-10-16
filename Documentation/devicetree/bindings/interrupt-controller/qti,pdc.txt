@@ -27,10 +27,11 @@ Properties:
 	Usage: required
 	Value type: <string>
 	Definition: Should contain one of -
-		    "qti,pdc-sdm845",
-		    "qti,pdc-sdmmagpie",
-		    "qti,pdc-sm6150",
-	            "qti,pdc-sm8150",
+		    "qcom,pdc-sdm845",
+		    "qcom,pdc-sdmmagpie",
+		    "qcom,pdc-sm6150",
+	            "qcom,pdc-sm8150",
+		    "qcom,pdc-sdxprairie",
 
 - reg:
 	Usage: required
