@@ -677,7 +677,7 @@ static void ipa_gsb_cons_cb(void *priv, enum ipa_dp_evt_type evt,
 
 	skb = (struct sk_buff *)data;
 
-	while (skb->len) {
+	while (skb && skb->len) {
 		mux_hdr = (struct ipa_gsb_mux_hdr *)skb->data;
 		pkt_size = mux_hdr->pkt_size;
 		/* 4-byte padding */
