@@ -184,11 +184,13 @@ struct cam_isp_hw_eof_event_data {
  *
  * @error_type:            Error type for the error event
  * @timestamp:             Timestamp for the error event
- *
+ * @recovery_enabled:      Identifies if the context needs to recover & reapply
+ *                         this request
  */
 struct cam_isp_hw_error_event_data {
 	uint32_t             error_type;
 	uint64_t             timestamp;
+	bool                 recovery_enabled;
 };
 
 /* enum cam_isp_hw_mgr_command - Hardware manager command type */

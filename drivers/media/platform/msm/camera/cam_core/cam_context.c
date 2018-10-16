@@ -448,6 +448,7 @@ int cam_context_handle_start_dev(struct cam_context *ctx,
 	}
 
 	mutex_lock(&ctx->ctx_mutex);
+	ctx->last_flush_req = 0;
 	if (ctx->state_machine[ctx->state].ioctl_ops.start_dev)
 		rc = ctx->state_machine[ctx->state].ioctl_ops.start_dev(
 			ctx, cmd);
