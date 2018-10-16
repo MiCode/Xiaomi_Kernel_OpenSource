@@ -55,7 +55,43 @@ static int sdx50m_toggle_soft_reset(struct mdm_ctrl *mdm, bool atomic)
 	 * Allow PS hold assert to be detected
 	 */
 	if (!atomic)
-		usleep_range(80000,180000);
+		usleep_range(80000, 180000);
+	else
+		/*
+		 * The flow falls through this path as a part of the
+		 * panic handler, which has to executed atomically.
+		 */
+		mdelay(100);
+
+	esoc_mdm_log("Setting AP2MDM_SOFT_RESET = %d\n",
+				soft_reset_direction_de_assert);
+	gpio_direction_output(MDM_GPIO(mdm, AP2MDM_SOFT_RESET),
+			soft_reset_direction_de_assert);
+	return 0;
+}
+
+/* This function can be called from atomic context. */
+static int sdx55m_toggle_soft_reset(struct mdm_ctrl *mdm, bool atomic)
+{
+	int soft_reset_direction_assert = 0,
+	    soft_reset_direction_de_assert = 1;
+
+	if (mdm->soft_reset_inverted) {
+		soft_reset_direction_assert = 1;
+		soft_reset_direction_de_assert = 0;
+	}
+
+	esoc_mdm_log("RESET GPIO value (before doing a reset): %d\n",
+			gpio_get_value(MDM_GPIO(mdm, AP2MDM_SOFT_RESET)));
+	esoc_mdm_log("Setting AP2MDM_SOFT_RESET = %d\n",
+				soft_reset_direction_assert);
+	gpio_direction_output(MDM_GPIO(mdm, AP2MDM_SOFT_RESET),
+			soft_reset_direction_assert);
+	/*
+	 * Allow PS hold assert to be detected
+	 */
+	if (!atomic)
+		usleep_range(80000, 180000);
 	else
 		/*
 		 * The flow falls through this path as a part of the
@@ -260,6 +296,13 @@ struct mdm_pon_ops sdx50m_pon_ops = {
 	.soft_reset = sdx50m_toggle_soft_reset,
 	.poff_force = sdx50m_power_down,
 	.cold_reset = sdx50m_cold_reset,
+	.dt_init = mdm4x_pon_dt_init,
+	.setup = mdm4x_pon_setup,
+};
+
+struct mdm_pon_ops sdx55m_pon_ops = {
+	.pon = mdm4x_do_first_power_on,
+	.soft_reset = sdx55m_toggle_soft_reset,
 	.dt_init = mdm4x_pon_dt_init,
 	.setup = mdm4x_pon_setup,
 };
