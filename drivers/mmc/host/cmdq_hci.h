@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -231,7 +231,7 @@ static inline u32 cmdq_readl(struct cmdq_host *host, int reg)
 		return readl_relaxed(host->mmio + reg);
 }
 
-extern irqreturn_t cmdq_irq(struct mmc_host *mmc, int err);
+extern irqreturn_t cmdq_irq(struct mmc_host *mmc, int err, bool is_cmd_err);
 extern int cmdq_init(struct cmdq_host *cq_host, struct mmc_host *mmc,
 		     bool dma64);
 extern struct cmdq_host *cmdq_pltfm_init(struct platform_device *pdev);

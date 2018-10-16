@@ -3184,13 +3184,18 @@ static irqreturn_t sdhci_cmdq_irq(struct sdhci_host *host, u32 intmask)
 	int err = 0;
 	u32 mask = 0;
 	irqreturn_t ret;
+	bool is_cmd_err = false;
 
-	if (intmask & SDHCI_INT_CMD_MASK)
+	if (intmask & SDHCI_INT_CMD_MASK) {
 		err = sdhci_get_cmd_err(intmask);
-	else if (intmask & SDHCI_INT_DATA_MASK)
+		is_cmd_err = true;
+	} else if (intmask & SDHCI_INT_DATA_MASK) {
 		err = sdhci_get_data_err(intmask);
+		if (intmask & SDHCI_INT_DATA_TIMEOUT)
+			is_cmd_err = sdhci_card_busy(host->mmc);
+	}
 
-	ret = cmdq_irq(host->mmc, err);
+	ret = cmdq_irq(host->mmc, err, is_cmd_err);
 	if (err) {
 		/* Clear the error interrupts */
 		mask = intmask & SDHCI_INT_ERROR_MASK;
