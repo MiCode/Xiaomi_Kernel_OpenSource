@@ -75,8 +75,8 @@ static const struct vreg_config vreg_conf[] = {
 struct fpc1020_data {
 	struct device *dev;
 	struct pinctrl *fingerprint_pinctrl;
-	struct pinctrl_state **pinctrl_state;
-	struct regulator **vreg;
+	struct pinctrl_state *pinctrl_state[ARRAY_SIZE(pctl_names)];
+	struct regulator *vreg[ARRAY_SIZE(vreg_conf)];
 	struct wakeup_source ttw_wl;
 	struct mutex lock; /* To set/get exported values in sysfs */
 	int irq_gpio;
