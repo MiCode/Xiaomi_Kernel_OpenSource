@@ -2624,7 +2624,7 @@ static int _kgsl_iommu_cb_probe(struct kgsl_device *device,
 	}
 
 	if (ctx == NULL) {
-		dev_err(device->dev,
+		dev_info(device->dev,
 			"dt: Unused context label %s\n", node->name);
 		return 0;
 	}
