@@ -1307,7 +1307,7 @@ static void add_dirconn_tlmm(struct irq_data *d, irq_hw_number_t irq)
 		pctrl = gpiochip_get_data(gc);
 		if (pctrl->spi_cfg_regs) {
 			spi_cfg_reg = pctrl->spi_cfg_regs +
-					(dir_conn_data->hwirq / 32) * 4;
+					((dir_conn_data->hwirq - 32) / 32) * 4;
 			if (spi_cfg_reg < pctrl->spi_cfg_end) {
 				spin_lock_irqsave(&pctrl->lock, flags);
 				val = scm_io_read(spi_cfg_reg);
@@ -1315,7 +1315,8 @@ static void add_dirconn_tlmm(struct irq_data *d, irq_hw_number_t irq)
 				 * Clear the respective bit for edge type
 				 * interrupt
 				 */
-				val &= ~(1 << (dir_conn_data->hwirq % 32));
+				val &= ~(1 << ((dir_conn_data->hwirq - 32)
+									% 32));
 				WARN_ON(scm_io_write(spi_cfg_reg, val));
 				spin_unlock_irqrestore(&pctrl->lock, flags);
 			} else
@@ -1392,13 +1393,13 @@ static int msm_dirconn_irq_set_type(struct irq_data *d, unsigned int type)
 
 	if (pctrl->spi_cfg_regs && type != IRQ_TYPE_NONE) {
 		spi_cfg_reg = pctrl->spi_cfg_regs +
-				(parent_data->hwirq / 32) * 4;
+				((parent_data->hwirq - 32) / 32) * 4;
 		if (spi_cfg_reg < pctrl->spi_cfg_end) {
 			spin_lock_irqsave(&pctrl->lock, flags);
 			val = scm_io_read(spi_cfg_reg);
-			val &= ~(1 << (parent_data->hwirq % 32));
+			val &= ~(1 << ((parent_data->hwirq - 32) % 32));
 			if (config_val)
-				val |= (1 << (parent_data->hwirq % 32));
+				val |= (1 << ((parent_data->hwirq - 32)  % 32));
 			WARN_ON(scm_io_write(spi_cfg_reg, val));
 			spin_unlock_irqrestore(&pctrl->lock, flags);
 		} else
