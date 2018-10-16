@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -155,6 +155,7 @@ struct qpnp_oledb {
 	struct platform_device			*pdev;
 	struct device				*dev;
 	struct regmap				*regmap;
+	struct class				oledb_class;
 	struct regulator_desc			rdesc;
 	struct regulator_dev			*rdev;
 	struct qpnp_oledb_psm_ctl		psm_ctl;
@@ -185,6 +186,7 @@ struct qpnp_oledb {
 	bool					force_pd_control;
 	bool					handle_lab_sc_notification;
 	bool					lab_sc_detected;
+	bool					secure_mode;
 };
 
 static const u16 oledb_warmup_dly_ns[] = {6700, 13300, 26700, 53400};
@@ -279,6 +281,9 @@ static int qpnp_oledb_regulator_enable(struct regulator_dev *rdev)
 
 	struct qpnp_oledb *oledb  = rdev_get_drvdata(rdev);
 
+	if (oledb->secure_mode)
+		return 0;
+
 	if (oledb->lab_sc_detected == true) {
 		pr_info("Short circuit detected: Disabled OLEDB rail\n");
 		return 0;
@@ -342,6 +347,8 @@ static int qpnp_oledb_regulator_disable(struct regulator_dev *rdev)
 
 	struct qpnp_oledb *oledb  = rdev_get_drvdata(rdev);
 
+	if (oledb->secure_mode)
+		return 0;
 	/*
 	 * Disable ext-pin-ctl after display-supply is turned off. This is to
 	 * avoid glitches on the external pin.
@@ -416,7 +423,7 @@ static int qpnp_oledb_regulator_set_voltage(struct regulator_dev *rdev,
 
 	struct qpnp_oledb *oledb = rdev_get_drvdata(rdev);
 
-	if (oledb->swire_control)
+	if (oledb->swire_control || oledb->secure_mode)
 		return 0;
 
 	val = DIV_ROUND_UP(min_uV - OLEDB_VOUT_MIN_MV, OLEDB_VOUT_STEP_MV);
@@ -1260,6 +1267,9 @@ static int qpnp_labibb_notifier_cb(struct notifier_block *nb,
 	struct qpnp_oledb *oledb = container_of(nb, struct qpnp_oledb,
 								oledb_nb);
 
+	if (oledb->secure_mode)
+		return 0;
+
 	if (action == LAB_VREG_NOT_OK) {
 		/* short circuit detected. Disable OLEDB module */
 		val = 0;
@@ -1286,6 +1296,10 @@ static int qpnp_labibb_notifier_cb(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
+static struct  class_attribute oledb_attributes[] = {
+	[0] =  __ATTR(secure_mode, 0664, NULL, NULL),
+	__ATTR_NULL,
+};
 static int qpnp_oledb_regulator_probe(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -1345,6 +1359,17 @@ static int qpnp_oledb_regulator_probe(struct platform_device *pdev)
 		pr_err("Failed to register regulator rc=%d\n", rc);
 		goto out;
 	}
+
+	oledb->oledb_class.name = "amoled_bias";
+	oledb->oledb_class.owner = THIS_MODULE;
+	oledb->oledb_class.class_attrs = oledb_attributes;
+
+	rc = class_register(&oledb->oledb_class);
+	if (rc < 0) {
+		pr_err("Failed to register oledb class rc = %d\n", rc);
+		return rc;
+	}
+
 	pr_info("OLEDB registered successfully, ext_pin_en=%d mod_en=%d current_voltage=%d mV\n",
 			oledb->ext_pin_control, oledb->mod_enable,
 						oledb->current_voltage);
