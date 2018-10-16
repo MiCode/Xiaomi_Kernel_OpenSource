@@ -16,8 +16,7 @@
 
 #include <linux/sched.h>
 #include <linux/wait.h>
-
-#include <vservices/service.h>
+#include <linux/sched/signal.h>
 
 /* Older kernels don't have lockdep_assert_held_once(). */
 #ifndef lockdep_assert_held_once

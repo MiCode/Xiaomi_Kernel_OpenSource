@@ -590,10 +590,10 @@ __releases(&service->state_spinlock)
 	struct vs_service_device *__service = __state->service;		\
 	mutex_lock_nested(&__service->ready_lock,			\
 			__service->lock_subclass);			\
-	__ok = !ACCESS_ONCE(__state->released);				\
+	__ok = !READ_ONCE(__state->released);				\
 	if (__ok) {							\
 		_lock(__state);						\
-		__ok = !ACCESS_ONCE(__state->released);			\
+		__ok = !READ_ONCE(__state->released);			\
 		if (!__ok)						\
 			_unlock(__state);				\
 	}								\
