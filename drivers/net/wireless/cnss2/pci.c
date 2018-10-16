@@ -780,9 +780,8 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 	int ret = 0;
 	struct device *dev;
 	struct dma_iommu_mapping *mapping;
-	int atomic_ctx = 1;
-	int s1_bypass = 1;
-	int fast = 1;
+	int atomic_ctx = 1, s1_bypass = 1, fast = 1, cb_stall_disable = 1,
+		no_cfre = 1;
 
 	cnss_pr_dbg("Initializing SMMU\n");
 
@@ -814,6 +813,24 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 					    &fast);
 		if (ret) {
 			pr_err("Failed to set SMMU fast attribute, err = %d\n",
+			       ret);
+			goto release_mapping;
+		}
+
+		ret = iommu_domain_set_attr(mapping->domain,
+					    DOMAIN_ATTR_CB_STALL_DISABLE,
+					    &cb_stall_disable);
+		if (ret) {
+			pr_err("Failed to set SMMU cb_stall_disable attribute, err = %d\n",
+			       ret);
+			goto release_mapping;
+		}
+
+		ret = iommu_domain_set_attr(mapping->domain,
+					    DOMAIN_ATTR_NO_CFRE,
+					    &no_cfre);
+		if (ret) {
+			pr_err("Failed to set SMMU no_cfre attribute, err = %d\n",
 			       ret);
 			goto release_mapping;
 		}
@@ -1250,6 +1267,74 @@ int cnss_pm_request_resume(struct cnss_pci_data *pci_priv)
 
 	return pm_request_resume(&pci_dev->dev);
 }
+
+int cnss_pci_force_wake_request(struct device *dev)
+{
+	struct pci_dev *pci_dev = to_pci_dev(dev);
+	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
+	struct mhi_controller *mhi_ctrl;
+
+	if (!pci_priv)
+		return -ENODEV;
+
+	if (pci_priv->device_id != QCA6390_DEVICE_ID)
+		return 0;
+
+	mhi_ctrl = pci_priv->mhi_ctrl;
+	if (!mhi_ctrl)
+		return -EINVAL;
+
+	read_lock_bh(&mhi_ctrl->pm_lock);
+	mhi_ctrl->wake_get(mhi_ctrl, true);
+	read_unlock_bh(&mhi_ctrl->pm_lock);
+
+	return 0;
+}
+EXPORT_SYMBOL(cnss_pci_force_wake_request);
+
+int cnss_pci_is_device_awake(struct device *dev)
+{
+	struct pci_dev *pci_dev = to_pci_dev(dev);
+	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
+	struct mhi_controller *mhi_ctrl;
+
+	if (!pci_priv)
+		return -ENODEV;
+
+	if (pci_priv->device_id != QCA6390_DEVICE_ID)
+		return true;
+
+	mhi_ctrl = pci_priv->mhi_ctrl;
+	if (!mhi_ctrl)
+		return -EINVAL;
+
+	return mhi_ctrl->dev_state == MHI_STATE_M0 ? true : false;
+}
+EXPORT_SYMBOL(cnss_pci_is_device_awake);
+
+int cnss_pci_force_wake_release(struct device *dev)
+{
+	struct pci_dev *pci_dev = to_pci_dev(dev);
+	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
+	struct mhi_controller *mhi_ctrl;
+
+	if (!pci_priv)
+		return -ENODEV;
+
+	if (pci_priv->device_id != QCA6390_DEVICE_ID)
+		return 0;
+
+	mhi_ctrl = pci_priv->mhi_ctrl;
+	if (!mhi_ctrl)
+		return -EINVAL;
+
+	read_lock_bh(&mhi_ctrl->pm_lock);
+	mhi_ctrl->wake_put(mhi_ctrl, false);
+	read_unlock_bh(&mhi_ctrl->pm_lock);
+
+	return 0;
+}
+EXPORT_SYMBOL(cnss_pci_force_wake_release);
 
 int cnss_pci_alloc_fw_mem(struct cnss_pci_data *pci_priv)
 {
@@ -1863,6 +1948,11 @@ static void cnss_mhi_notify_status(struct mhi_controller *mhi_ctrl, void *priv,
 	plat_priv = pci_priv->plat_priv;
 
 	cnss_pr_dbg("MHI status cb is called with reason %d\n", reason);
+
+	if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) {
+		cnss_pr_dbg("Driver unload is in progress, ignore device error\n");
+		return;
+	}
 
 	if (pci_priv->driver_ops && pci_priv->driver_ops->update_status)
 		pci_priv->driver_ops->update_status(pci_priv->pci_dev,

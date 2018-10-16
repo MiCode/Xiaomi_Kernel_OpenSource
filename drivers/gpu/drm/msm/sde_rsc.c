@@ -33,20 +33,11 @@
 #define SDE_RSC_DRV_DBG_NAME		"sde_rsc_drv"
 #define SDE_RSC_WRAPPER_DBG_NAME	"sde_rsc_wrapper"
 
-/* worst case time to execute the one tcs vote(sleep/wake) - ~1ms */
-#define SINGLE_TCS_EXECUTION_TIME				1064000
+#define SINGLE_TCS_EXECUTION_TIME_V1	1064000
+#define SINGLE_TCS_EXECUTION_TIME_V2	850000
 
-/* this time is ~1ms - only wake tcs in any mode */
-#define RSC_BACKOFF_TIME_NS		 (SINGLE_TCS_EXECUTION_TIME + 100)
-
-/**
- * this time is ~1ms - only wake TCS in mode-0.
- * This time must be greater than backoff time.
- */
-#define RSC_MODE_THRESHOLD_TIME_IN_NS	(RSC_BACKOFF_TIME_NS + 2700)
-
-/* this time is ~2ms - sleep+ wake TCS in mode-1 */
-#define RSC_TIME_SLOT_0_NS		((SINGLE_TCS_EXECUTION_TIME * 2) + 100)
+#define RSC_MODE_INSTRUCTION_TIME	100
+#define RSC_MODE_THRESHOLD_OVERHEAD	2700
 
 #define DEFAULT_PANEL_FPS		60
 #define DEFAULT_PANEL_JITTER_NUMERATOR	2
@@ -338,9 +329,9 @@ static u32 sde_rsc_timer_calculate(struct sde_rsc_priv *rsc,
 	struct sde_rsc_cmd_config *cmd_config)
 {
 	const u32 cxo_period_ns = 52;
-	u64 rsc_backoff_time_ns = RSC_BACKOFF_TIME_NS;
-	u64 rsc_mode_threshold_time_ns = RSC_MODE_THRESHOLD_TIME_IN_NS;
-	u64 rsc_time_slot_0_ns = RSC_TIME_SLOT_0_NS;
+	u64 rsc_backoff_time_ns = rsc->backoff_time_ns;
+	u64 rsc_mode_threshold_time_ns = rsc->mode_threshold_time_ns;
+	u64 rsc_time_slot_0_ns = rsc->time_slot_0_ns;
 	u64 rsc_time_slot_1_ns;
 	const u64 pdc_jitter = 20; /* 20% more */
 
@@ -1364,6 +1355,20 @@ static int sde_rsc_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, rsc);
 	of_property_read_u32(pdev->dev.of_node, "qcom,sde-rsc-version",
 								&rsc->version);
+
+	if (rsc->version == SDE_RSC_REV_2)
+		rsc->single_tcs_execution_time = SINGLE_TCS_EXECUTION_TIME_V2;
+	else
+		rsc->single_tcs_execution_time = SINGLE_TCS_EXECUTION_TIME_V1;
+
+	rsc->backoff_time_ns = rsc->single_tcs_execution_time
+					+ RSC_MODE_INSTRUCTION_TIME;
+
+	rsc->mode_threshold_time_ns = rsc->backoff_time_ns
+					+ RSC_MODE_THRESHOLD_OVERHEAD;
+
+	rsc->time_slot_0_ns = (rsc->single_tcs_execution_time * 2)
+					+ RSC_MODE_INSTRUCTION_TIME;
 
 	ret = sde_power_resource_init(pdev, &rsc->phandle);
 	if (ret) {

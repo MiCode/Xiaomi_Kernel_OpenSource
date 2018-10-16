@@ -3983,7 +3983,7 @@ static int __init diagchar_init(void)
 	driver->mask_check = 0;
 	driver->in_busy_pktdata = 0;
 	driver->in_busy_dcipktdata = 0;
-	driver->rsp_buf_ctxt = SET_BUF_CTXT(APPS_DATA, TYPE_CMD, 1);
+	driver->rsp_buf_ctxt = SET_BUF_CTXT(APPS_DATA, TYPE_CMD, TYPE_CMD);
 	hdlc_data.ctxt = SET_BUF_CTXT(APPS_DATA, TYPE_DATA, 1);
 	hdlc_data.len = 0;
 	non_hdlc_data.ctxt = SET_BUF_CTXT(APPS_DATA, TYPE_DATA, 1);

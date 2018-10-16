@@ -1706,6 +1706,7 @@ exit_unregister_drv:
 		pr_err("can't unregister rpmsg drv\n", ret);
 exit_destroy_channel:
 	// empty channel leaves free slot for next time
+	mutex_lock(&ch->lock);
 	memset(ch->name, 0, SPCOM_CHANNEL_NAME_SIZE);
 	mutex_unlock(&ch->lock);
 	return -EFAULT;

@@ -374,7 +374,7 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 
 	/* Populate connection params */
 	conn_params->max_pkt_size =
-		(cdev->gadget->speed == USB_SPEED_SUPER) ?
+		(cdev->gadget->speed >= USB_SPEED_SUPER) ?
 		IPA_USB_SUPER_SPEED_1024B : IPA_USB_HIGH_SPEED_512B;
 	conn_params->ipa_to_usb_xferrscidx =
 			d_port->in_xfer_rsc_index;
@@ -938,7 +938,7 @@ static int gsi_ctrl_dev_open(struct inode *ip, struct file *fp)
 	struct gsi_inst_status *inst_cur;
 
 	if (!c_port) {
-		pr_err_ratelimited("%s: gsi ctrl port %p", __func__, c_port);
+		pr_err_ratelimited("%s: gsi ctrl port %pK", __func__, c_port);
 		return -ENODEV;
 	}
 
@@ -1027,7 +1027,7 @@ gsi_ctrl_dev_read(struct file *fp, char __user *buf, size_t count, loff_t *pos)
 	gsi = inst_cur->opts->gsi;
 	c_port = &inst_cur->opts->gsi->c_port;
 	if (!c_port) {
-		log_event_err("%s: gsi ctrl port %p", __func__, c_port);
+		log_event_err("%s: gsi ctrl port %pK", __func__, c_port);
 		return -ENODEV;
 	}
 
@@ -1116,7 +1116,7 @@ static ssize_t gsi_ctrl_dev_write(struct file *fp, const char __user *buf,
 	req = c_port->notify_req;
 
 	if (!c_port || !req || !req->buf) {
-		log_event_err("%s: c_port %p req %p req->buf %p",
+		log_event_err("%s: c_port %pK req %p req->buf %p",
 			__func__, c_port, req, req ? req->buf : req);
 		return -ENODEV;
 	}
@@ -1195,7 +1195,7 @@ static long gsi_ctrl_dev_ioctl(struct file *fp, unsigned int cmd,
 	c_port = &gsi->c_port;
 
 	if (!c_port) {
-		log_event_err("%s: gsi ctrl port %p", __func__, c_port);
+		log_event_err("%s: gsi ctrl port %pK", __func__, c_port);
 		return -ENODEV;
 	}
 
@@ -1366,7 +1366,7 @@ static unsigned int gsi_ctrl_dev_poll(struct file *fp, poll_table *wait)
 	gsi = inst_cur->opts->gsi;
 	c_port = &inst_cur->opts->gsi->c_port;
 	if (!c_port) {
-		log_event_err("%s: gsi ctrl port %p", __func__, c_port);
+		log_event_err("%s: gsi ctrl port %pK", __func__, c_port);
 		return -ENODEV;
 	}
 
@@ -1516,7 +1516,7 @@ void gsi_rndis_flow_ctrl_enable(bool enable, struct rndis_params *param)
 	struct gsi_data_port *d_port;
 
 	if (!gsi) {
-		pr_err("%s: gsi prot ctx is %p", __func__, gsi);
+		pr_err("%s: gsi prot ctx is %pK", __func__, gsi);
 		return;
 	}
 
@@ -1739,7 +1739,7 @@ gsi_ctrl_set_ntb_cmd_complete(struct usb_ep *ep, struct usb_request *req)
 	struct f_gsi *gsi = req->context;
 	struct gsi_ntb_info *ntb = NULL;
 
-	log_event_dbg("dev:%p", gsi);
+	log_event_dbg("dev:%pK", gsi);
 
 	req->context = NULL;
 	if (req->status || req->actual != req->length) {

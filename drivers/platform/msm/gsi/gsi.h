@@ -219,6 +219,8 @@ struct gsi_ctx {
 	u32 intcntrlr_mem_size;
 	irq_handler_t intcntrlr_gsi_isr;
 	irq_handler_t intcntrlr_client_isr;
+	u32 chan_ieob_mask;
+	u32 ieob_mask_miss_match_cnt;
 };
 
 enum gsi_re_type {

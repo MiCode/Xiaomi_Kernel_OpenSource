@@ -18,7 +18,7 @@
 #include "sm6150-external-codec.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SM6150 External Audio Codec IDP";
+	model = "Qualcomm Technologies, Inc. SM6150 PM6150 External Audio Codec IDP";
 	compatible = "qcom,sm6150-idp", "qcom,sm6150", "qcom,idp";
 	qcom,board-id = <34 1>;
 };

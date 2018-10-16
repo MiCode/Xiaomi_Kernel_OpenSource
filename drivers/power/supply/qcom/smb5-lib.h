@@ -64,6 +64,7 @@ enum print_reason {
 #define FORCE_RECHARGE_VOTER		"FORCE_RECHARGE_VOTER"
 #define LPD_VOTER			"LPD_VOTER"
 #define FCC_STEPPER_VOTER		"FCC_STEPPER_VOTER"
+#define SW_THERM_REGULATION_VOTER	"SW_THERM_REGULATION_VOTER"
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -92,6 +93,7 @@ enum qc2_non_comp_voltage {
 
 enum {
 	BOOST_BACK_WA			= BIT(0),
+	SW_THERM_REGULATION_WA		= BIT(1),
 };
 
 enum smb_irq_index {
@@ -204,12 +206,25 @@ enum lpd_reason {
 	LPD_FLOATING_CABLE,
 };
 
+/* Following states are applicable only for floating cable during LPD */
 enum lpd_stage {
+	/* initial stage */
 	LPD_STAGE_NONE,
+	/* started and ongoing */
 	LPD_STAGE_FLOAT,
-	LPD_STAGE_ATTACHED,
-	LPD_STAGE_DETACHED,
+	/* cancel if started,  or don't start */
+	LPD_STAGE_FLOAT_CANCEL,
+	/* confirmed and mitigation measures taken for 60 s */
 	LPD_STAGE_COMMIT,
+};
+
+enum thermal_status_levels {
+	TEMP_SHUT_DOWN = 0,
+	TEMP_SHUT_DOWN_SMB,
+	TEMP_ALERT_LEVEL,
+	TEMP_ABOVE_RANGE,
+	TEMP_WITHIN_RANGE,
+	TEMP_BELOW_RANGE,
 };
 
 /* EXTCON_USB and EXTCON_USB_HOST are mutually exclusive */
@@ -279,6 +294,9 @@ struct smb_iio {
 	struct iio_channel	*connector_temp_chan;
 	struct iio_channel	*sbux_chan;
 	struct iio_channel	*vph_v_chan;
+	struct iio_channel	*die_temp_chan;
+	struct iio_channel	*skin_temp_chan;
+	struct iio_channel	*smb_temp_chan;
 };
 
 struct smb_charger {
@@ -298,7 +316,7 @@ struct smb_charger {
 	bool			pd_not_supported;
 
 	/* locks */
-	struct mutex		lock;
+	struct mutex		smb_lock;
 	struct mutex		ps_change_lock;
 
 	/* power supplies */
@@ -332,6 +350,8 @@ struct smb_charger {
 	struct votable		*chg_disable_votable;
 	struct votable		*pl_enable_votable_indirect;
 	struct votable		*usb_irq_enable_votable;
+	struct votable		*cp_disable_votable;
+	struct votable		*wdog_snarl_irq_en_votable;
 
 	/* work */
 	struct work_struct	bms_update_work;
@@ -345,6 +365,7 @@ struct smb_charger {
 	struct delayed_work	bb_removal_work;
 	struct delayed_work	lpd_ra_open_work;
 	struct delayed_work	lpd_detach_work;
+	struct delayed_work	thermal_regulation_work;
 
 	struct alarm		lpd_recheck_timer;
 
@@ -401,6 +422,11 @@ struct smb_charger {
 	enum lpd_stage		lpd_stage;
 	enum lpd_reason		lpd_reason;
 	bool			fcc_stepper_enable;
+	int			die_temp;
+	int			smb_temp;
+	int			skin_temp;
+	int			connector_temp;
+	int			thermal_status;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -479,6 +505,7 @@ irqreturn_t typec_attach_detach_irq_handler(int irq, void *data);
 irqreturn_t dc_plugin_irq_handler(int irq, void *data);
 irqreturn_t high_duty_cycle_irq_handler(int irq, void *data);
 irqreturn_t switcher_power_ok_irq_handler(int irq, void *data);
+irqreturn_t wdog_snarl_irq_handler(int irq, void *data);
 irqreturn_t wdog_bark_irq_handler(int irq, void *data);
 irqreturn_t typec_or_rid_detection_change_irq_handler(int irq, void *data);
 
@@ -599,10 +626,15 @@ int smblib_set_prop_pr_swap_in_progress(struct smb_charger *chg,
 int smblib_get_prop_from_bms(struct smb_charger *chg,
 				enum power_supply_property psp,
 				union power_supply_propval *val);
+int smblib_get_iio_channel(struct smb_charger *chg, const char *propname,
+					struct iio_channel **chan);
+int smblib_read_iio_channel(struct smb_charger *chg, struct iio_channel *chan,
+							int div, int *data);
 int smblib_configure_hvdcp_apsd(struct smb_charger *chg, bool enable);
 int smblib_icl_override(struct smb_charger *chg, bool override);
 enum alarmtimer_restart smblib_lpd_recheck_timer(struct alarm *alarm,
 				ktime_t time);
+int smblib_toggle_smb_en(struct smb_charger *chg, int toggle);
 
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);

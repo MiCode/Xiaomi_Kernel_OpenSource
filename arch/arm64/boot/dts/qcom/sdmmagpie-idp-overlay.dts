@@ -18,7 +18,7 @@
 #include "sdmmagpie-idp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDMMAGPIE IDP";
+	model = "IDP";
 	compatible = "qcom,sdmmagpie-idp", "qcom,sdmmagpie", "qcom,idp";
 	qcom,msm-id = <365 0x0>;
 	qcom,board-id = <34 0>;

@@ -271,6 +271,7 @@ struct sde_encoder_irq {
  * @enc_spinlock:	Virtual-Encoder-Wide Spin Lock for IRQ purposes
  * @enable_state:	Enable state tracking
  * @vblank_refcount:	Reference count of vblank request
+ * @wbirq_refcount:	Reference count of wb irq request
  * @vsync_cnt:		Vsync count for the physical encoder
  * @underrun_cnt:	Underrun count for the physical encoder
  * @pending_kickoff_cnt:	Atomic counter tracking the number of kickoffs
@@ -315,6 +316,7 @@ struct sde_encoder_phys {
 	enum sde_enc_enable_state enable_state;
 	struct mutex *vblank_ctl_lock;
 	atomic_t vblank_refcount;
+	atomic_t wbirq_refcount;
 	atomic_t vsync_cnt;
 	atomic_t underrun_cnt;
 	atomic_t pending_ctlstart_cnt;
@@ -379,6 +381,8 @@ struct sde_encoder_phys_cmd_autorefresh {
  * @rd_ptr_timestamp: last rd_ptr_irq timestamp
  * @pending_vblank_cnt: Atomic counter tracking pending wait for VBLANK
  * @pending_vblank_wq: Wait queue for blocking until VBLANK received
+ * @ctl_start_threshold: A threshold in microseconds allows command mode
+ *   engine to trigger the retire fence without waiting for rd_ptr.
  */
 struct sde_encoder_phys_cmd {
 	struct sde_encoder_phys base;
@@ -390,6 +394,7 @@ struct sde_encoder_phys_cmd {
 	ktime_t rd_ptr_timestamp;
 	atomic_t pending_vblank_cnt;
 	wait_queue_head_t pending_vblank_wq;
+	u32 ctl_start_threshold;
 };
 
 /**
@@ -651,17 +656,23 @@ void sde_encoder_helper_update_intf_cfg(
 static inline bool _sde_encoder_phys_is_dual_ctl(
 		struct sde_encoder_phys *phys_enc)
 {
+	struct sde_kms *sde_kms;
 	enum sde_rm_topology_name topology;
 
-	if (!phys_enc)
+	if (!phys_enc) {
+		pr_err("invalid phys_enc\n");
 		return false;
+	}
+
+	sde_kms = phys_enc->sde_kms;
+	if (!sde_kms) {
+		pr_err("invalid kms\n");
+		return false;
+	}
 
 	topology = sde_connector_get_topology_name(phys_enc->connector);
-	if ((topology == SDE_RM_TOPOLOGY_DUALPIPE_DSC) ||
-		(topology == SDE_RM_TOPOLOGY_DUALPIPE))
-		return true;
 
-	return false;
+	return sde_rm_topology_is_dual_ctl(&sde_kms->rm, topology);
 }
 
 /**
@@ -674,8 +685,10 @@ static inline bool _sde_encoder_phys_is_ppsplit(
 {
 	enum sde_rm_topology_name topology;
 
-	if (!phys_enc)
+	if (!phys_enc) {
+		pr_err("invalid phys_enc\n");
 		return false;
+	}
 
 	topology = sde_connector_get_topology_name(phys_enc->connector);
 	if (topology == SDE_RM_TOPOLOGY_PPSPLIT)
@@ -690,9 +703,16 @@ static inline bool sde_encoder_phys_needs_single_flush(
 	if (!phys_enc)
 		return false;
 
-	return phys_enc->cont_splash_enabled ?
-			phys_enc->cont_splash_single_flush :
-			(_sde_encoder_phys_is_ppsplit(phys_enc) ||
-				_sde_encoder_phys_is_dual_ctl(phys_enc));
+	return (_sde_encoder_phys_is_ppsplit(phys_enc) ||
+				!_sde_encoder_phys_is_dual_ctl(phys_enc));
 }
+
+/**
+ * sde_encoder_helper_phys_disable - helper function to disable virt encoder
+ * @phys_enc: Pointer to physical encoder structure
+ * @wb_enc: Pointer to writeback encoder structure
+ */
+void sde_encoder_helper_phys_disable(struct sde_encoder_phys *phys_enc,
+		struct sde_encoder_phys_wb *wb_enc);
+
 #endif /* __sde_encoder_phys_H__ */

@@ -2464,7 +2464,7 @@ static int __arm_iommu_attach_device(struct device *dev,
 {
 	int err;
 
-	err = iommu_attach_device(mapping->domain, dev);
+	err = iommu_attach_group(mapping->domain, dev->iommu_group);
 	if (err)
 		return err;
 
@@ -2672,6 +2672,7 @@ void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
 #endif
 	dev->archdata.dma_ops_setup = true;
 }
+EXPORT_SYMBOL(arch_setup_dma_ops);
 
 void arch_teardown_dma_ops(struct device *dev)
 {

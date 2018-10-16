@@ -68,7 +68,7 @@ static int npu_notify_dsp(struct npu_device *npu_dev, bool pwr_up);
  */
 int fw_init(struct npu_device *npu_dev)
 {
-	uint32_t reg_val = 0;
+	uint32_t reg_val;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	int ret = 0;
 	mutex_lock(&host_ctx->lock);
@@ -100,13 +100,16 @@ int fw_init(struct npu_device *npu_dev)
 	REGW(npu_dev, REG_NPU_FW_CTRL_STATUS, 0x0);
 	REGW(npu_dev, REG_NPU_HOST_CTRL_VALUE, 0x0);
 	REGW(npu_dev, REG_FW_TO_HOST_EVENT, 0x0);
-	if (host_ctx->fw_dbg_mode & FW_DBG_MODE_PAUSE) {
-		pr_debug("fw_dbg_mode %x\n", host_ctx->fw_dbg_mode);
-		REGW(npu_dev, REG_NPU_HOST_CTRL_STATUS,
-			HOST_CTRL_STATUS_FW_PAUSE_VAL);
-	} else {
-		REGW(npu_dev, REG_NPU_HOST_CTRL_STATUS, 0x0);
-	}
+
+	pr_debug("fw_dbg_mode %x\n", host_ctx->fw_dbg_mode);
+	reg_val = 0;
+	if (host_ctx->fw_dbg_mode & FW_DBG_MODE_PAUSE)
+		reg_val |= HOST_CTRL_STATUS_FW_PAUSE_VAL;
+
+	if (host_ctx->fw_dbg_mode & FW_DBG_DISABLE_WDOG)
+		reg_val |= HOST_CTRL_STATUS_DISABLE_WDOG_VAL;
+
+	REGW(npu_dev, REG_NPU_HOST_CTRL_STATUS, reg_val);
 	/* Read back to flush all registers for fw to read */
 	REGR(npu_dev, REG_NPU_HOST_CTRL_STATUS);
 
@@ -150,6 +153,7 @@ int fw_init(struct npu_device *npu_dev)
 	host_ctx->fw_state = FW_ENABLED;
 	host_ctx->fw_error = false;
 	host_ctx->fw_ref_cnt++;
+	reinit_completion(&host_ctx->fw_deinit_done);
 	mutex_unlock(&host_ctx->lock);
 	pr_debug("firmware init complete\n");
 
@@ -230,12 +234,21 @@ void fw_deinit(struct npu_device *npu_dev, bool ssr)
 		}
 	}
 
-	npu_notify_dsp(npu_dev, false);
-
 	npu_disable_post_pil_clocks(npu_dev);
 	npu_disable_sys_cache(npu_dev);
 	subsystem_put_local(host_ctx->subsystem_handle);
 	host_ctx->fw_state = FW_DISABLED;
+
+	/*
+	 * if it's not in ssr mode, notify dsp before power off
+	 * otherwise delay 500 ms to make sure dsp has finished
+	 * its own ssr handling.
+	 */
+	if (!ssr)
+		npu_notify_dsp(npu_dev, false);
+	else
+		msleep(500);
+
 	npu_disable_core_power(npu_dev);
 
 	if (ssr) {
@@ -247,6 +260,7 @@ void fw_deinit(struct npu_device *npu_dev, bool ssr)
 		}
 	}
 
+	complete(&host_ctx->fw_deinit_done);
 	mutex_unlock(&host_ctx->lock);
 	pr_debug("firmware deinit complete\n");
 	return;
@@ -259,6 +273,7 @@ int npu_host_init(struct npu_device *npu_dev)
 
 	memset(host_ctx, 0, sizeof(*host_ctx));
 	init_completion(&host_ctx->loopback_done);
+	init_completion(&host_ctx->fw_deinit_done);
 	mutex_init(&host_ctx->lock);
 	atomic_set(&host_ctx->ipc_trans_id, 1);
 
@@ -780,6 +795,18 @@ int32_t npu_host_map_buf(struct npu_client *client,
 int32_t npu_host_unmap_buf(struct npu_client *client,
 			struct msm_npu_unmap_buf_ioctl *unmap_ioctl)
 {
+	struct npu_device *npu_dev = client->npu_dev;
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+
+	/*
+	 * Once SSR occurs, all buffers only can be unmapped until
+	 * fw is disabled
+	 */
+	if (host_ctx->fw_error && (host_ctx->fw_state == FW_ENABLED) &&
+		!wait_for_completion_interruptible_timeout(
+		&host_ctx->fw_deinit_done, NW_CMD_TIMEOUT))
+		pr_warn("npu: wait for fw_deinit_done time out\n");
+
 	npu_mem_unmap(client, unmap_ioctl->buf_ion_hdl,
 		unmap_ioctl->npu_phys_addr);
 	return 0;

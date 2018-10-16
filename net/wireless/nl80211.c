@@ -490,7 +490,8 @@ nl80211_coalesce_policy[NUM_NL80211_ATTR_COALESCE_RULE] = {
 /* policy for GTK rekey offload attributes */
 static const struct nla_policy
 nl80211_rekey_policy[NUM_NL80211_REKEY_DATA] = {
-	[NL80211_REKEY_DATA_KEK] = { .len = NL80211_KEK_LEN },
+	[NL80211_REKEY_DATA_KEK] = { .type = NLA_BINARY,
+				     .len = FILS_MAX_KEK_LEN },
 	[NL80211_REKEY_DATA_KCK] = { .len = NL80211_KCK_LEN },
 	[NL80211_REKEY_DATA_REPLAY_CTR] = { .len = NL80211_REPLAY_CTR_LEN },
 };
@@ -9158,6 +9159,45 @@ static int nl80211_update_connect_params(struct sk_buff *skb,
 		changed |= UPDATE_ASSOC_IES;
 	}
 
+	if (wiphy_ext_feature_isset(&rdev->wiphy,
+				    NL80211_EXT_FEATURE_FILS_SK_OFFLOAD) &&
+	    info->attrs[NL80211_ATTR_FILS_ERP_USERNAME] &&
+	    info->attrs[NL80211_ATTR_FILS_ERP_REALM] &&
+	    info->attrs[NL80211_ATTR_FILS_ERP_NEXT_SEQ_NUM] &&
+	    info->attrs[NL80211_ATTR_FILS_ERP_RRK]) {
+		connect.fils_erp_username =
+			nla_data(info->attrs[NL80211_ATTR_FILS_ERP_USERNAME]);
+		connect.fils_erp_username_len =
+			nla_len(info->attrs[NL80211_ATTR_FILS_ERP_USERNAME]);
+		connect.fils_erp_realm =
+			nla_data(info->attrs[NL80211_ATTR_FILS_ERP_REALM]);
+		connect.fils_erp_realm_len =
+			nla_len(info->attrs[NL80211_ATTR_FILS_ERP_REALM]);
+		connect.fils_erp_next_seq_num =
+			nla_get_u16(
+			   info->attrs[NL80211_ATTR_FILS_ERP_NEXT_SEQ_NUM]);
+		connect.fils_erp_rrk =
+			nla_data(info->attrs[NL80211_ATTR_FILS_ERP_RRK]);
+		connect.fils_erp_rrk_len =
+			nla_len(info->attrs[NL80211_ATTR_FILS_ERP_RRK]);
+		changed |= UPDATE_FILS_ERP_INFO;
+	} else if (info->attrs[NL80211_ATTR_FILS_ERP_USERNAME] ||
+		   info->attrs[NL80211_ATTR_FILS_ERP_REALM] ||
+		   info->attrs[NL80211_ATTR_FILS_ERP_NEXT_SEQ_NUM] ||
+		   info->attrs[NL80211_ATTR_FILS_ERP_RRK]) {
+		return -EINVAL;
+	}
+
+	if (info->attrs[NL80211_ATTR_AUTH_TYPE]) {
+		u32 auth_type =
+			nla_get_u32(info->attrs[NL80211_ATTR_AUTH_TYPE]);
+		if (!nl80211_valid_auth_type(rdev, auth_type,
+					     NL80211_CMD_CONNECT))
+			return -EINVAL;
+		connect.auth_type = auth_type;
+		changed |= UPDATE_AUTH_TYPE;
+	}
+
 	wdev_lock(dev->ieee80211_ptr);
 	if (!wdev->current_bss)
 		ret = -ENOLINK;
@@ -10974,15 +11014,27 @@ static int nl80211_set_rekey_data(struct sk_buff *skb, struct genl_info *info)
 	if (!tb[NL80211_REKEY_DATA_REPLAY_CTR] || !tb[NL80211_REKEY_DATA_KEK] ||
 	    !tb[NL80211_REKEY_DATA_KCK])
 		return -EINVAL;
+	if (!tb[NL80211_REKEY_DATA_KEK] || !tb[NL80211_REKEY_DATA_REPLAY_CTR] ||
+	    (!wiphy_ext_feature_isset(&rdev->wiphy,
+				      NL80211_EXT_FEATURE_FILS_SK_OFFLOAD) &&
+	     !wiphy_ext_feature_isset(&rdev->wiphy,
+				      NL80211_EXT_FEATURE_FILS_STA) &&
+	     !tb[NL80211_REKEY_DATA_KCK]))
+		return -EINVAL;
+
 	if (nla_len(tb[NL80211_REKEY_DATA_REPLAY_CTR]) != NL80211_REPLAY_CTR_LEN)
 		return -ERANGE;
-	if (nla_len(tb[NL80211_REKEY_DATA_KEK]) != NL80211_KEK_LEN)
+	if (nla_len(tb[NL80211_REKEY_DATA_KEK]) < NL80211_KEK_LEN)
 		return -ERANGE;
-	if (nla_len(tb[NL80211_REKEY_DATA_KCK]) != NL80211_KCK_LEN)
+	if (tb[NL80211_REKEY_DATA_KCK] &&
+	    nla_len(tb[NL80211_REKEY_DATA_KCK]) != NL80211_KCK_LEN)
 		return -ERANGE;
 
+	memset(&rekey_data, 0, sizeof(rekey_data));
 	rekey_data.kek = nla_data(tb[NL80211_REKEY_DATA_KEK]);
-	rekey_data.kck = nla_data(tb[NL80211_REKEY_DATA_KCK]);
+	rekey_data.kek_len = nla_len(tb[NL80211_REKEY_DATA_KEK]);
+	if (tb[NL80211_REKEY_DATA_KCK])
+		rekey_data.kck = nla_data(tb[NL80211_REKEY_DATA_KCK]);
 	rekey_data.replay_ctr = nla_data(tb[NL80211_REKEY_DATA_REPLAY_CTR]);
 
 	wdev_lock(wdev);

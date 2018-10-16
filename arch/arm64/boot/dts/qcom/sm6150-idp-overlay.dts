@@ -20,7 +20,7 @@
 #include "sm6150-audio-overlay.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SM6150 IDP";
+	model = "IDP";
 	compatible = "qcom,sm6150-idp", "qcom,sm6150", "qcom,idp";
 	qcom,msm-id = <355 0x0>;
 	qcom,board-id = <34 0>;

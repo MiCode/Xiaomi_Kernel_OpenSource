@@ -299,6 +299,8 @@ static struct clk_rcg2 gcc_cpuss_ahb_clk_src = {
 };
 
 static const struct freq_tbl ftbl_gcc_emac_ptp_clk_src[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(50000000, P_GPLL0_OUT_AUX2, 6, 0, 0),
 	F(75000000, P_GPLL0_OUT_AUX2, 4, 0, 0),
 	F(125000000, P_GPLL7_OUT_MAIN, 4, 0, 0),
 	F(250000000, P_GPLL7_OUT_MAIN, 2, 0, 0),
@@ -325,12 +327,24 @@ static struct clk_rcg2 gcc_emac_ptp_clk_src = {
 	},
 };
 
+static const struct freq_tbl ftbl_gcc_emac_rgmii_clk_src[] = {
+	F(2500000, P_BI_TCXO, 1, 25, 192),
+	F(5000000, P_BI_TCXO, 1, 25, 96),
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(25000000, P_GPLL0_OUT_AUX2, 12, 0, 0),
+	F(50000000, P_GPLL0_OUT_AUX2, 6, 0, 0),
+	F(75000000, P_GPLL0_OUT_AUX2, 4, 0, 0),
+	F(125000000, P_GPLL7_OUT_MAIN, 4, 0, 0),
+	F(250000000, P_GPLL7_OUT_MAIN, 2, 0, 0),
+	{ }
+};
+
 static struct clk_rcg2 gcc_emac_rgmii_clk_src = {
 	.cmd_rcgr = 0x601c,
 	.mnd_width = 8,
 	.hid_width = 5,
 	.parent_map = gcc_parent_map_6,
-	.freq_tbl = ftbl_gcc_emac_ptp_clk_src,
+	.freq_tbl = ftbl_gcc_emac_rgmii_clk_src,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_emac_rgmii_clk_src",
 		.parent_names = gcc_parent_names_6,
@@ -1088,6 +1102,7 @@ static struct clk_rcg2 gcc_usb30_prim_master_clk_src = {
 };
 
 static const struct freq_tbl ftbl_gcc_usb30_prim_mock_utmi_clk_src[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(20000000, P_GPLL0_OUT_AUX2, 15, 0, 0),
 	F(40000000, P_GPLL0_OUT_AUX2, 7.5, 0, 0),
 	F(60000000, P_GPLL0_OUT_MAIN, 10, 0, 0),
@@ -2720,6 +2735,7 @@ static struct clk_branch gcc_ufs_phy_phy_aux_hw_ctl_clk = {
 };
 
 static struct clk_branch gcc_ufs_phy_rx_symbol_0_clk = {
+	.halt_reg = 0x7701c,
 	.halt_check = BRANCH_HALT_SKIP,
 	.clkr = {
 		.enable_reg = 0x7701c,
@@ -2732,6 +2748,7 @@ static struct clk_branch gcc_ufs_phy_rx_symbol_0_clk = {
 };
 
 static struct clk_branch gcc_ufs_phy_tx_symbol_0_clk = {
+	.halt_reg = 0x77018,
 	.halt_check = BRANCH_HALT_SKIP,
 	.clkr = {
 		.enable_reg = 0x77018,
@@ -3164,6 +3181,19 @@ static struct clk_branch gcc_rx1_usb2_clkref_clk = {
 	},
 };
 
+static struct clk_branch gcc_rx3_usb2_clkref_clk = {
+	.halt_reg = 0x8c038,
+	.halt_check = BRANCH_HALT_VOTED,
+	.clkr = {
+		.enable_reg = 0x8c038,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_rx3_usb2_clkref_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_usb2_prim_clkref_clk = {
 	.halt_reg = 0x8c028,
 	.halt_check = BRANCH_HALT_VOTED,
@@ -3407,6 +3437,7 @@ static struct clk_regmap *gcc_sm6150_clocks[] = {
 	[GPLL7_OUT_MAIN] = &gpll7_out_main.clkr,
 	[GPLL8_OUT_MAIN] = &gpll8_out_main.clkr,
 	[GCC_RX1_USB2_CLKREF_CLK] = &gcc_rx1_usb2_clkref_clk.clkr,
+	[GCC_RX3_USB2_CLKREF_CLK] = &gcc_rx3_usb2_clkref_clk.clkr,
 	[GCC_USB2_PRIM_CLKREF_CLK] = &gcc_usb2_prim_clkref_clk.clkr,
 	[GCC_USB2_SEC_CLKREF_CLK] = &gcc_usb2_sec_clkref_clk.clkr,
 };

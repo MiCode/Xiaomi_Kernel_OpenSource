@@ -1517,6 +1517,7 @@ Optional properties:
 - qcom,auxpcm-audio-intf: Property to specify if Aux PCM interface is used for the target
 - qcom,tavil_codec : Property to specify if Tavil codec is used for this target
 - qcom,cdc-dmic-gpios : phandle for Digital mic clk and data gpios.
+- qcom,msm_audio_ssr_devs: List the snd event framework clients
 
 Example:
 	sm6150_snd: sound {
@@ -1620,6 +1621,7 @@ Example:
 		qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
 					  "SpkrLeft", "SpkrRight";
 		qcom,codec-aux-devs = <&wcd937x_codec>;
+		qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>;
 	};
 };
 

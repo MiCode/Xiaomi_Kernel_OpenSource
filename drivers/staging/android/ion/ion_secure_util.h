@@ -20,7 +20,8 @@ bool is_secure_vmid_valid(int vmid);
 int ion_hyp_assign_sg(struct sg_table *sgt, int *dest_vm_list,
 		      int dest_nelems, bool set_page_private);
 int ion_hyp_unassign_sg(struct sg_table *sgt, int *source_vm_list,
-			int source_nelems, bool clear_page_private);
+			int source_nelems, bool clear_page_private,
+			bool try_lock);
 int ion_hyp_unassign_sg_from_flags(struct sg_table *sgt, unsigned long flags,
 				   bool set_page_private);
 int ion_hyp_assign_sg_from_flags(struct sg_table *sgt, unsigned long flags,

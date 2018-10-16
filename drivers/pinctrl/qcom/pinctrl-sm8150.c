@@ -492,6 +492,7 @@ static const unsigned int ufs_reset_pins[] = { 178 };
 enum sm8150_functions {
 	msm_mux_phase_flag8,
 	msm_mux_phase_flag7,
+	msm_mux_emac_pps,
 	msm_mux_qup12,
 	msm_mux_qup16,
 	msm_mux_tsif1_clk,
@@ -705,6 +706,9 @@ static const char * const phase_flag8_groups[] = {
 };
 static const char * const phase_flag7_groups[] = {
 	"gpio80",
+};
+static const char * const emac_pps_groups[] = {
+	"gpio81",
 };
 static const char * const qup12_groups[] = {
 	"gpio83", "gpio84", "gpio85", "gpio86",
@@ -1355,6 +1359,7 @@ static const char * const phase_flag24_groups[] = {
 static const struct msm_function sm8150_functions[] = {
 	FUNCTION(phase_flag8),
 	FUNCTION(phase_flag7),
+	FUNCTION(emac_pps),
 	FUNCTION(qup12),
 	FUNCTION(qup16),
 	FUNCTION(tsif1_clk),
@@ -1693,7 +1698,7 @@ static const struct msm_pingroup sm8150_groups[] = {
 	[79] = PINGROUP(79, SOUTH, NA, NA, phase_flag8, NA, NA, NA, NA, NA, NA),
 	[80] = PINGROUP(80, SOUTH, NA, NA, phase_flag7, NA, NA, NA, NA, NA, NA),
 	[81] = PINGROUP(81, SOUTH, NA, NA, NA, nav_pps, nav_pps, qup_l4,
-			mdp_vsync, NA, NA),
+			mdp_vsync, emac_pps, NA),
 	[82] = PINGROUP(82, SOUTH, NA, NA, NA, nav_pps, nav_pps, qup_l5,
 			mdp_vsync, NA, NA),
 	[83] = PINGROUP(83, NORTH, qup12, qup16, NA, qdss_gpio2, NA, NA, NA,

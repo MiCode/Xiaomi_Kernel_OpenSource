@@ -298,7 +298,7 @@ static int __init mpq_dmx_sw_plugin_init(void)
 	rc = platform_driver_register(&mpq_dmx_sw_plugin_driver);
 	if (rc)
 		MPQ_DVB_ERR_PRINT(
-		  "%s: mpq_dmx_sw_plugin: platform_driver_register failed: %d\n"
+		  "%s: platform_driver_register failed: %d\n",
 		  __func__, rc);
 
 	return rc;

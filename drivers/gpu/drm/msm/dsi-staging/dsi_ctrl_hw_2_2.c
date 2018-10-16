@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,8 +19,7 @@
 #include "dsi_hw.h"
 #include "dsi_catalog.h"
 
-/* Equivalent to register DISP_CC_MISC_CMD */
-#define DISP_CC_CLAMP_REG_OFF 0x00
+#define DISP_CC_MISC_CMD_REG_OFF 0x00
 
 /* register to configure DMA scheduling */
 #define DSI_DMA_SCHEDULE_CTRL 0x100
@@ -35,14 +34,14 @@ void dsi_ctrl_hw_22_phy_reset_config(struct dsi_ctrl_hw *ctrl,
 {
 	u32 reg = 0;
 
-	reg = DSI_DISP_CC_R32(ctrl, DISP_CC_CLAMP_REG_OFF);
+	reg = DSI_DISP_CC_R32(ctrl, DISP_CC_MISC_CMD_REG_OFF);
 
 	/* Mask/unmask disable PHY reset bit */
 	if (enable)
 		reg &= ~BIT(ctrl->index);
 	else
 		reg |= BIT(ctrl->index);
-	DSI_DISP_CC_W32(ctrl, DISP_CC_CLAMP_REG_OFF, reg);
+	DSI_DISP_CC_W32(ctrl, DISP_CC_MISC_CMD_REG_OFF, reg);
 }
 
 /**
@@ -124,4 +123,36 @@ void dsi_ctrl_hw_kickoff_non_embedded_mode(struct dsi_ctrl_hw *ctrl,
 
 	if (!(flags & DSI_CTRL_HW_CMD_WAIT_FOR_TRIGGER))
 		DSI_W32(ctrl, DSI_CMD_MODE_DMA_SW_TRIGGER, 0x1);
+}
+
+/*
+ * dsi_ctrl_hw_22_config_clk_gating() - enable/disable clk gating on DSI PHY
+ * @ctrl:          Pointer to the controller host hardware.
+ * @enable:        bool to notify enable/disable.
+ * @clk_selection:        clock to enable/disable clock gating.
+ *
+ */
+void dsi_ctrl_hw_22_config_clk_gating(struct dsi_ctrl_hw *ctrl, bool enable,
+				enum dsi_clk_gate_type clk_selection)
+{
+	u32 reg = 0;
+	u32 enable_select = 0;
+
+	reg = DSI_DISP_CC_R32(ctrl, DISP_CC_MISC_CMD_REG_OFF);
+
+	if (clk_selection & PIXEL_CLK)
+		enable_select |= ctrl->index ? BIT(6) : BIT(5);
+
+	if (clk_selection & BYTE_CLK)
+		enable_select |= ctrl->index ? BIT(8) : BIT(7);
+
+	if (clk_selection & DSI_PHY)
+		enable_select |= ctrl->index ? BIT(10) : BIT(9);
+
+	if (enable)
+		reg |= enable_select;
+	else
+		reg &= ~enable_select;
+
+	DSI_DISP_CC_W32(ctrl, DISP_CC_MISC_CMD_REG_OFF, reg);
 }

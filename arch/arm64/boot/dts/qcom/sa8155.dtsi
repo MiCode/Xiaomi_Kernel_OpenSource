@@ -62,7 +62,12 @@
 		compatible = "qca,qca6174";
 		pinctrl-names = "default";
 		pinctrl-0 = <&bt_en_active>;
-		qca,bt-reset-gpio = <&tlmm 172 0>; /* BT_EN */
+		/* BT_EN */
+		qca,bt-reset-gpio = <&tlmm 172 0>;
+		/* PWR_CTR1_VDD_PA */
+		qca,bt-vdd-pa-supply = <&vreg_conn_pa>;
+		/* PWR_CTR2_VDD_1P8 */
+		qca,bt-chip-pwd-supply = <&vreg_conn_1p8>;
 		status = "disabled";
 	};
 };
@@ -93,6 +98,9 @@
 &pcie0 {
 	vreg-1.8-supply = <&pm8150_2_l8>;
 	vreg-0.9-supply = <&pm8150_2_l18>;
+	qcom,no-l1-supported;
+	qcom,no-l1ss-supported;
+	qcom,no-aux-clk-sync;
 };
 
 &pcie1 {
@@ -611,6 +619,14 @@
 	qcom,panel-force-clock-lane-hs;
 };
 
+&mdss_dsi0_pll {
+	/delete-property/ qcom,dsi-pll-ssc-en;
+};
+
+&mdss_dsi1_pll {
+	/delete-property/ qcom,dsi-pll-ssc-en;
+};
+
 &mdss_mdp {
 	connectors = <&sde_rscc &dsi_dp1 &dsi_dp2 &sde_dp &sde_wb>;
 	qcom,sde-mixer-display-pref = "primary", "none", "none",
@@ -645,10 +661,10 @@
 		qcom,msm-bus,num-paths = <2>;
 		qcom,msm-bus,vectors-KBps =
 			<98 512 0 0>, <1 781 0 0>, /* No vote */
-			<98 512 1250 0>, <1 781 0 40000>, /* 10Mbps vote */
-			<98 512 12500 0>, <1 781 0 40000>, /* 100Mbps vote */
-			<98 512 125000 0>, <1 781 0 40000>; /* 1000Mbps vote */
-		qcom,bus-vector-names = "10", "100", "1000";
+			<98 512 2500 0>, <1 781 0 40000>, /* 10Mbps vote */
+			<98 512 25000 0>, <1 781 0 40000>, /* 100Mbps vote */
+			<98 512 250000 0>, <1 781 0 40000>; /* 1000Mbps vote */
+		qcom,bus-vector-names = "0", "10", "100", "1000";
 		clocks = <&clock_gcc GCC_EMAC_AXI_CLK>,
 			<&clock_gcc GCC_EMAC_PTP_CLK>,
 			<&clock_gcc GCC_EMAC_RGMII_CLK>,
@@ -671,7 +687,9 @@
 			"dev-emac-rgmii_rxd2_state",
 			"dev-emac-rgmii_rxd3_state",
 			"dev-emac-rgmii_rxc_state",
-			"dev-emac-rgmii_rx_ctl_state";
+			"dev-emac-rgmii_rx_ctl_state",
+			"dev-emac-phy_intr",
+			"dev-emac-phy_reset_state";
 
 		pinctrl-0 = <&emac_mdc>;
 		pinctrl-1 = <&emac_mdio>;
@@ -689,6 +707,8 @@
 		pinctrl-11 = <&emac_rgmii_rxd3>;
 		pinctrl-12 = <&emac_rgmii_rxc>;
 		pinctrl-13 = <&emac_rgmii_rx_ctl>;
+		pinctrl-14 = <&emac_phy_intr>;
+		pinctrl-15 = <&emac_phy_reset_state>;
 
 		io-macro-info {
 			io-macro-bypass-mode = <0>;
@@ -696,7 +716,6 @@
 		};
 		emac_emb_smmu: emac_emb_smmu {
 			compatible = "qcom,emac-smmu-embedded";
-			qcom,smmu-s1-bypass;
 			iommus = <&apps_smmu 0x3C0 0x0>;
 			qcom,iova-mapping = <0x80000000 0x40000000>;
 		};
@@ -706,6 +725,8 @@
 		compatible = "qcom,cnss";
 		wlan-en-gpio = <&tlmm 169 0>;
 		vdd-wlan-supply = <&vreg_wlan>;
+		vdd-wlan-ctrl1-supply = <&vreg_conn_pa>;
+		vdd-wlan-ctrl2-supply = <&vreg_conn_1p8>;
 		reg = <0x10000000 0x10000000>,
 			<0x20000000 0x10000>;
 		reg-names = "smmu_iova_base", "smmu_iova_ipa";

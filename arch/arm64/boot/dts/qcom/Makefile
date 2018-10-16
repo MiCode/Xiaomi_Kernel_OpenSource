@@ -6,6 +6,7 @@ dtb-$(CONFIG_ARCH_QCOM)	+= msm8916-mtp.dtb
 dtb-$(CONFIG_ARCH_QCOM)	+= msm8992-bullhead-rev-101.dtb
 dtb-$(CONFIG_ARCH_QCOM)	+= msm8994-angler-rev-101.dtb
 dtb-$(CONFIG_ARCH_QCOM)	+= msm8996-mtp.dtb
+ifeq ($(CONFIG_ARM64),y)
 dtb-$(CONFIG_ARCH_QCS405) += qcs405-rumi.dtb \
 		qcs405-iot-sku1.dtb \
 		qcs405-iot-sku2.dtb \
@@ -16,8 +17,12 @@ dtb-$(CONFIG_ARCH_QCS405) += qcs405-rumi.dtb \
 		qcs405-iot-sku7.dtb \
 		qcs405-iot-sku8.dtb \
 		qcs405-iot-sku9.dtb \
-		qcs403-iot-sku1.dtb \
-		qcs403-iot-sku2.dtb
+		qcs405-iot-sku10.dtb
+else
+dtb-$(CONFIG_ARCH_QCS405) += qcs403-iot-sku1.dtb \
+			qcs403-iot-sku2.dtb \
+			qcs403-iot-sku3.dtb
+endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 	dtbo-$(CONFIG_ARCH_SM8150) += \
@@ -121,14 +126,20 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sdmmagpie-idp-overlay.dtbo \
 		sdmmagpie-rumi-overlay.dtbo \
 		sdmmagpie-qrd-overlay.dtbo \
+		sdmmagpiep-idp-overlay.dtbo \
+		sdmmagpiep-qrd-overlay.dtbo
 
 sdmmagpie-idp-overlay.dtbo-base := sdmmagpie.dtb
 sdmmagpie-rumi-overlay.dtbo-base := sdmmagpie.dtb
 sdmmagpie-qrd-overlay.dtbo-base := sdmmagpie.dtb
+sdmmagpiep-idp-overlay.dtbo-base := sdmmagpiep.dtb
+sdmmagpiep-qrd-overlay.dtbo-base := sdmmagpiep.dtb
 else
 dtb-$(CONFIG_ARCH_SDMMAGPIE)	+= sdmmagpie-rumi.dtb \
 	sdmmagpie-idp.dtb \
-	sdmmagpie-qrd.dtb
+	sdmmagpie-qrd.dtb \
+	sdmmagpiep-idp.dtb \
+	sdmmagpiep-qrd.dtb
 endif
 
 dtb-$(CONFIG_ARCH_SDXPRAIRIE) += sdxprairie-rumi.dtb \

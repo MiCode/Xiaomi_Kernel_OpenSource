@@ -286,6 +286,18 @@ enum dsi_cmd_set_state {
 };
 
 /**
+ * enum dsi_clk_gate_type - Type of clock to be gated.
+ * @PIXEL_CLK:  DSI pixel clock.
+ * @BYTE_CLK:   DSI byte clock.
+ * @DSI_PHY:    DSI PHY.
+ */
+enum dsi_clk_gate_type {
+	PIXEL_CLK = 1,
+	BYTE_CLK = 2,
+	DSI_PHY = 4,
+};
+
+/**
  * enum dsi_phy_type - DSI phy types
  * @DSI_PHY_TYPE_DPHY:
  * @DSI_PHY_TYPE_CPHY:
@@ -409,6 +421,7 @@ struct dsi_mode_info {
  * @append_tx_eot:       Append EOT packets for forward transmissions if set to
  *                       true.
  * @ext_bridge_mode:     External bridge is connected.
+ * @force_hs_clk_lane:   Send continuous clock to the panel.
  */
 struct dsi_host_common_cfg {
 	enum dsi_pixel_format dst_format;
@@ -428,6 +441,7 @@ struct dsi_host_common_cfg {
 	bool ignore_rx_eot;
 	bool append_tx_eot;
 	bool ext_bridge_mode;
+	bool force_hs_clk_lane;
 };
 
 /**

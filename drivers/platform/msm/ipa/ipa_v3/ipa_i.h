@@ -1753,6 +1753,8 @@ struct ipa3_plat_drv_res {
  * +-------------------------+
  * |  MODEM HDR              |
  * +-------------------------+
+ * |  APPS HDR (IPA4.5)      |
+ * +-------------------------+
  * |    CANARY               |
  * +-------------------------+
  * |    CANARY               |
@@ -1765,6 +1767,20 @@ struct ipa3_plat_drv_res {
  * +-------------------------+
  * |    CANARY               |
  * +-------------------------+
+ * |    CANARY (IPA4.5)      |
+ * +-------------------------+
+ * |    CANARY (IPA4.5)      |
+ * +-------------------------+
+ * | NAT TABLE (IPA4.5)      |
+ * +-------------------------+
+ * | NAT IDX TABLE (IPA4.5)  |
+ * +-------------------------+
+ * | NAT EXP TABLE (IPA4.5)  |
+ * +-------------------------+
+ * |    CANARY (IPA4.5)      |
+ * +-------------------------+
+ * |    CANARY (IPA4.5)      |
+ * +-------------------------+
  * | PDN CONFIG              |
  * +-------------------------+
  * |    CANARY               |
@@ -1773,57 +1789,27 @@ struct ipa3_plat_drv_res {
  * +-------------------------+
  * | QUOTA STATS             |
  * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
  * | TETH STATS              |
  * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * | V4 FLT STATS            |
- * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * | V6 FLT STATS            |
- * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * | V4 RT STATS             |
- * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * | V6 RT STATS             |
- * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * |    CANARY               |
+ * | FnR STATS               |
  * +-------------------------+
  * | DROP STATS              |
  * +-------------------------+
- * |    CANARY               |
+ * |    CANARY (IPA4.5)      |
  * +-------------------------+
- * |    CANARY               |
+ * |    CANARY (IPA4.5)      |
  * +-------------------------+
- * |  MODEM MEM              |
+ * | MODEM MEM               |
  * +-------------------------+
- * |    CANARY               |
+ * |    Dummy (IPA4.5)       |
  * +-------------------------+
- * |  UC EVENT RING          | From IPA 3.5
+ * |    CANARY (IPA4.5)      |
+ * +-------------------------+
+ * | UC DESC RAM (IPA3.5)    |
  * +-------------------------+
  */
 struct ipa3_mem_partition {
 	u32 ofst_start;
-	u32 nat_ofst;
-	u32 nat_size;
 	u32 v4_flt_hash_ofst;
 	u32 v4_flt_hash_size;
 	u32 v4_flt_hash_size_ddr;
@@ -1868,6 +1854,12 @@ struct ipa3_mem_partition {
 	u32 apps_hdr_proc_ctx_ofst;
 	u32 apps_hdr_proc_ctx_size;
 	u32 apps_hdr_proc_ctx_size_ddr;
+	u32 nat_tbl_ofst;
+	u32 nat_tbl_size;
+	u32 nat_index_tbl_ofst;
+	u32 nat_index_tbl_size;
+	u32 nat_exp_tbl_ofst;
+	u32 nat_exp_tbl_size;
 	u32 modem_comp_decomp_ofst;
 	u32 modem_comp_decomp_size;
 	u32 modem_ofst;
@@ -1891,14 +1883,18 @@ struct ipa3_mem_partition {
 	u32 apps_v6_rt_hash_size;
 	u32 apps_v6_rt_nhash_ofst;
 	u32 apps_v6_rt_nhash_size;
-	u32 uc_event_ring_ofst;
-	u32 uc_event_ring_size;
+	u32 uc_descriptor_ram_ofst;
+	u32 uc_descriptor_ram_size;
 	u32 pdn_config_ofst;
 	u32 pdn_config_size;
 	u32 stats_quota_ofst;
 	u32 stats_quota_size;
 	u32 stats_tethering_ofst;
 	u32 stats_tethering_size;
+	u32 stats_fnr_ofst;
+	u32 stats_fnr_size;
+
+	/* Irrelevant starting IPA4.5 */
 	u32 stats_flt_v4_ofst;
 	u32 stats_flt_v4_size;
 	u32 stats_flt_v6_ofst;
@@ -1907,6 +1903,7 @@ struct ipa3_mem_partition {
 	u32 stats_rt_v4_size;
 	u32 stats_rt_v6_ofst;
 	u32 stats_rt_v6_size;
+
 	u32 stats_drop_ofst;
 	u32 stats_drop_size;
 };

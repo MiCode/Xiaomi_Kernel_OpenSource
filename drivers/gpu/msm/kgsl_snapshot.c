@@ -734,8 +734,8 @@ void kgsl_device_snapshot(struct kgsl_device *device,
 
 	/* log buffer info to aid in ramdump fault tolerance */
 	pa = __pa(device->snapshot_memory.ptr);
-	KGSL_DRV_ERR(device, "snapshot created at pa %pa size %zd\n",
-			&pa, snapshot->size);
+	KGSL_DRV_ERR(device, "%s snapshot created at pa %pa++0x%zx\n",
+			gmu_fault ? "GMU" : "GPU", &pa, snapshot->size);
 
 	sysfs_notify(&device->snapshot_kobj, NULL, "timestamp");
 

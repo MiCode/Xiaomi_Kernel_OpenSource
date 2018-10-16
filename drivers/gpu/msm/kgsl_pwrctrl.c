@@ -226,7 +226,7 @@ static int kgsl_bus_scale_request(struct kgsl_device *device,
 	int ret = 0;
 
 	/* GMU scales BW */
-	if (gmu_core_gpmu_isenabled(device))
+	if (gmu_core_scales_bandwidth(device))
 		ret = gmu_core_dcvs_set(device, INVALID_DCVS_IDX, buslevel);
 	else if (pwr->pcl)
 		/* Linux bus driver scales BW */

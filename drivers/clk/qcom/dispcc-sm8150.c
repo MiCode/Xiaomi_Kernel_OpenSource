@@ -24,8 +24,10 @@
 #include <linux/clk-provider.h>
 #include <linux/regmap.h>
 #include <linux/reset-controller.h>
+#include <linux/msm-bus.h>
 
 #include <dt-bindings/clock/qcom,dispcc-sm8150.h>
+#include <dt-bindings/msm/msm-bus-ids.h>
 
 #include "common.h"
 #include "clk-regmap-divider.h"
@@ -38,7 +40,39 @@
 
 #define F(f, s, h, m, n) { (f), (s), (2 * (h) - 1), (m), (n) }
 
+#define MSM_BUS_VECTOR(_src, _dst, _ab, _ib)	\
+{						\
+	.src = _src,				\
+	.dst = _dst,				\
+	.ab = _ab,				\
+	.ib = _ib,				\
+}
+
 static DEFINE_VDD_REGULATORS(vdd_mm, VDD_MM_NUM, 1, vdd_corner);
+
+static struct msm_bus_vectors clk_debugfs_vectors[] = {
+	MSM_BUS_VECTOR(MSM_BUS_MASTER_AMPSS_M0,
+			MSM_BUS_SLAVE_DISPLAY_CFG, 0, 0),
+	MSM_BUS_VECTOR(MSM_BUS_MASTER_AMPSS_M0,
+			MSM_BUS_SLAVE_DISPLAY_CFG, 0, 1),
+};
+
+static struct msm_bus_paths clk_debugfs_usecases[] = {
+	{
+		.num_paths = 1,
+		.vectors = &clk_debugfs_vectors[0],
+	},
+	{
+		.num_paths = 1,
+		.vectors = &clk_debugfs_vectors[1],
+	}
+};
+
+static struct msm_bus_scale_pdata clk_debugfs_scale_table = {
+	.usecase = clk_debugfs_usecases,
+	.num_usecases = ARRAY_SIZE(clk_debugfs_usecases),
+	.name = "clk_dispcc_debugfs",
+};
 
 #define DISP_CC_MISC_CMD	0x8000
 
@@ -1562,6 +1596,8 @@ static int disp_cc_sm8150_probe(struct platform_device *pdev)
 	struct regmap *regmap;
 	struct clk *clk;
 	int ret = 0;
+	int i;
+	unsigned int dispcc_bus_id;
 
 	regmap = qcom_cc_map(pdev, &disp_cc_sm8150_desc);
 	if (IS_ERR(regmap)) {
@@ -1584,6 +1620,18 @@ static int disp_cc_sm8150_probe(struct platform_device *pdev)
 				"Unable to get vdd_mm regulator\n");
 		return PTR_ERR(vdd_mm.regulator[0]);
 	}
+	vdd_mm.use_max_uV = true;
+
+	dispcc_bus_id = msm_bus_scale_register_client(&clk_debugfs_scale_table);
+	if (!dispcc_bus_id) {
+		dev_err(&pdev->dev, "Unable to register for bw voting\n");
+		return -EPROBE_DEFER;
+	}
+	for (i = 0; i < ARRAY_SIZE(disp_cc_sm8150_clocks); i++)
+		if (disp_cc_sm8150_clocks[i])
+			*(unsigned int *)(void *)
+			&disp_cc_sm8150_clocks[i]->hw.init->bus_cl_id =
+							dispcc_bus_id;
 
 	ret = disp_cc_sm8150_fixup(pdev, regmap);
 	if (ret)
@@ -1593,7 +1641,7 @@ static int disp_cc_sm8150_probe(struct platform_device *pdev)
 	clk_trion_pll_configure(&disp_cc_pll1, regmap, &disp_cc_pll1_config);
 
 	/* Enable clock gating for DSI and MDP clocks */
-	regmap_update_bits(regmap, DISP_CC_MISC_CMD, 0x670, 0x670);
+	regmap_update_bits(regmap, DISP_CC_MISC_CMD, 0x10, 0x10);
 
 	ret = qcom_cc_really_probe(pdev, &disp_cc_sm8150_desc, regmap);
 	if (ret) {
