@@ -1090,7 +1090,7 @@ static int diag_compute_real_time(int idx)
 		 * connection.
 		 */
 		real_time = MODE_REALTIME;
-	} else if (driver->usb_connected) {
+	} else if (driver->usb_connected || driver->pcie_connected) {
 		/*
 		 * If USB is connected, check individual process. If Memory
 		 * Device Mode is active, set the mode requested by Memory
