@@ -439,6 +439,75 @@ int cam_sensor_i2c_command_parser(
 	return rc;
 }
 
+int cam_sensor_util_i2c_apply_setting(
+	struct camera_io_master *io_master_info,
+	struct i2c_settings_list *i2c_list)
+{
+	int32_t rc = 0;
+	uint32_t i, size;
+
+	switch (i2c_list->op_code) {
+	case CAM_SENSOR_I2C_WRITE_RANDOM: {
+		rc = camera_io_dev_write(io_master_info,
+			&(i2c_list->i2c_settings));
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR,
+				"Failed to random write I2C settings: %d",
+				rc);
+			return rc;
+		}
+	break;
+	}
+	case CAM_SENSOR_I2C_WRITE_SEQ: {
+		rc = camera_io_dev_write_continuous(
+			io_master_info, &(i2c_list->i2c_settings), 0);
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR,
+				"Failed to seq write I2C settings: %d",
+				rc);
+			return rc;
+		}
+	break;
+	}
+	case CAM_SENSOR_I2C_WRITE_BURST: {
+		rc = camera_io_dev_write_continuous(
+			io_master_info, &(i2c_list->i2c_settings), 1);
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR,
+				"Failed to burst write I2C settings: %d",
+				rc);
+			return rc;
+		}
+	break;
+	}
+	case CAM_SENSOR_I2C_POLL: {
+		size = i2c_list->i2c_settings.size;
+		for (i = 0; i < size; i++) {
+			rc = camera_io_dev_poll(
+			io_master_info,
+			i2c_list->i2c_settings.reg_setting[i].reg_addr,
+			i2c_list->i2c_settings.reg_setting[i].reg_data,
+			i2c_list->i2c_settings.reg_setting[i].data_mask,
+			i2c_list->i2c_settings.addr_type,
+			i2c_list->i2c_settings.data_type,
+			i2c_list->i2c_settings.reg_setting[i].delay);
+			if (rc < 0) {
+				CAM_ERR(CAM_SENSOR,
+					"i2c poll apply setting Fail: %d", rc);
+				return rc;
+			}
+		}
+	break;
+	}
+	default:
+		CAM_ERR(CAM_SENSOR, "Wrong Opcode: %d", i2c_list->op_code);
+		rc = -EINVAL;
+	break;
+	}
+
+	return rc;
+}
+
 int32_t msm_camera_fill_vreg_params(
 	struct cam_hw_soc_info *soc_info,
 	struct cam_sensor_power_setting *power_setting,
@@ -1710,7 +1779,7 @@ msm_camera_get_power_settings(struct cam_sensor_power_ctrl_t *ctrl,
 	return ps;
 }
 
-int msm_camera_power_down(struct cam_sensor_power_ctrl_t *ctrl,
+int cam_sensor_util_power_down(struct cam_sensor_power_ctrl_t *ctrl,
 		struct cam_hw_soc_info *soc_info)
 {
 	int index = 0, ret = 0, num_vreg = 0, i;

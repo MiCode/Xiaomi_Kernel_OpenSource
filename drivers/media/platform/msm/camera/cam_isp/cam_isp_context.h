@@ -115,6 +115,7 @@ struct cam_isp_ctx_req {
 	uint32_t                              num_acked;
 	int32_t                               bubble_report;
 	struct cam_isp_prepare_hw_update_data hw_update_data;
+	bool                                  bubble_detected;
 };
 
 /**
