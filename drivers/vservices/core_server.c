@@ -1214,6 +1214,8 @@ static ssize_t is_server_show(struct device *dev, struct device_attribute *attr,
 	return scnprintf(buf, PAGE_SIZE, "%d\n", service->is_server);
 }
 
+static DEVICE_ATTR_RO(is_server);
+
 static ssize_t id_show(struct device *dev, struct device_attribute *attr,
 		char *buf)
 {
@@ -1221,6 +1223,8 @@ static ssize_t id_show(struct device *dev, struct device_attribute *attr,
 
 	return scnprintf(buf, PAGE_SIZE, "%d\n", service->id);
 }
+
+static DEVICE_ATTR_RO(id);
 
 static ssize_t dev_protocol_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -1319,6 +1323,9 @@ static ssize_t dev_protocol_store(struct device *dev,
 	return count;
 }
 
+static DEVICE_ATTR(protocol, 0644,
+				dev_protocol_show, dev_protocol_store);
+
 static ssize_t service_name_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -1326,6 +1333,8 @@ static ssize_t service_name_show(struct device *dev,
 
 	return scnprintf(buf, PAGE_SIZE, "%s\n", service->name);
 }
+
+static DEVICE_ATTR_RO(service_name);
 
 static ssize_t quota_in_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
@@ -1373,6 +1382,8 @@ static ssize_t quota_in_show(struct device *dev,
 	return scnprintf(buf, PAGE_SIZE, "%u\n", service->recv_quota);
 }
 
+static DEVICE_ATTR_RW(quota_in);
+
 static ssize_t quota_out_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -1412,18 +1423,18 @@ static ssize_t quota_out_show(struct device *dev,
 	return scnprintf(buf, PAGE_SIZE, "%u\n", service->send_quota);
 }
 
-static struct device_attribute vs_server_dev_attrs[] = {
-	__ATTR_RO(id),
-	__ATTR_RO(is_server),
-	__ATTR(protocol, S_IRUGO | S_IWUSR,
-			dev_protocol_show, dev_protocol_store),
-	__ATTR_RO(service_name),
-	__ATTR(quota_in, S_IRUGO | S_IWUSR,
-			quota_in_show, quota_in_store),
-	__ATTR(quota_out, S_IRUGO | S_IWUSR,
-			quota_out_show, quota_out_store),
-	__ATTR_NULL
+static DEVICE_ATTR_RW(quota_out);
+
+static struct attribute *vs_server_dev_attrs[] = {
+	&dev_attr_id.attr,
+	&dev_attr_is_server.attr,
+	&dev_attr_protocol.attr,
+	&dev_attr_service_name.attr,
+	&dev_attr_quota_in.attr,
+	&dev_attr_quota_out.attr,
+	NULL,
 };
+ATTRIBUTE_GROUPS(vs_server_dev);
 
 static ssize_t protocol_show(struct device_driver *drv, char *buf)
 {
@@ -1432,12 +1443,6 @@ static ssize_t protocol_show(struct device_driver *drv, char *buf)
 	return scnprintf(buf, PAGE_SIZE, "%s\n", vsdrv->protocol);
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0)
-static struct driver_attribute vs_server_drv_attrs[] = {
-	__ATTR_RO(protocol),
-	__ATTR_NULL
-};
-#else
 static DRIVER_ATTR_RO(protocol);
 
 static struct attribute *vs_server_drv_attrs[] = {
@@ -1445,16 +1450,11 @@ static struct attribute *vs_server_drv_attrs[] = {
 	NULL,
 };
 ATTRIBUTE_GROUPS(vs_server_drv);
-#endif
 
 struct bus_type vs_server_bus_type = {
 	.name		= "vservices-server",
-	.dev_attrs	= vs_server_dev_attrs,
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0)
-	.drv_attrs	= vs_server_drv_attrs,
-#else
+	.dev_groups	= vs_server_dev_groups,
 	.drv_groups	= vs_server_drv_groups,
-#endif
 	.match		= vs_server_bus_match,
 	.probe		= vs_server_bus_probe,
 	.remove		= vs_server_bus_remove,

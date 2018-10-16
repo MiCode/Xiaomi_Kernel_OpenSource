@@ -1148,18 +1148,17 @@ static void service_rx_work(struct work_struct *work)
  * Service sysfs statistics counters. These files are all atomic_t, and
  * read only, so we use a generator macro to avoid code duplication.
  */
-#define service_stat_attr(__name)					\
-	static ssize_t service_stat_##__name##_show(struct device *dev, \
-			struct device_attribute *attr, char *buf)       \
-	{                                                               \
-		struct vs_service_device *service =                     \
-				to_vs_service_device(dev);              \
-									\
+#define service_stat_attr(__name)						\
+	static ssize_t __name##_show(struct device *dev,	\
+			struct device_attribute *attr, char *buf)	\
+	{													\
+		struct vs_service_device *service =				\
+				to_vs_service_device(dev);				\
+														\
 		return scnprintf(buf, PAGE_SIZE, "%u\n",		\
 				atomic_read(&service->stats.__name));	\
-	}                                                               \
-	static DEVICE_ATTR(__name, S_IRUGO,                             \
-			service_stat_##__name##_show, NULL);
+	}													\
+	static DEVICE_ATTR_RO(__name)
 
 service_stat_attr(sent_mbufs);
 service_stat_attr(sent_bytes);
@@ -1364,41 +1363,6 @@ static void vs_service_release(struct device *dev)
 static int service_add_idr(struct vs_session_device *session,
 		struct vs_service_device *service, vs_service_id_t service_id)
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 9, 0)
-	int err, base_id, id;
-
-	if (service_id == VS_SERVICE_AUTO_ALLOCATE_ID)
-		base_id = 1;
-	else
-		base_id = service_id;
-
-retry:
-	if (!idr_pre_get(&session->service_idr, GFP_KERNEL))
-		return -ENOMEM;
-
-	mutex_lock(&session->service_idr_lock);
-	err = idr_get_new_above(&session->service_idr, service, base_id, &id);
-	if (err == 0) {
-		if (service_id != VS_SERVICE_AUTO_ALLOCATE_ID &&
-				id != service_id) {
-			/* Failed to allocated the requested service id */
-			idr_remove(&session->service_idr, id);
-			mutex_unlock(&session->service_idr_lock);
-			return -EBUSY;
-		}
-		if (id > VS_MAX_SERVICE_ID) {
-			/* We are out of service ids */
-			idr_remove(&session->service_idr, id);
-			mutex_unlock(&session->service_idr_lock);
-			return -ENOSPC;
-		}
-	}
-	mutex_unlock(&session->service_idr_lock);
-	if (err == -EAGAIN)
-		goto retry;
-	if (err < 0)
-		return err;
-#else
 	int start, end, id;
 
 	if (service_id == VS_SERVICE_AUTO_ALLOCATE_ID) {
@@ -1418,7 +1382,6 @@ retry:
 		return -EBUSY;
 	else if (id < 0)
 		return id;
-#endif
 
 	service->id = id;
 	return 0;
@@ -1589,23 +1552,7 @@ struct vs_service_device *vs_service_register(struct vs_session_device *session,
 		 * anything like lock_nested() for it.
 		 */
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 3, 0)
-		/*
-		 * Lockdep allows a specific lock's subclass to be set with
-		 * the subclass argument to lockdep_init_map(). However, prior
-		 * to Linux 3.3, that only works the first time it is called
-		 * for a given class and subclass. So we have to fake it,
-		 * putting every subclass in a different class, so the only
-		 * thing that breaks is printing the subclass in lockdep
-		 * warnings.
-		 */
-		static struct lock_class_key
-				rx_work_keys[MAX_LOCKDEP_SUBCLASSES];
-		struct lock_class_key *key =
-				&rx_work_keys[service->lock_subclass];
-#else
 		struct lock_class_key *key = service->rx_work.lockdep_map.key;
-#endif
 
 		/*
 		 * We can't use the lockdep_set_class() macro because the
@@ -2371,6 +2318,8 @@ static ssize_t id_show(struct device *dev,
 	return scnprintf(buf, PAGE_SIZE, "%d\n", session->session_num);
 }
 
+static DEVICE_ATTR_RO(id);
+
 /*
  * The vServices session device type
  */
@@ -2382,6 +2331,8 @@ static ssize_t is_server_show(struct device *dev,
 	return scnprintf(buf, PAGE_SIZE, "%d\n", session->is_server);
 }
 
+static DEVICE_ATTR_RO(is_server);
+
 static ssize_t name_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -2389,6 +2340,8 @@ static ssize_t name_show(struct device *dev,
 
 	return scnprintf(buf, PAGE_SIZE, "%s\n", session->name);
 }
+
+static DEVICE_ATTR_RO(name);
 
 #ifdef CONFIG_VSERVICES_DEBUG
 static ssize_t debug_mask_show(struct device *dev,
@@ -2414,18 +2367,21 @@ static ssize_t debug_mask_store(struct device *dev,
 
 	return count;
 }
+
+static DEVICE_ATTR_RW(debug_mask);
+
 #endif /* CONFIG_VSERVICES_DEBUG */
 
-static struct device_attribute vservices_session_dev_attrs[] = {
-	__ATTR_RO(id),
-	__ATTR_RO(is_server),
-	__ATTR_RO(name),
+static struct attribute *vservices_session_dev_attrs[] = {
+	&dev_attr_id.attr,
+	&dev_attr_is_server.attr,
+	&dev_attr_name.attr,
 #ifdef CONFIG_VSERVICES_DEBUG
-	__ATTR(debug_mask, S_IRUGO | S_IWUSR,
-			debug_mask_show, debug_mask_store),
+	&dev_attr_debug_mask.attr,
 #endif
-	__ATTR_NULL,
+	NULL,
 };
+ATTRIBUTE_GROUPS(vservices_session_dev);
 
 static int vs_session_free_idr(struct vs_session_device *session)
 {
@@ -2521,7 +2477,7 @@ struct bus_type vs_session_bus_type = {
 	.name		= "vservices-session",
 	.match		= vs_session_bus_match,
 	.remove		= vs_session_bus_remove,
-	.dev_attrs	= vservices_session_dev_attrs,
+	.dev_groups	= vservices_session_dev_groups,
 	.uevent		= vservices_session_uevent,
 	.shutdown	= vservices_session_shutdown,
 };
@@ -2653,29 +2609,6 @@ static int vs_session_create_sysfs_entry(struct vs_transport *transport,
 
 static int vs_session_alloc_idr(struct vs_session_device *session)
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 9, 0)
-	int err, id;
-
-retry:
-	if (!idr_pre_get(&session_idr, GFP_KERNEL))
-		return -ENOMEM;
-
-	mutex_lock(&vs_session_lock);
-	err = idr_get_new_above(&session_idr, session, 0, &id);
-	if (err == 0) {
-		if (id >= VS_MAX_SESSIONS) {
-			/* We are out of session ids */
-			idr_remove(&session_idr, id);
-			mutex_unlock(&vs_session_lock);
-			return -EBUSY;
-		}
-	}
-	mutex_unlock(&vs_session_lock);
-	if (err == -EAGAIN)
-		goto retry;
-	if (err < 0)
-		return err;
-#else
 	int id;
 
 	mutex_lock(&vs_session_lock);
@@ -2686,7 +2619,6 @@ retry:
 		return -EBUSY;
 	else if (id < 0)
 		return id;
-#endif
 
 	session->session_num = id;
 	return 0;
