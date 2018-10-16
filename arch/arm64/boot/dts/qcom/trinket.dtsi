@@ -27,7 +27,7 @@
 	model = "Qualcomm Technologies, Inc. TRINKET";
 	compatible = "qcom,trinket";
 	qcom,msm-id = <394 0x10000>;
-	interrupt-parent = <&intc>;
+	interrupt-parent = <&wakegic>;
 
 	aliases {
 		serial0 = &qupv3_se4_2uart;
@@ -520,6 +520,7 @@
 		compatible = "arm,gic-v3";
 		#interrupt-cells = <3>;
 		interrupt-controller;
+		interrupt-parent = <&intc>;
 		#redistributor-regions = <1>;
 		redistributor-stride = <0x0 0x20000>;
 		reg = <0xf200000 0x10000>,     /* GICD */
@@ -613,6 +614,26 @@
 		clock-names = "core_clk";
 
 		qcom,coresight-jtagmm-cpu = <&CPU7>;
+	};
+
+	wakegic: wake-gic {
+		compatible = "qcom,mpm-gic-trinket", "qcom,mpm-gic";
+		interrupts-extended = <&wakegic GIC_SPI 171
+						IRQ_TYPE_EDGE_RISING>;
+		reg = <0x45f01b8 0x1000>,
+			<0xf011008 0x4>;  /* MSM_APCS_GCC_BASE 4K */
+		reg-names = "vmpm", "ipc";
+		qcom,num-mpm-irqs = <96>;
+		interrupt-controller;
+		interrupt-parent = <&intc>;
+		#interrupt-cells = <3>;
+	};
+
+	wakegpio: wake-gpio {
+		compatible = "qcom,mpm-gpio-trinket", "qcom,mpm-gpio";
+		interrupt-controller;
+		interrupt-parent = <&intc>;
+		#interrupt-cells = <2>;
 	};
 
 	timer {
