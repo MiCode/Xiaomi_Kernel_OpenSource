@@ -116,11 +116,7 @@ static inline u32 vs_req_num_sectors(struct block_server *server,
 
 static inline u64 vs_req_sector_index(struct block_server_request *req)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,14,0)
 	return req->bio.bi_iter.bi_sector;
-#else
-	return req->bio.bi_sector;
-#endif
 }
 
 static void vs_block_server_closed(struct vs_server_block_state *state)
@@ -421,11 +417,7 @@ static int vs_block_server_complete_req(struct block_server *server,
 {
 	int err;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,14,0)
 	req->bio.bi_iter.bi_idx = 0;
-#else
-	req->bio.bi_idx = 0;
-#endif
 	if (!vs_state_lock_safe(&server->server))
 		return -ENOLINK;
 
@@ -540,16 +532,10 @@ static int vs_block_bio_map_pbuf(struct bio *bio, struct vs_pbuf *pbuf)
 }
 
 /* Read request handling */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 3, 0)
-static void vs_block_server_read_done(struct bio *bio, int err)
-#else
 static void vs_block_server_read_done(struct bio *bio)
-#endif
 {
 	unsigned long flags;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
-	int err = bio->bi_error;
-#endif
+	int err = blk_status_to_errno(bio->bi_status);
 	struct block_server_request *req = container_of(bio,
 			struct block_server_request, bio);
 	struct block_server *server = req->server;
@@ -595,11 +581,7 @@ static int vs_block_submit_read(struct block_server *server,
 			err = vs_block_bio_map_pbuf(bio, &req->pbuf);
 	} else {
 		/* We need a bounce buffer. First set up the bvecs. */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,14,0)
 		bio->bi_iter.bi_size = size;
-#else
-		bio->bi_size = size;
-#endif
 
 		while (size > 0) {
 			struct bio_vec *bvec = &bio->bi_io_vec[bio->bi_vcnt];
@@ -622,12 +604,8 @@ static int vs_block_submit_read(struct block_server *server,
 	}
 
 	if (err) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
-		bio->bi_error = err;
+		bio->bi_status = err;
 		bio_endio(bio);
-#else
-		bio_endio(bio, err);
-#endif
 	} else {
 		dev_vdbg(&server->service->dev,
 				"submit read req sector %#llx count %#x\n",
@@ -674,27 +652,15 @@ static int vs_block_server_io_req_read(struct vs_server_block_state *state,
 	req->submitted = false;
 
 	if (flush) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,8,0)
 		op_flags |= REQ_PREFLUSH;
-#else
-		op_flags |= REQ_FLUSH;
-#endif
 	}
 	if (nodelay) {
 		op_flags |= REQ_SYNC;
 	}
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,14,0)
 	bio->bi_iter.bi_sector = (sector_t)sector_index;
-#else
-	bio->bi_sector = (sector_t)sector_index;
-#endif
-	bio->bi_bdev = server->bdev;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0)
+	bio_set_dev(bio, server->bdev);
 	bio_set_op_attrs(bio, REQ_OP_READ, op_flags);
-#else
-	bio->bi_rw = READ | op_flags;
-#endif
 	bio->bi_end_io = vs_block_server_read_done;
 
 	req->mbuf = vs_server_block_io_alloc_ack_read(state, &req->pbuf,
@@ -703,12 +669,8 @@ static int vs_block_server_io_req_read(struct vs_server_block_state *state,
 		/* Fall back to a bounce buffer */
 		req->mbuf = NULL;
 	} else if (IS_ERR(req->mbuf)) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
-		bio->bi_error = PTR_ERR(req->mbuf);
+		bio->bi_status = PTR_ERR(req->mbuf);
 		bio_endio(bio);
-#else
-		bio_endio(bio, PTR_ERR(req->mbuf));
-#endif
 		return 0;
 	}
 
@@ -779,16 +741,10 @@ static void vs_block_server_write_bounce_work(struct work_struct *work)
 	spin_unlock(&server->bounce_req_lock);
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 3, 0)
-static void vs_block_server_write_done(struct bio *bio, int err)
-#else
 static void vs_block_server_write_done(struct bio *bio)
-#endif
 {
 	unsigned long flags;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
-	int err = bio->bi_error;
-#endif
+	int err = blk_status_to_errno(bio->bi_status);
 	struct block_server_request *req = container_of(bio,
 			struct block_server_request, bio);
 	struct block_server *server = req->server;
@@ -846,11 +802,7 @@ static int vs_block_server_io_req_write(struct vs_server_block_state *state,
 	req->submitted = false;
 
 	if (flush) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,8,0)
 		op_flags |= REQ_PREFLUSH;
-#else
-		op_flags |= REQ_FLUSH;
-#endif
 	}
 	if (commit) {
 		op_flags |= REQ_FUA;
@@ -859,17 +811,9 @@ static int vs_block_server_io_req_write(struct vs_server_block_state *state,
 		op_flags |= REQ_SYNC;
 	}
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,14,0)
 	bio->bi_iter.bi_sector = (sector_t)sector_index;
-#else
-	bio->bi_sector = (sector_t)sector_index;
-#endif
-	bio->bi_bdev = server->bdev;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0)
+	bio_set_dev(bio, server->bdev);
 	bio_set_op_attrs(bio, REQ_OP_WRITE, op_flags);
-#else
-	bio->bi_rw = WRITE | op_flags;
-#endif
 	bio->bi_end_io = vs_block_server_write_done;
 
 	if (pbuf.size < req->size) {
@@ -888,11 +832,7 @@ static int vs_block_server_io_req_write(struct vs_server_block_state *state,
 		/* We need a bounce buffer. First set up the bvecs. */
 		int size = pbuf.size;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,14,0)
 		bio->bi_iter.bi_size = size;
-#else
-		bio->bi_size = size;
-#endif
 
 		while (size > 0) {
 			struct bio_vec *bvec = &bio->bi_io_vec[bio->bi_vcnt];
@@ -935,12 +875,8 @@ static int vs_block_server_io_req_write(struct vs_server_block_state *state,
 	return 0;
 
 fail_bio:
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
-	bio->bi_error = err;
+	bio->bi_status = err;
 	bio_endio(bio);
-#else
-	bio_endio(bio, err);
-#endif
 	return 0;
 }
 
@@ -1102,9 +1038,10 @@ vs_block_server_alloc(struct vs_service_device *service)
 	 * can't enable rx_atomic for this driver.
 	 */
 	server->bioset = bioset_create(min_t(unsigned, service->recv_quota,
-				VSERVICE_BLOCK_IO_READ_MAX_PENDING +
-				VSERVICE_BLOCK_IO_WRITE_MAX_PENDING),
-			offsetof(struct block_server_request, bio));
+		VSERVICE_BLOCK_IO_READ_MAX_PENDING +
+		VSERVICE_BLOCK_IO_WRITE_MAX_PENDING),
+		offsetof(struct block_server_request, bio), BIOSET_NEED_BVECS);
+
 	if (!server->bioset) {
 		dev_err(&service->dev,
 			"Failed to allocate bioset for service %s\n",
