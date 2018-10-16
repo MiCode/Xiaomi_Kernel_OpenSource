@@ -542,7 +542,7 @@
 	};
 
 	mdm0: qcom,mdm0 {
-		compatible = "qcom,ext-sdx50m";
+		compatible = "qcom,ext-sdx55m";
 		cell-index = <0>;
 		#address-cells = <0>;
 		interrupt-parent = <&mdm0>;
