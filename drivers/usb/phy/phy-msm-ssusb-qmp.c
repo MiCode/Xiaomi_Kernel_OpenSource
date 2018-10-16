@@ -380,20 +380,12 @@ static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
 	switch (phy->phy.type) {
 	case USB_PHY_TYPE_USB3_AND_DP:
 		/* override hardware control for reset of qmp phy */
-		if (phy->phy.flags & PHY_USB_DP_CONCURRENT_MODE) {
-			if (val > 0) {
-				dev_dbg(phy->phy.dev,
-					"USB QMP PHY: Update TYPEC CTRL(%d)\n",
-					val);
-				writel_relaxed(val, phy->base +
-				 phy->phy_reg[USB3_PHY_PCS_MISC_TYPEC_CTRL]);
-			}
-			break;
+		if (!(phy->phy.flags & PHY_USB_DP_CONCURRENT_MODE)) {
+			writel_relaxed(SW_DPPHY_RESET_MUX | SW_DPPHY_RESET |
+				SW_USB3PHY_RESET_MUX | SW_USB3PHY_RESET,
+				phy->base +
+				phy->phy_reg[USB3_DP_COM_RESET_OVRD_CTRL]);
 		}
-
-		writel_relaxed(SW_DPPHY_RESET_MUX | SW_DPPHY_RESET |
-			SW_USB3PHY_RESET_MUX | SW_USB3PHY_RESET,
-			phy->base + phy->phy_reg[USB3_DP_COM_RESET_OVRD_CTRL]);
 
 		/* update port select */
 		if (val > 0) {
@@ -403,12 +395,16 @@ static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
 				phy->phy_reg[USB3_DP_COM_TYPEC_CTRL]);
 		}
 
-		writel_relaxed(USB3_MODE | DP_MODE,
-			phy->base + phy->phy_reg[USB3_DP_COM_PHY_MODE_CTRL]);
+		if (!(phy->phy.flags & PHY_USB_DP_CONCURRENT_MODE)) {
+			writel_relaxed(USB3_MODE | DP_MODE,
+				phy->base +
+				phy->phy_reg[USB3_DP_COM_PHY_MODE_CTRL]);
 
-		/* bring both QMP USB and QMP DP PHYs PCS block out of reset */
-		writel_relaxed(0x00,
-			phy->base + phy->phy_reg[USB3_DP_COM_RESET_OVRD_CTRL]);
+			/* bring both USB and DP PHYs PCS block out of reset */
+			writel_relaxed(0x00,
+				phy->base +
+				phy->phy_reg[USB3_DP_COM_RESET_OVRD_CTRL]);
+		}
 		break;
 	case  USB_PHY_TYPE_USB3_OR_DP:
 		if (val > 0) {
