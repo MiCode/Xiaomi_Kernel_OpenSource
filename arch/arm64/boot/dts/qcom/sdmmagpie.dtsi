@@ -2487,6 +2487,7 @@
 #include "sdmmagpie-vidc.dtsi"
 #include "sdmmagpie-sde-pll.dtsi"
 #include "sdmmagpie-sde.dtsi"
+#include "sdmmagpie-camera.dtsi"
 
 &pcie_0_gdsc {
 	status = "ok";

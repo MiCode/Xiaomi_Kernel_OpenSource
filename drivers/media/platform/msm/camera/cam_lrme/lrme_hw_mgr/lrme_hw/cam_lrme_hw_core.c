@@ -79,7 +79,9 @@ static void cam_lrme_hw_util_fill_fe_reg(struct cam_lrme_hw_io_buffer *io_buf,
 			hw_info->bus_rd_reg.bus_client_reg[index].unpack_cfg_0,
 			0x0);
 	else if (io_buf->io_cfg->format == CAM_FORMAT_Y_ONLY ||
-			io_buf->io_cfg->format == CAM_FORMAT_PLAIN8)
+			io_buf->io_cfg->format == CAM_FORMAT_PLAIN8 ||
+			io_buf->io_cfg->format == CAM_FORMAT_NV12 ||
+			io_buf->io_cfg->format == CAM_FORMAT_NV21)
 		cam_lrme_cdm_write_reg_val_pair(reg_val_pair, num_cmd,
 			hw_info->bus_rd_reg.bus_client_reg[index].unpack_cfg_0,
 			0x1);
