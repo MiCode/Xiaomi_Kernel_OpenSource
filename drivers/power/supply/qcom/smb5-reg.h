@@ -221,6 +221,9 @@ enum {
 #define USB_CMD_PULLDOWN_REG			(USBIN_BASE + 0x45)
 #define EN_PULLDOWN_USB_IN_BIT			BIT(0)
 
+#define TYPE_C_CFG_REG				(USBIN_BASE + 0x58)
+#define BC1P2_START_ON_CC_BIT			BIT(7)
+
 #define HVDCP_PULSE_COUNT_MAX_REG              (USBIN_BASE + 0x5B)
 #define HVDCP_PULSE_COUNT_MAX_QC2_MASK         GENMASK(7, 6)
 enum {

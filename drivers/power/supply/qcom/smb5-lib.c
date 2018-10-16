@@ -791,25 +791,34 @@ int smblib_get_prop_from_bms(struct smb_charger *chg,
 	return rc;
 }
 
-int smblib_configure_hvdcp_apsd(struct smb_charger *chg, bool enable)
+void smblib_apsd_enable(struct smb_charger *chg, bool enable)
 {
 	int rc;
-	u8 mask = (BC1P2_SRC_DETECT_BIT | HVDCP_EN_BIT |
-			HVDCP_AUTH_ALG_EN_CFG_BIT);
 
-	u8 val = BC1P2_SRC_DETECT_BIT | (chg->hvdcp_disable ? 0 :
-			(HVDCP_EN_BIT | HVDCP_AUTH_ALG_EN_CFG_BIT));
+	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
+				BC1P2_SRC_DETECT_BIT,
+				enable ? BC1P2_SRC_DETECT_BIT : 0);
+	if (rc < 0)
+		smblib_err(chg, "failed to write USBIN_OPTIONS_1_CFG rc=%d\n",
+				rc);
+}
 
-	if (chg->pd_not_supported)
-		return 0;
+void smblib_hvdcp_detect_enable(struct smb_charger *chg, bool enable)
+{
+	int rc;
+	u8 mask;
 
+	if (chg->hvdcp_disable)
+		return;
+
+	mask = HVDCP_AUTH_ALG_EN_CFG_BIT | HVDCP_EN_BIT;
 	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG, mask,
-						enable ? val : 0);
+						enable ? mask : 0);
 	if (rc < 0)
 		smblib_err(chg, "failed to write USBIN_OPTIONS_1_CFG rc=%d\n",
 				rc);
 
-	return rc;
+	return;
 }
 
 static int smblib_request_dpdm(struct smb_charger *chg, bool enable)
@@ -1157,7 +1166,8 @@ static int set_sdp_current(struct smb_charger *chg, int icl_ua)
 	}
 
 	rc = smblib_masked_write(chg, USBIN_ICL_OPTIONS_REG,
-		CFG_USB3P0_SEL_BIT | USB51_MODE_BIT, icl_options);
+		CFG_USB3P0_SEL_BIT | USB51_MODE_BIT | USBIN_MODE_CHG_BIT,
+		icl_options);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't set ICL options rc=%d\n", rc);
 		return rc;
@@ -3555,15 +3565,17 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 
 	chg->pd_active = val->intval;
 
+	smblib_apsd_enable(chg, !chg->pd_active);
+
 	if (chg->pd_active) {
 		vote(chg->usb_irq_enable_votable, PD_VOTER, true, 0);
 
 		/*
-		 * Enforce 500mA for PD until the real vote comes in later.
+		 * Enforce 100mA for PD until the real vote comes in later.
 		 * It is guaranteed that pd_active is set prior to
 		 * pd_current_max
 		 */
-		vote(chg->usb_icl_votable, PD_VOTER, true, USBIN_500MA);
+		vote(chg->usb_icl_votable, PD_VOTER, true, USBIN_100MA);
 		vote(chg->usb_icl_votable, USB_PSY_VOTER, false, 0);
 		vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, false, 0);
 
@@ -3595,16 +3607,10 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 				"Couldn't enable secondary charger rc=%d\n",
 					rc);
 
-		/* PD hard resets failed, rerun apsd */
+		/* PD hard resets failed, proceed to detect QC2/3 */
 		if (chg->ok_to_pd) {
 			chg->ok_to_pd = false;
-			rc = smblib_configure_hvdcp_apsd(chg, true);
-			if (rc < 0) {
-				dev_err(chg->dev,
-					"Couldn't enable APSD rc=%d\n", rc);
-				return rc;
-			}
-			smblib_rerun_apsd_if_required(chg);
+			smblib_hvdcp_detect_enable(chg, true);
 		}
 	}
 
@@ -4204,11 +4210,9 @@ static void update_sw_icl_max(struct smb_charger *chg, int pst)
 
 	/*
 	 * HVDCP 2/3, handled separately
-	 * For UNKNOWN(input not present) return without updating ICL
 	 */
 	if (pst == POWER_SUPPLY_TYPE_USB_HVDCP
-			|| pst == POWER_SUPPLY_TYPE_USB_HVDCP_3
-			|| pst == POWER_SUPPLY_TYPE_UNKNOWN)
+			|| pst == POWER_SUPPLY_TYPE_USB_HVDCP_3)
 		return;
 
 	/* TypeC rp med or high, use rp value */
@@ -4248,6 +4252,7 @@ static void update_sw_icl_max(struct smb_charger *chg, int pst)
 		vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true,
 					SDP_100_MA);
 		break;
+	case POWER_SUPPLY_TYPE_UNKNOWN:
 	default:
 		rc = smblib_get_prop_usb_present(chg, &pval);
 		if (rc < 0) {
@@ -4298,12 +4303,8 @@ irqreturn_t usb_source_change_irq_handler(int irq, void *data)
 	int rc = 0;
 	u8 stat;
 
-	/*
-	 * Prepared to run PD or PD is active. At this moment, APSD is disabled,
-	 * but there still can be irq on apsd_done from previously unfinished
-	 * APSD run, skip it.
-	 */
-	if (chg->ok_to_pd)
+	/* PD session is ongoing, ignore BC1.2 and QC detection */
+	if (chg->pd_active)
 		return IRQ_HANDLED;
 
 	rc = smblib_read(chg, APSD_STATUS_REG, &stat);
@@ -4468,15 +4469,10 @@ static void typec_src_insertion(struct smb_charger *chg)
 	chg->typec_legacy = stat & TYPEC_LEGACY_CABLE_STATUS_BIT;
 	chg->ok_to_pd = (!(chg->typec_legacy || chg->pd_disabled)
 			|| chg->early_usb_attach) && !chg->pd_not_supported;
-	if (!chg->ok_to_pd) {
-		rc = smblib_configure_hvdcp_apsd(chg, true);
-		if (rc < 0) {
-			dev_err(chg->dev,
-				"Couldn't enable APSD rc=%d\n", rc);
-			return;
-		}
-		smblib_rerun_apsd_if_required(chg);
-	}
+
+	/* allow apsd proceed to detect QC2/3 */
+	if (!chg->ok_to_pd)
+		smblib_hvdcp_detect_enable(chg, true);
 }
 
 static void typec_sink_removal(struct smb_charger *chg)
@@ -4506,11 +4502,7 @@ static void typec_src_removal(struct smb_charger *chg)
 		dev_err(chg->dev,
 			"Couldn't disable secondary charger rc=%d\n", rc);
 
-	/* disable apsd */
-	rc = smblib_configure_hvdcp_apsd(chg, false);
-	if (rc < 0)
-		smblib_err(chg, "Couldn't disable APSD rc=%d\n", rc);
-
+	smblib_hvdcp_detect_enable(chg, false);
 	smblib_update_usb_type(chg);
 
 	if (chg->wa_flags & BOOST_BACK_WA) {
@@ -4599,6 +4591,11 @@ static void typec_src_removal(struct smb_charger *chg)
 		smblib_notify_device_mode(chg, false);
 
 	chg->typec_legacy = false;
+}
+
+static void typec_mode_unattached(struct smb_charger *chg)
+{
+	vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true, USBIN_100MA);
 }
 
 static void smblib_handle_rp_change(struct smb_charger *chg, int typec_mode)
@@ -4743,7 +4740,9 @@ irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 		case SINK_MODE:
 			typec_src_removal(chg);
 			break;
+		case UNATTACHED_MODE:
 		default:
+			typec_mode_unattached(chg);
 			break;
 		}
 
@@ -4751,6 +4750,7 @@ irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 			chg->ok_to_pd = false;
 			chg->sink_src_mode = UNATTACHED_MODE;
 			chg->early_usb_attach = false;
+			smblib_apsd_enable(chg, true);
 		}
 
 		if (chg->lpd_stage == LPD_STAGE_FLOAT_CANCEL)
