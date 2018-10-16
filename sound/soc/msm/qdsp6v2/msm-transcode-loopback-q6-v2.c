@@ -199,7 +199,7 @@ static void populate_codec_list(struct msm_transcode_loopback *trans,
 static int msm_transcode_map_ion_fd(struct msm_transcode_loopback *trans,
 				    int fd)
 {
-	ion_phys_addr_t paddr;
+	ion_phys_addr_t paddr = 0;
 	size_t pa_len = 0;
 	int ret = 0;
 
@@ -229,7 +229,7 @@ done:
 
 static int msm_transcode_unmap_ion_fd(struct msm_transcode_loopback *trans)
 {
-	ion_phys_addr_t paddr;
+	ion_phys_addr_t paddr = 0;
 	size_t pa_len = 0;
 	int ret = 0;
 
@@ -359,7 +359,7 @@ static int msm_transcode_loopback_free(struct snd_compr_stream *cstream)
 	struct trans_loopback_pdata *pdata = snd_soc_platform_get_drvdata(
 								rtd->platform);
 	int ret = 0;
-	ion_phys_addr_t paddr;
+	ion_phys_addr_t paddr = 0;
 	size_t pa_len = 0;
 
 	mutex_lock(&trans->lock);
