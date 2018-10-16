@@ -582,7 +582,7 @@ static int mhi_uci_read_async(struct uci_client *uci_handle,
 			"wk up Read completed on ch %d\n", ureq->chan);
 
 		uci_handle->pkt_loc = (void *)ureq->buf;
-		uci_handle->pkt_size = ureq->actual_len;
+		uci_handle->pkt_size = ureq->transfer_len;
 
 		uci_log(UCI_DBG_VERBOSE,
 			"Got pkt of sz 0x%x at adr %pK, ch %d\n",
@@ -615,7 +615,7 @@ static int mhi_uci_read_sync(struct uci_client *uci_handle,
 
 	if (*bytes_avail > 0) {
 		uci_handle->pkt_loc = (void *)ureq->buf;
-		uci_handle->pkt_size = ureq->actual_len;
+		uci_handle->pkt_size = ureq->transfer_len;
 
 		uci_log(UCI_DBG_VERBOSE,
 			"Got pkt of sz 0x%x at adr %pK, ch %d\n",
