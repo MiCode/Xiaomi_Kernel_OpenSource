@@ -32,9 +32,6 @@
 #include <linux/dma-mapping.h>
 #include <linux/dmapool.h>
 #include <linux/dma-contiguous.h>
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 12, 0)
-#include <asm/dma-contiguous.h>
-#endif
 #include <linux/vmalloc.h>
 #include <linux/mmzone.h>
 #include <asm-generic/okl4_virq.h>
@@ -54,26 +51,11 @@
 #define DRIVER_DESC "OKL4 vServices Axon Transport Driver"
 #define DRIVER_NAME "vtransport_axon"
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 18, 0) || \
-	defined(CONFIG_NO_DEPRECATED_MEMORY_BARRIERS)
 #define smp_mb__before_atomic_dec smp_mb__before_atomic
 #define smp_mb__before_atomic_inc smp_mb__before_atomic
 #define smp_mb__after_atomic_dec smp_mb__after_atomic
-#endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,8,0)
 #define DMA_ATTRS unsigned long
-#else
-#define DMA_ATTRS struct dma_attrs *
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 12, 0) && \
-	!defined(CONFIG_CMA)
-static inline struct cma *dev_get_cma_area(struct device *dev)
-{
-	return NULL;
-}
-#endif
 
 static struct kmem_cache *mbuf_cache;
 
@@ -388,22 +370,21 @@ static void *axon_dma_alloc(struct device *dev, size_t size,
 	struct page *page;
 	void *ptr;
 
+#ifdef DMA_ERROR_CODE
 	*handle = DMA_ERROR_CODE;
+#else
+	*handle = 0;
+#endif
 	size = PAGE_ALIGN(size);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 4, 0)
-	if (!(gfp & __GFP_WAIT))
-#else
 	if (!(gfp & __GFP_RECLAIM))
-#endif
 		return NULL;
 
 	order = get_order(size);
 	count = size >> PAGE_SHIFT;
 
 	if (dev_get_cma_area(dev)) {
-		page = dma_alloc_from_contiguous(dev, count, order);
-
+		page = dma_alloc_from_contiguous(dev, count, order, gfp);
 		if (!page)
 			return NULL;
 	} else {
@@ -1128,7 +1109,7 @@ static int __transport_send(struct vs_transport_axon *transport,
 			mbuf->base.size, service_id);
 	vs_debug_dump_mbuf(transport->session_dev, &mbuf->base);
 
-	uptr = ACCESS_ONCE(transport->tx->queues[0].uptr);
+	uptr = READ_ONCE(transport->tx->queues[0].uptr);
 	desc = &transport->tx_descs[uptr];
 
 	/* Is the descriptor ready to use? */
@@ -1143,7 +1124,7 @@ static int __transport_send(struct vs_transport_axon *transport,
 	transport->tx_pools[uptr] = mbuf->pool;
 
 	INC_MOD(uptr, transport->tx->queues[0].entries);
-	ACCESS_ONCE(transport->tx->queues[0].uptr) = uptr;
+	WRITE_ONCE(transport->tx->queues[0].uptr, uptr);
 
 	/* Set up the descriptor */
 	desc->data_size = mbuf_real_size(mbuf);
@@ -1644,7 +1625,7 @@ static int transport_rx_queue_buffer(struct vs_transport_axon *transport,
 
 	/* Select the buffer desc to reallocate */
 	desc = &transport->rx_descs[transport->rx_uptr_allocated];
-	info = ACCESS_ONCE(desc->info);
+	info = READ_ONCE(desc->info);
 
 	/* If there is no space in the rx queue, fail */
 	if (okl4_axon_data_info_getusr(&info))
@@ -1659,7 +1640,7 @@ static int transport_rx_queue_buffer(struct vs_transport_axon *transport,
 	okl4_axon_data_info_setpending(&info, true);
 	okl4_axon_data_info_setusr(&info, true);
 	mb();
-	ACCESS_ONCE(desc->info) = info;
+	WRITE_ONCE(desc->info, info);
 
 	/* Proceed to the next buffer */
 	INC_MOD(transport->rx_uptr_allocated,
@@ -1683,10 +1664,10 @@ static int transport_process_msg(struct vs_transport_axon *transport)
 	okl4_axon_data_info_t info;
 
 	/* Select the descriptor to receive from */
-	uptr = ACCESS_ONCE(transport->rx->queues[0].uptr);
+	uptr = READ_ONCE(transport->rx->queues[0].uptr);
 	desc = &transport->rx_descs[uptr];
 	ptr = &transport->rx_ptrs[uptr];
-	info = ACCESS_ONCE(desc->info);
+	info = READ_ONCE(desc->info);
 
 	/* Have we emptied the whole queue? */
 	if (!okl4_axon_data_info_getusr(&info))
@@ -1716,13 +1697,13 @@ static int transport_process_msg(struct vs_transport_axon *transport)
 	mbuf->base.size = desc->data_size - sizeof(vs_service_id_t);
 
 	INC_MOD(uptr, transport->rx->queues[0].entries);
-	ACCESS_ONCE(transport->rx->queues[0].uptr) = uptr;
+	WRITE_ONCE(transport->rx->queues[0].uptr, uptr);
 
 	/* Finish reading desc before clearing usr bit */
 	smp_mb();
 
 	/* Re-check the pending bit, in case we've just been reset */
-	info = ACCESS_ONCE(desc->info);
+	info = READ_ONCE(desc->info);
 	if (unlikely(okl4_axon_data_info_getpending(&info))) {
 		kmem_cache_free(mbuf_cache, mbuf);
 		return 0;
@@ -1730,7 +1711,7 @@ static int transport_process_msg(struct vs_transport_axon *transport)
 
 	/* Clear usr bit; after this point the buffer is owned by the mbuf */
 	okl4_axon_data_info_setusr(&info, false);
-	ACCESS_ONCE(desc->info) = info;
+	WRITE_ONCE(desc->info, info);
 
 	/* Determine who to deliver the mbuf to */
 	service_id = transport_get_mbuf_service_id(transport,
@@ -1917,7 +1898,7 @@ static void transport_flush_rx_queues(struct vs_transport_axon *transport)
 	 */
 	smp_mb();
 	transport->rx->queues[0].kptr =
-		ACCESS_ONCE(transport->rx->queues[0].uptr);
+		READ_ONCE(transport->rx->queues[0].uptr);
 
 	/*
 	 * Cancel any pending freed bufs work. We can't flush it here, but
@@ -3172,7 +3153,7 @@ static int transport_axon_probe(struct platform_device *dev)
 	}
 
 	dev->dev.coherent_dma_mask = ~(u64)0;
-	dev->dev.archdata.dma_ops = &axon_dma_ops;
+	dev->dev.dma_ops = &axon_dma_ops;
 
 	priv = devm_kzalloc(&dev->dev, sizeof(struct vs_transport_axon) +
 			sizeof(unsigned long), GFP_KERNEL);
@@ -3260,9 +3241,6 @@ static int transport_axon_probe(struct platform_device *dev)
 	INIT_LIST_HEAD(&priv->rx_freelist);
 
 	timer_setup(&priv->rx_retry_timer, transport_rx_retry_timer, 0);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,8,0)
-	set_timer_slack(&priv->rx_retry_timer, HZ);
-#endif
 
 	/* Keep RX disabled until the core service is ready. */
 	tasklet_disable(&priv->rx_tasklet);
