@@ -1875,7 +1875,7 @@
 		ufs-qcom-crypto = <&ufs_ice>;
 
 		lanes-per-direction = <1>;
-
+		spm-level = <5>;
 		dev-ref-clk-freq = <0>; /* 19.2 MHz */
 
 		clock-names =
