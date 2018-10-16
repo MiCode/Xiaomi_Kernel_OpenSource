@@ -34,6 +34,7 @@
 #define MAX_DP_MST_DRM_ENCODERS		2
 #define MAX_DP_MST_DRM_BRIDGES		2
 #define DP_MST_SIM_MAX_PORTS    2
+#define HPD_STRING_SIZE			30
 
 struct dp_drm_mst_fw_helper_ops {
 	int (*calc_pbn_mode)(int clock, int bpp);
@@ -1330,6 +1331,27 @@ static void dp_mst_hotplug(struct drm_dp_mst_topology_mgr *mgr)
 	DP_MST_DEBUG("mst hot plug event\n");
 }
 
+static void dp_mst_hpd_event_notify(struct dp_mst_private *mst, bool hpd_status)
+{
+	struct drm_device *dev = mst->dp_display->drm_dev;
+	char event_string[] = "MST_HOTPLUG=1";
+	char status[HPD_STRING_SIZE];
+	char *envp[3];
+
+	if (hpd_status)
+		snprintf(status, HPD_STRING_SIZE, "status=connected");
+	else
+		snprintf(status, HPD_STRING_SIZE, "status=disconnected");
+
+	envp[0] = event_string;
+	envp[1] = status;
+	envp[2] = NULL;
+
+	kobject_uevent_env(&dev->primary->kdev->kobj, KOBJ_CHANGE, envp);
+
+	DP_MST_DEBUG("%s finished\n", __func__);
+}
+
 /* DP Driver Callback OPs */
 
 static void dp_mst_display_hpd(void *dp_display, bool hpd_status,
@@ -1356,6 +1378,8 @@ static void dp_mst_display_hpd(void *dp_display, bool hpd_status,
 	if (hpd_status)
 		rc = mst->mst_fw_cbs->topology_mgr_set_mst(&mst->mst_mgr,
 				hpd_status);
+
+	dp_mst_hpd_event_notify(mst, hpd_status);
 
 	DP_MST_DEBUG("mst display hpd:%d, rc:%d\n", hpd_status, rc);
 

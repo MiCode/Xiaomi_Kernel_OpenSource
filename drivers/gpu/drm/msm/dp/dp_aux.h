@@ -43,7 +43,10 @@ enum dp_aux_error {
 
 struct dp_aux {
 	u32 reg;
+	u32 size;
 	u32 state;
+
+	bool read;
 
 	struct drm_dp_aux *drm_aux;
 	int (*drm_aux_register)(struct dp_aux *aux);

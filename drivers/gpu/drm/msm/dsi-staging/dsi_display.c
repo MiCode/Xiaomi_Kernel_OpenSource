@@ -919,6 +919,17 @@ int dsi_display_cmd_transfer(struct drm_connector *connector,
 
 	mutex_lock(&dsi_display->display_lock);
 	rc = dsi_display_ctrl_get_host_init_state(dsi_display, &state);
+
+	/**
+	 * Handle scenario where a command transfer is initiated through
+	 * sysfs interface when device is in suepnd state.
+	 */
+	if (!rc && !state) {
+		pr_warn_ratelimited("Command xfer attempted while device is in suspend state\n"
+				);
+		rc = -EPERM;
+		goto end;
+	}
 	if (rc || !state) {
 		pr_err("[DSI] Invalid host state %d rc %d\n",
 				state, rc);
@@ -1316,7 +1327,7 @@ static ssize_t debugfs_alter_esd_check_mode(struct file *file,
 	if (ZERO_OR_NULL_PTR(buf))
 		return -ENOMEM;
 
-	if (copy_from_user(buf, user_buf, user_len)) {
+	if (copy_from_user(buf, user_buf, len)) {
 		rc = -EINVAL;
 		goto error;
 	}
@@ -4786,12 +4797,6 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 				break;
 			}
 			continue;
-		} else if (index == DSI_SECONDARY) {
-			/*
-			 * secondary display is currently
-			 * supported through boot params only
-			 */
-			break;
 		}
 
 		if (of_property_read_bool(np, disp_active)) {
