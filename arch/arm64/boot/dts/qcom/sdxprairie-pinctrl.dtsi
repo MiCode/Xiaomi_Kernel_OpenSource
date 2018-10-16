@@ -19,7 +19,7 @@
 		gpio-controller;
 		#gpio-cells = <2>;
 		interrupt-controller;
-		interrupt-parent = <&intc>;
+		interrupt-parent = <&pdc>;
 		#interrupt-cells = <2>;
 
 		uart3_console_active: uart3_console_active {
