@@ -362,6 +362,7 @@ struct smb_charger {
 	int			temp_speed_reading_count;
 	int			qc2_max_pulses;
 	bool			non_compliant_chg_detected;
+	bool			reddragon_ipc_wa;
 
 	/* extcon for VBUS / ID notification to USB for uUSB */
 	struct extcon_dev	*extcon;
