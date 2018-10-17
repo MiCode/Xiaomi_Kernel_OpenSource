@@ -1559,12 +1559,20 @@ static void sde_encoder_phys_wb_disable(struct sde_encoder_phys *phys_enc)
 	if (phys_enc->hw_ctl->ops.clear_pending_flush)
 		phys_enc->hw_ctl->ops.clear_pending_flush(phys_enc->hw_ctl);
 
-	sde_encoder_helper_phys_disable(phys_enc, wb_enc);
+	/*
+	 * New CTL reset sequence from 5.0 MDP onwards.
+	 * If has_3d_merge_reset is not set, legacy reset
+	 * sequence is executed.
+	 */
+	if (hw_wb->catalog->has_3d_merge_reset) {
+		sde_encoder_helper_phys_disable(phys_enc, wb_enc);
+		goto exit;
+	}
+
+	if (sde_encoder_helper_reset_mixers(phys_enc, wb_enc->fb_disable))
+		goto exit;
 
 	phys_enc->enable_state = SDE_ENC_DISABLING;
-
-	if (hw_wb->catalog->has_3d_merge_reset)
-		goto exit;
 
 	sde_encoder_phys_wb_prepare_for_kickoff(phys_enc, NULL);
 	sde_encoder_phys_wb_irq_ctrl(phys_enc, true);
