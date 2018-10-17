@@ -145,3 +145,24 @@
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
 	qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
 };
+
+&qupv3_se7_i2c {
+	status = "ok";
+	st_fts@49 {
+		compatible = "st,fts";
+		reg = <0x49>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <9 0x2008>;
+		vdd-supply = <&pm6150_l10>;
+		avdd-supply = <&pm6150l_l7>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		st,irq-gpio = <&tlmm 9 0x2008>;
+		st,reset-gpio = <&tlmm 8 0x00>;
+		st,regulator_dvdd = "vdd";
+		st,regulator_avdd = "avdd";
+		st,x-flip;
+		st,y-flip;
+	};
+};
