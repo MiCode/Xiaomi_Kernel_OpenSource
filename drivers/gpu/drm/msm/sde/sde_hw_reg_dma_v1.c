@@ -489,8 +489,13 @@ static int write_kick_off_v1(struct sde_reg_dma_kickoff_cfg *cfg)
 	SET_UP_REG_DMA_REG(hw, reg_dma);
 	SDE_REG_WRITE(&hw, REG_DMA_OP_MODE_OFF, BIT(0));
 	val = SDE_REG_READ(&hw, reg_dma_intr_4_status_offset);
-	if (val)
-		SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus", "panic");
+	if (val) {
+		DRM_DEBUG("LUT dma status %x\n", val);
+		mask = BIT(0) | BIT(1) | BIT(2) | BIT(16);
+		SDE_REG_WRITE(&hw, reg_dma_intr_clear_offset + sizeof(u32) * 4,
+			mask);
+		SDE_EVT32(val);
+	}
 
 	SDE_REG_WRITE(&hw, reg_dma_ctl_queue_off[cfg->ctl->idx],
 			cfg->dma_buf->iova);
