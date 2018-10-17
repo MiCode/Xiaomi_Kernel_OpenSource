@@ -58,12 +58,15 @@ struct dfc_qmi_data {
 	struct work_struct svc_arrive;
 	struct qmi_handle handle;
 	struct sockaddr_qrtr ssctl;
+	struct svc_info svc;
+	struct work_struct qmi_ind_work;
+	struct list_head qmi_ind_q;
+	spinlock_t qmi_ind_lock;
 	int index;
 	int restart_state;
 };
 
 static void dfc_svc_init(struct work_struct *work);
-static void dfc_do_burst_flow_control(struct work_struct *work);
 
 /* **************************************************** */
 #define DFC_SERVICE_ID_V01 0x4E
@@ -307,8 +310,7 @@ struct dfc_flow_status_ind_msg_v01 {
 };
 
 struct dfc_svc_ind {
-	struct work_struct work;
-	struct dfc_qmi_data *data;
+	struct list_head list;
 	struct dfc_flow_status_ind_msg_v01 dfc_info;
 };
 
@@ -618,12 +620,11 @@ out:
 	return ret;
 }
 
-static int dfc_init_service(struct dfc_qmi_data *data, struct qmi_info *qmi)
+static int dfc_init_service(struct dfc_qmi_data *data)
 {
 	int rc;
 
-	rc = dfc_bind_client_req(&data->handle, &data->ssctl,
-				 &qmi->fc_info[data->index].svc);
+	rc = dfc_bind_client_req(&data->handle, &data->ssctl, &data->svc);
 	if (rc < 0)
 		return rc;
 
@@ -674,16 +675,13 @@ static int dfc_bearer_flow_ctl(struct net_device *dev,
 			       struct rmnet_bearer_map *bearer,
 			       struct qos_info *qos)
 {
-	struct list_head *p;
 	struct rmnet_flow_map *itm;
 	int rc = 0, qlen;
 	int enable;
 
 	enable = bearer->grant_size ? 1 : 0;
 
-	list_for_each(p, &qos->flow_head) {
-		itm = list_entry(p, struct rmnet_flow_map, list);
-
+	list_for_each_entry(itm, &qos->flow_head, list) {
 		if (itm->bearer_id == bearer->bearer_id) {
 			/*
 			 * Do not flow disable ancillary q if ancillary is true
@@ -713,14 +711,14 @@ static int dfc_all_bearer_flow_ctl(struct net_device *dev,
 				struct qos_info *qos, u8 ack_req, u32 ancillary,
 				struct dfc_flow_status_info_type_v01 *fc_info)
 {
-	struct list_head *p;
-	struct rmnet_bearer_map *bearer_itm = NULL;
-	int enable;
-	int rc = 0;
+	struct rmnet_bearer_map *bearer_itm;
+	struct rmnet_flow_map *flow_itm;
+	int rc = 0, qlen;
+	bool enable;
 
-	list_for_each(p, &qos->bearer_head) {
-		bearer_itm = list_entry(p, struct rmnet_bearer_map, list);
+	enable = fc_info->num_bytes > 0 ? 1 : 0;
 
+	list_for_each_entry(bearer_itm, &qos->bearer_head, list) {
 		bearer_itm->grant_size = fc_info->num_bytes;
 		bearer_itm->grant_thresh =
 			qmi_rmnet_grant_per(bearer_itm->grant_size);
@@ -729,14 +727,14 @@ static int dfc_all_bearer_flow_ctl(struct net_device *dev,
 		bearer_itm->ancillary = ancillary;
 	}
 
-	enable = fc_info->num_bytes > 0 ? 1 : 0;
-
-	if (enable)
-		netif_tx_wake_all_queues(dev);
-	else
-		netif_tx_stop_all_queues(dev);
-
-	trace_dfc_qmi_tc(dev->name, 0xFF, 0, fc_info->num_bytes, 0, 0, enable);
+	list_for_each_entry(flow_itm, &qos->flow_head, list) {
+		qlen = qmi_rmnet_flow_control(dev, flow_itm->tcm_handle,
+					      enable);
+		trace_dfc_qmi_tc(dev->name, flow_itm->bearer_id,
+				 flow_itm->flow_id, fc_info->num_bytes,
+				 qlen, flow_itm->tcm_handle, enable);
+		rc++;
+	}
 
 	if (enable == 0 && ack_req)
 		dfc_send_ack(dev, fc_info->bearer_id,
@@ -776,9 +774,9 @@ static int dfc_update_fc_map(struct net_device *dev, struct qos_info *qos,
 	return rc;
 }
 
-static void dfc_do_burst_flow_control(struct work_struct *work)
+static void dfc_do_burst_flow_control(struct dfc_qmi_data *dfc,
+				      struct dfc_svc_ind *svc_ind)
 {
-	struct dfc_svc_ind *svc_ind = (struct dfc_svc_ind *)work;
 	struct dfc_flow_status_ind_msg_v01 *ind = &svc_ind->dfc_info;
 	struct net_device *dev;
 	struct qos_info *qos;
@@ -787,11 +785,6 @@ static void dfc_do_burst_flow_control(struct work_struct *work)
 	u8 ack_req = ind->eod_ack_reqd_valid ? ind->eod_ack_reqd : 0;
 	u32 ancillary;
 	int i, j;
-
-	if (unlikely(svc_ind->data->restart_state)) {
-		kfree(svc_ind);
-		return;
-	}
 
 	rcu_read_lock();
 
@@ -810,7 +803,7 @@ static void dfc_do_burst_flow_control(struct work_struct *work)
 			}
 		}
 
-		trace_dfc_flow_ind(svc_ind->data->index,
+		trace_dfc_flow_ind(dfc->index,
 				   i, flow_status->mux_id,
 				   flow_status->bearer_id,
 				   flow_status->num_bytes,
@@ -818,7 +811,7 @@ static void dfc_do_burst_flow_control(struct work_struct *work)
 				   ack_req,
 				   ancillary);
 
-		dev = rmnet_get_rmnet_dev(svc_ind->data->rmnet_port,
+		dev = rmnet_get_rmnet_dev(dfc->rmnet_port,
 					  flow_status->mux_id);
 		if (!dev)
 			goto clean_out;
@@ -841,7 +834,36 @@ static void dfc_do_burst_flow_control(struct work_struct *work)
 
 clean_out:
 	rcu_read_unlock();
-	kfree(svc_ind);
+}
+
+static void dfc_qmi_ind_work(struct work_struct *work)
+{
+	struct dfc_qmi_data *dfc = container_of(work, struct dfc_qmi_data,
+						qmi_ind_work);
+	struct dfc_svc_ind *svc_ind;
+	unsigned long flags;
+
+	if (!dfc)
+		return;
+
+	local_bh_disable();
+
+	do {
+		spin_lock_irqsave(&dfc->qmi_ind_lock, flags);
+		svc_ind = list_first_entry_or_null(&dfc->qmi_ind_q,
+						   struct dfc_svc_ind, list);
+		if (svc_ind)
+			list_del(&svc_ind->list);
+		spin_unlock_irqrestore(&dfc->qmi_ind_lock, flags);
+
+		if (svc_ind) {
+			if (!dfc->restart_state)
+				dfc_do_burst_flow_control(dfc, svc_ind);
+			kfree(svc_ind);
+		}
+	} while (svc_ind != NULL);
+
+	local_bh_enable();
 }
 
 static void dfc_clnt_ind_cb(struct qmi_handle *qmi, struct sockaddr_qrtr *sq,
@@ -851,6 +873,7 @@ static void dfc_clnt_ind_cb(struct qmi_handle *qmi, struct sockaddr_qrtr *sq,
 						handle);
 	struct dfc_flow_status_ind_msg_v01 *ind_msg;
 	struct dfc_svc_ind *svc_ind;
+	unsigned long flags;
 
 	if (qmi != &dfc->handle)
 		return;
@@ -867,13 +890,13 @@ static void dfc_clnt_ind_cb(struct qmi_handle *qmi, struct sockaddr_qrtr *sq,
 		if (!svc_ind)
 			return;
 
-		INIT_WORK((struct work_struct *)svc_ind,
-			  dfc_do_burst_flow_control);
-
 		memcpy(&svc_ind->dfc_info, ind_msg, sizeof(*ind_msg));
-		svc_ind->data = dfc;
 
-		queue_work(dfc->dfc_wq, (struct work_struct *)svc_ind);
+		spin_lock_irqsave(&dfc->qmi_ind_lock, flags);
+		list_add_tail(&svc_ind->list, &dfc->qmi_ind_q);
+		spin_unlock_irqrestore(&dfc->qmi_ind_lock, flags);
+
+		queue_work(dfc->dfc_wq, &dfc->qmi_ind_work);
 	}
 }
 
@@ -884,19 +907,26 @@ static void dfc_svc_init(struct work_struct *work)
 						 svc_arrive);
 	struct qmi_info *qmi;
 
-	qmi = (struct qmi_info *)rmnet_get_qmi_pt(data->rmnet_port);
-	if (!qmi)
-		goto clean_out;
-
-	rc = dfc_init_service(data, qmi);
+	rc = dfc_init_service(data);
 	if (rc < 0)
 		goto clean_out;
 
-	qmi->fc_info[data->index].dfc_client = (void *)data;
 	trace_dfc_client_state_up(data->index,
-				  qmi->fc_info[data->index].svc.instance,
-				  qmi->fc_info[data->index].svc.ep_type,
-				  qmi->fc_info[data->index].svc.iface_id);
+			   data->svc.instance,
+			   data->svc.ep_type,
+			   data->svc.iface_id);
+
+	rtnl_lock();
+	qmi = (struct qmi_info *)rmnet_get_qmi_pt(data->rmnet_port);
+	if (!qmi) {
+		rtnl_unlock();
+		goto clean_out;
+	}
+
+	qmi->dfc_clients[data->index] = (void *)data;
+	rtnl_unlock();
+
+	pr_info("Connection established with the DFC Service\n");
 	return;
 
 clean_out:
@@ -944,7 +974,7 @@ static struct qmi_msg_handler qmi_indication_handler[] = {
 	{},
 };
 
-int dfc_qmi_client_init(void *port, int index, struct qmi_info *qmi)
+int dfc_qmi_client_init(void *port, int index, struct svc_info *psvc)
 {
 	struct dfc_qmi_data *data;
 	int rc = -ENOMEM;
@@ -956,6 +986,11 @@ int dfc_qmi_client_init(void *port, int index, struct qmi_info *qmi)
 	data->rmnet_port = port;
 	data->index = index;
 	data->restart_state = 0;
+	memcpy(&data->svc, psvc, sizeof(data->svc));
+
+	INIT_WORK(&data->qmi_ind_work, dfc_qmi_ind_work);
+	INIT_LIST_HEAD(&data->qmi_ind_q);
+	spin_lock_init(&data->qmi_ind_lock);
 
 	data->dfc_wq = create_singlethread_workqueue("dfc_wq");
 	if (!data->dfc_wq) {
@@ -974,7 +1009,7 @@ int dfc_qmi_client_init(void *port, int index, struct qmi_info *qmi)
 
 	rc = qmi_add_lookup(&data->handle, DFC_SERVICE_ID_V01,
 			    DFC_SERVICE_VERS_V01,
-			    qmi->fc_info[index].svc.instance);
+			    psvc->instance);
 	if (rc < 0) {
 		pr_err("%s: failed qmi_add_lookup - rc[%d]\n", __func__, rc);
 		goto err2;
@@ -1058,7 +1093,7 @@ void dfc_qmi_wq_flush(struct qmi_info *qmi)
 	int i;
 
 	for (i = 0; i < MAX_CLIENT_NUM; i++) {
-		dfc_data = (struct dfc_qmi_data *)(qmi->fc_info[i].dfc_client);
+		dfc_data = (struct dfc_qmi_data *)(qmi->dfc_clients[i]);
 		if (dfc_data)
 			flush_workqueue(dfc_data->dfc_wq);
 	}

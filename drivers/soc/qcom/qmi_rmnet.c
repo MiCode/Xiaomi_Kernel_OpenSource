@@ -87,8 +87,8 @@ void *qmi_rmnet_has_dfc_client(struct qmi_info *qmi)
 		return NULL;
 
 	for (i = 0; i < MAX_CLIENT_NUM; i++) {
-		if (qmi->fc_info[i].dfc_client)
-			return qmi->fc_info[i].dfc_client;
+		if (qmi->dfc_clients[i])
+			return qmi->dfc_clients[i];
 	}
 
 	return NULL;
@@ -365,6 +365,7 @@ static int
 qmi_rmnet_setup_client(void *port, struct qmi_info *qmi, struct tcmsg *tcm)
 {
 	int idx, rc, err = 0;
+	struct svc_info svc;
 
 	ASSERT_RTNL();
 
@@ -375,7 +376,7 @@ qmi_rmnet_setup_client(void *port, struct qmi_info *qmi, struct tcmsg *tcm)
 	idx = (tcm->tcm_handle == 0) ? 0 : 1;
 
 	if (!qmi) {
-		qmi = kzalloc(sizeof(struct qmi_info), GFP_KERNEL);
+		qmi = kzalloc(sizeof(struct qmi_info), GFP_ATOMIC);
 		if (!qmi)
 			return -ENOMEM;
 
@@ -383,20 +384,20 @@ qmi_rmnet_setup_client(void *port, struct qmi_info *qmi, struct tcmsg *tcm)
 	}
 
 	qmi->flag = tcm->tcm_ifindex;
-	qmi->fc_info[idx].svc.instance = tcm->tcm_handle;
-	qmi->fc_info[idx].svc.ep_type = tcm->tcm_info;
-	qmi->fc_info[idx].svc.iface_id = tcm->tcm_parent;
+	svc.instance = tcm->tcm_handle;
+	svc.ep_type = tcm->tcm_info;
+	svc.iface_id = tcm->tcm_parent;
 
 	if (((tcm->tcm_ifindex & FLAG_DFC_MASK) == DFC_MODE_MULTIQ) &&
-	    (qmi->fc_info[idx].dfc_client == NULL)) {
-		rc = dfc_qmi_client_init(port, idx, qmi);
+	    (qmi->dfc_clients[idx] == NULL)) {
+		rc = dfc_qmi_client_init(port, idx, &svc);
 		if (rc < 0)
 			err = rc;
 	}
 
 	if ((tcm->tcm_ifindex & FLAG_POWERSAVE_MASK) &&
 	    (idx == 0) && (qmi->wda_client == NULL)) {
-		rc = wda_qmi_client_init(port, tcm->tcm_handle);
+		rc = wda_qmi_client_init(port, &svc);
 		if (rc < 0)
 			err = rc;
 	}
@@ -407,12 +408,11 @@ qmi_rmnet_setup_client(void *port, struct qmi_info *qmi, struct tcmsg *tcm)
 static int
 __qmi_rmnet_delete_client(void *port, struct qmi_info *qmi, int idx)
 {
-
 	ASSERT_RTNL();
 
-	if (qmi->fc_info[idx].dfc_client) {
-		dfc_qmi_client_exit(qmi->fc_info[idx].dfc_client);
-		qmi->fc_info[idx].dfc_client = NULL;
+	if (qmi->dfc_clients[idx]) {
+		dfc_qmi_client_exit(qmi->dfc_clients[idx]);
+		qmi->dfc_clients[idx] = NULL;
 	}
 
 	if (!qmi_rmnet_has_client(qmi)) {
