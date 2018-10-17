@@ -275,7 +275,7 @@ static int mmc_scale_set(void *data, u64 val)
 	mmc_host_clk_hold(host);
 
 	/* change frequency from sysfs manually */
-	err = mmc_clk_update_freq(host, val, host->clk_scaling.state);
+	err = mmc_clk_update_freq(host, val, host->clk_scaling.state, 0);
 	if (err == -EAGAIN)
 		err = 0;
 	else if (err)
@@ -547,7 +547,7 @@ static int mmc_dbg_card_status_get(void *data, u64 *val)
 
 	mmc_get_card(card);
 	if (mmc_card_cmdq(card)) {
-		ret = mmc_cmdq_halt_on_empty_queue(card->host);
+		ret = mmc_cmdq_halt_on_empty_queue(card->host, 0);
 		if (ret) {
 			pr_err("%s: halt failed while doing %s err (%d)\n",
 					mmc_hostname(card->host), __func__,
@@ -589,7 +589,7 @@ static int mmc_ext_csd_open(struct inode *inode, struct file *filp)
 
 	mmc_get_card(card);
 	if (mmc_card_cmdq(card)) {
-		err = mmc_cmdq_halt_on_empty_queue(card->host);
+		err = mmc_cmdq_halt_on_empty_queue(card->host, 0);
 		if (err) {
 			pr_err("%s: halt failed while doing %s err (%d)\n",
 					mmc_hostname(card->host), __func__,
