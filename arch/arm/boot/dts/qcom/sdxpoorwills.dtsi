@@ -65,7 +65,7 @@
 		mss_mem: mss_region@87400000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x87000000 0x8700000>;
+			reg = <0x86c00000 0x8b00000>;
 			label = "mss_mem";
 		};
 
