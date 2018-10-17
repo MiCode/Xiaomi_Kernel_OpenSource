@@ -1039,19 +1039,34 @@ static int cnss_cold_boot_cal_start_hdlr(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
 
-	set_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state);
-	ret = cnss_bus_dev_powerup(plat_priv);
-	if (ret)
-		clear_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state);
+	if (test_bit(CNSS_FW_READY, &plat_priv->driver_state) ||
+	    test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state) ||
+	    test_bit(CNSS_DRIVER_PROBED, &plat_priv->driver_state)) {
+		cnss_pr_dbg("Device is already active, ignore calibration\n");
+		goto out;
+	}
 
+	set_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state);
+	reinit_completion(&plat_priv->cal_complete);
+	ret = cnss_bus_dev_powerup(plat_priv);
+	if (ret) {
+		complete(&plat_priv->cal_complete);
+		clear_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state);
+	}
+
+out:
 	return ret;
 }
 
 static int cnss_cold_boot_cal_done_hdlr(struct cnss_plat_data *plat_priv)
 {
+	if (!test_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state))
+		return 0;
+
 	plat_priv->cal_done = true;
 	cnss_wlfw_wlan_mode_send_sync(plat_priv, CNSS_OFF);
 	cnss_bus_dev_shutdown(plat_priv);
+	complete(&plat_priv->cal_complete);
 	clear_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state);
 
 	return 0;
@@ -1641,6 +1656,7 @@ static int cnss_probe(struct platform_device *plat_dev)
 			    ret);
 
 	init_completion(&plat_priv->power_up_complete);
+	init_completion(&plat_priv->cal_complete);
 	mutex_init(&plat_priv->dev_lock);
 
 	cnss_pr_info("Platform driver probed successfully.\n");
@@ -1676,6 +1692,7 @@ static int cnss_remove(struct platform_device *plat_dev)
 {
 	struct cnss_plat_data *plat_priv = platform_get_drvdata(plat_dev);
 
+	complete_all(&plat_priv->cal_complete);
 	complete_all(&plat_priv->power_up_complete);
 	device_init_wakeup(&plat_dev->dev, false);
 	unregister_pm_notifier(&cnss_pm_notifier);

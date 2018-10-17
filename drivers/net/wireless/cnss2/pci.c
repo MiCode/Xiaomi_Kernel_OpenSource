@@ -693,6 +693,7 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 	int ret = 0;
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(NULL);
 	struct cnss_pci_data *pci_priv;
+	unsigned int timeout;
 
 	if (!plat_priv) {
 		cnss_pr_err("plat_priv is NULL\n");
@@ -710,10 +711,27 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 		return -EEXIST;
 	}
 
+	if (!test_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state))
+		goto register_driver;
+
+	cnss_pr_dbg("Start to wait for calibration to complete\n");
+
+	timeout = cnss_get_boot_timeout(&pci_priv->pci_dev->dev);
+	ret = wait_for_completion_timeout(&plat_priv->cal_complete,
+					  msecs_to_jiffies(timeout) << 2);
+	if (!ret) {
+		cnss_pr_err("Timeout waiting for calibration to complete\n");
+		ret = -EAGAIN;
+		goto out;
+	}
+
+register_driver:
 	ret = cnss_driver_event_post(plat_priv,
 				     CNSS_DRIVER_EVENT_REGISTER_DRIVER,
 				     CNSS_EVENT_SYNC_UNINTERRUPTIBLE,
 				     driver_ops);
+
+out:
 	return ret;
 }
 EXPORT_SYMBOL(cnss_wlan_register_driver);
