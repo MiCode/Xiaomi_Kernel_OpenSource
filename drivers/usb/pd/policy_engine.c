@@ -1598,6 +1598,9 @@ static void dr_swap(struct usbpd *pd)
 			start_usb_host(pd, true);
 		pd->current_dr = DR_DFP;
 
+		/* ensure host is started before allowing DP */
+		extcon_blocking_sync(pd->extcon, EXTCON_USB_HOST, 0);
+
 		usbpd_send_svdm(pd, USBPD_SID, USBPD_SVDM_DISCOVER_IDENTITY,
 				SVDM_CMD_TYPE_INITIATOR, 0, NULL, 0);
 	}
