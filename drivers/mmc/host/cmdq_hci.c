@@ -1100,6 +1100,7 @@ skip_cqterri:
 			}
 		}
 		cmdq_finish_data(mmc, tag);
+		goto out;
 	} else {
 		cmdq_writel(cq_host, status, CQIS);
 	}
