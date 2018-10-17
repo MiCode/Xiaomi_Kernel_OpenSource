@@ -767,7 +767,7 @@ static ssize_t store_enable(struct device *dev,
 		host->clk_scaling.state = MMC_LOAD_HIGH;
 		/* Set to max. frequency when disabling */
 		mmc_clk_update_freq(host, host->card->clk_scaling_highest,
-					host->clk_scaling.state);
+					host->clk_scaling.state, 0);
 	} else if (value) {
 		/* Unmask host capability and resume scaling */
 		host->caps2 |= MMC_CAP2_CLK_SCALE;

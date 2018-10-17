@@ -373,12 +373,23 @@ static bool mmc_is_valid_state_for_clk_scaling(struct mmc_host *host)
 	return R1_CURRENT_STATE(status) == R1_STATE_TRAN;
 }
 
-int mmc_cmdq_halt_on_empty_queue(struct mmc_host *host)
+int mmc_cmdq_halt_on_empty_queue(struct mmc_host *host, unsigned long timeout)
 {
 	int err = 0;
 
-	err = wait_event_interruptible(host->cmdq_ctx.queue_empty_wq,
-				(!host->cmdq_ctx.active_reqs));
+	if (!timeout) {
+		err = wait_event_interruptible(host->cmdq_ctx.queue_empty_wq,
+					(!host->cmdq_ctx.active_reqs));
+	} else {
+		err = wait_event_interruptible_timeout(
+				host->cmdq_ctx.queue_empty_wq,
+				(!host->cmdq_ctx.active_reqs),
+				msecs_to_jiffies(timeout));
+		if (!err)
+			pr_err("%s: halt_on_empty_queue timeout case: err(%d)\n",
+					__func__, err);
+	}
+
 	if (host->cmdq_ctx.active_reqs) {
 		pr_err("%s: %s: unexpected active requests (%lu)\n",
 			mmc_hostname(host), __func__,
@@ -399,7 +410,8 @@ out:
 EXPORT_SYMBOL(mmc_cmdq_halt_on_empty_queue);
 
 int mmc_clk_update_freq(struct mmc_host *host,
-		unsigned long freq, enum mmc_load state)
+		unsigned long freq, enum mmc_load state,
+		unsigned long timeout)
 {
 	int err = 0;
 	bool cmdq_mode;
@@ -441,7 +453,7 @@ int mmc_clk_update_freq(struct mmc_host *host,
 	}
 
 	if (cmdq_mode) {
-		err = mmc_cmdq_halt_on_empty_queue(host);
+		err = mmc_cmdq_halt_on_empty_queue(host, timeout);
 		if (err) {
 			pr_err("%s: %s: failed halting queue (%d)\n",
 				mmc_hostname(host), __func__, err);
@@ -574,7 +586,7 @@ static int mmc_devfreq_set_target(struct device *dev,
 	clk_scaling->need_freq_change = false;
 
 	mmc_host_clk_hold(host);
-	err = mmc_clk_update_freq(host, *freq, clk_scaling->state);
+	err = mmc_clk_update_freq(host, *freq, clk_scaling->state, 0);
 	if (err && err != -EAGAIN) {
 		pr_err("%s: clock scale to %lu failed with error %d\n",
 			mmc_hostname(host), *freq, err);
@@ -600,7 +612,7 @@ out:
  * This function does clock scaling in case "need_freq_change" flag was set
  * by the clock scaling logic.
  */
-void mmc_deferred_scaling(struct mmc_host *host)
+void mmc_deferred_scaling(struct mmc_host *host, unsigned long timeout)
 {
 	unsigned long target_freq;
 	int err;
@@ -630,7 +642,7 @@ void mmc_deferred_scaling(struct mmc_host *host)
 				target_freq, current->comm);
 
 	err = mmc_clk_update_freq(host, target_freq,
-		host->clk_scaling.state);
+		host->clk_scaling.state, timeout);
 	if (err && err != -EAGAIN) {
 		pr_err("%s: failed on deferred scale clocks (%d)\n",
 			mmc_hostname(host), err);
@@ -1236,7 +1248,7 @@ static int mmc_start_request(struct mmc_host *host, struct mmc_request *mrq)
 	led_trigger_event(host->led, LED_FULL);
 
 	if (mmc_is_data_request(mrq)) {
-		mmc_deferred_scaling(host);
+		mmc_deferred_scaling(host, 0);
 		mmc_clk_scaling_start_busy(host, true);
 	}
 

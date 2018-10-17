@@ -1214,7 +1214,7 @@ static int mmc_blk_ioctl_cmd(struct block_device *bdev,
 	mmc_get_card(card);
 
 	if (mmc_card_cmdq(card)) {
-		err = mmc_cmdq_halt_on_empty_queue(card->host);
+		err = mmc_cmdq_halt_on_empty_queue(card->host, 0);
 		if (err) {
 			pr_err("%s: halt failed while doing %s err (%d)\n",
 					mmc_hostname(card->host),
@@ -3236,9 +3236,10 @@ static int mmc_blk_cmdq_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 	struct mmc_cmdq_req *mc_rq;
 	u8 active_small_sector_read = 0;
 	int ret = 0;
+	unsigned long timeout_ms = 10000; /* 10 sec safe timeout */
 
 	mmc_cmdq_up_rwsem(host);
-	mmc_deferred_scaling(host);
+	mmc_deferred_scaling(host, timeout_ms);
 	ret = mmc_cmdq_down_rwsem(host, req);
 	if (ret)
 		return ret;
