@@ -230,7 +230,7 @@ static void *usbpd_ipc_log;
 #define PS_HARD_RESET_TIME	25
 #define PS_SOURCE_ON		400
 #define PS_SOURCE_OFF		750
-#define FIRST_SOURCE_CAP_TIME	200
+#define FIRST_SOURCE_CAP_TIME	100
 #define VDM_BUSY_TIME		50
 #define VCONN_ON_TIME		100
 
