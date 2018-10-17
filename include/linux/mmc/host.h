@@ -286,6 +286,7 @@ struct mmc_slot {
  * @wait		waiting for all conditions described in
  *			mmc_cmdq_ready_wait to be satisified before
  *			issuing the new request to LLD.
+ * @err_rwsem		synchronizes issue/completion/error-handler ctx
  */
 struct mmc_cmdq_context_info {
 	unsigned long	active_reqs; /* in-flight requests */
@@ -299,6 +300,7 @@ struct mmc_cmdq_context_info {
 	wait_queue_head_t	queue_empty_wq;
 	wait_queue_head_t	wait;
 	int active_small_sector_read_reqs;
+	struct rw_semaphore err_rwsem;
 };
 
 /**
