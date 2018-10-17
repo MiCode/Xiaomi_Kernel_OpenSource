@@ -140,16 +140,19 @@ struct snd_compr_audio_info {
  * end of the track
  * @SNDRV_COMPRESS_ENCODER_DELAY: no of samples inserted by the encoder at the
  * beginning of the track
+ * @SNDRV_COMPRESS_PATH_DELAY: dsp path delay in microseconds
  */
 enum sndrv_compress_encoder {
 	SNDRV_COMPRESS_ENCODER_PADDING = 1,
 	SNDRV_COMPRESS_ENCODER_DELAY = 2,
 	SNDRV_COMPRESS_MIN_BLK_SIZE = 3,
 	SNDRV_COMPRESS_MAX_BLK_SIZE = 4,
+	SNDRV_COMPRESS_PATH_DELAY = 5,
 };
 
 #define SNDRV_COMPRESS_MIN_BLK_SIZE SNDRV_COMPRESS_MIN_BLK_SIZE
 #define SNDRV_COMPRESS_MAX_BLK_SIZE SNDRV_COMPRESS_MAX_BLK_SIZE
+#define SNDRV_COMPRESS_PATH_DELAY SNDRV_COMPRESS_PATH_DELAY
 
 /**
  * struct snd_compr_metadata - compressed stream metadata
