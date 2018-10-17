@@ -464,6 +464,20 @@
 		};
 	};
 
+	qcom,devfreq-l3 {
+		compatible = "qcom,devfreq-fw";
+		reg = <0x18590000 0x4>, <0x18590100 0xa0>, <0x18590320 0x4>;
+		reg-names = "en-base", "ftbl-base", "perf-base";
+
+		qcom,cpu0-l3 {
+			compatible = "qcom,devfreq-fw-voter";
+		};
+
+		qcom,cpu4-l3 {
+			compatible = "qcom,devfreq-fw-voter";
+		};
+	};
+
 	qcom,msm-imem@146bf000 {
 		compatible = "qcom,msm-imem";
 		reg = <0x146bf000 0x1000>;
