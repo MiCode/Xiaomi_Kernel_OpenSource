@@ -972,6 +972,28 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	if (rc < 0)
 		smblib_err(chg,
 			"Couldn't un-vote DCP from USB ICL rc=%d\n", rc);
+
+	/*
+	 * if non-compliant charger caused UV, restore original max pulses
+	 * and turn SUSPEND_ON_COLLAPSE_USBIN_BIT back on.
+	 */
+	if (chg->qc2_unsupported_voltage) {
+		rc = smblib_masked_write(chg, HVDCP_PULSE_COUNT_MAX_REG,
+				HVDCP_PULSE_COUNT_MAX_QC2_MASK,
+				chg->qc2_max_pulses);
+		if (rc < 0)
+			smblib_err(chg, "Couldn't restore max pulses rc=%d\n",
+					rc);
+
+		rc = smblib_masked_write(chg, USBIN_AICL_OPTIONS_CFG_REG,
+				SUSPEND_ON_COLLAPSE_USBIN_BIT,
+				SUSPEND_ON_COLLAPSE_USBIN_BIT);
+		if (rc < 0)
+			smblib_err(chg, "Couldn't turn on SUSPEND_ON_COLLAPSE_USBIN_BIT rc=%d\n",
+					rc);
+
+		chg->qc2_unsupported_voltage = QC2_COMPLIANT;
+	}
 }
 
 void smblib_suspend_on_debug_battery(struct smb_charger *chg)
