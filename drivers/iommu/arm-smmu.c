@@ -4815,12 +4815,15 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	if (err)
 		goto out_power_off;
 
-	if (smmu->version == ARM_SMMU_V2 &&
-	    smmu->num_context_banks != smmu->num_context_irqs) {
-		dev_err(dev,
-			"found %d context interrupt(s) but have %d context banks. assuming %d context interrupts.\n",
-			smmu->num_context_irqs, smmu->num_context_banks,
-			smmu->num_context_banks);
+	if (smmu->version == ARM_SMMU_V2) {
+		if (smmu->num_context_banks > smmu->num_context_irqs) {
+			dev_err(dev,
+				"found %d context irq(s) but have %d context banks. assuming %d context interrupts.\n",
+				smmu->num_context_irqs, smmu->num_context_banks,
+				smmu->num_context_banks);
+		}
+
+		/* Ignore superfluous interrupts */
 		smmu->num_context_irqs = smmu->num_context_banks;
 	}
 
