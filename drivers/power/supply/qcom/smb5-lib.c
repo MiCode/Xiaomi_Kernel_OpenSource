@@ -5457,6 +5457,8 @@ static void smblib_destroy_votables(struct smb_charger *chg)
 		destroy_votable(chg->awake_votable);
 	if (chg->chg_disable_votable)
 		destroy_votable(chg->chg_disable_votable);
+	if (chg->wdog_snarl_irq_en_votable)
+		destroy_votable(chg->wdog_snarl_irq_en_votable);
 }
 
 static void smblib_iio_deinit(struct smb_charger *chg)
