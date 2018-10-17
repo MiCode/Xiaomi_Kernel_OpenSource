@@ -3087,7 +3087,7 @@ static int mmc_pre_hibernate(struct mmc_host *host)
 	host->caps2 &= ~MMC_CAP2_CLK_SCALE;
 	host->clk_scaling.state = MMC_LOAD_HIGH;
 	ret = mmc_clk_update_freq(host, host->card->clk_scaling_highest,
-				host->clk_scaling.state);
+				host->clk_scaling.state, 0);
 	if (ret)
 		pr_err("%s: %s: Setting clk frequency to max failed: %d\n",
 				mmc_hostname(host), __func__, ret);
