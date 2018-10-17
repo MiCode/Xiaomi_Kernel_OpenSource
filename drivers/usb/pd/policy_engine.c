@@ -674,8 +674,13 @@ static int pd_send_msg(struct usbpd *pd, u8 msg_type, const u32 *data,
 	if (pd->hard_reset_recvd)
 		return -EBUSY;
 
-	hdr = PD_MSG_HDR(msg_type, pd->current_dr, pd->current_pr,
-			pd->tx_msgid[sop], num_data, pd->spec_rev);
+	if (sop == SOP_MSG)
+		hdr = PD_MSG_HDR(msg_type, pd->current_dr, pd->current_pr,
+				pd->tx_msgid[sop], num_data, pd->spec_rev);
+	else
+		/* sending SOP'/SOP'' to a cable, PR/DR fields should be 0 */
+		hdr = PD_MSG_HDR(msg_type, 0, 0, pd->tx_msgid[sop], num_data,
+				pd->spec_rev);
 
 	ret = pd_phy_write(hdr, (u8 *)data, num_data * sizeof(u32), sop);
 	if (ret) {
