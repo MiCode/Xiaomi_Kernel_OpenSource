@@ -33,6 +33,7 @@
 enum cnss_dev_bus_type {
 	CNSS_BUS_NONE = -1,
 	CNSS_BUS_PCI,
+	CNSS_BUS_USB,
 };
 
 struct cnss_vreg_info {
@@ -124,6 +125,8 @@ enum cnss_driver_event_type {
 	CNSS_DRIVER_EVENT_FORCE_FW_ASSERT,
 	CNSS_DRIVER_EVENT_POWER_UP,
 	CNSS_DRIVER_EVENT_POWER_DOWN,
+	CNSS_DRIVER_EVENT_CAL_UPDATE,
+	CNSS_DRIVER_EVENT_CAL_DOWNLOAD,
 	CNSS_DRIVER_EVENT_MAX,
 };
 
@@ -245,4 +248,5 @@ void cnss_unregister_ramdump(struct cnss_plat_data *plat_priv);
 void cnss_set_pin_connect_status(struct cnss_plat_data *plat_priv);
 u32 cnss_get_wake_msi(struct cnss_plat_data *plat_priv);
 bool *cnss_get_qmi_bypass(void);
+bool is_qcn7605_device(u16 device_id);
 #endif /* _CNSS_MAIN_H */

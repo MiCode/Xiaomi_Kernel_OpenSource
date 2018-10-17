@@ -559,6 +559,15 @@ out:
 	return ret;
 }
 
+static int cnss_cal_update_hdlr(struct cnss_plat_data *plat_priv)
+{
+	/* QCN7605 store the cal data sent by FW to calDB memory area
+	 * get out of this after complete data is uploaded. FW is expected
+	 * to send cal done
+	*/
+	return 0;
+}
+
 static char *cnss_driver_event_to_str(enum cnss_driver_event_type type)
 {
 	switch (type) {
@@ -576,6 +585,10 @@ static char *cnss_driver_event_to_str(enum cnss_driver_event_type type)
 		return "COLD_BOOT_CAL_START";
 	case CNSS_DRIVER_EVENT_COLD_BOOT_CAL_DONE:
 		return "COLD_BOOT_CAL_DONE";
+	case CNSS_DRIVER_EVENT_CAL_UPDATE:
+		return "COLD_BOOT_CAL_DATA_UPDATE";
+	case CNSS_DRIVER_EVENT_CAL_DOWNLOAD:
+		return "COLD_BOOT_CAL_DATA_DOWNLOAD";
 	case CNSS_DRIVER_EVENT_REGISTER_DRIVER:
 		return "REGISTER_DRIVER";
 	case CNSS_DRIVER_EVENT_UNREGISTER_DRIVER:
@@ -1127,6 +1140,30 @@ int cnss_force_fw_assert(struct device *dev)
 }
 EXPORT_SYMBOL(cnss_force_fw_assert);
 
+static int cnss_wlfw_server_arrive_hdlr(struct cnss_plat_data *plat_priv)
+{
+	int ret;
+
+	ret = cnss_wlfw_server_arrive(plat_priv);
+	if (ret)
+		goto out;
+
+	if (!cnss_bus_req_mem_ind_valid(plat_priv)) {
+		ret = cnss_wlfw_tgt_cap_send_sync(plat_priv);
+		if (ret)
+			goto out;
+
+		ret = cnss_wlfw_bdf_dnld_send_sync(plat_priv);
+		if (ret)
+			goto out;
+		/*cnss driver sends  meta data report and waits for FW_READY*/
+		if (cnss_bus_dev_cal_rep_valid(plat_priv))
+			ret = cnss_wlfw_cal_report_send_sync(plat_priv);
+	}
+out:
+	return ret;
+}
+
 static int cnss_cold_boot_cal_start_hdlr(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
@@ -1146,9 +1183,9 @@ static int cnss_cold_boot_cal_done_hdlr(struct cnss_plat_data *plat_priv)
 	if (plat_priv->device_id == QCN7605_DEVICE_ID)
 		goto skip_shutdown;
 	cnss_bus_dev_shutdown(plat_priv);
+
 skip_shutdown:
 	clear_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state);
-
 	return 0;
 }
 
@@ -1194,7 +1231,7 @@ static void cnss_driver_event_work(struct work_struct *work)
 
 		switch (event->type) {
 		case CNSS_DRIVER_EVENT_SERVER_ARRIVE:
-			ret = cnss_wlfw_server_arrive(plat_priv);
+			ret = cnss_wlfw_server_arrive_hdlr(plat_priv);
 			break;
 		case CNSS_DRIVER_EVENT_SERVER_EXIT:
 			ret = cnss_wlfw_server_exit(plat_priv);
@@ -1213,6 +1250,9 @@ static void cnss_driver_event_work(struct work_struct *work)
 			break;
 		case CNSS_DRIVER_EVENT_COLD_BOOT_CAL_START:
 			ret = cnss_cold_boot_cal_start_hdlr(plat_priv);
+			break;
+		case CNSS_DRIVER_EVENT_CAL_UPDATE:
+			ret = cnss_cal_update_hdlr(plat_priv);
 			break;
 		case CNSS_DRIVER_EVENT_COLD_BOOT_CAL_DONE:
 			ret = cnss_cold_boot_cal_done_hdlr(plat_priv);
@@ -1278,6 +1318,8 @@ int cnss_register_subsys(struct cnss_plat_data *plat_priv)
 		subsys_info->subsys_desc.name = "QCA6290";
 		break;
 	case QCN7605_DEVICE_ID:
+	case QCN7605_STANDALONE_DEVICE_ID:
+	case QCN7605_COMPOSITE_DEVICE_ID:
 		subsys_info->subsys_desc.name = "QCN7605";
 		break;
 	default:
@@ -1498,6 +1540,10 @@ int cnss_register_ramdump(struct cnss_plat_data *plat_priv)
 	case QCN7605_DEVICE_ID:
 		ret = cnss_register_ramdump_v2(plat_priv);
 		break;
+	case QCN7605_COMPOSITE_DEVICE_ID:
+	case QCN7605_STANDALONE_DEVICE_ID:
+		break;
+
 	default:
 		cnss_pr_err("Unknown device ID: 0x%lx\n", plat_priv->device_id);
 		ret = -ENODEV;
@@ -1515,6 +1561,9 @@ void cnss_unregister_ramdump(struct cnss_plat_data *plat_priv)
 	case QCA6290_EMULATION_DEVICE_ID:
 	case QCA6290_DEVICE_ID:
 		cnss_unregister_ramdump_v2(plat_priv);
+		break;
+	case QCN7605_COMPOSITE_DEVICE_ID:
+	case QCN7605_STANDALONE_DEVICE_ID:
 		break;
 	default:
 		cnss_pr_err("Unknown device ID: 0x%lx\n", plat_priv->device_id);
