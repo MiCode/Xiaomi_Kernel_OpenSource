@@ -344,8 +344,6 @@ static void *usbpd_ipc_log;
 #define ID_HDR_PRODUCT_PER	2
 #define ID_HDR_PRODUCT_AMA	5
 #define ID_HDR_PRODUCT_VPD	6
-#define ID_HDR_VID		0x05c6 /* qcom */
-#define PROD_VDO_PID		0x0a00 /* TBD */
 
 #define PD_MIN_SINK_CURRENT	900
 
@@ -1457,18 +1455,7 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 	/* Standard Discovery or unhandled messages go here */
 	switch (cmd_type) {
 	case SVDM_CMD_TYPE_INITIATOR:
-		if (svid == USBPD_SID && cmd == USBPD_SVDM_DISCOVER_IDENTITY) {
-			u32 tx_vdos[3] = {
-				ID_HDR_USB_HOST | ID_HDR_USB_DEVICE |
-					ID_HDR_PRODUCT_PER_MASK | ID_HDR_VID,
-				0x0, /* TBD: Cert Stat VDO */
-				(PROD_VDO_PID << 16),
-				/* TBD: Get these from gadget */
-			};
-
-			usbpd_send_svdm(pd, USBPD_SID, cmd,
-					SVDM_CMD_TYPE_RESP_ACK, 0, tx_vdos, 3);
-		} else if (cmd != USBPD_SVDM_ATTENTION) {
+		if (cmd != USBPD_SVDM_ATTENTION) {
 			usbpd_send_svdm(pd, svid, cmd, SVDM_CMD_TYPE_RESP_NAK,
 					SVDM_HDR_OBJ_POS(vdm_hdr), NULL, 0);
 		}
