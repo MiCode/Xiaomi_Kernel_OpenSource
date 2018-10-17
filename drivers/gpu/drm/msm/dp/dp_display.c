@@ -1321,6 +1321,11 @@ static int dp_display_prepare(struct dp_display *dp_display, void *panel)
 
 	dp_display_host_init(dp);
 
+	if (dp->debug->psm_enabled) {
+		dp->link->psm_config(dp->link, &dp->panel->link_info, false);
+		dp->debug->psm_enabled = false;
+	}
+
 	/*
 	 * Execute the dp controller power on in shallow mode here.
 	 * In normal cases, controller should have been powered on
@@ -1334,11 +1339,6 @@ static int dp_display_prepare(struct dp_display *dp_display, void *panel)
 	rc = dp->ctrl->on(dp->ctrl, dp->mst.mst_active, true);
 	if (rc)
 		goto end;
-
-	if (dp->debug->psm_enabled) {
-		dp->link->psm_config(dp->link, &dp->panel->link_info, false);
-		dp->debug->psm_enabled = false;
-	}
 
 end:
 	mutex_unlock(&dp->session_lock);
