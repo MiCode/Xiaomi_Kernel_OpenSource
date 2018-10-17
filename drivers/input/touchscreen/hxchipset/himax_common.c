@@ -1618,20 +1618,19 @@ static void himax_finger_report(struct himax_ts_data *ts)
 					g_target_report_data->x[i], g_target_report_data->y[i], g_target_report_data->w[i]);
 #ifndef	HX_PROTOCOL_A
 			input_mt_slot(ts->input_dev, i);
+			ts->last_slot = i;
+			input_mt_report_slot_state(ts->input_dev,
+							MT_TOOL_FINGER, 1);
 #endif
 			input_report_key(ts->input_dev, BTN_TOUCH, g_target_report_data->finger_on);
 			input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR, g_target_report_data->w[i]);
-		input_report_abs(ts->input_dev, ABS_MT_TRACKING_ID, i);
 #ifndef	HX_PROTOCOL_A
 			input_report_abs(ts->input_dev, ABS_MT_WIDTH_MAJOR, g_target_report_data->w[i]);
 			input_report_abs(ts->input_dev, ABS_MT_PRESSURE, g_target_report_data->w[i]);
 #endif
 			input_report_abs(ts->input_dev, ABS_MT_POSITION_X, g_target_report_data->x[i]);
 			input_report_abs(ts->input_dev, ABS_MT_POSITION_Y, g_target_report_data->y[i]);
-#ifndef	HX_PROTOCOL_A
-			ts->last_slot = i;
-			input_mt_report_slot_state(ts->input_dev, MT_TOOL_FINGER, 1);
-#else
+#ifdef	HX_PROTOCOL_A
 			input_mt_sync(ts->input_dev);
 #endif
 
