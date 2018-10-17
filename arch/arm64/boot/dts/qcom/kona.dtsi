@@ -992,6 +992,11 @@
 				  <WAKE_TCS    3>,
 				  <CONTROL_TCS 1>;
 		status = "disabled";
+
+		msm_bus_apps_rsc {
+			compatible = "qcom,msm-bus-rsc";
+			qcom,msm-bus-id = <MSM_BUS_RSC_APPS>;
+		};
 	};
 
 	disp_rsc: rsc@af20000 {
