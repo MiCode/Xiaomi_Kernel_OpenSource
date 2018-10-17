@@ -64,9 +64,14 @@ hab_msg_dequeue(struct virtual_channel *vchan, struct hab_message **msg,
 		}
 	}
 
-	/* return all the received messages before the remote close */
-	if ((!ret || (ret == -ERESTARTSYS)) && !hab_rx_queue_empty(vchan)) {
-		spin_lock_bh(&vchan->rx_lock);
+	/*
+	 * return all the received messages before the remote close,
+	 * and need empty check again in case the list is empty now due to
+	 * dequeue by other threads
+	 */
+	spin_lock_bh(&vchan->rx_lock);
+
+	if ((!ret || (ret == -ERESTARTSYS)) && !list_empty(&vchan->rx_list)) {
 		message = list_first_entry(&vchan->rx_list,
 				struct hab_message, node);
 		if (message) {
@@ -84,10 +89,11 @@ hab_msg_dequeue(struct virtual_channel *vchan, struct hab_message **msg,
 				ret = -EOVERFLOW; /* come back again */
 			}
 		}
-		spin_unlock_bh(&vchan->rx_lock);
 	} else
 		/* no message received, retain the original status */
 		*rsize = 0;
+
+	spin_unlock_bh(&vchan->rx_lock);
 
 	*msg = message;
 	return ret;
