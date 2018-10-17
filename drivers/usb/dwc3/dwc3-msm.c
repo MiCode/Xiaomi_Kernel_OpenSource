@@ -4164,7 +4164,7 @@ static int dwc3_usb_blocking_sync(struct notifier_block *nb,
 
 	dbg_event(0xFF, "fw_blocksync", 0);
 	flush_work(&mdwc->resume_work);
-	flush_delayed_work(&mdwc->sm_work);
+	drain_workqueue(mdwc->sm_usb_wq);
 
 	if (!mdwc->in_host_mode && !mdwc->in_device_mode) {
 		dbg_event(0xFF, "lpm_state", atomic_read(&dwc->in_lpm));
