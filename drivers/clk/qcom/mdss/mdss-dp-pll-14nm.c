@@ -101,7 +101,7 @@ static struct dp_pll_vco_clk dp_vco_clk = {
 };
 
 static struct clk_fixed_factor dp_phy_pll_link_clk = {
-	.div = 5,
+	.div = 10,
 	.mult = 1,
 
 	.hw.init = &(struct clk_init_data){
@@ -417,9 +417,9 @@ int dp_config_vco_rate_14nm(struct dp_pll_vco_clk *vco,
 		QSERDES_TX1_OFFSET + TXn_LANE_MODE_1, pdb->lane_mode_1);
 
 	if (pdb->orientation == ORIENTATION_CC2)
-		MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_MODE, 0xc8);
+		MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_MODE, 0xc9);
 	else
-		MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_MODE, 0xd8);
+		MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_MODE, 0xd9);
 	wmb(); /* make sure write happens */
 
 	/* TX Lane configuration */
@@ -713,7 +713,7 @@ unsigned long dp_vco_recalc_rate_14nm(struct clk_hw *hw,
 {
 	struct dp_pll_vco_clk *vco = to_dp_vco_hw(hw);
 	int rc;
-	u32 div, hsclk_div, link2xclk_div = 0;
+	u32 div, hsclk_div;
 	u64 vco_rate;
 	struct mdss_pll_resources *dp_res = vco->priv;
 
@@ -740,28 +740,12 @@ unsigned long dp_vco_recalc_rate_14nm(struct clk_hw *hw,
 		hsclk_div = 5;
 	}
 
-	div = MDSS_PLL_REG_R(dp_res->phy_base, DP_PHY_MODE);
-
-	if (div & 0xd8)
-		pr_err("DP PAR Rate not correct\n");
-
-	if ((div & 0x3) == 1)
-		link2xclk_div = 10;
-	else if ((div & 0x3) == 0)
-		link2xclk_div = 5;
-	else
-		pr_err("unsupported div. Phy_mode: %d\n", div);
-
-	if (link2xclk_div == 10) {
+	if (hsclk_div == 5)
+		vco_rate = DP_VCO_HSCLK_RATE_1620MHZDIV1000;
+	else if (hsclk_div == 3)
 		vco_rate = DP_VCO_HSCLK_RATE_2700MHZDIV1000;
-	} else {
-		if (hsclk_div == 5)
-			vco_rate = DP_VCO_HSCLK_RATE_1620MHZDIV1000;
-		else if (hsclk_div == 3)
-			vco_rate = DP_VCO_HSCLK_RATE_2700MHZDIV1000;
-		else
-			vco_rate = DP_VCO_HSCLK_RATE_5400MHZDIV1000;
-	}
+	else
+		vco_rate = DP_VCO_HSCLK_RATE_5400MHZDIV1000;
 
 	pr_debug("returning vco rate = %lu\n", (unsigned long)vco_rate);
 
