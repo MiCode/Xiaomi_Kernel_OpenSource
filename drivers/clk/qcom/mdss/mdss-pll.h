@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -57,13 +57,7 @@ enum {
 	MDSS_PLL_TARGET_SDM630,
 };
 
-#define DFPS_MAX_NUM_OF_FRAME_RATES 20
-
-struct dfps_panel_info {
-	uint32_t enabled;
-	uint32_t frame_rate_cnt;
-	uint32_t frame_rate[DFPS_MAX_NUM_OF_FRAME_RATES]; /* hz */
-};
+#define DFPS_MAX_NUM_OF_FRAME_RATES 16
 
 struct dfps_pll_codes {
 	uint32_t pll_codes_1;
@@ -72,15 +66,13 @@ struct dfps_pll_codes {
 
 struct dfps_codes_info {
 	uint32_t is_valid;
-	uint32_t frame_rate;	/* hz */
 	uint32_t clk_rate;	/* hz */
 	struct dfps_pll_codes pll_codes;
 };
 
 struct dfps_info {
-	struct dfps_panel_info panel_dfps;
+	uint32_t vco_rate_cnt;
 	struct dfps_codes_info codes_dfps[DFPS_MAX_NUM_OF_FRAME_RATES];
-	void *dfps_fb_base;
 };
 
 struct mdss_pll_resources {

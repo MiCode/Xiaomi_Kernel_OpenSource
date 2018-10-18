@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -175,6 +175,8 @@ int msm_ion_do_cache_offset_op(
 		void *vaddr, unsigned int offset, unsigned long len,
 		unsigned int cmd);
 
+bool is_buffer_hlos_assigned(struct ion_buffer *buffer);
+
 #else
 static inline struct ion_client *msm_ion_client_create(const char *name)
 {
@@ -200,6 +202,11 @@ int msm_ion_do_cache_offset_op(
 		unsigned int cmd)
 {
 	return -ENODEV;
+}
+
+static bool is_buffer_hlos_assigned(struct ion_buffer *buffer)
+{
+	return true;
 }
 
 #endif /* CONFIG_ION */

@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,8 +19,9 @@
 		#clock-cells = <1>;
 
 		reg = <0xc994400 0x588>,
-		      <0xc8c2300 0x8>;
-		reg-names = "pll_base", "gdsc_base";
+		      <0xc8c2300 0x8>,
+		      <0xc994200 0x98>;
+		reg-names = "pll_base", "gdsc_base", "dynamic_pll_base";
 
 		gdsc-supply = <&gdsc_mdss>;
 

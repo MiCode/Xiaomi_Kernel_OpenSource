@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -327,16 +327,6 @@ clk_err:
 	return rc;
 }
 
-static void mdss_pll_free_bootmem(u32 mem_addr, u32 size)
-{
-	unsigned long pfn_start, pfn_end, pfn_idx;
-
-	pfn_start = mem_addr >> PAGE_SHIFT;
-	pfn_end = (mem_addr + size) >> PAGE_SHIFT;
-	for (pfn_idx = pfn_start; pfn_idx < pfn_end; pfn_idx++)
-		free_reserved_page(pfn_to_page(pfn_idx));
-}
-
 static int mdss_pll_util_parse_dt_dfps(struct platform_device *pdev,
 					struct mdss_pll_resources *pll_res)
 {
@@ -367,7 +357,7 @@ static int mdss_pll_util_parse_dt_dfps(struct platform_device *pdev,
 	area = get_vm_area(offsets[1], VM_IOREMAP);
 	if (!area) {
 		rc = -ENOMEM;
-		goto dfps_mem_err;
+		goto pnode_err;
 	}
 
 	virt_add = (unsigned long)area->addr;
@@ -394,10 +384,6 @@ addr_err:
 ioremap_err:
 	if (area)
 		vfree(area->addr);
-dfps_mem_err:
-	/* free the dfps memory here */
-	memblock_free(offsets[0], offsets[1]);
-	mdss_pll_free_bootmem(offsets[0], offsets[1]);
 pnode_err:
 	if (pnode)
 		of_node_put(pnode);
