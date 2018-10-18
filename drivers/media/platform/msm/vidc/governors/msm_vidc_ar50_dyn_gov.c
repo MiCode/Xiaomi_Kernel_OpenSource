@@ -407,15 +407,10 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 
 	motion_vector_complexity = FP(integer_part, frac_part, 100);
 
-	dpb_write_compression_factor = !dpb_compression_enabled ? FP_ONE :
-		__compression_ratio(__lut(width, height, fps), opb_bpp);
-
-	dpb_write_compression_factor = d->use_dpb_read ?
-		dpb_read_compression_factor :
-		dpb_write_compression_factor;
+	dpb_write_compression_factor = dpb_read_compression_factor;
 
 	opb_compression_factor = !opb_compression_enabled ? FP_ONE :
-		__compression_ratio(__lut(width, height, fps), opb_bpp);
+				dpb_write_compression_factor;
 
 	llc_ref_read_l2_cache_enabled = llc_vpss_ds_line_buf_enabled = false;
 	if (d->use_sys_cache) {
@@ -427,7 +422,7 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 	lcu_per_frame = DIV_ROUND_UP(width, lcu_size) *
 		DIV_ROUND_UP(height, lcu_size);
 
-	bitrate = __lut(width, height, fps)->bitrate;
+	bitrate = (d->bitrate + 1000000 - 1) / 1000000;
 
 	bins_to_bit_factor = d->work_mode == VIDC_WORK_MODE_1 ?
 		FP_INT(0) : FP_INT(4);
@@ -481,7 +476,7 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 	if (llc_ref_read_l2_cache_enabled) {
 		row_cache_penalty = FP(1, 30, 100);
 		ddr.dpb_read = fp_div(ddr.dpb_read, row_cache_penalty);
-		llc.dpb_read = dpb_total - ddr.dpb_read;
+		llc.dpb_read = dpb_total - ddr.dpb_write - ddr.dpb_read;
 	}
 
 	opb_factor = dpb_bpp == 8 ? 8 : 4;
@@ -507,7 +502,7 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 	qsmmu_bw_overhead_factor = FP(1, 3, 100);
 
 	ddr.total = fp_mult(ddr.total, qsmmu_bw_overhead_factor);
-	llc.total = llc.dpb_read + llc.opb_read;
+	llc.total = llc.dpb_read + llc.opb_read + ddr.total;
 
 	/* Dump all the variables for easier debugging */
 	if (debug) {
@@ -644,7 +639,8 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 	b_frames_enabled = d->b_frames_enabled;
 	width = max(d->input_width, BASELINE_DIMENSIONS.width);
 	height = max(d->input_height, BASELINE_DIMENSIONS.height);
-	bitrate = __lut(width, height, fps)->bitrate;
+	bitrate = d->bitrate > 0 ? d->bitrate / 1000000 :
+		__lut(width, height, fps)->bitrate;
 	lcu_per_frame = DIV_ROUND_UP(width, lcu_size) *
 		DIV_ROUND_UP(height, lcu_size);
 
@@ -688,10 +684,11 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 
 	input_compression_factor = FP(integer_part, frac_part, 100);
 
+	/* use input cr if it is valid (not 1), otherwise use lut */
 	original_compression_factor =
-		original_compression_enabled ? d->use_dpb_read ?
-			dpb_compression_factor : input_compression_factor :
-		FP_ONE;
+		!original_compression_enabled ? FP_ONE :
+		input_compression_factor != FP_ONE ? input_compression_factor :
+		__compression_ratio(__lut(width, height, fps), dpb_bpp);
 
 	ddr.vsp_read = fp_mult(fp_div(FP_INT(bitrate), FP_INT(8)),
 			bins_to_bit_factor);
@@ -745,7 +742,7 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 
 	llc_ref_y_read -= ref_y_read;
 
-	ref_cb_cr_read = fp_mult(ref_cb_cr_bw_factor, dpb_bw_for_1x);
+	ref_cb_cr_read = fp_mult(ref_cb_cr_bw_factor, dpb_bw_for_1x) / 2;
 
 	ref_cb_cr_read = fp_div(ref_cb_cr_read, dpb_compression_factor);
 
@@ -767,7 +764,7 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 
 	ddr.dpb_write = fp_mult(ddr.dpb_write, FP(1, 50, 100));
 
-	ddr.dpb_write = fp_div(ddr.dpb_write, input_compression_factor);
+	ddr.dpb_write = fp_div(ddr.dpb_write, dpb_compression_factor);
 
 	ref_overlap_bw_factor =
 		width <= vertical_tile_width ? FP_INT(0) : FP_INT(1);
@@ -789,7 +786,7 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 		ddr.original_read + ddr.original_write +
 		ddr.dpb_read + ddr.dpb_write;
 
-	llc.total = llc.dpb_read + llc.line_buffer;
+	llc.total = llc.dpb_read + llc.line_buffer + ddr.total;
 
 	qsmmu_bw_overhead_factor = FP(1, 3, 100);
 	ddr.total = fp_mult(ddr.total, qsmmu_bw_overhead_factor);
