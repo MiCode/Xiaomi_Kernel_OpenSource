@@ -364,7 +364,7 @@ int production_test_ito(void)
 {
 	int res = OK;
 	u8 cmd;
-	u8 readData[FIFO_EVENT_SIZE];
+	u8 readData[FIFO_EVENT_SIZE] = {0};
 	//look for ito event
 	int eventToSearch[2] = {EVENTID_ERROR_EVENT, EVENT_TYPE_ITO};
 
@@ -417,7 +417,7 @@ int production_test_initialization(void)
 {
 	int res;
 	u8 cmd;
-	u8 readData[FIFO_EVENT_SIZE];
+	u8 readData[FIFO_EVENT_SIZE] = {0};
 
 	int eventToSearch[2] = {EVENTID_STATUS_UPDATE,
 			EVENT_TYPE_FULL_INITIALIZATION};
@@ -475,7 +475,7 @@ int ms_compensation_tuning(void)
 {
 	int res;
 	u8 cmd;
-	u8 readData[FIFO_EVENT_SIZE];
+	u8 readData[FIFO_EVENT_SIZE] = {0};
 	int eventToSearch[2] = {EVENTID_STATUS_UPDATE,
 		EVENT_TYPE_MS_TUNING_CMPL};
 
@@ -515,7 +515,7 @@ int ss_compensation_tuning(void)
 {
 	int res;
 	u8 cmd;
-	u8 readData[FIFO_EVENT_SIZE];
+	u8 readData[FIFO_EVENT_SIZE] = {0};
 
 	int eventToSearch[2] = {EVENTID_STATUS_UPDATE,
 			EVENT_TYPE_SS_TUNING_CMPL};
@@ -556,7 +556,7 @@ int lp_timer_calibration(void)
 {
 	int res;
 	u8 cmd;
-	u8 readData[FIFO_EVENT_SIZE];
+	u8 readData[FIFO_EVENT_SIZE] = {0};
 	int eventToSearch[2] = {EVENTID_STATUS_UPDATE,
 				EVENT_TYPE_LPTIMER_TUNING_CMPL};
 
@@ -599,7 +599,7 @@ int save_cx_tuning(void)
 {
 	int res;
 	u8 cmd;
-	u8 readData[FIFO_EVENT_SIZE];
+	u8 readData[FIFO_EVENT_SIZE] = {0};
 	int eventToSearch[2] = {EVENTID_STATUS_UPDATE,
 					EVENT_TYPE_COMP_DATA_SAVED};
 

@@ -1798,9 +1798,9 @@ static int diagfwd_mux_write_done(unsigned char *buf, int len, int buf_ctxt,
 			"Marking buffer as free after write done p: %d, t: %d, buf_num: %d\n",
 			peripheral, type, num);
 			diagfwd_write_done(peripheral, type, num);
-		} else if (peripheral == APPS_DATA ||
-			(peripheral >= 0 && peripheral < NUM_PERIPHERALS &&
-			num == TYPE_CMD)) {
+		} else if ((peripheral >= 0 &&
+			peripheral <= NUM_PERIPHERALS + NUM_UPD) &&
+			num == TYPE_CMD) {
 			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 			"Marking APPS response buffer free after write done for p: %d, t: %d, buf_num: %d\n",
 			peripheral, type, num);

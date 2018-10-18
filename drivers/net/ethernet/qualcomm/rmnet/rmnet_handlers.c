@@ -19,6 +19,7 @@
 #include <linux/ip.h>
 #include <linux/ipv6.h>
 #include <net/sock.h>
+#include <linux/tracepoint.h>
 #include "rmnet_private.h"
 #include "rmnet_config.h"
 #include "rmnet_vnd.h"
@@ -27,10 +28,26 @@
 #ifdef CONFIG_QCOM_QMI_HELPERS
 #include <soc/qcom/rmnet_qmi.h>
 #include <soc/qcom/qmi_rmnet.h>
+
 #endif
 
 #define RMNET_IP_VERSION_4 0x40
 #define RMNET_IP_VERSION_6 0x60
+#define CREATE_TRACE_POINTS
+#include "rmnet_trace.h"
+
+EXPORT_TRACEPOINT_SYMBOL(rmnet_shs_low);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_shs_high);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_shs_err);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_shs_wq_low);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_shs_wq_high);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_shs_wq_err);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_perf_low);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_perf_high);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_perf_err);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_low);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_high);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_err);
 
 /* Helper Functions */
 
@@ -80,6 +97,8 @@ rmnet_deliver_skb(struct sk_buff *skb, struct rmnet_port *port)
 	int (*rmnet_shs_stamp)(struct sk_buff *skb, struct rmnet_port *port);
 	struct rmnet_priv *priv = netdev_priv(skb->dev);
 
+	trace_rmnet_low(RMNET_MODULE, RMNET_DLVR_SKB, 0xDEF, 0xDEF,
+			0xDEF, 0xDEF, (void *)skb, NULL);
 	skb_reset_transport_header(skb);
 	skb_reset_network_header(skb);
 	rmnet_vnd_rx_fixup(skb->dev, skb->len);
@@ -156,11 +175,8 @@ __rmnet_map_ingress_handler(struct sk_buff *skb,
 			skb->ip_summed = CHECKSUM_UNNECESSARY;
 	}
 
-	if ((port->data_format & RMNET_INGRESS_FORMAT_PS) &&
-	    !qmi_rmnet_work_get_active(port)) {
-		/* register for powersave indications*/
-		qmi_rmnet_work_restart(port);
-	}
+	if (port->data_format & RMNET_INGRESS_FORMAT_PS)
+		qmi_rmnet_work_maybe_restart(port);
 
 	skb_trim(skb, len);
 	rmnet_deliver_skb(skb, port);
@@ -234,15 +250,12 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 	}
 
 	if (skb_headroom(skb) < required_headroom) {
-		if (pskb_expand_head(skb, required_headroom, 0, GFP_KERNEL))
+		if (pskb_expand_head(skb, required_headroom, 0, GFP_ATOMIC))
 			return -ENOMEM;
 	}
 
-	if ((port->data_format & RMNET_INGRESS_FORMAT_PS) &&
-	    !qmi_rmnet_work_get_active(port)) {
-		/* register for powersave indications*/
-		qmi_rmnet_work_restart(port);
-	}
+	if (port->data_format & RMNET_INGRESS_FORMAT_PS)
+		qmi_rmnet_work_maybe_restart(port);
 
 	if (port->data_format & RMNET_FLAGS_EGRESS_MAP_CKSUMV4)
 		rmnet_map_checksum_uplink_packet(skb, orig_dev);
@@ -303,6 +316,8 @@ rx_handler_result_t rmnet_rx_handler(struct sk_buff **pskb)
 	if (skb->pkt_type == PACKET_LOOPBACK)
 		return RX_HANDLER_PASS;
 
+	trace_rmnet_low(RMNET_MODULE, RMNET_RCV_FROM_PND, 0xDEF,
+			0xDEF, 0xDEF, 0xDEF, NULL, NULL);
 	dev = skb->dev;
 	port = rmnet_get_port(dev);
 
@@ -333,6 +348,8 @@ void rmnet_egress_handler(struct sk_buff *skb)
 	int err;
 	u32 skb_len;
 
+	trace_rmnet_low(RMNET_MODULE, RMNET_TX_UL_PKT, 0xDEF, 0xDEF, 0xDEF,
+			0xDEF, (void *)skb, NULL);
 	sk_pacing_shift_update(skb->sk, 8);
 
 	orig_dev = skb->dev;

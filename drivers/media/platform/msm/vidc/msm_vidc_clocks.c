@@ -185,14 +185,6 @@ static int fill_dynamic_stats(struct msm_vidc_inst *inst,
 	vote_data->input_cr = min_input_cr;
 	vote_data->use_dpb_read = false;
 
-	/* Check if driver can vote for lower bus BW */
-	if (inst->clk_data.load < inst->clk_data.load_norm) {
-		vote_data->compression_ratio = max_cr;
-		vote_data->complexity_factor = min_cf;
-		vote_data->input_cr = max_input_cr;
-		vote_data->use_dpb_read = true;
-	}
-
 	dprintk(VIDC_PROF,
 		"Input CR = %d Recon CR = %d Complexity Factor = %d\n",
 			vote_data->input_cr, vote_data->compression_ratio,
@@ -289,15 +281,12 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 
 		vote_data[i].domain = get_hal_domain(inst->session_type);
 		vote_data[i].codec = get_hal_codec(codec);
-		vote_data[i].input_width =  max(inst->prop.width[OUTPUT_PORT],
-				inst->prop.width[OUTPUT_PORT]);
-		vote_data[i].input_height = max(inst->prop.height[OUTPUT_PORT],
-				inst->prop.height[OUTPUT_PORT]);
-		vote_data[i].output_width =  max(inst->prop.width[CAPTURE_PORT],
-				inst->prop.width[OUTPUT_PORT]);
-		vote_data[i].output_height =
-				max(inst->prop.height[CAPTURE_PORT],
-				inst->prop.height[OUTPUT_PORT]);
+		vote_data[i].input_width = inst->prop.width[OUTPUT_PORT];
+		vote_data[i].input_height = inst->prop.height[OUTPUT_PORT];
+		vote_data[i].output_width = inst->prop.width[CAPTURE_PORT];
+		vote_data[i].output_height = inst->prop.height[CAPTURE_PORT];
+		vote_data[i].rotation =
+			msm_comm_g_ctrl_for_id(inst, V4L2_CID_ROTATE);
 		vote_data[i].lcu_size = (codec == V4L2_PIX_FMT_HEVC ||
 				codec == V4L2_PIX_FMT_VP9) ? 32 : 16;
 		vote_data[i].b_frames_enabled =
@@ -313,6 +302,9 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 				vote_data[i].bitrate = vote_data[i].bitrate /
 				inst->prop.fps * vote_data[i].fps;
 			}
+		} else if (inst->session_type == MSM_VIDC_DECODER) {
+			vote_data[i].bitrate =
+				filled_len * vote_data[i].fps * 8;
 		}
 
 		vote_data[i].power_mode = 0;
@@ -640,7 +632,7 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 	struct allowed_clock_rates_table *allowed_clks_tbl = NULL;
 	u64 rate = 0, fps;
 	struct clock_data *dcvs = NULL;
-	u32 operating_rate, vsp_factor_num = 10, vsp_factor_den = 7;
+	u32 operating_rate, vsp_factor_num = 10, vsp_factor_den = 5;
 
 	core = inst->core;
 	dcvs = &inst->clk_data;
@@ -687,8 +679,8 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 
 		vsp_cycles = mbs_per_second * inst->clk_data.entry->vsp_cycles;
 
-		/* 10 / 7 is overhead factor */
-		vsp_cycles += ((fps * filled_len * 8) * 10) / 7;
+		/* vsp perf is about 0.5 bits/cycle */
+		vsp_cycles += ((fps * filled_len * 8) * 10) / 5;
 
 		fw_cycles = fps * inst->core->resources.fw_cycles;
 
@@ -760,6 +752,7 @@ int msm_vidc_set_clocks(struct msm_vidc_core *core)
 				"msm_vidc_clock_voting %d\n",
 				 msm_vidc_clock_voting);
 			freq_core_max = msm_vidc_clock_voting;
+			decrement = false;
 			break;
 		}
 
@@ -767,6 +760,7 @@ int msm_vidc_set_clocks(struct msm_vidc_core *core)
 			dprintk(VIDC_PROF,
 				"Found an instance with Turbo request\n");
 			freq_core_max = msm_vidc_max_freq(core);
+			decrement = false;
 			break;
 		}
 		/* increment even if one session requested for it */
@@ -1204,9 +1198,9 @@ int msm_vidc_decide_work_route(struct msm_vidc_inst *inst)
 		if (slice_mode ==
 			V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_BYTES ||
 			(rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR &&
-			mbps < CBR_MB_LIMIT) ||
+			mbps <= CBR_MB_LIMIT) ||
 			(rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR &&
-			mbps < CBR_VFR_MB_LIMIT)) {
+			mbps <= CBR_VFR_MB_LIMIT)) {
 			pdata.video_work_route = 1;
 			dprintk(VIDC_DBG, "Configured work route = 1");
 		}
@@ -1335,24 +1329,14 @@ int msm_vidc_decide_work_mode(struct msm_vidc_inst *inst)
 		}
 	} else if (inst->session_type == MSM_VIDC_ENCODER) {
 		u32 codec = inst->fmts[CAPTURE_PORT].fourcc;
-		u32 width = inst->prop.width[OUTPUT_PORT];
 
 		pdata.video_work_mode = VIDC_WORK_MODE_2;
 
 		switch (codec) {
 		case V4L2_PIX_FMT_VP8:
-		{
-			if (width <= 3840)  {
-				pdata.video_work_mode = VIDC_WORK_MODE_1;
-				goto decision_done;
-			}
-			break;
-		}
 		case V4L2_PIX_FMT_TME:
-		{
 			pdata.video_work_mode = VIDC_WORK_MODE_1;
 			goto decision_done;
-		}
 		}
 
 	} else {

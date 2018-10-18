@@ -349,6 +349,12 @@ static void update_task_cpu_cycles(struct task_struct *p, int cpu,
 		p->cpu_cycles = read_cycle_counter(cpu, wallclock);
 }
 
+static inline bool is_ed_enabled(void)
+{
+	return (walt_rotation_enabled || (sched_boost_policy() !=
+		SCHED_BOOST_NONE));
+}
+
 void clear_ed_task(struct task_struct *p, struct rq *rq)
 {
 	if (p == rq->ed_task)
@@ -367,8 +373,7 @@ bool early_detection_notify(struct rq *rq, u64 wallclock)
 
 	rq->ed_task = NULL;
 
-	if ((!walt_rotation_enabled && sched_boost_policy() ==
-			SCHED_BOOST_NONE) || !rq->cfs.h_nr_running)
+	if (!is_ed_enabled() || !rq->cfs.h_nr_running)
 		return 0;
 
 	list_for_each_entry(p, &rq->cfs_tasks, se.group_node) {
@@ -874,11 +879,13 @@ void fixup_busy_time(struct task_struct *p, int new_cpu)
 		irq_work_queue(&walt_migration_irq_work);
 	}
 
-	if (p == src_rq->ed_task) {
-		src_rq->ed_task = NULL;
-		dest_rq->ed_task = p;
-	} else if (is_ed_task(p, wallclock)) {
-		dest_rq->ed_task = p;
+	if (is_ed_enabled()) {
+		if (p == src_rq->ed_task) {
+			src_rq->ed_task = NULL;
+			dest_rq->ed_task = p;
+		} else if (is_ed_task(p, wallclock)) {
+			dest_rq->ed_task = p;
+		}
 	}
 
 done:
@@ -1974,12 +1981,16 @@ void update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 	update_task_demand(p, rq, event, wallclock);
 	update_cpu_busy_time(p, rq, event, wallclock, irqtime);
 	update_task_pred_demand(rq, p, event);
-done:
+
+	if (exiting_task(p))
+		goto done;
+
 	trace_sched_update_task_ravg(p, rq, event, wallclock, irqtime,
 				rq->cc.cycles, rq->cc.time, &rq->grp_time);
 	trace_sched_update_task_ravg_mini(p, rq, event, wallclock, irqtime,
 				rq->cc.cycles, rq->cc.time, &rq->grp_time);
 
+done:
 	p->ravg.mark_start = wallclock;
 
 	run_walt_irq_work(old_window_start, rq);
@@ -2000,7 +2011,7 @@ int sched_set_init_task_load(struct task_struct *p, int init_load_pct)
 	return 0;
 }
 
-void init_new_task_load(struct task_struct *p, bool idle_task)
+void init_new_task_load(struct task_struct *p)
 {
 	int i;
 	u32 init_load_windows = sched_init_task_load_windows;
@@ -2018,9 +2029,6 @@ void init_new_task_load(struct task_struct *p, bool idle_task)
 
 	/* Don't have much choice. CPU frequency would be bogus */
 	BUG_ON(!p->ravg.curr_window_cpu || !p->ravg.prev_window_cpu);
-
-	if (idle_task)
-		return;
 
 	if (init_load_pct) {
 		init_load_windows = div64_u64((u64)init_load_pct *

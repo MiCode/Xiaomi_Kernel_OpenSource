@@ -461,6 +461,15 @@ struct dsi_ctrl_hw_ops {
 	void (*phy_sw_reset)(struct dsi_ctrl_hw *ctrl);
 
 	/**
+	 * config_clk_gating() - enable/disable DSI PHY clk gating
+	 * @ctrl:          Pointer to the controller host hardware.
+	 * @enable:        enable/disable DSI PHY clock gating.
+	 * @clk_selection:        clock to enable/disable clock gating.
+	 */
+	void (*config_clk_gating)(struct dsi_ctrl_hw *ctrl, bool enable,
+			enum dsi_clk_gate_type clk_selection);
+
+	/**
 	 * debug_bus() - get dsi debug bus status.
 	 * @ctrl:        Pointer to the controller host hardware.
 	 * @entries:     Array of dsi debug bus control values.
@@ -813,6 +822,13 @@ struct dsi_ctrl_hw_ops {
 	 * @ctrl:         Pointer to the controller host hardware.
 	 */
 	int (*wait_for_cmd_mode_mdp_idle)(struct dsi_ctrl_hw *ctrl);
+
+	/**
+	 * hw.ops.set_continuous_clk() - Set continuous clock
+	 * @ctrl:         Pointer to the controller host hardware.
+	 * @enable:	  Bool to control continuous clock request.
+	 */
+	void (*set_continuous_clk)(struct dsi_ctrl_hw *ctrl, bool enable);
 };
 
 /*

@@ -27,6 +27,9 @@ static inline struct dp_pll_vco_clk *to_dp_vco_hw(struct clk_hw *hw)
 	return container_of(hw, struct dp_pll_vco_clk, hw);
 }
 
+int dp_pll_clock_register_14nm(struct platform_device *pdev,
+				struct mdss_pll_resources *pll_res);
+
 int dp_pll_clock_register_10nm(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res);
 

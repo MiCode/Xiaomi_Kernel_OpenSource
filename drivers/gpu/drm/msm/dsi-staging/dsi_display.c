@@ -74,6 +74,52 @@ static void dsi_display_mask_ctrl_error_interrupts(struct dsi_display *display,
 	}
 }
 
+static int dsi_display_config_clk_gating(struct dsi_display *display,
+					bool enable)
+{
+	int rc = 0, i = 0;
+	struct dsi_display_ctrl *mctrl, *ctrl;
+
+	if (!display) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	mctrl = &display->ctrl[display->clk_master_idx];
+	if (!mctrl) {
+		pr_err("Invalid controller\n");
+		return -EINVAL;
+	}
+
+	rc = dsi_ctrl_config_clk_gating(mctrl->ctrl, enable, PIXEL_CLK |
+							DSI_PHY);
+	if (rc) {
+		pr_err("[%s] failed to %s clk gating, rc=%d\n",
+				display->name, enable ? "enable" : "disable",
+				rc);
+		return rc;
+	}
+
+	for (i = 0; i < display->ctrl_count; i++) {
+		ctrl = &display->ctrl[i];
+		if (!ctrl->ctrl || (ctrl == mctrl))
+			continue;
+		/**
+		 * In Split DSI usecase we should not enable clock gating on
+		 * DSI PHY1 to ensure no display atrifacts are seen.
+		 */
+		rc = dsi_ctrl_config_clk_gating(ctrl->ctrl, enable, PIXEL_CLK);
+		if (rc) {
+			pr_err("[%s] failed to %s pixel clk gating, rc=%d\n",
+				display->name, enable ? "enable" : "disable",
+				rc);
+			return rc;
+		}
+	}
+
+	return 0;
+}
+
 static void dsi_display_set_ctrl_esd_check_flag(struct dsi_display *display,
 			bool enable)
 {
@@ -887,6 +933,21 @@ end:
 	return rc;
 }
 
+static void _dsi_display_continuous_clk_ctrl(struct dsi_display *display,
+					     bool enable)
+{
+	int i;
+	struct dsi_display_ctrl *ctrl;
+
+	if (!display || !display->panel->host_config.force_hs_clk_lane)
+		return;
+
+	for (i = 0; i < display->ctrl_count; i++) {
+		ctrl = &display->ctrl[i];
+		dsi_ctrl_set_continuous_clk(ctrl->ctrl, enable);
+	}
+}
+
 int dsi_display_soft_reset(void *display)
 {
 	struct dsi_display *dsi_display;
@@ -954,7 +1015,8 @@ static bool dsi_display_get_cont_splash_status(struct dsi_display *display)
 	struct dsi_display_ctrl *ctrl;
 	struct dsi_ctrl_hw *hw;
 
-	for (i = 0; i < display->ctrl_count ; i++) {
+	for (i = 0; (i < display->ctrl_count) &&
+	     (i < MAX_DSI_CTRLS_PER_DISPLAY); i++) {
 		ctrl = &(display->ctrl[i]);
 		if (!ctrl || !ctrl->ctrl)
 			continue;
@@ -2950,6 +3012,12 @@ int dsi_pre_clkoff_cb(void *priv,
 	if ((clk & DSI_LINK_CLK) && (new_state == DSI_CLK_OFF) &&
 		(l_type && DSI_LINK_LP_CLK)) {
 		/*
+		 * If continuous clock is enabled then disable it
+		 * before entering into ULPS Mode.
+		 */
+		if (display->panel->host_config.force_hs_clk_lane)
+			_dsi_display_continuous_clk_ctrl(display, false);
+		/*
 		 * If ULPS feature is enabled, enter ULPS first.
 		 * However, when blanking the panel, we should enter ULPS
 		 * only if ULPS during suspend feature is enabled.
@@ -2977,6 +3045,10 @@ int dsi_pre_clkoff_cb(void *priv,
 			if (rc)
 				pr_err("%s: Failed to enable dsi clamps. rc=%d\n",
 					__func__, rc);
+			rc = dsi_display_config_clk_gating(display, false);
+			if (rc)
+				pr_err("[%s] failed to disable clk gating, rc=%d\n",
+						display->name, rc);
 
 			rc = dsi_display_phy_reset_config(display, false);
 			if (rc)
@@ -3056,6 +3128,13 @@ int dsi_post_clkon_cb(void *priv,
 			}
 		}
 
+		rc = dsi_display_config_clk_gating(display, true);
+		if (rc) {
+			pr_err("[%s] failed to enable clk gating %d\n",
+					display->name, rc);
+			goto error;
+		}
+
 		rc = dsi_display_phy_reset_config(display, true);
 		if (rc) {
 			pr_err("%s: Failed to reset phy, rc=%d\n",
@@ -3089,6 +3168,9 @@ int dsi_post_clkon_cb(void *priv,
 				goto error;
 			}
 		}
+
+		if (display->panel->host_config.force_hs_clk_lane)
+			_dsi_display_continuous_clk_ctrl(display, true);
 	}
 
 	/* enable dsi to serve irqs */
@@ -3413,7 +3495,7 @@ static int dsi_display_res_init(struct dsi_display *display)
 	display->panel = dsi_panel_get(&display->pdev->dev,
 				display->panel_of,
 				display->parser_node,
-				display->root,
+				display->display_type,
 				display->cmdline_topology);
 	if (IS_ERR_OR_NULL(display->panel)) {
 		rc = PTR_ERR(display->panel);
@@ -4703,7 +4785,16 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 				disp_node = np;
 				break;
 			}
-		} else if (of_property_read_bool(np, disp_active)) {
+			continue;
+		} else if (index == DSI_SECONDARY) {
+			/*
+			 * secondary display is currently
+			 * supported through boot params only
+			 */
+			break;
+		}
+
+		if (of_property_read_bool(np, disp_active)) {
 			disp_node = np;
 
 			if (IS_ENABLED(CONFIG_DSI_PARSER))

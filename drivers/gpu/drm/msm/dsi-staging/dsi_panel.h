@@ -145,6 +145,7 @@ struct drm_panel_esd_config {
 
 struct dsi_panel {
 	const char *name;
+	const char *type;
 	struct device_node *panel_of_node;
 	struct mipi_dsi_device mipi_device;
 
@@ -152,7 +153,6 @@ struct dsi_panel {
 	struct drm_panel drm_panel;
 	struct mipi_dsi_host *host;
 	struct device *parent;
-	struct dentry *root;
 
 	struct dsi_host_common_cfg host_config;
 	struct dsi_video_engine_cfg video_config;
@@ -213,7 +213,7 @@ static inline void dsi_panel_release_panel_lock(struct dsi_panel *panel)
 struct dsi_panel *dsi_panel_get(struct device *parent,
 				struct device_node *of_node,
 				struct device_node *parser_node,
-				struct dentry *root,
+				const char *type,
 				int topology_override);
 
 int dsi_panel_trigger_esd_attack(struct dsi_panel *panel);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -121,9 +121,10 @@ static int qpnp_pbs_wait_for_ack(struct qpnp_pbs *pbs, u8 bit_pos)
 		}
 
 		if (val == 0xFF) {
+			val = 0;
 			/* PBS error - clear SCRATCH2 register */
 			rc = qpnp_pbs_write(pbs, pbs->base +
-					PBS_CLIENT_SCRATCH2, 0, 1);
+					PBS_CLIENT_SCRATCH2, &val, 1);
 			if (rc < 0) {
 				pr_err("Failed to clear register %x rc=%d\n",
 						PBS_CLIENT_SCRATCH2, rc);
@@ -198,8 +199,10 @@ int qpnp_pbs_trigger_event(struct device_node *dev_node, u8 bitmap)
 	}
 
 	if (val == 0xFF) {
+		val = 0;
 		/* PBS error - clear SCRATCH2 register */
-		rc = qpnp_pbs_write(pbs, pbs->base + PBS_CLIENT_SCRATCH2, 0, 1);
+		rc = qpnp_pbs_write(pbs, pbs->base + PBS_CLIENT_SCRATCH2, &val,
+				    1);
 		if (rc < 0) {
 			pr_err("Failed to clear register %x rc=%d\n",
 						PBS_CLIENT_SCRATCH2, rc);

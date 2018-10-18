@@ -600,6 +600,73 @@ static int ipa3_send_vlan_l2tp_msg(unsigned long usr_param, uint8_t msg_type)
 	return 0;
 }
 
+static void ipa3_gsb_msg_free_cb(void *buff, u32 len, u32 type)
+{
+	if (!buff) {
+		IPAERR("Null buffer\n");
+		return;
+	}
+
+	switch (type) {
+	case IPA_GSB_CONNECT:
+	case IPA_GSB_DISCONNECT:
+		break;
+	default:
+		IPAERR("Wrong type given. buff %pK type %d\n", buff, type);
+		return;
+	}
+
+	kfree(buff);
+}
+
+static int ipa3_send_gsb_msg(unsigned long usr_param, uint8_t msg_type)
+{
+	int retval;
+	struct ipa_ioc_gsb_info *gsb_info;
+	struct ipa_msg_meta msg_meta;
+	void *buff;
+
+	IPADBG("type %d\n", msg_type);
+
+	memset(&msg_meta, 0, sizeof(msg_meta));
+	msg_meta.msg_type = msg_type;
+
+	if ((msg_type == IPA_GSB_CONNECT) ||
+		(msg_type == IPA_GSB_DISCONNECT)) {
+		gsb_info = kzalloc(sizeof(struct ipa_ioc_gsb_info),
+			GFP_KERNEL);
+		if (!gsb_info) {
+			IPAERR("no memory\n");
+			return -ENOMEM;
+		}
+
+		if (copy_from_user((u8 *)gsb_info, (void __user *)usr_param,
+			sizeof(struct ipa_ioc_gsb_info))) {
+			kfree(gsb_info);
+			return -EFAULT;
+		}
+
+		msg_meta.msg_len = sizeof(struct ipa_ioc_gsb_info);
+		buff = gsb_info;
+	} else {
+		IPAERR("Unexpected event\n");
+		return -EFAULT;
+	}
+
+	retval = ipa3_send_msg(&msg_meta, buff,
+		ipa3_gsb_msg_free_cb);
+	if (retval) {
+		IPAERR("ipa3_send_msg failed: %d, msg_type %d\n",
+			retval,
+			msg_type);
+		kfree(buff);
+		return retval;
+	}
+	IPADBG("exit\n");
+
+	return 0;
+}
+
 static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	int retval = 0;
@@ -1790,6 +1857,22 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		retval = ipa3_resend_wlan_msg();
 		break;
 
+	case IPA_IOC_GSB_CONNECT:
+		IPADBG("Got IPA_IOC_GSB_CONNECT\n");
+		if (ipa3_send_gsb_msg(arg, IPA_GSB_CONNECT)) {
+			retval = -EFAULT;
+			break;
+		}
+		break;
+
+	case IPA_IOC_GSB_DISCONNECT:
+		IPADBG("Got IPA_IOC_GSB_DISCONNECT\n");
+		if (ipa3_send_gsb_msg(arg, IPA_GSB_DISCONNECT)) {
+			retval = -EFAULT;
+			break;
+		}
+		break;
+
 	default:
 		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 		return -ENOTTY;
@@ -2701,11 +2784,34 @@ int _ipa_init_sram_v3(void)
 		IPA_MEM_PART(modem_hdr_proc_ctx_ofst) - 4);
 	ipa3_sram_set_canary(ipa_sram_mmio,
 		IPA_MEM_PART(modem_hdr_proc_ctx_ofst));
-	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(modem_ofst) - 4);
-	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(modem_ofst));
+	if (ipa_get_hw_type() >= IPA_HW_v4_5) {
+		ipa3_sram_set_canary(ipa_sram_mmio,
+			IPA_MEM_PART(nat_tbl_ofst) - 12);
+		ipa3_sram_set_canary(ipa_sram_mmio,
+			IPA_MEM_PART(nat_tbl_ofst) - 8);
+		ipa3_sram_set_canary(ipa_sram_mmio,
+			IPA_MEM_PART(nat_tbl_ofst) - 4);
+		ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(nat_tbl_ofst));
+	}
+	if (ipa_get_hw_type() >= IPA_HW_v4_0) {
+		ipa3_sram_set_canary(ipa_sram_mmio,
+			IPA_MEM_PART(pdn_config_ofst) - 4);
+		ipa3_sram_set_canary(ipa_sram_mmio,
+			IPA_MEM_PART(pdn_config_ofst));
+		ipa3_sram_set_canary(ipa_sram_mmio,
+			IPA_MEM_PART(stats_quota_ofst) - 4);
+		ipa3_sram_set_canary(ipa_sram_mmio,
+			IPA_MEM_PART(stats_quota_ofst));
+	}
+	if (ipa_get_hw_type() <= IPA_HW_v3_5 ||
+		ipa_get_hw_type() >= IPA_HW_v4_5) {
+		ipa3_sram_set_canary(ipa_sram_mmio,
+			IPA_MEM_PART(modem_ofst) - 4);
+		ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(modem_ofst));
+	}
 	ipa3_sram_set_canary(ipa_sram_mmio,
 		(ipa_get_hw_type() >= IPA_HW_v3_5) ?
-			IPA_MEM_PART(uc_event_ring_ofst) :
+			IPA_MEM_PART(uc_descriptor_ram_ofst) :
 			IPA_MEM_PART(end_ofst));
 
 	iounmap(ipa_sram_mmio);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2017-2018 The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -189,6 +189,7 @@ const struct clk_ops clk_branch_ops = {
 	.disable = clk_branch_disable,
 	.is_enabled = clk_is_enabled_regmap,
 	.set_flags = clk_branch_set_flags,
+	.bus_vote = clk_debug_bus_vote,
 };
 EXPORT_SYMBOL_GPL(clk_branch_ops);
 
@@ -378,6 +379,7 @@ const struct clk_ops clk_branch2_ops = {
 	.set_flags = clk_branch_set_flags,
 	.list_registers = clk_branch2_list_registers,
 	.debug_init = clk_debug_measure_add,
+	.bus_vote = clk_debug_bus_vote,
 };
 EXPORT_SYMBOL_GPL(clk_branch2_ops);
 
@@ -443,6 +445,7 @@ const struct clk_ops clk_branch2_hw_ctl_ops = {
 	.recalc_rate = clk_branch2_hw_ctl_recalc_rate,
 	.determine_rate = clk_branch2_hw_ctl_determine_rate,
 	.set_flags = clk_branch_set_flags,
+	.bus_vote = clk_debug_bus_vote,
 };
 EXPORT_SYMBOL_GPL(clk_branch2_hw_ctl_ops);
 
@@ -500,6 +503,7 @@ const struct clk_ops clk_gate2_ops = {
 	.is_enabled = clk_is_enabled_regmap,
 	.list_registers = clk_gate2_list_registers,
 	.debug_init = clk_debug_measure_add,
+	.bus_vote = clk_debug_bus_vote,
 };
 EXPORT_SYMBOL_GPL(clk_gate2_ops);
 
@@ -507,5 +511,6 @@ const struct clk_ops clk_branch_simple_ops = {
 	.enable = clk_enable_regmap,
 	.disable = clk_disable_regmap,
 	.is_enabled = clk_is_enabled_regmap,
+	.bus_vote = clk_debug_bus_vote,
 };
 EXPORT_SYMBOL_GPL(clk_branch_simple_ops);

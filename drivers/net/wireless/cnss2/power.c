@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,8 @@ static struct cnss_vreg_info cnss_vreg_info[] = {
 	{NULL, "vdd-wlan-xtal-aon", 0, 0, 0, 0},
 	{NULL, "vdd-wlan-xtal", 1800000, 1800000, 0, 2},
 	{NULL, "vdd-wlan", 0, 0, 0, 0},
+	{NULL, "vdd-wlan-ctrl1", 0, 0, 0, 0},
+	{NULL, "vdd-wlan-ctrl2", 0, 0, 0, 0},
 	{NULL, "vdd-wlan-sp2t", 2700000, 2700000, 0, 0},
 	{NULL, "wlan-ant-switch", 2700000, 2700000, 20000, 0},
 	{NULL, "wlan-soc-swreg", 1200000, 1200000, 0, 0},
@@ -344,6 +346,11 @@ int cnss_power_on_device(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
 
+	if (plat_priv->powered_on) {
+		cnss_pr_dbg("Already powered up");
+		return 0;
+	}
+
 	ret = cnss_vreg_on(plat_priv);
 	if (ret) {
 		cnss_pr_err("Failed to turn on vreg, err = %d\n", ret);
@@ -355,6 +362,7 @@ int cnss_power_on_device(struct cnss_plat_data *plat_priv)
 		cnss_pr_err("Failed to select pinctrl state, err = %d\n", ret);
 		goto vreg_off;
 	}
+	plat_priv->powered_on = true;
 
 	return 0;
 vreg_off:
@@ -365,8 +373,14 @@ out:
 
 void cnss_power_off_device(struct cnss_plat_data *plat_priv)
 {
+	if (!plat_priv->powered_on) {
+		cnss_pr_dbg("Already powered down");
+		return;
+	}
+
 	cnss_select_pinctrl_state(plat_priv, false);
 	cnss_vreg_off(plat_priv);
+	plat_priv->powered_on = false;
 }
 
 void cnss_set_pin_connect_status(struct cnss_plat_data *plat_priv)

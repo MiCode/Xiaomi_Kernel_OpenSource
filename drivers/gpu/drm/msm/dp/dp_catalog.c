@@ -1397,6 +1397,10 @@ static void dp_catalog_ctrl_send_phy_pattern(struct dp_catalog_ctrl *ctrl,
 				DP_TEST_80BIT_CUSTOM_PATTERN_REG2, 0x0000F83E);
 		break;
 	case DP_TEST_PHY_PATTERN_CP2520_PATTERN_1:
+		value = dp_read(catalog->exe_mode, io_data, DP_MAINLINK_CTRL);
+		value &= ~BIT(4);
+		dp_write(catalog->exe_mode, io_data, DP_MAINLINK_CTRL, value);
+
 		value = BIT(16);
 		dp_write(catalog->exe_mode, io_data,
 				DP_HBR2_COMPLIANCE_SCRAMBLER_RESET, value);
@@ -1405,6 +1409,10 @@ static void dp_catalog_ctrl_send_phy_pattern(struct dp_catalog_ctrl *ctrl,
 				DP_HBR2_COMPLIANCE_SCRAMBLER_RESET, value);
 		dp_write(catalog->exe_mode, io_data, DP_MAINLINK_LEVELS, 0x2);
 		dp_write(catalog->exe_mode, io_data, DP_STATE_CTRL, 0x10);
+
+		value = dp_read(catalog->exe_mode, io_data, DP_MAINLINK_CTRL);
+		value |= BIT(0);
+		dp_write(catalog->exe_mode, io_data, DP_MAINLINK_CTRL, value);
 		break;
 	case DP_TEST_PHY_PATTERN_CP2520_PATTERN_3:
 		dp_write(catalog->exe_mode, io_data, DP_MAINLINK_CTRL, 0x11);

@@ -367,7 +367,7 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 
 	fp_t bins_to_bit_factor, vsp_read_factor, vsp_write_factor,
 		dpb_factor, dpb_write_factor,
-		y_bw_no_ubwc_8bpp, y_bw_no_ubwc_10bpp,
+		y_bw_no_ubwc_8bpp, y_bw_no_ubwc_10bpp, y_bw_10bpp_p010,
 		motion_vector_complexity = 0;
 	fp_t	dpb_total = 0;
 
@@ -444,7 +444,7 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 	lcu_per_frame = DIV_ROUND_UP(width, lcu_size) *
 		DIV_ROUND_UP(height, lcu_size);
 
-	bitrate = __lut(width, height, fps)->bitrate;
+	bitrate = (d->bitrate + 1000000 - 1) / 1000000;
 
 	bins_to_bit_factor = d->work_mode == VIDC_WORK_MODE_1 ?
 		FP_INT(0) : FP_INT(4);
@@ -475,6 +475,7 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 		FP_INT(1000 * 1000));
 	y_bw_no_ubwc_10bpp = fp_div(fp_mult(y_bw_no_ubwc_8bpp, FP_INT(256)),
 				FP_INT(192));
+	y_bw_10bpp_p010 = y_bw_no_ubwc_8bpp * 2;
 
 	ddr.dpb_read = dpb_bpp == 8 ? y_bw_no_ubwc_8bpp : y_bw_no_ubwc_10bpp;
 	ddr.dpb_read = fp_div(fp_mult(ddr.dpb_read,
@@ -496,7 +497,8 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 
 	ddr.opb_read = FP_ZERO;
 	ddr.opb_write = unified_dpb_opb ? FP_ZERO : (dpb_bpp == 8 ?
-		y_bw_no_ubwc_8bpp : y_bw_no_ubwc_10bpp);
+		y_bw_no_ubwc_8bpp : (opb_compression_enabled ?
+		y_bw_no_ubwc_10bpp : y_bw_10bpp_p010));
 	ddr.opb_write = fp_div(fp_mult(dpb_factor, ddr.opb_write),
 		fp_mult(dpb_opb_scaling_ratio, opb_write_compression_factor));
 
@@ -618,8 +620,9 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 	fp_t bins_to_bit_factor, dpb_compression_factor,
 		original_compression_factor,
 		original_compression_factor_y,
-		y_bw_no_ubwc_8bpp, y_bw_no_ubwc_10bpp,
+		y_bw_no_ubwc_8bpp, y_bw_no_ubwc_10bpp, y_bw_10bpp_p010,
 		input_compression_factor,
+		downscaling_ratio,
 		ref_y_read_bw_factor, ref_cbcr_read_bw_factor,
 		recon_write_bw_factor, mese_read_factor,
 		total_ref_read_crcb,
@@ -642,7 +645,7 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 	} llc = {0};
 
 	/* Encoder Parameters setup */
-	rotation = false;
+	rotation = d->rotation;
 	cropping_or_scaling = false;
 	vertical_tile_width = 960;
 	recon_write_bw_factor = FP(1, 8, 100);
@@ -652,9 +655,12 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 
 	/* Derived Parameters */
 	fps = d->fps;
-	width = max(d->input_width, BASELINE_DIMENSIONS.width);
-	height = max(d->input_height, BASELINE_DIMENSIONS.height);
-	bitrate = d->bitrate > 0 ? d->bitrate / 1000000 :
+	width = max(d->output_width, BASELINE_DIMENSIONS.width);
+	height = max(d->output_height, BASELINE_DIMENSIONS.height);
+	downscaling_ratio = fp_div(FP_INT(d->input_width * d->input_height),
+		FP_INT(d->output_width * d->output_height));
+	downscaling_ratio = max(downscaling_ratio, FP_ONE);
+	bitrate = d->bitrate > 0 ? (d->bitrate + 1000000 - 1) / 1000000 :
 		__lut(width, height, fps)->bitrate;
 	lcu_size = d->lcu_size;
 	lcu_per_frame = DIV_ROUND_UP(width, lcu_size) *
@@ -666,6 +672,7 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 		FP_INT(1000 * 1000));
 	y_bw_no_ubwc_10bpp = fp_div(fp_mult(y_bw_no_ubwc_8bpp,
 		FP_INT(256)), FP_INT(192));
+	y_bw_10bpp_p010 = y_bw_no_ubwc_8bpp * 2;
 
 	b_frames_enabled = d->b_frames_enabled;
 	original_color_format = d->num_formats >= 1 ?
@@ -772,9 +779,13 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 		(recon_write_bw_factor - FP_ONE)),
 		recon_write_bw_factor);
 
-	ddr.orig_read = dpb_bpp == 8 ? y_bw_no_ubwc_8bpp : y_bw_no_ubwc_10bpp;
-	ddr.orig_read = fp_div(fp_mult(ddr.orig_read, FP(1, 50, 100)),
-		original_compression_factor);
+	ddr.orig_read = dpb_bpp == 8 ? y_bw_no_ubwc_8bpp :
+		(original_compression_enabled ? y_bw_no_ubwc_10bpp :
+		y_bw_10bpp_p010);
+	ddr.orig_read = fp_div(fp_mult(fp_mult(ddr.orig_read, FP(1, 50, 100)),
+		downscaling_ratio), original_compression_factor);
+	if (rotation == 90 || rotation == 270)
+		ddr.orig_read *= lcu_size == 32 ? (dpb_bpp == 8 ? 1 : 3) : 2;
 
 	ddr.line_buffer_read = FP_INT(tnbr_per_lcu * lcu_per_frame *
 		fps / bps(1));
@@ -814,6 +825,8 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 		{"width", "%d", width},
 		{"height", "%d", height},
 		{"fps", "%d", fps},
+		{"dpb bitdepth", "%d", dpb_bpp},
+		{"input downscaling ratio", DUMP_FP_FMT, downscaling_ratio},
 		{"rotation", "%d", rotation},
 		{"cropping or scaling", "%d", cropping_or_scaling},
 		{"low power mode", "%d", low_power},

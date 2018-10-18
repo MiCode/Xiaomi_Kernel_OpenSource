@@ -15,6 +15,13 @@
 
 #define MAX_STEP_CHG_ENTRIES	8
 
+struct step_chg_jeita_param {
+	u32			psy_prop;
+	char			*prop_name;
+	int			hysteresis;
+	bool			use_bms;
+};
+
 struct range_data {
 	u32 low_threshold;
 	u32 high_threshold;

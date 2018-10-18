@@ -1,8 +1,8 @@
 Binding for Fairchild FAN53555 regulators
 
 Required properties:
-  - compatible: one of "fcs,fan53555", "silergy,syr827", "silergy,syr828" or
-    "halo,hl7509"
+  - compatible: one of "fcs,fan53555", "silergy,syr827", "silergy,syr828",
+    "halo,hl7509" or "halo,hl7503"
   - reg: I2C address
 
 Optional properties:

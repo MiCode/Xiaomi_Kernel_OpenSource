@@ -256,6 +256,7 @@ static struct clk_rcg2 disp_cc_mdss_dp_crypto_clk_src = {
 };
 
 static const struct freq_tbl ftbl_disp_cc_mdss_dp_link_clk_src[] = {
+	F( 162000, P_DP_PHY_PLL_LINK_CLK,   1,   0,   0),
 	F( 270000, P_DP_PHY_PLL_LINK_CLK,   1,   0,   0),
 	F( 540000, P_DP_PHY_PLL_LINK_CLK,   1,   0,   0),
 	{ }

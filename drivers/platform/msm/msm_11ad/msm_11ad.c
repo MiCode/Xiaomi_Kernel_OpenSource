@@ -55,6 +55,7 @@
 struct device;
 
 static const char * const gpio_en_name = "qcom,wigig-en";
+static const char * const gpio_dc_name = "qcom,wigig-dc";
 static const char * const sleep_clk_en_name = "qcom,sleep-clk-en";
 
 struct wigig_pci {
@@ -88,6 +89,7 @@ struct msm11ad_ctx {
 	struct list_head list;
 	struct device *dev; /* for platform device */
 	int gpio_en; /* card enable */
+	int gpio_dc;
 	int sleep_clk_en; /* sleep clock enable for low PM management */
 
 	/* pci device */
@@ -502,6 +504,9 @@ static int msm_11ad_turn_device_power_off(struct msm11ad_ctx *ctx)
 	if (ctx->gpio_en >= 0)
 		gpio_direction_output(ctx->gpio_en, 0);
 
+	if (ctx->gpio_dc >= 0)
+		gpio_direction_output(ctx->gpio_dc, 0);
+
 	if (ctx->sleep_clk_en >= 0)
 		gpio_direction_output(ctx->sleep_clk_en, 0);
 
@@ -531,6 +536,11 @@ static int msm_11ad_turn_device_power_on(struct msm11ad_ctx *ctx)
 
 	if (ctx->sleep_clk_en >= 0)
 		gpio_direction_output(ctx->sleep_clk_en, 1);
+
+	if (ctx->gpio_dc >= 0) {
+		gpio_direction_output(ctx->gpio_dc, 1);
+		msleep(WIGIG_ENABLE_DELAY);
+	}
 
 	if (ctx->gpio_en >= 0) {
 		gpio_direction_output(ctx->gpio_en, 1);
@@ -1017,6 +1027,7 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	 *	compatible = "qcom,wil6210";
 	 *	qcom,pcie-parent = <&pcie1>;
 	 *	qcom,wigig-en = <&tlmm 94 0>; (ctx->gpio_en)
+	 *	qcom,wigig-dc = <&tlmm 81 0>; (ctx->gpio_dc)
 	 *	qcom,sleep-clk-en = <&pm8994_gpios 18 0>; (ctx->sleep_clk_en)
 	 *	qcom,msm-bus,name = "wil6210";
 	 *	qcom,msm-bus,num-cases = <2>;
@@ -1032,7 +1043,11 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	 * qcom,smmu-exist;
 	 */
 
-	/* wigig-en is optional property */
+	/* wigig-en and wigig-dc are optional properties */
+	ctx->gpio_dc = of_get_named_gpio(of_node, gpio_dc_name, 0);
+	if (ctx->gpio_dc < 0)
+		dev_warn(ctx->dev, "GPIO <%s> not found, dc GPIO not used\n",
+			 gpio_dc_name);
 	ctx->gpio_en = of_get_named_gpio(of_node, gpio_en_name, 0);
 	if (ctx->gpio_en < 0)
 		dev_warn(ctx->dev, "GPIO <%s> not found, enable GPIO not used\n",
@@ -1105,6 +1120,22 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	if (rc) {
 		dev_err(ctx->dev, "msm_11ad_enable_clocks failed: %d\n", rc);
 		goto out_vreg_clk;
+	}
+
+	if (ctx->gpio_dc >= 0) {
+		rc = gpio_request(ctx->gpio_dc, gpio_dc_name);
+		if (rc < 0) {
+			dev_err(ctx->dev, "failed to request GPIO %d <%s>\n",
+				ctx->gpio_dc, gpio_dc_name);
+			goto out_req_dc;
+		}
+		rc = gpio_direction_output(ctx->gpio_dc, 1);
+		if (rc < 0) {
+			dev_err(ctx->dev, "failed to set GPIO %d <%s>\n",
+				ctx->gpio_dc, gpio_dc_name);
+			goto out_set_dc;
+		}
+		msleep(WIGIG_ENABLE_DELAY);
 	}
 
 	if (ctx->gpio_en >= 0) {
@@ -1193,12 +1224,13 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	/* report */
 	dev_info(ctx->dev, "msm_11ad discovered. %pK {\n"
 		 "  gpio_en = %d\n"
+		 "  gpio_dc = %d\n"
 		 "  sleep_clk_en = %d\n"
 		 "  rc_index = %d\n"
 		 "  use_smmu = %d\n"
 		 "  pcidev = %pK\n"
-		 "}\n", ctx, ctx->gpio_en, ctx->sleep_clk_en, ctx->rc_index,
-		 ctx->use_smmu, ctx->pcidev);
+		 "}\n", ctx, ctx->gpio_en, ctx->gpio_dc, ctx->sleep_clk_en,
+		 ctx->rc_index, ctx->use_smmu, ctx->pcidev);
 
 	platform_set_drvdata(pdev, ctx);
 	device_disable_async_suspend(&pcidev->dev);
@@ -1218,6 +1250,13 @@ out_set:
 		gpio_free(ctx->gpio_en);
 out_req:
 	ctx->gpio_en = -EINVAL;
+	if (ctx->gpio_dc >= 0)
+		gpio_direction_output(ctx->gpio_dc, 0);
+out_set_dc:
+	if (ctx->gpio_dc >= 0)
+		gpio_free(ctx->gpio_dc);
+out_req_dc:
+	ctx->gpio_dc = -EINVAL;
 out_vreg_clk:
 	msm_11ad_disable_clocks(ctx);
 	msm_11ad_release_clocks(ctx);
@@ -1241,6 +1280,10 @@ static int msm_11ad_remove(struct platform_device *pdev)
 	if (ctx->gpio_en >= 0) {
 		gpio_direction_output(ctx->gpio_en, 0);
 		gpio_free(ctx->gpio_en);
+	}
+	if (ctx->gpio_dc >= 0) {
+		gpio_direction_output(ctx->gpio_dc, 0);
+		gpio_free(ctx->gpio_dc);
 	}
 	if (ctx->sleep_clk_en >= 0)
 		gpio_free(ctx->sleep_clk_en);

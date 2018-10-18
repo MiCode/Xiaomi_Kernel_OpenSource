@@ -1385,21 +1385,19 @@ static int adreno_probe(struct platform_device *pdev)
 
 	/* Get the system cache slice descriptor for GPU */
 	adreno_dev->gpu_llc_slice = adreno_llc_getd(&pdev->dev, "gpu");
-	if (IS_ERR(adreno_dev->gpu_llc_slice)) {
+	if (IS_ERR(adreno_dev->gpu_llc_slice) &&
+			PTR_ERR(adreno_dev->gpu_llc_slice) != -ENOENT)
 		KGSL_DRV_WARN(device,
 			"Failed to get GPU LLC slice descriptor %ld\n",
-		PTR_ERR(adreno_dev->gpu_llc_slice));
-		adreno_dev->gpu_llc_slice = NULL;
-	}
+			PTR_ERR(adreno_dev->gpu_llc_slice));
 
 	/* Get the system cache slice descriptor for GPU pagetables */
 	adreno_dev->gpuhtw_llc_slice = adreno_llc_getd(&pdev->dev, "gpuhtw");
-	if (IS_ERR(adreno_dev->gpuhtw_llc_slice)) {
+	if (IS_ERR(adreno_dev->gpuhtw_llc_slice) &&
+			PTR_ERR(adreno_dev->gpuhtw_llc_slice) != -ENOENT)
 		KGSL_DRV_WARN(device,
 			"Failed to get gpuhtw LLC slice descriptor %ld\n",
-		PTR_ERR(adreno_dev->gpuhtw_llc_slice));
-		adreno_dev->gpuhtw_llc_slice = NULL;
-	}
+			PTR_ERR(adreno_dev->gpuhtw_llc_slice));
 
 #ifdef CONFIG_INPUT
 	if (!device->pwrctrl.input_disable) {
@@ -1476,10 +1474,8 @@ static int adreno_remove(struct platform_device *pdev)
 	adreno_profile_close(adreno_dev);
 
 	/* Release the system cache slice descriptor */
-	if (adreno_dev->gpu_llc_slice)
-		adreno_llc_putd(adreno_dev->gpu_llc_slice);
-	if (adreno_dev->gpuhtw_llc_slice)
-		adreno_llc_putd(adreno_dev->gpuhtw_llc_slice);
+	adreno_llc_putd(adreno_dev->gpu_llc_slice);
+	adreno_llc_putd(adreno_dev->gpuhtw_llc_slice);
 
 	kgsl_pwrscale_close(device);
 
@@ -2163,16 +2159,17 @@ static int adreno_stop(struct kgsl_device *device)
 
 	adreno_ocmem_free(adreno_dev);
 
-	if (adreno_dev->gpu_llc_slice)
-		adreno_llc_deactivate_slice(adreno_dev->gpu_llc_slice);
-	if (adreno_dev->gpuhtw_llc_slice)
-		adreno_llc_deactivate_slice(adreno_dev->gpuhtw_llc_slice);
+	adreno_llc_deactivate_slice(adreno_dev->gpu_llc_slice);
+	adreno_llc_deactivate_slice(adreno_dev->gpuhtw_llc_slice);
 
 	/* Save active coresight registers if applicable */
 	adreno_coresight_stop(adreno_dev);
 
 	/* Save physical performance counter values before GPU power down*/
 	adreno_perfcounter_save(adreno_dev);
+
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, prepare_stop))
+		gmu_dev_ops->prepare_stop(adreno_dev);
 
 	if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_clear))
 		gmu_dev_ops->oob_clear(adreno_dev, oob_gpu);

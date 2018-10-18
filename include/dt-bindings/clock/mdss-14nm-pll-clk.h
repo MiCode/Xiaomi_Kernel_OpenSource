@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __MDSS_PLL_CLK_H
-#define __MDSS_PLL_CLK_H
+#ifndef __MDSS_14NM_PLL_CLK_H
+#define __MDSS_14NM_PLL_CLK_H
 
 /* DSI PLL clocks */
 #define BYTE0_MUX_CLK             0
@@ -38,5 +38,12 @@
 #define SHADOW_N2_DIV_1_CLK       21
 #define SHADOW_POST_N1_DIV_1_CLK  22
 #define SHADOW_VCO_CLK_1_CLK      23
+
+/* DP PLL clocks */
+#define DP_VCO_CLK			0
+#define DP_PHY_PLL_LINK_CLK		1
+#define DP_VCO_DIVSEL_FOUR_CLK_SRC	2
+#define DP_VCO_DIVSEL_TWO_CLK_SRC	3
+#define DP_PHY_PLL_VCO_DIV_CLK		4
 
 #endif

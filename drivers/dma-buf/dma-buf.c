@@ -474,7 +474,7 @@ struct dma_buf *dma_buf_export(const struct dma_buf_export_info *exp_info)
 	dmabuf->cb_excl.poll = dmabuf->cb_shared.poll = &dmabuf->poll;
 	dmabuf->cb_excl.active = dmabuf->cb_shared.active = 0;
 	dmabuf->name = bufname;
-	getnstimeofday(&dmabuf->ctime);
+	dmabuf->ktime = ktime_get();
 
 	if (!resv) {
 		resv = (struct reservation_object *)&dmabuf[1];
@@ -1326,24 +1326,21 @@ static int get_dma_info(const void *data, struct file *file, unsigned int n)
 static void write_proc(struct seq_file *s, struct dma_proc *proc)
 {
 	struct dma_info *tmp;
-	struct timespec curr_time;
 
-	getnstimeofday(&curr_time);
 	seq_printf(s, "\n%s (PID %ld) size: %ld\nDMA Buffers:\n",
 		proc->name, proc->pid, proc->size);
 	seq_printf(s, "%-8s\t%-8s\t%-8s\n",
 		"Name", "Size (KB)", "Time Alive (sec)");
 
 	list_for_each_entry(tmp, &proc->dma_bufs, head) {
-		struct dma_buf *dmabuf;
-		struct timespec mtime;
-		__kernel_time_t elap_mtime;
+		struct dma_buf *dmabuf = tmp->dmabuf;
+		ktime_t elapmstime = ktime_ms_delta(ktime_get(), dmabuf->ktime);
 
-		dmabuf = tmp->dmabuf;
-		mtime = dmabuf->ctime;
-		elap_mtime = curr_time.tv_sec - mtime.tv_sec;
+		elapmstime = ktime_divns(elapmstime, MSEC_PER_SEC);
 		seq_printf(s, "%-8s\t%-8ld\t%-8ld\n",
-			dmabuf->name, dmabuf->size / SZ_1K, elap_mtime);
+				dmabuf->name,
+				dmabuf->size / SZ_1K,
+				elapmstime);
 	}
 }
 

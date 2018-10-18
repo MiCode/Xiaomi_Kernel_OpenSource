@@ -58,16 +58,85 @@
 #define CONTEXT_SIZE 0x1000
 
 #define KEYMASTER_UTILS_CMD_ID 0x200UL
+#define KEYMASTER_GET_VERSION (KEYMASTER_UTILS_CMD_ID + 0UL)
 #define KEYMASTER_SET_ICE_KEY (KEYMASTER_UTILS_CMD_ID + 18UL)
 #define KEYMASTER_CLEAR_ICE_KEY (KEYMASTER_UTILS_CMD_ID + 19UL)
 
+#define USE_KM_MAJOR_VERSION 4
+#define USE_KM_MINOR_VERSION 513
+
 #define ICE_KEY_SIZE 32
 #define ICE_SALT_SIZE 32
+
+static uint32_t keymaster_minor_version;
+static uint32_t keymaster_major_version;
 
 static uint8_t ice_key[ICE_KEY_SIZE];
 static uint8_t ice_salt[ICE_KEY_SIZE];
 
 static struct qseecom_handle *qhandle;
+
+static uint32_t get_keymaster_version(struct qseecom_handle *qhandle)
+{
+	int ret = 0;
+	struct pfk_km_get_version_req *req;
+	struct pfk_km_get_version_rsp *rsp;
+
+	req = (struct pfk_km_get_version_req *) qhandle->sbuf;
+	req->cmd_id = KEYMASTER_GET_VERSION;
+
+	rsp = (struct pfk_km_get_version_rsp *) (qhandle->sbuf
+		+ sizeof(struct pfk_km_get_version_req));
+
+	ret = qseecom_send_command(qhandle,
+			req, sizeof(struct pfk_km_get_version_req),
+			rsp, sizeof(struct pfk_km_get_version_rsp));
+
+	if (ret) {
+		pr_err("%s: Get KM version error: Status %d\n", __func__,
+						rsp->status);
+		return ret;
+	}
+
+	keymaster_major_version = rsp->ta_major_version;
+	keymaster_minor_version = rsp->ta_minor_version;
+
+	return ret;
+}
+
+/*
+ * This change is to make sure there are no issues when pfk calls into
+ * keymaster for unwrapping keys before setting them. This can happen when
+ * an older version of keymaster is used which means the unwrapping logic
+ * cannot be done in trustzone.
+ */
+
+static bool should_use_keymaster(void)
+{
+	int ret = -1;
+	if (!qhandle) {
+		ret = qseecom_start_app(&qhandle, "keymaster64",
+			CONTEXT_SIZE);
+		if (ret) {
+			pr_err("Qseecom start app failed\n");
+			return false;
+		}
+	}
+
+	if (keymaster_major_version == 0 || keymaster_minor_version == 0) {
+		ret = get_keymaster_version(qhandle);
+		if (ret) {
+			pr_err("Error in getting keymaster version\n");
+			return false;
+		}
+	}
+
+	if (keymaster_major_version == USE_KM_MAJOR_VERSION &&
+			keymaster_minor_version < USE_KM_MINOR_VERSION)
+		return true;
+	else
+		return false;
+}
 
 static int set_wrapped_key(uint32_t index, const uint8_t *key,
 				const uint8_t *salt)
@@ -80,15 +149,6 @@ static int set_wrapped_key(uint32_t index, const uint8_t *key,
 
 	memcpy(ice_key, key, sizeof(ice_key));
 	memcpy(ice_salt, salt, sizeof(ice_salt));
-
-	if (!qhandle) {
-		ret = qseecom_start_app(&qhandle, "keymaster64",
-			CONTEXT_SIZE);
-		if (ret) {
-			pr_err("Qseecom start app failed\n");
-			return ret;
-		}
-	}
 
 	set_req_buf = (struct pfk_ice_key_req *) qhandle->sbuf;
 	set_req_buf->cmd_id = KEYMASTER_SET_ICE_KEY;
@@ -232,7 +292,7 @@ int qti_pfk_ice_set_key(uint32_t index, uint8_t *key, uint8_t *salt,
 		goto out;
 	}
 
-	if (pfk_wrapped_key_supported()) {
+	if (pfk_wrapped_key_supported() && should_use_keymaster()) {
 		pr_debug("%s: Setting wrapped key\n", __func__);
 		ret = set_wrapped_key(index, key, salt);
 	} else {
@@ -248,7 +308,7 @@ int qti_pfk_ice_set_key(uint32_t index, uint8_t *key, uint8_t *salt,
 				goto out;
 		}
 		/* Try to invalidate the key to keep ICE in proper state */
-		if (pfk_wrapped_key_supported())
+		if (pfk_wrapped_key_supported() && should_use_keymaster())
 			ret1 = clear_wrapped_key(index);
 		else
 			ret1 = clear_key(index);
@@ -285,7 +345,7 @@ int qti_pfk_ice_invalidate_key(uint32_t index, char *storage_type)
 		return ret;
 	}
 
-	if (pfk_wrapped_key_supported()) {
+	if (pfk_wrapped_key_supported() && should_use_keymaster()) {
 		ret = clear_wrapped_key(index);
 		pr_debug("%s: Clearing wrapped key\n", __func__);
 	} else {

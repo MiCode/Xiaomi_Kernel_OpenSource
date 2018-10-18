@@ -37,14 +37,14 @@
 		#address-cells = <1>;
 		ranges;
 		interrupts =	<GIC_SPI 585 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 590 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 591 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 592 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 593 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 594 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 595 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 596 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 597 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 598 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 599 IRQ_TYPE_LEVEL_HIGH>;
+				<GIC_SPI 597 IRQ_TYPE_LEVEL_HIGH>;
 
 		gfx_0_tbu: gfx_0_tbu@0x50c5000 {
 			compatible = "qcom,qsmmuv500-tbu";
@@ -300,4 +300,16 @@
 		iommus = <&apps_smmu 0x23 0>;
 		dma-coherent;
 	};
+};
+
+&kgsl_smmu {
+	qcom,actlr =
+		/* All CBs of GFX: +15 deep PF */
+		<0x0 0x7ff 0x303>;
+};
+
+&apps_smmu {
+	qcom,actlr =
+		/* HF and SF TBUs: +3 deep PF */
+		<0x800 0x7ff 0x103>;
 };

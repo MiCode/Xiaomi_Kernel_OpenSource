@@ -1076,7 +1076,19 @@ int dsi_message_validate_tx_mode(struct dsi_ctrl *dsi_ctrl,
 			pr_err(" Cannot transfer command,ops not defined\n");
 			return -ENOTSUPP;
 		}
+		if ((cmd_len + 4) > SZ_4K) {
+			pr_err("Cannot transfer,size is greater than 4096\n");
+			return -ENOTSUPP;
+		}
 	}
+
+	if (*flags & DSI_CTRL_CMD_FETCH_MEMORY) {
+		if ((dsi_ctrl->cmd_len + cmd_len + 4) > SZ_4K) {
+			pr_err("Cannot transfer,size is greater than 4096\n");
+			return -ENOTSUPP;
+		}
+	}
+
 	return rc;
 }
 
@@ -2199,6 +2211,29 @@ int dsi_ctrl_set_roi(struct dsi_ctrl *dsi_ctrl, struct dsi_rect *roi,
 }
 
 /**
+ * dsi_ctrl_config_clk_gating() - Enable/disable DSI PHY clk gating.
+ * @dsi_ctrl:                     DSI controller handle.
+ * @enable:                       Enable/disable DSI PHY clk gating
+ * @clk_selection:                clock to enable/disable clock gating
+ *
+ * Return: error code.
+ */
+int dsi_ctrl_config_clk_gating(struct dsi_ctrl *dsi_ctrl, bool enable,
+			enum dsi_clk_gate_type clk_selection)
+{
+	if (!dsi_ctrl) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	if (dsi_ctrl->hw.ops.config_clk_gating)
+		dsi_ctrl->hw.ops.config_clk_gating(&dsi_ctrl->hw, enable,
+				clk_selection);
+
+	return 0;
+}
+
+/**
  * dsi_ctrl_phy_reset_config() - Mask/unmask propagation of ahb reset signal
  *	to DSI PHY hardware.
  * @dsi_ctrl:        DSI controller handle.
@@ -2674,6 +2709,16 @@ void dsi_ctrl_isr_configure(struct dsi_ctrl *dsi_ctrl, bool enable)
 	else
 		_dsi_ctrl_destroy_isr(dsi_ctrl);
 
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
+}
+
+void dsi_ctrl_set_continuous_clk(struct dsi_ctrl *dsi_ctrl, bool enable)
+{
+	if (!dsi_ctrl)
+		return;
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+	dsi_ctrl->hw.ops.set_continuous_clk(&dsi_ctrl->hw, enable);
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
 }
 

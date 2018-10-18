@@ -187,6 +187,11 @@ struct msm_vidc_roi_deltaqp_payload {
 	unsigned int data[1];
 };
 
+struct msm_vidc_hdr10plus_metadata_payload {
+	unsigned int size;
+	unsigned int data[1];
+};
+
 struct msm_vidc_mastering_display_colour_sei_payload {
 	unsigned int nDisplayPrimariesX[3];
 	unsigned int nDisplayPrimariesY[3];
@@ -238,6 +243,7 @@ struct msm_vidc_vui_display_info_payload {
 #define MSM_VIDC_EXTRADATA_PQ_INFO 0x00000017
 #define MSM_VIDC_EXTRADATA_COLOUR_REMAPPING_INFO_SEI 0x00000018
 #define MSM_VIDC_EXTRADATA_UBWC_CR_STAT_INFO 0x00000019
+#define MSM_VIDC_EXTRADATA_HDR10PLUS_METADATA 0x0000001A
 #define MSM_VIDC_EXTRADATA_INPUT_CROP 0x0700000E
 #define MSM_VIDC_EXTRADATA_OUTPUT_CROP 0x0700000F
 #define MSM_VIDC_EXTRADATA_MULTISLICE_INFO 0x7F100000

@@ -55,9 +55,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&spdifrx_opt_default
 		&pri_mi2s_sck_active &pri_mi2s_ws_active
-		&pri_mi2s_sd0_active &pri_mi2s_sd1_active
-		&pri_mi2s_sd2_active &pri_mi2s_sd3_active
-		&pri_mi2s_sd4_active &pri_mi2s_sd5_active
+		&pri_mi2s_sd0_active
 		&sec_mi2s_sck_active &sec_mi2s_ws_active
 		&sec_mi2s_sd0_active &sec_mi2s_sd1_active
 		&sec_mi2s_sd2_active &sec_mi2s_sd3_active>;
@@ -65,6 +63,10 @@
 
 &bolero {
 	qcom,num-macros = <1>;
+};
+
+&dai_mi2s0 {
+	qcom,msm-mi2s-rx-lines = <0x1>;
 };
 
 &soc {

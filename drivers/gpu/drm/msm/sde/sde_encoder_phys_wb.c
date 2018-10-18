@@ -1103,8 +1103,8 @@ static void sde_encoder_phys_wb_irq_ctrl(
 {
 
 	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys);
-	int index = 0;
-	int pp = 0;
+	int index = 0, refcount;
+	int ret = 0, pp = 0;
 
 	if (!wb_enc)
 		return;
@@ -1118,16 +1118,27 @@ static void sde_encoder_phys_wb_irq_ctrl(
 		return;
 	}
 
-	if (enable) {
+	refcount = atomic_read(&phys->wbirq_refcount);
+
+	if (enable && atomic_inc_return(&phys->wbirq_refcount) == 1) {
 		sde_encoder_helper_register_irq(phys, INTR_IDX_WB_DONE);
+		if (ret)
+			atomic_dec_return(&phys->wbirq_refcount);
+
 		for (index = 0; index < CRTC_DUAL_MIXERS; index++)
-			sde_encoder_helper_register_irq(phys,
-				cwb_irq_tbl[index + pp]);
-	} else {
+			if (cwb_irq_tbl[index + pp] != SDE_NONE)
+				sde_encoder_helper_register_irq(phys,
+					cwb_irq_tbl[index + pp]);
+	} else if (!enable &&
+			atomic_dec_return(&phys->wbirq_refcount) == 0) {
 		sde_encoder_helper_unregister_irq(phys, INTR_IDX_WB_DONE);
+		if (ret)
+			atomic_inc_return(&phys->wbirq_refcount);
+
 		for (index = 0; index < CRTC_DUAL_MIXERS; index++)
-			sde_encoder_helper_unregister_irq(phys,
-				cwb_irq_tbl[index + pp]);
+			if (cwb_irq_tbl[index + pp] != SDE_NONE)
+				sde_encoder_helper_unregister_irq(phys,
+					cwb_irq_tbl[index + pp]);
 	}
 }
 
@@ -1547,15 +1558,22 @@ static void sde_encoder_phys_wb_disable(struct sde_encoder_phys *phys_enc)
 	/* reset h/w before final flush */
 	if (phys_enc->hw_ctl->ops.clear_pending_flush)
 		phys_enc->hw_ctl->ops.clear_pending_flush(phys_enc->hw_ctl);
-	if (sde_encoder_helper_reset_mixers(phys_enc, wb_enc->fb_disable))
-		goto exit;
+
+	sde_encoder_helper_phys_disable(phys_enc, wb_enc);
 
 	phys_enc->enable_state = SDE_ENC_DISABLING;
+
+	if (hw_wb->catalog->has_3d_merge_reset)
+		goto exit;
+
 	sde_encoder_phys_wb_prepare_for_kickoff(phys_enc, NULL);
+	sde_encoder_phys_wb_irq_ctrl(phys_enc, true);
 	if (phys_enc->hw_ctl->ops.trigger_flush)
 		phys_enc->hw_ctl->ops.trigger_flush(phys_enc->hw_ctl);
+
 	sde_encoder_helper_trigger_start(phys_enc);
 	sde_encoder_phys_wb_wait_for_commit_done(phys_enc);
+	sde_encoder_phys_wb_irq_ctrl(phys_enc, false);
 exit:
 	phys_enc->enable_state = SDE_ENC_DISABLED;
 	wb_enc->crtc = NULL;
@@ -1773,6 +1791,7 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 	phys_enc->enc_spinlock = p->enc_spinlock;
 	phys_enc->vblank_ctl_lock = p->vblank_ctl_lock;
 	atomic_set(&phys_enc->pending_retire_fence_cnt, 0);
+	atomic_set(&phys_enc->wbirq_refcount, 0);
 
 	irq = &phys_enc->irq[INTR_IDX_WB_DONE];
 	INIT_LIST_HEAD(&irq->cb.list);
