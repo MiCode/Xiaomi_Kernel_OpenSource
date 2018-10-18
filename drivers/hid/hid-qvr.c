@@ -36,6 +36,7 @@
 #include "../soc/qcom/smp2p_private.h"
 #include "hid-ids.h"
 #include "hid-qvr.h"
+#include "hid-trace.h"
 
 static struct ion_handle *handle;
 static struct ion_client *client;
@@ -141,6 +142,9 @@ int qvr_send_package_wrap(u8 *message, int msize, struct hid_device *hid)
 	data->mx = -imuData.mx0;
 	data->my = imuData.my0;
 	data->mz = -imuData.mz0;
+
+	trace_qvr_recv_sensor("gyro", data->gts, data->gx, data->gy, data->gz);
+	trace_qvr_recv_sensor("accel", data->ats, data->ax, data->ay, data->az);
 
 	pr_debug("%s: gts= %llu, gx= %d, gy=%d, gz=%d", __func__,
 		data->gts, data->gx, data->gy, data->gz);
