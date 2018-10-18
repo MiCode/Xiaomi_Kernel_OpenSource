@@ -80,6 +80,8 @@ struct gmu_iommu_context gmu_ctx[] = {
 static struct gmu_memdesc gmu_kmem_entries[GMU_KERNEL_ENTRIES];
 static unsigned long gmu_kmem_bitmap;
 static unsigned int num_uncached_entries;
+
+static void gmu_snapshot(struct kgsl_device *device);
 static void gmu_remove(struct kgsl_device *device);
 
 static int _gmu_iommu_fault_handler(struct device *dev,
@@ -540,9 +542,7 @@ static int gmu_dcvs_set(struct kgsl_device *device,
 		dev_err_ratelimited(&gmu->pdev->dev,
 			"Failed to set GPU perf idx %d, bw idx %d\n",
 			req.freq, req.bw);
-
-		adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
-		adreno_dispatcher_schedule(device);
+		gmu_snapshot(device);
 	}
 
 	/* indicate actual clock change */
