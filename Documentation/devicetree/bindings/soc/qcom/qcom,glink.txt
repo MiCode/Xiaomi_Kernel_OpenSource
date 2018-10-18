@@ -32,6 +32,46 @@ edge.
 	Definition: reference to the "rpm_hlos" mailbox in APCS, as described
 		    in mailbox/mailbox.txt
 
+- cpu-affinity:
+	Usage: optional
+	Value type: <prop-encoded-array>
+	Definition: cores to pin the irq to
+
+= GLINK SPSS
+The remote proc on a GLINK SPSS edge expects the descriptors and fifos to be
+allocated by this processor. The following bindings are required to inform the
+remote proc of the allocated smem.
+
+- reg-names:
+	Usage: required for glink-spss
+	Value type: <stringlist>
+	Definition: must contain the following registers
+		    "qcom,spss-addr" - to handoff SPSS smem address to rproc
+		    "qcom,spss-size" - to handoff SPSS smem size to rproc
+
+- reg:
+	Usage: required for glink-spss
+	Value type: <prop-encoded-array>
+	Definition: address and size pairs describing the GLINK SPSS registers,
+		    the order must match the entries in reg-names
+
+= GLINK SPI
+The following bindings are required for a GLINK SPI edge. They describe the
+physical address where the FIFO descriptors are located. The wcd-spi driver
+uses these physical address when writing to the spi bus.
+
+- tx-descriptors:
+	Usage: required for glink-spi
+	Value type: <u32 array>
+	Definition: must contain the physical addresses of the outgoing FIFO
+		    head and tail descriptors. The array should be <head tail>
+
+- rx-descriptors:
+	Usage: required for glink-spi
+	Value type: <u32 array>
+	Definition: must contain the physical addresses of the incoming FIFO
+		    head and tail descriptors. The array should be <head tail>
+
 = GLINK DEVICES
 Each subnode of the GLINK node represent function tied to a virtual
 communication channel. The name of the nodes are not important. The properties
