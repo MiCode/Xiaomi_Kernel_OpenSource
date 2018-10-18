@@ -820,10 +820,6 @@ static int pd_eval_src_caps(struct usbpd *pd)
 	power_supply_set_property(pd->usb_psy,
 			POWER_SUPPLY_PROP_PD_USB_SUSPEND_SUPPORTED, &val);
 
-	/* First time connecting to a PD source and it supports USB data */
-	if (pd->peer_usb_comm && pd->current_dr == DR_UFP && !pd->pd_connected)
-		start_usb_peripheral(pd);
-
 	/* Check for PPS APDOs */
 	if (pd->spec_rev == USBPD_REV_30) {
 		for (i = 1; i < PD_MAX_DATA_OBJ; i++) {
@@ -845,6 +841,10 @@ static int pd_eval_src_caps(struct usbpd *pd)
 			POWER_SUPPLY_PD_ACTIVE;
 	power_supply_set_property(pd->usb_psy,
 			POWER_SUPPLY_PROP_PD_ACTIVE, &val);
+
+	/* First time connecting to a PD source and it supports USB data */
+	if (pd->peer_usb_comm && pd->current_dr == DR_UFP && !pd->pd_connected)
+		start_usb_peripheral(pd);
 
 	/* Select the first PDO (vSafe5V) immediately. */
 	pd_select_pdo(pd, 1, 0, 0);
@@ -2209,8 +2209,18 @@ static void enter_state_snk_startup(struct usbpd *pd)
 	};
 	union power_supply_propval val = {0};
 
-	if (pd->current_dr == DR_NONE || pd->current_dr == DR_UFP)
+	if (pd->current_dr == DR_NONE || pd->current_dr == DR_UFP) {
 		pd->current_dr = DR_UFP;
+
+		ret = power_supply_get_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_REAL_TYPE, &val);
+		if (!ret) {
+			usbpd_dbg(&pd->dev, "type:%d\n", val.intval);
+			if (val.intval == POWER_SUPPLY_TYPE_USB ||
+				val.intval == POWER_SUPPLY_TYPE_USB_CDP)
+				start_usb_peripheral(pd);
+		}
+	}
 
 	dual_role_instance_changed(pd->dual_role);
 
