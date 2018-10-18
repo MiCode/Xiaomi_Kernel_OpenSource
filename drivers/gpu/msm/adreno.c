@@ -966,10 +966,6 @@ static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 		if (of_property_read_u32(child, "qcom,bus-max",
 			&level->bus_max))
 			level->bus_max = level->bus_freq;
-
-		if (of_property_read_u32(child, "qcom,dvm-val",
-				&level->acd_dvm_val))
-			level->acd_dvm_val = 0xFFFFFFFF;
 	}
 
 	return 0;
