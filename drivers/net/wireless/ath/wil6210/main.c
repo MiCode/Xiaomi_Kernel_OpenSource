@@ -2106,13 +2106,13 @@ void wil_halp_vote(struct wil6210_priv *wil)
 	if (++wil->halp.ref_cnt == 1) {
 		reinit_completion(&wil->halp.comp);
 		/* mark to IRQ context to handle HALP ICR */
-		wil->halp.handle_icr = true;
+		atomic_set(&wil->halp.handle_icr, 1);
 		wil6210_set_halp(wil);
 		rc = wait_for_completion_timeout(&wil->halp.comp, to_jiffies);
 		if (!rc) {
 			wil_err(wil, "HALP vote timed out\n");
 			/* Mask HALP as done in case the interrupt is raised */
-			wil->halp.handle_icr = false;
+			atomic_set(&wil->halp.handle_icr, 0);
 			wil6210_mask_halp(wil);
 		} else {
 			wil_dbg_irq(wil,
