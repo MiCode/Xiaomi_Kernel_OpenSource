@@ -419,4 +419,13 @@ config QCOM_GLINK
 	  currently designed to plugin with the remote proc framework as a
 	  subdev. This module is responsible for creating the glink transports
 	  when remote proc is disabled.
+
+config QCOM_GLINK_PKT
+	tristate "Enable device interface for GLINK packet channels"
+	depends on QCOM_GLINK
+	help
+	  G-link packet driver provides the interface for the userspace
+	  clients to communicate over G-Link via device nodes.
+	  This enable the userspace clients to read and write to
+	  some glink packets channel.
 endmenu
