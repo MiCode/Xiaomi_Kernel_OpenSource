@@ -105,7 +105,7 @@ int32_t camera_io_dev_write(struct camera_io_master *io_master_info,
 	}
 
 	if (io_master_info->master_type == CCI_MASTER) {
-		return cam_cci_i2c_write_table(io_master_info,
+		return cam_cci_i2c_write_table(io_master_info->cci_client,
 			write_setting);
 	} else if (io_master_info->master_type == I2C_MASTER) {
 		return cam_qup_i2c_write_table(io_master_info,
@@ -137,7 +137,8 @@ int32_t camera_io_dev_write_continuous(struct camera_io_master *io_master_info,
 	}
 
 	if (io_master_info->master_type == CCI_MASTER) {
-		return cam_cci_i2c_write_continuous_table(io_master_info,
+		return cam_cci_i2c_write_continuous_table(
+			io_master_info->cci_client,
 			write_setting, cam_sensor_i2c_write_flag);
 	} else if (io_master_info->master_type == I2C_MASTER) {
 		return cam_qup_i2c_write_continuous_table(io_master_info,

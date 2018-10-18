@@ -225,7 +225,8 @@ enum cam_sensor_i2c_cmd_type {
 	CAM_SENSOR_I2C_WRITE_BURST,
 	CAM_SENSOR_I2C_WRITE_SEQ,
 	CAM_SENSOR_I2C_READ,
-	CAM_SENSOR_I2C_POLL
+	CAM_SENSOR_I2C_POLL,
+	CAM_SENSOR_I2C_SET_I2C_INFO
 };
 
 struct common_header {
@@ -277,8 +278,14 @@ struct cam_sensor_i2c_reg_setting {
 	unsigned short delay;
 };
 
+struct cam_sensor_i2c_slave_info {
+	uint16_t slave_addr;
+	uint8_t i2c_freq_mode;
+};
+
 struct i2c_settings_list {
 	struct cam_sensor_i2c_reg_setting i2c_settings;
+	struct cam_sensor_i2c_slave_info slave_info;
 	enum cam_sensor_i2c_cmd_type op_code;
 	struct list_head list;
 };

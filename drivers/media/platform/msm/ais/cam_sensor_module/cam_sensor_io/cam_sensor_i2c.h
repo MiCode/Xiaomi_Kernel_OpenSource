@@ -64,7 +64,7 @@ int32_t cam_camera_cci_i2c_read_seq(struct cam_sensor_cci_client *client,
  * This API handles CCI random write
  */
 int32_t cam_cci_i2c_write_table(
-	struct camera_io_master *client,
+	struct cam_sensor_cci_client *client,
 	struct cam_sensor_i2c_reg_setting *write_setting);
 
 /**
@@ -75,7 +75,7 @@ int32_t cam_cci_i2c_write_table(
  * This API handles CCI continuous write
  */
 int32_t cam_cci_i2c_write_continuous_table(
-	struct camera_io_master *client,
+	struct cam_sensor_cci_client *client,
 	struct cam_sensor_i2c_reg_setting *write_setting,
 	uint8_t cam_sensor_i2c_write_flag);
 

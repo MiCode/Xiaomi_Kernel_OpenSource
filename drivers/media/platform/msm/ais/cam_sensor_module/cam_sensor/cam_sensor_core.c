@@ -17,6 +17,10 @@
 #include "cam_soc_util.h"
 #include "cam_trace.h"
 
+static int32_t cam_sensor_update_i2c_slave_info(
+	struct camera_io_master *io_master,
+	struct cam_sensor_i2c_slave_info *slave_info);
+
 static void cam_sensor_update_req_mgr(
 	struct cam_sensor_ctrl_t *s_ctrl,
 	struct cam_packet *csl_packet)
@@ -283,6 +287,73 @@ static int32_t cam_sensor_i2c_modes_util(
 				return rc;
 			}
 		}
+	} else if (i2c_list->op_code == CAM_SENSOR_I2C_SET_I2C_INFO) {
+		rc = cam_sensor_update_i2c_slave_info(io_master_info,
+			&i2c_list->slave_info);
+	}
+
+	return rc;
+}
+
+static int32_t cam_sensor_update_i2c_slave_info(
+		struct camera_io_master *io_master,
+		struct cam_sensor_i2c_slave_info *slave_info)
+{
+	int32_t rc = 0;
+
+	if (io_master == NULL || slave_info == NULL) {
+		CAM_ERR(CAM_SENSOR, "Invalid args");
+		return -EINVAL;
+	}
+
+	switch (io_master->master_type) {
+	case CCI_MASTER:
+		io_master->cci_client->sid =
+			(slave_info->slave_addr >> 1);
+		io_master->cci_client->i2c_freq_mode =
+			slave_info->i2c_freq_mode;
+		break;
+
+	case I2C_MASTER:
+		io_master->client->addr = slave_info->slave_addr;
+		break;
+
+	case SPI_MASTER:
+		break;
+
+	default:
+		CAM_ERR(CAM_SENSOR, "Invalid master type: %d",
+			io_master->master_type);
+		rc = -EINVAL;
+		break;
+	}
+
+	return rc;
+}
+
+static int32_t cam_sensor_restore_slave_info(struct cam_sensor_ctrl_t *s_ctrl)
+{
+	int32_t rc = 0;
+
+	switch (s_ctrl->io_master_info.master_type) {
+	case CCI_MASTER:
+		s_ctrl->io_master_info.cci_client->sid =
+			(s_ctrl->sensordata->slave_info.sensor_slave_addr >> 1);
+		break;
+
+	case I2C_MASTER:
+		s_ctrl->io_master_info.client->addr =
+			 s_ctrl->sensordata->slave_info.sensor_slave_addr;
+		break;
+
+	case SPI_MASTER:
+		break;
+
+	default:
+		CAM_ERR(CAM_SENSOR, "Invalid master type: %d",
+				s_ctrl->io_master_info.master_type);
+		rc = -EINVAL;
+		break;
 	}
 
 	return rc;
@@ -511,6 +582,7 @@ int cam_sensor_match_id(struct cam_sensor_ctrl_t *s_ctrl)
 {
 	int rc = 0;
 	uint32_t chipid = 0;
+	uint32_t chipid_masked = 0;
 	struct cam_camera_slave_info *slave_info;
 
 	slave_info = &(s_ctrl->sensordata->slave_info);
@@ -529,9 +601,13 @@ int cam_sensor_match_id(struct cam_sensor_ctrl_t *s_ctrl)
 
 	CAM_DBG(CAM_SENSOR, "read id: 0x%x expected id 0x%x:",
 			 chipid, slave_info->sensor_id);
-	if (cam_sensor_id_by_mask(s_ctrl, chipid) != slave_info->sensor_id) {
-		CAM_ERR(CAM_SENSOR, "chip id %x does not match %x",
-				chipid, slave_info->sensor_id);
+
+	chipid_masked = cam_sensor_id_by_mask(s_ctrl, chipid);
+	if (chipid_masked != slave_info->sensor_id) {
+		CAM_ERR(CAM_SENSOR, "chip id %x (%x | %x) does not match %x",
+			chipid_masked, chipid,
+			s_ctrl->sensordata->slave_info.sensor_id_mask,
+			slave_info->sensor_id);
 		return -ENODEV;
 	}
 	return rc;
@@ -620,7 +696,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		}
 
 		CAM_INFO(CAM_SENSOR,
-			"Probe success,slot:%d,slave_addr:0x%x,sensor_id:0x%x",
+			"Probe Succees,slot:%d,slave_addr:0x%x,sensor_id:0x%x",
 			s_ctrl->soc_info.index,
 			s_ctrl->sensordata->slave_info.sensor_slave_addr,
 			s_ctrl->sensordata->slave_info.sensor_id);
@@ -818,7 +894,8 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 				CAM_SENSOR_PACKET_OPCODE_SENSOR_INITIAL_CONFIG);
 			if (rc < 0) {
 				CAM_ERR(CAM_SENSOR,
-					"cannot apply init settings");
+					"cannot apply init settings [%d]",
+					s_ctrl->id);
 				goto release_mutex;
 			}
 			rc = delete_request(&s_ctrl->i2c_data.init_settings);
@@ -848,6 +925,11 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			s_ctrl->sensor_state = CAM_SENSOR_CONFIG;
 			s_ctrl->i2c_data.config_settings.request_id = -1;
 		}
+
+		CAM_INFO(CAM_SENSOR,
+			"CAM_CONFIG_DEV done sensor_id:0x%x,sensor_slave_addr:0x%x",
+			s_ctrl->sensordata->slave_info.sensor_id,
+			s_ctrl->sensordata->slave_info.sensor_slave_addr);
 	}
 		break;
 	default:
@@ -932,8 +1014,7 @@ int cam_sensor_power_up(struct cam_sensor_ctrl_t *s_ctrl)
 	int rc;
 	struct cam_sensor_power_ctrl_t *power_info;
 	struct cam_camera_slave_info *slave_info;
-	struct cam_hw_soc_info *soc_info =
-		&s_ctrl->soc_info;
+	struct cam_hw_soc_info *soc_info;
 
 	if (!s_ctrl) {
 		CAM_ERR(CAM_SENSOR, "failed: %pK", s_ctrl);
@@ -947,6 +1028,8 @@ int cam_sensor_power_up(struct cam_sensor_ctrl_t *s_ctrl)
 		CAM_ERR(CAM_SENSOR, "failed: %pK %pK", power_info, slave_info);
 		return -EINVAL;
 	}
+
+	soc_info = &s_ctrl->soc_info;
 
 	if (s_ctrl->bob_pwm_switch) {
 		rc = cam_sensor_bob_pwm_mode_switch(soc_info,
@@ -983,12 +1066,12 @@ int cam_sensor_power_down(struct cam_sensor_ctrl_t *s_ctrl)
 	}
 
 	power_info = &s_ctrl->sensordata->power_info;
-	soc_info = &s_ctrl->soc_info;
-
 	if (!power_info) {
 		CAM_ERR(CAM_SENSOR, "failed: power_info %pK", power_info);
 		return -EINVAL;
 	}
+
+	soc_info = &s_ctrl->soc_info;
 	rc = cam_sensor_util_power_down(power_info, soc_info);
 	if (rc < 0) {
 		CAM_ERR(CAM_SENSOR, "power down the core is failed:%d", rc);
@@ -1051,7 +1134,7 @@ int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl,
 					CAM_ERR(CAM_SENSOR,
 						"Failed to apply settings: %d",
 						rc);
-					return rc;
+					goto EXIT_RESTORE;
 				}
 			}
 		}
@@ -1069,7 +1152,7 @@ int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl,
 					CAM_ERR(CAM_SENSOR,
 						"Failed to apply settings: %d",
 						rc);
-					return rc;
+					goto EXIT_RESTORE;
 				}
 			}
 		} else {
@@ -1099,7 +1182,7 @@ int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl,
 		}
 
 		if (!del_req_id)
-			return rc;
+			goto EXIT_RESTORE;
 
 		CAM_DBG(CAM_SENSOR, "top: %llu, del_req_id:%llu",
 			top, del_req_id);
@@ -1119,6 +1202,9 @@ int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl,
 			}
 		}
 	}
+
+EXIT_RESTORE:
+	cam_sensor_restore_slave_info(s_ctrl);
 
 	return rc;
 }
