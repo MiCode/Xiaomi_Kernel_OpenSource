@@ -1003,14 +1003,14 @@ static int dp_ctrl_stream_on(struct dp_ctrl *dp_ctrl, struct dp_panel *panel)
 		return rc;
 	}
 
+	rc = panel->hw_cfg(panel, true);
+	if (rc)
+		return rc;
+
 	if (ctrl->link->sink_request & DP_TEST_LINK_PHY_TEST_PATTERN) {
 		dp_ctrl_send_phy_test_pattern(ctrl);
 		return 0;
 	}
-
-	rc = panel->hw_cfg(panel, true);
-	if (rc)
-		return rc;
 
 	dp_ctrl_mst_stream_setup(ctrl, panel);
 
