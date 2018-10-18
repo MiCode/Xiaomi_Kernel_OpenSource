@@ -21,6 +21,54 @@
 	model = "Qualcomm Technologies, Inc. MSM 8996";
 	compatible = "qcom,msm8996";
 	qcom,msm-id = <246 0x0>;
+	cpus {
+		#address-cells = <2>;
+		#size-cells = <0>;
+	CPU0: cpu@0 {
+		device_type = "cpu";
+		compatible = "qcom,kryo";
+		reg = <0x0 0x0>;
+		efficiency = <1024>;
+	};
+	CPU1: cpu@1 {
+		device_type = "cpu";
+		compatible = "qcom,kryo";
+		reg = <0x0 0x1>;
+		efficiency = <1024>;
+	};
+	CPU2: cpu@2 {
+		device_type = "cpu";
+		compatible = "qcom,kryo";
+		reg = <0x0 0x2>;
+		efficiency = <1536>;
+	};
+	CPU3: cpu@3 {
+		device_type = "cpu";
+		compatible = "qcom,kryo";
+		reg = <0x0 0x3>;
+		efficiency = <1536>;
+	};
+	cpu-map {
+		cluster0 {
+			core0 {
+				cpu = <&CPU0>;
+			};
+			core1 {
+				cpu = <&CPU1>;
+			};
+		};
+
+		cluster1 {
+			core0 {
+				cpu = <&CPU2>;
+			};
+
+			core1 {
+				cpu = <&CPU3>;
+			};
+		};
+	};
+};
 
 	firmware: firmware {
 		android {
