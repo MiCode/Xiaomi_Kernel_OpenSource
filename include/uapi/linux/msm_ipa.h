@@ -176,6 +176,7 @@
 #define IPA_FLT_TCP_SYN_L2TP		(1ul << 24)
 #define IPA_FLT_L2TP_INNER_IP_TYPE  (1ul << 25)
 #define IPA_FLT_L2TP_INNER_IPV4_DST_ADDR (1ul << 26)
+#define IPA_FLT_IS_PURE_ACK		(1ul << 27)
 
 /**
  * maximal number of NAT PDNs in the PDN config table
