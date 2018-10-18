@@ -295,7 +295,7 @@
 		     USB3_DP_PCS_EQ_CONFIG1 0x0d 0
 		     USB3_DP_PCS_USB3_LFPS_DET_HIGH_COUNT_VAL 0xf8 0
 		     USB3_DP_PCS_USB3_RXEQTRAINING_DFE_TIME_S2 0x07 0
-		     USB3_DP_PCS_EQ_CONFIG5 0x52 0
+		     USB3_DP_PCS_EQ_CONFIG5 0x02 0
 		     0xffffffff 0xffffffff 0x00>;
 
 		qcom,qmp-phy-reg-offset =
