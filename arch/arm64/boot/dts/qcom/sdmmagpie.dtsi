@@ -2628,7 +2628,6 @@
 #include "sdmmagpie-coresight.dtsi"
 #include "sdmmagpie-usb.dtsi"
 #include "sdmmagpie-thermal.dtsi"
-#include "sdmmagpie-audio.dtsi"
 
 &usb0 {
 	extcon = <&pm6150_pdphy>, <&pm6150_charger>, <&eud>;
