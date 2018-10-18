@@ -33,15 +33,27 @@ uint32_t npu_reg_read(struct npu_device *npu_dev, uint32_t off)
 {
 	uint32_t ret = 0;
 
-	ret = readl_relaxed(npu_dev->npu_base + off);
+	ret = readl_relaxed(npu_dev->npu_io.base + off);
 	__iormb();
 	return ret;
 }
 
 void npu_reg_write(struct npu_device *npu_dev, uint32_t off, uint32_t val)
 {
-	writel_relaxed(val, npu_dev->npu_base + off);
+	writel_relaxed(val, npu_dev->npu_io.base + off);
 	__iowmb();
+}
+
+uint32_t npu_qfprom_reg_read(struct npu_device *npu_dev, uint32_t off)
+{
+	uint32_t ret = 0;
+
+	if (npu_dev->qfprom_io.base) {
+		ret = readl_relaxed(npu_dev->qfprom_io.base + off);
+		__iormb();
+	}
+
+	return ret;
 }
 
 /* -------------------------------------------------------------------------
@@ -59,7 +71,7 @@ void npu_mem_write(struct npu_device *npu_dev, void *dst, void *src,
 
 	num = size/4;
 	for (i = 0; i < num; i++) {
-		writel_relaxed(src_ptr32[i], npu_dev->npu_base + dst_off);
+		writel_relaxed(src_ptr32[i], npu_dev->npu_io.base + dst_off);
 		dst_off += 4;
 	}
 
@@ -67,7 +79,7 @@ void npu_mem_write(struct npu_device *npu_dev, void *dst, void *src,
 		src_ptr8 = (uint8_t *)((size_t)src + (num*4));
 		num = size%4;
 		for (i = 0; i < num; i++) {
-			writeb_relaxed(src_ptr8[i], npu_dev->npu_base +
+			writeb_relaxed(src_ptr8[i], npu_dev->npu_io.base +
 				dst_off);
 			dst_off += 1;
 		}
@@ -85,7 +97,7 @@ int32_t npu_mem_read(struct npu_device *npu_dev, void *src, void *dst,
 
 	num = size/4;
 	for (i = 0; i < num; i++) {
-		out32[i] = readl_relaxed(npu_dev->npu_base + src_off);
+		out32[i] = readl_relaxed(npu_dev->npu_io.base + src_off);
 		src_off += 4;
 	}
 
@@ -93,7 +105,7 @@ int32_t npu_mem_read(struct npu_device *npu_dev, void *src, void *dst,
 		out8 = (uint8_t *)((size_t)dst + (num*4));
 		num = size%4;
 		for (i = 0; i < num; i++) {
-			out8[i] = readb_relaxed(npu_dev->npu_base + src_off);
+			out8[i] = readb_relaxed(npu_dev->npu_io.base + src_off);
 			src_off += 1;
 		}
 	}
