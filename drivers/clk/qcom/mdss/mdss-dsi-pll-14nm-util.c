@@ -41,13 +41,13 @@ static int mdss_pll_read_stored_trim_codes(
 		goto end_read;
 	}
 
-	for (i = 0; i < dsi_pll_res->dfps->panel_dfps.frame_rate_cnt; i++) {
+	for (i = 0; i < dsi_pll_res->dfps->vco_rate_cnt; i++) {
 		struct dfps_codes_info *codes_info =
 			&dsi_pll_res->dfps->codes_dfps[i];
 
-		pr_debug("valid=%d frame_rate=%d, vco_rate=%d, code %d %d\n",
-			codes_info->is_valid, codes_info->frame_rate,
-			codes_info->clk_rate, codes_info->pll_codes.pll_codes_1,
+		pr_debug("valid=%d vco_rate=%d, code %d %d\n",
+			codes_info->is_valid, codes_info->clk_rate,
+			codes_info->pll_codes.pll_codes_1,
 			codes_info->pll_codes.pll_codes_2);
 
 		if (vco_clk_rate != codes_info->clk_rate &&
@@ -953,7 +953,13 @@ static void shadow_pll_dynamic_refresh_14nm(struct mdss_pll_resources *pll,
 							struct dsi_pll_db *pdb)
 {
 	struct dsi_pll_output *pout = &pdb->out;
+	u32 data = 0;
 
+	data = (pout->pll_n1div | (pout->pll_n2div << 4));
+	MDSS_DYN_PLL_REG_W(pll->dyn_pll_base,
+		DSI_DYNAMIC_REFRESH_PLL_CTRL19,
+		DSIPHY_CMN_CLK_CFG0, DSIPHY_CMN_CLK_CFG1,
+		data, 1);
 	MDSS_DYN_PLL_REG_W(pll->dyn_pll_base,
 		DSI_DYNAMIC_REFRESH_PLL_CTRL20,
 		DSIPHY_CMN_CTRL_0, DSIPHY_PLL_SYSCLK_EN_RESET,

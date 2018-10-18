@@ -678,6 +678,21 @@ int get_secure_vmid(unsigned long flags)
 		return VMID_CP_SPSS_SP_SHARED;
 	return -EINVAL;
 }
+
+bool is_buffer_hlos_assigned(struct ion_buffer *buffer)
+{
+	bool is_hlos = false;
+
+	if (buffer->heap->type == (enum ion_heap_type)ION_HEAP_TYPE_HYP_CMA &&
+	    (buffer->flags & ION_FLAG_CP_HLOS))
+		is_hlos = true;
+
+	if (get_secure_vmid(buffer->flags) <= 0)
+		is_hlos = true;
+
+	return is_hlos;
+}
+
 /* fix up the cases where the ioctl direction bits are incorrect */
 static unsigned int msm_ion_ioctl_dir(unsigned int cmd)
 {

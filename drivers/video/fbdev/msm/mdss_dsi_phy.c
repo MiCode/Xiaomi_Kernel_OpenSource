@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1034,15 +1034,10 @@ static void mdss_dsi_phy_update_timing_param_v3(struct mdss_panel_info *pinfo,
 }
 
 int mdss_dsi_phy_calc_timing_param(struct mdss_panel_info *pinfo, u32 phy_rev,
-		u32 frate_hz)
+		u64 clk_rate)
 {
 	struct dsi_phy_t_clk_param t_clk;
 	struct dsi_phy_timing t_param;
-	int hsync_period;
-	int vsync_period;
-	unsigned long inter_num;
-	uint32_t lane_config = 0;
-	unsigned long x, y;
 	int rc = 0;
 
 	if (!pinfo) {
@@ -1050,30 +1045,12 @@ int mdss_dsi_phy_calc_timing_param(struct mdss_panel_info *pinfo, u32 phy_rev,
 		return -EINVAL;
 	}
 
-	hsync_period = mdss_panel_get_htotal(pinfo, true);
-	vsync_period = mdss_panel_get_vtotal(pinfo);
-
-	inter_num = pinfo->bpp * frate_hz;
-
-	if (pinfo->mipi.data_lane0)
-		lane_config++;
-	if (pinfo->mipi.data_lane1)
-		lane_config++;
-	if (pinfo->mipi.data_lane2)
-		lane_config++;
-	if (pinfo->mipi.data_lane3)
-		lane_config++;
-
-	x = mult_frac(vsync_period * hsync_period, inter_num, lane_config);
-	y = rounddown(x, 1);
-	t_clk.bitclk_mbps = rounddown(mult_frac(y, 1, 1000000), 1);
+	t_clk.bitclk_mbps = rounddown((uint32_t) div_u64(clk_rate, 1000000), 1);
 	t_clk.escclk_numer = ESC_CLK_MHZ;
 	t_clk.escclk_denom = ESCCLK_MMSS_CC_PREDIV;
 	t_clk.tlpx_numer_ns = TLPX_NUMER;
 	t_clk.treot_ns = TR_EOT;
-	pr_debug("hperiod=%d, vperiod=%d, inter_num=%lu, lane_cfg=%d\n",
-			hsync_period, vsync_period, inter_num, lane_config);
-	pr_debug("x=%lu, y=%lu, bitrate=%d\n", x, y, t_clk.bitclk_mbps);
+	pr_debug("bitrate=%d\n", t_clk.bitclk_mbps);
 
 	rc = mdss_dsi_phy_initialize_defaults(&t_clk, &t_param, phy_rev);
 	if (rc) {
