@@ -531,7 +531,7 @@ static int cam_smmu_iommu_fault_handler(struct iommu_domain *domain,
 	}
 
 	if (++iommu_cb_set.cb_info[idx].pf_count > g_num_pf_handled) {
-		CAM_INFO(CAM_SMMU, "PF already handled %d %d %d",
+		CAM_INFO_RATE_LIMIT(CAM_SMMU, "PF already handled %d %d %d",
 			g_num_pf_handled, idx,
 			iommu_cb_set.cb_info[idx].pf_count);
 		return -EINVAL;

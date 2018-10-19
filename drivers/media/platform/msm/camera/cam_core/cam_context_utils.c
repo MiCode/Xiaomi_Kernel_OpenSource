@@ -326,6 +326,17 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 
 	packet = (struct cam_packet *) (packet_addr + cmd->offset);
 
+	if (packet->header.request_id <= ctx->last_flush_req) {
+		CAM_DBG(CAM_CORE,
+			"request %lld has been flushed, reject packet",
+			packet->header.request_id);
+		rc = -EINVAL;
+		goto free_req;
+	}
+
+	if (packet->header.request_id > ctx->last_flush_req)
+		ctx->last_flush_req = 0;
+
 	/* preprocess the configuration */
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.packet = packet;
@@ -811,9 +822,10 @@ int32_t cam_context_flush_dev_to_hw(struct cam_context *ctx,
 		goto end;
 	}
 
-	if (cmd->flush_type == CAM_FLUSH_TYPE_ALL)
+	if (cmd->flush_type == CAM_FLUSH_TYPE_ALL) {
+		ctx->last_flush_req = cmd->req_id;
 		rc = cam_context_flush_ctx_to_hw(ctx);
-	else if (cmd->flush_type == CAM_FLUSH_TYPE_REQ)
+	} else if (cmd->flush_type == CAM_FLUSH_TYPE_REQ)
 		rc = cam_context_flush_req_to_hw(ctx, cmd);
 	else {
 		rc = -EINVAL;
