@@ -386,4 +386,42 @@ struct cam_isp_bw_config {
 	struct cam_isp_bw_vote         rdi_vote[1];
 } __attribute__((packed));
 
+
+/* Acquire Device/HW v2 */
+
+/**
+ * struct cam_isp_acquire_hw_info - ISP acquire HW params
+ *
+ * @common_info_version  : Version of common info struct used
+ * @common_info_size     : Size of common info struct used
+ * @common_info_offset   : Offset of common info from start of data
+ * @num_inputs           : Number of inputs
+ * @input_info_version   : Version of input info struct used
+ * @input_info_size      : Size of input info struct used
+ * @input_info_offset    : Offset of input info from start of data
+ * @data                 : Start of data region
+ */
+struct cam_isp_acquire_hw_info {
+	uint16_t                common_info_version;
+	uint16_t                common_info_size;
+	uint32_t                common_info_offset;
+	uint32_t                num_inputs;
+	uint32_t                input_info_version;
+	uint32_t                input_info_size;
+	uint32_t                input_info_offset;
+	uint64_t                data;
+};
+
+#define CAM_ISP_ACQUIRE_COMMON_VER0         0x1000
+
+#define CAM_ISP_ACQUIRE_COMMON_SIZE_VER0    0x0
+
+#define CAM_ISP_ACQUIRE_INPUT_VER0          0x2000
+
+#define CAM_ISP_ACQUIRE_INPUT_SIZE_VER0     sizeof(struct cam_isp_in_port_info)
+
+#define CAM_ISP_ACQUIRE_OUT_VER0            0x3000
+
+#define CAM_ISP_ACQUIRE_OUT_SIZE_VER0       sizeof(struct cam_isp_out_port_info)
+
 #endif /* __UAPI_CAM_ISP_H__ */
