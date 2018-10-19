@@ -2653,44 +2653,120 @@ int smblib_get_prop_usb_voltage_max(struct smb_charger *chg,
 	return 0;
 }
 
+static int smblib_estimate_hvdcp_voltage(struct smb_charger *chg,
+					 union power_supply_propval *val)
+{
+	int rc;
+	u8 stat;
+
+	rc = smblib_read(chg, QC_CHANGE_STATUS_REG, &stat);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read QC_CHANGE_STATUS_REG rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	if (stat & QC_5V_BIT)
+		val->intval = MICRO_5V;
+	else if (stat & QC_9V_BIT)
+		val->intval = MICRO_9V;
+	else if (stat & QC_12V_BIT)
+		val->intval = MICRO_12V;
+
+	return 0;
+}
+
+#define HVDCP3_STEP_UV	200000
+static int smblib_estimate_adaptor_voltage(struct smb_charger *chg,
+					  union power_supply_propval *val)
+{
+	switch (chg->real_charger_type) {
+	case POWER_SUPPLY_TYPE_USB_HVDCP:
+		return smblib_estimate_hvdcp_voltage(chg, val);
+	case POWER_SUPPLY_TYPE_USB_HVDCP_3:
+		val->intval = MICRO_5V + (HVDCP3_STEP_UV * chg->pulse_cnt);
+		break;
+	case POWER_SUPPLY_TYPE_USB_PD:
+		/* Take the average of min and max values */
+		val->intval = chg->voltage_min_uv +
+			((chg->voltage_max_uv - chg->voltage_min_uv) / 2);
+		break;
+	default:
+		val->intval = MICRO_5V;
+		break;
+	}
+
+	return 0;
+}
+
+static int smblib_read_mid_voltage_chan(struct smb_charger *chg,
+					union power_supply_propval *val)
+{
+	int rc;
+
+	if (!chg->iio.mid_chan)
+		return -ENODATA;
+
+	rc = iio_read_channel_processed(chg->iio.mid_chan, &val->intval);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read MID channel rc=%d\n", rc);
+		return rc;
+	}
+
+	/*
+	 * If MID voltage < 1V, it is unreliable.
+	 * Figure out voltage from registers and calculations.
+	 */
+	if (val->intval < 1000000)
+		return smblib_estimate_adaptor_voltage(chg, val);
+
+	return 0;
+}
+
+static int smblib_read_usbin_voltage_chan(struct smb_charger *chg,
+				     union power_supply_propval *val)
+{
+	int rc;
+
+	if (!chg->iio.usbin_v_chan)
+		return -ENODATA;
+
+	rc = iio_read_channel_processed(chg->iio.usbin_v_chan, &val->intval);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read USBIN channel rc=%d\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
+
 int smblib_get_prop_usb_voltage_now(struct smb_charger *chg,
 				    union power_supply_propval *val)
 {
-	int rc, ret = 0;
+	union power_supply_propval pval = {0, };
+	int rc;
 
-	/* set 12V OV to 14.6V */
-	if (chg->smb_version == PM8150B_SUBTYPE) {
-		rc = smblib_masked_write(chg, USB_ENG_SSUPPLY_USB2_REG,
-				ENG_SSUPPLY_12V_OV_OPT_BIT,
-				ENG_SSUPPLY_12V_OV_OPT_BIT);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't set USB_ENG_SSUPPLY_USB2_REG rc=%d\n",
-					rc);
-			return -ENODATA;
-		}
+	rc = smblib_get_prop_usb_present(chg, &pval);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't get usb presence status rc=%d\n", rc);
+		return -ENODATA;
 	}
 
-	if (chg->iio.usbin_v_chan) {
-		rc = iio_read_channel_processed(chg->iio.usbin_v_chan,
-				&val->intval);
-		if (rc < 0)
-			ret = -ENODATA;
-	} else {
-		ret = -ENODATA;
+	/* usb not present */
+	if (!pval.intval) {
+		val->intval = 0;
+		return 0;
 	}
 
-	/*  restore 12V OV to 13.2V */
-	if (chg->smb_version == PM8150B_SUBTYPE) {
-		rc = smblib_masked_write(chg, USB_ENG_SSUPPLY_USB2_REG,
-				ENG_SSUPPLY_12V_OV_OPT_BIT, 0);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't restore USB_ENG_SSUPPLY_USB2_REG rc=%d\n",
-					rc);
-			ret = -ENODATA;
-		}
-	}
-
-	return ret;
+	/*
+	 * For PM8150B, use MID_CHG ADC channel because overvoltage is observed
+	 * to occur randomly in the USBIN channel, particularly at high
+	 * voltages.
+	 */
+	if (chg->smb_version == PM8150B_SUBTYPE)
+		return smblib_read_mid_voltage_chan(chg, val);
+	else
+		return smblib_read_usbin_voltage_chan(chg, val);
 }
 
 bool smblib_rsbux_low(struct smb_charger *chg, int r_thr)
@@ -3048,7 +3124,6 @@ int smblib_get_prop_input_current_settled(struct smb_charger *chg,
 	return smblib_get_charge_param(chg, &chg->param.icl_stat, &val->intval);
 }
 
-#define HVDCP3_STEP_UV	200000
 int smblib_get_prop_input_voltage_settled(struct smb_charger *chg,
 						union power_supply_propval *val)
 {

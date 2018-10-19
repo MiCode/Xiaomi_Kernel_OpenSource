@@ -290,6 +290,7 @@ struct smb_iio {
 	struct iio_channel	*temp_chan;
 	struct iio_channel	*usbin_i_chan;
 	struct iio_channel	*usbin_v_chan;
+	struct iio_channel	*mid_chan;
 	struct iio_channel	*batt_i_chan;
 	struct iio_channel	*connector_temp_chan;
 	struct iio_channel	*sbux_chan;
