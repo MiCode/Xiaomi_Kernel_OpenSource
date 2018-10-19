@@ -174,6 +174,8 @@ enum fg_sram_param_id {
 	FG_SRAM_MONOTONIC_SOC,
 	FG_SRAM_VOLTAGE_PRED,
 	FG_SRAM_OCV,
+	FG_SRAM_VBAT_FINAL,
+	FG_SRAM_IBAT_FINAL,
 	FG_SRAM_ESR,
 	FG_SRAM_ESR_MDL,
 	FG_SRAM_ESR_ACT,
@@ -490,6 +492,8 @@ struct fg_dbgfs {
 };
 
 extern int fg_decode_voltage_15b(struct fg_sram_param *sp,
+	enum fg_sram_param_id id, int val);
+extern int fg_decode_current_16b(struct fg_sram_param *sp,
 	enum fg_sram_param_id id, int val);
 extern int fg_decode_cc_soc(struct fg_sram_param *sp,
 	enum fg_sram_param_id id, int value);
