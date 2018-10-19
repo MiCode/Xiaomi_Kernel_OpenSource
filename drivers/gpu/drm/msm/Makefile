@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0
-ccflags-$(CONFIG_DRM_MSM_DP):= -Iinclude/drm -Idrivers/gpu/drm/msm -Idrivers/gpu/drm/msm/dsi-staging -Idrivers/gpu/drm/msm/dp
+ccflags-y := -Iinclude/drm -Idrivers/gpu/drm/msm -Idrivers/gpu/drm/msm/dsi-staging -Idrivers/gpu/drm/msm/dp
 ccflags-y += -Idrivers/gpu/drm/msm/display-manager
 ccflags-$(CONFIG_DRM_MSM_DSI) += -Idrivers/gpu/drm/msm/dsi
 ccflags-$(CONFIG_DRM_MSM_DSI_PLL) += -Idrivers/gpu/drm/msm/dsi
-ccflags-$(CONFIG_DRM_MSM_SDE) += -Idrivers/gpu/drm/msm/sde
+ccflags-y += -Idrivers/gpu/drm/msm/sde
 ccflags-y += -Idrivers/media/platform/msm/sde/rotator
 ccflags-y += -Idrivers/gpu/drm/msm/hdmi
 
@@ -12,12 +12,15 @@ msm_drm-$(CONFIG_DRM_MSM_DP) += dp/dp_usbpd.o \
 	dp/dp_power.o \
 	dp/dp_catalog.o \
 	dp/dp_catalog_v420.o \
+	dp/dp_catalog_v200.o \
 	dp/dp_aux.o \
 	dp/dp_panel.o \
 	dp/dp_link.o \
 	dp/dp_ctrl.o \
 	dp/dp_audio.o \
 	dp/dp_debug.o \
+	dp/dp_hpd.o \
+	dp/dp_gpio_hpd.o \
 	dp/dp_display.o \
 	dp/dp_drm.o \
 	dp/dp_hdcp2p2.o \
@@ -201,7 +204,9 @@ msm_drm-$(CONFIG_DRM_MSM) += \
 	msm_gem_vma.o \
 	msm_gpu.o \
 	msm_iommu.o \
+	msm_smmu.o \
 	msm_perf.o \
+	msm_prop.o \
 	msm_rd.o \
 	msm_ringbuffer.o \
 	msm_submitqueue.o

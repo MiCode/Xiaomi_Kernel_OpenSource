@@ -1099,7 +1099,7 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 
 		/* convert fb val to drm framebuffer and prepare it */
 		c_state->out_fb =
-			drm_framebuffer_lookup(connector->dev, val);
+			drm_framebuffer_lookup(connector->dev, NULL, val);
 		if (!c_state->out_fb && val) {
 			SDE_ERROR("failed to look up fb %lld\n", val);
 			rc = -EFAULT;
@@ -2129,7 +2129,7 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 
 	mutex_init(&c_conn->lock);
 
-	rc = drm_mode_connector_attach_encoder(&c_conn->base, encoder);
+	rc = drm_connector_attach_encoder(&c_conn->base, encoder);
 	if (rc) {
 		SDE_ERROR("failed to attach encoder to connector, %d\n", rc);
 		goto error_cleanup_fence;

@@ -1211,7 +1211,7 @@ static int _sde_crtc_set_crtc_roi(struct drm_crtc *crtc,
 	is_crtc_roi_dirty = sde_crtc_is_crtc_roi_dirty(state);
 	is_any_conn_roi_dirty = false;
 
-	for_each_connector_in_state(state->state, conn, conn_state, i) {
+	for_each_new_connector_in_state(state->state, conn, conn_state, i) {
 		struct sde_connector *sde_conn;
 		struct sde_connector_state *sde_conn_state;
 		struct sde_rect conn_roi;
@@ -1301,7 +1301,7 @@ static int _sde_crtc_check_autorefresh(struct drm_crtc *crtc,
 		return 0;
 
 	/* partial update active, check if autorefresh is also requested */
-	for_each_connector_in_state(state->state, conn, conn_state, i) {
+	for_each_new_connector_in_state(state->state, conn, conn_state, i) {
 		uint64_t autorefresh;
 
 		if (!conn_state || conn_state->crtc != crtc)

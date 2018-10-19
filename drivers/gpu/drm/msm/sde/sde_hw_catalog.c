@@ -2140,7 +2140,7 @@ static int sde_rot_parse_dt(struct device_node *np,
 
 		pdev = of_find_device_by_node(phargs.np);
 		if (pdev) {
-			slice = llcc_slice_getd(&pdev->dev, "rotator");
+			slice = llcc_slice_getd(pdev->id);
 			if (IS_ERR_OR_NULL(slice)) {
 				rot->pdev = NULL;
 				SDE_ERROR("failed to get system cache %ld\n",
@@ -3617,6 +3617,19 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->sui_ns_allowed = true;
 		sde_cfg->sui_misr_supported = true;
 		sde_cfg->sui_block_xin_mask = 0x2EE1;
+	} else if (IS_KONA_TARGET(hw_rev)) {
+		sde_cfg->has_cwb_support = true;
+		sde_cfg->has_wb_ubwc = true;
+		sde_cfg->has_qsync = true;
+		sde_cfg->perf.min_prefill_lines = 24;
+		sde_cfg->vbif_qos_nlvl = 8;
+		sde_cfg->ts_prefill_rev = 2;
+		sde_cfg->ctl_rev = SDE_CTL_CFG_VERSION_1_0_0;
+		sde_cfg->delay_prg_fetch_start = true;
+		sde_cfg->sui_ns_allowed = true;
+		sde_cfg->sui_misr_supported = true;
+		sde_cfg->sui_block_xin_mask = 0x3F71;
+		sde_cfg->has_3d_merge_reset = true;
 	} else {
 		SDE_ERROR("unsupported chipset id:%X\n", hw_rev);
 		sde_cfg->perf.min_prefill_lines = 0xffff;

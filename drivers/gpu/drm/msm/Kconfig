@@ -122,6 +122,16 @@ config DRM_MSM_DSI_PLL
 	  Choose this option to enable DSI PLL driver which provides DSI
 	  source clocks under common clock framework.
 
+config DRM_SDE_WB
+	bool "Enable Writeback support in SDE DRM"
+	depends on DRM_MSM && DRM_MSM_SDE
+	default y
+	help
+	  Choose this option for writeback connector support.
+	  This option enables a virtual writeback connector where
+	  the output image is written back to memory in the format
+	  selected by the connector's mode and property settings.
+
 config DRM_MSM_DSI_28NM_PHY
 	bool "Enable DSI 28nm PHY driver in MSM DRM"
 	depends on DRM_MSM_DSI

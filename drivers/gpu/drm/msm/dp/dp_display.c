@@ -849,7 +849,7 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 
 	/* wait for idle state */
 	cancel_delayed_work(&dp->connect_work);
-	cancel_work(&dp->attention_work);
+	cancel_work_sync(&dp->attention_work);
 	flush_workqueue(dp->wq);
 
 	if (!dp->debug->sim_mode && !dp->parser->no_aux_switch)
@@ -990,7 +990,7 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 
 		/* wait for idle state */
 		cancel_delayed_work(&dp->connect_work);
-		cancel_work(&dp->attention_work);
+		cancel_work_sync(&dp->attention_work);
 		flush_workqueue(dp->wq);
 
 		dp_display_handle_disconnect(dp);

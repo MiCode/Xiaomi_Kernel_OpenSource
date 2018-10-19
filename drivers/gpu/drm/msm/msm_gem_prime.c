@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -19,6 +20,7 @@
 #include "msm_gem.h"
 
 #include <linux/dma-buf.h>
+#include <linux/ion.h>
 
 struct sg_table *msm_gem_prime_get_sg_table(struct drm_gem_object *obj)
 {
@@ -76,4 +78,92 @@ struct reservation_object *msm_gem_prime_res_obj(struct drm_gem_object *obj)
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
 
 	return msm_obj->resv;
+}
+
+
+struct drm_gem_object *msm_gem_prime_import(struct drm_device *dev,
+					    struct dma_buf *dma_buf)
+{
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt = NULL;
+	struct drm_gem_object *obj;
+	struct device *attach_dev;
+	unsigned long flags = 0;
+	int ret;
+
+	if (!dma_buf)
+		return ERR_PTR(-EINVAL);
+
+	if (dma_buf->priv && !dma_buf->ops->begin_cpu_access) {
+		obj = dma_buf->priv;
+		if (obj->dev == dev) {
+			/*
+			 * Importing dmabuf exported from out own gem increases
+			 * refcount on gem itself instead of f_count of dmabuf.
+			 */
+			drm_gem_object_get(obj);
+			return obj;
+		}
+	}
+
+	if (!dev->driver->gem_prime_import_sg_table) {
+		DRM_ERROR("NULL gem_prime_import_sg_table\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	attach_dev = dev->dev;
+	attach = dma_buf_attach(dma_buf, attach_dev);
+	if (IS_ERR(attach)) {
+		DRM_ERROR("dma_buf_attach failure, err=%ld\n", PTR_ERR(attach));
+		return ERR_CAST(attach);
+	}
+
+	get_dma_buf(dma_buf);
+
+	/*
+	 * For cached buffers where CPU access is required, dma_map_attachment
+	 * must be called now to allow user-space to perform cpu sync begin/end
+	 * otherwise do delayed mapping during the commit.
+	 */
+	ret = dma_buf_get_flags(dma_buf, &flags);
+	if (ret) {
+		DRM_ERROR("dma_buf_get_flags failure, err=%d\n", ret);
+		goto fail_put;
+	} else if (flags & ION_FLAG_CACHED) {
+		attach->dma_map_attrs |= DMA_ATTR_DELAYED_UNMAP;
+		sgt = dma_buf_map_attachment(
+				attach, DMA_BIDIRECTIONAL);
+		if (IS_ERR(sgt)) {
+			ret = PTR_ERR(sgt);
+			DRM_ERROR(
+			"dma_buf_map_attachment failure, err=%d\n",
+				ret);
+			goto fail_detach;
+		}
+	}
+
+	/*
+	 * If importing a NULL sg table (i.e. for uncached buffers),
+	 * create a drm gem object with only the dma buf attachment.
+	 */
+	obj = dev->driver->gem_prime_import_sg_table(dev, attach, sgt);
+	if (IS_ERR(obj)) {
+		ret = PTR_ERR(obj);
+		DRM_ERROR("gem_prime_import_sg_table failure, err=%d\n", ret);
+		goto fail_unmap;
+	}
+
+	obj->import_attach = attach;
+
+	return obj;
+
+fail_unmap:
+	if (sgt)
+		dma_buf_unmap_attachment(attach, sgt, DMA_BIDIRECTIONAL);
+fail_detach:
+	dma_buf_detach(dma_buf, attach);
+fail_put:
+	dma_buf_put(dma_buf);
+
+	return ERR_PTR(ret);
 }

@@ -1371,7 +1371,7 @@ void *sde_rotator_inline_open(struct platform_device *pdev)
 		goto rotator_open_error;
 	}
 
-	ctx->slice = llcc_slice_getd(rot_dev->dev, "rotator");
+	ctx->slice = llcc_slice_getd(LLCC_ROTATOR);
 	if (IS_ERR(ctx->slice)) {
 		rc = PTR_ERR(ctx->slice);
 		SDEROT_ERR("failed to get system cache %d\n", rc);
