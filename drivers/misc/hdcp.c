@@ -56,6 +56,9 @@
 #define SKE_SEND_EKS_MESSAGE_SIZE \
 	(MESSAGE_ID_SIZE+BITS_128_IN_BYTES+BITS_64_IN_BYTES)
 
+#define HDCP2_0_REPEATER_DOWNSTREAM BIT(1)
+#define HDCP1_DEVICE_DOWNSTREAM BIT(0)
+
 /* all message IDs */
 #define INVALID_MESSAGE_ID               0
 #define AKE_INIT_MESSAGE_ID              2
@@ -552,6 +555,7 @@ struct hdcp_lib_handle {
 	enum hdcp_state hdcp_state;
 	enum hdcp_lib_wakeup_cmd wakeup_cmd;
 	bool repeater_flag;
+	bool non_2p2_present;
 	bool update_stream;
 	bool tethered;
 	struct qseecom_handle *qseecom_handle;
@@ -1791,6 +1795,7 @@ static int hdcp_lib_wakeup_thread(struct hdcp_lib_wakeup_data *data)
 	case HDCP_LIB_WKUP_CMD_START:
 		handle->no_stored_km_flag = 0;
 		handle->repeater_flag = false;
+		handle->non_2p2_present = false;
 		handle->update_stream = false;
 		handle->last_msg_sent = 0;
 		handle->last_msg = INVALID_MESSAGE_ID;
@@ -2191,6 +2196,14 @@ static void hdcp_lib_msg_recvd(struct hdcp_lib_handle *handle)
 				  rsp_buf,
 				  QSEECOM_ALIGN(sizeof
 						(struct hdcp_rcvd_msg_rsp)));
+
+	if (msg[0] == REP_SEND_RECV_ID_LIST_ID) {
+		if ((msg[2] & HDCP2_0_REPEATER_DOWNSTREAM) ||
+		   (msg[2] & HDCP1_DEVICE_DOWNSTREAM))
+			handle->non_2p2_present = true;
+		else
+			handle->non_2p2_present = false;
+	}
 
 	/* get next message from sink if we receive H PRIME on no store km */
 	if ((msg[0] == AKE_SEND_H_PRIME_MESSAGE_ID) &&
@@ -2817,6 +2830,20 @@ static ssize_t hdmi_hdcp2p2_sysfs_wta_min_level_change(struct device *dev,
 	ssize_t ret = count;
 
 	handle = hdcp_drv_mgr->handle;
+
+	/*
+	 * if the stream type from TZ is type 1
+	 * ignore subsequent writes to the min_enc_level
+	 * to avoid state transitions which can potentially
+	 * cause visual artifacts because the stream type
+	 * is already at the highest level and for a HDCP 2.2
+	 * capable sink, we do not need to reduce the stream type
+	 */
+	if (handle &&
+		!handle->non_2p2_present) {
+		pr_info("stream type is 1 returning\n");
+		return ret;
+	}
 
 	rc = kstrtoint(buf, 10, &min_enc_lvl);
 	if (rc) {
