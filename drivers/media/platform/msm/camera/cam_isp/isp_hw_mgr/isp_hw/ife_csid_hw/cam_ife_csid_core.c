@@ -2804,6 +2804,14 @@ static int cam_ife_csid_sof_irq_debug(
 	if (*((uint32_t *)cmd_args) == 1)
 		sof_irq_enable = true;
 
+	if (csid_hw->hw_info->hw_state ==
+		CAM_HW_STATE_POWER_DOWN) {
+		CAM_WARN(CAM_ISP,
+			"CSID powered down unable to %s sof irq",
+			(sof_irq_enable == true) ? "enable" : "disable");
+		return 0;
+	}
+
 	if (csid_reg->ipp_reg) {
 		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
 			csid_reg->ipp_reg->csid_pxl_irq_mask_addr);
