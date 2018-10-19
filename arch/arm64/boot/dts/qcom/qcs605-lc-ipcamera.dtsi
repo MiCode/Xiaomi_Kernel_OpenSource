@@ -67,12 +67,26 @@
 			};
 	};
 
-	usb_vbus_det_default: usb_vbus_det_default {
-		config {
-			pins = "gpio26";
-			drive-strength = <2>;
-			bias-pull-up;
-			input-enable;
+	usb_det_default: usb_det_default {
+		usb_id_det_default: usb_id_det_default {
+			mux {
+				pins = "gpio131";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio131";
+				drive-strength = <2>;
+				bias-pull-down;
+				output-enable;
+			};
+		};
+		usb_vbus_det_default: usb_vbus_det_default {
+			config {
+				pins = "gpio26";
+				drive-strength = <2>;
+				bias-pull-up;
+				input-enable;
+			};
 		};
 	};
 };
@@ -96,14 +110,16 @@
 	extcon_usb1: extcon_usb1 {
 		compatible = "linux,extcon-usb-gpio";
 		id-gpio = <&tlmm 26 0x1>;
+		trig-gpio = <&tlmm 131 0x0>;
+		gpio-names = "gpio131";
 
 		pinctrl-names = "default";
-		pinctrl-0 = <&usb_vbus_det_default>;
+		pinctrl-0 = <&usb_vbus_det_default &usb_id_det_default>;
 	};
 };
 
 &usb0 {
-	extcon = <&extcon_usb1 &extcon_usb1>;
+	extcon = <&extcon_usb1>;
 };
 
 &msm_sdw_codec {
