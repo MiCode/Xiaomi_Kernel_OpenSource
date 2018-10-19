@@ -19,6 +19,8 @@
 
 		qcom,pmic-revid = <&pm660_revid>;
 
+		qcom,qcs605-ipc-wa;
+
 		io-channels = <&pm660_rradc 8>,
 			      <&pm660_rradc 10>,
 			      <&pm660_rradc 3>,
