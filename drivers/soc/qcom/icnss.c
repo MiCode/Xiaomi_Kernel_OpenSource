@@ -1911,6 +1911,7 @@ int icnss_wlan_enable(struct device *dev, struct icnss_wlan_enable_cfg *config,
 	if (test_bit(ICNSS_MODE_ON, &penv->state)) {
 		icnss_pr_err("Already Mode on, ignoring wlan_enable state: 0x%lx\n",
 			     penv->state);
+		return -EINVAL;
 	}
 
 	return icnss_send_wlan_enable_to_fw(penv, config, mode, host_version);
