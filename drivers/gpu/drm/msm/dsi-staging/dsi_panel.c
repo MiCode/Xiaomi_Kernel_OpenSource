@@ -1216,6 +1216,7 @@ static int dsi_panel_parse_video_host_config(struct dsi_video_engine_cfg *cfg,
 	const char *traffic_mode;
 	u32 vc_id = 0;
 	u32 val = 0;
+	u32 line_no = 0;
 
 	rc = utils->read_u32(utils->data, "qcom,mdss-dsi-h-sync-pulse", &val);
 	if (rc) {
@@ -1279,6 +1280,17 @@ static int dsi_panel_parse_video_host_config(struct dsi_video_engine_cfg *cfg,
 		cfg->vc_id = 0;
 	} else {
 		cfg->vc_id = vc_id;
+	}
+
+	rc = utils->read_u32(utils->data, "qcom,mdss-dsi-dma-schedule-line",
+				  &line_no);
+	if (rc) {
+		pr_debug("[%s] set default dma scheduling line no\n", name);
+		cfg->dma_sched_line = 0x1;
+		/* do not fail since we have default value */
+		rc = 0;
+	} else {
+		cfg->dma_sched_line = line_no;
 	}
 
 error:
@@ -1973,6 +1985,7 @@ static int dsi_panel_parse_bl_config(struct dsi_panel *panel)
 	int rc = 0;
 	u32 val = 0;
 	const char *bl_type;
+	const char *data;
 	struct dsi_parser_utils *utils = &panel->utils;
 
 	bl_type = utils->get_property(utils->data,
@@ -1990,6 +2003,17 @@ static int dsi_panel_parse_bl_config(struct dsi_panel *panel)
 		pr_debug("[%s] bl-pmic-control-type unknown-%s\n",
 			 panel->name, bl_type);
 		panel->bl_config.type = DSI_BACKLIGHT_UNKNOWN;
+	}
+
+	data = utils->get_property(utils->data, "qcom,bl-update-flag", NULL);
+	if (!data) {
+		panel->bl_config.bl_update = BL_UPDATE_NONE;
+	} else if (!strcmp(data, "delay_until_first_frame")) {
+		panel->bl_config.bl_update = BL_UPDATE_DELAY_UNTIL_FIRST_FRAME;
+	} else {
+		pr_debug("[%s] No valid bl-update-flag: %s\n",
+						panel->name, data);
+		panel->bl_config.bl_update = BL_UPDATE_NONE;
 	}
 
 	panel->bl_config.bl_scale = MAX_BL_SCALE_LEVEL;
