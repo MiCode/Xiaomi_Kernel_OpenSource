@@ -344,6 +344,8 @@ destroy_dev_hdl:
 	if (rc)
 		CAM_ERR(CAM_CORE, "destroy device hdl failed for node %s",
 			node->name);
+	else
+		ctx->dev_hdl = -1;
 
 	CAM_DBG(CAM_CORE, "[%s] Release ctx_id=%d, refcount=%d",
 		node->name, ctx->ctx_id,
@@ -510,9 +512,6 @@ int cam_node_shutdown(struct cam_node *node)
 				"Node [%s] invoking shutdown on context [%d]",
 				node->name, i);
 			rc = cam_context_shutdown(&(node->ctx_list[i]));
-			if (rc)
-				continue;
-			cam_context_putref(&(node->ctx_list[i]));
 		}
 	}
 
