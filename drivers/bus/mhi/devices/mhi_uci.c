@@ -191,9 +191,9 @@ static int mhi_uci_release(struct inode *inode, struct file *file)
 		}
 	}
 
-	mutex_unlock(&uci_dev->mutex);
-
 	MSG_LOG("exit: ref_count:%d\n", uci_dev->ref_count);
+
+	mutex_unlock(&uci_dev->mutex);
 
 	return 0;
 }
