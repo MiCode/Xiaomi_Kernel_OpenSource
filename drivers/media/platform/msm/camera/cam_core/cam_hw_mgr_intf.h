@@ -96,6 +96,7 @@ struct cam_hw_acquire_args {
 	void                        *context_data;
 	cam_hw_event_cb_func         event_cb;
 	uint32_t                     num_acq;
+	uint32_t                     acquire_info_size;
 	uintptr_t                    acquire_info;
 	void                        *ctxt_to_hw_map;
 };
