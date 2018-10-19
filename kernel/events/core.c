@@ -11948,6 +11948,7 @@ static void perf_event_exit_cpu_context(int cpu)
 	struct perf_cpu_context *cpuctx;
 	struct perf_event_context *ctx;
 	struct perf_event *event, *event_tmp;
+	unsigned long flags;
 	struct pmu *pmu;
 
 	mutex_lock(&pmus_lock);
@@ -11955,6 +11956,16 @@ static void perf_event_exit_cpu_context(int cpu)
 	list_for_each_entry(pmu, &pmus, entry) {
 		cpuctx = per_cpu_ptr(pmu->pmu_cpu_context, cpu);
 		ctx = &cpuctx->ctx;
+
+		/* Cancel the mux hrtimer to avoid CPU migration */
+		if (pmu->task_ctx_nr != perf_sw_context) {
+			raw_spin_lock_irqsave(&cpuctx->hrtimer_lock, flags);
+			hrtimer_cancel(&cpuctx->hrtimer);
+			cpuctx->hrtimer_active = 0;
+			raw_spin_unlock_irqrestore(&cpuctx->hrtimer_lock,
+							flags);
+		}
+
 		mutex_lock(&ctx->mutex);
 		list_for_each_entry_safe(event, event_tmp, &ctx->event_list,
 								event_entry) {
