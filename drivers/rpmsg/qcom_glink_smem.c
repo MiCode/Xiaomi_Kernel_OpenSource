@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2016, Linaro Ltd
+ * Copyright (c) 2018, The Linux Foundation, All rights reserved.
  */
 
 #include <linux/io.h>
@@ -90,13 +91,11 @@ static void glink_smem_rx_peak(struct qcom_glink_pipe *np,
 
 	len = min_t(size_t, count, pipe->native.length - tail);
 	if (len) {
-		__ioread32_copy(data, pipe->fifo + tail,
-				len / sizeof(u32));
+		memcpy_fromio(data, pipe->fifo + tail, len);
 	}
 
 	if (len != count) {
-		__ioread32_copy(data + len, pipe->fifo,
-				(count - len) / sizeof(u32));
+		memcpy_fromio(data + len, pipe->fifo, (count - len));
 	}
 }
 
@@ -109,7 +108,7 @@ static void glink_smem_rx_advance(struct qcom_glink_pipe *np,
 	tail = le32_to_cpu(*pipe->tail);
 
 	tail += count;
-	if (tail > pipe->native.length)
+	if (tail >= pipe->native.length)
 		tail -= pipe->native.length;
 
 	*pipe->tail = cpu_to_le32(tail);
