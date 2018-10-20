@@ -643,7 +643,8 @@ static int dsi_display_read_status(struct dsi_display_ctrl *ctrl,
 	lenp = config->status_valid_params ?: config->status_cmds_rlen;
 	count = config->status_cmd.count;
 	cmds = config->status_cmd.cmds;
-	flags |= (DSI_CTRL_CMD_FETCH_MEMORY | DSI_CTRL_CMD_READ);
+	flags |= (DSI_CTRL_CMD_FETCH_MEMORY | DSI_CTRL_CMD_READ |
+		  DSI_CTRL_CMD_CUSTOM_DMA_SCHED);
 
 	for (i = 0; i < count; ++i) {
 		memset(config->status_buf, 0x0, SZ_4K);
@@ -6104,6 +6105,9 @@ int dsi_display_prepare(struct dsi_display *display)
 
 	dsi_display_set_ctrl_esd_check_flag(display, false);
 
+	/* Set up ctrl isr before enabling core clk */
+	dsi_display_ctrl_isr_configure(display, true);
+
 	if (mode->dsi_mode_flags & DSI_MODE_FLAG_DMS) {
 		if (display->is_cont_splash_enabled) {
 			pr_err("DMS is not supposed to be set on first frame\n");
@@ -6130,9 +6134,6 @@ int dsi_display_prepare(struct dsi_display *display)
 			goto error;
 		}
 	}
-
-	/* Set up ctrl isr before enabling core clk */
-	dsi_display_ctrl_isr_configure(display, true);
 
 	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
 			DSI_CORE_CLK, DSI_CLK_ON);
