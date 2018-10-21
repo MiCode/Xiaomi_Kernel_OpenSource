@@ -87,8 +87,8 @@
 		qcom,panel-supply-entry@1 {
 			reg = <1>;
 			qcom,supply-name = "vdda-3p3";
-			qcom,supply-min-voltage = <3008000>;
-			qcom,supply-max-voltage = <3008000>;
+			qcom,supply-min-voltage = <3000000>;
+			qcom,supply-max-voltage = <3000000>;
 			qcom,supply-enable-load = <13200>;
 			qcom,supply-disable-load = <80>;
 		};
