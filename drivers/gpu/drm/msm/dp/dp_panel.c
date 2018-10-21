@@ -112,7 +112,9 @@ struct tu_algo_data {
 	s64 lclk_fp;
 	s64 pclk_fp;
 	s64 lwidth;
+	s64 lwidth_fp;
 	s64 hbp_relative_to_pclk;
+	s64 hbp_relative_to_pclk_fp;
 	int nlanes;
 	int bpp;
 	int pixelEnc;
@@ -187,26 +189,150 @@ struct tu_algo_data {
 
 static int _tu_param_compare(s64 a, s64 b)
 {
-	u32 a_int, a_frac;
-	u32 b_int, b_frac;
+	u32 a_int, a_frac, a_sign;
+	u32 b_int, b_frac, b_sign;
+	s64 a_temp, b_temp, minus_1;
 
 	if (a == b)
 		return 0;
 
+	minus_1 = drm_fixp_from_fraction(-1, 1);
+
 	a_int = (a >> 32) & 0x7FFFFFFF;
 	a_frac = a & 0xFFFFFFFF;
+	a_sign = (a >> 32) & 0x80000000 ? 1 : 0;
 
 	b_int = (b >> 32) & 0x7FFFFFFF;
 	b_frac = b & 0xFFFFFFFF;
+	b_sign = (b >> 32) & 0x80000000 ? 1 : 0;
 
-	if (a_int > b_int)
-		return 1;
-	else if (a_int < b_int)
+	if (a_sign > b_sign)
 		return 2;
-	else if (a_frac > b_frac)
+	else if (b_sign > a_sign)
 		return 1;
-	else
-		return 2;
+
+	if (!a_sign && !b_sign) { /* positive */
+		if (a > b)
+			return 1;
+		else
+			return 2;
+	} else { /* negative */
+		a_temp = drm_fixp_mul(a, minus_1);
+		b_temp = drm_fixp_mul(b, minus_1);
+
+		if (a_temp > b_temp)
+			return 2;
+		else
+			return 1;
+	}
+}
+
+static void dp_panel_update_tu_timings(struct dp_tu_calc_input *in,
+					struct tu_algo_data *tu)
+{
+	int nlanes = in->nlanes;
+	int dsc_num_slices = in->num_of_dsc_slices;
+	int dsc_num_bytes  = 0;
+	int numerator;
+	s64 pclk_dsc_fp;
+	s64 dwidth_dsc_fp;
+	s64 hbp_dsc_fp;
+	s64 overhead_dsc;
+
+	int tot_num_eoc_symbols = 0;
+	int tot_num_hor_bytes   = 0;
+	int tot_num_dummy_bytes = 0;
+	int dwidth_dsc_bytes    = 0;
+	int  eoc_bytes           = 0;
+
+	s64 temp1_fp, temp2_fp, temp3_fp;
+
+	tu->lclk_fp              = drm_fixp_from_fraction(in->lclk, 1);
+	tu->pclk_fp              = drm_fixp_from_fraction(in->pclk_khz, 1000);
+	tu->lwidth               = in->hactive;
+	tu->hbp_relative_to_pclk = in->hporch;
+	tu->nlanes               = in->nlanes;
+	tu->bpp                  = in->bpp;
+	tu->pixelEnc             = in->pixel_enc;
+	tu->dsc_en               = in->dsc_en;
+	tu->async_en             = in->async_en;
+	tu->lwidth_fp            = drm_fixp_from_fraction(in->hactive, 1);
+	tu->hbp_relative_to_pclk_fp = drm_fixp_from_fraction(in->hporch, 1);
+
+	if (tu->pixelEnc == 420) {
+		temp1_fp = drm_fixp_from_fraction(2, 1);
+		tu->pclk_fp = drm_fixp_div(tu->pclk_fp, temp1_fp);
+		tu->lwidth_fp = drm_fixp_div(tu->lwidth_fp, temp1_fp);
+		tu->hbp_relative_to_pclk_fp =
+				drm_fixp_div(tu->hbp_relative_to_pclk_fp, 2);
+	}
+
+	if (tu->pixelEnc == 422) {
+		switch (tu->bpp) {
+		case 24:
+			tu->bpp = 16;
+			tu->bpc = 8;
+			break;
+		case 30:
+			tu->bpp = 20;
+			tu->bpc = 10;
+			break;
+		default:
+			tu->bpp = 16;
+			tu->bpc = 8;
+			break;
+		}
+	} else {
+		tu->bpc = tu->bpp/3;
+	}
+
+	if (!in->dsc_en)
+		goto fec_check;
+
+	temp1_fp = drm_fixp_from_fraction(in->compress_ratio, 100);
+	temp2_fp = drm_fixp_from_fraction(in->bpp, 1);
+	temp3_fp = drm_fixp_div(temp2_fp, temp1_fp);
+	temp2_fp = drm_fixp_mul(tu->lwidth_fp, temp3_fp);
+
+	temp1_fp = drm_fixp_from_fraction(8, 1);
+	temp3_fp = drm_fixp_div(temp2_fp, temp1_fp);
+
+	numerator = drm_fixp2int(temp3_fp);
+
+	dsc_num_bytes  = numerator / dsc_num_slices;
+	eoc_bytes           = dsc_num_bytes % nlanes;
+	tot_num_eoc_symbols = nlanes * dsc_num_slices;
+	tot_num_hor_bytes   = dsc_num_bytes * dsc_num_slices;
+	tot_num_dummy_bytes = (nlanes - eoc_bytes) * dsc_num_slices;
+
+	if (dsc_num_bytes == 0)
+		pr_info("incorrect no of bytes per slice=%d\n", dsc_num_bytes);
+
+	dwidth_dsc_bytes = (tot_num_hor_bytes +
+				tot_num_eoc_symbols +
+				(eoc_bytes == 0 ? 0 : tot_num_dummy_bytes));
+	overhead_dsc     = dwidth_dsc_bytes / tot_num_hor_bytes;
+
+	dwidth_dsc_fp = drm_fixp_from_fraction(dwidth_dsc_bytes, 3);
+
+	temp2_fp = drm_fixp_mul(tu->pclk_fp, dwidth_dsc_fp);
+	temp1_fp = drm_fixp_div(temp2_fp, tu->lwidth_fp);
+	pclk_dsc_fp = temp1_fp;
+
+	temp1_fp = drm_fixp_div(pclk_dsc_fp, tu->pclk_fp);
+	temp2_fp = drm_fixp_mul(tu->hbp_relative_to_pclk_fp, temp1_fp);
+	hbp_dsc_fp = temp2_fp;
+
+	/* output */
+	tu->pclk_fp = pclk_dsc_fp;
+	tu->lwidth_fp = dwidth_dsc_fp;
+	tu->hbp_relative_to_pclk_fp = hbp_dsc_fp;
+
+fec_check:
+	if (in->fec_en) {
+		temp1_fp = drm_fixp_from_fraction(976, 1000); /* 0.976 */
+		tu->lclk_fp = drm_fixp_mul(tu->lclk_fp, temp1_fp);
+	}
 }
 
 static void _tu_valid_boundary_calc(struct tu_algo_data *tu)
@@ -228,10 +354,12 @@ static void _tu_valid_boundary_calc(struct tu_algo_data *tu)
 					tu->i_lower_boundary_count));
 
 	temp1_fp = drm_fixp_from_fraction(tu->bpp, 8);
-	temp2_fp = drm_fixp_from_fraction(tu->lwidth, 1);
+	temp2_fp = tu->lwidth_fp;
 	temp1_fp = drm_fixp_mul(temp2_fp, temp1_fp);
 	temp2_fp = drm_fixp_div(temp1_fp, tu->average_valid2_fp);
 	tu->n_tus = drm_fixp2int(temp2_fp);
+	if ((temp2_fp & 0xFFFFFFFF) > 0xFFFFF000)
+		tu->n_tus += 1;
 
 	temp1_fp = drm_fixp_from_fraction(tu->n_tus, 1);
 	temp2_fp = drm_fixp_mul(temp1_fp, tu->average_valid2_fp);
@@ -304,7 +432,7 @@ static void _tu_valid_boundary_calc(struct tu_algo_data *tu)
 	tu->even_distribution = tu->n_tus % tu->nlanes == 0 ? 1 : 0;
 
 	temp1_fp = drm_fixp_from_fraction(tu->bpp, 8);
-	temp2_fp = drm_fixp_from_fraction(tu->lwidth, 1);
+	temp2_fp = tu->lwidth_fp;
 	temp1_fp = drm_fixp_mul(temp2_fp, temp1_fp);
 	temp2_fp = drm_fixp_div(temp1_fp, tu->average_valid2_fp);
 
@@ -433,43 +561,9 @@ static void _dp_panel_calc_tu(struct dp_tu_calc_input *in,
 
 	memset(&tu, 0, sizeof(tu));
 
-	tu.lclk_fp              = drm_fixp_from_fraction(in->lclk, 1);
-	tu.pclk_fp              = drm_fixp_from_fraction(in->pclk_khz, 1000);
-	tu.lwidth               = in->hactive;
-	tu.hbp_relative_to_pclk = in->hporch;
-	tu.nlanes               = in->nlanes;
-	tu.bpp                  = in->bpp;
-	tu.pixelEnc             = in->pixel_enc;
-	tu.dsc_en               = in->dsc_en;
-	tu.async_en             = in->async_en;
+	dp_panel_update_tu_timings(in, &tu);
 
 	tu.err_fp = drm_fixp_from_fraction(1000, 1); /* 1000 */
-
-	if (tu.pixelEnc == 420) {
-		temp_fp = drm_fixp_from_fraction(2, 1);
-		tu.pclk_fp = drm_fixp_div(tu.pclk_fp, temp_fp);
-		tu.lwidth /= 2;
-		tu.hbp_relative_to_pclk /= 2;
-	}
-
-	if (tu.pixelEnc == 422) {
-		switch (tu.bpp) {
-		case 24:
-			tu.bpp = 16;
-			tu.bpc = 8;
-			break;
-		case 30:
-			tu.bpp = 20;
-			tu.bpc = 10;
-			break;
-		default:
-			tu.bpp = 16;
-			tu.bpc = 8;
-			break;
-		}
-	} else {
-		tu.bpc = tu.bpp/3;
-	}
 
 	temp1_fp = drm_fixp_from_fraction(4, 1);
 	temp2_fp = drm_fixp_mul(temp1_fp, tu.lclk_fp);
@@ -499,7 +593,9 @@ static void _dp_panel_calc_tu(struct dp_tu_calc_input *in,
 	tu.n_n_err_fp = 0;
 
 	tu.ratio = drm_fixp2int(tu.ratio_fp);
-	if ((((u32)tu.lwidth % tu.nlanes) != 0) &&
+	temp1_fp = drm_fixp_from_fraction(tu.nlanes, 1);
+	temp2_fp = tu.lwidth_fp % temp1_fp;
+	if (temp2_fp != 0 &&
 			!tu.ratio && tu.dsc_en == 0) {
 		tu.ratio_fp = drm_fixp_mul(tu.ratio_fp, RATIO_SCALE_fp);
 		tu.ratio = drm_fixp2int(tu.ratio_fp);
@@ -551,12 +647,14 @@ tu_size_calc:
 	tu.valid_boundary_link = drm_fixp2int_ceil(temp2_fp);
 
 	temp1_fp = drm_fixp_from_fraction(tu.bpp, 8);
-	temp2_fp = drm_fixp_from_fraction(tu.lwidth, 1);
+	temp2_fp = tu.lwidth_fp;
 	temp2_fp = drm_fixp_mul(temp2_fp, temp1_fp);
 
 	temp1_fp = drm_fixp_from_fraction(tu.valid_boundary_link, 1);
 	temp2_fp = drm_fixp_div(temp2_fp, temp1_fp);
 	tu.n_tus = drm_fixp2int(temp2_fp);
+	if ((temp2_fp & 0xFFFFFFFF) > 0xFFFFF000)
+		tu.n_tus += 1;
 
 	tu.even_distribution_legacy = tu.n_tus % tu.nlanes == 0 ? 1 : 0;
 	pr_info("Info: n_sym = %d, num_of_tus = %d\n",
@@ -579,21 +677,19 @@ tu_size_calc:
 	temp2_fp = drm_fixp_from_fraction(8, tu.bpp);
 	temp1_fp = drm_fixp_mul(temp1_fp, temp2_fp);
 
-	temp - drm_fixp2int(temp1_fp);
-	if (temp && temp1_fp)
+	if (temp1_fp)
 		tu.extra_pclk_cycles = drm_fixp2int_ceil(temp1_fp);
 	else
-		tu.extra_pclk_cycles = 0;
+		tu.extra_pclk_cycles = drm_fixp2int(temp1_fp);
 
 	temp1_fp = drm_fixp_div(tu.lclk_fp, tu.pclk_fp);
 	temp2_fp = drm_fixp_from_fraction(tu.extra_pclk_cycles, 1);
 	temp1_fp = drm_fixp_mul(temp2_fp, temp1_fp);
 
-	temp = drm_fixp2int(temp1_fp);
-	if (temp && temp1_fp)
+	if (temp1_fp)
 		tu.extra_pclk_cycles_in_link_clk = drm_fixp2int_ceil(temp1_fp);
 	else
-		tu.extra_pclk_cycles_in_link_clk = 0;
+		tu.extra_pclk_cycles_in_link_clk = drm_fixp2int(temp1_fp);
 
 	tu.filler_size = tu.tu_size_desired - tu.valid_boundary_link;
 
@@ -610,8 +706,8 @@ tu_size_calc:
 	temp2_fp = drm_fixp_div(tu.resulting_valid_fp, temp1_fp);
 	tu.TU_ratio_err_fp = temp2_fp - tu.original_ratio_fp;
 
-	temp1_fp = drm_fixp_from_fraction(
-			(tu.hbp_relative_to_pclk - HBLANK_MARGIN), 1);
+	temp1_fp = drm_fixp_from_fraction(HBLANK_MARGIN, 1);
+	temp1_fp = tu.hbp_relative_to_pclk_fp - temp1_fp;
 	tu.hbp_time_fp = drm_fixp_div(temp1_fp, tu.pclk_fp);
 
 	temp1_fp = drm_fixp_from_fraction(tu.delay_start_link, 1);
@@ -619,11 +715,10 @@ tu_size_calc:
 
 	compare_result_1 = _tu_param_compare(tu.hbp_time_fp,
 					tu.delay_start_time_fp);
-	if (compare_result_1 == 2) /* if (hbp_time_fp < delay_start_time_fp) */
+	if (compare_result_1 == 2) /* hbp_time_fp < delay_start_time_fp */
 		tu.min_hblank_violated = 1;
 
-	temp1_fp = drm_fixp_from_fraction(tu.lwidth, 1);
-	tu.hactive_time_fp = drm_fixp_div(temp1_fp, tu.pclk_fp);
+	tu.hactive_time_fp = drm_fixp_div(tu.lwidth_fp, tu.pclk_fp);
 
 	compare_result_2 = _tu_param_compare(tu.hactive_time_fp,
 						tu.delay_start_time_fp);
@@ -666,8 +761,8 @@ tu_size_calc:
 				tu.extra_buffer_margin = 0;
 
 			temp1_fp = drm_fixp_from_fraction(tu.bpp, 8);
-			temp2_fp = drm_fixp_from_fraction(tu.lwidth, 1);
-			temp1_fp = drm_fixp_mul(temp2_fp, temp1_fp);
+			temp1_fp = drm_fixp_mul(tu.lwidth_fp, temp1_fp);
+
 
 			if (temp1_fp)
 				tu.n_symbols = drm_fixp2int_ceil(temp1_fp);
@@ -711,8 +806,7 @@ tu_size_calc:
 				tu.valid_boundary_link - 1;
 
 			temp1_fp = drm_fixp_from_fraction(tu.bpp, 8);
-			temp2_fp = drm_fixp_from_fraction(tu.lwidth, 1);
-			temp1_fp = drm_fixp_mul(temp2_fp, temp1_fp);
+			temp1_fp = drm_fixp_mul(tu.lwidth_fp, temp1_fp);
 			temp2_fp = drm_fixp_div(temp1_fp,
 						tu.resulting_valid_fp);
 			tu.n_tus = drm_fixp2int(temp2_fp);
@@ -728,8 +822,7 @@ tu_size_calc:
 		}
 	}
 
-	temp1_fp = drm_fixp_from_fraction(tu.lwidth, 1);
-	temp2_fp = drm_fixp_mul(LCLK_FAST_SKEW_fp, temp1_fp);
+	temp2_fp = drm_fixp_mul(LCLK_FAST_SKEW_fp, tu.lwidth_fp);
 
 	if (temp2_fp)
 		temp = drm_fixp2int_ceil(temp2_fp);
@@ -794,6 +887,9 @@ static void dp_panel_calc_tu_parameters(struct dp_panel *dp_panel,
 	in.pixel_enc = 444;
 	in.dsc_en = 0;
 	in.async_en = 0;
+	in.fec_en = 0;
+	in.compress_ratio = 0;
+	in.num_of_dsc_slices = 0;
 
 	_dp_panel_calc_tu(&in, tu_table);
 }
