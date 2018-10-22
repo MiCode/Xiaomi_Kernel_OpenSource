@@ -247,6 +247,15 @@ enum cnss_bdf_type {
 	CNSS_BDF_DUMMY = 255,
 };
 
+enum cnss_cal_status {
+	CNSS_CAL_DONE,
+	CNSS_CAL_TIMEOUT,
+};
+
+struct cnss_cal_info {
+	enum cnss_cal_status cal_status;
+};
+
 struct cnss_control_params {
 	unsigned long quirks;
 	unsigned int mhi_timeout;

@@ -1222,18 +1222,36 @@ out:
 	return ret;
 }
 
-static int cnss_cold_boot_cal_done_hdlr(struct cnss_plat_data *plat_priv)
+static int cnss_cold_boot_cal_done_hdlr(struct cnss_plat_data *plat_priv,
+					void *data)
 {
-	if (!test_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state))
-		return 0;
+	struct cnss_cal_info *cal_info = data;
 
-	plat_priv->cal_done = true;
+	if (!test_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state))
+		goto out;
+
+	switch (cal_info->cal_status) {
+	case CNSS_CAL_DONE:
+		cnss_pr_dbg("Calibration completed successfully\n");
+		plat_priv->cal_done = true;
+		break;
+	case CNSS_CAL_TIMEOUT:
+		cnss_pr_dbg("Calibration timed out, force shutdown\n");
+		break;
+	default:
+		cnss_pr_err("Unknown calibration status: %u\n",
+			    cal_info->cal_status);
+		break;
+	}
+
 	cnss_wlfw_wlan_mode_send_sync(plat_priv, CNSS_OFF);
 	cnss_release_antenna_sharing(plat_priv);
 	cnss_bus_dev_shutdown(plat_priv);
 	complete(&plat_priv->cal_complete);
 	clear_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state);
 
+out:
+	kfree(data);
 	return 0;
 }
 
@@ -1409,7 +1427,8 @@ static void cnss_driver_event_work(struct work_struct *work)
 			ret = cnss_cold_boot_cal_start_hdlr(plat_priv);
 			break;
 		case CNSS_DRIVER_EVENT_COLD_BOOT_CAL_DONE:
-			ret = cnss_cold_boot_cal_done_hdlr(plat_priv);
+			ret = cnss_cold_boot_cal_done_hdlr(plat_priv,
+							   event->data);
 			break;
 		case CNSS_DRIVER_EVENT_REGISTER_DRIVER:
 			ret = cnss_bus_register_driver_hdlr(plat_priv,
