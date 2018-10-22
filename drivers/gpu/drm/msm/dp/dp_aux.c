@@ -58,20 +58,26 @@ struct dp_aux_private {
 static void dp_aux_hex_dump(struct drm_dp_aux *drm_aux,
 		struct drm_dp_aux_msg *msg)
 {
-	DEFINE_DYNAMIC_DEBUG_METADATA(ddm, "dp aux tracker");
+	char prefix[64];
+	int i, linelen, remaining = msg->size;
+	const int rowsize = 16;
+	u8 linebuf[64];
+	struct dp_aux_private *aux = container_of(drm_aux,
+		struct dp_aux_private, drm_aux);
 
-	if (unlikely(ddm.flags & _DPRINTK_FLAGS_PRINT)) {
-		u8 buf[SZ_64];
-		struct dp_aux_private *aux = container_of(drm_aux,
-			struct dp_aux_private, drm_aux);
+	snprintf(prefix, sizeof(prefix), "%s %s %4xh(%2zu): ",
+		aux->native ? "NAT" : "I2C",
+		aux->read ? "RD" : "WR",
+		msg->address, msg->size);
 
-		snprintf(buf, SZ_64, "[drm-dp] %5s %5s %5xh(%2zu): ",
-			aux->native ? "NATIVE" : "I2C",
-			aux->read ? "READ" : "WRITE",
-			msg->address, msg->size);
+	for (i = 0; i < msg->size; i += rowsize) {
+		linelen = min(remaining, rowsize);
+		remaining -= rowsize;
 
-		print_hex_dump(KERN_DEBUG, buf, DUMP_PREFIX_NONE,
-			8, 1, msg->buffer, msg->size, false);
+		hex_dump_to_buffer(msg->buffer + i, linelen, rowsize, 1,
+			linebuf, sizeof(linebuf), false);
+
+		pr_debug("%s%s\n", prefix, linebuf);
 	}
 }
 #else
