@@ -649,7 +649,10 @@ static int spcom_handle_send_command(struct spcom_channel *ch,
 		mutex_unlock(&ch->lock);
 		msleep(TX_RETRY_DELAY_MSEC);
 		mutex_lock(&ch->lock);
-	} while (ret == -EAGAIN && time_msec < timeout_msec);
+	} while ((ret == -EBUSY || ret == -EAGAIN) && time_msec < timeout_msec);
+	if (ret)
+		pr_err("ch [%s] rpmsg_trysend() error (%d), timeout_msec=%d\n",
+		       ch->name, ret, timeout_msec);
 	mutex_unlock(&ch->lock);
 
 	kfree(tx_buf);
@@ -853,7 +856,11 @@ static int spcom_handle_send_modified_command(struct spcom_channel *ch,
 		mutex_unlock(&ch->lock);
 		msleep(TX_RETRY_DELAY_MSEC);
 		mutex_lock(&ch->lock);
-	} while (ret == -EAGAIN && time_msec < timeout_msec);
+	} while ((ret == -EBUSY || ret == -EAGAIN) && time_msec < timeout_msec);
+	if (ret)
+		pr_err("ch [%s] rpmsg_trysend() error (%d), timeout_msec=%d\n",
+		       ch->name, ret, timeout_msec);
+
 	mutex_unlock(&ch->lock);
 	memset(tx_buf, 0, tx_buf_size);
 	kfree(tx_buf);
@@ -1425,7 +1432,7 @@ static ssize_t spcom_device_write(struct file *filp,
 	if (ret) {
 		pr_err("handle command error [%d].\n", ret);
 		kfree(buf);
-		return -EFAULT;
+		return ret;
 	}
 
 	kfree(buf);
