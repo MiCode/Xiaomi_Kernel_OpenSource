@@ -91,6 +91,7 @@ static uint32_t hab_handle_tx;
 static uint32_t hab_handle_rx;
 static char apr_tx_buf[APR_TX_BUF_SIZE];
 static char apr_rx_buf[APR_RX_BUF_SIZE];
+static spinlock_t hab_tx_lock;
 
 /* apr callback thread task */
 static struct task_struct *apr_vm_cb_thread_task;
@@ -113,8 +114,6 @@ struct apr_svc_table {
  * 2. register apr BE, retrieve dynamic src svc address,
  *    apr handle and store in svc tbl.
  */
-
-static struct mutex m_lock_tbl_qdsp6;
 
 static struct apr_svc_table svc_tbl_qdsp6[] = {
 	{
@@ -205,8 +204,6 @@ static struct apr_svc_table svc_tbl_qdsp6[] = {
 		.handle = 0,
 	},
 };
-
-static struct mutex m_lock_tbl_voice;
 
 static struct apr_svc_table svc_tbl_voice[] = {
 	{
@@ -573,10 +570,10 @@ static int apr_vm_get_svc(const char *svc_name, int domain_id, int *client_id,
 	int i;
 	int size;
 	struct apr_svc_table *tbl;
-	struct mutex *lock;
 	struct aprv2_vm_cmd_register_rsp_t apr_rsp;
 	uint32_t apr_len;
 	int ret = 0;
+	unsigned long flags;
 	struct {
 		uint32_t cmd_id;
 		struct aprv2_vm_cmd_register_t reg_cmd;
@@ -585,14 +582,12 @@ static int apr_vm_get_svc(const char *svc_name, int domain_id, int *client_id,
 	if (domain_id == APR_DOMAIN_ADSP) {
 		tbl = svc_tbl_qdsp6;
 		size = ARRAY_SIZE(svc_tbl_qdsp6);
-		lock = &m_lock_tbl_qdsp6;
 	} else {
 		tbl = svc_tbl_voice;
 		size = ARRAY_SIZE(svc_tbl_voice);
-		lock = &m_lock_tbl_voice;
 	}
 
-	mutex_lock(lock);
+	spin_lock_irqsave(&hab_tx_lock, flags);
 	for (i = 0; i < size; i++) {
 		if (!strcmp(svc_name, tbl[i].name)) {
 			*client_id = tbl[i].client_id;
@@ -616,7 +611,8 @@ static int apr_vm_get_svc(const char *svc_name, int domain_id, int *client_id,
 				if (ret) {
 					pr_err("%s: habmm_socket_send failed %d\n",
 						__func__, ret);
-					mutex_unlock(lock);
+					spin_unlock_irqrestore(&hab_tx_lock,
+								flags);
 					return ret;
 				}
 				/* wait for response */
@@ -628,14 +624,16 @@ static int apr_vm_get_svc(const char *svc_name, int domain_id, int *client_id,
 				if (ret) {
 					pr_err("%s: apr_vm_nb_receive failed %d\n",
 						__func__, ret);
-					mutex_unlock(lock);
+					spin_unlock_irqrestore(&hab_tx_lock,
+								flags);
 					return ret;
 				}
 				if (apr_rsp.status) {
 					pr_err("%s: apr_vm_nb_receive status %d\n",
 						__func__, apr_rsp.status);
 					ret = apr_rsp.status;
-					mutex_unlock(lock);
+					spin_unlock_irqrestore(&hab_tx_lock,
+								flags);
 					return ret;
 				}
 				/* update svc table */
@@ -649,7 +647,7 @@ static int apr_vm_get_svc(const char *svc_name, int domain_id, int *client_id,
 			break;
 		}
 	}
-	mutex_unlock(lock);
+	spin_unlock_irqrestore(&hab_tx_lock, flags);
 
 	pr_debug("%s: svc_name = %s client_id = %d domain_id = %d\n",
 		 __func__, svc_name, *client_id, domain_id);
@@ -669,10 +667,10 @@ static int apr_vm_rel_svc(int domain_id, int svc_id, int handle)
 	int i;
 	int size;
 	struct apr_svc_table *tbl;
-	struct mutex *lock;
 	struct aprv2_vm_cmd_deregister_rsp_t apr_rsp;
 	uint32_t apr_len;
 	int ret = 0;
+	unsigned long flags;
 	struct {
 		uint32_t cmd_id;
 		struct aprv2_vm_cmd_deregister_t dereg_cmd;
@@ -681,14 +679,12 @@ static int apr_vm_rel_svc(int domain_id, int svc_id, int handle)
 	if (domain_id == APR_DOMAIN_ADSP) {
 		tbl = svc_tbl_qdsp6;
 		size = ARRAY_SIZE(svc_tbl_qdsp6);
-		lock = &m_lock_tbl_qdsp6;
 	} else {
 		tbl = svc_tbl_voice;
 		size = ARRAY_SIZE(svc_tbl_voice);
-		lock = &m_lock_tbl_voice;
 	}
 
-	mutex_lock(lock);
+	spin_lock_irqsave(&hab_tx_lock, flags);
 	for (i = 0; i < size; i++) {
 		if (tbl[i].id == svc_id && tbl[i].handle == handle) {
 			/* need to deregister a service */
@@ -728,7 +724,7 @@ static int apr_vm_rel_svc(int domain_id, int svc_id, int handle)
 			break;
 		}
 	}
-	mutex_unlock(lock);
+	spin_unlock_irqrestore(&hab_tx_lock, flags);
 
 	if (i == size) {
 		pr_err("%s: APR: Wrong svc id %d handle %d\n",
@@ -772,7 +768,7 @@ int apr_send_pkt(void *handle, uint32_t *buf)
 		return -ENETRESET;
 	}
 
-	spin_lock_irqsave(&svc->w_lock, flags);
+	spin_lock_irqsave(&hab_tx_lock, flags);
 	if (!svc->id || !svc->vm_handle) {
 		pr_err("APR: Still service is not yet opened\n");
 		ret = -EINVAL;
@@ -839,7 +835,7 @@ int apr_send_pkt(void *handle, uint32_t *buf)
 	ret = hdr->pkt_size;
 
 done:
-	spin_unlock_irqrestore(&svc->w_lock, flags);
+	spin_unlock_irqrestore(&hab_tx_lock, flags);
 	return ret;
 }
 
@@ -1173,6 +1169,7 @@ static int __init apr_init(void)
 		pr_err("%s: habmm_socket_open tx failed %d\n", __func__, ret);
 		return ret;
 	}
+	spin_lock_init(&hab_tx_lock);
 
 	ret = habmm_socket_open(&hab_handle_rx,
 			MM_AUD_2,
@@ -1201,15 +1198,11 @@ static int __init apr_init(void)
 	pr_info("%s: apr_vm_cb_thread started pid %d\n",
 			__func__, pid);
 
-	mutex_init(&m_lock_tbl_qdsp6);
-	mutex_init(&m_lock_tbl_voice);
-
 	for (i = 0; i < APR_DEST_MAX; i++)
 		for (j = 0; j < APR_CLIENT_MAX; j++) {
 			mutex_init(&client[i][j].m_lock);
 			for (k = 0; k < APR_SVC_MAX; k++) {
 				mutex_init(&client[i][j].svc[k].m_lock);
-				spin_lock_init(&client[i][j].svc[k].w_lock);
 			}
 		}
 
