@@ -8094,9 +8094,23 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 		/* Find a cpu with sufficient capacity */
 		target_cpu = find_best_target(p, &eenv->cpu[EAS_CPU_BKP].cpu_id,
 					      boosted, prefer_idle, &fbt_env);
+		if (target_cpu < 0)
+			goto out;
 
 		/* Immediately return a found idle CPU for a prefer_idle task */
-		if (prefer_idle && target_cpu >= 0 && idle_cpu(target_cpu))
+		if (prefer_idle && idle_cpu(target_cpu))
+			goto out;
+
+#ifdef CONFIG_SCHED_WALT
+		if (!walt_disabled && sysctl_sched_use_walt_cpu_util &&
+		    p->state == TASK_WAKING)
+			delta = task_util(p);
+#endif
+		if (task_placement_boost_enabled(p) || need_idle ||
+		    (rtg_target && (!cpumask_test_cpu(prev_cpu, rtg_target) ||
+		    cpumask_test_cpu(target_cpu, rtg_target))) ||
+		    __cpu_overutilized(prev_cpu, delta) ||
+		    !task_fits_max(p, prev_cpu) || cpu_isolated(prev_cpu))
 			goto out;
 
 		/* Place target into NEXT slot */
@@ -8108,10 +8122,6 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 		/* take note if no backup was found */
 		if (eenv->cpu[EAS_CPU_BKP].cpu_id < 0)
 			eenv->max_cpu_count = EAS_CPU_BKP;
-
-		/* take note if no target was found */
-		 if (eenv->cpu[EAS_CPU_NXT].cpu_id < 0)
-			 eenv->max_cpu_count = EAS_CPU_NXT;
 	}
 
 	if (eenv->max_cpu_count == EAS_CPU_NXT) {
@@ -8120,20 +8130,6 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 		 * candidates beyond prev_cpu, so we will
 		 * fall-back to the regular slow-path.
 		 */
-		goto out;
-	}
-
-#ifdef CONFIG_SCHED_WALT
-	if (!walt_disabled && sysctl_sched_use_walt_cpu_util &&
-			p->state == TASK_WAKING)
-		delta = task_util(p);
-#endif
-	if (use_fbt && (task_placement_boost_enabled(p) || fbt_env.need_idle ||
-		(rtg_target && (!cpumask_test_cpu(prev_cpu, rtg_target) ||
-			cpumask_test_cpu(next_cpu, rtg_target))) ||
-		 __cpu_overutilized(prev_cpu, delta) ||
-		 !task_fits_max(p, prev_cpu) || cpu_isolated(prev_cpu))) {
-		target_cpu = eenv->cpu[EAS_CPU_NXT].cpu_id;
 		goto out;
 	}
 
