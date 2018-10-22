@@ -1155,3 +1155,5 @@
 #include "kona-pinctrl.dtsi"
 #include "kona-smp2p.dtsi"
 #include "kona-usb.dtsi"
+#include "kona-sde.dtsi"
+#include "kona-sde-display.dtsi"
