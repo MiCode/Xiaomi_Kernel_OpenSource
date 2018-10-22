@@ -68,7 +68,7 @@ static const struct parent_map video_cc_parent_map_2[] = {
 };
 
 static const char * const video_cc_parent_names_2[] = {
-	"bi_tcxo",
+	"bi_tcxo_ao",
 	"core_bi_pll_test_se",
 };
 
