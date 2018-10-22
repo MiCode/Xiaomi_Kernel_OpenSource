@@ -3360,7 +3360,7 @@ int dsi_panel_get_host_cfg_for_mode(struct dsi_panel *panel,
 	config->video_timing.dsc_enabled = mode->priv_info->dsc_enabled;
 	config->video_timing.dsc = &mode->priv_info->dsc;
 
-	config->bit_clk_rate_hz = mode->priv_info->clk_rate_hz;
+	config->bit_clk_rate_hz_override = mode->priv_info->clk_rate_hz;
 	config->esc_clk_rate_hz = 19200000;
 	mutex_unlock(&panel->panel_lock);
 	return rc;
