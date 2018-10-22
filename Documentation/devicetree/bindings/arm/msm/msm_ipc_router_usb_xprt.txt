@@ -1,17 +1,17 @@
-Qualcomm IPC Router HSIC Transport
+Qualcomm Technologies, Inc. IPC Router USB Transport
 
 Required properties:
--compatible:		should be "qcom,ipc_router_hsic_xprt"
--qcom,ch-name:		the HSIC channel name used by the HSIC transport
+-compatible:		should be "qcom,ipc-router-usb-xprt"
+-qcom,ch-name:		the USB channel name used by the USB transport
 -qcom,xprt-remote:	string that defines the edge of the transport (PIL Name)
 -qcom,xprt-linkid:	unique integer to identify the tier to which the link
 			belongs to in the network and is used to avoid the
 			routing loops while forwarding the broadcast messages
--qcom,xprt-version:	unique version ID used by HSIC transport header
+-qcom,xprt-version:	unique version ID used by USB transport header
 
 Example:
 	qcom,ipc_router_external_modem_xprt {
-		compatible = "qcom,ipc_router_hsic_xprt";
+		compatible = "qcom,ipc-router-usb-xprt";
 	        qcom,ch-name = "ipc_bridge";
 		qcom,xprt-remote = "external-modem";
 		qcom,xprt-linkid = <1>;
