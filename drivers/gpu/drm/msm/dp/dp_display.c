@@ -220,6 +220,31 @@ static void dp_display_update_hdcp_info(struct dp_display_private *dp)
 		sde_hdcp_version(dp->link->hdcp_status.hdcp_version));
 }
 
+static void dp_display_check_source_hdcp_caps(struct dp_display_private *dp)
+{
+	int i;
+	struct dp_hdcp_dev *hdcp_dev = dp->hdcp.dev;
+
+	if (dp->debug->hdcp_disabled) {
+		pr_debug("hdcp disabled\n");
+		return;
+	}
+
+	for (i = 0; i < HDCP_VERSION_MAX; i++) {
+		struct dp_hdcp_dev *dev = &hdcp_dev[i];
+		struct sde_hdcp_ops *ops = dev->ops;
+		void *fd = dev->fd;
+
+		if (!fd || !ops || (dp->hdcp.source_cap & dev->ver))
+			continue;
+
+		if (ops->feature_supported(fd))
+			dp->hdcp.source_cap |= dev->ver;
+	}
+
+	dp_display_update_hdcp_status(dp, false);
+}
+
 static void dp_display_hdcp_cb_work(struct work_struct *work)
 {
 	struct dp_display_private *dp;
@@ -238,6 +263,7 @@ static void dp_display_hdcp_cb_work(struct work_struct *work)
 	status = &dp->link->hdcp_status;
 
 	if (status->hdcp_state == HDCP_STATE_INACTIVE) {
+		dp_display_check_source_hdcp_caps(dp);
 		dp_display_update_hdcp_info(dp);
 
 		if (dp_display_is_hdcp_enabled(dp)) {
@@ -302,37 +328,6 @@ static void dp_display_notify_hdcp_status_cb(void *ptr,
 	if (dp->power_on && !atomic_read(&dp->aborted))
 		queue_delayed_work(dp->wq, &dp->hdcp_cb_work, HZ/4);
 	mutex_unlock(&dp->session_lock);
-}
-
-static void dp_display_check_source_hdcp_caps(struct dp_display_private *dp)
-{
-	int i;
-	struct dp_hdcp_dev *hdcp_dev = dp->hdcp.dev;
-
-	if (dp->debug->hdcp_disabled) {
-		pr_debug("hdcp disabled\n");
-		return;
-	}
-
-	for (i = 0; i < HDCP_VERSION_MAX; i++) {
-		struct dp_hdcp_dev *dev = &hdcp_dev[i];
-		struct sde_hdcp_ops *ops = dev->ops;
-		void *fd = dev->fd;
-
-		if (!fd || !ops)
-			continue;
-
-		if (ops->feature_supported(fd))
-			dp->hdcp.source_cap |= dev->ver;
-		else
-			pr_warn("This device doesn't support %s\n",
-				sde_hdcp_version(dev->ver));
-	}
-
-	if (!dp->hdcp.source_cap)
-		dp->debug->hdcp_disabled = true;
-
-	dp_display_update_hdcp_status(dp, false);
 }
 
 static void dp_display_deinitialize_hdcp(struct dp_display_private *dp)
@@ -531,9 +526,6 @@ static void dp_display_post_open(struct dp_display *dp_display)
 		pr_err("base connector not set\n");
 		return;
 	}
-
-	dp_display_update_hdcp_status(dp, true);
-	dp_display_check_source_hdcp_caps(dp);
 
 	/* if cable is already connected, send notification */
 	if (dp->hpd->hpd_high)
@@ -1200,6 +1192,7 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 	}
 
 	dp->debug->hdcp_disabled = hdcp_disabled;
+	dp_display_update_hdcp_status(dp, true);
 
 	return rc;
 error_debug:
