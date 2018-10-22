@@ -172,8 +172,9 @@ static const u8 *_sde_edid_find_block(const u8 *in_buf, u32 start_offset,
 	 * * edid buffer 1, byte 2 being 0 means no non-DTD/DATA block
 	 *   collection present and no DTD data present.
 	 */
+
 	if ((dbc_offset == 0) || (dbc_offset == 4)) {
-		SDE_ERROR("EDID: no DTD or non-DTD data present\n");
+		SDE_EDID_DEBUG("EDID: no DTD or non-DTD data present\n");
 		return NULL;
 	}
 
@@ -376,7 +377,7 @@ struct drm_connector *connector, struct sde_edid_ctrl *edid_ctrl)
 	edid_ext = sde_find_cea_extension(edid_ctrl->edid);
 
 	if (!edid_ext) {
-		SDE_ERROR("no cea extension\n");
+		SDE_DEBUG("no cea extension\n");
 		return;
 	}
 
@@ -545,7 +546,7 @@ int _sde_edid_update_modes(struct drm_connector *connector,
 
 	SDE_EDID_DEBUG("%s +", __func__);
 	if (edid_ctrl->edid) {
-		drm_mode_connector_update_edid_property(connector,
+		drm_connector_update_edid_property(connector,
 			edid_ctrl->edid);
 
 		rc = drm_add_edid_modes(connector, edid_ctrl->edid);
@@ -555,7 +556,7 @@ int _sde_edid_update_modes(struct drm_connector *connector,
 		return rc;
 	}
 
-	drm_mode_connector_update_edid_property(connector, NULL);
+	drm_connector_update_edid_property(connector, NULL);
 	SDE_EDID_DEBUG("%s null edid -", __func__);
 	return rc;
 }

@@ -18,6 +18,7 @@
 #define SDE_POWER_HANDLE_CONT_SPLASH_BUS_AB_QUOTA	1800000000
 
 #include <linux/sde_io_util.h>
+#include <soc/qcom/cx_ipeak.h>
 
 /* event will be triggered before power handler disable */
 #define SDE_POWER_EVENT_PRE_DISABLE	0x1
@@ -35,11 +36,15 @@
  * mdss_bus_vote_type: register bus vote type
  * VOTE_INDEX_DISABLE: removes the client vote
  * VOTE_INDEX_LOW: keeps the lowest vote for register bus
+ * VOTE_INDEX_MEDIUM: keeps medium vote for register bus
+ * VOTE_INDEX_HIGH: keeps the highest vote for register bus
  * VOTE_INDEX_MAX: invalid
  */
 enum mdss_bus_vote_type {
 	VOTE_INDEX_DISABLE,
 	VOTE_INDEX_LOW,
+	VOTE_INDEX_MEDIUM,
+	VOTE_INDEX_HIGH,
 	VOTE_INDEX_MAX,
 };
 
@@ -153,6 +158,7 @@ struct sde_power_event {
  * @event_list: current power handle event list
  * @rsc_client: sde rsc client pointer
  * @rsc_client_init: boolean to control rsc client create
+ * @dss_cx_ipeak: client pointer for cx ipeak driver
  */
 struct sde_power_handle {
 	struct dss_module_power mp;
@@ -166,6 +172,7 @@ struct sde_power_handle {
 	struct list_head event_list;
 	struct sde_rsc_client *rsc_client;
 	bool rsc_client_init;
+	struct cx_ipeak_client *dss_cx_ipeak;
 };
 
 /**
@@ -218,6 +225,19 @@ void sde_power_client_destroy(struct sde_power_handle *phandle,
  */
 int sde_power_resource_enable(struct sde_power_handle *pdata,
 	struct sde_power_client *pclient, bool enable);
+
+/**
+ * sde_power_scale_reg_bus() - Scale the registers bus for the specified client
+ * @phandle:  power handle containing the resources
+ * @pclient: client information to scale its vote
+ * @usecase_ndx: new use case to scale the reg bus
+ * @skip_lock: will skip holding the power rsrc mutex during the call, this is
+ *		for internal callers that already hold this required lock.
+ *
+ * Return: error code.
+ */
+int sde_power_scale_reg_bus(struct sde_power_handle *phandle,
+	struct sde_power_client *pclient, u32 usecase_ndx, bool skip_lock);
 
 /**
  * sde_power_resource_is_enabled() - return true if power resource is enabled
@@ -276,6 +296,17 @@ u64 sde_power_clk_get_max_rate(struct sde_power_handle *pdata,
  */
 struct clk *sde_power_clk_get_clk(struct sde_power_handle *phandle,
 		char *clock_name);
+
+/**
+ * sde_power_clk_set_flags() - set the clock flags
+ * @pdata:  power handle containing the resources
+ * @clock_name: clock name to get the clk pointer.
+ * @flags: flags to set
+ *
+ * Return: error code.
+ */
+int sde_power_clk_set_flags(struct sde_power_handle *pdata,
+		char *clock_name, unsigned long flags);
 
 /**
  * sde_power_data_bus_set_quota() - set data bus quota for power client

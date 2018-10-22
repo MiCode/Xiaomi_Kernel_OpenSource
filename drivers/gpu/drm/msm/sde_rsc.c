@@ -25,20 +25,11 @@
 #define SDE_RSC_DRV_DBG_NAME		"sde_rsc_drv"
 #define SDE_RSC_WRAPPER_DBG_NAME	"sde_rsc_wrapper"
 
-/* worst case time to execute the one tcs vote(sleep/wake) - ~1ms */
-#define SINGLE_TCS_EXECUTION_TIME				1064000
+#define SINGLE_TCS_EXECUTION_TIME_V1	1064000
+#define SINGLE_TCS_EXECUTION_TIME_V2	850000
 
-/* this time is ~1ms - only wake tcs in any mode */
-#define RSC_BACKOFF_TIME_NS		 (SINGLE_TCS_EXECUTION_TIME + 100)
-
-/**
- * this time is ~1ms - only wake TCS in mode-0.
- * This time must be greater than backoff time.
- */
-#define RSC_MODE_THRESHOLD_TIME_IN_NS	(RSC_BACKOFF_TIME_NS + 2700)
-
-/* this time is ~2ms - sleep+ wake TCS in mode-1 */
-#define RSC_TIME_SLOT_0_NS		((SINGLE_TCS_EXECUTION_TIME * 2) + 100)
+#define RSC_MODE_INSTRUCTION_TIME	100
+#define RSC_MODE_THRESHOLD_OVERHEAD	2700
 
 #define DEFAULT_PANEL_FPS		60
 #define DEFAULT_PANEL_JITTER_NUMERATOR	2
@@ -330,9 +321,9 @@ static u32 sde_rsc_timer_calculate(struct sde_rsc_priv *rsc,
 	struct sde_rsc_cmd_config *cmd_config)
 {
 	const u32 cxo_period_ns = 52;
-	u64 rsc_backoff_time_ns = RSC_BACKOFF_TIME_NS;
-	u64 rsc_mode_threshold_time_ns = RSC_MODE_THRESHOLD_TIME_IN_NS;
-	u64 rsc_time_slot_0_ns = RSC_TIME_SLOT_0_NS;
+	u64 rsc_backoff_time_ns = rsc->backoff_time_ns;
+	u64 rsc_mode_threshold_time_ns = rsc->mode_threshold_time_ns;
+	u64 rsc_time_slot_0_ns = rsc->time_slot_0_ns;
 	u64 rsc_time_slot_1_ns;
 	const u64 pdc_jitter = 20; /* 20% more */
 
@@ -587,8 +578,12 @@ static int sde_rsc_switch_to_clk(struct sde_rsc_priv *rsc,
 			msecs_to_jiffies(PRIMARY_VBLANK_WORST_CASE_MS*2));
 		if (!rc) {
 			pr_err("Timeout waiting for vsync\n");
-			SDE_EVT32(atomic_read(&rsc->rsc_vsync_wait),
+			rc = -ETIMEDOUT;
+			SDE_EVT32(atomic_read(&rsc->rsc_vsync_wait), rc,
 				SDE_EVTLOG_ERROR);
+		} else {
+			SDE_EVT32(atomic_read(&rsc->rsc_vsync_wait), rc);
+			rc = 0;
 		}
 	}
 end:
@@ -643,8 +638,12 @@ static int sde_rsc_switch_to_vid(struct sde_rsc_priv *rsc,
 			msecs_to_jiffies(PRIMARY_VBLANK_WORST_CASE_MS*2));
 		if (!rc) {
 			pr_err("Timeout waiting for vsync\n");
-			SDE_EVT32(atomic_read(&rsc->rsc_vsync_wait),
+			rc = -ETIMEDOUT;
+			SDE_EVT32(atomic_read(&rsc->rsc_vsync_wait), rc,
 				SDE_EVTLOG_ERROR);
+		} else {
+			SDE_EVT32(atomic_read(&rsc->rsc_vsync_wait), rc);
+			rc = 0;
 		}
 	}
 
@@ -967,9 +966,6 @@ static int _sde_debugfs_status_show(struct seq_file *s, void *data)
 	rsc = s->private;
 
 	mutex_lock(&rsc->client_lock);
-	ret = sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
-	if (ret)
-		goto end;
 
 	seq_printf(s, "rsc current state:%d\n", rsc->current_state);
 	seq_printf(s, "wraper backoff time(ns):%d\n",
@@ -995,12 +991,17 @@ static int _sde_debugfs_status_show(struct seq_file *s, void *data)
 		seq_printf(s, "\t client:%s state:%d\n",
 				client->name, client->current_state);
 
+	if (rsc->current_state == SDE_RSC_IDLE_STATE) {
+		pr_debug("debug node is not supported during idle state\n");
+		seq_puts(s, "hw state is not supported during idle pc\n");
+		goto end;
+	}
+
 	if (rsc->hw_ops.debug_show) {
 		ret = rsc->hw_ops.debug_show(s, rsc);
 		if (ret)
 			pr_err("sde rsc: hw debug failed ret:%d\n", ret);
 	}
-	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
 
 end:
 	mutex_unlock(&rsc->client_lock);
@@ -1024,20 +1025,21 @@ static ssize_t _sde_debugfs_mode_ctrl_read(struct file *file, char __user *buf,
 {
 	struct sde_rsc_priv *rsc = file->private_data;
 	char buffer[MAX_BUFFER_SIZE];
-	int blen = 0, rc;
+	int blen = 0;
 
 	if (*ppos || !rsc || !rsc->hw_ops.mode_ctrl)
 		return 0;
 
 	mutex_lock(&rsc->client_lock);
-	rc = sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
-	if (rc)
+	if (rsc->current_state == SDE_RSC_IDLE_STATE) {
+		pr_debug("debug node is not supported during idle state\n");
+		blen = snprintf(buffer, MAX_BUFFER_SIZE,
+				"hw state is not supported during idle pc\n");
 		goto end;
+	}
 
 	blen = rsc->hw_ops.mode_ctrl(rsc, MODE_READ, buffer,
 							MAX_BUFFER_SIZE, 0);
-
-	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
 
 end:
 	mutex_unlock(&rsc->client_lock);
@@ -1090,14 +1092,14 @@ static ssize_t _sde_debugfs_mode_ctrl_write(struct file *file,
 	}
 
 	mutex_lock(&rsc->client_lock);
-	rc = sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
-	if (rc)
-		goto clk_enable_fail;
+	if (rsc->current_state == SDE_RSC_IDLE_STATE) {
+		pr_debug("debug node is not supported during idle state\n");
+		goto state_check;
+	}
 
 	rsc->hw_ops.mode_ctrl(rsc, MODE_UPDATE, NULL, 0, mode_state);
-	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
 
-clk_enable_fail:
+state_check:
 	mutex_unlock(&rsc->client_lock);
 end:
 	kfree(input);
@@ -1116,20 +1118,21 @@ static ssize_t _sde_debugfs_vsync_mode_read(struct file *file, char __user *buf,
 {
 	struct sde_rsc_priv *rsc = file->private_data;
 	char buffer[MAX_BUFFER_SIZE];
-	int blen = 0, rc;
+	int blen = 0;
 
 	if (*ppos || !rsc || !rsc->hw_ops.hw_vsync)
 		return 0;
 
 	mutex_lock(&rsc->client_lock);
-	rc = sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
-	if (rc)
+	if (rsc->current_state == SDE_RSC_IDLE_STATE) {
+		pr_debug("debug node is not supported during idle state\n");
+		blen = snprintf(buffer, MAX_BUFFER_SIZE,
+				"hw state is not supported during idle pc\n");
 		goto end;
+	}
 
 	blen = rsc->hw_ops.hw_vsync(rsc, VSYNC_READ, buffer,
 						MAX_BUFFER_SIZE, 0);
-
-	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
 
 end:
 	mutex_unlock(&rsc->client_lock);
@@ -1175,9 +1178,10 @@ static ssize_t _sde_debugfs_vsync_mode_write(struct file *file,
 	vsync_state &= 0x7;
 
 	mutex_lock(&rsc->client_lock);
-	rc = sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
-	if (rc)
-		goto clk_en_fail;
+	if (rsc->current_state == SDE_RSC_IDLE_STATE) {
+		pr_debug("debug node is not supported during idle state\n");
+		goto state_check;
+	}
 
 	if (vsync_state)
 		rsc->hw_ops.hw_vsync(rsc, VSYNC_ENABLE, NULL,
@@ -1185,9 +1189,7 @@ static ssize_t _sde_debugfs_vsync_mode_write(struct file *file,
 	else
 		rsc->hw_ops.hw_vsync(rsc, VSYNC_DISABLE, NULL, 0, 0);
 
-	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
-
-clk_en_fail:
+state_check:
 	mutex_unlock(&rsc->client_lock);
 end:
 	kfree(input);
@@ -1346,6 +1348,20 @@ static int sde_rsc_probe(struct platform_device *pdev)
 	of_property_read_u32(pdev->dev.of_node, "qcom,sde-rsc-version",
 								&rsc->version);
 
+	if (rsc->version == SDE_RSC_REV_2)
+		rsc->single_tcs_execution_time = SINGLE_TCS_EXECUTION_TIME_V2;
+	else
+		rsc->single_tcs_execution_time = SINGLE_TCS_EXECUTION_TIME_V1;
+
+	rsc->backoff_time_ns = rsc->single_tcs_execution_time
+					+ RSC_MODE_INSTRUCTION_TIME;
+
+	rsc->mode_threshold_time_ns = rsc->backoff_time_ns
+					+ RSC_MODE_THRESHOLD_OVERHEAD;
+
+	rsc->time_slot_0_ns = (rsc->single_tcs_execution_time * 2)
+					+ RSC_MODE_INSTRUCTION_TIME;
+
 	ret = sde_power_resource_init(pdev, &rsc->phandle);
 	if (ret) {
 		pr_err("sde rsc:power resource init failed ret:%d\n", ret);
@@ -1464,6 +1480,7 @@ static struct platform_driver sde_rsc_platform_driver = {
 	.driver     = {
 		.name   = "sde_rsc",
 		.of_match_table = dt_match,
+		.suppress_bind_attrs = true,
 	},
 };
 
