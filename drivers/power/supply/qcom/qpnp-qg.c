@@ -2586,7 +2586,7 @@ static int qg_determine_pon_soc(struct qpnp_qg *chip)
 	}
 
 	rc = qg_get_battery_temp(chip, &batt_temp);
-	if (rc) {
+	if (rc < 0) {
 		pr_err("Failed to read BATT_TEMP at PON rc=%d\n", rc);
 		goto done;
 	}
