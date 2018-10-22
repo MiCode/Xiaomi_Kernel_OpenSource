@@ -808,18 +808,14 @@ static void dp_mst_bridge_post_disable(struct drm_bridge *drm_bridge)
 	mst = dp->dp_mst_prv_info;
 
 	rc = dp->disable(dp, bridge->dp_panel);
-	if (rc) {
-		pr_err("[%d] DP display disable failed, rc=%d\n",
+	if (rc)
+		pr_info("[%d] DP display disable failed, rc=%d\n",
 		       bridge->id, rc);
-		return;
-	}
 
 	rc = dp->unprepare(dp, bridge->dp_panel);
-	if (rc) {
-		pr_err("[%d] DP display unprepare failed, rc=%d\n",
+	if (rc)
+		pr_info("[%d] DP display unprepare failed, rc=%d\n",
 		       bridge->id, rc);
-		return;
-	}
 
 	/* Disconnect the connector and panel info from bridge */
 	mst->mst_bridge[bridge->id].connector = NULL;
@@ -1130,7 +1126,6 @@ static int dp_mst_connector_atomic_check(struct drm_connector *connector,
 	state = new_conn_state->state;
 
 	old_conn_state = drm_atomic_get_old_connector_state(state, connector);
-
 	if (!old_conn_state)
 		goto mode_set;
 
@@ -1149,7 +1144,6 @@ static int dp_mst_connector_atomic_check(struct drm_connector *connector,
 
 	bridge = _dp_mst_get_bridge_from_encoder(dp_display,
 			old_conn_state->best_encoder);
-
 	if (!bridge)
 		return rc;
 
@@ -1177,14 +1171,23 @@ mode_set:
 				&crtc_state->mode, &dp_mode);
 
 		slots = _dp_mst_compute_config(state, mst, connector, &dp_mode);
-		if (slots < 0)
+		if (slots < 0) {
 			rc = slots;
+
+			/* Disconnect the conn and panel info from bridge */
+			bridge = _dp_mst_get_bridge_from_encoder(dp_display,
+						new_conn_state->best_encoder);
+			if (!bridge)
+				goto end;
+
+			bridge->connector = NULL;
+			bridge->dp_panel = NULL;
+			bridge->encoder_active_sts = false;
+		}
 	}
 
+end:
 	DP_MST_DEBUG("mst connector:%d atomic check\n", connector->base.id);
-
-	DP_MST_DEBUG("exit:\n");
-
 	return rc;
 }
 
