@@ -18,6 +18,7 @@
 #include <dt-bindings/msm/msm-bus-ids.h>
 #include <dt-bindings/soc/qcom,ipcc.h>
 #include <dt-bindings/soc/qcom,rpmh-rsc.h>
+#include <dt-bindings/gpio/gpio.h>
 
 #include "kona-regulators.dtsi"
 
@@ -528,7 +529,7 @@
 		qcom,ap2mdm-errfatal-gpio = <&tlmm 57 0x00>;
 		qcom,mdm2ap-status-gpio   = <&tlmm 3 0x00>;
 		qcom,ap2mdm-status-gpio   = <&tlmm 56 0x00>;
-		qcom,ap2mdm-soft-reset-gpio = <&tlmm 145 0x00>;
+		qcom,ap2mdm-soft-reset-gpio = <&tlmm 145 GPIO_ACTIVE_LOW>;
 		qcom,mdm-link-info = "0306_02.01.00";
 		status = "ok";
 	};
