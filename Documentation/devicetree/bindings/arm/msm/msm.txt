@@ -97,6 +97,9 @@ Generic board variants:
 - QRD device:
   compatible = "qcom,qrd"
 
+- HDK device:
+  compatible = "qcom,hdk"
+
 - ADP device:
   compatible = "qcom,adp"
 
@@ -152,6 +155,7 @@ compatible = "qcom,sm8150-rumi"
 compatible = "qcom,sm8150-mtp"
 compatible = "qcom,sm8150-cdp"
 compatible = "qcom,sm8150-qrd"
+compatible = "qcom,sm8150-hdk"
 compatible = "qcom,sm8150p-cdp"
 compatible = "qcom,sm8150p-mtp"
 compatible = "qcom,sm8150p-qrd"
