@@ -1572,6 +1572,14 @@ static int cam_ife_mgr_acquire_hw(void *hw_mgr_priv,
 			u64_to_user_ptr(isp_resource[i].res_hdl),
 			isp_resource[i].length);
 		if (!IS_ERR(in_port)) {
+			if (in_port->num_out_res > CAM_IFE_HW_OUT_RES_MAX) {
+				CAM_ERR(CAM_ISP, "too many output res %d",
+					in_port->num_out_res);
+				rc = -EINVAL;
+				kfree(in_port);
+				goto free_res;
+			}
+
 			in_port_length = sizeof(struct cam_isp_in_port_info) +
 				(in_port->num_out_res - 1) *
 				sizeof(struct cam_isp_out_port_info);
