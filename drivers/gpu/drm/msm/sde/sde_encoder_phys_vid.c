@@ -794,7 +794,6 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 	struct sde_encoder_phys_vid *vid_enc;
 	struct sde_hw_intf *intf;
 	struct sde_hw_ctl *ctl;
-	bool merge_3d_enable = false;
 
 	if (!phys_enc || !phys_enc->parent || !phys_enc->parent->dev ||
 			!phys_enc->parent->dev->dev_private ||
@@ -855,15 +854,11 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 		goto skip_flush;
 	}
 
-	if (sde_encoder_helper_get_3d_blend_mode(phys_enc) != BLEND_3D_NONE)
-		merge_3d_enable = true;
-
 	ctl->ops.update_bitmask_intf(ctl, intf->idx, 1);
 
-	if (test_bit(SDE_CTL_ACTIVE_CFG, &ctl->caps->features) &&
-			phys_enc->hw_pp->merge_3d)
+	if (ctl->ops.update_bitmask_merge3d && phys_enc->hw_pp->merge_3d)
 		ctl->ops.update_bitmask_merge3d(ctl,
-			phys_enc->hw_pp->merge_3d->idx, merge_3d_enable);
+			phys_enc->hw_pp->merge_3d->idx, 1);
 
 skip_flush:
 	SDE_DEBUG_VIDENC(vid_enc, "update pending flush ctl %d intf %d\n",

@@ -131,7 +131,6 @@ static void _sde_encoder_phys_cmd_update_flush_mask(
 {
 	struct sde_encoder_phys_cmd *cmd_enc;
 	struct sde_hw_ctl *ctl;
-	bool merge_3d_enable = false;
 
 	if (!phys_enc || !phys_enc->hw_intf || !phys_enc->hw_pp)
 		return;
@@ -149,16 +148,11 @@ static void _sde_encoder_phys_cmd_update_flush_mask(
 		return;
 	}
 
-	if (sde_encoder_helper_get_3d_blend_mode(phys_enc) != BLEND_3D_NONE)
-		merge_3d_enable = true;
-
 	ctl->ops.update_bitmask_intf(ctl, phys_enc->intf_idx, 1);
 
-
-	if (test_bit(SDE_CTL_ACTIVE_CFG, &ctl->caps->features) &&
-			phys_enc->hw_pp->merge_3d)
+	if (ctl->ops.update_bitmask_merge3d && phys_enc->hw_pp->merge_3d)
 		ctl->ops.update_bitmask_merge3d(ctl,
-			phys_enc->hw_pp->merge_3d->idx, merge_3d_enable);
+			phys_enc->hw_pp->merge_3d->idx, 1);
 
 	SDE_DEBUG_CMDENC(cmd_enc, "update pending flush ctl %d intf_idx %x\n",
 			ctl->idx - CTL_0, phys_enc->intf_idx);
