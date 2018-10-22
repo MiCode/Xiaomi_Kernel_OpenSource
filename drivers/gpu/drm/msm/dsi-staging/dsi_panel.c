@@ -2369,10 +2369,12 @@ static int dsi_panel_parse_dsc_params(struct dsi_display_mode *mode,
 	priv_info->dsc.pic_width = mode->timing.h_active;
 	priv_info->dsc.pic_height = mode->timing.v_active;
 
-	rc = utils->read_u32(utils->data, "qcom,mdss-dsc-slice-per-pkt",
-			&data);
+	rc = utils->read_u32(utils->data, "qcom,mdss-dsc-slice-per-pkt", &data);
 	if (rc) {
 		pr_err("failed to parse qcom,mdss-dsc-slice-per-pkt\n");
+		goto error;
+	} else if (!data || (data > 2)) {
+		pr_err("invalid dsc slice-per-pkt:%d\n", data);
 		goto error;
 	}
 	priv_info->dsc.slice_per_pkt = data;
