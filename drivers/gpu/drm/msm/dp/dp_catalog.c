@@ -940,6 +940,11 @@ static void dp_catalog_panel_config_msa(struct dp_catalog_panel *panel,
 		 * always be within the range of a 32 bit unsigned int.
 		 */
 		mvid = (u32) mvid_calc;
+
+		if (panel->widebus_en) {
+			mvid <<= 1;
+			nvid <<= 1;
+		}
 	} else {
 		io_data = catalog->io.dp_mmss_cc;
 
@@ -956,6 +961,9 @@ static void dp_catalog_panel_config_msa(struct dp_catalog_panel *panel,
 		nvid = (0xFFFF & (~pixel_n)) + (pixel_m & 0xFFFF);
 
 		pr_debug("rate = %d\n", rate);
+
+		if (panel->widebus_en)
+			mvid <<= 1;
 
 		if (link_rate_hbr2 == rate)
 			nvid *= 2;
@@ -1724,7 +1732,7 @@ static int dp_catalog_panel_timing_cfg(struct dp_catalog_panel *panel)
 {
 	struct dp_catalog_private *catalog;
 	struct dp_io_data *io_data;
-	u32 offset = 0;
+	u32 offset = 0, reg;
 
 	if (!panel) {
 		pr_err("invalid input\n");
@@ -1750,6 +1758,20 @@ static int dp_catalog_panel_timing_cfg(struct dp_catalog_panel *panel)
 		DP_HSYNC_VSYNC_WIDTH_POLARITY + offset, panel->width_blanking);
 	dp_write(catalog->exe_mode, io_data, DP_ACTIVE_HOR_VER + offset,
 			panel->dp_active);
+
+	if (panel->stream_id == DP_STREAM_0)
+		io_data = catalog->io.dp_p0;
+	else
+		io_data = catalog->io.dp_p1;
+
+	reg = dp_read(catalog->exe_mode, io_data, MMSS_DP_INTF_CONFIG);
+
+	if (panel->widebus_en)
+		reg |= BIT(4);
+	else
+		reg &= ~BIT(4);
+
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_INTF_CONFIG, reg);
 end:
 	return 0;
 }

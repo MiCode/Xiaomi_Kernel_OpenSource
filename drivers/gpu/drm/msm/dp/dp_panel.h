@@ -46,6 +46,7 @@ struct dp_panel_info {
 	u32 refresh_rate;
 	u32 pixel_clk_khz;
 	u32 bpp;
+	bool widebus_en;
 };
 
 struct dp_display_mode {
@@ -62,6 +63,7 @@ struct dp_panel_in {
 	struct dp_catalog_panel *catalog;
 	struct drm_connector *connector;
 	struct dp_panel *base_panel;
+	struct dp_parser *parser;
 };
 
 struct dp_audio;
@@ -97,6 +99,7 @@ struct dp_panel {
 
 	struct dp_audio *audio;
 	bool audio_supported;
+	bool widebus_en;
 
 	int (*init)(struct dp_panel *dp_panel);
 	int (*deinit)(struct dp_panel *dp_panel);

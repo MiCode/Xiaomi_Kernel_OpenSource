@@ -145,6 +145,11 @@ static void dp_catalog_panel_config_msa_v420(struct dp_catalog_panel *panel,
 		 * always be within the range of a 32 bit unsigned int.
 		 */
 		mvid = (u32) mvid_calc;
+
+		if (panel->widebus_en) {
+			mvid <<= 1;
+			nvid <<= 1;
+		}
 	} else {
 		io_data = catalog->io->dp_mmss_cc;
 
@@ -161,6 +166,9 @@ static void dp_catalog_panel_config_msa_v420(struct dp_catalog_panel *panel,
 		nvid = (0xFFFF & (~pixel_n)) + (pixel_m & 0xFFFF);
 
 		pr_debug("rate = %d\n", rate);
+
+		if (panel->widebus_en)
+			mvid <<= 1;
 
 		if (link_rate_hbr2 == rate)
 			nvid *= 2;

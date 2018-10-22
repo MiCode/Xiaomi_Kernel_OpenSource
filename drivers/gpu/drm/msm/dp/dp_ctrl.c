@@ -616,6 +616,9 @@ static int dp_ctrl_enable_stream_clocks(struct dp_ctrl_private *ctrl,
 		struct dp_panel *dp_panel)
 {
 	int ret = 0;
+	u32 pclk;
+	enum dp_pm_type clk_type;
+	char clk_name[32] = "";
 
 	ret = ctrl->power->set_pixel_clk_parent(ctrl->power,
 			dp_panel->stream_id);
@@ -624,25 +627,26 @@ static int dp_ctrl_enable_stream_clocks(struct dp_ctrl_private *ctrl,
 		return ret;
 
 	if (dp_panel->stream_id == DP_STREAM_0) {
-		dp_ctrl_set_clock_rate(ctrl, "strm0_pixel_clk", DP_STREAM0_PM,
-				dp_panel->pinfo.pixel_clk_khz);
-
-		ret = ctrl->power->clk_enable(ctrl->power, DP_STREAM0_PM, true);
-		if (ret) {
-			pr_err("Unabled to start stream0 clocks\n");
-			ret = -EINVAL;
-		}
+		clk_type = DP_STREAM0_PM;
+		strlcpy(clk_name, "strm0_pixel_clk", 32);
 	} else if (dp_panel->stream_id == DP_STREAM_1) {
-		dp_ctrl_set_clock_rate(ctrl, "strm1_pixel_clk", DP_STREAM1_PM,
-				dp_panel->pinfo.pixel_clk_khz);
-
-		ret = ctrl->power->clk_enable(ctrl->power, DP_STREAM1_PM, true);
-		if (ret) {
-			pr_err("Unabled to start stream1 clocks\n");
-			ret = -EINVAL;
-		}
+		clk_type = DP_STREAM1_PM;
+		strlcpy(clk_name, "strm1_pixel_clk", 32);
 	} else {
 		pr_err("Invalid stream:%d for clk enable\n",
+				dp_panel->stream_id);
+		return -EINVAL;
+	}
+
+	pclk = dp_panel->pinfo.widebus_en ?
+		(dp_panel->pinfo.pixel_clk_khz >> 1) :
+		(dp_panel->pinfo.pixel_clk_khz);
+
+	dp_ctrl_set_clock_rate(ctrl, clk_name, clk_type, pclk);
+
+	ret = ctrl->power->clk_enable(ctrl->power, clk_type, true);
+	if (ret) {
+		pr_err("Unabled to start stream:%d clocks\n",
 				dp_panel->stream_id);
 		ret = -EINVAL;
 	}

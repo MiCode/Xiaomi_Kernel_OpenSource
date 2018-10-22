@@ -640,6 +640,35 @@ static ssize_t dp_debug_mst_sideband_mode_write(struct file *file,
 	return len;
 }
 
+static ssize_t dp_debug_widebus_mode_write(struct file *file,
+		const char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	char buf[SZ_8];
+	size_t len = 0;
+	u32 widebus_mode = 0;
+
+	if (!debug || !debug->parser)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	len = min_t(size_t, count, SZ_8 - 1);
+	if (copy_from_user(buf, user_buff, len))
+		return -EFAULT;
+
+	buf[len] = '\0';
+
+	if (kstrtoint(buf, 10, &widebus_mode) != 0)
+		return -EINVAL;
+
+	debug->parser->has_widebus = widebus_mode ? true : false;
+	pr_debug("widebus_enable: %d\n", widebus_mode);
+
+	return len;
+}
+
 static ssize_t dp_debug_tpg_write(struct file *file,
 		const char __user *user_buff, size_t count, loff_t *ppos)
 {
@@ -1623,6 +1652,11 @@ static const struct file_operations hdcp_fops = {
 	.read = dp_debug_read_hdcp,
 };
 
+static const struct file_operations widebus_mode_fops = {
+	.open = simple_open,
+	.write = dp_debug_widebus_mode_write,
+};
+
 static int dp_debug_init(struct dp_debug *dp_debug)
 {
 	int rc = 0;
@@ -1832,6 +1866,14 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 		pr_err("[%s] debugfs hdcp failed, rc=%d\n",
 			DEBUG_NAME, rc);
 		goto error_remove_dir;
+	}
+
+	file = debugfs_create_file("widebus_mode", 0644, dir,
+			debug, &widebus_mode_fops);
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs widebus failed, rc=%d\n",
+		       DEBUG_NAME, rc);
 	}
 
 	return 0;
