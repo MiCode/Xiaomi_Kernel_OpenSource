@@ -794,13 +794,17 @@ int smblib_get_prop_from_bms(struct smb_charger *chg,
 int smblib_configure_hvdcp_apsd(struct smb_charger *chg, bool enable)
 {
 	int rc;
-	u8 mask = HVDCP_EN_BIT | BC1P2_SRC_DETECT_BIT;
+	u8 mask = (BC1P2_SRC_DETECT_BIT | HVDCP_EN_BIT |
+			HVDCP_AUTH_ALG_EN_CFG_BIT);
+
+	u8 val = BC1P2_SRC_DETECT_BIT | (chg->hvdcp_disable ? 0 :
+			(HVDCP_EN_BIT | HVDCP_AUTH_ALG_EN_CFG_BIT));
 
 	if (chg->pd_not_supported)
 		return 0;
 
 	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG, mask,
-						enable ? mask : 0);
+						enable ? val : 0);
 	if (rc < 0)
 		smblib_err(chg, "failed to write USBIN_OPTIONS_1_CFG rc=%d\n",
 				rc);
