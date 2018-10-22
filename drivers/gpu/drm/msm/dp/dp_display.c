@@ -1992,6 +1992,12 @@ static int dp_display_mst_connector_install(struct dp_display *dp_display,
 
 	mst_connector = kmalloc(sizeof(struct dp_mst_connector),
 			GFP_KERNEL);
+	if (!mst_connector) {
+		mutex_unlock(&dp->debug->dp_mst_connector_list.lock);
+		mutex_unlock(&dp->session_lock);
+		return -ENOMEM;
+	}
+
 	mst_connector->debug_en = false;
 	mst_connector->conn = connector;
 	mst_connector->con_id = connector->base.id;
