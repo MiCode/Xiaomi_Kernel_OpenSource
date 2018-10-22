@@ -119,6 +119,15 @@ static void drm_mode_to_intf_timing_params(
 		timing->vsync_polarity = 0;
 	}
 
+	/* for DP/EDP, Shift timings to align it to bottom right */
+	if ((phys_enc->hw_intf->cap->type == INTF_DP) ||
+		(phys_enc->hw_intf->cap->type == INTF_EDP)) {
+		timing->h_back_porch += timing->h_front_porch;
+		timing->h_front_porch = 0;
+		timing->v_back_porch += timing->v_front_porch;
+		timing->v_front_porch = 0;
+	}
+
 	timing->wide_bus_en = vid_enc->base.wide_bus_en;
 
 	/*
@@ -502,7 +511,8 @@ static void sde_encoder_phys_vid_setup_timing_engine(
 				&intf_cfg);
 	}
 	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
-	programmable_fetch_config(phys_enc, &timing_params);
+	if (phys_enc->hw_intf->cap->type == INTF_DSI)
+		programmable_fetch_config(phys_enc, &timing_params);
 
 exit:
 	if (phys_enc->parent_ops.get_qsync_fps)
