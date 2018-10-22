@@ -4203,8 +4203,8 @@ static int tpdm_parse_of_data(struct tpdm_drvdata *drvdata)
 			if (ret)
 				return ret;
 
-			drvdata->treg[i] = devm_regulator_get(drvdata,
-					    treg_name);
+			drvdata->treg[i] = devm_regulator_get(drvdata->dev,
+							treg_name);
 			if (IS_ERR(drvdata->treg[i]))
 				return PTR_ERR(drvdata->treg[i]);
 		}
