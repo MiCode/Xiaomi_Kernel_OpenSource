@@ -415,7 +415,9 @@ static ssize_t fd_show(struct kobject *kobj,
 	struct kobj_attribute *attr,
 	char *buf)
 {
-	return snprintf(buf, 16, "%d\n", fd);
+	struct qvr_external_sensor *sensor = &qvr_external_sensor;
+
+	return scnprintf(buf, 16, "%d\n", sensor->fd);
 }
 
 static ssize_t fd_store(struct kobject *kobj,
@@ -619,6 +621,7 @@ static void qvr_external_sensor_device_remove(struct hid_device *hdev)
 
 static struct hid_device_id qvr_external_sensor_table[] = {
 	{ HID_USB_DEVICE(USB_VENDOR_ID_QVR5, USB_DEVICE_ID_QVR5) },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_QVR32A, USB_DEVICE_ID_QVR32A) },
 	{ }
 };
 MODULE_DEVICE_TABLE(hid, qvr_external_sensor_table);
