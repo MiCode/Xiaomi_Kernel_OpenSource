@@ -186,10 +186,8 @@ First Level Node - FG Gen4 device
 - qcom,fg-batt-temp-hyst
 	Usage:      optional
 	Value type: <u32>
-	Definition: Battery temperature hysteresis threshold. This will be
-		    applicable only if the cold and hot thresholds are
-		    specified. Possible values are: 0, 1, 2 and 3. Unit is in
-		    Kelvin or Celsius.
+	Definition: Battery temperature hysteresis threshold. Possible values
+		    are: 0, 1, 2 and 3. Unit is in Kelvin or Celsius.
 
 - qcom,fg-force-load-profile
 	Usage:      optional
