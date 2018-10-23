@@ -387,14 +387,13 @@ int cam_flash_flush_request(struct cam_req_mgr_flush_request *flush)
 	int rc = 0;
 	struct cam_flash_ctrl *fctrl = NULL;
 
-	mutex_lock(&fctrl->flash_mutex);
 	fctrl = (struct cam_flash_ctrl *) cam_get_device_priv(flush->dev_hdl);
 	if (!fctrl) {
 		CAM_ERR(CAM_FLASH, "Device data is NULL");
-		rc = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
 
+	mutex_lock(&fctrl->flash_mutex);
 	if (flush->type == CAM_REQ_MGR_FLUSH_TYPE_ALL) {
 		fctrl->last_flush_req = flush->req_id;
 		CAM_DBG(CAM_FLASH, "last reqest to flush is %lld",

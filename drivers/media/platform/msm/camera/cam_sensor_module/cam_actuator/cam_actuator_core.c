@@ -901,21 +901,19 @@ int32_t cam_actuator_flush_request(struct cam_req_mgr_flush_request *flush_req)
 	if (!flush_req)
 		return -EINVAL;
 
-	mutex_lock(&(a_ctrl->actuator_mutex));
 	a_ctrl = (struct cam_actuator_ctrl_t *)
 		cam_get_device_priv(flush_req->dev_hdl);
 	if (!a_ctrl) {
 		CAM_ERR(CAM_ACTUATOR, "Device data is NULL");
-		rc = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
 
 	if (a_ctrl->i2c_data.per_frame == NULL) {
 		CAM_ERR(CAM_ACTUATOR, "i2c frame data is NULL");
-		rc = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
 
+	mutex_lock(&(a_ctrl->actuator_mutex));
 	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_ALL) {
 		a_ctrl->last_flush_req = flush_req->req_id;
 		CAM_DBG(CAM_ACTUATOR, "last reqest to flush is %lld",
@@ -949,7 +947,6 @@ int32_t cam_actuator_flush_request(struct cam_req_mgr_flush_request *flush_req)
 		CAM_DBG(CAM_ACTUATOR,
 			"Flush request id:%lld not found in the pending list",
 			flush_req->req_id);
-end:
 	mutex_unlock(&(a_ctrl->actuator_mutex));
 	return rc;
 }
