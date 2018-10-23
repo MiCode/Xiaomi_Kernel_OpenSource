@@ -289,6 +289,28 @@ static size_t av8l_fast_unmap(struct io_pgtable_ops *ops, unsigned long iova,
 	return __av8l_fast_unmap(ops, iova, size, false);
 }
 
+static int av8l_fast_map_sg(struct io_pgtable_ops *ops,
+			unsigned long iova, struct scatterlist *sgl,
+			unsigned int nents, int prot, size_t *size)
+{
+	struct scatterlist *sg;
+	int i;
+
+	for_each_sg(sgl, sg, nents, i) {
+		av8l_fast_map(ops, iova, sg_phys(sg), sg->length, prot);
+		iova += sg->length;
+	}
+
+	return nents;
+}
+
+int av8l_fast_map_sg_public(struct io_pgtable_ops *ops,
+			    unsigned long iova, struct scatterlist *sgl,
+			    unsigned int nents, int prot, size_t *size)
+{
+	return av8l_fast_map_sg(ops, iova, sgl, nents, prot, size);
+}
+
 #if defined(CONFIG_ARM64)
 #define FAST_PGDNDX(va) (((va) & 0x7fc0000000) >> 27)
 #elif defined(CONFIG_ARM)
@@ -335,13 +357,6 @@ phys_addr_t av8l_fast_iova_to_phys_public(struct io_pgtable_ops *ops,
 					  unsigned long iova)
 {
 	return av8l_fast_iova_to_phys(ops, iova);
-}
-
-static int av8l_fast_map_sg(struct io_pgtable_ops *ops, unsigned long iova,
-			    struct scatterlist *sg, unsigned int nents,
-			    int prot, size_t *size)
-{
-	return -ENODEV;
 }
 
 static bool av8l_fast_iova_coherent(struct io_pgtable_ops *ops,

@@ -24,6 +24,10 @@ int av8l_fast_map_public(struct io_pgtable_ops *ops, unsigned long iova,
 void av8l_fast_unmap_public(struct io_pgtable_ops *ops, unsigned long iova,
 				size_t size);
 
+int av8l_fast_map_sg_public(struct io_pgtable_ops *ops,
+			unsigned long iova, struct scatterlist *sgl,
+			unsigned int nents, int prot, size_t *size);
+
 bool av8l_fast_iova_coherent_public(struct io_pgtable_ops *ops,
 					unsigned long iova);
 
@@ -39,6 +43,13 @@ av8l_fast_map_public(struct io_pgtable_ops *ops, unsigned long iova,
 static inline void av8l_fast_unmap_public(struct io_pgtable_ops *ops,
 					  unsigned long iova, size_t size)
 {
+}
+
+static inline int av8l_fast_map_sg_public(struct io_pgtable_ops *ops,
+				unsigned long iova, struct scatterlist *sgl,
+				unsigned int nents, int prot, size_t *size)
+{
+	return 0;
 }
 
 static inline bool av8l_fast_iova_coherent_public(struct io_pgtable_ops *ops,
