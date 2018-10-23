@@ -318,10 +318,10 @@ int cam_mem_mgr_cache_ops(struct cam_mem_cache_ops_cmd *cmd)
 	if (dmabuf_flag & ION_FLAG_CACHED) {
 		switch (cmd->mem_cache_ops) {
 		case CAM_MEM_CLEAN_CACHE:
-			cache_dir = DMA_FROM_DEVICE;
+			cache_dir = DMA_TO_DEVICE;
 			break;
 		case CAM_MEM_INV_CACHE:
-			cache_dir = DMA_TO_DEVICE;
+			cache_dir = DMA_FROM_DEVICE;
 			break;
 		case CAM_MEM_CLEAN_INV_CACHE:
 			cache_dir = DMA_BIDIRECTIONAL;
@@ -338,7 +338,8 @@ int cam_mem_mgr_cache_ops(struct cam_mem_cache_ops_cmd *cmd)
 	}
 
 	rc = dma_buf_begin_cpu_access(tbl.bufq[idx].dma_buf,
-		cache_dir);
+		(cmd->mem_cache_ops == CAM_MEM_CLEAN_INV_CACHE) ?
+		DMA_BIDIRECTIONAL : DMA_TO_DEVICE);
 	if (rc) {
 		CAM_ERR(CAM_MEM, "dma begin access failed rc=%d", rc);
 		goto end;
@@ -771,11 +772,11 @@ static int cam_mem_util_unmap_hw_va(int32_t idx,
 	int32_t *mmu_hdls;
 	int num_hdls;
 	int fd;
-	int rc = -EINVAL;
+	int rc = 0;
 
 	if (idx >= CAM_MEM_BUFQ_MAX || idx <= 0) {
 		CAM_ERR(CAM_MEM, "Incorrect index");
-		return rc;
+		return -EINVAL;
 	}
 
 	flags = tbl.bufq[idx].flags;
@@ -920,13 +921,11 @@ static int cam_mem_util_unmap(int32_t idx,
 		if (tbl.bufq[idx].dma_buf && tbl.bufq[idx].kmdvaddr) {
 			rc = cam_mem_util_unmap_cpu_va(tbl.bufq[idx].dma_buf,
 				tbl.bufq[idx].kmdvaddr);
-			if (rc) {
+			if (rc)
 				CAM_ERR(CAM_MEM,
 					"Failed, dmabuf=%pK, kmdvaddr=%pK",
 					tbl.bufq[idx].dma_buf,
 					tbl.bufq[idx].kmdvaddr);
-				return rc;
-			}
 		}
 	}
 
@@ -940,9 +939,11 @@ static int cam_mem_util_unmap(int32_t idx,
 
 	if ((tbl.bufq[idx].flags & CAM_MEM_FLAG_HW_READ_WRITE) ||
 		(tbl.bufq[idx].flags & CAM_MEM_FLAG_HW_SHARED_ACCESS) ||
-		(tbl.bufq[idx].flags & CAM_MEM_FLAG_PROTECTED_MODE))
-		rc = cam_mem_util_unmap_hw_va(idx, region, client);
-
+		(tbl.bufq[idx].flags & CAM_MEM_FLAG_PROTECTED_MODE)) {
+		if (cam_mem_util_unmap_hw_va(idx, region, client))
+			CAM_ERR(CAM_MEM, "Failed, dmabuf=%pK",
+				tbl.bufq[idx].dma_buf);
+	}
 
 	mutex_lock(&tbl.bufq[idx].q_lock);
 	tbl.bufq[idx].flags = 0;

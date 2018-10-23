@@ -247,6 +247,8 @@ static int __cam_isp_ctx_enqueue_init_request(
 				req_isp_new->num_cfg);
 			req_isp_old->num_cfg += req_isp_new->num_cfg;
 
+			req_old->request_id = req->request_id;
+
 			list_add_tail(&req->list, &ctx->free_req_list);
 		}
 	} else {

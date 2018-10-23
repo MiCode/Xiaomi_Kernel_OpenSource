@@ -179,6 +179,7 @@ static int32_t cam_flash_driver_cmd(struct cam_flash_ctrl *fctrl,
 		}
 
 		fctrl->func_tbl.flush_req(fctrl, FLUSH_ALL, 0);
+		fctrl->last_flush_req = 0;
 		fctrl->flash_state = CAM_FLASH_STATE_ACQUIRE;
 		break;
 	}

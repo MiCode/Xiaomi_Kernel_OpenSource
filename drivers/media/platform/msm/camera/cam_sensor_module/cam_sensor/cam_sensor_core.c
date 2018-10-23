@@ -340,14 +340,18 @@ int32_t cam_sensor_update_slave_info(struct cam_cmd_probe *probe_info,
 		probe_info->expected_data;
 	s_ctrl->sensordata->slave_info.sensor_id_mask =
 		probe_info->data_mask;
+	/* Userspace passes the pipeline delay in reserved field */
+	s_ctrl->pipeline_delay =
+		probe_info->reserved;
 
 	s_ctrl->sensor_probe_addr_type =  probe_info->addr_type;
 	s_ctrl->sensor_probe_data_type =  probe_info->data_type;
 	CAM_DBG(CAM_SENSOR,
-		"Sensor Addr: 0x%x sensor_id: 0x%x sensor_mask: 0x%x",
+		"Sensor Addr: 0x%x sensor_id: 0x%x sensor_mask: 0x%x sensor_pipeline_delay:0x%x",
 		s_ctrl->sensordata->slave_info.sensor_id_reg_addr,
 		s_ctrl->sensordata->slave_info.sensor_id,
-		s_ctrl->sensordata->slave_info.sensor_id_mask);
+		s_ctrl->sensordata->slave_info.sensor_id_mask,
+		s_ctrl->pipeline_delay);
 	return rc;
 }
 
@@ -823,6 +827,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		}
 
 		cam_sensor_release_per_frame_resource(s_ctrl);
+		s_ctrl->last_flush_req = 0;
 		s_ctrl->sensor_state = CAM_SENSOR_ACQUIRE;
 		CAM_INFO(CAM_SENSOR,
 			"CAM_STOP_DEV Success, sensor_id:0x%x,sensor_slave_addr:0x%x",
@@ -899,13 +904,25 @@ free_power_settings:
 int cam_sensor_publish_dev_info(struct cam_req_mgr_device_info *info)
 {
 	int rc = 0;
+	struct cam_sensor_ctrl_t *s_ctrl = NULL;
 
 	if (!info)
 		return -EINVAL;
 
+	s_ctrl = (struct cam_sensor_ctrl_t *)
+		cam_get_device_priv(info->dev_hdl);
+
+	if (!s_ctrl) {
+		CAM_ERR(CAM_SENSOR, "Device data is NULL");
+		return -EINVAL;
+	}
+
 	info->dev_id = CAM_REQ_MGR_DEVICE_SENSOR;
 	strlcpy(info->name, CAM_SENSOR_NAME, sizeof(info->name));
-	info->p_delay = 2;
+	if (s_ctrl->pipeline_delay >= 1 && s_ctrl->pipeline_delay <= 3)
+		info->p_delay = s_ctrl->pipeline_delay;
+	else
+		info->p_delay = 2;
 	info->trigger = CAM_TRIGGER_POINT_SOF;
 
 	return rc;
@@ -1193,6 +1210,7 @@ int32_t cam_sensor_flush_request(struct cam_req_mgr_flush_request *flush_req)
 		return -EINVAL;
 	}
 
+	mutex_lock(&(s_ctrl->cam_sensor_mutex));
 	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_ALL) {
 		s_ctrl->last_flush_req = flush_req->req_id;
 		CAM_DBG(CAM_SENSOR, "last reqest to flush is %lld",
@@ -1207,9 +1225,7 @@ int32_t cam_sensor_flush_request(struct cam_req_mgr_flush_request *flush_req)
 			continue;
 
 		if (i2c_set->is_settings_valid == 1) {
-			mutex_lock(&(s_ctrl->cam_sensor_mutex));
 			rc = delete_request(i2c_set);
-			mutex_unlock(&(s_ctrl->cam_sensor_mutex));
 			if (rc < 0)
 				CAM_ERR(CAM_SENSOR,
 					"delete request: %lld rc: %d",
@@ -1228,5 +1244,6 @@ int32_t cam_sensor_flush_request(struct cam_req_mgr_flush_request *flush_req)
 		CAM_DBG(CAM_SENSOR,
 			"Flush request id:%lld not found in the pending list",
 			flush_req->req_id);
+	mutex_unlock(&(s_ctrl->cam_sensor_mutex));
 	return rc;
 }
