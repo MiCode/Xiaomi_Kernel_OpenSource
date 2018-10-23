@@ -726,17 +726,23 @@ int drm_notifier_callback(struct notifier_block *self,
 
 	D("DRM  %s\n", __func__);
 
-	if (evdata->data && event == MSM_DRM_EVENT_BLANK && ts && ts->client) {
+	if (evdata->data && event == MSM_DRM_EARLY_EVENT_BLANK && ts &&
+							ts->client) {
 		blank = evdata->data;
-
 		switch (*blank) {
-		case MSM_DRM_BLANK_UNBLANK:
-			himax_common_resume(&ts->client->dev);
-			break;
 		case MSM_DRM_BLANK_POWERDOWN:
 			if (!ts->initialized)
 				return -ECANCELED;
 			himax_common_suspend(&ts->client->dev);
+			break;
+		}
+	}
+
+	if (evdata->data && event == MSM_DRM_EVENT_BLANK && ts && ts->client) {
+		blank = evdata->data;
+		switch (*blank) {
+		case MSM_DRM_BLANK_UNBLANK:
+			himax_common_resume(&ts->client->dev);
 			break;
 		}
 	}
