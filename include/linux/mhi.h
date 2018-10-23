@@ -252,8 +252,8 @@ struct mhi_controller {
 	int (*runtime_get)(struct mhi_controller *mhi_cntrl, void *priv);
 	void (*runtime_put)(struct mhi_controller *mhi_cntrl, void *priv);
 	u64 (*time_get)(struct mhi_controller *mhi_cntrl, void *priv);
-	void (*lpm_disable)(struct mhi_controller *mhi_cntrl, void *priv);
-	void (*lpm_enable)(struct mhi_controller *mhi_cntrl, void *priv);
+	int (*lpm_disable)(struct mhi_controller *mhi_cntrl, void *priv);
+	int (*lpm_enable)(struct mhi_controller *mhi_cntrl, void *priv);
 	int (*map_single)(struct mhi_controller *mhi_cntrl,
 			  struct mhi_buf_info *buf);
 	void (*unmap_single)(struct mhi_controller *mhi_cntrl,
