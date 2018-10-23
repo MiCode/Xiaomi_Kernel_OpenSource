@@ -492,6 +492,34 @@ static const struct apsd_result *smblib_get_apsd_result(struct smb_charger *chg)
 	return result;
 }
 
+#define INPUT_NOT_PRESENT	0
+#define INPUT_PRESENT_USB	BIT(1)
+#define INPUT_PRESENT_DC	BIT(2)
+static int smblib_is_input_present(struct smb_charger *chg,
+				   int *present)
+{
+	int rc;
+	union power_supply_propval pval = {0, };
+
+	*present = INPUT_NOT_PRESENT;
+
+	rc = smblib_get_prop_usb_present(chg, &pval);
+	if (rc < 0) {
+		pr_err("Couldn't get usb presence status rc=%d\n", rc);
+		return rc;
+	}
+	*present |= pval.intval ? INPUT_PRESENT_USB : INPUT_NOT_PRESENT;
+
+	rc = smblib_get_prop_dc_present(chg, &pval);
+	if (rc < 0) {
+		pr_err("Couldn't get dc presence status rc=%d\n", rc);
+		return rc;
+	}
+	*present |= pval.intval ? INPUT_PRESENT_DC : INPUT_NOT_PRESENT;
+
+	return 0;
+}
+
 /********************
  * REGISTER SETTERS *
  ********************/
@@ -2839,25 +2867,14 @@ cleanup:
 int smblib_get_prop_charger_temp(struct smb_charger *chg,
 				 union power_supply_propval *val)
 {
-	union power_supply_propval pval = {0, };
-	bool usb_present, dc_present;
 	int temp, rc;
+	int input_present;
 
-	rc = smblib_get_prop_usb_present(chg, &pval);
-	if (rc < 0) {
-		pr_err("Couldn't get usb presence status rc=%d\n", rc);
+	rc = smblib_is_input_present(chg, &input_present);
+	if (rc < 0)
 		return rc;
-	}
-	usb_present = pval.intval;
 
-	rc = smblib_get_prop_dc_present(chg, &pval);
-	if (rc < 0) {
-		pr_err("Couldn't get dc presence status rc=%d\n", rc);
-		return rc;
-	}
-	dc_present = pval.intval;
-
-	if (!usb_present && !dc_present)
+	if (input_present == INPUT_NOT_PRESENT)
 		return -ENODATA;
 
 	if (chg->iio.temp_chan) {
@@ -3168,6 +3185,14 @@ int smblib_get_prop_die_health(struct smb_charger *chg)
 {
 	int rc;
 	u8 stat;
+	int input_present;
+
+	rc = smblib_is_input_present(chg, &input_present);
+	if (rc < 0)
+		return rc;
+
+	if (input_present == INPUT_NOT_PRESENT)
+		return POWER_SUPPLY_HEALTH_UNKNOWN;
 
 	if (chg->wa_flags & SW_THERM_REGULATION_WA) {
 		if (chg->die_temp == -ENODATA)
@@ -4738,6 +4763,7 @@ irqreturn_t dc_plugin_irq_handler(int irq, void *data)
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
 	union power_supply_propval pval;
+	int input_present;
 	bool dcin_present, vbus_present;
 	int rc, wireless_vout = 0;
 
@@ -4750,20 +4776,12 @@ irqreturn_t dc_plugin_irq_handler(int irq, void *data)
 	wireless_vout /= 100000;
 	wireless_vout *= 100000;
 
-	rc = smblib_get_prop_dc_present(chg, &pval);
+	rc = smblib_is_input_present(chg, &input_present);
 	if (rc < 0)
 		return IRQ_HANDLED;
 
-	dcin_present = pval.intval;
-
-	rc = smblib_get_prop_usb_present(chg, &pval);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't get usb present rc = %d\n",
-				rc);
-		return IRQ_HANDLED;
-	}
-
-	vbus_present = pval.intval;
+	dcin_present = input_present & INPUT_PRESENT_DC;
+	vbus_present = input_present & INPUT_PRESENT_USB;
 
 	if (dcin_present) {
 		if (!vbus_present && chg->sec_cp_present) {
