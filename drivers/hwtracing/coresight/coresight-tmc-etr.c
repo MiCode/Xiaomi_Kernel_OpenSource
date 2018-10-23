@@ -1147,6 +1147,9 @@ static void tmc_disable_etr_sink(struct coresight_device *csdev)
 		tmc_etr_byte_cntr_stop(drvdata->byte_cntr);
 		coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
 		coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
+		/* Free memory outside the spinlock if need be */
+		if (drvdata->etr_buf)
+			tmc_etr_free_sysfs_buf(drvdata->etr_buf);
 	}
 	mutex_unlock(&drvdata->mem_lock);
 	dev_info(drvdata->dev, "TMC-ETR disabled\n");
