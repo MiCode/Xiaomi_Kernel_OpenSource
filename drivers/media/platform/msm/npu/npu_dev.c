@@ -1529,7 +1529,6 @@ static int npu_mbox_init(struct npu_device *npu_dev)
 {
 	struct platform_device *pdev = npu_dev->pdev;
 	struct npu_mbox *mbox_aop = &npu_dev->mbox_aop;
-	int ret = 0;
 
 	if (of_find_property(pdev->dev.of_node, "mboxes", NULL)) {
 		mbox_aop->client.dev = &pdev->dev;
@@ -1539,13 +1538,12 @@ static int npu_mbox_init(struct npu_device *npu_dev)
 
 		mbox_aop->chan = mbox_request_channel(&mbox_aop->client, 0);
 		if (IS_ERR(mbox_aop->chan)) {
-			ret = PTR_ERR(mbox_aop->chan);
-			pr_err("mailbox channel request failed, ret=%d\n", ret);
+			pr_warn("mailbox channel request failed\n");
 			mbox_aop->chan = NULL;
 		}
 	}
 
-	return ret;
+	return 0;
 }
 
 /* -------------------------------------------------------------------------
