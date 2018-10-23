@@ -311,6 +311,7 @@ enum {
 	PE_CTRL_REG,
 	PTRAIN_STS_REG,
 	ERR_STS_REG,
+	ERROR_MASK_REG,
 	PREST1,
 	NREST1,
 	NPULS1,
@@ -374,6 +375,12 @@ static struct param_info params[] = {
 	[ERR_STS_REG] = {
 		.name			= "RAW_CHGR_ERR",
 		.start_addr		= QNOVO_ERROR_STS,
+		.num_regs		= 1,
+		.units_str		= "",
+	},
+	[ERROR_MASK_REG] = {
+		.name			= "ERROR_MASK",
+		.start_addr		= QNOVO_ERROR_MASK,
 		.num_regs		= 1,
 		.units_str		= "",
 	},
@@ -467,6 +474,8 @@ static struct param_info params[] = {
 		.num_regs		= 2,
 		.reg_to_unit_multiplier	= 305185, /* converts to nA */
 		.reg_to_unit_divider	= 1,
+		.min_val		= -10000000,
+		.max_val		= 10000000,
 		.units_str		= "uA",
 	},
 	[PTTIME] = {
@@ -483,6 +492,8 @@ static struct param_info params[] = {
 		.num_regs		= 2,
 		.reg_to_unit_multiplier	= 1,
 		.reg_to_unit_divider	= 1,
+		.min_val		= 0,
+		.max_val		= 65535,
 		.units_str		= "S",
 	},
 	[NREST2] = {
@@ -881,7 +892,7 @@ static ssize_t current_store(struct class *c, struct class_attribute *attr,
 	if (i < 0)
 		return -EINVAL;
 
-	if (kstrtoul(ubuf, 0, &val_uA))
+	if (kstrtol(ubuf, 0, &val_uA))
 		return -EINVAL;
 
 	if (val_uA < params[i].min_val || val_uA > params[i].max_val) {
@@ -1004,6 +1015,7 @@ CLASS_ATTR_IDX_RW(fcc_uA_request, val);
 CLASS_ATTR_IDX_RW(PE_CTRL_REG, reg);
 CLASS_ATTR_IDX_RO(PTRAIN_STS_REG, reg);
 CLASS_ATTR_IDX_RO(ERR_STS_REG, reg);
+CLASS_ATTR_IDX_RW(ERROR_MASK, reg);
 CLASS_ATTR_IDX_RW(PREST1_uS, time);
 CLASS_ATTR_IDX_RW(NREST1_uS, time);
 CLASS_ATTR_IDX_RW(NPULS1_uS, time);
@@ -1041,6 +1053,7 @@ static struct attribute *qnovo_class_attrs[] = {
 	[PE_CTRL_REG]		= &class_attr_PE_CTRL_REG.attr,
 	[PTRAIN_STS_REG]	= &class_attr_PTRAIN_STS_REG.attr,
 	[ERR_STS_REG]		= &class_attr_ERR_STS_REG.attr,
+	[ERROR_MASK_REG]	= &class_attr_ERROR_MASK.attr,
 	[PREST1]		= &class_attr_PREST1_uS.attr,
 	[NREST1]		= &class_attr_NREST1_uS.attr,
 	[NPULS1]		= &class_attr_NPULS1_uS.attr,
