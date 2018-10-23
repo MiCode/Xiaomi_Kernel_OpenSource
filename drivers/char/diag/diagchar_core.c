@@ -220,11 +220,12 @@ static void diag_drain_apps_data(struct diag_apps_data_t *data)
 
 	err = diag_mux_write(DIAG_LOCAL_PROC, data->buf, data->len,
 			     data->ctxt);
-	if (err)
+	if (err) {
 		diagmem_free(driver, data->buf, POOL_TYPE_HDLC);
-
-	data->buf = NULL;
-	data->len = 0;
+	} else {
+		data->buf = NULL;
+		data->len = 0;
+	}
 }
 
 void diag_update_user_client_work_fn(struct work_struct *work)
@@ -922,7 +923,6 @@ drop:
 			} else if (buf_entry->buf_type == DCI_BUF_SECONDARY) {
 				diagmem_free(driver, buf_entry->data,
 					     POOL_TYPE_DCI);
-				buf_entry->data = NULL;
 				mutex_unlock(&buf_entry->data_mutex);
 				kfree(buf_entry);
 				continue;
@@ -2874,7 +2874,6 @@ static int diag_process_apps_data_hdlc(unsigned char *buf, int len,
 
 fail_free_buf:
 	diagmem_free(driver, data->buf, POOL_TYPE_HDLC);
-	data->buf = NULL;
 	data->len = 0;
 
 fail_ret:
@@ -2953,7 +2952,6 @@ static int diag_process_apps_data_non_hdlc(unsigned char *buf, int len,
 
 fail_free_buf:
 	diagmem_free(driver, data->buf, POOL_TYPE_HDLC);
-	data->buf = NULL;
 	data->len = 0;
 
 fail_ret:
@@ -2987,7 +2985,6 @@ static int diag_user_process_dci_data(const char __user *buf, int len)
 	err = diag_process_dci_transaction(user_space_data, len);
 fail:
 	diagmem_free(driver, user_space_data, mempool);
-	user_space_data = NULL;
 	return err;
 }
 
@@ -3025,7 +3022,6 @@ static int diag_user_process_dci_apps_data(const char __user *buf, int len,
 	diag_process_apps_dci_read_data(pkt_type, user_space_data, len);
 fail:
 	diagmem_free(driver, user_space_data, mempool);
-	user_space_data = NULL;
 	return err;
 }
 
@@ -3062,7 +3058,6 @@ static int diag_user_process_raw_data(const char __user *buf, int len)
 			pr_err("diag: In %s, possible integer underflow, payload size: %d\n",
 		       __func__, len);
 			diagmem_free(driver, user_space_data, mempool);
-			user_space_data = NULL;
 			return -EBADMSG;
 		}
 		len -= sizeof(int);
@@ -3072,7 +3067,6 @@ static int diag_user_process_raw_data(const char __user *buf, int len)
 						token_offset)) {
 			pr_alert("diag: mask request Invalid\n");
 			diagmem_free(driver, user_space_data, mempool);
-			user_space_data = NULL;
 			return -EFAULT;
 		}
 	}
@@ -3095,7 +3089,6 @@ static int diag_user_process_raw_data(const char __user *buf, int len)
 	}
 fail:
 	diagmem_free(driver, user_space_data, mempool);
-	user_space_data = NULL;
 	return ret;
 }
 
@@ -3230,7 +3223,6 @@ static int diag_user_process_apps_data(const char __user *buf, int len,
 		pr_alert("diag: In %s, unable to copy data from userspace, err: %d\n",
 			 __func__, ret);
 		diagmem_free(driver, user_space_data, mempool);
-		user_space_data = NULL;
 		diag_record_stats(pkt_type, PKT_DROP);
 		return -EBADMSG;
 	}
@@ -3244,7 +3236,6 @@ static int diag_user_process_apps_data(const char __user *buf, int len,
 				 __func__);
 		}
 		diagmem_free(driver, user_space_data, mempool);
-		user_space_data = NULL;
 
 		return 0;
 	}
@@ -3262,7 +3253,6 @@ static int diag_user_process_apps_data(const char __user *buf, int len,
 	mutex_unlock(&apps_data_mutex);
 
 	diagmem_free(driver, user_space_data, mempool);
-	user_space_data = NULL;
 
 	check_drain_timer();
 
