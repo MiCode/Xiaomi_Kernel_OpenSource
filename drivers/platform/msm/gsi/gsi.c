@@ -1202,6 +1202,8 @@ EXPORT_SYMBOL(gsi_register_device);
 int gsi_write_device_scratch(unsigned long dev_hdl,
 		struct gsi_device_scratch *val)
 {
+	unsigned int max_usb_pkt_size = 0;
+
 	if (!gsi_ctx) {
 		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
 		return -GSI_STATUS_NODEV;
@@ -1220,7 +1222,8 @@ int gsi_write_device_scratch(unsigned long dev_hdl,
 
 	if (val->max_usb_pkt_size_valid &&
 			val->max_usb_pkt_size != 1024 &&
-			val->max_usb_pkt_size != 512) {
+			val->max_usb_pkt_size != 512 &&
+			val->max_usb_pkt_size != 64) {
 		GSIERR("bad USB max pkt size dev_hdl=0x%lx sz=%u\n", dev_hdl,
 				val->max_usb_pkt_size);
 		return -GSI_STATUS_INVALID_PARAMS;
@@ -1230,9 +1233,15 @@ int gsi_write_device_scratch(unsigned long dev_hdl,
 	if (val->mhi_base_chan_idx_valid)
 		gsi_ctx->scratch.word0.s.mhi_base_chan_idx =
 			val->mhi_base_chan_idx;
-	if (val->max_usb_pkt_size_valid)
-		gsi_ctx->scratch.word0.s.max_usb_pkt_size =
-			(val->max_usb_pkt_size == 1024) ? 1 : 0;
+
+	if (val->max_usb_pkt_size_valid) {
+		max_usb_pkt_size = 2;
+		if (val->max_usb_pkt_size > 64)
+			max_usb_pkt_size =
+				(val->max_usb_pkt_size == 1024) ? 1 : 0;
+		gsi_ctx->scratch.word0.s.max_usb_pkt_size = max_usb_pkt_size;
+	}
+
 	gsi_writel(gsi_ctx->scratch.word0.val,
 			gsi_ctx->base +
 			GSI_EE_n_CNTXT_SCRATCH_0_OFFS(gsi_ctx->per.ee));

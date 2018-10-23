@@ -772,7 +772,7 @@ union __packed gsi_evt_scratch {
  *                           MHI base channel index
  * @max_usb_pkt_size_valid:  is max_usb_pkt_size valid?
  * @max_usb_pkt_size:        max USB packet size in bytes (valid values are
- *                           512 and 1024)
+ *                           64, 512 and 1024)
  */
 struct gsi_device_scratch {
 	bool mhi_base_chan_idx_valid;
