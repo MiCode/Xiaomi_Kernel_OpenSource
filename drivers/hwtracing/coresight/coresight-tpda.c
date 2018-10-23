@@ -646,8 +646,7 @@ static int tpda_parse_cmb(struct tpda_drvdata *drvdata)
 
 static int tpda_parse_of_data(struct tpda_drvdata *drvdata)
 {
-	int len, port, i, ret;
-	const __be32 *prop;
+	int ret;
 	struct device_node *node = drvdata->dev->of_node;
 
 	ret = of_property_read_u32(node, "qcom,tpda-atid", &drvdata->atid);
