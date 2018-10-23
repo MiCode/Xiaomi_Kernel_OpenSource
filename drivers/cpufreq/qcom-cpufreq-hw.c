@@ -12,7 +12,7 @@
 
 #define LUT_MAX_ENTRIES			40U
 #define CORE_COUNT_VAL(val)		(((val) & (GENMASK(18, 16))) >> 16)
-#define LUT_ROW_SIZE			32
+#define LUT_ROW_SIZE			4
 #define CLK_HW_DIV			2
 
 enum {
@@ -34,8 +34,8 @@ struct cpufreq_qcom {
 
 static const u16 cpufreq_qcom_std_offsets[REG_ARRAY_SIZE] = {
 	[REG_ENABLE]		= 0x0,
-	[REG_LUT_TABLE]		= 0x110,
-	[REG_PERF_STATE]	= 0x920,
+	[REG_LUT_TABLE]		= 0x100,
+	[REG_PERF_STATE]	= 0x320,
 };
 
 static struct cpufreq_qcom *qcom_freq_domain_map[NR_CPUS];
@@ -187,10 +187,10 @@ static int qcom_get_related_cpus(int index, struct cpumask *m)
 		cpu_np = of_cpu_device_node_get(cpu);
 		if (!cpu_np)
 			continue;
-		of_node_put(cpu_np);
 
 		ret = of_parse_phandle_with_args(cpu_np, "qcom,freq-domain",
 				"#freq-domain-cells", 0, &args);
+		of_node_put(cpu_np);
 		if (ret < 0)
 			continue;
 
@@ -203,6 +203,7 @@ static int qcom_get_related_cpus(int index, struct cpumask *m)
 
 static int qcom_cpu_resources_init(struct platform_device *pdev,
 				   unsigned int cpu, int index,
+				   unsigned int max_cores,
 				   unsigned long xo_rate,
 				   unsigned long cpu_hw_rate)
 {
@@ -244,7 +245,7 @@ static int qcom_cpu_resources_init(struct platform_device *pdev,
 		return ret;
 	}
 
-	c->max_cores = cpumask_weight(&c->related_cpus);
+	c->max_cores = max_cores;
 	if (!c->max_cores)
 		return -ENOENT;
 
@@ -302,7 +303,8 @@ static int qcom_resources_init(struct platform_device *pdev)
 			return ret;
 
 		ret = qcom_cpu_resources_init(pdev, cpu, args.args[0],
-					      xo_rate, cpu_hw_rate);
+					      args.args[1], xo_rate,
+					      cpu_hw_rate);
 		if (ret)
 			return ret;
 	}
