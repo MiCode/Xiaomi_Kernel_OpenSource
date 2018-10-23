@@ -201,11 +201,12 @@ bool sde_evtlog_is_enabled(struct sde_dbg_evtlog *evtlog, u32 flag);
  * @evtlog_buf:		target buffer to print into
  * @evtlog_buf_size:	size of target buffer
  * @update_last_entry:	whether or not to stop at most recent entry
+ * @full_dump:          whether to dump full or to limit print entries
  * Returns:		number of bytes written to buffer
  */
 ssize_t sde_evtlog_dump_to_buffer(struct sde_dbg_evtlog *evtlog,
 		char *evtlog_buf, ssize_t evtlog_buf_size,
-		bool update_last_entry);
+		bool update_last_entry, bool full_dump);
 
 /**
  * sde_dbg_init_dbg_buses - initialize debug bus dumping support for the chipset
@@ -329,16 +330,24 @@ void sde_evtlog_set_filter(struct sde_dbg_evtlog *evtlog, char *filter);
 int sde_evtlog_get_filter(struct sde_dbg_evtlog *evtlog, int index,
 		char *buf, size_t bufsz);
 
+#ifndef CONFIG_DRM_SDE_RSC
+static inline void sde_rsc_debug_dump(u32 mux_sel)
+{
+}
+#else
 /**
  * sde_rsc_debug_dump - sde rsc debug dump status
- * @mux_sel:	select mux on rsc debug bus
+ * @mux_sel:»       select mux on rsc debug bus
  */
 void sde_rsc_debug_dump(u32 mux_sel);
+#endif
 
 /**
  * dsi_ctrl_debug_dump - dump dsi debug dump status
+ * @entries:	array of debug bus control values
+ * @size:	size of the debug bus control array
  */
-void dsi_ctrl_debug_dump(void);
+void dsi_ctrl_debug_dump(u32 *entries, u32 size);
 
 #else
 static inline struct sde_dbg_evtlog *sde_evtlog_init(void)
@@ -430,7 +439,7 @@ static inline void sde_rsc_debug_dump(u32 mux_sel)
 {
 }
 
-static inline void dsi_ctrl_debug_dump(void)
+static inline void dsi_ctrl_debug_dump(u32 entries, u32 size)
 {
 }
 

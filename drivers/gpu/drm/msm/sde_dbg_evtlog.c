@@ -101,8 +101,10 @@ exit:
 
 /* always dump the last entries which are not dumped yet */
 static bool _sde_evtlog_dump_calc_range(struct sde_dbg_evtlog *evtlog,
-		bool update_last_entry)
+		bool update_last_entry, bool full_dump)
 {
+	int max_entries = full_dump ? SDE_EVTLOG_ENTRY : SDE_EVTLOG_PRINT_ENTRY;
+
 	if (!evtlog)
 		return false;
 
@@ -120,12 +122,11 @@ static bool _sde_evtlog_dump_calc_range(struct sde_dbg_evtlog *evtlog,
 			evtlog->last_dump += SDE_EVTLOG_ENTRY;
 	}
 
-	if ((evtlog->last_dump - evtlog->first) > SDE_EVTLOG_PRINT_ENTRY) {
+	if ((evtlog->last_dump - evtlog->first) > max_entries) {
 		pr_info("evtlog skipping %d entries, last=%d\n",
 			evtlog->last_dump - evtlog->first -
-			SDE_EVTLOG_PRINT_ENTRY,
-			evtlog->last_dump - 1);
-		evtlog->first = evtlog->last_dump - SDE_EVTLOG_PRINT_ENTRY;
+			max_entries, evtlog->last_dump - 1);
+		evtlog->first = evtlog->last_dump - max_entries;
 	}
 	evtlog->next = evtlog->first + 1;
 
@@ -134,7 +135,7 @@ static bool _sde_evtlog_dump_calc_range(struct sde_dbg_evtlog *evtlog,
 
 ssize_t sde_evtlog_dump_to_buffer(struct sde_dbg_evtlog *evtlog,
 		char *evtlog_buf, ssize_t evtlog_buf_size,
-		bool update_last_entry)
+		bool update_last_entry, bool full_dump)
 {
 	int i;
 	ssize_t off = 0;
@@ -147,7 +148,7 @@ ssize_t sde_evtlog_dump_to_buffer(struct sde_dbg_evtlog *evtlog,
 	spin_lock_irqsave(&evtlog->spin_lock, flags);
 
 	/* update markers, exit if nothing to print */
-	if (!_sde_evtlog_dump_calc_range(evtlog, update_last_entry))
+	if (!_sde_evtlog_dump_calc_range(evtlog, update_last_entry, full_dump))
 		goto exit;
 
 	log = &evtlog->logs[evtlog->first % SDE_EVTLOG_ENTRY];
