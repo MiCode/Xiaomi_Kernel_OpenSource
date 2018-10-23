@@ -827,6 +827,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		}
 
 		cam_sensor_release_per_frame_resource(s_ctrl);
+		s_ctrl->last_flush_req = 0;
 		s_ctrl->sensor_state = CAM_SENSOR_ACQUIRE;
 		CAM_INFO(CAM_SENSOR,
 			"CAM_STOP_DEV Success, sensor_id:0x%x,sensor_slave_addr:0x%x",

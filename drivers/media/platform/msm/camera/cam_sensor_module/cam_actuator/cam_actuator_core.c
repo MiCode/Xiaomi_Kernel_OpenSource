@@ -850,6 +850,7 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 						i2c_set->request_id, rc);
 			}
 		}
+		a_ctrl->last_flush_req = 0;
 		a_ctrl->cam_act_state = CAM_ACTUATOR_CONFIG;
 	}
 		break;
