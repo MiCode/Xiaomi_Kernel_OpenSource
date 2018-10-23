@@ -110,7 +110,6 @@
 		      <0x6064000 0x15000>;
 		reg-names = "tmc-base", "bam-base";
 
-		qcom,smmu-s1-bypass;
 		iommus = <&apps_smmu 0x05e0 0>,
 			<&apps_smmu 0x04a0 0>;
 
