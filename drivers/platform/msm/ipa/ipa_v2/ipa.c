@@ -74,6 +74,11 @@
 
 #define IPA_SPS_PROD_TIMEOUT_MSEC 100
 
+#define EP_EMPTY_MAX_RETRY 5
+#define IPA_BAM_REG_MAP_SIZE 4
+#define IPA_BAM_REG_N_OFST 0x1000
+
+
 #ifdef CONFIG_COMPAT
 #define IPA_IOC_ADD_HDR32 _IOWR(IPA_IOC_MAGIC, \
 					IPA_IOCTL_ADD_HDR, \
@@ -2238,6 +2243,8 @@ int ipa_apps_shutdown_cleanup(void)
 
 	ipa2_apps_shutdown_apps_ep_reset();
 
+	iounmap_non_ap_bam_regs();
+
 	IPA_ACTIVE_CLIENTS_DEC_SPECIAL("APPS_SHUTDOWN");
 
 	return 0;
@@ -2293,6 +2300,205 @@ int ipa_q6_pre_shutdown_cleanup(void)
 	return 0;
 }
 
+static void __iomem *ioremap_sw_desc_ofst_bam_register(int ep_idx)
+{
+	int ep_ofst = IPA_BAM_REG_N_OFST * ep_idx;
+
+	return ioremap(ipa_ctx->ipa_wrapper_base
+		+ IPA_BAM_REG_BASE_OFST
+		+ IPA_BAM_SW_DESC_OFST
+		+ ep_ofst,
+		IPA_BAM_REG_MAP_SIZE);
+}
+
+static void __iomem *ioremap_peer_desc_ofst_bam_register(int ep_idx)
+{
+	int ep_ofst = IPA_BAM_REG_N_OFST * ep_idx;
+
+	return ioremap(ipa_ctx->ipa_wrapper_base
+		+ IPA_BAM_REG_BASE_OFST
+		+ IPA_BAM_PEER_DESC_OFST
+		+ ep_ofst,
+		IPA_BAM_REG_MAP_SIZE);
+}
+
+/**
+* ioremap_non_ap_bam_regs() -
+	perform ioremap of non-apps eps
+	bam sw_ofsts and evnt_ring
+	register.
+	Present only Q6 ep's are done.
+*
+* Return codes:
+* 0: success
+* non-Zero: In case of memory failure
+*/
+int ioremap_non_ap_bam_regs(void)
+{
+	int client_idx;
+	int ep_idx;
+
+	if (!ipa_ctx) {
+		IPAERR("IPA driver init not done\n");
+		return -ENODEV;
+	}
+
+	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++)
+		if (IPA_CLIENT_IS_Q6_NON_ZIP_CONS(client_idx) ||
+			IPA_CLIENT_IS_Q6_ZIP_CONS(client_idx) ||
+			IPA_CLIENT_IS_Q6_NON_ZIP_PROD(client_idx) ||
+			IPA_CLIENT_IS_Q6_ZIP_PROD(client_idx)) {
+
+			ep_idx = ipa2_get_ep_mapping(client_idx);
+
+			if (ep_idx == -1)
+				continue;
+
+			ipa_ctx->ipa_non_ap_bam_s_desc_iova[ep_idx] =
+				ioremap_sw_desc_ofst_bam_register(ep_idx);
+			ipa_ctx->ipa_non_ap_bam_p_desc_iova[ep_idx] =
+				ioremap_peer_desc_ofst_bam_register(ep_idx);
+
+			if (!ipa_ctx->ipa_non_ap_bam_s_desc_iova[ep_idx] ||
+				!ipa_ctx->ipa_non_ap_bam_p_desc_iova[ep_idx]) {
+				IPAERR("IOREMA Failure @ ep %d\n", ep_idx);
+				return -ENOMEM;
+			}
+		}
+		return 0;
+}
+
+/**
+* iounmap_non_ap_bam_regs() -
+	unmap the ioremapped addr of
+	non-apps ep bam sw_ofsts and
+	evnt_ring register.
+*/
+void iounmap_non_ap_bam_regs(void)
+{
+	int client_idx;
+	int ep_idx;
+
+	if (!ipa_ctx) {
+		IPAERR("IPA driver init not done\n");
+		return;
+	}
+
+	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++)
+		if (IPA_CLIENT_IS_Q6_NON_ZIP_CONS(client_idx) ||
+			IPA_CLIENT_IS_Q6_ZIP_CONS(client_idx) ||
+			IPA_CLIENT_IS_Q6_NON_ZIP_PROD(client_idx) ||
+			IPA_CLIENT_IS_Q6_ZIP_PROD(client_idx)) {
+
+			ep_idx = ipa2_get_ep_mapping(client_idx);
+
+			if (ep_idx == -1)
+				continue;
+
+			if (ipa_ctx->ipa_non_ap_bam_s_desc_iova[ep_idx])
+				iounmap
+				(ipa_ctx->ipa_non_ap_bam_s_desc_iova[ep_idx]);
+			if (ipa_ctx->ipa_non_ap_bam_p_desc_iova[ep_idx])
+				iounmap
+				(ipa_ctx->ipa_non_ap_bam_p_desc_iova[ep_idx]);
+		}
+}
+
+/**
+* wait_for_ep_empty() - Wait for sps bam empty
+*
+* @client: ipa client to check for empty
+*
+* Return codes:
+* 0: success upon ep empty
+* non-Zero: Failure if ep non-empty
+*/
+
+int wait_for_ep_empty(enum ipa_client_type client)
+{
+	struct ipa_ep_context *ep = NULL;
+	u32 is_ep_empty = 0;
+	int ret = 0;
+	union ipa_bam_sw_peer_desc read_sw_desc;
+	union ipa_bam_sw_peer_desc read_peer_desc;
+	u32 retry = EP_EMPTY_MAX_RETRY;
+	int ep_idx = ipa2_get_ep_mapping(client);
+
+	if (ep_idx == -1)
+		return -ENODEV;
+
+	ep = &ipa_ctx->ep[ep_idx];
+
+check_ap_ep_empty:
+	if (ep->valid) {
+		ret = sps_is_pipe_empty(ep->ep_hdl, &is_ep_empty);
+		if (ret && retry--) {
+			usleep_range(IPA_UC_WAIT_MIN_SLEEP,
+				IPA_UC_WAII_MAX_SLEEP);
+			goto check_ap_ep_empty;
+		} else {
+			IPAERR("Ep %d is non-empty even after retries\n",
+				ep_idx);
+			ret = -1;
+		}
+	} else {
+		/* Might be Q6 ep, which is non-AP ep */
+
+check_non_ap_ep_empty:
+		IPADBG("request is for non-Apps ep %d\n", ep_idx);
+
+		if (IPA_CLIENT_IS_CONS(client)) {
+			/*
+			 * Do not wait for empty in client CONS ep's
+			 * It is software responsibility
+			 * to set sus/holb on client cons ep
+			 * and ipa would be empty due to that.
+			*/
+			ret = 0;
+			goto success;
+		}
+
+		if (ipa_ctx->ipa_non_ap_bam_s_desc_iova[ep_idx] &&
+			ipa_ctx->ipa_non_ap_bam_p_desc_iova[ep_idx]) {
+
+			read_sw_desc.read_reg =
+			ioread32
+			(ipa_ctx->ipa_non_ap_bam_s_desc_iova[ep_idx]);
+			read_peer_desc.read_reg =
+			ioread32
+			(ipa_ctx->ipa_non_ap_bam_p_desc_iova[ep_idx]);
+
+			IPADBG("sw_desc reg 0x%x\n",
+				read_sw_desc.read_reg);
+			IPADBG("sw_dsc_ofst = 0x%x\n",
+				read_sw_desc.sw_desc.sw_dsc_ofst);
+			IPADBG("sw_desc reg 0x%x\n",
+				read_peer_desc.read_reg);
+			IPADBG("p_dsc_fifo_peer_ofst = 0x%x\n",
+			read_peer_desc.peer_desc.p_dsc_fifo_peer_ofst);
+
+			if (read_sw_desc.sw_desc.sw_dsc_ofst ==
+				read_peer_desc.peer_desc.p_dsc_fifo_peer_ofst) {
+				IPADBG("EP %d is empty\n", ep_idx);
+				ret = 0;
+			} else if (retry) {
+				retry--;
+				usleep_range(IPA_UC_WAIT_MIN_SLEEP,
+				IPA_UC_WAII_MAX_SLEEP);
+				goto check_non_ap_ep_empty;
+			} else {
+				IPAERR
+				("Ep %d is non-empty even after retries\n",
+				ep_idx);
+				ret = -1;
+			}
+		}
+	}
+
+success:
+	return ret;
+}
+
 /**
 * ipa_q6_post_shutdown_cleanup() - A cleanup for the Q6 pipes
 *                    in IPA HW after modem shutdown. This is performed
@@ -2331,7 +2537,22 @@ int ipa_q6_post_shutdown_cleanup(void)
 			IPA_CLIENT_IS_Q6_ZIP_CONS(client_idx) ||
 			IPA_CLIENT_IS_Q6_NON_ZIP_PROD(client_idx) ||
 			IPA_CLIENT_IS_Q6_ZIP_PROD(client_idx)) {
-			res = ipa_uc_reset_pipe(client_idx);
+
+			if (ipa_ctx->is_apps_shutdown_support &&
+				(ipa2_get_ep_mapping(client_idx) != -1)) {
+				/*
+				 * Check  for Q6 ep empty
+				 * before issue a reset
+				 */
+				res = wait_for_ep_empty(client_idx);
+				if (res)
+					IPAERR("ep %d not empty\n",
+					ipa2_get_ep_mapping(client_idx));
+				else
+					res = ipa_uc_reset_pipe(client_idx);
+			} else {
+				res = ipa_uc_reset_pipe(client_idx);
+			}
 			if (res)
 				BUG();
 		}
@@ -4514,6 +4735,15 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 
 	ipa_register_panic_hdlr();
 
+	if (ipa_ctx->is_apps_shutdown_support) {
+		result = ioremap_non_ap_bam_regs();
+		if (result) {
+			IPAERR(":IOREMAP Failed (%d)\n", result);
+			goto fail_add_interrupt_handler;
+		} else {
+			IPAERR(":IOREMAP success (%d)\n", result);
+		}
+	}
 	pr_info("IPA driver initialization was successful.\n");
 
 	return 0;

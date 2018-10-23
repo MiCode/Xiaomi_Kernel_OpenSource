@@ -1105,6 +1105,8 @@ struct ipa_context {
 	struct cdev cdev;
 	unsigned long bam_handle;
 	struct ipa_ep_context ep[IPA_MAX_NUM_PIPES];
+	void __iomem *ipa_non_ap_bam_s_desc_iova[IPA_MAX_NUM_PIPES];
+	void __iomem *ipa_non_ap_bam_p_desc_iova[IPA_MAX_NUM_PIPES];
 	bool skip_ep_cfg_shadow[IPA_MAX_NUM_PIPES];
 	bool resume_on_connect[IPA_CLIENT_MAX];
 	struct ipa_flt_tbl flt_tbl[IPA_MAX_NUM_PIPES][IPA_IP_MAX];
@@ -1900,6 +1902,9 @@ int ipa_q6_pre_shutdown_cleanup(void);
 int ipa_apps_shutdown_cleanup(void);
 int register_ipa_platform_cb(int (*cb)(void));
 int ipa_q6_post_shutdown_cleanup(void);
+int wait_for_ep_empty(enum ipa_client_type client);
+int ioremap_non_ap_bam_regs(void);
+void iounmap_non_ap_bam_regs(void);
 int ipa_init_q6_smem(void);
 int ipa_q6_monitor_holb_mitigation(bool enable);
 

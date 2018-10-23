@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016,2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -93,6 +93,9 @@
  */
 #define IPA_ENABLED_PIPES_OFST 0x000005DC
 #define IPA_YELLOW_MARKER_SYS_CFG_OFST 0x00000728
+#define IPA_BAM_SW_DESC_OFST 0x00013800
+#define IPA_BAM_PEER_DESC_OFST 0x00013818
+
 /*
  * End of IPA 2.6/2.6L Registers
  */
