@@ -50,6 +50,7 @@
 		.intr_cfg_reg = REG_BASE + 0x8 + REG_SIZE * id,		\
 		.intr_status_reg = REG_BASE + 0xc + REG_SIZE * id,	\
 		.intr_target_reg = REG_BASE + 0x8 + REG_SIZE * id,	\
+		.dir_conn_reg = REG_BASE + 0xad000,\
 		.mux_bit = 2,			\
 		.pull_bit = 0,			\
 		.drv_bit = 6,			\
@@ -64,6 +65,7 @@
 		.intr_polarity_bit = 1,		\
 		.intr_detection_bit = 2,	\
 		.intr_detection_width = 2,	\
+		.dir_conn_en_bit = 8,		\
 	}
 
 #define SDC_QDSD_PINGROUP(pg_name, ctl, pull, drv)	\
@@ -1215,6 +1217,114 @@ static const struct msm_pingroup sdxprairie_groups[] = {
 	[112] = UFS_RESET(ufs_reset, 0x0),
 };
 
+static struct msm_gpio_mux_input sdxprairie_mux_in[] = {
+	{0, 68},
+	{1, 2},
+	{2, 5},
+	{3, 6},
+	{4, 9},
+	{5, 10},
+	{6, 11},
+	{7, 12},
+	{8, 13},
+	{9, 14},
+	{10, 15},
+	{11, 16},
+	{12, 17},
+	{13, 18},
+	{14, 19},
+	{15, 21},
+	{16, 22},
+	{17, 24},
+	{18, 25},
+	{19, 32},
+	{20, 35},
+	{21, 43},
+	{22, 44},
+	{23, 45},
+	{24, 46},
+	{25, 48},
+	{26, 50},
+	{27, 52},
+	{28, 53},
+	{29, 54},
+	{30, 55},
+	{31, 56},
+	{32, 57},
+	{33, 60},
+	{34, 61},
+	{35, 64},
+	{37, 100},
+	{38, 71},
+	{39, 73},
+	{40, 76},
+	{41, 78},
+	{42, 79},
+	{43, 83},
+	{44, 84},
+	{45, 85},
+	{46, 86},
+	{47, 88},
+	{48, 89},
+	{49, 90, 1},
+	{50, 23},
+	{51, 93},
+	{52, 94},
+	{53, 95},
+	{54, 96},
+	{55, 99},
+	{57, 77},
+	{58, 103},
+	{59, 104},
+	{61, 65},
+};
+
+static struct msm_pdc_mux_output sdxprairie_mux_out[] = {
+	{0, 167},
+	{0, 168},
+	{0, 169},
+	{0, 170},
+	{0, 171},
+	{0, 172},
+	{0, 173},
+	{0, 174},
+	{0, 175},
+	{0, 176},
+	{0, 177},
+	{0, 178},
+	{0, 179},
+	{0, 180},
+	{0, 181},
+	{0, 182},
+	{0, 183},
+	{0, 184},
+	{0, 185},
+	{0, 186},
+	{0, 187},
+	{0, 188},
+	{0, 189},
+	{0, 190},
+	{0, 191},
+	{0, 192},
+	{0, 193},
+	{0, 194},
+	{0, 195},
+	{0, 196},
+	{0, 197},
+	{0, 198},
+};
+
+static struct msm_dir_conn sdxprairie_dir_conn[] = {
+	{0, 220},
+	{0, 219},
+	{0, 218},
+	{0, 217},
+	{0, 216},
+	{0, 215},
+	{0, 214},
+	{0, 213},
+};
+
 static const struct msm_pinctrl_soc_data sdxprairie_pinctrl = {
 	.pins = sdxprairie_pins,
 	.npins = ARRAY_SIZE(sdxprairie_pins),
@@ -1223,6 +1333,14 @@ static const struct msm_pinctrl_soc_data sdxprairie_pinctrl = {
 	.groups = sdxprairie_groups,
 	.ngroups = ARRAY_SIZE(sdxprairie_groups),
 	.ngpios = 108,
+	.gpio_mux_in = sdxprairie_mux_in,
+	.n_gpio_mux_in = ARRAY_SIZE(sdxprairie_mux_in),
+	.pdc_mux_out = sdxprairie_mux_out,
+	.n_pdc_mux_out = ARRAY_SIZE(sdxprairie_mux_out),
+	.n_pdc_mux_offset = 20,
+	.dir_conn_irq_base = 220,
+	.dir_conn = sdxprairie_dir_conn,
+	.n_dir_conns = ARRAY_SIZE(sdxprairie_dir_conn),
 };
 
 static int sdxprairie_pinctrl_probe(struct platform_device *pdev)
