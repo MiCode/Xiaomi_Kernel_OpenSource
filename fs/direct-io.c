@@ -432,6 +432,7 @@ dio_bio_alloc(struct dio *dio, struct dio_submit *sdio,
 	sdio->logical_offset_in_bio = sdio->cur_page_fs_offset;
 }
 
+#ifdef CONFIG_PFK
 static bool is_inode_filesystem_type(const struct inode *inode,
 					const char *fs_type)
 {
@@ -446,6 +447,7 @@ static bool is_inode_filesystem_type(const struct inode *inode,
 
 	return (strcmp(inode->i_sb->s_type->name, fs_type) == 0);
 }
+#endif
 
 /*
  * In the AIO read case we speculatively dirty the pages before starting IO.
@@ -469,6 +471,7 @@ static inline void dio_bio_submit(struct dio *dio, struct dio_submit *sdio)
 		bio_set_pages_dirty(bio);
 
 	dio->bio_disk = bio->bi_disk;
+#ifdef CONFIG_PFK
 	bio->bi_dio_inode = dio->inode;
 
 /* iv sector for security/pfe/pfk_fscrypt.c and f2fs in fs/f2fs/f2fs.h */
@@ -478,7 +481,7 @@ static inline void dio_bio_submit(struct dio *dio, struct dio_submit *sdio)
 	if (is_inode_filesystem_type(dio->inode, "f2fs"))
 		fscrypt_set_ice_dun(dio->inode, bio, PG_DUN_NEW(dio->inode,
 			(sdio->logical_offset_in_bio >> PAGE_SHIFT)));
-
+#endif
 	if (sdio->submit_io) {
 		sdio->submit_io(bio, dio->inode, sdio->logical_offset_in_bio);
 		dio->bio_cookie = BLK_QC_T_NONE;
@@ -496,8 +499,9 @@ struct inode *dio_bio_get_inode(struct bio *bio)
 
 	if (bio == NULL)
 		return NULL;
-
+#ifdef CONFIG_PFK
 	inode = bio->bi_dio_inode;
+#endif
 	return inode;
 }
 

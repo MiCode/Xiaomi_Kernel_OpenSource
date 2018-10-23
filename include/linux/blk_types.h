@@ -121,9 +121,9 @@ struct bio {
 	struct bio_vec		*bi_io_vec;	/* the actual vec list */
 
 	struct bio_set		*bi_pool;
-
+#ifdef CONFIG_PFK
 	struct inode		*bi_dio_inode;
-
+#endif
 	/*
 	 * We can inline a number of vecs at the end of the bio, to avoid
 	 * double allocations for a small number of bio_vecs. This member
