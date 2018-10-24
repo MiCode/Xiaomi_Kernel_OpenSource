@@ -1186,8 +1186,7 @@ static int cam_icp_mgr_ipe_bps_power_collapse(struct cam_icp_hw_mgr *hw_mgr,
 		if (hw_mgr->bps_ctxt_cnt)
 			goto end;
 
-		if (icp_hw_mgr.ipe_bps_pc_flag &&
-			!atomic_read(&hw_mgr->recovery)) {
+		if (icp_hw_mgr.ipe_bps_pc_flag && !hw_mgr->recovery) {
 			rc = bps_dev_intf->hw_ops.process_cmd(
 				bps_dev_intf->hw_priv,
 				CAM_ICP_BPS_CMD_POWER_COLLAPSE,
@@ -1209,8 +1208,7 @@ static int cam_icp_mgr_ipe_bps_power_collapse(struct cam_icp_hw_mgr *hw_mgr,
 		if (hw_mgr->ipe_ctxt_cnt)
 			goto end;
 
-		if (icp_hw_mgr.ipe_bps_pc_flag &&
-			!atomic_read(&hw_mgr->recovery)) {
+		if (icp_hw_mgr.ipe_bps_pc_flag && !hw_mgr->recovery) {
 			rc = ipe0_dev_intf->hw_ops.process_cmd(
 				ipe0_dev_intf->hw_priv,
 				CAM_ICP_IPE_CMD_POWER_COLLAPSE, NULL, 0);
@@ -1221,8 +1219,7 @@ static int cam_icp_mgr_ipe_bps_power_collapse(struct cam_icp_hw_mgr *hw_mgr,
 				ipe0_dev_intf->hw_priv, NULL, 0);
 
 		if (ipe1_dev_intf) {
-			if (icp_hw_mgr.ipe_bps_pc_flag &&
-				!atomic_read(&hw_mgr->recovery)) {
+			if (icp_hw_mgr.ipe_bps_pc_flag && !hw_mgr->recovery) {
 				rc = ipe1_dev_intf->hw_ops.process_cmd(
 					ipe1_dev_intf->hw_priv,
 					CAM_ICP_IPE_CMD_POWER_COLLAPSE,
@@ -1235,8 +1232,7 @@ static int cam_icp_mgr_ipe_bps_power_collapse(struct cam_icp_hw_mgr *hw_mgr,
 		}
 
 		hw_mgr->ipe_clk_state = false;
-		if (icp_hw_mgr.ipe_bps_pc_flag &&
-			!atomic_read(&hw_mgr->recovery)) {
+		if (icp_hw_mgr.ipe_bps_pc_flag && !hw_mgr->recovery) {
 			hw_mgr->core_info = hw_mgr->core_info &
 				(~(ICP_PWR_CLP_IPE0 | ICP_PWR_CLP_IPE1));
 		}
@@ -1768,12 +1764,15 @@ static int cam_icp_ipebps_reset(struct cam_icp_hw_mgr *hw_mgr)
 static int cam_icp_mgr_trigger_recovery(struct cam_icp_hw_mgr *hw_mgr)
 {
 	int rc = 0;
+	int i = 0;
 	struct sfr_buf *sfr_buffer = NULL;
 
 	CAM_DBG(CAM_ICP, "Enter");
 
-	if (atomic_read(&hw_mgr->recovery)) {
+	mutex_lock(&hw_mgr->hw_mgr_mutex);
+	if (hw_mgr->recovery) {
 		CAM_ERR(CAM_ICP, "Recovery is set");
+		mutex_unlock(&hw_mgr->hw_mgr_mutex);
 		return rc;
 	}
 
@@ -1782,7 +1781,28 @@ static int cam_icp_mgr_trigger_recovery(struct cam_icp_hw_mgr *hw_mgr)
 
 	cam_icp_ipebps_reset(hw_mgr);
 
-	atomic_set(&hw_mgr->recovery, 1);
+	hw_mgr->recovery = true;
+
+	if (hw_mgr->clk_info[ICP_CLK_HW_BPS].watch_dog) {
+		hw_mgr->clk_info[ICP_CLK_HW_BPS].watch_dog_reset_counter = 0;
+		crm_timer_exit(&hw_mgr->clk_info[ICP_CLK_HW_BPS].watch_dog);
+		hw_mgr->clk_info[ICP_CLK_HW_BPS].watch_dog = NULL;
+	}
+	if (hw_mgr->clk_info[ICP_CLK_HW_IPE].watch_dog) {
+		hw_mgr->clk_info[ICP_CLK_HW_IPE].watch_dog_reset_counter = 0;
+		crm_timer_exit(&hw_mgr->clk_info[ICP_CLK_HW_IPE].watch_dog);
+		hw_mgr->clk_info[ICP_CLK_HW_IPE].watch_dog = NULL;
+	}
+
+	for (i = 0; i < CAM_ICP_CTX_MAX; i++) {
+		mutex_lock(&hw_mgr->ctx_data[i].ctx_mutex);
+		if (hw_mgr->ctx_data[i].state != CAM_ICP_CTX_STATE_RELEASE)
+			cam_icp_ctx_timer_stop(&hw_mgr->ctx_data[i]);
+		mutex_unlock(&hw_mgr->ctx_data[i].ctx_mutex);
+	}
+
+	mutex_unlock(&hw_mgr->hw_mgr_mutex);
+
 	CAM_DBG(CAM_ICP, "Done");
 	return rc;
 }
@@ -2363,7 +2383,7 @@ static int cam_icp_mgr_icp_power_collapse(struct cam_icp_hw_mgr *hw_mgr)
 	}
 	a5_dev = (struct cam_hw_info *)a5_dev_intf->hw_priv;
 
-	if (!hw_mgr->icp_pc_flag || atomic_read(&hw_mgr->recovery)) {
+	if (!hw_mgr->icp_pc_flag || hw_mgr->recovery) {
 		cam_hfi_disable_cpu(
 			a5_dev->soc_info.reg_map[A5_SIERRA_BASE].mem_base);
 		rc = cam_icp_mgr_hw_close_k(hw_mgr, NULL);
@@ -2567,7 +2587,7 @@ static int cam_icp_mgr_release_ctx(struct cam_icp_hw_mgr *hw_mgr, int ctx_id)
 		&hw_mgr->ctx_data[ctx_id], 0);
 	hw_mgr->ctx_data[ctx_id].state = CAM_ICP_CTX_STATE_RELEASE;
 	CAM_DBG(CAM_ICP, "E: ctx_id = %d recovery = %d",
-		ctx_id, atomic_read(&hw_mgr->recovery));
+		ctx_id, hw_mgr->recovery);
 	cam_icp_mgr_abort_handle(&hw_mgr->ctx_data[ctx_id]);
 	cam_icp_mgr_destroy_handle(&hw_mgr->ctx_data[ctx_id]);
 	cam_icp_mgr_cleanup_ctx(&hw_mgr->ctx_data[ctx_id]);
@@ -2963,7 +2983,7 @@ static int cam_icp_mgr_hw_open(void *hw_mgr_priv, void *download_fw_args)
 
 	hw_mgr->ctxt_cnt = 0;
 	hw_mgr->fw_download = true;
-	atomic_set(&hw_mgr->recovery, 0);
+	hw_mgr->recovery = false;
 
 	CAM_INFO(CAM_ICP, "FW download done successfully");
 
@@ -3912,8 +3932,7 @@ static int cam_icp_mgr_hw_flush(void *hw_priv, void *hw_flush_args)
 	switch (flush_args->flush_type) {
 	case CAM_FLUSH_TYPE_ALL:
 		mutex_lock(&hw_mgr->hw_mgr_mutex);
-		if (!atomic_read(&hw_mgr->recovery)
-			&& flush_args->num_req_active) {
+		if (!hw_mgr->recovery && flush_args->num_req_active) {
 			mutex_unlock(&hw_mgr->hw_mgr_mutex);
 			cam_icp_mgr_abort_handle(ctx_data);
 		} else {
@@ -3956,8 +3975,7 @@ static int cam_icp_mgr_release_hw(void *hw_mgr_priv, void *release_hw_args)
 		return -EINVAL;
 	}
 
-	CAM_DBG(CAM_ICP, "Enter recovery set %d",
-		atomic_read(&hw_mgr->recovery));
+	CAM_DBG(CAM_ICP, "Enter recovery set %d", hw_mgr->recovery);
 	ctx_data = release_hw->ctxt_to_hw_map;
 	if (!ctx_data) {
 		CAM_ERR(CAM_ICP, "NULL ctx data");
@@ -3979,10 +3997,12 @@ static int cam_icp_mgr_release_hw(void *hw_mgr_priv, void *release_hw_args)
 	mutex_unlock(&hw_mgr->ctx_data[ctx_id].ctx_mutex);
 
 	mutex_lock(&hw_mgr->hw_mgr_mutex);
-	if (!atomic_read(&hw_mgr->recovery) && release_hw->active_req) {
+	if (!hw_mgr->recovery) {
 		mutex_unlock(&hw_mgr->hw_mgr_mutex);
-		cam_icp_mgr_abort_handle(ctx_data);
-		cam_icp_mgr_send_abort_status(ctx_data);
+		if (release_hw->active_req) {
+			cam_icp_mgr_abort_handle(ctx_data);
+			cam_icp_mgr_send_abort_status(ctx_data);
+		}
 	} else {
 		mutex_unlock(&hw_mgr->hw_mgr_mutex);
 	}
