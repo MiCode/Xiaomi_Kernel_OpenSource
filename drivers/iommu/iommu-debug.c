@@ -18,6 +18,8 @@
 #include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/iommu.h>
+#include <linux/of_iommu.h>
+#include <linux/of_address.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
@@ -173,6 +175,8 @@ struct iommu_debug_device {
 	struct list_head list;
 	struct mutex clk_lock;
 	unsigned int clk_count;
+	/* Protects domain */
+	struct mutex state_lock;
 };
 
 static int iommu_debug_build_phoney_sg_table(struct device *dev,
@@ -217,6 +221,163 @@ static void iommu_debug_destroy_phoney_sg_table(struct device *dev,
 	for_each_sg(table->sgl, sg, table->nents, i)
 		__free_pages(sg_page(sg), get_order(chunk_size));
 	sg_free_table(table);
+}
+
+struct iommu_debug_attr {
+	unsigned long dma_type;
+	int vmid;
+};
+
+static struct iommu_debug_attr std_attr = {
+	.dma_type = 0,
+	.vmid = 0,
+};
+
+static struct iommu_debug_attr fastmap_attr = {
+	.dma_type = DOMAIN_ATTR_FAST,
+	.vmid = 0,
+};
+
+static struct iommu_debug_attr secure_attr = {
+	.dma_type = 0,
+	.vmid = VMID_CP_CAMERA,
+};
+
+static int iommu_debug_set_attrs(struct iommu_debug_device *ddev,
+				 struct iommu_domain *domain,
+				 struct iommu_debug_attr *attrs)
+{
+	int val = 1;
+
+	/* Always set this to avoid clk latency during measurements */
+	iommu_domain_set_attr(domain, DOMAIN_ATTR_ATOMIC, &val);
+
+	if (attrs->dma_type == DOMAIN_ATTR_FAST)
+		iommu_domain_set_attr(domain, DOMAIN_ATTR_FAST, &val);
+
+	if (attrs->vmid != 0)
+		iommu_domain_set_attr(domain,
+			DOMAIN_ATTR_SECURE_VMID, &attrs->vmid);
+
+	return 0;
+}
+
+static void iommu_debug_print_attrs(struct seq_file *s,
+				    struct iommu_debug_attr *attrs)
+{
+	seq_puts(s, "Attributes:\n");
+	if (attrs->dma_type == DOMAIN_ATTR_FAST)
+		seq_printf(s, "%s\n",
+			   iommu_debug_attr_to_string(attrs->dma_type));
+
+	if (attrs->vmid != 0)
+		seq_printf(s, "SECURE_VMID=%d\n", attrs->vmid);
+}
+
+/*
+ * Set up a new dma allocator for dev
+ * Caller should hold state_lock
+ */
+static int iommu_debug_dma_reconfigure(struct iommu_debug_device *ddev,
+					struct iommu_debug_attr *attrs,
+					u64 dma_base, u64 size)
+{
+
+	const struct iommu_ops *iommu;
+	struct iommu_domain *domain;
+	struct device *dev = ddev->dev;
+	bool coherent;
+
+	if (ddev->domain) {
+		dev_err(dev, "Already attached.\n");
+		return -EBUSY;
+	}
+
+	iommu = of_iommu_configure(dev, dev->of_node);
+	if (!iommu) {
+		dev_err(dev, "Is not associated with an iommu\n");
+		return -EINVAL;
+	}
+
+	coherent = of_dma_is_coherent(dev->of_node);
+
+	if (!dev->iommu_group) {
+		dev_err(dev, "Does not have an iommu group\n");
+		return -EINVAL;
+	}
+
+	/* Detach from the default domain */
+	domain = iommu_get_domain_for_dev(dev);
+	if (domain) {
+		if (domain->type != IOMMU_DOMAIN_DMA) {
+			dev_err(dev, "Attached, but its not a default domain?\n");
+			return -EINVAL;
+		}
+		iommu_detach_group(domain, dev->iommu_group);
+	}
+
+	domain = iommu_domain_alloc(dev->bus);
+	if (!domain) {
+		dev_err(dev, "Allocating iommu domain failed\n");
+		return -EINVAL;
+	}
+
+	domain->is_debug_domain = true;
+
+	if (iommu_debug_set_attrs(ddev, domain, attrs)) {
+		dev_err(dev, "Setting attrs failed\n");
+		goto out_free_domain;
+	}
+
+	if (iommu_attach_group(domain, dev->iommu_group)) {
+		dev_err(dev, "attach group failed\n");
+		goto out_free_domain;
+	}
+
+	/*
+	 * Since arch_setup_dma_ops is void, interpret non-null dma-ops
+	 * as success.
+	 */
+	set_dma_ops(dev, NULL);
+	arch_setup_dma_ops(dev, dma_base, size, iommu, coherent);
+	if (!get_dma_ops(dev)) {
+		dev_err(dev, "arch_setup_dma_ops failed, dma ops are null.\n");
+		goto out_detach_group;
+	}
+
+	ddev->domain = domain;
+	return 0;
+
+out_detach_group:
+	iommu_detach_group(domain, dev->iommu_group);
+out_free_domain:
+	iommu_domain_free(domain);
+	return -EINVAL;
+}
+
+/* Caller should hold state_lock */
+static void iommu_debug_dma_deconfigure(struct iommu_debug_device *ddev)
+{
+	struct iommu_domain *domain;
+	struct device *dev = ddev->dev;
+
+	if (!dev->iommu_group) {
+		dev_err(dev, "Does not have an iommu group\n");
+		return;
+	}
+
+	domain = ddev->domain;
+	if (!domain) {
+		dev_err(dev, "Is not attached\n");
+		return;
+	}
+
+
+	arch_teardown_dma_ops(dev);
+	iommu_detach_group(domain, dev->iommu_group);
+	iommu_domain_free(domain);
+
+	ddev->domain = NULL;
 }
 
 static const char * const _size_to_string(unsigned long size)
@@ -265,44 +426,22 @@ static int nr_iters_get(void *data, u64 *val)
 DEFINE_SIMPLE_ATTRIBUTE(iommu_debug_nr_iters_ops,
 			nr_iters_get, nr_iters_set, "%llu\n");
 
-static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev,
-					 enum iommu_attr attrs[],
-					 void *attr_values[], int nattrs,
-					 const size_t sizes[])
+static void iommu_debug_device_profiling(struct seq_file *s,
+					struct iommu_debug_device *ddev,
+					struct iommu_debug_attr *attrs,
+					const size_t sizes[])
 {
-	int i;
 	const size_t *sz;
 	struct iommu_domain *domain;
+	struct device *dev = ddev->dev;
 	unsigned long iova = 0x10000;
 	phys_addr_t paddr = 0xa000;
 
-	domain = iommu_domain_alloc(&platform_bus_type);
-	if (!domain) {
-		seq_puts(s, "Couldn't allocate domain\n");
+	if (iommu_debug_dma_reconfigure(ddev, attrs, 0, SZ_1G * 4ULL))
 		return;
-	}
+	domain = ddev->domain;
 
-	seq_puts(s, "Domain attributes: [ ");
-	for (i = 0; i < nattrs; ++i) {
-		/* not all attrs are ints, but this will get us by for now */
-		seq_printf(s, "%s=%d%s", iommu_debug_attr_to_string(attrs[i]),
-			   *((int *)attr_values[i]),
-			   i < nattrs ? " " : "");
-	}
-	seq_puts(s, "]\n");
-	for (i = 0; i < nattrs; ++i) {
-		if (iommu_domain_set_attr(domain, attrs[i], attr_values[i])) {
-			seq_printf(s, "Couldn't set %d to the value at %p\n",
-				 attrs[i], attr_values[i]);
-			goto out_domain_free;
-		}
-	}
-
-	if (iommu_attach_group(domain, dev->iommu_group)) {
-		seq_puts(s,
-			 "Couldn't attach new domain to device. Is it already attached?\n");
-		goto out_domain_free;
-	}
+	iommu_debug_print_attrs(s, attrs);
 
 	seq_printf(s, "(average over %d iterations)\n", iters_per_op);
 	seq_printf(s, "%8s %19s %16s\n", "size", "iommu_map", "iommu_unmap");
@@ -419,9 +558,7 @@ next:
 	}
 
 out_detach:
-	iommu_detach_group(domain, dev->iommu_group);
-out_domain_free:
-	iommu_domain_free(domain);
+	iommu_debug_dma_deconfigure(ddev);
 }
 
 static int iommu_debug_profiling_show(struct seq_file *s, void *ignored)
@@ -429,14 +566,10 @@ static int iommu_debug_profiling_show(struct seq_file *s, void *ignored)
 	struct iommu_debug_device *ddev = s->private;
 	const size_t sizes[] = { SZ_4K, SZ_64K, SZ_1M, SZ_2M, SZ_1M * 12,
 					SZ_1M * 24, SZ_1M * 32, 0 };
-	enum iommu_attr attrs[] = {
-		DOMAIN_ATTR_ATOMIC,
-	};
-	int htw_disable = 1, atomic = 1;
-	void *attr_values[] = { &htw_disable, &atomic };
 
-	iommu_debug_device_profiling(s, ddev->dev, attrs, attr_values,
-				     ARRAY_SIZE(attrs), sizes);
+	mutex_lock(&ddev->state_lock);
+	iommu_debug_device_profiling(s, ddev, &std_attr, sizes);
+	mutex_unlock(&ddev->state_lock);
 
 	return 0;
 }
@@ -459,15 +592,9 @@ static int iommu_debug_secure_profiling_show(struct seq_file *s, void *ignored)
 	const size_t sizes[] = { SZ_4K, SZ_64K, SZ_1M, SZ_2M, SZ_1M * 12,
 					SZ_1M * 24, SZ_1M * 32, 0 };
 
-	enum iommu_attr attrs[] = {
-		DOMAIN_ATTR_ATOMIC,
-		DOMAIN_ATTR_SECURE_VMID,
-	};
-	int one = 1, secure_vmid = VMID_CP_PIXEL;
-	void *attr_values[] = { &one, &secure_vmid };
-
-	iommu_debug_device_profiling(s, ddev->dev, attrs, attr_values,
-				     ARRAY_SIZE(attrs), sizes);
+	mutex_lock(&ddev->state_lock);
+	iommu_debug_device_profiling(s, ddev, &secure_attr, sizes);
+	mutex_unlock(&ddev->state_lock);
 
 	return 0;
 }
@@ -490,15 +617,10 @@ static int iommu_debug_profiling_fast_show(struct seq_file *s, void *ignored)
 {
 	struct iommu_debug_device *ddev = s->private;
 	size_t sizes[] = {SZ_4K, SZ_8K, SZ_16K, SZ_64K, 0};
-	enum iommu_attr attrs[] = {
-		DOMAIN_ATTR_FAST,
-		DOMAIN_ATTR_ATOMIC,
-	};
-	int one = 1;
-	void *attr_values[] = { &one, &one };
 
-	iommu_debug_device_profiling(s, ddev->dev, attrs, attr_values,
-				     ARRAY_SIZE(attrs), sizes);
+	mutex_lock(&ddev->state_lock);
+	iommu_debug_device_profiling(s, ddev, &fastmap_attr, sizes);
+	mutex_unlock(&ddev->state_lock);
 
 	return 0;
 }
@@ -524,10 +646,9 @@ static int iommu_debug_profiling_fast_dma_api_show(struct seq_file *s,
 	struct iommu_debug_device *ddev = s->private;
 	struct device *dev = ddev->dev;
 	u64 map_elapsed_ns[10], unmap_elapsed_ns[10];
-	struct dma_iommu_mapping *mapping;
+	struct iommu_domain *domain;
 	dma_addr_t dma_addr;
 	void *virt;
-	int fast = 1;
 	const char * const extra_labels[] = {
 		"not coherent",
 		"coherent",
@@ -537,27 +658,19 @@ static int iommu_debug_profiling_fast_dma_api_show(struct seq_file *s,
 		DMA_ATTR_SKIP_CPU_SYNC,
 	};
 
+	mutex_lock(&ddev->state_lock);
+
 	virt = kmalloc(1518, GFP_KERNEL);
 	if (!virt)
 		goto out;
 
-	mapping = arm_iommu_create_mapping(&platform_bus_type, 0, SZ_1G * 4ULL);
-	if (!mapping) {
-		seq_puts(s, "fast_smmu_create_mapping failed\n");
+	if (iommu_debug_dma_reconfigure(ddev, &fastmap_attr, 0, SZ_1G * 4ULL)) {
+		seq_puts(s, "setup failed\n");
 		goto out_kfree;
 	}
+	domain = ddev->domain;
 
-	if (iommu_domain_set_attr(mapping->domain, DOMAIN_ATTR_FAST, &fast)) {
-		seq_puts(s, "iommu_domain_set_attr failed\n");
-		goto out_release_mapping;
-	}
-
-	if (arm_iommu_attach_device(dev, mapping)) {
-		seq_puts(s, "fast_smmu_attach_device failed\n");
-		goto out_release_mapping;
-	}
-
-	if (iommu_enable_config_clocks(mapping->domain)) {
+	if (iommu_enable_config_clocks(domain)) {
 		seq_puts(s, "Couldn't enable clocks\n");
 		goto out_detach;
 	}
@@ -613,14 +726,13 @@ static int iommu_debug_profiling_fast_dma_api_show(struct seq_file *s,
 	}
 
 out_disable_config_clocks:
-	iommu_disable_config_clocks(mapping->domain);
+	iommu_disable_config_clocks(domain);
 out_detach:
-	arm_iommu_detach_device(dev);
-out_release_mapping:
-	arm_iommu_release_mapping(mapping);
+	iommu_debug_dma_deconfigure(ddev);
 out_kfree:
 	kfree(virt);
 out:
+	mutex_unlock(&ddev->state_lock);
 	return 0;
 }
 
@@ -1158,43 +1270,37 @@ static int __apply_to_new_mapping(struct seq_file *s,
 					      void *priv),
 				    void *priv)
 {
-	struct dma_iommu_mapping *mapping;
+	struct iommu_domain *domain;
 	struct iommu_debug_device *ddev = s->private;
 	struct device *dev = ddev->dev;
-	int ret = -EINVAL, fast = 1;
+	int ret = -EINVAL;
 	phys_addr_t pt_phys;
 
-	mapping = arm_iommu_create_mapping(&platform_bus_type, 0,
-						(SZ_1G * 4ULL));
-	if (!mapping)
+	mutex_lock(&ddev->state_lock);
+	if (iommu_debug_dma_reconfigure(ddev, &fastmap_attr, 0, SZ_1G * 4ULL)) {
+		seq_puts(s, "setup failed\n");
 		goto out;
-
-	if (iommu_domain_set_attr(mapping->domain, DOMAIN_ATTR_FAST, &fast)) {
-		seq_puts(s, "iommu_domain_set_attr failed\n");
-		goto out_release_mapping;
 	}
+	domain = ddev->domain;
 
-	if (arm_iommu_attach_device(dev, mapping))
-		goto out_release_mapping;
-
-	if (iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_PT_BASE_ADDR,
+	if (iommu_domain_get_attr(domain, DOMAIN_ATTR_PT_BASE_ADDR,
 				  &pt_phys)) {
 		ds_printf(dev, s, "Couldn't get page table base address\n");
 		goto out_release_mapping;
 	}
 
 	dev_err(dev, "testing with pgtables at %pa\n", &pt_phys);
-	if (iommu_enable_config_clocks(mapping->domain)) {
+	if (iommu_enable_config_clocks(domain)) {
 		ds_printf(dev, s, "Couldn't enable clocks\n");
 		goto out_release_mapping;
 	}
-	ret = fn(dev, s, mapping->domain, priv);
-	iommu_disable_config_clocks(mapping->domain);
+	ret = fn(dev, s, domain, priv);
+	iommu_disable_config_clocks(domain);
 
-	arm_iommu_detach_device(dev);
 out_release_mapping:
-	arm_iommu_release_mapping(mapping);
+	iommu_debug_dma_deconfigure(ddev);
 out:
+	mutex_unlock(&ddev->state_lock);
 	seq_printf(s, "%s\n", ret ? "FAIL" : "SUCCESS");
 	return 0;
 }
@@ -1228,29 +1334,22 @@ static const struct file_operations iommu_debug_functional_fast_dma_api_fops = {
 static int iommu_debug_functional_arm_dma_api_show(struct seq_file *s,
 						   void *ignored)
 {
-	struct dma_iommu_mapping *mapping;
 	struct iommu_debug_device *ddev = s->private;
 	struct device *dev = ddev->dev;
 	size_t sizes[] = {SZ_4K, SZ_64K, SZ_2M, SZ_1M * 12, 0};
 	int ret = -EINVAL;
 
-	/* Make the size equal to MAX_ULONG */
-	mapping = arm_iommu_create_mapping(&platform_bus_type, 0,
-						(SZ_1G * 4ULL - 1));
-	if (!mapping)
+	mutex_lock(&ddev->state_lock);
+	if (iommu_debug_dma_reconfigure(ddev, &fastmap_attr, 0, SZ_1G * 4ULL))
 		goto out;
 
-	if (arm_iommu_attach_device(dev, mapping))
-		goto out_release_mapping;
+	ret = __functional_dma_api_alloc_test(dev, s, ddev->domain, sizes);
+	ret |= __functional_dma_api_basic_test(dev, s, ddev->domain, sizes);
+	ret |= __functional_dma_api_map_sg_test(dev, s, ddev->domain, sizes);
 
-	ret = __functional_dma_api_alloc_test(dev, s, mapping->domain, sizes);
-	ret |= __functional_dma_api_basic_test(dev, s, mapping->domain, sizes);
-	ret |= __functional_dma_api_map_sg_test(dev, s, mapping->domain, sizes);
-
-	arm_iommu_detach_device(dev);
-out_release_mapping:
-	arm_iommu_release_mapping(mapping);
+	iommu_debug_dma_deconfigure(ddev);
 out:
+	mutex_unlock(&ddev->state_lock);
 	seq_printf(s, "%s\n", ret ? "FAIL" : "SUCCESS");
 	return 0;
 }
@@ -1269,181 +1368,60 @@ static const struct file_operations iommu_debug_functional_arm_dma_api_fops = {
 	.release = single_release,
 };
 
-static int iommu_debug_attach_do_attach(struct iommu_debug_device *ddev,
-					int val, bool is_secure)
-{
-	struct iommu_group *group = ddev->dev->iommu_group;
-
-	ddev->domain = iommu_domain_alloc(&platform_bus_type);
-	if (!ddev->domain) {
-		pr_err("Couldn't allocate domain\n");
-		return -ENOMEM;
-	}
-
-	ddev->domain->is_debug_domain = true;
-	val = VMID_CP_CAMERA;
-	if (is_secure && iommu_domain_set_attr(ddev->domain,
-					       DOMAIN_ATTR_SECURE_VMID,
-					       &val)) {
-		pr_err("Couldn't set secure vmid to %d\n", val);
-		goto out_domain_free;
-	}
-
-	if (iommu_attach_group(ddev->domain, group)) {
-		dev_err(ddev->dev, "Couldn't attach new domain to device\n");
-		goto out_domain_free;
-	}
-
-	return 0;
-
-out_domain_free:
-	iommu_domain_free(ddev->domain);
-	ddev->domain = NULL;
-	return -EIO;
-}
-
-static ssize_t __iommu_debug_dma_attach_write(struct file *file,
-					  const char __user *ubuf,
-					  size_t count, loff_t *offset)
-{
-	struct iommu_debug_device *ddev = file->private_data;
-	struct device *dev = ddev->dev;
-	struct dma_iommu_mapping *dma_mapping;
-	ssize_t retval = -EINVAL;
-	int val;
-
-	if (kstrtoint_from_user(ubuf, count, 0, &val)) {
-		pr_err("Invalid format. Expected a hex or decimal integer");
-		retval = -EFAULT;
-		goto out;
-	}
-
-	if (val) {
-		if (dev->archdata.mapping)
-			if (dev->archdata.mapping->domain) {
-				pr_err("Already attached.\n");
-				retval = -EINVAL;
-				goto out;
-			}
-		if (WARN(dev->archdata.iommu,
-			"Attachment tracking out of sync with device\n")) {
-			retval = -EINVAL;
-			goto out;
-		}
-
-		dma_mapping = arm_iommu_create_mapping(&platform_bus_type, 0,
-				(SZ_1G * 4ULL));
-
-		if (!dma_mapping)
-			goto out;
-
-		dma_mapping->domain->is_debug_domain = true;
-
-		if (arm_iommu_attach_device(dev, dma_mapping))
-			goto out_release_mapping;
-
-		ddev->mapping = dma_mapping;
-		pr_err("Attached\n");
-	} else {
-		if (!dev->archdata.mapping) {
-			pr_err("No mapping. Did you already attach?\n");
-			retval = -EINVAL;
-			goto out;
-		}
-		if (!dev->archdata.mapping->domain) {
-			pr_err("No domain. Did you already attach?\n");
-			retval = -EINVAL;
-			goto out;
-		}
-		arm_iommu_detach_device(dev);
-		arm_iommu_release_mapping(ddev->mapping);
-		pr_err("Detached\n");
-	}
-	retval = count;
-	return retval;
-
-out_release_mapping:
-	arm_iommu_release_mapping(dma_mapping);
-out:
-	return retval;
-}
-
 static ssize_t __iommu_debug_attach_write(struct file *file,
 					  const char __user *ubuf,
 					  size_t count, loff_t *offset,
-					  bool is_secure)
+					struct iommu_debug_attr *attrs)
 {
 	struct iommu_debug_device *ddev = file->private_data;
-	struct device *dev = ddev->dev;
-	struct iommu_domain *domain;
-	ssize_t retval;
-	int val;
+	ssize_t retval = -EINVAL;
+	int val, ret;
 
 	if (kstrtoint_from_user(ubuf, count, 0, &val)) {
 		pr_err("Invalid format. Expected a hex or decimal integer");
-		retval = -EFAULT;
-		goto out;
+		return -EFAULT;
 	}
 
+	mutex_lock(&ddev->state_lock);
 	if (val) {
-		if (ddev->domain) {
-			pr_err("Iommu-Debug is already attached?\n");
-			retval = -EINVAL;
-			goto out;
-		}
-
-		domain = iommu_get_domain_for_dev(dev);
-		if (domain) {
-			pr_err("Another driver is using this device's iommu\n"
-				"Iommu-Debug cannot be used concurrently\n");
-			retval = -EINVAL;
-			goto out;
-		}
-		if (iommu_debug_attach_do_attach(ddev, val, is_secure)) {
-			retval = -EIO;
-			goto out;
-		}
-		pr_err("Attached\n");
+		ret = iommu_debug_dma_reconfigure(ddev, attrs, 0, SZ_1G * 4ULL);
+		if (!ret)
+			pr_err("Attached\n");
 	} else {
-		if (!ddev->domain) {
-			pr_err("Iommu-Debug is not attached?\n");
-			retval = -EINVAL;
-			goto out;
-		}
-		iommu_detach_group(ddev->domain, dev->iommu_group);
-		iommu_domain_free(ddev->domain);
-		ddev->domain = NULL;
+		iommu_debug_dma_deconfigure(ddev);
 		pr_err("Detached\n");
 	}
-
+	mutex_unlock(&ddev->state_lock);
 	retval = count;
-out:
 	return retval;
 }
 
-static ssize_t iommu_debug_dma_attach_write(struct file *file,
+static ssize_t iommu_debug_secure_attach_write(struct file *file,
 					  const char __user *ubuf,
 					  size_t count, loff_t *offset)
 {
-	return __iommu_debug_dma_attach_write(file, ubuf, count, offset);
+	return __iommu_debug_attach_write(file, ubuf, count, offset,
+						&secure_attr);
+}
+
+static ssize_t iommu_debug_attach_write(struct file *file,
+					  const char __user *ubuf,
+					  size_t count, loff_t *offset)
+{
+	return __iommu_debug_attach_write(file, ubuf, count, offset, &std_attr);
 
 }
 
-static ssize_t iommu_debug_dma_attach_read(struct file *file, char __user *ubuf,
+static ssize_t iommu_debug_attach_read(struct file *file, char __user *ubuf,
 				       size_t count, loff_t *offset)
 {
 	struct iommu_debug_device *ddev = file->private_data;
-	struct device *dev = ddev->dev;
 	char c[2];
 
 	if (*offset)
 		return 0;
 
-	if (!dev->archdata.mapping)
-		c[0] = '0';
-	else
-		c[0] = dev->archdata.mapping->domain ? '1' : '0';
-
+	c[0] = ddev->domain ? '1' : '0';
 	c[1] = '\n';
 	if (copy_to_user(ubuf, &c, 2)) {
 		pr_err("copy_to_user failed\n");
@@ -1456,8 +1434,8 @@ static ssize_t iommu_debug_dma_attach_read(struct file *file, char __user *ubuf,
 
 static const struct file_operations iommu_debug_dma_attach_fops = {
 	.open	= simple_open,
-	.write	= iommu_debug_dma_attach_write,
-	.read	= iommu_debug_dma_attach_read,
+	.write	= iommu_debug_attach_write,
+	.read	= iommu_debug_attach_read,
 };
 
 static ssize_t iommu_debug_test_virt_addr_read(struct file *file,
@@ -1496,52 +1474,15 @@ static const struct file_operations iommu_debug_test_virt_addr_fops = {
 	.read	= iommu_debug_test_virt_addr_read,
 };
 
-static ssize_t iommu_debug_attach_write(struct file *file,
-					  const char __user *ubuf,
-					  size_t count, loff_t *offset)
-{
-	return __iommu_debug_attach_write(file, ubuf, count, offset,
-					  false);
-
-}
-
-static ssize_t iommu_debug_attach_read(struct file *file, char __user *ubuf,
-				       size_t count, loff_t *offset)
-{
-	struct iommu_debug_device *ddev = file->private_data;
-	char c[2];
-
-	if (*offset)
-		return 0;
-
-	c[0] = ddev->domain ? '1' : '0';
-	c[1] = '\n';
-	if (copy_to_user(ubuf, &c, 2)) {
-		pr_err("copy_to_user failed\n");
-		return -EFAULT;
-	}
-	*offset = 1;		/* non-zero means we're done */
-
-	return 2;
-}
-
 static const struct file_operations iommu_debug_attach_fops = {
 	.open	= simple_open,
 	.write	= iommu_debug_attach_write,
 	.read	= iommu_debug_attach_read,
 };
 
-static ssize_t iommu_debug_attach_write_secure(struct file *file,
-					       const char __user *ubuf,
-					       size_t count, loff_t *offset)
-{
-	return __iommu_debug_attach_write(file, ubuf, count, offset,
-					  true);
-}
-
 static const struct file_operations iommu_debug_secure_attach_fops = {
 	.open	= simple_open,
-	.write	= iommu_debug_attach_write_secure,
+	.write	= iommu_debug_secure_attach_write,
 	.read	= iommu_debug_attach_read,
 };
 
@@ -1568,7 +1509,6 @@ static ssize_t iommu_debug_pte_read(struct file *file, char __user *ubuf,
 				     size_t count, loff_t *offset)
 {
 	struct iommu_debug_device *ddev = file->private_data;
-	struct device *dev = ddev->dev;
 	uint64_t pte;
 	char buf[100];
 	ssize_t retval;
@@ -1578,22 +1518,20 @@ static ssize_t iommu_debug_pte_read(struct file *file, char __user *ubuf,
 		pr_err("kptr_restrict needs to be disabled.\n");
 		return -EPERM;
 	}
-	if (!dev->archdata.mapping) {
-		pr_err("No mapping. Did you already attach?\n");
-		return -EINVAL;
-	}
-	if (!dev->archdata.mapping->domain) {
-		pr_err("No domain. Did you already attach?\n");
-		return -EINVAL;
-	}
 
 	if (*offset)
 		return 0;
 
+	mutex_lock(&ddev->state_lock);
+	if (!ddev->domain) {
+		pr_err("No domain. Did you already attach?\n");
+		mutex_unlock(&ddev->state_lock);
+		return -EINVAL;
+	}
+
 	memset(buf, 0, sizeof(buf));
 
-	pte = iommu_iova_to_pte(dev->archdata.mapping->domain,
-			ddev->iova);
+	pte = iommu_iova_to_pte(ddev->domain, ddev->iova);
 
 	if (!pte)
 		strlcpy(buf, "FAIL\n", sizeof(buf));
@@ -1609,6 +1547,7 @@ static ssize_t iommu_debug_pte_read(struct file *file, char __user *ubuf,
 		retval = buflen;
 	}
 
+	mutex_unlock(&ddev->state_lock);
 	return retval;
 }
 
@@ -1649,13 +1588,16 @@ static ssize_t iommu_debug_atos_read(struct file *file, char __user *ubuf,
 		pr_err("kptr_restrict needs to be disabled.\n");
 		return -EPERM;
 	}
-	if (!ddev->domain) {
-		pr_err("No domain. Did you already attach?\n");
-		return -EINVAL;
-	}
 
 	if (*offset)
 		return 0;
+
+	mutex_lock(&ddev->state_lock);
+	if (!ddev->domain) {
+		pr_err("No domain. Did you already attach?\n");
+		mutex_unlock(&ddev->state_lock);
+		return -EINVAL;
+	}
 
 	memset(buf, 0, 100);
 
@@ -1678,6 +1620,7 @@ static ssize_t iommu_debug_atos_read(struct file *file, char __user *ubuf,
 		retval = buflen;
 	}
 
+	mutex_unlock(&ddev->state_lock);
 	return retval;
 }
 
@@ -1691,7 +1634,6 @@ static ssize_t iommu_debug_dma_atos_read(struct file *file, char __user *ubuf,
 				     size_t count, loff_t *offset)
 {
 	struct iommu_debug_device *ddev = file->private_data;
-	struct device *dev = ddev->dev;
 	phys_addr_t phys;
 	char buf[100];
 	ssize_t retval;
@@ -1701,21 +1643,19 @@ static ssize_t iommu_debug_dma_atos_read(struct file *file, char __user *ubuf,
 		pr_err("kptr_restrict needs to be disabled.\n");
 		return -EPERM;
 	}
-	if (!dev->archdata.mapping) {
-		pr_err("No mapping. Did you already attach?\n");
-		return -EINVAL;
-	}
-	if (!dev->archdata.mapping->domain) {
-		pr_err("No domain. Did you already attach?\n");
-		return -EINVAL;
-	}
-
 	if (*offset)
 		return 0;
 
+	mutex_lock(&ddev->state_lock);
+	if (!ddev->domain) {
+		pr_err("No domain. Did you already attach?\n");
+		mutex_unlock(&ddev->state_lock);
+		return -EINVAL;
+	}
+
 	memset(buf, 0, sizeof(buf));
 
-	phys = iommu_iova_to_phys_hard(dev->archdata.mapping->domain,
+	phys = iommu_iova_to_phys_hard(ddev->domain,
 			ddev->iova);
 	if (!phys)
 		strlcpy(buf, "FAIL\n", sizeof(buf));
@@ -1731,6 +1671,7 @@ static ssize_t iommu_debug_dma_atos_read(struct file *file, char __user *ubuf,
 		retval = buflen;
 	}
 
+	mutex_unlock(&ddev->state_lock);
 	return retval;
 }
 
@@ -1755,11 +1696,6 @@ static ssize_t iommu_debug_map_write(struct file *file, const char __user *ubuf,
 
 	if (count >= 100) {
 		pr_err("Value too large\n");
-		return -EINVAL;
-	}
-
-	if (!ddev->domain) {
-		pr_err("No domain. Did you already attach?\n");
 		return -EINVAL;
 	}
 
@@ -1797,6 +1733,13 @@ static ssize_t iommu_debug_map_write(struct file *file, const char __user *ubuf,
 	if (kstrtoint(comma3 + 1, 0, &prot))
 		goto invalid_format;
 
+	mutex_lock(&ddev->state_lock);
+	if (!ddev->domain) {
+		pr_err("No domain. Did you already attach?\n");
+		mutex_unlock(&ddev->state_lock);
+		return -EINVAL;
+	}
+
 	ret = iommu_map(ddev->domain, iova, phys, size, prot);
 	if (ret) {
 		pr_err("iommu_map failed with %d\n", ret);
@@ -1808,6 +1751,7 @@ static ssize_t iommu_debug_map_write(struct file *file, const char __user *ubuf,
 	pr_err("Mapped %pa to %pa (len=0x%zx, prot=0x%x)\n",
 	       &iova, &phys, size, prot);
 out:
+	mutex_unlock(&ddev->state_lock);
 	return retval;
 
 invalid_format:
@@ -1849,23 +1793,11 @@ static ssize_t iommu_debug_dma_map_write(struct file *file,
 		return -EINVAL;
 	}
 
-	if (!dev->archdata.mapping) {
-		pr_err("No mapping. Did you already attach?\n");
-		retval = -EINVAL;
-		goto out;
-	}
-	if (!dev->archdata.mapping->domain) {
-		pr_err("No domain. Did you already attach?\n");
-		retval = -EINVAL;
-		goto out;
-	}
-
 	memset(buf, 0, sizeof(buf));
 
 	if (copy_from_user(buf, ubuf, count)) {
 		pr_err("Couldn't copy from user\n");
-		retval = -EFAULT;
-		goto out;
+		return -EFAULT;
 	}
 
 	comma1 = strnchr(buf, count, ',');
@@ -1902,6 +1834,13 @@ static ssize_t iommu_debug_dma_map_write(struct file *file,
 	else
 		goto invalid_format;
 
+	mutex_lock(&ddev->state_lock);
+	if (!ddev->domain) {
+		pr_err("No domain. Did you already attach?\n");
+		mutex_unlock(&ddev->state_lock);
+		return -EINVAL;
+	}
+
 	iova = dma_map_single_attrs(dev, v_addr, size,
 					DMA_TO_DEVICE, dma_attrs);
 
@@ -1917,6 +1856,7 @@ static ssize_t iommu_debug_dma_map_write(struct file *file,
 	ddev->iova = iova;
 		pr_err("Saved iova=%pa for future PTE commands\n", &iova);
 out:
+	mutex_unlock(&ddev->state_lock);
 	return retval;
 
 invalid_format:
@@ -1932,20 +1872,10 @@ static ssize_t iommu_debug_dma_map_read(struct file *file, char __user *ubuf,
 	     size_t count, loff_t *offset)
 {
 	struct iommu_debug_device *ddev = file->private_data;
-	struct device *dev = ddev->dev;
 	char buf[100];
 	ssize_t retval;
 	size_t buflen;
 	dma_addr_t iova;
-
-	if (!dev->archdata.mapping) {
-		pr_err("No mapping. Did you already attach?\n");
-		return -EINVAL;
-	}
-	if (!dev->archdata.mapping->domain) {
-		pr_err("No domain. Did you already attach?\n");
-		return -EINVAL;
-	}
 
 	if (*offset)
 		return 0;
@@ -2016,16 +1946,25 @@ static ssize_t iommu_debug_unmap_write(struct file *file,
 	if (kstrtosize_t(comma1 + 1, 0, &size))
 		goto invalid_format;
 
+	mutex_lock(&ddev->state_lock);
+	if (!ddev->domain) {
+		pr_err("No domain. Did you already attach?\n");
+		mutex_unlock(&ddev->state_lock);
+		return -EINVAL;
+	}
+
 	unmapped = iommu_unmap(ddev->domain, iova, size);
 	if (unmapped != size) {
 		pr_err("iommu_unmap failed. Expected to unmap: 0x%zx, unmapped: 0x%zx",
 		       size, unmapped);
-		return -EIO;
+		retval = -EIO;
+		goto out;
 	}
 
 	retval = count;
 	pr_err("Unmapped %pa (len=0x%zx)\n", &iova, size);
 out:
+	mutex_unlock(&ddev->state_lock);
 	return retval;
 
 invalid_format:
@@ -2055,17 +1994,6 @@ static ssize_t iommu_debug_dma_unmap_write(struct file *file,
 	if (count >= sizeof(buf)) {
 		pr_err("Value too large\n");
 		return -EINVAL;
-	}
-
-	if (!dev->archdata.mapping) {
-		pr_err("No mapping. Did you already attach?\n");
-		retval = -EINVAL;
-		goto out;
-	}
-	if (!dev->archdata.mapping->domain) {
-		pr_err("No domain. Did you already attach?\n");
-		retval = -EINVAL;
-		goto out;
 	}
 
 	memset(buf, 0, sizeof(buf));
@@ -2106,11 +2034,18 @@ static ssize_t iommu_debug_dma_unmap_write(struct file *file,
 	else
 		goto invalid_format;
 
+	mutex_lock(&ddev->state_lock);
+	if (!ddev->domain) {
+		pr_err("No domain. Did you already attach?\n");
+		mutex_unlock(&ddev->state_lock);
+		return -EINVAL;
+	}
 	dma_unmap_single_attrs(dev, iova, size, DMA_TO_DEVICE, dma_attrs);
 
 	retval = count;
 	pr_err("Unmapped %pa (len=0x%zx)\n", &iova, size);
 out:
+	mutex_unlock(&ddev->state_lock);
 	return retval;
 
 invalid_format:
@@ -2191,18 +2126,20 @@ static ssize_t iommu_debug_trigger_fault_write(
 	struct iommu_debug_device *ddev = file->private_data;
 	unsigned long flags;
 
-	if (!ddev->domain) {
-		pr_err("No domain. Did you already attach?\n");
-		return -EINVAL;
-	}
-
 	if (kstrtoul_from_user(ubuf, count, 0, &flags)) {
 		pr_err("Invalid flags format\n");
 		return -EFAULT;
 	}
 
+	mutex_lock(&ddev->state_lock);
+	if (!ddev->domain) {
+		pr_err("No domain. Did you already attach?\n");
+		mutex_unlock(&ddev->state_lock);
+		return -EINVAL;
+	}
 	iommu_trigger_fault(ddev->domain, flags);
 
+	mutex_unlock(&ddev->state_lock);
 	return count;
 }
 
@@ -2236,6 +2173,7 @@ static int snarf_iommu_devices(struct device *dev, void *ignored)
 		return -ENODEV;
 
 	mutex_init(&ddev->clk_lock);
+	mutex_init(&ddev->state_lock);
 	ddev->dev = dev;
 	dir = debugfs_create_dir(dev_name(dev), debugfs_tests_dir);
 	if (!dir) {
