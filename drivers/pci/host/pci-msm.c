@@ -407,6 +407,8 @@ enum msm_pcie_debugfs_option {
 	MSM_PCIE_DEASSERT_PERST,
 	MSM_PCIE_KEEP_RESOURCES_ON,
 	MSM_PCIE_FORCE_GEN1,
+	MSM_PCIE_FORCE_GEN2,
+	MSM_PCIE_FORCE_GEN3,
 	MSM_PCIE_MAX_DEBUGFS_OPTION
 };
 
@@ -442,7 +444,9 @@ static const char * const
 	"ASSERT PERST",
 	"DE-ASSERT PERST",
 	"SET KEEP_RESOURCES_ON FLAG",
-	"FORCE GEN 1 SPEED FOR LINK TRAINING"
+	"SET MAXIMUM LINK SPEED TO GEN 1",
+	"SET MAXIMUM LINK SPEED TO GEN 2",
+	"SET MAXIMUM LINK SPEED TO GEN 3",
 };
 
 /* gpio info structure */
@@ -595,6 +599,7 @@ struct msm_pcie_dev_t {
 	bool				 aux_clk_sync;
 	bool				aer_enable;
 	uint32_t			smmu_sid_base;
+	uint32_t			target_link_speed;
 	uint32_t			   n_fts;
 	bool				 ext_ref_clk;
 	uint32_t			   ep_latency;
@@ -1300,6 +1305,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->linkdown_counter);
 	PCIE_DBG_FS(dev, "wake_counter: %lu\n",
 		dev->wake_counter);
+	PCIE_DBG_FS(dev, "target_link_speed: 0x%x\n",
+		dev->target_link_speed);
 	PCIE_DBG_FS(dev, "link_turned_on_counter: %lu\n",
 		dev->link_turned_on_counter);
 	PCIE_DBG_FS(dev, "link_turned_off_counter: %lu\n",
@@ -1967,9 +1974,22 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 		msm_pcie_keep_resources_on |= BIT(dev->rc_idx);
 		break;
 	case MSM_PCIE_FORCE_GEN1:
-		PCIE_DBG_FS(dev, "\n\nPCIe: RC%d: set force gen1 flag\n\n",
+		PCIE_DBG_FS(dev,
+			"\n\nPCIe: RC%d: set target speed to Gen 1\n\n",
 			dev->rc_idx);
-		msm_pcie_force_gen1 |= BIT(dev->rc_idx);
+		dev->target_link_speed = GEN1_SPEED;
+		break;
+	case MSM_PCIE_FORCE_GEN2:
+		PCIE_DBG_FS(dev,
+			"\n\nPCIe: RC%d: set target speed to Gen 2\n\n",
+			dev->rc_idx);
+		dev->target_link_speed = GEN2_SPEED;
+		break;
+	case MSM_PCIE_FORCE_GEN3:
+		PCIE_DBG_FS(dev,
+			"\n\nPCIe: RC%d: set target speed to Gen 3\n\n",
+			dev->rc_idx);
+		dev->target_link_speed = GEN3_SPEED;
 		break;
 	default:
 		PCIE_DBG_FS(dev, "Invalid testcase: %d.\n", testcase);
@@ -3973,9 +3993,12 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 		PCIE_GEN3_MISC_CONTROL, BIT(0), 0);
 
 	if (msm_pcie_force_gen1 & BIT(dev->rc_idx))
+		dev->target_link_speed = GEN1_SPEED;
+
+	if (dev->target_link_speed)
 		msm_pcie_write_reg_field(dev->dm_core,
 			PCIE20_CAP + PCI_EXP_LNKCTL2,
-			PCI_EXP_LNKCAP_SLS, GEN1_SPEED);
+			PCI_EXP_LNKCAP_SLS, dev->target_link_speed);
 
 	/* set max tlp read size */
 	msm_pcie_write_reg_field(dev->dm_core, PCIE20_DEVICE_CONTROL_STATUS,
@@ -5939,6 +5962,14 @@ static int msm_pcie_probe(struct platform_device *pdev)
 			"RC%d: pcie-phy-ver: %d.\n",
 			msm_pcie_dev[rc_idx].rc_idx,
 			msm_pcie_dev[rc_idx].phy_ver);
+
+	msm_pcie_dev[rc_idx].target_link_speed = 0;
+	ret = of_property_read_u32(pdev->dev.of_node,
+				"qcom,target-link-speed",
+				&msm_pcie_dev[rc_idx].target_link_speed);
+	PCIE_DBG(&msm_pcie_dev[rc_idx],
+		"PCIe: RC%d: target-link-speed: 0x%x.\n",
+		rc_idx, msm_pcie_dev[rc_idx].target_link_speed);
 
 	msm_pcie_dev[rc_idx].n_fts = 0;
 	ret = of_property_read_u32((&pdev->dev)->of_node,
