@@ -520,6 +520,9 @@ int diag_usb_write(int id, unsigned char *buf, int len, int ctxt)
 
 	usb_info = &diag_usb[id];
 
+	if (!atomic_read(&usb_info->connected))
+		return -ENOTCONN;
+
 	if (len > usb_info->max_size) {
 		DIAG_LOG(DIAG_DEBUG_MUX, "len: %d, max_size: %d\n",
 			 len, usb_info->max_size);
@@ -534,9 +537,11 @@ int diag_usb_write(int id, unsigned char *buf, int len, int ctxt)
 		 * trying to write more buffers than the max supported by
 		 * this particualar diag USB channel at any given instance,
 		 * or the previous write ptrs are stuck in the USB layer.
+		 * Remove the buffer entry from the usb buf table for this case.
 		 */
 		pr_err_ratelimited("diag: In %s, cannot retrieve USB write ptrs for USB channel %s\n",
 				   __func__, usb_info->name);
+		diag_usb_buf_tbl_remove(usb_info, buf);
 		return -ENOMEM;
 	}
 
