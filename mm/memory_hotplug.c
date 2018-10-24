@@ -706,7 +706,6 @@ static void __free_pages_hotplug(struct page *page, unsigned int order)
 	}
 
 	set_page_refcounted(page);
-	kernel_map_pages(page, 1 << order, 1);
 	__free_pages(page, order);
 }
 
