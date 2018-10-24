@@ -2935,25 +2935,30 @@ void clk_debug_print_hw(struct clk_core *clk, struct seq_file *f)
 	if (!clk->ops->list_registers)
 		return;
 
+	clk_prepare_lock();
+	if (clk->ops->bus_vote)
+		clk->ops->bus_vote(clk->hw, true);
+
 	clk->ops->list_registers(f, clk->hw);
+
+	if (clk->ops->bus_vote)
+		clk->ops->bus_vote(clk->hw, false);
+	clk_prepare_unlock();
 }
 EXPORT_SYMBOL(clk_debug_print_hw);
 
 static int print_hw_show(struct seq_file *m, void *unused)
 {
 	struct clk_core *c = m->private;
-	struct clk_core *clk;
 
 	clk_prepare_lock();
-	for (clk = c; clk; clk = clk->parent)
-		if (clk->ops->bus_vote)
-			clk->ops->bus_vote(clk->hw, true);
+	if (c->ops->bus_vote)
+		c->ops->bus_vote(c->hw, true);
 
 	clk_debug_print_hw(c, m);
 
-	for (clk = c; clk; clk = clk->parent)
-		if (clk->ops->bus_vote)
-			clk->ops->bus_vote(c->hw, false);
+	if (c->ops->bus_vote)
+		c->ops->bus_vote(c->hw, false);
 	clk_prepare_unlock();
 
 	return 0;
