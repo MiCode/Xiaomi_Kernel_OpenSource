@@ -20,12 +20,19 @@
 #include <linux/i2c.h>
 #include <linux/delay.h>
 #include "bmi160_driver.h"
+#include <linux/regulator/consumer.h>
 
 /*! @defgroup bmi160_i2c_src
  *  @brief bmi160 i2c driver module
  @{*/
 
 static struct i2c_client *bmi_client;
+
+struct BMI160Supply {
+	struct regulator *vdd_reg;
+	struct regulator *vio_reg;
+};
+
 /*!
  * @brief define i2c wirte function
  *
@@ -256,8 +263,43 @@ static int bmi_i2c_probe(struct i2c_client *client,
 {
 		int err = 0;
 		struct bmi_client_data *client_data = NULL;
+		struct BMI160Supply bmi160Supply;
 
 		dev_info(&client->dev, "BMI160 i2c function probe entrance");
+
+		dev_info(&client->dev, "bmi_i2c_probe regulator ON\n");
+
+		bmi160Supply.vdd_reg = devm_regulator_get(&client->dev, "vdd");
+		if (IS_ERR(bmi160Supply.vdd_reg)) {
+			if (PTR_ERR(bmi160Supply.vdd_reg) != -EPROBE_DEFER)
+				dev_err(&client->dev, "bmi160Supply->vdd_reg EPROBE_DEFER Unable to get regulator\n");
+			err = PTR_ERR(bmi160Supply.vdd_reg);
+			goto exit_err_clean;
+		}
+
+		dev_err(&client->dev, "bmi_i2c_probe before regulator_enable(VDD)\n");
+		if (regulator_enable(bmi160Supply.vdd_reg)) {
+			dev_err(&client->dev, "bmi160Supply->vdd_reg error!regulator cannot enable");
+			err = -EIO;
+			goto exit_err_clean;
+		}
+		dev_err(&client->dev, "bmi_i2c_probe after regulator_enable(VDD)\n");
+
+		bmi160Supply.vio_reg = devm_regulator_get(&client->dev, "vio");
+		if (IS_ERR(bmi160Supply.vio_reg)) {
+			if (PTR_ERR(bmi160Supply.vio_reg) != -EPROBE_DEFER)
+				dev_err(&client->dev, "bmi160Supply->vio_reg EPROBE_DEFER Unable to get regulator\n");
+			err = PTR_ERR(bmi160Supply.vio_reg);
+			goto exit_err_clean;
+		}
+
+		dev_err(&client->dev, "bmi_i2c_probe before regulator_enable(VIO)\n");
+		if (regulator_enable(bmi160Supply.vio_reg)) {
+			dev_err(&client->dev, "bmi160Supply->vio_reg error!regulator cannot enable");
+			err = -EIO;
+			goto exit_err_clean;
+		}
+		dev_err(&client->dev, "bmi_i2c_probe after regulator_enable(VIO)\n");
 
 		if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 			dev_err(&client->dev, "i2c_check_functionality error!");

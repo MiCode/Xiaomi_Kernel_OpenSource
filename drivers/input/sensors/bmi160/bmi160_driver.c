@@ -569,7 +569,7 @@ static int bmi_check_chip_id(struct bmi_client_data *client_data)
 					dev_notice(client_data->dev,
 					"Bosch Sensortec Device detected, "
 			"HW IC name: %s\n", sensor_type_map[i].sensor_name);
-					break;
+					return 0;
 				}
 			}
 			if (i < bmi_sensor_cnt)
@@ -586,6 +586,7 @@ static int bmi_check_chip_id(struct bmi_client_data *client_data)
 			bmi_delay(1);
 		}
 	}
+	err = -ENODEV;
 	return err;
 
 }
