@@ -31,7 +31,7 @@
 #include "clk-branch.h"
 #include "clk-rcg.h"
 #include "clk-regmap.h"
-#include "vdd-level.h"
+#include "vdd-level-sdmmagpie.h"
 
 #define F(f, s, h, m, n) { (f), (s), (2 * (h) - 1), (m), (n) }
 
