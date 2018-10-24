@@ -1124,6 +1124,59 @@ int cnss_wlan_pm_control(struct device *dev, bool vote)
 }
 EXPORT_SYMBOL(cnss_wlan_pm_control);
 
+void cnss_pci_pm_runtime_show_usage_count(struct cnss_pci_data *pci_priv)
+{
+	struct device *dev;
+
+	if (!pci_priv)
+		return;
+
+	dev = &pci_priv->pci_dev->dev;
+
+	cnss_pr_dbg("Runtime PM usage count: %d\n",
+		    atomic_read(&dev->power.usage_count));
+}
+
+int cnss_pci_pm_runtime_get(struct cnss_pci_data *pci_priv)
+{
+	if (!pci_priv)
+		return -ENODEV;
+
+	return pm_runtime_get(&pci_priv->pci_dev->dev);
+}
+
+void cnss_pci_pm_runtime_get_noresume(struct cnss_pci_data *pci_priv)
+{
+	if (!pci_priv)
+		return;
+
+	return pm_runtime_get_noresume(&pci_priv->pci_dev->dev);
+}
+
+int cnss_pci_pm_runtime_put_autosuspend(struct cnss_pci_data *pci_priv)
+{
+	if (!pci_priv)
+		return -ENODEV;
+
+	return pm_runtime_put_autosuspend(&pci_priv->pci_dev->dev);
+}
+
+void cnss_pci_pm_runtime_put_noidle(struct cnss_pci_data *pci_priv)
+{
+	if (!pci_priv)
+		return;
+
+	pm_runtime_put_noidle(&pci_priv->pci_dev->dev);
+}
+
+void cnss_pci_pm_runtime_mark_last_busy(struct cnss_pci_data *pci_priv)
+{
+	if (!pci_priv)
+		return;
+
+	pm_runtime_mark_last_busy(&pci_priv->pci_dev->dev);
+}
+
 int cnss_auto_suspend(struct device *dev)
 {
 	int ret = 0;
