@@ -53,6 +53,7 @@
 #define DEFAULT_PANEL_MAX_V_PREFILL	108
 
 static struct sde_rsc_priv *rsc_prv_list[MAX_RSC_COUNT];
+static struct device *rpmh_dev[MAX_RSC_COUNT];
 
 /**
  * sde_rsc_client_create() - create the client for sde rsc.
@@ -486,7 +487,7 @@ static int sde_rsc_switch_to_cmd(struct sde_rsc_priv *rsc,
 	if (rsc->hw_ops.state_update) {
 		rc = rsc->hw_ops.state_update(rsc, SDE_RSC_CMD_STATE);
 		if (!rc)
-			rpmh_mode_solver_set(rsc->disp_rsc, true);
+			rpmh_mode_solver_set(rsc->rpmh_dev, true);
 	}
 
 vsync_wait:
@@ -537,7 +538,7 @@ static int sde_rsc_switch_to_clk(struct sde_rsc_priv *rsc,
 	if (rsc->hw_ops.state_update) {
 		rc = rsc->hw_ops.state_update(rsc, SDE_RSC_CLK_STATE);
 		if (!rc)
-			rpmh_mode_solver_set(rsc->disp_rsc, false);
+			rpmh_mode_solver_set(rsc->rpmh_dev, false);
 	}
 
 	/* indicate wait for vsync for cmd/vid to clk state switch */
@@ -624,7 +625,7 @@ static int sde_rsc_switch_to_vid(struct sde_rsc_priv *rsc,
 	if (rsc->hw_ops.state_update) {
 		rc = rsc->hw_ops.state_update(rsc, SDE_RSC_VID_STATE);
 		if (!rc)
-			rpmh_mode_solver_set(rsc->disp_rsc,
+			rpmh_mode_solver_set(rsc->rpmh_dev,
 				rsc->version == SDE_RSC_REV_3 ? true : false);
 	}
 
@@ -700,7 +701,7 @@ static int sde_rsc_switch_to_idle(struct sde_rsc_priv *rsc,
 	} else if (rsc->hw_ops.state_update) {
 		rc = rsc->hw_ops.state_update(rsc, SDE_RSC_IDLE_STATE);
 		if (!rc)
-			rpmh_mode_solver_set(rsc->disp_rsc, true);
+			rpmh_mode_solver_set(rsc->rpmh_dev, true);
 	}
 
 	return rc;
@@ -1013,14 +1014,14 @@ int sde_rsc_client_trigger_vote(struct sde_rsc_client *caller_client,
 			}
 		}
 
-		rpmh_invalidate(rsc->disp_rsc);
+		rpmh_invalidate(rsc->rpmh_dev);
 		for (i = 0; i < SDE_POWER_HANDLE_DBUS_ID_MAX; i++)
 			sde_power_data_bus_set_quota(&rsc->phandle,
 				rsc->pclient,
 				SDE_POWER_HANDLE_DATA_BUS_CLIENT_RT,
 				i, rsc->bw_config.ab_vote[i],
 				rsc->bw_config.ib_vote[i]);
-		rpmh_flush(rsc->disp_rsc);
+		rpmh_flush(rsc->rpmh_dev);
 	}
 
 	if (rsc->hw_ops.bwi_status && rsc->current_state == SDE_RSC_CMD_STATE)
@@ -1346,8 +1347,6 @@ static void sde_rsc_deinit(struct platform_device *pdev,
 		msm_dss_iounmap(&rsc->wrapper_io);
 	if (rsc->drv_io.base)
 		msm_dss_iounmap(&rsc->drv_io);
-	if (rsc->disp_rsc)
-		rpmh_release(rsc->disp_rsc);
 	if (rsc->pclient)
 		sde_power_client_destroy(&rsc->phandle, rsc->pclient);
 
@@ -1436,6 +1435,12 @@ static int sde_rsc_probe(struct platform_device *pdev)
 	static int counter;
 	char  name[MAX_RSC_CLIENT_NAME_LEN];
 
+	if (counter >= MAX_RSC_COUNT) {
+		pr_err("sde rsc supports probe till MAX_RSC_COUNT=%d devices\n",
+			MAX_RSC_COUNT);
+		return -EINVAL;
+	}
+
 	rsc = kzalloc(sizeof(*rsc), GFP_KERNEL);
 	if (!rsc) {
 		ret = -ENOMEM;
@@ -1480,11 +1485,11 @@ static int sde_rsc_probe(struct platform_device *pdev)
 	 */
 	sde_power_data_bus_state_update(&rsc->phandle, true);
 
-	rsc->disp_rsc = rpmh_get_byname(pdev, "disp_rsc");
-	if (IS_ERR_OR_NULL(rsc->disp_rsc)) {
-		ret = PTR_ERR(rsc->disp_rsc);
-		rsc->disp_rsc = NULL;
-		pr_err("sde rsc:get display rsc failed ret:%d\n", ret);
+	rsc->rpmh_dev = rpmh_dev[SDE_RSC_INDEX + counter];
+	if (IS_ERR_OR_NULL(rsc->rpmh_dev)) {
+		ret = !rsc->rpmh_dev ? -EINVAL : PTR_ERR(rsc->rpmh_dev);
+		rsc->rpmh_dev = NULL;
+		pr_err("rpmh device node is not available ret:%d\n", ret);
 		goto sde_rsc_fail;
 	}
 
@@ -1568,9 +1573,37 @@ static int sde_rsc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int sde_rsc_rpmh_probe(struct platform_device *pdev)
+{
+	int ret = 0;
+	uint32_t index = 0;
+
+	ret = of_property_read_u32(pdev->dev.of_node, "cell-index", &index);
+	if (ret) {
+		pr_err("unable to find sde rsc cell index\n");
+		return ret;
+	} else if (index >= MAX_RSC_COUNT) {
+		pr_err("invalid cell index for sde rsc:%d\n", index);
+		return -EINVAL;
+	}
+
+	rpmh_dev[index] = &pdev->dev;
+	return 0;
+}
+
+int sde_rsc_rpmh_remove(struct platform_device *pdev)
+{
+	int i;
+
+	for (i = 0; i < MAX_RSC_COUNT; i++)
+		rpmh_dev[i] = NULL;
+
+	return 0;
+}
+
 static const struct of_device_id dt_match[] = {
 	{ .compatible = "qcom,sde-rsc"},
-	{}
+	{},
 };
 
 MODULE_DEVICE_TABLE(of, dt_match);
@@ -1585,6 +1618,20 @@ static struct platform_driver sde_rsc_platform_driver = {
 	},
 };
 
+static const struct of_device_id sde_rsc_rpmh_match[] = {
+	{.compatible = "qcom,sde-rsc-rpmh"},
+	{},
+};
+
+static struct platform_driver sde_rsc_rpmh_driver = {
+	.probe = sde_rsc_rpmh_probe,
+	.remove = sde_rsc_rpmh_remove,
+	.driver = {
+		.name = "sde_rsc_rpmh",
+		.of_match_table = sde_rsc_rpmh_match,
+	},
+};
+
 static int __init sde_rsc_register(void)
 {
 	return platform_driver_register(&sde_rsc_platform_driver);
@@ -1595,5 +1642,11 @@ static void __exit sde_rsc_unregister(void)
 	platform_driver_unregister(&sde_rsc_platform_driver);
 }
 
+static int __init sde_rsc_rpmh_register(void)
+{
+	return platform_driver_register(&sde_rsc_rpmh_driver);
+}
+
+subsys_initcall(sde_rsc_rpmh_register);
 module_init(sde_rsc_register);
 module_exit(sde_rsc_unregister);

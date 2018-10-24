@@ -145,7 +145,7 @@ struct sde_rsc_bw_config {
  * @fs:			"MDSS GDSC" handle
  * @sw_fs_enabled:	track "MDSS GDSC" sw vote during probe
  *
- * @disp_rsc:		display rsc handle
+ * @rpmh_dev:		rpmh device node
  * @drv_io:		sde drv io data mapping
  * @wrapper_io:		wrapper io data mapping
  *
@@ -187,7 +187,7 @@ struct sde_rsc_priv {
 	struct regulator *fs;
 	bool sw_fs_enabled;
 
-	struct rpmh_client *disp_rsc;
+	struct device *rpmh_dev;
 	struct dss_io_data drv_io;
 	struct dss_io_data wrapper_io;
 
