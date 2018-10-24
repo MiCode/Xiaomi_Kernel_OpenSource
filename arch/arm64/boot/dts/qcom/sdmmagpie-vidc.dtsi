@@ -30,18 +30,20 @@
 		/* Clocks */
 		clock-names =  "video_cc_mvsc_ctl_axi", "video_cc_mvs0_ctl_axi",
 			"video_cc_mvs1_ctl_axi", "core_clk", "vcodec_clk",
-			"cvp_clk";
+			"cvp_clk", "iface_clk";
 		clocks = <&clock_videocc VIDEO_CC_MVSC_CTL_AXI_CLK>,
 			<&clock_videocc VIDEO_CC_MVS0_AXI_CLK>,
 			<&clock_videocc VIDEO_CC_MVS1_AXI_CLK>,
 			<&clock_videocc VIDEO_CC_MVSC_CORE_CLK>,
 			<&clock_videocc VIDEO_CC_MVS0_CORE_CLK>,
-			<&clock_videocc VIDEO_CC_MVS1_CORE_CLK>;
+			<&clock_videocc VIDEO_CC_MVS1_CORE_CLK>,
+			<&clock_videocc VIDEO_CC_VENUS_AHB_CLK>;
+
 		qcom,proxy-clock-names = "video_cc_mvsc_ctl_axi",
 			"video_cc_mvs0_ctl_axi", "video_cc_mvs1_ctl_axi",
-			"core_clk", "vcodec_clk", "cvp_clk";
+			"core_clk", "vcodec_clk", "cvp_clk", "iface_clk";
 
-		qcom,clock-configs = <0x0 0x0 0x0 0x1 0x1 0x1>;
+		qcom,clock-configs = <0x0 0x0 0x0 0x1 0x1 0x1 0x0>;
 		qcom,allowed-clock-rates = <240000000 338000000
 			365000000 444000000 533000000>;
 
@@ -76,7 +78,7 @@
 		non_secure_cb {
 			compatible = "qcom,msm-vidc,context-bank";
 			label = "venus_ns";
-			iommus = <&apps_smmu 0x2300 0x60>;
+			iommus = <&apps_smmu 0x1080 0x60>;
 			buffer-types = <0xfff>;
 			virtual-addr-pool = <0x25800000 0xba800000>;
 		};
@@ -84,7 +86,7 @@
 		secure_non_pixel_cb {
 			compatible = "qcom,msm-vidc,context-bank";
 			label = "venus_sec_non_pixel";
-			iommus = <&apps_smmu 0x2304 0x60>;
+			iommus = <&apps_smmu 0x1084 0x60>;
 			buffer-types = <0x480>;
 			virtual-addr-pool = <0x1000000 0x24800000>;
 			qcom,secure-context-bank;
@@ -93,7 +95,7 @@
 		secure_bitstream_cb {
 			compatible = "qcom,msm-vidc,context-bank";
 			label = "venus_sec_bitstream";
-			iommus = <&apps_smmu 0x2301 0x4>;
+			iommus = <&apps_smmu 0x1081 0x4>;
 			buffer-types = <0x241>;
 			virtual-addr-pool = <0x0 0xe0000000>;
 			qcom,secure-context-bank;
@@ -102,7 +104,7 @@
 		secure_pixel_cb {
 			compatible = "qcom,msm-vidc,context-bank";
 			label = "venus_sec_pixel";
-			iommus = <&apps_smmu 0x2303 0x20>;
+			iommus = <&apps_smmu 0x1083 0x20>;
 			buffer-types = <0x106>;
 			virtual-addr-pool = <0x0 0xe0000000>;
 			qcom,secure-context-bank;
