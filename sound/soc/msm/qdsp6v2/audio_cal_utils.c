@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,10 @@
 #include <linux/uaccess.h>
 #include <linux/mutex.h>
 #include <sound/audio_cal_utils.h>
+
+static int destroy_cal_lock_init;
+
+static struct mutex destroy_cal_lock;
 
 static int unmap_memory(struct cal_type_data *cal_type,
 			struct cal_block_data *cal_block);
@@ -435,6 +439,7 @@ static void destroy_all_cal_blocks(struct cal_type_data *cal_type)
 	struct list_head		*ptr, *next;
 	struct cal_block_data		*cal_block;
 
+	mutex_lock(&destroy_cal_lock);
 	list_for_each_safe(ptr, next,
 		&cal_type->cal_blocks) {
 
@@ -451,6 +456,7 @@ static void destroy_all_cal_blocks(struct cal_type_data *cal_type)
 		delete_cal_block(cal_block);
 		cal_block = NULL;
 	}
+	mutex_unlock(&destroy_cal_lock);
 
 	return;
 }
@@ -483,11 +489,13 @@ void cal_utils_destroy_cal_types(int num_cal_types,
 		goto done;
 	}
 
+	mutex_lock(&destroy_cal_lock);
 	for (i = 0; i < num_cal_types; i++) {
 		audio_cal_deregister(1, &cal_type[i]->info.reg);
 		destroy_cal_type_data(cal_type[i]);
 		cal_type[i] = NULL;
 	}
+	mutex_unlock(&destroy_cal_lock);
 done:
 	return;
 }
@@ -663,21 +671,22 @@ void cal_utils_clear_cal_block_q6maps(int num_cal_types,
 		goto done;
 	}
 
+	mutex_lock(&destroy_cal_lock);
 	for (; i < num_cal_types; i++) {
 		if (cal_type[i] == NULL)
 			continue;
 
-		mutex_lock(&cal_type[i]->lock);
 		list_for_each_safe(ptr, next,
 			&cal_type[i]->cal_blocks) {
 
 			cal_block = list_entry(ptr,
 				struct cal_block_data, list);
 
-			cal_block->map_data.q6map_handle = 0;
+			if (cal_block != NULL)
+				cal_block->map_data.q6map_handle = 0;
 		}
-		mutex_unlock(&cal_type[i]->lock);
 	}
+	mutex_unlock(&destroy_cal_lock);
 done:
 	return;
 }
@@ -820,6 +829,11 @@ int cal_utils_alloc_cal(size_t data_size, void *data,
 err:
 	mutex_unlock(&cal_type->lock);
 done:
+	if (destroy_cal_lock_init == 0) {
+		pr_debug("%s:destroy_cal_lock lock init\n", __func__);
+		mutex_init(&destroy_cal_lock);
+		destroy_cal_lock_init = 1;
+	}
 	return ret;
 }
 
