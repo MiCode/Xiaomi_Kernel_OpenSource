@@ -596,7 +596,6 @@ struct msm_pcie_dev_t {
 	bool				aer_enable;
 	uint32_t			smmu_sid_base;
 	uint32_t			   n_fts;
-	uint32_t			max_link_speed;
 	bool				 ext_ref_clk;
 	uint32_t			   ep_latency;
 	uint32_t			switch_latency;
@@ -1301,8 +1300,6 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->linkdown_counter);
 	PCIE_DBG_FS(dev, "wake_counter: %lu\n",
 		dev->wake_counter);
-	PCIE_DBG_FS(dev, "max_link_speed: 0x%x\n",
-		dev->max_link_speed);
 	PCIE_DBG_FS(dev, "link_turned_on_counter: %lu\n",
 		dev->link_turned_on_counter);
 	PCIE_DBG_FS(dev, "link_turned_off_counter: %lu\n",
@@ -3799,28 +3796,6 @@ static void msm_pcie_release_resources(struct msm_pcie_dev_t *dev)
 	dev->dev_io_res = NULL;
 }
 
-static void msm_pcie_setup_gen3(struct msm_pcie_dev_t *dev)
-{
-	PCIE_DBG(dev, "PCIe: RC%d: Setting up Gen3\n", dev->rc_idx);
-
-	msm_pcie_write_reg_field(dev->dm_core,
-		PCIE_GEN3_GEN2_CTRL, 0x1f00, 1);
-
-	msm_pcie_write_mask(dev->dm_core,
-		PCIE_GEN3_EQ_CONTROL, 0x20);
-
-	msm_pcie_write_mask(dev->dm_core +
-		PCIE_GEN3_RELATED, BIT(0), 0);
-
-	/* configure PCIe preset */
-	msm_pcie_write_reg_field(dev->dm_core,
-		PCIE_GEN3_MISC_CONTROL, BIT(0), 1);
-	msm_pcie_write_reg(dev->dm_core,
-		PCIE_GEN3_SPCIE_CAP, 0x77777777);
-	msm_pcie_write_reg_field(dev->dm_core,
-		PCIE_GEN3_MISC_CONTROL, BIT(0), 0);
-}
-
 static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 {
 	int ret = 0;
@@ -3940,12 +3915,6 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 			goto link_fail;
 	}
 
-	/* check capability for max link speed */
-	if (!dev->max_link_speed) {
-		val = readl_relaxed(dev->dm_core + PCIE20_CAP + PCI_EXP_LNKCAP);
-		dev->max_link_speed = val & PCI_EXP_LNKCAP_SLS;
-	}
-
 	PCIE_DBG(dev, "RC%d: waiting for phy ready...\n", dev->rc_idx);
 
 	do {
@@ -3986,9 +3955,22 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 
 	ep_up_timeout = jiffies + usecs_to_jiffies(EP_UP_TIMEOUT_US);
 
-	/* setup Gen3 specific configurations */
-	if (dev->max_link_speed == GEN3_SPEED)
-		msm_pcie_setup_gen3(dev);
+	msm_pcie_write_reg_field(dev->dm_core,
+		PCIE_GEN3_GEN2_CTRL, 0x1f00, 1);
+
+	msm_pcie_write_mask(dev->dm_core,
+		PCIE_GEN3_EQ_CONTROL, 0x20);
+
+	msm_pcie_write_mask(dev->dm_core +
+		PCIE_GEN3_RELATED, BIT(0), 0);
+
+	/* configure PCIe preset */
+	msm_pcie_write_reg_field(dev->dm_core,
+		PCIE_GEN3_MISC_CONTROL, BIT(0), 1);
+	msm_pcie_write_reg(dev->dm_core,
+		PCIE_GEN3_SPCIE_CAP, 0x77777777);
+	msm_pcie_write_reg_field(dev->dm_core,
+		PCIE_GEN3_MISC_CONTROL, BIT(0), 0);
 
 	if (msm_pcie_force_gen1 & BIT(dev->rc_idx))
 		msm_pcie_write_reg_field(dev->dm_core,
@@ -5969,13 +5951,6 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	else
 		PCIE_DBG(&msm_pcie_dev[rc_idx], "n-fts: 0x%x.\n",
 				msm_pcie_dev[rc_idx].n_fts);
-
-	msm_pcie_dev[rc_idx].max_link_speed = GEN2_SPEED;
-	ret = of_property_read_u32(pdev->dev.of_node,
-				"qcom,max-link-speed",
-				&msm_pcie_dev[rc_idx].max_link_speed);
-	PCIE_DBG(&msm_pcie_dev[rc_idx], "PCIe: RC%d: max-link-speed: 0x%x.\n",
-		rc_idx, msm_pcie_dev[rc_idx].max_link_speed);
 
 	msm_pcie_dev[rc_idx].ext_ref_clk =
 		of_property_read_bool((&pdev->dev)->of_node,
