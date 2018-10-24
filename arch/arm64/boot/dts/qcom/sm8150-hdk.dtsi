@@ -11,5 +11,61 @@
  */
 #include "sm8150-qrd.dtsi"
 #include "sm8150-qrd-audio-overlay.dtsi"
-
 #include "sm8150-camera-sensor-hdk.dtsi"
+
+&tlmm {
+	pmx_ts_rst_active {
+		ts_rst_active: ts_rst_active {
+			mux {
+				pins = "gpio54";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio54";
+				drive-strength = <16>;
+				bias-pull-up;
+			};
+		};
+	};
+
+	pmx_ts_rst_suspend {
+		ts_rst_suspend: ts_rst_suspend {
+			mux {
+				pins = "gpio54";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio54";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+	};
+};
+
+&soc {
+	hbtp {
+		compatible = "qcom,hbtp-input";
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
+		pinctrl-0 = <&ts_rst_active>;
+		pinctrl-1 = <&ts_rst_suspend>;
+		vcc_ana-supply = <&pm8150_l17>;
+		vcc_dig-supply = <&pm8150_s4>;
+		qcom,afe-load = <20000>;
+		qcom,afe-vtg-min = <3000000>;
+		qcom,afe-vtg-max = <3000000>;
+		qcom,dig-load = <40000>;
+		qcom,dig-vtg-min = <1800000>;
+		qcom,dig-vtg-max = <1800000>;
+		qcom,fb-resume-delay-us = <1000>;
+		qcom,afe-force-power-on;
+		qcom,afe-power-on-delay-us = <6>;
+		qcom,afe-power-off-delay-us = <6>;
+	};
+};
+
+&qupv3_se17_i2c {
+	status = "disabled";
+};
