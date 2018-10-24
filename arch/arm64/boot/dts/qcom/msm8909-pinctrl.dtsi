@@ -922,6 +922,103 @@
 			};
 		};
 
+		/* add pingrp for goodix touch */
+		ts_int_default: ts_int_default {
+			mux {
+				pins = "gpio13";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio13";
+				drive-strength = <16>;
+				/*bias-pull-up;*/
+				input-enable;
+				bias-disable;
+			};
+		};
+
+		ts_int_output_high: ts_int_output_high {
+			mux {
+				pins = "gpio13";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio13";
+				output-high;
+			};
+		};
+
+		ts_int_output_low: ts_int_output_low {
+			mux {
+				pins = "gpio13";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio13";
+				output-low;
+			};
+		};
+
+		ts_int_input: ts_int_input {
+			mux {
+				pins = "gpio13";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio13";
+				input-enable;
+				bias-disable;
+			};
+		};
+
+		ts_rst_default: ts_rst_default {
+			mux {
+				pins = "gpio16";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio16";
+				drive-strength = <16>;
+				/*bias-pull-up;*/
+				input-enable;
+				bias-disable;
+			};
+		};
+
+		ts_rst_output_high: ts_rst_output_high {
+			mux {
+				pins = "gpio16";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio16";
+				output-high;
+			};
+		};
+
+		ts_rst_output_low: ts_rst_output_low {
+			mux {
+				pins = "gpio16";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio16";
+				output-low;
+			};
+		};
+
+		ts_rst_input: ts_rst_input {
+			mux {
+				pins = "gpio16";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio16";
+				input-enable;
+				bias-disable;
+			};
+		};
+
 		/* add pingrp for touchscreen */
 		pmx_ts_int_active {
 			ts_int_active: ts_int_active {
