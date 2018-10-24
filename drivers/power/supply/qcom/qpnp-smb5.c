@@ -1178,7 +1178,9 @@ static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
+	POWER_SUPPLY_PROP_VOLTAGE_QNOVO,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
+	POWER_SUPPLY_PROP_CURRENT_QNOVO,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 	POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT,
 	POWER_SUPPLY_PROP_TEMP,
@@ -1256,9 +1258,17 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		val->intval = get_client_vote(chg->fv_votable,
 				BATT_PROFILE_VOTER);
 		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_QNOVO:
+		val->intval = get_client_vote_locked(chg->fv_votable,
+				QNOVO_VOTER);
+		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		rc = smblib_get_prop_from_bms(chg,
 				POWER_SUPPLY_PROP_CURRENT_NOW, val);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_QNOVO:
+		val->intval = get_client_vote_locked(chg->fcc_votable,
+				QNOVO_VOTER);
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		val->intval = get_client_vote(chg->fcc_votable,
@@ -1360,6 +1370,10 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 		chg->batt_profile_fv_uv = val->intval;
 		vote(chg->fv_votable, BATT_PROFILE_VOTER, true, val->intval);
 		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_QNOVO:
+		vote(chg->fv_votable, QNOVO_VOTER, (val->intval >= 0),
+			val->intval);
+		break;
 	case POWER_SUPPLY_PROP_STEP_CHARGING_ENABLED:
 		chg->step_chg_enabled = !!val->intval;
 		break;
@@ -1373,6 +1387,18 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		chg->batt_profile_fcc_ua = val->intval;
 		vote(chg->fcc_votable, BATT_PROFILE_VOTER, true, val->intval);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_QNOVO:
+		vote(chg->pl_disable_votable, PL_QNOVO_VOTER,
+			val->intval != -EINVAL && val->intval < 2000000, 0);
+		if (val->intval == -EINVAL) {
+			vote(chg->fcc_votable, BATT_PROFILE_VOTER,
+					true, chg->batt_profile_fcc_ua);
+			vote(chg->fcc_votable, QNOVO_VOTER, false, 0);
+		} else {
+			vote(chg->fcc_votable, QNOVO_VOTER, true, val->intval);
+			vote(chg->fcc_votable, BATT_PROFILE_VOTER, false, 0);
+		}
 		break;
 	case POWER_SUPPLY_PROP_SET_SHIP_MODE:
 		/* Not in ship mode as long as the device is active */
