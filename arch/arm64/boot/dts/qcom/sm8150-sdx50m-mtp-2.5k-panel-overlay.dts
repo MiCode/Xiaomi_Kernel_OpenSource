@@ -59,3 +59,8 @@
 &dsi_dual_nt35597_truly_cmd_display {
 	qcom,dsi-display-active;
 };
+
+&pm8150l_wled {
+	qcom,string-cfg = <6>;
+	qcom,leds-per-string = <8>;
+};
