@@ -667,8 +667,6 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 		drvdata->size = readl_relaxed(drvdata->base + TMC_RSZ) * 4;
 	}
 
-	pm_runtime_put(&adev->dev);
-
 	ret = of_get_coresight_csr_name(adev->dev.of_node, &drvdata->csr_name);
 	if (ret)
 		dev_err(dev, "No csr data\n");
@@ -727,6 +725,10 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 		coresight_unregister(drvdata->csdev);
 		goto out_iommu_deinit;
 	}
+
+	if (!ret)
+		pm_runtime_put(&adev->dev);
+
 	return ret;
 
 out_iommu_deinit:
