@@ -248,4 +248,50 @@
 				<1 590 0 300000>;
 		};
 	};
+
+	sde_rscc: qcom,sde_rscc@af20000 {
+		cell-index = <0>;
+		compatible = "qcom,sde-rsc";
+		reg = <0xaf20000 0x3c50>,
+			<0xaf30000 0x3fd4>;
+		reg-names = "drv", "wrapper";
+		qcom,sde-rsc-version = <3>;
+		status = "disabled";
+
+		qcom,sde-dram-channels = <2>;
+
+		/* data and reg bus scale settings */
+		qcom,sde-data-bus {
+			qcom,msm-bus,name = "disp_rsc_mnoc";
+			qcom,msm-bus,active-only;
+			qcom,msm-bus,num-cases = <3>;
+			qcom,msm-bus,num-paths = <2>;
+			qcom,msm-bus,vectors-KBps =
+			    <20003 20515 0 0>, <20004 20515 0 0>,
+			    <20003 20515 0 6400000>, <20004 20515 0 6400000>,
+			    <20003 20515 0 6400000>, <20004 20515 0 6400000>;
+		};
+
+		qcom,sde-llcc-bus {
+			qcom,msm-bus,name = "disp_rsc_llcc";
+			qcom,msm-bus,active-only;
+			qcom,msm-bus,num-cases = <3>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps =
+			    <20001 20513 0 0>,
+			    <20001 20513 0 6400000>,
+			    <20001 20513 0 6400000>;
+		};
+
+		qcom,sde-ebi-bus {
+			qcom,msm-bus,name = "disp_rsc_ebi";
+			qcom,msm-bus,active-only;
+			qcom,msm-bus,num-cases = <3>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps =
+			    <20000 20512 0 0>,
+			    <20000 20512 0 6400000>,
+			    <20000 20512 0 6400000>;
+		};
+	};
 };

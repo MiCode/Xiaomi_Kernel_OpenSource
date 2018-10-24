@@ -1228,6 +1228,12 @@
 				  <WAKE_TCS    1>,
 				  <CONTROL_TCS 0>;
 		status = "disabled";
+
+		sde_rsc_rpmh {
+			compatible = "qcom,sde-rsc-rpmh";
+			cell-index = <0>;
+			status = "disabled";
+		};
 	};
 
 	tcsr_mutex_block: syscon@1f40000 {
