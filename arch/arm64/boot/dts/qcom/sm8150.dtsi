@@ -3666,7 +3666,7 @@
 		qcom,wlan-ramdump-dynamic = <0x400000>;
 
 		mhi,max-channels = <30>;
-		mhi,timeout = <1000>;
+		mhi,timeout = <10000>;
 
 		mhi_chan@0 {
 			reg = <0>;
