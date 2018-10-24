@@ -863,7 +863,6 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		kgsl_regwrite(device, A6XX_RBBM_BLOCK_GX_RETENTION_CNTL, 0x7FB);
 		/* For CP IPC interrupt */
 		kgsl_regwrite(device, A6XX_RBBM_INT_2_MASK, 0x00000010);
-		kgsl_regwrite(device, A6XX_RBBM_WAIT_IDLE_CLOCKS_CNTL, 10);
 	}
 
 	if (of_property_read_u32(device->pdev->dev.of_node,
