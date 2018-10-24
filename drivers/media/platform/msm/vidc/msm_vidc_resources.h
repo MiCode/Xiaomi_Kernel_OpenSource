@@ -18,6 +18,7 @@
 #include <linux/platform_device.h>
 #include "msm_vidc.h"
 #include <linux/soc/qcom/llcc-qcom.h>
+#include "soc/qcom/cx_ipeak.h"
 
 #define MAX_BUFFER_TYPES 32
 
@@ -200,6 +201,8 @@ struct msm_vidc_platform_resources {
 	struct msm_vidc_mem_cdsp mem_cdsp;
 	uint32_t vpu_ver;
 	uint32_t fw_cycles;
+	uint32_t clk_freq_threshold;
+	struct cx_ipeak_client *cx_ipeak_context;
 };
 
 static inline bool is_iommu_present(struct msm_vidc_platform_resources *res)
