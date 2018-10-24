@@ -38,7 +38,7 @@
 struct cam_jpeg_process_frame_work_data_t {
 	uint32_t type;
 	void *data;
-	uint64_t request_id;
+	uintptr_t request_id;
 };
 
 /**
@@ -81,7 +81,7 @@ struct cam_jpeg_hw_cfg_req {
 	struct list_head list;
 	struct cam_hw_config_args hw_cfg_args;
 	uint32_t dev_type;
-	int64_t req_id;
+	uintptr_t req_id;
 };
 
 /**
