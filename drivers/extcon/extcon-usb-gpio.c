@@ -27,6 +27,7 @@
 #include <linux/slab.h>
 #include <linux/workqueue.h>
 #include <linux/acpi.h>
+#include <linux/delay.h>
 
 #define USB_GPIO_DEBOUNCE_MS	20	/* ms */
 
@@ -36,6 +37,7 @@ struct usb_extcon_info {
 
 	struct gpio_desc *id_gpiod;
 	struct gpio_desc *vbus_gpiod;
+	struct gpio_desc *trig_gpiod;
 	int id_irq;
 	int vbus_irq;
 
@@ -87,6 +89,12 @@ static void usb_extcon_detect_cable(struct work_struct *work)
 
 	if (!id) {
 		extcon_set_state_sync(info->edev, EXTCON_USB_HOST, true);
+		if (info->trig_gpiod) {
+			gpiod_set_value(info->trig_gpiod, 1);
+			msleep(20);
+			gpiod_set_value(info->trig_gpiod, 0);
+			msleep(20);
+		}
 	} else {
 		if (vbus)
 			extcon_set_state_sync(info->edev, EXTCON_USB, true);
@@ -109,6 +117,7 @@ static int usb_extcon_probe(struct platform_device *pdev)
 	struct device_node *np = dev->of_node;
 	struct usb_extcon_info *info;
 	int ret;
+	const char *name = NULL;
 
 	if (!np && !ACPI_HANDLE(dev))
 		return -EINVAL;
@@ -121,6 +130,8 @@ static int usb_extcon_probe(struct platform_device *pdev)
 	info->id_gpiod = devm_gpiod_get_optional(&pdev->dev, "id", GPIOD_IN);
 	info->vbus_gpiod = devm_gpiod_get_optional(&pdev->dev, "vbus",
 						   GPIOD_IN);
+	info->trig_gpiod = devm_gpiod_get_optional(&pdev->dev, "trig",
+						   GPIOD_OUT_LOW);
 
 	if (!info->id_gpiod && !info->vbus_gpiod) {
 		dev_err(dev, "failed to get gpios\n");
@@ -132,6 +143,9 @@ static int usb_extcon_probe(struct platform_device *pdev)
 
 	if (IS_ERR(info->vbus_gpiod))
 		return PTR_ERR(info->vbus_gpiod);
+
+	if (IS_ERR(info->trig_gpiod))
+		return PTR_ERR(info->trig_gpiod);
 
 	info->edev = devm_extcon_dev_allocate(dev, usb_extcon_cable);
 	if (IS_ERR(info->edev)) {
@@ -145,6 +159,25 @@ static int usb_extcon_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	if (info->trig_gpiod) {
+		ret = of_property_read_string_index(np, "gpio-names", 0, &name);
+		if (ret) {
+			dev_err(dev, "Could not get gpio name\n");
+			return ret;
+		}
+
+		ret = gpiod_export(info->trig_gpiod, 0);
+		if (ret) {
+			dev_err(dev, "failed to export gpio\n");
+			return ret;
+		}
+
+		ret = gpiod_export_link(dev, name, info->trig_gpiod);
+		if (ret) {
+		dev_err(dev, "failed to export gpio link\n");
+		return ret;
+		}
+	}
 	if (info->id_gpiod)
 		ret = gpiod_set_debounce(info->id_gpiod,
 					 USB_GPIO_DEBOUNCE_MS * 1000);
