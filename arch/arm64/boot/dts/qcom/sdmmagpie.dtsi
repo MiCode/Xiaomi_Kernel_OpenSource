@@ -46,6 +46,9 @@
 		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
 		sdhc2 = &sdhc_2; /* SDC2 SD Card slot */
 		ufshc1 = &ufshc_mem; /* Embedded UFS slot */
+		swr0 = &swr0;
+		swr1 = &swr1;
+		swr2 = &swr2;
 	};
 
 	cpus {
