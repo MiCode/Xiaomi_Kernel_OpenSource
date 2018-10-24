@@ -57,7 +57,7 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg);
 static void log_msg_proc(struct npu_device *npu_dev, uint32_t *msg);
 static void host_session_msg_hdlr(struct npu_device *npu_dev);
 static void host_session_log_hdlr(struct npu_device *npu_dev);
-static int host_error_hdlr(struct npu_device *npu_dev);
+static int host_error_hdlr(struct npu_device *npu_dev, bool force);
 static int npu_send_network_cmd(struct npu_device *npu_dev,
 	struct npu_network *network, void *cmd_ptr, bool async);
 static int npu_send_misc_cmd(struct npu_device *npu_dev, uint32_t q_idx,
@@ -325,14 +325,15 @@ irqreturn_t npu_intr_hdler(int irq, void *ptr)
  * Function Definitions - Control
  * -------------------------------------------------------------------------
  */
-static int host_error_hdlr(struct npu_device *npu_dev)
+static int host_error_hdlr(struct npu_device *npu_dev, bool force)
 {
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	struct npu_network *network = NULL;
 	struct npu_kevent kevt;
 	int i;
 
-	if ((host_ctx->wdg_irq_sts == 0) && (host_ctx->err_irq_sts == 0))
+	if ((host_ctx->wdg_irq_sts == 0) && (host_ctx->err_irq_sts == 0)
+		&& !force)
 		return 0;
 
 	if (host_ctx->wdg_irq_sts)
@@ -343,6 +344,7 @@ static int host_error_hdlr(struct npu_device *npu_dev)
 	host_ctx->err_irq_sts = 0;
 
 	/* flush all pending npu cmds */
+	mutex_lock(&host_ctx->lock);
 	for (i = 0; i < MAX_LOADED_NETWORK; i++) {
 		network = &host_ctx->networks[i];
 		if (network->is_valid && network->cmd_pending &&
@@ -361,6 +363,7 @@ static int host_error_hdlr(struct npu_device *npu_dev)
 		}
 	}
 	complete_all(&host_ctx->loopback_done);
+	mutex_unlock(&host_ctx->lock);
 
 	return 1;
 }
@@ -373,7 +376,7 @@ static void host_irq_wq(struct work_struct *work)
 	host_ctx = container_of(work, struct npu_host_ctx, irq_work);
 	npu_dev = container_of(host_ctx, struct npu_device, host_ctx);
 
-	if (host_error_hdlr(npu_dev))
+	if (host_error_hdlr(npu_dev, false))
 		return;
 
 	host_session_log_hdlr(npu_dev);
@@ -663,13 +666,11 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 		pr_debug("total_num_layers: %d\n",
 			exe_rsp_pkt->stats.exe_stats.total_num_layers);
 
-		mutex_lock(&host_ctx->lock);
 		network = get_network_by_hdl(host_ctx, NULL,
 			exe_rsp_pkt->network_hdl);
 		if (!network) {
 			pr_err("can't find network %x\n",
 				exe_rsp_pkt->network_hdl);
-			mutex_unlock(&host_ctx->lock);
 			break;
 		}
 
@@ -678,7 +679,6 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 				network->trans_id,
 				exe_rsp_pkt->header.trans_id);
 			network_put(network);
-			mutex_unlock(&host_ctx->lock);
 			break;
 		}
 
@@ -698,7 +698,6 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 				pr_err("queue npu event failed\n");
 		}
 		network_put(network);
-		mutex_unlock(&host_ctx->lock);
 
 		break;
 	}
@@ -712,13 +711,11 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 			exe_rsp_pkt->header.status);
 		pr_debug("trans_id : %d", exe_rsp_pkt->header.trans_id);
 
-		mutex_lock(&host_ctx->lock);
 		network = get_network_by_hdl(host_ctx, NULL,
 			exe_rsp_pkt->network_hdl);
 		if (!network) {
 			pr_err("can't find network %x\n",
 				exe_rsp_pkt->network_hdl);
-			mutex_unlock(&host_ctx->lock);
 			break;
 		}
 
@@ -727,7 +724,6 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 				network->trans_id,
 				exe_rsp_pkt->header.trans_id);
 			network_put(network);
-			mutex_unlock(&host_ctx->lock);
 			break;
 		}
 
@@ -761,7 +757,6 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 			complete(&network->cmd_done);
 		}
 		network_put(network);
-		mutex_unlock(&host_ctx->lock);
 		break;
 	}
 	case NPU_IPC_MSG_LOAD_DONE:
@@ -780,11 +775,9 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 		 */
 		pr_debug("network_hdl: %x\n", load_rsp_pkt->network_hdl);
 		network_id = load_rsp_pkt->network_hdl >> 16;
-		mutex_lock(&host_ctx->lock);
 		network = get_network_by_id(host_ctx, NULL, network_id);
 		if (!network) {
 			pr_err("can't find network %d\n", network_id);
-			mutex_unlock(&host_ctx->lock);
 			break;
 		}
 
@@ -793,7 +786,6 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 				network->trans_id,
 				load_rsp_pkt->header.trans_id);
 			network_put(network);
-			mutex_unlock(&host_ctx->lock);
 			break;
 		}
 
@@ -803,7 +795,6 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 
 		complete(&network->cmd_done);
 		network_put(network);
-		mutex_unlock(&host_ctx->lock);
 		break;
 	}
 	case NPU_IPC_MSG_UNLOAD_DONE:
@@ -815,13 +806,11 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 			unload_rsp_pkt->header.status,
 			unload_rsp_pkt->header.trans_id);
 
-		mutex_lock(&host_ctx->lock);
 		network = get_network_by_hdl(host_ctx, NULL,
 			unload_rsp_pkt->network_hdl);
 		if (!network) {
 			pr_err("can't find network %x\n",
 				unload_rsp_pkt->network_hdl);
-			mutex_unlock(&host_ctx->lock);
 			break;
 		}
 
@@ -830,7 +819,6 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 				network->trans_id,
 				unload_rsp_pkt->header.trans_id);
 			network_put(network);
-			mutex_unlock(&host_ctx->lock);
 			break;
 		}
 
@@ -839,7 +827,6 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 
 		complete(&network->cmd_done);
 		network_put(network);
-		mutex_unlock(&host_ctx->lock);
 		break;
 	}
 	case NPU_IPC_MSG_LOOPBACK_DONE:
@@ -867,10 +854,20 @@ static void host_session_msg_hdlr(struct npu_device *npu_dev)
 	msg = kzalloc(sizeof(uint32_t) * NPU_IPC_BUF_LENGTH, GFP_KERNEL);
 	if (!msg)
 		return;
+
+	mutex_lock(&host_ctx->lock);
+	if (host_ctx->fw_state == FW_DISABLED) {
+		pr_warn("handle npu session msg when FW is disabled\n");
+		goto skip_read_msg;
+	}
+
 	while (npu_host_ipc_read_msg(npu_dev, IPC_QUEUE_APPS_RSP, msg) == 0) {
 		pr_debug("received from msg queue\n");
 		app_msg_proc(host_ctx, msg);
 	}
+
+skip_read_msg:
+	mutex_unlock(&host_ctx->lock);
 	kfree(msg);
 }
 
@@ -898,15 +895,26 @@ static void log_msg_proc(struct npu_device *npu_dev, uint32_t *msg)
 static void host_session_log_hdlr(struct npu_device *npu_dev)
 {
 	uint32_t *msg;
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 
 	msg = kzalloc(sizeof(uint32_t) * NPU_IPC_BUF_LENGTH, GFP_KERNEL);
 
 	if (!msg)
 		return;
+
+	mutex_lock(&host_ctx->lock);
+	if (host_ctx->fw_state == FW_DISABLED) {
+		pr_warn("handle npu session msg when FW is disabled\n");
+		goto skip_read_msg;
+	}
+
 	while (npu_host_ipc_read_msg(npu_dev, IPC_QUEUE_LOG, msg) == 0) {
 		pr_debug("received from log queue\n");
 		log_msg_proc(npu_dev, msg);
 	}
+
+skip_read_msg:
+	mutex_unlock(&host_ctx->lock);
 	kfree(msg);
 }
 
@@ -1486,7 +1494,7 @@ int32_t npu_host_exec_network(struct npu_client *client,
 		network->cmd_pending = false;
 		ret = -ETIMEDOUT;
 		goto exec_done;
-	} else if (ret < 0) {
+	} else if (ret == -ERESTARTSYS) {
 		pr_err("Wait for execution done interrupted by signal\n");
 		network->cmd_pending = false;
 		goto exec_done;
@@ -1503,6 +1511,16 @@ int32_t npu_host_exec_network(struct npu_client *client,
 exec_done:
 	network_put(network);
 	mutex_unlock(&host_ctx->lock);
+
+	/*
+	 * treat network execution timed our or interrupted by signal
+	 * as error in order to force npu fw to stop execution
+	 */
+	if ((ret == -ETIMEDOUT) || (ret == -ERESTARTSYS)) {
+		pr_err("Error handling after execution failure\n");
+		host_error_hdlr(npu_dev, true);
+	}
+
 	return ret;
 }
 
@@ -1613,7 +1631,7 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 		network->cmd_pending = false;
 		ret = -ETIMEDOUT;
 		goto free_exec_packet;
-	} else if (ret < 0) {
+	} else if (ret == -ERESTARTSYS) {
 		pr_err("Wait for execution_v2 done interrupted by signal\n");
 		network->cmd_pending = false;
 		goto free_exec_packet;
@@ -1644,6 +1662,16 @@ free_exec_packet:
 exec_v2_done:
 	network_put(network);
 	mutex_unlock(&host_ctx->lock);
+
+	/*
+	 * treat network execution timed our or interrupted by signal
+	 * as error in order to force npu fw to stop execution
+	 */
+	if ((ret == -ETIMEDOUT) || (ret == -ERESTARTSYS)) {
+		pr_err("Error handling after execution failure\n");
+		host_error_hdlr(npu_dev, true);
+	}
+
 	return ret;
 }
 
