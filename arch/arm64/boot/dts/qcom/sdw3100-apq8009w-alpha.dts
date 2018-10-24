@@ -117,6 +117,13 @@
 			qcom,glinkpkt-ch-name = "RSB_CTRL";
 			qcom,glinkpkt-dev-name = "glink_pkt_bg_rsb_ctrl";
 		};
+
+		qcom,glinkpkt-bg-sso-ctrl {
+			qcom,glinkpkt-transport = "bgcom";
+			qcom,glinkpkt-edge = "bg";
+			qcom,glinkpkt-ch-name = "sso-ctrl";
+			qcom,glinkpkt-dev-name = "glink_pkt_bg_sso_ctrl";
+		};
 	};
 
 	spi@78B8000 {  /* BLSP1 QUP4 */
