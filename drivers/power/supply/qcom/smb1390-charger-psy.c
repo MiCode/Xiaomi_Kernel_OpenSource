@@ -435,19 +435,21 @@ static int smb1390_ilim_vote_cb(struct votable *votable, void *data,
 		return -EINVAL;
 	}
 
+	rc = smb1390_masked_write(chip, CORE_FTRIM_ILIM_REG,
+		CFG_ILIM_MASK,
+		DIV_ROUND_CLOSEST(max(ilim_uA, 500000) - 500000, 100000));
+	if (rc < 0) {
+		pr_err("Failed to write ILIM Register, rc=%d\n", rc);
+		return rc;
+	}
+
 	/* ILIM less than 1A is not accurate; disable charging */
 	if (ilim_uA < 1000000) {
 		pr_debug("ILIM %duA is too low to allow charging\n", ilim_uA);
 		vote(chip->disable_votable, ILIM_VOTER, true, 0);
 	} else {
-		pr_debug("setting ILIM to %duA\n", ilim_uA);
-		rc = smb1390_masked_write(chip, CORE_FTRIM_ILIM_REG,
-				CFG_ILIM_MASK,
-				DIV_ROUND_CLOSEST(ilim_uA - 500000, 100000));
-		if (rc < 0)
-			pr_err("Failed to write ILIM Register, rc=%d\n", rc);
-		if (rc >= 0)
-			vote(chip->disable_votable, ILIM_VOTER, false, 0);
+		pr_debug("ILIM set to %duA\n", ilim_uA);
+		vote(chip->disable_votable, ILIM_VOTER, false, 0);
 	}
 
 	return rc;
@@ -543,10 +545,6 @@ static void smb1390_status_change_work(struct work_struct *work)
 				vote(chip->ilim_votable, ICL_VOTER, true,
 								pval.intval);
 		}
-
-		/* input current is always half the charge current */
-		vote(chip->ilim_votable, FCC_VOTER, true,
-				get_effective_result(chip->fcc_votable) / 2);
 
 		/*
 		 * all votes that would result in disabling the charge pump have
@@ -809,6 +807,14 @@ static int smb1390_create_votables(struct smb1390 *chip)
 	 * traditional parallel charging if present
 	 */
 	vote(chip->disable_votable, USER_VOTER, true, 0);
+
+	/*
+	 * In case SMB1390 probe happens after FCC value has been configured,
+	 * update ilim vote to reflect FCC / 2 value.
+	 */
+	if (chip->fcc_votable)
+		vote(chip->ilim_votable, FCC_VOTER, true,
+			get_effective_result(chip->fcc_votable) / 2);
 
 	return 0;
 }
