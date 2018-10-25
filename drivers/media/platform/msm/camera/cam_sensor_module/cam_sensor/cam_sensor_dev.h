@@ -95,6 +95,7 @@ struct intf_params {
  * @bob_reg_index: Hold to BoB regulator index
  * @bob_pwm_switch: Boolean flag to switch into PWM mode for BoB regulator
  * @last_flush_req: Last request to flush
+ * @pipeline_delay: Sensor pipeline delay
  */
 struct cam_sensor_ctrl_t {
 	struct platform_device *pdev;
@@ -120,6 +121,7 @@ struct cam_sensor_ctrl_t {
 	int bob_reg_index;
 	bool bob_pwm_switch;
 	uint32_t last_flush_req;
+	uint16_t pipeline_delay;
 };
 
 #endif /* _CAM_SENSOR_DEV_H_ */

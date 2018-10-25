@@ -1464,10 +1464,6 @@ static int cam_icp_mgr_handle_frame_process(uint32_t *msg_ptr, int flag)
 		CAM_ERR(CAM_ICP, "Invalid Context");
 		return -EINVAL;
 	}
-	CAM_DBG(CAM_REQ,
-		"ctx_id : %u, request_id :%lld dev_type: %d",
-		ctx_data->ctx_id, request_id,
-		ctx_data->icp_dev_acquire_info->dev_type);
 
 	mutex_lock(&ctx_data->ctx_mutex);
 	cam_icp_ctx_timer_reset(ctx_data);
@@ -1477,6 +1473,11 @@ static int cam_icp_mgr_handle_frame_process(uint32_t *msg_ptr, int flag)
 		mutex_unlock(&ctx_data->ctx_mutex);
 		return 0;
 	}
+
+	CAM_DBG(CAM_REQ,
+		"ctx_id : %u, request_id :%lld dev_type: %d",
+		ctx_data->ctx_id, request_id,
+		ctx_data->icp_dev_acquire_info->dev_type);
 
 	clk_type = ICP_DEV_TYPE_TO_CLK_TYPE(
 			ctx_data->icp_dev_acquire_info->dev_type);
@@ -4555,7 +4556,7 @@ static int cam_icp_mgr_create_wq(void)
 		goto debugfs_create_failed;
 
 	icp_hw_mgr.icp_pc_flag = true;
-	icp_hw_mgr.ipe_bps_pc_flag = true;
+	icp_hw_mgr.ipe_bps_pc_flag = false;
 
 	for (i = 0; i < ICP_WORKQ_NUM_TASK; i++)
 		icp_hw_mgr.msg_work->task.pool[i].payload =
