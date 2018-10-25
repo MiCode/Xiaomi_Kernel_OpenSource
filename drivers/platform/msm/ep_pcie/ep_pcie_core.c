@@ -2575,7 +2575,7 @@ static void __exit ep_pcie_exit(void)
 	platform_driver_unregister(&ep_pcie_driver);
 }
 
-module_init(ep_pcie_init);
+subsys_initcall(ep_pcie_init);
 module_exit(ep_pcie_exit);
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MSM PCIe Endpoint Driver");
