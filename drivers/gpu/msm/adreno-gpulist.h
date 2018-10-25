@@ -462,21 +462,21 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.max_power = 5448,
 	},
 	{
-		.gpurev = ADRENO_REV_A608,
+		.gpurev = ADRENO_REV_A612,
 		.core = 6,
-		.major = 0,
-		.minor = 8,
+		.major = 1,
+		.minor = 2,
 		.patchid = ANY_ID,
 		.features = ADRENO_64BIT | ADRENO_CONTENT_PROTECTION |
 			ADRENO_IOCOHERENT | ADRENO_PREEMPTION | ADRENO_GPMU |
 			ADRENO_IFPC | ADRENO_PERFCTRL_RETAIN,
 		.sqefw_name = "a630_sqe.fw",
-		.zap_name = "a608_zap",
+		.zap_name = "a612_zap",
 		.gpudev = &adreno_a6xx_gpudev,
 		.gmem_size = (SZ_128K + SZ_4K),
 		.num_protected_regs = 0x20,
 		.busy_mask = 0xFFFFFFFE,
-		.gpmufw_name = "a608_rgmu.bin",
+		.gpmufw_name = "a612_rgmu.bin",
 		.cx_ipeak_gpu_freq = 745000000,
 	},
 	{
