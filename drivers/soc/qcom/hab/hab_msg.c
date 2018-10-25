@@ -210,7 +210,7 @@ int hab_msg_recv(struct physical_channel *pchan,
 		 */
 		vchan = hab_vchan_get(pchan, header);
 		if (!vchan) {
-			pr_info("vchan is not found, payload type %d, vchan id %x, sizebytes %zx, session %d\n",
+			pr_debug("vchan not found type %d vcid %x sz %zx sesn %d\n",
 				payload_type, vchan_id, sizebytes, session_id);
 
 			if (sizebytes) {
@@ -313,7 +313,7 @@ int hab_msg_recv(struct physical_channel *pchan,
 
 	case HAB_PAYLOAD_TYPE_CLOSE:
 		/* remote request close */
-		pr_info("remote request close vcid %pK %X other id %X session %d refcnt %d\n",
+		pr_debug("remote close vcid %pK %X other id %X session %d refcnt %d\n",
 			vchan, vchan->id, vchan->otherend_id,
 			session_id, get_refcnt(vchan->refcount));
 		hab_vchan_stop(vchan);

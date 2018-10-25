@@ -167,6 +167,7 @@ hab_vchan_get(struct physical_channel *pchan, struct hab_header *header)
 	return vchan;
 }
 
+/* wake up local waiting Q, so stop-vchan can be processed */
 void hab_vchan_stop(struct virtual_channel *vchan)
 {
 	if (vchan) {
@@ -190,6 +191,7 @@ void hab_vchans_stop(struct physical_channel *pchan)
 	read_unlock(&pchan->vchans_lock);
 }
 
+/* send vchan close to remote and stop receiving anything locally */
 void hab_vchan_stop_notify(struct virtual_channel *vchan)
 {
 	hab_send_close_msg(vchan);

@@ -599,7 +599,7 @@ int hab_vchan_recv(struct uhab_context *ctx,
 
 	vchan = hab_get_vchan_fromvcid(vcid, ctx);
 	if (!vchan) {
-		pr_err("vcid %X, vchan %p ctx %p\n", vcid, vchan, ctx);
+		pr_err("vcid %X vchan 0x%pK ctx %pK\n", vcid, vchan, ctx);
 		return -ENODEV;
 	}
 
@@ -1134,7 +1134,7 @@ static long hab_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 	struct hab_recv *recv_param;
 	struct hab_send *send_param;
 	struct hab_info *info_param;
-	struct hab_message *msg;
+	struct hab_message *msg = NULL;
 	void *send_data;
 	unsigned char data[256] = { 0 };
 	long ret = 0;

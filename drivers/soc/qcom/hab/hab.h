@@ -214,6 +214,7 @@ struct physical_channel {
 	/* debug only */
 	uint32_t sequence_tx;
 	uint32_t sequence_rx;
+	uint32_t status;
 
 	/* vchans on this pchan */
 	struct list_head vchannels;
@@ -255,8 +256,8 @@ struct hab_export_ack_recvd {
 };
 
 struct hab_message {
-	size_t sizebytes;
 	struct list_head node;
+	size_t sizebytes;
 	uint32_t data[];
 };
 

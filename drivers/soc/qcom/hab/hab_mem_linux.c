@@ -53,6 +53,14 @@ static struct pages_list *pages_list_create(
 	if (!pfn_table)
 		return ERR_PTR(-EINVAL);
 
+	pfn = pfn_table->first_pfn;
+	if (pfn_valid(pfn) == 0 || page_is_ram(pfn) == 0) {
+		pr_err("imp sanity failed pfn %lx valid %d ram %d pchan %s\n",
+			pfn, pfn_valid(pfn),
+			page_is_ram(pfn), exp->pchan->name);
+		return ERR_PTR(-EINVAL);
+	}
+
 	size = exp->payload_count * sizeof(struct page *);
 	pages = kmalloc(size, GFP_KERNEL);
 	if (!pages)
@@ -64,7 +72,6 @@ static struct pages_list *pages_list_create(
 		return ERR_PTR(-ENOMEM);
 	}
 
-	pfn = pfn_table->first_pfn;
 	for (i = 0; i < pfn_table->nregions; i++) {
 		for (j = 0; j < pfn_table->region[i].size; j++) {
 			pages[k] = pfn_to_page(pfn+j);

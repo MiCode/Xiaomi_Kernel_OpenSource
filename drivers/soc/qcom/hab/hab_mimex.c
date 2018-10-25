@@ -277,8 +277,8 @@ int hab_mem_export(struct uhab_context *ctx,
 			&pdata_size);
 	}
 	if (ret < 0) {
-		pr_err("habmem_hyp_grant failed size=%d ret=%d\n",
-			pdata_size, ret);
+		pr_err("habmem_hyp_grant vc %x failed size=%d ret=%d\n",
+			   param->vcid, pdata_size, ret);
 		goto err;
 	}
 

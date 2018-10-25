@@ -61,14 +61,17 @@ int hab_stat_show_vchan(struct hab_driver *driver,
 				continue;
 
 			ret = hab_stat_buffer_print(buf, size,
-				"mmid %s role %d local %d remote %d vcnt %d:\n",
+				"nm %s r %d lc %d rm %d sq_t %d sq_r %d st 0x%x vn %d:\n",
 				pchan->name, pchan->is_be, pchan->vmid_local,
-				pchan->vmid_remote, pchan->vcnt);
+				pchan->vmid_remote, pchan->sequence_tx,
+				pchan->sequence_rx, pchan->status, pchan->vcnt);
 
 			read_lock(&pchan->vchans_lock);
 			list_for_each_entry(vc, &pchan->vchannels, pnode) {
 				ret = hab_stat_buffer_print(buf, size,
-						 "%08X ", vc->id);
+					"%08X(%d:%d) ", vc->id,
+					get_refcnt(vc->refcount),
+					vc->otherend_closed);
 			}
 			ret = hab_stat_buffer_print(buf, size, "\n");
 			read_unlock(&pchan->vchans_lock);
