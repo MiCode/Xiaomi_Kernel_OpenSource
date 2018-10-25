@@ -874,8 +874,10 @@
 			<0x18325800 0x1400>;
 		reg-names = "osm_l3_base", "osm_pwrcl_base",
 			"osm_perfcl_base";
+		l3-devs = <&cpu0_cpu_l3_lat &cpu6_cpu_l3_lat
+			   &cdsp_cdsp_l3_lat>;
+
 		#clock-cells = <1>;
-		status = "disabled";
 	};
 
 	cpucc_debug: syscon@182a0018 {
