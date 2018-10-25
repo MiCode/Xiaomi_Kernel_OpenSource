@@ -58,9 +58,11 @@
 #define A6XX_CP_RB_RPTR                  0x806
 #define A6XX_CP_RB_WPTR                  0x807
 #define A6XX_CP_SQE_CNTL                 0x808
+#define A6XX_CP_CP2GMU_STATUS            0x812
 #define A6XX_CP_HW_FAULT                 0x821
 #define A6XX_CP_INTERRUPT_STATUS         0x823
-#define A6XX_CP_PROTECT_STATUS           0X824
+#define A6XX_CP_PROTECT_STATUS           0x824
+#define A6XX_CP_STATUS_1                 0x825
 #define A6XX_CP_SQE_INSTR_BASE_LO        0x830
 #define A6XX_CP_SQE_INSTR_BASE_HI        0x831
 #define A6XX_CP_MISC_CNTL                0x840
