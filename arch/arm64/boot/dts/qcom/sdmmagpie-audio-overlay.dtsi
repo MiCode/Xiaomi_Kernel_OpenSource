@@ -22,5 +22,7 @@
 };
 
 &swr2 {
-	interrupts = <0 296 0>, <0 528 0>;
+	qcom,swr-wakeup-required = <0>;
+	interrupts = <0 296 0>, <0 500 0>;
+	interrupt-names = "swr_master_irq", "swr_wake_irq";
 };
