@@ -74,6 +74,7 @@ struct hwmon_node {
 	struct bw_hwmon *hw;
 	struct devfreq_governor *gov;
 	struct attribute_group *attr_grp;
+	struct mutex mon_lock;
 };
 
 #define UP_WAKE 1
@@ -511,8 +512,11 @@ int update_bw_hwmon(struct bw_hwmon *hwmon)
 	if (!node)
 		return -ENODEV;
 
-	if (!node->mon_started)
+	mutex_lock(&node->mon_lock);
+	if (!node->mon_started) {
+		mutex_unlock(&node->mon_lock);
 		return -EBUSY;
+	}
 
 	dev_dbg(df->dev.parent, "Got update request\n");
 	devfreq_monitor_stop(df);
@@ -526,6 +530,7 @@ int update_bw_hwmon(struct bw_hwmon *hwmon)
 
 	devfreq_monitor_start(df);
 
+	mutex_unlock(&node->mon_lock);
 	return 0;
 }
 
@@ -572,7 +577,9 @@ static void stop_monitor(struct devfreq *df, bool init)
 	struct hwmon_node *node = df->data;
 	struct bw_hwmon *hw = node->hw;
 
+	mutex_lock(&node->mon_lock);
 	node->mon_started = false;
+	mutex_unlock(&node->mon_lock);
 
 	if (init) {
 		devfreq_monitor_stop(df);
@@ -931,6 +938,8 @@ int register_bw_hwmon(struct device *dev, struct bw_hwmon *hwmon)
 	node->idle_mbps = 400;
 	node->mbps_zones[0] = 0;
 	node->hw = hwmon;
+
+	mutex_init(&node->mon_lock);
 
 	mutex_lock(&list_lock);
 	list_add_tail(&node->list, &hwmon_list);
