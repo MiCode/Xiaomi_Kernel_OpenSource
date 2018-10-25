@@ -266,6 +266,64 @@ int32_t cam_context_release_dev_to_hw(struct cam_context *ctx,
 	return 0;
 }
 
+int32_t cam_context_config_dev_to_hw(
+	struct cam_context *ctx, struct cam_config_dev_cmd *cmd)
+{
+	int rc = 0;
+	size_t len;
+	struct cam_hw_stream_setttings cfg;
+	uintptr_t packet_addr;
+	struct cam_packet *packet;
+
+	if (!ctx || !cmd) {
+		CAM_ERR(CAM_CTXT, "Invalid input params %pK %pK", ctx, cmd);
+		return -EINVAL;
+	}
+
+	if (!ctx->hw_mgr_intf->hw_config_stream_settings) {
+		CAM_ERR(CAM_CTXT, "[%s][%d] HW interface is not ready",
+			ctx->dev_name, ctx->ctx_id);
+		rc = -EFAULT;
+		return rc;
+	}
+
+	rc = cam_context_validate_thread();
+	if (rc) {
+		CAM_ERR(CAM_CTXT,
+			"Not executing in the right context");
+		return rc;
+	}
+
+	rc = cam_mem_get_cpu_buf((int32_t) cmd->packet_handle,
+		&packet_addr, &len);
+	if (rc) {
+		CAM_ERR(CAM_CTXT, "[%s][%d] Can not get packet address",
+			ctx->dev_name, ctx->ctx_id);
+		rc = -EINVAL;
+		return rc;
+	}
+
+	packet = (struct cam_packet *) ((uint8_t *)packet_addr +
+		(uint32_t)cmd->offset);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.packet = packet;
+	cfg.ctxt_to_hw_map = ctx->ctxt_to_hw_map;
+	cfg.priv = NULL;
+
+	CAM_DBG(CAM_CTXT, "Processing config settings");
+	rc = ctx->hw_mgr_intf->hw_config_stream_settings(
+		ctx->hw_mgr_intf->hw_mgr_priv, &cfg);
+	if (rc) {
+		CAM_ERR(CAM_CTXT,
+			"[%s][%d] Config failed stream settings",
+			ctx->dev_name, ctx->ctx_id);
+		rc = -EFAULT;
+	}
+
+	return rc;
+}
+
 int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 	struct cam_config_dev_cmd *cmd)
 {

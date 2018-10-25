@@ -1724,6 +1724,26 @@ static int cam_icp_mgr_process_direct_ack_msg(uint32_t *msg_ptr)
 		CAM_DBG(CAM_ICP, "received IPE/BPS/ DESTROY: ctx_state =%d",
 			ctx_data->state);
 		break;
+	case HFI_IPEBPS_CMD_OPCODE_MEM_MAP:
+		ioconfig_ack = (struct hfi_msg_ipebps_async_ack *)msg_ptr;
+		ctx_data =
+			(struct cam_icp_hw_ctx_data *)ioconfig_ack->user_data1;
+		if (ctx_data->state != CAM_ICP_CTX_STATE_FREE)
+			complete(&ctx_data->wait_complete);
+		CAM_DBG(CAM_ICP,
+			"received IPE/BPS MAP ACK:ctx_state =%d err_status =%u",
+			ctx_data->state, ioconfig_ack->err_type);
+		break;
+	case HFI_IPEBPS_CMD_OPCODE_MEM_UNMAP:
+		ioconfig_ack = (struct hfi_msg_ipebps_async_ack *)msg_ptr;
+		ctx_data =
+			(struct cam_icp_hw_ctx_data *)ioconfig_ack->user_data1;
+		if (ctx_data->state != CAM_ICP_CTX_STATE_FREE)
+			complete(&ctx_data->wait_complete);
+		CAM_DBG(CAM_ICP,
+			"received IPE/BPS UNMAP ACK:ctx_state =%d err_status =%u",
+			ctx_data->state, ioconfig_ack->err_type);
+		break;
 	default:
 		CAM_ERR(CAM_ICP, "Invalid opcode : %u",
 			msg_ptr[ICP_PACKET_OPCODE]);
@@ -3415,11 +3435,108 @@ static int cam_icp_mgr_process_io_cfg(struct cam_icp_hw_mgr *hw_mgr,
 	return rc;
 }
 
+static int cam_icp_process_stream_settings(
+	struct cam_icp_hw_ctx_data *ctx_data,
+	struct cam_cmd_mem_regions *cmd_mem_regions,
+	bool map_unmap)
+{
+	int rc = 0, i = 0;
+	size_t packet_size, map_cmd_size, len;
+	uint64_t iova;
+	unsigned long rem_jiffies;
+	int timeout = 5000;
+	struct hfi_cmd_ipe_bps_map  *map_cmd;
+	struct hfi_cmd_ipebps_async *async_direct;
+
+	map_cmd_size =
+		sizeof(struct hfi_cmd_ipe_bps_map) +
+		((cmd_mem_regions->num_regions - 1) *
+		sizeof(struct mem_map_region_data));
+
+	map_cmd = kzalloc(map_cmd_size, GFP_KERNEL);
+	if (!map_cmd)
+		return -ENOMEM;
+
+	for (i = 0; i < cmd_mem_regions->num_regions; i++) {
+		rc = cam_mem_get_io_buf(
+			cmd_mem_regions->map_info_array[i].mem_handle,
+			icp_hw_mgr.iommu_hdl, &iova, &len);
+		if (rc) {
+			CAM_ERR(CAM_ICP,
+				"Failed to get cmd region iova for handle %u",
+				cmd_mem_regions->map_info_array[i].mem_handle);
+			kfree(map_cmd);
+			return -EINVAL;
+		}
+
+		map_cmd->mem_map_region_sets[i].start_addr = (uint32_t)iova +
+			(cmd_mem_regions->map_info_array[i].offset);
+		map_cmd->mem_map_region_sets[i].len = (uint32_t) len;
+
+		CAM_DBG(CAM_ICP, "Region %u mem_handle %d iova %pK len %u",
+			(i+1), cmd_mem_regions->map_info_array[i].mem_handle,
+			(uint32_t)iova, (uint32_t)len);
+	}
+
+	map_cmd->mem_map_request_num = cmd_mem_regions->num_regions;
+	map_cmd->user_data = 0;
+
+	packet_size =
+		sizeof(struct hfi_cmd_ipebps_async) +
+		(sizeof(struct hfi_cmd_ipe_bps_map) +
+		((cmd_mem_regions->num_regions - 1) *
+		sizeof(struct mem_map_region_data))) -
+		sizeof(((struct hfi_cmd_ipebps_async *)0)->payload.direct);
+
+	async_direct = kzalloc(packet_size, GFP_KERNEL);
+	if (!async_direct) {
+		kfree(map_cmd);
+		return -ENOMEM;
+	}
+
+	async_direct->size = packet_size;
+	async_direct->pkt_type = HFI_CMD_IPEBPS_ASYNC_COMMAND_DIRECT;
+	if (map_unmap)
+		async_direct->opcode = HFI_IPEBPS_CMD_OPCODE_MEM_MAP;
+	else
+		async_direct->opcode = HFI_IPEBPS_CMD_OPCODE_MEM_UNMAP;
+	async_direct->num_fw_handles = 1;
+	async_direct->fw_handles[0] = ctx_data->fw_handle;
+	async_direct->user_data1 = (uint64_t)ctx_data;
+	async_direct->user_data2 = (uint64_t)0x0;
+	memcpy(async_direct->payload.direct, map_cmd,
+		map_cmd_size);
+
+	reinit_completion(&ctx_data->wait_complete);
+	rc = hfi_write_cmd(async_direct);
+	if (rc) {
+		CAM_ERR(CAM_ICP, "hfi write failed  rc %d", rc);
+		goto end;
+	}
+
+	CAM_DBG(CAM_ICP, "Sent FW %s cmd",
+			(map_unmap == true) ? "Map" : "Unmap");
+
+	rem_jiffies = wait_for_completion_timeout(&ctx_data->wait_complete,
+		msecs_to_jiffies((timeout)));
+	if (!rem_jiffies) {
+		rc = -ETIMEDOUT;
+		CAM_ERR(CAM_ICP, "FW response timed out %d", rc);
+		cam_hfi_queue_dump();
+	}
+
+end:
+	kfree(map_cmd);
+	kfree(async_direct);
+	return rc;
+}
+
 static int cam_icp_packet_generic_blob_handler(void *user_data,
 	uint32_t blob_type, uint32_t blob_size, uint8_t *blob_data)
 {
 	struct cam_icp_clk_bw_request *soc_req;
 	struct cam_icp_clk_bw_request *clk_info;
+	struct cam_cmd_mem_regions *cmd_mem_regions;
 	struct icp_cmd_generic_blob *blob;
 	struct cam_icp_hw_ctx_data *ctx_data;
 	uint32_t index;
@@ -3474,6 +3591,40 @@ static int cam_icp_packet_generic_blob_handler(void *user_data,
 		else
 			CAM_DBG(CAM_ICP, "io buf addr %llu",
 				*blob->io_buf_addr);
+		break;
+
+	case CAM_ICP_CMD_GENERIC_BLOB_FW_MEM_MAP:
+		cmd_mem_regions =
+			(struct cam_cmd_mem_regions *)blob_data;
+		if (cmd_mem_regions->num_regions <= 0) {
+			rc = -EINVAL;
+			CAM_ERR(CAM_ICP,
+				"Invalid number of regions for FW map %u",
+				cmd_mem_regions->num_regions);
+		} else {
+			CAM_DBG(CAM_ICP,
+				"Processing blob for mapping %u regions",
+				cmd_mem_regions->num_regions);
+			rc = cam_icp_process_stream_settings(ctx_data,
+				cmd_mem_regions, true);
+		}
+		break;
+
+	case CAM_ICP_CMD_GENERIC_BLOB_FW_MEM_UNMAP:
+		cmd_mem_regions =
+			(struct cam_cmd_mem_regions *)blob_data;
+		if (cmd_mem_regions->num_regions <= 0) {
+			rc = -EINVAL;
+			CAM_ERR(CAM_ICP,
+				"Invalid number of regions for FW unmap %u",
+				cmd_mem_regions->num_regions);
+		} else {
+			CAM_DBG(CAM_ICP,
+				"Processing blob for unmapping %u regions",
+				cmd_mem_regions->num_regions);
+			rc = cam_icp_process_stream_settings(ctx_data,
+				cmd_mem_regions, false);
+		}
 		break;
 
 	default:
@@ -3648,6 +3799,52 @@ static void cam_icp_mgr_print_io_bufs(struct cam_packet *packet,
 
 		}
 	}
+}
+
+static int cam_icp_mgr_config_stream_settings(
+	void *hw_mgr_priv, void *hw_stream_settings)
+{
+	int        rc = 0;
+	struct cam_icp_hw_ctx_data *ctx_data = NULL;
+	struct cam_packet *packet = NULL;
+	struct cam_icp_hw_mgr *hw_mgr = hw_mgr_priv;
+	struct cam_cmd_buf_desc *cmd_desc = NULL;
+	struct icp_cmd_generic_blob cmd_generic_blob;
+	struct cam_hw_stream_setttings *config_args =
+		hw_stream_settings;
+
+	if ((!hw_stream_settings) ||
+		(!hw_mgr) || (!config_args->packet)) {
+		CAM_ERR(CAM_ICP, "Invalid input arguments");
+		return -EINVAL;
+	}
+
+	ctx_data = config_args->ctxt_to_hw_map;
+	mutex_lock(&ctx_data->ctx_mutex);
+	packet = config_args->packet;
+
+	cmd_generic_blob.ctx = ctx_data;
+	cmd_generic_blob.frame_info_idx = -1;
+	cmd_generic_blob.io_buf_addr = NULL;
+
+	cmd_desc = (struct cam_cmd_buf_desc *)
+		((uint32_t *) &packet->payload + packet->cmd_buf_offset/4);
+
+	if (!cmd_desc[0].length ||
+		cmd_desc[0].meta_data != CAM_ICP_CMD_META_GENERIC_BLOB) {
+		CAM_ERR(CAM_ICP, "Invalid cmd buffer length/metadata");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	rc = cam_packet_util_process_generic_cmd_buffer(&cmd_desc[0],
+		cam_icp_packet_generic_blob_handler, &cmd_generic_blob);
+	if (rc)
+		CAM_ERR(CAM_ICP, "Failed in processing cmd mem blob %d", rc);
+
+end:
+	mutex_unlock(&ctx_data->ctx_mutex);
+	return rc;
 }
 
 static int cam_icp_mgr_prepare_hw_update(void *hw_mgr_priv,
@@ -4189,6 +4386,7 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 	struct cam_icp_hw_ctx_data *ctx_data = NULL;
 	struct cam_hw_acquire_args *args = acquire_hw_args;
 	struct cam_icp_acquire_dev_info *icp_dev_acquire_info;
+	struct cam_cmd_mem_regions cmd_mem_region;
 
 	if ((!hw_mgr_priv) || (!acquire_hw_args)) {
 		CAM_ERR(CAM_ICP, "Invalid params: %pK %pK", hw_mgr_priv,
@@ -4274,10 +4472,34 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 		goto create_handle_failed;
 	}
 
+	cmd_mem_region.num_regions = 1;
+	cmd_mem_region.map_info_array[0].mem_handle =
+		icp_dev_acquire_info->io_config_cmd_handle;
+	cmd_mem_region.map_info_array[0].offset = 0;
+	cmd_mem_region.map_info_array[0].size =
+		icp_dev_acquire_info->io_config_cmd_size;
+	cmd_mem_region.map_info_array[0].flags = 0;
+
+	rc = cam_icp_process_stream_settings(ctx_data,
+		&cmd_mem_region, true);
+	if (rc) {
+		CAM_ERR(CAM_ICP,
+			"sending config io mapping failed rc %d", rc);
+		goto send_map_info_failed;
+	}
+
 	rc = cam_icp_mgr_send_config_io(ctx_data, io_buf_addr);
 	if (rc) {
-		CAM_ERR(CAM_ICP, "IO Config command failed");
+		CAM_ERR(CAM_ICP, "IO Config command failed %d", rc);
 		goto ioconfig_failed;
+	}
+
+	rc = cam_icp_process_stream_settings(ctx_data,
+		&cmd_mem_region, false);
+	if (rc) {
+		CAM_ERR(CAM_ICP,
+			"sending config io unmapping failed %d", rc);
+		goto send_map_info_failed;
 	}
 
 	ctx_data->context_priv = args->context_data;
@@ -4321,6 +4543,9 @@ copy_to_user_failed:
 	kfree(ctx_data->hfi_frame_process.bitmap);
 	ctx_data->hfi_frame_process.bitmap = NULL;
 ioconfig_failed:
+	cam_icp_process_stream_settings(ctx_data,
+		&cmd_mem_region, false);
+send_map_info_failed:
 	cam_icp_mgr_destroy_handle(ctx_data);
 create_handle_failed:
 send_ping_failed:
@@ -4638,6 +4863,8 @@ int cam_icp_hw_mgr_init(struct device_node *of_node, uint64_t *hw_mgr_hdl,
 	hw_mgr_intf->hw_acquire = cam_icp_mgr_acquire_hw;
 	hw_mgr_intf->hw_release = cam_icp_mgr_release_hw;
 	hw_mgr_intf->hw_prepare_update = cam_icp_mgr_prepare_hw_update;
+	hw_mgr_intf->hw_config_stream_settings =
+		cam_icp_mgr_config_stream_settings;
 	hw_mgr_intf->hw_config = cam_icp_mgr_config_hw;
 	hw_mgr_intf->hw_open = cam_icp_mgr_hw_open_u;
 	hw_mgr_intf->hw_close = cam_icp_mgr_hw_close_u;

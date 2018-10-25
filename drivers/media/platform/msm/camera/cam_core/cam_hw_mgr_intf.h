@@ -184,6 +184,20 @@ struct cam_hw_prepare_update_args {
 };
 
 /**
+ * struct cam_hw_stream_setttings - Payload for config stream command
+ *
+ * @packet:                CSL packet from user mode driver
+ * @ctxt_to_hw_map:        HW context from the acquire
+ * @priv:                  Private pointer of hw update
+ *
+ */
+struct cam_hw_stream_setttings {
+	struct cam_packet              *packet;
+	void                           *ctxt_to_hw_map;
+	void                           *priv;
+};
+
+/**
  * struct cam_hw_config_args - Payload for config command
  *
  * @ctxt_to_hw_map:        HW context from the acquire
@@ -271,28 +285,30 @@ struct cam_hw_cmd_args {
 /**
  * cam_hw_mgr_intf - HW manager interface
  *
- * @hw_mgr_priv:           HW manager object
- * @hw_get_caps:           Function pointer for get hw caps
+ * @hw_mgr_priv:               HW manager object
+ * @hw_get_caps:               Function pointer for get hw caps
  *                               args = cam_query_cap_cmd
- * @hw_acquire:            Function poniter for acquire hw resources
+ * @hw_acquire:                Function poniter for acquire hw resources
  *                               args = cam_hw_acquire_args
- * @hw_release:            Function pointer for release hw device resource
+ * @hw_release:                Function pointer for release hw device resource
  *                               args = cam_hw_release_args
- * @hw_start:              Function pointer for start hw devices
+ * @hw_start:                  Function pointer for start hw devices
  *                               args = cam_hw_start_args
- * @hw_stop:               Function pointer for stop hw devices
+ * @hw_stop:                   Function pointer for stop hw devices
  *                               args = cam_hw_stop_args
- * @hw_prepare_update:     Function pointer for prepare hw update for hw devices
- *                               args = cam_hw_prepare_update_args
- * @hw_config:             Function pointer for configure hw devices
+ * @hw_prepare_update:         Function pointer for prepare hw update for hw
+ *                             devices args = cam_hw_prepare_update_args
+ * @hw_config_stream_settings: Function pointer for configure stream for hw
+ *                             devices args = cam_hw_stream_setttings
+ * @hw_config:                 Function pointer for configure hw devices
  *                               args = cam_hw_config_args
- * @hw_read:               Function pointer for read hardware registers
- * @hw_write:              Function pointer for Write hardware registers
- * @hw_cmd:                Function pointer for any customized commands for the
- *                         hardware manager
- * @hw_open:               Function pointer for HW init
- * @hw_close:              Function pointer for HW deinit
- * @hw_flush:              Function pointer for HW flush
+ * @hw_read:                   Function pointer for read hardware registers
+ * @hw_write:                  Function pointer for Write hardware registers
+ * @hw_cmd:                    Function pointer for any customized commands for
+ *                             the hardware manager
+ * @hw_open:                   Function pointer for HW init
+ * @hw_close:                  Function pointer for HW deinit
+ * @hw_flush:                  Function pointer for HW flush
  *
  */
 struct cam_hw_mgr_intf {
@@ -304,6 +320,8 @@ struct cam_hw_mgr_intf {
 	int (*hw_start)(void *hw_priv, void *hw_start_args);
 	int (*hw_stop)(void *hw_priv, void *hw_stop_args);
 	int (*hw_prepare_update)(void *hw_priv, void *hw_prepare_update_args);
+	int (*hw_config_stream_settings)(void *hw_priv,
+		void *hw_stream_settings);
 	int (*hw_config)(void *hw_priv, void *hw_config_args);
 	int (*hw_read)(void *hw_priv, void *read_args);
 	int (*hw_write)(void *hw_priv, void *write_args);
