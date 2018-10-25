@@ -153,6 +153,7 @@ struct gmu_dev_ops {
 	unsigned int (*ifpc_show)(struct kgsl_device *device);
 	void (*snapshot)(struct kgsl_device *device,
 		struct kgsl_snapshot *shapshot);
+	void (*halt_execution)(struct kgsl_device *device);
 	int (*wait_for_active_transition)(struct kgsl_device *device);
 	const unsigned int gmu2host_intr_mask;
 	const unsigned int gmu_ao_intr_mask;
