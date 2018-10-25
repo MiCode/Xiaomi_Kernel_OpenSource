@@ -1,0 +1,108 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/* delete PMIC specific nodes */
+&soc {
+	/* delete rpm-smd base node to delete all regulator in one shot */
+	/delete-node/ qcom,rpm-smd;
+
+	/* add rpm-smd node again */
+	rpm_bus: qcom,rpm-smd {
+		compatible = "qcom,rpm-smd";
+		rpm-channel-name = "rpm_requests";
+		rpm-channel-type = <15>; /* SMD_APPS_RPM */
+	};
+
+	/* delete all pmic nodes */
+	qcom,spmi@200f000 {
+		/delete-node/ qcom,pm8937@0;
+		/delete-node/ qcom,pm8937@1;
+	};
+};
+
+/* delete all node referring PM8937 */
+&soc {
+	/delete-node/ thermal-zones;
+
+	qcom,cpu-clock-8939@b111050 {
+		/delete-property/ vdd-c1-supply;
+	};
+
+	qcom,gcc@1800000 {
+		/delete-property/ vdd_dig-supply;
+		/delete-property/ vdd_hf_dig-supply;
+		/delete-property/ vdd_hf_pll-supply;
+	};
+
+	usb@78db000 {
+		/delete-property/ hsusb_vdd_dig-supply;
+		/delete-property/ HSUSB_1p8-supply;
+		/delete-property/ HSUSB_3p3-supply;
+		/delete-property/ vbus_otg-supply;
+	};
+
+	qcom,mss@4080000 {
+		/delete-property/ vdd_mss-supply;
+		/delete-property/ vdd_cx-supply;
+		/delete-property/ vdd_mx-supply;
+		/delete-property/ vdd_pll-supply;
+	};
+
+	qcom,lpass@c200000 {
+		/delete-property/ vdd_cx-supply;
+	};
+
+	qcom,pronto@a21b000 {
+		/delete-property/ vdd_pronto_pll-supply;
+	};
+
+	qcom,wcnss-wlan@a000000 {
+		/delete-property/ qcom,pronto-vddmx-supply;
+		/delete-property/ qcom,pronto-vddcx-supply;
+		/delete-property/ qcom,pronto-vddpx-supply;
+		/delete-property/ qcom,iris-vddxo-supply;
+		/delete-property/ qcom,iris-vddrfa-supply;
+		/delete-property/ qcom,iris-vddpa-supply;
+		/delete-property/ qcom,iris-vdddig-supply;
+		/delete-property/ qcom,wcnss-adc_tm;
+	};
+
+	/delete-node/ qcom,gcc-mdss@1800000;
+
+	/delete-node/ qcom,csid@1b30000;
+	/delete-node/ qcom,csid@1b30400;
+	/delete-node/ qcom,csid@1b30800;
+
+	/delete-node/ qcom,mdss_mdp@1a00000;
+	/delete-node/ qcom,mdss_dsi@0;
+	/delete-node/ qcom,mdss_wb_panel;
+	/delete-node/ qcom,mdss_rotator;
+	/delete-node/ qcom,mdss_dsi_pll@1a94a00;
+	/delete-node/ qcom,mdss_dsi_pll@1a96a00;
+
+	/* mem_acc */
+	/delete-node/ regulator@01946004;
+	/* apc vreg */
+	/delete-node/ regulator@b018000;
+	/delete-node/ eldo2;
+	/delete-node/ adv_vreg;
+};
+
+#include "pm8916-rpm-regulator.dtsi"
+#include "pm8916.dtsi"
+
+&spmi_bus {
+	pm8916@1 {
+		/delete-node/ msm8x16_wcd_codec@f000;
+	};
+};
