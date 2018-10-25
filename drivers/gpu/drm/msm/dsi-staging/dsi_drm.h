@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -139,4 +139,6 @@ int dsi_conn_post_kickoff(struct drm_connector *connector);
 void dsi_convert_to_drm_mode(const struct dsi_display_mode *dsi_mode,
 				struct drm_display_mode *drm_mode);
 
+u64 dsi_drm_find_bit_clk_rate(void *display,
+			      const struct drm_display_mode *drm_mode);
 #endif /* _DSI_DRM_H_ */

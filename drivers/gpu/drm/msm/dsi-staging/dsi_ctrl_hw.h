@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -829,6 +829,12 @@ struct dsi_ctrl_hw_ops {
 	 * @enable:	  Bool to control continuous clock request.
 	 */
 	void (*set_continuous_clk)(struct dsi_ctrl_hw *ctrl, bool enable);
+
+	/**
+	 * hw.ops.wait4dynamic_refresh_done() - Wait for dynamic refresh done
+	 * @ctrl:         Pointer to the controller host hardware.
+	 */
+	int (*wait4dynamic_refresh_done)(struct dsi_ctrl_hw *ctrl);
 };
 
 /*

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -3100,7 +3100,8 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 	}
 
 	if (!(msm_is_mode_seamless_vrr(cur_mode)
-			|| msm_is_mode_seamless_dms(cur_mode)))
+			|| msm_is_mode_seamless_dms(cur_mode)
+			|| msm_is_mode_seamless_dyn_clk(cur_mode)))
 		kthread_init_delayed_work(&sde_enc->delayed_off_work,
 			sde_encoder_off_work);
 
