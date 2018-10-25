@@ -206,15 +206,22 @@ static int hab_vchans_per_pchan_empty(struct physical_channel *pchan)
 	empty = list_empty(&pchan->vchannels);
 	if (!empty) {
 		struct virtual_channel *vchan;
+		int vcnt = pchan->vcnt;
 
 		list_for_each_entry(vchan, &pchan->vchannels, pnode) {
-			pr_err("vchan %pK id %x remote id %x session %d ref %d closed %d remote close %d\n",
-				   vchan, vchan->id, vchan->otherend_id,
-				   vchan->session_id,
-				   get_refcnt(vchan->refcount), vchan->closed,
-				   vchan->otherend_closed);
+			/* discount open-pending unpaired vchan */
+			if (!vchan->session_id)
+				vcnt--;
+			else
+				pr_err("vchan %pK %x rm %x sn %d rf %d clsd %d rm clsd %d\n",
+					vchan, vchan->id,
+					vchan->otherend_id,
+					vchan->session_id,
+					get_refcnt(vchan->refcount),
+					vchan->closed, vchan->otherend_closed);
 		}
-
+		if (!vcnt)
+			empty = 1;/* unpaired vchan can exist at init time */
 	}
 	read_unlock(&pchan->vchans_lock);
 
@@ -308,7 +315,9 @@ void hab_vchan_put(struct virtual_channel *vchan)
 int hab_vchan_query(struct uhab_context *ctx, int32_t vcid, uint64_t *ids,
 			   char *names, size_t name_size, uint32_t flags)
 {
-	struct virtual_channel *vchan = hab_get_vchan_fromvcid(vcid, ctx);
+	struct virtual_channel *vchan;
+
+	vchan = hab_get_vchan_fromvcid(vcid, ctx, 1);
 	if (!vchan)
 		return -EINVAL;
 

@@ -56,6 +56,7 @@ int physical_channel_send(struct physical_channel *pchan,
 		return -EAGAIN; /* not enough free space */
 	}
 
+	header->sequence = pchan->sequence_tx + 1;
 	header->signature = HAB_HEAD_SIGNATURE;
 
 	if (hab_pipe_write(dev->pipe_ep,
@@ -92,7 +93,7 @@ int physical_channel_send(struct physical_channel *pchan,
 	hab_pipe_write_commit(dev->pipe_ep);
 	spin_unlock_bh(&dev->io_lock);
 	habhyp_notify(dev);
-
+	++pchan->sequence_tx;
 	return 0;
 }
 
@@ -116,6 +117,8 @@ void physical_channel_rx_dispatch(unsigned long data)
 				header.session_id,
 				header.sequence);
 		}
+
+		pchan->sequence_rx = header.sequence;
 
 		hab_msg_recv(pchan, &header);
 	}

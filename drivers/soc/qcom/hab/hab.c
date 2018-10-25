@@ -209,14 +209,15 @@ void hab_ctx_free(struct kref *ref)
  * the local ioctl access based on ctx
  */
 struct virtual_channel *hab_get_vchan_fromvcid(int32_t vcid,
-		struct uhab_context *ctx)
+		struct uhab_context *ctx, int ignore_remote)
 {
 	struct virtual_channel *vchan;
 
 	read_lock(&ctx->ctx_lock);
 	list_for_each_entry(vchan, &ctx->vchannels, node) {
 		if (vcid == vchan->id) {
-			if (vchan->otherend_closed || vchan->closed ||
+			if ((ignore_remote ? 0 : vchan->otherend_closed) ||
+				vchan->closed ||
 				!kref_get_unless_zero(&vchan->refcount)) {
 				pr_debug("failed to inc vcid %x remote %x session %d refcnt %d close_flg remote %d local %d\n",
 					vchan->id, vchan->otherend_id,
@@ -550,7 +551,7 @@ long hab_vchan_send(struct uhab_context *ctx,
 		return -EINVAL;
 	}
 
-	vchan = hab_get_vchan_fromvcid(vcid, ctx);
+	vchan = hab_get_vchan_fromvcid(vcid, ctx, 0);
 	if (!vchan || vchan->otherend_closed) {
 		ret = -ENODEV;
 		goto err;
@@ -597,7 +598,7 @@ int hab_vchan_recv(struct uhab_context *ctx,
 	int ret = 0;
 	int nonblocking_flag = flags & HABMM_SOCKET_RECV_FLAGS_NON_BLOCKING;
 
-	vchan = hab_get_vchan_fromvcid(vcid, ctx);
+	vchan = hab_get_vchan_fromvcid(vcid, ctx, 1);
 	if (!vchan) {
 		pr_err("vcid %X vchan 0x%pK ctx %pK\n", vcid, vchan, ctx);
 		return -ENODEV;
@@ -719,24 +720,13 @@ void hab_vchan_close(struct uhab_context *ctx, int32_t vcid)
 	write_lock(&ctx->ctx_lock);
 	list_for_each_entry_safe(vchan, tmp, &ctx->vchannels, node) {
 		if (vchan->id == vcid) {
+			vchan->closed = 1;
 			write_unlock(&ctx->ctx_lock);
 			pr_debug("vcid %x remote %x session %d refcnt %d\n",
 				vchan->id, vchan->otherend_id,
 				vchan->session_id, get_refcnt(vchan->refcount));
-			/*
-			 * only set when vc close is called locally by user
-			 * explicity. Used to block remote msg. if forked once
-			 * before, this local close is skipped due to child
-			 * usage. if forked but not closed locally, the local
-			 * context could NOT be closed, vchan can be prolonged
-			 * by arrived remote msgs
-			 */
-			if (vchan->forked)
-				vchan->forked = 0;
-			else {
-				vchan->closed = 1;
-				hab_vchan_stop_notify(vchan);
-			}
+			/* unblocking blocked in-calls */
+			hab_vchan_stop_notify(vchan);
 			hab_vchan_put(vchan); /* there is a lock inside */
 			write_lock(&ctx->ctx_lock);
 			break;
@@ -1090,13 +1080,16 @@ static int hab_release(struct inode *inodep, struct file *filep)
 					vchan->closed, vchan->otherend_closed);
 				continue; /* vchan is already being freed */
 			} else {
+				write_unlock(&ctx->ctx_lock);
 				hab_vchan_stop_notify(vchan);
 				/* put for notify. shouldn't cause free */
 				hab_vchan_put(vchan);
+				write_lock(&ctx->ctx_lock);
 			}
 		} else
 			continue;
 
+		/* for the missing local vchan close */
 		write_unlock(&ctx->ctx_lock);
 		hab_vchan_put(vchan); /* there is a lock inside */
 		write_lock(&ctx->ctx_lock);
@@ -1116,12 +1109,6 @@ static int hab_release(struct inode *inodep, struct file *filep)
 
 	hab_ctx_put(ctx);
 	filep->private_data = NULL;
-
-	/* ctx leak check */
-	if (get_refcnt(ctx->refcount))
-		pr_warn("pending ctx release owner %d refcnt %d total %d\n",
-				ctx->owner, get_refcnt(ctx->refcount),
-				hab_driver.ctx_cnt);
 
 	return 0;
 }

@@ -246,7 +246,7 @@ int hab_mem_export(struct uhab_context *ctx,
 	if (!ctx || !param || !param->buffer)
 		return -EINVAL;
 
-	vchan = hab_get_vchan_fromvcid(param->vcid, ctx);
+	vchan = hab_get_vchan_fromvcid(param->vcid, ctx, 0);
 	if (!vchan || !vchan->pchan) {
 		ret = -ENODEV;
 		goto err;
@@ -313,7 +313,7 @@ int hab_mem_unexport(struct uhab_context *ctx,
 		return -EINVAL;
 
 	/* refcnt on the access */
-	vchan = hab_get_vchan_fromvcid(param->vcid, ctx);
+	vchan = hab_get_vchan_fromvcid(param->vcid, ctx, 1);
 	if (!vchan || !vchan->pchan) {
 		ret = -ENODEV;
 		goto err_novchan;
@@ -360,7 +360,7 @@ int hab_mem_import(struct uhab_context *ctx,
 	if (!ctx || !param)
 		return -EINVAL;
 
-	vchan = hab_get_vchan_fromvcid(param->vcid, ctx);
+	vchan = hab_get_vchan_fromvcid(param->vcid, ctx, 0);
 	if (!vchan || !vchan->pchan) {
 		ret = -ENODEV;
 		goto err_imp;
@@ -420,7 +420,7 @@ int hab_mem_unimport(struct uhab_context *ctx,
 	if (!ctx || !param)
 		return -EINVAL;
 
-	vchan = hab_get_vchan_fromvcid(param->vcid, ctx);
+	vchan = hab_get_vchan_fromvcid(param->vcid, ctx, 1);
 	if (!vchan || !vchan->pchan) {
 		if (vchan)
 			hab_vchan_put(vchan);
