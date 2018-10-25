@@ -1,0 +1,117 @@
+* Qualcomm Technologies, Inc. MSM CSI Phy
+
+=======================
+Required Node Structure
+=======================
+The camera CSIPHY node must be described in First level of device nodes. The
+first level describe the overall CSIPHY node structure.
+
+======================================
+First Level Node - CSIPHY device
+======================================
+
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: Should be "qcom,csiphy-v1.0",
+	"qcom,csiphy-v1.1", "qcom,csiphy-v1.2",
+	"qcom,csiphy-v2.0", "qcom,csiphy".
+
+- cell-index: csiphy hardware core index
+  Usage: required
+  Value type: <u32>
+  Definition: Should specify the Hardware index id.
+
+- reg
+  Usage: required
+  Value type: <u32>
+  Definition: offset and length of the register set
+	for the device for the csiphy operating in
+	compatible mode.
+
+- reg-names
+  Usage: required
+  Value type: <string>
+  Definition: Should specify relevant names to each
+	reg property defined.
+
+- reg-cam-base
+  Usage: required
+  Value type: <string>
+  Definition: offset of CSIPHY in  camera hw block
+
+- interrupts
+  Usage: required
+  Value type: <u32>
+  Definition: Interrupt associated with CCI HW.
+
+- interrupt-names
+  Usage: required
+  Value type: <string>
+  Definition: Name of the interrupt.
+
+- clock-names
+  Usage: required
+  Value type: <string>
+  Definition: List of clock names required for CSIPHY HW.
+
+- clock-rates
+  Usage: required
+  Value type: <u32>
+  Definition: List of clock rates in Hz for CSIPHY HW.
+
+- clock-cntl-level
+  Usage: required
+  Value type: <string>
+  Definition: All different clock level node can support.
+
+- clocks
+  Usage: required
+  Value type: <phandle>
+  Definition: all clock phandle and source clocks.
+
+- regulator-names
+  Usage: required
+  Value type: <string>
+  Definition: name of the voltage regulators required for the device.
+
+- gdscr-supply
+  Usage: required
+  Value type: <phandle>
+  Definition: should contain gdsr regulator used for CSIPHY clocks.
+
+- mipi-csi-vdd-supply
+  Usage: required
+  Value type: <phandle>
+  Definition: should contain phandle for mipi-csi-vdd regulator used for
+	CSIPHY device.
+
+- csi-vdd-voltage
+  Usage: required
+  Value type: <u32>
+  Definition: should contain required voltage for csi-vdd supply for CSIPHY.
+
+Example:
+
+qcom,csiphy@ac65000 {
+     cell-index = <0>;
+     compatible = "qcom,csiphy-v1.0", "qcom,csiphy";
+     reg = <0xac65000 0x200>;
+     reg-cam-base = <0x65000>;
+     reg-names = "csiphy";
+     interrupts = <0 477 0>;
+     interrupt-names = "csiphy";
+     regulator-names = "gdscr", "refgen";
+     mipi-csi-vdd-supply = <&pm8998_l1>;
+     csi-vdd-voltage = <1200000>;
+     gdscr-supply = <&titan_top_gdsc>;
+     clocks = <&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
+              <&clock_camcc CAM_CC_CSIPHY0_CLK>,
+              <&clock_camcc CAM_CC_CSI0PHYTIMER_CLK_SRC>,
+              <&clock_camcc CAM_CC_CSI0PHYTIMER_CLK>;
+     clock-names = "cphy_rx_clk_src", "csiphy0_clk",
+              "csi0phytimer_clk_src", "csi0phytimer_clk";
+     clock-rates = <400000000 0 300000000 0>;
+     clock-cntl-level = "turbo";
+     status = "ok";
+};
