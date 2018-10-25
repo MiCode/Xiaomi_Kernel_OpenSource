@@ -330,6 +330,7 @@ out:
 #define MICRO_1P5A			1500000
 #define MICRO_P1A			100000
 #define MICRO_1PA			1000000
+#define MICRO_3PA			3000000
 #define OTG_DEFAULT_DEGLITCH_TIME_MS	50
 #define DEFAULT_WD_BARK_TIME		64
 static int smb5_parse_dt(struct smb5 *chip)
@@ -386,7 +387,7 @@ static int smb5_parse_dt(struct smb5 *chip)
 				"qcom,otg-cl-ua", &chg->otg_cl_ua);
 	if (rc < 0)
 		chg->otg_cl_ua = (chip->chg.smb_version == PMI632_SUBTYPE) ?
-							MICRO_1PA : MICRO_1P5A;
+							MICRO_1PA : MICRO_3PA;
 
 	rc = of_property_read_u32(node, "qcom,chg-term-src",
 			&chip->dt.term_current_src);
@@ -2148,15 +2149,6 @@ static int smb5_init_hw(struct smb5 *chip)
 				rc);
 			return rc;
 		}
-	}
-
-	/* set the Source (OTG) mode current limit */
-	rc = smblib_masked_write(chg, DCDC_OTG_CURRENT_LIMIT_CFG_REG,
-			OTG_CURRENT_LIMIT_MASK, OTG_CURRENT_LIMIT_3000_MA);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't configure DCDC_OTG_CURRENT_LIMIT_CFG rc=%d\n",
-				rc);
-		return rc;
 	}
 
 	if (chg->sw_jeita_enabled) {
