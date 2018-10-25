@@ -46,6 +46,7 @@
 #define PL_FCC_LOW_VOTER		"PL_FCC_LOW_VOTER"
 #define ICL_LIMIT_VOTER			"ICL_LIMIT_VOTER"
 #define FCC_STEPPER_VOTER		"FCC_STEPPER_VOTER"
+#define FCC_VOTER			"FCC_VOTER"
 
 struct pl_data {
 	int			pl_mode;
@@ -63,6 +64,7 @@ struct pl_data {
 	struct votable		*hvdcp_hw_inov_dis_votable;
 	struct votable		*usb_icl_votable;
 	struct votable		*pl_enable_votable_indirect;
+	struct votable		*cp_ilim_votable;
 	struct delayed_work	status_change_work;
 	struct work_struct	pl_disable_forever_work;
 	struct work_struct	pl_taper_work;
@@ -623,6 +625,9 @@ static int pl_fcc_vote_callback(struct votable *votable, void *data,
 	if (!chip->main_psy)
 		return 0;
 
+	if (!chip->cp_ilim_votable)
+		chip->cp_ilim_votable = find_votable("CP_ILIM");
+
 	if (chip->pl_mode != POWER_SUPPLY_PL_NONE) {
 		get_fcc_split(chip, total_fcc_ua, &master_fcc_ua,
 				&slave_fcc_ua);
@@ -819,6 +824,10 @@ stepper_exit:
 	chip->main_fcc_ua = main_fcc;
 	chip->slave_fcc_ua = parallel_fcc;
 
+	if (chip->cp_ilim_votable)
+		vote(chip->cp_ilim_votable, FCC_VOTER, true,
+					chip->main_fcc_ua / 2);
+
 	if (reschedule_ms) {
 		schedule_delayed_work(&chip->fcc_stepper_work,
 				msecs_to_jiffies(reschedule_ms));
@@ -933,6 +942,9 @@ static int usb_icl_vote_callback(struct votable *votable, void *data,
 			&pval);
 
 	vote(chip->pl_disable_votable, ICL_CHANGE_VOTER, false, 0);
+
+	if (chip->cp_ilim_votable)
+		vote(chip->cp_ilim_votable, ICL_CHANGE_VOTER, true, icl_ua);
 
 	return 0;
 }
@@ -1192,6 +1204,10 @@ static int pl_disable_vote_callback(struct votable *votable,
 				pr_err("Could not set main fcc, rc=%d\n", rc);
 				return rc;
 			}
+
+			if (chip->cp_ilim_votable)
+				vote(chip->cp_ilim_votable, FCC_VOTER, true,
+						total_fcc_ua / 2);
 
 			/* reset parallel FCC */
 			chip->slave_fcc_ua = 0;
