@@ -1206,7 +1206,8 @@ static int cam_vfe_bus_start_wm(struct cam_isp_resource_node *wm_res)
 			cam_io_w_mb(val, common_data->mem_base +
 				ubwc_regs->mode_cfg_0);
 		} else if ((camera_hw_version == CAM_CPAS_TITAN_175_V100) ||
-			(camera_hw_version == CAM_CPAS_TITAN_175_V101)) {
+			(camera_hw_version == CAM_CPAS_TITAN_175_V101) ||
+			(camera_hw_version == CAM_CPAS_TITAN_175_V120)) {
 			struct cam_vfe_bus_ver2_reg_offset_ubwc_3_client
 				*ubwc_regs;
 
@@ -2543,7 +2544,7 @@ static void cam_vfe_bus_update_ubwc_meta_addr(
 		CAM_ERR(CAM_ISP, "Failed to get HW version rc: %d", rc);
 		goto end;
 	} else if ((camera_hw_version < CAM_CPAS_TITAN_170_V100) ||
-		(camera_hw_version > CAM_CPAS_TITAN_175_V101)) {
+		(camera_hw_version > CAM_CPAS_TITAN_175_V120)) {
 		CAM_ERR(CAM_ISP, "Invalid HW version: %d",
 			camera_hw_version);
 		goto end;
@@ -2561,6 +2562,7 @@ static void cam_vfe_bus_update_ubwc_meta_addr(
 		break;
 	case CAM_CPAS_TITAN_175_V100:
 	case CAM_CPAS_TITAN_175_V101:
+	case CAM_CPAS_TITAN_175_V120:
 		ubwc_3_regs =
 			(struct cam_vfe_bus_ver2_reg_offset_ubwc_3_client *)
 			regs;
@@ -2786,6 +2788,7 @@ static int cam_vfe_bus_update_ubwc_regs(
 		break;
 	case CAM_CPAS_TITAN_175_V100:
 	case CAM_CPAS_TITAN_175_V101:
+	case CAM_CPAS_TITAN_175_V120:
 		rc = cam_vfe_bus_update_ubwc_3_regs(
 			wm_data, reg_val_pair, i, j);
 		break;
