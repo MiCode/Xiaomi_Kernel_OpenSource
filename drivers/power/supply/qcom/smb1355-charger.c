@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019 The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "SMB1355: %s: " fmt, __func__
@@ -1357,7 +1357,7 @@ static int smb1355_probe(struct platform_device *pdev)
 	chip->c_charger_temp_max = -EINVAL;
 	mutex_init(&chip->write_lock);
 	INIT_DELAYED_WORK(&chip->die_temp_work, die_temp_work);
-	chip->disabled = true;
+	chip->disabled = false;
 	chip->die_temp_deciDegC = -EINVAL;
 
 	chip->regmap = dev_get_regmap(chip->dev->parent, NULL);
