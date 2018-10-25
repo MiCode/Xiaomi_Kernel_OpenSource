@@ -274,6 +274,7 @@ retry:
 	err = 0;
 	__cpu_stop_queue_work(stopper1, work1, &wakeq);
 	__cpu_stop_queue_work(stopper2, work2, &wakeq);
+
 unlock:
 	raw_spin_unlock(&stopper2->lock);
 	raw_spin_unlock_irq(&stopper1->lock);
@@ -287,8 +288,8 @@ unlock:
 		goto retry;
 	}
 
-        wake_up_q(&wakeq);
-        preempt_enable();
+	wake_up_q(&wakeq);
+	preempt_enable();
 
 	return err;
 }
