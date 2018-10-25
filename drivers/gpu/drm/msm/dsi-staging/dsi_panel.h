@@ -65,10 +65,18 @@ enum dsi_dms_mode {
 };
 
 struct dsi_dfps_capabilities {
-	bool dfps_support;
 	enum dsi_dfps_type type;
 	u32 min_refresh_rate;
 	u32 max_refresh_rate;
+	u32 *dfps_list;
+	u32 dfps_list_len;
+	bool dfps_support;
+};
+
+struct dsi_dyn_clk_caps {
+	bool dyn_clk_support;
+	u32 *bit_clk_list;
+	u32 bit_clk_list_len;
 };
 
 struct dsi_pinctrl_info {
@@ -164,6 +172,7 @@ struct dsi_panel {
 	enum dsi_op_mode panel_mode;
 
 	struct dsi_dfps_capabilities dfps_caps;
+	struct dsi_dyn_clk_caps dyn_clk_caps;
 	struct dsi_panel_phy_props phy_props;
 
 	struct dsi_display_mode *cur_mode;

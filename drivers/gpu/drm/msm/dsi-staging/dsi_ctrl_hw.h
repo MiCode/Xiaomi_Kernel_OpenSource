@@ -810,6 +810,12 @@ struct dsi_ctrl_hw_ops {
 	 * @enable:	  Bool to control continuous clock request.
 	 */
 	void (*set_continuous_clk)(struct dsi_ctrl_hw *ctrl, bool enable);
+
+	/**
+	 * hw.ops.wait4dynamic_refresh_done() - Wait for dynamic refresh done
+	 * @ctrl:         Pointer to the controller host hardware.
+	 */
+	int (*wait4dynamic_refresh_done)(struct dsi_ctrl_hw *ctrl);
 };
 
 /*

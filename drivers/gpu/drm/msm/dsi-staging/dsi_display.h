@@ -398,13 +398,14 @@ int dsi_display_validate_mode(struct dsi_display *display,
 			      u32 flags);
 
 /**
- * dsi_display_validate_mode_vrr() - validates mode if variable refresh case
+ * dsi_display_validate_mode_change() - validates mode if variable refresh case
+ *				or dynamic clk change case
  * @display:             Handle to display.
  * @mode:                Mode to be validated..
  *
  * Return: 0 if  error code.
  */
-int dsi_display_validate_mode_vrr(struct dsi_display *display,
+int dsi_display_validate_mode_change(struct dsi_display *display,
 			struct dsi_display_mode *cur_dsi_mode,
 			struct dsi_display_mode *mode);
 

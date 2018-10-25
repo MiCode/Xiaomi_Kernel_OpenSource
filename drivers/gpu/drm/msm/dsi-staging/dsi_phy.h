@@ -278,4 +278,45 @@ void dsi_phy_drv_register(void);
  */
 void dsi_phy_drv_unregister(void);
 
+/**
+ * dsi_phy_update_phy_timings() - Update dsi phy timings
+ * @phy:	DSI PHY handle
+ * @config:	DSI Host config parameters
+ *
+ * Return: error code.
+ */
+int dsi_phy_update_phy_timings(struct msm_dsi_phy *phy,
+			       struct dsi_host_config *config);
+
+/**
+ * dsi_phy_config_dynamic_refresh() - Configure dynamic refresh registers
+ * @phy:	DSI PHY handle
+ * @delay:	pipe delays for dynamic refresh
+ * @is_master:	Boolean to indicate if for master or slave
+ */
+void dsi_phy_config_dynamic_refresh(struct msm_dsi_phy *phy,
+				    struct dsi_dyn_clk_delay *delay,
+				    bool is_master);
+/**
+ * dsi_phy_dynamic_refresh_trigger() - trigger dynamic refresh
+ * @phy:	DSI PHY handle
+ * @is_master:	Boolean to indicate if for master or slave.
+ */
+void dsi_phy_dynamic_refresh_trigger(struct msm_dsi_phy *phy, bool is_master);
+
+/**
+ * dsi_phy_dynamic_refresh_clear() - clear dynamic refresh config
+ * @phy:	DSI PHY handle
+ */
+void dsi_phy_dynamic_refresh_clear(struct msm_dsi_phy *phy);
+
+/**
+ * dsi_phy_dyn_refresh_cache_phy_timings - cache the phy timings calculated
+ *				as part of dynamic refresh.
+ * @phy:	   DSI PHY Handle.
+ * @dst:	   Pointer to cache location.
+ * @size:	   Number of phy lane settings.
+ */
+int dsi_phy_dyn_refresh_cache_phy_timings(struct msm_dsi_phy *phy,
+					  u32 *dst, u32 size);
 #endif /* _DSI_PHY_H_ */
