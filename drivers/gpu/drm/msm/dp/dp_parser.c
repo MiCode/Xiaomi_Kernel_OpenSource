@@ -712,12 +712,19 @@ static int dp_parser_catalog(struct dp_parser *parser)
 static int dp_parser_mst(struct dp_parser *parser)
 {
 	struct device *dev = &parser->pdev->dev;
+	int i;
 
 	parser->has_mst = of_property_read_bool(dev->of_node,
 			"qcom,mst-enable");
 	parser->has_mst_sideband = parser->has_mst;
 
 	pr_debug("mst parsing successful. mst:%d\n", parser->has_mst);
+
+	for (i = 0; i < MAX_DP_MST_STREAMS; i++) {
+		of_property_read_u32_index(dev->of_node,
+				"qcom,mst-fixed-topology-ports", i,
+				&parser->mst_fixed_port[i]);
+	}
 
 	return 0;
 }
