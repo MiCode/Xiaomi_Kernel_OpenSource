@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -140,6 +140,11 @@ struct hdmi_8998_reg_cfg {
 	u32 l2_pre_driver_2;
 	u32 l3_pre_driver_1;
 	u32 l3_pre_driver_2;
+
+	u32 l0_res_code_offset;
+	u32 l1_res_code_offset;
+	u32 l2_res_code_offset;
+	u32 l3_res_code_offset;
 
 	bool debug;
 };
@@ -394,14 +399,14 @@ static int hdmi_8998_config_phy(unsigned long rate,
 
 	if (ver == HDMI_VERSION_8998_3_3) {
 		if (bclk > high_freq_bit_clk_threshold) {
-			cfg->l0_tx_drv_lvl = 0xA;
+			cfg->l0_tx_drv_lvl = 0xf;
 			cfg->l0_tx_emp_post1_lvl = 0x3;
-			cfg->l1_tx_drv_lvl = 0xA;
-			cfg->l1_tx_emp_post1_lvl = 0x3;
-			cfg->l2_tx_drv_lvl = 0xA;
+			cfg->l1_tx_drv_lvl = 0xf;
+			cfg->l1_tx_emp_post1_lvl = 0x2;
+			cfg->l2_tx_drv_lvl = 0xf;
 			cfg->l2_tx_emp_post1_lvl = 0x3;
-			cfg->l3_tx_drv_lvl = 0x8;
-			cfg->l3_tx_emp_post1_lvl = 0x3;
+			cfg->l3_tx_drv_lvl = 0xf;
+			cfg->l3_tx_emp_post1_lvl = 0x0;
 			cfg->l0_pre_driver_1 = 0x0;
 			cfg->l0_pre_driver_2 = 0x1C;
 			cfg->l1_pre_driver_1 = 0x0;
@@ -410,15 +415,19 @@ static int hdmi_8998_config_phy(unsigned long rate,
 			cfg->l2_pre_driver_2 = 0x1C;
 			cfg->l3_pre_driver_1 = 0x0;
 			cfg->l3_pre_driver_2 = 0x0;
+			cfg->l0_res_code_offset = 0x3;
+			cfg->l1_res_code_offset = 0x0;
+			cfg->l2_res_code_offset = 0x0;
+			cfg->l3_res_code_offset = 0x3;
 		} else if (bclk > dig_freq_bit_clk_threshold) {
-			cfg->l0_tx_drv_lvl = 0x9;
+			cfg->l0_tx_drv_lvl = 0xf;
 			cfg->l0_tx_emp_post1_lvl = 0x3;
-			cfg->l1_tx_drv_lvl = 0x9;
+			cfg->l1_tx_drv_lvl = 0xf;
 			cfg->l1_tx_emp_post1_lvl = 0x3;
-			cfg->l2_tx_drv_lvl = 0x9;
+			cfg->l2_tx_drv_lvl = 0xf;
 			cfg->l2_tx_emp_post1_lvl = 0x3;
-			cfg->l3_tx_drv_lvl = 0x8;
-			cfg->l3_tx_emp_post1_lvl = 0x3;
+			cfg->l3_tx_drv_lvl = 0xf;
+			cfg->l3_tx_emp_post1_lvl = 0x0;
 			cfg->l0_pre_driver_1 = 0x0;
 			cfg->l0_pre_driver_2 = 0x16;
 			cfg->l1_pre_driver_1 = 0x0;
@@ -426,16 +435,20 @@ static int hdmi_8998_config_phy(unsigned long rate,
 			cfg->l2_pre_driver_1 = 0x0;
 			cfg->l2_pre_driver_2 = 0x16;
 			cfg->l3_pre_driver_1 = 0x0;
-			cfg->l3_pre_driver_2 = 0x0;
+			cfg->l3_pre_driver_2 = 0x18;
+			cfg->l0_res_code_offset = 0x3;
+			cfg->l1_res_code_offset = 0x0;
+			cfg->l2_res_code_offset = 0x0;
+			cfg->l3_res_code_offset = 0x0;
 		} else if (bclk > mid_freq_bit_clk_threshold) {
-			cfg->l0_tx_drv_lvl = 0x9;
-			cfg->l0_tx_emp_post1_lvl = 0x3;
-			cfg->l1_tx_drv_lvl = 0x9;
-			cfg->l1_tx_emp_post1_lvl = 0x3;
-			cfg->l2_tx_drv_lvl = 0x9;
-			cfg->l2_tx_emp_post1_lvl = 0x3;
-			cfg->l3_tx_drv_lvl = 0x8;
-			cfg->l3_tx_emp_post1_lvl = 0x3;
+			cfg->l0_tx_drv_lvl = 0xf;
+			cfg->l0_tx_emp_post1_lvl = 0x5;
+			cfg->l1_tx_drv_lvl = 0xf;
+			cfg->l1_tx_emp_post1_lvl = 0x5;
+			cfg->l2_tx_drv_lvl = 0xf;
+			cfg->l2_tx_emp_post1_lvl = 0x5;
+			cfg->l3_tx_drv_lvl = 0xf;
+			cfg->l3_tx_emp_post1_lvl = 0x0;
 			cfg->l0_pre_driver_1 = 0x0;
 			cfg->l0_pre_driver_2 = 0x0E;
 			cfg->l1_pre_driver_1 = 0x0;
@@ -443,24 +456,32 @@ static int hdmi_8998_config_phy(unsigned long rate,
 			cfg->l2_pre_driver_1 = 0x0;
 			cfg->l2_pre_driver_2 = 0x0E;
 			cfg->l3_pre_driver_1 = 0x0;
-			cfg->l3_pre_driver_2 = 0x0;
+			cfg->l3_pre_driver_2 = 0x0E;
+			cfg->l0_res_code_offset = 0x0;
+			cfg->l1_res_code_offset = 0x0;
+			cfg->l2_res_code_offset = 0x0;
+			cfg->l3_res_code_offset = 0x0;
 		} else {
-			cfg->l0_tx_drv_lvl = 0x0;
+			cfg->l0_tx_drv_lvl = 0x1;
 			cfg->l0_tx_emp_post1_lvl = 0x0;
-			cfg->l1_tx_drv_lvl = 0x0;
+			cfg->l1_tx_drv_lvl = 0x1;
 			cfg->l1_tx_emp_post1_lvl = 0x0;
-			cfg->l2_tx_drv_lvl = 0x0;
+			cfg->l2_tx_drv_lvl = 0x1;
 			cfg->l2_tx_emp_post1_lvl = 0x0;
 			cfg->l3_tx_drv_lvl = 0x0;
 			cfg->l3_tx_emp_post1_lvl = 0x0;
 			cfg->l0_pre_driver_1 = 0x0;
-			cfg->l0_pre_driver_2 = 0x01;
+			cfg->l0_pre_driver_2 = 0x16;
 			cfg->l1_pre_driver_1 = 0x0;
-			cfg->l1_pre_driver_2 = 0x01;
+			cfg->l1_pre_driver_2 = 0x16;
 			cfg->l2_pre_driver_1 = 0x0;
-			cfg->l2_pre_driver_2 = 0x01;
+			cfg->l2_pre_driver_2 = 0x16;
 			cfg->l3_pre_driver_1 = 0x0;
-			cfg->l3_pre_driver_2 = 0x0;
+			cfg->l3_pre_driver_2 = 0x18;
+			cfg->l0_res_code_offset = 0x0;
+			cfg->l1_res_code_offset = 0x0;
+			cfg->l2_res_code_offset = 0x0;
+			cfg->l3_res_code_offset = 0x0;
 		}
 	} else {
 		cfg->l0_tx_drv_lvl = 0xF;
@@ -479,6 +500,10 @@ static int hdmi_8998_config_phy(unsigned long rate,
 		cfg->l2_pre_driver_2 = 0x1E;
 		cfg->l3_pre_driver_1 = 0x0;
 		cfg->l3_pre_driver_2 = 0x10;
+		cfg->l0_res_code_offset = 0x3;
+		cfg->l1_res_code_offset = 0x0;
+		cfg->l2_res_code_offset = 0x0;
+		cfg->l3_res_code_offset = 0x3;
 	}
 
 	return rc;
@@ -564,10 +589,10 @@ static int hdmi_8998_pll_set_clk_rate(struct clk *c, unsigned long rate,
 	_W(pll, PHY_TX_PRE_DRIVER_2(2), cfg.l2_pre_driver_2);
 	_W(pll, PHY_TX_PRE_DRIVER_2(3), cfg.l3_pre_driver_2);
 
-	_W(pll, PHY_TX_DRV_LVL_RES_CODE_OFFSET(0), 0x3);
-	_W(pll, PHY_TX_DRV_LVL_RES_CODE_OFFSET(1), 0x0);
-	_W(pll, PHY_TX_DRV_LVL_RES_CODE_OFFSET(2), 0x0);
-	_W(pll, PHY_TX_DRV_LVL_RES_CODE_OFFSET(3), 0x3);
+	_W(pll, PHY_TX_DRV_LVL_RES_CODE_OFFSET(0), cfg.l0_res_code_offset);
+	_W(pll, PHY_TX_DRV_LVL_RES_CODE_OFFSET(1), cfg.l1_res_code_offset);
+	_W(pll, PHY_TX_DRV_LVL_RES_CODE_OFFSET(2), cfg.l2_res_code_offset);
+	_W(pll, PHY_TX_DRV_LVL_RES_CODE_OFFSET(3), cfg.l3_res_code_offset);
 
 	_W(phy, PHY_MODE, cfg.phy_mode);
 
