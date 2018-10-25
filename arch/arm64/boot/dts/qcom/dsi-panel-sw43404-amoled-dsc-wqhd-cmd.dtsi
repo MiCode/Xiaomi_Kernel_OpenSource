@@ -105,7 +105,7 @@
 				qcom,mdss-dsi-qsync-off-commands-state =
 					"dsi_lp_mode";
 				qcom,compression-mode = "dsc";
-				qcom,mdss-dsc-slice-height = <1440>;
+				qcom,mdss-dsc-slice-height = <180>;
 				qcom,mdss-dsc-slice-width = <720>;
 				qcom,mdss-dsc-slice-per-pkt = <1>;
 				qcom,mdss-dsc-bit-per-component = <8>;
