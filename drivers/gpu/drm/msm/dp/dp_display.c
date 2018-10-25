@@ -2346,6 +2346,77 @@ static int dp_display_update_pps(struct dp_display *dp_display,
 	return 0;
 }
 
+static int dp_display_mst_connector_update_link_info(
+			struct dp_display *dp_display,
+			struct drm_connector *connector)
+{
+	int rc = 0;
+	struct sde_connector *sde_conn;
+	struct dp_panel *dp_panel;
+	struct dp_display_private *dp;
+
+	if (!dp_display || !connector) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	dp = container_of(dp_display, struct dp_display_private, dp_display);
+
+	if (!dp->mst.drm_registered) {
+		pr_debug("drm mst not registered\n");
+		return -EPERM;
+	}
+
+	sde_conn = to_sde_connector(connector);
+	if (!sde_conn->drv_panel) {
+		pr_err("invalid panel for connector:%d\n", connector->base.id);
+		return -EINVAL;
+	}
+
+	dp_panel = sde_conn->drv_panel;
+
+	memcpy(dp_panel->dpcd, dp->panel->dpcd,
+			DP_RECEIVER_CAP_SIZE + 1);
+	memcpy(dp_panel->dsc_dpcd, dp->panel->dsc_dpcd,
+			DP_RECEIVER_DSC_CAP_SIZE + 1);
+	memcpy(&dp_panel->link_info, &dp->panel->link_info,
+			sizeof(dp_panel->link_info));
+
+	DP_MST_DEBUG("dp mst connector:%d link info updated\n");
+
+	return rc;
+}
+
+static int dp_display_mst_get_fixed_topology_port(
+			struct dp_display *dp_display,
+			u32 strm_id, u32 *port_num)
+{
+	struct dp_display_private *dp;
+	u32 port;
+
+	if (!dp_display) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	if (strm_id >= DP_STREAM_MAX) {
+		pr_err("invalid stream id:%d\n", strm_id);
+		return -EINVAL;
+	}
+
+	dp = container_of(dp_display, struct dp_display_private, dp_display);
+
+	port = dp->parser->mst_fixed_port[strm_id];
+
+	if (!port || port > 255)
+		return -ENOENT;
+
+	if (port_num)
+		*port_num = port;
+
+	return 0;
+}
+
 static int dp_display_get_mst_caps(struct dp_display *dp_display,
 			struct dp_mst_caps *mst_caps)
 {
@@ -2429,12 +2500,16 @@ static int dp_display_probe(struct platform_device *pdev)
 					dp_display_mst_connector_uninstall;
 	g_dp_display->mst_connector_update_edid =
 					dp_display_mst_connector_update_edid;
+	g_dp_display->mst_connector_update_link_info =
+				dp_display_mst_connector_update_link_info;
 	g_dp_display->get_mst_caps = dp_display_get_mst_caps;
 	g_dp_display->set_stream_info = dp_display_set_stream_info;
 	g_dp_display->update_pps = dp_display_update_pps;
 	g_dp_display->convert_to_dp_mode = dp_display_convert_to_dp_mode;
 	g_dp_display->mst_get_connector_info =
 					dp_display_mst_get_connector_info;
+	g_dp_display->mst_get_fixed_topology_port =
+					dp_display_mst_get_fixed_topology_port;
 
 	rc = component_add(&pdev->dev, &dp_display_comp_ops);
 	if (rc) {
