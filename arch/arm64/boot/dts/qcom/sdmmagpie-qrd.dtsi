@@ -13,6 +13,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
 #include <dt-bindings/iio/qcom,spmi-vadc.h>
+#include <dt-bindings/input/input.h>
 #include "sdmmagpie-thermal-overlay.dtsi"
 
 #include "sdmmagpie-sde-display.dtsi"
@@ -199,4 +200,36 @@
 	io-channels = <&pm6150l_vadc ADC_AMUX_THM2>;
 	io-channel-names = "cp_die_temp";
 	status = "ok";
+};
+
+&pm6150l_gpios {
+	key_vol_up {
+		key_vol_up_default: key_vol_up_default {
+			pins = "gpio2";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			power-source = <0>;
+		};
+	};
+};
+
+&soc {
+	gpio_keys {
+		compatible = "gpio-keys";
+		label = "gpio-keys";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&key_vol_up_default>;
+
+		vol_up {
+			label = "volume_up";
+			gpios = <&pm6150l_gpios 2 GPIO_ACTIVE_LOW>;
+			linux,input-type = <1>;
+			linux,code = <KEY_VOLUMEUP>;
+			linux,can-disable;
+			debounce-interval = <15>;
+			gpio-key,wakeup;
+		};
+	};
 };
