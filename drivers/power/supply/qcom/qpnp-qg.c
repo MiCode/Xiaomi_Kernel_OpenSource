@@ -1615,7 +1615,10 @@ static int qg_get_ttf_param(void *data, enum ttf_param param, int *val)
 		}
 		break;
 	case TTF_MODE:
-		*val = TTF_MODE_NORMAL;
+		if (chip->ttf->step_chg_cfg_valid)
+			*val = TTF_MODE_V_STEP_CHG;
+		else
+			*val = TTF_MODE_NORMAL;
 		break;
 	case TTF_ITERM:
 		if (chip->chg_iterm_ma == INT_MIN)
@@ -2460,7 +2463,7 @@ static int qg_load_battery_profile(struct qpnp_qg *chip)
 {
 	struct device_node *node = chip->dev->of_node;
 	struct device_node *batt_node, *profile_node;
-	int rc;
+	int rc, tuple_len, len, i;
 
 	batt_node = of_find_node_by_name(node, "qcom,battery-data");
 	if (!batt_node) {
@@ -2508,6 +2511,64 @@ static int qg_load_battery_profile(struct qpnp_qg *chip)
 	if (rc < 0) {
 		pr_err("Failed to read QG profile version rc:%d\n", rc);
 		chip->bp.qg_profile_version = -EINVAL;
+	}
+
+	/*
+	 * Currently step charging thresholds should be read only for Vbatt
+	 * based and not for SOC based.
+	 */
+	if (!of_property_read_bool(profile_node, "qcom,soc-based-step-chg") &&
+		of_find_property(profile_node, "qcom,step-chg-ranges", &len) &&
+		chip->bp.float_volt_uv > 0 && chip->bp.fastchg_curr_ma > 0) {
+		len /= sizeof(u32);
+		tuple_len = len / (sizeof(struct range_data) / sizeof(u32));
+		if (tuple_len <= 0 || tuple_len > MAX_STEP_CHG_ENTRIES)
+			return -EINVAL;
+
+		mutex_lock(&chip->ttf->lock);
+		chip->ttf->step_chg_cfg =
+			kcalloc(len, sizeof(*chip->ttf->step_chg_cfg),
+				GFP_KERNEL);
+		if (!chip->ttf->step_chg_cfg) {
+			mutex_unlock(&chip->ttf->lock);
+			return -ENOMEM;
+		}
+
+		chip->ttf->step_chg_data =
+			kcalloc(tuple_len, sizeof(*chip->ttf->step_chg_data),
+				GFP_KERNEL);
+		if (!chip->ttf->step_chg_data) {
+			kfree(chip->ttf->step_chg_cfg);
+			mutex_unlock(&chip->ttf->lock);
+			return -ENOMEM;
+		}
+
+		rc = read_range_data_from_node(profile_node,
+				"qcom,step-chg-ranges",
+				chip->ttf->step_chg_cfg,
+				chip->bp.float_volt_uv,
+				chip->bp.fastchg_curr_ma * 1000);
+		if (rc < 0) {
+			pr_err("Error in reading qcom,step-chg-ranges from battery profile, rc=%d\n",
+				rc);
+			kfree(chip->ttf->step_chg_data);
+			kfree(chip->ttf->step_chg_cfg);
+			chip->ttf->step_chg_cfg = NULL;
+			mutex_unlock(&chip->ttf->lock);
+			return rc;
+		}
+
+		chip->ttf->step_chg_num_params = tuple_len;
+		chip->ttf->step_chg_cfg_valid = true;
+		mutex_unlock(&chip->ttf->lock);
+
+		if (chip->ttf->step_chg_cfg_valid) {
+			for (i = 0; i < tuple_len; i++)
+				pr_debug("Vbatt_low: %d Vbatt_high: %d FCC: %d\n",
+				chip->ttf->step_chg_cfg[i].low_threshold,
+				chip->ttf->step_chg_cfg[i].high_threshold,
+				chip->ttf->step_chg_cfg[i].value);
+		}
 	}
 
 	qg_dbg(chip, QG_DEBUG_PROFILE, "profile=%s FV=%duV FCC=%dma\n",
