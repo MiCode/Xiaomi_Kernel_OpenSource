@@ -112,8 +112,7 @@ static int a6xx_rgmu_oob_set(struct adreno_device *adreno_dev,
 	struct rgmu_device *rgmu = KGSL_RGMU_DEVICE(device);
 	int ret, set, check;
 
-	/* Return silently for unsupported OOBs */
-	if (!gmu_core_isenabled(device) || req > oob_gpu)
+	if (!gmu_core_isenabled(device))
 		return 0;
 
 	set = BIT(req + 16);
@@ -152,8 +151,7 @@ static inline void a6xx_rgmu_oob_clear(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	/* Return silently for unsupported OOBs */
-	if (!gmu_core_isenabled(device) || req > oob_gpu)
+	if (!gmu_core_isenabled(device))
 		return;
 
 	gmu_core_regwrite(device, A6XX_GMU_HOST2GMU_INTR_SET, BIT(req + 24));
