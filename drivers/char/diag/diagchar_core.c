@@ -2360,6 +2360,93 @@ static int diag_ioctl_query_pd_logging(struct diag_logging_mode_param_t *param)
 	return ret;
 }
 
+static void diag_ioctl_query_session_pid(struct diag_query_pid_t *param)
+{
+	int prev_pid = 0, test_pid = 0, i = 0, count = 0;
+	uint32_t pd_mask = 0, peripheral_mask = 0;
+	struct diag_md_session_t *info = NULL;
+
+	param->pid = 0;
+
+	if (param->pd_mask && param->peripheral_mask) {
+		param->pid = -EINVAL;
+		return;
+	} else if (param->peripheral_mask) {
+		if (param->peripheral_mask == DIAG_CON_ALL) {
+			for (i = 0; i <= NUM_PERIPHERALS; i++) {
+				if (driver->md_session_map[i]) {
+					test_pid =
+					driver->md_session_map[i]->pid;
+					count++;
+					if (!prev_pid)
+						prev_pid = test_pid;
+					if (test_pid != prev_pid) {
+						DIAG_LOG(DIAG_DEBUG_USERSPACE,
+						"diag: One of the peripherals is being logged already\n");
+						param->pid = -EINVAL;
+					}
+				}
+			}
+			if (i == count && prev_pid)
+				param->pid = prev_pid;
+		} else {
+			peripheral_mask =
+				diag_translate_mask(param->peripheral_mask);
+			for (i = 0; i <= NUM_PERIPHERALS; i++) {
+				if (driver->md_session_map[i] &&
+					(peripheral_mask &
+					MD_PERIPHERAL_MASK(i))) {
+					info = driver->md_session_map[i];
+					if (peripheral_mask !=
+						info->peripheral_mask) {
+						DIAG_LOG(DIAG_DEBUG_USERSPACE,
+						"diag: Invalid Peripheral mask given as input\n");
+						param->pid = -EINVAL;
+						return;
+					}
+					test_pid = info->pid;
+					if (!prev_pid)
+						prev_pid = test_pid;
+					if (test_pid != prev_pid) {
+						DIAG_LOG(DIAG_DEBUG_USERSPACE,
+						"diag: One of the peripherals is logged in different session\n");
+						param->pid = -EINVAL;
+						return;
+					}
+				}
+			}
+			param->pid = prev_pid;
+		}
+	} else if (param->pd_mask) {
+		pd_mask =
+			diag_translate_mask(param->pd_mask);
+		for (i = UPD_WLAN; i < NUM_MD_SESSIONS; i++) {
+			if (driver->md_session_map[i] &&
+				(pd_mask & MD_PERIPHERAL_MASK(i))) {
+				info = driver->md_session_map[i];
+				if (pd_mask != info->peripheral_mask) {
+					DIAG_LOG(DIAG_DEBUG_USERSPACE,
+					"diag: Invalid PD mask given as input\n");
+					param->pid = -EINVAL;
+					return;
+				}
+				test_pid = info->pid;
+				if (!prev_pid)
+					prev_pid = test_pid;
+				if (test_pid != prev_pid) {
+					DIAG_LOG(DIAG_DEBUG_USERSPACE,
+					"diag: One of the PDs is being logged already\n");
+					param->pid = -EINVAL;
+					return;
+				}
+			}
+		}
+		param->pid = prev_pid;
+	}
+	DIAG_LOG(DIAG_DEBUG_USERSPACE,
+	"diag: Pid for the active ODL session: %d\n", param->pid);
+}
+
 static int diag_ioctl_register_callback(unsigned long ioarg)
 {
 	int err = 0;
@@ -2486,6 +2573,7 @@ long diagchar_compat_ioctl(struct file *filp,
 	uint16_t remote_dev;
 	struct diag_dci_client_tbl *dci_client = NULL;
 	struct diag_logging_mode_param_t mode_param;
+	struct diag_query_pid_t pid_query;
 
 	switch (iocmd) {
 	case DIAG_IOCTL_COMMAND_REG:
@@ -2604,6 +2692,22 @@ long diagchar_compat_ioctl(struct file *filp,
 			return -EFAULT;
 		result = diag_ioctl_query_pd_logging(&mode_param);
 		break;
+	case DIAG_IOCTL_QUERY_MD_PID:
+		if (copy_from_user((void *)&pid_query, (void __user *)ioarg,
+				   sizeof(pid_query))) {
+			result = -EFAULT;
+			break;
+		}
+		mutex_lock(&driver->md_session_lock);
+		diag_ioctl_query_session_pid(&pid_query);
+		mutex_unlock(&driver->md_session_lock);
+
+		if (copy_to_user((void __user *)ioarg, &pid_query,
+				sizeof(pid_query)))
+			result = -EFAULT;
+		else
+			result = 0;
+		break;
 	}
 	return result;
 }
@@ -2618,6 +2722,7 @@ long diagchar_ioctl(struct file *filp,
 	uint16_t remote_dev;
 	struct diag_dci_client_tbl *dci_client = NULL;
 	struct diag_logging_mode_param_t mode_param;
+	struct diag_query_pid_t pid_query;
 
 	switch (iocmd) {
 	case DIAG_IOCTL_COMMAND_REG:
@@ -2735,6 +2840,23 @@ long diagchar_ioctl(struct file *filp,
 				   sizeof(mode_param)))
 			return -EFAULT;
 		result = diag_ioctl_query_pd_logging(&mode_param);
+		break;
+	case DIAG_IOCTL_QUERY_MD_PID:
+		if (copy_from_user((void *)&pid_query, (void __user *)ioarg,
+				   sizeof(pid_query))) {
+			result = -EFAULT;
+			break;
+		}
+
+		mutex_lock(&driver->md_session_lock);
+		diag_ioctl_query_session_pid(&pid_query);
+		mutex_unlock(&driver->md_session_lock);
+
+		if (copy_to_user((void __user *)ioarg, &pid_query,
+				sizeof(pid_query)))
+			result = -EFAULT;
+		else
+			result = 0;
 		break;
 	}
 	return result;
