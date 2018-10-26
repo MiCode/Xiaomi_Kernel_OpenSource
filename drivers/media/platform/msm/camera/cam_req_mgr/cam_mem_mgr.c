@@ -27,7 +27,7 @@
 static struct cam_mem_table tbl;
 
 static int cam_mem_util_map_cpu_va(struct dma_buf *dmabuf,
-	uint64_t *vaddr,
+	uintptr_t *vaddr,
 	size_t *len)
 {
 	int i, j, rc;
@@ -226,12 +226,12 @@ handle_mismatch:
 }
 EXPORT_SYMBOL(cam_mem_get_io_buf);
 
-int cam_mem_get_cpu_buf(int32_t buf_handle, uint64_t *vaddr_ptr, size_t *len)
+int cam_mem_get_cpu_buf(int32_t buf_handle, uintptr_t *vaddr_ptr, size_t *len)
 {
 	int rc = 0;
 	int idx;
 	struct dma_buf *dmabuf = NULL;
-	uint64_t kvaddr = 0;
+	uintptr_t kvaddr = 0;
 	size_t klen = 0;
 
 	if (!buf_handle || !vaddr_ptr || !len)
@@ -1020,7 +1020,7 @@ int cam_mem_mgr_request_mem(struct cam_mem_mgr_request_desc *inp,
 	int rc = 0;
 	uint32_t heap_id;
 	int32_t ion_flag = 0;
-	uint64_t kvaddr;
+	uintptr_t kvaddr;
 	dma_addr_t iova = 0;
 	size_t request_len = 0;
 	uint32_t mem_handle;
