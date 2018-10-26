@@ -388,7 +388,11 @@ int cam_vfe_top_get_hw_caps(void *device_priv,
 int cam_vfe_top_init_hw(void *device_priv,
 	void *init_hw_args, uint32_t arg_size)
 {
-	return -EPERM;
+	struct cam_vfe_top_ver2_priv   *top_priv = device_priv;
+
+	top_priv->hw_clk_rate = 0;
+
+	return 0;
 }
 
 int cam_vfe_top_reset(void *device_priv,
