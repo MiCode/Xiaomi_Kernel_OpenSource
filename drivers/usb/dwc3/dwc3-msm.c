@@ -2372,7 +2372,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		clk_disable_unprepare(mdwc->sleep_clk);
 
 		if (mdwc->iommu_map) {
-			arm_iommu_detach_device(mdwc->dev);
+			__depr_arm_iommu_detach_device(mdwc->dev);
 			dev_dbg(mdwc->dev, "IOMMU detached\n");
 		}
 	}
@@ -2518,7 +2518,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		u32 tmp;
 
 		if (mdwc->iommu_map) {
-			ret = arm_iommu_attach_device(mdwc->dev,
+			ret = __depr_arm_iommu_attach_device(mdwc->dev,
 					mdwc->iommu_map);
 			if (ret)
 				dev_err(mdwc->dev, "IOMMU attach failed (%d)\n",
@@ -3091,7 +3091,7 @@ static int dwc3_msm_init_iommu(struct dwc3_msm *mdwc)
 	if (!of_property_read_bool(node, "iommus"))
 		return 0;
 
-	mdwc->iommu_map = arm_iommu_create_mapping(&platform_bus_type,
+	mdwc->iommu_map = __depr_arm_iommu_create_mapping(&platform_bus_type,
 			SMMU_BASE, SMMU_SIZE);
 	if (IS_ERR_OR_NULL(mdwc->iommu_map)) {
 		ret = PTR_ERR(mdwc->iommu_map) ?: -ENODEV;
@@ -3118,7 +3118,7 @@ static int dwc3_msm_init_iommu(struct dwc3_msm *mdwc)
 		goto release_mapping;
 	}
 
-	ret = arm_iommu_attach_device(mdwc->dev, mdwc->iommu_map);
+	ret = __depr_arm_iommu_attach_device(mdwc->dev, mdwc->iommu_map);
 	if (ret) {
 		dev_err(mdwc->dev, "IOMMU attach failed (%d)\n", ret);
 		goto release_mapping;
@@ -3128,7 +3128,7 @@ static int dwc3_msm_init_iommu(struct dwc3_msm *mdwc)
 	return 0;
 
 release_mapping:
-	arm_iommu_release_mapping(mdwc->iommu_map);
+	__depr_arm_iommu_release_mapping(mdwc->iommu_map);
 	mdwc->iommu_map = NULL;
 	return ret;
 }
@@ -3555,7 +3555,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	/* IOMMU will be reattached upon each resume/connect */
 	if (mdwc->iommu_map)
-		arm_iommu_detach_device(mdwc->dev);
+		__depr_arm_iommu_detach_device(mdwc->dev);
 
 	/*
 	 * Clocks and regulators will not be turned on until the first time
@@ -3606,8 +3606,8 @@ put_dwc3:
 
 uninit_iommu:
 	if (mdwc->iommu_map) {
-		arm_iommu_detach_device(mdwc->dev);
-		arm_iommu_release_mapping(mdwc->iommu_map);
+		__depr_arm_iommu_detach_device(mdwc->dev);
+		__depr_arm_iommu_release_mapping(mdwc->iommu_map);
 	}
 	of_platform_depopulate(&pdev->dev);
 err:
@@ -3687,8 +3687,8 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 
 	if (mdwc->iommu_map) {
 		if (!atomic_read(&dwc->in_lpm))
-			arm_iommu_detach_device(mdwc->dev);
-		arm_iommu_release_mapping(mdwc->iommu_map);
+			__depr_arm_iommu_detach_device(mdwc->dev);
+		__depr_arm_iommu_release_mapping(mdwc->iommu_map);
 	}
 
 	return 0;

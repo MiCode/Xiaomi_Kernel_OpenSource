@@ -457,7 +457,7 @@ static int tmc_iommu_init(struct tmc_drvdata *drvdata)
 	if (!of_property_read_bool(node, "iommus"))
 		return 0;
 
-	drvdata->iommu_mapping = arm_iommu_create_mapping(&amba_bustype,
+	drvdata->iommu_mapping = __depr_arm_iommu_create_mapping(&amba_bustype,
 							0, (SZ_1G * 4ULL));
 	if (IS_ERR_OR_NULL(drvdata->iommu_mapping)) {
 		dev_err(drvdata->dev, "Create mapping failed, err = %d\n", ret);
@@ -474,7 +474,8 @@ static int tmc_iommu_init(struct tmc_drvdata *drvdata)
 		goto iommu_attach_fail;
 	}
 
-	ret = arm_iommu_attach_device(drvdata->dev, drvdata->iommu_mapping);
+	ret = __depr_arm_iommu_attach_device(drvdata->dev,
+					     drvdata->iommu_mapping);
 	if (ret) {
 		dev_err(drvdata->dev, "Attach device failed, err = %d\n", ret);
 		goto iommu_attach_fail;
@@ -483,7 +484,7 @@ static int tmc_iommu_init(struct tmc_drvdata *drvdata)
 	return ret;
 
 iommu_attach_fail:
-	arm_iommu_release_mapping(drvdata->iommu_mapping);
+	__depr_arm_iommu_release_mapping(drvdata->iommu_mapping);
 iommu_map_err:
 	drvdata->iommu_mapping = NULL;
 	return ret;
@@ -494,8 +495,8 @@ static void tmc_iommu_deinit(struct tmc_drvdata *drvdata)
 	if (!drvdata->iommu_mapping)
 		return;
 
-	arm_iommu_detach_device(drvdata->dev);
-	arm_iommu_release_mapping(drvdata->iommu_mapping);
+	__depr_arm_iommu_detach_device(drvdata->dev);
+	__depr_arm_iommu_release_mapping(drvdata->iommu_mapping);
 
 	drvdata->iommu_mapping = NULL;
 }
