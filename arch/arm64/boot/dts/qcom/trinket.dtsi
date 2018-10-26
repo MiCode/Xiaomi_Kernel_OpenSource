@@ -516,6 +516,15 @@
 		interrupts = <1 6 4>;
 	};
 
+	eud: qcom,msm-eud@1610000 {
+		compatible = "qcom,msm-eud";
+		interrupt-names = "eud_irq";
+		interrupts = <GIC_SPI 189 IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0x1610000 0x2000>;
+		reg-names = "eud_base";
+		status = "ok";
+	};
+
 	wdog: qcom,wdt@f017000 {
 		compatible = "qcom,msm-watchdog";
 		reg = <0xf017000 0x1000>;
