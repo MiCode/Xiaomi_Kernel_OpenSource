@@ -133,6 +133,63 @@ static bool ep_pcie_confirm_linkup(struct ep_pcie_dev_t *dev,
 	return true;
 }
 
+static int ep_pcie_reset_init(struct ep_pcie_dev_t *dev)
+{
+	int i, rc = 0;
+	struct ep_pcie_reset_info_t *reset_info;
+
+	for (i = 0; i < EP_PCIE_MAX_RESET; i++) {
+		reset_info = &dev->reset[i];
+		if (!reset_info->hdl)
+			continue;
+
+		rc = reset_control_assert(reset_info->hdl);
+		if (rc) {
+			if (!reset_info->required) {
+				EP_PCIE_ERR(dev,
+				"PCIe V%d: Optional reset: %s assert failed\n",
+					dev->rev, reset_info->name);
+				continue;
+			} else {
+				EP_PCIE_ERR(dev,
+				"PCIe V%d: failed to assert reset for %s\n",
+					dev->rev, reset_info->name);
+				return rc;
+			}
+		} else {
+			EP_PCIE_DBG(dev,
+			"PCIe V%d: successfully asserted reset for %s\n",
+				dev->rev, reset_info->name);
+		}
+		EP_PCIE_ERR(dev, "After Reset assert %s\n",
+						reset_info->name);
+		/* add a 1ms delay to ensure the reset is asserted */
+		usleep_range(1000, 1005);
+
+		rc = reset_control_deassert(reset_info->hdl);
+		if (rc) {
+			if (!reset_info->required) {
+				EP_PCIE_ERR(dev,
+				"PCIe V%d: Optional reset: %s deassert failed\n",
+					dev->rev, reset_info->name);
+				continue;
+			} else {
+				EP_PCIE_ERR(dev,
+				"PCIe V%d: failed to deassert reset for %s\n",
+					dev->rev, reset_info->name);
+				return rc;
+			}
+		} else {
+			EP_PCIE_DBG(dev,
+			"PCIe V%d: successfully deasserted reset for %s\n",
+				dev->rev, reset_info->name);
+		}
+		EP_PCIE_ERR(dev, "After Reset de-assert %s\n",
+						reset_info->name);
+	}
+	return 0;
+}
+
 static int ep_pcie_gpio_init(struct ep_pcie_dev_t *dev)
 {
 	int i, rc = 0;
@@ -277,7 +334,6 @@ static int ep_pcie_clk_init(struct ep_pcie_dev_t *dev)
 {
 	int i, rc = 0;
 	struct ep_pcie_clk_info_t *info;
-	struct ep_pcie_reset_info_t *reset_info;
 
 	EP_PCIE_DBG(dev, "PCIe V%d\n", dev->rev);
 
@@ -347,34 +403,6 @@ static int ep_pcie_clk_init(struct ep_pcie_dev_t *dev)
 		}
 
 		regulator_disable(dev->gdsc);
-	}
-
-	for (i = 0; i < EP_PCIE_MAX_RESET; i++) {
-		reset_info = &dev->reset[i];
-		if (reset_info->hdl) {
-			rc = reset_control_assert(reset_info->hdl);
-			if (rc)
-				EP_PCIE_ERR(dev,
-					"PCIe V%d: failed to assert reset for %s.\n",
-					dev->rev, reset_info->name);
-			else
-				EP_PCIE_DBG(dev,
-					"PCIe V%d: successfully asserted reset for %s.\n",
-					dev->rev, reset_info->name);
-
-			/* add a 1ms delay to ensure the reset is asserted */
-			usleep_range(1000, 1005);
-
-			rc = reset_control_deassert(reset_info->hdl);
-			if (rc)
-				EP_PCIE_ERR(dev,
-					"PCIe V%d: failed to deassert reset for %s.\n",
-					dev->rev, reset_info->name);
-			else
-				EP_PCIE_DBG(dev,
-					"PCIe V%d: successfully deasserted reset for %s.\n",
-					dev->rev, reset_info->name);
-		}
 	}
 
 	return rc;
@@ -524,11 +552,21 @@ static void ep_pcie_config_mmio(struct ep_pcie_dev_t *dev)
 
 static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 {
+	uint32_t val = 0;
 	EP_PCIE_DBG(dev, "PCIe V%d\n", dev->rev);
 
 	/* enable debug IRQ */
 	ep_pcie_write_mask(dev->parf + PCIE20_PARF_DEBUG_INT_EN,
 			0, BIT(3) | BIT(2) | BIT(1));
+	/* Reconnect AXI master port */
+	val = readl_relaxed(dev->parf + PCIE20_PARF_BUS_DISCONNECT_STATUS);
+	if (val & BIT(0)) {
+		EP_PCIE_DBG(dev,
+		"PCIe V%d: AXI Master port was disconnected, reconnecting...\n",
+			dev->rev);
+		ep_pcie_write_mask(dev->parf + PCIE20_PARF_BUS_DISCONNECT_CTRL,
+								0, BIT(0));
+	}
 
 	if (!configured) {
 		/* Configure PCIe to endpoint mode */
@@ -722,8 +760,8 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 		ep_pcie_write_mask(dev->parf + PCIE20_PARF_PM_CTRL, BIT(5), 0);
 	}
 
-	/* Configure MMIO */
-	ep_pcie_config_mmio(dev);
+	if (!configured)
+		ep_pcie_config_mmio(dev);
 }
 
 static void ep_pcie_config_inbound_iatu(struct ep_pcie_dev_t *dev)
@@ -1381,6 +1419,9 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 		}
 	}
 
+	ret = ep_pcie_reset_init(dev);
+	if (ret)
+		goto link_fail;
 	/* init PCIe PHY */
 	ep_pcie_phy_init(dev);
 
