@@ -1,0 +1,41 @@
+#
+# Makefile for Bosch sensor driver.
+#
+
+obj-$(CONFIG_BOSCH_DRIVER_LOG_FUNC) += bs_log.o
+obj-y += bstclass.o
+ifeq ($(CONFIG_BOSCH_DRIVER_LOG_FUNC),y)
+	EXTRA_CFLAGS += -DBOSCH_DRIVER_LOG_FUNC
+endif
+
+#obj-y   += bma2x2.o
+
+ifeq ($(CONFIG_SENSORS_BMA2X2_ENABLE_INT1),y)
+	EXTRA_CFLAGS += -DBMA2X2_ENABLE_INT1
+endif
+
+ifeq ($(CONFIG_BOSCH_BMA2X2_ENABLE_INT2),y)
+	EXTRA_CFLAGS += -DBMA2X2_ENABLE_INT2
+endif
+
+#obj-y    += bmg160_driver.o bmg160.o
+EXTRA_CFLAGS += -DBMG_USE_BASIC_I2C_FUNC
+
+obj-y    += bmi160_driver.o bmi160.o
+ifeq ($(CONFIG_BMI160_MAG_INTERFACE_SUPPORT),y)
+		EXTRA_CFLAGS += -DBMI160_MAG_INTERFACE_SUPPORT
+endif
+ifeq ($(CONFIG_SENSORS_BMI160_ENABLE_INT1),y)
+		EXTRA_CFLAGS += -DBMI160_ENABLE_INT1
+endif
+
+ifeq ($(CONFIG_SENSORS_BMI160_ENABLE_INT2),y)
+		EXTRA_CFLAGS += -DBMI160_ENABLE_INT2
+endif
+
+obj-y  += bmi160_i2c.o
+
+EXTRA_CFLAGS += -DBMI_USE_BASIC_I2C_FUNC
+
+obj-$(CONFIG_SENSORS_BMI160_SPI)  += bmi160_spi.o
+
