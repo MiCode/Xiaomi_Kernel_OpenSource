@@ -183,3 +183,13 @@
 		};
 	};
 };
+
+&clock_cpu {
+	vdd-c1-supply = <&apc_vreg_corner>;
+};
+
+&clock_gcc {
+	vdd_dig-supply = <&pm8916_s1_level>;
+	vdd_hf_dig-supply = <&pm8916_s1_level_ao>;
+	vdd_hf_pll-supply = <&pm8916_l7_ao>;
+};
