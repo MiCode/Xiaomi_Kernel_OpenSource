@@ -1088,6 +1088,7 @@ static int cam_icp_mgr_ipe_bps_resume(struct cam_icp_hw_mgr *hw_mgr,
 	struct cam_hw_intf *ipe0_dev_intf = NULL;
 	struct cam_hw_intf *ipe1_dev_intf = NULL;
 	struct cam_hw_intf *bps_dev_intf = NULL;
+	uint32_t core_info_mask = 0;
 	int rc = 0;
 
 	ipe0_dev_intf = hw_mgr->ipe0_dev_intf;
@@ -1111,8 +1112,8 @@ static int cam_icp_mgr_ipe_bps_resume(struct cam_icp_hw_mgr *hw_mgr,
 			bps_dev_intf->hw_ops.process_cmd(
 				bps_dev_intf->hw_priv,
 				CAM_ICP_BPS_CMD_POWER_RESUME, NULL, 0);
-			hw_mgr->core_info = hw_mgr->core_info | ICP_PWR_CLP_BPS;
 		}
+		core_info_mask = ICP_PWR_CLP_BPS;
 	} else {
 		if (hw_mgr->ipe_ctxt_cnt++)
 			goto end;
@@ -1139,19 +1140,20 @@ static int cam_icp_mgr_ipe_bps_resume(struct cam_icp_hw_mgr *hw_mgr,
 			}
 		}
 		hw_mgr->ipe_clk_state = true;
-		if (icp_hw_mgr.ipe_bps_pc_flag) {
-			hw_mgr->core_info = hw_mgr->core_info |
-				(ICP_PWR_CLP_IPE0 | ICP_PWR_CLP_IPE1);
-		}
+
+		if ((icp_hw_mgr.ipe1_enable) &&
+			(ipe1_dev_intf))
+			core_info_mask = (ICP_PWR_CLP_IPE0 |
+				ICP_PWR_CLP_IPE1);
+		else
+			core_info_mask = ICP_PWR_CLP_IPE0;
 	}
 
-	CAM_DBG(CAM_ICP, "core_info %X",  hw_mgr->core_info);
+	CAM_DBG(CAM_ICP, "core_info %X", core_info_mask);
 	if (icp_hw_mgr.ipe_bps_pc_flag)
-		rc = hfi_enable_ipe_bps_pc(true, hw_mgr->core_info);
-	else if (icp_hw_mgr.icp_pc_flag)
-		rc = hfi_enable_ipe_bps_pc(false, hw_mgr->core_info);
+		rc = hfi_enable_ipe_bps_pc(true, core_info_mask);
 	else
-		rc = hfi_enable_ipe_bps_pc(false, hw_mgr->core_info);
+		rc = hfi_enable_ipe_bps_pc(false, core_info_mask);
 end:
 	return rc;
 }
@@ -1192,8 +1194,6 @@ static int cam_icp_mgr_ipe_bps_power_collapse(struct cam_icp_hw_mgr *hw_mgr,
 				bps_dev_intf->hw_priv,
 				CAM_ICP_BPS_CMD_POWER_COLLAPSE,
 				NULL, 0);
-			hw_mgr->core_info =
-				hw_mgr->core_info & (~ICP_PWR_CLP_BPS);
 		}
 
 		if (hw_mgr->bps_clk_state) {
@@ -1235,14 +1235,8 @@ static int cam_icp_mgr_ipe_bps_power_collapse(struct cam_icp_hw_mgr *hw_mgr,
 		}
 
 		hw_mgr->ipe_clk_state = false;
-		if (icp_hw_mgr.ipe_bps_pc_flag &&
-			!atomic_read(&hw_mgr->recovery)) {
-			hw_mgr->core_info = hw_mgr->core_info &
-				(~(ICP_PWR_CLP_IPE0 | ICP_PWR_CLP_IPE1));
-		}
 	}
 
-	CAM_DBG(CAM_ICP, "Exit: core_info = %x", hw_mgr->core_info);
 end:
 	return rc;
 }
