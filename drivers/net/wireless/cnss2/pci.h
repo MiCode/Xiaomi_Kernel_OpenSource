@@ -149,5 +149,7 @@ void cnss_pci_pm_runtime_get_noresume(struct cnss_pci_data *pci_priv);
 int cnss_pci_pm_runtime_put_autosuspend(struct cnss_pci_data *pci_priv);
 void cnss_pci_pm_runtime_put_noidle(struct cnss_pci_data *pci_priv);
 void cnss_pci_pm_runtime_mark_last_busy(struct cnss_pci_data *pci_priv);
+int cnss_pci_update_status(struct cnss_pci_data *pci_priv,
+			   enum cnss_driver_status status);
 
 #endif /* _CNSS_PCI_H */

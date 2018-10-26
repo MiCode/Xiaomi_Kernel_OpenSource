@@ -223,6 +223,7 @@ int cnss_pci_link_down(struct device *dev)
 
 	cnss_pr_err("PCI link down is detected by host driver, schedule recovery!\n");
 
+	cnss_pci_update_status(pci_priv, CNSS_FW_DOWN);
 	cnss_schedule_recovery(dev, CNSS_REASON_LINK_DOWN);
 
 	return 0;
@@ -346,6 +347,25 @@ int cnss_pci_call_driver_modem_status(struct cnss_pci_data *pci_priv,
 		return -EINVAL;
 
 	driver_ops->modem_status(pci_priv->pci_dev, modem_current_status);
+
+	return 0;
+}
+
+int cnss_pci_update_status(struct cnss_pci_data *pci_priv,
+			   enum cnss_driver_status status)
+{
+	struct cnss_wlan_driver *driver_ops;
+
+	if (!pci_priv)
+		return -ENODEV;
+
+	driver_ops = pci_priv->driver_ops;
+	if (!driver_ops || !driver_ops->update_status)
+		return -EINVAL;
+
+	cnss_pr_dbg("Update driver status: %d\n", status);
+
+	driver_ops->update_status(pci_priv->pci_dev, status);
 
 	return 0;
 }
@@ -890,6 +910,8 @@ static void cnss_pci_event_cb(struct msm_pcie_notify *notify)
 		cnss_pr_err("PCI link down, schedule recovery!\n");
 		if (pci_dev->device == QCA6174_DEVICE_ID)
 			disable_irq(pci_dev->irq);
+
+		cnss_pci_update_status(pci_priv, CNSS_FW_DOWN);
 		cnss_schedule_recovery(&pci_dev->dev, CNSS_REASON_LINK_DOWN);
 		break;
 	case MSM_PCIE_EVENT_WAKEUP:
@@ -2027,8 +2049,8 @@ static void cnss_mhi_notify_status(struct mhi_controller *mhi_ctrl, void *priv,
 	set_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state);
 	del_timer(&plat_priv->fw_boot_timer);
 
-	cnss_schedule_recovery(&pci_priv->pci_dev->dev,
-			       cnss_reason);
+	cnss_pci_update_status(pci_priv, CNSS_FW_DOWN);
+	cnss_schedule_recovery(&pci_priv->pci_dev->dev, cnss_reason);
 }
 
 static int cnss_pci_get_mhi_msi(struct cnss_pci_data *pci_priv)
