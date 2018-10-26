@@ -953,9 +953,9 @@ static int lookup_soc_ocv(struct qpnp_bms_chip *chip, int ocv_uv, int batt_temp)
 	int soc_ocv = 0, soc_cutoff = 0, soc_final = 0;
 	int fcc, acc, soc_uuc = 0, soc_acc = 0, iavg_ma = 0;
 
-	soc_ocv = interpolate_pc(chip->batt_data->pc_temp_ocv_lut,
+	soc_ocv = interpolate_pc_bms(chip->batt_data->pc_temp_ocv_lut,
 					batt_temp, ocv_uv / 1000);
-	soc_cutoff = interpolate_pc(chip->batt_data->pc_temp_ocv_lut,
+	soc_cutoff = interpolate_pc_bms(chip->batt_data->pc_temp_ocv_lut,
 				batt_temp, chip->dt.cfg_v_cutoff_uv / 1000);
 
 	soc_final = DIV_ROUND_CLOSEST(100 * (soc_ocv - soc_cutoff),
@@ -974,9 +974,9 @@ static int lookup_soc_ocv(struct qpnp_bms_chip *chip, int ocv_uv, int batt_temp)
 			else
 				iavg_ma = chip->current_now / 1000;
 
-			fcc = interpolate_fcc(chip->batt_data->fcc_temp_lut,
+			fcc = interpolate_fcc_bms(chip->batt_data->fcc_temp_lut,
 								batt_temp);
-			acc = interpolate_acc(chip->batt_data->ibat_acc_lut,
+			acc = interpolate_acc_bms(chip->batt_data->ibat_acc_lut,
 							batt_temp, iavg_ma);
 			if (acc <= 0) {
 				if (chip->last_acc)
@@ -1249,7 +1249,8 @@ static int get_rbatt(struct qpnp_bms_chip *chip, int soc, int batt_temp)
 		return rbatt_mohm;
 	}
 
-	scalefactor = interpolate_scalingfactor(chip->batt_data->rbatt_sf_lut,
+	scalefactor = interpolate_scalingfactor_bms(
+						chip->batt_data->rbatt_sf_lut,
 						batt_temp, soc);
 	rbatt_mohm = (rbatt_mohm * scalefactor) / 100;
 
@@ -2847,7 +2848,7 @@ static int interpolate_current_comp(int die_temp)
 	if (die_temp == (temp_curr_comp_lut[i].temp_decideg))
 		return temp_curr_comp_lut[i].current_ma;
 
-	return linear_interpolate(
+	return linear_interpolate_bms(
 				temp_curr_comp_lut[i - 1].current_ma,
 				temp_curr_comp_lut[i - 1].temp_decideg,
 				temp_curr_comp_lut[i].current_ma,
@@ -2864,7 +2865,7 @@ static void adjust_pon_ocv(struct qpnp_bms_chip *chip, int batt_temp)
 	if (rc) {
 		pr_err("error reading adc channel=%d, rc=%d\n", DIE_TEMP, rc);
 	} else {
-		pc = interpolate_pc(chip->batt_data->pc_temp_ocv_lut,
+		pc = interpolate_pc_bms(chip->batt_data->pc_temp_ocv_lut,
 					batt_temp, chip->last_ocv_uv / 1000);
 		/*
 		 * For pc < 2, use the rbatt of pc = 2. This is to avoid

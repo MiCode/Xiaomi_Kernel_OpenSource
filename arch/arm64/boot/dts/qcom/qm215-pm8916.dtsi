@@ -1,0 +1,185 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/* delete PMIC specific nodes */
+&soc {
+	/* delete rpm-smd base node to delete all regulator in one shot */
+	/delete-node/ qcom,rpm-smd;
+
+	/* add rpm-smd node again */
+	rpm_bus: qcom,rpm-smd {
+		compatible = "qcom,rpm-smd";
+		rpm-channel-name = "rpm_requests";
+		rpm-channel-type = <15>; /* SMD_APPS_RPM */
+	};
+
+	/* delete all pmic nodes */
+	qcom,spmi@200f000 {
+		/delete-node/ qcom,pm8937@0;
+		/delete-node/ qcom,pm8937@1;
+	};
+};
+
+/* delete all node referring PM8937 */
+&soc {
+	/delete-node/ thermal-zones;
+
+	qcom,cpu-clock-8939@b111050 {
+		/delete-property/ vdd-c1-supply;
+	};
+
+	qcom,gcc@1800000 {
+		/delete-property/ vdd_dig-supply;
+		/delete-property/ vdd_hf_dig-supply;
+		/delete-property/ vdd_hf_pll-supply;
+	};
+
+	usb@78db000 {
+		/delete-property/ hsusb_vdd_dig-supply;
+		/delete-property/ HSUSB_1p8-supply;
+		/delete-property/ HSUSB_3p3-supply;
+		/delete-property/ vbus_otg-supply;
+	};
+
+	qcom,mss@4080000 {
+		/delete-property/ vdd_mss-supply;
+		/delete-property/ vdd_cx-supply;
+		/delete-property/ vdd_mx-supply;
+		/delete-property/ vdd_pll-supply;
+		vdd_mss-supply = <&pm8916_s1_level>;
+		vdd_cx-supply = <&pm8916_s1_level>;
+		vdd_mx-supply = <&pm8916_l2_level_ao>;
+		vdd_pll-supply = <&pm8916_l7>;
+	};
+
+	qcom,lpass@c200000 {
+		/delete-property/ vdd_cx-supply;
+		vdd_cx-supply = <&pm8916_s1_level>;
+	};
+
+	qcom,pronto@a21b000 {
+		/delete-property/ vdd_pronto_pll-supply;
+		vdd_pronto_pll-supply = <&pm8916_l7>;
+	};
+
+	qcom,wcnss-wlan@a000000 {
+		/delete-property/ qcom,pronto-vddmx-supply;
+		/delete-property/ qcom,pronto-vddcx-supply;
+		/delete-property/ qcom,pronto-vddpx-supply;
+		/delete-property/ qcom,iris-vddxo-supply;
+		/delete-property/ qcom,iris-vddrfa-supply;
+		/delete-property/ qcom,iris-vddpa-supply;
+		/delete-property/ qcom,iris-vdddig-supply;
+		/delete-property/ qcom,wcnss-adc_tm;
+	};
+
+	/delete-node/ qcom,csid@1b30000;
+	/delete-node/ qcom,csid@1b30400;
+	/delete-node/ qcom,csid@1b30800;
+
+	/* mem_acc */
+	/delete-node/ regulator@01946004;
+	/* apc vreg */
+	/delete-node/ regulator@b018000;
+	/delete-node/ eldo2;
+	/delete-node/ adv_vreg;
+};
+
+#include "pm8916-rpm-regulator.dtsi"
+#include "pm8916.dtsi"
+#include "qm215-regulator.dtsi"
+
+&spmi_bus {
+	pm8916@1 {
+		/delete-node/ msm8x16_wcd_codec@f000;
+	};
+};
+
+&pm8916_gpios {
+	disp_vdda_en_default: disp_vdda_en_default {
+		pins = "gpio3";
+		function = "normal";
+		power-source = <0>;
+		drive-strength = <8>;
+		output-high;
+	};
+};
+
+&pm8916_mpps {
+	backlight_mpp {
+		backlight_pwm_en_default: backlight_pwm_en_default {
+			pins = "mpp4";
+			function = "digital";
+			power-source = <0>;
+			output-high;
+		};
+	};
+};
+
+&soc {
+	disp_vdda_eldo1: gpio-regulator@0 {
+		compatible = "regulator-fixed";
+		reg = <0x00 0x00>;
+		regulator-name = "disp_vdda_eldo1";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+		regulator-enable-ramp-delay = <135>;
+		enable-active-high;
+		gpio = <&pm8916_gpios 3 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&disp_vdda_en_default>;
+		vin-supply = <&pm8916_s3>;
+	};
+};
+
+&mdss_dsi0_pll {
+	vddio-supply = <&pm8916_l6>;
+};
+
+&mdss_dsi0 {
+	/delete-property/ vdd-supply;
+	vddio-supply = <&pm8916_l6>;
+};
+
+&mdss_dsi {
+	vdda-supply = <&pm8916_l6>;
+	vddio-supply = <&pm8916_l6>;
+
+	qcom,phy-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,phy-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1744000>;
+			qcom,supply-max-voltage = <1904000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+	};
+
+	qcom,ctrl-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,ctrl-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vdda";
+			qcom,supply-min-voltage = <1744000>;
+			qcom,supply-max-voltage = <1904000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+	};
+};

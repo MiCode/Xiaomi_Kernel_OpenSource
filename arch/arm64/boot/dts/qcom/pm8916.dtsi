@@ -80,6 +80,11 @@
 					  "pm8916_mpp3", "pm8916_mpp4";
 		};
 
+		pm8916_coincell: qcom,coincell@2800 {
+			compatible = "qcom,qpnp-coincell";
+			reg = <0x2800 0x100>;
+		};
+
 		pm8916_rtc: qcom,pm8916_rtc {
 			compatible = "qcom,qpnp-rtc";
 			#address-cells = <1>;
@@ -299,12 +304,10 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		pm8916_pwm: pwm@bc00 {
-			compatible = "qcom,qpnp-pwm";
+		pm8916_pwm: qcom,pwms@bc00 {
+			compatible = "qcom,pwm-lpg";
 			reg = <0xbc00 0x100>;
-			reg-names = "qpnp-lpg-channel-base";
-			qcom,channel-id = <0>;
-			qcom,supported-sizes = <6>, <9>;
+			reg-names = "lpg-base";
 			#pwm-cells = <2>;
 		};
 

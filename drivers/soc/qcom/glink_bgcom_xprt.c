@@ -38,8 +38,6 @@
 #define XPRT_NAME "bgcom"
 #define FIFO_ALIGNMENT 16
 #define TRACER_PKT_FEATURE BIT(2)
-#define SHORT_PKT_SIZE 16
-#define XPRT_ALIGNMENT 4
 
 #define ACTIVE_TX BIT(0)
 #define ACTIVE_RX BIT(1)
@@ -77,7 +75,6 @@
  * @SIGNALS_CMD:		Sideband signals
  * @TRACER_PKT_CMD:		Start of a Tracer Packet Command
  * @TRACER_PKT_CONT_CMD:	Continuation or end of a Tracer Packet Command
- * @TX_SHORT_DATA_CMD:		Transmit short packets
  */
 enum command_types {
 	VERSION_CMD,
@@ -97,7 +94,6 @@ enum command_types {
 	SIGNALS_CMD,
 	TRACER_PKT_CMD,
 	TRACER_PKT_CONT_CMD,
-	TX_SHORT_DATA_CMD,
 };
 
 struct bgcom_fifo_size {
@@ -385,11 +381,7 @@ static void process_rx_data(struct edge_info *einfo, uint16_t cmd_id,
 		return;
 	}
 
-
-	if (cmd_id == TX_SHORT_DATA_CMD)
-		memcpy(intent->data + intent->write_offset, src, frag_size);
-	else
-		rc = bgcom_ahb_read(einfo->bgcom_handle, (uint32_t)(size_t)src,
+	rc = bgcom_ahb_read(einfo->bgcom_handle, (uint32_t)(size_t)src,
 				ALIGN(frag_size, WORD_SIZE)/WORD_SIZE,
 				intent->data + intent->write_offset);
 
@@ -441,13 +433,9 @@ static void process_rx_cmd(struct edge_info *einfo,
 		uint32_t size_left;
 		uint64_t addr;
 	};
-	struct rx_short_data_desc {
-		unsigned char data[SHORT_PKT_SIZE];
-	};
 	struct command *cmd;
 	struct intent_desc *intents;
 	struct rx_desc *rx_descp;
-	struct rx_short_data_desc *rx_sd_descp;
 	int offset = 0;
 	int rcu_id;
 	uint16_t rcid;
@@ -548,15 +536,6 @@ static void process_rx_cmd(struct edge_info *einfo,
 					cmd->param2,
 					(void *)(uintptr_t)(rx_descp->addr),
 					rx_descp->size, rx_descp->size_left);
-			break;
-
-		case TX_SHORT_DATA_CMD:
-			rx_sd_descp = (struct rx_short_data_desc *)
-							(rx_data + offset);
-			offset += sizeof(*rx_sd_descp);
-			process_rx_data(einfo, cmd->id, cmd->param1,
-					cmd->param2, (void *)rx_sd_descp->data,
-					cmd->param3, cmd->param4);
 			break;
 
 		case READ_NOTIF_CMD:
@@ -1288,8 +1267,6 @@ static int tx_data(struct glink_transport_if *if_ptr, uint16_t cmd_id,
 		srcu_read_unlock(&einfo->use_ref, rcu_id);
 		return -EINVAL;
 	}
-	if (tx_size & (XPRT_ALIGNMENT - 1))
-		tx_size = ALIGN(tx_size - SHORT_PKT_SIZE, XPRT_ALIGNMENT);
 	if (likely(pctx->cookie))
 		dst = pctx->cookie + (pctx->size - pctx->size_remaining);
 
@@ -1324,82 +1301,6 @@ static int tx_data(struct glink_transport_if *if_ptr, uint16_t cmd_id,
 }
 
 /**
- * tx_short_data() - Tansmit a short packet in band along with command
- * @if_ptr:     The transport to transmit on.
- * @cmd_id:     The command ID to transmit.
- * @lcid:       The local channel id to encode.
- * @pctx:       The data to encode.
- *
- * Return: Number of bytes written or standard Linux error code.
- */
-static int tx_short_data(struct glink_transport_if *if_ptr,
-			 uint32_t lcid, struct glink_core_tx_pkt *pctx)
-{
-	struct command {
-		uint16_t id;
-		uint16_t lcid;
-		uint32_t riid;
-		uint32_t size;
-		uint32_t size_left;
-		unsigned char data[SHORT_PKT_SIZE];
-	};
-	struct command cmd;
-	struct edge_info *einfo;
-	void *data_start;
-	size_t tx_size = 0;
-	int rcu_id;
-
-	if (pctx->size < pctx->size_remaining) {
-		GLINK_ERR("%s: size remaining exceeds size.  Resetting.\n",
-			  __func__);
-		pctx->size_remaining = pctx->size;
-	}
-	if (!pctx->size_remaining)
-		return 0;
-
-	memset(&cmd, 0, sizeof(cmd));
-	einfo = container_of(if_ptr, struct edge_info, xprt_if);
-
-	rcu_id = srcu_read_lock(&einfo->use_ref);
-	if (einfo->in_ssr) {
-		srcu_read_unlock(&einfo->use_ref, rcu_id);
-		return -EFAULT;
-	}
-
-	cmd.id = TX_SHORT_DATA_CMD;
-	cmd.lcid = lcid;
-	cmd.riid = pctx->riid;
-	data_start = get_tx_vaddr(pctx, pctx->size - pctx->size_remaining,
-				  &tx_size);
-	if (unlikely(!data_start || tx_size > SHORT_PKT_SIZE)) {
-		GLINK_ERR("%s: invalid data_start %pK or tx_size %zu\n",
-			  __func__, data_start, tx_size);
-		srcu_read_unlock(&einfo->use_ref, rcu_id);
-		return -EINVAL;
-	}
-
-	mutex_lock(&einfo->write_lock);
-	if (glink_bgcom_get_tx_avail(einfo) <= sizeof(cmd)/WORD_SIZE) {
-		einfo->tx_resume_needed = true;
-		mutex_unlock(&einfo->write_lock);
-		srcu_read_unlock(&einfo->use_ref, rcu_id);
-		return -EAGAIN;
-	}
-	cmd.size = tx_size;
-	pctx->size_remaining -= tx_size;
-	cmd.size_left = pctx->size_remaining;
-	memcpy(cmd.data, data_start, tx_size);
-	bgcom_resume(einfo->bgcom_handle);
-	glink_bgcom_xprt_tx_cmd_safe(einfo, &cmd, sizeof(cmd));
-	GLINK_DBG("%s %s: lcid[%u] riid[%u] cmd[%d], size[%d], size_left[%d]\n",
-		  "<SPI>", __func__, cmd.lcid, cmd.riid, cmd.id, cmd.size,
-		  cmd.size_left);
-	mutex_unlock(&einfo->write_lock);
-	srcu_read_unlock(&einfo->use_ref, rcu_id);
-	return cmd.size;
-}
-
-/**
  * tx() - convert a data transmit cmd to wire format and transmit
  * @if_ptr:     The transport to transmit on.
  * @lcid:       The local channel id to encode.
@@ -1410,8 +1311,6 @@ static int tx_short_data(struct glink_transport_if *if_ptr,
 static int tx(struct glink_transport_if *if_ptr, uint32_t lcid,
 	      struct glink_core_tx_pkt *pctx)
 {
-	if (pctx->size_remaining <= SHORT_PKT_SIZE)
-		return tx_short_data(if_ptr, lcid, pctx);
 	return tx_data(if_ptr, TX_DATA_CMD, lcid, pctx);
 }
 

@@ -1732,6 +1732,14 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		}
 	}
 
+	/* Disable TypeC and RID change source interrupts */
+	rc = smblib_write(chg, TYPE_C_INTERRUPT_EN_CFG_2_REG, 0);
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"Couldn't configure Type-C interrupts rc=%d\n", rc);
+		return rc;
+	}
+
 	return rc;
 }
 

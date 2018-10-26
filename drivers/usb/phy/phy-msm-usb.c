@@ -3676,6 +3676,11 @@ static int msm_otg_extcon_register(struct msm_otg *motg)
 	struct extcon_dev *edev;
 	int ret = 0;
 
+	if (motg->extcon_registered) {
+		dev_info(&motg->pdev->dev, "extcon_nb already registered\n");
+		return 0;
+	}
+
 	if (!of_property_read_bool(node, "extcon"))
 		return 0;
 
@@ -3712,6 +3717,7 @@ static int msm_otg_extcon_register(struct msm_otg *motg)
 			goto err;
 		}
 	}
+	motg->extcon_registered = true;
 
 	return 0;
 err:

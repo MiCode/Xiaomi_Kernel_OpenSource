@@ -25,7 +25,8 @@
 / {
 	model = "Qualcomm Technologies, Inc. SDM710 PM660 + PM660L Ext. Audio Codec CDP";
 	compatible = "qcom,sdm670-cdp", "qcom,sdm670", "qcom,cdp";
-	qcom,msm-id = <360 0x0>;
+	qcom,msm-id =	<360 0x0>,
+			<393 0x0>;
 	qcom,board-id = <1 1>;
 	qcom,pmic-id = <0x0001001b 0x0101011a 0x0 0x0>,
 		       <0x0001001b 0x0102001a 0x0 0x0>,

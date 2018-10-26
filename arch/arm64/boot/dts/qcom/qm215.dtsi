@@ -1,0 +1,47 @@
+/*
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msm8917.dtsi"
+/ {
+	model = "Qualcomm Technologies, Inc. QM215";
+	compatible = "qcom,qm215";
+	qcom,msm-id = <386 0x0>;
+	qcom,msm-name = "QM215";
+};
+
+&soc {
+	/delete-node/ devfreq-cpufreq;
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+		target-dev = <&cpubw>;
+		cpu-to-dev-map =
+			<  998400  4248 >,
+			< 1094400  4541 >,
+			< 1305600  5645 >;
+		};
+
+		mincpubw-cpufreq {
+			target-dev = <&mincpubw>;
+			cpu-to-dev-map =
+				<  998400 2270 >,
+				< 1305600 4248 >;
+		};
+	};
+};
+
+&soc {
+	qcom,vidc@1d00000 {
+		qcom,allowed-clock-rates = <329140000 329140000
+					308570000 270000000 200000000>;
+	};
+};

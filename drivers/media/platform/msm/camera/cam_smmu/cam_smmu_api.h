@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,6 +49,21 @@ enum cam_smmu_region_id {
 	CAM_SMMU_REGION_SECHEAP,
 	CAM_SMMU_REGION_QDSS
 };
+
+/**
+ * @brief        : Callback function type that gets called back on cam
+ *                     smmu page fault.
+ *
+ * @param domain   : Iommu domain received in iommu page fault handler
+ * @param dev      : Device received in iommu page fault handler
+ * @param iova     : IOVA where page fault occurred
+ * @param flags    : Flags received in iommu page fault handler
+ * @param token    : Userdata given during callback registration
+ * @param buf_info : Closest mapped buffer info
+ */
+typedef void (*cam_smmu_client_page_fault_handler)(struct iommu_domain *domain,
+	struct device *dev, unsigned long iova, int flags, void *token,
+	uint32_t buf_info);
 
 /**
  * @brief            : Structure to store region information
@@ -215,13 +230,19 @@ int cam_smmu_find_index_by_handle(int hdl);
  * @brief       : Registers smmu fault handler for client
  *
  * @param handle: Handle to identify the CAM SMMU client (VFE, CPP, FD etc.)
- * @param client_page_fault_handler: It is triggered in IOMMU page fault
+ * @param handler_cb: It is triggered in IOMMU page fault
  * @param token: It is input param when trigger page fault handler
  */
-void cam_smmu_reg_client_page_fault_handler(int handle,
-	void (*client_page_fault_handler)(struct iommu_domain *,
-	struct device *, unsigned long,
-	int, void*), void *token);
+void cam_smmu_set_client_page_fault_handler(int handle,
+	cam_smmu_client_page_fault_handler handler_cb, void *token);
+
+/**
+ * @brief       : Unregisters smmu fault handler for client
+ *
+ * @param handle: Handle to identify the CAM SMMU client (VFE, CPP, FD etc.)
+ * @param token: It is input param when trigger page fault handler
+ */
+void cam_smmu_unset_client_page_fault_handler(int handle, void *token);
 
 /**
  * @brief Maps memory from an ION fd into IOVA space

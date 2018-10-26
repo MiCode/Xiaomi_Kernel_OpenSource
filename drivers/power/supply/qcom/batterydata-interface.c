@@ -66,7 +66,7 @@ static long battery_data_ioctl(struct file *file, unsigned int cmd,
 
 	switch (cmd) {
 	case BPIOCXSOC:
-		soc = interpolate_pc(battery->profile->pc_temp_ocv_lut,
+		soc = interpolate_pc_bms(battery->profile->pc_temp_ocv_lut,
 					bp.batt_temp, bp.ocv_uv / 1000);
 		rc = put_user(soc, &bp_user->soc);
 		if (rc) {
@@ -77,7 +77,7 @@ static long battery_data_ioctl(struct file *file, unsigned int cmd,
 				bp.ocv_uv / 1000, bp.batt_temp, soc);
 		break;
 	case BPIOCXRBATT:
-		rbatt_sf = interpolate_scalingfactor(
+		rbatt_sf = interpolate_scalingfactor_bms(
 				battery->profile->rbatt_sf_lut,
 				bp.batt_temp, bp.soc);
 		rc = put_user(rbatt_sf, &bp_user->rbatt_sf);
@@ -89,7 +89,7 @@ static long battery_data_ioctl(struct file *file, unsigned int cmd,
 					bp.soc, bp.batt_temp, rbatt_sf);
 		break;
 	case BPIOCXSLOPE:
-		slope = interpolate_slope(battery->profile->pc_temp_ocv_lut,
+		slope = interpolate_slope_bms(battery->profile->pc_temp_ocv_lut,
 							bp.batt_temp, bp.soc);
 		rc = put_user(slope, &bp_user->slope);
 		if (rc) {
@@ -100,7 +100,7 @@ static long battery_data_ioctl(struct file *file, unsigned int cmd,
 					bp.soc, bp.batt_temp, slope);
 		break;
 	case BPIOCXFCC:
-		fcc_mah = interpolate_fcc(battery->profile->fcc_temp_lut,
+		fcc_mah = interpolate_fcc_bms(battery->profile->fcc_temp_lut,
 							bp.batt_temp);
 		rc = put_user(fcc_mah, &bp_user->fcc_mah);
 		if (rc) {

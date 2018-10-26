@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -160,55 +160,55 @@ extern struct bms_battery_data  oem_batt_data;
 extern struct bms_battery_data QRD_4v35_2000mAh_data;
 extern struct bms_battery_data  qrd_4v2_1300mah_data;
 
-int interpolate_fcc(struct single_row_lut *fcc_temp_lut, int batt_temp);
-int interpolate_scalingfactor(struct sf_lut *sf_lut, int row_entry, int pc);
-int interpolate_scalingfactor_fcc(struct single_row_lut *fcc_sf_lut,
+int interpolate_fcc_bms(struct single_row_lut *fcc_temp_lut, int batt_temp);
+int interpolate_scalingfactor_bms(struct sf_lut *sf_lut, int row_entry, int pc);
+int interpolate_scalingfactor_fcc_bms(struct single_row_lut *fcc_sf_lut,
 				int cycles);
-int interpolate_pc(struct pc_temp_ocv_lut *pc_temp_ocv,
+int interpolate_pc_bms(struct pc_temp_ocv_lut *pc_temp_ocv,
 				int batt_temp_degc, int ocv);
-int interpolate_ocv(struct pc_temp_ocv_lut *pc_temp_ocv,
+int interpolate_ocv_bms(struct pc_temp_ocv_lut *pc_temp_ocv,
 				int batt_temp_degc, int pc);
-int interpolate_slope(struct pc_temp_ocv_lut *pc_temp_ocv,
+int interpolate_slope_bms(struct pc_temp_ocv_lut *pc_temp_ocv,
 					int batt_temp, int pc);
-int interpolate_acc(struct ibat_temp_acc_lut *ibat_acc_lut,
+int interpolate_acc_bms(struct ibat_temp_acc_lut *ibat_acc_lut,
 					int batt_temp, int ibat);
-int linear_interpolate(int y0, int x0, int y1, int x1, int x);
+int linear_interpolate_bms(int y0, int x0, int y1, int x1, int x);
 #else
-static inline int interpolate_fcc(struct single_row_lut *fcc_temp_lut,
+static inline int interpolate_fcc_bms(struct single_row_lut *fcc_temp_lut,
 			int batt_temp)
 {
 	return -EINVAL;
 }
-static inline int interpolate_scalingfactor(struct sf_lut *sf_lut,
+static inline int interpolate_scalingfactor_bms(struct sf_lut *sf_lut,
 			int row_entry, int pc)
 {
 	return -EINVAL;
 }
-static inline int interpolate_scalingfactor_fcc(
+static inline int interpolate_scalingfactor_fcc_bms(
 			struct single_row_lut *fcc_sf_lut, int cycles)
 {
 	return -EINVAL;
 }
-static inline int interpolate_pc(struct pc_temp_ocv_lut *pc_temp_ocv,
+static inline int interpolate_pc_bms(struct pc_temp_ocv_lut *pc_temp_ocv,
 			int batt_temp_degc, int ocv)
 {
 	return -EINVAL;
 }
-static inline int interpolate_ocv(struct pc_temp_ocv_lut *pc_temp_ocv,
+static inline int interpolate_ocv_bms(struct pc_temp_ocv_lut *pc_temp_ocv,
 			int batt_temp_degc, int pc)
 {
 	return -EINVAL;
 }
-static inline int interpolate_slope(struct pc_temp_ocv_lut *pc_temp_ocv,
+static inline int interpolate_slope_bms(struct pc_temp_ocv_lut *pc_temp_ocv,
 					int batt_temp, int pc)
 {
 	return -EINVAL;
 }
-static inline int linear_interpolate(int y0, int x0, int y1, int x1, int x)
+static inline int linear_interpolate_bms(int y0, int x0, int y1, int x1, int x)
 {
 	return -EINVAL;
 }
-static inline int interpolate_acc(struct ibat_temp_acc_lut *ibat_acc_lut,
+static inline int interpolate_acc_bms(struct ibat_temp_acc_lut *ibat_acc_lut,
 						int batt_temp, int ibat)
 {
 	return -EINVAL;
