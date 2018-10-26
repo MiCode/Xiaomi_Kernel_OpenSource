@@ -568,7 +568,7 @@ int mhi_dev_mmio_disable_cmdb_interrupt(struct mhi_dev *dev)
 }
 EXPORT_SYMBOL(mhi_dev_mmio_disable_cmdb_interrupt);
 
-static void mhi_dev_mmio_mask_interrupts(struct mhi_dev *dev)
+void mhi_dev_mmio_mask_interrupts(struct mhi_dev *dev)
 {
 	int rc = 0;
 
@@ -596,6 +596,7 @@ static void mhi_dev_mmio_mask_interrupts(struct mhi_dev *dev)
 		return;
 	}
 }
+EXPORT_SYMBOL(mhi_dev_mmio_mask_interrupts);
 
 int mhi_dev_mmio_clear_interrupts(struct mhi_dev *dev)
 {
