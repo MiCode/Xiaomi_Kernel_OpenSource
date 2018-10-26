@@ -235,15 +235,6 @@
 		cell-index = <0>;
 		label = "wb_display";
 	};
-
-	ext_disp: qcom,msm-ext-disp {
-		status = "disabled";
-		compatible = "qcom,msm-ext-disp";
-
-		ext_disp_audio_codec: qcom,msm-ext-disp-audio-codec-rx {
-			compatible = "qcom,msm-ext-disp-audio-codec-rx";
-		};
-	};
 };
 
 &sde_dp {
@@ -251,7 +242,7 @@
 };
 
 &mdss_mdp {
-	connectors = <&sde_rscc &sde_wb &sde_dsi>;
+	connectors = <&sde_rscc &sde_wb &sde_dsi &sde_dp>;
 };
 
 &dsi_sw43404_amoled_video {
