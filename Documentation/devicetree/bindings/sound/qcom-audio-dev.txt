@@ -2191,6 +2191,9 @@ Optional properties:
 - qcom,tdm-i2s-switch-enable: For chipsets where tdm mics are controlled by
 			      switch, drive corresponding gpio to output high
 			      to enable switch.
+- qcom,tdm-mic-mute-enable: This property is used to mute/unmute TDM mics using
+				gpio, drive corresponding gpio to output low
+				to unmute TDM mics.
 
 Example:
 	sound {
