@@ -528,6 +528,32 @@
 		qcom,scandump-sizes = <0x40000>;
 	};
 
+	qcom,chd_silver {
+		compatible = "qcom,core-hang-detect";
+		label = "silver";
+		qcom,threshold-arr = <0xf1880b0 0xf1980b0
+				      0xf1a80b0 0xf1b80b0>;
+		qcom,config-arr = <0xf1880b8 0xf1980b8
+				   0xf1a80b8 0xf1b80b8>;
+	};
+
+	qcom,chd_gold {
+		compatible = "qcom,core-hang-detect";
+		label = "gold";
+		qcom,threshold-arr = <0xf0880b0 0xf0980b0
+				      0xf0a80b0 0xf0b80b0>;
+		qcom,config-arr = <0xf0880b8 0xf0980b8
+				   0xf0a80b8 0xf0b80b8>;
+	};
+
+	qcom,ghd {
+		compatible = "qcom,gladiator-hang-detect";
+		qcom,threshold-arr = <0x0f1d141c 0x0f1d1420
+				      0x0f1d1424 0x0f1d1428
+				      0x0f1d142c 0x0f1d1430>;
+		qcom,config-reg = <0x0f1d1434>;
+	};
+
 	cpuss_dump: cpuss_dump {
 		compatible = "qcom,cpuss-dump";
 		qcom,l1_i_cache0 {
