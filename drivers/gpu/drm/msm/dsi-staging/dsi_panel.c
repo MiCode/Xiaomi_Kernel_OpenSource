@@ -1882,8 +1882,8 @@ static int dsi_panel_parse_gpios(struct dsi_panel *panel)
 					      reset_gpio_name, 0);
 	if (!gpio_is_valid(panel->reset_config.reset_gpio) &&
 		!panel->host_config.ext_bridge_mode) {
+		rc = panel->reset_config.reset_gpio;
 		pr_err("[%s] failed get reset gpio, rc=%d\n", panel->name, rc);
-		rc = -EINVAL;
 		goto error;
 	}
 
@@ -1907,7 +1907,7 @@ static int dsi_panel_parse_gpios(struct dsi_panel *panel)
 	if (!gpio_is_valid(panel->reset_config.lcd_mode_sel_gpio))
 		pr_debug("%s:%d mode gpio not specified\n", __func__, __LINE__);
 
-	pr_err("mode gpio=%d\n", panel->reset_config.lcd_mode_sel_gpio);
+	pr_debug("mode gpio=%d\n", panel->reset_config.lcd_mode_sel_gpio);
 
 	data = utils->get_property(utils->data,
 		"qcom,mdss-dsi-mode-sel-gpio-state", NULL);
@@ -2983,13 +2983,15 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 		goto error;
 	}
 
+	rc = dsi_panel_parse_gpios(panel);
+	if (rc) {
+		pr_err("failed to parse panel gpios, rc=%d\n", rc);
+		goto error;
+	}
+
 	rc = dsi_panel_parse_power_cfg(panel);
 	if (rc)
 		pr_err("failed to parse power config, rc=%d\n", rc);
-
-	rc = dsi_panel_parse_gpios(panel);
-	if (rc)
-		pr_err("failed to parse panel gpios, rc=%d\n", rc);
 
 	rc = dsi_panel_parse_bl_config(panel);
 	if (rc)
