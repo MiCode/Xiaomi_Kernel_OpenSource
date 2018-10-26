@@ -5081,6 +5081,37 @@ irqreturn_t wdog_bark_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static void smblib_die_rst_icl_regulate(struct smb_charger *chg)
+{
+	int rc;
+	u8 temp;
+
+	rc = smblib_read(chg, DIE_TEMP_STATUS_REG, &temp);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read DIE_TEMP_STATUS_REG rc=%d\n",
+				rc);
+		return;
+	}
+
+	/* Regulate ICL on die temp crossing DIE_RST threshold */
+	vote(chg->usb_icl_votable, DIE_TEMP_VOTER,
+				temp & DIE_TEMP_RST_BIT, 500000);
+}
+
+/*
+ * triggered when DIE or SKIN or CONNECTOR temperature across
+ * either of the _REG_L, _REG_H, _RST, or _SHDN thresholds
+ */
+irqreturn_t temp_change_irq_handler(int irq, void *data)
+{
+	struct smb_irq_data *irq_data = data;
+	struct smb_charger *chg = irq_data->parent_data;
+
+	smblib_die_rst_icl_regulate(chg);
+
+	return IRQ_HANDLED;
+}
+
 /**************
  * Additional USB PSY getters/setters
  * that call interrupt functions

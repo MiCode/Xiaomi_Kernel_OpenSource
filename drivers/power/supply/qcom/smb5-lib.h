@@ -35,6 +35,7 @@ enum print_reason {
 #define CHG_STATE_VOTER			"CHG_STATE_VOTER"
 #define TAPER_END_VOTER			"TAPER_END_VOTER"
 #define THERMAL_DAEMON_VOTER		"THERMAL_DAEMON_VOTER"
+#define DIE_TEMP_VOTER			"DIE_TEMP_VOTER"
 #define BOOST_BACK_VOTER		"BOOST_BACK_VOTER"
 #define MICRO_USB_VOTER			"MICRO_USB_VOTER"
 #define DEBUG_BOARD_VOTER		"DEBUG_BOARD_VOTER"
@@ -527,6 +528,7 @@ irqreturn_t switcher_power_ok_irq_handler(int irq, void *data);
 irqreturn_t wdog_snarl_irq_handler(int irq, void *data);
 irqreturn_t wdog_bark_irq_handler(int irq, void *data);
 irqreturn_t typec_or_rid_detection_change_irq_handler(int irq, void *data);
+irqreturn_t temp_change_irq_handler(int irq, void *data);
 
 int smblib_get_prop_input_suspend(struct smb_charger *chg,
 				union power_supply_propval *val);

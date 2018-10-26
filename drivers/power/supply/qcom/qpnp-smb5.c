@@ -1795,15 +1795,6 @@ static int smb5_init_hw(struct smb5 *chip)
 		}
 	}
 
-	/* Disable SMB Temperature ADC INT */
-	rc = smblib_masked_write(chg, MISC_THERMREG_SRC_CFG_REG,
-					 THERMREG_SMB_ADC_SRC_EN_BIT, 0);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't configure SMB thermal regulation  rc=%d\n",
-				rc);
-		return rc;
-	}
-
 	/*
 	 * If SW thermal regulation WA is active then all the HW temperature
 	 * comparators need to be disabled to prevent HW thermal regulation,
@@ -1815,6 +1806,15 @@ static int smb5_init_hw(struct smb5 *chip)
 		if (rc < 0) {
 			dev_err(chg->dev, "Couldn't disable HW thermal regulation rc=%d\n",
 				rc);
+			return rc;
+		}
+	} else {
+		/* Allows software thermal regulation only */
+		rc = smblib_write(chg, MISC_THERMREG_SRC_CFG_REG,
+					 THERMREG_SW_ICL_ADJUST_BIT);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't configure SMB thermal regulation rc=%d\n",
+					rc);
 			return rc;
 		}
 	}
@@ -2433,8 +2433,14 @@ static struct smb_irq_info smb5_irqs[] = {
 	[IMP_TRIGGER_IRQ] = {
 		.name		= "imp-trigger",
 	},
+	/*
+	 * triggered when DIE or SKIN or CONNECTOR temperature across
+	 * either of the _REG_L, _REG_H, _RST, or _SHDN thresholds
+	 */
 	[TEMP_CHANGE_IRQ] = {
 		.name		= "temp-change",
+		.handler	= temp_change_irq_handler,
+		.wake		= true,
 	},
 	[TEMP_CHANGE_SMB_IRQ] = {
 		.name		= "temp-change-smb",
