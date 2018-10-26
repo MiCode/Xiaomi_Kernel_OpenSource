@@ -11,3 +11,5 @@
  */
 #include "sm8150-qrd.dtsi"
 #include "sm8150-qrd-audio-overlay.dtsi"
+
+#include "sm8150-camera-sensor-hdk.dtsi"
