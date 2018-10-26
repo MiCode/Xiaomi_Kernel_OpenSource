@@ -162,9 +162,8 @@ static struct cache_req *cache_rpm_request(struct rpmh_ctrlr *ctrlr,
 					   struct tcs_cmd *cmd)
 {
 	struct cache_req *req;
-	unsigned long flags;
 
-	spin_lock_irqsave(&ctrlr->cache_lock, flags);
+	spin_lock(&ctrlr->cache_lock);
 	req = __find_req(ctrlr, cmd->addr);
 	if (req)
 		goto existing;
@@ -198,7 +197,7 @@ existing:
 
 	ctrlr->dirty = true;
 unlock:
-	spin_unlock_irqrestore(&ctrlr->cache_lock, flags);
+	spin_unlock(&ctrlr->cache_lock);
 
 	return req;
 }
@@ -348,23 +347,21 @@ EXPORT_SYMBOL(rpmh_write);
 
 static void cache_batch(struct rpmh_ctrlr *ctrlr, struct batch_cache_req *req)
 {
-	unsigned long flags;
 
-	spin_lock_irqsave(&ctrlr->cache_lock, flags);
+	spin_lock(&ctrlr->cache_lock);
 	list_add_tail(&req->list, &ctrlr->batch_cache);
-	spin_unlock_irqrestore(&ctrlr->cache_lock, flags);
+	spin_unlock(&ctrlr->cache_lock);
 }
 
 static int flush_batch(struct rpmh_ctrlr *ctrlr)
 {
 	struct batch_cache_req *req;
 	const struct rpmh_request *rpm_msg;
-	unsigned long flags;
 	int ret = 0;
 	int i;
 
 	/* Send Sleep/Wake requests to the controller, expect no response */
-	spin_lock_irqsave(&ctrlr->cache_lock, flags);
+	spin_lock(&ctrlr->cache_lock);
 	list_for_each_entry(req, &ctrlr->batch_cache, list) {
 		for (i = 0; i < req->count; i++) {
 			rpm_msg = req->rpm_msgs + i;
@@ -374,7 +371,7 @@ static int flush_batch(struct rpmh_ctrlr *ctrlr)
 				break;
 		}
 	}
-	spin_unlock_irqrestore(&ctrlr->cache_lock, flags);
+	spin_unlock(&ctrlr->cache_lock);
 
 	return ret;
 }
@@ -382,13 +379,12 @@ static int flush_batch(struct rpmh_ctrlr *ctrlr)
 static void invalidate_batch(struct rpmh_ctrlr *ctrlr)
 {
 	struct batch_cache_req *req, *tmp;
-	unsigned long flags;
 
-	spin_lock_irqsave(&ctrlr->cache_lock, flags);
+	spin_lock(&ctrlr->cache_lock);
 	list_for_each_entry_safe(req, tmp, &ctrlr->batch_cache, list)
 		kfree(req);
 	INIT_LIST_HEAD(&ctrlr->batch_cache);
-	spin_unlock_irqrestore(&ctrlr->cache_lock, flags);
+	spin_unlock(&ctrlr->cache_lock);
 }
 
 /**
