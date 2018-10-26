@@ -3477,8 +3477,8 @@ static int set_battery_data(struct qpnp_bms_chip *chip)
 		pr_err("cannot read battery id err = %lld\n", battery_id);
 		return battery_id;
 	}
-	node = of_find_node_by_name(chip->pdev->dev.of_node,
-					"qcom,battery-data");
+	node = of_parse_phandle(chip->pdev->dev.of_node,
+					"qcom,battery-data", 0);
 	if (!node) {
 		pr_err("No available batterydata\n");
 		return -EINVAL;
