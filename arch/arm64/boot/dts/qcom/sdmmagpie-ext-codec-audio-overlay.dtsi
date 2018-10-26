@@ -1,4 +1,5 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,15 +11,8 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
+#include "sm6150-ext-codec-audio-overlay.dtsi"
 
-#include "sdmmagpie.dtsi"
-#include "sdmmagpie-idp.dtsi"
-#include "sdmmagpie-ext-codec-audio-overlay.dtsi"
-#include "sdmmagpie-external-codec.dtsi"
-
-/ {
-	model = "Qualcomm Technologies, Inc. SDMMAGPIE PM6150 External Audio Codec IDP";
-	compatible = "qcom,sdmmagpie-idp", "qcom,sdmmagpie", "qcom,idp";
-	qcom,board-id = <34 1>;
+&wcd9xxx_intc {
+	qcom,gpio-connect = <&tlmm 58 0>;
 };
