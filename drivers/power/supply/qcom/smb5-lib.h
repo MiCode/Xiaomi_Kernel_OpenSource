@@ -228,6 +228,15 @@ enum thermal_status_levels {
 	TEMP_BELOW_RANGE,
 };
 
+enum icl_override_mode {
+	/* APSD/Type-C/QC auto */
+	HW_AUTO_MODE,
+	/* 100/150/500/900mA */
+	SW_OVERRIDE_USB51_MODE,
+	/* ICL other than USB51 */
+	SW_OVERRIDE_HC_MODE,
+};
+
 /* EXTCON_USB and EXTCON_USB_HOST are mutually exclusive */
 static const u32 smblib_extcon_exclusive[] = {0x3, 0};
 
@@ -645,7 +654,7 @@ int smblib_get_iio_channel(struct smb_charger *chg, const char *propname,
 int smblib_read_iio_channel(struct smb_charger *chg, struct iio_channel *chan,
 							int div, int *data);
 int smblib_configure_hvdcp_apsd(struct smb_charger *chg, bool enable);
-int smblib_icl_override(struct smb_charger *chg, bool override);
+int smblib_icl_override(struct smb_charger *chg, enum icl_override_mode mode);
 enum alarmtimer_restart smblib_lpd_recheck_timer(struct alarm *alarm,
 				ktime_t time);
 int smblib_toggle_smb_en(struct smb_charger *chg, int toggle);

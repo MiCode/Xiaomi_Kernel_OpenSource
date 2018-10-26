@@ -216,6 +216,9 @@ enum {
 #define CMD_APSD_REG				(USBIN_BASE + 0x41)
 #define APSD_RERUN_BIT				BIT(0)
 
+#define CMD_ICL_OVERRIDE_REG			(USBIN_BASE + 0x42)
+#define ICL_OVERRIDE_BIT			BIT(0)
+
 #define CMD_HVDCP_2_REG				(USBIN_BASE + 0x43)
 #define FORCE_12V_BIT				BIT(5)
 #define FORCE_9V_BIT				BIT(4)

@@ -38,6 +38,8 @@
 	|| typec_mode == POWER_SUPPLY_TYPEC_SOURCE_HIGH)	\
 	&& !chg->typec_legacy)
 
+static void update_sw_icl_max(struct smb_charger *chg, int pst);
+
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val)
 {
 	unsigned int value;
@@ -156,15 +158,50 @@ int smblib_get_jeita_cc_delta(struct smb_charger *chg, int *cc_delta_ua)
 	return 0;
 }
 
-int smblib_icl_override(struct smb_charger *chg, bool override)
+int smblib_icl_override(struct smb_charger *chg, enum icl_override_mode  mode)
 {
 	int rc;
+	u8 usb51_mode, icl_override, apsd_override;
+
+	switch (mode) {
+	case SW_OVERRIDE_USB51_MODE:
+		usb51_mode = 0;
+		icl_override = ICL_OVERRIDE_BIT;
+		apsd_override = 0;
+		break;
+	case SW_OVERRIDE_HC_MODE:
+		usb51_mode = USBIN_MODE_CHG_BIT;
+		icl_override = 0;
+		apsd_override = ICL_OVERRIDE_AFTER_APSD_BIT;
+		break;
+	case HW_AUTO_MODE:
+	default:
+		usb51_mode = USBIN_MODE_CHG_BIT;
+		icl_override = 0;
+		apsd_override = 0;
+		break;
+	}
+
+	rc = smblib_masked_write(chg, USBIN_ICL_OPTIONS_REG,
+				USBIN_MODE_CHG_BIT, usb51_mode);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't set USBIN_ICL_OPTIONS rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = smblib_masked_write(chg, CMD_ICL_OVERRIDE_REG,
+				ICL_OVERRIDE_BIT, icl_override);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't override ICL rc=%d\n", rc);
+		return rc;
+	}
 
 	rc = smblib_masked_write(chg, USBIN_LOAD_CFG_REG,
-				ICL_OVERRIDE_AFTER_APSD_BIT,
-				override ? ICL_OVERRIDE_AFTER_APSD_BIT : 0);
-	if (rc < 0)
-		smblib_err(chg, "Couldn't override ICL rc=%d\n", rc);
+				ICL_OVERRIDE_AFTER_APSD_BIT, apsd_override);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't override ICL_AFTER_APSD rc=%d\n", rc);
+		return rc;
+	}
 
 	return rc;
 }
@@ -1166,34 +1203,17 @@ static int set_sdp_current(struct smb_charger *chg, int icl_ua)
 	}
 
 	rc = smblib_masked_write(chg, USBIN_ICL_OPTIONS_REG,
-		CFG_USB3P0_SEL_BIT | USB51_MODE_BIT | USBIN_MODE_CHG_BIT,
-		icl_options);
+			CFG_USB3P0_SEL_BIT | USB51_MODE_BIT, icl_options);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't set ICL options rc=%d\n", rc);
 		return rc;
 	}
 
-	return rc;
-}
-
-static int get_sdp_current(struct smb_charger *chg, int *icl_ua)
-{
-	int rc;
-	u8 icl_options;
-	bool usb3 = false;
-
-	rc = smblib_read(chg, USBIN_ICL_OPTIONS_REG, &icl_options);
+	rc = smblib_icl_override(chg, SW_OVERRIDE_USB51_MODE);
 	if (rc < 0) {
-		smblib_err(chg, "Couldn't get ICL options rc=%d\n", rc);
+		smblib_err(chg, "Couldn't set ICL override rc=%d\n", rc);
 		return rc;
 	}
-
-	usb3 = (icl_options & CFG_USB3P0_SEL_BIT);
-
-	if (icl_options & USB51_MODE_BIT)
-		*icl_ua = usb3 ? USBIN_900MA : USBIN_500MA;
-	else
-		*icl_ua = usb3 ? USBIN_150MA : USBIN_100MA;
 
 	return rc;
 }
@@ -1201,7 +1221,7 @@ static int get_sdp_current(struct smb_charger *chg, int *icl_ua)
 int smblib_set_icl_current(struct smb_charger *chg, int icl_ua)
 {
 	int rc = 0;
-	bool hc_mode = false, override = false;
+	enum icl_override_mode icl_override = HW_AUTO_MODE;
 	/* suspend if 25mA or less is requested */
 	bool suspend = (icl_ua <= USBIN_25MA);
 
@@ -1249,25 +1269,11 @@ int smblib_set_icl_current(struct smb_charger *chg, int icl_ua)
 			smblib_err(chg, "Couldn't set HC ICL rc=%d\n", rc);
 			goto out;
 		}
-		hc_mode = true;
-
-		/*
-		 * Micro USB mode follows ICL register independent of override
-		 * bit, configure override only for typeC mode.
-		 */
-		if (chg->connector_type == POWER_SUPPLY_CONNECTOR_TYPEC)
-			override = true;
+		icl_override = SW_OVERRIDE_HC_MODE;
 	}
 
 set_mode:
-	rc = smblib_masked_write(chg, USBIN_ICL_OPTIONS_REG,
-		USBIN_MODE_CHG_BIT, hc_mode ? USBIN_MODE_CHG_BIT : 0);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't set USBIN_ICL_OPTIONS rc=%d\n", rc);
-		goto out;
-	}
-
-	rc = smblib_icl_override(chg, override);
+	rc = smblib_icl_override(chg, icl_override);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't set ICL override rc=%d\n", rc);
 		goto out;
@@ -1289,38 +1295,13 @@ out:
 
 int smblib_get_icl_current(struct smb_charger *chg, int *icl_ua)
 {
-	int rc = 0;
-	u8 load_cfg;
-	bool override;
+	int rc;
 
-	if ((chg->typec_mode == POWER_SUPPLY_TYPEC_SOURCE_DEFAULT
-		|| chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB)
-		&& (chg->usb_psy->desc->type == POWER_SUPPLY_TYPE_USB)) {
-		rc = get_sdp_current(chg, icl_ua);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't get SDP ICL rc=%d\n", rc);
-			return rc;
-		}
-	} else {
-		rc = smblib_read(chg, USBIN_LOAD_CFG_REG, &load_cfg);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't get load cfg rc=%d\n", rc);
-			return rc;
-		}
-		override = load_cfg & ICL_OVERRIDE_AFTER_APSD_BIT;
-		if (!override)
-			return INT_MAX;
+	rc = smblib_get_charge_param(chg, &chg->param.icl_max_stat, icl_ua);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't get HC ICL rc=%d\n", rc);
 
-		/* override is set */
-		rc = smblib_get_charge_param(chg, &chg->param.icl_max_stat,
-					icl_ua);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't get HC ICL rc=%d\n", rc);
-			return rc;
-		}
-	}
-
-	return 0;
+	return rc;
 }
 
 int smblib_toggle_smb_en(struct smb_charger *chg, int toggle)
@@ -3613,12 +3594,16 @@ int smblib_set_prop_pd_voltage_max(struct smb_charger *chg,
 int smblib_set_prop_pd_active(struct smb_charger *chg,
 				const union power_supply_propval *val)
 {
+	const struct apsd_result *apsd = smblib_get_apsd_result(chg);
+
 	int rc = 0;
 	int sec_charger;
 
 	chg->pd_active = val->intval;
 
 	smblib_apsd_enable(chg, !chg->pd_active);
+
+	update_sw_icl_max(chg, apsd->pst);
 
 	if (chg->pd_active) {
 		vote(chg->usb_irq_enable_votable, PD_VOTER, true, 0);
@@ -3646,7 +3631,6 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 					rc);
 		}
 	} else {
-		vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true, SDP_100_MA);
 		vote(chg->usb_icl_votable, PD_VOTER, false, 0);
 		vote(chg->usb_irq_enable_votable, PD_VOTER, false, 0);
 
@@ -4359,10 +4343,8 @@ static void smblib_handle_hvdcp_detect_done(struct smb_charger *chg,
 
 static void update_sw_icl_max(struct smb_charger *chg, int pst)
 {
-	union power_supply_propval pval;
 	int typec_mode;
 	int rp_ua;
-	int rc;
 
 	/* while PD is active it should have complete ICL control */
 	if (chg->pd_active)
@@ -4414,15 +4396,8 @@ static void update_sw_icl_max(struct smb_charger *chg, int pst)
 		break;
 	case POWER_SUPPLY_TYPE_UNKNOWN:
 	default:
-		rc = smblib_get_prop_usb_present(chg, &pval);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't get usb present rc = %d\n",
-					rc);
-			return;
-		}
-
 		vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true,
-				pval.intval ? SDP_CURRENT_UA : SDP_100_MA);
+					SDP_100_MA);
 		break;
 	}
 }
