@@ -96,11 +96,13 @@ static void setup_trans_desc(struct cmdq_host *cq_host, u8 tag)
 {
 	u8 *link_temp;
 	dma_addr_t trans_temp;
+	__le64 *attr;
 
 	link_temp = get_link_desc(cq_host, tag);
 	trans_temp = get_trans_desc_dma(cq_host, tag);
+	attr = (__le64 __force *)link_temp;
 
-	memset(link_temp, 0, cq_host->link_desc_len);
+	memset_io(link_temp, 0, cq_host->link_desc_len);
 	if (cq_host->link_desc_len > 8)
 		*(link_temp + 8) = 0;
 
@@ -109,12 +111,12 @@ static void setup_trans_desc(struct cmdq_host *cq_host, u8 tag)
 		return;
 	}
 
-	*link_temp = VALID(1) | ACT(0x6) | END(0);
+	*attr = VALID(1) | ACT(0x6) | END(0) | DAT_ADDR_LO(trans_temp);
 
 	if (cq_host->dma64) {
-		__le64 *data_addr = (__le64 __force *)(link_temp + 4);
+		__le64 *data_addr = (__le64 __force *)(link_temp + 8);
 
-		data_addr[0] = cpu_to_le64(trans_temp);
+		data_addr[0] = cpu_to_le64(DAT_ADDR_HI(trans_temp));
 	} else {
 		__le32 *data_addr = (__le32 __force *)(link_temp + 4);
 
@@ -303,6 +305,7 @@ static int cmdq_host_alloc_tdl(struct cmdq_host *cq_host)
 	size_t desc_size;
 	size_t data_size;
 	int i = 0;
+	unsigned long attrs = 0;
 
 	/* task descriptor can be 64/128 bit irrespective of arch */
 	if (cq_host->caps & CMDQ_TASK_DESC_SZ_128) {
@@ -346,14 +349,15 @@ static int cmdq_host_alloc_tdl(struct cmdq_host *cq_host)
 	 * setup each link-desc memory offset per slot-number to
 	 * the descriptor table.
 	 */
-	cq_host->desc_base = dmam_alloc_coherent(mmc_dev(cq_host->mmc),
+	attrs |= DMA_ATTR_STRONGLY_ORDERED;
+	cq_host->desc_base = dma_alloc_attrs(mmc_dev(cq_host->mmc),
 						 desc_size,
 						 &cq_host->desc_dma_base,
-						 GFP_KERNEL);
-	cq_host->trans_desc_base = dmam_alloc_coherent(mmc_dev(cq_host->mmc),
+						 GFP_KERNEL, attrs);
+	cq_host->trans_desc_base = dma_alloc_attrs(mmc_dev(cq_host->mmc),
 					      data_size,
 					      &cq_host->trans_desc_dma_base,
-					      GFP_KERNEL);
+					      GFP_KERNEL, attrs);
 	cq_host->thist = devm_kzalloc(mmc_dev(cq_host->mmc),
 					(sizeof(*cq_host->thist) *
 						cq_host->num_slots),
@@ -363,7 +367,7 @@ static int cmdq_host_alloc_tdl(struct cmdq_host *cq_host)
 
 	pr_debug("desc-base: 0x%pK trans-base: 0x%pK\n desc_dma 0x%llx trans_dma: 0x%llx\n",
 		 cq_host->desc_base, cq_host->trans_desc_base,
-		(unsigned long long)cq_host->desc_dma_base,
+		(unsigned long long) cq_host->desc_dma_base,
 		(unsigned long long) cq_host->trans_desc_dma_base);
 
 	for (; i < (cq_host->num_slots); i++)
@@ -616,18 +620,32 @@ static int cmdq_dma_map(struct mmc_host *host, struct mmc_request *mrq)
 static void cmdq_set_tran_desc(u8 *desc, dma_addr_t addr, int len,
 				bool end, bool is_dma64)
 {
-	__le32 *attr = (__le32 __force *)desc;
+	__le64 *attr = (__le64 __force *)desc;
+	/*
+	 * attributes for valid bit, end bit, INT, ACT,
+	 * data length and LSB of address.
+	 */
+	unsigned long long fattr;
 
-	*attr = (VALID(1) |
+	fattr = (VALID(1) |
 		 END(end ? 1 : 0) |
 		 INT(0) |
 		 ACT(0x4) |
 		 DAT_LENGTH(len));
+	/*
+	 * Sometime after above operation we get fattr as
+	 * 0xffffffff<attr> for which reason is unknown
+	 * to mask MSB ffffffff, below ops is performed.
+	 */
+	fattr = fattr & 0x00000000FFFFFFFF;
+	fattr = DAT_ADDR_LO(addr) | fattr;
+
+	*attr = cpu_to_le64(fattr);
 
 	if (is_dma64) {
-		__le64 *dataddr = (__le64 __force *)(desc + 4);
+		__le64 *dataddr = (__le64 __force *)(desc + 8);
 
-		dataddr[0] = cpu_to_le64(addr);
+		dataddr[0] = cpu_to_le64(DAT_ADDR_HI(addr));
 	} else {
 		__le32 *dataddr = (__le32 __force *)(desc + 4);
 
@@ -653,7 +671,7 @@ static int cmdq_prep_tran_desc(struct mmc_request *mrq,
 	}
 
 	desc = get_trans_desc(cq_host, tag);
-	memset(desc, 0, cq_host->trans_desc_len * cq_host->mmc->max_segs);
+	memset_io(desc, 0, cq_host->trans_desc_len * cq_host->mmc->max_segs);
 
 	for_each_sg(data->sg, sg, sg_count, i) {
 		addr = sg_dma_address(sg);
@@ -716,20 +734,21 @@ static void cmdq_prep_dcmd_desc(struct mmc_host *mmc,
 	}
 
 	task_desc = (__le64 __force *)get_desc(cq_host, cq_host->dcmd_slot);
-	memset(task_desc, 0, cq_host->task_desc_len);
+	memset_io(task_desc, 0, cq_host->task_desc_len);
 	data |= (VALID(1) |
 		 END(1) |
 		 INT(1) |
 		 QBAR(1) |
 		 ACT(0x5) |
 		 CMD_INDEX(mrq->cmd->opcode) |
-		 CMD_TIMING(timing) | RESP_TYPE(resp_type));
+		 CMD_TIMING(timing) | RESP_TYPE(resp_type) |
+		 DAT_ADDR_LO((u64)mrq->cmd->arg));
 	*task_desc |= data;
 	desc = (u8 *)task_desc;
 	pr_debug("cmdq: dcmd: cmd: %d timing: %d resp: %d\n",
 		mrq->cmd->opcode, timing, resp_type);
-	dataddr = (__le64 __force *)(desc + 4);
-	dataddr[0] = cpu_to_le64((u64)mrq->cmd->arg);
+	dataddr = (__le64 __force *)(desc + 8);
+	dataddr[0] = cpu_to_le64(DAT_ADDR_HI((u64)mrq->cmd->arg));
 	cmdq_log_task_desc_history(cq_host, *task_desc, true);
 	MMC_TRACE(mrq->host,
 		"%s: DCMD: Task: 0x%08x | Args: 0x%08x\n",
@@ -752,7 +771,7 @@ void cmdq_prep_crypto_desc(struct cmdq_host *cq_host, u64 *task_desc,
 		 */
 		ice_desc = (__le64 *)((u8 *)task_desc +
 						CQ_TASK_DESC_TASK_PARAMS_SIZE);
-		memset(ice_desc, 0, CQ_TASK_DESC_ICE_PARAMS_SIZE);
+		memset_io(ice_desc, 0, CQ_TASK_DESC_ICE_PARAMS_SIZE);
 
 		/*
 		 *  Assign upper 64bits data of task descritor with ice context

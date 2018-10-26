@@ -143,7 +143,7 @@
 /* transfer descriptor fields */
 #define DAT_LENGTH(x)	((x & 0xFFFF) << 16)
 #define DAT_ADDR_LO(x)	((x & 0xFFFFFFFF) << 32)
-#define DAT_ADDR_HI(x)	((x & 0xFFFFFFFF) << 0)
+#define DAT_ADDR_HI(x)	(((x >> 32) & 0xFFFFFFFF) << 0)
 
 /*
  * Add new macro for updated CQ vendor specific
