@@ -2697,9 +2697,18 @@ static int mmc_blk_cmdq_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 	 * empty faster and we will be able to scale up to Nominal frequency
 	 * when needed.
 	 */
-	if (!ret && (host->clk_scaling.state == MMC_LOAD_LOW))
-		wait_event_interruptible(ctx->queue_empty_wq,
-					(!ctx->active_reqs));
+
+	if (!ret && (host->clk_scaling.state == MMC_LOAD_LOW)) {
+
+		ret = wait_event_interruptible_timeout(ctx->queue_empty_wq,
+			(!ctx->active_reqs &&
+			!test_bit(CMDQ_STATE_ERR, &ctx->curr_state)),
+			msecs_to_jiffies(MMC_CMDQ_WAIT_EVENT_TIMEOUT_MS));
+		if (!ret)
+			pr_err("%s: queue_empty_wq timeout case? ret = (%d)\n",
+				__func__, ret);
+		ret = 0;
+	}
 
 	if (ret) {
 		/* clear pending request */
