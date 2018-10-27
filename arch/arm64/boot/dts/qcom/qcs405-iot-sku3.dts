@@ -17,6 +17,7 @@
 #include "qcs405-audio-overlay.dtsi"
 #include "qcs405-geni-ir-overlay.dtsi"
 #include "qcs405-pinctrl.dtsi"
+#include "qcs405-circular-pca9956.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS405 sEVB/SLT IOT";

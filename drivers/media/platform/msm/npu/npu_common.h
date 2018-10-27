@@ -28,6 +28,7 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/uaccess.h>
+#include <linux/mailbox/qmp.h>
 
 #include "npu_mgr.h"
 
@@ -47,6 +48,7 @@
 #define NPU_MAX_REGULATOR_NUM	2
 #define NPU_MAX_DT_NAME_LEN	    21
 #define NPU_MAX_PWRLEVELS		8
+#define NPU_MAX_STATS_BUF_SIZE 16384
 
 /* -------------------------------------------------------------------------
  * Data Structures
@@ -197,7 +199,7 @@ struct npu_device {
 	struct npu_smmu_ctx smmu_ctx;
 	struct npu_debugfs_ctx debugfs_ctx;
 
-	struct npu_mbox mbox[NPU_MAX_MBOX_NUM];
+	struct npu_mbox mbox_aop;
 
 	struct thermal_cooling_device *tcdev;
 	struct npu_pwrctrl pwrctrl;

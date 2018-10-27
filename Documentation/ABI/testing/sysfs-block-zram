@@ -98,3 +98,13 @@ Description:
 		The backing_dev file is read-write and set up backing
 		device for zram to write incompressible pages.
 		For using, user should enable CONFIG_ZRAM_WRITEBACK.
+
+What:		/sys/block/zram<id>/use_dedup
+Date:		March 2017
+Contact:	Joonsoo Kim <iamjoonsoo.kim@lge.com>
+Description:
+		The use_dedup file is read-write and specifies deduplication
+		feature is used or not. If enabled, duplicated data is
+		managed by reference count and will not be stored in memory
+		twice. Benefit of this feature largely depends on the workload
+		so keep attention when use.

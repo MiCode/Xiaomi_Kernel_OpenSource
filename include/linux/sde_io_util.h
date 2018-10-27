@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -103,6 +103,7 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg,	int enable);
 int msm_dss_get_clk(struct device *dev, struct dss_clk *clk_arry, int num_clk);
 void msm_dss_put_clk(struct dss_clk *clk_arry, int num_clk);
 int msm_dss_clk_set_rate(struct dss_clk *clk_arry, int num_clk);
+int msm_dss_single_clk_set_rate(struct dss_clk *clk);
 int msm_dss_enable_clk(struct dss_clk *clk_arry, int num_clk, int enable);
 
 int sde_i2c_byte_read(struct i2c_client *client, uint8_t slave_addr,

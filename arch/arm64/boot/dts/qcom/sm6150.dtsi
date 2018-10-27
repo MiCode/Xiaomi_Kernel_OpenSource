@@ -1702,6 +1702,10 @@
 			 <&apps_smmu 0x0116 0x0011>;
 	};
 
+	qcom_msmhdcp: qcom,msm_hdcp {
+		compatible = "qcom,msm-hdcp";
+	};
+
 	qcom_crypto: qcrypto@1de0000 {
 		compatible = "qcom,qcrypto";
 		reg = <0x1de0000 0x20000>,
@@ -2167,6 +2171,9 @@
 	qcom,smp2p_sleepstate {
 		compatible = "qcom,smp2p-sleepstate";
 		qcom,smem-states = <&sleepstate_smp2p_out 0>;
+		interrupt-parent = <&sleepstate_smp2p_in>;
+		interrupts = <0 0>;
+		interrupt-names = "smp2p-sleepstate-in";
 	};
 
 	qcom,smp2p-modem {
@@ -2229,6 +2236,12 @@
 		sleepstate_smp2p_out: sleepstate-out {
 			qcom,entry-name = "sleepstate";
 			#qcom,smem-state-cells = <1>;
+		};
+
+		sleepstate_smp2p_in: qcom,sleepstate-in {
+			qcom,entry-name = "sleepstate_see";
+			interrupt-controller;
+			#interrupt-cells = <2>;
 		};
 	};
 
@@ -2681,6 +2694,7 @@
 		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3 &CPU4 &CPU5>;
 		qcom,target-dev = <&cpu0_cpu_l3_lat>;
 		qcom,cachemiss-ev = <0x17>;
+		qcom,stall-cycle-ev = <0xE7>;
 		qcom,core-dev-table =
 			<  576000  300000000 >,
 			< 1017600  556800000 >,
@@ -2701,6 +2715,7 @@
 		qcom,cpulist = <&CPU6 &CPU7>;
 		qcom,target-dev = <&cpu6_cpu_l3_lat>;
 		qcom,cachemiss-ev = <0x17>;
+		qcom,stall-cycle-ev = <0x15E>;
 		qcom,core-dev-table =
 			< 1017600  556800000 >,
 			< 1209600  806400000 >,
@@ -2723,6 +2738,7 @@
 		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3 &CPU4 &CPU5>;
 		qcom,target-dev = <&cpu0_cpu_llcc_lat>;
 		qcom,cachemiss-ev = <0x2A>;
+		qcom,stall-cycle-ev = <0xE7>;
 		qcom,core-dev-table =
 			<  748000 MHZ_TO_MBPS(150, 16) >,
 			< 1209600 MHZ_TO_MBPS(300, 16) >,
@@ -2744,6 +2760,7 @@
 		qcom,cpulist = <&CPU6 &CPU7>;
 		qcom,target-dev = <&cpu6_cpu_llcc_lat>;
 		qcom,cachemiss-ev = <0x2A>;
+		qcom,stall-cycle-ev = <0x15E>;
 		qcom,core-dev-table =
 			<  768000 MHZ_TO_MBPS(300, 16) >,
 			< 1017600 MHZ_TO_MBPS(466, 16) >,
@@ -2766,6 +2783,7 @@
 		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3 &CPU4 &CPU5>;
 		qcom,target-dev = <&cpu0_llcc_ddr_lat>;
 		qcom,cachemiss-ev = <0x1000>;
+		qcom,stall-cycle-ev = <0xE7>;
 		qcom,core-dev-table =
 			<  748000 MHZ_TO_MBPS( 300, 4) >,
 			< 1017600 MHZ_TO_MBPS( 451, 4) >,
@@ -2788,6 +2806,7 @@
 		qcom,cpulist = <&CPU6 &CPU7>;
 		qcom,target-dev = <&cpu6_llcc_ddr_lat>;
 		qcom,cachemiss-ev = <0x1000>;
+		qcom,stall-cycle-ev = <0x15E>;
 		qcom,core-dev-table =
 			<  768000 MHZ_TO_MBPS( 451, 4) >,
 			< 1017600 MHZ_TO_MBPS( 547, 4) >,
@@ -2853,6 +2872,10 @@
 	cx_ipeak_lm: cx_ipeak@01fed000 {
 		compatible = "qcom,cx-ipeak-sm6150";
 		reg = <0x1fed000 0x28>;
+	};
+
+	demux {
+		compatible = "qcom,demux";
 	};
 };
 
@@ -3049,6 +3072,7 @@
 };
 
 &bps_gdsc {
+	qcom,support-hw-trigger;
 	status = "ok";
 };
 
@@ -3061,6 +3085,7 @@
 };
 
 &ipe_0_gdsc {
+	qcom,support-hw-trigger;
 	status = "ok";
 };
 

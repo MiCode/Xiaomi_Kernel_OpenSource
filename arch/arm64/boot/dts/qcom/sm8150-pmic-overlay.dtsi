@@ -104,3 +104,7 @@
 &usb0 {
 	extcon = <&pm8150b_pdphy>, <&eud>;
 };
+
+&usb_qmp_dp_phy {
+	extcon = <&pm8150b_pdphy>;
+};

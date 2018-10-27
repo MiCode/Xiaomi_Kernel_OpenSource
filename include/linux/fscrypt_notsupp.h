@@ -184,26 +184,6 @@ static inline int fscrypt_zeroout_range(const struct inode *inode, pgoff_t lblk,
 	return -EOPNOTSUPP;
 }
 
-/* fscrypt_ice.c */
-static inline int fscrypt_using_hardware_encryption(const struct inode *inode)
-{
-	return 0;
-}
-
-static inline void fscrypt_set_ice_dun(const struct inode *inode,
-		struct bio *bio, u64 dun){}
-
-static inline void fscrypt_set_ice_skip(struct bio *bio, int bi_crypt_skip)
-{
-	return;
-}
-
-static inline bool fscrypt_mergeable_bio(struct bio *bio,
-		u64 dun, bool bio_encrypted, int bi_crypt_skip)
-{
-	return true;
-}
-
 /* hooks.c */
 
 static inline int fscrypt_file_open(struct inode *inode, struct file *filp)

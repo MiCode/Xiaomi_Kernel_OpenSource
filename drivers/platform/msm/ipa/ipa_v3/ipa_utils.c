@@ -2517,7 +2517,7 @@ static struct ipa3_mem_partition ipa_4_2_mem_part = {
 	.modem_comp_decomp_ofst		= 0x0,
 	.modem_comp_decomp_size		= 0x0,
 	.modem_ofst			= 0xbf0,
-	.modem_size			= 0x100c,
+	.modem_size			= 0x140c,
 	.apps_v4_flt_hash_ofst		= 0x1bfc,
 	.apps_v4_flt_hash_size		= 0x0,
 	.apps_v4_flt_nhash_ofst		= 0x1bfc,
@@ -2537,8 +2537,8 @@ static struct ipa3_mem_partition ipa_4_2_mem_part = {
 	.apps_v6_rt_hash_size		= 0x0,
 	.apps_v6_rt_nhash_ofst		= 0x1bfc,
 	.apps_v6_rt_nhash_size		= 0x0,
-	.uc_descriptor_ram_ofst		= 0x1c00,
-	.uc_descriptor_ram_size		= 0x400,
+	.uc_descriptor_ram_ofst		= 0x2000,
+	.uc_descriptor_ram_size		= 0x0,
 	.pdn_config_ofst		= 0x9F8,
 	.pdn_config_size		= 0x50,
 	.stats_quota_ofst		= 0xa50,
@@ -6721,6 +6721,15 @@ void ipa3_suspend_apps_pipes(bool suspend)
 	if (ep->valid) {
 		IPADBG("%s pipe %d\n", suspend ? "suspend" : "unsuspend",
 			ipa_ep_idx);
+		/*
+		 * move the channel to callback mode.
+		 * This needs to happen before starting the channel to make
+		 * sure we don't loose any interrupt
+		 */
+		if (!suspend && !atomic_read(&ep->sys->curr_polling_state))
+			gsi_config_channel_mode(ep->gsi_chan_hdl,
+				GSI_CHAN_MODE_CALLBACK);
+
 		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
 			if (suspend) {
 				res = __ipa3_stop_gsi_channel(ipa_ep_idx);
@@ -6740,9 +6749,6 @@ void ipa3_suspend_apps_pipes(bool suspend)
 		}
 		if (suspend)
 			ipa3_gsi_poll_after_suspend(ep);
-		else if (!atomic_read(&ep->sys->curr_polling_state))
-			gsi_config_channel_mode(ep->gsi_chan_hdl,
-				GSI_CHAN_MODE_CALLBACK);
 	}
 
 	ipa_ep_idx = ipa_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
@@ -6755,6 +6761,14 @@ void ipa3_suspend_apps_pipes(bool suspend)
 	if (ep->valid) {
 		IPADBG("%s pipe %d\n", suspend ? "suspend" : "unsuspend",
 			ipa_ep_idx);
+		/*
+		 * move the channel to callback mode.
+		 * This needs to happen before starting the channel to make
+		 * sure we don't loose any interrupt
+		 */
+		if (!suspend && !atomic_read(&ep->sys->curr_polling_state))
+			gsi_config_channel_mode(ep->gsi_chan_hdl,
+				GSI_CHAN_MODE_CALLBACK);
 		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
 			if (suspend) {
 				res = __ipa3_stop_gsi_channel(ipa_ep_idx);
@@ -6774,9 +6788,6 @@ void ipa3_suspend_apps_pipes(bool suspend)
 		}
 		if (suspend)
 			ipa3_gsi_poll_after_suspend(ep);
-		else if (!atomic_read(&ep->sys->curr_polling_state))
-			gsi_config_channel_mode(ep->gsi_chan_hdl,
-				GSI_CHAN_MODE_CALLBACK);
 	}
 }
 

@@ -31,6 +31,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/fs.h>
 #include <linux/dma-fence.h>
+#include <linux/dma-buf-ref.h>
 #include <linux/wait.h>
 
 struct device;
@@ -427,6 +428,8 @@ struct dma_buf {
 
 		unsigned long active;
 	} cb_excl, cb_shared;
+
+	struct list_head refs;
 };
 
 /**
@@ -499,6 +502,7 @@ struct dma_buf_export_info {
 static inline void get_dma_buf(struct dma_buf *dmabuf)
 {
 	get_file(dmabuf->file);
+	dma_buf_ref_mod(dmabuf, 1);
 }
 
 struct dma_buf_attachment *dma_buf_attach(struct dma_buf *dmabuf,

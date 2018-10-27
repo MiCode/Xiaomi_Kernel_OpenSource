@@ -56,6 +56,8 @@
 
 &tdm_quin_tx {
 	qcom,msm-cpudai-tdm-clk-attribute = /bits/ 16 <1>;
+	qcom,msm-cpudai-tdm-sync-mode = <0>;
+	qcom,msm-cpudai-tdm-invert-sync = <0>;
 };
 
 &soc {

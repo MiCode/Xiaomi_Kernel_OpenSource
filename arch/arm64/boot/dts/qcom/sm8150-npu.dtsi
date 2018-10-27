@@ -67,8 +67,8 @@
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
 		qcom,proxy-reg-names ="vdd", "vdd_cx";
 		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
-		mboxes = <&qmp_npu0 0>, <&qmp_npu1 0>;
-		mbox-names = "npu_low", "npu_high";
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "aop";
 		#cooling-cells = <2>;
 		qcom,npubw-dev = <&npu_npu_ddr_bw>;
 		qcom,npu-pwrlevels {

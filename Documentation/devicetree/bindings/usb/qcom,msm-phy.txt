@@ -115,6 +115,9 @@ Optional properties:
    microvolts or a value corresponding to voltage corner.
  - qcom,link-training-reset: This property indicates to start link training
    timer to reset the elastic buffer based on rx equalization value.
+ - extcon : phandle to external connector devices which provide type-C based
+            "USB-HOST" cable events. This phandle is used for notifying number
+            of lanes used in case of USB+DP concurrent mode to driver.
 
 Example:
 	ssphy0: ssphy@f9b38000 {

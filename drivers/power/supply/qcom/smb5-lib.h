@@ -290,6 +290,7 @@ struct smb_iio {
 	struct iio_channel	*temp_chan;
 	struct iio_channel	*usbin_i_chan;
 	struct iio_channel	*usbin_v_chan;
+	struct iio_channel	*mid_chan;
 	struct iio_channel	*batt_i_chan;
 	struct iio_channel	*connector_temp_chan;
 	struct iio_channel	*sbux_chan;
@@ -427,6 +428,7 @@ struct smb_charger {
 	int			skin_temp;
 	int			connector_temp;
 	int			thermal_status;
+	int			main_fcc_max;
 
 	/* workaround flag */
 	u32			wa_flags;

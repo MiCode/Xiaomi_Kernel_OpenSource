@@ -819,9 +819,11 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 			rc = cam_csiphy_notify_secure_mode(
 				csiphy_dev,
 				CAM_SECURE_MODE_SECURE, offset);
-			if (rc < 0)
+			if (rc < 0) {
 				csiphy_dev->csiphy_info.secure_mode[offset] =
 					CAM_SECURE_MODE_NON_SECURE;
+				goto release_mutex;
+			}
 		}
 
 		rc = cam_csiphy_enable_hw(csiphy_dev);

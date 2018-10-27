@@ -21,9 +21,10 @@ qcom,alium_860_89032_0000_3600mah_averaged_masterslave_sep24th2018 {
 	qcom,jeita-fv-ranges = <0   100  4250000
 				110 400  4350000
 				410 450  4250000>;
-	qcom,step-chg-ranges = <3600000  4200000  5400000
-				4201000  4300000  3600000
+	qcom,step-chg-ranges = <3600000  3800000  5400000
+				3801000  4300000  3600000
 				4301000  4350000  2500000>;
+	qcom,ocv-based-step-chg;
 	qcom,batt-id-kohm = <107>;
 	qcom,battery-beta = <4250>;
 	qcom,therm-room-temp = <100000>;

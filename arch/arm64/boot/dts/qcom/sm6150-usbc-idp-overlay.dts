@@ -17,6 +17,7 @@
 #include <dt-bindings/clock/qcom,camcc-sm6150.h>
 
 #include "sm6150-idp.dtsi"
+#include "sm6150-usbc-idp.dtsi"
 
 / {
 	model = "USBC Audio IDP";

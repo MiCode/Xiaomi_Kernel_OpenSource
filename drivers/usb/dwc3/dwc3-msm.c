@@ -3675,13 +3675,15 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		if (ret)
 			goto put_dwc3;
 	} else {
-		if (dwc->dr_mode == USB_DR_MODE_OTG ||
-				dwc->dr_mode == USB_DR_MODE_PERIPHERAL) {
-			dev_dbg(mdwc->dev, "%s: no extcon, simulate vbus connect\n",
+		if ((dwc->dr_mode == USB_DR_MODE_OTG &&
+		     !of_property_read_bool(node, "qcom,default-mode-host")) ||
+		     dwc->dr_mode == USB_DR_MODE_PERIPHERAL) {
+			dev_dbg(mdwc->dev, "%s: no extcon, start peripheral mode\n",
 								__func__);
 			mdwc->vbus_active = true;
-		} else if (dwc->dr_mode == USB_DR_MODE_HOST) {
-			dev_dbg(mdwc->dev, "DWC3 in host only mode\n");
+		} else {
+			dev_dbg(mdwc->dev, "%s: no extcon, start host mode\n",
+								__func__);
 			mdwc->id_state = DWC3_ID_GROUND;
 		}
 
@@ -4162,7 +4164,7 @@ static int dwc3_usb_blocking_sync(struct notifier_block *nb,
 
 	dbg_event(0xFF, "fw_blocksync", 0);
 	flush_work(&mdwc->resume_work);
-	flush_delayed_work(&mdwc->sm_work);
+	drain_workqueue(mdwc->sm_usb_wq);
 
 	if (!mdwc->in_host_mode && !mdwc->in_device_mode) {
 		dbg_event(0xFF, "lpm_state", atomic_read(&dwc->in_lpm));

@@ -28,10 +28,22 @@
 		#size-cells = <1>;
 		ranges;
 
+		tz_mem: tz_region@8ff00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x8ff00000 0x100000>;
+			label = "tz_mem";
+		};
+
+		smem_region: smem_region@8fe40000 {
+			no-map;
+			reg = <0x8fe40000 0xc0000>;
+		};
+
 		peripheral2_mem: peripheral2_region@8fd00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x8fd00000 0x300000>;
+			reg = <0x8fd00000 0x140000>;
 			label = "peripheral2_mem";
 		};
 
@@ -63,6 +75,7 @@
 	soc: soc { };
 };
 
+#include "sdxprairie-regulator.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -199,6 +212,13 @@
 	qcom,rmnet-ipa {
 		compatible = "qcom,rmnet-ipa3";
 		qcom,rmnet-ipa-ssr;
+	};
+
+	qcom,ipa_fws {
+		compatible = "qcom,pil-tz-generic";
+		qcom,pas-id = <0xf>;
+		qcom,firmware-name = "ipa_fws";
+		qcom,pil-force-shutdown;
 	};
 
 	ipa_hw: qcom,ipa@01e00000 {

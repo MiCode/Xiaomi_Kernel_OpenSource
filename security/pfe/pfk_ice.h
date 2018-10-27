@@ -51,20 +51,8 @@ struct pfk_km_get_version_rsp {
 int pfk_ice_init(void);
 int pfk_ice_deinit(void);
 
-#ifdef CONFIG_PFK_WRAPPED_KEY_SUPPORTED
-static inline bool pfk_wrapped_key_supported(void)
-{
-	return true;
-}
-#else
-static inline bool pfk_wrapped_key_supported(void)
-{
-	return false;
-}
-#endif
-
 int qti_pfk_ice_set_key(uint32_t index, uint8_t *key, uint8_t *salt,
-			char *storage_type);
+			char *storage_type, unsigned int data_unit);
 int qti_pfk_ice_invalidate_key(uint32_t index, char *storage_type);
 
 #endif /* PFK_ICE_H_ */

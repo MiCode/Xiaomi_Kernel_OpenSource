@@ -6977,6 +6977,44 @@ int ipa3_get_smmu_params(struct ipa_smmu_in_params *in,
 	return 0;
 }
 
+#define MAX_LEN 96
+
+void ipa_pc_qmp_enable(void)
+{
+	char buf[MAX_LEN] = "{class: bcm, res: ipa_pc, val: 1}";
+	struct qmp_pkt pkt;
+	int ret = 0;
+
+	/* prepare the mailbox struct */
+	ipa3_ctx->mbox_client.dev = &ipa3_ctx->master_pdev->dev;
+	ipa3_ctx->mbox_client.tx_block = true;
+	ipa3_ctx->mbox_client.tx_tout = MBOX_TOUT_MS;
+	ipa3_ctx->mbox_client.knows_txdone = false;
+
+	ipa3_ctx->mbox = mbox_request_channel(&ipa3_ctx->mbox_client, 0);
+	if (IS_ERR(ipa3_ctx->mbox)) {
+		ret = PTR_ERR(ipa3_ctx->mbox);
+		if (ret != -EPROBE_DEFER)
+			IPAERR("mailbox channel request failed, ret=%d\n", ret);
+		goto cleanup;
+	}
+
+	/* prepare the QMP packet to send */
+	pkt.size = MAX_LEN;
+	pkt.data = buf;
+
+	/* send the QMP packet to AOP */
+	ret = mbox_send_message(ipa3_ctx->mbox, &pkt);
+	if (ret < 0) {
+		IPAERR("qmp message send failed, ret=%d\n", ret);
+		goto cleanup;
+	}
+
+cleanup:
+	ipa3_ctx->mbox = NULL;
+	mbox_free_channel(ipa3_ctx->mbox);
+}
+
 /**************************************************************
  *            PCIe Version
  *************************************************************/

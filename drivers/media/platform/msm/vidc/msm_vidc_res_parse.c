@@ -122,6 +122,13 @@ static inline void msm_vidc_free_clock_table(
 	res->clock_set.count = 0;
 }
 
+static inline void msm_vidc_free_cx_ipeak_context(
+			struct msm_vidc_platform_resources *res)
+{
+	cx_ipeak_unregister(res->cx_ipeak_context);
+	res->cx_ipeak_context = NULL;
+}
+
 void msm_vidc_free_platform_resources(
 			struct msm_vidc_platform_resources *res)
 {
@@ -132,6 +139,7 @@ void msm_vidc_free_platform_resources(
 	msm_vidc_free_qdss_addr_table(res);
 	msm_vidc_free_bus_vectors(res);
 	msm_vidc_free_buffer_usage_table(res);
+	msm_vidc_free_cx_ipeak_context(res);
 }
 
 static int msm_vidc_load_reg_table(struct msm_vidc_platform_resources *res)
@@ -804,6 +812,48 @@ int read_platform_resources_from_drv_data(
 
 }
 
+static int msm_vidc_populate_cx_ipeak_context(
+		struct msm_vidc_platform_resources *res)
+{
+	struct platform_device *pdev = res->pdev;
+	int rc = 0;
+
+	if (of_find_property(pdev->dev.of_node,
+			"qcom,cx-ipeak-data", NULL)) {
+		res->cx_ipeak_context = cx_ipeak_register(
+				pdev->dev.of_node, "qcom,cx-ipeak-data");
+	}
+
+	if (IS_ERR(res->cx_ipeak_context)) {
+		rc = PTR_ERR(res->cx_ipeak_context);
+		if (rc == -EPROBE_DEFER)
+			dprintk(VIDC_INFO,
+					"cx-ipeak register failed. Deferring probe!");
+		else
+			dprintk(VIDC_ERR,
+					"cx-ipeak register failed. rc: %d", rc);
+
+		res->cx_ipeak_context = NULL;
+		goto err_cx_ipeak;
+	}
+
+	if (res->cx_ipeak_context)
+		dprintk(VIDC_INFO, "cx-ipeak register successful");
+	else
+		dprintk(VIDC_INFO, "cx-ipeak register not implemented");
+
+	of_property_read_u32(pdev->dev.of_node,
+			"qcom,clock-freq-threshold",
+		&res->clk_freq_threshold);
+	dprintk(VIDC_DBG, "cx ipeak threshold frequency = %u\n",
+			res->clk_freq_threshold);
+
+	return rc;
+
+err_cx_ipeak:
+	return rc;
+}
+
 int read_platform_resources_from_dt(
 		struct msm_vidc_platform_resources *res)
 {
@@ -892,8 +942,16 @@ int read_platform_resources_from_dt(
 				"Using fw-bias : %pa", &res->firmware_base);
 	}
 
+	rc = msm_vidc_populate_cx_ipeak_context(res);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"Failed to setup cx-ipeak %d\n", rc);
+		goto err_register_cx_ipeak;
+	}
+
 return rc;
 
+err_register_cx_ipeak:
 err_setup_legacy_cb:
 	msm_vidc_free_allowed_clocks_table(res);
 err_load_allowed_clocks_table:

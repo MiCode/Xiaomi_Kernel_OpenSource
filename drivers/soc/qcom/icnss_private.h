@@ -155,6 +155,7 @@ enum icnss_driver_state {
 	ICNSS_FW_DOWN,
 	ICNSS_DRIVER_UNLOADING,
 	ICNSS_REJUVENATE,
+	ICNSS_MODE_ON,
 };
 
 struct ce_irq_list {

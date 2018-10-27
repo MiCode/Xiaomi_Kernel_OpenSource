@@ -30,30 +30,31 @@
 /** global definitions		 **/
 /**********************************/
 
-#define TZ_ES_SET_ICE_KEY 0x2
 #define TZ_ES_INVALIDATE_ICE_KEY 0x3
+#define TZ_ES_CONFIG_SET_ICE_KEY 0x4
 
 /* index 0 and 1 is reserved for FDE */
 #define MIN_ICE_KEY_INDEX 2
 
 #define MAX_ICE_KEY_INDEX 31
 
-#define TZ_ES_SET_ICE_KEY_ID \
-	TZ_SYSCALL_CREATE_SMC_ID(TZ_OWNER_SIP, TZ_SVC_ES, TZ_ES_SET_ICE_KEY)
+#define TZ_ES_CONFIG_SET_ICE_KEY_ID \
+	TZ_SYSCALL_CREATE_SMC_ID(TZ_OWNER_SIP, TZ_SVC_ES, \
+	TZ_ES_CONFIG_SET_ICE_KEY)
 
 #define TZ_ES_INVALIDATE_ICE_KEY_ID \
 		TZ_SYSCALL_CREATE_SMC_ID(TZ_OWNER_SIP, \
 			TZ_SVC_ES, TZ_ES_INVALIDATE_ICE_KEY)
 
-#define TZ_ES_SET_ICE_KEY_PARAM_ID \
-	TZ_SYSCALL_CREATE_PARAM_ID_5( \
-		TZ_SYSCALL_PARAM_TYPE_VAL, \
-		TZ_SYSCALL_PARAM_TYPE_BUF_RW, TZ_SYSCALL_PARAM_TYPE_VAL, \
-		TZ_SYSCALL_PARAM_TYPE_BUF_RW, TZ_SYSCALL_PARAM_TYPE_VAL)
-
 #define TZ_ES_INVALIDATE_ICE_KEY_PARAM_ID \
 	TZ_SYSCALL_CREATE_PARAM_ID_1( \
 	TZ_SYSCALL_PARAM_TYPE_VAL)
+
+#define TZ_ES_CONFIG_SET_ICE_KEY_PARAM_ID \
+	TZ_SYSCALL_CREATE_PARAM_ID_5( \
+	TZ_SYSCALL_PARAM_TYPE_VAL, \
+	TZ_SYSCALL_PARAM_TYPE_BUF_RW, TZ_SYSCALL_PARAM_TYPE_VAL, \
+	TZ_SYSCALL_PARAM_TYPE_VAL, TZ_SYSCALL_PARAM_TYPE_VAL)
 
 #define CONTEXT_SIZE 0x1000
 
@@ -64,17 +65,21 @@
 
 #define USE_KM_MAJOR_VERSION 4
 #define USE_KM_MINOR_VERSION 513
-
-#define ICE_KEY_SIZE 32
-#define ICE_SALT_SIZE 32
+#define ICE_BUFFER_SIZE 64
 
 static uint32_t keymaster_minor_version;
 static uint32_t keymaster_major_version;
 
-static uint8_t ice_key[ICE_KEY_SIZE];
-static uint8_t ice_salt[ICE_KEY_SIZE];
+static uint8_t ice_buffer[ICE_BUFFER_SIZE];
 
 static struct qseecom_handle *qhandle;
+
+enum {
+	ICE_CIPHER_MODE_XTS_128 = 0,
+	ICE_CIPHER_MODE_CBC_128 = 1,
+	ICE_CIPHER_MODE_XTS_256 = 3,
+	ICE_CIPHER_MODE_CBC_256 = 4
+};
 
 static uint32_t get_keymaster_version(struct qseecom_handle *qhandle)
 {
@@ -144,25 +149,27 @@ static int set_wrapped_key(uint32_t index, const uint8_t *key,
 	int ret = 0;
 	u32 set_req_len = 0;
 	u32 set_rsp_len = 0;
+	u32 size = ICE_BUFFER_SIZE / 2;
 	struct pfk_ice_key_req *set_req_buf;
 	struct pfk_ice_key_rsp *set_rsp_buf;
 
-	memcpy(ice_key, key, sizeof(ice_key));
-	memcpy(ice_salt, salt, sizeof(ice_salt));
+	memcpy(ice_buffer, key, size);
+	memcpy(ice_buffer + size, salt, size);
 
 	set_req_buf = (struct pfk_ice_key_req *) qhandle->sbuf;
 	set_req_buf->cmd_id = KEYMASTER_SET_ICE_KEY;
 	set_req_buf->index = index;
 	set_req_buf->ice_key_offset = sizeof(struct pfk_ice_key_req);
-	set_req_buf->ice_key_size = ICE_KEY_SIZE;
+	set_req_buf->ice_key_size = size;
 	set_req_buf->ice_salt_offset = set_req_buf->ice_key_offset +
 					set_req_buf->ice_key_size;
-	set_req_buf->ice_salt_size = ICE_SALT_SIZE;
+	set_req_buf->ice_salt_size = size;
 
-	memcpy((uint8_t *) set_req_buf + set_req_buf->ice_key_offset, ice_key,
-				set_req_buf->ice_key_size);
-	memcpy((uint8_t *) set_req_buf + set_req_buf->ice_salt_offset, ice_salt,
-				set_req_buf->ice_salt_size);
+	memcpy((uint8_t *) set_req_buf + set_req_buf->ice_key_offset,
+			ice_buffer, set_req_buf->ice_key_size);
+	memcpy((uint8_t *) set_req_buf + set_req_buf->ice_salt_offset,
+			ice_buffer + set_req_buf->ice_key_size,
+			set_req_buf->ice_salt_size);
 
 	set_req_len = sizeof(struct pfk_ice_key_req) + set_req_buf->ice_key_size
 			+ set_req_buf->ice_salt_size;
@@ -209,38 +216,35 @@ static int clear_wrapped_key(uint32_t index)
 	return ret;
 }
 
-static int set_key(uint32_t index, const uint8_t *key, const uint8_t *salt)
+static int set_key(uint32_t index, const uint8_t *key, const uint8_t *salt,
+		unsigned int data_unit)
 {
 	struct scm_desc desc = {0};
 	int ret = 0;
 	uint32_t smc_id = 0;
-	char *tzbuf_key = (char *)ice_key;
-	char *tzbuf_salt = (char *)ice_salt;
-	u32 tzbuflen_key = sizeof(ice_key);
-	u32 tzbuflen_salt = sizeof(ice_salt);
+	char *tzbuf = (char *)ice_buffer;
+	uint32_t size = ICE_BUFFER_SIZE / 2;
 
-	if (!tzbuf_key || !tzbuf_salt) {
+	if (!tzbuf) {
 		pr_err("%s No Memory\n", __func__);
 		return -ENOMEM;
 	}
 
-	memset(tzbuf_key, 0, tzbuflen_key);
-	memset(tzbuf_salt, 0, tzbuflen_salt);
+	memset(tzbuf, 0, ICE_BUFFER_SIZE);
 
-	memcpy(ice_key, key, sizeof(ice_key));
-	memcpy(ice_salt, salt, sizeof(ice_salt));
+	memcpy(ice_buffer, key, size);
+	memcpy(ice_buffer+size, salt, size);
 
-	dmac_flush_range(tzbuf_key, tzbuf_key + tzbuflen_key);
-	dmac_flush_range(tzbuf_salt, tzbuf_salt + tzbuflen_salt);
+	dmac_flush_range(tzbuf, tzbuf + ICE_BUFFER_SIZE);
 
-	smc_id = TZ_ES_SET_ICE_KEY_ID;
+	smc_id = TZ_ES_CONFIG_SET_ICE_KEY_ID;
 
-	desc.arginfo = TZ_ES_SET_ICE_KEY_PARAM_ID;
+	desc.arginfo = TZ_ES_CONFIG_SET_ICE_KEY_PARAM_ID;
 	desc.args[0] = index;
-	desc.args[1] = virt_to_phys(tzbuf_key);
-	desc.args[2] = tzbuflen_key;
-	desc.args[3] = virt_to_phys(tzbuf_salt);
-	desc.args[4] = tzbuflen_salt;
+	desc.args[1] = virt_to_phys(tzbuf);
+	desc.args[2] = ICE_BUFFER_SIZE;
+	desc.args[3] = ICE_CIPHER_MODE_XTS_256;
+	desc.args[4] = data_unit;
 
 	ret = scm_call2(smc_id, &desc);
 	if (ret)
@@ -267,7 +271,7 @@ static int clear_key(uint32_t index)
 }
 
 int qti_pfk_ice_set_key(uint32_t index, uint8_t *key, uint8_t *salt,
-			char *storage_type)
+			char *storage_type, unsigned int data_unit)
 {
 	int ret = 0, ret1 = 0;
 	char *s_type = storage_type;
@@ -292,12 +296,12 @@ int qti_pfk_ice_set_key(uint32_t index, uint8_t *key, uint8_t *salt,
 		goto out;
 	}
 
-	if (pfk_wrapped_key_supported() && should_use_keymaster()) {
+	if (should_use_keymaster()) {
 		pr_debug("%s: Setting wrapped key\n", __func__);
 		ret = set_wrapped_key(index, key, salt);
 	} else {
 		pr_debug("%s: Setting keys with QSEE kernel\n", __func__);
-		ret = set_key(index, key, salt);
+		ret = set_key(index, key, salt, data_unit);
 	}
 
 	if (ret) {
@@ -308,7 +312,7 @@ int qti_pfk_ice_set_key(uint32_t index, uint8_t *key, uint8_t *salt,
 				goto out;
 		}
 		/* Try to invalidate the key to keep ICE in proper state */
-		if (pfk_wrapped_key_supported() && should_use_keymaster())
+		if (should_use_keymaster())
 			ret1 = clear_wrapped_key(index);
 		else
 			ret1 = clear_key(index);
@@ -345,7 +349,7 @@ int qti_pfk_ice_invalidate_key(uint32_t index, char *storage_type)
 		return ret;
 	}
 
-	if (pfk_wrapped_key_supported() && should_use_keymaster()) {
+	if (should_use_keymaster()) {
 		ret = clear_wrapped_key(index);
 		pr_debug("%s: Clearing wrapped key\n", __func__);
 	} else {

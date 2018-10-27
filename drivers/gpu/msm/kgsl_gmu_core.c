@@ -117,7 +117,9 @@ bool gmu_core_scales_bandwidth(struct kgsl_device *device)
 	if (device->gmu_core.type == GMU_CORE_TYPE_PCC)
 		return false;
 	else
-		return gmu_core_gpmu_isenabled(device);
+		return gmu_core_gpmu_isenabled(device) &&
+		(adreno_is_a640(ADRENO_DEVICE(device)) ||
+			adreno_is_a680(ADRENO_DEVICE(device)));
 }
 
 int gmu_core_start(struct kgsl_device *device)

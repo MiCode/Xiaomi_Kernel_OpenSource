@@ -66,11 +66,10 @@ static const struct adreno_vbif_data a640_gbif[] = {
 
 static const struct adreno_vbif_platform a6xx_vbif_platforms[] = {
 	{ adreno_is_a630, a630_vbif },
-	{ adreno_is_a615, a615_gbif },
+	{ adreno_is_a615_family, a615_gbif },
 	{ adreno_is_a640, a640_gbif },
 	{ adreno_is_a680, a640_gbif },
 	{ adreno_is_a608, a615_gbif },
-	{ adreno_is_a616, a615_gbif },
 };
 
 struct kgsl_hwcg_reg {
@@ -361,11 +360,10 @@ static const struct {
 	unsigned int count;
 } a6xx_hwcg_registers[] = {
 	{adreno_is_a630, a630_hwcg_regs, ARRAY_SIZE(a630_hwcg_regs)},
-	{adreno_is_a615, a615_hwcg_regs, ARRAY_SIZE(a615_hwcg_regs)},
+	{adreno_is_a615_family, a615_hwcg_regs, ARRAY_SIZE(a615_hwcg_regs)},
 	{adreno_is_a640, a640_hwcg_regs, ARRAY_SIZE(a640_hwcg_regs)},
 	{adreno_is_a680, a640_hwcg_regs, ARRAY_SIZE(a640_hwcg_regs)},
 	{adreno_is_a608, a608_hwcg_regs, ARRAY_SIZE(a608_hwcg_regs)},
-	{adreno_is_a616, a615_hwcg_regs, ARRAY_SIZE(a615_hwcg_regs)},
 };
 
 static struct a6xx_protected_regs {
@@ -612,7 +610,7 @@ __get_gmu_ao_cgc_mode_cntl(struct adreno_device *adreno_dev)
 {
 	if (adreno_is_a608(adreno_dev))
 		return 0x00000022;
-	if (adreno_is_a615(adreno_dev) || adreno_is_a616(adreno_dev))
+	else if (adreno_is_a615_family(adreno_dev))
 		return 0x00000222;
 	else
 		return 0x00020202;
@@ -623,7 +621,7 @@ __get_gmu_ao_cgc_delay_cntl(struct adreno_device *adreno_dev)
 {
 	if (adreno_is_a608(adreno_dev))
 		return 0x00000011;
-	if (adreno_is_a615(adreno_dev) || adreno_is_a616(adreno_dev))
+	else if (adreno_is_a615_family(adreno_dev))
 		return 0x00000111;
 	else
 		return 0x00010111;
@@ -634,7 +632,7 @@ __get_gmu_ao_cgc_hyst_cntl(struct adreno_device *adreno_dev)
 {
 	if (adreno_is_a608(adreno_dev))
 		return 0x00000055;
-	if (adreno_is_a615(adreno_dev) || adreno_is_a616(adreno_dev))
+	else if (adreno_is_a615_family(adreno_dev))
 		return 0x00000555;
 	else
 		return 0x00005555;
@@ -748,8 +746,7 @@ static void a6xx_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 		+ sizeof(a6xx_ifpc_pwrup_reglist), a6xx_pwrup_reglist,
 		sizeof(a6xx_pwrup_reglist));
 
-	if (adreno_is_a615(adreno_dev) || adreno_is_a608(adreno_dev) ||
-		adreno_is_a616(adreno_dev)) {
+	if (adreno_is_a615_family(adreno_dev) || adreno_is_a608(adreno_dev)) {
 		for (i = 0; i < ARRAY_SIZE(a615_pwrup_reglist); i++) {
 			r = &a615_pwrup_reglist[i];
 			kgsl_regread(KGSL_DEVICE(adreno_dev),
@@ -1427,7 +1424,7 @@ static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 {
 	int i;
-	int64_t adj = 0;
+	int64_t adj = -1;
 	uint32_t counts[ADRENO_GPMU_THROTTLE_COUNTERS];
 	struct adreno_busy_data *busy = &adreno_dev->busy_data;
 
@@ -1443,12 +1440,12 @@ static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 	/*
 	 * The adjustment is the number of cycles lost to throttling, which
 	 * is calculated as a weighted average of the cycles throttled
-	 * at 10%, 50%, and 90%. The adjustment is negative because in A6XX,
+	 * at 15%, 50%, and 90%. The adjustment is negative because in A6XX,
 	 * the busy count includes the throttled cycles. Therefore, we want
 	 * to remove them to prevent appearing to be busier than
 	 * we actually are.
 	 */
-	adj = -((counts[0] * 1) + (counts[1] * 5) + (counts[2] * 9)) / 10;
+	adj *= ((counts[0] * 15) + (counts[1] * 50) + (counts[2] * 90)) / 100;
 
 	trace_kgsl_clock_throttling(0, counts[1], counts[2],
 			counts[0], adj);
@@ -2703,9 +2700,8 @@ static const struct {
 	int (*check)(struct adreno_device *adreno_dev);
 	void (*func)(struct adreno_device *adreno_dev);
 } a6xx_efuse_funcs[] = {
-	{ adreno_is_a615, a6xx_efuse_speed_bin },
+	{ adreno_is_a615_family, a6xx_efuse_speed_bin },
 	{ adreno_is_a608, a6xx_efuse_speed_bin },
-	{ adreno_is_a616, a6xx_efuse_speed_bin },
 };
 
 static void a6xx_check_features(struct adreno_device *adreno_dev)

@@ -130,11 +130,11 @@
 		};
 	};
 
-	nxp-ledseg-i2c@69 {
+	nxp-ledseg-i2c@15 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "nxp,pca9956b";
-		reg = <0x69>;
+		reg = <0x15>;
 		pca9956b,support_initialize = <1>;
 		pca9956b,mode1 = <0x09>;
 		pca9956b,mode2 = <0x05>;
@@ -244,4 +244,3 @@
 		};
 	};
 };
-

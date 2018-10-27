@@ -1,0 +1,18 @@
+AOP (Always-On-Processor) DDR Related Messaging
+
+The AOP DDR messaging driver is used to send messages to the AOP,
+using the mailbox interface, to lower the DDR frequency during reboot.
+
+Required properties
+
+- compatible : "qcom,aop-ddr-msgs"
+- mbox : QMP mailbox phandle and channel identifier
+
+Optional properties:
+-mbox-name: name of the mailbox
+
+Example:
+	qcom,aop-ddr-msgs {
+		compatible = "qcom,aop-ddr-msgs";
+		mboxes = <&qmp_aop 0>;
+	};
