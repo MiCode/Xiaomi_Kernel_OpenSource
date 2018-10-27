@@ -1766,8 +1766,14 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 
 	/* Unstructured VDM */
 	if (!VDM_IS_SVDM(vdm_hdr)) {
-		if (handler && handler->vdm_received)
+		if (handler && handler->vdm_received) {
 			handler->vdm_received(handler, vdm_hdr, vdos, num_vdos);
+		} else if (pd->spec_rev == USBPD_REV_30) {
+			ret = pd_send_msg(pd, MSG_NOT_SUPPORTED, NULL, 0,
+					SOP_MSG);
+			if (ret)
+				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
+		}
 		return;
 	}
 
@@ -1789,8 +1795,17 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 	switch (cmd_type) {
 	case SVDM_CMD_TYPE_INITIATOR:
 		if (cmd != USBPD_SVDM_ATTENTION) {
-			usbpd_send_svdm(pd, svid, cmd, SVDM_CMD_TYPE_RESP_NAK,
-					SVDM_HDR_OBJ_POS(vdm_hdr), NULL, 0);
+			if (pd->spec_rev == USBPD_REV_30) {
+				ret = pd_send_msg(pd, MSG_NOT_SUPPORTED, NULL,
+						0, SOP_MSG);
+				if (ret)
+					usbpd_set_state(pd, PE_SEND_SOFT_RESET);
+			} else {
+				usbpd_send_svdm(pd, svid, cmd,
+						SVDM_CMD_TYPE_RESP_NAK,
+						SVDM_HDR_OBJ_POS(vdm_hdr),
+						NULL, 0);
+			}
 		}
 		break;
 
@@ -2651,10 +2666,17 @@ static void usbpd_sm(struct work_struct *w)
 			handle_get_battery_cap(pd, rx_msg);
 		} else if (IS_EXT(rx_msg, MSG_GET_BATTERY_STATUS)) {
 			handle_get_battery_status(pd, rx_msg);
-		} else if (rx_msg && pd->spec_rev == USBPD_REV_30) {
-			/* unhandled messages */
-			ret = pd_send_msg(pd, MSG_NOT_SUPPORTED, NULL, 0,
-					SOP_MSG);
+		} else if (IS_CTRL(rx_msg, MSG_ACCEPT) ||
+			   IS_CTRL(rx_msg, MSG_REJECT) ||
+			   IS_CTRL(rx_msg, MSG_WAIT)) {
+			usbpd_warn(&pd->dev, "Unexpected message\n");
+			usbpd_set_state(pd, PE_SEND_SOFT_RESET);
+			break;
+		} else if (rx_msg && !IS_CTRL(rx_msg, MSG_NOT_SUPPORTED)) {
+			usbpd_dbg(&pd->dev, "Unsupported message\n");
+			ret = pd_send_msg(pd, pd->spec_rev == USBPD_REV_30 ?
+					MSG_NOT_SUPPORTED : MSG_REJECT,
+					NULL, 0, SOP_MSG);
 			if (ret)
 				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 			break;
@@ -3007,10 +3029,17 @@ static void usbpd_sm(struct work_struct *w)
 			handle_get_battery_cap(pd, rx_msg);
 		} else if (IS_EXT(rx_msg, MSG_GET_BATTERY_STATUS)) {
 			handle_get_battery_status(pd, rx_msg);
-		} else if (rx_msg && pd->spec_rev == USBPD_REV_30) {
-			/* unhandled messages */
-			ret = pd_send_msg(pd, MSG_NOT_SUPPORTED, NULL, 0,
-					SOP_MSG);
+		} else if (IS_CTRL(rx_msg, MSG_ACCEPT) ||
+			   IS_CTRL(rx_msg, MSG_REJECT) ||
+			   IS_CTRL(rx_msg, MSG_WAIT)) {
+			usbpd_warn(&pd->dev, "Unexpected message\n");
+			usbpd_set_state(pd, PE_SEND_SOFT_RESET);
+			break;
+		} else if (rx_msg && !IS_CTRL(rx_msg, MSG_NOT_SUPPORTED)) {
+			usbpd_dbg(&pd->dev, "Unsupported message\n");
+			ret = pd_send_msg(pd, pd->spec_rev == USBPD_REV_30 ?
+					MSG_NOT_SUPPORTED : MSG_REJECT,
+					NULL, 0, SOP_MSG);
 			if (ret)
 				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 			break;
