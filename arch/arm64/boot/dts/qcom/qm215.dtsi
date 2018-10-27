@@ -19,6 +19,15 @@
 	qcom,msm-name = "QM215";
 };
 
+/ {
+	qrd_batterydata: qcom,batterydata {
+		qcom,rpull-up-kohm = <100>;
+		qcom,vref-batt-therm = <1800000>;
+
+		#include "vbms-batterydata-mlp356477-2800mah.dtsi"
+	};
+};
+
 &soc {
 	qcom,vidc@1d00000 {
 		qcom,allowed-clock-rates = <329140000 329140000
