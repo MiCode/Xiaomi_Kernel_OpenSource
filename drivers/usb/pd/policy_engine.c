@@ -1478,8 +1478,14 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 
 	/* Unstructured VDM */
 	if (!VDM_IS_SVDM(vdm_hdr)) {
-		if (handler && handler->vdm_received)
+		if (handler && handler->vdm_received) {
 			handler->vdm_received(handler, vdm_hdr, vdos, num_vdos);
+		} else if (pd->spec_rev == USBPD_REV_30) {
+			ret = pd_send_msg(pd, MSG_NOT_SUPPORTED, NULL, 0,
+					SOP_MSG);
+			if (ret)
+				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
+		}
 		return;
 	}
 
@@ -1501,8 +1507,17 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 	switch (cmd_type) {
 	case SVDM_CMD_TYPE_INITIATOR:
 		if (cmd != USBPD_SVDM_ATTENTION) {
-			usbpd_send_svdm(pd, svid, cmd, SVDM_CMD_TYPE_RESP_NAK,
-					SVDM_HDR_OBJ_POS(vdm_hdr), NULL, 0);
+			if (pd->spec_rev == USBPD_REV_30) {
+				ret = pd_send_msg(pd, MSG_NOT_SUPPORTED, NULL,
+						0, SOP_MSG);
+				if (ret)
+					usbpd_set_state(pd, PE_SEND_SOFT_RESET);
+			} else {
+				usbpd_send_svdm(pd, svid, cmd,
+						SVDM_CMD_TYPE_RESP_NAK,
+						SVDM_HDR_OBJ_POS(vdm_hdr),
+						NULL, 0);
+			}
 		}
 		break;
 
@@ -2300,10 +2315,17 @@ static void handle_state_src_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 		handle_get_battery_cap(pd, rx_msg);
 	} else if (IS_EXT(rx_msg, MSG_GET_BATTERY_STATUS)) {
 		handle_get_battery_status(pd, rx_msg);
-	} else if (rx_msg && pd->spec_rev == USBPD_REV_30) {
-		/* unhandled messages */
-		ret = pd_send_msg(pd, MSG_NOT_SUPPORTED, NULL, 0,
-				SOP_MSG);
+	} else if (IS_CTRL(rx_msg, MSG_ACCEPT) ||
+		   IS_CTRL(rx_msg, MSG_REJECT) ||
+		   IS_CTRL(rx_msg, MSG_WAIT)) {
+		usbpd_warn(&pd->dev, "Unexpected message\n");
+		usbpd_set_state(pd, PE_SEND_SOFT_RESET);
+		break;
+	} else if (rx_msg && !IS_CTRL(rx_msg, MSG_NOT_SUPPORTED)) {
+		usbpd_dbg(&pd->dev, "Unsupported message\n");
+		ret = pd_send_msg(pd, pd->spec_rev == USBPD_REV_30 ?
+				MSG_NOT_SUPPORTED : MSG_REJECT,
+				NULL, 0, SOP_MSG);
 		if (ret)
 			usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 		return;
@@ -2676,17 +2698,19 @@ static void enter_state_snk_ready(struct usbpd *pd)
 	dual_role_instance_changed(pd->dual_role);
 }
 
-static void handle_ctrl_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
+static bool handle_ctrl_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 {
 	int ret;
 
-	if (IS_CTRL(rx_msg, MSG_GET_SINK_CAP)) {
+	switch (PD_MSG_HDR_TYPE(rx_msg->hdr)) {
+	case MSG_GET_SINK_CAP:
 		ret = pd_send_msg(pd, MSG_SINK_CAPABILITIES,
 				pd->sink_caps, pd->num_sink_caps,
 				SOP_MSG);
 		if (ret)
 			usbpd_set_state(pd, PE_SEND_SOFT_RESET);
-	} else if (IS_CTRL(rx_msg, MSG_GET_SOURCE_CAP)) {
+		break;
+	case MSG_GET_SOURCE_CAP:
 		ret = pd_send_msg(pd, MSG_SOURCE_CAPABILITIES,
 				default_src_caps,
 				ARRAY_SIZE(default_src_caps), SOP_MSG);
@@ -2694,7 +2718,8 @@ static void handle_ctrl_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 			usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 			return;
 		}
-	} else if (IS_CTRL(rx_msg, MSG_DR_SWAP)) {
+		break;
+	case MSG_DR_SWAP:
 		if (pd->vdm_state == MODE_ENTERED) {
 			usbpd_set_state(pd, PE_SNK_HARD_RESET);
 			return;
@@ -2707,7 +2732,8 @@ static void handle_ctrl_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 		}
 
 		dr_swap(pd);
-	} else if (IS_CTRL(rx_msg, MSG_PR_SWAP)) {
+		break;
+	case MSG_PR_SWAP:
 		/* TODO: should we Reject in certain circumstances? */
 		ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
 		if (ret) {
@@ -2716,8 +2742,8 @@ static void handle_ctrl_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 		}
 
 		usbpd_set_state(pd, PE_PRS_SNK_SRC_TRANSITION_TO_OFF);
-		return;
-	} else if (IS_CTRL(rx_msg, MSG_VCONN_SWAP)) {
+		break;
+	case MSG_VCONN_SWAP:
 		/*
 		 * if VCONN is connected to VBUS, make sure we are
 		 * not in high voltage contract, otherwise reject.
@@ -2730,23 +2756,35 @@ static void handle_ctrl_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 				usbpd_set_state(pd,
 						PE_SEND_SOFT_RESET);
 
-			return;
+			break;
 		}
 
 		ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
 		if (ret) {
 			usbpd_set_state(pd, PE_SEND_SOFT_RESET);
-			return;
+			break;
 		}
 		vconn_swap(pd);
-	} else if (IS_CTRL(rx_msg, MSG_GET_SOURCE_CAP_EXTENDED)) {
+	case MSG_GET_SOURCE_CAP_EXTENDED:
 		handle_get_src_cap_extended(pd);
+		break;
+	case MSG_ACCEPT:
+	case MSG_REJECT:
+	case MSG_WAIT:
+		usbpd_warn(&pd->dev, "Unexpected message\n");
+		usbpd_set_state(pd, PE_SEND_SOFT_RESET);
+		break;
+	default:
+		return false;
 	}
+
+	return true;
 }
 
-static void handle_data_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
+static bool handle_data_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 {
-	if (IS_DATA(rx_msg, MSG_SOURCE_CAPABILITIES)) {
+	switch (PD_MSG_HDR_TYPE(rx_msg->hdr)) {
+	case MSG_SOURCE_CAPABILITIES:
 		/* save the PDOs so userspace can further evaluate */
 		memset(&pd->received_pdos, 0,
 				sizeof(pd->received_pdos));
@@ -2756,14 +2794,16 @@ static void handle_data_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 		pd->src_cap_id++;
 
 		usbpd_set_state(pd, PE_SNK_EVALUATE_CAPABILITY);
-	} else if (IS_DATA(rx_msg, MSG_VDM)) {
+		break;
+	case MSG_VDM:
 		handle_vdm_rx(pd, rx_msg);
-	} else if (IS_DATA(rx_msg, MSG_ALERT)) {
+		break;
+	case MSG_ALERT:
 		u32 ado;
 
 		if (rx_msg->data_len != sizeof(ado)) {
 			usbpd_err(&pd->dev, "Invalid ado\n");
-			return;
+			break;
 		}
 		memcpy(&ado, rx_msg->payload, sizeof(ado));
 		usbpd_dbg(&pd->dev, "Received Alert 0x%08x\n", ado);
@@ -2775,56 +2815,73 @@ static void handle_data_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 		 */
 		pd->send_get_status = true;
 		kick_sm(pd, 150);
+		break;
+	default:
+		return false;
 	}
+
+	return true;
 }
 
-static void handle_ext_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
+static bool handle_ext_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 {
-	if (IS_EXT(rx_msg, MSG_SOURCE_CAPABILITIES_EXTENDED)) {
+	switch (PD_MSG_HDR_TYPE(rx_msg->hdr)) {
+	case MSG_SOURCE_CAPABILITIES_EXTENDED:
 		if (rx_msg->data_len != PD_SRC_CAP_EXT_DB_LEN) {
 			usbpd_err(&pd->dev, "Invalid src cap ext db\n");
-			return;
+			break;
 		}
 		memcpy(&pd->src_cap_ext_db, rx_msg->payload,
 			sizeof(pd->src_cap_ext_db));
 		complete(&pd->is_ready);
-	} else if (IS_EXT(rx_msg, MSG_PPS_STATUS)) {
+		break;
+	case MSG_PPS_STATUS:
 		if (rx_msg->data_len != sizeof(pd->pps_status_db)) {
 			usbpd_err(&pd->dev, "Invalid pps status db\n");
-			return;
+			break;
 		}
 		memcpy(&pd->pps_status_db, rx_msg->payload,
 			sizeof(pd->pps_status_db));
 		complete(&pd->is_ready);
-	} else if (IS_EXT(rx_msg, MSG_STATUS)) {
+		break;
+	case MSG_STATUS:
 		if (rx_msg->data_len != PD_STATUS_DB_LEN) {
 			usbpd_err(&pd->dev, "Invalid status db\n");
-			return;
+			break;
 		}
 		memcpy(&pd->status_db, rx_msg->payload,
 			sizeof(pd->status_db));
 		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
-	} else if (IS_EXT(rx_msg, MSG_BATTERY_CAPABILITIES)) {
+		break;
+	case MSG_BATTERY_CAPABILITIES:
 		if (rx_msg->data_len != PD_BATTERY_CAP_DB_LEN) {
 			usbpd_err(&pd->dev, "Invalid battery cap db\n");
-			return;
+			break;
 		}
 		memcpy(&pd->battery_cap_db, rx_msg->payload,
 			sizeof(pd->battery_cap_db));
 		complete(&pd->is_ready);
-	} else if (IS_EXT(rx_msg, MSG_BATTERY_STATUS)) {
+		break;
+	case MSG_BATTERY_STATUS:
 		if (rx_msg->data_len != sizeof(pd->battery_sts_dobj)) {
 			usbpd_err(&pd->dev, "Invalid bat sts dobj\n");
-			return;
+			break;
 		}
 		memcpy(&pd->battery_sts_dobj, rx_msg->payload,
 			sizeof(pd->battery_sts_dobj));
 		complete(&pd->is_ready);
-	} else if (IS_EXT(rx_msg, MSG_GET_BATTERY_CAP)) {
+		break;
+	case MSG_GET_BATTERY_CAP:
 		handle_get_battery_cap(pd, rx_msg);
-	} else if (IS_EXT(rx_msg, MSG_GET_BATTERY_STATUS)) {
+		break;
+	case MSG_GET_BATTERY_STATUS:
 		handle_get_battery_status(pd, rx_msg);
+		break;
+	default:
+		return false;
 	}
+
+	return true;
 }
 
 static void handle_snk_ready_tx(struct usbpd *pd, struct rx_msg *rx_msg)
@@ -2907,18 +2964,20 @@ static void handle_state_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 {
 	int ret;
 
-	if (rx_msg && !PD_MSG_HDR_COUNT(rx_msg->hdr)) {
-		handle_ctrl_snk_ready(pd, rx_msg);
+	if (rx_msg && !PD_MSG_HDR_COUNT(rx_msg->hdr) &&
+		handle_ctrl_snk_ready(pd, rx_msg)) {
 		return;
-	} else if (rx_msg && !PD_MSG_HDR_IS_EXTENDED(rx_msg->hdr)) {
-		handle_data_snk_ready(pd, rx_msg);
+	} else if (rx_msg && !PD_MSG_HDR_IS_EXTENDED(rx_msg->hdr) &&
+		handle_data_snk_ready(pd, rx_msg)) {
 		return;
-	} else if (rx_msg && PD_MSG_HDR_IS_EXTENDED(rx_msg->hdr)) {
-		handle_ext_snk_ready(pd, rx_msg);
-	} else if (rx_msg && pd->spec_rev == USBPD_REV_30) {
-		/* unhandled messages */
-		ret = pd_send_msg(pd, MSG_NOT_SUPPORTED, NULL, 0,
-				SOP_MSG);
+	} else if (rx_msg && PD_MSG_HDR_IS_EXTENDED(rx_msg->hdr) &&
+		handle_ext_snk_ready(pd, rx_msg)) {
+		/* continue to handle tx */
+	} else if (rx_msg && !IS_CTRL(rx_msg, MSG_NOT_SUPPORTED)) {
+		usbpd_dbg(&pd->dev, "Unsupported message\n");
+		ret = pd_send_msg(pd, pd->spec_rev == USBPD_REV_30 ?
+				MSG_NOT_SUPPORTED : MSG_REJECT,
+				NULL, 0, SOP_MSG);
 		if (ret)
 			usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 		return;
