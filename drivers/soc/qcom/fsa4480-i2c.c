@@ -389,7 +389,8 @@ static int fsa4480_remove(struct i2c_client *i2c)
 		return -EINVAL;
 
 	fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
-
+	cancel_work(&fsa_priv->usbc_analog_work);
+	pm_relax(fsa_priv->dev);
 	/* deregister from PMI */
 	power_supply_unreg_notifier(&fsa_priv->psy_nb);
 	power_supply_put(fsa_priv->usb_psy);
