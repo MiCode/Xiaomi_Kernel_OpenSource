@@ -406,7 +406,12 @@ struct usbpd {
 	int			num_sink_caps;
 
 	struct power_supply	*usb_psy;
+	struct power_supply	*bat_psy;
+	struct power_supply	*bms_psy;
 	struct notifier_block	psy_nb;
+
+	int			bms_charge_full;
+	int			bat_voltage_max;
 
 	enum power_supply_typec_mode typec_mode;
 	enum power_supply_typec_power_role forced_pr;
@@ -1619,6 +1624,136 @@ static void reset_vdm_state(struct usbpd *pd)
 	pd->ss_lane_svid = 0x0;
 }
 
+static void handle_get_src_cap_extended(struct usbpd *pd)
+{
+	int ret;
+	struct {
+		u16 vid;
+		u16 pid;
+		u32 xid;
+		u8  fw_version;
+		u8  hw_version;
+		u8  voltage_reg;
+		u8  holdup_time;
+		u8  compliance;
+		u8  touch_current;
+		u16 peak_current1;
+		u16 peak_current2;
+		u16 peak_current3;
+		u8  touch_temp;
+		u8  source_inputs;
+		u8  num_batt;
+		u8  pdp;
+	} __packed caps = {0};
+
+	caps.vid = 0x5c6;
+	caps.num_batt = 1;
+	caps.pdp = 5 * PD_SRC_PDO_FIXED_MAX_CURR(default_src_caps[0]) / 100;
+
+	ret = pd_send_ext_msg(pd, MSG_SOURCE_CAPABILITIES_EXTENDED, (u8 *)&caps,
+			sizeof(caps), SOP_MSG);
+	if (ret)
+		usbpd_set_state(pd, PE_SEND_SOFT_RESET);
+}
+
+static void handle_get_battery_cap(struct usbpd *pd, struct rx_msg *rx_msg)
+{
+	int ret;
+	u8 bat_num;
+	struct {
+		u16 vid;
+		u16 pid;
+		u16 capacity;
+		u16 last_full;
+		u8  type;
+	} __packed bcdb = {0, 0, 0xffff, 0xffff, 0};
+
+	if (rx_msg->data_len != 1) {
+		usbpd_err(&pd->dev, "Invalid payload size: %d\n",
+				rx_msg->data_len);
+		return;
+	}
+
+	bat_num = rx_msg->payload[0];
+
+	if (bat_num || !pd->bat_psy || !pd->bms_psy) {
+		usbpd_warn(&pd->dev, "Battery %d unsupported\n", bat_num);
+		bcdb.type = BIT(0); /* invalid */
+		goto send;
+	}
+
+	bcdb.capacity = ((pd->bms_charge_full / 1000) *
+			(pd->bat_voltage_max / 1000)) / 100000;
+	/* fix me */
+	bcdb.last_full = ((pd->bms_charge_full / 1000) *
+			(pd->bat_voltage_max / 1000)) / 100000;
+send:
+	ret = pd_send_ext_msg(pd, MSG_BATTERY_CAPABILITIES, (u8 *)&bcdb,
+			sizeof(bcdb), SOP_MSG);
+	if (ret)
+		usbpd_set_state(pd, PE_SEND_SOFT_RESET);
+}
+
+static void handle_get_battery_status(struct usbpd *pd, struct rx_msg *rx_msg)
+{
+	int ret;
+	int cap;
+	union power_supply_propval val = {0};
+	u8 bat_num;
+	u32 bsdo = 0xffff0000;
+
+	if (rx_msg->data_len != 1) {
+		usbpd_err(&pd->dev, "Invalid payload size: %d\n",
+				rx_msg->data_len);
+		return;
+	}
+
+	bat_num = rx_msg->payload[0];
+
+	if (bat_num || !pd->bat_psy) {
+		usbpd_warn(&pd->dev, "Battery %d unsupported\n", bat_num);
+		bsdo |= BIT(8); /* invalid */
+		goto send;
+	}
+
+	ret = power_supply_get_property(pd->bat_psy, POWER_SUPPLY_PROP_PRESENT,
+			&val);
+	if (ret || !val.intval)
+		goto send;
+
+	bsdo |= BIT(9);
+
+	ret = power_supply_get_property(pd->bat_psy, POWER_SUPPLY_PROP_STATUS,
+			&val);
+	if (!ret) {
+		switch (val.intval) {
+		case POWER_SUPPLY_STATUS_CHARGING:
+			break;
+		case POWER_SUPPLY_STATUS_DISCHARGING:
+			bsdo |= (1 << 10);
+			break;
+		default:
+			bsdo |= (2 << 10);
+			break;
+		}
+	}
+
+	/* state of charge */
+	ret = power_supply_get_property(pd->bat_psy,
+			POWER_SUPPLY_PROP_CAPACITY, &val);
+	if (ret)
+		goto send;
+	cap = val.intval;
+
+	bsdo &= 0xffff;
+	bsdo |= ((cap * (pd->bms_charge_full / 1000) *
+			(pd->bat_voltage_max / 1000)) / 10000000) << 16;
+send:
+	ret = pd_send_msg(pd, MSG_BATTERY_STATUS, &bsdo, 1, SOP_MSG);
+	if (ret)
+		usbpd_set_state(pd, PE_SEND_SOFT_RESET);
+}
+
 static void dr_swap(struct usbpd *pd)
 {
 	reset_vdm_state(pd);
@@ -2159,6 +2294,12 @@ static void handle_state_src_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 			start_src_ams(pd, false);
 	} else if (IS_DATA(rx_msg, MSG_VDM)) {
 		handle_vdm_rx(pd, rx_msg);
+	} else if (IS_CTRL(rx_msg, MSG_GET_SOURCE_CAP_EXTENDED)) {
+		handle_get_src_cap_extended(pd);
+	} else if (IS_EXT(rx_msg, MSG_GET_BATTERY_CAP)) {
+		handle_get_battery_cap(pd, rx_msg);
+	} else if (IS_EXT(rx_msg, MSG_GET_BATTERY_STATUS)) {
+		handle_get_battery_status(pd, rx_msg);
 	} else if (rx_msg && pd->spec_rev == USBPD_REV_30) {
 		/* unhandled messages */
 		ret = pd_send_msg(pd, MSG_NOT_SUPPORTED, NULL, 0,
@@ -2598,6 +2739,8 @@ static void handle_ctrl_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 			return;
 		}
 		vconn_swap(pd);
+	} else if (IS_CTRL(rx_msg, MSG_GET_SOURCE_CAP_EXTENDED)) {
+		handle_get_src_cap_extended(pd);
 	}
 }
 
@@ -2677,6 +2820,10 @@ static void handle_ext_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 		memcpy(&pd->battery_sts_dobj, rx_msg->payload,
 			sizeof(pd->battery_sts_dobj));
 		complete(&pd->is_ready);
+	} else if (IS_EXT(rx_msg, MSG_GET_BATTERY_CAP)) {
+		handle_get_battery_cap(pd, rx_msg);
+	} else if (IS_EXT(rx_msg, MSG_GET_BATTERY_STATUS)) {
+		handle_get_battery_status(pd, rx_msg);
 	}
 }
 
@@ -4352,6 +4499,7 @@ struct usbpd *usbpd_create(struct device *parent)
 {
 	int ret;
 	struct usbpd *pd;
+	union power_supply_propval val = {0};
 
 	pd = kzalloc(sizeof(*pd), GFP_KERNEL);
 	if (!pd)
@@ -4393,6 +4541,20 @@ struct usbpd *usbpd_create(struct device *parent)
 		ret = -EPROBE_DEFER;
 		goto destroy_wq;
 	}
+
+	if (!pd->bat_psy)
+		pd->bat_psy = power_supply_get_by_name("battery");
+	if (pd->bat_psy)
+		if (!power_supply_get_property(pd->bat_psy,
+			POWER_SUPPLY_PROP_VOLTAGE_MAX, &val))
+			pd->bat_voltage_max = val.intval;
+
+	if (!pd->bms_psy)
+		pd->bms_psy = power_supply_get_by_name("bms");
+	if (pd->bms_psy)
+		if (!power_supply_get_property(pd->bms_psy,
+			POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN, &val))
+			pd->bms_charge_full = val.intval;
 
 	/*
 	 * associate extcon with the parent dev as it could have a DT
@@ -4535,6 +4697,10 @@ void usbpd_destroy(struct usbpd *pd)
 	list_del(&pd->instance);
 	power_supply_unreg_notifier(&pd->psy_nb);
 	power_supply_put(pd->usb_psy);
+	if (pd->bat_psy)
+		power_supply_put(pd->bat_psy);
+	if (pd->bms_psy)
+		power_supply_put(pd->bms_psy);
 	destroy_workqueue(pd->wq);
 	device_unregister(&pd->dev);
 }
