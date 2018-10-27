@@ -32,6 +32,7 @@
 #include <linux/of.h>
 #include <linux/pm.h>
 #include <linux/jiffies.h>
+#include <linux/sched/debug.h>
 
 #include <linux/mmc/card.h>
 #include <linux/mmc/host.h>
@@ -346,9 +347,19 @@ int mmc_cmdq_halt_on_empty_queue(struct mmc_host *host)
 {
 	int err = 0;
 
-	err = wait_event_interruptible(host->cmdq_ctx.queue_empty_wq,
-				(!host->cmdq_ctx.active_reqs));
-	if (host->cmdq_ctx.active_reqs) {
+	err = wait_event_interruptible_timeout(host->cmdq_ctx.queue_empty_wq,
+			(!host->cmdq_ctx.active_reqs),
+			msecs_to_jiffies(MMC_CMDQ_WAIT_EVENT_TIMEOUT_MS));
+
+	if (WARN_ON(!err && host->cmdq_ctx.active_reqs)) {
+		pr_err("%s: %s: timeout case? host-claimed(%d), claim-cnt(%d), claim-comm(%s), active-reqs(0x%x)\n",
+			mmc_hostname(host), __func__, host->claimed,
+			host->claim_cnt, host->claimer->comm,
+			host->cmdq_ctx.active_reqs);
+		if (host->claimer)
+			sched_show_task(host->claimer);
+		return -EBUSY;
+	} else if (host->cmdq_ctx.active_reqs) {
 		pr_err("%s: %s: unexpected active requests (%lu)\n",
 			mmc_hostname(host), __func__,
 			host->cmdq_ctx.active_reqs);
