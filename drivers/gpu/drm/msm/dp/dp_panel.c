@@ -985,6 +985,7 @@ static int dp_panel_set_edid(struct dp_panel *dp_panel, u8 *edid)
 		panel->custom_edid = true;
 	} else {
 		panel->custom_edid = false;
+		dp_panel->edid_ctrl->edid = NULL;
 	}
 
 	return 0;
