@@ -23,6 +23,7 @@
 #include <linux/user-return-notifier.h>
 #include <linux/uprobes.h>
 #include <linux/context_tracking.h>
+#include <linux/syscalls.h>
 
 #include <asm/processor.h>
 #include <asm/ucontext.h>
@@ -739,6 +740,8 @@ __visible void
 do_notify_resume(struct pt_regs *regs, void *unused, __u32 thread_info_flags)
 {
 	user_exit();
+
+	addr_limit_user_check();
 
 #ifdef CONFIG_X86_MCE
 	/* notify userspace of pending MCEs */
