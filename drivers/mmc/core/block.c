@@ -3081,6 +3081,7 @@ reset:
 
 	up_write(&ctx_info->err_rwsem);
 	wake_up(&ctx_info->wait);
+	wake_up_interruptible(&host->cmdq_ctx.queue_empty_wq);
 }
 
 /* invoked by block layer in softirq context */
