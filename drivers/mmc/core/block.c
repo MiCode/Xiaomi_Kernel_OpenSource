@@ -3440,11 +3440,12 @@ out:
 	return ret;
 }
 
-static void  mmc_cmdq_wait_for_small_sector_read(struct mmc_card *card)
+static int  mmc_cmdq_wait_for_small_sector_read(struct mmc_card *card,
+						struct request *req)
 {
 	struct mmc_host *host = card->host;
 	struct mmc_cmdq_context_info *ctx = &host->cmdq_ctx;
-	int ret;
+	int ret = 0;
 
 	if ((card->quirks & MMC_QUIRK_CMDQ_EMPTY_BEFORE_DCMD) &&
 		ctx->active_small_sector_read_reqs) {
@@ -3466,6 +3467,7 @@ static void  mmc_cmdq_wait_for_small_sector_read(struct mmc_card *card)
 		 */
 		udelay(MMC_QUIRK_CMDQ_DELAY_BEFORE_DCMD);
 	}
+	return ret;
 }
 
 static int mmc_blk_cmdq_issue_drv_op(struct mmc_card *card, struct request *req)
@@ -3570,8 +3572,9 @@ static int mmc_blk_cmdq_issue_rq(struct mmc_queue *mq, struct request *req)
 	if (req) {
 		switch (req_op(req)) {
 		case REQ_OP_DISCARD:
-			mmc_cmdq_wait_for_small_sector_read(card);
-			ret = mmc_blk_cmdq_issue_discard_rq(mq, req);
+			ret = mmc_cmdq_wait_for_small_sector_read(card, req);
+			if (!ret)
+				ret = mmc_blk_cmdq_issue_discard_rq(mq, req);
 			break;
 		case REQ_OP_SECURE_ERASE:
 			if (!(card->quirks & MMC_QUIRK_SEC_ERASE_TRIM_BROKEN))
@@ -3580,8 +3583,9 @@ static int mmc_blk_cmdq_issue_rq(struct mmc_queue *mq, struct request *req)
 				ret = mmc_blk_cmdq_issue_discard_rq(mq, req);
 			break;
 		case REQ_OP_FLUSH:
-			mmc_cmdq_wait_for_small_sector_read(card);
-			ret = mmc_blk_cmdq_issue_flush_rq(mq, req);
+			ret = mmc_cmdq_wait_for_small_sector_read(card, req);
+			if (!ret)
+				ret = mmc_blk_cmdq_issue_flush_rq(mq, req);
 			break;
 		case REQ_OP_DRV_IN:
 		case REQ_OP_DRV_OUT:
