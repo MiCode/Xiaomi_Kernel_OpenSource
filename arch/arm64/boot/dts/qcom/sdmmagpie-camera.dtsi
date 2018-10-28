@@ -1121,7 +1121,8 @@
 		qcom,axi-port-list {
 			qcom,axi-port1 {
 				/* this port is clubbed port of two ports
-				   and for all Non rdi traffic*/
+				 * (READ and PIX ports)
+				 */
 				qcom,axi-port-name = "cam_hf_0";
 				qcom,axi-port-mnoc {
 					qcom,msm-bus,name = "cam_hf_0_mnoc";
