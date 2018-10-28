@@ -33,7 +33,6 @@
 #define MAX_DP_MST_STREAMS		2
 #define MAX_DP_MST_DRM_ENCODERS		2
 #define MAX_DP_MST_DRM_BRIDGES		2
-#define DP_MST_SIM_MAX_PORTS    2
 #define HPD_STRING_SIZE			30
 
 struct dp_drm_mst_fw_helper_ops {
@@ -89,6 +88,7 @@ struct dp_mst_sim_mode {
 	struct work_struct conn_destroy_work;
 	const struct drm_dp_mst_topology_cbs *cbs;
 	int pbn_div;
+	u32 port_cnt;
 };
 
 struct dp_mst_bridge {
@@ -175,7 +175,7 @@ static void drm_dp_mst_sim_link_probe_work(struct work_struct *work)
 		break;
 	}
 
-	for (cnt = 0; cnt < DP_MST_SIM_MAX_PORTS; cnt++) {
+	for (cnt = 0; cnt < sim->port_cnt; cnt++) {
 		sim->sim_port[cnt].port_id = cnt;
 
 		sim->sim_port[cnt].connector = sim->cbs->add_connector(
@@ -205,7 +205,7 @@ static void drm_dp_mst_sim_conn_destroy_work(struct work_struct *work)
 	sim = container_of(work, struct dp_mst_sim_mode, conn_destroy_work);
 	mst = container_of(sim, struct dp_mst_private, simulator);
 
-	for (cnt = 0; cnt < DP_MST_SIM_MAX_PORTS; cnt++) {
+	for (cnt = 0; cnt < sim->port_cnt; cnt++) {
 
 		sim->sim_port[cnt].status = connector_status_disconnected;
 
@@ -268,6 +268,7 @@ static bool drm_dp_sim_mst_allocate_vcpi(struct drm_dp_mst_topology_mgr *mgr,
 	sim_port->start_slot = mst->simulator.free_slot_id;
 	mst->simulator.vcpi[i] = sim_port->vcpi;
 	mst->simulator.free_slot_id = mst->simulator.free_slot_id + slots;
+	port->vcpi.vcpi = sim_port->vcpi;
 
 	DP_MST_DEBUG("ch:%d, start_slot:%d, slots:%d\n",
 			sim_port->port_id, sim_port->start_slot,
@@ -956,12 +957,20 @@ dp_mst_connector_detect(struct drm_connector *connector, bool force,
 	struct dp_display *dp_display = c_conn->display;
 	struct dp_mst_private *mst = dp_display->dp_mst_prv_info;
 	enum drm_connector_status status;
+	struct dp_mst_connector mst_conn;
 
 	DP_MST_DEBUG("enter:\n");
 
 	status = mst->mst_fw_cbs->detect_port(connector,
 			&mst->mst_mgr,
 			c_conn->mst_port);
+
+	memset(&mst_conn, 0, sizeof(mst_conn));
+	dp_display->mst_get_connector_info(dp_display, connector, &mst_conn);
+	if (mst_conn.conn == connector &&
+			mst_conn.state != connector_status_unknown) {
+		status = mst_conn.state;
+	}
 
 	DP_MST_DEBUG("mst connector:%d detect, status:%d\n",
 			connector->base.id, status);
@@ -1372,7 +1381,7 @@ static void dp_mst_hpd_event_notify(struct dp_mst_private *mst, bool hpd_status)
 /* DP Driver Callback OPs */
 
 static void dp_mst_display_hpd(void *dp_display, bool hpd_status,
-		struct dp_mst_hdp_info *info)
+		struct dp_mst_hpd_info *info)
 {
 	int rc;
 	struct dp_display *dp = dp_display;
@@ -1385,8 +1394,10 @@ static void dp_mst_display_hpd(void *dp_display, bool hpd_status,
 				hpd_status);
 
 	if (info && !info->mst_protocol) {
-		if (hpd_status)
+		if (hpd_status) {
 			mst->simulator.edid = (struct edid *)info->edid;
+			mst->simulator.port_cnt = info->mst_port_cnt;
+		}
 		mst->mst_fw_cbs = &drm_dp_sim_mst_fw_helper_ops;
 	} else {
 		mst->mst_fw_cbs = &drm_dp_mst_fw_helper_ops;
@@ -1403,7 +1414,8 @@ static void dp_mst_display_hpd(void *dp_display, bool hpd_status,
 	DP_MST_DEBUG("exit:\n");
 }
 
-static void dp_mst_display_hpd_irq(void *dp_display)
+static void dp_mst_display_hpd_irq(void *dp_display,
+			struct dp_mst_hpd_info *info)
 {
 	int rc;
 	struct dp_display *dp = dp_display;
@@ -1413,6 +1425,11 @@ static void dp_mst_display_hpd_irq(void *dp_display)
 	bool handled;
 
 	DP_MST_DEBUG("enter:\n");
+
+	if (info->mst_hpd_sim) {
+		dp_mst_hotplug(&mst->mst_mgr);
+		return;
+	}
 
 	rc = drm_dp_dpcd_read(mst->caps.drm_aux, DP_SINK_COUNT_ESI,
 		esi, 14);
