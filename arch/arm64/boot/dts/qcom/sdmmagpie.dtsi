@@ -2212,8 +2212,8 @@
 				<125 512 393600 393600>;
 		qcom,smmu-s1-enable;
 		qcom,no-clock-support;
-		iommus = <&apps_smmu 0x0106 0x0011>,
-			 <&apps_smmu 0x0116 0x0011>;
+		iommus = <&apps_smmu 0x0506 0x0011>,
+			 <&apps_smmu 0x0516 0x0011>;
 	};
 
 	qcom_crypto: qcrypto@1de0000 {
@@ -2242,8 +2242,8 @@
 		qcom,use-sw-hmac-algo;
 		qcom,smmu-s1-enable;
 		qcom,no-clock-support;
-		iommus = <&apps_smmu 0x0104 0x0011>,
-			<&apps_smmu 0x0114 0x0011>;
+		iommus = <&apps_smmu 0x0504 0x0011>,
+			<&apps_smmu 0x0514 0x0011>;
 	};
 
 	qcom_tzlog: tz-log@146aa720 {
