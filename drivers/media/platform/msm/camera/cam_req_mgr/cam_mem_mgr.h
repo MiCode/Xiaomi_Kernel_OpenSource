@@ -54,7 +54,7 @@ struct cam_mem_buf_queue {
 	size_t len;
 	uint32_t flags;
 	uint64_t vaddr;
-	uint64_t kmdvaddr;
+	uintptr_t kmdvaddr;
 	bool active;
 	bool is_imported;
 };

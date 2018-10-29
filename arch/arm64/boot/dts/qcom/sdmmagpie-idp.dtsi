@@ -13,6 +13,7 @@
 
 #include <dt-bindings/gpio/gpio.h>
 #include "sdmmagpie-sde-display.dtsi"
+#include "sdmmagpie-camera-sensor-idp.dtsi"
 
 &soc {
 };
