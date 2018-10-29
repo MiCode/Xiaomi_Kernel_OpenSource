@@ -260,6 +260,16 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 		else
 			vote_data[i].fps = inst->prop.fps;
 
+		if (inst->session_type == MSM_VIDC_ENCODER) {
+			vote_data[i].bitrate = inst->clk_data.bitrate;
+			/* scale bitrate if operating rate is larger than fps */
+			if (vote_data[i].fps > inst->prop.fps
+				&& inst->prop.fps) {
+				vote_data[i].bitrate = vote_data[i].bitrate /
+				inst->prop.fps * vote_data[i].fps;
+			}
+		}
+
 		vote_data[i].power_mode = 0;
 		if (!msm_vidc_clock_scaling || is_turbo ||
 			inst->clk_data.buffer_counter < DCVS_FTB_WINDOW)
