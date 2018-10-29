@@ -2804,6 +2804,7 @@ static int apq8009_asoc_machine_probe(struct platform_device *pdev)
 	const char *mclk = "qcom,msm-mclk-freq";
 	const char *type = NULL;
 	int ret, id;
+	int tdm_mic_mute_enable = -EINVAL;
 
 	pdata = devm_kzalloc(&pdev->dev,
 			sizeof(struct apq8009_asoc_mach_data), GFP_KERNEL);
@@ -2916,6 +2917,24 @@ static int apq8009_asoc_machine_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Looking up %s property in node %s failed\n",
 			"qcom,tdm-i2s-switch-enable",
 			pdev->dev.of_node->full_name);
+
+	tdm_mic_mute_enable = of_get_named_gpio(pdev->dev.of_node,
+				"qcom,tdm-mic-mute-enable", 0);
+	if (tdm_mic_mute_enable >= 0) {
+		dev_dbg(&pdev->dev, "%s: tdm mic mute gpio %d\n", __func__,
+			tdm_mic_mute_enable);
+		ret = gpio_request(tdm_mic_mute_enable, "TDM_MIC");
+		if (ret) {
+			pr_err("%s: Failed to request gpio\n", __func__);
+			goto err;
+		}
+		/* Pull down GPIO to unmute TDM mics */
+		gpio_direction_output(tdm_mic_mute_enable, 0);
+	} else {
+		dev_err(&pdev->dev, "Looking up %s property in node %s failed\n",
+			"qcom,tdm-mic-mute-enable",
+			pdev->dev.of_node->full_name);
+	}
 
 	return 0;
 err:
