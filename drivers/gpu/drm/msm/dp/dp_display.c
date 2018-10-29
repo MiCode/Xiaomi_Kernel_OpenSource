@@ -2230,10 +2230,7 @@ int dp_display_get_num_of_displays(void)
 
 int dp_display_get_num_of_streams(void)
 {
-	if (g_dp_display->is_mst_supported)
-		return DP_STREAM_MAX;
-
-	return 0;
+	return DP_STREAM_MAX;
 }
 
 static int dp_display_remove(struct platform_device *pdev)

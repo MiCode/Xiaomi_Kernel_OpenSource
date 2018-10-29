@@ -123,9 +123,15 @@ struct dp_mst_private {
 	struct mutex mst_lock;
 };
 
+struct dp_mst_encoder_info_cache {
+	u8 cnt;
+	struct drm_encoder *mst_enc[MAX_DP_MST_DRM_BRIDGES];
+};
+
 #define to_dp_mst_bridge(x)     container_of((x), struct dp_mst_bridge, base)
 
 struct dp_mst_private dp_mst;
+struct dp_mst_encoder_info_cache dp_mst_enc_cache;
 
 /* DRM DP MST Framework simulator OPs */
 
@@ -808,18 +814,14 @@ static void dp_mst_bridge_post_disable(struct drm_bridge *drm_bridge)
 	mst = dp->dp_mst_prv_info;
 
 	rc = dp->disable(dp, bridge->dp_panel);
-	if (rc) {
-		pr_err("[%d] DP display disable failed, rc=%d\n",
+	if (rc)
+		pr_info("[%d] DP display disable failed, rc=%d\n",
 		       bridge->id, rc);
-		return;
-	}
 
 	rc = dp->unprepare(dp, bridge->dp_panel);
-	if (rc) {
-		pr_err("[%d] DP display unprepare failed, rc=%d\n",
+	if (rc)
+		pr_info("[%d] DP display unprepare failed, rc=%d\n",
 		       bridge->id, rc);
-		return;
-	}
 
 	/* Disconnect the connector and panel info from bridge */
 	mst->mst_bridge[bridge->id].connector = NULL;
@@ -887,8 +889,16 @@ int dp_mst_drm_bridge_init(void *data, struct drm_encoder *encoder)
 	int i;
 
 	if (!mst || !mst->mst_initialized) {
-		pr_err("mst not initialized\n");
-		return -ENODEV;
+		if (dp_mst_enc_cache.cnt >= MAX_DP_MST_DRM_BRIDGES) {
+			pr_info("exceeding max bridge cnt %d\n",
+					dp_mst_enc_cache.cnt);
+			return 0;
+		}
+
+		dp_mst_enc_cache.mst_enc[dp_mst_enc_cache.cnt] = encoder;
+		dp_mst_enc_cache.cnt++;
+		pr_info("mst not initialized. cache encoder information\n");
+		return 0;
 	}
 
 	for (i = 0; i < MAX_DP_MST_DRM_BRIDGES; i++) {
@@ -1130,7 +1140,6 @@ static int dp_mst_connector_atomic_check(struct drm_connector *connector,
 	state = new_conn_state->state;
 
 	old_conn_state = drm_atomic_get_old_connector_state(state, connector);
-
 	if (!old_conn_state)
 		goto mode_set;
 
@@ -1149,7 +1158,6 @@ static int dp_mst_connector_atomic_check(struct drm_connector *connector,
 
 	bridge = _dp_mst_get_bridge_from_encoder(dp_display,
 			old_conn_state->best_encoder);
-
 	if (!bridge)
 		return rc;
 
@@ -1177,14 +1185,23 @@ mode_set:
 				&crtc_state->mode, &dp_mode);
 
 		slots = _dp_mst_compute_config(state, mst, connector, &dp_mode);
-		if (slots < 0)
+		if (slots < 0) {
 			rc = slots;
+
+			/* Disconnect the conn and panel info from bridge */
+			bridge = _dp_mst_get_bridge_from_encoder(dp_display,
+						new_conn_state->best_encoder);
+			if (!bridge)
+				goto end;
+
+			bridge->connector = NULL;
+			bridge->dp_panel = NULL;
+			bridge->encoder_active_sts = false;
+		}
 	}
 
+end:
 	DP_MST_DEBUG("mst connector:%d atomic check\n", connector->base.id);
-
-	DP_MST_DEBUG("exit:\n");
-
 	return rc;
 }
 
@@ -1449,7 +1466,7 @@ int dp_mst_init(struct dp_display *dp_display)
 {
 	struct drm_device *dev;
 	int conn_base_id = 0;
-	int ret;
+	int ret, i;
 	struct dp_mst_drm_install_info install_info;
 
 	memset(&dp_mst, 0, sizeof(dp_mst));
@@ -1495,6 +1512,13 @@ int dp_mst_init(struct dp_display *dp_display)
 	drm_dp_sim_mst_init(&dp_mst);
 
 	dp_mst.mst_initialized = true;
+
+	/* create drm_bridges for cached mst encoders and clear cache */
+	for (i = 0; i < dp_mst_enc_cache.cnt; i++) {
+		ret = dp_mst_drm_bridge_init(dp_display,
+				dp_mst_enc_cache.mst_enc[i]);
+	}
+	memset(&dp_mst_enc_cache, 0, sizeof(dp_mst_enc_cache));
 
 	DP_MST_DEBUG("dp drm mst topology manager init completed\n");
 
