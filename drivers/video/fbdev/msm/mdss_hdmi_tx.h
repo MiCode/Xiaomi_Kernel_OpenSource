@@ -101,6 +101,7 @@ struct hdmi_tx_ctrl {
 	u32 hdmi_tx_major_version;
 	u32 max_pclk_khz;
 	u32 hpd_state;
+	bool hpd_notif_state;
 	u32 hpd_off_pending;
 	u32 hpd_feature_on;
 	u32 hpd_initialized;

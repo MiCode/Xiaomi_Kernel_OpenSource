@@ -427,7 +427,7 @@ static inline void hdmi_tx_audio_notify(
 }
 
 static void hdmi_tx_send_cable_notification(
-		struct hdmi_tx_ctrl *hdmi_ctrl, int val)
+		struct hdmi_tx_ctrl *hdmi_ctrl, bool val)
 {
 	char name[HPD_STRING_SIZE], status[HPD_STRING_SIZE];
 	char *envp[3];
@@ -436,6 +436,13 @@ static void hdmi_tx_send_cable_notification(
 		DEV_ERR("%s: invalid hdmi ctrl data\n", __func__);
 		return;
 	}
+
+	if (hdmi_ctrl->hpd_notif_state == !!val) {
+		pr_debug("%s: no change in HPD state\n", __func__);
+		return;
+	}
+
+	hdmi_ctrl->hpd_notif_state = !!val;
 
 	snprintf(name, HPD_STRING_SIZE, "name=%s", "HDMI");
 	snprintf(status, HPD_STRING_SIZE, "status=%s",
