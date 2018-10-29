@@ -181,7 +181,7 @@ static int msm_qti_pp_put_dtmf_module_enable
 	struct audio_client *ac = NULL;
 	struct param_hdr_v3 param_hdr;
 	int ret = 0;
-	u32 flag = ucontrol->value.integer.value[0];
+	u32 flag = (bool)ucontrol->value.integer.value[0];
 
 	fe_id = ((struct soc_multi_mixer_control *)
 			kcontrol->private_value)->shift;
