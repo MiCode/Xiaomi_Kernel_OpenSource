@@ -1775,15 +1775,19 @@ static void dr_swap(struct usbpd *pd)
 	usbpd_dbg(&pd->dev, "%s: current_dr(%d)\n", __func__, pd->current_dr);
 
 	if (pd->current_dr == DR_DFP) {
+		pd->current_dr = DR_UFP;
+		pd_phy_update_roles(pd->current_dr, pd->current_pr);
+
 		stop_usb_host(pd);
 		if (pd->peer_usb_comm)
 			start_usb_peripheral(pd);
-		pd->current_dr = DR_UFP;
 	} else if (pd->current_dr == DR_UFP) {
+		pd->current_dr = DR_DFP;
+		pd_phy_update_roles(pd->current_dr, pd->current_pr);
+
 		stop_usb_peripheral(pd);
 		if (pd->peer_usb_comm)
 			start_usb_host(pd, true);
-		pd->current_dr = DR_DFP;
 
 		/* ensure host is started before allowing DP */
 		extcon_blocking_sync(pd->extcon, EXTCON_USB_HOST, 0);
@@ -1792,7 +1796,6 @@ static void dr_swap(struct usbpd *pd)
 				SVDM_CMD_TYPE_INITIATOR, 0, NULL, 0);
 	}
 
-	pd_phy_update_roles(pd->current_dr, pd->current_pr);
 	dual_role_instance_changed(pd->dual_role);
 }
 
