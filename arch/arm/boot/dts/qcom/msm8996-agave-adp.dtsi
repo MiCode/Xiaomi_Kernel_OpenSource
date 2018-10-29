@@ -846,7 +846,14 @@
 			<&clock_mmss clk_camss_csi2rdi_clk>,
 			<&clock_mmss clk_camss_ispif_ahb_clk>,
 			<&clock_mmss clk_camss_vfe0_clk>,
-			<&clock_mmss clk_camss_vfe1_clk>;
+			<&clock_mmss clk_camss_vfe1_clk>,
+			<&clock_mmss clk_camss_csi1_ahb_clk>,
+			<&clock_mmss clk_camss_csi1_clk>,
+			<&clock_mmss clk_camss_csi1phy_clk>,
+			<&clock_mmss clk_csi1phytimer_clk_src>,
+			<&clock_mmss clk_camss_csi1phytimer_clk>,
+			<&clock_mmss clk_camss_csi1rdi_clk>;
+
 		clock-names =
 			"mmss_mmagic_ahb_clk",
 			"camss_top_ahb_clk",
@@ -875,7 +882,14 @@
 			"camss_csi2rdi_clk",
 			"camss_ispif_ahb_clk",
 			"clk_camss_vfe0_clk",
-			"clk_camss_vfe1_clk";
+			"clk_camss_vfe1_clk",
+			"camss_csi1_ahb_clk",
+			"camss_csi1_clk",
+			"camss_csi1phy_clk",
+			"csi1phytimer_clk_src",
+			"camss_csi1phytimer_clk",
+			"camss_csi1rdi_clk";
+
 		qcom,clock-rates = <19200000
 					19200000
 					19200000
@@ -903,7 +917,13 @@
 					200000000
 					0
 					100000000
-					100000000>;
+					100000000
+					0
+					200000000
+					200000000
+					200000000
+					200000000
+					200000000>;
 		qcom,clock-cntl-support;
 		qcom,clock-control = "NO_SET_RATE", "NO_SET_RATE",
 			"NO_SET_RATE", "NO_SET_RATE",
@@ -918,6 +938,9 @@
 			"INIT_RATE","NO_SET_RATE",
 			"INIT_RATE", "NO_SET_RATE",
 			"NO_SET_RATE","NO_SET_RATE",
+			"NO_SET_RATE", "NO_SET_RATE",
+			"NO_SET_RATE","INIT_RATE",
+			"NO_SET_RATE","SET_RATE",
 			"NO_SET_RATE", "NO_SET_RATE";
 	};
 
@@ -1330,10 +1353,13 @@
 	};
 
 	gpio@c300 { /* GPIO 4 - adv7481 RST */
-		qcom,mode = <1>;
+		qcom,mode = <1>; /* DIGITAL OUT */
+		qcom,output-type = <0>; /* CMOS logic */
+		qcom,invert = <1>;	/* output hight initially */
 		qcom,pull = <0>;
 		qcom,vin-sel = <2>;
 		qcom,src-sel = <0>;
+		qcom,out-strength = <1>;/* Low drive strength */
 		status = "okay";
 	};
 
