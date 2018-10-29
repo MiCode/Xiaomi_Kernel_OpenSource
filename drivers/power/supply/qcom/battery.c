@@ -92,6 +92,7 @@ struct pl_data {
 	struct notifier_block	nb;
 	bool			pl_disable;
 	int			taper_entry_fv;
+	u32			float_voltage_uv;
 };
 
 struct pl_data *the_chip;
@@ -819,6 +820,17 @@ out:
 	vote(chip->pl_awake_votable, FCC_STEPPER_VOTER, false, 0);
 }
 
+static bool is_batt_available(struct pl_data *chip)
+{
+	if (!chip->batt_psy)
+		chip->batt_psy = power_supply_get_by_name("battery");
+
+	if (!chip->batt_psy)
+		return false;
+
+	return true;
+}
+
 #define PARALLEL_FLOAT_VOLTAGE_DELTA_UV 50000
 static int pl_fv_vote_callback(struct votable *votable, void *data,
 			int fv_uv, const char *client)
@@ -851,6 +863,31 @@ static int pl_fv_vote_callback(struct votable *votable, void *data,
 			return rc;
 		}
 	}
+
+	/*
+	 * check for termination at reduced float voltage and re-trigger
+	 * charging if new float voltage is above last FV.
+	 */
+	if ((chip->float_voltage_uv < fv_uv) && is_batt_available(chip)) {
+		rc = power_supply_get_property(chip->batt_psy,
+				POWER_SUPPLY_PROP_STATUS, &pval);
+		if (rc < 0) {
+			pr_err("Couldn't get battery status rc=%d\n", rc);
+		} else {
+			if (pval.intval == POWER_SUPPLY_STATUS_FULL) {
+				pr_debug("re-triggering charging\n");
+				pval.intval = 1;
+				rc = power_supply_set_property(chip->batt_psy,
+					POWER_SUPPLY_PROP_RECHARGE_SOC,
+					&pval);
+				if (rc < 0)
+					pr_err("Couldn't set force recharge rc=%d\n",
+							rc);
+			}
+		}
+	}
+
+	chip->float_voltage_uv = fv_uv;
 
 	return 0;
 }
@@ -955,17 +992,6 @@ static bool is_main_available(struct pl_data *chip)
 	chip->main_psy = power_supply_get_by_name("main");
 
 	return !!chip->main_psy;
-}
-
-static bool is_batt_available(struct pl_data *chip)
-{
-	if (!chip->batt_psy)
-		chip->batt_psy = power_supply_get_by_name("battery");
-
-	if (!chip->batt_psy)
-		return false;
-
-	return true;
 }
 
 static int pl_disable_vote_callback(struct votable *votable,
