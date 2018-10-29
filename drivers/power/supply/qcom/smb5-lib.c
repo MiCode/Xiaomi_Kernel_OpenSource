@@ -5698,6 +5698,14 @@ static void smblib_iio_deinit(struct smb_charger *chg)
 		iio_channel_release(chg->iio.sbux_chan);
 	if (!IS_ERR_OR_NULL(chg->iio.vph_v_chan))
 		iio_channel_release(chg->iio.vph_v_chan);
+	if (!IS_ERR_OR_NULL(chg->iio.die_temp_chan))
+		iio_channel_release(chg->iio.die_temp_chan);
+	if (!IS_ERR_OR_NULL(chg->iio.connector_temp_chan))
+		iio_channel_release(chg->iio.connector_temp_chan);
+	if (!IS_ERR_OR_NULL(chg->iio.skin_temp_chan))
+		iio_channel_release(chg->iio.skin_temp_chan);
+	if (!IS_ERR_OR_NULL(chg->iio.smb_temp_chan))
+		iio_channel_release(chg->iio.smb_temp_chan);
 }
 
 int smblib_init(struct smb_charger *chg)
