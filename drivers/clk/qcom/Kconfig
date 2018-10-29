@@ -502,3 +502,13 @@ config CLOCK_CPU_SDXPRAIRIE
 	  based devices.
 	  Say Y if you want to support CPU clock scaling using
 	  CPUfreq drivers for dynamic power management.
+
+config SM_GCC_TRINKET
+	tristate "TRINKET Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	select QCOM_GDSC
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc
+	  TRINKET devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	  USB, UFS, SD/eMMC, PCIe, etc.

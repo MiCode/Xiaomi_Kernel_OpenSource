@@ -26,6 +26,7 @@ Required properties :
 			"qcom,gcc-sm6150"
 			"qcom,gcc-sdmmagpie"
 			"qcom,gcc-sdxprairie"
+			"qcom,gcc-trinket"
 
 - reg : shall contain base register location and length
 - #clock-cells : shall contain 1
