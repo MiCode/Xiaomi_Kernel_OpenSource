@@ -286,8 +286,8 @@ static int __ion_system_secure_heap_resize(struct ion_heap *heap, void *ptr,
 		goto out_free;
 	}
 	list_splice_init(&items, &secure_heap->prefetch_list);
-	schedule_delayed_work(&secure_heap->prefetch_work,
-			      shrink ? msecs_to_jiffies(SHRINK_DELAY) : 0);
+	queue_delayed_work(system_unbound_wq, &secure_heap->prefetch_work,
+			   shrink ?  msecs_to_jiffies(SHRINK_DELAY) : 0);
 	spin_unlock_irqrestore(&secure_heap->work_lock, flags);
 
 	return 0;
