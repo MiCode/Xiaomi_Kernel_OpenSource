@@ -626,6 +626,38 @@
 		qcom,config-reg = <0x0f1d1434>;
 	};
 
+	gpi_dma0: qcom,gpi-dma@0x04a00000 {
+		#dma-cells = <5>;
+		compatible = "qcom,gpi-dma";
+		reg = <0x04a00000 0x60000>;
+		reg-names = "gpi-top";
+		interrupts = <0 335 0>, <0 336 0>, <0 337 0>, <0 338 0>,
+			     <0 339 0>, <0 340 0>, <0 341 0>, <0 342 0>;
+		qcom,ev-factor = <2>;
+		qcom,max-num-gpii = <8>;
+		qcom,gpii-mask = <0x1f>;
+		iommus = <&apps_smmu 0x0136 0x0>;
+		qcom,smmu-cfg = <0x1>;
+		qcom,iova-range = <0x0 0x100000 0x0 0x100000>;
+		status = "ok";
+	};
+
+	gpi_dma1: qcom,gpi-dma@0x04c00000 {
+		#dma-cells = <5>;
+		compatible = "qcom,gpi-dma";
+		reg = <0x04c00000 0x60000>;
+		reg-names = "gpi-top";
+		interrupts = <0 314 0>, <0 315 0>, <0 316 0>, <0 317 0>,
+			     <0 318 0>, <0 319 0>, <0 320 0>, <0 321 0>;
+		qcom,ev-factor = <2>;
+		qcom,max-num-gpii = <8>;
+		qcom,gpii-mask = <0x0f>;
+		qcom,smmu-cfg = <0x1>;
+		qcom,iova-range = <0x0 0x100000 0x0 0x100000>;
+		iommus = <&apps_smmu 0x0156 0x0>;
+		status = "ok";
+	};
+
 	cpuss_dump: cpuss_dump {
 		compatible = "qcom,cpuss-dump";
 		qcom,l1_i_cache0 {
@@ -1051,6 +1083,7 @@
 #include "trinket-gdsc.dtsi"
 #include "trinket-usb.dtsi"
 #include "msm-arm-smmu-trinket.dtsi"
+#include "trinket-qupv3.dtsi"
 
 &ufs_phy_gdsc {
 	status = "ok";
