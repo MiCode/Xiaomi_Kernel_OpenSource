@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved. */
 
 #include <linux/debugfs.h>
 #include <linux/device.h>
@@ -823,6 +823,7 @@ void mhi_create_devices(struct mhi_controller *mhi_cntrl)
 		case DMA_NONE:
 		case DMA_BIDIRECTIONAL:
 			mhi_dev->ul_chan_id = mhi_chan->chan;
+			mhi_dev->ul_event_id = mhi_chan->er_index;
 		case DMA_FROM_DEVICE:
 			/* we use dl_chan for offload channels */
 			mhi_dev->dl_chan = mhi_chan;
