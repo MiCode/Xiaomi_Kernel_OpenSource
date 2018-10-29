@@ -687,6 +687,18 @@ static int dp_parser_mst(struct dp_parser *parser)
 	return 0;
 }
 
+static int dp_parser_widebus(struct dp_parser *parser)
+{
+	struct device *dev = &parser->pdev->dev;
+
+	parser->has_widebus = of_property_read_bool(dev->of_node,
+			"qcom,widebus-enable");
+
+	pr_debug("widebus parsing successful. dsc:%d\n", parser->has_widebus);
+
+	return 0;
+}
+
 static int dp_parser_parse(struct dp_parser *parser)
 {
 	int rc = 0;
@@ -734,6 +746,10 @@ static int dp_parser_parse(struct dp_parser *parser)
 		goto err;
 
 	rc = dp_parser_mst(parser);
+	if (rc)
+		goto err;
+
+	rc = dp_parser_widebus(parser);
 err:
 	return rc;
 }

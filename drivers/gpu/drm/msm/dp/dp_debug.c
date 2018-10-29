@@ -161,9 +161,7 @@ static ssize_t dp_debug_write_edid(struct file *file,
 	edid = debug->edid;
 bail:
 	kfree(buf);
-
-	if (!debug->dp_debug.sim_mode)
-		debug->panel->set_edid(debug->panel, edid);
+	debug->panel->set_edid(debug->panel, edid);
 
 	return rc;
 }
@@ -178,7 +176,8 @@ static ssize_t dp_debug_write_dpcd(struct file *file,
 	size_t size = 0, dpcd_buf_index = 0;
 	ssize_t rc = count;
 	char offset_ch[5];
-	u32 offset;
+	u32 offset, data_len;
+	const u32 dp_receiver_cap_size = 16;
 
 	if (!debug)
 		return -ENODEV;
@@ -187,6 +186,9 @@ static ssize_t dp_debug_write_dpcd(struct file *file,
 		goto bail;
 
 	size = min_t(size_t, count, SZ_2K);
+
+	if (size <= char_to_nib)
+		goto bail;
 
 	buf = kzalloc(size, GFP_KERNEL);
 	if (ZERO_OR_NULL_PTR(buf)) {
@@ -217,6 +219,7 @@ static ssize_t dp_debug_write_dpcd(struct file *file,
 	size -= 4;
 
 	dpcd_size = size / char_to_nib;
+	data_len = dpcd_size;
 	buf_t = buf + 4;
 
 	dpcd_buf_index = offset;
@@ -242,10 +245,15 @@ static ssize_t dp_debug_write_dpcd(struct file *file,
 	dpcd = debug->dpcd;
 bail:
 	kfree(buf);
-	if (debug->dp_debug.sim_mode)
-		debug->aux->dpcd_updated(debug->aux);
-	else
+
+	/*
+	 * Reset panel's dpcd in case of any failure. Also, set the
+	 * panel's dpcd only if a full dpcd is provided with offset as 0.
+	 */
+	if (!dpcd || (!offset && (data_len == dp_receiver_cap_size)))
 		debug->panel->set_dpcd(debug->panel, dpcd);
+	else
+		debug->aux->dpcd_updated(debug->aux);
 
 	return rc;
 }
@@ -372,7 +380,7 @@ static ssize_t dp_debug_write_edid_modes_mst(struct file *file,
 {
 	struct dp_debug_private *debug = file->private_data;
 	struct dp_mst_connector *mst_connector;
-	char buf[SZ_32];
+	char buf[SZ_512];
 	char *read_buf;
 	size_t len = 0;
 
@@ -386,7 +394,7 @@ static ssize_t dp_debug_write_edid_modes_mst(struct file *file,
 	if (*ppos)
 		goto end;
 
-	len = min_t(size_t, count, SZ_32 - 1);
+	len = min_t(size_t, count, SZ_512 - 1);
 	if (copy_from_user(buf, user_buff, len))
 		goto end;
 
@@ -628,6 +636,35 @@ static ssize_t dp_debug_mst_sideband_mode_write(struct file *file,
 
 	debug->parser->has_mst_sideband = mst_sideband_mode ? true : false;
 	pr_debug("mst_enable: %d\n", mst_sideband_mode);
+
+	return len;
+}
+
+static ssize_t dp_debug_widebus_mode_write(struct file *file,
+		const char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	char buf[SZ_8];
+	size_t len = 0;
+	u32 widebus_mode = 0;
+
+	if (!debug || !debug->parser)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	len = min_t(size_t, count, SZ_8 - 1);
+	if (copy_from_user(buf, user_buff, len))
+		return -EFAULT;
+
+	buf[len] = '\0';
+
+	if (kstrtoint(buf, 10, &widebus_mode) != 0)
+		return -EINVAL;
+
+	debug->parser->has_widebus = widebus_mode ? true : false;
+	pr_debug("widebus_enable: %d\n", widebus_mode);
 
 	return len;
 }
@@ -1393,11 +1430,13 @@ static ssize_t dp_debug_write_sim(struct file *file,
 		debug->aux->set_sim_mode(debug->aux, false, NULL, NULL);
 		debug->dp_debug.sim_mode = false;
 
+		debug->panel->set_edid(debug->panel, 0);
 		if (debug->edid) {
 			devm_kfree(debug->dev, debug->edid);
 			debug->edid = NULL;
 		}
 
+		debug->panel->set_dpcd(debug->panel, 0);
 		if (debug->dpcd) {
 			devm_kfree(debug->dev, debug->dpcd);
 			debug->dpcd = NULL;
@@ -1613,6 +1652,11 @@ static const struct file_operations hdcp_fops = {
 	.read = dp_debug_read_hdcp,
 };
 
+static const struct file_operations widebus_mode_fops = {
+	.open = simple_open,
+	.write = dp_debug_widebus_mode_write,
+};
+
 static int dp_debug_init(struct dp_debug *dp_debug)
 {
 	int rc = 0;
@@ -1822,6 +1866,14 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 		pr_err("[%s] debugfs hdcp failed, rc=%d\n",
 			DEBUG_NAME, rc);
 		goto error_remove_dir;
+	}
+
+	file = debugfs_create_file("widebus_mode", 0644, dir,
+			debug, &widebus_mode_fops);
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs widebus failed, rc=%d\n",
+		       DEBUG_NAME, rc);
 	}
 
 	return 0;
