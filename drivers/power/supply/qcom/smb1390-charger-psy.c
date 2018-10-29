@@ -102,6 +102,11 @@ enum {
 	NUM_IRQS,
 };
 
+enum {
+	SWITCHER_EN = 0,
+	SMB_PIN_EN,
+};
+
 struct smb1390_iio {
 	struct iio_channel	*die_temp_chan;
 };
@@ -110,7 +115,6 @@ struct smb1390 {
 	struct device		*dev;
 	struct regmap		*regmap;
 	struct notifier_block	nb;
-	struct class		cp_class;
 	struct wakeup_source	*cp_ws;
 
 	/* work structs */
@@ -131,6 +135,7 @@ struct smb1390 {
 	struct power_supply	*usb_psy;
 	struct power_supply	*batt_psy;
 	struct power_supply	*dc_psy;
+	struct power_supply	*cp_master_psy;
 
 	int			irqs[NUM_IRQS];
 	bool			status_change_running;
@@ -219,6 +224,33 @@ static void cp_toggle_switcher(struct smb1390 *chip)
 	vote(chip->disable_votable, SWITCHER_TOGGLE_VOTER, false, 0);
 }
 
+static int smb1390_get_cp_en_status(struct smb1390 *chip, int id, bool *enable)
+{
+	int rc = 0, status;
+
+	rc = smb1390_read(chip, CORE_STATUS2_REG, &status);
+	if (rc < 0) {
+		pr_err("Couldn't read CP_STATUS_2 register, rc=%d\n", rc);
+		return rc;
+	}
+
+	switch (id) {
+	case SWITCHER_EN:
+		*enable = !!(status & EN_PIN_OUT2_BIT) &&
+				!(status & SWITCHER_HOLD_OFF_BIT);
+		break;
+	case SMB_PIN_EN:
+		*enable = !!(status & EN_PIN_OUT2_BIT);
+		break;
+	default:
+		pr_debug("cp_en status %d is not supported", id);
+		rc = -EINVAL;
+		break;
+	}
+
+	return rc;
+}
+
 static irqreturn_t default_irq_handler(int irq, void *data)
 {
 	struct smb1390 *chip = data;
@@ -231,7 +263,8 @@ static irqreturn_t default_irq_handler(int irq, void *data)
 		}
 	}
 
-	kobject_uevent(&chip->dev->kobj, KOBJ_CHANGE);
+	if (chip->cp_master_psy)
+		power_supply_changed(chip->cp_master_psy);
 	return IRQ_HANDLED;
 }
 
@@ -278,119 +311,58 @@ static const struct smb_irq smb_irqs[] = {
 	},
 };
 
-/* SYSFS functions for reporting smb1390 charge pump state */
-static ssize_t stat1_show(struct class *c, struct class_attribute *attr,
-			 char *buf)
+static int smb1390_get_die_temp(struct smb1390 *chip,
+			union power_supply_propval *val)
 {
-	struct smb1390 *chip = container_of(c, struct smb1390, cp_class);
-	int rc, val;
-
-	rc = smb1390_read(chip, CORE_STATUS1_REG, &val);
-	if (rc < 0)
-		return -EINVAL;
-
-	return snprintf(buf, PAGE_SIZE, "%x\n", val);
-}
-static CLASS_ATTR_RO(stat1);
-
-static ssize_t stat2_show(struct class *c, struct class_attribute *attr,
-			 char *buf)
-{
-	struct smb1390 *chip = container_of(c, struct smb1390, cp_class);
-	int rc, val;
-
-	rc = smb1390_read(chip, CORE_STATUS2_REG, &val);
-	if (rc < 0)
-		return -EINVAL;
-
-	return snprintf(buf, PAGE_SIZE, "%x\n", val);
-}
-static CLASS_ATTR_RO(stat2);
-
-static ssize_t enable_show(struct class *c, struct class_attribute *attr,
-			   char *buf)
-{
-	struct smb1390 *chip = container_of(c, struct smb1390, cp_class);
-
-	return snprintf(buf, PAGE_SIZE, "%d\n",
-			!get_effective_result(chip->disable_votable));
-}
-
-static ssize_t enable_store(struct class *c, struct class_attribute *attr,
-			    const char *buf, size_t count)
-{
-	struct smb1390 *chip = container_of(c, struct smb1390, cp_class);
-	unsigned long val;
-
-	if (kstrtoul(buf, 0, &val))
-		return -EINVAL;
-
-	vote(chip->disable_votable, USER_VOTER, !val, 0);
-	return count;
-}
-static CLASS_ATTR_RW(enable);
-
-static ssize_t cp_irq_show(struct class *c, struct class_attribute *attr,
-			char *buf)
-{
-	struct smb1390 *chip = container_of(c, struct smb1390, cp_class);
-	int rc, val;
-
-	rc = smb1390_read(chip, CORE_INT_RT_STS_REG, &val);
-	if (rc < 0)
-		return -EINVAL;
-
-	val |= chip->irq_status;
-	chip->irq_status = 0;
-
-	return snprintf(buf, PAGE_SIZE, "%x\n", val);
-}
-static CLASS_ATTR_RO(cp_irq);
-
-static ssize_t toggle_switcher_store(struct class *c,
-			struct class_attribute *attr, const char *buf,
-			size_t count)
-{
-	struct smb1390 *chip = container_of(c, struct smb1390, cp_class);
-	unsigned long val;
-
-	if (kstrtoul(buf, 0, &val))
-		return -EINVAL;
-
-	if (val)
-		cp_toggle_switcher(chip);
-
-	return count;
-}
-static CLASS_ATTR_WO(toggle_switcher);
-
-static ssize_t die_temp_show(struct class *c, struct class_attribute *attr,
-			     char *buf)
-{
-	struct smb1390 *chip = container_of(c, struct smb1390, cp_class);
 	int die_temp_deciC = 0;
-	int rc;
+	int rc = 0;
+	bool enable;
+
+	/*
+	 * If SMB1390 chip is not enabled, adc channel read may render
+	 * erroneous value. Return error to signify, adc read is not admissible
+	 */
+	rc = smb1390_get_cp_en_status(chip, SMB_PIN_EN, &enable);
+	if (rc < 0) {
+		pr_err("Couldn't get SMB_PIN enable status, rc=%d\n", rc);
+		return rc;
+	}
+
+	if (!enable)
+		return -ENODATA;
 
 	mutex_lock(&chip->die_chan_lock);
 	rc = iio_read_channel_processed(chip->iio.die_temp_chan,
 			&die_temp_deciC);
 	mutex_unlock(&chip->die_chan_lock);
 
-	if (rc < 0) {
+	if (rc < 0)
 		pr_err("Couldn't read die chan, rc = %d\n", rc);
-		return -EINVAL;
+	else
+		val->intval = die_temp_deciC / 100;
+
+	return rc;
+}
+
+static int smb1390_get_isns(struct smb1390 *chip,
+			union power_supply_propval *val)
+{
+	int temp = 0;
+	int rc;
+	bool enable;
+
+	/*
+	 * If SMB1390 chip is not enabled, adc channel read may render
+	 * erroneous value. Return error to signify, adc read is not admissible
+	 */
+	rc = smb1390_get_cp_en_status(chip, SMB_PIN_EN, &enable);
+	if (rc < 0) {
+		pr_err("Couldn't get SMB_PIN enable status, rc=%d\n", rc);
+		return rc;
 	}
 
-	return snprintf(buf, PAGE_SIZE, "%d\n", die_temp_deciC / 100);
-}
-static CLASS_ATTR_RO(die_temp);
-
-static ssize_t isns_show(struct class *c, struct class_attribute *attr,
-			     char *buf)
-{
-	struct smb1390 *chip = container_of(c, struct smb1390, cp_class);
-	int isns_ma, temp = 0;
-	int rc;
+	if (!enable)
+		return -ENODATA;
 
 	mutex_lock(&chip->die_chan_lock);
 	rc = smb1390_masked_write(chip, CORE_ATEST1_SEL_REG,
@@ -416,26 +388,13 @@ static ssize_t isns_show(struct class *c, struct class_attribute *attr,
 unlock:
 	mutex_unlock(&chip->die_chan_lock);
 
-	if (rc < 0)
-		return -EINVAL;
-
 	/* ISNS = 2 * (1496 - 1390_therm_input * 0.00356) * 1000 uA */
-	isns_ma = (1496 * 1000 - div_s64((s64)temp * 3560, 1000)) * 2;
-	return snprintf(buf, PAGE_SIZE, "%d\n", isns_ma);
-}
-static CLASS_ATTR_RO(isns);
+	if (rc >= 0)
+		val->intval = (1496 * 1000 - div_s64((s64)temp * 3560,
+							1000)) * 2;
 
-static struct attribute *cp_class_attrs[] = {
-	&class_attr_stat1.attr,
-	&class_attr_stat2.attr,
-	&class_attr_enable.attr,
-	&class_attr_cp_irq.attr,
-	&class_attr_toggle_switcher.attr,
-	&class_attr_die_temp.attr,
-	&class_attr_isns.attr,
-	NULL,
-};
-ATTRIBUTE_GROUPS(cp_class);
+	return rc;
+}
 
 /* voter callbacks */
 static int smb1390_disable_vote_cb(struct votable *votable, void *data,
@@ -463,7 +422,8 @@ static int smb1390_disable_vote_cb(struct votable *votable, void *data,
 	}
 
 	/* charging may have been disabled by ILIM; send uevent */
-	kobject_uevent(&chip->dev->kobj, KOBJ_CHANGE);
+	if (chip->cp_master_psy)
+		power_supply_changed(chip->cp_master_psy);
 	return rc;
 }
 
@@ -659,6 +619,152 @@ out:
 	chip->taper_work_running = false;
 }
 
+static enum power_supply_property smb1390_charge_pump_props[] = {
+	POWER_SUPPLY_PROP_CP_STATUS1,
+	POWER_SUPPLY_PROP_CP_STATUS2,
+	POWER_SUPPLY_PROP_CP_ENABLE,
+	POWER_SUPPLY_PROP_CP_SWITCHER_EN,
+	POWER_SUPPLY_PROP_CP_DIE_TEMP,
+	POWER_SUPPLY_PROP_CP_ISNS,
+	POWER_SUPPLY_PROP_CP_TOGGLE_SWITCHER,
+	POWER_SUPPLY_PROP_CP_IRQ_STATUS,
+	POWER_SUPPLY_PROP_CP_ILIM,
+};
+
+static int smb1390_get_prop(struct power_supply *psy,
+			enum power_supply_property prop,
+			union power_supply_propval *val)
+{
+	struct smb1390 *chip = power_supply_get_drvdata(psy);
+	int rc = 0, status;
+	bool enable;
+
+	switch (prop) {
+	case POWER_SUPPLY_PROP_CP_STATUS1:
+		rc = smb1390_read(chip, CORE_STATUS1_REG, &status);
+		if (!rc)
+			val->intval = status;
+		break;
+	case POWER_SUPPLY_PROP_CP_STATUS2:
+		rc = smb1390_read(chip, CORE_STATUS2_REG, &status);
+		if (!rc)
+			val->intval = status;
+		break;
+	case POWER_SUPPLY_PROP_CP_ENABLE:
+		rc = smb1390_get_cp_en_status(chip, SMB_PIN_EN, &enable);
+		if (!rc)
+			val->intval = enable &&
+				!get_effective_result(chip->disable_votable);
+		break;
+	case POWER_SUPPLY_PROP_CP_SWITCHER_EN:
+		rc = smb1390_get_cp_en_status(chip, SWITCHER_EN, &enable);
+		if (!rc)
+			val->intval = enable;
+		break;
+	case POWER_SUPPLY_PROP_CP_DIE_TEMP:
+		rc = smb1390_get_die_temp(chip, val);
+		break;
+	case POWER_SUPPLY_PROP_CP_ISNS:
+		rc = smb1390_get_isns(chip, val);
+		break;
+	case POWER_SUPPLY_PROP_CP_TOGGLE_SWITCHER:
+		val->intval = 0;
+		break;
+	case POWER_SUPPLY_PROP_CP_IRQ_STATUS:
+		/*
+		 * irq_status variable stores provious IRQs that have been
+		 * handled by kernel, but not addressed by user space daemon.
+		 */
+		val->intval = chip->irq_status;
+		rc = smb1390_read(chip, CORE_INT_RT_STS_REG, &status);
+		if (!rc)
+			val->intval |= status;
+		break;
+	case POWER_SUPPLY_PROP_CP_ILIM:
+		rc = smb1390_read(chip, CORE_FTRIM_ILIM_REG, &status);
+		if (!rc)
+			val->intval = ((status & CFG_ILIM_MASK) * 100000)
+					+ 500000;
+		break;
+	default:
+		pr_debug("charge pump power supply get prop %d not supported\n",
+			prop);
+		return -EINVAL;
+	}
+
+	return rc;
+}
+
+static int smb1390_set_prop(struct power_supply *psy,
+			enum power_supply_property prop,
+			const union power_supply_propval *val)
+{
+	struct smb1390 *chip = power_supply_get_drvdata(psy);
+	int rc = 0;
+
+	switch (prop) {
+	case POWER_SUPPLY_PROP_CP_ENABLE:
+		vote(chip->disable_votable, USER_VOTER, !val->intval, 0);
+		break;
+	case POWER_SUPPLY_PROP_CP_TOGGLE_SWITCHER:
+		if (val->intval)
+			cp_toggle_switcher(chip);
+		break;
+	case POWER_SUPPLY_PROP_CP_IRQ_STATUS:
+		chip->irq_status = val->intval;
+		break;
+	default:
+		pr_debug("charge pump power supply set prop %d not supported\n",
+			prop);
+		return -EINVAL;
+	}
+
+	return rc;
+}
+
+static int smb1390_prop_is_writeable(struct power_supply *psy,
+				enum power_supply_property prop)
+{
+	switch (prop) {
+	case POWER_SUPPLY_PROP_CP_ENABLE:
+	case POWER_SUPPLY_PROP_CP_TOGGLE_SWITCHER:
+	case POWER_SUPPLY_PROP_CP_IRQ_STATUS:
+		return 1;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+static struct power_supply_desc charge_pump_psy_desc = {
+	.name			= "charge_pump_master",
+	.type			= POWER_SUPPLY_TYPE_CHARGE_PUMP,
+	.properties		= smb1390_charge_pump_props,
+	.num_properties		= ARRAY_SIZE(smb1390_charge_pump_props),
+	.get_property		= smb1390_get_prop,
+	.set_property		= smb1390_set_prop,
+	.property_is_writeable	= smb1390_prop_is_writeable,
+};
+
+static int smb1390_init_charge_pump_psy(struct smb1390 *chip)
+{
+	struct power_supply_config charge_pump_cfg = {};
+
+	charge_pump_cfg.drv_data = chip;
+	charge_pump_cfg.of_node = chip->dev->of_node;
+
+	chip->cp_master_psy = devm_power_supply_register(chip->dev,
+							&charge_pump_psy_desc,
+							&charge_pump_cfg);
+	if (IS_ERR(chip->cp_master_psy)) {
+		pr_err("Couldn't register charge pump power supply\n");
+		return PTR_ERR(chip->cp_master_psy);
+	}
+
+	return 0;
+}
+
 static int smb1390_parse_dt(struct smb1390 *chip)
 {
 	int rc;
@@ -690,6 +796,11 @@ static void smb1390_release_channels(struct smb1390 *chip)
 
 static int smb1390_create_votables(struct smb1390 *chip)
 {
+	chip->cp_awake_votable = create_votable("CP_AWAKE", VOTE_SET_ANY,
+			smb1390_awake_vote_cb, chip);
+	if (IS_ERR(chip->cp_awake_votable))
+		return PTR_ERR(chip->cp_awake_votable);
+
 	chip->disable_votable = create_votable("CP_DISABLE",
 			VOTE_SET_ANY, smb1390_disable_vote_cb, chip);
 	if (IS_ERR(chip->disable_votable))
@@ -700,10 +811,11 @@ static int smb1390_create_votables(struct smb1390 *chip)
 	if (IS_ERR(chip->ilim_votable))
 		return PTR_ERR(chip->ilim_votable);
 
-	chip->cp_awake_votable = create_votable("CP_AWAKE", VOTE_SET_ANY,
-			smb1390_awake_vote_cb, chip);
-	if (IS_ERR(chip->cp_awake_votable))
-		return PTR_ERR(chip->cp_awake_votable);
+	/*
+	 * charge pump is initially disabled; this indirectly votes to allow
+	 * traditional parallel charging if present
+	 */
+	vote(chip->disable_votable, USER_VOTER, true, 0);
 
 	return 0;
 }
@@ -712,17 +824,12 @@ static void smb1390_destroy_votables(struct smb1390 *chip)
 {
 	destroy_votable(chip->disable_votable);
 	destroy_votable(chip->ilim_votable);
+	destroy_votable(chip->cp_awake_votable);
 }
 
 static int smb1390_init_hw(struct smb1390 *chip)
 {
 	int rc;
-
-	/*
-	 * charge pump is initially disabled; this indirectly votes to allow
-	 * traditional parallel charging if present
-	 */
-	vote(chip->disable_votable, USER_VOTER, true, 0);
 
 	/*
 	 * Improve ILIM accuracy:
@@ -833,18 +940,24 @@ static int smb1390_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	INIT_WORK(&chip->status_change_work, smb1390_status_change_work);
-	INIT_WORK(&chip->taper_work, smb1390_taper_work);
-
 	rc = smb1390_parse_dt(chip);
 	if (rc < 0) {
 		pr_err("Couldn't parse device tree rc=%d\n", rc);
-		goto out_work;
+		return rc;
 	}
 
 	chip->cp_ws = wakeup_source_register("qcom-chargepump");
 	if (!chip->cp_ws)
-		return rc;
+		return -ENOMEM;
+
+	INIT_WORK(&chip->status_change_work, smb1390_status_change_work);
+	INIT_WORK(&chip->taper_work, smb1390_taper_work);
+
+	rc = smb1390_init_hw(chip);
+	if (rc < 0) {
+		pr_err("Couldn't init hardware rc=%d\n", rc);
+		goto out_work;
+	}
 
 	rc = smb1390_create_votables(chip);
 	if (rc < 0) {
@@ -852,9 +965,9 @@ static int smb1390_probe(struct platform_device *pdev)
 		goto out_work;
 	}
 
-	rc = smb1390_init_hw(chip);
+	rc = smb1390_init_charge_pump_psy(chip);
 	if (rc < 0) {
-		pr_err("Couldn't init hardware rc=%d\n", rc);
+		pr_err("Couldn't initialize charge pump psy rc=%d\n", rc);
 		goto out_votables;
 	}
 
@@ -865,27 +978,15 @@ static int smb1390_probe(struct platform_device *pdev)
 		goto out_votables;
 	}
 
-	chip->cp_class.name = "charge_pump";
-	chip->cp_class.owner = THIS_MODULE;
-	chip->cp_class.class_groups = cp_class_groups;
-	rc = class_register(&chip->cp_class);
-	if (rc < 0) {
-		pr_err("Couldn't register charge_pump sysfs class rc=%d\n", rc);
-		goto out_notifier;
-
-	}
-
 	rc = smb1390_request_interrupts(chip);
 	if (rc < 0) {
 		pr_err("Couldn't request interrupts rc=%d\n", rc);
-		goto out_class;
+		goto out_notifier;
 	}
 
 	pr_info("smb1390 probed successfully");
 	return 0;
 
-out_class:
-	class_unregister(&chip->cp_class);
 out_notifier:
 	power_supply_unreg_notifier(&chip->nb);
 out_votables:
@@ -901,7 +1002,6 @@ static int smb1390_remove(struct platform_device *pdev)
 {
 	struct smb1390 *chip = platform_get_drvdata(pdev);
 
-	class_unregister(&chip->cp_class);
 	power_supply_unreg_notifier(&chip->nb);
 
 	/* explicitly disable charging */
