@@ -99,6 +99,7 @@
 
 &soc {
 	sound-9335 {
+		qcom,tdm-mic-mute-enable = <&msm_gpio 82 0>;
 		qcom,audio-routing =
 			"AIF4 VI", "MCLK",
 			"RX_BIAS", "MCLK",
