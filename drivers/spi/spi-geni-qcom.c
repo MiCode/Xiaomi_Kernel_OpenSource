@@ -1251,12 +1251,12 @@ static void geni_spi_handle_rx(struct spi_geni_master *mas)
 	mas->rx_rem_bytes -= rx_bytes;
 }
 
-static irqreturn_t geni_spi_irq(int irq, void *dev)
+static irqreturn_t geni_spi_irq(int irq, void *data)
 {
-	struct spi_geni_master *mas = dev;
+	struct spi_geni_master *mas = data;
 	u32 m_irq = 0;
 
-	if (pm_runtime_status_suspended(dev)) {
+	if (pm_runtime_status_suspended(mas->dev)) {
 		GENI_SE_DBG(mas->ipc, false, mas->dev,
 				"%s: device is suspended\n", __func__);
 		goto exit_geni_spi_irq;
