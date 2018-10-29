@@ -666,6 +666,7 @@ static inline void pd_reset_protocol(struct usbpd *pd)
 static int pd_send_msg(struct usbpd *pd, u8 msg_type, const u32 *data,
 		size_t num_data, enum pd_sop_type sop)
 {
+	unsigned long flags;
 	int ret;
 	u16 hdr;
 
@@ -679,6 +680,15 @@ static int pd_send_msg(struct usbpd *pd, u8 msg_type, const u32 *data,
 		/* sending SOP'/SOP'' to a cable, PR/DR fields should be 0 */
 		hdr = PD_MSG_HDR(msg_type, 0, 0, pd->tx_msgid[sop], num_data,
 				pd->spec_rev);
+
+	/* bail out and try again later if a message just arrived */
+	spin_lock_irqsave(&pd->rx_lock, flags);
+	if (!list_empty(&pd->rx_q)) {
+		spin_unlock_irqrestore(&pd->rx_lock, flags);
+		usbpd_dbg(&pd->dev, "Abort send due to pending RX\n");
+		return -EBUSY;
+	}
+	spin_unlock_irqrestore(&pd->rx_lock, flags);
 
 	ret = pd_phy_write(hdr, (u8 *)data, num_data * sizeof(u32), sop);
 	if (ret) {
@@ -1501,19 +1511,10 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 static void handle_vdm_tx(struct usbpd *pd, enum pd_sop_type sop_type)
 {
 	int ret;
-	unsigned long flags;
 
 	/* only send one VDM at a time */
 	if (pd->vdm_tx) {
 		u32 vdm_hdr = pd->vdm_tx->data[0];
-
-		/* bail out and try again later if a message just arrived */
-		spin_lock_irqsave(&pd->rx_lock, flags);
-		if (!list_empty(&pd->rx_q)) {
-			spin_unlock_irqrestore(&pd->rx_lock, flags);
-			return;
-		}
-		spin_unlock_irqrestore(&pd->rx_lock, flags);
 
 		ret = pd_send_msg(pd, MSG_VDM, pd->vdm_tx->data,
 				pd->vdm_tx->size, sop_type);
