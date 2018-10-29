@@ -192,6 +192,13 @@ static int hdmi_tx_get_version(struct hdmi_tx_ctrl *hdmi_ctrl)
 		break;
 	}
 
+	/*
+	 * Override max pclk frequency as indicated in dt.
+	 */
+	if (hdmi_ctrl->pdata.max_pclk_freq_khz)
+		hdmi_ctrl->max_pclk_khz = min(hdmi_ctrl->max_pclk_khz,
+				hdmi_ctrl->pdata.max_pclk_freq_khz);
+
 	rc = hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_HPD_PM, false);
 	if (rc) {
 		DEV_ERR("%s: FAILED to disable power\n", __func__);
@@ -4641,6 +4648,13 @@ static int hdmi_tx_get_dt_data(struct platform_device *pdev,
 
 	pdata->pluggable = of_property_read_bool(pdev->dev.of_node,
 		"qcom,pluggable");
+
+	rc = of_property_read_u32(pdev->dev.of_node,
+		"qcom,max-pclk-frequency-khz", &pdata->max_pclk_freq_khz);
+	if (rc) {
+		pdata->max_pclk_freq_khz = 0;
+		rc = 0;
+	}
 
 	data = of_get_property(pdev->dev.of_node, "qcom,display-id", &len);
 	if (!data || len <= 0)
