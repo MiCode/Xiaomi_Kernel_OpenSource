@@ -130,7 +130,6 @@ enum arm_smmu_implementation {
 	GENERIC_SMMU,
 	ARM_MMU500,
 	CAVIUM_SMMUV2,
-	QCOM_SMMUV2,
 	QCOM_SMMUV500,
 };
 
@@ -3628,166 +3627,6 @@ static struct iommu_ops arm_smmu_ops = {
 	.iova_to_pte = arm_smmu_iova_to_pte,
 };
 
-#define IMPL_DEF1_MICRO_MMU_CTRL	0
-#define MICRO_MMU_CTRL_LOCAL_HALT_REQ	(1 << 2)
-#define MICRO_MMU_CTRL_IDLE		(1 << 3)
-
-/* Definitions for implementation-defined registers */
-#define ACTLR_QCOM_OSH_SHIFT		28
-#define ACTLR_QCOM_OSH			1
-
-#define ACTLR_QCOM_ISH_SHIFT		29
-#define ACTLR_QCOM_ISH			1
-
-#define ACTLR_QCOM_NSH_SHIFT		30
-#define ACTLR_QCOM_NSH			1
-
-static int qsmmuv2_wait_for_halt(struct arm_smmu_device *smmu)
-{
-	void __iomem *impl_def1_base = ARM_SMMU_IMPL_DEF1(smmu);
-	u32 tmp;
-
-	if (readl_poll_timeout_atomic(impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL,
-					tmp, (tmp & MICRO_MMU_CTRL_IDLE),
-					0, 30000)) {
-		dev_err(smmu->dev, "Couldn't halt SMMU!\n");
-		return -EBUSY;
-	}
-
-	return 0;
-}
-
-static int __qsmmuv2_halt(struct arm_smmu_device *smmu, bool wait)
-{
-	void __iomem *impl_def1_base = ARM_SMMU_IMPL_DEF1(smmu);
-	u32 reg;
-
-	reg = readl_relaxed(impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
-	reg |= MICRO_MMU_CTRL_LOCAL_HALT_REQ;
-
-	if (arm_smmu_is_static_cb(smmu)) {
-		phys_addr_t impl_def1_base_phys = impl_def1_base - smmu->base +
-							smmu->phys_addr;
-
-		if (scm_io_write(impl_def1_base_phys +
-					IMPL_DEF1_MICRO_MMU_CTRL, reg)) {
-			dev_err(smmu->dev,
-				"scm_io_write fail. SMMU might not be halted");
-			return -EINVAL;
-		}
-	} else {
-		writel_relaxed(reg, impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
-	}
-
-	return wait ? qsmmuv2_wait_for_halt(smmu) : 0;
-}
-
-static int qsmmuv2_halt(struct arm_smmu_device *smmu)
-{
-	return __qsmmuv2_halt(smmu, true);
-}
-
-static int qsmmuv2_halt_nowait(struct arm_smmu_device *smmu)
-{
-	return __qsmmuv2_halt(smmu, false);
-}
-
-static void qsmmuv2_resume(struct arm_smmu_device *smmu)
-{
-	void __iomem *impl_def1_base = ARM_SMMU_IMPL_DEF1(smmu);
-	u32 reg;
-
-	reg = readl_relaxed(impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
-	reg &= ~MICRO_MMU_CTRL_LOCAL_HALT_REQ;
-
-	if (arm_smmu_is_static_cb(smmu)) {
-		phys_addr_t impl_def1_base_phys = impl_def1_base - smmu->base +
-							smmu->phys_addr;
-
-		if (scm_io_write(impl_def1_base_phys +
-				IMPL_DEF1_MICRO_MMU_CTRL, reg))
-			dev_err(smmu->dev,
-				"scm_io_write fail. SMMU might not be resumed");
-	} else {
-		writel_relaxed(reg, impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
-	}
-}
-
-static void qsmmuv2_device_reset(struct arm_smmu_device *smmu)
-{
-	int i;
-	u32 val;
-	struct arm_smmu_impl_def_reg *regs = smmu->impl_def_attach_registers;
-	void __iomem *cb_base;
-
-	/*
-	 * SCTLR.M must be disabled here per ARM SMMUv2 spec
-	 * to prevent table walks with an inconsistent state.
-	 */
-	for (i = 0; i < smmu->num_context_banks; ++i) {
-		cb_base = ARM_SMMU_CB(smmu, i);
-		val = ACTLR_QCOM_ISH << ACTLR_QCOM_ISH_SHIFT |
-		ACTLR_QCOM_OSH << ACTLR_QCOM_OSH_SHIFT |
-		ACTLR_QCOM_NSH << ACTLR_QCOM_NSH_SHIFT;
-		writel_relaxed(val, cb_base + ARM_SMMU_CB_ACTLR);
-	}
-
-	/* Program implementation defined registers */
-	qsmmuv2_halt(smmu);
-	for (i = 0; i < smmu->num_impl_def_attach_registers; ++i)
-		writel_relaxed(regs[i].value,
-			ARM_SMMU_GR0(smmu) + regs[i].offset);
-	qsmmuv2_resume(smmu);
-}
-
-static phys_addr_t qsmmuv2_iova_to_phys_hard(struct iommu_domain *domain,
-				dma_addr_t iova)
-{
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	int ret;
-	phys_addr_t phys = 0;
-	unsigned long flags;
-	u32 sctlr, sctlr_orig, fsr;
-	void __iomem *cb_base;
-
-	ret = arm_smmu_power_on(smmu_domain->smmu->pwr);
-	if (ret)
-		return ret;
-
-	spin_lock_irqsave(&smmu->atos_lock, flags);
-	cb_base = ARM_SMMU_CB(smmu, smmu_domain->cfg.cbndx);
-
-	qsmmuv2_halt_nowait(smmu);
-	writel_relaxed(RESUME_TERMINATE, cb_base + ARM_SMMU_CB_RESUME);
-	qsmmuv2_wait_for_halt(smmu);
-
-	/* clear FSR to allow ATOS to log any faults */
-	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
-	writel_relaxed(fsr, cb_base + ARM_SMMU_CB_FSR);
-
-	/* disable stall mode momentarily */
-	sctlr_orig = readl_relaxed(cb_base + ARM_SMMU_CB_SCTLR);
-	sctlr = sctlr_orig & ~SCTLR_CFCFG;
-	writel_relaxed(sctlr, cb_base + ARM_SMMU_CB_SCTLR);
-
-	phys = __arm_smmu_iova_to_phys_hard(domain, iova);
-
-	/* restore SCTLR */
-	writel_relaxed(sctlr_orig, cb_base + ARM_SMMU_CB_SCTLR);
-
-	qsmmuv2_resume(smmu);
-	spin_unlock_irqrestore(&smmu->atos_lock, flags);
-
-	arm_smmu_power_off(smmu_domain->smmu->pwr);
-	return phys;
-}
-
-struct arm_smmu_arch_ops qsmmuv2_arch_ops = {
-	.device_reset = qsmmuv2_device_reset,
-	.iova_to_phys_hard = qsmmuv2_iova_to_phys_hard,
-};
-
 static void arm_smmu_context_bank_reset(struct arm_smmu_device *smmu)
 {
 	int i;
@@ -4445,7 +4284,6 @@ ARM_SMMU_MATCH_DATA(smmu_generic_v2, ARM_SMMU_V2, GENERIC_SMMU, NULL);
 ARM_SMMU_MATCH_DATA(arm_mmu401, ARM_SMMU_V1_64K, GENERIC_SMMU, NULL);
 ARM_SMMU_MATCH_DATA(arm_mmu500, ARM_SMMU_V2, ARM_MMU500, NULL);
 ARM_SMMU_MATCH_DATA(cavium_smmuv2, ARM_SMMU_V2, CAVIUM_SMMUV2, NULL);
-ARM_SMMU_MATCH_DATA(qcom_smmuv2, ARM_SMMU_V2, QCOM_SMMUV2, &qsmmuv2_arch_ops);
 ARM_SMMU_MATCH_DATA(qcom_smmuv500, ARM_SMMU_V2, QCOM_SMMUV500,
 		    &qsmmuv500_arch_ops);
 
@@ -4456,7 +4294,6 @@ static const struct of_device_id arm_smmu_of_match[] = {
 	{ .compatible = "arm,mmu-401", .data = &arm_mmu401 },
 	{ .compatible = "arm,mmu-500", .data = &arm_mmu500 },
 	{ .compatible = "cavium,smmu-v2", .data = &cavium_smmuv2 },
-	{ .compatible = "qcom,smmu-v2", .data = &qcom_smmuv2 },
 	{ .compatible = "qcom,qsmmu-v500", .data = &qcom_smmuv500 },
 	{ },
 };
