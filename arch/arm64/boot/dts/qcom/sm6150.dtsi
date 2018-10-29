@@ -3151,3 +3151,8 @@
 #include "sm6150-audio.dtsi"
 #include "sm6150-sde-pll.dtsi"
 #include "sm6150-sde.dtsi"
+
+&msm_vidc {
+	qcom,cx-ipeak-data = <&cx_ipeak_lm 4>;
+	qcom,clock-freq-threshold = <380000000>;
+};
