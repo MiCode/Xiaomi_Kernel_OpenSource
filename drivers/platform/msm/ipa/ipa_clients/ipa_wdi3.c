@@ -846,7 +846,7 @@ int ipa_wdi_set_perf_profile(struct ipa_wdi_perf_profile *profile)
 			return -EFAULT;
 		}
 	} else {
-		if (ipa_pm_set_perf_profile(ipa_wdi_ctx->ipa_pm_hdl,
+		if (ipa_pm_set_throughput(ipa_wdi_ctx->ipa_pm_hdl,
 			profile->max_supported_bw_mbps)) {
 			IPA_WDI_ERR("fail to setup pm perf profile\n");
 			return -EFAULT;

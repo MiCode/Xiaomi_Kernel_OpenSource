@@ -1848,7 +1848,7 @@ static int ipa3_usb_xdci_connect_internal(
 	if (ipa_pm_is_used()) {
 		/* perf profile is not set on  USB DPL pipe */
 		if (ttype != IPA_USB_TRANSPORT_DPL) {
-			result = ipa_pm_set_perf_profile(
+			result = ipa_pm_set_throughput(
 				ipa3_usb_ctx->ttype_ctx[ttype].pm_ctx.hdl,
 				params->max_supported_bandwidth_mbps);
 			if (result) {

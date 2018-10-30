@@ -1001,7 +1001,7 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 				}
 			}
 
-			result = ipa_pm_set_perf_profile(ep->sys->pm_hdl,
+			result = ipa_pm_set_throughput(ep->sys->pm_hdl,
 				IPA_APPS_BW_FOR_PM);
 			if (result) {
 				IPAERR("failed to set profile IPA PM client\n");
