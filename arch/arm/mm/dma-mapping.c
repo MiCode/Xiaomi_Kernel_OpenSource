@@ -1862,7 +1862,7 @@ static int __map_sg_chunk(struct device *dev, struct scatterlist *sg,
 	int ret = 0;
 	unsigned int count;
 	struct scatterlist *s;
-	int prot;
+	int prot = 0;
 
 	size = PAGE_ALIGN(size);
 	*handle = DMA_ERROR_CODE;
@@ -1871,6 +1871,11 @@ static int __map_sg_chunk(struct device *dev, struct scatterlist *sg,
 	if (iova == DMA_ERROR_CODE)
 		return -ENOMEM;
 
+	/*
+	 * Check for coherency.
+	 */
+	prot |= is_coherent ? IOMMU_CACHE : 0;
+
 	for (count = 0, s = sg; count < (size >> PAGE_SHIFT); s = sg_next(s)) {
 		phys_addr_t phys = page_to_phys(sg_page(s));
 		unsigned int len = PAGE_ALIGN(s->offset + s->length);
@@ -1878,7 +1883,7 @@ static int __map_sg_chunk(struct device *dev, struct scatterlist *sg,
 		if (!is_coherent && (attrs & DMA_ATTR_SKIP_CPU_SYNC) == 0)
 			__dma_page_cpu_to_dev(sg_page(s), s->offset, s->length, dir);
 
-		prot = __dma_direction_to_prot(dir);
+		prot |= __dma_direction_to_prot(dir);
 
 		ret = iommu_map(mapping->domain, iova, phys, len, prot);
 		if (ret < 0)
@@ -1982,9 +1987,35 @@ int arm_iommu_map_sg(struct device *dev, struct scatterlist *sg,
 	dma_addr_t iova;
 	bool coherent;
 	int prot = __dma_direction_to_prot(dir);
+	int upstream_hint = 0;
+	/*
+	 * This is used to check if there are any unaligned offset/size
+	 * given in the scatter list.
+	 */
+	bool unaligned_offset_size = false;
 
-	for_each_sg(sg, s, nents, i)
+	for_each_sg(sg, s, nents, i) {
 		total_length += s->length;
+		if ((s->offset & ~PAGE_MASK) || (s->length & ~PAGE_MASK)) {
+			unaligned_offset_size = true;
+			break;
+		}
+	}
+
+	/*
+	 * Check for the upstream domain attribute just to catch
+	 * any abusive clients who expects the unaligned offset/size
+	 * support with out setting this attribute.
+	 * NOTE: on future kernels, we may not have this domain
+	 * attribute set where the check then will be based on just
+	 * offset/size.
+	 */
+	iommu_domain_get_attr(mapping->domain,
+			      DOMAIN_ATTR_UPSTREAM_IOVA_ALLOCATOR,
+			      &upstream_hint);
+	if (upstream_hint && unaligned_offset_size)
+		return __iommu_map_sg(dev, sg, nents, dir, attrs,
+				      is_dma_coherent(dev, attrs, false));
 
 	iova = __alloc_iova(mapping, total_length);
 	if (iova == DMA_ERROR_CODE)
