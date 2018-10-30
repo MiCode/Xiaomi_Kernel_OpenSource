@@ -1182,6 +1182,7 @@ static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 	u32 num_mixers = sde_crtc->num_mixers;
 	int i = 0, ret = 0;
 	bool feature_enabled = false;
+	struct sde_mdss_cfg *catalog = NULL;
 
 	memset(&hw_cfg, 0, sizeof(hw_cfg));
 	sde_cp_get_hw_payload(prop_node, &hw_cfg, &feature_enabled);
@@ -1201,6 +1202,8 @@ static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 	} else {
 		set_feature_wrapper set_feature =
 			crtc_feature_wrappers[prop_node->feature];
+		catalog = get_kms(&sde_crtc->base)->catalog;
+		hw_cfg.broadcast_disabled = catalog->dma_cfg.broadcast_disabled;
 
 		for (i = 0; i < num_mixers && !ret; i++) {
 			hw_lm = sde_crtc->mixers[i].hw_lm;

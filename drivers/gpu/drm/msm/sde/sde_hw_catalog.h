@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _SDE_HW_CATALOG_H
@@ -1020,11 +1020,13 @@ struct sde_vbif_cfg {
  * @features           bit mask identifying sub-blocks/features
  * @version            version of lutdma hw block
  * @trigger_sel_off    offset to trigger select registers of lutdma
+ * @broadcast_disabled flag indicating if broadcast usage should be avoided
  */
 struct sde_reg_dma_cfg {
 	SDE_HW_BLK_INFO;
 	u32 version;
 	u32 trigger_sel_off;
+	u32 broadcast_disabled;
 };
 
 /**
