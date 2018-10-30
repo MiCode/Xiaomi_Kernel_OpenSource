@@ -220,6 +220,31 @@ static void dp_display_update_hdcp_info(struct dp_display_private *dp)
 		sde_hdcp_version(dp->link->hdcp_status.hdcp_version));
 }
 
+static void dp_display_check_source_hdcp_caps(struct dp_display_private *dp)
+{
+	int i;
+	struct dp_hdcp_dev *hdcp_dev = dp->hdcp.dev;
+
+	if (dp->debug->hdcp_disabled) {
+		pr_debug("hdcp disabled\n");
+		return;
+	}
+
+	for (i = 0; i < HDCP_VERSION_MAX; i++) {
+		struct dp_hdcp_dev *dev = &hdcp_dev[i];
+		struct sde_hdcp_ops *ops = dev->ops;
+		void *fd = dev->fd;
+
+		if (!fd || !ops || (dp->hdcp.source_cap & dev->ver))
+			continue;
+
+		if (ops->feature_supported(fd))
+			dp->hdcp.source_cap |= dev->ver;
+	}
+
+	dp_display_update_hdcp_status(dp, false);
+}
+
 static void dp_display_hdcp_cb_work(struct work_struct *work)
 {
 	struct dp_display_private *dp;
@@ -238,6 +263,7 @@ static void dp_display_hdcp_cb_work(struct work_struct *work)
 	status = &dp->link->hdcp_status;
 
 	if (status->hdcp_state == HDCP_STATE_INACTIVE) {
+		dp_display_check_source_hdcp_caps(dp);
 		dp_display_update_hdcp_info(dp);
 
 		if (dp_display_is_hdcp_enabled(dp)) {
@@ -302,37 +328,6 @@ static void dp_display_notify_hdcp_status_cb(void *ptr,
 	if (dp->power_on && !atomic_read(&dp->aborted))
 		queue_delayed_work(dp->wq, &dp->hdcp_cb_work, HZ/4);
 	mutex_unlock(&dp->session_lock);
-}
-
-static void dp_display_check_source_hdcp_caps(struct dp_display_private *dp)
-{
-	int i;
-	struct dp_hdcp_dev *hdcp_dev = dp->hdcp.dev;
-
-	if (dp->debug->hdcp_disabled) {
-		pr_debug("hdcp disabled\n");
-		return;
-	}
-
-	for (i = 0; i < HDCP_VERSION_MAX; i++) {
-		struct dp_hdcp_dev *dev = &hdcp_dev[i];
-		struct sde_hdcp_ops *ops = dev->ops;
-		void *fd = dev->fd;
-
-		if (!fd || !ops)
-			continue;
-
-		if (ops->feature_supported(fd))
-			dp->hdcp.source_cap |= dev->ver;
-		else
-			pr_warn("This device doesn't support %s\n",
-				sde_hdcp_version(dev->ver));
-	}
-
-	if (!dp->hdcp.source_cap)
-		dp->debug->hdcp_disabled = true;
-
-	dp_display_update_hdcp_status(dp, false);
 }
 
 static void dp_display_deinitialize_hdcp(struct dp_display_private *dp)
@@ -531,9 +526,6 @@ static void dp_display_post_open(struct dp_display *dp_display)
 		pr_err("base connector not set\n");
 		return;
 	}
-
-	dp_display_update_hdcp_status(dp, true);
-	dp_display_check_source_hdcp_caps(dp);
 
 	/* if cable is already connected, send notification */
 	if (dp->hpd->hpd_high)
@@ -1133,6 +1125,7 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 	panel_in.link = dp->link;
 	panel_in.connector = dp->dp_display.base_connector;
 	panel_in.base_panel = NULL;
+	panel_in.parser = dp->parser;
 
 	dp->panel = dp_panel_get(&panel_in);
 	if (IS_ERR(dp->panel)) {
@@ -1200,6 +1193,7 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 	}
 
 	dp->debug->hdcp_disabled = hdcp_disabled;
+	dp_display_update_hdcp_status(dp, true);
 
 	return rc;
 error_debug:
@@ -1974,6 +1968,7 @@ static int dp_display_mst_connector_install(struct dp_display *dp_display,
 	panel_in.link = dp->link;
 	panel_in.connector = connector;
 	panel_in.base_panel = dp->panel;
+	panel_in.parser = dp->parser;
 
 	dp_panel = dp_panel_get(&panel_in);
 	if (IS_ERR(dp_panel)) {
@@ -1999,6 +1994,12 @@ static int dp_display_mst_connector_install(struct dp_display *dp_display,
 
 	mst_connector = kmalloc(sizeof(struct dp_mst_connector),
 			GFP_KERNEL);
+	if (!mst_connector) {
+		mutex_unlock(&dp->debug->dp_mst_connector_list.lock);
+		mutex_unlock(&dp->session_lock);
+		return -ENOMEM;
+	}
+
 	mst_connector->debug_en = false;
 	mst_connector->conn = connector;
 	mst_connector->con_id = connector->base.id;
@@ -2055,7 +2056,7 @@ static int dp_display_mst_connector_uninstall(struct dp_display *dp_display,
 
 	list_for_each_entry_safe(con_to_remove, temp_con,
 			&dp->debug->dp_mst_connector_list.list, list) {
-		if (con_to_remove->con_id == connector->base.id) {
+		if (con_to_remove->conn == connector) {
 			list_del(&con_to_remove->list);
 			kfree(con_to_remove);
 		}
