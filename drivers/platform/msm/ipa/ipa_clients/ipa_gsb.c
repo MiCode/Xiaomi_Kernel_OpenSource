@@ -758,7 +758,8 @@ static void ipa_gsb_tx_dp_notify(void *priv, enum ipa_dp_evt_type evt,
 	/* change to host order */
 	*(u32 *)mux_hdr = ntohl(*(u32 *)mux_hdr);
 	hdl = mux_hdr->iface_hdl;
-	if (!ipa_gsb_ctx->iface[hdl]) {
+	if ((hdl < 0) || (hdl >= MAX_SUPPORTED_IFACE) ||
+		!ipa_gsb_ctx->iface[hdl]) {
 		IPA_GSB_ERR("invalid hdl: %d and cb, drop the skb\n", hdl);
 		dev_kfree_skb_any(skb);
 		return;
