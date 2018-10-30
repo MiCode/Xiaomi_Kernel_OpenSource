@@ -68,12 +68,6 @@ struct sde_splash_info {
 	/* constructed gem objects for smmu mapping */
 	struct drm_gem_object **obj;
 
-	/* physical address of lk pool */
-	phys_addr_t lk_pool_paddr;
-
-	/* memory size of lk pool */
-	size_t lk_pool_size;
-
 	/* enabled statue of displays*/
 	uint32_t intf_sel_status;
 

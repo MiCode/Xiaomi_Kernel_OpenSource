@@ -17,10 +17,6 @@
 #include "sde_connector.h"
 #include "sde_backlight.h"
 #include "sde_splash.h"
-#include <linux/workqueue.h>
-#include <linux/atomic.h>
-#include <linux/cpu.h>
-#include <linux/device.h>
 
 #define SDE_DEBUG_CONN(c, fmt, ...) SDE_DEBUG("conn%d " fmt,\
 		(c) ? (c)->base.base.id : -1, ##__VA_ARGS__)
@@ -54,8 +50,6 @@ static const struct drm_prop_enum_list hpd_clock_state[] = {
 	{SDE_MODE_HPD_ON,      "ON"},
 	{SDE_MODE_HPD_OFF,     "OFF"},
 };
-
-static struct work_struct cpu_up_work;
 
 int sde_connector_get_info(struct drm_connector *connector,
 		struct msm_display_info *info)
@@ -574,25 +568,11 @@ void sde_connector_prepare_fence(struct drm_connector *connector)
 	sde_fence_prepare(&to_sde_connector(connector)->retire_fence);
 }
 
-static void wake_up_cpu(struct work_struct *work)
-{
-	struct device *cpu_dev = NULL;
-
-	cpu_dev = get_cpu_device(1);
-	if (!cpu_dev) {
-		pr_err("Could not get cpu1 device\n");
-		return;
-	}
-	if (!device_online(cpu_dev))
-		pr_info("cpu1 is online\n");
-}
-
 void sde_connector_complete_commit(struct drm_connector *connector)
 {
 	struct drm_device *dev;
 	struct msm_drm_private *priv;
 	struct sde_connector *c_conn;
-	static atomic_t cpu_up_scheduled = ATOMIC_INIT(0);
 
 	if (!connector) {
 		SDE_ERROR("invalid connector\n");
@@ -607,8 +587,7 @@ void sde_connector_complete_commit(struct drm_connector *connector)
 
 	/*
 	 * After LK totally exits, LK's early splash resource
-	 * should be released, cpu1 is hot-plugged in case LK's
-	 * early domain has reserved it.
+	 * should be released.
 	 */
 	if (sde_splash_get_lk_complete_status(priv->kms)) {
 		c_conn = to_sde_connector(connector);
@@ -616,11 +595,8 @@ void sde_connector_complete_commit(struct drm_connector *connector)
 		sde_splash_free_resource(priv->kms, &priv->phandle,
 					c_conn->connector_type,
 					c_conn->display);
-		if (atomic_add_unless(&cpu_up_scheduled, 1, 1)) {
-			INIT_WORK(&cpu_up_work, wake_up_cpu);
-			schedule_work(&cpu_up_work);
-		}
 	}
+
 }
 
 static int sde_connector_dpms(struct drm_connector *connector,
