@@ -10,12 +10,12 @@
 		#size-cells = <0>;
 
 		system_heap: qcom,ion-heap@25 {
-			reg = <0x25>;
+			reg = <25>;
 			qcom,ion-heap-type = "SYSTEM";
 		};
 
 		system_secure_heap: qcom,ion-heap@9 {
-			reg = <0x9>;
+			reg = <9>;
 			qcom,ion-heap-type = "SYSTEM_SECURE";
 		};
 	};
