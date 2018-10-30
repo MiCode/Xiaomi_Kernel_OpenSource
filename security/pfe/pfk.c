@@ -76,7 +76,6 @@ typedef int (*pfk_parse_inode_type)(const struct bio *bio,
 	struct pfk_key_info *key_info,
 	enum ice_cryto_algo_mode *algo,
 	bool *is_pfe,
-	unsigned int *data_unit,
 	const char *storage_type);
 
 typedef bool (*pfk_allow_merge_bio_type)(const struct bio *bio1,
@@ -294,13 +293,17 @@ static int pfk_get_key_for_bio(const struct bio *bio,
 	which_pfe = pfk_get_pfe_type(inode);
 	s_type = (char *)pfk_kc_get_storage_type();
 
+	if (data_unit && (bio_dun(bio) ||
+			!memcmp(s_type, "ufs", strlen("ufs"))))
+		*data_unit = 1 << ICE_CRYPTO_DATA_UNIT_4_KB;
+
 	if (which_pfe != INVALID_PFE) {
 		/* Encrypted file; override ->bi_crypt_key */
 		pr_debug("parsing inode %lu with PFE type %d\n",
 			 inode->i_ino, which_pfe);
 		return (*(pfk_parse_inode_ftable[which_pfe]))
 				(bio, inode, key_info, algo_mode, is_pfe,
-					data_unit, (const char *)s_type);
+					(const char *)s_type);
 	}
 
 	/*
