@@ -760,7 +760,8 @@ static void tx_complete(struct usb_ep *ep, struct usb_request *req)
 		dev->tx_aggr_cnt[n-1]++;
 
 		/* sg_ctx is only accessible here, can use lock-free version */
-		__skb_queue_purge(&sg_ctx->skbs);
+		while ((skb = __skb_dequeue(&sg_ctx->skbs)) != NULL)
+			dev_kfree_skb_any(skb);
 	}
 
 	dev->net->stats.tx_packets += n;
