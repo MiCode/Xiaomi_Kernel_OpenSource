@@ -221,7 +221,7 @@ struct fastrpc_ioctl_mmap {
 };
 
 struct fastrpc_ioctl_mmap_64 {
-	int fd;				/* ion fd */
+	int fd;					/* ion fd */
 	uint32_t flags;			/* flags for dsp to map with */
 	uint64_t vaddrin;		/* optional virtual address */
 	size_t size;			/* size */
@@ -241,20 +241,28 @@ struct fastrpc_ioctl_perf {			/* kernel performance data */
 	uintptr_t keys;
 };
 
-#define FASTRPC_CONTROL_LATENCY   (1)
+#define FASTRPC_CONTROL_LATENCY (1)
 struct fastrpc_ctrl_latency {
-	uint32_t enable;	//!latency control enable
-	uint32_t level;		//!level of control
+	uint32_t enable;		/* latency control enable */
+	uint32_t level;			/* level of control */
 };
-#define FASTRPC_CONTROL_SMMU   (2)
+
+#define FASTRPC_CONTROL_SMMU (2)
 struct fastrpc_ctrl_smmu {
 	uint32_t sharedcb;
 };
+
+#define FASTRPC_CONTROL_KALLOC (3)
+struct fastrpc_ctrl_kalloc {
+	uint32_t kalloc_support; /* Remote memory allocation from kernel */
+};
+
 struct fastrpc_ioctl_control {
 	uint32_t req;
 	union {
 		struct fastrpc_ctrl_latency lp;
 		struct fastrpc_ctrl_smmu smmu;
+		struct fastrpc_ctrl_kalloc kalloc;
 	};
 };
 
