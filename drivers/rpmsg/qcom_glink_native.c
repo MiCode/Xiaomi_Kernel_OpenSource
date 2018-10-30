@@ -1915,10 +1915,8 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 
 	ret = subsys_register_early_notifier(glink->name, XPORT_LAYER_NOTIF,
 					     qcom_glink_notif_reset, glink);
-	if (ret) {
+	if (ret)
 		dev_err(dev, "failed to register early notif %d\n", ret);
-		return ERR_PTR(ret);
-	}
 
 	irq = of_irq_get(dev->of_node, 0);
 	ret = devm_request_irq(dev, irq,
