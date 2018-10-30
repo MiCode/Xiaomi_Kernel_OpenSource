@@ -21,7 +21,7 @@
 / {
 	model = "Qualcomm Technologies, Inc. APQ 8096pro V1.1 AUTO ADP LITE";
 	compatible = "qcom,apq8096-adp", "qcom,msm8996", "qcom,adp";
-	qcom,msm-id = <316 0x10001>;
+	qcom,msm-id = <316 0x10001>, <387 0x10001>;
 	qcom,board-id = <0x03010019 0>;
 };
 
