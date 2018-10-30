@@ -24,3 +24,7 @@
 	qcom,msm-id = <355 0x0>;
 	qcom,board-id = <34 4>;
 };
+
+&sde_dp {
+	qcom,dp-hpd-gpio = <&tlmm 103 0>;
+};
