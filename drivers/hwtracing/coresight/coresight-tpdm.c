@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -264,6 +264,8 @@ struct tpdm_drvdata {
 	bool			msr_support;
 	bool			msr_fix_req;
 };
+
+static void tpdm_init_default_data(struct tpdm_drvdata *drvdata);
 
 static void tpdm_setup_disable(struct tpdm_drvdata *drvdata)
 {
@@ -886,6 +888,57 @@ static ssize_t enable_datasets_store(struct device *dev,
 	return size;
 }
 static DEVICE_ATTR_RW(enable_datasets);
+
+static ssize_t reset_store(struct device *dev,
+					  struct device_attribute *attr,
+					  const char *buf,
+					  size_t size)
+{
+	int ret = 0;
+	unsigned long val;
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	ret = kstrtoul(buf, 10, &val);
+	if (ret)
+		return ret;
+
+	mutex_lock(&drvdata->lock);
+	/* Reset all datasets to ZERO */
+	if (drvdata->gpr != NULL)
+		memset(drvdata->gpr, 0, sizeof(struct gpr_dataset));
+
+	if (drvdata->bc != NULL)
+		memset(drvdata->bc, 0, sizeof(struct bc_dataset));
+
+	if (drvdata->dsb != NULL)
+		memset(drvdata->dsb, 0, sizeof(struct dsb_dataset));
+
+	if (drvdata->cmb != NULL) {
+		if (drvdata->cmb->mcmb != NULL)
+			memset(drvdata->cmb->mcmb, 0,
+				sizeof(struct mcmb_dataset));
+
+		memset(drvdata->cmb, 0, sizeof(struct cmb_dataset));
+	}
+	/* Init the default data */
+	tpdm_init_default_data(drvdata);
+
+	/* Disable tpdm if enabled */
+	if (drvdata->enable) {
+		__tpdm_disable(drvdata);
+		drvdata->enable = false;
+	}
+
+	mutex_unlock(&drvdata->lock);
+
+	if (drvdata->enable) {
+		tpdm_setup_disable(drvdata);
+		dev_info(drvdata->dev, "TPDM tracing disabled\n");
+	}
+
+	return size;
+}
+static DEVICE_ATTR_WO(reset);
 
 static ssize_t gp_regs_show(struct device *dev,
 				 struct device_attribute *attr,
@@ -4126,6 +4179,7 @@ static struct attribute_group tpdm_cmb_attr_grp = {
 static struct attribute *tpdm_attrs[] = {
 	&dev_attr_available_datasets.attr,
 	&dev_attr_enable_datasets.attr,
+	&dev_attr_reset.attr,
 	&dev_attr_gp_regs.attr,
 	NULL,
 };
