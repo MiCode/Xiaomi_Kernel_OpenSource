@@ -426,6 +426,7 @@ static int cnss_fw_ready_hdlr(struct cnss_plat_data *plat_priv)
 
 	del_timer(&plat_priv->fw_boot_timer);
 	set_bit(CNSS_FW_READY, &plat_priv->driver_state);
+	clear_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state);
 
 	if (test_bit(CNSS_FW_BOOT_RECOVERY, &plat_priv->driver_state)) {
 		clear_bit(CNSS_FW_BOOT_RECOVERY, &plat_priv->driver_state);
@@ -901,7 +902,6 @@ static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 		break;
 	case CNSS_REASON_RDDM:
 		cnss_bus_collect_dump_info(plat_priv, false);
-		clear_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state);
 		break;
 	case CNSS_REASON_DEFAULT:
 	case CNSS_REASON_TIMEOUT:
@@ -1552,6 +1552,36 @@ static void cnss_event_work_deinit(struct cnss_plat_data *plat_priv)
 	destroy_workqueue(plat_priv->event_wq);
 }
 
+static int cnss_misc_init(struct cnss_plat_data *plat_priv)
+{
+	int ret;
+
+	setup_timer(&plat_priv->fw_boot_timer, cnss_bus_fw_boot_timeout_hdlr,
+		    (unsigned long)plat_priv);
+
+	register_pm_notifier(&cnss_pm_notifier);
+
+	ret = device_init_wakeup(&plat_priv->plat_dev->dev, true);
+	if (ret)
+		cnss_pr_err("Failed to init platform device wakeup source, err = %d\n",
+			    ret);
+
+	init_completion(&plat_priv->power_up_complete);
+	init_completion(&plat_priv->cal_complete);
+	mutex_init(&plat_priv->dev_lock);
+
+	return 0;
+}
+
+static void cnss_misc_deinit(struct cnss_plat_data *plat_priv)
+{
+	complete_all(&plat_priv->cal_complete);
+	complete_all(&plat_priv->power_up_complete);
+	device_init_wakeup(&plat_priv->plat_dev->dev, false);
+	unregister_pm_notifier(&cnss_pm_notifier);
+	del_timer(&plat_priv->fw_boot_timer);
+}
+
 static const struct platform_device_id cnss_platform_id_table[] = {
 	{ .name = "qca6174", .driver_data = QCA6174_DEVICE_ID, },
 	{ .name = "qca6290", .driver_data = QCA6290_DEVICE_ID, },
@@ -1645,24 +1675,16 @@ static int cnss_probe(struct platform_device *plat_dev)
 	if (ret)
 		goto deinit_qmi;
 
-	setup_timer(&plat_priv->fw_boot_timer, cnss_bus_fw_boot_timeout_hdlr,
-		    (unsigned long)plat_priv);
-
-	register_pm_notifier(&cnss_pm_notifier);
-
-	ret = device_init_wakeup(&plat_dev->dev, true);
+	ret = cnss_misc_init(plat_priv);
 	if (ret)
-		cnss_pr_err("Failed to init platform device wakeup source, err = %d\n",
-			    ret);
-
-	init_completion(&plat_priv->power_up_complete);
-	init_completion(&plat_priv->cal_complete);
-	mutex_init(&plat_priv->dev_lock);
+		goto destroy_debugfs;
 
 	cnss_pr_info("Platform driver probed successfully.\n");
 
 	return 0;
 
+destroy_debugfs:
+	cnss_debugfs_destroy(plat_priv);
 deinit_qmi:
 	cnss_qmi_deinit(plat_priv);
 deinit_event_work:
@@ -1692,11 +1714,7 @@ static int cnss_remove(struct platform_device *plat_dev)
 {
 	struct cnss_plat_data *plat_priv = platform_get_drvdata(plat_dev);
 
-	complete_all(&plat_priv->cal_complete);
-	complete_all(&plat_priv->power_up_complete);
-	device_init_wakeup(&plat_dev->dev, false);
-	unregister_pm_notifier(&cnss_pm_notifier);
-	del_timer(&plat_priv->fw_boot_timer);
+	cnss_misc_deinit(plat_priv);
 	cnss_debugfs_destroy(plat_priv);
 	cnss_qmi_deinit(plat_priv);
 	cnss_event_work_deinit(plat_priv);
