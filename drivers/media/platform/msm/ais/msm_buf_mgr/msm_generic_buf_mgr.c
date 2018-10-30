@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -527,7 +527,7 @@ static long msm_buf_mngr_subdev_ioctl(struct v4l2_subdev *sd,
 {
 	int32_t rc = 0;
 	struct msm_buf_mngr_device *buf_mngr_dev = v4l2_get_subdevdata(sd);
-	void __user *argp = (void __user *)arg;
+	void *argp = arg;
 
 	if (!buf_mngr_dev) {
 		pr_err("%s buf manager device NULL\n", __func__);
@@ -550,16 +550,17 @@ static long msm_buf_mngr_subdev_ioctl(struct v4l2_subdev *sd,
 				return -EINVAL;
 			if (!k_ioctl.ioctl_ptr)
 				return -EINVAL;
-
-			MSM_CAM_GET_IOCTL_ARG_PTR(&tmp, &k_ioctl.ioctl_ptr,
-				sizeof(tmp));
-			if (copy_from_user(&buf_info, tmp,
-				sizeof(struct msm_buf_mngr_info))) {
-				return -EFAULT;
+			if (!is_compat_task()) {
+				MSM_CAM_GET_IOCTL_ARG_PTR(&tmp,
+					&k_ioctl.ioctl_ptr, sizeof(tmp));
+				if (copy_from_user(&buf_info,
+					(void __user *)tmp,
+					sizeof(struct msm_buf_mngr_info))) {
+					return -EFAULT;
+				}
+				k_ioctl.ioctl_ptr = (uintptr_t)&buf_info;
 			}
-			k_ioctl.ioctl_ptr = (uintptr_t)&buf_info;
-
-			argp = &k_ioctl;
+			argp = (void *)&k_ioctl;
 			rc = msm_cam_buf_mgr_ops(cmd, argp);
 			}
 			break;
