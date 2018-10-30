@@ -2329,7 +2329,14 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool hibernation)
 		return -EBUSY;
 	}
 
-	if (!mdwc->in_host_mode && (mdwc->vbus_active && !mdwc->suspend)) {
+	/*
+	 * Check if remote wakeup is received and pending before going
+	 * ahead with suspend routine as part of device bus suspend.
+	 */
+
+	if (!mdwc->in_host_mode && (mdwc->vbus_active &&
+		(mdwc->otg_state == OTG_STATE_B_SUSPEND ||
+		mdwc->otg_state == OTG_STATE_B_PERIPHERAL) && !mdwc->suspend)) {
 		dev_dbg(mdwc->dev,
 			"Received wakeup event before the core suspend\n");
 		mutex_unlock(&mdwc->suspend_resume_mutex);
