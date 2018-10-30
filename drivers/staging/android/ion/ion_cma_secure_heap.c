@@ -3,7 +3,7 @@
  *
  * Copyright (C) Linaro 2012
  * Author: <benjamin.gaignard@linaro.org> for ST-Ericsson.
- * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -558,7 +558,7 @@ static struct ion_secure_cma_buffer_info *__ion_secure_cma_allocate_non_contig(
 	struct ion_secure_cma_buffer_info *info;
 	int ret;
 	unsigned long alloc_size = len;
-	struct ion_secure_cma_non_contig_info *nc_info, *temp;
+	struct ion_secure_cma_non_contig_info *nc_info;
 	unsigned long ncelems = 0;
 	struct scatterlist *sg;
 	unsigned long total_allocated = 0;
@@ -648,11 +648,7 @@ retry:
 err2:
 	mutex_unlock(&sheap->alloc_lock);
 err1:
-	list_for_each_entry_safe(nc_info, temp, &info->non_contig_list,
-				 entry) {
-		list_del(&nc_info->entry);
-		kfree(nc_info);
-	}
+	__ion_secure_cma_free_non_contig(sheap, info);
 	kfree(info->table);
 err:
 	kfree(info);
