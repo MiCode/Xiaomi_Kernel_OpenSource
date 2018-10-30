@@ -45,6 +45,8 @@ Optional properties:
 - spi-cpha:       Empty property indicating device requires
                   shifted clock phase (CPHA) mode.
 
+- qcom,slv-ctrl : Set this flag to configure QUPV3 as SPI slave controller.
+
 Other optional properties described in
 Documentation/devicetree/bindings/spi/spi-bus.txt
 
