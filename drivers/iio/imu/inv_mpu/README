@@ -1,0 +1,117 @@
+Kernel driver inv-mpu-iio
+Author: InvenSense, Inc.
+
+
+Table of Contents
+=================
+- Description
+- Integrating the Driver in the Linux Kernel
+- Dts file
+- Communicating with the Driver in Userspace
+
+
+Description
+===========
+This document describes how to install the Invensense device driver into a
+Linux kernel. The supported chips are listed in Kconfig and user selects an
+appropriate one from .e.g. menuconfig.
+
+
+Integrating the Driver in the Linux Kernel
+==========================================
+Please add the files as follows (kernel 3.10):
+- Copy mpu.h to <kernel_root>/include/linux/iio/imu/
+- Copy inv_mpu folder under <kernel_root>/drivers/iio/imu/
+
+In order to see the driver in menuconfig when building the kernel, please
+make modifications as shown below:
+
+    add "source "drivers/iio/imu/inv_mpu/Kconfig""
+      in <kernel_root>/drivers/iio/imu/Kconfig
+
+    add "obj-y += inv_mpu/"
+      in <kernel_root>/drivers/iio/imu/Makefile
+
+
+
+Dts file
+========
+In order to recognize the Invensense device on the I2C/SPI bus, dts(or dtsi)
+file must be modified.
+
+Example)
+ICM20648 + AK09911/BMP280/APDS9930 on AUX I2C
+
+    i2c@f9968000 {
+        /* Invensense */
+        mpu6515_acc@68 {
+            compatible = "inven,icm20648";
+            reg = <0x68>;
+            interrupt-parent = <&msmgpio>;
+            interrupts = <73 0x2>;
+            inven,vdd_ana-supply = <&pm8941_l17>;
+            inven,vcc_i2c-supply = <&pm8941_lvs1>;
+            inven,gpio_int1 = <&msmgpio 73 0x00>;
+            fs_range = <0x00>;
+            /* mount matrix */
+            axis_map_x = <1>;
+            axis_map_y = <0>;
+            axis_map_z = <2>;
+            negate_x = <0>;
+            negate_y = <0>;
+            negate_z = <1>;
+            poll_interval = <200>;
+            min_interval = <5>;
+            inven,secondary_reg = <0x0c>;
+            /* If no compass sensor,
+             * replace "compass" with "none"
+             */
+            inven,secondary_type = "compass";
+            inven,secondary_name = "ak09911";
+            inven,secondary_axis_map_x = <1>;
+            inven,secondary_axis_map_y = <0>;
+            inven,secondary_axis_map_z = <2>;
+            inven,secondary_negate_x = <1>;
+            inven,secondary_negate_y = <1>;
+            inven,secondary_negate_z = <1>;
+            /* If no pressure sensor,
+             * replace "pressure" with "none"
+             */
+            inven,aux_type = "pressure";
+            inven,aux_name = "bmp280";
+            inven,aux_reg = <0x76>;
+            /* If no ALS sensor
+             * replace "als" with "none"
+             */
+            inven,read_only_slave_type = "als";
+            inven,read_only_slave_name = "apds9930";
+            inven,read_only_slave_reg = <0x39>;
+        };
+    };
+
+
+Communicating with the Driver in Userspace
+==========================================
+The driver generates several files in sysfs upon installation.
+These files are used to communicate with the driver. The files can be found at:
+
+(I2C) /sys/devices/*.i2c/i2c-*/*-*/iio:device*
+(SPI) /sys/devices/*.spi/spi_master/spi*/spi*.*/iio:device*
+
+Group and Owner for all entries should be updated to system/system at
+boot time to allow userspace to access properly.
+
+
+License
+=======
+Copyright (C) 2018 InvenSense, Inc.
+
+This software is licensed under the terms of the GNU General Public
+License version 2, as published by the Free Software Foundation, and
+may be copied, distributed, and modified under those terms.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
