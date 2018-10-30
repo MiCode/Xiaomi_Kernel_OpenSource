@@ -2083,7 +2083,7 @@ static int ngd_slim_runtime_suspend(struct device *device)
 #ifdef CONFIG_PM_SLEEP
 static int ngd_slim_suspend(struct device *dev)
 {
-	int ret = -EBUSY;
+	int ret = 0;
 	struct platform_device *pdev = to_platform_device(dev);
 	struct msm_slim_ctrl *cdev;
 
@@ -2092,6 +2092,13 @@ static int ngd_slim_suspend(struct device *dev)
 		return 0;
 
 	cdev = platform_get_drvdata(pdev);
+
+	if (cdev->state == MSM_CTRL_AWAKE) {
+		ret = -EBUSY;
+		SLIM_INFO(cdev, "system suspend: %d\n", ret);
+		return ret;
+
+	}
 	if (!pm_runtime_enabled(dev) ||
 		(!pm_runtime_suspended(dev) &&
 			cdev->state == MSM_CTRL_IDLE)) {
@@ -2108,17 +2115,6 @@ static int ngd_slim_suspend(struct device *dev)
 		} else {
 			cdev->qmi.deferred_resp = false;
 		}
-	}
-	if (ret == -EBUSY) {
-		/*
-		 * There is a possibility that some audio stream is active
-		 * during suspend. We dont want to return suspend failure in
-		 * that case so that display and relevant components can still
-		 * go to suspend.
-		 * If there is some other error, then it should be passed-on
-		 * to system level suspend
-		 */
-		ret = 0;
 	}
 	SLIM_INFO(cdev, "system suspend\n");
 	return ret;
