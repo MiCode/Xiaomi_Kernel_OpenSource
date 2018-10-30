@@ -571,16 +571,101 @@
 };
 
 &thermal_zones {
-	vbat_adc {
+	ibat-high {
+		polling-delay-passive = <100>;
+		trips {
+			pm660_ibat_high:ibat-high {
+				temperature = <2000>;
+				hysteresis = <1000>;
+			};
+		};
 		cooling-maps {
-			/delete-node/ vbat_map6;
-			/delete-node/ vbat_map7;
+			ibat_map0 {
+				trip = <&pm660_ibat_high>;
+				cooling-device =
+					<&CPU0 (THERMAL_MAX_LIMIT-2)
+						(THERMAL_MAX_LIMIT-2)>;
+			};
+			ibat_map1 {
+				trip = <&pm660_ibat_high>;
+				cooling-device =
+					<&CPU1 (THERMAL_MAX_LIMIT-2)
+						(THERMAL_MAX_LIMIT-2)>;
+			};
+			ibat_map2 {
+				trip = <&pm660_ibat_high>;
+				cooling-device =
+					<&CPU2 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			ibat_map3 {
+				trip = <&pm660_ibat_high>;
+				cooling-device =
+					<&CPU3 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	vbat_adc {
+		trips {
+			vbat-adc {
+				hysteresis = <300>;
+			};
+		};
+		cooling-maps {
+			vbat_map0 {
+				trip = <&pm660_vbat_adc>;
+				cooling-device =
+					<&CPU0 (THERMAL_MAX_LIMIT-2)
+						(THERMAL_MAX_LIMIT-2)>;
+			};
+			vbat_map1 {
+				trip = <&pm660_vbat_adc>;
+				cooling-device =
+					<&CPU1 (THERMAL_MAX_LIMIT-2)
+						(THERMAL_MAX_LIMIT-2)>;
+			};
+			vbat_map2 {
+				trip = <&pm660_vbat_adc>;
+				cooling-device =
+					<&CPU2 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			vbat_map3 {
+				trip = <&pm660_vbat_adc>;
+				cooling-device =
+					<&CPU3 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
 		};
 	};
 	soc {
 		cooling-maps {
-		/delete-node/ soc_map6;
-		/delete-node/ soc_map7;
+			soc_map0 {
+				trip = <&pm660_low_soc>;
+				cooling-device =
+					<&CPU0 (THERMAL_MAX_LIMIT-2)
+						(THERMAL_MAX_LIMIT-2)>;
+			};
+			soc_map1 {
+				trip = <&pm660_low_soc>;
+				cooling-device =
+					<&CPU1 (THERMAL_MAX_LIMIT-2)
+						(THERMAL_MAX_LIMIT-2)>;
+			};
+			soc_map2 {
+				trip = <&pm660_low_soc>;
+				cooling-device =
+					<&CPU2 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			soc_map3 {
+				trip = <&pm660_low_soc>;
+				cooling-device =
+					<&CPU3 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
 		};
 	};
 };
