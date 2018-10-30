@@ -133,7 +133,7 @@ static int default_key_map(struct dm_target *ti, struct bio *bio)
 			dm_target_offset(ti, bio->bi_iter.bi_sector);
 	}
 
-	if (!bio->bi_crypt_key)
+	if (!bio->bi_crypt_key && !bio->bi_crypt_skip)
 		bio->bi_crypt_key = &dkc->key;
 
 	return DM_MAPIO_REMAPPED;
