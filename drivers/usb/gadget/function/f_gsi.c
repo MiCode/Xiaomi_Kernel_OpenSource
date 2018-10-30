@@ -585,8 +585,13 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 	}
 
 	/* Populate connection params */
-	conn_params->max_pkt_size =
-		le16_to_cpu(d_port->in_ep->desc->wMaxPacketSize);
+	if (cdev->gadget->speed >= USB_SPEED_SUPER)
+		conn_params->max_pkt_size = IPA_USB_SUPER_SPEED_1024B;
+	else if (cdev->gadget->speed == USB_SPEED_HIGH)
+		conn_params->max_pkt_size = IPA_USB_HIGH_SPEED_512B;
+	else
+		conn_params->max_pkt_size = IPA_USB_FULL_SPEED_64B;
+
 	log_event_dbg("%s(): max_pkt_size:%d\n", __func__,
 		conn_params->max_pkt_size);
 	conn_params->ipa_to_usb_xferrscidx =
