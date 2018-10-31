@@ -857,6 +857,10 @@
 			reg = <0x94c 200>;
 		};
 
+		diag_dload@c8 {
+			compatible = "qcom,msm-imem-diag-dload";
+			reg = <0xc8 200>;
+		};
 	};
 
 	 jtag_fuse: jtagfuse@a601c {
