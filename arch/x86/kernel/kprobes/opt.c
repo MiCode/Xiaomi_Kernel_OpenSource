@@ -39,6 +39,7 @@
 #include <asm/insn.h>
 #include <asm/debugreg.h>
 #include <asm/nospec-branch.h>
+#include <asm/sections.h>
 
 #include "common.h"
 

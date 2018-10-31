@@ -18,6 +18,7 @@
 #include <asm/setup.h>
 #include <asm/acpi.h>
 #include <asm/numa.h>
+#include <asm/sections.h>
 #include <asm/xen/hypervisor.h>
 #include <asm/xen/hypercall.h>
 
