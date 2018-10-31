@@ -251,7 +251,7 @@
 };
 
 &mdss_mdp {
-	connectors = <&sde_wb &sde_dsi>;
+	connectors = <&sde_rscc &sde_wb &sde_dsi>;
 };
 
 &dsi_sw43404_amoled_video {
