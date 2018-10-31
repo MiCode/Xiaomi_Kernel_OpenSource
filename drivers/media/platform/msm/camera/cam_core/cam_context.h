@@ -57,25 +57,23 @@ enum cam_context_state {
  * @num_out_acked:         Number of out fence acked
  * @flushed:               Request is flushed
  * @ctx:                   The context to which this request belongs
- * @pf_data                page fault debug data
  *
  */
 struct cam_ctx_request {
-	struct list_head               list;
-	uint32_t                       status;
-	uint64_t                       request_id;
+	struct list_head              list;
+	uint32_t                      status;
+	uint64_t                      request_id;
 	void                          *req_priv;
-	struct cam_hw_update_entry     hw_update_entries[CAM_CTX_CFG_MAX];
-	uint32_t                       num_hw_update_entries;
-	struct cam_hw_fence_map_entry  in_map_entries[CAM_CTX_CFG_MAX];
-	uint32_t                       num_in_map_entries;
-	struct cam_hw_fence_map_entry  out_map_entries[CAM_CTX_CFG_MAX];
-	uint32_t                       num_out_map_entries;
-	atomic_t                       num_in_acked;
-	uint32_t                       num_out_acked;
-	int                            flushed;
-	struct cam_context            *ctx;
-	struct cam_hw_mgr_dump_pf_data pf_data;
+	struct cam_hw_update_entry    hw_update_entries[CAM_CTX_CFG_MAX];
+	uint32_t                      num_hw_update_entries;
+	struct cam_hw_fence_map_entry in_map_entries[CAM_CTX_CFG_MAX];
+	uint32_t                      num_in_map_entries;
+	struct cam_hw_fence_map_entry out_map_entries[CAM_CTX_CFG_MAX];
+	uint32_t                      num_out_map_entries;
+	atomic_t                      num_in_acked;
+	uint32_t                      num_out_acked;
+	int                           flushed;
+	struct cam_context           *ctx;
 };
 
 /**
@@ -137,14 +135,12 @@ struct cam_ctx_crm_ops {
  * @ioctl_ops:             Ioctl funciton table
  * @crm_ops:               CRM to context interface function table
  * @irq_ops:               Hardware event handle function
- * @pagefault_ops:         Function to be called on page fault
  *
  */
 struct cam_ctx_ops {
 	struct cam_ctx_ioctl_ops     ioctl_ops;
 	struct cam_ctx_crm_ops       crm_ops;
 	cam_hw_event_cb_func         irq_ops;
-	cam_hw_pagefault_cb_func     pagefault_ops;
 };
 
 /**
@@ -294,19 +290,6 @@ int cam_context_handle_crm_flush_req(struct cam_context *ctx,
  */
 int cam_context_handle_crm_process_evt(struct cam_context *ctx,
 	struct cam_req_mgr_link_evt_data *process_evt);
-
-/**
- * cam_context_dump_pf_info()
- *
- * @brief:        Handle dump active request request command
- *
- * @ctx:          Object pointer for cam_context
- * @iova:         Page fault address
- * @buf_info:     Information about closest memory handle
- *
- */
-int cam_context_dump_pf_info(struct cam_context *ctx, unsigned long iova,
-	uint32_t buf_info);
 
 /**
  * cam_context_handle_acquire_dev()

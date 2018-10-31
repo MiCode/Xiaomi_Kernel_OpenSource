@@ -205,10 +205,9 @@ struct cam_ife_hw_mgr {
  *                      etnry functinon for the IFE HW manager.
  *
  * @hw_mgr_intf:        IFE hardware manager object returned
- * @iommu_hdl:          Iommu handle to be returned
  *
  */
-int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf, int *iommu_hdl);
+int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf);
 
 /**
  * cam_ife_mgr_do_tasklet_buf_done()

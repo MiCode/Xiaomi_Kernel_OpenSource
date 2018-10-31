@@ -16,7 +16,7 @@
 
 
 int cam_isp_hw_mgr_init(struct device_node *of_node,
-	struct cam_hw_mgr_intf *hw_mgr, int *iommu_hdl)
+	struct cam_hw_mgr_intf *hw_mgr)
 {
 	int rc = 0;
 	const char *compat_str = NULL;
@@ -25,7 +25,7 @@ int cam_isp_hw_mgr_init(struct device_node *of_node,
 		(const char **)&compat_str);
 
 	if (strnstr(compat_str, "ife", strlen(compat_str)))
-		rc = cam_ife_hw_mgr_init(hw_mgr, iommu_hdl);
+		rc = cam_ife_hw_mgr_init(hw_mgr);
 	else {
 		CAM_ERR(CAM_ISP, "Invalid ISP hw type");
 		rc = -EINVAL;

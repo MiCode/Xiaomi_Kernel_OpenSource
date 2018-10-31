@@ -17,7 +17,8 @@
 #include <uapi/media/cam_defs.h>
 #include <linux/of.h>
 
+
 int cam_jpeg_hw_mgr_init(struct device_node *of_node,
-	uint64_t *hw_mgr_hdl, int *iommu_hdl);
+	uint64_t *hw_mgr_hdl);
 
 #endif /* CAM_JPEG_HW_MGR_INTF_H */
