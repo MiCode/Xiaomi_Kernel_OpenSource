@@ -362,6 +362,7 @@
 
 		qcom,mdss-fb-map = <&mdss_fb1>;
 		qcom,pluggable;
+		qcom,max-pclk-frequency-khz = <148500>;
 	};
 
 	qcom,mdss_wb_panel {
