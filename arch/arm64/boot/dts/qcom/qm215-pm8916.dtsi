@@ -73,14 +73,36 @@
 	};
 
 	qcom,wcnss-wlan@a000000 {
-		/delete-property/ qcom,pronto-vddmx-supply;
-		/delete-property/ qcom,pronto-vddcx-supply;
-		/delete-property/ qcom,pronto-vddpx-supply;
-		/delete-property/ qcom,iris-vddxo-supply;
-		/delete-property/ qcom,iris-vddrfa-supply;
-		/delete-property/ qcom,iris-vddpa-supply;
-		/delete-property/ qcom,iris-vdddig-supply;
 		/delete-property/ qcom,wcnss-adc_tm;
+		qcom,pronto-vddmx-supply = <&pm8916_l2_level_ao>;
+		qcom,pronto-vddcx-supply = <&pm8916_s1_level>;
+		qcom,pronto-vddpx-supply = <&pm8916_l7>;
+		qcom,iris-vddxo-supply   = <&pm8916_l7>;
+		qcom,iris-vddrfa-supply  = <&pm8916_l3>;
+		qcom,iris-vddpa-supply   = <&pm8916_l9>;
+		qcom,iris-vdddig-supply  = <&pm8916_l7>;
+
+		qcom,iris-vddxo-voltage-level = <1800000 0 1800000>;
+		qcom,iris-vddrfa-voltage-level = <1325000 0 1325000>;
+		qcom,iris-vddpa-voltage-level = <3300000 0 3300000>;
+		qcom,iris-vdddig-voltage-level = <1800000 0 1800000>;
+
+		qcom,vddmx-voltage-level = <RPM_SMD_REGULATOR_LEVEL_NOM
+					    RPM_SMD_REGULATOR_LEVEL_NONE
+					    RPM_SMD_REGULATOR_LEVEL_TURBO>;
+		qcom,vddcx-voltage-level = <RPM_SMD_REGULATOR_LEVEL_NOM
+					    RPM_SMD_REGULATOR_LEVEL_NONE
+					    RPM_SMD_REGULATOR_LEVEL_TURBO>;
+		qcom,vddpx-voltage-level = <1800000 0 1800000>;
+
+		qcom,iris-vddxo-current = <10000>;
+		qcom,iris-vddrfa-current = <100000>;
+		qcom,iris-vddpa-current = <515000>;
+		qcom,iris-vdddig-current = <10000>;
+
+		qcom,pronto-vddmx-current = <0>;
+		qcom,pronto-vddcx-current = <0>;
+		qcom,pronto-vddpx-current = <0>;
 	};
 
 	/delete-node/ qcom,csid@1b30000;
