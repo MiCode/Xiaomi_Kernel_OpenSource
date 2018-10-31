@@ -422,3 +422,19 @@
 		};
 	};
 };
+
+&soc {
+	usb_vdig_supply: usb_vdig_supply {
+		compatible = "regulator-fixed";
+		regulator-name = "usb_vdig_supply";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+	};
+};
+
+&usb_otg {
+	hsusb_vdd_dig-supply = <&usb_vdig_supply>;
+	HSUSB_1p8-supply = <&pm8916_l7>;
+	HSUSB_3p3-supply = <&pm8916_l13>;
+	extcon = <&pm8916_chg>;
+};
