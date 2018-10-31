@@ -748,7 +748,7 @@
 
 	qcom,msm-mdf-mem {
 		compatible = "qcom,msm-mdf-mem-region";
-		qcom,msm-mdf-mem-data-size = <0x200000>;
+		qcom,msm-mdf-mem-data-size = <0x800000>;
 		memory-region = <&mdf_mem>;
 	};
 
