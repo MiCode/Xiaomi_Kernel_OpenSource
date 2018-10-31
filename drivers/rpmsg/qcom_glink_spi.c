@@ -65,6 +65,7 @@ do {									       \
 
 #define MAX_INACTIVE_CYCLES 50
 #define POLL_INTERVAL_US 500
+#define TX_WAIT_US 500
 
 #define ACTIVE_TX BIT(0)
 #define ACTIVE_RX BIT(1)
@@ -646,7 +647,7 @@ static int glink_spi_tx(struct glink_spi *glink, void *hdr, size_t hlen,
 		/* Wait without holding the tx_lock */
 		mutex_unlock(&glink->tx_lock);
 
-		usleep_range(10000, 15000);
+		usleep_range(TX_WAIT_US, TX_WAIT_US + 50);
 
 		mutex_lock(&glink->tx_lock);
 	}
@@ -1140,7 +1141,7 @@ static int glink_spi_send_short(struct glink_spi_channel *channel,
 		/* Wait without holding the tx_lock */
 		mutex_unlock(&glink->tx_lock);
 
-		usleep_range(10000, 15000);
+		usleep_range(TX_WAIT_US, TX_WAIT_US + 50);
 
 		mutex_lock(&glink->tx_lock);
 	}
@@ -1189,7 +1190,7 @@ static int glink_spi_send_data(struct glink_spi_channel *channel,
 		/* Wait without holding the tx_lock */
 		mutex_unlock(&glink->tx_lock);
 
-		usleep_range(10000, 15000);
+		usleep_range(TX_WAIT_US, TX_WAIT_US + 50);
 
 		mutex_lock(&glink->tx_lock);
 	}
