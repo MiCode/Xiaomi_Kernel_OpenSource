@@ -25,6 +25,7 @@ Required properties :
 			"qcom,gcc-mdss-qcs405"
 			"qcom,gcc-sm6150"
 			"qcom,gcc-sdmmagpie"
+			"qcom,gcc-sdxprairie"
 
 - reg : shall contain base register location and length
 - #clock-cells : shall contain 1

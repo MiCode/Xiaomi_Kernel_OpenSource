@@ -92,6 +92,7 @@ struct pl_data {
 	struct notifier_block	nb;
 	bool			pl_disable;
 	int			taper_entry_fv;
+	int			main_fcc_max;
 };
 
 struct pl_data *the_chip;
@@ -468,10 +469,16 @@ static void get_fcc_split(struct pl_data *chip, int total_ua,
 	 * through main charger's BATFET, keep the main charger's FCC
 	 * to the votable result.
 	 */
-	if (chip->pl_batfet_mode == POWER_SUPPLY_PL_STACKED_BATFET)
+	if (chip->pl_batfet_mode == POWER_SUPPLY_PL_STACKED_BATFET) {
 		*master_ua = max(0, total_ua);
-	else
+		if (chip->main_fcc_max)
+			*master_ua = min(*master_ua,
+					chip->main_fcc_max + *slave_ua);
+	} else {
 		*master_ua = max(0, total_ua - *slave_ua);
+		if (chip->main_fcc_max)
+			*master_ua = min(*master_ua, chip->main_fcc_max);
+	}
 }
 
 static void get_fcc_stepper_params(struct pl_data *chip, int main_fcc_ua,
@@ -1003,6 +1010,16 @@ static int pl_disable_vote_callback(struct votable *votable,
 	chip->fcc_stepper_enable = pval.intval;
 	pr_debug("FCC Stepper %s\n", pval.intval ? "enabled" : "disabled");
 
+	rc = power_supply_get_property(chip->main_psy,
+			POWER_SUPPLY_PROP_MAIN_FCC_MAX, &pval);
+	if (rc < 0) {
+		pl_dbg(chip, PR_PARALLEL,
+			"Couldn't read primary charger FCC upper limit, rc=%d\n",
+			rc);
+	} else if (pval.intval > 0) {
+		chip->main_fcc_max = pval.intval;
+	}
+
 	if (chip->fcc_stepper_enable) {
 		cancel_delayed_work_sync(&chip->fcc_stepper_work);
 		vote(chip->pl_awake_votable, FCC_STEPPER_VOTER, false, 0);
@@ -1148,6 +1165,10 @@ static int pl_disable_vote_callback(struct votable *votable,
 			(master_fcc_ua * 100) / total_fcc_ua,
 			(slave_fcc_ua * 100) / total_fcc_ua);
 	} else {
+		if (chip->main_fcc_max)
+			total_fcc_ua = min(total_fcc_ua,
+						chip->main_fcc_max);
+
 		if (!chip->fcc_stepper_enable) {
 			if (IS_USBIN(chip->pl_mode))
 				split_settled(chip);
@@ -1242,6 +1263,8 @@ static bool is_parallel_available(struct pl_data *chip)
 	if (!chip->pl_psy)
 		return false;
 
+	vote(chip->pl_disable_votable, PARALLEL_PSY_VOTER, false, 0);
+
 	rc = power_supply_get_property(chip->pl_psy,
 			       POWER_SUPPLY_PROP_PARALLEL_MODE, &pval);
 	if (rc < 0) {
@@ -1289,8 +1312,6 @@ static bool is_parallel_available(struct pl_data *chip)
 			POWER_SUPPLY_PROP_PARALLEL_FCC_MAX, &pval);
 	if (!rc)
 		chip->pl_fcc_max = pval.intval;
-
-	vote(chip->pl_disable_votable, PARALLEL_PSY_VOTER, false, 0);
 
 	return true;
 }

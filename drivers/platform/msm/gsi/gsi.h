@@ -120,6 +120,7 @@ struct gsi_chan_stats {
 	unsigned long completed;
 	unsigned long callback_to_poll;
 	unsigned long poll_to_callback;
+	unsigned long poll_pending_irq;
 	unsigned long invalid_tre_error;
 	unsigned long poll_ok;
 	unsigned long poll_empty;
@@ -219,8 +220,6 @@ struct gsi_ctx {
 	u32 intcntrlr_mem_size;
 	irq_handler_t intcntrlr_gsi_isr;
 	irq_handler_t intcntrlr_client_isr;
-	u32 chan_ieob_mask;
-	u32 ieob_mask_miss_match_cnt;
 };
 
 enum gsi_re_type {

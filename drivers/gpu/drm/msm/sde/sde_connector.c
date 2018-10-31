@@ -94,6 +94,12 @@ static int sde_backlight_device_update_status(struct backlight_device *bd)
 	if (!bl_lvl && brightness)
 		bl_lvl = 1;
 
+	if (display->panel->bl_config.bl_update ==
+		BL_UPDATE_DELAY_UNTIL_FIRST_FRAME && !c_conn->allow_bl_update) {
+		c_conn->unset_bl_level = bl_lvl;
+		return 0;
+	}
+
 	if (c_conn->ops.set_backlight) {
 		event.type = DRM_EVENT_SYS_BACKLIGHT;
 		event.length = sizeof(u32);
@@ -101,6 +107,7 @@ static int sde_backlight_device_update_status(struct backlight_device *bd)
 				c_conn->base.dev, &event, (u8 *)&brightness);
 		rc = c_conn->ops.set_backlight(&c_conn->base,
 				c_conn->display, bl_lvl);
+		c_conn->unset_bl_level = 0;
 	}
 
 	return rc;
@@ -526,6 +533,15 @@ static int _sde_connector_update_bl_scale(struct sde_connector *c_conn)
 
 	bl_config = &dsi_display->panel->bl_config;
 
+	if (dsi_display->panel->bl_config.bl_update ==
+		BL_UPDATE_DELAY_UNTIL_FIRST_FRAME && !c_conn->allow_bl_update) {
+		c_conn->unset_bl_level = bl_config->bl_level;
+		return 0;
+	}
+
+	if (c_conn->unset_bl_level)
+		bl_config->bl_level = c_conn->unset_bl_level;
+
 	if (c_conn->bl_scale > MAX_BL_SCALE_LEVEL)
 		bl_config->bl_scale = MAX_BL_SCALE_LEVEL;
 	else
@@ -541,8 +557,29 @@ static int _sde_connector_update_bl_scale(struct sde_connector *c_conn)
 		bl_config->bl_level);
 	rc = c_conn->ops.set_backlight(&c_conn->base,
 			dsi_display, bl_config->bl_level);
+	c_conn->unset_bl_level = 0;
 
 	return rc;
+}
+
+void sde_connector_set_qsync_params(struct drm_connector *connector)
+{
+	struct sde_connector *c_conn = to_sde_connector(connector);
+	u32 qsync_propval;
+
+	if (!connector)
+		return;
+
+	c_conn->qsync_updated = false;
+	qsync_propval = sde_connector_get_property(c_conn->base.state,
+			CONNECTOR_PROP_QSYNC_MODE);
+
+	if (qsync_propval != c_conn->qsync_mode) {
+		SDE_DEBUG("updated qsync mode %d -> %d\n", c_conn->qsync_mode,
+				qsync_propval);
+		c_conn->qsync_updated = true;
+		c_conn->qsync_mode = qsync_propval;
+	}
 }
 
 static int _sde_connector_update_dirty_properties(
@@ -559,7 +596,6 @@ static int _sde_connector_update_dirty_properties(
 
 	c_conn = to_sde_connector(connector);
 	c_state = to_sde_connector_state(connector->state);
-	c_conn->qsync_updated = false;
 
 	while ((idx = msm_property_pop_dirty(&c_conn->property_info,
 					&c_state->property_state)) >= 0) {
@@ -575,19 +611,17 @@ static int _sde_connector_update_dirty_properties(
 		case CONNECTOR_PROP_AD_BL_SCALE:
 			_sde_connector_update_bl_scale(c_conn);
 			break;
-		case CONNECTOR_PROP_QSYNC_MODE:
-			c_conn->qsync_updated = true;
-			c_conn->qsync_mode = sde_connector_get_property(
-				connector->state, CONNECTOR_PROP_QSYNC_MODE);
-			break;
 		default:
 			/* nothing to do for most properties */
 			break;
 		}
 	}
 
-	/* Special handling for postproc properties */
-	if (c_conn->bl_scale_dirty) {
+	/*
+	 * Special handling for postproc properties and
+	 * for updating backlight if any unset backlight level is present
+	 */
+	if (c_conn->bl_scale_dirty || c_conn->unset_bl_level) {
 		_sde_connector_update_bl_scale(c_conn);
 		c_conn->bl_scale_dirty = false;
 	}
@@ -660,29 +694,44 @@ void sde_connector_helper_bridge_disable(struct drm_connector *connector)
 	sde_connector_schedule_status_work(connector, false);
 
 	c_conn = to_sde_connector(connector);
-	if (c_conn->panel_dead) {
+	if (c_conn->bl_device) {
 		c_conn->bl_device->props.power = FB_BLANK_POWERDOWN;
 		c_conn->bl_device->props.state |= BL_CORE_FBBLANK;
 		backlight_update_status(c_conn->bl_device);
 	}
+
+	c_conn->allow_bl_update = false;
 }
 
 void sde_connector_helper_bridge_enable(struct drm_connector *connector)
 {
 	struct sde_connector *c_conn = NULL;
+	struct dsi_display *display;
 
 	if (!connector)
 		return;
 
 	c_conn = to_sde_connector(connector);
+	display = (struct dsi_display *) c_conn->display;
 
-	/* Special handling for ESD recovery case */
-	if (c_conn->panel_dead) {
+	/*
+	 * Special handling for some panels which need atleast
+	 * one frame to be transferred to GRAM before enabling backlight.
+	 * So delay backlight update to these panels until the
+	 * first frame commit is received from the HW.
+	 */
+	if (display->panel->bl_config.bl_update ==
+				BL_UPDATE_DELAY_UNTIL_FIRST_FRAME)
+		sde_encoder_wait_for_event(c_conn->encoder,
+				MSM_ENC_TX_COMPLETE);
+	c_conn->allow_bl_update = true;
+
+	if (c_conn->bl_device) {
 		c_conn->bl_device->props.power = FB_BLANK_UNBLANK;
 		c_conn->bl_device->props.state &= ~BL_CORE_FBBLANK;
 		backlight_update_status(c_conn->bl_device);
-		c_conn->panel_dead = false;
 	}
+	c_conn->panel_dead = false;
 }
 
 int sde_connector_clk_ctrl(struct drm_connector *connector, bool enable)
@@ -2239,15 +2288,12 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 			0x0, 0, AUTOREFRESH_MAX_FRAME_CNT, 0,
 			CONNECTOR_PROP_AUTOREFRESH);
 
-	if (connector_type == DRM_MODE_CONNECTOR_DSI) {
-		if (sde_kms->catalog->has_qsync && display_info.qsync_min_fps) {
-
-			msm_property_install_enum(&c_conn->property_info,
-					"qsync_mode", 0, 0, e_qsync_mode,
-					ARRAY_SIZE(e_qsync_mode),
-					CONNECTOR_PROP_QSYNC_MODE);
-		}
-	}
+	if (connector_type == DRM_MODE_CONNECTOR_DSI &&
+			sde_kms->catalog->has_qsync &&
+			display_info.qsync_min_fps)
+		msm_property_install_enum(&c_conn->property_info, "qsync_mode",
+				0, 0, e_qsync_mode, ARRAY_SIZE(e_qsync_mode),
+				CONNECTOR_PROP_QSYNC_MODE);
 
 	msm_property_install_range(&c_conn->property_info, "bl_scale",
 		0x0, 0, MAX_BL_SCALE_LEVEL, MAX_BL_SCALE_LEVEL,

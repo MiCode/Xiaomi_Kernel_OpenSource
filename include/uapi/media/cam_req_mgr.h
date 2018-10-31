@@ -262,6 +262,9 @@ struct cam_req_mgr_link_control {
 	((idx & CAM_MEM_MGR_HDL_IDX_MASK) | \
 	(fd << (CAM_MEM_MGR_HDL_FD_END_POS - CAM_MEM_MGR_HDL_FD_SIZE))) \
 
+#define GET_FD_FROM_HANDLE(hdl) \
+	(hdl >> (CAM_MEM_MGR_HDL_FD_END_POS - CAM_MEM_MGR_HDL_FD_SIZE)) \
+
 #define CAM_MEM_MGR_GET_HDL_IDX(hdl) (hdl & CAM_MEM_MGR_HDL_IDX_MASK)
 
 #define CAM_MEM_MGR_SET_SECURE_HDL(hdl, flag) \

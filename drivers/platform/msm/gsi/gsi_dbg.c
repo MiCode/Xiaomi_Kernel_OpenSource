@@ -273,9 +273,10 @@ static void gsi_dump_ch_stats(struct gsi_chan_ctx *ctx)
 	PRT_STAT("queued=%lu compl=%lu\n",
 		ctx->stats.queued,
 		ctx->stats.completed);
-	PRT_STAT("cb->poll=%lu poll->cb=%lu\n",
+	PRT_STAT("cb->poll=%lu poll->cb=%lu poll_pend_irq=%lu\n",
 		ctx->stats.callback_to_poll,
-		ctx->stats.poll_to_callback);
+		ctx->stats.poll_to_callback,
+		ctx->stats.poll_pending_irq);
 	PRT_STAT("invalid_tre_error=%lu\n",
 		ctx->stats.invalid_tre_error);
 	PRT_STAT("poll_ok=%lu poll_empty=%lu\n",

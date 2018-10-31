@@ -38,6 +38,8 @@ MODULE_PARM_DESC(noacd, "Disable GPU ACD");
 #define GMU_CONTEXT_KERNEL		1
 #define GMU_KERNEL_ENTRIES		16
 
+#define GMU_CM3_CFG_NONMASKINTR_SHIFT    9
+
 struct gmu_iommu_context {
 	const char *name;
 	struct device *dev;
@@ -80,6 +82,8 @@ struct gmu_iommu_context gmu_ctx[] = {
 static struct gmu_memdesc gmu_kmem_entries[GMU_KERNEL_ENTRIES];
 static unsigned long gmu_kmem_bitmap;
 static unsigned int num_uncached_entries;
+
+static void gmu_snapshot(struct kgsl_device *device);
 static void gmu_remove(struct kgsl_device *device);
 
 static int _gmu_iommu_fault_handler(struct device *dev,
@@ -459,8 +463,7 @@ static int gmu_memory_probe(struct kgsl_device *device,
 	}
 
 	/* Allocates & maps GMU crash dump memory */
-	if (adreno_is_a630(adreno_dev) || adreno_is_a615(adreno_dev) ||
-		adreno_is_a616(adreno_dev)) {
+	if (adreno_is_a630(adreno_dev) || adreno_is_a615_family(adreno_dev)) {
 		gmu->dump_mem = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL,
 				DUMPMEM_SIZE, (IOMMU_READ | IOMMU_WRITE));
 		if (IS_ERR(gmu->dump_mem)) {
@@ -541,9 +544,7 @@ static int gmu_dcvs_set(struct kgsl_device *device,
 		dev_err_ratelimited(&gmu->pdev->dev,
 			"Failed to set GPU perf idx %d, bw idx %d\n",
 			req.freq, req.bw);
-
-		adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
-		adreno_dispatcher_schedule(device);
+		gmu_snapshot(device);
 	}
 
 	/* indicate actual clock change */
@@ -819,6 +820,38 @@ static void build_bwtable_cmd_cache(struct gmu_device *gmu)
 				votes->cnoc_votes.cmd_data[i][j];
 }
 
+static int gmu_acd_probe(struct gmu_device *gmu, struct device_node *node)
+{
+	struct hfi_acd_table_cmd *cmd = &gmu->hfi.acd_tbl_cmd;
+	struct device_node *acd_node;
+
+	acd_node = of_find_node_by_name(node, "qcom,gpu-acd-table");
+	if (!acd_node)
+		return -ENODEV;
+
+	cmd->hdr = 0xFFFFFFFF;
+	cmd->version = HFI_ACD_INIT_VERSION;
+	cmd->enable_by_level = 0;
+	cmd->stride = 0;
+	cmd->num_levels = 0;
+
+	of_property_read_u32(acd_node, "qcom,acd-stride", &cmd->stride);
+	if (!cmd->stride || cmd->stride > MAX_ACD_STRIDE)
+		return -EINVAL;
+
+	of_property_read_u32(acd_node, "qcom,acd-num-levels", &cmd->num_levels);
+	if (!cmd->num_levels || cmd->num_levels > MAX_ACD_NUM_LEVELS)
+		return -EINVAL;
+
+	of_property_read_u32(acd_node, "qcom,acd-enable-by-level",
+			&cmd->enable_by_level);
+	if (hweight32(cmd->enable_by_level) != cmd->num_levels)
+		return -EINVAL;
+
+	return of_property_read_u32_array(acd_node, "qcom,acd-data",
+			cmd->data, cmd->stride * cmd->num_levels);
+}
+
 /*
  * gmu_bus_vote_init - initialized RPMh votes needed for bw scaling by GMU.
  * @gmu: Pointer to GMU device
@@ -895,6 +928,24 @@ static int gmu_rpmh_init(struct kgsl_device *device,
 	return rpmh_arc_votes_init(device, gmu, &cx_arc, &mx_arc, GMU_ARC_VOTE);
 }
 
+static void send_nmi_to_gmu(struct adreno_device *adreno_dev)
+{
+	/* Mask so there's no interrupt caused by NMI */
+	adreno_write_gmureg(adreno_dev,
+			ADRENO_REG_GMU_GMU2HOST_INTR_MASK, 0xFFFFFFFF);
+
+	/* Make sure the interrupt is masked before causing it */
+	wmb();
+	adreno_write_gmureg(adreno_dev,
+		ADRENO_REG_GMU_NMI_CONTROL_STATUS, 0);
+	adreno_write_gmureg(adreno_dev,
+		ADRENO_REG_GMU_CM3_CFG,
+		(1 << GMU_CM3_CFG_NONMASKINTR_SHIFT));
+
+	/* Make sure the NMI is invoked before we proceed*/
+	wmb();
+}
+
 static irqreturn_t gmu_irq_handler(int irq, void *data)
 {
 	struct kgsl_device *device = data;
@@ -915,6 +966,13 @@ static irqreturn_t gmu_irq_handler(int irq, void *data)
 		adreno_write_gmureg(adreno_dev,
 				ADRENO_REG_GMU_AO_HOST_INTERRUPT_MASK,
 				(mask | GMU_INT_WDOG_BITE));
+
+		send_nmi_to_gmu(adreno_dev);
+		/*
+		 * There is sufficient delay for the GMU to have finished
+		 * handling the NMI before snapshot is taken, as the fault
+		 * worker is scheduled below.
+		 */
 
 		dev_err_ratelimited(&gmu->pdev->dev,
 				"GMU watchdog expired interrupt received\n");
@@ -1309,9 +1367,6 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 	disable_irq(hfi->hfi_interrupt_num);
 
 	tasklet_init(&hfi->tasklet, hfi_receiver, (unsigned long) gmu);
-	INIT_LIST_HEAD(&hfi->msglist);
-	spin_lock_init(&hfi->msglock);
-	spin_lock_init(&hfi->read_queue_lock);
 	hfi->kgsldev = device;
 
 	/* Retrieves GMU/GPU power level configurations*/
@@ -1325,7 +1380,6 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 		int j = gmu->num_gpupwrlevels - 1 - i;
 
 		gmu->gpu_freqs[i] = pwr->pwrlevels[j].gpu_freq;
-		gmu->acd_dvm_vals[i] = pwr->pwrlevels[j].acd_dvm_val;
 	}
 
 	/* Initializes GPU b/w levels configuration */
@@ -1358,10 +1412,15 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 		gmu->idle_level = GPU_HW_ACTIVE;
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_ACD) && !noacd) {
-		ret = gmu_aop_mailbox_init(device, gmu);
-		if (ret)
-			dev_err(&gmu->pdev->dev,
+		if (!gmu_acd_probe(gmu, node)) {
+			/* Init the AOP mailbox if we have a valid ACD table */
+			ret = gmu_aop_mailbox_init(device, gmu);
+			if (ret)
+				dev_err(&gmu->pdev->dev,
 					"AOP mailbox init failed: %d\n", ret);
+		} else
+			dev_err(&gmu->pdev->dev,
+				"ACD probe failed: missing or invalid table\n");
 	}
 
 	/* disable LM if the feature is not enabled */
@@ -1514,19 +1573,8 @@ static void gmu_snapshot(struct kgsl_device *device)
 	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 
-	/* Mask so there's no interrupt caused by NMI */
-	adreno_write_gmureg(adreno_dev,
-			ADRENO_REG_GMU_GMU2HOST_INTR_MASK, 0xFFFFFFFF);
-
-	/* Make sure the interrupt is masked before causing it */
-	wmb();
-	adreno_write_gmureg(adreno_dev,
-		ADRENO_REG_GMU_NMI_CONTROL_STATUS, 0);
-	adreno_write_gmureg(adreno_dev,
-		ADRENO_REG_GMU_CM3_CFG, (1 << 9));
-
+	send_nmi_to_gmu(adreno_dev);
 	/* Wait for the NMI to be handled */
-	wmb();
 	udelay(100);
 	kgsl_device_snapshot(device, NULL, true);
 

@@ -307,7 +307,7 @@ static int _probe_ce_engine(struct qce_device *pce_dev)
 
 	pce_dev->ce_bam_info.ce_burst_size = MAX_CE_BAM_BURST_SIZE;
 
-	dev_info(pce_dev->pdev, "CE device = %#x IO base, CE = %pK Consumer (IN) PIPE %d,\nProducer (OUT) PIPE %d IO base BAM = %pK\nBAM IRQ %d Engines Availability = %#x\n",
+	dev_dbg(pce_dev->pdev, "CE device = %#x IO base, CE = %pK Consumer (IN) PIPE %d,\nProducer (OUT) PIPE %d IO base BAM = %pK\nBAM IRQ %d Engines Availability = %#x\n",
 			pce_dev->ce_bam_info.ce_device, pce_dev->iobase,
 			pce_dev->ce_bam_info.dest_pipe_index,
 			pce_dev->ce_bam_info.src_pipe_index,

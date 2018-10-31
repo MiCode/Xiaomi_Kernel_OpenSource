@@ -42,23 +42,34 @@ static int cam_context_handle_hw_event(void *context, uint32_t evt_id,
 int cam_context_shutdown(struct cam_context *ctx)
 {
 	int rc = 0;
-	int32_t ctx_hdl = ctx->dev_hdl;
+	struct cam_release_dev_cmd cmd;
 
-	if (ctx->state_machine[ctx->state].ioctl_ops.stop_dev) {
-		rc = ctx->state_machine[ctx->state].ioctl_ops.stop_dev(
-			ctx, NULL);
-		if (rc < 0)
-			CAM_ERR(CAM_CORE, "Error while dev stop %d", rc);
+	mutex_lock(&ctx->ctx_mutex);
+	if (ctx->state > CAM_CTX_AVAILABLE && ctx->state < CAM_CTX_STATE_MAX) {
+		cmd.session_handle = ctx->session_hdl;
+		cmd.dev_handle = ctx->dev_hdl;
+		rc = cam_context_handle_release_dev(ctx, &cmd);
+		if (rc)
+			CAM_ERR(CAM_CORE,
+				"context release failed for dev_name %s",
+				ctx->dev_name);
+		else
+			cam_context_putref(ctx);
+	} else {
+		CAM_WARN(CAM_CORE,
+			"dev %s context id %u state %d invalid to release hdl",
+			ctx->dev_name, ctx->ctx_id, ctx->state);
+		rc = -EINVAL;
 	}
-	if (ctx->state_machine[ctx->state].ioctl_ops.release_dev) {
-		rc = ctx->state_machine[ctx->state].ioctl_ops.release_dev(
-			ctx, NULL);
-		if (rc < 0)
-			CAM_ERR(CAM_CORE, "Error while dev release %d", rc);
-	}
+	mutex_unlock(&ctx->ctx_mutex);
 
-	if (!rc)
-		rc = cam_destroy_device_hdl(ctx_hdl);
+	rc = cam_destroy_device_hdl(ctx->dev_hdl);
+	if (rc)
+		CAM_ERR(CAM_CORE, "destroy device hdl failed for node %s",
+			ctx->dev_name);
+	else
+		ctx->dev_hdl = -1;
+
 	return rc;
 }
 
@@ -223,6 +234,27 @@ int cam_context_handle_crm_process_evt(struct cam_context *ctx,
 	return rc;
 }
 
+int cam_context_dump_pf_info(struct cam_context *ctx, unsigned long iova,
+	uint32_t buf_info)
+{
+	int rc = 0;
+
+	if (!ctx->state_machine) {
+		CAM_ERR(CAM_CORE, "Context is not ready");
+		return -EINVAL;
+	}
+
+	if (ctx->state_machine[ctx->state].pagefault_ops) {
+		rc = ctx->state_machine[ctx->state].pagefault_ops(ctx, iova,
+			buf_info);
+	} else {
+		CAM_WARN(CAM_CORE, "No dump ctx in dev %d, state %d",
+			ctx->dev_hdl, ctx->state);
+	}
+
+	return rc;
+}
+
 int cam_context_handle_acquire_dev(struct cam_context *ctx,
 	struct cam_acquire_dev_cmd *cmd)
 {
@@ -264,6 +296,36 @@ int cam_context_handle_acquire_dev(struct cam_context *ctx,
 	return rc;
 }
 
+int cam_context_handle_acquire_hw(struct cam_context *ctx,
+	void *args)
+{
+	int rc;
+
+	if (!ctx->state_machine) {
+		CAM_ERR(CAM_CORE, "Context is not ready");
+		return -EINVAL;
+	}
+
+	if (!args) {
+		CAM_ERR(CAM_CORE, "Invalid acquire device hw command payload");
+		return -EINVAL;
+	}
+
+	mutex_lock(&ctx->ctx_mutex);
+	if (ctx->state_machine[ctx->state].ioctl_ops.acquire_hw) {
+		rc = ctx->state_machine[ctx->state].ioctl_ops.acquire_hw(
+			ctx, args);
+	} else {
+		CAM_ERR(CAM_CORE, "No acquire hw for dev %s, state %d",
+			ctx->dev_name, ctx->state);
+		rc = -EPROTO;
+	}
+
+	mutex_unlock(&ctx->ctx_mutex);
+
+	return rc;
+}
+
 int cam_context_handle_release_dev(struct cam_context *ctx,
 	struct cam_release_dev_cmd *cmd)
 {
@@ -286,6 +348,35 @@ int cam_context_handle_release_dev(struct cam_context *ctx,
 	} else {
 		CAM_ERR(CAM_CORE, "No release device in dev %d, state %d",
 			ctx->dev_hdl, ctx->state);
+		rc = -EPROTO;
+	}
+	mutex_unlock(&ctx->ctx_mutex);
+
+	return rc;
+}
+
+int cam_context_handle_release_hw(struct cam_context *ctx,
+	void *args)
+{
+	int rc;
+
+	if (!ctx->state_machine) {
+		CAM_ERR(CAM_CORE, "Context is not ready");
+		return -EINVAL;
+	}
+
+	if (!args) {
+		CAM_ERR(CAM_CORE, "Invalid release HW command payload");
+		return -EINVAL;
+	}
+
+	mutex_lock(&ctx->ctx_mutex);
+	if (ctx->state_machine[ctx->state].ioctl_ops.release_hw) {
+		rc = ctx->state_machine[ctx->state].ioctl_ops.release_hw(
+			ctx, args);
+	} else {
+		CAM_ERR(CAM_CORE, "No release hw for dev %s, state %d",
+			ctx->dev_name, ctx->state);
 		rc = -EPROTO;
 	}
 	mutex_unlock(&ctx->ctx_mutex);
@@ -366,6 +457,7 @@ int cam_context_handle_start_dev(struct cam_context *ctx,
 	}
 
 	mutex_lock(&ctx->ctx_mutex);
+	ctx->last_flush_req = 0;
 	if (ctx->state_machine[ctx->state].ioctl_ops.start_dev)
 		rc = ctx->state_machine[ctx->state].ioctl_ops.start_dev(
 			ctx, cmd);

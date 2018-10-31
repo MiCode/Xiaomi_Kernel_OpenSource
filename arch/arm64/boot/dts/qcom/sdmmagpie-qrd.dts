@@ -16,7 +16,7 @@
 #include "sdmmagpie-qrd.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDMMAGPIE QRD";
+	model = "Qualcomm Technologies, Inc. SDMMAGPIE PM6150 QRD";
 	compatible = "qcom,sdmmagpie-qrd", "qcom,sdmmagpie", "qcom,qrd";
 	qcom,board-id = <11 0>;
 };

@@ -96,6 +96,8 @@ struct nf_conn {
 	/* Extensions */
 	struct nf_ct_ext *ext;
 
+	void *sfe_entry;
+
 	/* Storage reserved for other modules, must be the last member */
 	union nf_conntrack_proto proto;
 };

@@ -51,6 +51,7 @@ bool nf_ct_invert_tuple(struct nf_conntrack_tuple *inverse,
 			const struct nf_conntrack_tuple *orig,
 			const struct nf_conntrack_l3proto *l3proto,
 			const struct nf_conntrack_l4proto *l4proto);
+extern void (*delete_sfe_entry)(struct nf_conn *ct);
 
 /* Find a connection corresponding to a tuple. */
 struct nf_conntrack_tuple_hash *

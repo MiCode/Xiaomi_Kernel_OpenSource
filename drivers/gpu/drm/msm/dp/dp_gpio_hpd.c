@@ -193,6 +193,7 @@ struct dp_hpd *dp_gpio_hpd_get(struct device *dev,
 	int rc = 0;
 	const char *hpd_gpio_name = "qcom,dp-hpd-gpio";
 	struct dp_gpio_hpd_private *gpio_hpd;
+	struct dp_pinctrl pinctrl = {0};
 	int edge;
 
 	if (!dev || !cb) {
@@ -205,6 +206,20 @@ struct dp_hpd *dp_gpio_hpd_get(struct device *dev,
 	if (!gpio_hpd) {
 		rc = -ENOMEM;
 		goto error;
+	}
+
+	pinctrl.pin = devm_pinctrl_get(dev);
+	if (!IS_ERR_OR_NULL(pinctrl.pin)) {
+		pinctrl.state_hpd_active = pinctrl_lookup_state(pinctrl.pin,
+						"mdss_dp_hpd_active");
+		if (!IS_ERR_OR_NULL(pinctrl.state_hpd_active)) {
+			rc = pinctrl_select_state(pinctrl.pin,
+					pinctrl.state_hpd_active);
+			if (rc) {
+				pr_err("failed to set hpd active state\n");
+				goto gpio_error;
+			}
+		}
 	}
 
 	gpio_hpd->gpio_cfg.gpio = of_get_named_gpio(dev->of_node,

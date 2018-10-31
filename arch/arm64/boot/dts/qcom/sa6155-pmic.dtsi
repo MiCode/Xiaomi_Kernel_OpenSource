@@ -78,16 +78,16 @@
 };
 
 &mdss_dsi0 {
-	/delete-property/ vdda-1p2-supply;
+	vdda-1p2-supply = <&pm6155_1_l11>;
 };
 
 &sde_dp {
-	/delete-property/ vdda-1p2-supply;
-	/delete-property/ vdda-0p9-supply;
+	vdda-1p2-supply = <&pm6155_1_l11>;
+	vdda-0p9-supply = <&pm6155_1_l5>;
 };
 
 &mdss_dsi_phy0 {
-	/delete-property/ vdda-0p9-supply;
+	vdda-0p9-supply = <&pm6155_1_l5>;
 };
 
 &cam_csiphy0 {

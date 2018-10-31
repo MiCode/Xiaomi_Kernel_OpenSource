@@ -406,11 +406,15 @@ void nf_ct_tmpl_free(struct nf_conn *tmpl)
 }
 EXPORT_SYMBOL_GPL(nf_ct_tmpl_free);
 
+void (*delete_sfe_entry)(struct nf_conn *ct) __rcu __read_mostly;
+EXPORT_SYMBOL(delete_sfe_entry);
+
 static void
 destroy_conntrack(struct nf_conntrack *nfct)
 {
 	struct nf_conn *ct = (struct nf_conn *)nfct;
 	const struct nf_conntrack_l4proto *l4proto;
+	void (*delete_entry)(struct nf_conn *ct);
 
 	pr_debug("destroy_conntrack(%pK)\n", ct);
 	WARN_ON(atomic_read(&nfct->use) != 0);
@@ -419,6 +423,13 @@ destroy_conntrack(struct nf_conntrack *nfct)
 		nf_ct_tmpl_free(ct);
 		return;
 	}
+
+	if (ct->sfe_entry) {
+		delete_entry = rcu_dereference(delete_sfe_entry);
+		if (delete_entry)
+			delete_entry(ct);
+	}
+
 	l4proto = __nf_ct_l4proto_find(nf_ct_l3num(ct), nf_ct_protonum(ct));
 	if (l4proto->destroy)
 		l4proto->destroy(ct);
@@ -1974,7 +1985,7 @@ int nf_conntrack_set_hashsize(const char *val, const struct kernel_param *kp)
 		return -EOPNOTSUPP;
 
 	/* On boot, we can set this without any fancy locking. */
-	if (!nf_conntrack_htable_size)
+	if (!nf_conntrack_hash)
 		return param_set_uint(val, kp);
 
 	rc = kstrtouint(val, 0, &hashsize);

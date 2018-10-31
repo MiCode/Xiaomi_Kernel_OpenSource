@@ -3181,6 +3181,19 @@ static struct clk_branch gcc_rx1_usb2_clkref_clk = {
 	},
 };
 
+static struct clk_branch gcc_rx3_usb2_clkref_clk = {
+	.halt_reg = 0x8c038,
+	.halt_check = BRANCH_HALT_VOTED,
+	.clkr = {
+		.enable_reg = 0x8c038,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_rx3_usb2_clkref_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_usb2_prim_clkref_clk = {
 	.halt_reg = 0x8c028,
 	.halt_check = BRANCH_HALT_VOTED,
@@ -3424,6 +3437,7 @@ static struct clk_regmap *gcc_sm6150_clocks[] = {
 	[GPLL7_OUT_MAIN] = &gpll7_out_main.clkr,
 	[GPLL8_OUT_MAIN] = &gpll8_out_main.clkr,
 	[GCC_RX1_USB2_CLKREF_CLK] = &gcc_rx1_usb2_clkref_clk.clkr,
+	[GCC_RX3_USB2_CLKREF_CLK] = &gcc_rx3_usb2_clkref_clk.clkr,
 	[GCC_USB2_PRIM_CLKREF_CLK] = &gcc_usb2_prim_clkref_clk.clkr,
 	[GCC_USB2_SEC_CLKREF_CLK] = &gcc_usb2_sec_clkref_clk.clkr,
 };

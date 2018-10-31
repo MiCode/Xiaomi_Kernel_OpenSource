@@ -244,6 +244,9 @@ static void ufshcd_update_uic_error_cnt(struct ufs_hba *hba, u32 reg, int type)
 /* default value of auto suspend is 3 seconds */
 #define UFSHCD_AUTO_SUSPEND_DELAY_MS 3000 /* millisecs */
 
+/* default value of ref clock gating wait time is 100 micro seconds */
+#define UFSHCD_REF_CLK_GATING_WAIT_US 100 /* microsecs */
+
 #define UFSHCD_CLK_GATING_DELAY_MS_PWR_SAVE	10
 #define UFSHCD_CLK_GATING_DELAY_MS_PERF		50
 
@@ -7895,7 +7898,8 @@ static int ufshcd_reset_and_restore(struct ufs_hba *hba)
 	 * to recover after multiple retries.
 	 */
 	if (err && ufshcd_is_embedded_dev(hba))
-		WARN_ON(1);
+		BUG();
+
 	/*
 	 * After reset the door-bell might be cleared, complete
 	 * outstanding requests in s/w here.
@@ -8228,6 +8232,9 @@ static int ufs_get_device_desc(struct ufs_hba *hba,
 	/* Null terminate the model string */
 	dev_desc->model[MAX_MODEL_LEN] = '\0';
 
+	dev_desc->wspecversion = desc_buf[DEVICE_DESC_PARAM_SPEC_VER] << 8 |
+				  desc_buf[DEVICE_DESC_PARAM_SPEC_VER + 1];
+
 out:
 	return err;
 }
@@ -8550,6 +8557,32 @@ out:
 	return err;
 }
 
+static int ufshcd_get_dev_ref_clk_gating_wait(struct ufs_hba *hba,
+					struct ufs_dev_desc *dev_desc)
+{
+	int err = 0;
+	u32 gating_wait = UFSHCD_REF_CLK_GATING_WAIT_US;
+
+	if (dev_desc->wspecversion >= 0x300) {
+		err = ufshcd_query_attr_retry(hba, UPIU_QUERY_OPCODE_READ_ATTR,
+				QUERY_ATTR_IDN_REF_CLK_GATING_WAIT_TIME, 0, 0,
+				&gating_wait);
+
+		if (err)
+			dev_err(hba->dev, "failed reading bRefClkGatingWait. err = %d, use default %uus\n",
+					err, gating_wait);
+
+		if (gating_wait == 0) {
+			gating_wait = UFSHCD_REF_CLK_GATING_WAIT_US;
+			dev_err(hba->dev, "undefined ref clk gating wait time, use default %uus\n",
+					gating_wait);
+		}
+	}
+
+	hba->dev_ref_clk_gating_wait = gating_wait;
+	return err;
+}
+
 static int ufs_read_device_desc_data(struct ufs_hba *hba)
 {
 	int err;
@@ -8578,6 +8611,9 @@ static int ufs_read_device_desc_data(struct ufs_hba *hba)
 	hba->dev_info.b_device_sub_class =
 		desc_buf[DEVICE_DESC_PARAM_DEVICE_SUB_CLASS];
 	hba->dev_info.i_product_name = desc_buf[DEVICE_DESC_PARAM_PRDCT_NAME];
+	hba->dev_info.w_spec_version =
+		desc_buf[DEVICE_DESC_PARAM_SPEC_VER] << 8 |
+		desc_buf[DEVICE_DESC_PARAM_SPEC_VER + 1];
 
 	return 0;
 }
@@ -8651,6 +8687,8 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 			"%s: Failed getting max supported power mode\n",
 			__func__);
 	} else {
+		ufshcd_get_dev_ref_clk_gating_wait(hba, &card);
+
 		/*
 		 * Set the right value to bRefClkFreq before attempting to
 		 * switch to HS gears.

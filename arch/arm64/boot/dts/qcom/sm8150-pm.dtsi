@@ -70,8 +70,8 @@
 					reg = <1>;
 					label = "rail-pc";
 					qcom,psci-cpu-mode = <0x4>;
-					qcom,entry-latency-us = <360>;
-					qcom,exit-latency-us = <531>;
+					qcom,entry-latency-us = <355>;
+					qcom,exit-latency-us = <909>;
 					qcom,min-residency-us = <3934>;
 					qcom,is-reset;
 					qcom,use-broadcast-timer;
@@ -98,8 +98,8 @@
 					reg = <1>;
 					label = "rail-pc";
 					qcom,psci-cpu-mode = <0x4>;
-					qcom,entry-latency-us = <702>;
-					qcom,exit-latency-us = <1061>;
+					qcom,entry-latency-us = <241>;
+					qcom,exit-latency-us = <1461>;
 					qcom,min-residency-us = <4488>;
 					qcom,is-reset;
 					qcom,use-broadcast-timer;

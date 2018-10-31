@@ -134,6 +134,7 @@
 				"msm-dai-cdc-dma-dev.45115",
 				"msm-dai-cdc-dma-dev.45116",
 				"msm-dai-cdc-dma-dev.45118";
+		fsa4480-i2c-handle = <&fsa4480>;
 	};
 };
 

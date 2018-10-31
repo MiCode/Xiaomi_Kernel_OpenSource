@@ -18,7 +18,7 @@
 #include <linux/firmware.h>
 #include "kgsl_hfi.h"
 
-#define MAX_GMUFW_SIZE	0x2000	/* in bytes */
+#define MAX_GMUFW_SIZE	0x8000	/* in bytes */
 
 #define BWMEM_SIZE	(12 + (4 * NUM_BW_LEVELS))	/*in bytes*/
 
@@ -157,7 +157,6 @@ struct kgsl_mailbox {
  * @ccl: CNOC BW scaling client
  * @idle_level: Minimal GPU idle power level
  * @fault_count: GMU fault count
- * @acd_dvm_vals: Table of DVM values that correspond to frequency levels
  * @mailbox: Messages to AOP for ACD enable/disable go through this
  */
 struct gmu_device {
@@ -190,7 +189,6 @@ struct gmu_device {
 	unsigned int ccl;
 	unsigned int idle_level;
 	unsigned int fault_count;
-	unsigned int acd_dvm_vals[MAX_GX_LEVELS];
 	struct kgsl_mailbox mailbox;
 };
 

@@ -695,27 +695,11 @@ void __init paging_init(void)
  */
 void hotplug_paging(phys_addr_t start, phys_addr_t size)
 {
-
-	struct page *pg;
-	phys_addr_t pgd_phys = pgd_pgtable_alloc();
-	pgd_t *pgd = pgd_set_fixmap(pgd_phys);
 	int flags;
 
-	memcpy(pgd, swapper_pg_dir, PAGE_SIZE);
 	flags = debug_pagealloc_enabled() ? NO_BLOCK_MAPPINGS : 0;
-
-	__create_pgd_mapping(pgd, start, __phys_to_virt(start), size,
+	__create_pgd_mapping(swapper_pg_dir, start, __phys_to_virt(start), size,
 		PAGE_KERNEL, pgd_pgtable_alloc, flags);
-
-	cpu_replace_ttbr1(__va(pgd_phys));
-	memcpy(swapper_pg_dir, pgd, PAGE_SIZE);
-	cpu_replace_ttbr1(swapper_pg_dir);
-
-	pgd_clear_fixmap();
-
-	pg = phys_to_page(pgd_phys);
-	pgtable_page_dtor(pg);
-	__free_pages(pg, 0);
 }
 
 #ifdef CONFIG_MEMORY_HOTREMOVE
@@ -1396,12 +1380,12 @@ int pmd_clear_huge(pmd_t *pmd)
 	return 1;
 }
 
-int pud_free_pmd_page(pud_t *pud)
+int pud_free_pmd_page(pud_t *pud, unsigned long addr)
 {
 	return pud_none(*pud);
 }
 
-int pmd_free_pte_page(pmd_t *pmd)
+int pmd_free_pte_page(pmd_t *pmd, unsigned long addr)
 {
 	return pmd_none(*pmd);
 }

@@ -437,6 +437,13 @@ static u32 get_frame_size(struct msm_vidc_inst *inst,
 		frame_size = fmt->get_frame_size(plane,
 					inst->capability.mbs_per_frame.max,
 					MB_SIZE_IN_PIXEL);
+		if (inst->flags & VIDC_SECURE) {
+			dprintk(VIDC_DBG,
+				"Change secure input buffer size from %u to %u\n",
+				frame_size, frame_size / 2);
+			frame_size = frame_size / 2;
+		}
+
 		if (inst->buffer_size_limit &&
 			(inst->buffer_size_limit < frame_size)) {
 			frame_size = inst->buffer_size_limit;

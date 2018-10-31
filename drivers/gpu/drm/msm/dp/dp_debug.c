@@ -74,13 +74,13 @@ static int dp_debug_get_dpcd_buf(struct dp_debug_private *debug)
 	int rc = 0;
 
 	if (!debug->dpcd) {
-		debug->dpcd = devm_kzalloc(debug->dev, SZ_16K, GFP_KERNEL);
+		debug->dpcd = devm_kzalloc(debug->dev, SZ_4K, GFP_KERNEL);
 		if (!debug->dpcd) {
 			rc = -ENOMEM;
 			goto end;
 		}
 
-		debug->dpcd_size = SZ_16K;
+		debug->dpcd_size = SZ_4K;
 	}
 end:
 	return rc;
@@ -254,21 +254,41 @@ static ssize_t dp_debug_read_dpcd(struct file *file,
 		char __user *user_buff, size_t count, loff_t *ppos)
 {
 	struct dp_debug_private *debug = file->private_data;
-	char buf[SZ_8];
+	char *buf;
+	int const buf_size = SZ_4K;
+	u32 offset = 0;
 	u32 len = 0;
 
-	if (!debug)
+	if (!debug || !debug->aux || !debug->dpcd)
 		return -ENODEV;
 
 	if (*ppos)
 		return 0;
 
-	len += snprintf(buf, SZ_8, "0x%x\n", debug->aux->reg);
+	buf = kzalloc(buf_size, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
 
-	if (copy_to_user(user_buff, buf, len))
-		return -EFAULT;
+	len += snprintf(buf, buf_size, "0x%x", debug->aux->reg);
 
-	*ppos += len;
+	if (!debug->aux->read) {
+		while (1) {
+			if (debug->aux->reg + offset >= buf_size ||
+			    offset >= debug->aux->size)
+				break;
+
+			len += snprintf(buf + len, buf_size - len, "0x%x",
+				debug->dpcd[debug->aux->reg + offset++]);
+		}
+
+		if (debug->dp_debug.sim_mode && debug->aux->dpcd_updated)
+			debug->aux->dpcd_updated(debug->aux);
+	}
+
+	if (!copy_to_user(user_buff, buf, len))
+		*ppos += len;
+
+	kfree(buf);
 	return len;
 }
 

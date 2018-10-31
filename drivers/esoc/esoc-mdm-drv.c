@@ -518,6 +518,10 @@ static struct esoc_compat compat_table[] = {
 		.name = "SDX50M",
 		.data = NULL,
 	},
+	{
+		.name = "SDXPRAIRIE",
+		.data = NULL,
+	},
 };
 
 static struct esoc_drv esoc_ssr_drv = {

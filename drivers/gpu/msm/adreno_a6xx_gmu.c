@@ -48,10 +48,6 @@ static const unsigned int a6xx_gmu_registers[] = {
 	0x1F957, 0x1F958, 0x1F95D, 0x1F95D, 0x1F962, 0x1F962, 0x1F964, 0x1F965,
 	0x1F980, 0x1F986, 0x1F990, 0x1F99E, 0x1F9C0, 0x1F9C0, 0x1F9C5, 0x1F9CC,
 	0x1F9E0, 0x1F9E2, 0x1F9F0, 0x1F9F0, 0x1FA00, 0x1FA01,
-	/* GPU RSCC */
-	0x2348C, 0x2348C, 0x23501, 0x23502, 0x23740, 0x23742, 0x23744, 0x23747,
-	0x2374C, 0x23787, 0x237EC, 0x237EF, 0x237F4, 0x2382F, 0x23894, 0x23897,
-	0x2389C, 0x238D7, 0x2393C, 0x2393F, 0x23944, 0x2397F,
 	/* GMU AO */
 	0x23B00, 0x23B16, 0x23C00, 0x23C00,
 	/* GPU CC */
@@ -339,8 +335,6 @@ static int a6xx_gmu_hfi_start(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 
-	gmu_core_regrmw(device, A6XX_GMU_GMU2HOST_INTR_MASK,
-			HFI_IRQ_MSGQ_MASK, 0);
 	gmu_core_regwrite(device, A6XX_GMU_HFI_CTRL_INIT, 1);
 
 	if (timed_poll_check(device,
@@ -465,6 +459,25 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 	return 0;
 }
 
+static int _load_legacy_gmu_fw(struct kgsl_device *device,
+	struct gmu_device *gmu)
+{
+	const struct firmware *fw = gmu->fw_image;
+	u32 *fwptr = (u32 *)fw->data;
+	int i;
+
+	if (fw->size > MAX_GMUFW_SIZE)
+		return -EINVAL;
+
+	for (i = 0; i < (fw->size >> 2); i++)
+		gmu_core_regwrite(device,
+			A6XX_GMU_CM3_ITCM_START + i, fwptr[i]);
+
+	/* Proceed only after the FW is written */
+	wmb();
+	return 0;
+}
+
 static int load_gmu_fw(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
@@ -473,6 +486,10 @@ static int load_gmu_fw(struct kgsl_device *device)
 	int tcm_addr;
 	struct gmu_block_header *blk;
 	struct gmu_memdesc *md;
+
+	if (adreno_is_a630(ADRENO_DEVICE(device)) ||
+		adreno_is_a615_family(ADRENO_DEVICE(device)))
+		return _load_legacy_gmu_fw(device, gmu);
 
 	while (fw < (uint8_t *)gmu->fw_image->data + gmu->fw_image->size) {
 		blk = (struct gmu_block_header *)fw;
@@ -535,8 +552,7 @@ static int a6xx_gmu_oob_set(struct adreno_device *adreno_dev,
 	if (!gmu_core_isenabled(device))
 		return 0;
 
-	if (!adreno_is_a630(adreno_dev) && !adreno_is_a615(adreno_dev) &&
-		!adreno_is_a616(adreno_dev)) {
+	if (!adreno_is_a630(adreno_dev) && !adreno_is_a615_family(adreno_dev)) {
 		set = BIT(30 - req * 2);
 		check = BIT(31 - req);
 
@@ -589,8 +605,7 @@ static inline void a6xx_gmu_oob_clear(struct adreno_device *adreno_dev,
 	if (!gmu_core_isenabled(device))
 		return;
 
-	if (!adreno_is_a630(adreno_dev) && !adreno_is_a615(adreno_dev) &&
-		!adreno_is_a616(adreno_dev)) {
+	if (!adreno_is_a630(adreno_dev) && !adreno_is_a615_family(adreno_dev)) {
 		clear = BIT(31 - req * 2);
 		if (req >= 6) {
 			dev_err(&gmu->pdev->dev,
@@ -821,7 +836,7 @@ static int a6xx_gmu_gfx_rail_on(struct kgsl_device *device)
 	return a6xx_gmu_oob_set(adreno_dev, oob_boot_slumber);
 }
 
-static bool idle_trandition_complete(unsigned int idle_level,
+static bool idle_transition_complete(unsigned int idle_level,
 	unsigned int gmu_power_reg,
 	unsigned int sptprac_clk_reg)
 {
@@ -845,7 +860,7 @@ static int a6xx_gmu_wait_for_lowest_idle(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-	unsigned int reg, reg1;
+	unsigned int reg, reg1, reg2, reg3, reg4, reg5, reg6, reg7, reg8;
 	unsigned long t;
 	uint64_t ts1, ts2, ts3;
 
@@ -861,7 +876,7 @@ static int a6xx_gmu_wait_for_lowest_idle(struct adreno_device *adreno_dev)
 		gmu_core_regread(device,
 			A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &reg1);
 
-		if (idle_trandition_complete(gmu->idle_level, reg, reg1))
+		if (idle_transition_complete(gmu->idle_level, reg, reg1))
 			return 0;
 		/* Wait 100us to reduce unnecessary AHB bus traffic */
 		usleep_range(10, 100);
@@ -873,13 +888,38 @@ static int a6xx_gmu_wait_for_lowest_idle(struct adreno_device *adreno_dev)
 	gmu_core_regread(device, A6XX_GPU_GMU_CX_GMU_RPMH_POWER_STATE, &reg);
 	gmu_core_regread(device, A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &reg1);
 
-	if (idle_trandition_complete(gmu->idle_level, reg, reg1))
+	if (idle_transition_complete(gmu->idle_level, reg, reg1))
 		return 0;
 
 	ts3 = read_AO_counter(device);
-	WARN(1, "Timeout waiting for lowest idle: %08x %llx %llx %llx %x\n",
-		reg, ts1, ts2, ts3, reg1);
 
+	/* Collect abort data to help with debugging */
+	gmu_core_regread(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS, &reg2);
+	gmu_core_regread(device, A6XX_CP_STATUS_1, &reg3);
+	gmu_core_regread(device, A6XX_GMU_RBBM_INT_UNMASKED_STATUS, &reg4);
+	gmu_core_regread(device, A6XX_GMU_GMU_PWR_COL_KEEPALIVE, &reg5);
+	gmu_core_regread(device, A6XX_CP_CP2GMU_STATUS, &reg6);
+	gmu_core_regread(device, A6XX_CP_CONTEXT_SWITCH_CNTL, &reg7);
+	gmu_core_regread(device, A6XX_GMU_AO_SPARE_CNTL, &reg8);
+
+	dev_err(&gmu->pdev->dev,
+		"----------------------[ GMU error ]----------------------\n");
+	dev_err(&gmu->pdev->dev,
+		"Timeout waiting for lowest idle level %d\n", gmu->idle_level);
+	dev_err(&gmu->pdev->dev,
+		"Timestamps: %llx %llx %llx\n", ts1, ts2, ts3);
+	dev_err(&gmu->pdev->dev,
+		"RPMH_POWER_STATE=%x SPTPRAC_PWR_CLK_STATUS=%x\n", reg, reg1);
+	dev_err(&gmu->pdev->dev,
+		"CX_BUSY_STATUS=%x CP_STATUS_1=%x\n", reg2, reg3);
+	dev_err(&gmu->pdev->dev,
+		"RBBM_INT_UNMASKED_STATUS=%x PWR_COL_KEEPALIVE=%x\n",
+		reg4, reg5);
+	dev_err(&gmu->pdev->dev,
+		"CP2GMU_STATUS=%x CONTEXT_SWITCH_CNTL=%x AO_SPARE_CNTL=%x\n",
+		reg6, reg7, reg8);
+
+	WARN_ON(1);
 	return -ETIMEDOUT;
 }
 

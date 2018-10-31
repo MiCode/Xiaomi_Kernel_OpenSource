@@ -184,11 +184,13 @@ struct cam_isp_hw_eof_event_data {
  *
  * @error_type:            Error type for the error event
  * @timestamp:             Timestamp for the error event
- *
+ * @recovery_enabled:      Identifies if the context needs to recover & reapply
+ *                         this request
  */
 struct cam_isp_hw_error_event_data {
 	uint32_t             error_type;
 	uint64_t             timestamp;
+	bool                 recovery_enabled;
 };
 
 /* enum cam_isp_hw_mgr_command - Hardware manager command type */
@@ -203,13 +205,11 @@ enum cam_isp_hw_mgr_command {
 /**
  * struct cam_isp_hw_cmd_args - Payload for hw manager command
  *
- * @ctxt_to_hw_map:        HW context from the acquire
  * @cmd_type               HW command type
  * @get_context            Get context type information
  */
 struct cam_isp_hw_cmd_args {
-	void                               *ctxt_to_hw_map;
-	uint32_t                            cmd_type;
+	uint32_t                              cmd_type;
 	union {
 		uint32_t                      is_rdi_only_context;
 		uint32_t                      sof_irq_enable;
@@ -225,9 +225,9 @@ struct cam_isp_hw_cmd_args {
  * @of_node:            Device node input
  * @hw_mgr:             Input/output structure for the ISP hardware manager
  *                          initialization
- *
+ * @iommu_hdl:          Iommu handle to be returned
  */
 int cam_isp_hw_mgr_init(struct device_node *of_node,
-	struct cam_hw_mgr_intf *hw_mgr);
+	struct cam_hw_mgr_intf *hw_mgr, int *iommu_hdl);
 
 #endif /* __CAM_ISP_HW_MGR_INTF_H__ */

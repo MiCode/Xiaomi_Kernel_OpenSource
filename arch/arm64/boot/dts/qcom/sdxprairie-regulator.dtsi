@@ -1,0 +1,195 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/regulator/qcom,rpmh-regulator.h>
+
+&soc {
+	/* Stub regulators */
+
+	/* PMXPRAIRIE S1 + S6 = VDD_MODEM supply */
+	VDD_MODEM_LEVEL: S1E_LEVEL:
+	pmxprairie_s1_level: regulator-pmxprairie-s1-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxprairie_s1_level";
+		regulator-min-microvolt = <RPMH_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
+	};
+
+	S2E: pmxprairie_s2: regulator-pmxprairie-s2 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxprairie_s2";
+		regulator-min-microvolt = <1224000>;
+		regulator-max-microvolt = <1400000>;
+	};
+
+	S3E: pmxprairie_s3: regulator-pmxprairie-s3 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxprairie_s3";
+		regulator-min-microvolt = <800000>;
+		regulator-max-microvolt = <1000000>;
+	};
+
+	S4E: pmxprairie_s4: regulator-pmxprairie-s4 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxprairie_s4";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1956000>;
+	};
+
+	/* PMXPRAIRIE S5 = VDD_CX supply */
+	VDD_CX_LEVEL_AO: S5E_LEVEL_AO: pmxprairie_s5_level_ao:
+	VDD_CX_LEVEL: S5E_LEVEL:
+	pmxprairie_s5_level: regulator-pmxprairie-s5-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxprairie_s5_level";
+		regulator-min-microvolt = <RPMH_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
+	};
+
+	/* PMXPRAIRIE S7 = VDD_MX supply */
+	VDD_MX_LEVEL_AO: S7E_LEVEL_AO: pmxprairie_s7_level_ao:
+	VDD_MX_LEVEL: S7E_LEVEL:
+	pmxprairie_s7_level: regulator-pmxprairie-s7-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxprairie_s7_level";
+		regulator-min-microvolt = <RPMH_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
+	};
+
+	L1E: pmxprairie_l1: regulator-pmxprairie-l1 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxprairie_l1";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+		qcom,hpm-min-load = <30000>;
+	};
+
+	L2E: pmxprairie_l2: regulator-pmxprairie-l2 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxprairie_l2";
+		regulator-min-microvolt = <1128000>;
+		regulator-max-microvolt = <1128000>;
+		qcom,hpm-min-load = <30000>;
+	};
+
+	L3E: pmxprairie_l3: regulator-pmxprairie-l3 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxprairie_l3";
+		regulator-min-microvolt = <800000>;
+		regulator-max-microvolt = <800000>;
+		qcom,hpm-min-load = <30000>;
+	};
+
+	L4E: pmxprairie_l4: regulator-pmxprairie-l4 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxprairie_l4";
+		regulator-min-microvolt = <872000>;
+		regulator-max-microvolt = <872000>;
+		qcom,hpm-min-load = <30000>;
+	};
+
+	L5E: pmxprairie_l5: regulator-pmxprairie-l5 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxprairie_l5";
+		regulator-min-microvolt = <1704000>;
+		regulator-max-microvolt = <1704000>;
+		qcom,hpm-min-load = <10000>;
+	};
+
+	L6E: pmxprairie_l6: regulator-pmxprairie-l6 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxprairie_l6";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		qcom,hpm-min-load = <10000>;
+	};
+
+	L7E: pmxprairie_l7: regulator-pmxprairie-l7 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxprairie_l7";
+		regulator-min-microvolt = <480000>;
+		regulator-max-microvolt = <900000>;
+		qcom,hpm-min-load = <30000>;
+	};
+
+	L8E: pmxprairie_l8: regulator-pmxprairie-l8 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxprairie_l8";
+		regulator-min-microvolt = <480000>;
+		regulator-max-microvolt = <900000>;
+		qcom,hpm-min-load = <30000>;
+	};
+
+	L9E: pmxprairie_l9: regulator-pmxprairie-l9 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxprairie_l9";
+		regulator-min-microvolt = <800000>;
+		regulator-max-microvolt = <800000>;
+		qcom,hpm-min-load = <30000>;
+	};
+
+	L10E: pmxprairie_l10: regulator-pmxprairie-l10 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxprairie_l10";
+		regulator-min-microvolt = <3088000>;
+		regulator-max-microvolt = <3088000>;
+		qcom,hpm-min-load = <10000>;
+	};
+
+	L11E: pmxprairie_l11: regulator-pmxprairie-l11 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxprairie_l11";
+		regulator-min-microvolt = <1704000>;
+		regulator-max-microvolt = <3000000>;
+		qcom,hpm-min-load = <10000>;
+	};
+
+	L12E: pmxprairie_l12: regulator-pmxprairie-l12 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxprairie_l12";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+		qcom,hpm-min-load = <30000>;
+	};
+
+	L13E: pmxprairie_l13: regulator-pmxprairie-l13 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxprairie_l13";
+		regulator-min-microvolt = <1704000>;
+		regulator-max-microvolt = <3000000>;
+		qcom,hpm-min-load = <10000>;
+	};
+
+	L14E: pmxprairie_l14: regulator-pmxprairie-l14 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxprairie_l14";
+		regulator-min-microvolt = <600000>;
+		regulator-max-microvolt = <800000>;
+		qcom,hpm-min-load = <30000>;
+	};
+
+	L15E: pmxprairie_l15: regulator-pmxprairie-l15 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxprairie_l15";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+		qcom,hpm-min-load = <30000>;
+	};
+
+	L16E: pmxprairie_l16: regulator-pmxprairie-l16 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxprairie_l16";
+		regulator-min-microvolt = <1704000>;
+		regulator-max-microvolt = <1904000>;
+		qcom,hpm-min-load = <10000>;
+	};
+};

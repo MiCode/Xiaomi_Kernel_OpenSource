@@ -16,7 +16,7 @@
 #include "sm6150-idp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SM6150P IDP";
+	model = "Qualcomm Technologies, Inc. SM6150P PM6150 IDP";
 	compatible = "qcom,sm6150p-idp", "qcom,sm6150p", "qcom,idp";
 	qcom,board-id = <34 0>;
 };

@@ -47,28 +47,22 @@ struct himax_target_report_data *g_target_report_data;
 
 static int HX_TOUCH_INFO_POINT_CNT;
 
-unsigned long FW_VER_MAJ_FLASH_ADDR;
-unsigned long FW_VER_MIN_FLASH_ADDR;
-unsigned long CFG_VER_MAJ_FLASH_ADDR;
-unsigned long CFG_VER_MIN_FLASH_ADDR;
-unsigned long CID_VER_MAJ_FLASH_ADDR;
-unsigned long CID_VER_MIN_FLASH_ADDR;
+/* Himax: Set FW and CFG Flash Address */
+#define FW_VER_MAJ_FLASH_ADDR  0x00C005
+#define FW_VER_MIN_FLASH_ADDR  0x00C006
+#define CFG_VER_MAJ_FLASH_ADDR 0x00C100
+#define CFG_VER_MIN_FLASH_ADDR 0x00C101
+#define CID_VER_MAJ_FLASH_ADDR 0x00C002
+#define CID_VER_MIN_FLASH_ADDR 0x00C003
 
-unsigned long FW_VER_MAJ_FLASH_LENG;
-unsigned long FW_VER_MIN_FLASH_LENG;
-unsigned long CFG_VER_MAJ_FLASH_LENG;
-unsigned long CFG_VER_MIN_FLASH_LENG;
-unsigned long CID_VER_MAJ_FLASH_LENG;
-unsigned long CID_VER_MIN_FLASH_LENG;
+#define FW_VER_MAJ_FLASH_LENG  1
+#define FW_VER_MIN_FLASH_LENG  1
+#define CFG_VER_MAJ_FLASH_LENG 1
+#define CFG_VER_MIN_FLASH_LENG 1
+#define CID_VER_MAJ_FLASH_LENG 1
+#define CID_VER_MIN_FLASH_LENG 1
 
 unsigned long FW_CFG_VER_FLASH_ADDR;
-
-#ifdef HX_AUTO_UPDATE_FW
-	int g_i_FW_VER = 0;
-	int g_i_CFG_VER = 0;
-	int g_i_CID_MAJ = 0; /* GUEST ID */
-	int g_i_CID_MIN = 0; /* VER for GUEST */
-#endif
 
 unsigned char IC_CHECKSUM;
 
@@ -513,25 +507,32 @@ static int i_update_FW(void)
 	int upgrade_times = 0;
 	unsigned char *ImageBuffer = NULL;
 	int fullFileLength = 0;
-	uint8_t ret = 0, result = 0;
+	int ret = 0, result = 0;
+	uint32_t i_FW_VER = 0, i_CFG_VER = 0;
+
+	D("file name = %s\n", i_CTPM_firmware_name);
+	if (request_firmware(&i_CTPM_FW, i_CTPM_firmware_name,
+		private_ts->dev)) {
+		I("%s: no firmware file\n", __func__);
+		return OPEN_FILE_FAIL;
+	}
+
+	fullFileLength = i_CTPM_FW->size;
+	ImageBuffer = (unsigned char *)i_CTPM_FW->data;
+
+	i_FW_VER = (ImageBuffer[FW_VER_MAJ_FLASH_ADDR] << 8)
+			| ImageBuffer[FW_VER_MIN_FLASH_ADDR];
+	i_CFG_VER = (ImageBuffer[CFG_VER_MAJ_FLASH_ADDR] << 8)
+			| ImageBuffer[CFG_VER_MIN_FLASH_ADDR];
+
+	if ((ic_data->vendor_fw_ver >= i_FW_VER)
+		&& (ic_data->vendor_config_ver >= i_CFG_VER)) {
+		D("FW_VER 0x%x, CFG_VER 0x%x\n", i_FW_VER, i_CFG_VER);
+		release_firmware(i_CTPM_FW);
+		return 0;
+	}
 
 	himax_int_enable(0);
-
-	I("file name = %s\n", i_CTPM_firmware_name);
-	ret = request_firmware(&i_CTPM_FW, i_CTPM_firmware_name, private_ts->dev);
-	if (ret < 0) {
-		E("%s,fail in line%d error code=%d\n", __func__, __LINE__, ret);
-		return OPEN_FILE_FAIL;
-	}
-
-	if (i_CTPM_FW != NULL) {
-		fullFileLength = i_CTPM_FW->size;
-		ImageBuffer = (unsigned char *)i_CTPM_FW->data;
-	} else {
-		I("%s: i_CTPM_FW = NULL\n", __func__);
-		return OPEN_FILE_FAIL;
-	}
-
 update_retry:
 
 	if (fullFileLength == FW_SIZE_32k)
@@ -559,7 +560,7 @@ update_retry:
 		g_core_fp.fp_read_FW_ver();
 		g_core_fp.fp_touch_information();
 		result = 1;/* upgrade success */
-		I("%s: TP upgrade OK\n", __func__);
+		D("%s: TP upgrade OK\n", __func__);
 	}
 
 #ifdef HX_RST_PIN_FUNC
@@ -1618,20 +1619,19 @@ static void himax_finger_report(struct himax_ts_data *ts)
 					g_target_report_data->x[i], g_target_report_data->y[i], g_target_report_data->w[i]);
 #ifndef	HX_PROTOCOL_A
 			input_mt_slot(ts->input_dev, i);
+			ts->last_slot = i;
+			input_mt_report_slot_state(ts->input_dev,
+							MT_TOOL_FINGER, 1);
 #endif
 			input_report_key(ts->input_dev, BTN_TOUCH, g_target_report_data->finger_on);
 			input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR, g_target_report_data->w[i]);
-		input_report_abs(ts->input_dev, ABS_MT_TRACKING_ID, i);
 #ifndef	HX_PROTOCOL_A
 			input_report_abs(ts->input_dev, ABS_MT_WIDTH_MAJOR, g_target_report_data->w[i]);
 			input_report_abs(ts->input_dev, ABS_MT_PRESSURE, g_target_report_data->w[i]);
 #endif
 			input_report_abs(ts->input_dev, ABS_MT_POSITION_X, g_target_report_data->x[i]);
 			input_report_abs(ts->input_dev, ABS_MT_POSITION_Y, g_target_report_data->y[i]);
-#ifndef	HX_PROTOCOL_A
-			ts->last_slot = i;
-			input_mt_report_slot_state(ts->input_dev, MT_TOOL_FINGER, 1);
-#else
+#ifdef	HX_PROTOCOL_A
 			input_mt_sync(ts->input_dev);
 #endif
 
@@ -1888,15 +1888,14 @@ static const struct t_cable_status_notifier himax_cable_status_handler = {
 #endif
 
 #ifdef HX_AUTO_UPDATE_FW
-static void himax_update_register(struct work_struct *work)
+void himax_update_register(struct work_struct *work)
 {
-	I(" %s in", __func__);
+	D(" %s in", __func__);
 
 	if (i_update_FW() <= 0)
-		I("FW =NOT UPDATE=\n");
+		D("FW =NOT UPDATE=\n");
 	else
-		I("Have new FW =UPDATE=\n");
-
+		D("Have new FW =UPDATE=\n");
 }
 #endif
 
@@ -2009,29 +2008,11 @@ int himax_chip_common_init(void)
 	if (pdata->virtual_key)
 		ts->button = pdata->virtual_key;
 
-#ifdef HX_AUTO_UPDATE_FW
-	auto_update_flag = (!g_core_fp.fp_calculateChecksum(false));
-	auto_update_flag |= g_core_fp.fp_flash_lastdata_check();
-	if (auto_update_flag)
-		goto FW_force_upgrade;
-#endif
 	g_core_fp.fp_read_FW_ver();
 
 #ifdef HX_AUTO_UPDATE_FW
-FW_force_upgrade:
-	auto_update_flag |= ((ic_data->vendor_fw_ver < g_i_FW_VER) || (ic_data->vendor_config_ver < g_i_CFG_VER));
-	/* Not sure to do */
-	/* auto_update_flag |= ((ic_data->vendor_cid_maj_ver != g_i_CID_MAJ) || (ic_data->vendor_cid_min_ver < g_i_CID_MIN)); */
-	if (auto_update_flag) {
-		ts->himax_update_wq = create_singlethread_workqueue("HMX_update_request");
-		if (!ts->himax_update_wq) {
-			E(" allocate syn_update_wq failed\n");
-			err = -ENOMEM;
-			goto err_update_wq_failed;
-		}
-		INIT_DELAYED_WORK(&ts->work_update, himax_update_register);
-		queue_delayed_work(ts->himax_update_wq, &ts->work_update, msecs_to_jiffies(2000));
-	}
+	queue_delayed_work(ts->himax_update_wq, &ts->work_update,
+		msecs_to_jiffies(2000));
 #endif
 #ifdef HX_ZERO_FLASH
 	auto_update_flag = true;
@@ -2136,12 +2117,7 @@ FW_force_upgrade:
 		E(" %s: debug initial failed!\n", __func__);
 #endif
 
-#if defined(HX_AUTO_UPDATE_FW) || defined(HX_ZERO_FLASH)
 
-	if (auto_update_flag)
-		himax_int_enable(0);
-
-#endif
 	return 0;
 err_register_interrupt_failed:
 remove_proc_entry(HIMAX_PROC_TOUCH_FOLDER, NULL);
@@ -2162,7 +2138,7 @@ err_detect_failed:
 		cancel_delayed_work_sync(&ts->work_update);
 		destroy_workqueue(ts->himax_update_wq);
 	}
-err_update_wq_failed:
+
 #endif
 
 error_ic_detect_failed:
@@ -2240,7 +2216,7 @@ void himax_chip_common_deinit(void)
 	kfree(hx_touch_data);
 	kfree(ic_data);
 	kfree(ts->pdata);
-	kfree(ts->report_i2c_data);
+	kfree(ts->i2c_data);
 	kfree(ts);
 	probe_fail_flag = 0;
 }

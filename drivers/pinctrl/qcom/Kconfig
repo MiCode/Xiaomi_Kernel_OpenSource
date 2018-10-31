@@ -189,6 +189,15 @@ config PINCTRL_SM6150
 	  Qualcomm Technologies Inc TLMM block found on the Qualcomm
 	  Technologies Inc SM6150 platform.
 
+config PINCTRL_TRINKET
+	tristate "Qualcomm Technologies Inc TRINKET pin controller driver"
+	depends on GPIOLIB && OF
+	select PINCTRL_MSM
+	help
+	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
+	  Qualcomm Technologies Inc TLMM block found on the Qualcomm
+	  Technologies Inc TRINKET platform.
+
 config PINCTRL_SDXPRAIRIE
 	tristate "Qualcomm Technologies Inc SDXPRAIRIE pin controller driver"
 	depends on GPIOLIB && OF

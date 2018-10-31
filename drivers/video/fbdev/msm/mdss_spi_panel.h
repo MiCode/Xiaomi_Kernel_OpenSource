@@ -143,7 +143,6 @@ struct spi_panel_data {
 	ktime_t vsync_time;
 	unsigned int vsync_status;
 	int vsync_per_te;
-	int te_count;
 	struct kernfs_node *vsync_event_sd;
 };
 

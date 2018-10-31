@@ -410,9 +410,8 @@ static void _sde_encoder_phys_vid_avr_ctrl(struct sde_encoder_phys *phys_enc)
 	struct sde_encoder_phys_vid *vid_enc =
 			to_sde_encoder_phys_vid(phys_enc);
 
-	avr_params.avr_mode = sde_connector_get_property(
-			phys_enc->connector->state,
-			CONNECTOR_PROP_QSYNC_MODE);
+	avr_params.avr_mode = sde_connector_get_qsync_mode(
+			phys_enc->connector);
 
 	if (vid_enc->base.hw_intf->ops.avr_ctrl) {
 		vid_enc->base.hw_intf->ops.avr_ctrl(
@@ -1041,7 +1040,7 @@ static int sde_encoder_phys_vid_prepare_for_kickoff(
 		vid_enc->error_count = 0;
 	}
 
-	if (sde_connector_qsync_updated(phys_enc->connector))
+	if (sde_connector_is_qsync_updated(phys_enc->connector))
 		_sde_encoder_phys_vid_avr_ctrl(phys_enc);
 
 	programmable_rot_fetch_config(phys_enc,
@@ -1181,9 +1180,7 @@ static void sde_encoder_phys_vid_handle_post_kickoff(
 		phys_enc->enable_state = SDE_ENC_ENABLED;
 	}
 
-	avr_mode = sde_connector_get_property(
-			phys_enc->connector->state,
-			CONNECTOR_PROP_QSYNC_MODE);
+	avr_mode = sde_connector_get_qsync_mode(phys_enc->connector);
 
 	if (avr_mode && vid_enc->base.hw_intf->ops.avr_trigger) {
 		vid_enc->base.hw_intf->ops.avr_trigger(vid_enc->base.hw_intf);

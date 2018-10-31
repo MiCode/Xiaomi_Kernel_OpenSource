@@ -444,7 +444,7 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 	lcu_per_frame = DIV_ROUND_UP(width, lcu_size) *
 		DIV_ROUND_UP(height, lcu_size);
 
-	bitrate = __lut(width, height, fps)->bitrate;
+	bitrate = (d->bitrate + 1000000 - 1) / 1000000;
 
 	bins_to_bit_factor = d->work_mode == VIDC_WORK_MODE_1 ?
 		FP_INT(0) : FP_INT(4);
@@ -660,7 +660,7 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 	downscaling_ratio = fp_div(FP_INT(d->input_width * d->input_height),
 		FP_INT(d->output_width * d->output_height));
 	downscaling_ratio = max(downscaling_ratio, FP_ONE);
-	bitrate = d->bitrate > 0 ? d->bitrate / 1000000 :
+	bitrate = d->bitrate > 0 ? (d->bitrate + 1000000 - 1) / 1000000 :
 		__lut(width, height, fps)->bitrate;
 	lcu_size = d->lcu_size;
 	lcu_per_frame = DIV_ROUND_UP(width, lcu_size) *

@@ -110,19 +110,24 @@ struct rmnet_priv {
 	void __rcu *qos_info;
 };
 
+enum rmnet_dl_marker_prio {
+	RMNET_PERF,
+	RMNET_SHS,
+};
+
 enum rmnet_trace_func {
 	RMNET_MODULE,
 	NW_STACK_MODULE,
 };
 
 enum rmnet_trace_evt {
-	RMNET_PERF_DLVR_SKB,
+	RMNET_DLVR_SKB,
 	RMNET_RCV_FROM_PND,
-	RMNET_PERF_TX_UL_PKT,
-	RMNET_DEV_Q_XMIT,
-	RMNET_NAPI_GRO_FLUSH,
-	RMNET_NW_STACK_RX,
-	RMNET_NW_STACK_TX,
+	RMNET_TX_UL_PKT,
+	NW_STACK_DEV_Q_XMIT,
+	NW_STACK_NAPI_GRO_FLUSH,
+	NW_STACK_RX,
+	NW_STACK_TX,
 };
 
 int rmnet_is_real_dev_registered(const struct net_device *real_dev);

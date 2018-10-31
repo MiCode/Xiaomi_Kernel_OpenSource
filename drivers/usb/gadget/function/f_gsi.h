@@ -26,6 +26,7 @@
 #include <linux/debugfs.h>
 #include <linux/ipa_usb.h>
 #include <linux/ipc_logging.h>
+#include <linux/timer.h>
 
 #define GSI_RMNET_CTRL_NAME "rmnet_ctrl"
 #define GSI_MBIM_CTRL_NAME "android_mbim"
@@ -280,6 +281,12 @@ struct f_gsi {
 	struct gsi_ctrl_port c_port;
 	void *ipc_log_ctxt;
 	bool rmnet_dtr_status;
+
+	/* To test remote wakeup using debugfs */
+	struct timer_list gsi_rw_timer;
+	u8 debugfs_rw_timer_enable;
+	u16 gsi_rw_timer_interval;
+
 };
 
 static inline struct f_gsi *func_to_gsi(struct usb_function *f)

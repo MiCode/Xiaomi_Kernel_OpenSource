@@ -305,6 +305,7 @@ static struct clk_osm l3_clk = {
 
 static DEFINE_CLK_VOTER(l3_cluster0_vote_clk, l3_clk, 0);
 static DEFINE_CLK_VOTER(l3_cluster1_vote_clk, l3_clk, 0);
+static DEFINE_CLK_VOTER(l3_cluster2_vote_clk, l3_clk, 0);
 static DEFINE_CLK_VOTER(l3_misc_vote_clk, l3_clk, 0);
 static DEFINE_CLK_VOTER(l3_gpu_vote_clk, l3_clk, 0);
 
@@ -458,6 +459,7 @@ static struct clk_osm cpu7_perfpcl_clk = {
 static struct clk_hw *osm_qcom_clk_hws[] = {
 	[L3_CLUSTER0_VOTE_CLK] = &l3_cluster0_vote_clk.hw,
 	[L3_CLUSTER1_VOTE_CLK] = &l3_cluster1_vote_clk.hw,
+	[L3_CLUSTER2_VOTE_CLK] = &l3_cluster2_vote_clk.hw,
 	[L3_MISC_VOTE_CLK] = &l3_misc_vote_clk.hw,
 	[L3_GPU_VOTE_CLK] = &l3_gpu_vote_clk.hw,
 	[L3_CLK] = &l3_clk.hw,
@@ -1037,6 +1039,7 @@ static void clk_cpu_osm_driver_sm6150_fixup(void)
 	osm_qcom_clk_hws[CPU5_PERFCL_CLK] = NULL;
 	osm_qcom_clk_hws[CPU7_PERFPCL_CLK] = NULL;
 	osm_qcom_clk_hws[PERFPCL_CLK] = NULL;
+	osm_qcom_clk_hws[L3_CLUSTER2_VOTE_CLK] = NULL;
 	osm_qcom_clk_hws[CPU4_PWRCL_CLK] = &cpu4_pwrcl_clk.hw;
 	osm_qcom_clk_hws[CPU5_PWRCL_CLK] = &cpu5_pwrcl_clk.hw;
 	osm_qcom_clk_hws[CPU7_PERFCL_CLK] = &cpu7_perfcl_clk.hw;
@@ -1053,6 +1056,7 @@ static void clk_cpu_osm_driver_sdmshrike_fixup(void)
 {
 	osm_qcom_clk_hws[CPU7_PERFPCL_CLK] = NULL;
 	osm_qcom_clk_hws[PERFPCL_CLK] = NULL;
+	osm_qcom_clk_hws[L3_CLUSTER2_VOTE_CLK] = NULL;
 	osm_qcom_clk_hws[CPU7_PERFCL_CLK] = &cpu7_perfcl_clk.hw;
 
 	clk_cpu_map[7] = &cpu7_perfcl_clk;
@@ -1173,6 +1177,8 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 			"clk: Failed to enable cluster0 clock for L3\n");
 	WARN(clk_prepare_enable(l3_cluster1_vote_clk.hw.clk),
 			"clk: Failed to enable cluster1 clock for L3\n");
+	WARN(clk_prepare_enable(l3_cluster2_vote_clk.hw.clk),
+			"clk: Failed to enable cluster2 clock for L3\n");
 	WARN(clk_prepare_enable(l3_misc_vote_clk.hw.clk),
 			"clk: Failed to enable misc clock for L3\n");
 	WARN(clk_prepare_enable(l3_gpu_vote_clk.hw.clk),

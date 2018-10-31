@@ -129,6 +129,32 @@ struct dp_panel {
 		struct dp_display_mode *dp_mode);
 };
 
+struct dp_tu_calc_input {
+	u64 lclk;        /* 162, 270, 540 and 810 */
+	u64 pclk_khz;    /* in KHz */
+	u64 hactive;     /* active h-width */
+	u64 hporch;      /* bp + fp + pulse */
+	int nlanes;      /* no.of.lanes */
+	int bpp;         /* bits */
+	int pixel_enc;   /* 444, 420, 422 */
+	int dsc_en;     /* dsc on/off */
+	int async_en;   /* async mode */
+};
+
+struct dp_vc_tu_mapping_table {
+	u32 vic;
+	u8 lanes;
+	u8 lrate; /* DP_LINK_RATE -> 162(6), 270(10), 540(20), 810 (30) */
+	u8 bpp;
+	u32 valid_boundary_link;
+	u32 delay_start_link;
+	bool boundary_moderation_en;
+	u32 valid_lower_boundary_link;
+	u32 upper_boundary_count;
+	u32 lower_boundary_count;
+	u32 tu_size_minus1;
+};
+
 /**
  * is_link_rate_valid() - validates the link rate
  * @lane_rate: link rate requested by the sink
@@ -158,4 +184,6 @@ static inline bool is_lane_count_valid(u32 lane_count)
 
 struct dp_panel *dp_panel_get(struct dp_panel_in *in);
 void dp_panel_put(struct dp_panel *dp_panel);
+void dp_panel_calc_tu_test(struct dp_tu_calc_input *in,
+		struct dp_vc_tu_mapping_table *tu_table);
 #endif /* _DP_PANEL_H_ */

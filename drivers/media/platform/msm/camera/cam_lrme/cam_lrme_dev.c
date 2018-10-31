@@ -81,6 +81,7 @@ static int cam_lrme_dev_open(struct v4l2_subdev *sd,
 static int cam_lrme_dev_close(struct v4l2_subdev *sd,
 	struct v4l2_subdev_fh *fh)
 {
+	int rc = 0;
 	struct cam_lrme_dev *lrme_dev = g_lrme_dev;
 	struct cam_node *node = v4l2_get_subdevdata(sd);
 
@@ -90,18 +91,25 @@ static int cam_lrme_dev_close(struct v4l2_subdev *sd,
 	}
 
 	mutex_lock(&lrme_dev->lock);
-	lrme_dev->open_cnt--;
-	mutex_unlock(&lrme_dev->lock);
+	if (lrme_dev->open_cnt <= 0) {
+		CAM_DBG(CAM_LRME, "LRME subdev is already closed");
+		rc = -EINVAL;
+		goto end;
+	}
 
+	lrme_dev->open_cnt--;
 	if (!node) {
 		CAM_ERR(CAM_LRME, "Node is NULL");
-		return -EINVAL;
+		rc = -EINVAL;
+		goto end;
 	}
 
 	if (lrme_dev->open_cnt == 0)
 		cam_node_shutdown(node);
 
-	return 0;
+end:
+	mutex_unlock(&lrme_dev->lock);
+	return rc;
 }
 
 static const struct v4l2_subdev_internal_ops cam_lrme_subdev_internal_ops = {

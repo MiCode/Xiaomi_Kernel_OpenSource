@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -305,57 +305,15 @@ static void a4xx_preempt_trig_state(struct adreno_device *adreno_dev)
 static struct adreno_ringbuffer *a4xx_next_ringbuffer(
 		struct adreno_device *adreno_dev)
 {
-	struct adreno_ringbuffer *rb, *next = NULL;
+	struct adreno_ringbuffer *rb;
 	int i;
 
 	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
-		if (!adreno_rb_empty(rb) && next == NULL) {
-			next = rb;
-			continue;
-		}
-
-		if (!adreno_disp_preempt_fair_sched)
-			continue;
-
-		switch (rb->starve_timer_state) {
-		case ADRENO_DISPATCHER_RB_STARVE_TIMER_UNINIT:
-			if (!adreno_rb_empty(rb) &&
-				adreno_dev->cur_rb != rb) {
-				rb->starve_timer_state =
-				ADRENO_DISPATCHER_RB_STARVE_TIMER_INIT;
-				rb->sched_timer = jiffies;
-			}
-			break;
-		case ADRENO_DISPATCHER_RB_STARVE_TIMER_INIT:
-			if (time_after(jiffies, rb->sched_timer +
-				msecs_to_jiffies(
-					adreno_dispatch_starvation_time))) {
-				rb->starve_timer_state =
-				ADRENO_DISPATCHER_RB_STARVE_TIMER_ELAPSED;
-				/* halt dispatcher to remove starvation */
-				adreno_get_gpu_halt(adreno_dev);
-			}
-			break;
-		case ADRENO_DISPATCHER_RB_STARVE_TIMER_SCHEDULED:
-			/*
-			 * If the RB has not been running for the minimum
-			 * time slice then allow it to run
-			 */
-			if (!adreno_rb_empty(rb) && time_before(jiffies,
-				adreno_dev->cur_rb->sched_timer +
-				msecs_to_jiffies(adreno_dispatch_time_slice)))
-				next = rb;
-			else
-				rb->starve_timer_state =
-				ADRENO_DISPATCHER_RB_STARVE_TIMER_UNINIT;
-			break;
-		case ADRENO_DISPATCHER_RB_STARVE_TIMER_ELAPSED:
-		default:
-			break;
-		}
+		if (!adreno_rb_empty(rb))
+			return rb;
 	}
 
-	return next;
+	return NULL;
 }
 
 static void a4xx_preempt_clear_state(struct adreno_device *adreno_dev)
@@ -490,27 +448,6 @@ static void a4xx_preempt_complete_state(struct adreno_device *adreno_dev)
 	adreno_dev->cur_rb->wptr_preempt_end = 0xFFFFFFFF;
 	adreno_dev->next_rb = NULL;
 
-	if (adreno_disp_preempt_fair_sched) {
-		/* starved rb is now scheduled so unhalt dispatcher */
-		if (ADRENO_DISPATCHER_RB_STARVE_TIMER_ELAPSED ==
-			adreno_dev->cur_rb->starve_timer_state)
-			adreno_put_gpu_halt(adreno_dev);
-		adreno_dev->cur_rb->starve_timer_state =
-				ADRENO_DISPATCHER_RB_STARVE_TIMER_SCHEDULED;
-		adreno_dev->cur_rb->sched_timer = jiffies;
-		/*
-		 * If the outgoing RB is has commands then set the
-		 * busy time for it
-		 */
-		if (!adreno_rb_empty(adreno_dev->prev_rb)) {
-			adreno_dev->prev_rb->starve_timer_state =
-				ADRENO_DISPATCHER_RB_STARVE_TIMER_INIT;
-			adreno_dev->prev_rb->sched_timer = jiffies;
-		} else {
-			adreno_dev->prev_rb->starve_timer_state =
-				ADRENO_DISPATCHER_RB_STARVE_TIMER_UNINIT;
-		}
-	}
 	adreno_set_preempt_state(adreno_dev, ADRENO_PREEMPT_NONE);
 
 	prevrptr = adreno_get_rptr(adreno_dev->prev_rb);

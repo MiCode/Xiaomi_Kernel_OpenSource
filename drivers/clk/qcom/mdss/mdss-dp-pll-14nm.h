@@ -176,6 +176,9 @@ struct dp_pll_db {
 
 	/* PHY vco divider */
 	u32 phy_vco_div;
+
+	/* TX settings */
+	u32 lane_mode_1;
 };
 
 int dp_vco_set_rate_14nm(struct clk_hw *hw, unsigned long rate,

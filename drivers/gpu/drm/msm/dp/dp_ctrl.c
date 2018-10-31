@@ -170,7 +170,8 @@ static void dp_ctrl_configure_source_link_params(struct dp_ctrl_private *ctrl,
 		ctrl->catalog->lane_mapping(ctrl->catalog, ctrl->orientation,
 						ctrl->parser->l_map);
 		ctrl->catalog->mst_config(ctrl->catalog, ctrl->mst_mode);
-		ctrl->catalog->config_ctrl(ctrl->catalog);
+		ctrl->catalog->config_ctrl(ctrl->catalog,
+				ctrl->link->link_params.lane_count);
 		ctrl->catalog->mainlink_ctrl(ctrl->catalog, true);
 	} else {
 		ctrl->catalog->mainlink_ctrl(ctrl->catalog, false);
@@ -1002,14 +1003,14 @@ static int dp_ctrl_stream_on(struct dp_ctrl *dp_ctrl, struct dp_panel *panel)
 		return rc;
 	}
 
+	rc = panel->hw_cfg(panel, true);
+	if (rc)
+		return rc;
+
 	if (ctrl->link->sink_request & DP_TEST_LINK_PHY_TEST_PATTERN) {
 		dp_ctrl_send_phy_test_pattern(ctrl);
 		return 0;
 	}
-
-	rc = panel->hw_cfg(panel, true);
-	if (rc)
-		return rc;
 
 	dp_ctrl_mst_stream_setup(ctrl, panel);
 

@@ -100,8 +100,6 @@ enum ipa_aggr_mode {
 enum ipa_dp_evt_type {
 	IPA_RECEIVE,
 	IPA_WRITE_DONE,
-	IPA_CLIENT_START_POLL,
-	IPA_CLIENT_COMP_NAPI,
 };
 
 /**
@@ -608,7 +606,7 @@ struct ipa_sys_connect_params {
 	ipa_notify_cb notify;
 	bool skip_ep_cfg;
 	bool keep_ipa_awake;
-	bool napi_enabled;
+	struct napi_struct *napi_obj;
 	bool recycle_enabled;
 };
 

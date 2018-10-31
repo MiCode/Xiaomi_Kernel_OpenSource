@@ -107,9 +107,6 @@ struct adreno_ringbuffer_pagetable_info {
  * at the right rptr
  * @gpr11: The gpr11 value of this RB
  * @preempted_midway: Indicates that the RB was preempted before rptr = wptr
- * @sched_timer: Timer that tracks how long RB has been waiting to be scheduled
- * or how long it has been scheduled for after preempting in
- * @starve_timer_state: Indicates the state of the wait.
  * @preempt_lock: Lock to protect the wptr pointer while it is being updated
  */
 struct adreno_ringbuffer {
@@ -132,8 +129,6 @@ struct adreno_ringbuffer {
 	unsigned int wptr_preempt_end;
 	unsigned int gpr11;
 	int preempted_midway;
-	unsigned long sched_timer;
-	enum adreno_dispatcher_starve_timer_states starve_timer_state;
 	spinlock_t preempt_lock;
 };
 

@@ -77,6 +77,8 @@ const char *ipa3_event_name[] = {
 	__stringify(ADD_BRIDGE_VLAN_MAPPING),
 	__stringify(DEL_BRIDGE_VLAN_MAPPING),
 	__stringify(WLAN_FWR_SSR_BEFORE_SHUTDOWN),
+	__stringify(IPA_GSB_CONNECT),
+	__stringify(IPA_GSB_DISCONNECT),
 };
 
 const char *ipa3_hdr_l2_type_name[] = {
@@ -429,11 +431,16 @@ static int ipa3_attrib_dump(struct ipa_rule_attrib *attrib,
 	uint32_t mask[4];
 	int i;
 
-	if (attrib->attrib_mask & IPA_FLT_TOS_MASKED)
-		pr_err("tos_value:%d ", attrib->tos_value);
+	if (attrib->attrib_mask & IPA_FLT_IS_PURE_ACK)
+		pr_err("is_pure_ack ");
 
-	if (attrib->attrib_mask & IPA_FLT_TOS_MASKED)
-		pr_err("tos_mask:%d ", attrib->tos_mask);
+	if (attrib->attrib_mask & IPA_FLT_TOS)
+		pr_cont("tos:%d ", attrib->u.v4.tos);
+
+	if (attrib->attrib_mask & IPA_FLT_TOS_MASKED) {
+		pr_cont("tos_value:%d ", attrib->tos_value);
+		pr_cont("tos_mask:%d ", attrib->tos_mask);
+	}
 
 	if (attrib->attrib_mask & IPA_FLT_PROTOCOL)
 		pr_err("protocol:%d ", attrib->u.v4.protocol);
@@ -555,8 +562,12 @@ static int ipa3_attrib_dump_eq(struct ipa_ipfltri_rule_eq *attrib)
 	int i;
 	int j;
 
-	if (attrib->tos_eq_present)
-		pr_err("tos_value:%d ", attrib->tos_eq);
+	if (attrib->tos_eq_present) {
+		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
+			pr_err("pure_ack ");
+		else
+			pr_err("tos:%d ", attrib->tos_eq);
+	}
 
 	if (attrib->protocol_eq_present)
 		pr_err("protocol:%d ", attrib->protocol_eq);

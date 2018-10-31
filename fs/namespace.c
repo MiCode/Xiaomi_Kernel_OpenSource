@@ -21,6 +21,7 @@
 #include <linux/fs_struct.h>	/* get_fs_root et.al. */
 #include <linux/fsnotify.h>	/* fsnotify_vfsmount_delete */
 #include <linux/uaccess.h>
+#include <linux/file.h>
 #include <linux/proc_ns.h>
 #include <linux/magic.h>
 #include <linux/bootmem.h>
@@ -447,10 +448,10 @@ int mnt_want_write_file_path(struct file *file)
 {
 	int ret;
 
-	sb_start_write(file->f_path.mnt->mnt_sb);
+	sb_start_write(file_inode(file)->i_sb);
 	ret = __mnt_want_write_file(file);
 	if (ret)
-		sb_end_write(file->f_path.mnt->mnt_sb);
+		sb_end_write(file_inode(file)->i_sb);
 	return ret;
 }
 
@@ -541,7 +542,8 @@ void __mnt_drop_write_file(struct file *file)
 
 void mnt_drop_write_file_path(struct file *file)
 {
-	mnt_drop_write(file->f_path.mnt);
+	__mnt_drop_write_file(file);
+	sb_end_write(file_inode(file)->i_sb);
 }
 
 void mnt_drop_write_file(struct file *file)
@@ -661,12 +663,21 @@ int __legitimize_mnt(struct vfsmount *bastard, unsigned seq)
 		return 0;
 	mnt = real_mount(bastard);
 	mnt_add_count(mnt, 1);
+	smp_mb();			// see mntput_no_expire()
 	if (likely(!read_seqretry(&mount_lock, seq)))
 		return 0;
 	if (bastard->mnt_flags & MNT_SYNC_UMOUNT) {
 		mnt_add_count(mnt, -1);
 		return 1;
 	}
+	lock_mount_hash();
+	if (unlikely(bastard->mnt_flags & MNT_DOOMED)) {
+		mnt_add_count(mnt, -1);
+		unlock_mount_hash();
+		return 1;
+	}
+	unlock_mount_hash();
+	/* caller will mntput() */
 	return -1;
 }
 
@@ -1210,15 +1221,36 @@ static void delayed_mntput(struct work_struct *unused)
 }
 static DECLARE_DELAYED_WORK(delayed_mntput_work, delayed_mntput);
 
+void flush_delayed_mntput_wait(void)
+{
+	delayed_mntput(NULL);
+	flush_delayed_work(&delayed_mntput_work);
+}
+
 static void mntput_no_expire(struct mount *mnt)
 {
 	rcu_read_lock();
-	mnt_add_count(mnt, -1);
-	if (likely(mnt->mnt_ns)) { /* shouldn't be the last one */
+	if (likely(READ_ONCE(mnt->mnt_ns))) {
+		/*
+		 * Since we don't do lock_mount_hash() here,
+		 * ->mnt_ns can change under us.  However, if it's
+		 * non-NULL, then there's a reference that won't
+		 * be dropped until after an RCU delay done after
+		 * turning ->mnt_ns NULL.  So if we observe it
+		 * non-NULL under rcu_read_lock(), the reference
+		 * we are dropping is not the final one.
+		 */
+		mnt_add_count(mnt, -1);
 		rcu_read_unlock();
 		return;
 	}
 	lock_mount_hash();
+	/*
+	 * make sure that if __legitimize_mnt() has not seen us grab
+	 * mount_lock, we'll see their refcount increment here.
+	 */
+	smp_mb();
+	mnt_add_count(mnt, -1);
 	if (mnt_get_count(mnt)) {
 		rcu_read_unlock();
 		unlock_mount_hash();
@@ -1705,6 +1737,7 @@ SYSCALL_DEFINE2(umount, char __user *, name, int, flags)
 	struct mount *mnt;
 	int retval;
 	int lookup_flags = 0;
+	bool user_request = !(current->flags & PF_KTHREAD);
 
 	if (flags & ~(MNT_FORCE | MNT_DETACH | MNT_EXPIRE | UMOUNT_NOFOLLOW))
 		return -EINVAL;
@@ -1730,11 +1763,35 @@ SYSCALL_DEFINE2(umount, char __user *, name, int, flags)
 	if (flags & MNT_FORCE && !capable(CAP_SYS_ADMIN))
 		goto dput_and_out;
 
+	/* flush delayed_fput to put mnt_count */
+	if (user_request)
+		flush_delayed_fput_wait();
+
 	retval = do_umount(mnt, flags);
 dput_and_out:
 	/* we mustn't call path_put() as that would clear mnt_expiry_mark */
 	dput(path.dentry);
 	mntput_no_expire(mnt);
+
+	if (!user_request)
+		goto out;
+
+	if (!retval) {
+		/*
+		 * If the last delayed_fput() is called during do_umount()
+		 * and makes mnt_count zero, we need to guarantee to register
+		 * delayed_mntput by waiting for delayed_fput work again.
+		 */
+		flush_delayed_fput_wait();
+
+		/* flush delayed_mntput_work to put sb->s_active */
+		flush_delayed_mntput_wait();
+	}
+	if (!retval || (flags & MNT_FORCE)) {
+		/* filesystem needs to handle unclosed namespaces */
+		if (mnt->mnt.mnt_sb->s_op->umount_end)
+			mnt->mnt.mnt_sb->s_op->umount_end(mnt->mnt.mnt_sb, flags);
+	}
 out:
 	return retval;
 }

@@ -116,10 +116,14 @@ static int qcom_mhi_qrtr_send(struct qrtr_endpoint *ep, struct sk_buff *skb)
 	if (skb->sk)
 		sock_hold(skb->sk);
 
-	wait_for_completion(&pkt->done);
+	rc = wait_for_completion_interruptible_timeout(&pkt->done, HZ * 5);
+	if (rc > 0)
+		rc = 0;
+	else if (rc == 0)
+		rc = -ETIMEDOUT;
 
 	kref_put(&pkt->refcount, qrtr_mhi_pkt_release);
-	return 0;
+	return rc;
 }
 
 static int qcom_mhi_qrtr_probe(struct mhi_device *mhi_dev,

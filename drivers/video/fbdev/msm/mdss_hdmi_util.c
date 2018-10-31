@@ -15,6 +15,8 @@
 
 #include <linux/io.h>
 #include <linux/delay.h>
+#include <linux/msm_mdp.h>
+#include <linux/msm_mdp_ext.h>
 #include "mdss_hdmi_util.h"
 
 #define RESOLUTION_NAME_STR_LEN 30
@@ -26,12 +28,84 @@
 
 #define HDMI_SCDC_UNKNOWN_REGISTER        "Unknown register"
 
+#define HDMI_TX_YUV420_24BPP_PCLK_TMDS_CH_RATE_RATIO 2
+#define HDMI_TX_YUV422_24BPP_PCLK_TMDS_CH_RATE_RATIO 1
+#define HDMI_TX_RGB_24BPP_PCLK_TMDS_CH_RATE_RATIO 1
+
 static char res_buf[RESOLUTION_NAME_STR_LEN];
 
 enum trigger_mode {
 	TRIGGER_WRITE,
 	TRIGGER_READ
 };
+
+int hdmi_panel_get_vic(struct mdss_panel_info *pinfo,
+		struct hdmi_util_ds_data *ds_data)
+{
+	int new_vic = -1;
+	u32 h_total, v_total;
+	struct msm_hdmi_mode_timing_info timing;
+
+	if (!pinfo) {
+		pr_err("invalid panel info\n");
+		return -EINVAL;
+	}
+
+	if (pinfo->vic) {
+		struct msm_hdmi_mode_timing_info info = {0};
+		u32 ret = hdmi_get_supported_mode(&info, ds_data, pinfo->vic);
+		u32 supported = info.supported;
+
+		if (!ret && supported) {
+			new_vic = pinfo->vic;
+		} else {
+			pr_err("invalid or not supported vic %d\n",
+				pinfo->vic);
+			return -EPERM;
+		}
+	} else {
+		timing.active_h      = pinfo->xres;
+		timing.back_porch_h  = pinfo->lcdc.h_back_porch;
+		timing.front_porch_h = pinfo->lcdc.h_front_porch;
+		timing.pulse_width_h = pinfo->lcdc.h_pulse_width;
+
+		h_total = timing.active_h + timing.back_porch_h +
+			timing.front_porch_h + timing.pulse_width_h;
+
+		pr_debug("ah=%d bph=%d fph=%d pwh=%d ht=%d\n",
+			timing.active_h, timing.back_porch_h,
+			timing.front_porch_h, timing.pulse_width_h,
+			h_total);
+
+		timing.active_v      = pinfo->yres;
+		timing.back_porch_v  = pinfo->lcdc.v_back_porch;
+		timing.front_porch_v = pinfo->lcdc.v_front_porch;
+		timing.pulse_width_v = pinfo->lcdc.v_pulse_width;
+
+		v_total = timing.active_v + timing.back_porch_v +
+			timing.front_porch_v + timing.pulse_width_v;
+
+		pr_debug("av=%d bpv=%d fpv=%d pwv=%d vt=%d\n",
+			timing.active_v, timing.back_porch_v,
+			timing.front_porch_v, timing.pulse_width_v, v_total);
+
+		timing.pixel_freq = ((unsigned long int)pinfo->clk_rate / 1000);
+		if (h_total && v_total) {
+			timing.refresh_rate = ((timing.pixel_freq * 1000) /
+				(h_total * v_total)) * 1000;
+		} else {
+			pr_err("cannot cal refresh rate\n");
+			return -EPERM;
+		}
+
+		pr_debug("pixel_freq=%d refresh_rate=%d\n",
+			timing.pixel_freq, timing.refresh_rate);
+
+		new_vic = hdmi_get_video_id_code(&timing, ds_data);
+	}
+
+	return new_vic;
+}
 
 int hdmi_utils_get_timeout_in_hysnc(struct msm_hdmi_mode_timing_info *timing,
 	u32 timeout_ms)
@@ -40,7 +114,7 @@ int hdmi_utils_get_timeout_in_hysnc(struct msm_hdmi_mode_timing_info *timing,
 	u32 time_taken_by_one_line_us, lines_needed_for_given_time;
 
 	if (!timing || !timeout_ms) {
-		pr_err("invalid input\n");
+		pr_err("invalid timing info\n");
 		return -EINVAL;
 	}
 
@@ -69,7 +143,7 @@ static int hdmi_ddc_clear_irq(struct hdmi_tx_ddc_ctrl *ddc_ctrl,
 	u32 in_use_by_hw = BIT(1);
 
 	if (!ddc_ctrl || !ddc_ctrl->io) {
-		pr_err("invalid input\n");
+		pr_err("invalid ddc ctrl\n");
 		return -EINVAL;
 	}
 
@@ -189,7 +263,7 @@ static int hdmi_scrambler_status_timer_setup(struct hdmi_tx_ddc_ctrl *ctrl,
 	struct dss_io_data *io = NULL;
 
 	if (!ctrl || !ctrl->io) {
-		pr_err("invalid input\n");
+		pr_err("invalid ddc ctrl\n");
 		return -EINVAL;
 	}
 
@@ -485,6 +559,9 @@ int msm_hdmi_get_timing_info(
 	case HDMI_VFRMT_3840x2160p60_64_27:
 		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_3840x2160p60_64_27);
 		break;
+	case HDMI_VFRMT_640x480p59_4_3:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_640x480p59_4_3);
+		break;
 	default:
 		ret = hdmi_get_resv_timing_info(mode, id);
 	}
@@ -495,7 +572,7 @@ int msm_hdmi_get_timing_info(
 int hdmi_get_supported_mode(struct msm_hdmi_mode_timing_info *info,
 	struct hdmi_util_ds_data *ds_data, u32 mode)
 {
-	int ret;
+	int ret, i = 0;
 
 	if (!info)
 		return -EINVAL;
@@ -505,9 +582,23 @@ int hdmi_get_supported_mode(struct msm_hdmi_mode_timing_info *info,
 
 	ret = msm_hdmi_get_timing_info(info, mode);
 
-	if (!ret && ds_data && ds_data->ds_registered && ds_data->ds_max_clk) {
-		if (info->pixel_freq > ds_data->ds_max_clk)
-			info->supported = false;
+	if (!ret && ds_data && ds_data->ds_registered) {
+		if (ds_data->ds_max_clk) {
+			if (info->pixel_freq > ds_data->ds_max_clk)
+				info->supported = false;
+		}
+
+		if (ds_data->modes_num) {
+			u32 *modes = ds_data->modes;
+
+			for (i = 0; i < ds_data->modes_num; i++) {
+				if (info->video_format == *modes++)
+					break;
+			}
+
+			if (i == ds_data->modes_num)
+				info->supported = false;
+		}
 	}
 
 	return ret;
@@ -560,16 +651,23 @@ int hdmi_get_video_id_code(struct msm_hdmi_mode_timing_info *timing_in,
 {
 	int i, vic = -1;
 	struct msm_hdmi_mode_timing_info supported_timing = {0};
-	u32 ret;
+	u32 ret, pclk_delta, pclk, fps_delta, fps;
 
 	if (!timing_in) {
-		pr_err("invalid input\n");
+		pr_err("invalid timing info\n");
 		goto exit;
 	}
 
 	/* active_low_h, active_low_v and interlaced are not checked against */
-	for (i = 0; i < HDMI_VFRMT_MAX; i++) {
+	for (i = 1; i < HDMI_VFRMT_MAX; i++) {
 		ret = hdmi_get_supported_mode(&supported_timing, ds_data, i);
+
+		pclk = supported_timing.pixel_freq;
+		fps = supported_timing.refresh_rate;
+
+		/* as per standard, 0.5% of deviation is allowed */
+		pclk_delta = (pclk / HDMI_KHZ_TO_HZ) * 5;
+		fps_delta = (fps / HDMI_KHZ_TO_HZ) * 5;
 
 		if (ret || !supported_timing.supported)
 			continue;
@@ -589,9 +687,11 @@ int hdmi_get_video_id_code(struct msm_hdmi_mode_timing_info *timing_in,
 			continue;
 		if (timing_in->back_porch_v != supported_timing.back_porch_v)
 			continue;
-		if (timing_in->pixel_freq != supported_timing.pixel_freq)
+		if (timing_in->pixel_freq < (pclk - pclk_delta) ||
+		    timing_in->pixel_freq > (pclk + pclk_delta))
 			continue;
-		if (timing_in->refresh_rate != supported_timing.refresh_rate)
+		if (timing_in->refresh_rate < (fps - fps_delta) ||
+		    timing_in->refresh_rate > (fps + fps_delta))
 			continue;
 
 		vic = (int)supported_timing.video_format;
@@ -650,6 +750,30 @@ ssize_t hdmi_get_video_3d_fmt_2string(u32 format, char *buf, u32 size)
 
 	return len;
 } /* hdmi_get_video_3d_fmt_2string */
+
+int hdmi_tx_setup_tmds_clk_rate(u32 pixel_freq, u32 out_format,	bool dc_enable)
+{
+	u32 rate_ratio;
+
+	switch (out_format) {
+	case MDP_Y_CBCR_H2V2:
+		rate_ratio = HDMI_TX_YUV420_24BPP_PCLK_TMDS_CH_RATE_RATIO;
+		break;
+	case MDP_Y_CBCR_H2V1:
+		rate_ratio = HDMI_TX_YUV422_24BPP_PCLK_TMDS_CH_RATE_RATIO;
+		break;
+	default:
+		rate_ratio = HDMI_TX_RGB_24BPP_PCLK_TMDS_CH_RATE_RATIO;
+		break;
+	}
+
+	pixel_freq /= rate_ratio;
+
+	if (dc_enable)
+		pixel_freq += pixel_freq >> 2;
+
+	return pixel_freq;
+}
 
 static void hdmi_ddc_trigger(struct hdmi_tx_ddc_ctrl *ddc_ctrl,
 		enum trigger_mode mode, bool seg)
@@ -741,7 +865,7 @@ static int hdmi_ddc_read_retry(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 	int busy_wait_us = 0;
 
 	if (!ddc_ctrl || !ddc_ctrl->io) {
-		pr_err("invalid input\n");
+		pr_err("invalid ddc ctrl\n");
 		return -EINVAL;
 	}
 
@@ -832,7 +956,7 @@ error:
 void hdmi_ddc_config(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 {
 	if (!ddc_ctrl || !ddc_ctrl->io) {
-		pr_err("invalid input\n");
+		pr_err("invalid ddc ctrl\n");
 		return;
 	}
 
@@ -893,7 +1017,7 @@ static int hdmi_ddc_hdcp2p2_isr(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 	int rc = 0;
 
 	if (!ddc_ctrl || !ddc_ctrl->io) {
-		pr_err("invalid input\n");
+		pr_err("invalid ddc ctrl\n");
 		return -EINVAL;
 	}
 
@@ -1027,7 +1151,7 @@ static int hdmi_ddc_scrambling_isr(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 	u32 intr2, intr5;
 
 	if (!ddc_ctrl || !ddc_ctrl->io) {
-		pr_err("invalid input\n");
+		pr_err("invalid ddc ctrl\n");
 		return -EINVAL;
 	}
 
@@ -1076,7 +1200,7 @@ int hdmi_ddc_isr(struct hdmi_tx_ddc_ctrl *ddc_ctrl, u32 version)
 	u32 ddc_int_ctrl, ret = 0;
 
 	if (!ddc_ctrl || !ddc_ctrl->io) {
-		pr_err("invalid input\n");
+		pr_err("invalid ddc ctrl\n");
 		return -EINVAL;
 	}
 
@@ -1150,7 +1274,7 @@ int hdmi_ddc_read_seg(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 	struct hdmi_tx_ddc_data *ddc_data;
 
 	if (!ddc_ctrl || !ddc_ctrl->io) {
-		pr_err("invalid input\n");
+		pr_err("invalid ddc ctrl\n");
 		return -EINVAL;
 	}
 
@@ -1219,7 +1343,7 @@ int hdmi_ddc_write(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 	int busy_wait_us = 0;
 
 	if (!ddc_ctrl || !ddc_ctrl->io) {
-		pr_err("invalid input\n");
+		pr_err("invalid ddc ctrl\n");
 		return -EINVAL;
 	}
 
@@ -1302,7 +1426,7 @@ int hdmi_ddc_abort_transaction(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 	struct hdmi_tx_ddc_data *ddc_data;
 
 	if (!ddc_ctrl || !ddc_ctrl->io) {
-		pr_err("invalid input\n");
+		pr_err("invalid ddc ctrl\n");
 		return -EINVAL;
 	}
 

@@ -62,6 +62,7 @@ struct dp_display {
 	struct drm_connector *base_connector;
 	void *base_dp_panel;
 	bool is_sst_connected;
+	bool is_mst_supported;
 	u32 max_pclk_khz;
 	void *dp_mst_prv_info;
 

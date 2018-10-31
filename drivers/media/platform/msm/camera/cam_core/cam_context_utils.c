@@ -326,6 +326,17 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 
 	packet = (struct cam_packet *) (packet_addr + cmd->offset);
 
+	if (packet->header.request_id <= ctx->last_flush_req) {
+		CAM_DBG(CAM_CORE,
+			"request %lld has been flushed, reject packet",
+			packet->header.request_id);
+		rc = -EINVAL;
+		goto free_req;
+	}
+
+	if (packet->header.request_id > ctx->last_flush_req)
+		ctx->last_flush_req = 0;
+
 	/* preprocess the configuration */
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.packet = packet;
@@ -337,6 +348,7 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 	cfg.out_map_entries = req->out_map_entries;
 	cfg.max_in_map_entries = CAM_CTX_CFG_MAX;
 	cfg.in_map_entries = req->in_map_entries;
+	cfg.pf_data = &(req->pf_data);
 
 	rc = ctx->hw_mgr_intf->hw_prepare_update(
 		ctx->hw_mgr_intf->hw_mgr_priv, &cfg);
@@ -810,9 +822,10 @@ int32_t cam_context_flush_dev_to_hw(struct cam_context *ctx,
 		goto end;
 	}
 
-	if (cmd->flush_type == CAM_FLUSH_TYPE_ALL)
+	if (cmd->flush_type == CAM_FLUSH_TYPE_ALL) {
+		ctx->last_flush_req = cmd->req_id;
 		rc = cam_context_flush_ctx_to_hw(ctx);
-	else if (cmd->flush_type == CAM_FLUSH_TYPE_REQ)
+	} else if (cmd->flush_type == CAM_FLUSH_TYPE_REQ)
 		rc = cam_context_flush_req_to_hw(ctx, cmd);
 	else {
 		rc = -EINVAL;
@@ -900,6 +913,41 @@ int32_t cam_context_stop_dev_to_hw(struct cam_context *ctx)
 		stop.ctxt_to_hw_map = ctx->ctxt_to_hw_map;
 		ctx->hw_mgr_intf->hw_stop(ctx->hw_mgr_intf->hw_mgr_priv,
 			&stop);
+	}
+
+end:
+	return rc;
+}
+
+int32_t cam_context_dump_pf_info_to_hw(struct cam_context *ctx,
+	struct cam_packet *packet, unsigned long iova, uint32_t buf_info,
+	bool *mem_found)
+{
+	int rc = 0;
+	struct cam_hw_cmd_args cmd_args;
+
+	if (!ctx) {
+		CAM_ERR(CAM_CTXT, "Invalid input params %pK ", ctx);
+		rc = -EINVAL;
+		goto end;
+	}
+
+	if (!ctx->hw_mgr_intf) {
+		CAM_ERR(CAM_CTXT, "[%s][%d] HW interface is not ready",
+			ctx->dev_name, ctx->ctx_id);
+		rc = -EFAULT;
+		goto end;
+	}
+
+	if (ctx->hw_mgr_intf->hw_cmd) {
+		cmd_args.ctxt_to_hw_map = ctx->ctxt_to_hw_map;
+		cmd_args.cmd_type = CAM_HW_MGR_CMD_DUMP_PF_INFO;
+		cmd_args.u.pf_args.pf_data.packet = packet;
+		cmd_args.u.pf_args.iova = iova;
+		cmd_args.u.pf_args.buf_info = buf_info;
+		cmd_args.u.pf_args.mem_found = mem_found;
+		ctx->hw_mgr_intf->hw_cmd(ctx->hw_mgr_intf->hw_mgr_priv,
+			&cmd_args);
 	}
 
 end:

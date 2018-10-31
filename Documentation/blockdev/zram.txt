@@ -169,7 +169,7 @@ comp_algorithm    RW    show and change the compression algorithm
 compact           WO    trigger memory compaction
 debug_stat        RO    this file is used for zram debugging purposes
 backing_dev	  RW	set up backend storage for zram to write out
-
+use_dedup	  RW    show and set deduplication feature
 
 User space is advised to use the following files to read the device statistics.
 
@@ -218,6 +218,8 @@ line of text and contains the following stats separated by whitespace:
  same_pages       the number of same element filled pages written to this disk.
                   No memory is allocated for such pages.
  pages_compacted  the number of pages freed during compaction
+ dup_data_size	  deduplicated data size
+ meta_data_size	  the amount of metadata allocated for deduplication feature
 
 9) Deactivate:
 	swapoff /dev/zram0

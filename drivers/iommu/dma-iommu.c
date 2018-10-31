@@ -451,7 +451,7 @@ static dma_addr_t iommu_dma_alloc_iova(struct iommu_domain *domain,
 
 	ret_iova = (dma_addr_t)iova << shift;
 
-	if (guard_len &&
+	if (ret_iova && guard_len &&
 		iommu_map(domain, ret_iova + size,
 			page_to_phys(cookie->guard_page),
 			guard_len, ARM_SMMU_GUARD_PROT)) {

@@ -185,6 +185,14 @@ config ARCH_SDMMAGPIE
 	  This enables support for the SDMMAGPIE chipset. If you do not
 	  wish to build a kernel that runs on this chipset, say 'N' here.
 
+config ARCH_TRINKET
+	bool "Enable Support for Qualcomm Technologies, Inc. TRINKET"
+	depends on ARCH_QCOM
+	select COMMON_CLK_QCOM
+	help
+	  This enables support for the TRINKET chipset. If you do not
+	  wish to build a kernel that runs on this chipset, say 'N' here.
+
 config ARCH_REALTEK
 	bool "Realtek Platforms"
 	help
@@ -197,6 +205,7 @@ config ARCH_ROCKCHIP
 	select GPIOLIB
 	select PINCTRL
 	select PINCTRL_ROCKCHIP
+	select PM
 	select ROCKCHIP_TIMER
 	help
 	  This enables support for the ARMv8 based Rockchip chipsets,

@@ -471,6 +471,16 @@ int wlfw_wlan_mode_send_sync_msg(struct icnss_priv *priv,
 
 	priv->stats.mode_resp++;
 
+	if (mode == QMI_WLFW_OFF_V01) {
+		icnss_pr_dbg("Clear mode on 0x%lx, mode: %d\n",
+			     priv->state, mode);
+		clear_bit(ICNSS_MODE_ON, &priv->state);
+	} else {
+		icnss_pr_dbg("Set mode on 0x%lx, mode: %d\n",
+			     priv->state, mode);
+		set_bit(ICNSS_MODE_ON, &priv->state);
+	}
+
 	kfree(resp);
 	kfree(req);
 	return 0;

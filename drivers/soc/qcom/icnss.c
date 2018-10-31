@@ -610,7 +610,8 @@ bool icnss_is_fw_down(void)
 		return false;
 
 	return test_bit(ICNSS_FW_DOWN, &penv->state) ||
-		test_bit(ICNSS_PD_RESTART, &penv->state);
+		test_bit(ICNSS_PD_RESTART, &penv->state) ||
+		test_bit(ICNSS_REJUVENATE, &penv->state);
 }
 EXPORT_SYMBOL(icnss_is_fw_down);
 
@@ -775,12 +776,14 @@ int icnss_call_driver_uevent(struct icnss_priv *priv,
 static int icnss_driver_event_server_arrive(void *data)
 {
 	int ret = 0;
+	bool ignore_assert = false;
 
 	if (!penv)
 		return -ENODEV;
 
 	set_bit(ICNSS_WLFW_EXISTS, &penv->state);
 	clear_bit(ICNSS_FW_DOWN, &penv->state);
+	icnss_ignore_fw_timeout(false);
 
 	ret = icnss_connect_to_fw_server(penv, data);
 	if (ret)
@@ -793,8 +796,10 @@ static int icnss_driver_event_server_arrive(void *data)
 		goto clear_server;
 
 	ret = wlfw_ind_register_send_sync_msg(penv);
-	if (ret < 0)
+	if (ret < 0) {
+		ignore_assert = true;
 		goto err_power_on;
+	}
 
 	if (!penv->msa_va) {
 		icnss_pr_err("Invalid MSA address\n");
@@ -803,8 +808,10 @@ static int icnss_driver_event_server_arrive(void *data)
 	}
 
 	ret = wlfw_msa_mem_info_send_sync_msg(penv);
-	if (ret < 0)
+	if (ret < 0) {
+		ignore_assert = true;
 		goto err_power_on;
+	}
 
 	if (!test_bit(ICNSS_MSA0_ASSIGNED, &penv->state)) {
 		ret = icnss_assign_msa_perm_all(penv,
@@ -815,12 +822,16 @@ static int icnss_driver_event_server_arrive(void *data)
 	}
 
 	ret = wlfw_msa_ready_send_sync_msg(penv);
-	if (ret < 0)
+	if (ret < 0) {
+		ignore_assert = true;
 		goto err_setup_msa;
+	}
 
 	ret = wlfw_cap_send_sync_msg(penv);
-	if (ret < 0)
+	if (ret < 0) {
+		ignore_assert = true;
 		goto err_setup_msa;
+	}
 
 	wlfw_dynamic_feature_mask_send_sync_msg(penv,
 						dynamic_feature_mask);
@@ -841,7 +852,7 @@ err_power_on:
 clear_server:
 	icnss_clear_server(penv);
 fail:
-	ICNSS_ASSERT(0);
+	ICNSS_ASSERT(ignore_assert);
 	return ret;
 }
 
@@ -972,6 +983,7 @@ static int icnss_driver_event_fw_ready_ind(void *data)
 		return -ENODEV;
 
 	set_bit(ICNSS_FW_READY, &penv->state);
+	clear_bit(ICNSS_MODE_ON, &penv->state);
 
 	icnss_pr_info("WLAN FW is ready: 0x%lx\n", penv->state);
 
@@ -1090,8 +1102,13 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 	int ret = 0;
 	struct icnss_event_pd_service_down_data *event_data = data;
 
-	if (!test_bit(ICNSS_WLFW_EXISTS, &priv->state))
+	if (!test_bit(ICNSS_WLFW_EXISTS, &priv->state)) {
+		icnss_ignore_fw_timeout(false);
 		goto out;
+	}
+
+	if (priv->force_err_fatal)
+		ICNSS_ASSERT(0);
 
 	if (priv->early_crash_ind) {
 		icnss_pr_dbg("PD Down ignored as early indication is processed: %d, state: 0x%lx\n",
@@ -1107,15 +1124,10 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 		goto out;
 	}
 
-	if (priv->force_err_fatal)
-		ICNSS_ASSERT(0);
-
 	icnss_fw_crashed(priv, event_data);
 
 out:
 	kfree(data);
-
-	icnss_ignore_fw_timeout(false);
 
 	return ret;
 }
@@ -1125,15 +1137,16 @@ static int icnss_driver_event_early_crash_ind(struct icnss_priv *priv,
 {
 	int ret = 0;
 
-	if (!test_bit(ICNSS_WLFW_EXISTS, &priv->state))
+	if (!test_bit(ICNSS_WLFW_EXISTS, &priv->state)) {
+		icnss_ignore_fw_timeout(false);
 		goto out;
+	}
 
 	priv->early_crash_ind = true;
 	icnss_fw_crashed(priv, NULL);
 
 out:
 	kfree(data);
-	icnss_ignore_fw_timeout(false);
 
 	return ret;
 }
@@ -1767,6 +1780,8 @@ EXPORT_SYMBOL(icnss_disable_irq);
 
 int icnss_get_soc_info(struct device *dev, struct icnss_soc_info *info)
 {
+	char *fw_build_timestamp = NULL;
+
 	if (!penv || !dev) {
 		icnss_pr_err("Platform driver not initialized\n");
 		return -EINVAL;
@@ -1779,6 +1794,8 @@ int icnss_get_soc_info(struct device *dev, struct icnss_soc_info *info)
 	info->board_id = penv->board_id;
 	info->soc_id = penv->soc_id;
 	info->fw_version = penv->fw_version_info.fw_version;
+	fw_build_timestamp = penv->fw_version_info.fw_build_timestamp;
+	fw_build_timestamp[WLFW_MAX_TIMESTAMP_LEN] = '\0';
 	strlcpy(info->fw_build_timestamp,
 		penv->fw_version_info.fw_build_timestamp,
 		WLFW_MAX_TIMESTAMP_LEN + 1);
@@ -1794,7 +1811,8 @@ int icnss_set_fw_log_mode(struct device *dev, uint8_t fw_log_mode)
 	if (!dev)
 		return -ENODEV;
 
-	if (test_bit(ICNSS_FW_DOWN, &penv->state)) {
+	if (test_bit(ICNSS_FW_DOWN, &penv->state) ||
+	    !test_bit(ICNSS_FW_READY, &penv->state)) {
 		icnss_pr_err("FW down, ignoring fw_log_mode state: 0x%lx\n",
 			     penv->state);
 		return -EINVAL;
@@ -1886,8 +1904,15 @@ int icnss_wlan_enable(struct device *dev, struct icnss_wlan_enable_cfg *config,
 		      enum icnss_driver_mode mode,
 		      const char *host_version)
 {
-	if (test_bit(ICNSS_FW_DOWN, &penv->state)) {
+	if (test_bit(ICNSS_FW_DOWN, &penv->state) ||
+	    !test_bit(ICNSS_FW_READY, &penv->state)) {
 		icnss_pr_err("FW down, ignoring wlan_enable state: 0x%lx\n",
+			     penv->state);
+		return -EINVAL;
+	}
+
+	if (test_bit(ICNSS_MODE_ON, &penv->state)) {
+		icnss_pr_err("Already Mode on, ignoring wlan_enable state: 0x%lx\n",
 			     penv->state);
 		return -EINVAL;
 	}
@@ -2064,6 +2089,7 @@ static int icnss_smmu_init(struct icnss_priv *priv)
 	int atomic_ctx = 1;
 	int s1_bypass = 1;
 	int fast = 1;
+	int stall_disable = 1;
 	int ret = 0;
 
 	icnss_pr_dbg("Initializing SMMU\n");
@@ -2107,6 +2133,16 @@ static int icnss_smmu_init(struct icnss_priv *priv)
 			goto set_attr_fail;
 		}
 		icnss_pr_dbg("SMMU FAST map set\n");
+
+		ret = iommu_domain_set_attr(mapping->domain,
+					    DOMAIN_ATTR_CB_STALL_DISABLE,
+					    &stall_disable);
+		if (ret < 0) {
+			icnss_pr_err("Set stall disable map attribute failed, err = %d\n",
+				     ret);
+			goto set_attr_fail;
+		}
+		icnss_pr_dbg("SMMU STALL DISABLE map set\n");
 	}
 
 	ret = arm_iommu_attach_device(&priv->pdev->dev, mapping);
@@ -2534,6 +2570,9 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 			continue;
 		case ICNSS_REJUVENATE:
 			seq_puts(s, "FW REJUVENATE");
+			continue;
+		case ICNSS_MODE_ON:
+			seq_puts(s, "MODE ON DONE");
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);

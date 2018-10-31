@@ -22,6 +22,120 @@
 #include <linux/tracepoint.h>
 
 /*****************************************************************************/
+/* Trace events for rmnet module */
+/*****************************************************************************/
+TRACE_EVENT
+	(rmnet_low,
+
+	 TP_PROTO(u8 func, u8 evt, u32 uint1, u32 uint2,
+		  u64 ulong1, u64 ulong2, void *ptr1, void *ptr2),
+
+	 TP_ARGS(func, evt, uint1, uint2, ulong1, ulong2, ptr1, ptr2),
+
+	 TP_STRUCT__entry(
+		__field(u8, func)
+		__field(u8, evt)
+		__field(u32, uint1)
+		__field(u32, uint2)
+		__field(u64, ulong1)
+		__field(u64, ulong2)
+		__field(void *, ptr1)
+		__field(void *, ptr2)
+	 ),
+
+	 TP_fast_assign(
+		__entry->func = func;
+		__entry->evt = evt;
+		__entry->uint1 = uint1;
+		__entry->uint2 = uint2;
+		__entry->ulong1 = ulong1;
+		__entry->ulong2 = ulong2;
+		__entry->ptr1 = ptr1;
+		__entry->ptr2 = ptr2;
+	 ),
+
+	 TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%lu ul2:%lu p1:0x%pK p2:0x%pK",
+		   __entry->func, __entry->evt,
+		   __entry->uint1, __entry->uint2,
+		   __entry->ulong1, __entry->ulong2,
+		   __entry->ptr1, __entry->ptr2)
+)
+
+TRACE_EVENT
+	(rmnet_high,
+
+	 TP_PROTO(u8 func, u8 evt, u32 uint1, u32 uint2,
+		  u64 ulong1, u64 ulong2, void *ptr1, void *ptr2),
+
+	 TP_ARGS(func, evt, uint1, uint2, ulong1, ulong2, ptr1, ptr2),
+
+	 TP_STRUCT__entry(
+		__field(u8, func)
+		__field(u8, evt)
+		__field(u32, uint1)
+		__field(u32, uint2)
+		__field(u64, ulong1)
+		__field(u64, ulong2)
+		__field(void *, ptr1)
+		__field(void *, ptr2)
+	 ),
+
+	 TP_fast_assign(
+		__entry->func = func;
+		__entry->evt = evt;
+		__entry->uint1 = uint1;
+		__entry->uint2 = uint2;
+		__entry->ulong1 = ulong1;
+		__entry->ulong2 = ulong2;
+		__entry->ptr1 = ptr1;
+		__entry->ptr2 = ptr2;
+	 ),
+
+	 TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%lu ul2:%lu p1:0x%pK p2:0x%pK",
+		   __entry->func, __entry->evt,
+		   __entry->uint1, __entry->uint2,
+		   __entry->ulong1, __entry->ulong2,
+		   __entry->ptr1, __entry->ptr2)
+)
+
+TRACE_EVENT
+	(rmnet_err,
+
+	 TP_PROTO(u8 func, u8 evt, u32 uint1, u32 uint2,
+		  u64 ulong1, u64 ulong2, void *ptr1, void *ptr2),
+
+	 TP_ARGS(func, evt, uint1, uint2, ulong1, ulong2, ptr1, ptr2),
+
+	 TP_STRUCT__entry(
+		__field(u8, func)
+		__field(u8, evt)
+		__field(u32, uint1)
+		__field(u32, uint2)
+		__field(u64, ulong1)
+		__field(u64, ulong2)
+		__field(void *, ptr1)
+		__field(void *, ptr2)
+	 ),
+
+	 TP_fast_assign(
+		__entry->func = func;
+		__entry->evt = evt;
+		__entry->uint1 = uint1;
+		__entry->uint2 = uint2;
+		__entry->ulong1 = ulong1;
+		__entry->ulong2 = ulong2;
+		__entry->ptr1 = ptr1;
+		__entry->ptr2 = ptr2;
+	 ),
+
+	 TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%lu ul2:%lu p1:0x%pK p2:0x%pK",
+		   __entry->func, __entry->evt,
+		   __entry->uint1, __entry->uint2,
+		   __entry->ulong1, __entry->ulong2,
+		   __entry->ptr1, __entry->ptr2)
+)
+
+/*****************************************************************************/
 /* Trace events for rmnet_perf module */
 /*****************************************************************************/
 TRACE_EVENT

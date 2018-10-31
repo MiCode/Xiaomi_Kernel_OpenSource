@@ -121,9 +121,9 @@ struct bio {
 	struct bio_vec		*bi_io_vec;	/* the actual vec list */
 
 	struct bio_set		*bi_pool;
-
+#ifdef CONFIG_PFK
 	struct inode		*bi_dio_inode;
-
+#endif
 	/*
 	 * We can inline a number of vecs at the end of the bio, to avoid
 	 * double allocations for a small number of bio_vecs. This member
@@ -245,6 +245,13 @@ enum req_flag_bits {
 
 	__REQ_URGENT,		/* urgent request */
 	__REQ_NOWAIT,           /* Don't wait if request will block */
+
+	/* Android specific flags */
+	__REQ_NOENCRYPT,	/*
+				 * ok to not encrypt (already encrypted at fs
+				 * level)
+				 */
+
 	__REQ_NR_BITS,		/* stops here */
 };
 
@@ -262,6 +269,7 @@ enum req_flag_bits {
 #define REQ_PREFLUSH		(1ULL << __REQ_PREFLUSH)
 #define REQ_RAHEAD		(1ULL << __REQ_RAHEAD)
 #define REQ_BACKGROUND		(1ULL << __REQ_BACKGROUND)
+#define REQ_NOENCRYPT		(1ULL << __REQ_NOENCRYPT)
 
 #define REQ_NOUNMAP		(1ULL << __REQ_NOUNMAP)
 #define REQ_NOWAIT		(1ULL << __REQ_NOWAIT)

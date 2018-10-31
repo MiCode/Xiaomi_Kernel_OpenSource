@@ -1083,6 +1083,28 @@
 		clock-names = "iface_clk";
 	};
 
+	sdcc1_ice: sdcc1ice@7808000 {
+		compatible = "qcom,ice";
+		reg = <0x7808000 0x8000>;
+		qcom,enable-ice-clk;
+		clock-names = "ice_core_clk_src", "ice_core_clk",
+				"bus_clk", "iface_clk";
+		clocks = <&clock_gcc SDCC1_ICE_CORE_CLK_SRC>,
+			 <&clock_gcc GCC_SDCC1_ICE_CORE_CLK>,
+			 <&clock_gcc GCC_SDCC1_AHB_CLK>,
+			 <&clock_gcc GCC_SDCC1_APPS_CLK>;
+		qcom,op-freq-hz = <266666667>, <0>, <0>, <0>;
+		qcom,msm-bus,name = "sdcc_ice_noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<1 757 0 0>,    /* No vote */
+				<1 757 1000 0>; /* Max. bandwidth */
+		qcom,bus-vector-names = "MIN",
+					"MAX";
+		qcom,instance-type = "sdcc";
+	};
+
 	sdhc_1: sdhci@7804000 {
 		compatible = "qcom,sdhci-msm-v5";
 		reg = <0x7804000 0x1000>, <0x7805000 0x1000>;
@@ -1090,6 +1112,7 @@
 
 		interrupts = <0 123 0>, <0 138 0>;
 		interrupt-names = "hc_irq", "pwr_irq";
+		sdhc-msm-crypto = <&sdcc1_ice>;
 
 		qcom,bus-width = <8>;
 		qcom,large-address-bus;
@@ -1124,8 +1147,11 @@
 		qcom,devfreq,freq-table = <50000000 200000000>;
 
 		clocks = <&clock_gcc GCC_SDCC1_AHB_CLK>,
-			<&clock_gcc GCC_SDCC1_APPS_CLK>;
-		clock-names = "iface_clk", "core_clk";
+			<&clock_gcc GCC_SDCC1_APPS_CLK>,
+			<&clock_gcc GCC_SDCC1_ICE_CORE_CLK>;
+		clock-names = "iface_clk", "core_clk", "ice_core_clk";
+
+		qcom,ice-clk-rates = <266666667 160000000>;
 
 		qcom,nonremovable;
 
@@ -1434,6 +1460,16 @@
 		dpdm-supply = <&usb2_phy0>;
 		qcom,otg-enable;
 	};
+
+	usb_typec: usb_typec@3d {
+		compatible = "nxp,5150a";
+		reg = <0x3d>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <35 IRQ_TYPE_LEVEL_LOW>;
+		pintctrl-names = "default";
+		pinctrl-0 = <&nxp_i2c_intr>;
+		status = "disabled";
+	};
 };
 
 &pms405_gpios {
@@ -1475,29 +1511,3 @@
 	extcon = <&usb3_extcon>;
 };
 
-#include "qcs405-led-pca9956.dtsi"
-
-&soc {
-	i2c_2: i2c@78b6000 { /* BLSP1 QUP2 */
-		compatible = "qcom,i2c-msm-v2";
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg = <0x78b6000  0x600>;
-		reg-names = "qup_phys_addr";
-		interrupt-names = "qup_irq";
-		interrupts = <0 96 0>;
-		dmas = <&dma_blsp1 10 64 0x20000020 0x20>,
-			<&dma_blsp1 11 32 0x20000020 0x20>;
-		dma-names = "tx", "rx";
-		qcom,master-id = <86>;
-		qcom,clk-freq-out = <400000>;
-		qcom,clk-freq-in  = <19200000>;
-		clock-names = "iface_clk", "core_clk";
-		clocks = <&clock_gcc GCC_BLSP1_AHB_CLK>,
-			<&clock_gcc GCC_BLSP1_QUP1_I2C_APPS_CLK>;
-		pinctrl-names = "i2c_active", "i2c_sleep";
-		pinctrl-0 = <&i2c_2_active &pca9956b_reset_gpio>;
-		pinctrl-1 = <&i2c_2_sleep>;
-		status = "ok";
-	};
-};

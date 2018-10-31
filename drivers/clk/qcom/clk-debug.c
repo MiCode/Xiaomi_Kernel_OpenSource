@@ -392,3 +392,9 @@ int clk_debug_measure_register(struct clk_hw *hw)
 }
 EXPORT_SYMBOL(clk_debug_measure_register);
 
+void clk_debug_bus_vote(struct clk_hw *hw, bool enable)
+{
+	if (hw->init->bus_cl_id)
+		msm_bus_scale_client_update_request(hw->init->bus_cl_id,
+								enable);
+}

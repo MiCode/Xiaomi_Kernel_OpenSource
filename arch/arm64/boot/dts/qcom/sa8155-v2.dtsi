@@ -19,6 +19,10 @@
 	qcom,msm-id = <362 0x20000>;
 };
 
+&emac_hw {
+	emac-core-version = <4>;
+};
+
 &ufsphy_mem {
 	vdda-phy-supply = <&pm8150_1_l5>;
 };

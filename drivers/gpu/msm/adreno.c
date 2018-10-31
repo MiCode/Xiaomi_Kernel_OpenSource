@@ -966,10 +966,6 @@ static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 		if (of_property_read_u32(child, "qcom,bus-max",
 			&level->bus_max))
 			level->bus_max = level->bus_freq;
-
-		if (of_property_read_u32(child, "qcom,dvm-val",
-				&level->acd_dvm_val))
-			level->acd_dvm_val = 0xFFFFFFFF;
 	}
 
 	return 0;
@@ -1092,6 +1088,7 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 	struct device_node *node = pdev->dev.of_node;
 	struct resource *res;
 	unsigned int timeout;
+	unsigned int throt = 4;
 
 	if (of_property_read_string(node, "label", &pdev->name)) {
 		KGSL_CORE_ERR("Unable to read 'label'\n");
@@ -1119,6 +1116,14 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 
 	if (adreno_of_get_pwrlevels(adreno_dev, node))
 		return -EINVAL;
+
+	/* Get throttle power level */
+	of_property_read_u32(node, "qcom,throttle-pwrlevel", &throt);
+
+	if (throt < device->pwrctrl.num_pwrlevels)
+		device->pwrctrl.throttle_mask =
+			GENMASK(device->pwrctrl.num_pwrlevels - 1,
+				device->pwrctrl.num_pwrlevels - 1 - throt);
 
 	/* Get context aware DCVS properties */
 	adreno_of_get_ca_aware_properties(adreno_dev, node);
@@ -1863,7 +1868,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 
 	status = kgsl_mmu_start(device);
 	if (status)
-		goto error_pwr_off;
+		goto error_boot_oob_clear;
 
 	status = adreno_ocmem_malloc(adreno_dev);
 	if (status) {
@@ -2086,6 +2091,11 @@ error_oob_clear:
 
 error_mmu_off:
 	kgsl_mmu_stop(&device->mmu);
+
+error_boot_oob_clear:
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_clear) &&
+		ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
+		gmu_dev_ops->oob_clear(adreno_dev, oob_boot_slumber);
 
 error_pwr_off:
 	/* set the state back to original state */
