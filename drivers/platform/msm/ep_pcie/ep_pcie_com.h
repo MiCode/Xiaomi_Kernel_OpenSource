@@ -66,6 +66,8 @@
 #define PCIE20_ELBI_CS2_ENABLE         0xA4
 
 #define PCIE20_DEVICE_ID_VENDOR_ID     0x00
+#define PCIE20_MASK_DEVICE_ID          GENMASK(31, 16)
+#define PCIE20_MASK_VENDOR_ID          GENMASK(15, 0)
 #define PCIE20_COMMAND_STATUS          0x04
 #define PCIE20_CLASS_CODE_REVISION_ID  0x08
 #define PCIE20_BIST_HDR_TYPE           0x0C
@@ -326,6 +328,8 @@ struct ep_pcie_dev_t {
 
 	struct msm_bus_scale_pdata   *bus_scale_table;
 	u32                          bus_client;
+	u16                          vendor_id;
+	u16                          device_id;
 	u32                          link_speed;
 	bool                         active_config;
 	bool                         aggregated_irq;
