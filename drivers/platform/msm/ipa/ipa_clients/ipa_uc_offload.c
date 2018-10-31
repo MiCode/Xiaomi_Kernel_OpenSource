@@ -595,7 +595,7 @@ int ipa_set_perf_profile(struct ipa_perf_profile *profile)
 	}
 
 	if (ipa_pm_is_used())
-		return ipa_pm_set_perf_profile(
+		return ipa_pm_set_throughput(
 			ipa_uc_offload_ctx[IPA_UC_NTN]->pm_hdl,
 			profile->max_supported_bw_mbps);
 

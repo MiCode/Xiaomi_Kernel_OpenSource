@@ -1963,11 +1963,11 @@ int ipa3_wwan_set_modem_perf_profile(int throughput)
 	int ret;
 
 	if (ipa3_ctx->use_ipa_pm) {
-		ret = ipa_pm_set_perf_profile(rmnet_ipa3_ctx->q6_pm_hdl,
+		ret = ipa_pm_set_throughput(rmnet_ipa3_ctx->q6_pm_hdl,
 			throughput);
 		if (ret)
 			return ret;
-		ret = ipa_pm_set_perf_profile(rmnet_ipa3_ctx->q6_teth_pm_hdl,
+		ret = ipa_pm_set_throughput(rmnet_ipa3_ctx->q6_teth_pm_hdl,
 			throughput);
 	} else {
 		memset(&profile, 0, sizeof(profile));
