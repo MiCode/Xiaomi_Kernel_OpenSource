@@ -1080,7 +1080,7 @@ int msm_vidc_smmu_fault_handler(struct iommu_domain *domain,
 
 	if (core->smmu_fault_handled) {
 		if (core->resources.non_fatal_pagefaults) {
-			dprintk(VIDC_ERR,
+			dprintk_ratelimit(VIDC_ERR,
 					"%s: non-fatal pagefault address: %lx\n",
 					__func__, iova);
 			return 0;
