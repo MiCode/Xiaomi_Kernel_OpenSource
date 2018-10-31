@@ -913,7 +913,7 @@ static void setup_fifo_xfer(struct spi_transfer *xfer,
 	u32 m_cmd = 0;
 	u32 m_param = 0;
 	u32 spi_tx_cfg = geni_read_reg(mas->base, SE_SPI_TRANS_CFG);
-	u32 trans_len = 0;
+	u32 trans_len = 0, fifo_size = 0;
 
 	if (xfer->bits_per_word != mas->cur_word_len) {
 		spi_setup_word_len(mas, mode, xfer->bits_per_word);
@@ -977,7 +977,9 @@ static void setup_fifo_xfer(struct spi_transfer *xfer,
 		mas->rx_rem_bytes = xfer->len;
 	}
 
-	if (trans_len > (mas->tx_fifo_depth * mas->tx_fifo_width)) {
+	fifo_size =
+		(mas->tx_fifo_depth * mas->tx_fifo_width / mas->cur_word_len);
+	if (trans_len > fifo_size) {
 		if (mas->cur_xfer_mode != SE_DMA) {
 			mas->cur_xfer_mode = SE_DMA;
 			geni_se_select_mode(mas->base, mas->cur_xfer_mode);
