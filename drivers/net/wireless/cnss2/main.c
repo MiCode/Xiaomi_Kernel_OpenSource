@@ -994,6 +994,8 @@ void cnss_schedule_recovery(struct device *dev,
 	struct cnss_recovery_data *data;
 	int gfp = GFP_KERNEL;
 
+	cnss_bus_update_status(plat_priv, CNSS_FW_DOWN);
+
 	if (in_interrupt() || irqs_disabled())
 		gfp = GFP_ATOMIC;
 
