@@ -3537,6 +3537,8 @@ static inline const char *src_current(enum power_supply_typec_mode typec_mode)
 static int usbpd_process_typec_mode(struct usbpd *pd,
 	enum power_supply_typec_mode typec_mode)
 {
+	union extcon_property_value eval;
+
 	switch (typec_mode) {
 	/* Disconnect */
 	case POWER_SUPPLY_TYPEC_NONE:
@@ -3575,6 +3577,11 @@ static int usbpd_process_typec_mode(struct usbpd *pd,
 		}
 
 		pd->current_pr = PR_SINK;
+
+		eval.intval = typec_mode > POWER_SUPPLY_TYPEC_SOURCE_DEFAULT ?
+				1 : 0;
+		extcon_set_property(pd->extcon, EXTCON_USB,
+				EXTCON_PROP_USB_TYPEC_MED_HIGH_CURRENT, eval);
 		break;
 
 	/* Source states */
