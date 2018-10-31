@@ -60,18 +60,20 @@
 		csi-vdd-voltage = <1200000>;
 		mipi-csi-vdd-supply = <&pm6150l_l3>;
 		clocks = <&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
+			<&clock_camcc CAM_CC_CSIPHY0_CLK>,
 			<&clock_camcc CAM_CC_CSIPHY1_CLK>,
 			<&clock_camcc CAM_CC_CSI1PHYTIMER_CLK_SRC>,
 			<&clock_camcc CAM_CC_CSI1PHYTIMER_CLK>;
 		clock-names = "cphy_rx_clk_src",
+			"csiphy0_clk",
 			"csiphy1_clk",
 			"csi1phytimer_clk_src",
 			"csi1phytimer_clk";
 		src-clock-name = "csi1phytimer_clk_src";
 		clock-cntl-level = "svs_l1", "turbo";
 		clock-rates =
-			<400000000 0 300000000 0>,
-			<400000000 0 300000000 0>;
+			<400000000 0 0 300000000 0>,
+			<400000000 0 0 300000000 0>;
 
 		status = "ok";
 	};
@@ -90,18 +92,20 @@
 		csi-vdd-voltage = <1200000>;
 		mipi-csi-vdd-supply = <&pm6150l_l3>;
 		clocks = <&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
+			<&clock_camcc CAM_CC_CSIPHY0_CLK>,
 			<&clock_camcc CAM_CC_CSIPHY2_CLK>,
 			<&clock_camcc CAM_CC_CSI2PHYTIMER_CLK_SRC>,
 			<&clock_camcc CAM_CC_CSI2PHYTIMER_CLK>;
 		clock-names = "cphy_rx_clk_src",
+			"csiphy0_clk",
 			"csiphy2_clk",
 			"csi2phytimer_clk_src",
 			"csi2phytimer_clk";
 		src-clock-name = "csi2phytimer_clk_src";
 		clock-cntl-level = "svs_l1", "turbo";
 		clock-rates =
-			<400000000 0 300000000 0>,
-			<400000000 0 300000000 0>;
+			<400000000 0 0 300000000 0>,
+			<400000000 0 0 300000000 0>;
 		status = "ok";
 	};
 
@@ -119,18 +123,20 @@
 		csi-vdd-voltage = <1200000>;
 		mipi-csi-vdd-supply = <&pm6150l_l3>;
 		clocks = <&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
+			<&clock_camcc CAM_CC_CSIPHY0_CLK>,
 			<&clock_camcc CAM_CC_CSIPHY2_CLK>,
 			<&clock_camcc CAM_CC_CSI2PHYTIMER_CLK_SRC>,
 			<&clock_camcc CAM_CC_CSI2PHYTIMER_CLK>;
 		clock-names = "cphy_rx_clk_src",
+			"csiphy0_clk",
 			"csiphy3_clk",
 			"csi3phytimer_clk_src",
 			"csi3phytimer_clk";
 		src-clock-name = "csi3phytimer_clk_src";
 		clock-cntl-level = "svs_l1", "turbo";
 		clock-rates =
-			<400000000 0 300000000 0>,
-			<400000000 0 300000000 0>;
+			<400000000 0 0 300000000 0>,
+			<400000000 0 0 300000000 0>;
 		status = "ok";
 	};
 
