@@ -1278,7 +1278,7 @@ static void mhi_dev_queue_channel_db(struct mhi_dev *mhi,
 			ring = &mhi->ring[ch_num + mhi->ch_ring_start];
 			if (ring->state == RING_STATE_UINT) {
 				pr_debug("Channel not opened for %d\n", ch_num);
-				break;
+				continue;
 			}
 			mhi_ring_set_state(ring, RING_STATE_PENDING);
 			list_add(&ring->list, &mhi->process_ring_list);
