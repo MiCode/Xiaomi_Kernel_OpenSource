@@ -615,6 +615,7 @@ int cam_vfe_top_stop(void *device_priv,
 				break;
 			}
 		}
+		top_priv->hw_clk_rate = 0;
 	}
 
 	return rc;
