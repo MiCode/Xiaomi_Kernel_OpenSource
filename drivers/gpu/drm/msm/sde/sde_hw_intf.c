@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 #include <linux/iopoll.h>
 
@@ -389,16 +389,40 @@ static void sde_hw_intf_setup_misr(struct sde_hw_intf *intf,
 
 	if (enable)
 		config = (frame_count & MISR_FRAME_COUNT_MASK) |
-			MISR_CTRL_ENABLE | INTF_MISR_CTRL_FREE_RUN_MASK;
+				MISR_CTRL_ENABLE |
+				INTF_MISR_CTRL_FREE_RUN_MASK |
+				INTF_MISR_CTRL_INPUT_SEL_DATA;
 
 	SDE_REG_WRITE(c, INTF_MISR_CTRL, config);
 }
 
-static u32 sde_hw_intf_collect_misr(struct sde_hw_intf *intf)
+static int sde_hw_intf_collect_misr(struct sde_hw_intf *intf, bool nonblock,
+		 u32 *misr_value)
 {
 	struct sde_hw_blk_reg_map *c = &intf->hw;
+	u32 ctrl = 0;
 
-	return SDE_REG_READ(c, INTF_MISR_SIGNATURE);
+	if (!misr_value)
+		return -EINVAL;
+
+	ctrl = SDE_REG_READ(c, INTF_MISR_CTRL);
+	if (!nonblock) {
+		if (ctrl & MISR_CTRL_ENABLE) {
+			int rc;
+
+			rc = readl_poll_timeout(c->base_off + c->blk_off +
+					INTF_MISR_CTRL, ctrl,
+					(ctrl & MISR_CTRL_STATUS) > 0, 500,
+					84000);
+			if (rc)
+				return rc;
+		} else {
+			return -EINVAL;
+		}
+	}
+
+	*misr_value =  SDE_REG_READ(c, INTF_MISR_SIGNATURE);
+	return 0;
 }
 
 static u32 sde_hw_intf_get_line_count(struct sde_hw_intf *intf)

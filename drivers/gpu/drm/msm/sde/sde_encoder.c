@@ -2157,6 +2157,28 @@ static int _sde_encoder_resource_control_helper(struct drm_encoder *drm_enc,
 	return 0;
 }
 
+static void sde_encoder_misr_configure(struct drm_encoder *drm_enc,
+		bool enable, u32 frame_count)
+{
+	struct sde_encoder_virt *sde_enc;
+	int i;
+
+	if (!drm_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+	sde_enc = to_sde_encoder_virt(drm_enc);
+
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+
+		if (!phys || !phys->ops.setup_misr)
+			continue;
+
+		phys->ops.setup_misr(phys, enable, frame_count);
+	}
+}
+
 static void sde_encoder_input_event_handler(struct input_handle *handle,
 	unsigned int type, unsigned int code, int value)
 {
@@ -3949,6 +3971,10 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 		}
 	}
 
+	if (sde_enc->misr_enable)
+		sde_encoder_misr_configure(&sde_enc->base, true,
+				sde_enc->misr_frame_count);
+
 	_sde_encoder_trigger_start(sde_enc->cur_master);
 
 	if (sde_enc->elevated_ahb_vote) {
@@ -4790,6 +4816,28 @@ void sde_encoder_prepare_commit(struct drm_encoder *drm_enc)
 	}
 }
 
+void sde_encoder_helper_setup_misr(struct sde_encoder_phys *phys_enc,
+						bool enable, u32 frame_count)
+{
+	if (!phys_enc)
+		return;
+
+	if (phys_enc->hw_intf && phys_enc->hw_intf->ops.setup_misr)
+		phys_enc->hw_intf->ops.setup_misr(phys_enc->hw_intf,
+				enable, frame_count);
+}
+
+int sde_encoder_helper_collect_misr(struct sde_encoder_phys *phys_enc,
+		bool nonblock, u32 *misr_value)
+{
+	if (!phys_enc)
+		return -EINVAL;
+
+	return phys_enc->hw_intf && phys_enc->hw_intf->ops.collect_misr ?
+			phys_enc->hw_intf->ops.collect_misr(phys_enc->hw_intf,
+			nonblock, misr_value) : -ENOTSUPP;
+}
+
 #ifdef CONFIG_DEBUG_FS
 static int _sde_encoder_status_show(struct seq_file *s, void *data)
 {
@@ -4846,15 +4894,27 @@ static ssize_t _sde_encoder_misr_setup(struct file *file,
 		const char __user *user_buf, size_t count, loff_t *ppos)
 {
 	struct sde_encoder_virt *sde_enc;
-	int i = 0, rc;
+	int rc;
 	char buf[MISR_BUFF_SIZE + 1];
 	size_t buff_copy;
 	u32 frame_count, enable;
+	struct msm_drm_private *priv = NULL;
+	struct sde_kms *sde_kms = NULL;
 
 	if (!file || !file->private_data)
 		return -EINVAL;
 
 	sde_enc = file->private_data;
+	priv = sde_enc->base.dev->dev_private;
+	if (!sde_enc || !priv || !priv->kms)
+		return -EINVAL;
+
+	sde_kms = to_sde_kms(priv->kms);
+
+	if (sde_kms_is_secure_session_inprogress(sde_kms)) {
+		SDE_DEBUG_ENC(sde_enc, "misr enable/disable not allowed\n");
+		return -ENOTSUPP;
+	}
 
 	buff_copy = min_t(size_t, count, MISR_BUFF_SIZE);
 	if (copy_from_user(buf, user_buf, buff_copy))
@@ -4869,20 +4929,10 @@ static ssize_t _sde_encoder_misr_setup(struct file *file,
 	if (rc)
 		return rc;
 
-	mutex_lock(&sde_enc->enc_lock);
 	sde_enc->misr_enable = enable;
 	sde_enc->misr_frame_count = frame_count;
-	for (i = 0; i < sde_enc->num_phys_encs; i++) {
-		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
-
-		if (!phys || !phys->ops.setup_misr)
-			continue;
-
-		phys->ops.setup_misr(phys, enable, frame_count);
-	}
-	mutex_unlock(&sde_enc->enc_lock);
+	sde_encoder_misr_configure(&sde_enc->base, enable, frame_count);
 	_sde_encoder_power_enable(sde_enc, false);
-
 	return count;
 }
 
@@ -4890,6 +4940,8 @@ static ssize_t _sde_encoder_misr_read(struct file *file,
 		char __user *user_buff, size_t count, loff_t *ppos)
 {
 	struct sde_encoder_virt *sde_enc;
+	struct msm_drm_private *priv = NULL;
+	struct sde_kms *sde_kms = NULL;
 	int i = 0, len = 0;
 	char buf[MISR_BUFF_SIZE + 1] = {'\0'};
 	int rc;
@@ -4901,33 +4953,50 @@ static ssize_t _sde_encoder_misr_read(struct file *file,
 		return -EINVAL;
 
 	sde_enc = file->private_data;
+	priv = sde_enc->base.dev->dev_private;
+	if (priv != NULL)
+		sde_kms = to_sde_kms(priv->kms);
+
+	if (sde_kms_is_secure_session_inprogress(sde_kms)) {
+		SDE_DEBUG_ENC(sde_enc, "misr read not allowed\n");
+		return -ENOTSUPP;
+	}
 
 	rc = _sde_encoder_power_enable(sde_enc, true);
 	if (rc)
 		return rc;
 
-	mutex_lock(&sde_enc->enc_lock);
 	if (!sde_enc->misr_enable) {
-		len += snprintf(buf + len, MISR_BUFF_SIZE - len,
-			"disabled\n");
-		goto buff_check;
-	} else if (sde_enc->disp_info.capabilities &
-						~MSM_DISPLAY_CAP_VID_MODE) {
-		len += snprintf(buf + len, MISR_BUFF_SIZE - len,
-			"unsupported\n");
+		len += scnprintf(buf + len, MISR_BUFF_SIZE - len,
+				"disabled\n");
 		goto buff_check;
 	}
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+		u32 misr_value = 0;
 
-		if (!phys || !phys->ops.collect_misr)
+		if (!phys || !phys->ops.collect_misr) {
+			len += scnprintf(buf + len, MISR_BUFF_SIZE - len,
+					"invalid\n");
+			SDE_ERROR_ENC(sde_enc, "invalid misr ops\n");
 			continue;
+		}
 
-		len += snprintf(buf + len, MISR_BUFF_SIZE - len,
-			"Intf idx:%d\n", phys->intf_idx - INTF_0);
-		len += snprintf(buf + len, MISR_BUFF_SIZE - len, "0x%x\n",
-					phys->ops.collect_misr(phys));
+		rc = phys->ops.collect_misr(phys, false, &misr_value);
+		if (rc) {
+			len += scnprintf(buf + len, MISR_BUFF_SIZE - len,
+					"invalid\n");
+			SDE_ERROR_ENC(sde_enc, "failed to collect misr %d\n",
+					rc);
+			continue;
+		} else {
+			len += scnprintf(buf + len, MISR_BUFF_SIZE - len,
+					"Intf idx:%d\n",
+					phys->intf_idx - INTF_0);
+			len += scnprintf(buf + len, MISR_BUFF_SIZE - len,
+					"0x%x\n", misr_value);
+		}
 	}
 
 buff_check:
@@ -4944,7 +5013,6 @@ buff_check:
 	*ppos += len;   /* increase offset */
 
 end:
-	mutex_unlock(&sde_enc->enc_lock);
 	_sde_encoder_power_enable(sde_enc, false);
 	return len;
 }

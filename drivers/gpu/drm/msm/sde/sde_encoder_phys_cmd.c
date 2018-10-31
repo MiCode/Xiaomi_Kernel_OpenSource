@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019 The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
@@ -1662,6 +1662,8 @@ static void sde_encoder_phys_cmd_init_ops(struct sde_encoder_phys_ops *ops)
 	ops->get_wr_line_count = sde_encoder_phys_cmd_get_write_line_count;
 	ops->wait_for_active = NULL;
 	ops->setup_vsync_source = sde_encoder_phys_cmd_setup_vsync_source;
+	ops->setup_misr = sde_encoder_helper_setup_misr;
+	ops->collect_misr = sde_encoder_helper_collect_misr;
 }
 
 struct sde_encoder_phys *sde_encoder_phys_cmd_init(

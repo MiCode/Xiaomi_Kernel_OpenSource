@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _SDE_HW_UTIL_H
@@ -174,6 +174,7 @@ int sde_reg_read(struct sde_hw_blk_reg_map *c, u32 reg_off);
 #define MISR_CTRL_STATUS		BIT(9)
 #define MISR_CTRL_STATUS_CLEAR		BIT(10)
 #define INTF_MISR_CTRL_FREE_RUN_MASK	BIT(31)
+#define INTF_MISR_CTRL_INPUT_SEL_DATA   BIT(24)
 
 void *sde_hw_util_get_dir(void);
 
