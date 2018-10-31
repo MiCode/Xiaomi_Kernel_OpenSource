@@ -3906,6 +3906,7 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 	struct msm_drm_private *priv = NULL;
 	struct sde_kms *sde_kms = NULL;
 	bool is_vid_mode = false;
+	struct sde_crtc_misr_info crtc_misr_info = {false, 0};
 
 	if (!sde_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -3974,6 +3975,11 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 	if (sde_enc->misr_enable)
 		sde_encoder_misr_configure(&sde_enc->base, true,
 				sde_enc->misr_frame_count);
+
+	sde_crtc_get_misr_info(sde_enc->crtc, &crtc_misr_info);
+	if (crtc_misr_info.misr_enable)
+		sde_crtc_misr_setup(sde_enc->crtc, true,
+				crtc_misr_info.misr_frame_count);
 
 	_sde_encoder_trigger_start(sde_enc->cur_master);
 

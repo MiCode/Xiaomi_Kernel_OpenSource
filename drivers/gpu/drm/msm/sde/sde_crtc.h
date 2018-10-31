@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019 The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -184,6 +184,16 @@ struct sde_ltm_buffer {
 	struct list_head node;
 };
 
+/**
+ * struct sde_crtc_misr_info - structure for misr information
+ * @misr_enable : enable/disable flag
+ * @misr_frame_count : Number of frames for misr calculation.
+ */
+struct sde_crtc_misr_info {
+	bool misr_enable;
+	u32 misr_frame_count;
+};
+
 /*
  * Maximum number of free event structures to cache
  */
@@ -234,7 +244,10 @@ struct sde_ltm_buffer {
  * @event_cache   : Local cache of event worker structures
  * @event_free_list : List of available event structures
  * @event_lock    : Spinlock around event handling code
- * @misr_enable   : boolean entry indicates misr enable/disable status.
+ * @misr_enable_sui : boolean entry indicates misr enable/disable status
+ *                    for secure cases.
+ * @misr_enable_debugfs : boolean entry indicates misr enable/disable status
+ *                        from debugfs.
  * @misr_frame_count  : misr frame count provided by client
  * @misr_data     : store misr data before turning off the clocks.
  * @idle_notify_work: delayed worker to notify idle timeout to user space
@@ -304,10 +317,9 @@ struct sde_crtc {
 	struct sde_crtc_event event_cache[SDE_CRTC_MAX_EVENT_COUNT];
 	struct list_head event_free_list;
 	spinlock_t event_lock;
-	bool misr_enable;
+	bool misr_enable_sui;
+	bool misr_enable_debugfs;
 	u32 misr_frame_count;
-	u32 misr_data[CRTC_DUAL_MIXERS];
-
 	struct kthread_delayed_work idle_notify_work;
 
 	struct sde_power_event *power_event;
@@ -750,5 +762,13 @@ void sde_crtc_update_cont_splash_settings(
  * @frame_count: frame_count to be configured
  */
 void sde_crtc_misr_setup(struct drm_crtc *crtc, bool enable, u32 frame_count);
+
+/**
+ * sde_crtc_get_misr_info - to configure and enable/disable MISR
+ * @crtc: Pointer to drm crtc structure
+ * @crtc_misr_info: Pointer to crtc misr info structure
+ */
+void sde_crtc_get_misr_info(struct drm_crtc *crtc,
+		struct sde_crtc_misr_info *crtc_misr_info);
 
 #endif /* _SDE_CRTC_H_ */

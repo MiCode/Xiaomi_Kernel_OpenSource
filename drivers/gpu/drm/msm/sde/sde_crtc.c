@@ -3640,8 +3640,7 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 	struct sde_crtc_state *cstate;
 	struct drm_plane *plane;
 	struct drm_encoder *encoder;
-	struct sde_crtc_mixer *m;
-	u32 i, misr_status, power_on;
+	u32 power_on;
 	unsigned long flags;
 	struct sde_crtc_irq_info *node = NULL;
 	int ret = 0;
@@ -3689,16 +3688,6 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 		spin_unlock_irqrestore(&sde_crtc->spin_lock, flags);
 
 		sde_cp_crtc_post_ipc(crtc);
-
-		for (i = 0; i < sde_crtc->num_mixers; ++i) {
-			m = &sde_crtc->mixers[i];
-			if (!m->hw_lm || !m->hw_lm->ops.setup_misr ||
-					!sde_crtc->misr_enable)
-				continue;
-
-			m->hw_lm->ops.setup_misr(m->hw_lm, true,
-					sde_crtc->misr_frame_count);
-		}
 		break;
 	case SDE_POWER_EVENT_PRE_DISABLE:
 		/* enable mdp LUT memory retention */
@@ -3719,17 +3708,6 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 			 * checking the updated design.
 			 */
 			sde_encoder_control_te(encoder, false);
-		}
-
-		for (i = 0; i < sde_crtc->num_mixers; ++i) {
-			m = &sde_crtc->mixers[i];
-			if (!m->hw_lm || !m->hw_lm->ops.collect_misr ||
-					!sde_crtc->misr_enable)
-				continue;
-
-			misr_status = m->hw_lm->ops.collect_misr(m->hw_lm);
-			sde_crtc->misr_data[i] = misr_status ? misr_status :
-							sde_crtc->misr_data[i];
 		}
 
 		spin_lock_irqsave(&sde_crtc->spin_lock, flags);
@@ -5223,16 +5201,49 @@ void sde_crtc_misr_setup(struct drm_crtc *crtc, bool enable, u32 frame_count)
 	}
 	sde_crtc = to_sde_crtc(crtc);
 
-	sde_crtc->misr_enable = enable;
+	sde_crtc->misr_enable_sui = enable;
 	sde_crtc->misr_frame_count = frame_count;
 	for (i = 0; i < sde_crtc->num_mixers; ++i) {
-		sde_crtc->misr_data[i] = 0;
 		m = &sde_crtc->mixers[i];
 		if (!m->hw_lm || !m->hw_lm->ops.setup_misr)
 			continue;
 
 		m->hw_lm->ops.setup_misr(m->hw_lm, enable, frame_count);
 	}
+}
+
+void sde_crtc_get_misr_info(struct drm_crtc *crtc,
+			struct sde_crtc_misr_info *crtc_misr_info)
+{
+	struct sde_crtc *sde_crtc;
+	struct sde_kms *sde_kms;
+
+	if (!crtc_misr_info) {
+		SDE_ERROR("invalid misr info\n");
+		return;
+	}
+
+	crtc_misr_info->misr_enable = false;
+	crtc_misr_info->misr_frame_count = 0;
+
+	if (!crtc) {
+		SDE_ERROR("invalid crtc\n");
+		return;
+	}
+
+	sde_kms = _sde_crtc_get_kms(crtc);
+	if (!sde_kms) {
+		SDE_ERROR("invalid sde_kms\n");
+		return;
+	}
+
+	if (sde_kms_is_secure_session_inprogress(sde_kms))
+		return;
+
+	sde_crtc = to_sde_crtc(crtc);
+	crtc_misr_info->misr_enable =
+			sde_crtc->misr_enable_debugfs ? true : false;
+	crtc_misr_info->misr_frame_count = sde_crtc->misr_frame_count;
 }
 
 #ifdef CONFIG_DEBUG_FS
@@ -5414,20 +5425,18 @@ static ssize_t _sde_crtc_misr_setup(struct file *file,
 	if (sscanf(buf, "%u %u", &enable, &frame_count) != 2)
 		return -EINVAL;
 
+	if (sde_kms_is_secure_session_inprogress(sde_kms)) {
+		SDE_DEBUG("crtc:%d misr enable/disable not allowed\n",
+				DRMID(crtc));
+		return -EINVAL;
+	}
+
 	rc = _sde_crtc_power_enable(sde_crtc, true);
 	if (rc)
 		return rc;
 
-	mutex_lock(&sde_crtc->crtc_lock);
-	if (sde_kms_is_secure_session_inprogress(sde_kms)) {
-		SDE_DEBUG("crtc:%d misr enable/disable not allowed\n",
-				DRMID(crtc));
-		goto end;
-	}
+	sde_crtc->misr_enable_debugfs = enable;
 	sde_crtc_misr_setup(crtc, enable, frame_count);
-
-end:
-	mutex_unlock(&sde_crtc->crtc_lock);
 	_sde_crtc_power_enable(sde_crtc, false);
 
 	return count;
@@ -5441,7 +5450,6 @@ static ssize_t _sde_crtc_misr_read(struct file *file,
 	struct sde_kms *sde_kms;
 	struct sde_crtc_mixer *m;
 	int i = 0, rc;
-	u32 misr_status;
 	ssize_t len = 0;
 	char buf[MISR_BUFF_SIZE + 1] = {'\0'};
 
@@ -5461,30 +5469,41 @@ static ssize_t _sde_crtc_misr_read(struct file *file,
 	if (rc)
 		return rc;
 
-	mutex_lock(&sde_crtc->crtc_lock);
 	if (sde_kms_is_secure_session_inprogress(sde_kms)) {
 		SDE_DEBUG("crtc:%d misr read not allowed\n", DRMID(crtc));
 		goto end;
 	}
 
-	if (!sde_crtc->misr_enable) {
-		len += snprintf(buf + len, MISR_BUFF_SIZE - len,
-			"disabled\n");
+	if (!sde_crtc->misr_enable_debugfs) {
+		len += scnprintf(buf + len, MISR_BUFF_SIZE - len,
+				"disabled\n");
 		goto buff_check;
 	}
 
 	for (i = 0; i < sde_crtc->num_mixers; ++i) {
-		m = &sde_crtc->mixers[i];
-		if (!m->hw_lm || !m->hw_lm->ops.collect_misr)
-			continue;
+		u32 misr_value = 0;
 
-		misr_status = m->hw_lm->ops.collect_misr(m->hw_lm);
-		sde_crtc->misr_data[i] = misr_status ? misr_status :
-							sde_crtc->misr_data[i];
-		len += snprintf(buf + len, MISR_BUFF_SIZE - len, "lm idx:%d\n",
-					m->hw_lm->idx - LM_0);
-		len += snprintf(buf + len, MISR_BUFF_SIZE - len, "0x%x\n",
-							sde_crtc->misr_data[i]);
+		m = &sde_crtc->mixers[i];
+		if (!m->hw_lm || !m->hw_lm->ops.collect_misr) {
+			len += scnprintf(buf + len, MISR_BUFF_SIZE - len,
+					"invalid\n");
+			SDE_ERROR("crtc:%d invalid misr ops\n", DRMID(crtc));
+			continue;
+		}
+
+		rc = m->hw_lm->ops.collect_misr(m->hw_lm, false, &misr_value);
+		if (rc) {
+			len += scnprintf(buf + len, MISR_BUFF_SIZE - len,
+					"invalid\n");
+			SDE_ERROR("crtc:%d failed to collect misr %d\n",
+					DRMID(crtc), rc);
+			continue;
+		} else {
+			len += scnprintf(buf + len, MISR_BUFF_SIZE - len,
+					"lm idx:%d\n", m->hw_lm->idx - LM_0);
+			len += scnprintf(buf + len, MISR_BUFF_SIZE - len,
+					"0x%x\n", misr_value);
+		}
 	}
 
 buff_check:
@@ -5501,7 +5520,6 @@ buff_check:
 	*ppos += len;   /* increase offset */
 
 end:
-	mutex_unlock(&sde_crtc->crtc_lock);
 	_sde_crtc_power_enable(sde_crtc, false);
 	return len;
 }

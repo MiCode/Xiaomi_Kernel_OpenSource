@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
+
+#include <linux/iopoll.h>
 
 #include "sde_kms.h"
 #include "sde_hw_catalog.h"
@@ -243,11 +245,34 @@ static void sde_hw_lm_setup_misr(struct sde_hw_mixer *ctx,
 	SDE_REG_WRITE(c, LM_MISR_CTRL, config);
 }
 
-static u32 sde_hw_lm_collect_misr(struct sde_hw_mixer *ctx)
+static int sde_hw_lm_collect_misr(struct sde_hw_mixer *ctx, bool nonblock,
+		u32 *misr_value)
 {
 	struct sde_hw_blk_reg_map *c = &ctx->hw;
+	u32 ctrl = 0;
 
-	return SDE_REG_READ(c, LM_MISR_SIGNATURE);
+	if (!misr_value)
+		return -EINVAL;
+
+	ctrl = SDE_REG_READ(c, LM_MISR_CTRL);
+	if (!nonblock) {
+		if (ctrl & MISR_CTRL_ENABLE) {
+			int rc;
+
+			rc = readl_poll_timeout(c->base_off + c->blk_off +
+					LM_MISR_CTRL, ctrl,
+					(ctrl & MISR_CTRL_STATUS) > 0, 500,
+					84000);
+			if (rc)
+				return rc;
+		} else {
+			return -EINVAL;
+		}
+	}
+
+	*misr_value  = SDE_REG_READ(c, LM_MISR_SIGNATURE);
+
+	return 0;
 }
 
 static void _setup_mixer_ops(struct sde_mdss_cfg *m,
