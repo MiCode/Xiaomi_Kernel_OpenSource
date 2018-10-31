@@ -456,7 +456,7 @@ static struct param_info params[] = {
 		.name			= "PCURR1",
 		.start_addr		= QNOVO_PCURR1_LSB,
 		.num_regs		= 2,
-		.reg_to_unit_multiplier	= 305185, /* converts to nA */
+		.reg_to_unit_multiplier	= 488281, /* converts to nA */
 		.reg_to_unit_divider	= 1,
 		.units_str		= "uA",
 	},
@@ -464,7 +464,7 @@ static struct param_info params[] = {
 		.name			= "PCURR1_SUM",
 		.start_addr		= QNOVO_PCURR1_SUM_LSB,
 		.num_regs		= 2,
-		.reg_to_unit_multiplier	= 305185, /* converts to nA */
+		.reg_to_unit_multiplier	= 488281, /* converts to nA */
 		.reg_to_unit_divider	= 1,
 		.units_str		= "uA",
 	},
@@ -472,7 +472,7 @@ static struct param_info params[] = {
 		.name			= "PCURR1_TERMINAL",
 		.start_addr		= QNOVO_PCURR1_TERMINAL_LSB,
 		.num_regs		= 2,
-		.reg_to_unit_multiplier	= 305185, /* converts to nA */
+		.reg_to_unit_multiplier	= 488281, /* converts to nA */
 		.reg_to_unit_divider	= 1,
 		.min_val		= -10000000,
 		.max_val		= 10000000,
@@ -546,7 +546,7 @@ static struct param_info params[] = {
 		.name			= "PCURR2",
 		.start_addr		= QNOVO_PCURR2_LSB,
 		.num_regs		= 2,
-		.reg_to_unit_multiplier	= 305185, /* converts to nA */
+		.reg_to_unit_multiplier	= 488281, /* converts to nA */
 		.reg_to_unit_divider	= 1,
 		.units_str		= "uA",
 	},
