@@ -720,11 +720,18 @@ void hab_vchan_close(struct uhab_context *ctx, int32_t vcid)
 	write_lock(&ctx->ctx_lock);
 	list_for_each_entry_safe(vchan, tmp, &ctx->vchannels, node) {
 		if (vchan->id == vcid) {
+			/* local close starts */
 			vchan->closed = 1;
-			write_unlock(&ctx->ctx_lock);
+
+			/* vchan is not in this ctx anymore */
+			list_del(&vchan->node);
+			ctx->vcnt--;
+
 			pr_debug("vcid %x remote %x session %d refcnt %d\n",
 				vchan->id, vchan->otherend_id,
 				vchan->session_id, get_refcnt(vchan->refcount));
+
+			write_unlock(&ctx->ctx_lock);
 			/* unblocking blocked in-calls */
 			hab_vchan_stop_notify(vchan);
 			hab_vchan_put(vchan); /* there is a lock inside */
@@ -1069,28 +1076,14 @@ static int hab_release(struct inode *inodep, struct file *filep)
 	write_lock(&ctx->ctx_lock);
 	/* notify remote side on vchan closing */
 	list_for_each_entry_safe(vchan, tmp, &ctx->vchannels, node) {
+		/* local close starts */
+		vchan->closed = 1;
+
 		list_del(&vchan->node); /* vchan is not in this ctx anymore */
+		ctx->vcnt--;
 
-		if (!vchan->closed) { /* locally hasn't closed yet */
-			if (!kref_get_unless_zero(&vchan->refcount)) {
-				pr_err("vchan %x %x refcnt %d mismanaged closed %d remote closed %d\n",
-					vchan->id,
-					vchan->otherend_id,
-					get_refcnt(vchan->refcount),
-					vchan->closed, vchan->otherend_closed);
-				continue; /* vchan is already being freed */
-			} else {
-				write_unlock(&ctx->ctx_lock);
-				hab_vchan_stop_notify(vchan);
-				/* put for notify. shouldn't cause free */
-				hab_vchan_put(vchan);
-				write_lock(&ctx->ctx_lock);
-			}
-		} else
-			continue;
-
-		/* for the missing local vchan close */
 		write_unlock(&ctx->ctx_lock);
+		hab_vchan_stop_notify(vchan);
 		hab_vchan_put(vchan); /* there is a lock inside */
 		write_lock(&ctx->ctx_lock);
 	}
