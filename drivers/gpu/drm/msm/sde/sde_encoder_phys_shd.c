@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -311,7 +311,8 @@ end:
 }
 
 static void _sde_shd_hw_ctl_clear_all_blendstages(struct sde_hw_ctl *ctx,
-	bool handoff, const u32 *resv_pipes, u32 resv_pipes_length)
+	bool handoff, const struct splash_reserved_pipe_info *resv_pipes,
+	u32 resv_pipes_length)
 {
 	struct sde_shd_hw_ctl *hw_ctl;
 	int i;
@@ -345,7 +346,8 @@ static inline int _stage_offset(struct sde_hw_mixer *ctx, enum sde_stage stage)
 
 static void _sde_shd_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 	enum sde_lm lm, struct sde_hw_stage_cfg *stage_cfg, u32 index,
-	bool handoff, const u32 *resv_pipes, u32 resv_pipes_length)
+	bool handoff, const struct splash_reserved_pipe_info *resv_pipes,
+	u32 resv_pipes_length)
 {
 	struct sde_shd_hw_ctl *hw_ctl;
 	u32 mixercfg = 0, mixercfg_ext = 0, mix, ext, full, mixercfg_ext2;
