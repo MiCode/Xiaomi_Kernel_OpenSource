@@ -1,0 +1,153 @@
+* Qualcomm Technologies, Inc. MSM Camera FD
+
+The MSM camera Face Detection device provides dependency definitions
+for enabling Camera FD HW. MSM camera FD is implemented in multiple
+device nodes. The root FD device node has properties defined to hint
+the driver about the FD HW nodes available during the probe sequence.
+Each node has multiple properties defined for interrupts, clocks and
+regulators.
+
+=======================
+Required Node Structure
+=======================
+FD root interface node takes care of the handling Face Detection high level
+driver handling and controls underlying FD hardware present.
+
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: Should be "qcom,cam-fd".
+
+- compat-hw-name
+  Usage: required
+  Value type: <string>
+  Definition: Should be "qcom,fd".
+
+- num-fd
+  Usage: required
+  Value type: <u32>
+  Definition: Number of supported FD HW blocks.
+
+Example:
+	qcom,cam-fd {
+		compatible = "qcom,cam-fd";
+		compat-hw-name = "qcom,fd";
+		num-fd = <1>;
+	};
+
+=======================
+Required Node Structure
+=======================
+FD Node provides interface for Face Detection hardware driver
+about the device register map, interrupt map, clocks, regulators.
+
+- cell-index
+  Usage: required
+  Value type: <u32>
+  Definition: Node instance number.
+
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: Should be one of "qcom,fd41", "qcom,fd501".
+
+- reg-names
+  Usage: optional
+  Value type: <string>
+  Definition: Name of the register resources.
+
+- reg
+  Usage: optional
+  Value type: <u32>
+  Definition: Register values.
+
+- reg-cam-base
+  Usage: optional
+  Value type: <u32>
+  Definition: Offset of the register space compared to
+		to Camera base register space.
+
+- interrupt-names
+  Usage: optional
+  Value type: <string>
+  Definition: Name of the interrupt.
+
+- interrupts
+  Usage: optional
+  Value type: <u32>
+  Definition: Interrupt line associated with FD HW.
+
+- regulator-names
+  Usage: required
+  Value type: <string>
+  Definition: Name of the regulator resources for FD HW.
+
+- camss-vdd-supply
+  Usage: required
+  Value type: <phandle>
+  Definition: Regulator reference corresponding to the names listed
+		in "regulator-names".
+
+- clock-names
+  Usage: required
+  Value type: <string>
+  Definition: List of clock names required for FD HW.
+
+- clocks
+  Usage: required
+  Value type: <phandle>
+  Definition: List of clocks required for FD HW.
+
+- clock-rates
+  Usage: required
+  Value type: <u32>
+  Definition: List of clocks rates.
+
+- src-clock-name
+  Usage: required
+  Value type: <string>
+  Definition: Source clock name.
+
+- clock-control-debugfs
+  Usage: optional
+  Value type: <string>
+  Definition: Enable/Disable clk rate control.
+
+- clock-cntl-level
+  Usage: required
+  Value type: <string>
+  Definition: List of strings corresponds clock-rates levels.
+  Supported strings: minsvs, lowsvs, svs, svs_l1, nominal, turbo.
+
+Examples:
+	cam_fd: qcom,fd@ac5a000 {
+		cell-index = <0>;
+		compatible = "qcom,fd501";
+		reg-names = "fd_core", "fd_wrapper";
+		reg = <0xac5a000 0x1000>,
+			<0xac5b000 0x400>;
+		reg-cam-base = <0x5a000 0x5b000>;
+		interrupt-names = "fd";
+		interrupts = <0 462 0>;
+		regulator-names = "camss-vdd";
+		camss-vdd-supply = <&titan_top_gdsc>;
+		clock-names = "gcc_ahb_clk",
+			"gcc_axi_clk",
+			"soc_ahb_clk",
+			"cpas_ahb_clk",
+			"camnoc_axi_clk",
+			"fd_core_clk_src",
+			"fd_core_clk",
+			"fd_core_uar_clk";
+		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>,
+			<&clock_gcc GCC_CAMERA_AXI_CLK>,
+			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
+			<&clock_camcc CAM_CC_CPAS_AHB_CLK>,
+			<&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
+			<&clock_camcc CAM_CC_FD_CORE_CLK_SRC>,
+			<&clock_camcc CAM_CC_FD_CORE_CLK>,
+			<&clock_camcc CAM_CC_FD_CORE_UAR_CLK>;
+		src-clock-name = "fd_core_clk_src";
+		clock-cntl-level = "svs";
+		clock-rates = <0 0 0 0 0 400000000 0 0>;
+	};
