@@ -2043,6 +2043,8 @@ static u32 sde_hw_rotator_wait_done_regdma(
 {
 	struct sde_hw_rotator *rot = ctx->rot;
 	int rc = 0;
+	bool timeout = false;
+	bool pending;
 	bool abort;
 	u32 status;
 	u32 last_isr;
@@ -2050,7 +2052,8 @@ static u32 sde_hw_rotator_wait_done_regdma(
 	u32 int_id;
 	u32 swts;
 	u32 sts = 0;
-	u32 ubwcerr = 0;
+	u32 ubwcerr;
+	u32 hwts[ROT_QUEUE_MAX];
 	unsigned long flags;
 
 	if (rot->irq_num >= 0) {
@@ -2074,23 +2077,18 @@ static u32 sde_hw_rotator_wait_done_regdma(
 				status, int_id, last_ts);
 
 		if (rc == 0 || (status & REGDMA_INT_ERR_MASK) || abort) {
-			bool pending;
-
+			timeout = true;
 			pending = rot->ops.get_pending_ts(rot, ctx, &swts);
-			SDEROT_ERR(
-				"Timeout wait for regdma interrupt status, ts:0x%X/0x%X, pending:%d, abort:%d\n",
-				ctx->timestamp, swts, pending, abort);
 
-			if (status & REGDMA_WATCHDOG_INT)
-				SDEROT_ERR("REGDMA watchdog interrupt\n");
-			else if (status & REGDMA_INVALID_DESCRIPTOR)
-				SDEROT_ERR("REGDMA invalid descriptor\n");
-			else if (status & REGDMA_INCOMPLETE_CMD)
-				SDEROT_ERR("REGDMA incomplete command\n");
-			else if (status & REGDMA_INVALID_CMD)
-				SDEROT_ERR("REGDMA invalid command\n");
-
-			_sde_hw_rotator_dump_status(rot, &ubwcerr);
+			/* cache ubwcerr and hw timestamps while locked */
+			ubwcerr = SDE_ROTREG_READ(rot->mdss_base,
+					ROT_SSPP_UBWC_ERROR_STATUS);
+			hwts[ROT_QUEUE_HIGH_PRIORITY] =
+					__sde_hw_rotator_get_timestamp(rot,
+					ROT_QUEUE_HIGH_PRIORITY);
+			hwts[ROT_QUEUE_LOW_PRIORITY] =
+					__sde_hw_rotator_get_timestamp(rot,
+					ROT_QUEUE_LOW_PRIORITY);
 
 			if (ubwcerr || abort) {
 				/*
@@ -2119,6 +2117,28 @@ static u32 sde_hw_rotator_wait_done_regdma(
 		}
 
 		spin_unlock_irqrestore(&rot->rotisr_lock, flags);
+
+		/* dump rot status after releasing lock if timeout occurred */
+		if (timeout) {
+			SDEROT_ERR(
+				"TIMEOUT, ts:0x%X/0x%X, pending:%d, abort:%d\n",
+				ctx->timestamp, swts, pending, abort);
+			SDEROT_ERR(
+				"Cached: HW ts0/ts1 = %x/%x, ubwcerr = %x\n",
+				hwts[ROT_QUEUE_HIGH_PRIORITY],
+				hwts[ROT_QUEUE_LOW_PRIORITY], ubwcerr);
+
+			if (status & REGDMA_WATCHDOG_INT)
+				SDEROT_ERR("REGDMA watchdog interrupt\n");
+			else if (status & REGDMA_INVALID_DESCRIPTOR)
+				SDEROT_ERR("REGDMA invalid descriptor\n");
+			else if (status & REGDMA_INCOMPLETE_CMD)
+				SDEROT_ERR("REGDMA incomplete command\n");
+			else if (status & REGDMA_INVALID_CMD)
+				SDEROT_ERR("REGDMA invalid command\n");
+
+			_sde_hw_rotator_dump_status(rot, &ubwcerr);
+		}
 	} else {
 		int cnt = 200;
 		bool pending;
