@@ -724,6 +724,17 @@ config REGULATOR_QCOM_SPMI
 	  Qualcomm SPMI PMICs as a module. The module will be named
 	  "qcom_spmi-regulator".
 
+config REGULATOR_QPNP_LABIBB
+        tristate "Qualcomm Technologies, Inc. QPNP LAB/IBB regulator support"
+        depends on SPMI
+        help
+          This driver supports voltage regulators in Qualcomm Technologies, Inc.
+          PMIC chips which comply with QPNP LAB/IBB regulators. QPNP LAB and IBB
+          are SPMI based PMIC implementations. LAB regulator can be used as a
+          regular positive boost regulator. IBB can be used as a regular
+          negative boost regulator. LAB/IBB regulators can also be used
+          together for LCD or AMOLED on QTI PMICs like PMI8998.
+
 config REGULATOR_QPNP_LCDB
         tristate "Qualcomm Technologies, Inc. QPNP LCDB support"
         depends on SPMI
