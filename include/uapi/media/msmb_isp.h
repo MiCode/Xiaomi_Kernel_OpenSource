@@ -26,6 +26,8 @@
 #define ISP_STATS_STREAM_BIT  0x80000000
 
 #define VFE_HW_LIMIT 1
+#define DUAL_ISP_SYNC 1
+
 
 struct msm_vfe_cfg_cmd_list;
 
@@ -976,6 +978,7 @@ enum msm_isp_ioctl_cmd_code {
 	MSM_ISP_REQUEST_BUF_VER2,
 	MSM_ISP_DUAL_HW_LPM_MODE,
 	MSM_ISP32_REQUEST_STREAM,
+	MSM_ISP_DUAL_SYNC_CFG,
 };
 
 #define VIDIOC_MSM_VFE_REG_CFG \
@@ -1105,5 +1108,9 @@ enum msm_isp_ioctl_cmd_code {
 #define VIDIOC_MSM_ISP_DUAL_HW_LPM_MODE \
 	_IOWR('V', MSM_ISP_DUAL_HW_LPM_MODE, \
 	struct msm_vfe_dual_lpm_mode)
+
+#define VIDIOC_MSM_ISP_DUAL_SYNC_CFG \
+	_IOWR('V', MSM_ISP_DUAL_SYNC_CFG, \
+	uint32_t *)
 
 #endif /* __MSMB_ISP__ */

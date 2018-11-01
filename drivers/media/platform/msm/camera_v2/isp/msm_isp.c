@@ -617,6 +617,7 @@ int vfe_hw_probe(struct platform_device *pdev)
 	/*struct msm_cam_subdev_info sd_info;*/
 	const struct of_device_id *match_dev;
 	int rc = 0;
+	struct msm_vfe_hardware_info *hw_info;
 
 	vfe_dev = kzalloc(sizeof(struct vfe_device), GFP_KERNEL);
 	if (!vfe_dev) {
@@ -667,12 +668,22 @@ int vfe_hw_probe(struct platform_device *pdev)
 	ISP_DBG("%s: device id = %d\n", __func__, pdev->id);
 
 	vfe_dev->pdev = pdev;
+	hw_info = &vfe_dev->hw_info;
 
 	rc = vfe_dev->hw_info->vfe_ops.platform_ops.get_platform_data(vfe_dev);
 	if (rc < 0) {
 		pr_err("%s: failed to get platform resources\n", __func__);
 		rc = -ENOMEM;
 		goto probe_fail3;
+	}
+
+	if (
+	hw_info->vfe_ops.platform_ops.get_dual_sync_platform_data) {
+		rc =
+		hw_info->vfe_ops.platform_ops.get_dual_sync_platform_data(
+			vfe_dev);
+			if (rc < 0)
+				pr_err("%s:fail get dual_sync\n", __func__);
 	}
 
 	v4l2_subdev_init(&vfe_dev->subdev.sd, &msm_vfe_v4l2_subdev_ops);

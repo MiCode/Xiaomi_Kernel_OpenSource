@@ -1054,7 +1054,11 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 	case MSM_SD_UNNOTIFY_FREEZE:
 	case MSM_SD_SHUTDOWN:
 		break;
-
+	case MSM_ISP_DUAL_SYNC_CFG:
+		mutex_lock(&vfe_dev->core_mutex);
+		vfe_dev->dual_vfe_sync_enable =
+			*((uint32_t *)arg);
+		mutex_unlock(&vfe_dev->core_mutex);
 	default:
 		pr_err_ratelimited("%s: Invalid ISP command %d\n", __func__,
 				    cmd);
@@ -2097,7 +2101,7 @@ void msm_isp_prepare_tasklet_debug_info(struct vfe_device *vfe_dev,
 
 static void msm_isp_enqueue_tasklet_cmd(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1,
-	uint32_t ping_pong_status)
+	uint32_t ping_pong_status, uint32_t dual_irq_status)
 {
 	unsigned long flags;
 	struct msm_vfe_tasklet_queue_cmd *queue_cmd = NULL;
@@ -2120,6 +2124,7 @@ static void msm_isp_enqueue_tasklet_cmd(struct vfe_device *vfe_dev,
 	queue_cmd->vfeInterruptStatus0 = irq_status0;
 	queue_cmd->vfeInterruptStatus1 = irq_status1;
 	queue_cmd->vfe_pingpong_status = ping_pong_status;
+	queue_cmd->dualvfeInterruptstatus = dual_irq_status;
 	msm_isp_get_timestamp(&queue_cmd->ts, vfe_dev);
 	queue_cmd->cmd_used = 1;
 	queue_cmd->vfe_dev = vfe_dev;
@@ -2136,6 +2141,8 @@ irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 	struct vfe_device *vfe_dev = (struct vfe_device *) data;
 	uint32_t irq_status0, irq_status1, ping_pong_status;
 	uint32_t error_mask0, error_mask1;
+	uint32_t dual_irq_status = 0;
+	struct msm_vfe_hardware_info *hw_info;
 
 	vfe_dev->hw_info->vfe_ops.irq_ops.read_and_clear_irq_status(vfe_dev,
 			&irq_status0, &irq_status1);
@@ -2145,10 +2152,22 @@ irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 			__func__, vfe_dev->pdev->id);
 		return IRQ_HANDLED;
 	}
+
 	ping_pong_status =
 		vfe_dev->hw_info->vfe_ops.axi_ops.get_pingpong_status(vfe_dev);
+
+	hw_info = &vfe_dev->hw_info;
+	/* Get the dual IRQ status in dual mode*/
+	if (vfe_dev->dual_vfe_sync_mode)
+		hw_info->vfe_ops.irq_ops.read_and_clear_dual_irq_status(
+			vfe_dev, &dual_irq_status);
+
 	if (vfe_dev->hw_info->vfe_ops.irq_ops.preprocess_camif_irq) {
-		vfe_dev->hw_info->vfe_ops.irq_ops.preprocess_camif_irq(
+		if (vfe_dev->dual_vfe_sync_mode)
+			vfe_dev->hw_info->vfe_ops.irq_ops.preprocess_camif_irq(
+			vfe_dev, dual_irq_status);
+		else
+			vfe_dev->hw_info->vfe_ops.irq_ops.preprocess_camif_irq(
 				vfe_dev, irq_status0);
 	}
 	if (msm_isp_process_overflow_irq(vfe_dev,
@@ -2168,6 +2187,7 @@ irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 		msm_isp_update_error_info(vfe_dev, error_mask0, error_mask1);
 
 	if ((irq_status0 == 0) && (irq_status1 == 0) &&
+		(dual_irq_status == 0) &&
 		(!(((error_mask0 != 0) || (error_mask1 != 0)) &&
 		 vfe_dev->error_info.error_count == 1))) {
 		ISP_DBG("%s: error_mask0/1 & error_count are set!\n", __func__);
@@ -2175,7 +2195,7 @@ irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 	}
 	msm_isp_prepare_irq_debug_info(vfe_dev, irq_status0, irq_status1);
 	msm_isp_enqueue_tasklet_cmd(vfe_dev, irq_status0, irq_status1,
-					ping_pong_status);
+					ping_pong_status, dual_irq_status);
 
 	return IRQ_HANDLED;
 }
@@ -2188,7 +2208,7 @@ void msm_isp_do_tasklet(unsigned long data)
 	struct msm_vfe_irq_ops *irq_ops;
 	struct msm_vfe_tasklet_queue_cmd *queue_cmd;
 	struct msm_isp_timestamp ts;
-	uint32_t irq_status0, irq_status1, pingpong_status;
+	uint32_t irq_status0, irq_status1, pingpong_status, dual_irq_status;
 
 	while (1) {
 		spin_lock_irqsave(&tasklet->tasklet_lock, flags);
@@ -2205,6 +2225,8 @@ void msm_isp_do_tasklet(unsigned long data)
 		irq_status0 = queue_cmd->vfeInterruptStatus0;
 		irq_status1 = queue_cmd->vfeInterruptStatus1;
 		pingpong_status = queue_cmd->vfe_pingpong_status;
+		dual_irq_status = queue_cmd->dualvfeInterruptstatus;
+
 		ts = queue_cmd->ts;
 		spin_unlock_irqrestore(&tasklet->tasklet_lock, flags);
 		if (vfe_dev->vfe_open_cnt == 0) {
@@ -2229,17 +2251,27 @@ void msm_isp_do_tasklet(unsigned long data)
 		}
 		msm_isp_process_error_info(vfe_dev);
 		irq_ops->process_stats_irq(vfe_dev,
-			irq_status0, irq_status1,
+			irq_status0, irq_status1, dual_irq_status,
 			pingpong_status, &ts);
 		irq_ops->process_axi_irq(vfe_dev,
-			irq_status0, irq_status1,
+			irq_status0, irq_status1, dual_irq_status,
 			pingpong_status, &ts);
-		irq_ops->process_camif_irq(vfe_dev,
-			irq_status0, irq_status1, &ts);
-		irq_ops->process_reg_update(vfe_dev,
-			irq_status0, irq_status1, &ts);
-		irq_ops->process_epoch_irq(vfe_dev,
-			irq_status0, irq_status1, &ts);
+
+		if (vfe_dev->dual_vfe_sync_mode) {
+			irq_ops->process_camif_irq(vfe_dev,
+				dual_irq_status, irq_status1, &ts);
+			irq_ops->process_reg_update(vfe_dev,
+				dual_irq_status, irq_status1, &ts);
+			irq_ops->process_epoch_irq(vfe_dev,
+				dual_irq_status, irq_status1, &ts);
+		} else {
+			irq_ops->process_camif_irq(vfe_dev,
+				irq_status0, irq_status1, &ts);
+			irq_ops->process_reg_update(vfe_dev,
+				irq_status0, irq_status1, &ts);
+			irq_ops->process_epoch_irq(vfe_dev,
+				irq_status0, irq_status1, &ts);
+		}
 	}
 }
 
@@ -2446,6 +2478,7 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		vfe_dev->axi_data.src_info[i].lpm = 0;
 	MSM_ISP_DUAL_VFE_MUTEX_UNLOCK(vfe_dev);
 	vfe_dev->is_split = 0;
+	vfe_dev->dual_vfe_sync_mode = 0;
 
 	mutex_unlock(&vfe_dev->core_mutex);
 	mutex_unlock(&vfe_dev->realtime_mutex);
