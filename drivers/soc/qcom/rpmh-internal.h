@@ -88,6 +88,7 @@ struct rpmh_ctrlr {
  * @base:       start address of the RSC's DRV registers
  * @tcs_base:   start address of the TCS registers in this controller
  * @id:         instance id in the controller (Direct Resource Voter)
+ * @in_solver_mode: Controller is in solver mode
  * @num_tcs:    number of TCSes in this DRV
  * @tcs:        TCS groups
  * @tcs_in_use: s/w state of the TCS
@@ -100,6 +101,7 @@ struct rsc_drv {
 	void __iomem *base;
 	void __iomem *tcs_base;
 	int id;
+	bool in_solver_mode;
 	int num_tcs;
 	struct tcs_group tcs[TCS_TYPE_NR];
 	DECLARE_BITMAP(tcs_in_use, MAX_TCS_NR);
@@ -116,6 +118,7 @@ int rpmh_rsc_write_ctrl_data(struct rsc_drv *drv,
 int rpmh_rsc_invalidate(struct rsc_drv *drv);
 bool rpmh_rsc_ctrlr_is_idle(struct rsc_drv *drv);
 int rpmh_rsc_write_pdc_data(struct rsc_drv *drv, const struct tcs_request *msg);
+void rpmh_rsc_mode_solver_set(struct rsc_drv *drv, bool enable);
 
 void rpmh_tx_done(const struct tcs_request *msg, int r);
 
