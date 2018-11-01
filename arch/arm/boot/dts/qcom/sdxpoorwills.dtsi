@@ -418,6 +418,8 @@
 				<45 512 0 0>,
 				<45 512 500 800>;
 
+		qcom,pcie-vendor-id = /bits/ 16 <0x17cb>;
+		qcom,pcie-device-id = /bits/ 16 <0x0304>;
 		qcom,pcie-link-speed = <2>;
 		qcom,pcie-phy-ver = <6>;
 		qcom,pcie-active-config;

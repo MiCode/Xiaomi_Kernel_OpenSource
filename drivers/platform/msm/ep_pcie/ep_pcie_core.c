@@ -673,6 +673,17 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 		ep_pcie_write_mask(dev->dm_core + PCIE20_MISC_CONTROL_1, 0,
 			BIT(0));
 
+		/* Set Vendor ID and Device ID */
+		if (ep_pcie_dev.device_id != 0xFFFF)
+			ep_pcie_write_reg_field(dev->dm_core,
+						PCIE20_DEVICE_ID_VENDOR_ID,
+						PCIE20_MASK_DEVICE_ID,
+						ep_pcie_dev.device_id);
+		if (ep_pcie_dev.vendor_id != 0xFFFF)
+			ep_pcie_write_reg_field(dev->dm_core,
+						PCIE20_DEVICE_ID_VENDOR_ID,
+						PCIE20_MASK_VENDOR_ID,
+						ep_pcie_dev.vendor_id);
 		/* Set class code and revision ID */
 		ep_pcie_write_reg(dev->dm_core, PCIE20_CLASS_CODE_REVISION_ID,
 			0xff000000);
@@ -2517,6 +2528,30 @@ static int ep_pcie_probe(struct platform_device *pdev)
 	else
 		EP_PCIE_DBG(&ep_pcie_dev, "PCIe V%d: pcie-link-speed:%d.\n",
 			ep_pcie_dev.rev, ep_pcie_dev.link_speed);
+
+	ep_pcie_dev.vendor_id = 0xFFFF;
+	ret = of_property_read_u16((&pdev->dev)->of_node,
+				"qcom,pcie-vendor-id",
+				&ep_pcie_dev.vendor_id);
+	if (ret)
+		EP_PCIE_DBG(&ep_pcie_dev,
+				"PCIe V%d: pcie-vendor-id does not exist.\n",
+				ep_pcie_dev.rev);
+	else
+		EP_PCIE_DBG(&ep_pcie_dev, "PCIe V%d: pcie-vendor-id:%d.\n",
+				ep_pcie_dev.rev, ep_pcie_dev.vendor_id);
+
+	ep_pcie_dev.device_id = 0xFFFF;
+	ret = of_property_read_u16((&pdev->dev)->of_node,
+				"qcom,pcie-device-id",
+				&ep_pcie_dev.device_id);
+	if (ret)
+		EP_PCIE_DBG(&ep_pcie_dev,
+				"PCIe V%d: pcie-device-id does not exist.\n",
+				ep_pcie_dev.rev);
+	else
+		EP_PCIE_DBG(&ep_pcie_dev, "PCIe V%d: pcie-device-id:%d.\n",
+				ep_pcie_dev.rev, ep_pcie_dev.device_id);
 
 	ret = of_property_read_u32((&pdev->dev)->of_node,
 				"qcom,dbi-base-reg",
