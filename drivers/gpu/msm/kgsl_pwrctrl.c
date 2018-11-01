@@ -2841,7 +2841,7 @@ _aware(struct kgsl_device *device)
 		break;
 	case KGSL_STATE_INIT:
 		/* if GMU already in FAULT */
-		if (gmu_core_isenabled(device) &&
+		if (gmu_core_gpmu_isenabled(device) &&
 			test_bit(GMU_FAULT, &device->gmu_core.flags)) {
 			status = -EINVAL;
 			break;
@@ -2858,7 +2858,7 @@ _aware(struct kgsl_device *device)
 		break;
 	case KGSL_STATE_SLUMBER:
 		/* if GMU already in FAULT */
-		if (gmu_core_isenabled(device) &&
+		if (gmu_core_gpmu_isenabled(device) &&
 			test_bit(GMU_FAULT, &device->gmu_core.flags)) {
 			status = -EINVAL;
 			break;
@@ -2871,7 +2871,7 @@ _aware(struct kgsl_device *device)
 	}
 
 	if (status) {
-		if (gmu_core_isenabled(device)) {
+		if (gmu_core_gpmu_isenabled(device)) {
 			/* GMU hang recovery */
 			kgsl_pwrctrl_set_state(device, KGSL_STATE_RESET);
 			set_bit(GMU_FAULT, &device->gmu_core.flags);

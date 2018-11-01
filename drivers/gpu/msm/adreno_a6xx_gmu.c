@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -556,7 +556,7 @@ static int a6xx_gmu_oob_set(struct adreno_device *adreno_dev,
 	int ret = 0;
 	int set, check;
 
-	if (!gmu_core_isenabled(device))
+	if (!gmu_core_gpmu_isenabled(device))
 		return 0;
 
 	if (!adreno_is_a630(adreno_dev) && !adreno_is_a615_family(adreno_dev)) {
@@ -609,7 +609,7 @@ static inline void a6xx_gmu_oob_clear(struct adreno_device *adreno_dev,
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	int clear;
 
-	if (!gmu_core_isenabled(device))
+	if (!gmu_core_gpmu_isenabled(device))
 		return;
 
 	if (!adreno_is_a630(adreno_dev) && !adreno_is_a615_family(adreno_dev)) {
@@ -660,6 +660,9 @@ static int a6xx_gmu_hfi_start_msg(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct hfi_start_cmd req;
 
+	if (!gmu_core_gpmu_isenabled(device))
+		return 0;
+
 	if (adreno_is_a640(adreno_dev) || adreno_is_a680(adreno_dev))
 		return hfi_send_req(KGSL_GMU_DEVICE(device),
 					 H2F_MSG_START, &req);
@@ -704,7 +707,7 @@ static int a6xx_complete_rpmh_votes(struct kgsl_device *device)
 {
 	int ret = 0;
 
-	if (!gmu_core_isenabled(device))
+	if (!gmu_core_gpmu_isenabled(device))
 		return ret;
 
 	ret |= timed_poll_check(device, A6XX_RSCC_TCS0_DRV0_STATUS, BIT(0),
@@ -735,7 +738,7 @@ int a6xx_gmu_sptprac_enable(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 
-	if (!gmu_core_gpmu_isenabled(device) ||
+	if (!gmu_core_isenabled(device) ||
 			!adreno_has_sptprac_gdsc(adreno_dev))
 		return 0;
 
@@ -763,7 +766,7 @@ void a6xx_gmu_sptprac_disable(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 
-	if (!gmu_core_gpmu_isenabled(device) ||
+	if (!gmu_core_isenabled(device) ||
 			!adreno_has_sptprac_gdsc(adreno_dev))
 		return;
 
@@ -797,6 +800,9 @@ static bool a6xx_gmu_gx_is_on(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int val;
+
+	if (!gmu_core_isenabled(device))
+		return true;
 
 	gmu_core_regread(device, A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &val);
 	return is_on(val);
@@ -871,7 +877,7 @@ static int a6xx_gmu_wait_for_lowest_idle(struct adreno_device *adreno_dev)
 	unsigned long t;
 	uint64_t ts1, ts2, ts3;
 
-	if (!gmu_core_isenabled(device))
+	if (!gmu_core_gpmu_isenabled(device))
 		return 0;
 
 	ts1 = read_AO_counter(device);
@@ -1075,10 +1081,6 @@ static int a6xx_gmu_load_firmware(struct kgsl_device *device)
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	const struct adreno_gpu_core *gpucore = adreno_dev->gpucore;
 	int ret =  -EINVAL;
-
-	/* there is no GMU */
-	if (!gmu_core_isenabled(device))
-		return 0;
 
 	/* GMU fw already saved and verified so do nothing new */
 	if (gmu->fw_image)
@@ -1395,7 +1397,7 @@ static int a6xx_gmu_ifpc_store(struct adreno_device *adreno_dev,
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	unsigned int requested_idle_level;
 
-	if (!gmu_core_isenabled(device) ||
+	if (!gmu_core_gpmu_isenabled(device) ||
 			!ADRENO_FEATURE(adreno_dev, ADRENO_IFPC))
 		return -EINVAL;
 
@@ -1429,7 +1431,8 @@ static unsigned int a6xx_gmu_ifpc_show(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 
-	return gmu_core_isenabled(device) && gmu->idle_level  >= GPU_HW_IFPC;
+	return gmu_core_gpmu_isenabled(device) &&
+			gmu->idle_level  >= GPU_HW_IFPC;
 }
 
 struct gmu_mem_type_desc {
@@ -1518,7 +1521,7 @@ static int a6xx_gmu_wait_for_active_transition(
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 
-	if (!gmu_core_isenabled(device))
+	if (!gmu_core_gpmu_isenabled(device))
 		return 0;
 
 	gmu_core_regread(device,
