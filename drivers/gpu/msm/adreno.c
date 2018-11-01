@@ -1262,6 +1262,22 @@ static void adreno_cx_dbgc_probe(struct kgsl_device *device)
 		KGSL_DRV_WARN(device, "cx_dbgc ioremap failed\n");
 }
 
+static void adreno_cx_misc_probe(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct resource *res;
+
+	res = platform_get_resource_byname(device->pdev, IORESOURCE_MEM,
+					   "cx_misc");
+
+	if (res == NULL)
+		return;
+
+	adreno_dev->cx_misc_len = resource_size(res);
+	adreno_dev->cx_misc_virt = devm_ioremap(device->dev,
+					res->start, adreno_dev->cx_misc_len);
+}
+
 static void adreno_efuse_read_soc_hw_rev(struct adreno_device *adreno_dev)
 {
 	unsigned int val;
@@ -1381,6 +1397,9 @@ static int adreno_probe(struct platform_device *pdev)
 
 	/* Probe for the optional CX_DBGC block */
 	adreno_cx_dbgc_probe(device);
+
+	/* Probe for the optional CX_MISC block */
+	adreno_cx_misc_probe(device);
 
 	/*
 	 * qcom,iommu-secure-id is used to identify MMUs that can handle secure
@@ -3300,6 +3319,54 @@ void adreno_cx_dbgc_regwrite(struct kgsl_device *device,
 	 */
 	wmb();
 	__raw_writel(value, adreno_dev->cx_dbgc_virt + cx_dbgc_offset);
+}
+
+void adreno_cx_misc_regread(struct adreno_device *adreno_dev,
+	unsigned int offsetwords, unsigned int *value)
+{
+	unsigned int cx_misc_offset;
+
+	cx_misc_offset = (offsetwords << 2);
+	if (!adreno_dev->cx_misc_virt ||
+		(cx_misc_offset >= adreno_dev->cx_misc_len))
+		return;
+
+	*value = __raw_readl(adreno_dev->cx_misc_virt + cx_misc_offset);
+
+	/*
+	 * ensure this read finishes before the next one.
+	 * i.e. act like normal readl()
+	 */
+	rmb();
+}
+
+void adreno_cx_misc_regwrite(struct adreno_device *adreno_dev,
+	unsigned int offsetwords, unsigned int value)
+{
+	unsigned int cx_misc_offset;
+
+	cx_misc_offset = (offsetwords << 2);
+	if (!adreno_dev->cx_misc_virt ||
+		(cx_misc_offset >= adreno_dev->cx_misc_len))
+		return;
+
+	/*
+	 * ensure previous writes post before this one,
+	 * i.e. act like normal writel()
+	 */
+	wmb();
+	__raw_writel(value, adreno_dev->cx_misc_virt + cx_misc_offset);
+}
+
+void adreno_cx_misc_regrmw(struct adreno_device *adreno_dev,
+		unsigned int offsetwords,
+		unsigned int mask, unsigned int bits)
+{
+	unsigned int val = 0;
+
+	adreno_cx_misc_regread(adreno_dev, offsetwords, &val);
+	val &= ~mask;
+	adreno_cx_misc_regwrite(adreno_dev, offsetwords, val | bits);
 }
 
 /**

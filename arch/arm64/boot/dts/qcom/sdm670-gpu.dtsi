@@ -49,9 +49,11 @@
 		status = "ok";
 		reg =   <0x5000000 0x40000>,
 			<0x5061000 0x800>,
+			<0x509e000 0x1000>,
 			<0x780000 0x6300>;
 		reg-names =     "kgsl_3d0_reg_memory",
 				"kgsl_3d0_cx_dbgc_memory",
+				"cx_misc",
 				"qfprom_memory";
 		interrupts = <0 300 0>;
 		interrupt-names = "kgsl_3d0_irq";
