@@ -3160,7 +3160,7 @@ static int __init mhi_dev_init(void)
 {
 	return platform_driver_register(&mhi_dev_driver);
 }
-module_init(mhi_dev_init);
+subsys_initcall(mhi_dev_init);
 
 static void __exit mhi_dev_exit(void)
 {
