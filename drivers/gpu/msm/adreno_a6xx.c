@@ -32,17 +32,6 @@
 
 #define MIN_HBB		13
 
-#define A6XX_LLC_NUM_GPU_SCIDS		5
-#define A6XX_GPU_LLC_SCID_NUM_BITS	5
-#define A6XX_GPU_LLC_SCID_MASK \
-	((1 << (A6XX_LLC_NUM_GPU_SCIDS * A6XX_GPU_LLC_SCID_NUM_BITS)) - 1)
-#define A6XX_GPUHTW_LLC_SCID_SHIFT	25
-#define A6XX_GPUHTW_LLC_SCID_MASK \
-	(((1 << A6XX_GPU_LLC_SCID_NUM_BITS) - 1) << A6XX_GPUHTW_LLC_SCID_SHIFT)
-
-#define A6XX_GPU_CX_REG_BASE		0x509E000
-#define A6XX_GPU_CX_REG_SIZE		0x1000
-
 #define GPU_LIMIT_THRESHOLD_ENABLE	BIT(31)
 
 static int _load_gmu_firmware(struct kgsl_device *device);
@@ -2522,24 +2511,6 @@ static void a6xx_err_callback(struct adreno_device *adreno_dev, int bit)
 	}
 }
 
-/* GPU System Cache control registers */
-#define A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_0   0x4
-#define A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_1   0x8
-
-static inline void _reg_rmw(void __iomem *regaddr,
-	unsigned int mask, unsigned int bits)
-{
-	unsigned int val = 0;
-
-	val = __raw_readl(regaddr);
-	/* Make sure the above read completes before we proceed  */
-	rmb();
-	val &= ~mask;
-	__raw_writel(val | bits, regaddr);
-	/* Make sure the above write posts before we proceed*/
-	wmb();
-}
-
 /*
  * a6xx_llc_configure_gpu_scid() - Program the sub-cache ID for all GPU blocks
  * @adreno_dev: The adreno device pointer
@@ -2549,17 +2520,15 @@ static void a6xx_llc_configure_gpu_scid(struct adreno_device *adreno_dev)
 	uint32_t gpu_scid;
 	uint32_t gpu_cntl1_val = 0;
 	int i;
-	void __iomem *gpu_cx_reg;
 
 	gpu_scid = adreno_llc_get_scid(adreno_dev->gpu_llc_slice);
 	for (i = 0; i < A6XX_LLC_NUM_GPU_SCIDS; i++)
 		gpu_cntl1_val = (gpu_cntl1_val << A6XX_GPU_LLC_SCID_NUM_BITS)
 			| gpu_scid;
 
-	gpu_cx_reg = ioremap(A6XX_GPU_CX_REG_BASE, A6XX_GPU_CX_REG_SIZE);
-	_reg_rmw(gpu_cx_reg + A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_1,
+	adreno_cx_misc_regrmw(adreno_dev,
+			A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_1,
 			A6XX_GPU_LLC_SCID_MASK, gpu_cntl1_val);
-	iounmap(gpu_cx_reg);
 }
 
 /*
@@ -2569,15 +2538,13 @@ static void a6xx_llc_configure_gpu_scid(struct adreno_device *adreno_dev)
 static void a6xx_llc_configure_gpuhtw_scid(struct adreno_device *adreno_dev)
 {
 	uint32_t gpuhtw_scid;
-	void __iomem *gpu_cx_reg;
 
 	gpuhtw_scid = adreno_llc_get_scid(adreno_dev->gpuhtw_llc_slice);
 
-	gpu_cx_reg = ioremap(A6XX_GPU_CX_REG_BASE, A6XX_GPU_CX_REG_SIZE);
-	_reg_rmw(gpu_cx_reg + A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_1,
+	adreno_cx_misc_regrmw(adreno_dev,
+			A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_1,
 			A6XX_GPUHTW_LLC_SCID_MASK,
 			gpuhtw_scid << A6XX_GPUHTW_LLC_SCID_SHIFT);
-	iounmap(gpu_cx_reg);
 }
 
 /*
@@ -2586,19 +2553,14 @@ static void a6xx_llc_configure_gpuhtw_scid(struct adreno_device *adreno_dev)
  */
 static void a6xx_llc_enable_overrides(struct adreno_device *adreno_dev)
 {
-	void __iomem *gpu_cx_reg;
-
 	/*
 	 * 0x3: readnoallocoverrideen=0
 	 *      read-no-alloc=0 - Allocate lines on read miss
 	 *      writenoallocoverrideen=1
 	 *      write-no-alloc=1 - Do not allocates lines on write miss
 	 */
-	gpu_cx_reg = ioremap(A6XX_GPU_CX_REG_BASE, A6XX_GPU_CX_REG_SIZE);
-	__raw_writel(0x3, gpu_cx_reg + A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_0);
-	/* Make sure the above write posts before we proceed*/
-	wmb();
-	iounmap(gpu_cx_reg);
+	adreno_cx_misc_regwrite(adreno_dev,
+			A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_0, 0x3);
 }
 
 static const char *fault_block[8] = {
