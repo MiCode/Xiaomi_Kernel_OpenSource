@@ -65,12 +65,10 @@
 			<&clock_gcc GCC_DDRSS_GPU_AXI_CLK>,
 			<&clock_gpucc GPU_CC_AHB_CLK>,
 			<&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
-			<&clock_gcc GCC_GPU_SNOC_DVM_GFX_CLK>,
 			<&clock_gpucc GPU_CC_CX_GMU_CLK>;
 
 		clock-names = "core_clk", "rbbmtimer_clk", "mem_clk",
-				"iface_clk", "mem_iface_clk",
-				"alt_mem_iface_clk", "gmu_clk";
+				"iface_clk", "mem_iface_clk", "gmu_clk";
 
 		/* Bus Scale Settings */
 		qcom,gpubw-dev = <&gpubw>;
@@ -167,7 +165,7 @@
 				qcom,initial-pwrlevel = <5>;
 				qcom,ca-target-pwrlevel = <3>;
 
-				/* SVS_L1 */
+				/* TURBO */
 				qcom,gpu-pwrlevel@0 {
 					reg = <0>;
 					qcom,gpu-freq = <845000000>;
@@ -240,7 +238,7 @@
 				qcom,initial-pwrlevel = <5>;
 				qcom,ca-target-pwrlevel = <3>;
 
-				/* SVS_L1 */
+				/* TURBO */
 				qcom,gpu-pwrlevel@0 {
 					reg = <0>;
 					qcom,gpu-freq = <845000000>;
@@ -313,6 +311,7 @@
 				qcom,initial-pwrlevel = <6>;
 				qcom,ca-target-pwrlevel = <4>;
 
+				/* TURBO L1 */
 				qcom,gpu-pwrlevel@0 {
 					reg = <0>;
 					qcom,gpu-freq = <895000000>;
@@ -320,7 +319,7 @@
 					qcom,bus-min = <10>;
 					qcom,bus-max = <11>;
 				};
-				/* SVS_L1 */
+				/* TURBO */
 				qcom,gpu-pwrlevel@1 {
 					reg = <1>;
 					qcom,gpu-freq = <845000000>;
@@ -456,13 +455,10 @@
 		reg = <0x050a0000 0x10000>;
 		qcom,protect = <0xa0000 0x10000>;
 
-		clocks =<&clock_gcc GCC_GPU_CFG_AHB_CLK>,
-			<&clock_gcc GCC_DDRSS_GPU_AXI_CLK>,
-			<&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
-			<&clock_gcc GCC_GPU_SNOC_DVM_GFX_CLK>;
+		clocks =<&clock_gcc GCC_DDRSS_GPU_AXI_CLK>,
+			<&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>;
 
-		clock-names = "iface_clk", "mem_clk", "mem_iface_clk",
-				"alt_mem_iface_clk";
+		clock-names = "mem_clk", "mem_iface_clk";
 
 		qcom,secure_align_mask = <0xfff>;
 		qcom,retention;
@@ -500,12 +496,9 @@
 			<&clock_gcc GCC_DDRSS_GPU_AXI_CLK>,
 			<&clock_gpucc GPU_CC_AHB_CLK>,
 			<&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
-			<&clock_gcc GCC_GPU_SNOC_DVM_GFX_CLK>,
 			<&clock_gpucc GPU_CC_GX_GFX3D_CLK>;
 
 		clock-names = "gmu", "rbbmtimer", "mem",
-				"iface", "mem_iface",
-				"alt_mem_iface", "core";
-
+				"iface", "mem_iface", "core";
 	};
 };
