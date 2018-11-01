@@ -746,7 +746,7 @@ static void a6xx_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 			+ sizeof(a6xx_pwrup_reglist), a615_pwrup_reglist,
 			sizeof(a615_pwrup_reglist));
 
-		lock->list_length += sizeof(a615_pwrup_reglist);
+		lock->list_length += sizeof(a615_pwrup_reglist) >> 2;
 	}
 }
 
