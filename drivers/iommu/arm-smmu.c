@@ -247,7 +247,6 @@ struct arm_smmu_device {
 #define ARM_SMMU_OPT_NO_ASID_RETENTION	(1 << 5)
 #define ARM_SMMU_OPT_STATIC_CB		(1 << 6)
 #define ARM_SMMU_OPT_DISABLE_ATOS	(1 << 7)
-#define ARM_SMMU_OPT_MIN_IOVA_ALIGN	(1 << 8)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 	enum arm_smmu_implementation	model;
@@ -366,7 +365,6 @@ struct arm_smmu_domain {
 	/* nonsecure pool protected by pgtbl_lock */
 	struct list_head		nonsecure_pool;
 	struct iommu_domain		domain;
-	bool				qsmmuv500_errata1_min_iova_align;
 };
 
 struct arm_smmu_option_prop {
@@ -386,7 +384,6 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_NO_ASID_RETENTION, "qcom,no-asid-retention" },
 	{ ARM_SMMU_OPT_STATIC_CB, "qcom,enable-static-cb"},
 	{ ARM_SMMU_OPT_DISABLE_ATOS, "qcom,disable-atos" },
-	{ ARM_SMMU_OPT_MIN_IOVA_ALIGN, "qcom,min-iova-align" },
 	{ 0, NULL},
 };
 
@@ -3355,10 +3352,6 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 			& (1 << DOMAIN_ATTR_NO_CFRE));
 		ret = 0;
 		break;
-	case DOMAIN_ATTR_QCOM_MMU500_ERRATA_MIN_IOVA_ALIGN:
-		*((int *)data) = smmu_domain->qsmmuv500_errata1_min_iova_align;
-		ret = 0;
-		break;
 	default:
 		ret = -ENODEV;
 		break;
@@ -4870,10 +4863,6 @@ module_exit(arm_smmu_exit);
 
 #define TBU_DBG_TIMEOUT_US		100
 
-#define QSMMUV500_ACTLR_DEEP_PREFETCH_MASK	0x3
-#define QSMMUV500_ACTLR_DEEP_PREFETCH_SHIFT	0x8
-
-
 struct actlr_setting {
 	struct arm_smmu_smr smr;
 	u32 actlr;
@@ -5303,15 +5292,6 @@ static void qsmmuv500_init_cb(struct arm_smmu_domain *smmu_domain,
 	cb_base = ARM_SMMU_CB(smmu, smmu_domain->cfg.cbndx);
 
 	writel_relaxed(iommudata->actlr, cb_base + ARM_SMMU_CB_ACTLR);
-
-	/*
-	 * Prefetch only works properly if the start and end of all
-	 * buffers in the page table are aligned to ARM_SMMU_MIN_IOVA_ALIGN.
-	 */
-	if (((iommudata->actlr >> QSMMUV500_ACTLR_DEEP_PREFETCH_SHIFT) &
-			QSMMUV500_ACTLR_DEEP_PREFETCH_MASK) &&
-				  (smmu->options & ARM_SMMU_OPT_MIN_IOVA_ALIGN))
-		smmu_domain->qsmmuv500_errata1_min_iova_align = true;
 
 	/*
 	 * Flush the context bank after modifying ACTLR to ensure there

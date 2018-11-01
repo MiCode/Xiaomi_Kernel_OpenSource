@@ -39,8 +39,6 @@
 #include <linux/of_address.h>
 #include <linux/dma-mapping-fast.h>
 #include <linux/msm_dma_iommu_mapping.h>
-#include <linux/arm-smmu-errata.h>
-#include <soc/qcom/secure_buffer.h>
 
 
 static int swiotlb __ro_after_init;
