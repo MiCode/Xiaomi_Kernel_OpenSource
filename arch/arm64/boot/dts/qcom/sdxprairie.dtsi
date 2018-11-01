@@ -426,6 +426,12 @@
 			#interrupt-cells = <2>;
 		};
 	};
+
+	qcom_tzlog: tz-log@0x1468f720 {
+		compatible = "qcom,tz-log";
+		reg = <0x1468f720 0x2000>;
+		status = "disabled";
+	};
 };
 
 #include "sdxprairie-pm.dtsi"
