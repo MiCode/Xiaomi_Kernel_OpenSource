@@ -1497,7 +1497,7 @@ static int __iface_cmdq_write(struct venus_hfi_device *device, void *pkt)
 		/* Consumer of cmdq prefers that we raise an interrupt */
 		rc = 0;
 		__write_register(device, VIDC_CPU_IC_SOFTINT,
-				1 << VIDC_CPU_IC_SOFTINT_H2A_SHFT);
+				VIDC_CPU_IC_SOFTINT_H2A_SHFT);
 	}
 
 	return rc;
@@ -1533,7 +1533,7 @@ static int __iface_msgq_read(struct venus_hfi_device *device, void *pkt)
 		__hal_sim_modify_msg_packet((u8 *)pkt, device);
 		if (tx_req_is_set)
 			__write_register(device, VIDC_CPU_IC_SOFTINT,
-				1 << VIDC_CPU_IC_SOFTINT_H2A_SHFT);
+				VIDC_CPU_IC_SOFTINT_H2A_SHFT);
 		rc = 0;
 	} else
 		rc = -ENODATA;
@@ -1565,7 +1565,7 @@ static int __iface_dbgq_read(struct venus_hfi_device *device, void *pkt)
 	if (!__read_queue(q_info, (u8 *)pkt, &tx_req_is_set)) {
 		if (tx_req_is_set)
 			__write_register(device, VIDC_CPU_IC_SOFTINT,
-				1 << VIDC_CPU_IC_SOFTINT_H2A_SHFT);
+				VIDC_CPU_IC_SOFTINT_H2A_SHFT);
 		rc = 0;
 	} else
 		rc = -ENODATA;
