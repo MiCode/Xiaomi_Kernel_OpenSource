@@ -1558,7 +1558,7 @@ int gsi_alloc_evt_ring(struct gsi_evt_ring_props *props, unsigned long dev_hdl,
 	atomic_inc(&gsi_ctx->num_evt_ring);
 	if (props->intf == GSI_EVT_CHTYPE_GPI_EV)
 		gsi_prime_evt_ring(ctx);
-	else if (props->intf == GSI_EVT_CHTYPE_WDI_EV)
+	else if (props->intf == GSI_EVT_CHTYPE_WDI2_EV)
 		gsi_prime_evt_ring_wdi(ctx);
 	mutex_unlock(&gsi_ctx->mlock);
 
@@ -1756,6 +1756,44 @@ int gsi_ring_evt_ring_db(unsigned long evt_ring_hdl, uint64_t value)
 }
 EXPORT_SYMBOL(gsi_ring_evt_ring_db);
 
+int gsi_ring_ch_ring_db(unsigned long chan_hdl, uint64_t value)
+{
+	struct gsi_chan_ctx *ctx;
+	uint32_t val;
+
+	if (!gsi_ctx) {
+		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
+		return -GSI_STATUS_NODEV;
+	}
+
+	if (chan_hdl >= gsi_ctx->max_ch) {
+		GSIERR("bad chan_hdl=%lu\n", chan_hdl);
+		return -GSI_STATUS_INVALID_PARAMS;
+	}
+
+	ctx = &gsi_ctx->chan[chan_hdl];
+
+	if (ctx->state != GSI_CHAN_STATE_STARTED) {
+		GSIERR("bad state %d\n", ctx->state);
+		return -GSI_STATUS_UNSUPPORTED_OP;
+	}
+
+	ctx->ring.wp_local = value;
+
+	/* write MSB first */
+	val = ((ctx->ring.wp_local >> 32) &
+		GSI_EE_n_GSI_CH_k_DOORBELL_1_WRITE_PTR_MSB_BMSK) <<
+		GSI_EE_n_GSI_CH_k_DOORBELL_1_WRITE_PTR_MSB_SHFT;
+	gsi_writel(val, gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_DOORBELL_1_OFFS(ctx->props.ch_id,
+			gsi_ctx->per.ee));
+
+	gsi_ring_chan_doorbell(ctx);
+
+	return GSI_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(gsi_ring_ch_ring_db);
+
 int gsi_reset_evt_ring(unsigned long evt_ring_hdl)
 {
 	uint32_t val;
@@ -1813,7 +1851,7 @@ int gsi_reset_evt_ring(unsigned long evt_ring_hdl)
 
 	if (ctx->props.intf == GSI_EVT_CHTYPE_GPI_EV)
 		gsi_prime_evt_ring(ctx);
-	if (ctx->props.intf == GSI_EVT_CHTYPE_WDI_EV)
+	if (ctx->props.intf == GSI_EVT_CHTYPE_WDI2_EV)
 		gsi_prime_evt_ring_wdi(ctx);
 	mutex_unlock(&gsi_ctx->mlock);
 
@@ -1961,15 +1999,23 @@ static void gsi_program_chan_ctx(struct gsi_chan_props *props, unsigned int ee,
 	case GSI_CHAN_PROT_XHCI:
 	case GSI_CHAN_PROT_GPI:
 	case GSI_CHAN_PROT_XDCI:
-	case GSI_CHAN_PROT_WDI:
-		prot = props->prot;
+	case GSI_CHAN_PROT_WDI2:
+	case GSI_CHAN_PROT_WDI3:
+	case GSI_CHAN_PROT_GCI:
+	case GSI_CHAN_PROT_MHIP:
 		prot_msb = 0;
+		break;
+	case GSI_CHAN_PROT_AQC:
+	case GSI_CHAN_PROT_11AD:
+		prot_msb = 1;
 		break;
 	default:
 		GSIERR("Unsupported protocol %d\n", props->prot);
 		WARN_ON(1);
 		return;
 	}
+	prot = props->prot;
+
 	val = ((prot <<
 		GSI_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_PROTOCOL_SHFT) &
 		GSI_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_PROTOCOL_BMSK);
