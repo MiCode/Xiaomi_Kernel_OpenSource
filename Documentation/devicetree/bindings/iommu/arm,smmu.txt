@@ -138,14 +138,6 @@ conditions.
                   clients who do not detach, it's not possible to keep regulator
                   vote while smmu is attached. Type is <u32>.
 
-- qcom,min-iova-align:
-		  Some hardware revision might have the deep prefetch bug where
-		  invalid entries in the prefetch window would cause improper
-		  permissions to be cached for the valid entries in this window.
-		  Enable the workaround on such hardware by aligning the start
-		  and end of all mapped buffers to prefetch size boundary, which
-		  is defined by ARM_SMMU_MIN_IOVA_ALIGN.
-
 - clocks        : List of clocks to be used during SMMU register access. See
                   Documentation/devicetree/bindings/clock/clock-bindings.txt
                   for information about the format. For each clock specified
