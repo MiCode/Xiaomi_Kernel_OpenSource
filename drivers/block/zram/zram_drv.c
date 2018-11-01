@@ -44,6 +44,11 @@ static const char *default_compressor = "lzo";
 
 /* Module params (documentation at end) */
 static unsigned int num_devices = 1;
+/*
+ * Pages that compress to sizes equals or greater than this are stored
+ * uncompressed in memory.
+ */
+static size_t huge_class_size;
 
 static void zram_free_page(struct zram *zram, size_t index);
 
@@ -339,6 +344,7 @@ static ssize_t backing_dev_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t len)
 {
 	char *file_name;
+	size_t sz;
 	struct file *backing_dev = NULL;
 	struct inode *inode;
 	struct address_space *mapping;
@@ -360,7 +366,11 @@ static ssize_t backing_dev_store(struct device *dev,
 		goto out;
 	}
 
-	strlcpy(file_name, buf, len);
+	strlcpy(file_name, buf, PATH_MAX);
+	/* ignore trailing newline */
+	sz = strlen(file_name);
+	if (sz > 0 && file_name[sz - 1] == '\n')
+		file_name[sz - 1] = 0x00;
 
 	backing_dev = filp_open(file_name, O_RDWR|O_LARGEFILE, 0);
 	if (IS_ERR(backing_dev)) {
@@ -926,6 +936,8 @@ static bool zram_meta_alloc(struct zram *zram, u64 disksize)
 		return false;
 	}
 
+	if (!huge_class_size)
+		huge_class_size = zs_huge_class_size(zram->mem_pool);
 	return true;
 }
 
@@ -1112,8 +1124,7 @@ compress_again:
 		return ret;
 	}
 
-	if (unlikely(comp_len > max_zpage_size)) {
-		comp_len = PAGE_SIZE;
+	if (unlikely(comp_len >= huge_class_size)) {
 		if (zram_wb_enabled(zram) && allow_wb) {
 			zcomp_stream_put(zram->comp);
 			ret = write_to_bdev(zram, bvec, index, bio, &element);
