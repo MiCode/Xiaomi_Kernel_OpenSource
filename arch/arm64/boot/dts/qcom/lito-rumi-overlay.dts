@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include "lito-rumi.dtsi"
+
+/ {
+	model = "RUMI";
+	compatible = "qcom,lito-rumi", "qcom,lito", "qcom,rumi";
+	qcom,msm-id = <777 0x0>;
+	qcom,board-id = <15 0>;
+};
