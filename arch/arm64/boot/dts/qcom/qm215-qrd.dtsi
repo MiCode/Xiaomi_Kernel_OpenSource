@@ -17,6 +17,7 @@
 
 &pm8916_chg{
 	status = "ok";
+	qcom,chgr-led-support;
 };
 
 &pm8916_bms{
