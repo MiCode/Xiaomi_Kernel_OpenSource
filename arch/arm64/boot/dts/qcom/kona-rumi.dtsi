@@ -118,6 +118,10 @@
 	};
 };
 
+&ipa_hw {
+	qcom,ipa-hw-mode = <1>; /* IPA hw type =  Virtual */
+};
+
 &mhi_0 {
 	mhi,timeout = <10000>;
 
