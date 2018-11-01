@@ -633,7 +633,7 @@ static int dsi_display_read_status(struct dsi_display_ctrl *ctrl,
 	 * report a false ESD failure and hence we defer until next read
 	 * happen.
 	 */
-	if (dsi_ctrl_validate_host_state(ctrl->ctrl))
+	if (!dsi_ctrl_validate_host_state(ctrl->ctrl))
 		return 1;
 
 	config = &(panel->esd_config);
@@ -5854,13 +5854,40 @@ error:
 	return rc;
 }
 
+static bool _dsi_display_validate_host_state(struct dsi_display *display)
+{
+	int i;
+	struct dsi_display_ctrl *ctrl;
+
+	display_for_each_ctrl(i, display) {
+		ctrl = &display->ctrl[i];
+		if (!ctrl->ctrl)
+			continue;
+		if (!dsi_ctrl_validate_host_state(ctrl->ctrl))
+			return false;
+	}
+
+	return true;
+}
+
 static void dsi_display_handle_fifo_underflow(struct work_struct *work)
 {
 	struct dsi_display *display = NULL;
 
-	display =  container_of(work, struct dsi_display, fifo_underflow_work);
-	if (!display)
+	display = container_of(work, struct dsi_display, fifo_underflow_work);
+	if (!display || !display->panel ||
+	    atomic_read(&display->panel->esd_recovery_pending)) {
+		pr_debug("Invalid recovery use case\n");
 		return;
+	}
+
+	mutex_lock(&display->display_lock);
+
+	if (!_dsi_display_validate_host_state(display)) {
+		mutex_unlock(&display->display_lock);
+		return;
+	}
+
 	pr_debug("handle DSI FIFO underflow error\n");
 
 	dsi_display_clk_ctrl(display->dsi_clk_handle,
@@ -5868,6 +5895,8 @@ static void dsi_display_handle_fifo_underflow(struct work_struct *work)
 	dsi_display_soft_reset(display);
 	dsi_display_clk_ctrl(display->dsi_clk_handle,
 			DSI_ALL_CLKS, DSI_CLK_OFF);
+
+	mutex_unlock(&display->display_lock);
 }
 
 static void dsi_display_handle_fifo_overflow(struct work_struct *work)
@@ -5883,10 +5912,20 @@ static void dsi_display_handle_fifo_overflow(struct work_struct *work)
 	void *data;
 	u32 version = 0;
 
-	display =  container_of(work, struct dsi_display, fifo_overflow_work);
+	display = container_of(work, struct dsi_display, fifo_overflow_work);
 	if (!display || !display->panel ||
-			(display->panel->panel_mode != DSI_OP_VIDEO_MODE))
+	    (display->panel->panel_mode != DSI_OP_VIDEO_MODE) ||
+	    atomic_read(&display->panel->esd_recovery_pending)) {
+		pr_debug("Invalid recovery use case\n");
 		return;
+	}
+
+	mutex_lock(&display->display_lock);
+
+	if (!_dsi_display_validate_host_state(display)) {
+		mutex_unlock(&display->display_lock);
+		return;
+	}
 
 	pr_debug("handle DSI FIFO overflow error\n");
 	dsi_display_clk_ctrl(display->dsi_clk_handle,
@@ -5934,6 +5973,7 @@ static void dsi_display_handle_fifo_overflow(struct work_struct *work)
 end:
 	dsi_display_clk_ctrl(display->dsi_clk_handle,
 			DSI_ALL_CLKS, DSI_CLK_OFF);
+	mutex_unlock(&display->display_lock);
 }
 
 static void dsi_display_handle_lp_rx_timeout(struct work_struct *work)
@@ -5949,10 +5989,21 @@ static void dsi_display_handle_lp_rx_timeout(struct work_struct *work)
 	void *data;
 	u32 version = 0;
 
-	display =  container_of(work, struct dsi_display, lp_rx_timeout_work);
+	display = container_of(work, struct dsi_display, lp_rx_timeout_work);
 	if (!display || !display->panel ||
-			(display->panel->panel_mode != DSI_OP_VIDEO_MODE))
+	    (display->panel->panel_mode != DSI_OP_VIDEO_MODE) ||
+	    atomic_read(&display->panel->esd_recovery_pending)) {
+		pr_debug("Invalid recovery use case\n");
 		return;
+	}
+
+	mutex_lock(&display->display_lock);
+
+	if (!_dsi_display_validate_host_state(display)) {
+		mutex_unlock(&display->display_lock);
+		return;
+	}
+
 	pr_debug("handle DSI LP RX Timeout error\n");
 
 	dsi_display_clk_ctrl(display->dsi_clk_handle,
@@ -5997,9 +6048,11 @@ static void dsi_display_handle_lp_rx_timeout(struct work_struct *work)
 	 * pixel transmission as started
 	 */
 	udelay(200);
+
 end:
 	dsi_display_clk_ctrl(display->dsi_clk_handle,
 			DSI_ALL_CLKS, DSI_CLK_OFF);
+	mutex_unlock(&display->display_lock);
 }
 
 static int dsi_display_cb_error_handler(void *data,
@@ -6074,11 +6127,13 @@ static void dsi_display_unregister_error_handler(struct dsi_display *display)
 	display_for_each_ctrl(i, display) {
 		ctrl = &display->ctrl[i];
 		memset(&ctrl->ctrl->irq_info.irq_err_cb,
-				0, sizeof(struct dsi_event_cb_info));
+		       0, sizeof(struct dsi_event_cb_info));
 	}
 
-	if (display->err_workq)
+	if (display->err_workq) {
 		destroy_workqueue(display->err_workq);
+		display->err_workq = NULL;
+	}
 }
 
 int dsi_display_prepare(struct dsi_display *display)
@@ -6754,15 +6809,16 @@ int dsi_display_unprepare(struct dsi_display *display)
 	/* destrory dsi isr set up */
 	dsi_display_ctrl_isr_configure(display, false);
 
-	/* Free up DSI ERROR event callback */
-	dsi_display_unregister_error_handler(display);
-
 	rc = dsi_panel_post_unprepare(display->panel);
 	if (rc)
 		pr_err("[%s] panel post-unprepare failed, rc=%d\n",
 		       display->name, rc);
 
 	mutex_unlock(&display->display_lock);
+
+	/* Free up DSI ERROR event callback */
+	dsi_display_unregister_error_handler(display);
+
 	SDE_EVT32(SDE_EVTLOG_FUNC_EXIT);
 	return rc;
 }

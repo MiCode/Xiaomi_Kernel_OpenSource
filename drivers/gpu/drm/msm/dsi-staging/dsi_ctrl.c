@@ -420,9 +420,9 @@ bool dsi_ctrl_validate_host_state(struct dsi_ctrl *dsi_ctrl)
 	}
 
 	if (!state->host_initialized)
-		return true;
+		return false;
 
-	return false;
+	return true;
 }
 
 static void dsi_ctrl_update_state(struct dsi_ctrl *dsi_ctrl,
