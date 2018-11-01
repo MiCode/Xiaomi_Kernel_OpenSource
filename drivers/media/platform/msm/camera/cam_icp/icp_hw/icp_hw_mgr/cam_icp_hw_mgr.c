@@ -4648,6 +4648,12 @@ static int cam_icp_mgr_alloc_devs(struct device_node *of_node)
 		goto num_bps_failed;
 	}
 
+	icp_hw_mgr.ipe_bps_pc_flag = of_property_read_bool(of_node,
+		"ipe_bps_pc_en");
+
+	icp_hw_mgr.icp_pc_flag = of_property_read_bool(of_node,
+		"icp_pc_en");
+
 	return 0;
 num_bps_failed:
 	kfree(icp_hw_mgr.devices[CAM_ICP_DEV_IPE]);
@@ -4783,9 +4789,6 @@ static int cam_icp_mgr_create_wq(void)
 	rc = cam_icp_hw_mgr_create_debugfs_entry();
 	if (rc)
 		goto debugfs_create_failed;
-
-	icp_hw_mgr.icp_pc_flag = true;
-	icp_hw_mgr.ipe_bps_pc_flag = false;
 
 	for (i = 0; i < ICP_WORKQ_NUM_TASK; i++)
 		icp_hw_mgr.msg_work->task.pool[i].payload =
