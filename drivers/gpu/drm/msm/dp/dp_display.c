@@ -768,6 +768,31 @@ end:
 	return rc;
 }
 
+static int dp_display_stream_pre_disable(struct dp_display_private *dp,
+			struct dp_panel *dp_panel)
+{
+	dp->ctrl->stream_pre_off(dp->ctrl, dp_panel);
+
+	return 0;
+}
+
+static void dp_display_stream_disable(struct dp_display_private *dp,
+			struct dp_panel *dp_panel)
+{
+	if (!dp->active_stream_cnt) {
+		pr_err("invalid active_stream_cnt (%d)\n",
+				dp->active_stream_cnt);
+		return;
+	}
+
+	pr_debug("stream_id=%d, active_stream_cnt=%d\n",
+			dp_panel->stream_id, dp->active_stream_cnt);
+
+	dp->ctrl->stream_off(dp->ctrl, dp_panel);
+	dp->active_panels[dp_panel->stream_id] = NULL;
+	dp->active_stream_cnt--;
+}
+
 static void dp_display_clean(struct dp_display_private *dp)
 {
 	int idx;
@@ -787,11 +812,16 @@ static void dp_display_clean(struct dp_display_private *dp)
 
 		dp_panel = dp->active_panels[idx];
 
-		dp->ctrl->stream_pre_off(dp->ctrl, dp_panel);
-		dp->ctrl->stream_off(dp->ctrl, dp_panel);
+		dp_display_stream_pre_disable(dp, dp_panel);
+		dp_display_stream_disable(dp, dp_panel);
+		dp_panel->deinit(dp_panel);
 	}
 
 	dp->power_on = false;
+
+	mutex_lock(&dp->session_lock);
+	dp->ctrl->off(dp->ctrl);
+	mutex_unlock(&dp->session_lock);
 }
 
 static int dp_display_handle_disconnect(struct dp_display_private *dp)
@@ -862,22 +892,6 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 	dp->dp_display.post_open = NULL;
 end:
 	return rc;
-}
-
-static void dp_display_stream_disable(struct dp_display_private *dp,
-			struct dp_panel *dp_panel)
-{
-	if (!dp->active_stream_cnt) {
-		pr_err("invalid active_stream_cnt (%d)\n");
-		return;
-	}
-
-	pr_debug("stream_id=%d, active_stream_cnt=%d\n",
-			dp_panel->stream_id, dp->active_stream_cnt);
-
-	dp->ctrl->stream_off(dp->ctrl, dp_panel);
-	dp->active_panels[dp_panel->stream_id] = NULL;
-	dp->active_stream_cnt--;
 }
 
 static int dp_display_stream_enable(struct dp_display_private *dp,
@@ -1464,14 +1478,6 @@ end:
 
 	complete_all(&dp->notification_comp);
 	mutex_unlock(&dp->session_lock);
-	return 0;
-}
-
-static int dp_display_stream_pre_disable(struct dp_display_private *dp,
-			struct dp_panel *dp_panel)
-{
-	dp->ctrl->stream_pre_off(dp->ctrl, dp_panel);
-
 	return 0;
 }
 
