@@ -445,6 +445,7 @@
 		vdd_dig-supply = <&pm8937_s2_level>;
 		vdd_hf_dig-supply = <&pm8937_s2_level_ao>;
 		vdd_hf_pll-supply = <&pm8937_l7_ao>;
+		qcom,gfx3d_clk_src-opp-store-vcorner = <&msm_gpu>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
