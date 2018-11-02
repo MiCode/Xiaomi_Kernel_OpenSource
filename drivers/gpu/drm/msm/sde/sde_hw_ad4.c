@@ -1075,15 +1075,18 @@ static int ad4_roi_coordinate_offset(struct sde_hw_cp_cfg *hw_cfg,
 		/* the region occupy both sides of screen: left and right */
 		if (hw_lm->cfg.right_mixer) {
 			output->h_start = 0;
-			output->h_end -= hw_lm->cfg.out_width;
+			output->h_end -= (hw_lm->cfg.out_width -
+					MERGE_WIDTH_RIGHT);
 		} else {
 			output->h_end = hw_lm->cfg.out_width;
 		}
 	} else {
 		/* the region on the right of the screen*/
 		if (hw_lm->cfg.right_mixer) {
-			output->h_start -= hw_lm->cfg.out_width;
-			output->h_end -= hw_lm->cfg.out_width;
+			output->h_start -= (hw_lm->cfg.out_width -
+					MERGE_WIDTH_RIGHT);
+			output->h_end -= (hw_lm->cfg.out_width -
+					MERGE_WIDTH_RIGHT);
 		} else {
 			output->h_start = 0;
 			output->h_end = 0;
