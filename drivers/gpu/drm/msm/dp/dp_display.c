@@ -1514,11 +1514,6 @@ static int dp_display_pre_disable(struct dp_display *dp_display, void *panel)
 
 	rc = dp_display_stream_pre_disable(dp, dp_panel);
 
-	if (dp_display_is_ready(dp) && !dp->mst.mst_active) {
-		dp->link->psm_config(dp->link, &dp->panel->link_info, true);
-		dp->debug->psm_enabled = true;
-	}
-
 end:
 	mutex_unlock(&dp->session_lock);
 	return 0;
@@ -1545,26 +1540,6 @@ static int dp_display_disable(struct dp_display *dp_display, void *panel)
 	}
 
 	dp_display_stream_disable(dp, dp_panel);
-
-	if (dp->active_stream_cnt) {
-		pr_debug("active stream present\n");
-		goto end;
-	}
-
-	/*
-	 * In case of framework reboot, the DP off sequence is executed without
-	 * any notification from driver. Initialize post_open callback to notify
-	 * DP connection once framework restarts.
-	 */
-	if (dp_display_is_ready(dp) && !dp->mst.mst_active) {
-		dp_display->post_open = dp_display_post_open;
-		dp->dp_display.is_sst_connected = false;
-
-		dp->ctrl->off(dp->ctrl);
-		dp_display_host_deinit(dp);
-	}
-
-	dp->power_on = false;
 
 	/* log this as it results from user action of cable dis-connection */
 	pr_info("[OK]\n");
@@ -1635,10 +1610,28 @@ static int dp_display_unprepare(struct dp_display *dp_display, void *panel)
 	if (dp->active_stream_cnt)
 		goto end;
 
+	if (dp_display_is_ready(dp)) {
+		dp->link->psm_config(dp->link, &dp->panel->link_info, true);
+		dp->debug->psm_enabled = true;
+
+		/*
+		 * In case of framework reboot, the DP off sequence is executed
+		 * without any notification from driver. Initialize post_open
+		 * callback to notify DP connection once framework restarts.
+		 */
+		dp_display->post_open = dp_display_post_open;
+		dp->dp_display.is_sst_connected = false;
+
+		dp->ctrl->off(dp->ctrl);
+		dp_display_host_deinit(dp);
+	}
+
+	dp->power_on = false;
 	dp->aux->state = DP_STATE_CTRL_POWERED_OFF;
 
 	complete_all(&dp->notification_comp);
 
+	pr_debug("[OK]\n");
 end:
 	mutex_unlock(&dp->session_lock);
 
