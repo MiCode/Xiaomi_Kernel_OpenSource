@@ -1587,7 +1587,7 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 			}
 
 			rc = set_actual_buffer_count(inst,
-				bufreq->buffer_count_actual,
+				bufreq->buffer_count_min,
 				HAL_BUFFER_OUTPUT);
 			if (rc)
 				break;
