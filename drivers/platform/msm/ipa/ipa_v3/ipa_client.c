@@ -288,6 +288,8 @@ static int ipa3_reset_with_open_aggr_frame_wa(u32 clnt_hdl,
 	if (result)
 		return -EFAULT;
 
+	memset(&ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
+
 	ipahal_read_reg_n_fields(IPA_ENDP_INIT_CTRL_n, clnt_hdl, &ctrl);
 	if (ctrl.ipa_ep_suspend) {
 		IPADBG("pipe is suspended, remove suspend\n");
@@ -432,10 +434,17 @@ int ipa3_reset_gsi_channel(u32 clnt_hdl)
 	}
 
 	/*
+	 * for IPA 4.0 and above aggregation frame is closed together with
+	 * channel STOP. Below workaround not required for IPA 4.0 and above
+	 * versions.
+	 */
+
+	/*
 	 * Check for open aggregation frame on Consumer EP -
 	 * reset with open aggregation frame WA
 	 */
-	if (IPA_CLIENT_IS_CONS(ep->client)) {
+	if (IPA_CLIENT_IS_CONS(ep->client) &&
+			ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) {
 		aggr_active_bitmap = ipahal_read_reg(IPA_STATE_AGGR_ACTIVE);
 		if (aggr_active_bitmap & (1 << clnt_hdl)) {
 			result = ipa3_reset_with_open_aggr_frame_wa(clnt_hdl,
