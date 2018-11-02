@@ -890,19 +890,6 @@ err:
 	return NULL;
 }
 
-static int dsi_parser_check_buffer_overflow(int rc, int *max_size, int *len)
-{
-	if (rc >= *max_size) {
-		pr_err("buffer overflow, rc=%d, max_size=%d\n",
-			rc, *max_size);
-		return -ENOMEM;
-	}
-	*len += rc;
-	*max_size = SZ_4K - *len;
-
-	return 0;
-}
-
 static int dsi_parser_read_file(struct dsi_parser *parser,
 				const u8 **buf, u32 *size)
 {
@@ -1016,24 +1003,20 @@ static ssize_t dsi_parser_read_node(struct file *file,
 		char __user *user_buff, size_t count, loff_t *ppos)
 {
 	char *buf = NULL;
-	int i, j, len = 0, rc = 0, max_size = SZ_4K;
+	int i, j, len = 0, max_size = SZ_4K;
 	struct dsi_parser *parser = file->private_data;
 	struct dsi_parser_node *node;
 	struct dsi_parser_prop *prop;
 
-	if (!parser) {
-		len = -ENODEV;
-		goto error;
-	}
+	if (!parser)
+		return -ENODEV;
 
 	if (*ppos)
-		goto error;
+		return len;
 
-	buf = devm_kzalloc(parser->dev, SZ_4K, GFP_KERNEL);
-	if (!buf) {
-		len = -ENOMEM;
-		goto error;
-	}
+	buf = kzalloc(SZ_4K, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
 
 	node = parser->current_node;
 	if (!node) {
@@ -1043,68 +1026,59 @@ static ssize_t dsi_parser_read_node(struct file *file,
 
 	prop = node->prop;
 
-	rc = snprintf(buf + len, max_size, "node name=%s\n", node->name);
-	rc = dsi_parser_check_buffer_overflow(rc, &max_size, &len);
-	if (rc)
-		goto error;
+	len += scnprintf(buf + len, max_size - len, "node name=%s\n",
+		node->name);
+	if (len == max_size)
+		goto buffer_overflow;
 
-	rc = snprintf(buf + len, max_size, "children count=%d\n",
+	len += scnprintf(buf + len, max_size - len, "children count=%d\n",
 		node->children_count);
-	rc = dsi_parser_check_buffer_overflow(rc, &max_size, &len);
-	if (rc)
-		goto error;
+	if (len == max_size)
+		goto buffer_overflow;
 
 	for (i = 0; i < node->children_count; i++) {
-		rc = snprintf(buf + len, max_size, "child[%d]=%s\n",
+		len += scnprintf(buf + len, max_size - len, "child[%d]=%s\n",
 			i, node->child[i]->name);
-		rc = dsi_parser_check_buffer_overflow(rc, &max_size, &len);
-		if (rc)
-			goto error;
+		if (len == max_size)
+			goto buffer_overflow;
 	}
 
 	for (i = 0; i < node->prop_count; i++) {
 		if (!prop[i].name)
 			continue;
 
-		rc = snprintf(buf + len, max_size,
+		len += scnprintf(buf + len, max_size - len,
 			"property=%s\n", prop[i].name);
-		rc = dsi_parser_check_buffer_overflow(rc, &max_size, &len);
-		if (rc)
-			goto error;
+		if (len == max_size)
+			goto buffer_overflow;
 
 		if (prop[i].value) {
 			if (prop[i].type == DSI_PROP_TYPE_STR) {
-				rc = snprintf(buf + len, max_size,
+				len += scnprintf(buf + len, max_size - len,
 					"value=%s\n", prop[i].value);
-				rc = dsi_parser_check_buffer_overflow(
-						rc, &max_size, &len);
-				if (rc)
-					goto error;
+				if (len == max_size)
+					goto buffer_overflow;
 			} else {
 				for (j = 0; j < prop[i].len; j++) {
-					rc = snprintf(buf + len, max_size,
+					len += scnprintf(buf + len,
+						max_size - len,
 						"%x", prop[i].value[j]);
-					rc = dsi_parser_check_buffer_overflow(
-							rc, &max_size, &len);
-					if (rc)
-						goto error;
+					if (len == max_size)
+						goto buffer_overflow;
 				}
 
-				rc = snprintf(buf + len, max_size, "\n");
-				rc = dsi_parser_check_buffer_overflow(
-						rc, &max_size, &len);
-				if (rc)
-					goto error;
+				len += scnprintf(buf + len, max_size - len,
+						"\n");
+				if (len == max_size)
+					goto buffer_overflow;
 
 			}
 		}
 
 		if (prop[i].len) {
-			rc = snprintf(buf + len, max_size, "items:\n");
-			rc = dsi_parser_check_buffer_overflow(rc, &max_size,
-								&len);
-			if (rc)
-				goto error;
+			len += scnprintf(buf + len, max_size - len, "items:\n");
+			if (len == max_size)
+				goto buffer_overflow;
 		}
 
 		for (j = 0; j < prop[i].len; j++) {
@@ -1115,28 +1089,23 @@ static ssize_t dsi_parser_read_node(struct file *file,
 			else
 				delim = ' ';
 
-			rc = snprintf(buf + len, max_size, "%s%c",
+			len += scnprintf(buf + len, max_size - len, "%s%c",
 				prop[i].items[j], delim);
-			rc = dsi_parser_check_buffer_overflow(rc, &max_size,
-								&len);
-			if (rc)
-				goto error;
+			if (len == max_size)
+				goto buffer_overflow;
 		}
 
-		rc = snprintf(buf + len, max_size, "\n\n");
-		rc = dsi_parser_check_buffer_overflow(rc, &max_size, &len);
-		if (rc)
-			goto error;
+		len += scnprintf(buf + len, max_size - len, "\n\n");
+		if (len == max_size)
+			goto buffer_overflow;
 	}
-error:
-	if (copy_to_user(user_buff, buf, len)) {
+buffer_overflow:
+	if (simple_read_from_buffer(user_buff, count, ppos, buf, len)) {
 		len = -EFAULT;
 		goto error;
 	}
-	*ppos += len;
-
-	if (buf)
-		devm_kfree(parser->dev, buf);
+error:
+	kfree(buf);
 
 	return len;
 }
