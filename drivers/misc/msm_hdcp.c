@@ -38,11 +38,11 @@ struct msm_hdcp {
 	struct HDCP_V2V1_MSG_TOPOLOGY cached_tp;
 	u32 tp_msgid;
 	void *client_ctx;
-	void (*cb)(void *ctx, int data);
+	void (*cb)(void *ctx, u8 data);
 };
 
 void msm_hdcp_register_cb(struct device *dev, void *ctx,
-		void (*cb)(void *ctx, int data))
+		void (*cb)(void *ctx, u8 data))
 {
 	struct msm_hdcp *hdcp = NULL;
 
@@ -278,7 +278,7 @@ static int msm_hdcp_probe(struct platform_device *pdev)
 	}
 
 	hdcp->device = device_create(hdcp->class, NULL,
-		hdcp->dev_num, NULL, DRIVER_NAME);
+		hdcp->dev_num, hdcp, DRIVER_NAME);
 	if (IS_ERR(hdcp->device)) {
 		ret = PTR_ERR(hdcp->device);
 		pr_err("device_create failed %d\n", ret);
