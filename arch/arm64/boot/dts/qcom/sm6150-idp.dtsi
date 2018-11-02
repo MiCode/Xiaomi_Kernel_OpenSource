@@ -215,6 +215,8 @@
 };
 
 &smb1390_charger {
+	/delete-property/ compatible;
+	compatible = "qcom,smb1390-charger-psy";
 	io-channels = <&pm6150_vadc ADC_AMUX_THM3>;
 	io-channel-names = "cp_die_temp";
 	status = "ok";
