@@ -852,16 +852,19 @@ int ipa_bridge_connect(u32 hdl)
 		return 0;
 	}
 
+	mutex_lock(&ipa_gsb_ctx->lock);
 	if (ipa_gsb_ctx->num_connected_iface == 0) {
 		ret = ipa_pm_activate_sync(ipa_gsb_ctx->pm_hdl);
 		if (ret) {
 			IPA_GSB_ERR("failed to activate ipa pm\n");
+			mutex_unlock(&ipa_gsb_ctx->lock);
 			mutex_unlock(&ipa_gsb_ctx->iface_lock[hdl]);
 			return ret;
 		}
 		ret = ipa_gsb_connect_sys_pipe();
 		if (ret) {
 			IPA_GSB_ERR("fail to connect pipe\n");
+			mutex_unlock(&ipa_gsb_ctx->lock);
 			mutex_unlock(&ipa_gsb_ctx->iface_lock[hdl]);
 			return ret;
 		}
@@ -877,7 +880,7 @@ int ipa_bridge_connect(u32 hdl)
 	ipa_gsb_ctx->num_resumed_iface++;
 	IPA_GSB_DBG("num resumed iface: %d\n",
 		ipa_gsb_ctx->num_resumed_iface);
-
+	mutex_unlock(&ipa_gsb_ctx->lock);
 	mutex_unlock(&ipa_gsb_ctx->iface_lock[hdl]);
 	return 0;
 }
@@ -938,6 +941,7 @@ int ipa_bridge_disconnect(u32 hdl)
 		goto fail;
 	}
 
+	mutex_lock(&ipa_gsb_ctx->lock);
 	if (ipa_gsb_ctx->num_connected_iface == 1) {
 		ret = ipa_gsb_disconnect_sys_pipe();
 		if (ret) {
@@ -968,6 +972,7 @@ int ipa_bridge_disconnect(u32 hdl)
 	}
 
 fail:
+	mutex_unlock(&ipa_gsb_ctx->lock);
 	atomic_set(&ipa_gsb_ctx->disconnect_in_progress, 0);
 	mutex_unlock(&ipa_gsb_ctx->iface_lock[hdl]);
 	return ret;
@@ -1009,10 +1014,12 @@ int ipa_bridge_resume(u32 hdl)
 		return 0;
 	}
 
+	mutex_lock(&ipa_gsb_ctx->lock);
 	if (ipa_gsb_ctx->num_resumed_iface == 0) {
 		ret = ipa_pm_activate_sync(ipa_gsb_ctx->pm_hdl);
 		if (ret) {
 			IPA_GSB_ERR("fail to activate ipa pm\n");
+			mutex_unlock(&ipa_gsb_ctx->lock);
 			mutex_unlock(&ipa_gsb_ctx->iface_lock[hdl]);
 			return ret;
 		}
@@ -1023,6 +1030,7 @@ int ipa_bridge_resume(u32 hdl)
 			IPA_GSB_ERR(
 				"fail to start con ep %d\n",
 				ret);
+			mutex_unlock(&ipa_gsb_ctx->lock);
 			mutex_unlock(&ipa_gsb_ctx->iface_lock[hdl]);
 			return ret;
 		}
@@ -1033,6 +1041,7 @@ int ipa_bridge_resume(u32 hdl)
 	IPA_GSB_DBG_LOW("num resumed iface: %d\n",
 		ipa_gsb_ctx->num_resumed_iface);
 
+	mutex_unlock(&ipa_gsb_ctx->lock);
 	mutex_unlock(&ipa_gsb_ctx->iface_lock[hdl]);
 	return 0;
 }
@@ -1073,6 +1082,7 @@ int ipa_bridge_suspend(u32 hdl)
 		return 0;
 	}
 
+	mutex_lock(&ipa_gsb_ctx->lock);
 	if (ipa_gsb_ctx->num_resumed_iface == 1) {
 		ret = ipa_stop_gsi_channel(
 			ipa_gsb_ctx->cons_hdl);
@@ -1080,6 +1090,7 @@ int ipa_bridge_suspend(u32 hdl)
 			IPA_GSB_ERR(
 				"fail to stop cons ep %d\n",
 				ret);
+			mutex_unlock(&ipa_gsb_ctx->lock);
 			mutex_unlock(&ipa_gsb_ctx->iface_lock[hdl]);
 			return ret;
 		}
@@ -1088,6 +1099,7 @@ int ipa_bridge_suspend(u32 hdl)
 		if (ret) {
 			IPA_GSB_ERR("fail to deactivate ipa pm\n");
 			ipa_start_gsi_channel(ipa_gsb_ctx->cons_hdl);
+			mutex_unlock(&ipa_gsb_ctx->lock);
 			mutex_unlock(&ipa_gsb_ctx->iface_lock[hdl]);
 			return ret;
 		}
@@ -1098,6 +1110,7 @@ int ipa_bridge_suspend(u32 hdl)
 	IPA_GSB_DBG_LOW("num resumed iface: %d\n",
 		ipa_gsb_ctx->num_resumed_iface);
 
+	mutex_unlock(&ipa_gsb_ctx->lock);
 	mutex_unlock(&ipa_gsb_ctx->iface_lock[hdl]);
 	return 0;
 }
