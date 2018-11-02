@@ -1138,6 +1138,7 @@ move_to_pending:
 		}
 	}
 
+end:
 	do {
 		if (list_empty(&ctx->pending_req_list)) {
 			error_request_id = ctx_isp->last_applied_req_id + 1;
@@ -1167,7 +1168,6 @@ move_to_pending:
 
 	} while (req->request_id < ctx_isp->last_applied_req_id);
 
-end:
 	if (ctx->ctx_crm_intf && ctx->ctx_crm_intf->notify_err) {
 		notify.link_hdl = ctx->link_hdl;
 		notify.dev_hdl = ctx->dev_hdl;
