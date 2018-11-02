@@ -1295,6 +1295,12 @@ static void mhi_release_device(struct device *dev)
 {
 	struct mhi_device *mhi_dev = to_mhi_device(dev);
 
+	if (mhi_dev->ul_chan)
+		mhi_dev->ul_chan->mhi_dev = NULL;
+
+	if (mhi_dev->dl_chan)
+		mhi_dev->dl_chan->mhi_dev = NULL;
+
 	kfree(mhi_dev);
 }
 
@@ -1432,9 +1438,6 @@ static int mhi_driver_remove(struct device *dev)
 			mhi_deinit_chan_ctxt(mhi_cntrl, mhi_chan);
 
 		mhi_chan->ch_state = MHI_CH_STATE_DISABLED;
-
-		/* remove associated device */
-		mhi_chan->mhi_dev = NULL;
 
 		mutex_unlock(&mhi_chan->mutex);
 	}
