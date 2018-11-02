@@ -23,6 +23,24 @@
 	qcom,qbt1000 {
 		/delete-property/ qcom,ipc-gpio;
 	};
+
+	/delete-node/ devfreq-cpufreq;
+	devfreq-cpufreq {
+		mincpubw-cpufreq {
+			target-dev = <&mincpubw>;
+			cpu-to-dev-map-0 =
+				<  748800 MHZ_TO_MBPS( 300, 4) >,
+				< 1209660 MHZ_TO_MBPS( 451, 4) >,
+				< 1612800 MHZ_TO_MBPS( 547, 4) >,
+				< 1708000 MHZ_TO_MBPS( 768, 4) >;
+			cpu-to-dev-map-2 =
+				< 1132800 MHZ_TO_MBPS( 300, 4) >,
+				< 1363200 MHZ_TO_MBPS( 547, 4) >,
+				< 1747200 MHZ_TO_MBPS( 768, 4) >,
+				< 1996800 MHZ_TO_MBPS(1017, 4) >,
+				< 2457600 MHZ_TO_MBPS(1804, 4) >;
+		};
+	};
 };
 
 &ext_dsi_bridge_display {
