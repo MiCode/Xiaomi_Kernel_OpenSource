@@ -1537,6 +1537,7 @@ static int _setstate_alloc(struct kgsl_device *device,
 static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 {
 	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
 	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
 	int status;
@@ -1594,13 +1595,15 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	if (!mmu->secured)
 		goto done;
 
-	mmu->securepagetable = kgsl_mmu_getpagetable(mmu,
+	if (!adreno_is_a650(adreno_dev)) {
+		mmu->securepagetable = kgsl_mmu_getpagetable(mmu,
 				KGSL_MMU_SECURE_PT);
-	if (IS_ERR(mmu->securepagetable)) {
-		status = PTR_ERR(mmu->securepagetable);
-		mmu->securepagetable = NULL;
-	} else if (mmu->securepagetable == NULL) {
-		status = -ENOMEM;
+		if (IS_ERR(mmu->securepagetable)) {
+			status = PTR_ERR(mmu->securepagetable);
+			mmu->securepagetable = NULL;
+		} else if (mmu->securepagetable == NULL) {
+			status = -ENOMEM;
+		}
 	}
 
 done:
