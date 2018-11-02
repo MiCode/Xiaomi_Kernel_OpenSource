@@ -109,4 +109,9 @@ config OF_OVERLAY
 config OF_NUMA
 	bool
 
+config OF_BATTERYDATA
+	def_bool y
+	help
+	  OpenFirmware BatteryData accessors
+
 endif # OF
