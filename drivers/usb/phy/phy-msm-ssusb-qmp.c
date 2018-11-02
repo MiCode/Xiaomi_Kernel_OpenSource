@@ -853,6 +853,15 @@ static int msm_ssphy_qmp_powerup(struct usb_phy *uphy, bool powerup)
 	u8 reg = powerup ? 1 : 0;
 	u8 temp;
 
+	if (!(uphy->flags & PHY_WAKEUP_WA_EN))
+		return 0;
+
+	temp = readl_relaxed(phy->base +
+			phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);
+
+	if (temp == powerup)
+		return 0;
+
 	writel_relaxed(reg,
 			phy->base + phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);
 	temp = readl_relaxed(phy->base +
