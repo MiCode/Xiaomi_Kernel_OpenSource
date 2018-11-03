@@ -2391,22 +2391,30 @@ static void handle_state_src_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 
 static void enter_state_hard_reset(struct usbpd *pd)
 {
-	/* are we still connected? */
-	if (pd->typec_mode == POWER_SUPPLY_TYPEC_NONE)
-		pd->current_pr = PR_NONE;
-
-	/* hard reset may sleep; handle it in the workqueue */
-	kick_sm(pd, 0);
-}
-
-static void handle_state_src_hard_reset(struct usbpd *pd,
-	struct rx_msg *rx_msg)
-{
 	union power_supply_propval val = {0};
+
+	/* are we still connected? */
+	if (pd->typec_mode == POWER_SUPPLY_TYPEC_NONE) {
+		pd->current_pr = PR_NONE;
+		kick_sm(pd, 0);
+		return;
+	}
 
 	val.intval = 1;
 	power_supply_set_property(pd->usb_psy,
 			POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
+
+	if (pd->current_pr == PR_SINK) {
+		if (pd->requested_current) {
+			val.intval = pd->requested_current = 0;
+			power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_PD_CURRENT_MAX, &val);
+		}
+
+		val.intval = pd->requested_voltage = 5000000;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_PD_VOLTAGE_MIN, &val);
+	}
 
 	pd_send_hard_reset(pd);
 	pd->in_explicit_contract = false;
@@ -2415,8 +2423,12 @@ static void handle_state_src_hard_reset(struct usbpd *pd,
 	reset_vdm_state(pd);
 	kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
 
-	pd->current_state = PE_SRC_TRANSITION_TO_DEFAULT;
-	kick_sm(pd, PS_HARD_RESET_TIME);
+	if (pd->current_pr == PR_SRC) {
+		pd->current_state = PE_SRC_TRANSITION_TO_DEFAULT;
+		kick_sm(pd, PS_HARD_RESET_TIME);
+	} else {
+		usbpd_set_state(pd, PE_SNK_TRANSITION_TO_DEFAULT);
+	}
 }
 
 static void handle_state_soft_reset(struct usbpd *pd,
@@ -3021,37 +3033,6 @@ static void handle_state_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 		handle_snk_ready_tx(pd, rx_msg);
 }
 
-static void handle_state_snk_hard_reset(struct usbpd *pd,
-	struct rx_msg *rx_msg)
-{
-	union power_supply_propval val = {0};
-
-	/* prepare charger for VBUS change */
-	val.intval = 1;
-	power_supply_set_property(pd->usb_psy,
-			POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
-
-	pd->requested_voltage = 5000000;
-
-	if (pd->requested_current) {
-		val.intval = pd->requested_current = 0;
-		power_supply_set_property(pd->usb_psy,
-				POWER_SUPPLY_PROP_PD_CURRENT_MAX, &val);
-	}
-
-	val.intval = pd->requested_voltage;
-	power_supply_set_property(pd->usb_psy,
-			POWER_SUPPLY_PROP_PD_VOLTAGE_MIN, &val);
-
-	pd_send_hard_reset(pd);
-	pd->in_explicit_contract = false;
-	pd->selected_pdo = pd->requested_pdo = 0;
-	pd->rdo = 0;
-	reset_vdm_state(pd);
-	kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
-	usbpd_set_state(pd, PE_SNK_TRANSITION_TO_DEFAULT);
-}
-
 static void enter_state_snk_transition_to_default(struct usbpd *pd)
 {
 	if (pd->current_dr != DR_UFP) {
@@ -3305,8 +3286,7 @@ static const struct usbpd_state_handler state_handlers[] = {
 	[PE_SRC_NEGOTIATE_CAPABILITY] = {enter_state_src_negotiate_capability,
 					NULL},
 	[PE_SRC_READY] = {enter_state_src_ready, handle_state_src_ready},
-	[PE_SRC_HARD_RESET] = {enter_state_hard_reset,
-				handle_state_src_hard_reset},
+	[PE_SRC_HARD_RESET] = {enter_state_hard_reset, NULL},
 	[PE_SRC_SOFT_RESET] = {NULL, handle_state_soft_reset},
 	[PE_SRC_TRANSITION_TO_DEFAULT] = {NULL,
 				handle_state_src_transition_to_default},
@@ -3323,8 +3303,7 @@ static const struct usbpd_state_handler state_handlers[] = {
 	[PE_SNK_TRANSITION_SINK] = {enter_state_snk_transition_sink,
 					handle_state_snk_transition_sink},
 	[PE_SNK_READY] = {enter_state_snk_ready, handle_state_snk_ready},
-	[PE_SNK_HARD_RESET] = {enter_state_hard_reset,
-				handle_state_snk_hard_reset},
+	[PE_SNK_HARD_RESET] = {enter_state_hard_reset, NULL},
 	[PE_SNK_SOFT_RESET] = {NULL, handle_state_soft_reset},
 	[PE_SNK_TRANSITION_TO_DEFAULT] = {
 				enter_state_snk_transition_to_default,
