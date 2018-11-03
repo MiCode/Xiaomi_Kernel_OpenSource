@@ -2802,7 +2802,9 @@ static void usbpd_sm(struct work_struct *w)
 
 			break;
 		}
-		/* else fall-through */
+
+		pd->current_state = PE_SNK_WAIT_FOR_CAPABILITIES;
+		/* fall-through */
 
 	case PE_SNK_WAIT_FOR_CAPABILITIES:
 		pd->in_pr_swap = false;
