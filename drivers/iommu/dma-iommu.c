@@ -725,7 +725,7 @@ void iommu_dma_unmap_page(struct device *dev, dma_addr_t handle, size_t size,
  * avoid individually crossing any boundaries, so we merely need to check a
  * segment's start address to avoid concatenating across one.
  */
-static int __finalise_sg(struct device *dev, struct scatterlist *sg, int nents,
+int iommu_dma_finalise_sg(struct device *dev, struct scatterlist *sg, int nents,
 		dma_addr_t dma_addr)
 {
 	struct scatterlist *s, *cur = sg;
@@ -778,7 +778,7 @@ static int __finalise_sg(struct device *dev, struct scatterlist *sg, int nents,
  * If mapping failed, then just restore the original list,
  * but making sure the DMA fields are invalidated.
  */
-static void __invalidate_sg(struct scatterlist *sg, int nents)
+void iommu_dma_invalidate_sg(struct scatterlist *sg, int nents)
 {
 	struct scatterlist *s;
 	int i;
@@ -800,14 +800,10 @@ static void __invalidate_sg(struct scatterlist *sg, int nents)
  * impedance-matching, to be able to hand off a suitably-aligned list,
  * but still preserve the original offsets and sizes for the caller.
  */
-int iommu_dma_map_sg(struct device *dev, struct scatterlist *sg,
-		int nents, int prot)
+size_t iommu_dma_prepare_map_sg(struct device *dev, struct iova_domain *iovad,
+				struct scatterlist *sg, int nents)
 {
-	struct iommu_domain *domain = iommu_get_domain_for_dev(dev);
-	struct iommu_dma_cookie *cookie = domain->iova_cookie;
-	struct iova_domain *iovad = &cookie->iovad;
 	struct scatterlist *s, *prev = NULL;
-	dma_addr_t iova;
 	size_t iova_len = 0;
 	unsigned long mask = dma_get_seg_boundary(dev);
 	int i;
@@ -851,6 +847,26 @@ int iommu_dma_map_sg(struct device *dev, struct scatterlist *sg,
 		prev = s;
 	}
 
+	return iova_len;
+}
+
+int iommu_dma_map_sg(struct device *dev, struct scatterlist *sg,
+		int nents, int prot)
+{
+	struct iommu_domain *domain;
+	struct iommu_dma_cookie *cookie;
+	struct iova_domain *iovad;
+	dma_addr_t iova;
+	size_t iova_len;
+
+	domain = iommu_get_domain_for_dev(dev);
+	if (!domain)
+		return 0;
+	cookie = domain->iova_cookie;
+	iovad = &cookie->iovad;
+
+	iova_len = iommu_dma_prepare_map_sg(dev, iovad, sg, nents);
+
 	iova = iommu_dma_alloc_iova(domain, iova_len, dma_get_mask(dev), dev);
 	if (!iova)
 		goto out_restore_sg;
@@ -862,12 +878,12 @@ int iommu_dma_map_sg(struct device *dev, struct scatterlist *sg,
 	if (iommu_map_sg(domain, iova, sg, nents, prot) < iova_len)
 		goto out_free_iova;
 
-	return __finalise_sg(dev, sg, nents, iova);
+	return iommu_dma_finalise_sg(dev, sg, nents, iova);
 
 out_free_iova:
 	iommu_dma_free_iova(domain, cookie, iova, iova_len);
 out_restore_sg:
-	__invalidate_sg(sg, nents);
+	iommu_dma_invalidate_sg(sg, nents);
 	return 0;
 }
 

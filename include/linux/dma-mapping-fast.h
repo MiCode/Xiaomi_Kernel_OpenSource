@@ -11,10 +11,13 @@
 
 struct dma_iommu_mapping;
 struct io_pgtable_ops;
+struct iova_domain;
 
 struct dma_fast_smmu_mapping {
 	struct device		*dev;
 	struct iommu_domain	*domain;
+	struct iova_domain	*iovad;
+
 	dma_addr_t	 base;
 	size_t		 size;
 	size_t		 num_4k_pages;
