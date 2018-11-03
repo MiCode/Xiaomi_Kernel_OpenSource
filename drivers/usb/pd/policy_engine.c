@@ -2532,6 +2532,7 @@ static void handle_state_snk_discovery(struct usbpd *pd, struct rx_msg *rx_msg)
 		return;
 	}
 
+	pd->current_state = PE_SNK_WAIT_FOR_CAPABILITIES;
 	handle_state_snk_wait_for_capabilities(pd, rx_msg);
 }
 
