@@ -42,6 +42,7 @@ struct dma_fast_smmu_mapping {
 int fast_smmu_init_mapping(struct device *dev,
 			    struct dma_iommu_mapping *mapping);
 void fast_smmu_release_mapping(struct kref *kref);
+void fast_smmu_put_dma_cookie(struct iommu_domain *domain);
 #else
 static inline int fast_smmu_init_mapping(struct device *dev,
 					  struct dma_iommu_mapping *mapping)
@@ -52,6 +53,7 @@ static inline int fast_smmu_init_mapping(struct device *dev,
 static inline void fast_smmu_release_mapping(struct kref *kref)
 {
 }
+static inline void fast_smmu_put_dma_cookie(struct iommu_domain *domain) {}
 #endif
 
 #endif /* __LINUX_DMA_MAPPING_FAST_H */
