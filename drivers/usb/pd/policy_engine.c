@@ -327,6 +327,7 @@ static void *usbpd_ipc_log;
 /* VDM header is the first 32-bit object following the 16-bit PD header */
 #define VDM_HDR_SVID(hdr)	((hdr) >> 16)
 #define VDM_IS_SVDM(hdr)	((hdr) & 0x8000)
+#define SVDM_HDR_VER(hdr)	(((hdr) >> 13) & 0x3)
 #define SVDM_HDR_OBJ_POS(hdr)	(((hdr) >> 8) & 0x7)
 #define SVDM_HDR_CMD_TYPE(hdr)	(((hdr) >> 6) & 0x3)
 #define SVDM_HDR_CMD(hdr)	((hdr) & 0x1f)
@@ -451,6 +452,7 @@ struct usbpd {
 	struct vdm_tx		*vdm_tx_retry;
 	struct mutex		svid_handler_lock;
 	struct list_head	svid_handlers;
+	ktime_t			svdm_start_time;
 
 	struct list_head	instance;
 
@@ -1336,9 +1338,12 @@ static void handle_vdm_resp_ack(struct usbpd *pd, u32 *vdos, u8 num_vdos,
 		kfree(pd->vdm_tx_retry);
 		pd->vdm_tx_retry = NULL;
 
-		if (num_vdos && ID_HDR_PRODUCT_TYPE(vdos[0]) ==
-				ID_HDR_PRODUCT_VPD) {
+		if (!num_vdos) {
+			usbpd_dbg(&pd->dev, "Discarding Discover ID response with no VDOs\n");
+			break;
+		}
 
+		if (ID_HDR_PRODUCT_TYPE(vdos[0]) == ID_HDR_PRODUCT_VPD) {
 			usbpd_dbg(&pd->dev, "VPD detected turn off vbus\n");
 
 			if (pd->vbus_enabled) {
@@ -1353,6 +1358,12 @@ static void handle_vdm_resp_ack(struct usbpd *pd, u32 *vdos, u8 num_vdos,
 
 		if (!pd->in_explicit_contract)
 			break;
+
+		if (SVDM_HDR_OBJ_POS(vdm_hdr) != 0) {
+			usbpd_dbg(&pd->dev, "Discarding Discover ID response with incorrect object position:%d\n",
+					SVDM_HDR_OBJ_POS(vdm_hdr));
+			break;
+		}
 
 		pd->vdm_state = DISCOVERED_ID;
 		usbpd_send_svdm(pd, USBPD_SID,
@@ -1460,6 +1471,7 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 	u8 cmd = SVDM_HDR_CMD(vdm_hdr);
 	u8 cmd_type = SVDM_HDR_CMD_TYPE(vdm_hdr);
 	struct usbpd_svid_handler *handler;
+	ktime_t recvd_time = ktime_get();
 
 	usbpd_dbg(&pd->dev,
 			"VDM rx: svid:%x cmd:%x cmd_type:%x vdm_hdr:%x has_dp: %s\n",
@@ -1486,6 +1498,12 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 			if (ret)
 				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 		}
+		return;
+	}
+
+	if (SVDM_HDR_VER(vdm_hdr) > 1) {
+		usbpd_dbg(&pd->dev, "Discarding SVDM with incorrect version:%d\n",
+				SVDM_HDR_VER(vdm_hdr));
 		return;
 	}
 
@@ -1525,6 +1543,12 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 		if (svid != USBPD_SID) {
 			usbpd_err(&pd->dev, "unhandled ACK for SVID:0x%x\n",
 					svid);
+			break;
+		}
+
+		if (ktime_ms_delta(recvd_time, pd->svdm_start_time) >
+				SENDER_RESPONSE_TIME) {
+			usbpd_dbg(&pd->dev, "Discarding delayed SVDM response due to timeout\n");
 			break;
 		}
 
@@ -1592,6 +1616,12 @@ static void handle_vdm_tx(struct usbpd *pd, enum pd_sop_type sop_type)
 			usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 
 		return;
+	}
+
+	/* start tVDMSenderResponse timer */
+	if (VDM_IS_SVDM(vdm_hdr) &&
+		SVDM_HDR_CMD_TYPE(vdm_hdr) == SVDM_CMD_TYPE_INITIATOR) {
+		pd->svdm_start_time = ktime_get();
 	}
 
 	/*
