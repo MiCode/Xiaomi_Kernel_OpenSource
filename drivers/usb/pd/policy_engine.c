@@ -1234,6 +1234,43 @@ static void start_src_ams(struct usbpd *pd, bool ams)
 		kick_sm(pd, SINK_TX_TIME);
 }
 
+static void reset_vdm_state(struct usbpd *pd)
+{
+	struct usbpd_svid_handler *handler;
+
+	mutex_lock(&pd->svid_handler_lock);
+	list_for_each_entry(handler, &pd->svid_handlers, entry) {
+		if (handler->discovered) {
+			handler->disconnect(handler);
+			handler->discovered = false;
+		}
+	}
+
+	mutex_unlock(&pd->svid_handler_lock);
+	pd->vdm_state = VDM_NONE;
+	kfree(pd->vdm_tx_retry);
+	pd->vdm_tx_retry = NULL;
+	kfree(pd->discovered_svids);
+	pd->discovered_svids = NULL;
+	pd->num_svids = 0;
+	kfree(pd->vdm_tx);
+	pd->vdm_tx = NULL;
+	pd->ss_lane_svid = 0x0;
+}
+
+static inline void rx_msg_cleanup(struct usbpd *pd)
+{
+	struct rx_msg *msg, *tmp;
+	unsigned long flags;
+
+	spin_lock_irqsave(&pd->rx_lock, flags);
+	list_for_each_entry_safe(msg, tmp, &pd->rx_q, entry) {
+		list_del(&msg->entry);
+		kfree(msg);
+	}
+	spin_unlock_irqrestore(&pd->rx_lock, flags);
+}
+
 /* Enters new state and executes actions on entry */
 static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 {
@@ -1460,11 +1497,42 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 	case PE_SRC_HARD_RESET:
 	case PE_SNK_HARD_RESET:
 		/* are we still connected? */
-		if (pd->typec_mode == POWER_SUPPLY_TYPEC_NONE)
+		if (pd->typec_mode == POWER_SUPPLY_TYPEC_NONE) {
 			pd->current_pr = PR_NONE;
+			kick_sm(pd, 0);
+			break;
+		}
 
-		/* hard reset may sleep; handle it in the workqueue */
-		kick_sm(pd, 0);
+		val.intval = 1;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
+
+		if (pd->current_pr == PR_SINK) {
+			if (pd->requested_current) {
+				val.intval = pd->requested_current = 0;
+				power_supply_set_property(pd->usb_psy,
+					POWER_SUPPLY_PROP_PD_CURRENT_MAX,
+						&val);
+			}
+
+			val.intval = pd->requested_voltage = 5000000;
+			power_supply_set_property(pd->usb_psy,
+					POWER_SUPPLY_PROP_PD_VOLTAGE_MIN, &val);
+		}
+
+		pd_send_hard_reset(pd);
+		pd->in_explicit_contract = false;
+		pd->rdo = 0;
+		rx_msg_cleanup(pd);
+		reset_vdm_state(pd);
+		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
+
+		if (pd->current_pr == PR_SRC) {
+			pd->current_state = PE_SRC_TRANSITION_TO_DEFAULT;
+			kick_sm(pd, PS_HARD_RESET_TIME);
+		} else {
+			usbpd_set_state(pd, PE_SNK_TRANSITION_TO_DEFAULT);
+		}
 		break;
 
 	case PE_SEND_SOFT_RESET:
@@ -2061,30 +2129,6 @@ static void handle_vdm_tx(struct usbpd *pd, enum pd_sop_type sop_type)
 	pd->vdm_tx = NULL;
 }
 
-static void reset_vdm_state(struct usbpd *pd)
-{
-	struct usbpd_svid_handler *handler;
-
-	mutex_lock(&pd->svid_handler_lock);
-	list_for_each_entry(handler, &pd->svid_handlers, entry) {
-		if (handler->discovered) {
-			handler->disconnect(handler);
-			handler->discovered = false;
-		}
-	}
-
-	mutex_unlock(&pd->svid_handler_lock);
-	pd->vdm_state = VDM_NONE;
-	kfree(pd->vdm_tx_retry);
-	pd->vdm_tx_retry = NULL;
-	kfree(pd->discovered_svids);
-	pd->discovered_svids = NULL;
-	pd->num_svids = 0;
-	kfree(pd->vdm_tx);
-	pd->vdm_tx = NULL;
-	pd->ss_lane_svid = 0x0;
-}
-
 static void handle_get_src_cap_extended(struct usbpd *pd)
 {
 	int ret;
@@ -2347,19 +2391,6 @@ enable_reg:
 		msleep(100); /* Delay to wait for VBUS ramp up if read fails */
 
 	return ret;
-}
-
-static inline void rx_msg_cleanup(struct usbpd *pd)
-{
-	struct rx_msg *msg, *tmp;
-	unsigned long flags;
-
-	spin_lock_irqsave(&pd->rx_lock, flags);
-	list_for_each_entry_safe(msg, tmp, &pd->rx_q, entry) {
-		list_del(&msg->entry);
-		kfree(msg);
-	}
-	spin_unlock_irqrestore(&pd->rx_lock, flags);
 }
 
 /* For PD 3.0, check SinkTxOk before allowing initiating AMS */
@@ -2759,22 +2790,6 @@ static void usbpd_sm(struct work_struct *w)
 		/* PE_UNKNOWN will turn on VBUS and go back to PE_SRC_STARTUP */
 		pd->current_state = PE_UNKNOWN;
 		kick_sm(pd, SRC_RECOVER_TIME);
-		break;
-
-	case PE_SRC_HARD_RESET:
-		val.intval = 1;
-		power_supply_set_property(pd->usb_psy,
-				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
-
-		pd_send_hard_reset(pd);
-		pd->in_explicit_contract = false;
-		pd->rdo = 0;
-		rx_msg_cleanup(pd);
-		reset_vdm_state(pd);
-		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
-
-		pd->current_state = PE_SRC_TRANSITION_TO_DEFAULT;
-		kick_sm(pd, PS_HARD_RESET_TIME);
 		break;
 
 	case PE_SNK_STARTUP:
@@ -3193,33 +3208,6 @@ static void usbpd_sm(struct work_struct *w)
 			usbpd_set_state(pd, pd->current_pr == PR_SRC ?
 					PE_SRC_HARD_RESET : PE_SNK_HARD_RESET);
 		}
-		break;
-
-	case PE_SNK_HARD_RESET:
-		/* prepare charger for VBUS change */
-		val.intval = 1;
-		power_supply_set_property(pd->usb_psy,
-				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
-
-		pd->requested_voltage = 5000000;
-
-		if (pd->requested_current) {
-			val.intval = pd->requested_current = 0;
-			power_supply_set_property(pd->usb_psy,
-					POWER_SUPPLY_PROP_PD_CURRENT_MAX, &val);
-		}
-
-		val.intval = pd->requested_voltage;
-		power_supply_set_property(pd->usb_psy,
-				POWER_SUPPLY_PROP_PD_VOLTAGE_MIN, &val);
-
-		pd_send_hard_reset(pd);
-		pd->in_explicit_contract = false;
-		pd->selected_pdo = pd->requested_pdo = 0;
-		pd->rdo = 0;
-		reset_vdm_state(pd);
-		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
-		usbpd_set_state(pd, PE_SNK_TRANSITION_TO_DEFAULT);
 		break;
 
 	case PE_DRS_SEND_DR_SWAP:
