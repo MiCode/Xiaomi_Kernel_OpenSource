@@ -3481,17 +3481,25 @@ static int cam_ife_mgr_cmd_get_sof_timestamp(
 
 	list_for_each_entry(hw_mgr_res, &ife_ctx->res_list_ife_csid, list) {
 		for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
-			if (!hw_mgr_res->hw_res[i] ||
-				(i == CAM_ISP_HW_SPLIT_RIGHT))
+			if (!hw_mgr_res->hw_res[i])
 				continue;
+
 			/*
 			 * Get the SOF time stamp from left resource only.
 			 * Left resource is master for dual vfe case and
 			 * Rdi only context case left resource only hold
 			 * the RDI resource
 			 */
+
 			hw_intf = hw_mgr_res->hw_res[i]->hw_intf;
 			if (hw_intf->hw_ops.process_cmd) {
+				/*
+				 * Single VFE case, Get the time stamp from
+				 * available one csid hw in the context
+				 * Dual VFE case, get the time stamp from
+				 * master(left) would be sufficient
+				 */
+
 				csid_get_time.node_res =
 					hw_mgr_res->hw_res[i];
 				rc = hw_intf->hw_ops.process_cmd(
@@ -3500,23 +3508,16 @@ static int cam_ife_mgr_cmd_get_sof_timestamp(
 					&csid_get_time,
 					sizeof(
 					struct cam_csid_get_time_stamp_args));
-				if (!rc) {
+				if (!rc && (i == CAM_ISP_HW_SPLIT_LEFT)) {
 					*time_stamp =
 						csid_get_time.time_stamp_val;
 					*boot_time_stamp =
 						csid_get_time.boot_timestamp;
 				}
-			/*
-			 * Single VFE case, Get the time stamp from available
-			 * one csid hw in the context
-			 * Dual VFE case, get the time stamp from master(left)
-			 * would be sufficient
-			 */
-				goto end;
 			}
 		}
 	}
-end:
+
 	if (rc)
 		CAM_ERR(CAM_ISP, "Getting sof time stamp failed");
 

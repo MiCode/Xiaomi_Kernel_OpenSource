@@ -2177,10 +2177,10 @@ static int cam_ife_csid_get_hbi_vbi(
 			rdi_reg->csid_rdi_format_measure2_addr);
 	}
 
-	CAM_INFO_RATE_LIMIT(CAM_ISP, "Resource %u HBI: 0x%x", res->res_id,
-		hbi);
-	CAM_INFO_RATE_LIMIT(CAM_ISP, "Resource %u VBI: 0x%x", res->res_id,
-		vbi);
+	CAM_INFO_RATE_LIMIT(CAM_ISP,
+		"Device %s index %u Resource %u HBI: 0x%x VBI: 0x%x",
+		soc_info->dev_name, soc_info->index,
+		res->res_id, hbi, vbi);
 
 	return 0;
 }
