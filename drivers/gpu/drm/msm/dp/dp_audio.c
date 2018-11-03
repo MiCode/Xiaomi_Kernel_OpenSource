@@ -607,10 +607,11 @@ static int dp_audio_register_ext_disp(struct dp_audio_private *audio)
 		rc = -ENODEV;
 		goto end;
 	}
-
+#if defined(CONFIG_MSM_EXT_DISPLAY)
 	rc = msm_ext_disp_register_intf(audio->ext_pdev, ext);
 	if (rc)
 		pr_err("failed to register disp\n");
+#endif
 end:
 	if (pd)
 		of_node_put(pd);
@@ -647,9 +648,11 @@ static int dp_audio_deregister_ext_disp(struct dp_audio_private *audio)
 		goto end;
 	}
 
+#if defined(CONFIG_MSM_EXT_DISPLAY)
 	rc = msm_ext_disp_deregister_intf(audio->ext_pdev, ext);
 	if (rc)
 		pr_err("failed to deregister disp\n");
+#endif
 
 end:
 	return rc;

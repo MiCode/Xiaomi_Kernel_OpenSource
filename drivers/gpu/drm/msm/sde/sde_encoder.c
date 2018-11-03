@@ -1894,7 +1894,8 @@ static int _sde_encoder_update_rsc_client(
 			SDE_EVTLOG_FUNC_ENTRY);
 
 	if (crtc->base.id != wait_vblank_crtc_id) {
-		primary_crtc = drm_crtc_find(drm_enc->dev, wait_vblank_crtc_id);
+		primary_crtc = drm_crtc_find(drm_enc->dev,
+					NULL, wait_vblank_crtc_id);
 		if (!primary_crtc) {
 			SDE_ERROR_ENC(sde_enc,
 					"failed to find primary crtc id %d\n",
@@ -4124,24 +4125,27 @@ static int _sde_encoder_wakeup_time(struct drm_encoder *drm_enc,
 	return 0;
 }
 
-static void sde_encoder_vsync_event_handler(unsigned long data)
+static void sde_encoder_vsync_event_handler(struct timer_list *t)
 {
-	struct drm_encoder *drm_enc = (struct drm_encoder *) data;
-	struct sde_encoder_virt *sde_enc;
+	struct drm_encoder *drm_enc;
+	struct sde_encoder_virt *sde_enc =
+			from_timer(sde_enc, t, vsync_event_timer);
 	struct msm_drm_private *priv;
 	struct msm_drm_thread *event_thread;
+
+	if (!sde_enc || !sde_enc->crtc) {
+		SDE_ERROR("invalid encoder parameters %d\n", !sde_enc);
+		return;
+	}
+
+	drm_enc = &sde_enc->base;
 
 	if (!drm_enc || !drm_enc->dev || !drm_enc->dev->dev_private) {
 		SDE_ERROR("invalid encoder parameters\n");
 		return;
 	}
 
-	sde_enc = to_sde_encoder_virt(drm_enc);
 	priv = drm_enc->dev->dev_private;
-	if (!sde_enc->crtc) {
-		SDE_ERROR("invalid crtc");
-		return;
-	}
 
 	if (sde_enc->crtc->index >= ARRAY_SIZE(priv->event_thread)) {
 		SDE_ERROR("invalid crtc index:%u\n",
@@ -5122,9 +5126,8 @@ struct drm_encoder *sde_encoder_init(
 
 	if ((disp_info->intf_type == DRM_MODE_CONNECTOR_DSI) &&
 			disp_info->is_primary)
-		setup_timer(&sde_enc->vsync_event_timer,
-				sde_encoder_vsync_event_handler,
-				(unsigned long)sde_enc);
+		timer_setup(&sde_enc->vsync_event_timer,
+				sde_encoder_vsync_event_handler, 0);
 
 	snprintf(name, SDE_NAME_SIZE, "rsc_enc%u", drm_enc->base.id);
 	sde_enc->rsc_client = sde_rsc_client_create(SDE_RSC_INDEX, name,

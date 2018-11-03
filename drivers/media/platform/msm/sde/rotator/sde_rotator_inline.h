@@ -96,6 +96,8 @@ struct sde_rotator_inline_cmd {
 	void *priv_handle;
 };
 
+#if defined(CONFIG_MSM_SDE_ROTATOR)
+
 void *sde_rotator_inline_open(struct platform_device *pdev);
 int sde_rotator_inline_get_dst_pixfmt(struct platform_device *pdev,
 		u32 src_pixfmt, u32 *dst_pixfmt);
@@ -108,5 +110,52 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 		enum sde_rotator_inline_cmd_type cmd_type);
 int sde_rotator_inline_release(void *handle);
 void sde_rotator_inline_reg_dump(struct platform_device *pdev);
+
+#else
+
+void *sde_rotator_inline_open(struct platform_device *pdev)
+{
+	return NULL;
+}
+
+int sde_rotator_inline_get_dst_pixfmt(struct platform_device *pdev,
+		u32 src_pixfmt, u32 *dst_pixfmt)
+{
+	return 0;
+}
+
+int sde_rotator_inline_get_downscale_caps(struct platform_device *pdev,
+		char *downscale_caps, int len)
+{
+	return 0;
+}
+
+int sde_rotator_inline_get_maxlinewidth(struct platform_device *pdev)
+{
+	return 0;
+}
+
+int sde_rotator_inline_get_pixfmt_caps(struct platform_device *pdev,
+		bool input, u32 *pixfmt, int len)
+{
+	return 0;
+}
+
+int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
+		enum sde_rotator_inline_cmd_type cmd_type)
+{
+	return 0;
+}
+
+int sde_rotator_inline_release(void *handle)
+{
+	return 0;
+}
+
+void sde_rotator_inline_reg_dump(struct platform_device *pdev)
+{
+}
+
+#endif
 
 #endif /* __SDE_ROTATOR_INLINE_H__ */

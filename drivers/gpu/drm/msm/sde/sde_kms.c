@@ -725,7 +725,7 @@ static int sde_kms_prepare_secure_transition(struct msm_kms *kms,
 	int i, ops = 0, ret = 0;
 	bool old_valid_fb = false;
 
-	for_each_crtc_in_state(state, crtc, old_crtc_state, i) {
+	for_each_old_crtc_in_state(state, crtc, old_crtc_state, i) {
 		if (!crtc->state || !crtc->state->active)
 			continue;
 		/*
@@ -740,7 +740,7 @@ static int sde_kms_prepare_secure_transition(struct msm_kms *kms,
 		 * 1. Check if old state on the CRTC has planes
 		 * staged with valid fbs
 		 */
-		for_each_plane_in_state(state, plane, plane_state, i) {
+		for_each_old_plane_in_state(state, plane, plane_state, i) {
 			if (!plane_state->crtc)
 				continue;
 			if (plane_state->fb) {
@@ -999,7 +999,7 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 		sde_kms->first_kickoff = false;
 	}
 
-	for_each_crtc_in_state(state, crtc, crtc_state, i) {
+	for_each_old_crtc_in_state(state, crtc, crtc_state, i) {
 		list_for_each_entry(encoder, &dev->mode_config.encoder_list,
 				head) {
 			if (encoder->crtc != crtc)
@@ -1037,7 +1037,7 @@ static void sde_kms_commit(struct msm_kms *kms,
 	}
 
 	SDE_ATRACE_BEGIN("sde_kms_commit");
-	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i) {
+	for_each_old_crtc_in_state(old_state, crtc, old_crtc_state, i) {
 		if (crtc->state->active) {
 			SDE_EVT32(DRMID(crtc));
 			sde_crtc_commit_kickoff(crtc, old_crtc_state);
@@ -1153,7 +1153,7 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 
 	SDE_ATRACE_BEGIN("sde_kms_complete_commit");
 
-	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i) {
+	for_each_old_crtc_in_state(old_state, crtc, old_crtc_state, i) {
 		sde_crtc_complete_commit(crtc, old_crtc_state);
 
 		/* complete secure transitions if any */
@@ -1161,7 +1161,8 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 			_sde_kms_secure_ctrl(sde_kms, crtc, true);
 	}
 
-	for_each_connector_in_state(old_state, connector, old_conn_state, i) {
+	for_each_old_connector_in_state(old_state, connector,
+			old_conn_state, i) {
 		struct sde_connector *c_conn;
 
 		c_conn = to_sde_connector(connector);
@@ -1176,7 +1177,7 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 
-	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i)
+	for_each_old_crtc_in_state(old_state, crtc, old_crtc_state, i)
 		_sde_kms_release_splash_resource(sde_kms, crtc);
 
 	SDE_EVT32_VERBOSE(SDE_EVTLOG_FUNC_EXIT);
@@ -1253,7 +1254,7 @@ retry:
 	}
 
 	/* old_state actually contains updated crtc pointers */
-	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i) {
+	for_each_old_crtc_in_state(old_state, crtc, old_crtc_state, i) {
 		if (crtc->state->active)
 			sde_crtc_prepare_commit(crtc, old_crtc_state);
 	}
@@ -2059,8 +2060,6 @@ static int _sde_kms_remove_fbs(struct sde_kms *sde_kms, struct drm_file *file,
 	}
 
 end:
-	drm_atomic_clean_old_fb(dev, plane_mask, ret);
-
 	return ret;
 }
 
@@ -2252,7 +2251,7 @@ static int sde_kms_check_secure_transition(struct msm_kms *kms,
 	dev = sde_kms->dev;
 
 	/* iterate state object for active secure/non-secure crtc */
-	for_each_crtc_in_state(state, crtc, crtc_state, i) {
+	for_each_old_crtc_in_state(state, crtc, crtc_state, i) {
 		if (!crtc_state->active)
 			continue;
 
