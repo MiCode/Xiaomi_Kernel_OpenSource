@@ -40,6 +40,7 @@ int arm_iommu_attach_device(struct device *dev,
 					struct dma_iommu_mapping *mapping);
 void arm_iommu_detach_device(struct device *dev);
 
+void arm_iommu_put_dma_cookie(struct iommu_domain *domain);
 #else  /* !CONFIG_ARM64_DMA_USE_IOMMU */
 
 static inline struct dma_iommu_mapping *
@@ -62,6 +63,7 @@ static inline void arm_iommu_detach_device(struct device *dev)
 {
 }
 
+static inline void arm_iommu_put_dma_cookie(struct iommu_domain *domain) {}
 #endif	/* CONFIG_ARM64_DMA_USE_IOMMU */
 
 #endif /* __KERNEL__ */

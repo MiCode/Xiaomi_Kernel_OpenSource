@@ -60,6 +60,7 @@
 
 #include <soc/qcom/msm_tz_smmu.h>
 #include <soc/qcom/scm.h>
+#include <asm/dma-iommu.h>
 #include "io-pgtable.h"
 #include "arm-smmu-regs.h"
 
@@ -2055,7 +2056,7 @@ static void arm_smmu_domain_free(struct iommu_domain *domain)
 	 * Free the domain resources. We assume that all devices have
 	 * already been detached.
 	 */
-	iommu_put_dma_cookie(domain);
+	arm_iommu_put_dma_cookie(domain);
 	arm_smmu_destroy_domain_context(domain);
 	kfree(smmu_domain);
 }
