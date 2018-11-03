@@ -1025,19 +1025,3 @@ release_mapping:
 	fast_smmu_put_dma_cookie(domain);
 	return err;
 }
-
-/**
- * fast_smmu_release_mapping
- * @kref: dma_iommu_mapping->kref
- *
- * Cleans up the given iommu mapping.
- */
-void fast_smmu_release_mapping(struct kref *kref)
-{
-	struct dma_iommu_mapping *mapping =
-		container_of(kref, struct dma_iommu_mapping, kref);
-
-	fast_smmu_put_dma_cookie(mapping->domain);
-	iommu_domain_free(mapping->domain);
-	kfree(mapping);
-}
