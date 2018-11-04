@@ -1299,7 +1299,6 @@
 	qcom,rmnet-ipa {
 		compatible = "qcom,rmnet-ipa3";
 		qcom,rmnet-ipa-ssr;
-		qcom,ipa-platform-type-msm;
 		qcom,ipa-advertise-sg-support;
 		qcom,ipa-napi-enable;
 	};
@@ -1324,6 +1323,7 @@
 		interrupt-names = "ipa-irq", "gsi-irq";
 		qcom,ipa-hw-ver = <17>; /* IPA core version = IPAv4.5 */
 		qcom,ipa-hw-mode = <0>;
+		qcom,platform-type = <2>; /* APQ platform */
 		qcom,ee = <0>;
 		qcom,use-ipa-tethering-bridge;
 		qcom,mhi-event-ring-id-limits = <9 11>; /* start and end */
