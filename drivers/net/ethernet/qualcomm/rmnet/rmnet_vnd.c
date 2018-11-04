@@ -1,14 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0
 /* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 and
- * only version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
  *
  * RMNET Data virtual network driver
  *
@@ -16,6 +7,7 @@
 
 #include <linux/etherdevice.h>
 #include <linux/if_arp.h>
+#include <linux/ip.h>
 #include <net/pkt_sched.h>
 #include "rmnet_config.h"
 #include "rmnet_handlers.h"
@@ -23,9 +15,12 @@
 #include "rmnet_map.h"
 #include "rmnet_vnd.h"
 
+#include <soc/qcom/qmi_rmnet.h>
+#include <trace/events/rmnet.h>
+
 /* RX/TX Fixup */
 
-void rmnet_vnd_rx_fixup(struct sk_buff *skb, struct net_device *dev)
+void rmnet_vnd_rx_fixup(struct net_device *dev, u32 skb_len)
 {
 	struct rmnet_priv *priv = netdev_priv(dev);
 	struct rmnet_pcpu_stats *pcpu_ptr;
@@ -34,11 +29,11 @@ void rmnet_vnd_rx_fixup(struct sk_buff *skb, struct net_device *dev)
 
 	u64_stats_update_begin(&pcpu_ptr->syncp);
 	pcpu_ptr->stats.rx_pkts++;
-	pcpu_ptr->stats.rx_bytes += skb->len;
+	pcpu_ptr->stats.rx_bytes += skb_len;
 	u64_stats_update_end(&pcpu_ptr->syncp);
 }
 
-void rmnet_vnd_tx_fixup(struct sk_buff *skb, struct net_device *dev)
+void rmnet_vnd_tx_fixup(struct net_device *dev, u32 skb_len)
 {
 	struct rmnet_priv *priv = netdev_priv(dev);
 	struct rmnet_pcpu_stats *pcpu_ptr;
@@ -47,7 +42,7 @@ void rmnet_vnd_tx_fixup(struct sk_buff *skb, struct net_device *dev)
 
 	u64_stats_update_begin(&pcpu_ptr->syncp);
 	pcpu_ptr->stats.tx_pkts++;
-	pcpu_ptr->stats.tx_bytes += skb->len;
+	pcpu_ptr->stats.tx_bytes += skb_len;
 	u64_stats_update_end(&pcpu_ptr->syncp);
 }
 
@@ -57,10 +52,19 @@ static netdev_tx_t rmnet_vnd_start_xmit(struct sk_buff *skb,
 					struct net_device *dev)
 {
 	struct rmnet_priv *priv;
+	int ip_type;
+	u32 mark;
+	unsigned int len;
 
 	priv = netdev_priv(dev);
 	if (priv->real_dev) {
+		ip_type = (ip_hdr(skb)->version == 4) ?
+					AF_INET : AF_INET6;
+		mark = skb->mark;
+		len = skb->len;
+		trace_rmnet_xmit_skb(skb);
 		rmnet_egress_handler(skb);
+		qmi_rmnet_burst_fc_check(dev, ip_type, mark, len);
 	} else {
 		this_cpu_inc(priv->pcpu_stats->stats.tx_drops);
 		kfree_skb(skb);
@@ -105,9 +109,15 @@ static int rmnet_vnd_init(struct net_device *dev)
 static void rmnet_vnd_uninit(struct net_device *dev)
 {
 	struct rmnet_priv *priv = netdev_priv(dev);
+	void *qos;
 
 	gro_cells_destroy(&priv->gro_cells);
 	free_percpu(priv->pcpu_stats);
+
+	qos = priv->qos_info;
+	RCU_INIT_POINTER(priv->qos_info, NULL);
+	synchronize_rcu();
+	qmi_rmnet_qos_exit(dev, qos);
 }
 
 static void rmnet_get_stats64(struct net_device *dev,
@@ -141,6 +151,20 @@ static void rmnet_get_stats64(struct net_device *dev,
 	s->tx_dropped = total_stats.tx_drops;
 }
 
+static u16 rmnet_vnd_select_queue(struct net_device *dev,
+				  struct sk_buff *skb,
+				  struct net_device *sb_dev,
+				  select_queue_fallback_t fallback)
+{
+	struct rmnet_priv *priv = netdev_priv(dev);
+	int txq = 0;
+
+	if (priv->real_dev)
+		txq = qmi_rmnet_get_queue(dev, skb);
+
+	return (txq < dev->real_num_tx_queues) ? txq : 0;
+}
+
 static const struct net_device_ops rmnet_vnd_ops = {
 	.ndo_start_xmit = rmnet_vnd_start_xmit,
 	.ndo_change_mtu = rmnet_vnd_change_mtu,
@@ -150,6 +174,7 @@ static const struct net_device_ops rmnet_vnd_ops = {
 	.ndo_init       = rmnet_vnd_init,
 	.ndo_uninit     = rmnet_vnd_uninit,
 	.ndo_get_stats64 = rmnet_get_stats64,
+	.ndo_select_queue = rmnet_vnd_select_queue,
 };
 
 static const char rmnet_gstrings_stats[][ETH_GSTRING_LEN] = {
@@ -164,12 +189,29 @@ static const char rmnet_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"Checksum computed in software",
 };
 
+static const char rmnet_port_gstrings_stats[][ETH_GSTRING_LEN] = {
+	"DL header last seen sequence",
+	"DL header last seen bytes",
+	"DL header last seen packets",
+	"DL header last seen flows",
+	"DL header pkts received",
+	"DL header total bytes received",
+	"DL header total pkts received",
+	"DL header average bytes",
+	"DL header average packets",
+	"DL trailer last seen sequence",
+	"DL trailer pkts received",
+};
+
 static void rmnet_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
 {
 	switch (stringset) {
 	case ETH_SS_STATS:
 		memcpy(buf, &rmnet_gstrings_stats,
 		       sizeof(rmnet_gstrings_stats));
+		memcpy(buf + sizeof(rmnet_gstrings_stats),
+		       &rmnet_port_gstrings_stats,
+		       sizeof(rmnet_port_gstrings_stats));
 		break;
 	}
 }
@@ -178,7 +220,8 @@ static int rmnet_get_sset_count(struct net_device *dev, int sset)
 {
 	switch (sset) {
 	case ETH_SS_STATS:
-		return ARRAY_SIZE(rmnet_gstrings_stats);
+		return ARRAY_SIZE(rmnet_gstrings_stats) +
+		       ARRAY_SIZE(rmnet_port_gstrings_stats);
 	default:
 		return -EOPNOTSUPP;
 	}
@@ -189,17 +232,42 @@ static void rmnet_get_ethtool_stats(struct net_device *dev,
 {
 	struct rmnet_priv *priv = netdev_priv(dev);
 	struct rmnet_priv_stats *st = &priv->stats;
+	struct rmnet_port_priv_stats *stp;
+	struct rmnet_port *port;
 
-	if (!data)
+	port = rmnet_get_port(priv->real_dev);
+
+	if (!data || !port)
 		return;
 
+	stp = &port->stats;
+
 	memcpy(data, st, ARRAY_SIZE(rmnet_gstrings_stats) * sizeof(u64));
+	memcpy(data + ARRAY_SIZE(rmnet_gstrings_stats), stp,
+	       ARRAY_SIZE(rmnet_port_gstrings_stats) * sizeof(u64));
+}
+
+static int rmnet_stats_reset(struct net_device *dev)
+{
+	struct rmnet_priv *priv = netdev_priv(dev);
+	struct rmnet_port_priv_stats *stp;
+	struct rmnet_port *port;
+
+	port = rmnet_get_port(priv->real_dev);
+	if (!port)
+		return -EINVAL;
+
+	stp = &port->stats;
+
+	memset(stp, 0, sizeof(*stp));
+	return 0;
 }
 
 static const struct ethtool_ops rmnet_ethtool_ops = {
 	.get_ethtool_stats = rmnet_get_ethtool_stats,
 	.get_strings = rmnet_get_strings,
 	.get_sset_count = rmnet_get_sset_count,
+	.nway_reset = rmnet_stats_reset,
 };
 
 /* Called by kernel whenever a new rmnet<n> device is created. Sets MTU,
@@ -210,7 +278,7 @@ void rmnet_vnd_setup(struct net_device *rmnet_dev)
 	rmnet_dev->netdev_ops = &rmnet_vnd_ops;
 	rmnet_dev->mtu = RMNET_DFLT_PACKET_SIZE;
 	rmnet_dev->needed_headroom = RMNET_NEEDED_HEADROOM;
-	eth_random_addr(rmnet_dev->dev_addr);
+	random_ether_addr(rmnet_dev->dev_addr);
 	rmnet_dev->tx_queue_len = RMNET_TX_QUEUE_LEN;
 
 	/* Raw IP mode */
@@ -258,6 +326,7 @@ int rmnet_vnd_newlink(u8 id, struct net_device *rmnet_dev,
 		priv = netdev_priv(rmnet_dev);
 		priv->mux_id = id;
 		priv->real_dev = real_dev;
+		priv->qos_info = qmi_rmnet_qos_init(real_dev, id);
 
 		netdev_dbg(rmnet_dev, "rmnet dev created\n");
 	}
