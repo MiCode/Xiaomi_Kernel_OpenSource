@@ -248,6 +248,7 @@ enum ipa_ver {
 	IPA_4_2,
 	IPA_4_5,
 	IPA_4_5_MHI,
+	IPA_4_5_APQ,
 	IPA_VER_MAX,
 };
 
@@ -3062,6 +3063,8 @@ static u8 ipa3_get_hw_type_index(void)
 		hw_type_index = IPA_4_5;
 		if (ipa3_ctx->ipa_config_is_mhi)
 			hw_type_index = IPA_4_5_MHI;
+		if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ)
+			hw_type_index = IPA_4_5_APQ;
 		break;
 	default:
 		IPAERR("Incorrect IPA version %d\n", ipa3_ctx->ipa_hw_type);
@@ -7378,34 +7381,6 @@ int emulator_load_fws(
 	IPADBG("IPA FWs (GSI FW, DPS and HPS) loaded successfully\n");
 
 	return 0;
-}
-
-/**
- * ipa3_is_msm_device() - Is the running device a MSM or MDM?
- *  Determine according to IPA version
- *
- * Return value: true if MSM, false if MDM
- *
- */
-bool ipa3_is_msm_device(void)
-{
-	switch (ipa3_ctx->ipa_hw_type) {
-	case IPA_HW_v3_0:
-	case IPA_HW_v3_5:
-	case IPA_HW_v4_0:
-	case IPA_HW_v4_5:
-		return false;
-	case IPA_HW_v3_1:
-	case IPA_HW_v3_5_1:
-	case IPA_HW_v4_1:
-	case IPA_HW_v4_2:
-		return true;
-	default:
-		IPAERR("unknown HW type %d\n", ipa3_ctx->ipa_hw_type);
-		ipa_assert();
-	}
-
-	return false;
 }
 
 /**

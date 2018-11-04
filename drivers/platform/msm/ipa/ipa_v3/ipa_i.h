@@ -1127,6 +1127,18 @@ enum ipa3_hw_mode {
 	IPA_HW_MODE_EMULATION = 3,
 };
 
+/*
+ * enum ipa3_platform_type - Platform type
+ * @IPA_PLAT_TYPE_MDM: MDM platform (usually 32bit single core CPU platform)
+ * @IPA_PLAT_TYPE_MSM: MSM SOC platform (usually 64bit multi-core platform)
+ * @IPA_PLAT_TYPE_APQ: Similar to MSM but without modem
+ */
+enum ipa3_platform_type {
+	IPA_PLAT_TYPE_MDM	= 0,
+	IPA_PLAT_TYPE_MSM	= 1,
+	IPA_PLAT_TYPE_APQ	= 2,
+};
+
 enum ipa3_config_this_ep {
 	IPA_CONFIGURE_THIS_EP,
 	IPA_DO_NOT_CONFIGURE_THIS_EP,
@@ -1577,6 +1589,7 @@ struct ipa3_context {
 	wait_queue_head_t msg_waitq;
 	enum ipa_hw_type ipa_hw_type;
 	enum ipa3_hw_mode ipa3_hw_mode;
+	enum ipa3_platform_type platform_type;
 	bool ipa_config_is_mhi;
 	bool use_ipa_teth_bridge;
 	bool modem_cfg_emb_pipe_flt;
@@ -1664,6 +1677,7 @@ struct ipa3_plat_drv_res {
 	u32 ipa_pipe_mem_size;
 	enum ipa_hw_type ipa_hw_type;
 	enum ipa3_hw_mode ipa3_hw_mode;
+	enum ipa3_platform_type platform_type;
 	u32 ee;
 	bool modem_cfg_emb_pipe_flt;
 	bool ipa_wdi2;
@@ -2630,7 +2644,6 @@ void ipa3_reset_freeze_vote(void);
 int ipa3_ntn_init(void);
 int ipa3_get_ntn_stats(struct Ipa3HwStatsNTNInfoData_t *stats);
 struct dentry *ipa_debugfs_get_root(void);
-bool ipa3_is_msm_device(void);
 struct device *ipa3_get_pdev(void);
 void ipa3_enable_dcd(void);
 void ipa3_disable_prefetch(enum ipa_client_type client);
