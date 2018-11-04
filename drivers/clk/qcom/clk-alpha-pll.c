@@ -1189,7 +1189,7 @@ static int lucid_pll_is_enabled(struct clk_alpha_pll *pll,
 		(mode_regval & PLL_OUTCTRL));
 }
 
-int alpha_pll_lucid_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
+int clk_lucid_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 				const struct alpha_pll_config *config)
 {
 	int ret;
@@ -1301,7 +1301,7 @@ static int alpha_pll_lucid_enable(struct clk_hw *hw)
 	}
 
 	if (unlikely(!pll->inited)) {
-		ret = alpha_pll_lucid_configure(pll, pll->clkr.regmap,
+		ret = clk_lucid_pll_configure(pll, pll->clkr.regmap,
 						pll->config);
 		if (ret) {
 			pr_err("Failed to configure %s\n", clk_hw_get_name(hw));
