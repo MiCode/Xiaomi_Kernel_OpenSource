@@ -1901,4 +1901,9 @@
 #include "kona-sde-pll.dtsi"
 #include "kona-sde-display.dtsi"
 #include "kona-audio.dtsi"
+
 #include "kona-pm.dtsi"
+
+#include "kona-camera.dtsi"
+
+
