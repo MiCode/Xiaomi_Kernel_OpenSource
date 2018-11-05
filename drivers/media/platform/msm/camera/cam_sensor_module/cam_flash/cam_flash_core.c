@@ -395,6 +395,9 @@ int cam_flash_flush_request(struct cam_req_mgr_flush_request *flush)
 	}
 
 	mutex_lock(&fctrl->flash_mutex);
+	if (fctrl->flash_state == CAM_FLASH_STATE_INIT)
+		goto end;
+
 	if (flush->type == CAM_REQ_MGR_FLUSH_TYPE_ALL) {
 		fctrl->last_flush_req = flush->req_id;
 		CAM_DBG(CAM_FLASH, "last reqest to flush is %lld",
