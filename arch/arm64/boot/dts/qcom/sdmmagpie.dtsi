@@ -2832,6 +2832,7 @@
 		governor = "performance";
 		qcom,src-dst-ports = <MSM_BUS_MASTER_NPU MSM_BUS_SLAVE_EBI_CH0>;
 		operating-points-v2 = <&suspendable_ddr_bw_opp_table>;
+		qcom,active-only;
 	};
 
 	npu_npu_ddr_bwmon: qcom,npu-npu-ddr-bwmon@9960300 {
