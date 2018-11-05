@@ -3243,6 +3243,60 @@ static int cam_icp_mgr_prepare_frame_process_cmd(
 	return 0;
 }
 
+static bool cam_icp_mgr_is_valid_inconfig(struct cam_packet *packet)
+{
+	int i, num_in_map_entries = 0;
+	bool in_config_valid = false;
+	struct cam_buf_io_cfg *io_cfg_ptr = NULL;
+
+	io_cfg_ptr = (struct cam_buf_io_cfg *) ((uint32_t *) &packet->payload +
+					packet->io_configs_offset/4);
+
+	for (i = 0 ; i < packet->num_io_configs; i++)
+		if (io_cfg_ptr[i].direction == CAM_BUF_INPUT)
+			num_in_map_entries++;
+
+	if (num_in_map_entries <= CAM_MAX_IN_RES) {
+		in_config_valid = true;
+	} else {
+		CAM_ERR(CAM_ICP, "In config entries(%u) more than allowed(%u)",
+				num_in_map_entries, CAM_MAX_IN_RES);
+	}
+
+	CAM_DBG(CAM_ICP, "number of in_config info: %u %u %u %u",
+			packet->num_io_configs, IPE_IO_IMAGES_MAX,
+			num_in_map_entries, CAM_MAX_IN_RES);
+
+	return in_config_valid;
+}
+
+static bool cam_icp_mgr_is_valid_outconfig(struct cam_packet *packet)
+{
+	int i, num_out_map_entries = 0;
+	bool out_config_valid = false;
+	struct cam_buf_io_cfg *io_cfg_ptr = NULL;
+
+	io_cfg_ptr = (struct cam_buf_io_cfg *) ((uint32_t *) &packet->payload +
+					packet->io_configs_offset/4);
+
+	for (i = 0 ; i < packet->num_io_configs; i++)
+		if (io_cfg_ptr[i].direction == CAM_BUF_OUTPUT)
+			num_out_map_entries++;
+
+	if (num_out_map_entries <= CAM_MAX_OUT_RES) {
+		out_config_valid = true;
+	} else {
+		CAM_ERR(CAM_ICP, "Out config entries(%u) more than allowed(%u)",
+				num_out_map_entries, CAM_MAX_OUT_RES);
+	}
+
+	CAM_DBG(CAM_ICP, "number of out_config info: %u %u %u %u",
+			packet->num_io_configs, IPE_IO_IMAGES_MAX,
+			num_out_map_entries, CAM_MAX_OUT_RES);
+
+	return out_config_valid;
+}
+
 static int cam_icp_mgr_pkt_validation(struct cam_packet *packet)
 {
 	if (((packet->header.op_code & 0xff) !=
@@ -3263,6 +3317,11 @@ static int cam_icp_mgr_pkt_validation(struct cam_packet *packet)
 	if (packet->num_cmd_buf > CAM_ICP_CTX_MAX_CMD_BUFFERS) {
 		CAM_ERR(CAM_ICP, "Invalid number of cmd buffers: %d %d",
 			CAM_ICP_CTX_MAX_CMD_BUFFERS, packet->num_cmd_buf);
+		return -EINVAL;
+	}
+
+	if (!cam_icp_mgr_is_valid_inconfig(packet) ||
+		!cam_icp_mgr_is_valid_outconfig(packet)) {
 		return -EINVAL;
 	}
 
