@@ -49,7 +49,8 @@ about the device register map, interrupt map, clocks, regulators.
 - compatible
   Usage: required
   Value type: <string>
-  Definition: Should be one of "qcom,fd41", "qcom,fd501".
+  Definition: Should be one of "qcom,fd41", "qcom,fd501",
+              "qcom,fd600".
 
 - reg-names
   Usage: optional
@@ -122,7 +123,7 @@ about the device register map, interrupt map, clocks, regulators.
 Examples:
 	cam_fd: qcom,fd@ac5a000 {
 		cell-index = <0>;
-		compatible = "qcom,fd501";
+		compatible = "qcom,fd600";
 		reg-names = "fd_core", "fd_wrapper";
 		reg = <0xac5a000 0x1000>,
 			<0xac5b000 0x400>;
