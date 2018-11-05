@@ -768,8 +768,12 @@ int drm_mode_createblob_ioctl(struct drm_device *dev,
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return -EINVAL;
 
+	mutex_lock(&dev->mode_config.blob_lock);
+
 	list_for_each_entry(bt, &file_priv->blobs, head_file)
 		count++;
+
+	mutex_unlock(&dev->mode_config.blob_lock);
 
 	if (count == MAX_BLOB_PROP_COUNT)
 		return -EINVAL;
