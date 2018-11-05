@@ -83,7 +83,8 @@ int sde_core_irq_idx_lookup(struct sde_kms *sde_kms,
 			!sde_kms->hw_intr->ops.irq_idx_lookup)
 		return -EINVAL;
 
-	return sde_kms->hw_intr->ops.irq_idx_lookup(intr_type,
+	return sde_kms->hw_intr->ops.irq_idx_lookup(
+			sde_kms->hw_intr, intr_type,
 			instance_idx);
 }
 
@@ -104,7 +105,7 @@ static int _sde_core_irq_enable(struct sde_kms *sde_kms, int irq_idx)
 		return -EINVAL;
 	}
 
-	if (irq_idx < 0 || irq_idx >= sde_kms->hw_intr->irq_idx_tbl_size) {
+	if (irq_idx < 0 || irq_idx >= sde_kms->hw_intr->sde_irq_map_size) {
 		SDE_ERROR("invalid IRQ index: [%d]\n", irq_idx);
 		return -EINVAL;
 	}
@@ -171,7 +172,7 @@ static int _sde_core_irq_disable(struct sde_kms *sde_kms, int irq_idx)
 		return -EINVAL;
 	}
 
-	if (irq_idx < 0 || irq_idx >= sde_kms->hw_intr->irq_idx_tbl_size) {
+	if (irq_idx < 0 || irq_idx >= sde_kms->hw_intr->sde_irq_map_size) {
 		SDE_ERROR("invalid IRQ index: [%d]\n", irq_idx);
 		return -EINVAL;
 	}
@@ -231,7 +232,7 @@ int sde_core_irq_disable_nolock(struct sde_kms *sde_kms, int irq_idx)
 		return -EINVAL;
 	}
 
-	if (irq_idx < 0 || irq_idx >= sde_kms->hw_intr->irq_idx_tbl_size) {
+	if (irq_idx < 0 || irq_idx >= sde_kms->hw_intr->sde_irq_map_size) {
 		SDE_ERROR("invalid IRQ index: [%d]\n", irq_idx);
 		return -EINVAL;
 	}
@@ -304,7 +305,7 @@ int sde_core_irq_register_callback(struct sde_kms *sde_kms, int irq_idx,
 		return -EINVAL;
 	}
 
-	if (irq_idx < 0 || irq_idx >= sde_kms->hw_intr->irq_idx_tbl_size) {
+	if (irq_idx < 0 || irq_idx >= sde_kms->hw_intr->sde_irq_map_size) {
 		SDE_ERROR("invalid IRQ index: [%d]\n", irq_idx);
 		return -EINVAL;
 	}
@@ -339,7 +340,7 @@ int sde_core_irq_unregister_callback(struct sde_kms *sde_kms, int irq_idx,
 		return -EINVAL;
 	}
 
-	if (irq_idx < 0 || irq_idx >= sde_kms->hw_intr->irq_idx_tbl_size) {
+	if (irq_idx < 0 || irq_idx >= sde_kms->hw_intr->sde_irq_map_size) {
 		SDE_ERROR("invalid IRQ index: [%d]\n", irq_idx);
 		return -EINVAL;
 	}
@@ -482,7 +483,7 @@ void sde_core_irq_preinstall(struct sde_kms *sde_kms)
 	spin_lock_init(&sde_kms->irq_obj.cb_lock);
 
 	/* Create irq callbacks for all possible irq_idx */
-	sde_kms->irq_obj.total_irqs = sde_kms->hw_intr->irq_idx_tbl_size;
+	sde_kms->irq_obj.total_irqs = sde_kms->hw_intr->sde_irq_map_size;
 	sde_kms->irq_obj.irq_cb_tbl = kcalloc(sde_kms->irq_obj.total_irqs,
 			sizeof(struct list_head), GFP_KERNEL);
 	sde_kms->irq_obj.enable_counts = kcalloc(sde_kms->irq_obj.total_irqs,
