@@ -222,6 +222,22 @@ rmnet_map_get_cmd_start(struct sk_buff *skb)
 	return (struct rmnet_map_control_command *)data;
 }
 
+static inline u8 rmnet_map_get_next_hdr_type(struct sk_buff *skb)
+{
+	unsigned char *data = rmnet_map_data_ptr(skb);
+
+	data += sizeof(struct rmnet_map_header);
+	return ((struct rmnet_map_v5_coal_header *)data)->header_type;
+}
+
+static inline bool rmnet_map_get_csum_valid(struct sk_buff *skb)
+{
+	unsigned char *data = rmnet_map_data_ptr(skb);
+
+	data += sizeof(struct rmnet_map_header);
+	return ((struct rmnet_map_v5_csum_header *)data)->csum_valid_required;
+}
+
 struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 				      struct rmnet_port *port);
 struct rmnet_map_header *rmnet_map_add_map_header(struct sk_buff *skb,
@@ -229,7 +245,9 @@ struct rmnet_map_header *rmnet_map_add_map_header(struct sk_buff *skb,
 void rmnet_map_command(struct sk_buff *skb, struct rmnet_port *port);
 int rmnet_map_checksum_downlink_packet(struct sk_buff *skb, u16 len);
 void rmnet_map_checksum_uplink_packet(struct sk_buff *skb,
-				      struct net_device *orig_dev);
+				      struct net_device *orig_dev,
+				      int csum_type);
+int rmnet_map_process_next_hdr_packet(struct sk_buff *skb);
 int rmnet_map_tx_agg_skip(struct sk_buff *skb, int offset);
 void rmnet_map_tx_aggregate(struct sk_buff *skb, struct rmnet_port *port);
 void rmnet_map_tx_aggregate_init(struct rmnet_port *port);
