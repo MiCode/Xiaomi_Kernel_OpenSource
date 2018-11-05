@@ -288,6 +288,9 @@ struct sde_hw_intr_ops {
  * @save_irq_status:  array of IRQ status reg storage created during init
  * @irq_idx_tbl_size: total number of irq_idx mapped in the hw_interrupts
  * @irq_lock:         spinlock for accessing IRQ resources
+ * @sde_irq_size:   total number of elements of the sde_irq_tbl
+ * @sde_irq_tbl:	table with the registesrs offsets of the sde interrupts
+ *		supported by the hw
  */
 struct sde_hw_intr {
 	struct sde_hw_blk_reg_map hw;
@@ -295,6 +298,8 @@ struct sde_hw_intr {
 	u32 *cache_irq_mask;
 	u32 *save_irq_status;
 	u32 irq_idx_tbl_size;
+	u32 sde_irq_size;
+	struct sde_intr_reg *sde_irq_tbl;
 	spinlock_t irq_lock;
 };
 
