@@ -81,7 +81,8 @@ dtb-$(CONFIG_ARCH_SM8150)	+= sm8150-rumi.dtb \
 	sm8150p-v2-mtp.dtb \
 	sm8150p-v2-cdp.dtb \
 	sm8150p-v2-qrd.dtb \
-	sm8150-hdk.dtb
+	sm8150-hdk.dtb \
+	sm8150p-hdk.dtb
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
