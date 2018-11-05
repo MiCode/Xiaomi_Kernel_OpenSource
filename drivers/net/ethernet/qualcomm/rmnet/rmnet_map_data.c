@@ -551,16 +551,19 @@ static struct sk_buff *rmnet_map_segment_udp_skb(struct sk_buff *coal_skb,
 {
 	struct sk_buff *skbn;
 	struct iphdr *iph = (struct iphdr *)rmnet_map_data_ptr(coal_skb);
+	struct rmnet_priv *priv = netdev_priv(coal_skb->dev);
 	struct udphdr *uh;
 	u32 alloc_len;
 	u16 ip_len, udp_len = sizeof(*uh);
 
-	if (iph->version == 4)
+	if (iph->version == 4) {
 		ip_len = iph->ihl * 4;
-	else if (iph->version == 6)
+	} else if (iph->version == 6) {
 		ip_len = sizeof(struct ipv6hdr);
-	else
+	} else {
+		priv->stats.coal.coal_ip_invalid++;
 		return NULL;
+	}
 
 	uh = (struct udphdr *)(rmnet_map_data_ptr(coal_skb) + ip_len);
 
@@ -603,6 +606,7 @@ static struct sk_buff *rmnet_map_segment_udp_skb(struct sk_buff *coal_skb,
 
 	skbn->ip_summed = CHECKSUM_UNNECESSARY;
 	skbn->dev = coal_skb->dev;
+	priv->stats.coal.coal_reconstruct++;
 
 	return skbn;
 }
@@ -617,16 +621,19 @@ static struct sk_buff *rmnet_map_segment_tcp_skb(struct sk_buff *coal_skb,
 {
 	struct sk_buff *skbn;
 	struct iphdr *iph = (struct iphdr *)rmnet_map_data_ptr(coal_skb);
+	struct rmnet_priv *priv = netdev_priv(coal_skb->dev);
 	struct tcphdr *th;
 	u32 alloc_len;
 	u16 ip_len, tcp_len;
 
-	if (iph->version == 4)
+	if (iph->version == 4) {
 		ip_len = iph->ihl * 4;
-	else if (iph->version == 6)
+	} else if (iph->version == 6) {
 		ip_len = sizeof(struct ipv6hdr);
-	else
+	} else {
+		priv->stats.coal.coal_ip_invalid++;
 		return NULL;
+	}
 
 	th = (struct tcphdr *)(rmnet_map_data_ptr(coal_skb) + ip_len);
 	tcp_len = th->doff * 4;
@@ -670,6 +677,7 @@ static struct sk_buff *rmnet_map_segment_tcp_skb(struct sk_buff *coal_skb,
 
 	skbn->ip_summed = CHECKSUM_UNNECESSARY;
 	skbn->dev = coal_skb->dev;
+	priv->stats.coal.coal_reconstruct++;
 
 	return skbn;
 }
@@ -689,6 +697,7 @@ static void rmnet_map_segment_coal_data(struct sk_buff *coal_skb,
 				   int start_pkt_num,
 				   u16 pkt_len);
 	struct iphdr *iph;
+	struct rmnet_priv *priv = netdev_priv(coal_skb->dev);
 	struct rmnet_map_v5_coal_header *coal_hdr;
 	u32 start = 0;
 	u16 pkt_len, ip_len, trans_len;
@@ -711,6 +720,7 @@ static void rmnet_map_segment_coal_data(struct sk_buff *coal_skb,
 		protocol = ((struct ipv6hdr *)iph)->nexthdr;
 		ip_len = sizeof(struct ipv6hdr);
 	} else {
+		priv->stats.coal.coal_ip_invalid++;
 		return;
 	}
 
@@ -723,6 +733,7 @@ static void rmnet_map_segment_coal_data(struct sk_buff *coal_skb,
 		trans_len = sizeof(struct udphdr);
 		segment = rmnet_map_segment_udp_skb;
 	} else {
+		priv->stats.coal.coal_trans_invalid++;
 		return;
 	}
 
@@ -733,6 +744,7 @@ static void rmnet_map_segment_coal_data(struct sk_buff *coal_skb,
 		     pkt++, total_pkt++) {
 			nlo_err_mask <<= 1;
 			if (nlo_err_mask & (1ULL << 63)) {
+				priv->stats.coal.coal_csum_err++;
 				/* skip over bad packet */
 				start += pkt_len;
 				start_pkt_num = total_pkt + 1;
@@ -751,6 +763,51 @@ static void rmnet_map_segment_coal_data(struct sk_buff *coal_skb,
 	}
 }
 
+/* Record reason for coalescing pipe closure */
+static void rmnet_map_data_log_close_stats(struct rmnet_priv *priv, u8 type,
+					   u8 code)
+{
+	struct rmnet_coal_close_stats *stats = &priv->stats.coal.close;
+
+	switch (type) {
+	case RMNET_MAP_COAL_CLOSE_NON_COAL:
+		stats->non_coal++;
+		break;
+	case RMNET_MAP_COAL_CLOSE_IP_MISS:
+		stats->ip_miss++;
+		break;
+	case RMNET_MAP_COAL_CLOSE_TRANS_MISS:
+		stats->trans_miss++;
+		break;
+	case RMNET_MAP_COAL_CLOSE_HW:
+		switch (code) {
+		case RMNET_MAP_COAL_CLOSE_HW_NL:
+			stats->hw_nl++;
+			break;
+		case RMNET_MAP_COAL_CLOSE_HW_PKT:
+			stats->hw_pkt++;
+			break;
+		case RMNET_MAP_COAL_CLOSE_HW_BYTE:
+			stats->hw_byte++;
+			break;
+		case RMNET_MAP_COAL_CLOSE_HW_TIME:
+			stats->hw_time++;
+			break;
+		case RMNET_MAP_COAL_CLOSE_HW_EVICT:
+			stats->hw_evict++;
+			break;
+		default:
+			break;
+		}
+		break;
+	case RMNET_MAP_COAL_CLOSE_COAL:
+		stats->coal++;
+		break;
+	default:
+		break;
+	}
+}
+
 /* Check if the coalesced header has any incorrect values, in which case, the
  * entire coalesced skb must be dropped. Then check if there are any
  * checksum issues
@@ -760,16 +817,20 @@ static int rmnet_map_data_check_coal_header(struct sk_buff *skb,
 {
 	struct rmnet_map_v5_coal_header *coal_hdr;
 	unsigned char *data = rmnet_map_data_ptr(skb);
+	struct rmnet_priv *priv = netdev_priv(skb->dev);
 	u64 mask = 0;
 	int i;
-	u8 pkts = 0;
+	u8 veid, pkts = 0;
 
 	coal_hdr = ((struct rmnet_map_v5_coal_header *)
 		    (data + sizeof(struct rmnet_map_header)));
+	veid = coal_hdr->virtual_channel_id;
 
 	if (coal_hdr->num_nlos == 0 ||
-	    coal_hdr->num_nlos > RMNET_MAP_V5_MAX_NLOS)
+	    coal_hdr->num_nlos > RMNET_MAP_V5_MAX_NLOS) {
+		priv->stats.coal.coal_hdr_nlo_err++;
 		return -EINVAL;
+	}
 
 	for (i = 0; i < RMNET_MAP_V5_MAX_NLOS; i++) {
 		/* If there is a checksum issue, we need to split
@@ -782,9 +843,21 @@ static int rmnet_map_data_check_coal_header(struct sk_buff *skb,
 
 		/* Track total packets in frame */
 		pkts += pkt;
-		if (pkts > RMNET_MAP_V5_MAX_PACKETS)
+		if (pkts > RMNET_MAP_V5_MAX_PACKETS) {
+			priv->stats.coal.coal_hdr_pkt_err++;
 			return -EINVAL;
+		}
 	}
+
+	/* Track number of packets we get inside of coalesced frames */
+	priv->stats.coal.coal_pkts += pkts;
+
+	/* Update ethtool stats */
+	rmnet_map_data_log_close_stats(priv,
+				       coal_hdr->close_type,
+				       coal_hdr->close_value);
+	if (veid < RMNET_MAX_VEID)
+		priv->stats.coal.coal_veid[veid]++;
 
 	*nlo_err_mask = mask;
 
@@ -801,6 +874,7 @@ int rmnet_map_process_next_hdr_packet(struct sk_buff *skb,
 
 	switch (rmnet_map_get_next_hdr_type(skb)) {
 	case RMNET_MAP_HEADER_TYPE_COALESCING:
+		priv->stats.coal.coal_rx++;
 		rc = rmnet_map_data_check_coal_header(skb, &nlo_err_mask);
 		if (rc)
 			return rc;
