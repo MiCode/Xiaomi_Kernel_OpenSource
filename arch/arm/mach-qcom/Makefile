@@ -7,6 +7,7 @@ obj-$(CONFIG_ARCH_MSM8937) += board-msm8937.o
 obj-$(CONFIG_ARCH_MSM8909) += board-msm8909.o
 obj-$(CONFIG_ARCH_MSM8917) += board-msm8917.o
 obj-$(CONFIG_ARCH_QM215) += board-qm215.o
+obj-$(CONFIG_ARCH_MSM8940) += board-msm8940.o
 obj-$(CONFIG_ARCH_SDM429) += board-sdm429.o
 obj-$(CONFIG_ARCH_SDM439) += board-sdm439.o
 obj-$(CONFIG_ARCH_SDM450) += board-sdm450.o
