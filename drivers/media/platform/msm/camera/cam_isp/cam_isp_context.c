@@ -27,10 +27,6 @@
 #include "cam_isp_context.h"
 #include "cam_common_util.h"
 
-#ifndef UINT64_MAX
-#define UINT64_MAX              (u64)(~((u64)0))
-#endif
-
 static const char isp_dev_name[] = "isp";
 
 #define INC_STATE_MONITOR_HEAD(head) \
@@ -1018,7 +1014,7 @@ static int __cam_isp_ctx_handle_error(struct cam_isp_context *ctx_isp,
 	struct cam_isp_ctx_req          *req_isp = NULL;
 	struct cam_isp_ctx_req          *req_isp_to_report = NULL;
 	struct cam_req_mgr_error_notify  notify;
-	uint64_t                         error_request_id = UINT64_MAX;
+	uint64_t                         error_request_id;
 	struct cam_hw_fence_map_entry   *fence_map_out = NULL;
 
 	struct cam_context *ctx = ctx_isp->base;
@@ -1172,8 +1168,7 @@ move_to_pending:
 	} while (req->request_id < ctx_isp->last_applied_req_id);
 
 end:
-	if (ctx->ctx_crm_intf && ctx->ctx_crm_intf->notify_err &&
-		error_request_id != UINT64_MAX) {
+	if (ctx->ctx_crm_intf && ctx->ctx_crm_intf->notify_err) {
 		notify.link_hdl = ctx->link_hdl;
 		notify.dev_hdl = ctx->dev_hdl;
 		notify.req_id = error_request_id;
