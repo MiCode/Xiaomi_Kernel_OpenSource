@@ -123,6 +123,8 @@
 #define ADRENO_MIN_VOLT BIT(15)
 /* The core supports IO-coherent memory */
 #define ADRENO_IOCOHERENT BIT(16)
+/* To retain RBBM perfcntl enable setting in IFPC */
+#define ADRENO_PERFCTRL_RETAIN BIT(17)
 /*
  * The GMU supports Adaptive Clock Distribution (ACD)
  * for droop mitigation
