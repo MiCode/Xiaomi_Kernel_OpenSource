@@ -983,6 +983,7 @@
 		num-ipe = <2>;
 		num-bps = <1>;
 		icp_pc_en;
+		ipe_bps_pc_en;
 		status = "ok";
 	};
 
