@@ -697,6 +697,7 @@
 		initial-pwrlevel = <5>;
 		qcom,npu-pwrlevel@0 {
 			reg = <0>;
+			vreg = <1>;
 			clk-freq = <300000000
 					19200000
 					100000000
@@ -720,6 +721,7 @@
 		};
 		qcom,npu-pwrlevel@1 {
 			reg = <1>;
+			vreg = <2>;
 			clk-freq = <400000000
 					19200000
 					150000000
@@ -743,6 +745,7 @@
 		};
 		qcom,npu-pwrlevel@2 {
 			reg = <2>;
+			vreg = <3>;
 			clk-freq = <487000000
 					19200000
 					200000000
@@ -766,6 +769,7 @@
 		};
 		qcom,npu-pwrlevel@3 {
 			reg = <3>;
+			vreg = <4>;
 			clk-freq = <652000000
 					19200000
 					300000000
@@ -789,6 +793,7 @@
 		};
 		qcom,npu-pwrlevel@4 {
 			reg = <4>;
+			vreg = <6>;
 			clk-freq = <811000000
 					19200000
 					400000000
@@ -812,6 +817,7 @@
 		};
 		qcom,npu-pwrlevel@5 {
 			reg = <5>;
+			vreg = <7>;
 			clk-freq = <908000000
 					19200000
 					400000000
