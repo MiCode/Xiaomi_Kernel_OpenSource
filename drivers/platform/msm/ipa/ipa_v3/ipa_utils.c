@@ -3235,6 +3235,24 @@ static void ipa_comp_cfg(void)
 		IPADBG("gsi_multi_inorder_wr_dis = %d\n",
 			comp_cfg.gsi_multi_inorder_wr_dis);
 	}
+
+	/* set GSI_MULTI_AXI_MASTERS_DIS = true after HW.4.1 */
+	if ((ipa3_ctx->ipa_hw_type == IPA_HW_v4_1) ||
+		(ipa3_ctx->ipa_hw_type == IPA_HW_v4_2)) {
+		ipahal_read_reg_fields(IPA_COMP_CFG, &comp_cfg);
+		IPADBG("Before comp config\n");
+		IPADBG("gsi_multi_axi_masters_dis = %d\n",
+			comp_cfg.gsi_multi_axi_masters_dis);
+
+		comp_cfg.gsi_multi_axi_masters_dis = true;
+
+		ipahal_write_reg_fields(IPA_COMP_CFG, &comp_cfg);
+
+		ipahal_read_reg_fields(IPA_COMP_CFG, &comp_cfg);
+		IPADBG("After comp config\n");
+		IPADBG("gsi_multi_axi_masters_dis = %d\n",
+			comp_cfg.gsi_multi_axi_masters_dis);
+	}
 }
 
 /**
