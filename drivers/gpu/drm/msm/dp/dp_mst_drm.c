@@ -812,10 +812,13 @@ static void dp_mst_bridge_post_disable(struct drm_bridge *drm_bridge)
 		pr_info("[%d] DP display unprepare failed, rc=%d\n",
 		       bridge->id, rc);
 
-	/* Disconnect the connector and panel info from bridge */
-	mst->mst_bridge[bridge->id].connector = NULL;
-	mst->mst_bridge[bridge->id].dp_panel = NULL;
-	mst->mst_bridge[bridge->id].encoder_active_sts = false;
+	/* maintain the connector to encoder link during suspend/resume */
+	if (mst->state != PM_SUSPEND) {
+		/* Disconnect the connector and panel info from bridge */
+		mst->mst_bridge[bridge->id].connector = NULL;
+		mst->mst_bridge[bridge->id].dp_panel = NULL;
+		mst->mst_bridge[bridge->id].encoder_active_sts = false;
+	}
 
 	DP_MST_DEBUG("mst bridge [%d] post disable complete\n", bridge->id);
 }
