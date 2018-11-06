@@ -89,7 +89,7 @@ static long ipa3_wan_ioctl(struct file *filp,
 			IPAWANDBG("Still allow IOCTL for exceptions (%d)\n",
 				cmd);
 		} else {
-			IPAWANERR("Modem is in SSR, ignoring ioctl (%d)\n",
+			IPAWANERR_RL("Modem is in SSR, ignoring ioctl (%d)\n",
 				cmd);
 			return -EAGAIN;
 		}
