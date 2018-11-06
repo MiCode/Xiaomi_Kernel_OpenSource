@@ -1133,12 +1133,8 @@ route_lookup:
 		max_headroom += 8;
 		mtu -= 8;
 	}
-	if (skb->protocol == htons(ETH_P_IPV6)) {
-		if (mtu < IPV6_MIN_MTU)
-			mtu = IPV6_MIN_MTU;
-	} else if (mtu < 576) {
-		mtu = 576;
-	}
+	mtu = max(mtu, skb->protocol == htons(ETH_P_IPV6) ?
+		       IPV6_MIN_MTU : IPV4_MIN_MTU);
 
 	if (skb_dst(skb) && !t->parms.collect_md)
 		skb_dst(skb)->ops->update_pmtu(skb_dst(skb), NULL, skb, mtu);
