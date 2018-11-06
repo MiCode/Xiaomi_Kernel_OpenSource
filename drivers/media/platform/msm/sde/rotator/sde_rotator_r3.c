@@ -972,7 +972,7 @@ static struct sde_hw_rotator_context *sde_hw_rotator_get_ctx(
 		if (ctx && (ctx->session_id == session_id) &&
 				(ctx->sequence_id == sequence_id)) {
 			SDEROT_DBG(
-				"rotCtx sloti[%d][%d] ==> ctx:%p | session-id:%d | sequence-id:%d\n",
+				"rotCtx sloti[%d][%d] ==> ctx:%pK | session-id:%d | sequence-id:%d\n",
 				q_id, i, ctx, ctx->session_id,
 				ctx->sequence_id);
 			return ctx;
@@ -1001,7 +1001,7 @@ static void sde_hw_rotator_map_vaddr(struct sde_dbg_buf *dbgbuf,
 	if (dbgbuf->dmabuf && (dbgbuf->buflen > 0)) {
 		dma_buf_begin_cpu_access(dbgbuf->dmabuf, DMA_FROM_DEVICE);
 		dbgbuf->vaddr = dma_buf_kmap(dbgbuf->dmabuf, 0);
-		SDEROT_DBG("vaddr mapping: 0x%p/%ld w:%d/h:%d\n",
+		SDEROT_DBG("vaddr mapping: 0x%pK/%ld w:%d/h:%d\n",
 				dbgbuf->vaddr, dbgbuf->buflen,
 				dbgbuf->width, dbgbuf->height);
 	}
@@ -2046,7 +2046,7 @@ static u32 sde_hw_rotator_wait_done_regdma(
 	unsigned long flags;
 
 	if (rot->irq_num >= 0) {
-		SDEROT_DBG("Wait for REGDMA completion, ctx:%p, ts:%X\n",
+		SDEROT_DBG("Wait for REGDMA completion, ctx:%pK, ts:%X\n",
 				ctx, ctx->timestamp);
 		rc = wait_event_timeout(ctx->regdma_waitq,
 				!rot->ops.get_pending_ts(rot, ctx, &swts),
@@ -2230,7 +2230,7 @@ static int sde_hw_rotator_swts_create(struct sde_hw_rotator *rot)
 	}
 
 	data->mapped = true;
-	SDEROT_DBG("swts buffer mapped: %pad/%lx va:%p\n", &data->addr,
+	SDEROT_DBG("swts buffer mapped: %pad/%lx va:%pK\n", &data->addr,
 			data->len, rot->swts_buffer);
 
 	sde_smmu_ctrl(0);
@@ -2450,7 +2450,7 @@ static struct sde_rot_hw_resource *sde_hw_rotator_alloc_ext(
 	if (resinfo->rot->irq_num >= 0)
 		sde_hw_rotator_enable_irq(resinfo->rot);
 
-	SDEROT_DBG("New rotator resource:%p, priority:%d\n",
+	SDEROT_DBG("New rotator resource:%pK, priority:%d\n",
 			resinfo, wb_id);
 
 	return &resinfo->hw;
@@ -2472,7 +2472,7 @@ static void sde_hw_rotator_free_ext(struct sde_rot_mgr *mgr,
 	resinfo = container_of(hw, struct sde_hw_rotator_resource_info, hw);
 
 	SDEROT_DBG(
-		"Free rotator resource:%p, priority:%d, active:%d, pending:%d\n",
+		"Free rotator resource:%pK, priority:%d, active:%d, pending:%d\n",
 		resinfo, hw->wb_id, atomic_read(&hw->num_active),
 		hw->pending_count);
 
@@ -2535,7 +2535,7 @@ static struct sde_hw_rotator_context *sde_hw_rotator_alloc_rotctx(
 	sde_hw_rotator_put_ctx(ctx);
 
 	SDEROT_DBG(
-		"New rot CTX:%p, ctxidx:%d, session-id:%d, prio:%d, timestamp:%X, active:%d sbuf:%d\n",
+		"New rot CTX:%pK, ctxidx:%d, session-id:%d, prio:%d, timestamp:%X, active:%d sbuf:%d\n",
 		ctx, sde_hw_rotator_get_regdma_ctxidx(ctx), ctx->session_id,
 		ctx->q_id, ctx->timestamp,
 		atomic_read(&ctx->hwres->num_active),
@@ -2556,7 +2556,7 @@ static void sde_hw_rotator_free_rotctx(struct sde_hw_rotator *rot,
 		return;
 
 	SDEROT_DBG(
-		"Free rot CTX:%p, ctxidx:%d, session-id:%d, prio:%d, timestamp:%X, active:%d sbuf:%d\n",
+		"Free rot CTX:%pK, ctxidx:%d, session-id:%d, prio:%d, timestamp:%X, active:%d sbuf:%d\n",
 		ctx, sde_hw_rotator_get_regdma_ctxidx(ctx), ctx->session_id,
 		ctx->q_id, ctx->timestamp,
 		atomic_read(&ctx->hwres->num_active),
@@ -3284,7 +3284,7 @@ skip_sbuf:
 			ctx->last_regdma_isr_status = isr;
 			ctx->last_regdma_timestamp  = ts;
 			SDEROT_DBG(
-				"regdma complete: ctx:%p, ts:%X\n", ctx, ts);
+				"regdma complete: ctx:%pK, ts:%X\n", ctx, ts);
 			wake_up_all(&ctx->regdma_waitq);
 
 			ts  = (ts - 1) & SDE_REGDMA_SWTS_MASK;
@@ -3317,8 +3317,9 @@ done_isr_handle:
 					ctx->last_regdma_isr_status = isr;
 					ctx->last_regdma_timestamp  = ts;
 					wake_up_all(&ctx->regdma_waitq);
-					SDEROT_DBG("Wakeup rotctx[%d][%d]:%p\n",
-							i, j, ctx);
+					SDEROT_DBG(
+						"Wakeup rotctx[%d][%d]:%pK\n",
+						i, j, ctx);
 				}
 			}
 		}
@@ -3541,7 +3542,7 @@ static ssize_t sde_hw_rotator_show_state(struct sde_rot_mgr *mgr,
 
 					if (ctx) {
 						SPRINT(
-							"rotCtx[%d][%d]:%p\n",
+							"rotCtx[%d][%d]:%pK\n",
 							i, j, ctx);
 						++num_active;
 					}
