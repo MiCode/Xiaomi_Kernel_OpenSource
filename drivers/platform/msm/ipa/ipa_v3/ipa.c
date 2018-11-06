@@ -4444,9 +4444,9 @@ void ipa3_reset_freeze_vote(void)
 
 	qcom_smem_state_update_bits(ipa3_ctx->smp2p_info.smem_state,
 			IPA_SMP2P_SMEM_STATE_MASK,
-			((ipa3_ctx->smp2p_info.ipa_clk_on <<
+			((0 <<
 			IPA_SMP2P_OUT_CLK_VOTE_IDX) |
-			(1 << IPA_SMP2P_OUT_CLK_RSP_CMPLT_IDX)));
+			(0 << IPA_SMP2P_OUT_CLK_RSP_CMPLT_IDX)));
 
 	ipa3_ctx->smp2p_info.res_sent = false;
 	ipa3_ctx->smp2p_info.ipa_clk_on = false;
