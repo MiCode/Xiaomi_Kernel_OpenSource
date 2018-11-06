@@ -3730,6 +3730,13 @@ static inline int rmnet_ipa3_delete_lan_client_info
 	struct ipa_lan_client *lan_client = NULL;
 	int i;
 
+	/* Check if Device type is valid. */
+	if (device_type >= IPACM_MAX_CLIENT_DEVICE_TYPES ||
+		device_type < 0) {
+		IPAWANERR("Invalid Device type: %d\n", device_type);
+		return -EINVAL;
+	}
+
 	/* Check if the request is to clean up all clients. */
 	if (lan_clnt_idx == 0xffffffff) {
 		/* Reset the complete device info. */
