@@ -2442,6 +2442,7 @@ static int glink_smem_native_probe(struct platform_device *pdev)
 	}
 
 	einfo->irq_line = irq_line;
+	einfo->in_ssr = true;
 	rc = request_irq(irq_line, irq_handler,
 			IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND | IRQF_SHARED,
 			node->name, einfo);
@@ -2450,7 +2451,6 @@ static int glink_smem_native_probe(struct platform_device *pdev)
 									rc);
 		goto request_irq_fail;
 	}
-	einfo->in_ssr = true;
 	rc = enable_irq_wake(irq_line);
 	if (rc < 0)
 		pr_err("%s: enable_irq_wake() failed on %d\n", __func__,
