@@ -18,7 +18,7 @@
 #include <dt-bindings/clock/qcom,rpmh.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
-#include "sm8150-qrd.dtsi"
+#include "sm8150-sdx50m-qrd.dtsi"
 
 #include "sdx5xm-external-soc.dtsi"
 #include "sm8150-sdx50m.dtsi"
@@ -28,10 +28,6 @@
 	model = "SDX50M QRD";
 	compatible = "qcom,sm8150-qrd", "qcom,sm8150", "qcom,qrd";
 	qcom,board-id = <11 1>;
-};
-
-&cam_cci0 {
-	status = "disabled";
 };
 
 &qupv3_se9_i2c {
