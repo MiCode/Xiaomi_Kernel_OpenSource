@@ -163,7 +163,8 @@ static void dp_mst_sim_add_port(struct dp_mst_private *mst,
 	list_add(&port->next, &mstb->ports);
 	mutex_unlock(&mstb->mgr->lock);
 
-	port->available_pbn = 0;
+	/* use fixed pbn for simulator ports */
+	port->available_pbn = 2520;
 
 	if (!port->input) {
 		port->connector = (*mstb->mgr->cbs->add_connector)
@@ -956,18 +957,57 @@ enum drm_mode_status dp_mst_connector_mode_valid(
 		struct drm_display_mode *mode,
 		void *display)
 {
-	enum drm_mode_status status;
+	struct dp_display *dp_display = display;
+	struct dp_mst_private *mst;
+	struct sde_connector *c_conn;
+	struct drm_dp_mst_port *mst_port;
+	struct dp_display_mode dp_mode;
+	uint16_t available_pbn, required_pbn;
+	int i, slots_in_use = 0, active_enc_cnt = 0;
+	int available_slots, required_slots;
+	const u32 tot_slots = 63;
 
-	DP_MST_DEBUG("enter:\n");
+	if (!connector || !mode || !display) {
+		pr_err("invalid input\n");
+		return 0;
+	}
 
-	status = dp_connector_mode_valid(connector, mode, display);
+	mst = dp_display->dp_mst_prv_info;
+	c_conn = to_sde_connector(connector);
+	mst_port = c_conn->mst_port;
 
-	DP_MST_DEBUG("mst connector:%d mode:%s valid status:%d\n",
-			connector->base.id, mode->name, status);
+	mutex_lock(&mst->mst_lock);
+	available_pbn = mst_port->available_pbn;
+	for (i = 0; i < MAX_DP_MST_DRM_BRIDGES; i++) {
+		if (mst->mst_bridge[i].encoder_active_sts &&
+			(mst->mst_bridge[i].connector != connector)) {
+			active_enc_cnt++;
+			slots_in_use += mst->mst_bridge[i].num_slots;
+		}
+	}
+	mutex_unlock(&mst->mst_lock);
 
-	DP_MST_DEBUG("exit:\n");
+	if (active_enc_cnt < DP_STREAM_MAX)
+		available_slots = tot_slots - slots_in_use;
+	else {
+		pr_debug("all mst streams are active\n");
+		return MODE_BAD;
+	}
 
-	return status;
+	dp_display->convert_to_dp_mode(dp_display, c_conn->drv_panel,
+			mode, &dp_mode);
+
+	required_pbn = mst->mst_fw_cbs->calc_pbn_mode(
+			dp_mode.timing.pixel_clk_khz, dp_mode.timing.bpp);
+	required_slots = mst->mst_fw_cbs->find_vcpi_slots(
+			&mst->mst_mgr, required_pbn);
+
+	if (required_pbn > available_pbn || required_slots > available_slots) {
+		pr_debug("mode:%s not supported\n", mode->name);
+		return MODE_BAD;
+	}
+
+	return dp_connector_mode_valid(connector, mode, display);
 }
 
 int dp_mst_connector_get_info(struct drm_connector *connector,
@@ -1092,6 +1132,8 @@ static int dp_mst_connector_atomic_check(struct drm_connector *connector,
 	if (!new_conn_state)
 		return rc;
 
+	mutex_lock(&mst->mst_lock);
+
 	state = new_conn_state->state;
 
 	old_conn_state = drm_atomic_get_old_connector_state(state, connector);
@@ -1114,7 +1156,7 @@ static int dp_mst_connector_atomic_check(struct drm_connector *connector,
 	bridge = _dp_mst_get_bridge_from_encoder(dp_display,
 			old_conn_state->best_encoder);
 	if (!bridge)
-		return rc;
+		goto end;
 
 	slots = bridge->num_slots;
 	if (drm_atomic_crtc_needs_modeset(crtc_state) && slots > 0) {
@@ -1123,13 +1165,13 @@ static int dp_mst_connector_atomic_check(struct drm_connector *connector,
 		if (rc) {
 			pr_err("failed releasing %d vcpi slots rc:%d\n",
 					slots, rc);
-			return rc;
+			goto end;
 		}
 	}
 
 mode_set:
 	if (!new_conn_state->crtc)
-		return rc;
+		goto end;
 
 	crtc_state = drm_atomic_get_new_crtc_state(state, new_conn_state->crtc);
 
@@ -1156,6 +1198,7 @@ mode_set:
 	}
 
 end:
+	mutex_unlock(&mst->mst_lock);
 	DP_MST_DEBUG("mst connector:%d atomic check\n", connector->base.id);
 	return rc;
 }
