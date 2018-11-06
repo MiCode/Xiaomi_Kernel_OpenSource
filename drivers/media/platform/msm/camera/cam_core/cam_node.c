@@ -657,6 +657,7 @@ int cam_node_handle_ioctl(struct cam_node *node, struct cam_control *cmd)
 					"acquire device failed(rc = %d)", rc);
 				goto acquire_kfree;
 			}
+			CAM_INFO(CAM_CORE, "Acquire HW successful");
 		}
 
 		if (copy_to_user((void __user *)cmd->handle, acquire_ptr,
@@ -762,6 +763,8 @@ acquire_kfree:
 				CAM_ERR(CAM_CORE,
 					"release device failed(rc = %d)", rc);
 		}
+
+		CAM_INFO(CAM_CORE, "Release HW done(rc = %d)", rc);
 
 release_kfree:
 		kfree(release_ptr);
