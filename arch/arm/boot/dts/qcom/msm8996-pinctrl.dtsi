@@ -2839,5 +2839,19 @@
 				bias-pull-down;         /* PULL down */
 			};
 		};
+
+		pinctrl_pps: ppsgrp {
+			mux {
+				pins = "gpio128";
+				function = "nav_dr";
+			};
+
+			config {
+				pins =  "gpio128";
+				drive-strength = <16>;
+				bias-pull-down;
+			};
+		};
+
 	};
 };
