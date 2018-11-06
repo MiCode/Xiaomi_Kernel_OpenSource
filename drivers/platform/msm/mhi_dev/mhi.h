@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -561,6 +561,9 @@ struct mhi_dev {
 	/* Use IPA DMA for Software channel data transfer */
 	bool				use_ipa;
 
+	/* Use  PCI eDMA for data transfer */
+	bool				use_edma;
+
 	/* iATU is required to map control and data region */
 	bool				config_iatu;
 
@@ -572,6 +575,22 @@ struct mhi_dev {
 	bool				mhi_int_en;
 	/* Registered client callback list */
 	struct list_head		client_cb_list;
+	/* Tx, Rx DMA channels */
+	struct dma_chan			*tx_dma_chan;
+	struct dma_chan			*rx_dma_chan;
+
+	int (*device_to_host)(uint64_t dst_pa, void *src, uint32_t len,
+				struct mhi_dev *mhi, struct mhi_req *req);
+
+	int (*host_to_device)(void *device, uint64_t src_pa, uint32_t len,
+				struct mhi_dev *mhi, struct mhi_req *mreq);
+
+	void (*write_to_host)(struct mhi_dev *mhi,
+			struct mhi_addr *mhi_transfer, struct event_req *ereq,
+			enum mhi_dev_transfer_type type);
+
+	void (*read_from_host)(struct mhi_dev *mhi,
+				struct mhi_addr *mhi_transfer);
 
 	struct kobj_uevent_env		kobj_env;
 };
@@ -604,6 +623,8 @@ extern void *mhi_ipc_log;
 
 /* Use ID 0 for legacy /dev/mhi_ctrl. Channel 0 used for internal only */
 #define MHI_DEV_UEVENT_CTRL	0
+
+#define MHI_USE_DMA(mhi) (mhi->use_ipa || mhi->use_edma)
 
 struct mhi_dev_uevent_info {
 	enum mhi_client_channel	channel;
@@ -683,57 +704,13 @@ int mhi_dev_process_ring_element(struct mhi_dev_ring *ring, uint32_t offset);
 int mhi_dev_add_element(struct mhi_dev_ring *ring,
 				union mhi_dev_ring_element_type *element,
 				struct event_req *ereq, int evt_offset);
-/**
- * mhi_transfer_device_to_host() - memcpy equivalent API to transfer data
- *		from device to the host.
- * @dst_pa:	Physical destination address.
- * @src:	Source virtual address.
- * @len:	Numer of bytes to be transferred.
- * @mhi:	MHI dev structure.
- * @req:        mhi_req structure
- */
-int mhi_transfer_device_to_host(uint64_t dst_pa, void *src, uint32_t len,
-				struct mhi_dev *mhi, struct mhi_req *req);
 
-/**
- * mhi_transfer_host_to_dev() - memcpy equivalent API to transfer data
- *		from host to the device.
- * @dst:	Physical destination virtual address.
- * @src_pa:	Source physical address.
- * @len:	Numer of bytes to be transferred.
- * @mhi:	MHI dev structure.
- * @req:        mhi_req structure
+/*
+ * mhi_ring_set_cb () - Call back function of the ring.
+ *
+ * @ring:	Ring for the respective context - Channel/Event/Command.
+ * @ring_cb:	callback function.
  */
-int mhi_transfer_host_to_device(void *device, uint64_t src_pa, uint32_t len,
-				struct mhi_dev *mhi, struct mhi_req *mreq);
-
-/**
- * mhi_dev_write_to_host() - Transfer data from device to host.
- *		Based on support available, either IPA DMA or memcpy is used.
- * @host:	Host and device address details.
- * @buf:	Data buffer that needs to be written to the host.
- * @size:	Data buffer size.
- */
-void mhi_dev_write_to_host(struct mhi_dev *mhi, struct mhi_addr *mhi_transfer,
-		struct event_req *ereq, enum mhi_dev_transfer_type type);
-/**
- * mhi_dev_read_from_host() - memcpy equivalent API to transfer data
- *		from host to device.
- * @host:	Host and device address details.
- * @buf:	Data buffer that needs to be read from the host.
- * @size:	Data buffer size.
- */
-void mhi_dev_read_from_host(struct mhi_dev *mhi,
-				struct mhi_addr *mhi_transfer);
-
-/**
- * mhi_dev_read_from_host() - memcpy equivalent API to transfer data
- *		from host to device.
- * @host:	Host and device address details.
- * @buf:	Data buffer that needs to be read from the host.
- * @size:	Data buffer size.
- */
-
 void mhi_ring_set_cb(struct mhi_dev_ring *ring,
 			void (*ring_cb)(struct mhi_dev *dev,
 			union mhi_dev_ring_element_type *el, void *ctx));
