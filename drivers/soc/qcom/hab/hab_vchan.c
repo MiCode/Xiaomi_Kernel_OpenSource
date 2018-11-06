@@ -85,9 +85,6 @@ hab_vchan_free(struct kref *ref)
 	}
 	spin_unlock_bh(&vchan->rx_lock);
 
-	/* the release vchan from ctx was done earlier in vchan close() */
-	hab_ctx_put(ctx); /* now ctx is not needed from this vchan's view */
-
 	/* release vchan from pchan. no more msg for this vchan */
 	write_lock_bh(&pchan->vchans_lock);
 	list_for_each_entry_safe(vc, vc_tmp, &pchan->vchannels, pnode) {
@@ -99,6 +96,9 @@ hab_vchan_free(struct kref *ref)
 		}
 	}
 	write_unlock_bh(&pchan->vchans_lock);
+
+	/* the release vchan from ctx was done earlier in vchan close() */
+	hab_ctx_put(ctx); /* now ctx is not needed from this vchan's view */
 
 	/* release idr at the last so same idr will not be used early */
 	spin_lock_bh(&pchan->vid_lock);
@@ -206,15 +206,22 @@ static int hab_vchans_per_pchan_empty(struct physical_channel *pchan)
 	empty = list_empty(&pchan->vchannels);
 	if (!empty) {
 		struct virtual_channel *vchan;
+		int vcnt = pchan->vcnt;
 
 		list_for_each_entry(vchan, &pchan->vchannels, pnode) {
-			pr_err("vchan %pK id %x remote id %x session %d ref %d closed %d remote close %d\n",
-				   vchan, vchan->id, vchan->otherend_id,
-				   vchan->session_id,
-				   get_refcnt(vchan->refcount), vchan->closed,
-				   vchan->otherend_closed);
+			/* discount open-pending unpaired vchan */
+			if (!vchan->session_id)
+				vcnt--;
+			else
+				pr_err("vchan %pK %x rm %x sn %d rf %d clsd %d rm clsd %d\n",
+					vchan, vchan->id,
+					vchan->otherend_id,
+					vchan->session_id,
+					get_refcnt(vchan->refcount),
+					vchan->closed, vchan->otherend_closed);
 		}
-
+		if (!vcnt)
+			empty = 1;/* unpaired vchan can exist at init time */
 	}
 	read_unlock(&pchan->vchans_lock);
 
@@ -267,48 +274,18 @@ int hab_vchan_find_domid(struct virtual_channel *vchan)
 	return vchan ? vchan->pchan->dom_id : -1;
 }
 
-/* this sould be only called once after refcnt is zero */
-static void hab_vchan_schedule_free(struct kref *ref)
-{
-	struct virtual_channel *vchanin =
-		container_of(ref, struct virtual_channel, refcount);
-	struct uhab_context *ctx = vchanin->ctx;
-	struct virtual_channel *vchan, *tmp;
-	int bnotify = 0;
-
-	/*
-	 * similar logic is in ctx free. if ctx free runs first,
-	 * this is skipped
-	 */
-	write_lock_bh(&ctx->ctx_lock);
-	list_for_each_entry_safe(vchan, tmp, &ctx->vchannels, node) {
-		if (vchan == vchanin) {
-			pr_debug("vchan free refcnt = %d\n",
-					 get_refcnt(vchan->refcount));
-			ctx->vcnt--;
-			list_del(&vchan->node);
-			bnotify = 1;
-			break;
-		}
-	}
-	write_unlock_bh(&ctx->ctx_lock);
-
-	if (bnotify)
-		hab_vchan_stop_notify(vchan);
-
-	hab_vchan_free(ref);
-}
-
 void hab_vchan_put(struct virtual_channel *vchan)
 {
 	if (vchan)
-		kref_put(&vchan->refcount, hab_vchan_schedule_free);
+		kref_put(&vchan->refcount, hab_vchan_free);
 }
 
 int hab_vchan_query(struct uhab_context *ctx, int32_t vcid, uint64_t *ids,
 			   char *names, size_t name_size, uint32_t flags)
 {
-	struct virtual_channel *vchan = hab_get_vchan_fromvcid(vcid, ctx);
+	struct virtual_channel *vchan;
+
+	vchan = hab_get_vchan_fromvcid(vcid, ctx, 1);
 	if (!vchan)
 		return -EINVAL;
 

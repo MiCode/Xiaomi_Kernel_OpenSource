@@ -47,6 +47,12 @@ int hab_open_request_add(struct physical_channel *pchan,
 	struct hab_open_request *request;
 	struct timeval tv;
 
+	if (sizebytes > HAB_HEADER_SIZE_MASK) {
+		pr_err("pchan %s request size too large %zd\n",
+			pchan->name, sizebytes);
+		return -EINVAL;
+	}
+
 	node = kzalloc(sizeof(*node), GFP_ATOMIC);
 	if (!node)
 		return -ENOMEM;
@@ -186,6 +192,12 @@ int hab_open_receive_cancel(struct physical_channel *pchan,
 	struct hab_open_node *node, *tmp;
 	int bfound = 0;
 	struct timeval tv;
+
+	if (sizebytes > HAB_HEADER_SIZE_MASK) {
+		pr_err("pchan %s cancel size too large %zd\n",
+			pchan->name, sizebytes);
+		return -EINVAL;
+	}
 
 	if (physical_channel_read(pchan, &data, sizebytes) != sizebytes)
 		return -EIO;
