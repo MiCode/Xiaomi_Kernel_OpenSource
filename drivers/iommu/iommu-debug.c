@@ -297,6 +297,7 @@ static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev,
 		}
 	}
 
+	domain->is_debug_domain = true;
 	if (iommu_attach_group(domain, dev->iommu_group)) {
 		seq_puts(s,
 			 "Couldn't attach new domain to device. Is it already attached?\n");
@@ -551,6 +552,7 @@ static int iommu_debug_profiling_fast_dma_api_show(struct seq_file *s,
 		goto out_release_mapping;
 	}
 
+	mapping->domain->is_debug_domain = true;
 	if (arm_iommu_attach_device(dev, mapping)) {
 		seq_puts(s, "fast_smmu_attach_device failed\n");
 		goto out_release_mapping;
@@ -1173,6 +1175,7 @@ static int __apply_to_new_mapping(struct seq_file *s,
 		goto out_release_mapping;
 	}
 
+	mapping->domain->is_debug_domain = true;
 	if (arm_iommu_attach_device(dev, mapping))
 		goto out_release_mapping;
 
@@ -1239,6 +1242,7 @@ static int iommu_debug_functional_arm_dma_api_show(struct seq_file *s,
 	if (!mapping)
 		goto out;
 
+	mapping->domain->is_debug_domain = true;
 	if (arm_iommu_attach_device(dev, mapping))
 		goto out_release_mapping;
 
