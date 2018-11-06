@@ -878,18 +878,18 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		goto fail;
 
 	gpu->ebi1_clk = msm_clk_get(pdev, "bus");
-	DBG("ebi1_clk: %p", gpu->ebi1_clk);
+	DBG("ebi1_clk: %pK", gpu->ebi1_clk);
 	if (IS_ERR(gpu->ebi1_clk))
 		gpu->ebi1_clk = NULL;
 
 	/* Acquire regulators: */
 	gpu->gpu_reg = devm_regulator_get(&pdev->dev, "vdd");
-	DBG("gpu_reg: %p", gpu->gpu_reg);
+	DBG("gpu_reg: %pK", gpu->gpu_reg);
 	if (IS_ERR(gpu->gpu_reg))
 		gpu->gpu_reg = NULL;
 
 	gpu->gpu_cx = devm_regulator_get(&pdev->dev, "vddcx");
-	DBG("gpu_cx: %p", gpu->gpu_cx);
+	DBG("gpu_cx: %pK", gpu->gpu_cx);
 	if (IS_ERR(gpu->gpu_cx))
 		gpu->gpu_cx = NULL;
 
