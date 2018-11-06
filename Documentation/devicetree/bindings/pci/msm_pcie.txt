@@ -73,7 +73,10 @@ Optional Properties:
   - qcom,common-clk-en: Enables the common clock configuration for the endpoint.
   - qcom,clk-power-manage-en: Enables the clock power management for the
     endpoint.
-  - qcom,max-link-speed: Max Gen speed Root complex supports.
+  - qcom,target-link-speed: Override maximum GEN speed.
+	GEN 1: 0x1
+	GEN 2: 0x2
+	GEN 3: 0x3
   - qcom,n-fts: The number of fast training sequences sent when the link state
     is changed from L0s to L0.
   - qcom,phy-power-down-offset: Offset from PCIe PHY base to control the power state
@@ -284,7 +287,7 @@ Example:
 		qcom,no-l1-supported;
 		qcom,no-l1ss-supported;
 		qcom,no-aux-clk-sync;
-		qcom,max-link-speed = <0x2>;
+		qcom,target-link-speed = <0x2>;
 		qcom,n-fts = <0x50>;
 		qcom,pcie-phy-ver = <1>;
 		qcom,boot-option = <0x1>;
