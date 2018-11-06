@@ -185,6 +185,12 @@ Main node
 		- 0x2	GEN 2
 		- 0x3	GEN 3
 
+- qcom,link-check-max-count
+	Usage: optional
+	Value type: <u32>
+	Definition: Max number of retries for link training. Delay between each
+		check is 5ms
+
 - qcom,boot-option:
 	Usage: optional
 	Value type: <u32>
@@ -440,6 +446,7 @@ Example
 			<0x100 &apps_smmu 0x1e01 0x1>;
 
 		qcom,target-link-speed = <0x2>;
+		qcom,link-check-max-count = <40> /* 200ms */
 		qcom,boot-option = <0x1>;
 		qcom,use-19p2mhz-aux-clk;
 		qcom,common-clk-en;
