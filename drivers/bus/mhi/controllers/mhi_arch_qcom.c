@@ -61,8 +61,13 @@ static int mhi_arch_set_bus_request(struct mhi_controller *mhi_cntrl, int index)
 
 	MHI_LOG("Setting bus request to index %d\n", index);
 
-	return msm_bus_scale_client_update_request(arch_info->bus_client,
-						   index);
+	if (arch_info->bus_client)
+		return msm_bus_scale_client_update_request(
+							arch_info->bus_client,
+							index);
+
+	/* default return success */
+	return 0;
 }
 
 static void mhi_arch_pci_link_state_cb(struct msm_pcie_notify *notify)
@@ -269,16 +274,16 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 							    node, 0);
 		mhi_cntrl->log_lvl = mhi_ipc_log_lvl;
 
-		/* register bus scale */
+		/* register for bus scale if defined */
 		arch_info->msm_bus_pdata = msm_bus_cl_get_pdata_from_dev(
 							&mhi_dev->pci_dev->dev);
-		if (!arch_info->msm_bus_pdata)
-			return -EINVAL;
-
-		arch_info->bus_client = msm_bus_scale_register_client(
+		if (arch_info->msm_bus_pdata) {
+			arch_info->bus_client =
+				msm_bus_scale_register_client(
 						arch_info->msm_bus_pdata);
-		if (!arch_info->bus_client)
-			return -EINVAL;
+			if (!arch_info->bus_client)
+				return -EINVAL;
+		}
 
 		/* register with pcie rc for WAKE# events */
 		reg_event = &arch_info->pcie_reg_event;
