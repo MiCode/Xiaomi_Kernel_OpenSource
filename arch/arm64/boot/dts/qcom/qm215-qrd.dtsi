@@ -18,6 +18,8 @@
 &pm8916_chg{
 	status = "ok";
 	qcom,chgr-led-support;
+	qcom,vddmax-mv = <4400>;
+	qcom,vddsafe-mv = <4400>;
 };
 
 &pm8916_bms{
