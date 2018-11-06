@@ -545,6 +545,7 @@ struct msm_pcie_dev_t {
 	bool aux_clk_sync;
 	bool aer_enable;
 	uint32_t smmu_sid_base;
+	uint32_t link_check_max_count;
 	uint32_t target_link_speed;
 	uint32_t n_fts;
 	uint32_t ep_latency;
@@ -1193,6 +1194,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->linkdown_counter);
 	PCIE_DBG_FS(dev, "wake_counter: %lu\n",
 		dev->wake_counter);
+	PCIE_DBG_FS(dev, "link_check_max_count: %u\n",
+		dev->link_check_max_count);
 	PCIE_DBG_FS(dev, "target_link_speed: 0x%x\n",
 		dev->target_link_speed);
 	PCIE_DBG_FS(dev, "link_turned_on_counter: %lu\n",
@@ -3772,7 +3775,6 @@ static void msm_pcie_release_resources(struct msm_pcie_dev_t *dev)
 static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 {
 	int link_check_count = 0;
-	u32 link_check_max_count = LINK_UP_CHECK_MAX_COUNT;
 	uint32_t val;
 
 	msm_pcie_write_reg_field(dev->dm_core,
@@ -3810,7 +3812,7 @@ static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 	PCIE_DBG(dev, "%s", "check if link is up\n");
 
 	if (msm_pcie_link_check_max_count & BIT(dev->rc_idx))
-		link_check_max_count = msm_pcie_link_check_max_count >> 4;
+		dev->link_check_max_count = msm_pcie_link_check_max_count >> 4;
 
 	/* Wait for up to 100ms for the link to come up */
 	do {
@@ -3820,7 +3822,7 @@ static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 			dev->rc_idx, (val >> 12) & 0x3f);
 	} while ((!(val & XMLH_LINK_UP) ||
 		!msm_pcie_confirm_linkup(dev, false, false, NULL))
-		&& (link_check_count++ < link_check_max_count));
+		&& (link_check_count++ < dev->link_check_max_count));
 
 	if ((val & XMLH_LINK_UP) &&
 		msm_pcie_confirm_linkup(dev, false, false, NULL)) {
@@ -5634,6 +5636,13 @@ static int msm_pcie_probe(struct platform_device *pdev)
 				&pcie_dev->phy_ver);
 	PCIE_DBG(pcie_dev, "RC%d: pcie-phy-ver: %d.\n", pcie_dev->rc_idx,
 		pcie_dev->phy_ver);
+
+	pcie_dev->link_check_max_count = LINK_UP_CHECK_MAX_COUNT;
+	of_property_read_u32(pdev->dev.of_node,
+				"qcom,link-check-max-count",
+				&pcie_dev->link_check_max_count);
+	PCIE_DBG(pcie_dev, "PCIe: RC%d: link-check-max-count: %u.\n",
+		pcie_dev->rc_idx, pcie_dev->link_check_max_count);
 
 	of_property_read_u32(of_node, "qcom,target-link-speed",
 				&pcie_dev->target_link_speed);
