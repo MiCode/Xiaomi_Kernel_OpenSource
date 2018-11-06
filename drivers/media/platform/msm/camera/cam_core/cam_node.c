@@ -31,7 +31,7 @@ static void cam_node_print_ctx_state(
 	for (i = 0; i < node->ctx_size; i++) {
 		ctx = &node->ctx_list[i];
 
-		spin_lock(&ctx->lock);
+		spin_lock_bh(&ctx->lock);
 		CAM_INFO(CAM_CORE,
 			"[%s][%d] : state=%d, refcount=%d, active_req_list=%d, pending_req_list=%d, wait_req_list=%d, free_req_list=%d",
 			ctx->dev_name ? ctx->dev_name : "null",
@@ -41,7 +41,7 @@ static void cam_node_print_ctx_state(
 			list_empty(&ctx->pending_req_list),
 			list_empty(&ctx->wait_req_list),
 			list_empty(&ctx->free_req_list));
-		spin_unlock(&ctx->lock);
+		spin_unlock_bh(&ctx->lock);
 	}
 	mutex_unlock(&node->list_mutex);
 }
