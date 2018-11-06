@@ -21,6 +21,8 @@ int32_t cam_context_release_dev_to_hw(struct cam_context *ctx,
 	struct cam_release_dev_cmd *cmd);
 int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 	struct cam_config_dev_cmd *cmd);
+int32_t cam_context_config_dev_to_hw(
+	struct cam_context *ctx, struct cam_config_dev_cmd *cmd);
 int32_t cam_context_acquire_dev_to_hw(struct cam_context *ctx,
 	struct cam_acquire_dev_cmd *cmd);
 int32_t cam_context_start_dev_to_hw(struct cam_context *ctx,

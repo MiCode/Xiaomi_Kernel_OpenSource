@@ -3002,6 +3002,7 @@
 #include "sdmmagpie-pinctrl.dtsi"
 #include "pm8009.dtsi"
 #include "sdmmagpie-regulator.dtsi"
+#include "sdmmagpie-camera.dtsi"
 #include "sdmmagpie-coresight.dtsi"
 #include "sdmmagpie-usb.dtsi"
 #include "sdmmagpie-thermal.dtsi"
