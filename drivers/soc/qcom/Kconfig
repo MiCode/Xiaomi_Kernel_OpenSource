@@ -487,6 +487,14 @@ config QCOM_GLINK_PKT
 	  This enable the userspace clients to read and write to
 	  some glink packets channel.
 
+config MSM_CDSP_LOADER
+	tristate "CDSP loader support"
+	help
+	  This enables the CDSP loader driver that loads the CDSP
+	  firmware images and brings the compute DSP out of reset
+	  for platforms that have one.
+	  Say M if you want to enable this module.
+
 config QTI_SYSTEM_PM
 	bool
 
