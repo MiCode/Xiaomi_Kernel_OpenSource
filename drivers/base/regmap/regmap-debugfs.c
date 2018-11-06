@@ -325,6 +325,67 @@ static const struct file_operations regmap_map_fops = {
 	.llseek = default_llseek,
 };
 
+static ssize_t regmap_data_read_file(struct file *file, char __user *user_buf,
+				    size_t count, loff_t *ppos)
+{
+	struct regmap *map = file->private_data;
+	int new_count;
+
+	regmap_calc_tot_len(map, NULL, 0);
+	new_count = map->dump_count * map->debugfs_tot_len;
+	if (new_count > count)
+		new_count = count;
+
+	if (*ppos == 0)
+		*ppos = map->dump_address * map->debugfs_tot_len;
+	else if (*ppos >= map->dump_address * map->debugfs_tot_len
+			+ map->dump_count * map->debugfs_tot_len)
+		return 0;
+	return regmap_read_debugfs(map, 0, map->max_register, user_buf,
+			new_count, ppos);
+}
+
+#ifdef REGMAP_ALLOW_WRITE_DEBUGFS
+static ssize_t regmap_data_write_file(struct file *file,
+				     const char __user *user_buf,
+				     size_t count, loff_t *ppos)
+{
+	char buf[32];
+	size_t buf_size;
+	char *start = buf;
+	unsigned long value;
+	struct regmap *map = file->private_data;
+	int ret;
+
+	buf_size = min(count, (sizeof(buf)-1));
+	if (copy_from_user(buf, user_buf, buf_size))
+		return -EFAULT;
+	buf[buf_size] = 0;
+
+	while (*start == ' ')
+		start++;
+	if (kstrtoul(start, 16, &value))
+		return -EINVAL;
+
+	/* Userspace has been fiddling around behind the kernel's back */
+	add_taint(TAINT_USER, LOCKDEP_STILL_OK);
+
+	ret = regmap_write(map, map->dump_address, value);
+	if (ret < 0)
+		return ret;
+	return buf_size;
+}
+#else
+#define regmap_data_write_file NULL
+#endif
+
+static const struct file_operations regmap_data_fops = {
+	.open = simple_open,
+	.read = regmap_data_read_file,
+	.write = regmap_data_write_file,
+	.llseek = default_llseek,
+};
+
 static ssize_t regmap_range_read_file(struct file *file, char __user *user_buf,
 				      size_t count, loff_t *ppos)
 {
@@ -608,6 +669,14 @@ void regmap_debugfs_init(struct regmap *map, const char *name)
 
 		debugfs_create_file("registers", registers_mode, map->debugfs,
 				    map, &regmap_map_fops);
+
+		debugfs_create_x32("address", 0600, map->debugfs,
+				    &map->dump_address);
+		debugfs_create_u32("count", 0600, map->debugfs,
+				    &map->dump_count);
+		debugfs_create_file("data", registers_mode, map->debugfs,
+				    map, &regmap_data_fops);
+
 		debugfs_create_file("access", 0400, map->debugfs,
 				    map, &regmap_access_fops);
 	}
