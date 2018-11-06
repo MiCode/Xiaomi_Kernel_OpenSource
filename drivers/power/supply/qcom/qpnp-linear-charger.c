@@ -161,6 +161,7 @@ enum {
 	SOC	= BIT(3),
 	PARALLEL = BIT(4),
 	COLLAPSE = BIT(5),
+	DEBUG_BOARD = BIT(6),
 };
 
 enum bpd_type {
@@ -215,6 +216,7 @@ static enum power_supply_property msm_batt_power_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
 	POWER_SUPPLY_PROP_CYCLE_COUNT,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
+	POWER_SUPPLY_PROP_DEBUG_BATTERY,
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_COOL_TEMP,
 	POWER_SUPPLY_PROP_WARM_TEMP,
@@ -353,6 +355,7 @@ struct qpnp_lbc_chip {
 	bool				cfg_use_external_charger;
 	bool				cfg_chgr_led_support;
 	bool				non_collapsible_chgr_detected;
+	bool				debug_board;
 	unsigned int			cfg_warm_bat_chg_ma;
 	unsigned int			cfg_cool_bat_chg_ma;
 	unsigned int			cfg_safe_voltage_mv;
@@ -1658,6 +1661,11 @@ static int qpnp_batt_power_set_property(struct power_supply *psy,
 		rc = qpnp_lbc_charger_enable(chip, USER,
 						!chip->cfg_charging_disabled);
 		break;
+	case POWER_SUPPLY_PROP_DEBUG_BATTERY:
+		chip->debug_board = val->intval;
+		rc = qpnp_lbc_charger_enable(chip, DEBUG_BOARD,
+						!(val->intval));
+		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MIN:
 		qpnp_lbc_vinmin_set(chip, val->intval / 1000);
 		break;
@@ -1729,6 +1737,9 @@ static int qpnp_batt_power_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
 		val->intval = !(chip->cfg_charging_disabled);
+		break;
+	case POWER_SUPPLY_PROP_DEBUG_BATTERY:
+		val->intval = chip->debug_board;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
 		val->intval = chip->therm_lvl_sel;
