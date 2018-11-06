@@ -3131,7 +3131,7 @@ static int rmnet_ipa3_query_tethering_stats_wifi(
 
 	rc = ipa3_get_wlan_stats(sap_stats);
 	if (rc) {
-		IPAWANERR("can't get ipa3_get_wlan_stats\n");
+		IPAWANERR_RL("can't get ipa3_get_wlan_stats\n");
 		kfree(sap_stats);
 		return rc;
 	} else if (data == NULL) {
@@ -3464,7 +3464,7 @@ int rmnet_ipa3_query_tethering_stats(struct wan_ioctl_query_tether_stats *data,
 			return rc;
 		}
 	} else {
-		IPAWANDBG_LOW(" query modem-backhaul stats\n");
+		IPAWANDBG_LOW("query modem-backhaul stats\n");
 		rc = rmnet_ipa3_query_tethering_stats_modem(
 			data, false);
 		if (rc) {
@@ -3498,7 +3498,8 @@ int rmnet_ipa3_query_tethering_stats_all(
 		rc = rmnet_ipa3_query_tethering_stats_wifi(
 			&tether_stats, data->reset_stats);
 		if (rc) {
-			IPAWANERR("wlan WAN_IOC_QUERY_TETHER_STATS failed\n");
+			IPAWANERR_RL(
+				"wlan WAN_IOC_QUERY_TETHER_STATS failed\n");
 			return rc;
 		}
 		data->tx_bytes = tether_stats.ipv4_tx_bytes

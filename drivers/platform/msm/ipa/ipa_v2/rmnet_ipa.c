@@ -3066,7 +3066,8 @@ int rmnet_ipa_query_tethering_stats_all(
 		rc = rmnet_ipa_query_tethering_stats_wifi(
 			&tether_stats, data->reset_stats);
 		if (rc) {
-			IPAWANERR("wlan WAN_IOC_QUERY_TETHER_STATS failed\n");
+			IPAWANERR_RL(
+				"wlan WAN_IOC_QUERY_TETHER_STATS failed\n");
 			return rc;
 		}
 		data->tx_bytes = tether_stats.ipv4_tx_bytes
