@@ -36,6 +36,10 @@
  * @CAM_CAMNOC_HW_IRQ_IPE_BPS_UBWC_ENCODE_ERROR: Triggered if any error
  *                                               detected in the IPE/BPS UBWC
  *                                               encoder instance
+ * @CAM_CAMNOC_HW_IRQ_IFE0_UBWC_ENCODE_ERROR:    Triggered if any UBWC error
+ *                                               is detected in IFE0 write path
+ * @CAM_CAMNOC_HW_IRQ_IFE1_WRITE_UBWC_ENCODE_ERROR:  Triggered if any UBWC error
+ *                                               is detected in IFE1 write path
  * @CAM_CAMNOC_HW_IRQ_AHB_TIMEOUT              : Triggered when the QHS_ICP
  *                                               slave  times out after 4000
  *                                               AHB cycles
@@ -50,6 +54,10 @@ enum cam_camnoc_hw_irq_type {
 		CAM_CAMNOC_IRQ_IFE02_UBWC_ENCODE_ERROR,
 	CAM_CAMNOC_HW_IRQ_IFE13_UBWC_ENCODE_ERROR =
 		CAM_CAMNOC_IRQ_IFE13_UBWC_ENCODE_ERROR,
+	CAM_CAMNOC_HW_IRQ_IFE0_UBWC_ENCODE_ERROR =
+		CAM_CAMNOC_IRQ_IFE0_UBWC_ENCODE_ERROR,
+	CAM_CAMNOC_HW_IRQ_IFE1_WRITE_UBWC_ENCODE_ERROR =
+		CAM_CAMNOC_IRQ_IFE1_WRITE_UBWC_ENCODE_ERROR,
 	CAM_CAMNOC_HW_IRQ_IPE_BPS_UBWC_DECODE_ERROR =
 		CAM_CAMNOC_IRQ_IPE_BPS_UBWC_DECODE_ERROR,
 	CAM_CAMNOC_HW_IRQ_IPE_BPS_UBWC_ENCODE_ERROR =
@@ -69,9 +77,15 @@ enum cam_camnoc_hw_irq_type {
  * @CAM_CAMNOC_CDM: Indicates CDM HW connection to camnoc
  * @CAM_CAMNOC_IFE02: Indicates IFE0, IFE2 HW connection to camnoc
  * @CAM_CAMNOC_IFE13: Indicates IFE1, IFE3 HW connection to camnoc
+ * @CAM_CAMNOC_IFE0123_RDI_WRITE: RDI write only for all IFEx
+ * @CAM_CAMNOC_IFE0_NRDI_WRITE: IFE0 non-RDI write
+ * @CAM_CAMNOC_IFE01_RDI_READ: IFE0/1 RDI READ
+ * @CAM_CAMNOC_IFE1_NRDI_WRITE: IFE1 non-RDI write
  * @CAM_CAMNOC_IPE_BPS_LRME_READ: Indicates IPE, BPS, LRME Read HW
  *         connection to camnoc
  * @CAM_CAMNOC_IPE_BPS_LRME_WRITE: Indicates IPE, BPS, LRME Write HW
+ *         connection to camnoc
+ * @CAM_CAMNOC_IPE_VID_DISP_WRITE: Indicates IPE's VID/DISP Wrire HW
  *         connection to camnoc
  * @CAM_CAMNOC_JPEG: Indicates JPEG HW connection to camnoc
  * @CAM_CAMNOC_FD: Indicates FD HW connection to camnoc
@@ -81,8 +95,13 @@ enum cam_camnoc_port_type {
 	CAM_CAMNOC_CDM,
 	CAM_CAMNOC_IFE02,
 	CAM_CAMNOC_IFE13,
+	CAM_CAMNOC_IFE0123_RDI_WRITE,
+	CAM_CAMNOC_IFE0_NRDI_WRITE,
+	CAM_CAMNOC_IFE01_RDI_READ,
+	CAM_CAMNOC_IFE1_NRDI_WRITE,
 	CAM_CAMNOC_IPE_BPS_LRME_READ,
 	CAM_CAMNOC_IPE_BPS_LRME_WRITE,
+	CAM_CAMNOC_IPE_VID_DISP_WRITE,
 	CAM_CAMNOC_JPEG,
 	CAM_CAMNOC_FD,
 	CAM_CAMNOC_ICP,
