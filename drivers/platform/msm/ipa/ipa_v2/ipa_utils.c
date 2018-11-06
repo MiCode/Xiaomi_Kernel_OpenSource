@@ -903,7 +903,7 @@ int ipa2_get_wlan_stats(struct ipa_get_wdi_sap_stats *wdi_sap_stats)
 		ipa_ctx->uc_wdi_ctx.stats_notify(IPA_GET_WDI_SAP_STATS,
 			wdi_sap_stats);
 	} else {
-		IPAERR("uc_wdi_ctx.stats_notify not registered\n");
+		IPAERR_RL("uc_wdi_ctx.stats_notify not registered\n");
 		return -EFAULT;
 	}
 	return 0;
