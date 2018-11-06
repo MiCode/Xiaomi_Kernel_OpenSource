@@ -1811,7 +1811,7 @@ err_resp:
 		else
 			*(uint32_t *)cmd_buf =
 				QSEOS_LISTENER_DATA_RSP_COMMAND_WHITELIST;
-		if (ptr_svc) {
+		if (ptr_svc && ptr_svc->ihandle) {
 			ret = msm_ion_do_cache_op(qseecom.ion_clnt,
 					ptr_svc->ihandle,
 					ptr_svc->sb_virt, ptr_svc->sb_length,
@@ -2125,7 +2125,7 @@ err_resp:
 		else
 			*(uint32_t *)cmd_buf =
 				QSEOS_LISTENER_DATA_RSP_COMMAND_WHITELIST;
-		if (ptr_svc) {
+		if (ptr_svc && ptr_svc->ihandle) {
 			ret = msm_ion_do_cache_op(qseecom.ion_clnt,
 					ptr_svc->ihandle,
 					ptr_svc->sb_virt, ptr_svc->sb_length,
