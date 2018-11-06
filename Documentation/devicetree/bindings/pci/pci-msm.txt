@@ -27,6 +27,7 @@ Main node
 		- "io"		PCIe device I/O registers
 		- "bars"	PCIe device base address registers
 		- "tcsr" (opt)	PCIe clock scheme register
+		- "rumi" (opt)	PCIe RUMI register
 
 - cell-index:
 	Usage: required
@@ -363,7 +364,7 @@ Example
 			<0x60200000 0x100000>,
 			<0x60300000 0x3d00000>;
 		reg-names = "parf", "phy", "dm_core", "elbi", "iatu", "conf",
-				"io", "bars", "tcsr";
+				"io", "bars", "tcsr", "rumi";
 
 		cell-index = <0>;
 		device_type = "pci";
