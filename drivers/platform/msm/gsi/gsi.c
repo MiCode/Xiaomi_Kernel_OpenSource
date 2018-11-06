@@ -25,7 +25,7 @@
 #define GSI_CMD_TIMEOUT (5*HZ)
 #define GSI_START_CMD_TIMEOUT_MS 1000
 #define GSI_CMD_POLL_CNT 5
-#define GSI_STOP_CMD_TIMEOUT_MS 10
+#define GSI_STOP_CMD_TIMEOUT_MS 200
 #define GSI_MAX_CH_LOW_WEIGHT 15
 
 #define GSI_RESET_WA_MIN_SLEEP 1000
@@ -159,6 +159,14 @@ static void gsi_channel_state_change_wait(unsigned long chan_hdl,
 
 		gsi_pending_intr = gsi_readl(gsi_ctx->base +
 			GSI_EE_n_CNTXT_SRC_GSI_CH_IRQ_OFFS(ee));
+
+		/*
+		 * Continue in the loop if a pending interrupt of
+		 * corresponding channel is present till an interrupt
+		 * is received.
+		 */
+		if ((gsi_pending_intr >> chan_hdl) & 1)
+			poll_cnt = 0;
 
 		GSIDBG("GSI wait on chan_hld=%lu chan=%lu state=%u intr=%u\n",
 			chan_hdl,
