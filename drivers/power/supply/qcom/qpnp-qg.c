@@ -2698,7 +2698,7 @@ use_pon_ocv:
 			goto done;
 		}
 
-		if ((full_soc - cutoff_soc) > 0 && (pon_soc - cutoff_soc) > 0)
+		if ((full_soc > cutoff_soc) && (pon_soc > cutoff_soc))
 			soc = DIV_ROUND_UP(((pon_soc - cutoff_soc) * 100),
 						(full_soc - cutoff_soc));
 		else
