@@ -3062,7 +3062,8 @@ static int msm_nand_init_endpoint(struct msm_nand_info *info,
 		goto free_endpoint;
 	}
 
-	if (pipe_index == SPS_DATA_PROD_PIPE_INDEX) {
+	if (pipe_index == SPS_DATA_PROD_PIPE_INDEX ||
+		pipe_index == SPS_DATA_PROD_STAT_PIPE_INDEX) {
 		/* READ CASE: source - BAM; destination - system memory */
 		sps_config->source = info->sps.bam_handle;
 		sps_config->destination = SPS_DEV_HANDLE_MEM;
@@ -3081,7 +3082,8 @@ static int msm_nand_init_endpoint(struct msm_nand_info *info,
 				SPS_O_ACK_TRANSFERS;
 
 	if (pipe_index == SPS_DATA_PROD_PIPE_INDEX ||
-			pipe_index == SPS_DATA_CONS_PIPE_INDEX)
+			pipe_index == SPS_DATA_CONS_PIPE_INDEX ||
+			pipe_index == SPS_DATA_PROD_STAT_PIPE_INDEX)
 		sps_config->lock_group = BAM_APPS_PIPE_LOCK_GRP0;
 	else if (pipe_index == SPS_CMD_CONS_PIPE_INDEX)
 		sps_config->lock_group = BAM_APPS_PIPE_LOCK_GRP1;
@@ -3219,6 +3221,9 @@ static void msm_nand_bam_free(struct msm_nand_info *nand_info)
 	msm_nand_deinit_endpoint(nand_info, &nand_info->sps.data_prod);
 	msm_nand_deinit_endpoint(nand_info, &nand_info->sps.data_cons);
 	msm_nand_deinit_endpoint(nand_info, &nand_info->sps.cmd_pipe);
+	if (nand_info->nand_chip.qpic_version >= 2)
+		msm_nand_deinit_endpoint(nand_info,
+			&nand_info->sps.data_prod_stat);
 }
 
 /* This function enables DMA support for the NANDc in BAM mode. */
@@ -3376,6 +3381,7 @@ static int msm_nand_probe(struct platform_device *pdev)
 	u32 adjustment_offset;
 	void __iomem *boot_cfg_base;
 	u32 boot_dev;
+	struct version qpic_version = {0};
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"boot_cfg");
@@ -3511,6 +3517,22 @@ static int msm_nand_probe(struct platform_device *pdev)
 	if (err) {
 		pr_err("Failed to enable DMA in NANDc\n");
 		goto free_bam;
+	}
+	err = msm_nand_version_check(info, &qpic_version);
+	if (err) {
+		pr_err("Failed to read the version information\n");
+		goto free_bam;
+	}
+	info->nand_chip.qpic_version = qpic_version.qpic_major;
+	if (info->nand_chip.qpic_version >= 2) {
+		err = msm_nand_init_endpoint(info,
+			&info->sps.data_prod_stat,
+			SPS_DATA_PROD_STAT_PIPE_INDEX);
+		if (err) {
+			pr_err("Failed to configure read status pipe err=%d\n",
+				err);
+			goto free_bam;
+		}
 	}
 	err = msm_nand_parse_smem_ptable(&nr_parts);
 	if (err < 0) {
