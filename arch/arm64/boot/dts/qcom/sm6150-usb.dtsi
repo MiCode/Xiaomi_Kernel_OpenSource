@@ -26,7 +26,7 @@
 		#size-cells = <1>;
 		ranges;
 
-		interrupts = <0 489 0>, <0 130 0>, <0 607 0>, <0 488 0>;
+		interrupts = <0 489 0>, <0 130 0>, <0 486 0>, <0 488 0>;
 		interrupt-names = "dp_hs_phy_irq", "pwr_event_irq",
 				"ss_phy_irq", "dm_hs_phy_irq";
 		qcom,use-pdc-interrupts;
