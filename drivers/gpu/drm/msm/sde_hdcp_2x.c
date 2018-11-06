@@ -17,6 +17,7 @@
 #include <linux/device.h>
 #include <linux/errno.h>
 #include <linux/kthread.h>
+#include <linux/kfifo.h>
 
 #include "sde_hdcp_2x.h"
 
@@ -41,11 +42,9 @@
 #define REAUTH_REQ BIT(3)
 #define LINK_INTEGRITY_FAILURE BIT(4)
 
-#define HDCP_2X_EXECUTE(x) { \
-		kthread_queue_work(&hdcp->worker, &hdcp->wk_##x); \
-}
-
 struct sde_hdcp_2x_ctrl {
+	DECLARE_KFIFO(cmd_q, enum sde_hdcp_2x_wakeup_cmd, 8);
+	wait_queue_head_t wait_q;
 	struct hdcp2_app_data app_data;
 	u32 timeout_left;
 	u32 wait_timeout_ms;
@@ -59,8 +58,6 @@ struct sde_hdcp_2x_ctrl {
 	void *client_data;
 	void *hdcp2_ctx;
 	struct hdcp_transport_ops *client_ops;
-	struct mutex wakeup_mutex;
-	enum sde_hdcp_2x_wakeup_cmd wakeup_cmd;
 	bool repeater_flag;
 	bool update_stream;
 	int last_msg;
@@ -70,17 +67,9 @@ struct sde_hdcp_2x_ctrl {
 
 	struct task_struct *thread;
 	struct completion response_completion;
-
-	struct kthread_worker worker;
-	struct kthread_work wk_init;
-	struct kthread_work wk_msg_sent;
-	struct kthread_work wk_msg_recvd;
-	struct kthread_work wk_timeout;
-	struct kthread_work wk_clean;
-	struct kthread_work wk_stream;
-	struct kthread_work wk_wait;
-	struct kthread_work wk_send_type;
 };
+
+static void sde_hdcp_2x_clean(struct sde_hdcp_2x_ctrl *hdcp);
 
 static const char *sde_hdcp_2x_message_name(int msg_id)
 {
@@ -99,7 +88,8 @@ static const char *sde_hdcp_2x_message_name(int msg_id)
 	case REP_STREAM_MANAGE:     return TO_STR(REP_STREAM_MANAGE);
 	case REP_STREAM_READY:      return TO_STR(REP_STREAM_READY);
 	case SKE_SEND_TYPE_ID:      return TO_STR(SKE_SEND_TYPE_ID);
-	default: return "UNKNOWN";
+	default:
+		return "UNKNOWN";
 	}
 }
 
@@ -151,45 +141,6 @@ static const struct sde_hdcp_2x_msg_data
 		{ {"M'", 0x69473, 32} },
 		0 },
 };
-
-static void sde_hdcp_2x_check_worker_status(struct sde_hdcp_2x_ctrl *hdcp)
-{
-	if (!list_empty(&hdcp->wk_init.node))
-		pr_debug("init work queued\n");
-
-	if (hdcp->worker.current_work == &hdcp->wk_init)
-		pr_debug("init work executing\n");
-
-	if (!list_empty(&hdcp->wk_msg_sent.node))
-		pr_debug("msg_sent work queued\n");
-
-	if (hdcp->worker.current_work == &hdcp->wk_msg_sent)
-		pr_debug("msg_sent work executing\n");
-
-	if (!list_empty(&hdcp->wk_msg_recvd.node))
-		pr_debug("msg_recvd work queued\n");
-
-	if (hdcp->worker.current_work == &hdcp->wk_msg_recvd)
-		pr_debug("msg_recvd work executing\n");
-
-	if (!list_empty(&hdcp->wk_timeout.node))
-		pr_debug("timeout work queued\n");
-
-	if (hdcp->worker.current_work == &hdcp->wk_timeout)
-		pr_debug("timeout work executing\n");
-
-	if (!list_empty(&hdcp->wk_clean.node))
-		pr_debug("clean work queued\n");
-
-	if (hdcp->worker.current_work == &hdcp->wk_clean)
-		pr_debug("clean work executing\n");
-
-	if (!list_empty(&hdcp->wk_stream.node))
-		pr_debug("stream work queued\n");
-
-	if (hdcp->worker.current_work == &hdcp->wk_stream)
-		pr_debug("stream work executing\n");
-}
 
 static int sde_hdcp_2x_get_next_message(struct sde_hdcp_2x_ctrl *hdcp,
 				     struct hdcp_transport_wakeup_data *data)
@@ -251,6 +202,8 @@ static int sde_hdcp_2x_get_next_message(struct sde_hdcp_2x_ctrl *hdcp,
 
 static void sde_hdcp_2x_wait_for_response(struct sde_hdcp_2x_ctrl *hdcp)
 {
+	u32 timeout;
+
 	switch (hdcp->last_msg) {
 	case AKE_SEND_H_PRIME:
 		if (hdcp->no_stored_km)
@@ -271,8 +224,26 @@ static void sde_hdcp_2x_wait_for_response(struct sde_hdcp_2x_ctrl *hdcp)
 		hdcp->wait_timeout_ms = 0;
 	}
 
-	if (hdcp->wait_timeout_ms)
-		HDCP_2X_EXECUTE(wait);
+	if (!hdcp->wait_timeout_ms)
+		return;
+
+	if (atomic_read(&hdcp->hdcp_off)) {
+		pr_debug("invalid state: hdcp off\n");
+		return;
+	}
+
+	reinit_completion(&hdcp->response_completion);
+	timeout = wait_for_completion_timeout(&hdcp->response_completion,
+			hdcp->wait_timeout_ms);
+	if (!timeout) {
+		pr_err("completion expired, last message = %s\n",
+				sde_hdcp_2x_message_name(hdcp->last_msg));
+
+		if (!atomic_read(&hdcp->hdcp_off))
+			sde_hdcp_2x_clean(hdcp);
+	}
+
+	hdcp->wait_timeout_ms = 0;
 }
 
 static void sde_hdcp_2x_wakeup_client(struct sde_hdcp_2x_ctrl *hdcp,
@@ -319,9 +290,6 @@ static inline void sde_hdcp_2x_send_message(struct sde_hdcp_2x_ctrl *hdcp)
 	/* ignore the first byte as it contains the message id */
 	cdata.buf = hdcp->app_data.response.data + 1;
 
-	pr_debug("%s\n",
-		sde_hdcp_2x_message_name(hdcp->app_data.response.data[0]));
-
 	sde_hdcp_2x_wakeup_client(hdcp, &cdata);
 }
 
@@ -345,32 +313,9 @@ static void sde_hdcp_2x_force_encryption(void *data, bool enable)
 	pr_info("force_encryption=%d\n", hdcp->force_encryption);
 }
 
-static int sde_hdcp_2x_check_valid_state(struct sde_hdcp_2x_ctrl *hdcp)
-{
-	int rc = 0;
-
-	if (!list_empty(&hdcp->worker.work_list))
-		sde_hdcp_2x_check_worker_status(hdcp);
-
-	if (hdcp->wakeup_cmd == HDCP_2X_CMD_START) {
-		if (!list_empty(&hdcp->worker.work_list)) {
-			rc = -EBUSY;
-			goto exit;
-		}
-	} else {
-		if (atomic_read(&hdcp->hdcp_off)) {
-			pr_debug("hdcp2.2 session tearing down\n");
-			goto exit;
-		}
-	}
-exit:
-	return rc;
-}
-
 static void sde_hdcp_2x_clean(struct sde_hdcp_2x_ctrl *hdcp)
 {
-	struct hdcp_transport_wakeup_data cdata = {
-						HDCP_TRANSPORT_CMD_INVALID };
+	struct hdcp_transport_wakeup_data cdata = {HDCP_TRANSPORT_CMD_INVALID};
 
 	hdcp->authenticated = false;
 
@@ -383,15 +328,6 @@ static void sde_hdcp_2x_clean(struct sde_hdcp_2x_ctrl *hdcp)
 	atomic_set(&hdcp->hdcp_off, 1);
 
 	hdcp2_app_comm(hdcp->hdcp2_ctx, HDCP2_CMD_STOP, &hdcp->app_data);
-}
-
-static void sde_hdcp_2x_cleanup_work(struct kthread_work *work)
-{
-
-	struct sde_hdcp_2x_ctrl *hdcp =
-		container_of(work, struct sde_hdcp_2x_ctrl, wk_clean);
-
-	sde_hdcp_2x_clean(hdcp);
 }
 
 static u8 sde_hdcp_2x_stream_type(u8 min_enc_level)
@@ -441,15 +377,7 @@ static void sde_hdcp_2x_send_type(struct sde_hdcp_2x_ctrl *hdcp)
 		sde_hdcp_2x_send_message(hdcp);
 }
 
-static void sde_hdcp_2x_send_type_work(struct kthread_work *work)
-{
-	struct sde_hdcp_2x_ctrl *hdcp =
-		container_of(work, struct sde_hdcp_2x_ctrl, wk_send_type);
-
-	sde_hdcp_2x_send_type(hdcp);
-}
-
-static void sde_hdcp_2x_stream(struct sde_hdcp_2x_ctrl *hdcp)
+static void sde_hdcp_2x_query_stream(struct sde_hdcp_2x_ctrl *hdcp)
 {
 	int rc = 0;
 
@@ -474,19 +402,11 @@ static void sde_hdcp_2x_stream(struct sde_hdcp_2x_ctrl *hdcp)
 		goto exit;
 	}
 
-	pr_debug("message received from TZ: %s\n",
-		 sde_hdcp_2x_message_name(hdcp->app_data.response.data[0]));
+	pr_debug("[tz]: %s\n", sde_hdcp_2x_message_name(
+		hdcp->app_data.response.data[0]));
 exit:
 	if (!rc && !atomic_read(&hdcp->hdcp_off))
 		sde_hdcp_2x_send_message(hdcp);
-}
-
-static void sde_hdcp_2x_query_stream_work(struct kthread_work *work)
-{
-	struct sde_hdcp_2x_ctrl *hdcp =
-		container_of(work, struct sde_hdcp_2x_ctrl, wk_stream);
-
-	sde_hdcp_2x_stream(hdcp);
 }
 
 static void sde_hdcp_2x_initialize_command(struct sde_hdcp_2x_ctrl *hdcp,
@@ -501,8 +421,8 @@ static void sde_hdcp_2x_initialize_command(struct sde_hdcp_2x_ctrl *hdcp,
 static void sde_hdcp_2x_msg_sent(struct sde_hdcp_2x_ctrl *hdcp)
 {
 	struct hdcp_transport_wakeup_data cdata = {
-						HDCP_TRANSPORT_CMD_INVALID };
-	cdata.context = hdcp->client_data;
+		HDCP_TRANSPORT_CMD_INVALID,
+		hdcp->client_data};
 
 	switch (hdcp->app_data.response.data[0]) {
 	case SKE_SEND_TYPE_ID:
@@ -541,7 +461,7 @@ static void sde_hdcp_2x_msg_sent(struct sde_hdcp_2x_ctrl *hdcp)
 				hdcp->update_stream);
 
 		if (hdcp->update_stream) {
-			HDCP_2X_EXECUTE(stream);
+			sde_hdcp_2x_query_stream(hdcp);
 			hdcp->update_stream = false;
 		} else {
 			sde_hdcp_2x_initialize_command(hdcp,
@@ -557,48 +477,22 @@ static void sde_hdcp_2x_msg_sent(struct sde_hdcp_2x_ctrl *hdcp)
 	sde_hdcp_2x_wakeup_client(hdcp, &cdata);
 }
 
-static void sde_hdcp_2x_msg_sent_work(struct kthread_work *work)
-{
-	struct sde_hdcp_2x_ctrl *hdcp =
-		container_of(work, struct sde_hdcp_2x_ctrl, wk_msg_sent);
-
-	if (hdcp->wakeup_cmd != HDCP_2X_CMD_MSG_SEND_SUCCESS) {
-		pr_err("invalid wakeup command %d\n", hdcp->wakeup_cmd);
-		return;
-	}
-
-	sde_hdcp_2x_msg_sent(hdcp);
-}
-
 static void sde_hdcp_2x_init(struct sde_hdcp_2x_ctrl *hdcp)
 {
-	int rc = 0;
-
-	if (hdcp->wakeup_cmd != HDCP_2X_CMD_START) {
-		pr_err("invalid wakeup command %d\n", hdcp->wakeup_cmd);
-		return;
-	}
+	int rc;
 
 	rc = hdcp2_app_comm(hdcp->hdcp2_ctx, HDCP2_CMD_START, &hdcp->app_data);
 	if (rc)
 		goto exit;
 
-	pr_debug("message received from TZ: %s\n",
-		 sde_hdcp_2x_message_name(hdcp->app_data.response.data[0]));
+	pr_debug("[tz]: %s\n", sde_hdcp_2x_message_name(
+		hdcp->app_data.response.data[0]));
 
 	sde_hdcp_2x_send_message(hdcp);
 
 	return;
 exit:
-	HDCP_2X_EXECUTE(clean);
-}
-
-static void sde_hdcp_2x_init_work(struct kthread_work *work)
-{
-	struct sde_hdcp_2x_ctrl *hdcp =
-		container_of(work, struct sde_hdcp_2x_ctrl, wk_init);
-
-	sde_hdcp_2x_init(hdcp);
+	sde_hdcp_2x_clean(hdcp);
 }
 
 static void sde_hdcp_2x_timeout(struct sde_hdcp_2x_ctrl *hdcp)
@@ -622,15 +516,7 @@ static void sde_hdcp_2x_timeout(struct sde_hdcp_2x_ctrl *hdcp)
 	return;
 error:
 	if (!atomic_read(&hdcp->hdcp_off))
-		HDCP_2X_EXECUTE(clean);
-}
-
-static void sde_hdcp_2x_timeout_work(struct kthread_work *work)
-{
-	struct sde_hdcp_2x_ctrl *hdcp =
-		container_of(work, struct sde_hdcp_2x_ctrl, wk_timeout);
-
-	sde_hdcp_2x_timeout(hdcp);
+		sde_hdcp_2x_clean(hdcp);
 }
 
 static void sde_hdcp_2x_msg_recvd(struct sde_hdcp_2x_ctrl *hdcp)
@@ -639,8 +525,7 @@ static void sde_hdcp_2x_msg_recvd(struct sde_hdcp_2x_ctrl *hdcp)
 	char *msg = NULL;
 	u32 message_id_bytes = 0;
 	u32 request_length, out_msg;
-	struct hdcp_transport_wakeup_data cdata = {
-						HDCP_TRANSPORT_CMD_INVALID };
+	struct hdcp_transport_wakeup_data cdata = {HDCP_TRANSPORT_CMD_INVALID};
 
 	if (atomic_read(&hdcp->hdcp_off)) {
 		pr_debug("invalid state, hdcp off\n");
@@ -664,8 +549,7 @@ static void sde_hdcp_2x_msg_recvd(struct sde_hdcp_2x_ctrl *hdcp)
 
 	request_length += message_id_bytes;
 
-	pr_debug("message received from SINK: %s\n",
-			sde_hdcp_2x_message_name(msg[0]));
+	pr_debug("[sink]: %s\n", sde_hdcp_2x_message_name(msg[0]));
 
 	hdcp->app_data.request.length = request_length;
 	rc = hdcp2_app_comm(hdcp->hdcp2_ctx, HDCP2_CMD_PROCESS_MSG,
@@ -686,8 +570,7 @@ static void sde_hdcp_2x_msg_recvd(struct sde_hdcp_2x_ctrl *hdcp)
 
 	out_msg = (u32)hdcp->app_data.response.data[0];
 
-	pr_debug("message received from TZ: %s\n",
-			sde_hdcp_2x_message_name(out_msg));
+	pr_debug("[tz]: %s\n", sde_hdcp_2x_message_name(out_msg));
 
 	if (msg[0] == REP_STREAM_READY && out_msg != REP_STREAM_MANAGE) {
 		if (!hdcp->authenticated) {
@@ -715,16 +598,12 @@ static void sde_hdcp_2x_msg_recvd(struct sde_hdcp_2x_ctrl *hdcp)
 	}
 
 	hdcp->resend_lc_init = false;
-	if (msg[0] == LC_SEND_L_PRIME && out_msg == LC_INIT) {
-		pr_debug("resend %s\n", sde_hdcp_2x_message_name(out_msg));
+	if (msg[0] == LC_SEND_L_PRIME && out_msg == LC_INIT)
 		hdcp->resend_lc_init = true;
-	}
 
 	hdcp->resend_stream_manage = false;
-	if (msg[0] == REP_STREAM_READY && out_msg == REP_STREAM_MANAGE) {
-		pr_debug("resend %s\n", sde_hdcp_2x_message_name(out_msg));
+	if (msg[0] == REP_STREAM_READY && out_msg == REP_STREAM_MANAGE)
 		hdcp->resend_stream_manage = true;
-	}
 
 	if (out_msg == AKE_NO_STORED_KM)
 		hdcp->no_stored_km = true;
@@ -737,8 +616,6 @@ static void sde_hdcp_2x_msg_recvd(struct sde_hdcp_2x_ctrl *hdcp)
 	}
 
 	if (!atomic_read(&hdcp->hdcp_off)) {
-		pr_debug("creating client data for: %s\n",
-				sde_hdcp_2x_message_name(out_msg));
 		cdata.cmd = HDCP_TRANSPORT_CMD_SEND_MESSAGE;
 		cdata.buf = hdcp->app_data.response.data + 1;
 		cdata.buf_len = hdcp->app_data.response.length;
@@ -748,47 +625,17 @@ exit:
 	sde_hdcp_2x_wakeup_client(hdcp, &cdata);
 
 	if (rc && !atomic_read(&hdcp->hdcp_off))
-		HDCP_2X_EXECUTE(clean);
+		sde_hdcp_2x_clean(hdcp);
 }
 
-static void sde_hdcp_2x_msg_recvd_work(struct kthread_work *work)
-{
-	struct sde_hdcp_2x_ctrl *hdcp =
-		container_of(work, struct sde_hdcp_2x_ctrl, wk_msg_recvd);
-
-	sde_hdcp_2x_msg_recvd(hdcp);
-}
-
-static void sde_hdcp_2x_wait_for_response_work(struct kthread_work *work)
-{
-	u32 timeout;
-	struct sde_hdcp_2x_ctrl *hdcp = container_of(work,
-			struct sde_hdcp_2x_ctrl, wk_wait);
-
-	if (!hdcp) {
-		pr_err("invalid input\n");
-		return;
-	}
-
-	if (atomic_read(&hdcp->hdcp_off)) {
-		pr_debug("invalid state: hdcp off\n");
-		return;
-	}
-
-	reinit_completion(&hdcp->response_completion);
-	timeout = wait_for_completion_timeout(&hdcp->response_completion,
-			hdcp->wait_timeout_ms);
-	if (!timeout) {
-		pr_err("completion expired, last message = %s\n",
-				sde_hdcp_2x_message_name(hdcp->last_msg));
-
-		if (!atomic_read(&hdcp->hdcp_off))
-			HDCP_2X_EXECUTE(clean);
-	}
-
-	hdcp->wait_timeout_ms = 0;
-}
-
+/** sde_hdcp_2x_wakeup() - wakeup the module to execute a requested command
+ * @data: data required for executing corresponding command.
+ *
+ * This function is executed on caller's thread. Update the local data
+ * and wakeup the local thread to execute the command. Once the local
+ * thread is activated, caller's thread is returned and this function
+ * is ready to receive next command.
+ */
 static int sde_hdcp_2x_wakeup(struct sde_hdcp_2x_wakeup_data *data)
 {
 	struct sde_hdcp_2x_ctrl *hdcp;
@@ -801,72 +648,100 @@ static int sde_hdcp_2x_wakeup(struct sde_hdcp_2x_wakeup_data *data)
 	if (!hdcp)
 		return -EINVAL;
 
-	mutex_lock(&hdcp->wakeup_mutex);
-
-	hdcp->wakeup_cmd = data->cmd;
 	hdcp->timeout_left = data->timeout;
 	hdcp->total_message_length = data->total_message_length;
-
-	pr_debug("%s\n", sde_hdcp_2x_cmd_to_str(hdcp->wakeup_cmd));
-
-	rc = sde_hdcp_2x_check_valid_state(hdcp);
-	if (rc) {
-		pr_err("invalid state for command=%s\n",
-				sde_hdcp_2x_cmd_to_str(hdcp->wakeup_cmd));
-		goto exit;
-	}
+	hdcp->min_enc_level = data->min_enc_level;
 
 	if (!completion_done(&hdcp->response_completion))
 		complete_all(&hdcp->response_completion);
 
-	switch (hdcp->wakeup_cmd) {
+	kfifo_put(&hdcp->cmd_q, data->cmd);
+
+	switch (data->cmd) {
+	case HDCP_2X_CMD_STOP:
+		atomic_set(&hdcp->hdcp_off, 1);
+
+		kthread_park(hdcp->thread);
+		break;
 	case HDCP_2X_CMD_START:
 		hdcp->no_stored_km = false;
 		hdcp->repeater_flag = false;
 		hdcp->update_stream = false;
+		hdcp->authenticated = false;
 		hdcp->last_msg = INVALID_MESSAGE;
 		hdcp->timeout_left = 0;
 		atomic_set(&hdcp->hdcp_off, 0);
 
-		HDCP_2X_EXECUTE(init);
-		break;
-	case HDCP_2X_CMD_STOP:
-		atomic_set(&hdcp->hdcp_off, 1);
-		HDCP_2X_EXECUTE(clean);
-		break;
-	case HDCP_2X_CMD_MSG_SEND_SUCCESS:
-		HDCP_2X_EXECUTE(msg_sent);
-		break;
-	case HDCP_2X_CMD_MSG_SEND_FAILED:
-	case HDCP_2X_CMD_MSG_RECV_FAILED:
-	case HDCP_2X_CMD_LINK_FAILED:
-		HDCP_2X_EXECUTE(clean);
-		break;
-	case HDCP_2X_CMD_MSG_RECV_SUCCESS:
-		HDCP_2X_EXECUTE(msg_recvd);
-		break;
-	case HDCP_2X_CMD_MSG_RECV_TIMEOUT:
-		HDCP_2X_EXECUTE(timeout);
-		break;
-	case HDCP_2X_CMD_QUERY_STREAM_TYPE:
-		HDCP_2X_EXECUTE(stream);
-		break;
-	case HDCP_2X_CMD_MIN_ENC_LEVEL:
-		hdcp->min_enc_level = data->min_enc_level;
-		if (!hdcp->repeater_flag) {
-			HDCP_2X_EXECUTE(send_type);
-			break;
-		}
-
-		HDCP_2X_EXECUTE(stream);
+		kthread_unpark(hdcp->thread);
+		wake_up(&hdcp->wait_q);
 		break;
 	default:
-		pr_err("invalid wakeup command %d\n", hdcp->wakeup_cmd);
+		wake_up(&hdcp->wait_q);
+		break;
 	}
-exit:
-	mutex_unlock(&hdcp->wakeup_mutex);
 
 	return rc;
+}
+
+static int sde_hdcp_2x_main(void *data)
+{
+	struct sde_hdcp_2x_ctrl *hdcp = data;
+	enum sde_hdcp_2x_wakeup_cmd cmd;
+
+	while (1) {
+		wait_event(hdcp->wait_q,
+			!kfifo_is_empty(&hdcp->cmd_q) ||
+			kthread_should_stop() ||
+			kthread_should_park());
+
+		if (kthread_should_stop())
+			break;
+
+		if (kfifo_is_empty(&hdcp->cmd_q) && kthread_should_park()) {
+			kthread_parkme();
+			continue;
+		}
+
+		if (!kfifo_get(&hdcp->cmd_q, &cmd))
+			continue;
+
+		switch (cmd) {
+		case HDCP_2X_CMD_START:
+			sde_hdcp_2x_init(hdcp);
+			break;
+		case HDCP_2X_CMD_STOP:
+			sde_hdcp_2x_clean(hdcp);
+			break;
+		case HDCP_2X_CMD_MSG_SEND_SUCCESS:
+			sde_hdcp_2x_msg_sent(hdcp);
+			break;
+		case HDCP_2X_CMD_MSG_SEND_FAILED:
+		case HDCP_2X_CMD_MSG_RECV_FAILED:
+		case HDCP_2X_CMD_LINK_FAILED:
+			sde_hdcp_2x_clean(hdcp);
+			break;
+		case HDCP_2X_CMD_MSG_RECV_SUCCESS:
+			sde_hdcp_2x_msg_recvd(hdcp);
+			break;
+		case HDCP_2X_CMD_MSG_RECV_TIMEOUT:
+			sde_hdcp_2x_timeout(hdcp);
+			break;
+		case HDCP_2X_CMD_QUERY_STREAM_TYPE:
+			sde_hdcp_2x_query_stream(hdcp);
+			break;
+		case HDCP_2X_CMD_MIN_ENC_LEVEL:
+			if (!hdcp->repeater_flag) {
+				sde_hdcp_2x_send_type(hdcp);
+				break;
+			}
+			sde_hdcp_2x_query_stream(hdcp);
+			break;
+		default:
+			break;
+		}
+	}
+
+	return 0;
 }
 
 int sde_hdcp_2x_register(struct sde_hdcp_2x_register_data *data)
@@ -911,27 +786,16 @@ int sde_hdcp_2x_register(struct sde_hdcp_2x_register_data *data)
 
 	hdcp->hdcp2_ctx = hdcp2_init(hdcp->device_type);
 
+	INIT_KFIFO(hdcp->cmd_q);
+
+	init_waitqueue_head(&hdcp->wait_q);
 	atomic_set(&hdcp->hdcp_off, 0);
-
-	mutex_init(&hdcp->wakeup_mutex);
-
-	kthread_init_worker(&hdcp->worker);
-
-	kthread_init_work(&hdcp->wk_init,      sde_hdcp_2x_init_work);
-	kthread_init_work(&hdcp->wk_msg_sent,  sde_hdcp_2x_msg_sent_work);
-	kthread_init_work(&hdcp->wk_msg_recvd, sde_hdcp_2x_msg_recvd_work);
-	kthread_init_work(&hdcp->wk_timeout,   sde_hdcp_2x_timeout_work);
-	kthread_init_work(&hdcp->wk_clean,     sde_hdcp_2x_cleanup_work);
-	kthread_init_work(&hdcp->wk_stream,    sde_hdcp_2x_query_stream_work);
-	kthread_init_work(&hdcp->wk_wait, sde_hdcp_2x_wait_for_response_work);
-	kthread_init_work(&hdcp->wk_send_type,    sde_hdcp_2x_send_type_work);
 
 	init_completion(&hdcp->response_completion);
 
 	*data->hdcp_data = hdcp;
 
-	hdcp->thread = kthread_run(kthread_worker_fn,
-			     &hdcp->worker, "hdcp_tz_lib");
+	hdcp->thread = kthread_run(sde_hdcp_2x_main, hdcp, "hdcp_2x");
 
 	if (IS_ERR(hdcp->thread)) {
 		pr_err("unable to start lib thread\n");
@@ -958,7 +822,6 @@ void sde_hdcp_2x_deregister(void *data)
 		return;
 
 	kthread_stop(hdcp->thread);
-	mutex_destroy(&hdcp->wakeup_mutex);
 	hdcp2_deinit(hdcp->hdcp2_ctx);
 	kzfree(hdcp);
 }

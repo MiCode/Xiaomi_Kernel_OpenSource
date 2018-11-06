@@ -712,27 +712,9 @@ static void dp_display_process_mst_hpd_low(struct dp_display_private *dp)
 
 static int dp_display_process_hpd_low(struct dp_display_private *dp)
 {
-	int rc = 0, idx;
-	struct dp_panel *dp_panel;
-
-	mutex_lock(&dp->session_lock);
+	int rc = 0;
 
 	dp->is_connected = false;
-
-	if (dp_display_is_hdcp_enabled(dp) && dp->hdcp.ops->off)
-		dp->hdcp.ops->off(dp->hdcp.data);
-
-	for (idx = DP_STREAM_0; idx < DP_STREAM_MAX; idx++) {
-		if (!dp->active_panels[idx])
-			continue;
-
-		dp_panel = dp->active_panels[idx];
-
-		if (dp_panel->audio_supported)
-			dp_panel->audio->off(dp_panel->audio);
-	}
-
-	mutex_unlock(&dp->session_lock);
 
 	dp_display_process_mst_hpd_low(dp);
 
