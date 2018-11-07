@@ -66,6 +66,8 @@ struct sched_domain_attr {
 
 extern int sched_domain_level_max;
 
+unsigned long capacity_curr_of(int cpu);
+
 struct sched_group;
 
 struct sched_domain_shared {
@@ -173,6 +175,7 @@ bool cpus_share_cache(int this_cpu, int that_cpu);
 
 typedef const struct cpumask *(*sched_domain_mask_f)(int cpu);
 typedef int (*sched_domain_flags_f)(void);
+extern bool sched_is_energy_aware(void);
 
 #define SDTL_OVERLAP	0x01
 

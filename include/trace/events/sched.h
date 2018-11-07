@@ -705,6 +705,51 @@ TRACE_EVENT(sched_load_rt_rq,
 		  __entry->util)
 );
 
+#ifdef CONFIG_SCHED_WALT
+extern unsigned int sysctl_sched_use_walt_cpu_util;
+extern unsigned int sysctl_sched_use_walt_task_util;
+extern unsigned int sched_ravg_window;
+extern unsigned int walt_disabled;
+#endif
+
+/*
+ * Tracepoint for accounting cpu root cfs_rq
+ */
+TRACE_EVENT(sched_load_avg_cpu,
+
+	TP_PROTO(int cpu, struct cfs_rq *cfs_rq),
+
+	TP_ARGS(cpu, cfs_rq),
+
+	TP_STRUCT__entry(
+		__field(int,		cpu)
+		__field(unsigned long,	load_avg)
+		__field(unsigned long,	util_avg)
+		__field(unsigned long,	util_avg_pelt)
+		__field(unsigned long,	util_avg_walt)
+	),
+
+	TP_fast_assign(
+		__entry->cpu                    = cpu;
+		__entry->load_avg               = cfs_rq->avg.load_avg;
+		__entry->util_avg               = cfs_rq->avg.util_avg;
+		__entry->util_avg_pelt  = cfs_rq->avg.util_avg;
+		__entry->util_avg_walt  = 0;
+#ifdef CONFIG_SCHED_WALT
+		__entry->util_avg_walt  =
+			cpu_rq(cpu)->prev_runnable_sum << SCHED_CAPACITY_SHIFT;
+		do_div(__entry->util_avg_walt, sched_ravg_window);
+		if (!walt_disabled && sysctl_sched_use_walt_cpu_util)
+			__entry->util_avg       = __entry->util_avg_walt;
+#endif
+	),
+
+	TP_printk("cpu=%d load_avg=%lu util_avg=%lu util_avg_pelt=%lu util_avg_walt=%lu",
+		__entry->cpu, __entry->load_avg, __entry->util_avg,
+		__entry->util_avg_pelt, __entry->util_avg_walt)
+);
+
+
 /*
  * Tracepoint for sched_entity load tracking:
  */
@@ -1021,6 +1066,8 @@ TRACE_EVENT(sched_overutilized,
 	TP_printk("overutilized=%d",
 		__entry->overutilized)
 );
+
+#include "walt.h"
 
 #endif /* CONFIG_SMP */
 #endif /* _TRACE_SCHED_H */

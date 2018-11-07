@@ -22,6 +22,20 @@ extern unsigned long nr_iowait(void);
 extern unsigned long nr_iowait_cpu(int cpu);
 extern void get_iowait_load(unsigned long *nr_waiters, unsigned long *load);
 
+#ifdef CONFIG_SMP
+extern unsigned int sched_get_cpu_util(int cpu);
+extern u64 sched_get_cpu_last_busy_time(int cpu);
+#else
+static inline unsigned int sched_get_cpu_util(int cpu)
+{
+	return 0;
+}
+static inline u64 sched_get_cpu_last_busy_time(int cpu)
+{
+	return 0;
+}
+#endif
+
 static inline int sched_info_on(void)
 {
 #ifdef CONFIG_SCHEDSTATS
