@@ -80,6 +80,7 @@ enum ipa_aggr_type {
 	IPA_TLP     = 2,
 	IPA_RNDIS   = 3,
 	IPA_GENERIC = 4,
+	IPA_COALESCE = 5,
 	IPA_QCMAP   = 6,
 };
 

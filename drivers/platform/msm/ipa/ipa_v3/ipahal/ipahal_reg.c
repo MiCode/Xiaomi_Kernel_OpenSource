@@ -146,6 +146,8 @@ static const char *ipareg_name_to_str[IPA_REG_MAX] = {
 	__stringify(IPA_ENDP_GSI_CFG1_n),
 	__stringify(IPA_ENDP_GSI_CFG_AOS_n),
 	__stringify(IPA_ENDP_GSI_CFG_TLV_n),
+	__stringify(IPA_COAL_EVICT_LRU),
+	__stringify(IPA_COAL_QMAP_CFG)
 };
 
 static void ipareg_construct_dummy(enum ipahal_reg_name reg,
@@ -2297,6 +2299,97 @@ static void ipareg_parse_counter_cfg(
 		IPA_COUNTER_CFG_AGGR_GRANULARITY_BMSK);
 }
 
+static void ipareg_parse_state_coal_master(
+	enum ipahal_reg_name reg, void *fields, u32 val)
+{
+	struct ipahal_reg_state_coal_master *state_coal_master =
+		(struct ipahal_reg_state_coal_master *)fields;
+
+	memset(state_coal_master, 0, sizeof(*state_coal_master));
+
+	state_coal_master->vp_timer_expired = IPA_GETFIELD_FROM_REG(val,
+		IPA_STATE_COAL_MASTER_VP_TIMER_EXPIRED_SHFT,
+		IPA_STATE_COAL_MASTER_VP_TIMER_EXPIRED_BMSK);
+
+	state_coal_master->lru_vp = IPA_GETFIELD_FROM_REG(val,
+		IPA_STATE_COAL_MASTER_LRU_VP_SHFT,
+		IPA_STATE_COAL_MASTER_LRU_VP_BMSK);
+
+	state_coal_master->init_vp_fsm_state = IPA_GETFIELD_FROM_REG(val,
+		IPA_STATE_COAL_MASTER_INIT_VP_FSM_STATE_SHFT,
+		IPA_STATE_COAL_MASTER_INIT_VP_FSM_STATE_BMSK);
+
+	state_coal_master->check_fir_fsm_state = IPA_GETFIELD_FROM_REG(val,
+		IPA_STATE_COAL_MASTER_CHECK_FIR_FSM_STATE_SHFT,
+		IPA_STATE_COAL_MASTER_CHECK_FIR_FSM_STATE_BMSK);
+
+	state_coal_master->hash_calc_fsm_state = IPA_GETFIELD_FROM_REG(val,
+		IPA_STATE_COAL_MASTER_HASH_CALC_FSM_STATE_SHFT,
+		IPA_STATE_COAL_MASTER_HASH_CALC_FSM_STATE_BMSK);
+
+	state_coal_master->find_open_fsm_state = IPA_GETFIELD_FROM_REG(val,
+		IPA_STATE_COAL_MASTER_FIND_OPEN_FSM_STATE_SHFT,
+		IPA_STATE_COAL_MASTER_FIND_OPEN_FSM_STATE_BMSK);
+
+	state_coal_master->main_fsm_state = IPA_GETFIELD_FROM_REG(val,
+		IPA_STATE_COAL_MASTER_MAIN_FSM_STATE_SHFT,
+		IPA_STATE_COAL_MASTER_MAIN_FSM_STATE_BMSK);
+
+	state_coal_master->vp_vld = IPA_GETFIELD_FROM_REG(val,
+		IPA_STATE_COAL_MASTER_VP_VLD_SHFT,
+		IPA_STATE_COAL_MASTER_VP_VLD_BMSK);
+}
+
+static void ipareg_construct_coal_evict_lru(enum ipahal_reg_name reg,
+	const void *fields, u32 *val)
+{
+	struct ipahal_reg_coal_evict_lru *evict_lru =
+		(struct ipahal_reg_coal_evict_lru *)fields;
+
+	IPA_SETFIELD_IN_REG(*val, evict_lru->coal_vp_lru_thrshld,
+		IPA_COAL_VP_LRU_THRSHLD_SHFT, IPA_COAL_VP_LRU_THRSHLD_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, evict_lru->coal_eviction_en,
+		IPA_COAL_EVICTION_EN_SHFT, IPA_COAL_EVICTION_EN_BMSK);
+}
+
+static void ipareg_parse_coal_evict_lru(enum ipahal_reg_name reg,
+	void *fields, u32 val)
+{
+	struct ipahal_reg_coal_evict_lru *evict_lru =
+		(struct ipahal_reg_coal_evict_lru *)fields;
+
+	memset(evict_lru, 0, sizeof(*evict_lru));
+
+	evict_lru->coal_vp_lru_thrshld = IPA_GETFIELD_FROM_REG(val,
+		IPA_COAL_VP_LRU_THRSHLD_SHFT, IPA_COAL_VP_LRU_THRSHLD_BMSK);
+
+	evict_lru->coal_eviction_en = IPA_GETFIELD_FROM_REG(val,
+		IPA_COAL_EVICTION_EN_SHFT, IPA_COAL_EVICTION_EN_BMSK);
+}
+
+static void ipareg_construct_coal_qmap_cfg(enum ipahal_reg_name reg,
+	const void *fields, u32 *val)
+{
+	struct ipahal_reg_coal_qmap_cfg *qmap_cfg =
+		(struct ipahal_reg_coal_qmap_cfg *)fields;
+
+	IPA_SETFIELD_IN_REG(*val, qmap_cfg->mux_id_byte_sel,
+		IPA_COAL_QMAP_CFG_SHFT, IPA_COAL_QMAP_CFG_BMSK);
+}
+
+static void ipareg_parse_coal_qmap_cfg(enum ipahal_reg_name reg,
+	void *fields, u32 val)
+{
+	struct ipahal_reg_coal_qmap_cfg *qmap_cfg =
+		(struct ipahal_reg_coal_qmap_cfg *)fields;
+
+	memset(qmap_cfg, 0, sizeof(*qmap_cfg));
+
+	qmap_cfg->mux_id_byte_sel = IPA_GETFIELD_FROM_REG(val,
+		IPA_COAL_QMAP_CFG_SHFT, IPA_COAL_QMAP_CFG_BMSK);
+}
+
 /*
  * struct ipahal_reg_obj - Register H/W information for specific IPA version
  * @construct - CB to construct register value from abstracted structure
@@ -2907,7 +3000,7 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x000000D0, 0, 0, 0, 1},
 	[IPA_HW_v4_5][IPA_STATE_COAL_MASTER] = {
-		ipareg_construct_dummy, ipareg_parse_dummy,
+		ipareg_construct_dummy, ipareg_parse_state_coal_master,
 		0x000000D4, 0, 0, 0, 1},
 	[IPA_HW_v4_5][IPA_GENERIC_RAM_ARBITER_PRIORITY] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
@@ -3051,6 +3144,12 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v4_5][IPA_UC_MAILBOX_m_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x00082000, 0x4, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_COAL_EVICT_LRU] = {
+		ipareg_construct_coal_evict_lru, ipareg_parse_coal_evict_lru,
+		0x0000180C, 0, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_COAL_QMAP_CFG] = {
+		ipareg_construct_coal_qmap_cfg, ipareg_parse_coal_qmap_cfg,
+		0x00001810, 0, 0, 0, 0},
 };
 
 /*
