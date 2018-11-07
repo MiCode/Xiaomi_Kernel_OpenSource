@@ -391,6 +391,7 @@
 		qcom,mdss-default-ot-wr-limit = <32>;
 
 		qcom,mdss-sbuf-headroom = <20>;
+		qcom,mdss-rot-linewidth = <8192>;
 
 		cache-slice-names = "rotator";
 		cache-slices = <&llcc 4>;
