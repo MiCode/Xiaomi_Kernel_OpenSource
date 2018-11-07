@@ -24,7 +24,6 @@
 #include <soc/qcom/qseecomi.h>
 #include <crypto/ice.h>
 #include "pfk_ice.h"
-#include "qseecom_kernel.h"
 
 /**********************************/
 /** global definitions		 **/
@@ -58,21 +57,9 @@
 
 #define CONTEXT_SIZE 0x1000
 
-#define KEYMASTER_UTILS_CMD_ID 0x200UL
-#define KEYMASTER_GET_VERSION (KEYMASTER_UTILS_CMD_ID + 0UL)
-#define KEYMASTER_SET_ICE_KEY (KEYMASTER_UTILS_CMD_ID + 18UL)
-#define KEYMASTER_CLEAR_ICE_KEY (KEYMASTER_UTILS_CMD_ID + 19UL)
-
-#define USE_KM_MAJOR_VERSION 4
-#define USE_KM_MINOR_VERSION 513
 #define ICE_BUFFER_SIZE 64
 
-static uint32_t keymaster_minor_version;
-static uint32_t keymaster_major_version;
-
 static uint8_t ice_buffer[ICE_BUFFER_SIZE];
-
-static struct qseecom_handle *qhandle;
 
 enum {
 	ICE_CIPHER_MODE_XTS_128 = 0,
@@ -80,141 +67,6 @@ enum {
 	ICE_CIPHER_MODE_XTS_256 = 3,
 	ICE_CIPHER_MODE_CBC_256 = 4
 };
-
-static uint32_t get_keymaster_version(struct qseecom_handle *qhandle)
-{
-	int ret = 0;
-	struct pfk_km_get_version_req *req;
-	struct pfk_km_get_version_rsp *rsp;
-
-	req = (struct pfk_km_get_version_req *) qhandle->sbuf;
-	req->cmd_id = KEYMASTER_GET_VERSION;
-
-	rsp = (struct pfk_km_get_version_rsp *) (qhandle->sbuf
-		+ sizeof(struct pfk_km_get_version_req));
-
-	ret = qseecom_send_command(qhandle,
-			req, sizeof(struct pfk_km_get_version_req),
-			rsp, sizeof(struct pfk_km_get_version_rsp));
-
-	if (ret) {
-		pr_err("%s: Get KM version error: Status %d\n", __func__,
-						rsp->status);
-		return ret;
-	}
-
-	keymaster_major_version = rsp->ta_major_version;
-	keymaster_minor_version = rsp->ta_minor_version;
-
-	return ret;
-}
-
-/*
- * This change is to make sure there are no issues when pfk calls into
- * keymaster for unwrapping keys before setting them. This can happen when
- * an older version of keymaster is used which means the unwrapping logic
- * cannot be done in trustzone.
- */
-
-static bool should_use_keymaster(void)
-{
-	int ret = -1;
-	if (!qhandle) {
-		ret = qseecom_start_app(&qhandle, "keymaster64",
-			CONTEXT_SIZE);
-		if (ret) {
-			pr_err("Qseecom start app failed\n");
-			return false;
-		}
-	}
-
-	if (keymaster_major_version == 0 || keymaster_minor_version == 0) {
-		ret = get_keymaster_version(qhandle);
-		if (ret) {
-			pr_err("Error in getting keymaster version\n");
-			return false;
-		}
-	}
-
-	if (keymaster_major_version == USE_KM_MAJOR_VERSION &&
-			keymaster_minor_version < USE_KM_MINOR_VERSION)
-		return true;
-	else
-		return false;
-}
-
-static int set_wrapped_key(uint32_t index, const uint8_t *key,
-				const uint8_t *salt)
-{
-	int ret = 0;
-	u32 set_req_len = 0;
-	u32 set_rsp_len = 0;
-	u32 size = ICE_BUFFER_SIZE / 2;
-	struct pfk_ice_key_req *set_req_buf;
-	struct pfk_ice_key_rsp *set_rsp_buf;
-
-	memcpy(ice_buffer, key, size);
-	memcpy(ice_buffer + size, salt, size);
-
-	set_req_buf = (struct pfk_ice_key_req *) qhandle->sbuf;
-	set_req_buf->cmd_id = KEYMASTER_SET_ICE_KEY;
-	set_req_buf->index = index;
-	set_req_buf->ice_key_offset = sizeof(struct pfk_ice_key_req);
-	set_req_buf->ice_key_size = size;
-	set_req_buf->ice_salt_offset = set_req_buf->ice_key_offset +
-					set_req_buf->ice_key_size;
-	set_req_buf->ice_salt_size = size;
-
-	memcpy((uint8_t *) set_req_buf + set_req_buf->ice_key_offset,
-			ice_buffer, set_req_buf->ice_key_size);
-	memcpy((uint8_t *) set_req_buf + set_req_buf->ice_salt_offset,
-			ice_buffer + set_req_buf->ice_key_size,
-			set_req_buf->ice_salt_size);
-
-	set_req_len = sizeof(struct pfk_ice_key_req) + set_req_buf->ice_key_size
-			+ set_req_buf->ice_salt_size;
-
-	set_rsp_buf = (struct pfk_ice_key_rsp *) (qhandle->sbuf +
-			set_req_len);
-	set_rsp_len = sizeof(struct pfk_ice_key_rsp);
-
-	ret = qseecom_send_command(qhandle,
-					set_req_buf, set_req_len,
-					set_rsp_buf, set_rsp_len);
-
-	if (ret)
-		pr_err("%s: Set wrapped key  error: Status %d\n", __func__,
-						set_rsp_buf->ret);
-
-	return ret;
-}
-
-static int clear_wrapped_key(uint32_t index)
-{
-	int ret = 0;
-
-	u32 clear_req_len = 0;
-	u32 clear_rsp_len = 0;
-	struct pfk_ice_key_req *clear_req_buf;
-	struct pfk_ice_key_rsp *clear_rsp_buf;
-
-	clear_req_buf = (struct pfk_ice_key_req *) qhandle->sbuf;
-	memset(clear_req_buf, 0, sizeof(qhandle->sbuf));
-	clear_req_buf->cmd_id = KEYMASTER_CLEAR_ICE_KEY;
-	clear_req_buf->index = index;
-	clear_req_len = sizeof(struct pfk_ice_key_req);
-	clear_rsp_buf = (struct pfk_ice_key_rsp *) (qhandle->sbuf +
-			QSEECOM_ALIGN(clear_req_len));
-	clear_rsp_len = sizeof(struct pfk_ice_key_rsp);
-
-	ret = qseecom_send_command(qhandle, clear_req_buf, clear_req_len,
-			clear_rsp_buf, clear_rsp_len);
-	if (ret)
-		pr_err("%s: Clear wrapped key error: Status %d\n", __func__,
-					clear_rsp_buf->ret);
-
-	return ret;
-}
 
 static int set_key(uint32_t index, const uint8_t *key, const uint8_t *salt,
 		unsigned int data_unit)
@@ -296,14 +148,7 @@ int qti_pfk_ice_set_key(uint32_t index, uint8_t *key, uint8_t *salt,
 		goto out;
 	}
 
-	if (should_use_keymaster()) {
-		pr_debug("%s: Setting wrapped key\n", __func__);
-		ret = set_wrapped_key(index, key, salt);
-	} else {
-		pr_debug("%s: Setting keys with QSEE kernel\n", __func__);
-		ret = set_key(index, key, salt, data_unit);
-	}
-
+	ret = set_key(index, key, salt, data_unit);
 	if (ret) {
 		pr_err("%s: Set Key Error: %d\n", __func__, ret);
 		if (ret == -EBUSY) {
@@ -312,11 +157,7 @@ int qti_pfk_ice_set_key(uint32_t index, uint8_t *key, uint8_t *salt,
 				goto out;
 		}
 		/* Try to invalidate the key to keep ICE in proper state */
-		if (should_use_keymaster())
-			ret1 = clear_wrapped_key(index);
-		else
-			ret1 = clear_key(index);
-
+		ret1 = clear_key(index);
 		if (ret1)
 			pr_err("%s: Invalidate key error: %d\n", __func__, ret);
 	}
@@ -349,14 +190,7 @@ int qti_pfk_ice_invalidate_key(uint32_t index, char *storage_type)
 		return ret;
 	}
 
-	if (should_use_keymaster()) {
-		ret = clear_wrapped_key(index);
-		pr_debug("%s: Clearing wrapped key\n", __func__);
-	} else {
-		pr_debug("%s: Clearing keys with QSEE kernel\n", __func__);
-		ret = clear_key(index);
-	}
-
+	ret = clear_key(index);
 	if (ret)
 		pr_err("%s: Invalidate key error: %d\n", __func__, ret);
 
