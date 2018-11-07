@@ -3074,9 +3074,6 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	int ret = 0;
 
-	if (domain->type != IOMMU_DOMAIN_UNMANAGED)
-		return -EINVAL;
-
 	mutex_lock(&smmu_domain->init_mutex);
 	switch (attr) {
 	case DOMAIN_ATTR_NESTING:
@@ -3216,22 +3213,19 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 	return ret;
 }
 
-static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
+static int __arm_smmu_domain_set_attr2(struct iommu_domain *domain,
+				    enum iommu_attr attr, void *data);
+static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
 				    enum iommu_attr attr, void *data)
 {
 	int ret = 0;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 
-	if (domain->type != IOMMU_DOMAIN_UNMANAGED)
-		return -EINVAL;
-
-	mutex_lock(&smmu_domain->init_mutex);
-
 	switch (attr) {
 	case DOMAIN_ATTR_NESTING:
 		if (smmu_domain->smmu) {
 			ret = -EPERM;
-			goto out_unlock;
+			goto out;
 		}
 
 		if (*(int *)data)
@@ -3347,6 +3341,21 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		}
 		ret = 0;
 		break;
+	default:
+		ret = __arm_smmu_domain_set_attr2(domain, attr, data);
+	}
+out:
+	return ret;
+}
+
+/* yeee-haw */
+static int __arm_smmu_domain_set_attr2(struct iommu_domain *domain,
+				    enum iommu_attr attr, void *data)
+{
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	int ret = 0;
+
+	switch (attr) {
 	case DOMAIN_ATTR_USE_UPSTREAM_HINT:
 	case DOMAIN_ATTR_USE_LLC_NWA:
 		/* can't be changed while attached */
@@ -3409,11 +3418,21 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		ret = -ENODEV;
 	}
 
-out_unlock:
-	mutex_unlock(&smmu_domain->init_mutex);
 	return ret;
 }
 
+static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
+				    enum iommu_attr attr, void *data)
+{
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	int ret;
+
+	mutex_lock(&smmu_domain->init_mutex);
+	ret = __arm_smmu_domain_set_attr(domain, attr, data);
+	mutex_unlock(&smmu_domain->init_mutex);
+
+	return ret;
+}
 static int arm_smmu_of_xlate(struct device *dev, struct of_phandle_args *args)
 {
 	u32 mask, fwid = 0;
