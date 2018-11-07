@@ -23,6 +23,7 @@
 		qcom,dynamic;
 		qcom,skip-init;
 		qcom,use-3-lvl-tables;
+		qcom,disable-atos;
 		#global-interrupts = <1>;
 		qcom,regulator-names = "vdd";
 		vdd-supply = <&gpu_cx_gdsc>;
@@ -70,6 +71,7 @@
 		#iommu-cells = <2>;
 		qcom,skip-init;
 		qcom,use-3-lvl-tables;
+		qcom,disable-atos;
 		#global-interrupts = <1>;
 		#size-cells = <1>;
 		#address-cells = <1>;
