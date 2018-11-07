@@ -108,6 +108,7 @@ int cnss_usb_dev_shutdown(struct cnss_usb_data *usb_priv)
 	switch (usb_priv->device_id) {
 	case QCN7605_COMPOSITE_DEVICE_ID:
 	case QCN7605_STANDALONE_DEVICE_ID:
+		cnss_usb_call_driver_remove(usb_priv);
 		break;
 	default:
 		cnss_pr_err("Unknown device_id found: 0x%x\n",
@@ -175,12 +176,13 @@ int cnss_usb_call_driver_remove(struct cnss_usb_data *usb_priv)
 
 	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state) &&
 	    test_bit(CNSS_DRIVER_PROBED, &plat_priv->driver_state)) {
+		cnss_pr_dbg("Recovery set after driver probed.Call shutdown\n");
 		usb_priv->driver_ops->shutdown(usb_priv->usb_intf);
 	} else if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) {
+		cnss_pr_dbg("driver_ops->remove\n");
 		usb_priv->driver_ops->remove(usb_priv->usb_intf);
 		clear_bit(CNSS_DRIVER_PROBED, &plat_priv->driver_state);
 	}
-
 	return 0;
 }
 
