@@ -4228,7 +4228,7 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 	struct sde_multirect_plane_states *multirect_plane = NULL;
 	int multirect_count = 0;
 	const struct drm_plane_state *pipe_staged[SSPP_MAX];
-	int left_zpos_cnt = 0, right_zpos_cnt = 0;
+	u32 zpos_cnt = 0;
 
 	struct drm_connector *conn;
 	struct drm_connector_list_iter conn_iter;
@@ -4394,8 +4394,7 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 	for (i = 0; i < cnt; i++) {
 		/* reset counts at every new blend stage */
 		if (pstates[i].stage != z_pos) {
-			left_zpos_cnt = 0;
-			right_zpos_cnt = 0;
+			zpos_cnt = 0;
 			z_pos = pstates[i].stage;
 		}
 
@@ -4405,23 +4404,12 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 					SDE_STAGE_MAX - SDE_STAGE_0);
 			rc = -EINVAL;
 			goto end;
-		} else if (pstates[i].drm_pstate->crtc_x < mixer_width) {
-			if (left_zpos_cnt == 2) {
-				SDE_ERROR("> 2 planes @ stage %d on left\n",
-					z_pos);
-				rc = -EINVAL;
-				goto end;
-			}
-			left_zpos_cnt++;
-
+		} else if (zpos_cnt == 2) {
+			SDE_ERROR("> 2 planes @ stage %d\n", z_pos);
+			rc = -EINVAL;
+			goto end;
 		} else {
-			if (right_zpos_cnt == 2) {
-				SDE_ERROR("> 2 planes @ stage %d on right\n",
-					z_pos);
-				rc = -EINVAL;
-				goto end;
-			}
-			right_zpos_cnt++;
+			zpos_cnt++;
 		}
 
 		pstates[i].sde_pstate->stage = z_pos + SDE_STAGE_0;
