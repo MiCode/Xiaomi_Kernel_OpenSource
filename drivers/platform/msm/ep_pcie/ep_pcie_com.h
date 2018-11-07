@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -101,6 +101,14 @@
 
 #define PCIE20_AUX_CLK_FREQ_REG        0xB40
 
+#define PCIE20_MHISTATUS               0x148
+#define PCIE20_PARF_MHI_CLOCK_RESET_CTRL 0x174
+#define PCIE20_PARF_CFG_BITS           0x210
+
+#define PCIE20_BRIDGE_CTRL_INT_PIN_INT_LINE_REG 0x3C
+#define PCIE20_DEVICE_ID_VENDOR_ID_REG          0x0
+#define PCIE20_L1_SUBSTATES_REG                 0xB44
+
 #define PERST_TIMEOUT_US_MIN	              1000
 #define PERST_TIMEOUT_US_MAX	              1000
 #define PERST_CHECK_MAX_COUNT		      30000
@@ -126,7 +134,7 @@
 
 #define EP_PCIE_LOG_PAGES 50
 #define EP_PCIE_MAX_VREG 2
-#define EP_PCIE_MAX_CLK 6
+#define EP_PCIE_MAX_CLK 8
 #define EP_PCIE_MAX_PIPE_CLK 1
 
 #define EP_PCIE_ERROR -30655
@@ -255,6 +263,12 @@ struct ep_pcie_irq_info_t {
 	u32          num;
 };
 
+struct ep_pcie_phy_info_t {
+	u32	offset;
+	u32	val;
+	u32	delay;
+};
+
 /* pcie endpoint device structure */
 struct ep_pcie_dev_t {
 	struct platform_device       *pdev;
@@ -278,6 +292,9 @@ struct ep_pcie_dev_t {
 	u32                          link_speed;
 	bool                         active_config;
 	bool                         aggregated_irq;
+	u32                          phy_status_reg;
+	u32                          phy_len;
+	struct ep_pcie_phy_info_t	*phy_sequence;
 
 	u32                          rev;
 	u32                          phy_rev;
@@ -356,5 +373,7 @@ extern bool ep_pcie_phy_is_ready(struct ep_pcie_dev_t *dev);
 extern void ep_pcie_reg_dump(struct ep_pcie_dev_t *dev, u32 sel, bool linkdown);
 extern void ep_pcie_debugfs_init(struct ep_pcie_dev_t *ep_dev);
 extern void ep_pcie_debugfs_exit(void);
-
+#ifdef CONFIG_ARCH_MSM8996
+extern void ep_pcie_phy_bringup_port(struct ep_pcie_dev_t *dev);
+#endif
 #endif

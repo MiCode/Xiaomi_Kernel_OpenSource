@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,6 +13,7 @@
 /*
  * MSM PCIe PHY endpoint mode
  */
+#include <linux/delay.h>
 
 #include "ep_pcie_com.h"
 #include "ep_pcie_phy.h"
@@ -22,6 +23,28 @@ void ep_pcie_phy_init(struct ep_pcie_dev_t *dev)
 	EP_PCIE_DBG(dev,
 		"PCIe V%d: PHY V%d: Initializing 14nm QMP phy - 100MHz\n",
 		dev->rev, dev->phy_rev);
+
+	if (dev->phy_sequence) {
+		int i;
+		struct ep_pcie_phy_info_t *phy_seq;
+
+		EP_PCIE_DBG(dev,
+				"PCIe V%d: PHY V%d: process the sequence specified by DT.!\n",
+				dev->rev, dev->phy_rev);
+
+		i =  dev->phy_len;
+		phy_seq = dev->phy_sequence;
+		while (i--) {
+			ep_pcie_write_reg(dev->phy,
+				phy_seq->offset,
+				phy_seq->val);
+			if (phy_seq->delay)
+				usleep_range(phy_seq->delay,
+					phy_seq->delay + 1);
+			phy_seq++;
+		}
+		return;
+	}
 
 	ep_pcie_write_reg(dev->phy, PCIE_PHY_SW_RESET, 0x01);
 	ep_pcie_write_reg(dev->phy, PCIE_PHY_POWER_DOWN_CONTROL, 0x01);
@@ -104,10 +127,26 @@ void ep_pcie_phy_init(struct ep_pcie_dev_t *dev)
 	ep_pcie_write_reg(dev->phy, PCIE_PHY_START_CONTROL, 0x03);
 }
 
+#ifdef CONFIG_ARCH_MSM8996
+void ep_pcie_phy_bringup_port(struct ep_pcie_dev_t *dev)
+{
+	ep_pcie_write_reg(dev->phy, PCIE_PORT_POWER_DOWN_CONTROL, 0x03);
+	ep_pcie_write_reg(dev->phy, PCIE_PORT_SW_RESET, 0x0);
+	ep_pcie_write_reg(dev->phy, PCIE_PORT_START_CONTROL, 0x0a);
+}
+#endif
+
 bool ep_pcie_phy_is_ready(struct ep_pcie_dev_t *dev)
 {
-	if (readl_relaxed(dev->phy + PCIE_PHY_PCS_STATUS) & BIT(6))
-		return false;
+	u32 offset;
+
+	if (dev->phy_status_reg)
+		offset = dev->phy_status_reg;
 	else
+		offset = PCIE_PHY_PCS_STATUS;
+
+	if (readl_relaxed(dev->phy + offset) & BIT(0))
 		return true;
+	else
+		return false;
 }
