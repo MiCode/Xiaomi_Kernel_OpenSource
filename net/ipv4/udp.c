@@ -115,6 +115,7 @@
 #include "udp_impl.h"
 #include <net/sock_reuseport.h>
 #include <net/addrconf.h>
+#include <net/udp_tunnel.h>
 
 struct udp_table udp_table __read_mostly;
 EXPORT_SYMBOL(udp_table);
@@ -2386,11 +2387,15 @@ void udp_destroy_sock(struct sock *sk)
 	bool slow = lock_sock_fast(sk);
 	udp_flush_pending_frames(sk);
 	unlock_sock_fast(sk, slow);
-	if (static_key_false(&udp_encap_needed) && up->encap_type) {
-		void (*encap_destroy)(struct sock *sk);
-		encap_destroy = ACCESS_ONCE(up->encap_destroy);
-		if (encap_destroy)
-			encap_destroy(sk);
+	if (static_key_false(&udp_encap_needed)) {
+		if (up->encap_type) {
+			void (*encap_destroy)(struct sock *sk);
+			encap_destroy = ACCESS_ONCE(up->encap_destroy);
+			if (encap_destroy)
+				encap_destroy(sk);
+		}
+		if (up->encap_enabled)
+			static_key_disable(&udp_encap_needed);
 	}
 }
 
@@ -2435,7 +2440,9 @@ int udp_lib_setsockopt(struct sock *sk, int level, int optname,
 			/* FALLTHROUGH */
 		case UDP_ENCAP_L2TPINUDP:
 			up->encap_type = val;
-			udp_encap_enable();
+			lock_sock(sk);
+			udp_tunnel_encap_enable(sk->sk_socket);
+			release_sock(sk);
 			break;
 		default:
 			err = -ENOPROTOOPT;
