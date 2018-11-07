@@ -1259,12 +1259,12 @@ int do_huge_pmd_numa_page(struct fault_env *fe, pmd_t pmd)
 
 	/* Migration could have started since the pmd_trans_migrating check */
 	if (!page_locked) {
+		page_nid = -1;
 		if (!get_page_unless_zero(page))
 			goto out_unlock;
 		spin_unlock(fe->ptl);
 		wait_on_page_locked(page);
 		put_page(page);
-		page_nid = -1;
 		goto out;
 	}
 
