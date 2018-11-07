@@ -1787,7 +1787,9 @@ static int sde_intf_parse_dt(struct device_node *np,
 			set_bit(SDE_INTF_INPUT_CTRL, &intf->features);
 
 		if (IS_SDE_MAJOR_SAME((sde_cfg->hwversion),
-				SDE_HW_VER_500))
+				SDE_HW_VER_500) ||
+				IS_SDE_MAJOR_SAME((sde_cfg->hwversion),
+				SDE_HW_VER_600))
 			set_bit(SDE_INTF_TE, &intf->features);
 	}
 
@@ -3633,6 +3635,8 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->sui_misr_supported = true;
 		sde_cfg->sui_block_xin_mask = 0x3F71;
 		sde_cfg->has_3d_merge_reset = true;
+		clear_bit(MDSS_INTR_AD4_0_INTR, sde_cfg->mdss_irqs);
+		clear_bit(MDSS_INTR_AD4_1_INTR, sde_cfg->mdss_irqs);
 	} else {
 		SDE_ERROR("unsupported chipset id:%X\n", hw_rev);
 		sde_cfg->perf.min_prefill_lines = 0xffff;
