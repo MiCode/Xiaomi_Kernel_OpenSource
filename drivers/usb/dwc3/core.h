@@ -257,6 +257,7 @@
 /* Global User Control 1 Register */
 #define DWC3_GUCTL1_TX_IPGAP_LINECHECK_DIS	BIT(28)
 #define DWC3_GUCTL1_DEV_L1_EXIT_BY_HW	BIT(24)
+#define DWC3_GUCTL1_IP_GAP_ADD_ON(n)	(n << 21)
 
 /* Global Status Register */
 #define DWC3_GSTS_OTG_IP	BIT(10)
