@@ -87,6 +87,7 @@ struct npu_host_ctx {
 	uint32_t fw_dbg_mode;
 	uint32_t exec_flags_override;
 	atomic_t ipc_trans_id;
+	atomic_t network_exeute_cnt;
 
 	uint32_t err_irq_sts;
 	uint32_t wdg_irq_sts;

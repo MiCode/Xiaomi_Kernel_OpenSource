@@ -1424,6 +1424,9 @@ int32_t npu_host_exec_network(struct npu_client *client,
 		return -EINVAL;
 	}
 
+	if (atomic_inc_return(&host_ctx->network_exeute_cnt) == 1)
+		npu_notify_cdsprm_cxlimit_activity(npu_dev, true);
+
 	if (!network->is_active) {
 		pr_err("network is not active\n");
 		ret = -EINVAL;
@@ -1528,6 +1531,9 @@ exec_done:
 		host_error_hdlr(npu_dev, true);
 	}
 
+	if (atomic_dec_return(&host_ctx->network_exeute_cnt) == 0)
+		npu_notify_cdsprm_cxlimit_activity(npu_dev, false);
+
 	return ret;
 }
 
@@ -1552,6 +1558,9 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 		mutex_unlock(&host_ctx->lock);
 		return -EINVAL;
 	}
+
+	if (atomic_inc_return(&host_ctx->network_exeute_cnt) == 1)
+		npu_notify_cdsprm_cxlimit_activity(npu_dev, true);
 
 	if (!network->is_active) {
 		pr_err("network is not active\n");
@@ -1678,6 +1687,9 @@ exec_v2_done:
 		pr_err("Error handling after execution failure\n");
 		host_error_hdlr(npu_dev, true);
 	}
+
+	if (atomic_dec_return(&host_ctx->network_exeute_cnt) == 0)
+		npu_notify_cdsprm_cxlimit_activity(npu_dev, false);
 
 	return ret;
 }

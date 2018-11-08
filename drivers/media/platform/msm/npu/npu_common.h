@@ -55,8 +55,8 @@ enum npu_power_level {
 	NPU_PWRLEVEL_LOWSVS,
 	NPU_PWRLEVEL_SVS,
 	NPU_PWRLEVEL_SVS_L1,
-	NPU_PWRLEVEL_NORM,
-	NPU_PWRLEVEL_NORM_L1,
+	NPU_PWRLEVEL_NOM,
+	NPU_PWRLEVEL_NOM_L1,
 	NPU_PWRLEVEL_TURBO,
 	NPU_PWRLEVEL_TURBO_L1,
 	NPU_PWRLEVEL_OFF = 0xFFFFFFFF,
@@ -148,6 +148,7 @@ struct npu_reg {
  * @max_pwrlevel - maximum allowable powerlevel per the user
  * @min_pwrlevel - minimum allowable powerlevel per the user
  * @num_pwrlevels - number of available power levels
+ * @cdsprm_pwrlevel - maximum power level from cdsprm
  * @fmax_pwrlevel - maximum power level from qfprom fmax setting
  * @uc_pwrlevel - power level from user driver setting
  * @perf_mode_override - perf mode from sysfs to override perf mode
@@ -167,6 +168,7 @@ struct npu_pwrctrl {
 	struct device *devbw;
 	uint32_t bwmon_enabled;
 	uint32_t uc_pwrlevel;
+	uint32_t cdsprm_pwrlevel;
 	uint32_t fmax_pwrlevel;
 	uint32_t perf_mode_override;
 };
@@ -231,6 +233,7 @@ struct npu_device {
 
 	struct llcc_slice_desc *sys_cache;
 	uint32_t execute_v2_flag;
+	bool cxlimit_registered;
 };
 
 struct npu_kevent {
@@ -267,5 +270,6 @@ int npu_set_uc_power_level(struct npu_device *npu_dev,
 
 int fw_init(struct npu_device *npu_dev);
 void fw_deinit(struct npu_device *npu_dev, bool ssr);
+int npu_notify_cdsprm_cxlimit_activity(struct npu_device *npu_dev, bool enable);
 
 #endif /* _NPU_COMMON_H */
