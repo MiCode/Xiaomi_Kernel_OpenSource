@@ -12,4 +12,13 @@ config MSM_EXT_DISPLAY
 	  This should be enabled to support audio & video over HDMI or
 	  DP for hot pluggable sink devices.
 
+config QPNP_REVID
+	tristate "QPNP Revision ID Peripheral"
+	depends on SPMI
+	help
+	  Say 'y' here to include support for the Qualcomm Technologies, Inc.
+	  QPNP REVID peripheral. REVID prints out the PMIC type and revision
+	  numbers in the kernel log along with the PMIC option status. The PMIC
+	  type is mapped to a QTI chip part number and logged as well.
+
 endmenu
