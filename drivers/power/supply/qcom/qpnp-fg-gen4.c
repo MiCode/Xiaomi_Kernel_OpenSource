@@ -2258,21 +2258,8 @@ static int fg_gen4_esr_fcc_config(struct fg_gen4_chip *chip)
 			parallel_en = prop.intval;
 	}
 
-	if (usb_psy_initialized(fg)) {
-		rc = power_supply_get_property(fg->usb_psy,
-			POWER_SUPPLY_PROP_SMB_EN_MODE, &prop);
-		if (rc < 0) {
-			pr_err("Couldn't read usb SMB_EN_MODE rc=%d\n", rc);
-			return rc;
-		}
-
-		/*
-		 * If SMB_EN_MODE is 1, then charge pump can get enabled for
-		 * the charger inserted. However, whether the charge pump
-		 * switching happens only if the conditions are met.
-		 */
-		cp_en = (prop.intval == 1);
-	}
+	if (chip->cp_disable_votable)
+		cp_en = !get_effective_result(chip->cp_disable_votable);
 
 	qnovo_en = is_qnovo_en(fg);
 
