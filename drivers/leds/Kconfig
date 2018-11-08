@@ -756,6 +756,17 @@ config LEDS_NIC78BX
 	  To compile this driver as a module, choose M here: the module
 	  will be called leds-nic78bx.
 
+config LEDS_QPNP_FLASH_V2
+        tristate "Support for QPNP V2 Flash LEDs"
+        depends on LEDS_CLASS && MFD_SPMI_PMIC
+	select LEDS_TRIGGERS
+        help
+          This driver supports the flash V2 LED functionality of Qualcomm
+          Technologies, Inc. QPNP PMICs.  This driver supports PMICs starting
+          from PMI8998, PM8150L and their derivatives.  It can configure the
+          flash LED target current for several independent channels.  It also
+          supports various over current and over temperature mitigation features.
+
 comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"
 
