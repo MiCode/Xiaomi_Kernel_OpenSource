@@ -2890,10 +2890,6 @@
 	status = "ok";
 };
 
-&pcie_tbu_gdsc {
-	status = "ok";
-};
-
 &usb30_prim_gdsc {
 	status = "ok";
 };

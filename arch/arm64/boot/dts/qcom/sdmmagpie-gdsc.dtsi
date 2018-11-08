@@ -21,14 +21,6 @@
 		status = "disabled";
 	};
 
-	pcie_tbu_gdsc: qcom,gdsc@128004 {
-		compatible = "qcom,gdsc";
-		regulator-name = "pcie_tbu_gdsc";
-		reg = <0x128004 0x4>;
-		qcom,poll-cfg-gdscr;
-		status = "disabled";
-	};
-
 	ufs_phy_gdsc: qcom,gdsc@177004 {
 		compatible = "qcom,gdsc";
 		regulator-name = "ufs_phy_gdsc";
