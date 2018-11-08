@@ -1610,6 +1610,7 @@ int qcom_batt_init(int smb_version)
 					chip);
 	if (IS_ERR(chip->fcc_votable)) {
 		rc = PTR_ERR(chip->fcc_votable);
+		chip->fcc_votable = NULL;
 		goto release_wakeup_source;
 	}
 
@@ -1618,6 +1619,7 @@ int qcom_batt_init(int smb_version)
 					chip);
 	if (IS_ERR(chip->fv_votable)) {
 		rc = PTR_ERR(chip->fv_votable);
+		chip->fv_votable = NULL;
 		goto destroy_votable;
 	}
 
@@ -1626,6 +1628,7 @@ int qcom_batt_init(int smb_version)
 					chip);
 	if (IS_ERR(chip->usb_icl_votable)) {
 		rc = PTR_ERR(chip->usb_icl_votable);
+		chip->usb_icl_votable = NULL;
 		goto destroy_votable;
 	}
 
@@ -1634,6 +1637,7 @@ int qcom_batt_init(int smb_version)
 					chip);
 	if (IS_ERR(chip->pl_disable_votable)) {
 		rc = PTR_ERR(chip->pl_disable_votable);
+		chip->pl_disable_votable = NULL;
 		goto destroy_votable;
 	}
 	vote(chip->pl_disable_votable, CHG_STATE_VOTER, true, 0);
@@ -1644,7 +1648,8 @@ int qcom_batt_init(int smb_version)
 					pl_awake_vote_callback,
 					chip);
 	if (IS_ERR(chip->pl_awake_votable)) {
-		rc = PTR_ERR(chip->pl_disable_votable);
+		rc = PTR_ERR(chip->pl_awake_votable);
+		chip->pl_awake_votable = NULL;
 		goto destroy_votable;
 	}
 
@@ -1654,7 +1659,8 @@ int qcom_batt_init(int smb_version)
 					chip);
 	if (IS_ERR(chip->pl_enable_votable_indirect)) {
 		rc = PTR_ERR(chip->pl_enable_votable_indirect);
-		return rc;
+		chip->pl_enable_votable_indirect = NULL;
+		goto destroy_votable;
 	}
 
 	vote(chip->pl_disable_votable, PL_INDIRECT_VOTER, true, 0);
