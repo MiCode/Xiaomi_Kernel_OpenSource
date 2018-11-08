@@ -540,6 +540,15 @@ source "drivers/s390/char/Kconfig"
 
 source "drivers/char/xillybus/Kconfig"
 
+config MSM_ADSPRPC
+        tristate "QTI ADSP RPC driver"
+        depends on QCOM_GLINK
+        help
+          Provides a communication mechanism that allows clients to
+          make remote method invocations across processor boundary to
+          applications/compute DSP processor.
+		  Say M if you want to enable this module.
+
 config ADI
 	tristate "SPARC Privileged ADI driver"
 	depends on SPARC64
