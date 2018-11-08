@@ -751,7 +751,7 @@ int dsi_conn_post_kickoff(struct drm_connector *connector)
 		}
 
 		/* Update the rest of the controllers */
-		for (i = 0; i < display->ctrl_count; i++) {
+		display_for_each_ctrl(i, display) {
 			ctrl = &display->ctrl[i];
 			if (!ctrl->ctrl || (ctrl == m_ctrl))
 				continue;

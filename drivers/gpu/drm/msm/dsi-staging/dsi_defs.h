@@ -37,6 +37,9 @@
 	})
 
 #define DSI_DEBUG_NAME_LEN		32
+#define display_for_each_ctrl(index, display) \
+	for (index = 0; (index < (display)->ctrl_count) &&\
+			(index < MAX_DSI_CTRLS_PER_DISPLAY); index++)
 /**
  * enum dsi_pixel_format - DSI pixel formats
  * @DSI_PIXEL_FORMAT_RGB565:
