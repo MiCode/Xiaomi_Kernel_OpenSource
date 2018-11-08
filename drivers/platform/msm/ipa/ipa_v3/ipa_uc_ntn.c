@@ -14,22 +14,6 @@
 #define IPA_UC_NTN_DB_PA_TX 0x79620DC
 #define IPA_UC_NTN_DB_PA_RX 0x79620D8
 
-static void ipa3_uc_ntn_event_handler(struct IpaHwSharedMemCommonMapping_t
-				     *uc_sram_mmio)
-
-{
-	union Ipa3HwNTNErrorEventData_t ntn_evt;
-
-	if (uc_sram_mmio->eventOp ==
-		IPA_HW_2_CPU_EVENT_NTN_ERROR) {
-		ntn_evt.raw32b = uc_sram_mmio->eventParams;
-		IPADBG("uC NTN evt errType=%u pipe=%d cherrType=%u\n",
-			   ntn_evt.params.ntn_error_type,
-			   ntn_evt.params.ipa_pipe_number,
-			   ntn_evt.params.ntn_ch_err_type);
-	}
-}
-
 static void ipa3_uc_ntn_event_log_info_handler(
 struct IpaHwEventLogInfoData_t *uc_event_top_mmio)
 {
@@ -185,7 +169,6 @@ int ipa3_ntn_init(void)
 {
 	struct ipa3_uc_hdlrs uc_ntn_cbs = { 0 };
 
-	uc_ntn_cbs.ipa_uc_event_hdlr = ipa3_uc_ntn_event_handler;
 	uc_ntn_cbs.ipa_uc_event_log_info_hdlr =
 		ipa3_uc_ntn_event_log_info_handler;
 	uc_ntn_cbs.ipa_uc_loaded_hdlr =
