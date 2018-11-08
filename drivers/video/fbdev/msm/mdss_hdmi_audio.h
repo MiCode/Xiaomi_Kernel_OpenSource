@@ -14,25 +14,7 @@
 #define __MDSS_HDMI_AUDIO_H__
 
 #include <linux/mdss_io_util.h>
-#include <linux/msm_hdmi.h>
-
-#define AUDIO_ACK_SET_ENABLE BIT(5)
-#define AUDIO_ACK_ENABLE BIT(4)
-#define AUDIO_ACK_CONNECT BIT(0)
-
-/**
- * struct hdmi_audio_status - hdmi audio current status info
- * @ack_pending: notification acknowledgment status
- * @ack_enabled: acknowledgment feature is enabled or disabled
- * @switched: audio notification status for routing
- *
- * Data for client to query about the current status of audio
- */
-struct hdmi_audio_status {
-	bool ack_pending;
-	bool ack_enabled;
-	bool switched;
-};
+#include <linux/msm_ext_display.h>
 
 /**
  * struct hdmi_audio_ops - audio operations for clients to call
@@ -46,12 +28,9 @@ struct hdmi_audio_status {
  */
 struct hdmi_audio_ops {
 	int (*on)(void *ctx, u32 pclk,
-		struct msm_hdmi_audio_setup_params *params);
+		struct msm_ext_disp_audio_setup_params *params);
 	void (*off)(void *ctx);
 	void (*reset)(void *ctx);
-	void (*status)(void *ctx, struct hdmi_audio_status *status);
-	void (*notify)(void *ctx, int val);
-	void (*ack)(void *ctx, u32 ack, u32 hpd);
 };
 
 /**

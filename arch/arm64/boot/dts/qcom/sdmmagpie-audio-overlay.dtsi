@@ -26,5 +26,6 @@
 };
 
 &sm6150_snd {
-	qcom,model = "sm6150-wcd9375-snd-card";
+	qcom,wcn-btfm = <0>;
+	qcom,ext-disp-audio-rx = <0>;
 };

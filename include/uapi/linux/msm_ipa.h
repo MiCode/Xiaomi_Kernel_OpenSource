@@ -176,8 +176,9 @@
 #define IPA_FLT_MAC_DST_ADDR_L2TP	(1ul << 22)
 #define IPA_FLT_TCP_SYN			(1ul << 23)
 #define IPA_FLT_TCP_SYN_L2TP		(1ul << 24)
-#define IPA_FLT_L2TP_INNER_IP_TYPE  (1ul << 25)
+#define IPA_FLT_L2TP_INNER_IP_TYPE	(1ul << 25)
 #define IPA_FLT_L2TP_INNER_IPV4_DST_ADDR (1ul << 26)
+#define IPA_FLT_IS_PURE_ACK		(1ul << 27)
 
 /**
  * maximal number of NAT PDNs in the PDN config table
@@ -787,7 +788,15 @@ struct ipa_ipfltr_range_eq_16 {
 struct ipa_ipfltri_rule_eq {
 	/*! 16-bit Bitmask to indicate how many eqs are valid in this rule  */
 	uint16_t rule_eq_bitmap;
-	/*! Specifies if a type of service check rule is present */
+
+	/*
+	 * tos_eq_present field has two meanings:
+	 * IPA ver < 4.5:
+	 *  specifies if a type of service check rule is present
+	 *  (as the field name reveals).
+	 * IPA ver >= 4.5:
+	 *  specifies if a tcp pure ack check rule is present
+	 */
 	uint8_t tos_eq_present;
 	/*! The value to check against the type of service (ipv4) field */
 	uint8_t tos_eq;

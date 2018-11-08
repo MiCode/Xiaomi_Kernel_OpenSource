@@ -361,7 +361,7 @@ struct cam_icp_hw_mgr {
 	struct cam_hw_intf *bps_dev_intf;
 	bool ipe_clk_state;
 	bool bps_clk_state;
-	bool recovery;
+	atomic_t recovery;
 };
 
 static int cam_icp_mgr_hw_close(void *hw_priv, void *hw_close_args);

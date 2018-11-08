@@ -19,6 +19,10 @@
 	compatible = "qcom,sa6155";
 	qcom,msm-name = "SA6155";
 	qcom,msm-id = <384 0x10000>;
+
+	aliases {
+		pci-domain0 = &pcie0; /* PCIe0 domain */
+	};
 };
 
 &qusb_phy0 {
@@ -232,3 +236,4 @@
 &mdss_mdp {
 	connectors = <&sde_rscc &dsi_dp1 &sde_wb>;
 };
+#include "sa6155-pcie.dtsi"

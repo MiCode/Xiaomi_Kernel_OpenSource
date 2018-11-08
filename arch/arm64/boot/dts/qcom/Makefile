@@ -32,11 +32,15 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sm8150-qrd-overlay.dtbo \
 		sm8150-qrd-dvt-overlay.dtbo \
 		sa8155-adp-star-overlay.dtbo \
-                sa8155p-adp-star-overlay.dtbo \
+		sa8155p-adp-star-overlay.dtbo \
+		sa8155-adp-air-overlay.dtbo \
+                sa8155p-adp-air-overlay.dtbo \
 		sm8150-sdx50m-cdp-overlay.dtbo \
 		sm8150-sdx50m-mtp-overlay.dtbo \
 		sm8150-sdx50m-mtp-2.5k-panel-overlay.dtbo \
-		sm8150-sdx50m-qrd-overlay.dtbo
+		sm8150-sdx50m-qrd-overlay.dtbo \
+		sm8150-sdxprairie-cdp-overlay.dtbo \
+		sm8150-sdxprairie-mtp-overlay.dtbo
 
 sm8150-cdp-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb sm8150p.dtb sm8150p-v2.dtb
 sm8150-mtp-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb sm8150p.dtb sm8150p-v2.dtb
@@ -45,19 +49,25 @@ sm8150-qrd-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb sm8150p.dtb sm8150p-v2.
 sm8150-qrd-dvt-overlay.dtbo-base := sm8150-v2.dtb sm8150p-v2.dtb
 sa8155-adp-star-overlay.dtbo-base := sa8155.dtb sa8155-v2.dtb
 sa8155p-adp-star-overlay.dtbo-base := sa8155p.dtb sa8155p-v2.dtb
+sa8155-adp-air-overlay.dtbo-base := sa8155.dtb sa8155-v2.dtb
+sa8155p-adp-air-overlay.dtbo-base := sa8155p.dtb sa8155p-v2.dtb
 sm8150-sdx50m-cdp-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb sm8150p.dtb sm8150p-v2.dtb
 sm8150-sdx50m-mtp-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb sm8150p.dtb sm8150p-v2.dtb
 sm8150-sdx50m-mtp-2.5k-panel-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb sm8150p.dtb sm8150p-v2.dtb
 sm8150-sdx50m-qrd-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb sm8150p.dtb sm8150p-v2.dtb
+sm8150-sdxprairie-cdp-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb sm8150p.dtb sm8150p-v2.dtb
+sm8150-sdxprairie-mtp-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb sm8150p.dtb sm8150p-v2.dtb
 else
 dtb-$(CONFIG_ARCH_SM8150)	+= sm8150-rumi.dtb \
 	sm8150-mtp.dtb \
 	sm8150-cdp.dtb \
 	sm8150-qrd.dtb \
 	sa8155-adp-star.dtb \
-        sa8155p-adp-star.dtb \
-        sa8155-v2-adp-star.dtb \
-        sa8155p-v2-adp-star.dtb \
+	sa8155p-adp-star.dtb \
+	sa8155-v2-adp-star.dtb \
+	sa8155p-v2-adp-star.dtb \
+	sa8155-v2-adp-air.dtb \
+	sa8155p-v2-adp-air.dtb \
 	sm8150-v2-rumi.dtb \
 	sm8150-v2-mtp.dtb \
 	sm8150-v2-cdp.dtb \

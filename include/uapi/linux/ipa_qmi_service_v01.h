@@ -556,7 +556,14 @@ struct ipa_filter_rule_type_v01 {
 	/* 16-bit Bitmask to indicate how many eqs are valid in this rule */
 
 	uint8_t tos_eq_present;
-	/* Specifies if a type of service check rule is present */
+	/*
+	 * tos_eq_present field has two meanings:
+	 * IPA ver < 4.5:
+	 *  specifies if a type of service check rule is present
+	 *  (as the field name reveals).
+	 * IPA ver >= 4.5:
+	 *  specifies if a tcp pure ack check rule is present
+	 */
 
 	uint8_t tos_eq;
 	/* The value to check against the type of service (ipv4) field */

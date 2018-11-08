@@ -291,11 +291,6 @@ MHI netdev properties
   Value type: <string>
   Definition: Interface name to be given so clients can identify it
 
-- mhi,recycle-buf
-  Usage: optional
-  Value type: <bool>
-  Definition: Set true if interface support recycling buffers.
-
 - aliases
   Usage: required
   Value type: <string>

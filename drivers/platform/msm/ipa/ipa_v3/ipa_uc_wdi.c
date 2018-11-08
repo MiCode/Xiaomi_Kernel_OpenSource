@@ -1857,12 +1857,8 @@ int ipa3_disconnect_gsi_wdi_pipe(u32 clnt_hdl)
 	if (!ep->keep_ipa_awake)
 		IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
-	result = gsi_reset_evt_ring(ep->gsi_evt_ring_hdl);
-	if (result != GSI_STATUS_SUCCESS) {
-		IPAERR("Failed to reset evt ring: %d.\n",
-				result);
-		goto fail_dealloc_channel;
-	}
+	ipa3_reset_gsi_channel(clnt_hdl);
+	ipa3_reset_gsi_event_ring(clnt_hdl);
 
 	if (!ep->keep_ipa_awake)
 		IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
@@ -2223,6 +2219,8 @@ int ipa3_resume_gsi_wdi_pipe(u32 clnt_hdl)
 	int result = 0;
 	struct ipa3_ep_context *ep;
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
+	struct gsi_chan_info chan_info;
+	union __packed gsi_channel_scratch gsi_scratch;
 
 	IPADBG("ep=%d\n", clnt_hdl);
 	ep = &ipa3_ctx->ep[clnt_hdl];
@@ -2246,6 +2244,19 @@ int ipa3_resume_gsi_wdi_pipe(u32 clnt_hdl)
 		IPAERR("gsi_start_channel failed %d\n", result);
 		ipa_assert();
 	}
+	gsi_query_channel_info(ep->gsi_chan_hdl, &chan_info);
+	gsi_read_channel_scratch(ep->gsi_chan_hdl, &gsi_scratch);
+	IPADBG("ch=%lu channel base = 0x%llx , event base 0x%llx\n",
+				ep->gsi_chan_hdl,
+				ep->gsi_mem_info.chan_ring_base_addr,
+				ep->gsi_mem_info.evt_ring_base_addr);
+	IPADBG("RP=0x%llx WP=0x%llx ev_valid=%d ERP=0x%llx EWP=0x%llx\n",
+			chan_info.rp, chan_info.wp, chan_info.evt_valid,
+			chan_info.evt_rp, chan_info.evt_wp);
+	IPADBG("Scratch 0 = %x Scratch 1 = %x Scratch 2 = %x Scratch 3 = %x\n",
+				gsi_scratch.data.word1, gsi_scratch.data.word2,
+				gsi_scratch.data.word3, gsi_scratch.data.word4);
+
 	ep->gsi_offload_state |= IPA_WDI_RESUMED;
 	IPADBG("exit\n");
 	return result;
@@ -2324,6 +2335,8 @@ int ipa3_suspend_gsi_wdi_pipe(u32 clnt_hdl)
 	bool disable_force_clear = false;
 	struct ipahal_ep_cfg_ctrl_scnd ep_ctrl_scnd = { 0 };
 	int retry_cnt = 0;
+	struct gsi_chan_info chan_info;
+	union __packed gsi_channel_scratch gsi_scratch;
 
 	ipa_ep_idx = ipa3_get_ep_mapping(ipa3_get_client_mapping(clnt_hdl));
 	if (ipa_ep_idx < 0) {
@@ -2373,14 +2386,22 @@ retry_gsi_stop:
 		} else {
 			IPADBG("GSI channel %ld STOP\n", ep->gsi_chan_hdl);
 		}
-
-		res = ipa3_reset_gsi_channel(clnt_hdl);
-		if (res != GSI_STATUS_SUCCESS) {
-			IPAERR("Failed to reset chan: %d.\n", res);
-			goto fail_stop_channel;
-		}
-
+		gsi_query_channel_info(ep->gsi_chan_hdl, &chan_info);
+		gsi_read_channel_scratch(ep->gsi_chan_hdl, &gsi_scratch);
+		IPADBG("ch=%lu channel base = 0x%llx , event base 0x%llx\n",
+				ep->gsi_chan_hdl,
+				ep->gsi_mem_info.chan_ring_base_addr,
+				ep->gsi_mem_info.evt_ring_base_addr);
+		IPADBG("RP=0x%llx WP=0x%llx ev_valid=%d ERP=0x%llx",
+				chan_info.rp, chan_info.wp,
+				chan_info.evt_valid, chan_info.evt_rp);
+		IPADBG("EWP=0x%llx\n", chan_info.evt_wp);
+		IPADBG("Scratch 0 = %x Scratch 1 = %x Scratch 2 = %x",
+				gsi_scratch.data.word1, gsi_scratch.data.word2,
+				gsi_scratch.data.word3);
+		IPADBG("Scratch 3 = %x\n", gsi_scratch.data.word4);
 	}
+
 	if (disable_force_clear)
 		ipa3_disable_force_clear(clnt_hdl);
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
@@ -2539,87 +2560,27 @@ int ipa3_write_qmapid_gsi_wdi_pipe(u32 clnt_hdl, u8 qmap_id)
 {
 	int result = 0;
 	struct ipa3_ep_context *ep;
-	union __packed gsi_channel_scratch gsi_scratch;
-	int retry_cnt = 0;
-	u32 source_pipe_bitmask = 0;
-	bool disable_force_clear = false;
-	struct ipahal_ep_cfg_ctrl_scnd ep_ctrl_scnd = { 0 };
+	union __packed gsi_wdi_channel_scratch3_reg gsi_scratch;
 
 	memset(&gsi_scratch, 0, sizeof(gsi_scratch));
 	ep = &ipa3_ctx->ep[clnt_hdl];
 	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
-	result = gsi_read_channel_scratch(ep->gsi_chan_hdl, &gsi_scratch);
 
-	if (result != GSI_STATUS_SUCCESS) {
-		IPAERR("gsi_read_write_channel_scratch failed %d\n",
-			result);
-		goto fail_read_channel_scratch;
-	}
-	if (ep->gsi_offload_state == (IPA_WDI_CONNECTED | IPA_WDI_ENABLED |
-						IPA_WDI_RESUMED)) {
-		source_pipe_bitmask = 1 <<
-			ipa3_get_ep_mapping(ep->client);
-		result = ipa3_enable_force_clear(clnt_hdl,
-				false, source_pipe_bitmask);
-		if (result) {
-			/*
-			 * assuming here modem SSR, AP can remove
-			 * the delay in this case
-			 */
-			IPAERR("failed to force clear %d\n", result);
-			IPAERR("remove delay from SCND reg\n");
-			ep_ctrl_scnd.endp_delay = false;
-			ipahal_write_reg_n_fields(
-					IPA_ENDP_INIT_CTRL_SCND_n, clnt_hdl,
-					&ep_ctrl_scnd);
-		} else {
-			disable_force_clear = true;
-		}
-
-retry_gsi_stop:
-		result = ipa3_stop_gsi_channel(clnt_hdl);
-		if (result != 0 && result != -GSI_STATUS_AGAIN &&
-				result != -GSI_STATUS_TIMED_OUT) {
-			IPAERR("GSI stop channel failed %d\n",
-					result);
-			goto fail_stop_channel;
-		} else if (result == -GSI_STATUS_AGAIN) {
-			IPADBG("GSI stop channel failed retry cnt = %d\n",
-						retry_cnt);
-			retry_cnt++;
-			if (retry_cnt >= GSI_STOP_MAX_RETRY_CNT)
-				goto fail_stop_channel;
-			goto retry_gsi_stop;
-		} else {
-			IPADBG("GSI channel %ld STOP\n", ep->gsi_chan_hdl);
-		}
-	}
 	gsi_scratch.wdi.qmap_id = qmap_id;
-	result = gsi_write_channel_scratch(ep->gsi_chan_hdl,
-			gsi_scratch);
+	gsi_scratch.wdi.endp_metadatareg_offset = ipahal_get_reg_mn_ofst(
+				IPA_ENDP_INIT_HDR_METADATA_n, 0, clnt_hdl)/4;
+
+	result = gsi_write_channel_scratch3_reg(ep->gsi_chan_hdl, gsi_scratch);
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("gsi_write_channel_scratch failed %d\n",
 			result);
 		goto fail_write_channel_scratch;
 	}
-	if (ep->gsi_offload_state == (IPA_WDI_CONNECTED | IPA_WDI_ENABLED |
-						IPA_WDI_RESUMED)) {
-		result =  gsi_start_channel(ep->gsi_chan_hdl);
-		if (result != GSI_STATUS_SUCCESS) {
-			IPAERR("gsi_start_channel failed %d\n", result);
-			goto fail_start_channel;
-		}
-	}
 
-	if (disable_force_clear)
-		ipa3_disable_force_clear(clnt_hdl);
-
+	IPADBG("client (ep: %d) qmap_id %d updated\n", clnt_hdl, qmap_id);
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	return 0;
-fail_start_channel:
-fail_read_channel_scratch:
 fail_write_channel_scratch:
-fail_stop_channel:
 	ipa_assert();
 	return result;
 }

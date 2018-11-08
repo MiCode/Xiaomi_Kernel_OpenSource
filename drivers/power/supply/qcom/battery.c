@@ -1263,6 +1263,8 @@ static bool is_parallel_available(struct pl_data *chip)
 	if (!chip->pl_psy)
 		return false;
 
+	vote(chip->pl_disable_votable, PARALLEL_PSY_VOTER, false, 0);
+
 	rc = power_supply_get_property(chip->pl_psy,
 			       POWER_SUPPLY_PROP_PARALLEL_MODE, &pval);
 	if (rc < 0) {
@@ -1310,8 +1312,6 @@ static bool is_parallel_available(struct pl_data *chip)
 			POWER_SUPPLY_PROP_PARALLEL_FCC_MAX, &pval);
 	if (!rc)
 		chip->pl_fcc_max = pval.intval;
-
-	vote(chip->pl_disable_votable, PARALLEL_PSY_VOTER, false, 0);
 
 	return true;
 }

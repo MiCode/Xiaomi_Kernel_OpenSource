@@ -87,8 +87,8 @@
 		qcom,panel-supply-entry@1 {
 			reg = <1>;
 			qcom,supply-name = "vdda-3p3";
-			qcom,supply-min-voltage = <3008000>;
-			qcom,supply-max-voltage = <3008000>;
+			qcom,supply-min-voltage = <3000000>;
+			qcom,supply-max-voltage = <3000000>;
 			qcom,supply-enable-load = <13200>;
 			qcom,supply-disable-load = <80>;
 		};
@@ -235,6 +235,15 @@
 		cell-index = <0>;
 		label = "wb_display";
 	};
+
+	ext_disp: qcom,msm-ext-disp {
+		status = "disabled";
+		compatible = "qcom,msm-ext-disp";
+
+		ext_disp_audio_codec: qcom,msm-ext-disp-audio-codec-rx {
+			compatible = "qcom,msm-ext-disp-audio-codec-rx";
+		};
+	};
 };
 
 &sde_dp {
@@ -252,7 +261,7 @@
 		timing@0{
 			qcom,mdss-dsi-panel-phy-timings = [00 13 05 04 1F 1E 05
 				05 03 02 04 00];
-			qcom,display-topology = <1 1 1>;
+			qcom,display-topology = <2 2 1>;
 			qcom,default-topology-index = <0>;
 		};
 	};
@@ -265,7 +274,7 @@
 		timing@0{
 			qcom,mdss-dsi-panel-phy-timings = [00 13 05 04 1F 1E 05
 				05 03 02 04 00];
-			qcom,display-topology = <1 1 1>;
+			qcom,display-topology = <2 2 1>;
 			qcom,default-topology-index = <0>;
 		};
 	};

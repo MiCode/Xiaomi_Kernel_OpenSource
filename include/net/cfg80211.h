@@ -1164,6 +1164,10 @@ struct cfg80211_tid_stats {
  * @rx_duration: aggregate PPDU duration(usecs) for all the frames from a peer
  * @pertid: per-TID statistics, see &struct cfg80211_tid_stats, using the last
  *	(IEEE80211_NUM_TIDS) index for MSDUs not encapsulated in QoS-MPDUs.
+ * @rx_mpdu_count: number of MPDUs received from this station
+ * @fcs_err_count: number of packets (MPDUs) received from this station with
+ *	an FCS error. This counter should be incremented only when TA of the
+ *	received packet with an FCS error matches the peer MAC address.
  */
 struct station_info {
 	u64 filled;
@@ -1208,6 +1212,9 @@ struct station_info {
 	u64 rx_duration;
 	u8 rx_beacon_signal_avg;
 	struct cfg80211_tid_stats pertid[IEEE80211_NUM_TIDS + 1];
+
+	u32 rx_mpdu_count;
+	u32 fcs_err_count;
 };
 
 #if IS_ENABLED(CONFIG_CFG80211)

@@ -1082,6 +1082,47 @@
 			};
 		};
 
+		pcie0 {
+			pcie0_clkreq_default: pcie0_clkreq_default {
+				mux {
+					pins = "gpio90";
+					function = "pcie_clk";
+				};
+
+				config {
+					pins = "gpio90";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+
+			pcie0_perst_default: pcie0_perst_default {
+				mux {
+					pins = "gpio101";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio101";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+
+			pcie0_wake_default: pcie0_wake_default {
+				mux {
+					pins = "gpio100";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio100";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+		};
+
 		pmx_ts_int_active {
 			ts_int_active: ts_int_active {
 				mux {

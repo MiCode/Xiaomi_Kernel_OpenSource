@@ -89,31 +89,20 @@ struct mhi_stats {
 	u32 alloc_failed;
 };
 
-/* important: do not exceed sk_buf->cb (48 bytes) */
-struct mhi_skb_priv {
-	void *buf;
-	size_t size;
-	struct mhi_netdev *mhi_netdev;
-};
-
 struct mhi_netdev {
 	int alias;
 	struct mhi_device *mhi_dev;
 	spinlock_t rx_lock;
 	bool enabled;
 	rwlock_t pm_lock; /* state change lock */
-	int (*rx_queue)(struct mhi_netdev *, gfp_t);
 	struct work_struct alloc_work;
 	int wake;
-
-	struct sk_buff_head rx_allocated;
 
 	u32 mru;
 	const char *interface_name;
 	struct napi_struct napi;
 	struct net_device *ndev;
 	struct sk_buff *frag_skb;
-	bool recycle_buf;
 
 	struct mhi_stats stats;
 	struct dentry *dentry;
@@ -149,23 +138,10 @@ static __be16 mhi_netdev_ip_type_trans(struct sk_buff *skb)
 	return protocol;
 }
 
-static void mhi_netdev_skb_destructor(struct sk_buff *skb)
-{
-	struct mhi_skb_priv *skb_priv = (struct mhi_skb_priv *)(skb->cb);
-	struct mhi_netdev *mhi_netdev = skb_priv->mhi_netdev;
-
-	skb->data = skb->head;
-	skb_reset_tail_pointer(skb);
-	skb->len = 0;
-	MHI_ASSERT(skb->data != skb_priv->buf, "incorrect buf");
-	skb_queue_tail(&mhi_netdev->rx_allocated, skb);
-}
-
 static int mhi_netdev_alloc_skb(struct mhi_netdev *mhi_netdev, gfp_t gfp_t)
 {
 	u32 cur_mru = mhi_netdev->mru;
 	struct mhi_device *mhi_dev = mhi_netdev->mhi_dev;
-	struct mhi_skb_priv *skb_priv;
 	int ret;
 	struct sk_buff *skb;
 	int no_tre = mhi_get_no_free_descriptors(mhi_dev, DMA_FROM_DEVICE);
@@ -183,18 +159,11 @@ static int mhi_netdev_alloc_skb(struct mhi_netdev *mhi_netdev, gfp_t gfp_t)
 			goto error_queue;
 		}
 
-		skb_priv = (struct mhi_skb_priv *)skb->cb;
-		skb_priv->buf = skb->data;
-		skb_priv->size = cur_mru;
-		skb_priv->mhi_netdev = mhi_netdev;
 		skb->dev = mhi_netdev->ndev;
 
-		if (mhi_netdev->recycle_buf)
-			skb->destructor = mhi_netdev_skb_destructor;
-
 		spin_lock_bh(&mhi_netdev->rx_lock);
-		ret = mhi_queue_transfer(mhi_dev, DMA_FROM_DEVICE, skb,
-					 skb_priv->size, MHI_EOT);
+		ret = mhi_queue_transfer(mhi_dev, DMA_FROM_DEVICE, skb, cur_mru,
+					 MHI_EOT);
 		spin_unlock_bh(&mhi_netdev->rx_lock);
 
 		if (ret) {
@@ -209,7 +178,6 @@ static int mhi_netdev_alloc_skb(struct mhi_netdev *mhi_netdev, gfp_t gfp_t)
 	return 0;
 
 error_queue:
-	skb->destructor = NULL;
 	read_unlock_bh(&mhi_netdev->pm_lock);
 	dev_kfree_skb_any(skb);
 
@@ -238,66 +206,6 @@ static void mhi_netdev_alloc_work(struct work_struct *work)
 	} while (ret == -ENOMEM && retry);
 
 	MSG_LOG("Exit with status:%d retry:%d\n", ret, retry);
-}
-
-/* we will recycle buffers */
-static int mhi_netdev_skb_recycle(struct mhi_netdev *mhi_netdev, gfp_t gfp_t)
-{
-	struct mhi_device *mhi_dev = mhi_netdev->mhi_dev;
-	int no_tre;
-	int ret = 0;
-	struct sk_buff *skb;
-	struct mhi_skb_priv *skb_priv;
-
-	read_lock_bh(&mhi_netdev->pm_lock);
-	if (!mhi_netdev->enabled) {
-		read_unlock_bh(&mhi_netdev->pm_lock);
-		return -EIO;
-	}
-
-	no_tre = mhi_get_no_free_descriptors(mhi_dev, DMA_FROM_DEVICE);
-
-	spin_lock_bh(&mhi_netdev->rx_lock);
-	while (no_tre) {
-		skb = skb_dequeue(&mhi_netdev->rx_allocated);
-
-		/* no free buffers to recycle, reschedule work */
-		if (!skb) {
-			ret = -ENOMEM;
-			goto error_queue;
-		}
-
-		skb_priv = (struct mhi_skb_priv *)(skb->cb);
-		ret = mhi_queue_transfer(mhi_dev, DMA_FROM_DEVICE, skb,
-					 skb_priv->size, MHI_EOT);
-
-		/* failed to queue buffer */
-		if (ret) {
-			MSG_ERR("Failed to queue skb, ret:%d\n", ret);
-			skb_queue_tail(&mhi_netdev->rx_allocated, skb);
-			goto error_queue;
-		}
-
-		no_tre--;
-	}
-
-error_queue:
-	spin_unlock_bh(&mhi_netdev->rx_lock);
-	read_unlock_bh(&mhi_netdev->pm_lock);
-
-	return ret;
-}
-
-static void mhi_netdev_dealloc(struct mhi_netdev *mhi_netdev)
-{
-	struct sk_buff *skb;
-
-	skb = skb_dequeue(&mhi_netdev->rx_allocated);
-	while (skb) {
-		skb->destructor = NULL;
-		kfree_skb(skb);
-		skb = skb_dequeue(&mhi_netdev->rx_allocated);
-	}
 }
 
 static int mhi_netdev_poll(struct napi_struct *napi, int budget)
@@ -329,7 +237,7 @@ static int mhi_netdev_poll(struct napi_struct *napi, int budget)
 	}
 
 	/* queue new buffers */
-	ret = mhi_netdev->rx_queue(mhi_netdev, GFP_ATOMIC);
+	ret = mhi_netdev_alloc_skb(mhi_netdev, GFP_ATOMIC);
 	if (ret == -ENOMEM) {
 		MSG_LOG("out of tre, queuing bg worker\n");
 		mhi_netdev->stats.alloc_failed++;
@@ -390,12 +298,9 @@ static int mhi_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct mhi_netdev *mhi_netdev = mhi_netdev_priv->mhi_netdev;
 	struct mhi_device *mhi_dev = mhi_netdev->mhi_dev;
 	int res = 0;
-	struct mhi_skb_priv *tx_priv;
 
 	MSG_VERB("Entered\n");
 
-	tx_priv = (struct mhi_skb_priv *)(skb->cb);
-	tx_priv->mhi_netdev = mhi_netdev;
 	read_lock_bh(&mhi_netdev->pm_lock);
 
 	if (unlikely(!mhi_netdev->enabled)) {
@@ -448,10 +353,9 @@ static int mhi_netdev_ioctl_extended(struct net_device *dev, struct ifreq *ifr)
 				ext_cmd.u.data, mhi_dev->mtu);
 			return -EINVAL;
 		}
-		if (!mhi_netdev->recycle_buf) {
-			MSG_LOG("MRU change request to 0x%x\n", ext_cmd.u.data);
-			mhi_netdev->mru = ext_cmd.u.data;
-		}
+
+		MSG_LOG("MRU change request to 0x%x\n", ext_cmd.u.data);
+		mhi_netdev->mru = ext_cmd.u.data;
 		break;
 	case RMNET_IOCTL_GET_SUPPORTED_FEATURES:
 		ext_cmd.u.data = 0;
@@ -611,8 +515,6 @@ static int mhi_netdev_enable_iface(struct mhi_netdev *mhi_netdev)
 			MSG_ERR("Network device registration failed\n");
 			goto net_dev_reg_fail;
 		}
-
-		skb_queue_head_init(&mhi_netdev->rx_allocated);
 	}
 
 	write_lock_irq(&mhi_netdev->pm_lock);
@@ -624,25 +526,6 @@ static int mhi_netdev_enable_iface(struct mhi_netdev *mhi_netdev)
 	ret = mhi_netdev_alloc_skb(mhi_netdev, GFP_KERNEL);
 	if (ret)
 		schedule_work(&mhi_netdev->alloc_work);
-
-	/* if we recycle prepare one more set */
-	if (mhi_netdev->recycle_buf)
-		for (; no_tre >= 0; no_tre--) {
-			struct sk_buff *skb = alloc_skb(mhi_netdev->mru,
-							GFP_KERNEL);
-			struct mhi_skb_priv *skb_priv;
-
-			if (!skb)
-				break;
-
-			skb_priv = (struct mhi_skb_priv *)skb->cb;
-			skb_priv->buf = skb->data;
-			skb_priv->size = mhi_netdev->mru;
-			skb_priv->mhi_netdev = mhi_netdev;
-			skb->dev = mhi_netdev->ndev;
-			skb->destructor = mhi_netdev_skb_destructor;
-			skb_queue_tail(&mhi_netdev->rx_allocated, skb);
-		}
 
 	napi_enable(&mhi_netdev->napi);
 
@@ -731,11 +614,7 @@ static void mhi_netdev_xfer_dl_cb(struct mhi_device *mhi_dev,
 	    mhi_netdev->frag_skb) {
 		ret = mhi_netdev_process_fragment(mhi_netdev, skb);
 
-		/* recycle the skb */
-		if (mhi_netdev->recycle_buf)
-			mhi_netdev_skb_destructor(skb);
-		else
-			dev_kfree_skb(skb);
+		dev_kfree_skb(skb);
 
 		if (ret)
 			return;
@@ -790,9 +669,6 @@ static int mhi_netdev_debugfs_trigger_reset(void *data, u64 val)
 
 	/* disable all hardware channels */
 	mhi_unprepare_from_transfer(mhi_dev);
-
-	/* clean up all alocated buffers */
-	mhi_netdev_dealloc(mhi_netdev);
 
 	MSG_LOG("Restarting iface\n");
 
@@ -905,7 +781,6 @@ static void mhi_netdev_remove(struct mhi_device *mhi_dev)
 
 	napi_disable(&mhi_netdev->napi);
 	netif_napi_del(&mhi_netdev->napi);
-	mhi_netdev_dealloc(mhi_netdev);
 	unregister_netdev(mhi_netdev->ndev);
 	free_netdev(mhi_netdev->ndev);
 	flush_work(&mhi_netdev->alloc_work);
@@ -945,11 +820,6 @@ static int mhi_netdev_probe(struct mhi_device *mhi_dev,
 				      &mhi_netdev->interface_name);
 	if (ret)
 		mhi_netdev->interface_name = mhi_netdev_driver.driver.name;
-
-	mhi_netdev->recycle_buf = of_property_read_bool(of_node,
-							"mhi,recycle-buf");
-	mhi_netdev->rx_queue = mhi_netdev->recycle_buf ?
-		mhi_netdev_skb_recycle : mhi_netdev_alloc_skb;
 
 	spin_lock_init(&mhi_netdev->rx_lock);
 	rwlock_init(&mhi_netdev->pm_lock);

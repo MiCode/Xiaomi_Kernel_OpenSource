@@ -298,7 +298,7 @@ static bool mdss_dba_check_audio_support(struct mdss_dba_utils_data *udata)
 {
 	bool dvi_mode = false;
 	int audio_blk_size = 0;
-	struct msm_hdmi_audio_edid_blk audio_blk;
+	struct msm_ext_disp_audio_edid_blk audio_blk;
 
 	if (!udata) {
 		pr_debug("%s: Invalid input\n", __func__);
@@ -307,7 +307,7 @@ static bool mdss_dba_check_audio_support(struct mdss_dba_utils_data *udata)
 	memset(&audio_blk, 0, sizeof(audio_blk));
 
 	/* check if sink is in DVI mode */
-	dvi_mode = !hdmi_edid_get_sink_mode(udata->edid_data);
+	dvi_mode = hdmi_edid_is_dvi_mode(udata->edid_data);
 
 	/* get the audio block size info from EDID */
 	hdmi_edid_get_audio_blk(udata->edid_data, &audio_blk);
@@ -328,7 +328,7 @@ static void mdss_dba_utils_dba_cb(void *data, enum msm_dba_callback_event event)
 	bool operands_present = false;
 	u32 no_of_operands, size, i;
 	u32 operands_offset = MAX_CEC_FRAME_SIZE - MAX_OPERAND_SIZE;
-	struct msm_hdmi_audio_edid_blk blk;
+	struct msm_ext_disp_audio_edid_blk blk;
 
 	if (!udata) {
 		pr_err("Invalid data\n");
@@ -578,7 +578,7 @@ int mdss_dba_utils_video_on(void *data, struct mdss_panel_info *pinfo)
 	video_cfg.h_pulse_width = pinfo->lcdc.h_pulse_width;
 	video_cfg.v_pulse_width = pinfo->lcdc.v_pulse_width;
 	video_cfg.pclk_khz = (unsigned long)pinfo->clk_rate / 1000;
-	video_cfg.hdmi_mode = hdmi_edid_get_sink_mode(ud->edid_data);
+	video_cfg.hdmi_mode = !hdmi_edid_is_dvi_mode(ud->edid_data);
 
 	/* Calculate number of DSI lanes configured */
 	video_cfg.num_of_input_lanes = 0;

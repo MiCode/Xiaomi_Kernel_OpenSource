@@ -544,6 +544,10 @@ irqreturn_t cam_fd_hw_irq(int irq_num, void *data)
 
 	CAM_DBG(CAM_FD, "FD IRQ status 0x%x", reg_value);
 
+	cam_fd_soc_register_write(soc_info, CAM_FD_REG_WRAPPER,
+		hw_static_info->wrapper_regs.irq_clear,
+		reg_value);
+
 	if (reg_value & CAM_FD_IRQ_TO_MASK(CAM_FD_IRQ_HALT_DONE)) {
 		complete_all(&fd_core->halt_complete);
 		irq_type = CAM_FD_IRQ_HALT_DONE;
@@ -574,10 +578,6 @@ irqreturn_t cam_fd_hw_irq(int irq_num, void *data)
 	}
 
 	trace_cam_irq_activated("FD", irq_type);
-
-	cam_fd_soc_register_write(soc_info, CAM_FD_REG_WRAPPER,
-		hw_static_info->wrapper_regs.irq_clear,
-		hw_static_info->irq_mask);
 
 	if (irq_type == CAM_FD_IRQ_HALT_DONE) {
 		/*

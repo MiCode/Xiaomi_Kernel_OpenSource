@@ -395,7 +395,7 @@
 			<&tlmm 26 0>;
 		gpio-reset = <1>;
 		gpio-req-tbl-num = <0 1 2>;
-		gpio-req-tbl-flags = <1 0 1>;
+		gpio-req-tbl-flags = <1 0 0>;
 		gpio-req-tbl-label = "CAMIF_MCLK3",
 					"CAM_RESET3",
 					"IMG_START";

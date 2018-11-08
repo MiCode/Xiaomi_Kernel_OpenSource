@@ -305,6 +305,7 @@
 	qcom,battery-data = <&mtp_batterydata>;
 	qcom,hold-soc-while-full;
 	qcom,linearize-soc;
+	qcom,five-pin-battery;
 	/* ESR fast calibration */
 	qcom,fg-esr-timer-chg-fast = <0 7>;
 	qcom,fg-esr-timer-dischg-fast = <0 7>;
@@ -615,12 +616,12 @@
 &pm8150b_charger {
 	qcom,sec-charger-config = <3>;
 	qcom,auto-recharge-soc = <98>;
-	io-channels = <&pm8150b_vadc ADC_USB_IN_V_16>,
+	io-channels = <&pm8150b_vadc ADC_MID_CHG_DIV6>,
 		      <&pm8150b_vadc ADC_USB_IN_I>,
 		      <&pm8150b_vadc ADC_SBUx>,
 		      <&pm8150b_vadc ADC_VPH_PWR>,
 		      <&pm8150b_vadc ADC_CHG_TEMP>;
-	io-channel-names = "usb_in_voltage",
+	io-channel-names = "mid_voltage",
 			   "usb_in_current",
 			   "sbux_res",
 			   "vph_voltage",
