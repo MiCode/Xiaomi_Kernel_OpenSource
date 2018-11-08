@@ -768,7 +768,7 @@ struct ipa3_ep_context {
 	bool keep_ipa_awake;
 	struct ipa3_wlan_stats wstats;
 	u32 uc_offload_state;
-	bool disconnect_in_progress;
+	atomic_t disconnect_in_progress;
 	u32 qmi_request_sent;
 	bool napi_enabled;
 	u32 eot_in_poll_err;
