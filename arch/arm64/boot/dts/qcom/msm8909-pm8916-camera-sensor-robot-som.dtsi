@@ -74,12 +74,12 @@
 		pinctrl-1 = <&cam_sensor_mclk0_sleep &cam_sensor_rear_sleep>;
 		gpios = <&msm_gpio 26 0>,
 			<&msm_gpio 91 0>;
-		qcom,gpio-reset = <1>;
+		qcom,gpio-standby = <1>;
 
 		qcom,gpio-req-tbl-num = <0 1>;
 		qcom,gpio-req-tbl-flags = <1 0>;
 		qcom,gpio-req-tbl-label = "CAMIF_MCLK",
-			"CAM_RESET";
+			"CAM_STANDBY";
 		qcom,sensor-position = <0>;
 		qcom,sensor-mode = <0>;
 		status = "ok";
