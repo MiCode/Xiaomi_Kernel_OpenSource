@@ -108,3 +108,7 @@
 &usb_qmp_dp_phy {
 	extcon = <&pm8150b_pdphy>;
 };
+
+&sde_dp {
+	extcon = <&pm8150b_pdphy>;
+};
