@@ -204,12 +204,6 @@ enum msm_mdp_conn_property {
 	CONNECTOR_PROP_COUNT
 };
 
-struct msm_vblank_ctrl {
-	struct kthread_work work;
-	struct list_head event_list;
-	spinlock_t lock;
-};
-
 #define MAX_H_TILES_PER_DISPLAY 2
 
 /**
@@ -444,6 +438,8 @@ struct msm_display_topology {
  * @comp_info:       compression info supported
  * @roi_caps:        panel roi capabilities
  * @wide_bus_en:	wide-bus mode cfg for interface module
+ * @mdp_transfer_time_us   Specifies the mdp transfer time for command mode
+ *                         panels in microseconds.
  */
 struct msm_mode_info {
 	uint32_t frame_rate;
@@ -456,6 +452,7 @@ struct msm_mode_info {
 	struct msm_compression_info comp_info;
 	struct msm_roi_caps roi_caps;
 	bool wide_bus_en;
+	u32 mdp_transfer_time_us;
 };
 
 /**
@@ -641,8 +638,6 @@ struct msm_drm_private {
 
 	struct notifier_block vmap_notifier;
 	struct shrinker shrinker;
-
-	struct msm_vblank_ctrl vblank_ctrl;
 
 	/* task holding struct_mutex.. currently only used in submit path
 	 * to detect and reject faults from copy_from_user() for submit

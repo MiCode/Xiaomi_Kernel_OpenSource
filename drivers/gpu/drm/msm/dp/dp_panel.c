@@ -22,6 +22,7 @@
 #define DP_MAX_DS_PORT_COUNT 1
 
 #define DPRX_FEATURE_ENUMERATION_LIST 0x2210
+#define DPRX_EXTENDED_DPCD_FIELD 0x2200
 #define VSC_SDP_EXTENSION_FOR_COLORIMETRY_SUPPORTED BIT(3)
 #define VSC_EXT_VESA_SDP_SUPPORTED BIT(4)
 #define VSC_EXT_VESA_SDP_CHAINING_SUPPORTED BIT(5)
@@ -851,8 +852,9 @@ static int dp_panel_read_dpcd(struct dp_panel *dp_panel, bool multi_func)
 	int rlen, rc = 0;
 	struct dp_panel_private *panel;
 	struct drm_dp_link *link_info;
-	u8 *dpcd, rx_feature;
-	u32 dfp_count = 0;
+	struct drm_dp_aux *drm_aux;
+	u8 *dpcd, rx_feature, temp;
+	u32 dfp_count = 0, offset = DP_DPCD_REV;
 	unsigned long caps = DP_LINK_CAP_ENHANCED_FRAMING;
 
 	if (!dp_panel) {
@@ -864,47 +866,64 @@ static int dp_panel_read_dpcd(struct dp_panel *dp_panel, bool multi_func)
 	dpcd = dp_panel->dpcd;
 
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+	drm_aux = panel->aux->drm_aux;
 	link_info = &dp_panel->link_info;
 
-	if (!panel->custom_dpcd) {
-		rlen = drm_dp_dpcd_read(panel->aux->drm_aux, DP_DPCD_REV,
-			dp_panel->dpcd, (DP_RECEIVER_CAP_SIZE + 1));
-		if (rlen < (DP_RECEIVER_CAP_SIZE + 1)) {
-			pr_err("dpcd read failed, rlen=%d\n", rlen);
-			if (rlen == -ETIMEDOUT)
-				rc = rlen;
-			else
-				rc = -EINVAL;
+	/* reset vsc data */
+	panel->vsc_supported = false;
+	panel->vscext_supported = false;
+	panel->vscext_chaining_supported = false;
 
-			goto end;
-		}
-
-		print_hex_dump(KERN_DEBUG, "[drm-dp] SINK DPCD: ",
-			DUMP_PREFIX_NONE, 8, 1, dp_panel->dpcd, rlen, false);
+	if (panel->custom_dpcd) {
+		pr_debug("skip dpcd read in debug mode\n");
+		goto skip_dpcd_read;
 	}
+
+	rlen = drm_dp_dpcd_read(drm_aux, DP_TRAINING_AUX_RD_INTERVAL, &temp, 1);
+	if (rlen != 1) {
+		pr_err("error reading DP_TRAINING_AUX_RD_INTERVAL\n");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	/* check for EXTENDED_RECEIVER_CAPABILITY_FIELD_PRESENT */
+	if (temp & BIT(7)) {
+		pr_debug("using EXTENDED_RECEIVER_CAPABILITY_FIELD\n");
+		offset = DPRX_EXTENDED_DPCD_FIELD;
+	}
+
+	rlen = drm_dp_dpcd_read(drm_aux, offset,
+		dp_panel->dpcd, (DP_RECEIVER_CAP_SIZE + 1));
+	if (rlen < (DP_RECEIVER_CAP_SIZE + 1)) {
+		pr_err("dpcd read failed, rlen=%d\n", rlen);
+		if (rlen == -ETIMEDOUT)
+			rc = rlen;
+		else
+			rc = -EINVAL;
+
+		goto end;
+	}
+
+	print_hex_dump(KERN_DEBUG, "[drm-dp] SINK DPCD: ",
+		DUMP_PREFIX_NONE, 8, 1, dp_panel->dpcd, rlen, false);
 
 	rlen = drm_dp_dpcd_read(panel->aux->drm_aux,
 		DPRX_FEATURE_ENUMERATION_LIST, &rx_feature, 1);
 	if (rlen != 1) {
 		pr_debug("failed to read DPRX_FEATURE_ENUMERATION_LIST\n");
-		panel->vsc_supported = false;
-		panel->vscext_supported = false;
-		panel->vscext_chaining_supported = false;
-	} else {
-		panel->vsc_supported = !!(rx_feature &
-			VSC_SDP_EXTENSION_FOR_COLORIMETRY_SUPPORTED);
-
-		panel->vscext_supported = !!(rx_feature &
-			VSC_EXT_VESA_SDP_SUPPORTED);
-
-		panel->vscext_chaining_supported = !!(rx_feature &
-			VSC_EXT_VESA_SDP_CHAINING_SUPPORTED);
+		goto skip_dpcd_read;
 	}
+	panel->vsc_supported = !!(rx_feature &
+		VSC_SDP_EXTENSION_FOR_COLORIMETRY_SUPPORTED);
+	panel->vscext_supported = !!(rx_feature & VSC_EXT_VESA_SDP_SUPPORTED);
+	panel->vscext_chaining_supported = !!(rx_feature &
+			VSC_EXT_VESA_SDP_CHAINING_SUPPORTED);
 
 	pr_debug("vsc=%d, vscext=%d, vscext_chaining=%d\n",
 		panel->vsc_supported, panel->vscext_supported,
 		panel->vscext_chaining_supported);
 
+skip_dpcd_read:
 	link_info->revision = dp_panel->dpcd[DP_DPCD_REV];
 
 	panel->major = (link_info->revision >> 4) & 0x0f;
@@ -985,8 +1004,10 @@ static int dp_panel_set_edid(struct dp_panel *dp_panel, u8 *edid)
 		panel->custom_edid = true;
 	} else {
 		panel->custom_edid = false;
+		dp_panel->edid_ctrl->edid = NULL;
 	}
 
+	pr_debug("%d\n", panel->custom_edid);
 	return 0;
 }
 
@@ -1010,6 +1031,8 @@ static int dp_panel_set_dpcd(struct dp_panel *dp_panel, u8 *dpcd)
 	} else {
 		panel->custom_dpcd = false;
 	}
+
+	pr_debug("%d\n", panel->custom_dpcd);
 
 	return 0;
 }
