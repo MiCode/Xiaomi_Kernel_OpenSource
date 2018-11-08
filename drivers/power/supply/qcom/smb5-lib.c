@@ -1586,6 +1586,20 @@ int smblib_get_prop_batt_capacity(struct smb_charger *chg,
 	return rc;
 }
 
+static bool is_charging_paused(struct smb_charger *chg)
+{
+	int rc;
+	u8 val;
+
+	rc = smblib_read(chg, CHARGING_PAUSE_CMD_REG, &val);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read CHARGING_PAUSE_CMD rc=%d\n", rc);
+		return false;
+	}
+
+	return val & CHARGING_PAUSE_CMD_BIT;
+}
+
 int smblib_get_prop_batt_status(struct smb_charger *chg,
 				union power_supply_propval *val)
 {
@@ -1649,6 +1663,11 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 	default:
 		val->intval = POWER_SUPPLY_STATUS_UNKNOWN;
 		break;
+	}
+
+	if (is_charging_paused(chg)) {
+		val->intval = POWER_SUPPLY_STATUS_CHARGING;
+		return 0;
 	}
 
 	if (val->intval != POWER_SUPPLY_STATUS_CHARGING)
