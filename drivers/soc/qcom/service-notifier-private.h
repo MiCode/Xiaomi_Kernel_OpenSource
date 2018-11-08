@@ -89,7 +89,7 @@ struct qmi_elem_info qmi_servreg_notif_register_listener_req_msg_v01_ei[] = {
 		.data_type      = QMI_UNSIGNED_1_BYTE,
 		.elem_len       = 1,
 		.elem_size      = sizeof(uint8_t),
-		.is_array       = NO_ARRAY,
+		.array_type       = NO_ARRAY,
 		.tlv_type       = 0x01,
 		.offset         = offsetof(struct
 				qmi_servreg_notif_register_listener_req_msg_v01,
@@ -99,7 +99,7 @@ struct qmi_elem_info qmi_servreg_notif_register_listener_req_msg_v01_ei[] = {
 		.data_type      = QMI_STRING,
 		.elem_len       = QMI_SERVREG_NOTIF_NAME_LENGTH_V01 + 1,
 		.elem_size      = sizeof(char),
-		.is_array       = NO_ARRAY,
+		.array_type       = NO_ARRAY,
 		.tlv_type       = 0x02,
 		.offset         = offsetof(struct
 				qmi_servreg_notif_register_listener_req_msg_v01,
@@ -107,8 +107,8 @@ struct qmi_elem_info qmi_servreg_notif_register_listener_req_msg_v01_ei[] = {
 	},
 	{
 		.data_type      = QMI_EOTI,
-		.is_array       = NO_ARRAY,
-		.is_array       = QMI_COMMON_TLV_TYPE,
+		.array_type       = NO_ARRAY,
+		.array_type       = QMI_COMMON_TLV_TYPE,
 	},
 };
 
@@ -117,7 +117,7 @@ struct qmi_elem_info qmi_servreg_notif_register_listener_resp_msg_v01_ei[] = {
 		.data_type      = QMI_STRUCT,
 		.elem_len       = 1,
 		.elem_size      = sizeof(struct qmi_response_type_v01),
-		.is_array       = NO_ARRAY,
+		.array_type       = NO_ARRAY,
 		.tlv_type       = 0x02,
 		.offset         = offsetof(struct
 			qmi_servreg_notif_register_listener_resp_msg_v01,
@@ -128,7 +128,7 @@ struct qmi_elem_info qmi_servreg_notif_register_listener_resp_msg_v01_ei[] = {
 		.data_type      = QMI_OPT_FLAG,
 		.elem_len       = 1,
 		.elem_size      = sizeof(uint8_t),
-		.is_array       = NO_ARRAY,
+		.array_type       = NO_ARRAY,
 		.tlv_type       = 0x10,
 		.offset         = offsetof(struct
 			qmi_servreg_notif_register_listener_resp_msg_v01,
@@ -139,7 +139,7 @@ struct qmi_elem_info qmi_servreg_notif_register_listener_resp_msg_v01_ei[] = {
 		.elem_len       = 1,
 		.elem_size      = sizeof(
 			enum qmi_servreg_notif_service_state_enum_type_v01),
-		.is_array       = NO_ARRAY,
+		.array_type       = NO_ARRAY,
 		.tlv_type       = 0x10,
 		.offset         = offsetof(struct
 			qmi_servreg_notif_register_listener_resp_msg_v01,
@@ -147,8 +147,8 @@ struct qmi_elem_info qmi_servreg_notif_register_listener_resp_msg_v01_ei[] = {
 	},
 	{
 		.data_type      = QMI_EOTI,
-		.is_array       = NO_ARRAY,
-		.is_array       = QMI_COMMON_TLV_TYPE,
+		.array_type       = NO_ARRAY,
+		.array_type       = QMI_COMMON_TLV_TYPE,
 	},
 };
 
@@ -157,7 +157,7 @@ struct qmi_elem_info qmi_servreg_notif_query_state_req_msg_v01_ei[] = {
 		.data_type      = QMI_STRING,
 		.elem_len       = QMI_SERVREG_NOTIF_NAME_LENGTH_V01 + 1,
 		.elem_size      = sizeof(char),
-		.is_array       = NO_ARRAY,
+		.array_type       = NO_ARRAY,
 		.tlv_type       = 0x01,
 		.offset         = offsetof(struct
 				qmi_servreg_notif_query_state_req_msg_v01,
@@ -165,8 +165,8 @@ struct qmi_elem_info qmi_servreg_notif_query_state_req_msg_v01_ei[] = {
 	},
 	{
 		.data_type      = QMI_EOTI,
-		.is_array       = NO_ARRAY,
-		.is_array       = QMI_COMMON_TLV_TYPE,
+		.array_type       = NO_ARRAY,
+		.array_type       = QMI_COMMON_TLV_TYPE,
 	},
 };
 
@@ -175,7 +175,7 @@ struct qmi_elem_info qmi_servreg_notif_query_state_resp_msg_v01_ei[] = {
 		.data_type      = QMI_STRUCT,
 		.elem_len       = 1,
 		.elem_size      = sizeof(struct qmi_response_type_v01),
-		.is_array       = NO_ARRAY,
+		.array_type       = NO_ARRAY,
 		.tlv_type       = 0x02,
 		.offset         = offsetof(struct
 				qmi_servreg_notif_query_state_resp_msg_v01,
@@ -186,7 +186,7 @@ struct qmi_elem_info qmi_servreg_notif_query_state_resp_msg_v01_ei[] = {
 		.data_type      = QMI_OPT_FLAG,
 		.elem_len       = 1,
 		.elem_size      = sizeof(uint8_t),
-		.is_array       = NO_ARRAY,
+		.array_type       = NO_ARRAY,
 		.tlv_type       = 0x10,
 		.offset         = offsetof(struct
 				qmi_servreg_notif_query_state_resp_msg_v01,
@@ -197,7 +197,7 @@ struct qmi_elem_info qmi_servreg_notif_query_state_resp_msg_v01_ei[] = {
 		.elem_len       = 1,
 		.elem_size      = sizeof(enum
 				qmi_servreg_notif_service_state_enum_type_v01),
-		.is_array       = NO_ARRAY,
+		.array_type       = NO_ARRAY,
 		.tlv_type       = 0x10,
 		.offset         = offsetof(struct
 				qmi_servreg_notif_query_state_resp_msg_v01,
@@ -205,8 +205,8 @@ struct qmi_elem_info qmi_servreg_notif_query_state_resp_msg_v01_ei[] = {
 	},
 	{
 		.data_type      = QMI_EOTI,
-		.is_array       = NO_ARRAY,
-		.is_array       = QMI_COMMON_TLV_TYPE,
+		.array_type       = NO_ARRAY,
+		.array_type       = QMI_COMMON_TLV_TYPE,
 	},
 };
 
@@ -216,7 +216,7 @@ struct qmi_elem_info qmi_servreg_notif_state_updated_ind_msg_v01_ei[] = {
 		.elem_len       = 1,
 		.elem_size      = sizeof(enum
 				qmi_servreg_notif_service_state_enum_type_v01),
-		.is_array       = NO_ARRAY,
+		.array_type       = NO_ARRAY,
 		.tlv_type       = 0x01,
 		.offset         = offsetof(struct
 				qmi_servreg_notif_state_updated_ind_msg_v01,
@@ -226,7 +226,7 @@ struct qmi_elem_info qmi_servreg_notif_state_updated_ind_msg_v01_ei[] = {
 		.data_type      = QMI_STRING,
 		.elem_len       = QMI_SERVREG_NOTIF_NAME_LENGTH_V01 + 1,
 		.elem_size      = sizeof(char),
-		.is_array       = NO_ARRAY,
+		.array_type       = NO_ARRAY,
 		.tlv_type       = 0x02,
 		.offset         = offsetof(struct
 				qmi_servreg_notif_state_updated_ind_msg_v01,
@@ -236,7 +236,7 @@ struct qmi_elem_info qmi_servreg_notif_state_updated_ind_msg_v01_ei[] = {
 		.data_type      = QMI_UNSIGNED_2_BYTE,
 		.elem_len       = 1,
 		.elem_size      = sizeof(uint16_t),
-		.is_array       = NO_ARRAY,
+		.array_type       = NO_ARRAY,
 		.tlv_type       = 0x03,
 		.offset         = offsetof(struct
 				qmi_servreg_notif_state_updated_ind_msg_v01,
@@ -244,8 +244,8 @@ struct qmi_elem_info qmi_servreg_notif_state_updated_ind_msg_v01_ei[] = {
 	},
 	{
 		.data_type      = QMI_EOTI,
-		.is_array       = NO_ARRAY,
-		.is_array       = QMI_COMMON_TLV_TYPE,
+		.array_type       = NO_ARRAY,
+		.array_type       = QMI_COMMON_TLV_TYPE,
 	},
 };
 
@@ -254,7 +254,7 @@ struct qmi_elem_info qmi_servreg_notif_set_ack_req_msg_v01_ei[] = {
 		.data_type      = QMI_STRING,
 		.elem_len       = QMI_SERVREG_NOTIF_NAME_LENGTH_V01 + 1,
 		.elem_size      = sizeof(char),
-		.is_array       = NO_ARRAY,
+		.array_type       = NO_ARRAY,
 		.tlv_type       = 0x01,
 		.offset         = offsetof(struct
 				qmi_servreg_notif_set_ack_req_msg_v01,
@@ -264,7 +264,7 @@ struct qmi_elem_info qmi_servreg_notif_set_ack_req_msg_v01_ei[] = {
 		.data_type      = QMI_UNSIGNED_2_BYTE,
 		.elem_len       = 1,
 		.elem_size      = sizeof(uint16_t),
-		.is_array       = NO_ARRAY,
+		.array_type       = NO_ARRAY,
 		.tlv_type       = 0x02,
 		.offset         = offsetof(struct
 				qmi_servreg_notif_set_ack_req_msg_v01,
@@ -272,8 +272,8 @@ struct qmi_elem_info qmi_servreg_notif_set_ack_req_msg_v01_ei[] = {
 	},
 	{
 		.data_type      = QMI_EOTI,
-		.is_array       = NO_ARRAY,
-		.is_array       = QMI_COMMON_TLV_TYPE,
+		.array_type       = NO_ARRAY,
+		.array_type       = QMI_COMMON_TLV_TYPE,
 	},
 };
 
@@ -282,7 +282,7 @@ struct qmi_elem_info qmi_servreg_notif_set_ack_resp_msg_v01_ei[] = {
 		.data_type      = QMI_STRUCT,
 		.elem_len       = 1,
 		.elem_size      = sizeof(struct qmi_response_type_v01),
-		.is_array       = NO_ARRAY,
+		.array_type       = NO_ARRAY,
 		.tlv_type       = 0x02,
 		.offset         = offsetof(struct
 				qmi_servreg_notif_set_ack_resp_msg_v01,
@@ -291,8 +291,8 @@ struct qmi_elem_info qmi_servreg_notif_set_ack_resp_msg_v01_ei[] = {
 	},
 	{
 		.data_type      = QMI_EOTI,
-		.is_array       = NO_ARRAY,
-		.is_array       = QMI_COMMON_TLV_TYPE,
+		.array_type       = NO_ARRAY,
+		.array_type       = QMI_COMMON_TLV_TYPE,
 	},
 };
 
@@ -301,7 +301,7 @@ struct qmi_elem_info qmi_servreg_notif_restart_pd_req_msg_v01_ei[] = {
 		.data_type      = QMI_STRING,
 		.elem_len       = QMI_SERVREG_NOTIF_NAME_LENGTH_V01 + 1,
 		.elem_size      = sizeof(char),
-		.is_array       = NO_ARRAY,
+		.array_type       = NO_ARRAY,
 		.tlv_type       = 0x01,
 		.offset         = offsetof(struct
 				qmi_servreg_notif_restart_pd_req_msg_v01,
@@ -309,8 +309,8 @@ struct qmi_elem_info qmi_servreg_notif_restart_pd_req_msg_v01_ei[] = {
 	},
 	{
 		.data_type      = QMI_EOTI,
-		.is_array       = NO_ARRAY,
-		.is_array       = QMI_COMMON_TLV_TYPE,
+		.array_type       = NO_ARRAY,
+		.array_type       = QMI_COMMON_TLV_TYPE,
 	},
 };
 
@@ -319,7 +319,7 @@ struct qmi_elem_info qmi_servreg_notif_restart_pd_resp_msg_v01_ei[] = {
 		.data_type      = QMI_STRUCT,
 		.elem_len       = 1,
 		.elem_size      = sizeof(struct qmi_response_type_v01),
-		.is_array       = NO_ARRAY,
+		.array_type       = NO_ARRAY,
 		.tlv_type       = 0x02,
 		.offset         = offsetof(struct
 				qmi_servreg_notif_restart_pd_resp_msg_v01,
@@ -328,8 +328,8 @@ struct qmi_elem_info qmi_servreg_notif_restart_pd_resp_msg_v01_ei[] = {
 	},
 	{
 		.data_type      = QMI_EOTI,
-		.is_array       = NO_ARRAY,
-		.is_array       = QMI_COMMON_TLV_TYPE,
+		.array_type       = NO_ARRAY,
+		.array_type       = QMI_COMMON_TLV_TYPE,
 	},
 };
 #endif
