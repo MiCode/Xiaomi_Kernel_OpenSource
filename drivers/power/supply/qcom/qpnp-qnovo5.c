@@ -77,7 +77,6 @@
 #define QNOVO_OVERALL_VOTER	"QNOVO_OVERALL_VOTER"
 #define QNI_PT_VOTER		"QNI_PT_VOTER"
 
-#define HW_OK_TO_QNOVO_VOTER	"HW_OK_TO_QNOVO_VOTER"
 #define CHG_READY_VOTER		"CHG_READY_VOTER"
 #define USB_READY_VOTER		"USB_READY_VOTER"
 
@@ -1084,30 +1083,6 @@ static struct attribute *qnovo_class_attrs[] = {
 };
 ATTRIBUTE_GROUPS(qnovo_class);
 
-static int qnovo5_update_status(struct qnovo *chip)
-{
-	u8 val = 0;
-	int rc;
-	bool hw_ok_to_qnovo;
-
-	rc = qnovo5_read(chip, QNOVO_ERROR_STS, &val, 1);
-	if (rc < 0) {
-		pr_err("Couldn't read error sts rc = %d\n", rc);
-		hw_ok_to_qnovo = false;
-	} else {
-		/*
-		 * For CV mode keep qnovo enabled, userspace is expected to
-		 * disable it after few runs
-		 */
-		hw_ok_to_qnovo = (val == ERR_CV_MODE || val == 0) ?
-			true : false;
-	}
-
-	vote(chip->not_ok_to_qnovo_votable, HW_OK_TO_QNOVO_VOTER,
-					!hw_ok_to_qnovo, 0);
-	return 0;
-}
-
 static void usb_debounce_work(struct work_struct *work)
 {
 	struct qnovo *chip = container_of(work,
@@ -1145,8 +1120,6 @@ static void status_change_work(struct work_struct *work)
 		schedule_delayed_work(&chip->usb_debounce_work,
 				msecs_to_jiffies(DEBOUNCE_MS));
 	}
-
-	qnovo5_update_status(chip);
 }
 
 static int qnovo_notifier_call(struct notifier_block *nb,
@@ -1169,8 +1142,6 @@ static int qnovo_notifier_call(struct notifier_block *nb,
 static irqreturn_t handle_ptrain_done(int irq, void *data)
 {
 	struct qnovo *chip = data;
-
-	qnovo5_update_status(chip);
 
 	/*
 	 * hw resets pt_en bit once ptrain_done triggers.
