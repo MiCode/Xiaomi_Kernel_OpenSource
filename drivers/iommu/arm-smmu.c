@@ -423,6 +423,10 @@ static size_t msm_secure_smmu_map_sg(struct iommu_domain *domain,
 				     unsigned long iova,
 				     struct scatterlist *sg,
 				     unsigned int nents, int prot);
+static int arm_smmu_setup_default_domain(struct device *dev,
+				struct iommu_domain *domain);
+static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
+				    enum iommu_attr attr, void *data);
 
 static struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
 {
@@ -1701,6 +1705,15 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	if (smmu_domain->smmu)
 		goto out_unlock;
 
+	if (domain->type == IOMMU_DOMAIN_DMA) {
+		ret = arm_smmu_setup_default_domain(dev, domain);
+		if (ret) {
+			dev_err(dev, "%s: default domain setup failed\n",
+				__func__);
+			goto out_unlock;
+		}
+	}
+
 	if (domain->type == IOMMU_DOMAIN_IDENTITY) {
 		smmu_domain->stage = ARM_SMMU_DOMAIN_BYPASS;
 		smmu_domain->smmu = smmu;
@@ -2018,12 +2031,6 @@ static struct iommu_domain *arm_smmu_domain_alloc(unsigned type)
 	smmu_domain = kzalloc(sizeof(*smmu_domain), GFP_KERNEL);
 	if (!smmu_domain)
 		return NULL;
-
-	if (type == IOMMU_DOMAIN_DMA && (using_legacy_binding ||
-	    iommu_get_dma_cookie(&smmu_domain->domain))) {
-		kfree(smmu_domain);
-		return NULL;
-	}
 
 	mutex_init(&smmu_domain->init_mutex);
 	spin_lock_init(&smmu_domain->cb_lock);
@@ -2509,6 +2516,157 @@ static void arm_smmu_release_prealloc_memory(
 		list_del(&page->lru);
 		__free_pages(page, 0);
 	}
+}
+
+static struct device_node *arm_iommu_get_of_node(struct device *dev)
+{
+	struct device_node *np;
+
+	if (!dev->of_node)
+		return NULL;
+
+	np = of_parse_phandle(dev->of_node, "qcom,iommu-group", 0);
+	return np ? np : dev->of_node;
+}
+
+static int arm_smmu_setup_default_domain(struct device *dev,
+					 struct iommu_domain *domain)
+{
+	struct device_node *np;
+	int ret;
+	const char *str;
+	int attr = 1;
+	u32 val;
+
+	np = arm_iommu_get_of_node(dev);
+	if (!np)
+		return 0;
+
+	ret = of_property_read_string(np, "qcom,iommu-dma", &str);
+	if (ret)
+		str = "default";
+
+	if (!strcmp(str, "bypass"))
+		__arm_smmu_domain_set_attr(
+			domain, DOMAIN_ATTR_S1_BYPASS, &attr);
+	else if (!strcmp(str, "fastmap"))
+		__arm_smmu_domain_set_attr(
+			domain, DOMAIN_ATTR_FAST, &attr);
+	else if (!strcmp(str, "atomic"))
+		__arm_smmu_domain_set_attr(
+			domain, DOMAIN_ATTR_ATOMIC, &attr);
+	else if (!strcmp(str, "disabled")) {
+		/*
+		 * Don't touch hw, and don't allocate irqs or other resources.
+		 * Ensure the context bank is set to a valid value per dynamic
+		 * attr requirement.
+		 */
+		__arm_smmu_domain_set_attr(
+			domain, DOMAIN_ATTR_DYNAMIC, &attr);
+		val = 0;
+		__arm_smmu_domain_set_attr(
+			domain, DOMAIN_ATTR_CONTEXT_BANK, &val);
+	}
+
+	/*
+	 * default value:
+	 * Stall-on-fault
+	 * faults trigger kernel panic
+	 * return abort
+	 */
+	if (of_property_match_string(np, "qcom,iommu-faults",
+				     "stall-disable") >= 0)
+		__arm_smmu_domain_set_attr(domain,
+			DOMAIN_ATTR_CB_STALL_DISABLE, &attr);
+
+	if (of_property_match_string(np, "qcom,iommu-faults", "non-fatal") >= 0)
+		__arm_smmu_domain_set_attr(domain,
+			DOMAIN_ATTR_NON_FATAL_FAULTS, &attr);
+
+	if (of_property_match_string(np, "qcom,iommu-faults", "no-CFRE") >= 0)
+		__arm_smmu_domain_set_attr(
+			domain, DOMAIN_ATTR_NO_CFRE, &attr);
+
+	/* Default value: disabled */
+	ret = of_property_read_u32(np, "qcom,iommu-vmid", &val);
+	if (!ret) {
+		__arm_smmu_domain_set_attr(
+			domain, DOMAIN_ATTR_SECURE_VMID, &val);
+	}
+
+	/* Default value: disabled */
+	ret = of_property_read_string(np, "qcom,iommu-pagetable", &str);
+	if (ret)
+		str = "disabled";
+	if (!strcmp(str, "coherent"))
+		__arm_smmu_domain_set_attr(domain,
+			DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT, &attr);
+	else if (!strcmp(str, "LLC"))
+		__arm_smmu_domain_set_attr(domain,
+			DOMAIN_ATTR_USE_UPSTREAM_HINT, &attr);
+	else if (!strcmp(str, "LLC_NWA"))
+		__arm_smmu_domain_set_attr(domain,
+			DOMAIN_ATTR_USE_LLC_NWA, &attr);
+
+
+	/* Default value: disabled */
+	if (of_property_read_bool(np, "qcom,iommu-earlymap"))
+		__arm_smmu_domain_set_attr(domain,
+			DOMAIN_ATTR_EARLY_MAP, &attr);
+	return 0;
+}
+
+struct lookup_iommu_group_data {
+	struct device_node *np;
+	struct iommu_group *group;
+};
+
+/* This isn't a "fast lookup" since its N^2, but probably good enough */
+static int __bus_lookup_iommu_group(struct device *dev, void *priv)
+{
+	struct lookup_iommu_group_data *data = priv;
+	struct device_node *np;
+	struct iommu_group *group;
+
+	group = iommu_group_get(dev);
+	if (!group)
+		return 0;
+
+	np = of_parse_phandle(dev->of_node, "qcom,iommu-group", 0);
+	if (np != data->np) {
+		iommu_group_put(group);
+		return 0;
+	}
+
+	data->group = group;
+	iommu_group_put(group);
+	return 1;
+}
+
+static struct iommu_group *of_get_device_group(struct device *dev)
+{
+	struct lookup_iommu_group_data data = {0};
+	struct iommu_group *group;
+	int ret;
+
+	data.np = of_parse_phandle(dev->of_node, "qcom,iommu-group", 0);
+	if (!data.np)
+		return NULL;
+
+	ret = bus_for_each_dev(&platform_bus_type, NULL, &data,
+				__bus_lookup_iommu_group);
+	if (ret > 0)
+		return data.group;
+
+	ret = bus_for_each_dev(&pci_bus_type, NULL, &data,
+				__bus_lookup_iommu_group);
+	if (ret > 0)
+		return data.group;
+
+	group = generic_device_group(dev);
+	if (IS_ERR(group))
+		return NULL;
+	return group;
 }
 
 static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
@@ -3031,12 +3189,17 @@ static struct iommu_group *arm_smmu_device_group(struct device *dev)
 	struct iommu_group *group = NULL;
 	int i, idx;
 
+	group = of_get_device_group(dev);
 	for_each_cfg_sme(fwspec, i, idx) {
 		if (group && smmu->s2crs[idx].group &&
-		    group != smmu->s2crs[idx].group)
+		    group != smmu->s2crs[idx].group) {
+			dev_err(dev, "ID:%x IDX:%x is already in a group!\n",
+				fwspec->ids[i], idx);
 			return ERR_PTR(-EINVAL);
+		}
 
-		group = smmu->s2crs[idx].group;
+		if (!group)
+			group = smmu->s2crs[idx].group;
 	}
 
 	if (group)
