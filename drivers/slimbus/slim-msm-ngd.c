@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -256,6 +256,8 @@ static int dsp_domr_notify_cb(struct notifier_block *n, unsigned long code,
 						dsp);
 	struct pd_qmi_client_data *reg;
 
+	/* Resetting the log level */
+	SLIM_RST_LOGLVL(dev);
 	SLIM_INFO(dev, "SLIM DSP SSR/PDR notify cb:0x%lx, type:%d\n",
 			code, dsp->dom_t);
 	switch (code) {
