@@ -2781,10 +2781,17 @@
 					qcom,target-dev = <&cdsp_cdsp_l3_lat>;
 				};
 
-				qcom,msm_cdsp_rm {
+				msm_cdsp_rm: qcom,msm_cdsp_rm {
 					compatible = "qcom,msm-cdsp-rm";
 					qcom,qos-latency-us = <44>;
 					qcom,qos-maxhold-ms = <20>;
+					qcom,compute-priority-mode = <2>;
+					#cooling-cells = <2>;
+				};
+
+				msm_hvx_rm: qcom,msm_hvx_rm {
+					compatible = "qcom,msm-hvx-rm";
+					#cooling-cells = <2>;
 				};
 			};
 
