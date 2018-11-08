@@ -1044,6 +1044,7 @@
 	};
 };
 #include "pmi632.dtsi"
+#include "pm6125.dtsi"
 #include "trinket-pinctrl.dtsi"
 #include "trinket-ion.dtsi"
 #include "pm6125-rpm-regulator.dtsi"
