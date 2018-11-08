@@ -485,8 +485,9 @@
 		compatible = "qcom,dsi-phy-v3.0";
 		label = "dsi-phy-0";
 		cell-index = <0>;
-		reg = <0xae94400 0x7c0>;
-		reg-names = "dsi_phy";
+		reg = <0xae94400 0x7c0>,
+			<0xae94200 0x100>;
+		reg-names = "dsi_phy", "dyn_refresh_base";
 		gdsc-supply = <&mdss_core_gdsc>;
 		vdda-0p9-supply = <&pm660l_l1>;
 		qcom,platform-strength-ctrl = [55 03
@@ -518,8 +519,9 @@
 		compatible = "qcom,dsi-phy-v3.0";
 		label = "dsi-phy-1";
 		cell-index = <1>;
-		reg = <0xae96400 0x7c0>;
-		reg-names = "dsi_phy";
+		reg = <0xae96400 0x7c0>,
+			<0xae96200 0x100>;
+		reg-names = "dsi_phy", "dyn_refresh_base";
 		gdsc-supply = <&mdss_core_gdsc>;
 		vdda-0p9-supply = <&pm660l_l1>;
 		qcom,platform-strength-ctrl = [55 03
