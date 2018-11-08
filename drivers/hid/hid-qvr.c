@@ -317,15 +317,13 @@ static int qvr_external_sensor_probe(struct hid_device *hdev,
 		pr_err("%s: hid_hw_start failed", __func__);
 		goto err_free;
 	}
-	if (hdev->vendor == USB_VENDOR_ID_QVR5) {
-		hid_buf[0] = 2;
-		hid_buf[1] = 7;
-		ret = hid_hw_raw_request(hdev, hid_buf[0],
-			hid_buf,
-			hid_count,
-			HID_FEATURE_REPORT,
-			HID_REQ_SET_REPORT);
-	}
+	hid_buf[0] = 2;
+	hid_buf[1] = 7;
+	ret = hid_hw_raw_request(hdev, hid_buf[0],
+		hid_buf,
+		hid_count,
+		HID_FEATURE_REPORT,
+		HID_REQ_SET_REPORT);
 	return 0;
 err_free:
 	return ret;
@@ -339,7 +337,7 @@ static int qvr_external_sensor_raw_event(struct hid_device *hid,
 	int val;
 	int ret = -1;
 
-	if ((hid->vendor == USB_VENDOR_ID_QVR5) && (vaddr != NULL)) {
+	if (vaddr != NULL && report->id == 0x1) {
 		ret = qvr_send_package_wrap(data/*hid_value*/, size, hid);
 		if (ret != 0) {
 			pr_err("%s: qvr_send_package_wrap failed", __func__);
@@ -359,6 +357,7 @@ static void qvr_external_sensor_device_remove(struct hid_device *hdev)
 
 static struct hid_device_id qvr_external_sensor_table[] = {
 	{ HID_USB_DEVICE(USB_VENDOR_ID_QVR5, USB_DEVICE_ID_QVR5) },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_QVR32A, USB_DEVICE_ID_QVR32A) },
 	{ }
 };
 MODULE_DEVICE_TABLE(hid, qvr_external_sensor_table);
