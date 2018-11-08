@@ -3369,9 +3369,10 @@ static void cam_ife_mgr_print_io_bufs(struct cam_packet *packet,
 			}
 
 			CAM_INFO(CAM_ISP,
-				"pln %d w %d h %d s 0x%x addr 0x%x end_addr 0x%x offset %x memh %x",
+				"pln %d w %d h %d s %u size 0x%x addr 0x%x end_addr 0x%x offset %x memh %x",
 				j, io_cfg[i].planes[j].width,
 				io_cfg[i].planes[j].height,
+				io_cfg[i].planes[j].plane_stride,
 				(unsigned int)src_buf_size,
 				(unsigned int)iova_addr,
 				(unsigned int)iova_addr +
