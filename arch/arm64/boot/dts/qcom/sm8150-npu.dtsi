@@ -71,6 +71,7 @@
 		mbox-names = "aop";
 		#cooling-cells = <2>;
 		qcom,npubw-dev = <&npu_npu_ddr_bw>;
+		qcom,npu-cxlimit-enable;
 		qcom,npu-pwrlevels {
 			#address-cells = <1>;
 			#size-cells = <0>;
