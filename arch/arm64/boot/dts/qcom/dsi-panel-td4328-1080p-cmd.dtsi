@@ -58,6 +58,7 @@
 				qcom,mdss-dsi-v-front-porch = <5>;
 				qcom,mdss-dsi-v-pulse-width = <2>;
 				qcom,mdss-dsi-panel-framerate = <60>;
+				qcom,mdss-dsi-panel-jitter = <0x4 0x1>;
 				qcom,mdss-dsi-on-command = [
 					29 01 00 00 00 00 02 B0 00
 					29 01 00 00 00 00 04 B3 00 00 06

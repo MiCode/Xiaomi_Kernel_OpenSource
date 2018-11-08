@@ -3365,6 +3365,8 @@ int dsi_panel_get_host_cfg_for_mode(struct dsi_panel *panel,
 
 	memcpy(&config->video_timing, &mode->timing,
 	       sizeof(config->video_timing));
+	config->video_timing.mdp_transfer_time_us =
+			mode->priv_info->mdp_transfer_time_us;
 	config->video_timing.dsc_enabled = mode->priv_info->dsc_enabled;
 	config->video_timing.dsc = &mode->priv_info->dsc;
 
