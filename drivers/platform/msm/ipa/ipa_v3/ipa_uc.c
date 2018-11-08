@@ -176,6 +176,9 @@ struct IpaHwDbAddrInfo_t {
 	uint32_t mboxN;
 } __packed;
 
+static DEFINE_MUTEX(uc_loaded_nb_lock);
+static BLOCKING_NOTIFIER_HEAD(uc_loaded_notifier);
+
 struct ipa3_uc_hdlrs ipa3_uc_hdlrs[IPA_HW_NUM_FEATURES] = { { 0 } };
 
 const char *ipa_hw_error_str(enum ipa3_hw_errors err_type)
@@ -303,6 +306,50 @@ int ipa3_uc_loaded_check(void)
 }
 EXPORT_SYMBOL(ipa3_uc_loaded_check);
 
+/**
+ * ipa3_uc_register_ready_cb() - register a uC ready callback notifier block
+ * @nb: notifier
+ *
+ * Register a callback to be called when uC is ready to receive commands. uC is
+ * considered to be ready when it sends %IPA_HW_2_CPU_RESPONSE_INIT_COMPLETED.
+ *
+ * Return: 0 on successful registration, negative errno otherwise
+ *
+ * See blocking_notifier_chain_register() for possible errno values
+ */
+int ipa3_uc_register_ready_cb(struct notifier_block *nb)
+{
+	int rc;
+
+	mutex_lock(&uc_loaded_nb_lock);
+
+	rc = blocking_notifier_chain_register(&uc_loaded_notifier, nb);
+	if (!rc && ipa3_ctx->uc_ctx.uc_loaded)
+		(void) nb->notifier_call(nb, false, ipa3_ctx);
+
+	mutex_unlock(&uc_loaded_nb_lock);
+
+	return rc;
+}
+EXPORT_SYMBOL(ipa3_uc_register_ready_cb);
+
+/**
+ * ipa3_uc_unregister_ready_cb() - unregister a uC ready callback
+ * @nb: notifier
+ *
+ * Unregister a uC loaded notifier block that was previously registered by
+ * ipa3_uc_register_ready_cb().
+ *
+ * Return: 0 on successful unregistration, negative errno otherwise
+ *
+ * See blocking_notifier_chain_unregister() for possible errno values
+ */
+int ipa3_uc_unregister_ready_cb(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_unregister(&uc_loaded_notifier, nb);
+}
+EXPORT_SYMBOL(ipa3_uc_unregister_ready_cb);
+
 static void ipa3_uc_event_handler(enum ipa_irq_type interrupt,
 				 void *private_data,
 				 void *interrupt_data)
@@ -429,7 +476,20 @@ static void ipa3_uc_response_hdlr(enum ipa_irq_type interrupt,
 	/* General handling */
 	if (ipa3_ctx->uc_ctx.uc_sram_mmio->responseOp ==
 			IPA_HW_2_CPU_RESPONSE_INIT_COMPLETED) {
+
+		if (ipa3_ctx->uc_ctx.uc_loaded) {
+			IPADBG("uC resp op INIT_COMPLETED is unexpected\n");
+			return;
+		}
+
+		mutex_lock(&uc_loaded_nb_lock);
+
 		ipa3_ctx->uc_ctx.uc_loaded = true;
+
+		(void) blocking_notifier_call_chain(&uc_loaded_notifier, true,
+			ipa3_ctx);
+
+		mutex_unlock(&uc_loaded_nb_lock);
 
 		IPADBG("IPA uC loaded\n");
 		/*
