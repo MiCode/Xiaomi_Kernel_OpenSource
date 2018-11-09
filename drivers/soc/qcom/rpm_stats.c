@@ -95,7 +95,7 @@ static inline int msm_rpmstats_append_data_to_buf(char *buf,
 	actual_last_sleep = get_time_in_msec(data->accumulated);
 
 #if defined(CONFIG_MSM_RPM_SMD)
-	return snprintf(buf, buflength,
+	return scnprintf(buf, buflength,
 		"RPM Mode:%s\n\t count:%d\ntime in last mode(msec):%llu\n"
 		"time since last mode(sec):%llu\nactual last sleep(msec):%llu\n"
 		"client votes: %#010x\n\n",
@@ -103,7 +103,7 @@ static inline int msm_rpmstats_append_data_to_buf(char *buf,
 		time_since_last_mode, actual_last_sleep,
 		data->client_votes);
 #else
-	return snprintf(buf, buflength,
+	return scnprintf(buf, buflength,
 		"RPM Mode:%s\n\t count:%d\ntime in last mode(msec):%llu\n"
 		"time since last mode(sec):%llu\nactual last sleep(msec):%llu\n\n",
 		stat_type, data->count, time_in_last_mode,

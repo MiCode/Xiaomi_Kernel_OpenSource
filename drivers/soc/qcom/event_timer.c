@@ -78,7 +78,7 @@ struct event_timer_info *add_event_timer(uint32_t irq,
 				void (*function)(void *), void *data)
 {
 	struct event_timer_info *event_info =
-			kzalloc(sizeof(struct event_timer_info), GFP_KERNEL);
+			kcalloc(1, sizeof(*event_info), GFP_KERNEL);
 
 	if (!event_info)
 		return NULL;
@@ -103,7 +103,7 @@ struct event_timer_info *add_event_timer(uint32_t irq,
 
 	/* Init rb node and hr timer */
 	timerqueue_init(&event_info->node);
-	pr_debug("New Event Added. Event %pK(on cpu%d). irq %d.\n",
+	pr_debug("New Event Added. Event %pK(on cpu%d). irq %d\n",
 					event_info, event_info->cpu, irq);
 
 	return event_info;
@@ -126,8 +126,6 @@ static bool is_event_next(struct event_timer_info *event)
 		goto exit_is_next_event;
 
 	next_event = container_of(next, struct event_timer_info, node);
-	if (!next_event)
-		goto exit_is_next_event;
 
 	if (next_event == event)
 		ret = true;
@@ -200,8 +198,6 @@ static enum hrtimer_restart event_hrtimer_cb(struct hrtimer *hrtimer)
 	while (next && (ktime_to_ns(next->expires)
 		<= ktime_to_ns(hrtimer->node.expires))) {
 		event = container_of(next, struct event_timer_info, node);
-		if (!event)
-			goto hrtimer_cb_exit;
 
 		WARN_ON_ONCE(event->cpu != cpu);
 
@@ -221,7 +217,7 @@ static enum hrtimer_restart event_hrtimer_cb(struct hrtimer *hrtimer)
 		event = container_of(next, struct event_timer_info, node);
 		create_hrtimer(event);
 	}
-hrtimer_cb_exit:
+
 	spin_unlock_irqrestore(&event_timer_lock, flags);
 	return HRTIMER_NORESTART;
 }
@@ -307,7 +303,7 @@ static void irq_affinity_change_notifier(struct irq_affinity_notify *notify,
 	old_cpu = event->cpu;
 
 	if (msm_event_debug_mask && MSM_EVENT_TIMER_DEBUG)
-		pr_debug("irq %d, event %pK, old_cpu(%d)->new_cpu(%d).\n",
+		pr_debug("irq %d, event %pK, old_cpu(%d)->new_cpu(%d)\n",
 						irq, event, old_cpu, new_cpu);
 
 	/* No change in IRQ affinity */

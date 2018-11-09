@@ -108,7 +108,7 @@ static ssize_t msm_rpmh_master_stats_print_data(char *prvbuf, ssize_t length,
 				(arch_counter_get_cntvct()
 				- record->last_entered);
 
-	return snprintf(prvbuf, length, "%s\n\tVersion:0x%x\n"
+	return scnprintf(prvbuf, length, "%s\n\tVersion:0x%x\n"
 			"\tSleep Count:0x%x\n"
 			"\tSleep Last Entered At:0x%llx\n"
 			"\tSleep Last Exited At:0x%llx\n"
@@ -199,9 +199,6 @@ static int msm_rpmh_master_stats_probe(struct platform_device *pdev)
 	struct kobject *rpmh_master_stats_kobj = NULL;
 	int ret = -ENOMEM;
 
-	if (!pdev)
-		return -EINVAL;
-
 	prvdata = devm_kzalloc(&pdev->dev, sizeof(*prvdata), GFP_KERNEL);
 	if (!prvdata)
 		return ret;
@@ -247,9 +244,6 @@ fail_sysfs:
 static int msm_rpmh_master_stats_remove(struct platform_device *pdev)
 {
 	struct rpmh_master_stats_prv_data *prvdata;
-
-	if (!pdev)
-		return -EINVAL;
 
 	prvdata = (struct rpmh_master_stats_prv_data *)
 				platform_get_drvdata(pdev);
