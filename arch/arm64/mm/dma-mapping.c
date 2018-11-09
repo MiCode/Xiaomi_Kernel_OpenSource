@@ -1057,7 +1057,7 @@ static int arm_iommu_get_dma_cookie(struct device *dev,
 	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_FAST, &is_fast);
 
 	if (s1_bypass)
-		mapping->ops = &swiotlb_dma_ops;
+		mapping->ops = &arm64_swiotlb_dma_ops;
 	else if (is_fast)
 		err = fast_smmu_init_mapping(dev, mapping);
 	else
