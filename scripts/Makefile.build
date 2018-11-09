@@ -58,6 +58,11 @@ ifneq ($(hostprogs-y)$(hostprogs-m)$(hostlibs-y)$(hostlibs-m)$(hostcxxlibs-y)$(h
 include scripts/Makefile.host
 endif
 
+# Do not include host rules unless needed
+ifneq ($(dtbo-y),)
+include scripts/Makefile.dtbo
+endif
+
 ifndef obj
 $(warning kbuild: Makefile.build is included improperly)
 endif
