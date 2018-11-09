@@ -13,6 +13,7 @@
 		reg-names = "core_base";
 
 		iommus = <&apps_smmu 0x0 0x0>;
+		qcom,iommu-dma = "disabled";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;

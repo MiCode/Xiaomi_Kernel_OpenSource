@@ -1158,7 +1158,8 @@ static void arm_iommu_setup_dma_ops(struct device *dev, u64 dma_base, u64 size)
  * to calling arm_iommu_attach_device() to complete initialization.
  */
 struct dma_iommu_mapping *
-arm_iommu_create_mapping(struct bus_type *bus, dma_addr_t base, size_t size)
+__depr_arm_iommu_create_mapping(struct bus_type *bus, dma_addr_t base,
+				size_t size)
 {
 	unsigned int bits = size >> PAGE_SHIFT;
 	struct dma_iommu_mapping *mapping;
@@ -1184,7 +1185,7 @@ err_domain_alloc:
 	kfree(mapping);
 	return ERR_PTR(-ENOMEM);
 }
-EXPORT_SYMBOL(arm_iommu_create_mapping);
+EXPORT_SYMBOL(__depr_arm_iommu_create_mapping);
 
 /*
  * DEPRECATED
@@ -1194,7 +1195,7 @@ EXPORT_SYMBOL(arm_iommu_create_mapping);
  * Frees all resources associated with the iommu mapping.
  * The device associated with this mapping must be in the 'detached' state
  */
-void arm_iommu_release_mapping(struct dma_iommu_mapping *mapping)
+void __depr_arm_iommu_release_mapping(struct dma_iommu_mapping *mapping)
 {
 	if (!mapping)
 		return;
@@ -1204,7 +1205,7 @@ void arm_iommu_release_mapping(struct dma_iommu_mapping *mapping)
 
 	kfree(mapping);
 }
-EXPORT_SYMBOL(arm_iommu_release_mapping);
+EXPORT_SYMBOL(__depr_arm_iommu_release_mapping);
 
 /**
  * DEPRECATED
@@ -1219,7 +1220,7 @@ EXPORT_SYMBOL(arm_iommu_release_mapping);
  *
  * Only configures dma_ops for a single device in the iommu_group.
  */
-int arm_iommu_attach_device(struct device *dev,
+int __depr_arm_iommu_attach_device(struct device *dev,
 			    struct dma_iommu_mapping *mapping)
 {
 	int err;
@@ -1265,7 +1266,7 @@ int arm_iommu_attach_device(struct device *dev,
 	pr_debug("Attached IOMMU controller to %s device.\n", dev_name(dev));
 	return 0;
 }
-EXPORT_SYMBOL(arm_iommu_attach_device);
+EXPORT_SYMBOL(__depr_arm_iommu_attach_device);
 
 /**
  * DEPRECATED
@@ -1275,7 +1276,7 @@ EXPORT_SYMBOL(arm_iommu_attach_device);
  * Detaches the provided device from a previously attached map.
  * This voids the dma operations (dma_map_ops pointer)
  */
-void arm_iommu_detach_device(struct device *dev)
+void __depr_arm_iommu_detach_device(struct device *dev)
 {
 	struct iommu_domain *domain;
 	int s1_bypass = 0;
@@ -1307,7 +1308,7 @@ void arm_iommu_detach_device(struct device *dev)
 
 	pr_debug("Detached IOMMU controller from %s device.\n", dev_name(dev));
 }
-EXPORT_SYMBOL(arm_iommu_detach_device);
+EXPORT_SYMBOL(__depr_arm_iommu_detach_device);
 
 #else /*!CONFIG_ARM64_DMA_USE_IOMMU */
 
