@@ -263,6 +263,20 @@ bool sde_plane_is_sec_ui_allowed(struct drm_plane *plane)
 	return !(psde->features & BIT(SDE_SSPP_BLOCK_SEC_UI));
 }
 
+void sde_plane_setup_src_split_order(struct drm_plane *plane,
+		enum sde_sspp_multirect_index rect_mode, bool enable)
+{
+	struct sde_plane *psde;
+
+	if (!plane)
+		return;
+
+	psde = to_sde_plane(plane);
+	if (psde->pipe_hw->ops.set_src_split_order)
+		psde->pipe_hw->ops.set_src_split_order(psde->pipe_hw,
+					rect_mode, enable);
+}
+
 /**
  * _sde_plane_calc_fill_level - calculate fill level of the given source format
  * @plane:		Pointer to drm plane
@@ -1664,8 +1678,7 @@ static int _sde_plane_color_fill(struct sde_plane *psde,
 		if (psde->pipe_hw->ops.setup_format)
 			psde->pipe_hw->ops.setup_format(psde->pipe_hw,
 					fmt, blend_enable,
-					SDE_SSPP_SOLID_FILL |
-					pstate->pipe_order_flags,
+					SDE_SSPP_SOLID_FILL,
 					pstate->multirect_index);
 
 		if (psde->pipe_hw->ops.setup_rects)
@@ -3793,7 +3806,7 @@ void sde_plane_set_error(struct drm_plane *plane, bool error)
 static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 				struct drm_plane_state *old_state)
 {
-	uint32_t nplanes, src_flags;
+	uint32_t nplanes, src_flags = 0;
 	struct sde_plane *psde;
 	struct drm_plane_state *state;
 	struct sde_plane_state *pstate;
@@ -3814,6 +3827,11 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 		return -EINVAL;
 	} else if (!old_state) {
 		SDE_ERROR("invalid old state\n");
+		return -EINVAL;
+	}
+
+	if (!sde_kms_power_resource_is_enabled(plane->dev)) {
+		SDE_ERROR("power resource is not enabled\n");
 		return -EINVAL;
 	}
 
@@ -4049,7 +4067,6 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 	if ((pstate->dirty & SDE_PLANE_DIRTY_FORMAT ||
 			pstate->dirty & SDE_PLANE_DIRTY_RECTS) &&
 			psde->pipe_hw->ops.setup_format) {
-		src_flags = pstate->pipe_order_flags;
 		SDE_DEBUG_PLANE(psde, "rotation 0x%X\n", rstate->out_rotation);
 		if (rstate->out_rotation & DRM_MODE_REFLECT_X)
 			src_flags |= SDE_SSPP_FLIP_LR;

@@ -1691,6 +1691,181 @@ uint64_t sde_crtc_get_sbuf_clk(struct drm_crtc_state *state)
 	return max_t(u64, cstate->sbuf_clk_rate[1], tmp);
 }
 
+struct plane_state {
+	struct sde_plane_state *sde_pstate;
+	const struct drm_plane_state *drm_pstate;
+	int stage;
+	u32 pipe_id;
+};
+
+static int pstate_cmp(const void *a, const void *b)
+{
+	struct plane_state *pa = (struct plane_state *)a;
+	struct plane_state *pb = (struct plane_state *)b;
+	int rc = 0;
+	int pa_zpos, pb_zpos;
+
+	pa_zpos = sde_plane_get_property(pa->sde_pstate, PLANE_PROP_ZPOS);
+	pb_zpos = sde_plane_get_property(pb->sde_pstate, PLANE_PROP_ZPOS);
+
+	if (pa_zpos != pb_zpos)
+		rc = pa_zpos - pb_zpos;
+	else
+		rc = pa->drm_pstate->crtc_x - pb->drm_pstate->crtc_x;
+
+	return rc;
+}
+
+/*
+ * validate and set source split:
+ * use pstates sorted by stage to check planes on same stage
+ * we assume that all pipes are in source split so its valid to compare
+ * without taking into account left/right mixer placement
+ */
+static int _sde_crtc_validate_src_split_order(struct drm_crtc *crtc,
+		struct plane_state *pstates, int cnt)
+{
+	struct plane_state *prv_pstate, *cur_pstate;
+	struct sde_rect left_rect, right_rect;
+	struct sde_kms *sde_kms;
+	int32_t left_pid, right_pid;
+	int32_t stage;
+	int i, rc = 0;
+
+	sde_kms = _sde_crtc_get_kms(crtc);
+	if (!sde_kms || !sde_kms->catalog) {
+		SDE_ERROR("invalid parameters\n");
+		return -EINVAL;
+	}
+
+	for (i = 1; i < cnt; i++) {
+		prv_pstate = &pstates[i - 1];
+		cur_pstate = &pstates[i];
+
+		if (prv_pstate->stage != cur_pstate->stage)
+			continue;
+
+		stage = cur_pstate->stage;
+
+		left_pid = prv_pstate->sde_pstate->base.plane->base.id;
+		POPULATE_RECT(&left_rect, prv_pstate->drm_pstate->crtc_x,
+			prv_pstate->drm_pstate->crtc_y,
+			prv_pstate->drm_pstate->crtc_w,
+			prv_pstate->drm_pstate->crtc_h, false);
+
+		right_pid = cur_pstate->sde_pstate->base.plane->base.id;
+		POPULATE_RECT(&right_rect, cur_pstate->drm_pstate->crtc_x,
+			cur_pstate->drm_pstate->crtc_y,
+			cur_pstate->drm_pstate->crtc_w,
+			cur_pstate->drm_pstate->crtc_h, false);
+
+		if (right_rect.x < left_rect.x) {
+			swap(left_pid, right_pid);
+			swap(left_rect, right_rect);
+			swap(prv_pstate, cur_pstate);
+		}
+
+		/*
+		 * - planes are enumerated in pipe-priority order such that
+		 *   planes with lower drm_id must be left-most in a shared
+		 *   blend-stage when using source split.
+		 * - planes in source split must be contiguous in width
+		 * - planes in source split must have same dest yoff and height
+		 */
+		if ((right_pid < left_pid) &&
+			!sde_kms->catalog->pipe_order_type) {
+			SDE_ERROR(
+			  "invalid src split cfg, stage:%d left:%d right:%d\n",
+				stage, left_pid, right_pid);
+			return -EINVAL;
+		} else if (right_rect.x != (left_rect.x + left_rect.w)) {
+			SDE_ERROR(
+			  "invalid coordinates, stage:%d l:%d-%d r:%d-%d\n",
+				stage, left_rect.x, left_rect.w,
+				right_rect.x, right_rect.w);
+			return -EINVAL;
+		} else if ((left_rect.y != right_rect.y) ||
+				(left_rect.h != right_rect.h)) {
+			SDE_ERROR(
+			  "stage:%d invalid yoff/ht: l_yxh:%dx%d r_yxh:%dx%d\n",
+				stage, left_rect.y, left_rect.h,
+				right_rect.y, right_rect.h);
+			return -EINVAL;
+		}
+	}
+
+	return rc;
+}
+
+static void _sde_crtc_set_src_split_order(struct drm_crtc *crtc,
+		struct plane_state *pstates, int cnt)
+{
+	struct plane_state *prv_pstate, *cur_pstate, *nxt_pstate;
+	struct sde_kms *sde_kms;
+	struct sde_rect left_rect, right_rect;
+	int32_t left_pid, right_pid;
+	int32_t stage;
+	int i;
+
+	sde_kms = _sde_crtc_get_kms(crtc);
+	if (!sde_kms || !sde_kms->catalog) {
+		SDE_ERROR("invalid parameters\n");
+		return;
+	}
+
+	if (!sde_kms->catalog->pipe_order_type)
+		return;
+
+	for (i = 0; i < cnt; i++) {
+		prv_pstate = (i > 0) ? &pstates[i - 1] : NULL;
+		cur_pstate = &pstates[i];
+		nxt_pstate = ((i + 1) < cnt) ? &pstates[i + 1] : NULL;
+
+		if ((!prv_pstate) || (prv_pstate->stage != cur_pstate->stage)) {
+			/*
+			 * reset if prv or nxt pipes are not in the same stage
+			 * as the cur pipe
+			 */
+			if ((!nxt_pstate)
+				    || (nxt_pstate->stage != cur_pstate->stage))
+				cur_pstate->sde_pstate->pipe_order_flags = 0;
+
+			continue;
+		}
+
+		stage = cur_pstate->stage;
+
+		left_pid = prv_pstate->sde_pstate->base.plane->base.id;
+		POPULATE_RECT(&left_rect, prv_pstate->drm_pstate->crtc_x,
+			prv_pstate->drm_pstate->crtc_y,
+			prv_pstate->drm_pstate->crtc_w,
+			prv_pstate->drm_pstate->crtc_h, false);
+
+		right_pid = cur_pstate->sde_pstate->base.plane->base.id;
+		POPULATE_RECT(&right_rect, cur_pstate->drm_pstate->crtc_x,
+			cur_pstate->drm_pstate->crtc_y,
+			cur_pstate->drm_pstate->crtc_w,
+			cur_pstate->drm_pstate->crtc_h, false);
+
+		if (right_rect.x < left_rect.x) {
+			swap(left_pid, right_pid);
+			swap(left_rect, right_rect);
+			swap(prv_pstate, cur_pstate);
+		}
+
+		cur_pstate->sde_pstate->pipe_order_flags = SDE_SSPP_RIGHT;
+		prv_pstate->sde_pstate->pipe_order_flags = 0;
+	}
+
+	for (i = 0; i < cnt; i++) {
+		cur_pstate = &pstates[i];
+		sde_plane_setup_src_split_order(
+			cur_pstate->drm_pstate->plane,
+			cur_pstate->sde_pstate->multirect_index,
+			cur_pstate->sde_pstate->pipe_order_flags);
+	}
+}
+
 static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 		struct drm_crtc_state *old_state, struct sde_crtc *sde_crtc,
 		struct sde_crtc_mixer *mixer)
@@ -1700,6 +1875,7 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 	struct drm_plane_state *state;
 	struct sde_crtc_state *cstate;
 	struct sde_plane_state *pstate = NULL;
+	struct plane_state *pstates = NULL;
 	struct sde_format *format;
 	struct sde_hw_ctl *ctl;
 	struct sde_hw_mixer *lm;
@@ -1708,7 +1884,7 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 	uint32_t prefill;
 	uint32_t stage_idx, lm_idx;
 	int zpos_cnt[SDE_STAGE_MAX + 1] = { 0 };
-	int i, rot_id = 0;
+	int i, rot_id = 0, cnt = 0;
 	bool bg_alpha_enable = false;
 
 	if (!sde_crtc || !crtc->state || !mixer) {
@@ -1725,6 +1901,11 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 	sde_crtc->sbuf_rot_id_old = sde_crtc->sbuf_rot_id;
 	sde_crtc->sbuf_rot_id = 0x0;
 	sde_crtc->sbuf_rot_id_delta = 0x0;
+
+	pstates = kcalloc(SDE_PSTATES_MAX,
+			sizeof(struct plane_state), GFP_KERNEL);
+	if (!pstates)
+		return;
 
 	drm_atomic_crtc_for_each_plane(plane, crtc) {
 		state = plane->state;
@@ -1765,7 +1946,7 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 		format = to_sde_format(msm_framebuffer_format(pstate->base.fb));
 		if (!format) {
 			SDE_ERROR("invalid format\n");
-			return;
+			goto end;
 		}
 
 		if (pstate->stage == SDE_STAGE_BASE && format->alpha_enable)
@@ -1801,7 +1982,21 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 				mixer[lm_idx].mixer_op_mode |=
 						1 << pstate->stage;
 		}
+
+		if (cnt >= SDE_PSTATES_MAX)
+			continue;
+
+		pstates[cnt].sde_pstate = pstate;
+		pstates[cnt].drm_pstate = state;
+		pstates[cnt].stage = sde_plane_get_property(
+				pstates[cnt].sde_pstate, PLANE_PROP_ZPOS);
+		pstates[cnt].pipe_id = sde_plane_pipe(plane);
+
+		cnt++;
 	}
+
+	sort(pstates, cnt, sizeof(pstates[0]), pstate_cmp, NULL);
+	_sde_crtc_set_src_split_order(crtc, pstates, cnt);
 
 	if (lm && lm->ops.setup_dim_layer) {
 		cstate = to_sde_crtc_state(crtc->state);
@@ -1811,6 +2006,9 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 	}
 
 	_sde_crtc_program_lm_output_roi(crtc);
+
+end:
+	kfree(pstates);
 }
 
 static void _sde_crtc_swap_mixers_for_right_partial_update(
@@ -4651,31 +4849,6 @@ static void sde_crtc_enable(struct drm_crtc *crtc,
 		sde_connector_schedule_status_work(cstate->connectors[i], true);
 }
 
-struct plane_state {
-	struct sde_plane_state *sde_pstate;
-	const struct drm_plane_state *drm_pstate;
-	int stage;
-	u32 pipe_id;
-};
-
-static int pstate_cmp(const void *a, const void *b)
-{
-	struct plane_state *pa = (struct plane_state *)a;
-	struct plane_state *pb = (struct plane_state *)b;
-	int rc = 0;
-	int pa_zpos, pb_zpos;
-
-	pa_zpos = sde_plane_get_property(pa->sde_pstate, PLANE_PROP_ZPOS);
-	pb_zpos = sde_plane_get_property(pb->sde_pstate, PLANE_PROP_ZPOS);
-
-	if (pa_zpos != pb_zpos)
-		rc = pa_zpos - pb_zpos;
-	else
-		rc = pa->drm_pstate->crtc_x - pb->drm_pstate->crtc_x;
-
-	return rc;
-}
-
 /* no input validation - caller API has all the checks */
 static int _sde_crtc_excl_dim_layer_check(struct drm_crtc_state *state,
 		struct plane_state pstates[], int cnt)
@@ -4901,7 +5074,6 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 	struct sde_crtc *sde_crtc;
 	struct plane_state *pstates = NULL;
 	struct sde_crtc_state *cstate;
-	struct sde_kms *kms;
 
 	const struct drm_plane_state *pstate;
 	struct drm_plane *plane;
@@ -4923,13 +5095,6 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 	}
 
 	dev = crtc->dev;
-
-	kms = _sde_crtc_get_kms(crtc);
-
-	if (!kms || !kms->catalog) {
-		SDE_ERROR("invalid parameters\n");
-		return -EINVAL;
-	}
 
 	sde_crtc = to_sde_crtc(crtc);
 	cstate = to_sde_crtc_state(state);
@@ -5013,7 +5178,6 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 			continue;
 
 		pstates[cnt].sde_pstate = to_sde_plane_state(pstate);
-		pstates[cnt].sde_pstate->pipe_order_flags = 0x0;
 		pstates[cnt].drm_pstate = pstate;
 		pstates[cnt].stage = sde_plane_get_property(
 				pstates[cnt].sde_pstate, PLANE_PROP_ZPOS);
@@ -5150,77 +5314,9 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		goto end;
 	}
 
-	/* validate source split:
-	 * use pstates sorted by stage to check planes on same stage
-	 * we assume that all pipes are in source split so its valid to compare
-	 * without taking into account left/right mixer placement
-	 */
-	for (i = 1; i < cnt; i++) {
-		struct plane_state *prv_pstate, *cur_pstate;
-		struct sde_rect left_rect, right_rect;
-		int32_t left_pid, right_pid;
-		int32_t stage;
-
-		prv_pstate = &pstates[i - 1];
-		cur_pstate = &pstates[i];
-		if (prv_pstate->stage != cur_pstate->stage)
-			continue;
-
-		stage = cur_pstate->stage;
-
-		left_pid = prv_pstate->sde_pstate->base.plane->base.id;
-		POPULATE_RECT(&left_rect, prv_pstate->drm_pstate->crtc_x,
-			prv_pstate->drm_pstate->crtc_y,
-			prv_pstate->drm_pstate->crtc_w,
-			prv_pstate->drm_pstate->crtc_h, false);
-
-		right_pid = cur_pstate->sde_pstate->base.plane->base.id;
-		POPULATE_RECT(&right_rect, cur_pstate->drm_pstate->crtc_x,
-			cur_pstate->drm_pstate->crtc_y,
-			cur_pstate->drm_pstate->crtc_w,
-			cur_pstate->drm_pstate->crtc_h, false);
-
-		if (right_rect.x < left_rect.x) {
-			swap(left_pid, right_pid);
-			swap(left_rect, right_rect);
-			swap(prv_pstate, cur_pstate);
-		}
-
-		/**
-		 * - planes are enumerated in pipe-priority order such that
-		 *   planes with lower drm_id must be left-most in a shared
-		 *   blend-stage when using source split.
-		 * - planes in source split must be contiguous in width
-		 * - planes in source split must have same dest yoff and height
-		 */
-		if ((right_pid < left_pid) &&
-			!kms->catalog->pipe_order_type) {
-			SDE_ERROR(
-				"invalid src split cfg. priority mismatch. stage: %d left: %d right: %d\n",
-				stage, left_pid, right_pid);
-			rc = -EINVAL;
-			goto end;
-		} else if (right_rect.x != (left_rect.x + left_rect.w)) {
-			SDE_ERROR(
-				"non-contiguous coordinates for src split. stage: %d left: %d - %d right: %d - %d\n",
-				stage, left_rect.x, left_rect.w,
-				right_rect.x, right_rect.w);
-			rc = -EINVAL;
-			goto end;
-		} else if ((left_rect.y != right_rect.y) ||
-				(left_rect.h != right_rect.h)) {
-			SDE_ERROR(
-				"source split at stage: %d. invalid yoff/height: l_y: %d r_y: %d l_h: %d r_h: %d\n",
-				stage, left_rect.y, right_rect.y,
-				left_rect.h, right_rect.h);
-			rc = -EINVAL;
-			goto end;
-		}
-
-		if (kms->catalog->pipe_order_type)
-			cur_pstate->sde_pstate->pipe_order_flags =
-				SDE_SSPP_RIGHT;
-	}
+	rc = _sde_crtc_validate_src_split_order(crtc, pstates, cnt);
+	if (rc)
+		goto end;
 
 	rc = _sde_crtc_check_rois(crtc, state);
 	if (rc) {
@@ -6451,7 +6547,7 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 	/* Below parameters are for fps calculation for sysfs node */
 	sde_crtc->fps_info.fps_periodic_duration = DEFAULT_FPS_PERIOD_1_SEC;
 	sde_crtc->fps_info.time_buf = kmalloc_array(MAX_FRAME_COUNT,
-			sizeof(sde_crtc->fps_info.time_buf), GFP_KERNEL);
+			sizeof(ktime_t), GFP_KERNEL);
 
 	if (!sde_crtc->fps_info.time_buf)
 		SDE_ERROR("invalid buffer\n");
