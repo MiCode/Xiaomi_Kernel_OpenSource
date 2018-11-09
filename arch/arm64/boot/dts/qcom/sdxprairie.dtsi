@@ -434,6 +434,7 @@
 #include "sdxprairie-bus.dtsi"
 #include "msm-arm-smmu-sdxprairie.dtsi"
 #include "sdxprairie-gdsc.dtsi"
+#include "sdxprairie-usb.dtsi"
 
 &gdsc_usb30 {
 	status = "ok";
