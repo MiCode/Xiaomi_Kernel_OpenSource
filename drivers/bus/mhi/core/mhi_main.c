@@ -583,7 +583,10 @@ static void mhi_assign_of_node(struct mhi_controller *mhi_cntrl,
 	const char *dt_name;
 	int ret;
 
-	controller = mhi_cntrl->of_node;
+	controller = of_find_node_by_name(mhi_cntrl->of_node, "mhi_devices");
+	if (!controller)
+		return;
+
 	for_each_available_child_of_node(controller, node) {
 		ret = of_property_read_string(node, "mhi,chan", &dt_name);
 		if (ret)
