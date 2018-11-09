@@ -180,6 +180,63 @@ conditions.
                   property, indicating the number of Stream ID
                   arguments associated with its phandle.
 
+** Additional properties for Iommu Clients:
+- qcom,iommu-dma:
+		Optional, String.
+		Can be one of "bypass", "fastmap", "atomic", "disabled".
+--- "default":
+		Standard iommu translation behavior.
+		The iommu framework will automatically create a domain for the client.
+		iommu and DMA apis may not be called in atomic context.
+--- "bypass":
+		DMA APIs will use 1-to-1 translation between dma_addr and phys_addr.
+		Allows using iommu and DMA apis in atomic context.
+--- "fastmap":
+		DMA APIs will run faster, but use several orders of magnitude more memory.
+		Also allows using iommu and DMA apis in atomic context.
+--- "atomic":
+		Allows using iommu and DMA apis in atomic context.
+--- "disabled":
+		The iommu client is responsible for allocating an iommu domain, as
+		well as calling iommu_map to create the desired mappings.
+
+- qcom,iommu-faults:
+		Optional, List of Strings.
+		The SCTLR register setting which affect iommu faults handling.
+		Any combination of the below strings may be used. Mutliple
+		values are accepted.
+--- "default":
+		Any faults are treated as fatal errors.
+--- "no-CFRE":
+		Iommu faults do not return an abort to the client hardware.
+--- "non-fatal":
+		Iommu faults do not trigger a kernel panic.
+--- "stall-disable":
+		Iommu faults do not stall the client while the fault
+		interrupt is being handled.
+
+- qcom,iommu-vmid:
+		Optional, Int.
+		An identifier indicating the security state of the client.
+
+- qcom,iommu-pagetable:
+		Optional, String.
+		Enables coherency for the IOMMU device, but not for the Client.
+--- "default":
+		Pagetables are not coherent nor cached in the system cache..
+--- "coherent"
+		Pagetables are io-coherent.
+--- "LLC"
+		Pagetables may be saved in the system cache.
+--- "LLC_NWA"
+		Pagetables may be saved in the system cache is used, and
+		 write-allocate hint is disabled.
+
+- qcom,iommu-earlymap:
+		Optional, Bool.
+		Support creating mappings in the page-table before Stage 1 translation is
+		enabled.
+
 ** Examples:
 
         /* SMMU with stream matching or stream indexing */
