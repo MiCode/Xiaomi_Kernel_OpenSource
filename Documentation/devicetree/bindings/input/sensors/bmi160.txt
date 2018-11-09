@@ -1,0 +1,27 @@
+
+The BMI160 is a highly integrated, low power inertial measurement unit (IMU)
+that provides precise acceleration and angular rate (gyroscopic) measurement.
+
+Required properties:
+
+ - compatible    : Should be "bosch-sensortec,bmi160".
+ - reg           : the Chip select ID.
+ - gpios         : BMI GPIO in the format described by ../gpio/gpio.txt
+
+Optional properties:
+ - bmi,init-interval:
+ - bmi,place   :
+
+
+Example:
+	bmi160@68{
+		compatible = "bosch-sensortec,bmi160";
+		reg = <0x68>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&bmi160_int1_default &bmi160_int2_default>;
+		interrupt-parent = <&tlmm_pinmux>;
+		interrupts = <78 0x2002>;
+		bmi,init-interval = <200>;
+		bmi,place = <1>;
+		bmi,gpio_irq = <&tlmm_pinmux 78 0x2002>;
+	};
