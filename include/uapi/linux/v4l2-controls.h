@@ -1050,6 +1050,8 @@ enum v4l2_mpeg_vidc_video_flip {
 	(V4L2_CID_MPEG_MSM_VIDC_BASE + 129)
 #define V4L2_CID_MPEG_VIDC_IMG_GRID_ENABLE \
 	(V4L2_CID_MPEG_MSM_VIDC_BASE + 130)
+#define V4L2_CID_MPEG_VIDC_VENC_BITRATE_SAVINGS \
+	(V4L2_CID_MPEG_MSM_VIDC_BASE + 131)
 
 /*  Camera class control IDs */
 
