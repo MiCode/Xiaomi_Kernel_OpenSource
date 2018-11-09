@@ -74,7 +74,7 @@ static struct cam_camnoc_irq_err
 		.err_enable = {
 			.access_type = CAM_REG_TYPE_READ_WRITE,
 			.enable = true,
-			.offset = 0x3Ba0, /* SPECIFIC_IFE02_ENCERREN_LOW */
+			.offset = 0x3BA0, /* SPECIFIC_IFE02_ENCERREN_LOW */
 			.value = 1,
 		},
 		.err_status = {
@@ -163,13 +163,13 @@ static struct cam_camnoc_irq_err
 		.err_enable = {
 			.access_type = CAM_REG_TYPE_READ_WRITE,
 			.enable = true,
-			.offset = 0x2088, /* SBM_FLAGOUTSET0_LOW */
+			.offset = 0x2288, /* SBM_FLAGOUTSET0_LOW */
 			.value = 0x1,
 		},
 		.err_status = {
 			.access_type = CAM_REG_TYPE_READ,
 			.enable = true,
-			.offset = 0x2090, /* SBM_FLAGOUTSTATUS0_LOW */
+			.offset = 0x2290, /* SBM_FLAGOUTSTATUS0_LOW */
 		},
 		.err_clear = {
 			.enable = false,
