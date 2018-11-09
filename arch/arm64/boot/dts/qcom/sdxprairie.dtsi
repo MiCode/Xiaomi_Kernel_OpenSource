@@ -238,7 +238,7 @@
 
 	ipa_hw: qcom,ipa@01e00000 {
 		compatible = "qcom,ipa";
-		reg = <0x1e00000 0xc0000>,
+		reg = <0x1e00000 0x84000>,
 		      <0x1e04000 0x23000>;
 		reg-names = "ipa-base", "gsi-base";
 		interrupts =
