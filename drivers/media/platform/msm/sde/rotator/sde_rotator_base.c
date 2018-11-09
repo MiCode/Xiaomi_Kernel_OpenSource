@@ -394,7 +394,7 @@ struct reg_bus_client *sde_reg_bus_vote_client_create(char *client_name)
 	strlcpy(client->name, client_name, MAX_CLIENT_NAME_LEN);
 	client->usecase_ndx = VOTE_INDEX_DISABLE;
 	client->id = id;
-	SDEROT_DBG("bus vote client %s created:%p id :%d\n", client_name,
+	SDEROT_DBG("bus vote client %s created:%pK id :%d\n", client_name,
 		client, id);
 	id++;
 	list_add(&client->list, &sde_res->reg_bus_clist);
@@ -410,7 +410,7 @@ void sde_reg_bus_vote_client_destroy(struct reg_bus_client *client)
 	if (!client) {
 		SDEROT_ERR("reg bus vote: invalid client handle\n");
 	} else {
-		SDEROT_DBG("bus vote client %s destroyed:%p id:%u\n",
+		SDEROT_DBG("bus vote client %s destroyed:%pK id:%u\n",
 			client->name, client, client->id);
 		mutex_lock(&sde_res->reg_bus_lock);
 		list_del_init(&client->list);
@@ -837,7 +837,7 @@ int sde_rotator_base_init(struct sde_rot_data_type **pmdata,
 		SDEROT_ERR("unable to map SDE ROT VBIF base\n");
 		goto probe_done;
 	}
-	SDEROT_DBG("SDE ROT VBIF HW Base addr=%p len=0x%x\n",
+	SDEROT_DBG("SDE ROT VBIF HW Base addr=%pK len=0x%x\n",
 			mdata->vbif_nrt_io.base, mdata->vbif_nrt_io.len);
 
 	rc = sde_mdp_parse_dt_misc(pdev, mdata);

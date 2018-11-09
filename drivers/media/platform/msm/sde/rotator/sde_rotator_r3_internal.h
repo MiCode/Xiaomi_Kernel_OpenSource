@@ -370,7 +370,7 @@ static inline u32 sde_hw_rotator_get_regdma_ctxidx(
 static inline char __iomem *sde_hw_rotator_get_regdma_segment_base(
 		struct sde_hw_rotator_context *ctx)
 {
-	SDEROT_DBG("regdma base @slot[%d]: %p\n",
+	SDEROT_DBG("regdma base @slot[%d]: %pK\n",
 			sde_hw_rotator_get_regdma_ctxidx(ctx),
 			ctx->regdma_base);
 
@@ -389,7 +389,7 @@ static inline char __iomem *sde_hw_rotator_get_regdma_segment(
 	u32 idx = sde_hw_rotator_get_regdma_ctxidx(ctx);
 	char __iomem *addr = ctx->regdma_wrptr;
 
-	SDEROT_DBG("regdma slot[%d] ==> %p\n", idx, addr);
+	SDEROT_DBG("regdma slot[%d] ==> %pK\n", idx, addr);
 	return addr;
 }
 
@@ -406,7 +406,7 @@ static inline void sde_hw_rotator_put_regdma_segment(
 	u32 idx = sde_hw_rotator_get_regdma_ctxidx(ctx);
 
 	ctx->regdma_wrptr = wrptr;
-	SDEROT_DBG("regdma slot[%d] <== %p\n", idx, wrptr);
+	SDEROT_DBG("regdma slot[%d] <== %pK\n", idx, wrptr);
 }
 
 /**
@@ -425,7 +425,7 @@ static inline void sde_hw_rotator_put_ctx(struct sde_hw_rotator_context *ctx)
 		list_add_tail(&ctx->list, &rot->sbuf_ctx[ctx->q_id]);
 	spin_unlock_irqrestore(&rot->rotisr_lock, flags);
 
-	SDEROT_DBG("rotCtx[%d][%d] <== ctx:%p | session-id:%d\n",
+	SDEROT_DBG("rotCtx[%d][%d] <== ctx:%pK | session-id:%d\n",
 			 ctx->q_id, idx, ctx, ctx->session_id);
 }
 

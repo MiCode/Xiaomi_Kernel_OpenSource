@@ -496,7 +496,7 @@ static void sde_rotator_clear_fence(struct sde_rot_entry *entry)
 {
 	if (entry->input_fence) {
 		SDEROT_EVTLOG(entry->input_fence, 1111);
-		SDEROT_DBG("sys_fence_put i:%p\n", entry->input_fence);
+		SDEROT_DBG("sys_fence_put i:%pK\n", entry->input_fence);
 		sde_rotator_put_sync_fence(entry->input_fence);
 		entry->input_fence = NULL;
 	}
@@ -507,7 +507,7 @@ static void sde_rotator_clear_fence(struct sde_rot_entry *entry)
 			sde_rotator_resync_timeline(entry->fenceq->timeline);
 
 		SDEROT_EVTLOG(entry->output_fence, 2222);
-		SDEROT_DBG("sys_fence_put o:%p\n", entry->output_fence);
+		SDEROT_DBG("sys_fence_put o:%pK\n", entry->output_fence);
 		sde_rotator_put_sync_fence(entry->output_fence);
 		entry->output_fence = NULL;
 	}

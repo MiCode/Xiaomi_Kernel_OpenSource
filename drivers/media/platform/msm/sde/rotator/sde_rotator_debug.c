@@ -353,7 +353,7 @@ void sde_rot_dump_reg(const char *dump_name, u32 reg_dump_flag,
 
 		if (*dump_mem) {
 			dump_addr = *dump_mem;
-			pr_info("%s: start_addr:0x%p end_addr:0x%p reg_addr=0x%X\n",
+			pr_info("%s: start_addr:0x%pK end_addr:0x%pK reg_addr=0x%X\n",
 				dump_name, dump_addr, dump_addr + (u32)len * 16,
 				addr);
 		} else {
