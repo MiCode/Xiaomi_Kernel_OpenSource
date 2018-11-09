@@ -1250,4 +1250,34 @@
 			};
 		};
 	};
+
+	q6-hvx-step {
+		polling-delay-passive = <10>;
+		polling-delay = <0>;
+		thermal-sensors = <&tsens1 4>;
+		thermal-governor = "step_wise";
+		trips {
+			q6_hvx_step0: q6-hvx-step0 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			q6_hvx_step1: q6-hvx-step1 {
+				temperature = <105000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			hvx_cdev_lvl0 {
+				trip = <&q6_hvx_step0>;
+				cooling-device = <&msm_cdsp_rm
+						THERMAL_NO_LIMIT 6>;
+			};
+			hvx_cdev_lvl1 {
+				trip = <&q6_hvx_step1>;
+				cooling-device = <&msm_cdsp_rm 6 6>;
+			};
+		};
+	};
 };
