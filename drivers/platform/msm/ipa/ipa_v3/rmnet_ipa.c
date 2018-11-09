@@ -3706,6 +3706,13 @@ static inline int rmnet_ipa3_delete_lan_client_info
 	int i;
 	struct ipa_tether_device_info *teth_ptr = NULL;
 
+	/* Check if Device type is valid. */
+	if (device_type >= IPACM_MAX_CLIENT_DEVICE_TYPES ||
+		device_type < 0) {
+		IPAWANERR("Invalid Device type: %d\n", device_type);
+		return -EINVAL;
+	}
+
 	/* Check if the request is to clean up all clients. */
 	teth_ptr = &rmnet_ipa3_ctx->tether_device[device_type];
 
