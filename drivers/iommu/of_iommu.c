@@ -103,6 +103,14 @@ static int of_iommu_xlate(struct device *dev,
 	int err;
 
 	ops = iommu_ops_from_fwnode(fwnode);
+	/*
+	 * Return -EPROBE_DEFER for the platform devices which are dependent
+	 * on the SMMU driver registration. Deferring from here helps in adding
+	 * the clients in proper iommu groups.
+	 */
+	if (!dev_is_pci(dev) && of_device_is_available(iommu_spec->np) && !ops)
+		return -EPROBE_DEFER;
+
 	if ((ops && !ops->of_xlate) ||
 	    !of_device_is_available(iommu_spec->np))
 		return NO_IOMMU;
