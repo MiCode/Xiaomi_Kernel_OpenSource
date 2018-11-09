@@ -2251,7 +2251,7 @@ static int sde_kms_check_secure_transition(struct msm_kms *kms,
 	dev = sde_kms->dev;
 
 	/* iterate state object for active secure/non-secure crtc */
-	for_each_old_crtc_in_state(state, crtc, crtc_state, i) {
+	for_each_new_crtc_in_state(state, crtc, crtc_state, i) {
 		if (!crtc_state->active)
 			continue;
 
