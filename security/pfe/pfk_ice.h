@@ -22,32 +22,6 @@
 
 #include <linux/types.h>
 
-struct pfk_ice_key_req {
-	uint32_t cmd_id;
-	uint32_t index;
-	uint32_t ice_key_offset;
-	uint32_t ice_key_size;
-	uint32_t ice_salt_offset;
-	uint32_t ice_salt_size;
-} __packed;
-
-struct pfk_ice_key_rsp {
-	uint32_t ret;
-	uint32_t cmd_id;
-} __packed;
-
-struct pfk_km_get_version_req {
-	uint32_t cmd_id;
-} __packed;
-
-struct pfk_km_get_version_rsp {
-	int status;
-	uint32_t major_version;
-	uint32_t minor_version;
-	uint32_t ta_major_version;
-	uint32_t ta_minor_version;
-} __packed;
-
 int pfk_ice_init(void);
 int pfk_ice_deinit(void);
 
