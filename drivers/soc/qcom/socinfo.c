@@ -384,6 +384,7 @@ uint32_t socinfo_get_version(void)
 {
 	return (socinfo) ? socinfo->v0_1.version : 0;
 }
+EXPORT_SYMBOL(socinfo_get_version);
 
 char *socinfo_get_build_id(void)
 {
