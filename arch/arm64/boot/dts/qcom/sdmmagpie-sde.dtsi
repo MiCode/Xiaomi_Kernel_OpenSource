@@ -383,9 +383,6 @@
 		qcom,mdss-rot-danger-lut = <0x0 0x0>;
 		qcom,mdss-rot-safe-lut = <0x0000ffff 0x0000ffff>;
 
-		qcom,mdss-rot-qos-cpu-mask = <0xf>;
-		qcom,mdss-rot-qos-cpu-dma-latency = <75>;
-
 		qcom,mdss-default-ot-rd-limit = <32>;
 		qcom,mdss-default-ot-wr-limit = <32>;
 
@@ -442,7 +439,7 @@
 			qcom,ctrl-supply-entry@0 {
 				reg = <0>;
 				qcom,supply-name = "vdda-1p2";
-				qcom,supply-min-voltage = <1232000>;
+				qcom,supply-min-voltage = <1144000>;
 				qcom,supply-max-voltage = <1232000>;
 				qcom,supply-enable-load = <21800>;
 				qcom,supply-disable-load = <0>;
@@ -491,7 +488,7 @@
 			qcom,ctrl-supply-entry@0 {
 				reg = <0>;
 				qcom,supply-name = "vdda-1p2";
-				qcom,supply-min-voltage = <1232000>;
+				qcom,supply-min-voltage = <1144000>;
 				qcom,supply-max-voltage = <1232000>;
 				qcom,supply-enable-load = <21800>;
 				qcom,supply-disable-load = <0>;
@@ -538,7 +535,7 @@
 			qcom,phy-supply-entry@0 {
 				reg = <0>;
 				qcom,supply-name = "vdda-0p9";
-				qcom,supply-min-voltage = <920000>;
+				qcom,supply-min-voltage = <824000>;
 				qcom,supply-max-voltage = <920000>;
 				qcom,supply-enable-load = <36000>;
 				qcom,supply-disable-load = <0>;
@@ -571,7 +568,7 @@
 			qcom,phy-supply-entry@0 {
 				reg = <0>;
 				qcom,supply-name = "vdda-0p9";
-				qcom,supply-min-voltage = <920000>;
+				qcom,supply-min-voltage = <824000>;
 				qcom,supply-max-voltage = <920000>;
 				qcom,supply-enable-load = <36000>;
 				qcom,supply-disable-load = <0>;

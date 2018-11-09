@@ -26,7 +26,12 @@ Properties:
 - compatible:
 	Usage: required
 	Value type: <string>
-	Definition: Should contain "qcom,pdc-<target>"
+	Definition: Should contain one of -
+		    "qcom,pdc-sdm845",
+		    "qcom,pdc-sdmmagpie",
+		    "qcom,pdc-sm6150",
+	            "qcom,pdc-sm8150",
+		    "qcom,pdc-sdxprairie",
 
 - reg:
 	Usage: required

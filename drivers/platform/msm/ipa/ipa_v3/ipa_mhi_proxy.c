@@ -183,6 +183,7 @@ struct imp_context {
 	struct imp_dev_info dev_info;
 	struct imp_mhi_driver md;
 	struct mutex mutex;
+	struct mutex lpm_mutex;
 	enum imp_state state;
 	bool in_lpm;
 	bool lpm_disabled;
@@ -709,6 +710,13 @@ static void imp_mhi_shutdown(void)
 			iommu_unmap(cb->mapping->domain, iova_p, size_p);
 		}
 	}
+	if (!imp_ctx->in_lpm &&
+		(imp_ctx->state == IMP_READY ||
+			imp_ctx->state == IMP_STARTED)) {
+		IMP_DBG("devote IMP with state= %d\n", imp_ctx->state);
+		IPA_ACTIVE_CLIENTS_DEC_SPECIAL("IMP");
+	}
+	imp_ctx->in_lpm = false;
 	imp_ctx->state = IMP_PROBED;
 
 	IMP_FUNC_EXIT();
@@ -843,10 +851,10 @@ static void imp_mhi_status_cb(struct mhi_device *mhi_dev, enum MHI_CB mhi_cb)
 {
 	IMP_DBG("%d\n", mhi_cb);
 
-	mutex_lock(&imp_ctx->mutex);
+	mutex_lock(&imp_ctx->lpm_mutex);
 	if (mhi_dev != imp_ctx->md.mhi_dev) {
 		IMP_DBG("ignoring secondary callbacks\n");
-		mutex_unlock(&imp_ctx->mutex);
+		mutex_unlock(&imp_ctx->lpm_mutex);
 		return;
 	}
 
@@ -879,7 +887,7 @@ static void imp_mhi_status_cb(struct mhi_device *mhi_dev, enum MHI_CB mhi_cb)
 		IMP_ERR("unexpected event %d\n", mhi_cb);
 		break;
 	}
-	mutex_unlock(&imp_ctx->mutex);
+	mutex_unlock(&imp_ctx->lpm_mutex);
 }
 
 static int imp_probe(struct platform_device *pdev)
@@ -943,11 +951,13 @@ static int imp_remove(struct platform_device *pdev)
 		IMP_DBG("devote IMP with state= %d\n", imp_ctx->state);
 		IPA_ACTIVE_CLIENTS_DEC_SPECIAL("IMP");
 	}
-	imp_ctx->in_lpm = false;
 	imp_ctx->lpm_disabled = false;
-
 	imp_ctx->state = IMP_INVALID;
 	mutex_unlock(&imp_ctx->mutex);
+
+	mutex_lock(&imp_ctx->lpm_mutex);
+	imp_ctx->in_lpm = false;
+	mutex_unlock(&imp_ctx->lpm_mutex);
 
 	return 0;
 }
@@ -986,6 +996,7 @@ void imp_handle_modem_ready(void)
 			return;
 
 		mutex_init(&imp_ctx->mutex);
+		mutex_init(&imp_ctx->lpm_mutex);
 	}
 
 	if (imp_ctx->state != IMP_INVALID) {

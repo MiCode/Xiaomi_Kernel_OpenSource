@@ -176,6 +176,7 @@ enum hfi_msg_type {
 #define H2F_MSG_BW_VOTE_TBL	3
 #define H2F_MSG_PERF_TBL	4
 #define H2F_MSG_TEST		5
+#define H2F_MSG_ACD_TBL		7
 #define H2F_MSG_START		10
 #define H2F_MSG_FEATURE_CTRL	11
 #define H2F_MSG_GET_VALUE	12
@@ -272,6 +273,20 @@ struct hfi_dcvstable_cmd {
 	uint32_t gmu_level_num;
 	struct opp_gx_desc gx_votes[MAX_GX_LEVELS];
 	struct opp_desc cx_votes[MAX_CX_LEVELS];
+};
+
+#define HFI_ACD_INIT_VERSION 1
+#define MAX_ACD_STRIDE 2
+#define MAX_ACD_NUM_LEVELS 6
+
+/* H2F */
+struct hfi_acd_table_cmd {
+	uint32_t hdr;
+	uint32_t version;
+	uint32_t enable_by_level;
+	uint32_t stride;
+	uint32_t num_levels;
+	uint32_t data[MAX_ACD_NUM_LEVELS * MAX_ACD_STRIDE];
 };
 
 /* H2F */
@@ -604,6 +619,7 @@ struct pending_cmd {
  * @seqnum: atomic counter that is incremented for each message sent. The
  *	value of the counter is used as sequence number for HFI message
  * @bwtbl_cmd: HFI BW table buffer
+ * @acd_tbl_cmd: HFI table for ACD data
  */
 struct kgsl_hfi {
 	struct kgsl_device *kgsldev;
@@ -613,6 +629,7 @@ struct kgsl_hfi {
 	uint32_t version;
 	atomic_t seqnum;
 	struct hfi_bwtable_cmd bwtbl_cmd;
+	struct hfi_acd_table_cmd acd_tbl_cmd;
 };
 
 struct gmu_device;

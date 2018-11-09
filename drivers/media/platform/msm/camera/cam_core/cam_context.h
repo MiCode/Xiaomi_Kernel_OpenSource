@@ -180,6 +180,7 @@ struct cam_ctx_ops {
  * @refcount:              Context object refcount
  * @node:                  The main node to which this context belongs
  * @sync_mutex:            mutex to sync with sync cb thread
+ * @last_flush_req:        Last request to flush
  *
  */
 struct cam_context {
@@ -215,6 +216,7 @@ struct cam_context {
 	struct kref                  refcount;
 	void                        *node;
 	struct mutex                 sync_mutex;
+	uint32_t                     last_flush_req;
 };
 
 /**

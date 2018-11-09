@@ -83,7 +83,6 @@ struct diag_mhi_info diag_mhi[NUM_MHI_DEV] = {
 static int mhi_buf_tbl_add(struct diag_mhi_info *mhi_info, int type,
 			   void *buf, int len)
 {
-	unsigned long flags;
 	struct diag_mhi_buf_tbl_t *item;
 	struct diag_mhi_ch_t *ch = NULL;
 
@@ -103,16 +102,14 @@ static int mhi_buf_tbl_add(struct diag_mhi_info *mhi_info, int type,
 		return -EINVAL;
 	}
 
-	item = kzalloc(sizeof(struct diag_mhi_buf_tbl_t), GFP_KERNEL);
+	item = kzalloc(sizeof(*item), GFP_ATOMIC);
 	if (!item)
 		return -ENOMEM;
 	kmemleak_not_leak(item);
 
-	spin_lock_irqsave(&ch->lock, flags);
 	item->buf = buf;
 	item->len = len;
 	list_add_tail(&item->link, &ch->buf_tbl);
-	spin_unlock_irqrestore(&ch->lock, flags);
 
 	return 0;
 }
@@ -166,7 +163,9 @@ static void mhi_buf_tbl_clear(struct diag_mhi_info *mhi_info)
 	unsigned long flags;
 	struct list_head *start, *temp;
 	struct diag_mhi_buf_tbl_t *item = NULL;
+	struct diag_mhi_buf_tbl_t *tp = NULL, *tp_temp = NULL;
 	struct diag_mhi_ch_t *ch = NULL;
+	unsigned char *buf;
 
 	if (!mhi_info || !mhi_info->enabled)
 		return;
@@ -180,9 +179,17 @@ static void mhi_buf_tbl_clear(struct diag_mhi_info *mhi_info)
 			item = list_entry(start, struct diag_mhi_buf_tbl_t,
 					  link);
 			list_del(&item->link);
+			buf = item->buf;
+			list_for_each_entry_safe(tp, tp_temp,
+				&mhi_info->read_done_list, link) {
+				if (tp->buf == buf) {
+					list_del(&tp->link);
+					kfree(tp);
+					tp = NULL;
+				}
+			}
 			diagmem_free(driver, item->buf, mhi_info->mempool);
 			kfree(item);
-
 		}
 		spin_unlock_irqrestore(&ch->lock, flags);
 	}
@@ -348,9 +355,9 @@ static void mhi_read_done_work_fn(struct work_struct *work)
 	do {
 		if (!(atomic_read(&(mhi_info->read_ch.opened))))
 			break;
-		spin_lock_irqsave(&mhi_info->lock, flags);
+		spin_lock_irqsave(&mhi_info->read_ch.lock, flags);
 		if (list_empty(&mhi_info->read_done_list)) {
-			spin_unlock_irqrestore(&mhi_info->lock, flags);
+			spin_unlock_irqrestore(&mhi_info->read_ch.lock, flags);
 			break;
 		}
 		tp = list_first_entry(&mhi_info->read_done_list,
@@ -359,7 +366,7 @@ static void mhi_read_done_work_fn(struct work_struct *work)
 		buf = tp->buf;
 		len = tp->len;
 		kfree(tp);
-		spin_unlock_irqrestore(&mhi_info->lock, flags);
+		spin_unlock_irqrestore(&mhi_info->read_ch.lock, flags);
 		if (!buf)
 			break;
 		DIAG_LOG(DIAG_DEBUG_BRIDGE,
@@ -373,12 +380,15 @@ static void mhi_read_done_work_fn(struct work_struct *work)
 		if ((atomic_read(&(mhi_info->read_ch.opened)))) {
 			err = diag_remote_dev_read_done(mhi_info->dev_id, buf,
 						  len);
-			if (err)
+			if (err) {
 				mhi_buf_tbl_remove(mhi_info, TYPE_MHI_READ_CH,
 					buf, len);
+				break;
+			}
 		} else {
 			mhi_buf_tbl_remove(mhi_info, TYPE_MHI_READ_CH, buf,
 					   len);
+			break;
 		}
 	} while (buf);
 }
@@ -400,22 +410,26 @@ static void mhi_read_work_fn(struct work_struct *work)
 	do {
 		if (!(atomic_read(&(read_ch->opened))))
 			break;
+
 		spin_lock_irqsave(&read_ch->lock, flags);
 		buf = diagmem_alloc(driver, DIAG_MDM_BUF_SIZE,
 				    mhi_info->mempool);
-		spin_unlock_irqrestore(&read_ch->lock, flags);
-		if (!buf)
+		if (!buf) {
+			spin_unlock_irqrestore(&read_ch->lock, flags);
 			break;
+		}
 
 		err = mhi_buf_tbl_add(mhi_info, TYPE_MHI_READ_CH, buf,
 				      DIAG_MDM_BUF_SIZE);
-		if (err)
+		if (err) {
+			spin_unlock_irqrestore(&read_ch->lock, flags);
 			goto fail;
+		}
 
 		DIAG_LOG(DIAG_DEBUG_BRIDGE,
 			 "queueing a read buf %pK, ch: %s\n",
 			 buf, mhi_info->name);
-		spin_lock_irqsave(&read_ch->lock, flags);
+
 		err = mhi_queue_transfer(mhi_info->mhi_dev, DMA_FROM_DEVICE,
 					buf, DIAG_MDM_BUF_SIZE, mhi_flags);
 		spin_unlock_irqrestore(&read_ch->lock, flags);
@@ -475,12 +489,12 @@ static int mhi_write(int id, unsigned char *buf, int len, int ctxt)
 		return -EIO;
 	}
 
+	spin_lock_irqsave(&ch->lock, flags);
 	err = mhi_buf_tbl_add(&diag_mhi[id], TYPE_MHI_WRITE_CH, buf,
 			      len);
 	if (err)
 		goto fail;
 
-	spin_lock_irqsave(&ch->lock, flags);
 	err = mhi_queue_transfer(diag_mhi[id].mhi_dev, DMA_TO_DEVICE, buf,
 				len, mhi_flags);
 	spin_unlock_irqrestore(&ch->lock, flags);
@@ -533,9 +547,11 @@ static void diag_mhi_read_cb(struct mhi_device *mhi_dev,
 				struct mhi_result *result)
 {
 	struct diag_mhi_info *mhi_info = NULL;
-	struct diag_mhi_buf_tbl_t *tp;
+	struct diag_mhi_buf_tbl_t *item = NULL;
+	struct diag_mhi_buf_tbl_t *tp = NULL, *temp = NULL;
 	unsigned long flags;
 	void *buf = NULL;
+	uint8_t queue_read = 0;
 
 	if (!mhi_dev)
 		return;
@@ -548,18 +564,29 @@ static void diag_mhi_read_cb(struct mhi_device *mhi_dev,
 		return;
 	if (atomic_read(&mhi_info->read_ch.opened) &&
 	    result->transaction_status != -ENOTCONN) {
+		spin_lock_irqsave(&mhi_info->read_ch.lock, flags);
 		tp = kmalloc(sizeof(*tp), GFP_ATOMIC);
 		if (!tp) {
 			DIAG_LOG(DIAG_DEBUG_BRIDGE,
 			"no mem for list\n");
+			spin_unlock_irqrestore(&mhi_info->read_ch.lock, flags);
 			return;
 		}
-		tp->buf = buf;
-		tp->len = result->bytes_xferd;
-		spin_lock_irqsave(&mhi_info->lock, flags);
-		list_add_tail(&tp->link, &mhi_info->read_done_list);
-		spin_unlock_irqrestore(&mhi_info->lock, flags);
-		queue_work(mhi_info->mhi_wq, &(mhi_info->read_done_work));
+		list_for_each_entry_safe(item, temp,
+				&mhi_info->read_ch.buf_tbl, link) {
+			if (item->buf == buf) {
+				tp->buf = buf;
+				tp->len = result->bytes_xferd;
+				list_add_tail(&tp->link,
+					&mhi_info->read_done_list);
+				queue_read = 1;
+				break;
+			}
+		}
+		spin_unlock_irqrestore(&mhi_info->read_ch.lock, flags);
+		if (queue_read)
+			queue_work(mhi_info->mhi_wq,
+			&(mhi_info->read_done_work));
 	} else {
 		mhi_buf_tbl_remove(mhi_info, TYPE_MHI_READ_CH, buf,
 					result->bytes_xferd);

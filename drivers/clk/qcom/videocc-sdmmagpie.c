@@ -32,7 +32,7 @@
 #include "clk-rcg.h"
 #include "clk-branch.h"
 #include "clk-alpha-pll.h"
-#include "vdd-level.h"
+#include "vdd-level-sdmmagpie.h"
 
 #define F(f, s, h, m, n) { (f), (s), (2 * (h) - 1), (m), (n) }
 
@@ -68,7 +68,7 @@ static const struct parent_map video_cc_parent_map_2[] = {
 };
 
 static const char * const video_cc_parent_names_2[] = {
-	"bi_tcxo",
+	"bi_tcxo_ao",
 	"core_bi_pll_test_se",
 };
 

@@ -204,6 +204,7 @@ int cam_flash_pmic_power_ops(struct cam_flash_ctrl *fctrl,
 				"Enable Regulator Failed rc = %d", rc);
 			return rc;
 		}
+		fctrl->last_flush_req = 0;
 	}
 
 	if (!regulator_enable) {
@@ -394,6 +395,9 @@ int cam_flash_flush_request(struct cam_req_mgr_flush_request *flush)
 
 	mutex_lock(&fctrl->flash_mutex);
 	if (flush->type == CAM_REQ_MGR_FLUSH_TYPE_ALL) {
+		fctrl->last_flush_req = flush->req_id;
+		CAM_DBG(CAM_FLASH, "last reqest to flush is %lld",
+			flush->req_id);
 		rc = fctrl->func_tbl.flush_req(fctrl, FLUSH_ALL, 0);
 		if (rc) {
 			CAM_ERR(CAM_FLASH, "FLUSH_TYPE_ALL failed rc: %d", rc);
@@ -729,12 +733,7 @@ int cam_flash_pmic_apply_setting(struct cam_flash_ctrl *fctrl,
 					fctrl->flash_state);
 					return -EINVAL;
 				}
-				rc = cam_flash_prepare(fctrl, true);
-				if (rc) {
-					CAM_ERR(CAM_FLASH,
-					"Enable Regulator Failed rc = %d", rc);
-					return rc;
-				}
+
 				rc = cam_flash_high(fctrl, flash_data);
 				if (rc)
 					CAM_ERR(CAM_FLASH,
@@ -749,12 +748,7 @@ int cam_flash_pmic_apply_setting(struct cam_flash_ctrl *fctrl,
 					fctrl->flash_state);
 					return -EINVAL;
 				}
-				rc = cam_flash_prepare(fctrl, true);
-				if (rc) {
-					CAM_ERR(CAM_FLASH,
-					"Enable Regulator Failed rc = %d", rc);
-					return rc;
-				}
+
 				rc = cam_flash_low(fctrl, flash_data);
 				if (rc)
 					CAM_ERR(CAM_FLASH,
@@ -768,15 +762,6 @@ int cam_flash_pmic_apply_setting(struct cam_flash_ctrl *fctrl,
 					"LED OFF FAILED: %d",
 					rc);
 					return rc;
-				}
-				if ((fctrl->flash_state ==
-					CAM_FLASH_STATE_START) &&
-					(fctrl->is_regulator_enabled == true)) {
-					rc = cam_flash_prepare(fctrl, false);
-					if (rc)
-						CAM_ERR(CAM_FLASH,
-						"Disable Regulator failed: %d",
-						rc);
 				}
 			}
 		} else if (fctrl->nrt_info.cmn_attr.cmd_type ==
@@ -956,6 +941,20 @@ int cam_flash_i2c_pkt_parser(struct cam_flash_ctrl *fctrl, void *arg)
 
 	/* Add offset to the flash csl header */
 	csl_packet = (struct cam_packet *)(generic_ptr + config.offset);
+
+	if ((csl_packet->header.op_code & 0xFFFFFF) !=
+		CAM_FLASH_PACKET_OPCODE_INIT &&
+		csl_packet->header.request_id <= fctrl->last_flush_req
+		&& fctrl->last_flush_req != 0) {
+		CAM_DBG(CAM_FLASH,
+			"reject request %lld, last request to flush %lld",
+			csl_packet->header.request_id, fctrl->last_flush_req);
+		return -EINVAL;
+	}
+
+	if (csl_packet->header.request_id > fctrl->last_flush_req)
+		fctrl->last_flush_req = 0;
+
 	switch (csl_packet->header.op_code & 0xFFFFFF) {
 	case CAM_FLASH_PACKET_OPCODE_INIT: {
 		/* INIT packet*/
@@ -1227,7 +1226,7 @@ int cam_flash_pmic_pkt_parser(struct cam_flash_ctrl *fctrl, void *arg)
 	struct cam_cmd_buf_desc *cmd_desc = NULL;
 	struct common_header *cmn_hdr;
 	struct cam_config_dev_cmd config;
-	struct cam_req_mgr_add_request add_req;
+	struct cam_req_mgr_add_request add_req = {0};
 	struct cam_flash_init *cam_flash_info = NULL;
 	struct cam_flash_set_rer *flash_rer_info = NULL;
 	struct cam_flash_set_on_off *flash_operation_info = NULL;
@@ -1269,6 +1268,19 @@ int cam_flash_pmic_pkt_parser(struct cam_flash_ctrl *fctrl, void *arg)
 
 	/* Add offset to the flash csl header */
 	csl_packet = (struct cam_packet *)(generic_ptr + config.offset);
+
+	if ((csl_packet->header.op_code & 0xFFFFFF) !=
+		CAM_FLASH_PACKET_OPCODE_INIT &&
+		csl_packet->header.request_id <= fctrl->last_flush_req
+		&& fctrl->last_flush_req != 0) {
+		CAM_DBG(CAM_FLASH,
+			"reject request %lld, last request to flush %lld",
+			csl_packet->header.request_id, fctrl->last_flush_req);
+		return -EINVAL;
+	}
+
+	if (csl_packet->header.request_id > fctrl->last_flush_req)
+		fctrl->last_flush_req = 0;
 
 	switch (csl_packet->header.op_code & 0xFFFFFF) {
 	case CAM_FLASH_PACKET_OPCODE_INIT: {
@@ -1391,6 +1403,9 @@ int cam_flash_pmic_pkt_parser(struct cam_flash_ctrl *fctrl, void *arg)
 			for (i = 0; i < flash_operation_info->count; i++)
 				flash_data->led_current_ma[i]
 				= flash_operation_info->led_current_ma[i];
+
+			if (flash_data->opcode == CAMERA_SENSOR_FLASH_OP_OFF)
+				add_req.skip_before_applying |= SKIP_NEXT_FRAME;
 		}
 		break;
 		default:
@@ -1529,7 +1544,7 @@ update_req_mgr:
 
 		if ((csl_packet->header.op_code & 0xFFFFF) ==
 			CAM_FLASH_PACKET_OPCODE_SET_OPS)
-			add_req.skip_before_applying = 1;
+			add_req.skip_before_applying |= 1;
 		else
 			add_req.skip_before_applying = 0;
 
@@ -1589,6 +1604,7 @@ int cam_flash_release_dev(struct cam_flash_ctrl *fctrl)
 		fctrl->bridge_intf.device_hdl = -1;
 		fctrl->bridge_intf.link_hdl = -1;
 		fctrl->bridge_intf.session_hdl = -1;
+		fctrl->last_flush_req = 0;
 	}
 
 	return rc;
@@ -1603,9 +1619,7 @@ void cam_flash_shutdown(struct cam_flash_ctrl *fctrl)
 
 	if ((fctrl->flash_state == CAM_FLASH_STATE_CONFIG) ||
 		(fctrl->flash_state == CAM_FLASH_STATE_START)) {
-		mutex_lock(&(fctrl->flash_mutex));
 		fctrl->func_tbl.flush_req(fctrl, FLUSH_ALL, 0);
-		mutex_unlock(&(fctrl->flash_mutex));
 		rc = fctrl->func_tbl.power_ops(fctrl, false);
 		if (rc)
 			CAM_ERR(CAM_FLASH, "Power Down Failed rc: %d",

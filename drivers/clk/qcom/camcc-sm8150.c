@@ -172,7 +172,7 @@ static const struct alpha_pll_config cam_cc_pll0_config = {
 	.test_ctl_val = 0x00000000,
 	.test_ctl_hi_val = 0x00000002,
 	.test_ctl_hi1_val = 0x00000020,
-	.user_ctl_val = 0x00000000,
+	.user_ctl_val = 0x00003100,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x000000D0,
 };
@@ -186,7 +186,7 @@ static const struct alpha_pll_config cam_cc_pll0_config_sm8150_v2 = {
 	.test_ctl_val = 0x00000000,
 	.test_ctl_hi_val = 0x00000000,
 	.test_ctl_hi1_val = 0x00000020,
-	.user_ctl_val = 0x00000000,
+	.user_ctl_val = 0x00003100,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x000000D0,
 };
@@ -214,10 +214,7 @@ static struct clk_alpha_pll cam_cc_pll0 = {
 };
 
 static const struct clk_div_table post_div_table_trion_even[] = {
-	{ 0x0, 1 },
 	{ 0x1, 2 },
-	{ 0x3, 4 },
-	{ 0x7, 8 },
 	{ }
 };
 
@@ -237,10 +234,7 @@ static struct clk_alpha_pll_postdiv cam_cc_pll0_out_even = {
 };
 
 static const struct clk_div_table post_div_table_trion_odd[] = {
-	{ 0x0, 1 },
 	{ 0x3, 3 },
-	{ 0x5, 5 },
-	{ 0x7, 7 },
 	{ }
 };
 
@@ -268,7 +262,7 @@ static const struct alpha_pll_config cam_cc_pll1_config = {
 	.test_ctl_val = 0x00000000,
 	.test_ctl_hi_val = 0x00000002,
 	.test_ctl_hi1_val = 0x00000020,
-	.user_ctl_val = 0x00000000,
+	.user_ctl_val = 0x00000100,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x000000D0,
 };
@@ -282,7 +276,7 @@ static const struct alpha_pll_config cam_cc_pll1_config_sm8150_v2 = {
 	.test_ctl_val = 0x00000000,
 	.test_ctl_hi_val = 0x00000000,
 	.test_ctl_hi1_val = 0x00000020,
-	.user_ctl_val = 0x00000000,
+	.user_ctl_val = 0x00000100,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x000000D0,
 };
@@ -333,6 +327,7 @@ static const struct alpha_pll_config cam_cc_pll2_config = {
 	.test_ctl_val = 0x04000400,
 	.test_ctl_hi_val = 0x00004000,
 	.test_ctl_hi1_val = 0x00000000,
+	.user_ctl_val = 0x00000100,
 };
 
 static struct clk_alpha_pll cam_cc_pll2 = {
@@ -359,10 +354,7 @@ static struct clk_alpha_pll cam_cc_pll2 = {
 };
 
 static const struct clk_div_table post_div_table_regera_main[] = {
-	{ 0x0, 1 },
 	{ 0x1, 2 },
-	{ 0x3, 4 },
-	{ 0x2, 8 },
 	{ }
 };
 
@@ -390,7 +382,7 @@ static const struct alpha_pll_config cam_cc_pll3_config = {
 	.test_ctl_val = 0x00000000,
 	.test_ctl_hi_val = 0x00000002,
 	.test_ctl_hi1_val = 0x00000020,
-	.user_ctl_val = 0x00000000,
+	.user_ctl_val = 0x00000100,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x000000D0,
 };
@@ -404,7 +396,7 @@ static const struct alpha_pll_config cam_cc_pll3_config_sm8150_v2 = {
 	.test_ctl_val = 0x00000000,
 	.test_ctl_hi_val = 0x00000000,
 	.test_ctl_hi1_val = 0x00000020,
-	.user_ctl_val = 0x00000000,
+	.user_ctl_val = 0x00000100,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x000000D0,
 };
@@ -455,7 +447,7 @@ static const struct alpha_pll_config cam_cc_pll4_config = {
 	.test_ctl_val = 0x00000000,
 	.test_ctl_hi_val = 0x00000002,
 	.test_ctl_hi1_val = 0x00000020,
-	.user_ctl_val = 0x00000000,
+	.user_ctl_val = 0x00000100,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x000000D0,
 };
@@ -469,7 +461,7 @@ static const struct alpha_pll_config cam_cc_pll4_config_sm8150_v2 = {
 	.test_ctl_val = 0x00000000,
 	.test_ctl_hi_val = 0x00000000,
 	.test_ctl_hi1_val = 0x00000020,
-	.user_ctl_val = 0x00000000,
+	.user_ctl_val = 0x00000100,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x000000D0,
 };

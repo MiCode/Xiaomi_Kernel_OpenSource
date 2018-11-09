@@ -709,8 +709,8 @@ struct mmc_host {
 
 	atomic_t rpmb_req_pending;
 	struct mutex		rpmb_req_mutex;
+	bool crash_on_err;	/* crash the system on error */
 	unsigned long		private[0] ____cacheline_aligned;
-	bool crash_on_err;  /* crash the system on error */
 };
 
 struct device_node;

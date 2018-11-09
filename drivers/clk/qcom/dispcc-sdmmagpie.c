@@ -32,7 +32,7 @@
 #include "clk-regmap-divider.h"
 #include "common.h"
 #include "reset.h"
-#include "vdd-level.h"
+#include "vdd-level-sdmmagpie.h"
 
 #define F(f, s, h, m, n) { (f), (s), (2 * (h) - 1), (m), (n) }
 
@@ -90,6 +90,11 @@ static const struct parent_map disp_cc_parent_map_2[] = {
 
 static const char * const disp_cc_parent_names_2[] = {
 	"bi_tcxo",
+	"core_bi_pll_test_se",
+};
+
+static const char * const disp_cc_parent_names_ao[] = {
+	"bi_tcxo_ao",
 	"core_bi_pll_test_se",
 };
 
@@ -562,13 +567,9 @@ static struct clk_rcg2 disp_cc_xo_clk_src = {
 	.freq_tbl = ftbl_disp_cc_mdss_byte0_clk_src,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "disp_cc_xo_clk_src",
-		.parent_names = disp_cc_parent_names_2,
+		.parent_names = disp_cc_parent_names_ao,
 		.num_parents = 2,
 		.ops = &clk_rcg2_ops,
-		.vdd_class = &vdd_cx,
-		.num_rate_max = VDD_NUM,
-		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_LOWER] = 19200000},
 	},
 };
 

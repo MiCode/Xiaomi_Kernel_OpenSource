@@ -1293,13 +1293,6 @@
 		interrupts = <1 5 4>;
 	};
 
-	dsu_pmu@0 {
-		compatible = "arm,dsu-pmu";
-		interrupts = <GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>;
-		cpus = <&CPU0>, <&CPU1>, <&CPU2>, <&CPU3>,
-			<&CPU4>, <&CPU5>, <&CPU6>, <&CPU7>;
-	};
-
 	qcom,msm-imem@146bf000 {
 		compatible = "qcom,msm-imem";
 		reg = <0x146bf000 0x1000>;
@@ -2308,7 +2301,7 @@
 			<0 0>,
 			<0 0>,
 			<37500000 300000000>,
-			<75000000 300000000>,
+			<37500000 300000000>,
 			<0 0>,
 			<0 0>,
 			<0 0>,
@@ -3146,10 +3139,10 @@
 	dcc: dcc_v2@10a2000 {
 		compatible = "qcom,dcc-v2";
 		reg = <0x10a2000 0x1000>,
-		      <0x10ae000 0x2000>;
+		      <0x10ad000 0x3000>;
 		reg-names = "dcc-base", "dcc-ram-base";
 
-		dcc-ram-offset = <0x6000>;
+		dcc-ram-offset = <0x5000>;
 
 		qcom,curr-link-list = <3>;
 		qcom,link-list = <DCC_READ 0x18220d14 3 0>,
@@ -3673,7 +3666,7 @@
 		qcom,wlan-ramdump-dynamic = <0x400000>;
 
 		mhi,max-channels = <30>;
-		mhi,timeout = <1000>;
+		mhi,timeout = <10000>;
 
 		mhi_chan@0 {
 			reg = <0>;

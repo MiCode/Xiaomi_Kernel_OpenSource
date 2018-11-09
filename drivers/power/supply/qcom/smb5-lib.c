@@ -492,6 +492,34 @@ static const struct apsd_result *smblib_get_apsd_result(struct smb_charger *chg)
 	return result;
 }
 
+#define INPUT_NOT_PRESENT	0
+#define INPUT_PRESENT_USB	BIT(1)
+#define INPUT_PRESENT_DC	BIT(2)
+static int smblib_is_input_present(struct smb_charger *chg,
+				   int *present)
+{
+	int rc;
+	union power_supply_propval pval = {0, };
+
+	*present = INPUT_NOT_PRESENT;
+
+	rc = smblib_get_prop_usb_present(chg, &pval);
+	if (rc < 0) {
+		pr_err("Couldn't get usb presence status rc=%d\n", rc);
+		return rc;
+	}
+	*present |= pval.intval ? INPUT_PRESENT_USB : INPUT_NOT_PRESENT;
+
+	rc = smblib_get_prop_dc_present(chg, &pval);
+	if (rc < 0) {
+		pr_err("Couldn't get dc presence status rc=%d\n", rc);
+		return rc;
+	}
+	*present |= pval.intval ? INPUT_PRESENT_DC : INPUT_NOT_PRESENT;
+
+	return 0;
+}
+
 /********************
  * REGISTER SETTERS *
  ********************/
@@ -972,6 +1000,28 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	if (rc < 0)
 		smblib_err(chg,
 			"Couldn't un-vote DCP from USB ICL rc=%d\n", rc);
+
+	/*
+	 * if non-compliant charger caused UV, restore original max pulses
+	 * and turn SUSPEND_ON_COLLAPSE_USBIN_BIT back on.
+	 */
+	if (chg->qc2_unsupported_voltage) {
+		rc = smblib_masked_write(chg, HVDCP_PULSE_COUNT_MAX_REG,
+				HVDCP_PULSE_COUNT_MAX_QC2_MASK,
+				chg->qc2_max_pulses);
+		if (rc < 0)
+			smblib_err(chg, "Couldn't restore max pulses rc=%d\n",
+					rc);
+
+		rc = smblib_masked_write(chg, USBIN_AICL_OPTIONS_CFG_REG,
+				SUSPEND_ON_COLLAPSE_USBIN_BIT,
+				SUSPEND_ON_COLLAPSE_USBIN_BIT);
+		if (rc < 0)
+			smblib_err(chg, "Couldn't turn on SUSPEND_ON_COLLAPSE_USBIN_BIT rc=%d\n",
+					rc);
+
+		chg->qc2_unsupported_voltage = QC2_COMPLIANT;
+	}
 }
 
 void smblib_suspend_on_debug_battery(struct smb_charger *chg)
@@ -1056,7 +1106,6 @@ static int set_sdp_current(struct smb_charger *chg, int icl_ua)
 		icl_options = CFG_USB3P0_SEL_BIT | USB51_MODE_BIT;
 		break;
 	default:
-		smblib_err(chg, "ICL %duA isn't supported for SDP\n", icl_ua);
 		return -EINVAL;
 	}
 
@@ -1142,7 +1191,17 @@ int smblib_set_icl_current(struct smb_charger *chg, int icl_ua)
 			goto out;
 		}
 	} else {
-		set_sdp_current(chg, 100000);
+		/*
+		 * Try USB 2.0/3,0 option first on USB path when maximum input
+		 * current limit is 500mA or below for better accuracy; in case
+		 * of error, proceed to use USB high-current mode.
+		 */
+		if (icl_ua <= USBIN_500MA) {
+			rc = set_sdp_current(chg, icl_ua);
+			if (rc >= 0)
+				goto out;
+		}
+
 		rc = smblib_set_charge_param(chg, &chg->param.usb_icl, icl_ua);
 		if (rc < 0) {
 			smblib_err(chg, "Couldn't set HC ICL rc=%d\n", rc);
@@ -2622,44 +2681,120 @@ int smblib_get_prop_usb_voltage_max(struct smb_charger *chg,
 	return 0;
 }
 
+static int smblib_estimate_hvdcp_voltage(struct smb_charger *chg,
+					 union power_supply_propval *val)
+{
+	int rc;
+	u8 stat;
+
+	rc = smblib_read(chg, QC_CHANGE_STATUS_REG, &stat);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read QC_CHANGE_STATUS_REG rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	if (stat & QC_5V_BIT)
+		val->intval = MICRO_5V;
+	else if (stat & QC_9V_BIT)
+		val->intval = MICRO_9V;
+	else if (stat & QC_12V_BIT)
+		val->intval = MICRO_12V;
+
+	return 0;
+}
+
+#define HVDCP3_STEP_UV	200000
+static int smblib_estimate_adaptor_voltage(struct smb_charger *chg,
+					  union power_supply_propval *val)
+{
+	switch (chg->real_charger_type) {
+	case POWER_SUPPLY_TYPE_USB_HVDCP:
+		return smblib_estimate_hvdcp_voltage(chg, val);
+	case POWER_SUPPLY_TYPE_USB_HVDCP_3:
+		val->intval = MICRO_5V + (HVDCP3_STEP_UV * chg->pulse_cnt);
+		break;
+	case POWER_SUPPLY_TYPE_USB_PD:
+		/* Take the average of min and max values */
+		val->intval = chg->voltage_min_uv +
+			((chg->voltage_max_uv - chg->voltage_min_uv) / 2);
+		break;
+	default:
+		val->intval = MICRO_5V;
+		break;
+	}
+
+	return 0;
+}
+
+static int smblib_read_mid_voltage_chan(struct smb_charger *chg,
+					union power_supply_propval *val)
+{
+	int rc;
+
+	if (!chg->iio.mid_chan)
+		return -ENODATA;
+
+	rc = iio_read_channel_processed(chg->iio.mid_chan, &val->intval);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read MID channel rc=%d\n", rc);
+		return rc;
+	}
+
+	/*
+	 * If MID voltage < 1V, it is unreliable.
+	 * Figure out voltage from registers and calculations.
+	 */
+	if (val->intval < 1000000)
+		return smblib_estimate_adaptor_voltage(chg, val);
+
+	return 0;
+}
+
+static int smblib_read_usbin_voltage_chan(struct smb_charger *chg,
+				     union power_supply_propval *val)
+{
+	int rc;
+
+	if (!chg->iio.usbin_v_chan)
+		return -ENODATA;
+
+	rc = iio_read_channel_processed(chg->iio.usbin_v_chan, &val->intval);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read USBIN channel rc=%d\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
+
 int smblib_get_prop_usb_voltage_now(struct smb_charger *chg,
 				    union power_supply_propval *val)
 {
-	int rc, ret = 0;
+	union power_supply_propval pval = {0, };
+	int rc;
 
-	/* set 12V OV to 14.6V */
-	if (chg->smb_version == PM8150B_SUBTYPE) {
-		rc = smblib_masked_write(chg, USB_ENG_SSUPPLY_USB2_REG,
-				ENG_SSUPPLY_12V_OV_OPT_BIT,
-				ENG_SSUPPLY_12V_OV_OPT_BIT);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't set USB_ENG_SSUPPLY_USB2_REG rc=%d\n",
-					rc);
-			return -ENODATA;
-		}
+	rc = smblib_get_prop_usb_present(chg, &pval);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't get usb presence status rc=%d\n", rc);
+		return -ENODATA;
 	}
 
-	if (chg->iio.usbin_v_chan) {
-		rc = iio_read_channel_processed(chg->iio.usbin_v_chan,
-				&val->intval);
-		if (rc < 0)
-			ret = -ENODATA;
-	} else {
-		ret = -ENODATA;
+	/* usb not present */
+	if (!pval.intval) {
+		val->intval = 0;
+		return 0;
 	}
 
-	/*  restore 12V OV to 13.2V */
-	if (chg->smb_version == PM8150B_SUBTYPE) {
-		rc = smblib_masked_write(chg, USB_ENG_SSUPPLY_USB2_REG,
-				ENG_SSUPPLY_12V_OV_OPT_BIT, 0);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't restore USB_ENG_SSUPPLY_USB2_REG rc=%d\n",
-					rc);
-			ret = -ENODATA;
-		}
-	}
-
-	return ret;
+	/*
+	 * For PM8150B, use MID_CHG ADC channel because overvoltage is observed
+	 * to occur randomly in the USBIN channel, particularly at high
+	 * voltages.
+	 */
+	if (chg->smb_version == PM8150B_SUBTYPE)
+		return smblib_read_mid_voltage_chan(chg, val);
+	else
+		return smblib_read_usbin_voltage_chan(chg, val);
 }
 
 bool smblib_rsbux_low(struct smb_charger *chg, int r_thr)
@@ -2732,25 +2867,14 @@ cleanup:
 int smblib_get_prop_charger_temp(struct smb_charger *chg,
 				 union power_supply_propval *val)
 {
-	union power_supply_propval pval = {0, };
-	bool usb_present, dc_present;
 	int temp, rc;
+	int input_present;
 
-	rc = smblib_get_prop_usb_present(chg, &pval);
-	if (rc < 0) {
-		pr_err("Couldn't get usb presence status rc=%d\n", rc);
+	rc = smblib_is_input_present(chg, &input_present);
+	if (rc < 0)
 		return rc;
-	}
-	usb_present = pval.intval;
 
-	rc = smblib_get_prop_dc_present(chg, &pval);
-	if (rc < 0) {
-		pr_err("Couldn't get dc presence status rc=%d\n", rc);
-		return rc;
-	}
-	dc_present = pval.intval;
-
-	if (!usb_present && !dc_present)
+	if (input_present == INPUT_NOT_PRESENT)
 		return -ENODATA;
 
 	if (chg->iio.temp_chan) {
@@ -3017,7 +3141,6 @@ int smblib_get_prop_input_current_settled(struct smb_charger *chg,
 	return smblib_get_charge_param(chg, &chg->param.icl_stat, &val->intval);
 }
 
-#define HVDCP3_STEP_UV	200000
 int smblib_get_prop_input_voltage_settled(struct smb_charger *chg,
 						union power_supply_propval *val)
 {
@@ -3062,6 +3185,14 @@ int smblib_get_prop_die_health(struct smb_charger *chg)
 {
 	int rc;
 	u8 stat;
+	int input_present;
+
+	rc = smblib_is_input_present(chg, &input_present);
+	if (rc < 0)
+		return rc;
+
+	if (input_present == INPUT_NOT_PRESENT)
+		return POWER_SUPPLY_HEALTH_UNKNOWN;
 
 	if (chg->wa_flags & SW_THERM_REGULATION_WA) {
 		if (chg->die_temp == -ENODATA)
@@ -4632,6 +4763,7 @@ irqreturn_t dc_plugin_irq_handler(int irq, void *data)
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
 	union power_supply_propval pval;
+	int input_present;
 	bool dcin_present, vbus_present;
 	int rc, wireless_vout = 0;
 
@@ -4644,20 +4776,12 @@ irqreturn_t dc_plugin_irq_handler(int irq, void *data)
 	wireless_vout /= 100000;
 	wireless_vout *= 100000;
 
-	rc = smblib_get_prop_dc_present(chg, &pval);
+	rc = smblib_is_input_present(chg, &input_present);
 	if (rc < 0)
 		return IRQ_HANDLED;
 
-	dcin_present = pval.intval;
-
-	rc = smblib_get_prop_usb_present(chg, &pval);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't get usb present rc = %d\n",
-				rc);
-		return IRQ_HANDLED;
-	}
-
-	vbus_present = pval.intval;
+	dcin_present = input_present & INPUT_PRESENT_DC;
+	vbus_present = input_present & INPUT_PRESENT_USB;
 
 	if (dcin_present) {
 		if (!vbus_present && chg->sec_cp_present) {

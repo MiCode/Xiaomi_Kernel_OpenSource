@@ -957,7 +957,7 @@ static int npu_load_network(struct npu_client *client,
 
 	ret = npu_host_load_network(client, &req);
 	if (ret) {
-		pr_err("network load failed: %d\n", ret);
+		pr_err("npu_host_load_network failed %d\n", ret);
 		return ret;
 	}
 
@@ -1014,7 +1014,7 @@ static int npu_load_network_v2(struct npu_client *client,
 
 	kfree(patch_info);
 	if (ret) {
-		pr_err("network load failed: %d\n", ret);
+		pr_err("npu_host_load_network_v2 failed %d\n", ret);
 		return ret;
 	}
 
@@ -1046,7 +1046,7 @@ static int npu_unload_network(struct npu_client *client,
 	ret = npu_host_unload_network(client, &req);
 
 	if (ret) {
-		pr_err("npu_host_unload_network failed\n");
+		pr_err("npu_host_unload_network failed %d\n", ret);
 		return ret;
 	}
 
@@ -1084,7 +1084,7 @@ static int npu_exec_network(struct npu_client *client,
 	ret = npu_host_exec_network(client, &req);
 
 	if (ret) {
-		pr_err("npu_host_exec_network failed\n");
+		pr_err("npu_host_exec_network failed %d\n", ret);
 		return ret;
 	}
 
@@ -1143,7 +1143,7 @@ static int npu_exec_network_v2(struct npu_client *client,
 
 	kfree(patch_buf_info);
 	if (ret) {
-		pr_err("npu_host_exec_network failed\n");
+		pr_err("npu_host_exec_network_v2 failed %d\n", ret);
 		return ret;
 	}
 
@@ -1529,7 +1529,6 @@ static int npu_mbox_init(struct npu_device *npu_dev)
 {
 	struct platform_device *pdev = npu_dev->pdev;
 	struct npu_mbox *mbox_aop = &npu_dev->mbox_aop;
-	int ret = 0;
 
 	if (of_find_property(pdev->dev.of_node, "mboxes", NULL)) {
 		mbox_aop->client.dev = &pdev->dev;
@@ -1539,13 +1538,12 @@ static int npu_mbox_init(struct npu_device *npu_dev)
 
 		mbox_aop->chan = mbox_request_channel(&mbox_aop->client, 0);
 		if (IS_ERR(mbox_aop->chan)) {
-			ret = PTR_ERR(mbox_aop->chan);
-			pr_err("mailbox channel request failed, ret=%d\n", ret);
+			pr_warn("mailbox channel request failed\n");
 			mbox_aop->chan = NULL;
 		}
 	}
 
-	return ret;
+	return 0;
 }
 
 /* -------------------------------------------------------------------------

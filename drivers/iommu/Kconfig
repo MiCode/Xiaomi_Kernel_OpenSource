@@ -361,6 +361,16 @@ config ARM_SMMU_V3
 	  Say Y here if your system includes an IOMMU device implementing
 	  the ARM SMMUv3 architecture.
 
+config ARM_SMMU_SELFTEST
+	bool "ARM SMMU self test support"
+	depends on ARM_SMMU
+	help
+	  Enables self tests for arm smmu. Tests basic hardware
+	  configurations like interrupts. Note that enabling this
+	  option can marginally increase the boot time.
+
+	  If unsure, say N here.
+
 config QCOM_LAZY_MAPPING
 	bool "Reference counted iommu-mapping support"
 	depends on ION

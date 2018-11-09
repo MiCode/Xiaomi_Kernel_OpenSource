@@ -531,7 +531,7 @@ static int cam_smmu_iommu_fault_handler(struct iommu_domain *domain,
 	}
 
 	if (++iommu_cb_set.cb_info[idx].pf_count > g_num_pf_handled) {
-		CAM_INFO(CAM_SMMU, "PF already handled %d %d %d",
+		CAM_INFO_RATE_LIMIT(CAM_SMMU, "PF already handled %d %d %d",
 			g_num_pf_handled, idx,
 			iommu_cb_set.cb_info[idx].pf_count);
 		return -EINVAL;
@@ -1933,6 +1933,25 @@ static enum cam_smmu_buf_state cam_smmu_check_secure_fd_in_list(int idx,
 		if (mapping->ion_fd == ion_fd) {
 			*paddr_ptr = mapping->paddr;
 			*len_ptr = mapping->len;
+			mapping->ref_count++;
+			return CAM_SMMU_BUFF_EXIST;
+		}
+	}
+
+	return CAM_SMMU_BUFF_NOT_EXIST;
+}
+
+static enum cam_smmu_buf_state cam_smmu_validate_secure_fd_in_list(int idx,
+	int ion_fd, dma_addr_t *paddr_ptr, size_t *len_ptr)
+{
+	struct cam_sec_buff_info *mapping;
+
+	list_for_each_entry(mapping,
+			&iommu_cb_set.cb_info[idx].smmu_buf_list,
+			list) {
+		if (mapping->ion_fd == ion_fd) {
+			*paddr_ptr = mapping->paddr;
+			*len_ptr = mapping->len;
 			return CAM_SMMU_BUFF_EXIST;
 		}
 	}
@@ -2541,6 +2560,16 @@ int cam_smmu_unmap_stage2_iova(int handle, int ion_fd)
 		goto put_addr_end;
 	}
 
+	mapping_info->ref_count--;
+	if (mapping_info->ref_count > 0) {
+		CAM_DBG(CAM_SMMU,
+			"idx: %d fd = %d ref_count: %d",
+			idx, ion_fd, mapping_info->ref_count);
+		rc = 0;
+		goto put_addr_end;
+	}
+	mapping_info->ref_count = 0;
+
 	/* unmapping one buffer from device */
 	rc = cam_smmu_secure_unmap_buf_and_remove_from_list(mapping_info, idx);
 	if (rc) {
@@ -2816,7 +2845,7 @@ int cam_smmu_get_stage2_iova(int handle, int ion_fd,
 		goto get_addr_end;
 	}
 
-	buf_state = cam_smmu_check_secure_fd_in_list(idx,
+	buf_state = cam_smmu_validate_secure_fd_in_list(idx,
 		ion_fd,
 		paddr_ptr,
 		len_ptr);

@@ -30,6 +30,8 @@
 #define POLLING_INACTIVITY_TX 40
 #define POLLING_MIN_SLEEP_TX 400
 #define POLLING_MAX_SLEEP_TX 500
+#define SUSPEND_MIN_SLEEP_RX 1000
+#define SUSPEND_MAX_SLEEP_RX 1005
 /* 8K less 1 nominal MTU (1500 bytes) rounded to units of KB */
 #define IPA_MTU 1500
 #define IPA_GENERIC_AGGR_BYTE_LIMIT 6
@@ -864,11 +866,24 @@ static void ipa_pm_sys_pipe_cb(void *p, enum ipa_pm_cb_event event)
 		 * pipe will be unsuspended as part of
 		 * enabling IPA clocks
 		 */
-		ipa_pm_activate(sys->pm_hdl);
-		ipa_pm_deferred_deactivate(sys->pm_hdl);
+		IPADBG("calling wakeup for client %d\n", sys->ep->client);
+		if (sys->ep->client == IPA_CLIENT_APPS_WAN_CONS) {
+			IPA_ACTIVE_CLIENTS_INC_SPECIAL("PIPE_SUSPEND_WAN");
+			usleep_range(SUSPEND_MIN_SLEEP_RX,
+				SUSPEND_MAX_SLEEP_RX);
+			IPA_ACTIVE_CLIENTS_DEC_SPECIAL("PIPE_SUSPEND_WAN");
+		} else if (sys->ep->client == IPA_CLIENT_APPS_LAN_CONS) {
+			IPA_ACTIVE_CLIENTS_INC_SPECIAL("PIPE_SUSPEND_LAN");
+			usleep_range(SUSPEND_MIN_SLEEP_RX,
+				SUSPEND_MAX_SLEEP_RX);
+			IPA_ACTIVE_CLIENTS_DEC_SPECIAL("PIPE_SUSPEND_LAN");
+		} else
+			IPAERR("Unexpected event %d\n for client %d\n",
+				event, sys->ep->client);
 		break;
 	default:
-		IPAERR("Unexpected event %d\n", event);
+		IPAERR("Unexpected event %d\n for client %d\n",
+			event, sys->ep->client);
 		WARN_ON(1);
 		return;
 	}

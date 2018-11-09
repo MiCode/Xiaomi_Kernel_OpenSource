@@ -836,7 +836,7 @@ static int a6xx_gmu_gfx_rail_on(struct kgsl_device *device)
 	return a6xx_gmu_oob_set(adreno_dev, oob_boot_slumber);
 }
 
-static bool idle_trandition_complete(unsigned int idle_level,
+static bool idle_transition_complete(unsigned int idle_level,
 	unsigned int gmu_power_reg,
 	unsigned int sptprac_clk_reg)
 {
@@ -860,7 +860,7 @@ static int a6xx_gmu_wait_for_lowest_idle(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-	unsigned int reg, reg1;
+	unsigned int reg, reg1, reg2, reg3, reg4, reg5, reg6, reg7, reg8;
 	unsigned long t;
 	uint64_t ts1, ts2, ts3;
 
@@ -876,7 +876,7 @@ static int a6xx_gmu_wait_for_lowest_idle(struct adreno_device *adreno_dev)
 		gmu_core_regread(device,
 			A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &reg1);
 
-		if (idle_trandition_complete(gmu->idle_level, reg, reg1))
+		if (idle_transition_complete(gmu->idle_level, reg, reg1))
 			return 0;
 		/* Wait 100us to reduce unnecessary AHB bus traffic */
 		usleep_range(10, 100);
@@ -888,13 +888,38 @@ static int a6xx_gmu_wait_for_lowest_idle(struct adreno_device *adreno_dev)
 	gmu_core_regread(device, A6XX_GPU_GMU_CX_GMU_RPMH_POWER_STATE, &reg);
 	gmu_core_regread(device, A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &reg1);
 
-	if (idle_trandition_complete(gmu->idle_level, reg, reg1))
+	if (idle_transition_complete(gmu->idle_level, reg, reg1))
 		return 0;
 
 	ts3 = read_AO_counter(device);
-	WARN(1, "Timeout waiting for lowest idle: %08x %llx %llx %llx %x\n",
-		reg, ts1, ts2, ts3, reg1);
 
+	/* Collect abort data to help with debugging */
+	gmu_core_regread(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS, &reg2);
+	gmu_core_regread(device, A6XX_CP_STATUS_1, &reg3);
+	gmu_core_regread(device, A6XX_GMU_RBBM_INT_UNMASKED_STATUS, &reg4);
+	gmu_core_regread(device, A6XX_GMU_GMU_PWR_COL_KEEPALIVE, &reg5);
+	gmu_core_regread(device, A6XX_CP_CP2GMU_STATUS, &reg6);
+	gmu_core_regread(device, A6XX_CP_CONTEXT_SWITCH_CNTL, &reg7);
+	gmu_core_regread(device, A6XX_GMU_AO_SPARE_CNTL, &reg8);
+
+	dev_err(&gmu->pdev->dev,
+		"----------------------[ GMU error ]----------------------\n");
+	dev_err(&gmu->pdev->dev,
+		"Timeout waiting for lowest idle level %d\n", gmu->idle_level);
+	dev_err(&gmu->pdev->dev,
+		"Timestamps: %llx %llx %llx\n", ts1, ts2, ts3);
+	dev_err(&gmu->pdev->dev,
+		"RPMH_POWER_STATE=%x SPTPRAC_PWR_CLK_STATUS=%x\n", reg, reg1);
+	dev_err(&gmu->pdev->dev,
+		"CX_BUSY_STATUS=%x CP_STATUS_1=%x\n", reg2, reg3);
+	dev_err(&gmu->pdev->dev,
+		"RBBM_INT_UNMASKED_STATUS=%x PWR_COL_KEEPALIVE=%x\n",
+		reg4, reg5);
+	dev_err(&gmu->pdev->dev,
+		"CP2GMU_STATUS=%x CONTEXT_SWITCH_CNTL=%x AO_SPARE_CNTL=%x\n",
+		reg6, reg7, reg8);
+
+	WARN_ON(1);
 	return -ETIMEDOUT;
 }
 
