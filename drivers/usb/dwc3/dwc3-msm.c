@@ -937,18 +937,21 @@ static void gsi_store_ringbase_dbl_info(struct usb_ep *ep,
 		GSI_RING_BASE_ADDR_L(mdwc->gsi_reg[RING_BASE_ADDR_L], (n)),
 		dwc3_trb_dma_offset(dep, &dep->trb_pool[0]));
 
-	if (request->mapped_db_reg_phs_addr_lsb)
-		dma_unmap_resource(dwc->sysdev,
-			request->mapped_db_reg_phs_addr_lsb,
-			PAGE_SIZE, DMA_BIDIRECTIONAL, 0);
-
-	request->mapped_db_reg_phs_addr_lsb = dma_map_resource(dwc->sysdev,
-			(phys_addr_t)request->db_reg_phs_addr_lsb, PAGE_SIZE,
-			DMA_BIDIRECTIONAL, 0);
-	if (dma_mapping_error(dwc->sysdev, request->mapped_db_reg_phs_addr_lsb))
-		dev_err(mdwc->dev, "mapping error for db_reg_phs_addr_lsb\n");
+	if (!request->mapped_db_reg_phs_addr_lsb) {
+		request->mapped_db_reg_phs_addr_lsb =
+			dma_map_resource(dwc->sysdev,
+				(phys_addr_t)request->db_reg_phs_addr_lsb,
+				PAGE_SIZE, DMA_BIDIRECTIONAL, 0);
+		if (dma_mapping_error(dwc->sysdev,
+				request->mapped_db_reg_phs_addr_lsb))
+			dev_err(mdwc->dev, "mapping error for db_reg_phs_addr_lsb\n");
+	}
 
 	dev_dbg(mdwc->dev, "ep:%s dbl_addr_lsb:%x mapped_dbl_addr_lsb:%llx\n",
+		ep->name, request->db_reg_phs_addr_lsb,
+		(unsigned long long)request->mapped_db_reg_phs_addr_lsb);
+
+	dbg_log_string("ep:%s dbl_addr_lsb:%x mapped_addr:%llx\n",
 		ep->name, request->db_reg_phs_addr_lsb,
 		(unsigned long long)request->mapped_db_reg_phs_addr_lsb);
 
