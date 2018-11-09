@@ -28,82 +28,102 @@
 	mhi,buffer-len = <0x8000>;
 	qcom,addr-win = <0x0 0xa0000000 0x0 0xa4bfffff>;
 
-	mhi_chan@1 {
-		mhi,num-elements = <32>;
+	mhi_channels {
+		mhi_chan@1 {
+			mhi,num-elements = <32>;
+		};
+
+		mhi_chan@11 {
+			mhi,num-elements = <32>;
+		};
+
+		mhi_chan@21 {
+			mhi,num-elements = <32>;
+		};
+
+		mhi_chan@100 {
+			status = "disabled";
+		};
+
+		mhi_chan@101 {
+			status = "disabled";
+		};
 	};
 
-	mhi_chan@11 {
-		mhi,num-elements = <32>;
-	};
+	mhi_events {
+		mhi_event@4 {
+			mhi,num-elements = <0>;
+			mhi,intmod = <0>;
+			mhi,msi = <5>;
+			mhi,chan = <104>;
+			mhi,priority = <1>;
+			mhi,brstmode = <3>;
+			mhi,hw-ev;
+			mhi,client-manage;
+			mhi,offload;
+		};
 
-	mhi_chan@21 {
-		mhi,num-elements = <32>;
-	};
-
-	mhi_chan@100 {
-		status = "disabled";
-	};
-
-	mhi_chan@101 {
-		status = "disabled";
-	};
-
-	mhi_event@4 {
-		mhi,num-elements = <0>;
-		mhi,intmod = <0>;
-		mhi,msi = <5>;
-		mhi,chan = <104>;
-		mhi,priority = <1>;
-		mhi,brstmode = <3>;
-		mhi,hw-ev;
-		mhi,client-manage;
-		mhi,offload;
-	};
-
-	mhi_event@5 {
-		mhi,num-elements = <0>;
-		mhi,intmod = <0>;
-		mhi,msi = <6>;
-		mhi,chan = <105>;
-		mhi,priority = <1>;
-		mhi,brstmode = <3>;
-		mhi,hw-ev;
-		mhi,client-manage;
-		mhi,offload;
+		mhi_event@5 {
+			mhi,num-elements = <0>;
+			mhi,intmod = <0>;
+			mhi,msi = <6>;
+			mhi,chan = <105>;
+			mhi,priority = <1>;
+			mhi,brstmode = <3>;
+			mhi,hw-ev;
+			mhi,client-manage;
+			mhi,offload;
+		};
 	};
 };
 
 &mhi_1 {
-	mhi_chan@100 {
-		status = "disabled";
+	mhi_channels {
+		mhi_chan@1 {
+			mhi,num-elements = <32>;
+		};
+
+		mhi_chan@11 {
+			mhi,num-elements = <32>;
+		};
+
+		mhi_chan@21 {
+			mhi,num-elements = <32>;
+		};
+
+		mhi_chan@100 {
+			status = "disabled";
+		};
+
+		mhi_chan@101 {
+			status = "disabled";
+		};
 	};
 
-	mhi_chan@101 {
-		status = "disabled";
-	};
+	mhi_events {
+		mhi_event@4 {
+			mhi,num-elements = <0>;
+			mhi,intmod = <0>;
+			mhi,msi = <5>;
+			mhi,chan = <104>;
+			mhi,priority = <1>;
+			mhi,brstmode = <3>;
+			mhi,hw-ev;
+			mhi,client-manage;
+			mhi,offload;
+		};
 
-	mhi_event@4 {
-		mhi,num-elements = <0>;
-		mhi,intmod = <0>;
-		mhi,msi = <5>;
-		mhi,chan = <104>;
-		mhi,priority = <1>;
-		mhi,brstmode = <3>;
-		mhi,hw-ev;
-		mhi,client-manage;
-		mhi,offload;
-	};
-
-	mhi_event@5 {
-		mhi,num-elements = <0>;
-		mhi,intmod = <0>;
-		mhi,msi = <6>;
-		mhi,chan = <105>;
-		mhi,priority = <1>;
-		mhi,brstmode = <3>;
-		mhi,hw-ev;
-		mhi,client-manage;
-		mhi,offload;
+		mhi_event@5 {
+			mhi,num-elements = <0>;
+			mhi,intmod = <0>;
+			mhi,msi = <6>;
+			mhi,chan = <105>;
+			mhi,priority = <1>;
+			mhi,brstmode = <3>;
+			mhi,hw-ev;
+			mhi,client-manage;
+			mhi,offload;
+		};
 	};
 };
 
