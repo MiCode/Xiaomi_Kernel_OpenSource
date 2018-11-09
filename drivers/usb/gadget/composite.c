@@ -486,14 +486,19 @@ done:
 static u8 encode_bMaxPower(enum usb_device_speed speed,
 		struct usb_configuration *c)
 {
-	unsigned val = CONFIG_USB_GADGET_VBUS_DRAW;
+	unsigned val = c->MaxPower;
 
 	switch (speed) {
 	case USB_SPEED_SUPER:
-		/* with super-speed report 900mA */
-		val = SSUSB_GADGET_VBUS_DRAW;
+		/* with super-speed report 900mA if user hasn't specified */
+		if (!val)
+			val = SSUSB_GADGET_VBUS_DRAW;
+
 		return (u8)(val / SSUSB_GADGET_VBUS_DRAW_UNITS);
 	default:
+		if (!val)
+			val = CONFIG_USB_GADGET_VBUS_DRAW;
+
 		return DIV_ROUND_UP(val, HSUSB_GADGET_VBUS_DRAW_UNITS);
 	}
 }
