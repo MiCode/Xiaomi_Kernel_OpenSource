@@ -13,6 +13,8 @@
 #include "hab.h"
 #include "hab_qvm.h"
 
+static unsigned long long xvm_sche_tx_tv_buffer[2];
+
 inline void habhyp_notify(void *commdev)
 {
 	struct qvm_channel *dev = (struct qvm_channel *)commdev;
@@ -79,6 +81,12 @@ int physical_channel_send(struct physical_channel *pchan,
 			spin_unlock_bh(&dev->io_lock);
 			return -EINVAL;
 		}
+	} else if (HAB_HEADER_GET_TYPE(*header)
+		== HAB_PAYLOAD_TYPE_SCHE_RESULT_REQ) {
+		((unsigned long long *)payload)[0] = xvm_sche_tx_tv_buffer[0];
+	} else if (HAB_HEADER_GET_TYPE(*header)
+		== HAB_PAYLOAD_TYPE_SCHE_RESULT_RSP) {
+		((unsigned long long *)payload)[2] = xvm_sche_tx_tv_buffer[1];
 	}
 
 	if (sizebytes) {
@@ -92,6 +100,10 @@ int physical_channel_send(struct physical_channel *pchan,
 
 	hab_pipe_write_commit(dev->pipe_ep);
 	spin_unlock_bh(&dev->io_lock);
+	if (HAB_HEADER_GET_TYPE(*header) == HAB_PAYLOAD_TYPE_SCHE_MSG)
+		xvm_sche_tx_tv_buffer[0] = msm_timer_get_sclk_ticks();
+	else if (HAB_HEADER_GET_TYPE(*header) == HAB_PAYLOAD_TYPE_SCHE_MSG_ACK)
+		xvm_sche_tx_tv_buffer[1] = msm_timer_get_sclk_ticks();
 	habhyp_notify(dev);
 	++pchan->sequence_tx;
 	return 0;

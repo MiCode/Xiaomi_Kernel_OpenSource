@@ -206,6 +206,7 @@ int hab_msg_recv(struct physical_channel *pchan,
 	struct virtual_channel *vchan = NULL;
 	struct export_desc *exp_desc;
 	struct timeval tv;
+	unsigned long long rx_mpm_tv;
 
 	/* get the local virtual channel if it isn't an open message */
 	if (payload_type != HAB_PAYLOAD_TYPE_INIT &&
@@ -262,6 +263,8 @@ int hab_msg_recv(struct physical_channel *pchan,
 
 	switch (payload_type) {
 	case HAB_PAYLOAD_TYPE_MSG:
+	case HAB_PAYLOAD_TYPE_SCHE_RESULT_REQ:
+	case HAB_PAYLOAD_TYPE_SCHE_RESULT_RSP:
 		message = hab_msg_alloc(pchan, sizebytes);
 		if (!message)
 			break;
@@ -353,6 +356,19 @@ int hab_msg_recv(struct physical_channel *pchan,
 				(struct habmm_xing_vm_stat *)message->data;
 			pstat->rx_sec = tv.tv_sec;
 			pstat->rx_usec = tv.tv_usec;
+			hab_msg_queue(vchan, message);
+		}
+		break;
+
+	case HAB_PAYLOAD_TYPE_SCHE_MSG:
+	case HAB_PAYLOAD_TYPE_SCHE_MSG_ACK:
+		rx_mpm_tv = msm_timer_get_sclk_ticks();
+		/* pull down the incoming data */
+		message = hab_msg_alloc(pchan, sizebytes);
+		if (!message)
+			pr_err("failed to allocate msg Arrived msg will be lost\n");
+		else {
+			((unsigned long long *)message->data)[0] = rx_mpm_tv;
 			hab_msg_queue(vchan, message);
 		}
 		break;

@@ -105,6 +105,37 @@ int32_t habmm_socket_close(int32_t handle);
  */
 #define HABMM_SOCKET_SEND_FLAGS_XING_VM_STAT 0x00000002
 
+/* start to measure cross-vm schedule latency: VM1 send msg with this flag
+ * to VM2 to kick off the measurement. In the hab driver level, the VM1 hab
+ * driver shall record the time of schdule out with mpm_timer, and buffer
+ * it for later usage. The VM2 hab driver shall record the time of schedule
+ * in with mpm_timer and pass it to "habtest" application.
+ */
+#define HABMM_SOCKET_XVM_SCHE_TEST 0x00000004
+
+/* VM2 responds this message to VM1 for HABMM_SOCKET_XVM_SCHE_TEST.
+ * In the hab driver level, the VM2 hab driver shall record the time of schedule
+ * out with mpm_timer, and buffer it for later usage; the VM1 hab driver
+ * shall record the time of schedule in with mpm_timer and pass it to "habtest"
+ * application.
+ */
+#define HABMM_SOCKET_XVM_SCHE_TEST_ACK 0x00000008
+
+/* VM1 sends this message to VM2 asking for collect all the mpm_timer values
+ * to calculate the latency of schduling between VM1 and VM2. In the hab driver
+ * level, the VM1 hab driver shall save the previous restored schduling out
+ * time to the message buffer
+ */
+#define HABMM_SOCKET_XVM_SCHE_RESULT_REQ 0x00000010
+
+/* VM2 responds this message to VM2 for HABMM_SOCKET_XVM_SCHE_RESULT_REQ.
+ * In the habtest application level, VM2 shall save the previous restored
+ * scheduling in time into message buffer, in the hab driver level, VM2
+ * shall save the previous restored scheduling out time to the message
+ * buffer.
+ */
+#define HABMM_SOCKET_XVM_SCHE_RESULT_RSP 0x00000020
+
 struct habmm_xing_vm_stat {
 	uint64_t tx_sec;
 	uint64_t tx_usec;
