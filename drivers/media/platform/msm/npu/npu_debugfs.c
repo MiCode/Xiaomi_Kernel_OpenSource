@@ -169,7 +169,7 @@ static ssize_t npu_debug_reg_read(struct file *file,
 		if (!debugfs->buf)
 			return -ENOMEM;
 
-		ptr = npu_dev->npu_base + debugfs->reg_off;
+		ptr = npu_dev->npu_io.base + debugfs->reg_off;
 		tot = 0;
 		off = (int)debugfs->reg_off;
 
@@ -183,7 +183,7 @@ static ssize_t npu_debug_reg_read(struct file *file,
 			len = scnprintf(debugfs->buf + tot,
 				debugfs->buf_len - tot, "0x%08x: %s\n",
 				((int) (unsigned long) ptr) -
-				((int) (unsigned long) npu_dev->npu_base),
+				((int) (unsigned long) npu_dev->npu_io.base),
 				dump_buf);
 
 			ptr += ROW_BYTES;
@@ -352,6 +352,7 @@ static ssize_t npu_debug_ctrl_write(struct file *file,
 	struct npu_device *npu_dev = file->private_data;
 	struct npu_debugfs_ctx *debugfs;
 	int32_t rc = 0;
+	uint32_t val;
 
 	pr_debug("npu_dev %pK %pK\n", npu_dev, g_npu_dev);
 	npu_dev = g_npu_dev;
@@ -390,26 +391,15 @@ static ssize_t npu_debug_ctrl_write(struct file *file,
 		pr_debug("loopback test\n");
 		rc = npu_host_loopback_test(npu_dev);
 		pr_debug("loopback test end: %d\n", rc);
-	} else if (strcmp(buf, "0") == 0) {
-		pr_info("setting power state to 0\n");
-		npu_dev->pwrctrl.active_pwrlevel = 0;
-	} else if (strcmp(buf, "1") == 0) {
-		pr_info("setting power state to 1\n");
-		npu_dev->pwrctrl.active_pwrlevel = 1;
-	} else if (strcmp(buf, "2") == 0) {
-		pr_info("setting power state to 2\n");
-		npu_dev->pwrctrl.active_pwrlevel = 2;
-	} else if (strcmp(buf, "3") == 0) {
-		pr_info("setting power state to 3\n");
-		npu_dev->pwrctrl.active_pwrlevel = 3;
-	} else if (strcmp(buf, "4") == 0) {
-		pr_info("setting power state to 4\n");
-		npu_dev->pwrctrl.active_pwrlevel = 4;
-	} else if (strcmp(buf, "5") == 0) {
-		pr_info("setting power state to 5\n");
-		npu_dev->pwrctrl.active_pwrlevel = 5;
 	} else {
-		pr_info("ctrl invalid value\n");
+		rc = kstrtou32(buf, 10, &val);
+		if (rc) {
+			pr_err("Invalid input for power level settings\n");
+		} else {
+			val = min(val, npu_dev->pwrctrl.max_pwrlevel);
+			npu_dev->pwrctrl.active_pwrlevel = val;
+			pr_info("setting power state to %d\n", val);
+		}
 	}
 
 	return count;

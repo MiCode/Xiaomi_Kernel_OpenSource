@@ -61,6 +61,12 @@ static ssize_t npu_show_pwr_state(struct device *dev,
 static ssize_t npu_store_pwr_state(struct device *dev,
 					  struct device_attribute *attr,
 					  const char *buf, size_t count);
+static ssize_t npu_show_perf_mode_override(struct device *dev,
+					 struct device_attribute *attr,
+					 char *buf);
+static ssize_t npu_store_perf_mode_override(struct device *dev,
+					  struct device_attribute *attr,
+					  const char *buf, size_t count);
 static void npu_suspend_devbw(struct npu_device *npu_dev);
 static void npu_resume_devbw(struct npu_device *npu_dev);
 static bool npu_is_post_clock(const char *clk_name);
@@ -103,6 +109,7 @@ static int npu_suspend(struct platform_device *dev, pm_message_t state);
 static int npu_resume(struct platform_device *dev);
 static int __init npu_init(void);
 static void __exit npu_exit(void);
+static int npu_set_power_level(struct npu_device *npu_dev);
 
 /* -------------------------------------------------------------------------
  * File Scope Variables
@@ -175,10 +182,13 @@ static const struct npu_irq npu_irq_info[NPU_MAX_IRQ] = {
 /* Sys FS */
 static DEVICE_ATTR(caps, 0444, npu_show_capabilities, NULL);
 static DEVICE_ATTR(pwr, 0644, npu_show_pwr_state, npu_store_pwr_state);
+static DEVICE_ATTR(perf_mode_override, 0644,
+	npu_show_perf_mode_override, npu_store_perf_mode_override);
 
 static struct attribute *npu_fs_attrs[] = {
 	&dev_attr_caps.attr,
 	&dev_attr_pwr.attr,
+	&dev_attr_perf_mode_override.attr,
 	NULL
 };
 
@@ -280,6 +290,42 @@ static ssize_t npu_store_pwr_state(struct device *dev,
 }
 
 /* -------------------------------------------------------------------------
+ * SysFS - Power State
+ * -------------------------------------------------------------------------
+ */
+static ssize_t npu_show_perf_mode_override(struct device *dev,
+					 struct device_attribute *attr,
+					 char *buf)
+{
+	struct npu_device *npu_dev = dev_get_drvdata(dev);
+	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", pwr->perf_mode_override);
+}
+
+static ssize_t npu_store_perf_mode_override(struct device *dev,
+					  struct device_attribute *attr,
+					  const char *buf, size_t count)
+{
+	struct npu_device *npu_dev = dev_get_drvdata(dev);
+	uint32_t val;
+	int rc;
+
+	rc = kstrtou32(buf, 10, &val);
+	if (rc) {
+		pr_err("Invalid input for perf mode setting\n");
+		return -EINVAL;
+	}
+
+	val = min(val, npu_dev->pwrctrl.num_pwrlevels);
+	npu_dev->pwrctrl.perf_mode_override = val;
+	pr_info("setting uc_pwrlevel_override to %d\n", val);
+	npu_set_power_level(npu_dev);
+
+	return count;
+}
+
+/* -------------------------------------------------------------------------
  * Power Related
  * -------------------------------------------------------------------------
  */
@@ -345,12 +391,46 @@ void npu_disable_post_pil_clocks(struct npu_device *npu_dev)
 	npu_disable_clocks(npu_dev, true);
 }
 
+static uint32_t npu_power_level_from_index(struct npu_device *npu_dev,
+	uint32_t index)
+{
+	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
+
+	if (index >= pwr->num_pwrlevels)
+		index = pwr->num_pwrlevels - 1;
+
+	return pwr->pwrlevels[index].pwr_level;
+}
+
+static uint32_t npu_power_level_to_index(struct npu_device *npu_dev,
+	uint32_t pwr_lvl)
+{
+	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
+	int i;
+
+	for (i = 0; i < pwr->num_pwrlevels; i++) {
+		if (pwr->pwrlevels[i].pwr_level > pwr_lvl)
+			break;
+	}
+
+
+	return i == 0 ? 0 : i - 1;
+}
+
 static uint32_t npu_calc_power_level(struct npu_device *npu_dev)
 {
 	uint32_t ret_level;
 	uint32_t therm_pwr_level = npu_dev->thermalctrl.pwr_level;
 	uint32_t active_pwr_level = npu_dev->pwrctrl.active_pwrlevel;
 	uint32_t uc_pwr_level = npu_dev->pwrctrl.uc_pwrlevel;
+
+	/*
+	 * if perf_mode_override is not 0, use it to override
+	 * uc_pwrlevel
+	 */
+	if (npu_dev->pwrctrl.perf_mode_override > 0)
+		uc_pwr_level = npu_power_level_from_index(npu_dev,
+			npu_dev->pwrctrl.perf_mode_override - 1);
 
 	/* if thermal power is higher than usecase power
 	 * leave level at use case.  Otherwise go down to
@@ -372,7 +452,7 @@ static int npu_set_power_level(struct npu_device *npu_dev)
 	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
 	struct npu_pwrlevel *pwrlevel;
 	int i, ret = 0;
-	uint32_t pwr_level_to_set;
+	uint32_t pwr_level_to_set, pwr_level_idx;
 
 	/* get power level to set */
 	pwr_level_to_set = npu_calc_power_level(npu_dev);
@@ -390,8 +470,8 @@ static int npu_set_power_level(struct npu_device *npu_dev)
 	}
 
 	pr_debug("setting power level to [%d]\n", pwr_level_to_set);
-	pwr->active_pwrlevel = pwr_level_to_set;
-	pwrlevel = &npu_dev->pwrctrl.pwrlevels[pwr->active_pwrlevel];
+	pwr_level_idx = npu_power_level_to_index(npu_dev, pwr_level_to_set);
+	pwrlevel = &npu_dev->pwrctrl.pwrlevels[pwr_level_idx];
 
 	for (i = 0; i < npu_dev->core_clk_num; i++) {
 		if (npu_is_exclude_rate_clock(
@@ -417,6 +497,7 @@ static int npu_set_power_level(struct npu_device *npu_dev)
 		}
 	}
 
+	pwr->active_pwrlevel = pwr_level_to_set;
 	return ret;
 }
 
@@ -424,15 +505,18 @@ int npu_set_uc_power_level(struct npu_device *npu_dev,
 	uint32_t perf_mode)
 {
 	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
+	uint32_t uc_pwrlevel_to_set;
 
 	if (perf_mode == PERF_MODE_DEFAULT)
-		pwr->uc_pwrlevel = pwr->default_pwrlevel;
+		uc_pwrlevel_to_set = pwr->default_pwrlevel;
 	else
-		pwr->uc_pwrlevel = perf_mode - 1;
+		uc_pwrlevel_to_set = npu_power_level_from_index(npu_dev,
+			perf_mode - 1);
 
-	if (pwr->uc_pwrlevel > pwr->max_pwrlevel)
-		pwr->uc_pwrlevel = pwr->max_pwrlevel;
+	if (uc_pwrlevel_to_set > pwr->max_pwrlevel)
+		uc_pwrlevel_to_set = pwr->max_pwrlevel;
 
+	pwr->uc_pwrlevel = uc_pwrlevel_to_set;
 	return npu_set_power_level(npu_dev);
 }
 
@@ -531,9 +615,12 @@ static int npu_enable_clocks(struct npu_device *npu_dev, bool post_pil)
 	int i, rc = 0;
 	struct npu_clk *core_clks = npu_dev->core_clks;
 	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
-	struct npu_pwrlevel *pwrlevel =
-		&npu_dev->pwrctrl.pwrlevels[pwr->active_pwrlevel];
+	struct npu_pwrlevel *pwrlevel;
+	uint32_t pwrlevel_to_set, pwrlevel_idx;
 
+	pwrlevel_to_set = pwr->active_pwrlevel;
+	pwrlevel_idx = npu_power_level_to_index(npu_dev, pwrlevel_to_set);
+	pwrlevel = &pwr->pwrlevels[pwrlevel_idx];
 	for (i = 0; i < ARRAY_SIZE(npu_clock_order); i++) {
 		if (!core_clks[i].clk)
 			continue;
@@ -651,14 +738,14 @@ npu_set_cur_state(struct thermal_cooling_device *cdev, unsigned long state)
 {
 	struct npu_device *npu_dev = cdev->devdata;
 	struct npu_thermalctrl *thermal = &npu_dev->thermalctrl;
-	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
 
 	pr_debug("enter %s request state=%lu\n", __func__, state);
 	if (state > thermal->max_state)
 		return -EINVAL;
 
 	thermal->current_state = state;
-	thermal->pwr_level =  pwr->max_pwrlevel - state;
+	thermal->pwr_level =  npu_power_level_from_index(npu_dev,
+		thermal->max_state - state);
 
 	return npu_set_power_level(npu_dev);
 }
@@ -1359,22 +1446,33 @@ static int npu_of_parse_pwrlevels(struct npu_device *npu_dev,
 {
 	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
 	struct device_node *child;
-	uint32_t init_level = 0;
+	uint32_t init_level_index = 0, init_power_level;
 	const char *clock_name;
 	struct platform_device *pdev = npu_dev->pdev;
+	uint32_t fmax, fmax_pwrlvl;
 
 	pwr->num_pwrlevels = 0;
+	pwr->min_pwrlevel = NPU_PWRLEVEL_TURBO_L1;
+	pwr->max_pwrlevel = NPU_PWRLEVEL_MINSVS;
 
 	for_each_available_child_of_node(node, child) {
 		uint32_t i = 0;
 		uint32_t j = 0;
 		uint32_t index;
+		uint32_t pwr_level;
 		uint32_t clk_array_values[NUM_MAX_CLK_NUM];
 		uint32_t clk_rate;
 		struct npu_pwrlevel *level;
 
-		if (of_property_read_u32(child, "reg", &index))
+		if (of_property_read_u32(child, "reg", &index)) {
+			pr_err("Can't find reg property\n");
 			return -EINVAL;
+		}
+
+		if (of_property_read_u32(child, "vreg", &pwr_level)) {
+			pr_err("Can't find vreg property\n");
+			return -EINVAL;
+		}
 
 		if (index >= NPU_MAX_PWRLEVELS) {
 			pr_err("pwrlevel index %d is out of range\n",
@@ -1394,6 +1492,12 @@ static int npu_of_parse_pwrlevels(struct npu_device *npu_dev,
 
 		/* sort */
 		level = &pwr->pwrlevels[index];
+		level->pwr_level = pwr_level;
+		if (pwr->min_pwrlevel > pwr_level)
+			pwr->min_pwrlevel = pwr_level;
+		if (pwr->max_pwrlevel < pwr_level)
+			pwr->max_pwrlevel = pwr_level;
+
 		for (i = 0; i < npu_dev->core_clk_num; i++) {
 			of_property_read_string_index(pdev->dev.of_node,
 				"clock-names", i, &clock_name);
@@ -1420,17 +1524,48 @@ static int npu_of_parse_pwrlevels(struct npu_device *npu_dev,
 		}
 	}
 
-	of_property_read_u32(node, "initial-pwrlevel", &init_level);
+	/* Read FMAX info if available */
+	if (npu_dev->qfprom_io.base) {
+		fmax = (npu_qfprom_reg_read(npu_dev,
+			QFPROM_FMAX_REG_OFFSET) & QFPROM_FMAX_BITS_MASK) >>
+			QFPROM_FMAX_BITS_SHIFT;
+		pr_debug("fmax %x\n", fmax);
 
-	if (init_level >= pwr->num_pwrlevels)
-		init_level = 0;
+		switch (fmax) {
+		case 1:
+		case 2:
+			fmax_pwrlvl = NPU_PWRLEVEL_NORM;
+			break;
+		case 3:
+			fmax_pwrlvl = NPU_PWRLEVEL_SVS_L1;
+			break;
+		default:
+			fmax_pwrlvl = pwr->max_pwrlevel;
+			break;
+		}
 
-	pr_debug("init power level %d\n", init_level);
-	pwr->active_pwrlevel = init_level;
-	pwr->default_pwrlevel = init_level;
-	pwr->uc_pwrlevel = init_level;
-	pwr->min_pwrlevel = 0;
-	pwr->max_pwrlevel = pwr->num_pwrlevels - 1;
+		if (fmax_pwrlvl < pwr->max_pwrlevel)
+			pwr->max_pwrlevel = fmax_pwrlvl;
+	}
+
+	of_property_read_u32(node, "initial-pwrlevel", &init_level_index);
+	pr_debug("initial-pwrlevel %d", init_level_index);
+
+	if (init_level_index >= pwr->num_pwrlevels)
+		init_level_index = pwr->num_pwrlevels - 1;
+
+	init_power_level = npu_power_level_from_index(npu_dev,
+		init_level_index);
+	if (init_power_level > pwr->max_pwrlevel) {
+		init_power_level = pwr->max_pwrlevel;
+		pr_debug("Adjust init power level to %d\n", init_power_level);
+	}
+
+	pr_debug("init power level %d max %d min %d\n", init_power_level,
+		pwr->max_pwrlevel, pwr->min_pwrlevel);
+	pwr->active_pwrlevel = pwr->default_pwrlevel = init_power_level;
+	pwr->uc_pwrlevel = pwr->max_pwrlevel;
+	pwr->perf_mode_override = 0;
 
 	return 0;
 }
@@ -1484,7 +1619,7 @@ static int npu_thermalctrl_init(struct npu_device *npu_dev)
 	struct npu_thermalctrl *thermalctrl = &npu_dev->thermalctrl;
 	int ret = 0;
 
-	thermalctrl->max_state = pwr->max_pwrlevel;
+	thermalctrl->max_state = pwr->num_pwrlevels - 1;
 	thermalctrl->current_state = 0;
 	return ret;
 }
@@ -1538,7 +1673,7 @@ static int npu_mbox_init(struct npu_device *npu_dev)
 
 		mbox_aop->chan = mbox_request_channel(&mbox_aop->client, 0);
 		if (IS_ERR(mbox_aop->chan)) {
-			pr_warn("mailbox channel request failed\n");
+			pr_warn("aop mailbox is not available\n");
 			mbox_aop->chan = NULL;
 		}
 	}
@@ -1568,11 +1703,37 @@ static int npu_probe(struct platform_device *pdev)
 	res = platform_get_resource_byname(pdev,
 		IORESOURCE_MEM, "npu_base");
 	if (!res) {
-		pr_err("unable to get NPU reg base address\n");
+		pr_err("unable to get npu_base resource\n");
+		rc = -ENODEV;
+		goto error_get_dev_num;
+	}
+	npu_dev->npu_io.size = resource_size(res);
+	npu_dev->npu_io.base = devm_ioremap(&pdev->dev, res->start,
+					npu_dev->npu_io.size);
+	if (unlikely(!npu_dev->npu_io.base)) {
+		pr_err("unable to map npu_base\n");
 		rc = -ENOMEM;
 		goto error_get_dev_num;
 	}
-	npu_dev->reg_size = resource_size(res);
+	pr_debug("npu_base phy address=0x%x virt=%pK\n",
+		res->start, npu_dev->npu_io.base);
+
+	res = platform_get_resource_byname(pdev,
+		IORESOURCE_MEM, "qfprom_physical");
+	if (!res) {
+		pr_info("unable to get qfprom_physical resource\n");
+	} else {
+		npu_dev->qfprom_io.size = resource_size(res);
+		npu_dev->qfprom_io.base = devm_ioremap(&pdev->dev, res->start,
+					npu_dev->qfprom_io.size);
+		if (unlikely(!npu_dev->qfprom_io.base)) {
+			pr_err("unable to map qfprom_physical\n");
+			rc = -ENOMEM;
+			goto error_get_dev_num;
+		}
+		pr_debug("qfprom_physical phy address=0x%x virt=%pK\n",
+			res->start, npu_dev->qfprom_io.base);
+	}
 
 	rc = npu_parse_dt_regulator(npu_dev);
 	if (rc)
@@ -1597,18 +1758,6 @@ static int npu_probe(struct platform_device *pdev)
 	rc = npu_mbox_init(npu_dev);
 	if (rc)
 		goto error_get_dev_num;
-
-	npu_dev->npu_base = devm_ioremap(&pdev->dev, res->start,
-					npu_dev->reg_size);
-	if (unlikely(!npu_dev->npu_base)) {
-		pr_err("unable to map NPU base\n");
-		rc = -ENOMEM;
-		goto error_get_dev_num;
-	}
-
-	npu_dev->npu_phys = res->start;
-	pr_debug("hw base phy address=0x%x virt=%pK\n",
-		npu_dev->npu_phys, npu_dev->npu_base);
 
 	/* character device might be optional */
 	rc = alloc_chrdev_region(&npu_dev->dev_num, 0, 1, DRIVER_NAME);

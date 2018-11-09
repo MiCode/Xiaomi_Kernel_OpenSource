@@ -926,6 +926,7 @@ int32_t npu_host_get_info(struct npu_device *npu_dev,
 			struct msm_npu_get_info_ioctl *get_info_ioctl)
 {
 	get_info_ioctl->firmware_version = FIRMWARE_VERSION;
+	get_info_ioctl->flags = npu_dev->pwrctrl.num_pwrlevels;
 	return 0;
 }
 
@@ -1306,6 +1307,7 @@ int32_t npu_host_unload_network(struct npu_client *client,
 	struct ipc_cmd_unload_pkt unload_packet;
 	struct npu_network *network;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+	uint32_t networks_perf_mode;
 
 	/* get the corresponding network for ipc trans id purpose */
 	mutex_lock(&host_ctx->lock);
@@ -1391,6 +1393,11 @@ free_network:
 	 */
 	network_put(network);
 	free_network(host_ctx, client, network->id);
+	/* recalculate uc_power_level after unload network */
+	networks_perf_mode = find_networks_perf_mode(host_ctx);
+	ret = npu_set_uc_power_level(npu_dev, networks_perf_mode);
+	if (ret)
+		pr_err("network unload failed to set power level\n");
 	mutex_unlock(&host_ctx->lock);
 	fw_deinit(npu_dev, false);
 	return ret;
