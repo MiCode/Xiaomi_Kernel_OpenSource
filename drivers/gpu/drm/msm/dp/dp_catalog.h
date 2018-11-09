@@ -197,6 +197,8 @@ struct dp_catalog_panel {
 
 	enum dp_stream_id stream_id;
 
+	bool widebus_en;
+
 	int (*timing_cfg)(struct dp_catalog_panel *panel);
 	void (*config_hdr)(struct dp_catalog_panel *panel, bool en);
 	void (*tpg_config)(struct dp_catalog_panel *panel, bool enable);

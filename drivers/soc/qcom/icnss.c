@@ -610,7 +610,8 @@ bool icnss_is_fw_down(void)
 		return false;
 
 	return test_bit(ICNSS_FW_DOWN, &penv->state) ||
-		test_bit(ICNSS_PD_RESTART, &penv->state);
+		test_bit(ICNSS_PD_RESTART, &penv->state) ||
+		test_bit(ICNSS_REJUVENATE, &penv->state);
 }
 EXPORT_SYMBOL(icnss_is_fw_down);
 
@@ -782,6 +783,7 @@ static int icnss_driver_event_server_arrive(void *data)
 
 	set_bit(ICNSS_WLFW_EXISTS, &penv->state);
 	clear_bit(ICNSS_FW_DOWN, &penv->state);
+	icnss_ignore_fw_timeout(false);
 
 	ret = icnss_connect_to_fw_server(penv, data);
 	if (ret)
@@ -1100,8 +1102,10 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 	int ret = 0;
 	struct icnss_event_pd_service_down_data *event_data = data;
 
-	if (!test_bit(ICNSS_WLFW_EXISTS, &priv->state))
+	if (!test_bit(ICNSS_WLFW_EXISTS, &priv->state)) {
+		icnss_ignore_fw_timeout(false);
 		goto out;
+	}
 
 	if (priv->force_err_fatal)
 		ICNSS_ASSERT(0);
@@ -1125,8 +1129,6 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 out:
 	kfree(data);
 
-	icnss_ignore_fw_timeout(false);
-
 	return ret;
 }
 
@@ -1135,15 +1137,16 @@ static int icnss_driver_event_early_crash_ind(struct icnss_priv *priv,
 {
 	int ret = 0;
 
-	if (!test_bit(ICNSS_WLFW_EXISTS, &priv->state))
+	if (!test_bit(ICNSS_WLFW_EXISTS, &priv->state)) {
+		icnss_ignore_fw_timeout(false);
 		goto out;
+	}
 
 	priv->early_crash_ind = true;
 	icnss_fw_crashed(priv, NULL);
 
 out:
 	kfree(data);
-	icnss_ignore_fw_timeout(false);
 
 	return ret;
 }
@@ -2086,6 +2089,7 @@ static int icnss_smmu_init(struct icnss_priv *priv)
 	int atomic_ctx = 1;
 	int s1_bypass = 1;
 	int fast = 1;
+	int stall_disable = 1;
 	int ret = 0;
 
 	icnss_pr_dbg("Initializing SMMU\n");
@@ -2129,6 +2133,16 @@ static int icnss_smmu_init(struct icnss_priv *priv)
 			goto set_attr_fail;
 		}
 		icnss_pr_dbg("SMMU FAST map set\n");
+
+		ret = iommu_domain_set_attr(mapping->domain,
+					    DOMAIN_ATTR_CB_STALL_DISABLE,
+					    &stall_disable);
+		if (ret < 0) {
+			icnss_pr_err("Set stall disable map attribute failed, err = %d\n",
+				     ret);
+			goto set_attr_fail;
+		}
+		icnss_pr_dbg("SMMU STALL DISABLE map set\n");
 	}
 
 	ret = arm_iommu_attach_device(&priv->pdev->dev, mapping);

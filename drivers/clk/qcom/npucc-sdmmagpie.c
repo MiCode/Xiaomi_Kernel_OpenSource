@@ -34,14 +34,14 @@
 #include "clk-branch.h"
 #include "reset.h"
 #include "clk-alpha-pll.h"
-#include "vdd-level.h"
+#include "vdd-level-sdmmagpie.h"
 
 #define F(f, s, h, m, n) { (f), (s), (2 * (h) - 1), (m), (n) }
 
 #define CRC_SID_FSM_CTRL		0x100c
 #define CRC_SID_FSM_CTRL_SETTING	0x800000
 #define CRC_MND_CFG			0x1010
-#define CRC_MND_CFG_SETTING		0x15010
+#define CRC_MND_CFG_SETTING		0x15011
 
 static DEFINE_VDD_REGULATORS(vdd_cx, VDD_NUM, 1, vdd_corner);
 
@@ -72,6 +72,25 @@ static const char * const npu_cc_parent_names_0[] = {
 	"gcc_npu_gpll0_div_clk_src",
 	"core_bi_pll_test_se",
 };
+
+static const struct parent_map npu_cc_parent_map_1[] = {
+	{ P_BI_TCXO, 0 },
+	{ P_NPU_CC_PLL1_OUT_EVEN, 1 },
+	{ P_NPU_CC_CRC_DIV, 2 },
+	{ P_GPLL0_OUT_MAIN, 4 },
+	{ P_GPLL0_OUT_MAIN_DIV, 5 },
+	{ P_CORE_BI_PLL_TEST_SE, 7 },
+};
+
+static const char * const npu_cc_parent_names_1[] = {
+	"bi_tcxo",
+	"npu_cc_pll1_out_even",
+	"npu_cc_crc_div",
+	"gcc_npu_gpll0_clk_src",
+	"gcc_npu_gpll0_div_clk_src",
+	"core_bi_pll_test_se",
+};
+
 
 static struct pll_vco fabia_vco[] = {
 	{ 249600000, 2000000000, 0 },
@@ -180,14 +199,26 @@ static struct clk_alpha_pll_postdiv npu_cc_pll1_out_even = {
 	},
 };
 
+static struct clk_fixed_factor npu_cc_crc_div = {
+	.mult = 1,
+	.div = 2,
+	.hw.init = &(struct clk_init_data){
+		.name = "npu_cc_crc_div",
+		.parent_names = (const char *[]){ "npu_cc_pll0_out_even" },
+		.num_parents = 1,
+		.flags = CLK_SET_RATE_PARENT,
+		.ops = &clk_fixed_factor_ops,
+	},
+};
+
 static const struct freq_tbl ftbl_npu_cc_cal_dp_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
-	F(300000000, P_NPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
-	F(350000000, P_NPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
-	F(400000000, P_NPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
-	F(466500000, P_NPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
-	F(600000000, P_NPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
-	F(700000000, P_NPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
+	F(300000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
+	F(350000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
+	F(400000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
+	F(466500000, P_NPU_CC_CRC_DIV, 1, 0, 0),
+	F(600000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
+	F(700000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
 	{ }
 };
 
@@ -195,12 +226,12 @@ static struct clk_rcg2 npu_cc_cal_dp_clk_src = {
 	.cmd_rcgr = 0x1004,
 	.mnd_width = 0,
 	.hid_width = 5,
-	.parent_map = npu_cc_parent_map_0,
+	.parent_map = npu_cc_parent_map_1,
 	.freq_tbl = ftbl_npu_cc_cal_dp_clk_src,
 	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "npu_cc_cal_dp_clk_src",
-		.parent_names = npu_cc_parent_names_0,
+		.parent_names = npu_cc_parent_names_1,
 		.num_parents = 6,
 		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
@@ -623,6 +654,13 @@ static int npu_cc_sdmmagpie_probe(struct platform_device *pdev)
 
 	clk_fabia_pll_configure(&npu_cc_pll0, regmap, &npu_cc_pll0_config);
 	clk_fabia_pll_configure(&npu_cc_pll1, regmap, &npu_cc_pll1_config);
+
+	/* Register the fixed factor clock for CRC divide */
+	ret = devm_clk_hw_register(&pdev->dev, &npu_cc_crc_div.hw);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to register CRC divide clock\n");
+		return ret;
+	}
 
 	ret = qcom_cc_really_probe(pdev, &npu_cc_sdmmagpie_desc, regmap);
 	if (ret) {

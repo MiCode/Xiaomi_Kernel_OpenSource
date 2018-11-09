@@ -151,6 +151,7 @@
 			interrupts = <0x5 0xec 0x1 IRQ_TYPE_EDGE_RISING>;
 			interrupt-names = "sc-irq";
 			qcom,pmic-revid = <&pm6150l_revid>;
+			qcom,voltage-step-ramp;
 			status = "disabled";
 
 			lcdb_ldo_vreg: ldo {
@@ -299,11 +300,30 @@
 			reg = <0xd800 0x100>, <0xd900 0x100>;
 			reg-names = "wled-ctrl-base", "wled-sink-base";
 			label = "backlight";
-			interrupts = <0x5 0xd8 0x1 IRQ_TYPE_EDGE_RISING>;
-			interrupt-names = "ovp-irq";
+			interrupts = <0x5 0xd8 0x1 IRQ_TYPE_EDGE_RISING>,
+				     <0x5 0xd8 0x4 IRQ_TYPE_EDGE_BOTH>,
+				     <0x5 0xd8 0x5 IRQ_TYPE_EDGE_BOTH>;
+			interrupt-names = "ovp-irq", "pre-flash-irq",
+					  "flash-irq";
 			qcom,pmic-revid = <&pm6150l_revid>;
 			qcom,auto-calibration;
 			status = "disabled";
+
+			wled_flash: qcom,wled-flash {
+				label = "flash";
+				qcom,default-led-trigger = "wled_flash";
+			};
+
+			wled_torch: qcom,wled-torch {
+				label = "torch";
+				qcom,default-led-trigger = "wled_torch";
+				qcom,wled-torch-timer = <1200>;
+			};
+
+			wled_switch: qcom,wled-switch {
+				label = "switch";
+				qcom,default-led-trigger = "wled_switch";
+			};
 		};
 
 		pm6150l_lpg: qcom,pwms@b100 {

@@ -372,13 +372,18 @@ int dp_connector_get_mode_info(struct drm_connector *connector,
 	const u32 single_intf = 1;
 	const u32 no_enc = 0;
 	struct msm_display_topology *topology;
+	struct sde_connector *sde_conn;
+	struct dp_panel *dp_panel;
 
-	if (!drm_mode || !mode_info || !max_mixer_width) {
+	if (!drm_mode || !mode_info || !max_mixer_width || !connector) {
 		pr_err("invalid params\n");
 		return -EINVAL;
 	}
 
 	memset(mode_info, 0, sizeof(*mode_info));
+
+	sde_conn = to_sde_connector(connector);
+	dp_panel = sde_conn->drv_panel;
 
 	topology = &mode_info->topology;
 	topology->num_lm = (max_mixer_width <= drm_mode->hdisplay) ?
@@ -388,6 +393,8 @@ int dp_connector_get_mode_info(struct drm_connector *connector,
 
 	mode_info->frame_rate = drm_mode->vrefresh;
 	mode_info->vtotal = drm_mode->vtotal;
+
+	mode_info->wide_bus_en = dp_panel->widebus_en;
 
 	return 0;
 }

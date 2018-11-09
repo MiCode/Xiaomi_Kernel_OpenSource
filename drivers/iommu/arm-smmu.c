@@ -2423,7 +2423,10 @@ static void arm_smmu_domain_remove_master(struct arm_smmu_domain *smmu_domain,
 
 	mutex_lock(&smmu->stream_map_mutex);
 	for_each_cfg_sme(fwspec, i, idx) {
-		WARN_ON(s2cr[idx].attach_count == 0);
+		if (WARN_ON(s2cr[idx].attach_count == 0)) {
+			mutex_unlock(&smmu->stream_map_mutex);
+			return;
+		}
 		s2cr[idx].attach_count -= 1;
 
 		if (s2cr[idx].attach_count > 0)

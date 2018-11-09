@@ -3522,6 +3522,10 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 	    IS_SDE_MAJOR_SAME((hw_rev), SDE_HW_VER_500))
 		sde_cfg->has_hdr = true;
 
+	/* Disable HDR for SM6150 target only */
+	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_530))
+		sde_cfg->has_hdr = false;
+
 	index = sde_copy_formats(sde_cfg->dma_formats, dma_list_size,
 		0, plane_formats, ARRAY_SIZE(plane_formats));
 	index += sde_copy_formats(sde_cfg->dma_formats, dma_list_size,

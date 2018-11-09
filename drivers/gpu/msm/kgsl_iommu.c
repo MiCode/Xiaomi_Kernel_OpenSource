@@ -1182,7 +1182,7 @@ void _enable_gpuhtw_llc(struct kgsl_mmu *mmu, struct kgsl_iommu_pt *iommu_pt)
 		return;
 
 	/* Domain attribute to enable system cache for GPU pagetable walks */
-	if (adreno_is_a640(adreno_dev))
+	if (adreno_is_a640(adreno_dev) || adreno_is_a608(adreno_dev))
 		ret = iommu_domain_set_attr(iommu_pt->domain,
 			DOMAIN_ATTR_USE_LLC_NWA, &gpuhtw_llc_enable);
 	else
@@ -2090,6 +2090,8 @@ kgsl_iommu_get_current_ttbr0(struct kgsl_mmu *mmu)
 {
 	u64 val;
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
+	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
+
 	/*
 	 * We cannot enable or disable the clocks in interrupt context, this
 	 * function is called from interrupt context if there is an axi error
@@ -2097,9 +2099,11 @@ kgsl_iommu_get_current_ttbr0(struct kgsl_mmu *mmu)
 	if (in_interrupt())
 		return 0;
 
+	if (ctx->regbase == NULL)
+		return 0;
+
 	kgsl_iommu_enable_clk(mmu);
-	val = KGSL_IOMMU_GET_CTX_REG_Q(&iommu->ctx[KGSL_IOMMU_CONTEXT_USER],
-					TTBR0);
+	val = KGSL_IOMMU_GET_CTX_REG_Q(ctx, TTBR0);
 	kgsl_iommu_disable_clk(mmu);
 	return val;
 }

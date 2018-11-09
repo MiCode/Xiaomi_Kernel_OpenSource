@@ -1124,15 +1124,22 @@ static inline void diag_send_diag_mode_update_remote(int token, int real_time)
 void diag_real_time_work_fn(struct work_struct *work)
 {
 	int temp_real_time = MODE_REALTIME, i, j;
-	uint8_t send_update = 1;
+	uint8_t send_update = 1, peripheral = 0;
 
 	/*
 	 * If any peripheral in the local processor is in either threshold or
 	 * circular buffering mode, don't send the real time mode control
 	 * packet.
 	 */
-	for (i = 0; i < NUM_PERIPHERALS; i++) {
-		if (!driver->feature[i].peripheral_buffering)
+	for (i = 0; i < NUM_MD_SESSIONS; i++) {
+		peripheral = i;
+		if (peripheral == APPS_DATA)
+			continue;
+
+		if (peripheral > NUM_PERIPHERALS)
+			peripheral = diag_search_peripheral_by_pd(i);
+
+		if (!driver->feature[peripheral].peripheral_buffering)
 			continue;
 		switch (driver->buffering_mode[i].mode) {
 		case DIAG_BUFFERING_MODE_THRESHOLD:

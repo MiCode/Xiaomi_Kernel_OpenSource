@@ -1,0 +1,234 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/clock/qcom,gcc-sm6150.h>
+
+&soc {
+	pcie0: qcom,pcie@1c08000 {
+		compatible = "qcom,pci-msm";
+		cell-index = <0>;
+
+		reg = <0x1c08000 0x4000>,
+			<0x1c0e000 0x1000>,
+			<0x40000000 0xf1d>,
+			<0x40000f20 0xa8>,
+			<0x40001000 0x1000>,
+			<0x40100000 0x100000>,
+			<0x40200000 0x100000>,
+			<0x40300000 0x1fd00000>;
+
+		reg-names = "parf", "phy", "dm_core", "elbi",
+				"iatu", "conf", "io", "bars";
+
+		#address-cells = <3>;
+		#size-cells = <2>;
+		ranges = <0x01000000 0x0 0x40200000 0x40200000 0x0 0x100000>,
+			<0x02000000 0x0 0x40300000 0x40300000 0x0 0x1fd00000>;
+		interrupt-parent = <&pcie0>;
+		interrupts = <0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19
+				20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35
+				36 37>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 0xffffffff>;
+		interrupt-map = <0 0 0 0 &intc 0 141 0
+				0 0 0 1 &intc 0 149 0
+				0 0 0 2 &intc 0 150 0
+				0 0 0 3 &intc 0 151 0
+				0 0 0 4 &intc 0 152 0
+				0 0 0 5 &intc 0 140 0
+				0 0 0 6 &intc 0 768 0
+				0 0 0 7 &intc 0 769 0
+				0 0 0 8 &intc 0 770 0
+				0 0 0 9 &intc 0 771 0
+				0 0 0 10 &intc 0 772 0
+				0 0 0 11 &intc 0 773 0
+				0 0 0 12 &intc 0 774 0
+				0 0 0 13 &intc 0 775 0
+				0 0 0 14 &intc 0 776 0
+				0 0 0 15 &intc 0 777 0
+				0 0 0 16 &intc 0 778 0
+				0 0 0 17 &intc 0 779 0
+				0 0 0 18 &intc 0 780 0
+				0 0 0 19 &intc 0 781 0
+				0 0 0 20 &intc 0 782 0
+				0 0 0 21 &intc 0 783 0
+				0 0 0 22 &intc 0 784 0
+				0 0 0 23 &intc 0 785 0
+				0 0 0 24 &intc 0 786 0
+				0 0 0 25 &intc 0 787 0
+				0 0 0 26 &intc 0 788 0
+				0 0 0 27 &intc 0 789 0
+				0 0 0 28 &intc 0 790 0
+				0 0 0 29 &intc 0 791 0
+				0 0 0 30 &intc 0 792 0
+				0 0 0 31 &intc 0 793 0
+				0 0 0 32 &intc 0 794 0
+				0 0 0 33 &intc 0 795 0
+				0 0 0 34 &intc 0 796 0
+				0 0 0 35 &intc 0 797 0
+				0 0 0 36 &intc 0 798 0
+				0 0 0 37 &intc 0 799 0>;
+
+		interrupt-names = "int_msi", "int_a", "int_b", "int_c",
+				"int_d", "int_global_int",
+				"msi_0", "msi_1", "msi_2", "msi_3",
+				"msi_4", "msi_5", "msi_6", "msi_7",
+				"msi_8", "msi_9", "msi_10", "msi_11",
+				"msi_12", "msi_13", "msi_14", "msi_15",
+				"msi_16", "msi_17", "msi_18", "msi_19",
+				"msi_20", "msi_21", "msi_22", "msi_23",
+				"msi_24", "msi_25", "msi_26", "msi_27",
+				"msi_28", "msi_29", "msi_30", "msi_31";
+
+		qcom,phy-sequence = <0x0800 0x01 0x0
+				0x0804 0x03 0x0
+				0x0034 0x18 0x0
+				0x0038 0x10 0x0
+				0x0294 0x06 0x0
+				0x00c8 0x01 0x0
+				0x0128 0x00 0x0
+				0x0144 0xff 0x0
+				0x0148 0x1f 0x0
+				0x0070 0x0f 0x0
+				0x0048 0x0f 0x0
+				0x0178 0x00 0x0
+				0x019c 0x01 0x0
+				0x018c 0x20 0x0
+				0x0184 0x0a 0x0
+				0x00b4 0x20 0x0
+				0x000c 0x09 0x0
+				0x00ac 0x04 0x0
+				0x00d0 0x82 0x0
+				0x00e4 0x03 0x0
+				0x00e0 0x55 0x0
+				0x00dc 0x55 0x0
+				0x0054 0x00 0x0
+				0x0050 0x0d 0x0
+				0x004c 0x04 0x0
+				0x0174 0x33 0x0
+				0x003c 0x02 0x0
+				0x0040 0x1f 0x0
+				0x0078 0x0b 0x0
+				0x0084 0x16 0x0
+				0x0090 0x28 0x0
+				0x010c 0x00 0x0
+				0x0108 0x80 0x0
+				0x0010 0x01 0x0
+				0x001c 0x31 0x0
+				0x0020 0x01 0x0
+				0x0014 0x02 0x0
+				0x0018 0x00 0x0
+				0x0024 0x2f 0x0
+				0x0028 0x19 0x0
+				0x0268 0x45 0x0
+				0x0194 0x06 0x0
+				0x024c 0x02 0x0
+				0x02ac 0x12 0x0
+				0x0510 0x1c 0x0
+				0x051c 0x14 0x0
+				0x04d8 0x01 0x0
+				0x04dc 0x00 0x0
+				0x04e0 0xdb 0x0
+				0x0448 0x4b 0x0
+				0x041c 0x04 0x0
+				0x0410 0x04 0x0
+				0x0074 0x19 0x0
+				0x0854 0x04 0x0
+				0x09ac 0x00 0x0
+				0x08a0 0x40 0x0
+				0x09e0 0x00 0x0
+				0x09dc 0x40 0x0
+				0x09a8 0x00 0x0
+				0x08a4 0x40 0x0
+				0x08a8 0x73 0x0
+				0x0518 0x99 0x0
+				0x0824 0x15 0x0
+				0x0828 0x0e 0x0
+				0x09b0 0x07 0x0
+				0x0800 0x00 0x0
+				0x0808 0x03 0x0>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pcie0_clkreq_default
+			&pcie0_perst_default
+			&pcie0_wake_default>;
+
+		perst-gpio = <&tlmm 101 0>;
+		wake-gpio = <&tlmm 100 0>;
+
+		gdsc-vdd-supply = <&pcie_0_gdsc>;
+		vreg-1.8-supply = <&L12A>;
+		vreg-0.9-supply = <&L5A>;
+
+		vreg-cx-supply = <&VDD_CX_LEVEL>;
+
+		qcom,vreg-1.8-voltage-level = <1800000 1800000 24000>;
+		qcom,vreg-0.9-voltage-level = <925000 925000 24000>;
+		qcom,vreg-cx-voltage-level = <RPMH_REGULATOR_LEVEL_MAX
+						RPMH_REGULATOR_LEVEL_NOM 0>;
+
+		qcom,no-l0s-supported;
+
+		qcom,max-link-speed = <0x2>;
+
+		qcom,ep-latency = <10>;
+
+		qcom,slv-addr-space-size = <0x20000000>;
+
+		qcom,phy-status-offset = <0x974>;
+		qcom,phy-power-down-offset = <0x804>;
+
+		qcom,boot-option = <0x1>;
+
+		linux,pci-domain = <0>;
+
+		qcom,msi-gicm-addr = <0x17a00040>;
+		qcom,msi-gicm-base = <0x320>;
+
+		qcom,pcie-phy-ver = <0x10>;
+		qcom,use-19p2mhz-aux-clk;
+
+		qcom,msm-bus,name = "pcie0";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<45 512 0 0>,
+				<45 512 500 800>;
+
+		clocks = <&clock_gcc GCC_PCIE_0_PIPE_CLK>,
+			<&clock_rpmh RPMH_CXO_CLK>,
+			<&clock_gcc GCC_PCIE_0_AUX_CLK>,
+			<&clock_gcc GCC_PCIE_0_CFG_AHB_CLK>,
+			<&clock_gcc GCC_PCIE_0_MSTR_AXI_CLK>,
+			<&clock_gcc GCC_PCIE_0_SLV_AXI_CLK>,
+			<&clock_gcc GCC_PCIE_0_CLKREF_CLK>,
+			<&clock_gcc GCC_PCIE_0_SLV_Q2A_AXI_CLK>,
+			<&clock_gcc GCC_PCIE0_PHY_REFGEN_CLK>,
+			<&clock_gcc GCC_PCIE_PHY_AUX_CLK>;
+
+		clock-names = "pcie_0_pipe_clk", "pcie_0_ref_clk_src",
+				"pcie_0_aux_clk", "pcie_0_cfg_ahb_clk",
+				"pcie_0_mstr_axi_clk", "pcie_0_slv_axi_clk",
+				"pcie_0_ldo", "pcie_0_slv_q2a_axi_clk",
+				"pcie_phy_refgen_clk", "pcie_phy_aux_clk";
+
+		max-clock-frequency-hz = <0>, <0>, <19200000>, <0>, <0>, <0>,
+					<0>, <0>, <0>, <0>, <100000000>, <0>;
+
+		resets = <&clock_gcc GCC_PCIE_0_BCR>,
+			<&clock_gcc GCC_PCIE_0_PHY_BCR>;
+
+		reset-names = "pcie_0_core_reset",
+				"pcie_0_phy_reset";
+	};
+};

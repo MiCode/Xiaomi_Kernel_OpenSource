@@ -1224,6 +1224,22 @@ static void adreno_cx_dbgc_probe(struct kgsl_device *device)
 		KGSL_DRV_WARN(device, "cx_dbgc ioremap failed\n");
 }
 
+static void adreno_cx_misc_probe(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct resource *res;
+
+	res = platform_get_resource_byname(device->pdev, IORESOURCE_MEM,
+					   "cx_misc");
+
+	if (res == NULL)
+		return;
+
+	adreno_dev->cx_misc_len = resource_size(res);
+	adreno_dev->cx_misc_virt = devm_ioremap(device->dev,
+					res->start, adreno_dev->cx_misc_len);
+}
+
 static void adreno_efuse_read_soc_hw_rev(struct adreno_device *adreno_dev)
 {
 	unsigned int val;
@@ -1355,6 +1371,9 @@ static int adreno_probe(struct platform_device *pdev)
 
 	/* Probe for the optional CX_DBGC block */
 	adreno_cx_dbgc_probe(device);
+
+	/* Probe for the optional CX_MISC block */
+	adreno_cx_misc_probe(device);
 
 	/*
 	 * qcom,iommu-secure-id is used to identify MMUs that can handle secure
@@ -1855,15 +1874,24 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	if (regulator_left_on)
 		_soft_reset(adreno_dev);
 
-	if ((adreno_is_a640v1(adreno_dev)) &&
-		scm_is_call_available(SCM_SVC_MP, CP_SMMU_APERTURE_ID)) {
-		ret = kgsl_program_smmu_aperture();
-		if (ret) {
-			pr_err("SMMU aperture programming call failed with error %d\n",
-				ret);
-			goto error_pwr_off;
+
+	if (adreno_is_a640v1(adreno_dev)) {
+		unsigned long start = jiffies;
+
+		if (scm_is_call_available(SCM_SVC_MP, CP_SMMU_APERTURE_ID)) {
+			ret = kgsl_program_smmu_aperture();
+			/* Log it if it takes more than 2 seconds */
+			if (((jiffies - start) / HZ) > 2)
+				dev_err(device->dev, "scm call took too long to finish on a640v1: %lu seconds\n",
+					((jiffies - start) / HZ));
+			if (ret) {
+				dev_err(device->dev, "SMMU aperture programming call failed with error %d\n",
+					ret);
+				goto error_pwr_off;
+			}
 		}
 	}
+
 	adreno_ringbuffer_set_global(adreno_dev, 0);
 
 	status = kgsl_mmu_start(device);
@@ -3378,6 +3406,54 @@ void adreno_cx_dbgc_regwrite(struct kgsl_device *device,
 	 */
 	wmb();
 	__raw_writel(value, adreno_dev->cx_dbgc_virt + cx_dbgc_offset);
+}
+
+void adreno_cx_misc_regread(struct adreno_device *adreno_dev,
+	unsigned int offsetwords, unsigned int *value)
+{
+	unsigned int cx_misc_offset;
+
+	cx_misc_offset = (offsetwords << 2);
+	if (!adreno_dev->cx_misc_virt ||
+		(cx_misc_offset >= adreno_dev->cx_misc_len))
+		return;
+
+	*value = __raw_readl(adreno_dev->cx_misc_virt + cx_misc_offset);
+
+	/*
+	 * ensure this read finishes before the next one.
+	 * i.e. act like normal readl()
+	 */
+	rmb();
+}
+
+void adreno_cx_misc_regwrite(struct adreno_device *adreno_dev,
+	unsigned int offsetwords, unsigned int value)
+{
+	unsigned int cx_misc_offset;
+
+	cx_misc_offset = (offsetwords << 2);
+	if (!adreno_dev->cx_misc_virt ||
+		(cx_misc_offset >= adreno_dev->cx_misc_len))
+		return;
+
+	/*
+	 * ensure previous writes post before this one,
+	 * i.e. act like normal writel()
+	 */
+	wmb();
+	__raw_writel(value, adreno_dev->cx_misc_virt + cx_misc_offset);
+}
+
+void adreno_cx_misc_regrmw(struct adreno_device *adreno_dev,
+		unsigned int offsetwords,
+		unsigned int mask, unsigned int bits)
+{
+	unsigned int val = 0;
+
+	adreno_cx_misc_regread(adreno_dev, offsetwords, &val);
+	val &= ~mask;
+	adreno_cx_misc_regwrite(adreno_dev, offsetwords, val | bits);
 }
 
 /**

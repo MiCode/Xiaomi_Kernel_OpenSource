@@ -530,6 +530,17 @@ static int qrtr_node_enqueue(struct qrtr_node *node, struct sk_buff *skb,
 	if (!rc && type == QRTR_TYPE_HELLO)
 		atomic_inc(&node->hello_sent);
 
+	if (rc) {
+		struct qrtr_tx_flow *flow;
+		unsigned long key = (u64)to->sq_node << 32 | to->sq_port;
+
+		mutex_lock(&node->qrtr_tx_lock);
+		flow = radix_tree_lookup(&node->qrtr_tx_flow, key);
+		if (flow)
+			atomic_dec(&flow->pending);
+		mutex_unlock(&node->qrtr_tx_lock);
+	}
+
 	return rc;
 }
 
@@ -927,7 +938,6 @@ static int qrtr_port_assign(struct qrtr_sock *ipc, int *port)
 {
 	int rc;
 
-	mutex_lock(&qrtr_port_lock);
 	if (!*port) {
 		rc = idr_alloc_cyclic(&qrtr_ports, ipc, QRTR_MIN_EPH_SOCKET,
 				      QRTR_MAX_EPH_SOCKET + 1, GFP_ATOMIC);
@@ -944,7 +954,6 @@ static int qrtr_port_assign(struct qrtr_sock *ipc, int *port)
 		if (rc >= 0)
 			*port = rc;
 	}
-	mutex_unlock(&qrtr_port_lock);
 
 	if (rc == -ENOSPC)
 		return -EADDRINUSE;
@@ -962,7 +971,6 @@ static void qrtr_reset_ports(void)
 	struct qrtr_sock *ipc;
 	int id;
 
-	mutex_lock(&qrtr_port_lock);
 	idr_for_each_entry(&qrtr_ports, ipc, id) {
 		/* Don't reset control port */
 		if (id == 0)
@@ -973,7 +981,6 @@ static void qrtr_reset_ports(void)
 		ipc->sk.sk_error_report(&ipc->sk);
 		sock_put(&ipc->sk);
 	}
-	mutex_unlock(&qrtr_port_lock);
 }
 
 /* Bind socket to address.
@@ -992,21 +999,23 @@ static int __qrtr_bind(struct socket *sock,
 	if (!zapped && addr->sq_port == ipc->us.sq_port)
 		return 0;
 
+	mutex_lock(&qrtr_port_lock);
 	port = addr->sq_port;
 	rc = qrtr_port_assign(ipc, &port);
-	if (rc)
+	if (rc) {
+		mutex_unlock(&qrtr_port_lock);
 		return rc;
+	}
+	/* Notify all open ports about the new controller */
+	if (port == QRTR_PORT_CTRL)
+		qrtr_reset_ports();
+	mutex_unlock(&qrtr_port_lock);
 
 	/* unbind previous, if any */
 	if (!zapped)
 		qrtr_port_remove(ipc);
 	ipc->us.sq_port = port;
-
 	sock_reset_flag(sk, SOCK_ZAPPED);
-
-	/* Notify all open ports about the new controller */
-	if (port == QRTR_PORT_CTRL)
-		qrtr_reset_ports();
 
 	return 0;
 }
@@ -1055,6 +1064,7 @@ static int qrtr_local_enqueue(struct qrtr_node *node, struct sk_buff *skb,
 {
 	struct qrtr_sock *ipc;
 	struct qrtr_cb *cb;
+	struct sock *sk = skb->sk;
 
 	ipc = qrtr_port_lookup(to->sq_port);
 	if (!ipc && to->sq_port == QRTR_PORT_CTRL) {
@@ -1064,6 +1074,15 @@ static int qrtr_local_enqueue(struct qrtr_node *node, struct sk_buff *skb,
 	if (!ipc || &ipc->sk == skb->sk) { /* do not send to self */
 		kfree_skb(skb);
 		return -ENODEV;
+	}
+	/* Keep resetting NETRESET until socket is closed */
+	if (sk && sk->sk_err == ENETRESET) {
+		sock_hold(sk);
+		sk->sk_err = ENETRESET;
+		sk->sk_error_report(sk);
+		sock_put(sk);
+		kfree_skb(skb);
+		return 0;
 	}
 
 	cb = (struct qrtr_cb *)skb->cb;

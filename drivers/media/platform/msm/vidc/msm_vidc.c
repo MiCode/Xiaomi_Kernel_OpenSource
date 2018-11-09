@@ -1981,10 +1981,31 @@ static void msm_vidc_cleanup_instance(struct msm_vidc_inst *inst)
 {
 	struct msm_vidc_buffer *temp, *dummy;
 	struct getprop_buf *temp_prop, *dummy_prop;
+	struct list_head *ptr, *next;
+	enum vidc_ports ports[] = {OUTPUT_PORT, CAPTURE_PORT};
+	int c = 0;
 
 	if (!inst) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
 		return;
+	}
+
+	for (c = 0; c < ARRAY_SIZE(ports); ++c) {
+		enum vidc_ports port = ports[c];
+
+		mutex_lock(&inst->bufq[port].lock);
+		list_for_each_safe(ptr, next,
+				&inst->bufq[port].vb2_bufq.queued_list) {
+			struct vb2_buffer *vb = container_of(ptr,
+					struct vb2_buffer, queued_entry);
+			if (vb->state == VB2_BUF_STATE_ACTIVE) {
+				vb->planes[0].bytesused = 0;
+				print_vb2_buffer(VIDC_ERR, "undequeud vb2",
+					inst, vb);
+				vb2_buffer_done(vb, VB2_BUF_STATE_ERROR);
+			}
+		}
+		mutex_unlock(&inst->bufq[port].lock);
 	}
 
 	mutex_lock(&inst->registeredbufs.lock);

@@ -58,9 +58,11 @@
 #define A6XX_CP_RB_RPTR                  0x806
 #define A6XX_CP_RB_WPTR                  0x807
 #define A6XX_CP_SQE_CNTL                 0x808
+#define A6XX_CP_CP2GMU_STATUS            0x812
 #define A6XX_CP_HW_FAULT                 0x821
 #define A6XX_CP_INTERRUPT_STATUS         0x823
-#define A6XX_CP_PROTECT_STATUS           0X824
+#define A6XX_CP_PROTECT_STATUS           0x824
+#define A6XX_CP_STATUS_1                 0x825
 #define A6XX_CP_SQE_INSTR_BASE_LO        0x830
 #define A6XX_CP_SQE_INSTR_BASE_HI        0x831
 #define A6XX_CP_MISC_CNTL                0x840
@@ -1110,6 +1112,17 @@
 #define A6XX_RGMU_CX_PCC_BKPT_ADDR		0x1F83B
 #define A6XX_RGMU_CX_PCC_STATUS			0x1F83C
 #define A6XX_RGMU_CX_PCC_DEBUG			0x1F83D
+
+/* GPU CX_MISC registers */
+#define A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_0	0x1
+#define A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_1	0x2
+#define A6XX_LLC_NUM_GPU_SCIDS			5
+#define A6XX_GPU_LLC_SCID_NUM_BITS		5
+#define A6XX_GPU_LLC_SCID_MASK \
+	((1 << (A6XX_LLC_NUM_GPU_SCIDS * A6XX_GPU_LLC_SCID_NUM_BITS)) - 1)
+#define A6XX_GPUHTW_LLC_SCID_SHIFT		25
+#define A6XX_GPUHTW_LLC_SCID_MASK \
+	(((1 << A6XX_GPU_LLC_SCID_NUM_BITS) - 1) << A6XX_GPUHTW_LLC_SCID_SHIFT)
 
 #endif /* _A6XX_REG_H */
 

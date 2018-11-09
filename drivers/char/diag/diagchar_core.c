@@ -1852,7 +1852,8 @@ static int diag_switch_logging(struct diag_logging_mode_param_t *param)
 		"Switch logging to %d mask:%0x\n", new_mode, peripheral_mask);
 
 	/* Update to take peripheral_mask */
-	if (new_mode != DIAG_MEMORY_DEVICE_MODE) {
+	if (new_mode != DIAG_MEMORY_DEVICE_MODE ||
+		new_mode != DIAG_MULTI_MODE) {
 		diag_update_real_time_vote(DIAG_PROC_MEMORY_DEVICE,
 					   MODE_REALTIME, ALL_PROC);
 	} else {
@@ -1860,8 +1861,9 @@ static int diag_switch_logging(struct diag_logging_mode_param_t *param)
 				      ALL_PROC);
 	}
 
-	if (!(new_mode == DIAG_MEMORY_DEVICE_MODE &&
-	      curr_mode == DIAG_USB_MODE)) {
+	if (!((new_mode == DIAG_MEMORY_DEVICE_MODE ||
+		new_mode == DIAG_MULTI_MODE) &&
+	    curr_mode == DIAG_USB_MODE)) {
 		queue_work(driver->diag_real_time_wq,
 			   &driver->diag_real_time_work);
 	}
@@ -3250,13 +3252,13 @@ static int diag_user_process_apps_data(const char __user *buf, int len,
 	mutex_lock(&apps_data_mutex);
 	mutex_lock(&driver->hdlc_disable_mutex);
 	hdlc_disabled = driver->p_hdlc_disabled[APPS_DATA];
+	mutex_unlock(&driver->hdlc_disable_mutex);
 	if (hdlc_disabled)
 		ret = diag_process_apps_data_non_hdlc(user_space_data, len,
 						      pkt_type);
 	else
 		ret = diag_process_apps_data_hdlc(user_space_data, len,
 						  pkt_type);
-	mutex_unlock(&driver->hdlc_disable_mutex);
 	mutex_unlock(&apps_data_mutex);
 
 	diagmem_free(driver, user_space_data, mempool);

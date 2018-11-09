@@ -86,6 +86,9 @@
 					15 01 00 00 00 00 02 55 0c
 					05 01 00 00 1e 00 02 11 00
 					39 01 00 00 00 00 03 b0 a5 00
+					15 01 00 00 00 00 02 e0 18
+					39 01 00 00 00 00 0c c0 00 53 6f 51 50
+					   51 34 4f 5a 33 19
 					05 01 00 00 78 00 02 35 00
 					05 01 00 00 3c 00 02 29 00
 				];
@@ -104,8 +107,18 @@
 					[15 01 00 00 00 00 02 5a 00];
 				qcom,mdss-dsi-qsync-off-commands-state =
 					"dsi_lp_mode";
+				qcom,mdss-dsi-lp1-command = [
+					05 01 00 00 00 00 02 39 00
+				];
+				qcom,mdss-dsi-lp1-command-state =
+					"dsi_lp_mode";
+				qcom,mdss-dsi-nolp-command = [
+					05 01 00 00 00 00 02 38 00
+				];
+				qcom,mdss-dsi-nolp-command-state =
+					"dsi_lp_mode";
 				qcom,compression-mode = "dsc";
-				qcom,mdss-dsc-slice-height = <1440>;
+				qcom,mdss-dsc-slice-height = <180>;
 				qcom,mdss-dsc-slice-width = <720>;
 				qcom,mdss-dsc-slice-per-pkt = <1>;
 				qcom,mdss-dsc-bit-per-component = <8>;

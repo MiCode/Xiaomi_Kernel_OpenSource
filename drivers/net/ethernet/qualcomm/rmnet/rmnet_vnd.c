@@ -197,6 +197,7 @@ static const char rmnet_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"Checksum skipped on ip fragment",
 	"Checksum skipped",
 	"Checksum computed in software",
+	"Checksum computed in hardware",
 };
 
 static const char rmnet_port_gstrings_stats[][ETH_GSTRING_LEN] = {

@@ -726,17 +726,23 @@ int drm_notifier_callback(struct notifier_block *self,
 
 	D("DRM  %s\n", __func__);
 
-	if (evdata->data && event == MSM_DRM_EVENT_BLANK && ts && ts->client) {
+	if (evdata->data && event == MSM_DRM_EARLY_EVENT_BLANK && ts &&
+							ts->client) {
 		blank = evdata->data;
-
 		switch (*blank) {
-		case MSM_DRM_BLANK_UNBLANK:
-			himax_common_resume(&ts->client->dev);
-			break;
 		case MSM_DRM_BLANK_POWERDOWN:
 			if (!ts->initialized)
 				return -ECANCELED;
 			himax_common_suspend(&ts->client->dev);
+			break;
+		}
+	}
+
+	if (evdata->data && event == MSM_DRM_EVENT_BLANK && ts && ts->client) {
+		blank = evdata->data;
+		switch (*blank) {
+		case MSM_DRM_BLANK_UNBLANK:
+			himax_common_resume(&ts->client->dev);
 			break;
 		}
 	}
@@ -822,6 +828,15 @@ int himax_chip_common_probe(struct i2c_client *client, const struct i2c_device_i
 		goto err_fb_notify_reg_failed;
 #endif
 
+#ifdef HX_AUTO_UPDATE_FW
+	ts->himax_update_wq =
+		create_singlethread_workqueue("HMX_update_request");
+	if (!ts->himax_update_wq) {
+		E(" allocate syn_update_wq failed\n");
+		goto err_fb_notify_reg_failed;
+	}
+	INIT_DELAYED_WORK(&ts->work_update, himax_update_register);
+#endif
 	return ret;
 
 err_fb_notify_reg_failed:

@@ -13,7 +13,8 @@
 &soc {
 	tlmm: pinctrl@03000000 {
 		compatible = "qcom,sm8150-pinctrl";
-		reg = <0x03000000 0xdc2000>;
+		reg = <0x03000000 0xdc2000>, <0x17c000f0 0x60>;
+		reg-names = "pinctrl", "spi_cfg";
 		interrupts = <0 208 0>;
 		gpio-controller;
 		#gpio-cells = <2>;
@@ -3794,6 +3795,33 @@
 			config {
 				pins = "gpio11";
 				bias-disable; /* NO PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+		camera_vaf_en_default: camera_vaf_en_default {
+			/*  VAF ELDO1 */
+			mux {
+				pins = "gpio29";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio29";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		camera_vana_en_default: camera_vana_en_default {
+			 /*  VANA ELDO2 */
+			 mux {
+				pins = "gpio11";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio11";
+				bias-disable; /* No PULL */
 				drive-strength = <2>; /* 2 MA */
 			};
 		};

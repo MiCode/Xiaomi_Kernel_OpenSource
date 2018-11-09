@@ -20,6 +20,7 @@
 #include <linux/delay.h>
 #include <linux/sysfs.h>
 #include <linux/io.h>
+#include <linux/of.h>
 #include <linux/bitops.h>
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
@@ -27,6 +28,7 @@
 #include <linux/serial.h>
 #include <linux/workqueue.h>
 #include <linux/power_supply.h>
+#include <soc/qcom/scm.h>
 
 #define EUD_ENABLE_CMD 1
 #define EUD_DISABLE_CMD 0
@@ -37,6 +39,7 @@
 #define EUD_REG_COM_RX_ID	0x000C
 #define EUD_REG_COM_RX_LEN	0x0010
 #define EUD_REG_COM_RX_DAT	0x0014
+#define EUD_REG_EUD_EN2		0x0000
 #define EUD_REG_INT1_EN_MASK	0x0024
 #define EUD_REG_INT_STATUS_1	0x0044
 #define EUD_REG_CTL_OUT_1	0x0074
@@ -71,6 +74,8 @@ struct eud_chip {
 	struct uart_port		port;
 	struct work_struct		eud_work;
 	struct power_supply		*batt_psy;
+	bool				secure_eud_en;
+	phys_addr_t			eud_mode_mgr2_phys_base;
 };
 
 static const unsigned int eud_extcon_cable[] = {
@@ -122,6 +127,14 @@ static void enable_eud(struct platform_device *pdev)
 		/* Enable vbus, chgr & safe mode warning interrupts */
 		writel_relaxed(EUD_INT_VBUS | EUD_INT_CHGR | EUD_INT_SAFE_MODE,
 				priv->eud_reg_base + EUD_REG_INT1_EN_MASK);
+		/* Enable secure eud if supported */
+		if (priv->secure_eud_en) {
+			ret = scm_io_write(priv->eud_mode_mgr2_phys_base +
+					   EUD_REG_EUD_EN2, EUD_ENABLE_CMD);
+			if (ret)
+				dev_err(&pdev->dev,
+				"scm_io_write failed with rc:%d\n", ret);
+		}
 
 		/* Ensure Register Writes Complete */
 		wmb();
@@ -143,9 +156,19 @@ static void enable_eud(struct platform_device *pdev)
 static void disable_eud(struct platform_device *pdev)
 {
 	struct eud_chip *priv = platform_get_drvdata(pdev);
+	int ret;
 
 	/* write into CSR to disable EUD */
 	writel_relaxed(0, priv->eud_reg_base + EUD_REG_CSR_EUD_EN);
+	/* Disable secure eud if supported */
+	if (priv->secure_eud_en) {
+		ret = scm_io_write(priv->eud_mode_mgr2_phys_base +
+				   EUD_REG_EUD_EN2, EUD_DISABLE_CMD);
+		if (ret)
+			dev_err(&pdev->dev,
+			"scm_io_write failed with rc:%d\n", ret);
+	}
+
 	dev_dbg(&pdev->dev, "%s: EUD Disabled!\n", __func__);
 }
 
@@ -522,6 +545,22 @@ static int msm_eud_probe(struct platform_device *pdev)
 		return PTR_ERR(chip->eud_reg_base);
 
 	chip->eud_irq = platform_get_irq_byname(pdev, "eud_irq");
+
+	chip->secure_eud_en = of_property_read_bool(pdev->dev.of_node,
+			      "qcom,secure-eud-en");
+	if (chip->secure_eud_en) {
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						   "eud_mode_mgr2");
+		if (!res) {
+			dev_err(chip->dev,
+			"%s: failed to get resource eud_mode_mgr2\n",
+			__func__);
+			ret = -ENOMEM;
+			return ret;
+		}
+
+		chip->eud_mode_mgr2_phys_base = res->start;
+	}
 
 	ret = devm_request_irq(&pdev->dev, chip->eud_irq, handle_eud_irq,
 				IRQF_TRIGGER_HIGH, "eud_irq", chip);

@@ -132,7 +132,7 @@ static ad4_prop_setup prop_set_func[ad4_state_max][AD_PROPMAX] = {
 	[ad4_state_idle][AD_ASSERTIVE] = ad4_assertive_setup,
 	[ad4_state_idle][AD_BACKLIGHT] = ad4_backlight_setup,
 	[ad4_state_idle][AD_STRENGTH] = ad4_strength_setup_idle,
-	[ad4_state_idle][AD_ROI] = ad4_no_op_setup,
+	[ad4_state_idle][AD_ROI] = ad4_roi_setup,
 	[ad4_state_idle][AD_IPC_SUSPEND] = ad4_no_op_setup,
 	[ad4_state_idle][AD_IPC_RESUME] = ad4_no_op_setup,
 	[ad4_state_idle][AD_IPC_RESET] = ad4_no_op_setup,
@@ -197,7 +197,7 @@ static ad4_prop_setup prop_set_func[ad4_state_max][AD_PROPMAX] = {
 	[ad4_state_manual][AD_ASSERTIVE] = ad4_no_op_setup,
 	[ad4_state_manual][AD_BACKLIGHT] = ad4_no_op_setup,
 	[ad4_state_manual][AD_STRENGTH] = ad4_strength_setup,
-	[ad4_state_manual][AD_ROI] = ad4_no_op_setup,
+	[ad4_state_manual][AD_ROI] = ad4_roi_setup,
 	[ad4_state_manual][AD_IPC_SUSPEND] = ad4_no_op_setup,
 	[ad4_state_manual][AD_IPC_RESUME] = ad4_no_op_setup,
 	[ad4_state_manual][AD_IPC_RESET] = ad4_setup_debug_manual,
@@ -360,7 +360,7 @@ static int ad4_setup_debug(struct sde_hw_dspp *dspp, struct sde_ad_hw_cfg *cfg)
 static int ad4_setup_debug_manual(struct sde_hw_dspp *dspp,
 		struct sde_ad_hw_cfg *cfg)
 {
-	u32 strength = 0;
+	u32 in_str = 0, out_str = 0;
 	struct sde_hw_mixer *hw_lm;
 
 	hw_lm = cfg->hw_cfg->mixer_info;
@@ -368,8 +368,10 @@ static int ad4_setup_debug_manual(struct sde_hw_dspp *dspp,
 		/* this AD core is the salve core */
 		return 0;
 
-	strength = SDE_REG_READ(&dspp->hw, dspp->cap->sblk->ad.base + 0x15c);
-	pr_debug("%s(): AD strength = %d in manual mode\n", __func__, strength);
+	in_str = SDE_REG_READ(&dspp->hw, dspp->cap->sblk->ad.base + 0x15c);
+	out_str = SDE_REG_READ(&dspp->hw, dspp->cap->sblk->ad.base + 0x160);
+	pr_debug("%s(): AD in strength = %d, out strength = %d in manual mode\n",
+			 __func__, in_str, out_str);
 
 	return 0;
 }
@@ -1728,24 +1730,33 @@ static int ad4_ipc_reset_setup_startup(struct sde_hw_dspp *dspp,
 static int ad4_strength_setup(struct sde_hw_dspp *dspp,
 		struct sde_ad_hw_cfg *cfg)
 {
-	u64 strength = 0, val;
+	u64 in_str = 0, out_str = 0, val;
 	u32 blk_offset = 0x15c;
+	struct drm_msm_ad4_manual_str_cfg *str_cfg = NULL;
 
-	if (cfg->hw_cfg->len != sizeof(u64) && cfg->hw_cfg->payload) {
+	if (cfg->hw_cfg->payload && (cfg->hw_cfg->len !=
+		sizeof(struct drm_msm_ad4_manual_str_cfg))) {
 		DRM_ERROR("invalid sz param exp %zd given %d cfg %pK\n",
-			sizeof(u64), cfg->hw_cfg->len, cfg->hw_cfg->payload);
+				sizeof(struct drm_msm_ad4_manual_str_cfg),
+				cfg->hw_cfg->len, cfg->hw_cfg->payload);
 		return -EINVAL;
 	}
 
-	if (cfg->hw_cfg->payload)
-		strength = *((u64 *)cfg->hw_cfg->payload);
-	else
-		strength = 0;
+	if (cfg->hw_cfg->payload) {
+		str_cfg = (struct drm_msm_ad4_manual_str_cfg *)
+			cfg->hw_cfg->payload;
+		in_str = str_cfg->in_str;
+		out_str = str_cfg->out_str;
+	}
 
 	/* set manual strength */
 	info[dspp->idx].completed_ops_mask |= ad4_strength;
-	val = (strength & (BIT(10) - 1));
+	val = (in_str & (BIT(10) - 1));
 	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset, val);
+	blk_offset += 4;
+	val = (out_str & (BIT(10) - 1));
+	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset, val);
+
 	return 0;
 }
 

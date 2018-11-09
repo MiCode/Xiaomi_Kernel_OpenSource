@@ -3022,7 +3022,7 @@ int dsi_pre_clkoff_cb(void *priv,
 	struct dsi_display_ctrl *ctrl;
 
 	if ((clk & DSI_LINK_CLK) && (new_state == DSI_CLK_OFF) &&
-		(l_type && DSI_LINK_LP_CLK)) {
+		(l_type & DSI_LINK_LP_CLK)) {
 		/*
 		 * If continuous clock is enabled then disable it
 		 * before entering into ULPS Mode.
@@ -3045,6 +3045,20 @@ int dsi_pre_clkoff_cb(void *priv,
 			       __func__, rc);
 	}
 
+	if ((clk & DSI_LINK_CLK) && (new_state == DSI_CLK_OFF) &&
+		(l_type & DSI_LINK_HS_CLK)) {
+		/*
+		 * PHY clock gating should be disabled before the PLL and the
+		 * branch clocks are turned off. Otherwise, it is possible that
+		 * the clock RCGs may not be turned off correctly resulting
+		 * in clock warnings.
+		 */
+		rc = dsi_display_config_clk_gating(display, false);
+		if (rc)
+			pr_err("[%s] failed to disable clk gating, rc=%d\n",
+					display->name, rc);
+	}
+
 	if ((clk & DSI_CORE_CLK) && (new_state == DSI_CLK_OFF)) {
 		/*
 		 * Enable DSI clamps only if entering idle power collapse or
@@ -3057,10 +3071,6 @@ int dsi_pre_clkoff_cb(void *priv,
 			if (rc)
 				pr_err("%s: Failed to enable dsi clamps. rc=%d\n",
 					__func__, rc);
-			rc = dsi_display_config_clk_gating(display, false);
-			if (rc)
-				pr_err("[%s] failed to disable clk gating, rc=%d\n",
-						display->name, rc);
 
 			rc = dsi_display_phy_reset_config(display, false);
 			if (rc)
@@ -3140,13 +3150,6 @@ int dsi_post_clkon_cb(void *priv,
 			}
 		}
 
-		rc = dsi_display_config_clk_gating(display, true);
-		if (rc) {
-			pr_err("[%s] failed to enable clk gating %d\n",
-					display->name, rc);
-			goto error;
-		}
-
 		rc = dsi_display_phy_reset_config(display, true);
 		if (rc) {
 			pr_err("%s: Failed to reset phy, rc=%d\n",
@@ -3183,6 +3186,13 @@ int dsi_post_clkon_cb(void *priv,
 
 		if (display->panel->host_config.force_hs_clk_lane)
 			_dsi_display_continuous_clk_ctrl(display, true);
+
+		rc = dsi_display_config_clk_gating(display, true);
+		if (rc) {
+			pr_err("[%s] failed to enable clk gating %d\n",
+					display->name, rc);
+			goto error;
+		}
 	}
 
 	/* enable dsi to serve irqs */
@@ -4212,7 +4222,7 @@ static int dsi_display_request_update_dsi_bitrate(struct dsi_display *display,
 		return -EINVAL;
 	}
 
-	display->config.bit_clk_rate_hz = bit_clk_rate;
+	display->config.bit_clk_rate_hz_override = bit_clk_rate;
 
 	for (i = 0; i < display->ctrl_count; i++) {
 		struct dsi_display_ctrl *dsi_disp_ctrl = &display->ctrl[i];
@@ -4240,7 +4250,8 @@ static int dsi_display_request_update_dsi_bitrate(struct dsi_display *display,
 			goto error;
 		}
 
-		bit_rate = display->config.bit_clk_rate_hz * num_of_lanes;
+		bit_rate = display->config.bit_clk_rate_hz_override *
+						num_of_lanes;
 		bit_rate_per_lane = bit_rate;
 		do_div(bit_rate_per_lane, num_of_lanes);
 		pclk_rate = bit_rate;
@@ -4261,7 +4272,7 @@ static int dsi_display_request_update_dsi_bitrate(struct dsi_display *display,
 			goto error;
 		}
 
-		ctrl->host_config.bit_clk_rate_hz = bit_clk_rate;
+		ctrl->host_config.bit_clk_rate_hz_override = bit_clk_rate;
 error:
 		mutex_unlock(&ctrl->ctrl_lock);
 

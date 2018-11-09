@@ -14,6 +14,8 @@
 
 #include "sdmmagpie.dtsi"
 #include "sdmmagpie-idp.dtsi"
+#include "sdmmagpie-ext-codec-audio-overlay.dtsi"
+#include "sdmmagpie-external-codec.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDMMAGPIE PM6150 External Audio Codec IDP";

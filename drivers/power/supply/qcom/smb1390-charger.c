@@ -690,6 +690,11 @@ static void smb1390_release_channels(struct smb1390 *chip)
 
 static int smb1390_create_votables(struct smb1390 *chip)
 {
+	chip->cp_awake_votable = create_votable("CP_AWAKE", VOTE_SET_ANY,
+			smb1390_awake_vote_cb, chip);
+	if (IS_ERR(chip->cp_awake_votable))
+		return PTR_ERR(chip->cp_awake_votable);
+
 	chip->disable_votable = create_votable("CP_DISABLE",
 			VOTE_SET_ANY, smb1390_disable_vote_cb, chip);
 	if (IS_ERR(chip->disable_votable))
@@ -700,11 +705,6 @@ static int smb1390_create_votables(struct smb1390 *chip)
 	if (IS_ERR(chip->ilim_votable))
 		return PTR_ERR(chip->ilim_votable);
 
-	chip->cp_awake_votable = create_votable("CP_AWAKE", VOTE_SET_ANY,
-			smb1390_awake_vote_cb, chip);
-	if (IS_ERR(chip->cp_awake_votable))
-		return PTR_ERR(chip->cp_awake_votable);
-
 	return 0;
 }
 
@@ -712,6 +712,7 @@ static void smb1390_destroy_votables(struct smb1390 *chip)
 {
 	destroy_votable(chip->disable_votable);
 	destroy_votable(chip->ilim_votable);
+	destroy_votable(chip->cp_awake_votable);
 }
 
 static int smb1390_init_hw(struct smb1390 *chip)

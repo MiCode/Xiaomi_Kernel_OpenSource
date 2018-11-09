@@ -273,6 +273,7 @@ static struct clk_debug_mux gcc_debug_mux = {
 	.src_sel_shift = 0,
 	.post_div_mask = 0xF,
 	.post_div_shift = 0,
+	.period_offset = 0x50,
 	MUX_SRC_LIST(
 		{ "cam_cc_bps_ahb_clk", 0x46, 4, CAM_CC,
 			0xE, 0xFF, 0, 0xF, 0, 4, 0xD000, 0xD004, 0xD008 },

@@ -1627,7 +1627,8 @@ int ncm_ctrlrequest(struct usb_composite_dev *cdev,
 {
 	int value = -EOPNOTSUPP;
 
-	if (ctrl->bRequestType == 0x40 && ctrl->bRequest == 0xF0) {
+	if (ctrl->bRequestType == 0x40 && ctrl->bRequest == 0xF0
+			&& _ncm_setup_desc) {
 		_ncm_setup_desc->minor = (uint8_t)(ctrl->wValue >> 8);
 		_ncm_setup_desc->major = (uint8_t)(ctrl->wValue & 0xFF);
 		schedule_work(&_ncm_setup_desc->work);
@@ -1700,6 +1701,8 @@ static void ncm_unbind(struct usb_configuration *c, struct usb_function *f)
 
 	DBG(c->cdev, "ncm unbind\n");
 
+	opts->bound = false;
+
 	hrtimer_cancel(&ncm->task_timer);
 	tasklet_kill(&ncm->tx_tasklet);
 
@@ -1710,7 +1713,6 @@ static void ncm_unbind(struct usb_configuration *c, struct usb_function *f)
 	usb_ep_free_request(ncm->notify, ncm->notify_req);
 
 	gether_cleanup(netdev_priv(opts->net));
-	opts->bound = false;
 }
 
 static struct usb_function *ncm_alloc(struct usb_function_instance *fi)
