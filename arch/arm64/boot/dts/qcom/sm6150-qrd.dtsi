@@ -253,7 +253,7 @@
 
 /* Primary USB port related High Speed PHY */
 &qusb_phy0 {
-	qcom,qusb-phy-init-seq = <0xf8 0x80
+	qcom,qusb-phy-init-seq = <0xc8 0x80
 				0xb3 0x84
 				0x83 0x88
 				0x07 0x8c

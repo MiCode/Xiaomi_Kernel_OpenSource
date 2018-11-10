@@ -148,7 +148,7 @@
 		qcom,vdd-voltage-level = <0 925000 975000>;
 		qcom,tune2-efuse-bit-pos = <25>;
 		qcom,tune2-efuse-num-bits = <4>;
-		qcom,qusb-phy-init-seq = <0xf8 0x80
+		qcom,qusb-phy-init-seq = <0xc8 0x80
 					0xb3 0x84
 					0x83 0x88
 					0xc0 0x8c
@@ -401,7 +401,7 @@
 		vdda18-supply = <&pm6150_l11>;
 		vdda33-supply = <&pm6150_l17>;
 		qcom,vdd-voltage-level = <0 925000 975000>;
-		qcom,qusb-phy-init-seq = <0xf8 0x80
+		qcom,qusb-phy-init-seq = <0xc8 0x80
 					0xb3 0x84
 					0x83 0x88
 					0xc0 0x8c
