@@ -17,33 +17,9 @@ import subprocess
 # force LANG to be set to en_US.UTF-8 to get consistent warnings.
 
 allowed_warnings = set([
-    "seqiv.c:76",
-    "echainiv.c:50",
-    "crypto.c:67",
-    "shash.c:91",
-    "shash.c:127",
-    "smp.c:176",
-    "xcbc.c:68",
-    "hmac.c:56",
-    "cbc.c:14",
-    "cbc.h:116",
-    "cryptd.c:487",
-    "cryptd.c:515",
-    "ablkcipher.c:215",
-    "authenc.c:188",
-    "authenc.c:186",
-    "authencesn.c:186",
-    "libcrc32c.c:45",
-    "ppp_mppe.c:158",
-    "ppp_mppe.c:369",
-    "ppp_mppe.c:483",
-    "dm-verity-fec.c:218",
     "umid.c:138",
     "umid.c:213",
     "umid.c:388",
-    "shash.c:92",
-    "shash.c:128",
-    "smp.c:177",
  ])
 
 # Capture the name of the object file, can find it.
