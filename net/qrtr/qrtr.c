@@ -383,10 +383,10 @@ static void qrtr_tx_resume(struct qrtr_node *node, struct sk_buff *skb)
 	if (!flow)
 		return;
 
+	mutex_lock(&node->qrtr_tx_lock);
 	atomic_set(&flow->pending, 0);
 	wake_up_interruptible_all(&node->resume_tx);
 
-	mutex_lock(&node->qrtr_tx_lock);
 	list_for_each_entry_safe(waiter, temp, &flow->waiters, node) {
 		list_del(&waiter->node);
 		skbn = alloc_skb(0, GFP_KERNEL);
@@ -444,7 +444,30 @@ static int qrtr_tx_wait(struct qrtr_node *node, struct sockaddr_qrtr *to,
 	}
 	mutex_unlock(&node->qrtr_tx_lock);
 
+	ret = timeo;
 	for (;;) {
+		mutex_lock(&node->qrtr_tx_lock);
+		if (atomic_read(&flow->pending) < QRTR_TX_FLOW_HIGH) {
+			atomic_inc(&flow->pending);
+			confirm_rx = atomic_read(&flow->pending) ==
+				     QRTR_TX_FLOW_LOW;
+			mutex_unlock(&node->qrtr_tx_lock);
+			break;
+		}
+		if (!ret) {
+			waiter = kzalloc(sizeof(*waiter), GFP_KERNEL);
+			if (!waiter) {
+				mutex_unlock(&node->qrtr_tx_lock);
+				return -ENOMEM;
+			}
+			waiter->sk = sk;
+			sock_hold(sk);
+			list_add_tail(&waiter->node, &flow->waiters);
+			mutex_unlock(&node->qrtr_tx_lock);
+			return -EAGAIN;
+		}
+		mutex_unlock(&node->qrtr_tx_lock);
+
 		ret = wait_event_interruptible_timeout(
 				node->resume_tx,
 				!node->ep ||
@@ -452,32 +475,8 @@ static int qrtr_tx_wait(struct qrtr_node *node, struct sockaddr_qrtr *to,
 				timeo);
 		if (ret < 0)
 			return ret;
-		if (!ret)
-			return -EAGAIN;
-
 		if (!node->ep)
 			return -EPIPE;
-
-		mutex_lock(&node->qrtr_tx_lock);
-		if (atomic_read(&flow->pending) < QRTR_TX_FLOW_HIGH) {
-			atomic_inc(&flow->pending);
-			confirm_rx = atomic_read(&flow->pending) == QRTR_TX_FLOW_LOW;
-			mutex_unlock(&node->qrtr_tx_lock);
-			break;
-		}
-		mutex_unlock(&node->qrtr_tx_lock);
-	}
-
-	if (confirm_rx) {
-		waiter = kzalloc(sizeof(*waiter), GFP_KERNEL);
-		if (!waiter)
-			return -ENOMEM;
-		waiter->sk = sk;
-		sock_hold(sk);
-
-		mutex_lock(&node->qrtr_tx_lock);
-		list_add_tail(&waiter->node, &flow->waiters);
-		mutex_unlock(&node->qrtr_tx_lock);
 	}
 	return confirm_rx;
 }
