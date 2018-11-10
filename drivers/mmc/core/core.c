@@ -137,6 +137,34 @@ static bool mmc_is_data_request(struct mmc_request *mmc_request)
 	}
 }
 
+void mmc_cmdq_up_rwsem(struct mmc_host *host)
+{
+	struct mmc_cmdq_context_info *ctx = &host->cmdq_ctx;
+
+	up_read(&ctx->err_rwsem);
+}
+EXPORT_SYMBOL(mmc_cmdq_up_rwsem);
+
+int mmc_cmdq_down_rwsem(struct mmc_host *host, struct request *rq)
+{
+	struct mmc_cmdq_context_info *ctx = &host->cmdq_ctx;
+
+	down_read(&ctx->err_rwsem);
+	/*
+	 * This is to prevent a case where issue context has already
+	 * called blk_queue_start_tag(), immediately after which error
+	 * handler work has run and called blk_queue_invalidate_tags().
+	 * In this case, the issue context should check for REQ_QUEUED
+	 * before proceeding with that request. It should ideally call
+	 * blk_queue_start_tag() again on the requeued request.
+	 */
+	if (!(rq->cmd_flags & REQ_QUEUED))
+		return -EINVAL;
+	else
+		return 0;
+}
+EXPORT_SYMBOL(mmc_cmdq_down_rwsem);
+
 static void mmc_clk_scaling_start_busy(struct mmc_host *host, bool lock_needed)
 {
 	struct mmc_devfeq_clk_scaling *clk_scaling = &host->clk_scaling;
@@ -1841,14 +1869,15 @@ int mmc_cmdq_wait_for_dcmd(struct mmc_host *host,
 	struct mmc_command *cmd = mrq->cmd;
 	int err = 0;
 
-	init_completion(&mrq->completion);
 	mrq->done = mmc_cmdq_dcmd_req_done;
 	err = mmc_cmdq_start_req(host, cmdq_req);
 	if (err)
 		return err;
 
+	mmc_cmdq_up_rwsem(host);
 	wait_for_completion_io(&mrq->completion);
-	if (cmd->error) {
+	err = mmc_cmdq_down_rwsem(host, mrq->req);
+	if (err || cmd->error) {
 		pr_err("%s: DCMD %d failed with err %d\n",
 				mmc_hostname(host), cmd->opcode,
 				cmd->error);
@@ -3717,7 +3746,7 @@ static int mmc_cmdq_send_erase_cmd(struct mmc_cmdq_req *cmdq_req,
 	if (err) {
 		pr_err("mmc_erase: group start error %d, status %#x\n",
 				err, cmd->resp[0]);
-		return -EIO;
+		return err;
 	}
 	return 0;
 }
