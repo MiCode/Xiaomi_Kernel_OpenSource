@@ -144,6 +144,8 @@ struct spi_panel_data {
 	unsigned int vsync_status;
 	int vsync_per_te;
 	struct kernfs_node *vsync_event_sd;
+
+	struct blocking_notifier_head notifier_head;
 };
 
 int mdss_spi_panel_kickoff(struct msm_fb_data_type *mfd,
