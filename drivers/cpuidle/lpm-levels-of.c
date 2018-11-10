@@ -548,11 +548,11 @@ static int parse_cpu(struct device_node *node, struct lpm_cpu *cpu)
 
 		key = "qcom,reset-level";
 		ret = of_property_read_u32(n, key, &l->reset_level);
+		of_node_put(n);
 		if (ret == -EINVAL)
 			l->reset_level = LPM_RESET_LVL_NONE;
 		else if (ret)
 			return ret;
-		of_node_put(n);
 	}
 
 	for (i = 1; i < cpu->nlevels; i++)
@@ -661,7 +661,7 @@ struct lpm_cluster *parse_cluster(struct device_node *node,
 
 	ret = parse_cluster_params(node, c);
 	if (ret)
-		goto failed_parse_params;
+		return NULL;
 
 	INIT_LIST_HEAD(&c->child);
 	INIT_LIST_HEAD(&c->cpu);
@@ -671,47 +671,36 @@ struct lpm_cluster *parse_cluster(struct device_node *node,
 
 	for_each_child_of_node(node, n) {
 
-		if (!n->name)
-			continue;
-
-		key = "qcom,pm-cluster-level";
-		if (!of_node_cmp(n->name, key)) {
-			if (parse_cluster_level(n, c)) {
-				of_node_put(n);
-				goto failed_parse_cluster;
-			}
+		if (!n->name) {
 			of_node_put(n);
 			continue;
 		}
 
-		key = "qcom,pm-cluster";
-		if (!of_node_cmp(n->name, key)) {
+		if (!of_node_cmp(n->name, "qcom,pm-cluster-level")) {
+			key = "qcom,pm-cluster-level";
+			if (parse_cluster_level(n, c))
+				goto failed_parse_cluster;
+		} else if (!of_node_cmp(n->name, "qcom,pm-cluster")) {
 			struct lpm_cluster *child;
 
+			key = "qcom,pm-cluster";
 			child = parse_cluster(n, c);
-			if (!child) {
-				of_node_put(n);
+			if (!child)
 				goto failed_parse_cluster;
-			}
 
 			list_add(&child->list, &c->child);
 			cpumask_or(&c->child_cpus, &c->child_cpus,
 					&child->child_cpus);
 			c->aff_level = child->aff_level + 1;
-			of_node_put(n);
-			continue;
-		}
-
-		key = "qcom,pm-cpu";
-		if (!of_node_cmp(n->name, key)) {
-			if (parse_cpu_levels(n, c)) {
-				of_node_put(n);
+		} else if (!of_node_cmp(n->name, "qcom,pm-cpu")) {
+			key = "qcom,pm-cpu";
+			if (parse_cpu_levels(n, c))
 				goto failed_parse_cluster;
-			}
 
 			c->aff_level = 1;
-			of_node_put(n);
 		}
+
+		of_node_put(n);
 	}
 
 	if (cpumask_intersects(&c->child_cpus, cpu_online_mask))
@@ -729,13 +718,13 @@ struct lpm_cluster *parse_cluster(struct device_node *node,
 
 failed_parse_cluster:
 	pr_err("Failed parse cluster:%s\n", key);
+	of_node_put(n);
 	if (parent)
 		list_del(&c->list);
 	free_cluster_node(c);
-failed_parse_params:
-	pr_err("Failed parse params\n");
 	return NULL;
 }
+
 struct lpm_cluster *lpm_of_parse_cluster(struct platform_device *pdev)
 {
 	struct device_node *top = NULL;

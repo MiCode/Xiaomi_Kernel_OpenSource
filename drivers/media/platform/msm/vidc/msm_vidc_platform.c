@@ -169,7 +169,7 @@ static struct msm_vidc_common_data sm6150_common_data[] = {
 	},
 	{
 		.key = "qcom,max-hq-frames-per-sec",
-		.value = 60,
+		.value = 30,
 	},
 	{
 		.key = "qcom,max-b-frame-size",

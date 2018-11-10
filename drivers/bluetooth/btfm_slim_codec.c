@@ -129,6 +129,10 @@ static void btfm_slim_dai_shutdown(struct snd_pcm_substream *substream,
 		ch = btfmslim->rx_chs;
 		rxport = 1;
 		break;
+	case BTFM_BT_SPLIT_A2DP_SLIM_TX:
+		ch = btfmslim->tx_chs;
+		rxport = 0;
+		break;
 	case BTFM_SLIM_NUM_CODEC_DAIS:
 	default:
 		BTFMSLIM_ERR("dai->id is invalid:%d", dai->id);
@@ -155,10 +159,13 @@ static int btfm_slim_dai_hw_params(struct snd_pcm_substream *substream,
 			    struct snd_pcm_hw_params *params,
 			    struct snd_soc_dai *dai)
 {
+	struct btfmslim *btfmslim = dai->dev->platform_data;
+
 	BTFMSLIM_DBG("dai->name = %s DAI-ID %x rate %d num_ch %d",
 		dai->name, dai->id, params_rate(params),
 		params_channels(params));
 
+	btfmslim->dai_id = dai->id;
 	return 0;
 }
 
@@ -192,6 +199,10 @@ static int btfm_slim_dai_prepare(struct snd_pcm_substream *substream,
 	case BTFM_BT_SPLIT_A2DP_SLIM_RX:
 		ch = btfmslim->rx_chs;
 		rxport = 1;
+		break;
+	case BTFM_BT_SPLIT_A2DP_SLIM_TX:
+		ch = btfmslim->tx_chs;
+		rxport = 0;
 		break;
 	case BTFM_SLIM_NUM_CODEC_DAIS:
 	default:
@@ -297,6 +308,20 @@ static int btfm_slim_dai_get_channel_map(struct snd_soc_dai *dai,
 	case BTFM_FM_SLIM_TX:
 		num = 2;
 	case BTFM_BT_SCO_SLIM_TX:
+		if (!tx_slot || !tx_num) {
+			BTFMSLIM_ERR("Invalid tx_slot %p or tx_num %p",
+				tx_slot, tx_num);
+			return -EINVAL;
+		}
+		ch = btfmslim->tx_chs;
+		if (!ch)
+			return -EINVAL;
+		slot = tx_slot;
+		*rx_slot = 0;
+		*tx_num = num;
+		*rx_num = 0;
+		break;
+	case BTFM_BT_SPLIT_A2DP_SLIM_TX:
 		if (!tx_slot || !tx_num) {
 			BTFMSLIM_ERR("Invalid tx_slot %p or tx_num %p",
 				tx_slot, tx_num);
@@ -426,6 +451,22 @@ static struct snd_soc_dai_driver btfmslim_dai[] = {
 			.formats = SNDRV_PCM_FMTBIT_S16_LE, /* 16 bits */
 			.rate_max = 48000,
 			.rate_min = 48000,
+			.channels_min = 1,
+			.channels_max = 1,
+		},
+		.ops = &btfmslim_dai_ops,
+	},
+	{	/* Bluetooth Split A2DP sink: bt -> adsp */
+		.name = "btfm_bt_split_a2dp_slim_tx",
+		.id = BTFM_BT_SPLIT_A2DP_SLIM_TX,
+		.capture = {
+			.stream_name = "A2DP Tx Capture",
+			/* 8 KHz or 16 KHz */
+			.rates = SNDRV_PCM_RATE_44100 | SNDRV_PCM_RATE_48000
+				| SNDRV_PCM_RATE_88200 | SNDRV_PCM_RATE_96000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE, /* 16 bits */
+			.rate_max = 96000,
+			.rate_min = 44100,
 			.channels_min = 1,
 			.channels_max = 1,
 		},

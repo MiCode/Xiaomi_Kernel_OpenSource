@@ -457,7 +457,6 @@ int cam_context_handle_start_dev(struct cam_context *ctx,
 	}
 
 	mutex_lock(&ctx->ctx_mutex);
-	ctx->last_flush_req = 0;
 	if (ctx->state_machine[ctx->state].ioctl_ops.start_dev)
 		rc = ctx->state_machine[ctx->state].ioctl_ops.start_dev(
 			ctx, cmd);
@@ -494,6 +493,8 @@ int cam_context_handle_stop_dev(struct cam_context *ctx,
 		/* stop device can be optional for some driver */
 		CAM_WARN(CAM_CORE, "No stop device in dev %d, name %s state %d",
 			ctx->dev_hdl, ctx->dev_name, ctx->state);
+
+	ctx->last_flush_req = 0;
 	mutex_unlock(&ctx->ctx_mutex);
 
 	return rc;

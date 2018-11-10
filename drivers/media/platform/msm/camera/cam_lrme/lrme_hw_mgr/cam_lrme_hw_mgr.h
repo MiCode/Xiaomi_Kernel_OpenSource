@@ -30,13 +30,13 @@
 #define CAM_LRME_WORKQ_NUM_TASK 10
 
 #define CAM_LRME_DECODE_DEVICE_INDEX(ctxt_to_hw_map) \
-	((uint64_t)ctxt_to_hw_map & 0xF)
+	((uintptr_t)ctxt_to_hw_map & 0xF)
 
 #define CAM_LRME_DECODE_PRIORITY(ctxt_to_hw_map) \
-	(((uint64_t)ctxt_to_hw_map & 0xF0) >> 4)
+	(((uintptr_t)ctxt_to_hw_map & 0xF0) >> 4)
 
 #define CAM_LRME_DECODE_CTX_INDEX(ctxt_to_hw_map) \
-	((uint64_t)ctxt_to_hw_map >> CAM_LRME_CTX_INDEX_SHIFT)
+	((uint64_t)(uintptr_t)ctxt_to_hw_map >> CAM_LRME_CTX_INDEX_SHIFT)
 
 /**
  * enum cam_lrme_hw_mgr_ctx_priority

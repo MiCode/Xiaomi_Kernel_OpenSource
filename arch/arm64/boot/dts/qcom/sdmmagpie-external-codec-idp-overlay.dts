@@ -17,6 +17,8 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 #include "sdmmagpie-idp.dtsi"
+#include "sdmmagpie-ext-codec-audio-overlay.dtsi"
+#include "sdmmagpie-external-codec.dtsi"
 
 / {
 	model = "External Audio Codec IDP";

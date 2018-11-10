@@ -594,4 +594,36 @@ struct cam_ubwc_config {
 		   ubwc_plane_cfg[1][CAM_PACKET_MAX_PLANES - 1];
 };
 
+/**
+ * struct cam_cmd_mem_region_info -
+ *              Cmd buffer region info
+ *
+ * @mem_handle : Memory handle of the region
+ * @offset     : Offset if any
+ * @size       : Size of the region
+ * @flags      : Flags if any
+ */
+struct cam_cmd_mem_region_info {
+	int32_t   mem_handle;
+	uint32_t  offset;
+	uint32_t  size;
+	uint32_t  flags;
+};
+
+/**
+ * struct cam_cmd_mem_regions -
+ *        List of multiple memory descriptors of
+ *        of different regions
+ *
+ * @version        : Version number
+ * @num_regions    : Number of regions
+ * @map_info_array : Array of all the regions
+ */
+struct cam_cmd_mem_regions {
+	uint32_t version;
+	uint32_t num_regions;
+	struct cam_cmd_mem_region_info map_info_array[1];
+};
+
+
 #endif /* __UAPI_CAM_DEFS_H__ */

@@ -934,7 +934,7 @@ static int cam_cpas_hw_start(void *hw_priv, void *start_args,
 	}
 
 	if (sizeof(struct cam_cpas_hw_cmd_start) != arg_size) {
-		CAM_ERR(CAM_CPAS, "HW_CAPS size mismatch %ld %d",
+		CAM_ERR(CAM_CPAS, "HW_CAPS size mismatch %zd %d",
 			sizeof(struct cam_cpas_hw_cmd_start), arg_size);
 		return -EINVAL;
 	}
@@ -1066,7 +1066,7 @@ static int cam_cpas_hw_stop(void *hw_priv, void *stop_args,
 	}
 
 	if (sizeof(struct cam_cpas_hw_cmd_stop) != arg_size) {
-		CAM_ERR(CAM_CPAS, "HW_CAPS size mismatch %ld %d",
+		CAM_ERR(CAM_CPAS, "HW_CAPS size mismatch %zd %d",
 			sizeof(struct cam_cpas_hw_cmd_stop), arg_size);
 		return -EINVAL;
 	}
@@ -1169,7 +1169,7 @@ static int cam_cpas_hw_init(void *hw_priv, void *init_hw_args,
 	}
 
 	if (sizeof(struct cam_cpas_hw_caps) != arg_size) {
-		CAM_ERR(CAM_CPAS, "INIT HW size mismatch %ld %d",
+		CAM_ERR(CAM_CPAS, "INIT HW size mismatch %zd %d",
 			sizeof(struct cam_cpas_hw_caps), arg_size);
 		return -EINVAL;
 	}
@@ -1326,7 +1326,7 @@ static int cam_cpas_hw_get_hw_info(void *hw_priv,
 	}
 
 	if (sizeof(struct cam_cpas_hw_caps) != arg_size) {
-		CAM_ERR(CAM_CPAS, "HW_CAPS size mismatch %ld %d",
+		CAM_ERR(CAM_CPAS, "HW_CAPS size mismatch %zd %d",
 			sizeof(struct cam_cpas_hw_caps), arg_size);
 		return -EINVAL;
 	}

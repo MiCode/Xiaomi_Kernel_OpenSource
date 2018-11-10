@@ -1788,8 +1788,10 @@
 		compatible = "qcom,msm-eud";
 		interrupt-names = "eud_irq";
 		interrupts = <GIC_SPI 492 IRQ_TYPE_LEVEL_HIGH>;
-		reg = <0x88e0000 0x2000>;
-		reg-names = "eud_base";
+		reg = <0x88e0000 0x2000>,
+		      <0x88e4000 0x1000>;
+		reg-names = "eud_base", "eud_mode_mgr2";
+		qcom,secure-eud-en;
 		status = "ok";
 	};
 
@@ -3142,6 +3144,16 @@
 	status = "ok";
 };
 
+&qupv3_se3_i2c {
+	status = "ok";
+	fsa4480: fsa4480@43 {
+		compatible = "qcom,fsa4480-i2c";
+		reg = <0x43>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&fsa_usbc_ana_en>;
+	};
+};
+
 #include "sm6150-camera.dtsi"
 #include "sm6150-ion.dtsi"
 #include "msm-arm-smmu-sm6150.dtsi"
@@ -3151,3 +3163,8 @@
 #include "sm6150-audio.dtsi"
 #include "sm6150-sde-pll.dtsi"
 #include "sm6150-sde.dtsi"
+
+&msm_vidc {
+	qcom,cx-ipeak-data = <&cx_ipeak_lm 4>;
+	qcom,clock-freq-threshold = <380000000>;
+};

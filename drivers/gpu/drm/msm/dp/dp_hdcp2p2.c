@@ -478,10 +478,6 @@ static void dp_hdcp2p2_send_msg_work(struct kthread_work *work)
 		goto exit;
 	}
 
-	print_hex_dump(KERN_DEBUG, ": ",
-		DUMP_PREFIX_NONE, 16, 1, ctrl->response.data,
-		ctrl->response.length, false);
-
 	mutex_lock(&ctrl->msg_lock);
 
 	rc = dp_hdcp2p2_aux_write_message(ctrl, ctrl->response.data,

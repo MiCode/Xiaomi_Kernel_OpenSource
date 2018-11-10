@@ -15,7 +15,8 @@
 &soc {
 	tlmm: pinctrl@03000000 {
 		compatible = "qcom,sm6150-pinctrl";
-		reg = <0x03000000 0xdc2000>;
+		reg = <0x03000000 0xdc2000>, <0x17c000f0 0x60>;
+		reg-names = "pinctrl", "spi_cfg";
 		interrupts = <0 208 0>;
 		gpio-controller;
 		#gpio-cells = <2>;
@@ -711,6 +712,7 @@
 			config {
 				pins = "gpio49";
 				bias-pull-up;		/* pull up */
+				output-high;
 				drive-strength = <2>;
 			};
 		};
@@ -724,6 +726,35 @@
 			config {
 				pins = "gpio49";
 				bias-pull-down;
+				output-low;
+				drive-strength = <2>;
+			};
+		};
+
+		sde_dp_connector_enable: sde_dp_connector_enable {
+			mux {
+				pins = "gpio44";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio44";
+				bias-pull-up;
+				output-high;
+				drive-strength = <2>;
+			};
+		};
+
+		sde_dp_hotplug_enable: sde_dp_hotplug_enable {
+			mux {
+				pins = "gpio103";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio103";
+				bias-pull-down;
+				input-enable;
 				drive-strength = <2>;
 			};
 		};

@@ -290,13 +290,22 @@ static void qcom_glink_channel_release(struct kref *ref)
 {
 	struct glink_channel *channel = container_of(ref, struct glink_channel,
 						     refcount);
+	struct glink_core_rx_intent *tmp;
 	unsigned long flags;
+	int iid;
 
 	CH_INFO(channel, "\n");
 	wake_up(&channel->intent_req_event);
 
 	spin_lock_irqsave(&channel->intent_lock, flags);
+	idr_for_each_entry(&channel->liids, tmp, iid) {
+		kfree(tmp->data);
+		kfree(tmp);
+	}
 	idr_destroy(&channel->liids);
+
+	idr_for_each_entry(&channel->riids, tmp, iid)
+		kfree(tmp);
 	idr_destroy(&channel->riids);
 	spin_unlock_irqrestore(&channel->intent_lock, flags);
 
@@ -1906,10 +1915,8 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 
 	ret = subsys_register_early_notifier(glink->name, XPORT_LAYER_NOTIF,
 					     qcom_glink_notif_reset, glink);
-	if (ret) {
+	if (ret)
 		dev_err(dev, "failed to register early notif %d\n", ret);
-		return ERR_PTR(ret);
-	}
 
 	irq = of_irq_get(dev->of_node, 0);
 	ret = devm_request_irq(dev, irq,

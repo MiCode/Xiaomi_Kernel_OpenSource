@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,7 +30,7 @@ struct dma_buf *ion_alloc(size_t len, unsigned int heap_id_mask,
 static inline struct dma_buf *ion_alloc(size_t len, unsigned int heap_id_mask,
 					unsigned int flags)
 {
-	return -ENOMEM;
+	return ERR_PTR(-ENOMEM);
 }
 
 #endif /* CONFIG_ION */

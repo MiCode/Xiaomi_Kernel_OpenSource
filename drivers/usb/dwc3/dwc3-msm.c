@@ -381,34 +381,9 @@ static inline void dwc3_msm_write_reg_field(void __iomem *base, u32 offset,
 	tmp &= ~mask;		/* clear written bits */
 	val = tmp | (val << shift);
 	iowrite32(val, base + offset);
-}
 
-/**
- * Write register and read back masked value to confirm it is written
- *
- * @base - DWC3 base virtual address.
- * @offset - register offset.
- * @mask - register bitmask specifying what should be updated
- * @val - value to write.
- *
- */
-static inline void dwc3_msm_write_readback(void __iomem *base, u32 offset,
-					    const u32 mask, u32 val)
-{
-	u32 write_val, tmp = ioread32(base + offset);
-
-	tmp &= ~mask;		/* retain other bits */
-	write_val = tmp | val;
-
-	iowrite32(write_val, base + offset);
-
-	/* Read back to see if val was written */
-	tmp = ioread32(base + offset);
-	tmp &= mask;		/* clear other bits */
-
-	if (tmp != val)
-		pr_err("%s: write: %x to QSCRATCH: %x FAILED\n",
-			__func__, val, offset);
+	/* Read back to make sure that previous write goes through */
+	ioread32(base + offset);
 }
 
 static bool dwc3_msm_is_ss_rhport_connected(struct dwc3_msm *mdwc)
@@ -4052,17 +4027,14 @@ static void dwc3_override_vbus_status(struct dwc3_msm *mdwc, bool vbus_present)
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
 	/* Update OTG VBUS Valid from HSPHY to controller */
-	dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG,
-		vbus_present ? UTMI_OTG_VBUS_VALID | SW_SESSVLD_SEL :
-		UTMI_OTG_VBUS_VALID,
-		vbus_present ? UTMI_OTG_VBUS_VALID | SW_SESSVLD_SEL : 0);
+	dwc3_msm_write_reg_field(mdwc->base, HS_PHY_CTRL_REG,
+			UTMI_OTG_VBUS_VALID, !!vbus_present);
 
 	/* Update only if Super Speed is supported */
 	if (dwc->maximum_speed >= USB_SPEED_SUPER) {
 		/* Update VBUS Valid from SSPHY to controller */
-		dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG,
-			LANE0_PWR_PRESENT,
-			vbus_present ? LANE0_PWR_PRESENT : 0);
+		dwc3_msm_write_reg_field(mdwc->base, SS_PHY_CTRL_REG,
+			LANE0_PWR_PRESENT, !!vbus_present);
 	}
 }
 

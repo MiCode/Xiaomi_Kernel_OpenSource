@@ -4851,13 +4851,6 @@ int sdhci_setup_host(struct sdhci_host *host)
 			return ret;
 	}
 
-	if (mmc->max_segs == 1) {
-		/* This may alter mmc->*_blk_* parameters */
-		ret = sdhci_allocate_bounce_buffer(host);
-		if (ret)
-			return ret;
-	}
-
 	return 0;
 
 unreg:

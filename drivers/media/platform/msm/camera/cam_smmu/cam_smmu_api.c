@@ -27,7 +27,7 @@
 #include "cam_smmu_api.h"
 #include "cam_debug_util.h"
 
-#define SHARED_MEM_POOL_GRANULARITY 12
+#define SHARED_MEM_POOL_GRANULARITY 16
 
 #define IOMMU_INVALID_DIR -1
 #define BYTE_SIZE 8
@@ -1088,7 +1088,7 @@ get_addr_end:
 
 int cam_smmu_alloc_firmware(int32_t smmu_hdl,
 	dma_addr_t *iova,
-	uint64_t *cpuva,
+	uintptr_t *cpuva,
 	size_t *len)
 {
 	int rc;
@@ -1157,7 +1157,7 @@ int cam_smmu_alloc_firmware(int32_t smmu_hdl,
 	iommu_cb_set.cb_info[idx].is_fw_allocated = true;
 
 	*iova = iommu_cb_set.cb_info[idx].firmware_info.iova_start;
-	*cpuva = (uint64_t)icp_fw.fw_kva;
+	*cpuva = (uintptr_t)icp_fw.fw_kva;
 	*len = firmware_len;
 	mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
 
@@ -3141,7 +3141,7 @@ static int cam_smmu_setup_cb(struct cam_context_bank_info *cb,
 	cb->is_fw_allocated = false;
 	cb->is_secheap_allocated = false;
 
-	/* Create a pool with 4K granularity for supporting shared memory */
+	/* Create a pool with 64K granularity for supporting shared memory */
 	if (cb->shared_support) {
 		cb->shared_mem_pool = gen_pool_create(
 			SHARED_MEM_POOL_GRANULARITY, -1);

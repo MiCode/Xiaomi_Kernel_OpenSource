@@ -1135,7 +1135,7 @@ int ipa_bridge_set_perf_profile(u32 hdl, u32 bandwidth)
 
 	mutex_lock(&ipa_gsb_ctx->iface_lock[hdl]);
 
-	ret = ipa_pm_set_perf_profile(ipa_gsb_ctx->pm_hdl,
+	ret = ipa_pm_set_throughput(ipa_gsb_ctx->pm_hdl,
 		bandwidth);
 	if (ret)
 		IPA_GSB_ERR("fail to set perf profile\n");

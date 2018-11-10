@@ -14,22 +14,6 @@
 #include "ipa_pm.h"
 #include "ipa_i.h"
 
-static const char *client_state_to_str[IPA_PM_STATE_MAX] = {
-	__stringify(IPA_PM_DEACTIVATED),
-	__stringify(IPA_PM_DEACTIVATE_IN_PROGRESS),
-	__stringify(IPA_PM_ACTIVATE_IN_PROGRESS),
-	__stringify(IPA_PM_ACTIVATED),
-	__stringify(IPA_PM_ACTIVATED_PENDING_DEACTIVATION),
-	__stringify(IPA_PM_ACTIVATED_TIMER_SET),
-	__stringify(IPA_PM_ACTIVATED_PENDING_RESCHEDULE),
-};
-
-static const char *ipa_pm_group_to_str[IPA_PM_GROUP_MAX] = {
-	__stringify(IPA_PM_GROUP_DEFAULT),
-	__stringify(IPA_PM_GROUP_APPS),
-	__stringify(IPA_PM_GROUP_MODEM),
-};
-
 
 #define IPA_PM_DRV_NAME "ipa_pm"
 
@@ -130,6 +114,7 @@ enum ipa_pm_state {
 	IPA_PM_ACTIVATED_PENDING_DEACTIVATION,
 	IPA_PM_ACTIVATED_TIMER_SET,
 	IPA_PM_ACTIVATED_PENDING_RESCHEDULE,
+	IPA_PM_STATE_MAX
 };
 
 #define IPA_PM_STATE_ACTIVE(state) \
@@ -195,6 +180,22 @@ struct ipa_pm_ctx {
 };
 
 static struct ipa_pm_ctx *ipa_pm_ctx;
+
+static const char *client_state_to_str[IPA_PM_STATE_MAX] = {
+	__stringify(IPA_PM_DEACTIVATED),
+	__stringify(IPA_PM_DEACTIVATE_IN_PROGRESS),
+	__stringify(IPA_PM_ACTIVATE_IN_PROGRESS),
+	__stringify(IPA_PM_ACTIVATED),
+	__stringify(IPA_PM_ACTIVATED_PENDING_DEACTIVATION),
+	__stringify(IPA_PM_ACTIVATED_TIMER_SET),
+	__stringify(IPA_PM_ACTIVATED_PENDING_RESCHEDULE),
+};
+
+static const char *ipa_pm_group_to_str[IPA_PM_GROUP_MAX] = {
+	__stringify(IPA_PM_GROUP_DEFAULT),
+	__stringify(IPA_PM_GROUP_APPS),
+	__stringify(IPA_PM_GROUP_MODEM),
+};
 
 /**
  * pop_max_from_array() -pop the max and move the last element to where the
@@ -705,11 +706,6 @@ int ipa_pm_register(struct ipa_pm_register_params *params, u32 *hdl)
 		return -EINVAL;
 	}
 
-	if (ipa_pm_ctx == NULL) {
-		IPA_PM_ERR("PM_ctx is null\n");
-		return -EINVAL;
-	}
-
 	if (params == NULL || hdl == NULL || params->name == NULL) {
 		IPA_PM_ERR("Invalid Params\n");
 		return -EINVAL;
@@ -853,9 +849,13 @@ int ipa_pm_associate_ipa_cons_to_client(u32 hdl, enum ipa_client_type consumer)
 	}
 
 	mutex_lock(&ipa_pm_ctx->client_mutex);
-	idx = ipa_get_ep_mapping(consumer);
+	if (ipa_pm_ctx->clients[hdl] == NULL) {
+		mutex_unlock(&ipa_pm_ctx->client_mutex);
+		IPA_PM_ERR("Client is NULL\n");
+		return -EPERM;
+	}
 
-	IPA_PM_DBG("Mapping pipe %d to client %d\n", idx, hdl);
+	idx = ipa_get_ep_mapping(consumer);
 
 	if (idx < 0) {
 		mutex_unlock(&ipa_pm_ctx->client_mutex);
@@ -863,11 +863,7 @@ int ipa_pm_associate_ipa_cons_to_client(u32 hdl, enum ipa_client_type consumer)
 		return 0;
 	}
 
-	if (ipa_pm_ctx->clients[hdl] == NULL) {
-		mutex_unlock(&ipa_pm_ctx->client_mutex);
-		IPA_PM_ERR("Client is NULL\n");
-		return -EPERM;
-	}
+	IPA_PM_DBG("Mapping pipe %d to client %d\n", idx, hdl);
 
 	if (ipa_pm_ctx->clients_by_pipe[idx] != NULL) {
 		mutex_unlock(&ipa_pm_ctx->client_mutex);
@@ -1051,6 +1047,11 @@ int ipa_pm_deferred_deactivate(u32 hdl)
 	case IPA_PM_DEACTIVATE_IN_PROGRESS:
 	case IPA_PM_ACTIVATED_PENDING_RESCHEDULE:
 		break;
+	case IPA_PM_STATE_MAX:
+	default:
+		IPA_PM_ERR("Bad State");
+		spin_unlock_irqrestore(&client->state_lock, flags);
+		return -EINVAL;
 	}
 	IPA_PM_DBG_STATE(hdl, client->name, client->state);
 	spin_unlock_irqrestore(&client->state_lock, flags);
@@ -1220,14 +1221,14 @@ int ipa_pm_handle_suspend(u32 pipe_bitmask)
 }
 
 /**
- * ipa_pm_set_perf_profile(): Adds/changes the throughput requirement to IPA PM
+ * ipa_pm_set_throughput(): Adds/changes the throughput requirement to IPA PM
  * to be used for clock scaling
  * @hdl: index of the client in the array
  * @throughput: the new throughput value to be set for that client
  *
  * Returns: 0 on success, negative on failure
  */
-int ipa_pm_set_perf_profile(u32 hdl, int throughput)
+int ipa_pm_set_throughput(u32 hdl, int throughput)
 {
 	struct ipa_pm_client *client;
 	unsigned long flags;

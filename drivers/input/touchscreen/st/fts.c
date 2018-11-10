@@ -4678,6 +4678,8 @@ ProbeErrorExit_4:
 
 ProbeErrorExit_3:
 	fts_enable_reg(info, false);
+	fts_gpio_setup(info->bdata->irq_gpio, false, 0, 0);
+	fts_gpio_setup(info->bdata->reset_gpio, false, 0, 0);
 
 ProbeErrorExit_2:
 	fts_get_reg(info, false);
@@ -4737,6 +4739,9 @@ static int fts_remove(struct i2c_client *client)
 	destroy_workqueue(info->fwu_workqueue);
 
 	fts_enable_reg(info, false);
+	fts_gpio_setup(info->bdata->irq_gpio, false, 0, 0);
+	fts_gpio_setup(info->bdata->reset_gpio, false, 0, 0);
+
 	fts_get_reg(info, false);
 
 	/* free all */
