@@ -112,8 +112,11 @@ int qvr_send_package_wrap(u8 *message, int msize, struct hid_device *hid)
 		data->ats = ts_base + ((ts_offset - imuData.gts0) * 100);
 	else
 		data->ats = ts_base + ((imuData.gts0 - ts_offset) * 100);
+	if (imuData.mts0 == 0)
+		data->mts = 0;
+	else
+		data->mts = data->ats;
 	data->gts = data->ats;
-	data->mts = data->ats;
 	data->ax = -imuData.ax0;
 	data->ay = imuData.ay0;
 	data->az = -imuData.az0;
