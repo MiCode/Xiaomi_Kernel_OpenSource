@@ -33,6 +33,7 @@
 #include <linux/acpi_iort.h>
 #include <linux/atomic.h>
 #include <linux/delay.h>
+#include <linux/device.h>
 #include <linux/dma-iommu.h>
 #include <linux/dma-mapping.h>
 #include <linux/err.h>
@@ -3092,6 +3093,7 @@ static int arm_smmu_add_device(struct device *dev)
 	struct arm_smmu_device *smmu;
 	struct arm_smmu_master_cfg *cfg;
 	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
+	struct device_link *link;
 	int i, ret;
 
 	if (using_legacy_binding) {
@@ -3145,13 +3147,22 @@ static int arm_smmu_add_device(struct device *dev)
 	while (i--)
 		cfg->smendx[i] = INVALID_SMENDX;
 
+	link = device_link_add(dev, smmu->dev, DL_FLAG_STATELESS);
+	if (!link) {
+		dev_err(dev, "error in device link creation between %s & %s\n",
+				dev_name(smmu->dev), dev_name(dev));
+		ret = -ENODEV;
+		goto out_cfg_free;
+	}
+
 	ret = arm_smmu_master_alloc_smes(dev);
 	if (ret)
-		goto out_cfg_free;
-
+		goto out_dev_link_free;
 	arm_smmu_power_off(smmu->pwr);
 	return 0;
 
+out_dev_link_free:
+	device_link_del(link);
 out_cfg_free:
 	kfree(cfg);
 out_pwr_off:
@@ -3165,6 +3176,7 @@ static void arm_smmu_remove_device(struct device *dev)
 {
 	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
 	struct arm_smmu_device *smmu;
+	struct device_link *link;
 
 	if (!fwspec || fwspec->ops != &arm_smmu_ops)
 		return;
@@ -3173,6 +3185,12 @@ static void arm_smmu_remove_device(struct device *dev)
 	if (arm_smmu_power_on(smmu->pwr)) {
 		WARN_ON(1);
 		return;
+	}
+
+	/* Remove the device link between dev and the smmu if any */
+	list_for_each_entry(link, &smmu->dev->links.consumers, s_node) {
+		if (link->consumer == dev)
+			device_link_del(link);
 	}
 
 	arm_smmu_master_free_smes(fwspec);
