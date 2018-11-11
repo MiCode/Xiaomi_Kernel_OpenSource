@@ -28,7 +28,7 @@
 		clock-max-rate = <0 0 0 0 460000000 19200000 460000000>;
 
 		/* interrupt config */
-		interrupts = <0 83 0>;
+		interrupts = <GIC_SPI 83 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-controller;
 		iommus = <&apps_smmu 0x820 0x402>;
 
