@@ -1736,3 +1736,34 @@ loopback_exit:
 
 	return ret;
 }
+
+void npu_host_cleanup_networks(struct npu_client *client)
+{
+	int i;
+	struct npu_device *npu_dev = client->npu_dev;
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+	struct msm_npu_unload_network_ioctl unload_req;
+	struct msm_npu_unmap_buf_ioctl unmap_req;
+	struct npu_network *network;
+	struct npu_ion_buf *ion_buf;
+
+	for (i = 0; i < MAX_LOADED_NETWORK; i++) {
+		network = &host_ctx->networks[i];
+		if (network->client == client) {
+			pr_warn("network %d is not unloaded before close\n",
+				network->network_hdl);
+			unload_req.network_hdl = network->network_hdl;
+			npu_host_unload_network(client, &unload_req);
+		}
+	}
+
+	/* unmap all remaining buffers */
+	while (!list_empty(&client->mapped_buffer_list)) {
+		ion_buf = list_first_entry(&client->mapped_buffer_list,
+			struct npu_ion_buf, list);
+		pr_warn("unmap buffer %x:%x\n", ion_buf->fd, ion_buf->iova);
+		unmap_req.buf_ion_hdl = ion_buf->fd;
+		unmap_req.npu_phys_addr = ion_buf->iova;
+		npu_host_unmap_buf(client, &unmap_req);
+	}
+}

@@ -131,6 +131,7 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 	struct msm_npu_exec_network_ioctl_v2 *exec_ioctl,
 	struct msm_npu_patch_buf_info *patch_buf_info);
 int32_t npu_host_loopback_test(struct npu_device *npu_dev);
+void npu_host_cleanup_networks(struct npu_client *client);
 
 void npu_dump_debug_timeout_stats(struct npu_device *npu_dev);
 void npu_dump_cal_state(struct npu_device *npu_dev);
