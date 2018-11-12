@@ -32,6 +32,11 @@
 #define MDP_INTF_TEAR_INTR_EN_OFF	0x0
 #define MDP_INTF_TEAR_INTR_STATUS_OFF   0x4
 #define MDP_INTF_TEAR_INTR_CLEAR_OFF    0x8
+#define MDP_LTM_0_OFF			0x7F000
+#define MDP_LTM_1_OFF			0x7F100
+#define MDP_LTM_INTR_EN_OFF		0x50
+#define MDP_LTM_INTR_STATUS_OFF		0x54
+#define MDP_LTM_INTR_CLEAR_OFF		0x58
 
 /**
  * WB interrupt status bit definitions
@@ -188,6 +193,12 @@
 #define SDE_INTR_INTF_TEAR_RD_PTR BIT(2)
 #define SDE_INTR_INTF_TEAR_TE_DETECTED BIT(3)
 #define SDE_INTR_INTF_TEAR_TEAR_DETECTED BIT(4)
+
+/**
+ * LTM interrupt status bit definitions
+ */
+#define SDE_INTR_LTM_STATS_DONE BIT(0)
+#define SDE_INTR_LTM_STATS_WB_PB BIT(5)
 
 /**
  * struct sde_intr_reg - array of SDE register sets
@@ -530,6 +541,18 @@ static struct sde_irq_type sde_irq_intf2_te_map[] = {
 
 	{ SDE_IRQ_TYPE_INTF_TEAR_TEAR_CHECK, INTF_2,
 		SDE_INTR_INTF_TEAR_TEAR_DETECTED, -1},
+};
+
+static struct sde_irq_type sde_irq_ltm_0_map[] = {
+
+	{ SDE_IRQ_TYPE_LTM_STATS_DONE, DSPP_0, SDE_INTR_LTM_STATS_DONE, -1},
+	{ SDE_IRQ_TYPE_LTM_STATS_WB_PB, DSPP_0, SDE_INTR_LTM_STATS_WB_PB, -1},
+};
+
+static struct sde_irq_type sde_irq_ltm_1_map[] = {
+
+	{ SDE_IRQ_TYPE_LTM_STATS_DONE, DSPP_1, SDE_INTR_LTM_STATS_DONE, -1},
+	{ SDE_IRQ_TYPE_LTM_STATS_WB_PB, DSPP_1, SDE_INTR_LTM_STATS_WB_PB, -1},
 };
 
 static int sde_hw_intr_irqidx_lookup(struct sde_hw_intr *intr,
@@ -1154,6 +1177,22 @@ static inline int _sde_hw_intr_init_sde_irq_tbl(u32 irq_tbl_size,
 			sde_irq->status_off = MDP_INTF_TEAR_INTF_2_IRQ_OFF +
 				MDP_INTF_TEAR_INTR_STATUS_OFF;
 			break;
+		case MDSS_INTR_LTM_0_INTR:
+			sde_irq->clr_off =
+				MDP_LTM_0_OFF + MDP_LTM_INTR_CLEAR_OFF;
+			sde_irq->en_off =
+				MDP_LTM_0_OFF + MDP_LTM_INTR_EN_OFF;
+			sde_irq->status_off =
+				MDP_LTM_0_OFF + MDP_LTM_INTR_STATUS_OFF;
+			break;
+		case MDSS_INTR_LTM_1_INTR:
+			sde_irq->clr_off =
+				MDP_LTM_1_OFF + MDP_LTM_INTR_CLEAR_OFF;
+			sde_irq->en_off =
+				MDP_LTM_1_OFF + MDP_LTM_INTR_EN_OFF;
+			sde_irq->status_off =
+				MDP_LTM_1_OFF + MDP_LTM_INTR_STATUS_OFF;
+			break;
 		default:
 			pr_err("wrong irq idx %d\n",
 				sde_irq->sde_irq_idx);
@@ -1220,6 +1259,12 @@ static inline u32 _get_irq_map_size(int idx)
 	case MDSS_INTF_TEAR_2_INTR:
 		ret = ARRAY_SIZE(sde_irq_intf2_te_map);
 		break;
+	case MDSS_INTR_LTM_0_INTR:
+		ret = ARRAY_SIZE(sde_irq_ltm_0_map);
+		break;
+	case MDSS_INTR_LTM_1_INTR:
+		ret = ARRAY_SIZE(sde_irq_ltm_1_map);
+		break;
 	default:
 		pr_err("invalid idx:%d\n");
 	}
@@ -1267,6 +1312,12 @@ static inline struct sde_irq_type *_get_irq_map_addr(int idx)
 		break;
 	case MDSS_INTF_TEAR_2_INTR:
 		ret = sde_irq_intf2_te_map;
+		break;
+	case MDSS_INTR_LTM_0_INTR:
+		ret = sde_irq_ltm_0_map;
+		break;
+	case MDSS_INTR_LTM_1_INTR:
+		ret = sde_irq_ltm_1_map;
 		break;
 	default:
 		pr_err("invalid idx:%d\n");
