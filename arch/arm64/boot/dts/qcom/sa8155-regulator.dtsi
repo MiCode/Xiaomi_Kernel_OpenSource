@@ -730,17 +730,6 @@
 		regulator-name = "vreg_wlan";
 	};
 
-	/* PWR_CTR1_VDD_PA supply */
-	vreg_conn_pa: vreg_conn_pa {
-		compatible = "regulator-fixed";
-		regulator-name = "vreg_conn_pa";
-		pinctrl-names = "default";
-		pinctrl-0 = <&conn_power_pa_active>;
-		startup-delay-us = <4000>;
-		enable-active-high;
-		gpio = <&tlmm 173 0>;
-	};
-
 	/* PWR_CTR2_VDD_1P8 supply */
 	vreg_conn_1p8: vreg_conn_1p8 {
 		compatible = "regulator-fixed";
@@ -749,6 +738,18 @@
 		pinctrl-0 = <&conn_power_1p8_active>;
 		startup-delay-us = <4000>;
 		enable-active-high;
+		gpio = <&tlmm 173 0>;
+	};
+
+	/* PWR_CTR1_VDD_PA supply */
+	vreg_conn_pa: vreg_conn_pa {
+		compatible = "regulator-fixed";
+		regulator-name = "vreg_conn_pa";
+		pinctrl-names = "default";
+		pinctrl-0 = <&conn_power_pa_active>;
+		startup-delay-us = <4000>;
+		enable-active-high;
 		gpio = <&tlmm 174 0>;
 	};
+
 };
