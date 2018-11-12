@@ -403,72 +403,113 @@ error_alloc_chan_ctxt:
 	return ret;
 }
 
+static int mhi_get_tsync_er_cfg(struct mhi_controller *mhi_cntrl)
+{
+	int i;
+	struct mhi_event *mhi_event = mhi_cntrl->mhi_event;
+
+	/* find event ring with timesync support */
+	for (i = 0; i < mhi_cntrl->total_ev_rings; i++, mhi_event++)
+		if (mhi_event->data_type == MHI_ER_TSYNC_ELEMENT_TYPE)
+			return mhi_event->er_index;
+
+	return -ENOENT;
+}
+
 int mhi_init_timesync(struct mhi_controller *mhi_cntrl)
 {
-	struct mhi_timesync *mhi_tsync = mhi_cntrl->mhi_tsync;
+	struct mhi_timesync *mhi_tsync;
 	u32 time_offset, db_offset;
 	int ret;
 
-	reinit_completion(&mhi_tsync->completion);
 	read_lock_bh(&mhi_cntrl->pm_lock);
-	if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state)) {
-		MHI_ERR("MHI host is not in active state\n");
-		read_unlock_bh(&mhi_cntrl->pm_lock);
-		return -EIO;
-	}
 
-	mhi_cntrl->wake_get(mhi_cntrl, false);
-	read_unlock_bh(&mhi_cntrl->pm_lock);
-	mhi_cntrl->runtime_get(mhi_cntrl, mhi_cntrl->priv_data);
-	mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
-
-	ret = mhi_send_cmd(mhi_cntrl, NULL, MHI_CMD_TIMSYNC_CFG);
-	if (ret) {
-		MHI_ERR("Failed to send time sync cfg cmd\n");
-		goto error_send_cmd;
-	}
-
-	ret = wait_for_completion_timeout(&mhi_tsync->completion,
-				msecs_to_jiffies(mhi_cntrl->timeout_ms));
-
-	if (!ret || mhi_tsync->ccs != MHI_EV_CC_SUCCESS) {
-		MHI_ERR("Failed to receive cmd completion for time_sync_cfg\n");
+	if (!MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state)) {
 		ret = -EIO;
-		goto error_send_cmd;
+		goto exit_timesync;
 	}
-
-	read_lock_bh(&mhi_cntrl->pm_lock);
-	mhi_cntrl->wake_put(mhi_cntrl, false);
-
-	ret = -EIO;
-
-	if (!MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
-		goto error_sync_cap;
 
 	ret = mhi_get_capability_offset(mhi_cntrl, TIMESYNC_CAP_ID,
 					&time_offset);
 	if (ret) {
-		MHI_ERR("could not find timesync capability\n");
-		goto error_sync_cap;
+		MHI_LOG("No timesync capability found\n");
+		goto exit_timesync;
 	}
 
-	ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->regs,
-			   time_offset + TIMESYNC_DB_OFFSET, &db_offset);
-	if (ret)
-		goto error_sync_cap;
-
-	MHI_LOG("TIMESYNC_DB OFFS:0x%x\n", db_offset);
-
-	mhi_tsync->db = mhi_cntrl->regs + db_offset;
-
-error_sync_cap:
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
-	return ret;
+	if (!mhi_cntrl->time_get || !mhi_cntrl->lpm_disable ||
+	     !mhi_cntrl->lpm_enable)
+		return -EINVAL;
 
-error_send_cmd:
+	/* register method supported */
+	mhi_tsync = kzalloc(sizeof(*mhi_tsync), GFP_KERNEL);
+	if (!mhi_tsync)
+		return -ENOMEM;
+
+	spin_lock_init(&mhi_tsync->lock);
+	INIT_LIST_HEAD(&mhi_tsync->head);
+	init_completion(&mhi_tsync->completion);
+
+	/* save time_offset for obtaining time */
+	MHI_LOG("TIME OFFS:0x%x\n", time_offset);
+	mhi_tsync->time_reg = mhi_cntrl->regs + time_offset
+			      + TIMESYNC_TIME_LOW_OFFSET;
+
+	mhi_cntrl->mhi_tsync = mhi_tsync;
+
+	ret = mhi_create_timesync_sysfs(mhi_cntrl);
+	if (unlikely(ret)) {
+		/* kernel method still work */
+		MHI_ERR("Failed to create timesync sysfs nodes\n");
+	}
+
 	read_lock_bh(&mhi_cntrl->pm_lock);
-	mhi_cntrl->wake_put(mhi_cntrl, false);
+
+	if (!MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state)) {
+		ret = -EIO;
+		goto exit_timesync;
+	}
+
+	/* get DB offset if supported, else return */
+	ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->regs,
+			   time_offset + TIMESYNC_DB_OFFSET, &db_offset);
+	if (ret || !db_offset) {
+		ret = 0;
+		goto exit_timesync;
+	}
+
+	MHI_LOG("TIMESYNC_DB OFFS:0x%x\n", db_offset);
+	mhi_tsync->db = mhi_cntrl->regs + db_offset;
+
+	read_unlock_bh(&mhi_cntrl->pm_lock);
+
+	/* get time-sync event ring configuration */
+	ret = mhi_get_tsync_er_cfg(mhi_cntrl);
+	if (ret < 0) {
+		MHI_LOG("Could not find timesync event ring\n");
+		return ret;
+	}
+
+	mhi_tsync->er_index = ret;
+
+	ret = mhi_send_cmd(mhi_cntrl, NULL, MHI_CMD_TIMSYNC_CFG);
+	if (ret) {
+		MHI_ERR("Failed to send time sync cfg cmd\n");
+		return ret;
+	}
+
+	ret = wait_for_completion_timeout(&mhi_tsync->completion,
+			msecs_to_jiffies(mhi_cntrl->timeout_ms));
+
+	if (!ret || mhi_tsync->ccs != MHI_EV_CC_SUCCESS) {
+		MHI_ERR("Failed to get time cfg cmd completion\n");
+		return -EIO;
+	}
+
+	return 0;
+
+exit_timesync:
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	return ret;
@@ -978,7 +1019,6 @@ static int of_parse_dt(struct mhi_controller *mhi_cntrl,
 		       struct device_node *of_node)
 {
 	int ret;
-	struct mhi_timesync *mhi_tsync;
 
 	/* parse MHI channel configuration */
 	ret = of_parse_ch_cfg(mhi_cntrl, of_node);
@@ -995,28 +1035,6 @@ static int of_parse_dt(struct mhi_controller *mhi_cntrl,
 	if (ret)
 		mhi_cntrl->timeout_ms = MHI_TIMEOUT_MS;
 
-	mhi_cntrl->time_sync = of_property_read_bool(of_node, "mhi,time-sync");
-
-	if (mhi_cntrl->time_sync) {
-		mhi_tsync = kzalloc(sizeof(*mhi_tsync), GFP_KERNEL);
-		if (!mhi_tsync) {
-			ret = -ENOMEM;
-			goto error_time_sync;
-		}
-
-		ret = of_property_read_u32(of_node, "mhi,tsync-er",
-					   &mhi_tsync->er_index);
-		if (ret)
-			goto error_time_sync;
-
-		if (mhi_tsync->er_index >= mhi_cntrl->total_ev_rings) {
-			ret = -EINVAL;
-			goto error_time_sync;
-		}
-
-		mhi_cntrl->mhi_tsync = mhi_tsync;
-	}
-
 	mhi_cntrl->bounce_buf = of_property_read_bool(of_node, "mhi,use-bb");
 	ret = of_property_read_u32(of_node, "mhi,buffer-len",
 				   (u32 *)&mhi_cntrl->buffer_len);
@@ -1024,10 +1042,6 @@ static int of_parse_dt(struct mhi_controller *mhi_cntrl,
 		mhi_cntrl->buffer_len = MHI_MAX_MTU;
 
 	return 0;
-
-error_time_sync:
-	kfree(mhi_tsync);
-	kfree(mhi_cntrl->mhi_event);
 
 error_ev_cfg:
 	kfree(mhi_cntrl->mhi_chan);
@@ -1055,11 +1069,6 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 
 	ret = of_parse_dt(mhi_cntrl, mhi_cntrl->of_node);
 	if (ret)
-		return -EINVAL;
-
-	if (mhi_cntrl->time_sync &&
-	    (!mhi_cntrl->time_get || !mhi_cntrl->lpm_disable ||
-	     !mhi_cntrl->lpm_enable))
 		return -EINVAL;
 
 	mhi_cntrl->mhi_cmd = kcalloc(NR_OF_CMD_RINGS,
@@ -1103,14 +1112,6 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 		mutex_init(&mhi_chan->mutex);
 		init_completion(&mhi_chan->completion);
 		rwlock_init(&mhi_chan->lock);
-	}
-
-	if (mhi_cntrl->mhi_tsync) {
-		struct mhi_timesync *mhi_tsync = mhi_cntrl->mhi_tsync;
-
-		spin_lock_init(&mhi_tsync->lock);
-		INIT_LIST_HEAD(&mhi_tsync->head);
-		init_completion(&mhi_tsync->completion);
 	}
 
 	if (mhi_cntrl->bounce_buf) {

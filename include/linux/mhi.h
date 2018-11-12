@@ -267,7 +267,6 @@ struct mhi_controller {
 	size_t buffer_len;
 
 	/* supports time sync feature */
-	bool time_sync;
 	struct mhi_timesync *mhi_tsync;
 	struct mhi_device *tsync_dev;
 
@@ -594,6 +593,17 @@ int mhi_download_rddm_img(struct mhi_controller *mhi_cntrl, bool in_panic);
  * @mhi_cntrl: MHI controller
  */
 int mhi_force_rddm_mode(struct mhi_controller *mhi_cntrl);
+
+/**
+ * mhi_get_remote_time_sync - Get external soc time relative to local soc time
+ * using MMIO method.
+ * @mhi_dev: Device associated with the channels
+ * @t_host: Pointer to output local soc time
+ * @t_dev: Pointer to output remote soc time
+ */
+int mhi_get_remote_time_sync(struct mhi_device *mhi_dev,
+			     u64 *t_host,
+			     u64 *t_dev);
 
 #ifndef CONFIG_ARCH_QCOM
 

@@ -143,9 +143,9 @@ extern struct bus_type mhi_bus_type;
 #define TIMESYNC_CFG_NEXT_OFF_SHIFT (CAP_NEXT_CAP_SHIFT)
 #define TIMESYNC_CFG_NUMCMD_MASK (0xFF)
 #define TIMESYNC_CFG_NUMCMD_SHIFT (0)
-#define TIMESYNC_TIME_LOW_OFFSET (0x4)
-#define TIMESYNC_TIME_HIGH_OFFSET (0x8)
-#define TIMESYNC_DB_OFFSET (0xC)
+#define TIMESYNC_DB_OFFSET (0x4)
+#define TIMESYNC_TIME_LOW_OFFSET (0x8)
+#define TIMESYNC_TIME_HIGH_OFFSET (0xC)
 
 #define TIMESYNC_CAP_ID (2)
 
@@ -210,6 +210,9 @@ extern struct bus_type mhi_bus_type;
 #define BHIE_RXVECSTATUS_STATUS_RESET (0x00)
 #define BHIE_RXVECSTATUS_STATUS_XFER_COMPL (0x02)
 #define BHIE_RXVECSTATUS_STATUS_ERROR (0x03)
+
+/* convert ticks to micro seconds by dividing by 19.2 */
+#define TIME_TICKS_TO_US(x) (((x) * 10) / 192)
 
 struct mhi_event_ctxt {
 	u32 reserved : 8;
@@ -614,9 +617,11 @@ struct tsync_node {
 struct mhi_timesync {
 	u32 er_index;
 	void __iomem *db;
+	void __iomem *time_reg;
 	enum MHI_EV_CCS ccs;
 	struct completion completion;
-	spinlock_t lock;
+	spinlock_t lock; /* list protection */
+	struct mutex lpm_mutex; /* lpm protection */
 	struct list_head head;
 };
 
@@ -707,6 +712,8 @@ void mhi_set_mhi_state(struct mhi_controller *mhi_cntrl,
 int mhi_get_capability_offset(struct mhi_controller *mhi_cntrl, u32 capability,
 			      u32 *offset);
 int mhi_init_timesync(struct mhi_controller *mhi_cntrl);
+int mhi_create_timesync_sysfs(struct mhi_controller *mhi_cntrl);
+void mhi_destroy_timesync(struct mhi_controller *mhi_cntrl);
 
 /* memory allocation methods */
 static inline void *mhi_alloc_coherent(struct mhi_controller *mhi_cntrl,

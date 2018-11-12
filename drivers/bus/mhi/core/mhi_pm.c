@@ -462,8 +462,7 @@ static int mhi_pm_mission_mode_transition(struct mhi_controller *mhi_cntrl)
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	/* setup support for time sync */
-	if (mhi_cntrl->time_sync)
-		mhi_init_timesync(mhi_cntrl);
+	mhi_init_timesync(mhi_cntrl);
 
 	MHI_LOG("Adding new devices\n");
 
@@ -600,6 +599,9 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 		er_ctxt->rp = er_ctxt->rbase;
 		er_ctxt->wp = er_ctxt->rbase;
 	}
+
+	/* remove support for time sync */
+	mhi_destroy_timesync(mhi_cntrl);
 
 	if (cur_state == MHI_PM_SYS_ERR_PROCESS) {
 		mhi_ready_state_transition(mhi_cntrl);
@@ -867,9 +869,6 @@ void mhi_power_down(struct mhi_controller *mhi_cntrl, bool graceful)
 		mhi_deinit_free_irq(mhi_cntrl);
 		mhi_deinit_dev_ctxt(mhi_cntrl);
 	}
-
-	if (mhi_cntrl->mhi_tsync)
-		mhi_cntrl->mhi_tsync->db = NULL;
 }
 EXPORT_SYMBOL(mhi_power_down);
 
