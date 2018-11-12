@@ -270,9 +270,3 @@
 	qcom,platform-te-gpio = <&tlmm 90 0>;
 	qcom,platform-reset-gpio = <&tlmm 91 0>;
 };
-
-&thermal_zones {
-	quiet-therm-step {
-		status = "disabled";
-	};
-};
