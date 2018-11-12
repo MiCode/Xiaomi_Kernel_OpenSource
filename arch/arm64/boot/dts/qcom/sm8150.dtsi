@@ -3813,6 +3813,7 @@
 		qcom,smmu-s1-en;
 		qcom,smmu-fast-map;
 		qcom,smmu-coherent;
+		qcom,keep-radio-on-during-sleep;
 		status = "disabled";
 	};
 
