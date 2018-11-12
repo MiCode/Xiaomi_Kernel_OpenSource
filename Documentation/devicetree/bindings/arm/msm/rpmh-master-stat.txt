@@ -23,9 +23,16 @@ The required properties for rpmh-master-stats are:
 	Value type: <prop-encoded-array>
 	Definition: Specifies physical address of start of profiling unit.
 
+- qcom,use-alt-unit:
+	Usage: Optional
+	Value type: <u32>
+	Definition: Specifies designated unit no. for which alternate unit
+		is configured to capture time stamp.
+
 Example:
 
 qcom,rpmh-master-stats {
 	compatible = "qcom,rpmh-master-stats";
 	reg = <0xb221200 0x60>;
+	qcom,use-alt-unit = <3>;
 };
