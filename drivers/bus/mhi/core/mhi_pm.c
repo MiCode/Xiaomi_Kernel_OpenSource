@@ -413,27 +413,32 @@ int mhi_pm_m3_transition(struct mhi_controller *mhi_cntrl)
 
 static int mhi_pm_mission_mode_transition(struct mhi_controller *mhi_cntrl)
 {
-	int i;
+	int i, ret;
 	struct mhi_event *mhi_event;
 
 	MHI_LOG("Processing Mission Mode Transition\n");
+
+	/* force MHI to be in M0 state before continuing */
+	ret = __mhi_device_get_sync(mhi_cntrl);
+	if (ret)
+		return ret;
+
+	ret = -EIO;
 
 	write_lock_irq(&mhi_cntrl->pm_lock);
 	if (MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
 		mhi_cntrl->ee = mhi_get_exec_env(mhi_cntrl);
 	write_unlock_irq(&mhi_cntrl->pm_lock);
 
+	read_lock_bh(&mhi_cntrl->pm_lock);
 	if (!MHI_IN_MISSION_MODE(mhi_cntrl->ee))
-		return -EIO;
+		goto error_mission_mode;
 
 	wake_up_all(&mhi_cntrl->state_event);
 
 	/* add elements to all HW event rings */
-	read_lock_bh(&mhi_cntrl->pm_lock);
-	if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state)) {
-		read_unlock_bh(&mhi_cntrl->pm_lock);
-		return -EIO;
-	}
+	if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state))
+		goto error_mission_mode;
 
 	mhi_event = mhi_cntrl->mhi_event;
 	for (i = 0; i < mhi_cntrl->total_ev_rings; i++, mhi_event++) {
@@ -465,9 +470,17 @@ static int mhi_pm_mission_mode_transition(struct mhi_controller *mhi_cntrl)
 	/* add supported devices */
 	mhi_create_devices(mhi_cntrl);
 
-	MHI_LOG("Exited\n");
+	ret = 0;
 
-	return 0;
+	read_lock_bh(&mhi_cntrl->pm_lock);
+
+error_mission_mode:
+	mhi_cntrl->wake_put(mhi_cntrl, false);
+	read_unlock_bh(&mhi_cntrl->pm_lock);
+
+	MHI_LOG("Exit with ret:%d\n", ret);
+
+	return ret;
 }
 
 /* handles both sys_err and shutdown transitions */
