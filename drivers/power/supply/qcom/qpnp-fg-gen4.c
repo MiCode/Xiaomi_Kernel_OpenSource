@@ -3944,18 +3944,14 @@ static int fg_gen4_hw_init(struct fg_gen4_chip *chip)
 	}
 
 	if (chip->dt.batt_temp_hyst != -EINVAL) {
-		if (chip->dt.batt_temp_cold_thresh != -EINVAL &&
-			chip->dt.batt_temp_hot_thresh != -EINVAL) {
-			val = chip->dt.batt_temp_hyst & BATT_TEMP_HYST_MASK;
-			mask = BATT_TEMP_HYST_MASK;
-			rc = fg_sram_masked_write(fg, BATT_TEMP_CONFIG2_WORD,
-					BATT_TEMP_HYST_DELTA_OFFSET, mask, val,
-					FG_IMA_DEFAULT);
-			if (rc < 0) {
-				pr_err("Error in writing batt_temp_hyst, rc=%d\n",
-					rc);
-				return rc;
-			}
+		val = chip->dt.batt_temp_hyst & BATT_TEMP_HYST_MASK;
+		mask = BATT_TEMP_HYST_MASK;
+		rc = fg_sram_masked_write(fg, BATT_TEMP_CONFIG2_WORD,
+				BATT_TEMP_HYST_DELTA_OFFSET, mask, val,
+				FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing batt_temp_hyst, rc=%d\n", rc);
+			return rc;
 		}
 	}
 
@@ -4338,8 +4334,8 @@ static int fg_parse_esr_cal_params(struct fg_dev *fg)
 #define DEFAULT_CL_MAX_DEC_DECIPERC	100
 #define DEFAULT_CL_MIN_LIM_DECIPERC	0
 #define DEFAULT_CL_MAX_LIM_DECIPERC	0
-#define BTEMP_DELTA_LOW			2
-#define BTEMP_DELTA_HIGH		10
+#define BTEMP_DELTA_LOW			0
+#define BTEMP_DELTA_HIGH		3
 #define DEFAULT_ESR_PULSE_THRESH_MA	47
 #define DEFAULT_ESR_MEAS_CURR_MA	120
 static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
@@ -4555,13 +4551,13 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 	rc = of_property_read_u32(node, "qcom,fg-batt-temp-hyst", &temp);
 	if (rc < 0)
 		chip->dt.batt_temp_hyst = -EINVAL;
-	else
+	else if (temp >= BTEMP_DELTA_LOW && temp <= BTEMP_DELTA_HIGH)
 		chip->dt.batt_temp_hyst = temp;
 
 	rc = of_property_read_u32(node, "qcom,fg-batt-temp-delta", &temp);
 	if (rc < 0)
 		chip->dt.batt_temp_delta = -EINVAL;
-	else if (temp > BTEMP_DELTA_LOW && temp <= BTEMP_DELTA_HIGH)
+	else if (temp >= BTEMP_DELTA_LOW && temp <= BTEMP_DELTA_HIGH)
 		chip->dt.batt_temp_delta = temp;
 
 	chip->dt.hold_soc_while_full = of_property_read_bool(node,

@@ -24,8 +24,3 @@
 &swr2 {
 	interrupts = <0 296 0>, <0 528 0>;
 };
-
-&sm6150_snd {
-	qcom,wcn-btfm = <0>;
-	qcom,ext-disp-audio-rx = <0>;
-};

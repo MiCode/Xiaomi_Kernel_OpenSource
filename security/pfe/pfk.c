@@ -533,6 +533,20 @@ bool pfk_allow_merge_bio(const struct bio *bio1, const struct bio *bio2)
 		 !crypto_memneq(key1->raw, key2->raw, sizeof(key1->raw)));
 }
 
+int pfk_fbe_clear_key(const unsigned char *key, size_t key_size,
+		const unsigned char *salt, size_t salt_size)
+{
+	int ret = -EINVAL;
+
+	if (!key || !salt)
+		return ret;
+
+	ret = pfk_kc_remove_key_with_salt(key, key_size, salt, salt_size);
+	if (ret)
+		pr_err("Clear key error: ret value %d\n", ret);
+	return ret;
+}
+
 /**
  * Flush key table on storage core reset. During core reset key configuration
  * is lost in ICE. We need to flash the cache, so that the keys will be

@@ -831,16 +831,6 @@ static inline bool mmc_card_and_host_support_async_int(struct mmc_host *host)
 			(host->card->cccr.async_intr_sup));
 }
 
-static inline void mmc_host_clear_sdr104(struct mmc_host *host)
-{
-	host->caps &= ~MMC_CAP_UHS_SDR104;
-}
-
-static inline void mmc_host_set_sdr104(struct mmc_host *host)
-{
-	host->caps |= MMC_CAP_UHS_SDR104;
-}
-
 static inline void mmc_host_set_halt(struct mmc_host *host)
 {
 	set_bit(CMDQ_STATE_HALT, &host->cmdq_ctx.curr_state);

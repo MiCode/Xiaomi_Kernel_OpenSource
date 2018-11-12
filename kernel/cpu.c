@@ -1515,7 +1515,7 @@ static struct cpuhp_step cpuhp_ap_states[] = {
 	},
 	[CPUHP_AP_PERF_ONLINE] = {
 		.name			= "perf:online",
-		.startup.single		= perf_event_start_swevents,
+		.startup.single		= perf_event_restart_events,
 		.teardown.single	= perf_event_exit_cpu,
 	},
 	[CPUHP_AP_WORKQUEUE_ONLINE] = {

@@ -210,8 +210,6 @@
 
 		qcom,no-l0s-supported;
 
-		qcom,max-link-speed = <0x3>;
-
 		qcom,ep-latency = <10>;
 
 		qcom,slv-addr-space-size = <0x4000000>;
@@ -533,8 +531,6 @@
 						RPMH_REGULATOR_LEVEL_NOM 0>;
 
 		qcom,no-l0s-supported;
-
-		qcom,max-link-speed = <0x3>;
 
 		qcom,ep-latency = <10>;
 

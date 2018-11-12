@@ -293,6 +293,7 @@ out:
 #define MICRO_1P5A			1500000
 #define MICRO_P1A			100000
 #define MICRO_1PA			1000000
+#define MICRO_3PA			3000000
 #define OTG_DEFAULT_DEGLITCH_TIME_MS	50
 #define DEFAULT_WD_BARK_TIME		64
 static int smb5_parse_dt(struct smb5 *chip)
@@ -349,7 +350,7 @@ static int smb5_parse_dt(struct smb5 *chip)
 				"qcom,otg-cl-ua", &chg->otg_cl_ua);
 	if (rc < 0)
 		chg->otg_cl_ua = (chip->chg.smb_version == PMI632_SUBTYPE) ?
-							MICRO_1PA : MICRO_1P5A;
+							MICRO_1PA : MICRO_3PA;
 
 	rc = of_property_read_u32(node, "qcom,chg-term-src",
 			&chip->dt.term_current_src);
@@ -401,7 +402,7 @@ static int smb5_parse_dt(struct smb5 *chip)
 
 	chip->dt.hvdcp_disable = of_property_read_bool(node,
 						"qcom,hvdcp-disable");
-
+	chg->hvdcp_disable = chip->dt.hvdcp_disable;
 
 	rc = of_property_read_u32(node, "qcom,chg-inhibit-threshold-mv",
 				&chip->dt.chg_inhibit_thr_mv);
@@ -1178,7 +1179,9 @@ static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
+	POWER_SUPPLY_PROP_VOLTAGE_QNOVO,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
+	POWER_SUPPLY_PROP_CURRENT_QNOVO,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 	POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT,
 	POWER_SUPPLY_PROP_TEMP,
@@ -1256,9 +1259,17 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		val->intval = get_client_vote(chg->fv_votable,
 				BATT_PROFILE_VOTER);
 		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_QNOVO:
+		val->intval = get_client_vote_locked(chg->fv_votable,
+				QNOVO_VOTER);
+		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		rc = smblib_get_prop_from_bms(chg,
 				POWER_SUPPLY_PROP_CURRENT_NOW, val);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_QNOVO:
+		val->intval = get_client_vote_locked(chg->fcc_votable,
+				QNOVO_VOTER);
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		val->intval = get_client_vote(chg->fcc_votable,
@@ -1360,6 +1371,10 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 		chg->batt_profile_fv_uv = val->intval;
 		vote(chg->fv_votable, BATT_PROFILE_VOTER, true, val->intval);
 		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_QNOVO:
+		vote(chg->fv_votable, QNOVO_VOTER, (val->intval >= 0),
+			val->intval);
+		break;
 	case POWER_SUPPLY_PROP_STEP_CHARGING_ENABLED:
 		chg->step_chg_enabled = !!val->intval;
 		break;
@@ -1373,6 +1388,18 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		chg->batt_profile_fcc_ua = val->intval;
 		vote(chg->fcc_votable, BATT_PROFILE_VOTER, true, val->intval);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_QNOVO:
+		vote(chg->pl_disable_votable, PL_QNOVO_VOTER,
+			val->intval != -EINVAL && val->intval < 2000000, 0);
+		if (val->intval == -EINVAL) {
+			vote(chg->fcc_votable, BATT_PROFILE_VOTER,
+					true, chg->batt_profile_fcc_ua);
+			vote(chg->fcc_votable, QNOVO_VOTER, false, 0);
+		} else {
+			vote(chg->fcc_votable, QNOVO_VOTER, true, val->intval);
+			vote(chg->fcc_votable, BATT_PROFILE_VOTER, false, 0);
+		}
 		break;
 	case POWER_SUPPLY_PROP_SET_SHIP_MODE:
 		/* Not in ship mode as long as the device is active */
@@ -1633,16 +1660,6 @@ static int smb5_configure_micro_usb(struct smb_charger *chg)
 		return rc;
 	}
 
-	/* Enable HVDCP and BC 1.2 source detection */
-	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
-					HVDCP_EN_BIT | BC1P2_SRC_DETECT_BIT,
-					HVDCP_EN_BIT | BC1P2_SRC_DETECT_BIT);
-	if (rc < 0) {
-		dev_err(chg->dev,
-			"Couldn't enable HVDCP detection rc=%d\n", rc);
-		return rc;
-	}
-
 	return rc;
 }
 
@@ -1773,10 +1790,16 @@ static int smb5_init_hw(struct smb5 *chip)
 		}
 	}
 
-	/* Use SW based VBUS control, disable HW autonomous mode */
+	/*
+	 * Disable HVDCP autonomous mode operation by default. Additionally, if
+	 * specified in DT: disable HVDCP and HVDCP authentication algorithm.
+	 */
+	val = (chg->hvdcp_disable) ? 0 :
+		(HVDCP_AUTH_ALG_EN_CFG_BIT | HVDCP_EN_BIT);
 	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
-		HVDCP_AUTH_ALG_EN_CFG_BIT | HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT,
-		HVDCP_AUTH_ALG_EN_CFG_BIT);
+			(HVDCP_AUTH_ALG_EN_CFG_BIT | HVDCP_EN_BIT |
+			 HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT),
+			val);
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't configure HVDCP rc=%d\n", rc);
 		return rc;
@@ -2086,15 +2109,6 @@ static int smb5_init_hw(struct smb5 *chip)
 				rc);
 			return rc;
 		}
-	}
-
-	/* set the Source (OTG) mode current limit */
-	rc = smblib_masked_write(chg, DCDC_OTG_CURRENT_LIMIT_CFG_REG,
-			OTG_CURRENT_LIMIT_MASK, OTG_CURRENT_LIMIT_3000_MA);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't configure DCDC_OTG_CURRENT_LIMIT_CFG rc=%d\n",
-				rc);
-		return rc;
 	}
 
 	if (chg->sw_jeita_enabled) {

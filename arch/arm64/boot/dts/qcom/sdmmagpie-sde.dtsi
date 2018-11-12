@@ -141,7 +141,7 @@
 		qcom,sde-sspp-qseed-off = <0xa00>;
 		qcom,sde-mixer-linewidth = <2560>;
 		qcom,sde-sspp-linewidth = <2880>;
-		qcom,sde-wb-linewidth = <2880>;
+		qcom,sde-wb-linewidth = <4096>;
 		qcom,sde-mixer-blendstages = <0xb>;
 		qcom,sde-highest-bank-bit = <0x1>;
 		qcom,sde-ubwc-version = <0x200>;
@@ -289,7 +289,6 @@
 			<0xaf30000 0x3fd4>;
 		reg-names = "drv", "wrapper";
 		qcom,sde-rsc-version = <2>;
-		status = "disabled";
 
 		vdd-supply = <&mdss_core_gdsc>;
 		clocks = <&clock_dispcc DISP_CC_MDSS_RSCC_VSYNC_CLK>,

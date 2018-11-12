@@ -1308,8 +1308,6 @@ static int _mmc_sd_resume(struct mmc_host *host)
 	}
 	mmc_card_clr_suspended(host->card);
 
-	if (host->card->sdr104_blocked)
-		goto out;
 	err = mmc_resume_clk_scaling(host);
 	if (err) {
 		pr_err("%s: %s: fail to resume clock scaling (%d)\n",

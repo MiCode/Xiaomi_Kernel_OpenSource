@@ -53,7 +53,7 @@ static inline bool usb_gsi_remote_wakeup_allowed(struct usb_function *f)
 	bool remote_wakeup_allowed;
 	struct f_gsi *gsi = func_to_gsi(f);
 
-	if (f->config->cdev->gadget->speed == USB_SPEED_SUPER)
+	if (f->config->cdev->gadget->speed >= USB_SPEED_SUPER)
 		remote_wakeup_allowed = f->func_wakeup_allowed;
 	else
 		remote_wakeup_allowed = f->config->cdev->gadget->remote_wakeup;
@@ -172,7 +172,7 @@ static int gsi_wakeup_host(struct f_gsi *gsi)
 	 * allowed to do so by the host. This is done in order to support non
 	 * fully USB 3.0 compatible hosts.
 	 */
-	if ((gadget->speed == USB_SPEED_SUPER) && (func->func_is_suspended)) {
+	if ((gadget->speed >= USB_SPEED_SUPER) && (func->func_is_suspended)) {
 		log_event_dbg("%s: Calling usb_func_wakeup", __func__);
 		ret = usb_func_wakeup(func);
 	} else {
@@ -585,8 +585,13 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 	}
 
 	/* Populate connection params */
-	conn_params->max_pkt_size =
-		le16_to_cpu(d_port->in_ep->desc->wMaxPacketSize);
+	if (cdev->gadget->speed >= USB_SPEED_SUPER)
+		conn_params->max_pkt_size = IPA_USB_SUPER_SPEED_1024B;
+	else if (cdev->gadget->speed == USB_SPEED_HIGH)
+		conn_params->max_pkt_size = IPA_USB_HIGH_SPEED_512B;
+	else
+		conn_params->max_pkt_size = IPA_USB_FULL_SPEED_64B;
+
 	log_event_dbg("%s(): max_pkt_size:%d\n", __func__,
 		conn_params->max_pkt_size);
 	conn_params->ipa_to_usb_xferrscidx =
@@ -605,7 +610,7 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 	conn_params->teth_prot_params.max_packet_number_to_dev =
 		DEFAULT_MAX_PKT_PER_XFER;
 	conn_params->max_supported_bandwidth_mbps =
-		(cdev->gadget->speed == USB_SPEED_SUPER) ? 3600 : 400;
+		(cdev->gadget->speed >= USB_SPEED_SUPER) ? 3600 : 400;
 
 	memset(&ipa_in_channel_out_params, 0x0,
 				sizeof(ipa_in_channel_out_params));
@@ -1612,7 +1617,7 @@ static const struct file_operations gsi_ctrl_dev_fops = {
 /* peak (theoretical) bulk transfer rate in bits-per-second */
 static unsigned int gsi_xfer_bitrate(struct usb_gadget *g)
 {
-	if (gadget_is_superspeed(g) && g->speed == USB_SPEED_SUPER)
+	if (gadget_is_superspeed(g) && g->speed >= USB_SPEED_SUPER)
 		return 13 * 1024 * 8 * 1000 * 8;
 	else if (gadget_is_dualspeed(g) && g->speed == USB_SPEED_HIGH)
 		return 13 * 512 * 8 * 1000 * 8;
@@ -2545,7 +2550,7 @@ static void gsi_resume(struct usb_function *f)
 	 * If the function is in USB3 Function Suspend state, resume is
 	 * canceled. In this case resume is done by a Function Resume request.
 	 */
-	if ((cdev->gadget->speed == USB_SPEED_SUPER) &&
+	if ((cdev->gadget->speed >= USB_SPEED_SUPER) &&
 		f->func_is_suspended)
 		return;
 

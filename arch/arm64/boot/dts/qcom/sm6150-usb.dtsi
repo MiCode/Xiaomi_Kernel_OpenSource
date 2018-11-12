@@ -55,6 +55,7 @@
 			 0x144 /* GSI_RING_BASE_ADDR_H */
 			 0x1a4>; /* GSI_IF_STS */
 		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
+		qcom,pm-qos-latency = <61>;
 
 		qcom,msm-bus,name = "usb0";
 		qcom,msm-bus,num-cases = <4>;
@@ -298,7 +299,7 @@
 
 		clocks = <&clock_gcc GCC_USB3_PRIM_PHY_AUX_CLK>,
 			<&clock_gcc GCC_USB3_PRIM_PHY_PIPE_CLK>,
-			<&clock_rpmh RPMH_CXO_CLK>,
+			<&clock_gcc GCC_RX3_USB2_CLKREF_CLK>,
 			<&clock_gcc GCC_USB3_PRIM_CLKREF_CLK>,
 			<&clock_gcc GCC_USB3_PRIM_PHY_COM_AUX_CLK>,
 			<&clock_gcc GCC_AHB2PHY_WEST_CLK>;

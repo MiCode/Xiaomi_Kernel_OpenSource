@@ -15,6 +15,7 @@
 	tlmm: pinctrl@1000000 {
 		compatible = "qcom,qcs405-pinctrl";
 		reg = <0x1000000 0x200000>;
+		reg-names = "pinctrl";
 		interrupts-extended = <&wakegic GIC_SPI 208 IRQ_TYPE_NONE>;
 		gpio-controller;
 		#gpio-cells = <2>;
@@ -1906,6 +1907,38 @@
 					pins = "gpio61";
 					bias-disable;  /* NO pull */
 					drive-strength = <2>;
+				};
+			};
+		};
+
+		evb_tlmm_gpio_key{
+			tlmm_gpio_key_active: tlmm_gpio_key_active {
+				mux {
+					pins = "gpio21","gpio52","gpio54",
+						"gpio115";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio21","gpio52","gpio54",
+						"gpio115";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+
+			tlmm_gpio_key_suspend: tlmm_gpio_key_suspend {
+				mux {
+					pins = "gpio21","gpio52","gpio54",
+						"gpio115";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio21","gpio52","gpio54",
+						"gpio115";
+					drive-strength = <2>;
+					bias-disable;
 				};
 			};
 		};

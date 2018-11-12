@@ -371,6 +371,25 @@ int cnss_pci_call_driver_modem_status(struct cnss_pci_data *pci_priv,
 	return 0;
 }
 
+int cnss_pci_update_status(struct cnss_pci_data *pci_priv,
+			   enum cnss_driver_status status)
+{
+	struct cnss_wlan_driver *driver_ops;
+
+	if (!pci_priv)
+		return -ENODEV;
+
+	driver_ops = pci_priv->driver_ops;
+	if (!driver_ops || !driver_ops->update_status)
+		return -EINVAL;
+
+	cnss_pr_dbg("Update driver status: %d\n", status);
+
+	driver_ops->update_status(pci_priv->pci_dev, status);
+
+	return 0;
+}
+
 static int cnss_qca6174_powerup(struct cnss_pci_data *pci_priv)
 {
 	int ret = 0;
@@ -2037,8 +2056,7 @@ static void cnss_mhi_notify_status(struct mhi_controller *mhi_ctrl, void *priv,
 	set_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state);
 	del_timer(&plat_priv->fw_boot_timer);
 
-	cnss_schedule_recovery(&pci_priv->pci_dev->dev,
-			       cnss_reason);
+	cnss_schedule_recovery(&pci_priv->pci_dev->dev, cnss_reason);
 }
 
 static int cnss_pci_get_mhi_msi(struct cnss_pci_data *pci_priv)

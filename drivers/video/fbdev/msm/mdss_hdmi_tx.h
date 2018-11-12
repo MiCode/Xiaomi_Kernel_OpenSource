@@ -49,6 +49,7 @@ struct hdmi_tx_platform_data {
 	bool pluggable;
 	struct clk *hdmi_pclk_rcg;
 	struct clk *ext_hdmi_pixel_clk;
+	u32 max_pclk_freq_khz;
 };
 
 struct hdmi_tx_pinctrl {
@@ -101,6 +102,7 @@ struct hdmi_tx_ctrl {
 	u32 hdmi_tx_major_version;
 	u32 max_pclk_khz;
 	u32 hpd_state;
+	bool hpd_notif_state;
 	u32 hpd_off_pending;
 	u32 hpd_feature_on;
 	u32 hpd_initialized;

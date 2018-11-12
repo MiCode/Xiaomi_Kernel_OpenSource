@@ -111,7 +111,7 @@ struct cam_fd_hw_io_buffer {
 	struct cam_buf_io_cfg *io_cfg;
 	uint32_t               num_buf;
 	uint64_t               io_addr[CAM_PACKET_MAX_PLANES];
-	uint64_t               cpu_addr[CAM_PACKET_MAX_PLANES];
+	uintptr_t              cpu_addr[CAM_PACKET_MAX_PLANES];
 };
 
 /**

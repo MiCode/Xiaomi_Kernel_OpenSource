@@ -34,6 +34,7 @@
 #include <linux/pm.h>
 #include <linux/log2.h>
 #include <linux/irq.h>
+#include <soc/qcom/scm.h>
 #include "../core.h"
 #include "../pinconf.h"
 #include "pinctrl-msm.h"
@@ -76,6 +77,8 @@ struct msm_pinctrl {
 	/* For holding per tile virtual address */
 	void __iomem *per_tile_regs[4];
 #endif
+	phys_addr_t spi_cfg_regs;
+	phys_addr_t spi_cfg_end;
 };
 
 static struct msm_pinctrl *msm_pinctrl_data;
@@ -1383,8 +1386,12 @@ static void add_dirconn_tlmm(struct irq_data *d, irq_hw_number_t irq)
 	struct irq_desc *desc = irq_data_to_desc(d);
 	struct irq_data *parent_data = irq_get_irq_data(desc->parent_irq);
 	struct irq_data *dir_conn_data = NULL;
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
 	int offset = 0;
-	unsigned int virt = 0;
+	unsigned int virt = 0, val = 0;
+	struct msm_pinctrl *pctrl;
+	phys_addr_t spi_cfg_reg = 0;
+	unsigned long flags;
 
 	offset = select_dir_conn_mux(d, &irq);
 	if (offset < 0 || !parent_data)
@@ -1400,6 +1407,29 @@ static void add_dirconn_tlmm(struct irq_data *d, irq_hw_number_t irq)
 	dir_conn_data = &(desc->irq_data);
 
 	if (dir_conn_data) {
+
+		pctrl = gpiochip_get_data(gc);
+		if (pctrl->spi_cfg_regs) {
+			spi_cfg_reg = pctrl->spi_cfg_regs +
+					((dir_conn_data->hwirq - 32) / 32) * 4;
+			if (spi_cfg_reg < pctrl->spi_cfg_end) {
+				raw_spin_lock_irqsave(&pctrl->lock, flags);
+				val = scm_io_read(spi_cfg_reg);
+				/*
+				 * Clear the respective bit for edge type
+				 * interrupt
+				 */
+				val &= ~(1 << ((dir_conn_data->hwirq - 32)
+									% 32));
+				WARN_ON(scm_io_write(spi_cfg_reg, val));
+				raw_spin_unlock_irqrestore(&pctrl->lock, flags);
+			} else
+				pr_err("%s: type config failed for SPI: %lu\n",
+								 __func__, irq);
+		} else
+			pr_debug("%s: type config for SPI is not supported\n",
+								__func__);
+
 		if (dir_conn_data->chip && dir_conn_data->chip->irq_set_type)
 			dir_conn_data->chip->irq_set_type(dir_conn_data,
 					IRQ_TYPE_EDGE_RISING);
@@ -1438,10 +1468,18 @@ static int msm_dirconn_irq_set_type(struct irq_data *d, unsigned int type)
 {
 	struct irq_desc *desc = irq_data_to_desc(d);
 	struct irq_data *parent_data = irq_get_irq_data(desc->parent_irq);
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
 	irq_hw_number_t irq = 0;
+	struct msm_pinctrl *pctrl;
+	phys_addr_t spi_cfg_reg = 0;
+	unsigned int config_val = 0;
+	unsigned int val = 0;
+	unsigned long flags;
 
 	if (!parent_data)
 		return 0;
+
+	pctrl = gpiochip_get_data(gc);
 
 	if (type == IRQ_TYPE_EDGE_BOTH)
 		add_dirconn_tlmm(d, irq);
@@ -1450,10 +1488,33 @@ static int msm_dirconn_irq_set_type(struct irq_data *d, unsigned int type)
 	else if (is_gpio_tlmm_dc(d, type))
 		type = IRQ_TYPE_EDGE_RISING;
 
-	if (type & (IRQ_TYPE_LEVEL_LOW | IRQ_TYPE_LEVEL_HIGH))
+
+	/*
+	 * Shared SPI config for Edge is 0 and
+	 * for Level interrupt is 1
+	 */
+	if (type & (IRQ_TYPE_LEVEL_LOW | IRQ_TYPE_LEVEL_HIGH)) {
 		irq_set_handler_locked(d, handle_level_irq);
-	else if (type & (IRQ_TYPE_EDGE_FALLING | IRQ_TYPE_EDGE_RISING))
+		config_val = 1;
+	} else if (type & (IRQ_TYPE_EDGE_FALLING | IRQ_TYPE_EDGE_RISING))
 		irq_set_handler_locked(d, handle_edge_irq);
+
+	if (pctrl->spi_cfg_regs && type != IRQ_TYPE_NONE) {
+		spi_cfg_reg = pctrl->spi_cfg_regs +
+				((parent_data->hwirq - 32) / 32) * 4;
+		if (spi_cfg_reg < pctrl->spi_cfg_end) {
+			raw_spin_lock_irqsave(&pctrl->lock, flags);
+			val = scm_io_read(spi_cfg_reg);
+			val &= ~(1 << ((parent_data->hwirq - 32) % 32));
+			if (config_val)
+				val |= (1 << ((parent_data->hwirq - 32)  % 32));
+			WARN_ON(scm_io_write(spi_cfg_reg, val));
+			raw_spin_unlock_irqrestore(&pctrl->lock, flags);
+		} else
+			pr_err("%s: type config failed for SPI: %lu\n",
+							 __func__, irq);
+	} else
+		pr_debug("%s: SPI type config is not supported\n", __func__);
 
 	if (parent_data->chip->irq_set_type)
 		return parent_data->chip->irq_set_type(parent_data, type);
@@ -1716,6 +1777,7 @@ int msm_pinctrl_probe(struct platform_device *pdev,
 	struct msm_pinctrl *pctrl;
 	struct resource *res;
 	int ret;
+	char *key;
 
 	msm_pinctrl_data = pctrl = devm_kzalloc(&pdev->dev,
 				sizeof(*pctrl), GFP_KERNEL);
@@ -1729,7 +1791,8 @@ int msm_pinctrl_probe(struct platform_device *pdev,
 
 	raw_spin_lock_init(&pctrl->lock);
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	key = "pinctrl";
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, key);
 	pctrl->regs = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(pctrl->regs))
 		return PTR_ERR(pctrl->regs);
@@ -1748,8 +1811,16 @@ int msm_pinctrl_probe(struct platform_device *pdev,
 	}
 #endif
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	key = "pdc";
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, key);
 	pctrl->pdc_regs = devm_ioremap_resource(&pdev->dev, res);
+
+	key = "spi_cfg";
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, key);
+	if (res) {
+		pctrl->spi_cfg_regs = res->start;
+		pctrl->spi_cfg_end = res->end;
+	}
 
 	msm_pinctrl_setup_pm_reset(pctrl);
 

@@ -49,7 +49,7 @@
 			regulator-name = "pm8150_1_s6";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <600000>;
-			regulator-max-microvolt = <1128000>;
+			regulator-max-microvolt = <1352000>;
 			qcom,init-voltage = <600000>;
 		};
 	};
@@ -155,7 +155,7 @@
 			regulator-name = "pm8150_1_l5";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <880000>;
-			regulator-max-microvolt = <880000>;
+			regulator-max-microvolt = <888000>;
 			qcom,init-voltage = <880000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
 		};
@@ -164,7 +164,7 @@
 			regulator-name = "pm8150_1_l5_ao";
 			qcom,set = <RPMH_REGULATOR_SET_ACTIVE>;
 			regulator-min-microvolt = <880000>;
-			regulator-max-microvolt = <880000>;
+			regulator-max-microvolt = <888000>;
 			qcom,init-voltage = <880000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
 		};
@@ -173,7 +173,7 @@
 			regulator-name = "pm8150_1_l5_so";
 			qcom,set = <RPMH_REGULATOR_SET_SLEEP>;
 			regulator-min-microvolt = <880000>;
-			regulator-max-microvolt = <880000>;
+			regulator-max-microvolt = <888000>;
 			qcom,init-voltage = <880000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
 			qcom,init-enable = <0>;
@@ -394,9 +394,9 @@
 		S4C: pm8150_2_s4: regulator-pm8150-2-s4 {
 			regulator-name = "pm8150_2_s4";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <1200000>;
+			regulator-min-microvolt = <800000>;
 			regulator-max-microvolt = <1400000>;
-			qcom,init-voltage = <1200000>;
+			qcom,init-voltage = <800000>;
 		};
 	};
 
@@ -659,6 +659,25 @@
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <2960000>;
+			qcom,init-voltage = <1800000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
+		};
+	};
+
+	rpmh-regulator-ldoc15 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		mboxes = <&apps_rsc 0>;
+		qcom,resource-name = "ldoc15";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 1>;
+		L15C: pm8150_2_l15: regulator-pm8150-2-l15 {
+			regulator-name = "pm8150_2_l15";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1904000>;
 			qcom,init-voltage = <1800000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
 		};

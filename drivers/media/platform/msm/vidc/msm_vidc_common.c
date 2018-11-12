@@ -4512,6 +4512,14 @@ int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst)
 {
 	int rc = 0, i = 0;
 	union hal_get_property hprop;
+	enum hal_buffer int_buf[] = {
+			HAL_BUFFER_INTERNAL_SCRATCH,
+			HAL_BUFFER_INTERNAL_SCRATCH_1,
+			HAL_BUFFER_INTERNAL_SCRATCH_2,
+			HAL_BUFFER_INTERNAL_PERSIST,
+			HAL_BUFFER_INTERNAL_PERSIST_1,
+			HAL_BUFFER_INTERNAL_RECON,
+	};
 
 	memset(&hprop, 0x0, sizeof(hprop));
 
@@ -4521,6 +4529,10 @@ int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst)
 		dprintk(VIDC_ERR, "Failed getting buffer requirements: %d", rc);
 		return rc;
 	}
+
+	/* reset internal buffers */
+	for (i = 0; i < ARRAY_SIZE(int_buf); i++)
+		msm_comm_reset_bufreqs(inst, int_buf[i]);
 
 	dprintk(VIDC_DBG, "Buffer requirements from HW:\n");
 	dprintk(VIDC_DBG, "%15s %8s %8s %8s %8s\n",

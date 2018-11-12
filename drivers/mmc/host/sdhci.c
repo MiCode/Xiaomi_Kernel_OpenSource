@@ -3378,7 +3378,7 @@ static int sdhci_get_data_err(struct sdhci_host *host, u32 intmask)
 	} else if (intmask & (SDHCI_INT_DATA_END_BIT | SDHCI_INT_DATA_CRC)) {
 		host->mmc->err_stats[MMC_ERR_DAT_CRC]++;
 		return -EILSEQ;
-	} else if (intmask & MMC_ERR_ADMA) {
+	} else if (intmask & SDHCI_INT_ADMA_ERROR) {
 		host->mmc->err_stats[MMC_ERR_ADMA]++;
 		return -EIO;
 	}
@@ -4843,13 +4843,6 @@ int sdhci_setup_host(struct sdhci_host *host)
 	 * Maximum block count.
 	 */
 	mmc->max_blk_count = (host->quirks & SDHCI_QUIRK_NO_MULTIBLOCK) ? 1 : 65535;
-
-	if (mmc->max_segs == 1) {
-		/* This may alter mmc->*_blk_* parameters */
-		ret = sdhci_allocate_bounce_buffer(host);
-		if (ret)
-			return ret;
-	}
 
 	if (mmc->max_segs == 1) {
 		/* This may alter mmc->*_blk_* parameters */

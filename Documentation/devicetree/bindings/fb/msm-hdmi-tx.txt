@@ -47,6 +47,7 @@ Optional properties:
   HDMI interface will remain powered on from LK to kernel with continuous
   display of bootup logo.
 - qcom,pluggable: boolean to enable hotplug feature.
+- qcom,max-pclk-frequency-khz: maximum supported pclk frequency in KHz.
 - qcom,display-id: A string indicates the display ID for the controller.
 		   The possible values are:
 		   - "primary"

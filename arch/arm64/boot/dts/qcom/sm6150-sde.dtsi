@@ -521,9 +521,12 @@
 		qcom,mux-sel-gpio = <&tlmm 49 0>;
 		qcom,usbplug-cc-gpio = <&tlmm 104 0>;
 
-		pinctrl-names = "mdss_dp_active", "mdss_dp_sleep";
+		pinctrl-names = "mdss_dp_active", "mdss_dp_sleep",
+						"mdss_dp_hpd_active";
 		pinctrl-0 = <&sde_dp_usbplug_cc_active &sde_dp_switch_active>;
 		pinctrl-1 = <&sde_dp_usbplug_cc_suspend &sde_dp_switch_suspend>;
+		pinctrl-2 = <&sde_dp_connector_enable &sde_dp_switch_suspend
+						&sde_dp_hotplug_enable>;
 
 		qcom,ctrl-supply-entries {
 			#address-cells = <1>;
