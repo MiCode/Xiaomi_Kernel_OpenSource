@@ -76,7 +76,6 @@
 			reg = <0x4e00000 0xcd00>;
 			interrupt-parent = <&intc>;
 			interrupts = <0 255 0>;
-			usb-phy = <&qusb_phy0>, <&usb_qmp_phy>;
 			tx-fifo-resize;
 			linux,sysdev_is_parent;
 			snps,disable-clk-gating;
