@@ -21,11 +21,13 @@
  * @max_per_pipe_ib: maximum instantaneous bandwidth request
  * @bw_ctl: arbitrated bandwidth request
  * @core_clk_rate: core clock rate request
+ * @llcc_active: request to activate/deactivate the llcc
  */
 struct sde_core_perf_params {
 	u64 max_per_pipe_ib[SDE_POWER_HANDLE_DBUS_ID_MAX];
 	u64 bw_ctl[SDE_POWER_HANDLE_DBUS_ID_MAX];
 	u64 core_clk_rate;
+	bool llcc_active;
 };
 
 /**
@@ -59,6 +61,7 @@ struct sde_core_perf_tune {
  * @bw_vote_mode: apps rsc vs display rsc bandwidth vote mode
  * @sde_rsc_available: is display rsc available
  * @bw_vote_mode_updated: bandwidth vote mode update
+ * @llcc_active: status of the llcc, true if active.
  */
 struct sde_core_perf {
 	struct drm_device *dev;
@@ -78,6 +81,7 @@ struct sde_core_perf {
 	u32 bw_vote_mode;
 	bool sde_rsc_available;
 	bool bw_vote_mode_updated;
+	bool llcc_active;
 };
 
 /**

@@ -285,4 +285,11 @@ u32 sde_plane_get_ubwc_error(struct drm_plane *plane);
  */
 void sde_plane_clear_ubwc_error(struct drm_plane *plane);
 
+/* sde_plane_is_cache_required - indicates if the system cache is
+ *	required for the plane.
+ * @plane: Pointer to DRM plane object
+ * Returns: true if sys cache is required, otherwise false.
+ */
+bool sde_plane_is_cache_required(struct drm_plane *plane);
+
 #endif /* _SDE_PLANE_H_ */

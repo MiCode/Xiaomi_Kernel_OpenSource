@@ -12,6 +12,8 @@
 #include <linux/clk.h>
 #include <linux/bitmap.h>
 #include <linux/sde_rsc.h>
+#include <linux/platform_device.h>
+#include <linux/soc/qcom/llcc-qcom.h>
 
 #include "msm_prop.h"
 
@@ -297,6 +299,107 @@ static inline enum sde_crtc_client_type _get_sde_client_type(
 		return RT_CLIENT;
 }
 
+/**
+ * @_sde_core_perf_activate_llcc() - Activates/deactivates the system llcc
+ * @kms - pointer to the kms
+ * @uid - ID for which the llcc would be activated
+ * @activate - boolean to indicate if activate/deactivate the LLCC
+ *
+ * Function assumes that caller has already acquired the "sde_core_perf_lock",
+ * which would protect from any race condition between CRTC's
+ */
+static int _sde_core_perf_activate_llcc(struct sde_kms *kms,
+	u32 uid, bool activate)
+{
+	struct llcc_slice_desc *slice;
+	struct drm_device *drm_dev;
+	struct device *dev;
+	struct platform_device *pdev;
+	int rc = 0;
+
+	if (!kms || !kms->dev || !kms->dev->dev) {
+		SDE_ERROR("wrong params won't activate llcc\n");
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	drm_dev = kms->dev;
+	dev = drm_dev->dev;
+	pdev = to_platform_device(dev);
+
+	/* If LLCC is already in the requested state, skip */
+	SDE_EVT32(activate, kms->perf.llcc_active);
+	if ((activate && kms->perf.llcc_active) ||
+		(!activate && !kms->perf.llcc_active)) {
+		SDE_DEBUG("skip llcc request:%d state:%d\n",
+			activate, kms->perf.llcc_active);
+		goto exit;
+	}
+
+	SDE_DEBUG("activate/deactivate the llcc request:%d state:%d\n",
+		activate, kms->perf.llcc_active);
+
+	slice = llcc_slice_getd(uid);
+	if (IS_ERR_OR_NULL(slice))  {
+		SDE_ERROR("failed to get llcc slice for uid:%d\n", uid);
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	if (activate) {
+		llcc_slice_activate(slice);
+		kms->perf.llcc_active = true;
+	} else {
+		llcc_slice_deactivate(slice);
+		kms->perf.llcc_active = false;
+	}
+
+exit:
+	if (rc)
+		SDE_ERROR("error activating llcc:%d rc:%d\n",
+			activate, rc);
+	return rc;
+
+}
+
+static void _sde_core_perf_crtc_update_llcc(struct sde_kms *kms,
+		struct drm_crtc *crtc)
+{
+	struct drm_crtc *tmp_crtc;
+	struct sde_crtc *sde_crtc;
+	enum sde_crtc_client_type curr_client_type
+					= sde_crtc_get_client_type(crtc);
+	u32 total_llcc_active = 0;
+
+	if (!kms->perf.catalog->sc_cfg.has_sys_cache) {
+		SDE_DEBUG("System Cache is not enabled!. Won't use\n");
+		return;
+	}
+
+	drm_for_each_crtc(tmp_crtc, crtc->dev) {
+		if (_sde_core_perf_crtc_is_power_on(tmp_crtc) &&
+			_is_crtc_client_type_matches(tmp_crtc, curr_client_type,
+								&kms->perf)) {
+
+			/* use current perf, which are the values voted */
+			sde_crtc = to_sde_crtc(tmp_crtc);
+			total_llcc_active |=
+			  sde_crtc->cur_perf.llcc_active;
+
+			SDE_DEBUG("crtc=%d llcc:%llu active:0x%x\n",
+				tmp_crtc->base.id,
+				sde_crtc->cur_perf.llcc_active,
+				total_llcc_active);
+
+			if (total_llcc_active)
+				break;
+		}
+	}
+
+	_sde_core_perf_activate_llcc(kms, LLCC_ROTATOR,
+			total_llcc_active ? true : false);
+}
+
 static void _sde_core_perf_crtc_update_bus(struct sde_kms *kms,
 		struct drm_crtc *crtc, u32 bus_id)
 {
@@ -494,7 +597,7 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 		int params_changed, bool stop_req)
 {
 	struct sde_core_perf_params *new, *old;
-	int update_bus = 0, update_clk = 0;
+	int update_bus = 0, update_clk = 0, update_llcc = 0;
 	u64 clk_rate = 0;
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *sde_cstate;
@@ -534,6 +637,28 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 	new = &sde_crtc->new_perf;
 
 	if (_sde_core_perf_crtc_is_power_on(crtc) && !stop_req) {
+
+		/*
+		 * cases for the llcc update.
+		 * 1. llcc is transitioning: 'inactive->active' during kickoff,
+		 *	for current request.
+		 * 2. llcc is transitioning: 'active->inactive'at the end of the
+		 *	commit or during stop
+		 */
+
+		if ((params_changed &&
+			 new->llcc_active && !old->llcc_active) ||
+		    (!params_changed &&
+			!new->llcc_active && old->llcc_active)) {
+
+			SDE_DEBUG("crtc=%d p=%d new_llcc=%d, old_llcc=%d\n",
+				crtc->base.id, params_changed,
+				new->llcc_active, old->llcc_active);
+
+			old->llcc_active = new->llcc_active;
+			update_llcc = 1;
+		}
+
 		for (i = 0; i < SDE_POWER_HANDLE_DBUS_ID_MAX; i++) {
 			/*
 			 * cases for bus bandwidth update.
@@ -604,11 +729,12 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 			update_clk = 1;
 		}
 	} else {
-		SDE_DEBUG("crtc=%d disable\n", crtc->base.id);
+		SDE_ERROR("crtc=%d disable\n", crtc->base.id);
 		memset(old, 0, sizeof(*old));
 		memset(new, 0, sizeof(*new));
 		update_bus = ~0;
 		update_clk = 1;
+		update_llcc = 1;
 	}
 	trace_sde_perf_crtc_update(crtc->base.id,
 		new->bw_ctl[SDE_POWER_HANDLE_DBUS_ID_MNOC],
@@ -619,6 +745,9 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 		new->max_per_pipe_ib[SDE_POWER_HANDLE_DBUS_ID_EBI],
 		new->core_clk_rate, stop_req,
 		update_bus, update_clk, params_changed);
+
+	if (update_llcc)
+		_sde_core_perf_crtc_update_llcc(kms, crtc);
 
 	for (i = 0; i < SDE_POWER_HANDLE_DBUS_ID_MAX; i++) {
 		if (update_bus & BIT(i))

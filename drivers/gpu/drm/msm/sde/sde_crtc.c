@@ -1234,7 +1234,8 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 				state->src_x >> 16, state->src_y >> 16,
 				state->src_w >> 16, state->src_h >> 16,
 				state->crtc_x, state->crtc_y,
-				state->crtc_w, state->crtc_h);
+				state->crtc_w, state->crtc_h,
+				pstate->rotation);
 
 		stage_idx = zpos_cnt[pstate->stage]++;
 		stage_cfg->stage[pstate->stage][stage_idx] =
@@ -2965,9 +2966,17 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 	 * required. However, if those planes were power collapsed since
 	 * last commit cycle, driver has to restore the hardware state
 	 * of those planes explicitly here prior to plane flush.
+	 * Also use this iteration to see if any plane requires cache,
+	 * so during the perf update driver can activate/deactivate
+	 * the cache accordingly.
 	 */
-	drm_atomic_crtc_for_each_plane(plane, crtc)
+	sde_crtc->new_perf.llcc_active = false;
+	drm_atomic_crtc_for_each_plane(plane, crtc) {
 		sde_plane_restore(plane);
+
+		if (sde_plane_is_cache_required(plane))
+			sde_crtc->new_perf.llcc_active = true;
+	}
 
 	/* wait for acquire fences before anything else is done */
 	_sde_crtc_wait_for_fences(crtc);
@@ -5737,8 +5746,16 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 	sde_cp_crtc_init(crtc);
 	sde_cp_crtc_install_properties(crtc);
 
+	sde_crtc->cur_perf.llcc_active = false;
+	sde_crtc->new_perf.llcc_active = false;
+
 	kthread_init_delayed_work(&sde_crtc->idle_notify_work,
 					__sde_crtc_idle_notify_work);
+
+	SDE_DEBUG("crtc=%d new_llcc=%d, old_llcc=%d\n",
+		crtc->base.id,
+		sde_crtc->new_perf.llcc_active,
+		sde_crtc->cur_perf.llcc_active);
 
 	SDE_DEBUG("%s: successfully initialized crtc\n", sde_crtc->name);
 	return crtc;

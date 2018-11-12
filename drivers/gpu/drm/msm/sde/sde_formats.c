@@ -642,6 +642,16 @@ static const struct sde_format sde_format_map_tp10_ubwc[] = {
 		SDE_FETCH_UBWC, 4, SDE_TILE_HEIGHT_NV12),
 };
 
+inline bool sde_format_is_tp10_ubwc(const struct sde_format *fmt)
+{
+	if (SDE_FORMAT_IS_YUV(fmt) && SDE_FORMAT_IS_DX(fmt) &&
+			SDE_FORMAT_IS_UBWC(fmt) &&
+			(fmt->num_planes == 4) && fmt->unpack_tight)
+		return true;
+	else
+		return false;
+}
+
 /* _sde_get_v_h_subsample_rate - Get subsample rates for all formats we support
  *   Note: Not using the drm_format_*_subsampling since we have formats
  */
@@ -1333,4 +1343,39 @@ uint32_t sde_populate_formats(
 	}
 
 	return i;
+}
+
+int sde_format_validate_fmt(struct msm_kms *kms,
+	const struct msm_format *msm_fmt,
+	const struct sde_format_extended *fmt_list)
+{
+	const struct msm_format *fmt_tmp;
+	bool valid_format = false;
+	int ret = 0;
+
+	if (!msm_fmt || !fmt_list) {
+		SDE_ERROR("invalid fmt:%d list:%d\n",
+			!msm_fmt, !fmt_list);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	while (fmt_list->fourcc_format) {
+		fmt_tmp = sde_get_msm_format(kms,
+				fmt_list->fourcc_format,
+				fmt_list->modifier);
+		if (fmt_tmp &&
+			(fmt_tmp->pixel_format == msm_fmt->pixel_format)) {
+			valid_format = true;
+			break;
+		}
+		++fmt_list;
+	}
+
+	if (!valid_format) {
+		SDE_ERROR("fmt:%d not found within the list!\n", *msm_fmt);
+		ret = -EINVAL;
+	}
+exit:
+	return ret;
 }

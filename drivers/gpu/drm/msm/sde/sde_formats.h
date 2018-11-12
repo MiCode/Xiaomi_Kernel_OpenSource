@@ -142,4 +142,25 @@ uint32_t sde_format_get_framebuffer_size(
 		const uint32_t *pitches,
 		const uint64_t modifier);
 
+/**
+ * sde_format_is_tp10_ubwc - check if the format is tp10 ubwc
+ * @format:            DRM pixel format
+ *
+ * Return: returns true if the format is tp10 ubwc, otherwise false.
+ */
+inline bool sde_format_is_tp10_ubwc(const struct sde_format *fmt);
+
+/**
+ * sde_format_validate_fmt - validates if the format "msm_fmt" is within
+ *	the list "fmt_list"
+ * @kms: pointer to the kms object
+ * @msm_fmt: pointer to the format to look within the list
+ * @fmt_list: list where driver will loop to look for the 'msm_fmt' format.
+ * @result: returns 0 if the format is found, otherwise will return an
+ *	error code.
+ */
+int sde_format_validate_fmt(struct msm_kms *kms,
+	const struct msm_format *msm_fmt,
+	const struct sde_format_extended *fmt_list);
+
 #endif /*_SDE_FORMATS_H */

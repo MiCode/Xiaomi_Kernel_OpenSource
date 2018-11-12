@@ -83,6 +83,13 @@
 #define IS_SDE_CTL_REV_100(rev) \
 	((rev) == SDE_CTL_CFG_VERSION_1_0_0)
 
+/**
+ * True inline rotation supported versions
+ */
+#define SDE_INLINE_ROT_VERSION_1_0_0	0x100
+#define IS_SDE_INLINE_ROT_REV_100(rev) \
+	((rev) == SDE_INLINE_ROT_VERSION_1_0_0)
+
 #define SDE_HW_UBWC_VER(rev) \
 	SDE_HW_VER((((rev) >> 8) & 0xF), (((rev) >> 4) & 0xF), ((rev) & 0xF))
 
@@ -99,6 +106,15 @@ enum {
 		IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_UBWC_VER_20)
 #define IS_UBWC_30_SUPPORTED(rev) \
 		IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_UBWC_VER_30)
+
+/**
+ * Supported SSPP system cache settings
+ */
+#define SSPP_SYS_CACHE_EN_FLAG	BIT(0)
+#define SSPP_SYS_CACHE_SCID		BIT(1)
+#define SSPP_SYS_CACHE_OP_MODE	BIT(2)
+#define SSPP_SYS_CACHE_OP_TYPE	BIT(3)
+#define SSPP_SYS_CACHE_NO_ALLOC	BIT(4)
 
 /**
  * SDE INTERRUPTS - maintains the possible hw irq's allowed by HW
@@ -171,6 +187,7 @@ enum {
  * @SDE_SSPP_SEC_UI_ALLOWED   Allows secure-ui layers
  * @SDE_SSPP_BLOCK_SEC_UI    Blocks secure-ui layers
  * @SDE_SSPP_SCALER_QSEED3LITE Qseed3lite algorithm support
+ * @SDE_SSPP_TRUE_INLINE_ROT_V1, Support of SSPP true inline rotation v1
  * @SDE_SSPP_MAX             maximum value
  */
 enum {
@@ -198,6 +215,7 @@ enum {
 	SDE_SSPP_SEC_UI_ALLOWED,
 	SDE_SSPP_BLOCK_SEC_UI,
 	SDE_SSPP_SCALER_QSEED3LITE,
+	SDE_SSPP_TRUE_INLINE_ROT_V1,
 	SDE_SSPP_MAX
 };
 
@@ -209,6 +227,7 @@ enum {
  * @SDE_PERF_SSPP_TS_PREFILL_REC1 Supports prefill with traffic shaper multirec
  * @SDE_PERF_SSPP_CDP             Supports client driven prefetch
  * @SDE_PERF_SSPP_QOS_FL_NOCALC   Avoid fill level calc for QoS/danger/safe
+ * @SDE_PERF_SSPP_SYS_CACHE,      SSPP supports system cache
  * @SDE_PERF_SSPP_MAX             Maximum value
  */
 enum {
@@ -218,6 +237,7 @@ enum {
 	SDE_PERF_SSPP_TS_PREFILL_REC1,
 	SDE_PERF_SSPP_CDP,
 	SDE_PERF_SSPP_QOS_FL_NOCALC,
+	SDE_PERF_SSPP_SYS_CACHE,
 	SDE_PERF_SSPP_MAX
 };
 
@@ -535,6 +555,11 @@ struct sde_qos_lut_tbl {
  * @dgm_csc_blk: DGM CSC blocks
  * @format_list: Pointer to list of supported formats
  * @virt_format_list: Pointer to list of supported formats for virtual planes
+ * @in_rot_format_list: Pointer to list of supported formats for inline rotation
+ * @in_rot_maxdwnscale: max downscale ratio for inline rotation
+ * @in_rot_maxheight: max pre rotated height for inline rotation
+ * @llcc_scid: scid for the system cache
+ * @llcc_slice size: slice size of the system cache
  */
 struct sde_sspp_sub_blks {
 	u32 maxlinewidth;
@@ -563,6 +588,11 @@ struct sde_sspp_sub_blks {
 
 	const struct sde_format_extended *format_list;
 	const struct sde_format_extended *virt_format_list;
+	const struct sde_format_extended *in_rot_format_list;
+	u32 in_rot_maxdwnscale;
+	u32 in_rot_maxheight;
+	int llcc_scid;
+	size_t llcc_slice_size;
 };
 
 /**
@@ -946,6 +976,18 @@ struct sde_perf_cdp_cfg {
 };
 
 /**
+ * struct sde_sc_cfg - define system cache configuration
+ * @has_sys_cache: true if system cache is enabled
+ * @llcc_scid: scid for the system cache
+ * @llcc_slice_size: slice size of the system cache
+ */
+struct sde_sc_cfg {
+	bool has_sys_cache;
+	int llcc_scid;
+	size_t llcc_slice_size;
+};
+
+/**
  * struct sde_perf_cfg - performance control settings
  * @max_bw_low         low threshold of maximum bandwidth (kbps)
  * @max_bw_high        high threshold of maximum bandwidth (kbps)
@@ -1035,12 +1077,14 @@ struct sde_perf_cfg {
  * @virt_vig_formats   Supported formats for virtual vig pipe
  * @vbif_qos_nlvl      number of vbif QoS priority level
  * @ts_prefill_rev     prefill traffic shaper feature revision
+ * @true_inline_rot_rev	inline rotator feature revision
  * @macrotile_mode     UBWC parameter for macro tile channel distribution
  * @pipe_order_type    indicate if it is required to specify pipe order
  * @delay_prg_fetch_start indicates if throttling the fetch start is required
  * @has_qsync	       Supports qsync feature
  * @has_3d_merge_reset Supports 3D merge reset
  * @has_decimation     Supports decimation
+ * @sc_cfg: system cache configuration
  * @sui_misr_supported  indicate if secure-ui-misr is supported
  * @sui_block_xin_mask  mask of all the xin-clients to be blocked during
  *                         secure-ui when secure-ui-misr feature is supported
@@ -1052,6 +1096,7 @@ struct sde_perf_cfg {
  * @sui_supported_blendstage  secure-ui supported blendstage
  * @has_cursor    indicates if hardware cursor is supported
  * @has_vig_p010  indicates if vig pipe supports p010 format
+ * @inline_rot_formats	formats supported by the inline rotator feature
  * @mdss_irqs	  bitmap with the irqs supported by the target
  */
 struct sde_mdss_cfg {
@@ -1082,12 +1127,15 @@ struct sde_mdss_cfg {
 	bool has_idle_pc;
 	u32 vbif_qos_nlvl;
 	u32 ts_prefill_rev;
+	u32 true_inline_rot_rev;
 	u32 macrotile_mode;
 	u32 pipe_order_type;
 	bool delay_prg_fetch_start;
 	bool has_qsync;
 	bool has_3d_merge_reset;
 	bool has_decimation;
+
+	struct sde_sc_cfg sc_cfg;
 
 	bool sui_misr_supported;
 	u32 sui_block_xin_mask;
@@ -1158,6 +1206,7 @@ struct sde_mdss_cfg {
 	struct sde_format_extended *vig_formats;
 	struct sde_format_extended *wb_formats;
 	struct sde_format_extended *virt_vig_formats;
+	struct sde_format_extended *inline_rot_formats;
 
 	DECLARE_BITMAP(mdss_irqs, MDSS_INTR_MAX);
 };
