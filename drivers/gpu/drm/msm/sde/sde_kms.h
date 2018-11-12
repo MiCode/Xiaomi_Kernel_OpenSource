@@ -424,45 +424,6 @@ struct sde_debugfs_regset32 {
 };
 
 /**
- * sde_debugfs_setup_regset32 - Initialize register block definition for debugfs
- * This function is meant to initialize sde_debugfs_regset32 structures for use
- * with sde_debugfs_create_regset32.
- * @regset: opaque register definition structure
- * @offset: sub-block offset
- * @length: sub-block length, in bytes
- * @sde_kms: pointer to sde kms structure
- */
-void sde_debugfs_setup_regset32(struct sde_debugfs_regset32 *regset,
-		uint32_t offset, uint32_t length, struct sde_kms *sde_kms);
-
-/**
- * sde_debugfs_create_regset32 - Create register read back file for debugfs
- *
- * This function is almost identical to the standard debugfs_create_regset32()
- * function, with the main difference being that a list of register
- * names/offsets do not need to be provided. The 'read' function simply outputs
- * sequential register values over a specified range.
- *
- * Similar to the related debugfs_create_regset32 API, the structure pointed to
- * by regset needs to persist for the lifetime of the created file. The calling
- * code is responsible for initialization/management of this structure.
- *
- * The structure pointed to by regset is meant to be opaque. Please use
- * sde_debugfs_setup_regset32 to initialize it.
- *
- * @name:   File name within debugfs
- * @mode:   File mode within debugfs
- * @parent: Parent directory entry within debugfs, can be NULL
- * @regset: Pointer to persistent register block definition
- *
- * Return: dentry pointer for newly created file, use either debugfs_remove()
- *         or debugfs_remove_recursive() (on a parent directory) to remove the
- *         file
- */
-void *sde_debugfs_create_regset32(const char *name, umode_t mode,
-		void *parent, struct sde_debugfs_regset32 *regset);
-
-/**
  * sde_debugfs_get_root - Return root directory entry for KMS's debugfs
  *
  * The return value should be passed as the 'parent' argument to subsequent

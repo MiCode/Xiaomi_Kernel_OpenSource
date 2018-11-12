@@ -3934,39 +3934,13 @@ static int _sde_plane_init_debugfs(struct drm_plane *plane)
 	debugfs_create_x32("features", 0600,
 			psde->debugfs_root, &psde->features);
 
-	/* add register dump support */
-	sde_debugfs_setup_regset32(&psde->debugfs_src,
-			sblk->src_blk.base + cfg->base,
-			sblk->src_blk.len,
-			kms);
-	sde_debugfs_create_regset32("src_blk", 0400,
-			psde->debugfs_root, &psde->debugfs_src);
-
 	if (cfg->features & BIT(SDE_SSPP_SCALER_QSEED3) ||
 			cfg->features & BIT(SDE_SSPP_SCALER_QSEED3LITE) ||
-			cfg->features & BIT(SDE_SSPP_SCALER_QSEED2)) {
-		sde_debugfs_setup_regset32(&psde->debugfs_scaler,
-				sblk->scaler_blk.base + cfg->base,
-				sblk->scaler_blk.len,
-				kms);
-		sde_debugfs_create_regset32("scaler_blk", 0400,
-				psde->debugfs_root,
-				&psde->debugfs_scaler);
+			cfg->features & BIT(SDE_SSPP_SCALER_QSEED2))
 		debugfs_create_bool("default_scaling",
 				0600,
 				psde->debugfs_root,
 				&psde->debugfs_default_scale);
-	}
-
-	if (cfg->features & BIT(SDE_SSPP_CSC) ||
-			cfg->features & BIT(SDE_SSPP_CSC_10BIT)) {
-		sde_debugfs_setup_regset32(&psde->debugfs_csc,
-				sblk->csc_blk.base + cfg->base,
-				sblk->csc_blk.len,
-				kms);
-		sde_debugfs_create_regset32("csc_blk", 0400,
-				psde->debugfs_root, &psde->debugfs_csc);
-	}
 
 	debugfs_create_u32("xin_id",
 			0400,
