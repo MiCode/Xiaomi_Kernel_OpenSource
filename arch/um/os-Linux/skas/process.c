@@ -585,6 +585,8 @@ int start_idle_thread(void *stack, jmp_buf *switch_buf)
 		fatal_sigsegv();
 	}
 	longjmp(*switch_buf, 1);
+
+	return 0;
 }
 
 void initial_thread_cb_skas(void (*proc)(void *), void *arg)
