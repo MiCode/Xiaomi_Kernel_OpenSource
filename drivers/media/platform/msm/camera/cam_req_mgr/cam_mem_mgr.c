@@ -424,7 +424,12 @@ static int cam_mem_util_ion_alloc(struct cam_mem_mgr_alloc_cmd *cmd,
 	uint32_t ion_flag = 0;
 	int rc;
 
-	if (cmd->flags & CAM_MEM_FLAG_PROTECTED_MODE) {
+	if ((cmd->flags & CAM_MEM_FLAG_PROTECTED_MODE) &&
+		(cmd->flags & CAM_MEM_FLAG_CDSP_OUTPUT)) {
+		heap_id = ION_HEAP(ION_SECURE_DISPLAY_HEAP_ID);
+		ion_flag |=
+			ION_FLAG_SECURE | ION_FLAG_CP_CAMERA | ION_FLAG_CP_CDSP;
+	} else if (cmd->flags & CAM_MEM_FLAG_PROTECTED_MODE) {
 		heap_id = ION_HEAP(ION_SECURE_DISPLAY_HEAP_ID);
 		ion_flag |= ION_FLAG_SECURE | ION_FLAG_CP_CAMERA;
 	} else {
