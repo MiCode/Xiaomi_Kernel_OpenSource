@@ -1128,7 +1128,7 @@ int mhi_force_rddm_mode(struct mhi_controller *mhi_cntrl)
 	ret = wait_event_timeout(mhi_cntrl->state_event,
 				 mhi_cntrl->ee == MHI_EE_RDDM,
 				 msecs_to_jiffies(mhi_cntrl->timeout_ms));
-	ret = !ret ? 0 : -EIO;
+	ret = ret ? 0 : -EIO;
 
 	MHI_LOG("Exiting with pm_state:%s ee:%s ret:%d\n",
 		to_mhi_pm_state_str(mhi_cntrl->pm_state),
