@@ -2812,6 +2812,7 @@ static int qg_set_wa_flags(struct qpnp_qg *chip)
 	case PM6150_SUBTYPE:
 		chip->wa_flags |= QG_CLK_ADJUST_WA |
 				QG_RECHARGE_SOC_WA;
+		qg_esr_mod_count = 10;
 		break;
 	default:
 		pr_err("Unsupported PMIC subtype %d\n",
