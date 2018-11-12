@@ -1061,6 +1061,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 	struct hfi_device *hdev;
 	struct hal_buffer_size_minimum b;
 	u32 rc_mode;
+	int value = 0;
 
 	dprintk(VIDC_DBG, "%s: %x : inst %pK\n", __func__,
 		hash32_ptr(inst->session), inst);
@@ -1084,6 +1085,19 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 				"HEIC Encode session not supported\n");
 			return -ENOTSUPP;
 		}
+	}
+
+	value = msm_comm_g_ctrl_for_id(inst,
+		V4L2_CID_MPEG_VIDC_VENC_BITRATE_SAVINGS);
+	if (!value && rc_mode != V4L2_MPEG_VIDEO_BITRATE_MODE_VBR) {
+		struct hal_enable enable;
+
+		dprintk(VIDC_INFO,
+			"Force enable bitrate savings for non-VBR_CFR\n");
+		enable.enable = 1;
+		rc = call_hfi_op(hdev, session_set_property,
+			inst->session, HAL_PARAM_VENC_BITRATE_SAVINGS,
+			&enable);
 	}
 
 	/* Check if current session is under HW capability */
