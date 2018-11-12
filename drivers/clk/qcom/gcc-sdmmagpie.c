@@ -3230,6 +3230,7 @@ static const struct qcom_reset_map gcc_sdmmagpie_resets[] = {
 	[GCC_USB3_PHY_PRIM_BCR] = { 0x50000 },
 	[GCC_USB3_PHY_SEC_BCR] = { 0x5000c },
 	[GCC_QUSB2PHY_PRIM_BCR] = { 0x26000 },
+	[GCC_VIDEO_AXI_CLK_BCR] = { 0xb01c, 2 },
 };
 
 static struct clk_dfs gcc_dfs_clocks[] = {
