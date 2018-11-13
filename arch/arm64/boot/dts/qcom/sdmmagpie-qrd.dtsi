@@ -17,6 +17,7 @@
 #include "sdmmagpie-thermal-overlay.dtsi"
 
 #include "sdmmagpie-sde-display.dtsi"
+#include "sdmmagpie-camera-sensor-qrd.dtsi"
 &soc {
 };
 
