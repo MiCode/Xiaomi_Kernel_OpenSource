@@ -46,4 +46,14 @@ config QPNP_QNOVO5
 	  the hardware module. It also allows userspace code to read diagnostics
 	  of voltage and current measured during certain phases of the pulses.
 
+config QPNP_FG_GEN4
+	tristate "QPNP GEN4 fuel gauge driver"
+	depends on MFD_SPMI_PMIC
+	help
+	  Say Y here to enable the GEN4 Fuel Gauge driver. This adds support
+	  for battery fuel gauging and state of charge of battery connected to
+	  the device that has QTI PMICs like PM8150B. The state of charge is
+	  reported through a BMS power supply property and also sends uevents
+	  when the capacity is updated.
+
 endmenu
