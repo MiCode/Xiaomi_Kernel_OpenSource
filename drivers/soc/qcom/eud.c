@@ -8,8 +8,10 @@
 #include <linux/slab.h>
 #include <linux/interrupt.h>
 #include <linux/err.h>
+#include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/extcon.h>
+#include <linux/extcon-provider.h>
 #include <linux/delay.h>
 #include <linux/sysfs.h>
 #include <linux/io.h>
