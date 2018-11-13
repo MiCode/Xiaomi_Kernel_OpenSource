@@ -5130,6 +5130,8 @@ out:
 		ufshcd_print_pwr_info(hba);
 		ufshcd_print_host_regs(hba);
 		ufshcd_print_cmd_log(hba);
+		if (hba->crash_on_err)
+			BUG_ON(1);
 	}
 
 	ufshcd_save_tstamp_of_last_dme_cmd(hba);
@@ -7702,6 +7704,9 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 		ufshcd_print_host_state(hba);
 		ufshcd_print_pwr_info(hba);
 		ufshcd_print_trs(hba, 1 << tag, true);
+		/* crash the system upon setting this debugfs. */
+		if (hba->crash_on_err)
+			BUG_ON(1);
 	} else {
 		ufshcd_print_trs(hba, 1 << tag, false);
 	}
