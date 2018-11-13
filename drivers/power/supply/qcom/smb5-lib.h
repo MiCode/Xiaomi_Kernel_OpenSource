@@ -66,6 +66,7 @@ enum print_reason {
 #define LPD_VOTER			"LPD_VOTER"
 #define FCC_STEPPER_VOTER		"FCC_STEPPER_VOTER"
 #define SW_THERM_REGULATION_VOTER	"SW_THERM_REGULATION_VOTER"
+#define JEITA_ARB_VOTER			"JEITA_ARB_VOTER"
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -95,6 +96,12 @@ enum qc2_non_comp_voltage {
 enum {
 	BOOST_BACK_WA			= BIT(0),
 	SW_THERM_REGULATION_WA		= BIT(1),
+};
+
+enum jeita_cfg_stat {
+	JEITA_CFG_NONE = 0,
+	JEITA_CFG_FAILURE,
+	JEITA_CFG_COMPLETE,
 };
 
 enum smb_irq_index {
@@ -412,13 +419,14 @@ struct smb_charger {
 	int			usb_icl_change_irq_enabled;
 	u32			jeita_status;
 	u8			float_cfg;
+	bool			jeita_arb_flag;
 	bool			use_extcon;
 	bool			otg_present;
 	bool			hvdcp_disable;
 	int			hw_max_icl_ua;
 	int			auto_recharge_soc;
 	enum sink_src_mode	sink_src_mode;
-	bool			jeita_configured;
+	enum jeita_cfg_stat	jeita_configured;
 	int			charger_temp_max;
 	int			smb_temp_max;
 	u8			typec_try_mode;
@@ -431,6 +439,10 @@ struct smb_charger {
 	int			connector_temp;
 	int			thermal_status;
 	int			main_fcc_max;
+	u32			jeita_soft_thlds[2];
+	u32			jeita_soft_hys_thlds[2];
+	int			jeita_soft_fcc[2];
+	int			jeita_soft_fv[2];
 
 	/* workaround flag */
 	u32			wa_flags;
