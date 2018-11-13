@@ -3,6 +3,8 @@
  * Copyright (c) 2018, The Linux Foundation. All rights reserved.
  */
 
+#include "msm-audio-lpass.dtsi"
+
 &arch_timer {
 	clock-frequency = <1000000>;
 };
@@ -72,5 +74,22 @@
 	dwc3@a600000 {
 		usb-phy = <&usb_emu_phy>, <&usb_nop_phy>;
 		maximum-speed = "high-speed";
+	};
+};
+
+&audio_apr {
+	sound-stub {
+		compatible = "qcom,kona-asoc-snd-stub";
+		qcom,model = "kona-stub-snd-card";
+
+		qcom,audio-routing =
+			"AIF4 VI", "MCLK";
+
+		asoc-platform = <&pcm0>, <&routing>;
+		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-routing";
+		asoc-cpu = <&dai_pri_auxpcm>;
+		asoc-cpu-names = "msm-dai-q6-auxpcm.1";
+		asoc-codec = <&stub_codec>;
+		asoc-codec-names = "msm-stub-codec.1";
 	};
 };

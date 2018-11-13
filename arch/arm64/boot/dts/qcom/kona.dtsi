@@ -1297,3 +1297,4 @@
 #include "kona-sde.dtsi"
 #include "kona-sde-pll.dtsi"
 #include "kona-sde-display.dtsi"
+#include "kona-audio.dtsi"
