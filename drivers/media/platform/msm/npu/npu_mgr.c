@@ -156,14 +156,14 @@ int fw_init(struct npu_device *npu_dev)
 		goto wait_fw_ready_fail;
 	}
 
+	npu_notify_dsp(npu_dev, true);
 	host_ctx->fw_state = FW_ENABLED;
 	host_ctx->fw_error = false;
 	host_ctx->fw_ref_cnt++;
 	reinit_completion(&host_ctx->fw_deinit_done);
+
 	mutex_unlock(&host_ctx->lock);
 	pr_debug("firmware init complete\n");
-
-	npu_notify_dsp(npu_dev, true);
 
 	/* Set logging state */
 	if (!npu_hw_log_enabled()) {
@@ -187,7 +187,7 @@ enable_pw_fail:
 	return ret;
 }
 
-void fw_deinit(struct npu_device *npu_dev, bool ssr)
+void fw_deinit(struct npu_device *npu_dev, bool ssr, bool fw_alive)
 {
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	struct ipc_cmd_shutdown_pkt cmd_shutdown_pkt;
@@ -213,7 +213,7 @@ void fw_deinit(struct npu_device *npu_dev, bool ssr)
 
 	npu_disable_irq(npu_dev);
 
-	if (!ssr) {
+	if (fw_alive) {
 		/* Command header */
 		cmd_shutdown_pkt.header.cmd_type = NPU_IPC_CMD_SHUTDOWN;
 		cmd_shutdown_pkt.header.size =
@@ -246,11 +246,11 @@ void fw_deinit(struct npu_device *npu_dev, bool ssr)
 	host_ctx->fw_state = FW_DISABLED;
 
 	/*
-	 * if it's not in ssr mode, notify dsp before power off
+	 * if fw is still alive, notify dsp before power off
 	 * otherwise delay 500 ms to make sure dsp has finished
 	 * its own ssr handling.
 	 */
-	if (!ssr)
+	if (fw_alive)
 		npu_notify_dsp(npu_dev, false);
 	else
 		msleep(500);
@@ -339,7 +339,7 @@ static int host_error_hdlr(struct npu_device *npu_dev, bool force)
 	if (host_ctx->wdg_irq_sts)
 		pr_info("watchdog irq triggered\n");
 
-	fw_deinit(npu_dev, true);
+	fw_deinit(npu_dev, true, force);
 	host_ctx->wdg_irq_sts = 0;
 	host_ctx->err_irq_sts = 0;
 
@@ -1169,7 +1169,7 @@ error_free_network:
 	free_network(host_ctx, client, network->id);
 err_deinit_fw:
 	mutex_unlock(&host_ctx->lock);
-	fw_deinit(npu_dev, false);
+	fw_deinit(npu_dev, false, true);
 	return ret;
 }
 
@@ -1296,7 +1296,7 @@ error_free_network:
 	free_network(host_ctx, client, network->id);
 err_deinit_fw:
 	mutex_unlock(&host_ctx->lock);
-	fw_deinit(npu_dev, false);
+	fw_deinit(npu_dev, false, true);
 	return ret;
 }
 
@@ -1400,7 +1400,7 @@ free_network:
 	if (ret)
 		pr_err("network unload failed to set power level\n");
 	mutex_unlock(&host_ctx->lock);
-	fw_deinit(npu_dev, false);
+	fw_deinit(npu_dev, false, true);
 	return ret;
 }
 
@@ -1733,7 +1733,7 @@ int32_t npu_host_loopback_test(struct npu_device *npu_dev)
 	}
 
 loopback_exit:
-	fw_deinit(npu_dev, false);
+	fw_deinit(npu_dev, false, true);
 
 	return ret;
 }

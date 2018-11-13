@@ -375,7 +375,7 @@ static ssize_t npu_debug_ctrl_write(struct file *file,
 			pr_info("error in fw_init\n");
 	} else if (strcmp(buf, "off") == 0) {
 		pr_info("triggering fw_deinit\n");
-		fw_deinit(npu_dev, false);
+		fw_deinit(npu_dev, false, true);
 	} else if (strcmp(buf, "ssr") == 0) {
 		pr_info("trigger error irq\n");
 		if (npu_enable_core_power(npu_dev))
