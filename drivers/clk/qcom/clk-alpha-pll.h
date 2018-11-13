@@ -14,6 +14,7 @@ enum {
 	CLK_ALPHA_PLL_TYPE_BRAMMO,
 	CLK_ALPHA_PLL_TYPE_FABIA,
 	CLK_ALPHA_PLL_TYPE_LUCID,
+	CLK_ALPHA_PLL_TYPE_ZONDA,
 	CLK_ALPHA_PLL_TYPE_MAX,
 };
 
@@ -58,7 +59,6 @@ struct clk_alpha_pll {
 	const u8 *regs;
 	struct alpha_pll_config *config;
 	bool inited;
-
 	const struct pll_vco *vco_table;
 	size_t num_vco;
 #define SUPPORTS_OFFLINE_REQ	BIT(0)
@@ -84,7 +84,6 @@ struct clk_alpha_pll_postdiv {
 	u32 offset;
 	u8 width;
 	const u8 *regs;
-
 	struct clk_regmap clkr;
 	int post_div_shift;
 	const struct clk_div_table *post_div_table;
@@ -133,10 +132,16 @@ extern const struct clk_ops clk_alpha_pll_lucid_ops;
 extern const struct clk_ops clk_alpha_pll_fixed_lucid_ops;
 extern const struct clk_ops clk_alpha_pll_postdiv_lucid_ops;
 
+extern const struct clk_ops clk_alpha_pll_zonda_ops;
+extern const struct clk_ops clk_alpha_pll_postdiv_zonda_ops;
+
 void clk_alpha_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 			     const struct alpha_pll_config *config);
 void clk_fabia_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 				const struct alpha_pll_config *config);
-int clk_lucid_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
+void clk_lucid_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 				const struct alpha_pll_config *config);
+void clk_zonda_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
+				const struct alpha_pll_config *config);
+
 #endif
