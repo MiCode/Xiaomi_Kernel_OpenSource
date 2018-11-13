@@ -27,4 +27,14 @@ config SMB1390_CHARGE_PUMP_PSY
 	  Technologies, Inc.’s family of standalone chargers to enable a high
 	  current, low profile Li+ battery charging system.
 
+config SMB1355_SLAVE_CHARGER
+	tristate "SMB1355 Slave Battery Charger"
+	depends on MFD_I2C_PMIC
+	help
+	  Say Y to include support for SMB1355 Battery Charger.
+	  SMB1355 is a single phase 5A battery charger.
+	  The driver supports charger enable/disable.
+	  The driver reports the charger status via the power supply framework.
+	  A charger status change triggers an IRQ via the device STAT pin.
+
 endmenu
