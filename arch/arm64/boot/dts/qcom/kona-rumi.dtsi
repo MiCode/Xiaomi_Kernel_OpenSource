@@ -3,6 +3,7 @@
  * Copyright (c) 2018, The Linux Foundation. All rights reserved.
  */
 
+#include "kona-pmic-overlay.dtsi"
 #include "msm-audio-lpass.dtsi"
 
 &arch_timer {

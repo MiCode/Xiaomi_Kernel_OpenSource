@@ -382,6 +382,9 @@
 	ranges = <0 0 0 0xffffffff>;
 	compatible = "simple-bus";
 
+	thermal_zones: thermal-zones {
+	};
+
 	intc: interrupt-controller@17a00000 {
 		compatible = "arm,gic-v3";
 		#interrupt-cells = <3>;
