@@ -728,6 +728,11 @@ static int ufs_qcom_config_vreg(struct device *dev,
 
 	reg = vreg->reg;
 	if (regulator_count_voltages(reg) > 0) {
+		uA_load = on ? vreg->max_uA : 0;
+		ret = regulator_set_load(vreg->reg, uA_load);
+		if (ret)
+			goto out;
+
 		min_uV = on ? vreg->min_uV : 0;
 		ret = regulator_set_voltage(reg, min_uV, vreg->max_uV);
 		if (ret) {
@@ -735,11 +740,6 @@ static int ufs_qcom_config_vreg(struct device *dev,
 					__func__, vreg->name, ret);
 			goto out;
 		}
-
-		uA_load = on ? vreg->max_uA : 0;
-		ret = regulator_set_load(vreg->reg, uA_load);
-		if (ret)
-			goto out;
 	}
 out:
 	return ret;
