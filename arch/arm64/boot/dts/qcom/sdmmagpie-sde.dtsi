@@ -37,8 +37,6 @@
 		clock-max-rate = <0 0 0 0 430000000 19200000 430000000
 					430000000>;
 
-		sde-vdd-supply = <&mdss_core_gdsc>;
-
 		/* interrupt config */
 		interrupts = <0 83 0>;
 		interrupt-controller;
@@ -238,20 +236,6 @@
 			qcom,sde-dspp-pcc = <0x1700 0x00040000>;
 			qcom,sde-dspp-gc = <0x17c0 0x00010008>;
 			qcom,sde-dspp-dither = <0x82c 0x00010007>;
-		};
-
-		qcom,platform-supply-entries {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			qcom,platform-supply-entry@0 {
-				reg = <0>;
-				qcom,supply-name = "sde-vdd";
-				qcom,supply-min-voltage = <0>;
-				qcom,supply-max-voltage = <0>;
-				qcom,supply-enable-load = <0>;
-				qcom,supply-disable-load = <0>;
-			};
 		};
 
 		smmu_sde_sec: qcom,smmu_sde_sec_cb {
@@ -515,7 +499,6 @@
 		cell-index = <0>;
 		reg = <0xae94400 0x7c0>;
 		reg-names = "dsi_phy";
-		gdsc-supply = <&mdss_core_gdsc>;
 		vdda-0p9-supply = <&pm6150_l4>;
 		qcom,platform-strength-ctrl = [55 03
 						55 03
@@ -548,7 +531,6 @@
 		cell-index = <1>;
 		reg = <0xae96400 0x7c0>;
 		reg-names = "dsi_phy";
-		gdsc-supply = <&mdss_core_gdsc>;
 		vdda-0p9-supply = <&pm6150_l4>;
 		qcom,platform-strength-ctrl = [55 03
 						55 03
