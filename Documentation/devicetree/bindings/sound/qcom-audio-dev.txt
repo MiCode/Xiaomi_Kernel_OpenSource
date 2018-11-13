@@ -1059,6 +1059,7 @@ Example:
 
 Required properties:
 - compatible : "qcom,sm8150-asoc-snd-stub" for SM8150 target.
+- compatible : "qcom,kona-asoc-snd-stub" for Kona target.
 - qcom,model : The user-visible name of this sound card.
 - qcom,tasha-mclk-clk-freq : MCLK frequency value for tasha codec
 - asoc-platform: This is phandle list containing the references to platform device
