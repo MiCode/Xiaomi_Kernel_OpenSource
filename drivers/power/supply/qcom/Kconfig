@@ -56,4 +56,13 @@ config QPNP_FG_GEN4
 	  reported through a BMS power supply property and also sends uevents
 	  when the capacity is updated.
 
+config QPNP_QG
+	bool "QPNP Qgauge driver"
+	depends on MFD_SPMI_PMIC
+	help
+	  Say Y here to enable the Qualcomm Technologies, Inc. QGauge driver
+	  which uses the periodic sampling of the battery voltage and current
+	  to determine the battery state-of-charge (SOC) and supports other
+	  battery management features.
+
 endmenu
