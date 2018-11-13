@@ -4493,6 +4493,7 @@ static void fg_gen4_parse_batt_temp_dt(struct fg_gen4_chip *chip)
 #define DEFAULT_CL_MAX_DEC_DECIPERC	100
 #define DEFAULT_CL_MIN_LIM_DECIPERC	0
 #define DEFAULT_CL_MAX_LIM_DECIPERC	0
+#define DEFAULT_CL_DELTA_BATT_SOC	10
 #define DEFAULT_ESR_PULSE_THRESH_MA	47
 #define DEFAULT_ESR_MEAS_CURR_MA	120
 
@@ -4657,6 +4658,14 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 		chip->cl->dt.max_start_soc = DEFAULT_CL_START_SOC;
 	else
 		chip->cl->dt.max_start_soc = temp;
+
+	chip->cl->dt.min_delta_batt_soc = DEFAULT_CL_DELTA_BATT_SOC;
+	/* read from DT property and update, if value exists */
+	of_property_read_u32(node, "qcom,cl-min-delta-batt-soc",
+					&chip->cl->dt.min_delta_batt_soc);
+
+	chip->cl->dt.cl_wt_enable = of_property_read_bool(node,
+						"qcom,cl-wt-enable");
 
 	rc = of_property_read_u32(node, "qcom,cl-min-temp", &temp);
 	if (rc < 0)
