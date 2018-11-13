@@ -1,0 +1,159 @@
+Qualcomm Technologies, Inc. LPG driver specific bindings
+
+This binding document describes the properties of LPG (Light Pulse Generator)
+device module in Qualcomm Technologies, Inc. PMIC chips.
+
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: Must be "qcom,pwm-lpg".
+
+- reg:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: Register base and length for LPG and LUT modules. LPG size
+		      or length available per channel varies depending on the
+		      number of channels in PMIC.
+
+- reg-names:
+	Usage: required
+	Value type: <string>
+	Definition: The name of the register defined in the reg property.
+		      It must have "lpg-base", "lut-base" is optional but
+		      it's required if any LPG channels support LUT mode.
+
+- #pwm-cells:
+	Usage: required
+	Value type: <u32>
+	Definition: The number of cells in "pwms" property specified in
+		      PWM user nodes. It should be 2. The first cell is
+		      the PWM channel ID indexed from 0, and the second
+		      cell is the PWM default period in nanoseconds.
+
+- qcom,lut-patterns:
+	Usage: optional
+	Value type: <prop-encoded-array>
+	Definition: Duty ratios in percentages for LPG working at LUT mode.
+		      These duty ratios will be translated into PWM values
+		      and stored in LUT module. The LUT module has resource
+		      to store 47 PWM values at max and shared for all LPG
+		      channels. This property is required if any LPG channels
+		      support LUT mode.
+
+- qcom,sync-channel-ids:
+	Usage: optional
+	Value type: <prop-encoded-array>
+	Definition: The hardware IDs of the LPG channel that required be
+		      grouped together. These channels will share the same LUT
+		      ramping configuration so that they will be enabled with a
+		      synchronized pattern. If the LUT ramping configuration
+		      differs for the channels grouped for synchronization,
+		      configuration of the first channel will be applied for
+		      all others.
+
+Subnode is optional if LUT mode is not required, it's required if any LPG
+channels expected to be supported in LUT mode.
+
+Subnode properties:
+Subnodes for each LPG channel (lpg@X) can be defined if any of the following
+parameters needs to be configured for that channel.
+
+- qcom,lpg-chan-id:
+	Usage: required
+	Value type: <u32>
+	Definition: The LPG channel's hardware ID indexed from 1. Allowed
+		      range is 1 - 8. Maximum value depends on the number of
+		      channels supported on PMIC.
+
+- qcom,ramp-step-ms:
+	Usage: required
+	Value type: <u32>
+	Definition: The step duration in milliseconds for LPG staying at each
+		      duty specified in the LUT pattern. Allowed range is
+		      1 - 511.
+
+- qcom,ramp-high-index:
+	Usage: required
+	Value type: <u32>
+	Definition: The high index of the LUT pattern where LPG ends up
+		      ramping to. Allowed range is 1 - 47.
+
+- qcom,ramp-low-index:
+	Usage: required
+	Value type: <u32>
+	Definition: The low index of the LUT pattern from where LPG begins
+		      ramping from. Allowed range is 0 - 46.
+
+- qcom,ramp-from-low-to-high:
+	Usage: optional
+	Value type: <empty>
+	Definition: The flag to specify the LPG ramping direction. The ramping
+		      direction is from low index to high index of the LUT
+		      pattern if it's specified.
+
+- qcom,ramp-pattern-repeat:
+	Usage: optional
+	Value type: <empty>
+	Definition: The flag to specify if LPG would be ramping with the LUT
+		      pattern repeatedly.
+
+- qcom,ramp-toggle:
+	Usage: optional
+	Value type: <empty>
+	Definition: The flag to specify if LPG would toggle the LUT pattern
+		      in ramping. If toggling enabled, LPG would return to the
+		      low index when high index is reached, or return to the high
+		      index when low index is reached.
+
+- qcom,ramp-pause-hi-count:
+	Usage: optional
+	Value type: <u32>
+	Definition: The step count that LPG stop the output when it ramped up
+		      to the high index of the LUT.
+
+- qcom,ramp-pause-lo-count:
+	Usage: optional
+	Value type: <u32>
+	Definition: The step count that LPG stop the output when it ramped up
+		      to the low index of the LUT.
+Example:
+
+	pmi8998_lpg: lpg@b100 {
+		compatible = "qcom,pwm-lpg";
+		reg = <0xb100 0x600>, <0xb000 0x100>;
+		reg-names = "lpg-base", "lut-base";
+		#pwm-cells = <2>;
+		qcom,lut-patterns = <0 14 28 42 56 70 84 100
+					100 84 70 56 42 28 14 0>;
+		qcom,sync-channel-ids = <3 4 5>;
+		lpg@3 {
+			qcom,lpg-chan-id = <3>;
+			qcom,ramp-step-ms = <200>;
+			qcom,ramp-pause-hi-count = <10>;
+			qcom,ramp-pause-lo-count = <10>;
+			qcom,ramp-low-index = <0>;
+			qcom,ramp-high-index = <15>;
+			qcom,ramp-from-low-to-high;
+			qcom,ramp-pattern-repeat;
+		};
+		lpg@4 {
+			qcom,lpg-chan-id = <4>;
+			qcom,ramp-step-ms = <200>;
+			qcom,ramp-pause-hi-count = <10>;
+			qcom,ramp-pause-lo-count = <10>;
+			qcom,ramp-low-index = <0>;
+			qcom,ramp-high-index = <15>;
+			qcom,ramp-from-low-to-high;
+			qcom,ramp-pattern-repeat;
+		};
+		lpg@5 {
+			qcom,lpg-chan-id = <5>;
+			qcom,ramp-step-ms = <200>;
+			qcom,ramp-pause-hi-count = <10>;
+			qcom,ramp-pause-lo-count = <10>;
+			qcom,ramp-low-index = <0>;
+			qcom,ramp-high-index = <15>;
+			qcom,ramp-from-low-to-high;
+			qcom,ramp-pattern-repeat;
+		};
+	};
