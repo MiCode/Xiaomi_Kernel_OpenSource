@@ -580,7 +580,7 @@ void *msm_property_get_blob(struct msm_property_info *info,
 		blob = property_state->values[property_idx].blob;
 		if (blob) {
 			len = blob->length;
-			rc = &blob->data;
+			rc = blob->data;
 		}
 	}
 
