@@ -194,7 +194,23 @@ static int ipa3_setup_a7_qmap_hdr(void)
 
 	strlcpy(hdr_entry->name, IPA_A7_QMAP_HDR_NAME,
 				IPA_RESOURCE_NAME_MAX);
-	hdr_entry->hdr_len = IPA_QMAP_HEADER_LENGTH; /* 4 bytes */
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5) {
+		hdr_entry->hdr_len = IPA_DL_CHECKSUM_LENGTH; /* 8 bytes */
+		/* new DL QMAP header format */
+		hdr->hdr[0].hdr[0] = 0x40;
+		hdr->hdr[0].hdr[1] = 0;
+		hdr->hdr[0].hdr[2] = 0;
+		hdr->hdr[0].hdr[3] = 0;
+		hdr->hdr[0].hdr[4] = 0x4;
+		/*
+		 * Need to set csum required/valid bit on which will be replaced
+		 * by HW if checksum is incorrect after validation
+		 */
+		hdr->hdr[0].hdr[5] = 0x80;
+		hdr->hdr[0].hdr[6] = 0;
+		hdr->hdr[0].hdr[7] = 0;
+	} else
+		hdr_entry->hdr_len = IPA_QMAP_HEADER_LENGTH; /* 4 bytes */
 
 	if (ipa3_add_hdr(hdr)) {
 		IPAWANERR("fail to add IPA_A7_QMAP hdr\n");
@@ -1302,9 +1318,15 @@ static int handle3_ingress_format(struct net_device *dev,
 	}
 
 	ipa_wan_ep_cfg = &rmnet_ipa3_ctx->ipa_to_apps_ep_cfg;
-	if ((in->u.data) & RMNET_IOCTL_INGRESS_FORMAT_CHECKSUM)
-		ipa_wan_ep_cfg->ipa_ep_cfg.cfg.cs_offload_en =
-		   IPA_ENABLE_CS_OFFLOAD_DL;
+	if ((in->u.data) & RMNET_IOCTL_INGRESS_FORMAT_CHECKSUM) {
+		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
+			ipa_wan_ep_cfg->ipa_ep_cfg.cfg.cs_offload_en =
+				IPA_ENABLE_CS_DL_QMAP;
+		else
+			ipa_wan_ep_cfg->ipa_ep_cfg.cfg.cs_offload_en =
+				IPA_ENABLE_CS_OFFLOAD_DL;
+		IPAWANDBG("DL chksum set\n");
+	}
 
 	if ((in->u.data) & RMNET_IOCTL_INGRESS_FORMAT_AGG_DATA) {
 		IPAWANDBG("get AGG size %d count %d\n",
@@ -1323,7 +1345,11 @@ static int handle3_ingress_format(struct net_device *dev,
 		}
 	}
 
-	ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_len = 4;
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5 &&
+		(in->u.data) & RMNET_IOCTL_INGRESS_FORMAT_CHECKSUM)
+		ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_len = 8;
+	else
+		ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_len = 4;
 	ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_ofst_metadata_valid = 1;
 	ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_ofst_metadata = 1;
 	ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_ofst_pkt_size_valid = 1;
@@ -1389,6 +1415,7 @@ static int handle3_egress_format(struct net_device *dev,
 
 	ipa_wan_ep_cfg = &rmnet_ipa3_ctx->apps_to_ipa_ep_cfg;
 	if ((e->u.data) & RMNET_IOCTL_EGRESS_FORMAT_CHECKSUM) {
+		IPAWANDBG("UL chksum set\n");
 		ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_len = 8;
 		ipa_wan_ep_cfg->ipa_ep_cfg.cfg.cs_offload_en =
 			IPA_ENABLE_CS_OFFLOAD_UL;
