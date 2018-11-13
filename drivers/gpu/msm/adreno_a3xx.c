@@ -156,6 +156,12 @@ static void a3xx_efuse_speed_bin(struct adreno_device *adreno_dev)
 	unsigned int speed_bin[3];
 	struct kgsl_device *device = &adreno_dev->dev;
 
+	if (of_get_property(device->pdev->dev.of_node,
+		"qcom,gpu-speed-bin-vectors", NULL)) {
+		adreno_efuse_speed_bin_array(adreno_dev);
+		return;
+	}
+
 	if (of_property_read_u32_array(device->pdev->dev.of_node,
 		"qcom,gpu-speed-bin", speed_bin, 3))
 		return;

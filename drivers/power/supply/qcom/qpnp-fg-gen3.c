@@ -5581,13 +5581,24 @@ static void fg_cleanup(struct fg_chip *chip)
 {
 	int i;
 
+	power_supply_unreg_notifier(&chip->nb);
+	qpnp_misc_twm_notifier_unregister(&chip->twm_nb);
+	cancel_delayed_work_sync(&chip->ttf_work);
+	cancel_delayed_work_sync(&chip->sram_dump_work);
+	if (chip->dt.use_esr_sw)
+		alarm_cancel(&chip->esr_sw_timer);
+	cancel_work_sync(&chip->esr_sw_work);
+	cancel_delayed_work_sync(&chip->profile_load_work);
+	cancel_work_sync(&chip->status_change_work);
+	cancel_work_sync(&chip->esr_filter_work);
+	cancel_delayed_work_sync(&chip->pl_enable_work);
+
 	for (i = 0; i < FG_IRQ_MAX; i++) {
 		if (fg_irqs[i].irq)
 			devm_free_irq(chip->dev, fg_irqs[i].irq, chip);
 	}
 
 	alarm_try_to_cancel(&chip->esr_filter_alarm);
-	power_supply_unreg_notifier(&chip->nb);
 	debugfs_remove_recursive(chip->dfs_root);
 	if (chip->awake_votable)
 		destroy_votable(chip->awake_votable);

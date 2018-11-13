@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,19 +15,18 @@
 #include <asm/mach/map.h>
 #include <asm/mach/arch.h>
 
-static const char *sdm450_dt_match[] __initconst = {
-	"qcom,sdm450",
-	"qcom,sda450",
+static const char *qm215_dt_match[] __initconst = {
+	"qcom,qm215",
 	NULL
 };
 
-static void __init sdm450_init(void)
+static void __init qm215_init(void)
 {
 	board_dt_populate(NULL);
 }
 
-DT_MACHINE_START(SDM450_DT,
-	"Qualcomm Technologies, Inc. SDM450 (Flattened Device Tree)")
-	.init_machine		= sdm450_init,
-	.dt_compat		= sdm450_dt_match,
+DT_MACHINE_START(QM215_DT,
+	"Qualcomm Technologies, Inc. QM215")
+	.init_machine		= qm215_init,
+	.dt_compat		= qm215_dt_match,
 MACHINE_END

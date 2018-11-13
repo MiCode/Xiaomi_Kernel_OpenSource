@@ -25,8 +25,45 @@
 #include "cam_mem_mgr.h"
 #include "cam_trace.h"
 #include "cam_debug_util.h"
+#include "cam_packet_util.h"
 
 static const char icp_dev_name[] = "icp";
+
+static int cam_icp_context_dump_active_request(void *data, unsigned long iova,
+	uint32_t buf_info)
+{
+	struct cam_context *ctx = (struct cam_context *)data;
+	struct cam_ctx_request          *req = NULL;
+	struct cam_ctx_request          *req_temp = NULL;
+	struct cam_hw_mgr_dump_pf_data  *pf_dbg_entry = NULL;
+	int rc = 0;
+	bool b_mem_found = false;
+
+	if (!ctx) {
+		CAM_ERR(CAM_ICP, "Invalid ctx");
+		return -EINVAL;
+	}
+
+	CAM_INFO(CAM_ICP, "iommu fault for icp ctx %d state %d",
+		ctx->ctx_id, ctx->state);
+
+	list_for_each_entry_safe(req, req_temp,
+			&ctx->active_req_list, list) {
+		pf_dbg_entry = &(req->pf_data);
+		CAM_INFO(CAM_ICP, "req_id : %lld", req->request_id);
+
+		rc = cam_context_dump_pf_info_to_hw(ctx, pf_dbg_entry->packet,
+			iova, buf_info, &b_mem_found);
+		if (rc)
+			CAM_ERR(CAM_ICP, "Failed to dump pf info");
+
+		if (b_mem_found)
+			CAM_ERR(CAM_ICP, "Found page fault in req %lld %d",
+				req->request_id, rc);
+	}
+
+	return rc;
+}
 
 static int __cam_icp_acquire_dev_in_available(struct cam_context *ctx,
 	struct cam_acquire_dev_cmd *cmd)
@@ -156,6 +193,7 @@ static struct cam_ctx_ops
 		},
 		.crm_ops = {},
 		.irq_ops = __cam_icp_handle_buf_done_in_ready,
+		.pagefault_ops = cam_icp_context_dump_active_request,
 	},
 	/* Ready */
 	{
@@ -167,12 +205,14 @@ static struct cam_ctx_ops
 		},
 		.crm_ops = {},
 		.irq_ops = __cam_icp_handle_buf_done_in_ready,
+		.pagefault_ops = cam_icp_context_dump_active_request,
 	},
 	/* Activated */
 	{
 		.ioctl_ops = {},
 		.crm_ops = {},
 		.irq_ops = NULL,
+		.pagefault_ops = cam_icp_context_dump_active_request,
 	},
 };
 

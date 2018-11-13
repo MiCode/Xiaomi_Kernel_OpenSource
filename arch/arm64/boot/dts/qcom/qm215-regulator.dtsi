@@ -1,0 +1,547 @@
+/* Copyright (c) 2013-2015, 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/* RPM controlled regulators */
+
+&rpm_bus {
+	/* PM8916 S1 VDD_CX supply */
+	rpm-regulator-smpa1 {
+		status = "okay";
+		pm8916_s1_level: regulator-s1-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "8916_s1_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,use-voltage-level;
+		};
+
+		pm8916_s1_level_ao: regulator-s1-level-ao {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "8916_s1_level_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,use-voltage-level;
+		};
+
+		pm8916_s1_floor_level: regulator-s1-floor-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "8916_s1_floor_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,use-voltage-floor-level;
+			qcom,always-send-voltage;
+		};
+	};
+
+	rpm-regulator-smpa3 {
+		status = "okay";
+		pm8916_s3: regulator-s3 {
+			regulator-min-microvolt = <1000000>;
+			regulator-max-microvolt = <1448000>;
+			qcom,init-voltage = <1000000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-smpa4 {
+		status = "okay";
+		pm8916_s4: regulator-s4 {
+			regulator-min-microvolt = <1992000>;
+			regulator-max-microvolt = <2160000>;
+			qcom,init-voltage = <1992000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa1 {
+		status = "okay";
+		pm8916_l1: regulator-l1 {
+			regulator-min-microvolt = <968000>;
+			regulator-max-microvolt = <1152000>;
+			qcom,init-voltage = <968000>;
+			status = "okay";
+		};
+	};
+
+	/* PM8916 L2 VDD_MX supply */
+	rpm-regulator-ldoa2 {
+		status = "okay";
+		pm8916_l2: regulator-l2 {
+			regulator-min-microvolt = <944000>;
+			regulator-max-microvolt = <1088000>;
+			qcom,init-voltage = <944000>;
+			status = "okay";
+		};
+
+		pm8916_l2_level_ao: regulator-l2-level-ao {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "8916_l2_level_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,use-voltage-level;
+		};
+
+		pm8916_l2_level_so: regulator-l2-level-so {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "8916_l2_level_so";
+			qcom,set = <2>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,use-voltage-level;
+			qcom,init-voltage-level =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		};
+	};
+
+	rpm-regulator-ldoa3 {
+		status = "okay";
+		pm8916_l3: regulator-l3 {
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1384000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa4 {
+		status = "okay";
+		pm8916_l4: regulator-l4 {
+			regulator-min-microvolt = <1744000>;
+			regulator-max-microvolt = <1896000>;
+			qcom,init-voltage = <1744000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa5 {
+		status = "okay";
+		pm8916_l5: regulator-l5 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa6 {
+		status = "okay";
+		pm8916_l6: regulator-l6 {
+			regulator-min-microvolt = <1744000>;
+			regulator-max-microvolt = <1904000>;
+			qcom,init-voltage = <1744000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa7 {
+		status = "okay";
+		pm8916_l7: regulator-l7 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1904000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
+
+		pm8916_l7_ao: regulator-l7-ao {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "8916_l7_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1904000>;
+			qcom,init-voltage = <1800000>;
+		};
+
+		pm8916_l7_so: regulator-l7-so {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "8916_l7_so";
+			qcom,set = <2>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1904000>;
+			qcom,init-enable = <0>;
+		};
+	};
+
+	rpm-regulator-ldoa8 {
+		status = "okay";
+		pm8916_l8: regulator-l8 {
+			regulator-min-microvolt = <2696000>;
+			regulator-max-microvolt = <3600000>;
+			qcom,init-voltage = <2696000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa9 {
+		status = "okay";
+		pm8916_l9: regulator-l9 {
+			regulator-min-microvolt = <2904000>;
+			regulator-max-microvolt = <3376000>;
+			qcom,init-voltage = <2904000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa10 {
+		status = "okay";
+		pm8916_l10: regulator-l10 {
+			regulator-min-microvolt = <2704000>;
+			regulator-max-microvolt = <3000000>;
+			qcom,init-voltage = <2704000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa11 {
+		status = "okay";
+		pm8916_l11: regulator-l11 {
+			regulator-min-microvolt = <2696000>;
+			regulator-max-microvolt = <3600000>;
+			qcom,init-voltage = <2696000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa12 {
+		status = "okay";
+		pm8916_l12: regulator-l12 {
+			regulator-min-microvolt = <1648000>;
+			regulator-max-microvolt = <3104000>;
+			qcom,init-voltage = <1648000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa13 {
+		status = "okay";
+		pm8916_l13: regulator-l13 {
+			regulator-min-microvolt = <2968000>;
+			regulator-max-microvolt = <3080000>;
+			qcom,init-voltage = <2968000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa14 {
+		status = "okay";
+		pm8916_l14: regulator-l14 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <3056000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa15 {
+		status = "okay";
+		pm8916_l15: regulator-l15 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <3056000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa16 {
+		status = "okay";
+		pm8916_l16: regulator-l16 {
+			regulator-min-microvolt = <2696000>;
+			regulator-max-microvolt = <2840000>;
+			qcom,init-voltage = <2696000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa17 {
+		status = "okay";
+		pm8916_l17: regulator-l17 {
+			regulator-min-microvolt = <3000000>;
+			regulator-max-microvolt = <3300000>;
+			qcom,init-voltage = <3000000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa18 {
+		status = "okay";
+		pm8916_l18: regulator-l18 {
+			regulator-min-microvolt = <2600000>;
+			regulator-max-microvolt = <2800000>;
+			qcom,init-voltage = <2600000>;
+			status = "okay";
+		};
+	};
+};
+
+/* SPM controlled regulators */
+&spmi_bus {
+	pm8916@1 {
+		pm8916_s2: spm-regulator@1700 {
+			compatible = "qcom,spm-regulator";
+			regulator-name = "8916_s2";
+			reg = <0x1700 0x100>;
+			regulator-min-microvolt = <1050000>;
+			regulator-max-microvolt = <1350000>;
+		};
+	};
+};
+
+/* CPR controlled regulator */
+
+&soc {
+	mem_acc_vreg_corner: regulator@01946004 {
+		compatible = "qcom,mem-acc-regulator";
+		reg = <0xa4000 0x1000>;
+		reg-names = "efuse_addr";
+		regulator-name = "mem_acc_corner";
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <3>;
+
+		qcom,acc-reg-addr-list =
+			<0x01942138 0x01942130 0x01942120 0x01942124>;
+
+		qcom,acc-init-reg-config = <1 0xff>, <2 0x5555>;
+
+		qcom,num-acc-corners = <3>;
+		qcom,boot-acc-corner = <2>;
+		qcom,corner1-reg-config =
+			/* SVS+ => SVS+ */
+			<(-1) (-1)>,     <(-1) (-1)>,   <(-1) (-1)>,
+			<(-1) (-1)>,
+			/* SVS+ => NOM */
+			<  3 0x1041041>, <  4  0x1041>,	<(-1) (-1)>,
+			<(-1) (-1)>,
+			/* SVS+ => TURBO/NOM+ */
+			<  3 0x1041041>, <  4  0x1041>, <  3 0x0>,
+			<  4  0x0>;
+
+		qcom,corner2-reg-config =
+			/* NOM => SVS+ */
+			<  3 0x30c30c3>, <  4  0x30c3>,
+			/* NOM => NOM */
+			<(-1) (-1)>,     <(-1) (-1)>,
+			/* NOM => TURBO/NOM+ */
+			<  3 0x0>,       <  4  0x0>;
+
+		qcom,corner3-reg-config =
+			/* TURBO/NOM+ => SVS+ */
+			<  3 0x1041041>, <  4  0x1041>,	<  3 0x30c30c3>,
+			<  4  0x30c3>,
+			/* TURBO/NOM+ => NOM */
+			<  3 0x1041041>, <  4  0x1041>, <(-1) (-1)>,
+			<(-1) (-1)>,
+			/* TURBO/NOM+ => TURBO/NOM+ */
+			<(-1) (-1)>,     <(-1) (-1)>,   <(-1) (-1)>,
+			<(-1) (-1)>;
+
+		qcom,override-acc-fuse-sel = <71 17 3 0>;
+		qcom,override-fuse-version-map = <1>,
+						 <2>,
+						 <3>,
+						 <4>;
+		qcom,override-corner1-addr-val-map =
+			/* 1st fuse version tuple matched */
+			/* SVS+ => SVS+ */
+			<(-1) (-1)>,     <(-1) (-1)>,   <(-1) (-1)>,
+			<(-1) (-1)>,
+			/* SVS+ => NOM */
+			<  3 0x1041041>, <  4  0x1041>,	<(-1) (-1)>,
+			<(-1) (-1)>,
+			/* SVS+ => TURBO/NOM+ */
+			<  3 0x1041041>, <  4  0x1041>, <  3 0x1>,
+			<  4  0x0>,
+
+			/* 2nd fuse version tuple matched */
+			/* SVS+ => SVS+ */
+			<(-1) (-1)>,     <(-1) (-1)>,   <(-1) (-1)>,
+			<(-1) (-1)>,
+			/* SVS+ => NOM */
+			<  3 0x1041041>, <  4  0x1041>,	<(-1) (-1)>,
+			<(-1) (-1)>,
+			/* SVS+ => TURBO/NOM+ */
+			<  3 0x1041041>, <  4  0x1041>, <  3 0x3>,
+			<  4  0x0>,
+
+			/* 3rd fuse version tuple matched */
+			/* SVS+ => SVS+ */
+			<(-1) (-1)>,     <(-1) (-1)>,   <(-1) (-1)>,
+			<(-1) (-1)>,
+			/* SVS+ => NOM */
+			<  3 0x1041043>, <  4  0x1041>,	<(-1) (-1)>,
+			<(-1) (-1)>,
+			/* SVS+ => TURBO/NOM+ */
+			<  3 0x1041041>, <  4  0x1041>, <  3 0x0>,
+			<  4  0x0>,
+
+			/* 4th fuse version tuple matched */
+			/* SVS+ => SVS+ */
+			<(-1) (-1)>,     <(-1) (-1)>,   <(-1) (-1)>,
+			<(-1) (-1)>,
+			/* SVS+ => NOM */
+			<  3 0x1041043>, <  4  0x1041>, <(-1) (-1)>,
+			<(-1) (-1)>,
+			/* SVS+ => TURBO/NOM+ */
+			<  3 0x1041041>, <  4  0x1041>, <  3 0x1>,
+			<  4  0x0>;
+
+		qcom,override-corner2-addr-val-map =
+			/* 1st fuse version tuple matched */
+			/* NOM => SVS+ */
+			<  3 0x30c30c3>, <  4  0x30c3>,
+			/* NOM => NOM */
+			<(-1) (-1)>,     <(-1) (-1)>,
+			/* NOM => TURBO/NOM+ */
+			<  3 0x1>,       <  4  0x0>,
+
+			/* 2nd fuse version tuple matched */
+			/* NOM => SVS+ */
+			<  3 0x30c30c3>, <  4  0x30c3>,
+			/* NOM => NOM */
+			<(-1) (-1)>,     <(-1) (-1)>,
+			/* NOM => TURBO/NOM+ */
+			<  3 0x3>,       <  4  0x0>,
+
+			/* 3rd fuse version tuple matched */
+			/* NOM => SVS+ */
+			<  3 0x30c30c3>, <  4  0x30c3>,
+			/* NOM => NOM */
+			<(-1) (-1)>,     <(-1) (-1)>,
+			/* NOM => TURBO/NOM+ */
+			<  3 0x0>,       <  4  0x0>,
+
+			/* 4th fuse version tuple matched */
+			/* NOM => SVS+ */
+			<  3 0x30c30c3>, <  4  0x30c3>,
+			/* NOM => NOM */
+			<(-1) (-1)>,     <(-1) (-1)>,
+			/* NOM => TURBO/NOM+ */
+			<  3 0x1>,       <  4  0x0>;
+
+		qcom,override-corner3-addr-val-map =
+			/* 1st fuse version tuple matched */
+			/* TURBO/NOM+ => SVS+ */
+			<  3 0x1041041>, <  4  0x1041>,	<  3 0x30c30c3>,
+			<  4  0x30c3>,
+			/* TURBO/NOM+ => NOM */
+			<  3 0x1041041>, <  4  0x1041>, <(-1) (-1)>,
+			<(-1) (-1)>,
+			/* TURBO/NOM+ => TURBO/NOM+ */
+			<(-1) (-1)>,     <(-1) (-1)>,   <(-1) (-1)>,
+			<(-1) (-1)>,
+
+			/* 2nd fuse version tuple matched */
+			/* TURBO/NOM+ => SVS+ */
+			<  3 0x1041041>, <  4  0x1041>,	<  3 0x30c30c3>,
+			<  4  0x30c3>,
+			/* TURBO/NOM+ => NOM */
+			<  3 0x1041041>, <  4  0x1041>, <(-1) (-1)>,
+			<(-1) (-1)>,
+			/* TURBO/NOM+ => TURBO/NOM+ */
+			<(-1) (-1)>,     <(-1) (-1)>,   <(-1) (-1)>,
+			<(-1) (-1)>,
+
+			/* 3rd fuse version tuple matched */
+			/* TURBO/NOM+ => SVS+ */
+			<  3 0x1041041>, <  4  0x1041>,	<  3 0x30c30c3>,
+			<  4  0x30c3>,
+			/* TURBO/NOM+ => NOM */
+			<  3 0x1041043>, <  4  0x1041>, <(-1) (-1)>,
+			<(-1) (-1)>,
+			/* TURBO/NOM+ => TURBO/NOM+ */
+			<(-1) (-1)>,     <(-1) (-1)>,   <(-1) (-1)>,
+			<(-1) (-1)>,
+
+			/* 4th fuse version tuple matched */
+			/* TURBO/NOM+ => SVS+ */
+			<  3 0x1041041>, <  4  0x1041>, <  3 0x30c30c3>,
+			<  4  0x30c3>,
+			/* TURBO/NOM+ => NOM */
+			<  3 0x1041043>, <  4  0x1041>, <(-1) (-1)>,
+			<(-1) (-1)>,
+			/* TURBO/NOM+ => TURBO/NOM+ */
+			<(-1) (-1)>,     <(-1) (-1)>,   <(-1) (-1)>,
+			<(-1) (-1)>;
+	};
+
+	apc_vreg_corner: regulator@b018000 {
+		compatible = "qcom,cpr-regulator";
+		reg = <0xb018000 0x1000>, <0xb011064 4>, <0xa4000 0x1000>;
+		reg-names = "rbcpr", "rbcpr_clk", "efuse_addr";
+		interrupts = <0 15 0>;
+		regulator-name = "apc_corner";
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <5>;
+
+		qcom,cpr-fuse-corners = <3>;
+		qcom,cpr-voltage-ceiling = <1155000 1225000 1350000>;
+		qcom,cpr-voltage-floor =   <1050000 1050000 1090000>;
+		vdd-apc-supply = <&pm8916_s2>;
+
+		mem-acc-supply = <&mem_acc_vreg_corner>;
+
+		qcom,cpr-ref-clk = <19200>;
+		qcom,cpr-timer-delay = <5000>;
+		qcom,cpr-timer-cons-up = <0>;
+		qcom,cpr-timer-cons-down = <2>;
+		qcom,cpr-irq-line = <0>;
+		qcom,cpr-step-quotient = <26>;
+		qcom,cpr-up-threshold = <0>;
+		qcom,cpr-down-threshold = <2>;
+		qcom,cpr-idle-clocks = <15>;
+		qcom,cpr-gcnt-time = <1>;
+		qcom,vdd-apc-step-up-limit = <1>;
+		qcom,vdd-apc-step-down-limit = <1>;
+		qcom,cpr-apc-volt-step = <12500>;
+
+		qcom,cpr-fuse-row = <67 0>;
+		qcom,cpr-fuse-target-quot = <42 24 6>;
+		qcom,cpr-fuse-ro-sel = <60 57 54>;
+		qcom,cpr-init-voltage-ref = <1155000 1225000 1350000>;
+		qcom,cpr-fuse-init-voltage =
+					<67 36 6 0>,
+					<67 18 6 0>,
+					<67  0 6 0>;
+		qcom,cpr-fuse-quot-offset =
+					<71 26 6 0>,
+					<71 20 6 0>,
+					<70 54 7 0>;
+		qcom,cpr-fuse-quot-offset-scale = <5 5 5>;
+		qcom,cpr-init-voltage-step = <10000>;
+		qcom,cpr-corner-map = <1 2 3 3 3>;
+		qcom,cpr-corner-frequency-map =
+				<1 960000000>,
+				<2 1094400000>,
+				<3 1248000000>,
+				<4 1305600000>,
+				<5 1401000000>;
+		qcom,speed-bin-fuse-sel = <37 34 3 0>;
+		qcom,cpr-speed-bin-max-corners =
+					<0 (-1) 1 2 5>,
+					<3 (-1) 1 2 5>;
+		qcom,cpr-quot-adjust-scaling-factor-max = <0 1400 1400>;
+		qcom,cpr-voltage-scaling-factor-max = <0 2000 2000>;
+		qcom,cpr-scaled-init-voltage-as-ceiling;
+		qcom,cpr-fuse-revision = <69 39 3 0>;
+	};
+};

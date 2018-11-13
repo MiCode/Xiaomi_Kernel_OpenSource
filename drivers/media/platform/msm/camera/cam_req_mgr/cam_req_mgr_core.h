@@ -34,6 +34,8 @@
 
 #define SYNC_LINK_SOF_CNT_MAX_LMT 1
 
+#define MAXIMUM_LINKS_PER_SESSION  4
+
 /**
  * enum crm_workq_task_type
  * @codes: to identify which type of task is present
@@ -353,7 +355,7 @@ struct cam_req_mgr_core_link {
 struct cam_req_mgr_core_session {
 	int32_t                       session_hdl;
 	uint32_t                      num_links;
-	struct cam_req_mgr_core_link *links[MAX_LINKS_PER_SESSION];
+	struct cam_req_mgr_core_link *links[MAXIMUM_LINKS_PER_SESSION];
 	struct list_head              entry;
 	struct mutex                  lock;
 	int32_t                       force_err_recovery;
