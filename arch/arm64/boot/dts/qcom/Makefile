@@ -335,6 +335,8 @@ dtb-$(CONFIG_ARCH_SDM670) += sdm670-rumi.dtb \
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
+dtbo-$(CONFIG_ARCH_MSM8940) += msm8940-mtp-overlay.dtbo
+
 dtbo-$(CONFIG_ARCH_MSM8917) += msm8917-mtp-overlay.dtbo \
 	msm8917-qrd-overlay.dtbo \
 	msm8917-cdp-overlay.dtbo \
@@ -384,6 +386,10 @@ dtbo-$(CONFIG_ARCH_SDM439) += sdm439-mtp-overlay.dtbo \
 dtbo-$(CONFIG_ARCH_SDM429) += sdm429-mtp-overlay.dtbo \
 	sdm429-cdp-overlay.dtbo \
 	sdm429-qrd-overlay.dtbo
+
+msm8940-mtp-overlay.dtbo-base := msm8940-pmi8950.dtb \
+	msm8940-pmi8937.dtb \
+	msm8940-pmi8940.dtb
 
 msm8917-mtp-overlay.dtbo-base := msm8917-pmi8950.dtb \
 	msm8917-pmi8937.dtb \
