@@ -1527,7 +1527,7 @@
 		reg-names = "osm_l3_base", "osm_pwrcl_base",
 			"osm_perfcl_base", "osm_perfpcl_base";
 		l3-devs = <&cpu0_cpu_l3_lat &cpu4_cpu_l3_lat &cdsp_cdsp_l3_lat
-			&msm_gpu &cpu7_cpu_l3_lat>;
+			&cpu7_cpu_l3_lat>;
 
 		#clock-cells = <1>;
 	};
