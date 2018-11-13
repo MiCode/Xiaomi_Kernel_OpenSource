@@ -890,6 +890,7 @@
 		reg-names = "cti-base";
 		coresight-name = "coresight-cti-cpu0";
 		cpu = <&CPU0>;
+		qcom,cit-save;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
@@ -904,6 +905,7 @@
 		reg-names = "cti-base";
 		coresight-name = "coresight-cti-cpu1";
 		cpu = <&CPU1>;
+		qcom,cit-save;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
@@ -918,6 +920,7 @@
 		reg-names = "cti-base";
 		coresight-name = "coresight-cti-cpu2";
 		cpu = <&CPU2>;
+		qcom,cit-save;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
@@ -932,6 +935,7 @@
 		reg-names = "cti-base";
 		coresight-name = "coresight-cti-cpu3";
 		cpu = <&CPU3>;
+		qcom,cit-save;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
@@ -946,6 +950,7 @@
 		reg-names = "cti-base";
 		coresight-name = "coresight-cti-cpu4";
 		cpu = <&CPU4>;
+		qcom,cit-save;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
@@ -960,6 +965,7 @@
 		reg-names = "cti-base";
 		coresight-name = "coresight-cti-cpu5";
 		cpu = <&CPU5>;
+		qcom,cit-save;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
@@ -974,6 +980,7 @@
 		reg-names = "cti-base";
 		coresight-name = "coresight-cti-cpu6";
 		cpu = <&CPU6>;
+		qcom,cit-save;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
@@ -988,6 +995,7 @@
 		reg-names = "cti-base";
 		coresight-name = "coresight-cti-cpu7";
 		cpu = <&CPU7>;
+		qcom,cit-save;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;

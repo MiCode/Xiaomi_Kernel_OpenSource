@@ -62,6 +62,10 @@
 	status = "disabled";
 };
 
+&qcom_seecom {
+	reg = <0x86d00000 0x800000>;
+};
+
 &sp_mem {
 	status = "disabled";
 };

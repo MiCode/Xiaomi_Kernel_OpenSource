@@ -73,6 +73,7 @@
 			interrupts = <0 133 0>;
 			usb-phy = <&usb2_phy>, <&usb3_qmp_phy>;
 			tx-fifo-resize;
+			snps,usb3-u1u2-disable;
 			linux,sysdev_is_parent;
 			snps,bus-suspend-enable;
 			snps,disable-clk-gating;

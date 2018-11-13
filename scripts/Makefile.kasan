@@ -36,4 +36,7 @@ else
    endif
 
 endif
+
+CFLAGS_KASAN_NOSANITIZE := -fno-builtin
+
 endif

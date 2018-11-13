@@ -1383,6 +1383,9 @@ static int diagfwd_mux_open(int id, int mode)
 		break;
 	case DIAG_MEMORY_DEVICE_MODE:
 		break;
+	case DIAG_PCIE_MODE:
+		driver->pcie_connected = 1;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -1415,6 +1418,9 @@ static int diagfwd_mux_close(int id, int mode)
 		driver->usb_connected = 0;
 		break;
 	case DIAG_MEMORY_DEVICE_MODE:
+		break;
+	case DIAG_PCIE_MODE:
+		driver->pcie_connected = 0;
 		break;
 	default:
 		return -EINVAL;

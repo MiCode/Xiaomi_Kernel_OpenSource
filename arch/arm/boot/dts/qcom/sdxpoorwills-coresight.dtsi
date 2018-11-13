@@ -342,15 +342,6 @@
 			};
 
 			port@3 {
-				reg = <2>;
-				tpda_in_tpdm_dcc: endpoint {
-					slave-mode;
-					remote-endpoint =
-						<&tpdm_dcc_out_tpda>;
-				};
-			};
-
-			port@4 {
 				reg = <5>;
 				tpda_in_tpdm_center: endpoint {
 					slave-mode;
@@ -392,24 +383,6 @@
 					remote-endpoint =
 					    <&tpdm_ddr_out_funnel_ddr_0>;
 				};
-			};
-		};
-	};
-
-	tpdm_dcc: tpdm@6870280 {
-		compatible = "arm,primecell";
-		arm,primecell-periphid = <0x0003b968>;
-		reg = <0x6870280 0x1000>;
-		reg-names = "tpdm-base";
-
-		coresight-name = "coresight-tpdm-dcc";
-
-		clocks = <&clock_aop QDSS_CLK>;
-		clock-names = "apb_pclk";
-
-		port{
-			tpdm_dcc_out_tpda: endpoint {
-				remote-endpoint = <&tpda_in_tpdm_dcc>;
 			};
 		};
 	};

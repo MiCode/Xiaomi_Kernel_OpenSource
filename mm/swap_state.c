@@ -17,6 +17,7 @@
 #include <linux/blkdev.h>
 #include <linux/pagevec.h>
 #include <linux/migrate.h>
+#include <linux/delay.h>
 
 #include <asm/pgtable.h>
 
@@ -350,8 +351,11 @@ struct page *__read_swap_cache_async(swp_entry_t entry, gfp_t gfp_mask,
 			 * busy looping, we just conditionally invoke the
 			 * scheduler here, if there are some more important
 			 * tasks to run.
+			 *
+			 * cond_resched() may not work if the process is RT.
+			 * We need a usleep_range() give up CPU to another task.
 			 */
-			cond_resched();
+			usleep_range(500, 1000);
 			continue;
 		}
 		if (err) {		/* swp entry is obsolete ? */

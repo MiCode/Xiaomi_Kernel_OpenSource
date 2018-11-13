@@ -83,4 +83,5 @@
 &usb_qmp_dp_phy {
 	vdd-supply = <&pm660l_l1>; /* 0.88v */
 	core-supply = <&pm660_l1>; /* 1.2v */
+	extcon = <&pm660_pdphy>;
 };

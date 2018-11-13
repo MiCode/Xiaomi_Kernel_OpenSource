@@ -20,6 +20,7 @@
 #include <asm/desc.h>
 #include <asm/cmdline.h>
 #include <asm/vsyscall.h>
+#include <asm/sections.h>
 
 int kaiser_enabled __read_mostly = 1;
 EXPORT_SYMBOL(kaiser_enabled);	/* for inlined TLB flush functions */

@@ -271,6 +271,7 @@ __visible void __irq_entry smp_reschedule_interrupt(struct pt_regs *regs)
 	/*
 	 * KVM uses this interrupt to force a cpu out of guest mode
 	 */
+	kvm_set_cpu_l1tf_flush_l1d();
 }
 
 __visible void __irq_entry smp_trace_reschedule_interrupt(struct pt_regs *regs)

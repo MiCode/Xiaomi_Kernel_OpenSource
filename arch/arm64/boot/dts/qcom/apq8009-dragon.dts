@@ -361,3 +361,47 @@
 &blsp1_uart1 {
 	status = "disabled";
 };
+
+&i2c_5 {
+	status = "okay";
+	goodix_ts@5d {
+		compatible = "goodix,gt9xx";
+		status = "okay";
+		reg = <0x5d>;
+		vdd_ana-supply = <&pm8916_l17>;
+		vcc_i2c-supply = <&pm8916_l6>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <13 0x2008>;
+		pinctrl-names = "gdix_ts_int_default", "gdix_ts_int_output_low",
+			"gdix_ts_int_output_high", "gdix_ts_int_input",
+			"gdix_ts_rst_default", "gdix_ts_rst_output_low",
+			"gdix_ts_rst_output_high", "gdix_ts_rst_input";
+		pinctrl-0 = <&ts_int_default>;
+		pinctrl-1 = <&ts_int_output_low>;
+		pinctrl-2 = <&ts_int_output_high>;
+		pinctrl-3 = <&ts_int_input>;
+		pinctrl-4 = <&ts_rst_default>;
+		pinctrl-5 = <&ts_rst_output_low>;
+		pinctrl-6 = <&ts_rst_output_high>;
+		pinctrl-7 = <&ts_rst_input>;
+		reset-gpios = <&msm_gpio 16 0x00>;
+		irq-gpios = <&msm_gpio 13 0x2008>;
+		irq-flags = <2>;
+		touchscreen-max-id = <5>;
+		touchscreen-size-x = <479>;
+		touchscreen-size-y = <853>;
+		touchscreen-max-w = <1024>;
+		touchscreen-max-p = <1024>;
+		goodix,type-a-report = <0>;
+		goodix,driver-send-cfg = <1>;
+		goodix,wakeup-with-reset = <0>;
+		goodix,resume-in-workqueue = <1>;
+		goodix,int-sync = <1>;
+		goodix,swap-x2y = <0>;
+		goodix,esd-protect = <1>;
+		goodix,pen-suppress-finger = <0>;
+		goodix,auto-update = <1>;
+		goodix,auto-update-cfg = <0>;
+		goodix,power-off-sleep = <0>;
+	};
+};

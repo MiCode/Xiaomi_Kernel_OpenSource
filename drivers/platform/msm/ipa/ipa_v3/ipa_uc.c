@@ -569,7 +569,11 @@ send_cmd:
 		if (ipa3_ctx->uc_ctx.uc_status ==
 		    IPA_HW_PROD_DISABLE_CMD_GSI_STOP_FAILURE ||
 		    ipa3_ctx->uc_ctx.uc_status ==
-		    IPA_HW_CONS_DISABLE_CMD_GSI_STOP_FAILURE) {
+		    IPA_HW_CONS_DISABLE_CMD_GSI_STOP_FAILURE ||
+		    ipa3_ctx->uc_ctx.uc_status ==
+		    IPA_HW_CONS_STOP_FAILURE ||
+		    ipa3_ctx->uc_ctx.uc_status ==
+		    IPA_HW_PROD_STOP_FAILURE) {
 			retries++;
 			if (retries == IPA_GSI_CHANNEL_STOP_MAX_RETRY) {
 				IPAERR("Failed after %d tries\n", retries);

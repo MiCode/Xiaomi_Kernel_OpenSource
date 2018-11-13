@@ -35,6 +35,7 @@
 #include "diagfwd_smd.h"
 #include "diagfwd_socket.h"
 #include "diagfwd_glink.h"
+#include "diag_pcie.h"
 #include "diag_debugfs.h"
 #include "diag_ipc_logging.h"
 
@@ -43,6 +44,9 @@ static struct dentry *diag_dbgfs_dent;
 static int diag_dbgfs_table_index;
 static int diag_dbgfs_mempool_index;
 static int diag_dbgfs_usbinfo_index;
+#ifdef CONFIG_DIAG_OVER_PCIE
+static int diag_dbgfs_pcieinfo_index;
+#endif
 static int diag_dbgfs_smdinfo_index;
 static int diag_dbgfs_socketinfo_index;
 static int diag_dbgfs_glinkinfo_index;
@@ -480,6 +484,68 @@ static ssize_t diag_dbgfs_read_usbinfo(struct file *file, char __user *ubuf,
 	kfree(buf);
 	return ret;
 }
+
+#ifdef CONFIG_DIAG_OVER_PCIE
+static ssize_t diag_dbgfs_read_pcieinfo(struct file *file, char __user *ubuf,
+				       size_t count, loff_t *ppos)
+{
+	char *buf = NULL;
+	int ret = 0;
+	int i = 0;
+	unsigned int buf_size;
+	unsigned int bytes_remaining = 0;
+	unsigned int bytes_written = 0;
+	unsigned int bytes_in_buffer = 0;
+	struct diag_pcie_info *pcie_info = NULL;
+	unsigned int temp_size = sizeof(char) * DEBUG_BUF_SIZE;
+
+	if (diag_dbgfs_pcieinfo_index >= NUM_DIAG_PCIE_DEV) {
+		/* Done. Reset to prepare for future requests */
+		diag_dbgfs_pcieinfo_index = 0;
+		return 0;
+	}
+
+	buf = kzalloc(temp_size, GFP_KERNEL);
+	if (ZERO_OR_NULL_PTR(buf))
+		return -ENOMEM;
+
+	buf_size = ksize(buf);
+	bytes_remaining = buf_size;
+	for (i = diag_dbgfs_pcieinfo_index; i < NUM_DIAG_PCIE_DEV; i++) {
+		pcie_info = &diag_pcie[i];
+		bytes_written = scnprintf(buf+bytes_in_buffer, bytes_remaining,
+			"id: %d\n"
+			"name: %s\n"
+			"in channel hdl: %pK\n"
+			"out channel hdl: %pK\n"
+			"mempool: %s\n"
+			"read count: %lu\n"
+			"write count: %lu\n"
+			"read work pending: %d\n",
+			pcie_info->id,
+			pcie_info->name,
+			pcie_info->in_handle,
+			pcie_info->out_handle,
+			DIAG_MEMPOOL_GET_NAME(pcie_info->mempool),
+			pcie_info->read_cnt,
+			pcie_info->write_cnt,
+			work_pending(&pcie_info->read_work));
+		bytes_in_buffer += bytes_written;
+
+		/* Check if there is room to add another table entry */
+		bytes_remaining = buf_size - bytes_in_buffer;
+
+		if (bytes_remaining < bytes_written)
+			break;
+	}
+	diag_dbgfs_pcieinfo_index = i+1;
+	*ppos = 0;
+	ret = simple_read_from_buffer(ubuf, count, ppos, buf, bytes_in_buffer);
+
+	kfree(buf);
+	return ret;
+}
+#endif
 
 #ifdef CONFIG_DIAG_USES_SMD
 static ssize_t diag_dbgfs_read_smdinfo(struct file *file, char __user *ubuf,
@@ -1080,6 +1146,12 @@ const struct file_operations diag_dbgfs_usbinfo_ops = {
 	.read = diag_dbgfs_read_usbinfo,
 };
 
+#ifdef CONFIG_DIAG_OVER_PCIE
+const struct file_operations diag_dbgfs_pcieinfo_ops = {
+	.read = diag_dbgfs_read_pcieinfo,
+};
+#endif
+
 const struct file_operations diag_dbgfs_dcistats_ops = {
 	.read = diag_dbgfs_read_dcistats,
 };
@@ -1138,6 +1210,13 @@ int diag_debugfs_init(void)
 				    &diag_dbgfs_usbinfo_ops);
 	if (!entry)
 		goto err;
+
+#ifdef CONFIG_DIAG_OVER_PCIE
+	entry = debugfs_create_file("pcieinfo", 0444, diag_dbgfs_dent, 0,
+				    &diag_dbgfs_pcieinfo_ops);
+	if (!entry)
+		goto err;
+#endif
 
 	entry = debugfs_create_file("dci_stats", 0444, diag_dbgfs_dent, 0,
 				    &diag_dbgfs_dcistats_ops);

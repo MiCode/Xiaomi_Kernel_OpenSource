@@ -16,6 +16,16 @@
 	model = "Qualcomm Technologies, Inc. QM215";
 	compatible = "qcom,qm215";
 	qcom,msm-id = <386 0x0>;
+	qcom,msm-name = "QM215";
+};
+
+/ {
+	qrd_batterydata: qcom,batterydata {
+		qcom,rpull-up-kohm = <100>;
+		qcom,vref-batt-therm = <1800000>;
+
+		#include "vbms-batterydata-mlp356477-2800mah.dtsi"
+	};
 };
 
 &soc {

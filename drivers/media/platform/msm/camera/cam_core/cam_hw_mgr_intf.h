@@ -13,6 +13,9 @@
 #ifndef _CAM_HW_MGR_INTF_H_
 #define _CAM_HW_MGR_INTF_H_
 
+#include <linux/time.h>
+#include <linux/types.h>
+
 /*
  * This file declares Constants, Enums, Structures and APIs to be used as
  * Interface between HW Manager and Context.
@@ -29,6 +32,10 @@
 typedef int (*cam_hw_event_cb_func)(void *context, uint32_t evt_id,
 	void *evt_data);
 
+/* hardware page fault callback function type */
+typedef int (*cam_hw_pagefault_cb_func)(void *context, unsigned long iova,
+	uint32_t buf_info);
+
 /**
  * struct cam_hw_update_entry - Entry for hardware config
  *
@@ -44,7 +51,7 @@ struct cam_hw_update_entry {
 	uint32_t           offset;
 	uint32_t           len;
 	uint32_t           flags;
-	uint64_t           addr;
+	uintptr_t          addr;
 };
 
 /**
@@ -89,7 +96,8 @@ struct cam_hw_acquire_args {
 	void                        *context_data;
 	cam_hw_event_cb_func         event_cb;
 	uint32_t                     num_acq;
-	uint64_t                     acquire_info;
+	uint32_t                     acquire_info_size;
+	uintptr_t                    acquire_info;
 	void                        *ctxt_to_hw_map;
 };
 
@@ -131,6 +139,16 @@ struct cam_hw_stop_args {
 	void              *args;
 };
 
+
+/**
+ * struct cam_hw_mgr_dump_pf_data - page fault debug data
+ *
+ * packet:     pointer to packet
+ */
+struct cam_hw_mgr_dump_pf_data {
+	void    *packet;
+};
+
 /**
  * struct cam_hw_prepare_update_args - Payload for prepare command
  *
@@ -146,6 +164,7 @@ struct cam_hw_stop_args {
  * @in_map_entries:        Actual input fence mapping list (returned)
  * @num_in_map_entries:    Number of acutal input fence mapping (returned)
  * @priv:                  Private pointer of hw update
+ * @pf_data:               Debug data for page fault
  *
  */
 struct cam_hw_prepare_update_args {
@@ -161,6 +180,7 @@ struct cam_hw_prepare_update_args {
 	struct cam_hw_fence_map_entry  *in_map_entries;
 	uint32_t                        num_in_map_entries;
 	void                           *priv;
+	struct cam_hw_mgr_dump_pf_data *pf_data;
 };
 
 /**
@@ -204,6 +224,48 @@ struct cam_hw_flush_args {
 	uint32_t                        num_req_active;
 	void                           *flush_req_active[20];
 	enum flush_type_t               flush_type;
+};
+
+/**
+ * struct cam_hw_dump_pf_args - Payload for dump pf info command
+ *
+ * @pf_data:               Debug data for page fault
+ * @iova:                  Page fault address
+ * @buf_info:              Info about memory buffer where page
+ *                               fault occurred
+ * @mem_found:             If fault memory found in current
+ *                               request
+ *
+ */
+struct cam_hw_dump_pf_args {
+	struct cam_hw_mgr_dump_pf_data  pf_data;
+	unsigned long                   iova;
+	uint32_t                        buf_info;
+	bool                           *mem_found;
+};
+
+/* enum cam_hw_mgr_command - Hardware manager command type */
+enum cam_hw_mgr_command {
+	CAM_HW_MGR_CMD_INTERNAL,
+	CAM_HW_MGR_CMD_DUMP_PF_INFO,
+};
+
+/**
+ * struct cam_hw_cmd_args - Payload for hw manager command
+ *
+ * @ctxt_to_hw_map:        HW context from the acquire
+ * @cmd_type               HW command type
+ * @internal_args          Arguments for internal command
+ * @pf_args                Arguments for Dump PF info command
+ *
+ */
+struct cam_hw_cmd_args {
+	void                               *ctxt_to_hw_map;
+	uint32_t                            cmd_type;
+	union {
+		void                       *internal_args;
+		struct cam_hw_dump_pf_args  pf_args;
+	} u;
 };
 
 /**

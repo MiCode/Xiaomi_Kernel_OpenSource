@@ -66,6 +66,29 @@
 			bias-disable;
 			};
 	};
+
+	usb_det_default: usb_det_default {
+		usb_id_det_default: usb_id_det_default {
+			mux {
+				pins = "gpio131";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio131";
+				drive-strength = <2>;
+				bias-pull-down;
+				output-enable;
+			};
+		};
+		usb_vbus_det_default: usb_vbus_det_default {
+			config {
+				pins = "gpio26";
+				drive-strength = <2>;
+				bias-pull-up;
+				input-enable;
+			};
+		};
+	};
 };
 
 &sdhc_2 {
@@ -81,6 +104,22 @@
 	cd-gpios = <&tlmm 116 0x1>;
 
 	status = "ok";
+};
+
+&soc {
+	extcon_usb1: extcon_usb1 {
+		compatible = "linux,extcon-usb-gpio";
+		id-gpio = <&tlmm 26 0x1>;
+		trig-gpio = <&tlmm 131 0x0>;
+		gpio-names = "gpio131";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb_vbus_det_default &usb_id_det_default>;
+	};
+};
+
+&usb0 {
+	extcon = <&extcon_usb1>;
 };
 
 &msm_sdw_codec {
@@ -151,14 +190,18 @@
 		"AIF4 VI", "MCLK",
 		"RX_BIAS", "MCLK",
 		"MADINPUT", "MCLK",
+		"AMIC1", "MIC BIAS1",
+		"MIC BIAS1", "Handset Mic",
+		"AMIC2", "MIC BIAS2",
+		"MIC BIAS2", "Headset Mic",
 		"DMIC0", "MIC BIAS1",
 		"MIC BIAS1", "Digital Mic0",
 		"DMIC1", "MIC BIAS1",
 		"MIC BIAS1", "Digital Mic1",
-		"DMIC2", "MIC BIAS3",
-		"MIC BIAS3", "Digital Mic2",
-		"DMIC3", "MIC BIAS3",
-		"MIC BIAS3", "Digital Mic3",
+		"DMIC2", "MIC BIAS1",
+		"MIC BIAS1", "Digital Mic2",
+		"DMIC3", "MIC BIAS1",
+		"MIC BIAS1", "Digital Mic3",
 		"SpkrLeft IN", "SPK1 OUT";
 	qcom,wsa-max-devs = <1>;
 	qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0213>;

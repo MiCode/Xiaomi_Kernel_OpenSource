@@ -199,8 +199,10 @@ static int cam_bps_handle_resume(struct cam_hw_info *bps_dev)
 	cam_cpas_reg_read(core_info->cpas_handle,
 		CAM_CPAS_REG_CPASTOP, hw_info->pwr_ctrl, true, &pwr_ctrl);
 	if (pwr_ctrl & BPS_COLLAPSE_MASK) {
-		CAM_ERR(CAM_ICP, "BPS: pwr_ctrl(%x)", pwr_ctrl);
-		return -EINVAL;
+		CAM_DBG(CAM_ICP, "BPS: pwr_ctrl set(%x)", pwr_ctrl);
+		cam_cpas_reg_write(core_info->cpas_handle,
+			CAM_CPAS_REG_CPASTOP,
+			hw_info->pwr_ctrl, true, 0);
 	}
 
 	rc = cam_bps_transfer_gdsc_control(soc_info);

@@ -107,6 +107,9 @@ Optional properties:
    microvolts or a value corresponding to voltage corner.
  - "pcs_clamp_enable_reg" : Clamps the phy data inputs and enables USB3
    autonomous mode.
+ - extcon : phandle to external connector devices which provide type-C based
+            "USB-HOST" cable events. This phandle is used for notifying number
+            of lanes used in case of USB+DP concurrent mode to driver.
 
 Example:
 	ssphy0: ssphy@f9b38000 {

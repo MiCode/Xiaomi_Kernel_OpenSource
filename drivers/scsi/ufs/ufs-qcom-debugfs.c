@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015,2017, Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018 Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -186,6 +186,7 @@ static const struct file_operations ufs_qcom_dbg_testbus_cfg_desc = {
 	.open		= ufs_qcom_dbg_testbus_cfg_open,
 	.read		= seq_read,
 	.write		= ufs_qcom_dbg_testbus_cfg_write,
+	.release	= single_release,
 };
 
 static int ufs_qcom_dbg_testbus_bus_read(void *data, u64 *attr_val)
@@ -240,6 +241,7 @@ static int ufs_qcom_dbg_dbg_regs_open(struct inode *inode,
 static const struct file_operations ufs_qcom_dbg_dbg_regs_desc = {
 	.open		= ufs_qcom_dbg_dbg_regs_open,
 	.read		= seq_read,
+	.release	= single_release,
 };
 
 static int ufs_qcom_dbg_pm_qos_show(struct seq_file *file, void *data)
@@ -273,6 +275,7 @@ static int ufs_qcom_dbg_pm_qos_open(struct inode *inode,
 static const struct file_operations ufs_qcom_dbg_pm_qos_desc = {
 	.open		= ufs_qcom_dbg_pm_qos_open,
 	.read		= seq_read,
+	.release	= single_release,
 };
 
 void ufs_qcom_dbg_add_debugfs(struct ufs_hba *hba, struct dentry *root)

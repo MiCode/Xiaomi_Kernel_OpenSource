@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,4 +44,8 @@
 
 &usb0 {
 	extcon = <&pmi8998_pdphy>, <&pmi8998_pdphy>, <&eud>;
+};
+
+&usb_qmp_dp_phy {
+	extcon = <&pmi8998_pdphy>;
 };

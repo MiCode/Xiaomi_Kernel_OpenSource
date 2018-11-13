@@ -94,6 +94,8 @@ static bool mall_destroy(struct tcf_proto *tp, bool force)
 	if (!head)
 		return true;
 
+	tcf_unbind_filter(tp, &head->res);
+
 	if (tc_should_offload(dev, tp, head->flags))
 		mall_destroy_hw_filter(tp, head, (unsigned long) head);
 

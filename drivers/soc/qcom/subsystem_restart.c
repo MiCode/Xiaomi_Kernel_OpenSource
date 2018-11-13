@@ -61,7 +61,7 @@ module_param(enable_debug, int, 0644);
 
 #define setup_timeout(dest_ss, source_ss, comm_type) \
 	_setup_timeout(dest_ss, source_ss, comm_type)
-#define cancel_timeout(subsys) del_timer(&subsys->timeout_data.timer)
+#define cancel_timeout(subsys) del_timer_sync(&subsys->timeout_data.timer)
 #define init_subsys_timer(subsys) _init_subsys_timer(subsys)
 
 /* Timeout values */

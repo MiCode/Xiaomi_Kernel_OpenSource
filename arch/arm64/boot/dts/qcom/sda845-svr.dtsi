@@ -576,5 +576,6 @@
 };
 
 &wil6210 {
+	qcom,wigig-dc = <&tlmm 81 0>;
 	status = "ok";
 };

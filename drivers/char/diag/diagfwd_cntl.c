@@ -619,7 +619,12 @@ static int update_msg_mask_tbl_entry(struct diag_msg_mask_t *mask,
 	}
 	if (range->ssid_last >= mask->ssid_last) {
 		temp_range = range->ssid_last - mask->ssid_first + 1;
-		mask->ssid_last = range->ssid_last;
+		if (temp_range > MAX_SSID_PER_RANGE) {
+			temp_range = MAX_SSID_PER_RANGE;
+			mask->ssid_last = mask->ssid_first + temp_range - 1;
+		} else
+			mask->ssid_last = range->ssid_last;
+		mask->ssid_last_tools = mask->ssid_last;
 		mask->range = temp_range;
 	}
 
@@ -1085,7 +1090,7 @@ static int diag_compute_real_time(int idx)
 		 * connection.
 		 */
 		real_time = MODE_REALTIME;
-	} else if (driver->usb_connected) {
+	} else if (driver->usb_connected || driver->pcie_connected) {
 		/*
 		 * If USB is connected, check individual process. If Memory
 		 * Device Mode is active, set the mode requested by Memory

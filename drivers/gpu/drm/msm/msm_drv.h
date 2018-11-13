@@ -198,12 +198,6 @@ enum msm_mdp_conn_property {
 	CONNECTOR_PROP_COUNT
 };
 
-struct msm_vblank_ctrl {
-	struct kthread_work work;
-	struct list_head event_list;
-	spinlock_t lock;
-};
-
 #define MAX_H_TILES_PER_DISPLAY 2
 
 /**
@@ -614,8 +608,6 @@ struct msm_drm_private {
 
 	struct notifier_block vmap_notifier;
 	struct shrinker shrinker;
-
-	struct msm_vblank_ctrl vblank_ctrl;
 
 	/* task holding struct_mutex.. currently only used in submit path
 	 * to detect and reject faults from copy_from_user() for submit

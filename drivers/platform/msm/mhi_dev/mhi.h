@@ -906,6 +906,12 @@ int mhi_dev_mmio_mask_erdb_interrupts(struct mhi_dev *dev);
 int mhi_dev_mmio_read_erdb_status_interrupts(struct mhi_dev *dev);
 
 /**
+ * mhi_dev_mmio_mask_interrupts() - Mask all MHI interrupts.
+ * @dev:	MHI device structure.
+ */
+void mhi_dev_mmio_mask_interrupts(struct mhi_dev *dev);
+
+/**
  * mhi_dev_mmio_clear_interrupts() - Clear all doorbell interrupts.
  * @dev:	MHI device structure.
  */

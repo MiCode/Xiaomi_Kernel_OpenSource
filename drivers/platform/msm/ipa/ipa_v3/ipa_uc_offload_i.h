@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -92,6 +92,8 @@ enum ipa3_hw_2_cpu_events {
  * @IPA_HW_INVALID_OPCODE : Invalid opcode sent
  * @IPA_HW_INVALID_PARAMS : Invalid params for the requested command
  * @IPA_HW_GSI_CH_NOT_EMPTY_FAILURE : GSI channel emptiness validation failed
+ * @IPA_HW_CONS_STOP_FAILURE : NTN/ETH CONS stop failed
+ * @IPA_HW_PROD_STOP_FAILURE : NTN/ETH PROD stop failed
  */
 enum ipa3_hw_errors {
 	IPA_HW_ERROR_NONE              =
@@ -111,7 +113,11 @@ enum ipa3_hw_errors {
 	IPA_HW_PROD_DISABLE_CMD_GSI_STOP_FAILURE =
 		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 7),
 	IPA_HW_GSI_CH_NOT_EMPTY_FAILURE =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 8)
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 8),
+	IPA_HW_CONS_STOP_FAILURE =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 9),
+	IPA_HW_PROD_STOP_FAILURE =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 10)
 };
 
 /**

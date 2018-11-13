@@ -15,8 +15,6 @@
 #ifndef HID_QVR_H_FILE
 #define HID_QVR_H_FILE
 
-#define USB_VENDOR_ID_QVR5	0x045e
-#define USB_DEVICE_ID_QVR5	0x0659
 #define QVR_EXTERNAL_SENSOR_REPORT_ID 0x1
 
 struct external_imu_format {

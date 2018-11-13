@@ -27,6 +27,7 @@
 #include <linux/slab.h>
 #include <linux/workqueue.h>
 #include <linux/acpi.h>
+#include <linux/delay.h>
 
 #define USB_GPIO_DEBOUNCE_MS	20	/* ms */
 
@@ -36,6 +37,7 @@ struct usb_extcon_info {
 
 	struct gpio_desc *id_gpiod;
 	struct gpio_desc *vbus_gpiod;
+	struct gpio_desc *trig_gpiod;
 	int id_irq;
 	int vbus_irq;
 
@@ -87,6 +89,12 @@ static void usb_extcon_detect_cable(struct work_struct *work)
 
 	if (!id) {
 		extcon_set_state_sync(info->edev, EXTCON_USB_HOST, true);
+		if (info->trig_gpiod) {
+			gpiod_set_value(info->trig_gpiod, 1);
+			msleep(20);
+			gpiod_set_value(info->trig_gpiod, 0);
+			msleep(20);
+		}
 	} else {
 		if (vbus)
 			extcon_set_state_sync(info->edev, EXTCON_USB, true);
@@ -121,6 +129,8 @@ static int usb_extcon_probe(struct platform_device *pdev)
 	info->id_gpiod = devm_gpiod_get_optional(&pdev->dev, "id", GPIOD_IN);
 	info->vbus_gpiod = devm_gpiod_get_optional(&pdev->dev, "vbus",
 						   GPIOD_IN);
+	info->trig_gpiod = devm_gpiod_get_optional(&pdev->dev, "trig",
+						   GPIOD_OUT_LOW);
 
 	if (!info->id_gpiod && !info->vbus_gpiod) {
 		dev_err(dev, "failed to get gpios\n");
@@ -132,6 +142,9 @@ static int usb_extcon_probe(struct platform_device *pdev)
 
 	if (IS_ERR(info->vbus_gpiod))
 		return PTR_ERR(info->vbus_gpiod);
+
+	if (IS_ERR(info->trig_gpiod))
+		return PTR_ERR(info->trig_gpiod);
 
 	info->edev = devm_extcon_dev_allocate(dev, usb_extcon_cable);
 	if (IS_ERR(info->edev)) {
@@ -198,8 +211,13 @@ static int usb_extcon_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, info);
 	device_init_wakeup(dev, true);
 
-	/* Perform initial detection */
-	usb_extcon_detect_cable(&info->wq_detcable.work);
+	if (info->trig_gpiod)
+		/* Schedule with delay to reset ethernet bridge */
+		queue_delayed_work(system_power_efficient_wq,
+			&info->wq_detcable, msecs_to_jiffies(1500));
+	else
+		/* Perform initial detection */
+		usb_extcon_detect_cable(&info->wq_detcable.work);
 
 	return 0;
 }

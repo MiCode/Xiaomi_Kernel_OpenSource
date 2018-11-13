@@ -18,7 +18,7 @@
 #include "apq8009-memory.dtsi"
 #include <dt-bindings/pinctrl/qcom,pmic-mpp.h>
 #include "msm8909-pm8916-camera.dtsi"
-#include "msm8909-pm8916-camera-sensor-robot.dtsi"
+#include "msm8909-pm8916-camera-sensor-robot-pronto.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. APQ8009 Robot-pronto RefBoard";
@@ -407,36 +407,6 @@
 			output-low;
 		};
 	};
-};
-
-&sdhc_2 {
-	/delete-property/cd-gpios;
-	#address-cells = <0>;
-	interrupt-parent = <&sdhc_2>;
-	interrupts = <0 1 2>;
-	#interrupt-cells = <1>;
-	interrupt-map-mask = <0xffffffff>;
-	interrupt-map = <0 &intc 0 125 0
-			1 &intc 0 221 0
-			2 &msm_gpio 38 0>;
-	interrupt-names = "hc_irq", "pwr_irq", "sdiowakeup_irq";
-
-	qcom,vdd-voltage-level = <1800000 2950000>;
-	qcom,vdd-current-level = <15000 400000>;
-
-	qcom,vdd-io-voltage-level = <1800000 1800000>;
-	qcom,vdd-io-current-level = <200 50000>;
-	qcom,clk-rates = <400000 25000000 50000000 100000000 200000000>;
-	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
-
-	pinctrl-names = "active", "sleep";
-	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on
-	&sdc2_wlan_gpio_on>;
-	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off
-	&sdc2_wlan_gpio_off>;
-	qcom,nonremovable;
-	qcom,core_3_0v_support;
-	status = "disabled";
 };
 
 &i2c_4 {

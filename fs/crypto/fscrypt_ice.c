@@ -12,6 +12,8 @@
 
 #include "fscrypt_ice.h"
 
+extern int fscrypt_get_mode_key_size(int mode);
+
 int fscrypt_using_hardware_encryption(const struct inode *inode)
 {
 	struct fscrypt_info *ci = inode->i_crypt_info;
@@ -20,6 +22,30 @@ int fscrypt_using_hardware_encryption(const struct inode *inode)
 		ci->ci_data_mode == FS_ENCRYPTION_MODE_PRIVATE;
 }
 EXPORT_SYMBOL(fscrypt_using_hardware_encryption);
+
+size_t fscrypt_get_ice_encryption_key_size(const struct inode *inode)
+{
+	struct fscrypt_info *ci = NULL;
+
+	if (inode)
+		ci = inode->i_crypt_info;
+	if (!ci)
+		return 0;
+
+	return fscrypt_get_mode_key_size(ci->ci_data_mode) / 2;
+}
+
+size_t fscrypt_get_ice_encryption_salt_size(const struct inode *inode)
+{
+	struct fscrypt_info *ci = NULL;
+
+	if (inode)
+		ci = inode->i_crypt_info;
+	if (!ci)
+		return 0;
+
+        return fscrypt_get_mode_key_size(ci->ci_data_mode) / 2;
+}
 
 /*
  * Retrieves encryption key from the inode
@@ -44,6 +70,7 @@ char *fscrypt_get_ice_encryption_key(const struct inode *inode)
 char *fscrypt_get_ice_encryption_salt(const struct inode *inode)
 {
 	struct fscrypt_info *ci = NULL;
+	int size = 0;
 
 	if (!inode)
 		return NULL;
@@ -52,7 +79,11 @@ char *fscrypt_get_ice_encryption_salt(const struct inode *inode)
 	if (!ci)
 		return NULL;
 
-	return &(ci->ci_raw_key[fscrypt_get_ice_encryption_key_size(inode)]);
+	size = fscrypt_get_ice_encryption_key_size(inode);
+	if (!size)
+		return NULL;
+
+	return &(ci->ci_raw_key[size]);
 }
 
 /*
@@ -126,16 +157,29 @@ void fscrypt_set_ice_dun(const struct inode *inode, struct bio *bio, u64 dun)
 }
 EXPORT_SYMBOL(fscrypt_set_ice_dun);
 
+void fscrypt_set_ice_skip(struct bio *bio, int bi_crypt_skip)
+{
+#ifdef CONFIG_DM_DEFAULT_KEY
+	bio->bi_crypt_skip = bi_crypt_skip;
+#endif
+}
+EXPORT_SYMBOL(fscrypt_set_ice_skip);
+
 /*
  * This function will be used for filesystem when deciding to merge bios.
  * Basic assumption is, if inline_encryption is set, single bio has to
  * guarantee consecutive LBAs as well as ino|pg->index.
  */
-bool fscrypt_mergeable_bio(struct bio *bio, u64 dun, bool bio_encrypted)
+bool fscrypt_mergeable_bio(struct bio *bio, u64 dun, bool bio_encrypted,
+						int bi_crypt_skip)
 {
 	if (!bio)
 		return true;
 
+#ifdef CONFIG_DM_DEFAULT_KEY
+	if (bi_crypt_skip != bio->bi_crypt_skip)
+		return false;
+#endif
 	/* if both of them are not encrypted, no further check is needed */
 	if (!bio_dun(bio) && !bio_encrypted)
 		return true;

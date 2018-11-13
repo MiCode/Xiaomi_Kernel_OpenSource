@@ -292,6 +292,22 @@ config DM_REQ_CRYPT
 	  To compile this code as a module, choose M here: the module will
 	  be called dm-req-crypt.
 
+config DM_DEFAULT_KEY
+	tristate "Default-key crypt target support"
+	depends on BLK_DEV_DM
+	depends on PFK
+	---help---
+	  This (currently Android-specific) device-mapper target allows you to
+	  create a device that assigns a default encryption key to bios that
+	  don't already have one.  This can sit between inline cryptographic
+	  acceleration hardware and filesystems that use it.  This ensures that
+	  where the filesystem doesn't explicitly specify a key, such as for
+	  filesystem metadata, a default key will be used instead, leaving no
+	  sectors unencrypted.
+
+	  To compile this code as a module, choose M here: the module will be
+	  called dm-default-key.
+
 	  If unsure, say N.
 
 config DM_SNAPSHOT
@@ -533,16 +549,27 @@ config DM_LOG_WRITES
 
 	  If unsure, say N.
 
+config DM_VERITY_AVB
+	tristate "Support AVB specific verity error behavior"
+	depends on DM_VERITY
+	---help---
+	  Enables Android Verified Boot platform-specific error
+	  behavior. In particular, it will modify the vbmeta partition
+	  specified on the kernel command-line when non-transient error
+	  occurs (followed by a panic).
+
+	  If unsure, say N.
+
 config DM_ANDROID_VERITY
 	bool "Android verity target support"
+	depends on BLK_DEV_DM=y
 	depends on DM_VERITY=y
 	depends on X509_CERTIFICATE_PARSER
 	depends on SYSTEM_TRUSTED_KEYRING
-	depends on PUBLIC_KEY_ALGO_RSA
+	depends on CRYPTO_RSA
 	depends on KEYS
 	depends on ASYMMETRIC_KEY_TYPE
 	depends on ASYMMETRIC_PUBLIC_KEY_SUBTYPE
-	depends on MD_LINEAR=y
 	select DM_VERITY_HASH_PREFETCH_MIN_SIZE_128
 	---help---
 	  This device-mapper target is virtually a VERITY target. This
@@ -554,8 +581,8 @@ config DM_ANDROID_VERITY
 
 config DM_ANDROID_VERITY_AT_MOST_ONCE_DEFAULT_ENABLED
 	bool "Verity will validate blocks at most once"
-   depends on DM_VERITY
-   ---help---
+	depends on DM_VERITY
+	---help---
 	  Default enables at_most_once option for dm-verity
 
 	  Verify data blocks only the first time they are read from the

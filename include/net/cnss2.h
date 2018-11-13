@@ -115,6 +115,11 @@ struct cnss_shadow_reg_v2_cfg {
 	u32 addr;
 };
 
+struct cnss_rri_over_ddr_cfg {
+	u32 base_addr_low;
+	u32 base_addr_high;
+};
+
 struct cnss_wlan_enable_cfg {
 	u32 num_ce_tgt_cfg;
 	struct cnss_ce_tgt_pipe_cfg *ce_tgt_cfg;
@@ -124,6 +129,8 @@ struct cnss_wlan_enable_cfg {
 	struct cnss_shadow_reg_cfg *shadow_reg_cfg;
 	u32 num_shadow_reg_v2_cfg;
 	struct cnss_shadow_reg_v2_cfg *shadow_reg_v2_cfg;
+	bool rri_over_ddr_cfg_valid;
+	struct cnss_rri_over_ddr_cfg rri_over_ddr_cfg;
 };
 
 enum cnss_driver_mode {
@@ -174,6 +181,9 @@ extern void cnss_release_pm_sem(struct device *dev);
 extern int cnss_wlan_pm_control(struct device *dev, bool vote);
 extern int cnss_auto_suspend(struct device *dev);
 extern int cnss_auto_resume(struct device *dev);
+extern int cnss_pci_force_wake_request(struct device *dev);
+extern int cnss_pci_is_device_awake(struct device *dev);
+extern int cnss_pci_force_wake_release(struct device *dev);
 extern int cnss_get_user_msi_assignment(struct device *dev, char *user_name,
 					int *num_vectors,
 					uint32_t *user_base_data,

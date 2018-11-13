@@ -836,7 +836,7 @@ static long msm_csid_subdev_ioctl(struct v4l2_subdev *sd,
 		break;
 	case VIDIOC_MSM_CSID_RELEASE:
 	case MSM_SD_SHUTDOWN:
-		if (adsp_shmem_get_state() == CAMERA_STATUS_END) {
+		if (adsp_shmem_get_state() != CAMERA_STATUS_END) {
 			/* aDSP still in use */
 			rc = 0;
 			break;

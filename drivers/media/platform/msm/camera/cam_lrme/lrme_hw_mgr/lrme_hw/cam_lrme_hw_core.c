@@ -920,7 +920,7 @@ int cam_lrme_hw_submit_req(void *hw_priv, void *hw_submit_args,
 
 	if (sizeof(struct cam_lrme_hw_submit_args) != arg_size) {
 		CAM_ERR(CAM_LRME,
-			"size of args %lu, arg_size %d",
+			"size of args %zu, arg_size %d",
 			sizeof(struct cam_lrme_hw_submit_args), arg_size);
 		return -EINVAL;
 	}

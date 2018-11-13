@@ -39,7 +39,7 @@
 #define GSI_GPS_CTRL_NAME "gps"
 
 #define GSI_CTRL_NAME_LEN (sizeof(GSI_MBIM_CTRL_NAME)+2)
-#define GSI_MAX_CTRL_PKT_SIZE 4096
+#define GSI_MAX_CTRL_PKT_SIZE 8192
 #define GSI_CTRL_DTR (1 << 0)
 
 #define GSI_NUM_IN_RNDIS_BUFFERS 50
