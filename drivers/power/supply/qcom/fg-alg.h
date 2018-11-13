@@ -41,12 +41,15 @@ struct cl_params {
 	int	max_cap_limit;
 	int	min_cap_limit;
 	int	skew_decipct;
+	int	min_delta_batt_soc;
+	bool	cl_wt_enable;
 };
 
 struct cap_learning {
 	void			*data;
 	int			init_cc_soc_sw;
 	int			cc_soc_max;
+	int			init_batt_soc;
 	int64_t			nom_cap_uah;
 	int64_t			init_cap_uah;
 	int64_t			final_cap_uah;
