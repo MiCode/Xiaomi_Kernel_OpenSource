@@ -2078,68 +2078,6 @@ static struct cam_ctx_ops
 	},
 };
 
-/* top level state machine */
-static int __cam_isp_ctx_release_dev_in_top_state(struct cam_context *ctx,
-	struct cam_release_dev_cmd *cmd)
-{
-	int rc = 0;
-	struct cam_hw_release_args       rel_arg;
-	struct cam_isp_context *ctx_isp =
-		(struct cam_isp_context *) ctx->ctx_priv;
-	struct cam_req_mgr_flush_request flush_req;
-
-	if (ctx->link_hdl != -1) {
-		CAM_ERR(CAM_ISP, "ctx expects release dev after unlink");
-		rc =  -EAGAIN;
-		return rc;
-	}
-
-	if (cmd && ctx_isp->hw_ctx && ctx_isp->split_acquire) {
-		CAM_ERR(CAM_ISP, "ctx expects release HW before release dev");
-		return rc;
-	}
-
-	if (ctx_isp->hw_ctx) {
-		rel_arg.ctxt_to_hw_map = ctx_isp->hw_ctx;
-		ctx->hw_mgr_intf->hw_release(ctx->hw_mgr_intf->hw_mgr_priv,
-			&rel_arg);
-		ctx_isp->hw_ctx = NULL;
-	}
-
-	ctx->session_hdl = -1;
-	ctx->dev_hdl = -1;
-	ctx->link_hdl = -1;
-	ctx->ctx_crm_intf = NULL;
-	ctx_isp->frame_id = 0;
-	ctx_isp->active_req_cnt = 0;
-	ctx_isp->reported_req_id = 0;
-	ctx_isp->hw_acquired = false;
-	ctx_isp->init_received = false;
-
-	/*
-	 * Ideally, we should never have any active request here.
-	 * But we still add some sanity check code here to help the debug
-	 */
-	if (!list_empty(&ctx->active_req_list))
-		CAM_ERR(CAM_ISP, "Active list is not empty");
-
-	/* Flush all the pending request list  */
-	flush_req.type = CAM_REQ_MGR_FLUSH_TYPE_ALL;
-	flush_req.link_hdl = ctx->link_hdl;
-	flush_req.dev_hdl = ctx->dev_hdl;
-
-	CAM_DBG(CAM_ISP, "try to flush pending list");
-	spin_lock_bh(&ctx->lock);
-	rc = __cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list, &flush_req);
-	spin_unlock_bh(&ctx->lock);
-	ctx->state = CAM_CTX_AVAILABLE;
-
-	trace_cam_context_state("ISP", ctx);
-	CAM_DBG(CAM_ISP, "Release device success[%u] next state %d",
-		ctx->ctx_id, ctx->state);
-	return rc;
-}
-
 static int __cam_isp_ctx_release_hw_in_top_state(struct cam_context *ctx,
 	void *cmd)
 {
@@ -2181,6 +2119,62 @@ static int __cam_isp_ctx_release_hw_in_top_state(struct cam_context *ctx,
 	rc = __cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list, &flush_req);
 	spin_unlock_bh(&ctx->lock);
 	ctx->state = CAM_CTX_ACQUIRED;
+
+	trace_cam_context_state("ISP", ctx);
+	CAM_DBG(CAM_ISP, "Release device success[%u] next state %d",
+		ctx->ctx_id, ctx->state);
+	return rc;
+}
+
+/* top level state machine */
+static int __cam_isp_ctx_release_dev_in_top_state(struct cam_context *ctx,
+	struct cam_release_dev_cmd *cmd)
+{
+	int rc = 0;
+	struct cam_hw_release_args       rel_arg;
+	struct cam_isp_context *ctx_isp =
+		(struct cam_isp_context *) ctx->ctx_priv;
+	struct cam_req_mgr_flush_request flush_req;
+
+	if (cmd && ctx_isp->hw_ctx) {
+		CAM_ERR(CAM_ISP, "releasing hw");
+		__cam_isp_ctx_release_hw_in_top_state(ctx, NULL);
+	}
+
+	if (ctx_isp->hw_ctx) {
+		rel_arg.ctxt_to_hw_map = ctx_isp->hw_ctx;
+		ctx->hw_mgr_intf->hw_release(ctx->hw_mgr_intf->hw_mgr_priv,
+			&rel_arg);
+		ctx_isp->hw_ctx = NULL;
+	}
+
+	ctx->session_hdl = -1;
+	ctx->dev_hdl = -1;
+	ctx->link_hdl = -1;
+	ctx->ctx_crm_intf = NULL;
+	ctx_isp->frame_id = 0;
+	ctx_isp->active_req_cnt = 0;
+	ctx_isp->reported_req_id = 0;
+	ctx_isp->hw_acquired = false;
+	ctx_isp->init_received = false;
+
+	/*
+	 * Ideally, we should never have any active request here.
+	 * But we still add some sanity check code here to help the debug
+	 */
+	if (!list_empty(&ctx->active_req_list))
+		CAM_ERR(CAM_ISP, "Active list is not empty");
+
+	/* Flush all the pending request list  */
+	flush_req.type = CAM_REQ_MGR_FLUSH_TYPE_ALL;
+	flush_req.link_hdl = ctx->link_hdl;
+	flush_req.dev_hdl = ctx->dev_hdl;
+
+	CAM_DBG(CAM_ISP, "try to flush pending list");
+	spin_lock_bh(&ctx->lock);
+	rc = __cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list, &flush_req);
+	spin_unlock_bh(&ctx->lock);
+	ctx->state = CAM_CTX_AVAILABLE;
 
 	trace_cam_context_state("ISP", ctx);
 	CAM_DBG(CAM_ISP, "Release device success[%u] next state %d",
@@ -2898,6 +2892,12 @@ static int __cam_isp_ctx_stop_dev_in_activated_unlock(
 
 	CAM_DBG(CAM_ISP, "Stop device success next state %d on ctx %u",
 		ctx->state, ctx->ctx_id);
+
+	if (!stop_cmd) {
+		rc = __cam_isp_ctx_unlink_in_ready(ctx, NULL);
+		if (rc)
+			CAM_ERR(CAM_ISP, "Unlink failed rc=%d", rc);
+	}
 	return rc;
 }
 
