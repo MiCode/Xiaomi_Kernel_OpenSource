@@ -32,7 +32,14 @@
 
 /* delete all node referring PM8937 */
 &soc {
-	/delete-node/ thermal-zones;
+	thermal-zones {
+		/delete-node/ pa-therm1-adc;
+		/delete-node/ xo-therm-adc;
+		/delete-node/ xo-therm-buf-adc;
+		/delete-node/ case-therm-adc;
+		/delete-node/ pa-therm0-adc;
+		/delete-node/ pm8937_tz;
+	};
 
 	qcom,cpu-clock-8939@b111050 {
 		/delete-property/ vdd-c1-supply;
@@ -82,10 +89,6 @@
 		/delete-property/ qcom,iris-vdddig-supply;
 		/delete-property/ qcom,wcnss-adc_tm;
 	};
-
-	/delete-node/ qcom,csid@1b30000;
-	/delete-node/ qcom,csid@1b30400;
-	/delete-node/ qcom,csid@1b30800;
 
 	/* mem_acc */
 	/delete-node/ regulator@01946004;
@@ -180,6 +183,245 @@
 			qcom,supply-max-voltage = <1904000>;
 			qcom,supply-enable-load = <100000>;
 			qcom,supply-disable-load = <100>;
+		};
+	};
+};
+
+&clock_cpu {
+	vdd-c1-supply = <&apc_vreg_corner>;
+};
+
+&clock_gcc {
+	vdd_dig-supply = <&pm8916_s1_level>;
+	vdd_hf_dig-supply = <&pm8916_s1_level_ao>;
+	vdd_hf_pll-supply = <&pm8916_l7_ao>;
+};
+
+&pm8916_vadc {
+	chan@0 {
+		label = "usb_in";
+		reg = <0>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <7>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <0>;
+		qcom,hw-settle-time = <0>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@2 {
+		label = "ireg_fb";
+		reg = <2>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <6>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <0>;
+		qcom,hw-settle-time = <0>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@5 {
+		label = "vcoin";
+		reg = <5>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <1>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <0>;
+		qcom,hw-settle-time = <0>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@6 {
+		label = "vbat_sns";
+		reg = <6>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <1>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <0>;
+		qcom,hw-settle-time = <0>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@7 {
+		label = "vph_pwr";
+		reg = <7>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <1>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <0>;
+		qcom,hw-settle-time = <0>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@b {
+		label = "chg_temp";
+		reg = <0xb>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <3>;
+		qcom,hw-settle-time = <0>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@11 {
+		label = "skin_therm";
+		reg = <0x11>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+		qcom,vadc-thermal-node;
+	};
+
+	chan@30 {
+		label = "batt_therm";
+		reg = <0x30>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <22>;
+		qcom,hw-settle-time = <0xb>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@31 {
+		label = "batt_id";
+		reg = <0x31>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <0>;
+		qcom,hw-settle-time = <0xb>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@36 {
+		label = "pa_therm0";
+		reg = <0x36>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+		qcom,vadc-thermal-node;
+	};
+
+	chan@32 {
+		label = "xo_therm";
+		reg = <0x32>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <4>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+		qcom,vadc-thermal-node;
+	};
+
+	chan@3c {
+		label = "xo_therm_buf";
+		reg = <0x3c>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <4>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+		qcom,vadc-thermal-node;
+	};
+};
+
+&pm8916_adc_tm {
+	/* Channel Node */
+	chan@30 {
+		label = "batt_therm";
+		reg = <0x30>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <8>;
+		qcom,hw-settle-time = <0xb>;
+		qcom,fast-avg-setup = <0x2>;
+		qcom,btm-channel-number = <0x48>;
+	};
+
+	chan@6 {
+		label = "vbat_sns";
+		reg = <0x6>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <1>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <0>;
+		qcom,hw-settle-time = <0xb>;
+		qcom,fast-avg-setup = <0x2>;
+		qcom,btm-channel-number = <0x68>;
+	};
+};
+
+&soc {
+	thermal-zones {
+		xo-therm-buf-adc {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-sensors = <&pm8916_vadc 0x3c>;
+			thermal-governor = "user_space";
+
+			trips {
+				active-config0 {
+					temperature = <65000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+			};
+		};
+
+		xo-therm-adc {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-sensors = <&pm8916_vadc 0x32>;
+			thermal-governor = "user_space";
+
+			trips {
+				active-config0 {
+					temperature = <65000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+			};
+		};
+
+		pa-therm0-adc {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-sensors = <&pm8916_vadc 0x36>;
+			thermal-governor = "user_space";
+
+			trips {
+				active-config0 {
+					temperature = <65000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+			};
+		};
+
+		skin-therm-adc {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-sensors = <&pm8916_vadc 0x11>;
+			thermal-governor = "user_space";
+
+			trips {
+				active-config0 {
+					temperature = <65000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+			};
 		};
 	};
 };

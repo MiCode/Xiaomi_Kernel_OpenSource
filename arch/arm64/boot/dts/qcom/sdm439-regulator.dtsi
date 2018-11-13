@@ -378,12 +378,12 @@
 			reg = <0x2000 0x100>;
 			regulator-name = "pm8953_s5";
 			regulator-min-microvolt = <490000>;
-			regulator-max-microvolt = <960000>;
+			regulator-max-microvolt = <980000>;
 
 			pm8953_s5_limit: avs-limit-regulator {
 				regulator-name = "pm8953_s5_avs_limit";
 				regulator-min-microvolt = <490000>;
-				regulator-max-microvolt = <960000>;
+				regulator-max-microvolt = <980000>;
 			};
 		};
 	};
@@ -418,14 +418,14 @@
 		interrupts = <0 15 0>;
 		regulator-name = "apc_corner";
 		regulator-min-microvolt = <1>;
-		regulator-max-microvolt = <5>;
+		regulator-max-microvolt = <6>;
 
 		qcom,cpr-fuse-corners = <3>;
-		qcom,cpr-voltage-ceiling = <810000 845000 960000>;
+		qcom,cpr-voltage-ceiling = <810000 845000 980000>;
 		qcom,cpr-voltage-floor =   <700000 700000 790000>;
 		vdd-apc-supply = <&pm8953_s5>;
 		mem-acc-supply = <&apc_mem_acc_vreg>;
-		qcom,mem-acc-corner-map = <1 1 1 1 2>;
+		qcom,mem-acc-corner-map = <1 1 1 1 2 2>;
 
 		qcom,cpr-ref-clk = <19200>;
 		qcom,cpr-timer-delay = <5000>;
@@ -455,15 +455,19 @@
 					<70 54 7 0>;
 		qcom,cpr-fuse-quot-offset-scale = <5 5 5>;
 		qcom,cpr-init-voltage-step = <10000>;
-		qcom,cpr-corner-map = <1 2 3 3 3>;
+		qcom,cpr-corner-map = <1 2 3 3 3 3>;
 		qcom,cpr-corner-frequency-map =
 				<1 1305600000>,
 				<2 1497600000>,
 				<3 1708800000>,
 				<4 1804800000>,
-				<5 1958400000>;
+				<5 1958400000>,
+				<6 2016000000>;
 		qcom,speed-bin-fuse-sel = <37 34 3 0>;
-		qcom,cpr-speed-bin-max-corners = <(-1) (-1) 1 2 5>;
+		qcom,cpr-speed-bin-max-corners =
+					<0 (-1) 1 2 5>,
+					<1 (-1) 1 2 5>,
+					<4 (-1) 1 2 6>;
 		qcom,cpr-fuse-revision = <69 39 3 0>;
 		qcom,cpr-quot-adjust-scaling-factor-max = <0 1400 1400>;
 		qcom,cpr-voltage-scaling-factor-max = <0 2000 2000>;
@@ -481,17 +485,17 @@
 			<0        0       0>;
 
 		qcom,cpr-floor-to-ceiling-max-range =
-			<50000 50000 65000 65000 65000>,
-			<50000 50000 65000 65000 65000>,
-			<50000 50000 65000 65000 65000>;
+			<50000 50000 65000 65000 65000 65000>,
+			<50000 50000 65000 65000 65000 65000>,
+			<50000 50000 65000 65000 65000 65000>;
 
 		qcom,cpr-voltage-ceiling-override =
-			<(-1) (-1) 810000 845000 885000 960000 960000>;
+			<(-1) (-1) 810000 845000 885000 980000 980000 980000>;
 
 		qcom,cpr-virtual-corner-quotient-adjustment =
-			<0  0    0   0   0>,
-			<0  0  (-22) 0   0>, /* NOMP: -10 mV */
-			<0  0    0   0   0>;
+			<0  0    0   0   0    0>,
+			<0  0  (-22) 0   0    0>, /* NOMP: -10 mV */
+			<0  0    0   0   0    0>;
 
 		qcom,cpr-enable;
 	};
