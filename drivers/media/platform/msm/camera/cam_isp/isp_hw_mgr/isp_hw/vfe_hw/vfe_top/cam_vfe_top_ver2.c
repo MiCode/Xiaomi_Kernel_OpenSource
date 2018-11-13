@@ -37,13 +37,11 @@ struct cam_vfe_top_ver2_priv {
 	struct cam_axi_vote                 applied_axi_vote;
 	struct cam_axi_vote             req_axi_vote[CAM_VFE_TOP_VER2_MUX_MAX];
 	unsigned long                   req_clk_rate[CAM_VFE_TOP_VER2_MUX_MAX];
-	struct cam_axi_vote             last_vote[CAM_CPAS_HANDLE_MAX]
-					[CAM_VFE_TOP_VER2_MUX_MAX *
+	struct cam_axi_vote             last_vote[CAM_VFE_TOP_VER2_MUX_MAX *
 					CAM_VFE_DELAY_BW_REDUCTION_NUM_FRAMES];
-	uint32_t                        last_counter[CAM_CPAS_HANDLE_MAX];
+	uint32_t                        last_counter;
 	enum cam_vfe_bw_control_action
 		axi_vote_control[CAM_VFE_TOP_VER2_MUX_MAX];
-	enum cam_cpas_handle_id cpashdl_type[CAM_VFE_TOP_VER2_MUX_MAX];
 };
 
 static int cam_vfe_top_mux_get_base(struct cam_vfe_top_ver2_priv *top_priv,
@@ -135,111 +133,96 @@ static int cam_vfe_top_set_axi_bw_vote(
 	struct cam_vfe_soc_private *soc_private =
 		soc_info->soc_private;
 	bool apply_bw_update = false;
-	enum cam_cpas_handle_id cpashdl_type;
-	struct cam_axi_vote *last_vote = NULL;
 
 	if (!soc_private) {
 		CAM_ERR(CAM_ISP, "Error soc_private NULL");
 		return -EINVAL;
 	}
 
-	for (cpashdl_type = 0; cpashdl_type < CAM_CPAS_HANDLE_MAX;
-		cpashdl_type++) {
-
-		sum.uncompressed_bw = sum.compressed_bw = 0;
-		to_be_applied_axi_vote.uncompressed_bw = 0;
-		to_be_applied_axi_vote.compressed_bw = 0;
-		apply_bw_update = false;
-
-		for (i = 0; i < CAM_VFE_TOP_VER2_MUX_MAX; i++) {
-			if (top_priv->axi_vote_control[i] ==
-				CAM_VFE_BW_CONTROL_INCLUDE &&
-				top_priv->cpashdl_type[i] ==
-				cpashdl_type) {
-				sum.uncompressed_bw +=
+	for (i = 0; i < CAM_VFE_TOP_VER2_MUX_MAX; i++) {
+		if (top_priv->axi_vote_control[i] ==
+			CAM_VFE_BW_CONTROL_INCLUDE) {
+			sum.uncompressed_bw +=
 				top_priv->req_axi_vote[i].uncompressed_bw;
-				sum.compressed_bw +=
+			sum.compressed_bw +=
 				top_priv->req_axi_vote[i].compressed_bw;
-			}
 		}
+	}
 
-		CAM_DBG(CAM_ISP, "Updating BW from (%llu %llu) to (%llu %llu)",
+	CAM_DBG(CAM_ISP, "Updating BW from (%llu %llu) to (%llu %llu)",
+		top_priv->applied_axi_vote.uncompressed_bw,
+		top_priv->applied_axi_vote.compressed_bw,
+		sum.uncompressed_bw,
+		sum.compressed_bw);
+
+	top_priv->last_vote[top_priv->last_counter] = sum;
+	top_priv->last_counter = (top_priv->last_counter + 1) %
+		(CAM_VFE_TOP_VER2_MUX_MAX *
+		CAM_VFE_DELAY_BW_REDUCTION_NUM_FRAMES);
+
+	if ((top_priv->applied_axi_vote.uncompressed_bw ==
+		sum.uncompressed_bw) &&
+		(top_priv->applied_axi_vote.compressed_bw ==
+		sum.compressed_bw)) {
+		CAM_DBG(CAM_ISP, "BW config unchanged %llu %llu",
 			top_priv->applied_axi_vote.uncompressed_bw,
-			top_priv->applied_axi_vote.compressed_bw,
-			sum.uncompressed_bw,
-			sum.compressed_bw);
+			top_priv->applied_axi_vote.compressed_bw);
+		return 0;
+	}
 
-		last_vote = top_priv->last_vote[cpashdl_type];
-
-		last_vote[top_priv->last_counter[cpashdl_type]] = sum;
-		top_priv->last_counter[cpashdl_type] =
-			(top_priv->last_counter[cpashdl_type] + 1) %
+	if (start_stop == true) {
+		/* need to vote current request immediately */
+		to_be_applied_axi_vote = sum;
+		/* Reset everything, we can start afresh */
+		memset(top_priv->last_vote, 0x0, sizeof(struct cam_axi_vote) *
+			(CAM_VFE_TOP_VER2_MUX_MAX *
+			CAM_VFE_DELAY_BW_REDUCTION_NUM_FRAMES));
+		top_priv->last_counter = 0;
+		top_priv->last_vote[top_priv->last_counter] = sum;
+		top_priv->last_counter = (top_priv->last_counter + 1) %
 			(CAM_VFE_TOP_VER2_MUX_MAX *
 			CAM_VFE_DELAY_BW_REDUCTION_NUM_FRAMES);
-
-		if ((top_priv->applied_axi_vote.uncompressed_bw ==
-			sum.uncompressed_bw) &&
-			(top_priv->applied_axi_vote.compressed_bw ==
-			sum.compressed_bw)) {
-			CAM_DBG(CAM_ISP, "BW config unchanged %llu %llu",
-				top_priv->applied_axi_vote.uncompressed_bw,
-				top_priv->applied_axi_vote.compressed_bw);
-			return 0;
-		}
-
-		if (start_stop == true) {
-			rc = cam_cpas_update_axi_vote(
-				soc_private->cpas_handle[cpashdl_type],
-				&to_be_applied_axi_vote);
-			if (!rc) {
-				top_priv->applied_axi_vote.uncompressed_bw =
-					to_be_applied_axi_vote.uncompressed_bw;
-				top_priv->applied_axi_vote.compressed_bw =
-					to_be_applied_axi_vote.compressed_bw;
-			}
-			return rc;
-		}
-
+	} else {
 		/*
-		 * Find max bw request in last few frames. This is the bw
-		 * that we want to vote to CPAS now.
+		 * Find max bw request in last few frames. This will the bw
+		 *that we want to vote to CPAS now.
 		 */
 		for (i = 0; i < (CAM_VFE_TOP_VER2_MUX_MAX *
 			CAM_VFE_DELAY_BW_REDUCTION_NUM_FRAMES); i++) {
 			if (to_be_applied_axi_vote.compressed_bw <
-				last_vote[i].compressed_bw)
+				top_priv->last_vote[i].compressed_bw)
 				to_be_applied_axi_vote.compressed_bw =
-					last_vote[i].compressed_bw;
+					top_priv->last_vote[i].compressed_bw;
 
 			if (to_be_applied_axi_vote.uncompressed_bw <
-					last_vote[i].uncompressed_bw)
+				top_priv->last_vote[i].uncompressed_bw)
 				to_be_applied_axi_vote.uncompressed_bw =
-					last_vote[i].uncompressed_bw;
-		}
-
-		if ((to_be_applied_axi_vote.uncompressed_bw !=
-			top_priv->applied_axi_vote.uncompressed_bw) ||
-			(to_be_applied_axi_vote.compressed_bw !=
-			top_priv->applied_axi_vote.compressed_bw))
-			apply_bw_update = true;
-
-		CAM_DBG(CAM_ISP, "apply_bw_update=%d", apply_bw_update);
-
-		if (apply_bw_update == true) {
-			rc = cam_cpas_update_axi_vote(
-				soc_private->cpas_handle[cpashdl_type],
-				&to_be_applied_axi_vote);
-			if (!rc) {
-				top_priv->applied_axi_vote.uncompressed_bw =
-				to_be_applied_axi_vote.uncompressed_bw;
-				top_priv->applied_axi_vote.compressed_bw =
-					to_be_applied_axi_vote.compressed_bw;
-			} else {
-				CAM_ERR(CAM_ISP, "BW request failed, rc=%d",
-					rc);
-			}
+					top_priv->last_vote[i].uncompressed_bw;
 		}
 	}
+
+	if ((to_be_applied_axi_vote.uncompressed_bw !=
+		top_priv->applied_axi_vote.uncompressed_bw) ||
+		(to_be_applied_axi_vote.compressed_bw !=
+		top_priv->applied_axi_vote.compressed_bw))
+		apply_bw_update = true;
+
+	CAM_DBG(CAM_ISP, "apply_bw_update=%d", apply_bw_update);
+
+	if (apply_bw_update == true) {
+		rc = cam_cpas_update_axi_vote(
+			soc_private->cpas_handle,
+			&to_be_applied_axi_vote);
+		if (!rc) {
+			top_priv->applied_axi_vote.uncompressed_bw =
+				to_be_applied_axi_vote.uncompressed_bw;
+			top_priv->applied_axi_vote.compressed_bw =
+				to_be_applied_axi_vote.compressed_bw;
+		} else {
+			CAM_ERR(CAM_ISP, "BW request failed, rc=%d", rc);
+		}
+	}
+
 	return rc;
 }
 
@@ -683,7 +666,6 @@ int cam_vfe_top_ver2_init(
 	struct cam_vfe_top_ver2_priv           *top_priv = NULL;
 	struct cam_vfe_top_ver2_hw_info        *ver2_hw_info = top_hw_info;
 	struct cam_vfe_top                     *vfe_top;
-	uint32_t camera_hw_version = 0;
 
 	vfe_top = kzalloc(sizeof(struct cam_vfe_top), GFP_KERNEL);
 	if (!vfe_top) {
@@ -704,17 +686,9 @@ int cam_vfe_top_ver2_init(
 	top_priv->applied_axi_vote.compressed_bw = 0;
 	top_priv->applied_axi_vote.uncompressed_bw = 0;
 	memset(top_priv->last_vote, 0x0, sizeof(struct cam_axi_vote) *
-		(CAM_VFE_TOP_VER2_MUX_MAX * CAM_CPAS_HANDLE_MAX *
+		(CAM_VFE_TOP_VER2_MUX_MAX *
 		CAM_VFE_DELAY_BW_REDUCTION_NUM_FRAMES));
-	top_priv->last_counter[0] = 0;
-	top_priv->last_counter[1] = 0;
-
-	rc = cam_cpas_get_cpas_hw_version(&camera_hw_version);
-	if (rc) {
-		CAM_ERR(CAM_ISP, "Error! Invalid cpas version rc=%d", rc);
-		rc = -EINVAL;
-		goto free_vfe_top;
-	}
+	top_priv->last_counter = 0;
 
 	for (i = 0, j = 0; i < CAM_VFE_TOP_VER2_MUX_MAX; i++) {
 		top_priv->mux_rsrc[i].res_type = CAM_ISP_RESOURCE_VFE_IN;
@@ -730,7 +704,6 @@ int cam_vfe_top_ver2_init(
 		if (ver2_hw_info->mux_type[i] == CAM_VFE_CAMIF_VER_2_0) {
 			top_priv->mux_rsrc[i].res_id =
 				CAM_ISP_HW_VFE_IN_CAMIF;
-			top_priv->cpashdl_type[i] = CAM_CPAS_HANDLE_CAMIF;
 
 			rc = cam_vfe_camif_ver2_init(hw_intf, soc_info,
 				&ver2_hw_info->camif_hw_info,
@@ -741,12 +714,6 @@ int cam_vfe_top_ver2_init(
 			CAM_VFE_CAMIF_LITE_VER_2_0) {
 			top_priv->mux_rsrc[i].res_id =
 				CAM_ISP_HW_VFE_IN_CAMIF_LITE;
-			if (camera_hw_version == CAM_CPAS_TITAN_175_V120)
-				top_priv->cpashdl_type[i] =
-					CAM_CPAS_HANDLE_RAW;
-			else
-				top_priv->cpashdl_type[i] =
-					CAM_CPAS_HANDLE_CAMIF;
 
 			rc = cam_vfe_camif_lite_ver2_init(hw_intf, soc_info,
 				&ver2_hw_info->camif_lite_hw_info,
@@ -759,12 +726,6 @@ int cam_vfe_top_ver2_init(
 			/* set the RDI resource id */
 			top_priv->mux_rsrc[i].res_id =
 				CAM_ISP_HW_VFE_IN_RDI0 + j++;
-			if (camera_hw_version == CAM_CPAS_TITAN_175_V120)
-				top_priv->cpashdl_type[i] =
-					CAM_CPAS_HANDLE_RAW;
-			else
-				top_priv->cpashdl_type[i] =
-					CAM_CPAS_HANDLE_CAMIF;
 
 			rc = cam_vfe_rdi_ver2_init(hw_intf, soc_info,
 				&ver2_hw_info->rdi_hw_info,

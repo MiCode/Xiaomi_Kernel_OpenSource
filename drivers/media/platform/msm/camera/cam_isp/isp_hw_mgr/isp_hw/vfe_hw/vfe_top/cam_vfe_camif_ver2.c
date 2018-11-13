@@ -367,12 +367,11 @@ static int cam_vfe_camif_reg_dump(
 		CAM_INFO(CAM_ISP, "offset 0x%x val 0x%x", i, val);
 	}
 
-	//TODO: handle 0 or handle 1
-	cam_cpas_reg_read(soc_private->cpas_handle[0],
+	cam_cpas_reg_read(soc_private->cpas_handle,
 		CAM_CPAS_REG_CAMNOC, 0x420, true, &val);
 	CAM_INFO(CAM_ISP, "IFE02_MAXWR_LOW offset 0x420 val 0x%x", val);
 
-	cam_cpas_reg_read(soc_private->cpas_handle[0],
+	cam_cpas_reg_read(soc_private->cpas_handle,
 		CAM_CPAS_REG_CAMNOC, 0x820, true, &val);
 	CAM_INFO(CAM_ISP, "IFE13_MAXWR_LOW offset 0x820 val 0x%x", val);
 
