@@ -756,6 +756,15 @@ config LEDS_NIC78BX
 	  To compile this driver as a module, choose M here: the module
 	  will be called leds-nic78bx.
 
+config LEDS_QTI_TRI_LED
+	tristate "LED support for Qualcomm Technologies, Inc. TRI_LED"
+	depends on LEDS_CLASS && MFD_SPMI_PMIC && PWM && OF
+	help
+	  This driver supports the TRI_LED module found in Qualcomm
+	  Technologies, Inc. PMIC chips. TRI_LED supports 3 LED drivers
+	  at max and each is controlled by a PWM channel used for dimming
+	  or blinking.
+
 config LEDS_QPNP_FLASH_V2
         tristate "Support for QPNP V2 Flash LEDs"
         depends on LEDS_CLASS && MFD_SPMI_PMIC
