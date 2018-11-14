@@ -377,8 +377,6 @@ static void sde_hdcp_2x_clean(struct sde_hdcp_2x_ctrl *hdcp)
 
 	hdcp->authenticated = false;
 
-	hdcp2_app_comm(hdcp->hdcp2_ctx, HDCP2_CMD_STOP, &hdcp->app_data);
-
 	cdata.context = hdcp->client_data;
 	cdata.cmd = HDCP_TRANSPORT_CMD_STATUS_FAILED;
 
@@ -386,6 +384,8 @@ static void sde_hdcp_2x_clean(struct sde_hdcp_2x_ctrl *hdcp)
 		sde_hdcp_2x_wakeup_client(hdcp, &cdata);
 
 	atomic_set(&hdcp->hdcp_off, 1);
+
+	hdcp2_app_comm(hdcp->hdcp2_ctx, HDCP2_CMD_STOP, &hdcp->app_data);
 }
 
 static void sde_hdcp_2x_cleanup_work(struct kthread_work *work)
