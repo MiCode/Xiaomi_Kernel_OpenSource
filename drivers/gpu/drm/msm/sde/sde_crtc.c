@@ -1305,9 +1305,9 @@ static void _sde_crtc_swap_mixers_for_right_partial_update(
 	if (sde_crtc->num_mixers != CRTC_DUAL_MIXERS)
 		return;
 
-	drm_for_each_encoder(drm_enc, crtc->dev) {
-		if (drm_enc->crtc == crtc &&
-				sde_encoder_is_dsc_merge(drm_enc)) {
+	drm_for_each_encoder_mask(drm_enc, crtc->dev,
+			crtc->state->encoder_mask) {
+		if (sde_encoder_is_dsc_merge(drm_enc)) {
 			encoder_in_dsc_merge = true;
 			break;
 		}
@@ -1630,10 +1630,8 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 	 * SMMU operations need to be delayed in case of video mode panels
 	 * when switching back to non_secure mode
 	 */
-	drm_for_each_encoder(encoder, crtc->dev) {
-		if (encoder->crtc != crtc)
-			continue;
-
+	drm_for_each_encoder_mask(encoder, crtc->dev,
+			crtc->state->encoder_mask) {
 		post_commit |= sde_encoder_check_mode(encoder,
 						MSM_DISPLAY_CAP_VID_MODE);
 	}
@@ -2075,10 +2073,8 @@ enum sde_intf_mode sde_crtc_get_intf_mode(struct drm_crtc *crtc)
 		return INTF_MODE_NONE;
 	}
 
-	drm_for_each_encoder(encoder, crtc->dev) {
-		if (encoder->crtc != crtc)
-			continue;
-
+	drm_for_each_encoder_mask(encoder, crtc->dev,
+			crtc->state->encoder_mask) {
 		/* continue if copy encoder is encountered */
 		if (sde_encoder_in_clone_mode(encoder))
 			continue;
@@ -3089,10 +3085,8 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 	}
 
 	if (!cstate->rsc_update) {
-		drm_for_each_encoder(encoder, dev) {
-			if (encoder->crtc != crtc)
-				continue;
-
+		drm_for_each_encoder_mask(encoder, dev,
+				crtc->state->encoder_mask) {
 			cstate->rsc_client =
 				sde_encoder_get_rsc_client(encoder);
 		}
@@ -3679,10 +3673,8 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 			SDE_ERROR("disable LUT memory retention err %d\n", ret);
 
 		/* restore encoder; crtc will be programmed during commit */
-		drm_for_each_encoder(encoder, crtc->dev) {
-			if (encoder->crtc != crtc)
-				continue;
-
+		drm_for_each_encoder_mask(encoder, crtc->dev,
+				crtc->state->encoder_mask) {
 			sde_encoder_virt_restore(encoder);
 		}
 
@@ -3716,9 +3708,8 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 		if (ret)
 			SDE_ERROR("enable LUT memory retention err %d\n", ret);
 
-		drm_for_each_encoder(encoder, crtc->dev) {
-			if (encoder->crtc != crtc)
-				continue;
+		drm_for_each_encoder_mask(encoder, crtc->dev,
+				crtc->state->encoder_mask) {
 			/*
 			 * disable the vsync source after updating the
 			 * rsc state. rsc state update might have vsync wait
@@ -3878,10 +3869,8 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	}
 	spin_unlock_irqrestore(&sde_crtc->spin_lock, flags);
 
-	drm_for_each_encoder(encoder, crtc->dev) {
-		if (encoder->crtc != crtc)
-			continue;
-
+	drm_for_each_encoder_mask(encoder, crtc->dev,
+			crtc->state->encoder_mask) {
 		if (sde_encoder_in_cont_splash(encoder)) {
 			in_cont_splash = true;
 			break;
@@ -3892,9 +3881,8 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	if (!in_cont_splash)
 		sde_core_perf_crtc_update(crtc, 0, true);
 
-	drm_for_each_encoder(encoder, crtc->dev) {
-		if (encoder->crtc != crtc)
-			continue;
+	drm_for_each_encoder_mask(encoder, crtc->dev,
+			crtc->state->encoder_mask) {
 		sde_encoder_register_frame_event_callback(encoder, NULL, NULL);
 		cstate->rsc_client = NULL;
 		cstate->rsc_update = false;
@@ -3987,9 +3975,8 @@ static void sde_crtc_enable(struct drm_crtc *crtc,
 		return;
 	}
 
-	drm_for_each_encoder(encoder, crtc->dev) {
-		if (encoder->crtc != crtc)
-			continue;
+	drm_for_each_encoder_mask(encoder, crtc->dev,
+			crtc->state->encoder_mask) {
 		sde_encoder_register_frame_event_callback(encoder,
 				sde_crtc_frame_event_cb, crtc);
 	}
@@ -4202,9 +4189,9 @@ static int _sde_crtc_check_secure_single_encoder(struct drm_crtc *crtc,
 	int encoder_cnt = 0;
 
 	if (fb_sec_dir) {
-		drm_for_each_encoder(encoder, crtc->dev)
-			if (encoder->crtc ==  crtc)
-				encoder_cnt++;
+		drm_for_each_encoder_mask(encoder, crtc->dev,
+			crtc->state->encoder_mask)
+			encoder_cnt++;
 
 		if (encoder_cnt > MAX_ALLOWED_ENCODER_CNT_PER_SECURE_CRTC) {
 			SDE_ERROR("crtc%d, invalid virtual encoder crtc%d\n",
@@ -4222,10 +4209,8 @@ static int _sde_crtc_check_secure_state_smmu_translation(struct drm_crtc *crtc,
 	struct sde_kms_smmu_state_data *smmu_state = &sde_kms->smmu_state;
 	int is_video_mode = false;
 
-	drm_for_each_encoder(encoder, crtc->dev) {
-		if (encoder->crtc != crtc)
-			continue;
-
+	drm_for_each_encoder_mask(encoder, crtc->dev,
+			crtc->state->encoder_mask) {
 		is_video_mode |= sde_encoder_check_mode(encoder,
 						MSM_DISPLAY_CAP_VID_MODE);
 	}
