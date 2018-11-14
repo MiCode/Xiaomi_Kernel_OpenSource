@@ -241,16 +241,10 @@ static int xhci_plat_probe(struct platform_device *pdev)
 			return ret;
 	}
 
-	pm_runtime_set_active(&pdev->dev);
-	pm_runtime_enable(&pdev->dev);
-	pm_runtime_get_noresume(&pdev->dev);
-
 	hcd = __usb_create_hcd(driver, sysdev, &pdev->dev,
 			       dev_name(&pdev->dev), NULL);
-	if (!hcd) {
-		ret = -ENOMEM;
-		goto disable_runtime;
-	}
+	if (!hcd)
+		return -ENOMEM;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	hcd->regs = devm_ioremap_resource(&pdev->dev, res);
@@ -285,6 +279,15 @@ static int xhci_plat_probe(struct platform_device *pdev)
 		ret = -EPROBE_DEFER;
 		goto disable_reg_clk;
 	}
+
+	if (pdev->dev.parent)
+		pm_runtime_resume(pdev->dev.parent);
+
+	pm_runtime_use_autosuspend(&pdev->dev);
+	pm_runtime_set_autosuspend_delay(&pdev->dev, 1000);
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_get_sync(&pdev->dev);
 
 	xhci = hcd_to_xhci(hcd);
 	priv_match = of_device_get_match_data(&pdev->dev);
@@ -360,13 +363,9 @@ static int xhci_plat_probe(struct platform_device *pdev)
 					__func__);
 
 	device_enable_async_suspend(&pdev->dev);
-	pm_runtime_put_noidle(&pdev->dev);
 
-	/*
-	 * Prevent runtime pm from being on as default, users should enable
-	 * runtime pm using power/control in sysfs.
-	 */
-	pm_runtime_forbid(&pdev->dev);
+	pm_runtime_mark_last_busy(&pdev->dev);
+	pm_runtime_put_autosuspend(&pdev->dev);
 
 	return 0;
 
@@ -388,10 +387,6 @@ disable_reg_clk:
 
 put_hcd:
 	usb_put_hcd(hcd);
-
-disable_runtime:
-	pm_runtime_put_noidle(&pdev->dev);
-	pm_runtime_disable(&pdev->dev);
 
 	return ret;
 }
@@ -444,6 +439,11 @@ static int __maybe_unused xhci_plat_runtime_suspend(struct device *dev)
 	struct usb_hcd  *hcd = dev_get_drvdata(dev);
 	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
 
+	if (!xhci)
+		return 0;
+
+	dev_dbg(dev, "xhci-plat runtime suspend\n");
+
 	return xhci_suspend(xhci, true);
 }
 
@@ -473,7 +473,7 @@ static const struct dev_pm_ops xhci_plat_pm_ops = {
 
 	SET_RUNTIME_PM_OPS(xhci_plat_runtime_suspend,
 			   xhci_plat_runtime_resume,
-			   NULL)
+			   xhci_plat_runtime_idle)
 };
 
 static const struct acpi_device_id usb_xhci_acpi_match[] = {
