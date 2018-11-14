@@ -1493,7 +1493,7 @@ static int __dwc3_gadget_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 	int			ret = 0;
 
 	if (!dep->endpoint.desc || !dwc->pullups_connected) {
-		dev_err(dwc->dev, "%s: can't queue to disabled endpoint\n",
+		dev_err_ratelimited(dwc->dev, "%s: can't queue to disabled endpoint\n",
 				dep->name);
 		return -ESHUTDOWN;
 	}
