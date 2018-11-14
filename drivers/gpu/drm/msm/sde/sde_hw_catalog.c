@@ -3965,8 +3965,10 @@ void sde_hw_catalog_deinit(struct sde_mdss_cfg *sde_cfg)
 			kfree(sde_cfg->vbif[i].qos_tbl[j].priority_lvl);
 	}
 
-	for (i = 0; i < SDE_QOS_LUT_USAGE_MAX; i++)
+	for (i = 0; i < SDE_QOS_LUT_USAGE_MAX; i++) {
+		kfree(sde_cfg->perf.sfe_lut_tbl[i].entries);
 		kfree(sde_cfg->perf.qos_lut_tbl[i].entries);
+	}
 
 	kfree(sde_cfg->dma_formats);
 	kfree(sde_cfg->cursor_formats);
