@@ -643,9 +643,17 @@ static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 	int ret = 0;
 	struct sde_ad_hw_cfg ad_cfg;
 
+	memset(&hw_cfg, 0, sizeof(hw_cfg));
 	sde_cp_get_hw_payload(prop_node, &hw_cfg, &feature_enabled);
 	hw_cfg.num_of_mixers = sde_crtc->num_mixers;
 	hw_cfg.last_feature = 0;
+
+	for (i = 0; i < num_mixers; i++) {
+		hw_dspp = sde_crtc->mixers[i].hw_dspp;
+		if (!hw_dspp || i >= DSPP_MAX)
+			continue;
+		hw_cfg.dspp[i] = hw_dspp;
+	}
 
 	for (i = 0; i < num_mixers && !ret; i++) {
 		hw_lm = sde_crtc->mixers[i].hw_lm;
