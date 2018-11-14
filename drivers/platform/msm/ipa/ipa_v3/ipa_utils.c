@@ -3548,7 +3548,7 @@ int ipa3_get_wlan_stats(struct ipa_get_wdi_sap_stats *wdi_sap_stats)
 		ipa3_ctx->uc_wdi_ctx.stats_notify(IPA_GET_WDI_SAP_STATS,
 			wdi_sap_stats);
 	} else {
-		IPAERR("uc_wdi_ctx.stats_notify NULL\n");
+		IPAERR_RL("uc_wdi_ctx.stats_notify NULL\n");
 		return -EFAULT;
 	}
 	return 0;
