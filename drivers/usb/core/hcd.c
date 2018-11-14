@@ -2233,7 +2233,64 @@ int usb_hcd_get_frame_number (struct usb_device *udev)
 	return hcd->driver->get_frame_number (hcd);
 }
 
+int usb_hcd_sec_event_ring_setup(struct usb_device *udev,
+	unsigned int intr_num)
+{
+	struct usb_hcd	*hcd = bus_to_hcd(udev->bus);
+
+	if (!HCD_RH_RUNNING(hcd))
+		return 0;
+
+	return hcd->driver->sec_event_ring_setup(hcd, intr_num);
+}
+
+int usb_hcd_sec_event_ring_cleanup(struct usb_device *udev,
+	unsigned int intr_num)
+{
+	struct usb_hcd	*hcd = bus_to_hcd(udev->bus);
+
+	if (!HCD_RH_RUNNING(hcd))
+		return 0;
+
+	return hcd->driver->sec_event_ring_cleanup(hcd, intr_num);
+}
+
 /*-------------------------------------------------------------------------*/
+
+dma_addr_t
+usb_hcd_get_sec_event_ring_dma_addr(struct usb_device *udev,
+	unsigned int intr_num)
+{
+	struct usb_hcd	*hcd = bus_to_hcd(udev->bus);
+
+	if (!HCD_RH_RUNNING(hcd))
+		return 0;
+
+	return hcd->driver->get_sec_event_ring_dma_addr(hcd, intr_num);
+}
+
+dma_addr_t
+usb_hcd_get_dcba_dma_addr(struct usb_device *udev)
+{
+	struct usb_hcd	*hcd = bus_to_hcd(udev->bus);
+
+	if (!HCD_RH_RUNNING(hcd))
+		return 0;
+
+	return hcd->driver->get_dcba_dma_addr(hcd, udev);
+}
+
+dma_addr_t
+usb_hcd_get_xfer_ring_dma_addr(struct usb_device *udev,
+		struct usb_host_endpoint *ep)
+{
+	struct usb_hcd	*hcd = bus_to_hcd(udev->bus);
+
+	if (!HCD_RH_RUNNING(hcd))
+		return 0;
+
+	return hcd->driver->get_xfer_ring_dma_addr(hcd, udev, ep);
+}
 
 #ifdef	CONFIG_PM
 
