@@ -1625,14 +1625,17 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 		struct msm_drm_private *priv = plane->dev->dev_private;
 		struct sde_kms *sde_kms;
 
-		if (!psde->pipe_sblk->in_rot_maxdwnscale ||
-		!psde->pipe_sblk->in_rot_maxheight ||
-		!psde->pipe_sblk->in_rot_format_list ||
-		!(psde->features & BIT(SDE_SSPP_TRUE_INLINE_ROT_V1))) {
+		if (!psde->pipe_sblk->in_rot_maxdwnscale_rt ||
+			!psde->pipe_sblk->in_rot_maxdwnscale_nrt ||
+			!psde->pipe_sblk->in_rot_maxheight ||
+			!psde->pipe_sblk->in_rot_format_list ||
+			!(psde->features & BIT(SDE_SSPP_TRUE_INLINE_ROT_V1))) {
 			SDE_ERROR_PLANE(psde,
-				"invalid rot config max:%d fmt:%d feat:0x%x\n",
-				!psde->pipe_sblk->in_rot_maxdwnscale,
+				"wrong config rt:%d nrt:%d fmt:%d h:%d 0x%x\n",
+				!psde->pipe_sblk->in_rot_maxdwnscale_rt,
+				!psde->pipe_sblk->in_rot_maxdwnscale_nrt,
 				!psde->pipe_sblk->in_rot_format_list,
+				!psde->pipe_sblk->in_rot_maxheight,
 				psde->features);
 			ret = -EINVAL;
 			goto exit;
@@ -2444,10 +2447,14 @@ static int sde_plane_sspp_atomic_check(struct drm_plane *plane,
 		rt_client = true;
 
 	/* inline rotation RT clients have a different max downscaling limit */
-	if (inline_rotation && rt_client)
-		max_downscale = psde->pipe_sblk->in_rot_maxdwnscale;
-	else
+	if (inline_rotation) {
+		if (rt_client)
+			max_downscale = psde->pipe_sblk->in_rot_maxdwnscale_rt;
+		else
+			max_downscale = psde->pipe_sblk->in_rot_maxdwnscale_nrt;
+	} else {
 		max_downscale = psde->pipe_sblk->maxdwnscale;
+	}
 
 	SDE_DEBUG_PLANE(psde, "check %d -> %d\n",
 		sde_plane_enabled(plane->state), sde_plane_enabled(state));
@@ -3375,6 +3382,13 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 		const struct sde_format_extended *inline_rot_fmt_list;
 
 		sde_kms_info_add_keyint(info, "true_inline_rot_rev", 1);
+		sde_kms_info_add_keyint(info, "true_inline_dwnscale_rt",
+			psde->pipe_sblk->in_rot_maxdwnscale_rt);
+		sde_kms_info_add_keyint(info, "true_inline_dwnscale_nrt",
+			psde->pipe_sblk->in_rot_maxdwnscale_nrt);
+		sde_kms_info_add_keyint(info, "true_inline_max_height",
+			psde->pipe_sblk->in_rot_maxheight);
+
 		inline_rot_fmt_list = psde->pipe_sblk->in_rot_format_list;
 
 		if (inline_rot_fmt_list) {
@@ -4091,6 +4105,21 @@ static int _sde_plane_init_debugfs(struct drm_plane *plane)
 				0600,
 				psde->debugfs_root,
 				&psde->debugfs_default_scale);
+
+	if (cfg->features & BIT(SDE_SSPP_TRUE_INLINE_ROT_V1)) {
+		debugfs_create_u32("in_rot_max_downscale_rt",
+			0600,
+			psde->debugfs_root,
+			(u32 *) &psde->pipe_sblk->in_rot_maxdwnscale_rt);
+		debugfs_create_u32("in_rot_max_downscale_nrt",
+			0600,
+			psde->debugfs_root,
+			(u32 *) &psde->pipe_sblk->in_rot_maxdwnscale_nrt);
+		debugfs_create_u32("in_rot_max_height",
+			0600,
+			psde->debugfs_root,
+			(u32 *) &psde->pipe_sblk->in_rot_maxheight);
+	}
 
 	debugfs_create_u32("xin_id",
 			0400,
