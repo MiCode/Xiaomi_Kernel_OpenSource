@@ -137,6 +137,7 @@ static int cam_vfe_top_set_axi_bw_vote(
 	bool apply_bw_update = false;
 	enum cam_cpas_handle_id cpashdl_type;
 	struct cam_axi_vote *last_vote = NULL;
+	uint32_t camera_hw_version = 0;
 
 	if (!soc_private) {
 		CAM_ERR(CAM_ISP, "Error soc_private NULL");
@@ -145,6 +146,15 @@ static int cam_vfe_top_set_axi_bw_vote(
 
 	for (cpashdl_type = 0; cpashdl_type < CAM_CPAS_HANDLE_MAX;
 		cpashdl_type++) {
+
+		rc = cam_cpas_get_cpas_hw_version(&camera_hw_version);
+		if (rc)
+			CAM_ERR(CAM_ISP, "Error! Invalid cpas version rc=%d",
+				rc);
+
+		if ((camera_hw_version != CAM_CPAS_TITAN_175_V120)
+			&& cpashdl_type)
+			continue;
 
 		sum.uncompressed_bw = sum.compressed_bw = 0;
 		to_be_applied_axi_vote.uncompressed_bw = 0;

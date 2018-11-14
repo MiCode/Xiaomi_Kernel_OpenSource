@@ -19,8 +19,8 @@
 #define CAM_VFE_DSP_CLK_NAME "ife_dsp_clk"
 
 enum cam_cpas_handle_id {
-	CAM_CPAS_HANDLE_RAW,
 	CAM_CPAS_HANDLE_CAMIF,
+	CAM_CPAS_HANDLE_RAW,
 	CAM_CPAS_HANDLE_MAX,
 };
 
