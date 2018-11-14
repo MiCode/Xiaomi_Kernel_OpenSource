@@ -265,6 +265,12 @@ Optional properties:
 				DSPP block, the AD offsets must be offset from the
 				corresponding DSPP base.
 - qcom,sde-dspp-ad-version	A u32 value indicating the version of the AD hardware
+- qcom,sde-dspp-ltm-version	A u32 value indicating the major(upper 16 bits) and minor(lower 16 bits)
+				version of the LTM hardware
+- qcom,sde-dspp-ltm-off:	Array of u32 offsets indicate the LTM block offsets from the
+				DSPP offsets. Since LTM hardware is represented as part of
+				DSPP block, the LTM offsets are calculated based on the
+				corresponding DSPP base.
 - qcom,sde-vbif-id:		Array of vbif ids corresponding to the
 				offsets defined in property: qcom,sde-vbif-off.
 - qcom,sde-vbif-default-ot-rd-limit:	A u32 value indicates the default read OT limit

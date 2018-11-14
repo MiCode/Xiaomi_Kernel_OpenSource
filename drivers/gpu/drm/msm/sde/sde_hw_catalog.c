@@ -321,6 +321,12 @@ enum {
 };
 
 enum {
+	LTM_OFF,
+	LTM_VERSION,
+	LTM_PROP_MAX,
+};
+
+enum {
 	MIXER_OFF,
 	MIXER_LEN,
 	MIXER_PAIR_MASK,
@@ -602,6 +608,11 @@ static struct sde_prop_type dspp_blocks_prop[] = {
 static struct sde_prop_type ad_prop[] = {
 	{AD_OFF, "qcom,sde-dspp-ad-off", false, PROP_TYPE_U32_ARRAY},
 	{AD_VERSION, "qcom,sde-dspp-ad-version", false, PROP_TYPE_U32},
+};
+
+static struct sde_prop_type ltm_prop[] = {
+	{LTM_OFF, "qcom,sde-dspp-ltm-off", false, PROP_TYPE_U32_ARRAY},
+	{LTM_VERSION, "qcom,sde-dspp-ltm-version", false, PROP_TYPE_U32},
 };
 
 static struct sde_prop_type ds_top_prop[] = {
@@ -2229,12 +2240,14 @@ static int sde_dspp_parse_dt(struct device_node *np,
 {
 	int rc, prop_count[DSPP_PROP_MAX], i;
 	int ad_prop_count[AD_PROP_MAX];
+	int ltm_prop_count[LTM_PROP_MAX];
 	bool prop_exists[DSPP_PROP_MAX], ad_prop_exists[AD_PROP_MAX];
+	bool ltm_prop_exists[LTM_PROP_MAX];
 	bool blocks_prop_exists[DSPP_BLOCKS_PROP_MAX];
-	struct sde_prop_value *ad_prop_value = NULL;
+	struct sde_prop_value *ad_prop_value = NULL, *ltm_prop_value = NULL;
 	int blocks_prop_count[DSPP_BLOCKS_PROP_MAX];
 	struct sde_prop_value *prop_value = NULL, *blocks_prop_value = NULL;
-	u32 off_count, ad_off_count;
+	u32 off_count, ad_off_count, ltm_off_count;
 	struct sde_dspp_cfg *dspp;
 	struct sde_dspp_sub_blks *sblk;
 	struct device_node *snp = NULL;
@@ -2277,6 +2290,22 @@ static int sde_dspp_parse_dt(struct device_node *np,
 		goto end;
 	rc = _read_dt_entry(np, ad_prop, ARRAY_SIZE(ad_prop), ad_prop_count,
 		ad_prop_exists, ad_prop_value);
+	if (rc)
+		goto end;
+
+	/* Parse LTM dtsi entries */
+	ltm_prop_value = kcalloc(LTM_PROP_MAX,
+			sizeof(struct sde_prop_value), GFP_KERNEL);
+	if (!ltm_prop_value) {
+		rc = -ENOMEM;
+		goto end;
+	}
+	rc = _validate_dt_entry(np, ltm_prop, ARRAY_SIZE(ltm_prop),
+		ltm_prop_count, &ltm_off_count);
+	if (rc)
+		goto end;
+	rc = _read_dt_entry(np, ltm_prop, ARRAY_SIZE(ltm_prop), ltm_prop_count,
+		ltm_prop_exists, ltm_prop_value);
 	if (rc)
 		goto end;
 
@@ -2331,11 +2360,24 @@ static int sde_dspp_parse_dt(struct device_node *np,
 				AD_VERSION, 0);
 			set_bit(SDE_DSPP_AD, &dspp->features);
 		}
+
+		sblk->ltm.id = SDE_DSPP_LTM;
+		sde_cfg->ltm_count = ltm_off_count;
+		if (ltm_prop_value && (i < ltm_off_count) &&
+		    ltm_prop_exists[LTM_OFF]) {
+			sblk->ltm.base = PROP_VALUE_ACCESS(ltm_prop_value,
+				LTM_OFF, i);
+			sblk->ltm.version = PROP_VALUE_ACCESS(ltm_prop_value,
+				LTM_VERSION, 0);
+			set_bit(SDE_DSPP_LTM, &dspp->features);
+		}
+
 	}
 
 end:
 	kfree(prop_value);
 	kfree(ad_prop_value);
+	kfree(ltm_prop_value);
 	kfree(blocks_prop_value);
 	return rc;
 }

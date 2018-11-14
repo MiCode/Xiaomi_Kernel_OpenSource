@@ -41,6 +41,25 @@ static const struct drm_prop_enum_list sde_hist_modes[] = {
 	{HIST_ENABLED, "hist_on"},
 };
 
+/*
+ * LTM HISTOGRAM modes
+ * @LTM_HIST_DISABLED          Histogram disabled
+ * @LTM_HIST_ENABLED           Histogram enabled
+ */
+enum ltm_hist_modes {
+	LTM_HIST_DISABLED,
+	LTM_HIST_ENABLED
+};
+
+/**
+ * struct drm_prop_enum_list - drm structure for creating enum property and
+ *                             enumerating values
+ */
+static const struct drm_prop_enum_list sde_ltm_hist_modes[] = {
+	{LTM_HIST_DISABLED, "ltm_hist_off"},
+	{LTM_HIST_ENABLED, "ltm_hist_on"},
+};
+
 /**
  * sde_cp_crtc_init(): Initialize color processing lists for a crtc.
  *                     Should be called during crtc initialization.
