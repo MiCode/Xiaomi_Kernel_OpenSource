@@ -260,6 +260,7 @@ enum msm_pcie_res {
 	MSM_PCIE_RES_IO,
 	MSM_PCIE_RES_BARS,
 	MSM_PCIE_RES_TCSR,
+	MSM_PCIE_RES_RUMI,
 	MSM_PCIE_MAX_RES,
 };
 
@@ -501,6 +502,7 @@ struct msm_pcie_dev_t {
 	void __iomem *conf;
 	void __iomem *bars;
 	void __iomem *tcsr;
+	void __iomem *rumi;
 
 	uint32_t axi_bar_start;
 	uint32_t axi_bar_end;
@@ -545,6 +547,7 @@ struct msm_pcie_dev_t {
 	bool aux_clk_sync;
 	bool aer_enable;
 	uint32_t smmu_sid_base;
+	uint32_t link_check_max_count;
 	uint32_t target_link_speed;
 	uint32_t n_fts;
 	uint32_t ep_latency;
@@ -602,6 +605,8 @@ struct msm_pcie_dev_t {
 	struct pinctrl_state *pins_default;
 	struct pinctrl_state *pins_sleep;
 	struct msm_pcie_device_info pcidev_table[MAX_DEVICE_NUM];
+
+	void (*rumi_init)(struct msm_pcie_dev_t *pcie_dev);
 };
 
 struct msm_root_dev_t {
@@ -815,7 +820,8 @@ static const struct msm_pcie_res_info_t msm_pcie_res_info[MSM_PCIE_MAX_RES] = {
 	{"conf", NULL, NULL},
 	{"io", NULL, NULL},
 	{"bars", NULL, NULL},
-	{"tcsr", NULL, NULL}
+	{"tcsr", NULL, NULL},
+	{"rumi", NULL, NULL}
 };
 
 /* irqs */
@@ -909,6 +915,35 @@ static inline void msm_pcie_config_clock_mem(struct msm_pcie_dev_t *dev,
 		PCIE_DBG2(dev,
 			"PCIe: RC%d configured peripheral memory for clk %s.\n",
 			dev->rc_idx, info->name);
+}
+
+static void msm_pcie_rumi_init(struct msm_pcie_dev_t *pcie_dev)
+{
+	u32 val;
+	u32 reset_offs = 0x04;
+	u32 phy_ctrl_offs = 0x40;
+
+	PCIE_DBG(pcie_dev, "PCIe: RC%d: enter.\n", pcie_dev->rc_idx);
+
+	val = readl_relaxed(pcie_dev->rumi + phy_ctrl_offs) | 0x1000;
+	writel_relaxed(val, pcie_dev->rumi + phy_ctrl_offs);
+	usleep_range(10000, 10001);
+
+	writel_relaxed(0x800, pcie_dev->rumi + reset_offs);
+	usleep_range(50000, 50001);
+	writel_relaxed(0xFFFFFFFF, pcie_dev->rumi + reset_offs);
+	usleep_range(50000, 50001);
+	writel_relaxed(0x800, pcie_dev->rumi + reset_offs);
+	usleep_range(50000, 50001);
+	writel_relaxed(0, pcie_dev->rumi + reset_offs);
+	usleep_range(50000, 50001);
+
+	val = readl_relaxed(pcie_dev->rumi + phy_ctrl_offs) & 0xFFFFEFFF;
+	writel_relaxed(val, pcie_dev->rumi + phy_ctrl_offs);
+	usleep_range(10000, 10001);
+
+	val = readl_relaxed(pcie_dev->rumi + phy_ctrl_offs) & 0xFFFFFFFE;
+	writel_relaxed(val, pcie_dev->rumi + phy_ctrl_offs);
 }
 
 static void pcie_phy_dump(struct msm_pcie_dev_t *dev)
@@ -1193,6 +1228,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->linkdown_counter);
 	PCIE_DBG_FS(dev, "wake_counter: %lu\n",
 		dev->wake_counter);
+	PCIE_DBG_FS(dev, "link_check_max_count: %u\n",
+		dev->link_check_max_count);
 	PCIE_DBG_FS(dev, "target_link_speed: 0x%x\n",
 		dev->target_link_speed);
 	PCIE_DBG_FS(dev, "link_turned_on_counter: %lu\n",
@@ -3179,6 +3216,10 @@ static void msm_pcie_pipe_clk_deinit(struct msm_pcie_dev_t *dev)
 
 static bool pcie_phy_is_ready(struct msm_pcie_dev_t *dev)
 {
+	/* There is no PHY status check in RUMI */
+	if (dev->rumi)
+		return true;
+
 	if (readl_relaxed(dev->phy + dev->phy_status_offset) & BIT(6))
 		return false;
 	else
@@ -3675,6 +3716,7 @@ static int msm_pcie_get_reg(struct msm_pcie_dev_t *pcie_dev)
 	pcie_dev->conf = pcie_dev->res[MSM_PCIE_RES_CONF].base;
 	pcie_dev->bars = pcie_dev->res[MSM_PCIE_RES_BARS].base;
 	pcie_dev->tcsr = pcie_dev->res[MSM_PCIE_RES_TCSR].base;
+	pcie_dev->rumi = pcie_dev->res[MSM_PCIE_RES_RUMI].base;
 	pcie_dev->dev_mem_res = pcie_dev->res[MSM_PCIE_RES_BARS].resource;
 	pcie_dev->dev_io_res = pcie_dev->res[MSM_PCIE_RES_IO].resource;
 	pcie_dev->dev_io_res->flags = IORESOURCE_IO;
@@ -3765,6 +3807,7 @@ static void msm_pcie_release_resources(struct msm_pcie_dev_t *dev)
 	dev->conf = NULL;
 	dev->bars = NULL;
 	dev->tcsr = NULL;
+	dev->rumi = NULL;
 	dev->dev_mem_res = NULL;
 	dev->dev_io_res = NULL;
 }
@@ -3772,7 +3815,6 @@ static void msm_pcie_release_resources(struct msm_pcie_dev_t *dev)
 static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 {
 	int link_check_count = 0;
-	u32 link_check_max_count = LINK_UP_CHECK_MAX_COUNT;
 	uint32_t val;
 
 	msm_pcie_write_reg_field(dev->dm_core,
@@ -3810,7 +3852,7 @@ static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 	PCIE_DBG(dev, "%s", "check if link is up\n");
 
 	if (msm_pcie_link_check_max_count & BIT(dev->rc_idx))
-		link_check_max_count = msm_pcie_link_check_max_count >> 4;
+		dev->link_check_max_count = msm_pcie_link_check_max_count >> 4;
 
 	/* Wait for up to 100ms for the link to come up */
 	do {
@@ -3820,7 +3862,7 @@ static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 			dev->rc_idx, (val >> 12) & 0x3f);
 	} while ((!(val & XMLH_LINK_UP) ||
 		!msm_pcie_confirm_linkup(dev, false, false, NULL))
-		&& (link_check_count++ < link_check_max_count));
+		&& (link_check_count++ < dev->link_check_max_count));
 
 	if ((val & XMLH_LINK_UP) &&
 		msm_pcie_confirm_linkup(dev, false, false, NULL)) {
@@ -3876,6 +3918,10 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev)
 	wmb();
 	if (ret)
 		goto clk_fail;
+
+	/* RUMI PCIe reset sequence */
+	if (dev->rumi_init)
+		dev->rumi_init(dev);
 
 	/* configure PCIe to RC mode */
 	msm_pcie_write_reg(dev->parf, PCIE20_PARF_DEVICE_TYPE, 0x4);
@@ -5635,6 +5681,13 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	PCIE_DBG(pcie_dev, "RC%d: pcie-phy-ver: %d.\n", pcie_dev->rc_idx,
 		pcie_dev->phy_ver);
 
+	pcie_dev->link_check_max_count = LINK_UP_CHECK_MAX_COUNT;
+	of_property_read_u32(pdev->dev.of_node,
+				"qcom,link-check-max-count",
+				&pcie_dev->link_check_max_count);
+	PCIE_DBG(pcie_dev, "PCIe: RC%d: link-check-max-count: %u.\n",
+		pcie_dev->rc_idx, pcie_dev->link_check_max_count);
+
 	of_property_read_u32(of_node, "qcom,target-link-speed",
 				&pcie_dev->target_link_speed);
 	PCIE_DBG(pcie_dev, "PCIe: RC%d: target-link-speed: 0x%x.\n",
@@ -5742,6 +5795,9 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	ret = msm_pcie_get_resources(pcie_dev, pcie_dev->pdev);
 	if (ret)
 		goto decrease_rc_num;
+
+	if (pcie_dev->rumi)
+		pcie_dev->rumi_init = msm_pcie_rumi_init;
 
 	pcie_dev->pinctrl = devm_pinctrl_get(&pdev->dev);
 	if (IS_ERR_OR_NULL(pcie_dev->pinctrl))
