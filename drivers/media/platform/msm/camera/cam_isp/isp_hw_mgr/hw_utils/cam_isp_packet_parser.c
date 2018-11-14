@@ -596,6 +596,13 @@ int cam_isp_add_io_buffers(
 					return rc;
 				}
 
+				if (io_addr[plane_id] >> 32) {
+					CAM_ERR(CAM_ISP,
+						"Invalid mapped address");
+					rc = -EINVAL;
+					return rc;
+				}
+
 				/* need to update with offset */
 				io_addr[plane_id] +=
 						io_cfg[i].offsets[plane_id];

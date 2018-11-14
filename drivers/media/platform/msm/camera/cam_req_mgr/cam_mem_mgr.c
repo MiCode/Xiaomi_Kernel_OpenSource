@@ -25,11 +25,11 @@
 static struct cam_mem_table tbl;
 
 static int cam_mem_util_map_cpu_va(struct ion_handle *hdl,
-	uintptr_t *vaddr,
+	uint64_t *vaddr,
 	size_t *len)
 {
 	*vaddr = (uintptr_t)ion_map_kernel(tbl.client, hdl);
-	if (IS_ERR_OR_NULL((void *)(uintptr_t)(*vaddr))) {
+	if (IS_ERR_OR_NULL((void *)*vaddr)) {
 		CAM_ERR(CAM_MEM, "kernel map fail");
 		return -ENOSPC;
 	}
@@ -183,12 +183,12 @@ handle_mismatch:
 }
 EXPORT_SYMBOL(cam_mem_get_io_buf);
 
-int cam_mem_get_cpu_buf(int32_t buf_handle, uintptr_t *vaddr_ptr, size_t *len)
+int cam_mem_get_cpu_buf(int32_t buf_handle, uint64_t *vaddr_ptr, size_t *len)
 {
 	int rc = 0;
 	int idx;
 	struct ion_handle *ion_hdl = NULL;
-	uintptr_t kvaddr = 0;
+	uint64_t kvaddr = 0;
 	size_t klen = 0;
 
 	if (!buf_handle || !vaddr_ptr || !len)
@@ -201,42 +201,37 @@ int cam_mem_get_cpu_buf(int32_t buf_handle, uintptr_t *vaddr_ptr, size_t *len)
 	if (!tbl.bufq[idx].active)
 		return -EPERM;
 
+	mutex_lock(&tbl.bufq[idx].q_lock);
 	if (buf_handle != tbl.bufq[idx].buf_handle) {
 		rc = -EINVAL;
 		goto exit_func;
 	}
 
-	if (!(tbl.bufq[idx].flags & CAM_MEM_FLAG_KMD_ACCESS)) {
+	ion_hdl = tbl.bufq[idx].i_hdl;
+	if (!ion_hdl) {
+		CAM_ERR(CAM_MEM, "Invalid ION handle");
 		rc = -EINVAL;
 		goto exit_func;
 	}
 
-	if (!tbl.bufq[idx].kmdvaddr) {
-		mutex_lock(&tbl.bufq[idx].q_lock);
-		ion_hdl = tbl.bufq[idx].i_hdl;
-		if (!ion_hdl) {
-			CAM_ERR(CAM_MEM, "Invalid ION handle");
-			rc = -EINVAL;
-			goto release_mutex;
+	if (tbl.bufq[idx].flags & CAM_MEM_FLAG_KMD_ACCESS) {
+		if (!tbl.bufq[idx].kmdvaddr) {
+			rc = cam_mem_util_map_cpu_va(ion_hdl,
+				&kvaddr, &klen);
+			if (rc)
+				goto exit_func;
+			tbl.bufq[idx].kmdvaddr = kvaddr;
 		}
-
-		rc = cam_mem_util_map_cpu_va(ion_hdl,
-			&kvaddr, &klen);
-		if (rc)
-			goto release_mutex;
-
-		tbl.bufq[idx].kmdvaddr = kvaddr;
-		mutex_unlock(&tbl.bufq[idx].q_lock);
+	} else {
+		rc = -EINVAL;
+		goto exit_func;
 	}
 
 	*vaddr_ptr = tbl.bufq[idx].kmdvaddr;
 	*len = tbl.bufq[idx].len;
 
-	return rc;
-
-release_mutex:
-	mutex_unlock(&tbl.bufq[idx].q_lock);
 exit_func:
+	mutex_unlock(&tbl.bufq[idx].q_lock);
 	return rc;
 }
 EXPORT_SYMBOL(cam_mem_get_cpu_buf);
@@ -293,7 +288,7 @@ int cam_mem_mgr_cache_ops(struct cam_mem_cache_ops_cmd *cmd)
 
 		rc = msm_ion_do_cache_op(tbl.client,
 				tbl.bufq[idx].i_hdl,
-				(void *)(uintptr_t)tbl.bufq[idx].vaddr,
+				(void *)tbl.bufq[idx].vaddr,
 				tbl.bufq[idx].len,
 				ion_cache_ops);
 		if (rc)
@@ -931,7 +926,7 @@ int cam_mem_mgr_request_mem(struct cam_mem_mgr_request_desc *inp,
 	int rc = 0;
 	uint32_t heap_id;
 	int32_t ion_flag = 0;
-	uintptr_t kvaddr;
+	uint64_t kvaddr;
 	dma_addr_t iova = 0;
 	size_t request_len = 0;
 	uint32_t mem_handle;
