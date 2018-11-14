@@ -518,6 +518,8 @@ static void qdss_unbind(struct usb_configuration *c, struct usb_function *f)
 
 	flush_workqueue(qdss->wq);
 
+	qdss->debug_inface_enabled = 0;
+
 	clear_eps(f);
 	clear_desc(gadget, f);
 }
@@ -1092,7 +1094,7 @@ static ssize_t qdss_enable_debug_inface_store(struct config_item *item,
 	}
 
 	spin_lock_irqsave(&qdss->lock, flags);
-	qdss->debug_inface_enabled = (stats == 1 ? "true" : "false");
+	qdss->debug_inface_enabled = (stats == 1 ? true : false);
 	spin_unlock_irqrestore(&qdss->lock, flags);
 	return len;
 }
