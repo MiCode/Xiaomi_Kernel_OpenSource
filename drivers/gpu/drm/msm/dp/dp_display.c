@@ -260,7 +260,7 @@ static void dp_display_hdcp_cb_work(struct work_struct *work)
 
 	dp = container_of(dw, struct dp_display_private, hdcp_cb_work);
 
-	if (!dp->power_on || atomic_read(&dp->aborted))
+	if (!dp->power_on || !dp->is_connected || atomic_read(&dp->aborted))
 		return;
 
 	status = &dp->link->hdcp_status;
@@ -327,10 +327,7 @@ static void dp_display_notify_hdcp_status_cb(void *ptr,
 
 	dp->link->hdcp_status.hdcp_state = state;
 
-	mutex_lock(&dp->session_lock);
-	if (dp->power_on && !atomic_read(&dp->aborted))
-		queue_delayed_work(dp->wq, &dp->hdcp_cb_work, HZ/4);
-	mutex_unlock(&dp->session_lock);
+	queue_delayed_work(dp->wq, &dp->hdcp_cb_work, HZ/4);
 }
 
 static void dp_display_deinitialize_hdcp(struct dp_display_private *dp)
