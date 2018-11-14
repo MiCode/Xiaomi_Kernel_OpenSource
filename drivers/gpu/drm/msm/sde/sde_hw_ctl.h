@@ -113,14 +113,6 @@ struct sde_ctl_dsc_cfg {
 };
 
 /**
- * struct sde_ctl_sbuf_cfg - control for stream buffer configuration
- * @rot_op_mode: rotator operation mode
- */
-struct sde_ctl_sbuf_cfg {
-	enum sde_ctl_rot_op_mode rot_op_mode;
-};
-
-/**
  * struct sde_ctl_flush_cfg - struct describing flush configuration managed
  * via set, trigger and clear ops.
  * set ops corresponding to the hw_block is called, when the block's
@@ -451,14 +443,6 @@ struct sde_hw_ctl_ops {
 	 */
 	u32 (*get_staged_sspp)(struct sde_hw_ctl *ctx, enum sde_lm lm,
 		struct sde_sspp_index_info *info, u32 info_max_cnt);
-
-	/**
-	 * Setup the stream buffer config like rotation mode
-	 * @ctx       : ctl path ctx pointer
-	 * Returns: 0 on success or -error
-	 */
-	int (*setup_sbuf_cfg)(struct sde_hw_ctl *ctx,
-		struct sde_ctl_sbuf_cfg *cfg);
 
 	/**
 	 * Flush the reg dma by sending last command.

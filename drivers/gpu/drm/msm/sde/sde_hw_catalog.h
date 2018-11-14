@@ -163,7 +163,6 @@ enum {
  * @SDE_SSPP_SMART_DMA_V1,   SmartDMA 1.0 support
  * @SDE_SSPP_SMART_DMA_V2,   SmartDMA 2.0 support
  * @SDE_SSPP_SMART_DMA_V2p5, SmartDMA 2.5 support
- * @SDE_SSPP_SBUF,           SSPP support inline stream buffer
  * @SDE_SSPP_TS_PREFILL      Supports prefill with traffic shaper
  * @SDE_SSPP_TS_PREFILL_REC1 Supports prefill with traffic shaper multirec
  * @SDE_SSPP_CDP             Supports client driven prefetch
@@ -197,7 +196,6 @@ enum {
 	SDE_SSPP_SMART_DMA_V1,
 	SDE_SSPP_SMART_DMA_V2,
 	SDE_SSPP_SMART_DMA_V2p5,
-	SDE_SSPP_SBUF,
 	SDE_SSPP_TS_PREFILL,
 	SDE_SSPP_TS_PREFILL_REC1,
 	SDE_SSPP_CDP,
@@ -303,7 +301,6 @@ enum {
  * CTL sub-blocks
  * @SDE_CTL_SPLIT_DISPLAY       CTL supports video mode split display
  * @SDE_CTL_PINGPONG_SPLIT      CTL supports pingpong split
- * @SDE_CTL_SBUF                CTL supports inline stream buffer
  * @SDE_CTL_PRIMARY_PREF        CTL preferred for primary display
  * @SDE_CTL_ACTIVE_CFG          CTL configuration is specified using active
  *                              blocks
@@ -312,7 +309,6 @@ enum {
 enum {
 	SDE_CTL_SPLIT_DISPLAY = 0x1,
 	SDE_CTL_PINGPONG_SPLIT,
-	SDE_CTL_SBUF,
 	SDE_CTL_PRIMARY_PREF,
 	SDE_CTL_ACTIVE_CFG,
 	SDE_CTL_MAX
@@ -320,15 +316,13 @@ enum {
 
 /**
  * INTF sub-blocks
- * @SDE_INTF_ROT_START          INTF supports rotator start trigger
  * @SDE_INTF_INPUT_CTRL         Supports the setting of pp block from which
  *                              pixel data arrives to this INTF
  * @SDE_INTF_TE                 INTF block has TE configuration support
  * @SDE_INTF_MAX
  */
 enum {
-	SDE_INTF_ROT_START = 0x1,
-	SDE_INTF_INPUT_CTRL,
+	SDE_INTF_INPUT_CTRL = 0x1,
 	SDE_INTF_TE,
 	SDE_INTF_MAX
 };
@@ -626,8 +620,6 @@ enum sde_clk_ctrl_type {
 	SDE_CLK_CTRL_WB0,
 	SDE_CLK_CTRL_WB1,
 	SDE_CLK_CTRL_WB2,
-	SDE_CLK_CTRL_INLINE_ROT0_SSPP,
-	SDE_CLK_CTRL_INLINE_ROT0_WB,
 	SDE_CLK_CTRL_MAX,
 };
 
@@ -851,44 +843,6 @@ struct sde_merge_3d_cfg {
 };
 
 /**
- * struct sde_rot_vbif_cfg - inline rotator vbif configs
- * @xin_id             xin client id
- * @num                enum identifying this block
- * @is_read            indicates read/write client
- * @clk_ctrl           index to clk control
- */
-struct sde_rot_vbif_cfg {
-	u32 xin_id;
-	u32 num;
-	bool is_read;
-	enum sde_clk_ctrl_type clk_ctrl;
-};
-
-/**
- * struct sde_rot_cfg - information of rotator blocks
- * @id                 enum identifying this block
- * @base               register offset of this block
- * @len                length of hardware block
- * @features           bit mask identifying sub-blocks/features
- * @pdev               private device handle
- * @scid               subcache identifier
- * @slice_size         subcache slice size
- * @vbif_idx           vbif identifier
- * @xin_count          number of xin clients
- * @vbif_cfg           vbif settings related to rotator
- */
-struct sde_rot_cfg {
-	SDE_HW_BLK_INFO;
-	void *pdev;
-	int scid;
-	size_t slice_size;
-	u32 vbif_idx;
-
-	u32 xin_count;
-	struct sde_rot_vbif_cfg vbif_cfg[MAX_BLOCKS];
-};
-
-/**
  * struct sde_vbif_dynamic_ot_cfg - dynamic OT setting
  * @pps                pixel per seconds
  * @ot_limit           OT limit to use up to specified pixel per second
@@ -1062,9 +1016,6 @@ struct sde_perf_cfg {
  * @has_cwb_support    indicates if device supports primary capture through CWB
  * @ubwc_version       UBWC feature version (0x0 for not supported)
  * @ubwc_bw_calc_version indicate how UBWC BW has to be calculated
- * @has_sbuf           indicate if stream buffer is available
- * @sbuf_headroom      stream buffer headroom in lines
- * @sbuf_prefill       stream buffer prefill default in lines
  * @has_idle_pc        indicate if idle power collapse feature is supported
  * @has_hdr            HDR feature support
  * @dma_formats        Supported formats for dma pipe
@@ -1089,6 +1040,8 @@ struct sde_perf_cfg {
  * @sui_ns_allowed      flag to indicate non-secure context banks are allowed
  *                         during secure-ui session
  * @sui_supported_blendstage  secure-ui supported blendstage
+ * @has_cursor    indicates if hardware cursor is supported
+ * @has_vig_p010  indicates if vig pipe supports p010 format
  * @mdss_irqs	  bitmap with the irqs supported by the target
  */
 struct sde_mdss_cfg {
@@ -1116,9 +1069,6 @@ struct sde_mdss_cfg {
 	bool has_cwb_support;
 	u32 ubwc_version;
 	u32 ubwc_bw_calc_version;
-	bool has_sbuf;
-	u32 sbuf_headroom;
-	u32 sbuf_prefill;
 	bool has_idle_pc;
 	u32 vbif_qos_nlvl;
 	u32 ts_prefill_rev;
@@ -1138,6 +1088,8 @@ struct sde_mdss_cfg {
 	u32 sui_supported_blendstage;
 
 	bool has_hdr;
+	bool has_cursor;
+	bool has_vig_p010;
 	u32 mdss_count;
 	struct sde_mdss_base_cfg mdss[MAX_BLOCKS];
 
@@ -1175,9 +1127,6 @@ struct sde_mdss_cfg {
 
 	u32 wb_count;
 	struct sde_wb_cfg wb[MAX_BLOCKS];
-
-	u32 rot_count;
-	struct sde_rot_cfg rot[MAX_BLOCKS];
 
 	u32 vbif_count;
 	struct sde_vbif_cfg vbif[MAX_BLOCKS];

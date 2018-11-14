@@ -54,25 +54,15 @@ struct sde_encoder_hw_resources {
 
 /**
  * sde_encoder_kickoff_params - info encoder requires at kickoff
- * @inline_rotate_prefill: number of lines to prefill for inline rotation
  * @is_primary: set to true if the display is primary display
  * @affected_displays:  bitmask, bit set means the ROI of the commit lies within
  *                      the bounds of the physical display at the bit index
  * @recovery_events_enabled: indicates status of client for recoovery events
  */
 struct sde_encoder_kickoff_params {
-	u32 inline_rotate_prefill;
 	u32 is_primary;
 	unsigned long affected_displays;
 	bool recovery_events_enabled;
-};
-
-/**
- * sde_encoder_rsc_config - rsc configuration for encoder
- * @inline_rotate_prefill: number of lines to prefill for inline rotation
- */
-struct sde_encoder_rsc_config {
-	u32 inline_rotate_prefill;
 };
 
 /**

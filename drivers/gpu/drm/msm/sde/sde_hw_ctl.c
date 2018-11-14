@@ -246,20 +246,6 @@ static inline int sde_hw_ctl_trigger_pending(struct sde_hw_ctl *ctx)
 	return 0;
 }
 
-static inline int sde_hw_ctl_trigger_rot_start(struct sde_hw_ctl *ctx)
-{
-	if (!ctx)
-		return -EINVAL;
-
-	/* ROT flush bit is latched during ROT start, so set it first */
-	if (CTL_FLUSH_MASK_ROT & ctx->flush.pending_flush_mask) {
-		ctx->flush.pending_flush_mask &= ~CTL_FLUSH_MASK_ROT;
-		SDE_REG_WRITE(&ctx->hw, CTL_FLUSH, CTL_FLUSH_MASK_ROT);
-	}
-	SDE_REG_WRITE(&ctx->hw, CTL_ROT_START, BIT(0));
-	return 0;
-}
-
 static inline int sde_hw_ctl_clear_pending_flush(struct sde_hw_ctl *ctx)
 {
 	if (!ctx)
@@ -411,21 +397,6 @@ static inline int sde_hw_ctl_update_bitmask_wb(struct sde_hw_ctl *ctx,
 	}
 
 	UPDATE_MASK(ctx->flush.pending_flush_mask, wb_tbl[wb], enable);
-	return 0;
-}
-
-static inline int sde_hw_ctl_update_bitmask_rot(struct sde_hw_ctl *ctx,
-		enum sde_rot rot, bool enable)
-{
-	if (!ctx)
-		return -EINVAL;
-
-	if (!(rot > SDE_NONE) || !(rot < ROT_MAX)) {
-		SDE_ERROR("Unsupported rot %d\n", rot);
-		return -EINVAL;
-	}
-
-	UPDATE_MASK(ctx->flush.pending_flush_mask, rot_tbl[rot], enable);
 	return 0;
 }
 
@@ -1201,22 +1172,6 @@ static inline u32 sde_hw_ctl_read_ctl_layers(struct sde_hw_ctl *ctx, int index)
 	return ctl_top;
 }
 
-static int sde_hw_ctl_setup_sbuf_cfg(struct sde_hw_ctl *ctx,
-	struct sde_ctl_sbuf_cfg *cfg)
-{
-	struct sde_hw_blk_reg_map *c;
-	u32 val;
-
-	if (!ctx)
-		return -EINVAL;
-
-	c = &ctx->hw;
-	val = cfg->rot_op_mode & 0x3;
-
-	SDE_REG_WRITE(c, CTL_ROT_TOP, val);
-	return 0;
-}
-
 static int sde_hw_reg_dma_flush(struct sde_hw_ctl *ctx, bool blocking)
 {
 	struct sde_hw_reg_dma_ops *ops = sde_reg_dma_get_ops();
@@ -1287,11 +1242,6 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 	ops->update_bitmask_dspp_pavlut = sde_hw_ctl_update_bitmask_dspp_pavlut;
 	ops->reg_dma_flush = sde_hw_reg_dma_flush;
 	ops->get_start_state = sde_hw_ctl_get_start_state;
-	if (cap & BIT(SDE_CTL_SBUF)) {
-		ops->update_bitmask_rot = sde_hw_ctl_update_bitmask_rot;
-		ops->setup_sbuf_cfg = sde_hw_ctl_setup_sbuf_cfg;
-		ops->trigger_rot_start = sde_hw_ctl_trigger_rot_start;
-	}
 };
 
 static struct sde_hw_blk_ops sde_hw_ops = {

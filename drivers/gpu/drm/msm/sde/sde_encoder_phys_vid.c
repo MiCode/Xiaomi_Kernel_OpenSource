@@ -262,84 +262,6 @@ static void programmable_fetch_config(struct sde_encoder_phys *phys_enc,
 	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
 }
 
-/*
- * programmable_rot_fetch_config: Programs ROT to prefetch lines by offsetting
- *	the start of fetch into the vertical front porch for cases where the
- *	vsync pulse width and vertical back porch time is insufficient
- *
- *	Gets # of lines to pre-fetch, then calculate VSYNC counter value.
- *	HW layer requires VSYNC counter of first pixel of tgt VFP line.
- * @phys_enc: Pointer to physical encoder
- * @rot_fetch_lines: number of line to prefill, or 0 to disable
- * @is_primary: set true if the display is primary display
- */
-static void programmable_rot_fetch_config(struct sde_encoder_phys *phys_enc,
-		u32 rot_fetch_lines, u32 is_primary)
-{
-	struct sde_encoder_phys_vid *vid_enc =
-		to_sde_encoder_phys_vid(phys_enc);
-	struct intf_prog_fetch f = { 0 };
-	struct intf_timing_params *timing;
-	u32 vfp_fetch_lines = 0;
-	u32 horiz_total = 0;
-	u32 vert_total = 0;
-	u32 rot_fetch_start_vsync_counter = 0;
-	unsigned long lock_flags;
-
-	if (!phys_enc || !phys_enc->hw_intf || !phys_enc->hw_ctl ||
-			!phys_enc->hw_ctl->ops.update_bitmask_intf ||
-			!phys_enc->hw_intf->ops.setup_rot_start ||
-			!phys_enc->sde_kms ||
-			!is_primary)
-		return;
-
-	timing = &vid_enc->timing_params;
-	vfp_fetch_lines = programmable_fetch_get_num_lines(vid_enc,
-							   timing, true);
-	if (rot_fetch_lines) {
-		vert_total = get_vertical_total(timing, true);
-		horiz_total = get_horizontal_total(timing);
-		if (vert_total >= (vfp_fetch_lines + rot_fetch_lines)) {
-			rot_fetch_start_vsync_counter =
-			    (vert_total - vfp_fetch_lines - rot_fetch_lines) *
-			    horiz_total + 1;
-			f.enable = 1;
-			f.fetch_start = rot_fetch_start_vsync_counter;
-		} else {
-			SDE_ERROR_VIDENC(vid_enc,
-				"vert_total %u rot_fetch_lines %u vfp_fetch_lines %u\n",
-				vert_total, rot_fetch_lines, vfp_fetch_lines);
-			SDE_EVT32(DRMID(phys_enc->parent), vert_total,
-				rot_fetch_lines, vfp_fetch_lines,
-				SDE_EVTLOG_ERROR);
-		}
-	}
-
-	/* return if rot_fetch does not change since last update */
-	if (vid_enc->rot_fetch_valid &&
-			!memcmp(&vid_enc->rot_fetch, &f, sizeof(f)))
-		return;
-
-	SDE_DEBUG_VIDENC(vid_enc,
-		"rot_fetch_lines %u vfp_fetch_lines %u rot_fetch_start_vsync_counter %u\n",
-		rot_fetch_lines, vfp_fetch_lines,
-		rot_fetch_start_vsync_counter);
-
-	if (!phys_enc->cont_splash_enabled) {
-		SDE_EVT32(DRMID(phys_enc->parent), f.enable, f.fetch_start);
-
-		phys_enc->hw_ctl->ops.update_bitmask_intf(
-				phys_enc->hw_ctl, phys_enc->hw_intf->idx, 1);
-
-		spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
-		phys_enc->hw_intf->ops.setup_rot_start(phys_enc->hw_intf, &f);
-		spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
-
-		vid_enc->rot_fetch = f;
-		vid_enc->rot_fetch_valid = true;
-	}
-}
-
 static bool sde_encoder_phys_vid_mode_fixup(
 		struct sde_encoder_phys *phys_enc,
 		const struct drm_display_mode *mode,
@@ -808,9 +730,6 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 	if (WARN_ON(!phys_enc->hw_intf->ops.enable_timing))
 		return;
 
-	/* reset state variables until after first update */
-	vid_enc->rot_fetch_valid = false;
-
 	if (!phys_enc->cont_splash_enabled)
 		sde_encoder_helper_split_config(phys_enc,
 				phys_enc->hw_intf->idx);
@@ -1036,9 +955,6 @@ static int sde_encoder_phys_vid_prepare_for_kickoff(
 
 	if (sde_connector_qsync_updated(phys_enc->connector))
 		_sde_encoder_phys_vid_avr_ctrl(phys_enc);
-
-	programmable_rot_fetch_config(phys_enc,
-			params->inline_rotate_prefill, params->is_primary);
 
 	return rc;
 }

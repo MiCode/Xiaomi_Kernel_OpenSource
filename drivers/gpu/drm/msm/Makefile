@@ -174,7 +174,6 @@ msm_drm-$(CONFIG_DRM_MSM_SDE) += \
 	sde/sde_hw_util.o \
 	sde/sde_hw_sspp.o \
 	sde/sde_hw_wb.o \
-	sde/sde_hw_rot.o \
 	sde/sde_hw_pingpong.o \
 	sde/sde_hw_top.o \
 	sde/sde_hw_interrupts.o \

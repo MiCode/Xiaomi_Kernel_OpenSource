@@ -24,68 +24,7 @@
 #include "msm_prop.h"
 #include "sde_kms.h"
 #include "sde_hw_mdss.h"
-#include "sde_hw_rot.h"
 #include "sde_hw_sspp.h"
-
-/**
- * struct sde_plane_rot_state - state of pre-sspp rotator stage
- * @sequence_id: sequence identifier, incremented per state duplication
- * @rot_hw: Pointer to rotator hardware driver
- * @rot90: true if rotation of 90 degree is required
- * @hflip: true if horizontal flip is required
- * @vflip: true if vertical flip is required
- * @rot_cmd: rotator configuration command
- * @nplane: total number of drm plane attached to rotator
- * @in_fb: input fb attached to rotator
- * @in_rotation: input rotation property of rotator stage
- * @in_rot_rect: input rectangle of the rotator in plane fb coordinate
- * @out_rotation: output rotation property of rotator stage
- * @out_rot_rect: output rectangle of the rotator in plane fb coordinate
- * @out_src_rect: output rectangle of the plane source in plane fb coordinate
- * @out_src_x: output src_x of rotator stage in rotator output fb coordinate
- * @out_src_y: output src y of rotator stage in rotator output fb coordinate
- * @out_src_w: output src w of rotator stage in rotator output fb ooordinate
- * @out_src_h: output src h of rotator stage in rotator output fb coordinate
- * @out_fb_width: output framebuffer width of rotator stage
- * @out_fb_height: output framebuffer height of rotator stage
- * @out_fb_pixel_format: output framebuffer pixel format of rotator stage
- * @out_fb_modifier: output framebuffer modifier of rotator stage
- * @out_fb_flags: output framebuffer flags of rotator stage
- * @out_sbuf: true if output streaming buffer is required
- * @out_fb_format: Pointer to output framebuffer format of rotator stage
- * @out_fb: Pointer to output framebuffer of rotator stage
- * @out_xpos: relative horizontal position of the plane (0 - leftmost)
- */
-struct sde_plane_rot_state {
-	u32 sequence_id;
-	struct sde_hw_rot *rot_hw;
-	bool rot90;
-	bool hflip;
-	bool vflip;
-	struct sde_hw_rot_cmd rot_cmd;
-	int nplane;
-	/* input */
-	struct drm_framebuffer *in_fb;
-	struct drm_rect in_rot_rect;
-	u32 in_rotation;
-	/* output */
-	struct drm_rect out_rot_rect;
-	struct drm_rect out_src_rect;
-	u32 out_rotation;
-	u32 out_src_x;
-	u32 out_src_y;
-	u32 out_src_w;
-	u32 out_src_h;
-	u32 out_fb_width;
-	u32 out_fb_height;
-	u32 out_fb_pixel_format;
-	u64 out_fb_modifier[4];
-	u32 out_fb_flags;
-	bool out_sbuf;
-	const struct sde_format *out_fb_format;
-	struct drm_framebuffer *out_fb;
-	int out_xpos;
-};
 
 /* dirty bits for update function */
 #define SDE_PLANE_DIRTY_RECTS	0x1
@@ -166,7 +105,7 @@ struct sde_plane_state {
 
 	/* @sc_cfg: system_cache configuration */
 	struct sde_hw_pipe_sc_cfg sc_cfg;
-	struct sde_plane_rot_state rot;
+	uint32_t rotation;
 
 	struct sde_hw_pipe_cdp_cfg cdp_cfg;
 };
@@ -209,17 +148,6 @@ enum sde_sspp sde_plane_pipe(struct drm_plane *plane);
 bool is_sde_plane_virtual(struct drm_plane *plane);
 
 /**
- * sde_plane_confirm_hw_rsvps - reserve an sbuf resource, if needed
- * @plane: Pointer to DRM plane object
- * @state: Pointer to plane state
- * @cstate: Pointer to crtc state containing the resource pool
- * Returns: Zero on success
- */
-int sde_plane_confirm_hw_rsvps(struct drm_plane *plane,
-		const struct drm_plane_state *state,
-		struct drm_crtc_state *cstate);
-
-/**
  * sde_plane_ctl_flush - set/clear control flush mask
  * @plane:   Pointer to DRM plane object
  * @ctl: Pointer to control hardware
@@ -227,13 +155,6 @@ int sde_plane_confirm_hw_rsvps(struct drm_plane *plane,
  */
 void sde_plane_ctl_flush(struct drm_plane *plane, struct sde_hw_ctl *ctl,
 		bool set);
-
-/**
- * sde_plane_rot_get_prefill - calculate rotator start prefill
- * @plane: Pointer to drm plane
- * return: prefill time in lines
- */
-u32 sde_plane_rot_get_prefill(struct drm_plane *plane);
 
 /**
  * sde_plane_restore - restore hw state if previously power collapsed
@@ -255,21 +176,6 @@ void sde_plane_flush(struct drm_plane *plane);
  * @enable: Whether to enable/disable halting of vbif transactions
  */
 void sde_plane_halt_requests(struct drm_plane *plane, bool enable);
-
-/**
- * sde_plane_reset_rot - reset rotator operations before commit kickoff
- * @plane: Pointer to drm plane structure
- * @state: Pointer to plane state associated with reset request
- * Returns: Zero on success
- */
-int sde_plane_reset_rot(struct drm_plane *plane, struct drm_plane_state *state);
-
-/**
- * sde_plane_kickoff_rot - final plane rotator operations before commit kickoff
- * @plane: Pointer to drm plane structure
- * Returns: Zero on success
- */
-int sde_plane_kickoff_rot(struct drm_plane *plane);
 
 /**
  * sde_plane_set_error: enable/disable error condition
@@ -351,14 +257,6 @@ void sde_plane_set_revalidate(struct drm_plane *plane, bool enable);
  */
 int sde_plane_helper_reset_custom_properties(struct drm_plane *plane,
 		struct drm_plane_state *plane_state);
-
-/**
- * sde_plane_get_sbuf_id - returns the hw_rot id if sspp of given plane is
- *                           in streaming buffer mode
- * @plane: pointer to drm plane
- * return: sde_rot if sspp is in stream buffer mode
- */
-int sde_plane_get_sbuf_id(struct drm_plane *plane);
 
 /* sde_plane_is_sec_ui_allowed - indicates if the sspp allows secure-ui layers
  * @plane: Pointer to DRM plane object

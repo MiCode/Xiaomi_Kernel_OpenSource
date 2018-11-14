@@ -16,7 +16,6 @@
 #include "sde_encoder.h"
 #include "sde_connector.h"
 #include "sde_hw_dsc.h"
-#include "sde_hw_rot.h"
 
 #define RESERVED_BY_OTHER(h, r) \
 	((h)->rsvp && ((h)->rsvp->enc_id != (r)->enc_id))
@@ -273,9 +272,6 @@ static void _sde_rm_hw_destroy(enum sde_hw_blk_type type, void *hw)
 	case SDE_HW_BLK_DSC:
 		sde_hw_dsc_destroy(hw);
 		break;
-	case SDE_HW_BLK_ROT:
-		sde_hw_rot_destroy(hw);
-		break;
 	case SDE_HW_BLK_SSPP:
 		/* SSPPs are not managed by the resource manager */
 	case SDE_HW_BLK_TOP:
@@ -363,9 +359,6 @@ static int _sde_rm_hw_blk_create(
 		break;
 	case SDE_HW_BLK_DSC:
 		hw = sde_hw_dsc_init(id, mmio, cat);
-		break;
-	case SDE_HW_BLK_ROT:
-		hw = sde_hw_rot_init(id, mmio, cat);
 		break;
 	case SDE_HW_BLK_SSPP:
 		/* SSPPs are not managed by the resource manager */
@@ -521,15 +514,6 @@ int sde_rm_init(struct sde_rm *rm,
 				cat->wb[i].id, &cat->wb[i]);
 		if (rc) {
 			SDE_ERROR("failed: wb hw not available\n");
-			goto fail;
-		}
-	}
-
-	for (i = 0; i < cat->rot_count; i++) {
-		rc = _sde_rm_hw_blk_create(rm, cat, mmio, SDE_HW_BLK_ROT,
-				cat->rot[i].id, &cat->rot[i]);
-		if (rc) {
-			SDE_ERROR("failed: rot hw not available\n");
 			goto fail;
 		}
 	}

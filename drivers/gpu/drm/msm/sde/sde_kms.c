@@ -271,29 +271,6 @@ static const struct file_operations sde_fops_regset32 = {
 	.release =	single_release,
 };
 
-void sde_debugfs_setup_regset32(struct sde_debugfs_regset32 *regset,
-		uint32_t offset, uint32_t length, struct sde_kms *sde_kms)
-{
-	if (regset) {
-		regset->offset = offset;
-		regset->blk_len = length;
-		regset->sde_kms = sde_kms;
-	}
-}
-
-void *sde_debugfs_create_regset32(const char *name, umode_t mode,
-		void *parent, struct sde_debugfs_regset32 *regset)
-{
-	if (!name || !regset || !regset->sde_kms || !regset->blk_len)
-		return NULL;
-
-	/* make sure offset is a multiple of 4 */
-	regset->offset = round_down(regset->offset, 4);
-
-	return debugfs_create_file(name, mode, parent,
-			regset, &sde_fops_regset32);
-}
-
 void *sde_debugfs_get_root(struct sde_kms *sde_kms)
 {
 	struct msm_drm_private *priv;
