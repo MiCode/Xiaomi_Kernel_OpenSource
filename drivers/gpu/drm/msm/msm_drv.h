@@ -341,6 +341,7 @@ struct msm_roi_caps {
  * @range_min_qp:            Min QP allowed.
  * @range_max_qp:            Max QP allowed.
  * @range_bpg_offset:        Bits per group adjustment.
+ * @extra_width:             Extra width required in timing calculations
  */
 struct msm_display_dsc_info {
 	u8 version;
@@ -396,6 +397,8 @@ struct msm_display_dsc_info {
 	char *range_min_qp;
 	char *range_max_qp;
 	char *range_bpg_offset;
+
+	u32 extra_width;
 };
 
 /**

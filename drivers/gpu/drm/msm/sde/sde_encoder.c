@@ -3104,6 +3104,14 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 		phys->comp_type = comp_info->comp_type;
 		phys->comp_ratio = comp_info->comp_ratio;
 		phys->wide_bus_en = mode_info.wide_bus_en;
+
+		if (phys->comp_type == MSM_DISPLAY_COMPRESSION_DSC) {
+			phys->dsc_extra_pclk_cycle_cnt =
+				comp_info->dsc_info.pclk_per_line;
+			phys->dsc_extra_disp_width =
+				comp_info->dsc_info.extra_width;
+		}
+
 		if (phys != sde_enc->cur_master) {
 			/**
 			 * on DMS request, the encoder will be enabled
@@ -3518,6 +3526,7 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 	unsigned long lock_flags;
 	struct sde_encoder_virt *sde_enc;
 	int pend_ret_fence_cnt;
+	struct sde_connector *c_conn;
 
 	if (!drm_enc || !phys) {
 		SDE_ERROR("invalid argument(s), drm_enc %d, phys_enc %d\n",
@@ -3526,6 +3535,7 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 	}
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
+	c_conn = to_sde_connector(phys->connector);
 
 	if (!phys->hw_pp) {
 		SDE_ERROR("invalid pingpong hw\n");
@@ -3553,6 +3563,15 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 		atomic_inc(&phys->pending_retire_fence_cnt);
 
 	pend_ret_fence_cnt = atomic_read(&phys->pending_retire_fence_cnt);
+
+	/* perform peripheral flush on every frame update for dp dsc */
+	if (phys->hw_intf && phys->hw_intf->cap->type == INTF_DP &&
+			phys->comp_type == MSM_DISPLAY_COMPRESSION_DSC &&
+			phys->comp_ratio && ctl->ops.update_bitmask_periph &&
+			c_conn->ops.update_pps) {
+		c_conn->ops.update_pps(phys->connector, NULL, c_conn->display);
+		ctl->ops.update_bitmask_periph(ctl, phys->hw_intf->idx, 1);
+	}
 
 	if ((extra_flush && extra_flush->pending_flush_mask)
 			&& ctl->ops.update_pending_flush)
