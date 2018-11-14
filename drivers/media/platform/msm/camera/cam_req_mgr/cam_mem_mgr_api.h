@@ -84,7 +84,7 @@ int cam_mem_mgr_release_mem(struct cam_mem_mgr_memory_desc *inp);
 int cam_mem_get_io_buf(int32_t buf_handle, int32_t mmu_handle,
 	uint64_t *iova_ptr, size_t *len_ptr);
 /**
- * @brief: Returns CPU address information about DMA buffer
+ * @brief: Returns CPU address information about buffer
  *
  * @buf_handle: Handle for the buffer
  * @vaddr_ptr : pointer to kernel virtual address
@@ -94,15 +94,6 @@ int cam_mem_get_io_buf(int32_t buf_handle, int32_t mmu_handle,
  */
 int cam_mem_get_cpu_buf(int32_t buf_handle, uintptr_t *vaddr_ptr,
 	size_t *len);
-
-/**
- * @brief: Release CPU address information about DMA buffer
- *
- * @buf_handle: Handle for the buffer
- *
- * @return Status of operation. Negative in case of error. Zero otherwise.
- */
-int cam_mem_put_cpu_buf(int32_t buf_handle);
 
 static inline bool cam_mem_is_secure_buf(int32_t buf_handle)
 {

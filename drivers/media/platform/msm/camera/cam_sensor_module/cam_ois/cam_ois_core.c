@@ -457,8 +457,7 @@ static int cam_ois_pkt_parse(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 		CAM_ERR(CAM_OIS,
 			"offset is out of bound: off: %lld len: %zu",
 			dev_config.offset, pkt_len);
-		rc = -EINVAL;
-		goto rel_pkt;
+		return -EINVAL;
 	}
 
 	csl_packet = (struct cam_packet *)
@@ -479,13 +478,12 @@ static int cam_ois_pkt_parse(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 				&generic_ptr, &len_of_buff);
 			if (rc < 0) {
 				CAM_ERR(CAM_OIS, "Failed to get cpu buf");
-				goto rel_pkt;
+				return rc;
 			}
 			cmd_buf = (uint32_t *)generic_ptr;
 			if (!cmd_buf) {
 				CAM_ERR(CAM_OIS, "invalid cmd buf");
-				rc = -EINVAL;
-				goto rel_cmd_buf;
+				return -EINVAL;
 			}
 			cmd_buf += cmd_desc[i].offset / sizeof(uint32_t);
 			cmm_hdr = (struct common_header *)cmd_buf;
@@ -497,7 +495,7 @@ static int cam_ois_pkt_parse(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 				if (rc < 0) {
 					CAM_ERR(CAM_OIS,
 					"Failed in parsing slave info");
-					goto rel_cmd_buf;
+					return rc;
 				}
 				break;
 			case CAMERA_SENSOR_CMD_TYPE_PWR_UP:
@@ -511,7 +509,7 @@ static int cam_ois_pkt_parse(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 				if (rc) {
 					CAM_ERR(CAM_OIS,
 					"Failed: parse power settings");
-					goto rel_cmd_buf;
+					return rc;
 				}
 				break;
 			default:
@@ -529,7 +527,7 @@ static int cam_ois_pkt_parse(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 				if (rc < 0) {
 					CAM_ERR(CAM_OIS,
 					"init parsing failed: %d", rc);
-					goto rel_cmd_buf;
+					return rc;
 				}
 			} else if ((o_ctrl->is_ois_calib != 0) &&
 				(o_ctrl->i2c_calib_data.is_settings_valid ==
@@ -546,21 +544,18 @@ static int cam_ois_pkt_parse(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 				if (rc < 0) {
 					CAM_ERR(CAM_OIS,
 						"Calib parsing failed: %d", rc);
-					goto rel_cmd_buf;
+					return rc;
 				}
 			}
 			break;
 			}
-			if (cam_mem_put_cpu_buf(cmd_desc[i].mem_handle))
-				CAM_WARN(CAM_OIS, "Failed to put cpu buf: %pK",
-				cmd_desc[i].mem_handle);
 		}
 
 		if (o_ctrl->cam_ois_state != CAM_OIS_CONFIG) {
 			rc = cam_ois_power_up(o_ctrl);
 			if (rc) {
 				CAM_ERR(CAM_OIS, " OIS Power up failed");
-				goto rel_pkt;
+				return rc;
 			}
 			o_ctrl->cam_ois_state = CAM_OIS_CONFIG;
 		}
@@ -607,7 +602,7 @@ static int cam_ois_pkt_parse(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 			CAM_WARN(CAM_OIS,
 				"Not in right state to control OIS: %d",
 				o_ctrl->cam_ois_state);
-			goto rel_pkt;
+			return rc;
 		}
 		offset = (uint32_t *)&csl_packet->payload;
 		offset += (csl_packet->cmd_buf_offset / sizeof(uint32_t));
@@ -620,43 +615,26 @@ static int cam_ois_pkt_parse(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 			cmd_desc, 1);
 		if (rc < 0) {
 			CAM_ERR(CAM_OIS, "OIS pkt parsing failed: %d", rc);
-			goto rel_pkt;
+			return rc;
 		}
 
 		rc = cam_ois_apply_settings(o_ctrl, i2c_reg_settings);
 		if (rc < 0) {
 			CAM_ERR(CAM_OIS, "Cannot apply mode settings");
-			goto rel_pkt;
+			return rc;
 		}
 
 		rc = delete_request(i2c_reg_settings);
-		if (rc < 0) {
+		if (rc < 0)
 			CAM_ERR(CAM_OIS,
 				"Fail deleting Mode data: rc: %d", rc);
-			goto rel_pkt;
-		}
 		break;
 	default:
-		CAM_ERR(CAM_OIS, "Invalid Opcode: %d",
-			(csl_packet->header.op_code & 0xFFFFFF));
-		rc = -EINVAL;
-		goto rel_pkt;
+		break;
 	}
-
-	if (!rc)
-		goto rel_pkt;
-
-rel_cmd_buf:
-	if (cam_mem_put_cpu_buf(cmd_desc[i].mem_handle))
-		CAM_WARN(CAM_OIS, "Failed to put cpu buf: %pK",
-			cmd_desc[i].mem_handle);
+	return rc;
 pwr_dwn:
 	cam_ois_power_down(o_ctrl);
-rel_pkt:
-	if (cam_mem_put_cpu_buf(dev_config.packet_handle))
-		CAM_WARN(CAM_OIS, "Fail in put buffer: %pK",
-			dev_config.packet_handle);
-
 	return rc;
 }
 

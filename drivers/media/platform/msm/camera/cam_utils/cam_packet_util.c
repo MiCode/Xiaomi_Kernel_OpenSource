@@ -103,8 +103,7 @@ int cam_packet_util_get_kmd_buffer(struct cam_packet *packet,
 	if (len < cmd_desc->size) {
 		CAM_ERR(CAM_UTIL, "invalid memory len:%zd and cmd desc size:%d",
 			len, cmd_desc->size);
-		rc = -EINVAL;
-		goto rel_kmd_buf;
+		return -EINVAL;
 	}
 
 	cpu_addr += (cmd_desc->offset / 4) + (packet->kmd_cmd_buf_offset / 4);
@@ -120,11 +119,6 @@ int cam_packet_util_get_kmd_buffer(struct cam_packet *packet,
 	kmd_buf->offset     = cmd_desc->offset + packet->kmd_cmd_buf_offset;
 	kmd_buf->size       = cmd_desc->size - cmd_desc->length;
 	kmd_buf->used_bytes = 0;
-
-rel_kmd_buf:
-	if (cam_mem_put_cpu_buf(cmd_desc->mem_handle))
-		CAM_WARN(CAM_UTIL, "Put KMD Buf failed for: %pK",
-			cmd_desc->mem_handle);
 
 	return rc;
 }
@@ -153,6 +147,7 @@ int cam_packet_util_process_patches(struct cam_packet *packet,
 			sizeof(struct cam_patch_desc));
 
 	for (i = 0; i < packet->num_patches; i++) {
+
 		hdl = cam_mem_is_secure_buf(patch_desc[i].src_buf_hdl) ?
 			sec_mmu_hdl : iommu_hdl;
 		rc = cam_mem_get_io_buf(patch_desc[i].src_buf_hdl,
@@ -186,9 +181,6 @@ int cam_packet_util_process_patches(struct cam_packet *packet,
 			"patch is done for dst %pK with src %pK value %llx",
 			dst_cpu_addr, src_buf_iova_addr,
 			*((uint64_t *)dst_cpu_addr));
-		if (cam_mem_put_cpu_buf(patch_desc[i].dst_buf_hdl))
-			CAM_WARN(CAM_UTIL, "unable to put dst buf address: %x",
-				patch_desc[i].dst_buf_hdl);
 	}
 
 	return rc;
@@ -252,8 +244,7 @@ int cam_packet_util_process_generic_cmd_buffer(
 			CAM_ERR(CAM_UTIL, "Invalid Blob %d %d %d %d",
 				blob_type, blob_size, len_read,
 				cmd_buf->length);
-			rc = -EINVAL;
-			goto rel_cmd_buf;
+			return -EINVAL;
 		}
 
 		len_read += blob_block_size;
@@ -263,16 +254,11 @@ int cam_packet_util_process_generic_cmd_buffer(
 		if (rc) {
 			CAM_ERR(CAM_UTIL, "Error in handling blob type %d %d",
 				blob_type, blob_size);
-			goto rel_cmd_buf;
+			return rc;
 		}
 
 		blob_ptr += (blob_block_size / sizeof(uint32_t));
 	}
 
-rel_cmd_buf:
-	if (cam_mem_put_cpu_buf(cmd_buf->mem_handle))
-		CAM_WARN(CAM_UTIL, "unable to put dst buf address: %x",
-			cmd_buf->mem_handle);
-
-	return rc;
+	return 0;
 }
