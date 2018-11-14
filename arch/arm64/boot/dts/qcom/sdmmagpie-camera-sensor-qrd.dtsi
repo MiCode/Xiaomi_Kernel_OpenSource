@@ -10,7 +10,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
 #include <dt-bindings/clock/qcom,camcc-sdmmagpie.h>
 
 &soc {
@@ -49,12 +48,12 @@
 		cam_vaf-supply = <&pm8009_s2>;
 		regulator-names = "cam_vaf";
 		rgltr-cntrl-support;
-		rgltr-min-voltage = <2900000>;
-		rgltr-max-voltage = <2900000>;
+		rgltr-min-voltage = <2800000>;
+		rgltr-max-voltage = <2800000>;
 		rgltr-load-current = <100000>;
 	};
 
-	actuator_rear_aux: qcom,actuator@1 {
+	actuator_front: qcom,actuator@1 {
 		cell-index = <1>;
 		reg = <0x1>;
 		compatible = "qcom,actuator";
@@ -62,8 +61,8 @@
 		cam_vaf-supply = <&pm8009_s2>;
 		regulator-names = "cam_vaf";
 		rgltr-cntrl-support;
-		rgltr-min-voltage = <2900000>;
-		rgltr-max-voltage = <2900000>;
+		rgltr-min-voltage = <2800000>;
+		rgltr-max-voltage = <2800000>;
 		rgltr-load-current = <100000>;
 	};
 
@@ -74,7 +73,7 @@
 		actuator-src = <&actuator_rear>;
 		cam_vio-supply = <&pm8009_l7>;
 		cam_vana-supply = <&pm8009_l5>;
-		cam_vdig-supply = <&pm8009_l1>;
+		cam_vdig-supply = <&pm8009_l4>;
 		cam_clk-supply = <&titan_top_gdsc>;
 		regulator-names = "cam_vio", "cam_vana", "cam_vdig",
 			"cam_clk";
@@ -108,7 +107,7 @@
 		cell-index = <1>;
 		reg = <0x1>;
 		compatible = "qcom,eeprom";
-		actuator-src = <&actuator_rear_aux>;
+		//actuator-src = <&actuator_rear_aux>;
 		cam_vio-supply = <&pm8009_l7>;
 		cam_vana-supply = <&pm8009_l6>;
 		cam_vdig-supply = <&pm8009_l4>;
@@ -184,7 +183,7 @@
 		compatible = "qcom,cam-sensor";
 		reg = <0x0>;
 		csiphy-sd-index = <0>;
-		sensor-position-roll = <90>;
+		sensor-position-roll = <270>;
 		sensor-position-pitch = <0>;
 		sensor-position-yaw = <180>;
 		led-flash-src = <&led_flash_rear>;
@@ -227,12 +226,12 @@
 		compatible = "qcom,cam-sensor";
 		reg = <0x1>;
 		csiphy-sd-index = <1>;
-		sensor-position-roll = <90>;
+		sensor-position-roll = <270>;
 		sensor-position-pitch = <0>;
 		sensor-position-yaw = <180>;
 		led-flash-src = <&led_flash_rear_aux>;
 		eeprom-src = <&eeprom_rear_aux>;
-		actuator-src = <&actuator_rear_aux>;
+		//actuator-src = <&actuator_rear_aux>;
 		cam_vio-supply = <&pm8009_l7>;
 		cam_vana-supply = <&pm8009_l6>;
 		cam_vdig-supply = <&pm8009_l4>;
@@ -274,6 +273,7 @@
 		sensor-position-pitch = <0>;
 		sensor-position-yaw = <0>;
 		eeprom-src = <&eeprom_front>;
+        actuator-src = <&actuator_front>;
 		cam_vio-supply = <&pm8009_l7>;
 		cam_vana-supply = <&pm8009_l6>;
 		cam_vdig-supply = <&pm8009_l2>;
@@ -313,39 +313,39 @@
 	cam_sensor_rear_active: cam_sensor_rear_active {
 		pins = "gpio1";
 		function = "normal";
-		power-source = <1>;
+		power-source = <0>;
 		bias-disable;
 	};
 	cam_sensor_rear_suspend: cam_sensor_rear_suspend {
 		pins = "gpio1";
 		function = "normal";
-		power-source = <1>;
+		power-source = <0>;
 		bias-pull-down;
 	};
 
 	cam_sensor_rear2_active: cam_sensor_rear2_active {
 		pins = "gpio2";
 		function = "normal";
-		power-source = <1>;
+		power-source = <0>;
 		bias-disable;
 	};
 	cam_sensor_rear2_suspend: cam_sensor_rear2_suspend {
 		pins = "gpio2";
 		function = "normal";
-		power-source = <1>;
+		power-source = <0>;
 		bias-pull-down;
 	};
 
 	cam_sensor_front_active: cam_sensor_front_active {
 		pins = "gpio4";
 		function = "normal";
-		power-source = <1>;
+		power-source = <0>;
 		bias-disable;
 	};
 	cam_sensor_front_suspend: cam_sensor_front_suspend {
 		pins = "gpio4";
 		function = "normal";
-		power-source = <1>;
+		power-source = <0>;
 		bias-pull-down;
 	};
 };

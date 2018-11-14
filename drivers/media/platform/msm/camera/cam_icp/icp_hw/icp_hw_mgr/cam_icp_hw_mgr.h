@@ -53,7 +53,7 @@
 #define ICP_CLK_HW_BPS          0x1
 #define ICP_CLK_HW_MAX          0x2
 
-#define ICP_OVER_CLK_THRESHOLD  15
+#define ICP_OVER_CLK_THRESHOLD  5
 
 #define CPAS_IPE0_BIT           0x1000
 #define CPAS_IPE1_BIT           0x2000

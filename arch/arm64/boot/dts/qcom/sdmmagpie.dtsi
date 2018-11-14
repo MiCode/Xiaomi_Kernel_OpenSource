@@ -2832,6 +2832,7 @@
 		governor = "performance";
 		qcom,src-dst-ports = <MSM_BUS_MASTER_NPU MSM_BUS_SLAVE_EBI_CH0>;
 		operating-points-v2 = <&suspendable_ddr_bw_opp_table>;
+		qcom,active-only;
 	};
 
 	npu_npu_ddr_bwmon: qcom,npu-npu-ddr-bwmon@9960300 {
@@ -2877,6 +2878,14 @@
 		memory-region = <&pil_ipa_fw_mem>;
 	};
 
+	snoc_cnoc_keepalive: qcom,snoc_cnoc_keepalive {
+		compatible = "qcom,devbw";
+		governor = "powersave";
+		qcom,src-dst-ports = <161 627>;
+		qcom,active-only;
+		status = "ok";
+		qcom,bw-tbl = < 1 >;
+	};
 };
 
 #include "sdmmagpie-gdsc.dtsi"
@@ -3070,15 +3079,6 @@
 		qcom,ratiometric;
 		qcom,hw-settle-time = <200>;
 		qcom,pre-scaling = <1 1>;
-	};
-
-	snoc_cnoc_keepalive: qcom,snoc_cnoc_keepalive {
-		compatible = "qcom,devbw";
-		governor = "powersave";
-		qcom,src-dst-ports = <161 627>;
-		qcom,active-only;
-		status = "ok";
-		qcom,bw-tbl = < 1 >;
 	};
 };
 
