@@ -315,20 +315,24 @@ static int dp_hdcp2p2_reauthenticate(void *input)
 }
 
 static void dp_hdcp2p2_min_level_change(void *client_ctx,
-		int min_enc_level)
+		u8 min_enc_level)
 {
 	struct dp_hdcp2p2_ctrl *ctrl = (struct dp_hdcp2p2_ctrl *)client_ctx;
 	struct sde_hdcp_2x_wakeup_data cdata = {
-		HDCP_2X_CMD_QUERY_STREAM_TYPE};
+		HDCP_2X_CMD_MIN_ENC_LEVEL};
 
 	if (!ctrl) {
 		pr_err("invalid input\n");
 		return;
 	}
 
-	pr_debug("enc level changed %d\n", min_enc_level);
+	if (!dp_hdcp2p2_is_valid_state(ctrl)) {
+		pr_err("invalid state\n");
+		return;
+	}
 
 	cdata.context = ctrl->lib_ctx;
+	cdata.min_enc_level = min_enc_level;
 	dp_hdcp2p2_wakeup_lib(ctrl, &cdata);
 }
 

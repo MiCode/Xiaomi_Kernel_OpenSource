@@ -19,7 +19,7 @@ void msm_hdcp_notify_topology(struct device *dev);
 void msm_hdcp_cache_repeater_topology(struct device *dev,
 			struct HDCP_V2V1_MSG_TOPOLOGY *tp);
 void msm_hdcp_register_cb(struct device *dev, void *ctx,
-	void (*cb)(void *ctx, int data));
+	void (*cb)(void *ctx, u8 data));
 
 #endif /* __MSM_HDCP_H */
 
