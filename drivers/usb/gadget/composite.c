@@ -2433,7 +2433,7 @@ void composite_resume(struct usb_gadget *gadget)
 {
 	struct usb_composite_dev	*cdev = get_gadget_data(gadget);
 	struct usb_function		*f;
-	u16				maxpower;
+	unsigned int			maxpower;
 	int				ret;
 	unsigned long			flags;
 
@@ -2475,9 +2475,10 @@ void composite_resume(struct usb_gadget *gadget)
 		}
 
 		maxpower = cdev->config->MaxPower;
-
-		usb_gadget_vbus_draw(gadget, maxpower ?
-			maxpower : CONFIG_USB_GADGET_VBUS_DRAW);
+		maxpower = maxpower ? maxpower : CONFIG_USB_GADGET_VBUS_DRAW;
+		if (gadget->speed < USB_SPEED_SUPER)
+			maxpower = min(maxpower, 500U);
+		usb_gadget_vbus_draw(gadget, maxpower);
 	}
 
 	spin_unlock_irqrestore(&cdev->lock, flags);
