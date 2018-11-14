@@ -20,6 +20,7 @@
 
 #include "pelt.h"
 #include "walt.h"
+#include "core_ctl.h"
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/sched.h>
@@ -3178,6 +3179,8 @@ void scheduler_tick(void)
 
 	if (curr->sched_class == &fair_sched_class)
 		check_for_migration(rq, curr);
+
+	core_ctl_check(wallclock);
 }
 
 #ifdef CONFIG_NO_HZ_FULL

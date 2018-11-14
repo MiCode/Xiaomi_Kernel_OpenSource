@@ -951,6 +951,96 @@ TRACE_EVENT(sched_boost_cpu,
 		__entry->margin)
 );
 
+TRACE_EVENT(core_ctl_eval_need,
+
+	TP_PROTO(unsigned int cpu, unsigned int old_need,
+		unsigned int new_need, unsigned int updated),
+	TP_ARGS(cpu, old_need, new_need, updated),
+	TP_STRUCT__entry(
+		__field(u32, cpu)
+		__field(u32, old_need)
+		__field(u32, new_need)
+		__field(u32, updated)
+	),
+	TP_fast_assign(
+		__entry->cpu = cpu;
+		__entry->old_need = old_need;
+		__entry->new_need = new_need;
+		__entry->updated = updated;
+	),
+	TP_printk("cpu=%u, old_need=%u, new_need=%u, updated=%u", __entry->cpu,
+			__entry->old_need, __entry->new_need, __entry->updated)
+);
+
+TRACE_EVENT(core_ctl_set_busy,
+
+	TP_PROTO(unsigned int cpu, unsigned int busy,
+		unsigned int old_is_busy, unsigned int is_busy),
+	TP_ARGS(cpu, busy, old_is_busy, is_busy),
+	TP_STRUCT__entry(
+		__field(u32, cpu)
+		__field(u32, busy)
+		__field(u32, old_is_busy)
+		__field(u32, is_busy)
+		__field(bool, high_irqload)
+	),
+	TP_fast_assign(
+		__entry->cpu = cpu;
+		__entry->busy = busy;
+		__entry->old_is_busy = old_is_busy;
+		__entry->is_busy = is_busy;
+		__entry->high_irqload = sched_cpu_high_irqload(cpu);
+	),
+	TP_printk("cpu=%u, busy=%u, old_is_busy=%u, new_is_busy=%u high_irqload=%d",
+		__entry->cpu, __entry->busy, __entry->old_is_busy,
+		__entry->is_busy, __entry->high_irqload)
+);
+
+TRACE_EVENT(core_ctl_set_boost,
+
+	TP_PROTO(u32 refcount, s32 ret),
+	TP_ARGS(refcount, ret),
+	TP_STRUCT__entry(
+		__field(u32, refcount)
+		__field(s32, ret)
+	),
+	TP_fast_assign(
+		__entry->refcount = refcount;
+		__entry->ret = ret;
+	),
+	TP_printk("refcount=%u, ret=%d", __entry->refcount, __entry->ret)
+);
+
+TRACE_EVENT(core_ctl_update_nr_need,
+
+	TP_PROTO(int cpu, int nr_need, int prev_misfit_need,
+		int nrrun, int max_nr, int nr_prev_assist),
+
+	TP_ARGS(cpu, nr_need, prev_misfit_need, nrrun, max_nr, nr_prev_assist),
+
+	TP_STRUCT__entry(
+		__field(int, cpu)
+		__field(int, nr_need)
+		__field(int, prev_misfit_need)
+		__field(int, nrrun)
+		__field(int, max_nr)
+		__field(int, nr_prev_assist)
+	),
+
+	TP_fast_assign(
+		__entry->cpu = cpu;
+		__entry->nr_need = nr_need;
+		__entry->prev_misfit_need = prev_misfit_need;
+		__entry->nrrun = nrrun;
+		__entry->max_nr = max_nr;
+		__entry->nr_prev_assist = nr_prev_assist;
+	),
+
+	TP_printk("cpu=%d nr_need=%d prev_misfit_need=%d nrrun=%d max_nr=%d nr_prev_assist=%d",
+		__entry->cpu, __entry->nr_need, __entry->prev_misfit_need,
+		__entry->nrrun, __entry->max_nr, __entry->nr_prev_assist)
+);
+
 /*
  * Tracepoint for schedtune_tasks_update
  */
