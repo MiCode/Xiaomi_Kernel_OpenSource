@@ -157,15 +157,10 @@ enum {
  * @SDE_SSPP_MEMCOLOR        Memory Color Support
  * @SDE_SSPP_PCC,            Color correction support
  * @SDE_SSPP_CURSOR,         SSPP can be used as a cursor layer
- * @SDE_SSPP_QOS,            SSPP support QoS control, danger/safe/creq
- * @SDE_SSPP_QOS_8LVL,       SSPP support 8-level QoS control
  * @SDE_SSPP_EXCL_RECT,      SSPP supports exclusion rect
  * @SDE_SSPP_SMART_DMA_V1,   SmartDMA 1.0 support
  * @SDE_SSPP_SMART_DMA_V2,   SmartDMA 2.0 support
  * @SDE_SSPP_SMART_DMA_V2p5, SmartDMA 2.5 support
- * @SDE_SSPP_TS_PREFILL      Supports prefill with traffic shaper
- * @SDE_SSPP_TS_PREFILL_REC1 Supports prefill with traffic shaper multirec
- * @SDE_SSPP_CDP             Supports client driven prefetch
  * @SDE_SSPP_VIG_IGC,        VIG 1D LUT IGC
  * @SDE_SSPP_VIG_GAMUT,      VIG 3D LUT Gamut
  * @SDE_SSPP_DMA_IGC,        DMA 1D LUT IGC
@@ -175,7 +170,6 @@ enum {
  * @SDE_SSPP_DGM_CSC         Support of color space conversion in DGM block
  * @SDE_SSPP_SEC_UI_ALLOWED   Allows secure-ui layers
  * @SDE_SSPP_BLOCK_SEC_UI    Blocks secure-ui layers
- * @SDE_SSPP_QOS_FL_NOCALC   Avoid fill level calculation for QoS/danger/safe
  * @SDE_SSPP_SCALER_QSEED3LITE Qseed3lite algorithm support
  * @SDE_SSPP_MAX             maximum value
  */
@@ -190,15 +184,10 @@ enum {
 	SDE_SSPP_MEMCOLOR,
 	SDE_SSPP_PCC,
 	SDE_SSPP_CURSOR,
-	SDE_SSPP_QOS,
-	SDE_SSPP_QOS_8LVL,
 	SDE_SSPP_EXCL_RECT,
 	SDE_SSPP_SMART_DMA_V1,
 	SDE_SSPP_SMART_DMA_V2,
 	SDE_SSPP_SMART_DMA_V2p5,
-	SDE_SSPP_TS_PREFILL,
-	SDE_SSPP_TS_PREFILL_REC1,
-	SDE_SSPP_CDP,
 	SDE_SSPP_VIG_IGC,
 	SDE_SSPP_VIG_GAMUT,
 	SDE_SSPP_DMA_IGC,
@@ -208,9 +197,28 @@ enum {
 	SDE_SSPP_DGM_CSC,
 	SDE_SSPP_SEC_UI_ALLOWED,
 	SDE_SSPP_BLOCK_SEC_UI,
-	SDE_SSPP_QOS_FL_NOCALC,
 	SDE_SSPP_SCALER_QSEED3LITE,
 	SDE_SSPP_MAX
+};
+
+/**
+ * SDE performance features
+ * @SDE_PERF_SSPP_QOS,            SSPP support QoS control, danger/safe/creq
+ * @SDE_PERF_SSPP_QOS_8LVL,       SSPP support 8-level QoS control
+ * @SDE_PERF_SSPP_TS_PREFILL      Supports prefill with traffic shaper
+ * @SDE_PERF_SSPP_TS_PREFILL_REC1 Supports prefill with traffic shaper multirec
+ * @SDE_PERF_SSPP_CDP             Supports client driven prefetch
+ * @SDE_PERF_SSPP_QOS_FL_NOCALC   Avoid fill level calc for QoS/danger/safe
+ * @SDE_PERF_SSPP_MAX             Maximum value
+ */
+enum {
+	SDE_PERF_SSPP_QOS = 0x1,
+	SDE_PERF_SSPP_QOS_8LVL,
+	SDE_PERF_SSPP_TS_PREFILL,
+	SDE_PERF_SSPP_TS_PREFILL_REC1,
+	SDE_PERF_SSPP_CDP,
+	SDE_PERF_SSPP_QOS_FL_NOCALC,
+	SDE_PERF_SSPP_MAX
 };
 
 /*
@@ -403,13 +411,15 @@ enum {
  * @base:              register base offset to mdss
  * @len:               length of hardware block
  * @features           bit mask identifying sub-blocks/features
+ * @perf_features   bit mask identifying performance sub-blocks/features
  */
 #define SDE_HW_BLK_INFO \
 	char name[SDE_HW_BLK_NAME_LEN]; \
 	u32 id; \
 	u32 base; \
 	u32 len; \
-	unsigned long features
+	unsigned long features; \
+	unsigned long perf_features
 
 /**
  * MACRO SDE_HW_SUBBLK_INFO - information of HW sub-block inside SDE
