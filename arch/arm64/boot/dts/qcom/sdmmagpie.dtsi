@@ -2884,6 +2884,10 @@
 		status = "ok";
 		qcom,bw-tbl = < 1 >;
 	};
+
+	demux {
+		compatible = "qcom,demux";
+	};
 };
 
 #include "sdmmagpie-gdsc.dtsi"
