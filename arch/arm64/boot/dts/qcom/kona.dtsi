@@ -1286,6 +1286,35 @@
 
 		mbox-names = "cdsp-pil";
 	};
+
+	qcom,venus@aab0000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0xaab0000 0x2000>;
+/*
+ *		vdd-supply = <&mvsc_gdsc>;
+ *		qcom,proxy-reg-names = "vdd";
+ *		qcom,complete-ramdump;
+ *
+ *		clocks = <&clock_videocc VIDEO_CC_XO_CLK>,
+ *			<&clock_videocc VIDEO_CC_MVSC_CORE_CLK>,
+ *			<&clock_videocc VIDEO_CC_IRIS_AHB_CLK>;
+ *		clock-names = "xo", "core", "ahb";
+ *		qcom,proxy-clock-names = "xo",  "core", "ahb";
+ */
+		qcom,core-freq = <200000000>;
+		qcom,ahb-freq = <200000000>;
+
+		qcom,pas-id = <9>;
+		qcom,msm-bus,name = "pil-venus";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<63 512 0 0>,
+			<63 512 0 304000>;
+		qcom,proxy-timeout-ms = <100>;
+		qcom,firmware-name = "venus";
+		memory-region = <&pil_video_mem>;
+	};
 };
 
 #include "kona-bus.dtsi"
