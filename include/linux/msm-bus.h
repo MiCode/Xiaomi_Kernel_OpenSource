@@ -218,6 +218,12 @@ static inline struct msm_bus_scale_pdata
 	return NULL;
 }
 
+static inline struct msm_bus_scale_pdata
+*msm_bus_cl_get_pdata_from_dev(struct device *dev)
+{
+	return NULL;
+}
+
 static inline struct msm_bus_scale_pdata *msm_bus_pdata_from_node(
 		struct platform_device *pdev, struct device_node *of_node)
 {
