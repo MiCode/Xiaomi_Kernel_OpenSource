@@ -3337,7 +3337,7 @@ static void cam_ife_mgr_print_io_bufs(struct cam_packet *packet,
 			if (GET_FD_FROM_HANDLE(io_cfg[i].mem_handle[j]) ==
 				GET_FD_FROM_HANDLE(pf_buf_info)) {
 				CAM_INFO(CAM_ISP,
-					"Found PF at port: %d mem %x fd: %x",
+					"Found PF at port: 0x%x mem 0x%x fd: 0x%x",
 					io_cfg[i].resource_type,
 					io_cfg[i].mem_handle[j],
 					pf_buf_info);
@@ -3345,7 +3345,7 @@ static void cam_ife_mgr_print_io_bufs(struct cam_packet *packet,
 					*mem_found = true;
 			}
 
-			CAM_INFO(CAM_ISP, "port: %d f: %u format: %d dir %d",
+			CAM_INFO(CAM_ISP, "port: 0x%x f: %u format: %d dir %d",
 				io_cfg[i].resource_type,
 				io_cfg[i].fence,
 				io_cfg[i].format,
@@ -3357,7 +3357,9 @@ static void cam_ife_mgr_print_io_bufs(struct cam_packet *packet,
 			rc = cam_mem_get_io_buf(io_cfg[i].mem_handle[j],
 				mmu_hdl, &iova_addr, &src_buf_size);
 			if (rc < 0) {
-				CAM_ERR(CAM_ISP, "get src buf address fail");
+				CAM_ERR(CAM_ISP,
+					"get src buf address fail mem_handle 0x%x",
+					io_cfg[i].mem_handle[j]);
 				continue;
 			}
 			if (iova_addr >> 32) {
@@ -3367,11 +3369,13 @@ static void cam_ife_mgr_print_io_bufs(struct cam_packet *packet,
 			}
 
 			CAM_INFO(CAM_ISP,
-				"pln %d w %d h %d size %d addr 0x%x offset 0x%x memh %x",
+				"pln %d w %d h %d s 0x%x addr 0x%x end_addr 0x%x offset %x memh %x",
 				j, io_cfg[i].planes[j].width,
 				io_cfg[i].planes[j].height,
-				(int32_t)src_buf_size,
+				(unsigned int)src_buf_size,
 				(unsigned int)iova_addr,
+				(unsigned int)iova_addr +
+				(unsigned int)src_buf_size,
 				io_cfg[i].offsets[j],
 				io_cfg[i].mem_handle[j]);
 		}
