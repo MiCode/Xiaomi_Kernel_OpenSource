@@ -951,6 +951,8 @@ static int cam_mem_util_unmap(int32_t idx,
 		if (cam_mem_util_unmap_hw_va(idx, region, client))
 			CAM_ERR(CAM_MEM, "Failed, dmabuf=%pK",
 				tbl.bufq[idx].dma_buf);
+		if (client == CAM_SMMU_MAPPING_KERNEL)
+			tbl.bufq[idx].dma_buf = NULL;
 	}
 
 	mutex_lock(&tbl.bufq[idx].q_lock);
@@ -966,10 +968,8 @@ static int cam_mem_util_unmap(int32_t idx,
 		tbl.bufq[idx].is_imported,
 		tbl.bufq[idx].dma_buf);
 
-	if (tbl.bufq[idx].dma_buf) {
+	if (tbl.bufq[idx].dma_buf)
 		dma_buf_put(tbl.bufq[idx].dma_buf);
-		tbl.bufq[idx].dma_buf = NULL;
-	}
 
 	tbl.bufq[idx].fd = -1;
 	tbl.bufq[idx].dma_buf = NULL;
