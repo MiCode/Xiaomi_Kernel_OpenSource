@@ -198,7 +198,6 @@ enum cam_cci_state_t {
  * @lock_status: to protect changes to irq_status1
  * @is_burst_read: Flag to determine if we are performing
  *                 a burst read operation or not
- * @irqs_disabled: Mask for IRQs that are disabled
  */
 struct cci_device {
 	struct v4l2_subdev subdev;
@@ -226,7 +225,6 @@ struct cci_device {
 	uint32_t irq_status1;
 	spinlock_t lock_status;
 	bool is_burst_read;
-	uint32_t irqs_disabled;
 };
 
 enum cam_cci_i2c_cmd_type {

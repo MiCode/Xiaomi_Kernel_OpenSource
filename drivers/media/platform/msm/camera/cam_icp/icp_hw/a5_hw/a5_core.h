@@ -69,7 +69,7 @@ struct cam_a5_device_core_info {
 	const struct firmware *fw_elf;
 	void *fw;
 	uint32_t fw_buf;
-	uintptr_t fw_kva_addr;
+	uint64_t fw_kva_addr;
 	uint64_t fw_buf_len;
 	struct cam_icp_a5_query_cap query_cap;
 	struct cam_icp_a5_acquire_dev a5_acquire[8];
