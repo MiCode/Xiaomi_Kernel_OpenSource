@@ -128,22 +128,12 @@ struct sde_hw_intr_ops {
 			u32 instance_idx);
 
 	/**
-	 * enable_irq - Enable IRQ based on lookup IRQ index
+	 * enable_irq_nolock - Enable IRQ based on lookup IRQ index without lock
 	 * @intr:	HW interrupt handle
 	 * @irq_idx:	Lookup irq index return from irq_idx_lookup
 	 * @return:	0 for success, otherwise failure
 	 */
-	int (*enable_irq)(
-			struct sde_hw_intr *intr,
-			int irq_idx);
-
-	/**
-	 * disable_irq - Disable IRQ based on lookup IRQ index
-	 * @intr:	HW interrupt handle
-	 * @irq_idx:	Lookup irq index return from irq_idx_lookup
-	 * @return:	0 for success, otherwise failure
-	 */
-	int (*disable_irq)(
+	int (*enable_irq_nolock)(
 			struct sde_hw_intr *intr,
 			int irq_idx);
 
