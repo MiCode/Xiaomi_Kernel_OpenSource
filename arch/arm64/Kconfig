@@ -284,6 +284,25 @@ config ARCH_SUPPORTS_UPROBES
 config ARCH_PROC_KCORE_TEXT
 	def_bool y
 
+config QTI_GVM
+	bool "Enable virtualization Support for MSM kernel"
+	help
+		This enables support for MSM Kernel based virtual
+		machine for any platform.
+		This helps to enable virtual driver support.
+		This should work on 64bit machines.
+		If you don't know what to do here, say N.
+
+config QTI_GVM_QUIN
+	bool "Enable virtualization Support for MSM kernel required for Quin platform"
+	depends on QTI_GVM
+	help
+		This enables support for MSM Kernel based virtual
+		machine for Quin platform.
+		This helps to enable virtual driver support.
+		This should work on 64bit machines.
+		If you don't know what to do here, say N.
+
 source "init/Kconfig"
 
 source "kernel/Kconfig.freezer"
