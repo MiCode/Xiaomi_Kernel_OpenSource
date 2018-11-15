@@ -582,7 +582,7 @@ static __inline__ void udpv6_err(struct sk_buff *skb,
 static struct static_key udpv6_encap_needed __read_mostly;
 void udpv6_encap_enable(void)
 {
-	static_key_enable(&udpv6_encap_needed);
+	static_key_slow_inc(&udpv6_encap_needed);
 }
 EXPORT_SYMBOL(udpv6_encap_enable);
 
@@ -1493,7 +1493,7 @@ void udpv6_destroy_sock(struct sock *sk)
 				encap_destroy(sk);
 		}
 		if (up->encap_enabled)
-			static_key_disable(&udpv6_encap_needed);
+			static_key_slow_dec(&udpv6_encap_needed);
 	}
 
 	inet6_destroy_sock(sk);
