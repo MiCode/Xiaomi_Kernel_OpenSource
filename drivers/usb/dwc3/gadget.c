@@ -3493,6 +3493,12 @@ static void dwc3_process_event_entry(struct dwc3 *dwc,
 	/* Endpoint IRQ, handle it and return early */
 	if (event->type.is_devspec == 0) {
 		/* depevt */
+		/* If remote-wakeup attempt by device had failed, then core
+		 * wouldn't give wakeup event after resume. Handle that
+		 * here on ep event which indicates that bus is resumed.
+		 */
+		if (dwc->b_suspend)
+			dwc3_gadget_wakeup_interrupt(dwc, false);
 		return dwc3_endpoint_interrupt(dwc, &event->depevt);
 	}
 
