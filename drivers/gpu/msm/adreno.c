@@ -2423,6 +2423,9 @@ static int adreno_prop_u32(struct kgsl_device *device,
 	else if (type == KGSL_PROP_DEVICE_BITNESS)
 		val = adreno_support_64bit(adreno_dev) ? 48 : 32;
 
+	else if (type == KGSL_PROP_SPEED_BIN)
+		val = adreno_dev->speed_bin;
+
 	return copy_prop(value, count, &val, sizeof(val));
 }
 
@@ -2444,6 +2447,7 @@ static struct {
 	[KGSL_PROP_MIN_ACCESS_LENGTH] = { .func = adreno_prop_u32 },
 	[KGSL_PROP_UBWC_MODE] = { .func = adreno_prop_u32 },
 	[KGSL_PROP_DEVICE_BITNESS] = { .func = adreno_prop_u32 },
+	[KGSL_PROP_SPEED_BIN] = { .func = adreno_prop_u32 },
 };
 
 static int adreno_getproperty(struct kgsl_device *device,
