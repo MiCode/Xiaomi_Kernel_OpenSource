@@ -23,6 +23,16 @@
 #include "sde_edid_parser.h"
 #include "sde_connector.h"
 
+/*
+ * A source initiated power down flag is set
+ * when the DP is powered off while physical
+ * DP cable is still connected i.e. without
+ * HPD or not initiated by sink like HPD_IRQ.
+ * This can happen if framework reboots or
+ * device suspends.
+ */
+#define DP_PANEL_SRC_INITIATED_POWER_DOWN BIT(0)
+
 enum dp_lane_count {
 	DP_LANE_COUNT_1	= 1,
 	DP_LANE_COUNT_2	= 2,
@@ -102,7 +112,7 @@ struct dp_panel {
 	bool widebus_en;
 
 	int (*init)(struct dp_panel *dp_panel);
-	int (*deinit)(struct dp_panel *dp_panel);
+	int (*deinit)(struct dp_panel *dp_panel, u32 flags);
 	int (*hw_cfg)(struct dp_panel *dp_panel, bool enable);
 	int (*read_sink_caps)(struct dp_panel *dp_panel,
 		struct drm_connector *connector, bool multi_func);

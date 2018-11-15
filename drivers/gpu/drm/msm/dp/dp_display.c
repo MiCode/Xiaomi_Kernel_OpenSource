@@ -820,7 +820,7 @@ static void dp_display_clean(struct dp_display_private *dp)
 
 		dp_display_stream_pre_disable(dp, dp_panel);
 		dp_display_stream_disable(dp, dp_panel);
-		dp_panel->deinit(dp_panel);
+		dp_panel->deinit(dp_panel, 0);
 	}
 
 	dp->power_on = false;
@@ -1572,11 +1572,7 @@ static int dp_display_disable(struct dp_display *dp_display, void *panel)
 	}
 
 	dp_display_stream_disable(dp, dp_panel);
-
-	/* log this as it results from user action of cable dis-connection */
-	pr_info("[OK]\n");
 end:
-	dp_panel->deinit(dp_panel);
 	mutex_unlock(&dp->session_lock);
 	return 0;
 }
@@ -1629,6 +1625,8 @@ static struct dp_debug *dp_get_debug(struct dp_display *dp_display)
 static int dp_display_unprepare(struct dp_display *dp_display, void *panel)
 {
 	struct dp_display_private *dp;
+	struct dp_panel *dp_panel = panel;
+	u32 flags = 0;
 
 	if (!dp_display || !panel) {
 		pr_err("invalid input\n");
@@ -1639,10 +1637,19 @@ static int dp_display_unprepare(struct dp_display *dp_display, void *panel)
 
 	mutex_lock(&dp->session_lock);
 
+	/*
+	 * Check if the power off sequence was triggered
+	 * by a source initialated action like framework
+	 * reboot or suspend-resume but not from normal
+	 * hot plug.
+	 */
+	if (dp_display_is_ready(dp))
+		flags |= DP_PANEL_SRC_INITIATED_POWER_DOWN;
+
 	if (dp->active_stream_cnt)
 		goto end;
 
-	if (dp_display_is_ready(dp)) {
+	if (flags & DP_PANEL_SRC_INITIATED_POWER_DOWN) {
 		dp->link->psm_config(dp->link, &dp->panel->link_info, true);
 		dp->debug->psm_enabled = true;
 
@@ -1663,8 +1670,10 @@ static int dp_display_unprepare(struct dp_display *dp_display, void *panel)
 
 	complete_all(&dp->notification_comp);
 
-	pr_debug("[OK]\n");
+	/* log this as it results from user action of cable dis-connection */
+	pr_info("[OK]\n");
 end:
+	dp_panel->deinit(dp_panel, flags);
 	mutex_unlock(&dp->session_lock);
 
 	return 0;

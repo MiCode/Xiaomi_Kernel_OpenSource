@@ -1450,7 +1450,7 @@ end:
 	return rc;
 }
 
-static int dp_panel_deinit_panel_info(struct dp_panel *dp_panel)
+static int dp_panel_deinit_panel_info(struct dp_panel *dp_panel, u32 flags)
 {
 	int rc = 0;
 	struct dp_panel_private *panel;
@@ -1461,6 +1461,11 @@ static int dp_panel_deinit_panel_info(struct dp_panel *dp_panel)
 	if (!dp_panel) {
 		pr_err("invalid input\n");
 		return -EINVAL;
+	}
+
+	if (flags & DP_PANEL_SRC_INITIATED_POWER_DOWN) {
+		pr_debug("retain states in src initiated power down request\n");
+		return 0;
 	}
 
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
