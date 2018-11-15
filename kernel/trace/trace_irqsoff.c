@@ -15,6 +15,9 @@
 #include <linux/module.h>
 #include <linux/ftrace.h>
 #include <linux/kprobes.h>
+#include <linux/sched.h>
+#include <linux/sched/clock.h>
+#include <linux/sched/sysctl.h>
 
 #include "trace.h"
 
@@ -604,12 +607,41 @@ static void irqsoff_tracer_stop(struct trace_array *tr)
 }
 
 #ifdef CONFIG_IRQSOFF_TRACER
+#ifdef CONFIG_PREEMPTIRQ_EVENTS
+/*
+ * irqsoff stack tracing threshold in ns.
+ * default: 1ms
+ */
+unsigned int sysctl_irqsoff_tracing_threshold_ns = 1000000UL;
+
+struct irqsoff_store {
+	u64 ts;
+	unsigned long caddr[4];
+};
+
+DEFINE_PER_CPU(struct irqsoff_store, the_irqsoff);
+#endif /* CONFIG_PREEMPTIRQ_EVENTS */
+
 /*
  * We are only interested in hardirq on/off events:
  */
 void tracer_hardirqs_on(unsigned long a0, unsigned long a1)
 {
 	unsigned int pc = preempt_count();
+#ifdef CONFIG_PREEMPTIRQ_EVENTS
+	struct irqsoff_store *is;
+	u64 delta;
+
+	lockdep_off();
+	is = &per_cpu(the_irqsoff, raw_smp_processor_id());
+	delta = sched_clock() - is->ts;
+
+	if (!is_idle_task(current) &&
+			delta > sysctl_irqsoff_tracing_threshold_ns)
+		trace_irqs_disable(delta, is->caddr[0], is->caddr[1],
+						is->caddr[2], is->caddr[3]);
+	lockdep_on();
+#endif /* CONFIG_PREEMPTIRQ_EVENTS */
 
 	if (!preempt_trace(pc) && irq_trace())
 		stop_critical_timing(a0, a1, pc);
@@ -619,6 +651,18 @@ NOKPROBE_SYMBOL(tracer_hardirqs_on);
 void tracer_hardirqs_off(unsigned long a0, unsigned long a1)
 {
 	unsigned int pc = preempt_count();
+#ifdef CONFIG_PREEMPTIRQ_EVENTS
+	struct irqsoff_store *is;
+
+	lockdep_off();
+	is = &per_cpu(the_irqsoff, raw_smp_processor_id());
+	is->ts = sched_clock();
+	is->caddr[0] = CALLER_ADDR0;
+	is->caddr[1] = CALLER_ADDR1;
+	is->caddr[2] = CALLER_ADDR2;
+	is->caddr[3] = CALLER_ADDR3;
+	lockdep_on();
+#endif /* CONFIG_PREEMPTIRQ_EVENTS */
 
 	if (!preempt_trace(pc) && irq_trace())
 		start_critical_timing(a0, a1, pc);
