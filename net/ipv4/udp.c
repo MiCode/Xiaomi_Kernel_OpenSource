@@ -1902,7 +1902,7 @@ static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
 static DEFINE_STATIC_KEY_FALSE(udp_encap_needed_key);
 void udp_encap_enable(void)
 {
-	static_branch_enable(&udp_encap_needed_key);
+	static_branch_inc(&udp_encap_needed_key);
 }
 EXPORT_SYMBOL(udp_encap_enable);
 
@@ -2437,7 +2437,7 @@ void udp_destroy_sock(struct sock *sk)
 				encap_destroy(sk);
 		}
 		if (up->encap_enabled)
-			static_branch_disable(&udp_encap_needed_key);
+			static_branch_dec(&udp_encap_needed_key);
 	}
 }
 
