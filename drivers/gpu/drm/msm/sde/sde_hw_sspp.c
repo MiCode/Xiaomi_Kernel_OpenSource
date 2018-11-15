@@ -800,7 +800,8 @@ static void sde_hw_sspp_setup_creq_lut(struct sde_hw_pipe *ctx,
 	if (_sspp_subblk_offset(ctx, SDE_SSPP_SRC, &idx))
 		return;
 
-	if (ctx->cap && test_bit(SDE_SSPP_QOS_8LVL, &ctx->cap->features)) {
+	if (ctx->cap && test_bit(SDE_PERF_SSPP_QOS_8LVL,
+				&ctx->cap->perf_features)) {
 		SDE_REG_WRITE(&ctx->hw, SSPP_CREQ_LUT_0 + idx, cfg->creq_lut);
 		SDE_REG_WRITE(&ctx->hw, SSPP_CREQ_LUT_1 + idx,
 				cfg->creq_lut >> 32);
@@ -852,11 +853,13 @@ static void sde_hw_sspp_setup_ts_prefill(struct sde_hw_pipe *ctx,
 	cap = ctx->cap;
 
 	if ((index == SDE_SSPP_RECT_SOLO || index == SDE_SSPP_RECT_0) &&
-			test_bit(SDE_SSPP_TS_PREFILL, &cap->features)) {
+			test_bit(SDE_PERF_SSPP_TS_PREFILL,
+				&cap->perf_features)) {
 		ts_offset = SSPP_TRAFFIC_SHAPER;
 		ts_prefill_offset = SSPP_TRAFFIC_SHAPER_PREFILL;
 	} else if (index == SDE_SSPP_RECT_1 &&
-			test_bit(SDE_SSPP_TS_PREFILL_REC1, &cap->features)) {
+			test_bit(SDE_PERF_SSPP_TS_PREFILL_REC1,
+				&cap->perf_features)) {
 		ts_offset = SSPP_TRAFFIC_SHAPER_REC1;
 		ts_prefill_offset = SSPP_TRAFFIC_SHAPER_REC1_PREFILL;
 	} else {
@@ -1053,7 +1056,7 @@ static void sde_hw_sspp_setup_dgm_csc(struct sde_hw_pipe *ctx,
 }
 
 static void _setup_layer_ops(struct sde_hw_pipe *c,
-		unsigned long features)
+		unsigned long features, unsigned long perf_features)
 {
 	int ret;
 
@@ -1070,14 +1073,14 @@ static void _setup_layer_ops(struct sde_hw_pipe *c,
 	if (test_bit(SDE_SSPP_EXCL_RECT, &features))
 		c->ops.setup_excl_rect = _sde_hw_sspp_setup_excl_rect;
 
-	if (test_bit(SDE_SSPP_QOS, &features)) {
+	if (test_bit(SDE_PERF_SSPP_QOS, &features)) {
 		c->ops.setup_danger_safe_lut =
 			sde_hw_sspp_setup_danger_safe_lut;
 		c->ops.setup_creq_lut = sde_hw_sspp_setup_creq_lut;
 		c->ops.setup_qos_ctrl = sde_hw_sspp_setup_qos_ctrl;
 	}
 
-	if (test_bit(SDE_SSPP_TS_PREFILL, &features))
+	if (test_bit(SDE_PERF_SSPP_TS_PREFILL, &perf_features))
 		c->ops.setup_ts_prefill = sde_hw_sspp_setup_ts_prefill;
 
 	if (test_bit(SDE_SSPP_CSC, &features) ||
@@ -1109,7 +1112,7 @@ static void _setup_layer_ops(struct sde_hw_pipe *c,
 			c->ops.setup_scaler = reg_dmav1_setup_vig_qseed3;
 	}
 
-	if (test_bit(SDE_SSPP_CDP, &features))
+	if (test_bit(SDE_PERF_SSPP_CDP, &perf_features))
 		c->ops.setup_cdp = sde_hw_sspp_setup_cdp;
 
 	_setup_layer_ops_colorproc(c, features);
@@ -1177,7 +1180,8 @@ struct sde_hw_pipe *sde_hw_sspp_init(enum sde_sspp idx,
 	hw_pipe->mdp = &catalog->mdp[0];
 	hw_pipe->idx = idx;
 	hw_pipe->cap = cfg;
-	_setup_layer_ops(hw_pipe, hw_pipe->cap->features);
+	_setup_layer_ops(hw_pipe, hw_pipe->cap->features,
+		hw_pipe->cap->perf_features);
 
 	if (hw_pipe->ops.get_scaler_ver) {
 		hw_pipe->cap->sblk->scaler_blk.version =

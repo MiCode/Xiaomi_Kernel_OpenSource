@@ -105,6 +105,7 @@ struct sde_plane {
 
 	enum sde_sspp pipe;
 	uint32_t features;      /* capabilities from catalog */
+	uint32_t perf_features; /* perf capabilities from catalog */
 	uint32_t nformats;
 	uint32_t formats[64];
 
@@ -264,7 +265,7 @@ static inline int _sde_plane_calc_fill_level(struct drm_plane *plane,
 	}
 
 	psde = to_sde_plane(plane);
-	if (psde->features & BIT(SDE_SSPP_QOS_FL_NOCALC))
+	if (psde->perf_features & BIT(SDE_PERF_SSPP_QOS_FL_NOCALC))
 		return 0;
 
 	pstate = to_sde_plane_state(plane->state);
@@ -4096,6 +4097,7 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 
 	/* cache features mask for later */
 	psde->features = psde->pipe_hw->cap->features;
+	psde->perf_features = psde->pipe_hw->cap->perf_features;
 	psde->pipe_sblk = psde->pipe_hw->cap->sblk;
 	if (!psde->pipe_sblk) {
 		SDE_ERROR("[%u]invalid sblk\n", pipe);
