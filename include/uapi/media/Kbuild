@@ -1,4 +1,3 @@
-header-y += ais/
 header-y += msm_cam_sensor.h
 header-y += msm_camera.h
 header-y += msm_camsensor_sdk.h
