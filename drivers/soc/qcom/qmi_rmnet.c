@@ -453,12 +453,12 @@ void qmi_rmnet_change_link(struct net_device *dev, void *port, void *tcm_pt)
 		qmi_rmnet_delete_client(port, qmi, tcm);
 		break;
 	case NLMSG_SCALE_FACTOR:
-		if (!tcm->tcm_index)
+		if (!tcm->tcm_ifindex)
 			return;
-		qmi_rmnet_scale_factor = tcm->tcm_index;
-		break
+		qmi_rmnet_scale_factor = tcm->tcm_ifindex;
+		break;
 	case NLMSG_WQ_FREQUENCY:
-		rmnet_wq_frequency = tcm->tcm_index;
+		rmnet_wq_frequency = tcm->tcm_ifindex;
 		break;
 	default:
 		pr_debug("%s(): No handler\n", __func__);
