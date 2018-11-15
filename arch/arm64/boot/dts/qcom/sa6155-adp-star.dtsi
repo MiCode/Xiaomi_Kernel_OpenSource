@@ -186,9 +186,14 @@
 	status = "ok";
 };
 
+&usb0 {
+	qcom,host-poweroff-in-pm-suspend;
+};
+
 &usb1 {
 	status = "ok";
 	qcom,default-mode-host;
+	qcom,host-poweroff-in-pm-suspend;
 };
 
 &qupv3_se0_2uart {
