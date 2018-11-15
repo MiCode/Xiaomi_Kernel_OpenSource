@@ -1988,6 +1988,8 @@ struct dp_debug *dp_debug_get(struct dp_debug_in *in)
 	dp_debug->dp_mst_connector_list.conn = NULL;
 	dp_debug->dp_mst_connector_list.debug_en = false;
 
+	dp_debug->max_pclk_khz = debug->parser->max_pclk_khz;
+
 	return dp_debug;
 error:
 	return ERR_PTR(rc);

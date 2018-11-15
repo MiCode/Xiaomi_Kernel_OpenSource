@@ -652,7 +652,8 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 
 	dp->is_connected = true;
 
-	dp->dp_display.max_pclk_khz = dp->parser->max_pclk_khz;
+	dp->dp_display.max_pclk_khz = min(dp->parser->max_pclk_khz,
+					dp->debug->max_pclk_khz);
 
 	dp_display_host_init(dp);
 
