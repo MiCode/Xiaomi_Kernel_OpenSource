@@ -895,6 +895,7 @@
 				08 05 03 04 00 1a 18];
 			qcom,display-topology = <2 0 2>;
 			qcom,default-topology-index = <0>;
+			qcom,mdss-mdp-transfer-time-us = <16700>;
 		};
 	};
 };
