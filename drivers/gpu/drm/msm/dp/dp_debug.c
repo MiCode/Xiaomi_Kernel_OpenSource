@@ -451,8 +451,10 @@ static ssize_t dp_debug_write_mst_con_id(struct file *file,
 	struct dp_mst_connector *mst_connector;
 	char buf[SZ_32];
 	size_t len = 0;
-	int con_id = 0;
+	int con_id = 0, status;
 	bool in_list = false;
+	const int dp_en = BIT(3), hpd_high = BIT(7), hpd_irq = BIT(8);
+	int vdo = dp_en | hpd_high | hpd_irq;
 
 	if (!debug)
 		return -ENODEV;
@@ -467,8 +469,10 @@ static ssize_t dp_debug_write_mst_con_id(struct file *file,
 
 	buf[len] = '\0';
 
-	if (kstrtoint(buf, 10, &con_id) != 0)
-		goto clear;
+	if (sscanf(buf, "%d %d", &con_id, &status) != 2) {
+		len = 0;
+		goto end;
+	}
 
 	if (!con_id)
 		goto clear;
@@ -480,6 +484,7 @@ static ssize_t dp_debug_write_mst_con_id(struct file *file,
 		if (mst_connector->con_id == con_id) {
 			in_list = true;
 			debug->mst_con_id = con_id;
+			mst_connector->state = status;
 			break;
 		}
 	}
@@ -487,6 +492,10 @@ static ssize_t dp_debug_write_mst_con_id(struct file *file,
 
 	if (!in_list)
 		pr_err("invalid connector id %u\n", con_id);
+	else if (status != connector_status_unknown) {
+		debug->dp_debug.mst_hpd_sim = true;
+		debug->hpd->simulate_attention(debug->hpd, vdo);
+	}
 
 	goto end;
 clear:
@@ -528,6 +537,21 @@ static ssize_t dp_debug_bw_code_write(struct file *file,
 	pr_debug("max_bw_code: %d\n", max_bw_code);
 
 	return len;
+}
+
+static ssize_t dp_debug_mst_mode_read(struct file *file,
+	char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	char buf[64];
+	ssize_t len;
+
+	len = scnprintf(buf, sizeof(buf),
+			"mst_mode = %d, mst_state = %d\n",
+			debug->parser->has_mst,
+			debug->panel->mst_state);
+
+	return simple_read_from_buffer(user_buff, count, ppos, buf, len);
 }
 
 static ssize_t dp_debug_mst_mode_write(struct file *file,
@@ -631,28 +655,35 @@ static ssize_t dp_debug_mst_sideband_mode_write(struct file *file,
 	struct dp_debug_private *debug = file->private_data;
 	char buf[SZ_8];
 	size_t len = 0;
-	u32 mst_sideband_mode = 0;
+	int mst_sideband_mode = 0;
+	u32 mst_port_cnt = 0;
 
 	if (!debug)
 		return -ENODEV;
 
-	if (*ppos)
-		return 0;
-
 	/* Leave room for termination char */
 	len = min_t(size_t, count, SZ_8 - 1);
 	if (copy_from_user(buf, user_buff, len))
-		return 0;
+		return -EFAULT;
 
 	buf[len] = '\0';
 
-	if (kstrtoint(buf, 10, &mst_sideband_mode) != 0)
-		return 0;
+	if (sscanf(buf, "%d %u", &mst_sideband_mode, &mst_port_cnt) != 2) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	if (mst_port_cnt > DP_MST_SIM_MAX_PORTS) {
+		pr_err("port cnt:%d exceeding max:%d\n", mst_port_cnt,
+				DP_MST_SIM_MAX_PORTS);
+		return -EINVAL;
+	}
 
 	debug->parser->has_mst_sideband = mst_sideband_mode ? true : false;
-	pr_debug("mst_enable: %d\n", mst_sideband_mode);
-
-	return len;
+	debug->dp_debug.mst_port_cnt = mst_port_cnt;
+	pr_debug("mst_sideband_mode: %d port_cnt:%d\n",
+			mst_sideband_mode, mst_port_cnt);
+	return count;
 }
 
 static ssize_t dp_debug_widebus_mode_write(struct file *file,
@@ -1049,9 +1080,10 @@ static ssize_t dp_debug_read_mst_conn_info(struct file *file,
 			continue;
 		}
 
-		ret = snprintf(buf + len, max_size,
-				"conn name:%s, conn id:%d\n", connector->name,
-				connector->base.id);
+		ret = scnprintf(buf + len, max_size,
+				"conn name:%s, conn id:%d state:%d\n",
+				connector->name, connector->base.id,
+				connector->status);
 		if (dp_debug_check_buffer_overflow(ret, &max_size, &len))
 			break;
 	}
@@ -1659,6 +1691,7 @@ static const struct file_operations dump_fops = {
 static const struct file_operations mst_mode_fops = {
 	.open = simple_open,
 	.write = dp_debug_mst_mode_write,
+	.read = dp_debug_mst_mode_read,
 };
 
 static const struct file_operations mst_sideband_mode_fops = {

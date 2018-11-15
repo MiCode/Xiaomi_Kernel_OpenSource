@@ -110,6 +110,7 @@ struct dp_panel {
 	struct dp_audio *audio;
 	bool audio_supported;
 	bool widebus_en;
+	bool mst_state;
 
 	int (*init)(struct dp_panel *dp_panel);
 	int (*deinit)(struct dp_panel *dp_panel, u32 flags);

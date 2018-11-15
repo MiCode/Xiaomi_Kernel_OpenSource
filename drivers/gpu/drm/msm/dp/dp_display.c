@@ -572,10 +572,17 @@ skip_wait:
 	return 0;
 }
 
+static void dp_display_update_mst_state(struct dp_display_private *dp,
+					bool state)
+{
+	dp->mst.mst_active = state;
+	dp->panel->mst_state = state;
+}
+
 static void dp_display_process_mst_hpd_high(struct dp_display_private *dp)
 {
 	bool is_mst_receiver;
-	struct dp_mst_hdp_info info;
+	struct dp_mst_hpd_info info;
 
 	if (dp->parser->has_mst && dp->mst.drm_registered) {
 		DP_MST_DEBUG("mst_hpd_high work\n");
@@ -583,9 +590,14 @@ static void dp_display_process_mst_hpd_high(struct dp_display_private *dp)
 		is_mst_receiver = dp->panel->read_mst_cap(dp->panel);
 
 		if (is_mst_receiver && !dp->mst.mst_active) {
-			dp->mst.mst_active = true;
+
+			/* clear sink mst state */
+			drm_dp_dpcd_writeb(dp->aux->drm_aux, DP_MSTM_CTRL, 0);
+
+			dp_display_update_mst_state(dp, true);
 
 			info.mst_protocol = dp->parser->has_mst_sideband;
+			info.mst_port_cnt = dp->debug->mst_port_cnt;
 			info.edid = dp->debug->get_edid(dp->debug);
 
 			if (dp->mst.cbs.hpd)
@@ -694,7 +706,7 @@ end:
 
 static void dp_display_process_mst_hpd_low(struct dp_display_private *dp)
 {
-	struct dp_mst_hdp_info info = {0};
+	struct dp_mst_hpd_info info = {0};
 
 	if (dp->mst.mst_active) {
 		DP_MST_DEBUG("mst_hpd_low work\n");
@@ -703,8 +715,7 @@ static void dp_display_process_mst_hpd_low(struct dp_display_private *dp)
 			info.mst_protocol = dp->parser->has_mst_sideband;
 			dp->mst.cbs.hpd(&dp->dp_display, false, &info);
 		}
-
-		dp->mst.mst_active = false;
+		dp_display_update_mst_state(dp, false);
 	}
 
 	DP_MST_DEBUG("mst_hpd_low. mst_active:%d\n", dp->mst.mst_active);
@@ -927,8 +938,13 @@ static int dp_display_stream_enable(struct dp_display_private *dp,
 
 static void dp_display_mst_attention(struct dp_display_private *dp)
 {
-	if (dp->mst.mst_active && dp->mst.cbs.hpd_irq)
-		dp->mst.cbs.hpd_irq(&dp->dp_display);
+	struct dp_mst_hpd_info hpd_irq = {0};
+
+	if (dp->mst.mst_active && dp->mst.cbs.hpd_irq) {
+		hpd_irq.mst_hpd_sim = dp->debug->mst_hpd_sim;
+		dp->mst.cbs.hpd_irq(&dp->dp_display, &hpd_irq);
+		dp->debug->mst_hpd_sim = false;
+	}
 
 	DP_MST_DEBUG("mst_attention_work. mst_active:%d\n", dp->mst.mst_active);
 }
@@ -937,6 +953,9 @@ static void dp_display_attention_work(struct work_struct *work)
 {
 	struct dp_display_private *dp = container_of(work,
 			struct dp_display_private, attention_work);
+
+	if (dp->debug->mst_hpd_sim)
+		goto mst_attention;
 
 	if (dp->link->process_request(dp->link))
 		goto cp_irq;
@@ -1003,7 +1022,8 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 
 	if (!dp->hpd->hpd_high)
 		dp_display_disconnect_sync(dp);
-	else if (dp->hpd->hpd_irq && dp->core_initialized)
+	else if ((dp->hpd->hpd_irq && dp->core_initialized) ||
+			dp->debug->mst_hpd_sim)
 		queue_work(dp->wq, &dp->attention_work);
 	else if (!dp->power_on)
 		queue_delayed_work(dp->wq, &dp->connect_work, 0);
@@ -2044,6 +2064,7 @@ static int dp_display_mst_connector_install(struct dp_display *dp_display,
 	mst_connector->debug_en = false;
 	mst_connector->conn = connector;
 	mst_connector->con_id = connector->base.id;
+	mst_connector->state = connector_status_unknown;
 	INIT_LIST_HEAD(&mst_connector->list);
 
 	list_add(&mst_connector->list,
@@ -2107,6 +2128,38 @@ static int dp_display_mst_connector_uninstall(struct dp_display *dp_display,
 	mutex_unlock(&dp->session_lock);
 
 	return rc;
+}
+
+static int dp_display_mst_get_connector_info(struct dp_display *dp_display,
+			struct drm_connector *connector,
+			struct dp_mst_connector *mst_conn)
+{
+	struct dp_display_private *dp;
+	struct dp_mst_connector *conn, *temp_conn;
+
+	if (!connector || !mst_conn) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	dp = container_of(dp_display, struct dp_display_private, dp_display);
+
+	mutex_lock(&dp->session_lock);
+	if (!dp->mst.drm_registered) {
+		pr_debug("drm mst not registered\n");
+		mutex_unlock(&dp->session_lock);
+		return -EPERM;
+	}
+
+	mutex_lock(&dp->debug->dp_mst_connector_list.lock);
+	list_for_each_entry_safe(conn, temp_conn,
+			&dp->debug->dp_mst_connector_list.list, list) {
+		if (conn->con_id == connector->base.id)
+			memcpy(mst_conn, conn, sizeof(*mst_conn));
+	}
+	mutex_unlock(&dp->debug->dp_mst_connector_list.lock);
+	mutex_unlock(&dp->session_lock);
+	return 0;
 }
 
 static int dp_display_mst_connector_update_edid(struct dp_display *dp_display,
@@ -2231,6 +2284,8 @@ static int dp_display_probe(struct platform_device *pdev)
 	g_dp_display->get_mst_caps = dp_display_get_mst_caps;
 	g_dp_display->set_stream_info = dp_display_set_stream_info;
 	g_dp_display->convert_to_dp_mode = dp_display_convert_to_dp_mode;
+	g_dp_display->mst_get_connector_info =
+					dp_display_mst_get_connector_info;
 
 	rc = component_add(&pdev->dev, &dp_display_comp_ops);
 	if (rc) {
