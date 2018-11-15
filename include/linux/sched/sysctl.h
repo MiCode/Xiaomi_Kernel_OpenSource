@@ -20,11 +20,17 @@ extern int proc_dohung_task_timeout_secs(struct ctl_table *table, int write,
 enum { sysctl_hung_task_timeout_secs = 0 };
 #endif
 
+#define MAX_CLUSTERS 3
+/* MAX_MARGIN_LEVELS should be one less than MAX_CLUSTERS */
+#define MAX_MARGIN_LEVELS (MAX_CLUSTERS - 1)
+
 extern unsigned int sysctl_sched_latency;
 extern unsigned int sysctl_sched_min_granularity;
 extern unsigned int sysctl_sched_wakeup_granularity;
 extern unsigned int sysctl_sched_child_runs_first;
 #ifdef CONFIG_SCHED_WALT
+extern unsigned int __weak sysctl_sched_capacity_margin_up[MAX_MARGIN_LEVELS];
+extern unsigned int __weak sysctl_sched_capacity_margin_down[MAX_MARGIN_LEVELS];
 extern unsigned int __weak sysctl_sched_user_hint;
 extern const int __weak sched_user_hint_max;
 extern unsigned int __weak sysctl_sched_cpu_high_irqload;
@@ -52,6 +58,11 @@ walt_proc_group_thresholds_handler(struct ctl_table *table, int write,
 			loff_t *ppos);
 extern int __weak
 walt_proc_user_hint_handler(struct ctl_table *table, int write,
+			void __user *buffer, size_t *lenp,
+			loff_t *ppos);
+
+extern int __weak
+sched_updown_migrate_handler(struct ctl_table *table, int write,
 			void __user *buffer, size_t *lenp,
 			loff_t *ppos);
 
