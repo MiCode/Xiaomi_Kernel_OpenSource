@@ -152,6 +152,9 @@ struct dp_tu_calc_input {
 	int pixel_enc;   /* 444, 420, 422 */
 	int dsc_en;     /* dsc on/off */
 	int async_en;   /* async mode */
+	int fec_en;     /* fec */
+	int compress_ratio; /* 2:1 = 200, 3:1 = 300, 3.75:1 = 375 */
+	int num_of_dsc_slices; /* number of slices per line */
 };
 
 struct dp_vc_tu_mapping_table {
