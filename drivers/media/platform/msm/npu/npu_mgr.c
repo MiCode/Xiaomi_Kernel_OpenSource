@@ -1221,6 +1221,7 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 
 	/* verify mapped physical address */
 	if (!npu_mem_verify_addr(client, network->phy_add)) {
+		pr_err("Invalid network address %llx\n", network->phy_add);
 		ret = -EINVAL;
 		goto error_free_network;
 	}
