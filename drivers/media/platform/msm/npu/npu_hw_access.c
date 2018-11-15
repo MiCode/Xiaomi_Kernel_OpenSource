@@ -292,11 +292,13 @@ int npu_mem_map(struct npu_client *client, int buf_hdl, uint32_t size,
 		ion_buf->table->nents, DMA_BIDIRECTIONAL);
 	ion_buf->iova = ion_buf->table->sgl->dma_address;
 	ion_buf->size = ion_buf->table->sgl->dma_length;
+	*addr = ion_buf->iova;
+	pr_debug("mapped mem addr:0x%llx size:0x%x\n", ion_buf->iova,
+		ion_buf->size);
 map_end:
 	if (ret)
 		npu_mem_unmap(client, buf_hdl, 0);
 
-	*addr = ion_buf->iova;
 	return ret;
 }
 
@@ -356,6 +358,9 @@ void npu_mem_unmap(struct npu_client *client, int buf_hdl,  uint64_t addr)
 	if (ion_buf->dma_buf)
 		dma_buf_put(ion_buf->dma_buf);
 	npu_dev->smmu_ctx.attach_cnt--;
+
+	pr_debug("unmapped mem addr:0x%llx size:0x%x\n", ion_buf->iova,
+		ion_buf->size);
 	npu_free_npu_ion_buffer(client, buf_hdl);
 }
 
