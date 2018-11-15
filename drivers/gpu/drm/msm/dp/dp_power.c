@@ -123,7 +123,7 @@ static int dp_power_pinctrl_set(struct dp_power_private *power, bool active)
 
 	parser = power->parser;
 
-	if (parser && parser->no_aux_switch)
+	if (parser->no_aux_switch)
 		return 0;
 
 	if (IS_ERR_OR_NULL(parser->pinctrl.pin))

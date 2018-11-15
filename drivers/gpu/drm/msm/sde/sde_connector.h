@@ -378,6 +378,7 @@ struct sde_connector_evt {
  * @qsync_mode: Cached Qsync mode, 0=disabled, 1=continuous mode
  * @qsync_updated: Qsync settings were updated
  * last_cmd_tx_sts: status of the last command transfer
+ * @hdr_capable: external hdr support present
  */
 struct sde_connector {
 	struct drm_connector base;
@@ -429,6 +430,7 @@ struct sde_connector {
 	bool qsync_updated;
 
 	bool last_cmd_tx_sts;
+	bool hdr_capable;
 };
 
 /**
