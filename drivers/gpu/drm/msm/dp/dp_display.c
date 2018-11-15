@@ -616,9 +616,6 @@ static void dp_display_host_init(struct dp_display_private *dp)
 	if (dp->core_initialized)
 		return;
 
-	if (!dp->debug->sim_mode && !dp->parser->no_aux_switch)
-		dp->aux->aux_switch(dp->aux, true, dp->hpd->orientation);
-
 	if (dp->hpd->orientation == ORIENTATION_CC2)
 		flip = true;
 
@@ -643,9 +640,6 @@ static void dp_display_host_deinit(struct dp_display_private *dp)
 		pr_debug("active stream present\n");
 		return;
 	}
-
-	if (!dp->debug->sim_mode && !dp->parser->no_aux_switch)
-		dp->aux->aux_switch(dp->aux, false, ORIENTATION_NONE);
 
 	dp->aux->deinit(dp->aux);
 	dp->ctrl->deinit(dp->ctrl);
@@ -775,6 +769,12 @@ static int dp_display_usbpd_configure_cb(struct device *dev)
 		pr_err("no driver data found\n");
 		rc = -ENODEV;
 		goto end;
+	}
+
+	if (!dp->debug->sim_mode && !dp->parser->no_aux_switch) {
+		rc = dp->aux->aux_switch(dp->aux, true, dp->hpd->orientation);
+		if (rc)
+			goto end;
 	}
 
 	dp_display_host_init(dp);
@@ -912,6 +912,9 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 
 	dp_display_disconnect_sync(dp);
 	dp->dp_display.post_open = NULL;
+
+	if (!dp->debug->sim_mode && !dp->parser->no_aux_switch)
+		dp->aux->aux_switch(dp->aux, false, ORIENTATION_NONE);
 end:
 	return rc;
 }
