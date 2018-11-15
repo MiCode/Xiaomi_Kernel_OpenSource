@@ -16,6 +16,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 #include "sdmmagpie-idp.dtsi"
+#include "sdmmagpie-usbc-idp.dtsi"
 
 / {
 	model = "USBC Audio IDP";
