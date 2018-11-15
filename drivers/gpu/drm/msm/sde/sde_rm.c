@@ -391,72 +391,11 @@ static int _sde_rm_hw_blk_create(
 	return 0;
 }
 
-int sde_rm_init(struct sde_rm *rm,
-		struct sde_mdss_cfg *cat,
-		void __iomem *mmio,
-		struct drm_device *dev)
+static int _sde_rm_hw_blk_create_new(struct sde_rm *rm,
+			struct sde_mdss_cfg *cat,
+			void __iomem *mmio)
 {
 	int i, rc = 0;
-	enum sde_hw_blk_type type;
-
-	if (!rm || !cat || !mmio || !dev) {
-		SDE_ERROR("invalid kms\n");
-		return -EINVAL;
-	}
-
-	/* Clear, setup lists */
-	memset(rm, 0, sizeof(*rm));
-
-	mutex_init(&rm->rm_lock);
-
-	INIT_LIST_HEAD(&rm->rsvps);
-	for (type = 0; type < SDE_HW_BLK_MAX; type++)
-		INIT_LIST_HEAD(&rm->hw_blks[type]);
-
-	rm->dev = dev;
-
-	if (IS_SDE_CTL_REV_100(cat->ctl_rev))
-		rm->topology_tbl = g_ctl_ver_1_top_table;
-	else
-		rm->topology_tbl = g_top_table;
-
-	/* Some of the sub-blocks require an mdptop to be created */
-	rm->hw_mdp = sde_hw_mdptop_init(MDP_TOP, mmio, cat);
-	if (IS_ERR_OR_NULL(rm->hw_mdp)) {
-		rc = PTR_ERR(rm->hw_mdp);
-		rm->hw_mdp = NULL;
-		SDE_ERROR("failed: mdp hw not available\n");
-		goto fail;
-	}
-
-	/* Interrogate HW catalog and create tracking items for hw blocks */
-	for (i = 0; i < cat->mixer_count; i++) {
-		struct sde_lm_cfg *lm = &cat->mixer[i];
-
-		if (lm->pingpong == PINGPONG_MAX) {
-			SDE_ERROR("mixer %d without pingpong\n", lm->id);
-			goto fail;
-		}
-
-		rc = _sde_rm_hw_blk_create(rm, cat, mmio, SDE_HW_BLK_LM,
-				cat->mixer[i].id, &cat->mixer[i]);
-		if (rc) {
-			SDE_ERROR("failed: lm hw not available\n");
-			goto fail;
-		}
-
-		if (!rm->lm_max_width) {
-			rm->lm_max_width = lm->sblk->maxwidth;
-		} else if (rm->lm_max_width != lm->sblk->maxwidth) {
-			/*
-			 * Don't expect to have hw where lm max widths differ.
-			 * If found, take the min.
-			 */
-			SDE_ERROR("unsupported: lm maxwidth differs\n");
-			if (rm->lm_max_width > lm->sblk->maxwidth)
-				rm->lm_max_width = lm->sblk->maxwidth;
-		}
-	}
 
 	for (i = 0; i < cat->dspp_count; i++) {
 		rc = _sde_rm_hw_blk_create(rm, cat, mmio, SDE_HW_BLK_DSPP,
@@ -537,12 +476,241 @@ int sde_rm_init(struct sde_rm *rm,
 		}
 	}
 
-	return 0;
+fail:
+	return rc;
+}
+
+int sde_rm_init(struct sde_rm *rm,
+		struct sde_mdss_cfg *cat,
+		void __iomem *mmio,
+		struct drm_device *dev)
+{
+	int i, rc = 0;
+	enum sde_hw_blk_type type;
+
+	if (!rm || !cat || !mmio || !dev) {
+		SDE_ERROR("invalid input params\n");
+		return -EINVAL;
+	}
+
+	/* Clear, setup lists */
+	memset(rm, 0, sizeof(*rm));
+
+	mutex_init(&rm->rm_lock);
+
+	INIT_LIST_HEAD(&rm->rsvps);
+	for (type = 0; type < SDE_HW_BLK_MAX; type++)
+		INIT_LIST_HEAD(&rm->hw_blks[type]);
+
+	rm->dev = dev;
+
+	if (IS_SDE_CTL_REV_100(cat->ctl_rev))
+		rm->topology_tbl = g_ctl_ver_1_top_table;
+	else
+		rm->topology_tbl = g_top_table;
+
+	/* Some of the sub-blocks require an mdptop to be created */
+	rm->hw_mdp = sde_hw_mdptop_init(MDP_TOP, mmio, cat);
+	if (IS_ERR_OR_NULL(rm->hw_mdp)) {
+		rc = PTR_ERR(rm->hw_mdp);
+		rm->hw_mdp = NULL;
+		SDE_ERROR("failed: mdp hw not available\n");
+		goto fail;
+	}
+
+	/* Interrogate HW catalog and create tracking items for hw blocks */
+	for (i = 0; i < cat->mixer_count; i++) {
+		struct sde_lm_cfg *lm = &cat->mixer[i];
+
+		if (lm->pingpong == PINGPONG_MAX) {
+			SDE_ERROR("mixer %d without pingpong\n", lm->id);
+			goto fail;
+		}
+
+		rc = _sde_rm_hw_blk_create(rm, cat, mmio, SDE_HW_BLK_LM,
+				cat->mixer[i].id, &cat->mixer[i]);
+		if (rc) {
+			SDE_ERROR("failed: lm hw not available\n");
+			goto fail;
+		}
+
+		if (!rm->lm_max_width) {
+			rm->lm_max_width = lm->sblk->maxwidth;
+		} else if (rm->lm_max_width != lm->sblk->maxwidth) {
+			/*
+			 * Don't expect to have hw where lm max widths differ.
+			 * If found, take the min.
+			 */
+			SDE_ERROR("unsupported: lm maxwidth differs\n");
+			if (rm->lm_max_width > lm->sblk->maxwidth)
+				rm->lm_max_width = lm->sblk->maxwidth;
+		}
+	}
+
+	rc = _sde_rm_hw_blk_create_new(rm, cat, mmio);
+	if (!rc)
+		return 0;
 
 fail:
 	sde_rm_destroy(rm);
 
 	return rc;
+}
+
+static bool _sde_rm_check_lm(
+		struct sde_rm *rm,
+		struct sde_rm_rsvp *rsvp,
+		struct sde_rm_requirements *reqs,
+		const struct sde_lm_cfg *lm_cfg,
+		struct sde_rm_hw_blk *lm,
+		struct sde_rm_hw_blk **dspp,
+		struct sde_rm_hw_blk **ds,
+		struct sde_rm_hw_blk **pp)
+{
+	bool is_valid_dspp, is_valid_ds, ret;
+
+	is_valid_dspp = (lm_cfg->dspp != DSPP_MAX) ? true : false;
+	is_valid_ds = (lm_cfg->ds != DS_MAX) ? true : false;
+
+	/**
+	 * RM_RQ_X: specification of which LMs to choose
+	 * is_valid_X: indicates whether LM is tied with block X
+	 * ret: true if given LM matches the user requirement,
+	 *      false otherwise
+	 */
+	if (RM_RQ_DSPP(reqs) && RM_RQ_DS(reqs))
+		ret = (is_valid_dspp && is_valid_ds);
+	else if (RM_RQ_DSPP(reqs))
+		ret = is_valid_dspp;
+	else if (RM_RQ_DS(reqs))
+		ret = is_valid_ds;
+	else
+		ret = !(is_valid_dspp || is_valid_ds);
+
+	if (!ret) {
+		SDE_DEBUG(
+			"fail:lm(%d)req_dspp(%d)dspp(%d)req_ds(%d)ds(%d)\n",
+			lm_cfg->id, (bool)(RM_RQ_DSPP(reqs)),
+			lm_cfg->dspp, (bool)(RM_RQ_DS(reqs)),
+			lm_cfg->ds);
+
+		return ret;
+	}
+	return true;
+}
+
+static bool _sde_rm_reserve_dspp(
+		struct sde_rm *rm,
+		struct sde_rm_rsvp *rsvp,
+		const struct sde_lm_cfg *lm_cfg,
+		struct sde_rm_hw_blk *lm,
+		struct sde_rm_hw_blk **dspp)
+{
+	struct sde_rm_hw_iter iter;
+
+	if (lm_cfg->dspp != DSPP_MAX) {
+		sde_rm_init_hw_iter(&iter, 0, SDE_HW_BLK_DSPP);
+		while (_sde_rm_get_hw_locked(rm, &iter)) {
+			if (iter.blk->id == lm_cfg->dspp) {
+				*dspp = iter.blk;
+				break;
+			}
+		}
+
+		if (!*dspp) {
+			SDE_DEBUG("lm %d failed to retrieve dspp %d\n", lm->id,
+					lm_cfg->dspp);
+			return false;
+		}
+
+		if (RESERVED_BY_OTHER(*dspp, rsvp)) {
+			SDE_DEBUG("lm %d dspp %d already reserved\n",
+					lm->id, (*dspp)->id);
+			return false;
+		}
+	}
+
+	return true;
+}
+
+
+static bool _sde_rm_reserve_ds(
+		struct sde_rm *rm,
+		struct sde_rm_rsvp *rsvp,
+		const struct sde_lm_cfg *lm_cfg,
+		struct sde_rm_hw_blk *lm,
+		struct sde_rm_hw_blk **ds)
+{
+	struct sde_rm_hw_iter iter;
+
+	if (lm_cfg->ds != DS_MAX) {
+		sde_rm_init_hw_iter(&iter, 0, SDE_HW_BLK_DS);
+		while (_sde_rm_get_hw_locked(rm, &iter)) {
+			if (iter.blk->id == lm_cfg->ds) {
+				*ds = iter.blk;
+				break;
+			}
+		}
+
+		if (!*ds) {
+			SDE_DEBUG("lm %d failed to retrieve ds %d\n", lm->id,
+					lm_cfg->ds);
+			return false;
+		}
+
+		if (RESERVED_BY_OTHER(*ds, rsvp)) {
+			SDE_DEBUG("lm %d ds %d already reserved\n",
+					lm->id, (*ds)->id);
+			return false;
+		}
+	}
+
+	return true;
+}
+
+static bool _sde_rm_reserve_pp(
+		struct sde_rm *rm,
+		struct sde_rm_rsvp *rsvp,
+		struct sde_rm_requirements *reqs,
+		const struct sde_lm_cfg *lm_cfg,
+		const struct sde_pingpong_cfg *pp_cfg,
+		struct sde_rm_hw_blk *lm,
+		struct sde_rm_hw_blk **dspp,
+		struct sde_rm_hw_blk **ds,
+		struct sde_rm_hw_blk **pp)
+{
+	struct sde_rm_hw_iter iter;
+
+	sde_rm_init_hw_iter(&iter, 0, SDE_HW_BLK_PINGPONG);
+	while (_sde_rm_get_hw_locked(rm, &iter)) {
+		if (iter.blk->id == lm_cfg->pingpong) {
+			*pp = iter.blk;
+			break;
+		}
+	}
+
+	if (!*pp) {
+		SDE_ERROR("failed to get pp on lm %d\n", lm_cfg->pingpong);
+		return false;
+	}
+
+	if (RESERVED_BY_OTHER(*pp, rsvp)) {
+		SDE_DEBUG("lm %d pp %d already reserved\n", lm->id,
+				(*pp)->id);
+		*dspp = NULL;
+		*ds = NULL;
+		return false;
+	}
+
+	pp_cfg = to_sde_hw_pingpong((*pp)->hw)->caps;
+	if ((reqs->topology->top_name == SDE_RM_TOPOLOGY_PPSPLIT) &&
+			!(test_bit(SDE_PINGPONG_SPLIT, &pp_cfg->features))) {
+		SDE_DEBUG("pp %d doesn't support ppsplit\n", pp_cfg->id);
+		*dspp = NULL;
+		*ds = NULL;
+		return false;
+	}
+	return true;
 }
 
 /**
@@ -574,8 +742,7 @@ static bool _sde_rm_check_lm_and_get_connected_blks(
 {
 	const struct sde_lm_cfg *lm_cfg = to_sde_hw_mixer(lm->hw)->cap;
 	const struct sde_pingpong_cfg *pp_cfg;
-	struct sde_rm_hw_iter iter;
-	bool is_valid_dspp, is_valid_ds, ret;
+	bool ret;
 	u32 display_pref, cwb_pref;
 
 	*dspp = NULL;
@@ -602,32 +769,11 @@ static bool _sde_rm_check_lm_and_get_connected_blks(
 
 	/* bypass rest of the checks if LM for primary display is found */
 	if (!display_pref) {
-		is_valid_dspp = (lm_cfg->dspp != DSPP_MAX) ? true : false;
-		is_valid_ds = (lm_cfg->ds != DS_MAX) ? true : false;
-
-		/**
-		 * RM_RQ_X: specification of which LMs to choose
-		 * is_valid_X: indicates whether LM is tied with block X
-		 * ret: true if given LM matches the user requirement,
-		 *      false otherwise
-		 */
-		if (RM_RQ_DSPP(reqs) && RM_RQ_DS(reqs))
-			ret = (is_valid_dspp && is_valid_ds);
-		else if (RM_RQ_DSPP(reqs))
-			ret = is_valid_dspp;
-		else if (RM_RQ_DS(reqs))
-			ret = is_valid_ds;
-		else
-			ret = !(is_valid_dspp || is_valid_ds);
-
-		if (!ret) {
-			SDE_DEBUG(
-				"fail:lm(%d)req_dspp(%d)dspp(%d)req_ds(%d)ds(%d)\n",
-				lm_cfg->id, (bool)(RM_RQ_DSPP(reqs)),
-				lm_cfg->dspp, (bool)(RM_RQ_DS(reqs)),
-				lm_cfg->ds);
+		/* Check lm for valid requirements */
+		ret = _sde_rm_check_lm(rm, rsvp, reqs, lm_cfg, lm,
+				dspp, ds, pp);
+		if (!ret)
 			return ret;
-		}
 
 		/**
 		 * If CWB is enabled and LM is not CWB supported
@@ -637,7 +783,6 @@ static bool _sde_rm_check_lm_and_get_connected_blks(
 			SDE_DEBUG("fail: cwb supported lm not allocated\n");
 			return false;
 		}
-
 	} else if (!(reqs->hw_res.is_primary && display_pref)) {
 		SDE_DEBUG(
 			"display preference is not met. is_primary: %d display_pref: %d\n",
@@ -651,79 +796,21 @@ static bool _sde_rm_check_lm_and_get_connected_blks(
 		return false;
 	}
 
-	if (lm_cfg->dspp != DSPP_MAX) {
-		sde_rm_init_hw_iter(&iter, 0, SDE_HW_BLK_DSPP);
-		while (_sde_rm_get_hw_locked(rm, &iter)) {
-			if (iter.blk->id == lm_cfg->dspp) {
-				*dspp = iter.blk;
-				break;
-			}
-		}
+	/* Reserve dspp */
+	ret = _sde_rm_reserve_dspp(rm, rsvp, lm_cfg, lm, dspp);
+	if (!ret)
+		return ret;
 
-		if (!*dspp) {
-			SDE_DEBUG("lm %d failed to retrieve dspp %d\n", lm->id,
-					lm_cfg->dspp);
-			return false;
-		}
+	/* Reserve ds */
+	ret = _sde_rm_reserve_ds(rm, rsvp, lm_cfg, lm, ds);
+	if (!ret)
+		return ret;
 
-		if (RESERVED_BY_OTHER(*dspp, rsvp)) {
-			SDE_DEBUG("lm %d dspp %d already reserved\n",
-					lm->id, (*dspp)->id);
-			return false;
-		}
-	}
-
-	if (lm_cfg->ds != DS_MAX) {
-		sde_rm_init_hw_iter(&iter, 0, SDE_HW_BLK_DS);
-		while (_sde_rm_get_hw_locked(rm, &iter)) {
-			if (iter.blk->id == lm_cfg->ds) {
-				*ds = iter.blk;
-				break;
-			}
-		}
-
-		if (!*ds) {
-			SDE_DEBUG("lm %d failed to retrieve ds %d\n", lm->id,
-					lm_cfg->ds);
-			return false;
-		}
-
-		if (RESERVED_BY_OTHER(*ds, rsvp)) {
-			SDE_DEBUG("lm %d ds %d already reserved\n",
-					lm->id, (*ds)->id);
-			return false;
-		}
-	}
-
-	sde_rm_init_hw_iter(&iter, 0, SDE_HW_BLK_PINGPONG);
-	while (_sde_rm_get_hw_locked(rm, &iter)) {
-		if (iter.blk->id == lm_cfg->pingpong) {
-			*pp = iter.blk;
-			break;
-		}
-	}
-
-	if (!*pp) {
-		SDE_ERROR("failed to get pp on lm %d\n", lm_cfg->pingpong);
-		return false;
-	}
-
-	if (RESERVED_BY_OTHER(*pp, rsvp)) {
-		SDE_DEBUG("lm %d pp %d already reserved\n", lm->id,
-				(*pp)->id);
-		*dspp = NULL;
-		*ds = NULL;
-		return false;
-	}
-
-	pp_cfg = to_sde_hw_pingpong((*pp)->hw)->caps;
-	if ((reqs->topology->top_name == SDE_RM_TOPOLOGY_PPSPLIT) &&
-			!(test_bit(SDE_PINGPONG_SPLIT, &pp_cfg->features))) {
-		SDE_DEBUG("pp %d doesn't support ppsplit\n", pp_cfg->id);
-		*dspp = NULL;
-		*ds = NULL;
-		return false;
-	}
+	/* Reserve pp */
+	ret = _sde_rm_reserve_pp(rm, rsvp, reqs, lm_cfg, pp_cfg, lm,
+			dspp, ds, pp);
+	if (!ret)
+		return ret;
 
 	return true;
 }
