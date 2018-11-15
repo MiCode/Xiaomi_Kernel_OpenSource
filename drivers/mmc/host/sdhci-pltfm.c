@@ -124,7 +124,7 @@ struct sdhci_host *sdhci_pltfm_init(struct platform_device *pdev,
 	struct extcon_dev *extcon;
 
 	iomem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	ioaddr = devm_ioremap_resource(&pdev->dev, iomem);
+	ioaddr = ioremap_so(iomem->start, resource_size(iomem));
 	if (IS_ERR(ioaddr)) {
 		ret = PTR_ERR(ioaddr);
 		goto err;

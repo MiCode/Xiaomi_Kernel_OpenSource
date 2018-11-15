@@ -1406,9 +1406,8 @@ struct cmdq_host *cmdq_pltfm_init(struct platform_device *pdev)
 	if (!cq_host)
 		return ERR_PTR(-ENOMEM);
 
-	cq_host->mmio = devm_ioremap(&pdev->dev,
-				     cmdq_memres->start,
-				     resource_size(cmdq_memres));
+	cq_host->mmio = ioremap_so(cmdq_memres->start,
+				resource_size(cmdq_memres));
 	if (!cq_host->mmio) {
 		dev_err(&pdev->dev, "failed to remap cmdq regs\n");
 		kfree(cq_host);
