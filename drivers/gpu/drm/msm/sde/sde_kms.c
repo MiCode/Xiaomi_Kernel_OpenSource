@@ -1052,9 +1052,6 @@ static void _sde_kms_release_splash_resource(struct sde_kms *sde_kms,
 {
 	struct msm_drm_private *priv;
 	struct sde_splash_display *splash_display;
-	struct drm_plane *plane;
-	enum sde_sspp plane_id;
-	bool is_virtual;
 	int i;
 
 	if (!sde_kms || !crtc)
@@ -1076,29 +1073,6 @@ static void _sde_kms_release_splash_resource(struct sde_kms *sde_kms,
 
 	if (i >= MAX_DSI_DISPLAYS)
 		return;
-
-	/*
-	 * For planes attached in continuous splash, reset the plane state
-	 * only if first commit is not using the plane for display.
-	 * Valid fb indicates client is using the plane.
-	 */
-	for (i = 0; i < splash_display->pipe_cnt; i++) {
-		drm_for_each_plane(plane, sde_kms->dev) {
-			plane_id = sde_plane_pipe(plane);
-			is_virtual = is_sde_plane_virtual(plane);
-
-			if ((plane_id != splash_display->pipes[i].sspp) ||
-				(splash_display->pipes[i].is_virtual !=
-					 is_virtual) || (plane->state->fb))
-				continue;
-
-			plane->crtc = NULL;
-			plane->state->crtc = NULL;
-			SDE_DEBUG("reset crtc plane:%d rect:%d\n",
-					plane_id, is_virtual);
-			break;
-		}
-	}
 
 	_sde_kms_splash_mem_put(sde_kms, splash_display->splash);
 
@@ -2465,8 +2439,6 @@ static int _sde_kms_update_planes_for_cont_splash(struct sde_kms *sde_kms,
 						plane_id, crtc->base.id);
 			}
 
-			plane->crtc = crtc;
-			plane->state->crtc = crtc;
 			SDE_DEBUG("set crtc:%d for plane:%d rect:%d\n",
 					crtc->base.id, plane_id, is_virtual);
 		}
