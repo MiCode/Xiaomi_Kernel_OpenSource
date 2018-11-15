@@ -2617,4 +2617,8 @@ static inline const char *xhci_decode_ep_context(u32 info, u32 info2, u64 deq,
 	return str;
 }
 
+/* EHSET */
+int xhci_submit_single_step_set_feature(struct usb_hcd *hcd, struct urb *urb,
+					int is_setup);
+
 #endif /* __LINUX_XHCI_HCD_H */
