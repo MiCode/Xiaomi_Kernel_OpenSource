@@ -293,6 +293,8 @@ struct mdp3_dma {
 	struct fb_cmap *gc_cmap;
 	struct fb_cmap *hist_cmap;
 
+	struct mdp3_session_data *session;
+
 	bool (*busy)(void);
 
 	int (*dma_config)(struct mdp3_dma *dma,
