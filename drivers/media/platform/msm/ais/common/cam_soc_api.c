@@ -670,9 +670,10 @@ void msm_camera_put_regulators(struct platform_device *pdev,
 	}
 
 	for (i = cnt - 1; i >= 0; i--) {
-		if (vdd_info[i] && !IS_ERR_OR_NULL(vdd_info[i]->vdd))
+		if (vdd_info[i] && !IS_ERR_OR_NULL(vdd_info[i]->vdd)) {
 			devm_regulator_put(vdd_info[i]->vdd);
 			CDBG("vdd ptr[%d] :%pK\n", i, vdd_info[i]->vdd);
+		}
 	}
 
 	devm_kfree(&pdev->dev, *vdd_info);
