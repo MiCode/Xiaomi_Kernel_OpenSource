@@ -35,6 +35,13 @@ enum nat_table_type {
 #define NAT_TABLE_ENTRY_SIZE_BYTE 32
 #define NAT_INTEX_TABLE_ENTRY_SIZE_BYTE 4
 
+/*
+ * Max NAT table entries is limited 1000 entries.
+ * Limit the memory size required by user to prevent kernel memory starvation
+ */
+#define IPA_TABLE_MAX_ENTRIES 1000
+#define MAX_ALLOC_NAT_SIZE (IPA_TABLE_MAX_ENTRIES * NAT_TABLE_ENTRY_SIZE_BYTE)
+
 static int ipa_nat_vma_fault_remap(
 	 struct vm_area_struct *vma, struct vm_fault *vmf)
 {
@@ -267,6 +274,13 @@ int ipa2_allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem)
 	if (nat_ctx->is_dev_init == true) {
 		IPAERR("Device already init\n");
 		result = 0;
+		goto bail;
+	}
+
+	if (mem->size > MAX_ALLOC_NAT_SIZE) {
+		IPAERR("Trying allocate more size = %zu, Max allowed = %d\n",
+				mem->size, MAX_ALLOC_NAT_SIZE);
+		result = -EPERM;
 		goto bail;
 	}
 
