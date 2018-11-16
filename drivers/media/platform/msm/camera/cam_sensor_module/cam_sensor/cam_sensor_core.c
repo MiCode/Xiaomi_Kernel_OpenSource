@@ -16,7 +16,6 @@
 #include "cam_sensor_util.h"
 #include "cam_soc_util.h"
 #include "cam_trace.h"
-#include "cam_common_util.h"
 
 static void cam_sensor_update_req_mgr(
 	struct cam_sensor_ctrl_t *s_ctrl,
@@ -88,7 +87,7 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 	void *arg)
 {
 	int32_t rc = 0;
-	uintptr_t generic_ptr;
+	uint64_t generic_ptr;
 	struct cam_control *ioctl_ctrl = NULL;
 	struct cam_packet *csl_packet = NULL;
 	struct cam_cmd_buf_desc *cmd_desc = NULL;
@@ -105,14 +104,13 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 		return -EINVAL;
 	}
 
-	if (copy_from_user(&config,
-		u64_to_user_ptr(ioctl_ctrl->handle),
+	if (copy_from_user(&config, (void __user *) ioctl_ctrl->handle,
 		sizeof(config)))
 		return -EFAULT;
 
 	rc = cam_mem_get_cpu_buf(
 		config.packet_handle,
-		&generic_ptr,
+		(uint64_t *)&generic_ptr,
 		&len_of_buff);
 	if (rc < 0) {
 		CAM_ERR(CAM_SENSOR, "Failed in getting the buffer: %d", rc);
@@ -120,7 +118,7 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 	}
 
 	csl_packet = (struct cam_packet *)(generic_ptr +
-		(uint32_t)config.offset);
+		config.offset);
 	if (config.offset > len_of_buff) {
 		CAM_ERR(CAM_SENSOR,
 			"offset is out of bounds: off: %lld len: %zu",
@@ -387,16 +385,15 @@ int32_t cam_handle_cmd_buffers_for_probe(void *cmd_buf,
 int32_t cam_handle_mem_ptr(uint64_t handle, struct cam_sensor_ctrl_t *s_ctrl)
 {
 	int rc = 0, i;
+	void *packet = NULL, *cmd_buf1 = NULL;
 	uint32_t *cmd_buf;
 	void *ptr;
 	size_t len;
 	struct cam_packet *pkt;
 	struct cam_cmd_buf_desc *cmd_desc;
-	uintptr_t cmd_buf1 = 0;
-	uintptr_t packet = 0;
 
 	rc = cam_mem_get_cpu_buf(handle,
-		&packet, &len);
+		(uint64_t *)&packet, &len);
 	if (rc < 0) {
 		CAM_ERR(CAM_SENSOR, "Failed to get the command Buffer");
 		return -EINVAL;
@@ -417,7 +414,7 @@ int32_t cam_handle_mem_ptr(uint64_t handle, struct cam_sensor_ctrl_t *s_ctrl)
 		if (!(cmd_desc[i].length))
 			continue;
 		rc = cam_mem_get_cpu_buf(cmd_desc[i].mem_handle,
-			&cmd_buf1, &len);
+			(uint64_t *)&cmd_buf1, &len);
 		if (rc < 0) {
 			CAM_ERR(CAM_SENSOR,
 				"Failed to parse the command Buffer Header");
@@ -660,8 +657,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			goto release_mutex;
 		}
 		rc = copy_from_user(&sensor_acq_dev,
-			u64_to_user_ptr(cmd->handle),
-			sizeof(sensor_acq_dev));
+			(void __user *) cmd->handle, sizeof(sensor_acq_dev));
 		if (rc < 0) {
 			CAM_ERR(CAM_SENSOR, "Failed Copying from user");
 			goto release_mutex;
@@ -680,8 +676,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 
 		CAM_DBG(CAM_SENSOR, "Device Handle: %d",
 			sensor_acq_dev.device_handle);
-		if (copy_to_user(u64_to_user_ptr(cmd->handle),
-			&sensor_acq_dev,
+		if (copy_to_user((void __user *) cmd->handle, &sensor_acq_dev,
 			sizeof(struct cam_sensor_acquire_dev))) {
 			CAM_ERR(CAM_SENSOR, "Failed Copy to User");
 			rc = -EFAULT;
@@ -708,15 +703,6 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			CAM_WARN(CAM_SENSOR,
 			"Not in right state to release : %d",
 			s_ctrl->sensor_state);
-			goto release_mutex;
-		}
-
-		if (s_ctrl->bridge_intf.link_hdl != -1) {
-			CAM_ERR(CAM_SENSOR,
-				"Device [%d] still active on link 0x%x",
-				s_ctrl->sensor_state,
-				s_ctrl->bridge_intf.link_hdl);
-			rc = -EAGAIN;
 			goto release_mutex;
 		}
 
@@ -757,8 +743,8 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		struct  cam_sensor_query_cap sensor_cap;
 
 		cam_sensor_query_cap(s_ctrl, &sensor_cap);
-		if (copy_to_user(u64_to_user_ptr(cmd->handle),
-			&sensor_cap, sizeof(struct  cam_sensor_query_cap))) {
+		if (copy_to_user((void __user *) cmd->handle, &sensor_cap,
+			sizeof(struct  cam_sensor_query_cap))) {
 			CAM_ERR(CAM_SENSOR, "Failed Copy to User");
 			rc = -EFAULT;
 			goto release_mutex;

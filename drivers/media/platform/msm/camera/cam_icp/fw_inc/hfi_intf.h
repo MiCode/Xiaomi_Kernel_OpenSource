@@ -23,10 +23,10 @@
  * @reserved: reserved field
  */
 struct hfi_mem {
-	uint64_t  len;
-	uintptr_t kva;
-	uint32_t  iova;
-	uint32_t  reserved;
+	uint64_t len;
+	uint64_t kva;
+	uint32_t iova;
+	uint32_t reserved;
 };
 
 /**

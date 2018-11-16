@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -56,7 +56,7 @@ struct cam_mem_buf_queue {
 	size_t len;
 	uint32_t flags;
 	uint64_t vaddr;
-	uintptr_t kmdvaddr;
+	uint64_t kmdvaddr;
 	bool active;
 	bool is_imported;
 };
