@@ -248,6 +248,7 @@ enum {
  * @rd_scid: system cache read block id
  * @rd_noallocate: system cache read no allocate attribute
  * @rd_op_type: system cache read operation type
+ * @flags: dirty flags to change the configuration
  */
 struct sde_hw_pipe_sc_cfg {
 	u32 op_mode;
@@ -255,6 +256,7 @@ struct sde_hw_pipe_sc_cfg {
 	u32 rd_scid;
 	bool rd_noallocate;
 	u32 rd_op_type;
+	u32 flags;
 };
 
 /**

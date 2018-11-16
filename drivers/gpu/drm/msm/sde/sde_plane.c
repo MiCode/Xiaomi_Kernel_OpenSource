@@ -204,27 +204,6 @@ static struct sde_hw_ctl *_sde_plane_get_hw_ctl(const struct drm_plane *plane)
 	return ctl;
 }
 
-/**
- * _sde_plane_get_crtc_state - obtain crtc state attached to given plane state
- * @pstate: Pointer to drm plane state
- * return: Pointer to crtc state if success; pointer error, otherwise
- */
-static struct drm_crtc_state *_sde_plane_get_crtc_state(
-		struct drm_plane_state *pstate)
-{
-	struct drm_crtc_state *cstate;
-
-	if (!pstate || !pstate->crtc)
-		return NULL;
-
-	if (pstate->state)
-		cstate = drm_atomic_get_crtc_state(pstate->state, pstate->crtc);
-	else
-		cstate = pstate->crtc->state;
-
-	return cstate;
-}
-
 static bool sde_plane_enabled(const struct drm_plane_state *state)
 {
 	return state && state->fb && state->crtc;
@@ -1013,6 +992,15 @@ static void _sde_plane_setup_scaler3(struct sde_plane *psde,
 	memset(scale_cfg, 0, sizeof(*scale_cfg));
 	memset(&pstate->pixel_ext, 0, sizeof(struct sde_hw_pixel_ext));
 
+	/*
+	 * For inline rotation cases, scaler config is post-rotation,
+	 * so swap the dimensions here. However, pixel extension will
+	 * need pre-rotation settings, this will be corrected below
+	 * when calculating pixel extension settings.
+	 */
+	if (pstate->rotation & DRM_MODE_ROTATE_90)
+		swap(src_w, src_h);
+
 	decimated = DECIMATED_DIMENSION(src_w,
 			psde->pipe_cfg.horz_decimation);
 	scale_cfg->phase_step_x[SDE_SSPP_COMP_0] =
@@ -1049,10 +1037,19 @@ static void _sde_plane_setup_scaler3(struct sde_plane *psde,
 		}
 		scale_cfg->preload_x[i] = SDE_QSEED3_DEFAULT_PRELOAD_H;
 		scale_cfg->preload_y[i] = SDE_QSEED3_DEFAULT_PRELOAD_V;
-		pstate->pixel_ext.num_ext_pxls_top[i] =
-			scale_cfg->src_height[i];
-		pstate->pixel_ext.num_ext_pxls_left[i] =
-			scale_cfg->src_width[i];
+
+		/* For pixel extension we need the pre-rotated orientation */
+		if (pstate->rotation & DRM_MODE_ROTATE_90) {
+			pstate->pixel_ext.num_ext_pxls_top[i] =
+				scale_cfg->src_width[i];
+			pstate->pixel_ext.num_ext_pxls_left[i] =
+				scale_cfg->src_height[i];
+		} else {
+			pstate->pixel_ext.num_ext_pxls_top[i] =
+				scale_cfg->src_height[i];
+			pstate->pixel_ext.num_ext_pxls_left[i] =
+				scale_cfg->src_width[i];
+		}
 	}
 
 	if ((!(SDE_FORMAT_IS_YUV(fmt)) && (src_h == dst_h)
@@ -1581,18 +1578,20 @@ static int _sde_plane_color_fill(struct sde_plane *psde,
 }
 
 /**
- * sde_plane_rot_atomic_check - verify rotator update of the given state
- * @plane: Pointer to drm plane
- * @state: Pointer to drm plane state to be validated
- * return: 0 if success; error code otherwise
- */
+* sde_plane_rot_atomic_check - verify rotator update of the given state
+* @plane: Pointer to drm plane
+* @state: Pointer to drm plane state to be validated
+* return: 0 if success; error code otherwise
+*/
 static int sde_plane_rot_atomic_check(struct drm_plane *plane,
-		struct drm_plane_state *state)
+	struct drm_plane_state *state)
 {
 	struct sde_plane *psde;
 	struct sde_plane_state *pstate, *old_pstate;
-	struct drm_crtc_state *cstate;
 	int ret = 0;
+	const struct msm_format *msm_fmt;
+	const struct sde_format *fmt;
+	u32 height;
 
 	if (!plane || !state) {
 		SDE_ERROR("invalid plane/state\n");
@@ -1603,19 +1602,62 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 	pstate = to_sde_plane_state(state);
 	old_pstate = to_sde_plane_state(plane->state);
 
-	/* cstate will be null if crtc is disconnected from plane */
-	cstate = _sde_plane_get_crtc_state(state);
-	if (IS_ERR(cstate)) {
-		ret = PTR_ERR(cstate);
-		SDE_ERROR("invalid crtc state %d\n", ret);
-		return ret;
-	}
-
+	/* check inline rotation and simplify the transform */
 	pstate->rotation = drm_rotation_simplify(
 			state->rotation,
 			DRM_MODE_ROTATE_0 | DRM_MODE_ROTATE_90 |
 			DRM_MODE_REFLECT_X | DRM_MODE_REFLECT_Y);
 
+	if ((pstate->rotation & DRM_MODE_ROTATE_180) ||
+		(pstate->rotation & DRM_MODE_ROTATE_270)) {
+		SDE_ERROR_PLANE(psde,
+			"invalid rotation transform must be simplified 0x%x\n",
+			pstate->rotation);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	msm_fmt = msm_framebuffer_format(state->fb);
+	fmt = to_sde_format(msm_fmt);
+	height = state->fb ? state->fb->height : 0x0;
+
+	if ((pstate->rotation & DRM_MODE_ROTATE_90)) {
+		struct msm_drm_private *priv = plane->dev->dev_private;
+		struct sde_kms *sde_kms;
+
+		if (!psde->pipe_sblk->in_rot_maxdwnscale ||
+		!psde->pipe_sblk->in_rot_maxheight ||
+		!psde->pipe_sblk->in_rot_format_list ||
+		!(psde->features & BIT(SDE_SSPP_TRUE_INLINE_ROT_V1))) {
+			SDE_ERROR_PLANE(psde,
+				"invalid rot config max:%d fmt:%d feat:0x%x\n",
+				!psde->pipe_sblk->in_rot_maxdwnscale,
+				!psde->pipe_sblk->in_rot_format_list,
+				psde->features);
+			ret = -EINVAL;
+			goto exit;
+		}
+
+		/* check for valid height */
+		if (height > psde->pipe_sblk->in_rot_maxheight) {
+			SDE_ERROR_PLANE(psde,
+				"invalid height for inline rot:%d max:%d\n",
+				height, psde->pipe_sblk->in_rot_maxheight);
+			ret = -EINVAL;
+			goto exit;
+		}
+
+		if (!sde_plane_enabled(state))
+			goto exit;
+
+		/* check for valid formats supported by inline rot */
+		sde_kms = to_sde_kms(priv->kms);
+		ret = sde_format_validate_fmt(&sde_kms->base, msm_fmt,
+			psde->pipe_sblk->in_rot_format_list);
+
+	}
+
+exit:
 	return ret;
 }
 
@@ -1715,6 +1757,10 @@ static void sde_plane_rot_install_properties(struct drm_plane *plane,
 		SDE_ERROR("invalid catalog\n");
 		return;
 	}
+
+	if (psde->features & BIT(SDE_SSPP_TRUE_INLINE_ROT_V1))
+		supported_rotations |= DRM_MODE_ROTATE_0 | DRM_MODE_ROTATE_90 |
+			DRM_MODE_ROTATE_180 | DRM_MODE_ROTATE_270;
 
 	ret = drm_plane_create_rotation_property(plane,
 			DRM_MODE_ROTATE_0, supported_rotations);
@@ -2140,6 +2186,10 @@ static void _sde_plane_sspp_atomic_check_mode_changed(struct sde_plane *psde,
 		   pstate->excl_rect.y != old_pstate->excl_rect.y) {
 		SDE_DEBUG_PLANE(psde, "excl_rect updated\n");
 		pstate->dirty |= SDE_PLANE_DIRTY_RECTS;
+	} else if (pstate->rotation != old_pstate->rotation) {
+		SDE_DEBUG_PLANE(psde, "rotation updated 0x%x->0x%x\n",
+			pstate->rotation, old_pstate->rotation);
+		pstate->dirty |= SDE_PLANE_DIRTY_FORMAT;
 	}
 
 	fb = state->fb;
@@ -2333,14 +2383,18 @@ static int sde_plane_sspp_atomic_check(struct drm_plane *plane,
 	int ret = 0;
 	struct sde_plane *psde;
 	struct sde_plane_state *pstate;
+	const struct msm_format *msm_fmt;
 	const struct sde_format *fmt;
 	struct sde_rect src, dst;
 	uint32_t deci_w, deci_h, src_deci_w, src_deci_h;
+	uint32_t scaler_src_w, scaler_src_h;
 	uint32_t max_upscale, max_downscale, min_src_size, max_linewidth;
 	bool q16_data = true;
 	struct drm_framebuffer *fb;
 	u32 width;
 	u32 height;
+	bool inline_rotation, rt_client;
+	struct drm_crtc *crtc;
 
 	if (!plane || !state) {
 		SDE_ERROR("invalid arg(s), plane %d state %d\n",
@@ -2370,9 +2424,30 @@ static int sde_plane_sspp_atomic_check(struct drm_plane *plane,
 	src_deci_w = DECIMATED_DIMENSION(src.w, deci_w);
 	src_deci_h = DECIMATED_DIMENSION(src.h, deci_h);
 
+	/* with inline rotator, the source of the scaler is post-rotated */
+	inline_rotation = pstate->rotation & DRM_MODE_ROTATE_90 ? true : false;
+	if (inline_rotation) {
+		scaler_src_w = src_deci_h;
+		scaler_src_h = src_deci_w;
+	} else {
+		scaler_src_w = src_deci_w;
+		scaler_src_h = src_deci_h;
+	}
+
 	max_upscale = psde->pipe_sblk->maxupscale;
-	max_downscale = psde->pipe_sblk->maxdwnscale;
 	max_linewidth = psde->pipe_sblk->maxlinewidth;
+
+	crtc = state->crtc;
+	if (crtc)
+		rt_client = (sde_crtc_get_client_type(crtc) != NRT_CLIENT);
+	else
+		rt_client = true;
+
+	/* inline rotation RT clients have a different max downscaling limit */
+	if (inline_rotation && rt_client)
+		max_downscale = psde->pipe_sblk->in_rot_maxdwnscale;
+	else
+		max_downscale = psde->pipe_sblk->maxdwnscale;
 
 	SDE_DEBUG_PLANE(psde, "check %d -> %d\n",
 		sde_plane_enabled(plane->state), sde_plane_enabled(state));
@@ -2390,13 +2465,14 @@ static int sde_plane_sspp_atomic_check(struct drm_plane *plane,
 			width, height,
 			fb ? (char *) &state->fb->format->format : 0x0,
 			fb ? state->fb->modifier : 0x0);
-	SDE_DEBUG("src:%dx%d %d,%d crtc:%dx%d+%d+%d\n"
+	SDE_DEBUG("src:%dx%d %d,%d crtc:%dx%d+%d+%d\n",
 			state->src_w >> 16, state->src_h >> 16,
 			state->src_x >> 16, state->src_y >> 16,
 			state->crtc_w, state->crtc_h,
 			state->crtc_x, state->crtc_y);
 
-	fmt = to_sde_format(msm_framebuffer_format(state->fb));
+	msm_fmt = msm_framebuffer_format(fb);
+	fmt = to_sde_format(msm_fmt);
 
 	min_src_size = SDE_FORMAT_IS_YUV(fmt) ? 2 : 1;
 
@@ -2458,13 +2534,14 @@ static int sde_plane_sspp_atomic_check(struct drm_plane *plane,
 		ret = -E2BIG;
 
 	/* check max scaler capability */
-	} else if (((src_deci_w * max_upscale) < dst.w) ||
-		((src_deci_h * max_upscale) < dst.h) ||
-		((dst.w * max_downscale) < src_deci_w) ||
-		((dst.h * max_downscale) < src_deci_h)) {
+	} else if (((scaler_src_w * max_upscale) < dst.w) ||
+		((scaler_src_h * max_upscale) < dst.h) ||
+		((dst.w * max_downscale) < scaler_src_w) ||
+		((dst.h * max_downscale) < scaler_src_h)) {
 		SDE_ERROR_PLANE(psde,
-			"too much scaling requested %ux%u->%ux%u\n",
-			src_deci_w, src_deci_h, dst.w, dst.h);
+			"too much scaling requested %ux%u->%ux%u rot:%d\n",
+			scaler_src_w, scaler_src_h, dst.w, dst.h,
+			inline_rotation);
 		ret = -E2BIG;
 	} else if (_sde_plane_validate_scaler_v2(psde, pstate, fmt,
 				width, height,
@@ -2583,6 +2660,34 @@ void sde_plane_set_error(struct drm_plane *plane, bool error)
 
 	psde = to_sde_plane(plane);
 	psde->is_error = error;
+}
+
+static void _sde_plane_sspp_setup_sys_cache(struct sde_plane *psde,
+	struct sde_plane_state *pstate, const struct sde_format *fmt)
+{
+	if (psde->pipe_hw->ops.setup_sys_cache &&
+		(psde->perf_features & BIT(SDE_PERF_SSPP_SYS_CACHE))) {
+
+		SDE_DEBUG("features:0x%x rotation:0x%x\n",
+			__func__, psde->features, pstate->rotation);
+
+		if ((pstate->rotation & DRM_MODE_ROTATE_90) &&
+				sde_format_is_tp10_ubwc(fmt)) {
+			pstate->sc_cfg.rd_en = true;
+			pstate->sc_cfg.rd_scid =
+				psde->pipe_sblk->llcc_scid;
+			pstate->sc_cfg.flags = SSPP_SYS_CACHE_EN_FLAG |
+				SSPP_SYS_CACHE_SCID;
+		} else {
+			pstate->sc_cfg.rd_en = false;
+			pstate->sc_cfg.rd_scid = 0x0;
+			pstate->sc_cfg.flags = SSPP_SYS_CACHE_EN_FLAG |
+				SSPP_SYS_CACHE_SCID;
+		}
+
+		psde->pipe_hw->ops.setup_sys_cache(
+			psde->pipe_hw, &pstate->sc_cfg);
+	}
 }
 
 static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
@@ -2835,12 +2940,17 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 	if ((pstate->dirty & SDE_PLANE_DIRTY_FORMAT ||
 			pstate->dirty & SDE_PLANE_DIRTY_RECTS) &&
 			psde->pipe_hw->ops.setup_format) {
+
 		src_flags = pstate->pipe_order_flags;
-		SDE_DEBUG_PLANE(psde, "rotation 0x%X\n", pstate->rotation);
+
+		SDE_DEBUG_PLANE(psde, "rotation 0x%x features:0x%x\n",
+			pstate->rotation, psde->features);
 		if (pstate->rotation & DRM_MODE_REFLECT_X)
 			src_flags |= SDE_SSPP_FLIP_LR;
 		if (pstate->rotation & DRM_MODE_REFLECT_Y)
 			src_flags |= SDE_SSPP_FLIP_UD;
+		if (pstate->rotation & DRM_MODE_ROTATE_90)
+			src_flags |= SDE_SSPP_ROT_90;
 
 		/* update format */
 		psde->pipe_hw->ops.setup_format(psde->pipe_hw, fmt,
@@ -2864,6 +2974,8 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 			psde->pipe_hw->ops.setup_cdp(psde->pipe_hw, cdp_cfg,
 					pstate->multirect_index);
 		}
+
+		_sde_plane_sspp_setup_sys_cache(psde, pstate, fmt);
 
 		/* update csc */
 		if (SDE_FORMAT_IS_YUV(fmt))
@@ -3005,6 +3117,24 @@ void sde_plane_restore(struct drm_plane *plane)
 
 	/* last plane state is same as current state */
 	sde_plane_atomic_update(plane, plane->state);
+}
+
+bool sde_plane_is_cache_required(struct drm_plane *plane)
+{
+	struct sde_plane_state *pstate;
+
+	if (!plane || !plane->state) {
+		SDE_ERROR("invalid plane\n");
+		return false;
+	}
+
+	pstate = to_sde_plane_state(plane->state);
+
+	/* check if llcc is required for the plane */
+	if (pstate->sc_cfg.rd_en)
+		return true;
+	else
+		return false;
 }
 
 /* helper to install properties which are common to planes and crtcs */
@@ -3240,6 +3370,25 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 		sde_kms_info_add_keyint(info, "sec_ui_allowed", 1);
 	if (psde->features & BIT(SDE_SSPP_BLOCK_SEC_UI))
 		sde_kms_info_add_keyint(info, "block_sec_ui", 1);
+
+	if (psde->features & BIT(SDE_SSPP_TRUE_INLINE_ROT_V1)) {
+		const struct sde_format_extended *inline_rot_fmt_list;
+
+		sde_kms_info_add_keyint(info, "true_inline_rot_rev", 1);
+		inline_rot_fmt_list = psde->pipe_sblk->in_rot_format_list;
+
+		if (inline_rot_fmt_list) {
+			sde_kms_info_start(info, "inline_rot_pixel_formats");
+			while (inline_rot_fmt_list->fourcc_format) {
+				sde_kms_info_append_format(info,
+					inline_rot_fmt_list->fourcc_format,
+					inline_rot_fmt_list->modifier);
+				++inline_rot_fmt_list;
+			}
+			sde_kms_info_stop(info);
+		}
+
+	}
 
 	msm_property_set_blob(&psde->property_info, &psde->blob_info,
 			info->data, SDE_KMS_INFO_DATALEN(info),

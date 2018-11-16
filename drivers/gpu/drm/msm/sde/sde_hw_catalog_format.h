@@ -149,3 +149,10 @@ static const struct sde_format_extended p010_ubwc_formats[] = {
 	{DRM_FORMAT_NV12, DRM_FORMAT_MOD_QCOM_DX |
 		DRM_FORMAT_MOD_QCOM_COMPRESSED},
 };
+
+static const struct sde_format_extended true_inline_rot_v1_fmts[] = {
+	{DRM_FORMAT_NV12, DRM_FORMAT_MOD_QCOM_COMPRESSED},
+	{DRM_FORMAT_NV12, DRM_FORMAT_MOD_QCOM_COMPRESSED |
+		DRM_FORMAT_MOD_QCOM_DX | DRM_FORMAT_MOD_QCOM_TIGHT}, /* tp10 */
+	{0, 0},
+};

@@ -919,6 +919,37 @@ static void sde_hw_sspp_setup_cdp(struct sde_hw_pipe *ctx,
 	SDE_REG_WRITE(&ctx->hw, cdp_cntl_offset, cdp_cntl);
 }
 
+static void sde_hw_sspp_setup_sys_cache(struct sde_hw_pipe *ctx,
+		struct sde_hw_pipe_sc_cfg *cfg)
+{
+	u32 idx, val;
+
+	if (_sspp_subblk_offset(ctx, SDE_SSPP_SRC, &idx))
+		return;
+
+	if (!cfg)
+		return;
+
+	val = SDE_REG_READ(&ctx->hw, SSPP_SYS_CACHE_MODE + idx);
+
+	if (cfg->flags & SSPP_SYS_CACHE_EN_FLAG)
+		val = (val & ~BIT(15)) | ((cfg->rd_en & 0x1) << 15);
+
+	if (cfg->flags & SSPP_SYS_CACHE_SCID)
+		val = (val & ~0x1F00) | ((cfg->rd_scid & 0x1f) << 8);
+
+	if (cfg->flags & SSPP_SYS_CACHE_OP_MODE)
+		val = (val & ~0xC0000) | ((cfg->op_mode & 0x3) << 18);
+
+	if (cfg->flags & SSPP_SYS_CACHE_OP_TYPE)
+		val = (val & ~0xF) | ((cfg->rd_op_type & 0xf) << 0);
+
+	if (cfg->flags & SSPP_SYS_CACHE_NO_ALLOC)
+		val = (val & ~0x10) | ((cfg->rd_noallocate & 0x1) << 4);
+
+	SDE_REG_WRITE(&ctx->hw, SSPP_SYS_CACHE_MODE + idx, val);
+}
+
 static void _setup_layer_ops_colorproc(struct sde_hw_pipe *c,
 		unsigned long features)
 {
@@ -1111,6 +1142,9 @@ static void _setup_layer_ops(struct sde_hw_pipe *c,
 		if (!ret)
 			c->ops.setup_scaler = reg_dmav1_setup_vig_qseed3;
 	}
+
+	if (test_bit(SDE_PERF_SSPP_SYS_CACHE, &perf_features))
+		c->ops.setup_sys_cache = sde_hw_sspp_setup_sys_cache;
 
 	if (test_bit(SDE_PERF_SSPP_CDP, &perf_features))
 		c->ops.setup_cdp = sde_hw_sspp_setup_cdp;
