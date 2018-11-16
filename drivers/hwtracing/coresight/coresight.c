@@ -776,6 +776,10 @@ static ssize_t enable_source_store(struct device *dev,
 		return ret;
 
 	if (val) {
+
+		if (csdev->enable)
+			return size;
+
 		ret = coresight_enable(csdev);
 		if (ret)
 			return ret;
