@@ -65,6 +65,7 @@ enum print_reason {
 #define HVDCP2_ICL_VOTER		"HVDCP2_ICL_VOTER"
 #define AICL_THRESHOLD_VOTER		"AICL_THRESHOLD_VOTER"
 #define USBOV_DBC_VOTER			"USBOV_DBC_VOTER"
+#define CHG_TERMINATION_VOTER		"CHG_TERMINATION_VOTER"
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -107,6 +108,7 @@ enum {
 	SW_THERM_REGULATION_WA		= BIT(1),
 	WEAK_ADAPTER_WA			= BIT(2),
 	USBIN_OV_WA			= BIT(3),
+	CHG_TERMINATION_WA		= BIT(4),
 };
 
 enum jeita_cfg_stat {
@@ -395,6 +397,7 @@ struct smb_charger {
 	struct work_struct	pl_update_work;
 	struct work_struct	jeita_update_work;
 	struct work_struct	moisture_protection_work;
+	struct work_struct	chg_termination_work;
 	struct delayed_work	ps_change_timeout_work;
 	struct delayed_work	clear_hdc_work;
 	struct delayed_work	icl_change_work;
@@ -408,6 +411,7 @@ struct smb_charger {
 
 	struct alarm		lpd_recheck_timer;
 	struct alarm		moisture_protection_alarm;
+	struct alarm		chg_termination_alarm;
 
 	/* secondary charger config */
 	bool			sec_pl_present;
@@ -488,6 +492,8 @@ struct smb_charger {
 	int			aicl_cont_threshold_mv;
 	int			default_aicl_cont_threshold_mv;
 	bool			aicl_max_reached;
+	int			charge_full_cc;
+	int			cc_soc_ref;
 
 	/* workaround flag */
 	u32			wa_flags;
