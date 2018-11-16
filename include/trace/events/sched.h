@@ -1048,9 +1048,9 @@ TRACE_EVENT(sched_util_est_cpu,
 	TP_ARGS(cpu, cfs_rq),
 
 	TP_STRUCT__entry(
-		__field( int,		cpu			)
-		__field( unsigned int,	util_avg		)
-		__field( unsigned int,	util_est_enqueued	)
+		__field(int,		cpu)
+		__field(unsigned int,	util_avg)
+		__field(unsigned int,	util_est_enqueued)
 	),
 
 	TP_fast_assign(
@@ -1065,27 +1065,121 @@ TRACE_EVENT(sched_util_est_cpu,
 		  __entry->util_est_enqueued)
 );
 
+TRACE_EVENT(sched_cpu_util,
+
+	TP_PROTO(int cpu),
+
+	TP_ARGS(cpu),
+
+	TP_STRUCT__entry(
+		__field(unsigned int,	cpu)
+		__field(unsigned int,	nr_running)
+		__field(long,		cpu_util)
+		__field(long,		cpu_util_cum)
+		__field(unsigned int,	capacity_curr)
+		__field(unsigned int,	capacity)
+		__field(unsigned int,	capacity_orig)
+		__field(int,		idle_state)
+		__field(u64,		irqload)
+		__field(int,		online)
+		__field(int,		isolated)
+		__field(int,		reserved)
+		__field(int,		high_irq_load)
+	),
+
+	TP_fast_assign(
+		__entry->cpu                = cpu;
+		__entry->nr_running         = cpu_rq(cpu)->nr_running;
+		__entry->cpu_util           = cpu_util(cpu);
+		__entry->cpu_util_cum       = cpu_util_cum(cpu, 0);
+		__entry->capacity_curr      = capacity_curr_of(cpu);
+		__entry->capacity           = capacity_of(cpu);
+		__entry->capacity_orig      = capacity_orig_of(cpu);
+		__entry->idle_state         = idle_get_state_idx(cpu_rq(cpu));
+		__entry->irqload            = sched_irqload(cpu);
+		__entry->online             = cpu_online(cpu);
+		__entry->isolated           = cpu_isolated(cpu);
+		__entry->reserved           = is_reserved(cpu);
+		__entry->high_irq_load      = sched_cpu_high_irqload(cpu);
+	),
+
+	TP_printk("cpu=%d nr_running=%d cpu_util=%ld cpu_util_cum=%ld capacity_curr=%u capacity=%u capacity_orig=%u idle_state=%d irqload=%llu online=%u, isolated=%u, reserved=%u, high_irq_load=%u",
+		__entry->cpu, __entry->nr_running, __entry->cpu_util,
+		__entry->cpu_util_cum, __entry->capacity_curr,
+		__entry->capacity, __entry->capacity_orig,
+		__entry->idle_state, __entry->irqload, __entry->online,
+		__entry->isolated, __entry->reserved, __entry->high_irq_load)
+);
+
+TRACE_EVENT(sched_task_util,
+
+	TP_PROTO(struct task_struct *p, int best_energy_cpu,
+		bool sync, bool need_idle, int fastpath,
+		bool placement_boost, int rtg_cpu, u64 start_t),
+
+	TP_ARGS(p, best_energy_cpu, sync, need_idle, fastpath,
+		placement_boost, rtg_cpu, start_t),
+
+	TP_STRUCT__entry(
+		__field(int,		pid)
+		__array(char,		comm, TASK_COMM_LEN)
+		__field(unsigned long,	util)
+		__field(int,		prev_cpu)
+		__field(int,		best_energy_cpu)
+		__field(bool,		sync)
+		__field(bool,		need_idle)
+		__field(int,		fastpath)
+		__field(int,		placement_boost)
+		__field(int,		rtg_cpu)
+		__field(u64,		latency)
+	),
+
+	TP_fast_assign(
+		__entry->pid                    = p->pid;
+		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
+		__entry->util                   = task_util(p);
+		__entry->prev_cpu               = task_cpu(p);
+		__entry->best_energy_cpu        = best_energy_cpu;
+		__entry->sync                   = sync;
+		__entry->need_idle              = need_idle;
+		__entry->fastpath               = fastpath;
+		__entry->placement_boost        = placement_boost;
+		__entry->rtg_cpu                = rtg_cpu;
+		__entry->latency                = (sched_clock() - start_t);
+	),
+
+	TP_printk("pid=%d comm=%s util=%lu prev_cpu=%d best_energy_cpu=%d sync=%d need_idle=%d fastpath=%d placement_boost=%d rtg_cpu=%d latency=%llu",
+		__entry->pid, __entry->comm, __entry->util, __entry->prev_cpu,
+		__entry->best_energy_cpu, __entry->sync, __entry->need_idle,
+		__entry->fastpath, __entry->placement_boost, __entry->rtg_cpu,
+		__entry->latency)
+)
+
 /*
  * Tracepoint for find_best_target
  */
 TRACE_EVENT(sched_find_best_target,
 
 	TP_PROTO(struct task_struct *tsk, bool prefer_idle,
-		 unsigned long min_util, int best_idle, int best_active,
+		 unsigned long min_util, int start_cpu,
+		 int best_idle, int best_active, int most_spare_cap,
 		 int target, int backup),
 
-	TP_ARGS(tsk, prefer_idle, min_util, best_idle,
-		best_active, target, backup),
+	TP_ARGS(tsk, prefer_idle, min_util, start_cpu,
+		best_idle, best_active, most_spare_cap,
+		target, backup),
 
 	TP_STRUCT__entry(
-		__array( char,  comm,   TASK_COMM_LEN   )
-		__field( pid_t, pid                     )
-		__field( unsigned long, min_util        )
-		__field( bool,  prefer_idle             )
-		__field( int,   best_idle               )
-		__field( int,   best_active             )
-		__field( int,   target                  )
-		__field( int,   backup                  )
+		__array(char,		comm, TASK_COMM_LEN)
+		__field(pid_t,		pid)
+		__field(unsigned long,	min_util)
+		__field(bool,		prefer_idle)
+		__field(int,		start_cpu)
+		__field(int,		best_idle)
+		__field(int,		best_active)
+		__field(int,		most_spare_cap)
+		__field(int,		target)
+		__field(int,		backup)
 		),
 
 	TP_fast_assign(
@@ -1093,16 +1187,19 @@ TRACE_EVENT(sched_find_best_target,
 		__entry->pid            = tsk->pid;
 		__entry->min_util       = min_util;
 		__entry->prefer_idle    = prefer_idle;
+		__entry->start_cpu      = start_cpu;
 		__entry->best_idle      = best_idle;
 		__entry->best_active    = best_active;
+		__entry->most_spare_cap = most_spare_cap;
 		__entry->target         = target;
 		__entry->backup         = backup;
 		),
 
-	TP_printk("pid=%d comm=%s prefer_idle=%d "
-		  "best_idle=%d best_active=%d target=%d backup=%d",
+	TP_printk("pid=%d comm=%s prefer_idle=%d start_cpu=%d best_idle=%d best_active=%d most_spare_cap=%d target=%d backup=%d",
 		  __entry->pid, __entry->comm, __entry->prefer_idle,
+		  __entry->start_cpu,
 		  __entry->best_idle, __entry->best_active,
+		  __entry->most_spare_cap,
 		  __entry->target, __entry->backup)
 );
 
