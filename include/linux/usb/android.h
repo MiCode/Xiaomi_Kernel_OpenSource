@@ -48,6 +48,7 @@ enum android_function_index {
 	ANDROID_RMNET_GSI,
 	ANDROID_MBIM_GSI,
 	ANDROID_DPL_GSI,
+	ANDROID_IPC,
 	ANDROID_MAX_FUNC_CNT,
 	ANDROID_INVALID_FUNC,
 };
@@ -113,6 +114,8 @@ static enum android_function_index name_to_func_idx(const char *name)
 		return ANDROID_MBIM_GSI;
 	if (!strncasecmp("DPL_GSI", name, FUNC_NAME_LEN))
 		return ANDROID_DPL_GSI;
+	if (!strncasecmp("IPC", name, FUNC_NAME_LEN))
+		return ANDROID_IPC;
 
 	return ANDROID_INVALID_FUNC;
 }
