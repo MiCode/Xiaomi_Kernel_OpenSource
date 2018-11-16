@@ -1290,17 +1290,17 @@
 	qcom,venus@aab0000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0xaab0000 0x2000>;
-/*
- *		vdd-supply = <&mvsc_gdsc>;
- *		qcom,proxy-reg-names = "vdd";
- *		qcom,complete-ramdump;
- *
- *		clocks = <&clock_videocc VIDEO_CC_XO_CLK>,
- *			<&clock_videocc VIDEO_CC_MVSC_CORE_CLK>,
- *			<&clock_videocc VIDEO_CC_IRIS_AHB_CLK>;
- *		clock-names = "xo", "core", "ahb";
- *		qcom,proxy-clock-names = "xo",  "core", "ahb";
- */
+
+		vdd-supply = <&mvs0c_gdsc>;
+		qcom,proxy-reg-names = "vdd";
+		qcom,complete-ramdump;
+
+		clocks = <&clock_videocc VIDEO_CC_XO_CLK>,
+			<&clock_videocc VIDEO_CC_MVS0C_CLK>,
+			<&clock_videocc VIDEO_CC_AHB_CLK>;
+		clock-names = "xo", "core", "ahb";
+		qcom,proxy-clock-names = "xo",  "core", "ahb";
+
 		qcom,core-freq = <200000000>;
 		qcom,ahb-freq = <200000000>;
 
