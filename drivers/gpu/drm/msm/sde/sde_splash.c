@@ -354,7 +354,7 @@ static int _sde_splash_free_module_resource(struct msm_mmu *mmu,
 		if (!msm_obj)
 			return -EINVAL;
 
-		if (mmu->funcs && mmu->funcs->unmap)
+		if (mmu->funcs && mmu->funcs->early_splash_unmap)
 			mmu->funcs->early_splash_unmap(mmu,
 				sinfo->splash_mem_paddr[i], msm_obj->sgt);
 
@@ -648,7 +648,7 @@ int sde_splash_smmu_map(struct drm_device *dev, struct msm_mmu *mmu,
 	for (i = 0; i < sinfo->splash_mem_num; i++) {
 		msm_obj = to_msm_bo(sinfo->obj[i]);
 
-		if (mmu->funcs && mmu->funcs->map) {
+		if (mmu->funcs && mmu->funcs->early_splash_map) {
 			ret = mmu->funcs->early_splash_map(mmu,
 				sinfo->splash_mem_paddr[i], msm_obj->sgt,
 				IOMMU_READ | IOMMU_NOEXEC);
