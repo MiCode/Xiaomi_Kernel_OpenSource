@@ -3168,3 +3168,7 @@
 	qcom,cx-ipeak-data = <&cx_ipeak_lm 4>;
 	qcom,clock-freq-threshold = <380000000>;
 };
+
+&msm_audio_ion {
+	qcom,iova-start-addr = <0x20000000>;
+};
