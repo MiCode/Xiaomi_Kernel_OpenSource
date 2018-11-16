@@ -274,6 +274,8 @@
 
 &usb2s {
 	status = "okay";
+	qcom,no-wakeup-src-in-hostmode;
+	qcom,disable-host-mode-pm;
 };
 
 &usb3 {
