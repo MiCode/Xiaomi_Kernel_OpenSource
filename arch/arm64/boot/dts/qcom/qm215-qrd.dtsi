@@ -26,6 +26,7 @@
 	status = "ok";
 	qcom,battery-data = <&qrd_batterydata>;
 	qcom,batt-aging-comp;
+	qcom,resume-soc = <99>;
 };
 
 &pm8916_vib{
