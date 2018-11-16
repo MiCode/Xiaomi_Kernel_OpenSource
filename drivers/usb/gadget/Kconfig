@@ -179,6 +179,9 @@ config USB_F_EEM
 config USB_F_SUBSET
 	tristate
 
+config USB_RNDIS
+	tristate
+
 config USB_F_RNDIS
 	tristate
 
@@ -327,6 +330,7 @@ config USB_CONFIGFS_QCRNDIS
 	depends on RNDIS_IPA
 	depends on NET
 	select USB_U_ETHER
+	select USB_RNDIS
 	select USB_F_QCRNDIS
 
 config USB_CONFIGFS_RNDIS
@@ -334,6 +338,7 @@ config USB_CONFIGFS_RNDIS
 	depends on USB_CONFIGFS
 	depends on NET
 	select USB_U_ETHER
+	select USB_RNDIS
 	select USB_F_RNDIS
 	help
 	   Microsoft Windows XP bundles the "Remote NDIS" (RNDIS) protocol,
@@ -572,6 +577,7 @@ config USB_CONFIGFS_F_GSI
 	bool "USB GSI function"
 	select USB_F_GSI
 	select USB_U_ETHER
+	select USB_RNDIS
 	depends on USB_CONFIGFS
 	help
 	  Generic function driver to support h/w acceleration to IPA over GSI.
