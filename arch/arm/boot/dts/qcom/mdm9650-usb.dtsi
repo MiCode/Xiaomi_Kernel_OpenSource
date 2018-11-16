@@ -112,7 +112,7 @@
 		qcom,pm-qos-latency = <101 2001 30001>;
 		qcom,supported-func = "ffs","audio","diag","serial",
 			"mass_storage","rndis_gsi","ecm_gsi","rmnet_gsi",
-			"mbim_gsi","dpl_gsi","gps","qdss","rndis";
+			"mbim_gsi","dpl_gsi","gps","qdss","rndis","ipc";
 	};
 
 	qusb_phy: qusb@79000 {
