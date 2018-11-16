@@ -659,7 +659,7 @@
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "core_clk";
 
-		qom,coresight-jtagmm-cpu = <&CPU1>;
+		qcom,coresight-jtagmm-cpu = <&CPU1>;
 	};
 
 	jtag_mm2: jtagmm@7240000 {
