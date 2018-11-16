@@ -13,6 +13,14 @@
 
 #include "qcs405-tasha.dtsi"
 
+&q6core {
+	bolero: bolero-cdc {
+		compatible = "qcom,bolero-codec";
+		clock-names = "island_lpass_npa_rsc";
+		clocks = <&lpass_npa_rsc_island 0>;
+	};
+};
+
 &qcs405_snd {
 	qcom,model = "qcs405-amic-snd-card";
 	qcom,tasha-codec = <1>;
