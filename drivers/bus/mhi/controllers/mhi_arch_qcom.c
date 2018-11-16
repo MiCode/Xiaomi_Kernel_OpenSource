@@ -354,7 +354,7 @@ static struct dma_iommu_mapping *mhi_arch_create_iommu_mapping(
 
 	MHI_LOG("Create iommu mapping of base:%pad size:%zu\n",
 		&base, size);
-	return arm_iommu_create_mapping(&pci_bus_type, base, size);
+	return __depr_arm_iommu_create_mapping(&pci_bus_type, base, size);
 }
 
 static int mhi_arch_dma_mask(struct mhi_controller *mhi_cntrl)
@@ -438,8 +438,8 @@ int mhi_arch_iommu_init(struct mhi_controller *mhi_cntrl)
 	}
 
 	if (smmu_config) {
-		ret = arm_iommu_attach_device(&mhi_dev->pci_dev->dev, mapping);
-
+		ret = __depr_arm_iommu_attach_device(&mhi_dev->pci_dev->dev,
+						     mapping);
 		if (ret) {
 			MHI_ERR("Error attach device, ret:%d\n", ret);
 			goto release_mapping;
@@ -458,10 +458,10 @@ int mhi_arch_iommu_init(struct mhi_controller *mhi_cntrl)
 	return 0;
 
 release_device:
-	arm_iommu_detach_device(mhi_cntrl->dev);
+	__depr_arm_iommu_detach_device(mhi_cntrl->dev);
 
 release_mapping:
-	arm_iommu_release_mapping(mapping);
+	__depr_arm_iommu_release_mapping(mapping);
 
 	return ret;
 }
@@ -473,8 +473,8 @@ void mhi_arch_iommu_deinit(struct mhi_controller *mhi_cntrl)
 	struct dma_iommu_mapping *mapping = arch_info->mapping;
 
 	if (mapping) {
-		arm_iommu_detach_device(mhi_cntrl->dev);
-		arm_iommu_release_mapping(mapping);
+		__depr_arm_iommu_detach_device(mhi_cntrl->dev);
+		__depr_arm_iommu_release_mapping(mapping);
 	}
 	arch_info->mapping = NULL;
 	mhi_cntrl->dev = NULL;

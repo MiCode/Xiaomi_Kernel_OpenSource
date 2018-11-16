@@ -773,6 +773,10 @@ static int of_parse_ev_cfg(struct mhi_controller *mhi_cntrl,
 	struct mhi_event *mhi_event;
 	struct device_node *child;
 
+	of_node = of_find_node_by_name(of_node, "mhi_events");
+	if (!of_node)
+		return -EINVAL;
+
 	for_each_available_child_of_node(of_node, child) {
 		if (!strcmp(child->name, "mhi_event"))
 			num++;
@@ -887,6 +891,10 @@ static int of_parse_ch_cfg(struct mhi_controller *mhi_cntrl,
 				   &mhi_cntrl->max_chan);
 	if (ret)
 		return ret;
+
+	of_node = of_find_node_by_name(of_node, "mhi_channels");
+	if (!of_node)
+		return -EINVAL;
 
 	mhi_cntrl->mhi_chan = kcalloc(mhi_cntrl->max_chan,
 				      sizeof(*mhi_cntrl->mhi_chan), GFP_KERNEL);
