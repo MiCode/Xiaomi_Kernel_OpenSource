@@ -936,7 +936,7 @@
 		qcom,ipa-hw-mode = <0>;
 		qcom,ee = <0>;
 		qcom,use-ipa-tethering-bridge;
-		qcom,mhi-event-ring-id-limits = <9 10>; /* start and end */
+		qcom,mhi-event-ring-id-limits = <9 11>; /* start and end */
 		qcom,modem-cfg-emb-pipe-flt;
 		qcom,use-ipa-pm;
 		qcom,wlan-ce-db-over-pcie;

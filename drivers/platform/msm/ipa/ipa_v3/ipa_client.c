@@ -68,7 +68,8 @@ int ipa3_enable_data_path(u32 clnt_hdl)
 		 * if DPL client is not pulling the data
 		 * on other end from IPA hw.
 		 */
-		if (ep->client == IPA_CLIENT_USB_DPL_CONS)
+		if ((ep->client == IPA_CLIENT_USB_DPL_CONS) ||
+				(ep->client == IPA_CLIENT_MHI_DPL_CONS))
 			holb_cfg.en = IPA_HOLB_TMR_EN;
 		else
 			holb_cfg.en = IPA_HOLB_TMR_DIS;
