@@ -638,6 +638,8 @@
 		qcom,max-pclk-frequency-khz = <675000>;
 
 		qcom,mst-enable;
+		qcom,dsc-feature-enable;
+		qcom,fec-feature-enable;
 
 		qcom,ctrl-supply-entries {
 			#address-cells = <1>;
