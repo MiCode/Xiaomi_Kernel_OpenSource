@@ -2807,7 +2807,8 @@ static void adreno_suspend_device(struct kgsl_device *device,
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int pm_event = pm_state.event;
 
-	adreno_dispatcher_halt(device);
+	if (device->state == KGSL_STATE_SUSPEND)
+		adreno_dispatcher_halt(device);
 
 	if ((pm_event == PM_EVENT_FREEZE) ||
 		(pm_event == PM_EVENT_QUIESCE) ||
