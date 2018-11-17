@@ -384,6 +384,38 @@
 				linux,default-trigger = "timer";
 			};
 		};
+
+		pm8150a_amoled: qcom,amoled {
+			compatible = "qcom,qpnp-amoled-regulator";
+			status = "disabled";
+
+			oledb_vreg: oledb@e000 {
+				reg = <0xe000 0x100>;
+				reg-names = "oledb_base";
+				regulator-name = "oledb";
+				regulator-min-microvolt = <4925000>;
+				regulator-max-microvolt = <8100000>;
+				qcom,swire-control;
+			};
+
+			ab_vreg: ab@de00 {
+				reg = <0xde00 0x100>;
+				reg-names = "ab_base";
+				regulator-name = "ab";
+				regulator-min-microvolt = <4600000>;
+				regulator-max-microvolt = <6100000>;
+				qcom,swire-control;
+			};
+
+			ibb_vreg: ibb@dc00 {
+				reg = <0xdc00 0x100>;
+				reg-names = "ibb_base";
+				regulator-name = "ibb";
+				regulator-min-microvolt = <800000>;
+				regulator-max-microvolt = <5400000>;
+				qcom,swire-control;
+			};
+		};
 	};
 };
 
