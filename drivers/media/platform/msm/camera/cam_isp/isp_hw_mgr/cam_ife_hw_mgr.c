@@ -2879,11 +2879,6 @@ static void cam_ife_mgr_print_io_bufs(struct cam_packet *packet,
 				CAM_ERR(CAM_ISP, "get src buf address fail");
 				continue;
 			}
-			if (iova_addr >> 32) {
-				CAM_ERR(CAM_ISP, "Invalid mapped address");
-				rc = -EINVAL;
-				continue;
-			}
 
 			CAM_INFO(CAM_ISP,
 				"pln %d w %d h %d size %d addr 0x%x offset 0x%x memh %x",
