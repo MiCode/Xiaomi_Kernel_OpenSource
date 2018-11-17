@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,7 +22,7 @@
 	qcom,msm-id = <305 0x10000>;
 
 	chosen {
-		bootargs = "lpm_levels.sleep_disabled=1 fpsimd.fpsimd_settings=1 app_setting.use_app_setting=0 app_setting.use_32bit_app_setting_pro=1";
+		bootargs = "lpm_levels.sleep_disabled=1 fpsimd.fpsimd_settings=1 app_setting.use_app_setting=0 app_setting.use_32bit_app_setting_pro=1 kpti=1";
 	};
 };
 
