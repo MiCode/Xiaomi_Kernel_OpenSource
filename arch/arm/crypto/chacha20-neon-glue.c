@@ -19,7 +19,7 @@
  */
 
 #include <crypto/algapi.h>
-#include <crypto/chacha20.h>
+#include <crypto/chacha.h>
 #include <linux/crypto.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -34,20 +34,20 @@ asmlinkage void chacha20_4block_xor_neon(u32 *state, u8 *dst, const u8 *src);
 static void chacha20_dosimd(u32 *state, u8 *dst, const u8 *src,
 			    unsigned int bytes)
 {
-	u8 buf[CHACHA20_BLOCK_SIZE];
+	u8 buf[CHACHA_BLOCK_SIZE];
 
-	while (bytes >= CHACHA20_BLOCK_SIZE * 4) {
+	while (bytes >= CHACHA_BLOCK_SIZE * 4) {
 		chacha20_4block_xor_neon(state, dst, src);
-		bytes -= CHACHA20_BLOCK_SIZE * 4;
-		src += CHACHA20_BLOCK_SIZE * 4;
-		dst += CHACHA20_BLOCK_SIZE * 4;
+		bytes -= CHACHA_BLOCK_SIZE * 4;
+		src += CHACHA_BLOCK_SIZE * 4;
+		dst += CHACHA_BLOCK_SIZE * 4;
 		state[12] += 4;
 	}
-	while (bytes >= CHACHA20_BLOCK_SIZE) {
+	while (bytes >= CHACHA_BLOCK_SIZE) {
 		chacha20_block_xor_neon(state, dst, src);
-		bytes -= CHACHA20_BLOCK_SIZE;
-		src += CHACHA20_BLOCK_SIZE;
-		dst += CHACHA20_BLOCK_SIZE;
+		bytes -= CHACHA_BLOCK_SIZE;
+		src += CHACHA_BLOCK_SIZE;
+		dst += CHACHA_BLOCK_SIZE;
 		state[12]++;
 	}
 	if (bytes) {
@@ -64,22 +64,22 @@ static int chacha20_simd(struct blkcipher_desc *desc, struct scatterlist *dst,
 	u32 state[16];
 	int err;
 
-	if (nbytes <= CHACHA20_BLOCK_SIZE || !may_use_simd())
-		return crypto_chacha20_crypt(desc, dst, src, nbytes);
+	if (nbytes <= CHACHA_BLOCK_SIZE || !may_use_simd())
+		return crypto_chacha_crypt(desc, dst, src, nbytes);
 
 	desc->flags &= ~CRYPTO_TFM_REQ_MAY_SLEEP;
 	blkcipher_walk_init(&walk, dst, src, nbytes);
-	err = blkcipher_walk_virt_block(desc, &walk, CHACHA20_BLOCK_SIZE);
+	err = blkcipher_walk_virt_block(desc, &walk, CHACHA_BLOCK_SIZE);
 
-	crypto_chacha20_init(state, crypto_blkcipher_ctx(desc->tfm), walk.iv);
+	crypto_chacha_init(state, crypto_blkcipher_ctx(desc->tfm), walk.iv);
 
 	kernel_neon_begin();
 
-	while (walk.nbytes >= CHACHA20_BLOCK_SIZE) {
+	while (walk.nbytes >= CHACHA_BLOCK_SIZE) {
 		chacha20_dosimd(state, walk.dst.virt.addr, walk.src.virt.addr,
-				rounddown(walk.nbytes, CHACHA20_BLOCK_SIZE));
+				rounddown(walk.nbytes, CHACHA_BLOCK_SIZE));
 		err = blkcipher_walk_done(desc, &walk,
-					  walk.nbytes % CHACHA20_BLOCK_SIZE);
+					  walk.nbytes % CHACHA_BLOCK_SIZE);
 	}
 
 	if (walk.nbytes) {
@@ -100,14 +100,14 @@ static struct crypto_alg alg = {
 	.cra_flags		= CRYPTO_ALG_TYPE_BLKCIPHER,
 	.cra_blocksize		= 1,
 	.cra_type		= &crypto_blkcipher_type,
-	.cra_ctxsize		= sizeof(struct chacha20_ctx),
+	.cra_ctxsize		= sizeof(struct chacha_ctx),
 	.cra_alignmask		= sizeof(u32) - 1,
 	.cra_module		= THIS_MODULE,
 	.cra_u			= {
 		.blkcipher = {
-			.min_keysize	= CHACHA20_KEY_SIZE,
-			.max_keysize	= CHACHA20_KEY_SIZE,
-			.ivsize		= CHACHA20_IV_SIZE,
+			.min_keysize	= CHACHA_KEY_SIZE,
+			.max_keysize	= CHACHA_KEY_SIZE,
+			.ivsize		= CHACHA_IV_SIZE,
 			.geniv		= "seqiv",
 			.setkey		= crypto_chacha20_setkey,
 			.encrypt	= chacha20_simd,
