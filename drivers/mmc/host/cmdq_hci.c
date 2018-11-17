@@ -864,6 +864,33 @@ out:
 	return err;
 }
 
+static int cmdq_get_first_valid_tag(struct cmdq_host *cq_host)
+{
+	u32 dbr_set = 0, tag = 0;
+
+	dbr_set = cmdq_readl(cq_host, CQTDBR);
+	if (!dbr_set) {
+		pr_err("%s: spurious/force error interrupt\n",
+				mmc_hostname(cq_host->mmc));
+		cmdq_halt_poll(cq_host->mmc, false);
+		mmc_host_clr_halt(cq_host->mmc);
+		return -EINVAL;
+	}
+
+	tag = ffs(dbr_set) - 1;
+	pr_err("%s: error tag selected: tag = %d\n",
+		mmc_hostname(cq_host->mmc), tag);
+	return tag;
+}
+
+static bool cmdq_is_valid_tag(struct mmc_host *mmc, unsigned int tag)
+{
+	struct mmc_cmdq_context_info *ctx_info = &mmc->cmdq_ctx;
+
+	return
+	(!!(ctx_info->data_active_reqs & (1 << tag)) || tag == DCMD_SLOT);
+}
+
 static void cmdq_finish_data(struct mmc_host *mmc, unsigned int tag)
 {
 	struct mmc_request *mrq;
@@ -897,7 +924,7 @@ static void cmdq_finish_data(struct mmc_host *mmc, unsigned int tag)
 	mrq->done(mrq);
 }
 
-irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
+irqreturn_t cmdq_irq(struct mmc_host *mmc, int err, bool is_cmd_err)
 {
 	u32 status;
 	unsigned long tag = 0, comp_status;
@@ -922,6 +949,8 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 		err_info = cmdq_readl(cq_host, CQTERRI);
 		pr_err("%s: err: %d status: 0x%08x task-err-info (0x%08lx)\n",
 		       mmc_hostname(mmc), err, status, err_info);
+		/* Dump the registers before clearing Interrupt */
+		cmdq_dumpregs(cq_host);
 
 		/*
 		 * Need to halt CQE in case of error in interrupt context itself
@@ -945,7 +974,6 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 		 */
 		cmdq_writel(cq_host, status, CQIS);
 
-		cmdq_dumpregs(cq_host);
 
 		if (!err_info) {
 			/*
@@ -958,18 +986,10 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 			 *   have caused such error, so check for any first
 			 *   bit set in doorbell and proceed with an error.
 			 */
-			dbr_set = cmdq_readl(cq_host, CQTDBR);
-			if (!dbr_set) {
-				pr_err("%s: spurious/force error interrupt\n",
-						mmc_hostname(mmc));
-				cmdq_halt_poll(mmc, false);
-				mmc_host_clr_halt(mmc);
-				return IRQ_HANDLED;
-			}
+			tag = cmdq_get_first_valid_tag(cq_host);
+			if (tag == -EINVAL)
+				goto hac;
 
-			tag = ffs(dbr_set) - 1;
-			pr_err("%s: error tag selected: tag = %lu\n",
-					mmc_hostname(mmc), tag);
 			mrq = get_req_by_tag(cq_host, tag);
 			if (mrq->data)
 				mrq->data->error = err;
@@ -984,9 +1004,23 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 			goto skip_cqterri;
 		}
 
-		if (err_info & CQ_RMEFV) {
+		if (is_cmd_err && (err_info & CQ_RMEFV)) {
 			tag = GET_CMD_ERR_TAG(err_info);
 			pr_err("%s: CMD err tag: %lu\n", __func__, tag);
+
+			/*
+			 * In some cases CQTERRI is not providing reliable tag
+			 * info. If the tag is not valid, complete the request
+			 * with any valid tag so that all tags will get
+			 * requeued.
+			 */
+			if (!cmdq_is_valid_tag(mmc, tag)) {
+				pr_err("%s: CMD err tag is invalid: %lu\n",
+						__func__, tag);
+				tag = cmdq_get_first_valid_tag(cq_host);
+				if (tag == -EINVAL)
+					goto hac;
+			}
 
 			mrq = get_req_by_tag(cq_host, tag);
 			/* CMD44/45/46/47 will not have a valid cmd */
@@ -997,8 +1031,26 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 		} else {
 			tag = GET_DAT_ERR_TAG(err_info);
 			pr_err("%s: Dat err  tag: %lu\n", __func__, tag);
+
+			/*
+			 * In some cases CQTERRI is not providing reliable tag
+			 * info. If the tag is not valid, complete the request
+			 * with any valid tag so that all tags will get
+			 * requeued.
+			 */
+			if (!cmdq_is_valid_tag(mmc, tag)) {
+				pr_err("%s: CMD err tag is invalid: %lu\n",
+						__func__, tag);
+				tag = cmdq_get_first_valid_tag(cq_host);
+				if (tag == -EINVAL)
+					goto hac;
+			}
 			mrq = get_req_by_tag(cq_host, tag);
-			mrq->data->error = err;
+
+			if (mrq->data)
+				mrq->data->error = err;
+			else
+				mrq->cmd->error = err;
 		}
 
 skip_cqterri:
@@ -1100,6 +1152,7 @@ skip_cqterri:
 			}
 		}
 		cmdq_finish_data(mmc, tag);
+		goto hac;
 	} else {
 		cmdq_writel(cq_host, status, CQIS);
 	}
