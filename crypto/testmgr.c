@@ -2349,6 +2349,24 @@ static int alg_test_null(const struct alg_test_desc *desc,
 /* Please keep this list sorted by algorithm name. */
 static const struct alg_test_desc alg_test_descs[] = {
 	{
+		.alg = "adiantum(xchacha12,aes)",
+		.test = alg_test_skcipher,
+		.suite = {
+			.cipher = {
+				.enc = __VECS(adiantum_xchacha12_aes_enc_tv_template),
+				.dec = __VECS(adiantum_xchacha12_aes_dec_tv_template)
+			}
+		},
+	}, {
+		.alg = "adiantum(xchacha20,aes)",
+		.test = alg_test_skcipher,
+		.suite = {
+			.cipher = {
+				.enc = __VECS(adiantum_xchacha20_aes_enc_tv_template),
+				.dec = __VECS(adiantum_xchacha20_aes_dec_tv_template)
+			}
+		},
+	}, {
 		.alg = "ansi_cprng",
 		.test = alg_test_cprng,
 		.suite = {
