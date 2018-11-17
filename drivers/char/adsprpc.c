@@ -226,7 +226,6 @@ struct fastrpc_ctx_lst {
 
 struct fastrpc_smmu {
 	struct device *dev;
-	struct dma_iommu_mapping *mapping;
 	const char *dev_name;
 	int cb;
 	int enabled;
@@ -505,7 +504,7 @@ static void fastrpc_buf_free(struct fastrpc_buf *buf, int cache)
 		int destVM[1] = {VMID_HLOS};
 		int destVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 
-		if (fl->sctx->smmu.cb && fl->cid != SDSP_DOMAIN_ID)
+		if (fl->sctx->smmu.cb)
 			buf->phys &= ~((uint64_t)fl->sctx->smmu.cb << 32);
 		vmid = fl->apps->channel[fl->cid].vmid;
 		if (vmid) {
@@ -872,8 +871,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 		map->phys = sg_dma_address(map->table->sgl);
 
 		if (sess->smmu.cb) {
-			if (fl->cid != SDSP_DOMAIN_ID)
-				map->phys += ((uint64_t)sess->smmu.cb << 32);
+			map->phys += ((uint64_t)sess->smmu.cb << 32);
 			for_each_sg(map->table->sgl, sgl, map->table->nents,
 				sgl_index)
 				map->size += sg_dma_len(sgl);
@@ -975,7 +973,7 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 			current->comm, __func__, size, (int)buf->virt);
 		goto bail;
 	}
-	if (fl->sctx->smmu.cb && fl->cid != SDSP_DOMAIN_ID)
+	if (fl->sctx->smmu.cb)
 		buf->phys += ((uint64_t)fl->sctx->smmu.cb << 32);
 	vmid = fl->apps->channel[fl->cid].vmid;
 	if (vmid) {
@@ -3509,10 +3507,8 @@ static int fastrpc_cb_probe(struct device *dev)
 	struct fastrpc_session_ctx *sess;
 	struct of_phandle_args iommuspec;
 	const char *name;
-	dma_addr_t start = 0x80000000;
 	int err = 0;
 	unsigned int sharedcb_count = 0, cid, i, j;
-	int secure_vmid = VMID_CP_PIXEL, cache_flush = 1;
 
 	VERIFY(err, NULL != (name = of_get_property(dev->of_node,
 					 "label", NULL)));
@@ -3547,60 +3543,15 @@ static int fastrpc_cb_probe(struct device *dev)
 						"dma-coherent");
 	sess->smmu.secure = of_property_read_bool(dev->of_node,
 						"qcom,secure-context-bank");
-
-	/* Software workaround for SMMU interconnect HW bug */
-	if (cid == SDSP_DOMAIN_ID) {
-		sess->smmu.cb = iommuspec.args[0] & 0x3;
-		VERIFY(err, sess->smmu.cb);
-		if (err)
-			goto bail;
-		start += ((uint64_t)sess->smmu.cb << 32);
-		dma_set_mask(dev, DMA_BIT_MASK(34));
-	} else {
-		sess->smmu.cb = iommuspec.args[0] & 0xf;
-	}
-
-	if (sess->smmu.secure)
-		start = 0x60000000;
-	VERIFY(err, !IS_ERR_OR_NULL(sess->smmu.mapping =
-				arm_iommu_create_mapping(&platform_bus_type,
-						start, 0x78000000)));
-	if (err) {
-		pr_err("adsprpc: %s: creating iommu mapping failed for %s, ret %pK\n",
-				__func__, dev_name(dev), sess->smmu.mapping);
-		goto bail;
-	}
-
-	err = iommu_domain_set_attr(sess->smmu.mapping->domain,
-			DOMAIN_ATTR_CB_STALL_DISABLE, &cache_flush);
-	if (err) {
-		pr_err("adsprpc: %s: setting CB stall iommu attribute failed for %s with err %d\n",
-			__func__, dev_name(dev), err);
-		goto bail;
-	}
-	if (sess->smmu.secure) {
-		err = iommu_domain_set_attr(sess->smmu.mapping->domain,
-				DOMAIN_ATTR_SECURE_VMID, &secure_vmid);
-		if (err) {
-			pr_err("adsprpc: %s: setting secure iommu attribute failed for %s with err %d\n",
-				__func__, dev_name(dev), err);
-			goto bail;
-		}
-	}
-
-	err = arm_iommu_attach_device(dev, sess->smmu.mapping);
-	if (err) {
-		pr_err("adsprpc: %s: attaching iommu device failed for %s with err %d\n",
-			__func__, dev_name(dev), err);
-		goto bail;
-	}
-
+	sess->smmu.cb = iommuspec.args[0] & 0xf;
 	sess->smmu.dev = dev;
 	sess->smmu.dev_name = dev_name(dev);
 	sess->smmu.enabled = 1;
+
 	if (!sess->smmu.dev->dma_parms)
 		sess->smmu.dev->dma_parms = devm_kzalloc(sess->smmu.dev,
 			sizeof(*sess->smmu.dev->dma_parms), GFP_KERNEL);
+
 	dma_set_max_seg_size(sess->smmu.dev, DMA_BIT_MASK(32));
 	dma_set_seg_boundary(sess->smmu.dev, (unsigned long)DMA_BIT_MASK(64));
 
@@ -3824,14 +3775,8 @@ static void fastrpc_deinit(void)
 		for (j = 0; j < NUM_SESSIONS; j++) {
 			struct fastrpc_session_ctx *sess = &chan->session[j];
 
-			if (sess->smmu.dev) {
-				arm_iommu_detach_device(sess->smmu.dev);
+			if (sess->smmu.dev)
 				sess->smmu.dev = NULL;
-			}
-			if (sess->smmu.mapping) {
-				arm_iommu_release_mapping(sess->smmu.mapping);
-				sess->smmu.mapping = NULL;
-			}
 		}
 		kfree(chan->rhvm.vmid);
 		kfree(chan->rhvm.vmperm);
