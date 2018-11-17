@@ -556,7 +556,8 @@ struct sde_qos_lut_tbl {
  * @format_list: Pointer to list of supported formats
  * @virt_format_list: Pointer to list of supported formats for virtual planes
  * @in_rot_format_list: Pointer to list of supported formats for inline rotation
- * @in_rot_maxdwnscale: max downscale ratio for inline rotation
+ * @in_rot_maxdwnscale_rt: max downscale ratio for inline rotation rt clients
+ * @in_rot_maxdwnscale_nrt: max downscale ratio for inline rotation nrt clients
  * @in_rot_maxheight: max pre rotated height for inline rotation
  * @llcc_scid: scid for the system cache
  * @llcc_slice size: slice size of the system cache
@@ -589,7 +590,8 @@ struct sde_sspp_sub_blks {
 	const struct sde_format_extended *format_list;
 	const struct sde_format_extended *virt_format_list;
 	const struct sde_format_extended *in_rot_format_list;
-	u32 in_rot_maxdwnscale;
+	u32 in_rot_maxdwnscale_rt;
+	u32 in_rot_maxdwnscale_nrt;
 	u32 in_rot_maxheight;
 	int llcc_scid;
 	size_t llcc_slice_size;
@@ -1078,6 +1080,8 @@ struct sde_perf_cfg {
  * @vbif_qos_nlvl      number of vbif QoS priority level
  * @ts_prefill_rev     prefill traffic shaper feature revision
  * @true_inline_rot_rev	inline rotator feature revision
+ * @true_inline_dwnscale_rt    true inline rotator downscale ratio for rt
+ * @true_inline_dwnscale_nrt    true inline rotator downscale ratio for nrt
  * @macrotile_mode     UBWC parameter for macro tile channel distribution
  * @pipe_order_type    indicate if it is required to specify pipe order
  * @delay_prg_fetch_start indicates if throttling the fetch start is required
@@ -1128,6 +1132,8 @@ struct sde_mdss_cfg {
 	u32 vbif_qos_nlvl;
 	u32 ts_prefill_rev;
 	u32 true_inline_rot_rev;
+	u32 true_inline_dwnscale_rt;
+	u32 true_inline_dwnscale_nrt;
 	u32 macrotile_mode;
 	u32 pipe_order_type;
 	bool delay_prg_fetch_start;
