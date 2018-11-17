@@ -1,7 +1,8 @@
 /*
- * ChaCha20 256-bit cipher algorithm, RFC7539
+ * ChaCha20 (RFC7539) and XChaCha20 stream cipher algorithms
  *
  * Copyright (C) 2015 Martin Willi
+ * Copyright (C) 2018 Google LLC
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -35,6 +36,35 @@ static void chacha20_docrypt(u32 *state, u8 *dst, const u8 *src,
 		chacha20_block(state, stream);
 		crypto_xor(dst, stream, bytes);
 	}
+}
+
+static int chacha20_stream_xor(struct blkcipher_desc *desc, struct scatterlist *dst,
+			       struct scatterlist *src, unsigned int nbytes,
+			       struct chacha20_ctx *ctx, u8 *iv)
+{
+	struct blkcipher_walk walk;
+	u32 state[16];
+	int err;
+
+	blkcipher_walk_init(&walk, dst, src, nbytes);
+	err = blkcipher_walk_virt_block(desc, &walk, CHACHA20_BLOCK_SIZE);
+
+	crypto_chacha20_init(state, ctx, iv);
+
+	while (walk.nbytes >= CHACHA20_BLOCK_SIZE) {
+		chacha20_docrypt(state, walk.dst.virt.addr, walk.src.virt.addr,
+				 rounddown(walk.nbytes, CHACHA20_BLOCK_SIZE));
+		err = blkcipher_walk_done(desc, &walk,
+					  walk.nbytes % CHACHA20_BLOCK_SIZE);
+	}
+
+	if (walk.nbytes) {
+		chacha20_docrypt(state, walk.dst.virt.addr, walk.src.virt.addr,
+				 walk.nbytes);
+		err = blkcipher_walk_done(desc, &walk, 0);
+	}
+
+	return err;
 }
 
 void crypto_chacha20_init(u32 *state, struct chacha20_ctx *ctx, u8 *iv)
@@ -77,63 +107,89 @@ EXPORT_SYMBOL_GPL(crypto_chacha20_setkey);
 int crypto_chacha20_crypt(struct blkcipher_desc *desc, struct scatterlist *dst,
 			  struct scatterlist *src, unsigned int nbytes)
 {
-	struct blkcipher_walk walk;
-	u32 state[16];
-	int err;
+	struct chacha20_ctx *ctx = crypto_blkcipher_ctx(desc->tfm);
+	u8 *iv = desc->info;
 
-	blkcipher_walk_init(&walk, dst, src, nbytes);
-	err = blkcipher_walk_virt_block(desc, &walk, CHACHA20_BLOCK_SIZE);
-
-	crypto_chacha20_init(state, crypto_blkcipher_ctx(desc->tfm), walk.iv);
-
-	while (walk.nbytes >= CHACHA20_BLOCK_SIZE) {
-		chacha20_docrypt(state, walk.dst.virt.addr, walk.src.virt.addr,
-				 rounddown(walk.nbytes, CHACHA20_BLOCK_SIZE));
-		err = blkcipher_walk_done(desc, &walk,
-					  walk.nbytes % CHACHA20_BLOCK_SIZE);
-	}
-
-	if (walk.nbytes) {
-		chacha20_docrypt(state, walk.dst.virt.addr, walk.src.virt.addr,
-				 walk.nbytes);
-		err = blkcipher_walk_done(desc, &walk, 0);
-	}
-
-	return err;
+	return chacha20_stream_xor(desc, dst, src, nbytes, ctx, iv);
 }
 EXPORT_SYMBOL_GPL(crypto_chacha20_crypt);
 
-static struct crypto_alg alg = {
-	.cra_name		= "chacha20",
-	.cra_driver_name	= "chacha20-generic",
-	.cra_priority		= 100,
-	.cra_flags		= CRYPTO_ALG_TYPE_BLKCIPHER,
-	.cra_blocksize		= 1,
-	.cra_type		= &crypto_blkcipher_type,
-	.cra_ctxsize		= sizeof(struct chacha20_ctx),
-	.cra_alignmask		= sizeof(u32) - 1,
-	.cra_module		= THIS_MODULE,
-	.cra_u			= {
-		.blkcipher = {
-			.min_keysize	= CHACHA20_KEY_SIZE,
-			.max_keysize	= CHACHA20_KEY_SIZE,
-			.ivsize		= CHACHA20_IV_SIZE,
-			.geniv		= "seqiv",
-			.setkey		= crypto_chacha20_setkey,
-			.encrypt	= crypto_chacha20_crypt,
-			.decrypt	= crypto_chacha20_crypt,
+int crypto_xchacha20_crypt(struct blkcipher_desc *desc, struct scatterlist *dst,
+			   struct scatterlist *src, unsigned int nbytes)
+{
+	struct chacha20_ctx *ctx = crypto_blkcipher_ctx(desc->tfm);
+	u8 *iv = desc->info;
+	struct chacha20_ctx subctx;
+	u32 state[16];
+	u8 real_iv[16];
+
+	/* Compute the subkey given the original key and first 128 nonce bits */
+	crypto_chacha20_init(state, ctx, iv);
+	hchacha20_block(state, subctx.key);
+
+	/* Build the real IV */
+	memcpy(&real_iv[0], iv + 24, 8); /* stream position */
+	memcpy(&real_iv[8], iv + 16, 8); /* remaining 64 nonce bits */
+
+	/* Generate the stream and XOR it with the data */
+	return chacha20_stream_xor(desc, dst, src, nbytes, &subctx, real_iv);
+}
+EXPORT_SYMBOL_GPL(crypto_xchacha20_crypt);
+
+static struct crypto_alg algs[] = {
+	{
+		.cra_name		= "chacha20",
+		.cra_driver_name	= "chacha20-generic",
+		.cra_priority		= 100,
+		.cra_flags		= CRYPTO_ALG_TYPE_BLKCIPHER,
+		.cra_blocksize		= 1,
+		.cra_type		= &crypto_blkcipher_type,
+		.cra_ctxsize		= sizeof(struct chacha20_ctx),
+		.cra_alignmask		= sizeof(u32) - 1,
+		.cra_module		= THIS_MODULE,
+		.cra_u			= {
+			.blkcipher = {
+				.min_keysize	= CHACHA20_KEY_SIZE,
+				.max_keysize	= CHACHA20_KEY_SIZE,
+				.ivsize		= CHACHA20_IV_SIZE,
+				.geniv		= "seqiv",
+				.setkey		= crypto_chacha20_setkey,
+				.encrypt	= crypto_chacha20_crypt,
+				.decrypt	= crypto_chacha20_crypt,
+			},
+		},
+	}, {
+		.cra_name		= "xchacha20",
+		.cra_driver_name	= "xchacha20-generic",
+		.cra_priority		= 100,
+		.cra_flags		= CRYPTO_ALG_TYPE_BLKCIPHER,
+		.cra_blocksize		= 1,
+		.cra_type		= &crypto_blkcipher_type,
+		.cra_ctxsize		= sizeof(struct chacha20_ctx),
+		.cra_alignmask		= sizeof(u32) - 1,
+		.cra_module		= THIS_MODULE,
+		.cra_u			= {
+			.blkcipher = {
+				.min_keysize	= CHACHA20_KEY_SIZE,
+				.max_keysize	= CHACHA20_KEY_SIZE,
+				.ivsize		= XCHACHA20_IV_SIZE,
+				.geniv		= "seqiv",
+				.setkey		= crypto_chacha20_setkey,
+				.encrypt	= crypto_xchacha20_crypt,
+				.decrypt	= crypto_xchacha20_crypt,
+			},
 		},
 	},
 };
 
 static int __init chacha20_generic_mod_init(void)
 {
-	return crypto_register_alg(&alg);
+	return crypto_register_algs(algs, ARRAY_SIZE(algs));
 }
 
 static void __exit chacha20_generic_mod_fini(void)
 {
-	crypto_unregister_alg(&alg);
+	crypto_unregister_algs(algs, ARRAY_SIZE(algs));
 }
 
 module_init(chacha20_generic_mod_init);
@@ -141,6 +197,8 @@ module_exit(chacha20_generic_mod_fini);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Martin Willi <martin@strongswan.org>");
-MODULE_DESCRIPTION("chacha20 cipher algorithm");
+MODULE_DESCRIPTION("ChaCha20 and XChaCha20 stream ciphers (generic)");
 MODULE_ALIAS_CRYPTO("chacha20");
 MODULE_ALIAS_CRYPTO("chacha20-generic");
+MODULE_ALIAS_CRYPTO("xchacha20");
+MODULE_ALIAS_CRYPTO("xchacha20-generic");
