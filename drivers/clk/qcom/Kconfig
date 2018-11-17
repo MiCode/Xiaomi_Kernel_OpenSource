@@ -321,3 +321,11 @@ config MSM_CAMCC_KONA
 	  KONA devices.
 	  Say Y if you want to support camera devices and functionality such as
 	  capturing pictures.
+
+config MSM_GPUCC_KONA
+	tristate "KONA Graphics Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc
+	  KONA devices.
+	  Say Y if you want to support graphics controller devices.
