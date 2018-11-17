@@ -2570,7 +2570,8 @@ static void _sde_crtc_dest_scaler_setup(struct drm_crtc *crtc)
 		SDE_DEBUG("dest scaler feature not supported\n");
 	} else if (_sde_validate_hw_resources(sde_crtc)) {
 		//do nothing
-	} else if (!cstate->scl3_lut_cfg.is_configured) {
+	} else if ((!cstate->scl3_lut_cfg.is_configured) &&
+			(!is_qseed3_rev_qseed3lite(kms->catalog))) {
 		SDE_ERROR("crtc%d:no LUT data available\n", crtc->base.id);
 	} else {
 		for (i = 0; i < count; i++) {
