@@ -261,6 +261,13 @@ static void cnss_usb_remove(struct usb_interface *interface)
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(NULL);
 	struct cnss_usb_data *usb_priv = plat_priv->bus_priv;
 
+	cnss_pr_dbg("driver state %lu\n", plat_priv->driver_state);
+	if (usb_priv->driver_ops) {
+		cnss_pr_dbg("driver_op remove called for USB\n");
+		usb_priv->driver_ops->remove(usb_priv->usb_intf);
+	}
+	cnss_unregister_ramdump(plat_priv);
+	cnss_unregister_subsys(plat_priv);
 	usb_priv->plat_priv = NULL;
 	plat_priv->bus_priv = NULL;
 	usb_dev = interface_to_usbdev(interface);
