@@ -53,6 +53,11 @@
 #define LOSS_MATCH_SHIFT		0x00
 #define FLAT_GAIN_SHIFT			0x00
 
+#define CHNA_INDEX		0
+#define CHNB_INDEX		1
+#define CHNC_INDEX		2
+#define CHND_INDEX		3
+
 /* for type c cable */
 enum plug_orientation {
 	ORIENTATION_NONE,
@@ -70,6 +75,17 @@ enum operation_mode {
 	OP_MODE_USB,	/* One/Two ports of USB */
 	OP_MODE_DP,		/* DP 4 Lane and DP 2 Lane */
 	OP_MODE_USB_AND_DP, /* One port of USB and DP 2 Lane */
+};
+
+/*
+ * USB redriver channel mode:
+ *  - USB mode
+ *  - DP mode
+ */
+enum channel_mode {
+	CHAN_MODE_USB,
+	CHAN_MODE_DP,
+	CHAN_MODE_NUM,
 };
 
 /**
@@ -91,10 +107,19 @@ enum operation_mode {
  * @id_nb: used for id event reception
  * @dp_nb: used for DP event reception
  * @panic_nb: used for panic event reception
- * @eq: equalization register value
+ * @chan_mode: used to indicate re-driver's channel mode
+ * @eq: equalization register value.
+ *      eq[0] - eq[3]: Channel A-D parameter for USB
+ *      eq[4] - eq[7]: Channel A-D parameter for DP
  * @output_comp: output compression register value
+ *      output_comp[0] - output_comp[3]: Channel A-D parameter for USB
+ *      output_comp[4] - output_comp[7]: Channel A-D parameter for DP
  * @loss_match: loss profile matching control register value
+ *      loss_match[0] - loss_match[3]: Channel A-D parameter for USB
+ *      loss_match[4] - loss_match[7]: Channel A-D parameter for DP
  * @flat_gain: flat gain control register value
+ *      flat_gain[0] - flat_gain[3]: Channel A-D parameter for USB
+ *      flat_gain[4] - flat_gain[7]: Channel A-D parameter for DP
  * @debug_root: debugfs entry for this context
  */
 struct ssusb_redriver {
@@ -120,14 +145,17 @@ struct ssusb_redriver {
 
 	struct notifier_block	panic_nb;
 
-	u8	eq[CHANNEL_NUM];
-	u8	output_comp[CHANNEL_NUM];
-	u8	loss_match[CHANNEL_NUM];
-	u8	flat_gain[CHANNEL_NUM];
+	enum	channel_mode chan_mode[CHANNEL_NUM];
+
+	u8	eq[CHAN_MODE_NUM][CHANNEL_NUM];
+	u8	output_comp[CHAN_MODE_NUM][CHANNEL_NUM];
+	u8	loss_match[CHAN_MODE_NUM][CHANNEL_NUM];
+	u8	flat_gain[CHAN_MODE_NUM][CHANNEL_NUM];
 
 	struct dentry	*debug_root;
 };
 
+static int ssusb_redriver_channel_update(struct ssusb_redriver *redriver);
 static void ssusb_redriver_debugfs_entries(struct ssusb_redriver *redriver);
 
 static int redriver_i2c_reg_get(struct ssusb_redriver *redriver,
@@ -339,23 +367,53 @@ static int ssusb_redriver_dp_notifier(struct notifier_block *nb,
 	struct ssusb_redriver *redriver = container_of(nb,
 			struct ssusb_redriver, dp_nb);
 	enum operation_mode op_mode;
+	int ret = 0;
 
 	dev_dbg(redriver->dev,
 		"redriver op mode change: %ld event received\n", dp_lane);
 
-	if (dp_lane == 0)
+	switch (dp_lane) {
+	case 0:
 		op_mode = OP_MODE_USB;
-	else if (dp_lane == 2)
+		redriver->chan_mode[CHNA_INDEX] = CHAN_MODE_USB;
+		redriver->chan_mode[CHNB_INDEX] = CHAN_MODE_USB;
+		redriver->chan_mode[CHNC_INDEX] = CHAN_MODE_USB;
+		redriver->chan_mode[CHND_INDEX] = CHAN_MODE_USB;
+		break;
+	case 2:
 		op_mode = OP_MODE_USB_AND_DP;
-	else if (dp_lane == 4)
+		if (redriver->typec_orientation == ORIENTATION_CC1) {
+			redriver->chan_mode[CHNA_INDEX] = CHAN_MODE_DP;
+			redriver->chan_mode[CHNB_INDEX] = CHAN_MODE_DP;
+			redriver->chan_mode[CHNC_INDEX] = CHAN_MODE_USB;
+			redriver->chan_mode[CHND_INDEX] = CHAN_MODE_USB;
+		} else {
+			redriver->chan_mode[CHNA_INDEX] = CHAN_MODE_USB;
+			redriver->chan_mode[CHNB_INDEX] = CHAN_MODE_USB;
+			redriver->chan_mode[CHNC_INDEX] = CHAN_MODE_DP;
+			redriver->chan_mode[CHND_INDEX] = CHAN_MODE_DP;
+		}
+		break;
+	case 4:
 		op_mode = OP_MODE_DP;
-	else
+		redriver->chan_mode[CHNA_INDEX] = CHAN_MODE_DP;
+		redriver->chan_mode[CHNB_INDEX] = CHAN_MODE_DP;
+		redriver->chan_mode[CHNC_INDEX] = CHAN_MODE_DP;
+		redriver->chan_mode[CHND_INDEX] = CHAN_MODE_DP;
+		break;
+	default:
 		return 0;
+	}
 
 	if (redriver->op_mode == op_mode)
 		return 0;
 
 	redriver->op_mode = op_mode;
+
+	ret = ssusb_redriver_channel_update(redriver);
+	if (ret)
+		dev_dbg(redriver->dev,
+			"redriver channel mode change will continue\n");
 
 	queue_work(redriver->redriver_wq, &redriver->config_work);
 
@@ -490,14 +548,39 @@ err:
 
 static int ssusb_redriver_param_config(struct ssusb_redriver *redriver,
 		u8 reg_base, u8 channel, u8 mask, u8 shift, u8 val,
-		u8 *stored_val)
+		u8 (*stored_val)[CHANNEL_NUM])
 {
-	int i, ret = -EINVAL;
-	u8 reg_addr, reg_val;
+	int i, j, ret = -EINVAL;
+	u8 reg_addr, reg_val, real_channel, chan_mode;
 
-	if (channel == CHANNEL_NUM) {
-		for (i = 0; i < CHANNEL_NUM; i++) {
-			reg_addr = reg_base + (i << 1);
+	if (channel == CHANNEL_NUM * CHAN_MODE_NUM) {
+		for (i = 0; i < CHAN_MODE_NUM; i++)
+			for (j = 0; j < CHANNEL_NUM; j++) {
+				if (redriver->chan_mode[j] == i) {
+					reg_addr = reg_base + (j << 1);
+
+					ret = redriver_i2c_reg_get(redriver,
+							reg_addr, &reg_val);
+					if (ret < 0)
+						return ret;
+
+					reg_val &= ~(mask << shift);
+					reg_val |= (val << shift);
+
+					ret = redriver_i2c_reg_set(redriver,
+							reg_addr, reg_val);
+					if (ret < 0)
+						return ret;
+				}
+
+				stored_val[i][j] = val;
+			}
+	} else if (channel < CHANNEL_NUM * CHAN_MODE_NUM) {
+		real_channel = channel % CHANNEL_NUM;
+		chan_mode = channel / CHANNEL_NUM;
+
+		if (redriver->chan_mode[real_channel] == chan_mode) {
+			reg_addr = reg_base + (real_channel << 1);
 
 			ret = redriver_i2c_reg_get(redriver,
 					reg_addr, &reg_val);
@@ -511,26 +594,9 @@ static int ssusb_redriver_param_config(struct ssusb_redriver *redriver,
 					reg_addr, reg_val);
 			if (ret < 0)
 				return ret;
-
-			stored_val[i] = val;
 		}
-	} else if (channel < CHANNEL_NUM) {
-		reg_addr = reg_base + (channel << 1);
 
-		ret = redriver_i2c_reg_get(redriver,
-				reg_addr, &reg_val);
-		if (ret < 0)
-			return ret;
-
-		reg_val &= ~(mask << shift);
-		reg_val |= (val << shift);
-
-		ret = redriver_i2c_reg_set(redriver,
-				reg_addr, reg_val);
-		if (ret < 0)
-			return ret;
-
-		stored_val[channel] = val;
+		stored_val[chan_mode][real_channel] = val;
 	} else {
 		dev_err(redriver->dev, "error channel value.\n");
 		return ret;
@@ -585,73 +651,84 @@ static int ssusb_redriver_loss_match_config(
 		return -EINVAL;
 }
 
+static int ssusb_redriver_channel_update(struct ssusb_redriver *redriver)
+{
+	int ret = 0, i = 0, pos = 0;
+	u8 chan_mode;
+
+	for (i = 0; i < CHANNEL_NUM; i++) {
+		chan_mode = redriver->chan_mode[i];
+		pos = i + chan_mode * CHANNEL_NUM;
+
+		ret = ssusb_redriver_eq_config(redriver, pos,
+				redriver->eq[chan_mode][i]);
+		if (ret)
+			goto err;
+
+		ret = ssusb_redriver_flat_gain_config(redriver, pos,
+				redriver->flat_gain[chan_mode][i]);
+		if (ret)
+			goto err;
+
+		ret = ssusb_redriver_output_comp_config(redriver, pos,
+				redriver->output_comp[chan_mode][i]);
+		if (ret)
+			goto err;
+
+		ret = ssusb_redriver_loss_match_config(redriver, pos,
+				redriver->loss_match[chan_mode][i]);
+		if (ret)
+			goto err;
+	}
+
+	dev_dbg(redriver->dev, "redriver channel parameters updated.\n");
+
+	return 0;
+
+err:
+	dev_err(redriver->dev, "channel parameters update failure.\n");
+	return ret;
+}
+
 static int ssusb_redriver_default_config(struct ssusb_redriver *redriver)
 {
 	struct device_node *node = redriver->dev->of_node;
-	int ret = 0, i = 0;
+	int ret = 0;
 
 	if (of_find_property(node, "eq", NULL)) {
-		ret = of_property_read_u8_array(node, "eq", redriver->eq,
-				ARRAY_SIZE(redriver->eq));
-		if (!ret) {
-			for (i = 0; i < CHANNEL_NUM; i++) {
-				ret = ssusb_redriver_eq_config(
-						redriver, i,
-						redriver->eq[i]);
-				if (ret)
-					goto err;
-			}
-		} else
+		ret = of_property_read_u8_array(node, "eq",
+				redriver->eq[0], sizeof(redriver->eq));
+		if (ret)
 			goto err;
 	}
 
 	if (of_find_property(node, "flat-gain", NULL)) {
 		ret = of_property_read_u8_array(node,
-				"flat-gain", redriver->flat_gain,
-				ARRAY_SIZE(redriver->flat_gain));
-		if (!ret) {
-			for (i = 0; i < CHANNEL_NUM; i++) {
-				ret = ssusb_redriver_flat_gain_config(
-						redriver, i,
-						redriver->flat_gain[i]);
-				if (ret)
-					goto err;
-			}
-		} else
+				"flat-gain", redriver->flat_gain[0],
+				sizeof(redriver->flat_gain));
+		if (ret)
 			goto err;
 	}
 
 	if (of_find_property(node, "output-comp", NULL)) {
 		ret = of_property_read_u8_array(node,
-				"output-comp", redriver->output_comp,
-				ARRAY_SIZE(redriver->output_comp));
-		if (!ret) {
-			for (i = 0; i < CHANNEL_NUM; i++) {
-				ret = ssusb_redriver_output_comp_config(
-						redriver, i,
-						redriver->output_comp[i]);
-				if (ret)
-					goto err;
-			}
-		} else
+				"output-comp", redriver->output_comp[0],
+				sizeof(redriver->output_comp));
+		if (ret)
 			goto err;
 	}
 
 	if (of_find_property(node, "loss-match", NULL)) {
 		ret = of_property_read_u8_array(node,
-				"loss-match", redriver->loss_match,
-				ARRAY_SIZE(redriver->loss_match));
-		if (!ret) {
-			for (i = 0; i < CHANNEL_NUM; i++) {
-				ret = ssusb_redriver_loss_match_config(
-						redriver, i,
-						redriver->loss_match[i]);
-				if (ret)
-					goto err;
-			}
-		} else
+				"loss-match", redriver->loss_match[0],
+				sizeof(redriver->loss_match));
+		if (ret)
 			goto err;
 	}
+
+	ret = ssusb_redriver_channel_update(redriver);
+	if (ret)
+		goto err;
 
 	return 0;
 
@@ -787,9 +864,9 @@ static ssize_t channel_config_write(struct file *file,
 {
 	struct seq_file *s = file->private_data;
 	struct ssusb_redriver *redriver = s->private;
-	char buf[20];
+	char buf[40];
 	char *token_chan, *token_val, *this_buf;
-	int ret = 0;
+	int store_offset = 0, ret = 0;
 
 	memset(buf, 0, sizeof(buf));
 
@@ -799,21 +876,37 @@ static ssize_t channel_config_write(struct file *file,
 		return -EFAULT;
 
 	if (isdigit(buf[0])) {
-		ret = config_func(redriver, CHANNEL_NUM, buf[0] - '0');
+		ret = config_func(redriver, CHANNEL_NUM * CHAN_MODE_NUM,
+				buf[0] - '0');
 		if (ret < 0)
 			goto err;
 	} else if (isalpha(buf[0])) {
 		while ((token_chan = strsep(&this_buf, " ")) != NULL) {
-			if (isalpha(*token_chan)
-					&& (__toupper(*token_chan) >= 'A')
-					&& (__toupper(*token_chan) <= 'D')) {
+			switch (*token_chan) {
+			case 'A':
+			case 'B':
+			case 'C':
+			case 'D':
+				store_offset = *token_chan - 'A';
 				token_val = strsep(&this_buf, " ");
 				if (!isdigit(*token_val))
 					goto err;
-			} else
+				break;
+			case 'a':
+			case 'b':
+			case 'c':
+			case 'd':
+				store_offset = *token_chan - 'a'
+					+ CHANNEL_NUM;
+				token_val = strsep(&this_buf, " ");
+				if (!isdigit(*token_val))
+					goto err;
+				break;
+			default:
 				goto err;
+			};
 
-			ret = config_func(redriver, *token_chan - 'A',
+			ret = config_func(redriver, store_offset,
 					*token_val - '0');
 			if (ret < 0)
 				goto err;
@@ -826,7 +919,9 @@ static ssize_t channel_config_write(struct file *file,
 
 err:
 	pr_err("Used to config redriver A/B/C/D channels' parameters\n"
-		"1. Set all channels to same value\n"
+		"A/B/C/D represent for re-driver parameters for USB\n"
+		"a/b/c/d represent for re-driver parameters for DP\n"
+		"1. Set all channels to same value(both USB and DP)\n"
 		"echo n > [eq|output_comp|flat_gain|loss_match]\n"
 		"- eq: Equalization, range 0-7\n"
 		"- output_comp: Output Compression, range 0-3\n"
@@ -836,8 +931,10 @@ err:
 		"echo 1 > eq\n"
 		"2. Set two channels to different values leave others unchanged\n"
 		"echo [A|B|C|D] n [A|B|C|D] n > [eq|output_comp|flat_gain|loss_match]\n"
-		"Example2: set channel B flat gain value 2, set channel C flat gain value 3\n"
-		"echo B 2 C 3 > flat_gain\n");
+		"Example2: USB mode: set channel B flat gain to 2, set channel C flat gain to 3\n"
+		"echo B 2 C 3 > flat_gain\n"
+		"Example3: DP mode: set channel A equalization to 6, set channel B equalization to 4\n"
+		"echo a 6 b 4 > eq\n");
 
 	return -EFAULT;
 }
@@ -846,10 +943,18 @@ static int eq_status(struct seq_file *s, void *p)
 {
 	struct ssusb_redriver *redriver = s->private;
 
-	seq_puts(s, "\t\t\t A\t B\t C\t D\n");
-	seq_printf(s, "Equalization:\t\t %d\t %d\t %d\t %d\t\n",
-			redriver->eq[0], redriver->eq[1],
-			redriver->eq[2], redriver->eq[3]);
+	seq_puts(s, "\t\t\t A(USB)\t B(USB)\t C(USB)\t D(USB)\t"
+			"A(DP)\t B(DP)\t C(DP)\t D(DP)\n");
+	seq_printf(s, "Equalization:\t\t %d\t %d\t %d\t %d\t"
+			"%d\t %d\t %d\t %d\n",
+			redriver->eq[CHAN_MODE_USB][CHNA_INDEX],
+			redriver->eq[CHAN_MODE_USB][CHNB_INDEX],
+			redriver->eq[CHAN_MODE_USB][CHNC_INDEX],
+			redriver->eq[CHAN_MODE_USB][CHND_INDEX],
+			redriver->eq[CHAN_MODE_DP][CHNA_INDEX],
+			redriver->eq[CHAN_MODE_DP][CHNB_INDEX],
+			redriver->eq[CHAN_MODE_DP][CHNC_INDEX],
+			redriver->eq[CHAN_MODE_DP][CHND_INDEX]);
 	return 0;
 }
 
@@ -876,10 +981,18 @@ static int flat_gain_status(struct seq_file *s, void *p)
 {
 	struct ssusb_redriver *redriver = s->private;
 
-	seq_puts(s, "\t\t\t A\t B\t C\t D\n");
-	seq_printf(s, "TX/RX Flat Gain:\t %d\t %d\t %d\t %d\t\n",
-			redriver->flat_gain[0], redriver->flat_gain[1],
-			redriver->flat_gain[2], redriver->flat_gain[3]);
+	seq_puts(s, "\t\t\t A(USB)\t B(USB)\t C(USB)\t D(USB)\t"
+			"A(DP)\t B(DP)\t C(DP)\t D(DP)\n");
+	seq_printf(s, "TX/RX Flat Gain:\t %d\t %d\t %d\t %d\t"
+			"%d\t %d\t %d\t %d\n",
+			redriver->flat_gain[CHAN_MODE_USB][CHNA_INDEX],
+			redriver->flat_gain[CHAN_MODE_USB][CHNB_INDEX],
+			redriver->flat_gain[CHAN_MODE_USB][CHNC_INDEX],
+			redriver->flat_gain[CHAN_MODE_USB][CHND_INDEX],
+			redriver->flat_gain[CHAN_MODE_DP][CHNA_INDEX],
+			redriver->flat_gain[CHAN_MODE_DP][CHNB_INDEX],
+			redriver->flat_gain[CHAN_MODE_DP][CHNC_INDEX],
+			redriver->flat_gain[CHAN_MODE_DP][CHND_INDEX]);
 	return 0;
 }
 
@@ -906,10 +1019,18 @@ static int output_comp_status(struct seq_file *s, void *p)
 {
 	struct ssusb_redriver *redriver = s->private;
 
-	seq_puts(s, "\t\t\t A\t B\t C\t D\n");
-	seq_printf(s, "Output Compression:\t %d\t %d\t %d\t %d\t\n",
-			redriver->output_comp[0], redriver->output_comp[1],
-			redriver->output_comp[2], redriver->output_comp[3]);
+	seq_puts(s, "\t\t\t A(USB)\t B(USB)\t C(USB)\t D(USB)\t"
+			"A(DP)\t B(DP)\t C(DP)\t D(DP)\n");
+	seq_printf(s, "Output Compression:\t %d\t %d\t %d\t %d\t"
+			"%d\t %d\t %d\t %d\n",
+			redriver->output_comp[CHAN_MODE_USB][CHNA_INDEX],
+			redriver->output_comp[CHAN_MODE_USB][CHNB_INDEX],
+			redriver->output_comp[CHAN_MODE_USB][CHNC_INDEX],
+			redriver->output_comp[CHAN_MODE_USB][CHND_INDEX],
+			redriver->output_comp[CHAN_MODE_DP][CHNA_INDEX],
+			redriver->output_comp[CHAN_MODE_DP][CHNB_INDEX],
+			redriver->output_comp[CHAN_MODE_DP][CHNC_INDEX],
+			redriver->output_comp[CHAN_MODE_DP][CHND_INDEX]);
 	return 0;
 }
 
@@ -936,10 +1057,18 @@ static int loss_match_status(struct seq_file *s, void *p)
 {
 	struct ssusb_redriver *redriver = s->private;
 
-	seq_puts(s, "\t\t\t A\t B\t C\t D\n");
-	seq_printf(s, "Loss Profile Match:\t %d\t %d\t %d\t %d\t\n",
-			redriver->loss_match[0], redriver->loss_match[1],
-			redriver->loss_match[2], redriver->loss_match[3]);
+	seq_puts(s, "\t\t\t A(USB)\t B(USB)\t C(USB)\t D(USB)\t"
+			"A(DP)\t B(DP)\t C(DP)\t D(DP)\n");
+	seq_printf(s, "Loss Profile Match:\t %d\t %d\t %d\t %d\t"
+			"%d\t %d\t %d\t %d\n",
+			redriver->loss_match[CHAN_MODE_USB][CHNA_INDEX],
+			redriver->loss_match[CHAN_MODE_USB][CHNB_INDEX],
+			redriver->loss_match[CHAN_MODE_USB][CHNC_INDEX],
+			redriver->loss_match[CHAN_MODE_USB][CHND_INDEX],
+			redriver->loss_match[CHAN_MODE_DP][CHNA_INDEX],
+			redriver->loss_match[CHAN_MODE_DP][CHNB_INDEX],
+			redriver->loss_match[CHAN_MODE_DP][CHNC_INDEX],
+			redriver->loss_match[CHAN_MODE_DP][CHND_INDEX]);
 	return 0;
 }
 
