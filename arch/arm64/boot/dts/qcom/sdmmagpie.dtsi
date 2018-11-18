@@ -848,8 +848,9 @@
 	clock_videocc: qcom,videocc@ab00000 {
 		compatible = "qcom,videocc-sdmmagpie", "syscon";
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
-		reg = <0xab00000 0x10000>;
-		reg-names = "cc_base";
+		reg = <0xab00000 0x10000>,
+			<0x00786018 0x4>;
+		reg-names = "cc_base", "efuse";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
