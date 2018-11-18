@@ -57,6 +57,7 @@
 #define SPS_DATA_CONS_PIPE_INDEX 0
 #define SPS_DATA_PROD_PIPE_INDEX 1
 #define SPS_CMD_CONS_PIPE_INDEX 2
+#define SPS_DATA_PROD_STAT_PIPE_INDEX 3
 
 #define msm_virt_to_dma(chip, vaddr) \
 	((chip)->dma_phys_addr + \
@@ -251,6 +252,7 @@ struct msm_nand_chip {
 	uint32_t ecc_buf_cfg;
 	uint32_t ecc_bch_cfg;
 	uint32_t ecc_cfg_raw;
+	uint32_t qpic_version; /* To store the qpic controller version */
 };
 
 /* Structure that defines an SPS end point for a NANDc BAM pipe. */
@@ -271,6 +273,7 @@ struct msm_nand_sps_info {
 	struct msm_nand_sps_endpt data_prod;
 	struct msm_nand_sps_endpt data_cons;
 	struct msm_nand_sps_endpt cmd_pipe;
+	struct msm_nand_sps_endpt data_prod_stat;
 };
 
 /*
