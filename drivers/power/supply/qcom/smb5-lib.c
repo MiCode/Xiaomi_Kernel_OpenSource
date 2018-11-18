@@ -213,7 +213,7 @@ int smblib_icl_override(struct smb_charger *chg, enum icl_override_mode  mode)
 static int smblib_select_sec_charger_locked(struct smb_charger *chg,
 					int sec_chg)
 {
-	int rc;
+	int rc = 0;
 
 	switch (sec_chg) {
 	case POWER_SUPPLY_CHARGER_SEC_CP:
@@ -228,12 +228,14 @@ static int smblib_select_sec_charger_locked(struct smb_charger *chg,
 			return rc;
 		}
 		/* Enable Charge Pump, under HW control */
-		rc = smblib_write(chg, MISC_SMB_EN_CMD_REG,  EN_CP_CMD_BIT);
+		rc = smblib_masked_write(chg, MISC_SMB_EN_CMD_REG,
+					EN_CP_CMD_BIT, EN_CP_CMD_BIT);
 		if (rc < 0) {
 			dev_err(chg->dev, "Couldn't enable SMB charger rc=%d\n",
 						rc);
 			return rc;
 		}
+		vote(chg->smb_override_votable, PL_SMB_EN_VOTER, false, 0);
 		break;
 	case POWER_SUPPLY_CHARGER_SEC_PL:
 		/* select slave charger instead of Charge Pump */
@@ -245,12 +247,14 @@ static int smblib_select_sec_charger_locked(struct smb_charger *chg,
 			return rc;
 		}
 		/* Enable slave charger, under HW control */
-		rc = smblib_write(chg, MISC_SMB_EN_CMD_REG,  EN_STAT_CMD_BIT);
+		rc = smblib_masked_write(chg, MISC_SMB_EN_CMD_REG,
+					EN_STAT_CMD_BIT, EN_STAT_CMD_BIT);
 		if (rc < 0) {
 			dev_err(chg->dev, "Couldn't enable SMB charger rc=%d\n",
 						rc);
 			return rc;
 		}
+		vote(chg->smb_override_votable, PL_SMB_EN_VOTER, false, 0);
 
 		vote(chg->pl_disable_votable, PL_SMB_EN_VOTER, false, 0);
 
@@ -260,13 +264,7 @@ static int smblib_select_sec_charger_locked(struct smb_charger *chg,
 		vote(chg->pl_disable_votable, PL_SMB_EN_VOTER, true, 0);
 
 		/* SW override, disabling secondary charger(s) */
-		rc = smblib_write(chg, MISC_SMB_EN_CMD_REG,
-						SMB_EN_OVERRIDE_BIT);
-		if (rc < 0) {
-			dev_err(chg->dev, "Couldn't disable charging rc=%d\n",
-						rc);
-			return rc;
-		}
+		vote(chg->smb_override_votable, PL_SMB_EN_VOTER, true, 0);
 		break;
 	}
 
@@ -1320,6 +1318,21 @@ int smblib_toggle_smb_en(struct smb_charger *chg, int toggle)
 /*********************
  * VOTABLE CALLBACKS *
  *********************/
+static int smblib_smb_disable_override_vote_callback(struct votable *votable,
+			void *data, int disable_smb, const char *client)
+{
+	struct smb_charger *chg = data;
+	int rc = 0;
+
+	/* Enable/disable SMB_EN pin */
+	rc = smblib_masked_write(chg, MISC_SMB_EN_CMD_REG,
+			SMB_EN_OVERRIDE_BIT | SMB_EN_OVERRIDE_VALUE_BIT,
+			disable_smb ? SMB_EN_OVERRIDE_BIT : 0);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't configure SMB_EN, rc=%d\n", rc);
+
+	return rc;
+}
 
 static int smblib_dc_suspend_vote_callback(struct votable *votable, void *data,
 			int suspend, const char *client)
@@ -2471,13 +2484,8 @@ out:
 		if (chg->thermal_status == TEMP_ALERT_LEVEL)
 			goto exit;
 
-		/* Enable/disable SMB_EN pin */
-		rc = smblib_masked_write(chg, MISC_SMB_EN_CMD_REG,
-			SMB_EN_OVERRIDE_BIT | SMB_EN_OVERRIDE_VALUE_BIT,
-			(disable_smb ? SMB_EN_OVERRIDE_BIT :
-			(SMB_EN_OVERRIDE_BIT | SMB_EN_OVERRIDE_VALUE_BIT)));
-		if (rc < 0)
-			smblib_err(chg, "Couldn't set SMB_EN, rc=%d\n", rc);
+		vote(chg->smb_override_votable, SW_THERM_REGULATION_VOTER,
+				disable_smb, 0);
 
 		/*
 		 * Enable/disable secondary charger through votables to ensure
@@ -5595,6 +5603,15 @@ static int smblib_create_votables(struct smb_charger *chg)
 
 	vote(chg->pl_disable_votable, PL_DELAY_VOTER, true, 0);
 
+	chg->smb_override_votable = create_votable("SMB_EN_OVERRIDE",
+				VOTE_SET_ANY,
+				smblib_smb_disable_override_vote_callback, chg);
+	if (IS_ERR(chg->smb_override_votable)) {
+		rc = PTR_ERR(chg->smb_override_votable);
+		chg->smb_override_votable = NULL;
+		return rc;
+	}
+
 	chg->dc_suspend_votable = create_votable("DC_SUSPEND", VOTE_SET_ANY,
 					smblib_dc_suspend_vote_callback,
 					chg);
@@ -5696,6 +5713,7 @@ int smblib_init(struct smb_charger *chg)
 	chg->jeita_configured = false;
 	chg->sec_chg_selected = POWER_SUPPLY_CHARGER_SEC_NONE;
 	chg->cp_reason = POWER_SUPPLY_CP_NONE;
+	chg->thermal_status = TEMP_BELOW_RANGE;
 
 	switch (chg->mode) {
 	case PARALLEL_MASTER:
