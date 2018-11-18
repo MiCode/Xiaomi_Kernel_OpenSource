@@ -152,6 +152,7 @@ cond_syscall(sys_io_cancel);
 cond_syscall(sys_io_getevents);
 cond_syscall(sys_sysfs);
 cond_syscall(sys_syslog);
+cond_syscall(sys_pidfd_send_signal);
 cond_syscall(sys_process_vm_readv);
 cond_syscall(sys_process_vm_writev);
 cond_syscall(compat_sys_process_vm_readv);
