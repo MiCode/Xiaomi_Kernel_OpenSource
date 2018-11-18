@@ -2894,6 +2894,22 @@
 		status = "ok";
 	};
 
+	keepalive_opp_table: keepalive-opp-table {
+		compatible = "operating-points-v2";
+		opp-1 {
+			opp-hz = /bits/ 64 < 1 >;
+		};
+	};
+
+	snoc_cnoc_keepalive: qcom,snoc_cnoc_keepalive {
+		compatible = "qcom,devbw";
+		governor = "powersave";
+		qcom,src-dst-ports = <1 627>;
+		qcom,active-only;
+		status = "ok";
+		operating-points-v2 = <&keepalive_opp_table>;
+	};
+
 	cx_ipeak_lm: cx_ipeak@01fed000 {
 		compatible = "qcom,cx-ipeak-sm6150";
 		reg = <0x1fed000 0x28>;
