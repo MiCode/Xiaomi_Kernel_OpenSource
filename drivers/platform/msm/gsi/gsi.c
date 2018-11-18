@@ -1165,6 +1165,14 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 
 	gsi_writel(props->intr, gsi_ctx->base +
 			GSI_EE_n_CNTXT_INTSET_OFFS(gsi_ctx->per.ee));
+	/* set GSI_TOP_EE_n_CNTXT_MSI_BASE_LSB/MSB to 0 */
+	if ((gsi_ctx->per.ver >= GSI_VER_2_0) &&
+		(props->intr != GSI_INTR_MSI)) {
+		gsi_writel(0, gsi_ctx->base +
+			GSI_EE_n_CNTXT_MSI_BASE_LSB(gsi_ctx->per.ee));
+		gsi_writel(0, gsi_ctx->base +
+			GSI_EE_n_CNTXT_MSI_BASE_MSB(gsi_ctx->per.ee));
+	}
 
 	val = gsi_readl(gsi_ctx->base +
 			GSI_EE_n_GSI_STATUS_OFFS(gsi_ctx->per.ee));
