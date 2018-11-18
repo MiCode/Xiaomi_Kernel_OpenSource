@@ -210,6 +210,7 @@
 		vdd-supply = <&pm6150_l4>;
 		qcom,vdd-voltage-level = <0 880000 880000>;
 		core-supply = <&pm6150l_l3>;
+		extcon = <&pm6150_pdphy>;
 		qcom,vbus-valid-override;
 		qcom,qmp-phy-init-seq =
 		/* <reg_offset, value, delay> */
