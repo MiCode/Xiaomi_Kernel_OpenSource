@@ -10,14 +10,8 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
+#include "sdmmagpie-audio-overlay.dtsi"
 
-#include "sdmmagpie.dtsi"
-#include "sdmmagpie-idp.dtsi"
-#include "sdmmagpie-usbc-idp.dtsi"
-
-/ {
-	model = "Qualcomm Technologies, Inc. SDMMAGPIE PM6150 USBC Audio IDP";
-	compatible = "qcom,sdmmagpie-idp", "qcom,sdmmagpie", "qcom,idp";
-	qcom,board-id = <34 2>;
+&sm6150_snd {
+	qcom,msm-mbhc-usbc-audio-supported = <1>;
 };
