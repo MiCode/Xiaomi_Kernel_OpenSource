@@ -113,19 +113,6 @@ int ipa3_disable_data_path(u32 clnt_hdl)
 	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) {
 		/* Suspend the pipe */
 		if (IPA_CLIENT_IS_CONS(ep->client)) {
-			/*
-			 * for RG10 workaround uC needs to be loaded before
-			 * pipe can be suspended in this case.
-			 */
-			if (ipa3_ctx->apply_rg10_wa && ipa3_uc_state_check()) {
-				IPADBG("uC is not loaded yet, waiting...\n");
-				res = wait_for_completion_timeout(
-					&ipa3_ctx->uc_loaded_completion_obj,
-					60 * HZ);
-				if (res == 0)
-					IPADBG("timeout waiting for uC load\n");
-			}
-
 			memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
 			ep_cfg_ctrl.ipa_ep_suspend = true;
 			res = ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
