@@ -19,6 +19,7 @@ struct mmc_card;
 struct mmc_request;
 
 #define MMC_CMD_RETRIES        3
+#define MMC_CMDQ_WAIT_EVENT_TIMEOUT_MS	    60000
 
 struct mmc_bus_ops {
 	void (*remove)(struct mmc_host *);
