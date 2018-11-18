@@ -98,7 +98,7 @@ static int set_key(uint32_t index, const uint8_t *key, const uint8_t *salt,
 	desc.args[3] = ICE_CIPHER_MODE_XTS_256;
 	desc.args[4] = data_unit;
 
-	ret = scm_call2(smc_id, &desc);
+	ret = scm_call2_noretry(smc_id, &desc);
 	if (ret)
 		pr_err("%s:SCM call Error: 0x%x\n", __func__, ret);
 
@@ -116,7 +116,7 @@ static int clear_key(uint32_t index)
 	desc.arginfo = TZ_ES_INVALIDATE_ICE_KEY_PARAM_ID;
 	desc.args[0] = index;
 
-	ret = scm_call2(smc_id, &desc);
+	ret = scm_call2_noretry(smc_id, &desc);
 	if (ret)
 		pr_err("%s:SCM call Error: 0x%x\n", __func__, ret);
 	return ret;
