@@ -1359,6 +1359,7 @@ Optional properties:
 - qcom,csra-max-devs : Maximum number of CSRA66x0 devices present in the target
 - qcom,csra-devs : List of phandles of all possible CSRA66x0 devices supported for the target
 - qcom,csra-aux-dev-prefix : Name prefix in multi-channel configuration for CSRA66x0 device
+- qcom,afe-rxtx-lb: AFE RX to TX loopback.
 Example:
 
 	qcs405_snd {
