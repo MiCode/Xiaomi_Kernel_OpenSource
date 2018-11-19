@@ -1315,14 +1315,14 @@ static struct msm_pdc_mux_output sdxprairie_mux_out[] = {
 };
 
 static struct msm_dir_conn sdxprairie_dir_conn[] = {
-	{0, 220},
-	{0, 219},
-	{0, 218},
-	{0, 217},
-	{0, 216},
-	{0, 215},
-	{0, 214},
-	{0, 213},
+	{-1, 220},
+	{-1, 219},
+	{-1, 218},
+	{-1, 217},
+	{-1, 216},
+	{-1, 215},
+	{-1, 214},
+	{-1, 213},
 };
 
 static const struct msm_pinctrl_soc_data sdxprairie_pinctrl = {
