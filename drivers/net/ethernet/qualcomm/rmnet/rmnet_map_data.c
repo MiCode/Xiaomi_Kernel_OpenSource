@@ -438,11 +438,6 @@ sw_csum:
 	priv->stats.csum_sw++;
 }
 
-struct rmnet_agg_work {
-	struct work_struct work;
-	struct rmnet_port *port;
-};
-
 long rmnet_agg_time_limit __read_mostly = 1000000L;
 long rmnet_agg_bypass_time __read_mostly = 10000000L;
 
@@ -476,22 +471,17 @@ int rmnet_map_tx_agg_skip(struct sk_buff *skb, int offset)
 
 static void rmnet_map_flush_tx_packet_work(struct work_struct *work)
 {
-	struct rmnet_agg_work *real_work;
+	struct sk_buff *skb = NULL;
 	struct rmnet_port *port;
 	unsigned long flags;
-	struct sk_buff *skb;
-	int agg_count = 0;
 
-	real_work = (struct rmnet_agg_work *)work;
-	port = real_work->port;
-	skb = NULL;
+	port = container_of(work, struct rmnet_port, agg_wq);
 
 	spin_lock_irqsave(&port->agg_lock, flags);
 	if (likely(port->agg_state == -EINPROGRESS)) {
 		/* Buffer may have already been shipped out */
 		if (likely(port->agg_skb)) {
 			skb = port->agg_skb;
-			agg_count = port->agg_count;
 			port->agg_skb = NULL;
 			port->agg_count = 0;
 			memset(&port->agg_time, 0, sizeof(struct timespec));
@@ -502,27 +492,15 @@ static void rmnet_map_flush_tx_packet_work(struct work_struct *work)
 	spin_unlock_irqrestore(&port->agg_lock, flags);
 	if (skb)
 		dev_queue_xmit(skb);
-
-	kfree(work);
 }
 
 enum hrtimer_restart rmnet_map_flush_tx_packet_queue(struct hrtimer *t)
 {
-	struct rmnet_agg_work *work;
 	struct rmnet_port *port;
 
 	port = container_of(t, struct rmnet_port, hrtimer);
 
-	work = kmalloc(sizeof(*work), GFP_ATOMIC);
-	if (!work) {
-		port->agg_state = 0;
-
-		return HRTIMER_NORESTART;
-	}
-
-	INIT_WORK(&work->work, rmnet_map_flush_tx_packet_work);
-	work->port = port;
-	schedule_work((struct work_struct *)work);
+	schedule_work(&port->agg_wq);
 	return HRTIMER_NORESTART;
 }
 
@@ -607,6 +585,8 @@ void rmnet_map_tx_aggregate_init(struct rmnet_port *port)
 	port->egress_agg_size = 8192;
 	port->egress_agg_count = 20;
 	spin_lock_init(&port->agg_lock);
+
+	INIT_WORK(&port->agg_wq, rmnet_map_flush_tx_packet_work);
 }
 
 void rmnet_map_tx_aggregate_exit(struct rmnet_port *port)
@@ -614,6 +594,8 @@ void rmnet_map_tx_aggregate_exit(struct rmnet_port *port)
 	unsigned long flags;
 
 	hrtimer_cancel(&port->hrtimer);
+	cancel_work_sync(&port->agg_wq);
+
 	spin_lock_irqsave(&port->agg_lock, flags);
 	if (port->agg_state == -EINPROGRESS) {
 		if (port->agg_skb) {
