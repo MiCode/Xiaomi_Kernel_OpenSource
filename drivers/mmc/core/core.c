@@ -133,6 +133,26 @@ static bool mmc_is_data_request(struct mmc_request *mmc_request)
 	}
 }
 
+void mmc_cmdq_up_rwsem(struct mmc_host *host)
+{
+	struct mmc_cmdq_context_info *ctx = &host->cmdq_ctx;
+
+	up_read(&ctx->err_rwsem);
+}
+EXPORT_SYMBOL(mmc_cmdq_up_rwsem);
+
+int mmc_cmdq_down_rwsem(struct mmc_host *host, struct request *rq)
+{
+	struct mmc_cmdq_context_info *ctx = &host->cmdq_ctx;
+
+	down_read(&ctx->err_rwsem);
+	if (rq && !(rq->rq_flags & RQF_QUEUED))
+		return -EINVAL;
+	else
+		return 0;
+}
+EXPORT_SYMBOL(mmc_cmdq_down_rwsem);
+
 static void mmc_clk_scaling_start_busy(struct mmc_host *host, bool lock_needed)
 {
 	struct mmc_devfeq_clk_scaling *clk_scaling = &host->clk_scaling;
@@ -1840,8 +1860,10 @@ int mmc_cmdq_wait_for_dcmd(struct mmc_host *host,
 	if (err)
 		return err;
 
+	mmc_cmdq_up_rwsem(host);
 	wait_for_completion_io(&mrq->completion);
-	if (cmd->error) {
+	err = mmc_cmdq_down_rwsem(host, mrq->req);
+	if (err || cmd->error) {
 		pr_err("%s: DCMD %d failed with err %d\n",
 				mmc_hostname(host), cmd->opcode,
 				cmd->error);
