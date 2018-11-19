@@ -266,6 +266,9 @@ static void ipa3_nat_ipv6ct_destroy_device(
 
 	mutex_lock(&dev->lock);
 
+	dma_free_coherent(ipa3_ctx->pdev, IPA_NAT_IPV6CT_TEMP_MEM_SIZE,
+		dev->tmp_mem->vaddr, dev->tmp_mem->dma_handle);
+	kfree(dev->tmp_mem);
 	device_destroy(dev->class, dev->dev_num);
 	unregister_chrdev_region(dev->dev_num, 1);
 	class_destroy(dev->class);
