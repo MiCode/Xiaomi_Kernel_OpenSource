@@ -634,7 +634,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		int32_t offset, rc = 0;
 		struct cam_start_stop_dev_cmd config;
 
-		rc = copy_from_user(&config, (void __user *)cmd->handle,
+		rc = copy_from_user(&config, u64_to_user_ptr(cmd->handle),
 					sizeof(config));
 		if (rc < 0) {
 			CAM_ERR(CAM_CSIPHY, "Failed copying from User");
@@ -758,7 +758,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		struct cam_start_stop_dev_cmd config;
 		int32_t offset;
 
-		rc = copy_from_user(&config, (void __user *)cmd->handle,
+		rc = copy_from_user(&config, u64_to_user_ptr(cmd->handle),
 			sizeof(config));
 		if (rc < 0) {
 			CAM_ERR(CAM_CSIPHY, "Failed copying from User");
