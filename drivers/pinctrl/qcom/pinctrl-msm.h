@@ -136,7 +136,7 @@ struct msm_pdc_mux_output {
  * @tlmm_dc:	indicates if the GPIO is routed to GIC directly
  */
 struct msm_dir_conn {
-	unsigned int gpio;
+	int gpio;
 	irq_hw_number_t hwirq;
 	bool tlmm_dc;
 };

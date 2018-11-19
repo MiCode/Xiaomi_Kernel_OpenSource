@@ -1000,11 +1000,11 @@ static void msm_gpio_dirconn_handler(struct irq_desc *desc)
 }
 
 static void setup_pdc_gpio(struct irq_domain *domain,
-			unsigned int parent_irq, unsigned int gpio)
+			unsigned int parent_irq, int gpio)
 {
 	int irq;
 
-	if (gpio != 0) {
+	if (gpio != -1) {
 		irq = irq_create_mapping(domain, gpio);
 		irq_set_parent(irq, parent_irq);
 		irq_set_chip(irq, &msm_dirconn_irq_chip);
@@ -1016,7 +1016,7 @@ static void setup_pdc_gpio(struct irq_domain *domain,
 
 static void request_dc_interrupt(struct irq_domain *domain,
 			struct irq_domain *parent, irq_hw_number_t hwirq,
-			unsigned int gpio)
+			int gpio)
 {
 	struct irq_fwspec fwspec;
 	unsigned int parent_irq;
@@ -1362,7 +1362,7 @@ static int select_dir_conn_mux(struct irq_data *d, irq_hw_number_t *irq)
 			return pctrl->soc->dir_conn_irq_base - dir_conn->hwirq;
 		}
 
-		if (dir_conn->gpio)
+		if (dir_conn->gpio != -1)
 			continue;
 
 		/* Use the first unused direct connect available */
@@ -1372,7 +1372,7 @@ static int select_dir_conn_mux(struct irq_data *d, irq_hw_number_t *irq)
 
 	if (dc) {
 		*irq = dc->hwirq + 32;
-		dc->gpio = (u32)d->hwirq;
+		dc->gpio = (int)d->hwirq;
 		return pctrl->soc->dir_conn_irq_base - (u32)dc->hwirq;
 	}
 
@@ -1594,7 +1594,7 @@ static void msm_gpio_setup_dir_connects(struct msm_pinctrl *pctrl)
 		request_dc_interrupt(pctrl->chip.irqdomain, pdc_domain,
 					dirconn->hwirq, dirconn->gpio);
 
-		if (!dirconn->gpio)
+		if (dirconn->gpio == -1)
 			continue;
 
 		if (!dirconn->tlmm_dc)
@@ -1618,7 +1618,7 @@ static void msm_gpio_setup_dir_connects(struct msm_pinctrl *pctrl)
 					&pctrl->soc->pdc_mux_out[i];
 
 		request_dc_interrupt(pctrl->chip.irqdomain, pdc_domain,
-					pdc_out->hwirq, 0);
+					pdc_out->hwirq, -1);
 	}
 
 	/*
