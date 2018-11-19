@@ -482,25 +482,35 @@ static void gsi_process_chan(struct gsi_xfer_compl_evt *evt,
 	if (WARN_ON(ch_ctx->props.prot != GSI_CHAN_PROT_GPI))
 		return;
 
-	rp = evt->xfer_ptr;
+	if (evt->type != GSI_XFER_COMPL_TYPE_GCI) {
+		rp = evt->xfer_ptr;
 
-	if (ch_ctx->ring.rp_local != rp) {
-		ch_ctx->stats.completed +=
-			gsi_get_complete_num(&ch_ctx->ring,
+		if (ch_ctx->ring.rp_local != rp) {
+			ch_ctx->stats.completed +=
+				gsi_get_complete_num(&ch_ctx->ring,
 				ch_ctx->ring.rp_local, rp);
-		ch_ctx->ring.rp_local = rp;
+			ch_ctx->ring.rp_local = rp;
+		}
+
+
+		/* the element at RP is also processed */
+		gsi_incr_ring_rp(&ch_ctx->ring);
+
+		ch_ctx->ring.rp = ch_ctx->ring.rp_local;
+		rp_idx = gsi_find_idx_from_addr(&ch_ctx->ring, rp);
+		notify->veid = GSI_VEID_DEFAULT;
+	} else {
+		rp_idx = evt->cookie;
+		notify->veid = evt->veid;
 	}
 
-	/* the element at RP is also processed */
-	gsi_incr_ring_rp(&ch_ctx->ring);
 	ch_ctx->stats.completed++;
 
-	ch_ctx->ring.rp = ch_ctx->ring.rp_local;
-	rp_idx = gsi_find_idx_from_addr(&ch_ctx->ring, rp);
 	notify->xfer_user_data = ch_ctx->user_data[rp_idx];
 	notify->chan_user_data = ch_ctx->props.chan_user_data;
 	notify->evt_id = evt->code;
 	notify->bytes_xfered = evt->len;
+
 	if (callback) {
 		if (atomic_read(&ch_ctx->poll_mode)) {
 			GSIERR("Calling client callback in polling mode\n");
@@ -2190,7 +2200,8 @@ int gsi_alloc_channel(struct gsi_chan_props *props, unsigned long dev_hdl,
 			return -GSI_STATUS_INVALID_PARAMS;
 		}
 
-		if (atomic_read(
+		if (props->prot != GSI_CHAN_PROT_GCI &&
+			atomic_read(
 			&gsi_ctx->evtr[props->evt_ring_hdl].chan_ref_cnt) &&
 			gsi_ctx->evtr[props->evt_ring_hdl].props.exclusive) {
 			GSIERR("evt ring=%lu exclusively used by ch_hdl=%pK\n",
@@ -2254,7 +2265,8 @@ int gsi_alloc_channel(struct gsi_chan_props *props, unsigned long dev_hdl,
 	if (erindex != GSI_NO_EVT_ERINDEX) {
 		ctx->evtr = &gsi_ctx->evtr[erindex];
 		atomic_inc(&ctx->evtr->chan_ref_cnt);
-		if (ctx->evtr->props.exclusive)
+		if (props->prot != GSI_CHAN_PROT_GCI &&
+		    ctx->evtr->props.exclusive)
 			ctx->evtr->chan = ctx;
 	}
 
@@ -2973,6 +2985,8 @@ static void __gsi_query_channel_free_re(struct gsi_chan_ctx *ctx,
 	int ee = gsi_ctx->per.ee;
 	uint16_t used;
 
+	WARN_ON(ctx->props.prot != GSI_CHAN_PROT_GPI);
+
 	if (!ctx->evtr) {
 		rp = gsi_readl(gsi_ctx->base +
 			GSI_EE_n_GSI_CH_k_CNTXT_4_OFFS(ctx->props.ch_id, ee));
@@ -3073,6 +3087,7 @@ int gsi_is_channel_empty(unsigned long chan_hdl, bool *is_empty)
 	unsigned long flags;
 	uint64_t rp;
 	uint64_t wp;
+	uint64_t rp_local;
 	int ee;
 
 	if (!gsi_ctx) {
@@ -3101,38 +3116,128 @@ int gsi_is_channel_empty(unsigned long chan_hdl, bool *is_empty)
 
 	spin_lock_irqsave(slock, flags);
 
-	rp = gsi_readl(gsi_ctx->base +
-		GSI_EE_n_GSI_CH_k_CNTXT_4_OFFS(ctx->props.ch_id, ee));
-	rp |= ctx->ring.rp & 0xFFFFFFFF00000000;
-	ctx->ring.rp = rp;
+	if (ctx->props.dir == GSI_CHAN_DIR_FROM_GSI && ctx->evtr) {
+		rp = gsi_readl(gsi_ctx->base +
+			GSI_EE_n_EV_CH_k_CNTXT_4_OFFS(ctx->evtr->id, ee));
+		rp |= ctx->evtr->ring.rp & 0xFFFFFFFF00000000;
+		ctx->evtr->ring.rp = rp;
 
-	wp = gsi_readl(gsi_ctx->base +
-		GSI_EE_n_GSI_CH_k_CNTXT_6_OFFS(ctx->props.ch_id, ee));
-	wp |= ctx->ring.wp & 0xFFFFFFFF00000000;
-	ctx->ring.wp = wp;
+		wp = gsi_readl(gsi_ctx->base +
+			GSI_EE_n_EV_CH_k_CNTXT_6_OFFS(ctx->evtr->id, ee));
+		wp |= ctx->evtr->ring.wp & 0xFFFFFFFF00000000;
+		ctx->evtr->ring.wp = wp;
+
+		rp_local = ctx->evtr->ring.rp_local;
+	} else {
+		rp = gsi_readl(gsi_ctx->base +
+			GSI_EE_n_GSI_CH_k_CNTXT_4_OFFS(ctx->props.ch_id, ee));
+		rp |= ctx->ring.rp & 0xFFFFFFFF00000000;
+		ctx->ring.rp = rp;
+
+		wp = gsi_readl(gsi_ctx->base +
+			GSI_EE_n_GSI_CH_k_CNTXT_6_OFFS(ctx->props.ch_id, ee));
+		wp |= ctx->ring.wp & 0xFFFFFFFF00000000;
+		ctx->ring.wp = wp;
+
+		rp_local = ctx->ring.rp_local;
+	}
 
 	if (ctx->props.dir == GSI_CHAN_DIR_FROM_GSI)
-		*is_empty = (ctx->ring.rp_local == rp) ? true : false;
+		*is_empty = (rp_local == rp) ? true : false;
 	else
 		*is_empty = (wp == rp) ? true : false;
 
 	spin_unlock_irqrestore(slock, flags);
 
-	GSIDBG("ch=%lu RP=0x%llx WP=0x%llx RP_LOCAL=0x%llx\n",
-			chan_hdl, rp, wp, ctx->ring.rp_local);
+	if (ctx->props.dir == GSI_CHAN_DIR_FROM_GSI && ctx->evtr)
+		GSIDBG("ch=%lu ev=%lu RP=0x%llx WP=0x%llx RP_LOCAL=0x%llx\n",
+			chan_hdl, ctx->evtr->id, rp, wp, rp_local);
+	else
+		GSIDBG("ch=%lu RP=0x%llx WP=0x%llx RP_LOCAL=0x%llx\n",
+			chan_hdl, rp, wp, rp_local);
 
 	return GSI_STATUS_SUCCESS;
 }
 EXPORT_SYMBOL(gsi_is_channel_empty);
+
+int __gsi_populate_gci_tre(struct gsi_chan_ctx *ctx, struct gsi_xfer_elem *xfer)
+{
+	struct gsi_gci_tre gci_tre;
+	struct gsi_gci_tre *tre_gci_ptr;
+	uint16_t idx;
+
+	memset(&gci_tre, 0, sizeof(gci_tre));
+	if (xfer->addr & 0xFFFFFF0000000000) {
+		GSIERR("chan_hdl=%u add too large=%llx\n",
+			ctx->props.ch_id, xfer->addr);
+		return -EINVAL;
+	}
+
+	if (xfer->type != GSI_XFER_ELEM_DATA) {
+		GSIERR("chan_hdl=%u bad RE type=%u\n", ctx->props.ch_id,
+			xfer->type);
+		return -EINVAL;
+	}
+
+	idx = gsi_find_idx_from_addr(&ctx->ring, ctx->ring.wp_local);
+	tre_gci_ptr = (struct gsi_gci_tre *)(ctx->ring.base_va +
+		idx * ctx->ring.elem_sz);
+
+	gci_tre.buffer_ptr = xfer->addr;
+	gci_tre.buf_len = xfer->len;
+	gci_tre.re_type = GSI_RE_COAL;
+	gci_tre.cookie = idx;
+
+	/* write the TRE to ring */
+	*tre_gci_ptr = gci_tre;
+	ctx->user_data[idx] = xfer->xfer_user_data;
+
+	return 0;
+}
+
+int __gsi_populate_tre(struct gsi_chan_ctx *ctx,
+	struct gsi_xfer_elem *xfer)
+{
+	struct gsi_tre tre;
+	struct gsi_tre *tre_ptr;
+	uint16_t idx;
+
+	memset(&tre, 0, sizeof(tre));
+	tre.buffer_ptr = xfer->addr;
+	tre.buf_len = xfer->len;
+	if (xfer->type == GSI_XFER_ELEM_DATA) {
+		tre.re_type = GSI_RE_XFER;
+	} else if (xfer->type == GSI_XFER_ELEM_IMME_CMD) {
+		tre.re_type = GSI_RE_IMMD_CMD;
+	} else if (xfer->type == GSI_XFER_ELEM_NOP) {
+		tre.re_type = GSI_RE_NOP;
+	} else {
+		GSIERR("chan_hdl=%u bad RE type=%u\n", ctx->props.ch_id,
+			xfer->type);
+		return -EINVAL;
+	}
+
+	tre.bei = (xfer->flags & GSI_XFER_FLAG_BEI) ? 1 : 0;
+	tre.ieot = (xfer->flags & GSI_XFER_FLAG_EOT) ? 1 : 0;
+	tre.ieob = (xfer->flags & GSI_XFER_FLAG_EOB) ? 1 : 0;
+	tre.chain = (xfer->flags & GSI_XFER_FLAG_CHAIN) ? 1 : 0;
+
+	idx = gsi_find_idx_from_addr(&ctx->ring, ctx->ring.wp_local);
+	tre_ptr = (struct gsi_tre *)(ctx->ring.base_va +
+		idx * ctx->ring.elem_sz);
+
+	/* write the TRE to ring */
+	*tre_ptr = tre;
+	ctx->user_data[idx] = xfer->xfer_user_data;
+
+	return 0;
+}
 
 int gsi_queue_xfer(unsigned long chan_hdl, uint16_t num_xfers,
 		struct gsi_xfer_elem *xfer, bool ring_db)
 {
 	struct gsi_chan_ctx *ctx;
 	uint16_t free;
-	struct gsi_tre tre;
-	struct gsi_tre *tre_ptr;
-	uint16_t idx;
 	uint64_t wp_rollback;
 	int i;
 	spinlock_t *slock;
@@ -3151,7 +3256,8 @@ int gsi_queue_xfer(unsigned long chan_hdl, uint16_t num_xfers,
 
 	ctx = &gsi_ctx->chan[chan_hdl];
 
-	if (ctx->props.prot != GSI_CHAN_PROT_GPI) {
+	if (ctx->props.prot != GSI_CHAN_PROT_GPI &&
+			ctx->props.prot != GSI_CHAN_PROT_GCI) {
 		GSIERR("op not supported for protocol %u\n", ctx->props.prot);
 		return -GSI_STATUS_UNSUPPORTED_OP;
 	}
@@ -3162,43 +3268,29 @@ int gsi_queue_xfer(unsigned long chan_hdl, uint16_t num_xfers,
 		slock = &ctx->ring.slock;
 
 	spin_lock_irqsave(slock, flags);
-	__gsi_query_channel_free_re(ctx, &free);
-
-	if (num_xfers > free) {
-		GSIERR("chan_hdl=%lu num_xfers=%u free=%u\n",
+	/*
+	 * for GCI channels the responsibility is on the caller to make sure
+	 * there is enough room in the TRE.
+	 */
+	if (ctx->props.prot != GSI_CHAN_PROT_GCI) {
+		__gsi_query_channel_free_re(ctx, &free);
+		if (num_xfers > free) {
+			GSIERR("chan_hdl=%lu num_xfers=%u free=%u\n",
 				chan_hdl, num_xfers, free);
-		spin_unlock_irqrestore(slock, flags);
-		return -GSI_STATUS_RING_INSUFFICIENT_SPACE;
+			spin_unlock_irqrestore(slock, flags);
+			return -GSI_STATUS_RING_INSUFFICIENT_SPACE;
+		}
 	}
 
 	wp_rollback = ctx->ring.wp_local;
 	for (i = 0; i < num_xfers; i++) {
-		memset(&tre, 0, sizeof(tre));
-		tre.buffer_ptr = xfer[i].addr;
-		tre.buf_len = xfer[i].len;
-		if (xfer[i].type == GSI_XFER_ELEM_DATA) {
-			tre.re_type = GSI_RE_XFER;
-		} else if (xfer[i].type == GSI_XFER_ELEM_IMME_CMD) {
-			tre.re_type = GSI_RE_IMMD_CMD;
-		} else if (xfer[i].type == GSI_XFER_ELEM_NOP) {
-			tre.re_type = GSI_RE_NOP;
+		if (ctx->props.prot == GSI_CHAN_PROT_GCI) {
+			if (__gsi_populate_gci_tre(ctx, &xfer[i]))
+				break;
 		} else {
-			GSIERR("chan_hdl=%lu bad RE type=%u\n", chan_hdl,
-				xfer[i].type);
-			break;
+			if (__gsi_populate_tre(ctx, &xfer[i]))
+				break;
 		}
-		tre.bei = (xfer[i].flags & GSI_XFER_FLAG_BEI) ? 1 : 0;
-		tre.ieot = (xfer[i].flags & GSI_XFER_FLAG_EOT) ? 1 : 0;
-		tre.ieob = (xfer[i].flags & GSI_XFER_FLAG_EOB) ? 1 : 0;
-		tre.chain = (xfer[i].flags & GSI_XFER_FLAG_CHAIN) ? 1 : 0;
-
-		idx = gsi_find_idx_from_addr(&ctx->ring, ctx->ring.wp_local);
-		tre_ptr = (struct gsi_tre *)(ctx->ring.base_va +
-				idx * ctx->ring.elem_sz);
-
-		/* write the TRE to ring */
-		*tre_ptr = tre;
-		ctx->user_data[idx] = xfer[i].xfer_user_data;
 		gsi_incr_ring_wp(&ctx->ring);
 	}
 
