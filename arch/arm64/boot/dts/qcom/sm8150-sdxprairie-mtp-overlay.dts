@@ -27,5 +27,5 @@
 / {
 	model = "SDXPRAIRIE MTP";
 	compatible = "qcom,sm8150-mtp", "qcom,sm8150", "qcom,mtp";
-	qcom,board-id = <8 3>;
+	qcom,board-id = <8 2>;
 };
