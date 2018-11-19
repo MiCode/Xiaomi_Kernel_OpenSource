@@ -164,6 +164,46 @@
 				#cooling-cells = <2>;
 			};
 
+			modem1_skin0: modem1_skin0 {
+				qcom,qmi-dev-name = "modem_skin0";
+				#cooling-cells = <2>;
+			};
+
+			modem1_skin1: modem1_skin1 {
+				qcom,qmi-dev-name = "modem_skin1";
+				#cooling-cells = <2>;
+			};
+
+			modem1_skin2: modem1_skin2 {
+				qcom,qmi-dev-name = "modem_skin2";
+				#cooling-cells = <2>;
+			};
+
+			modem1_skin3: modem1_skin3 {
+				qcom,qmi-dev-name = "modem_skin3";
+				#cooling-cells = <2>;
+			};
+
+			modem1_mmw0: modem1_mmw0 {
+				qcom,qmi-dev-name = "mmw0";
+				#cooling-cells = <2>;
+			};
+
+			modem1_mmw1: modem1_mmw1 {
+				qcom,qmi-dev-name = "mmw1";
+				#cooling-cells = <2>;
+			};
+
+			modem1_mmw2: modem1_mmw2 {
+				qcom,qmi-dev-name = "mmw2";
+				#cooling-cells = <2>;
+			};
+
+			modem1_mmw3: modem1_mmw3 {
+				qcom,qmi-dev-name = "mmw3";
+				#cooling-cells = <2>;
+			};
+
 			modem1_vdd: modem1_vdd {
 				qcom,qmi-dev-name = "cpuv_restriction_cold";
 				#cooling-cells = <2>;
