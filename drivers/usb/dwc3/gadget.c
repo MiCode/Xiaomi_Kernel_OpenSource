@@ -3497,7 +3497,8 @@ static void dwc3_process_event_entry(struct dwc3 *dwc,
 		 * wouldn't give wakeup event after resume. Handle that
 		 * here on ep event which indicates that bus is resumed.
 		 */
-		if (dwc->b_suspend)
+		if (dwc->b_suspend &&
+		    dwc3_get_link_state(dwc) == DWC3_LINK_STATE_U0)
 			dwc3_gadget_wakeup_interrupt(dwc, false);
 		return dwc3_endpoint_interrupt(dwc, &event->depevt);
 	}
