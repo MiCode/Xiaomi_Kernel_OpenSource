@@ -2884,13 +2884,20 @@
 		memory-region = <&pil_ipa_fw_mem>;
 	};
 
+	keepalive_opp_table: keepalive-opp-table {
+		compatible = "operating-points-v2";
+		opp-1 {
+			opp-hz = /bits/ 64 < 1 >;
+		};
+	};
+
 	snoc_cnoc_keepalive: qcom,snoc_cnoc_keepalive {
 		compatible = "qcom,devbw";
 		governor = "powersave";
-		qcom,src-dst-ports = <161 627>;
+		qcom,src-dst-ports = <1 627>;
 		qcom,active-only;
 		status = "ok";
-		qcom,bw-tbl = < 1 >;
+		operating-points-v2 = <&keepalive_opp_table>;
 	};
 
 	bus_proxy_client: qcom,bus_proxy_client {
