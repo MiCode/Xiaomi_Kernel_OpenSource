@@ -617,6 +617,9 @@ int rpmh_ctrlr_idle(const struct device *dev)
 {
 	struct rpmh_ctrlr *ctrlr = get_rpmh_ctrlr(dev);
 
+	if (rpmh_standalone)
+		return 0;
+
 	return rpmh_rsc_ctrlr_is_idle(ctrlr_to_drv(ctrlr));
 }
 EXPORT_SYMBOL(rpmh_ctrlr_idle);
