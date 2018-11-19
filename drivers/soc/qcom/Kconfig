@@ -392,6 +392,9 @@ config QCOM_SCM_QCPE
        bool "Para-Virtualized Secure Channel Manager (SCM) support over QCPE"
        default n
 
+config QCOM_EARLY_DOMAIN
+	bool "Support for handoff of early domain services running in bootloader"
+
 menuconfig QCOM_SCM_XPU
 	bool "Qualcomm XPU configuration driver"
 	depends on QCOM_SCM
