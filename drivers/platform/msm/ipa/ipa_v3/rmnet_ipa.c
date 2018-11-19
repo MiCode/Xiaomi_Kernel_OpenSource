@@ -1714,7 +1714,7 @@ static int ipa3_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			if (rmnet_ipa3_ctx->num_q6_rules != 0) {
 				mux_mutex_ptr =
 					&rmnet_ipa3_ctx->add_mux_channel_lock;
-				IPAWANERR("dev(%s) register to IPA\n",
+				IPAWANERR_RL("dev(%s) register to IPA\n",
 					v_name);
 				rc = ipa3_wwan_register_to_ipa(
 						rmnet_ipa3_ctx->rmnet_index);
