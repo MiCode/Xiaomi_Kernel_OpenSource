@@ -272,7 +272,10 @@ retry_write:
 		goto retry_write;
 	}
 
-	wait_for_completion(&ipc_dev->write_done);
+	if (unlikely(wait_for_completion_interruptible(&ipc_dev->write_done))) {
+		usb_ep_dequeue(in, req);
+		return -EINTR;
+	}
 
 	return !req->status ? req->actual : req->status;
 }
@@ -336,7 +339,10 @@ retry_read:
 		goto retry_read;
 	}
 
-	wait_for_completion(&ipc_dev->read_done);
+	if (unlikely(wait_for_completion_interruptible(&ipc_dev->read_done))) {
+		usb_ep_dequeue(out, req);
+		return -EINTR;
+	}
 
 	return !req->status ? req->actual : req->status;
 }
@@ -398,42 +404,47 @@ static void ipc_function_work(struct work_struct *w)
 	switch (ctxt->current_state) {
 	case IPC_DISCONNECTED:
 		if (!ctxt->connected)
-			return;
+			break;
 
+		ctxt->current_state = IPC_CONNECTED;
+		ctxt->online = 1;
 		ctxt->pdev = platform_device_alloc("ipc_bridge", -1);
 		if (!ctxt->pdev)
-			return;
+			goto pdev_fail;
 
 		ret = platform_device_add_data(ctxt->pdev, &ipc_pdata,
 				sizeof(struct ipc_bridge_platform_data));
 		if (ret) {
 			platform_device_put(ctxt->pdev);
 			pr_err("%s: fail to add pdata\n", __func__);
-			return;
+			goto pdev_fail;
 		}
 
 		ret = platform_device_add(ctxt->pdev);
 		if (ret) {
 			platform_device_put(ctxt->pdev);
 			pr_err("%s: fail to add pdev\n", __func__);
-			return;
+			goto pdev_fail;
 		}
-		ctxt->current_state = IPC_CONNECTED;
-		ctxt->online = 1;
 		break;
-
 	case IPC_CONNECTED:
 		if (ctxt->connected)
-			return;
+			break;
 
 		platform_device_unregister(ctxt->pdev);
 		ctxt->current_state = IPC_DISCONNECTED;
 		wake_up(&ctxt->state_wq);
 		break;
-
 	default:
 		pr_debug("%s: Unknown current state\n", __func__);
 	}
+
+	return;
+
+pdev_fail:
+	ctxt->online = 0;
+	ctxt->current_state = IPC_DISCONNECTED;
+	return;
 }
 
 static int ipc_bind(struct usb_configuration *c, struct usb_function *f)
