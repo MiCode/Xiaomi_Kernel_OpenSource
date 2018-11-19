@@ -64,6 +64,29 @@
 		qcom,afe-power-on-delay-us = <6>;
 		qcom,afe-power-off-delay-us = <6>;
 	};
+
+	usb1_otg_supply: usb1_otg_supply {
+		compatible = "regulator-fixed";
+		regulator-name = "regulator_fixed";
+		gpio = <&pm8150_gpios 10 GPIO_ACTIVE_HIGH>;
+		status = "ok";
+	};
+};
+
+&usb1 {
+	vbus_dwc3-supply = <&usb1_otg_supply>;
+	status = "ok";
+	dwc3@a800000 {
+		dr_mode = "host";
+	};
+};
+
+&usb2_phy1 {
+	status = "ok";
+};
+
+&usb_qmp_phy {
+	status = "ok";
 };
 
 &qupv3_se17_i2c {
