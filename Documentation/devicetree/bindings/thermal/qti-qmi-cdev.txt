@@ -40,6 +40,16 @@ Subsystem properties:
 			"modem" -> for processor passive cooling device,
 			"modem_current" -> for current limiting device,
 			"modem_bw" ->  for bus bandwidth limiting device,
+			"vbatt_low" -> BCL vbat mitigation device,
+			"mmw0" -> Millimeter wave limiting device 0,
+			"mmw1" -> Millimeter wave limiting device 1,
+			"mmw2" -> Millimeter wave limiting device 2,
+			"mmw3" -> Millimeter wave limiting device 3,
+			"modem_skin" -> Modem skin mitigation device,
+			"modem_skin0" -> Modem skin mitigation device0,
+			"modem_skin1" -> Modem skin mitigation device1,
+			"modem_skin2" -> Modem skin mitigation device2,
+			"modem_skin3" -> Modem skin mitigation device3,
 			"cpr_cold" -> for cpr restriction.
 
 	-#cooling-cells:
