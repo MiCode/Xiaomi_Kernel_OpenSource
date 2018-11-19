@@ -192,9 +192,16 @@ enum arm_smmu_s2cr_privcfg {
 #define ARM_SMMU_CB_ATS1PR		0x800
 #define ARM_SMMU_CB_ATSR		0x8f0
 
+#define SCTLR_MEM_ATTR_SHIFT		16
 #define SCTLR_SHCFG_SHIFT		22
+#define SCTLR_RACFG_SHIFT		24
+#define SCTLR_WACFG_SHIFT		26
 #define SCTLR_SHCFG_MASK		0x3
 #define SCTLR_SHCFG_NSH			0x3
+#define SCTLR_RACFG_RA			0x2
+#define SCTLR_WACFG_WA			0x2
+#define SCTLR_MEM_ATTR_OISH_WB_CACHE	0xf
+#define SCTLR_MTCFG			(1 << 20)
 #define SCTLR_S1_ASIDPNE		(1 << 12)
 #define SCTLR_CFCFG			(1 << 7)
 #define SCTLR_HUPCF			(1 << 8)
