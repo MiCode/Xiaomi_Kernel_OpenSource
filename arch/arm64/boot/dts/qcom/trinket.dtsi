@@ -580,6 +580,13 @@
 		clocks = <&clock_rpmcc RPM_QDSS_CLK>;
 	};
 
+	rpm_bus: qcom,rpm-smd {
+		compatible = "qcom,rpm-smd";
+		rpm-channel-name = "rpm_requests";
+		interrupts = <GIC_SPI 194 IRQ_TYPE_EDGE_RISING>;
+		rpm-channel-type = <15>; /* SMD_APPS_RPM */
+	};
+
 	wdog: qcom,wdt@f017000 {
 		compatible = "qcom,msm-watchdog";
 		reg = <0xf017000 0x1000>;

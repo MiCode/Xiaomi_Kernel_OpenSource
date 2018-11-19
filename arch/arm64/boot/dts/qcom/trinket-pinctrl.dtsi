@@ -16,6 +16,7 @@
 	tlmm: pinctrl@400000 {
 		compatible = "qcom,trinket-pinctrl";
 		reg = <0x400000 0xc00000>;
+		reg-names = "pinctrl";
 		interrupts = <0 227 0>;
 		gpio-controller;
 		#gpio-cells = <2>;
