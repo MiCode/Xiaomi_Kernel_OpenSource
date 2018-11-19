@@ -2002,6 +2002,8 @@
 
 		qcom,ice-clk-rates = <300000000 75000000>;
 
+		qcom,scaling-lower-bus-speed-mode = "DDR52";
+
 		qcom,nonremovable;
 		status = "disabled";
 	};
@@ -2019,11 +2021,11 @@
 		qcom,large-address-bus;
 
 		qcom,clk-rates = <400000 20000000 25000000
-				50000000 100000000 201500000>;
+				50000000 100000000 208000000>;
 		qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50",
 				      "SDR104";
 
-		qcom,devfreq,freq-table = <50000000 201500000>;
+		qcom,devfreq,freq-table = <50000000 208000000>;
 
 		clocks = <&clock_gcc GCC_SDCC2_AHB_CLK>,
 			<&clock_gcc GCC_SDCC2_APPS_CLK>;
