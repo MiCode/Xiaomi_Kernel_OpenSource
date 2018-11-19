@@ -539,6 +539,7 @@ config DEVPORT
 source "drivers/s390/char/Kconfig"
 
 source "drivers/char/xillybus/Kconfig"
+source "drivers/char/diag/Kconfig"
 
 config MSM_ADSPRPC
         tristate "QTI ADSP RPC driver"

@@ -62,3 +62,4 @@ ifdef CONFIG_COMPAT
   obj-$(CONFIG_MSM_ADSPRPC)	+= adsprpc_compat.o
 endif
 obj-$(CONFIG_ADI)		+= adi.o
+obj-$(CONFIG_DIAG_CHAR)		+= diag/
