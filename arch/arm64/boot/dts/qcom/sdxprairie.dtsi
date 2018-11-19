@@ -510,6 +510,19 @@
 		status = "disabled";
 	};
 
+	qcom_rng: qrng@793000{
+		compatible = "qcom,msm-rng";
+		reg = <0x793000 0x1000>;
+		qcom,no-qrng-config;
+		qcom,msm-bus,name = "msm-rng-noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<1 618 0 0>,    /* No vote */
+			<1 618 0 300000>;  /* 75 MHz */
+		qcom,no-clock-support;
+	};
+
 	qnand_1: nand@1b00000 {
 		compatible = "qcom,msm-nand";
 		reg =   <0x01b00000 0x1000>,
