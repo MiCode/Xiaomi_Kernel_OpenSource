@@ -1716,7 +1716,7 @@ static enum drm_mode_status dp_display_validate_mode(
 	enum drm_mode_status mode_status = MODE_BAD;
 	bool in_list = false;
 	struct dp_mst_connector *mst_connector;
-	int hdis, vdis, vref, ar, _hdis, _vdis, _vref, _ar;
+	int hdis, vdis, vref, ar, _hdis, _vdis, _vref, _ar, rate;
 
 	if (!dp_display || !mode || !panel) {
 		pr_err("invalid params\n");
@@ -1746,7 +1746,8 @@ static enum drm_mode_status dp_display_validate_mode(
 	mode_bpp = dp_panel->get_mode_bpp(dp_panel, mode_bpp, mode->clock);
 
 	mode_rate_khz = mode->clock * mode_bpp;
-	supported_rate_khz = link_info->num_lanes * link_info->rate * 8;
+	rate = drm_dp_bw_code_to_link_rate(dp->link->link_params.bw_code);
+	supported_rate_khz = link_info->num_lanes * rate * 8;
 
 	if (mode_rate_khz > supported_rate_khz) {
 		DP_MST_DEBUG("pclk:%d, supported_rate:%d\n",

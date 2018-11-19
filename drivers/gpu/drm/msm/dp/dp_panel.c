@@ -1567,7 +1567,7 @@ static int dp_panel_deinit_panel_info(struct dp_panel *dp_panel, u32 flags)
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 	hdr = &panel->catalog->hdr_data;
 
-	if (!panel->custom_edid)
+	if (!panel->custom_edid && dp_panel->edid_ctrl->edid)
 		sde_free_edid((void **)&dp_panel->edid_ctrl);
 
 	dp_panel_set_stream_info(dp_panel, DP_STREAM_MAX, 0, 0, 0);
