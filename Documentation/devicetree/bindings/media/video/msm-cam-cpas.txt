@@ -169,6 +169,16 @@ First Level Node - CAM CPAS device
   Definition: Bool property specifying whether Clients are connected
 	through CAMNOC for AXI access.
 
+- qcom,cam-cx-ipeak:
+  Usage: optional
+  Value type: <phandle bit>
+	phandle - phandle of CX Ipeak device node
+	bit     - Every bit corresponds to a client of CX Ipeak
+  Definition: CX Ipeak is a mitigation scheme which throttles camera frequency
+	if all the clients are running at their respective threshold
+	frequencies to limit CX peak current.
+	driver in the relevant register.
+
 ===================================================================
 Third Level Node - CAM AXI Port properties
 ===================================================================
@@ -226,6 +236,7 @@ Example:
 		src-clock-name = "slow_ahb_clk_src";
 		clock-rates = <0 0 0 0 80000000 0>;
 		clock-cntl-level = "turbo";
+		qcom,cam-cx-ipeak = <&cx_ipeak_lm 2>;
 		control-camnoc-axi-clk;
 		camnoc-bus-width = <32>;
 		camnoc-axi-clk-bw-margin-perc = <10>;
