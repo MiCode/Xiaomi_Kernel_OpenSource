@@ -162,10 +162,12 @@
 		qcom,phy-clk-scheme = "cml";
 		qcom,major-rev = <1>;
 
+		/* USB2PHY gets clock directly from CXO pad
+		 * connected to differential pin cxo_core_in_1p8_vdda.
+		 */
 		clocks = <&clock_rpmh RPMH_CXO_CLK>,
-			<&clock_gcc GCC_RX1_USB2_CLKREF_CLK>,
 			<&clock_gcc GCC_AHB2PHY_WEST_CLK>;
-		clock-names =  "ref_clk_src", "ref_clk", "cfg_ahb_clk";
+		clock-names =  "ref_clk_src", "cfg_ahb_clk";
 
 		resets = <&clock_gcc GCC_QUSB2PHY_PRIM_BCR>;
 		reset-names = "phy_reset";
@@ -416,10 +418,12 @@
 		qcom,major-rev = <1>;
 		qcom,hold-reset;
 
+		/* USB2PHY gets clock directly from CXO pad
+		 * connected to differential pin cxo_core_in_1p8_vdda.
+		 */
 		clocks = <&clock_rpmh RPMH_CXO_CLK>,
-			<&clock_gcc GCC_RX3_USB2_CLKREF_CLK>,
 			<&clock_gcc GCC_AHB2PHY_WEST_CLK>;
-		clock-names =  "ref_clk_src", "ref_clk", "cfg_ahb_clk";
+		clock-names =  "ref_clk_src", "cfg_ahb_clk";
 
 		resets = <&clock_gcc GCC_QUSB2PHY_SEC_BCR>;
 		reset-names = "phy_reset";
