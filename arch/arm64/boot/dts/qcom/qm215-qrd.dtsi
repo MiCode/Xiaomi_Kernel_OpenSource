@@ -53,6 +53,24 @@
 			gpio-key,wakeup;
 		};
 	};
+
+	fpc1020 {
+		compatible = "fpc,fpc1020";
+		interrupt-parent = <&tlmm>;
+		interrupts = <48 0>;
+		fpc,gpio_rst = <&tlmm 124 0x0>;
+		fpc,gpio_irq = <&tlmm 48 0>;
+		vcc_spi-supply = <&pm8916_l5>;
+		vdd_io-supply  = <&pm8916_l5>;
+		vdd_ana-supply = <&pm8916_l5>;
+		fpc,enable-on-boot;
+		pinctrl-names = "fpc1020_reset_reset",
+				"fpc1020_reset_active",
+				"fpc1020_irq_active";
+		pinctrl-0 = <&fpc_reset_low>;
+		pinctrl-1 = <&fpc_reset_high>;
+		pinctrl-2 = <&fpc_int_low>;
+	};
 };
 
 &sdhc_1 {
