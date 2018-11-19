@@ -44,6 +44,15 @@
 	};
 };
 
+&qupv3_se8_2uart {
+	status = "disabled";
+};
+
+/*RUMI UART console*/
+&qupv3_se2_2uart {
+	status = "ok";
+};
+
 &wdog {
 	status = "disabled";
 };
