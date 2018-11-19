@@ -453,32 +453,6 @@ out:
 }
 EXPORT_SYMBOL(mmc_clk_update_freq);
 
-int mmc_recovery_fallback_lower_speed(struct mmc_host *host)
-{
-	int err = 0;
-
-	if (!host->card)
-		return -EINVAL;
-
-	if (host->sdr104_wa && mmc_card_sd(host->card) &&
-	    (host->ios.timing == MMC_TIMING_UHS_SDR104) &&
-	    !host->card->sdr104_blocked) {
-		pr_err("%s: %s: blocked SDR104, lower the bus-speed (SDR50 / DDR50)\n",
-			mmc_hostname(host), __func__);
-		mmc_host_clear_sdr104(host);
-		err = mmc_hw_reset(host);
-		host->card->sdr104_blocked = true;
-	} else if (mmc_card_sd(host->card)) {
-		/* If sdr104_wa is not present, just return status */
-		err = host->bus_ops->alive(host);
-	}
-	if (err)
-		pr_err("%s: %s: Fallback to lower speed mode failed with err=%d\n",
-			mmc_hostname(host), __func__, err);
-
-	return err;
-}
-
 static int mmc_devfreq_set_target(struct device *dev,
 				unsigned long *freq, u32 devfreq_flags)
 {
@@ -505,33 +479,26 @@ static int mmc_devfreq_set_target(struct device *dev,
 	pr_debug("%s: target freq = %lu (%s)\n", mmc_hostname(host),
 		*freq, current->comm);
 
-	if ((clk_scaling->curr_freq == *freq) ||
-		clk_scaling->skip_clk_scale_freq_update)
-		goto out;
-
-	/* No need to scale the clocks if they are gated */
-	if (!host->ios.clock)
-		goto out;
-
 	spin_lock_bh(&clk_scaling->lock);
-	if (clk_scaling->clk_scaling_in_progress) {
-		pr_debug("%s: clocks scaling is already in-progress by mmc thread\n",
-			mmc_hostname(host));
+	if (clk_scaling->target_freq == *freq ||
+		clk_scaling->skip_clk_scale_freq_update) {
 		spin_unlock_bh(&clk_scaling->lock);
 		goto out;
 	}
+
 	clk_scaling->need_freq_change = true;
 	clk_scaling->target_freq = *freq;
 	clk_scaling->state = *freq < clk_scaling->curr_freq ?
 		MMC_LOAD_LOW : MMC_LOAD_HIGH;
 	spin_unlock_bh(&clk_scaling->lock);
 
-	abort = __mmc_claim_host(host, &clk_scaling->devfreq_abort);
-	if (abort)
+	if (!clk_scaling->is_suspended && host->ios.clock)
+		abort = __mmc_claim_host(host, &clk_scaling->devfreq_abort);
+	else
 		goto out;
 
-	if (mmc_card_sd(host->card) && host->card->sdr104_blocked)
-		goto rel_host;
+	if (abort)
+		goto out;
 
 	/*
 	 * In case we were able to claim host there is no need to
@@ -541,18 +508,14 @@ static int mmc_devfreq_set_target(struct device *dev,
 
 	mmc_host_clk_hold(host);
 	err = mmc_clk_update_freq(host, *freq, clk_scaling->state);
-	if (err && err != -EAGAIN) {
+	if (err && err != -EAGAIN)
 		pr_err("%s: clock scale to %lu failed with error %d\n",
 			mmc_hostname(host), *freq, err);
-		err = mmc_recovery_fallback_lower_speed(host);
-	} else {
+	else
 		pr_debug("%s: clock change to %lu finished successfully (%s)\n",
 			mmc_hostname(host), *freq, current->comm);
-	}
-
 
 	mmc_host_clk_release(host);
-rel_host:
 	mmc_release_host(host);
 out:
 	current->flags &= ~PF_MEMALLOC;
@@ -571,17 +534,14 @@ void mmc_deferred_scaling(struct mmc_host *host)
 {
 	unsigned long target_freq;
 	int err;
+	struct mmc_devfeq_clk_scaling clk_scaling;
 
 	if (!host->clk_scaling.enable)
 		return;
 
-	if (mmc_card_sd(host->card) && host->card->sdr104_blocked)
-		return;
-
 	spin_lock_bh(&host->clk_scaling.lock);
 
-	if (host->clk_scaling.clk_scaling_in_progress ||
-		!(host->clk_scaling.need_freq_change)) {
+	if (!host->clk_scaling.need_freq_change) {
 		spin_unlock_bh(&host->clk_scaling.lock);
 		return;
 	}
@@ -589,7 +549,12 @@ void mmc_deferred_scaling(struct mmc_host *host)
 
 	atomic_inc(&host->clk_scaling.devfreq_abort);
 	target_freq = host->clk_scaling.target_freq;
-	host->clk_scaling.clk_scaling_in_progress = true;
+	/*
+	 * Store the clock scaling state while the lock is acquired so that
+	 * if devfreq context modifies clk_scaling, it will get reflected only
+	 * in the next deferred scaling check.
+	 */
+	clk_scaling = host->clk_scaling;
 	host->clk_scaling.need_freq_change = false;
 	spin_unlock_bh(&host->clk_scaling.lock);
 	pr_debug("%s: doing deferred frequency change (%lu) (%s)\n",
@@ -597,17 +562,15 @@ void mmc_deferred_scaling(struct mmc_host *host)
 				target_freq, current->comm);
 
 	err = mmc_clk_update_freq(host, target_freq,
-		host->clk_scaling.state);
-	if (err && err != -EAGAIN) {
+		clk_scaling.state);
+	if (err && err != -EAGAIN)
 		pr_err("%s: failed on deferred scale clocks (%d)\n",
 			mmc_hostname(host), err);
-		mmc_recovery_fallback_lower_speed(host);
-	} else {
+	else
 		pr_debug("%s: clocks were successfully scaled to %lu (%s)\n",
 			mmc_hostname(host),
 			target_freq, current->comm);
-	}
-	host->clk_scaling.clk_scaling_in_progress = false;
+
 	atomic_dec(&host->clk_scaling.devfreq_abort);
 }
 EXPORT_SYMBOL(mmc_deferred_scaling);
@@ -737,7 +700,6 @@ int mmc_init_clk_scaling(struct mmc_host *host)
 	spin_lock_init(&host->clk_scaling.lock);
 	atomic_set(&host->clk_scaling.devfreq_abort, 0);
 	host->clk_scaling.curr_freq = host->ios.clock;
-	host->clk_scaling.clk_scaling_in_progress = false;
 	host->clk_scaling.need_freq_change = false;
 	host->clk_scaling.is_busy_started = false;
 
@@ -808,7 +770,8 @@ int mmc_suspend_clk_scaling(struct mmc_host *host)
 		return -EINVAL;
 	}
 
-	if (!mmc_can_scale_clk(host) || !host->clk_scaling.enable)
+	if (!mmc_can_scale_clk(host) || !host->clk_scaling.enable ||
+			host->clk_scaling.is_suspended)
 		return 0;
 
 	if (!host->clk_scaling.devfreq) {
@@ -825,7 +788,7 @@ int mmc_suspend_clk_scaling(struct mmc_host *host)
 			mmc_hostname(host), __func__);
 		return err;
 	}
-	host->clk_scaling.enable = false;
+	host->clk_scaling.is_suspended = true;
 
 	host->clk_scaling.total_busy_time_us = 0;
 
@@ -879,15 +842,12 @@ int mmc_resume_clk_scaling(struct mmc_host *host)
 	if (host->ios.clock < host->clk_scaling.freq_table[max_clk_idx])
 		host->clk_scaling.curr_freq = devfreq_min_clk;
 
-	host->clk_scaling.clk_scaling_in_progress = false;
-	host->clk_scaling.need_freq_change = false;
-
 	err = devfreq_resume_device(host->clk_scaling.devfreq);
 	if (err) {
 		pr_err("%s: %s: failed to resume devfreq (%d)\n",
 			mmc_hostname(host), __func__, err);
 	} else {
-		host->clk_scaling.enable = true;
+		host->clk_scaling.is_suspended = false;
 		pr_debug("%s: devfreq resumed\n", mmc_hostname(host));
 	}
 
@@ -1078,6 +1038,7 @@ void mmc_request_done(struct mmc_host *host, struct mmc_request *mrq)
 				mrq->stop->resp[0], mrq->stop->resp[1],
 				mrq->stop->resp[2], mrq->stop->resp[3]);
 		}
+		mmc_host_clk_release(host);
 	}
 	/*
 	 * Request starter must handle retries - see
@@ -1086,7 +1047,6 @@ void mmc_request_done(struct mmc_host *host, struct mmc_request *mrq)
 	if (mrq->done)
 		mrq->done(mrq);
 
-	mmc_host_clk_release(host);
 }
 
 EXPORT_SYMBOL(mmc_request_done);
@@ -1623,13 +1583,8 @@ void mmc_wait_for_req_done(struct mmc_host *host, struct mmc_request *mrq)
 			}
 		}
 		if (!cmd->error || !cmd->retries ||
-		    mmc_card_removed(host->card)) {
-			if (cmd->error && !cmd->retries &&
-			     cmd->opcode != MMC_SEND_STATUS &&
-			     cmd->opcode != MMC_SEND_TUNING_BLOCK)
-				mmc_recovery_fallback_lower_speed(host);
+		    mmc_card_removed(host->card))
 			break;
-		}
 
 		mmc_retune_recheck(host);
 
@@ -4085,6 +4040,10 @@ unsigned int mmc_calc_max_discard(struct mmc_card *card)
 	struct mmc_host *host = card->host;
 	unsigned int max_discard, max_trim;
 
+	if (!host->max_busy_timeout ||
+			(host->caps2 & MMC_CAP2_MAX_DISCARD_SIZE))
+		return UINT_MAX;
+
 	/*
 	 * Without erase_group_def set, MMC erase timeout depends on clock
 	 * frequence which can change.  In that case, the best choice is
@@ -4261,17 +4220,8 @@ int _mmc_detect_card_removed(struct mmc_host *host)
 	}
 
 	if (ret) {
-		if (host->ops->get_cd && host->ops->get_cd(host)) {
-			ret = mmc_recovery_fallback_lower_speed(host);
-		} else {
-			mmc_card_set_removed(host->card);
-			if (host->card->sdr104_blocked) {
-				mmc_host_set_sdr104(host);
-				host->card->sdr104_blocked = false;
-			}
-			pr_debug("%s: card remove detected\n",
-					mmc_hostname(host));
-		}
+		mmc_card_set_removed(host->card);
+		pr_debug("%s: card remove detected\n", mmc_hostname(host));
 	}
 
 	return ret;

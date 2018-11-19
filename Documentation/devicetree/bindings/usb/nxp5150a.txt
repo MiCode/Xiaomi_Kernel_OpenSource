@@ -1,0 +1,21 @@
+NXP PTN5150A - CC Logic chip for USB Type-C applications
+
+Required properties:
+- compatible:	should contain "nxp,5150a"
+- reg:		The device 7-bit I2C address
+- interrupts:	interrupt number that is used for interrupts from the device.
+
+Optional properties:
+- vbus-out-gpio: gpio for enabling VBUS output (e.g. when entering host mode)
+
+Example device node:
+
+&i2c4 {
+	nxp_5150a: nxp5150a@1d {
+		compatbile = "nxp,5150a";
+		reg = <0x1d>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <35 2>;
+		vbus-out-gpio = <&msm_gpio 3 1>;
+	};
+};

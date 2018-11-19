@@ -17,10 +17,15 @@
 #include <dt-bindings/clock/qcom,camcc-sdmmagpie.h>
 
 #include "sdmmagpie-idp.dtsi"
+#include "sdmmagpie-audio-overlay.dtsi"
 
 / {
 	model = "IDP";
 	compatible = "qcom,sdmmagpie-idp", "qcom,sdmmagpie", "qcom,idp";
 	qcom,msm-id = <365 0x0>;
 	qcom,board-id = <34 0>;
+};
+
+&dsi_sw43404_amoled_video_display {
+	qcom,dsi-display-active;
 };

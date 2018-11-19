@@ -15,6 +15,7 @@
 
 #include "qcs405.dtsi"
 #include "qcs405-wsa-audio-overlay.dtsi"
+#include "qcs405-circular-pca9956.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS405 EVB1 1000 IOT";
@@ -33,4 +34,36 @@
 &usb2s {
 	extcon = <&smb1351_otg_supply>;
 	vbus_dwc3-supply = <&smb1351_otg_supply>;
+};
+
+&soc {
+	gpio_keys {
+		vol_mute {
+			gpios = <&tlmm 19 GPIO_ACTIVE_LOW>;
+		};
+	};
+};
+
+&tlmm {
+	evb_tlmm_gpio_key{
+		tlmm_gpio_key_active: tlmm_gpio_key_active {
+			mux {
+				pins = "gpio19","gpio52","gpio54","gpio115";
+			};
+
+			config {
+				pins = "gpio19","gpio52","gpio54","gpio115";
+			};
+		};
+
+		tlmm_gpio_key_suspend: tlmm_gpio_key_suspend {
+			mux {
+				pins = "gpio19","gpio52","gpio54","gpio115";
+			};
+
+			config {
+				pins = "gpio19","gpio52","gpio54","gpio115";
+			};
+		};
+	};
 };

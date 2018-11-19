@@ -466,3 +466,21 @@ config MSM_DEBUGCC_SDMMAGPIE
 	  Support for the debug clock controller on Qualcomm Technologies, Inc
 	  SDMMAGPIE devices.
 	  Say Y if you want to support the clock measurement functionality.
+
+config GCC_SDXPRAIRIE
+	tristate "SDXPRAIRIE Global Clock Controller"
+	select QCOM_GDSC
+	depends on COMMON_CLK_QCOM
+	help
+	 Support for the global clock controller on Qualcomm Technologies, Inc
+	 SDXPRAIRIE devices.
+	 Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	 USB, SD/eMMC, PCIe, etc.
+
+config DEBUGCC_SDXPRAIRIE
+	tristate "SDXPRAIRIE Debug Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  SDXPRAIRIE devices.
+	  Say Y if you want to support the clock measurement functionality.

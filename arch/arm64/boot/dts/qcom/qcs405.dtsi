@@ -748,7 +748,7 @@
 
 	qcom,msm-mdf-mem {
 		compatible = "qcom,msm-mdf-mem-region";
-		qcom,msm-mdf-mem-data-size = <0x200000>;
+		qcom,msm-mdf-mem-data-size = <0x800000>;
 		memory-region = <&mdf_mem>;
 	};
 
@@ -1460,6 +1460,16 @@
 		dpdm-supply = <&usb2_phy0>;
 		qcom,otg-enable;
 	};
+
+	usb_typec: usb_typec@3d {
+		compatible = "nxp,5150a";
+		reg = <0x3d>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <35 IRQ_TYPE_LEVEL_LOW>;
+		pintctrl-names = "default";
+		pinctrl-0 = <&nxp_i2c_intr>;
+		status = "disabled";
+	};
 };
 
 &pms405_gpios {
@@ -1501,29 +1511,52 @@
 	extcon = <&usb3_extcon>;
 };
 
-#include "qcs405-led-pca9956.dtsi"
-
 &soc {
-	i2c_2: i2c@78b6000 { /* BLSP1 QUP2 */
-		compatible = "qcom,i2c-msm-v2";
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg = <0x78b6000  0x600>;
-		reg-names = "qup_phys_addr";
-		interrupt-names = "qup_irq";
-		interrupts = <0 96 0>;
-		dmas = <&dma_blsp1 10 64 0x20000020 0x20>,
-			<&dma_blsp1 11 32 0x20000020 0x20>;
-		dma-names = "tx", "rx";
-		qcom,master-id = <86>;
-		qcom,clk-freq-out = <400000>;
-		qcom,clk-freq-in  = <19200000>;
-		clock-names = "iface_clk", "core_clk";
-		clocks = <&clock_gcc GCC_BLSP1_AHB_CLK>,
-			<&clock_gcc GCC_BLSP1_QUP1_I2C_APPS_CLK>;
-		pinctrl-names = "i2c_active", "i2c_sleep";
-		pinctrl-0 = <&i2c_2_active &pca9956b_reset_gpio>;
-		pinctrl-1 = <&i2c_2_sleep>;
-		status = "ok";
+	gpio_keys {
+		compatible = "gpio-keys";
+		label = "gpio-keys";
+		input-name = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&tlmm_gpio_key_active>;
+
+		vol_mute {
+			label = "vol_mute";
+			gpios = <&tlmm 21 GPIO_ACTIVE_LOW>;
+			linux,input-type = <1>;
+			linux,code = <KEY_MUTE>;
+			debounce-interval = <15>;
+			gpio-key,wakeup;
+			linux,can-disable;
+		};
+
+		vol_down {
+			label = "vol_down";
+			gpios = <&tlmm 54 GPIO_ACTIVE_LOW>;
+			linux,input-type = <1>;
+			linux,code = <KEY_VOLUMEDOWN>;
+			debounce-interval = <15>;
+			gpio-key,wakeup;
+			linux,can-disable;
+		};
+
+		vol_up {
+			label = "vol_up";
+			gpios = <&tlmm 52 GPIO_ACTIVE_LOW>;
+			linux,input-type = <1>;
+			linux,code = <KEY_VOLUMEUP>;
+			debounce-interval = <15>;
+			gpio-key,wakeup;
+			linux,can-disable;
+		};
+
+		home {
+			label = "action";
+			gpios = <&tlmm 115 GPIO_ACTIVE_LOW>;
+			linux,input-type = <1>;
+			linux,code = <KEY_HOME>;
+			debounce-interval = <15>;
+			gpio-key,wakeup;
+			linux,can-disable;
+		};
 	};
 };

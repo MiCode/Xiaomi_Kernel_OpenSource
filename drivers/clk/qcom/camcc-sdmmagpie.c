@@ -31,7 +31,7 @@
 #include "clk-regmap.h"
 #include "common.h"
 #include "reset.h"
-#include "vdd-level.h"
+#include "vdd-level-sdmmagpie.h"
 
 #define F(f, s, h, m, n) { (f), (s), (2 * (h) - 1), (m), (n) }
 
@@ -188,7 +188,7 @@ static const struct parent_map cam_cc_parent_map_9[] = {
 };
 
 static const char * const cam_cc_parent_names_9[] = {
-	"bi_tcxo",
+	"bi_tcxo_ao",
 	"core_bi_pll_test_se",
 };
 

@@ -55,6 +55,7 @@
 			 0x144 /* GSI_RING_BASE_ADDR_H */
 			 0x1a4>; /* GSI_IF_STS */
 		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
+		qcom,pm-qos-latency = <61>;
 
 		qcom,msm-bus,name = "usb0";
 		qcom,msm-bus,num-cases = <4>;
@@ -160,7 +161,7 @@
 		qcom,major-rev = <1>;
 
 		clocks = <&clock_rpmh RPMH_CXO_CLK>,
-			<&clock_gcc GCC_USB2_PRIM_CLKREF_CLK>,
+			<&clock_gcc GCC_RX1_USB2_CLKREF_CLK>,
 			<&clock_gcc GCC_AHB2PHY_WEST_CLK>;
 		clock-names =  "ref_clk_src", "ref_clk", "cfg_ahb_clk";
 
@@ -171,8 +172,10 @@
 	/* Primary USB port related QMP USB PHY */
 	usb_qmp_phy: ssphy@88e6000 {
 		compatible = "qcom,usb-ssphy-qmp-usb3-or-dp";
-		reg = <0x88e6000 0x1000>;
-		reg-names = "qmp_phy_base";
+		reg = <0x88e6000 0x1000>,
+			<0x01fcb244 0x4>;
+		reg-names = "qmp_phy_base",
+			"vls_clamp_reg";
 
 		vdd-supply = <&pm6150_l4>;
 		core-supply = <&pm6150_l11>;
@@ -296,7 +299,7 @@
 
 		clocks = <&clock_gcc GCC_USB3_PRIM_PHY_AUX_CLK>,
 			<&clock_gcc GCC_USB3_PRIM_PHY_PIPE_CLK>,
-			<&clock_rpmh RPMH_CXO_CLK>,
+			<&clock_gcc GCC_RX3_USB2_CLKREF_CLK>,
 			<&clock_gcc GCC_USB3_PRIM_CLKREF_CLK>,
 			<&clock_gcc GCC_USB3_PRIM_PHY_COM_AUX_CLK>,
 			<&clock_gcc GCC_AHB2PHY_WEST_CLK>;
@@ -410,7 +413,7 @@
 		qcom,hold-reset;
 
 		clocks = <&clock_rpmh RPMH_CXO_CLK>,
-			<&clock_gcc GCC_USB2_SEC_CLKREF_CLK>,
+			<&clock_gcc GCC_RX3_USB2_CLKREF_CLK>,
 			<&clock_gcc GCC_AHB2PHY_WEST_CLK>;
 		clock-names =  "ref_clk_src", "ref_clk", "cfg_ahb_clk";
 

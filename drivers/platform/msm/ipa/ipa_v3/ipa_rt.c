@@ -58,6 +58,13 @@ static int ipa_generate_rt_hw_rule(enum ipa_ip_type ip,
 
 	memset(&gen_params, 0, sizeof(gen_params));
 
+	if (entry->rule.hashable &&
+		entry->rule.attrib.attrib_mask & IPA_FLT_IS_PURE_ACK) {
+		IPAERR_RL("PURE_ACK rule atrb used with hash rule\n");
+		WARN_ON_RATELIMIT_IPA(1);
+		return -EPERM;
+	}
+
 	gen_params.ipt = ip;
 	gen_params.dst_pipe_idx = ipa3_get_ep_mapping(entry->rule.dst);
 	if (gen_params.dst_pipe_idx == -1) {

@@ -119,6 +119,15 @@ static void drm_mode_to_intf_timing_params(
 		timing->vsync_polarity = 0;
 	}
 
+	/* for DP/EDP, Shift timings to align it to bottom right */
+	if ((phys_enc->hw_intf->cap->type == INTF_DP) ||
+		(phys_enc->hw_intf->cap->type == INTF_EDP)) {
+		timing->h_back_porch += timing->h_front_porch;
+		timing->h_front_porch = 0;
+		timing->v_back_porch += timing->v_front_porch;
+		timing->v_front_porch = 0;
+	}
+
 	timing->wide_bus_en = vid_enc->base.wide_bus_en;
 
 	/*
@@ -410,9 +419,8 @@ static void _sde_encoder_phys_vid_avr_ctrl(struct sde_encoder_phys *phys_enc)
 	struct sde_encoder_phys_vid *vid_enc =
 			to_sde_encoder_phys_vid(phys_enc);
 
-	avr_params.avr_mode = sde_connector_get_property(
-			phys_enc->connector->state,
-			CONNECTOR_PROP_QSYNC_MODE);
+	avr_params.avr_mode = sde_connector_get_qsync_mode(
+			phys_enc->connector);
 
 	if (vid_enc->base.hw_intf->ops.avr_ctrl) {
 		vid_enc->base.hw_intf->ops.avr_ctrl(
@@ -503,7 +511,8 @@ static void sde_encoder_phys_vid_setup_timing_engine(
 				&intf_cfg);
 	}
 	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
-	programmable_fetch_config(phys_enc, &timing_params);
+	if (phys_enc->hw_intf->cap->type == INTF_DSI)
+		programmable_fetch_config(phys_enc, &timing_params);
 
 exit:
 	if (phys_enc->parent_ops.get_qsync_fps)
@@ -785,7 +794,6 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 	struct sde_encoder_phys_vid *vid_enc;
 	struct sde_hw_intf *intf;
 	struct sde_hw_ctl *ctl;
-	bool merge_3d_enable = false;
 
 	if (!phys_enc || !phys_enc->parent || !phys_enc->parent->dev ||
 			!phys_enc->parent->dev->dev_private ||
@@ -846,15 +854,11 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 		goto skip_flush;
 	}
 
-	if (sde_encoder_helper_get_3d_blend_mode(phys_enc) != BLEND_3D_NONE)
-		merge_3d_enable = true;
-
 	ctl->ops.update_bitmask_intf(ctl, intf->idx, 1);
 
-	if (test_bit(SDE_CTL_ACTIVE_CFG, &ctl->caps->features) &&
-			phys_enc->hw_pp->merge_3d)
+	if (ctl->ops.update_bitmask_merge3d && phys_enc->hw_pp->merge_3d)
 		ctl->ops.update_bitmask_merge3d(ctl,
-			phys_enc->hw_pp->merge_3d->idx, merge_3d_enable);
+			phys_enc->hw_pp->merge_3d->idx, 1);
 
 skip_flush:
 	SDE_DEBUG_VIDENC(vid_enc, "update pending flush ctl %d intf %d\n",
@@ -1041,7 +1045,7 @@ static int sde_encoder_phys_vid_prepare_for_kickoff(
 		vid_enc->error_count = 0;
 	}
 
-	if (sde_connector_qsync_updated(phys_enc->connector))
+	if (sde_connector_is_qsync_updated(phys_enc->connector))
 		_sde_encoder_phys_vid_avr_ctrl(phys_enc);
 
 	programmable_rot_fetch_config(phys_enc,
@@ -1181,9 +1185,7 @@ static void sde_encoder_phys_vid_handle_post_kickoff(
 		phys_enc->enable_state = SDE_ENC_ENABLED;
 	}
 
-	avr_mode = sde_connector_get_property(
-			phys_enc->connector->state,
-			CONNECTOR_PROP_QSYNC_MODE);
+	avr_mode = sde_connector_get_qsync_mode(phys_enc->connector);
 
 	if (avr_mode && vid_enc->base.hw_intf->ops.avr_trigger) {
 		vid_enc->base.hw_intf->ops.avr_trigger(vid_enc->base.hw_intf);

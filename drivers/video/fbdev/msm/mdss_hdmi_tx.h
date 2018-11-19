@@ -13,13 +13,13 @@
 #ifndef __MDSS_HDMI_TX_H__
 #define __MDSS_HDMI_TX_H__
 
-#include <linux/extcon.h>
 #include "mdss_hdmi_util.h"
 #include "mdss_hdmi_panel.h"
 #include "mdss_cec_core.h"
 #include "mdss_hdmi_audio.h"
 
 #define MAX_SWITCH_NAME_SIZE        5
+#define HDMI_GEN_PKT_CTRL_CLR_MASK  0x7
 
 enum hdmi_tx_io_type {
 	HDMI_TX_CORE_IO,
@@ -47,6 +47,9 @@ struct hdmi_tx_platform_data {
 	/* bitfield representing each module's pin state */
 	u64 pin_states;
 	bool pluggable;
+	struct clk *hdmi_pclk_rcg;
+	struct clk *ext_hdmi_pixel_clk;
+	u32 max_pclk_freq_khz;
 };
 
 struct hdmi_tx_pinctrl {
@@ -63,6 +66,7 @@ typedef int (*hdmi_tx_evt_handler) (struct hdmi_tx_ctrl *);
 
 struct hdmi_tx_ctrl {
 	struct platform_device *pdev;
+	struct platform_device *ext_pdev;
 	struct hdmi_tx_platform_data pdata;
 	struct mdss_panel_data panel_data;
 	struct mdss_util_intf *mdss_util;
@@ -72,7 +76,6 @@ struct hdmi_tx_ctrl {
 	struct mutex tx_lock;
 	struct list_head cable_notify_handlers;
 	struct kobject *kobj;
-	struct extcon_dev sdev;
 	struct workqueue_struct *workq;
 	struct hdmi_util_ds_data ds_data;
 	struct completion hpd_int_done;
@@ -80,13 +83,14 @@ struct hdmi_tx_ctrl {
 	struct delayed_work hdcp_cb_work;
 	struct work_struct cable_notify_work;
 	struct hdmi_tx_ddc_ctrl ddc_ctrl;
-	struct hdmi_hdcp_ops *hdcp_ops;
+	struct hdcp_ops *hdcp_ops;
 	struct cec_ops hdmi_cec_ops;
 	struct cec_cbs hdmi_cec_cbs;
 	struct hdmi_audio_ops audio_ops;
-	struct msm_hdmi_audio_setup_params audio_params;
 	struct hdmi_panel_data panel;
 	struct hdmi_panel_ops panel_ops;
+	struct msm_ext_disp_audio_setup_params audio_params;
+	struct msm_ext_disp_init_data ext_audio_data;
 	struct work_struct fps_work;
 
 	spinlock_t hpd_state_lock;
@@ -94,9 +98,11 @@ struct hdmi_tx_ctrl {
 	u32 panel_power_on;
 	u32 panel_suspend;
 	u32 vic;
-	u32 hdmi_tx_ver;
+	u32 hdmi_tx_version;
+	u32 hdmi_tx_major_version;
 	u32 max_pclk_khz;
 	u32 hpd_state;
+	bool hpd_notif_state;
 	u32 hpd_off_pending;
 	u32 hpd_feature_on;
 	u32 hpd_initialized;
@@ -124,6 +130,8 @@ struct hdmi_tx_ctrl {
 	bool sim_mode;
 	bool hdcp22_present;
 	bool power_data_enable[HDMI_TX_MAX_PM];
+	bool dc_support;
+	bool dc_feature_on;
 
 	void (*hdmi_tx_hpd_done)(void *data);
 	void *downstream_data;
@@ -135,7 +143,12 @@ struct hdmi_tx_ctrl {
 
 	char disp_switch_name[MAX_SWITCH_NAME_SIZE];
 
+	u64 actual_clk_rate;
+
+	/* pre/post is done in the context without tx_lock */
+	hdmi_tx_evt_handler pre_evt_handler[MDSS_EVENT_MAX - 1];
 	hdmi_tx_evt_handler evt_handler[MDSS_EVENT_MAX - 1];
+	hdmi_tx_evt_handler post_evt_handler[MDSS_EVENT_MAX - 1];
 };
 
 #endif /* __MDSS_HDMI_TX_H__ */

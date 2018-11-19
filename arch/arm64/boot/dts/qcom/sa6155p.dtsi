@@ -14,10 +14,15 @@
 #include "sa6155-pmic.dtsi"
 #include <dt-bindings/clock/mdss-14nm-pll-clk.h>
 
+#include "sm6150-camera-sensor-adp.dtsi"
 / {
 	model = "Qualcomm Technologies, Inc. SA6155P";
 	qcom,msm-name = "SA6155P";
 	qcom,msm-id = <377 0>;
+
+	aliases {
+		pci-domain0 = &pcie0; /* PCIe0 domain */
+	};
 };
 
 /* Delete second instance of pm6155 definitions for APQ version */
@@ -253,3 +258,7 @@
 &mdss_mdp {
 	connectors = <&sde_rscc &dsi_dp1 &sde_wb>;
 };
+
+/* Audio device tree */
+#include "sa6155-audio.dtsi"
+#include "sa6155-pcie.dtsi"

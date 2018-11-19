@@ -92,9 +92,6 @@ static void __gsi_config_ieob_irq(int ee, uint32_t mask, uint32_t val)
 			GSI_EE_n_CNTXT_SRC_IEOB_IRQ_MSK_OFFS(ee));
 	gsi_writel((curr & ~mask) | (val & mask), gsi_ctx->base +
 			GSI_EE_n_CNTXT_SRC_IEOB_IRQ_MSK_OFFS(ee));
-	if (gsi_ctx->per.ver == GSI_VER_2_2)
-		gsi_ctx->chan_ieob_mask = ((gsi_ctx->chan_ieob_mask & ~mask) |
-						(val & mask));
 }
 
 static void __gsi_config_glob_irq(int ee, uint32_t mask, uint32_t val)
@@ -564,29 +561,10 @@ static void gsi_handle_ieob(int ee)
 	unsigned long cntr;
 	uint32_t msk;
 
-	if (gsi_ctx->per.ver == GSI_VER_2_2) {
-		/* Masking IEOB global interrupt*/
-		__gsi_config_type_irq(ee,
-				1 << GSI_EE_n_CNTXT_TYPE_IRQ_MSK_IEOB_SHFT, 0);
-		ch = gsi_readl(gsi_ctx->base +
-				GSI_EE_n_CNTXT_SRC_IEOB_IRQ_OFFS(ee));
-		msk = gsi_readl(gsi_ctx->base +
-				GSI_EE_n_CNTXT_SRC_IEOB_IRQ_MSK_OFFS(ee));
-		if (gsi_ctx->chan_ieob_mask != msk)
-			gsi_ctx->ieob_mask_miss_match_cnt++;
-		/* In GSI 2.2 there is a limitation that can lead
-		 * to losing an interrupt because of wrong IEOB IRQ mask value.
-		 * For these versions an explicit considering  mask value for
-		 * all the event channel.
-		 */
-		msk = 0xffff;
-	} else {
-		ch = gsi_readl(gsi_ctx->base +
-				GSI_EE_n_CNTXT_SRC_IEOB_IRQ_OFFS(ee));
-		msk = gsi_readl(gsi_ctx->base +
-				GSI_EE_n_CNTXT_SRC_IEOB_IRQ_MSK_OFFS(ee));
-	}
-
+	ch = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_CNTXT_SRC_IEOB_IRQ_OFFS(ee));
+	msk = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_CNTXT_SRC_IEOB_IRQ_MSK_OFFS(ee));
 	gsi_writel(ch & msk, gsi_ctx->base +
 		GSI_EE_n_CNTXT_SRC_IEOB_IRQ_CLR_OFFS(ee));
 
@@ -632,11 +610,6 @@ check_again:
 				goto check_again;
 			spin_unlock_irqrestore(&ctx->ring.slock, flags);
 		}
-	}
-	if (gsi_ctx->per.ver == GSI_VER_2_2) {
-		/* Unmasking IEOB global interrupt*/
-		__gsi_config_type_irq(ee,
-			1 << GSI_EE_n_CNTXT_TYPE_IRQ_MSK_IEOB_SHFT, ~0);
 	}
 }
 
@@ -1127,7 +1100,6 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 		    props->emulator_intcntrlr_client_isr;
 	}
 
-	gsi_ctx->chan_ieob_mask = 0;
 	gsi_ctx->per = *props;
 	gsi_ctx->per_registered = true;
 	mutex_init(&gsi_ctx->mlock);
@@ -1230,6 +1202,8 @@ EXPORT_SYMBOL(gsi_register_device);
 int gsi_write_device_scratch(unsigned long dev_hdl,
 		struct gsi_device_scratch *val)
 {
+	unsigned int max_usb_pkt_size = 0;
+
 	if (!gsi_ctx) {
 		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
 		return -GSI_STATUS_NODEV;
@@ -1248,7 +1222,8 @@ int gsi_write_device_scratch(unsigned long dev_hdl,
 
 	if (val->max_usb_pkt_size_valid &&
 			val->max_usb_pkt_size != 1024 &&
-			val->max_usb_pkt_size != 512) {
+			val->max_usb_pkt_size != 512 &&
+			val->max_usb_pkt_size != 64) {
 		GSIERR("bad USB max pkt size dev_hdl=0x%lx sz=%u\n", dev_hdl,
 				val->max_usb_pkt_size);
 		return -GSI_STATUS_INVALID_PARAMS;
@@ -1258,9 +1233,15 @@ int gsi_write_device_scratch(unsigned long dev_hdl,
 	if (val->mhi_base_chan_idx_valid)
 		gsi_ctx->scratch.word0.s.mhi_base_chan_idx =
 			val->mhi_base_chan_idx;
-	if (val->max_usb_pkt_size_valid)
-		gsi_ctx->scratch.word0.s.max_usb_pkt_size =
-			(val->max_usb_pkt_size == 1024) ? 1 : 0;
+
+	if (val->max_usb_pkt_size_valid) {
+		max_usb_pkt_size = 2;
+		if (val->max_usb_pkt_size > 64)
+			max_usb_pkt_size =
+				(val->max_usb_pkt_size == 1024) ? 1 : 0;
+		gsi_ctx->scratch.word0.s.max_usb_pkt_size = max_usb_pkt_size;
+	}
+
 	gsi_writel(gsi_ctx->scratch.word0.val,
 			gsi_ctx->base +
 			GSI_EE_n_CNTXT_SCRATCH_0_OFFS(gsi_ctx->per.ee));
@@ -2231,6 +2212,57 @@ int gsi_alloc_channel(struct gsi_chan_props *props, unsigned long dev_hdl,
 }
 EXPORT_SYMBOL(gsi_alloc_channel);
 
+static int gsi_alloc_ap_channel(unsigned int chan_hdl)
+{
+	struct gsi_chan_ctx *ctx;
+	uint32_t val;
+	int res;
+	int ee;
+	enum gsi_ch_cmd_opcode op = GSI_CH_ALLOCATE;
+
+	if (!gsi_ctx) {
+		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
+		return -GSI_STATUS_NODEV;
+	}
+
+	ctx = &gsi_ctx->chan[chan_hdl];
+	if (ctx->allocated) {
+		GSIERR("chan %d already allocated\n", chan_hdl);
+		return -GSI_STATUS_NODEV;
+	}
+
+	memset(ctx, 0, sizeof(*ctx));
+
+	mutex_init(&ctx->mlock);
+	init_completion(&ctx->compl);
+	atomic_set(&ctx->poll_mode, GSI_CHAN_MODE_CALLBACK);
+
+	mutex_lock(&gsi_ctx->mlock);
+	ee = gsi_ctx->per.ee;
+	gsi_ctx->ch_dbg[chan_hdl].ch_allocate++;
+	val = (((chan_hdl << GSI_EE_n_GSI_CH_CMD_CHID_SHFT) &
+				GSI_EE_n_GSI_CH_CMD_CHID_BMSK) |
+			((op << GSI_EE_n_GSI_CH_CMD_OPCODE_SHFT) &
+			 GSI_EE_n_GSI_CH_CMD_OPCODE_BMSK));
+	gsi_writel(val, gsi_ctx->base +
+			GSI_EE_n_GSI_CH_CMD_OFFS(ee));
+	res = wait_for_completion_timeout(&ctx->compl, GSI_CMD_TIMEOUT);
+	if (res == 0) {
+		GSIERR("chan_hdl=%u timed out\n", chan_hdl);
+		mutex_unlock(&gsi_ctx->mlock);
+		return -GSI_STATUS_TIMED_OUT;
+	}
+	if (ctx->state != GSI_CHAN_STATE_ALLOCATED) {
+		GSIERR("chan_hdl=%u allocation failed state=%d\n",
+				chan_hdl, ctx->state);
+		mutex_unlock(&gsi_ctx->mlock);
+		return -GSI_STATUS_RES_ALLOC_FAILURE;
+	}
+	mutex_unlock(&gsi_ctx->mlock);
+
+	return GSI_STATUS_SUCCESS;
+}
+
 static void __gsi_write_channel_scratch(unsigned long chan_hdl,
 		union __packed gsi_channel_scratch val)
 {
@@ -2247,6 +2279,36 @@ static void __gsi_write_channel_scratch(unsigned long chan_hdl,
 	gsi_writel(val.data.word4, gsi_ctx->base +
 		GSI_EE_n_GSI_CH_k_SCRATCH_3_OFFS(chan_hdl,
 			gsi_ctx->per.ee));
+}
+
+int gsi_write_channel_scratch3_reg(unsigned long chan_hdl,
+		union __packed gsi_wdi_channel_scratch3_reg val)
+{
+	struct gsi_chan_ctx *ctx;
+
+	if (!gsi_ctx) {
+		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
+		return -GSI_STATUS_NODEV;
+	}
+
+	if (chan_hdl >= gsi_ctx->max_ch) {
+		GSIERR("bad params chan_hdl=%lu\n", chan_hdl);
+		return -GSI_STATUS_INVALID_PARAMS;
+	}
+
+	ctx = &gsi_ctx->chan[chan_hdl];
+
+	mutex_lock(&ctx->mlock);
+
+	ctx->scratch.wdi.endp_metadatareg_offset =
+				val.wdi.endp_metadatareg_offset;
+	ctx->scratch.wdi.qmap_id = val.wdi.qmap_id;
+
+	gsi_writel(val.data.word1, gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_3_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+	mutex_unlock(&ctx->mlock);
+	return GSI_STATUS_SUCCESS;
 }
 
 static void __gsi_read_channel_scratch(unsigned long chan_hdl,
@@ -3267,6 +3329,33 @@ int gsi_config_channel_mode(unsigned long chan_hdl, enum gsi_chan_mode mode)
 			mode == GSI_CHAN_MODE_CALLBACK) {
 		atomic_set(&ctx->poll_mode, mode);
 		__gsi_config_ieob_irq(gsi_ctx->per.ee, 1 << ctx->evtr->id, ~0);
+
+		/*
+		 * In GSI 2.2 and 2.5 there is a limitation that can lead
+		 * to losing an interrupt. For these versions an
+		 * explicit check is needed after enabling the interrupt
+		 */
+		if (gsi_ctx->per.ver == GSI_VER_2_2 ||
+		    gsi_ctx->per.ver == GSI_VER_2_5) {
+			u32 src = gsi_readl(gsi_ctx->base +
+				GSI_EE_n_CNTXT_SRC_IEOB_IRQ_OFFS(
+					gsi_ctx->per.ee));
+			if (src & (1 << ctx->evtr->id)) {
+				__gsi_config_ieob_irq(
+					gsi_ctx->per.ee, 1 << ctx->evtr->id, 0);
+				gsi_writel(1 << ctx->evtr->id, gsi_ctx->base +
+					GSI_EE_n_CNTXT_SRC_IEOB_IRQ_CLR_OFFS(
+							gsi_ctx->per.ee));
+				spin_unlock_irqrestore(&gsi_ctx->slock, flags);
+				spin_lock_irqsave(&ctx->ring.slock, flags);
+				atomic_set(
+					&ctx->poll_mode, GSI_CHAN_MODE_POLL);
+				spin_unlock_irqrestore(
+					&ctx->ring.slock, flags);
+				ctx->stats.poll_pending_irq++;
+				return -GSI_STATUS_PENDING_IRQ;
+			}
+		}
 		ctx->stats.poll_to_callback++;
 	}
 	spin_unlock_irqrestore(&gsi_ctx->slock, flags);
@@ -3632,6 +3721,9 @@ int gsi_alloc_channel_ee(unsigned int chan_idx, unsigned int ee, int *code)
 		GSIERR("bad params chan_idx=%d\n", chan_idx);
 		return -GSI_STATUS_INVALID_PARAMS;
 	}
+
+	if (ee == 0)
+		return gsi_alloc_ap_channel(chan_idx);
 
 	mutex_lock(&gsi_ctx->mlock);
 	reinit_completion(&gsi_ctx->gen_ee_cmd_compl);

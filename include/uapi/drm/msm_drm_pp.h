@@ -455,4 +455,16 @@ struct drm_msm_ad4_roi_cfg {
 	__u32 factor_in;
 	__u32 factor_out;
 };
+
+/**
+ * struct drm_msm_ad4_manual_str_cfg - ad4 manual strength config set
+ * by user-space client.
+ * @in_str - strength for inside roi region
+ * @out_str - strength for outside roi region
+ */
+#define DRM_MSM_AD4_MANUAL_STRENGTH
+struct drm_msm_ad4_manual_str_cfg {
+	__u32 in_str;
+	__u32 out_str;
+};
 #endif /* _MSM_DRM_PP_H_ */

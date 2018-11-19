@@ -40,6 +40,7 @@
 #define DDR_MAPPED_SIZE         0x60000000
 
 #define PERF_MODE_DEFAULT 0
+#define MBOX_OP_TIMEOUTMS 1000
 
 /* -------------------------------------------------------------------------
  * File Scope Prototypes
@@ -956,7 +957,7 @@ static int npu_load_network(struct npu_client *client,
 
 	ret = npu_host_load_network(client, &req);
 	if (ret) {
-		pr_err("network load failed: %d\n", ret);
+		pr_err("npu_host_load_network failed %d\n", ret);
 		return ret;
 	}
 
@@ -1013,7 +1014,7 @@ static int npu_load_network_v2(struct npu_client *client,
 
 	kfree(patch_info);
 	if (ret) {
-		pr_err("network load failed: %d\n", ret);
+		pr_err("npu_host_load_network_v2 failed %d\n", ret);
 		return ret;
 	}
 
@@ -1045,7 +1046,7 @@ static int npu_unload_network(struct npu_client *client,
 	ret = npu_host_unload_network(client, &req);
 
 	if (ret) {
-		pr_err("npu_host_unload_network failed\n");
+		pr_err("npu_host_unload_network failed %d\n", ret);
 		return ret;
 	}
 
@@ -1083,7 +1084,7 @@ static int npu_exec_network(struct npu_client *client,
 	ret = npu_host_exec_network(client, &req);
 
 	if (ret) {
-		pr_err("npu_host_exec_network failed\n");
+		pr_err("npu_host_exec_network failed %d\n", ret);
 		return ret;
 	}
 
@@ -1116,9 +1117,9 @@ static int npu_exec_network_v2(struct npu_client *client,
 		return -EINVAL;
 	}
 
-	if (req.stats_buf_size > MSM_NPU_MAX_STATS_BUF_SIZE) {
+	if (req.stats_buf_size > NPU_MAX_STATS_BUF_SIZE) {
 		pr_err("Invalid stats buffer size %d max %d\n",
-			req.stats_buf_size, MSM_NPU_MAX_STATS_BUF_SIZE);
+			req.stats_buf_size, NPU_MAX_STATS_BUF_SIZE);
 		return -EINVAL;
 	}
 
@@ -1142,7 +1143,7 @@ static int npu_exec_network_v2(struct npu_client *client,
 
 	kfree(patch_buf_info);
 	if (ret) {
-		pr_err("npu_host_exec_network failed\n");
+		pr_err("npu_host_exec_network_v2 failed %d\n", ret);
 		return ret;
 	}
 
@@ -1524,6 +1525,27 @@ static int npu_irq_init(struct npu_device *npu_dev)
 	return ret;
 }
 
+static int npu_mbox_init(struct npu_device *npu_dev)
+{
+	struct platform_device *pdev = npu_dev->pdev;
+	struct npu_mbox *mbox_aop = &npu_dev->mbox_aop;
+
+	if (of_find_property(pdev->dev.of_node, "mboxes", NULL)) {
+		mbox_aop->client.dev = &pdev->dev;
+		mbox_aop->client.tx_block = true;
+		mbox_aop->client.tx_tout = MBOX_OP_TIMEOUTMS;
+		mbox_aop->client.knows_txdone = false;
+
+		mbox_aop->chan = mbox_request_channel(&mbox_aop->client, 0);
+		if (IS_ERR(mbox_aop->chan)) {
+			pr_warn("mailbox channel request failed\n");
+			mbox_aop->chan = NULL;
+		}
+	}
+
+	return 0;
+}
+
 /* -------------------------------------------------------------------------
  * Probe/Remove
  * -------------------------------------------------------------------------
@@ -1569,6 +1591,10 @@ static int npu_probe(struct platform_device *pdev)
 		goto error_get_dev_num;
 
 	rc = npu_irq_init(npu_dev);
+	if (rc)
+		goto error_get_dev_num;
+
+	rc = npu_mbox_init(npu_dev);
 	if (rc)
 		goto error_get_dev_num;
 
@@ -1680,6 +1706,8 @@ error_class_device_create:
 	class_destroy(npu_dev->class);
 error_class_create:
 	unregister_chrdev_region(npu_dev->dev_num, 1);
+	if (npu_dev->mbox_aop.chan)
+		mbox_free_channel(npu_dev->mbox_aop.chan);
 error_get_dev_num:
 	return rc;
 }
@@ -1700,6 +1728,9 @@ static int npu_remove(struct platform_device *pdev)
 	class_destroy(npu_dev->class);
 	unregister_chrdev_region(npu_dev->dev_num, 1);
 	platform_set_drvdata(pdev, NULL);
+	if (npu_dev->mbox_aop.chan)
+		mbox_free_channel(npu_dev->mbox_aop.chan);
+
 	return 0;
 }
 

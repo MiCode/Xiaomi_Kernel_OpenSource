@@ -34,6 +34,7 @@
 #include <linux/pm.h>
 #include <linux/log2.h>
 #include <linux/irq.h>
+#include <soc/qcom/scm.h>
 #include "../core.h"
 #include "../pinconf.h"
 #include "pinctrl-msm.h"
@@ -71,10 +72,13 @@ struct msm_pinctrl {
 
 	const struct msm_pinctrl_soc_data *soc;
 	void __iomem *regs;
+	void __iomem *pdc_regs;
 #ifdef CONFIG_FRAGMENTED_GPIO_ADDRESS_SPACE
 	/* For holding per tile virtual address */
 	void __iomem *per_tile_regs[4];
 #endif
+	phys_addr_t spi_cfg_regs;
+	phys_addr_t spi_cfg_end;
 };
 
 static struct msm_pinctrl *msm_pinctrl_data;
@@ -286,22 +290,30 @@ static int msm_config_group_get(struct pinctrl_dev *pctldev,
 	/* Convert register value to pinconf value */
 	switch (param) {
 	case PIN_CONFIG_BIAS_DISABLE:
-		arg = arg == MSM_NO_PULL;
+		if (arg != MSM_NO_PULL)
+			return -EINVAL;
+		arg = 1;
 		break;
 	case PIN_CONFIG_BIAS_PULL_DOWN:
-		arg = arg == MSM_PULL_DOWN;
+		if (arg != MSM_PULL_DOWN)
+			return -EINVAL;
+		arg = 1;
 		break;
 	case PIN_CONFIG_BIAS_BUS_HOLD:
 		if (pctrl->soc->pull_no_keeper)
 			return -ENOTSUPP;
 
-		arg = arg == MSM_KEEPER;
+		if (arg != MSM_KEEPER)
+			return -EINVAL;
+		arg = 1;
 		break;
 	case PIN_CONFIG_BIAS_PULL_UP:
 		if (pctrl->soc->pull_no_keeper)
 			arg = arg == MSM_PULL_UP_NO_KEEPER;
 		else
 			arg = arg == MSM_PULL_UP;
+		if (!arg)
+			return -EINVAL;
 		break;
 	case PIN_CONFIG_DRIVE_STRENGTH:
 		arg = msm_regval_to_drive(arg);
@@ -975,6 +987,158 @@ static const struct irq_domain_ops msm_gpio_domain_ops = {
 	.free		= irq_domain_free_irqs_top,
 };
 
+static struct irq_chip msm_dirconn_irq_chip;
+
+static void msm_gpio_dirconn_handler(struct irq_desc *desc)
+{
+	struct irq_data *irqd = irq_desc_get_handler_data(desc);
+	struct irq_chip *chip = irq_desc_get_chip(desc);
+
+	chained_irq_enter(chip, desc);
+	generic_handle_irq(irqd->irq);
+	chained_irq_exit(chip, desc);
+}
+
+static void setup_pdc_gpio(struct irq_domain *domain,
+			unsigned int parent_irq, unsigned int gpio)
+{
+	int irq;
+
+	if (gpio != 0) {
+		irq = irq_create_mapping(domain, gpio);
+		irq_set_parent(irq, parent_irq);
+		irq_set_chip(irq, &msm_dirconn_irq_chip);
+		irq_set_handler_data(parent_irq, irq_get_irq_data(irq));
+	}
+
+	__irq_set_handler(parent_irq, msm_gpio_dirconn_handler, false, NULL);
+}
+
+static void request_dc_interrupt(struct irq_domain *domain,
+			struct irq_domain *parent, irq_hw_number_t hwirq,
+			unsigned int gpio)
+{
+	struct irq_fwspec fwspec;
+	unsigned int parent_irq;
+
+	fwspec.fwnode = parent->fwnode;
+	fwspec.param[0] = 0; /* SPI */
+	fwspec.param[1] = hwirq;
+	fwspec.param[2] = IRQ_TYPE_NONE;
+	fwspec.param_count = 3;
+
+	parent_irq = irq_create_fwspec_mapping(&fwspec);
+
+	setup_pdc_gpio(domain, parent_irq, gpio);
+}
+
+/**
+ * gpio_muxed_to_pdc: Mux the GPIO to a PDC IRQ
+ *
+ * @pdc_domain: the PDC's domain
+ * @d: the GPIO's IRQ data
+ *
+ * Find a free PDC port for the GPIO and map the GPIO's mux information to the
+ * PDC registers; so the GPIO can be used a wakeup source.
+ */
+static void gpio_muxed_to_pdc(struct irq_domain *pdc_domain, struct irq_data *d)
+{
+	int i, j;
+	unsigned int mux;
+	struct irq_desc *desc = irq_data_to_desc(d);
+	struct irq_data *parent_data = irq_get_irq_data(desc->parent_irq);
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
+	unsigned int gpio = d->hwirq;
+	struct msm_pinctrl *pctrl;
+	unsigned int irq;
+
+	if (!gc || !parent_data)
+		return;
+
+	pctrl = gpiochip_get_data(gc);
+
+	for (i = 0; i < pctrl->soc->n_gpio_mux_in; i++) {
+		if (gpio != pctrl->soc->gpio_mux_in[i].gpio)
+			continue;
+		mux = pctrl->soc->gpio_mux_in[i].mux;
+		for (j = 0; j < pctrl->soc->n_pdc_mux_out; j++) {
+			struct msm_pdc_mux_output *pdc_out =
+						&pctrl->soc->pdc_mux_out[j];
+
+			if (pdc_out->mux == mux)
+				break;
+			if (pdc_out->mux)
+				continue;
+			pdc_out->mux = gpio;
+			irq = irq_find_mapping(pdc_domain, pdc_out->hwirq + 32);
+			/* setup the IRQ parent for the GPIO */
+			setup_pdc_gpio(pctrl->chip.irqdomain, irq, gpio);
+			/* program pdc select grp register */
+			writel_relaxed((mux & 0x3F), pctrl->pdc_regs +
+				(0x14 * j));
+			break;
+		}
+		/* We have no more PDC port available */
+		WARN_ON(j == pctrl->soc->n_pdc_mux_out);
+	}
+}
+
+static bool is_gpio_tlmm_dc(struct irq_data *d, u32 type)
+{
+	const struct msm_pingroup *g;
+	unsigned long flags;
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
+	struct msm_pinctrl *pctrl;
+	bool ret = false;
+	unsigned int polarity = 0, offset, val;
+	int i;
+	void __iomem *base;
+
+	if (!gc)
+		return false;
+
+	pctrl = gpiochip_get_data(gc);
+
+	for (i = 0; i < pctrl->soc->n_dir_conns; i++) {
+		struct msm_dir_conn *dir_conn = (struct msm_dir_conn *)
+			&pctrl->soc->dir_conn[i];
+
+		if (dir_conn->gpio == d->hwirq && dir_conn->tlmm_dc) {
+			ret = true;
+			offset = pctrl->soc->dir_conn_irq_base -
+				dir_conn->hwirq;
+			break;
+		}
+	}
+
+	if (!ret)
+		return ret;
+
+	if (type & (IRQ_TYPE_EDGE_FALLING | IRQ_TYPE_LEVEL_LOW))
+		return ret;
+
+	/*
+	 * Since the default polarity is set to 0, change it to 1 for
+	 * Rising edge and active high interrupt type such that the line
+	 * is not inverted.
+	 */
+	polarity = 1;
+
+	raw_spin_lock_irqsave(&pctrl->lock, flags);
+
+	g = &pctrl->soc->groups[d->hwirq];
+	base = reassign_pctrl_reg(pctrl->soc, d->hwirq);
+
+	val = readl_relaxed(base + g->dir_conn_reg + (offset * 4));
+	val |= polarity << 8;
+
+	writel_relaxed(val, base + g->dir_conn_reg + (offset * 4));
+
+	raw_spin_unlock_irqrestore(&pctrl->lock, flags);
+
+	return ret;
+}
+
 static bool is_gpio_dual_edge(struct irq_data *d, irq_hw_number_t *dir_conn_irq)
 {
 	struct irq_desc *desc = irq_data_to_desc(d);
@@ -990,6 +1154,17 @@ static bool is_gpio_dual_edge(struct irq_data *d, irq_hw_number_t *dir_conn_irq)
 		const struct msm_dir_conn *dir_conn = &pctrl->soc->dir_conn[i];
 
 		if (dir_conn->gpio == d->hwirq && (dir_conn->hwirq + 32)
+				!= parent_data->hwirq) {
+			*dir_conn_irq = dir_conn->hwirq + 32;
+			return true;
+		}
+	}
+
+	for (i = 0; i < pctrl->soc->n_pdc_mux_out; i++) {
+		struct msm_pdc_mux_output *dir_conn =
+					&pctrl->soc->pdc_mux_out[i];
+
+		if (dir_conn->mux == d->hwirq && (dir_conn->hwirq + 32)
 				!= parent_data->hwirq) {
 			*dir_conn_irq = dir_conn->hwirq + 32;
 			return true;
@@ -1012,9 +1187,13 @@ static void msm_dirconn_irq_mask(struct irq_data *d)
 			irq_get_irq_data(irq_find_mapping(parent_data->domain,
 						dir_conn_irq));
 
-		if (dir_conn_data && dir_conn_data->chip->irq_mask)
+		if (!dir_conn_data)
+			return;
+
+		if (dir_conn_data->chip->irq_mask)
 			dir_conn_data->chip->irq_mask(dir_conn_data);
 	}
+
 	if (parent_data->chip->irq_mask)
 		parent_data->chip->irq_mask(parent_data);
 }
@@ -1065,7 +1244,10 @@ static void msm_dirconn_irq_unmask(struct irq_data *d)
 			irq_get_irq_data(irq_find_mapping(parent_data->domain,
 						dir_conn_irq));
 
-		if (dir_conn_data && dir_conn_data->chip->irq_unmask)
+		if (!dir_conn_data)
+			return;
+
+		if (dir_conn_data->chip->irq_unmask)
 			dir_conn_data->chip->irq_unmask(dir_conn_data);
 	}
 	if (parent_data->chip->irq_unmask)
@@ -1204,8 +1386,12 @@ static void add_dirconn_tlmm(struct irq_data *d, irq_hw_number_t irq)
 	struct irq_desc *desc = irq_data_to_desc(d);
 	struct irq_data *parent_data = irq_get_irq_data(desc->parent_irq);
 	struct irq_data *dir_conn_data = NULL;
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
 	int offset = 0;
-	unsigned int virt = 0;
+	unsigned int virt = 0, val = 0;
+	struct msm_pinctrl *pctrl;
+	phys_addr_t spi_cfg_reg = 0;
+	unsigned long flags;
 
 	offset = select_dir_conn_mux(d, &irq);
 	if (offset < 0 || !parent_data)
@@ -1221,6 +1407,29 @@ static void add_dirconn_tlmm(struct irq_data *d, irq_hw_number_t irq)
 	dir_conn_data = &(desc->irq_data);
 
 	if (dir_conn_data) {
+
+		pctrl = gpiochip_get_data(gc);
+		if (pctrl->spi_cfg_regs) {
+			spi_cfg_reg = pctrl->spi_cfg_regs +
+					((dir_conn_data->hwirq - 32) / 32) * 4;
+			if (spi_cfg_reg < pctrl->spi_cfg_end) {
+				raw_spin_lock_irqsave(&pctrl->lock, flags);
+				val = scm_io_read(spi_cfg_reg);
+				/*
+				 * Clear the respective bit for edge type
+				 * interrupt
+				 */
+				val &= ~(1 << ((dir_conn_data->hwirq - 32)
+									% 32));
+				WARN_ON(scm_io_write(spi_cfg_reg, val));
+				raw_spin_unlock_irqrestore(&pctrl->lock, flags);
+			} else
+				pr_err("%s: type config failed for SPI: %lu\n",
+								 __func__, irq);
+		} else
+			pr_debug("%s: type config for SPI is not supported\n",
+								__func__);
+
 		if (dir_conn_data->chip && dir_conn_data->chip->irq_set_type)
 			dir_conn_data->chip->irq_set_type(dir_conn_data,
 					IRQ_TYPE_EDGE_RISING);
@@ -1259,22 +1468,53 @@ static int msm_dirconn_irq_set_type(struct irq_data *d, unsigned int type)
 {
 	struct irq_desc *desc = irq_data_to_desc(d);
 	struct irq_data *parent_data = irq_get_irq_data(desc->parent_irq);
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
 	irq_hw_number_t irq = 0;
+	struct msm_pinctrl *pctrl;
+	phys_addr_t spi_cfg_reg = 0;
+	unsigned int config_val = 0;
+	unsigned int val = 0;
+	unsigned long flags;
 
 	if (!parent_data)
 		return 0;
 
-	if (type == IRQ_TYPE_EDGE_BOTH) {
-		add_dirconn_tlmm(d, irq);
-	} else {
-		if (is_gpio_dual_edge(d, &irq))
-			remove_dirconn_tlmm(d, irq);
-	}
+	pctrl = gpiochip_get_data(gc);
 
-	if (type & (IRQ_TYPE_LEVEL_LOW | IRQ_TYPE_LEVEL_HIGH))
+	if (type == IRQ_TYPE_EDGE_BOTH)
+		add_dirconn_tlmm(d, irq);
+	else if (is_gpio_dual_edge(d, &irq))
+		remove_dirconn_tlmm(d, irq);
+	else if (is_gpio_tlmm_dc(d, type))
+		type = IRQ_TYPE_EDGE_RISING;
+
+
+	/*
+	 * Shared SPI config for Edge is 0 and
+	 * for Level interrupt is 1
+	 */
+	if (type & (IRQ_TYPE_LEVEL_LOW | IRQ_TYPE_LEVEL_HIGH)) {
 		irq_set_handler_locked(d, handle_level_irq);
-	else if (type & (IRQ_TYPE_EDGE_FALLING | IRQ_TYPE_EDGE_RISING))
+		config_val = 1;
+	} else if (type & (IRQ_TYPE_EDGE_FALLING | IRQ_TYPE_EDGE_RISING))
 		irq_set_handler_locked(d, handle_edge_irq);
+
+	if (pctrl->spi_cfg_regs && type != IRQ_TYPE_NONE) {
+		spi_cfg_reg = pctrl->spi_cfg_regs +
+				((parent_data->hwirq - 32) / 32) * 4;
+		if (spi_cfg_reg < pctrl->spi_cfg_end) {
+			raw_spin_lock_irqsave(&pctrl->lock, flags);
+			val = scm_io_read(spi_cfg_reg);
+			val &= ~(1 << ((parent_data->hwirq - 32) % 32));
+			if (config_val)
+				val |= (1 << ((parent_data->hwirq - 32)  % 32));
+			WARN_ON(scm_io_write(spi_cfg_reg, val));
+			raw_spin_unlock_irqrestore(&pctrl->lock, flags);
+		} else
+			pr_err("%s: type config failed for SPI: %lu\n",
+							 __func__, irq);
+	} else
+		pr_debug("%s: SPI type config is not supported\n", __func__);
 
 	if (parent_data->chip->irq_set_type)
 		return parent_data->chip->irq_set_type(parent_data, type);
@@ -1333,57 +1573,72 @@ static void msm_gpio_irq_handler(struct irq_desc *desc)
 	chained_irq_exit(chip, desc);
 }
 
-static void msm_gpio_dirconn_handler(struct irq_desc *desc)
-{
-	struct irq_data *irqd = irq_desc_get_handler_data(desc);
-	struct irq_chip *chip = irq_desc_get_chip(desc);
-
-	chained_irq_enter(chip, desc);
-	generic_handle_irq(irqd->irq);
-	chained_irq_exit(chip, desc);
-}
-
 static void msm_gpio_setup_dir_connects(struct msm_pinctrl *pctrl)
 {
 	struct device_node *parent_node;
-	struct irq_domain *parent_domain;
-	struct irq_fwspec fwspec;
+	struct irq_domain *pdc_domain;
 	unsigned int i;
 
 	parent_node = of_irq_find_parent(pctrl->dev->of_node);
-
 	if (!parent_node)
 		return;
 
-	parent_domain = irq_find_host(parent_node);
-	if (!parent_domain)
+	pdc_domain = irq_find_host(parent_node);
+	if (!pdc_domain)
 		return;
 
-	fwspec.fwnode = parent_domain->fwnode;
 	for (i = 0; i < pctrl->soc->n_dir_conns; i++) {
 		const struct msm_dir_conn *dirconn = &pctrl->soc->dir_conn[i];
-		unsigned int parent_irq;
-		int irq;
+		struct irq_data *d;
 
-		fwspec.param[0] = 0; /* SPI */
-		fwspec.param[1] = dirconn->hwirq;
-		fwspec.param[2] = IRQ_TYPE_NONE;
-		fwspec.param_count = 3;
-		parent_irq = irq_create_fwspec_mapping(&fwspec);
+		request_dc_interrupt(pctrl->chip.irqdomain, pdc_domain,
+					dirconn->hwirq, dirconn->gpio);
 
-		if (dirconn->gpio != 0) {
-			irq = irq_create_mapping(pctrl->chip.irqdomain,
-					dirconn->gpio);
+		if (!dirconn->gpio)
+			continue;
 
-			irq_set_parent(irq, parent_irq);
-			irq_set_chip(irq, &msm_dirconn_irq_chip);
-			__irq_set_handler(parent_irq, msm_gpio_dirconn_handler,
-				false, NULL);
-			irq_set_handler_data(parent_irq, irq_get_irq_data(irq));
-		} else {
-			__irq_set_handler(parent_irq, msm_gpio_dirconn_handler,
-				false, NULL);
-		}
+		if (!dirconn->tlmm_dc)
+			continue;
+
+		/*
+		 * If the gpio is routed through TLMM direct connect interrupts,
+		 * program the TLMM registers for this setup.
+		 */
+		d = irq_get_irq_data(irq_find_mapping(pctrl->chip.irqdomain,
+					dirconn->gpio));
+		if (!d)
+			continue;
+
+		msm_dirconn_cfg_reg(d, pctrl->soc->dir_conn_irq_base
+					- (u32)dirconn->hwirq);
+	}
+
+	for (i = 0; i < pctrl->soc->n_pdc_mux_out; i++) {
+		struct msm_pdc_mux_output *pdc_out =
+					&pctrl->soc->pdc_mux_out[i];
+
+		request_dc_interrupt(pctrl->chip.irqdomain, pdc_domain,
+					pdc_out->hwirq, 0);
+	}
+
+	/*
+	 * Statically choose the GPIOs for mapping to PDC. Dynamic mux mapping
+	 * is very difficult.
+	 */
+	for (i = 0; i < pctrl->soc->n_gpio_mux_in; i++) {
+		unsigned int irq;
+		struct irq_data *d;
+		struct msm_gpio_mux_input *gpio_in =
+					&pctrl->soc->gpio_mux_in[i];
+		if (!gpio_in->init)
+			continue;
+
+		irq = irq_find_mapping(pctrl->chip.irqdomain, gpio_in->gpio);
+		d = irq_get_irq_data(irq);
+		if (!d)
+			continue;
+
+		gpio_muxed_to_pdc(pdc_domain, d);
 	}
 }
 
@@ -1522,6 +1777,7 @@ int msm_pinctrl_probe(struct platform_device *pdev,
 	struct msm_pinctrl *pctrl;
 	struct resource *res;
 	int ret;
+	char *key;
 
 	msm_pinctrl_data = pctrl = devm_kzalloc(&pdev->dev,
 				sizeof(*pctrl), GFP_KERNEL);
@@ -1535,7 +1791,8 @@ int msm_pinctrl_probe(struct platform_device *pdev,
 
 	raw_spin_lock_init(&pctrl->lock);
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	key = "pinctrl";
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, key);
 	pctrl->regs = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(pctrl->regs))
 		return PTR_ERR(pctrl->regs);
@@ -1553,6 +1810,17 @@ int msm_pinctrl_probe(struct platform_device *pdev,
 		}
 	}
 #endif
+
+	key = "pdc";
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, key);
+	pctrl->pdc_regs = devm_ioremap_resource(&pdev->dev, res);
+
+	key = "spi_cfg";
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, key);
+	if (res) {
+		pctrl->spi_cfg_regs = res->start;
+		pctrl->spi_cfg_end = res->end;
+	}
 
 	msm_pinctrl_setup_pm_reset(pctrl);
 

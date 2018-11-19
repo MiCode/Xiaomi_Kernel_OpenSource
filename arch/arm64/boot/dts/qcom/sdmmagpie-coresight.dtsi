@@ -110,7 +110,6 @@
 		      <0x6064000 0x15000>;
 		reg-names = "tmc-base", "bam-base";
 
-		qcom,smmu-s1-bypass;
 		iommus = <&apps_smmu 0x05e0 0>,
 			<&apps_smmu 0x04a0 0>;
 
@@ -1529,15 +1528,6 @@
 			};
 
 			port@8 {
-				reg = <9>;
-				tpda_in_tpdm_dcc: endpoint {
-					slave-mode;
-					remote-endpoint =
-						<&tpdm_dcc_out_tpda>;
-				};
-			};
-
-			port@9 {
 				reg = <10>;
 				tpda_in_tpdm_prng: endpoint {
 					slave-mode;
@@ -1546,7 +1536,7 @@
 				};
 			};
 
-			port@10 {
+			port@9 {
 				reg = <11>;
 				tpda_in_tpdm_north: endpoint {
 					slave-mode;
@@ -1555,7 +1545,7 @@
 				};
 			};
 
-			port@11 {
+			port@10 {
 				reg = <12>;
 				tpda_in_tpdm_qm: endpoint {
 					slave-mode;
@@ -1564,12 +1554,21 @@
 				};
 			};
 
-			port@12 {
+			port@11 {
 				reg = <13>;
 				tpda_in_tpdm_pimem: endpoint {
 					slave-mode;
 					remote-endpoint =
 						<&tpdm_pimem_out_tpda>;
+				};
+			};
+
+			port@12 {
+				reg = <14>;
+				tpda_in_tpdm_npu: endpoint {
+					slave-mode;
+					remote-endpoint =
+						<&tpdm_npu_out_tpda>;
 				};
 			};
 
@@ -1947,25 +1946,6 @@
 		};
 	};
 
-	tpdm_dcc: tpdm@6870000 {
-		compatible = "arm,primecell";
-		arm,primecell-periphid = <0x0003b968>;
-		reg = <0x6870000 0x1000>;
-		reg-names = "tpdm-base";
-
-		coresight-name = "coresight-tpdm-dcc";
-
-		clocks = <&clock_aop QDSS_CLK>;
-		clock-names = "apb_pclk";
-
-
-		port {
-			tpdm_dcc_out_tpda: endpoint {
-				remote-endpoint = <&tpda_in_tpdm_dcc>;
-			};
-		};
-	};
-
 	tpdm_prng: tpdm@684c000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b968>;
@@ -2171,10 +2151,10 @@
 		clock-names = "apb_pclk";
 	};
 
-	cti0_dlmm: cti@6c09000 {
+	cti0_dlmm: cti@69C1000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b966>;
-		reg = <0x6c09000 0x1000>;
+		reg = <0x69C1000 0x1000>;
 		reg-names = "cti-base";
 
 		coresight-name = "coresight-cti-dlmm_cti0";
@@ -2183,10 +2163,10 @@
 		clock-names = "apb_pclk";
 	};
 
-	cti1_dlmm: cti@6c0a000 {
+	cti1_dlmm: cti@69C2000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b966>;
-		reg = <0x6c0a000 0x1000>;
+		reg = <0x69C2000 0x1000>;
 		reg-names = "cti-base";
 
 		coresight-name = "coresight-cti-dlmm_cti1";
@@ -2585,5 +2565,44 @@
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
+	};
+
+	tpdm_npu: tpdm@69e1000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b968>;
+		reg = <0x69e1000 0x1000>;
+		reg-names = "tpdm-base";
+
+		coresight-name = "coresight-tpdm-npu";
+
+		clocks = <&clock_aop QDSS_CLK>,
+			<&clock_npucc NPU_CC_NPU_CORE_APB_CLK>,
+			<&clock_npucc NPU_CC_NPU_CORE_ATB_CLK>,
+			<&clock_npucc NPU_CC_NPU_CORE_CLK>,
+			<&clock_npucc NPU_CC_NPU_CORE_CLK_SRC>,
+			<&clock_npucc NPU_CC_NPU_CORE_CTI_CLK>;
+
+		clock-names = "apb_pclk",
+			"npu_core_apb_clk",
+			"npu_core_atb_clk",
+			"npu_core_clk",
+			"npu_core_clk_src",
+			"npu_core_cti_clk";
+
+		qcom,tpdm-clks = "npu_core_apb_clk",
+			"npu_core_atb_clk",
+			"npu_core_clk",
+			"npu_core_clk_src",
+			"npu_core_cti_clk";
+
+		vdd-supply = <&npu_core_gdsc>;
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		qcom,tpdm-regs  = "vdd", "vdd_cx";
+
+		port{
+			tpdm_npu_out_tpda: endpoint {
+				remote-endpoint = <&tpda_in_tpdm_npu>;
+			};
+		};
 	};
 };

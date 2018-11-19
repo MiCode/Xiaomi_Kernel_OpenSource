@@ -467,7 +467,6 @@ static void qusb_phy_host_init(struct usb_phy *phy)
 	dev_dbg(phy->dev, "QUSB2PHY_PLL_COMMON_STATUS_ONE:%x\n", reg);
 	if (!(reg & CORE_READY_STATUS)) {
 		dev_err(phy->dev, "QUSB PHY PLL LOCK fails:%x\n", reg);
-		WARN_ON(1);
 	}
 }
 

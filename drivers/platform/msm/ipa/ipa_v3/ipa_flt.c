@@ -50,6 +50,26 @@ static int ipa3_generate_flt_hw_rule(enum ipa_ip_type ip,
 
 	memset(&gen_params, 0, sizeof(gen_params));
 
+	if (entry->rule.hashable) {
+		if (entry->rule.attrib.attrib_mask & IPA_FLT_IS_PURE_ACK
+			&& !entry->rule.eq_attrib_type) {
+			IPAERR_RL("PURE_ACK rule atrb used with hash rule\n");
+			WARN_ON_RATELIMIT_IPA(1);
+			return -EPERM;
+		}
+		/*
+		 * tos_eq_present field has two meanings:
+		 * tos equation for IPA ver < 4.5 (as the field name reveals)
+		 * pure_ack equation for IPA ver >= 4.5
+		 */
+		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5 &&
+			entry->rule.eq_attrib_type &&
+			entry->rule.eq_attrib.tos_eq_present) {
+			IPAERR_RL("PURE_ACK rule eq used with hash rule\n");
+			return -EPERM;
+		}
+	}
+
 	gen_params.ipt = ip;
 	if (entry->rt_tbl)
 		gen_params.rt_tbl_idx = entry->rt_tbl->idx;

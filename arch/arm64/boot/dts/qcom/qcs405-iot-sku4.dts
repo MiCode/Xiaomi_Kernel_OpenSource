@@ -16,6 +16,7 @@
 #include "qcs405.dtsi"
 #include "qcs405-audio-overlay.dtsi"
 #include "qcs405-geni-ir-overlay.dtsi"
+#include "qcs405-circular-pca9956.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS405 EVB1 4000 DSI IOT";
@@ -24,6 +25,21 @@
 };
 
 #include "qcs405-mdss-panels.dtsi"
+
+&mdss_hdmi_tx {
+	pinctrl-names = "hdmi_hpd_active", "hdmi_ddc_active", "hdmi_cec_active",
+				"hdmi_active", "hdmi_sleep";
+	pinctrl-0 = <&mdss_hdmi_5v_active  &mdss_hdmi_hpd_active
+			&mdss_hdmi_ddc_suspend &mdss_hdmi_cec_suspend>;
+	pinctrl-1 = <&mdss_hdmi_5v_active &mdss_hdmi_hpd_active
+			&mdss_hdmi_ddc_active &mdss_hdmi_cec_suspend>;
+	pinctrl-2 = <&mdss_hdmi_5v_active &mdss_hdmi_hpd_active
+			&mdss_hdmi_cec_active &mdss_hdmi_ddc_suspend>;
+	pinctrl-3 = <&mdss_hdmi_5v_active &mdss_hdmi_hpd_active
+			&mdss_hdmi_ddc_active &mdss_hdmi_cec_active>;
+	pinctrl-4 = <&mdss_hdmi_5v_suspend &mdss_hdmi_hpd_suspend
+			&mdss_hdmi_ddc_suspend &mdss_hdmi_cec_suspend>;
+};
 
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
@@ -54,5 +70,16 @@
 	status = "ok";
 	nq@55 {
 		status = "ok";
+	};
+};
+
+&soc {
+	spi@78b5000 {
+		status = "ok";
+		spi@0 {
+			compatible = "qcom,spi-msm-codec-slave";
+			reg = <0>;
+			spi-max-frequency = <50000000>;
+		};
 	};
 };

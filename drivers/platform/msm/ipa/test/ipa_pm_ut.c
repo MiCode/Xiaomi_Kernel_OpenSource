@@ -1030,7 +1030,7 @@ static int ipa_pm_ut_deactivate_loop(void *priv)
 		return -EFAULT;
 	}
 
-	rc = ipa_pm_set_perf_profile(hdl_USB, 1200);
+	rc = ipa_pm_set_throughput(hdl_USB, 1200);
 	if (rc) {
 		IPA_UT_ERR("fail to set tput for client 1 rc = %d\n", rc);
 		IPA_UT_TEST_FAIL_REPORT("fail to set perf profile");
@@ -1044,7 +1044,7 @@ static int ipa_pm_ut_deactivate_loop(void *priv)
 		return -EFAULT;
 	}
 
-	rc = ipa_pm_set_perf_profile(hdl_WLAN, 800);
+	rc = ipa_pm_set_throughput(hdl_WLAN, 800);
 	if (rc) {
 		IPA_UT_ERR("fail to set tput for client 2 rc = %d\n", rc);
 		IPA_UT_TEST_FAIL_REPORT("fail to set perf profile");
@@ -1168,7 +1168,7 @@ static int ipa_pm_ut_set_perf_profile(void *priv)
 		return -EFAULT;
 	}
 
-	rc = ipa_pm_set_perf_profile(hdl_USB, 1200);
+	rc = ipa_pm_set_throughput(hdl_USB, 1200);
 	if (rc) {
 		IPA_UT_ERR("fail to set tput for client 1 rc = %d\n", rc);
 		IPA_UT_TEST_FAIL_REPORT("fail to set perf profile");
@@ -1182,7 +1182,7 @@ static int ipa_pm_ut_set_perf_profile(void *priv)
 		return -EFAULT;
 	}
 
-	rc = ipa_pm_set_perf_profile(hdl_WLAN, 800);
+	rc = ipa_pm_set_throughput(hdl_WLAN, 800);
 	if (rc) {
 		IPA_UT_ERR("fail to set tput for client 2 rc = %d\n", rc);
 		IPA_UT_TEST_FAIL_REPORT("fail to set perf profile");
@@ -1226,7 +1226,7 @@ static int ipa_pm_ut_set_perf_profile(void *priv)
 		return -EINVAL;
 	}
 
-	rc = ipa_pm_set_perf_profile(hdl_WLAN, 1200);
+	rc = ipa_pm_set_throughput(hdl_WLAN, 1200);
 	if (rc) {
 		IPA_UT_ERR("fail to set tput for client 2 rc = %d\n", rc);
 		IPA_UT_TEST_FAIL_REPORT("fail to set perf profile");
@@ -1297,14 +1297,14 @@ static int ipa_pm_ut_group_tput(void *priv)
 		return -EFAULT;
 	}
 
-	rc = ipa_pm_set_perf_profile(hdl_USB, 500);
+	rc = ipa_pm_set_throughput(hdl_USB, 500);
 	if (rc) {
 		IPA_UT_ERR("fail to set tput for client 1 rc = %d\n", rc);
 		IPA_UT_TEST_FAIL_REPORT("fail to set perf profile");
 		return -EFAULT;
 	}
 
-	rc = ipa_pm_set_perf_profile(hdl_WLAN, 800);
+	rc = ipa_pm_set_throughput(hdl_WLAN, 800);
 	if (rc) {
 		IPA_UT_ERR("fail to set tput for client 2 rc = %d\n", rc);
 		IPA_UT_TEST_FAIL_REPORT("fail to set perf profile");
@@ -1355,7 +1355,7 @@ static int ipa_pm_ut_group_tput(void *priv)
 		return -EFAULT;
 	}
 
-	rc = ipa_pm_set_perf_profile(hdl_MODEM, 1000);
+	rc = ipa_pm_set_throughput(hdl_MODEM, 1000);
 	if (rc) {
 		IPA_UT_ERR("fail to set tput for client 2 rc = %d\n", rc);
 		IPA_UT_TEST_FAIL_REPORT("fail to set perf profile");
@@ -1464,14 +1464,14 @@ static int ipa_pm_ut_skip_clk_vote_tput(void *priv)
 		return -EFAULT;
 	}
 
-	rc = ipa_pm_set_perf_profile(hdl_USB, 1200);
+	rc = ipa_pm_set_throughput(hdl_USB, 1200);
 	if (rc) {
 		IPA_UT_ERR("fail to set tput for client 1 rc = %d\n", rc);
 		IPA_UT_TEST_FAIL_REPORT("fail to set perf profile");
 		return -EFAULT;
 	}
 
-	rc = ipa_pm_set_perf_profile(hdl_WLAN, 800);
+	rc = ipa_pm_set_throughput(hdl_WLAN, 800);
 	if (rc) {
 		IPA_UT_ERR("fail to set tput for client 2 rc = %d\n", rc);
 		IPA_UT_TEST_FAIL_REPORT("fail to set perf profile");
@@ -1522,7 +1522,7 @@ static int ipa_pm_ut_skip_clk_vote_tput(void *priv)
 		return -EFAULT;
 	}
 
-	rc = ipa_pm_set_perf_profile(hdl_MODEM, 2000);
+	rc = ipa_pm_set_throughput(hdl_MODEM, 2000);
 	if (rc) {
 		IPA_UT_ERR("fail to set tput for client 2 rc = %d\n", rc);
 		IPA_UT_TEST_FAIL_REPORT("fail to set perf profile");
@@ -1631,14 +1631,14 @@ static int ipa_pm_ut_simple_exception(void *priv)
 		return -EFAULT;
 	}
 
-	rc = ipa_pm_set_perf_profile(hdl_USB, 1200);
+	rc = ipa_pm_set_throughput(hdl_USB, 1200);
 	if (rc) {
 		IPA_UT_ERR("fail to set tput for client 1 rc = %d\n", rc);
 		IPA_UT_TEST_FAIL_REPORT("fail to set perf profile");
 		return -EFAULT;
 	}
 
-	rc = ipa_pm_set_perf_profile(hdl_WLAN, 2000);
+	rc = ipa_pm_set_throughput(hdl_WLAN, 2000);
 	if (rc) {
 		IPA_UT_ERR("fail to set tput for client 2 rc = %d\n", rc);
 		IPA_UT_TEST_FAIL_REPORT("fail to set perf profile");
@@ -1689,7 +1689,7 @@ static int ipa_pm_ut_simple_exception(void *priv)
 		return -EFAULT;
 	}
 
-	rc = ipa_pm_set_perf_profile(hdl_MODEM, 800);
+	rc = ipa_pm_set_throughput(hdl_MODEM, 800);
 	if (rc) {
 		IPA_UT_ERR("fail to set tput for client 2 rc = %d\n", rc);
 		IPA_UT_TEST_FAIL_REPORT("fail to set perf profile");

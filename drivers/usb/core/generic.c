@@ -44,30 +44,33 @@ static int is_activesync(struct usb_interface_descriptor *desc)
 		&& desc->bInterfaceProtocol == 1;
 }
 
-static int usb_audio_max_rev_config(struct usb_host_bos *bos)
+static int get_usb_audio_config(struct usb_host_bos *bos)
 {
-	int desc_cnt, func_cnt, numfunc;
-	int num_cfg_desc;
+	unsigned int desc_cnt, num_cfg_desc, len = 0;
+	unsigned char *buffer;
 	struct usb_config_summary_descriptor *conf_summary;
 
 	if (!bos || !bos->config_summary)
 		goto done;
 
-	conf_summary = bos->config_summary;
 	num_cfg_desc = bos->num_config_summary_desc;
-
+	conf_summary = bos->config_summary;
+	buffer = (unsigned char *)conf_summary;
 	for (desc_cnt = 0; desc_cnt < num_cfg_desc; desc_cnt++) {
-		numfunc = conf_summary->bNumFunctions;
-		for (func_cnt = 0; func_cnt < numfunc; func_cnt++) {
-			/* look for BADD 3.0 */
-			if (conf_summary->cs_info[func_cnt].bClass ==
-				USB_CLASS_AUDIO &&
-				conf_summary->cs_info[func_cnt].bProtocol ==
-				UAC_VERSION_3 &&
-				conf_summary->cs_info[func_cnt].bSubClass !=
-				FULL_ADC_PROFILE)
-				return conf_summary->bConfigurationValue;
-		}
+		conf_summary =
+			(struct usb_config_summary_descriptor *)(buffer + len);
+
+		len += conf_summary->bLength;
+
+		if (conf_summary->bcdVersion != USB_CONFIG_SUMMARY_DESC_REV ||
+				conf_summary->bClass != USB_CLASS_AUDIO)
+			continue;
+
+		/* look for 1st config summary without UAC3 full ADC profile */
+		if (conf_summary->bProtocol < UAC_VERSION_3 ||
+				(conf_summary->bProtocol == UAC_VERSION_3 &&
+				 conf_summary->bSubClass != FULL_ADC_PROFILE))
+			return conf_summary->bConfigurationIndex[0];
 	}
 
 done:
@@ -176,8 +179,8 @@ int usb_choose_configuration(struct usb_device *udev)
 			insufficient_power, plural(insufficient_power));
 
 	if (best) {
-		/* choose usb audio class preferred config if available */
-		i = usb_audio_max_rev_config(udev->bos);
+		/* choose device preferred config */
+		i = get_usb_audio_config(udev->bos);
 		if (i < 0)
 			i = best->desc.bConfigurationValue;
 		dev_dbg(&udev->dev,

@@ -1440,6 +1440,15 @@ static int geni_se_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct geni_se_device *geni_se_dev;
 
+	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+	if (ret) {
+		ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+		if (ret) {
+			dev_err(&pdev->dev, "could not set DMA mask\n");
+			return ret;
+		}
+	}
+
 	if (of_device_is_compatible(dev->of_node, "qcom,qupv3-geni-se-cb"))
 		return geni_se_iommu_probe(dev);
 

@@ -28,4 +28,12 @@
 #define BYTECLK_SRC_1_CLK	10
 #define PCLK_SRC_1_CLK		11
 
+/* HDMI PLL clocks */
+#define HDMI_VCO_CLK			0
+#define HDMI_VCO_DIVIDED_1_CLK_SRC	1
+#define HDMI_VCO_DIVIDED_TWO_CLK_SRC	2
+#define HDMI_VCO_DIVIDED_FOUR_CLK_SRC	3
+#define HDMI_VCO_DIVIDED_SIX_CLK_SRC	4
+#define HDMI_PCLK_SRC_MUX		5
+#define HDMI_PCLK_SRC			6
 #endif

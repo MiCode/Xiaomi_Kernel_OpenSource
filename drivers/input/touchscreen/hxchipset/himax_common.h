@@ -66,7 +66,7 @@
 #define HX_RST_PIN_FUNC
 #define HX_RESUME_SEND_CMD
 #define HX_ESD_RECOVERY
-/*#define HX_AUTO_UPDATE_FW*/
+#define HX_AUTO_UPDATE_FW
 /*#define HX_SMART_WAKEUP*/
 /*#define HX_GESTURE_TRACK*/
 /*#define HX_HIGH_SENSE*/
@@ -143,6 +143,7 @@
 #define HX_FINGER_LEAVE	2
 
 #define HX_REPORT_SZ 128
+#define HX_CMD_BYTE 1
 
 enum HX_TS_PATH {
 	HX_REPORT_COORD = 1,
@@ -364,7 +365,7 @@ struct himax_ts_data {
 	struct work_struct ito_test_work;
 #endif
 
-	uint8_t *report_i2c_data;
+	uint8_t *i2c_data; /* for I2C DMA transfer */
 };
 
 struct himax_debug {
@@ -438,14 +439,6 @@ extern struct himax_core_fp g_core_fp;
 extern struct himax_debug *debug_data;
 extern uint8_t HX_PROC_SEND_FLAG;
 
-#ifdef HX_AUTO_UPDATE_FW
-extern int g_i_FW_VER;
-extern int g_i_CFG_VER;
-extern int g_i_CID_MAJ; /* GUEST ID */
-extern int g_i_CID_MIN; /* VER for GUEST */
-extern unsigned char i_CTPM_FW[];
-#endif
-
 extern unsigned long FW_VER_MAJ_FLASH_ADDR;
 extern unsigned long FW_VER_MIN_FLASH_ADDR;
 extern unsigned long CFG_VER_MAJ_FLASH_ADDR;
@@ -494,6 +487,8 @@ extern void himax_cable_detect_func(bool force_renew);
 extern struct himax_target_report_data *g_target_report_data;
 extern int himax_report_data(struct himax_ts_data *ts, int ts_path, int ts_status);
 /* ts_work about end */
+
+void himax_update_register(struct work_struct *work);
 
 #endif
 

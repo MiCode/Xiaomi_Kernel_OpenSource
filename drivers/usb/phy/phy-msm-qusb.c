@@ -606,7 +606,6 @@ static int qusb_phy_init(struct usb_phy *phy)
 
 	if (pll_lock_fail) {
 		dev_err(phy->dev, "QUSB PHY PLL LOCK fails:%x\n", reg);
-		WARN_ON(1);
 	}
 
 	return 0;

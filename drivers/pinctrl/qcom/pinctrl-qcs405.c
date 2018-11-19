@@ -422,7 +422,7 @@ static const unsigned int sdc2_data_pins[] = { 126 };
 
 enum qcs405_functions {
 	msm_mux_gpio,
-	msm_mux_hdmi_tx,
+	msm_mux_hdmi_cec,
 	msm_mux_hdmi_ddc,
 	msm_mux_blsp_uart_tx_a2,
 	msm_mux_blsp_spi2,
@@ -477,6 +477,7 @@ enum qcs405_functions {
 	msm_mux_pwm_led11,
 	msm_mux_i2s_3_data0_a,
 	msm_mux_ebi2_lcd,
+	msm_mux_hdmi_hot,
 	msm_mux_i2s_3_data1_a,
 	msm_mux_i2s_3_data2_a,
 	msm_mux_atest_char,
@@ -631,7 +632,7 @@ static const char * const gpio_groups[] = {
 	"gpio113", "gpio114", "gpio115", "gpio116", "gpio117", "gpio118",
 	"gpio119",
 };
-static const char * const hdmi_tx_groups[] = {
+static const char * const hdmi_cec_groups[] = {
 	"gpio14",
 };
 static const char * const hdmi_ddc_groups[] = {
@@ -793,6 +794,9 @@ static const char * const blsp_i2c_scl_b2_groups[] = {
 };
 static const char * const pwm_led11_groups[] = {
 	"gpio43",
+};
+static const char * const hdmi_hot_groups[] = {
+	"gpio106",
 };
 static const char * const i2s_3_data0_a_groups[] = {
 	"gpio106",
@@ -1187,7 +1191,7 @@ static const char * const i2s_3_ws_a_groups[] = {
 
 static const struct msm_function qcs405_functions[] = {
 	FUNCTION(gpio),
-	FUNCTION(hdmi_tx),
+	FUNCTION(hdmi_cec),
 	FUNCTION(hdmi_ddc),
 	FUNCTION(blsp_uart_tx_a2),
 	FUNCTION(blsp_spi2),
@@ -1240,6 +1244,7 @@ static const struct msm_function qcs405_functions[] = {
 	FUNCTION(blsp_i2c_sda_b2),
 	FUNCTION(blsp_i2c_scl_b2),
 	FUNCTION(pwm_led11),
+	FUNCTION(hdmi_hot),
 	FUNCTION(i2s_3_data0_a),
 	FUNCTION(ebi2_lcd),
 	FUNCTION(i2s_3_data1_a),
@@ -1391,7 +1396,7 @@ static const struct msm_pingroup qcs405_groups[] = {
 	[11] = PINGROUP(11, SOUTH, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	[12] = PINGROUP(12, SOUTH, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	[13] = PINGROUP(13, SOUTH, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[14] = PINGROUP(14, SOUTH, hdmi_tx, NA, NA, NA, NA, NA, NA, NA, NA),
+	[14] = PINGROUP(14, SOUTH, hdmi_cec, NA, NA, NA, NA, NA, NA, NA, NA),
 	[15] = PINGROUP(15, SOUTH, hdmi_ddc, NA, NA, NA, NA, NA, NA, NA, NA),
 	[16] = PINGROUP(16, SOUTH, hdmi_ddc, NA, NA, NA, NA, NA, NA, NA, NA),
 	[17] = PINGROUP(17, NORTH, blsp_uart_tx_a2, blsp_spi2, m_voc, NA, NA,
@@ -1554,8 +1559,8 @@ static const struct msm_pingroup qcs405_groups[] = {
 	[104] = PINGROUP(104, EAST, i2s_3_sck_a, NA, NA, NA, NA, NA, NA, NA,
 			 NA),
 	[105] = PINGROUP(105, EAST, i2s_3_ws_a, NA, NA, NA, NA, NA, NA, NA, NA),
-	[106] = PINGROUP(106, EAST, i2s_3_data0_a, ebi2_lcd, NA, NA, ebi_cdc,
-			 NA, NA, NA, NA),
+	[106] = PINGROUP(106, EAST, i2s_3_data0_a, ebi2_lcd, hdmi_hot, NA,
+			ebi_cdc, NA, NA, NA, NA),
 	[107] = PINGROUP(107, EAST, i2s_3_data1_a, ebi2_lcd, NA, NA, ebi_cdc,
 			 NA, NA, NA, NA),
 	[108] = PINGROUP(108, EAST, i2s_3_data2_a, ebi2_lcd, atest_char,

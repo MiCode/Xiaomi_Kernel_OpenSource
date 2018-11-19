@@ -14,7 +14,7 @@
 /dts-v1/;
 
 #include "qcs403.dtsi"
-#include "qcs405-audio-overlay.dtsi"
+#include "qcs405-wsa-audio-overlay.dtsi"
 / {
 	model = "Qualcomm Technologies, Inc. QCS403 SSRD IOT";
 	compatible = "qcom,qcs403-iot", "qcom,qcs403", "qcom,iot";
@@ -75,4 +75,8 @@
 
 	/delete-node/ cpuss-2-step;
 	/delete-node/ cpuss-3-step;
+};
+
+&qnand_1 {
+	status = "ok";
 };

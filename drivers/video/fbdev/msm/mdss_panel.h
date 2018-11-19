@@ -63,6 +63,7 @@ enum fps_resolution {
 #define SPI_PANEL               13	/* SPI */
 
 #define DSC_PPS_LEN		128
+#define INTF_EVENT_STR(x)	#x
 
 /* HDR propeties count */
 #define DISPLAY_PRIMARIES_COUNT	8	/* WRGB x and y values*/
@@ -242,6 +243,8 @@ struct mdss_intf_recovery {
  *				the panel.
  * @MDSS_EVENT_PANEL_TIMING_SWITCH: Panel timing switch is requested.
  *				Argument provided is new panel timing.
+ * @MDSS_EVENT_DEEP_COLOR: Set deep color.
+ *				Argument provided is bits per pixel (8/10/12)
  */
 enum mdss_intf_events {
 	MDSS_EVENT_RESET = 1,
@@ -273,16 +276,89 @@ enum mdss_intf_events {
 	MDSS_EVENT_DSI_RESET_WRITE_PTR,
 	MDSS_EVENT_PANEL_TIMING_SWITCH,
 	MDSS_EVENT_UPDATE_PARAMS,
+	MDSS_EVENT_DEEP_COLOR,
 	MDSS_EVENT_MAX,
 };
+
+/**
+ * mdss_panel_intf_event_to_string() - converts interface event enum to string
+ * @event: interface event to be converted to string representation
+ */
+static inline char *mdss_panel_intf_event_to_string(int event)
+{
+	switch (event) {
+	case MDSS_EVENT_RESET:
+		return INTF_EVENT_STR(MDSS_EVENT_RESET);
+	case MDSS_EVENT_LINK_READY:
+		return INTF_EVENT_STR(MDSS_EVENT_LINK_READY);
+	case MDSS_EVENT_UNBLANK:
+		return INTF_EVENT_STR(MDSS_EVENT_UNBLANK);
+	case MDSS_EVENT_PANEL_ON:
+		return INTF_EVENT_STR(MDSS_EVENT_PANEL_ON);
+	case MDSS_EVENT_POST_PANEL_ON:
+		return INTF_EVENT_STR(MDSS_EVENT_POST_PANEL_ON);
+	case MDSS_EVENT_BLANK:
+		return INTF_EVENT_STR(MDSS_EVENT_BLANK);
+	case MDSS_EVENT_PANEL_OFF:
+		return INTF_EVENT_STR(MDSS_EVENT_PANEL_OFF);
+	case MDSS_EVENT_CLOSE:
+		return INTF_EVENT_STR(MDSS_EVENT_CLOSE);
+	case MDSS_EVENT_SUSPEND:
+		return INTF_EVENT_STR(MDSS_EVENT_SUSPEND);
+	case MDSS_EVENT_RESUME:
+		return INTF_EVENT_STR(MDSS_EVENT_RESUME);
+	case MDSS_EVENT_CHECK_PARAMS:
+		return INTF_EVENT_STR(MDSS_EVENT_CHECK_PARAMS);
+	case MDSS_EVENT_CONT_SPLASH_BEGIN:
+		return INTF_EVENT_STR(MDSS_EVENT_CONT_SPLASH_BEGIN);
+	case MDSS_EVENT_CONT_SPLASH_FINISH:
+		return INTF_EVENT_STR(MDSS_EVENT_CONT_SPLASH_FINISH);
+	case MDSS_EVENT_PANEL_UPDATE_FPS:
+		return INTF_EVENT_STR(MDSS_EVENT_PANEL_UPDATE_FPS);
+	case MDSS_EVENT_FB_REGISTERED:
+		return INTF_EVENT_STR(MDSS_EVENT_FB_REGISTERED);
+	case MDSS_EVENT_PANEL_CLK_CTRL:
+		return INTF_EVENT_STR(MDSS_EVENT_PANEL_CLK_CTRL);
+	case MDSS_EVENT_DSI_CMDLIST_KOFF:
+		return INTF_EVENT_STR(MDSS_EVENT_DSI_CMDLIST_KOFF);
+	case MDSS_EVENT_ENABLE_PARTIAL_ROI:
+		return INTF_EVENT_STR(MDSS_EVENT_ENABLE_PARTIAL_ROI);
+	case MDSS_EVENT_DSC_PPS_SEND:
+		return INTF_EVENT_STR(MDSS_EVENT_DSC_PPS_SEND);
+	case MDSS_EVENT_DSI_STREAM_SIZE:
+		return INTF_EVENT_STR(MDSS_EVENT_DSI_STREAM_SIZE);
+	case MDSS_EVENT_DSI_UPDATE_PANEL_DATA:
+		return INTF_EVENT_STR(MDSS_EVENT_DSI_UPDATE_PANEL_DATA);
+	case MDSS_EVENT_REGISTER_RECOVERY_HANDLER:
+		return INTF_EVENT_STR(MDSS_EVENT_REGISTER_RECOVERY_HANDLER);
+	case MDSS_EVENT_REGISTER_MDP_CALLBACK:
+		return INTF_EVENT_STR(MDSS_EVENT_REGISTER_MDP_CALLBACK);
+	case MDSS_EVENT_DSI_PANEL_STATUS:
+		return INTF_EVENT_STR(MDSS_EVENT_DSI_PANEL_STATUS);
+	case MDSS_EVENT_DSI_DYNAMIC_SWITCH:
+		return INTF_EVENT_STR(MDSS_EVENT_DSI_DYNAMIC_SWITCH);
+	case MDSS_EVENT_DSI_RECONFIG_CMD:
+		return INTF_EVENT_STR(MDSS_EVENT_DSI_RECONFIG_CMD);
+	case MDSS_EVENT_DSI_RESET_WRITE_PTR:
+		return INTF_EVENT_STR(MDSS_EVENT_DSI_RESET_WRITE_PTR);
+	case MDSS_EVENT_PANEL_TIMING_SWITCH:
+		return INTF_EVENT_STR(MDSS_EVENT_PANEL_TIMING_SWITCH);
+	case MDSS_EVENT_DEEP_COLOR:
+		return INTF_EVENT_STR(MDSS_EVENT_DEEP_COLOR);
+	default:
+		return "unknown";
+	}
+}
 
 struct lcd_panel_info {
 	u32 h_back_porch;
 	u32 h_front_porch;
 	u32 h_pulse_width;
+	u32 h_active_low;
 	u32 v_back_porch;
 	u32 v_front_porch;
 	u32 v_pulse_width;
+	u32 v_active_low;
 	u32 border_clr;
 	u32 underflow_clr;
 	u32 hsync_skew;
@@ -295,6 +371,8 @@ struct lcd_panel_info {
 	/* Pad height */
 	u32 yres_pad;
 	u32 frame_rate;
+	u32 h_polarity;
+	u32 v_polarity;
 };
 
 
@@ -617,6 +695,8 @@ struct mdss_panel_hdr_properties {
 
 	/* peak brightness supported by panel */
 	u32 peak_brightness;
+	/* average brightness supported by panel */
+	u32 avg_brightness;
 	/* Blackness level supported by panel */
 	u32 blackness_level;
 };
@@ -644,6 +724,7 @@ struct mdss_panel_info {
 	u32 rst_seq[MDSS_DSI_RST_SEQ_LEN];
 	u32 rst_seq_len;
 	u32 vic; /* video identification code */
+	u32 deep_color;
 	struct mdss_rect roi;
 	int pwm_pmic_gpio;
 	int pwm_lpg_chan;
@@ -724,6 +805,7 @@ struct mdss_panel_info {
 	void *edid_data;
 	void *dba_data;
 	void *cec_data;
+	void *hdcp_1x_data;
 
 	char panel_name[MDSS_MAX_PANEL_LEN];
 	struct mdss_mdp_pp_tear_check te;
@@ -879,14 +961,17 @@ static inline u32 mdss_panel_get_framerate(struct mdss_panel_info *panel_info,
 	case WRITEBACK_PANEL:
 		frame_rate = DEFAULT_FRAME_RATE;
 		break;
-	case DTV_PANEL:
-		if (panel_info->dynamic_fps) {
-			frame_rate = panel_info->lcdc.frame_rate;
-			break;
-		}
 	case SPI_PANEL:
 		frame_rate = panel_info->spi.frame_rate;
 		break;
+	case DTV_PANEL:
+		if (panel_info->dynamic_fps) {
+			frame_rate = panel_info->lcdc.frame_rate / 1000;
+			if (panel_info->lcdc.frame_rate % 1000)
+				frame_rate += 1;
+			break;
+		}
+		/* fall through */
 	default:
 		pixel_total = (panel_info->lcdc.h_back_porch +
 			  panel_info->lcdc.h_front_porch +

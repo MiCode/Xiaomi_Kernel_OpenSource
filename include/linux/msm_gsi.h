@@ -39,6 +39,7 @@ enum gsi_status {
 	GSI_STATUS_EVT_RING_INCOMPATIBLE = 10,
 	GSI_STATUS_TIMED_OUT = 11,
 	GSI_STATUS_AGAIN = 12,
+	GSI_STATUS_PENDING_IRQ = 13,
 };
 
 enum gsi_per_evt {
@@ -690,6 +691,28 @@ union __packed gsi_channel_scratch {
 };
 
 /**
+ * gsi_wdi_channel_scratch3 - WDI protocol SW config area of
+ * channel scratch3
+ */
+
+struct __packed gsi_wdi_channel_scratch3 {
+	uint32_t endp_metadatareg_offset:16;
+	uint32_t qmap_id:16;
+};
+
+/**
+ * gsi_wdi_channel_scratch3_reg - channel scratch3 SW config area
+ *
+ */
+
+union __packed gsi_wdi_channel_scratch3_reg {
+	struct __packed gsi_wdi_channel_scratch3 wdi;
+	struct __packed {
+		uint32_t word1;
+	} data;
+};
+
+/**
  * gsi_mhi_evt_scratch - MHI protocol SW config area of
  * event scratch
  */
@@ -749,7 +772,7 @@ union __packed gsi_evt_scratch {
  *                           MHI base channel index
  * @max_usb_pkt_size_valid:  is max_usb_pkt_size valid?
  * @max_usb_pkt_size:        max USB packet size in bytes (valid values are
- *                           512 and 1024)
+ *                           64, 512 and 1024)
  */
 struct gsi_device_scratch {
 	bool mhi_base_chan_idx_valid;
@@ -974,6 +997,19 @@ int gsi_alloc_channel(struct gsi_chan_props *props, unsigned long dev_hdl,
  */
 int gsi_write_channel_scratch(unsigned long chan_hdl,
 		union __packed gsi_channel_scratch val);
+
+/**
+ * gsi_write_channel_scratch3_reg - Peripheral should call this function to
+ * write to the scratch3 reg area of the channel context
+ *
+ * @chan_hdl:  Client handle previously obtained from
+ *             gsi_alloc_channel
+ * @val:       Value to write
+ *
+ * @Return gsi_status
+ */
+int gsi_write_channel_scratch3_reg(unsigned long chan_hdl,
+		union __packed gsi_wdi_channel_scratch3_reg val);
 
 /**
  * gsi_read_channel_scratch - Peripheral should call this function to
@@ -1404,6 +1440,11 @@ static inline int gsi_alloc_channel(struct gsi_chan_props *props,
 
 static inline int gsi_write_channel_scratch(unsigned long chan_hdl,
 		union __packed gsi_channel_scratch val)
+{
+	return -GSI_STATUS_UNSUPPORTED_OP;
+}
+static inline int gsi_write_channel_scratch3_reg(unsigned long chan_hdl,
+		union __packed gsi_wdi_channel_scratch3_reg val)
 {
 	return -GSI_STATUS_UNSUPPORTED_OP;
 }

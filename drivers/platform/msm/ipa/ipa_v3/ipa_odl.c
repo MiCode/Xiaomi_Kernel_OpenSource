@@ -315,7 +315,7 @@ int ipa_setup_odl_pipe(void)
 	ipa_odl_ep_cfg->client = IPA_CLIENT_ODL_DPL_CONS;
 	ipa_odl_ep_cfg->notify = odl_ipa_packet_receive_notify;
 
-	ipa_odl_ep_cfg->napi_enabled = false;
+	ipa_odl_ep_cfg->napi_obj = NULL;
 	ipa_odl_ep_cfg->desc_fifo_sz = IPA_ODL_RX_RING_SIZE *
 						IPA_FIFO_ELEMENT_SIZE;
 

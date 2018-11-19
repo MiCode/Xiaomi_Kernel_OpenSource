@@ -15,6 +15,12 @@
 #include "f_gsi.h"
 #include "rndis.h"
 
+struct usb_gsi_debugfs {
+	struct dentry *debugfs_root;
+};
+
+static struct usb_gsi_debugfs debugfs;
+
 static bool qti_packet_debug;
 module_param(qti_packet_debug, bool, 0644);
 MODULE_PARM_DESC(qti_packet_debug, "Print QTI Packet's Raw Data");
@@ -47,7 +53,7 @@ static inline bool usb_gsi_remote_wakeup_allowed(struct usb_function *f)
 	bool remote_wakeup_allowed;
 	struct f_gsi *gsi = func_to_gsi(f);
 
-	if (f->config->cdev->gadget->speed == USB_SPEED_SUPER)
+	if (f->config->cdev->gadget->speed >= USB_SPEED_SUPER)
 		remote_wakeup_allowed = f->func_wakeup_allowed;
 	else
 		remote_wakeup_allowed = f->config->cdev->gadget->remote_wakeup;
@@ -166,7 +172,7 @@ static int gsi_wakeup_host(struct f_gsi *gsi)
 	 * allowed to do so by the host. This is done in order to support non
 	 * fully USB 3.0 compatible hosts.
 	 */
-	if ((gadget->speed == USB_SPEED_SUPER) && (func->func_is_suspended)) {
+	if ((gadget->speed >= USB_SPEED_SUPER) && (func->func_is_suspended)) {
 		log_event_dbg("%s: Calling usb_func_wakeup", __func__);
 		ret = usb_func_wakeup(func);
 	} else {
@@ -180,6 +186,212 @@ static int gsi_wakeup_host(struct f_gsi *gsi)
 		log_event_err("wakeup failed. ret=%d.", ret);
 
 	return ret;
+}
+
+static void gsi_rw_timer_func(unsigned long arg)
+{
+	struct f_gsi *gsi = (struct f_gsi *)arg;
+
+	if (!atomic_read(&gsi->connected)) {
+		log_event_dbg("%s: gsi not connected.. bail-out\n", __func__);
+		gsi->debugfs_rw_timer_enable = 0;
+		return;
+	}
+
+	log_event_dbg("%s: calling gsi_wakeup_host\n", __func__);
+	gsi_wakeup_host(gsi);
+
+	if (gsi->debugfs_rw_timer_enable) {
+		log_event_dbg("%s: re-arm the timer\n", __func__);
+		mod_timer(&gsi->gsi_rw_timer,
+			jiffies + msecs_to_jiffies(gsi->gsi_rw_timer_interval));
+	}
+}
+
+static struct f_gsi *get_connected_gsi(void)
+{
+	struct f_gsi *connected_gsi;
+	bool gsi_connected = false;
+	int i;
+
+	for (i = 0; i < IPA_USB_MAX_TETH_PROT_SIZE; i++) {
+		if (inst_status[i].opts)
+			connected_gsi = inst_status[i].opts->gsi;
+		else
+			continue;
+
+		if (connected_gsi && atomic_read(&connected_gsi->connected)) {
+			gsi_connected = true;
+			break;
+		}
+	}
+
+	if (!gsi_connected)
+		connected_gsi = NULL;
+
+	return connected_gsi;
+}
+
+#define DEFAULT_RW_TIMER_INTERVAL 500 /* in ms */
+static ssize_t usb_gsi_rw_write(struct file *file,
+			const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct f_gsi *gsi;
+	u8 input;
+	int ret;
+
+	gsi = get_connected_gsi();
+	if (!gsi) {
+		log_event_dbg("%s: gsi not connected\n", __func__);
+		goto err;
+	}
+
+	if (ubuf == NULL) {
+		log_event_dbg("%s: buffer is Null.\n", __func__);
+		goto err;
+	}
+
+	ret = kstrtou8_from_user(ubuf, count, 0, &input);
+	if (ret) {
+		log_event_err("%s: Invalid value. err:%d\n", __func__, ret);
+		goto err;
+	}
+
+	if (gsi->debugfs_rw_timer_enable == !!input) {
+		if (!!input)
+			log_event_dbg("%s: RW already enabled\n", __func__);
+		else
+			log_event_dbg("%s: RW already disabled\n", __func__);
+		goto err;
+	}
+
+	gsi->debugfs_rw_timer_enable = !!input;
+
+	if (gsi->debugfs_rw_timer_enable) {
+		mod_timer(&gsi->gsi_rw_timer, jiffies +
+			  msecs_to_jiffies(gsi->gsi_rw_timer_interval));
+		log_event_dbg("%s: timer initialized\n", __func__);
+	} else {
+		del_timer_sync(&gsi->gsi_rw_timer);
+		log_event_dbg("%s: timer deleted\n", __func__);
+	}
+
+err:
+	return count;
+}
+
+static int usb_gsi_rw_show(struct seq_file *s, void *unused)
+{
+
+	struct f_gsi *gsi;
+
+	gsi = get_connected_gsi();
+	if (!gsi) {
+		log_event_dbg("%s: gsi not connected\n", __func__);
+		return 0;
+	}
+
+	seq_printf(s, "%d\n", gsi->debugfs_rw_timer_enable);
+
+	return 0;
+}
+
+static int usb_gsi_rw_open(struct inode *inode, struct file *f)
+{
+	return single_open(f, usb_gsi_rw_show, inode->i_private);
+}
+
+static const struct file_operations fops_usb_gsi_rw = {
+	.open = usb_gsi_rw_open,
+	.read = seq_read,
+	.write = usb_gsi_rw_write,
+	.owner = THIS_MODULE,
+	.llseek = seq_lseek,
+	.release = seq_release,
+};
+
+static ssize_t usb_gsi_rw_timer_write(struct file *file,
+			const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct f_gsi *gsi;
+	u16 timer_val;
+	int ret;
+
+	gsi = get_connected_gsi();
+	if (!gsi) {
+		log_event_dbg("%s: gsi not connected\n", __func__);
+		goto err;
+	}
+
+	if (ubuf == NULL) {
+		log_event_dbg("%s: buffer is NULL.\n", __func__);
+		goto err;
+	}
+
+	ret = kstrtou16_from_user(ubuf, count, 0, &timer_val);
+	if (ret) {
+		log_event_err("%s: Invalid value. err:%d\n", __func__, ret);
+		goto err;
+	}
+
+	if (timer_val <= 0 || timer_val >  10000) {
+		log_event_err("%s: value must be > 0 and < 10000.\n", __func__);
+		goto err;
+	}
+
+	gsi->gsi_rw_timer_interval = timer_val;
+err:
+	return count;
+}
+
+static int usb_gsi_rw_timer_show(struct seq_file *s, void *unused)
+{
+	struct f_gsi *gsi;
+
+	gsi = get_connected_gsi();
+	if (!gsi) {
+		log_event_dbg("%s: gsi not connected\n", __func__);
+		return 0;
+	}
+
+	seq_printf(s, "%ums\n", gsi->gsi_rw_timer_interval);
+
+	return 0;
+}
+
+static int usb_gsi_rw_timer_open(struct inode *inode, struct file *f)
+{
+	return single_open(f, usb_gsi_rw_timer_show, inode->i_private);
+}
+
+static const struct file_operations fops_usb_gsi_rw_timer = {
+	.open = usb_gsi_rw_timer_open,
+	.read = seq_read,
+	.write = usb_gsi_rw_timer_write,
+	.owner = THIS_MODULE,
+	.llseek = seq_lseek,
+	.release = seq_release,
+};
+
+static int usb_gsi_debugfs_init(void)
+{
+	debugfs.debugfs_root = debugfs_create_dir("usb_gsi", NULL);
+	if (!debugfs.debugfs_root)
+		return -ENOMEM;
+
+	debugfs_create_file("remote_wakeup_enable", 0600,
+					debugfs.debugfs_root,
+					inst_status, &fops_usb_gsi_rw);
+	debugfs_create_file("remote_wakeup_interval", 0600,
+					debugfs.debugfs_root,
+					inst_status,
+					&fops_usb_gsi_rw_timer);
+	return 0;
+}
+
+static void usb_gsi_debugfs_exit(void)
+{
+	debugfs_remove_recursive(debugfs.debugfs_root);
 }
 
 /*
@@ -373,9 +585,15 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 	}
 
 	/* Populate connection params */
-	conn_params->max_pkt_size =
-		(cdev->gadget->speed >= USB_SPEED_SUPER) ?
-		IPA_USB_SUPER_SPEED_1024B : IPA_USB_HIGH_SPEED_512B;
+	if (cdev->gadget->speed >= USB_SPEED_SUPER)
+		conn_params->max_pkt_size = IPA_USB_SUPER_SPEED_1024B;
+	else if (cdev->gadget->speed == USB_SPEED_HIGH)
+		conn_params->max_pkt_size = IPA_USB_HIGH_SPEED_512B;
+	else
+		conn_params->max_pkt_size = IPA_USB_FULL_SPEED_64B;
+
+	log_event_dbg("%s(): max_pkt_size:%d\n", __func__,
+		conn_params->max_pkt_size);
 	conn_params->ipa_to_usb_xferrscidx =
 			d_port->in_xfer_rsc_index;
 	conn_params->usb_to_ipa_xferrscidx =
@@ -392,7 +610,7 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 	conn_params->teth_prot_params.max_packet_number_to_dev =
 		DEFAULT_MAX_PKT_PER_XFER;
 	conn_params->max_supported_bandwidth_mbps =
-		(cdev->gadget->speed == USB_SPEED_SUPER) ? 3600 : 400;
+		(cdev->gadget->speed >= USB_SPEED_SUPER) ? 3600 : 400;
 
 	memset(&ipa_in_channel_out_params, 0x0,
 				sizeof(ipa_in_channel_out_params));
@@ -1399,7 +1617,7 @@ static const struct file_operations gsi_ctrl_dev_fops = {
 /* peak (theoretical) bulk transfer rate in bits-per-second */
 static unsigned int gsi_xfer_bitrate(struct usb_gadget *g)
 {
-	if (gadget_is_superspeed(g) && g->speed == USB_SPEED_SUPER)
+	if (gadget_is_superspeed(g) && g->speed >= USB_SPEED_SUPER)
 		return 13 * 1024 * 8 * 1000 * 8;
 	else if (gadget_is_dualspeed(g) && g->speed == USB_SPEED_HIGH)
 		return 13 * 512 * 8 * 1000 * 8;
@@ -2258,6 +2476,9 @@ static void gsi_disable(struct usb_function *f)
 
 	atomic_set(&gsi->connected, 0);
 
+	del_timer(&gsi->gsi_rw_timer);
+	gsi->debugfs_rw_timer_enable = 0;
+
 	if (gsi->prot_id == IPA_USB_RNDIS)
 		rndis_uninit(gsi->params);
 
@@ -2306,6 +2527,16 @@ static void gsi_suspend(struct usb_function *f)
 	post_event(&gsi->d_port, EVT_SUSPEND);
 	queue_work(gsi->d_port.ipa_usb_wq, &gsi->d_port.usb_ipa_w);
 	log_event_dbg("gsi suspended");
+
+	/*
+	 * If host suspended bus without receiving notification request then
+	 * initiate remote-wakeup. As driver won't be able to do it later since
+	 * notification request is already queued.
+	 */
+	if (gsi->c_port.notify_req_queued && usb_gsi_remote_wakeup_allowed(f)) {
+		mod_timer(&gsi->gsi_rw_timer, jiffies + msecs_to_jiffies(2000));
+		log_event_dbg("%s: pending response, arm rw_timer\n", __func__);
+	}
 }
 
 static void gsi_resume(struct usb_function *f)
@@ -2319,9 +2550,13 @@ static void gsi_resume(struct usb_function *f)
 	 * If the function is in USB3 Function Suspend state, resume is
 	 * canceled. In this case resume is done by a Function Resume request.
 	 */
-	if ((cdev->gadget->speed == USB_SPEED_SUPER) &&
+	if ((cdev->gadget->speed >= USB_SPEED_SUPER) &&
 		f->func_is_suspended)
 		return;
+
+	/* Keep timer enabled if user enabled using debugfs */
+	if (!gsi->debugfs_rw_timer_enable)
+		del_timer(&gsi->gsi_rw_timer);
 
 	if (gsi->c_port.notify && !gsi->c_port.notify->desc)
 		config_ep_by_speed(cdev->gadget, f, gsi->c_port.notify);
@@ -2347,6 +2582,11 @@ static void gsi_resume(struct usb_function *f)
 static int gsi_get_status(struct usb_function *f)
 {
 	unsigned int remote_wakeup_en_status = f->func_wakeup_allowed ? 1 : 0;
+	struct f_gsi *gsi = func_to_gsi(f);
+
+	/* Disable function remote wake-up for DPL interface */
+	if (gsi->prot_id == IPA_USB_DIAG)
+		return 0;
 
 	return (remote_wakeup_en_status << FUNC_WAKEUP_ENABLE_SHIFT) |
 		(1 << FUNC_WAKEUP_CAPABLE_SHIFT);
@@ -3054,6 +3294,8 @@ static struct f_gsi *gsi_function_init(enum ipa_usb_teth_prot prot_id)
 		kfree(gsi);
 		goto error;
 	}
+	gsi->gsi_rw_timer_interval = DEFAULT_RW_TIMER_INTERVAL;
+	setup_timer(&gsi->gsi_rw_timer, gsi_rw_timer_func, (unsigned long) gsi);
 
 	return gsi;
 error:
@@ -3443,6 +3685,7 @@ static int fgsi_init(void)
 
 	major = MAJOR(dev);
 
+	usb_gsi_debugfs_init();
 	return usb_function_register(&gsiusb_func);
 }
 module_init(fgsi_init);
@@ -3459,5 +3702,6 @@ static void __exit fgsi_exit(void)
 	}
 
 	class_destroy(gsi_class);
+	usb_gsi_debugfs_exit();
 }
 module_exit(fgsi_exit);

@@ -125,6 +125,7 @@ static void mem_abort_decode(unsigned int esr)
 	pr_alert("  EA = %lu, S1PTW = %lu\n",
 		 (esr & ESR_ELx_EA) >> ESR_ELx_EA_SHIFT,
 		 (esr & ESR_ELx_S1PTW) >> ESR_ELx_S1PTW_SHIFT);
+	pr_alert("  FSC = %lu\n", (esr & ESR_ELx_FSC));
 
 	if (esr_is_data_abort(esr))
 		data_abort_decode(esr);

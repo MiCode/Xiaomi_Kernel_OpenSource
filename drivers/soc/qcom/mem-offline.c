@@ -126,6 +126,14 @@ static int mem_event_callback(struct notifier_block *self,
 	start_addr = __pfn_to_phys(start);
 	end_addr = __pfn_to_phys(end);
 	sec_nr = pfn_to_section_nr(start);
+
+	if (sec_nr > end_section_nr || sec_nr < start_section_nr) {
+		if (action == MEM_ONLINE || action == MEM_OFFLINE)
+			pr_info("mem-offline: %s mem%d, but not our block. Not performing any action\n",
+				action == MEM_ONLINE ? "Onlined" : "Offlined",
+				sec_nr);
+		return NOTIFY_OK;
+	}
 	switch (action) {
 	case MEM_GOING_ONLINE:
 		pr_debug("mem-offline: MEM_GOING_ONLINE : start = 0x%lx end = 0x%lx",

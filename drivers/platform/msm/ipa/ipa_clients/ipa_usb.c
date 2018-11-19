@@ -1493,7 +1493,7 @@ static bool ipa3_usb_check_connect_params(
 	IPA_USB_DBG_LOW("max_supported_bandwidth_mbps = %d\n",
 		params->max_supported_bandwidth_mbps);
 
-	if (params->max_pkt_size < IPA_USB_HIGH_SPEED_512B  ||
+	if (params->max_pkt_size < IPA_USB_FULL_SPEED_64B  ||
 		params->max_pkt_size > IPA_USB_SUPER_SPEED_1024B  ||
 		params->ipa_to_usb_xferrscidx > 127 ||
 		(params->teth_prot != IPA_USB_DIAG &&
@@ -1848,7 +1848,7 @@ static int ipa3_usb_xdci_connect_internal(
 	if (ipa_pm_is_used()) {
 		/* perf profile is not set on  USB DPL pipe */
 		if (ttype != IPA_USB_TRANSPORT_DPL) {
-			result = ipa_pm_set_perf_profile(
+			result = ipa_pm_set_throughput(
 				ipa3_usb_ctx->ttype_ctx[ttype].pm_ctx.hdl,
 				params->max_supported_bandwidth_mbps);
 			if (result) {

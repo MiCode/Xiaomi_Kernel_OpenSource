@@ -35,9 +35,19 @@ int ufs_qcom_phy_qmp_v4_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 	 */
 	ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_rate_A,
 			       ARRAY_SIZE(phy_cal_table_rate_A));
-	if (ufs_qcom_phy->lanes_per_direction == 2)
+	if ((major == 0x4) && (minor == 0x001) && (step == 0x0000))
+		ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_rate_A_v2,
+				       ARRAY_SIZE(phy_cal_table_rate_A_v2));
+
+	if (ufs_qcom_phy->lanes_per_direction == 2) {
 		ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_2nd_lane,
 				       ARRAY_SIZE(phy_cal_table_2nd_lane));
+		if ((major == 0x4) && (minor == 0x001) && (step == 0x0000))
+			ufs_qcom_phy_write_tbl(ufs_qcom_phy,
+					phy_cal_table_2nd_lane_v2,
+					ARRAY_SIZE(phy_cal_table_2nd_lane_v2));
+	}
+
 	if (is_rate_B)
 		ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_rate_B,
 				       ARRAY_SIZE(phy_cal_table_rate_B));

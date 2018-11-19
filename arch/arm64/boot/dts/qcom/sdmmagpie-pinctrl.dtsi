@@ -13,7 +13,8 @@
 &soc {
 	tlmm: pinctrl@3400000 {
 		compatible = "qcom,sdmmagpie-pinctrl";
-		reg = <0x03400000 0xdc2000>;
+		reg = <0x03400000 0xdc2000>, <0x17c000f0 0x60>;
+		reg-names = "pinctrl", "spi_cfg";
 		interrupts = <0 208 0>;
 		gpio-controller;
 		#gpio-cells = <2>;
@@ -867,6 +868,183 @@
 			};
 		};
 
+		pmx_sde_te {
+			sde_te_active: sde_te_active {
+				mux {
+					pins = "gpio10";
+					function = "mdp_vsync";
+				};
+
+				config {
+					pins = "gpio10";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+
+			sde_te_suspend: sde_te_suspend {
+				mux {
+					pins = "gpio10";
+					function = "mdp_vsync";
+				};
+
+				config {
+					pins = "gpio10";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+		};
+
+		wsa_swr_clk_pin {
+			wsa_swr_clk_sleep: wsa_swr_clk_sleep {
+				mux {
+					pins = "gpio49";
+					function = "wsa_clk";
+				};
+
+				config {
+					pins = "gpio49";
+					drive-strength = <2>;
+					bias-bus-hold;
+				};
+			};
+
+			wsa_swr_clk_active: wsa_swr_clk_active {
+				mux {
+					pins = "gpio49";
+					function = "wsa_clk";
+				};
+
+				config {
+					pins = "gpio49";
+					drive-strength = <2>;
+					bias-bus-hold;
+				};
+			};
+		};
+
+		wsa_swr_data_pin {
+			wsa_swr_data_sleep: wsa_swr_data_sleep {
+				mux {
+					pins = "gpio50";
+					function = "wsa_data";
+				};
+
+				config {
+					pins = "gpio50";
+					drive-strength = <4>;
+					bias-bus-hold;
+				};
+			};
+
+			wsa_swr_data_active: wsa_swr_data_active {
+				mux {
+					pins = "gpio50";
+					function = "wsa_data";
+				};
+
+				config {
+					pins = "gpio50";
+					drive-strength = <4>;
+					bias-bus-hold;
+				};
+			};
+		};
+
+		/* WSA speaker reset pins */
+		spkr_1_sd_n {
+			spkr_1_sd_n_sleep: spkr_1_sd_n_sleep {
+				mux {
+					pins = "gpio51";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio51";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;
+					input-enable;
+				};
+			};
+
+			spkr_1_sd_n_active: spkr_1_sd_n_active {
+				mux {
+					pins = "gpio51";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio51";
+					drive-strength = <16>;   /* 16 mA */
+					bias-disable;
+					output-high;
+				};
+			};
+		};
+
+		spkr_2_sd_n {
+			spkr_2_sd_n_sleep: spkr_2_sd_n_sleep {
+				mux {
+					pins = "gpio52";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio52";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;
+					input-enable;
+				};
+			};
+
+			spkr_2_sd_n_active: spkr_2_sd_n_active {
+				mux {
+					pins = "gpio52";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio52";
+					drive-strength = <16>;   /* 16 mA */
+					bias-disable;
+					output-high;
+				};
+			};
+		};
+
+		wcd9xxx_intr {
+			wcd_intr_default: wcd_intr_default{
+				mux {
+					pins = "gpio58";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio58";
+					drive-strength = <2>; /* 2 mA */
+					bias-pull-down; /* pull down */
+					input-enable;
+				};
+			};
+		};
+
+		fsa_usbc_ana_en_n@42 {
+			fsa_usbc_ana_en: fsa_usbc_ana_en {
+				mux {
+					pins = "gpio42";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio42";
+					drive-strength = <2>;
+					bias-disable;
+					output-low;
+				};
+			};
+		};
+
 		cci0_active: cci0_active {
 			mux {
 				/* CLK, DATA */
@@ -1199,6 +1377,64 @@
 				drive-strength = <2>;
 				bias-disable;
 			};
+		};
+
+		pmx_ts_active {
+			ts_active: ts_active {
+				mux {
+					pins = "gpio8", "gpio9";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio8", "gpio9";
+					drive-strength = <8>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		pmx_ts_int_suspend {
+			ts_int_suspend: ts_int_suspend {
+				mux {
+					pins = "gpio9";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio9";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
+
+		pmx_ts_reset_suspend {
+			ts_reset_suspend: ts_reset_suspend {
+				mux {
+					pins = "gpio8";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio8";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
+	};
+};
+
+&pm6150_gpios {
+	wcd934x_mclk {
+		wcd934x_mclk_default: wcd934x_mclk_default{
+			pins = "gpio8";
+			function = "func1";
+			qcom,drive-strength = <2>;
+			power-source = <0>;
+			bias-disable;
+			output-low;
 		};
 	};
 };

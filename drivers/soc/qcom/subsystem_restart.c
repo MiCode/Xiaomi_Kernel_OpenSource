@@ -62,7 +62,7 @@ module_param(enable_debug, int, 0644);
 
 #define setup_timeout(dest_ss, source_ss, comm_type) \
 	_setup_timeout(dest_ss, source_ss, comm_type)
-#define cancel_timeout(subsys) del_timer(&subsys->timeout_data.timer)
+#define cancel_timeout(subsys) del_timer_sync(&subsys->timeout_data.timer)
 #define init_subsys_timer(subsys) _init_subsys_timer(subsys)
 
 /* Timeout values */
@@ -194,6 +194,7 @@ struct subsys_device {
 	struct subsys_tracking track;
 
 	void *notify;
+	void *early_notify;
 	struct device dev;
 	struct module *owner;
 	int count;
@@ -1227,6 +1228,8 @@ int subsystem_restart_dev(struct subsys_device *dev)
 
 	name = dev->desc->name;
 
+	send_early_notifications(dev->early_notify);
+
 	/*
 	 * If a system reboot/shutdown is underway, ignore subsystem errors.
 	 * However, print a message so that we know that a subsystem behaved
@@ -1801,6 +1804,7 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 			sizeof(subsys->desc->fw_name));
 
 	subsys->notify = subsys_notif_add_subsys(desc->name);
+	subsys->early_notify = subsys_get_early_notif_info(desc->name);
 
 	snprintf(subsys->wlname, sizeof(subsys->wlname), "ssr(%s)", desc->name);
 	wakeup_source_init(&subsys->ssr_wlock, subsys->wlname);

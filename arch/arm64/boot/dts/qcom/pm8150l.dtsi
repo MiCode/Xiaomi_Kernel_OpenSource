@@ -146,6 +146,7 @@
 			interrupts = <0x5 0xec 0x1 IRQ_TYPE_EDGE_RISING>;
 			interrupt-names = "sc-irq";
 			qcom,pmic-revid = <&pm8150l_revid>;
+			qcom,voltage-step-ramp;
 			status = "disabled";
 
 			lcdb_ldo_vreg: ldo {

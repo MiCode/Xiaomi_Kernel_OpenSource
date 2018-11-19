@@ -36,6 +36,8 @@
 #include "../ipa_common_i.h"
 #include "ipa_uc_offload_i.h"
 #include "ipa_pm.h"
+#include <linux/mailbox_client.h>
+#include <linux/mailbox/qmp.h>
 
 #define IPA_DEV_NAME_MAX_LEN 15
 #define DRV_NAME "ipa"
@@ -407,6 +409,8 @@ enum {
 #define IPA_TZ_UNLOCK_ATTRIBUTE 0x0C0311
 #define TZ_MEM_PROTECT_REGION_ID 0x10
 
+#define MBOX_TOUT_MS 100
+
 struct ipa3_active_client_htable_entry {
 	struct hlist_node list;
 	char id_string[IPA3_ACTIVE_CLIENTS_LOG_NAME_LEN];
@@ -761,7 +765,6 @@ struct ipa3_status_stats {
  * @disconnect_in_progress: Indicates client disconnect in progress.
  * @qmi_request_sent: Indicates whether QMI request to enable clear data path
  *					request is sent or not.
- * @napi_enabled: when true, IPA call client callback to start polling
  * @client_lock_unlock: callback function to take mutex lock/unlock for USB
  *				clients
  */
@@ -793,7 +796,6 @@ struct ipa3_ep_context {
 	u32 gsi_offload_state;
 	bool disconnect_in_progress;
 	u32 qmi_request_sent;
-	bool napi_enabled;
 	u32 eot_in_poll_err;
 	bool ep_delay_set;
 
@@ -882,6 +884,7 @@ struct ipa3_sys_context {
 	void (*repl_hdlr)(struct ipa3_sys_context *sys);
 	struct ipa3_repl_ctx repl;
 	u32 pkt_sent;
+	struct napi_struct *napi_obj;
 
 	/* ordering is important - mutable fields go above */
 	struct ipa3_ep_context *ep;
@@ -1649,6 +1652,8 @@ struct ipa3_context {
 	bool vlan_mode_iface[IPA_VLAN_IF_MAX];
 	bool wdi_over_pcie;
 	struct ipa3_wdi2_ctx wdi2_ctx;
+	struct mbox_client mbox_client;
+	struct mbox_chan *mbox;
 };
 
 struct ipa3_plat_drv_res {
@@ -2650,4 +2655,5 @@ int ipa3_get_transport_info(
 	phys_addr_t *phys_addr_ptr,
 	unsigned long *size_ptr);
 irq_handler_t ipa3_get_isr(void);
+void ipa_pc_qmp_enable(void);
 #endif /* _IPA3_I_H_ */

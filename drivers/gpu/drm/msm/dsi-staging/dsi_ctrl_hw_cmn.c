@@ -1379,7 +1379,7 @@ void dsi_ctrl_hw_dln0_phy_err(struct dsi_ctrl_hw *ctrl)
 	status = DSI_R32(ctrl, DSI_DLN0_PHY_ERR);
 	if (status & 0x011111) {
 		DSI_W32(ctrl, DSI_DLN0_PHY_ERR, status);
-		pr_err("%s: phy_err_status = %x\n", __func__, status);
+		pr_debug("%s: phy_err_status = %x\n", __func__, status);
 	}
 }
 

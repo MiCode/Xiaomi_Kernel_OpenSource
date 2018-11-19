@@ -32,18 +32,6 @@
 
 #define MIN_HBB		13
 
-#define A6XX_LLC_NUM_GPU_SCIDS		5
-#define A6XX_GPU_LLC_SCID_NUM_BITS	5
-#define A6XX_GPU_LLC_SCID_MASK \
-	((1 << (A6XX_LLC_NUM_GPU_SCIDS * A6XX_GPU_LLC_SCID_NUM_BITS)) - 1)
-#define A6XX_GPUHTW_LLC_SCID_SHIFT	25
-#define A6XX_GPUHTW_LLC_SCID_MASK \
-	(((1 << A6XX_GPU_LLC_SCID_NUM_BITS) - 1) << A6XX_GPUHTW_LLC_SCID_SHIFT)
-
-#define A6XX_GPU_CX_REG_BASE		0x509E000
-#define A6XX_GPU_CX_REG_SIZE		0x1000
-
-
 static const struct adreno_vbif_data a630_vbif[] = {
 	{A6XX_VBIF_GATE_OFF_WRREQ_EN, 0x00000009},
 	{A6XX_RBBM_VBIF_CLIENT_QOS_CNTL, 0x3},
@@ -66,11 +54,10 @@ static const struct adreno_vbif_data a640_gbif[] = {
 
 static const struct adreno_vbif_platform a6xx_vbif_platforms[] = {
 	{ adreno_is_a630, a630_vbif },
-	{ adreno_is_a615, a615_gbif },
+	{ adreno_is_a615_family, a615_gbif },
 	{ adreno_is_a640, a640_gbif },
 	{ adreno_is_a680, a640_gbif },
 	{ adreno_is_a608, a615_gbif },
-	{ adreno_is_a616, a615_gbif },
 };
 
 struct kgsl_hwcg_reg {
@@ -361,11 +348,10 @@ static const struct {
 	unsigned int count;
 } a6xx_hwcg_registers[] = {
 	{adreno_is_a630, a630_hwcg_regs, ARRAY_SIZE(a630_hwcg_regs)},
-	{adreno_is_a615, a615_hwcg_regs, ARRAY_SIZE(a615_hwcg_regs)},
+	{adreno_is_a615_family, a615_hwcg_regs, ARRAY_SIZE(a615_hwcg_regs)},
 	{adreno_is_a640, a640_hwcg_regs, ARRAY_SIZE(a640_hwcg_regs)},
 	{adreno_is_a680, a640_hwcg_regs, ARRAY_SIZE(a640_hwcg_regs)},
 	{adreno_is_a608, a608_hwcg_regs, ARRAY_SIZE(a608_hwcg_regs)},
-	{adreno_is_a616, a615_hwcg_regs, ARRAY_SIZE(a615_hwcg_regs)},
 };
 
 static struct a6xx_protected_regs {
@@ -612,7 +598,7 @@ __get_gmu_ao_cgc_mode_cntl(struct adreno_device *adreno_dev)
 {
 	if (adreno_is_a608(adreno_dev))
 		return 0x00000022;
-	if (adreno_is_a615(adreno_dev) || adreno_is_a616(adreno_dev))
+	else if (adreno_is_a615_family(adreno_dev))
 		return 0x00000222;
 	else
 		return 0x00020202;
@@ -623,7 +609,7 @@ __get_gmu_ao_cgc_delay_cntl(struct adreno_device *adreno_dev)
 {
 	if (adreno_is_a608(adreno_dev))
 		return 0x00000011;
-	if (adreno_is_a615(adreno_dev) || adreno_is_a616(adreno_dev))
+	else if (adreno_is_a615_family(adreno_dev))
 		return 0x00000111;
 	else
 		return 0x00010111;
@@ -634,7 +620,7 @@ __get_gmu_ao_cgc_hyst_cntl(struct adreno_device *adreno_dev)
 {
 	if (adreno_is_a608(adreno_dev))
 		return 0x00000055;
-	if (adreno_is_a615(adreno_dev) || adreno_is_a616(adreno_dev))
+	else if (adreno_is_a615_family(adreno_dev))
 		return 0x00000555;
 	else
 		return 0x00005555;
@@ -748,8 +734,7 @@ static void a6xx_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 		+ sizeof(a6xx_ifpc_pwrup_reglist), a6xx_pwrup_reglist,
 		sizeof(a6xx_pwrup_reglist));
 
-	if (adreno_is_a615(adreno_dev) || adreno_is_a608(adreno_dev) ||
-		adreno_is_a616(adreno_dev)) {
+	if (adreno_is_a615_family(adreno_dev) || adreno_is_a608(adreno_dev)) {
 		for (i = 0; i < ARRAY_SIZE(a615_pwrup_reglist); i++) {
 			r = &a615_pwrup_reglist[i];
 			kgsl_regread(KGSL_DEVICE(adreno_dev),
@@ -761,7 +746,7 @@ static void a6xx_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 			+ sizeof(a6xx_pwrup_reglist), a615_pwrup_reglist,
 			sizeof(a615_pwrup_reglist));
 
-		lock->list_length += sizeof(a615_pwrup_reglist);
+		lock->list_length += sizeof(a615_pwrup_reglist) >> 2;
 	}
 }
 
@@ -1427,7 +1412,7 @@ static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 {
 	int i;
-	int64_t adj = 0;
+	int64_t adj = -1;
 	uint32_t counts[ADRENO_GPMU_THROTTLE_COUNTERS];
 	struct adreno_busy_data *busy = &adreno_dev->busy_data;
 
@@ -1443,12 +1428,12 @@ static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 	/*
 	 * The adjustment is the number of cycles lost to throttling, which
 	 * is calculated as a weighted average of the cycles throttled
-	 * at 10%, 50%, and 90%. The adjustment is negative because in A6XX,
+	 * at 15%, 50%, and 90%. The adjustment is negative because in A6XX,
 	 * the busy count includes the throttled cycles. Therefore, we want
 	 * to remove them to prevent appearing to be busier than
 	 * we actually are.
 	 */
-	adj = -((counts[0] * 1) + (counts[1] * 5) + (counts[2] * 9)) / 10;
+	adj *= ((counts[0] * 15) + (counts[1] * 50) + (counts[2] * 90)) / 100;
 
 	trace_kgsl_clock_throttling(0, counts[1], counts[2],
 			counts[0], adj);
@@ -1597,24 +1582,6 @@ static void a6xx_err_callback(struct adreno_device *adreno_dev, int bit)
 	}
 }
 
-/* GPU System Cache control registers */
-#define A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_0   0x4
-#define A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_1   0x8
-
-static inline void _reg_rmw(void __iomem *regaddr,
-	unsigned int mask, unsigned int bits)
-{
-	unsigned int val = 0;
-
-	val = __raw_readl(regaddr);
-	/* Make sure the above read completes before we proceed  */
-	rmb();
-	val &= ~mask;
-	__raw_writel(val | bits, regaddr);
-	/* Make sure the above write posts before we proceed*/
-	wmb();
-}
-
 /*
  * a6xx_llc_configure_gpu_scid() - Program the sub-cache ID for all GPU blocks
  * @adreno_dev: The adreno device pointer
@@ -1630,17 +1597,13 @@ static void a6xx_llc_configure_gpu_scid(struct adreno_device *adreno_dev)
 		gpu_cntl1_val = (gpu_cntl1_val << A6XX_GPU_LLC_SCID_NUM_BITS)
 			| gpu_scid;
 
-	if (adreno_is_a640(adreno_dev)) {
+	if (adreno_is_a640(adreno_dev) || adreno_is_a608(adreno_dev)) {
 		kgsl_regrmw(KGSL_DEVICE(adreno_dev), A6XX_GBIF_SCACHE_CNTL1,
 			A6XX_GPU_LLC_SCID_MASK, gpu_cntl1_val);
 	} else {
-		void __iomem *gpu_cx_reg;
-
-		gpu_cx_reg = ioremap(A6XX_GPU_CX_REG_BASE,
-			A6XX_GPU_CX_REG_SIZE);
-		_reg_rmw(gpu_cx_reg + A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_1,
-			A6XX_GPU_LLC_SCID_MASK, gpu_cntl1_val);
-		iounmap(gpu_cx_reg);
+		adreno_cx_misc_regrmw(adreno_dev,
+				A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_1,
+				A6XX_GPU_LLC_SCID_MASK, gpu_cntl1_val);
 	}
 }
 
@@ -1651,22 +1614,20 @@ static void a6xx_llc_configure_gpu_scid(struct adreno_device *adreno_dev)
 static void a6xx_llc_configure_gpuhtw_scid(struct adreno_device *adreno_dev)
 {
 	uint32_t gpuhtw_scid;
-	void __iomem *gpu_cx_reg;
 
 	/*
 	 * On A640, the GPUHTW SCID is configured via a NoC override in the
 	 * XBL image.
 	 */
-	if (adreno_is_a640(adreno_dev))
+	if (adreno_is_a640(adreno_dev) || adreno_is_a608(adreno_dev))
 		return;
 
 	gpuhtw_scid = adreno_llc_get_scid(adreno_dev->gpuhtw_llc_slice);
 
-	gpu_cx_reg = ioremap(A6XX_GPU_CX_REG_BASE, A6XX_GPU_CX_REG_SIZE);
-	_reg_rmw(gpu_cx_reg + A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_1,
+	adreno_cx_misc_regrmw(adreno_dev,
+			A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_1,
 			A6XX_GPUHTW_LLC_SCID_MASK,
 			gpuhtw_scid << A6XX_GPUHTW_LLC_SCID_SHIFT);
-	iounmap(gpu_cx_reg);
 }
 
 /*
@@ -1675,13 +1636,11 @@ static void a6xx_llc_configure_gpuhtw_scid(struct adreno_device *adreno_dev)
  */
 static void a6xx_llc_enable_overrides(struct adreno_device *adreno_dev)
 {
-	void __iomem *gpu_cx_reg;
-
 	/*
 	 * Attributes override through GBIF is not supported with MMU-500.
 	 * Attributes are used as configured through SMMU pagetable entries.
 	 */
-	if (adreno_is_a640(adreno_dev))
+	if (adreno_is_a640(adreno_dev) || adreno_is_a608(adreno_dev))
 		return;
 
 	/*
@@ -1690,11 +1649,8 @@ static void a6xx_llc_enable_overrides(struct adreno_device *adreno_dev)
 	 *      writenoallocoverrideen=1
 	 *      write-no-alloc=1 - Do not allocates lines on write miss
 	 */
-	gpu_cx_reg = ioremap(A6XX_GPU_CX_REG_BASE, A6XX_GPU_CX_REG_SIZE);
-	__raw_writel(0x3, gpu_cx_reg + A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_0);
-	/* Make sure the above write posts before we proceed*/
-	wmb();
-	iounmap(gpu_cx_reg);
+	adreno_cx_misc_regwrite(adreno_dev,
+			A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_0, 0x3);
 }
 
 static const char *fault_block[8] = {
@@ -2703,9 +2659,8 @@ static const struct {
 	int (*check)(struct adreno_device *adreno_dev);
 	void (*func)(struct adreno_device *adreno_dev);
 } a6xx_efuse_funcs[] = {
-	{ adreno_is_a615, a6xx_efuse_speed_bin },
+	{ adreno_is_a615_family, a6xx_efuse_speed_bin },
 	{ adreno_is_a608, a6xx_efuse_speed_bin },
-	{ adreno_is_a616, a6xx_efuse_speed_bin },
 };
 
 static void a6xx_check_features(struct adreno_device *adreno_dev)

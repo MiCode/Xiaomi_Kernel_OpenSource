@@ -59,6 +59,8 @@ static u32 sde_hw_util_log_mask = SDE_DBG_MASK_NONE;
 /* SDE_SCALER_QSEED3LITE */
 #define QSEED3L_COEF_LUT_Y_SEP_BIT         4
 #define QSEED3L_COEF_LUT_UV_SEP_BIT        5
+#define QSEED3L_COEF_LUT_CTRL              0x4C
+#define QSEED3L_COEF_LUT_SWAP_BIT          0
 #define QSEED3L_DIR_FILTER_WEIGHT          0x60
 #define QSEED3LITE_SCALER_VERSION          0x2004
 
@@ -264,6 +266,9 @@ static void _sde_hw_setup_scaler3lite_lut(struct sde_hw_blk_reg_map *c,
 			}
 		}
 	}
+
+	if (test_bit(QSEED3L_COEF_LUT_SWAP_BIT, &lut_flags))
+		SDE_REG_WRITE(c, QSEED3L_COEF_LUT_CTRL + offset, BIT(0));
 }
 
 static void _sde_hw_setup_scaler3_de(struct sde_hw_blk_reg_map *c,

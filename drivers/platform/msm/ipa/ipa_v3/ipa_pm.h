@@ -20,8 +20,7 @@
 #define IPA_PM_MAX_EX_CL 64
 #define IPA_PM_THRESHOLD_MAX 5
 #define IPA_PM_EXCEPTION_MAX 2
-#define IPA_PM_DEFERRED_TIMEOUT 100
-#define IPA_PM_STATE_MAX 7
+#define IPA_PM_DEFERRED_TIMEOUT 10
 
 /*
  * ipa_pm group names
@@ -98,7 +97,7 @@ int ipa_pm_activate(u32 hdl);
 int ipa_pm_activate_sync(u32 hdl);
 int ipa_pm_deferred_deactivate(u32 hdl);
 int ipa_pm_deactivate_sync(u32 hdl);
-int ipa_pm_set_perf_profile(u32 hdl, int throughput);
+int ipa_pm_set_throughput(u32 hdl, int throughput);
 int ipa_pm_deregister(u32 hdl);
 
 /* IPA Internal Functions */
@@ -143,7 +142,7 @@ static inline int ipa_pm_deactivate_sync(u32 hdl)
 	return -EPERM;
 }
 
-static inline int ipa_pm_set_perf_profile(u32 hdl, int throughput)
+static inline int ipa_pm_set_throughput(u32 hdl, int throughput)
 {
 	return -EPERM;
 }

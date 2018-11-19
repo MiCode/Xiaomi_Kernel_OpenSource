@@ -2596,7 +2596,7 @@ static int ipa_mhi_register_pm(void)
 		goto fail_pm_cons;
 	}
 
-	res = ipa_pm_set_perf_profile(ipa_mhi_client_ctx->pm_hdl, 1000);
+	res = ipa_pm_set_throughput(ipa_mhi_client_ctx->pm_hdl, 1000);
 	if (res) {
 		IPA_MHI_ERR("fail to set perf profile to PM %d\n", res);
 		goto fail_pm_cons;

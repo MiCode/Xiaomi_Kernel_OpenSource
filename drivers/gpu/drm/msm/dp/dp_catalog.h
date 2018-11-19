@@ -99,7 +99,7 @@ struct dp_catalog_ctrl {
 	u32 isr5;
 
 	void (*state_ctrl)(struct dp_catalog_ctrl *ctrl, u32 state);
-	void (*config_ctrl)(struct dp_catalog_ctrl *ctrl);
+	void (*config_ctrl)(struct dp_catalog_ctrl *ctrl, u8 ln_cnt);
 	void (*lane_mapping)(struct dp_catalog_ctrl *ctrl, bool flipped,
 				char *lane_map);
 	void (*mainlink_ctrl)(struct dp_catalog_ctrl *ctrl, bool enable);
@@ -196,6 +196,8 @@ struct dp_catalog_panel {
 	u32 misc_val;
 
 	enum dp_stream_id stream_id;
+
+	bool widebus_en;
 
 	int (*timing_cfg)(struct dp_catalog_panel *panel);
 	void (*config_hdr)(struct dp_catalog_panel *panel, bool en);

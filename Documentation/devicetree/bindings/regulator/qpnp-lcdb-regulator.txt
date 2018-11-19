@@ -31,6 +31,14 @@ First Level Node - LCDB module
 	Value type: <phandle>
 	Definition:  Phandle to the PMIC's revid node
 
+- qcom,voltage-step-ramp
+	Usage:      optional
+	Value type: <bool>
+	Definition:  Required only if the voltage needs to be set in the
+		     steps of 500 mV starting from the 4500 mV. This needs
+		     to be enabled only on platforms where voltage needs to
+		     be ramped up with multiple steps.
+
 Touch-to-wake (TTW) properties:
 
 TTW supports 2 modes of operation - HW and SW. In the HW mode the enable/disable

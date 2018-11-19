@@ -62,6 +62,9 @@ SoCs:
 - SDMMAGPIE
   compatible = "qcom,sdmmagpie"
 
+- TRINKET
+  compatible = "qcom,trinket"
+
 Generic board variants:
 
 - CDP device:
@@ -172,6 +175,9 @@ compatible = "qcom,qcs403-iot"
 compatible = "qcom,sa8155-adp-star"
 compatible = "qcom,sa8155p-adp-star"
 compatible = "qcom,adp-star"
+compatible = "qcom,sa8155-v2-adp-air"
+compatible = "qcom,sa8155p-v2-adp-air"
+compatible = "qcom,adp-air"
 compatible = "qcom,sdxprairie-rumi"
 compatible = "qcom,sdxprairie-mtp"
 compatible = "qcom,sdxprairie-cdp"
@@ -181,3 +187,4 @@ compatible = "qcom,sdmmagpie-qrd"
 compatible = "qcom,sdmmagpiep-idp"
 compatible = "qcom,sdmmagpiep"
 compatible = "qcom,sdmmagpiep-qrd"
+compatible = "qcom,trinket-rumi"

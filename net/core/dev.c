@@ -4326,9 +4326,12 @@ static inline int nf_ingress(struct sk_buff *skb, struct packet_type **pt_prev,
 #endif /* CONFIG_NETFILTER_INGRESS */
 	return 0;
 }
-
 int (*embms_tm_multicast_recv)(struct sk_buff *skb) __rcu __read_mostly;
 EXPORT_SYMBOL(embms_tm_multicast_recv);
+
+int (*athrs_fast_nat_recv)(struct sk_buff *skb,
+			   struct packet_type *pt_temp) __rcu __read_mostly;
+EXPORT_SYMBOL(athrs_fast_nat_recv);
 
 static int __netif_receive_skb_core(struct sk_buff *skb, bool pfmemalloc)
 {
@@ -4339,6 +4342,7 @@ static int __netif_receive_skb_core(struct sk_buff *skb, bool pfmemalloc)
 	int ret = NET_RX_DROP;
 	__be16 type;
 	int (*embms_recv)(struct sk_buff *skb);
+	int (*fast_recv)(struct sk_buff *skb, struct packet_type *pt_temp);
 
 	net_timestamp_check(!netdev_tstamp_prequeue, skb);
 
@@ -4400,6 +4404,14 @@ skip_taps:
 		embms_recv(skb);
 
 skip_classify:
+	fast_recv = rcu_dereference(athrs_fast_nat_recv);
+	if (fast_recv) {
+		if (fast_recv(skb, pt_prev)) {
+			ret = NET_RX_SUCCESS;
+			goto out;
+		}
+	}
+
 	if (pfmemalloc && !skb_pfmemalloc_protocol(skb))
 		goto drop;
 
@@ -8335,7 +8347,8 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
 		/* We get here if we can't use the current device name */
 		if (!pat)
 			goto out;
-		if (dev_get_valid_name(net, dev, pat) < 0)
+		err = dev_get_valid_name(net, dev, pat);
+		if (err < 0)
 			goto out;
 	}
 
@@ -8347,7 +8360,6 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
 	dev_close(dev);
 
 	/* And unlink it from device chain */
-	err = -ENODEV;
 	unlist_netdevice(dev);
 
 	synchronize_net();

@@ -391,9 +391,9 @@ enum dev_state {
  * @upthreshold: up-threshold supplied to ondemand governor
  * @downthreshold: down-threshold supplied to ondemand governor
  * @need_freq_change: flag indicating if a frequency change is required
- * @clk_scaling_in_progress: flag indicating if there's ongoing frequency change
  * @is_busy_started: flag indicating if a request is handled by the HW
  * @enable: flag indicating if the clock scaling logic is enabled for this host
+ * @is_suspended: to make devfreq request queued when mmc is suspened
  */
 struct mmc_devfeq_clk_scaling {
 	spinlock_t	lock;
@@ -418,9 +418,9 @@ struct mmc_devfeq_clk_scaling {
 	unsigned int	lower_bus_speed_mode;
 #define MMC_SCALING_LOWER_DDR52_MODE	1
 	bool		need_freq_change;
-	bool		clk_scaling_in_progress;
 	bool		is_busy_started;
 	bool		enable;
+	bool		is_suspended;
 };
 
 struct mmc_host {
@@ -709,6 +709,7 @@ struct mmc_host {
 
 	atomic_t rpmb_req_pending;
 	struct mutex		rpmb_req_mutex;
+	bool crash_on_err;	/* crash the system on error */
 	unsigned long		private[0] ____cacheline_aligned;
 };
 
@@ -828,16 +829,6 @@ static inline bool mmc_card_and_host_support_async_int(struct mmc_host *host)
 {
 	return ((host->caps2 & MMC_CAP2_ASYNC_SDIO_IRQ_4BIT_MODE) &&
 			(host->card->cccr.async_intr_sup));
-}
-
-static inline void mmc_host_clear_sdr104(struct mmc_host *host)
-{
-	host->caps &= ~MMC_CAP_UHS_SDR104;
-}
-
-static inline void mmc_host_set_sdr104(struct mmc_host *host)
-{
-	host->caps |= MMC_CAP_UHS_SDR104;
 }
 
 static inline void mmc_host_set_halt(struct mmc_host *host)

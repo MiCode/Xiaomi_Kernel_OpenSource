@@ -256,6 +256,8 @@ void enable_spi_panel_te_irq(struct spi_panel_data *ctrl_pdata,
 		return;
 	}
 
+	mutex_lock(&ctrl_pdata->te_mutex);
+
 	if (enable) {
 		if (++te_irq_count == 1)
 			enable_irq(gpio_to_irq(ctrl_pdata->disp_te_gpio));
@@ -263,6 +265,8 @@ void enable_spi_panel_te_irq(struct spi_panel_data *ctrl_pdata,
 		if (--te_irq_count == 0)
 			disable_irq(gpio_to_irq(ctrl_pdata->disp_te_gpio));
 	}
+
+	mutex_unlock(&ctrl_pdata->te_mutex);
 }
 
 void mdss_spi_tx_fb_complete(void *ctx)
@@ -1032,14 +1036,14 @@ static irqreturn_t spi_panel_te_handler(int irq, void *data)
 {
 	struct spi_panel_data *ctrl_pdata = (struct spi_panel_data *)data;
 	ktime_t vsync_time;
-
+	static int te_count;
 	complete(&ctrl_pdata->spi_panel_te);
 
-	if (ctrl_pdata->vsync_enable && (ctrl_pdata->te_count ==
+	if (ctrl_pdata->vsync_enable && (++te_count ==
 				ctrl_pdata->vsync_per_te)) {
 		vsync_time = ktime_get();
 		mdss_spi_display_handle_vsync(ctrl_pdata, vsync_time);
-		ctrl_pdata->te_count = 0;
+		te_count = 0;
 	}
 
 	return IRQ_HANDLED;
@@ -1054,8 +1058,6 @@ void mdss_spi_vsync_enable(struct mdss_panel_data *pdata, int enable)
 
 	ctrl_pdata = container_of(pdata, struct spi_panel_data,
 				panel_data);
-
-	mutex_lock(&ctrl_pdata->te_mutex);
 	if (enable) {
 		if (ctrl_pdata->vsync_enable == false) {
 			enable_spi_panel_te_irq(ctrl_pdata, true);
@@ -1067,7 +1069,6 @@ void mdss_spi_vsync_enable(struct mdss_panel_data *pdata, int enable)
 			ctrl_pdata->vsync_enable = false;
 		}
 	}
-	mutex_unlock(&ctrl_pdata->te_mutex);
 }
 
 static struct device_node *mdss_spi_pref_prim_panel(

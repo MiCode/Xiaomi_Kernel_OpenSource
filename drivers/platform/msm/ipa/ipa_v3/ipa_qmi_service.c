@@ -399,7 +399,7 @@ static int ipa3_qmi_send_req_wait(struct qmi_handle *client_handle,
 		qmi_txn_cancel(&txn);
 		return ret;
 	}
-	ret = qmi_txn_wait(&txn, timeout_ms);
+	ret = qmi_txn_wait(&txn, msecs_to_jiffies(timeout_ms));
 
 	return ret;
 }

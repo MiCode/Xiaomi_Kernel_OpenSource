@@ -643,7 +643,8 @@ static int dsi_display_read_status(struct dsi_display_ctrl *ctrl,
 	lenp = config->status_valid_params ?: config->status_cmds_rlen;
 	count = config->status_cmd.count;
 	cmds = config->status_cmd.cmds;
-	flags |= (DSI_CTRL_CMD_FETCH_MEMORY | DSI_CTRL_CMD_READ);
+	flags |= (DSI_CTRL_CMD_FETCH_MEMORY | DSI_CTRL_CMD_READ |
+		  DSI_CTRL_CMD_CUSTOM_DMA_SCHED);
 
 	for (i = 0; i < count; ++i) {
 		memset(config->status_buf, 0x0, SZ_4K);
@@ -919,6 +920,17 @@ int dsi_display_cmd_transfer(struct drm_connector *connector,
 
 	mutex_lock(&dsi_display->display_lock);
 	rc = dsi_display_ctrl_get_host_init_state(dsi_display, &state);
+
+	/**
+	 * Handle scenario where a command transfer is initiated through
+	 * sysfs interface when device is in suepnd state.
+	 */
+	if (!rc && !state) {
+		pr_warn_ratelimited("Command xfer attempted while device is in suspend state\n"
+				);
+		rc = -EPERM;
+		goto end;
+	}
 	if (rc || !state) {
 		pr_err("[DSI] Invalid host state %d rc %d\n",
 				state, rc);
@@ -1316,7 +1328,7 @@ static ssize_t debugfs_alter_esd_check_mode(struct file *file,
 	if (ZERO_OR_NULL_PTR(buf))
 		return -ENOMEM;
 
-	if (copy_from_user(buf, user_buf, user_len)) {
+	if (copy_from_user(buf, user_buf, len)) {
 		rc = -EINVAL;
 		goto error;
 	}
@@ -3010,7 +3022,7 @@ int dsi_pre_clkoff_cb(void *priv,
 	struct dsi_display_ctrl *ctrl;
 
 	if ((clk & DSI_LINK_CLK) && (new_state == DSI_CLK_OFF) &&
-		(l_type && DSI_LINK_LP_CLK)) {
+		(l_type & DSI_LINK_LP_CLK)) {
 		/*
 		 * If continuous clock is enabled then disable it
 		 * before entering into ULPS Mode.
@@ -3033,6 +3045,20 @@ int dsi_pre_clkoff_cb(void *priv,
 			       __func__, rc);
 	}
 
+	if ((clk & DSI_LINK_CLK) && (new_state == DSI_CLK_OFF) &&
+		(l_type & DSI_LINK_HS_CLK)) {
+		/*
+		 * PHY clock gating should be disabled before the PLL and the
+		 * branch clocks are turned off. Otherwise, it is possible that
+		 * the clock RCGs may not be turned off correctly resulting
+		 * in clock warnings.
+		 */
+		rc = dsi_display_config_clk_gating(display, false);
+		if (rc)
+			pr_err("[%s] failed to disable clk gating, rc=%d\n",
+					display->name, rc);
+	}
+
 	if ((clk & DSI_CORE_CLK) && (new_state == DSI_CLK_OFF)) {
 		/*
 		 * Enable DSI clamps only if entering idle power collapse or
@@ -3045,10 +3071,6 @@ int dsi_pre_clkoff_cb(void *priv,
 			if (rc)
 				pr_err("%s: Failed to enable dsi clamps. rc=%d\n",
 					__func__, rc);
-			rc = dsi_display_config_clk_gating(display, false);
-			if (rc)
-				pr_err("[%s] failed to disable clk gating, rc=%d\n",
-						display->name, rc);
 
 			rc = dsi_display_phy_reset_config(display, false);
 			if (rc)
@@ -3128,13 +3150,6 @@ int dsi_post_clkon_cb(void *priv,
 			}
 		}
 
-		rc = dsi_display_config_clk_gating(display, true);
-		if (rc) {
-			pr_err("[%s] failed to enable clk gating %d\n",
-					display->name, rc);
-			goto error;
-		}
-
 		rc = dsi_display_phy_reset_config(display, true);
 		if (rc) {
 			pr_err("%s: Failed to reset phy, rc=%d\n",
@@ -3171,6 +3186,13 @@ int dsi_post_clkon_cb(void *priv,
 
 		if (display->panel->host_config.force_hs_clk_lane)
 			_dsi_display_continuous_clk_ctrl(display, true);
+
+		rc = dsi_display_config_clk_gating(display, true);
+		if (rc) {
+			pr_err("[%s] failed to enable clk gating %d\n",
+					display->name, rc);
+			goto error;
+		}
 	}
 
 	/* enable dsi to serve irqs */
@@ -4200,7 +4222,7 @@ static int dsi_display_request_update_dsi_bitrate(struct dsi_display *display,
 		return -EINVAL;
 	}
 
-	display->config.bit_clk_rate_hz = bit_clk_rate;
+	display->config.bit_clk_rate_hz_override = bit_clk_rate;
 
 	for (i = 0; i < display->ctrl_count; i++) {
 		struct dsi_display_ctrl *dsi_disp_ctrl = &display->ctrl[i];
@@ -4228,7 +4250,8 @@ static int dsi_display_request_update_dsi_bitrate(struct dsi_display *display,
 			goto error;
 		}
 
-		bit_rate = display->config.bit_clk_rate_hz * num_of_lanes;
+		bit_rate = display->config.bit_clk_rate_hz_override *
+						num_of_lanes;
 		bit_rate_per_lane = bit_rate;
 		do_div(bit_rate_per_lane, num_of_lanes);
 		pclk_rate = bit_rate;
@@ -4249,7 +4272,7 @@ static int dsi_display_request_update_dsi_bitrate(struct dsi_display *display,
 			goto error;
 		}
 
-		ctrl->host_config.bit_clk_rate_hz = bit_clk_rate;
+		ctrl->host_config.bit_clk_rate_hz_override = bit_clk_rate;
 error:
 		mutex_unlock(&ctrl->ctrl_lock);
 
@@ -4786,12 +4809,6 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 				break;
 			}
 			continue;
-		} else if (index == DSI_SECONDARY) {
-			/*
-			 * secondary display is currently
-			 * supported through boot params only
-			 */
-			break;
 		}
 
 		if (of_property_read_bool(np, disp_active)) {
@@ -6099,6 +6116,9 @@ int dsi_display_prepare(struct dsi_display *display)
 
 	dsi_display_set_ctrl_esd_check_flag(display, false);
 
+	/* Set up ctrl isr before enabling core clk */
+	dsi_display_ctrl_isr_configure(display, true);
+
 	if (mode->dsi_mode_flags & DSI_MODE_FLAG_DMS) {
 		if (display->is_cont_splash_enabled) {
 			pr_err("DMS is not supposed to be set on first frame\n");
@@ -6125,9 +6145,6 @@ int dsi_display_prepare(struct dsi_display *display)
 			goto error;
 		}
 	}
-
-	/* Set up ctrl isr before enabling core clk */
-	dsi_display_ctrl_isr_configure(display, true);
 
 	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
 			DSI_CORE_CLK, DSI_CLK_ON);

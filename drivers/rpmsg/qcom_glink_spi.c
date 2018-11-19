@@ -77,7 +77,7 @@ do {									       \
 #define SPI_GLINK_CID_MIN	1
 #define SPI_GLINK_CID_MAX	65536
 
-struct glink_msg {
+struct glink_spi_msg {
 	__le16 cmd;
 	__le16 param1;
 	__le32 param2;
@@ -87,7 +87,7 @@ struct glink_msg {
 } __packed;
 
 /**
- * struct glink_defer_cmd - deferred incoming control message
+ * struct glink_spi_defer_cmd - deferred incoming control message
  * @node:	list node
  * @msg:	message header
  * data:	payload of the message
@@ -95,15 +95,15 @@ struct glink_msg {
  * Copy of a received control message, to be added to @rx_queue and processed
  * by @rx_work of @glink_spi.
  */
-struct glink_defer_cmd {
+struct glink_spi_defer_cmd {
 	struct list_head node;
 
-	struct glink_msg msg;
+	struct glink_spi_msg msg;
 	u8 data[];
 };
 
 /**
- * struct glink_core_rx_intent - RX intent
+ * struct glink_spi_rx_intent - RX intent
  * RX intent
  *
  * @data:	pointer to the data (may be NULL for zero-copy)
@@ -114,7 +114,7 @@ struct glink_defer_cmd {
  * @in_use:	To mark if intent is already in use for the channel
  * @offset:	next write offset (initially 0)
  */
-struct glink_core_rx_intent {
+struct glink_spi_rx_intent {
 	void *data;
 	u32 id;
 	size_t size;
@@ -214,7 +214,7 @@ enum {
 };
 
 /**
- * struct glink_channel - internal representation of a channel
+ * struct glink_spi_channel - internal representation of a channel
  * @rpdev:	rpdev reference, only used for primary endpoints
  * @ept:	rpmsg endpoint this channel is associated with
  * @glink:	glink_spi context handle
@@ -237,7 +237,7 @@ enum {
  * @intent_req_result: Result of intent request
  * @intent_req_comp: Completion for intent_req signalling
  */
-struct glink_channel {
+struct glink_spi_channel {
 	struct rpmsg_endpoint ept;
 
 	struct rpmsg_device *rpdev;
@@ -257,7 +257,7 @@ struct glink_channel {
 	struct work_struct intent_work;
 	struct list_head done_intents;
 
-	struct glink_core_rx_intent *buf;
+	struct glink_spi_rx_intent *buf;
 	int buf_offset;
 	int buf_size;
 
@@ -272,7 +272,7 @@ struct glink_channel {
 	struct completion intent_req_comp;
 };
 
-#define to_glink_channel(_ept) container_of(_ept, struct glink_channel, ept)
+#define to_glink_channel(_ept) container_of(_ept, struct glink_spi_channel, ept)
 
 static const struct rpmsg_endpoint_ops glink_endpoint_ops;
 
@@ -337,16 +337,16 @@ static void glink_spi_xprt_set_irq_mode(struct glink_spi *glink)
 	atomic_dec(&glink->activity_cnt);
 }
 
-static struct glink_channel *glink_spi_alloc_channel(struct glink_spi *glink,
-						     const char *name)
+static struct glink_spi_channel *
+glink_spi_alloc_channel(struct glink_spi *glink, const char *name)
 {
-	struct glink_channel *channel;
+	struct glink_spi_channel *channel;
 
 	channel = kzalloc(sizeof(*channel), GFP_KERNEL);
 	if (!channel)
 		return ERR_PTR(-ENOMEM);
 
-	/* Setup glink internal glink_channel data */
+	/* Setup glink internal glink_spi_channel data */
 	spin_lock_init(&channel->recv_lock);
 	spin_lock_init(&channel->intent_lock);
 	mutex_init(&channel->intent_req_lock);
@@ -370,11 +370,12 @@ static struct glink_channel *glink_spi_alloc_channel(struct glink_spi *glink,
 
 static void glink_spi_channel_release(struct kref *ref)
 {
-	struct glink_channel *channel = container_of(ref, struct glink_channel,
-						     refcount);
+	struct glink_spi_channel *channel;
 	unsigned long flags;
 
+	channel = container_of(ref, struct glink_spi_channel, refcount);
 	CH_INFO(channel, "\n");
+
 	spin_lock_irqsave(&channel->intent_lock, flags);
 	idr_destroy(&channel->liids);
 	idr_destroy(&channel->riids);
@@ -679,7 +680,7 @@ out:
 
 static int glink_spi_send_version(struct glink_spi *glink)
 {
-	struct glink_msg msg = { 0 };
+	struct glink_spi_msg msg = { 0 };
 
 	msg.cmd = cpu_to_le16(SPI_CMD_VERSION);
 	msg.param1 = cpu_to_le16(GLINK_VERSION_1);
@@ -691,7 +692,7 @@ static int glink_spi_send_version(struct glink_spi *glink)
 
 static void glink_spi_send_version_ack(struct glink_spi *glink)
 {
-	struct glink_msg msg = { 0 };
+	struct glink_spi_msg msg = { 0 };
 
 	msg.cmd = cpu_to_le16(SPI_CMD_VERSION_ACK);
 	msg.param1 = cpu_to_le16(GLINK_VERSION_1);
@@ -773,7 +774,7 @@ static void glink_spi_receive_version_ack(struct glink_spi *glink,
  * Returns 0 on success, negative errno otherwise.
  */
 static int glink_spi_send_open_req(struct glink_spi *glink,
-				   struct glink_channel *channel)
+				   struct glink_spi_channel *channel)
 {
 
 	struct cmd_msg {
@@ -829,9 +830,9 @@ remove_idr:
 }
 
 static void glink_spi_send_open_ack(struct glink_spi *glink,
-				    struct glink_channel *channel)
+				    struct glink_spi_channel *channel)
 {
-	struct glink_msg msg = { 0 };
+	struct glink_spi_msg msg = { 0 };
 
 	msg.cmd = cpu_to_le16(SPI_CMD_OPEN_ACK);
 	msg.param1 = cpu_to_le16(channel->rcid);
@@ -842,7 +843,7 @@ static void glink_spi_send_open_ack(struct glink_spi *glink,
 
 static int glink_spi_rx_open_ack(struct glink_spi *glink, unsigned int lcid)
 {
-	struct glink_channel *channel;
+	struct glink_spi_channel *channel;
 
 	spin_lock(&glink->idr_lock);
 	channel = idr_find(&glink->lcids, lcid);
@@ -859,9 +860,9 @@ static int glink_spi_rx_open_ack(struct glink_spi *glink, unsigned int lcid)
 }
 
 static void glink_spi_send_close_req(struct glink_spi *glink,
-				     struct glink_channel *channel)
+				     struct glink_spi_channel *channel)
 {
-	struct glink_msg req = { 0 };
+	struct glink_spi_msg req = { 0 };
 
 	req.cmd = cpu_to_le16(SPI_CMD_CLOSE);
 	req.param1 = cpu_to_le16(channel->lcid);
@@ -873,7 +874,7 @@ static void glink_spi_send_close_req(struct glink_spi *glink,
 static void glink_spi_send_close_ack(struct glink_spi *glink,
 				     unsigned int rcid)
 {
-	struct glink_msg req = { 0 };
+	struct glink_spi_msg req = { 0 };
 
 	req.cmd = cpu_to_le16(SPI_CMD_CLOSE_ACK);
 	req.param1 = cpu_to_le16(rcid);
@@ -883,10 +884,10 @@ static void glink_spi_send_close_ack(struct glink_spi *glink,
 }
 
 static int glink_spi_request_intent(struct glink_spi *glink,
-				    struct glink_channel *channel,
+				    struct glink_spi_channel *channel,
 				    size_t size)
 {
-	struct glink_msg req = { 0 };
+	struct glink_spi_msg req = { 0 };
 	int ret;
 
 	mutex_lock(&channel->intent_req_lock);
@@ -922,8 +923,8 @@ static int glink_spi_handle_intent(struct glink_spi *glink,
 				   void *rx_data,
 				   size_t avail)
 {
-	struct glink_core_rx_intent *intent;
-	struct glink_channel *channel;
+	struct glink_spi_rx_intent *intent;
+	struct glink_spi_channel *channel;
 	struct intent_pair {
 		__le32 size;
 		__le32 iid;
@@ -975,7 +976,7 @@ static int glink_spi_handle_intent(struct glink_spi *glink,
 static void glink_spi_handle_intent_req_ack(struct glink_spi *glink,
 					    unsigned int cid, bool granted)
 {
-	struct glink_channel *channel;
+	struct glink_spi_channel *channel;
 	unsigned long flags;
 
 	spin_lock_irqsave(&glink->idr_lock, flags);
@@ -1001,10 +1002,10 @@ static void glink_spi_handle_intent_req_ack(struct glink_spi *glink,
  * Return: 0 on success or standard Linux error code.
  */
 static int glink_spi_send_intent_req_ack(struct glink_spi *glink,
-					 struct glink_channel *channel,
+					 struct glink_spi_channel *channel,
 					 bool granted)
 {
-	struct glink_msg msg = { 0 };
+	struct glink_spi_msg msg = { 0 };
 
 	msg.cmd = cpu_to_le16(SPI_CMD_RX_INTENT_REQ_ACK);
 	msg.param1 = cpu_to_le16(channel->lcid);
@@ -1016,13 +1017,13 @@ static int glink_spi_send_intent_req_ack(struct glink_spi *glink,
 	return 0;
 }
 
-static struct glink_core_rx_intent *
+static struct glink_spi_rx_intent *
 glink_spi_alloc_intent(struct glink_spi *glink,
-		       struct glink_channel *channel,
+		       struct glink_spi_channel *channel,
 		       size_t size,
 		       bool reuseable)
 {
-	struct glink_core_rx_intent *intent;
+	struct glink_spi_rx_intent *intent;
 	int ret;
 	unsigned long flags;
 
@@ -1065,11 +1066,11 @@ free_intent:
  * Return: 0 on success or standard Linux error code.
  */
 static int glink_spi_advertise_intent(struct glink_spi *glink,
-				      struct glink_channel *channel,
-				      struct glink_core_rx_intent *intent)
+				      struct glink_spi_channel *channel,
+				      struct glink_spi_rx_intent *intent)
 {
 	struct command {
-		struct glink_msg msg;
+		struct glink_spi_msg msg;
 		__le32 size;
 		__le32 liid;
 		__le64 addr;
@@ -1104,8 +1105,8 @@ static int glink_spi_advertise_intent(struct glink_spi *glink,
 static void glink_spi_handle_intent_req(struct glink_spi *glink,
 					u32 cid, size_t size)
 {
-	struct glink_core_rx_intent *intent;
-	struct glink_channel *channel;
+	struct glink_spi_rx_intent *intent;
+	struct glink_spi_channel *channel;
 	unsigned long flags;
 
 	spin_lock_irqsave(&glink->idr_lock, flags);
@@ -1124,13 +1125,13 @@ static void glink_spi_handle_intent_req(struct glink_spi *glink,
 	glink_spi_send_intent_req_ack(glink, channel, !!intent);
 }
 
-static int glink_spi_send_short(struct glink_channel *channel,
+static int glink_spi_send_short(struct glink_spi_channel *channel,
 				void *data, int len,
-				struct glink_core_rx_intent *intent, bool wait)
+				struct glink_spi_rx_intent *intent, bool wait)
 {
 	struct glink_spi *glink = channel->glink;
 	struct {
-		struct glink_msg msg;
+		struct glink_spi_msg msg;
 		u8 data[SHORT_SIZE];
 	} __packed req;
 
@@ -1168,13 +1169,13 @@ static int glink_spi_send_short(struct glink_channel *channel,
 	return 0;
 }
 
-static int glink_spi_send_data(struct glink_channel *channel,
+static int glink_spi_send_data(struct glink_spi_channel *channel,
 			       void *data, int chunk_size, int left_size,
-			       struct glink_core_rx_intent *intent, bool wait)
+			       struct glink_spi_rx_intent *intent, bool wait)
 {
 	struct glink_spi *glink = channel->glink;
 	struct {
-		struct glink_msg msg;
+		struct glink_spi_msg msg;
 		__le32 chunk_size;
 		__le32 left_size;
 	} __packed req;
@@ -1219,12 +1220,12 @@ static int glink_spi_send_data(struct glink_channel *channel,
 	return 0;
 }
 
-static int __glink_spi_send(struct glink_channel *channel,
+static int __glink_spi_send(struct glink_spi_channel *channel,
 			    void *data, int len, bool wait)
 {
 	struct glink_spi *glink = channel->glink;
-	struct glink_core_rx_intent *intent = NULL;
-	struct glink_core_rx_intent *tmp;
+	struct glink_spi_rx_intent *intent = NULL;
+	struct glink_spi_rx_intent *tmp;
 	int size = len;
 	int iid = 0;
 	int ret = 0;
@@ -1295,8 +1296,8 @@ static void glink_spi_handle_rx_done(struct glink_spi *glink,
 				     u32 cid, uint32_t iid,
 				     bool reuse)
 {
-	struct glink_core_rx_intent *intent;
-	struct glink_channel *channel;
+	struct glink_spi_rx_intent *intent;
+	struct glink_spi_channel *channel;
 	unsigned long flags;
 
 	spin_lock_irqsave(&glink->idr_lock, flags);
@@ -1328,9 +1329,9 @@ static void glink_spi_handle_rx_done(struct glink_spi *glink,
 }
 
 static int __glink_spi_rx_done(struct glink_spi *glink,
-				struct glink_channel *channel,
-				struct glink_core_rx_intent *intent,
-				bool wait)
+			       struct glink_spi_channel *channel,
+			       struct glink_spi_rx_intent *intent,
+			       bool wait)
 {
 	struct {
 		u16 id;
@@ -1363,11 +1364,13 @@ static int __glink_spi_rx_done(struct glink_spi *glink,
 
 static void glink_spi_rx_done_work(struct work_struct *work)
 {
-	struct glink_channel *channel = container_of(work, struct glink_channel,
-						     intent_work);
-	struct glink_spi *glink = channel->glink;
-	struct glink_core_rx_intent *intent, *tmp;
+	struct glink_spi_channel *channel;
+	struct glink_spi *glink;
+	struct glink_spi_rx_intent *intent, *tmp;
 	unsigned long flags;
+
+	channel = container_of(work, struct glink_spi_channel, intent_work);
+	glink = channel->glink;
 
 	atomic_inc(&glink->activity_cnt);
 	spi_resume(&glink->cmpnt);
@@ -1387,8 +1390,8 @@ static void glink_spi_rx_done_work(struct work_struct *work)
 }
 
 static void glink_spi_rx_done(struct glink_spi *glink,
-			       struct glink_channel *channel,
-			       struct glink_core_rx_intent *intent)
+			       struct glink_spi_channel *channel,
+			       struct glink_spi_rx_intent *intent)
 {
 	unsigned long flags;
 	int ret = -EAGAIN;
@@ -1420,10 +1423,10 @@ static void glink_spi_rx_done(struct glink_spi *glink,
 }
 
 /* Locally initiated rpmsg_create_ept */
-static struct glink_channel *glink_spi_create_local(struct glink_spi *glink,
-						    const char *name)
+static struct glink_spi_channel *glink_spi_create_local(struct glink_spi *glink,
+							const char *name)
 {
-	struct glink_channel *channel;
+	struct glink_spi_channel *channel;
 	int ret;
 	unsigned long flags;
 
@@ -1468,7 +1471,7 @@ release_channel:
 
 /* Remote initiated rpmsg_create_ept */
 static int glink_spi_create_remote(struct glink_spi *glink,
-				   struct glink_channel *channel)
+				   struct glink_spi_channel *channel)
 {
 	int ret;
 
@@ -1502,14 +1505,12 @@ close_link:
 	return ret;
 }
 
-static struct rpmsg_endpoint *glink_spi_create_ept(struct rpmsg_device *rpdev,
-						   rpmsg_rx_cb_t cb,
-						   void *priv,
-						   struct rpmsg_channel_info
-									chinfo)
+static struct rpmsg_endpoint *
+glink_spi_create_ept(struct rpmsg_device *rpdev, rpmsg_rx_cb_t cb, void *priv,
+		     struct rpmsg_channel_info chinfo)
 {
-	struct glink_channel *parent = to_glink_channel(rpdev->ept);
-	struct glink_channel *channel;
+	struct glink_spi_channel *parent = to_glink_channel(rpdev->ept);
+	struct glink_spi_channel *channel;
 	struct glink_spi *glink = parent->glink;
 	struct rpmsg_endpoint *ept;
 	const char *name = chinfo.name;
@@ -1545,10 +1546,10 @@ static struct rpmsg_endpoint *glink_spi_create_ept(struct rpmsg_device *rpdev,
 
 static int glink_spi_announce_create(struct rpmsg_device *rpdev)
 {
-	struct glink_channel *channel = to_glink_channel(rpdev->ept);
+	struct glink_spi_channel *channel = to_glink_channel(rpdev->ept);
 	struct device_node *np = rpdev->dev.of_node;
 	struct glink_spi *glink = channel->glink;
-	struct glink_core_rx_intent *intent;
+	struct glink_spi_rx_intent *intent;
 	const struct property *prop = NULL;
 	__be32 defaults[] = { cpu_to_be32(SZ_1K), cpu_to_be32(5) };
 	int num_intents;
@@ -1583,7 +1584,7 @@ static int glink_spi_announce_create(struct rpmsg_device *rpdev)
 
 static void glink_spi_destroy_ept(struct rpmsg_endpoint *ept)
 {
-	struct glink_channel *channel = to_glink_channel(ept);
+	struct glink_spi_channel *channel = to_glink_channel(ept);
 	struct glink_spi *glink = channel->glink;
 	unsigned long flags;
 
@@ -1600,7 +1601,7 @@ static void glink_spi_destroy_ept(struct rpmsg_endpoint *ept)
 static void glink_spi_rx_close(struct glink_spi *glink, unsigned int rcid)
 {
 	struct rpmsg_channel_info chinfo;
-	struct glink_channel *channel;
+	struct glink_spi_channel *channel;
 	unsigned long flags;
 
 	spin_lock_irqsave(&glink->idr_lock, flags);
@@ -1633,7 +1634,7 @@ static void glink_spi_rx_close(struct glink_spi *glink, unsigned int rcid)
 
 static void glink_spi_rx_close_ack(struct glink_spi *glink, unsigned int lcid)
 {
-	struct glink_channel *channel;
+	struct glink_spi_channel *channel;
 	unsigned long flags;
 
 	spin_lock_irqsave(&glink->idr_lock, flags);
@@ -1653,14 +1654,14 @@ static void glink_spi_rx_close_ack(struct glink_spi *glink, unsigned int lcid)
 
 static int glink_spi_send(struct rpmsg_endpoint *ept, void *data, int len)
 {
-	struct glink_channel *channel = to_glink_channel(ept);
+	struct glink_spi_channel *channel = to_glink_channel(ept);
 
 	return __glink_spi_send(channel, data, len, true);
 }
 
 static int glink_spi_trysend(struct rpmsg_endpoint *ept, void *data, int len)
 {
-	struct glink_channel *channel = to_glink_channel(ept);
+	struct glink_spi_channel *channel = to_glink_channel(ept);
 
 	return __glink_spi_send(channel, data, len, false);
 }
@@ -1674,10 +1675,10 @@ static int glink_spi_trysend(struct rpmsg_endpoint *ept, void *data, int len)
  * Return: 0 on success or standard Linux error code.
  */
 static int glink_spi_send_signals(struct glink_spi *glink,
-				  struct glink_channel *channel,
+				  struct glink_spi_channel *channel,
 				  u32 sigs)
 {
-	struct glink_msg msg;
+	struct glink_spi_msg msg;
 
 	msg.cmd = cpu_to_le16(SPI_CMD_SIGNALS);
 	msg.param1 = cpu_to_le16(channel->lcid);
@@ -1690,7 +1691,7 @@ static int glink_spi_send_signals(struct glink_spi *glink,
 static int glink_spi_handle_signals(struct glink_spi *glink,
 				    unsigned int rcid, unsigned int signals)
 {
-	struct glink_channel *channel;
+	struct glink_spi_channel *channel;
 	unsigned long flags;
 	u32 old;
 
@@ -1716,7 +1717,7 @@ static int glink_spi_handle_signals(struct glink_spi *glink,
 static int glink_spi_get_sigs(struct rpmsg_endpoint *ept,
 			      u32 *lsigs, u32 *rsigs)
 {
-	struct glink_channel *channel = to_glink_channel(ept);
+	struct glink_spi_channel *channel = to_glink_channel(ept);
 
 	*lsigs = channel->lsigs;
 	*rsigs = channel->rsigs;
@@ -1726,7 +1727,7 @@ static int glink_spi_get_sigs(struct rpmsg_endpoint *ept,
 
 static int glink_spi_set_sigs(struct rpmsg_endpoint *ept, u32 sigs)
 {
-	struct glink_channel *channel = to_glink_channel(ept);
+	struct glink_spi_channel *channel = to_glink_channel(ept);
 	struct glink_spi *glink = channel->glink;
 
 	channel->lsigs = sigs;
@@ -1774,16 +1775,16 @@ static const struct rpmsg_endpoint_ops glink_endpoint_ops = {
 static void glink_spi_rpdev_release(struct device *dev)
 {
 	struct rpmsg_device *rpdev = to_rpmsg_device(dev);
-	struct glink_channel *channel = to_glink_channel(rpdev->ept);
+	struct glink_spi_channel *channel = to_glink_channel(rpdev->ept);
 
 	channel->rpdev = NULL;
 	kfree(rpdev);
 }
 
 static int glink_spi_rx_open(struct glink_spi *glink, unsigned int rcid,
-			      char *name)
+			     char *name)
 {
-	struct glink_channel *channel;
+	struct glink_spi_channel *channel;
 	struct rpmsg_device *rpdev;
 	bool create_device = false;
 	struct device_node *node;
@@ -1869,8 +1870,8 @@ static int glink_spi_rx_data(struct glink_spi *glink,
 			     unsigned int rcid, unsigned int liid,
 			     void *rx_data, size_t avail)
 {
-	struct glink_core_rx_intent *intent;
-	struct glink_channel *channel;
+	struct glink_spi_rx_intent *intent;
+	struct glink_spi_channel *channel;
 	struct data_desc {
 		__le32 chunk_size;
 		__le32 left_size;
@@ -1951,8 +1952,8 @@ static int glink_spi_rx_short_data(struct glink_spi *glink,
 				   unsigned int left_size,
 				   void *src, size_t avail)
 {
-	struct glink_core_rx_intent *intent;
-	struct glink_channel *channel;
+	struct glink_spi_rx_intent *intent;
+	struct glink_spi_channel *channel;
 	size_t msglen = SHORT_SIZE;
 	unsigned long flags;
 
@@ -2016,8 +2017,8 @@ static void glink_spi_defer_work(struct work_struct *work)
 	struct glink_spi *glink = container_of(work, struct glink_spi,
 					       rx_defer_work);
 
-	struct glink_defer_cmd *dcmd;
-	struct glink_msg *msg;
+	struct glink_spi_defer_cmd *dcmd;
+	struct glink_spi_msg *msg;
 	unsigned long flags;
 	unsigned int param1;
 	unsigned int param2;
@@ -2034,7 +2035,7 @@ static void glink_spi_defer_work(struct work_struct *work)
 			break;
 		}
 		dcmd = list_first_entry(&glink->rx_queue,
-					struct glink_defer_cmd, node);
+					struct glink_spi_defer_cmd, node);
 		list_del(&dcmd->node);
 		spin_unlock_irqrestore(&glink->rx_lock, flags);
 
@@ -2068,11 +2069,11 @@ static void glink_spi_defer_work(struct work_struct *work)
 static int glink_spi_rx_defer(struct glink_spi *glink,
 			      void *rx_data, u32 rx_avail, size_t extra)
 {
-	struct glink_defer_cmd *dcmd;
+	struct glink_spi_defer_cmd *dcmd;
 
 	extra = ALIGN(extra, SPI_ALIGNMENT);
 
-	if (rx_avail < sizeof(struct glink_msg) + extra) {
+	if (rx_avail < sizeof(struct glink_spi_msg) + extra) {
 		dev_dbg(&glink->dev, "Insufficient data in rx fifo");
 		return -ENXIO;
 	}
@@ -2097,7 +2098,7 @@ static int glink_spi_rx_defer(struct glink_spi *glink,
 static void glink_spi_process_cmd(struct glink_spi *glink, void *rx_data,
 				  u32 rx_size)
 {
-	struct glink_msg *msg;
+	struct glink_spi_msg *msg;
 	unsigned int param1;
 	unsigned int param2;
 	unsigned int param3;
@@ -2109,7 +2110,7 @@ static void glink_spi_process_cmd(struct glink_spi *glink, void *rx_data,
 	char *name;
 
 	while (offset < rx_size) {
-		msg = (struct glink_msg *)(rx_data + offset);
+		msg = (struct glink_spi_msg *)(rx_data + offset);
 		offset += sizeof(*msg);
 
 		cmd = le16_to_cpu(msg->cmd);
@@ -2359,7 +2360,7 @@ static void glink_spi_release(struct device *dev)
 }
 
 struct glink_spi *qcom_glink_spi_register(struct device *parent,
-				     struct device_node *node)
+					  struct device_node *node)
 {
 	struct glink_spi *glink;
 	struct device *dev;
@@ -2448,7 +2449,7 @@ static void glink_spi_remove(struct glink_spi *glink)
 {
 	struct glink_spi_pipe *rx_pipe = &glink->rx_pipe;
 	struct glink_spi_pipe *tx_pipe = &glink->tx_pipe;
-	struct glink_channel *channel;
+	struct glink_spi_channel *channel;
 	int cid;
 	int ret;
 	unsigned long flags;

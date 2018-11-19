@@ -143,5 +143,13 @@ int cnss_pci_register_driver_hdlr(struct cnss_pci_data *pci_priv, void *data);
 int cnss_pci_unregister_driver_hdlr(struct cnss_pci_data *pci_priv);
 int cnss_pci_call_driver_modem_status(struct cnss_pci_data *pci_priv,
 				      int modem_current_status);
+void cnss_pci_pm_runtime_show_usage_count(struct cnss_pci_data *pci_priv);
+int cnss_pci_pm_runtime_get(struct cnss_pci_data *pci_priv);
+void cnss_pci_pm_runtime_get_noresume(struct cnss_pci_data *pci_priv);
+int cnss_pci_pm_runtime_put_autosuspend(struct cnss_pci_data *pci_priv);
+void cnss_pci_pm_runtime_put_noidle(struct cnss_pci_data *pci_priv);
+void cnss_pci_pm_runtime_mark_last_busy(struct cnss_pci_data *pci_priv);
+int cnss_pci_update_status(struct cnss_pci_data *pci_priv,
+			   enum cnss_driver_status status);
 
 #endif /* _CNSS_PCI_H */

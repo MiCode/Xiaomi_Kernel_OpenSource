@@ -925,6 +925,7 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 		pr_err("%s: err: %d status: 0x%08x task-err-info (0x%08lx)\n",
 		       mmc_hostname(mmc), err, status, err_info);
 
+		cmdq_dumpregs(cq_host);
 		/*
 		 * Need to halt CQE in case of error in interrupt context itself
 		 * otherwise CQE may proceed with sending CMD to device even if
@@ -936,7 +937,6 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 		if (ret)
 			pr_err("%s: %s: halt failed ret=%d\n",
 					mmc_hostname(mmc), __func__, ret);
-
 		/*
 		 * Clear the CQIS after halting incase of error. This is done
 		 * because if CQIS is cleared before halting, the CQ will
@@ -946,8 +946,6 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 		 * of error
 		 */
 		cmdq_writel(cq_host, status, CQIS);
-
-		cmdq_dumpregs(cq_host);
 
 		if (!err_info) {
 			/*
