@@ -534,6 +534,12 @@ const struct arm64_cpu_capabilities arm64_errata[] = {
 			   MIDR_CPU_VAR_REV(0, 0),
 			   MIDR_CPU_VAR_REV(3, 0)),
 	},
+	{
+	/* Kryo4xx gold cores all versions */
+		.desc = "ARM erratum 1286807",
+		.capability = ARM64_WORKAROUND_REPEAT_TLBI,
+		MIDR_ALL_VERSIONS(MIDR_KRYO4G),
+	},
 #endif
 #ifdef CONFIG_HARDEN_BRANCH_PREDICTOR
 	{
