@@ -83,12 +83,13 @@ enum core_ldo_levels {
 #define DP_MODE			BIT(1) /* enables DP mode */
 #define USB3_DP_COMBO_MODE	(USB3_MODE | DP_MODE) /*enables combo mode */
 
-/* USB3 Gen2 link training indicator */
+/* PCS_STATUS2 link training indicator */
 #define RX_EQUALIZATION_IN_PROGRESS	BIT(3)
-#define USB3_DP_PCS_CDR_RESET_TIME	0x1DB0
-#define USB3_UNI_PCS_CDR_RESET_TIME	0x09B0
+
+/* PCS_CONFIG5 register offsets for Gen2 link training SW WA */
 #define USB3_DP_PCS_EQ_CONFIG5		0x1DEC
 #define USB3_UNI_PCS_EQ_CONFIG5		0x09EC
+#define RXEQ_RETRAIN_MODE_SEL		BIT(6)
 
 enum qmp_phy_rev_reg {
 	USB3_PHY_PCS_STATUS,
@@ -156,7 +157,6 @@ struct msm_ssphy_qmp {
 	struct hrtimer		timer;
 
 	bool			link_training_reset;
-	u32			cdr_reset_time_offset;
 	u32			eq_config5_offset;
 };
 
@@ -461,7 +461,7 @@ static void usb_qmp_powerup_phy(struct msm_ssphy_qmp *phy)
 
 static void usb_qmp_apply_link_training_workarounds(struct msm_ssphy_qmp *phy)
 {
-	uint32_t version, major, minor;
+	u32 version, major, minor, val;
 
 	if (!phy->link_training_reset)
 		return;
@@ -472,15 +472,12 @@ static void usb_qmp_apply_link_training_workarounds(struct msm_ssphy_qmp *phy)
 
 	/* sw workaround is needed only for hw reviosions below 2.1 */
 	if ((major < 2) || (major == 2 && minor == 0)) {
-		writel_relaxed(0x52, phy->base + phy->eq_config5_offset);
+		val = readl_relaxed(phy->base + phy->eq_config5_offset);
+		val |= RXEQ_RETRAIN_MODE_SEL;
+		writel_relaxed(val, phy->base + phy->eq_config5_offset);
 		phy->phy.link_training	= msm_ssphy_qmp_link_training;
 		return;
 	}
-
-	if (!phy->cdr_reset_time_offset)
-		return;
-
-	writel_relaxed(0xA, phy->base + phy->cdr_reset_time_offset);
 }
 
 /* SSPHY Initialization */
@@ -1228,13 +1225,9 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 
 	if (phy->phy.type == USB_PHY_TYPE_USB3_AND_DP) {
 		phy->eq_config5_offset = USB3_DP_PCS_EQ_CONFIG5;
-		phy->cdr_reset_time_offset = USB3_DP_PCS_CDR_RESET_TIME;
 		phy->phy.reset	= msm_ssphy_qmp_dp_combo_reset;
-	}
-
-	if (phy->phy.type == USB_PHY_TYPE_USB3) {
+	} else if (phy->phy.type == USB_PHY_TYPE_USB3) {
 		phy->eq_config5_offset = USB3_UNI_PCS_EQ_CONFIG5;
-		phy->cdr_reset_time_offset = USB3_UNI_PCS_CDR_RESET_TIME;
 	}
 
 	phy->link_training_reset = of_property_read_bool(dev->of_node,
