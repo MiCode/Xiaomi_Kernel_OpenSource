@@ -86,6 +86,7 @@ static void mdm_handle_clink_evt(enum esoc_evt evt,
 					struct esoc_eng *eng)
 {
 	struct mdm_drv *mdm_drv = to_mdm_drv(eng);
+	struct mdm_ctrl *mdm;
 	bool unexpected_state = false;
 
 	switch (evt) {
@@ -130,6 +131,8 @@ static void mdm_handle_clink_evt(enum esoc_evt evt,
 		if (mdm_drv->mode == CRASH || mdm_drv->mode != RUN)
 			return;
 		mdm_drv->mode = CRASH;
+		mdm = get_esoc_clink_data(mdm_drv->esoc_clink);
+		mdm_wait_for_status_low(mdm);
 		esoc_mdm_log("Starting SSR work\n");
 		queue_work(mdm_drv->mdm_queue, &mdm_drv->ssr_work);
 		break;

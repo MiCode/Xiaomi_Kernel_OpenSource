@@ -389,11 +389,32 @@ static void mdm_get_restart_reason(struct work_struct *work)
 	mdm->get_restart_reason = false;
 }
 
-static void mdm_notify(enum esoc_notify notify, struct esoc_clink *esoc)
+void mdm_wait_for_status_low(struct mdm_ctrl *mdm)
 {
-	bool status_down;
 	uint64_t timeout;
 	uint64_t now;
+
+	esoc_mdm_log("Waiting for MDM2AP_STATUS to go LOW\n");
+	timeout = local_clock();
+	do_div(timeout, NSEC_PER_MSEC);
+	timeout += MDM_MODEM_TIMEOUT;
+	do {
+		if (gpio_get_value(MDM_GPIO(mdm, MDM2AP_STATUS)) == 0) {
+			esoc_mdm_log("MDM2AP_STATUS went LOW\n");
+			return;
+		}
+		now = local_clock();
+		do_div(now, NSEC_PER_MSEC);
+	} while (!time_after64(now, timeout));
+
+	esoc_mdm_log("MDM2AP_STATUS didn't go LOW. Warm-resetting modem\n");
+	dev_err(mdm->dev, "MDM2AP status did not go low\n");
+
+	mdm_toggle_soft_reset(mdm, true);
+}
+
+static void mdm_notify(enum esoc_notify notify, struct esoc_clink *esoc)
+{
 	struct mdm_ctrl *mdm = get_esoc_clink_data(esoc);
 	struct device *dev = mdm->dev;
 
@@ -449,35 +470,13 @@ static void mdm_notify(enum esoc_notify notify, struct esoc_clink *esoc)
 		break;
 	case ESOC_PRIMARY_CRASH:
 		mdm_disable_irqs(mdm);
-		status_down = false;
 		dev_dbg(dev, "signal apq err fatal for graceful restart\n");
 		esoc_mdm_log(
 		"ESOC_PRIMARY_CRASH: Setting AP2MDM_ERRFATAL = 1\n");
 		gpio_set_value(MDM_GPIO(mdm, AP2MDM_ERRFATAL), 1);
 		if (esoc->primary)
 			break;
-		esoc_mdm_log(
-		"ESOC_PRIMARY_CRASH: Waiting for MDM2AP_STATUS to go LOW\n");
-		timeout = local_clock();
-		do_div(timeout, NSEC_PER_MSEC);
-		timeout += MDM_MODEM_TIMEOUT;
-		do {
-			if (gpio_get_value(MDM_GPIO(mdm,
-						MDM2AP_STATUS)) == 0) {
-				status_down = true;
-				break;
-			}
-			now = local_clock();
-			do_div(now, NSEC_PER_MSEC);
-		} while (!time_after64(now, timeout));
-
-		if (!status_down) {
-			esoc_mdm_log(
-	"ESOC_PRIMARY_CRASH: MDM2AP_STATUS didn't go LOW. Resetting modem\n");
-			dev_err(mdm->dev, "%s MDM2AP status did not go low\n",
-								__func__);
-			mdm_toggle_soft_reset(mdm, true);
-		}
+		mdm_wait_for_status_low(mdm);
 		break;
 	case ESOC_PRIMARY_REBOOT:
 		mdm_disable_irqs(mdm);
