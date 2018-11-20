@@ -389,7 +389,7 @@ static void mdm_get_restart_reason(struct work_struct *work)
 	mdm->get_restart_reason = false;
 }
 
-void mdm_wait_for_status_low(struct mdm_ctrl *mdm)
+void mdm_wait_for_status_low(struct mdm_ctrl *mdm, bool atomic)
 {
 	uint64_t timeout;
 	uint64_t now;
@@ -410,7 +410,7 @@ void mdm_wait_for_status_low(struct mdm_ctrl *mdm)
 	esoc_mdm_log("MDM2AP_STATUS didn't go LOW. Warm-resetting modem\n");
 	dev_err(mdm->dev, "MDM2AP status did not go low\n");
 
-	mdm_toggle_soft_reset(mdm, true);
+	mdm_toggle_soft_reset(mdm, atomic);
 }
 
 static void mdm_notify(enum esoc_notify notify, struct esoc_clink *esoc)
@@ -476,7 +476,7 @@ static void mdm_notify(enum esoc_notify notify, struct esoc_clink *esoc)
 		gpio_set_value(MDM_GPIO(mdm, AP2MDM_ERRFATAL), 1);
 		if (esoc->primary)
 			break;
-		mdm_wait_for_status_low(mdm);
+		mdm_wait_for_status_low(mdm, true);
 		break;
 	case ESOC_PRIMARY_REBOOT:
 		mdm_disable_irqs(mdm);
