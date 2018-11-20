@@ -6409,7 +6409,8 @@ static void vcpu_scan_ioapic(struct kvm_vcpu *vcpu)
 		kvm_scan_ioapic_routes(vcpu, vcpu->arch.eoi_exit_bitmap);
 	else {
 		kvm_x86_ops->sync_pir_to_irr(vcpu);
-		kvm_ioapic_scan_entry(vcpu, vcpu->arch.eoi_exit_bitmap);
+		if (ioapic_in_kernel(vcpu->kvm))
+			kvm_ioapic_scan_entry(vcpu, vcpu->arch.eoi_exit_bitmap);
 	}
 	kvm_x86_ops->load_eoi_exitmap(vcpu);
 }
