@@ -146,9 +146,16 @@ static void cam_isp_ctx_dump_req(struct cam_isp_ctx_req *req_isp)
 				CAM_ERR(CAM_ISP,
 					"Invalid len %lld buf_start-end=%d",
 					len, (buf_end - buf_start + 1));
+				if (cam_mem_put_cpu_buf(req_isp->cfg[i].handle))
+					CAM_WARN(CAM_ISP,
+						"Failed to put cpu buf: 0x%x",
+						req_isp->cfg[i].handle);
 				continue;
 			}
 			cam_cdm_util_dump_cmd_buf(buf_start, buf_end);
+			if (cam_mem_put_cpu_buf(req_isp->cfg[i].handle))
+				CAM_WARN(CAM_ISP, "Failed to put cpu buf: 0x%x",
+					req_isp->cfg[i].handle);
 		}
 	}
 }
@@ -1489,11 +1496,6 @@ static int __cam_isp_ctx_flush_req_in_top_state(
 	struct cam_context *ctx,
 	struct cam_req_mgr_flush_request *flush_req)
 {
-	struct cam_isp_context           *ctx_isp =
-		(struct cam_isp_context *) ctx->ctx_priv;
-	struct cam_isp_stop_args          stop_isp;
-	struct cam_hw_stop_args           stop_args;
-	struct cam_isp_start_args         start_isp;
 	int rc = 0;
 
 	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_ALL) {
@@ -1507,47 +1509,6 @@ static int __cam_isp_ctx_flush_req_in_top_state(
 	rc = __cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list, flush_req);
 	spin_unlock_bh(&ctx->lock);
 
-	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_ALL) {
-		/* if active and wait list are empty, return */
-		spin_lock_bh(&ctx->lock);
-		if ((list_empty(&ctx->wait_req_list)) &&
-			(list_empty(&ctx->active_req_list))) {
-			spin_unlock_bh(&ctx->lock);
-			CAM_DBG(CAM_ISP, "active and wait list are empty");
-			goto end;
-		}
-		spin_unlock_bh(&ctx->lock);
-
-		/* Stop hw first before active list flush */
-		stop_args.ctxt_to_hw_map = ctx_isp->hw_ctx;
-		stop_isp.hw_stop_cmd = CAM_ISP_HW_STOP_AT_FRAME_BOUNDARY;
-		stop_isp.stop_only = true;
-		stop_args.args = (void *)&stop_isp;
-		ctx->hw_mgr_intf->hw_stop(ctx->hw_mgr_intf->hw_mgr_priv,
-				&stop_args);
-
-		spin_lock_bh(&ctx->lock);
-		CAM_DBG(CAM_ISP, "try to flush wait list");
-		rc = __cam_isp_ctx_flush_req(ctx, &ctx->wait_req_list,
-		flush_req);
-		CAM_DBG(CAM_ISP, "try to flush active list");
-		rc = __cam_isp_ctx_flush_req(ctx, &ctx->active_req_list,
-		flush_req);
-		ctx_isp->active_req_cnt = 0;
-		spin_unlock_bh(&ctx->lock);
-
-		/* Start hw */
-		start_isp.hw_config.ctxt_to_hw_map = ctx_isp->hw_ctx;
-		start_isp.start_only = true;
-		start_isp.hw_config.priv = NULL;
-
-		rc = ctx->hw_mgr_intf->hw_start(ctx->hw_mgr_intf->hw_mgr_priv,
-			&start_isp);
-	}
-
-end:
-	CAM_DBG(CAM_ISP, "Flush request in top state %d",
-		 ctx->state);
 	return rc;
 }
 
@@ -2078,68 +2039,6 @@ static struct cam_ctx_ops
 	},
 };
 
-/* top level state machine */
-static int __cam_isp_ctx_release_dev_in_top_state(struct cam_context *ctx,
-	struct cam_release_dev_cmd *cmd)
-{
-	int rc = 0;
-	struct cam_hw_release_args       rel_arg;
-	struct cam_isp_context *ctx_isp =
-		(struct cam_isp_context *) ctx->ctx_priv;
-	struct cam_req_mgr_flush_request flush_req;
-
-	if (ctx->link_hdl != -1) {
-		CAM_ERR(CAM_ISP, "ctx expects release dev after unlink");
-		rc =  -EAGAIN;
-		return rc;
-	}
-
-	if (cmd && ctx_isp->hw_ctx && ctx_isp->split_acquire) {
-		CAM_ERR(CAM_ISP, "ctx expects release HW before release dev");
-		return rc;
-	}
-
-	if (ctx_isp->hw_ctx) {
-		rel_arg.ctxt_to_hw_map = ctx_isp->hw_ctx;
-		ctx->hw_mgr_intf->hw_release(ctx->hw_mgr_intf->hw_mgr_priv,
-			&rel_arg);
-		ctx_isp->hw_ctx = NULL;
-	}
-
-	ctx->session_hdl = -1;
-	ctx->dev_hdl = -1;
-	ctx->link_hdl = -1;
-	ctx->ctx_crm_intf = NULL;
-	ctx_isp->frame_id = 0;
-	ctx_isp->active_req_cnt = 0;
-	ctx_isp->reported_req_id = 0;
-	ctx_isp->hw_acquired = false;
-	ctx_isp->init_received = false;
-
-	/*
-	 * Ideally, we should never have any active request here.
-	 * But we still add some sanity check code here to help the debug
-	 */
-	if (!list_empty(&ctx->active_req_list))
-		CAM_ERR(CAM_ISP, "Active list is not empty");
-
-	/* Flush all the pending request list  */
-	flush_req.type = CAM_REQ_MGR_FLUSH_TYPE_ALL;
-	flush_req.link_hdl = ctx->link_hdl;
-	flush_req.dev_hdl = ctx->dev_hdl;
-
-	CAM_DBG(CAM_ISP, "try to flush pending list");
-	spin_lock_bh(&ctx->lock);
-	rc = __cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list, &flush_req);
-	spin_unlock_bh(&ctx->lock);
-	ctx->state = CAM_CTX_AVAILABLE;
-
-	trace_cam_context_state("ISP", ctx);
-	CAM_DBG(CAM_ISP, "Release device success[%u] next state %d",
-		ctx->ctx_id, ctx->state);
-	return rc;
-}
-
 static int __cam_isp_ctx_release_hw_in_top_state(struct cam_context *ctx,
 	void *cmd)
 {
@@ -2158,6 +2057,7 @@ static int __cam_isp_ctx_release_hw_in_top_state(struct cam_context *ctx,
 		CAM_ERR(CAM_ISP, "No hw resources acquired for this ctx");
 	}
 
+	ctx->last_flush_req = 0;
 	ctx_isp->frame_id = 0;
 	ctx_isp->active_req_cnt = 0;
 	ctx_isp->reported_req_id = 0;
@@ -2181,6 +2081,63 @@ static int __cam_isp_ctx_release_hw_in_top_state(struct cam_context *ctx,
 	rc = __cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list, &flush_req);
 	spin_unlock_bh(&ctx->lock);
 	ctx->state = CAM_CTX_ACQUIRED;
+
+	trace_cam_context_state("ISP", ctx);
+	CAM_DBG(CAM_ISP, "Release device success[%u] next state %d",
+		ctx->ctx_id, ctx->state);
+	return rc;
+}
+
+/* top level state machine */
+static int __cam_isp_ctx_release_dev_in_top_state(struct cam_context *ctx,
+	struct cam_release_dev_cmd *cmd)
+{
+	int rc = 0;
+	struct cam_hw_release_args       rel_arg;
+	struct cam_isp_context *ctx_isp =
+		(struct cam_isp_context *) ctx->ctx_priv;
+	struct cam_req_mgr_flush_request flush_req;
+
+	if (cmd && ctx_isp->hw_ctx) {
+		CAM_ERR(CAM_ISP, "releasing hw");
+		__cam_isp_ctx_release_hw_in_top_state(ctx, NULL);
+	}
+
+	if (ctx_isp->hw_ctx) {
+		rel_arg.ctxt_to_hw_map = ctx_isp->hw_ctx;
+		ctx->hw_mgr_intf->hw_release(ctx->hw_mgr_intf->hw_mgr_priv,
+			&rel_arg);
+		ctx_isp->hw_ctx = NULL;
+	}
+
+	ctx->session_hdl = -1;
+	ctx->dev_hdl = -1;
+	ctx->link_hdl = -1;
+	ctx->ctx_crm_intf = NULL;
+	ctx->last_flush_req = 0;
+	ctx_isp->frame_id = 0;
+	ctx_isp->active_req_cnt = 0;
+	ctx_isp->reported_req_id = 0;
+	ctx_isp->hw_acquired = false;
+	ctx_isp->init_received = false;
+
+	/*
+	 * Ideally, we should never have any active request here.
+	 * But we still add some sanity check code here to help the debug
+	 */
+	if (!list_empty(&ctx->active_req_list))
+		CAM_ERR(CAM_ISP, "Active list is not empty");
+
+	/* Flush all the pending request list  */
+	flush_req.type = CAM_REQ_MGR_FLUSH_TYPE_ALL;
+	flush_req.link_hdl = ctx->link_hdl;
+	flush_req.dev_hdl = ctx->dev_hdl;
+
+	CAM_DBG(CAM_ISP, "try to flush pending list");
+	spin_lock_bh(&ctx->lock);
+	rc = __cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list, &flush_req);
+	spin_unlock_bh(&ctx->lock);
+	ctx->state = CAM_CTX_AVAILABLE;
 
 	trace_cam_context_state("ISP", ctx);
 	CAM_DBG(CAM_ISP, "Release device success[%u] next state %d",
@@ -2215,8 +2172,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 
 	if (!req) {
 		CAM_ERR(CAM_ISP, "No more request obj free");
-		rc = -ENOMEM;
-		goto end;
+		return -ENOMEM;
 	}
 
 	req_isp = (struct cam_isp_ctx_req *) req->req_priv;
@@ -2241,16 +2197,14 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	CAM_DBG(CAM_ISP, "Packet size 0x%x", packet->header.size);
 	CAM_DBG(CAM_ISP, "packet op %d", packet->header.op_code);
 
-	if (packet->header.request_id <= ctx->last_flush_req) {
+	if ((((packet->header.op_code + 1) & 0xF) == CAM_ISP_PACKET_UPDATE_DEV)
+		&& (packet->header.request_id <= ctx->last_flush_req)) {
 		CAM_INFO(CAM_ISP,
 			"request %lld has been flushed, reject packet",
 			packet->header.request_id);
 		rc = -EINVAL;
-		goto free_req;
+		goto free_cpu_buf;
 	}
-
-	if (packet->header.request_id > ctx->last_flush_req)
-		ctx->last_flush_req = 0;
 
 	/* preprocess the configuration */
 	memset(&cfg, 0, sizeof(cfg));
@@ -2272,7 +2226,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	if (rc != 0) {
 		CAM_ERR(CAM_ISP, "Prepare config packet failed in HW layer");
 		rc = -EFAULT;
-		goto free_req;
+		goto free_cpu_buf;
 	}
 	req_isp->num_cfg = cfg.num_hw_update_entries;
 	req_isp->num_fence_map_out = cfg.num_out_map_entries;
@@ -2333,6 +2287,10 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	if (rc)
 		goto put_ref;
 
+	if (cam_mem_put_cpu_buf((int32_t) cmd->packet_handle))
+		CAM_WARN(CAM_ISP, "Can not put packet address : 0x%x",
+			cmd->packet_handle);
+
 	CAM_DBG(CAM_REQ,
 		"Preprocessing Config req_id %lld successful on ctx %u",
 		req->request_id, ctx->ctx_id);
@@ -2341,16 +2299,19 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 
 put_ref:
 	for (--i; i >= 0; i--) {
-		rc = cam_sync_put_obj_ref(req_isp->fence_map_out[i].sync_id);
-		if (rc)
+		if (cam_sync_put_obj_ref(req_isp->fence_map_out[i].sync_id))
 			CAM_ERR(CAM_CTXT, "Failed to put ref of fence %d",
 				req_isp->fence_map_out[i].sync_id);
 	}
+free_cpu_buf:
+	if (cam_mem_put_cpu_buf((int32_t) cmd->packet_handle))
+		CAM_WARN(CAM_ISP, "Can not put packet address: 0x%x",
+			cmd->packet_handle);
 free_req:
 	spin_lock_bh(&ctx->lock);
 	list_add_tail(&req->list, &ctx->free_req_list);
 	spin_unlock_bh(&ctx->lock);
-end:
+
 	return rc;
 }
 
@@ -2898,6 +2859,12 @@ static int __cam_isp_ctx_stop_dev_in_activated_unlock(
 
 	CAM_DBG(CAM_ISP, "Stop device success next state %d on ctx %u",
 		ctx->state, ctx->ctx_id);
+
+	if (!stop_cmd) {
+		rc = __cam_isp_ctx_unlink_in_ready(ctx, NULL);
+		if (rc)
+			CAM_ERR(CAM_ISP, "Unlink failed rc=%d", rc);
+	}
 	return rc;
 }
 

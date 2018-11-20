@@ -3314,7 +3314,7 @@ static int cam_vfe_bus_deinit_hw(void *hw_priv,
 	void *deinit_hw_args, uint32_t arg_size)
 {
 	struct cam_vfe_bus_ver2_priv    *bus_priv = hw_priv;
-	int                              rc = 0;
+	int                              rc = 0, i;
 
 	if (!bus_priv) {
 		CAM_ERR(CAM_ISP, "Error: Invalid args");
@@ -3341,6 +3341,13 @@ static int cam_vfe_bus_deinit_hw(void *hw_priv,
 				"Failed to unsubscribe irq rc=%d", rc);
 
 		bus_priv->irq_handle = 0;
+	}
+
+	INIT_LIST_HEAD(&bus_priv->common_data.free_payload_list);
+	for (i = 0; i < CAM_VFE_BUS_VER2_PAYLOAD_MAX; i++) {
+		INIT_LIST_HEAD(&bus_priv->common_data.evt_payload[i].list);
+		list_add_tail(&bus_priv->common_data.evt_payload[i].list,
+			&bus_priv->common_data.free_payload_list);
 	}
 
 	return rc;
