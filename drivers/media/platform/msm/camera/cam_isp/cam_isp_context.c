@@ -2096,6 +2096,7 @@ static int __cam_isp_ctx_release_hw_in_top_state(struct cam_context *ctx,
 		CAM_ERR(CAM_ISP, "No hw resources acquired for this ctx");
 	}
 
+	ctx->last_flush_req = 0;
 	ctx_isp->frame_id = 0;
 	ctx_isp->active_req_cnt = 0;
 	ctx_isp->reported_req_id = 0;
@@ -2152,6 +2153,7 @@ static int __cam_isp_ctx_release_dev_in_top_state(struct cam_context *ctx,
 	ctx->dev_hdl = -1;
 	ctx->link_hdl = -1;
 	ctx->ctx_crm_intf = NULL;
+	ctx->last_flush_req = 0;
 	ctx_isp->frame_id = 0;
 	ctx_isp->active_req_cnt = 0;
 	ctx_isp->reported_req_id = 0;
@@ -2243,9 +2245,6 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 		rc = -EINVAL;
 		goto free_req;
 	}
-
-	if (packet->header.request_id > ctx->last_flush_req)
-		ctx->last_flush_req = 0;
 
 	/* preprocess the configuration */
 	memset(&cfg, 0, sizeof(cfg));
