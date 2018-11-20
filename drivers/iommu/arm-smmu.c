@@ -55,6 +55,8 @@
 #include <linux/msm-bus.h>
 #include <trace/events/iommu.h>
 #include <dt-bindings/msm/msm-bus-ids.h>
+#include <linux/irq.h>
+#include <linux/wait.h>
 
 #include <linux/amba/bus.h>
 
@@ -524,6 +526,108 @@ static bool arm_smmu_opt_hibernation(struct arm_smmu_device *smmu)
 {
 	return IS_ENABLED(CONFIG_HIBERNATION);
 }
+
+#ifdef CONFIG_ARM_SMMU_SELFTEST
+
+static int selftest;
+module_param_named(selftest, selftest, int, 0644);
+static int irq_count;
+
+static DECLARE_WAIT_QUEUE_HEAD(wait_int);
+static irqreturn_t arm_smmu_cf_selftest(int irq, void *cb_base)
+{
+	u32 fsr;
+	struct irq_data *irq_data = irq_get_irq_data(irq);
+	unsigned long hwirq = ULONG_MAX;
+
+	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
+
+	irq_count++;
+	if (irq_data)
+		hwirq = irq_data->hwirq;
+	pr_info("Interrupt (irq:%d hwirq:%ld) received, fsr:0x%x\n",
+				irq, hwirq, fsr);
+
+	writel_relaxed(fsr, cb_base + ARM_SMMU_CB_FSR);
+
+	wake_up(&wait_int);
+	return IRQ_HANDLED;
+}
+
+static void arm_smmu_interrupt_selftest(struct arm_smmu_device *smmu)
+{
+	int cb;
+	int cb_count = 0;
+
+	if (!selftest)
+		return;
+
+	if (arm_smmu_is_static_cb(smmu))
+		return;
+
+	cb = smmu->num_s2_context_banks;
+
+	if (smmu->version < ARM_SMMU_V2)
+		return;
+
+	for_each_clear_bit_from(cb, smmu->context_map,
+				smmu->num_context_banks) {
+		int irq;
+		int ret;
+		void *cb_base;
+		u32 reg;
+		u32 reg_orig;
+		int irq_cnt;
+
+		irq = smmu->irqs[smmu->num_global_irqs + cb];
+		cb_base = ARM_SMMU_CB(smmu, cb);
+
+		ret = devm_request_threaded_irq(smmu->dev, irq, NULL,
+				arm_smmu_cf_selftest,
+				IRQF_ONESHOT | IRQF_SHARED,
+				"arm-smmu-context-fault", cb_base);
+		if (ret < 0) {
+			dev_err(smmu->dev,
+				"Failed to request cntx IRQ %d (%u)\n",
+				cb, irq);
+			continue;
+		}
+
+		cb_count++;
+		irq_cnt = irq_count;
+
+		reg_orig = readl_relaxed(cb_base + ARM_SMMU_CB_SCTLR);
+		reg = reg_orig | SCTLR_CFIE | SCTLR_CFRE;
+
+		writel_relaxed(reg, cb_base + ARM_SMMU_CB_SCTLR);
+		dev_info(smmu->dev, "Testing cntx %d irq %d\n", cb, irq);
+
+		/* Make sure ARM_SMMU_CB_SCTLR is configured */
+		wmb();
+		writel_relaxed(FSR_TF, cb_base + ARM_SMMU_CB_FSRRESTORE);
+
+		wait_event_timeout(wait_int, (irq_count > irq_cnt),
+			msecs_to_jiffies(1000));
+
+		/* Make sure ARM_SMMU_CB_FSRRESTORE is written to */
+		wmb();
+		writel_relaxed(reg_orig, cb_base + ARM_SMMU_CB_SCTLR);
+		devm_free_irq(smmu->dev, irq, cb_base);
+	}
+
+	dev_info(smmu->dev,
+			"Interrupt selftest completed...\n");
+	dev_info(smmu->dev,
+			"Tested %d contexts, received %d interrupts\n",
+			cb_count, irq_count);
+	WARN_ON(cb_count != irq_count);
+	irq_count = 0;
+}
+#else
+static void arm_smmu_interrupt_selftest(struct arm_smmu_device *smmu)
+{
+}
+#endif
 
 /*
  * init()
@@ -2319,7 +2423,10 @@ static void arm_smmu_domain_remove_master(struct arm_smmu_domain *smmu_domain,
 
 	mutex_lock(&smmu->stream_map_mutex);
 	for_each_cfg_sme(fwspec, i, idx) {
-		WARN_ON(s2cr[idx].attach_count == 0);
+		if (WARN_ON(s2cr[idx].attach_count == 0)) {
+			mutex_unlock(&smmu->stream_map_mutex);
+			return;
+		}
 		s2cr[idx].attach_count -= 1;
 
 		if (s2cr[idx].attach_count > 0)
@@ -4711,12 +4818,15 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	if (err)
 		goto out_power_off;
 
-	if (smmu->version == ARM_SMMU_V2 &&
-	    smmu->num_context_banks != smmu->num_context_irqs) {
-		dev_err(dev,
-			"found %d context interrupt(s) but have %d context banks. assuming %d context interrupts.\n",
-			smmu->num_context_irqs, smmu->num_context_banks,
-			smmu->num_context_banks);
+	if (smmu->version == ARM_SMMU_V2) {
+		if (smmu->num_context_banks > smmu->num_context_irqs) {
+			dev_err(dev,
+				"found %d context irq(s) but have %d context banks. assuming %d context interrupts.\n",
+				smmu->num_context_irqs, smmu->num_context_banks,
+				smmu->num_context_banks);
+		}
+
+		/* Ignore superfluous interrupts */
 		smmu->num_context_irqs = smmu->num_context_banks;
 	}
 
@@ -4748,6 +4858,7 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, smmu);
 	arm_smmu_device_reset(smmu);
 	arm_smmu_test_smr_masks(smmu);
+	arm_smmu_interrupt_selftest(smmu);
 	arm_smmu_power_off(smmu->pwr);
 
 	/*

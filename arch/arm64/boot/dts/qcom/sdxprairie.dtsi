@@ -16,22 +16,35 @@
 #include <dt-bindings/clock/qcom,rpmh.h>
 #include <dt-bindings/clock/qcom,aop-qmp.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/soc/qcom,tcs-mbox.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. SDXPRAIRIE";
 	compatible = "qcom,sdxprairie";
 	qcom,msm-id = <357 0x0>;
-	interrupt-parent = <&intc>;
+	interrupt-parent = <&pdc>;
 
 	reserved-memory {
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
 
+		tz_mem: tz_region@8ff00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x8ff00000 0x100000>;
+			label = "tz_mem";
+		};
+
+		smem_region: smem_region@8fe40000 {
+			no-map;
+			reg = <0x8fe40000 0xc0000>;
+		};
+
 		peripheral2_mem: peripheral2_region@8fd00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x8fd00000 0x300000>;
+			reg = <0x8fd00000 0x140000>;
 			label = "peripheral2_mem";
 		};
 
@@ -63,6 +76,7 @@
 	soc: soc { };
 };
 
+#include "sdxprairie-regulator.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -72,9 +86,18 @@
 	intc: interrupt-controller@17800000 {
 		compatible = "qcom,msm-qgic2";
 		interrupt-controller;
+		interrupt-parent = <&intc>;
 		#interrupt-cells = <3>;
 		reg = <0x17800000 0x1000>,
 		      <0x17802000 0x1000>;
+	};
+
+	pdc: interrupt-controller@b210000{
+		compatible = "qcom,pdc-sdxprairie";
+		reg = <0xb210000 0x30000>;
+		#interrupt-cells = <3>;
+		interrupt-parent = <&intc>;
+		interrupt-controller;
 	};
 
 	timer {
@@ -201,6 +224,18 @@
 		qcom,rmnet-ipa-ssr;
 	};
 
+	qcom,ipa_fws {
+		compatible = "qcom,pil-tz-generic";
+		qcom,pas-id = <0xf>;
+		qcom,firmware-name = "ipa_fws";
+		qcom,pil-force-shutdown;
+	};
+
+	qcom,sps {
+		compatible = "qcom,msm-sps-4k";
+		qcom,pipe-attr-ee;
+	};
+
 	ipa_hw: qcom,ipa@01e00000 {
 		compatible = "qcom,ipa";
 		reg = <0x1e00000 0xc0000>,
@@ -252,8 +287,148 @@
 		qcom,throughput-threshold = <310 600 1000>;
 		qcom,scaling-exceptions = <>;
 	};
+
+	tcsr_mutex_block: syscon@1f40000 {
+		compatible = "syscon";
+		reg = <0x1f40000 0x20000>;
+	};
+
+	tcsr_mutex: hwlock {
+		compatible = "qcom,tcsr-mutex";
+		syscon = <&tcsr_mutex_block 0 0x1000>;
+		#hwlock-cells = <1>;
+	};
+
+	smem: qcom,smem {
+		compatible = "qcom,smem";
+		memory-region = <&smem_region>;
+		hwlocks = <&tcsr_mutex 3>;
+	};
+
+	apcs_glb: mailbox@0x17811000 {
+		compatible = "qcom,sdxprairie-apcs-gcc";
+		reg = <0x17811000 0xb9>;
+		#mbox-cells = <1>;
+	};
+
+	qcom,glink {
+		compatible = "qcom,glink";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		glink_modem: modem {
+			qcom,remote-pid = <1>;
+			transport = "smem";
+			mboxes = <&apcs_glb 12>;
+			mbox-names = "mpss_smem";
+			interrupts = <GIC_SPI 111 IRQ_TYPE_EDGE_RISING>;
+
+			label = "modem";
+			qcom,glink-label = "mpss";
+
+			qcom,modem_qrtr {
+				qcom,glink-channels = "IPCRTR";
+				qcom,intents = <0x800  5
+						0x2000 3
+						0x4400 2>;
+			};
+		};
+	};
+
+	qcom,glinkpkt {
+		compatible = "qcom,glinkpkt";
+
+		qcom,glinkpkt-at-mdm0 {
+			qcom,glinkpkt-edge = "mpss";
+			qcom,glinkpkt-ch-name = "DS";
+			qcom,glinkpkt-dev-name = "at_mdm0";
+		};
+
+		qcom,glinkpkt-data40-cntl {
+			qcom,glinkpkt-edge = "mpss";
+			qcom,glinkpkt-ch-name = "DATA40_CNTL";
+			qcom,glinkpkt-dev-name = "smdcntl8";
+		};
+
+		qcom,glinkpkt-data1 {
+			qcom,glinkpkt-edge = "mpss";
+			qcom,glinkpkt-ch-name = "DATA1";
+			qcom,glinkpkt-dev-name = "smd7";
+		};
+
+		qcom,glinkpkt-data4 {
+			qcom,glinkpkt-edge = "mpss";
+			qcom,glinkpkt-ch-name = "DATA4";
+			qcom,glinkpkt-dev-name = "smd8";
+		};
+
+		qcom,glinkpkt-data11 {
+			qcom,glinkpkt-edge = "mpss";
+			qcom,glinkpkt-ch-name = "DATA11";
+			qcom,glinkpkt-dev-name = "smd11";
+		};
+	};
+
+	 qmp_aop: qcom,qmp-aop@c300000 {
+		compatible = "qcom,qmp-mbox";
+		reg = <0xc310000 0x1000>, <0x17811008 0x4>;
+		reg-names = "msgram", "irq-reg-base";
+		qcom,irq-mask = <0x1>;
+		interrupts = <GIC_SPI 147 IRQ_TYPE_EDGE_RISING>;
+
+		label = "aop";
+		qcom,early-boot;
+		priority = <0>;
+		mbox-desc-offset = <0x0>;
+		#mbox-cells = <1>;
+	};
+
+	apps_rsc: mailbox@17840000 {
+		compatible = "qcom,tcs-drv";
+		label = "apps_rsc";
+		reg = <0x17840000 0x100>, <0x17840d00 0x3000>;
+		interrupts = <0 17 0>;
+		#mbox-cells = <1>;
+		qcom,drv-id = <1>;
+		qcom,tcs-config = <ACTIVE_TCS  2>,
+				  <SLEEP_TCS   2>,
+				  <WAKE_TCS    2>,
+				  <CONTROL_TCS 1>;
+	};
+
+	cmd_db: qcom,cmd-db@c37000c {
+		compatible = "qcom,cmd-db";
+		reg = <0xc37000c 8>;
+	};
+
+	system_pm {
+		compatible = "qcom,system-pm";
+		mboxes = <&apps_rsc 0>;
+	};
+
+	qcom,smp2p-modem@1799000c {
+		compatible = "qcom,smp2p";
+		qcom,smem = <435>, <428>;
+		interrupts = <GIC_SPI 112 IRQ_TYPE_EDGE_RISING>;
+		mboxes = <&apcs_glb 14>;
+		qcom,local-pid = <0>;
+		qcom,remote-pid = <1>;
+
+		modem_smp2p_out: master-kernel {
+			qcom,entry-name = "master-kernel";
+			#qcom,smem-state-cells = <1>;
+		};
+
+		modem_smp2p_in: slave-kernel {
+			qcom,entry-name = "slave-kernel";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+	};
 };
 
+#include "sdxprairie-pm.dtsi"
 #include "sdxprairie-pinctrl.dtsi"
 #include "sdxprairie-ion.dtsi"
 #include "sdxprairie-bus.dtsi"

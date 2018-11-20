@@ -309,4 +309,9 @@ endif # NETWORK_FILESYSTEMS
 source "fs/nls/Kconfig"
 source "fs/dlm/Kconfig"
 
+config FILE_TABLE_DEBUG
+	bool "Enable FILE_TABLE_DEBUG"
+	help
+	  This option enables debug of the open files using a global filetable
+
 endmenu

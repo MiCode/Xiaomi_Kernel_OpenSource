@@ -47,7 +47,7 @@ MODULE_PARM_DESC(qmi_timeout, "Timeout for QMI message in milliseconds");
 
 #define QMI_WLFW_MAX_RECV_BUF_SIZE	SZ_8K
 
-static bool daemon_support;
+static bool daemon_support = true;
 module_param(daemon_support, bool, 0600);
 MODULE_PARM_DESC(daemon_support, "User space has cnss-daemon support or not");
 
@@ -113,6 +113,8 @@ static int cnss_wlfw_ind_register_send_sync(struct cnss_plat_data *plat_priv)
 	req->fw_init_done_enable = 1;
 	req->pin_connect_result_enable_valid = 1;
 	req->pin_connect_result_enable = 1;
+	req->cal_done_enable_valid = 1;
+	req->cal_done_enable = 1;
 
 	ret = qmi_txn_init(&plat_priv->qmi_wlfw, &txn,
 			   wlfw_ind_register_resp_msg_v01_ei, resp);
@@ -1185,6 +1187,24 @@ static void cnss_wlfw_pin_result_ind_cb(struct qmi_handle *qmi_wlfw,
 		    ind_msg->rf_pin_result);
 }
 
+static void cnss_wlfw_cal_done_ind_cb(struct qmi_handle *qmi_wlfw,
+				      struct sockaddr_qrtr *sq,
+				      struct qmi_txn *txn, const void *data)
+{
+	struct cnss_plat_data *plat_priv =
+		container_of(qmi_wlfw, struct cnss_plat_data, qmi_wlfw);
+
+	cnss_pr_dbg("Received QMI WLFW calibration done indication\n");
+
+	if (!txn) {
+		cnss_pr_err("Spurious indication\n");
+		return;
+	}
+
+	cnss_driver_event_post(plat_priv, CNSS_DRIVER_EVENT_COLD_BOOT_CAL_DONE,
+			       0, NULL);
+}
+
 static struct qmi_msg_handler qmi_wlfw_msg_handlers[] = {
 	{
 		.type = QMI_INDICATION,
@@ -1221,6 +1241,13 @@ static struct qmi_msg_handler qmi_wlfw_msg_handlers[] = {
 		.decoded_size =
 			sizeof(struct wlfw_pin_connect_result_ind_msg_v01),
 		.fn = cnss_wlfw_pin_result_ind_cb
+	},
+	{
+		.type = QMI_INDICATION,
+		.msg_id = QMI_WLFW_CAL_DONE_IND_V01,
+		.ei = wlfw_cal_done_ind_msg_v01_ei,
+		.decoded_size = sizeof(struct wlfw_cal_done_ind_msg_v01),
+		.fn = cnss_wlfw_cal_done_ind_cb
 	},
 	{}
 };

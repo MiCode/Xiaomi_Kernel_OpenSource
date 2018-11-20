@@ -209,6 +209,7 @@ struct dp_parser {
 	bool has_mst;
 	bool has_mst_sideband;
 	bool no_aux_switch;
+	bool has_widebus;
 
 	int (*parse)(struct dp_parser *parser);
 	struct dp_io_data *(*get_io)(struct dp_parser *parser, char *name);

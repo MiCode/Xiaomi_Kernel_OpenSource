@@ -219,6 +219,7 @@ struct dsb_dataset {
 	uint32_t		trig_patt_val[TPDM_DSB_MAX_PATT];
 	uint32_t		trig_patt_mask[TPDM_DSB_MAX_PATT];
 	bool			trig_ts;
+	bool			trig_type;
 	uint32_t		select_val[TPDM_DSB_MAX_SELECT];
 	uint32_t		msr[TPDM_DSB_MAX_MSR];
 };
@@ -270,6 +271,8 @@ struct tpdm_drvdata {
 	bool			msr_support;
 	bool			msr_fix_req;
 };
+
+static void tpdm_init_default_data(struct tpdm_drvdata *drvdata);
 
 static void tpdm_setup_disable(struct tpdm_drvdata *drvdata)
 {
@@ -552,6 +555,13 @@ static void __tpdm_enable_dsb(struct tpdm_drvdata *drvdata)
 		val = val | BIT(1);
 	else
 		val = val & ~BIT(1);
+
+	/* Set trigger type */
+	if (drvdata->dsb->trig_type)
+		val = val | BIT(12);
+	else
+		val = val & ~BIT(12);
+
 	tpdm_writel(drvdata, val, TPDM_DSB_CR);
 
 	val = tpdm_readl(drvdata, TPDM_DSB_CR);
@@ -888,6 +898,57 @@ static ssize_t tpdm_store_enable_datasets(struct device *dev,
 }
 static DEVICE_ATTR(enable_datasets, 0644,
 		   tpdm_show_enable_datasets, tpdm_store_enable_datasets);
+
+static ssize_t reset_store(struct device *dev,
+					  struct device_attribute *attr,
+					  const char *buf,
+					  size_t size)
+{
+	int ret = 0;
+	unsigned long val;
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	ret = kstrtoul(buf, 10, &val);
+	if (ret)
+		return ret;
+
+	mutex_lock(&drvdata->lock);
+	/* Reset all datasets to ZERO */
+	if (drvdata->gpr != NULL)
+		memset(drvdata->gpr, 0, sizeof(struct gpr_dataset));
+
+	if (drvdata->bc != NULL)
+		memset(drvdata->bc, 0, sizeof(struct bc_dataset));
+
+	if (drvdata->dsb != NULL)
+		memset(drvdata->dsb, 0, sizeof(struct dsb_dataset));
+
+	if (drvdata->cmb != NULL) {
+		if (drvdata->cmb->mcmb != NULL)
+			memset(drvdata->cmb->mcmb, 0,
+				sizeof(struct mcmb_dataset));
+
+		memset(drvdata->cmb, 0, sizeof(struct cmb_dataset));
+	}
+	/* Init the default data */
+	tpdm_init_default_data(drvdata);
+
+	/* Disable tpdm if enabled */
+	if (drvdata->enable) {
+		__tpdm_disable(drvdata);
+		drvdata->enable = false;
+	}
+
+	mutex_unlock(&drvdata->lock);
+
+	if (drvdata->enable) {
+		tpdm_setup_disable(drvdata);
+		dev_info(drvdata->dev, "TPDM tracing disabled\n");
+	}
+
+	return size;
+}
+static DEVICE_ATTR_WO(reset);
 
 static ssize_t tpdm_show_gp_regs(struct device *dev,
 				 struct device_attribute *attr,
@@ -3305,6 +3366,43 @@ static ssize_t tpdm_store_dsb_trig_patt_mask(struct device *dev,
 static DEVICE_ATTR(dsb_trig_patt_mask, 0644,
 		   tpdm_show_dsb_trig_patt_mask, tpdm_store_dsb_trig_patt_mask);
 
+static ssize_t tpdm_show_dsb_trig_type(struct device *dev,
+				     struct device_attribute *attr,
+				     char *buf)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	if (!test_bit(TPDM_DS_DSB, drvdata->datasets))
+		return -EPERM;
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n",
+			 (unsigned int)drvdata->dsb->trig_type);
+}
+
+static ssize_t tpdm_store_dsb_trig_type(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf,
+				      size_t size)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	if (kstrtoul(buf, 16, &val))
+		return -EINVAL;
+	if (!test_bit(TPDM_DS_DSB, drvdata->datasets))
+		return -EPERM;
+
+	mutex_lock(&drvdata->lock);
+	if (val)
+		drvdata->dsb->trig_type = true;
+	else
+		drvdata->dsb->trig_type = false;
+	mutex_unlock(&drvdata->lock);
+	return size;
+}
+static DEVICE_ATTR(dsb_trig_type, 0644,
+		   tpdm_show_dsb_trig_type, tpdm_store_dsb_trig_type);
+
 static ssize_t tpdm_show_dsb_trig_ts(struct device *dev,
 				     struct device_attribute *attr,
 				     char *buf)
@@ -4118,6 +4216,7 @@ static struct attribute *tpdm_dsb_attrs[] = {
 	&dev_attr_dsb_trig_patt_val.attr,
 	&dev_attr_dsb_trig_patt_mask.attr,
 	&dev_attr_dsb_trig_ts.attr,
+	&dev_attr_dsb_trig_type.attr,
 	&dev_attr_dsb_select_val.attr,
 	&dev_attr_dsb_msr.attr,
 	NULL,
@@ -4162,6 +4261,7 @@ static struct attribute_group tpdm_cmb_attr_grp = {
 static struct attribute *tpdm_attrs[] = {
 	&dev_attr_available_datasets.attr,
 	&dev_attr_enable_datasets.attr,
+	&dev_attr_reset.attr,
 	&dev_attr_gp_regs.attr,
 	NULL,
 };
@@ -4231,8 +4331,10 @@ static void tpdm_init_default_data(struct tpdm_drvdata *drvdata)
 	if (test_bit(TPDM_DS_TC, drvdata->datasets))
 		drvdata->tc->retrieval_mode = TPDM_MODE_ATB;
 
-	if (test_bit(TPDM_DS_DSB, drvdata->datasets))
+	if (test_bit(TPDM_DS_DSB, drvdata->datasets)) {
 		drvdata->dsb->trig_ts = true;
+		drvdata->dsb->trig_type = false;
+	}
 
 	if (test_bit(TPDM_DS_CMB, drvdata->datasets) ||
 	    test_bit(TPDM_DS_MCMB, drvdata->datasets))

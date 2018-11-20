@@ -418,7 +418,7 @@
 			1785600 128
 		>;
 		idle-cost-data = <
-			22 18 14 12
+			18 14 12
 		>;
 	};
 
@@ -443,7 +443,7 @@
 			2419200 1022
 		>;
 		idle-cost-data = <
-			100 80 60 40
+			80 60 40
 		>;
 	};
 
@@ -471,7 +471,7 @@
 			2841600 1427
 		>;
 		idle-cost-data = <
-			130 110 90 70
+			110 90 70
 		>;
 	};
 
@@ -497,7 +497,7 @@
 			1785600 17
 		>;
 		idle-cost-data = <
-			4 3 2 1
+			3 2 1
 		>;
 	};
 
@@ -522,7 +522,7 @@
 			2419200 106
 		>;
 		idle-cost-data = <
-			4 3 2 1
+			3 2 1
 		>;
 	};
 
@@ -550,7 +550,7 @@
 			2841600 180
 		>;
 		idle-cost-data = <
-			4 3 2 1
+			3 2 1
 		>;
 	};
 };
@@ -561,6 +561,9 @@
 &msm_gpu {
 	/* Updated chip ID */
 	qcom,chipid = <0x06040001>;
+
+	/* Power level to start throttling */
+	qcom,throttle-pwrlevel = <2>;
 
 	/* Updated Bus Scale Settings */
 	qcom,msm-bus,num-cases = <12>;
@@ -668,6 +671,18 @@
 	reg-names = "kgsl_gmu_reg",
 		"kgsl_gmu_pdc_cfg",
 		"kgsl_gmu_pdc_seq";
+
+	qcom,gpu-acd-table {
+		/* Corresponds to levels in the GPU perf table */
+		qcom,acd-enable-by-level = <0x1e>;
+		qcom,acd-stride = <0x2>;
+		qcom,acd-num-levels = <0x4>;
+
+		qcom,acd-data = <0xa02d5ffd 0x00007611
+				0xa02d5ffd 0x00006911
+				0xa02d5ffd 0x00006111
+				0x802d5ffd 0x00005411>;
+	};
 };
 
 /* NPU overrides */
@@ -910,6 +925,18 @@
 };
 
 &cpu4_cpu_l3_latmon {
+	qcom,core-dev-table =
+		<  300000  300000000 >,
+		<  825600  614400000 >,
+		< 1171200  806400000 >,
+		< 1401600  998400000 >,
+		< 1708800 1267200000 >,
+		< 2016000 1344000000 >,
+		< 2419200 1536000000 >,
+		< 2841600 1612800000 >;
+};
+
+&cpu7_cpu_l3_latmon {
 	qcom,core-dev-table =
 		<  300000  300000000 >,
 		<  825600  614400000 >,

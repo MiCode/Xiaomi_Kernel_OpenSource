@@ -32,7 +32,7 @@
 #include "clk-regmap-divider.h"
 #include "common.h"
 #include "reset.h"
-#include "vdd-level.h"
+#include "vdd-level-sdmmagpie.h"
 
 #define F(f, s, h, m, n) { (f), (s), (2 * (h) - 1), (m), (n) }
 
@@ -93,6 +93,11 @@ static const char * const disp_cc_parent_names_2[] = {
 	"core_bi_pll_test_se",
 };
 
+static const char * const disp_cc_parent_names_ao[] = {
+	"bi_tcxo_ao",
+	"core_bi_pll_test_se",
+};
+
 static const struct parent_map disp_cc_parent_map_3[] = {
 	{ P_BI_TCXO, 0 },
 	{ P_DISP_CC_PLL0_OUT_MAIN, 1 },
@@ -104,7 +109,7 @@ static const struct parent_map disp_cc_parent_map_3[] = {
 static const char * const disp_cc_parent_names_3[] = {
 	"bi_tcxo",
 	"disp_cc_pll0",
-	"gpll0",
+	"gcc_disp_gpll0_clk_src",
 	"disp_cc_pll0_out_even",
 	"core_bi_pll_test_se",
 };
@@ -131,7 +136,7 @@ static const struct parent_map disp_cc_parent_map_5[] = {
 
 static const char * const disp_cc_parent_names_5[] = {
 	"bi_tcxo",
-	"gpll0",
+	"gcc_disp_gpll0_clk_src",
 	"core_bi_pll_test_se",
 };
 
@@ -195,6 +200,7 @@ static struct clk_rcg2 disp_cc_mdss_ahb_clk_src = {
 		.name = "disp_cc_mdss_ahb_clk_src",
 		.parent_names = disp_cc_parent_names_5,
 		.num_parents = 3,
+		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
@@ -299,8 +305,8 @@ static struct clk_rcg2 disp_cc_mdss_dp_crypto_clk_src = {
 };
 
 static const struct freq_tbl ftbl_disp_cc_mdss_dp_link_clk_src[] = {
-	F(162000, P_DP_PHY_PLL_LINK_CLK, 2, 0, 0),
-	F(270000, P_DP_PHY_PLL_LINK_CLK, 2, 0, 0),
+	F(162000, P_DP_PHY_PLL_LINK_CLK, 1, 0, 0),
+	F(270000, P_DP_PHY_PLL_LINK_CLK, 1, 0, 0),
 	F(540000, P_DP_PHY_PLL_LINK_CLK, 1, 0, 0),
 	F(810000, P_DP_PHY_PLL_LINK_CLK, 1, 0, 0),
 	{ }
@@ -561,13 +567,9 @@ static struct clk_rcg2 disp_cc_xo_clk_src = {
 	.freq_tbl = ftbl_disp_cc_mdss_byte0_clk_src,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "disp_cc_xo_clk_src",
-		.parent_names = disp_cc_parent_names_2,
+		.parent_names = disp_cc_parent_names_ao,
 		.num_parents = 2,
 		.ops = &clk_rcg2_ops,
-		.vdd_class = &vdd_cx,
-		.num_rate_max = VDD_NUM,
-		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_LOWER] = 19200000},
 	},
 };
 
@@ -636,7 +638,7 @@ static struct clk_branch disp_cc_mdss_byte0_intf_clk = {
 				"disp_cc_mdss_byte0_div_clk_src",
 			},
 			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT | CLK_GET_RATE_NOCACHE,
+			.flags = CLK_GET_RATE_NOCACHE,
 			.ops = &clk_branch2_ops,
 		},
 	},

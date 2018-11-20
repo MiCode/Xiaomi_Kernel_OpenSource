@@ -830,11 +830,12 @@ static void attach_entity_cfs_rq(struct sched_entity *se);
  * To solve this problem, we also cap the util_avg of successive tasks to
  * only 1/2 of the left utilization budget:
  *
- *   util_avg_cap = (1024 - cfs_rq->avg.util_avg) / 2^n
+ *   util_avg_cap = (cpu_scale - cfs_rq->avg.util_avg) / 2^n
  *
- * where n denotes the nth task.
+ * where n denotes the nth task and cpu_scale the CPU capacity.
  *
- * For example, a simplest series from the beginning would be like:
+ * For example, for a CPU with 1024 of capacity, a simplest series from
+ * the beginning would be like:
  *
  *  task  util_avg: 512, 256, 128,  64,  32,   16,    8, ...
  * cfs_rq util_avg: 512, 768, 896, 960, 992, 1008, 1016, ...
@@ -846,7 +847,8 @@ void post_init_entity_util_avg(struct sched_entity *se)
 {
 	struct cfs_rq *cfs_rq = cfs_rq_of(se);
 	struct sched_avg *sa = &se->avg;
-	long cap = (long)(SCHED_CAPACITY_SCALE - cfs_rq->avg.util_avg) / 2;
+	long cpu_scale = arch_scale_cpu_capacity(NULL, cpu_of(rq_of(cfs_rq)));
+	long cap = (long)(cpu_scale - cfs_rq->avg.util_avg) / 2;
 
 	if (cap > 0) {
 		if (cfs_rq->avg.util_avg != 0) {
@@ -6940,6 +6942,7 @@ static inline int find_idlest_cpu(struct sched_domain *sd, struct task_struct *p
 }
 
 #ifdef CONFIG_SCHED_SMT
+DEFINE_STATIC_KEY_FALSE(sched_smt_present);
 
 static inline void set_idle_cores(int cpu, int val)
 {
@@ -7134,7 +7137,7 @@ static inline int __select_idle_sibling(struct task_struct *p, int prev, int tar
 	 * If the previous cpu is cache affine and idle, don't be stupid.
 	 */
 	if (prev != target && cpus_share_cache(prev, target) &&
-				idle_cpu(prev) && !cpu_isolated(i))
+				idle_cpu(prev) && !cpu_isolated(prev))
 		return prev;
 
 	sd = rcu_dereference(per_cpu(sd_llc, target));
@@ -8091,9 +8094,23 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 		/* Find a cpu with sufficient capacity */
 		target_cpu = find_best_target(p, &eenv->cpu[EAS_CPU_BKP].cpu_id,
 					      boosted, prefer_idle, &fbt_env);
+		if (target_cpu < 0)
+			goto out;
 
 		/* Immediately return a found idle CPU for a prefer_idle task */
-		if (prefer_idle && target_cpu >= 0 && idle_cpu(target_cpu))
+		if (prefer_idle && idle_cpu(target_cpu))
+			goto out;
+
+#ifdef CONFIG_SCHED_WALT
+		if (!walt_disabled && sysctl_sched_use_walt_cpu_util &&
+		    p->state == TASK_WAKING)
+			delta = task_util(p);
+#endif
+		if (task_placement_boost_enabled(p) || need_idle ||
+		    (rtg_target && (!cpumask_test_cpu(prev_cpu, rtg_target) ||
+		    cpumask_test_cpu(target_cpu, rtg_target))) ||
+		    __cpu_overutilized(prev_cpu, delta) ||
+		    !task_fits_max(p, prev_cpu) || cpu_isolated(prev_cpu))
 			goto out;
 
 		/* Place target into NEXT slot */
@@ -8105,10 +8122,6 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 		/* take note if no backup was found */
 		if (eenv->cpu[EAS_CPU_BKP].cpu_id < 0)
 			eenv->max_cpu_count = EAS_CPU_BKP;
-
-		/* take note if no target was found */
-		 if (eenv->cpu[EAS_CPU_NXT].cpu_id < 0)
-			 eenv->max_cpu_count = EAS_CPU_NXT;
 	}
 
 	if (eenv->max_cpu_count == EAS_CPU_NXT) {
@@ -8117,20 +8130,6 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 		 * candidates beyond prev_cpu, so we will
 		 * fall-back to the regular slow-path.
 		 */
-		goto out;
-	}
-
-#ifdef CONFIG_SCHED_WALT
-	if (!walt_disabled && sysctl_sched_use_walt_cpu_util &&
-			p->state == TASK_WAKING)
-		delta = task_util(p);
-#endif
-	if (use_fbt && (task_placement_boost_enabled(p) || fbt_env.need_idle ||
-		(rtg_target && (!cpumask_test_cpu(prev_cpu, rtg_target) ||
-			cpumask_test_cpu(next_cpu, rtg_target))) ||
-		 __cpu_overutilized(prev_cpu, delta) ||
-		 !task_fits_max(p, prev_cpu) || cpu_isolated(prev_cpu))) {
-		target_cpu = eenv->cpu[EAS_CPU_NXT].cpu_id;
 		goto out;
 	}
 
@@ -12095,7 +12094,8 @@ static inline bool vruntime_normalized(struct task_struct *p)
 	 * - A task which has been woken up by try_to_wake_up() and
 	 *   waiting for actually being woken up by sched_ttwu_pending().
 	 */
-	if (!se->sum_exec_runtime || p->state == TASK_WAKING)
+	if (!se->sum_exec_runtime ||
+	    (p->state == TASK_WAKING && p->sched_remote_wakeup))
 		return true;
 
 	return false;

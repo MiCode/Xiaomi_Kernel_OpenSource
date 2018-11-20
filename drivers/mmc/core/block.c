@@ -182,7 +182,6 @@ static void mmc_blk_put(struct mmc_blk_data *md)
 	md->usage--;
 	if (md->usage == 0) {
 		int devidx = mmc_get_devidx(md->disk);
-		blk_cleanup_queue(md->queue.queue);
 		ida_simple_remove(&mmc_blk_ida, devidx);
 		put_disk(md->disk);
 		kfree(md);
@@ -1601,8 +1600,6 @@ static int mmc_blk_cmd_recovery(struct mmc_card *card, struct request *req,
 
 	/* We couldn't get a response from the card.  Give up. */
 	if (err) {
-		if (card->err_in_sdr104)
-			return ERR_RETRY;
 		/* Check if the card is removed */
 		if (mmc_detect_card_removed(card->host))
 			return ERR_NOMEDIUM;
@@ -3184,7 +3181,6 @@ static void mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *new_req)
 	struct mmc_async_req *new_areq;
 	struct mmc_async_req *old_areq;
 	bool req_pending = true;
-	bool reset = false;
 #ifdef CONFIG_MMC_SIMULATE_MAX_SPEED
 	unsigned long waitfor = jiffies;
 #endif
@@ -3235,26 +3231,6 @@ static void mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *new_req)
 		old_req = mmc_queue_req_to_req(mq_rq);
 		type = rq_data_dir(old_req) == READ ? MMC_BLK_READ : MMC_BLK_WRITE;
 
-		if (card->err_in_sdr104) {
-			/*
-			 * Data CRC/timeout errors will manifest as CMD/DATA
-			 * ERR. But we'd like to retry these too.
-			 * Moreover, no harm done if this fails too for multiple
-			 * times, we anyway reduce the bus-speed and retry the
-			 * same request.
-			 * If that fails too, we don't override this status.
-			 */
-			if (status == MMC_BLK_ABORT ||
-			    status == MMC_BLK_CMD_ERR ||
-			    status == MMC_BLK_DATA_ERR ||
-			    status == MMC_BLK_RETRY)
-				/* reset on all of these errors and retry */
-				reset = true;
-
-			status = MMC_BLK_RETRY;
-			card->err_in_sdr104 = false;
-		}
-
 		switch (status) {
 		case MMC_BLK_SUCCESS:
 		case MMC_BLK_PARTIAL:
@@ -3300,30 +3276,6 @@ static void mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *new_req)
 			retune_retry_done = brq->retune_retry_done;
 			if (retry++ < MMC_BLK_MAX_RETRIES)
 				break;
-			else if (reset) {
-				reset = false;
-				/*
-				 * If we exhaust all the retries due to
-				 * CRC/timeout errors in SDR140 mode with UHS SD
-				 * cards, re-configure the card in SDR50
-				 * bus-speed mode.
-				 * All subsequent re-init of this card will be
-				 * in SDR50 mode, unless it is removed and
-				 * re-inserted. When new UHS SD cards are
-				 * inserted, it may start at SDR104 mode if
-				 * supported by the card.
-				 */
-				pr_err("%s: blocked SDR104, lower the bus-speed (SDR50 / DDR50)\n",
-					old_req->rq_disk->disk_name);
-				mmc_host_clear_sdr104(card->host);
-				mmc_suspend_clk_scaling(card->host);
-				mmc_blk_reset(md, card->host, type);
-				/* SDR104 mode is blocked from now on */
-				card->sdr104_blocked = true;
-				/* retry 5 times again */
-				retry = 0;
-				break;
-			}
 			/* Fall through */
 		case MMC_BLK_ABORT:
 			if (!mmc_blk_reset(md, card->host, type) &&

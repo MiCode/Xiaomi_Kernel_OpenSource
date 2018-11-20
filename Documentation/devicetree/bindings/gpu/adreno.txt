@@ -6,8 +6,9 @@ Required properties:
 - label:		A string used as a descriptive name for the device.
 - compatible:		Must be "qcom,kgsl-3d0" and "qcom,kgsl-3d"
 - reg:			Specifies the register base address and size, the shader memory
-			base address and size (if it exists), and the base address and size
-			of the CX_DBGC block (if it exists).
+			base address and size (if it exists), base address and size
+			of the CX_DBGC block (if it exists), and the base address and
+			size of the CX_MISC block (if it exists).
 - reg-names:		Resource names used for the physical address of device registers
 			and shader memory. "kgsl_3d0_reg_memory" gives the physical address
 			and length of device registers while "kgsl_3d0_shader_memory" gives
@@ -15,7 +16,8 @@ Required properties:
 			specified, "qfprom_memory" gives the range for the efuse
 			registers used for various configuration options. If specified,
 			"kgsl_3d0_cx_dbgc_memory" gives the physical address and length
-			of the CX DBGC block.
+			of the CX DBGC block. If specified, "cx_misc" gives
+			the physical address and length of the CX_MISC block.
 - interrupts:		Interrupt mapping for GPU IRQ.
 - interrupt-names:	String property to describe the name of the interrupt.
 - qcom,id:		An integer used as an identification number for the device.
@@ -85,6 +87,8 @@ DCVS Core info
 Optional Properties:
 - qcom,initial-powerlevel: This value indicates which qcom,gpu-pwrlevel should be used at start time
 			   and when coming back out of resume
+- qcom,throttle-pwrlevel:  This value indicates which qcom,gpu-pwrlevel LM throttling
+			   may start to occur
 - qcom,bus-control:	   Boolean. Enables an independent bus vote from the gpu frequency
 - qcom,bus-width:	   Bus width in number of bytes. This enables dynamic AB bus voting based on
 			   bus width and actual bus transactions.

@@ -5821,6 +5821,8 @@ static void migrate_tasks(struct rq *dead_rq, struct rq_flags *rf,
 		rq_unlock(rq, rf);
 		raw_spin_lock(&next->pi_lock);
 		rq_relock(rq, rf);
+		if (!(rq->clock_update_flags & RQCF_UPDATED))
+			update_rq_clock(rq);
 
 		/*
 		 * Since we're inside stop-machine, _nothing_ should have
@@ -5844,6 +5846,8 @@ static void migrate_tasks(struct rq *dead_rq, struct rq_flags *rf,
 			rq = dead_rq;
 			*rf = orf;
 			rq_relock(rq, rf);
+			if (!(rq->clock_update_flags & RQCF_UPDATED))
+				update_rq_clock(rq);
 		}
 		raw_spin_unlock(&next->pi_lock);
 	}
@@ -5872,7 +5876,7 @@ int do_isolation_work_cpu_stop(void *data)
 	sched_ttwu_pending();
 
 	/* Update our root-domain */
-	raw_spin_lock(&rq->lock);
+	rq_lock(rq, &rf);
 
 	/*
 	 * Temporarily mark the rq as offline. This will allow us to
@@ -5887,7 +5891,7 @@ int do_isolation_work_cpu_stop(void *data)
 
 	if (rq->rd)
 		set_rq_online(rq);
-	raw_spin_unlock(&rq->lock);
+	rq_unlock(rq, &rf);
 
 	clear_walt_request(cpu);
 	local_irq_enable();
@@ -5973,12 +5977,6 @@ int sched_isolate_cpu(int cpu)
 
 	cpumask_andnot(&avail_cpus, cpu_online_mask, cpu_isolated_mask);
 
-	/* We cannot isolate ALL cpus in the system */
-	if (cpumask_weight(&avail_cpus) == 1) {
-		ret_code = -EINVAL;
-		goto out;
-	}
-
 	if (!cpu_online(cpu)) {
 		ret_code = -EINVAL;
 		goto out;
@@ -5986,6 +5984,13 @@ int sched_isolate_cpu(int cpu)
 
 	if (++cpu_isolation_vote[cpu] > 1)
 		goto out;
+
+	/* We cannot isolate ALL cpus in the system */
+	if (cpumask_weight(&avail_cpus) == 1) {
+		--cpu_isolation_vote[cpu];
+		ret_code = -EINVAL;
+		goto out;
+	}
 
 	/*
 	 * There is a race between watchdog being enabled by hotplug and
@@ -6174,6 +6179,18 @@ int sched_cpu_activate(unsigned int cpu)
 	struct rq *rq = cpu_rq(cpu);
 	struct rq_flags rf;
 
+#ifdef CONFIG_SCHED_SMT
+	/*
+	 * The sched_smt_present static key needs to be evaluated on every
+	 * hotplug event because at boot time SMT might be disabled when
+	 * the number of booted CPUs is limited.
+	 *
+	 * If then later a sibling gets hotplugged, then the key would stay
+	 * off and SMT scheduling would never be functional.
+	 */
+	if (cpumask_weight(cpu_smt_mask(cpu)) > 1)
+		static_branch_enable_cpuslocked(&sched_smt_present);
+#endif
 	set_cpu_active(cpu, true);
 
 	if (sched_smp_initialized) {
@@ -6277,22 +6294,6 @@ int sched_cpu_dying(unsigned int cpu)
 }
 #endif
 
-#ifdef CONFIG_SCHED_SMT
-DEFINE_STATIC_KEY_FALSE(sched_smt_present);
-
-static void sched_init_smt(void)
-{
-	/*
-	 * We've enumerated all CPUs and will assume that if any CPU
-	 * has SMT siblings, CPU0 will too.
-	 */
-	if (cpumask_weight(cpu_smt_mask(0)) > 1)
-		static_branch_enable(&sched_smt_present);
-}
-#else
-static inline void sched_init_smt(void) { }
-#endif
-
 void __init sched_init_smp(void)
 {
 	cpumask_var_t non_isolated_cpus;
@@ -6323,8 +6324,6 @@ void __init sched_init_smp(void)
 
 	init_sched_rt_class();
 	init_sched_dl_class();
-
-	sched_init_smt();
 
 	sched_smp_initialized = true;
 }

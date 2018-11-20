@@ -311,6 +311,17 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_FORCE_RECHARGE,
 	POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE,
 	POWER_SUPPLY_PROP_TOGGLE_STAT,
+	POWER_SUPPLY_PROP_MAIN_FCC_MAX,
+	/* Charge pump properties */
+	POWER_SUPPLY_PROP_CP_STATUS1,
+	POWER_SUPPLY_PROP_CP_STATUS2,
+	POWER_SUPPLY_PROP_CP_ENABLE,
+	POWER_SUPPLY_PROP_CP_SWITCHER_EN,
+	POWER_SUPPLY_PROP_CP_DIE_TEMP,
+	POWER_SUPPLY_PROP_CP_ISNS,
+	POWER_SUPPLY_PROP_CP_TOGGLE_SWITCHER,
+	POWER_SUPPLY_PROP_CP_IRQ_STATUS,
+	POWER_SUPPLY_PROP_CP_ILIM,
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_EXT,
 	/* Properties of type `const char *' */
@@ -344,6 +355,7 @@ enum power_supply_type {
 	POWER_SUPPLY_TYPE_WIPOWER,		/* Wipower */
 	POWER_SUPPLY_TYPE_UFP,			/* Type-C UFP */
 	POWER_SUPPLY_TYPE_DFP,			/* Type-C DFP */
+	POWER_SUPPLY_TYPE_CHARGE_PUMP,		/* Charge Pump */
 };
 
 /* Indicates USB Type-C CC connection status */
@@ -459,6 +471,7 @@ struct power_supply {
 	spinlock_t changed_lock;
 	bool changed;
 	bool initialized;
+	bool removing;
 	atomic_t use_cnt;
 #ifdef CONFIG_THERMAL
 	struct thermal_zone_device *tzd;

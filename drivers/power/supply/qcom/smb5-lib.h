@@ -51,6 +51,7 @@ enum print_reason {
 #define SW_QC3_VOTER			"SW_QC3_VOTER"
 #define AICL_RERUN_VOTER		"AICL_RERUN_VOTER"
 #define SW_ICL_MAX_VOTER		"SW_ICL_MAX_VOTER"
+#define PL_QNOVO_VOTER			"PL_QNOVO_VOTER"
 #define QNOVO_VOTER			"QNOVO_VOTER"
 #define BATT_PROFILE_VOTER		"BATT_PROFILE_VOTER"
 #define OTG_DELAY_VOTER			"OTG_DELAY_VOTER"
@@ -290,6 +291,7 @@ struct smb_iio {
 	struct iio_channel	*temp_chan;
 	struct iio_channel	*usbin_i_chan;
 	struct iio_channel	*usbin_v_chan;
+	struct iio_channel	*mid_chan;
 	struct iio_channel	*batt_i_chan;
 	struct iio_channel	*connector_temp_chan;
 	struct iio_channel	*sbux_chan;
@@ -412,6 +414,7 @@ struct smb_charger {
 	u8			float_cfg;
 	bool			use_extcon;
 	bool			otg_present;
+	bool			hvdcp_disable;
 	int			hw_max_icl_ua;
 	int			auto_recharge_soc;
 	enum sink_src_mode	sink_src_mode;
@@ -427,6 +430,7 @@ struct smb_charger {
 	int			skin_temp;
 	int			connector_temp;
 	int			thermal_status;
+	int			main_fcc_max;
 
 	/* workaround flag */
 	u32			wa_flags;

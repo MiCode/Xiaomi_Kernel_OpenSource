@@ -677,7 +677,6 @@ static int qdss_set_alt(struct usb_function *f, unsigned int intf,
 	if (gadget->speed < USB_SPEED_HIGH) {
 		pr_err("%s: qdss doesn't support USB full or low speed\n",
 								__func__);
-		ret = -EINVAL;
 		goto fail1;
 	}
 

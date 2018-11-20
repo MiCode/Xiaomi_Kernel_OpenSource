@@ -522,6 +522,7 @@ static int smb1355_parse_dt(struct smb1355 *chip)
 
 static enum power_supply_property smb1355_parallel_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
+	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_CHARGING_ENABLED,
 	POWER_SUPPLY_PROP_PIN_ENABLED,
 	POWER_SUPPLY_PROP_INPUT_SUSPEND,
@@ -605,6 +606,7 @@ static int smb1355_parallel_get_prop(struct power_supply *psy,
 		rc = smb1355_get_prop_batt_charge_type(chip, val);
 		break;
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+	case POWER_SUPPLY_PROP_ONLINE:
 		rc = smb1355_read(chip, BATTERY_STATUS_3_REG, &stat);
 		if (rc >= 0)
 			val->intval = (bool)(stat & ENABLE_CHARGING_BIT);
@@ -1362,7 +1364,7 @@ static int smb1355_probe(struct platform_device *pdev)
 	chip->c_charger_temp_max = -EINVAL;
 	mutex_init(&chip->write_lock);
 	INIT_DELAYED_WORK(&chip->die_temp_work, die_temp_work);
-	chip->disabled = true;
+	chip->disabled = false;
 	chip->die_temp_deciDegC = -EINVAL;
 
 	chip->regmap = dev_get_regmap(chip->dev->parent, NULL);

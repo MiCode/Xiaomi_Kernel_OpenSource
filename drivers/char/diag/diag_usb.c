@@ -520,12 +520,16 @@ int diag_usb_write(int id, unsigned char *buf, int len, int ctxt)
 
 	usb_info = &diag_usb[id];
 
+	if (!atomic_read(&usb_info->connected))
+		return -ENOTCONN;
+
 	if (len > usb_info->max_size) {
 		DIAG_LOG(DIAG_DEBUG_MUX, "len: %d, max_size: %d\n",
 			 len, usb_info->max_size);
 		return diag_usb_write_ext(usb_info, buf, len, ctxt);
 	}
 
+	spin_lock_irqsave(&usb_info->write_lock, flags);
 	req = diagmem_alloc(driver, sizeof(struct diag_request),
 			    usb_info->mempool);
 	if (!req) {
@@ -534,9 +538,12 @@ int diag_usb_write(int id, unsigned char *buf, int len, int ctxt)
 		 * trying to write more buffers than the max supported by
 		 * this particualar diag USB channel at any given instance,
 		 * or the previous write ptrs are stuck in the USB layer.
+		 * Remove the buffer entry from the usb buf table for this case.
 		 */
 		pr_err_ratelimited("diag: In %s, cannot retrieve USB write ptrs for USB channel %s\n",
 				   __func__, usb_info->name);
+		diag_usb_buf_tbl_remove(usb_info, buf);
+		spin_unlock_irqrestore(&usb_info->write_lock, flags);
 		return -ENOMEM;
 	}
 
@@ -549,10 +556,10 @@ int diag_usb_write(int id, unsigned char *buf, int len, int ctxt)
 		pr_debug_ratelimited("diag: USB ch %s is not connected\n",
 				     usb_info->name);
 		diagmem_free(driver, req, usb_info->mempool);
+		spin_unlock_irqrestore(&usb_info->write_lock, flags);
 		return -ENODEV;
 	}
 
-	spin_lock_irqsave(&usb_info->write_lock, flags);
 	if (diag_usb_buf_tbl_add(usb_info, buf, len, ctxt)) {
 		DIAG_LOG(DIAG_DEBUG_MUX,
 					"ERR! unable to add buf %pK to table\n",

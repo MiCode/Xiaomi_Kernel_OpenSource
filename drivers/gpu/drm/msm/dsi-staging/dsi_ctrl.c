@@ -848,12 +848,12 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 	if (host_cfg->data_lanes & DSI_DATA_LANE_3)
 		num_of_lanes++;
 
-	if (config->bit_clk_rate_hz == 0) {
+	if (config->bit_clk_rate_hz_override == 0) {
 		h_period = DSI_H_TOTAL_DSC(timing);
 		v_period = DSI_V_TOTAL(timing);
 		bit_rate = h_period * v_period * timing->refresh_rate * bpp;
 	} else {
-		bit_rate = config->bit_clk_rate_hz * num_of_lanes;
+		bit_rate = config->bit_clk_rate_hz_override * num_of_lanes;
 	}
 
 	bit_rate_per_lane = bit_rate;
@@ -870,6 +870,7 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 	dsi_ctrl->clk_freq.byte_clk_rate = byte_clk_rate;
 	dsi_ctrl->clk_freq.pix_clk_rate = pclk_rate;
 	dsi_ctrl->clk_freq.esc_clk_rate = config->esc_clk_rate_hz;
+	config->bit_clk_rate_hz = dsi_ctrl->clk_freq.byte_clk_rate * 8;
 
 	rc = dsi_clk_set_link_frequencies(clk_handle, dsi_ctrl->clk_freq,
 					dsi_ctrl->cell_index);
@@ -1194,6 +1195,11 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 	}
 
 kickoff:
+	/* check if custom dma scheduling line needed */
+	if ((dsi_ctrl->host_config.panel_mode == DSI_OP_VIDEO_MODE) &&
+		(flags & DSI_CTRL_CMD_CUSTOM_DMA_SCHED))
+		line_no = dsi_ctrl->host_config.u.video_engine.dma_sched_line;
+
 	timing = &(dsi_ctrl->host_config.video_timing);
 	if (timing)
 		line_no += timing->v_back_porch + timing->v_sync_width +

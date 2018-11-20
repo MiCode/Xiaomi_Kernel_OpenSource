@@ -220,6 +220,28 @@ static const u64 shadow_acc_track_saved_bits_mask = PT64_EPT_READABLE_MASK |
 						    PT64_EPT_EXECUTABLE_MASK;
 static const u64 shadow_acc_track_saved_bits_shift = PT64_SECOND_AVAIL_BITS_SHIFT;
 
+/*
+ * This mask must be set on all non-zero Non-Present or Reserved SPTEs in order
+ * to guard against L1TF attacks.
+ */
+static u64 __read_mostly shadow_nonpresent_or_rsvd_mask;
+
+/*
+ * The number of high-order 1 bits to use in the mask above.
+ */
+static const u64 shadow_nonpresent_or_rsvd_mask_len = 5;
+
+/*
+ * In some cases, we need to preserve the GFN of a non-present or reserved
+ * SPTE when we usurp the upper five bits of the physical address space to
+ * defend against L1TF, e.g. for MMIO SPTEs.  To preserve the GFN, we'll
+ * shift bits of the GFN that overlap with shadow_nonpresent_or_rsvd_mask
+ * left into the reserved bits, i.e. the GFN in the SPTE will be split into
+ * high and low parts.  This mask covers the lower bits of the GFN.
+ */
+static u64 __read_mostly shadow_nonpresent_or_rsvd_lower_gfn_mask;
+
+
 static void mmu_spte_set(u64 *sptep, u64 spte);
 static void mmu_free_roots(struct kvm_vcpu *vcpu);
 
@@ -308,9 +330,13 @@ static void mark_mmio_spte(struct kvm_vcpu *vcpu, u64 *sptep, u64 gfn,
 {
 	unsigned int gen = kvm_current_mmio_generation(vcpu);
 	u64 mask = generation_mmio_spte_mask(gen);
+	u64 gpa = gfn << PAGE_SHIFT;
 
 	access &= ACC_WRITE_MASK | ACC_USER_MASK;
-	mask |= shadow_mmio_value | access | gfn << PAGE_SHIFT;
+	mask |= shadow_mmio_value | access;
+	mask |= gpa | shadow_nonpresent_or_rsvd_mask;
+	mask |= (gpa & shadow_nonpresent_or_rsvd_mask)
+		<< shadow_nonpresent_or_rsvd_mask_len;
 
 	trace_mark_mmio_spte(sptep, gfn, access, gen);
 	mmu_spte_set(sptep, mask);
@@ -323,8 +349,12 @@ static bool is_mmio_spte(u64 spte)
 
 static gfn_t get_mmio_spte_gfn(u64 spte)
 {
-	u64 mask = generation_mmio_spte_mask(MMIO_GEN_MASK) | shadow_mmio_mask;
-	return (spte & ~mask) >> PAGE_SHIFT;
+	u64 gpa = spte & shadow_nonpresent_or_rsvd_lower_gfn_mask;
+
+	gpa |= (spte >> shadow_nonpresent_or_rsvd_mask_len)
+	       & shadow_nonpresent_or_rsvd_mask;
+
+	return gpa >> PAGE_SHIFT;
 }
 
 static unsigned get_mmio_spte_access(u64 spte)
@@ -381,8 +411,10 @@ void kvm_mmu_set_mask_ptes(u64 user_mask, u64 accessed_mask,
 }
 EXPORT_SYMBOL_GPL(kvm_mmu_set_mask_ptes);
 
-void kvm_mmu_clear_all_pte_masks(void)
+static void kvm_mmu_reset_all_pte_masks(void)
 {
+	u8 low_phys_bits;
+
 	shadow_user_mask = 0;
 	shadow_accessed_mask = 0;
 	shadow_dirty_mask = 0;
@@ -391,6 +423,23 @@ void kvm_mmu_clear_all_pte_masks(void)
 	shadow_mmio_mask = 0;
 	shadow_present_mask = 0;
 	shadow_acc_track_mask = 0;
+
+	/*
+	 * If the CPU has 46 or less physical address bits, then set an
+	 * appropriate mask to guard against L1TF attacks. Otherwise, it is
+	 * assumed that the CPU is not vulnerable to L1TF.
+	 */
+	low_phys_bits = boot_cpu_data.x86_phys_bits;
+	if (boot_cpu_data.x86_phys_bits <
+	    52 - shadow_nonpresent_or_rsvd_mask_len) {
+		shadow_nonpresent_or_rsvd_mask =
+			rsvd_bits(boot_cpu_data.x86_phys_bits -
+				  shadow_nonpresent_or_rsvd_mask_len,
+				  boot_cpu_data.x86_phys_bits - 1);
+		low_phys_bits -= shadow_nonpresent_or_rsvd_mask_len;
+	}
+	shadow_nonpresent_or_rsvd_lower_gfn_mask =
+		GENMASK_ULL(low_phys_bits - 1, PAGE_SHIFT);
 }
 
 static int is_cpuid_PSE36(void)
@@ -3825,6 +3874,7 @@ int kvm_handle_page_fault(struct kvm_vcpu *vcpu, u64 error_code,
 {
 	int r = 1;
 
+	vcpu->arch.l1tf_flush_l1d = true;
 	switch (vcpu->arch.apf.host_apf_reason) {
 	default:
 		trace_kvm_page_fault(fault_address, error_code);
@@ -5472,7 +5522,7 @@ static void mmu_destroy_caches(void)
 
 int kvm_mmu_module_init(void)
 {
-	kvm_mmu_clear_all_pte_masks();
+	kvm_mmu_reset_all_pte_masks();
 
 	pte_list_desc_cache = kmem_cache_create("pte_list_desc",
 					    sizeof(struct pte_list_desc),

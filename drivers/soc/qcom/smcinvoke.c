@@ -790,7 +790,7 @@ static int32_t smcinvoke_map_mem_region(void *buf, size_t buf_len)
 	ob->p_addr = mem_obj->p_addr;
 	ob->len = mem_obj->p_addr_len;
 	ob->perms = SMCINVOKE_MEM_PERM_RW;
-	*oo = mem_obj->mem_map_obj_id;
+	*oo = TZHANDLE_MAKE_LOCAL(MEM_MAP_SRVR_ID, mem_obj->mem_map_obj_id);
 out:
 	if (ret != OBJECT_OK)
 		kref_put(&mem_obj->mem_map_obj_ref_cnt, del_mem_map_obj_locked);

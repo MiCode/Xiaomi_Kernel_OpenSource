@@ -15,6 +15,7 @@
 	tlmm: pinctrl@1000000 {
 		compatible = "qcom,qcs405-pinctrl";
 		reg = <0x1000000 0x200000>;
+		reg-names = "pinctrl";
 		interrupts-extended = <&wakegic GIC_SPI 208 IRQ_TYPE_NONE>;
 		gpio-controller;
 		#gpio-cells = <2>;
@@ -686,6 +687,110 @@
 			};
 		};
 
+		mdss_hdmi_5v_active: mdss_hdmi_5v_active {
+			mux {
+				pins = "gpio109";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio109";
+				bias-pull-up;
+				drive-strength = <16>;
+			};
+		};
+
+		mdss_hdmi_5v_suspend: mdss_hdmi_5v_suspend {
+			mux {
+				pins = "gpio109";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio109";
+				bias-pull-down;
+				drive-strength = <2>;
+			};
+		};
+
+		mdss_hdmi_hpd_active: mdss_hdmi_hpd_active {
+			mux {
+				pins = "gpio106";
+				function = "hdmi_hot";
+			};
+
+			config {
+				pins = "gpio106";
+				bias-pull-down;
+				drive-strength = <16>;
+			};
+		};
+
+		mdss_hdmi_hpd_suspend: mdss_hdmi_hpd_suspend {
+			mux {
+				pins = "gpio106";
+				function = "hdmi_hot";
+			};
+
+			config {
+				pins = "gpio106";
+				bias-pull-down;
+				drive-strength = <2>;
+			};
+		};
+
+		mdss_hdmi_ddc_active: mdss_hdmi_ddc_active {
+			mux {
+				pins = "gpio15", "gpio16";
+				function = "hdmi_ddc";
+			};
+
+			config {
+				pins = "gpio15", "gpio16";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		mdss_hdmi_ddc_suspend: mdss_hdmi_ddc_suspend {
+			mux {
+				pins = "gpio15", "gpio16";
+				function = "hdmi_ddc";
+			};
+
+			config {
+				pins = "gpio15", "gpio16";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		mdss_hdmi_cec_active: mdss_hdmi_cec_active {
+			mux {
+				pins = "gpio14";
+				function = "hdmi_cec";
+			};
+
+			config {
+				pins = "gpio14";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		mdss_hdmi_cec_suspend: mdss_hdmi_cec_suspend {
+			mux {
+				pins = "gpio14";
+				function = "hdmi_cec";
+			};
+
+			config {
+				pins = "gpio14";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
 		pmx_mdss: pmx_mdss {
 			mdss_dsi_active: mdss_dsi_active {
 				mux {
@@ -878,6 +983,20 @@
 
 			config {
 				pins = "gpio107";
+				drive-strength = <2>;
+				bias-pull-up;
+				input-enable;
+			};
+		};
+
+		nxp_i2c_intr: nxp_i2c_intr {
+			mux {
+				pins = "gpio35";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio35";
 				drive-strength = <2>;
 				bias-pull-up;
 				input-enable;
@@ -1788,6 +1907,38 @@
 					pins = "gpio61";
 					bias-disable;  /* NO pull */
 					drive-strength = <2>;
+				};
+			};
+		};
+
+		evb_tlmm_gpio_key{
+			tlmm_gpio_key_active: tlmm_gpio_key_active {
+				mux {
+					pins = "gpio21","gpio52","gpio54",
+						"gpio115";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio21","gpio52","gpio54",
+						"gpio115";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+
+			tlmm_gpio_key_suspend: tlmm_gpio_key_suspend {
+				mux {
+					pins = "gpio21","gpio52","gpio54",
+						"gpio115";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio21","gpio52","gpio54",
+						"gpio115";
+					drive-strength = <2>;
+					bias-disable;
 				};
 			};
 		};

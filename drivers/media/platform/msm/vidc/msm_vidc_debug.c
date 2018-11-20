@@ -16,12 +16,13 @@
 #include "msm_vidc_debug.h"
 #include "vidc_hfi_api.h"
 
-int msm_vidc_debug = VIDC_ERR | VIDC_WARN;
+int msm_vidc_debug = VIDC_ERR | VIDC_WARN | VIDC_FW;
 EXPORT_SYMBOL(msm_vidc_debug);
 
 int msm_vidc_debug_out = VIDC_OUT_PRINTK;
 EXPORT_SYMBOL(msm_vidc_debug_out);
 
+/* 0x18 = HFI_DEBUG_MSG_FATAL | HFI_DEBUG_MSG_ERROR */
 int msm_vidc_fw_debug = 0x18;
 int msm_vidc_fw_debug_mode = 1;
 int msm_vidc_fw_low_power_mode = 1;

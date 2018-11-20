@@ -54,7 +54,10 @@ struct npu_network {
 	void *stats_buf;
 	void __user *stats_buf_u;
 	uint32_t stats_buf_size;
+	uint32_t trans_id;
+	atomic_t ref_cnt;
 	bool is_valid;
+	bool is_active;
 	bool fw_error;
 	bool cmd_pending;
 	bool cmd_async;

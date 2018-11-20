@@ -352,6 +352,7 @@ static int cmd_db_dev_probe(struct platform_device *pdev)
 	dict = of_iomap(pdev->dev.of_node, 0);
 	if (!dict) {
 		cmd_db_status = -ENOMEM;
+		pr_err("Command DB dictionary addr not found.\n");
 		goto failed;
 	}
 
@@ -372,6 +373,7 @@ static int cmd_db_dev_probe(struct platform_device *pdev)
 
 	if (!cmd_db_header) {
 		cmd_db_status = -ENOMEM;
+		pr_err("Command DB header not found.\n");
 		goto failed;
 	}
 

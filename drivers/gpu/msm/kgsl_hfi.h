@@ -42,6 +42,11 @@ struct hfi_queue_table;
 #define HFI_DSP_IDX_BASE 3
 #define HFI_DSP_IDX_0 3
 
+#define HFI_CMD_IDX_LEGACY 0
+#define HFI_DSP_IDX_0_LEGACY 1
+#define HFI_MSG_IDX_LEGACY 4
+#define HFI_DBG_IDX_LEGACY 5
+
 #define HFI_QUEUE_STATUS_DISABLED 0
 #define HFI_QUEUE_STATUS_ENABLED  1
 
@@ -51,7 +56,7 @@ struct hfi_queue_table;
 #define HFI_DBG_PRI 40
 #define HFI_DSP_PRI_0 20
 
-#define HFI_RSP_TIMEOUT 5000 /* msec */
+#define HFI_RSP_TIMEOUT 100 /* msec */
 #define HFI_H2F_CMD_IRQ_MASK BIT(0)
 
 #define HFI_IRQ_MSGQ_MASK		BIT(0)
@@ -59,8 +64,7 @@ struct hfi_queue_table;
 #define HFI_IRQ_DBGQ_MASK		BIT(2)
 #define HFI_IRQ_CM3_FAULT_MASK		BIT(15)
 #define HFI_IRQ_OOB_MASK		GENMASK(31, 16)
-#define HFI_IRQ_MASK			(HFI_IRQ_MSGQ_MASK |\
-					HFI_IRQ_SIDEMSGQ_MASK |\
+#define HFI_IRQ_MASK			(HFI_IRQ_SIDEMSGQ_MASK |\
 					HFI_IRQ_DBGQ_MASK |\
 					HFI_IRQ_CM3_FAULT_MASK)
 
@@ -172,6 +176,7 @@ enum hfi_msg_type {
 #define H2F_MSG_BW_VOTE_TBL	3
 #define H2F_MSG_PERF_TBL	4
 #define H2F_MSG_TEST		5
+#define H2F_MSG_ACD_TBL		7
 #define H2F_MSG_START		10
 #define H2F_MSG_FEATURE_CTRL	11
 #define H2F_MSG_GET_VALUE	12
@@ -268,6 +273,20 @@ struct hfi_dcvstable_cmd {
 	uint32_t gmu_level_num;
 	struct opp_gx_desc gx_votes[MAX_GX_LEVELS];
 	struct opp_desc cx_votes[MAX_CX_LEVELS];
+};
+
+#define HFI_ACD_INIT_VERSION 1
+#define MAX_ACD_STRIDE 2
+#define MAX_ACD_NUM_LEVELS 6
+
+/* H2F */
+struct hfi_acd_table_cmd {
+	uint32_t hdr;
+	uint32_t version;
+	uint32_t enable_by_level;
+	uint32_t stride;
+	uint32_t num_levels;
+	uint32_t data[MAX_ACD_NUM_LEVELS * MAX_ACD_STRIDE];
 };
 
 /* H2F */
@@ -582,14 +601,10 @@ struct hfi_context_bad_reply_cmd {
 /**
  * struct pending_cmd - data structure to track outstanding HFI
  *	command messages
- * @msg_complete: a blocking mechanism for sender to wait for ACK
- * @node: a node in pending message queue
  * @sent_hdr: copy of outgoing header for response comparison
  * @results: the payload of received return message (ACK)
  */
 struct pending_cmd {
-	struct completion msg_complete;
-	struct list_head node;
 	uint32_t sent_hdr;
 	uint32_t results[MAX_RCVD_SIZE];
 };
@@ -598,28 +613,23 @@ struct pending_cmd {
  * struct kgsl_hfi - HFI control structure
  * @kgsldev: Point to the kgsl device
  * @hfi_interrupt_num: number of GMU asserted HFI interrupt
- * @msglock: spinlock to protect access to outstanding command message list
- * @read_queue_lock: spinlock to protect against concurrent reading of queues
  * @cmdq_mutex: mutex to protect command queue access from multiple senders
- * @msglist: outstanding command message list. Each message in the list
- *	is waiting for ACK from GMU
  * @tasklet: the thread handling received messages from GMU
  * @version: HFI version number provided
  * @seqnum: atomic counter that is incremented for each message sent. The
  *	value of the counter is used as sequence number for HFI message
  * @bwtbl_cmd: HFI BW table buffer
+ * @acd_tbl_cmd: HFI table for ACD data
  */
 struct kgsl_hfi {
 	struct kgsl_device *kgsldev;
 	int hfi_interrupt_num;
-	spinlock_t msglock;
-	spinlock_t read_queue_lock;
 	struct mutex cmdq_mutex;
-	struct list_head msglist;
 	struct tasklet_struct tasklet;
 	uint32_t version;
 	atomic_t seqnum;
 	struct hfi_bwtable_cmd bwtbl_cmd;
+	struct hfi_acd_table_cmd acd_tbl_cmd;
 };
 
 struct gmu_device;

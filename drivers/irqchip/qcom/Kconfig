@@ -31,6 +31,16 @@ config QTI_PDC_SDMMAGPIE
 	  the wakeup interrupts. Enable it when
 	  ARCH_SDMMAGPIE is selected.
 
+config QTI_PDC_SDXPRAIRIE
+        bool "QTI PDC SDXPRAIRIE"
+        select QTI_PDC
+        default y if ARCH_SDXPRAIRIE
+        help
+          QTI Power Domain Controller for SDXPRAIRIE
+	  This is used for managing and configuring
+	  the wakeup interrupts. Enable it when
+	  ARCH_SDXPRAIRIE is selected.
+
 config QTI_MPM
 	bool "QTI MPM"
 	depends on ARCH_QCOM

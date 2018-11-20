@@ -11,7 +11,14 @@ SM6150 platform.
 - reg:
 	Usage: required
 	Value type: <prop-encoded-array>
-	Definition: the base address and size of the TLMM register space.
+	Definition: the base address and size of the TLMM register space
+		    provided as "pinctrl" and optional base address
+		    of shared SPI config registers provided as "spi_cfg".
+
+- reg-names:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: Provides labels for the reg property.
 
 - interrupts:
 	Usage: required
@@ -111,7 +118,7 @@ to specify in a pin configuration subnode:
 		    qdss_tracectl_a, dac_calib13, qdss_traceclk_a, dac_calib14,
 		    dac_calib15, hdmi_rcv, dac_calib16, hdmi_cec, pwr_modem,
 		    dac_calib17, hdmi_ddc, pwr_nav, dac_calib18, pwr_crypto,
-		    dac_calib19, hdmi_hot, dac_calib20, dac_calib21, pci_e0,
+		    dac_calib19, hdmi_hot, dac_calib20, dac_calib21, pcie_ep,
 		    dac_calib22, dac_calib23, dac_calib24, tsif1_sync, dac_calib25,
 		    sd_write, tsif1_error, blsp_spi2, blsp_uart2, blsp_uim2,
 		    qdss_cti, blsp_i2c2, blsp_spi3, blsp_uart3, blsp_uim3, blsp_i2c3,
@@ -133,10 +140,9 @@ to specify in a pin configuration subnode:
 		    sd_card, tsif2_data, sdc41, tsif2_sync, sdc40, mdp_vsync_p_b,
 		    ldo_en, mdp_vsync_s_b, ldo_update, blsp11_uart_tx_b, blsp11_uart_rx_b,
 		    blsp11_i2c_sda_b, prng_rosc, blsp11_i2c_scl_b, uim2, uim1, uim_batt,
-		    pci_e2, pa_indicator, adsp_ext, ddr_bist, qdss_tracedata_11,
-		    qdss_tracedata_12, modem_tsync, nav_dr, nav_pps, pci_e1, gsm_tx,
-		    qspi_cs, ssbi2, ssbi1, mss_lte, qspi_clk, qspi0, qspi1, qspi2, qspi3,
-		    gpio
+		    pcie_clk, pa_indicator, adsp_ext, ddr_bist, qdss_tracedata_11,
+		    qdss_tracedata_12, modem_tsync, nav_dr, nav_pps, gsm_tx, qspi_cs,
+		    ssbi2, ssbi1, mss_lte, qspi_clk, qspi0, qspi1, qspi2, qspi3, gpio
 
 - bias-disable:
 	Usage: optional

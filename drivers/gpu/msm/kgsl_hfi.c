@@ -16,6 +16,7 @@
 #include "kgsl_gmu.h"
 #include "adreno.h"
 #include "kgsl_trace.h"
+#include "kgsl_pwrctrl.h"
 
 #define HFI_QUEUE_OFFSET(i)		\
 		(ALIGN(sizeof(struct hfi_queue_table), SZ_16) + \
@@ -46,13 +47,13 @@
 	 (((minor) & 0x7FFFFF) << 5) | \
 	 ((branch) & 0x1F))
 
-static void hfi_process_queue(struct gmu_device *gmu, uint32_t queue_idx);
+static void hfi_process_queue(struct gmu_device *gmu, uint32_t queue_idx,
+	struct pending_cmd *ret_cmd);
 
 /* Size in below functions are in unit of dwords */
 static int hfi_queue_read(struct gmu_device *gmu, uint32_t queue_idx,
 		unsigned int *output, unsigned int max_size)
 {
-	struct kgsl_hfi *hfi = &gmu->hfi;
 	struct gmu_memdesc *mem_addr = gmu->hfi_mem;
 	struct hfi_queue_table *tbl = mem_addr->hostptr;
 	struct hfi_queue_header *hdr = &tbl->qhdr[queue_idx];
@@ -64,8 +65,6 @@ static int hfi_queue_read(struct gmu_device *gmu, uint32_t queue_idx,
 
 	if (hdr->status == HFI_QUEUE_STATUS_DISABLED)
 		return -EINVAL;
-
-	spin_lock_bh(&hfi->read_queue_lock);
 
 	if (hdr->read_index == hdr->write_index) {
 		hdr->rx_req = 1;
@@ -110,7 +109,6 @@ static int hfi_queue_read(struct gmu_device *gmu, uint32_t queue_idx,
 	hdr->read_index = read;
 
 done:
-	spin_unlock_bh(&hfi->read_queue_lock);
 	return result;
 }
 
@@ -195,6 +193,7 @@ static int hfi_queue_write(struct gmu_device *gmu, uint32_t queue_idx,
 void hfi_init(struct kgsl_hfi *hfi, struct gmu_memdesc *mem_addr,
 		uint32_t queue_sz_bytes)
 {
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(hfi->kgsldev);
 	int i;
 	struct hfi_queue_table *tbl;
 	struct hfi_queue_header *hdr;
@@ -208,6 +207,17 @@ void hfi_init(struct kgsl_hfi *hfi, struct gmu_memdesc *mem_addr,
 		{ HFI_DBG_IDX, HFI_DBG_PRI, HFI_QUEUE_STATUS_ENABLED },
 		{ HFI_DSP_IDX_0, HFI_DSP_PRI_0, HFI_QUEUE_STATUS_DISABLED },
 	};
+
+	/*
+	 * Overwrite the queue IDs for A630, A615 and A616 as they use
+	 * legacy firmware. Legacy firmware has different queue IDs for
+	 * message, debug and dispatch queues.
+	 */
+	if (adreno_is_a630(adreno_dev) || adreno_is_a615_family(adreno_dev)) {
+		queue[HFI_MSG_ID].idx = HFI_MSG_IDX_LEGACY;
+		queue[HFI_DBG_ID].idx = HFI_DBG_IDX_LEGACY;
+		queue[HFI_DSP_ID_0].idx = HFI_DSP_IDX_0_LEGACY;
+	}
 
 	/* Fill Table Header */
 	tbl = mem_addr->hostptr;
@@ -241,39 +251,27 @@ void hfi_init(struct kgsl_hfi *hfi, struct gmu_memdesc *mem_addr,
 #define HDR_CMP_SEQNUM(out_hdr, in_hdr) \
 	(MSG_HDR_GET_SEQNUM(out_hdr) == MSG_HDR_GET_SEQNUM(in_hdr))
 
-static void receive_ack_cmd(struct gmu_device *gmu, void *rcvd)
+static void receive_ack_cmd(struct gmu_device *gmu, void *rcvd,
+	struct pending_cmd *ret_cmd)
 {
 	uint32_t *ack = rcvd;
 	uint32_t hdr = ack[0];
 	uint32_t req_hdr = ack[1];
 	struct kgsl_hfi *hfi = &gmu->hfi;
-	struct pending_cmd *cmd = NULL;
-	uint32_t waiters[64], i = 0, j;
 
 	trace_kgsl_hfi_receive(MSG_HDR_GET_ID(req_hdr),
 		MSG_HDR_GET_SIZE(req_hdr),
 		MSG_HDR_GET_SEQNUM(req_hdr));
 
-	spin_lock_bh(&hfi->msglock);
-	list_for_each_entry(cmd, &hfi->msglist, node) {
-		if (HDR_CMP_SEQNUM(cmd->sent_hdr, req_hdr)) {
-			memcpy(&cmd->results, ack, MSG_HDR_GET_SIZE(hdr) << 2);
-			complete(&cmd->msg_complete);
-			spin_unlock_bh(&hfi->msglock);
-			return;
-		}
-		if (i < 64)
-			waiters[i++] = cmd->sent_hdr;
+	if (HDR_CMP_SEQNUM(ret_cmd->sent_hdr, req_hdr)) {
+		memcpy(&ret_cmd->results, ack, MSG_HDR_GET_SIZE(hdr) << 2);
+		return;
 	}
-	spin_unlock_bh(&hfi->msglock);
 
+	/* Didn't find the sender, list the waiter */
 	dev_err_ratelimited(&gmu->pdev->dev,
-			"HFI ACK: Cannot find sender for 0x%8.8X\n", req_hdr);
-	/* Didn't find the sender, list all the waiters */
-	for (j = 0; j < i && j < 64; j++) {
-		dev_err_ratelimited(&gmu->pdev->dev,
-				"HFI ACK: Waiters: 0x%8.8X\n", waiters[j]);
-	}
+		"HFI ACK: Cannot find sender for 0x%8.8x Waiter: 0x%8.8x\n",
+		req_hdr, ret_cmd->sent_hdr);
 
 	adreno_set_gpu_fault(ADRENO_DEVICE(hfi->kgsldev), ADRENO_GMU_FAULT);
 	adreno_dispatcher_schedule(hfi->kgsldev);
@@ -282,6 +280,28 @@ static void receive_ack_cmd(struct gmu_device *gmu, void *rcvd)
 #define MSG_HDR_SET_SEQNUM(hdr, num) \
 	(((hdr) & 0xFFFFF) | ((num) << 20))
 
+static int poll_adreno_gmu_reg(struct adreno_device *adreno_dev,
+	enum adreno_regs offset_name, unsigned int expected_val,
+	unsigned int mask, unsigned int timeout_ms)
+{
+	unsigned int val;
+	unsigned long timeout = jiffies + msecs_to_jiffies(timeout_ms);
+
+	while (time_is_after_jiffies(timeout)) {
+		adreno_read_gmureg(adreno_dev, offset_name, &val);
+		if ((val & mask) == expected_val)
+			return 0;
+		usleep_range(10, 100);
+	}
+
+	/* Check one last time */
+	adreno_read_gmureg(adreno_dev, offset_name, &val);
+	if ((val & mask) == expected_val)
+		return 0;
+
+	return -ETIMEDOUT;
+}
+
 static int hfi_send_cmd(struct gmu_device *gmu, uint32_t queue_idx,
 		void *data, struct pending_cmd *ret_cmd)
 {
@@ -289,42 +309,34 @@ static int hfi_send_cmd(struct gmu_device *gmu, uint32_t queue_idx,
 	uint32_t *cmd = data;
 	struct kgsl_hfi *hfi = &gmu->hfi;
 	unsigned int seqnum = atomic_inc_return(&hfi->seqnum);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(hfi->kgsldev);
 
 	*cmd = MSG_HDR_SET_SEQNUM(*cmd, seqnum);
 	if (ret_cmd == NULL)
 		return hfi_queue_write(gmu, queue_idx, cmd);
 
-	init_completion(&ret_cmd->msg_complete);
 	ret_cmd->sent_hdr = cmd[0];
-
-	spin_lock_bh(&hfi->msglock);
-	list_add_tail(&ret_cmd->node, &hfi->msglist);
-	spin_unlock_bh(&hfi->msglock);
 
 	rc = hfi_queue_write(gmu, queue_idx, cmd);
 	if (rc)
-		goto done;
+		return rc;
 
-	rc = wait_for_completion_timeout(
-			&ret_cmd->msg_complete,
-			msecs_to_jiffies(HFI_RSP_TIMEOUT));
-	if (!rc) {
-		/* Check one more time to make sure there is no response */
-		hfi_process_queue(gmu, HFI_MSG_ID);
-		if (!completion_done(&ret_cmd->msg_complete)) {
-			dev_err(&gmu->pdev->dev,
-				"Timed out waiting on ack for 0x%8.8x (id %d, sequence %d)\n",
-				cmd[0],
-				MSG_HDR_GET_ID(*cmd),
-				MSG_HDR_GET_SEQNUM(*cmd));
-			rc = -ETIMEDOUT;
-		}
-	} else
-		rc = 0;
-done:
-	spin_lock_bh(&hfi->msglock);
-	list_del(&ret_cmd->node);
-	spin_unlock_bh(&hfi->msglock);
+	rc = poll_adreno_gmu_reg(adreno_dev, ADRENO_REG_GMU_GMU2HOST_INTR_INFO,
+		HFI_IRQ_MSGQ_MASK, HFI_IRQ_MSGQ_MASK, HFI_RSP_TIMEOUT);
+
+	if (rc) {
+		dev_err(&gmu->pdev->dev,
+		"Timed out waiting on ack for 0x%8.8x (id %d, sequence %d)\n",
+		cmd[0], MSG_HDR_GET_ID(*cmd), MSG_HDR_GET_SEQNUM(*cmd));
+		return rc;
+	}
+
+	/* Clear the interrupt */
+	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_GMU2HOST_INTR_CLR,
+		HFI_IRQ_MSGQ_MASK);
+
+	hfi_process_queue(gmu, HFI_MSG_ID, ret_cmd);
+
 	return rc;
 }
 
@@ -488,7 +500,8 @@ static int hfi_send_dcvstbl(struct gmu_device *gmu)
 
 	for (i = 0; i < gmu->num_gpupwrlevels; i++) {
 		cmd.gx_votes[i].vote = gmu->rpmh_votes.gx_votes[i];
-		cmd.gx_votes[i].acd = gmu->acd_dvm_vals[i];
+		/* Hardcode this to the max threshold since it is not used */
+		cmd.gx_votes[i].acd = 0xFFFFFFFF;
 		/* Divide by 1000 to convert to kHz */
 		cmd.gx_votes[i].freq = gmu->gpu_freqs[i] / 1000;
 	}
@@ -508,6 +521,15 @@ static int hfi_send_bwtbl(struct gmu_device *gmu)
 	cmd->hdr = CMD_MSG_HDR(H2F_MSG_BW_VOTE_TBL, sizeof(*cmd));
 
 	return hfi_send_generic_req(gmu, HFI_CMD_ID, cmd);
+}
+
+static int hfi_send_acd_tbl(struct gmu_device *gmu)
+{
+	struct hfi_acd_table_cmd *cmd = &gmu->hfi.acd_tbl_cmd;
+
+	cmd->hdr = CMD_MSG_HDR(H2F_MSG_ACD_TBL, sizeof(*cmd));
+
+	return hfi_send_generic_req(gmu, HFI_CMD_IDX, cmd);
 }
 
 static int hfi_send_test(struct gmu_device *gmu)
@@ -537,11 +559,12 @@ static void receive_debug_req(struct gmu_device *gmu, void *rcvd)
 			cmd->type, cmd->timestamp, cmd->data);
 }
 
-static void hfi_v1_receiver(struct gmu_device *gmu, uint32_t *rcvd)
+static void hfi_v1_receiver(struct gmu_device *gmu, uint32_t *rcvd,
+	struct pending_cmd *ret_cmd)
 {
 	/* V1 ACK Handler */
 	if (MSG_HDR_GET_TYPE(rcvd[0]) == HFI_V1_MSG_ACK) {
-		receive_ack_cmd(gmu, rcvd);
+		receive_ack_cmd(gmu, rcvd, ret_cmd);
 		return;
 	}
 
@@ -561,20 +584,21 @@ static void hfi_v1_receiver(struct gmu_device *gmu, uint32_t *rcvd)
 	}
 }
 
-static void hfi_process_queue(struct gmu_device *gmu, uint32_t queue_idx)
+static void hfi_process_queue(struct gmu_device *gmu, uint32_t queue_idx,
+	struct pending_cmd *ret_cmd)
 {
 	uint32_t rcvd[MAX_RCVD_SIZE];
 
 	while (hfi_queue_read(gmu, queue_idx, rcvd, sizeof(rcvd)) > 0) {
 		/* Special case if we're v1 */
 		if (HFI_VER_MAJOR(&gmu->hfi) < 2) {
-			hfi_v1_receiver(gmu, rcvd);
+			hfi_v1_receiver(gmu, rcvd, ret_cmd);
 			continue;
 		}
 
 		/* V2 ACK Handler */
 		if (MSG_HDR_GET_TYPE(rcvd[0]) == HFI_MSG_ACK) {
-			receive_ack_cmd(gmu, rcvd);
+			receive_ack_cmd(gmu, rcvd, ret_cmd);
 			continue;
 		}
 
@@ -597,9 +621,8 @@ static void hfi_process_queue(struct gmu_device *gmu, uint32_t queue_idx)
 
 void hfi_receiver(unsigned long data)
 {
-	/* Process all read (firmware to host) queues */
-	hfi_process_queue((struct gmu_device *) data, HFI_MSG_ID);
-	hfi_process_queue((struct gmu_device *) data, HFI_DBG_ID);
+	/* Process all asynchronous read (firmware to host) queues */
+	hfi_process_queue((struct gmu_device *) data, HFI_DBG_ID, NULL);
 }
 
 #define GMU_VER_MAJOR(ver) (((ver) >> 28) & 0xF)
@@ -649,8 +672,19 @@ static int hfi_verify_fw_version(struct kgsl_device *device,
 	return 0;
 }
 
-/* Levels greater than or equal to LM_DCVS_LEVEL are subject to throttling */
-#define LM_DCVS_LEVEL 4
+static int hfi_send_acd_feature_ctrl(struct gmu_device *gmu,
+		struct adreno_device *adreno_dev)
+{
+	int ret = 0;
+
+	if (test_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag)) {
+		ret = hfi_send_acd_tbl(gmu);
+		if (!ret)
+			ret = hfi_send_feature_ctrl(gmu, HFI_FEATURE_ACD, 1, 0);
+	}
+
+	return ret;
+}
 
 int hfi_start(struct kgsl_device *device,
 		struct gmu_device *gmu, uint32_t boot_state)
@@ -706,19 +740,16 @@ int hfi_start(struct kgsl_device *device,
 	 */
 	if (HFI_VER_MAJOR(&gmu->hfi) >= 2) {
 		result = hfi_send_feature_ctrl(gmu, HFI_FEATURE_ECP, 0, 0);
-		if (test_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag))
-			result |= hfi_send_feature_ctrl(gmu,
-					HFI_FEATURE_ACD, 1, 0);
+		if (result)
+			return result;
 
+		result = hfi_send_acd_feature_ctrl(gmu, adreno_dev);
 		if (result)
 			return result;
 
 		if (test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag)) {
-			/* We want all bits starting at LM_DCVS_LEVEL to be 1 */
-			int lm_data = -1 << (LM_DCVS_LEVEL - 1);
-
-			result = hfi_send_feature_ctrl(gmu,
-					HFI_FEATURE_LM, 1, lm_data);
+			result = hfi_send_feature_ctrl(gmu, HFI_FEATURE_LM, 1,
+					device->pwrctrl.throttle_mask);
 			if (result)
 				return result;
 		}
@@ -831,7 +862,7 @@ irqreturn_t hfi_irq_handler(int irq, void *data)
 	adreno_write_gmureg(ADRENO_DEVICE(device),
 			ADRENO_REG_GMU_GMU2HOST_INTR_CLR, status);
 
-	if (status & HFI_IRQ_MSGQ_MASK)
+	if (status & HFI_IRQ_DBGQ_MASK)
 		tasklet_hi_schedule(&hfi->tasklet);
 	if (status & HFI_IRQ_CM3_FAULT_MASK) {
 		dev_err_ratelimited(&gmu->pdev->dev,

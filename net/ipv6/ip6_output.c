@@ -219,12 +219,10 @@ int ip6_xmit(const struct sock *sk, struct sk_buff *skb, struct flowi6 *fl6,
 				kfree_skb(skb);
 				return -ENOBUFS;
 			}
+			if (skb->sk)
+				skb_set_owner_w(skb2, skb->sk);
 			consume_skb(skb);
 			skb = skb2;
-			/* skb_set_owner_w() changes sk->sk_wmem_alloc atomically,
-			 * it is safe to call in our context (socket lock not held)
-			 */
-			skb_set_owner_w(skb, (struct sock *)sk);
 		}
 		if (opt->opt_flen)
 			ipv6_push_frag_opts(skb, opt, &proto);
@@ -1228,7 +1226,7 @@ static int ip6_setup_cork(struct sock *sk, struct inet_cork_full *cork,
 		if (np->frag_size)
 			mtu = np->frag_size;
 	}
-	if (mtu < IPV6_MIN_MTU)
+	if (!(rt->dst.flags & DST_XFRM_TUNNEL) && mtu < IPV6_MIN_MTU)
 		return -EINVAL;
 	cork->base.fragsize = mtu;
 	cork->base.gso_size = sk->sk_type == SOCK_DGRAM &&

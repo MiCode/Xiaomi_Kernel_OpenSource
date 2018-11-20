@@ -511,7 +511,7 @@
 		xbl_aop_mem: xbl_aop_mem@85e00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x85e00000 0x0 0x1ff000>;
+			reg = <0x0 0x85e00000 0x0 0x140000>;
 		};
 
 		sec_apps_mem: sec_apps_region@85fff000 {
@@ -559,37 +559,43 @@
 		pil_cdsp_mem: cdsp_regions@93400000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x93400000 0 0x800000>;
+			reg = <0 0x93400000 0 0x1e00000>;
 		};
 
-		pil_adsp_mem: pil_adsp_region@93c00000 {
+		pil_adsp_mem: pil_adsp_region@95200000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x93c00000 0 0x1e00000>;
+			reg = <0 0x95200000 0 0x1e00000>;
 		};
 
-		pil_ipa_fw_mem: ips_fw_region@0x95a00000 {
+		pil_ipa_fw_mem: ips_fw_region@0x97000000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x95a00000 0 0x10000>;
+			reg = <0 0x97000000 0 0x10000>;
 		};
 
-		pil_ipa_gsi_mem: ipa_gsi_region@0x95a10000 {
+		pil_ipa_gsi_mem: ipa_gsi_region@0x97010000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x95a10000 0 0x5000>;
+			reg = <0 0x97010000 0 0x5000>;
 		};
 
-		pil_gpu_mem: gpu_region@0x95a15000 {
+		pil_gpu_mem: gpu_region@0x97015000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x95a15000 0 0x2000>;
+			reg = <0 0x97015000 0 0x2000>;
 		};
 
 		qseecom_mem: qseecom_region@0x9e400000 {
 			compatible = "shared-dma-pool";
 			no-map;
 			reg = <0 0x9e400000 0 0x1400000>;
+		};
+
+		cdsp_sec_mem: cdsp_sec_regions@0x9f800000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x9f800000 0x0 0xc00000>;
 		};
 
 		adsp_mem: adsp_region {
@@ -1702,6 +1708,10 @@
 			 <&apps_smmu 0x0116 0x0011>;
 	};
 
+	qcom_msmhdcp: qcom,msm_hdcp {
+		compatible = "qcom,msm-hdcp";
+	};
+
 	qcom_crypto: qcrypto@1de0000 {
 		compatible = "qcom,qcrypto";
 		reg = <0x1de0000 0x20000>,
@@ -1778,8 +1788,10 @@
 		compatible = "qcom,msm-eud";
 		interrupt-names = "eud_irq";
 		interrupts = <GIC_SPI 492 IRQ_TYPE_LEVEL_HIGH>;
-		reg = <0x88e0000 0x2000>;
-		reg-names = "eud_base";
+		reg = <0x88e0000 0x2000>,
+		      <0x88e4000 0x1000>;
+		reg-names = "eud_base", "eud_mode_mgr2";
+		qcom,secure-eud-en;
 		status = "ok";
 	};
 
@@ -2057,6 +2069,23 @@
 				qcom,intents = <0x64 64>;
 			};
 
+			qcom,msm_cdsprm_rpmsg {
+				compatible = "qcom,msm-cdsprm-rpmsg";
+				qcom,glink-channels = "cdsprmglink-apps-dsp";
+				qcom,intents = <0x20 12>;
+
+				qcom,cdsp-cdsp-l3-gov {
+					compatible = "qcom,cdsp-l3";
+					qcom,target-dev = <&cdsp_cdsp_l3_lat>;
+				};
+
+				qcom,msm_cdsp_rm {
+					compatible = "qcom,msm-cdsp-rm";
+					qcom,qos-latency-us = <44>;
+					qcom,qos-maxhold-ms = <20>;
+				};
+			};
+
 			qcom,cdsp_glink_ssr {
 				qcom,glink-channels = "glink_ssr";
 				qcom,notify-edges = <&glink_modem>,
@@ -2167,6 +2196,9 @@
 	qcom,smp2p_sleepstate {
 		compatible = "qcom,smp2p-sleepstate";
 		qcom,smem-states = <&sleepstate_smp2p_out 0>;
+		interrupt-parent = <&sleepstate_smp2p_in>;
+		interrupts = <0 0>;
+		interrupt-names = "smp2p-sleepstate-in";
 	};
 
 	qcom,smp2p-modem {
@@ -2229,6 +2261,12 @@
 		sleepstate_smp2p_out: sleepstate-out {
 			qcom,entry-name = "sleepstate";
 			#qcom,smem-state-cells = <1>;
+		};
+
+		sleepstate_smp2p_in: qcom,sleepstate-in {
+			qcom,entry-name = "sleepstate_see";
+			interrupt-controller;
+			#interrupt-cells = <2>;
 		};
 	};
 
@@ -2681,6 +2719,7 @@
 		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3 &CPU4 &CPU5>;
 		qcom,target-dev = <&cpu0_cpu_l3_lat>;
 		qcom,cachemiss-ev = <0x17>;
+		qcom,stall-cycle-ev = <0xE7>;
 		qcom,core-dev-table =
 			<  576000  300000000 >,
 			< 1017600  556800000 >,
@@ -2701,6 +2740,7 @@
 		qcom,cpulist = <&CPU6 &CPU7>;
 		qcom,target-dev = <&cpu6_cpu_l3_lat>;
 		qcom,cachemiss-ev = <0x17>;
+		qcom,stall-cycle-ev = <0x15E>;
 		qcom,core-dev-table =
 			< 1017600  556800000 >,
 			< 1209600  806400000 >,
@@ -2723,6 +2763,7 @@
 		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3 &CPU4 &CPU5>;
 		qcom,target-dev = <&cpu0_cpu_llcc_lat>;
 		qcom,cachemiss-ev = <0x2A>;
+		qcom,stall-cycle-ev = <0xE7>;
 		qcom,core-dev-table =
 			<  748000 MHZ_TO_MBPS(150, 16) >,
 			< 1209600 MHZ_TO_MBPS(300, 16) >,
@@ -2744,6 +2785,7 @@
 		qcom,cpulist = <&CPU6 &CPU7>;
 		qcom,target-dev = <&cpu6_cpu_llcc_lat>;
 		qcom,cachemiss-ev = <0x2A>;
+		qcom,stall-cycle-ev = <0x15E>;
 		qcom,core-dev-table =
 			<  768000 MHZ_TO_MBPS(300, 16) >,
 			< 1017600 MHZ_TO_MBPS(466, 16) >,
@@ -2766,6 +2808,7 @@
 		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3 &CPU4 &CPU5>;
 		qcom,target-dev = <&cpu0_llcc_ddr_lat>;
 		qcom,cachemiss-ev = <0x1000>;
+		qcom,stall-cycle-ev = <0xE7>;
 		qcom,core-dev-table =
 			<  748000 MHZ_TO_MBPS( 300, 4) >,
 			< 1017600 MHZ_TO_MBPS( 451, 4) >,
@@ -2788,6 +2831,7 @@
 		qcom,cpulist = <&CPU6 &CPU7>;
 		qcom,target-dev = <&cpu6_llcc_ddr_lat>;
 		qcom,cachemiss-ev = <0x1000>;
+		qcom,stall-cycle-ev = <0x15E>;
 		qcom,core-dev-table =
 			<  768000 MHZ_TO_MBPS( 451, 4) >,
 			< 1017600 MHZ_TO_MBPS( 547, 4) >,
@@ -2853,6 +2897,10 @@
 	cx_ipeak_lm: cx_ipeak@01fed000 {
 		compatible = "qcom,cx-ipeak-sm6150";
 		reg = <0x1fed000 0x28>;
+	};
+
+	demux {
+		compatible = "qcom,demux";
 	};
 };
 
@@ -3049,6 +3097,7 @@
 };
 
 &bps_gdsc {
+	qcom,support-hw-trigger;
 	status = "ok";
 };
 
@@ -3061,6 +3110,7 @@
 };
 
 &ipe_0_gdsc {
+	qcom,support-hw-trigger;
 	status = "ok";
 };
 
@@ -3094,6 +3144,16 @@
 	status = "ok";
 };
 
+&qupv3_se3_i2c {
+	status = "ok";
+	fsa4480: fsa4480@43 {
+		compatible = "qcom,fsa4480-i2c";
+		reg = <0x43>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&fsa_usbc_ana_en>;
+	};
+};
+
 #include "sm6150-camera.dtsi"
 #include "sm6150-ion.dtsi"
 #include "msm-arm-smmu-sm6150.dtsi"
@@ -3103,3 +3163,8 @@
 #include "sm6150-audio.dtsi"
 #include "sm6150-sde-pll.dtsi"
 #include "sm6150-sde.dtsi"
+
+&msm_vidc {
+	qcom,cx-ipeak-data = <&cx_ipeak_lm 4>;
+	qcom,clock-freq-threshold = <380000000>;
+};

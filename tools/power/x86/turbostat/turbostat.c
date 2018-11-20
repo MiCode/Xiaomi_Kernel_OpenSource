@@ -1038,9 +1038,7 @@ void format_all_counters(struct thread_data *t, struct core_data *c, struct pkg_
 	if (!printed || !summary_only)
 		print_header("\t");
 
-	if (topo.num_cpus > 1)
-		format_counters(&average.threads, &average.cores,
-			&average.packages);
+	format_counters(&average.threads, &average.cores, &average.packages);
 
 	printed = 1;
 
@@ -1487,7 +1485,7 @@ int get_mp(int cpu, struct msr_counter *mp, unsigned long long *counterp)
 		if (get_msr(cpu, mp->msr_num, counterp))
 			return -1;
 	} else {
-		char path[128];
+		char path[128 + PATH_BYTES];
 
 		if (mp->flags & SYSFS_PERCPU) {
 			sprintf(path, "/sys/devices/system/cpu/cpu%d/%s",
@@ -4031,7 +4029,9 @@ void process_cpuid()
 	family = (fms >> 8) & 0xf;
 	model = (fms >> 4) & 0xf;
 	stepping = fms & 0xf;
-	if (family == 6 || family == 0xf)
+	if (family == 0xf)
+		family += (fms >> 20) & 0xff;
+	if (family >= 6)
 		model += ((fms >> 16) & 0xf) << 4;
 
 	if (!quiet) {

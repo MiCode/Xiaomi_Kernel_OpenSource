@@ -68,8 +68,12 @@ struct mdm_drv {
 	struct workqueue_struct *mdm_queue;
 	struct work_struct ssr_work;
 	struct notifier_block esoc_restart;
+	struct mutex poff_lock;
 };
 #define to_mdm_drv(d)	container_of(d, struct mdm_drv, cmd_eng)
+
+static void esoc_client_link_power_off(struct esoc_clink *esoc_clink,
+							bool mdm_crashed);
 
 static int esoc_msm_restart_handler(struct notifier_block *nb,
 		unsigned long action, void *data)
@@ -82,10 +86,20 @@ static int esoc_msm_restart_handler(struct notifier_block *nb,
 	if (action == SYS_RESTART) {
 		if (mdm_dbg_stall_notify(ESOC_PRIMARY_REBOOT))
 			return NOTIFY_OK;
+		mutex_lock(&mdm_drv->poff_lock);
+		if (mdm_drv->mode == PWR_OFF) {
+			esoc_mdm_log(
+			"Reboot notifier: mdm already powered-off\n");
+			mutex_unlock(&mdm_drv->poff_lock);
+			return NOTIFY_OK;
+		}
+		esoc_client_link_power_off(esoc_clink, false);
 		esoc_mdm_log(
 			"Reboot notifier: Notifying esoc of cold reboot\n");
 		dev_dbg(&esoc_clink->dev, "Notifying esoc of cold reboot\n");
 		clink_ops->notify(ESOC_PRIMARY_REBOOT, esoc_clink);
+		mdm_drv->mode = PWR_OFF;
+		mutex_unlock(&mdm_drv->poff_lock);
 	}
 	return NOTIFY_OK;
 }
@@ -250,18 +264,26 @@ static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys,
 		mdm_drv->mode = IN_DEBUG;
 	} else if (!force_stop) {
 		esoc_mdm_log("Graceful shutdown mode\n");
+		mutex_lock(&mdm_drv->poff_lock);
+		if (mdm_drv->mode == PWR_OFF) {
+			mutex_unlock(&mdm_drv->poff_lock);
+			esoc_mdm_log("mdm already powered-off\n");
+			return 0;
+		}
 		if (esoc_clink->subsys.sysmon_shutdown_ret) {
 			esoc_mdm_log(
 			"Executing the ESOC_FORCE_PWR_OFF command\n");
 			ret = clink_ops->cmd_exe(ESOC_FORCE_PWR_OFF,
 							esoc_clink);
 		} else {
-			if (mdm_dbg_stall_cmd(ESOC_PWR_OFF))
+			if (mdm_dbg_stall_cmd(ESOC_PWR_OFF)) {
 				/* Since power off command is masked
 				 * we return success, and leave the state
 				 * of the command engine as is.
 				 */
+				mutex_unlock(&mdm_drv->poff_lock);
 				return 0;
+			}
 			dev_dbg(&esoc_clink->dev, "Sending sysmon-shutdown\n");
 			esoc_mdm_log("Executing the ESOC_PWR_OFF command\n");
 			ret = clink_ops->cmd_exe(ESOC_PWR_OFF, esoc_clink);
@@ -270,12 +292,14 @@ static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys,
 			esoc_mdm_log(
 			"Executing the ESOC_PWR_OFF command failed\n");
 			dev_err(&esoc_clink->dev, "failed to exe power off\n");
+			mutex_unlock(&mdm_drv->poff_lock);
 			return ret;
 		}
 		esoc_client_link_power_off(esoc_clink, false);
 		/* Pull the reset line low to turn off the device */
 		clink_ops->cmd_exe(ESOC_FORCE_PWR_OFF, esoc_clink);
 		mdm_drv->mode = PWR_OFF;
+		mutex_unlock(&mdm_drv->poff_lock);
 	}
 	esoc_mdm_log("Shutdown completed\n");
 	return 0;
@@ -473,6 +497,7 @@ int esoc_ssr_probe(struct esoc_clink *esoc_clink, struct esoc_drv *drv)
 		dev_err(&esoc_clink->dev, "failed to register cmd engine\n");
 		return ret;
 	}
+	mutex_init(&mdm_drv->poff_lock);
 	ret = mdm_register_ssr(esoc_clink);
 	if (ret)
 		goto ssr_err;
@@ -516,6 +541,10 @@ static struct esoc_compat compat_table[] = {
 	},
 	{
 		.name = "SDX50M",
+		.data = NULL,
+	},
+	{
+		.name = "SDXPRAIRIE",
 		.data = NULL,
 	},
 };

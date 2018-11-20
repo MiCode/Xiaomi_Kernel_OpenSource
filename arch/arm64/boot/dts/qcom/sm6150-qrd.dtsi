@@ -61,6 +61,7 @@
 
 &pm6150l_wled {
 	qcom,string-cfg= <3>;
+	qcom,leds-per-string = <7>;
 	status = "ok";
 };
 
@@ -109,14 +110,17 @@
 		      <&pm6150_vadc ADC_USB_IN_I>,
 		      <&pm6150_vadc ADC_CHG_TEMP>,
 		      <&pm6150_vadc ADC_DIE_TEMP>,
-		      <&pm6150_vadc ADC_AMUX_THM4_PU2>;
+		      <&pm6150_vadc ADC_AMUX_THM4_PU2>,
+		      <&pm6150_vadc ADC_SBUx>,
+		      <&pm6150_vadc ADC_VPH_PWR>;
 	io-channel-names = "usb_in_voltage",
 			   "usb_in_current",
 			   "chg_temp",
 			   "die_temp",
-			   "conn_temp";
+			   "conn_temp",
+			   "sbux_res",
+			   "vph_voltage";
 	qcom,battery-data = <&mtp_batterydata>;
-	qcom,step-charging-enable;
 	qcom,sw-jeita-enable;
 	qcom,fcc-stepping-enable;
 	qcom,sec-charger-config = <1>;
@@ -243,4 +247,18 @@
 		pinctrl-2 = <&fpc_int_low>;
 	};
 
+};
+
+/* Primary USB port related High Speed PHY */
+&qusb_phy0 {
+	qcom,qusb-phy-init-seq = <0xf8 0x80
+				0xb3 0x84
+				0x83 0x88
+				0x07 0x8c
+				0x30 0x08
+				0x79 0x0c
+				0x21 0x10
+				0x14 0x9c
+				0x9f 0x1c
+				0x00 0x18>;
 };

@@ -312,7 +312,6 @@ static void sde_hdcp_2x_wakeup_client(struct sde_hdcp_2x_ctrl *hdcp,
 
 static inline void sde_hdcp_2x_send_message(struct sde_hdcp_2x_ctrl *hdcp)
 {
-	char msg_name[50];
 	struct hdcp_transport_wakeup_data cdata = {
 					HDCP_TRANSPORT_CMD_SEND_MESSAGE };
 
@@ -323,12 +322,8 @@ static inline void sde_hdcp_2x_send_message(struct sde_hdcp_2x_ctrl *hdcp)
 	/* ignore the first byte as it contains the message id */
 	cdata.buf = hdcp->app_data.response.data + 1;
 
-	snprintf(msg_name, sizeof(msg_name), "%s: ",
+	pr_debug("%s\n",
 		sde_hdcp_2x_message_name(hdcp->app_data.response.data[0]));
-
-	print_hex_dump(KERN_DEBUG, msg_name,
-		DUMP_PREFIX_NONE, 16, 1, cdata.buf,
-		cdata.buf_len, false);
 
 	sde_hdcp_2x_wakeup_client(hdcp, &cdata);
 }
@@ -588,7 +583,6 @@ static void sde_hdcp_2x_msg_recvd(struct sde_hdcp_2x_ctrl *hdcp)
 {
 	int rc = 0;
 	char *msg = NULL;
-	char msg_name[50];
 	u32 message_id_bytes = 0;
 	u32 request_length, out_msg;
 	struct hdcp_transport_wakeup_data cdata = {
@@ -615,12 +609,6 @@ static void sde_hdcp_2x_msg_recvd(struct sde_hdcp_2x_ctrl *hdcp)
 	}
 
 	request_length += message_id_bytes;
-
-	snprintf(msg_name, sizeof(msg_name), "%s: ",
-		sde_hdcp_2x_message_name((int)msg[0]));
-
-	print_hex_dump(KERN_DEBUG, msg_name,
-		DUMP_PREFIX_NONE, 16, 1, msg, request_length, false);
 
 	pr_debug("message received from SINK: %s\n",
 			sde_hdcp_2x_message_name(msg[0]));

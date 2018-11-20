@@ -123,6 +123,7 @@ static int fsa4480_usbc_event_changed(struct notifier_block *nb,
 
 		dev_dbg(dev, "%s: queueing usbc_analog_work\n",
 			__func__);
+		pm_stay_awake(fsa_priv->dev);
 		schedule_work(&fsa_priv->usbc_analog_work);
 		break;
 	default:
@@ -303,6 +304,7 @@ static void fsa4480_usbc_analog_work_fn(struct work_struct *work)
 	}
 	fsa4480_usbc_analog_setup_switches(fsa_priv,
 		atomic_read(&(fsa_priv->usbc_mode)) != POWER_SUPPLY_TYPEC_NONE);
+	pm_relax(fsa_priv->dev);
 }
 
 static void fsa4480_update_reg_defaults(struct regmap *regmap)
@@ -387,7 +389,8 @@ static int fsa4480_remove(struct i2c_client *i2c)
 		return -EINVAL;
 
 	fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
-
+	cancel_work(&fsa_priv->usbc_analog_work);
+	pm_relax(fsa_priv->dev);
 	/* deregister from PMI */
 	power_supply_unreg_notifier(&fsa_priv->psy_nb);
 	power_supply_put(fsa_priv->usb_psy);

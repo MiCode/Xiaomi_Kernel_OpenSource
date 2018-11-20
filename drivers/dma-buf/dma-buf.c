@@ -93,6 +93,8 @@ static int dma_buf_release(struct inode *inode, struct file *file)
 	list_del(&dmabuf->list_node);
 	mutex_unlock(&db_list.lock);
 
+	dma_buf_ref_destroy(dmabuf);
+
 	if (dmabuf->resv == (struct reservation_object *)&dmabuf[1])
 		reservation_object_fini(dmabuf->resv);
 
@@ -495,6 +497,9 @@ struct dma_buf *dma_buf_export(const struct dma_buf_export_info *exp_info)
 	mutex_init(&dmabuf->lock);
 	INIT_LIST_HEAD(&dmabuf->attachments);
 
+	dma_buf_ref_init(dmabuf);
+	dma_buf_ref_mod(dmabuf, 1);
+
 	mutex_lock(&db_list.lock);
 	list_add(&dmabuf->list_node, &db_list.head);
 	mutex_unlock(&db_list.lock);
@@ -556,6 +561,7 @@ struct dma_buf *dma_buf_get(int fd)
 		fput(file);
 		return ERR_PTR(-EINVAL);
 	}
+	dma_buf_ref_mod(file->private_data, 1);
 
 	return file->private_data;
 }
@@ -576,6 +582,7 @@ void dma_buf_put(struct dma_buf *dmabuf)
 	if (WARN_ON(!dmabuf || !dmabuf->file))
 		return;
 
+	dma_buf_ref_mod(dmabuf, -1);
 	fput(dmabuf->file);
 }
 EXPORT_SYMBOL_GPL(dma_buf_put);
@@ -1265,6 +1272,8 @@ static int dma_buf_debug_show(struct seq_file *s, void *unused)
 
 		seq_printf(s, "Total %d devices attached\n\n",
 				attach_count);
+
+		dma_buf_ref_show(s, buf_obj);
 
 		count++;
 		size += buf_obj->size;

@@ -89,7 +89,6 @@ static void rmnet_ipa_get_stats_and_update(void);
 static int ipa3_wwan_add_ul_flt_rule_to_ipa(void);
 static int ipa3_wwan_del_ul_flt_rule_to_ipa(void);
 static void ipa3_wwan_msg_free_cb(void*, u32, u32);
-static void ipa3_rmnet_rx_cb(void *priv);
 static int ipa3_rmnet_poll(struct napi_struct *napi, int budget);
 
 static void ipa3_wake_tx_queue(struct work_struct *work);
@@ -1278,13 +1277,9 @@ static void apps_ipa_packet_receive_notify(void *priv,
 		}
 		dev->stats.rx_packets++;
 		dev->stats.rx_bytes += packet_len;
-	} else if (evt == IPA_CLIENT_START_POLL)
-		ipa3_rmnet_rx_cb(priv);
-	else if (evt == IPA_CLIENT_COMP_NAPI) {
-		if (ipa3_rmnet_res.ipa_napi_enable)
-			napi_complete(&(rmnet_ipa3_ctx->wwan_priv->napi));
-	} else
+	} else {
 		IPAWANERR("Invalid evt %d received in wan_ipa_receive\n", evt);
+	}
 }
 
 static int handle3_ingress_format(struct net_device *dev,
@@ -1341,7 +1336,8 @@ static int handle3_ingress_format(struct net_device *dev,
 	ipa_wan_ep_cfg->notify = apps_ipa_packet_receive_notify;
 	ipa_wan_ep_cfg->priv = dev;
 
-	ipa_wan_ep_cfg->napi_enabled = ipa3_rmnet_res.ipa_napi_enable;
+	if (ipa3_rmnet_res.ipa_napi_enable)
+		ipa_wan_ep_cfg->napi_obj = &(rmnet_ipa3_ctx->wwan_priv->napi);
 	ipa_wan_ep_cfg->desc_fifo_sz =
 		ipa3_rmnet_res.wan_rx_desc_size * IPA_FIFO_ELEMENT_SIZE;
 
@@ -1967,11 +1963,11 @@ int ipa3_wwan_set_modem_perf_profile(int throughput)
 	int ret;
 
 	if (ipa3_ctx->use_ipa_pm) {
-		ret = ipa_pm_set_perf_profile(rmnet_ipa3_ctx->q6_pm_hdl,
+		ret = ipa_pm_set_throughput(rmnet_ipa3_ctx->q6_pm_hdl,
 			throughput);
 		if (ret)
 			return ret;
-		ret = ipa_pm_set_perf_profile(rmnet_ipa3_ctx->q6_teth_pm_hdl,
+		ret = ipa_pm_set_throughput(rmnet_ipa3_ctx->q6_teth_pm_hdl,
 			throughput);
 	} else {
 		memset(&profile, 0, sizeof(profile));
@@ -3638,6 +3634,13 @@ void ipa3_q6_handshake_complete(bool ssr_bootup)
 		 * SSR recovery
 		 */
 		rmnet_ipa_get_network_stats_and_update();
+	} else {
+		/*
+		 * To enable ipa power collapse we need to enable rpmh and uc
+		 * handshake So that uc can do register retention. To enable
+		 * this handshake we need to send the below message to rpmh
+		 */
+		ipa_pc_qmp_enable();
 	}
 
 	imp_handle_modem_ready();
@@ -4182,12 +4185,6 @@ static void __exit ipa3_wwan_cleanup(void)
 static void ipa3_wwan_msg_free_cb(void *buff, u32 len, u32 type)
 {
 	kfree(buff);
-}
-
-static void ipa3_rmnet_rx_cb(void *priv)
-{
-	IPAWANDBG_LOW("\n");
-	napi_schedule(&(rmnet_ipa3_ctx->wwan_priv->napi));
 }
 
 static int ipa3_rmnet_poll(struct napi_struct *napi, int budget)

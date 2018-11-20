@@ -435,7 +435,7 @@
 				1267200  88
 			>;
 			idle-cost-data = <
-				22 18 14 12
+				18 14 12
 			>;
 		};
 
@@ -460,7 +460,7 @@
 				2016000 807
 			>;
 			idle-cost-data = <
-				100 80 60 40
+				80 60 40
 			>;
 		};
 
@@ -485,7 +485,7 @@
 				2054400 960
 			>;
 			idle-cost-data = <
-				130 110 90 70
+				110 90 70
 			>;
 		};
 
@@ -504,7 +504,7 @@
 				1267200 10
 			>;
 			idle-cost-data = <
-				4 3 2 1
+				3 2 1
 			>;
 		};
 
@@ -530,7 +530,7 @@
 
 			>;
 			idle-cost-data = <
-				4 3 2 1
+				3 2 1
 			>;
 		};
 
@@ -555,7 +555,7 @@
 				2054400 140
 			>;
 			idle-cost-data = <
-				4 3 2 1
+				3 2 1
 			>;
 		};
 	}; /* energy-costs */
@@ -915,6 +915,16 @@
 		interrupt-parent = <&intc>;
 	};
 
+	gict: gict@17a20000 {
+		compatible = "arm,gic-600-erp";
+		reg = <0x17a20000 0x10000>;
+		reg-names = "gict-base";
+		interrupt-config = <46 17>;
+		interrupt-names = "gict-fault", "gict-err";
+		interrupts = <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 17 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
 	pdc: interrupt-controller@0xb220000{
 		compatible = "qcom,pdc-sm8150";
 		reg = <0xb220000 0x400>;
@@ -1134,8 +1144,29 @@
 
 	cpu4_cpu_l3_latmon: qcom,cpu4-cpu-l3-latmon {
 		compatible = "qcom,arm-memlat-mon";
-		qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
+		qcom,cpulist = <&CPU4 &CPU5 &CPU6>;
 		qcom,target-dev = <&cpu4_cpu_l3_lat>;
+		qcom,cachemiss-ev = <0x17>;
+		qcom,core-dev-table =
+			<  300000  300000000 >,
+			<  768000  576000000 >,
+			< 1152000  768000000 >,
+			< 1344000  960000000 >,
+			< 1689600 1228800000 >,
+			< 2016000 1344000000 >;
+	};
+
+	cpu7_cpu_l3_lat: qcom,cpu7-cpu-l3-lat {
+		compatible = "devfreq-simple-dev";
+		clock-names = "devfreq_clk";
+		clocks = <&clock_cpucc L3_CLUSTER2_VOTE_CLK>;
+		governor = "performance";
+	};
+
+	cpu7_cpu_l3_latmon: qcom,cpu7-cpu-l3-latmon {
+		compatible = "qcom,arm-memlat-mon";
+		qcom,cpulist = <&CPU7>;
+		qcom,target-dev = <&cpu7_cpu_l3_lat>;
 		qcom,cachemiss-ev = <0x17>;
 		qcom,core-dev-table =
 			<  300000  300000000 >,
@@ -1262,13 +1293,6 @@
 		interrupts = <1 5 4>;
 	};
 
-	dsu_pmu@0 {
-		compatible = "arm,dsu-pmu";
-		interrupts = <GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>;
-		cpus = <&CPU0>, <&CPU1>, <&CPU2>, <&CPU3>,
-			<&CPU4>, <&CPU5>, <&CPU6>, <&CPU7>;
-	};
-
 	qcom,msm-imem@146bf000 {
 		compatible = "qcom,msm-imem";
 		reg = <0x146bf000 0x1000>;
@@ -1322,6 +1346,12 @@
 	qcom,msm-rtb {
 		compatible = "qcom,msm-rtb";
 		qcom,rtb-size = <0x100000>;
+	};
+
+	qcom,aop-ddr-msgs {
+		compatible = "qcom,aop-ddr-msgs";
+		mboxes = <&qmp_aop 0>;
+		mbox-name = "restart-ddr-mbox";
 	};
 
 	qcom,mpm2-sleep-counter@0xc221000 {
@@ -1497,7 +1527,7 @@
 		reg-names = "osm_l3_base", "osm_pwrcl_base",
 			"osm_perfcl_base", "osm_perfpcl_base";
 		l3-devs = <&cpu0_cpu_l3_lat &cpu4_cpu_l3_lat &cdsp_cdsp_l3_lat
-			&msm_gpu>;
+			&msm_gpu &cpu7_cpu_l3_lat>;
 
 		#clock-cells = <1>;
 	};
@@ -2271,7 +2301,7 @@
 			<0 0>,
 			<0 0>,
 			<37500000 300000000>,
-			<75000000 300000000>,
+			<37500000 300000000>,
 			<0 0>,
 			<0 0>,
 			<0 0>,
@@ -2357,7 +2387,7 @@
 	msm_fastrpc: qcom,msm_fastrpc {
 		compatible = "qcom,msm-fastrpc-compute";
 		qcom,fastrpc-adsp-audio-pdr;
-		qcom,rpc-latency-us = <611>;
+		qcom,rpc-latency-us = <235>;
 
 		qcom,msm_fastrpc_compute_cb1 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
@@ -3109,10 +3139,10 @@
 	dcc: dcc_v2@10a2000 {
 		compatible = "qcom,dcc-v2";
 		reg = <0x10a2000 0x1000>,
-		      <0x10ae000 0x2000>;
+		      <0x10ad000 0x3000>;
 		reg-names = "dcc-base", "dcc-ram-base";
 
-		dcc-ram-offset = <0x6000>;
+		dcc-ram-offset = <0x5000>;
 
 		qcom,curr-link-list = <3>;
 		qcom,link-list = <DCC_READ 0x18220d14 3 0>,
@@ -3513,6 +3543,7 @@
 
 	ipa_hw: qcom,ipa@1e00000 {
 		compatible = "qcom,ipa";
+		mboxes = <&qmp_aop 0>;
 		reg = <0x1e00000 0x34000>,
 		      <0x1e04000 0x28000>;
 		reg-names = "ipa-base", "gsi-base";
@@ -3635,7 +3666,7 @@
 		qcom,wlan-ramdump-dynamic = <0x400000>;
 
 		mhi,max-channels = <30>;
-		mhi,timeout = <1000>;
+		mhi,timeout = <10000>;
 
 		mhi_chan@0 {
 			reg = <0>;

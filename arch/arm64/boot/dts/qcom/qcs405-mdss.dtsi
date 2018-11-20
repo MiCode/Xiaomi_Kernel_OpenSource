@@ -193,12 +193,13 @@
 			compatible = "qcom,mdss-fb";
 		};
 
-		mdss_fb1: qcom,mdss_fb_wfd {
+		mdss_fb1: qcom,mdss_fb_hdmi {
 			cell-index = <1>;
 			compatible = "qcom,mdss-fb";
+			qcom,mdss-intf = <&mdss_hdmi_tx>;
 		};
 
-		mdss_fb2: qcom,mdss_fb_secondary {
+		mdss_fb2: qcom,mdss_fb_wfd {
 			cell-index = <2>;
 			compatible = "qcom,mdss-fb";
 		};
@@ -242,8 +243,6 @@
 		qcom,mmss-phyreset-ctrl-offset = <0x24>;
 
 		qcom,mdss-fb-map-prim = <&mdss_fb0>;
-		qcom,mdss-fb-map-sec = <&mdss_fb2>;
-		/*qcom,mdss-fb-map = <&mdss_fb0>;*/
 		qcom,core-supply-entries {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -322,11 +321,55 @@
 		};
 	};
 
+	msm_ext_disp: qcom,msm_ext_disp {
+		compatible = "qcom,msm-ext-disp";
+
+		ext_disp_audio_codec: qcom,msm-ext-disp-audio-codec-rx {
+			compatible = "qcom,msm-ext-disp-audio-codec-rx";
+			qcom,msm_ext_disp = <&msm_ext_disp>;
+		};
+	};
+
+	mdss_hdmi_tx: qcom,hdmi_tx@1aa0000 {
+		cell-index = <0>;
+		compatible = "qcom,hdmi-tx";
+
+		reg =   <0x1aa0000 0x50c>,
+			<0xa0000 0x6400>,
+			<0x1ae0000 0x28>;
+		reg-names = "core_physical", "qfprom_physical", "hdcp_physical";
+
+		hpd-gdsc-supply = <&gdsc_mdss>;
+
+		qcom,supply-names = "hpd-gdsc";
+		qcom,min-voltage-level = <0>;
+		qcom,max-voltage-level = <0>;
+		qcom,enable-load = <0>;
+		qcom,disable-load = <0>;
+
+		qcom,msm_ext_disp = <&msm_ext_disp>;
+
+		clocks = <&clock_gcc GCC_MDSS_AHB_CLK>,
+			 <&clock_gcc_mdss MDSS_MDP_VOTE_CLK>,
+			 <&clock_gcc GCC_MDSS_HDMI_APP_CLK>,
+			 <&clock_gcc GCC_MDSS_HDMI_PCLK_CLK>,
+			 <&clock_gcc HDMI_PCLK_CLK_SRC>,
+			 <&mdss_hdmi_pll HDMI_PCLK_SRC>;
+
+		clock-names = "hpd_iface_clk", "hpd_mdp_core_clk",
+				"hpd_core_clk", "core_extp_clk",
+				"hdmi_pclk_rcg", "ext_hdmi_pixel_clk";
+
+		qcom,mdss-fb-map = <&mdss_fb1>;
+		qcom,pluggable;
+		qcom,max-pclk-frequency-khz = <148500>;
+	};
+
 	qcom,mdss_wb_panel {
 		compatible = "qcom,mdss_wb";
 		qcom,mdss_pan_res = <640 640>;
 		qcom,mdss_pan_bpp = <24>;
-		qcom,mdss-fb-map = <&mdss_fb1>;
+		qcom,mdss-fb-map = <&mdss_fb2>;
 	};
 
 };

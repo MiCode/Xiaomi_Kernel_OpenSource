@@ -281,3 +281,9 @@ config USB_REDRIVER_NB7VPQ904M
 	depends on USB_PHY
 	help
 	  Say Y here if you want to support USB super speed re-driver NB7VPQ904M.
+
+config USB_TYPEC_MUX_NXP5150A
+	tristate "Enable driver for NXP CC Logic chipset NXP5150A"
+	help
+	  Say Y here if you want to use NXP CC Logic Type-C Chipset NXP5150A
+	  for CC detection and Mux control.

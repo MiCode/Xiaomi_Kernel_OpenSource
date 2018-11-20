@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -472,6 +472,7 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 {
 	struct kgsl_device *device;
 	struct adreno_device *adreno_dev;
+	struct adreno_gpudev *gpudev;
 	struct adreno_context *drawctxt;
 	struct adreno_ringbuffer *rb;
 	int ret, count, i;
@@ -482,6 +483,7 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 
 	device = context->device;
 	adreno_dev = ADRENO_DEVICE(device);
+	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	drawctxt = ADRENO_CONTEXT(context);
 	rb = drawctxt->rb;
 
@@ -562,6 +564,9 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 
 	mutex_unlock(&device->mutex);
 
+	if (gpudev->preemption_context_destroy)
+		gpudev->preemption_context_destroy(context);
+
 	/* wake threads waiting to submit commands from this context */
 	wake_up_all(&drawctxt->waiting);
 	wake_up_all(&drawctxt->wq);
@@ -570,17 +575,9 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 void adreno_drawctxt_destroy(struct kgsl_context *context)
 {
 	struct adreno_context *drawctxt;
-	struct adreno_device *adreno_dev;
-	struct adreno_gpudev *gpudev;
 
 	if (context == NULL)
 		return;
-
-	adreno_dev = ADRENO_DEVICE(context->device);
-	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-
-	if (gpudev->preemption_context_destroy)
-		gpudev->preemption_context_destroy(context);
 
 	drawctxt = ADRENO_CONTEXT(context);
 	kfree(drawctxt);

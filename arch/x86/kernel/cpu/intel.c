@@ -150,6 +150,9 @@ static bool bad_spectre_microcode(struct cpuinfo_x86 *c)
 	if (cpu_has(c, X86_FEATURE_HYPERVISOR))
 		return false;
 
+	if (c->x86 != 6)
+		return false;
+
 	for (i = 0; i < ARRAY_SIZE(spectre_bad_microcodes); i++) {
 		if (c->x86_model == spectre_bad_microcodes[i].model &&
 		    c->x86_stepping == spectre_bad_microcodes[i].stepping)
@@ -301,6 +304,13 @@ static void early_init_intel(struct cpuinfo_x86 *c)
 	}
 
 	check_mpx_erratum(c);
+
+	/*
+	 * Get the number of SMT siblings early from the extended topology
+	 * leaf, if available. Otherwise try the legacy SMT detection.
+	 */
+	if (detect_extended_topology_early(c) < 0)
+		detect_ht_early(c);
 }
 
 #ifdef CONFIG_X86_32

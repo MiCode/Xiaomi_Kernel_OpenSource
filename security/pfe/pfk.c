@@ -280,14 +280,29 @@ bool pfe_is_inode_filesystem_type(const struct inode *inode,
 static int pfk_get_key_for_bio(const struct bio *bio,
 		struct pfk_key_info *key_info,
 		enum ice_cryto_algo_mode *algo_mode,
-		bool *is_pfe)
+		bool *is_pfe, unsigned int *data_unit)
 {
 	const struct inode *inode;
 	enum pfe_type which_pfe;
 	const struct blk_encryption_key *key = NULL;
+	char *s_type = NULL;
 
 	inode = pfk_bio_get_inode(bio);
 	which_pfe = pfk_get_pfe_type(inode);
+	s_type = (char *)pfk_kc_get_storage_type();
+
+	/*
+	 * Update dun based on storage type.
+	 * 512 byte dun - For ext4 emmc
+	 * 4K dun - For ext4 ufs, f2fs ufs and f2fs emmc
+	 */
+
+	if (data_unit) {
+		if (!bio_dun(bio) && !memcmp(s_type, "sdcc", strlen("sdcc")))
+			*data_unit = 1 << ICE_CRYPTO_DATA_UNIT_512_B;
+		else
+			*data_unit = 1 << ICE_CRYPTO_DATA_UNIT_4_KB;
+	}
 
 	if (which_pfe != INVALID_PFE) {
 		/* Encrypted file; override ->bi_crypt_key */
@@ -349,6 +364,7 @@ int pfk_load_key_start(const struct bio *bio,
 	struct pfk_key_info key_info = {NULL, NULL, 0, 0};
 	enum ice_cryto_algo_mode algo_mode = ICE_CRYPTO_ALGO_MODE_AES_XTS;
 	enum ice_crpto_key_size key_size_type = 0;
+	unsigned int data_unit = 1 << ICE_CRYPTO_DATA_UNIT_512_B;
 	u32 key_index = 0;
 
 	if (!is_pfe) {
@@ -371,7 +387,8 @@ int pfk_load_key_start(const struct bio *bio,
 		return -EINVAL;
 	}
 
-	ret = pfk_get_key_for_bio(bio, &key_info, &algo_mode, is_pfe);
+	ret = pfk_get_key_for_bio(bio, &key_info, &algo_mode, is_pfe,
+					&data_unit);
 
 	if (ret != 0)
 		return ret;
@@ -381,7 +398,8 @@ int pfk_load_key_start(const struct bio *bio,
 		return ret;
 
 	ret = pfk_kc_load_key_start(key_info.key, key_info.key_size,
-			key_info.salt, key_info.salt_size, &key_index, async);
+			key_info.salt, key_info.salt_size, &key_index, async,
+			data_unit);
 	if (ret) {
 		if (ret != -EBUSY && ret != -EAGAIN)
 			pr_err("start: could not load key into pfk key cache, error %d\n",
@@ -432,7 +450,7 @@ int pfk_load_key_end(const struct bio *bio, bool *is_pfe)
 	if (!pfk_is_ready())
 		return -ENODEV;
 
-	ret = pfk_get_key_for_bio(bio, &key_info, NULL, is_pfe);
+	ret = pfk_get_key_for_bio(bio, &key_info, NULL, is_pfe, NULL);
 	if (ret != 0)
 		return ret;
 
@@ -513,6 +531,20 @@ bool pfk_allow_merge_bio(const struct bio *bio1, const struct bio *bio2)
 	return key1 == key2 ||
 		(key1 && key2 &&
 		 !crypto_memneq(key1->raw, key2->raw, sizeof(key1->raw)));
+}
+
+int pfk_fbe_clear_key(const unsigned char *key, size_t key_size,
+		const unsigned char *salt, size_t salt_size)
+{
+	int ret = -EINVAL;
+
+	if (!key || !salt)
+		return ret;
+
+	ret = pfk_kc_remove_key_with_salt(key, key_size, salt, salt_size);
+	if (ret)
+		pr_err("Clear key error: ret value %d\n", ret);
+	return ret;
 }
 
 /**

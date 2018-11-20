@@ -51,11 +51,6 @@ struct svc_info {
 	u32 iface_id;
 };
 
-struct fc_info {
-	struct svc_info svc;
-	void *dfc_client;
-};
-
 struct qos_info {
 	u8 mux_id;
 	struct net_device *real_dev;
@@ -74,7 +69,7 @@ struct flow_info {
 struct qmi_info {
 	int flag;
 	void *wda_client;
-	struct fc_info fc_info[MAX_CLIENT_NUM];
+	void *dfc_clients[MAX_CLIENT_NUM];
 	unsigned long ps_work_active;
 	int ps_enabled;
 };
@@ -109,7 +104,7 @@ qmi_rmnet_get_bearer_map(struct qos_info *qos_info, u8 bearer_id);
 
 unsigned int qmi_rmnet_grant_per(unsigned int grant);
 
-int dfc_qmi_client_init(void *port, int index, struct qmi_info *qmi);
+int dfc_qmi_client_init(void *port, int index, struct svc_info *psvc);
 
 void dfc_qmi_client_exit(void *dfc_data);
 
@@ -129,13 +124,13 @@ qmi_rmnet_get_flow_map(struct qos_info *qos_info,
 }
 
 static inline struct rmnet_bearer_map *
-qmi_rmnet_get_bearer_map(struct qos_info *qos_info, uint8_t bearer_id)
+qmi_rmnet_get_bearer_map(struct qos_info *qos_info, u8 bearer_id)
 {
 	return NULL;
 }
 
 static inline int
-dfc_qmi_client_init(void *port, int modem, struct qmi_info *qmi)
+dfc_qmi_client_init(void *port, int index, struct svc_info *psvc)
 {
 	return -EINVAL;
 }
@@ -157,11 +152,11 @@ dfc_qmi_wq_flush(struct qmi_info *qmi)
 #endif
 
 #ifdef CONFIG_QCOM_QMI_POWER_COLLAPSE
-int wda_qmi_client_init(void *port, uint32_t instance);
+int wda_qmi_client_init(void *port, struct svc_info *psvc);
 void wda_qmi_client_exit(void *wda_data);
-int wda_set_powersave_mode(void *wda_data, uint8_t enable);
+int wda_set_powersave_mode(void *wda_data, u8 enable);
 #else
-static inline int wda_qmi_client_init(void *port, uint32_t instance)
+static inline int wda_qmi_client_init(void *port, struct svc_info *psvc)
 {
 	return -EINVAL;
 }
@@ -170,7 +165,7 @@ static inline void wda_qmi_client_exit(void *wda_data)
 {
 }
 
-static inline int wda_set_powersave_mode(void *wda_data, uint8_t enable)
+static inline int wda_set_powersave_mode(void *wda_data, u8 enable)
 {
 	return -EINVAL;
 }

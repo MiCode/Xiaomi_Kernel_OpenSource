@@ -35,27 +35,49 @@ struct cxip_lm_cooling_device {
 	struct thermal_cooling_device	*cool_dev;
 	char				cdev_name[THERMAL_NAME_LENGTH];
 	void				*cx_ip_reg_base;
+	unsigned int			therm_clnt;
+	unsigned int			*bypass_clnts;
+	unsigned int			bypass_clnt_cnt;
 	bool				state;
 };
 
-static void cxip_lm_therm_vote_apply(void *reg_base, bool vote)
+static void cxip_lm_therm_vote_apply(struct cxip_lm_cooling_device *cxip_dev,
+					bool vote)
 {
-	writel_relaxed(CXIP_LM_THERM_VOTE_VAL,
-		reg_base +
-		(vote ? CXIP_LM_VOTE_SET : CXIP_LM_VOTE_CLEAR));
+	int vote_offset = 0, val = 0, sts_offset = 0;
 
-	pr_debug("%s vote for cxip_lm. Agg.vote:0x%x\n",
+	if (!cxip_dev->therm_clnt) {
+		vote_offset = vote ? CXIP_LM_VOTE_SET : CXIP_LM_VOTE_CLEAR;
+		val = CXIP_LM_THERM_VOTE_VAL;
+		sts_offset = CXIP_LM_VOTE_STATUS;
+	} else {
+		vote_offset = cxip_dev->therm_clnt;
+		val = vote ? 0x1 : 0x0;
+		sts_offset = vote_offset;
+	}
+
+	writel_relaxed(val, cxip_dev->cx_ip_reg_base + vote_offset);
+	pr_debug("%s vote for cxip_lm. vote:0x%x\n",
 		vote ? "Applied" : "Cleared",
-		readl_relaxed(reg_base + CXIP_LM_VOTE_STATUS));
+		readl_relaxed(cxip_dev->cx_ip_reg_base + sts_offset));
 }
 
-static void cxip_lm_initialize_cxip_hw(void *reg_base)
+static void cxip_lm_initialize_cxip_hw(struct cxip_lm_cooling_device *cxip_dev)
 {
-	/* Enable CXIP LM HW */
-	writel_relaxed(CXIP_LM_FEATURE_EN_VAL, reg_base + CXIP_LM_FEATURE_EN);
+	int i = 0;
 
 	/* Set CXIP LM proxy vote for clients who are not participating */
-	writel_relaxed(CXIP_LM_BYPASS_VAL, reg_base + CXIP_LM_BYPASS);
+	if (cxip_dev->bypass_clnt_cnt)
+		for (i = 0; i < cxip_dev->bypass_clnt_cnt; i++)
+			writel_relaxed(0x1, cxip_dev->cx_ip_reg_base +
+					cxip_dev->bypass_clnts[i]);
+	else if (!cxip_dev->therm_clnt)
+		writel_relaxed(CXIP_LM_BYPASS_VAL,
+			cxip_dev->cx_ip_reg_base + CXIP_LM_BYPASS);
+
+	/* Enable CXIP LM HW */
+	writel_relaxed(CXIP_LM_FEATURE_EN_VAL, cxip_dev->cx_ip_reg_base +
+			CXIP_LM_FEATURE_EN);
 }
 
 static int cxip_lm_get_max_state(struct thermal_cooling_device *cdev,
@@ -78,7 +100,7 @@ static int cxip_lm_set_cur_state(struct thermal_cooling_device *cdev,
 	if (cxip_dev->state == state)
 		return 0;
 
-	cxip_lm_therm_vote_apply(cxip_dev->cx_ip_reg_base, state);
+	cxip_lm_therm_vote_apply(cxip_dev, state);
 	cxip_dev->state = state;
 
 	return ret;
@@ -117,6 +139,49 @@ static int cxip_lm_cdev_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int cxip_lm_get_devicetree_data(struct platform_device *pdev,
+					struct cxip_lm_cooling_device *cxip_dev,
+					struct device_node *np)
+{
+	int ret = 0;
+
+	ret = of_property_read_u32(np, "qcom,thermal-client-offset",
+			&cxip_dev->therm_clnt);
+	if (ret) {
+		dev_dbg(&pdev->dev,
+			"error for qcom,thermal-client-offset. ret:%d\n",
+			ret);
+		cxip_dev->therm_clnt = 0;
+		ret = 0;
+		return ret;
+	}
+
+	ret = of_property_count_u32_elems(np, "qcom,bypass-client-list");
+	if (ret <= 0) {
+		dev_dbg(&pdev->dev, "Invalid number of clients err:%d\n", ret);
+		ret = 0;
+		return ret;
+	}
+	cxip_dev->bypass_clnt_cnt = ret;
+
+	cxip_dev->bypass_clnts = devm_kcalloc(&pdev->dev,
+				cxip_dev->bypass_clnt_cnt,
+				sizeof(*cxip_dev->bypass_clnts), GFP_KERNEL);
+	if (!cxip_dev->bypass_clnts)
+		return -ENOMEM;
+
+	ret = of_property_read_u32_array(np, "qcom,bypass-client-list",
+		cxip_dev->bypass_clnts, cxip_dev->bypass_clnt_cnt);
+	if (ret) {
+		dev_dbg(&pdev->dev, "bypass client list err:%d, cnt:%d\n",
+			ret, cxip_dev->bypass_clnt_cnt);
+		cxip_dev->bypass_clnt_cnt = 0;
+		ret = 0;
+	}
+
+	return ret;
+}
+
 static int cxip_lm_cdev_probe(struct platform_device *pdev)
 {
 	struct cxip_lm_cooling_device *cxip_dev = NULL;
@@ -135,6 +200,10 @@ static int cxip_lm_cdev_probe(struct platform_device *pdev)
 	if (!cxip_dev)
 		return -ENOMEM;
 
+	ret = cxip_lm_get_devicetree_data(pdev, cxip_dev, np);
+	if (ret)
+		return ret;
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		dev_err(&pdev->dev,
@@ -149,12 +218,11 @@ static int cxip_lm_cdev_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	cxip_lm_initialize_cxip_hw(cxip_dev->cx_ip_reg_base);
+	cxip_lm_initialize_cxip_hw(cxip_dev);
 
 	/* Set thermal vote till we get first vote from TF */
 	cxip_dev->state = true;
-	cxip_lm_therm_vote_apply(cxip_dev->cx_ip_reg_base,
-					cxip_dev->state);
+	cxip_lm_therm_vote_apply(cxip_dev, cxip_dev->state);
 
 	strlcpy(cxip_dev->cdev_name, np->name, THERMAL_NAME_LENGTH);
 	cxip_dev->cool_dev = thermal_of_cooling_device_register(

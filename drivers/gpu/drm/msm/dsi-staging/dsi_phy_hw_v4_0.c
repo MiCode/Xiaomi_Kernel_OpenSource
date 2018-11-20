@@ -166,6 +166,10 @@ void dsi_phy_hw_v4_0_enable(struct dsi_phy_hw *phy,
 	u32 const timeout_us = 1000;
 	struct dsi_phy_per_lane_cfgs *timing = &cfg->timing;
 	u32 data;
+	bool less_than_1500_mhz = false;
+	u32 vreg_ctrl_0 = 0;
+	u32 glbl_str_swi_cal_sel_ctrl = 0;
+	u32 glbl_hstx_str_ctrl_0 = 0;
 
 	if (dsi_phy_hw_v4_0_is_pll_on(phy))
 		pr_warn("PLL turned on before configuring PHY\n");
@@ -177,6 +181,13 @@ void dsi_phy_hw_v4_0_enable(struct dsi_phy_hw *phy,
 		pr_err("Ref gen not ready. Aborting\n");
 		return;
 	}
+
+	/* Alter PHY configurations if data rate less than 1.5GHZ*/
+	if (cfg->bit_clk_rate_hz < 1500000000)
+		less_than_1500_mhz = true;
+	vreg_ctrl_0 = less_than_1500_mhz ? 0x5B : 0x59;
+	glbl_str_swi_cal_sel_ctrl = less_than_1500_mhz ? 0x03 : 0x00;
+	glbl_hstx_str_ctrl_0 = less_than_1500_mhz ? 0x66 : 0x88;
 
 	/* de-assert digital and pll power down */
 	data = BIT(6) | BIT(5);
@@ -192,11 +203,12 @@ void dsi_phy_hw_v4_0_enable(struct dsi_phy_hw *phy,
 	dsi_phy_hw_v4_0_lane_swap_config(phy, &cfg->lane_map);
 
 	/* Enable LDO */
-	DSI_W32(phy, DSIPHY_CMN_VREG_CTRL_0, 0x59);
+	DSI_W32(phy, DSIPHY_CMN_VREG_CTRL_0, vreg_ctrl_0);
 	DSI_W32(phy, DSIPHY_CMN_VREG_CTRL_1, 0x19);
 	DSI_W32(phy, DSIPHY_CMN_CTRL_3, 0x00);
-	DSI_W32(phy, DSIPHY_CMN_GLBL_STR_SWI_CAL_SEL_CTRL, 0x00);
-	DSI_W32(phy, DSIPHY_CMN_GLBL_HSTX_STR_CTRL_0, 0x88);
+	DSI_W32(phy, DSIPHY_CMN_GLBL_STR_SWI_CAL_SEL_CTRL,
+					glbl_str_swi_cal_sel_ctrl);
+	DSI_W32(phy, DSIPHY_CMN_GLBL_HSTX_STR_CTRL_0, glbl_hstx_str_ctrl_0);
 	DSI_W32(phy, DSIPHY_CMN_GLBL_PEMPH_CTRL_0, 0x00);
 	DSI_W32(phy, DSIPHY_CMN_GLBL_RESCODE_OFFSET_TOP_CTRL, 0x00);
 	DSI_W32(phy, DSIPHY_CMN_GLBL_RESCODE_OFFSET_BOT_CTRL, 0x00);
@@ -315,7 +327,8 @@ int dsi_phy_hw_v4_0_wait_for_lane_idle(
 	pr_debug("%s: polling for lanes to be in stop state, mask=0x%08x\n",
 		__func__, stop_state_mask);
 	rc = readl_poll_timeout(phy->base + DSIPHY_CMN_LANE_STATUS1, val,
-			(val == stop_state_mask), sleep_us, timeout_us);
+				((val & stop_state_mask) == stop_state_mask),
+				sleep_us, timeout_us);
 	if (rc) {
 		pr_err("%s: lanes not in stop state, LANE_STATUS=0x%08x\n",
 			__func__, val);

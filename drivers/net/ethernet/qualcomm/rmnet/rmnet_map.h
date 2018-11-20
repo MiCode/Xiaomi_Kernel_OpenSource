@@ -115,6 +115,7 @@ struct rmnet_map_dl_ind_trl {
 } __aligned(1);
 
 struct rmnet_map_dl_ind {
+	u8 priority;
 	void (*dl_hdr_handler)(struct rmnet_map_dl_ind_hdr *);
 	void (*dl_trl_handler)(struct rmnet_map_dl_ind_trl *);
 	struct list_head list;

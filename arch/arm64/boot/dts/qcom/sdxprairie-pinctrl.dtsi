@@ -15,11 +15,12 @@
 		compatible = "qcom,sdxprairie-pinctrl";
 		reg = <0xf100000 0x300000>,
 			<0xb204900 0x280>;
+		reg-names = "pinctrl", "pdc";
 		interrupts = <GIC_SPI 212 0>;
 		gpio-controller;
 		#gpio-cells = <2>;
 		interrupt-controller;
-		interrupt-parent = <&intc>;
+		interrupt-parent = <&pdc>;
 		#interrupt-cells = <2>;
 
 		uart3_console_active: uart3_console_active {

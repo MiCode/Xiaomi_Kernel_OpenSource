@@ -458,6 +458,8 @@ struct dsi_host_common_cfg {
  * @bllp_lp11_en:              Enter low power stop mode (LP-11) during BLLP.
  * @traffic_mode:              Traffic mode for video stream.
  * @vc_id:                     Virtual channel identifier.
+ * @dma_sched_line:         Line number, after vactive end, at which command dma
+ *			       needs to be triggered.
  */
 struct dsi_video_engine_cfg {
 	bool last_line_interleave_en;
@@ -470,6 +472,7 @@ struct dsi_video_engine_cfg {
 	bool force_clk_lane_hs;
 	enum dsi_video_traffic_mode traffic_mode;
 	u32 vc_id;
+	u32 dma_sched_line;
 };
 
 /**
@@ -500,6 +503,7 @@ struct dsi_cmd_engine_cfg {
  * @cmd_engine:            Cmd engine configuration if panel is in cmd mode.
  * @esc_clk_rate_khz:      Esc clock frequency in Hz.
  * @bit_clk_rate_hz:       Bit clock frequency in Hz.
+ * @bit_clk_rate_hz_override: DSI bit clk rate override from dt/sysfs.
  * @video_timing:          Video timing information of a frame.
  * @lane_map:              Mapping between logical and physical lanes.
  */
@@ -512,6 +516,7 @@ struct dsi_host_config {
 	} u;
 	u64 esc_clk_rate_hz;
 	u64 bit_clk_rate_hz;
+	u64 bit_clk_rate_hz_override;
 	struct dsi_mode_info video_timing;
 	struct dsi_lane_map lane_map;
 };

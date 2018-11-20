@@ -671,9 +671,13 @@ void blk_cleanup_queue(struct request_queue *q)
 	 * make sure all in-progress dispatch are completed because
 	 * blk_freeze_queue() can only complete all requests, and
 	 * dispatch may still be in-progress since we dispatch requests
-	 * from more than one contexts
+	 * from more than one contexts.
+	 *
+	 * No need to quiesce queue if it isn't initialized yet since
+	 * blk_freeze_queue() should be enough for cases of passthrough
+	 * request.
 	 */
-	if (q->mq_ops)
+	if (q->mq_ops && blk_queue_init_done(q))
 		blk_mq_quiesce_queue(q);
 
 	/* for synchronous bio-based driver finish in-flight integrity i/o */
@@ -1027,6 +1031,7 @@ out_exit_flush_rq:
 		q->exit_rq_fn(q, q->fq->flush_rq);
 out_free_flush_queue:
 	blk_free_flush_queue(q->fq);
+	q->fq = NULL;
 	return -ENOMEM;
 }
 EXPORT_SYMBOL(blk_init_allocated_queue);
@@ -1650,7 +1655,9 @@ bool bio_attempt_front_merge(struct request_queue *q, struct request *req,
 	bio->bi_next = req->bio;
 	req->bio = bio;
 
+#ifdef CONFIG_PFK
 	WARN_ON(req->__dun || bio->bi_iter.bi_dun);
+#endif
 	req->__sector = bio->bi_iter.bi_sector;
 	req->__data_len += bio->bi_iter.bi_size;
 	req->ioprio = ioprio_best(req->ioprio, bio_prio(bio));
@@ -1800,7 +1807,9 @@ void blk_init_request_from_bio(struct request *req, struct bio *bio)
 	else
 		req->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_NONE, 0);
 	req->write_hint = bio->bi_write_hint;
+#ifdef CONFIG_PFK
 	req->__dun = bio->bi_iter.bi_dun;
+#endif
 	blk_rq_bio_prep(req->q, req, bio);
 }
 EXPORT_SYMBOL_GPL(blk_init_request_from_bio);
@@ -2790,8 +2799,10 @@ bool blk_update_request(struct request *req, blk_status_t error,
 	/* update sector only for requests with clear definition of sector */
 	if (!blk_rq_is_passthrough(req)) {
 		req->__sector += total_bytes >> 9;
+#ifdef CONFIG_PFK
 		if (req->__dun)
 			req->__dun += total_bytes >> 12;
+#endif
 	}
 
 	/* mixed attributes always follow the first bio */
@@ -3155,7 +3166,9 @@ static void __blk_rq_prep_clone(struct request *dst, struct request *src)
 {
 	dst->cpu = src->cpu;
 	dst->__sector = blk_rq_pos(src);
+#ifdef CONFIG_PFK
 	dst->__dun = blk_rq_dun(src);
+#endif
 	dst->__data_len = blk_rq_bytes(src);
 	if (src->rq_flags & RQF_SPECIAL_PAYLOAD) {
 		dst->rq_flags |= RQF_SPECIAL_PAYLOAD;
@@ -3468,9 +3481,11 @@ EXPORT_SYMBOL(blk_finish_plug);
  */
 void blk_pm_runtime_init(struct request_queue *q, struct device *dev)
 {
-	/* not support for RQF_PM and ->rpm_status in blk-mq yet */
-	if (q->mq_ops)
+	/* Don't enable runtime PM for blk-mq until it is ready */
+	if (q->mq_ops) {
+		pm_runtime_disable(dev);
 		return;
+	}
 
 	q->dev = dev;
 	q->rpm_status = RPM_ACTIVE;

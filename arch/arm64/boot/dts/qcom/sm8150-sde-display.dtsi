@@ -698,10 +698,11 @@
 
 	qcom,mdss-dsi-display-timings {
 		timing@0{
-			qcom,mdss-dsi-panel-phy-timings = [00 1A 06 06 22 20 07
-				07 04 02 04 00];
+			qcom,mdss-dsi-panel-phy-timings = [00 1E 08 08 24 22 08
+				08 05 02 04 00];
 			qcom,display-topology = <1 0 1>;
 			qcom,default-topology-index = <0>;
+			qcom,mdss-dsi-panel-clockrate = <900000000>;
 		};
 	};
 };
@@ -858,6 +859,13 @@
 };
 
 &dsi_sw43404_amoled_video {
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
+	qcom,mdss-dsi-panel-status-value = <0x9c>;
+	qcom,mdss-dsi-panel-on-check-value = <0x9c>;
+	qcom,mdss-dsi-panel-status-read-length = <1>;
 	qcom,mdss-dsi-display-timings {
 		timing@0 {
 			qcom,mdss-dsi-panel-phy-timings = [00 1a 07 06 22 21 07
@@ -870,8 +878,8 @@
 };
 
 &dsi_sharp_1080_cmd {
-	qcom,mdss-dsi-t-clk-post = <0x16>;
-	qcom,mdss-dsi-t-clk-pre = <0x16>;
+	qcom,mdss-dsi-t-clk-post = <0x18>;
+	qcom,mdss-dsi-t-clk-pre = <0x19>;
 	qcom,mdss-dsi-display-timings {
 		timing@0{
 			qcom,mdss-dsi-panel-phy-timings = [00 1A 06 06 22 20 07

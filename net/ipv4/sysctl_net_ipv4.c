@@ -45,6 +45,10 @@ static int tcp_syn_retries_min = 1;
 static int tcp_syn_retries_max = MAX_TCP_SYNCNT;
 static int ip_ping_group_range_min[] = { 0, 0 };
 static int ip_ping_group_range_max[] = { GID_T_MAX, GID_T_MAX };
+static int tcp_delack_seg_min = TCP_DELACK_MIN;
+static int tcp_delack_seg_max = 60;
+static int tcp_use_userconfig_min;
+static int tcp_use_userconfig_max = 1;
 
 /* obsolete */
 static int sysctl_tcp_low_latency __read_mostly;
@@ -784,6 +788,25 @@ static struct ctl_table ipv4_table[] = {
 		.proc_handler	= proc_dointvec_minmax,
 		.extra1		= &one
 	},
+	{
+		.procname	= "tcp_delack_seg",
+		.data		= &sysctl_tcp_delack_seg,
+		.maxlen		= sizeof(sysctl_tcp_delack_seg),
+		.mode		= 0644,
+		.proc_handler	= tcp_proc_delayed_ack_control,
+		.extra1		= &tcp_delack_seg_min,
+		.extra2		= &tcp_delack_seg_max,
+	},
+	{
+		.procname       = "tcp_use_userconfig",
+		.data           = &sysctl_tcp_use_userconfig,
+		.maxlen         = sizeof(sysctl_tcp_use_userconfig),
+		.mode           = 0644,
+		.proc_handler   = tcp_use_userconfig_sysctl_handler,
+		.extra1		= &tcp_use_userconfig_min,
+		.extra2		= &tcp_use_userconfig_max,
+	},
+
 	{ }
 };
 

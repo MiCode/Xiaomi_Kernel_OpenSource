@@ -156,15 +156,17 @@ static int npu_host_ipc_send_cmd_hfi(struct npu_device *npu_dev,
 {
 	int status = 0;
 	uint8_t is_rx_req_set = 0;
+	uint32_t retry_cnt = 5;
 
 	status = ipc_queue_write(npu_dev, q_idx, (uint8_t *)cmd_ptr,
 		&is_rx_req_set);
 
 	if (status == -ENOSPC) {
-		while (status == -ENOSPC) {
+		do {
+			msleep(20);
 			status = ipc_queue_write(npu_dev, q_idx,
 				(uint8_t *)cmd_ptr, &is_rx_req_set);
-		}
+		} while ((status == -ENOSPC) && (--retry_cnt > 0));
 	}
 
 	if (status == 0) {

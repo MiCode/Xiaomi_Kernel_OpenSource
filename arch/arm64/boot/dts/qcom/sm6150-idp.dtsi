@@ -65,6 +65,7 @@
 
 &pm6150l_wled {
 	qcom,string-cfg= <3>;
+	qcom,leds-per-string = <7>;
 	status = "ok";
 };
 
@@ -188,12 +189,16 @@
 		      <&pm6150_vadc ADC_USB_IN_I>,
 		      <&pm6150_vadc ADC_CHG_TEMP>,
 		      <&pm6150_vadc ADC_DIE_TEMP>,
-		      <&pm6150_vadc ADC_AMUX_THM4_PU2>;
+		      <&pm6150_vadc ADC_AMUX_THM4_PU2>,
+		      <&pm6150_vadc ADC_SBUx>,
+		      <&pm6150_vadc ADC_VPH_PWR>;
 	io-channel-names = "usb_in_voltage",
 			   "usb_in_current",
 			   "chg_temp",
 			   "die_temp",
-			   "conn_temp";
+			   "conn_temp",
+			   "sbux_res",
+			   "vph_voltage";
 	qcom,battery-data = <&mtp_batterydata>;
 	qcom,step-charging-enable;
 	qcom,sw-jeita-enable;

@@ -4517,7 +4517,12 @@ again:
 
 	/* Now btrfs_update_device() will change the on-disk size. */
 	ret = btrfs_update_device(trans, device);
-	btrfs_end_transaction(trans);
+	if (ret < 0) {
+		btrfs_abort_transaction(trans, ret);
+		btrfs_end_transaction(trans);
+	} else {
+		ret = btrfs_commit_transaction(trans);
+	}
 done:
 	btrfs_free_path(path);
 	if (ret) {
@@ -6492,10 +6497,14 @@ static int read_one_chunk(struct btrfs_fs_info *fs_info, struct btrfs_key *key,
 	write_lock(&map_tree->map_tree.lock);
 	ret = add_extent_mapping(&map_tree->map_tree, em, 0);
 	write_unlock(&map_tree->map_tree.lock);
-	BUG_ON(ret); /* Tree corruption */
+	if (ret < 0) {
+		btrfs_err(fs_info,
+			  "failed to add chunk map, start=%llu len=%llu: %d",
+			  em->start, em->len, ret);
+	}
 	free_extent_map(em);
 
-	return 0;
+	return ret;
 }
 
 static void fill_device_from_item(struct extent_buffer *leaf,

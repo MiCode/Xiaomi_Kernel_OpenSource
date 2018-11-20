@@ -1413,6 +1413,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDEO_BITRATE_MODE:
 	{
+		struct hal_buffer_requirements *buff_req_buffer = NULL;
 		struct v4l2_ctrl *hybrid_hp = TRY_GET_CTRL(
 			V4L2_CID_MPEG_VIDC_VIDEO_HYBRID_HIERP_MODE);
 		if ((ctrl->val == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR)
@@ -1431,6 +1432,40 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		property_id = HAL_PARAM_VENC_RATE_CONTROL;
 		property_val = ctrl->val;
 		pdata = &property_val;
+
+		if (ctrl->val == V4L2_MPEG_VIDEO_BITRATE_MODE_CQ ||
+			ctrl->val == V4L2_MPEG_VIDEO_BITRATE_MODE_RC_OFF) {
+			rc = call_hfi_op(hdev, session_set_property,
+				(void *)inst->session, property_id, pdata);
+
+			if (!rc) {
+				dprintk(VIDC_DBG,
+					"Control: %x : Name = %s, ID = 0x%x Value = %d\n",
+					hash32_ptr(inst->session), ctrl->name,
+					ctrl->id, ctrl->val);
+			} else {
+				dprintk(VIDC_ERR,
+					"Failed to set rate control mode\n");
+				break;
+			}
+
+			rc = msm_comm_try_get_bufreqs(inst);
+			if (rc) {
+				dprintk(VIDC_ERR,
+				"Failed to get buffer requirements: %d\n", rc);
+				break;
+			}
+			buff_req_buffer =
+				get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
+
+			inst->bufq[CAPTURE_PORT].plane_sizes[0]
+			= buff_req_buffer ? buff_req_buffer->buffer_size : 0;
+			dprintk(VIDC_INFO,
+				"Get updated output buffer size %d\n",
+				inst->bufq[CAPTURE_PORT].plane_sizes[0]);
+			property_id = 0;
+		}
+
 		break;
 	}
 	case V4L2_CID_MPEG_VIDC_VIDEO_FRAME_QUALITY:

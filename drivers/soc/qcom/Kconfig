@@ -277,6 +277,7 @@ config QCOM_SMEM_STATE
 
 config QCOM_SMP2P
 	tristate "Qualcomm Shared Memory Point to Point support"
+	depends on MAILBOX
 	depends on QCOM_SMEM
 	select QCOM_SMEM_STATE
 	help
@@ -833,4 +834,11 @@ config QCOM_CX_IPEAK
 	  bit in tcsr register if it is going to cross its own threshold. If all
 	  clients are going to cross their thresholds then Cx ipeak hw module will raise
 	  an interrupt to cDSP block to throttle cDSP fmax.
+
+config QCOM_AOP_DDR_MESSAGING
+	bool "Send messages to AOP about the DDR frequency during reboot"
+	help
+	  This driver sends messages to the AOP to adjust the DDR frequency when
+	  the device is rebooting, to ensure that the device is powered off
+	  cleanly.
 endmenu

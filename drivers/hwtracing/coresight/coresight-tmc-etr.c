@@ -573,7 +573,7 @@ err:
 	return ret;
 }
 
-static void tmc_etr_free_mem(struct tmc_drvdata *drvdata)
+void tmc_etr_free_mem(struct tmc_drvdata *drvdata)
 {
 	if (drvdata->vaddr) {
 		if (drvdata->memtype == TMC_ETR_MEM_TYPE_CONTIG)
