@@ -4582,7 +4582,13 @@ static bool smblib_src_lpd(struct smb_charger *chg)
 
 static void typec_sink_insertion(struct smb_charger *chg)
 {
+	int rc;
+
 	vote(chg->usb_icl_votable, OTG_VOTER, true, 0);
+	rc = smblib_set_charge_param(chg, &chg->param.freq_switcher,
+					chg->chg_freq.freq_above_otg_threshold);
+	if (rc < 0)
+		dev_err(chg->dev, "Error in setting freq_boost rc=%d\n", rc);
 
 	if (chg->use_extcon) {
 		smblib_notify_usb_host(chg, true);
@@ -4620,7 +4626,13 @@ static void typec_src_insertion(struct smb_charger *chg)
 
 static void typec_sink_removal(struct smb_charger *chg)
 {
+	int rc;
+
 	vote(chg->usb_icl_votable, OTG_VOTER, false, 0);
+	rc = smblib_set_charge_param(chg, &chg->param.freq_switcher,
+					chg->chg_freq.freq_removal);
+	if (rc < 0)
+		dev_err(chg->dev, "Error in setting freq_removal rc=%d\n", rc);
 
 	if (chg->use_extcon) {
 		if (chg->otg_present)
