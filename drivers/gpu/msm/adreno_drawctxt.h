@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -138,4 +138,16 @@ void adreno_drawctxt_invalidate(struct kgsl_device *device,
 void adreno_drawctxt_dump(struct kgsl_device *device,
 		struct kgsl_context *context);
 
+static struct adreno_context_type ctxt_type_table[] = {KGSL_CONTEXT_TYPES};
+
+static inline const char *get_api_type_str(unsigned int type)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(ctxt_type_table); i++) {
+		if (ctxt_type_table[i].type == type)
+			return ctxt_type_table[i].str;
+	}
+	return "UNKNOWN";
+}
 #endif  /* __ADRENO_DRAWCTXT_H */
