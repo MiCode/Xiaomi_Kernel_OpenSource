@@ -67,6 +67,9 @@ void mhi_deinit_pci_dev(struct mhi_controller *mhi_cntrl)
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
 	struct pci_dev *pci_dev = mhi_dev->pci_dev;
 
+	pm_runtime_mark_last_busy(&pci_dev->dev);
+	pm_runtime_dont_use_autosuspend(&pci_dev->dev);
+	pm_runtime_disable(&pci_dev->dev);
 	pci_free_irq_vectors(pci_dev);
 	kfree(mhi_cntrl->irq);
 	mhi_cntrl->irq = NULL;
