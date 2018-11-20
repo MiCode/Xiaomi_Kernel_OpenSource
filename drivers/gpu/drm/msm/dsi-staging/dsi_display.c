@@ -3870,7 +3870,7 @@ static int dsi_display_get_dfps_timing(struct dsi_display *display,
 		rc = dsi_display_dfps_calc_front_porch(
 				curr_refresh_rate,
 				timing->refresh_rate,
-				DSI_H_TOTAL(timing),
+				DSI_H_TOTAL_DSC(timing),
 				DSI_V_TOTAL(timing),
 				timing->v_front_porch,
 				&adj_mode->timing.v_front_porch);
@@ -3881,7 +3881,7 @@ static int dsi_display_get_dfps_timing(struct dsi_display *display,
 				curr_refresh_rate,
 				timing->refresh_rate,
 				DSI_V_TOTAL(timing),
-				DSI_H_TOTAL(timing),
+				DSI_H_TOTAL_DSC(timing),
 				timing->h_front_porch,
 				&adj_mode->timing.h_front_porch);
 		if (!rc)
@@ -5474,7 +5474,7 @@ int dsi_display_get_modes(struct dsi_display *display,
 					sub_mode, curr_refresh_rate);
 
 				sub_mode->pixel_clk_khz =
-					(DSI_H_TOTAL(&sub_mode->timing) *
+					(DSI_H_TOTAL_DSC(&sub_mode->timing) *
 					DSI_V_TOTAL(&sub_mode->timing) *
 					sub_mode->timing.refresh_rate) / 1000;
 			}
@@ -5658,8 +5658,8 @@ int dsi_display_validate_mode_vrr(struct dsi_display *display,
 			break;
 
 		case DSI_DFPS_IMMEDIATE_HFP:
-			if (abs(DSI_H_TOTAL(&cur_mode.timing) -
-				DSI_H_TOTAL(&adj_mode.timing)) > 5)
+			if (abs(DSI_H_TOTAL_DSC(&cur_mode.timing) -
+				DSI_H_TOTAL_DSC(&adj_mode.timing)) > 5)
 				pr_err("Mismatch hfp fps:%d new:%d given:%d\n",
 				adj_mode.timing.refresh_rate,
 				cur_mode.timing.h_front_porch,

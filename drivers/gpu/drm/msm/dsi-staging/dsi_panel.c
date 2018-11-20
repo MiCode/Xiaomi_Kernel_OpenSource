@@ -2287,7 +2287,7 @@ static int dsi_panel_parse_phy_timing(struct dsi_display_mode *mode,
 		priv_info->phy_timing_len = len;
 	};
 
-	mode->pixel_clk_khz = (DSI_H_TOTAL(&mode->timing) *
+	mode->pixel_clk_khz = (DSI_H_TOTAL_DSC(&mode->timing) *
 			DSI_V_TOTAL(&mode->timing) *
 			mode->timing.refresh_rate) / 1000;
 	return rc;
@@ -2407,6 +2407,9 @@ static int dsi_panel_parse_dsc_params(struct dsi_display_mode *mode,
 
 	dsi_dsc_populate_static_param(&priv_info->dsc);
 	dsi_dsc_pclk_param_calc(&priv_info->dsc, intf_width);
+
+	mode->timing.dsc_enabled = true;
+	mode->timing.dsc = &priv_info->dsc;
 
 error:
 	return rc;
