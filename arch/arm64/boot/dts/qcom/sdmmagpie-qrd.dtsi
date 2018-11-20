@@ -17,7 +17,7 @@
 #include "sdmmagpie-thermal-overlay.dtsi"
 
 #include "sdmmagpie-sde-display.dtsi"
-
+#include "sdmmagpie-camera-sensor-qrd.dtsi"
 &soc {
 	fpc1020 {
 		compatible = "fpc,fpc1020";
