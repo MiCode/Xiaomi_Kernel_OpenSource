@@ -48,6 +48,7 @@ struct sde_hw_blk_reg_map {
  * @ adjust_a:      A-coefficients for mapping curve
  * @ adjust_b:      B-coefficients for mapping curve
  * @ adjust_c:      C-coefficients for mapping curve
+ * @ blend:      Unsharp Blend Filter Ratio
  */
 struct sde_hw_scaler3_de_cfg {
 	u32 enable;
@@ -63,6 +64,7 @@ struct sde_hw_scaler3_de_cfg {
 	int16_t adjust_a[SDE_MAX_DE_CURVES];
 	int16_t adjust_b[SDE_MAX_DE_CURVES];
 	int16_t adjust_c[SDE_MAX_DE_CURVES];
+	uint32_t blend;
 };
 
 
@@ -101,7 +103,7 @@ struct sde_hw_scaler3_de_cfg {
  * @ sep_lut:      pointer to separable filter LUT
  * @ de: detail enhancer configuration
  * @ dir_weight:   Directional Weight
- * @ unsharp_mask_blend:  Unsharp Blend Filter Ratio
+ * @dyn_exp_disabled:     Dynamic expansion disabled
  */
 struct sde_hw_scaler3_cfg {
 	u32 enable;
@@ -143,7 +145,7 @@ struct sde_hw_scaler3_cfg {
 	 */
 	struct sde_hw_scaler3_de_cfg de;
 	uint32_t dir_weight;
-	uint32_t unsharp_mask_blend;
+	uint32_t dyn_exp_disabled;
 };
 
 struct sde_hw_scaler3_lut_cfg {
@@ -174,6 +176,8 @@ int sde_reg_read(struct sde_hw_blk_reg_map *c, u32 reg_off);
 #define INTF_MISR_CTRL_FREE_RUN_MASK	BIT(31)
 
 void *sde_hw_util_get_dir(void);
+
+void sde_init_scaler_blk(struct sde_scaler_blk *blk, u32 version);
 
 void sde_set_scaler_v2(struct sde_hw_scaler3_cfg *cfg,
 		const struct sde_drm_scaler_v2 *scale_v2);

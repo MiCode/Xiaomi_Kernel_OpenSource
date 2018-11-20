@@ -1221,8 +1221,8 @@ struct sde_hw_pipe *sde_hw_sspp_init(enum sde_sspp idx,
 		hw_pipe->cap->perf_features);
 
 	if (hw_pipe->ops.get_scaler_ver) {
-		hw_pipe->cap->sblk->scaler_blk.version =
-			hw_pipe->ops.get_scaler_ver(hw_pipe);
+		sde_init_scaler_blk(&hw_pipe->cap->sblk->scaler_blk,
+			hw_pipe->ops.get_scaler_ver(hw_pipe));
 	}
 
 	rc = sde_hw_blk_init(&hw_pipe->base, SDE_HW_BLK_SSPP, idx, &sde_hw_ops);
