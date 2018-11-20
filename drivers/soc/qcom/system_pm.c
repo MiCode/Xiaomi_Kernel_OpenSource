@@ -44,7 +44,7 @@ static int system_sleep_update_wakeup(bool from_idle)
  */
 static bool system_sleep_allowed(void)
 {
-	return (rpmh_ctrlr_idle(dev) == 0);
+	return rpmh_ctrlr_idle(dev);
 }
 
 /**
