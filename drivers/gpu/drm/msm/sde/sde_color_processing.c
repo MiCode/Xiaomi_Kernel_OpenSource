@@ -150,6 +150,397 @@ enum {
 	SDE_CP_CRTC_MAX_FEATURES,
 };
 
+static void _sde_cp_crtc_enable_hist_irq(struct sde_crtc *sde_crtc);
+
+typedef int (*set_feature_wrapper)(struct sde_hw_dspp *hw_dspp,
+				   struct sde_hw_cp_cfg *hw_cfg,
+				   struct sde_crtc *hw_crtc);
+
+static int set_dspp_vlut_feature(struct sde_hw_dspp *hw_dspp,
+				 struct sde_hw_cp_cfg *hw_cfg,
+				 struct sde_crtc *hw_crtc)
+{
+	int ret = 0;
+
+	if (!hw_dspp || !hw_dspp->ops.setup_vlut)
+		ret = -EINVAL;
+	else
+		hw_dspp->ops.setup_vlut(hw_dspp, hw_cfg);
+	return ret;
+}
+
+static int set_dspp_pcc_feature(struct sde_hw_dspp *hw_dspp,
+				struct sde_hw_cp_cfg *hw_cfg,
+				struct sde_crtc *hw_crtc)
+{
+	int ret = 0;
+
+	if (!hw_dspp || !hw_dspp->ops.setup_pcc)
+		ret = -EINVAL;
+	else
+		hw_dspp->ops.setup_pcc(hw_dspp, hw_cfg);
+	return ret;
+}
+
+static int set_dspp_igc_feature(struct sde_hw_dspp *hw_dspp,
+				struct sde_hw_cp_cfg *hw_cfg,
+				struct sde_crtc *hw_crtc)
+{
+	int ret = 0;
+
+	if (!hw_dspp || !hw_dspp->ops.setup_igc)
+		ret = -EINVAL;
+	else
+		hw_dspp->ops.setup_igc(hw_dspp, hw_cfg);
+	return ret;
+}
+
+static int set_dspp_gc_feature(struct sde_hw_dspp *hw_dspp,
+			       struct sde_hw_cp_cfg *hw_cfg,
+			       struct sde_crtc *hw_crtc)
+{
+	int ret = 0;
+
+	if (!hw_dspp || !hw_dspp->ops.setup_gc)
+		ret = -EINVAL;
+	else
+		hw_dspp->ops.setup_gc(hw_dspp, hw_cfg);
+	return ret;
+}
+
+static int set_dspp_hsic_feature(struct sde_hw_dspp *hw_dspp,
+				 struct sde_hw_cp_cfg *hw_cfg,
+				 struct sde_crtc *hw_crtc)
+{
+	int ret = 0;
+
+	if (!hw_dspp || !hw_dspp->ops.setup_pa_hsic)
+		ret = -EINVAL;
+	else
+		hw_dspp->ops.setup_pa_hsic(hw_dspp, hw_cfg);
+
+	return ret;
+}
+
+
+static int set_dspp_memcol_skin_feature(struct sde_hw_dspp *hw_dspp,
+					struct sde_hw_cp_cfg *hw_cfg,
+					struct sde_crtc *hw_crtc)
+{
+	int ret = 0;
+
+	if (!hw_dspp || !hw_dspp->ops.setup_pa_memcol_skin)
+		ret = -EINVAL;
+	else
+		hw_dspp->ops.setup_pa_memcol_skin(hw_dspp, hw_cfg);
+	return ret;
+}
+
+static int set_dspp_memcol_sky_feature(struct sde_hw_dspp *hw_dspp,
+				       struct sde_hw_cp_cfg *hw_cfg,
+				       struct sde_crtc *hw_crtc)
+{
+	int ret = 0;
+
+	if (!hw_dspp || !hw_dspp->ops.setup_pa_memcol_sky)
+		ret = -EINVAL;
+	else
+		hw_dspp->ops.setup_pa_memcol_sky(hw_dspp, hw_cfg);
+	return ret;
+}
+
+static int set_dspp_memcol_foliage_feature(struct sde_hw_dspp *hw_dspp,
+					   struct sde_hw_cp_cfg *hw_cfg,
+					   struct sde_crtc *hw_crtc)
+{
+	int ret = 0;
+
+	if (!hw_dspp || !hw_dspp->ops.setup_pa_memcol_foliage)
+		ret = -EINVAL;
+	else
+		hw_dspp->ops.setup_pa_memcol_foliage(hw_dspp, hw_cfg);
+	return ret;
+}
+
+
+static int set_dspp_memcol_prot_feature(struct sde_hw_dspp *hw_dspp,
+					struct sde_hw_cp_cfg *hw_cfg,
+					struct sde_crtc *hw_crtc)
+{
+	int ret = 0;
+
+	if (!hw_dspp || !hw_dspp->ops.setup_pa_memcol_prot)
+		ret = -EINVAL;
+	else
+		hw_dspp->ops.setup_pa_memcol_prot(hw_dspp, hw_cfg);
+	return ret;
+}
+
+static int set_dspp_sixzone_feature(struct sde_hw_dspp *hw_dspp,
+				    struct sde_hw_cp_cfg *hw_cfg,
+				    struct sde_crtc *hw_crtc)
+{
+	int ret = 0;
+
+	if (!hw_dspp || !hw_dspp->ops.setup_sixzone)
+		ret = -EINVAL;
+	else
+		hw_dspp->ops.setup_sixzone(hw_dspp, hw_cfg);
+	return ret;
+}
+
+static int set_dspp_gamut_feature(struct sde_hw_dspp *hw_dspp,
+				  struct sde_hw_cp_cfg *hw_cfg,
+				  struct sde_crtc *hw_crtc)
+{
+	int ret = 0;
+
+	if (!hw_dspp || !hw_dspp->ops.setup_gamut)
+		ret = -EINVAL;
+	else
+		hw_dspp->ops.setup_gamut(hw_dspp, hw_cfg);
+	return ret;
+}
+
+static int set_dspp_dither_feature(struct sde_hw_dspp *hw_dspp,
+				   struct sde_hw_cp_cfg *hw_cfg,
+				   struct sde_crtc *hw_crtc)
+{
+	int ret = 0;
+
+	if (!hw_dspp || !hw_dspp->ops.setup_pa_dither)
+		ret = -EINVAL;
+	else
+		hw_dspp->ops.setup_pa_dither(hw_dspp, hw_cfg);
+	return ret;
+}
+
+static int set_dspp_hist_ctrl_feature(struct sde_hw_dspp *hw_dspp,
+				      struct sde_hw_cp_cfg *hw_cfg,
+				      struct sde_crtc *hw_crtc)
+{
+	int ret = 0;
+	bool feature_enabled;
+
+	if (!hw_dspp || !hw_dspp->ops.setup_histogram) {
+		ret = -EINVAL;
+	} else {
+		feature_enabled = hw_cfg->payload &&
+			*((u64 *)hw_cfg->payload) != 0;
+		hw_dspp->ops.setup_histogram(hw_dspp, &feature_enabled);
+	}
+	return ret;
+}
+
+static int set_dspp_hist_irq_feature(struct sde_hw_dspp *hw_dspp,
+				     struct sde_hw_cp_cfg *hw_cfg,
+				     struct sde_crtc *hw_crtc)
+{
+	int ret = 0;
+	struct sde_hw_mixer *hw_lm = hw_cfg->mixer_info;
+
+	if (!hw_dspp)
+		ret = -EINVAL;
+	else if (!hw_lm->cfg.right_mixer)
+		_sde_cp_crtc_enable_hist_irq(hw_crtc);
+	return ret;
+}
+
+
+static int set_dspp_ad_mode_feature(struct sde_hw_dspp *hw_dspp,
+				    struct sde_hw_cp_cfg *hw_cfg,
+				    struct sde_crtc *hw_crtc)
+{
+	int ret = 0;
+
+	if (!hw_dspp || !hw_dspp->ops.setup_ad) {
+		ret = -EINVAL;
+	} else {
+		struct sde_ad_hw_cfg ad_cfg;
+
+		ad_cfg.prop = AD_MODE;
+		ad_cfg.hw_cfg = hw_cfg;
+		hw_dspp->ops.setup_ad(hw_dspp, &ad_cfg);
+	}
+	return ret;
+}
+
+static int set_dspp_ad_init_feature(struct sde_hw_dspp *hw_dspp,
+				    struct sde_hw_cp_cfg *hw_cfg,
+				    struct sde_crtc *hw_crtc)
+{
+	int ret = 0;
+
+	if (!hw_dspp || !hw_dspp->ops.setup_ad) {
+		ret = -EINVAL;
+	} else {
+		struct sde_ad_hw_cfg ad_cfg;
+
+		ad_cfg.prop = AD_INIT;
+		ad_cfg.hw_cfg = hw_cfg;
+		hw_dspp->ops.setup_ad(hw_dspp, &ad_cfg);
+	}
+	return ret;
+}
+
+static int set_dspp_ad_cfg_feature(struct sde_hw_dspp *hw_dspp,
+				   struct sde_hw_cp_cfg *hw_cfg,
+				   struct sde_crtc *hw_crtc)
+{
+	int ret = 0;
+
+	if (!hw_dspp || !hw_dspp->ops.setup_ad) {
+		ret = -EINVAL;
+	} else {
+		struct sde_ad_hw_cfg ad_cfg;
+
+		ad_cfg.prop = AD_CFG;
+		ad_cfg.hw_cfg = hw_cfg;
+		hw_dspp->ops.setup_ad(hw_dspp, &ad_cfg);
+	}
+	return ret;
+}
+
+static int set_dspp_ad_input_feature(struct sde_hw_dspp *hw_dspp,
+				     struct sde_hw_cp_cfg *hw_cfg,
+				     struct sde_crtc *hw_crtc)
+{
+	int ret = 0;
+
+	if (!hw_dspp || !hw_dspp->ops.setup_ad) {
+		ret = -EINVAL;
+	} else {
+		struct sde_ad_hw_cfg ad_cfg;
+
+		ad_cfg.prop = AD_INPUT;
+		ad_cfg.hw_cfg = hw_cfg;
+		hw_dspp->ops.setup_ad(hw_dspp, &ad_cfg);
+	}
+	return ret;
+}
+
+static int set_dspp_ad_assertive_feature(struct sde_hw_dspp *hw_dspp,
+					 struct sde_hw_cp_cfg *hw_cfg,
+					 struct sde_crtc *hw_crtc)
+{
+	int ret = 0;
+
+	if (!hw_dspp || !hw_dspp->ops.setup_ad) {
+		ret = -EINVAL;
+	} else {
+		struct sde_ad_hw_cfg ad_cfg;
+
+		ad_cfg.prop = AD_ASSERTIVE;
+		ad_cfg.hw_cfg = hw_cfg;
+		hw_dspp->ops.setup_ad(hw_dspp, &ad_cfg);
+	}
+	return ret;
+}
+
+static int set_dspp_ad_backlight_feature(struct sde_hw_dspp *hw_dspp,
+					 struct sde_hw_cp_cfg *hw_cfg,
+					 struct sde_crtc *hw_crtc)
+{
+	int ret = 0;
+
+	if (!hw_dspp || !hw_dspp->ops.setup_ad) {
+		ret = -EINVAL;
+	} else {
+		struct sde_ad_hw_cfg ad_cfg;
+
+		ad_cfg.prop = AD_BACKLIGHT;
+		ad_cfg.hw_cfg = hw_cfg;
+		hw_dspp->ops.setup_ad(hw_dspp, &ad_cfg);
+	}
+	return ret;
+}
+
+static int set_dspp_ad_strength_feature(struct sde_hw_dspp *hw_dspp,
+					struct sde_hw_cp_cfg *hw_cfg,
+					struct sde_crtc *hw_crtc)
+{
+	int ret = 0;
+
+	if (!hw_dspp || !hw_dspp->ops.setup_ad) {
+		ret = -EINVAL;
+	} else {
+		struct sde_ad_hw_cfg ad_cfg;
+
+		ad_cfg.prop = AD_STRENGTH;
+		ad_cfg.hw_cfg = hw_cfg;
+		hw_dspp->ops.setup_ad(hw_dspp, &ad_cfg);
+	}
+	return ret;
+}
+
+static int set_dspp_ad_roi_feature(struct sde_hw_dspp *hw_dspp,
+				   struct sde_hw_cp_cfg *hw_cfg,
+				   struct sde_crtc *hw_crtc)
+{
+	int ret = 0;
+
+	if (!hw_dspp || !hw_dspp->ops.setup_ad) {
+		ret = -EINVAL;
+	} else {
+		struct sde_ad_hw_cfg ad_cfg;
+
+		ad_cfg.prop = AD_ROI;
+		ad_cfg.hw_cfg = hw_cfg;
+		hw_dspp->ops.setup_ad(hw_dspp, &ad_cfg);
+	}
+	return ret;
+}
+
+static int set_lm_gc_feature(struct sde_hw_dspp *hw_dspp,
+			     struct sde_hw_cp_cfg *hw_cfg,
+			     struct sde_crtc *hw_crtc)
+{
+	int ret = 0;
+	struct sde_hw_mixer *hw_lm = (struct sde_hw_mixer *)hw_cfg->mixer_info;
+
+	if (!hw_lm->ops.setup_gc)
+		ret = -EINVAL;
+	else
+		hw_lm->ops.setup_gc(hw_lm, hw_cfg);
+	return ret;
+}
+
+
+set_feature_wrapper crtc_feature_wrappers[SDE_CP_CRTC_MAX_FEATURES];
+
+#define setup_crtc_feature_wrappers(wrappers) \
+do { \
+	memset(wrappers, 0, sizeof(wrappers)); \
+	wrappers[SDE_CP_CRTC_DSPP_VLUT] = set_dspp_vlut_feature; \
+	wrappers[SDE_CP_CRTC_DSPP_PCC] = set_dspp_pcc_feature; \
+	wrappers[SDE_CP_CRTC_DSPP_IGC] = set_dspp_igc_feature; \
+	wrappers[SDE_CP_CRTC_DSPP_GC] = set_dspp_gc_feature; \
+	wrappers[SDE_CP_CRTC_DSPP_HSIC] =\
+		set_dspp_hsic_feature; \
+	wrappers[SDE_CP_CRTC_DSPP_MEMCOL_SKIN] = set_dspp_memcol_skin_feature; \
+	wrappers[SDE_CP_CRTC_DSPP_MEMCOL_SKY] =\
+		set_dspp_memcol_sky_feature; \
+	wrappers[SDE_CP_CRTC_DSPP_MEMCOL_FOLIAGE] =\
+		set_dspp_memcol_foliage_feature; \
+	wrappers[SDE_CP_CRTC_DSPP_MEMCOL_PROT] = set_dspp_memcol_prot_feature; \
+	wrappers[SDE_CP_CRTC_DSPP_SIXZONE] = set_dspp_sixzone_feature; \
+	wrappers[SDE_CP_CRTC_DSPP_GAMUT] = set_dspp_gamut_feature; \
+	wrappers[SDE_CP_CRTC_DSPP_DITHER] = set_dspp_dither_feature; \
+	wrappers[SDE_CP_CRTC_DSPP_HIST_CTRL] = set_dspp_hist_ctrl_feature; \
+	wrappers[SDE_CP_CRTC_DSPP_HIST_IRQ] = set_dspp_hist_irq_feature; \
+	wrappers[SDE_CP_CRTC_DSPP_AD_MODE] = set_dspp_ad_mode_feature; \
+	wrappers[SDE_CP_CRTC_DSPP_AD_INIT] = set_dspp_ad_init_feature; \
+	wrappers[SDE_CP_CRTC_DSPP_AD_CFG] = set_dspp_ad_cfg_feature; \
+	wrappers[SDE_CP_CRTC_DSPP_AD_INPUT] = set_dspp_ad_input_feature; \
+	wrappers[SDE_CP_CRTC_DSPP_AD_ASSERTIVENESS] =\
+		set_dspp_ad_assertive_feature; \
+	wrappers[SDE_CP_CRTC_DSPP_AD_BACKLIGHT] =\
+		set_dspp_ad_backlight_feature; \
+	wrappers[SDE_CP_CRTC_DSPP_AD_STRENGTH] = set_dspp_ad_strength_feature; \
+	wrappers[SDE_CP_CRTC_DSPP_AD_ROI] = set_dspp_ad_roi_feature; \
+	wrappers[SDE_CP_CRTC_LM_GC] = set_lm_gc_feature; \
+} while (0)
+
 #define INIT_PROP_ATTACH(p, crtc, prop, node, feature, val) \
 	do { \
 		(p)->crtc = crtc; \
@@ -163,9 +554,7 @@ static void sde_cp_get_hw_payload(struct sde_cp_node *prop_node,
 				  struct sde_hw_cp_cfg *hw_cfg,
 				  bool *feature_enabled)
 {
-
 	struct drm_property_blob *blob = NULL;
-
 	memset(hw_cfg, 0, sizeof(*hw_cfg));
 	*feature_enabled = false;
 
@@ -641,7 +1030,6 @@ static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 	int i = 0;
 	bool feature_enabled = false;
 	int ret = 0;
-	struct sde_ad_hw_cfg ad_cfg;
 
 	memset(&hw_cfg, 0, sizeof(hw_cfg));
 	sde_cp_get_hw_payload(prop_node, &hw_cfg, &feature_enabled);
@@ -655,207 +1043,36 @@ static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 		hw_cfg.dspp[i] = hw_dspp;
 	}
 
-	for (i = 0; i < num_mixers && !ret; i++) {
-		hw_lm = sde_crtc->mixers[i].hw_lm;
-		hw_dspp = sde_crtc->mixers[i].hw_dspp;
-		if (!hw_lm) {
-			ret = -EINVAL;
-			continue;
-		}
-		hw_cfg.ctl = sde_crtc->mixers[i].hw_ctl;
-		hw_cfg.mixer_info = hw_lm;
-		hw_cfg.displayh = num_mixers * hw_lm->cfg.out_width;
-		hw_cfg.displayv = hw_lm->cfg.out_height;
-		switch (prop_node->feature) {
-		case SDE_CP_CRTC_DSPP_VLUT:
-			if (!hw_dspp || !hw_dspp->ops.setup_vlut) {
-				ret = -EINVAL;
-				continue;
-			}
-			hw_dspp->ops.setup_vlut(hw_dspp, &hw_cfg);
-			break;
-		case SDE_CP_CRTC_DSPP_PCC:
-			if (!hw_dspp || !hw_dspp->ops.setup_pcc) {
-				ret = -EINVAL;
-				continue;
-			}
-			hw_dspp->ops.setup_pcc(hw_dspp, &hw_cfg);
-			break;
-		case SDE_CP_CRTC_DSPP_IGC:
-			if (!hw_dspp || !hw_dspp->ops.setup_igc) {
-				ret = -EINVAL;
-				continue;
-			}
-			hw_dspp->ops.setup_igc(hw_dspp, &hw_cfg);
-			break;
-		case SDE_CP_CRTC_DSPP_GC:
-			if (!hw_dspp || !hw_dspp->ops.setup_gc) {
-				ret = -EINVAL;
-				continue;
-			}
-			hw_dspp->ops.setup_gc(hw_dspp, &hw_cfg);
-			break;
-		case SDE_CP_CRTC_DSPP_HSIC:
-			if (!hw_dspp || !hw_dspp->ops.setup_pa_hsic) {
-				ret = -EINVAL;
-				continue;
-			}
-			hw_dspp->ops.setup_pa_hsic(hw_dspp, &hw_cfg);
-			break;
-		case SDE_CP_CRTC_DSPP_MEMCOL_SKIN:
-			if (!hw_dspp || !hw_dspp->ops.setup_pa_memcol_skin) {
-				ret = -EINVAL;
-				continue;
-			}
-			hw_dspp->ops.setup_pa_memcol_skin(hw_dspp, &hw_cfg);
-			break;
-		case SDE_CP_CRTC_DSPP_MEMCOL_SKY:
-			if (!hw_dspp || !hw_dspp->ops.setup_pa_memcol_sky) {
-				ret = -EINVAL;
-				continue;
-			}
-			hw_dspp->ops.setup_pa_memcol_sky(hw_dspp, &hw_cfg);
-			break;
-		case SDE_CP_CRTC_DSPP_MEMCOL_FOLIAGE:
-			if (!hw_dspp || !hw_dspp->ops.setup_pa_memcol_foliage) {
-				ret = -EINVAL;
-				continue;
-			}
-			hw_dspp->ops.setup_pa_memcol_foliage(hw_dspp, &hw_cfg);
-			break;
-		case SDE_CP_CRTC_DSPP_MEMCOL_PROT:
-			if (!hw_dspp || !hw_dspp->ops.setup_pa_memcol_prot) {
-				ret = -EINVAL;
-				continue;
-			}
-			hw_dspp->ops.setup_pa_memcol_prot(hw_dspp, &hw_cfg);
-			break;
-		case SDE_CP_CRTC_DSPP_SIXZONE:
-			if (!hw_dspp || !hw_dspp->ops.setup_sixzone) {
-				ret = -EINVAL;
-				continue;
-			}
-			hw_dspp->ops.setup_sixzone(hw_dspp, &hw_cfg);
-			break;
-		case SDE_CP_CRTC_DSPP_GAMUT:
-			if (!hw_dspp || !hw_dspp->ops.setup_gamut) {
-				ret = -EINVAL;
-				continue;
-			}
-			hw_dspp->ops.setup_gamut(hw_dspp, &hw_cfg);
-			break;
-		case SDE_CP_CRTC_LM_GC:
-			if (!hw_lm->ops.setup_gc) {
-				ret = -EINVAL;
-				continue;
-			}
-			hw_lm->ops.setup_gc(hw_lm, &hw_cfg);
-			break;
-		case SDE_CP_CRTC_DSPP_DITHER:
-			if (!hw_dspp || !hw_dspp->ops.setup_pa_dither) {
-				ret = -EINVAL;
-				continue;
-			}
-			hw_dspp->ops.setup_pa_dither(hw_dspp, &hw_cfg);
-			break;
-		case SDE_CP_CRTC_DSPP_HIST_CTRL:
-			if (!hw_dspp || !hw_dspp->ops.setup_histogram) {
-				ret = -EINVAL;
-				continue;
-			}
-			hw_dspp->ops.setup_histogram(hw_dspp, &feature_enabled);
-			break;
-		case SDE_CP_CRTC_DSPP_HIST_IRQ:
-			if (!hw_dspp) {
-				ret = -EINVAL;
-				continue;
-			}
-			if (!hw_lm->cfg.right_mixer)
-				_sde_cp_crtc_enable_hist_irq(sde_crtc);
-			break;
-		case SDE_CP_CRTC_DSPP_AD_MODE:
-			if (!hw_dspp || !hw_dspp->ops.setup_ad) {
-				ret = -EINVAL;
-				continue;
-			}
-			ad_cfg.prop = AD_MODE;
-			ad_cfg.hw_cfg = &hw_cfg;
-			hw_dspp->ops.setup_ad(hw_dspp, &ad_cfg);
-			break;
-		case SDE_CP_CRTC_DSPP_AD_INIT:
-			if (!hw_dspp || !hw_dspp->ops.setup_ad) {
-				ret = -EINVAL;
-				continue;
-			}
-			ad_cfg.prop = AD_INIT;
-			ad_cfg.hw_cfg = &hw_cfg;
-			hw_dspp->ops.setup_ad(hw_dspp, &ad_cfg);
-			break;
-		case SDE_CP_CRTC_DSPP_AD_CFG:
-			if (!hw_dspp || !hw_dspp->ops.setup_ad) {
-				ret = -EINVAL;
-				continue;
-			}
-			ad_cfg.prop = AD_CFG;
-			ad_cfg.hw_cfg = &hw_cfg;
-			hw_dspp->ops.setup_ad(hw_dspp, &ad_cfg);
-			break;
-		case SDE_CP_CRTC_DSPP_AD_INPUT:
-			if (!hw_dspp || !hw_dspp->ops.setup_ad) {
-				ret = -EINVAL;
-				continue;
-			}
-			ad_cfg.prop = AD_INPUT;
-			ad_cfg.hw_cfg = &hw_cfg;
-			hw_dspp->ops.setup_ad(hw_dspp, &ad_cfg);
-			break;
-		case SDE_CP_CRTC_DSPP_AD_ASSERTIVENESS:
-			if (!hw_dspp || !hw_dspp->ops.setup_ad) {
-				ret = -EINVAL;
-				continue;
-			}
-			ad_cfg.prop = AD_ASSERTIVE;
-			ad_cfg.hw_cfg = &hw_cfg;
-			hw_dspp->ops.setup_ad(hw_dspp, &ad_cfg);
-			break;
-		case SDE_CP_CRTC_DSPP_AD_BACKLIGHT:
-			if (!hw_dspp || !hw_dspp->ops.setup_ad) {
-				ret = -EINVAL;
-				continue;
-			}
-			ad_cfg.prop = AD_BACKLIGHT;
-			ad_cfg.hw_cfg = &hw_cfg;
-			hw_dspp->ops.setup_ad(hw_dspp, &ad_cfg);
-			break;
-		case SDE_CP_CRTC_DSPP_AD_STRENGTH:
-			if (!hw_dspp || !hw_dspp->ops.setup_ad) {
-				ret = -EINVAL;
-				continue;
-			}
-			ad_cfg.prop = AD_STRENGTH;
-			ad_cfg.hw_cfg = &hw_cfg;
-			hw_dspp->ops.setup_ad(hw_dspp, &ad_cfg);
-			break;
-		case SDE_CP_CRTC_DSPP_AD_ROI:
-			if (!hw_dspp || !hw_dspp->ops.setup_ad) {
-				ret = -EINVAL;
-				continue;
-			}
-			ad_cfg.prop = AD_ROI;
-			ad_cfg.hw_cfg = &hw_cfg;
-			hw_dspp->ops.setup_ad(hw_dspp, &ad_cfg);
-			break;
-		default:
-			ret = -EINVAL;
-			break;
-		}
-	}
+	if ((prop_node->feature >= SDE_CP_CRTC_MAX_FEATURES) ||
+			crtc_feature_wrappers[prop_node->feature] == NULL) {
+		ret = -EINVAL;
+	} else {
+		set_feature_wrapper set_feature =
+			crtc_feature_wrappers[prop_node->feature];
 
-	if (ret) {
-		DRM_ERROR("failed to %s feature %d\n",
-			((feature_enabled) ? "enable" : "disable"),
-			prop_node->feature);
-		return;
+		for (i = 0; i < num_mixers && !ret; i++) {
+			hw_lm = sde_crtc->mixers[i].hw_lm;
+			hw_dspp = sde_crtc->mixers[i].hw_dspp;
+			if (!hw_lm) {
+				ret = -EINVAL;
+				continue;
+			}
+			hw_cfg.ctl = sde_crtc->mixers[i].hw_ctl;
+			hw_cfg.mixer_info = hw_lm;
+			hw_cfg.displayh = num_mixers * hw_lm->cfg.out_width;
+			hw_cfg.displayv = hw_lm->cfg.out_height;
+
+			ret = set_feature(hw_dspp, &hw_cfg, sde_crtc);
+			if (ret)
+				break;
+		}
+
+		if (ret) {
+			DRM_ERROR("failed to %s feature %d\n",
+				((feature_enabled) ? "enable" : "disable"),
+				prop_node->feature);
+			return;
+		}
 	}
 
 	if (feature_enabled) {
@@ -1000,6 +1217,7 @@ void sde_cp_crtc_install_properties(struct drm_crtc *crtc)
 				SDE_CP_CRTC_MAX_FEATURES), GFP_KERNEL);
 		setup_dspp_prop_install_funcs(dspp_prop_install_func);
 		setup_lm_prop_install_funcs(lm_prop_install_func);
+		setup_crtc_feature_wrappers(crtc_feature_wrappers);
 	}
 	if (!priv->cp_property)
 		goto exit;
