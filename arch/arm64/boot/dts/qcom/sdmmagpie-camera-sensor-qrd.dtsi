@@ -297,39 +297,39 @@
 	cam_sensor_rear_active: cam_sensor_rear_active {
 		pins = "gpio1";
 		function = "normal";
-		power-source = <0>;
+		power-source = <1>;
 		bias-disable;
 	};
 	cam_sensor_rear_suspend: cam_sensor_rear_suspend {
 		pins = "gpio1";
 		function = "normal";
-		power-source = <0>;
+		power-source = <1>;
 		bias-pull-down;
 	};
 
 	cam_sensor_rear2_active: cam_sensor_rear2_active {
 		pins = "gpio2";
 		function = "normal";
-		power-source = <0>;
+		power-source = <1>;
 		bias-disable;
 	};
 	cam_sensor_rear2_suspend: cam_sensor_rear2_suspend {
 		pins = "gpio2";
 		function = "normal";
-		power-source = <0>;
+		power-source = <1>;
 		bias-pull-down;
 	};
 
 	cam_sensor_front_active: cam_sensor_front_active {
 		pins = "gpio4";
 		function = "normal";
-		power-source = <0>;
+		power-source = <1>;
 		bias-disable;
 	};
 	cam_sensor_front_suspend: cam_sensor_front_suspend {
 		pins = "gpio4";
 		function = "normal";
-		power-source = <0>;
+		power-source = <1>;
 		bias-pull-down;
 	};
 };
