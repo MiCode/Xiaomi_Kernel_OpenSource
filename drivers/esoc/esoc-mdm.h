@@ -24,6 +24,8 @@
 #define MDM9x55_PCIE			"PCIe"
 #define SDX50M_LABEL			"SDX50M"
 #define SDX50M_PCIE			"PCIe"
+#define SDX55M_LABEL			"SDX55M"
+#define SDX55M_PCIE			"PCIe"
 #define MDM2AP_STATUS_TIMEOUT_MS	120000L
 #define MDM_MODEM_TIMEOUT		3000
 #define DEF_RAMDUMP_TIMEOUT		120000
@@ -146,4 +148,5 @@ static inline int mdm_pon_setup(struct mdm_ctrl *mdm)
 
 extern struct mdm_pon_ops mdm9x55_pon_ops;
 extern struct mdm_pon_ops sdx50m_pon_ops;
+extern struct mdm_pon_ops sdx55m_pon_ops;
 #endif
