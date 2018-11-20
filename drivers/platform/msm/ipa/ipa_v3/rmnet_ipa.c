@@ -3711,7 +3711,11 @@ static inline int rmnet_ipa3_delete_lan_client_info
 	int i;
 	struct ipa_tether_device_info *teth_ptr = NULL;
 
+	IPAWANDBG("Delete lan client info: %d, %d, %d\n",
+		rmnet_ipa3_ctx->tether_device[device_type].num_clients,
+		lan_clnt_idx, device_type);
 	/* Check if Device type is valid. */
+
 	if (device_type >= IPACM_MAX_CLIENT_DEVICE_TYPES ||
 		device_type < 0) {
 		IPAWANERR("Invalid Device type: %d\n", device_type);
@@ -3734,6 +3738,8 @@ static inline int rmnet_ipa3_delete_lan_client_info
 		/* Reset the client info before sending the message. */
 		memset(lan_client, 0, sizeof(struct ipa_lan_client));
 		lan_client->client_idx = -1;
+		/* Decrement the number of clients. */
+		rmnet_ipa3_ctx->tether_device[device_type].num_clients--;
 
 	}
 	return 0;
@@ -3851,6 +3857,10 @@ int rmnet_ipa3_clear_lan_client_info(
 		IPAWANERR("Invalid Client Index: %d\n", data->client_idx);
 		return -EINVAL;
 	}
+
+	IPAWANDBG("Client : %d:%d:%d\n",
+		data->device_type, data->client_idx,
+		rmnet_ipa3_ctx->tether_device[data->device_type].num_clients);
 
 	teth_ptr = &rmnet_ipa3_ctx->tether_device[data->device_type];
 	mutex_lock(&rmnet_ipa3_ctx->per_client_stats_guard);
@@ -4000,6 +4010,21 @@ int rmnet_ipa3_query_per_client_stats(
 
 	mutex_lock(&rmnet_ipa3_ctx->per_client_stats_guard);
 
+	/* Check if Source pipe is valid. */
+	if (rmnet_ipa3_ctx->tether_device
+		[data->device_type].ul_src_pipe == -1) {
+		IPAWANERR("Device not initialized: %d\n", data->device_type);
+		mutex_unlock(&rmnet_ipa3_ctx->per_client_stats_guard);
+		return -EINVAL;
+	}
+
+	/* Check if we have clients connected. */
+	if (rmnet_ipa3_ctx->tether_device[data->device_type].num_clients == 0) {
+		IPAWANERR("No clients connected: %d\n", data->device_type);
+		mutex_unlock(&rmnet_ipa3_ctx->per_client_stats_guard);
+		return -EINVAL;
+	}
+
 	if (data->num_clients == 1) {
 		/* Check if the client info is valid.*/
 		lan_clnt_idx1 = rmnet_ipa3_get_lan_client_info(
@@ -4056,6 +4081,9 @@ int rmnet_ipa3_query_per_client_stats(
 	}
 	memset(req, 0, sizeof(struct ipa_get_stats_per_client_req_msg_v01));
 	memset(resp, 0, sizeof(struct ipa_get_stats_per_client_resp_msg_v01));
+
+	IPAWANDBG("Reset stats: %s",
+		data->reset_stats?"Yes":"No");
 
 	if (data->reset_stats) {
 		req->reset_stats_valid = true;
@@ -4123,6 +4151,9 @@ int rmnet_ipa3_query_per_client_stats(
 				IPA_MAC_ADDR_SIZE);
 		}
 	}
+
+	IPAWANDBG("Disconnect clnt: %s",
+		data->disconnect_clnt?"Yes":"No");
 
 	if (data->disconnect_clnt) {
 		rmnet_ipa3_delete_lan_client_info(data->device_type,
