@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -324,10 +324,6 @@ static long msm_ir_led_subdev_do_ioctl(
 	struct msm_ir_led_cfg_data_t ir_led_data;
 
 	CDBG("Enter\n");
-	ir_led_data.cfg_type = u32->cfg_type;
-	ir_led_data.pwm_duty_on_ns = u32->pwm_duty_on_ns;
-	ir_led_data.pwm_period_ns = u32->pwm_period_ns;
-
 	switch (cmd) {
 	case VIDIOC_MSM_IR_LED_CFG32:
 		cmd = VIDIOC_MSM_IR_LED_CFG;
@@ -335,6 +331,10 @@ static long msm_ir_led_subdev_do_ioctl(
 	default:
 		return msm_ir_led_subdev_ioctl(sd, cmd, arg);
 	}
+
+	ir_led_data.cfg_type = u32->cfg_type;
+	ir_led_data.pwm_duty_on_ns = u32->pwm_duty_on_ns;
+	ir_led_data.pwm_period_ns = u32->pwm_period_ns;
 
 	rc = msm_ir_led_subdev_ioctl(sd, cmd, &ir_led_data);
 
