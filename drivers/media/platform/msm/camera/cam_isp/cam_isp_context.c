@@ -146,9 +146,16 @@ static void cam_isp_ctx_dump_req(struct cam_isp_ctx_req *req_isp)
 				CAM_ERR(CAM_ISP,
 					"Invalid len %lld buf_start-end=%d",
 					len, (buf_end - buf_start + 1));
+				if (cam_mem_put_cpu_buf(req_isp->cfg[i].handle))
+					CAM_WARN(CAM_ISP,
+						"Failed to put cpu buf: 0x%x",
+						req_isp->cfg[i].handle);
 				continue;
 			}
 			cam_cdm_util_dump_cmd_buf(buf_start, buf_end);
+			if (cam_mem_put_cpu_buf(req_isp->cfg[i].handle))
+				CAM_WARN(CAM_ISP, "Failed to put cpu buf: 0x%x",
+					req_isp->cfg[i].handle);
 		}
 	}
 }
@@ -2165,8 +2172,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 
 	if (!req) {
 		CAM_ERR(CAM_ISP, "No more request obj free");
-		rc = -ENOMEM;
-		goto end;
+		return -ENOMEM;
 	}
 
 	req_isp = (struct cam_isp_ctx_req *) req->req_priv;
@@ -2197,7 +2203,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 			"request %lld has been flushed, reject packet",
 			packet->header.request_id);
 		rc = -EINVAL;
-		goto free_req;
+		goto free_cpu_buf;
 	}
 
 	/* preprocess the configuration */
@@ -2220,7 +2226,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	if (rc != 0) {
 		CAM_ERR(CAM_ISP, "Prepare config packet failed in HW layer");
 		rc = -EFAULT;
-		goto free_req;
+		goto free_cpu_buf;
 	}
 	req_isp->num_cfg = cfg.num_hw_update_entries;
 	req_isp->num_fence_map_out = cfg.num_out_map_entries;
@@ -2281,6 +2287,10 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	if (rc)
 		goto put_ref;
 
+	if (cam_mem_put_cpu_buf((int32_t) cmd->packet_handle))
+		CAM_WARN(CAM_ISP, "Can not put packet address : 0x%x",
+			cmd->packet_handle);
+
 	CAM_DBG(CAM_REQ,
 		"Preprocessing Config req_id %lld successful on ctx %u",
 		req->request_id, ctx->ctx_id);
@@ -2289,16 +2299,19 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 
 put_ref:
 	for (--i; i >= 0; i--) {
-		rc = cam_sync_put_obj_ref(req_isp->fence_map_out[i].sync_id);
-		if (rc)
+		if (cam_sync_put_obj_ref(req_isp->fence_map_out[i].sync_id))
 			CAM_ERR(CAM_CTXT, "Failed to put ref of fence %d",
 				req_isp->fence_map_out[i].sync_id);
 	}
+free_cpu_buf:
+	if (cam_mem_put_cpu_buf((int32_t) cmd->packet_handle))
+		CAM_WARN(CAM_ISP, "Can not put packet address: 0x%x",
+			cmd->packet_handle);
 free_req:
 	spin_lock_bh(&ctx->lock);
 	list_add_tail(&req->list, &ctx->free_req_list);
 	spin_unlock_bh(&ctx->lock);
-end:
+
 	return rc;
 }
 
