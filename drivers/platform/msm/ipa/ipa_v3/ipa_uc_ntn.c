@@ -19,23 +19,24 @@ struct IpaHwEventLogInfoData_t *uc_event_top_mmio)
 {
 	struct Ipa3HwEventInfoData_t *statsPtr = &uc_event_top_mmio->statsInfo;
 
-	if ((uc_event_top_mmio->featureMask & (1 << IPA_HW_FEATURE_NTN)) == 0) {
-		IPAERR("NTN feature missing 0x%x\n",
-			uc_event_top_mmio->featureMask);
+	if ((uc_event_top_mmio->protocolMask &
+		(1 << IPA_HW_PROTOCOL_ETH)) == 0) {
+		IPAERR("NTN protocol missing 0x%x\n",
+			uc_event_top_mmio->protocolMask);
 		return;
 	}
 
-	if (statsPtr->featureInfo[IPA_HW_FEATURE_NTN].params.size !=
+	if (statsPtr->featureInfo[IPA_HW_PROTOCOL_ETH].params.size !=
 		sizeof(struct Ipa3HwStatsNTNInfoData_t)) {
 		IPAERR("NTN stats sz invalid exp=%zu is=%u\n",
 			sizeof(struct Ipa3HwStatsNTNInfoData_t),
-			statsPtr->featureInfo[IPA_HW_FEATURE_NTN].params.size);
+			statsPtr->featureInfo[IPA_HW_PROTOCOL_ETH].params.size);
 		return;
 	}
 
 	ipa3_ctx->uc_ntn_ctx.ntn_uc_stats_ofst =
 		uc_event_top_mmio->statsInfo.baseAddrOffset +
-		statsPtr->featureInfo[IPA_HW_FEATURE_NTN].params.offset;
+		statsPtr->featureInfo[IPA_HW_PROTOCOL_ETH].params.offset;
 	IPAERR("NTN stats ofst=0x%x\n", ipa3_ctx->uc_ntn_ctx.ntn_uc_stats_ofst);
 	if (ipa3_ctx->uc_ntn_ctx.ntn_uc_stats_ofst +
 		sizeof(struct Ipa3HwStatsNTNInfoData_t) >=
@@ -226,11 +227,11 @@ static int ipa3_uc_send_ntn_setup_pipe_cmd(
 	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
 		cmd_data_v4_0 = (struct IpaHwOffloadSetUpCmdData_t_v4_0 *)
 			cmd.base;
-		cmd_data_v4_0->protocol = IPA_HW_FEATURE_NTN;
+		cmd_data_v4_0->protocol = IPA_HW_PROTOCOL_ETH;
 		Ntn_params = &cmd_data_v4_0->SetupCh_params.NtnSetupCh_params;
 	} else {
 		cmd_data = (struct IpaHwOffloadSetUpCmdData_t *)cmd.base;
-		cmd_data->protocol = IPA_HW_FEATURE_NTN;
+		cmd_data->protocol = IPA_HW_PROTOCOL_ETH;
 		Ntn_params = &cmd_data->SetupCh_params.NtnSetupCh_params;
 	}
 
@@ -549,11 +550,11 @@ int ipa3_tear_down_uc_offload_pipes(int ipa_ep_idx_ul,
 	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
 		cmd_data_v4_0 = (struct IpaHwOffloadCommonChCmdData_t_v4_0 *)
 			cmd.base;
-		cmd_data_v4_0->protocol = IPA_HW_FEATURE_NTN;
+		cmd_data_v4_0->protocol = IPA_HW_PROTOCOL_ETH;
 		tear = &cmd_data_v4_0->CommonCh_params.NtnCommonCh_params;
 	} else {
 		cmd_data = (struct IpaHwOffloadCommonChCmdData_t *)cmd.base;
-		cmd_data->protocol = IPA_HW_FEATURE_NTN;
+		cmd_data->protocol = IPA_HW_PROTOCOL_ETH;
 		tear = &cmd_data->CommonCh_params.NtnCommonCh_params;
 	}
 
