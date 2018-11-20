@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -108,12 +108,14 @@ error:
  * Caller should check if lanes are in ULPS mode by calling
  * get_lanes_in_ulps() operation.
  */
-void dsi_ctrl_hw_14_ulps_request(struct dsi_ctrl_hw *ctrl, u32 lanes)
+void dsi_ctrl_hw_cmn_ulps_request(struct dsi_ctrl_hw *ctrl, u32 lanes)
 {
 	u32 reg = 0;
 
+	reg = DSI_R32(ctrl, DSI_LANE_CTRL);
+
 	if (lanes & DSI_CLOCK_LANE)
-		reg = BIT(4);
+		reg |= BIT(4);
 	if (lanes & DSI_DATA_LANE_0)
 		reg |= BIT(0);
 	if (lanes & DSI_DATA_LANE_1)
@@ -143,12 +145,16 @@ void dsi_ctrl_hw_14_ulps_request(struct dsi_ctrl_hw *ctrl, u32 lanes)
  * Caller should check if lanes are in active mode by calling
  * get_lanes_in_ulps() operation.
  */
-void dsi_ctrl_hw_14_ulps_exit(struct dsi_ctrl_hw *ctrl, u32 lanes)
+void dsi_ctrl_hw_cmn_ulps_exit(struct dsi_ctrl_hw *ctrl, u32 lanes)
 {
 	u32 reg = 0;
+	u32 prev_reg = 0;
+
+	prev_reg = DSI_R32(ctrl, DSI_LANE_CTRL);
+	prev_reg &= BIT(24);
 
 	if (lanes & DSI_CLOCK_LANE)
-		reg = BIT(12);
+		reg |= BIT(12);
 	if (lanes & DSI_DATA_LANE_0)
 		reg |= BIT(8);
 	if (lanes & DSI_DATA_LANE_1)
@@ -162,7 +168,7 @@ void dsi_ctrl_hw_14_ulps_exit(struct dsi_ctrl_hw *ctrl, u32 lanes)
 	 * ULPS Exit Request
 	 * Hardware requirement is to wait for at least 1ms
 	 */
-	DSI_W32(ctrl, DSI_LANE_CTRL, reg);
+	DSI_W32(ctrl, DSI_LANE_CTRL, reg | prev_reg);
 	usleep_range(1000, 1010);
 	/*
 	 * Sometimes when exiting ULPS, it is possible that some DSI
@@ -170,8 +176,10 @@ void dsi_ctrl_hw_14_ulps_exit(struct dsi_ctrl_hw *ctrl, u32 lanes)
 	 * commands not going through. To avoid this, force the lanes
 	 * to be in stop state.
 	 */
-	DSI_W32(ctrl, DSI_LANE_CTRL, reg << 8);
-	DSI_W32(ctrl, DSI_LANE_CTRL, 0x0);
+	DSI_W32(ctrl, DSI_LANE_CTRL, (reg << 8) | prev_reg);
+	wmb(); /* ensure lanes are put to stop state */
+	DSI_W32(ctrl, DSI_LANE_CTRL, 0x0 | prev_reg);
+	wmb(); /* ensure lanes are put to stop state */
 
 	pr_debug("[DSI_%d] ULPS exit request for lanes=0x%x\n",
 		 ctrl->index, lanes);
@@ -186,7 +194,7 @@ void dsi_ctrl_hw_14_ulps_exit(struct dsi_ctrl_hw *ctrl, u32 lanes)
  *
  * Return: List of lanes in ULPS state.
  */
-u32 dsi_ctrl_hw_14_get_lanes_in_ulps(struct dsi_ctrl_hw *ctrl)
+u32 dsi_ctrl_hw_cmn_get_lanes_in_ulps(struct dsi_ctrl_hw *ctrl)
 {
 	u32 reg = 0;
 	u32 lanes = 0;

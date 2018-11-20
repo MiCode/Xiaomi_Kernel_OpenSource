@@ -49,6 +49,17 @@ enum phy_engine_state {
 	DSI_PHY_ENGINE_MAX,
 };
 
+/**
+ * enum phy_ulps_return_type - define set_ulps return type for dsi phy.
+ * @DSI_PHY_ULPS_HANDLED:      ulps is handled in phy.
+ * @DSI_PHY_ULPS_NOT_HANDLED:  ulps is not handled in phy.
+ * @DSI_PHY_ULPS_ERROR:        ulps request failed in phy.
+ */
+enum phy_ulps_return_type {
+	DSI_PHY_ULPS_HANDLED = 0,
+	DSI_PHY_ULPS_NOT_HANDLED,
+	DSI_PHY_ULPS_ERROR,
+};
 
 /**
  * struct msm_dsi_phy - DSI PHY object

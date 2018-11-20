@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,6 +40,7 @@
 
 #define DSIPHY_CMN_REGULATOR_CAL_STATUS0          0x0064
 #define DSIPHY_CMN_REGULATOR_CAL_STATUS1          0x0068
+#define DSI_MDP_ULPS_CLAMP_ENABLE_OFF             0x0054
 
 /* n = 0..3 for data lanes and n = 4 for clock lane */
 #define DSIPHY_DLNX_CFG0(n)                     (0x100 + ((n) * 0x80))
@@ -249,4 +250,26 @@ int dsi_phy_hw_timing_val_v2_0(struct dsi_phy_per_lane_cfgs *timing_cfg,
 		}
 	}
 	return 0;
+}
+
+void dsi_phy_hw_v2_0_clamp_ctrl(struct dsi_phy_hw *phy, bool enable)
+{
+	u32 clamp_reg = 0;
+
+	if (!phy->phy_clamp_base) {
+		pr_debug("phy_clamp_base NULL\n");
+		return;
+	}
+
+	if (enable) {
+		clamp_reg |= BIT(0);
+		DSI_MISC_W32(phy, DSI_MDP_ULPS_CLAMP_ENABLE_OFF,
+				clamp_reg);
+		pr_debug("clamp enabled\n");
+	} else {
+		clamp_reg &= ~BIT(0);
+		DSI_MISC_W32(phy, DSI_MDP_ULPS_CLAMP_ENABLE_OFF,
+				clamp_reg);
+		pr_debug("clamp disabled\n");
+	}
 }
