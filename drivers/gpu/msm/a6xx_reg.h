@@ -532,6 +532,30 @@
 #define A6XX_RBBM_CLOCK_DELAY_HLSQ       0x0011c
 #define A6XX_RBBM_CLOCK_HYST_HLSQ        0x0011d
 
+/* ISDB SP0 and SP1 registers */
+#define A6XX_SP0_ISDB_ISDB_EN                           0xf40001
+#define A6XX_SP0_ISDB_ISDB_BRKPT_CFG                    0xf40005
+#define A6XX_SP0_ISDB_ISDB_SHADER_ID_CFG                0xf40006
+#define A6XX_SP0_ISDB_ISDB_WAVE_ID_CFG                  0xf40007
+#define A6XX_SP0_ISDB_ISDB_SAC_CFG                      0xf40024
+#define A6XX_SP0_ISDB_ISDB_SAC_ADDR_0                   0xf40020
+#define A6XX_SP0_ISDB_ISDB_SAC_ADDR_1                   0xf40021
+#define A6XX_SP0_ISDB_ISDB_SAC_MASK_0                   0xf40022
+#define A6XX_SP0_ISDB_ISDB_SAC_MASK_1                   0xf40023
+#define A6XX_HLSQ_ISDB_ISDB_HLSQ_ISDB_CL_WGID_CTRL      0xf44000
+#define A6XX_HLSQ_ISDB_ISDB_HLSQ_ISDB_CL_WGID_X         0xf44001
+#define A6XX_HLSQ_ISDB_ISDB_HLSQ_ISDB_CL_WGID_Y         0xf44002
+#define A6XX_HLSQ_ISDB_ISDB_HLSQ_ISDB_CL_WGID_Z         0xf44003
+#define A6XX_SP1_ISDB_ISDB_EN                           0xf40401
+#define A6XX_SP1_ISDB_ISDB_SAC_CFG                      0xf40424
+#define A6XX_SP1_ISDB_ISDB_SAC_ADDR_0                   0xf40420
+#define A6XX_SP1_ISDB_ISDB_SAC_ADDR_1                   0xf40421
+#define A6XX_SP1_ISDB_ISDB_SAC_MASK_0                   0xf40422
+#define A6XX_SP1_ISDB_ISDB_SAC_MASK_1                   0xf40423
+#define A6XX_SP1_ISDB_ISDB_SHADER_ID_CFG                0xf40406
+#define A6XX_SP1_ISDB_ISDB_WAVE_ID_CFG                  0xf40407
+#define A6XX_SP1_ISDB_ISDB_BRKPT_CFG                    0xf40405
+
 /* DBGC_CFG registers */
 #define A6XX_DBGC_CFG_DBGBUS_SEL_A                  0x600
 #define A6XX_DBGC_CFG_DBGBUS_SEL_B                  0x601

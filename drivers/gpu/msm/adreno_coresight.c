@@ -34,49 +34,53 @@ ssize_t adreno_coresight_show_register(struct device *dev,
 	struct kgsl_device *device = dev_get_drvdata(dev->parent);
 	struct adreno_device *adreno_dev;
 	struct adreno_coresight_attr *cattr = TO_ADRENO_CORESIGHT_ATTR(attr);
-	bool is_cx;
+	struct adreno_gpudev *gpudev;
+	struct adreno_coresight *coresight;
+	int cs_id;
 
 	if (device == NULL)
 		return -EINVAL;
 
 	adreno_dev = ADRENO_DEVICE(device);
+	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+
+	cs_id = adreno_coresight_identify(dev_name(dev));
+
+	if (cs_id < 0)
+		return -ENODEV;
+
+	coresight = gpudev->coresight[cs_id];
 
 	if (cattr->reg == NULL)
 		return -EINVAL;
 
-	is_cx = adreno_is_cx_dbgc_register(device, cattr->reg->offset);
 	/*
 	 * Return the current value of the register if coresight is enabled,
 	 * otherwise report 0
 	 */
 
 	mutex_lock(&device->mutex);
-	if ((is_cx && test_bit(ADRENO_DEVICE_CORESIGHT_CX, &adreno_dev->priv))
-		|| (!is_cx && test_bit(ADRENO_DEVICE_CORESIGHT,
-			&adreno_dev->priv))) {
-		/*
-		 * If the device isn't power collapsed read the actual value
-		 * from the hardware - otherwise return the cached value
-		 */
+	if (!(test_bit(ADRENO_DEVICE_CORESIGHT_CX, &adreno_dev->priv)
+		|| test_bit(ADRENO_DEVICE_CORESIGHT,
+			&adreno_dev->priv)))
+		goto out;
+	/*
+	 * If the device isn't power collapsed read the actual value
+	 * from the hardware - otherwise return the cached value
+	 */
 
-		if (device->state == KGSL_STATE_ACTIVE ||
-			device->state == KGSL_STATE_NAP) {
-			if (!kgsl_active_count_get(device)) {
-				if (!is_cx)
-					kgsl_regread(device, cattr->reg->offset,
-						&cattr->reg->value);
-				else
-					adreno_cx_dbgc_regread(device,
-						cattr->reg->offset,
-						&cattr->reg->value);
-				kgsl_active_count_put(device);
-			}
+	if (device->state == KGSL_STATE_ACTIVE ||
+		device->state == KGSL_STATE_NAP) {
+		if (!kgsl_active_count_get(device)) {
+			coresight->read(device,
+				cattr->reg->offset, &cattr->reg->value);
+			kgsl_active_count_put(device);
 		}
-
-		val = cattr->reg->value;
 	}
-	mutex_unlock(&device->mutex);
 
+out:
+	val = cattr->reg->value;
+	mutex_unlock(&device->mutex);
 	return snprintf(buf, PAGE_SIZE, "0x%X\n", val);
 }
 
@@ -86,18 +90,26 @@ ssize_t adreno_coresight_store_register(struct device *dev,
 	struct kgsl_device *device = dev_get_drvdata(dev->parent);
 	struct adreno_device *adreno_dev;
 	struct adreno_coresight_attr *cattr = TO_ADRENO_CORESIGHT_ATTR(attr);
+	struct adreno_gpudev *gpudev;
+	struct adreno_coresight *coresight;
 	unsigned long val;
-	int ret, is_cx;
+	int ret, cs_id;
 
 	if (device == NULL)
 		return -EINVAL;
 
 	adreno_dev = ADRENO_DEVICE(device);
+	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
 	if (cattr->reg == NULL)
 		return -EINVAL;
 
-	is_cx = adreno_is_cx_dbgc_register(device, cattr->reg->offset);
+	cs_id = adreno_coresight_identify(dev_name(dev));
+
+	if (cs_id < 0)
+		return -ENODEV;
+
+	coresight = gpudev->coresight[cs_id];
 
 	ret = kstrtoul(buf, 0, &val);
 	if (ret)
@@ -106,9 +118,9 @@ ssize_t adreno_coresight_store_register(struct device *dev,
 	mutex_lock(&device->mutex);
 
 	/* Ignore writes while coresight is off */
-	if (!((is_cx && test_bit(ADRENO_DEVICE_CORESIGHT_CX, &adreno_dev->priv))
-		|| (!is_cx && test_bit(ADRENO_DEVICE_CORESIGHT,
-		&adreno_dev->priv))))
+	if (!(test_bit(ADRENO_DEVICE_CORESIGHT_CX, &adreno_dev->priv)
+		|| test_bit(ADRENO_DEVICE_CORESIGHT,
+		&adreno_dev->priv)))
 		goto out;
 
 	cattr->reg->value = val;
@@ -117,14 +129,8 @@ ssize_t adreno_coresight_store_register(struct device *dev,
 	if (device->state == KGSL_STATE_ACTIVE ||
 		device->state == KGSL_STATE_NAP) {
 		if (!kgsl_active_count_get(device)) {
-			if (!is_cx)
-				kgsl_regwrite(device, cattr->reg->offset,
-					cattr->reg->value);
-			else
-				adreno_cx_dbgc_regwrite(device,
-					cattr->reg->offset,
-					cattr->reg->value);
-
+			coresight->write(device,
+				cattr->reg->offset, cattr->reg->value);
 			kgsl_active_count_put(device);
 		}
 	}
