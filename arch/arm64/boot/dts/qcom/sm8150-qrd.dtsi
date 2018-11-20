@@ -608,7 +608,13 @@
 };
 
 &usb2_phy0 {
+	/*
+	 * update SQRXTUNE0 to appropriate value if analog
+	 * audio switch is installed.
+	 * otherwise use power on default(i.e 0x3)
+	 */
 	qcom,param-override-seq =
-		<0x49 0x70
-		 0x28 0x74>;
+		<0xc1 0x6c
+		0x49 0x70
+		0x28 0x74>;
 };
