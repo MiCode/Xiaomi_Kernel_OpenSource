@@ -2967,26 +2967,12 @@ static int mmc_reset(struct mmc_host *host)
 		mmc_pwrseq_reset(host);
 	}
 
-	/* Suspend clk scaling to avoid switching frequencies intermittently */
-
-	ret = mmc_suspend_clk_scaling(host);
-	if (ret) {
-		pr_err("%s: %s: fail to suspend clock scaling (%d)\n",
-			mmc_hostname(host), __func__, ret);
-		return ret;
-	}
-
 	ret = mmc_init_card(host, host->card->ocr, host->card);
 	if (ret) {
 		pr_err("%s: %s: mmc_init_card failed (%d)\n",
 			mmc_hostname(host), __func__, ret);
 		return ret;
 	}
-
-	ret = mmc_resume_clk_scaling(host);
-	if (ret)
-		pr_err("%s: %s: fail to resume clock scaling (%d)\n",
-			mmc_hostname(host), __func__, ret);
 
 	return ret;
 }

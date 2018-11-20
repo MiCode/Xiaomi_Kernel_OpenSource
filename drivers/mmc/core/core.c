@@ -1854,7 +1854,6 @@ int mmc_cmdq_wait_for_dcmd(struct mmc_host *host,
 	struct mmc_command *cmd = mrq->cmd;
 	int err = 0;
 
-	init_completion(&mrq->completion);
 	mrq->done = mmc_cmdq_dcmd_req_done;
 	err = mmc_cmdq_start_req(host, cmdq_req);
 	if (err)
@@ -3553,7 +3552,7 @@ static int mmc_cmdq_send_erase_cmd(struct mmc_cmdq_req *cmdq_req,
 	if (err) {
 		pr_err("mmc_erase: group start error %d, status %#x\n",
 				err, cmd->resp[0]);
-		return -EIO;
+		return err;
 	}
 	return 0;
 }
