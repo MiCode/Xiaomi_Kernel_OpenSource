@@ -1,0 +1,477 @@
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "skeleton64.dtsi"
+#include "vplatform-lfv-msm8996.dtsi"
+#include <dt-bindings/clock/msm-clocks-8996.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM 8996";
+	compatible = "qcom,msm8996";
+	qcom,msm-id = <246 0x0>;
+	cpus {
+		#address-cells = <2>;
+		#size-cells = <0>;
+	CPU0: cpu@0 {
+		device_type = "cpu";
+		compatible = "qcom,kryo";
+		reg = <0x0 0x0>;
+		efficiency = <1024>;
+	};
+	CPU1: cpu@1 {
+		device_type = "cpu";
+		compatible = "qcom,kryo";
+		reg = <0x0 0x1>;
+		efficiency = <1024>;
+	};
+	CPU2: cpu@2 {
+		device_type = "cpu";
+		compatible = "qcom,kryo";
+		reg = <0x0 0x2>;
+		efficiency = <1536>;
+	};
+	CPU3: cpu@3 {
+		device_type = "cpu";
+		compatible = "qcom,kryo";
+		reg = <0x0 0x3>;
+		efficiency = <1536>;
+	};
+	cpu-map {
+		cluster0 {
+			core0 {
+				cpu = <&CPU0>;
+			};
+			core1 {
+				cpu = <&CPU1>;
+			};
+		};
+
+		cluster1 {
+			core0 {
+				cpu = <&CPU2>;
+			};
+
+			core1 {
+				cpu = <&CPU3>;
+			};
+		};
+	};
+};
+
+	firmware: firmware {
+		android {
+			compatible = "android,firmware";
+			fstab {
+				compatible = "android,fstab";
+				system {
+					compatible = "android,system";
+					dev= "/dev/block/platform/vdevs/1c0b0000.virtio_blk/vda";
+					type = "ext4";
+					mnt_flags = "ro,barrier=1,discard";
+					fsmgr_flags = "wait";
+					status = "ok";
+				};
+				vendor {
+					compatible = "android,vendor";
+					dev="/dev/block/platform/vdevs/1c0f0000.virtio_blk/vdc";
+					type = "ext4";
+					mnt_flags = "ro,barrier=1,discard";
+					fsmgr_flags = "wait";
+					status = "ok";
+				};
+			};
+		};
+	};
+
+	bluetooth: bt_qca6174 {
+		compatible = "qca,qca6174";
+		qca,bt-reset-gpio = <&pm8994_gpios 19 0>; /* BT_EN */
+	};
+};
+
+&soc {
+	qcom,msm-audio-ion-vm {
+		compatible = "qcom,msm-audio-ion-vm";
+		qcom,smmu-enabled;
+	};
+
+	qcom,hab {
+		compatible = "qcom,hab";
+		vmid = <3>;
+
+		mmidgrp100: mmidgrp100 {
+			grp-start-id = <100>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmidgrp200: mmidgrp200 {
+			grp-start-id = <200>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmidgrp300: mmidgrp300 {
+			grp-start-id = <300>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmidgrp400: mmidgrp400 {
+			grp-start-id = <400>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmidgrp500: mmidgrp500 {
+			grp-start-id = <500>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmidgrp600: mmidgrp600 {
+			grp-start-id = <600>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmidgrp700: mmidgrp700 {
+			grp-start-id = <700>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmidgrp800: mmidgrp800 {
+			grp-start-id = <800>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmidgrp900: mmidgrp900 {
+			grp-start-id = <900>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmidgrp1000: mmidgrp1000 {
+			grp-start-id = <1000>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+	};
+};
+
+&soc {
+	qcom,cnss {
+		compatible = "qcom,cnss";
+		wlan-bootstrap-gpio = <&tlmm 46 0>;
+		vdd-wlan-en-supply = <&wlan_en_vreg>;
+		vdd-wlan-supply = <&rome_vreg>;
+		vdd-wlan-io-supply = <&pm8994_s4>;
+		vdd-wlan-xtal-supply = <&pm8994_l30>;
+		vdd-wlan-core-supply = <&pm8994_s3>;
+		wlan-ant-switch-supply = <&pm8994_l18_pin_ctrl>;
+		qcom,wlan-en-vreg-support;
+		qcom,notify-modem-status;
+		pinctrl-names = "bootstrap_active", "bootstrap_sleep";
+		pinctrl-0 = <&cnss_bootstrap_active>;
+		pinctrl-1 = <&cnss_bootstrap_sleep>;
+		qcom,wlan-ramdump-dynamic = <0x200000>;
+
+		qcom,msm-bus,name = "msm-cnss";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+					/* No vote */
+					<45 512 0 0>,
+					/* Up to 200 Mbps */
+					<45 512 41421 1520000>,
+					/* Up to 400 Mbps */
+					<45 512 96650 1520000>,
+					/* Up to 800 Mbps */
+					<45 512 207108 14432000>;
+	};
+
+
+	subsys_notif_virt: qcom,subsys_notif_virt@2d000000 {
+		compatible = "qcom,subsys-notif-virt";
+		reg = <0x2d000000 0x400>;
+		reg-names = "vdev_base";
+
+		adsp {
+			subsys-name = "adsp";
+			interrupts = <0 43 0>;
+			interrupt-names = "state-irq";
+			type = "virtual";
+			offset = <0>;
+		};
+		wlan {
+			subsys-name = "AR6320";
+			type = "native";
+			offset = <512>;
+		};
+
+	};
+};
+
+&reserved_memory {
+	pmem_shared: pmem_shared_region {
+		reg = <0 0xd0000000 0 0x30000000>;
+		label = "pmem_shared_mem";
+	};
+
+	ion_system: ion_system_region {
+		reg = <0x1 0x0 0 0x10000000>;
+		label = "ion_system_mem";
+	};
+
+	ion_audio: ion_audio_region {
+		reg = <0 0xc8000000 0 0x00400000>;
+		label = "ion_audio_mem";
+	};
+};
+
+#include "vplatform-lfv-msm8996-usb.dtsi"
+
+&pm8994_l12 {
+	qcom,init-voltage = <1800000>;
+	proxy-supply = <&pm8994_l12>;
+	qcom,proxy-consumer-enable;
+	qcom,proxy-consumer-current = <10000>;
+	qcom,set = <3>;
+	status = "okay";
+};
+
+&pm8994_s2_corner {
+	qcom,set = <3>;
+	qcom,use-voltage-corner;
+	status = "okay";
+};
+
+&usb3 {
+	qcom,no-wakeup-src-in-hostmode;
+	vbus_dwc3-supply = <&usb_otg_switch>;
+	vdda33-supply = <&pm8994_l24>;
+	vdda18-supply = <&pm8994_l12>;
+	status = "okay";
+};
+
+&qusb_phy1 {
+	status = "disabled";
+};
+
+&usb_nop_phy {
+	status = "disabled";
+};
+
+&usb_detect {
+	qcom,vbus-det-gpio = <&pm8994_gpios 17 0>;
+	interrupt-parent = <&spmi_bus>;
+	interrupts = <0x0 0x9 0x0 IRQ_TYPE_NONE>;
+	interrupt-names ="pmic_id_irq";
+	/delete-property/qcom,skip-vbus-detect;
+	status = "okay";
+};
+
+&android_usb {
+	status = "okay";
+};
+
+&blsp1_uart2 {
+	status = "okay";
+};
+
+&qusb_phy0 {
+	status = "okay";
+};
+
+&ssphy {
+	status = "okay";
+	reg = <0x07410000 0x7a8>,
+		<0x007ab244 0x4>;
+	reg-names = "qmp_phy_base",
+		"vls_clamp_reg";
+};
+
+&dbm_1p5 {
+	status = "okay";
+};
+&usb_otg_switch {
+	gpio = <&pm8994_gpios 11 0>;
+	enable-active-high;
+	status = "okay";
+	/delete-property/ vin-supply;
+};
+
+&pm8994_gpios {
+	gpio@c600 { /* GPIO 7 - adv7481 INT3 */
+		qcom,mode = <0>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
+		status = "disabled";
+	};
+
+	gpio@c800 { /* GPIO 9 - Rome 3.3V control */
+		qcom,mode = <1>;                /* Digital output */
+		qcom,output-type = <0>;         /* MOS logic */
+		qcom,invert = <1>;              /* Output high */
+		qcom,vin-sel = <0>;             /* VPH_PWR */
+		qcom,src-sel = <0>;             /* Constant */
+		qcom,out-strength = <1>;        /* High drive strength */
+		qcom,master-en = <1>;           /* Enable GPIO */
+		status = "disabled";
+	};
+
+	gpio@c900 { /* GPIO 10 - NFC CLK _REQ*/
+		qcom,mode = <0>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
+		qcom,master-en = <1>;
+		status = "disabled";
+	};
+
+	gpio@cd00 { /* GPIO 14 - lcd_bklt_reg_en */
+		qcom,mode = <1>;        /* DIGITAL OUT */
+		qcom,output-type = <0>;         /* CMOS logic */
+		qcom,invert = <1>;      /* output hight initially */
+		qcom,vin-sel = <2>;     /* 1.8 */
+		qcom,src-sel = <0>;     /* CONSTANT */
+		qcom,out-strength = <1>;        /* Low drive strength */
+		qcom,master-en = <1>;   /* ENABLE GPIO */
+		status = "disabled";
+	};
+	gpio@c100 { /* GPIO 2 */
+		qcom,mode = <0>;
+		qcom,pull = <0>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
+		status = "disabled";
+	};
+	gpio@c300 { /* GPIO 4 - adv7481 RST */
+		qcom,mode = <1>;
+		qcom,pull = <0>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
+		status = "disabled";
+	};
+
+	gpio@c400 { /* GPIO 5 - adv7481 INT1 */
+		qcom,mode = <0>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
+		status = "disabled";
+	};
+
+	gpio@c500 { /* GPIO 6 - adv7481 INT2*/
+		qcom,mode = <0>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
+		status = "disabled";
+	};
+
+	gpio@ca00 { /* GPIO 11 - USB enb1 (otg switch) */
+		qcom,mode = <1>;        /* DIGITAL OUT */
+		qcom,vin-sel = <2>;     /* 1.8 */
+		qcom,src-sel = <0>;     /* GPIO */
+		qcom,master-en = <1>;   /* Enable GPIO */
+		status = "okay";
+	};
+
+	gpio@cc00 { /* GPIO 13 - NTN_RST */
+		qcom,mode = <1>; /* DIGITAL OUT */
+		qcom,output-type = <0>; /* CMOS logic */
+		qcom,pull = <5>;
+		qcom,vin-sel = <2>; /* 1.8 */
+		qcom,out-strength = <1>;
+		qcom,src-sel = <0>; /* GPIO */
+		qcom,master-en = <1>; /* Enable GPIO */
+		status = "disabled";
+	};
+
+	gpio@ce00 { /* GPIO 15 */
+		qcom,mode = <1>;
+		qcom,output-type = <0>;
+		qcom,pull = <5>;
+		qcom,vin-sel = <2>;
+		qcom,out-strength = <1>;
+		qcom,src-sel = <2>;
+		qcom,master-en = <1>;
+		status = "disabled";
+	};
+	gpio@d000 { /* GPIO 17 - USB1 VBUS detect */
+		qcom,mode = <0>;        /* Digital Input*/
+		qcom,pull = <5>;        /* No pull */
+		qcom,vin-sel = <2>;     /* 1.8 V */
+		qcom,src-sel = <0>;     /* GPIO */
+		qcom,master-en = <1>;   /* Enable GPIO */
+		status = "okay";
+	};
+
+	gpio@d100 { /* GPIO 18 - Rome Sleep Clock */
+		qcom,mode = <1>;                /* Digital output */
+		qcom,output-type = <0>;         /* CMOS logic */
+		qcom,invert = <0>;              /* Output low initially */
+		qcom,vin-sel = <2>;             /* VIN 2 */
+		qcom,src-sel = <3>;             /* Function 2 */
+		qcom,out-strength = <2>;        /* Medium */
+		qcom,master-en = <1>;           /* Enable GPIO */
+		status = "disabled";
+	};
+
+	gpio@d200 { /* GPIO 19 - Rome BT Reset */
+		qcom,mode = <1>;                /* Digital output*/
+		qcom,pull = <4>;                /* Pulldown 10uA */
+		qcom,vin-sel = <2>;             /* VIN2 */
+		qcom,src-sel = <0>;             /* GPIO */
+		qcom,invert = <0>;              /* Invert */
+		qcom,master-en = <1>;           /* Enable GPIO */
+		status = "okay";
+	};
+};
+
+&pm8994_adc_tm {
+	status = "disabled";
+};
+
+&pm8994_vadc {
+	status = "disabled";
+};
+
+&sde_kms_hyp {
+	qcom,client-id = "7815";
+};
+&sdhc_2 {
+	vdd-supply = <&pm8994_l21>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <200 800000>;
+
+	vdd-io-supply = <&pm8994_l13>;
+	qcom,vdd-io-voltage-level = <1800000 2950000>;
+	qcom,vdd-io-current-level = <200 22000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on_sbc>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off
+			&sdc2_cd_on_sbc>;
+
+	qcom,clk-rates = <400000 20000000 25000000
+				50000000 100000000 200000000>;
+	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
+
+	cd-gpios = <&tlmm 38 GPIO_ACTIVE_LOW>;
+
+	status = "okay";
+};
