@@ -388,7 +388,7 @@ static struct cam_camnoc_specific
 			.enable = true,
 			.access_type = CAM_REG_TYPE_READ_WRITE,
 			.offset = 0x3240, /* SPECIFIC_IFE1_DANGERLUT_LOW */
-			.value = 0xFFFFFF00,
+			.value = 0x00000000,
 		},
 		.safe_lut = {
 			.enable = true,
@@ -535,7 +535,7 @@ static struct cam_camnoc_specific
 			.enable = true,
 			.access_type = CAM_REG_TYPE_READ_WRITE,
 			.masked_value = 1,
-			.offset = 0x2E38, /* SPECIFIC_IBL_WR_URGENCY_LOW */
+			.offset = 0x2A38, /* SPECIFIC_IBL_WR_URGENCY_LOW */
 			/* SPECIFIC_IBL_WR_URGENCY_LOW_WRITE_MASK */
 			.mask = 0x70,
 			/* SPECIFIC_IBL_WR_URGENCY_LOW_WRITE_SHIFT */
@@ -578,7 +578,7 @@ static struct cam_camnoc_specific
 			.masked_value = 0,
 			/* SPECIFIC_IPE_VID_DISP_PRIORITYLUT_LOW */
 			.offset = 0x5E30,
-			.value = 0x33330000,
+			.value = 0x33333333,
 		},
 		.priority_lut_high = {
 			.enable = true,
@@ -674,7 +674,46 @@ static struct cam_camnoc_specific
 	},
 	{
 		.port_type = CAM_CAMNOC_FD,
-		.enable = false,
+		.enable = true,
+		.priority_lut_low = {
+			.enable = true,
+			.access_type = CAM_REG_TYPE_READ_WRITE,
+			.masked_value = 0,
+			.offset = 0x3E30, /* SPECIFIC_FD_PRIORITYLUT_LOW */
+			.value = 0x44444444,
+		},
+		.priority_lut_high = {
+			.enable = true,
+			.access_type = CAM_REG_TYPE_READ_WRITE,
+			.masked_value = 0,
+			.offset = 0x3E34, /* SPECIFIC_FD_PRIORITYLUT_HIGH */
+			.value = 0x44444444,
+		},
+		.urgency = {
+			.enable = true,
+			.access_type = CAM_REG_TYPE_READ_WRITE,
+			.masked_value = 0,
+			.offset = 0x3E38, /* SPECIFIC_FD_URGENCY_LOW */
+			.value = 0x44,
+		},
+		.danger_lut = {
+			.enable = false,
+			.access_type = CAM_REG_TYPE_READ_WRITE,
+			.masked_value = 0,
+			.offset = 0x3E40, /* SPECIFIC_FD_DANGERLUT_LOW */
+			.value = 0x0,
+		},
+		.safe_lut = {
+			.enable = false,
+			.access_type = CAM_REG_TYPE_READ_WRITE,
+			.masked_value = 0,
+			.offset = 0x3E48, /* SPECIFIC_FD_SAFELUT_LOW */
+			.value = 0x0,
+		},
+		.ubwc_ctl = {
+			.enable = false,
+		},
+
 	},
 	{
 		/*SidebandManager_main_SidebandManager_FlagOutSet0_Low*/
