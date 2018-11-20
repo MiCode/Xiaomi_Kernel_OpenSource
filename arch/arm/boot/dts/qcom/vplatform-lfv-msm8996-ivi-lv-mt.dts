@@ -83,10 +83,6 @@
 	};
 };
 
-&blsp1_uart2 {
-	status = "okay";
-};
-
 &reserved_memory {
 		pmem_shared: pmem_shared_region@d0000000 {
 			reg = <0 0xd0000000 0 0x20000000>;
