@@ -431,9 +431,10 @@ static void ipc_function_work(struct work_struct *w)
 		if (ctxt->connected)
 			break;
 
-		platform_device_unregister(ctxt->pdev);
 		ctxt->current_state = IPC_DISCONNECTED;
+		ctxt->online = 0;
 		wake_up(&ctxt->state_wq);
+		platform_device_unregister(ctxt->pdev);
 		break;
 	default:
 		pr_debug("%s: Unknown current state\n", __func__);
