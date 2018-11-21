@@ -170,6 +170,8 @@
 #define CC_SOC_v2_OFFSET		0
 #define MONOTONIC_SOC_v2_WORD		469
 #define MONOTONIC_SOC_v2_OFFSET		0
+#define FIRST_LOG_CURRENT_v2_WORD	471
+#define FIRST_LOG_CURRENT_v2_OFFSET	0
 
 static struct fg_irq_info fg_irqs[FG_GEN4_IRQ_MAX];
 
@@ -1759,7 +1761,7 @@ static void profile_load_work(struct work_struct *work)
 	struct fg_gen4_chip *chip = container_of(fg,
 				struct fg_gen4_chip, fg);
 	int64_t nom_cap_uah;
-	u8 val, buf[2];
+	u8 val, mask, buf[2];
 	int rc;
 
 	vote(fg->awake_votable, PROFILE_LOAD, true, 0);
@@ -1802,6 +1804,24 @@ static void profile_load_work(struct work_struct *work)
 		goto out;
 	}
 
+	/* Enable side loading for voltage and current */
+	val = mask = BIT(0);
+	rc = fg_sram_masked_write(fg, SYS_CONFIG_WORD,
+			SYS_CONFIG_OFFSET, mask, val, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in setting SYS_CONFIG_WORD[0], rc=%d\n", rc);
+		goto out;
+	}
+
+	/* Clear first logged main current ADC values */
+	buf[0] = buf[1] = 0;
+	rc = fg_sram_write(fg, FIRST_LOG_CURRENT_v2_WORD,
+			FIRST_LOG_CURRENT_v2_OFFSET, buf, 2, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in clearing FIRST_LOG_CURRENT rc=%d\n", rc);
+		goto out;
+	}
+
 	/* Set the profile integrity bit */
 	val = HLOS_RESTART_BIT | PROFILE_LOAD_BIT;
 	rc = fg_sram_write(fg, PROFILE_INTEGRITY_WORD,
@@ -1814,6 +1834,16 @@ static void profile_load_work(struct work_struct *work)
 	rc = fg_restart(fg, SOC_READY_WAIT_TIME_MS);
 	if (rc < 0) {
 		pr_err("Error in restarting FG, rc=%d\n", rc);
+		goto out;
+	}
+
+	/* Clear side loading for voltage and current */
+	val = 0;
+	mask = BIT(0);
+	rc = fg_sram_masked_write(fg, SYS_CONFIG_WORD,
+			SYS_CONFIG_OFFSET, mask, val, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in clearing SYS_CONFIG_WORD[0], rc=%d\n", rc);
 		goto out;
 	}
 
