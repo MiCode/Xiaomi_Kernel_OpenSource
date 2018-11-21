@@ -978,6 +978,9 @@ static void ipa_pkt_status_parse(
 		else
 			exception_type = IPAHAL_PKT_STATUS_EXCEPTION_NAT;
 		break;
+	case 229:
+		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_CSUM;
+		break;
 	default:
 		IPAHAL_ERR("unsupported Status Exception type 0x%x\n",
 			hw_status->exception);
