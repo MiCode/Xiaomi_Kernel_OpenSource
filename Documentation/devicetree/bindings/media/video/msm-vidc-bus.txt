@@ -1,0 +1,49 @@
+* Qualcomm Technologies Inc MSM VIDC BUS
+
+Required properties:
+- compatible : "qcom,msm-vidc,governor,table"
+- name : name of the governor.
+- qcom,bus-table : node containing individual domain nodes, each with:
+  - qcom,codec-mask: a bitmap of supported codec types, every two bits
+    represents a codec type.
+  - qcom,load-busfreq-tbl: load (in macroblocks/sec) and the corresponding
+    bus frequency (in KBps) table.
+
+Optional properties:
+- qcom,low-power-mode: a boolean which indicates whether bus profile need
+  to be used when client enables low-power mode.
+- qcom,ubwc-mode: a boolean which indicates whether the bus profile need
+  to be used when client enables UBWC mode.
+
+Example:
+
+venus-bus-gov {
+	compatible = "qcom,msm-vidc,governor,table";
+	name = "qcom,venus-gov";
+	qcom,bus-freq-table {
+		qcom,profile-dec {
+			qcom,codec-mask = <0xffffffff>;
+			qcom,ubwc-mode;
+			qcom,load-busfreq-tbl =
+				<489600 1205248>,  /* 1080p60D   */
+				<244800 618496>,   /* 1080p30D   */
+				<216000 618496>,   /* 720p60D    */
+				<108000 314368>,   /* 720p30D    */
+				<72000  233472>,   /* VGA60D     */
+				<36000  118784>,   /* VGA30D     */
+				<0      0>;
+		};
+		qcom,profile-enc {
+			qcom,codec-mask = <0x55555555>;
+			qcom,low-power-mode;
+			qcom,load-busfreq-tbl =
+				<244800 787456>,   /* 1080p30E   */
+				<216000 350208>,   /* 720p60E    */
+				<108000 350208>,   /* 720p30E    */
+				<72000  350208>,   /* VGA60E     */
+				<36000  136806>,   /* VGA30E     */
+				<0      0>;
+		};
+	};
+};
+
