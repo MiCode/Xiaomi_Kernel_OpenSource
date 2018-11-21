@@ -116,6 +116,8 @@
 #define IBAT_FINAL_OFFSET		0
 #define VBAT_FINAL_WORD			321
 #define VBAT_FINAL_OFFSET		0
+#define BATT_TEMP_WORD			328
+#define BATT_TEMP_OFFSET		0
 #define ESR_WORD			331
 #define ESR_OFFSET			0
 #define ESR_MDL_WORD			335
@@ -656,20 +658,20 @@ static int fg_gen4_get_charge_counter_shadow(struct fg_gen4_chip *chip,
 static int fg_gen4_get_battery_temp(struct fg_dev *fg, int *val)
 {
 	int rc = 0;
-	u8 buf;
+	u16 buf;
 
-	rc = fg_read(fg, ADC_RR_BATT_TEMP_LSB(fg), &buf, 1);
+	rc = fg_sram_read(fg, BATT_TEMP_WORD, BATT_TEMP_OFFSET, (u8 *)&buf,
+			2, FG_IMA_DEFAULT);
 	if (rc < 0) {
-		pr_err("failed to read addr=0x%04x, rc=%d\n",
-			ADC_RR_BATT_TEMP_LSB(fg), rc);
+		pr_err("Failed to read BATT_TEMP_WORD rc=%d\n", rc);
 		return rc;
 	}
 
-	/* Only 8 bits are used. Bit 7 is sign bit */
-	*val = sign_extend32(buf, 7);
-
-	/* Value is in Celsius; Convert it to deciDegC */
-	*val *= 10;
+	/*
+	 * 10 bits representing temperature from -128 to 127 and each LSB is
+	 * 0.25 C. Multiply by 10 to convert it to deci degrees C.
+	 */
+	*val = sign_extend32(buf, 9) * 100 / 40;
 
 	return 0;
 }
