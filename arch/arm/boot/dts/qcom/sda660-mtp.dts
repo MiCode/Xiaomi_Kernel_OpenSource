@@ -15,12 +15,13 @@
 
 #include "sda660.dtsi"
 #include "sdm660-mtp.dtsi"
+#include "msm-pm660a.dtsi"
 #include "sdm660-external-codec.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDA 660 PM660 + PM660L MTP";
 	compatible = "qcom,sda660-mtp", "qcom,sda660", "qcom,mtp";
-	qcom,board-id = <8 0>;
+	qcom,board-id = <11 0>;
 	qcom,pmic-id = <0x0001001b 0x0101011a 0x0 0x0>,
 			<0x0001001b 0x0201011a 0x0 0x0>;
 };

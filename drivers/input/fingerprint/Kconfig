@@ -1,0 +1,5 @@
+config INPUT_FINGERPRINT
+				tristate "Fingerprint driver support"
+				help
+				  Say Y here to enable fpc fingerprint driver support!
+source "drivers/input/fingerprint/fpc/Kconfig"

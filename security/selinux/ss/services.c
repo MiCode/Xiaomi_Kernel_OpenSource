@@ -35,6 +35,7 @@
  * Copyright (C) 2004-2006 Trusted Computer Solutions, Inc.
  * Copyright (C) 2003 - 2004, 2006 Tresys Technology, LLC
  * Copyright (C) 2003 Red Hat, Inc., James Morris <jmorris@redhat.com>
+ * Copyright (C) 2018 XiaoMi, Inc.
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License as published by
  *	the Free Software Foundation, version 2.
@@ -2567,13 +2568,22 @@ int security_fs_use(struct super_block *sb)
 		}
 		sbsec->sid = c->sid[0];
 	} else {
-		rc = __security_genfs_sid(fstype, "/", SECCLASS_DIR,
-					  &sbsec->sid);
-		if (rc) {
-			sbsec->behavior = SECURITY_FS_USE_NONE;
-			rc = 0;
-		} else {
-			sbsec->behavior = SECURITY_FS_USE_GENFS;
+
+
+
+		if (strcmp(fstype, "overlay") == 0){
+			printk("selinux: security_fs_use trick for overlay\n");
+			sbsec->behavior = SECURITY_FS_USE_XATTR;
+			sbsec->sid = 4;
+		}else{
+			rc = __security_genfs_sid(fstype, "/", SECCLASS_DIR,
+						  &sbsec->sid);
+			if (rc) {
+				sbsec->behavior = SECURITY_FS_USE_NONE;
+				rc = 0;
+			} else {
+				sbsec->behavior = SECURITY_FS_USE_GENFS;
+			}
 		}
 	}
 

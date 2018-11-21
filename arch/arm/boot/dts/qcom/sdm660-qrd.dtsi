@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -121,9 +122,9 @@
 
 &qusb_phy0 {
 	qcom,qusb-phy-init-seq = <0xf8 0x80
-				0x83 0x84
-				0x83 0x88
-				0xc3 0x8c
+				0x53 0x84
+				0x81 0x88
+				0xcf 0x8c
 				0x30 0x08
 				0x79 0x0c
 				0x21 0x10
@@ -146,6 +147,7 @@
 &i2c_6 { /* BLSP1 QUP6 (NFC) */
 	status = "okay";
 	nq@28 {
+		status = "disabled";
 		compatible = "qcom,nq-nci";
 		reg = <0x28>;
 		qcom,nq-irq = <&tlmm 28 0x00>;
@@ -163,6 +165,20 @@
 		clocks = <&clock_rpmcc RPM_LN_BB_CLK3_PIN>;
 		clock-names = "ref_clk";
 	};
+	tas2557s@4c {
+		compatible = "ti,tas2557s";
+		reg = <0x4c>;
+		ti,reset-gpio-left = <&tlmm 80 0>;
+		ti,reset-gpio-right = <&tlmm 48 0>;
+		ti,irq-gpio-left = <&tlmm 28 0>;
+		ti,irq-gpio-right = <&tlmm 55 0>;
+		ti,left-channel = <0x4c>;
+		ti,right-channel = <0x4e>;
+		ti,echo-ref = <0>;   /* 0, left channel; 1, right channel; 2, both */
+		ti,i2s-bits = <16>;   /* support 16, 24, 32 */
+		ti,bypass-tmax = <0>;   /* 0, not bypass; 1, bypass */
+		status = "ok";
+	};
 };
 
 &pm660l_gpios {
@@ -176,39 +192,6 @@
 		qcom,out-strength = <1>;
 	};
 };
-
-&tlmm {
-	pmx_ts_rst_active {
-		ts_rst_active: ts_rst_active {
-			mux {
-				pins = "gpio66";
-				function = "gpio";
-			};
-
-			config {
-				pins = "gpio66";
-				drive-strength = <16>;
-				bias-pull-up;
-			};
-		};
-	};
-
-	pmx_ts_rst_suspend {
-		ts_rst_suspend: ts_rst_suspend {
-			mux {
-				pins = "gpio66";
-				function = "gpio";
-			};
-
-			config {
-				pins = "gpio66";
-				drive-strength = <2>;
-				bias-pull-down;
-			};
-		};
-	};
-};
-
 &ssphy {
 	fpc-redrive-supply = <&pm660_l11>;
 	qcom,redrive-voltage-level = <0 1800000 1950000>;
@@ -230,19 +213,152 @@
 			debounce-interval = <15>;
 		};
 	};
+
+		i2c@c177000 {
+		status = "ok";
+		focaltech@38{
+			compatible = "focaltech,fts";
+			reg = <0x38>;
+			interrupt-parent = <&tlmm>;
+			interrupts = <67 0x2>;
+			vdd-supply = <&pm660l_l3>;
+			vcc_i2c-supply = <&pm660_l11>;
+			focaltech,reset-gpio = <&tlmm 66 0x00>;
+			focaltech,irq-gpio = <&tlmm 67 0x02>;
+			focaltech,max-touch-number = <10>;
+			focaltech,display-coords =  <0 0 1200 1920>;
+
+			};
+		gt9xx@5d{
+			compatible = "goodix,gt9xx";
+			reg = <0x5d>;
+			interrupt-parent = <&tlmm>;
+			interrupts = <67 0x2800>;
+			pinctrl-names = "default", "int-output-low","int-output-high", "int-input";
+			pinctrl-0 = <&ts_int_default>;
+			pinctrl-1 = <&ts_int_output_low>;
+			pinctrl-2 = <&ts_int_output_high>;
+			pinctrl-3 = <&ts_int_input>;
+
+			reset-gpios = <&tlmm 66 0x0>;
+			irq-gpios = <&tlmm 67 0x2800>;
+			irq-flags = <2>;
+
+			vdd_ana-supply = <&pm660l_l3>;
+			vcc_i2c-supply = <&pm660_l11>;
+
+			touchscreen-max-id = <10>;
+			touchscreen-size-x = <1200>;
+			touchscreen-size-y = <1920>;
+			touchscreen-max-w = <512>;
+			touchscreen-max-p = <512>;
+			touchscreen-key-map = <172>, <158>; /*KEY_HOMEPAGE=172, KEY_BACK=158，KEY_MENU=139*/
+
+			goodix,slide-wakeup = <1>;
+			goodix,type-a-report = <0>;
+			goodix,driver-send-cfg = <1>;
+			goodix,resume-in-workqueue = <0>;
+			goodix,int-sync = <1>;
+			goodix,swap-x2y = <0>;
+			goodix,esd-protect = <1>;
+			goodix,auto-update = <1>;
+			goodix,auto-update-cfg = <1>;
+			goodix,power-off-sleep = <0>;
+			goodix,pen-suppress-finger = <0>;
+			goodix,charger-cmd = <1>;
+			goodix,cfg-group0 = [
+                                54 B0 04 80 07 6A 35 10 11 CC
+				32 0F 5A 32 2E 45 00 02 00 02
+				11 12 09 14 19 1F 14 95 B5 DE
+				1C 1E B0 15 33 22 00 22 44 1C
+				FA FA F0 00 00 00 00 32 5A 00
+				02 10 2F 8A D0 78 55 19 64 04
+				A8 12 00 97 18 00 8F 1C 00 8A
+				23 00 89 2D 00 89 1E 23 24 2F
+				00 00 00 00 00 00 11 00 00 0C
+				1E 0A 4A 04 F7 14 0A 0F 23 0F
+				3C 32 0F 00 00 00 01 42 00 00
+				01 14 00 01 02 03 04 05 06 07
+				08 09 0A 0B 0C 0D 0E 0F 10 11
+				12 13 14 15 16 17 18 19 1A FF
+				FF FF 2A 29 28 27 26 25 24 23
+				22 21 20 1F 1E 1D 1C 1B 19 18
+				17 16 15 14 13 12 11 10 0F 0E
+				0D 0C 0B 0A 09 08 07 06 05 04
+				03 02 01 00 A3 01
+				];
+		};
+		};
+
+		i2c@c1b8000 {
+		status = "ok";
+		backlight@2c {
+			compatible = "ti,lp8556";
+			reg = <0x2c>;
+
+			bl-name = "lcd-bl";
+
+			rom_16h {
+				rom-addr = /bits/ 8 <0x16>;
+				rom-val = /bits/ 8 <0x0F>;
+				};
+			rom_01h {
+				rom-addr = /bits/ 8 <0x01>;
+				rom-val = /bits/ 8 <0x86>;
+				};
+			rom_00h {
+				rom-addr = /bits/ 8 <0x00>;
+				rom-val = /bits/ 8 <0x00>;
+				};
+			rom_01h_2 {
+				rom-addr = /bits/ 8 <0x01>;
+				rom-val = /bits/ 8 <0x87>;
+				};
+			rom_9Eh {
+				rom-addr = /bits/ 8 <0x9E>;
+				rom-val = /bits/ 8 <0x20>;
+				};
+			rom_A0h {
+				rom-addr = /bits/ 8 <0xA0>;
+				rom-val = /bits/ 8 <0x09>;
+				};
+			rom_A1h {
+				rom-addr = /bits/ 8 <0xA1>;
+				rom-val = /bits/ 8 <0x5F>;
+				};
+			rom_A3h {
+				rom-addr = /bits/ 8 <0xA3>;
+				rom-val = /bits/ 8 <0x0E>; /* Select brightness change transition duration 000 = 0 ms (immediate change)*/
+				};
+			rom_A5h {
+				rom-addr = /bits/ 8 <0xA5>;
+				rom-val = /bits/ 8 <0x24>;
+				};
+			rom_A9h {
+				rom-addr = /bits/ 8 <0xA9>;
+				rom-val = /bits/ 8 <0xA0>;
+				};
+			rom_AEh {
+				rom-addr = /bits/ 8 <0xAE>;
+				rom-val = /bits/ 8 <0x0E>;
+				};
+			};
+		};
 };
 
 / {
 	qrd_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
 
-		#include "fg-gen3-batterydata-qrd-skuk-4v4-3000mah.dtsi"
+		 #include "batterydata-zql5018-6000mah.dtsi"
+		 #include "batterydata-zql6019-8600mah.dtsi"
+
 	};
 };
 
 &pm660_fg {
 	qcom,battery-data = <&qrd_batterydata>;
-	qcom,fg-jeita-thresholds = <0 5 55 55>;
+	qcom,fg-jeita-thresholds = <(-30) (-20) 70 75>;
 	qcom,battery-thermal-coefficients = [9d 50 ff];
 };
 
@@ -253,6 +369,7 @@
 		reg = <0x1d>;
 		qcom,parallel-charger;
 		qcom,float-voltage-mv = <4400>;
+		qcom,fastchg-current-max-ma = <2000>;
 		qcom,recharge-mv = <100>;
 		qcom,parallel-en-pin-polarity = <1>;
 	};

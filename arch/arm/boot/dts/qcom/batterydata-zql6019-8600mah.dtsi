@@ -1,0 +1,84 @@
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,zql6019_battery_8600mah {
+	qcom, = <24>;
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <8620>;
+	qcom,fastchg-current-ma = <2000>;
+	qcom,batt-id-kohm = <200>;
+	qcom,battery-beta = <3435>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,battery-type = "zql6019_battery_sunwoda_8600mah";
+	qcom,checksum = <0x03DA>;
+	qcom,gui-version = "PM660GUI - 0.0.0.45";
+	qcom,fg-profile-data = [
+		 EA 1F 51 05
+		 A2 0A 65 FC
+		 E7 1C 75 FB
+		 A2 04 D2 03
+		 C4 18 07 23
+		 3E 45 74 53
+		 83 00 00 00
+		 11 00 00 00
+		 00 00 C6 C5
+		 26 CD 99 CB
+		 13 00 08 00
+		 04 D3 01 DC
+		 7E 05 71 01
+		 EF 01 86 1A
+		 DD CD 12 32
+		 25 06 09 20
+		 27 00 14 00
+		 EE 1F 61 05
+		 A4 0A 3D FC
+		 CA 1C D7 02
+		 52 0C F1 0B
+		 9C 18 A3 23
+		 28 44 D0 5A
+		 6E 00 00 00
+		 0E 00 00 00
+		 00 00 D8 D5
+		 BA CB 9F C5
+		 0E 00 00 00
+		 3F E3 01 DC
+		 25 06 E8 00
+		 2B FD 2B 03
+		 87 06 3C 1B
+		 A7 33 CC FF
+		 07 10 00 00
+		 EA 21 66 46
+		 0E 00 40 00
+		 F7 00 0A FA
+		 FF 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+	];
+};
+

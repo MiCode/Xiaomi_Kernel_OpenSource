@@ -13,19 +13,35 @@
 #include <linux/slab.h>
 #include <linux/i2c.h>
 #include <linux/backlight.h>
+#include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/of.h>
+#include <linux/of_gpio.h>
 #include <linux/platform_data/lp855x.h>
 #include <linux/pwm.h>
 #include <linux/regulator/consumer.h>
+
+/* LP8556 */
+#define LP8556_DEVICE_ID		0x05
+
+/* LP8556 Registers */
+#define LP8556_BRIGHTNESS_CTRL		0x00
+#define LP8556_DEVICE_CTRL		0x01
+#define LP8556_STATUS_REG		0x02
+#define LP8556_ID_REG			0x03
+#define LP8556_DIRECT_CTRL		0x04
+#define LP8556_REG_BRIGHTNESS_LSB   0x10
+#define LP8556_REG_BRIGHTNESS_MSB   0x11
+#define LP8556_STRING_ENABLE	0x16
+#define LP8556_EPROM_START		0x00
+#define LP8556_EPROM_CFG2		0xA2
+#define LP8556_EPROM_END		0xAF
 
 /* LP8550/1/2/3/6 Registers */
 #define LP855X_BRIGHTNESS_CTRL		0x00
 #define LP855X_DEVICE_CTRL		0x01
 #define LP855X_EEPROM_START		0xA0
 #define LP855X_EEPROM_END		0xA7
-#define LP8556_EPROM_START		0xA0
-#define LP8556_EPROM_END		0xAF
 
 /* LP8555/7 Registers */
 #define LP8557_BL_CMD			0x00
@@ -74,11 +90,19 @@ struct lp855x {
 	struct lp855x_platform_data *pdata;
 	struct pwm_device *pwm;
 	struct regulator *supply;	/* regulator for VDD input */
+	struct regulator *enable;	/* regulator for EN/VDDIO input */
 };
+
+struct lp855x *g_lp = NULL;
 
 static int lp855x_write_byte(struct lp855x *lp, u8 reg, u8 data)
 {
 	return i2c_smbus_write_byte_data(lp->client, reg, data);
+}
+
+static int lp855x_read_byte(struct lp855x *lp, u8 reg)
+{
+	return i2c_smbus_read_byte_data(lp->client, reg);
 }
 
 static int lp855x_update_bit(struct lp855x *lp, u8 reg, u8 mask, u8 data)
@@ -156,6 +180,42 @@ static struct lp855x_device_config lp8557_dev_cfg = {
 	.post_init_device = lp8557_bl_on,
 };
 
+static int lp855x_check_id(struct lp855x *lp)
+{
+	int ret = -1;
+	u8 check_times = 5;
+
+	while(check_times--) {
+		ret = lp855x_read_byte(lp, LP8556_ID_REG);
+		if (ret >= 0)
+			return 0;
+		msleep(1);
+	}
+	dev_err(lp->dev, "device check error %d\n", ret);
+	return ret;
+}
+
+static int lp855x_get_config_data(struct lp855x *lp)
+{
+	int ret = 0;
+	switch (lp->chip_id) {
+	case LP8550:
+	case LP8551:
+	case LP8552:
+	case LP8553:
+	case LP8556:
+		lp->cfg = &lp855x_dev_cfg;
+		break;
+	case LP8555:
+	case LP8557:
+		lp->cfg = &lp8557_dev_cfg;
+		break;
+	default:
+		return -EINVAL;
+	}
+	return ret;
+}
+
 /*
  * Device specific configuration flow
  *
@@ -172,22 +232,6 @@ static int lp855x_configure(struct lp855x *lp)
 	int i, ret;
 	struct lp855x_platform_data *pd = lp->pdata;
 
-	switch (lp->chip_id) {
-	case LP8550:
-	case LP8551:
-	case LP8552:
-	case LP8553:
-	case LP8556:
-		lp->cfg = &lp855x_dev_cfg;
-		break;
-	case LP8555:
-	case LP8557:
-		lp->cfg = &lp8557_dev_cfg;
-		break;
-	default:
-		return -EINVAL;
-	}
-
 	if (lp->cfg->pre_init_device) {
 		ret = lp->cfg->pre_init_device(lp);
 		if (ret) {
@@ -195,16 +239,6 @@ static int lp855x_configure(struct lp855x *lp)
 			goto err;
 		}
 	}
-
-	val = pd->initial_brightness;
-	ret = lp855x_write_byte(lp, lp->cfg->reg_brightness, val);
-	if (ret)
-		goto err;
-
-	val = pd->device_control;
-	ret = lp855x_write_byte(lp, lp->cfg->reg_devicectrl, val);
-	if (ret)
-		goto err;
 
 	if (pd->size_program > 0) {
 		for (i = 0; i < pd->size_program; i++) {
@@ -233,6 +267,50 @@ err:
 	return ret;
 }
 
+int lp855x_init(void)
+{
+	int ret = -1;
+
+	if (!g_lp) {
+		pr_err("lp855x data not found\n");
+		return ret;
+	}
+
+	ret = lp855x_configure(g_lp);
+	if (ret)
+		pr_err("%s: device config err: %d\n", __func__, ret);
+
+	return ret;
+}
+EXPORT_SYMBOL(lp855x_init);
+
+int lp855x_brightness_ctrl(u32 level)
+{
+	int ret = -1;
+	u8 reg;
+
+	if (!g_lp || !g_lp->cfg || !g_lp->client) {
+		pr_err("lp855x data not found\n");
+		return ret;
+	}
+
+	pr_debug("%s: level:%d\n", __func__, level);
+
+	reg = level & 0xFF;
+	ret = lp855x_write_byte(g_lp, LP8556_REG_BRIGHTNESS_LSB, reg);
+	if (ret)
+		pr_err("%s: 0x%02x write err: %d\n", __func__, level, ret);
+	reg = level >> 8;
+	reg = reg & 0x0F;
+	lp855x_write_byte(g_lp, LP8556_REG_BRIGHTNESS_MSB, reg);
+	if (ret)
+		pr_err("%s: 0x%02x write err: %d\n", __func__, level, ret);
+
+	return ret;
+}
+EXPORT_SYMBOL(lp855x_brightness_ctrl);
+
+#ifdef CONFIG_BACKLIGHT_CLASS_DEVICE
 static void lp855x_pwm_ctrl(struct lp855x *lp, int br, int max_br)
 {
 	unsigned int period = lp->pdata->period_ns;
@@ -246,6 +324,12 @@ static void lp855x_pwm_ctrl(struct lp855x *lp, int br, int max_br)
 			return;
 
 		lp->pwm = pwm;
+
+		/*
+		 * FIXME: pwm_apply_args() should be removed when switching to
+		 * the atomic PWM API.
+		 */
+
 	}
 
 	pwm_config(lp->pwm, duty, period);
@@ -301,6 +385,7 @@ static int lp855x_backlight_register(struct lp855x *lp)
 
 	return 0;
 }
+#endif
 
 static ssize_t lp855x_get_chip_id(struct device *dev,
 				struct device_attribute *attr, char *buf)
@@ -324,12 +409,56 @@ static ssize_t lp855x_get_bl_ctl_mode(struct device *dev,
 	return scnprintf(buf, PAGE_SIZE, "%s\n", strmode);
 }
 
+static ssize_t lp855x_get_bl_reg_dump(struct device *dev,
+				     struct device_attribute *attr, char *buf)
+{
+	struct lp855x *lp = dev_get_drvdata(dev);
+	char *strmode = NULL;
+	int i = 0;
+	int ret = -1;
+
+	for (i = 0; i <= 0xFF; i++) {
+		ret = lp855x_read_byte(lp, i);
+		pr_err("%s: read reg 0x%02x = 0x%02x\n", __func__, i, ret);
+	}
+
+	if (ret < 0)
+		strmode = "Fail";
+	else
+		strmode = "Pass";
+
+	return scnprintf(buf, PAGE_SIZE, "%s\n", strmode);
+}
+
+static ssize_t lp855x_bl_reg_write(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct lp855x *lp = dev_get_drvdata(dev);
+	int addr,data;
+	int ret;
+
+	if (2 != sscanf(buf, "%x %x", &addr, &data)){
+		pr_err("Not able to get reg data\n");
+		return count;
+	}
+	pr_err("%s: write 0x%02x = 0x%02x\n", __func__, addr, data);
+	ret = lp855x_write_byte(lp, addr, data);
+	if (ret)
+		pr_err("%s: device write err: %d\n", __func__, ret);
+
+	return count;
+}
+
 static DEVICE_ATTR(chip_id, S_IRUGO, lp855x_get_chip_id, NULL);
 static DEVICE_ATTR(bl_ctl_mode, S_IRUGO, lp855x_get_bl_ctl_mode, NULL);
+static DEVICE_ATTR(bl_reg_dump, S_IRUGO, lp855x_get_bl_reg_dump, NULL);
+static DEVICE_ATTR(bl_reg_write, S_IWUSR|S_IWGRP, NULL, lp855x_bl_reg_write);
 
 static struct attribute *lp855x_attributes[] = {
 	&dev_attr_chip_id.attr,
 	&dev_attr_bl_ctl_mode.attr,
+	&dev_attr_bl_reg_dump.attr,
+	&dev_attr_bl_reg_write.attr,
 	NULL,
 };
 
@@ -394,7 +523,9 @@ static int lp855x_parse_dt(struct lp855x *lp)
 static int lp855x_probe(struct i2c_client *cl, const struct i2c_device_id *id)
 {
 	struct lp855x *lp;
-	int ret;
+	int ret = 0;
+
+	pr_info("%s: Enter\n", __func__);
 
 	if (!i2c_check_functionality(cl->adapter, I2C_FUNC_SMBUS_I2C_BLOCK))
 		return -EIO;
@@ -403,6 +534,7 @@ static int lp855x_probe(struct i2c_client *cl, const struct i2c_device_id *id)
 	if (!lp)
 		return -ENOMEM;
 
+	g_lp = lp;
 	lp->client = cl;
 	lp->dev = &cl->dev;
 	lp->chipname = id->name;
@@ -420,35 +552,28 @@ static int lp855x_probe(struct i2c_client *cl, const struct i2c_device_id *id)
 	else
 		lp->mode = REGISTER_BASED;
 
-	lp->supply = devm_regulator_get(lp->dev, "power");
-	if (IS_ERR(lp->supply)) {
-		if (PTR_ERR(lp->supply) == -EPROBE_DEFER)
-			return -EPROBE_DEFER;
-		lp->supply = NULL;
-	}
-
-	if (lp->supply) {
-		ret = regulator_enable(lp->supply);
-		if (ret < 0) {
-			dev_err(&cl->dev, "failed to enable supply: %d\n", ret);
-			return ret;
-		}
-	}
-
 	i2c_set_clientdata(cl, lp);
 
-	ret = lp855x_configure(lp);
+	ret = lp855x_check_id(lp);
 	if (ret) {
-		dev_err(lp->dev, "device config err: %d", ret);
+		dev_err(lp->dev, "device check id err: %d", ret);
 		return ret;
 	}
 
+	ret = lp855x_get_config_data(lp);
+	if (ret) {
+		dev_err(lp->dev, "device get config err: %d", ret);
+		return ret;
+	}
+
+#ifdef CONFIG_BACKLIGHT_CLASS_DEVICE
 	ret = lp855x_backlight_register(lp);
 	if (ret) {
 		dev_err(lp->dev,
 			"failed to register backlight. err: %d\n", ret);
 		return ret;
 	}
+#endif
 
 	ret = sysfs_create_group(&lp->dev->kobj, &lp855x_attr_group);
 	if (ret) {
@@ -456,18 +581,23 @@ static int lp855x_probe(struct i2c_client *cl, const struct i2c_device_id *id)
 		return ret;
 	}
 
+#ifdef CONFIG_BACKLIGHT_CLASS_DEVICE
 	backlight_update_status(lp->bl);
+#endif
+
+	pr_info("%s: Exit\n", __func__);
 	return 0;
 }
 
 static int lp855x_remove(struct i2c_client *cl)
 {
 	struct lp855x *lp = i2c_get_clientdata(cl);
-
+#ifdef CONFIG_BACKLIGHT_CLASS_DEVICE
 	lp->bl->props.brightness = 0;
 	backlight_update_status(lp->bl);
-	if (lp->supply)
-		regulator_disable(lp->supply);
+#endif
+
+
 	sysfs_remove_group(&lp->dev->kobj, &lp855x_attr_group);
 
 	return 0;

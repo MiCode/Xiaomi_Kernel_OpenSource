@@ -122,4 +122,16 @@ config FB_MSM_MDSS_XLOG_DEBUG
 	driver during fatal errors and enable some display-driver logging
 	into an internal buffer (this avoids logging overhead).
 
+config HQ_CUSTOM_DISPLAY_FEATURE
+	bool "CONFIG_HQ_CUSTOM_DISPLAY_FEATURE"
+	default n
+	---help---
+	CONFIG_HQ_CUSTOM_DISPLAY_FEATURE
+
+config HQ_USE_DDIC_CABC
+	bool "CONFIG_HQ_USE_DDIC_CABC"
+	default n
+	---help---
+	CONFIG_HQ_USE_DDIC_CABC
+
 endif

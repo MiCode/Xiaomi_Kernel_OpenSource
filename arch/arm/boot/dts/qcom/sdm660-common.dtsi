@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -192,7 +193,8 @@
 			reg = <0x0a800000 0xc8d0>;
 			interrupt-parent = <&intc>;
 			interrupts = <0 131 0>;
-			usb-phy = <&qusb_phy0>, <&ssphy>;
+			usb-phy = <&qusb_phy0>, <&usb_nop_phy>;
+			maximum-speed = "high-speed";
 			tx-fifo-resize;
 			snps,usb3-u1u2-disable;
 			snps,nominal-elastic-buffer;
@@ -278,13 +280,14 @@
 		vdd-supply = <&pm660l_l1>;
 		vdda18-supply = <&pm660_l10>;
 		vdda33-supply = <&pm660l_l7>;
+		qcom,tune2-efuse-correction = <4>;
 		qcom,vdd-voltage-level = <0 925000 925000>;
 		qcom,tune2-efuse-bit-pos = <25>;
 		qcom,tune2-efuse-num-bits = <4>;
 		qcom,qusb-phy-init-seq = <0xf8 0x80
-					0xb3 0x84
-					0x83 0x88
-					0xc0 0x8c
+					0x53 0x84
+					0x81 0x88
+					0xcf 0x8c
 					0x30 0x08
 					0x79 0x0c
 					0x21 0x10
@@ -305,8 +308,12 @@
 		reset-names = "phy_reset";
 	};
 
+	usb_nop_phy: usb_nop_phy {
+		compatible = "usb-nop-xceiv";
+	};
 	ssphy: ssphy@c010000 {
 		compatible = "qcom,usb-ssphy-qmp-v2";
+		status = "disabled";
 		reg = <0xc010000 0xe18>,
 			<0x01fcb244 0x4>,
 			<0x01fcb248 0x4>;

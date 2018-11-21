@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -288,6 +289,7 @@ struct fg_batt_props {
 	char		*batt_profile;
 	int		float_volt_uv;
 	int		vbatt_full_mv;
+	int		batt_capacity_mah;
 	int		fastchg_curr_ma;
 };
 
@@ -394,6 +396,7 @@ struct fg_chip {
 	struct fg_alg_flag	*alg_flags;
 	int			*debug_mask;
 	char			batt_profile[PROFILE_LEN];
+	char			*debug_dump;
 	struct fg_dt_props	dt;
 	struct fg_batt_props	bp;
 	struct fg_cyc_ctr_data	cyc_ctr;

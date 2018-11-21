@@ -798,6 +798,15 @@ KBUILD_CFLAGS   += $(call cc-option,-Werror=date-time)
 # use the deterministic mode of AR if available
 KBUILD_ARFLAGS := $(call ar-option,D)
 
+ifeq ($(PRODUCTION_BUILD),yes)
+KBUILD_CFLAGS += -DHQ_PRODUCTION_BUILD
+$(info KBUILD_CFLAGS:${PRODUCTION_BUILD})
+endif
+ifeq ($(TARGET_BUILD_VARIANT),user)
+KBUILD_CFLAGS += -DHQ_BUILD_VARIANT_USER
+$(info KBUILD_CFLAGS:${TARGET_BUILD_VARIANT})
+endif
+
 include scripts/Makefile.kasan
 include scripts/Makefile.extrawarn
 include scripts/Makefile.ubsan

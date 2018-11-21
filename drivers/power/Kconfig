@@ -520,6 +520,10 @@ config AXP20X_POWER
 	  This driver provides support for the power supply features of
 	  AXP20x PMIC.
 
+config HQ_ZQL5018_NTCLOSS
+	bool "HQ_ZQL5018_NTCLOSS"
+	default n
+
 source "drivers/power/reset/Kconfig"
 source "drivers/power/supply/Kconfig"
 

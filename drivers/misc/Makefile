@@ -66,3 +66,6 @@ obj-$(CONFIG_UID_SYS_STATS) += uid_sys_stats.o
 obj-y				+= qcom/
 obj-$(CONFIG_QPNP_MISC) 	+= qpnp-misc.o
 obj-$(CONFIG_MEMORY_STATE_TIME) += memory_state_time.o
+obj-$(CONFIG_HQ_HARDWARE_INFO) += hqhardwareinfo/
+obj-$(CONFIG_BOOT_INTO_FACTORY_MODE) += hqfactoryboot/
+obj-$(CONFIG_MI_FS)             +=xiaomi_fs/

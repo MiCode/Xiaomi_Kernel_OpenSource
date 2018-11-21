@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,15 +43,18 @@ static const struct v4l2_subdev_internal_ops msm_sensor_init_internal_ops;
 static int msm_sensor_wait_for_probe_done(struct msm_sensor_init_t *s_init)
 {
 	int rc;
-	int tm = 20000;
+
 	if (s_init->module_init_status == 1) {
 		CDBG("msm_cam_get_module_init_status -2\n");
 		return 0;
 	}
-	rc = wait_event_timeout(s_init->state_wait,
-		(s_init->module_init_status == 1), msecs_to_jiffies(tm));
-	if (rc == 0)
-		pr_err("%s:%d wait timeout\n", __func__, __LINE__);
+
+
+
+
+
+	wait_event(s_init->state_wait,
+		(s_init->module_init_status == 1));
 
 	return rc;
 }

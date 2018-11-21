@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -307,7 +308,15 @@
 					dev = "/dev/block/platform/soc/c0c4000.sdhci/by-name/vendor";
 					type = "ext4";
 					mnt_flags = "ro,barrier=1,discard";
-					fsmgr_flags = "wait,slotselect";
+					fsmgr_flags = "wait,verify";
+					status = "ok";
+				};
+				system {
+					compatible = "android,system";
+					dev = "/dev/block/platform/soc/c0c4000.sdhci/by-name/system";
+					type = "ext4";
+					mnt_flags = "ro,barrier=1,discard";
+					fsmgr_flags = "wait,verify";
 					status = "ok";
 				};
 			};
@@ -346,19 +355,19 @@
 		adsp_fw_mem: adsp_fw_region@92a00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x92a00000 0x0 0x1e00000>;
+			reg = <0x0 0x92a00000 0x0 0x1f00000>;
 		};
 
 		pil_mba_mem: pil_mba_region@94800000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x94800000 0x0 0x200000>;
+			reg = <0x0 0x94900000 0x0 0x200000>;
 		};
 
 		cdsp_fw_mem: cdsp_fw_region@94a00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x94a00000 0x0 0x600000>;
+			reg = <0x0 0x94b00000 0x0 0x600000>;
 		};
 
 		venus_fw_mem: venus_fw_region {
@@ -404,9 +413,16 @@
 		};
 
 		cont_splash_mem: splash_region@9d400000 {
-			reg = <0x0 0x9d400000 0x0 0x02400000>;
+			reg = <0x0 0x9d500000 0x0 0x02400000>;
 			label = "cont_splash_mem";
 		};
+
+		pstore_reserve_mem: pstore_reserve_mem_region@0 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x9fe00000 0x0 0x00100000>;
+		};
+
 	};
 
 	bluetooth: bt_wcn3990 {
@@ -678,7 +694,6 @@
 		clocks = <&clock_gcc GCC_BLSP1_QUP3_SPI_APPS_CLK>,
 			<&clock_gcc GCC_BLSP1_AHB_CLK>;
 		clock-frequency = <15000000>;
-		qcom,ipc-gpio = <&tlmm 72 0>;
 		qcom,finger-detect-gpio = <&pm660_gpios 11 0>;
 	};
 
@@ -2407,6 +2422,12 @@
 		reg-names = "fuse-base";
 	};
 
+	sn_fuse: snfuse@0x784138 {
+		compatible = "qcom,sn-fuse";
+		reg = <0x784138 0x4>;
+		reg-names = "sn-base";
+	};
+
 	jtag_mm0: jtagmm@7840000 {
 		compatible = "qcom,jtagv8-mm";
 		reg = <0x7840000 0x1000>;
@@ -2662,6 +2683,40 @@
 			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};
+	};
+
+
+	fpc1020 {
+		status = "ok";
+		compatible = "fpc,fpc1020";
+		spi-max-frequency = <1000000>;
+		input-device-name = "fpc1020";
+		interrupt-parent = <&tlmm>;
+		interrupts = <71 0x0>;
+		fpc,gpio_rst    = <&tlmm 108 0>;
+		fpc,gpio_irq    = <&tlmm 71 0>;
+
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc GCC_BLSP2_AHB_CLK>,
+			<&clock_gcc GCC_BLSP2_QUP3_SPI_APPS_CLK>;
+
+		pinctrl-names = "fpc1020_avdd_active",
+				"fpc1020_avdd_suspend",
+				"fpc1020_vddio_active",
+				"fpc1020_vddio_suspend",
+				"fpc1020_spi_active",
+				"fpc1020_reset_reset",
+				"fpc1020_reset_active",
+				"fpc1020_irq_active";
+
+		pinctrl-0 = <&fpc_avdd_active>;
+		pinctrl-1 = <&fpc_avdd_suspend>;
+		pinctrl-2 = <&fpc_vddio_active>;
+		pinctrl-3 = <&fpc_vddio_suspend>;
+		pinctrl-4 = <&fpc_spi_active>;
+		pinctrl-5 = <&fpc_reset_reset>;
+		pinctrl-6 = <&fpc_reset_active>;
+		pinctrl-7 = <&fpc_irq_active>;
 	};
 };
 

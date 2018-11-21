@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +18,7 @@
 #include "camera.h"
 #include "msm_cci.h"
 #include "msm_camera_dt_util.h"
+#include <linux/hardware_info.h>
 
 /* Logging macro */
 #undef CDBG
@@ -1098,6 +1100,15 @@ CSID_TG:
 	 * Set probe succeeded flag to 1 so that no other camera shall
 	 * probed on this slot
 	 */
+	 /*Add by Murp Zhou for camera hardinfo*/
+	#ifdef CONFIG_HQ_HARDWARE_INFO
+	if (0 == slave_info->camera_id)
+		get_hardware_info_data(HWID_MAIN_CAM,(void *)slave_info->sensor_name);
+	else {
+		if (2 == slave_info->camera_id)
+			get_hardware_info_data(HWID_SUB_CAM,(void *)slave_info->sensor_name);
+	}
+	#endif
 	s_ctrl->is_probe_succeed = 1;
 	return rc;
 

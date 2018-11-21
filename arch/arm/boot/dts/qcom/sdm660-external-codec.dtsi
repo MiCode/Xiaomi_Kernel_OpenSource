@@ -11,11 +11,11 @@
  */
 
 &cdc_pdm_gpios {
-	status = "disabled";
+	status = "okay";
 };
 
 &cdc_comp_gpios {
-	status = "disabled";
+	status = "okay";
 };
 
 &cdc_dmic_gpios {

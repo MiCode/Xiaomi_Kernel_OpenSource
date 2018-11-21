@@ -146,4 +146,7 @@ struct lp855x_platform_data {
 	struct lp855x_rom_data *rom_data;
 };
 
+int lp855x_init(void);
+int lp855x_brightness_ctrl(u32 level);
+
 #endif

@@ -26,6 +26,8 @@
 #include "dsi-panel-truly-1080p-video.dtsi"
 #include "dsi-panel-rm67195-amoled-fhd-cmd.dtsi"
 #include "dsi-panel-lgd-incell-sw49106-fhd-video.dtsi"
+#include "dsi-panel-nt51021-boe-video.dtsi"
+#include "dsi-panel-nt51021-boe-10wu-video.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {

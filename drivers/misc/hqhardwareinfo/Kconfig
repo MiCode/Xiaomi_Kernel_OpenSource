@@ -1,0 +1,11 @@
+config HQ_HARDWARE_INFO
+	bool CONFIG_HQ_HARDWARE_INFO
+	default y
+	help
+	  CONFIG_HQ_HARDWARE_INFO
+
+config HQ_BOARDINFO_BY_ADC
+	bool CONFIG_HQ_BOARDINFO_BY_ADC
+	default n
+	help
+	  show boardinfo by adc

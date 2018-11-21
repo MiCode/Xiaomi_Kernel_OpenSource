@@ -188,7 +188,7 @@ int mmc_gpio_request_cd(struct mmc_host *host, unsigned int gpio,
 	struct mmc_gpio *ctx = host->slot.handler_priv;
 	int ret;
 
-	ret = devm_gpio_request_one(host->parent, gpio, GPIOF_DIR_IN,
+	ret = devm_gpio_request_one(host->parent, gpio, GPIOF_DIR_IN | GPIOF_EXPORT,
 				    ctx->cd_label);
 	if (ret < 0)
 		/*

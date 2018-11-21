@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -116,8 +117,19 @@
 		dai_mi2s0: qcom,msm-dai-q6-mi2s-prim {
 			compatible = "qcom,msm-dai-q6-mi2s";
 			qcom,msm-dai-q6-mi2s-dev-id = <0>;
-			qcom,msm-mi2s-rx-lines = <3>;
-			qcom,msm-mi2s-tx-lines = <0>;
+			qcom,msm-mi2s-rx-lines = <1>;
+			qcom,msm-mi2s-tx-lines = <2>;
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&pri_mi2s_mclk_active
+				&pri_mi2s_sck_active
+				&pri_mi2s_ws_active
+				&pri_mi2s_sd0_active
+				&pri_mi2s_sd1_active>;
+			pinctrl-1 = <&pri_mi2s_mclk_sleep
+				&pri_mi2s_sck_sleep
+				&pri_mi2s_ws_sleep
+				&pri_mi2s_sd0_sleep
+				&pri_mi2s_sd1_sleep>;
 		};
 
 		dai_mi2s1: qcom,msm-dai-q6-mi2s-sec {
@@ -604,6 +616,7 @@
 	};
 
 	tasha_snd: sound-9335 {
+		status = "disabled";
 		compatible = "qcom,sdm660-asoc-snd-tasha";
 		qcom,model = "sdm660-tasha-snd-card";
 		qcom,wcn-btfm;
@@ -710,6 +723,7 @@
 	};
 
 	tavil_snd: sound-tavil {
+		status = "disabled";
 		compatible = "qcom,sdm660-asoc-snd-tavil";
 		qcom,model = "sdm660-tavil-snd-card";
 		qcom,wcn-btfm;
@@ -815,20 +829,21 @@
 	};
 
 	int_codec: sound {
-		status = "disabled";
+		status = "okay";
 		compatible = "qcom,sdm660-asoc-snd";
 		qcom,model = "sdm660-snd-card";
+		qcom,wsa-disable;
 		qcom,wcn-btfm;
 		qcom,mi2s-audio-intf;
 		qcom,auxpcm-audio-intf;
 		qcom,ext-disp-audio-rx;
 		qcom,msm-mi2s-master = <1>, <1>, <1>, <1>;
+		qcom,msm-mi2s-ext-mclk = <1>, <0>, <0>, <0>;
 		qcom,msm-mclk-freq = <9600000>;
 		qcom,msm-mbhc-hphl-swh = <1>;
-		qcom,msm-mbhc-gnd-swh = <1>;
-		qcom,msm-micbias2-ext-cap;
-		qcom,msm-hs-micbias-type = "external";
-		qcom,us-euro-gpios = <&us_euro_gpio>;
+		qcom,msm-mbhc-gnd-swh = <0>;
+		qcom,msm-micbias1-ext-cap;
+		qcom,msm-hs-micbias-type = "internal";
 		qcom,cdc-pdm-gpios = <&cdc_pdm_gpios>;
 		qcom,cdc-comp-gpios = <&cdc_comp_gpios>;
 		qcom,cdc-dmic-gpios = <&cdc_dmic_gpios>;
@@ -839,10 +854,10 @@
 			"RX_I2S_CLK", "INT_MCLK0",
 			"TX_I2S_CLK", "INT_MCLK0",
 			"MIC BIAS External", "Handset Mic",
-			"MIC BIAS External2", "Headset Mic",
+			"MIC BIAS Internal2", "Headset Mic",
 			"MIC BIAS External", "Secondary Mic",
 			"AMIC1", "MIC BIAS External",
-			"AMIC2", "MIC BIAS External2",
+			"AMIC2", "MIC BIAS Internal2",
 			"AMIC3", "MIC BIAS External",
 			"DMIC1", "MIC BIAS External",
 			"MIC BIAS External", "Digital Mic1",
@@ -860,7 +875,6 @@
 			"ADC1_IN", "ADC1_OUT",
 			"ADC2_IN", "ADC2_OUT",
 			"ADC3_IN", "ADC3_OUT";
-
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
 				<&afe>, <&lsm>, <&routing>, <&compr>,
@@ -939,6 +953,7 @@
 	};
 
 	clock_audio: audio_ext_clk {
+		status = "disabled";
 		compatible = "qcom,audio-ref-clk";
 		qcom,audio-ref-clk-gpio = <&pm660_gpios 3 0>;
 		clock-names = "osr_clk";

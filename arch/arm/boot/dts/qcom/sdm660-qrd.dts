@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +30,7 @@
 };
 
 &mdss_dp_ctrl {
+	status="disabled";
 	pinctrl-names = "mdss_dp_active", "mdss_dp_sleep";
 	pinctrl-0 = <&mdss_dp_aux_active &mdss_dp_usbplug_cc_active>;
 	pinctrl-1 = <&mdss_dp_aux_suspend &mdss_dp_usbplug_cc_suspend>;
@@ -36,25 +38,23 @@
 	qcom,aux-sel-gpio = <&tlmm 56 0>;
 	qcom,usbplug-cc-gpio = <&tlmm 58 0>;
 };
-
-&mdss_fb0 {
-	qcom,mdss-mixer-swap;
-};
-
 &mdss_dsi {
-	hw-config = "split_dsi";
+	hw-config = "single_dsi";
+	qcom,mdss-fb-map-prim = <&mdss_fb0>;
 };
 
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_dual_nt36850_truly_cmd>;
+	qcom,dsi-pref-prim-pan = <&dsi_nt51021_boe_wuxga_video>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
-	qcom,platform-reset-gpio = <&tlmm 53 0>;
+	qcom,platform-reset-gpio = <&tlmm 62 0>;
 	qcom,platform-te-gpio = <&tlmm 59 0>;
+	qcom,platform-enable-gpio = <&pm660l_gpios 5 0>; /* VDD3V3 LDO Enable */
 };
 
 &mdss_dsi1 {
+	status = "disabled";
 	qcom,dsi-pref-prim-pan = <&dsi_dual_nt36850_truly_cmd>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
@@ -71,30 +71,8 @@
 };
 
 &pm660l_wled {
-	qcom,led-strings-list = [00 01];
+	qcom,led-strings-list = [00 01 02];
 };
-
-&soc {
-	hbtp {
-		compatible = "qcom,hbtp-input";
-		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
-		pinctrl-0 = <&ts_rst_active>;
-		pinctrl-1 = <&ts_rst_suspend>;
-		vcc_ana-supply = <&pm660l_l3>;
-		vcc_dig-supply = <&pm660_l13>;
-		qcom,afe-load = <20000>;
-		qcom,afe-vtg-min = <3008000>;
-		qcom,afe-vtg-max = <3008000>;
-		qcom,dig-load = <40000>;
-		qcom,dig-vtg-min = <1808000>;
-		qcom,dig-vtg-max = <1808000>;
-		qcom,fb-resume-delay-us = <10000>;
-		qcom,afe-force-power-on;
-		qcom,afe-power-on-delay-us = <1000>;
-		qcom,afe-power-off-delay-us = <6>;
-	};
-};
-
 &slim_aud {
 	/delete-node/wcd934x_cdc;
 };

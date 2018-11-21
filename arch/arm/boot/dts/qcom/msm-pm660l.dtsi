@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -81,7 +82,7 @@
 			gpio@c400 {
 				reg = <0xc400 0x100>;
 				qcom,pin-num = <5>;
-				status = "disabled";
+				status = "okay";
 			};
 
 			gpio@c500 {
@@ -206,18 +207,24 @@
 
 			red_led: qcom,rgb_0 {
 				label = "rgb";
-				qcom,id = <3>;
+				linux,name = "red";
 				qcom,mode = "pwm";
 				pwms = <&pm660l_pwm_3 0 0>;
-				qcom,pwm-us = <1000>;
-				qcom,max-current = <12>;
-				qcom,default-state = "off";
-				linux,name = "red";
-				qcom,start-idx = <0>;
-				qcom,idx-len = <22>;
+				qcom,start-idx = <1>;
+				qcom,idx-len = <44>;
 				qcom,duty-pcts =
-					[01 0a 14 1e 28 32 3c 46 50 5a 64
-					64 5a 50 46 3c 32 28 1e 14 0a 01];
+						[00 01 05 0a 0f 14 19 1e 23 28 2d 32 37 3c 41 46 4b 50 55 5a 5f 64
+						64 5f 5a 55 50 4b 46 41 3c 37 32 2d 28 23 1e 19 14 0f 0a 05 01 00];
+				qcom,lut-flags = <27>;
+				qcom,pause-lo = <0>;
+				qcom,pause-hi = <0>;
+				qcom,ramp-step-ms = <50>;
+				qcom,max-current = <2>;
+				qcom,default-state = "off";
+				qcom,turn-off-delay-ms = <500>;
+				qcom,id = <3>;
+				linux,default-trigger = "none";
+				qcom,pwm-us = <1000>;
 				qcom,use-blink;
 			};
 
@@ -267,6 +274,7 @@
 			qcom,fs-curr-ua = <25000>;
 			qcom,cons-sync-write-delay-us = <1000>;
 			qcom,led-strings-list = [00 01 02];
+			qcom,en-cabc;
 			qcom,loop-auto-gm-en;
 			qcom,pmic-revid = <&pm660l_revid>;
 			qcom,auto-calibration-enable;

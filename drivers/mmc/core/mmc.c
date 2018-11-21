@@ -4,6 +4,7 @@
  *  Copyright (C) 2003-2004 Russell King, All Rights Reserved.
  *  Copyright (C) 2005-2007 Pierre Ossman, All Rights Reserved.
  *  MMCv4 support Copyright (C) 2006 Philip Langdale, All Rights Reserved.
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -27,6 +28,11 @@
 #include "bus.h"
 #include "mmc_ops.h"
 #include "sd_ops.h"
+
+#ifdef CONFIG_HQ_HARDWARE_INFO
+#include <linux/hardware_info.h>
+#endif
+
 
 static const unsigned int tran_exp[] = {
 	10000,		100000,		1000000,	10000000,
@@ -113,6 +119,11 @@ static int mmc_decode_cid(struct mmc_card *card)
 			mmc_hostname(card->host), card->csd.mmca_vsn);
 		return -EINVAL;
 	}
+
+	#ifdef CONFIG_HQ_HARDWARE_INFO
+	get_hardware_info_data(HWID_FLASH, resp);
+
+	#endif
 
 	return 0;
 }
@@ -828,6 +839,9 @@ MMC_DEV_ATTR(serial, "0x%08x\n", card->cid.serial);
 MMC_DEV_ATTR(enhanced_area_offset, "%llu\n",
 		card->ext_csd.enhanced_area_offset);
 MMC_DEV_ATTR(enhanced_area_size, "%u\n", card->ext_csd.enhanced_area_size);
+MMC_DEV_ATTR(hq_fw_version, "0x%08x\n", card->ext_csd.fw_version);
+MMC_DEV_ATTR(life_time_est_typ_a, "%u\n", card->ext_csd.device_life_time_est_typ_a);
+MMC_DEV_ATTR(life_time_est_typ_b, "%u\n", card->ext_csd.device_life_time_est_typ_b);
 MMC_DEV_ATTR(raw_rpmb_size_mult, "%#x\n", card->ext_csd.raw_rpmb_size_mult);
 MMC_DEV_ATTR(enhanced_rpmb_supported, "%#x\n",
 		card->ext_csd.enhanced_rpmb_supported);
@@ -868,6 +882,9 @@ static struct attribute *mmc_std_attrs[] = {
 	&dev_attr_serial.attr,
 	&dev_attr_enhanced_area_offset.attr,
 	&dev_attr_enhanced_area_size.attr,
+	&dev_attr_hq_fw_version.attr,
+	&dev_attr_life_time_est_typ_a.attr,
+	&dev_attr_life_time_est_typ_b.attr,
 	&dev_attr_raw_rpmb_size_mult.attr,
 	&dev_attr_enhanced_rpmb_supported.attr,
 	&dev_attr_rel_sectors.attr,

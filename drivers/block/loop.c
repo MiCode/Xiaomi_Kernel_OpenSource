@@ -4,6 +4,7 @@
  *  Written by Theodore Ts'o, 3/29/93
  *
  * Copyright 1993 by Theodore Ts'o.  Redistribution of this file is
+ * Copyright (C) 2018 XiaoMi, Inc.
  * permitted under the GNU General Public License.
  *
  * DES encryption plus some minor changes by Werner Almesberger, 30-MAY-1993
@@ -1569,9 +1570,8 @@ out:
 	return err;
 }
 
-static void lo_release(struct gendisk *disk, fmode_t mode)
+static void __lo_release(struct loop_device *lo)
 {
-	struct loop_device *lo = disk->private_data;
 	int err;
 
 	if (atomic_dec_return(&lo->lo_refcnt))
@@ -1595,6 +1595,13 @@ static void lo_release(struct gendisk *disk, fmode_t mode)
 	}
 
 	mutex_unlock(&lo->lo_ctl_mutex);
+}
+
+static void lo_release(struct gendisk *disk, fmode_t mode)
+{
+	mutex_lock(&loop_index_mutex);
+	__lo_release(disk->private_data);
+	mutex_unlock(&loop_index_mutex);
 }
 
 static const struct block_device_operations lo_fops = {

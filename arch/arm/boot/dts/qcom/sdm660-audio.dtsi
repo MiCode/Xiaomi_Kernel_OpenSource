@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,7 +16,7 @@
 #include "sdm660-lpi.dtsi"
 
 &slim_aud {
-	status = "okay";
+	status = "disabled";
 	dai_slim: msm_dai_slim {
 		compatible = "qcom,msm-dai-slim";
 		elemental-addr = [ff ff ff fe 17 02];
@@ -96,6 +97,7 @@
 		};
 
 		wcd_usbc_analog_en1_gpio: msm_cdc_pinctrl_usbc_audio_en1 {
+			status="disabled";
 			compatible = "qcom,msm-cdc-pinctrl";
 			pinctrl-names = "aud_active", "aud_sleep";
 			pinctrl-0 = <&wcd_usbc_analog_en1_active>;
@@ -113,7 +115,7 @@
 
 &pm660l_3 {
 	pmic_analog_codec: analog-codec@f000 {
-		status = "disabled";
+		status = "okay";
 		compatible = "qcom,pmic-analog-codec";
 		reg = <0xf000 0x200>;
 		#address-cells = <2>;
@@ -197,6 +199,7 @@
 	};
 
 	cdc_dmic_gpios: cdc_dmic_pinctrl {
+		status="disabled";
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&cdc_dmic12_gpios_active

@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -307,6 +308,8 @@ static struct wled_vref_setting vref_setting_pmi8994 = {
 static struct wled_vref_setting vref_setting_pmi8998 = {
 	60000, 397500, 22500, 127500,
 };
+
+static int first_set_prev_state;
 
 /**
  *  qpnp_wled - wed data structure
@@ -945,6 +948,11 @@ static void qpnp_wled_work(struct work_struct *work)
 			dev_err(&wled->pdev->dev, "wled set level failed\n");
 			goto unlock_mutex;
 		}
+	}
+
+	if (1 == first_set_prev_state) {
+		wled->prev_state = true;
+		first_set_prev_state = 0;
 	}
 
 	if (!!level != wled->prev_state) {
@@ -2317,9 +2325,12 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 			"qcom,en-9b-dim-res");
 	wled->en_phase_stag = of_property_read_bool(pdev->dev.of_node,
 			"qcom,en-phase-stag");
+#ifdef CONFIG_HQ_USE_DDIC_CABC
 	wled->en_cabc = of_property_read_bool(pdev->dev.of_node,
 			"qcom,en-cabc");
-
+#else
+	wled->en_cabc = false;
+#endif
 	if (wled->pmic_rev_id->pmic_subtype == PM660L_SUBTYPE)
 		wled->max_strings = QPNP_PM660_WLED_MAX_STRINGS;
 	else
@@ -2427,6 +2438,11 @@ static int qpnp_wled_probe(struct platform_device *pdev)
 	if (rc) {
 		dev_err(&pdev->dev, "wled config failed\n");
 		return rc;
+	}
+
+	if (strnstr(saved_command_line, "androidboot.mode=ffbm-01",
+		    strlen(saved_command_line))) {
+		first_set_prev_state = 1;
 	}
 
 	INIT_WORK(&wled->work, qpnp_wled_work);

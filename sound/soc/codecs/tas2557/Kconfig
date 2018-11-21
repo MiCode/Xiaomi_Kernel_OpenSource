@@ -1,0 +1,15 @@
+
+menuconfig SND_SOC_TAS2557_STEREO
+	tristate "Texas Instruments TAS2557 SmartAmp(R)"
+
+if SND_SOC_TAS2557_STEREO
+config TAS2557_REGMAP_STEREO
+	bool "Use of RegMap API"
+
+config TAS2557_CODEC_STEREO
+	bool "Codec Driver support"
+
+config TAS2557_MISC_STEREO
+	bool "Misc Driver support"
+
+endif # SND_SOC_TAS2557_STEREO

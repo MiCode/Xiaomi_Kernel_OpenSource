@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -237,6 +238,7 @@ struct smb_charger {
 	int			otg_delay_ms;
 	int			*weak_chg_icl_ua;
 
+	char			*debug_dump;
 	/* locks */
 	struct mutex		lock;
 	struct mutex		write_lock;
@@ -267,6 +269,7 @@ struct smb_charger {
 
 	/* votables */
 	struct votable		*dc_suspend_votable;
+	struct votable		*usb_suspend_votable;
 	struct votable		*fcc_votable;
 	struct votable		*fv_votable;
 	struct votable		*usb_icl_votable;
@@ -298,6 +301,8 @@ struct smb_charger {
 	struct work_struct	legacy_detection_work;
 	struct delayed_work	uusb_otg_work;
 	struct delayed_work	bb_removal_work;
+	struct delayed_work     update_current_work;
+	struct delayed_work	typec_disable_cmd_work;
 
 	/* cached status */
 	int			voltage_min_uv;
@@ -424,6 +429,8 @@ int smblib_get_prop_batt_voltage_now(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_batt_current_now(struct smb_charger *chg,
 				union power_supply_propval *val);
+int smblib_get_prop_batt_charge_full_design(struct smb_charger *chg,
+				     union power_supply_propval *val);
 int smblib_get_prop_batt_temp(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_batt_charge_counter(struct smb_charger *chg,
@@ -518,6 +525,9 @@ int smblib_get_prop_pr_swap_in_progress(struct smb_charger *chg,
 int smblib_set_prop_pr_swap_in_progress(struct smb_charger *chg,
 				const union power_supply_propval *val);
 
+int smblib_get_prop_batt_resistance_id(struct smb_charger *chg,
+				     union power_supply_propval *val);
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);
+int smblib_get_chg_otg_present(struct smb_charger *chg,union power_supply_propval *val);
 #endif /* __SMB2_CHARGER_H */

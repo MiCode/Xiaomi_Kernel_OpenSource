@@ -1,0 +1,83 @@
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,zql5018_battery_6000mah {
+	qcom, = <24>;
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <6010>;
+	qcom,fastchg-current-ma = <2000>;
+	qcom,batt-id-kohm = <68>;
+	qcom,battery-beta = <3380>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,battery-type = "zql5018_battery_feimaotui_6000mah";
+	qcom,checksum = <0xC934>;
+	qcom,gui-version = "PM660GUI - 0.0.0.45";
+	qcom,fg-profile-data = [
+		 94 1F A8 05
+		 65 0A 6D 06
+		 EE 1C 8B FB
+		 40 04 2A 0A
+		 97 17 0F 2A
+		 FE 4D AD 5A
+		 7B 00 00 00
+		 10 00 00 00
+		 00 00 AF CD
+		 EA CD 1C D2
+		 1B 00 08 00
+		 52 E3 A8 07
+		 E9 05 12 01
+		 F2 01 2F 1A
+		 7F EC D0 32
+		 1F 06 09 20
+		 27 00 14 00
+		 E1 1F 68 05
+		 A0 0A 26 06
+		 CB 1C F3 02
+		 00 0C 2F 12
+		 88 18 D6 23
+		 E6 4D 30 5B
+		 6B 00 00 00
+		 0E 00 00 00
+		 00 00 E5 D5
+		 4E C3 89 C2
+		 14 00 00 00
+		 D9 EB A8 07
+		 1D FD 31 F2
+		 C3 F4 39 03
+		 04 DA D5 1B
+		 B1 33 CC FF
+		 07 10 00 00
+		 5A 17 66 46
+		 14 00 40 00
+		 F7 00 0A FA
+		 FF 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+	];
+};

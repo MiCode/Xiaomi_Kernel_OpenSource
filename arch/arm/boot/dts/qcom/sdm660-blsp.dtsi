@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,12 +17,9 @@
 	aliases {
 		spi1 = &spi_1;
 		spi2 = &spi_2;
-		spi3 = &spi_3;
-		spi4 = &spi_4;
 		spi5 = &spi_5;
 		spi6 = &spi_6;
 		spi7 = &spi_7;
-		spi8 = &spi_8;
 		i2c1 = &i2c_1;
 		i2c2 = &i2c_2;
 		i2c3 = &i2c_3;
@@ -101,7 +99,7 @@
 		pinctrl-names = "i2c_active", "i2c_sleep";
 		pinctrl-0 = <&i2c_3_active>;
 		pinctrl-1 = <&i2c_3_sleep>;
-		status = "disabled";
+		status = "okay";
 	};
 
 	i2c_4: i2c@c178000 { /* BLSP1 QUP4 */
@@ -216,7 +214,7 @@
 		pinctrl-names = "i2c_active", "i2c_sleep";
 		pinctrl-0 = <&i2c_8_active>;
 		pinctrl-1 = <&i2c_8_sleep>;
-		status = "disabled";
+		status = "okay";
 	};
 
 	spi_1: spi@c175000 { /* BLSP1 QUP1 */
@@ -291,31 +289,6 @@
 		clock-names = "iface_clk", "core_clk";
 		clocks = <&clock_gcc GCC_BLSP1_AHB_CLK>,
 			 <&clock_gcc GCC_BLSP1_QUP3_SPI_APPS_CLK>;
-		status = "disabled";
-	};
-
-	spi_4: spi@c178000 { /* BLSP1 QUP4 */
-		compatible = "qcom,spi-qup-v2";
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg-names = "spi_physical", "spi_bam_physical";
-		reg = <0xc178000 0x600>,
-		      <0xc144000 0x1f000>;
-		interrupt-names = "spi_irq", "spi_bam_irq";
-		interrupts = <0 98 0>, <0 238 0>;
-		spi-max-frequency = <50000000>;
-		qcom,use-bam;
-		qcom,ver-reg-exists;
-		qcom,bam-consumer-pipe-index = <10>;
-		qcom,bam-producer-pipe-index = <11>;
-		qcom,master-id = <86>;
-		qcom,use-pinctrl;
-		pinctrl-names = "spi_default", "spi_sleep";
-		pinctrl-0 = <&spi_4_active>;
-		pinctrl-1 = <&spi_4_sleep>;
-		clock-names = "iface_clk", "core_clk";
-		clocks = <&clock_gcc GCC_BLSP1_AHB_CLK>,
-			 <&clock_gcc GCC_BLSP1_QUP4_SPI_APPS_CLK>;
 		status = "disabled";
 	};
 
