@@ -606,14 +606,20 @@ void dsi_connector_put_modes(struct drm_connector *connector,
 {
 	struct drm_display_mode *drm_mode;
 	struct dsi_display_mode dsi_mode;
+	struct dsi_display *dsi_display;
 
 	if (!connector || !display)
 		return;
 
-	 list_for_each_entry(drm_mode, &connector->modes, head) {
+	list_for_each_entry(drm_mode, &connector->modes, head) {
 		convert_to_dsi_mode(drm_mode, &dsi_mode);
 		dsi_display_put_mode(display, &dsi_mode);
 	}
+
+	/* free the display structure modes also */
+	dsi_display = display;
+	kfree(dsi_display->modes);
+	dsi_display->modes = NULL;
 }
 
 int dsi_connector_get_modes(struct drm_connector *connector,
