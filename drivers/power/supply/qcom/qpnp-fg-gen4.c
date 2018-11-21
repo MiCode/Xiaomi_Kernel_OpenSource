@@ -239,6 +239,7 @@ struct fg_gen4_chip {
 	int			esr_actual;
 	int			esr_nominal;
 	int			soh;
+	int			esr_soh_cycle_count;
 	bool			first_profile_load;
 	bool			ki_coeff_dischg_en;
 	bool			slope_limit_en;
@@ -247,6 +248,7 @@ struct fg_gen4_chip {
 	bool			esr_fast_cal_timer_expired;
 	bool			esr_fast_calib_retry;
 	bool			esr_fcc_ctrl_en;
+	bool			esr_soh_notified;
 	bool			rslow_low;
 	bool			rapid_soc_dec_en;
 	bool			vbatt_low;
@@ -1968,7 +1970,7 @@ static void get_batt_psy_props(struct fg_dev *fg)
 static int fg_gen4_esr_soh_update(struct fg_dev *fg)
 {
 	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
-	int rc, msoc, esr_uohms;
+	int rc, msoc, esr_uohms, tmp;
 
 	if (!fg->soc_reporting_ready || fg->battery_missing) {
 		chip->esr_actual = -EINVAL;
@@ -1976,38 +1978,56 @@ static int fg_gen4_esr_soh_update(struct fg_dev *fg)
 		return 0;
 	}
 
-	if (fg->charge_status == POWER_SUPPLY_STATUS_CHARGING) {
-		rc = fg_get_msoc(fg, &msoc);
-		if (rc < 0) {
-			pr_err("Error in getting msoc, rc=%d\n", rc);
-			return rc;
-		}
+	rc = get_cycle_count(chip->counter, &tmp);
+	if (rc < 0)
+		pr_err("Couldn't get cycle count rc=%d\n", rc);
+	else if (tmp != chip->esr_soh_cycle_count)
+		chip->esr_soh_notified = false;
 
-		if (msoc == ESR_SOH_SOC) {
-			rc = fg_get_sram_prop(fg, FG_SRAM_ESR_ACT, &esr_uohms);
-			if (rc < 0) {
-				pr_err("Error in getting esr_actual, rc=%d\n",
-					rc);
-				return rc;
-			}
-			chip->esr_actual = esr_uohms;
+	if (fg->charge_status != POWER_SUPPLY_STATUS_CHARGING ||
+			chip->esr_soh_notified)
+		return 0;
 
-			rc = fg_get_sram_prop(fg, FG_SRAM_ESR_MDL, &esr_uohms);
-			if (rc < 0) {
-				pr_err("Error in getting esr_nominal, rc=%d\n",
-					rc);
-				chip->esr_actual = -EINVAL;
-				return rc;
-			}
-			chip->esr_nominal = esr_uohms;
-
-			fg_dbg(fg, FG_STATUS, "esr_actual: %d esr_nominal: %d\n",
-				chip->esr_actual, chip->esr_nominal);
-
-			if (fg->batt_psy)
-				power_supply_changed(fg->batt_psy);
-		}
+	rc = fg_get_msoc(fg, &msoc);
+	if (rc < 0) {
+		pr_err("Error in getting msoc, rc=%d\n", rc);
+		return rc;
 	}
+
+	if (msoc != ESR_SOH_SOC) {
+		fg_dbg(fg, FG_STATUS, "msoc: %d, not publishing ESR params\n",
+			msoc);
+		return 0;
+	}
+
+	rc = fg_get_sram_prop(fg, FG_SRAM_ESR_ACT, &esr_uohms);
+	if (rc < 0) {
+		pr_err("Error in getting esr_actual, rc=%d\n",
+			rc);
+		return rc;
+	}
+	chip->esr_actual = esr_uohms;
+
+	rc = fg_get_sram_prop(fg, FG_SRAM_ESR_MDL, &esr_uohms);
+	if (rc < 0) {
+		pr_err("Error in getting esr_nominal, rc=%d\n",
+			rc);
+		chip->esr_actual = -EINVAL;
+		return rc;
+	}
+	chip->esr_nominal = esr_uohms;
+
+	fg_dbg(fg, FG_STATUS, "esr_actual: %d esr_nominal: %d\n",
+		chip->esr_actual, chip->esr_nominal);
+
+	if (fg->batt_psy)
+		power_supply_changed(fg->batt_psy);
+
+	rc = get_cycle_count(chip->counter, &chip->esr_soh_cycle_count);
+	if (rc < 0)
+		pr_err("Couldn't get cycle count rc=%d\n", rc);
+
+	chip->esr_soh_notified = true;
 
 	return 0;
 }
@@ -4747,6 +4767,7 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	fg->batt_id_ohms = -EINVAL;
 	chip->ki_coeff_full_soc[0] = -EINVAL;
 	chip->ki_coeff_full_soc[1] = -EINVAL;
+	chip->esr_soh_cycle_count = -EINVAL;
 	fg->regmap = dev_get_regmap(fg->dev->parent, NULL);
 	if (!fg->regmap) {
 		dev_err(fg->dev, "Parent regmap is unavailable\n");
