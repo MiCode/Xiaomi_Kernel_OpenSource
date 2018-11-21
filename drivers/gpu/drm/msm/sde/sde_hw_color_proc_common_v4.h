@@ -5,6 +5,8 @@
 #ifndef _SDE_HW_COLOR_PROC_COMMON_V4_H_
 #define _SDE_HW_COLOR_PROC_COMMON_V4_H_
 
+#include "sde_hw_mdss.h"
+
 #define GAMUT_TABLE_SEL_OFF 0x4
 #define GAMUT_UPPER_COLOR_OFF 0x8
 #define GAMUT_LOWER_COLOR_OFF 0xc
@@ -118,5 +120,44 @@ enum {
 
 #define SSPP 0
 #define DSPP 1
+
+struct sde_ltm_phase_info {
+	u32 init_h[LTM_MAX];
+	u32 init_v;
+	u32 inc_h;
+	u32 inc_v;
+	bool portrait_en;
+	bool merge_en;
+};
+
+static inline void sde_ltm_get_phase_info(struct sde_hw_cp_cfg *hw_cfg,
+		struct sde_ltm_phase_info *info)
+{
+	u32 count_v, count_h, num_mixers;
+
+	if (hw_cfg->displayh < hw_cfg->displayv) {
+		count_h = 4;
+		count_v = 8;
+		info->portrait_en = true;
+	} else {
+		count_h = 8;
+		count_v = 4;
+		info->portrait_en = false;
+	}
+
+	num_mixers = hw_cfg->num_of_mixers;
+	if (num_mixers == 1)
+		info->merge_en = false;
+	else
+		info->merge_en = true;
+
+	info->init_h[LTM_0] = (1 << 23);
+	info->init_v = (1 << 23);
+	info->inc_h = ((count_h - 1) << 24) / (hw_cfg->displayh - 1);
+	info->inc_v = ((count_v - 1) << 24) / (hw_cfg->displayv - 1);
+	if (info->merge_en)
+		info->init_h[LTM_1] = info->init_h[LTM_0] +
+			info->inc_h * (hw_cfg->displayh / 2);
+}
 
 #endif /* _SDE_HW_COLOR_PROC_COMMON_V4_H_ */

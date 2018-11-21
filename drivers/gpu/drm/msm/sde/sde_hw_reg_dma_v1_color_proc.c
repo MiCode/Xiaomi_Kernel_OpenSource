@@ -9,6 +9,7 @@
 #include "sde_hw_ctl.h"
 #include "sde_hw_sspp.h"
 #include "sde_hwio.h"
+#include "sde_hw_lm.h"
 
 /* Reserve space of 128 words for LUT dma payload set-up */
 #define REG_DMA_HEADERS_BUFFER_SZ (sizeof(u32) * 128)
@@ -24,6 +25,22 @@
 #define REG_DMA_PA_PWL_HOLD_SZONE_MASK 0x0FFF
 #define PA_LUTV_DSPP_CTRL_OFF 0x4c
 #define PA_LUTV_DSPP_SWAP_OFF 0x18
+/**
+ * the diff between LTM_INIT_ENABLE/DISABLE masks are portrait_en and
+ * merge_mode bits. When disabling INIT property, we don't want to reset those
+ * bits since they are needed for both LTM histogram and VLUT.
+ */
+#define REG_DMA_LTM_INIT_ENABLE_OP_MASK 0xFFFC8CAB
+#define REG_DMA_LTM_INIT_DISABLE_OP_MASK 0xFFFF8CAF
+#define REG_DMA_LTM_ROI_OP_MASK 0xFEFFFFFF
+/**
+ * the diff between LTM_VLUT_ENABLE/DISABLE masks are dither strength and
+ * unsharp_gain bits. When disabling VLUT property, we want to reset these
+ * bits since those are only valid if VLUT is enabled.
+ */
+#define REG_DMA_LTM_VLUT_ENABLE_OP_MASK 0xFEFFFFAD
+#define REG_DMA_LTM_VLUT_DISABLE_OP_MASK 0xFEFF8CAD
+#define REG_DMA_LTM_UPDATE_REQ_MASK 0xFFFFFFFE
 
 #define GAMUT_LUT_MEM_SIZE ((sizeof(struct drm_msm_3d_gamut)) + \
 		REG_DMA_HEADERS_BUFFER_SZ)
@@ -51,6 +68,12 @@
 #define QSEED3_MEM_SIZE (sizeof(struct sde_hw_scaler3_cfg) + \
 			(450 * sizeof(u32)) + \
 			REG_DMA_HEADERS_BUFFER_SZ)
+#define LTM_INIT_MEM_SIZE ((sizeof(struct drm_msm_ltm_init_param)) + \
+		REG_DMA_HEADERS_BUFFER_SZ)
+#define LTM_ROI_MEM_SIZE ((sizeof(struct drm_msm_ltm_cfg_param)) + \
+		REG_DMA_HEADERS_BUFFER_SZ)
+#define LTM_VLUT_MEM_SIZE ((sizeof(struct drm_msm_ltm_data)) + \
+		REG_DMA_HEADERS_BUFFER_SZ)
 
 #define REG_MASK(n) ((BIT(n)) - 1)
 #define REG_MASK_SHIFT(n, shift) ((REG_MASK(n)) << (shift))
@@ -79,9 +102,20 @@
 #define Y_INDEX                            0
 #define UV_INDEX                           1
 
+enum ltm_vlut_ops_bitmask {
+	ltm_unsharp = BIT(0),
+	ltm_dither = BIT(1),
+	ltm_roi = BIT(2),
+	ltm_vlut = BIT(3),
+	ltm_ops_max = BIT(31),
+};
+
+static u32 ltm_vlut_ops_mask[LTM_MAX];
+
 static struct sde_reg_dma_buffer *dspp_buf[REG_DMA_FEATURES_MAX][DSPP_MAX];
 static struct sde_reg_dma_buffer
 	*sspp_buf[SDE_SSPP_RECT_MAX][REG_DMA_FEATURES_MAX][SSPP_MAX];
+static struct sde_reg_dma_buffer *ltm_buf[REG_DMA_FEATURES_MAX][LTM_MAX];
 
 static u32 feature_map[SDE_DSPP_MAX] = {
 	[SDE_DSPP_VLUT] = VLUT,
@@ -106,6 +140,12 @@ static u32 sspp_feature_map[SDE_SSPP_MAX] = {
 	[SDE_SSPP_SCALER_QSEED3] = QSEED,
 };
 
+static u32 ltm_feature_map[SDE_LTM_MAX] = {
+	[SDE_LTM_INIT] = LTM_INIT,
+	[SDE_LTM_ROI] = LTM_ROI,
+	[SDE_LTM_VLUT] = LTM_VLUT,
+};
+
 static u32 feature_reg_dma_sz[SDE_DSPP_MAX] = {
 	[SDE_DSPP_VLUT] = VLUT_MEM_SIZE,
 	[SDE_DSPP_GAMUT] = GAMUT_LUT_MEM_SIZE,
@@ -125,6 +165,12 @@ static u32 sspp_feature_reg_dma_sz[SDE_SSPP_MAX] = {
 	[SDE_SSPP_SCALER_QSEED3] = QSEED3_MEM_SIZE,
 };
 
+static u32 ltm_feature_reg_dma_sz[SDE_LTM_MAX] = {
+	[SDE_LTM_INIT] = LTM_INIT_MEM_SIZE,
+	[SDE_LTM_ROI] = LTM_ROI_MEM_SIZE,
+	[SDE_LTM_VLUT] = LTM_VLUT_MEM_SIZE,
+};
+
 static u32 dspp_mapping[DSPP_MAX] = {
 	[DSPP_0] = DSPP0,
 	[DSPP_1] = DSPP1,
@@ -141,6 +187,11 @@ static u32 sspp_mapping[SSPP_MAX] = {
 	[SSPP_DMA1] = DMA1,
 	[SSPP_DMA2] = DMA2,
 	[SSPP_DMA3] = DMA3,
+};
+
+static u32 ltm_mapping[LTM_MAX] = {
+	[LTM_0] = LTM0,
+	[LTM_1] = LTM1,
 };
 
 #define REG_DMA_INIT_OPS(cfg, block, reg_dma_feature, feature_dma_buf) \
@@ -180,6 +231,8 @@ static int reg_dma_dspp_check(struct sde_hw_dspp *ctx, void *cfg,
 static int reg_dma_sspp_check(struct sde_hw_pipe *ctx, void *cfg,
 		enum sde_reg_dma_features feature,
 		enum sde_sspp_multirect_index idx);
+static int reg_dma_ltm_check(struct sde_hw_dspp *ctx, void *cfg,
+		enum sde_reg_dma_features feature);
 
 static int reg_dma_buf_init(struct sde_reg_dma_buffer **buf, u32 size)
 {
@@ -2614,4 +2667,682 @@ end:
 	if (rc)
 		DRM_ERROR("failed to kick off ret %d\n", rc);
 
+}
+
+int reg_dmav1_init_ltm_op_v6(int feature, enum sde_dspp dspp_idx)
+{
+	int rc = -ENOTSUPP;
+	struct sde_hw_reg_dma_ops *dma_ops;
+	bool is_supported = false;
+	u32 blk;
+	/* LTM blocks are hardwired to DSPP blocks */
+	enum sde_ltm idx = (enum sde_ltm)dspp_idx;
+
+	if (feature >= SDE_LTM_MAX || idx >= LTM_MAX) {
+		DRM_ERROR("invalid feature %x max %x ltm idx %x max %xd\n",
+			feature, SDE_LTM_MAX, idx, LTM_MAX);
+		return rc;
+	}
+
+	if (ltm_feature_map[feature] >= REG_DMA_FEATURES_MAX) {
+		DRM_ERROR("invalid feature map %d for feature %d\n",
+			ltm_feature_map[feature], feature);
+		return -ENOTSUPP;
+	}
+
+	dma_ops = sde_reg_dma_get_ops();
+	if (IS_ERR_OR_NULL(dma_ops))
+		return -ENOTSUPP;
+
+	blk = ltm_mapping[idx];
+	rc = dma_ops->check_support(ltm_feature_map[feature], blk,
+			&is_supported);
+	if (!rc)
+		rc = (is_supported) ? 0 : -ENOTSUPP;
+
+	if (!rc)
+		rc = reg_dma_buf_init(&ltm_buf[ltm_feature_map[feature]][idx],
+				ltm_feature_reg_dma_sz[feature]);
+	return rc;
+}
+
+
+int reg_dmav1_deinit_ltm_ops(enum sde_dspp dspp_idx)
+{
+	int i;
+	struct sde_hw_reg_dma_ops *dma_ops;
+	/* LTM blocks are hardwired to DSPP blocks */
+	enum sde_ltm idx = (enum sde_ltm)dspp_idx;
+
+	dma_ops = sde_reg_dma_get_ops();
+	if (IS_ERR_OR_NULL(dma_ops))
+		return -ENOTSUPP;
+
+	if (idx >= LTM_MAX) {
+		DRM_DEBUG("invalid ltm idx %x max %xd\n", idx, LTM_MAX);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < REG_DMA_FEATURES_MAX; i++) {
+		if (!ltm_buf[i][idx])
+			continue;
+		dma_ops->dealloc_reg_dma(ltm_buf[i][idx]);
+		ltm_buf[i][idx] = NULL;
+	}
+	return 0;
+}
+
+static int reg_dma_ltm_check(struct sde_hw_dspp *ctx, void *cfg,
+		enum sde_reg_dma_features feature)
+{
+	struct sde_hw_reg_dma_ops *dma_ops;
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+
+	if (!ctx || !cfg) {
+		DRM_ERROR("invalid ctx %pK cfg %pK\n", ctx, cfg);
+		return -EINVAL;
+	}
+
+	dma_ops = sde_reg_dma_get_ops();
+	if (IS_ERR_OR_NULL(dma_ops))
+		return -EINVAL;
+
+	if (!hw_cfg->ctl || ctx->idx >= LTM_MAX ||
+		feature >= REG_DMA_FEATURES_MAX) {
+		DRM_ERROR("invalid ctl %pK dspp idx %d feature %d\n",
+			hw_cfg->ctl, ctx->idx, feature);
+		return -EINVAL;
+	}
+
+	if (!ltm_buf[feature][ctx->idx]) {
+		DRM_ERROR("invalid dma_buf\n");
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int reg_dmav1_get_ltm_blk(struct sde_hw_cp_cfg *hw_cfg,
+	enum sde_ltm idx, enum sde_ltm *dspp_idx, u32 *blk)
+{
+	struct sde_hw_mixer *hw_lm = NULL;
+	u32 i = 0, num_mixers = 0;
+
+	if (idx >= LTM_MAX) {
+		DRM_ERROR("invalid ltm idx %d\n", idx);
+		return -EINVAL;
+	}
+
+	num_mixers = hw_cfg->num_of_mixers;
+	hw_lm = hw_cfg->mixer_info;
+	if (num_mixers == 1) {
+		*blk = ltm_mapping[idx];
+		dspp_idx[0] = (enum sde_ltm)(hw_cfg->dspp[0]->idx);
+	} else if (num_mixers == 2) {
+		if (hw_lm->cfg.right_mixer) {
+			DRM_DEBUG_DRIVER("slave LTM instance\n");
+			return -EALREADY;
+		}
+		*blk = 0;
+		for (i = 0; i < num_mixers; i++) {
+			if (hw_cfg->dspp[i] && (i < LTM_MAX)) {
+				dspp_idx[i] =
+					(enum sde_ltm)(hw_cfg->dspp[i]->idx);
+				*blk |= ltm_mapping[dspp_idx[i]];
+			} else {
+				DRM_ERROR("invalid dspp = %pK, i = %d\n",
+					hw_cfg->dspp[i], i);
+				return -EINVAL;
+			}
+		}
+	} else {
+		DRM_ERROR("invalid num_of_mixers %d for LTM\n",
+				hw_cfg->num_of_mixers);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static void ltm_initv1_disable(struct sde_hw_dspp *ctx, void *cfg,
+		u32 num_mixers, enum sde_ltm *dspp_idx)
+{
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	struct sde_hw_reg_dma_ops *dma_ops;
+	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
+	struct sde_reg_dma_kickoff_cfg kick_off;
+	int rc, i = 0;
+	enum sde_ltm idx = 0;
+	u32 opmode = 0;
+
+	idx = (enum sde_ltm)ctx->idx;
+	if (idx >= LTM_MAX) {
+		DRM_ERROR("invalid ltm idx %d\n", ctx->idx);
+		return;
+	}
+
+	dma_ops = sde_reg_dma_get_ops();
+	dma_ops->reset_reg_dma_buf(ltm_buf[LTM_INIT][idx]);
+
+	REG_DMA_INIT_OPS(dma_write_cfg, ltm_mapping[idx], LTM_INIT,
+			ltm_buf[LTM_INIT][idx]);
+
+	for (i = 0; i < num_mixers; i++) {
+		dma_write_cfg.blk = ltm_mapping[dspp_idx[i]];
+		REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0,
+				0, 0);
+		rc = dma_ops->setup_payload(&dma_write_cfg);
+		if (rc) {
+			DRM_ERROR("write decode select failed ret %d\n", rc);
+			return;
+		}
+
+		ltm_vlut_ops_mask[dspp_idx[i]] &= ~ltm_dither;
+		ltm_vlut_ops_mask[dspp_idx[i]] &= ~ltm_unsharp;
+		REG_DMA_SETUP_OPS(dma_write_cfg, 0x04, &opmode, sizeof(opmode),
+			REG_SINGLE_MODIFY, 0, 0,
+			REG_DMA_LTM_INIT_DISABLE_OP_MASK);
+		rc = dma_ops->setup_payload(&dma_write_cfg);
+		if (rc) {
+			DRM_ERROR("opmode write failed ret %d\n", rc);
+			return;
+		}
+	}
+
+	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl, ltm_buf[LTM_INIT][idx],
+				REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
+	rc = dma_ops->kick_off(&kick_off);
+	if (rc) {
+		DRM_ERROR("failed to kick off ret %d\n", rc);
+		return;
+	}
+}
+
+void reg_dmav1_setup_ltm_initv1(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	struct sde_hw_reg_dma_ops *dma_ops;
+	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
+	struct sde_reg_dma_kickoff_cfg kick_off;
+	struct drm_msm_ltm_init_param *init_param = NULL;
+	struct sde_ltm_phase_info phase;
+	enum sde_ltm dspp_idx[LTM_MAX] = {0};
+	enum sde_ltm idx = 0;
+	u32 blk = 0, opmode = 0, i = 0, num_mixers = 0;
+	u32 phase_data[3];
+	int rc = 0;
+
+	rc = reg_dma_ltm_check(ctx, cfg, LTM_INIT);
+	if (rc)
+		return;
+
+	idx = (enum sde_ltm)ctx->idx;
+	rc = reg_dmav1_get_ltm_blk(hw_cfg, idx, &dspp_idx[0], &blk);
+	if (rc) {
+		if (rc != -EALREADY)
+			DRM_ERROR("failed to get the blk info\n");
+		return;
+	}
+
+	num_mixers = hw_cfg->num_of_mixers;
+	/* disable case */
+	if (!hw_cfg->payload) {
+		DRM_DEBUG_DRIVER("Disable LTM init feature\n");
+		ltm_initv1_disable(ctx, cfg, num_mixers, dspp_idx);
+		return;
+	}
+
+	if (hw_cfg->len != sizeof(struct drm_msm_ltm_init_param)) {
+		DRM_ERROR("invalid size of payload len %d exp %zd\n",
+			hw_cfg->len, sizeof(struct drm_msm_ltm_init_param));
+		return;
+	}
+
+	init_param = hw_cfg->payload;
+
+
+	memset(&phase, 0, sizeof(phase));
+	sde_ltm_get_phase_info(hw_cfg, &phase);
+
+	if (phase.portrait_en)
+		opmode |= BIT(2);
+	else
+		opmode &= ~BIT(2);
+
+	if (phase.merge_en)
+		opmode |= BIT(16);
+	else
+		opmode &= ~(BIT(16) | BIT(17));
+
+	phase_data[0] = phase.init_v;
+	phase_data[1] = phase.inc_h;
+	phase_data[2] = phase.inc_v;
+
+	dma_ops = sde_reg_dma_get_ops();
+	dma_ops->reset_reg_dma_buf(ltm_buf[LTM_INIT][idx]);
+
+	REG_DMA_INIT_OPS(dma_write_cfg, blk, LTM_INIT, ltm_buf[LTM_INIT][idx]);
+	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("write decode select failed ret %d\n", rc);
+		return;
+	}
+
+	REG_DMA_SETUP_OPS(dma_write_cfg, 0x0c, phase_data, sizeof(u32) * 3,
+			REG_BLK_WRITE_SINGLE, 0, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("write phase data failed ret %d\n",
+				rc);
+		return;
+	}
+
+	for (i = 0; i < num_mixers; i++) {
+		/* reset decode select to unicast for phase init_h value*/
+		dma_write_cfg.blk = ltm_mapping[dspp_idx[i]];
+		REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0,
+				0, 0);
+		rc = dma_ops->setup_payload(&dma_write_cfg);
+		if (rc) {
+			DRM_ERROR("write decode select failed ret %d\n", rc);
+			return;
+		}
+
+		REG_DMA_SETUP_OPS(dma_write_cfg, 0x08,
+				&phase.init_h[dspp_idx[i]], sizeof(u32),
+				REG_SINGLE_WRITE, 0, 0, 0);
+		rc = dma_ops->setup_payload(&dma_write_cfg);
+		if (rc) {
+			DRM_ERROR("opmode write failed ret %d\n", rc);
+			return;
+		}
+
+		if (init_param->init_param_01) {
+			if (ltm_vlut_ops_mask[dspp_idx[i]] & ltm_vlut)
+				opmode |= BIT(6);
+			ltm_vlut_ops_mask[dspp_idx[i]] |= ltm_dither;
+			opmode |= ((init_param->init_param_02 & 0x7) << 12);
+		} else {
+			opmode &= ~BIT(6);
+			ltm_vlut_ops_mask[dspp_idx[i]] &= ~ltm_dither;
+		}
+
+		if (init_param->init_param_03) {
+			if (ltm_vlut_ops_mask[dspp_idx[i]] & ltm_vlut)
+				opmode |= BIT(4);
+			ltm_vlut_ops_mask[dspp_idx[i]] |= ltm_unsharp;
+			opmode |= ((init_param->init_param_04 & 0x3) << 8);
+		} else {
+			opmode &= ~BIT(4);
+			ltm_vlut_ops_mask[dspp_idx[i]] &= ~ltm_unsharp;
+		}
+
+		/* broadcast feature is not supported with REG_SINGLE_MODIFY */
+		REG_DMA_SETUP_OPS(dma_write_cfg, 0x04, &opmode, sizeof(opmode),
+				REG_SINGLE_MODIFY, 0, 0,
+				REG_DMA_LTM_INIT_ENABLE_OP_MASK);
+		rc = dma_ops->setup_payload(&dma_write_cfg);
+		if (rc) {
+			DRM_ERROR("opmode write failed ret %d\n", rc);
+			return;
+		}
+	}
+	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl, ltm_buf[LTM_INIT][idx],
+				REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
+	rc = dma_ops->kick_off(&kick_off);
+	if (rc) {
+		DRM_ERROR("failed to kick off ret %d\n", rc);
+		return;
+	}
+}
+
+static void ltm_roiv1_disable(struct sde_hw_dspp *ctx, void *cfg,
+		u32 num_mixers, enum sde_ltm *dspp_idx)
+{
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	struct sde_hw_reg_dma_ops *dma_ops;
+	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
+	struct sde_reg_dma_kickoff_cfg kick_off;
+	int rc, i = 0;
+	enum sde_ltm idx = 0;
+	u32 opmode = 0;
+
+	idx = (enum sde_ltm)ctx->idx;
+	if (idx >= LTM_MAX) {
+		DRM_ERROR("invalid ltm idx %d\n", ctx->idx);
+		return;
+	}
+
+	dma_ops = sde_reg_dma_get_ops();
+	dma_ops->reset_reg_dma_buf(ltm_buf[LTM_ROI][idx]);
+
+	REG_DMA_INIT_OPS(dma_write_cfg, ltm_mapping[idx], LTM_ROI,
+			ltm_buf[LTM_ROI][idx]);
+
+	for (i = 0; i < num_mixers; i++) {
+		dma_write_cfg.blk = ltm_mapping[dspp_idx[i]];
+		REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0,
+				0, 0);
+		rc = dma_ops->setup_payload(&dma_write_cfg);
+		if (rc) {
+			DRM_ERROR("write decode select failed ret %d\n", rc);
+			return;
+		}
+
+		ltm_vlut_ops_mask[dspp_idx[i]] &= ~ltm_roi;
+
+		REG_DMA_SETUP_OPS(dma_write_cfg, 0x04, &opmode, sizeof(opmode),
+			REG_SINGLE_MODIFY, 0, 0, REG_DMA_LTM_ROI_OP_MASK);
+		rc = dma_ops->setup_payload(&dma_write_cfg);
+		if (rc) {
+			DRM_ERROR("opmode write failed ret %d\n", rc);
+			return;
+		}
+	}
+
+	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl, ltm_buf[LTM_ROI][idx],
+				REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
+	rc = dma_ops->kick_off(&kick_off);
+	if (rc) {
+		DRM_ERROR("failed to kick off ret %d\n", rc);
+		return;
+	}
+}
+
+void reg_dmav1_setup_ltm_roiv1(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	struct sde_hw_reg_dma_ops *dma_ops;
+	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
+	struct sde_reg_dma_kickoff_cfg kick_off;
+	struct drm_msm_ltm_cfg_param *cfg_param = NULL;
+	enum sde_ltm dspp_idx[LTM_MAX] = {0};
+	enum sde_ltm idx = 0;
+	u32 blk = 0, opmode = 0, i = 0, num_mixers = 0;
+	u32 roi_data[3];
+	int rc = 0;
+
+	rc = reg_dma_ltm_check(ctx, cfg, LTM_ROI);
+	if (rc)
+		return;
+
+	idx = (enum sde_ltm)ctx->idx;
+	rc = reg_dmav1_get_ltm_blk(hw_cfg, idx, &dspp_idx[0], &blk);
+	if (rc) {
+		if (rc != -EALREADY)
+			DRM_ERROR("failed to get the blk info\n");
+		return;
+	}
+
+	num_mixers = hw_cfg->num_of_mixers;
+	/* disable case */
+	if (!hw_cfg->payload) {
+		DRM_DEBUG_DRIVER("Disable LTM roi feature\n");
+		ltm_roiv1_disable(ctx, cfg, num_mixers, dspp_idx);
+		return;
+	}
+
+	if (hw_cfg->len != sizeof(struct drm_msm_ltm_cfg_param)) {
+		DRM_ERROR("invalid size of payload len %d exp %zd\n",
+			hw_cfg->len, sizeof(struct drm_msm_ltm_cfg_param));
+		return;
+	}
+
+	cfg_param = hw_cfg->payload;
+	/* input param exceeds the display width */
+	if (cfg_param->cfg_param_01 + cfg_param->cfg_param_03 >
+			hw_cfg->displayh) {
+		DRM_ERROR("invalid input param = [%u,%u], displayh = %u\n",
+			cfg_param->cfg_param_01, cfg_param->cfg_param_03,
+			hw_cfg->displayh);
+		return;
+	}
+
+	/* input param exceeds the display height */
+	if (cfg_param->cfg_param_02 + cfg_param->cfg_param_04 >
+			hw_cfg->displayv) {
+		DRM_ERROR("invalid input param = [%u,%u], displayv = %u\n",
+			cfg_param->cfg_param_02, cfg_param->cfg_param_04,
+			hw_cfg->displayv);
+		return;
+	}
+
+	roi_data[0] = ((cfg_param->cfg_param_02 & 0xFFFF) << 16) |
+			(cfg_param->cfg_param_01 & 0xFFFF);
+	roi_data[1] = ((cfg_param->cfg_param_04 & 0xFFFF) << 16) |
+			(cfg_param->cfg_param_03 & 0xFFFF);
+	roi_data[2] = ((cfg_param->cfg_param_05 & 0x1FF) << 16) |
+			(cfg_param->cfg_param_06 & 0x1FF);
+
+	dma_ops = sde_reg_dma_get_ops();
+	dma_ops->reset_reg_dma_buf(ltm_buf[LTM_ROI][idx]);
+
+	REG_DMA_INIT_OPS(dma_write_cfg, blk, LTM_ROI, ltm_buf[LTM_ROI][idx]);
+	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("write decode select failed ret %d\n", rc);
+		return;
+	}
+
+	REG_DMA_SETUP_OPS(dma_write_cfg, 0xb0, roi_data, sizeof(u32) * 3,
+			REG_BLK_WRITE_SINGLE, 0, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("write roi data failed ret %d\n",
+				rc);
+		return;
+	}
+
+	for (i = 0; i < num_mixers; i++) {
+		/* broadcast feature is not supported with REG_SINGLE_MODIFY */
+		/* reset decode select to unicast */
+		dma_write_cfg.blk = ltm_mapping[dspp_idx[i]];
+		REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0,
+				0, 0);
+		rc = dma_ops->setup_payload(&dma_write_cfg);
+		if (rc) {
+			DRM_ERROR("write decode select failed ret %d\n", rc);
+			return;
+		}
+
+		if (ltm_vlut_ops_mask[dspp_idx[i]] & ltm_vlut)
+			opmode |= BIT(24);
+		ltm_vlut_ops_mask[dspp_idx[i]] |= ltm_roi;
+
+		REG_DMA_SETUP_OPS(dma_write_cfg, 0x04, &opmode, sizeof(opmode),
+			REG_SINGLE_MODIFY, 0, 0, REG_DMA_LTM_ROI_OP_MASK);
+		rc = dma_ops->setup_payload(&dma_write_cfg);
+		if (rc) {
+			DRM_ERROR("opmode write failed ret %d\n", rc);
+			return;
+		}
+	}
+
+	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl, ltm_buf[LTM_ROI][idx],
+				REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
+	rc = dma_ops->kick_off(&kick_off);
+	if (rc) {
+		DRM_ERROR("failed to kick off ret %d\n", rc);
+		return;
+	}
+}
+
+static void ltm_vlutv1_disable(struct sde_hw_dspp *ctx, void *cfg,
+		u32 num_mixers, enum sde_ltm *dspp_idx)
+{
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	struct sde_hw_reg_dma_ops *dma_ops;
+	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
+	struct sde_reg_dma_kickoff_cfg kick_off;
+	int rc, i = 0;
+	enum sde_ltm idx = 0;
+	u32 opmode = 0;
+
+	idx = (enum sde_ltm)ctx->idx;
+	if (idx >= LTM_MAX) {
+		DRM_ERROR("invalid ltm idx %d\n", ctx->idx);
+		return;
+	}
+
+	dma_ops = sde_reg_dma_get_ops();
+	dma_ops->reset_reg_dma_buf(ltm_buf[LTM_VLUT][idx]);
+	REG_DMA_INIT_OPS(dma_write_cfg, ltm_mapping[idx], LTM_VLUT,
+			ltm_buf[LTM_VLUT][idx]);
+
+	for (i = 0; i < num_mixers; i++) {
+		dma_write_cfg.blk = ltm_mapping[dspp_idx[i]];
+		REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0,
+				0, 0);
+		rc = dma_ops->setup_payload(&dma_write_cfg);
+		if (rc) {
+			DRM_ERROR("write decode select failed ret %d\n", rc);
+			return;
+		}
+
+		ltm_vlut_ops_mask[dspp_idx[i]] &= ~ltm_vlut;
+		/* disable VLUT/INIT/ROI */
+		REG_DMA_SETUP_OPS(dma_write_cfg, 0x04, &opmode, sizeof(opmode),
+			REG_SINGLE_MODIFY, 0, 0,
+			REG_DMA_LTM_VLUT_DISABLE_OP_MASK);
+		rc = dma_ops->setup_payload(&dma_write_cfg);
+		if (rc) {
+			DRM_ERROR("opmode write failed ret %d\n", rc);
+			return;
+		}
+	}
+
+	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl, ltm_buf[LTM_VLUT][idx],
+				REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
+	rc = dma_ops->kick_off(&kick_off);
+	if (rc) {
+		DRM_ERROR("failed to kick off ret %d\n", rc);
+		return;
+	}
+}
+
+void reg_dmav1_setup_ltm_vlutv1(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct drm_msm_ltm_data *payload = NULL;
+	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	struct sde_reg_dma_kickoff_cfg kick_off;
+	struct sde_hw_reg_dma_ops *dma_ops;
+	enum sde_ltm dspp_idx[LTM_MAX] = {0};
+	enum sde_ltm idx = 0;
+	u32 offset, crs = 0, index = 0, len = 0, blk = 0, opmode = 0;
+	u32 i = 0, num_mixers = 0;
+	int rc = 0;
+
+	rc = reg_dma_ltm_check(ctx, cfg, LTM_VLUT);
+	if (rc)
+		return;
+
+	idx = (enum sde_ltm)ctx->idx;
+	num_mixers = hw_cfg->num_of_mixers;
+	rc = reg_dmav1_get_ltm_blk(hw_cfg, idx, &dspp_idx[0], &blk);
+	if (rc) {
+		if (rc != -EALREADY)
+			DRM_ERROR("failed to get the blk info\n");
+		return;
+	}
+
+	/* disable case */
+	if (!hw_cfg->payload) {
+		DRM_DEBUG_DRIVER("Disable LTM vlut feature\n");
+		ltm_vlutv1_disable(ctx, cfg, num_mixers, dspp_idx);
+		return;
+	}
+
+	if (hw_cfg->len != sizeof(struct drm_msm_ltm_data)) {
+		DRM_ERROR("invalid size of payload len %d exp %zd\n",
+				hw_cfg->len, sizeof(struct drm_msm_ltm_data));
+		return;
+	}
+
+	offset = ctx->cap->sblk->ltm.base + 0x5c;
+	crs = SDE_REG_READ(&ctx->hw, offset);
+	if (!(crs & BIT(3))) {
+		DRM_ERROR("LTM VLUT buffer is not ready: crs = %d\n", crs);
+		return;
+	}
+
+	dma_ops = sde_reg_dma_get_ops();
+	dma_ops->reset_reg_dma_buf(ltm_buf[LTM_VLUT][idx]);
+
+	REG_DMA_INIT_OPS(dma_write_cfg, blk, LTM_VLUT, ltm_buf[LTM_VLUT][idx]);
+	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("write decode select failed ret %d\n", rc);
+		return;
+	}
+
+	/* write VLUT index */
+	REG_DMA_SETUP_OPS(dma_write_cfg, 0x38, &index, sizeof(u32),
+				REG_SINGLE_WRITE, 0, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("write VLUT index reg failed ret %d\n", rc);
+		return;
+	}
+
+	payload = hw_cfg->payload;
+	len = sizeof(u32) * LTM_DATA_SIZE_0 * LTM_DATA_SIZE_3;
+	REG_DMA_SETUP_OPS(dma_write_cfg, 0x3c, &payload->data[0][0],
+			len, REG_BLK_WRITE_INC, 0, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("write VLUT data failed rc %d\n", rc);
+		return;
+	}
+
+	for (i = 0; i < num_mixers; i++) {
+		/* broadcast feature is not supported with REG_SINGLE_MODIFY */
+		/* reset decode select to unicast */
+		dma_write_cfg.blk = ltm_mapping[dspp_idx[i]];
+		REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0,
+				0, 0);
+		rc = dma_ops->setup_payload(&dma_write_cfg);
+		if (rc) {
+			DRM_ERROR("write decode select failed ret %d\n", rc);
+			return;
+		}
+
+		/* set the UPDATE_REQ bit */
+		crs = BIT(0);
+		REG_DMA_SETUP_OPS(dma_write_cfg, 0x5c, &crs, sizeof(u32),
+				REG_SINGLE_MODIFY, 0, 0,
+				REG_DMA_LTM_UPDATE_REQ_MASK);
+		rc = dma_ops->setup_payload(&dma_write_cfg);
+		if (rc) {
+			DRM_ERROR("write UPDATE_REQ failed ret %d\n", rc);
+			return;
+		}
+
+		opmode = BIT(1);
+		if (ltm_vlut_ops_mask[dspp_idx[i]] & ltm_unsharp)
+			opmode |= BIT(4);
+		if (ltm_vlut_ops_mask[dspp_idx[i]] & ltm_dither)
+			opmode |= BIT(6);
+		if (ltm_vlut_ops_mask[dspp_idx[i]] & ltm_roi)
+			opmode |= BIT(24);
+		ltm_vlut_ops_mask[dspp_idx[i]] |= ltm_vlut;
+
+		REG_DMA_SETUP_OPS(dma_write_cfg, 0x4, &opmode, sizeof(u32),
+				REG_SINGLE_MODIFY, 0, 0,
+				REG_DMA_LTM_VLUT_ENABLE_OP_MASK);
+		rc = dma_ops->setup_payload(&dma_write_cfg);
+		if (rc) {
+			DRM_ERROR("write UPDATE_REQ failed ret %d\n", rc);
+			return;
+		}
+	}
+
+	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl, ltm_buf[LTM_VLUT][idx],
+				REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
+	rc = dma_ops->kick_off(&kick_off);
+	if (rc) {
+		DRM_ERROR("failed to kick off ret %d\n", rc);
+		return;
+	}
 }
