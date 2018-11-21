@@ -714,7 +714,8 @@ u32 sps_bam_pipe_alloc(struct sps_bam *dev, u32 pipe_index)
 		}
 	} else {
 		/* Check that client-specified pipe is available */
-		if (pipe_index >= dev->props.num_pipes) {
+		if (pipe_index >= dev->props.num_pipes ||
+				pipe_index >= BAM_MAX_PIPES) {
 			SPS_ERR(dev,
 				"sps:Invalid pipe %d for allocate on BAM %pa\n",
 				pipe_index, BAM_ID(dev));
