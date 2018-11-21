@@ -186,6 +186,7 @@ static int subsys_notif_virt_probe(struct platform_device *pdev)
 					subsystem_restart_irq_handler,
 					IRQF_ONESHOT | IRQF_TRIGGER_RISING,
 					subsystem->name, subsystem);
+			INIT_WORK(&subsystem->work, subsystem_notif_wq_func);
 			break;
 		default:
 			dev_err(&pdev->dev, "Unsupported type %d\n",
@@ -193,8 +194,6 @@ static int subsys_notif_virt_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (subsystem)
-		INIT_WORK(&subsystem->work, subsystem_notif_wq_func);
 	return 0;
 err:
 	destroy_workqueue(ssr_wq);
