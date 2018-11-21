@@ -98,6 +98,9 @@ static void tethering_stats_poll_queue(struct work_struct *work);
 static DECLARE_DELAYED_WORK(ipa_tether_stats_poll_wakequeue_work,
 			    tethering_stats_poll_queue);
 
+static int rmnet_ipa_send_coalesce_notification(uint8_t qmap_id, bool enable,
+					bool tcp, bool udp);
+
 enum ipa3_wwan_device_status {
 	WWAN_DEVICE_INACTIVE = 0,
 	WWAN_DEVICE_ACTIVE   = 1
@@ -1363,6 +1366,11 @@ static int handle3_ingress_format(struct net_device *dev,
 	ipa_wan_ep_cfg->ipa_ep_cfg.metadata_mask.metadata_mask = 0xFF000000;
 
 	ipa_wan_ep_cfg->client = IPA_CLIENT_APPS_WAN_CONS;
+
+	if (dev->features & NETIF_F_GRO_HW)
+	 /* Setup coalescing pipes */
+		ipa_wan_ep_cfg->client = IPA_CLIENT_APPS_WAN_COAL_CONS;
+
 	ipa_wan_ep_cfg->notify = apps_ipa_packet_receive_notify;
 	ipa_wan_ep_cfg->priv = dev;
 
@@ -1528,6 +1536,7 @@ static int ipa3_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	int8_t *v_name;
 	struct mutex *mux_mutex_ptr;
 	int wan_ep;
+	bool tcp_en = false, udp_en = false;
 
 	IPAWANDBG("rmnet_ipa got ioctl number 0x%08x", cmd);
 	switch (cmd) {
@@ -1819,6 +1828,18 @@ static int ipa3_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		/*  Set RX Headroom  */
 		case RMNET_IOCTL_SET_RX_HEADROOM:
 			break;
+		/*  Set RSC/RSB  */
+		case RMNET_IOCTL_SET_OFFLOAD:
+			if (ext_ioctl_data.u.offload_params.flags
+				& RMNET_IOCTL_COALESCING_FORMAT_TCP)
+				tcp_en = true;
+			if (ext_ioctl_data.u.offload_params.flags
+				& RMNET_IOCTL_COALESCING_FORMAT_UDP)
+				udp_en = true;
+			rc = rmnet_ipa_send_coalesce_notification(
+				ext_ioctl_data.u.offload_params.mux_id,
+				tcp_en || udp_en, tcp_en, udp_en);
+			break;
 		default:
 			IPAWANERR("[%s] unsupported extended cmd[%d]",
 				dev->name,
@@ -1930,6 +1951,48 @@ static void ipa3_q6_rm_notify_cb(void *user_data,
 	default:
 		return;
 	}
+}
+
+/**
+ * rmnet_ipa_send_coalesce_notification
+ * (uint8_t qmap_id, bool enable, bool tcp, bool udp)
+ * send RSC notification
+ *
+ * This function sends the rsc enable/disable notification
+ * fot tcp, udp to user-space module
+ */
+static int rmnet_ipa_send_coalesce_notification(uint8_t qmap_id,
+		bool enable,
+		bool tcp,
+		bool udp)
+{
+	struct ipa_msg_meta msg_meta;
+	struct ipa_coalesce_info *coalesce_info;
+	int rc;
+
+	memset(&msg_meta, 0, sizeof(struct ipa_msg_meta));
+	coalesce_info = kzalloc(sizeof(*coalesce_info), GFP_KERNEL);
+	if (!coalesce_info)
+		return -ENOMEM;
+
+	if (enable) {
+		coalesce_info->qmap_id = qmap_id;
+		coalesce_info->tcp_enable = tcp;
+		coalesce_info->udp_enable = udp;
+		msg_meta.msg_type = IPA_COALESCE_ENABLE;
+		msg_meta.msg_len = sizeof(struct ipa_coalesce_info);
+	} else {
+		msg_meta.msg_type = IPA_COALESCE_DISABLE;
+		msg_meta.msg_len = sizeof(struct ipa_coalesce_info);
+	}
+	rc = ipa_send_msg(&msg_meta, coalesce_info, ipa3_wwan_msg_free_cb);
+	if (rc) {
+		IPAWANERR("ipa_send_msg failed: %d\n", rc);
+		return -EFAULT;
+	}
+	IPAWANDBG("qmap-id(%d),enable(%d),tcp(%d),udp(%d)\n",
+		qmap_id, enable, tcp, udp);
+	return 0;
 }
 
 int ipa3_wwan_set_modem_state(struct wan_ioctl_notify_wan_state *state)
@@ -2492,6 +2555,10 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 				ret);
 		goto config_err;
 	}
+
+	/* for > IPA 4.5, we set the colaescing feature flag on */
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
+		dev->hw_features |= NETIF_F_GRO_HW | NETIF_F_RXCSUM;
 
 	/*
 	 * for IPA 4.0 offline charge is not needed and we need to prevent
