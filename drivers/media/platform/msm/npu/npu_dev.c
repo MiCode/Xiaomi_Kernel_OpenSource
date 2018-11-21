@@ -249,7 +249,7 @@ static ssize_t npu_show_capabilities(struct device *dev,
 	struct npu_device *npu_dev = dev_get_drvdata(dev);
 
 	if (!npu_enable_core_power(npu_dev)) {
-		if (snprintf(buf, PAGE_SIZE, "hw_version :0x%X",
+		if (scnprintf(buf, PAGE_SIZE, "hw_version :0x%X",
 			REGR(npu_dev, NPU_HW_VERSION)) < 0)
 			ret = -EINVAL;
 		npu_disable_core_power(npu_dev);
@@ -270,7 +270,7 @@ static ssize_t npu_show_pwr_state(struct device *dev,
 	struct npu_device *npu_dev = dev_get_drvdata(dev);
 	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
 
-	return snprintf(buf, PAGE_SIZE, "%s\n",
+	return scnprintf(buf, PAGE_SIZE, "%s\n",
 			(pwr->pwr_vote_num > 0) ? "on" : "off");
 }
 
@@ -1744,7 +1744,7 @@ static int npu_of_parse_pwrlevels(struct npu_device *npu_dev,
 	}
 
 	of_property_read_u32(node, "initial-pwrlevel", &init_level_index);
-	pr_debug("initial-pwrlevel %d", init_level_index);
+	pr_debug("initial-pwrlevel %d\n", init_level_index);
 
 	if (init_level_index >= pwr->num_pwrlevels)
 		init_level_index = pwr->num_pwrlevels - 1;
@@ -1813,11 +1813,10 @@ static int npu_thermalctrl_init(struct npu_device *npu_dev)
 {
 	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
 	struct npu_thermalctrl *thermalctrl = &npu_dev->thermalctrl;
-	int ret = 0;
 
 	thermalctrl->max_state = pwr->num_pwrlevels - 1;
 	thermalctrl->current_state = 0;
-	return ret;
+	return 0;
 }
 
 static int npu_irq_init(struct npu_device *npu_dev)
@@ -1875,6 +1874,14 @@ static int npu_mbox_init(struct npu_device *npu_dev)
 	}
 
 	return 0;
+}
+
+static void npu_mbox_deinit(struct npu_device *npu_dev)
+{
+	if (npu_dev->mbox_aop.chan) {
+		mbox_free_channel(npu_dev->mbox_aop.chan);
+		npu_dev->mbox_aop.chan = NULL;
+	}
 }
 
 /* -------------------------------------------------------------------------
@@ -1999,7 +2006,7 @@ static int npu_probe(struct platform_device *pdev)
 							  &npu_cooling_ops);
 		if (IS_ERR(tcdev)) {
 			dev_err(&pdev->dev,
-				"npu: failed to register npu as cooling device");
+				"npu: failed to register npu as cooling device\n");
 			rc = PTR_ERR(tcdev);
 			goto error_driver_init;
 		}
@@ -2044,11 +2051,12 @@ static int npu_probe(struct platform_device *pdev)
 
 	return rc;
 error_driver_init:
-	npu_cdsprm_cxlimit_deinit(npu_dev);
-	sysfs_remove_group(&npu_dev->device->kobj, &npu_fs_attr_group);
 	arm_iommu_detach_device(&(npu_dev->pdev->dev));
 	if (!npu_dev->smmu_ctx.mmu_mapping)
 		arm_iommu_release_mapping(npu_dev->smmu_ctx.mmu_mapping);
+	npu_cdsprm_cxlimit_deinit(npu_dev);
+	if (npu_dev->tcdev)
+		thermal_cooling_device_unregister(npu_dev->tcdev);
 	sysfs_remove_group(&npu_dev->device->kobj, &npu_fs_attr_group);
 error_res_init:
 	cdev_del(&npu_dev->cdev);
@@ -2058,8 +2066,7 @@ error_class_device_create:
 	class_destroy(npu_dev->class);
 error_class_create:
 	unregister_chrdev_region(npu_dev->dev_num, 1);
-	if (npu_dev->mbox_aop.chan)
-		mbox_free_channel(npu_dev->mbox_aop.chan);
+	npu_mbox_deinit(npu_dev);
 error_get_dev_num:
 	return rc;
 }
@@ -2069,20 +2076,20 @@ static int npu_remove(struct platform_device *pdev)
 	struct npu_device *npu_dev;
 
 	npu_dev = platform_get_drvdata(pdev);
-	thermal_cooling_device_unregister(npu_dev->tcdev);
-	npu_cdsprm_cxlimit_deinit(npu_dev);
-	npu_debugfs_deinit(npu_dev);
 	npu_host_deinit(npu_dev);
 	arm_iommu_detach_device(&(npu_dev->pdev->dev));
 	arm_iommu_release_mapping(npu_dev->smmu_ctx.mmu_mapping);
+	npu_debugfs_deinit(npu_dev);
+	npu_cdsprm_cxlimit_deinit(npu_dev);
+	if (npu_dev->tcdev)
+		thermal_cooling_device_unregister(npu_dev->tcdev);
 	sysfs_remove_group(&npu_dev->device->kobj, &npu_fs_attr_group);
 	cdev_del(&npu_dev->cdev);
 	device_destroy(npu_dev->class, npu_dev->dev_num);
 	class_destroy(npu_dev->class);
 	unregister_chrdev_region(npu_dev->dev_num, 1);
 	platform_set_drvdata(pdev, NULL);
-	if (npu_dev->mbox_aop.chan)
-		mbox_free_channel(npu_dev->mbox_aop.chan);
+	npu_mbox_deinit(npu_dev);
 
 	g_npu_dev = NULL;
 
