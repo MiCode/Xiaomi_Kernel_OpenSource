@@ -24,6 +24,7 @@ struct boot_stats {
 	uint32_t load_kernel_end;
 #ifdef CONFIG_MSM_BOOT_TIME_MARKER
 	uint32_t bootloader_early_domain_start;
+	uint32_t bootloader_early_camera_start;
 	uint32_t bootloader_checksum;
 #endif
 };
