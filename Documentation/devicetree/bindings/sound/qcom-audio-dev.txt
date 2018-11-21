@@ -88,6 +88,8 @@ Required properties:
  - compatible : "qcom,msm-pcm-voice"
  - qcom,destroy-cvd : Flag indicating whether to destroy cvd at
                       the end of call for low memory targets
+ - qcom,vote-bms: Flag indicating whether to vote for BMS during
+		  voice call or not
 
 * msm-voice-host-pcm
 
