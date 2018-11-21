@@ -576,7 +576,7 @@ static int dp_ctrl_link_setup(struct dp_ctrl_private *ctrl, bool shallow)
 	catalog->phy_lane_cfg(catalog, ctrl->orientation,
 				link_params->lane_count);
 
-	while (--link_train_max_retries && !atomic_read(&ctrl->aborted)) {
+	do {
 		pr_debug("bw_code=%d, lane_count=%d\n",
 			link_params->bw_code, link_params->lane_count);
 
@@ -597,8 +597,10 @@ static int dp_ctrl_link_setup(struct dp_ctrl_private *ctrl, bool shallow)
 		 * even though the cable is removed. Disconnect interrupt
 		 * will eventually trigger and shutdown DP.
 		 */
-		if (shallow)
+		if (shallow) {
+			rc = 0;
 			break;
+		}
 
 		dp_ctrl_link_rate_down_shift(ctrl);
 
@@ -607,7 +609,7 @@ static int dp_ctrl_link_setup(struct dp_ctrl_private *ctrl, bool shallow)
 
 		/* hw recommended delays before retrying link training */
 		msleep(20);
-	}
+	} while (--link_train_max_retries && !atomic_read(&ctrl->aborted));
 
 	return rc;
 }
@@ -1134,8 +1136,7 @@ static int dp_ctrl_on(struct dp_ctrl *dp_ctrl, bool mst_mode, bool shallow)
 		ctrl->link->link_params.lane_count);
 
 	rc = dp_ctrl_link_setup(ctrl, shallow);
-	/* Ignore errors in case of shallow processing */
-	if (!shallow && rc)
+	if (rc)
 		goto end;
 
 	ctrl->power_on = true;
