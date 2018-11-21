@@ -1598,7 +1598,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 			continue;
 
 		if (rpra && rpra[i].buf.len && ctx->overps[oix]->mstart) {
-			if (map && map->handle) {
+			if (map && map->buf) {
 				dma_buf_begin_cpu_access(map->buf,
 					DMA_BIDIRECTIONAL);
 				dma_buf_end_cpu_access(map->buf,
@@ -1703,7 +1703,7 @@ static void inv_args_pre(struct smq_invoke_ctx *ctx)
 			continue;
 		if (!IS_CACHE_ALIGNED((uintptr_t)
 				uint64_to_ptr(rpra[i].buf.pv))) {
-			if (map && map->handle) {
+			if (map && map->buf) {
 				dma_buf_begin_cpu_access(map->buf,
 					DMA_BIDIRECTIONAL);
 				dma_buf_end_cpu_access(map->buf,
@@ -1717,7 +1717,7 @@ static void inv_args_pre(struct smq_invoke_ctx *ctx)
 		end = (uintptr_t)uint64_to_ptr(rpra[i].buf.pv +
 							rpra[i].buf.len);
 		if (!IS_CACHE_ALIGNED(end)) {
-			if (map && map->handle) {
+			if (map && map->buf) {
 				dma_buf_begin_cpu_access(map->buf,
 					DMA_BIDIRECTIONAL);
 				dma_buf_end_cpu_access(map->buf,
