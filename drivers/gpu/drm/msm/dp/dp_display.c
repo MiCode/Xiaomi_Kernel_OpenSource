@@ -2333,6 +2333,21 @@ int dp_display_get_num_of_streams(void)
 	return DP_STREAM_MAX;
 }
 
+static void dp_display_set_mst_state(void *dp_display,
+		enum dp_drv_state mst_state)
+{
+	struct dp_display_private *dp;
+
+	if (!g_dp_display) {
+		pr_debug("dp display not initialized\n");
+		return;
+	}
+
+	dp = container_of(g_dp_display, struct dp_display_private, dp_display);
+	if (dp->mst.mst_active && dp->mst.cbs.set_drv_state)
+		dp->mst.cbs.set_drv_state(g_dp_display, mst_state);
+}
+
 static int dp_display_remove(struct platform_device *pdev)
 {
 	struct dp_display_private *dp;
@@ -2353,6 +2368,23 @@ static int dp_display_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int dp_pm_prepare(struct device *dev)
+{
+	dp_display_set_mst_state(g_dp_display, PM_SUSPEND);
+
+	return 0;
+}
+
+static void dp_pm_complete(struct device *dev)
+{
+	dp_display_set_mst_state(g_dp_display, PM_DEFAULT);
+}
+
+static const struct dev_pm_ops dp_pm_ops = {
+	.prepare = dp_pm_prepare,
+	.complete = dp_pm_complete,
+};
+
 static struct platform_driver dp_display_driver = {
 	.probe  = dp_display_probe,
 	.remove = dp_display_remove,
@@ -2360,6 +2392,7 @@ static struct platform_driver dp_display_driver = {
 		.name = "msm-dp-display",
 		.of_match_table = dp_dt_match,
 		.suppress_bind_attrs = true,
+		.pm = &dp_pm_ops,
 	},
 };
 
