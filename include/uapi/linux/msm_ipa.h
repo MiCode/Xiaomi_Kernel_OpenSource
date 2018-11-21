@@ -193,6 +193,7 @@
  * PROD clients are always even, and CONS clients are always odd.
  * Add new clients in the end of the list or replace reserved one,
  * update IPA_CLIENT_MAX and update the strings array ipa_clients_strings[]
+ * while keeping the ordering of the clients the same
  */
 enum ipa_client_type {
 	IPA_CLIENT_HSIC1_PROD			= 0,
@@ -216,10 +217,10 @@ enum ipa_client_type {
 	IPA_CLIENT_A5_WLAN_AMPDU_PROD		= 12,
 	IPA_CLIENT_WLAN2_CONS			= 13,
 
-	/* RESERVERD PROD			= 14, */
+	/* RESERVED PROD			= 14, */
 	IPA_CLIENT_WLAN3_CONS			= 15,
 
-	/* RESERVERD PROD			= 16, */
+	/* RESERVED PROD			= 16, */
 	IPA_CLIENT_WLAN4_CONS			= 17,
 
 	IPA_CLIENT_USB_PROD			= 18,
@@ -256,7 +257,7 @@ enum ipa_client_type {
 	IPA_CLIENT_ODU_PROD			= 38,
 	IPA_CLIENT_ODU_EMB_CONS			= 39,
 
-	/* RESERVERD PROD			= 40, */
+	/* RESERVED PROD			= 40, */
 	IPA_CLIENT_ODU_TETH_CONS		= 41,
 
 	IPA_CLIENT_MHI_PROD			= 42,
@@ -286,7 +287,7 @@ enum ipa_client_type {
 	IPA_CLIENT_Q6_DECOMP2_PROD		= 58,
 	IPA_CLIENT_Q6_DECOMP2_CONS		= 59,
 
-	/* RESERVERD PROD			= 60, */
+	/* RESERVED PROD			= 60, */
 	IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS	= 61,
 
 	IPA_CLIENT_TEST_PROD			= 62,
@@ -304,7 +305,7 @@ enum ipa_client_type {
 	IPA_CLIENT_TEST4_PROD			= 70,
 	IPA_CLIENT_TEST4_CONS			= 71,
 
-	/* RESERVERD PROD			= 72, */
+	/* RESERVED PROD			= 72, */
 	IPA_CLIENT_DUMMY_CONS			= 73,
 
 	IPA_CLIENT_Q6_DL_NLO_DATA_PROD		= 74,
@@ -324,9 +325,12 @@ enum ipa_client_type {
 
 	IPA_CLIENT_Q6_AUDIO_DMA_MHI_PROD	= 84,
 	IPA_CLIENT_Q6_AUDIO_DMA_MHI_CONS	= 85,
+
+	/* RESERVED PROD			= 86, */
+	IPA_CLIENT_APPS_WAN_COAL_CONS		= 87,
 };
 
-#define IPA_CLIENT_MAX (IPA_CLIENT_Q6_AUDIO_DMA_MHI_CONS + 1)
+#define IPA_CLIENT_MAX (IPA_CLIENT_APPS_WAN_COAL_CONS + 1)
 
 #define IPA_CLIENT_Q6_DL_NLO_DATA_PROD IPA_CLIENT_Q6_DL_NLO_DATA_PROD
 #define IPA_CLIENT_Q6_UL_NLO_ACK_CONS IPA_CLIENT_Q6_UL_NLO_ACK_CONS
@@ -956,6 +960,7 @@ enum ipa_hdr_proc_type {
  *  consecutive packets
  * @retain_hdr: bool switch to instruct IPA core to add back to the packet
  *  the header removed as part of header removal
+ * @coalesce: bool to decide whether packets should be coalesced or not
  */
 struct ipa_rt_rule {
 	enum ipa_client_type dst;
@@ -965,7 +970,9 @@ struct ipa_rt_rule {
 	uint8_t max_prio;
 	uint8_t hashable;
 	uint8_t retain_hdr;
+	uint8_t coalesce;
 };
+#define IPA_RT_SUPPORT_COAL
 
 /**
  * struct ipa_hdr_add - header descriptor includes in and out
