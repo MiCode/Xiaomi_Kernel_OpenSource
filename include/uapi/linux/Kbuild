@@ -20,3 +20,8 @@ header-y += sockev.h
 header-y += nfc/
 header-y += seemp_api.h
 header-y += seemp_param_id.h
+
+ifneq ($(VSERVICES_SUPPORT), "")
+include include/linux/Kbuild.vservices
+endif
+header-y += okl4-link-shbuf.h
