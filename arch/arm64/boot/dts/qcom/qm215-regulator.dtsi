@@ -551,5 +551,10 @@
 		qcom,cpr-voltage-scaling-factor-max = <0 2000 2000>;
 		qcom,cpr-scaled-init-voltage-as-ceiling;
 		qcom,cpr-fuse-revision = <69 39 3 0>;
+		qcom,cpr-quotient-adjustment =
+				<50      40     50>;
+		qcom,cpr-init-voltage-adjustment =
+				<30000   5000   10000>;
+		qcom,cpr-enable;
 	};
 };
