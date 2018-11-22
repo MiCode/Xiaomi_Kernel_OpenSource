@@ -221,4 +221,6 @@ source "drivers/slimbus/Kconfig"
 
 source "drivers/esoc/Kconfig"
 
+source "drivers/sensors/Kconfig"
+
 endmenu
