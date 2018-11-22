@@ -1173,8 +1173,7 @@ static int qcedev_vbuf_ablk_cipher_max_xfer(struct qcedev_async_req *areq,
 				goto exit;
 			}
 
-			k_align_dst += creq->vbuf.dst[dst_i].len +
-						byteoffset;
+			k_align_dst += creq->vbuf.dst[dst_i].len;
 			creq->data_len -= creq->vbuf.dst[dst_i].len;
 			dst_i++;
 		} else {
