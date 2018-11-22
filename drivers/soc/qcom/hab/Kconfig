@@ -1,0 +1,14 @@
+#
+# HAB configuration
+#
+config MSM_HAB
+	bool "Enable Multimedia driver Hypervisor Abstraction Layer"
+	help
+	  Multimedia driver hypervisor abstraction layer.
+	  Required for drivers to use the HAB API to communicate with the host
+	  OS.
+
+config MSM_AGL
+	bool "Enable built-in hab config"
+	help
+	  Use built-in configuration to setup hab driver.
