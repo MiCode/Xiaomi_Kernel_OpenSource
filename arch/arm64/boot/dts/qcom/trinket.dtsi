@@ -20,6 +20,7 @@
 #include <dt-bindings/clock/qcom,gpucc-trinket.h>
 #include <dt-bindings/clock/qcom,videocc-sm6150.h>
 #include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
+#include <dt-bindings/spmi/spmi.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. TRINKET";
@@ -1022,7 +1023,28 @@
 			#interrupt-cells = <2>;
 		};
 	};
+
+	spmi_bus: qcom,spmi@1c40000 {
+		compatible = "qcom,spmi-pmic-arb";
+		reg = <0x1c40000 0x1100>,
+			<0x1e00000 0x2000000>,
+			<0x3e00000 0x100000>,
+			<0x3f00000 0xa0000>,
+			<0x1c0a000 0x26000>;
+		reg-names = "core", "chnls", "obsrvr", "intr", "cnfg";
+		interrupt-names = "periph_irq";
+		interrupts = <GIC_SPI 183 IRQ_TYPE_NONE>;
+		qcom,ee = <0>;
+		qcom,channel = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		interrupt-controller;
+		#interrupt-cells = <4>;
+		cell-index = <0>;
+	};
 };
+#include "pmi632.dtsi"
+#include "pm6125.dtsi"
 #include "trinket-pinctrl.dtsi"
 #include "trinket-ion.dtsi"
 #include "pm6125-rpm-regulator.dtsi"
