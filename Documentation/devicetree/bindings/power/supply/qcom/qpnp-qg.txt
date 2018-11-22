@@ -1,0 +1,379 @@
+Qualcomm Technologies, Inc. QPNP PMIC QGAUGE (QG) Device
+
+QPNP PMIC QGAUGE device provides the ability to gauge the State-of-Charge
+of the battery. It provides an interface to the clients to read various
+battery related parameters.
+
+=======================
+Required Node Structure
+=======================
+
+Qgauge device must be described in two level of nodes. The first level
+describes the properties of the Qgauge device and the second level
+describes the peripherals managed/used of the module.
+
+====================================
+First Level Node - QGAUGE device
+====================================
+
+- compatible
+	Usage:      required
+	Value type: <string>
+	Definition: Should be "qcom,qpnp-qg".
+
+- qcom,pmic-revid
+	Usage:      required
+	Value type: <phandle>
+	Definition: Should specify the phandle of PMIC revid module. This is
+		    used to identify the PMIC subtype.
+
+- qcom,qg-vadc
+	Usage:      required
+	Value type: <phandle>
+	Definition: Phandle for the VADC node, it is used for BATT_ID and
+		    BATT_THERM readings.
+
+- qcom,vbatt-empty-mv
+	Usage:      optional
+	Value type: <u32>
+	Definition: The battery voltage threshold (in mV) at which the
+		    vbatt-empty interrupt fires. The SOC is forced to 0
+		    when this interrupt fires. If not specified, the
+		    default value is 3200 mV.
+
+- qcom,vbatt-empty-cold-mv
+	Usage:      optional
+	Value type: <u32>
+	Definition: The battery voltage threshold (in mV) at which the
+		    vbatt-empty interrupt fires. This threshold is only
+		    applied at cold temperature specified by
+		    'qcom,cold-temp-threshold'. The SOC is forced to 0
+		    when this interrupt fires. If not specified, the
+		    default value is 3000 mV.
+
+- qcom,vbatt-cutoff-mv
+	Usage:      optional
+	Value type: <u32>
+	Definition: The battery voltage threshold (in mV) at which the
+		    the Qgauge algorithm converges to 0 SOC. If not specified
+		    the default value is 3400 mV.
+
+- qcom,vbatt-low-mv
+	Usage:      optional
+	Value type: <u32>
+	Definition: The battery voltage threshold (in mV) at which the
+		    the VBAT_LOW interrupt fires. Software can take necessary
+		    the action when this interrupt fires. If not specified
+		    the default value is 3500 mV.
+
+- qcom,vbatt-low-cold-mv
+	Usage:      optional
+	Value type: <u32>
+	Definition: The battery voltage threshold (in mV) at which the
+		    the VBAT_LOW interrupt fires. The threshold is only
+		    applied at cold temperature specified by
+		    'qcom,cold-temp-threshold'. Software can take necessary
+		    the action when this interrupt fires. If not specified
+		    the default value is 3800 mV.
+
+- qcom,qg-iterm-ma
+	Usage:      optional
+	Value type: <u32>
+	Definition: The battery current (in mA) at which the the QG algorithm
+		    converges the SOC to 100% during charging and can be used to
+		    terminate charging. If not specified, the default value is
+		    100mA.
+
+- qcom,delta-soc
+	Usage:      optional
+	Value type: <u32>
+	Definition: The SOC percentage increase at which the SOC is
+		    periodically reported to the userspace. If not specified,
+		    the value defaults to 1%.
+
+- qcom,s2-fifo-length
+	Usage:      optional
+	Value type: <u32>
+	Definition: The total number if FIFO samples which need to be filled up
+		    in S2 state of QG to fire the FIFO DONE interrupt.
+		    Minimum value = 1 Maximum Value = 8. If not specified,
+		    the default value is 5.
+
+- qcom,s2-acc-length
+	Usage:      optional
+	Value type: <u32>
+	Definition: The number of distinct V & I samples to be accumulated
+		    in each FIFO in the S2 state of QG.
+		    Minimum Value = 0 Maximum Value = 256. If not specified,
+		    the default value is 128.
+
+- qcom,s2-acc-interval-ms
+	Usage:      optional
+	Value type: <u32>
+	Definition: The time (in ms) between each of the V & I samples being
+		    accumulated in FIFO.
+		    Minimum Value = 0 ms Maximum Value = 2550 ms. If not
+		    specified the default value is 100 ms.
+
+- qcom,ocv-timer-expiry-min
+	Usage:      optional
+	Value type: <u32>
+	Definition: The maximum time (in minutes) for the QG to transition from
+		    S3 to S2 state.
+		    Minimum Value = 2 min Maximum Value = 30 min. If not
+		    specified the hardware default is set to 14 min.
+
+- qcom,ocv-tol-threshold-uv
+	Usage:      optional
+	Value type: <u32>
+	Definition: The OCV detection error tolerance (in uV). The maximum
+		    voltage allowed between 2 VBATT readings in the S3 state
+		    to qualify for a valid OCV.
+		    Minimum Value = 0 uV Maximum Value = 12262 uV  Step = 195 uV
+
+- qcom,s3-entry-fifo-length
+	Usage:      optional
+	Value type: <u32>
+	Definition: The minimum number if FIFO samples which have to qualify the
+		    S3 IBAT entry threshold (qcom,s3-entry-ibat-ua) for QG
+		    to enter into S3 state.
+		    Minimum Value = 1 Maximum Value = 8. The hardware default
+		    is configured to 3.
+
+- qcom,s3-entry-ibat-ua
+	Usage:      optional
+	Value type: <u32>
+	Definition: The battery current (in uA) for the QG to enter into the S3
+		    state. The QG algorithm enters into S3 if the battery
+		    current is lower than this threshold consecutive for
+		    the FIFO length specified in 'qcom,s3-entry-fifo-length'.
+		    Minimum Value = 0 uA Maximum Value = 155550 uA
+		    Step = 610 uA.
+
+- qcom,s3-exit-ibat-ua
+	Usage:      optional
+	Value type: <u32>
+	Definition: The battery current (in uA) for the QG to exit S3 state.
+		    If the battery current is higher than this threshold QG
+		    exists S3 state.
+		    Minimum Value = 0 uA Maximum Value = 155550 uA
+		    Step = 610 uA.
+
+- qcom,rbat-conn-mohm
+	Usage:      optional
+	Value type: <u32>
+	Definition: Resistance of the battery connectors in mOhms.
+
+- qcom,ignore-shutdown-soc-secs
+	Usage:      optional
+	Value type: <u32>
+	Definition: Time in seconds beyond which shutdown SOC is ignored.
+		    If not specified the default value is 360 secs.
+
+- qcom,hold-soc-while-full
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property that when defined holds SOC at 100% when
+		    the battery is full until recharge starts.
+
+- qcom,linearize-soc
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property that when defined linearizes SOC when
+		    the SOC drops after charge termination monotonically to
+		    improve the user experience. This is applicable only if
+		    "qcom,hold-soc-while-full" is specified.
+
+- qcom,cold-temp-threshold
+	Usage:      optional
+	Value type: <u32>
+	Definition: Temperature threshold in decidegree at which the low
+		    temperature specific configuration as applied. If not
+		    specified, the default value is 0 degree centigrade.
+
+- qcom,cl-disable
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property to disable the battery capacity
+		    learning when charging.
+
+- qcom,cl-feedback-on
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property to feedback the learned capacity into
+		    the capacity lerning algorithm. This has to be used only if the
+		    property "qcom,cl-disable" is not specified.
+
+- qcom,cl-max-start-soc
+	Usage:      optional
+	Value type: <u32>
+	Definition: Battery SOC has to be below or equal to this value at the
+		    start of a charge cycle to start the capacity learning.
+		    If this is not specified, then the default value used
+		    will be 15. Unit is in percentage.
+
+- qcom,cl-min-start-soc
+	Usage:      optional
+	Value type: <u32>
+	Definition: Battery SOC has to be above or equal to this value at the
+		    start of a charge cycle to start the capacity learning.
+		    If this is not specified, then the default value used
+		    will be 10. Unit is in percentage.
+
+- qcom,cl-min-temp
+	Usage:      optional
+	Value type: <u32>
+	Definition: Lower limit of battery temperature to start the capacity
+		    learning. If this is not specified, then the default value
+		    used will be 150 (15 C). Unit is in decidegC.
+
+- qcom,cl-max-temp
+	Usage:      optional
+	Value type: <u32>
+	Definition: Upper limit of battery temperature to start the capacity
+		    learning. If this is not specified, then the default value
+		    used will be 500 (50 C). Unit is in decidegC.
+
+- qcom,cl-max-increment
+	Usage:      optional
+	Value type: <u32>
+	Definition: Maximum capacity increment allowed per capacity learning
+		    cycle. If this is not specified, then the default value
+		    used will be 5 (0.5%). Unit is in decipercentage.
+
+- qcom,cl-max-decrement
+	Usage:      optional
+	Value type: <u32>
+	Definition: Maximum capacity decrement allowed per capacity learning
+		    cycle. If this is not specified, then the default value
+		    used will be 100 (10%). Unit is in decipercentage.
+
+- qcom,cl-min-limit
+	Usage:      optional
+	Value type: <u32>
+	Definition: Minimum limit that the capacity cannot go below in a
+		    capacity learning cycle. If this is not specified, then
+		    the default value is 0. Unit is in decipercentage.
+
+- qcom,cl-max-limit
+	Usage:      optional
+	Value type: <u32>
+	Definition: Maximum limit that the capacity cannot go above in a
+		    capacity learning cycle. If this is not specified, then
+		    the default value is 0. Unit is in decipercentage.
+
+- qcom,esr-disable
+	Usage:      optional
+	Value type: <bool>
+	Definition: Boolean property to disable ESR estimation. If not defined
+		    ESR estimation stays enabled for charge-cycles.
+
+- qcom,esr-discharge-enable
+	Usage:      optional
+	Value type: <bool>
+	Definition: Boolean property to enable ESR estimation during discharge.
+		    Only valid if 'qcom,esr-disable' is not defined.
+
+- qcom,esr-qual-current-ua
+	Usage:      optional
+	Value type: <u32>
+	Definition: Minimum current differential in uA to qualify an ESR
+		    reading as valid. If not defined the value defaults
+		    to 130mA.
+
+- qcom,esr-qual-vbatt-uv
+	Usage:      optional
+	Value type: <u32>
+	Definition: Minimum vbatt differential in uV to qualify an ESR
+		    reading as valid. If not defined the value defaults
+		    to 7mV.
+
+- qcom,esr-disable-soc
+	Usage:      optional
+	Value type: <u32>
+	Definition: Minimum battery SOC below which ESR will not be
+		    attempted by QG. If not defined the value defaults
+		    to 10%.
+
+- qcom,esr-chg-min-ibat-ua
+	Usage:      optional
+	Value type: <int>
+	Definition: Minimun charge current (IBAT) in uA at which ESR will
+		    be attempted. If not specified the default value is
+		    in -450mA.
+
+- qcom,qg-ext-sns
+	Usage:      optional
+	Value type: <bool>
+	Definition: Boolean property to support external-rsense based
+		    configuration.
+
+- qcom,shutdown-temp-diff
+	Usage:      optional
+	Value type: <u32>
+	Definition: The allowed battery temperature in deci-degree difference
+		    between shutdown and power-on to continue with the shutdown
+		    SOC. If not specified the default value is 6 degrees C (60).
+
+- qcom,shutdown-soc-threshold
+	Usage:      optional
+	Value type: <u32>
+	Definition: The SOC difference allowed between PON and SHUTDOWN SOC
+		    for the shutdown SOC to be used. If the difference is
+		    beyond this value the PON SOC is used.
+
+==========================================================
+Second Level Nodes - Peripherals managed by QGAUGE driver
+==========================================================
+- reg
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: Addresses and sizes for the specified peripheral
+
+- interrupts
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Interrupt mapping as per the interrupt encoding
+
+- interrupt-names
+	Usage:      optional
+	Value type: <stringlist>
+	Definition: Interrupt names.  This list must match up 1-to-1 with the
+		    interrupts specified in the 'interrupts' property.
+
+========
+Example
+========
+
+pmi632_qg: qpnp,qg {
+	compatible = "qcom,qpnp-qg";
+	qcom,pmic-revid = <&pmi632_revid>;
+	qcom,qg-vadc = <&pmi632_vadc>;
+	qcom,vbatt-empty-mv = <3200>;
+	qcom,vbatt-low-mv = <3500>;
+	qcom,vbatt-cutoff-mv = <3400>;
+	qcom,qg-iterm-ma = <100>;
+
+	qcom,qgauge@4800 {
+		status = "okay";
+		reg = <0x4800 0x100>;
+		interrupts = <0x2 0x48 0x0 IRQ_TYPE_EDGE_BOTH>,
+			     <0x2 0x48 0x1 IRQ_TYPE_EDGE_BOTH>,
+			     <0x2 0x48 0x2 IRQ_TYPE_EDGE_BOTH>,
+			     <0x2 0x48 0x4 IRQ_TYPE_EDGE_BOTH>,
+			     <0x2 0x48 0x5 IRQ_TYPE_EDGE_BOTH>,
+			     <0x2 0x48 0x6 IRQ_TYPE_EDGE_BOTH>;
+		interrupt-names = "qg-batt-missing",
+				  "qg-vbat-low",
+				  "qg-vbat-empty",
+				  "qg-fifo-done",
+				  "qg-good-ocv",
+				  "qg-fsm-state-chg",
+				  "qg-event";
+	};
+
+	qcom,qg-sdam@b000 {
+		status = "okay";
+		reg = <0xb000 0x100>;
+	};
+};
