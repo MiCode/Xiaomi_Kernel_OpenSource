@@ -620,6 +620,7 @@
 		clock-names-option =  "ife_dsp_clk";
 		clocks-option = <&clock_camcc CAM_CC_IFE_0_DSP_CLK>;
 		clock-rates-option = <760000000>;
+		qcom,cam-cx-ipeak = <&cx_ipeak_lm 3>;
 		status = "ok";
 	};
 
@@ -691,6 +692,7 @@
 		clock-names-option =  "ife_dsp_clk";
 		clocks-option = <&clock_camcc CAM_CC_IFE_1_DSP_CLK>;
 		clock-rates-option = <760000000>;
+		qcom,cam-cx-ipeak = <&cx_ipeak_lm 3>;
 		status = "ok";
 	};
 
@@ -832,6 +834,7 @@
 			<0 0 0 600000000 0>;
 		clock-cntl-level = "lowsvs", "svs", "svs_l1",
 				"nominal", "turbo";
+		qcom,cam-cx-ipeak = <&cx_ipeak_lm 3>;
 		status = "ok";
 	};
 
@@ -866,6 +869,7 @@
 			<0 0 0 600000000 0>;
 		clock-cntl-level = "lowsvs", "svs", "svs_l1",
 				"nominal", "turbo";
+		qcom,cam-cx-ipeak = <&cx_ipeak_lm 3>;
 		status = "ok";
 	};
 
@@ -900,6 +904,7 @@
 			<0 0 0 600000000 0>;
 		clock-cntl-level = "lowsvs", "svs", "svs_l1",
 				"nominal", "turbo";
+		qcom,cam-cx-ipeak = <&cx_ipeak_lm 3>;
 		status = "ok";
 	};
 
@@ -1068,6 +1073,7 @@
 			<0 0 0 80000000 0 480000000 0>;
 		clock-cntl-level = "suspend", "lowsvs", "svs",
 			"svs_l1", "nominal", "turbo";
+		qcom,cam-cx-ipeak = <&cx_ipeak_lm 3>;
 		control-camnoc-axi-clk;
 		camnoc-bus-width = <32>;
 		camnoc-axi-clk-bw-margin-perc = <10>;
