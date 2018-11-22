@@ -1342,42 +1342,45 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 		}
 
 		dev->power_on = true;
+		/* check link status during initial bootup */
+		if (!dev->enumerated) {
+			val = readl_relaxed(dev->parf + PCIE20_PARF_PM_STTS);
+			val = val & PARF_XMLH_LINK_UP;
+			EP_PCIE_DBG(dev, "PCIe V%d: Link status is 0x%x.\n",
+					dev->rev, val);
+			if (val) {
+				EP_PCIE_INFO(dev,
+					"PCIe V%d: link initialized by bootloader for LE PCIe endpoint; skip link training in HLOS.\n",
+					dev->rev);
+				ep_pcie_core_init(dev, true);
+				dev->link_status = EP_PCIE_LINK_UP;
+				dev->l23_ready = false;
+				goto checkbme;
+			} else {
+				ltssm_en = readl_relaxed(dev->parf
+					+ PCIE20_PARF_LTSSM) & BIT(8);
+
+				if (ltssm_en) {
+					EP_PCIE_ERR(dev,
+						"PCIe V%d: link is not up when LTSSM has already enabled by bootloader.\n",
+						dev->rev);
+					ret = EP_PCIE_ERROR;
+					goto link_fail;
+				} else {
+					EP_PCIE_DBG(dev,
+						"PCIe V%d: Proceed with regular link training.\n",
+						dev->rev);
+				}
+			}
+		}
+
+		ret = ep_pcie_reset_init(dev);
+		if (ret)
+			goto link_fail;
 	}
 
 	if (!(opt & EP_PCIE_OPT_ENUM))
 		goto out;
-
-	/* check link status during initial bootup */
-	if (!dev->enumerated) {
-		val = readl_relaxed(dev->parf + PCIE20_PARF_PM_STTS);
-		val = val & PARF_XMLH_LINK_UP;
-		EP_PCIE_DBG(dev, "PCIe V%d: Link status is 0x%x.\n", dev->rev,
-				val);
-		if (val) {
-			EP_PCIE_INFO(dev,
-				"PCIe V%d: link initialized by bootloader for LE PCIe endpoint; skip link training in HLOS.\n",
-				dev->rev);
-			ep_pcie_core_init(dev, true);
-			dev->link_status = EP_PCIE_LINK_UP;
-			dev->l23_ready = false;
-			goto checkbme;
-		} else {
-			ltssm_en = readl_relaxed(dev->parf
-					+ PCIE20_PARF_LTSSM) & BIT(8);
-
-			if (ltssm_en) {
-				EP_PCIE_ERR(dev,
-					"PCIe V%d: link is not up when LTSSM has already enabled by bootloader.\n",
-					dev->rev);
-				ret = EP_PCIE_ERROR;
-				goto link_fail;
-			} else {
-				EP_PCIE_DBG(dev,
-					"PCIe V%d: Proceed with regular link training.\n",
-					dev->rev);
-			}
-		}
-	}
 
 	if (opt & EP_PCIE_OPT_AST_WAKE) {
 		/* assert PCIe WAKE# */
@@ -1430,9 +1433,6 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 		}
 	}
 
-	ret = ep_pcie_reset_init(dev);
-	if (ret)
-		goto link_fail;
 	/* init PCIe PHY */
 	ep_pcie_phy_init(dev);
 
