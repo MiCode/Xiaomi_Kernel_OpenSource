@@ -11,6 +11,8 @@
  * GNU General Public License for more details.
  */
 
+#include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
+
 /* Stub regulators */
 
 / {
