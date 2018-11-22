@@ -656,12 +656,6 @@
 			linux,cma-default;
 		};
 	};
-
-	mtp_batterydata: qcom,battery-data {
-		qcom,batt-id-range-pct = <15>;
-		#include "qg-batterydata-alium-3600mah.dtsi"
-		#include "qg-batterydata-mlp466076-3200mah.dtsi"
-	};
 };
 
 &soc {
@@ -3073,11 +3067,6 @@
 
 &usb0 {
 	extcon = <&pm6150_pdphy>, <&pm6150_charger>, <&eud>;
-};
-
-&pm6150_charger {
-	dpdm-supply = <&qusb_phy0>;
-	qcom,suspend-input-on-debug-batt;
 };
 
 &pm6150_vadc {

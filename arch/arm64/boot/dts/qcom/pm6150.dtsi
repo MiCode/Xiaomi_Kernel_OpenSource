@@ -207,10 +207,6 @@
 			#cooling-cells = <2>;
 
 			qcom,pmic-revid = <&pm6150_revid>;
-			qcom,auto-recharge-soc = <98>;
-
-			qcom,thermal-mitigation = <4200000 3500000 3000000
-					2500000 2000000 1500000 1000000 500000>;
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
@@ -411,10 +407,6 @@
 			qcom,vbatt-empty-mv = <3000>;
 			qcom,vbatt-empty-cold-mv = <3000>;
 			qcom,s3-entry-fifo-length = <2>;
-			qcom,qg-iterm-ma = <100>;
-			qcom,hold-soc-while-full;
-			qcom,linearize-soc;
-			qcom,cl-feedback-on;
 
 			qcom,pmic-revid = <&pm6150_revid>;
 			io-channels = <&pm6150_vadc ADC_BAT_THERM_PU2>,
