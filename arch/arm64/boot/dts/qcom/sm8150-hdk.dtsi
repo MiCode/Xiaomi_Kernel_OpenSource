@@ -63,6 +63,7 @@
 		qcom,afe-force-power-on;
 		qcom,afe-power-on-delay-us = <6>;
 		qcom,afe-power-off-delay-us = <6>;
+		qcom,platform-en-gpio = <&tlmm 53 0>;
 	};
 
 	usb1_otg_supply: usb1_otg_supply {
