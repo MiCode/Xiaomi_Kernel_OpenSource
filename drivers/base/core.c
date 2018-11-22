@@ -2077,6 +2077,9 @@ void device_shutdown(void)
 {
 	struct device *dev, *parent;
 
+	wait_for_device_probe();
+	device_block_probing();
+
 	spin_lock(&devices_kset->list_lock);
 	/*
 	 * Walk the devices list backward, shutting down each in turn.
