@@ -156,14 +156,14 @@ int fw_init(struct npu_device *npu_dev)
 		goto wait_fw_ready_fail;
 	}
 
+	npu_notify_dsp(npu_dev, true);
 	host_ctx->fw_state = FW_ENABLED;
 	host_ctx->fw_error = false;
 	host_ctx->fw_ref_cnt++;
 	reinit_completion(&host_ctx->fw_deinit_done);
+
 	mutex_unlock(&host_ctx->lock);
 	pr_debug("firmware init complete\n");
-
-	npu_notify_dsp(npu_dev, true);
 
 	/* Set logging state */
 	if (!npu_hw_log_enabled()) {
@@ -187,7 +187,7 @@ enable_pw_fail:
 	return ret;
 }
 
-void fw_deinit(struct npu_device *npu_dev, bool ssr)
+void fw_deinit(struct npu_device *npu_dev, bool ssr, bool fw_alive)
 {
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	struct ipc_cmd_shutdown_pkt cmd_shutdown_pkt;
@@ -213,7 +213,7 @@ void fw_deinit(struct npu_device *npu_dev, bool ssr)
 
 	npu_disable_irq(npu_dev);
 
-	if (!ssr) {
+	if (fw_alive) {
 		/* Command header */
 		cmd_shutdown_pkt.header.cmd_type = NPU_IPC_CMD_SHUTDOWN;
 		cmd_shutdown_pkt.header.size =
@@ -246,11 +246,11 @@ void fw_deinit(struct npu_device *npu_dev, bool ssr)
 	host_ctx->fw_state = FW_DISABLED;
 
 	/*
-	 * if it's not in ssr mode, notify dsp before power off
+	 * if fw is still alive, notify dsp before power off
 	 * otherwise delay 500 ms to make sure dsp has finished
 	 * its own ssr handling.
 	 */
-	if (!ssr)
+	if (fw_alive)
 		npu_notify_dsp(npu_dev, false);
 	else
 		msleep(500);
@@ -339,7 +339,7 @@ static int host_error_hdlr(struct npu_device *npu_dev, bool force)
 	if (host_ctx->wdg_irq_sts)
 		pr_info("watchdog irq triggered\n");
 
-	fw_deinit(npu_dev, true);
+	fw_deinit(npu_dev, true, force);
 	host_ctx->wdg_irq_sts = 0;
 	host_ctx->err_irq_sts = 0;
 
@@ -1169,7 +1169,7 @@ error_free_network:
 	free_network(host_ctx, client, network->id);
 err_deinit_fw:
 	mutex_unlock(&host_ctx->lock);
-	fw_deinit(npu_dev, false);
+	fw_deinit(npu_dev, false, true);
 	return ret;
 }
 
@@ -1221,6 +1221,7 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 
 	/* verify mapped physical address */
 	if (!npu_mem_verify_addr(client, network->phy_add)) {
+		pr_err("Invalid network address %llx\n", network->phy_add);
 		ret = -EINVAL;
 		goto error_free_network;
 	}
@@ -1295,7 +1296,7 @@ error_free_network:
 	free_network(host_ctx, client, network->id);
 err_deinit_fw:
 	mutex_unlock(&host_ctx->lock);
-	fw_deinit(npu_dev, false);
+	fw_deinit(npu_dev, false, true);
 	return ret;
 }
 
@@ -1399,7 +1400,7 @@ free_network:
 	if (ret)
 		pr_err("network unload failed to set power level\n");
 	mutex_unlock(&host_ctx->lock);
-	fw_deinit(npu_dev, false);
+	fw_deinit(npu_dev, false, true);
 	return ret;
 }
 
@@ -1732,7 +1733,38 @@ int32_t npu_host_loopback_test(struct npu_device *npu_dev)
 	}
 
 loopback_exit:
-	fw_deinit(npu_dev, false);
+	fw_deinit(npu_dev, false, true);
 
 	return ret;
+}
+
+void npu_host_cleanup_networks(struct npu_client *client)
+{
+	int i;
+	struct npu_device *npu_dev = client->npu_dev;
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+	struct msm_npu_unload_network_ioctl unload_req;
+	struct msm_npu_unmap_buf_ioctl unmap_req;
+	struct npu_network *network;
+	struct npu_ion_buf *ion_buf;
+
+	for (i = 0; i < MAX_LOADED_NETWORK; i++) {
+		network = &host_ctx->networks[i];
+		if (network->client == client) {
+			pr_warn("network %d is not unloaded before close\n",
+				network->network_hdl);
+			unload_req.network_hdl = network->network_hdl;
+			npu_host_unload_network(client, &unload_req);
+		}
+	}
+
+	/* unmap all remaining buffers */
+	while (!list_empty(&client->mapped_buffer_list)) {
+		ion_buf = list_first_entry(&client->mapped_buffer_list,
+			struct npu_ion_buf, list);
+		pr_warn("unmap buffer %x:%x\n", ion_buf->fd, ion_buf->iova);
+		unmap_req.buf_ion_hdl = ion_buf->fd;
+		unmap_req.npu_phys_addr = ion_buf->iova;
+		npu_host_unmap_buf(client, &unmap_req);
+	}
 }

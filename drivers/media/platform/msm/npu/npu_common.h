@@ -269,7 +269,7 @@ int npu_set_uc_power_level(struct npu_device *npu_dev,
 	uint32_t pwr_level);
 
 int fw_init(struct npu_device *npu_dev);
-void fw_deinit(struct npu_device *npu_dev, bool ssr);
+void fw_deinit(struct npu_device *npu_dev, bool ssr, bool fw_alive);
 int npu_notify_cdsprm_cxlimit_activity(struct npu_device *npu_dev, bool enable);
 
 #endif /* _NPU_COMMON_H */
