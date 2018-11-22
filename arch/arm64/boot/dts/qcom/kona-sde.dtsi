@@ -148,6 +148,9 @@
 		qcom,sde-min-dram-ib-kbps = <800000>;
 		qcom,sde-dram-channels = <2>;
 		qcom,sde-num-nrt-paths = <0>;
+		qcom,sde-dspp-ltm-version = <0x00010000>;
+		/* offsets are based off dspp 0 and dspp 1 */
+		qcom,sde-dspp-ltm-off = <0x2a000 0x28100>;
 
 		qcom,sde-vbif-off = <0>;
 		qcom,sde-vbif-size = <0x1040>;
@@ -161,7 +164,7 @@
 		/* offsets are relative to "mdp_phys + qcom,sde-off */
 
 		qcom,sde-reg-dma-off = <0>;
-		qcom,sde-reg-dma-version = <0x00010001>;
+		qcom,sde-reg-dma-version = <0x00010002>;
 		qcom,sde-reg-dma-trigger-off = <0x119c>;
 
 		qcom,sde-secure-sid-mask = <0x4200801>;
