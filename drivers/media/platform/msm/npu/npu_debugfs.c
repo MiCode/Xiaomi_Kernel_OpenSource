@@ -169,7 +169,7 @@ static ssize_t npu_debug_reg_read(struct file *file,
 		if (!debugfs->buf)
 			return -ENOMEM;
 
-		ptr = npu_dev->npu_io.base + debugfs->reg_off;
+		ptr = npu_dev->core_io.base + debugfs->reg_off;
 		tot = 0;
 		off = (int)debugfs->reg_off;
 
@@ -183,7 +183,7 @@ static ssize_t npu_debug_reg_read(struct file *file,
 			len = scnprintf(debugfs->buf + tot,
 				debugfs->buf_len - tot, "0x%08x: %s\n",
 				((int) (unsigned long) ptr) -
-				((int) (unsigned long) npu_dev->npu_io.base),
+				((int) (unsigned long) npu_dev->core_io.base),
 				dump_buf);
 
 			ptr += ROW_BYTES;
