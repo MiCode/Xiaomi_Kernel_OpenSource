@@ -67,6 +67,8 @@
 #define RSC_PDC_DATA_OFFSET		0x08
 
 bool rpmh_standalone;
+static struct rsc_drv *__rsc_drv[2];
+static int __rsc_count;
 
 static u32 read_tcs_reg(struct rsc_drv *drv, int reg, int tcs_id, int cmd_id)
 {
@@ -869,6 +871,7 @@ static int rpmh_rsc_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&drv->client.batch_cache);
 
 	dev_set_drvdata(&pdev->dev, drv);
+	__rsc_drv[__rsc_count++] = drv;
 
 	return devm_of_platform_populate(&pdev->dev);
 }
