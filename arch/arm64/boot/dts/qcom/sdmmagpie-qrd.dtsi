@@ -408,3 +408,16 @@
 		    0x00 0x23c /* CHG_CTRL2 */
 		    0x22 0x210>; /* PWR_CTRL1 */
 };
+
+&fsa4480 {
+	status = "disabled";
+};
+
+&sde_dp {
+	pinctrl-names = "mdss_dp_active", "mdss_dp_sleep";
+	pinctrl-0 = <&sde_dp_aux_active &sde_dp_usbplug_cc_active>;
+	pinctrl-1 = <&sde_dp_aux_suspend &sde_dp_usbplug_cc_suspend>;
+	qcom,aux-en-gpio = <&tlmm 42 0>;
+	qcom,aux-sel-gpio = <&tlmm 33 0>;
+	qcom,dp-gpio-aux-switch;
+};
