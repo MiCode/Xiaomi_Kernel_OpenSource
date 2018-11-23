@@ -19,7 +19,6 @@
 #include <dt-bindings/clock/qcom,dispcc-trinket.h>
 #include <dt-bindings/clock/qcom,gpucc-trinket.h>
 #include <dt-bindings/clock/qcom,videocc-sm6150.h>
-#include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 #include <dt-bindings/spmi/spmi.h>
 
 / {

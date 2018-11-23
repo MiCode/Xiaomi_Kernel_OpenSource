@@ -12,6 +12,7 @@
  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 
 &rpm_bus {
 	/* PM6125 S3/S4 - VDD_CX supply */
