@@ -976,6 +976,7 @@ static int advk_pcie_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	pci_bus_size_bridges(bus);
 	pci_bus_assign_resources(bus);
 
 	list_for_each_entry(child, &bus->children, node)
