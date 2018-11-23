@@ -200,6 +200,10 @@
 	status = "ok";
 };
 
+&qupv3_se5_i2c {
+	status = "ok";
+};
+
 &qupv3_se7_4uart {
 	status = "ok";
 };
