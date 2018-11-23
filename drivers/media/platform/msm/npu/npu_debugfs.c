@@ -200,7 +200,7 @@ static ssize_t npu_debug_reg_read(struct file *file,
 		return 0; /* done reading */
 
 	len = min(count, debugfs->buf_len - (size_t) *ppos);
-	pr_debug("read %zi %zi", count, debugfs->buf_len - (size_t) *ppos);
+	pr_debug("read %zi %zi\n", count, debugfs->buf_len - (size_t) *ppos);
 	if (copy_to_user(user_buf, debugfs->buf + *ppos, len)) {
 		pr_err("failed to copy to user\n");
 		return -EFAULT;
@@ -305,7 +305,8 @@ static ssize_t npu_debug_log_read(struct file *file,
 
 			if (copy_to_user(dst_addr, src_addr,
 				remaining_to_end)) {
-				pr_err("%s failed to copy to user", __func__);
+				pr_err("%s failed to copy to user\n", __func__);
+				mutex_unlock(&debugfs->log_lock);
 				return -EFAULT;
 			}
 			src_addr = debugfs->log_buf;
@@ -313,7 +314,8 @@ static ssize_t npu_debug_log_read(struct file *file,
 			if (copy_to_user(dst_addr, src_addr,
 				debugfs->log_num_bytes_buffered -
 				remaining_to_end)) {
-				pr_err("%s failed to copy to user", __func__);
+				pr_err("%s failed to copy to user\n", __func__);
+				mutex_unlock(&debugfs->log_lock);
 				return -EFAULT;
 			}
 			debugfs->log_read_index =
@@ -323,7 +325,8 @@ static ssize_t npu_debug_log_read(struct file *file,
 			if (copy_to_user(user_buf, (debugfs->log_buf +
 				debugfs->log_read_index),
 				debugfs->log_num_bytes_buffered)) {
-				pr_err("%s failed to copy to user", __func__);
+				pr_err("%s failed to copy to user\n", __func__);
+				mutex_unlock(&debugfs->log_lock);
 				return -EFAULT;
 			}
 			debugfs->log_read_index +=

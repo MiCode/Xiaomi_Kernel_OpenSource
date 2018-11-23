@@ -75,6 +75,7 @@ int fw_init(struct npu_device *npu_dev)
 	uint32_t reg_val;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	int ret = 0;
+
 	mutex_lock(&host_ctx->lock);
 	if (host_ctx->fw_state == FW_ENABLED) {
 		host_ctx->fw_ref_cnt++;
@@ -270,8 +271,6 @@ void fw_deinit(struct npu_device *npu_dev, bool ssr, bool fw_alive)
 	mutex_unlock(&host_ctx->lock);
 	pr_debug("firmware deinit complete\n");
 	npu_notify_aop(npu_dev, false);
-
-	return;
 }
 
 int npu_host_init(struct npu_device *npu_dev)
@@ -315,7 +314,7 @@ irqreturn_t npu_intr_hdler(int irq, void *ptr)
 	INTERRUPT_ACK(npu_dev, irq);
 
 	/* Check that the event thread currently is running */
-	if (host_ctx->wq != 0)
+	if (host_ctx->wq)
 		queue_work(host_ctx->wq, &host_ctx->irq_work);
 
 	return IRQ_HANDLED;
@@ -471,7 +470,7 @@ static int npu_notify_aop(struct npu_device *npu_dev, bool on)
 		return 0;
 	}
 
-	buf_size = snprintf(buf, MAX_LEN, "{class: bcm, res: npu_on, val: %d}",
+	buf_size = scnprintf(buf, MAX_LEN, "{class: bcm, res: npu_on, val: %d}",
 		on ? 1 : 0);
 	if (buf_size < 0) {
 		pr_err("prepare qmp notify buf failed\n");
@@ -656,7 +655,7 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 
 		pr_debug("NPU_IPC_MSG_EXECUTE_DONE status: %d\n",
 			exe_rsp_pkt->header.status);
-		pr_debug("trans_id : %d", exe_rsp_pkt->header.trans_id);
+		pr_debug("trans_id : %d\n", exe_rsp_pkt->header.trans_id);
 		pr_debug("e2e_IPC_time: %d (in tick count)\n",
 			exe_rsp_pkt->stats.e2e_ipc_tick_count);
 		pr_debug("aco_load_time: %d (in tick count)\n",
@@ -709,7 +708,7 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 
 		pr_debug("NPU_IPC_MSG_EXECUTE_V2_DONE status: %d\n",
 			exe_rsp_pkt->header.status);
-		pr_debug("trans_id : %d", exe_rsp_pkt->header.trans_id);
+		pr_debug("trans_id : %d\n", exe_rsp_pkt->header.trans_id);
 
 		network = get_network_by_hdl(host_ctx, NULL,
 			exe_rsp_pkt->network_hdl);
@@ -727,7 +726,7 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 			break;
 		}
 
-		pr_debug("network id : %d", network->id);
+		pr_debug("network id : %d\n", network->id);
 		stats_size = exe_rsp_pkt->header.size - sizeof(*exe_rsp_pkt);
 		pr_debug("stats_size %d:%d\n", exe_rsp_pkt->header.size,
 			stats_size);
@@ -1384,7 +1383,7 @@ int32_t npu_host_unload_network(struct npu_client *client,
 		pr_err("fw is in error state during unload network\n");
 	} else {
 		ret = network->cmd_ret_status;
-		pr_debug("unload network status %d", ret);
+		pr_debug("unload network status %d\n", ret);
 	}
 
 free_network:
@@ -1516,7 +1515,7 @@ int32_t npu_host_exec_network(struct npu_client *client,
 		pr_err("fw is in error state during execute network\n");
 	} else {
 		ret = network->cmd_ret_status;
-		pr_debug("execution status %d", ret);
+		pr_debug("execution status %d\n", ret);
 	}
 
 exec_done:

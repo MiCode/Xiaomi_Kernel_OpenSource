@@ -148,15 +148,13 @@ void npu_interrupt_ack(struct npu_device *npu_dev, uint32_t intr_num)
 
 int32_t npu_interrupt_raise_m0(struct npu_device *npu_dev)
 {
-	int ret = 0;
-
 	/* Bit 4 is setting IRQ_SOURCE_SELECT to local
 	 * and we're triggering a pulse to NPU_MASTER0_IPC_IN_IRQ0
 	 */
 	npu_reg_write(npu_dev, NPU_MASTERn_IPC_IRQ_IN_CTRL(0), 0x1
 		<< NPU_MASTER0_IPC_IRQ_IN_CTRL__IRQ_SOURCE_SELECT___S | 0x1);
 
-	return ret;
+	return 0;
 }
 
 int32_t npu_interrupt_raise_dsp(struct npu_device *npu_dev)
@@ -291,7 +289,7 @@ int npu_mem_map(struct npu_client *client, int buf_hdl, uint32_t size,
 	dma_sync_sg_for_device(&(npu_dev->pdev->dev), ion_buf->table->sgl,
 		ion_buf->table->nents, DMA_BIDIRECTIONAL);
 	ion_buf->iova = ion_buf->table->sgl->dma_address;
-	ion_buf->size = ion_buf->table->sgl->dma_length;
+	ion_buf->size = ion_buf->dma_buf->size;
 	*addr = ion_buf->iova;
 	pr_debug("mapped mem addr:0x%llx size:0x%x\n", ion_buf->iova,
 		ion_buf->size);
