@@ -1,0 +1,29 @@
+Early domain core driver.
+
+Early domain in bootloader run multimedia services like display,
+camera, audio by reserving cpu(s) and some memory in parallel with
+kernel.
+
+These services may need to stop when they decide. Early domain
+driver in kernel communicates with early services through a shared
+memory block. This block is reserved during kernel boot.
+
+Early services running in bootloader update their status in the
+shared memory block. Multimedia drivers in kernel can make use of
+apis provided by early domain core driver to get the status of early
+services and free reserved memory resource to system
+when the early services end.
+
+Required properties
+- compatible : 	should be "qcom,early_domain"
+- status     : 	should be "disabled" by default.
+		status should be made "ok" only
+		if earlydomain is active by
+		bootloaders.
+
+Example:
+	early_domain: early_domain  {
+			compatible = "qcom,early_domain";
+			status = "disabled";
+	};
+
