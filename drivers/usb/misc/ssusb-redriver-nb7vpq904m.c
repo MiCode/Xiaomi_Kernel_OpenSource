@@ -351,6 +351,17 @@ static void ssusb_redriver_config_work(struct work_struct *w)
 
 		dev_dbg(redriver->dev, "Type C orientation code is %d.\n",
 				redriver->typec_orientation);
+	} else if (redriver->op_mode != OP_MODE_USB) {
+		/*
+		 * USB host stack will be turned off if peer doesn't
+		 * support USB communication. PD driver will send
+		 * id notification when disable host stack. Update
+		 * redriver channel mode when operation mode changed.
+		 */
+		dev_dbg(redriver->dev,
+				"Update redriver operation mode.\n");
+
+		ssusb_redriver_gen_dev_set(redriver, true);
 	} else {
 		dev_dbg(redriver->dev, "USB Cable is disconnected.\n");
 
