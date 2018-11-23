@@ -2483,8 +2483,8 @@ check_non_ap_ep_empty:
 				ret = 0;
 			} else if (retry) {
 				retry--;
-				usleep_range(IPA_UC_WAIT_MIN_SLEEP,
-				IPA_UC_WAII_MAX_SLEEP);
+				usleep_range(IPA_UC_WAIT_MIN_SLEEP * 5,
+				IPA_UC_WAII_MAX_SLEEP * 5);
 				goto check_non_ap_ep_empty;
 			} else {
 				IPAERR
@@ -2548,11 +2548,8 @@ int ipa_q6_post_shutdown_cleanup(void)
 				if (res)
 					IPAERR("ep %d not empty\n",
 					ipa2_get_ep_mapping(client_idx));
-				else
-					res = ipa_uc_reset_pipe(client_idx);
-			} else {
-				res = ipa_uc_reset_pipe(client_idx);
 			}
+			res = ipa_uc_reset_pipe(client_idx);
 			if (res)
 				BUG();
 		}
