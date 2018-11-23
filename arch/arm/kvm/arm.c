@@ -1092,8 +1092,6 @@ static void cpu_init_hyp_mode(void *dummy)
 
 	__cpu_init_hyp_mode(pgd_ptr, hyp_stack_ptr, vector_ptr);
 	__cpu_init_stage2();
-
-	kvm_arm_init_debug();
 }
 
 static void cpu_hyp_reinit(void)
@@ -1108,6 +1106,8 @@ static void cpu_hyp_reinit(void)
 		if (__hyp_get_vectors() == hyp_default_vectors)
 			cpu_init_hyp_mode(NULL);
 	}
+
+	kvm_arm_init_debug();
 }
 
 static void cpu_hyp_reset(void)
