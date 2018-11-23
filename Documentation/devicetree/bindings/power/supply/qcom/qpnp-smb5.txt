@@ -251,6 +251,12 @@ Charger specific properties:
   Definition: Boolean flag which when present enables stepwise change in FCC.
 		The default stepping rate is 100mA/sec.
 
+- qcom,disable-suspend-on-collapse
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present disables suspend on collapse
+		feature of charger hardware.
+
 =============================================
 Second Level Nodes - SMB5 Charger Peripherals
 =============================================
