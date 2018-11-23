@@ -846,6 +846,7 @@ void ufs_evict_inode(struct inode * inode)
 		inode->i_size = 0;
 		if (inode->i_blocks)
 			ufs_truncate_blocks(inode);
+		ufs_update_inode(inode, inode_needs_sync(inode));
 	}
 
 	invalidate_inode_buffers(inode);

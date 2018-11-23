@@ -256,7 +256,9 @@ static void tipc_subscrp_delete(struct tipc_subscription *sub)
 static void tipc_subscrp_cancel(struct tipc_subscr *s,
 				struct tipc_subscriber *subscriber)
 {
+	tipc_subscrb_get(subscriber);
 	tipc_subscrb_subscrp_delete(subscriber, s);
+	tipc_subscrb_put(subscriber);
 }
 
 static struct tipc_subscription *tipc_subscrp_create(struct net *net,
