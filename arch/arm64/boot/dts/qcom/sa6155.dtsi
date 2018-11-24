@@ -241,4 +241,17 @@
 	status = "ok";
 };
 
+&clock_scc {
+	vdd_scc_cx-supply = <&VDD_CX_LEVEL>;
+	status = "ok";
+};
+
+&clock_camcc {
+	vdd_mx-supply = <&VDD_CX_LEVEL>;
+};
+
+&clock_gpucc {
+	vdd_mx-supply = <&VDD_CX_LEVEL>;
+};
+
 #include "sa6155-pcie.dtsi"

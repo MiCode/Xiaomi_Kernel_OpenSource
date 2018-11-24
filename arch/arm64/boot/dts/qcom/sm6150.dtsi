@@ -21,6 +21,7 @@
 #include <dt-bindings/clock/qcom,dispcc-sm6150.h>
 #include <dt-bindings/clock/qcom,gpucc-sm6150.h>
 #include <dt-bindings/clock/qcom,videocc-sm6150.h>
+#include <dt-bindings/clock/qcom,scc-sm6150.h>
 #include <dt-bindings/soc/qcom,tcs-mbox.h>
 #include <dt-bindings/spmi/spmi.h>
 #include <dt-bindings/msm/msm-bus-ids.h>
@@ -865,6 +866,14 @@
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 		qcom,gpu_cc_gx_gfx3d_clk_src-opp-handle = <&msm_gpu>;
+	};
+
+	clock_scc: qcom,scc@62b10000 {
+		compatible = "qcom,scc-sm6150";
+		reg = <0x62b10000 0x30000>;
+		vdd_scc_cx-supply = <&VDD_CX_LEVEL>;
+		#clock-cells = <1>;
+		status = "disabled";
 	};
 
 	cpucc_debug: syscon@182a0018 {
