@@ -58,9 +58,6 @@
 	.bank_spreading = bsp,	\
 }
 
-#define GCC_VIDEO_AXI_REG_START_ADDR	0x10B024
-#define GCC_VIDEO_AXI_REG_SIZE		0xC
-
 static struct msm_vidc_codec_data default_codec_data[] =  {
 	CODEC_ENTRY(V4L2_PIX_FMT_H264, MSM_VIDC_ENCODER, 125, 675, 320),
 	CODEC_ENTRY(V4L2_PIX_FMT_H264, MSM_VIDC_DECODER, 125, 675, 320),
@@ -551,8 +548,6 @@ static struct msm_vidc_platform_data default_data = {
 	.efuse_data = NULL,
 	.efuse_data_length = 0,
 	.sku_version = 0,
-	.gcc_register_base = 0,
-	.gcc_register_size = 0,
 	.vpu_ver = VPU_VERSION_IRIS2,
 	.ubwc_config = 0x0,
 };
@@ -568,8 +563,6 @@ static struct msm_vidc_platform_data kona_data = {
 	.efuse_data = NULL,
 	.efuse_data_length = 0,
 	.sku_version = 0,
-	.gcc_register_base = 0x10B024,//GCC_VIDEO_AXI0_CBCR,
-	.gcc_register_size = 0x8,//GCC_VIDEO_AXI0_CBCR + GCC_VIDEO_AXI1_CBCR,
 	.vpu_ver = VPU_VERSION_IRIS2,
 	.ubwc_config = kona_ubwc_data,
 };
@@ -585,8 +578,6 @@ static struct msm_vidc_platform_data sm6150_data = {
 	.efuse_data = NULL,
 	.efuse_data_length = 0,
 	.sku_version = 0,
-	.gcc_register_base = 0,
-	.gcc_register_size = 0,
 	.vpu_ver = VPU_VERSION_AR50,
 	.ubwc_config = 0x0,
 };
@@ -602,8 +593,6 @@ static struct msm_vidc_platform_data sm8150_data = {
 	.efuse_data = NULL,
 	.efuse_data_length = 0,
 	.sku_version = 0,
-	.gcc_register_base = GCC_VIDEO_AXI_REG_START_ADDR,
-	.gcc_register_size = GCC_VIDEO_AXI_REG_SIZE,
 	.vpu_ver = VPU_VERSION_IRIS1,
 	.ubwc_config = 0x0,
 };
@@ -619,8 +608,6 @@ static struct msm_vidc_platform_data sdm845_data = {
 	.efuse_data = NULL,
 	.efuse_data_length = 0,
 	.sku_version = 0,
-	.gcc_register_base = 0,
-	.gcc_register_size = 0,
 	.vpu_ver = VPU_VERSION_AR50,
 	.ubwc_config = 0x0,
 };
@@ -636,8 +623,6 @@ static struct msm_vidc_platform_data sdm670_data = {
 	.efuse_data = sdm670_efuse_data,
 	.efuse_data_length = ARRAY_SIZE(sdm670_efuse_data),
 	.sku_version = 0,
-	.gcc_register_base = 0,
-	.gcc_register_size = 0,
 	.vpu_ver = VPU_VERSION_AR50,
 	.ubwc_config = 0x0,
 };

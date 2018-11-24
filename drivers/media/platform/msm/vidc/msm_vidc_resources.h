@@ -108,6 +108,16 @@ struct bus_set {
 	u32 count;
 };
 
+struct reset_info {
+	struct reset_control *rst;
+	const char *name;
+};
+
+struct reset_set {
+	struct reset_info *reset_tbl;
+	u32 count;
+};
+
 struct allowed_clock_rates_table {
 	u32 clock_rate;
 };
@@ -143,9 +153,7 @@ struct msm_vidc_mem_cdsp {
 struct msm_vidc_platform_resources {
 	phys_addr_t firmware_base;
 	phys_addr_t register_base;
-	phys_addr_t gcc_register_base;
 	uint32_t register_size;
-	uint32_t gcc_register_size;
 	uint32_t irq;
 	uint32_t sku_version;
 	struct allowed_clock_rates_table *allowed_clks_tbl;
@@ -167,6 +175,7 @@ struct msm_vidc_platform_resources {
 	struct regulator_set regulator_set;
 	struct clock_set clock_set;
 	struct bus_set bus_set;
+	struct reset_set reset_set;
 	bool sw_power_collapsible;
 	bool slave_side_cp;
 	struct list_head context_banks;
