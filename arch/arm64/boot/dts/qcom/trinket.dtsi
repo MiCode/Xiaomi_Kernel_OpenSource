@@ -2174,6 +2174,7 @@
 #include "trinket-vidc.dtsi"
 #include "trinket-pm.dtsi"
 #include "trinket-gpu.dtsi"
+#include "trinket-bus.dtsi"
 
 &pm6125_vadc {
 	pinctrl-names = "default";
