@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,7 +19,6 @@
 #define VIDC_VBIF_BASE_OFFS			0x00080000
 
 #define VIDC_CPU_BASE_OFFS			0x000C0000
-#define VIDEO_GCC_BASE_OFFS			0x00000000
 #define VIDEO_CC_BASE_OFFS			0x00100000
 #define VIDC_CPU_CS_BASE_OFFS		(VIDC_CPU_BASE_OFFS + 0x00012000)
 #define VIDC_CPU_IC_BASE_OFFS		(VIDC_CPU_BASE_OFFS + 0x0001F000)
@@ -194,13 +193,4 @@
 #define VCODEC_COREX_VIDEO_NOC_ERR_ERRLOG3_LOW_OFFS	0x0538
 #define VCODEC_COREX_VIDEO_NOC_ERR_ERRLOG3_HIGH_OFFS	0x053C
 
-#define VIDEO_GCC_AXIC_CBCR	(VIDEO_GCC_BASE_OFFS + 0x8)
-#define VIDEO_GCC_AXIC_CBCR_CLK_OFF_BMSK	0x80000000
-#define VIDEO_GCC_AXIC_CBCR_CLK_ARES_BMSK	0x4
-#define VIDEO_GCC_AXIC_CBCR_CLK_ENABLE_BMSK	0x1
-
-#define VIDEO_CC_MVSC_CORE_CBCR	(VIDEO_CC_BASE_OFFS + 0x850)
-#define VIDEO_CC_MVSC_CORE_CBCR_CLK_OFF_BMSK	0x80000000
-#define VIDEO_CC_MVSC_CORE_CBCR_CLK_ARES_BMSK	0x4
-#define VIDEO_CC_MVSC_CORE_CBCR_CLK_ENABLE_BMSK	0x1
 #endif
