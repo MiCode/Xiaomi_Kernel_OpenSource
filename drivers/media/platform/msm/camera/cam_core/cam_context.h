@@ -87,6 +87,8 @@ struct cam_ctx_request {
  * @start_dev:             Function pointer for start device
  * @stop_dev:              Function pointer for stop device
  * @flush_dev:             Function pointer for flush device
+ * @acquire_hw:            Function pointer for acquire hw
+ * @release_hw:            Function pointer for release hw
  *
  */
 struct cam_ctx_ioctl_ops {
@@ -102,6 +104,8 @@ struct cam_ctx_ioctl_ops {
 			struct cam_start_stop_dev_cmd *cmd);
 	int (*flush_dev)(struct cam_context *ctx,
 			struct cam_flush_dev_cmd *cmd);
+	int (*acquire_hw)(struct cam_context *ctx, void *args);
+	int (*release_hw)(struct cam_context *ctx, void *args);
 };
 
 /**
@@ -321,6 +325,18 @@ int cam_context_handle_acquire_dev(struct cam_context *ctx,
 		struct cam_acquire_dev_cmd *cmd);
 
 /**
+ * cam_context_handle_acquire_hw()
+ *
+ * @brief:        Handle acquire HW command
+ *
+ * @ctx:          Object pointer for cam_context
+ * @cmd:          Acquire HW command payload
+ *
+ */
+int cam_context_handle_acquire_hw(struct cam_context *ctx,
+		void *cmd);
+
+/**
  * cam_context_handle_release_dev()
  *
  * @brief:        Handle release device command
@@ -331,6 +347,18 @@ int cam_context_handle_acquire_dev(struct cam_context *ctx,
  */
 int cam_context_handle_release_dev(struct cam_context *ctx,
 		struct cam_release_dev_cmd *cmd);
+
+/**
+ * cam_context_handle_release_hw()
+ *
+ * @brief:        Handle release HW command
+ *
+ * @ctx:          Object pointer for cam_context
+ * @cmd:          Release HW command payload
+ *
+ */
+int cam_context_handle_release_hw(struct cam_context *ctx,
+		void *cmd);
 
 /**
  * cam_context_handle_config_dev()

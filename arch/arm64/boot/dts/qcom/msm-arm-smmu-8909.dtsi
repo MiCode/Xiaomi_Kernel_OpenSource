@@ -36,13 +36,10 @@
 			<GIC_SPI 241 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 242 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 245 IRQ_TYPE_LEVEL_HIGH>;
-
-		vdd-supply = <&gdsc_oxili_gx>;
-		qcom,regulator-names = "vdd";
 		clocks =
-			<&clock_gcc clk_gcc_oxili_ahb_clk>,
-			<&clock_gcc clk_gcc_bimc_gfx_clk>;
-		clock-names = "gpu_ahb_clk", "gcc_bimc_gfx_clk";
+			<&clock_gcc clk_gcc_smmu_cfg_clk>,
+			<&clock_gcc clk_gcc_gfx_tcu_clk>;
+		clock-names = "iface_clk", "core_clk";
 	};
 
 	/* A test device to test the SMMU operation */

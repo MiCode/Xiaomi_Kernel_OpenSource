@@ -25,7 +25,6 @@ int pfk_ext4_parse_inode(const struct bio *bio,
 	struct pfk_key_info *key_info,
 	enum ice_cryto_algo_mode *algo,
 	bool *is_pfe,
-	unsigned int *data_unit,
 	const char *storage_type);
 
 bool pfk_ext4_allow_merge_bio(const struct bio *bio1,

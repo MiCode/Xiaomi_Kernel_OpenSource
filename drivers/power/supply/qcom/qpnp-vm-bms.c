@@ -123,6 +123,8 @@
 
 #define QPNP_VM_BMS_DEV_NAME		"qcom,qpnp-vm-bms"
 
+#define DEBUG_BATT_ID_LOW	6500
+#define DEBUG_BATT_ID_HIGH	8500
 /* indicates the state of BMS */
 enum {
 	IDLE_STATE,
@@ -275,6 +277,7 @@ struct qpnp_bms_chip {
 	struct power_supply		*bms_psy;
 	struct power_supply		*batt_psy;
 	struct power_supply		*usb_psy;
+	struct notifier_block		nb;
 	bool				reported_soc_in_use;
 	bool				charger_removed_since_full;
 	bool				charger_reinserted;
@@ -282,6 +285,7 @@ struct qpnp_bms_chip {
 	int				reported_soc;
 	int				reported_soc_change_sec;
 	int				reported_soc_delta;
+	int				batt_id_ohm;
 };
 
 static struct qpnp_bms_chip *the_chip;
@@ -478,6 +482,45 @@ static int calculate_delta_time(unsigned long *time_stamp, int *delta_time_s)
 	return 0;
 }
 
+static bool is_debug_batt_id(struct qpnp_bms_chip *chip)
+{
+	if (is_between(DEBUG_BATT_ID_LOW, DEBUG_BATT_ID_HIGH,
+				chip->batt_id_ohm))
+		return true;
+
+	return false;
+}
+
+static int bms_notifier_cb(struct notifier_block *nb,
+			unsigned long event, void *data)
+{
+	union power_supply_propval ret = {0,};
+	struct power_supply *psy = data;
+	struct qpnp_bms_chip *chip = container_of(nb, struct qpnp_bms_chip, nb);
+
+	if (event != PSY_EVENT_PROP_CHANGED)
+		return NOTIFY_OK;
+
+	if ((strcmp(psy->desc->name, "battery") == 0)) {
+		if (chip->batt_psy == NULL)
+			chip->batt_psy = power_supply_get_by_name("battery");
+		if (chip->batt_psy) {
+			if (is_debug_batt_id(chip)) {
+				power_supply_get_property(chip->batt_psy,
+					POWER_SUPPLY_PROP_DEBUG_BATTERY, &ret);
+				if (!ret.intval)  {
+					ret.intval = 1;
+					power_supply_set_property(
+						chip->batt_psy,
+						POWER_SUPPLY_PROP_DEBUG_BATTERY,
+						 &ret);
+				}
+			}
+		}
+	}
+
+	return NOTIFY_OK;
+}
 static bool is_charger_present(struct qpnp_bms_chip *chip)
 {
 	union power_supply_propval ret = {0,};
@@ -2162,8 +2205,16 @@ static void voltage_soc_timeout_work(struct work_struct *work)
 	mutex_unlock(&chip->bms_device_mutex);
 }
 
+#define DEBUG_BOARD_SOC 67
+#define BATT_MISSING_SOC 50
 static int get_prop_bms_capacity(struct qpnp_bms_chip *chip)
 {
+	if (is_debug_batt_id(chip))
+		return DEBUG_BOARD_SOC;
+
+	if (!chip->battery_present)
+		return BATT_MISSING_SOC;
+
 	return report_state_of_charge(chip);
 }
 
@@ -2227,6 +2278,15 @@ static int get_current_cc(struct qpnp_bms_chip *chip)
 	return current_charge;
 }
 
+static int get_charge_full(struct qpnp_bms_chip *chip)
+{
+
+	if (chip->batt_data)
+		return chip->batt_data->fcc * 1000;
+
+	return -EINVAL;
+}
+
 static enum power_supply_property bms_power_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_STATUS,
@@ -2241,6 +2301,8 @@ static enum power_supply_property bms_power_props[] = {
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_CYCLE_COUNT,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
+	POWER_SUPPLY_PROP_CHARGE_FULL,
+	POWER_SUPPLY_PROP_RESISTANCE_ID,
 };
 
 static int
@@ -2320,6 +2382,12 @@ static int qpnp_vm_bms_power_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
 		val->intval = get_current_cc(chip);
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_FULL:
+		val->intval = get_charge_full(chip);
+		break;
+	case POWER_SUPPLY_PROP_RESISTANCE_ID:
+		val->intval = chip->batt_id_ohm;
 		break;
 	default:
 		return -EINVAL;
@@ -3282,7 +3350,7 @@ static int bms_find_irqs(struct qpnp_bms_chip *chip, struct device_node *child)
 }
 
 
-static int64_t read_battery_id(struct qpnp_bms_chip *chip)
+static int64_t read_battery_id_uv(struct qpnp_bms_chip *chip)
 {
 	int rc;
 	struct qpnp_vadc_result result;
@@ -3465,20 +3533,55 @@ static const struct file_operations bms_data_debugfs_ops = {
 	.release	= single_release,
 };
 
+#define BID_RPULL_OHM          100000
+#define VREF_BAT_THERM         1800
+static int get_battery_id(struct qpnp_bms_chip *chip,
+			int64_t battery_id_uv)
+{
+	int batt_id_mv;
+	int64_t denom;
+
+	batt_id_mv = div_s64(battery_id_uv, 1000);
+	if (batt_id_mv == 0) {
+		pr_debug("batt_id_mv = 0 from ADC\n");
+		return 0;
+	}
+
+	denom = div64_s64(VREF_BAT_THERM * 1000, batt_id_mv) - 1000;
+	if (denom <= 0) {
+		/* batt id connector might be open, return 0 kohms */
+		return 0;
+	}
+
+	chip->batt_id_ohm = div64_u64(BID_RPULL_OHM * 1000 + denom / 2, denom);
+
+	return 0;
+}
+
 static int set_battery_data(struct qpnp_bms_chip *chip)
 {
-	int64_t battery_id;
+	int64_t battery_id_uv;
 	int rc = 0;
 	struct bms_battery_data *batt_data;
 	struct device_node *node;
 
-	battery_id = read_battery_id(chip);
-	if (battery_id < 0) {
-		pr_err("cannot read battery id err = %lld\n", battery_id);
-		return battery_id;
+	battery_id_uv = read_battery_id_uv(chip);
+	if (battery_id_uv < 0) {
+		pr_err("cannot read battery id_uv err = %lld\n", battery_id_uv);
+		return battery_id_uv;
 	}
+
+	rc = get_battery_id(chip, battery_id_uv);
+	if (rc < 0) {
+		pr_err("Failed to calcualte battery-id rc=%d\n", rc);
+		return rc;
+	}
+
 	node = of_parse_phandle(chip->pdev->dev.of_node,
 					"qcom,battery-data", 0);
+	pr_debug(" battery-id-uV=%lld batt_id=%d ohm\n",
+					battery_id_uv, chip->batt_id_ohm);
+
 	if (!node) {
 		pr_err("No available batterydata\n");
 		return -EINVAL;
@@ -3506,7 +3609,7 @@ static int set_battery_data(struct qpnp_bms_chip *chip)
 	 * if the alloced luts are 0s, of_batterydata_read_data ignores
 	 * them.
 	 */
-	rc = of_batterydata_read_data(node, batt_data, battery_id);
+	rc = of_batterydata_read_data(node, batt_data, battery_id_uv);
 	if (rc || !batt_data->pc_temp_ocv_lut
 		|| !batt_data->fcc_temp_lut
 		|| !batt_data->rbatt_sf_lut
@@ -3954,6 +4057,11 @@ static int qpnp_vm_bms_probe(struct platform_device *pdev)
 	}
 	chip->bms_psy_registered = true;
 
+	chip->nb.notifier_call = bms_notifier_cb;
+	rc = power_supply_reg_notifier(&chip->nb);
+	if (rc < 0)
+		pr_err("Failed register psy notifier rc = %d\n", rc);
+
 	rc = get_battery_voltage(chip, &vbatt);
 	if (rc) {
 		pr_err("error reading vbat_sns adc channel=%d, rc=%d\n",
@@ -4044,6 +4152,7 @@ static int qpnp_vm_bms_remove(struct platform_device *pdev)
 	mutex_destroy(&chip->last_soc_mutex);
 	mutex_destroy(&chip->state_change_mutex);
 	mutex_destroy(&chip->bms_device_mutex);
+	power_supply_unreg_notifier(&chip->nb);
 	power_supply_unregister(chip->bms_psy);
 	dev_set_drvdata(&pdev->dev, NULL);
 	the_chip = NULL;

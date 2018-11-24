@@ -168,16 +168,23 @@ struct cam_req_mgr_apply {
 
 /**
  * struct cam_req_mgr_tbl_slot
- * @idx           : slot index
- * @req_ready_map : mask tracking which all devices have request ready
- * @state         : state machine for life cycle of a slot
- * @inject_delay  : insert extra bubbling for flash type of use cases
+ * @idx             : slot index
+ * @req_ready_map   : mask tracking which all devices have request ready
+ * @state           : state machine for life cycle of a slot
+ * @inject_delay    : insert extra bubbling for flash type of use cases
+ * @dev_hdl         : stores the dev_hdl, who is having higher inject delay
+ * @skip_next_frame : flag to drop the frame after skip_before_apply frame
+ * @is_applied      : flag to identify if request is already applied to
+ *                    device.
  */
 struct cam_req_mgr_tbl_slot {
 	int32_t             idx;
 	uint32_t            req_ready_map;
 	enum crm_req_state  state;
 	uint32_t            inject_delay;
+	int32_t             dev_hdl;
+	bool                skip_next_frame;
+	bool                is_applied;
 };
 
 /**

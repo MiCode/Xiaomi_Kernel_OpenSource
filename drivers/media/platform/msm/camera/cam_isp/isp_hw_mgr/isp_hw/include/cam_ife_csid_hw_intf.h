@@ -168,4 +168,14 @@ enum cam_ife_csid_cmd_type {
 int cam_ife_csid_hw_init(struct cam_hw_intf **ife_csid_hw,
 	uint32_t hw_idx);
 
+/*
+ * struct cam_ife_csid_clock_update_args:
+ *
+ * @clk_rate:                Clock rate requested
+ */
+struct cam_ife_csid_clock_update_args {
+	uint64_t                           clk_rate;
+};
+
+
 #endif /* _CAM_CSID_HW_INTF_H_ */
