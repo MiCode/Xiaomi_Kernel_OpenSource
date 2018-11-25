@@ -50,6 +50,8 @@
 #include <asm/switch_to.h>
 #include <asm/xen/hypervisor.h>
 
+#include "process.h"
+
 asmlinkage extern void ret_from_fork(void);
 
 __visible DEFINE_PER_CPU(unsigned long, rsp_scratch);
@@ -406,12 +408,7 @@ __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 	/* Reload esp0 and ss1.  This changes current_thread_info(). */
 	load_sp0(tss, next);
 
-	/*
-	 * Now maybe reload the debug registers and handle I/O bitmaps
-	 */
-	if (unlikely(task_thread_info(next_p)->flags & _TIF_WORK_CTXSW_NEXT ||
-		     task_thread_info(prev_p)->flags & _TIF_WORK_CTXSW_PREV))
-		__switch_to_xtra(prev_p, next_p, tss);
+	switch_to_extra(prev_p, next_p);
 
 #ifdef CONFIG_XEN
 	/*
