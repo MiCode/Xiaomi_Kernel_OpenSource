@@ -62,6 +62,7 @@ struct dp_panel_info {
 	u32 bpp;
 	bool widebus_en;
 	struct msm_compression_info comp_info;
+	s64 dsc_overhead_fp;
 };
 
 struct dp_display_mode {

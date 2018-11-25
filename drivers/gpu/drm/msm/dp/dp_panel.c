@@ -1256,8 +1256,12 @@ static void _dp_panel_dsc_bw_overhead_calc(struct dp_panel *dp_panel,
 	dwidth_dsc_bytes = tot_num_hor_bytes + tot_num_eoc_symbols +
 				tot_num_dummy_bytes;
 
+	pr_debug("dwidth_dsc_bytes:%d, tot_num_hor_bytes:%d\n",
+			dwidth_dsc_bytes, tot_num_hor_bytes);
+
 	dp_mode->dsc_overhead_fp = drm_fixp_from_fraction(dwidth_dsc_bytes,
 			tot_num_hor_bytes);
+	dp_mode->timing.dsc_overhead_fp = dp_mode->dsc_overhead_fp;
 }
 
 static void dp_panel_dsc_pclk_param_calc(struct dp_panel *dp_panel,
@@ -1798,9 +1802,9 @@ static void dp_panel_decode_dsc_dpcd(struct dp_panel *dp_panel)
 	dp_panel->fec_en = dp_panel->dsc_en;
 	dp_panel->widebus_en = dp_panel->dsc_en;
 
-	/* fec_overhead = 1.00 / 0.7488664 */
+	/* fec_overhead = 1.00 / 0.97582 */
 	if (dp_panel->fec_en)
-		fec_overhead_fp = drm_fixp_from_fraction(10000000, 7488664);
+		fec_overhead_fp = drm_fixp_from_fraction(100000, 97582);
 
 	dp_panel->fec_overhead_fp = fec_overhead_fp;
 }
@@ -1821,6 +1825,7 @@ static void dp_panel_read_sink_dsc_caps(struct dp_panel *dp_panel)
 
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 
+	dp_panel->fec_overhead_fp = 0;
 	if (panel->parser->dsc_feature_enable) {
 		rlen = drm_dp_dpcd_read(panel->aux->drm_aux, DP_DSC_SUPPORT,
 			dp_panel->dsc_dpcd, (DP_RECEIVER_DSC_CAP_SIZE + 1));
@@ -2741,6 +2746,7 @@ static void dp_panel_convert_to_dp_mode(struct dp_panel *dp_panel,
 			dp_mode->timing.bpp, dp_mode->timing.pixel_clk_khz);
 
 	dp_mode->timing.widebus_en = dp_panel->widebus_en;
+	dp_mode->timing.dsc_overhead_fp = 0;
 
 	if (dp_panel->dsc_en) {
 		comp_info = &dp_mode->timing.comp_info;
