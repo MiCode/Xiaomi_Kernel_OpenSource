@@ -490,6 +490,7 @@ int mhi_arch_link_off(struct mhi_controller *mhi_cntrl, bool graceful)
 	MHI_LOG("Entered\n");
 
 	if (graceful) {
+		pci_clear_master(pci_dev);
 		ret = pci_save_state(mhi_dev->pci_dev);
 		if (ret) {
 			MHI_ERR("Failed with pci_save_state, ret:%d\n", ret);
