@@ -46,13 +46,13 @@
 
 			qcom,pon_1 {
 				qcom,pon-type = <PON_POWER_ON_TYPE_KPDPWR>;
-				qcom,pull-up = <1>;
+				qcom,pull-up;
 				linux,code = <KEY_POWER>;
 			};
 
 			qcom,pon_2 {
 				qcom,pon-type = <PON_POWER_ON_TYPE_RESIN>;
-				qcom,pull-up = <1>;
+				qcom,pull-up;
 				linux,code = <KEY_VOLUMEDOWN>;
 			};
 		};

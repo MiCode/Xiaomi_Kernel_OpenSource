@@ -3122,7 +3122,6 @@ int diag_dci_deinit_client(struct diag_dci_client_tbl *entry)
 		if (buf_entry->buf_type == DCI_BUF_SECONDARY) {
 			mutex_lock(&buf_entry->data_mutex);
 			diagmem_free(driver, buf_entry->data, POOL_TYPE_DCI);
-			buf_entry->data = NULL;
 			mutex_unlock(&buf_entry->data_mutex);
 			kfree(buf_entry);
 			buf_entry = NULL;
@@ -3148,7 +3147,6 @@ int diag_dci_deinit_client(struct diag_dci_client_tbl *entry)
 		if (buf_entry && buf_entry->buf_type == DCI_BUF_SECONDARY) {
 			mutex_lock(&buf_entry->data_mutex);
 			diagmem_free(driver, buf_entry->data, POOL_TYPE_DCI);
-			buf_entry->data = NULL;
 			mutex_unlock(&buf_entry->data_mutex);
 			mutex_destroy(&buf_entry->data_mutex);
 			kfree(buf_entry);

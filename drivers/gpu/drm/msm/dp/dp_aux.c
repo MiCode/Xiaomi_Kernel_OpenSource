@@ -499,8 +499,8 @@ static ssize_t dp_aux_transfer_debug(struct drm_dp_aux *drm_aux,
 	}
 
 	if ((msg->address + msg->size) > SZ_4K) {
-		pr_err("invalid dpcd access: addr=0x%x, size=0x%x\n",
-				msg->address + msg->size);
+		pr_debug("invalid dpcd access: addr=0x%x, size=0x%x\n",
+				msg->address, msg->size);
 		goto address_error;
 	}
 
@@ -515,6 +515,7 @@ static ssize_t dp_aux_transfer_debug(struct drm_dp_aux *drm_aux,
 			timeout = wait_for_completion_timeout(&aux->comp, HZ);
 			if (!timeout) {
 				pr_err("aux timeout for 0x%x\n", msg->address);
+				atomic_set(&aux->aborted, 1);
 				ret = -ETIMEDOUT;
 				goto end;
 			}
@@ -751,10 +752,12 @@ static void dp_aux_set_sim_mode(struct dp_aux *dp_aux, bool en,
 	aux->edid = edid;
 	aux->dpcd = dpcd;
 
-	if (en)
+	if (en) {
+		atomic_set(&aux->aborted, 0);
 		aux->drm_aux.transfer = dp_aux_transfer_debug;
-	else
+	} else {
 		aux->drm_aux.transfer = dp_aux_transfer;
+	}
 
 	mutex_unlock(&aux->mutex);
 }

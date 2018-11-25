@@ -660,7 +660,7 @@
 	mtp_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
 		#include "qg-batterydata-alium-3600mah.dtsi"
-		#include "qg-batterydata-mlp356477-2800mah.dtsi"
+		#include "qg-batterydata-mlp466076-3200mah.dtsi"
 	};
 };
 
@@ -1109,8 +1109,10 @@
 		compatible = "qcom,msm-eud";
 		interrupt-names = "eud_irq";
 		interrupts = <GIC_SPI 492 IRQ_TYPE_LEVEL_HIGH>;
-		reg = <0x88e0000 0x2000>;
-		reg-names = "eud_base";
+		reg = <0x88e0000 0x2000>,
+		      <0x88e4000 0x1000>;
+		reg-names = "eud_base", "eud_mode_mgr2";
+		qcom,secure-eud-en;
 		status = "ok";
 	};
 
@@ -2877,13 +2879,33 @@
 		memory-region = <&pil_ipa_fw_mem>;
 	};
 
-	snoc_cnoc_keepalive: qcom,snoc_cnoc_keepalive {
-		compatible = "qcom,devbw";
-		governor = "powersave";
-		qcom,src-dst-ports = <161 627>;
-		qcom,active-only;
+        keepalive_opp_table: keepalive-opp-table {
+                compatible = "operating-points-v2";
+                opp-1 {
+                        opp-hz = /bits/ 64 < 1 >;
+                };
+        };
+
+        snoc_cnoc_keepalive: qcom,snoc_cnoc_keepalive {
+                compatible = "qcom,devbw";
+                governor = "powersave";
+                qcom,src-dst-ports = <1 627>;
+                qcom,active-only;
+                status = "ok";
+                operating-points-v2 = <&keepalive_opp_table>;
+        };
+
+	bus_proxy_client: qcom,bus_proxy_client {
+		compatible = "qcom,bus-proxy-client";
+		qcom,msm-bus,name = "bus-proxy-client";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<MSM_BUS_MASTER_MDP_PORT0 MSM_BUS_SLAVE_EBI_CH0 0 0>,
+			<MSM_BUS_MASTER_MDP_PORT0
+			MSM_BUS_SLAVE_EBI_CH0 0 5000000>;
+		qcom,msm-bus,active-only;
 		status = "ok";
-		qcom,bw-tbl = < 1 >;
 	};
 };
 

@@ -163,6 +163,13 @@ bail:
 	kfree(buf);
 	debug->panel->set_edid(debug->panel, edid);
 
+	/*
+	 * print edid status as this code is executed
+	 * only while running in debug mode which is manually
+	 * triggered by a tester or a script.
+	 */
+	pr_info("[%s]\n", edid ? "SET" : "CLEAR");
+
 	return rc;
 }
 
@@ -250,10 +257,18 @@ bail:
 	 * Reset panel's dpcd in case of any failure. Also, set the
 	 * panel's dpcd only if a full dpcd is provided with offset as 0.
 	 */
-	if (!dpcd || (!offset && (data_len == dp_receiver_cap_size)))
+	if (!dpcd || (!offset && (data_len == dp_receiver_cap_size))) {
 		debug->panel->set_dpcd(debug->panel, dpcd);
-	else
+
+		/*
+		 * print dpcd status as this code is executed
+		 * only while running in debug mode which is manually
+		 * triggered by a tester or a script.
+		 */
+		pr_info("[%s]\n", dpcd ? "SET" : "CLEAR");
+	} else {
 		debug->aux->dpcd_updated(debug->aux);
+	}
 
 	return rc;
 }
@@ -1392,6 +1407,45 @@ error:
 	return rc;
 }
 
+static void dp_debug_set_sim_mode(struct dp_debug_private *debug, bool sim)
+{
+	if (sim) {
+		if (dp_debug_get_edid_buf(debug))
+			return;
+
+		if (dp_debug_get_dpcd_buf(debug)) {
+			devm_kfree(debug->dev, debug->edid);
+			return;
+		}
+
+		debug->dp_debug.sim_mode = true;
+		debug->aux->set_sim_mode(debug->aux, true,
+			debug->edid, debug->dpcd);
+	} else {
+		debug->aux->set_sim_mode(debug->aux, false, NULL, NULL);
+		debug->dp_debug.sim_mode = false;
+
+		debug->panel->set_edid(debug->panel, 0);
+		if (debug->edid) {
+			devm_kfree(debug->dev, debug->edid);
+			debug->edid = NULL;
+		}
+
+		debug->panel->set_dpcd(debug->panel, 0);
+		if (debug->dpcd) {
+			devm_kfree(debug->dev, debug->dpcd);
+			debug->dpcd = NULL;
+		}
+	}
+
+	/*
+	 * print simulation status as this code is executed
+	 * only while running in debug mode which is manually
+	 * triggered by a tester or a script.
+	 */
+	pr_info("%s\n", sim ? "[ON]" : "[OFF]");
+}
+
 static ssize_t dp_debug_write_sim(struct file *file,
 		const char __user *user_buff, size_t count, loff_t *ppos)
 {
@@ -1416,36 +1470,8 @@ static ssize_t dp_debug_write_sim(struct file *file,
 	if (kstrtoint(buf, 10, &sim) != 0)
 		goto end;
 
-	if (sim) {
-		if (dp_debug_get_edid_buf(debug))
-			goto end;
-
-		if (dp_debug_get_dpcd_buf(debug))
-			goto error;
-
-		debug->dp_debug.sim_mode = true;
-		debug->aux->set_sim_mode(debug->aux, true,
-			debug->edid, debug->dpcd);
-	} else {
-		debug->aux->set_sim_mode(debug->aux, false, NULL, NULL);
-		debug->dp_debug.sim_mode = false;
-
-		debug->panel->set_edid(debug->panel, 0);
-		if (debug->edid) {
-			devm_kfree(debug->dev, debug->edid);
-			debug->edid = NULL;
-		}
-
-		debug->panel->set_dpcd(debug->panel, 0);
-		if (debug->dpcd) {
-			devm_kfree(debug->dev, debug->dpcd);
-			debug->dpcd = NULL;
-		}
-	}
+	dp_debug_set_sim_mode(debug, sim);
 end:
-	return len;
-error:
-	devm_kfree(debug->dev, debug->edid);
 	return len;
 }
 
@@ -1898,6 +1924,18 @@ u8 *dp_debug_get_edid(struct dp_debug *dp_debug)
 	return debug->edid;
 }
 
+static void dp_debug_abort(struct dp_debug *dp_debug)
+{
+	struct dp_debug_private *debug;
+
+	if (!dp_debug)
+		return;
+
+	debug = container_of(dp_debug, struct dp_debug_private, dp_debug);
+
+	dp_debug_set_sim_mode(debug, false);
+}
+
 struct dp_debug *dp_debug_get(struct dp_debug_in *in)
 {
 	int rc = 0;
@@ -1938,6 +1976,7 @@ struct dp_debug *dp_debug_get(struct dp_debug_in *in)
 	}
 
 	dp_debug->get_edid = dp_debug_get_edid;
+	dp_debug->abort = dp_debug_abort;
 
 	INIT_LIST_HEAD(&dp_debug->dp_mst_connector_list.list);
 

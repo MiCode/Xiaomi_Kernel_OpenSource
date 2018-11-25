@@ -1112,6 +1112,11 @@ static int dp_ctrl_on(struct dp_ctrl *dp_ctrl, bool mst_mode, bool shallow)
 	if (ctrl->power_on)
 		goto end;
 
+	if (atomic_read(&ctrl->aborted)) {
+		rc = -EPERM;
+		goto end;
+	}
+
 	ctrl->mst_mode = mst_mode;
 	rate = ctrl->panel->link_info.rate;
 

@@ -11,8 +11,28 @@
  * GNU General Public License for more details.
  */
 
-#include "qcs405-tasha.dtsi"
-#include "qcs405-va-bolero.dtsi"
+&q6core {
+	cdc_quin_mi2s_gpios: msm_cdc_pinctrl_quin {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&quin_mi2s_sck_active &quin_mi2s_ws_active
+			     &quin_mi2s_sd0_active &quin_mi2s_sd1_active
+			     &quin_mi2s_sd2_active &quin_mi2s_sd3_active>;
+		pinctrl-1 = <&quin_mi2s_sck_sleep &quin_mi2s_ws_sleep
+			     &quin_mi2s_sd0_sleep &quin_mi2s_sd1_sleep
+			     &quin_mi2s_sd2_sleep &quin_mi2s_sd3_sleep>;
+		qcom,lpi-gpios;
+	};
+};
+
+&q6core {
+	bolero: bolero-cdc {
+		compatible = "qcom,bolero-codec";
+		clock-names = "island_lpass_npa_rsc";
+		clocks = <&lpass_npa_rsc_island 0>;
+		qcom,num-macros = <1>;
+	};
+};
 
 &qcs405_snd {
 	qcom,model = "qcs405-tdm-snd-card";
@@ -50,26 +70,12 @@
 	pinctrl-0 = <&spdifrx_opt_default>;
 };
 
-&bolero {
-	qcom,num-macros = <1>;
-};
-
 &tdm_quin_tx {
 	qcom,msm-cpudai-tdm-clk-attribute = /bits/ 16 <1>;
 	qcom,msm-cpudai-tdm-sync-mode = <0>;
 	qcom,msm-cpudai-tdm-invert-sync = <0>;
 };
 
-&soc {
-	cdc_quin_mi2s_gpios: msm_cdc_pinctrl_quin {
-		compatible = "qcom,msm-cdc-pinctrl";
-		pinctrl-names = "aud_active", "aud_sleep";
-		pinctrl-0 = <&quin_mi2s_sck_active &quin_mi2s_ws_active
-			     &quin_mi2s_sd0_active &quin_mi2s_sd1_active
-			     &quin_mi2s_sd2_active &quin_mi2s_sd3_active>;
-		pinctrl-1 = <&quin_mi2s_sck_sleep &quin_mi2s_ws_sleep
-			     &quin_mi2s_sd0_sleep &quin_mi2s_sd1_sleep
-			     &quin_mi2s_sd2_sleep &quin_mi2s_sd3_sleep>;
-		qcom,lpi-gpios;
-	};
-};
+#include "qcs405-tasha.dtsi"
+#include "qcs405-va-bolero.dtsi"
+

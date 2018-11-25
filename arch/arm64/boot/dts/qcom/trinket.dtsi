@@ -13,6 +13,12 @@
 
 #include "skeleton64.dtsi"
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/qcom,rpmcc.h>
+#include <dt-bindings/clock/qcom,gcc-trinket.h>
+#include <dt-bindings/clock/qcom,cpucc-sm8150.h>
+#include <dt-bindings/clock/qcom,dispcc-trinket.h>
+#include <dt-bindings/clock/qcom,gpucc-trinket.h>
+#include <dt-bindings/clock/qcom,videocc-sm6150.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. TRINKET";
@@ -449,6 +455,46 @@
 		};
 	};
 
+	clock_rpmcc: qcom,rpmcc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "rpmcc_clocks";
+		#clock-cells = <1>;
+	};
+
+	clock_gcc: qcom,gcc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "gcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_videocc: qcom,videocc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "videocc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_dispcc: qcom,dispcc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "dispcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_gpucc: qcom,gpupcc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "gpucc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_cpucc: qcom,cpucc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "cpucc_clocks";
+		#clock-cells = <1>;
+	};
+
 	qcom,msm-imem@c125000 {
 		compatible = "qcom,msm-imem";
 		reg = <0xc125000 0x1000>;
@@ -523,6 +569,15 @@
 		reg = <0x1610000 0x2000>;
 		reg-names = "eud_base";
 		status = "ok";
+	};
+
+	qcom,msm-gladiator-v2@f100000 {
+		compatible = "qcom,msm-gladiator-v2";
+		reg = <0xf100000 0xdc00>;
+		reg-names = "gladiator_base";
+		interrupts = <0 22 0>;
+		clock-names = "atb_clk";
+		clocks = <&clock_rpmcc RPM_QDSS_CLK>;
 	};
 
 	wdog: qcom,wdt@f017000 {
@@ -962,3 +1017,49 @@
 };
 #include "trinket-pinctrl.dtsi"
 #include "trinket-ion.dtsi"
+#include "trinket-gdsc.dtsi"
+#include "trinket-usb.dtsi"
+
+&ufs_phy_gdsc {
+	status = "ok";
+};
+
+&usb30_prim_gdsc {
+	status = "ok";
+};
+
+&camss_cpp_gdsc {
+	status = "ok";
+};
+
+&camss_top_gdsc {
+	status = "ok";
+};
+
+&camss_vfe0_gdsc {
+	status = "ok";
+};
+
+&camss_vfe1_gdsc {
+	status = "ok";
+};
+
+&mdss_core_gdsc {
+	status = "ok";
+};
+
+&gpu_cx_gdsc {
+	status = "ok";
+};
+
+&gpu_gx_gdsc {
+	status = "ok";
+};
+
+&vcodec0_gdsc {
+	status = "ok";
+};
+
+&venus_gdsc {
+	status = "ok";
+};

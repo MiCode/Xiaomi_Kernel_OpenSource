@@ -920,8 +920,10 @@ static int spcom_handle_lock_ion_buf_command(struct spcom_channel *ch,
 		if (ch->dmabuf_handle_table[i] == NULL) {
 			ch->dmabuf_handle_table[i] = dma_buf;
 			ch->dmabuf_fd_table[i] = fd;
-			pr_debug("ch [%s] locked ion buf #%d, fd [%d].\n",
-				ch->name, i, fd);
+			pr_debug("ch [%s] locked ion buf #%d fd [%d] dma_buf=0x%x\n",
+				ch->name, i,
+				ch->dmabuf_fd_table[i],
+				ch->dmabuf_handle_table[i]);
 			mutex_unlock(&ch->lock);
 			return 0;
 		}
@@ -948,6 +950,7 @@ static int spcom_handle_unlock_ion_buf_command(struct spcom_channel *ch,
 	struct spcom_user_command *cmd = cmd_buf;
 	int fd;
 	bool found = false;
+	struct dma_buf *dma_buf;
 
 	if (size != sizeof(*cmd)) {
 		pr_err("cmd size [%d], expected [%d]\n",
@@ -961,6 +964,15 @@ static int spcom_handle_unlock_ion_buf_command(struct spcom_channel *ch,
 	fd = cmd->arg;
 
 	pr_debug("Unlock ion buf ch [%s] fd [%d].\n", ch->name, fd);
+
+	dma_buf = dma_buf_get(fd);
+	if (IS_ERR_OR_NULL(dma_buf)) {
+		pr_err("fail to get dma buf handle\n");
+		return -EINVAL;
+	}
+	dma_buf_put(dma_buf);
+	pr_debug("dma_buf referenced ok\n");
+
 	/* shared buf unlock doesn't involve any rx/tx data to SP. */
 	mutex_lock(&ch->lock);
 	if (fd == (int) SPCOM_ION_FD_UNLOCK_ALL) {
@@ -969,7 +981,7 @@ static int spcom_handle_unlock_ion_buf_command(struct spcom_channel *ch,
 		/* unlock all buf */
 		for (i = 0; i < ARRAY_SIZE(ch->dmabuf_handle_table); i++) {
 			if (ch->dmabuf_handle_table[i] != NULL) {
-				pr_debug("unlocked ion buf #%d fd [%d].\n",
+				pr_debug("unlocked ion buf #%d fd [%d]\n",
 					i, ch->dmabuf_fd_table[i]);
 				dma_buf_put(ch->dmabuf_handle_table[i]);
 				ch->dmabuf_handle_table[i] = NULL;
@@ -981,9 +993,11 @@ static int spcom_handle_unlock_ion_buf_command(struct spcom_channel *ch,
 		for (i = 0 ; i < ARRAY_SIZE(ch->dmabuf_handle_table) ; i++) {
 			if (!ch->dmabuf_handle_table[i])
 				continue;
-			if (ch->dmabuf_fd_table[i] == fd) {
-				pr_debug("unlocked ion buf #%d fd [%d].\n",
-					i, ch->dmabuf_fd_table[i]);
+			if (ch->dmabuf_handle_table[i] == dma_buf) {
+				pr_debug("ch [%s] unlocked ion buf #%d fd [%d] dma_buf=0x%x\n",
+					ch->name, i,
+					ch->dmabuf_fd_table[i],
+					ch->dmabuf_handle_table[i]);
 				dma_buf_put(ch->dmabuf_handle_table[i]);
 				ch->dmabuf_handle_table[i] = NULL;
 				ch->dmabuf_fd_table[i] = -1;

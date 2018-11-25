@@ -238,7 +238,7 @@
 
 	ipa_hw: qcom,ipa@01e00000 {
 		compatible = "qcom,ipa";
-		reg = <0x1e00000 0xc0000>,
+		reg = <0x1e00000 0x84000>,
 		      <0x1e04000 0x23000>;
 		reg-names = "ipa-base", "gsi-base";
 		interrupts =
@@ -426,6 +426,64 @@
 			#interrupt-cells = <2>;
 		};
 	};
+
+	qcom_cedev: qcedev@1de0000 {
+		compatible = "qcom,qcedev";
+		reg = <0x1de0000 0x20000>,
+			<0x1dc4000 0x24000>;
+		reg-names = "crypto-base","crypto-bam-base";
+		interrupts = <0 252 0>;
+		qcom,bam-pipe-pair = <3>;
+		qcom,ce-hw-instance = <0>;
+		qcom,ce-device = <0>;
+		qcom,bam-ee = <0>;
+		qcom,ce-hw-shared;
+		qcom,msm-bus,name = "qcedev-noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<125 512 0 0>,
+				<125 512 393600 393600>;
+		qcom,no-clock-support;
+		qcom,smmu-s1-enable;
+		iommus = <&apps_smmu 0x0066 0x0013>,
+			<&apps_smmu 0x0076 0x0013>;
+	};
+
+	qcom_crypto: qcrypto@1de0000 {
+		compatible = "qcom,qcrypto";
+		reg = <0x1de0000 0x20000>,
+			<0x1dc4000 0x24000>;
+		reg-names = "crypto-base","crypto-bam-base";
+		interrupts = <0 252 0>;
+		qcom,bam-pipe-pair = <2>;
+		qcom,ce-hw-instance = <0>;
+		qcom,ce-device = <0>;
+		qcom,bam-ee = <0>;
+		qcom,ce-hw-shared;
+		qcom,msm-bus,name = "qcrypto-noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<125 512 0 0>,
+				<125 512 393600 393600>;
+		qcom,use-sw-aes-cbc-ecb-ctr-algo;
+		qcom,use-sw-aes-xts-algo;
+		qcom,use-sw-aes-ccm-algo;
+		qcom,use-sw-aead-algo;
+		qcom,use-sw-ahash-algo;
+		qcom,use-sw-hmac-algo;
+		qcom,no-clock-support;
+		qcom,smmu-s1-enable;
+		iommus = <&apps_smmu 0x0064 0x0013>,
+			<&apps_smmu 0x0074 0x0013>;
+	};
+
+	qcom_tzlog: tz-log@0x1468f720 {
+		compatible = "qcom,tz-log";
+		reg = <0x1468f720 0x2000>;
+		status = "disabled";
+	};
 };
 
 #include "sdxprairie-pm.dtsi"
@@ -434,6 +492,7 @@
 #include "sdxprairie-bus.dtsi"
 #include "msm-arm-smmu-sdxprairie.dtsi"
 #include "sdxprairie-gdsc.dtsi"
+#include "sdxprairie-usb.dtsi"
 
 &gdsc_usb30 {
 	status = "ok";

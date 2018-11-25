@@ -259,6 +259,9 @@ static void receive_ack_cmd(struct gmu_device *gmu, void *rcvd,
 	uint32_t req_hdr = ack[1];
 	struct kgsl_hfi *hfi = &gmu->hfi;
 
+	if (ret_cmd == NULL)
+		return;
+
 	trace_kgsl_hfi_receive(MSG_HDR_GET_ID(req_hdr),
 		MSG_HDR_GET_SIZE(req_hdr),
 		MSG_HDR_GET_SEQNUM(req_hdr));

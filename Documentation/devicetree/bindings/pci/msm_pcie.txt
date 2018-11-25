@@ -92,8 +92,6 @@ Optional Properties:
 		Clients will control when PCIe bus driver should do enumeration.
 	BIT(1): PCIe bus driver will not start enumeration if it receives a WAKE
 		interrupt.
-  - qcom,msi-gicm-addr: MSI address for GICv2m.
-  - qcom,msi-gicm-base: MSI IRQ base for GICv2m.
   - qcom,ext-ref-clk: The reference clock is external.
   - iommu-map: For details of iommu-map properties, please refer to:
     "Documentation/devicetree/bindings/pci/pci-iommu.txt"
@@ -291,8 +289,6 @@ Example:
 		qcom,n-fts = <0x50>;
 		qcom,pcie-phy-ver = <1>;
 		qcom,boot-option = <0x1>;
-		qcom,msi-gicm-addr = <0xf9040040>;
-		qcom,msi-gicm-base = <0x160>;
 		qcom,ext-ref-clk;
 		qcom,tlp-rd-size = <0x5>;
 		qcom,smmu-sid-base = <0x1480>;

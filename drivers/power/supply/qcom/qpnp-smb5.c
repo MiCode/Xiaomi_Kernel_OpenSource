@@ -1435,6 +1435,9 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 			vote(chg->chg_disable_votable, FORCE_RECHARGE_VOTER,
 					false, 0);
 		break;
+	case POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE:
+		chg->fcc_stepper_enable = val->intval;
+		break;
 	default:
 		rc = -EINVAL;
 	}
@@ -1588,10 +1591,15 @@ static int smb5_configure_typec(struct smb_charger *chg)
 {
 	int rc;
 
-	/* disable apsd */
-	rc = smblib_configure_hvdcp_apsd(chg, false);
+	smblib_apsd_enable(chg, true);
+	smblib_hvdcp_detect_enable(chg, false);
+
+	rc = smblib_masked_write(chg, TYPE_C_CFG_REG,
+				BC1P2_START_ON_CC_BIT, 0);
 	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't disable APSD rc=%d\n", rc);
+		dev_err(chg->dev, "failed to write TYPE_C_CFG_REG rc=%d\n",
+				rc);
+
 		return rc;
 	}
 
@@ -2879,9 +2887,9 @@ static void smb5_shutdown(struct platform_device *pdev)
 				HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT, 0);
 	smblib_write(chg, CMD_HVDCP_2_REG, FORCE_5V_BIT);
 
-	/* force enable APSD */
-	smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
-				BC1P2_SRC_DETECT_BIT, BC1P2_SRC_DETECT_BIT);
+	/* force enable and rerun APSD */
+	smblib_apsd_enable(chg, true);
+	smblib_masked_write(chg, CMD_APSD_REG, APSD_RERUN_BIT, APSD_RERUN_BIT);
 }
 
 static const struct of_device_id match_table[] = {

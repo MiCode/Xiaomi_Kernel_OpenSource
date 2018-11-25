@@ -937,18 +937,21 @@ static void gsi_store_ringbase_dbl_info(struct usb_ep *ep,
 		GSI_RING_BASE_ADDR_L(mdwc->gsi_reg[RING_BASE_ADDR_L], (n)),
 		dwc3_trb_dma_offset(dep, &dep->trb_pool[0]));
 
-	if (request->mapped_db_reg_phs_addr_lsb)
-		dma_unmap_resource(dwc->sysdev,
-			request->mapped_db_reg_phs_addr_lsb,
-			PAGE_SIZE, DMA_BIDIRECTIONAL, 0);
-
-	request->mapped_db_reg_phs_addr_lsb = dma_map_resource(dwc->sysdev,
-			(phys_addr_t)request->db_reg_phs_addr_lsb, PAGE_SIZE,
-			DMA_BIDIRECTIONAL, 0);
-	if (dma_mapping_error(dwc->sysdev, request->mapped_db_reg_phs_addr_lsb))
-		dev_err(mdwc->dev, "mapping error for db_reg_phs_addr_lsb\n");
+	if (!request->mapped_db_reg_phs_addr_lsb) {
+		request->mapped_db_reg_phs_addr_lsb =
+			dma_map_resource(dwc->sysdev,
+				(phys_addr_t)request->db_reg_phs_addr_lsb,
+				PAGE_SIZE, DMA_BIDIRECTIONAL, 0);
+		if (dma_mapping_error(dwc->sysdev,
+				request->mapped_db_reg_phs_addr_lsb))
+			dev_err(mdwc->dev, "mapping error for db_reg_phs_addr_lsb\n");
+	}
 
 	dev_dbg(mdwc->dev, "ep:%s dbl_addr_lsb:%x mapped_dbl_addr_lsb:%llx\n",
+		ep->name, request->db_reg_phs_addr_lsb,
+		(unsigned long long)request->mapped_db_reg_phs_addr_lsb);
+
+	dbg_log_string("ep:%s dbl_addr_lsb:%x mapped_addr:%llx\n",
 		ep->name, request->db_reg_phs_addr_lsb,
 		(unsigned long long)request->mapped_db_reg_phs_addr_lsb);
 
@@ -3795,6 +3798,7 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 				 * ss phy to avoid turning on pipe clock during
 				 * these wake-ups.
 				 */
+				mdwc->ss_phy->flags |= PHY_WAKEUP_WA_EN;
 				usb_phy_powerdown(mdwc->ss_phy);
 
 				/*
@@ -3813,6 +3817,7 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 			}
 		} else {
 			usb_phy_powerup(mdwc->ss_phy);
+			mdwc->ss_phy->flags &= ~PHY_WAKEUP_WA_EN;
 			/* set rate back to default core clk rate */
 			clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate);
 			dev_dbg(mdwc->dev, "set core clk rate %ld\n",

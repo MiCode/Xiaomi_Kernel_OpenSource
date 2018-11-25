@@ -285,6 +285,7 @@ static int cam_vfe_camif_resource_start(
 	case CAM_CPAS_TITAN_170_V100:
 	case CAM_CPAS_TITAN_170_V110:
 	case CAM_CPAS_TITAN_170_V120:
+	case CAM_CPAS_TITAN_150_V100:
 		cam_io_w_mb(rsrc_data->reg_data->epoch_line_cfg,
 				rsrc_data->mem_base +
 				rsrc_data->camif_reg->epoch_irq);

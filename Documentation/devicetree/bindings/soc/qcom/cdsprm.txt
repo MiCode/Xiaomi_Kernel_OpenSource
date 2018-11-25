@@ -2,20 +2,45 @@ Qualcomm Technologies, Inc. CDSP Request Manager driver
 
 CDSP Request Manager driver implements an rpmsg interface with
 CDSP subsystem to serve L3 frequency and CPU QoS requests from CDSP.
+It also interacts with NPU, Camera modules for Cx iPeak mitigations and
+thermal module via CDSP/HVX cooling devices for thermal mitigation of
+CDSP core.
 
 Required properties:
 - compatible: Must be "qcom,msm-cdsprm-rpmsg"
 - qcom,glink-channels: Glink channel for communication with CDSP
 - qcom,intents: A list of <number of intents, size of each intent>
 
-- qcom,msm-cdsp-rm: A sub-device node to define CDSPM RM configuration
-		parameters
+- qcom,msm-cdsp-rm: A sub-device node to define CDSPM RM, Cx iPeak mitigation
+		driver and CDSP core thermal cooling device
 	Required properties:
 	- compatible: Must be "qcom,msm-cdsp-rm"
 	- qcom,qos-latency-us: pm_qos latency vote to be applied on CDSP request in
 				micro seconds
 	- qcom,qos-maxhold-ms: Maximum hold time for pm_qos latency vote from CDSP
 				in milli seconds
+	- qcom,compute-priority-mode: when Cx iPeak mitigation is enabled,
+				this field sets desired compute priority mode
+				for AIX and HVX concurrency cases based on
+				following values, where in HVX and NPU cores,
+				if required, are throttled in concurrency based
+				on the selected priority mode
+				1 : HVX_MAX - Allows HVX to run at maximum possible
+						frequency during concurrency with NPU
+				2 : AIX_MAX - Allows NPU to run at maximum possible
+						frequency during concurrency with HVX
+				3 : HVX_OVER_AIX - Allows HVX to run at a higher
+						frequency than NPU during concurrency
+				4 : AIX_OVER_HVX - Allows NPU to run at a higher
+						frequency than HVX during concurrency
+	- #cooling-cells: Number of cooling cells for CDSP cooling device based on
+			CDSP Q6 core clock throttling
+
+- qcom,msm-hvx-rm: A sub-device node to define HVX based thermal cooling device
+	Required properties:
+	- compatible: Must be "qcom,msm-hvx-rm"
+	- #cooling-cells: Number of cooling cells for CDSP cooling device based on
+			HVX hardware throttling
 
 - qcom,cdsp-l3: A sub-device node to define CDSP L3 target device for L3
 		clock voting
@@ -39,5 +64,12 @@ Example:
 			compatible = "qcom,msm-cdsp-rm";
 			qcom,qos-latency-us = <100>;
 			qcom,qos-maxhold-ms = <20>;
+			qcom,compute-priority-mode = <2>;
+			#cooling-cells = <2>;
+		};
+
+		 msm_hvx_rm: qcom,msm_hvx_rm {
+			compatible = "qcom,msm-hvx-rm";
+			#cooling-cells = <2>;
 		};
 	};

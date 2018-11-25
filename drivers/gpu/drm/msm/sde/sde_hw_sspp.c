@@ -263,6 +263,31 @@ static void _sspp_setup_csc10_opmode(struct sde_hw_pipe *ctx,
 	SDE_REG_WRITE(&ctx->hw, SSPP_VIG_CSC_10_OP_MODE + idx, opmode);
 }
 
+static void sde_hw_sspp_set_src_split_order(struct sde_hw_pipe *ctx,
+		enum sde_sspp_multirect_index rect_mode, bool enable)
+{
+	struct sde_hw_blk_reg_map *c;
+	u32 opmode, idx, op_mode_off;
+
+	if (_sspp_subblk_offset(ctx, SDE_SSPP_SRC, &idx))
+		return;
+
+	if (rect_mode == SDE_SSPP_RECT_SOLO || rect_mode == SDE_SSPP_RECT_0)
+		op_mode_off = SSPP_SRC_OP_MODE;
+	else
+		op_mode_off = SSPP_SRC_OP_MODE_REC1;
+
+	c = &ctx->hw;
+	opmode = SDE_REG_READ(c, op_mode_off + idx);
+
+	if (enable)
+		opmode |= MDSS_MDP_OP_SPLIT_ORDER;
+	else
+		opmode &= ~MDSS_MDP_OP_SPLIT_ORDER;
+
+	SDE_REG_WRITE(c, op_mode_off + idx, opmode);
+}
+
 /**
  * Setup source pixel format, flip,
  */
@@ -294,15 +319,12 @@ static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 	c = &ctx->hw;
 	opmode = SDE_REG_READ(c, op_mode_off + idx);
 	opmode &= ~(MDSS_MDP_OP_FLIP_LR | MDSS_MDP_OP_FLIP_UD |
-			MDSS_MDP_OP_BWC_EN | MDSS_MDP_OP_PE_OVERRIDE |
-			MDSS_MDP_OP_SPLIT_ORDER);
+			MDSS_MDP_OP_BWC_EN | MDSS_MDP_OP_PE_OVERRIDE);
 
 	if (flags & SDE_SSPP_FLIP_LR)
 		opmode |= MDSS_MDP_OP_FLIP_LR;
 	if (flags & SDE_SSPP_FLIP_UD)
 		opmode |= MDSS_MDP_OP_FLIP_UD;
-	if ((flags & SDE_SSPP_RIGHT) && ctx->catalog->pipe_order_type)
-		opmode |= MDSS_MDP_OP_SPLIT_ORDER;
 
 	chroma_samp = fmt->chroma_sample;
 	if (flags & SDE_SSPP_SOURCE_ROTATED_90) {
@@ -1111,6 +1133,7 @@ static void _setup_layer_ops(struct sde_hw_pipe *c,
 		c->ops.setup_solidfill = sde_hw_sspp_setup_solidfill;
 		c->ops.setup_pe = sde_hw_sspp_setup_pe_config;
 		c->ops.setup_secure_address = sde_hw_sspp_setup_secure;
+		c->ops.set_src_split_order = sde_hw_sspp_set_src_split_order;
 	}
 
 	if (test_bit(SDE_SSPP_EXCL_RECT, &features))

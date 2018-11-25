@@ -737,8 +737,11 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 	int rc = 0;
 	u64 tmp64 = 0;
 	struct dsi_display_mode *display_mode;
+	struct dsi_display_mode_priv_info *priv_info;
 
 	display_mode = container_of(mode, struct dsi_display_mode, timing);
+
+	priv_info = display_mode->priv_info;
 
 	rc = utils->read_u64(utils->data,
 			"qcom,mdss-dsi-panel-clockrate", &tmp64);
@@ -750,6 +753,15 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 
 	mode->clk_rate_hz = !rc ? tmp64 : 0;
 	display_mode->priv_info->clk_rate_hz = mode->clk_rate_hz;
+
+	rc = utils->read_u32(utils->data, "qcom,mdss-mdp-transfer-time-us",
+				&mode->mdp_transfer_time_us);
+	if (!rc)
+		display_mode->priv_info->mdp_transfer_time_us =
+			mode->mdp_transfer_time_us;
+	else
+		display_mode->priv_info->mdp_transfer_time_us =
+			DEFAULT_MDP_TRANSFER_TIME;
 
 	rc = utils->read_u32(utils->data,
 				"qcom,mdss-dsi-panel-framerate",
@@ -1340,14 +1352,6 @@ static int dsi_panel_parse_cmd_host_config(struct dsi_cmd_engine_cfg *cfg,
 		       name);
 		rc = -EINVAL;
 		goto error;
-	}
-
-	if (utils->read_u32(utils->data, "qcom,mdss-mdp-transfer-time-us",
-				&val)) {
-		pr_debug("[%s] Fallback to default transfer-time-us\n", name);
-		cfg->mdp_transfer_time_us = DEFAULT_MDP_TRANSFER_TIME;
-	} else {
-		cfg->mdp_transfer_time_us = val;
 	}
 
 error:
@@ -3361,6 +3365,8 @@ int dsi_panel_get_host_cfg_for_mode(struct dsi_panel *panel,
 
 	memcpy(&config->video_timing, &mode->timing,
 	       sizeof(config->video_timing));
+	config->video_timing.mdp_transfer_time_us =
+			mode->priv_info->mdp_transfer_time_us;
 	config->video_timing.dsc_enabled = mode->priv_info->dsc_enabled;
 	config->video_timing.dsc = &mode->priv_info->dsc;
 

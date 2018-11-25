@@ -47,6 +47,7 @@ struct dp_debug {
 	struct dp_mst_connector dp_mst_connector_list;
 
 	u8 *(*get_edid)(struct dp_debug *dp_debug);
+	void (*abort)(struct dp_debug *dp_debug);
 };
 
 /**

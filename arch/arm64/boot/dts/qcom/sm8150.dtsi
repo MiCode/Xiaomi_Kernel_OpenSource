@@ -40,8 +40,8 @@
 
 	mem-offline {
 		compatible = "qcom,mem-offline";
-		/* 1 Gb out of 6 Gb*/
-		mem-percent = "17";
+		offline-sizes = <0x1 0x40000000 0x0 0x40000000>,
+				<0x1 0xc0000000 0x0 0x80000000>;
 		granule = <512>;
 		mboxes = <&qmp_aop 0>;
 	};
@@ -2781,10 +2781,17 @@
 					qcom,target-dev = <&cdsp_cdsp_l3_lat>;
 				};
 
-				qcom,msm_cdsp_rm {
+				msm_cdsp_rm: qcom,msm_cdsp_rm {
 					compatible = "qcom,msm-cdsp-rm";
 					qcom,qos-latency-us = <44>;
 					qcom,qos-maxhold-ms = <20>;
+					qcom,compute-priority-mode = <2>;
+					#cooling-cells = <2>;
+				};
+
+				msm_hvx_rm: qcom,msm_hvx_rm {
+					compatible = "qcom,msm-hvx-rm";
+					#cooling-cells = <2>;
 				};
 			};
 

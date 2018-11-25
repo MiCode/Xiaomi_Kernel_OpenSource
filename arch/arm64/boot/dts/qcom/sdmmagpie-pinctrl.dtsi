@@ -413,6 +413,49 @@
 			};
 		};
 
+		fpc_reset_int {
+			fpc_reset_low: reset_low {
+				mux {
+					pins = "gpio91";
+					function = "fpc_reset_gpio_low";
+				};
+				config {
+					pins = "gpio91";
+					drive-strength = <2>;
+					bias-disable;
+					output-low;
+					};
+			};
+
+			fpc_reset_high: reset_high {
+				mux {
+					pins = "gpio91";
+					function = "fpc_reset_gpio_high";
+				};
+
+				config {
+					pins = "gpio91";
+					drive-strength = <2>;
+					bias-disable;
+					output-high;
+				};
+			};
+
+			fpc_int_low: int_low {
+				mux {
+					pins = "gpio90";
+				};
+				config {
+					pins = "gpio90";
+					drive-strength = <2>;
+					bias-pull-down;
+					input-enable;
+				};
+			};
+		};
+
+
+
 		/* SE 4 pin mappings */
 		qupv3_se4_i2c_pins: qupv3_se4_i2c_pins {
 			qupv3_se4_i2c_active: qupv3_se4_i2c_active {
