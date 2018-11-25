@@ -1785,7 +1785,6 @@ static int diagfwd_mux_write_done(unsigned char *buf, int len, int buf_ctxt,
 		} else if (peripheral == APPS_DATA) {
 			diagmem_free(driver, (unsigned char *)buf,
 				     POOL_TYPE_HDLC);
-			buf = NULL;
 		} else {
 			pr_err_ratelimited("diag: Invalid peripheral %d in %s, type: %d\n",
 					   peripheral, __func__, type);

@@ -65,6 +65,7 @@ struct rmnet_port {
 	struct timespec agg_time;
 	struct timespec agg_last;
 	struct hrtimer hrtimer;
+	struct work_struct agg_wq;
 
 	void *qmi_info;
 

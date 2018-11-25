@@ -72,9 +72,7 @@
 
 #define IDLE_SHORT_TIMEOUT	1
 
-#define FAULT_TOLERENCE_DELTA_IN_MS 2
-
-#define FAULT_TOLERENCE_WAIT_IN_MS 5
+#define EVT_TIME_OUT_SPLIT 2
 
 /* Maximum number of VSYNC wait attempts for RSC state transition */
 #define MAX_RSC_WAIT	5
@@ -222,6 +220,7 @@ enum sde_enc_rc_states {
  * @recovery_events_enabled:	status of hw recovery feature enable by client
  * @elevated_ahb_vote:		increase AHB bus speed for the first frame
  *				after power collapse
+ * @pm_qos_cpu_req:		pm_qos request for cpu frequency
  */
 struct sde_encoder_virt {
 	struct drm_encoder base;
@@ -277,77 +276,47 @@ struct sde_encoder_virt {
 
 	bool recovery_events_enabled;
 	bool elevated_ahb_vote;
+	struct pm_qos_request pm_qos_cpu_req;
 };
 
 #define to_sde_encoder_virt(x) container_of(x, struct sde_encoder_virt, base)
 
-static void _sde_encoder_pm_qos_add_request(struct drm_encoder *drm_enc)
+static void _sde_encoder_pm_qos_add_request(struct drm_encoder *drm_enc,
+	struct sde_kms *sde_kms)
 {
-	struct msm_drm_private *priv;
-	struct sde_kms *sde_kms;
+	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
 	struct pm_qos_request *req;
 	u32 cpu_mask;
 	u32 cpu_dma_latency;
 	int cpu;
 
-	if (!drm_enc->dev || !drm_enc->dev->dev_private) {
-		SDE_ERROR("drm device invalid\n");
-		return;
-	}
-
-	priv = drm_enc->dev->dev_private;
-	if (!priv->kms) {
-		SDE_ERROR("invalid kms\n");
-		return;
-	}
-
-	sde_kms = to_sde_kms(priv->kms);
-	if (!sde_kms || !sde_kms->catalog)
+	if (!sde_kms->catalog || !sde_kms->catalog->perf.cpu_mask)
 		return;
 
 	cpu_mask = sde_kms->catalog->perf.cpu_mask;
 	cpu_dma_latency = sde_kms->catalog->perf.cpu_dma_latency;
-	if (!cpu_mask)
-		return;
 
-	if (atomic_inc_return(&sde_kms->pm_qos_counts) == 1) {
-		req = &sde_kms->pm_qos_cpu_req;
-		req->type = PM_QOS_REQ_AFFINE_CORES;
-		cpumask_empty(&req->cpus_affine);
-		for_each_possible_cpu(cpu) {
-			if ((1 << cpu) & cpu_mask)
-				cpumask_set_cpu(cpu, &req->cpus_affine);
-		}
-		pm_qos_add_request(req, PM_QOS_CPU_DMA_LATENCY,
-							cpu_dma_latency);
+	req = &sde_enc->pm_qos_cpu_req;
+	req->type = PM_QOS_REQ_AFFINE_CORES;
+	cpumask_empty(&req->cpus_affine);
+	for_each_possible_cpu(cpu) {
+		if ((1 << cpu) & cpu_mask)
+			cpumask_set_cpu(cpu, &req->cpus_affine);
 	}
+	pm_qos_add_request(req, PM_QOS_CPU_DMA_LATENCY, cpu_dma_latency);
 
 	SDE_EVT32_VERBOSE(DRMID(drm_enc), cpu_mask, cpu_dma_latency);
 }
 
-static void _sde_encoder_pm_qos_remove_request(struct drm_encoder *drm_enc)
+static void _sde_encoder_pm_qos_remove_request(struct drm_encoder *drm_enc,
+	struct sde_kms *sde_kms)
 {
-	struct msm_drm_private *priv;
-	struct sde_kms *sde_kms;
+	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
 
-	if (!drm_enc->dev || !drm_enc->dev->dev_private) {
-		SDE_ERROR("drm device invalid\n");
-		return;
-	}
-
-	priv = drm_enc->dev->dev_private;
-	if (!priv->kms) {
-		SDE_ERROR("invalid kms\n");
-		return;
-	}
-
-	sde_kms = to_sde_kms(priv->kms);
-	if (!sde_kms || !sde_kms->catalog || !sde_kms->catalog->perf.cpu_mask)
+	if (!sde_kms->catalog || !sde_kms->catalog->perf.cpu_mask)
 		return;
 
-	atomic_add_unless(&sde_kms->pm_qos_counts, -1, 0);
-	if (atomic_read(&sde_kms->pm_qos_counts) == 0)
-		pm_qos_remove_request(&sde_kms->pm_qos_cpu_req);
+	pm_qos_remove_request(&sde_enc->pm_qos_cpu_req);
 }
 
 static struct drm_connector_state *_sde_encoder_get_conn_state(
@@ -415,6 +384,28 @@ static bool _sde_encoder_is_dsc_enabled(struct drm_encoder *drm_enc)
 	return (comp_info->comp_type == MSM_DISPLAY_COMPRESSION_DSC);
 }
 
+static int _sde_encoder_wait_timeout(int32_t drm_id, int32_t hw_id,
+	s64 timeout_ms, struct sde_encoder_wait_info *info)
+{
+	int rc = 0;
+	s64 wait_time_jiffies = msecs_to_jiffies(timeout_ms);
+	ktime_t cur_ktime;
+	ktime_t exp_ktime = ktime_add_ms(ktime_get(), timeout_ms);
+
+	do {
+		rc = wait_event_timeout(*(info->wq),
+			atomic_read(info->atomic_cnt) == 0, wait_time_jiffies);
+		cur_ktime = ktime_get();
+
+		SDE_EVT32(drm_id, hw_id, rc, ktime_to_ms(cur_ktime),
+			timeout_ms, atomic_read(info->atomic_cnt));
+	/* If we timed out, counter is valid and time is less, wait again */
+	} while (atomic_read(info->atomic_cnt) && (rc == 0) &&
+			(ktime_compare_safe(exp_ktime, cur_ktime) > 0));
+
+	return rc;
+}
+
 bool sde_encoder_is_dsc_merge(struct drm_encoder *drm_enc)
 {
 	enum sde_rm_topology_name topology;
@@ -437,14 +428,6 @@ bool sde_encoder_is_dsc_merge(struct drm_encoder *drm_enc)
 		return true;
 
 	return false;
-}
-
-int sde_encoder_in_clone_mode(struct drm_encoder *drm_enc)
-{
-	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
-
-	return sde_enc && sde_enc->cur_master &&
-		sde_enc->cur_master->in_clone_mode;
 }
 
 bool sde_encoder_is_primary_display(struct drm_encoder *drm_enc)
@@ -513,7 +496,7 @@ int sde_encoder_helper_wait_for_irq(struct sde_encoder_phys *phys_enc,
 {
 	struct sde_encoder_irq *irq;
 	u32 irq_status;
-	int ret;
+	int ret, i;
 
 	if (!phys_enc || !wait_info || intr_idx >= INTR_IDX_MAX) {
 		SDE_ERROR("invalid params\n");
@@ -545,10 +528,22 @@ int sde_encoder_helper_wait_for_irq(struct sde_encoder_phys *phys_enc,
 		irq->irq_idx, phys_enc->hw_pp->idx - PINGPONG_0,
 		atomic_read(wait_info->atomic_cnt), SDE_EVTLOG_FUNC_ENTRY);
 
-	ret = sde_encoder_helper_wait_event_timeout(
-			DRMID(phys_enc->parent),
-			irq->hw_idx,
-			wait_info);
+	/*
+	 * Some module X may disable interrupt for longer duration
+	 * and it may trigger all interrupts including timer interrupt
+	 * when module X again enable the interrupt.
+	 * That may cause interrupt wait timeout API in this API.
+	 * It is handled by split the wait timer in two halves.
+	 */
+
+	for (i = 0; i < EVT_TIME_OUT_SPLIT; i++) {
+		ret = _sde_encoder_wait_timeout(DRMID(phys_enc->parent),
+				irq->hw_idx,
+				(wait_info->timeout_ms/EVT_TIME_OUT_SPLIT),
+				wait_info);
+		if (ret)
+			break;
+	}
 
 	if (ret <= 0) {
 		irq_status = sde_core_irq_read(phys_enc->sde_kms,
@@ -904,6 +899,28 @@ void sde_encoder_helper_split_config(
 		if (hw_mdptop->ops.setup_pp_split)
 			hw_mdptop->ops.setup_pp_split(hw_mdptop, &cfg);
 	}
+}
+
+bool sde_encoder_in_clone_mode(struct drm_encoder *drm_enc)
+{
+	struct sde_encoder_virt *sde_enc;
+	int i = 0;
+
+	if (!drm_enc)
+		return false;
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+	if (!sde_enc)
+		return false;
+
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+
+		if (phys && phys->in_clone_mode)
+			return true;
+	}
+
+	return false;
 }
 
 static int sde_encoder_virt_atomic_check(
@@ -2119,11 +2136,11 @@ static int _sde_encoder_resource_control_helper(struct drm_encoder *drm_enc,
 		_sde_encoder_irq_control(drm_enc, true);
 
 		if (is_cmd_mode)
-			_sde_encoder_pm_qos_add_request(drm_enc);
+			_sde_encoder_pm_qos_add_request(drm_enc, sde_kms);
 
 	} else {
 		if (is_cmd_mode)
-			_sde_encoder_pm_qos_remove_request(drm_enc);
+			_sde_encoder_pm_qos_remove_request(drm_enc, sde_kms);
 
 		/* disable all the irq */
 		_sde_encoder_irq_control(drm_enc, false);
@@ -3641,50 +3658,6 @@ void sde_encoder_helper_trigger_start(struct sde_encoder_phys *phys_enc)
 	}
 }
 
-static int _sde_encoder_wait_timeout(int32_t drm_id, int32_t hw_id,
-	s64 timeout_ms, struct sde_encoder_wait_info *info)
-{
-	int rc = 0;
-	s64 wait_time_jiffies = msecs_to_jiffies(timeout_ms);
-	ktime_t cur_ktime;
-	ktime_t exp_ktime = ktime_add_ms(ktime_get(), timeout_ms);
-
-	do {
-		rc = wait_event_timeout(*(info->wq),
-			atomic_read(info->atomic_cnt) == 0, wait_time_jiffies);
-		cur_ktime = ktime_get();
-
-		SDE_EVT32(drm_id, hw_id, rc, ktime_to_ms(cur_ktime),
-			timeout_ms, atomic_read(info->atomic_cnt));
-	/* If we timed out, counter is valid and time is less, wait again */
-	} while (atomic_read(info->atomic_cnt) && (rc == 0) &&
-			(ktime_compare_safe(exp_ktime, cur_ktime) > 0));
-
-	return rc;
-}
-
-int sde_encoder_helper_wait_event_timeout(int32_t drm_id, int32_t hw_id,
-	struct sde_encoder_wait_info *info)
-{
-	int rc;
-	ktime_t exp_ktime = ktime_add_ms(ktime_get(), info->timeout_ms);
-
-	rc = _sde_encoder_wait_timeout(drm_id, hw_id, info->timeout_ms, info);
-
-	/**
-	 * handle disabled irq case where timer irq is also delayed.
-	 * wait for additional timeout of FAULT_TOLERENCE_WAIT_IN_MS
-	 * if it event_timeout expired late detected.
-	 */
-	if (atomic_read(info->atomic_cnt) && (!rc) &&
-	    (ktime_compare_safe(ktime_get(), ktime_add_ms(exp_ktime,
-	     FAULT_TOLERENCE_DELTA_IN_MS)) > 0))
-		rc = _sde_encoder_wait_timeout(drm_id, hw_id,
-			FAULT_TOLERENCE_WAIT_IN_MS, info);
-
-	return rc;
-}
-
 void sde_encoder_helper_hw_reset(struct sde_encoder_phys *phys_enc)
 {
 	struct sde_encoder_virt *sde_enc;
@@ -4593,7 +4566,6 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc, bool is_error)
 	}
 
 	if (sde_enc->disp_info.intf_type == DRM_MODE_CONNECTOR_DSI &&
-			sde_enc->disp_info.is_primary &&
 			!_sde_encoder_wakeup_time(drm_enc, &wakeup_time)) {
 		SDE_EVT32_VERBOSE(ktime_to_ms(wakeup_time));
 		mod_timer(&sde_enc->vsync_event_timer,
@@ -5191,8 +5163,7 @@ struct drm_encoder *sde_encoder_init(
 	drm_encoder_init(dev, drm_enc, &sde_encoder_funcs, drm_enc_mode, NULL);
 	drm_encoder_helper_add(drm_enc, &sde_encoder_helper_funcs);
 
-	if ((disp_info->intf_type == DRM_MODE_CONNECTOR_DSI) &&
-			disp_info->is_primary)
+	if (disp_info->intf_type == DRM_MODE_CONNECTOR_DSI)
 		setup_timer(&sde_enc->vsync_event_timer,
 				sde_encoder_vsync_event_handler,
 				(unsigned long)sde_enc);

@@ -195,6 +195,10 @@ static struct msm_vidc_common_data sm6150_common_data[] = {
 		.key = "qcom,fw-cycles",
 		.value = 733003,
 	},
+	{
+		.key = "qcom,fw-vpp-cycles",
+		.value = 225975,
+	},
 };
 
 static struct msm_vidc_common_data sm8150_common_data[] = {
@@ -274,6 +278,10 @@ static struct msm_vidc_common_data sm8150_common_data[] = {
 		.key = "qcom,fw-cycles",
 		.value = 760000,
 	},
+	{
+		.key = "qcom,fw-vpp-cycles",
+		.value = 166667,
+	},
 };
 
 static struct msm_vidc_common_data sdmmagpie_common_data_v0[] = {
@@ -346,7 +354,11 @@ static struct msm_vidc_common_data sdmmagpie_common_data_v0[] = {
 	},
 	{
 		.key = "qcom,fw-cycles",
-		.value = 733003,
+		.value = 760000,
+	},
+	{
+		.key = "qcom,fw-vpp-cycles",
+		.value = 166667,
 	},
 };
 
@@ -420,7 +432,11 @@ static struct msm_vidc_common_data sdmmagpie_common_data_v1[] = {
 	},
 	{
 		.key = "qcom,fw-cycles",
-		.value = 733003,
+		.value = 760000,
+	},
+	{
+		.key = "qcom,fw-vpp-cycles",
+		.value = 166667,
 	},
 };
 
@@ -589,6 +605,10 @@ static struct msm_vidc_efuse_data sdm670_efuse_data[] = {
 	EFUSE_ENTRY(0x007801A0, 4, 0x00008000, 0x0f, SKU_VERSION),
 };
 
+static struct msm_vidc_efuse_data sdmmagpie_efuse_data[] = {
+	EFUSE_ENTRY(0x00786018, 4, 0x00000400, 0x0a, SKU_VERSION),
+};
+
 static struct msm_vidc_platform_data default_data = {
 	.codec_data = default_codec_data,
 	.codec_data_length =  ARRAY_SIZE(default_codec_data),
@@ -645,8 +665,8 @@ static struct msm_vidc_platform_data sdmmagpie_data = {
 	.csc_data.vpe_csc_custom_bias_coeff = vpe_csc_custom_bias_coeff,
 	.csc_data.vpe_csc_custom_matrix_coeff = vpe_csc_custom_matrix_coeff,
 	.csc_data.vpe_csc_custom_limit_coeff = vpe_csc_custom_limit_coeff,
-	.efuse_data = NULL,
-	.efuse_data_length = 0,
+	.efuse_data = sdmmagpie_efuse_data,
+	.efuse_data_length = ARRAY_SIZE(sdmmagpie_efuse_data),
 	.sku_version = 0,
 	.gcc_register_base = GCC_VIDEO_AXI_REG_START_ADDR,
 	.gcc_register_size = GCC_VIDEO_AXI_REG_SIZE,

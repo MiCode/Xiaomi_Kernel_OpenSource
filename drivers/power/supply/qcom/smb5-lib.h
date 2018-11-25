@@ -42,6 +42,7 @@ enum print_reason {
 #define CHG_STATE_VOTER			"CHG_STATE_VOTER"
 #define TAPER_END_VOTER			"TAPER_END_VOTER"
 #define THERMAL_DAEMON_VOTER		"THERMAL_DAEMON_VOTER"
+#define DIE_TEMP_VOTER			"DIE_TEMP_VOTER"
 #define BOOST_BACK_VOTER		"BOOST_BACK_VOTER"
 #define MICRO_USB_VOTER			"MICRO_USB_VOTER"
 #define DEBUG_BOARD_VOTER		"DEBUG_BOARD_VOTER"
@@ -66,6 +67,7 @@ enum print_reason {
 #define LPD_VOTER			"LPD_VOTER"
 #define FCC_STEPPER_VOTER		"FCC_STEPPER_VOTER"
 #define SW_THERM_REGULATION_VOTER	"SW_THERM_REGULATION_VOTER"
+#define JEITA_ARB_VOTER			"JEITA_ARB_VOTER"
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -95,6 +97,12 @@ enum qc2_non_comp_voltage {
 enum {
 	BOOST_BACK_WA			= BIT(0),
 	SW_THERM_REGULATION_WA		= BIT(1),
+};
+
+enum jeita_cfg_stat {
+	JEITA_CFG_NONE = 0,
+	JEITA_CFG_FAILURE,
+	JEITA_CFG_COMPLETE,
 };
 
 enum smb_irq_index {
@@ -228,6 +236,15 @@ enum thermal_status_levels {
 	TEMP_BELOW_RANGE,
 };
 
+enum icl_override_mode {
+	/* APSD/Type-C/QC auto */
+	HW_AUTO_MODE,
+	/* 100/150/500/900mA */
+	SW_OVERRIDE_USB51_MODE,
+	/* ICL other than USB51 */
+	SW_OVERRIDE_HC_MODE,
+};
+
 /* EXTCON_USB and EXTCON_USB_HOST are mutually exclusive */
 static const u32 smblib_extcon_exclusive[] = {0x3, 0};
 
@@ -329,6 +346,7 @@ struct smb_charger {
 	struct power_supply		*usb_main_psy;
 	struct power_supply		*usb_port_psy;
 	struct power_supply		*wls_psy;
+	struct power_supply		*cp_psy;
 	enum power_supply_type		real_charger_type;
 
 	/* notifiers */
@@ -412,13 +430,14 @@ struct smb_charger {
 	int			usb_icl_change_irq_enabled;
 	u32			jeita_status;
 	u8			float_cfg;
+	bool			jeita_arb_flag;
 	bool			use_extcon;
 	bool			otg_present;
 	bool			hvdcp_disable;
 	int			hw_max_icl_ua;
 	int			auto_recharge_soc;
 	enum sink_src_mode	sink_src_mode;
-	bool			jeita_configured;
+	enum jeita_cfg_stat	jeita_configured;
 	int			charger_temp_max;
 	int			smb_temp_max;
 	u8			typec_try_mode;
@@ -431,6 +450,10 @@ struct smb_charger {
 	int			connector_temp;
 	int			thermal_status;
 	int			main_fcc_max;
+	u32			jeita_soft_thlds[2];
+	u32			jeita_soft_hys_thlds[2];
+	int			jeita_soft_fcc[2];
+	int			jeita_soft_fv[2];
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -512,6 +535,7 @@ irqreturn_t switcher_power_ok_irq_handler(int irq, void *data);
 irqreturn_t wdog_snarl_irq_handler(int irq, void *data);
 irqreturn_t wdog_bark_irq_handler(int irq, void *data);
 irqreturn_t typec_or_rid_detection_change_irq_handler(int irq, void *data);
+irqreturn_t temp_change_irq_handler(int irq, void *data);
 
 int smblib_get_prop_input_suspend(struct smb_charger *chg,
 				union power_supply_propval *val);
@@ -635,10 +659,12 @@ int smblib_get_iio_channel(struct smb_charger *chg, const char *propname,
 int smblib_read_iio_channel(struct smb_charger *chg, struct iio_channel *chan,
 							int div, int *data);
 int smblib_configure_hvdcp_apsd(struct smb_charger *chg, bool enable);
-int smblib_icl_override(struct smb_charger *chg, bool override);
+int smblib_icl_override(struct smb_charger *chg, enum icl_override_mode mode);
 enum alarmtimer_restart smblib_lpd_recheck_timer(struct alarm *alarm,
 				ktime_t time);
 int smblib_toggle_smb_en(struct smb_charger *chg, int toggle);
+void smblib_hvdcp_detect_enable(struct smb_charger *chg, bool enable);
+void smblib_apsd_enable(struct smb_charger *chg, bool enable);
 
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);

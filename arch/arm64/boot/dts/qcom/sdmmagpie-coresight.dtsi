@@ -335,7 +335,7 @@
 			};
 
 			port@3 {
-				reg = <0>;
+				reg = <5>;
 				funnel_in1_in_funnel_modem: endpoint {
 					slave-mode;
 					remote-endpoint =

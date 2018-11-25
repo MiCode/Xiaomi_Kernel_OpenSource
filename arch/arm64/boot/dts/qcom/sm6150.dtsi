@@ -2894,6 +2894,22 @@
 		status = "ok";
 	};
 
+	keepalive_opp_table: keepalive-opp-table {
+		compatible = "operating-points-v2";
+		opp-1 {
+			opp-hz = /bits/ 64 < 1 >;
+		};
+	};
+
+	snoc_cnoc_keepalive: qcom,snoc_cnoc_keepalive {
+		compatible = "qcom,devbw";
+		governor = "powersave";
+		qcom,src-dst-ports = <1 627>;
+		qcom,active-only;
+		status = "ok";
+		operating-points-v2 = <&keepalive_opp_table>;
+	};
+
 	cx_ipeak_lm: cx_ipeak@01fed000 {
 		compatible = "qcom,cx-ipeak-sm6150";
 		reg = <0x1fed000 0x28>;
@@ -2907,6 +2923,7 @@
 #include "pm6150.dtsi"
 #include "pm6150l.dtsi"
 #include "sm6150-pinctrl.dtsi"
+#include "sm6150-slpi-pinctrl.dtsi"
 #include "sm6150-regulator.dtsi"
 #include "sm6150-pm.dtsi"
 #include "sm6150-gdsc.dtsi"
@@ -3167,4 +3184,8 @@
 &msm_vidc {
 	qcom,cx-ipeak-data = <&cx_ipeak_lm 4>;
 	qcom,clock-freq-threshold = <380000000>;
+};
+
+&msm_audio_ion {
+	qcom,iova-start-addr = <0x20000000>;
 };

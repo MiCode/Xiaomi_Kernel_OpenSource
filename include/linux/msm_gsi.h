@@ -151,7 +151,12 @@ enum gsi_evt_chtype {
 	GSI_EVT_CHTYPE_XHCI_EV = 0x1,
 	GSI_EVT_CHTYPE_GPI_EV = 0x2,
 	GSI_EVT_CHTYPE_XDCI_EV = 0x3,
-	GSI_EVT_CHTYPE_WDI_EV = 0x4
+	GSI_EVT_CHTYPE_WDI2_EV = 0x4,
+	GSI_EVT_CHTYPE_GCI_EV = 0x5,
+	GSI_EVT_CHTYPE_WDI3_EV = 0x6,
+	GSI_EVT_CHTYPE_MHIP_EV = 0x7,
+	GSI_EVT_CHTYPE_AQC_EV = 0x8,
+	GSI_EVT_CHTYPE_11AD_EV = 0x9,
 };
 
 enum gsi_evt_ring_elem_size {
@@ -219,7 +224,12 @@ enum gsi_chan_prot {
 	GSI_CHAN_PROT_XHCI = 0x1,
 	GSI_CHAN_PROT_GPI = 0x2,
 	GSI_CHAN_PROT_XDCI = 0x3,
-	GSI_CHAN_PROT_WDI = 0x4
+	GSI_CHAN_PROT_WDI2 = 0x4,
+	GSI_CHAN_PROT_GCI = 0x5,
+	GSI_CHAN_PROT_WDI3 = 0x6,
+	GSI_CHAN_PROT_MHIP = 0x7,
+	GSI_CHAN_PROT_AQC = 0x8,
+	GSI_CHAN_PROT_11AD = 0x9,
 };
 
 enum gsi_chan_dir {
@@ -674,6 +684,49 @@ struct __packed gsi_wdi_channel_scratch {
 };
 
 /**
+* gsi_11ad_rx_channel_scratch - 11AD protocol SW config area of
+* RX channel scratch
+*
+* @status_ring_hwtail_address_lsb: Low 32 bits of status ring hwtail address.
+* @status_ring_hwtail_address_msb: High 32 bits of status ring hwtail address.
+* @data_buffers_base_address_lsb: Low 32 bits of the data buffers address.
+* @data_buffers_base_address_msb: High 32 bits of the data buffers address.
+* @fixed_data_buffer_size: the fixed buffer size (> MTU).
+* @resv1: reserved bits.
+*/
+struct __packed gsi_11ad_rx_channel_scratch {
+	uint32_t status_ring_hwtail_address_lsb;
+	uint32_t status_ring_hwtail_address_msb;
+	uint32_t data_buffers_base_address_lsb;
+	uint32_t data_buffers_base_address_msb:8;
+	uint32_t fixed_data_buffer_size:16;
+	uint32_t resv1:8;
+};
+
+/**
+ * gsi_11ad_tx_channel_scratch - 11AD protocol SW config area of
+ * TX channel scratch
+ *
+ * @status_ring_hwtail_address_lsb: Low 32 bits of status ring hwtail address.
+ * @status_ring_hwtail_address_msb: High 32 bits of status ring hwtail address.
+ * @update_status_hwtail_mod_threshold: The threshold in (32B) elements for
+ *	updating descriptor ring 11ad HWTAIL pointer moderation.
+ * @resv1: reserved bits.
+ * @resv2: reserved bit.
+ * @fixed_data_buffer_size: the fixed buffer size (> MTU).
+ * @resv3: reserved bits.
+ */
+struct __packed gsi_11ad_tx_channel_scratch {
+	uint32_t status_ring_hwtail_address_lsb;
+	uint32_t status_ring_hwtail_address_msb;
+	uint32_t update_status_hwtail_mod_threshold:8;
+	uint32_t resv1:24;
+	uint32_t resv2:8;
+	uint32_t fixed_data_buffer_size:16;
+	uint32_t resv3:8;
+};
+
+/**
  * gsi_channel_scratch - channel scratch SW config area
  *
  */
@@ -682,6 +735,8 @@ union __packed gsi_channel_scratch {
 	struct __packed gsi_mhi_channel_scratch mhi;
 	struct __packed gsi_xdci_channel_scratch xdci;
 	struct __packed gsi_wdi_channel_scratch wdi;
+	struct __packed gsi_11ad_rx_channel_scratch rx_11ad;
+	struct __packed gsi_11ad_tx_channel_scratch tx_11ad;
 	struct __packed {
 		uint32_t word1;
 		uint32_t word2;
@@ -748,6 +803,17 @@ struct __packed gsi_wdi_evt_scratch {
 	uint32_t resvd3:16;
 };
 
+/**
+ * gsi_11ad_evt_scratch - 11AD protocol SW config area of
+ * event scratch
+ *
+ */
+struct __packed gsi_11ad_evt_scratch {
+	uint32_t update_status_hwtail_mod_threshold : 8;
+	uint32_t resvd1:8;
+	uint32_t resvd2:16;
+	uint32_t resvd3;
+};
 
 /**
  * gsi_evt_scratch - event scratch SW config area
@@ -757,6 +823,7 @@ union __packed gsi_evt_scratch {
 	struct __packed gsi_mhi_evt_scratch mhi;
 	struct __packed gsi_xdci_evt_scratch xdci;
 	struct __packed gsi_wdi_evt_scratch wdi;
+	struct __packed gsi_11ad_evt_scratch ad11;
 	struct __packed {
 		uint32_t word1;
 		uint32_t word2;
@@ -924,6 +991,18 @@ int gsi_query_evt_ring_db_addr(unsigned long evt_ring_hdl,
  * @Return gsi_status
  */
 int gsi_ring_evt_ring_db(unsigned long evt_ring_hdl, uint64_t value);
+
+/**
+* gsi_ring_ch_ring_db - Peripheral should call this function for
+* ringing the channel ring doorbell with given value
+*
+* @chan_hdl:    Client handle previously obtained from
+*	     gsi_alloc_channel
+* @value:           The value to be used for ringing the doorbell
+*
+* @Return gsi_status
+*/
+int gsi_ring_ch_ring_db(unsigned long chan_hdl, uint64_t value);
 
 /**
  * gsi_reset_evt_ring - Peripheral should call this function to
@@ -1422,6 +1501,11 @@ static inline int gsi_query_evt_ring_db_addr(unsigned long evt_ring_hdl,
 
 static inline int gsi_ring_evt_ring_db(unsigned long evt_ring_hdl,
 		uint64_t value)
+{
+	return -GSI_STATUS_UNSUPPORTED_OP;
+}
+
+static inline int gsi_ring_ch_ring_db(unsigned long chan_hdl, uint64_t value)
 {
 	return -GSI_STATUS_UNSUPPORTED_OP;
 }

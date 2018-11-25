@@ -853,7 +853,7 @@ static int ipa3_wdi2_gsi_alloc_evt_ring(
 	int result = -EFAULT;
 
 	/* GSI EVENT RING allocation */
-	evt_ring_props->intf = GSI_EVT_CHTYPE_WDI_EV;
+	evt_ring_props->intf = GSI_EVT_CHTYPE_WDI2_EV;
 	evt_ring_props->intr = GSI_INTR_IRQ;
 
 	if (IPA_CLIENT_IS_PROD(client))
@@ -923,7 +923,7 @@ static int ipa3_wdi2_gsi_alloc_channel_ring(
 		channel_props->re_size = GSI_CHAN_RE_SIZE_8B;
 	}
 
-	channel_props->prot = GSI_CHAN_PROT_WDI;
+	channel_props->prot = GSI_CHAN_PROT_WDI2;
 	channel_props->ch_id = ep_cfg->ipa_gsi_chan_num;
 	channel_props->evt_ring_hdl = evt_ring_hdl;
 

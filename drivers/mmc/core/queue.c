@@ -146,7 +146,14 @@ static int mmc_cmdq_thread(void *d)
 		if (kthread_should_stop())
 			break;
 
+		ret = mmc_cmdq_down_rwsem(host, mq->cmdq_req_peeked);
+		if (ret) {
+			mmc_cmdq_up_rwsem(host);
+			continue;
+		}
 		ret = mq->cmdq_issue_fn(mq, mq->cmdq_req_peeked);
+		mmc_cmdq_up_rwsem(host);
+
 		/*
 		 * Don't requeue if issue_fn fails.
 		 * Recovery will be come by completion softirq
@@ -236,6 +243,7 @@ int mmc_cmdq_init(struct mmc_queue *mq, struct mmc_card *card)
 
 	init_waitqueue_head(&card->host->cmdq_ctx.queue_empty_wq);
 	init_waitqueue_head(&card->host->cmdq_ctx.wait);
+	init_rwsem(&card->host->cmdq_ctx.err_rwsem);
 
 	ret = blk_queue_init_tags(mq->queue, q_depth, NULL, BLK_TAG_ALLOC_FIFO);
 	if (ret) {

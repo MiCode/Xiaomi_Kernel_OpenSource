@@ -101,11 +101,15 @@ enum {
 
 enum {
 	PLATFORM_SUBTYPE_ADP_V1 = 0x0,
+	PLATFORM_SUBTYPE_ADP_V2 = 0x1,
+	PLATFORM_SUBTYPE_ADP_AIR_V1 = 0x2,
 	PLATFORM_SUBTYPE_ADP_INVALID,
 };
 
 const char *adp_hw_platform_subtype[] = {
 	[PLATFORM_SUBTYPE_ADP_V1] = "ADP_V1",
+	[PLATFORM_SUBTYPE_ADP_V2] = "ADP_V2",
+	[PLATFORM_SUBTYPE_ADP_AIR_V1] = "ADP_AIR_V1",
 	[PLATFORM_SUBTYPE_ADP_INVALID] = "INVALID",
 };
 
@@ -384,6 +388,7 @@ uint32_t socinfo_get_version(void)
 {
 	return (socinfo) ? socinfo->v0_1.version : 0;
 }
+EXPORT_SYMBOL(socinfo_get_version);
 
 char *socinfo_get_build_id(void)
 {

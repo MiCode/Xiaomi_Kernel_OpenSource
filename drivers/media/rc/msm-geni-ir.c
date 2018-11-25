@@ -728,8 +728,10 @@ static irqreturn_t geni_ir_interrupt(int irq, void *data)
 		} else {
 			/*NEC*/
 			scancode = (rx_data & 0x0000FF);
-			address2 = (rx_data & 0x00FF00);
-			address1 = (rx_data & 0xFF0000);
+			scancode = ~scancode;
+			scancode = (scancode & 0x0000FF);
+			address2 = (rx_data & 0x00FF0000);
+			address1 = (rx_data & 0xFF000000);
 			rc_keydown(ir->rcdev, RC_PROTO_NEC, scancode, 0);
 		}
 

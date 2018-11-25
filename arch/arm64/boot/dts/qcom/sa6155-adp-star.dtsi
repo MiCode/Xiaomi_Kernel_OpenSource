@@ -194,3 +194,7 @@
 &qupv3_se0_2uart {
 	status = "ok";
 };
+
+&qupv3_se7_4uart {
+	status = "ok";
+};

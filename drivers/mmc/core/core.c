@@ -32,6 +32,7 @@
 #include <linux/of.h>
 #include <linux/pm.h>
 #include <linux/jiffies.h>
+#include <linux/sched/debug.h>
 
 #include <linux/mmc/card.h>
 #include <linux/mmc/host.h>
@@ -131,6 +132,26 @@ static bool mmc_is_data_request(struct mmc_request *mmc_request)
 		return false;
 	}
 }
+
+void mmc_cmdq_up_rwsem(struct mmc_host *host)
+{
+	struct mmc_cmdq_context_info *ctx = &host->cmdq_ctx;
+
+	up_read(&ctx->err_rwsem);
+}
+EXPORT_SYMBOL(mmc_cmdq_up_rwsem);
+
+int mmc_cmdq_down_rwsem(struct mmc_host *host, struct request *rq)
+{
+	struct mmc_cmdq_context_info *ctx = &host->cmdq_ctx;
+
+	down_read(&ctx->err_rwsem);
+	if (rq && !(rq->rq_flags & RQF_QUEUED))
+		return -EINVAL;
+	else
+		return 0;
+}
+EXPORT_SYMBOL(mmc_cmdq_down_rwsem);
 
 static void mmc_clk_scaling_start_busy(struct mmc_host *host, bool lock_needed)
 {
@@ -346,9 +367,19 @@ int mmc_cmdq_halt_on_empty_queue(struct mmc_host *host)
 {
 	int err = 0;
 
-	err = wait_event_interruptible(host->cmdq_ctx.queue_empty_wq,
-				(!host->cmdq_ctx.active_reqs));
-	if (host->cmdq_ctx.active_reqs) {
+	err = wait_event_interruptible_timeout(host->cmdq_ctx.queue_empty_wq,
+			(!host->cmdq_ctx.active_reqs),
+			msecs_to_jiffies(MMC_CMDQ_WAIT_EVENT_TIMEOUT_MS));
+
+	if (WARN_ON(!err && host->cmdq_ctx.active_reqs)) {
+		pr_err("%s: %s: timeout case? host-claimed(%d), claim-cnt(%d), claim-comm(%s), active-reqs(0x%x)\n",
+			mmc_hostname(host), __func__, host->claimed,
+			host->claim_cnt, host->claimer->comm,
+			host->cmdq_ctx.active_reqs);
+		if (host->claimer)
+			sched_show_task(host->claimer);
+		return -EBUSY;
+	} else if (host->cmdq_ctx.active_reqs) {
 		pr_err("%s: %s: unexpected active requests (%lu)\n",
 			mmc_hostname(host), __func__,
 			host->cmdq_ctx.active_reqs);
@@ -1823,14 +1854,15 @@ int mmc_cmdq_wait_for_dcmd(struct mmc_host *host,
 	struct mmc_command *cmd = mrq->cmd;
 	int err = 0;
 
-	init_completion(&mrq->completion);
 	mrq->done = mmc_cmdq_dcmd_req_done;
 	err = mmc_cmdq_start_req(host, cmdq_req);
 	if (err)
 		return err;
 
+	mmc_cmdq_up_rwsem(host);
 	wait_for_completion_io(&mrq->completion);
-	if (cmd->error) {
+	err = mmc_cmdq_down_rwsem(host, mrq->req);
+	if (err || cmd->error) {
 		pr_err("%s: DCMD %d failed with err %d\n",
 				mmc_hostname(host), cmd->opcode,
 				cmd->error);
@@ -3520,7 +3552,7 @@ static int mmc_cmdq_send_erase_cmd(struct mmc_cmdq_req *cmdq_req,
 	if (err) {
 		pr_err("mmc_erase: group start error %d, status %#x\n",
 				err, cmd->resp[0]);
-		return -EIO;
+		return err;
 	}
 	return 0;
 }

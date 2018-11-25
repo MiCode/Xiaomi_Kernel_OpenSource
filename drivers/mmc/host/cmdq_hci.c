@@ -25,6 +25,8 @@
 #include <linux/mmc/card.h>
 #include <linux/pm_runtime.h>
 #include <linux/workqueue.h>
+#include <linux/fault-inject.h>
+#include <linux/random.h>
 
 #include "cmdq_hci.h"
 #include "sdhci.h"
@@ -899,6 +901,42 @@ static void cmdq_finish_data(struct mmc_host *mmc, unsigned int tag)
 	mrq->done(mrq);
 }
 
+#ifdef CONFIG_FAIL_MMC_REQUEST
+static int cmdq_should_inject_err(struct mmc_host *mmc, int *err,
+				  unsigned int *dbr_set, unsigned int *status)
+{
+	struct cmdq_host *cq_host = (struct cmdq_host *)mmc_cmdq_private(mmc);
+	static const int errors[] = {
+		-ETIMEDOUT,
+		-EILSEQ,
+		-EIO,
+	};
+
+	*dbr_set = cmdq_readl(cq_host, CQTDBR);
+	if (*dbr_set && should_fail(&mmc->fail_mmc_request,
+				(prandom_u32() % 1024) * 512)) {
+		pr_err("%s *** Before inducing force err, status (%d) error(%d) dbr(0x%x), active_reqs(0x%lx), data_active_reqs(0x%lx)\n",
+			__func__, *status, *err, *dbr_set,
+			mmc->cmdq_ctx.active_reqs,
+			mmc->cmdq_ctx.data_active_reqs);
+		*err = errors[prandom_u32() % ARRAY_SIZE(errors)];
+		*status = 0;
+		pr_err("%s *** After inducing force err, status (%d) error(%d) dbr(0x%x), active_reqs(0x%lx), data_active_reqs(0x%lx)\n",
+			__func__, *status, *err, *dbr_set,
+			mmc->cmdq_ctx.active_reqs,
+			mmc->cmdq_ctx.data_active_reqs);
+		return true;
+	}
+	return false;
+}
+#else
+static int cmdq_should_inject_err(struct mmc_host *mmc, int *err,
+				  unsigned int *dbr_set, unsigned int *status)
+{
+	return false;
+}
+#endif
+
 irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 {
 	u32 status;
@@ -910,8 +948,11 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 	u32 dbr_set = 0;
 	u32 dev_pend_set = 0;
 	int stat_err = 0;
+	bool err_inject = false;
 
 	status = cmdq_readl(cq_host, CQIS);
+
+	err_inject = cmdq_should_inject_err(mmc, &err, &dbr_set, &status);
 
 	if (!status && !err)
 		return IRQ_NONE;
@@ -958,7 +999,8 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 			 *   have caused such error, so check for any first
 			 *   bit set in doorbell and proceed with an error.
 			 */
-			dbr_set = cmdq_readl(cq_host, CQTDBR);
+			if (!dbr_set)
+				dbr_set = cmdq_readl(cq_host, CQTDBR);
 			if (!dbr_set) {
 				pr_err("%s: spurious/force error interrupt\n",
 						mmc_hostname(mmc));
@@ -1099,7 +1141,11 @@ skip_cqterri:
 				}
 			}
 		}
+
+		if (err_inject && err == -ETIMEDOUT)
+			goto out;
 		cmdq_finish_data(mmc, tag);
+		goto out;
 	} else {
 		cmdq_writel(cq_host, status, CQIS);
 	}

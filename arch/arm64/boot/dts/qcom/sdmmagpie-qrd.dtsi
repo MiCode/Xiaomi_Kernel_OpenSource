@@ -17,7 +17,25 @@
 #include "sdmmagpie-thermal-overlay.dtsi"
 
 #include "sdmmagpie-sde-display.dtsi"
+#include "sdmmagpie-camera-sensor-qrd.dtsi"
 &soc {
+	fpc1020 {
+		compatible = "fpc,fpc1020";
+		interrupt-parent = <&tlmm>;
+		interrupts = <90 0>;
+		fpc,gpio_rst = <&tlmm 91 0x0>;
+		fpc,gpio_irq = <&tlmm 90 0>;
+		vcc_spi-supply = <&pm6150_l10>;
+		vdd_io-supply  = <&pm6150_l10>;
+		vdd_ana-supply = <&pm6150_l10>;
+		fpc,enable-on-boot;
+		pinctrl-names = "fpc1020_reset_reset",
+				"fpc1020_reset_active",
+				"fpc1020_irq_active";
+		pinctrl-0 = <&fpc_reset_low>;
+		pinctrl-1 = <&fpc_reset_high>;
+		pinctrl-2 = <&fpc_int_low>;
+	};
 };
 
 &qupv3_se7_i2c{
@@ -121,6 +139,28 @@
 	status = "ok";
 };
 
+&qupv3_se2_i2c {
+	status = "ok";
+	qcom,clk-freq-out = <1000000>;
+	nq@28 {
+		compatible = "qcom,nq-nci";
+		reg = <0x28>;
+		qcom,nq-irq = <&tlmm 37 0x00>;
+		qcom,nq-ven = <&tlmm 12 0x00>;
+		qcom,nq-firm = <&tlmm 36 0x00>;
+		qcom,nq-clkreq = <&tlmm 31 0x00>;
+		qcom,nq-esepwr = <&tlmm 94 0x00>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <37 0>;
+		interrupt-names = "nfc_irq";
+		pinctrl-names = "nfc_active", "nfc_suspend";
+		pinctrl-0 = <&nfc_int_active &nfc_enable_active
+				&nfc_clk_req_active>;
+		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend
+				&nfc_clk_req_suspend>;
+	};
+};
+
 &sdhc_1 {
 	vdd-supply = <&pm6150_l19>;
 	qcom,vdd-voltage-level = <2950000 2950000>;
@@ -161,7 +201,7 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
 	qcom,mdss-dsi-bl-min-level = <1>;
-	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-bl-max-level = <1023>;
 	qcom,platform-te-gpio = <&tlmm 10 0>;
 	qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
 };
@@ -170,7 +210,7 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
 	qcom,mdss-dsi-bl-min-level = <1>;
-	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-bl-max-level = <1023>;
 	qcom,platform-te-gpio = <&tlmm 10 0>;
 	qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
 };
@@ -179,7 +219,7 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
 	qcom,mdss-dsi-bl-min-level = <1>;
-	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-bl-max-level = <1023>;
 	qcom,platform-te-gpio = <&tlmm 10 0>;
 	qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
 };

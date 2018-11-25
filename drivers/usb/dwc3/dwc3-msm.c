@@ -3798,6 +3798,7 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 				 * ss phy to avoid turning on pipe clock during
 				 * these wake-ups.
 				 */
+				mdwc->ss_phy->flags |= PHY_WAKEUP_WA_EN;
 				usb_phy_powerdown(mdwc->ss_phy);
 
 				/*
@@ -3816,6 +3817,7 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 			}
 		} else {
 			usb_phy_powerup(mdwc->ss_phy);
+			mdwc->ss_phy->flags &= ~PHY_WAKEUP_WA_EN;
 			/* set rate back to default core clk rate */
 			clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate);
 			dev_dbg(mdwc->dev, "set core clk rate %ld\n",

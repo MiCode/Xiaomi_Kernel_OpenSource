@@ -1744,13 +1744,14 @@ power_up_failed:
 			ctrl->pinctrl_info.gpio_state_suspend);
 		if (ret)
 			CAM_ERR(CAM_SENSOR, "cannot set pin to suspend state");
-		cam_res_mgr_shared_pinctrl_select_state(false);
 		devm_pinctrl_put(ctrl->pinctrl_info.pinctrl);
-		cam_res_mgr_shared_pinctrl_put();
 	}
 
 	if (soc_info->use_shared_clk)
 		cam_res_mgr_shared_clk_config(false);
+
+	cam_res_mgr_shared_pinctrl_select_state(false);
+	cam_res_mgr_shared_pinctrl_put();
 
 	ctrl->cam_pinctrl_status = 0;
 
@@ -1926,13 +1927,14 @@ int cam_sensor_util_power_down(struct cam_sensor_power_ctrl_t *ctrl,
 		if (ret)
 			CAM_ERR(CAM_SENSOR, "cannot set pin to suspend state");
 
-		cam_res_mgr_shared_pinctrl_select_state(false);
 		devm_pinctrl_put(ctrl->pinctrl_info.pinctrl);
-		cam_res_mgr_shared_pinctrl_put();
 	}
 
 	if (soc_info->use_shared_clk)
 		cam_res_mgr_shared_clk_config(false);
+
+	cam_res_mgr_shared_pinctrl_select_state(false);
+	cam_res_mgr_shared_pinctrl_put();
 
 	ctrl->cam_pinctrl_status = 0;
 

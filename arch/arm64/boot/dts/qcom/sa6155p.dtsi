@@ -259,6 +259,10 @@
 	connectors = <&sde_rscc &dsi_dp1 &sde_wb>;
 };
 
+&slpi_tlmm {
+	status = "ok";
+};
+
 /* Audio device tree */
 #include "sa6155-audio.dtsi"
 #include "sa6155-pcie.dtsi"

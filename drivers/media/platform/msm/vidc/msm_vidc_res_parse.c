@@ -801,6 +801,8 @@ int read_platform_resources_from_drv_data(
 			"qcom,dcvs");
 	res->fw_cycles = find_key_value(platform_data,
 			"qcom,fw-cycles");
+	res->fw_vpp_cycles = find_key_value(platform_data,
+			"qcom,fw-vpp-cycles");
 
 	res->csc_coeff_data = &platform_data->csc_data;
 
@@ -1080,7 +1082,7 @@ int msm_vidc_smmu_fault_handler(struct iommu_domain *domain,
 
 	if (core->smmu_fault_handled) {
 		if (core->resources.non_fatal_pagefaults) {
-			dprintk(VIDC_ERR,
+			dprintk_ratelimit(VIDC_ERR,
 					"%s: non-fatal pagefault address: %lx\n",
 					__func__, iova);
 			return 0;

@@ -813,6 +813,7 @@ struct ufs_hba {
 	void *priv;
 	unsigned int irq;
 	bool is_irq_enabled;
+	bool crash_on_err;
 
 	u32 dev_ref_clk_gating_wait;
 	u32 dev_ref_clk_freq;

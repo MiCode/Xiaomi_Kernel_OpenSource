@@ -4074,8 +4074,9 @@ void sde_dbg_ctrl(const char *name, ...)
 		if (!strcmp(blk_name, "panic_underrun") &&
 				sde_dbg_base.debugfs_ctrl &
 				DBG_CTRL_PANIC_UNDERRUN) {
-			pr_debug("panic underrun\n");
-			panic("underrun");
+			pr_err("panic underrun\n");
+			SDE_DBG_DUMP_WQ("all", "dbg_bus", "vbif_dbg_bus",
+					"panic");
 		}
 
 		if (!strcmp(blk_name, "reset_hw_panic") &&

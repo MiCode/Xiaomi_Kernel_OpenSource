@@ -243,6 +243,12 @@ static void rgmu_snapshot(struct kgsl_device *device)
 	/* Make sure the interrupt is masked */
 	wmb();
 
+	/*
+	 * Halt RGMU execution so that GX will not
+	 * be collapsed while dumping snapshot.
+	 */
+	gmu_dev_ops->halt_execution(device);
+
 	kgsl_device_snapshot(device, NULL, true);
 
 	adreno_write_gmureg(adreno_dev,

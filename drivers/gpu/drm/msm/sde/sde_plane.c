@@ -3830,6 +3830,11 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 		return -EINVAL;
 	}
 
+	if (!sde_kms_power_resource_is_enabled(plane->dev)) {
+		SDE_ERROR("power resource is not enabled\n");
+		return -EINVAL;
+	}
+
 	psde = to_sde_plane(plane);
 	state = plane->state;
 

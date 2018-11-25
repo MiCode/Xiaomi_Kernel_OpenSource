@@ -39,10 +39,10 @@
 		#size-cells = <2>;
 		ranges;
 
-		removed_region0: removed_region@85a00000 {
+		removed_region0: removed_region@85900000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x85a00000 0x0 0x500000>;
+			reg = <0x0 0x85900000 0x0 0x600000>;
 		};
 
 		smem_region: smem@85f00000 {
@@ -1053,9 +1053,9 @@
 		};
 	};
 
-	qcom_seecom: qseecom@85a00000 {
+	qcom_seecom: qseecom@85900000 {
 		compatible = "qcom,qseecom";
-		reg = <0x85a00000 0x400000>;
+		reg = <0x85900000 0x500000>;
 		reg-names = "secapp-region";
 		qcom,hlos-num-ce-hw-instances = <1>;
 		qcom,hlos-ce-hw-instance = <0>;
@@ -1066,6 +1066,12 @@
 		qcom,msm-bus,num-paths = <1>;
 		qcom,ce-opp-freq = <171430000>;
 		qcom,qsee-reentrancy-support = <2>;
+	};
+
+	qcom_smcinvoke: smcinvoke@85900000 {
+		compatible = "qcom,smcinvoke";
+		reg = <0x85900000 0x500000>;
+		reg-names = "secapp-region";
 	};
 
 	qcom_rng: qrng@e3000 {

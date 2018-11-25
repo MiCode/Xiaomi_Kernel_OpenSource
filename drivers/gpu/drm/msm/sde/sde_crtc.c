@@ -6547,7 +6547,7 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 	/* Below parameters are for fps calculation for sysfs node */
 	sde_crtc->fps_info.fps_periodic_duration = DEFAULT_FPS_PERIOD_1_SEC;
 	sde_crtc->fps_info.time_buf = kmalloc_array(MAX_FRAME_COUNT,
-			sizeof(sde_crtc->fps_info.time_buf), GFP_KERNEL);
+			sizeof(ktime_t), GFP_KERNEL);
 
 	if (!sde_crtc->fps_info.time_buf)
 		SDE_ERROR("invalid buffer\n");

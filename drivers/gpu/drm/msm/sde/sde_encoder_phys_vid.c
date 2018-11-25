@@ -89,7 +89,8 @@ static void drm_mode_to_intf_timing_params(
 	 */
 	timing->width = mode->hdisplay;	/* active width */
 
-	if (vid_enc->base.comp_type == MSM_DISPLAY_COMPRESSION_DSC) {
+	if (phys_enc->hw_intf->cap->type != INTF_DP &&
+		vid_enc->base.comp_type == MSM_DISPLAY_COMPRESSION_DSC) {
 		comp_ratio = vid_enc->base.comp_ratio;
 		if (comp_ratio == MSM_DISPLAY_COMPRESSION_RATIO_2_TO_1)
 			timing->width = DIV_ROUND_UP(timing->width, 2);
@@ -129,6 +130,20 @@ static void drm_mode_to_intf_timing_params(
 	}
 
 	timing->wide_bus_en = vid_enc->base.wide_bus_en;
+
+	/*
+	 * for DP, divide the horizonal parameters by 2 when
+	 * widebus or compression is enabled, irrespective of
+	 * compression ratio
+	 */
+	if (phys_enc->hw_intf->cap->type == INTF_DP &&
+		(timing->wide_bus_en || vid_enc->base.comp_ratio)) {
+		timing->width = timing->width >> 1;
+		timing->xres = timing->xres >> 1;
+		timing->h_back_porch = timing->h_back_porch >> 1;
+		timing->h_front_porch = timing->h_front_porch >> 1;
+		timing->hsync_pulse_width = timing->hsync_pulse_width >> 1;
+	}
 
 	/*
 	 * For edp only:
@@ -859,6 +874,11 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 	if (ctl->ops.update_bitmask_merge3d && phys_enc->hw_pp->merge_3d)
 		ctl->ops.update_bitmask_merge3d(ctl,
 			phys_enc->hw_pp->merge_3d->idx, 1);
+
+	if (phys_enc->hw_intf->cap->type == INTF_DP &&
+		phys_enc->comp_type == MSM_DISPLAY_COMPRESSION_DSC &&
+		phys_enc->comp_ratio && ctl->ops.update_bitmask_periph)
+		ctl->ops.update_bitmask_periph(ctl, intf->idx, 1);
 
 skip_flush:
 	SDE_DEBUG_VIDENC(vid_enc, "update pending flush ctl %d intf %d\n",

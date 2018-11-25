@@ -25,7 +25,7 @@
 #define GSI_CMD_TIMEOUT (5*HZ)
 #define GSI_START_CMD_TIMEOUT_MS 1000
 #define GSI_CMD_POLL_CNT 5
-#define GSI_STOP_CMD_TIMEOUT_MS 10
+#define GSI_STOP_CMD_TIMEOUT_MS 200
 #define GSI_MAX_CH_LOW_WEIGHT 15
 
 #define GSI_RESET_WA_MIN_SLEEP 1000
@@ -159,6 +159,14 @@ static void gsi_channel_state_change_wait(unsigned long chan_hdl,
 
 		gsi_pending_intr = gsi_readl(gsi_ctx->base +
 			GSI_EE_n_CNTXT_SRC_GSI_CH_IRQ_OFFS(ee));
+
+		/*
+		 * Continue in the loop if a pending interrupt of
+		 * corresponding channel is present till an interrupt
+		 * is received.
+		 */
+		if ((gsi_pending_intr >> chan_hdl) & 1)
+			poll_cnt = 0;
 
 		GSIDBG("GSI wait on chan_hld=%lu chan=%lu state=%u intr=%u\n",
 			chan_hdl,
@@ -1165,6 +1173,14 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 
 	gsi_writel(props->intr, gsi_ctx->base +
 			GSI_EE_n_CNTXT_INTSET_OFFS(gsi_ctx->per.ee));
+	/* set GSI_TOP_EE_n_CNTXT_MSI_BASE_LSB/MSB to 0 */
+	if ((gsi_ctx->per.ver >= GSI_VER_2_0) &&
+		(props->intr != GSI_INTR_MSI)) {
+		gsi_writel(0, gsi_ctx->base +
+			GSI_EE_n_CNTXT_MSI_BASE_LSB(gsi_ctx->per.ee));
+		gsi_writel(0, gsi_ctx->base +
+			GSI_EE_n_CNTXT_MSI_BASE_MSB(gsi_ctx->per.ee));
+	}
 
 	val = gsi_readl(gsi_ctx->base +
 			GSI_EE_n_GSI_STATUS_OFFS(gsi_ctx->per.ee));
@@ -1558,7 +1574,7 @@ int gsi_alloc_evt_ring(struct gsi_evt_ring_props *props, unsigned long dev_hdl,
 	atomic_inc(&gsi_ctx->num_evt_ring);
 	if (props->intf == GSI_EVT_CHTYPE_GPI_EV)
 		gsi_prime_evt_ring(ctx);
-	else if (props->intf == GSI_EVT_CHTYPE_WDI_EV)
+	else if (props->intf == GSI_EVT_CHTYPE_WDI2_EV)
 		gsi_prime_evt_ring_wdi(ctx);
 	mutex_unlock(&gsi_ctx->mlock);
 
@@ -1756,6 +1772,44 @@ int gsi_ring_evt_ring_db(unsigned long evt_ring_hdl, uint64_t value)
 }
 EXPORT_SYMBOL(gsi_ring_evt_ring_db);
 
+int gsi_ring_ch_ring_db(unsigned long chan_hdl, uint64_t value)
+{
+	struct gsi_chan_ctx *ctx;
+	uint32_t val;
+
+	if (!gsi_ctx) {
+		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
+		return -GSI_STATUS_NODEV;
+	}
+
+	if (chan_hdl >= gsi_ctx->max_ch) {
+		GSIERR("bad chan_hdl=%lu\n", chan_hdl);
+		return -GSI_STATUS_INVALID_PARAMS;
+	}
+
+	ctx = &gsi_ctx->chan[chan_hdl];
+
+	if (ctx->state != GSI_CHAN_STATE_STARTED) {
+		GSIERR("bad state %d\n", ctx->state);
+		return -GSI_STATUS_UNSUPPORTED_OP;
+	}
+
+	ctx->ring.wp_local = value;
+
+	/* write MSB first */
+	val = ((ctx->ring.wp_local >> 32) &
+		GSI_EE_n_GSI_CH_k_DOORBELL_1_WRITE_PTR_MSB_BMSK) <<
+		GSI_EE_n_GSI_CH_k_DOORBELL_1_WRITE_PTR_MSB_SHFT;
+	gsi_writel(val, gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_DOORBELL_1_OFFS(ctx->props.ch_id,
+			gsi_ctx->per.ee));
+
+	gsi_ring_chan_doorbell(ctx);
+
+	return GSI_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(gsi_ring_ch_ring_db);
+
 int gsi_reset_evt_ring(unsigned long evt_ring_hdl)
 {
 	uint32_t val;
@@ -1813,7 +1867,7 @@ int gsi_reset_evt_ring(unsigned long evt_ring_hdl)
 
 	if (ctx->props.intf == GSI_EVT_CHTYPE_GPI_EV)
 		gsi_prime_evt_ring(ctx);
-	if (ctx->props.intf == GSI_EVT_CHTYPE_WDI_EV)
+	if (ctx->props.intf == GSI_EVT_CHTYPE_WDI2_EV)
 		gsi_prime_evt_ring_wdi(ctx);
 	mutex_unlock(&gsi_ctx->mlock);
 
@@ -1961,15 +2015,23 @@ static void gsi_program_chan_ctx(struct gsi_chan_props *props, unsigned int ee,
 	case GSI_CHAN_PROT_XHCI:
 	case GSI_CHAN_PROT_GPI:
 	case GSI_CHAN_PROT_XDCI:
-	case GSI_CHAN_PROT_WDI:
-		prot = props->prot;
+	case GSI_CHAN_PROT_WDI2:
+	case GSI_CHAN_PROT_WDI3:
+	case GSI_CHAN_PROT_GCI:
+	case GSI_CHAN_PROT_MHIP:
 		prot_msb = 0;
+		break;
+	case GSI_CHAN_PROT_AQC:
+	case GSI_CHAN_PROT_11AD:
+		prot_msb = 1;
 		break;
 	default:
 		GSIERR("Unsupported protocol %d\n", props->prot);
 		WARN_ON(1);
 		return;
 	}
+	prot = props->prot;
+
 	val = ((prot <<
 		GSI_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_PROTOCOL_SHFT) &
 		GSI_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_PROTOCOL_BMSK);

@@ -446,8 +446,7 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 
 	bitrate = (d->bitrate + 1000000 - 1) / 1000000;
 
-	bins_to_bit_factor = d->work_mode == VIDC_WORK_MODE_1 ?
-		FP_INT(0) : FP_INT(4);
+	bins_to_bit_factor = FP_INT(4);
 	vsp_write_factor = bins_to_bit_factor;
 	vsp_read_factor = bins_to_bit_factor + FP_INT(2);
 
@@ -684,8 +683,7 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 
 	work_mode_1 = d->work_mode == VIDC_WORK_MODE_1;
 	low_power = d->power_mode == VIDC_POWER_LOW;
-	bins_to_bit_factor = work_mode_1 ?
-		FP_INT(0) : FP_INT(4);
+	bins_to_bit_factor = FP_INT(4);
 
 	if (d->use_sys_cache) {
 		llc_ref_chroma_cache_enabled = true;

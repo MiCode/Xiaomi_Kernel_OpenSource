@@ -42,30 +42,30 @@
 	qmi-tmd-devices {
 		compatible = "qcom,qmi-cooling-devices";
 
-		modem {
+		modem0 {
 			qcom,instance-id = <0x0>;
 
-			modem_pa: modem_pa {
+			modem0_pa: modem0_pa {
 				qcom,qmi-dev-name = "pa";
 				#cooling-cells = <2>;
 			};
 
-			modem_proc: modem_proc {
+			modem0_proc: modem0_proc {
 				qcom,qmi-dev-name = "modem";
 				#cooling-cells = <2>;
 			};
 
-			modem_current: modem_current {
+			modem0_current: modem0_current {
 				qcom,qmi-dev-name = "modem_current";
 				#cooling-cells = <2>;
 			};
 
-			modem_skin: modem_skin {
+			modem0_skin: modem0_skin {
 				qcom,qmi-dev-name = "modem_skin";
 				#cooling-cells = <2>;
 			};
 
-			modem_vdd: modem_vdd {
+			modem0_vdd: modem0_vdd {
 				qcom,qmi-dev-name = "cpuv_restriction_cold";
 				#cooling-cells = <2>;
 			};
@@ -533,7 +533,7 @@
 			};
 			modem_vdd_cdev {
 				trip = <&cpu14_trip>;
-				cooling-device = <&modem_vdd 0 0>;
+				cooling-device = <&modem0_vdd 0 0>;
 			};
 			adsp_vdd_cdev {
 				trip = <&cpu14_trip>;
@@ -595,7 +595,7 @@
 			};
 			modem_vdd_cdev {
 				trip = <&cpu17_trip>;
-				cooling-device = <&modem_vdd 0 0>;
+				cooling-device = <&modem0_vdd 0 0>;
 			};
 			adsp_vdd_cdev {
 				trip = <&cpu17_trip>;
@@ -657,7 +657,7 @@
 			};
 			modem_vdd_cdev {
 				trip = <&gpuss0_trip>;
-				cooling-device = <&modem_vdd 0 0>;
+				cooling-device = <&modem0_vdd 0 0>;
 			};
 			adsp_vdd_cdev {
 				trip = <&gpuss0_trip>;
@@ -719,7 +719,7 @@
 			};
 			modem_vdd_cdev {
 				trip = <&camera_trip>;
-				cooling-device = <&modem_vdd 0 0>;
+				cooling-device = <&modem0_vdd 0 0>;
 			};
 			adsp_vdd_cdev {
 				trip = <&camera_trip>;
@@ -781,7 +781,7 @@
 			};
 			modem_vdd_cdev {
 				trip = <&mdms_trip>;
-				cooling-device = <&modem_vdd 0 0>;
+				cooling-device = <&modem0_vdd 0 0>;
 			};
 			adsp_vdd_cdev {
 				trip = <&mdms_trip>;
@@ -897,8 +897,8 @@
 
 		trips {
 			active-config {
-				temperature = <95000>;
-				hysteresis = <30000>;
+				temperature = <85000>;
+				hysteresis = <25000>;
 				type = "passive";
 			};
 		};
@@ -912,8 +912,8 @@
 
 		trips {
 			active-config {
-				temperature = <95000>;
-				hysteresis = <30000>;
+				temperature = <85000>;
+				hysteresis = <25000>;
 				type = "passive";
 			};
 		};
@@ -1221,25 +1221,25 @@
 			pop_test_cdev0 {
 				trip = <&pop_test_trip>;
 				cooling-device =
-					<&modem_pa THERMAL_NO_LIMIT
+					<&modem0_pa THERMAL_NO_LIMIT
 						THERMAL_NO_LIMIT>;
 			};
 			pop_test_cdev1 {
 				trip = <&pop_test_trip>;
 				cooling-device =
-					<&modem_proc THERMAL_NO_LIMIT
+					<&modem0_proc THERMAL_NO_LIMIT
 						THERMAL_NO_LIMIT>;
 			};
 			pop_test_cdev2 {
 				trip = <&pop_test_trip>;
 				cooling-device =
-					<&modem_current THERMAL_NO_LIMIT
+					<&modem0_current THERMAL_NO_LIMIT
 						THERMAL_NO_LIMIT>;
 			};
 			pop_test_cdev3 {
 				trip = <&pop_test_trip>;
 				cooling-device =
-					<&modem_skin THERMAL_NO_LIMIT
+					<&modem0_skin THERMAL_NO_LIMIT
 						THERMAL_NO_LIMIT>;
 			};
 			pop_test_cdev4 {

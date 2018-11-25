@@ -32,7 +32,7 @@
 			#size-cells = <0>;
 			qcom,swr_master_id = <3>;
 			swrm-io-base = <0x62ed0000 0x0>;
-			interrupts = <0 137 0>, <0 528 0>;
+			interrupts = <0 137 0>, <0 623 0>;
 			interrupt-names = "swr_master_irq", "swr_wake_irq";
 			qcom,swr-wakeup-required = <1>;
 			qcom,swr-num-ports = <5>;
@@ -71,7 +71,7 @@
 			interrupt-names = "swr_master_irq";
 			qcom,swr-num-ports = <5>;
 			qcom,swr-port-mapping = <1 HPH_L 0x1>,
-				<1 HPH_R 0x2>, <2 CLSH 0x3>,
+				<1 HPH_R 0x2>, <2 CLSH 0x1>,
 				<3 COMP_L 0x1>, <3 COMP_R 0x2>,
 				<4 LO 0x1>, <5 DSD_L 0x1>,
 				<5 DSD_R 0x2>;
@@ -144,7 +144,7 @@
 	wcd937x_codec: wcd937x-codec {
 		compatible = "qcom,wcd937x-codec";
 		qcom,rx_swr_ch_map = <0 HPH_L 0x1 0 HPH_L>,
-			<0 HPH_R 0x2 0 HPH_R>, <1 CLSH 0x3 0 CLSH>,
+			<0 HPH_R 0x2 0 HPH_R>, <1 CLSH 0x1 0 CLSH>,
 			<2 COMP_L 0x1 0 COMP_L>, <2 COMP_R 0x2 0 COMP_R>,
 			<3 LO 0x1 0 LO>, <4 DSD_L 0x1 0 DSD_L>,
 			<4 DSD_R 0x2 0 DSD_R>;

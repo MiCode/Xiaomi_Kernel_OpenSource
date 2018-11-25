@@ -29,15 +29,6 @@
 #include <linux/usb/usbpd.h>
 #include "usbpd.h"
 
-/* To start USB stack for USB3.1 complaince testing */
-static bool usb_compliance_mode;
-module_param(usb_compliance_mode, bool, 0644);
-MODULE_PARM_DESC(usb_compliance_mode, "Start USB stack for USB3.1 compliance testing");
-
-static bool rev3_sink_only;
-module_param(rev3_sink_only, bool, 0644);
-MODULE_PARM_DESC(rev3_sink_only, "Enable power delivery rev3.0 sink only mode");
-
 enum usbpd_state {
 	PE_UNKNOWN,
 	PE_ERROR_RECOVERY,
@@ -245,9 +236,10 @@ static void *usbpd_ipc_log;
 #define PS_HARD_RESET_TIME	25
 #define PS_SOURCE_ON		400
 #define PS_SOURCE_OFF		750
-#define FIRST_SOURCE_CAP_TIME	200
+#define FIRST_SOURCE_CAP_TIME	100
 #define VDM_BUSY_TIME		50
 #define VCONN_ON_TIME		100
+#define SINK_TX_TIME		16
 
 /* tPSHardReset + tSafe0V */
 #define SNK_HARD_RESET_VBUS_OFF_TIME	(35 + 650)
@@ -359,8 +351,6 @@ static void *usbpd_ipc_log;
 #define ID_HDR_PRODUCT_PER	2
 #define ID_HDR_PRODUCT_AMA	5
 #define ID_HDR_PRODUCT_VPD	6
-#define ID_HDR_VID		0x05c6 /* qcom */
-#define PROD_VDO_PID		0x0a00 /* TBD */
 
 static bool check_vsafe0v = true;
 module_param(check_vsafe0v, bool, 0600);
@@ -426,7 +416,12 @@ struct usbpd {
 	int			num_sink_caps;
 
 	struct power_supply	*usb_psy;
+	struct power_supply	*bat_psy;
+	struct power_supply	*bms_psy;
 	struct notifier_block	psy_nb;
+
+	int			bms_charge_full;
+	int			bat_voltage_max;
 
 	enum power_supply_typec_mode typec_mode;
 	enum power_supply_typec_power_role forced_pr;
@@ -675,14 +670,29 @@ static inline void pd_reset_protocol(struct usbpd *pd)
 static int pd_send_msg(struct usbpd *pd, u8 msg_type, const u32 *data,
 		size_t num_data, enum pd_sop_type sop)
 {
+	unsigned long flags;
 	int ret;
 	u16 hdr;
 
 	if (pd->hard_reset_recvd)
 		return -EBUSY;
 
-	hdr = PD_MSG_HDR(msg_type, pd->current_dr, pd->current_pr,
-			pd->tx_msgid[sop], num_data, pd->spec_rev);
+	if (sop == SOP_MSG)
+		hdr = PD_MSG_HDR(msg_type, pd->current_dr, pd->current_pr,
+				pd->tx_msgid[sop], num_data, pd->spec_rev);
+	else
+		/* sending SOP'/SOP'' to a cable, PR/DR fields should be 0 */
+		hdr = PD_MSG_HDR(msg_type, 0, 0, pd->tx_msgid[sop], num_data,
+				pd->spec_rev);
+
+	/* bail out and try again later if a message just arrived */
+	spin_lock_irqsave(&pd->rx_lock, flags);
+	if (!list_empty(&pd->rx_q)) {
+		spin_unlock_irqrestore(&pd->rx_lock, flags);
+		usbpd_dbg(&pd->dev, "Abort send due to pending RX\n");
+		return -EBUSY;
+	}
+	spin_unlock_irqrestore(&pd->rx_lock, flags);
 
 	ret = pd_phy_write(hdr, (u8 *)data, num_data * sizeof(u32), sop);
 	if (ret) {
@@ -827,10 +837,6 @@ static int pd_eval_src_caps(struct usbpd *pd)
 	power_supply_set_property(pd->usb_psy,
 			POWER_SUPPLY_PROP_PD_USB_SUSPEND_SUPPORTED, &val);
 
-	/* First time connecting to a PD source and it supports USB data */
-	if (pd->peer_usb_comm && pd->current_dr == DR_UFP && !pd->pd_connected)
-		start_usb_peripheral(pd);
-
 	/* Check for PPS APDOs */
 	if (pd->spec_rev == USBPD_REV_30) {
 		for (i = 1; i < PD_MAX_DATA_OBJ; i++) {
@@ -841,10 +847,6 @@ static int pd_eval_src_caps(struct usbpd *pd)
 				break;
 			}
 		}
-
-		/* downgrade to 2.0 if no PPS */
-		if (!pps_found && !rev3_sink_only)
-			pd->spec_rev = USBPD_REV_20;
 	}
 
 	val.intval = pps_found ?
@@ -852,6 +854,10 @@ static int pd_eval_src_caps(struct usbpd *pd)
 			POWER_SUPPLY_PD_ACTIVE;
 	power_supply_set_property(pd->usb_psy,
 			POWER_SUPPLY_PROP_PD_ACTIVE, &val);
+
+	/* First time connecting to a PD source and it supports USB data */
+	if (pd->peer_usb_comm && pd->current_dr == DR_UFP && !pd->pd_connected)
+		start_usb_peripheral(pd);
 
 	/* Select the first PDO (vSafe5V) immediately. */
 	pd_select_pdo(pd, 1, 0, 0);
@@ -1193,6 +1199,39 @@ static void log_decoded_request(struct usbpd *pd, u32 rdo)
 	}
 }
 
+static bool in_src_ams(struct usbpd *pd)
+{
+	union power_supply_propval val = {0};
+
+	if (pd->current_pr != PR_SRC)
+		return false;
+
+	if (pd->spec_rev != USBPD_REV_30)
+		return true;
+
+	power_supply_get_property(pd->usb_psy, POWER_SUPPLY_PROP_TYPEC_SRC_RP,
+			&val);
+
+	return val.intval == 1;
+}
+
+static void start_src_ams(struct usbpd *pd, bool ams)
+{
+	union power_supply_propval val = {0};
+
+	if (pd->current_pr != PR_SRC || pd->spec_rev < USBPD_REV_30)
+		return;
+
+	usbpd_dbg(&pd->dev, "Set Rp to %s\n", ams ? "1.5A" : "3A");
+
+	val.intval = ams ? 1 : 2; /* SinkTxNG / SinkTxOK */
+	power_supply_set_property(pd->usb_psy, POWER_SUPPLY_PROP_TYPEC_SRC_RP,
+			&val);
+
+	if (ams)
+		kick_sm(pd, SINK_TX_TIME);
+}
+
 /* Enters new state and executes actions on entry */
 static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 {
@@ -1244,16 +1283,24 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 		dual_role_instance_changed(pd->dual_role);
 
+		val.intval = 1; /* Rp-1.5A; SinkTxNG for PD 3.0 */
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_TYPEC_SRC_RP, &val);
+
 		/* Set CC back to DRP toggle for the next disconnect */
 		val.intval = POWER_SUPPLY_TYPEC_PR_DUAL;
 		power_supply_set_property(pd->usb_psy,
 				POWER_SUPPLY_PROP_TYPEC_POWER_ROLE, &val);
 
-		/* support only PD 2.0 as a source */
-		pd->spec_rev = USBPD_REV_20;
 		pd_reset_protocol(pd);
 
 		if (!pd->in_pr_swap) {
+			/*
+			 * support up to PD 3.0; if peer is 2.0
+			 * phy_msg_received() will handle the downgrade.
+			 */
+			pd->spec_rev = USBPD_REV_30;
+
 			if (pd->pd_phy_opened) {
 				pd_phy_close();
 				pd->pd_phy_opened = false;
@@ -1388,6 +1435,8 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			usbpd_send_svdm(pd, USBPD_SID,
 					USBPD_SVDM_DISCOVER_IDENTITY,
 					SVDM_CMD_TYPE_INITIATOR, 0, NULL, 0);
+		else
+			start_src_ams(pd, false);
 
 		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
 		complete(&pd->is_ready);
@@ -1432,19 +1481,30 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 	/* Sink states */
 	case PE_SNK_STARTUP:
-		if (pd->current_dr == DR_NONE || pd->current_dr == DR_UFP)
+		if (pd->current_dr == DR_NONE || pd->current_dr == DR_UFP) {
 			pd->current_dr = DR_UFP;
+
+			ret = power_supply_get_property(pd->usb_psy,
+					POWER_SUPPLY_PROP_REAL_TYPE, &val);
+			if (!ret) {
+				usbpd_dbg(&pd->dev, "type:%d\n", val.intval);
+				if (val.intval == POWER_SUPPLY_TYPE_USB ||
+					val.intval == POWER_SUPPLY_TYPE_USB_CDP)
+					start_usb_peripheral(pd);
+			}
+		}
 
 		dual_role_instance_changed(pd->dual_role);
 
-		/*
-		 * support up to PD 3.0 as a sink; if source is 2.0
-		 * phy_msg_received() will handle the downgrade.
-		 */
-		pd->spec_rev = USBPD_REV_30;
 		pd_reset_protocol(pd);
 
 		if (!pd->in_pr_swap) {
+			/*
+			 * support up to PD 3.0; if peer is 2.0
+			 * phy_msg_received() will handle the downgrade.
+			 */
+			pd->spec_rev = USBPD_REV_30;
+
 			if (pd->pd_phy_opened) {
 				pd_phy_close();
 				pd->pd_phy_opened = false;
@@ -1728,18 +1788,7 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 	/* Standard Discovery or unhandled messages go here */
 	switch (cmd_type) {
 	case SVDM_CMD_TYPE_INITIATOR:
-		if (svid == USBPD_SID && cmd == USBPD_SVDM_DISCOVER_IDENTITY) {
-			u32 tx_vdos[3] = {
-				ID_HDR_USB_HOST | ID_HDR_USB_DEVICE |
-					ID_HDR_PRODUCT_PER_MASK | ID_HDR_VID,
-				0x0, /* TBD: Cert Stat VDO */
-				(PROD_VDO_PID << 16),
-				/* TBD: Get these from gadget */
-			};
-
-			usbpd_send_svdm(pd, USBPD_SID, cmd,
-					SVDM_CMD_TYPE_RESP_ACK, 0, tx_vdos, 3);
-		} else if (cmd != USBPD_SVDM_ATTENTION) {
+		if (cmd != USBPD_SVDM_ATTENTION) {
 			usbpd_send_svdm(pd, svid, cmd, SVDM_CMD_TYPE_RESP_NAK,
 					SVDM_HDR_OBJ_POS(vdm_hdr), NULL, 0);
 		}
@@ -1911,54 +1960,59 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 
 static void handle_vdm_tx(struct usbpd *pd, enum pd_sop_type sop_type)
 {
+	u32 vdm_hdr;
 	int ret;
-	unsigned long flags;
+
+	if (!pd->vdm_tx)
+		return;
 
 	/* only send one VDM at a time */
-	if (pd->vdm_tx) {
-		u32 vdm_hdr = pd->vdm_tx->data[0];
+	vdm_hdr = pd->vdm_tx->data[0];
 
-		/* bail out and try again later if a message just arrived */
-		spin_lock_irqsave(&pd->rx_lock, flags);
-		if (!list_empty(&pd->rx_q)) {
-			spin_unlock_irqrestore(&pd->rx_lock, flags);
-			return;
-		}
-		spin_unlock_irqrestore(&pd->rx_lock, flags);
-
-		ret = pd_send_msg(pd, MSG_VDM, pd->vdm_tx->data,
-				pd->vdm_tx->size, sop_type);
-		if (ret) {
-			usbpd_err(&pd->dev, "Error (%d) sending VDM command %d\n",
-					ret, SVDM_HDR_CMD(pd->vdm_tx->data[0]));
-
-			/* retry when hitting PE_SRC/SNK_Ready again */
-			if (ret != -EBUSY && sop_type == SOP_MSG)
-				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
-
-			return;
-		}
-
-		/*
-		 * special case: keep initiated Discover ID/SVIDs
-		 * around in case we need to re-try when receiving BUSY
-		 */
-		if (VDM_IS_SVDM(vdm_hdr) &&
-			SVDM_HDR_CMD_TYPE(vdm_hdr) == SVDM_CMD_TYPE_INITIATOR &&
-			SVDM_HDR_CMD(vdm_hdr) <= USBPD_SVDM_DISCOVER_SVIDS) {
-			if (pd->vdm_tx_retry) {
-				usbpd_dbg(&pd->dev, "Previous Discover VDM command %d not ACKed/NAKed\n",
-					SVDM_HDR_CMD(
-						pd->vdm_tx_retry->data[0]));
-				kfree(pd->vdm_tx_retry);
-			}
-			pd->vdm_tx_retry = pd->vdm_tx;
-		} else {
-			kfree(pd->vdm_tx);
-		}
-
-		pd->vdm_tx = NULL;
+	/*
+	 * PD 3.0: For initiated SVDMs, source must first ensure Rp is set
+	 * to SinkTxNG to indicate the start of an AMS
+	 */
+	if (VDM_IS_SVDM(vdm_hdr) &&
+		SVDM_HDR_CMD_TYPE(vdm_hdr) == SVDM_CMD_TYPE_INITIATOR &&
+		pd->current_pr == PR_SRC && !in_src_ams(pd)) {
+		/* Set SinkTxNG and reschedule sm_work to send again */
+		start_src_ams(pd, true);
+		return;
 	}
+
+	ret = pd_send_msg(pd, MSG_VDM, pd->vdm_tx->data,
+			pd->vdm_tx->size, sop_type);
+	if (ret) {
+		usbpd_err(&pd->dev, "Error (%d) sending VDM command %d\n",
+				ret, SVDM_HDR_CMD(pd->vdm_tx->data[0]));
+
+		/* retry when hitting PE_SRC/SNK_Ready again */
+		if (ret != -EBUSY && sop_type == SOP_MSG)
+			usbpd_set_state(pd, PE_SEND_SOFT_RESET);
+
+		return;
+	}
+
+	/*
+	 * special case: keep initiated Discover ID/SVIDs
+	 * around in case we need to re-try when receiving BUSY
+	 */
+	if (VDM_IS_SVDM(vdm_hdr) &&
+		SVDM_HDR_CMD_TYPE(vdm_hdr) == SVDM_CMD_TYPE_INITIATOR &&
+		SVDM_HDR_CMD(vdm_hdr) <= USBPD_SVDM_DISCOVER_SVIDS) {
+		if (pd->vdm_tx_retry) {
+			usbpd_dbg(&pd->dev, "Previous Discover VDM command %d not ACKed/NAKed\n",
+				SVDM_HDR_CMD(
+					pd->vdm_tx_retry->data[0]));
+			kfree(pd->vdm_tx_retry);
+		}
+		pd->vdm_tx_retry = pd->vdm_tx;
+	} else {
+		kfree(pd->vdm_tx);
+	}
+
+	pd->vdm_tx = NULL;
 }
 
 static void reset_vdm_state(struct usbpd *pd)
@@ -1983,6 +2037,136 @@ static void reset_vdm_state(struct usbpd *pd)
 	kfree(pd->vdm_tx);
 	pd->vdm_tx = NULL;
 	pd->ss_lane_svid = 0x0;
+}
+
+static void handle_get_src_cap_extended(struct usbpd *pd)
+{
+	int ret;
+	struct {
+		u16 vid;
+		u16 pid;
+		u32 xid;
+		u8  fw_version;
+		u8  hw_version;
+		u8  voltage_reg;
+		u8  holdup_time;
+		u8  compliance;
+		u8  touch_current;
+		u16 peak_current1;
+		u16 peak_current2;
+		u16 peak_current3;
+		u8  touch_temp;
+		u8  source_inputs;
+		u8  num_batt;
+		u8  pdp;
+	} __packed caps = {0};
+
+	caps.vid = 0x5c6;
+	caps.num_batt = 1;
+	caps.pdp = 5 * PD_SRC_PDO_FIXED_MAX_CURR(default_src_caps[0]) / 100;
+
+	ret = pd_send_ext_msg(pd, MSG_SOURCE_CAPABILITIES_EXTENDED, (u8 *)&caps,
+			sizeof(caps), SOP_MSG);
+	if (ret)
+		usbpd_set_state(pd, PE_SEND_SOFT_RESET);
+}
+
+static void handle_get_battery_cap(struct usbpd *pd, struct rx_msg *rx_msg)
+{
+	int ret;
+	u8 bat_num;
+	struct {
+		u16 vid;
+		u16 pid;
+		u16 capacity;
+		u16 last_full;
+		u8  type;
+	} __packed bcdb = {0, 0, 0xffff, 0xffff, 0};
+
+	if (rx_msg->data_len != 1) {
+		usbpd_err(&pd->dev, "Invalid payload size: %d\n",
+				rx_msg->data_len);
+		return;
+	}
+
+	bat_num = rx_msg->payload[0];
+
+	if (bat_num || !pd->bat_psy || !pd->bms_psy) {
+		usbpd_warn(&pd->dev, "Battery %d unsupported\n", bat_num);
+		bcdb.type = BIT(0); /* invalid */
+		goto send;
+	}
+
+	bcdb.capacity = ((pd->bms_charge_full / 1000) *
+			(pd->bat_voltage_max / 1000)) / 100000;
+	/* fix me */
+	bcdb.last_full = ((pd->bms_charge_full / 1000) *
+			(pd->bat_voltage_max / 1000)) / 100000;
+send:
+	ret = pd_send_ext_msg(pd, MSG_BATTERY_CAPABILITIES, (u8 *)&bcdb,
+			sizeof(bcdb), SOP_MSG);
+	if (ret)
+		usbpd_set_state(pd, PE_SEND_SOFT_RESET);
+}
+
+static void handle_get_battery_status(struct usbpd *pd, struct rx_msg *rx_msg)
+{
+	int ret;
+	int cap;
+	union power_supply_propval val = {0};
+	u8 bat_num;
+	u32 bsdo = 0xffff0000;
+
+	if (rx_msg->data_len != 1) {
+		usbpd_err(&pd->dev, "Invalid payload size: %d\n",
+				rx_msg->data_len);
+		return;
+	}
+
+	bat_num = rx_msg->payload[0];
+
+	if (bat_num || !pd->bat_psy) {
+		usbpd_warn(&pd->dev, "Battery %d unsupported\n", bat_num);
+		bsdo |= BIT(8); /* invalid */
+		goto send;
+	}
+
+	ret = power_supply_get_property(pd->bat_psy, POWER_SUPPLY_PROP_PRESENT,
+			&val);
+	if (ret || !val.intval)
+		goto send;
+
+	bsdo |= BIT(9);
+
+	ret = power_supply_get_property(pd->bat_psy, POWER_SUPPLY_PROP_STATUS,
+			&val);
+	if (!ret) {
+		switch (val.intval) {
+		case POWER_SUPPLY_STATUS_CHARGING:
+			break;
+		case POWER_SUPPLY_STATUS_DISCHARGING:
+			bsdo |= (1 << 10);
+			break;
+		default:
+			bsdo |= (2 << 10);
+			break;
+		}
+	}
+
+	/* state of charge */
+	ret = power_supply_get_property(pd->bat_psy,
+			POWER_SUPPLY_PROP_CAPACITY, &val);
+	if (ret)
+		goto send;
+	cap = val.intval;
+
+	bsdo &= 0xffff;
+	bsdo |= ((cap * (pd->bms_charge_full / 1000) *
+			(pd->bat_voltage_max / 1000)) / 10000000) << 16;
+send:
+	ret = pd_send_msg(pd, MSG_BATTERY_STATUS, &bsdo, 1, SOP_MSG);
+	if (ret)
+		usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 }
 
 static void dr_swap(struct usbpd *pd)
@@ -2226,10 +2410,7 @@ static void usbpd_sm(struct work_struct *w)
 		/* set due to dual_role class "mode" change */
 		if (pd->forced_pr != POWER_SUPPLY_TYPEC_PR_NONE)
 			val.intval = pd->forced_pr;
-		else if (rev3_sink_only)
-			val.intval = POWER_SUPPLY_TYPEC_PR_SINK;
-		else
-			/* Set CC back to DRP toggle */
+		else /* Set CC back to DRP toggle */
 			val.intval = POWER_SUPPLY_TYPEC_PR_DUAL;
 
 		power_supply_set_property(pd->usb_psy,
@@ -2346,6 +2527,12 @@ static void usbpd_sm(struct work_struct *w)
 		if (!rx_msg)
 			ms -= SENDER_RESPONSE_TIME;
 
+		/*
+		 * Emarker may have negotiated down to rev 2.0.
+		 * Reset to 3.0 to begin SOP communication with sink
+		 */
+		pd->spec_rev = USBPD_REV_30;
+
 		pd->current_state = PE_SRC_SEND_CAPABILITIES;
 		kick_sm(pd, ms);
 		break;
@@ -2358,6 +2545,16 @@ static void usbpd_sm(struct work_struct *w)
 		ret = pd_send_msg(pd, MSG_SOURCE_CAPABILITIES, default_src_caps,
 				ARRAY_SIZE(default_src_caps), SOP_MSG);
 		if (ret) {
+			if (pd->pd_connected) {
+				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
+				break;
+			}
+
+			/*
+			 * Technically this is PE_SRC_Discovery, but we can
+			 * handle it by setting a timer to come back to the
+			 * same state for the next retry.
+			 */
 			pd->caps_count++;
 			if (pd->caps_count >= PD_CAPS_COUNT) {
 				usbpd_dbg(&pd->dev, "Src CapsCounter exceeded, disabling PD\n");
@@ -2446,6 +2643,14 @@ static void usbpd_sm(struct work_struct *w)
 			vconn_swap(pd);
 		} else if (IS_DATA(rx_msg, MSG_VDM)) {
 			handle_vdm_rx(pd, rx_msg);
+			if (!pd->vdm_tx)
+				start_src_ams(pd, false);
+		} else if (IS_CTRL(rx_msg, MSG_GET_SOURCE_CAP_EXTENDED)) {
+			handle_get_src_cap_extended(pd);
+		} else if (IS_EXT(rx_msg, MSG_GET_BATTERY_CAP)) {
+			handle_get_battery_cap(pd, rx_msg);
+		} else if (IS_EXT(rx_msg, MSG_GET_BATTERY_STATUS)) {
+			handle_get_battery_status(pd, rx_msg);
 		} else if (rx_msg && pd->spec_rev == USBPD_REV_30) {
 			/* unhandled messages */
 			ret = pd_send_msg(pd, MSG_NOT_SUPPORTED, NULL, 0,
@@ -2473,8 +2678,10 @@ static void usbpd_sm(struct work_struct *w)
 
 			pd->current_state = PE_DRS_SEND_DR_SWAP;
 			kick_sm(pd, SENDER_RESPONSE_TIME);
-		} else {
+		} else if (pd->vdm_tx) {
 			handle_vdm_tx(pd, SOP_MSG);
+		} else {
+			start_src_ams(pd, false);
 		}
 		break;
 
@@ -2678,8 +2885,7 @@ static void usbpd_sm(struct work_struct *w)
 			if (ret)
 				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 			break;
-		} else if (IS_CTRL(rx_msg, MSG_GET_SOURCE_CAP) &&
-				pd->spec_rev == USBPD_REV_20) {
+		} else if (IS_CTRL(rx_msg, MSG_GET_SOURCE_CAP)) {
 			ret = pd_send_msg(pd, MSG_SOURCE_CAPABILITIES,
 					default_src_caps,
 					ARRAY_SIZE(default_src_caps), SOP_MSG);
@@ -2700,8 +2906,7 @@ static void usbpd_sm(struct work_struct *w)
 
 			dr_swap(pd);
 			break;
-		} else if (IS_CTRL(rx_msg, MSG_PR_SWAP) &&
-				pd->spec_rev == USBPD_REV_20) {
+		} else if (IS_CTRL(rx_msg, MSG_PR_SWAP)) {
 			/* TODO: should we Reject in certain circumstances? */
 			ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
 			if (ret) {
@@ -2711,8 +2916,7 @@ static void usbpd_sm(struct work_struct *w)
 
 			usbpd_set_state(pd, PE_PRS_SNK_SRC_TRANSITION_TO_OFF);
 			break;
-		} else if (IS_CTRL(rx_msg, MSG_VCONN_SWAP) &&
-				pd->spec_rev == USBPD_REV_20) {
+		} else if (IS_CTRL(rx_msg, MSG_VCONN_SWAP)) {
 			/*
 			 * if VCONN is connected to VBUS, make sure we are
 			 * not in high voltage contract, otherwise reject.
@@ -2797,6 +3001,12 @@ static void usbpd_sm(struct work_struct *w)
 			memcpy(&pd->battery_sts_dobj, rx_msg->payload,
 				sizeof(pd->battery_sts_dobj));
 			complete(&pd->is_ready);
+		} else if (IS_CTRL(rx_msg, MSG_GET_SOURCE_CAP_EXTENDED)) {
+			handle_get_src_cap_extended(pd);
+		} else if (IS_EXT(rx_msg, MSG_GET_BATTERY_CAP)) {
+			handle_get_battery_cap(pd, rx_msg);
+		} else if (IS_EXT(rx_msg, MSG_GET_BATTERY_STATUS)) {
+			handle_get_battery_status(pd, rx_msg);
 		} else if (rx_msg && pd->spec_rev == USBPD_REV_30) {
 			/* unhandled messages */
 			ret = pd_send_msg(pd, MSG_NOT_SUPPORTED, NULL, 0,
@@ -3124,8 +3334,7 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 
 		if (val.intval == POWER_SUPPLY_TYPE_USB ||
 			val.intval == POWER_SUPPLY_TYPE_USB_CDP ||
-			val.intval == POWER_SUPPLY_TYPE_USB_FLOAT ||
-			usb_compliance_mode) {
+			val.intval == POWER_SUPPLY_TYPE_USB_FLOAT) {
 			usbpd_dbg(&pd->dev, "typec mode:%d type:%d\n",
 				typec_mode, val.intval);
 			pd->typec_mode = typec_mode;
@@ -3348,7 +3557,12 @@ static int usbpd_dr_set_property(struct dual_role_phy_instance *dual_role,
 			mutex_lock(&pd->swap_lock);
 			reinit_completion(&pd->is_ready);
 			pd->send_dr_swap = true;
-			kick_sm(pd, 0);
+
+			if (pd->current_state == PE_SRC_READY &&
+					!in_src_ams(pd))
+				start_src_ams(pd, true);
+			else
+				kick_sm(pd, 0);
 
 			/* wait for operation to complete */
 			if (!wait_for_completion_timeout(&pd->is_ready,
@@ -3403,7 +3617,12 @@ static int usbpd_dr_set_property(struct dual_role_phy_instance *dual_role,
 			mutex_lock(&pd->swap_lock);
 			reinit_completion(&pd->is_ready);
 			pd->send_pr_swap = true;
-			kick_sm(pd, 0);
+
+			if (pd->current_state == PE_SRC_READY &&
+					!in_src_ams(pd))
+				start_src_ams(pd, true);
+			else
+				kick_sm(pd, 0);
 
 			/* wait for operation to complete */
 			if (!wait_for_completion_timeout(&pd->is_ready,
@@ -4092,6 +4311,13 @@ struct usbpd *devm_usbpd_get_by_phandle(struct device *dev, const char *phandle)
 }
 EXPORT_SYMBOL(devm_usbpd_get_by_phandle);
 
+static void usbpd_release(struct device *dev)
+{
+	struct usbpd *pd = container_of(dev, struct usbpd, dev);
+
+	kfree(pd);
+}
+
 static int num_pd_instances;
 
 /**
@@ -4108,6 +4334,7 @@ struct usbpd *usbpd_create(struct device *parent)
 {
 	int ret;
 	struct usbpd *pd;
+	union power_supply_propval val = {0};
 
 	pd = kzalloc(sizeof(*pd), GFP_KERNEL);
 	if (!pd)
@@ -4116,6 +4343,7 @@ struct usbpd *usbpd_create(struct device *parent)
 	device_initialize(&pd->dev);
 	pd->dev.class = &usbpd_class;
 	pd->dev.parent = parent;
+	pd->dev.release = usbpd_release;
 	dev_set_drvdata(&pd->dev, pd);
 
 	ret = dev_set_name(&pd->dev, "usbpd%d", num_pd_instances++);
@@ -4148,6 +4376,20 @@ struct usbpd *usbpd_create(struct device *parent)
 		ret = -EPROBE_DEFER;
 		goto destroy_wq;
 	}
+
+	if (!pd->bat_psy)
+		pd->bat_psy = power_supply_get_by_name("battery");
+	if (pd->bat_psy)
+		if (!power_supply_get_property(pd->bat_psy,
+			POWER_SUPPLY_PROP_VOLTAGE_MAX, &val))
+			pd->bat_voltage_max = val.intval;
+
+	if (!pd->bms_psy)
+		pd->bms_psy = power_supply_get_by_name("bms");
+	if (pd->bms_psy)
+		if (!power_supply_get_property(pd->bms_psy,
+			POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN, &val))
+			pd->bms_charge_full = val.intval;
 
 	/*
 	 * associate extcon with the parent dev as it could have a DT
@@ -4273,7 +4515,7 @@ del_pd:
 	device_del(&pd->dev);
 free_pd:
 	num_pd_instances--;
-	kfree(pd);
+	put_device(&pd->dev);
 	return ERR_PTR(ret);
 }
 EXPORT_SYMBOL(usbpd_create);
@@ -4290,9 +4532,12 @@ void usbpd_destroy(struct usbpd *pd)
 	list_del(&pd->instance);
 	power_supply_unreg_notifier(&pd->psy_nb);
 	power_supply_put(pd->usb_psy);
+	if (pd->bat_psy)
+		power_supply_put(pd->bat_psy);
+	if (pd->bms_psy)
+		power_supply_put(pd->bms_psy);
 	destroy_workqueue(pd->wq);
-	device_del(&pd->dev);
-	kfree(pd);
+	device_unregister(&pd->dev);
 }
 EXPORT_SYMBOL(usbpd_destroy);
 
