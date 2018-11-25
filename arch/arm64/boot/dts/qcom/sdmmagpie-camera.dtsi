@@ -1101,25 +1101,30 @@
 		client-names =
 			"csiphy0", "csiphy1", "csiphy2", "csiphy3",
 			"cci0", "cci1",
-			"csid0", "csid1", "csid2", "csid3",
-			"ife0", "ife1", "ife2", "ife3",
+			"csid0", "csid1", "csid2",
+			"iferdi0", "ifenrdi0", "iferdi1", "ifenrdi1",
+			"iferdi2", "ifenrdi2",
 			"ipe0", "ipe1", "cam-cdm-intf0", "cpas-cdm0",
 			"bps0", "icp0", "jpeg-dma0", "jpeg-enc0",
 			"fd0", "lrmecpas0";
 		client-axi-port-names =
-			"cam_hf_1", "cam_hf_2", "cam_hf_1", "cam_hf_2",
-			"cam_sf_1", "cam_sf_1",
-			"cam_hf_1", "cam_hf_2", "cam_hf_1", "cam_hf_2",
-			"cam_hf_1", "cam_hf_2", "cam_hf_1", "cam_hf_2",
-			"cam_sf_1", "cam_sf_1", "cam_sf_1", "cam_sf_1",
-			"cam_sf_1", "cam_sf_1", "cam_sf_1", "cam_sf_1",
-			"cam_sf_1", "cam_sf_1";
+			"cam_hf_0", "cam_hf_0", "cam_hf_0", "cam_hf_0",
+			"cam_sf_0", "cam_sf_0",
+			"cam_hf_0", "cam_hf_0", "cam_hf_0",
+			"cam_hf_1", "cam_hf_0", "cam_hf_1", "cam_hf_0",
+			"cam_hf_1", "cam_hf_0",
+			"cam_sf_0", "cam_sf_0", "cam_sf_0", "cam_sf_0",
+			"cam_sf_0", "cam_sf_1", "cam_sf_0", "cam_sf_0",
+			"cam_sf_0", "cam_sf_0";
 		client-bus-camnoc-based;
 		qcom,axi-port-list {
 			qcom,axi-port1 {
-				qcom,axi-port-name = "cam_hf_1";
+				/* this port is clubbed port of two ports
+				 * (READ and PIX ports)
+				 */
+				qcom,axi-port-name = "cam_hf_0";
 				qcom,axi-port-mnoc {
-					qcom,msm-bus,name = "cam_hf_1_mnoc";
+					qcom,msm-bus,name = "cam_hf_0_mnoc";
 					qcom,msm-bus-vector-dyn-vote;
 					qcom,msm-bus,num-cases = <2>;
 					qcom,msm-bus,num-paths = <1>;
@@ -1130,7 +1135,7 @@
 					MSM_BUS_SLAVE_EBI_CH0 0 0>;
 				};
 				qcom,axi-port-camnoc {
-					qcom,msm-bus,name = "cam_hf_1_camnoc";
+					qcom,msm-bus,name = "cam_hf_0_camnoc";
 					qcom,msm-bus-vector-dyn-vote;
 					qcom,msm-bus,num-cases = <2>;
 					qcom,msm-bus,num-paths = <1>;
@@ -1142,9 +1147,10 @@
 				};
 			};
 			qcom,axi-port2 {
-				qcom,axi-port-name = "cam_hf_2";
+				/* this port is for rdi only WR*/
+				qcom,axi-port-name = "cam_hf_1";
 				qcom,axi-port-mnoc {
-					qcom,msm-bus,name = "cam_hf_2_mnoc";
+					qcom,msm-bus,name = "cam_hf_1_mnoc";
 					qcom,msm-bus-vector-dyn-vote;
 					qcom,msm-bus,num-cases = <2>;
 					qcom,msm-bus,num-paths = <1>;
@@ -1155,7 +1161,7 @@
 					MSM_BUS_SLAVE_EBI_CH0 0 0>;
 				};
 				qcom,axi-port-camnoc {
-					qcom,msm-bus,name = "cam_hf_2_camnoc";
+					qcom,msm-bus,name = "cam_hf_1_camnoc";
 					qcom,msm-bus-vector-dyn-vote;
 					qcom,msm-bus,num-cases = <2>;
 					qcom,msm-bus,num-paths = <1>;
@@ -1167,9 +1173,9 @@
 				};
 			};
 			qcom,axi-port3 {
-				qcom,axi-port-name = "cam_sf_1";
+				qcom,axi-port-name = "cam_sf_0";
 				qcom,axi-port-mnoc {
-					qcom,msm-bus,name = "cam_sf_1_mnoc";
+					qcom,msm-bus,name = "cam_sf_0_mnoc";
 					qcom,msm-bus-vector-dyn-vote;
 					qcom,msm-bus,num-cases = <2>;
 					qcom,msm-bus,num-paths = <1>;
@@ -1180,7 +1186,7 @@
 					MSM_BUS_SLAVE_EBI_CH0 0 0>;
 				};
 				qcom,axi-port-camnoc {
-					qcom,msm-bus,name = "cam_sf_1_camnoc";
+					qcom,msm-bus,name = "cam_sf_0_camnoc";
 					qcom,msm-bus-vector-dyn-vote;
 					qcom,msm-bus,num-cases = <2>;
 					qcom,msm-bus,num-paths = <1>;
