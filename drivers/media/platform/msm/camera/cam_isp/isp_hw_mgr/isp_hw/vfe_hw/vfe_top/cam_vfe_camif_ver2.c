@@ -261,8 +261,15 @@ static int cam_vfe_camif_resource_start(
 
 	/* epoch config */
 	switch (soc_private->cpas_version) {
-	case CAM_CPAS_TITAN_175_V101:
-	case CAM_CPAS_TITAN_175_V100:
+	case CAM_CPAS_TITAN_170_V100:
+	case CAM_CPAS_TITAN_170_V110:
+	case CAM_CPAS_TITAN_170_V120:
+	case CAM_CPAS_TITAN_150_V100:
+		cam_io_w_mb(rsrc_data->reg_data->epoch_line_cfg,
+				rsrc_data->mem_base +
+				rsrc_data->camif_reg->epoch_irq);
+		break;
+	default:
 		epoch0_irq_mask = ((rsrc_data->last_line -
 				rsrc_data->first_line) / 2) +
 				rsrc_data->first_line;
@@ -279,21 +286,6 @@ static int cam_vfe_camif_resource_start(
 				rsrc_data->first_line,
 				rsrc_data->last_line,
 				computed_epoch_line_cfg);
-		break;
-	case CAM_CPAS_TITAN_170_V100:
-	case CAM_CPAS_TITAN_170_V110:
-	case CAM_CPAS_TITAN_170_V120:
-	case CAM_CPAS_TITAN_150_V100:
-		cam_io_w_mb(rsrc_data->reg_data->epoch_line_cfg,
-				rsrc_data->mem_base +
-				rsrc_data->camif_reg->epoch_irq);
-		break;
-	default:
-		cam_io_w_mb(rsrc_data->reg_data->epoch_line_cfg,
-				rsrc_data->mem_base +
-				rsrc_data->camif_reg->epoch_irq);
-		CAM_WARN(CAM_ISP, "Hardware version not proper: 0x%x",
-			soc_private->cpas_version);
 		break;
 	}
 
