@@ -138,6 +138,12 @@ mhi channel node properties:
 	driver probe is complete. This should be only set true if initial
 	handshake iniaitead by external modem.
 
+- mhi,wake-capable
+  Usage: optional
+  Value type: <bool>
+  Definition: Time sensitive data channel, host should process all pending data
+	before system suspend.
+
 ==========================
 mhi event node properties:
 ==========================
