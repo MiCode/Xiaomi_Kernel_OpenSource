@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,11 +20,6 @@
 
 #define CAM_CPAS_MAX_CLIENTS 30
 #define CAM_CPAS_INFLIGHT_WORKS 5
-
-#define CAM_CPAS_AXI_MIN_MNOC_AB_BW   (2048 * 1024)
-#define CAM_CPAS_AXI_MIN_MNOC_IB_BW   (2048 * 1024)
-#define CAM_CPAS_AXI_MIN_CAMNOC_AB_BW (2048 * 1024)
-#define CAM_CPAS_AXI_MIN_CAMNOC_IB_BW (3000000000L)
 
 #define CAM_CPAS_GET_CLIENT_IDX(handle) (handle)
 #define CAM_CPAS_GET_CLIENT_HANDLE(indx) (indx)
@@ -123,7 +119,6 @@ struct cam_cpas_client {
  * @dyn_vote: Whether dynamic voting enabled
  * @lock: Mutex lock used while voting on this client
  * @valid: Whether bus client is valid
- * @name: Name of the bus client
  *
  */
 struct cam_cpas_bus_client {
@@ -137,7 +132,6 @@ struct cam_cpas_bus_client {
 	bool dyn_vote;
 	struct mutex lock;
 	bool valid;
-	const char *name;
 };
 
 /**
@@ -152,7 +146,6 @@ struct cam_cpas_bus_client {
  * @axi_port_node: Node representing this AXI Port
  * @axi_port_mnoc_node: Node representing mnoc in this AXI Port
  * @axi_port_camnoc_node: Node representing camnoc in this AXI Port
- * @consolidated_axi_vote: Consolidated axi bw values for this AXI port
  *
  */
 struct cam_cpas_axi_port {
@@ -165,7 +158,6 @@ struct cam_cpas_axi_port {
 	struct device_node *axi_port_node;
 	struct device_node *axi_port_mnoc_node;
 	struct device_node *axi_port_camnoc_node;
-	struct cam_axi_vote consolidated_axi_vote;
 };
 
 /**

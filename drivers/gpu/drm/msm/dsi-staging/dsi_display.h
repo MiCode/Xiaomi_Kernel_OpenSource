@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2018, The Linux Foundation.All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -173,6 +174,7 @@ struct dsi_display {
 	struct drm_connector *drm_conn;
 
 	const char *name;
+	bool is_prim_display;
 	const char *display_type;
 	struct list_head list;
 	bool is_active;
@@ -584,6 +586,8 @@ void dsi_display_enable_event(struct dsi_display *display,
 		bool enable);
 
 int dsi_display_set_backlight(void *display, u32 bl_lvl);
+
+int dsi_panel_set_doze_backlight(struct dsi_display *display, u32 bl_lvl);
 
 /**
  * dsi_display_check_status() - check if panel is dead or alive

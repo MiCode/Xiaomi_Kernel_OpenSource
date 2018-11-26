@@ -44,6 +44,14 @@ config MSMB_CAMERA_DEBUG
     ---help---
       Enable printk() debug for msm camera 2.0
 
+config USE_BU64748
+	bool "use BU64748 acculator"
+	default n
+
+config USE_ROHM_BU64753
+	bool "use ROHM BU64753 acculator"
+	default n
+
 if MSMB_CAMERA
 source "drivers/media/platform/msm/camera_v2/Kconfig"
 endif # MSMB_CAMERA

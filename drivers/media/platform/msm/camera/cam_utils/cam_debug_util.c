@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundataion. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,7 +31,7 @@ const char *cam_get_module_name(unsigned int module_id)
 		name = "CAM-CORE";
 		break;
 	case CAM_CRM:
-		name = "CAM-CRM";
+		name = "CAM_CRM";
 		break;
 	case CAM_CPAS:
 		name = "CAM-CPAS";
@@ -85,18 +86,6 @@ const char *cam_get_module_name(unsigned int module_id)
 		break;
 	case CAM_OIS:
 		name = "CAM-OIS";
-		break;
-	case CAM_IRQ_CTRL:
-		name = "CAM-IRQ-CTRL";
-		break;
-	case CAM_MEM:
-		name = "CAM-MEM";
-		break;
-	case CAM_PERF:
-		name = "CAM-PERF";
-		break;
-	case CAM_REQ:
-		name = "CAM-REQ";
 		break;
 	default:
 		name = "CAM";

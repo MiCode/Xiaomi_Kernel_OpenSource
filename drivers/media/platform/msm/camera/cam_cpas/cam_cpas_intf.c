@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -619,7 +620,6 @@ static int cam_cpas_dev_remove(struct platform_device *dev)
 	}
 
 	mutex_lock(&g_cpas_intf->intf_lock);
-	g_cpas_intf->probe_done = false;
 	cam_unregister_subdev(&g_cpas_intf->subdev);
 	cam_cpas_hw_remove(g_cpas_intf->hw_intf);
 	mutex_unlock(&g_cpas_intf->intf_lock);
@@ -642,7 +642,6 @@ static struct platform_driver cam_cpas_driver = {
 		.name = CAM_CPAS_DEV_NAME,
 		.owner = THIS_MODULE,
 		.of_match_table = cam_cpas_dt_match,
-		.suppress_bind_attrs = true,
 	},
 };
 

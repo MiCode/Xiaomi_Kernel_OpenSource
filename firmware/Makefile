@@ -94,6 +94,13 @@ fw-shipped-$(CONFIG_SND_YMFPCI) += yamaha/ds1_ctrl.fw yamaha/ds1_dsp.fw \
 				   yamaha/ds1e_ctrl.fw
 fw-shipped-$(CONFIG_SND_WAVEFRONT) += yamaha/yss225_registers.bin
 fw-shipped-$(CONFIG_TEHUTI) += tehuti/bdx.bin
+fw-shipped-$(CONFIG_TOUCHSCREEN_ATMEL_MXT) += mXT640U0x1410AA.fw mxt_640u_gov_config.fw
+fw-shipped-$(CONFIG_TOUCHSCREEN_ST_FTS_V521) += st_fts_e1.ftb st_fts_e8.ftb st_fts.ftb st_fts_e5.ftb
+fw-shipped-$(CONFIG_TOUCHSCREEN_ST_FTS) += st_fts_e1_old.ftb
+fw-shipped-$(CONFIG_INPUT_PRESS_NDT_F60) += ndt_fw.bin
+fw-shipped-$(CONFIG_INPUT_PRESS_NDT_M65) += ndt_fw_m65.bin
+fw-shipped-$(CONFIG_TOUCHSCREEN_NT36XXX) += novatek_nt36672_e10.fw novatek_nt36672_e10_hw01.fw \
+						novatek_nt36672_e10_hw02.fw
 fw-shipped-$(CONFIG_TIGON3) += tigon/tg3.bin tigon/tg3_tso.bin \
 			       tigon/tg3_tso5.bin
 fw-shipped-$(CONFIG_TYPHOON) += 3com/typhoon.bin
@@ -104,6 +111,8 @@ fw-shipped-$(CONFIG_USB_EMI62) += emi62/loader.fw emi62/bitstream.fw \
 fw-shipped-$(CONFIG_USB_KAWETH) += kaweth/new_code.bin kaweth/trigger_code.bin \
 				   kaweth/new_code_fix.bin \
 				   kaweth/trigger_code_fix.bin
+fw-shipped-$(CONFIG_TOUCHSCREEN_SYNAPTICS_DSX_FORCE) += synaptics_jdi_3330_d5x.fw
+fw-shipped-$(CONFIG_TOUCHSCREEN_FT5X46) += ft8716_ebbg_incell_ebbg_d5x.fw
 ifdef CONFIG_FIRMWARE_IN_KERNEL
 fw-shipped-$(CONFIG_USB_SERIAL_KEYSPAN_MPR) += keyspan/mpr.fw
 fw-shipped-$(CONFIG_USB_SERIAL_KEYSPAN_USA18X) += keyspan/usa18x.fw

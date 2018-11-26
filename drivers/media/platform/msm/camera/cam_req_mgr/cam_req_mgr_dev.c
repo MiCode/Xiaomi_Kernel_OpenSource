@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -591,7 +592,6 @@ static int cam_req_mgr_remove(struct platform_device *pdev)
 	cam_v4l2_device_cleanup();
 	mutex_destroy(&g_dev.dev_lock);
 	g_dev.state = false;
-	g_dev.subdev_nodes_created = false;
 
 	return 0;
 }
@@ -681,7 +681,6 @@ static struct platform_driver cam_req_mgr_driver = {
 		.name = "cam_req_mgr",
 		.owner = THIS_MODULE,
 		.of_match_table = cam_req_mgr_dt_match,
-		.suppress_bind_attrs = true,
 	},
 };
 

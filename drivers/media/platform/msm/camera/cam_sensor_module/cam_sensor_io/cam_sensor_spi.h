@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -100,13 +101,5 @@ int cam_spi_write(struct camera_io_master *client,
 
 int cam_spi_write_table(struct camera_io_master *client,
 	struct cam_sensor_i2c_reg_setting *write_setting);
-
-int cam_spi_erase(struct camera_io_master *client,
-	uint32_t addr, enum camera_sensor_i2c_type addr_type,
-	uint32_t size);
-
-int32_t cam_spi_write_seq(struct camera_io_master *client,
-	uint32_t addr, uint8_t *data,
-	enum camera_sensor_i2c_type addr_type, uint32_t num_byte);
 
 #endif

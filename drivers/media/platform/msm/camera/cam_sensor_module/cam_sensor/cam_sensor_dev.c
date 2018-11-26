@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +15,16 @@
 #include "cam_req_mgr_dev.h"
 #include "cam_sensor_soc.h"
 #include "cam_sensor_core.h"
+
+#if MV_TEMP_SET
+ssize_t mv_operate_sensor_write_regs_store(struct device *dev, struct device_attribute *attr,const char *buf, size_t count);
+ssize_t mv_operate_sensor_write_regs_show(struct device *dev, struct device_attribute *attr, char *buf);
+static DEVICE_ATTR(mv_operate_sensor_write_regs, 0664, mv_operate_sensor_write_regs_show, mv_operate_sensor_write_regs_store);
+ssize_t mv_operate_sensor_read_regs_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count);
+ssize_t mv_operate_sensor_read_regs_show(struct device *dev, struct device_attribute *attr, char *buf);
+static DEVICE_ATTR(mv_operate_sensor_read_regs, 0664, mv_operate_sensor_read_regs_show, mv_operate_sensor_read_regs_store);
+
+#endif
 
 static long cam_sensor_subdev_ioctl(struct v4l2_subdev *sd,
 	unsigned int cmd, void *arg)
@@ -145,7 +156,6 @@ static int32_t cam_sensor_driver_i2c_probe(struct i2c_client *client,
 			"%s :i2c_check_functionality failed", client->name);
 		return -EFAULT;
 	}
-
 	/* Create sensor control structure */
 	s_ctrl = kzalloc(sizeof(*s_ctrl), GFP_KERNEL);
 	if (!s_ctrl)
@@ -320,6 +330,17 @@ static int32_t cam_sensor_driver_platform_probe(
 	s_ctrl->sensordata->power_info.dev = &pdev->dev;
 	platform_set_drvdata(pdev, s_ctrl);
 	v4l2_set_subdevdata(&(s_ctrl->v4l2_dev_str.sd), s_ctrl);
+#if MV_TEMP_SET
+	/* Store sensor control structure in static database */
+	rc = sysfs_create_file(&(pdev->dev.kobj), &dev_attr_mv_operate_sensor_write_regs.attr);
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR, "can note create ir write sys node rc %d", rc);
+	}
+	rc = sysfs_create_file(&(pdev->dev.kobj), &dev_attr_mv_operate_sensor_read_regs.attr);
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR, "can note create ir read sys node rc %d", rc);
+	}
+#endif
 
 	s_ctrl->sensor_state = CAM_SENSOR_INIT;
 
@@ -339,7 +360,6 @@ static struct platform_driver cam_sensor_platform_driver = {
 		.name = "qcom,camera",
 		.owner = THIS_MODULE,
 		.of_match_table = cam_sensor_driver_dt_match,
-		.suppress_bind_attrs = true,
 	},
 	.remove = cam_sensor_platform_remove,
 };

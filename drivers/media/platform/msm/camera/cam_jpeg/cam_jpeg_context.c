@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -55,7 +56,7 @@ static int __cam_jpeg_ctx_flush_dev_in_acquired(struct cam_context *ctx,
 	struct cam_flush_dev_cmd *cmd)
 {
 	int rc;
-
+	CAM_ERR(CAM_JPEG, "jpeg flush ctx %d", ctx->ctx_id);
 	rc = cam_context_flush_dev_to_hw(ctx, cmd);
 	if (rc)
 		CAM_ERR(CAM_ICP, "Failed to flush device");

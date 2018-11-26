@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -69,12 +70,11 @@ int32_t camera_io_dev_read(struct camera_io_master *io_master_info,
 
 int32_t camera_io_dev_read_seq(struct camera_io_master *io_master_info,
 	uint32_t addr, uint8_t *data,
-	enum camera_sensor_i2c_type addr_type,
-	enum camera_sensor_i2c_type data_type, int32_t num_bytes)
+	enum camera_sensor_i2c_type addr_type, int32_t num_bytes)
 {
 	if (io_master_info->master_type == CCI_MASTER) {
 		return cam_camera_cci_i2c_read_seq(io_master_info->cci_client,
-			addr, data, addr_type, data_type, num_bytes);
+			addr, data, addr_type, num_bytes);
 	} else if (io_master_info->master_type == I2C_MASTER) {
 		return cam_qup_i2c_read_seq(io_master_info->client,
 			addr, data, addr_type, num_bytes);

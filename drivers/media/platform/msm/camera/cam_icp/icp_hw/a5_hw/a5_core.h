@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,8 +26,8 @@
 #define A5_CSR_BASE             2
 
 #define A5_HOST_INT             0x1
-#define A5_WDT_0                0x2
-#define A5_WDT_1                0x4
+#define A5_WDT_0                0x10
+#define A5_WDT_1                0x100
 
 #define ELF_GUARD_PAGE          (2 * 1024 * 1024)
 

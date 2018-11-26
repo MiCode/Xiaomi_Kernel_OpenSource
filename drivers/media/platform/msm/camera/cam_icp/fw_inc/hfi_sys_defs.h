@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -160,7 +161,6 @@
 #define HFI_PROP_SYS_IMAGE_VER         (HFI_PROPERTY_ICP_COMMON_START + 0x3)
 #define HFI_PROP_SYS_SUPPORTED         (HFI_PROPERTY_ICP_COMMON_START + 0x4)
 #define HFI_PROP_SYS_IPEBPS_PC         (HFI_PROPERTY_ICP_COMMON_START + 0x5)
-#define HFI_PROP_SYS_FW_DUMP_CFG       (HFI_PROPERTY_ICP_COMMON_START + 0x8)
 
 /* Capabilities reported at sys init */
 #define HFI_CAPS_PLACEHOLDER_1         (HFI_COMMON_BASE + 0x1)
@@ -181,28 +181,15 @@
 /* Disable ARM9 watchdog. */
 #define  HFI_DEBUG_CFG_ARM9WD   0x10000000
 
-
-/*
- * HFI_FW_DUMP levels
- * HFI_FW_DUMP_xx
- */
-#define HFI_FW_DUMP_DISABLED    0x00000000
-#define HFI_FW_DUMP_ON_FAILURE  0x00000001
-#define HFI_FW_DUMP_ALWAYS      0x00000002
-
-/* Number of available dump levels. */
-#define NUM_HFI_DUMP_LVL        0x00000003
-
 /* Debug Msg Communication types:
  * Section describes different modes (HFI_DEBUG_MODE_X)
  * available to communicate the debug messages
  */
- /* Debug message output through the interface debug queue. */
+ /* Debug message output through   the interface debug queue. */
 #define HFI_DEBUG_MODE_QUEUE     0x00000001
  /* Debug message output through QDSS. */
 #define HFI_DEBUG_MODE_QDSS      0x00000002
- /* Number of debug modes available. */
-#define NUM_HFI_DEBUG_MODE       0x00000002
+
 
 #define HFI_DEBUG_MSG_LOW        0x00000001
 #define HFI_DEBUG_MSG_MEDIUM     0x00000002
@@ -212,6 +199,9 @@
 #define HFI_DEBUG_MSG_PERF       0x00000020
 #define HFI_DEBUG_CFG_WFI        0x01000000
 #define HFI_DEBUG_CFG_ARM9WD     0x10000000
+
+#define HFI_DEBUG_MODE_QUEUE     0x00000001
+#define HFI_DEBUG_MODE_QDSS      0x00000002
 
 #define HFI_DEV_VERSION_MAX      0x5
 

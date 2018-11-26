@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,6 +54,9 @@
 
 &pmi8998_pdphy {
 	vbus-supply = <&smb2_vbus>;
+	/*mi,limit_pd_vbus 1:enable 0:disable*/
+	mi,limit_pd_vbus = <1>;
+	mi,pd_vbus_max_limit = <9000000>;
 };
 
 &qupv3_se6_4uart {

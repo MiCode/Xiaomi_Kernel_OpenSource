@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,15 +19,6 @@
 #include "cam_hw_mgr_intf.h"
 #include "cam_icp_hw_intf.h"
 
-/* IPE registers */
-#define IPE_TOP_RST_CMD              0x1008
-#define IPE_CDM_RST_CMD              0x10
-#define IPE_CDM_IRQ_STATUS           0x44
-#define IPE_TOP_IRQ_STATUS           0x100C
-
-/* IPE CDM/TOP status register */
-#define IPE_RST_DONE_IRQ_STATUS_BIT  0x1
-
 enum cam_icp_ipe_cmd_type {
 	CAM_ICP_IPE_CMD_FW_DOWNLOAD,
 	CAM_ICP_IPE_CMD_POWER_COLLAPSE,
@@ -37,7 +29,6 @@ enum cam_icp_ipe_cmd_type {
 	CAM_ICP_IPE_CMD_CPAS_STOP,
 	CAM_ICP_IPE_CMD_UPDATE_CLK,
 	CAM_ICP_IPE_CMD_DISABLE_CLK,
-	CAM_ICP_IPE_CMD_RESET,
 	CAM_ICP_IPE_CMD_MAX,
 };
 

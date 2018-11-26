@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,7 +34,6 @@ int32_t cam_cci_i2c_read(struct cam_sensor_cci_client *cci_client,
 	cci_ctrl.cci_info = cci_client;
 	cci_ctrl.cfg.cci_i2c_read_cfg.addr = addr;
 	cci_ctrl.cfg.cci_i2c_read_cfg.addr_type = addr_type;
-	cci_ctrl.cfg.cci_i2c_read_cfg.data_type = data_type;
 	cci_ctrl.cfg.cci_i2c_read_cfg.data = buf;
 	cci_ctrl.cfg.cci_i2c_read_cfg.num_byte = data_type;
 	rc = v4l2_subdev_call(cci_client->cci_subdev,
@@ -60,7 +60,6 @@ int32_t cam_cci_i2c_read(struct cam_sensor_cci_client *cci_client,
 int32_t cam_camera_cci_i2c_read_seq(struct cam_sensor_cci_client *cci_client,
 	uint32_t addr, uint8_t *data,
 	enum camera_sensor_i2c_type addr_type,
-	enum camera_sensor_i2c_type data_type,
 	uint32_t num_byte)
 {
 	int32_t                    rc = -EFAULT;
@@ -69,7 +68,6 @@ int32_t cam_camera_cci_i2c_read_seq(struct cam_sensor_cci_client *cci_client,
 	struct cam_cci_ctrl        cci_ctrl;
 
 	if ((addr_type >= CAMERA_SENSOR_I2C_TYPE_MAX)
-		|| (data_type >= CAMERA_SENSOR_I2C_TYPE_MAX)
 		|| (num_byte > I2C_REG_DATA_MAX)) {
 		CAM_ERR(CAM_SENSOR, "addr_type %d num_byte %d", addr_type,
 			num_byte);
@@ -84,7 +82,6 @@ int32_t cam_camera_cci_i2c_read_seq(struct cam_sensor_cci_client *cci_client,
 	cci_ctrl.cci_info = cci_client;
 	cci_ctrl.cfg.cci_i2c_read_cfg.addr = addr;
 	cci_ctrl.cfg.cci_i2c_read_cfg.addr_type = addr_type;
-	cci_ctrl.cfg.cci_i2c_read_cfg.data_type = data_type;
 	cci_ctrl.cfg.cci_i2c_read_cfg.data = buf;
 	cci_ctrl.cfg.cci_i2c_read_cfg.num_byte = num_byte;
 	cci_ctrl.status = -EFAULT;

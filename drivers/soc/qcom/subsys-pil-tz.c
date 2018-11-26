@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -931,6 +932,7 @@ static irqreturn_t subsys_err_fatal_intr_handler (int irq, void *dev_id)
 	struct pil_tz_data *d = subsys_to_data(dev_id);
 
 	pr_err("Fatal error on %s!\n", d->subsys_desc.name);
+
 	if (subsys_get_crash_status(d->subsys)) {
 		pr_err("%s: Ignoring error fatal, restart in progress\n",
 							d->subsys_desc.name);

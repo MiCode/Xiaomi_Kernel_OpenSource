@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -561,7 +562,6 @@ static struct platform_driver cam_cdm_intf_driver = {
 	.name = "msm_cam_cdm_intf",
 	.owner = THIS_MODULE,
 	.of_match_table = msm_cam_cdm_intf_dt_match,
-	.suppress_bind_attrs = true,
 	},
 };
 

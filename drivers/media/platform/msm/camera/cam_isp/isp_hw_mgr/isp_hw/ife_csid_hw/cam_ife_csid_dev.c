@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,8 +21,6 @@
 
 static struct cam_hw_intf *cam_ife_csid_hw_list[CAM_IFE_CSID_HW_RES_MAX] = {
 	0, 0, 0, 0};
-
-static char csid_dev_name[8];
 
 int cam_ife_csid_probe(struct platform_device *pdev)
 {
@@ -65,10 +64,6 @@ int cam_ife_csid_probe(struct platform_device *pdev)
 		goto free_dev;
 	}
 
-	memset(csid_dev_name, 0, sizeof(csid_dev_name));
-	snprintf(csid_dev_name, sizeof(csid_dev_name),
-		"csid%1u", csid_dev_idx);
-
 	csid_hw_intf->hw_idx = csid_dev_idx;
 	csid_hw_intf->hw_type = CAM_ISP_HW_TYPE_IFE_CSID;
 	csid_hw_intf->hw_priv = csid_hw_info;
@@ -76,7 +71,7 @@ int cam_ife_csid_probe(struct platform_device *pdev)
 	csid_hw_info->core_info = csid_dev;
 	csid_hw_info->soc_info.pdev = pdev;
 	csid_hw_info->soc_info.dev = &pdev->dev;
-	csid_hw_info->soc_info.dev_name = csid_dev_name;
+	csid_hw_info->soc_info.dev_name = pdev->name;
 	csid_hw_info->soc_info.index = csid_dev_idx;
 
 	csid_hw_data = (struct cam_ife_csid_hw_info  *)match_dev->data;

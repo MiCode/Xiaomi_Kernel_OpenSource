@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2015, 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -345,6 +346,91 @@ rtc_rw_fail:
 }
 
 static int
+qpnp_rtc_read_time_debug(struct qpnp_rtc *rtc_dd, struct rtc_time *tm)
+{
+	int rc;
+	u8 value[4], reg;
+	unsigned long secs;
+
+	rc = qpnp_read_wrapper(rtc_dd, value,
+				rtc_dd->rtc_base + REG_OFFSET_RTC_READ,
+				NUM_8_BIT_RTC_REGS);
+	if (rc) {
+		pr_err("Read from RTC reg failed\n");
+		return rc;
+	}
+
+	/*
+	 * Read the LSB again and check if there has been a carry over
+	 * If there is, redo the read operation
+	 */
+	rc = qpnp_read_wrapper(rtc_dd, &reg,
+				rtc_dd->rtc_base + REG_OFFSET_RTC_READ, 1);
+	if (rc) {
+		pr_err("Read from RTC reg failed\n");
+		return rc;
+	}
+
+	if (reg < value[0]) {
+		rc = qpnp_read_wrapper(rtc_dd, value,
+				rtc_dd->rtc_base + REG_OFFSET_RTC_READ,
+				NUM_8_BIT_RTC_REGS);
+		if (rc) {
+			pr_err("Read from RTC reg failed\n");
+			return rc;
+		}
+	}
+
+	secs = TO_SECS(value);
+
+	rtc_time_to_tm(secs, tm);
+
+	rc = rtc_valid_tm(tm);
+	if (rc) {
+		pr_err("Invalid time read from RTC\n");
+		return rc;
+	}
+
+	pr_info("rtc: secs = %lu, h:m:s == %d:%d:%d, d/m/y = %d/%d/%d\n",
+			secs, tm->tm_hour, tm->tm_min, tm->tm_sec,
+			tm->tm_mday, tm->tm_mon, tm->tm_year);
+
+	return 0;
+}
+
+static int
+qpnp_rtc_read_alarm_debug(struct qpnp_rtc *rtc_dd, struct rtc_wkalrm *alarm)
+{
+	int rc;
+	u8 value[4];
+	unsigned long secs;
+
+	rc = qpnp_read_wrapper(rtc_dd, value,
+				rtc_dd->alarm_base + REG_OFFSET_ALARM_RW,
+				NUM_8_BIT_RTC_REGS);
+	if (rc) {
+		pr_err("Read from ALARM reg failed\n");
+		return rc;
+	}
+
+	secs = TO_SECS(value);
+	rtc_time_to_tm(secs, &alarm->time);
+
+	rc = rtc_valid_tm(&alarm->time);
+	if (rc) {
+		pr_err("Invalid time read from RTC\n");
+		return rc;
+	}
+
+	pr_info("Alarm set for %lu - h:r:s=%d:%d:%d, d/m/y=%d/%d/%d\n",
+		secs, alarm->time.tm_hour, alarm->time.tm_min,
+				alarm->time.tm_sec, alarm->time.tm_mday,
+				alarm->time.tm_mon, alarm->time.tm_year);
+
+	return 0;
+}
+
+static int
 qpnp_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 {
 	int rc;
@@ -477,6 +563,8 @@ static int qpnp_rtc_probe(struct platform_device *pdev)
 	struct qpnp_rtc *rtc_dd;
 	unsigned int base;
 	struct device_node *child;
+	struct rtc_time rtc_data;
+	struct rtc_wkalrm rtc_alarm_data;
 
 	rtc_dd = devm_kzalloc(&pdev->dev, sizeof(*rtc_dd), GFP_KERNEL);
 	if (rtc_dd == NULL)
@@ -612,6 +700,8 @@ static int qpnp_rtc_probe(struct platform_device *pdev)
 	enable_irq_wake(rtc_dd->rtc_alarm_irq);
 
 	dev_dbg(&pdev->dev, "Probe success !!\n");
+	qpnp_rtc_read_time_debug(rtc_dd, &rtc_data);
+	qpnp_rtc_read_alarm_debug(rtc_dd, &rtc_alarm_data);
 
 	return 0;
 

@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -170,6 +171,7 @@ enum cam_req_mgr_device_id {
 	CAM_REQ_MGR_DEVICE_EXTERNAL_1,
 	CAM_REQ_MGR_DEVICE_EXTERNAL_2,
 	CAM_REQ_MGR_DEVICE_EXTERNAL_3,
+	CAM_REQ_MGR_DEVICE_APERTURE,
 	CAM_REQ_MGR_DEVICE_ID_MAX,
 };
 
@@ -177,18 +179,13 @@ enum cam_req_mgr_device_id {
 
 /**
  * enum cam_req_mgr_link_evt_type
- * @CAM_REQ_MGR_LINK_EVT_ERR        : error on the link from any of the
- *                                    connected devices
- * @CAM_REQ_MGR_LINK_EVT_PAUSE      : to pause the link
- * @CAM_REQ_MGR_LINK_EVT_RESUME     : resumes the link which was paused
- * @CAM_REQ_MGR_LINK_EVT_SOF_FREEZE : request manager has detected an sof freeze
- * @CAM_REQ_MGR_LINK_EVT_MAX        : invalid event type
+ * @CAM_REQ_MGR_LINK_EVT_ERR:
+ * @CAM_REQ_MGR_LINK_EVT_MAX:
  */
 enum cam_req_mgr_link_evt_type {
 	CAM_REQ_MGR_LINK_EVT_ERR,
 	CAM_REQ_MGR_LINK_EVT_PAUSE,
 	CAM_REQ_MGR_LINK_EVT_RESUME,
-	CAM_REQ_MGR_LINK_EVT_SOF_FREEZE,
 	CAM_REQ_MGR_LINK_EVT_MAX,
 };
 

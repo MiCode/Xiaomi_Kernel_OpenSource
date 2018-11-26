@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2011 Google, Inc.
  * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -128,6 +129,19 @@ void *ion_page_pool_alloc_pool_only(struct ion_page_pool *pool)
 	}
 
 	return page;
+}
+
+void ion_page_pool_prealloc(struct ion_page_pool *pool, unsigned int reserve)
+{
+	unsigned int i;
+
+	for (i = 0; i < reserve; i++) {
+		struct page *page = ion_page_pool_alloc_pages(pool);
+
+		if (!page)
+			return;
+		ion_page_pool_add(pool, page);
+	}
 }
 
 void ion_page_pool_free(struct ion_page_pool *pool, struct page *page)

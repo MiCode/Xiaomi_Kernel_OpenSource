@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -152,8 +153,8 @@ static int cam_jpeg_enc_probe(struct platform_device *pdev)
 		rc = -ENOMEM;
 		goto error_alloc_core;
 	}
-	core_info = (struct cam_jpeg_enc_device_core_info *)
-		jpeg_enc_dev->core_info;
+	core_info = (struct cam_jpeg_enc_device_core_info *)jpeg_enc_dev->
+		core_info;
 
 	match_dev = of_match_device(pdev->dev.driver->of_match_table,
 		&pdev->dev);
@@ -218,7 +219,6 @@ static struct platform_driver cam_jpeg_enc_driver = {
 		.name = "cam-jpeg-enc",
 		.owner = THIS_MODULE,
 		.of_match_table = cam_jpeg_enc_dt_match,
-		.suppress_bind_attrs = true,
 	},
 };
 

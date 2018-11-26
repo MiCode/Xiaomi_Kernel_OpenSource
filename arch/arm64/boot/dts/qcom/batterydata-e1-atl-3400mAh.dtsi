@@ -1,0 +1,81 @@
+qcom,e1_atl_3400mAh {
+	qcom, = <24>;
+	/* #3331499_Xiaomi_BM3Escud_3400mAh_averaged_MasterSlave_Feb20th2018*/
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <3400>;
+	qcom,batt-id-kohm = <68>;
+	qcom,battery-beta = <3380>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,battery-type = "e1_atl_3400mAh";
+	qcom,fastchg-current-ma = <3300>;
+	qcom,jeita-fcc-ranges = <0   50   330000
+                                 51  100  990000
+                                 101 150  1650000
+				 151 450  3300000
+				 451 600  1650000>;
+	qcom,jeita-fv-ranges =  <0   50   4400000
+                                 51  100  4400000
+                                 101 150  4400000
+				 151 450  4400000
+				 451 600  4100000>;
+	qcom,checksum = <0xC3C7>;
+	qcom,gui-version = "PMI8998GUI - 2.0.0.58";
+	qcom,fg-profile-data = [
+		F0 1E 58 06
+			CB 03 B7 FD
+			D9 1C 03 02
+			9C 0D C5 0A
+			2A 18 40 23
+			35 45 4C 53
+			6D 00 00 00
+			12 00 00 00
+			00 00 01 00
+			A2 CD 1A BA
+			1F 00 08 00
+			B1 E3 55 ED
+			1A 06 55 FA
+			CE 0C AF 0A
+			43 FD 69 32
+			24 06 09 20
+			27 00 14 00
+			DD 1F 74 05
+			8D 0A 38 06
+			BB 1C 13 03
+			EA 15 3D 12
+			84 18 CF 23
+			EC 4D 27 5B
+			6B 00 00 00
+			0E 00 00 00
+			00 00 79 D5
+			34 C3 8C CB
+			18 00 00 00
+			70 00 55 ED
+			C9 06 9E 00
+			6F F4 78 02
+			5A 06 14 1B
+			A5 33 CC FF
+			07 10 00 00
+			12 0D 66 46
+			18 00 40 00
+			BF 01 0A FA
+			FF 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			];
+};

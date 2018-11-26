@@ -1030,6 +1030,12 @@ config CPUSETS
 
 	  Say N if unsure.
 
+config PACKAGE_RUNTIME_INFO
+	bool "stat:package runtime info on cluster"
+	default n
+	help
+	  This option can show package runtime info in big/little core.
+
 config PROC_PID_CPUSET
 	bool "Include legacy /proc/<pid>/cpuset file"
 	depends on CPUSETS

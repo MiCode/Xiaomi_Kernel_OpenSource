@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -103,6 +104,7 @@ static void slpi_load_fw(struct work_struct *slpi_ldr_work)
 		pr_err("can't get fw name.\n");
 		goto fail;
 	}
+	printk("get fw name: %s \n", firmware_name);
 
 	priv = platform_get_drvdata(pdev);
 	if (!priv) {

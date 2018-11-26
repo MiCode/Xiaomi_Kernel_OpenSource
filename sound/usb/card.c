@@ -2,6 +2,7 @@
  *   (Tentative) USB Audio Driver for ALSA
  *
  *   Copyright (c) 2002 by Takashi Iwai <tiwai@suse.de>
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  *   Many codes borrowed from audio.c by
  *	    Alan Cox (alan@lxorguk.ukuu.org.uk)
@@ -67,6 +68,8 @@
 #include "format.h"
 #include "power.h"
 #include "stream.h"
+#include <linux/stacktrace.h>
+
 
 MODULE_AUTHOR("Takashi Iwai <tiwai@suse.de>");
 MODULE_DESCRIPTION("USB Audio");
@@ -188,6 +191,7 @@ static void snd_usb_stream_disconnect(struct snd_usb_stream *as)
 	int idx;
 	struct snd_usb_substream *subs;
 
+	pr_info("snd_usb_stream_disconnect!\n");
 	for (idx = 0; idx < 2; idx++) {
 		subs = &as->substream[idx];
 		if (!subs->num_formats)
@@ -841,6 +845,7 @@ void snd_usb_unlock_shutdown(struct snd_usb_audio *chip)
 
 int snd_usb_autoresume(struct snd_usb_audio *chip)
 {
+	pr_info("snd_usb_autoresume!\n");
 	if (atomic_read(&chip->shutdown))
 		return -EIO;
 	if (atomic_inc_return(&chip->active) == 1)
@@ -850,6 +855,7 @@ int snd_usb_autoresume(struct snd_usb_audio *chip)
 
 void snd_usb_autosuspend(struct snd_usb_audio *chip)
 {
+	pr_info("snd_usb_autosuspend!\n");
 	if (atomic_read(&chip->shutdown))
 		return;
 	if (atomic_dec_and_test(&chip->active))
@@ -863,6 +869,7 @@ static int usb_audio_suspend(struct usb_interface *intf, pm_message_t message)
 	struct usb_mixer_interface *mixer;
 	struct list_head *p;
 
+	pr_info("usb_audio_suspend!\n");
 	if (chip == (void *)-1L)
 		return 0;
 

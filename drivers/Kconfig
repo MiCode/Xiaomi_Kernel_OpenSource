@@ -208,6 +208,10 @@ source "drivers/fpga/Kconfig"
 
 source "drivers/sensors/Kconfig"
 
+source "drivers/gps/Kconfig"
+
 source "drivers/tee/Kconfig"
+
+source "drivers/halls/Kconfig"
 
 endmenu

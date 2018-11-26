@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,8 +37,8 @@
  */
 struct cam_fd_dev {
 	struct cam_subdev     sd;
-	struct cam_context    base_ctx[CAM_CTX_MAX];
-	struct cam_fd_context fd_ctx[CAM_CTX_MAX];
+	struct cam_context    base_ctx[CAM_FD_CTX_MAX];
+	struct cam_fd_context fd_ctx[CAM_FD_CTX_MAX];
 	struct mutex          lock;
 	uint32_t              open_cnt;
 	bool                  probe_done;
@@ -119,7 +120,7 @@ static int cam_fd_dev_probe(struct platform_device *pdev)
 		goto unregister_subdev;
 	}
 
-	for (i = 0; i < CAM_CTX_MAX; i++) {
+	for (i = 0; i < CAM_FD_CTX_MAX; i++) {
 		rc = cam_fd_context_init(&g_fd_dev.fd_ctx[i],
 			&g_fd_dev.base_ctx[i], &node->hw_mgr_intf, i);
 		if (rc) {
@@ -129,8 +130,8 @@ static int cam_fd_dev_probe(struct platform_device *pdev)
 		}
 	}
 
-	rc = cam_node_init(node, &hw_mgr_intf, g_fd_dev.base_ctx, CAM_CTX_MAX,
-		CAM_FD_DEV_NAME);
+	rc = cam_node_init(node, &hw_mgr_intf, g_fd_dev.base_ctx,
+		CAM_FD_CTX_MAX, CAM_FD_DEV_NAME);
 	if (rc) {
 		CAM_ERR(CAM_FD, "FD node init failed, rc=%d", rc);
 		goto deinit_ctx;
@@ -159,7 +160,7 @@ static int cam_fd_dev_remove(struct platform_device *pdev)
 {
 	int i, rc;
 
-	for (i = 0; i < CAM_CTX_MAX; i++) {
+	for (i = 0; i < CAM_FD_CTX_MAX; i++) {
 		rc = cam_fd_context_deinit(&g_fd_dev.fd_ctx[i]);
 		if (rc)
 			CAM_ERR(CAM_FD, "FD context %d deinit failed, rc=%d",
@@ -194,7 +195,6 @@ static struct platform_driver cam_fd_driver = {
 		.name = "cam_fd",
 		.owner = THIS_MODULE,
 		.of_match_table = cam_fd_dt_match,
-		.suppress_bind_attrs = true,
 	},
 };
 

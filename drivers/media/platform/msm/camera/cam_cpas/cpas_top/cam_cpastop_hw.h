@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -162,27 +163,14 @@ struct cam_cpas_hw_errata_wa {
 };
 
 /**
- * struct cam_camnoc_tcsr_regs : Top control Status register
- *
- * @tcsr_conn_box_spare_0: spare register to select PriorityLvl
- *         for IFE0 and IFE1 (HW workaround for SDM670 1.1)
- *
- */
-struct cam_camnoc_tcsr_regs {
-	struct cam_cpas_reg tcsr_conn_box_spare_0;
-};
-
-/**
  * struct cam_cpas_hw_errata_wa_list : List of HW Errata workaround info
  *
  * @camnoc_flush_slave_pending_trans: Errata workaround info for flushing
  *         camnoc slave pending transactions before turning off CPAS_TOP gdsc
- * @tcsr_reg: HW workaround to select PriorityLvl for IFE0 and IFE(SDM670_1.1)
  *
  */
 struct cam_cpas_hw_errata_wa_list {
 	struct cam_cpas_hw_errata_wa camnoc_flush_slave_pending_trans;
-	struct cam_camnoc_tcsr_regs tcsr_reg;
 };
 
 /**
@@ -213,7 +201,6 @@ struct cam_camnoc_err_logger_info {
 	uint32_t errlog3_high;
 };
 
-
 /**
  * struct cam_camnoc_info : Overall CAMNOC settings info
  *
@@ -224,6 +211,7 @@ struct cam_camnoc_err_logger_info {
  * @irq_err_size: Array size of IRQ Error settings
  * @err_logger: Pointer to CAMNOC IRQ Error logger read registers
  * @errata_wa_list: HW Errata workaround info
+ *
  */
 struct cam_camnoc_info {
 	struct cam_camnoc_specific *specific;

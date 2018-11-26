@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -97,8 +98,10 @@ int32_t cam_csiphy_enable_hw(struct csiphy_device *csiphy_dev)
 		return rc;
 	}
 
-	rc = cam_soc_util_set_src_clk_rate(soc_info,
-		soc_info->clk_rate[0][soc_info->src_clk_idx]);
+	rc = cam_soc_util_set_clk_rate(
+		soc_info->clk[csiphy_dev->csiphy_clk_index],
+		soc_info->clk_name[csiphy_dev->csiphy_clk_index],
+		soc_info->clk_rate[0][csiphy_dev->csiphy_clk_index]);
 
 	if (rc < 0) {
 		CAM_ERR(CAM_CSIPHY, "csiphy_clk_set_rate failed rc: %d", rc);
@@ -206,14 +209,16 @@ int32_t cam_csiphy_parse_dt_info(struct platform_device *pdev,
 			continue;
 		}
 
+		if (!strcmp(soc_info->clk_name[i],
+			"csiphy_timer_src_clk")) {
+			csiphy_dev->csiphy_max_clk =
+			soc_info->clk_rate[0][clk_cnt];
+			csiphy_dev->csiphy_clk_index = clk_cnt;
+		}
 		CAM_DBG(CAM_CSIPHY, "clk_rate[%d] = %d", clk_cnt,
 			soc_info->clk_rate[0][clk_cnt]);
 		clk_cnt++;
 	}
-
-	csiphy_dev->csiphy_max_clk =
-		soc_info->clk_rate[0][soc_info->src_clk_idx];
-
 	rc = cam_soc_util_request_platform_resource(&csiphy_dev->soc_info,
 		cam_csiphy_irq, csiphy_dev);
 

@@ -14,6 +14,7 @@
  *
  * This file also contains code originally written by Linus Torvalds,
  * Copyright 1991, 1992, 1993, and by Julian Cowley, Copyright 1994.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This file may be redistributed under the terms of the GNU General Public
  * License.
@@ -1686,10 +1687,16 @@ static int
 n_tty_receive_buf_common(struct tty_struct *tty, const unsigned char *cp,
 			 char *fp, int count, int flow)
 {
-	struct n_tty_data *ldata = tty->disc_data;
+	struct n_tty_data *ldata;
 	int room, n, rcvd = 0, overflow;
 
 	down_read(&tty->termios_rwsem);
+
+	ldata = tty->disc_data;
+	if (!ldata) {
+		up_read(&tty->termios_rwsem);
+		return 0;
+	}
 
 	while (1) {
 		/*

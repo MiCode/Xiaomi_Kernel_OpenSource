@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,42 +34,6 @@ static struct cam_bps_device_hw_info cam_bps_hw_info = {
 };
 EXPORT_SYMBOL(cam_bps_hw_info);
 
-static char bps_dev_name[8];
-
-static bool cam_bps_cpas_cb(uint32_t client_handle, void *userdata,
-	struct cam_cpas_irq_data *irq_data)
-{
-	bool error_handled = false;
-
-	if (!irq_data)
-		return error_handled;
-
-	switch (irq_data->irq_type) {
-	case CAM_CAMNOC_IRQ_IPE_BPS_UBWC_DECODE_ERROR:
-		CAM_ERR_RATE_LIMIT(CAM_ICP,
-			"IPE/BPS UBWC Decode error type=%d status=%x thr_err=%d, fcl_err=%d, len_md_err=%d, format_err=%d",
-			irq_data->irq_type,
-			irq_data->u.dec_err.decerr_status.value,
-			irq_data->u.dec_err.decerr_status.thr_err,
-			irq_data->u.dec_err.decerr_status.fcl_err,
-			irq_data->u.dec_err.decerr_status.len_md_err,
-			irq_data->u.dec_err.decerr_status.format_err);
-		error_handled = true;
-		break;
-	case CAM_CAMNOC_IRQ_IPE_BPS_UBWC_ENCODE_ERROR:
-		CAM_ERR_RATE_LIMIT(CAM_ICP,
-			"IPE/BPS UBWC Encode error type=%d status=%x",
-			irq_data->irq_type,
-			irq_data->u.enc_err.encerr_status.value);
-		error_handled = true;
-		break;
-	default:
-		break;
-	}
-
-	return error_handled;
-}
-
 int cam_bps_register_cpas(struct cam_hw_soc_info *soc_info,
 			struct cam_bps_device_core_info *core_info,
 			uint32_t hw_idx)
@@ -78,7 +43,7 @@ int cam_bps_register_cpas(struct cam_hw_soc_info *soc_info,
 
 	cpas_register_params.dev = &soc_info->pdev->dev;
 	memcpy(cpas_register_params.identifier, "bps", sizeof("bps"));
-	cpas_register_params.cam_cpas_client_cb = cam_bps_cpas_cb;
+	cpas_register_params.cam_cpas_client_cb = NULL;
 	cpas_register_params.cell_index = hw_idx;
 	cpas_register_params.userdata = NULL;
 
@@ -113,14 +78,9 @@ int cam_bps_probe(struct platform_device *pdev)
 		kfree(bps_dev_intf);
 		return -ENOMEM;
 	}
-
-	memset(bps_dev_name, 0, sizeof(bps_dev_name));
-	snprintf(bps_dev_name, sizeof(bps_dev_name),
-		"bps%1u", bps_dev_intf->hw_idx);
-
 	bps_dev->soc_info.pdev = pdev;
 	bps_dev->soc_info.dev = &pdev->dev;
-	bps_dev->soc_info.dev_name = bps_dev_name;
+	bps_dev->soc_info.dev_name = pdev->name;
 	bps_dev_intf->hw_priv = bps_dev;
 	bps_dev_intf->hw_ops.init = cam_bps_init_hw;
 	bps_dev_intf->hw_ops.deinit = cam_bps_deinit_hw;
@@ -194,7 +154,6 @@ static struct platform_driver cam_bps_driver = {
 		.name = "cam-bps",
 		.owner = THIS_MODULE,
 		.of_match_table = cam_bps_dt_match,
-		.suppress_bind_attrs = true,
 	},
 };
 

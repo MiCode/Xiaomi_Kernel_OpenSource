@@ -1,4 +1,5 @@
 /* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,9 +42,6 @@
 #define HFI_REG_QTBL_PTR                        0x58
 #define HFI_REG_UNCACHED_HEAP_PTR               0x5C
 #define HFI_REG_UNCACHED_HEAP_SIZE              0x60
-#define HFI_REG_QDSS_IOVA                       0x6C
-#define HFI_REG_QDSS_IOVA_SIZE                  0x70
-#define HFI_REG_SFR_PTR                         0x68
 /* end of ICP CSR registers */
 
 /* flags for ICP CSR registers */
@@ -73,7 +71,6 @@
 #define ICP_CMD_Q_SIZE_IN_BYTES                 4096
 #define ICP_MSG_Q_SIZE_IN_BYTES                 4096
 #define ICP_DBG_Q_SIZE_IN_BYTES                 102400
-#define ICP_MSG_SFR_SIZE_IN_BYTES               4096
 
 #define ICP_SHARED_MEM_IN_BYTES                 (1024 * 1024)
 #define ICP_UNCACHED_HEAP_SIZE_IN_BYTES         (2 * 1024 * 1024)
@@ -130,14 +127,10 @@ enum reg_settings {
 /**
  * @INTR_DISABLE: Disable interrupt
  * @INTR_ENABLE: Enable interrupt
- * @INTR_ENABLE_WD0: Enable WD0
- * @INTR_ENABLE_WD1: Enable WD1
  */
 enum intr_status {
 	INTR_DISABLE,
-	INTR_ENABLE,
-	INTR_ENABLE_WD0,
-	INTR_ENABLE_WD1 = 0x4
+	INTR_ENABLE
 };
 
 /**
@@ -289,16 +282,6 @@ struct hfi_q_hdr {
 	uint32_t dummy13[15];
 	uint32_t qhdr_write_idx;
 	uint32_t dummy14[15];
-};
-
-/**
- * struct sfr_buf
- * @size: Number of characters
- * @msg : Subsystem failure reason
- */
-struct sfr_buf {
-	uint32_t size;
-	char msg[ICP_MSG_SFR_SIZE_IN_BYTES];
 };
 
 /**
