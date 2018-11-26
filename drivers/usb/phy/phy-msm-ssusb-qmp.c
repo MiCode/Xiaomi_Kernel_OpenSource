@@ -29,7 +29,7 @@ enum core_ldo_levels {
 /* default CORE votlage and load values */
 #define USB_SSPHY_1P2_VOL_MIN		1200000 /* uV */
 #define USB_SSPHY_1P2_VOL_MAX		1200000 /* uV */
-#define USB_SSPHY_HPM_LOAD		23000	/* uA */
+#define USB_SSPHY_HPM_LOAD		30000	/* uA */
 
 /* USB3PHY_PCIE_USB3_PCS_PCS_STATUS bit */
 #define PHYSTATUS				BIT(6)
@@ -248,11 +248,17 @@ static int msm_ssusb_qmp_ldo_enable(struct msm_ssphy_qmp *phy, int on)
 	if (!on)
 		goto disable_regulators;
 
+	rc = regulator_set_load(phy->vdd, USB_SSPHY_HPM_LOAD);
+	if (rc < 0) {
+		dev_err(phy->phy.dev, "Unable to set HPM of %s\n", "vdd");
+		return rc;
+	}
+
 	rc = regulator_set_voltage(phy->vdd, phy->vdd_levels[min],
 				    phy->vdd_levels[2]);
 	if (rc) {
-		dev_err(phy->phy.dev, "unable to set voltage for ssusb vdd\n");
-		return rc;
+		dev_err(phy->phy.dev, "Unable to set voltage for %s\n", "vdd");
+		goto put_vdd_lpm;
 	}
 
 	dev_dbg(phy->phy.dev, "min_vol:%d max_vol:%d\n",
@@ -260,15 +266,13 @@ static int msm_ssusb_qmp_ldo_enable(struct msm_ssphy_qmp *phy, int on)
 
 	rc = regulator_enable(phy->vdd);
 	if (rc) {
-		dev_err(phy->phy.dev,
-			"regulator_enable(phy->vdd) failed, ret=%d",
-			rc);
+		dev_err(phy->phy.dev, "Unable to enable %s\n", "vdd");
 		goto unconfig_vdd;
 	}
 
 	rc = regulator_set_load(phy->core_ldo, USB_SSPHY_HPM_LOAD);
 	if (rc < 0) {
-		dev_err(phy->phy.dev, "Unable to set HPM of core_ldo\n");
+		dev_err(phy->phy.dev, "Unable to set HPM of %s\n", "core_ldo");
 		goto disable_vdd;
 	}
 
@@ -276,13 +280,14 @@ static int msm_ssusb_qmp_ldo_enable(struct msm_ssphy_qmp *phy, int on)
 			phy->core_voltage_levels[CORE_LEVEL_MIN],
 			phy->core_voltage_levels[CORE_LEVEL_MAX]);
 	if (rc) {
-		dev_err(phy->phy.dev, "unable to set voltage for core_ldo\n");
+		dev_err(phy->phy.dev, "Unable to set voltage for %s\n",
+				"core_ldo");
 		goto put_core_ldo_lpm;
 	}
 
 	rc = regulator_enable(phy->core_ldo);
 	if (rc) {
-		dev_err(phy->phy.dev, "Unable to enable core_ldo\n");
+		dev_err(phy->phy.dev, "Unable to enable %s\n", "core_ldo");
 		goto unset_core_ldo;
 	}
 
@@ -291,31 +296,36 @@ static int msm_ssusb_qmp_ldo_enable(struct msm_ssphy_qmp *phy, int on)
 disable_regulators:
 	rc = regulator_disable(phy->core_ldo);
 	if (rc)
-		dev_err(phy->phy.dev, "Unable to disable core_ldo\n");
+		dev_err(phy->phy.dev, "Unable to disable %s\n", "core_ldo");
 
 unset_core_ldo:
 	rc = regulator_set_voltage(phy->core_ldo,
 			phy->core_voltage_levels[CORE_LEVEL_NONE],
 			phy->core_voltage_levels[CORE_LEVEL_MAX]);
 	if (rc)
-		dev_err(phy->phy.dev, "unable to set voltage for core_ldo\n");
+		dev_err(phy->phy.dev, "Unable to set voltage for %s\n",
+				"core_ldo");
 
 put_core_ldo_lpm:
 	rc = regulator_set_load(phy->core_ldo, 0);
 	if (rc < 0)
-		dev_err(phy->phy.dev, "Unable to set LPM of core_ldo\n");
+		dev_err(phy->phy.dev, "Unable to set LPM of %s\n", "core_ldo");
 
 disable_vdd:
 	rc = regulator_disable(phy->vdd);
 	if (rc)
-		dev_err(phy->phy.dev, "regulator_disable(phy->vdd) failed, ret=%d",
-			rc);
+		dev_err(phy->phy.dev, "Unable to disable %s\n", "vdd");
 
 unconfig_vdd:
 	rc = regulator_set_voltage(phy->vdd, phy->vdd_levels[min],
 				    phy->vdd_levels[2]);
 	if (rc)
-		dev_err(phy->phy.dev, "unable to set voltage for ssusb vdd\n");
+		dev_err(phy->phy.dev, "Unable to set voltage for %s\n", "vdd");
+
+put_vdd_lpm:
+	rc = regulator_set_load(phy->vdd, 0);
+	if (rc < 0)
+		dev_err(phy->phy.dev, "Unable to set LPM of %s\n", "vdd");
 
 	return rc < 0 ? rc : 0;
 }
