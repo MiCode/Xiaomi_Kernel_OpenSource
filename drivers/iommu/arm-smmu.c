@@ -947,6 +947,9 @@ static void arm_smmu_power_off_atomic(struct arm_smmu_power_resources *pwr)
 {
 	unsigned long flags;
 
+	/* Wait for writes to complete before off */
+	wmb();
+
 	spin_lock_irqsave(&pwr->clock_refs_lock, flags);
 	if (pwr->clock_refs_count == 0) {
 		WARN(1, "%s: bad clock_ref_count\n", dev_name(pwr->dev));
