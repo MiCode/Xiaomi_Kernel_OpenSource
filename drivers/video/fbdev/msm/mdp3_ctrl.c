@@ -960,7 +960,7 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 				MDSS_EVENT_UNBLANK, NULL);
 		rc |= panel->event_handler(panel,
 				MDSS_EVENT_PANEL_ON, NULL);
-		if (mdss_fb_is_power_on_ulp(mfd))
+		if (mdss_fb_is_power_on_lp(mfd))
 			rc |= mdp3_enable_panic_ctrl();
 			mdp3_clk_enable(0, 0);
 		}
@@ -1099,7 +1099,7 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 	 */
 	pm_runtime_get_sync(&mdp3_res->pdev->dev);
 
-	MDSS_XLOG(XLOG_FUNC_ENTRY, __LINE__, mdss_fb_is_power_on_ulp(mfd),
+	MDSS_XLOG(XLOG_FUNC_ENTRY, __LINE__, mdss_fb_is_power_on_lp(mfd),
 		mfd->panel_power_state);
 	panel = mdp3_session->panel;
 
@@ -1240,9 +1240,9 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 		}
 	}
 
-	if (mdss_fb_is_power_on_ulp(mfd) &&
+	if (mdss_fb_is_power_on_lp(mfd) &&
 		(mfd->panel.type == MIPI_CMD_PANEL)) {
-		pr_debug("%s: Disable MDP3 clocks in ULP\n", __func__);
+		pr_debug("%s: Disable MDP3 clocks in LP\n", __func__);
 		if (!mdp3_session->clk_on)
 			mdp3_ctrl_clk_enable(mfd, 1);
 		/*
@@ -1252,7 +1252,7 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 		rc = mdp3_session->dma->stop(mdp3_session->dma,
 					mdp3_session->intf);
 		if (rc)
-			pr_warn("fail to stop the MDP3 dma in ULP\n");
+			pr_warn("fail to stop the MDP3 dma in LP\n");
 		/* Wait to ensure TG to turn off */
 		msleep(20);
 		/*
