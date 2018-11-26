@@ -37,8 +37,6 @@
 		interrupts = <GIC_SPI 83 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-controller;
 		#interrupt-cells = <1>;
-		iommus = <&apps_smmu 0x820 0x402>;
-		qcom,iommu-dma = "disabled";
 
 		#power-domain-cells = <0>;
 
@@ -232,6 +230,12 @@
 				qcom,supply-enable-load = <0>;
 				qcom,supply-disable-load = <0>;
 			};
+		};
+
+		smmu_sde_unsec: qcom,smmu_sde_unsec_cb {
+			compatible = "qcom,smmu_sde_unsec";
+			iommus = <&apps_smmu 0x820 0x402>;
+			qcom,iommu-dma = "disabled";
 		};
 
 		smmu_sde_sec: qcom,smmu_sde_sec_cb {

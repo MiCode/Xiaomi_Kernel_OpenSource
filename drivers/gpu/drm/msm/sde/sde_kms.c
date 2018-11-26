@@ -2329,6 +2329,16 @@ _sde_kms_get_address_space(struct msm_kms *kms,
 		sde_kms->aspace[domain] : NULL;
 }
 
+static struct device *_sde_kms_get_address_space_device(struct msm_kms *kms,
+		unsigned int domain)
+{
+	struct msm_gem_address_space *aspace =
+		_sde_kms_get_address_space(kms, domain);
+
+	return (aspace && aspace->domain_attached) ?
+			msm_gem_get_aspace_device(aspace) : NULL;
+}
+
 static void _sde_kms_post_open(struct msm_kms *kms, struct drm_file *file)
 {
 	struct drm_device *dev = NULL;
@@ -2821,6 +2831,7 @@ static const struct msm_kms_funcs kms_funcs = {
 	.cont_splash_config = sde_kms_cont_splash_config,
 	.register_events = _sde_kms_register_events,
 	.get_address_space = _sde_kms_get_address_space,
+	.get_address_space_device = _sde_kms_get_address_space_device,
 	.postopen = _sde_kms_post_open,
 	.check_for_splash = sde_kms_check_for_splash,
 };

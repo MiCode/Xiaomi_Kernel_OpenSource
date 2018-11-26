@@ -363,27 +363,6 @@ static struct device *msm_smmu_device_create(struct device *dev,
 	}
 	DRM_DEBUG("found domain %d compat: %s\n", domain, compat);
 
-	if (domain == MSM_SMMU_DOMAIN_UNSECURE) {
-		int rc;
-
-		smmu->client = devm_kzalloc(dev,
-				sizeof(struct msm_smmu_client), GFP_KERNEL);
-		if (!smmu->client)
-			return ERR_PTR(-ENOMEM);
-
-		smmu->client->dev = dev;
-
-		rc = _msm_smmu_create_mapping(msm_smmu_to_client(smmu),
-			msm_smmu_dt_match[i].data);
-		if (rc) {
-			devm_kfree(dev, smmu->client);
-			smmu->client = NULL;
-			return ERR_PTR(rc);
-		}
-
-		return NULL;
-	}
-
 	child = of_find_compatible_node(dev->of_node, NULL, compat);
 	if (!child) {
 		DRM_DEBUG("unable to find compatible node for %s\n", compat);

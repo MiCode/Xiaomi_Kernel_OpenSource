@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -105,6 +105,9 @@ struct msm_kms_funcs {
 	void (*destroy)(struct msm_kms *kms);
 	/* get address space */
 	struct msm_gem_address_space *(*get_address_space)(
+			struct msm_kms *kms,
+			unsigned int domain);
+	struct device *(*get_address_space_device)(
 			struct msm_kms *kms,
 			unsigned int domain);
 #ifdef CONFIG_DEBUG_FS
