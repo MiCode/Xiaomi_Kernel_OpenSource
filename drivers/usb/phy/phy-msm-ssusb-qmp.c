@@ -118,8 +118,10 @@ struct msm_ssphy_qmp {
 
 	struct regulator	*vdd;
 	int			vdd_levels[3]; /* none, low, high */
+	int			vdd_max_uA;
 	struct regulator	*core_ldo;
 	int			core_voltage_levels[3];
+	int			core_max_uA;
 	struct clk		*ref_clk_src;
 	struct clk		*ref_clk;
 	struct clk		*aux_clk;
@@ -248,7 +250,7 @@ static int msm_ssusb_qmp_ldo_enable(struct msm_ssphy_qmp *phy, int on)
 	if (!on)
 		goto disable_regulators;
 
-	rc = regulator_set_load(phy->vdd, USB_SSPHY_HPM_LOAD);
+	rc = regulator_set_load(phy->vdd, phy->vdd_max_uA);
 	if (rc < 0) {
 		dev_err(phy->phy.dev, "Unable to set HPM of %s\n", "vdd");
 		return rc;
@@ -270,7 +272,7 @@ static int msm_ssusb_qmp_ldo_enable(struct msm_ssphy_qmp *phy, int on)
 		goto unconfig_vdd;
 	}
 
-	rc = regulator_set_load(phy->core_ldo, USB_SSPHY_HPM_LOAD);
+	rc = regulator_set_load(phy->core_ldo, phy->core_max_uA);
 	if (rc < 0) {
 		dev_err(phy->phy.dev, "Unable to set HPM of %s\n", "core_ldo");
 		goto disable_vdd;
@@ -1119,6 +1121,10 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		}
 	}
 
+	if (of_property_read_s32(dev->of_node, "qcom,core-max-load-uA",
+				&phy->core_max_uA) || !phy->core_max_uA)
+		phy->core_max_uA = USB_SSPHY_HPM_LOAD;
+
 	if (of_get_property(dev->of_node, "qcom,vdd-voltage-level", &len) &&
 		len == sizeof(phy->vdd_levels)) {
 		ret = of_property_read_u32_array(dev->of_node,
@@ -1134,6 +1140,10 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		dev_err(dev, "error invalid inputs for vdd-voltage-level\n");
 		goto err;
 	}
+
+	if (of_property_read_s32(dev->of_node, "qcom,vdd-max-load-uA",
+				&phy->vdd_max_uA) || !phy->vdd_max_uA)
+		phy->vdd_max_uA = USB_SSPHY_HPM_LOAD;
 
 	phy->vdd = devm_regulator_get(dev, "vdd");
 	if (IS_ERR(phy->vdd)) {
