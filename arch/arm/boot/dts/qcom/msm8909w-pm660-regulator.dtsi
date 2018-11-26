@@ -332,16 +332,43 @@
 
 /* CPR controlled regulator */
 &soc {
+	/delete-node/ regulator@1942130;
 	mem_acc_vreg_corner: regulator@1942130 {
 		compatible = "qcom,mem-acc-regulator";
-		reg = <0x1942130 0x4>;
-		reg-names = "acc-sel-l1";
 		regulator-name = "mem_acc_corner";
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <3>;
 
-		qcom,acc-sel-l1-bit-pos = <0>;
-		qcom,corner-acc-map = <0 1 1>;
+		qcom,acc-reg-addr-list =
+				<0x1942130 0x1942120>;
+
+		qcom,acc-init-reg-config = <1 0x1>, <2 0x0>;
+		qcom,num-acc-corners = <3>;
+		qcom,boot-acc-corner = <2>;
+
+		qcom,corner1-reg-config =
+			/* SVS => SVS */
+			<(-1) (-1)>,     <(-1) (-1)>,   <(-1) (-1)>,
+			/* SVS => NOM */
+			<  1 0x0 >, <  2  0x09240000>,	< 1 0x1 >,
+			/* SVS => TURBO */
+			<  1 0x1 >, <  2  0x0>,	< (-1) (-1) >;
+
+		qcom,corner2-reg-config =
+			/* NOM => SVS */
+			<  1 0x0 >, <  2  0x09240000>,	< 2 0x0 >,
+			/* NOM => NOM */
+			<(-1) (-1)>,     <(-1) (-1)>,  <(-1) (-1)>,
+			/* NOM => TURBO */
+			<  1 0x1 >, <  2  0x08200000>,	< 2  0x0 >;
+
+		qcom,corner3-reg-config =
+			/* TURBO => SVS */
+			<  1 0x0 >, <  2  0x0>,	< (-1) (-1) >,
+			/* TURBO => NOM */
+			<  1 0x1 >, <  2  0x08200000>,	< 2  0x09240000 >,
+			/* TURBO => TURBO */
+			<(-1) (-1)>,     <(-1) (-1)>,   <(-1) (-1)>;
 	};
 
 	apc_vreg_corner: regulator@b018000 {
