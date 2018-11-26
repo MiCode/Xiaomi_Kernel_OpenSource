@@ -42,6 +42,7 @@ Optional:
 is a number
 - qcom,ipa-hw-mode: IPA hardware mode - Normal, Virtual memory allocation,
 memory allocation over a PCIe bridge
+-qcom,platform-type:            MDM platform, MSM platform or APQ platform
 - qcom,msm-bus,name:            String representing the client-name
 - qcom,msm-bus,num-cases:       Total number of usecases
 - qcom,msm-bus,active-only:     Boolean context flag for requests in active or

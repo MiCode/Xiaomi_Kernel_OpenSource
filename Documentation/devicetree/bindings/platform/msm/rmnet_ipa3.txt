@@ -7,7 +7,6 @@ Required properties:
 
 Optional:
 - qcom,rmnet-ipa-ssr: determine if modem SSR is supported
-- qcom,ipa-platform-type-msm: indicates the platform type is msm or not
 - qcom,ipa-advertise-sg-support: determine how to respond to a query
 regarding scatter-gather capability
 - qcom,ipa-napi-enable: Boolean context flag to indicate whether
