@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -175,11 +175,13 @@ static int cnss_wlfw_host_cap_send_sync(struct cnss_plat_data *plat_priv)
 	req.bdf_support_valid = 1;
 	req.bdf_support = 1;
 
-	req.m3_support_valid = 1;
-	req.m3_support = 1;
+	if (cnss_get_bus_type(plat_priv->device_id) == CNSS_BUS_PCI) {
+		req.m3_support_valid = 1;
+		req.m3_support = 1;
 
-	req.m3_cache_support_valid = 1;
-	req.m3_cache_support = 1;
+		req.m3_cache_support_valid = 1;
+		req.m3_cache_support = 1;
+	}
 
 	req.cal_done_valid = 1;
 	req.cal_done = plat_priv->cal_done;
@@ -279,7 +281,83 @@ static int cnss_qmi_initiate_cal_update_ind_hdlr(
 					 struct cnss_plat_data *plat_priv,
 					 void *msg, unsigned int msg_len)
 {
-	return 0;
+	struct msg_desc ind_desc;
+	struct wlfw_initiate_cal_update_ind_msg_v01 ind_msg;
+	struct cnss_cal_data *data;
+	int ret = 0;
+
+	data = kzalloc(sizeof(*data), GFP_KERNEL);
+	if (!data) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	ind_desc.msg_id = QMI_WLFW_INITIATE_CAL_UPDATE_IND_V01;
+	ind_desc.max_msg_len = WLFW_INITIATE_CAL_UPDATE_IND_MSG_V01_MAX_MSG_LEN;
+	ind_desc.ei_array = wlfw_initiate_cal_update_ind_msg_v01_ei;
+
+	ret = qmi_kernel_decode(&ind_desc, &ind_msg, msg, msg_len);
+	if (ret < 0) {
+		cnss_pr_err("Failed to decode initiate cal update ind, msg_len: %u, err = %d\n",
+			    ret, msg_len);
+		goto qmi_fail;
+	}
+
+	if ((ind_msg.total_size > 0) && (ind_msg.cal_data_location_valid)) {
+		data->index = ind_msg.cal_data_location;
+		data->total_size = ind_msg.total_size;
+		cnss_driver_event_post(plat_priv, CNSS_DRIVER_EVENT_CAL_UPDATE,
+				       0, data);
+		goto out;
+	}
+
+qmi_fail:
+	kfree(data);
+out:
+	return ret;
+}
+
+static int cnss_qmi_initiate_cal_download_ind_hdlr(
+					 struct cnss_plat_data *plat_priv,
+					 void *msg, unsigned int msg_len)
+{
+	struct msg_desc ind_desc;
+	struct wlfw_initiate_cal_download_ind_msg_v01 ind_msg;
+	struct cnss_cal_data *data;
+	int ret = 0;
+
+	data = kzalloc(sizeof(*data), GFP_KERNEL);
+	if (!data) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	ind_desc.msg_id = QMI_WLFW_INITIATE_CAL_DOWNLOAD_IND_V01;
+	ind_desc.max_msg_len =
+			WLFW_INITIATE_CAL_DOWNLOAD_IND_MSG_V01_MAX_MSG_LEN;
+	ind_desc.ei_array = wlfw_initiate_cal_download_ind_msg_v01_ei;
+
+	ret = qmi_kernel_decode(&ind_desc, &ind_msg, msg, msg_len);
+	if (ret < 0) {
+		cnss_pr_err("Failed to decode initiate cal download ind, msg_len: %u, err = %d\n",
+			    ret, msg_len);
+		goto qmi_fail;
+	}
+
+	if ((ind_msg.total_size > 0) && (ind_msg.cal_data_location_valid)) {
+		data->index = ind_msg.cal_data_location;
+		data->total_size = ind_msg.total_size;
+		cnss_driver_event_post(plat_priv,
+				       CNSS_DRIVER_EVENT_CAL_DOWNLOAD,
+				       0, data);
+
+		goto out;
+	}
+
+qmi_fail:
+	kfree(data);
+out:
+	return ret;
 }
 
 static int cnss_wlfw_request_mem_ind_hdlr(struct cnss_plat_data *plat_priv,
@@ -498,6 +576,197 @@ int cnss_wlfw_tgt_cap_send_sync(struct cnss_plat_data *plat_priv)
 	return 0;
 out:
 	CNSS_ASSERT(0);
+	return ret;
+}
+
+int cnss_wlfw_cal_download_req_send_sync(struct cnss_plat_data *plat_priv,
+					 void *data)
+{
+	struct wlfw_cal_download_req_msg_v01 *req;
+	struct wlfw_cal_download_resp_msg_v01 resp;
+	struct cnss_cal_data *cal_data = data;
+	struct msg_desc req_desc, resp_desc;
+	unsigned int remaining;
+	u8 *cal_data_read_ptr;
+	int ret = 0;
+
+	cnss_pr_dbg("Sending cal download request message, state: 0x%lx\n",
+		    plat_priv->driver_state);
+
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	memset(&resp, 0, sizeof(resp));
+
+	req_desc.max_msg_len = WLFW_CAL_DOWNLOAD_REQ_MSG_V01_MAX_MSG_LEN;
+	req_desc.msg_id = QMI_WLFW_CAL_DOWNLOAD_REQ_V01;
+	req_desc.ei_array = wlfw_cal_download_req_msg_v01_ei;
+
+	resp_desc.max_msg_len = WLFW_CAL_DOWNLOAD_RESP_MSG_V01_MAX_MSG_LEN;
+	resp_desc.msg_id = QMI_WLFW_CAL_DOWNLOAD_RESP_V01;
+	resp_desc.ei_array = wlfw_cal_download_resp_msg_v01_ei;
+
+	req->valid = true;
+	req->file_id_valid = false;
+	req->seg_id_valid = true;
+	req->seg_id = 0;
+	req->data_valid = true;
+	req->end_valid = true;
+	req->total_size_valid = true;
+	req->total_size = cal_data->total_size;
+
+	req->cal_data_location_valid = true;
+	req->cal_data_location = cal_data->index;
+	cal_data_read_ptr = (u8 *)plat_priv->caldb_mem +
+				  cal_data->index;
+	cnss_pr_dbg("cal_data_read_ptr %pK\n", cal_data_read_ptr);
+	remaining = cal_data->total_size;
+
+	while (remaining) {
+		if (remaining > QMI_WLFW_MAX_DATA_SIZE_V01) {
+			req->data_len = QMI_WLFW_MAX_DATA_SIZE_V01;
+		} else {
+			req->data_len = remaining;
+			req->end = true;
+		}
+
+		memcpy(req->data, cal_data_read_ptr, req->data_len);
+		cnss_pr_dbg("remaining %u data_len %u, seg_id %u, read_ptr %pK\n",
+			    remaining, req->data_len, req->seg_id,
+			    cal_data_read_ptr);
+
+		ret = qmi_send_req_wait(plat_priv->qmi_wlfw_clnt, &req_desc,
+					req, sizeof(*req), &resp_desc, &resp,
+					sizeof(resp), QMI_WLFW_TIMEOUT_MS);
+		if (ret < 0) {
+			cnss_pr_err("Failed to send cal download request, err = %d\n",
+				    ret);
+			goto out;
+		}
+
+		if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
+			cnss_pr_err("cal download request failed, result: %d, err: %d\n",
+				    resp.resp.result, resp.resp.error);
+			ret = resp.resp.result;
+			goto out;
+		}
+
+		remaining -= req->data_len;
+		cal_data_read_ptr += req->data_len;
+		req->seg_id++;
+	}
+
+out:
+	kfree(req);
+	kfree(data);
+	if (ret)
+		CNSS_ASSERT(0);
+	return ret;
+}
+
+int cnss_wlfw_cal_update_req_send_sync(struct cnss_plat_data *plat_priv,
+				       void *data)
+{
+	struct wlfw_cal_update_req_msg_v01 req;
+	struct wlfw_cal_update_resp_msg_v01 *resp = NULL;
+	struct cnss_cal_data *cal_data = data;
+	struct msg_desc req_desc, resp_desc;
+	unsigned int remaining, data_len;
+	u8 *cal_data_write_ptr;
+	bool end = false;
+	int ret = 0;
+
+	cnss_pr_dbg("Sending cal update request message, state: 0x%lx\n",
+		    plat_priv->driver_state);
+
+	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
+	if (!resp) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	memset(resp, 0, sizeof(*resp));
+
+	req_desc.max_msg_len = WLFW_CAL_UPDATE_REQ_MSG_V01_MAX_MSG_LEN;
+	req_desc.msg_id = QMI_WLFW_CAL_UPDATE_REQ_V01;
+	req_desc.ei_array = wlfw_cal_update_req_msg_v01_ei;
+
+	resp_desc.max_msg_len = WLFW_CAL_UPDATE_RESP_MSG_V01_MAX_MSG_LEN;
+	resp_desc.msg_id = QMI_WLFW_CAL_UPDATE_RESP_V01;
+	resp_desc.ei_array = wlfw_cal_update_resp_msg_v01_ei;
+
+	req.cal_id = 0;
+	req.seg_id = 0;
+	cal_data_write_ptr = (u8 *)plat_priv->caldb_mem +
+			     cal_data->index;
+	remaining = cal_data->total_size;
+
+	while (remaining) {
+		if (remaining > QMI_WLFW_MAX_DATA_SIZE_V01) {
+			data_len = QMI_WLFW_MAX_DATA_SIZE_V01;
+		} else {
+			data_len = remaining;
+			end = true;
+		}
+
+		cnss_pr_dbg("remaining %u data_len %u, seg_id %u\n",
+			    remaining, data_len, req.seg_id);
+
+		ret = qmi_send_req_wait(plat_priv->qmi_wlfw_clnt, &req_desc,
+					&req, sizeof(req), &resp_desc, resp,
+					sizeof(*resp), QMI_WLFW_TIMEOUT_MS);
+		if (ret < 0) {
+			cnss_pr_err("Failed to send cal update request, err = %d\n",
+				    ret);
+			goto out;
+		}
+
+		if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+			cnss_pr_err("cal update request failed, result: %d, err: %d\n",
+				    resp->resp.result, resp->resp.error);
+			ret = resp->resp.result;
+			goto out;
+		}
+
+		if (!resp->data_valid || resp->data_len != data_len) {
+			cnss_pr_err("cal update read data is invalid, data_valid = %u, data_len = %u\n",
+				    resp->data_valid, resp->data_len);
+			ret = -EINVAL;
+			goto out;
+		}
+
+		if (!resp->seg_id_valid || resp->seg_id != req.seg_id) {
+			cnss_pr_err("seg_id invalid, valid = %u, seg_id = %u, req seg id =%u\n",
+				    resp->seg_id_valid, resp->seg_id,
+				    req.seg_id);
+			ret = -EINVAL;
+			goto out;
+		}
+
+		if (resp->end_valid && resp->end) {
+			cnss_pr_dbg("cal update end valid =%u end = %u\n",
+				    resp->end_valid, resp->end);
+			/*one valid cal data is available with host*/
+			plat_priv->cal_done = true;
+		}
+
+		memcpy(cal_data_write_ptr, resp->data, resp->data_len);
+		cnss_pr_dbg("cal updated resp->data_len %u\n", resp->data_len);
+		remaining -= resp->data_len;
+		cal_data_write_ptr += resp->data_len;
+		req.seg_id++;
+
+		memset(resp, 0, sizeof(*resp));
+	}
+
+out:
+	kfree(resp);
+	kfree(data);
+	if (ret)
+		CNSS_ASSERT(0);
 	return ret;
 }
 
@@ -965,11 +1234,6 @@ out:
 	return ret;
 }
 
-int cnss_wlfw_cal_report_send_sync(struct cnss_plat_data *plat_priv)
-{
-	return 0;
-}
-
 static void cnss_wlfw_clnt_ind(struct qmi_handle *handle,
 			       unsigned int msg_id, void *msg,
 			       unsigned int msg_len, void *ind_cb_priv)
@@ -1008,6 +1272,10 @@ static void cnss_wlfw_clnt_ind(struct qmi_handle *handle,
 		break;
 	case QMI_WLFW_INITIATE_CAL_UPDATE_IND_V01:
 		cnss_qmi_initiate_cal_update_ind_hdlr(plat_priv, msg, msg_len);
+		break;
+	case QMI_WLFW_INITIATE_CAL_DOWNLOAD_IND_V01:
+		cnss_qmi_initiate_cal_download_ind_hdlr(plat_priv,
+							msg, msg_len);
 		break;
 	default:
 		cnss_pr_err("Invalid QMI WLFW indication, msg_id: 0x%x\n",

@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -58,5 +58,4 @@ int cnss_bus_call_driver_modem_status(struct cnss_plat_data *plat_priv,
 				      int modem_current_status);
 int cnss_bus_recovery_update_status(struct cnss_plat_data *plat_priv);
 bool cnss_bus_req_mem_ind_valid(struct cnss_plat_data *plat_priv);
-bool cnss_bus_dev_cal_rep_valid(struct cnss_plat_data *plat_priv);
 #endif /* _CNSS_BUS_H */

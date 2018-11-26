@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +29,7 @@
 #define CNSS_EVENT_UNINTERRUPTIBLE BIT(1)
 #define CNSS_EVENT_SYNC_UNINTERRUPTIBLE (CNSS_EVENT_SYNC | \
 				CNSS_EVENT_UNINTERRUPTIBLE)
+#define QCN7605_CALDB_SIZE 614400
 
 enum cnss_dev_bus_type {
 	CNSS_BUS_NONE = -1,
@@ -174,6 +175,11 @@ enum cnss_debug_quirks {
 	SKIP_RECOVERY,
 };
 
+struct cnss_cal_data {
+	u32 index;
+	u32 total_size;
+};
+
 struct cnss_plat_data {
 	struct platform_device *plat_dev;
 	void *bus_priv;
@@ -216,6 +222,7 @@ struct cnss_plat_data {
 	u32 diag_reg_read_mem_type;
 	u32 diag_reg_read_len;
 	u8 *diag_reg_read_buf;
+	void *caldb_mem;
 	bool cal_done;
 };
 

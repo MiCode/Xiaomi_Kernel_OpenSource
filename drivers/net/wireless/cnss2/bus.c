@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,16 +54,6 @@ bool cnss_bus_req_mem_ind_valid(struct cnss_plat_data *plat_priv)
 		return false;
 	else
 		return true;
-}
-
-bool cnss_bus_dev_cal_rep_valid(struct cnss_plat_data *plat_priv)
-{
-	bool ret = false;
-
-	if (cnss_get_bus_type(plat_priv->device_id) == CNSS_BUS_USB)
-		ret = true;
-
-	return ret;
 }
 
 void *cnss_bus_dev_to_bus_priv(struct device *dev)

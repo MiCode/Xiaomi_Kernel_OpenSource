@@ -562,13 +562,49 @@ out:
 	return ret;
 }
 
-static int cnss_cal_update_hdlr(struct cnss_plat_data *plat_priv)
+static int caldb_mem_bounds_check(struct cnss_plat_data *plat_priv, void *data)
 {
-	/* QCN7605 store the cal data sent by FW to calDB memory area
-	 * get out of this after complete data is uploaded. FW is expected
-	 * to send cal done
-	*/
-	return 0;
+	int ret = 0;
+	struct cnss_cal_data *cal_data = data;
+	u8 *end_ptr, *cal_data_ptr;
+	u32 total_size;
+
+	end_ptr = (u8 *)plat_priv->caldb_mem + QCN7605_CALDB_SIZE;
+	cal_data_ptr = (u8 *)plat_priv->caldb_mem + cal_data->index;
+	total_size = cal_data->total_size;
+
+	if (cal_data_ptr >= end_ptr || (cal_data_ptr + total_size) >= end_ptr) {
+		cnss_pr_err("caldb data offset or size error\n");
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
+static int cnss_cal_update_hdlr(struct cnss_plat_data *plat_priv, void *data)
+{
+	int ret = 0;
+
+	ret  = caldb_mem_bounds_check(plat_priv, data);
+	if (ret)
+		CNSS_ASSERT(0);
+	else
+		cnss_wlfw_cal_update_req_send_sync(plat_priv, data);
+
+	return ret;
+}
+
+static int cnss_cal_download_hdlr(struct cnss_plat_data *plat_priv, void *data)
+{
+	int ret = 0;
+
+	ret = caldb_mem_bounds_check(plat_priv, data);
+	if (ret)
+		CNSS_ASSERT(0);
+	else
+		cnss_wlfw_cal_download_req_send_sync(plat_priv, data);
+
+	return ret;
 }
 
 static char *cnss_driver_event_to_str(enum cnss_driver_event_type type)
@@ -1157,11 +1193,6 @@ static int cnss_wlfw_server_arrive_hdlr(struct cnss_plat_data *plat_priv)
 			goto out;
 
 		ret = cnss_wlfw_bdf_dnld_send_sync(plat_priv);
-		if (ret)
-			goto out;
-		/*cnss driver sends  meta data report and waits for FW_READY*/
-		if (cnss_bus_dev_cal_rep_valid(plat_priv))
-			ret = cnss_wlfw_cal_report_send_sync(plat_priv);
 	}
 out:
 	return ret;
@@ -1255,7 +1286,10 @@ static void cnss_driver_event_work(struct work_struct *work)
 			ret = cnss_cold_boot_cal_start_hdlr(plat_priv);
 			break;
 		case CNSS_DRIVER_EVENT_CAL_UPDATE:
-			ret = cnss_cal_update_hdlr(plat_priv);
+			ret = cnss_cal_update_hdlr(plat_priv, event->data);
+			break;
+		case CNSS_DRIVER_EVENT_CAL_DOWNLOAD:
+			ret = cnss_cal_download_hdlr(plat_priv, event->data);
 			break;
 		case CNSS_DRIVER_EVENT_COLD_BOOT_CAL_DONE:
 			ret = cnss_cold_boot_cal_done_hdlr(plat_priv);
@@ -1696,6 +1730,25 @@ static void cnss_event_work_deinit(struct cnss_plat_data *plat_priv)
 	destroy_workqueue(plat_priv->event_wq);
 }
 
+static int cnss_alloc_caldb_mem(struct cnss_plat_data *plat_priv)
+{
+	int ret = 0;
+
+	plat_priv->caldb_mem = vzalloc(QCN7605_CALDB_SIZE);
+	if (plat_priv->caldb_mem)
+		cnss_pr_dbg("600KB cal db alloc done caldb_mem %pK\n",
+			    plat_priv->caldb_mem);
+	else
+		ret = -ENOMEM;
+
+	return ret;
+}
+
+static void cnss_free_caldb_mem(struct cnss_plat_data *plat_priv)
+{
+	vfree(plat_priv->caldb_mem);
+}
+
 static const struct platform_device_id cnss_platform_id_table[] = {
 	{ .name = "qca6174", .driver_data = QCA6174_DEVICE_ID, },
 	{ .name = "qca6290", .driver_data = QCA6290_DEVICE_ID, },
@@ -1786,6 +1839,12 @@ static int cnss_probe(struct platform_device *plat_dev)
 	if (ret)
 		goto deinit_qmi;
 
+	if (plat_priv->bus_type == CNSS_BUS_USB)	{
+		ret = cnss_alloc_caldb_mem(plat_priv);
+		if (ret)
+			goto remove_debugfs;
+	}
+
 	setup_timer(&plat_priv->fw_boot_timer,
 		    cnss_bus_fw_boot_timeout_hdlr, (unsigned long)plat_priv);
 
@@ -1803,6 +1862,8 @@ static int cnss_probe(struct platform_device *plat_dev)
 
 	return 0;
 
+remove_debugfs:
+	cnss_debugfs_destroy(plat_priv);
 deinit_qmi:
 	cnss_qmi_deinit(plat_priv);
 deinit_event_work:
@@ -1836,6 +1897,7 @@ static int cnss_remove(struct platform_device *plat_dev)
 	device_init_wakeup(&plat_dev->dev, false);
 	unregister_pm_notifier(&cnss_pm_notifier);
 	del_timer(&plat_priv->fw_boot_timer);
+	cnss_free_caldb_mem(plat_priv);
 	cnss_debugfs_destroy(plat_priv);
 	cnss_qmi_deinit(plat_priv);
 	cnss_event_work_deinit(plat_priv);
