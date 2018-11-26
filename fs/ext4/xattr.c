@@ -657,7 +657,7 @@ ext4_xattr_set_entry(struct ext4_xattr_info *i, struct ext4_xattr_search *s,
 		next = EXT4_XATTR_NEXT(last);
 		if ((void *)next >= s->end) {
 			EXT4_ERROR_INODE(inode, "corrupted xattr entries");
-			return -EIO;
+			return -EFSCORRUPTED;
 		}
 		if (last->e_value_size) {
 			size_t offs = le16_to_cpu(last->e_value_offs);
