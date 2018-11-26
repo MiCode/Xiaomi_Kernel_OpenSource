@@ -66,13 +66,6 @@ static struct smb_params smb5_pmi632_params = {
 		.max_u	= 1000000,
 		.step_u	= 250000,
 	},
-	.dc_icl		= {
-		.name   = "DC input current limit",
-		.reg    = DCDC_CFG_REF_MAX_PSNS_REG,
-		.min_u  = 0,
-		.max_u  = 1500000,
-		.step_u = 50000,
-	},
 	.jeita_cc_comp_hot	= {
 		.name	= "jeita fcc reduction",
 		.reg	= JEITA_CCCOMP_CFG_HOT_REG,
@@ -1829,6 +1822,33 @@ static int smb5_configure_iterm_thresholds(struct smb5 *chip)
 	return rc;
 }
 
+static int smb5_init_dc_peripheral(struct smb_charger *chg)
+{
+	int rc = 0;
+
+	/* PMI632 does not have DC peripheral */
+	if (chg->smb_version == PMI632_SUBTYPE)
+		return 0;
+
+	/* set DC icl_max 1A */
+	rc = smblib_set_charge_param(chg, &chg->param.dc_icl, 1000000);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't set dc_icl rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Disable DC Input missing poller function */
+	rc = smblib_masked_write(chg, DCIN_LOAD_CFG_REG,
+					INPUT_MISS_POLL_EN_BIT, 0);
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"Couldn't disable DC Input missing poller rc=%d\n", rc);
+		return rc;
+	}
+
+	return rc;
+}
+
 static int smb5_init_hw(struct smb5 *chip)
 {
 	struct smb_charger *chg = &chip->chg;
@@ -1988,22 +2008,10 @@ static int smb5_init_hw(struct smb5 *chip)
 	vote(chg->usb_icl_votable, HW_LIMIT_VOTER,
 			chg->hw_max_icl_ua > 0, chg->hw_max_icl_ua);
 
-	/* set DC icl_max 1A */
-	rc = smblib_set_charge_param(chg, &chg->param.dc_icl, 1000000);
-	if (rc < 0) {
-		dev_err(chg->dev,
-			"Couldn't set dc_icl rc=%d\n", rc);
+	/* Initialize DC peripheral configurations */
+	rc = smb5_init_dc_peripheral(chg);
+	if (rc < 0)
 		return rc;
-	}
-
-	/* Disable DC Input missing poller function */
-	rc = smblib_masked_write(chg, DCIN_LOAD_CFG_REG,
-					INPUT_MISS_POLL_EN_BIT, 0);
-	if (rc < 0) {
-		dev_err(chg->dev,
-			"Couldn't disable DC Input missing poller rc=%d\n", rc);
-		return rc;
-	}
 
 	/*
 	 * AICL configuration:
