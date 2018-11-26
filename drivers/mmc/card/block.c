@@ -1214,7 +1214,7 @@ static int mmc_blk_ioctl_cmd(struct block_device *bdev,
 	mmc_get_card(card);
 
 	if (mmc_card_cmdq(card)) {
-		err = mmc_cmdq_halt_on_empty_queue(card->host);
+		err = mmc_cmdq_halt_on_empty_queue(card->host, 0);
 		if (err) {
 			pr_err("%s: halt failed while doing %s err (%d)\n",
 					mmc_hostname(card->host),
@@ -1867,11 +1867,6 @@ static struct mmc_cmdq_req *mmc_blk_cmdq_prep_discard_req(struct mmc_queue *mq,
 	struct mmc_cmdq_req *cmdq_req;
 	struct mmc_queue_req *active_mqrq;
 
-	BUG_ON(req->tag > card->ext_csd.cmdq_depth);
-	BUG_ON(test_and_set_bit(req->tag, &host->cmdq_ctx.active_reqs));
-
-	set_bit(CMDQ_STATE_DCMD_ACTIVE, &ctx_info->curr_state);
-
 	active_mqrq = &mq->mqrq_cmdq[req->tag];
 	active_mqrq->req = req;
 
@@ -1879,6 +1874,17 @@ static struct mmc_cmdq_req *mmc_blk_cmdq_prep_discard_req(struct mmc_queue *mq,
 	cmdq_req->cmdq_req_flags |= QBR;
 	cmdq_req->mrq.cmd = &cmdq_req->cmd;
 	cmdq_req->tag = req->tag;
+
+	/*
+	 * To avoid potential race condition with the error handler work,
+	 * do the following:
+	 * 1. set init_completion() only once
+	 * 2. set the CMDQ_STATE_DCMD_ACTIVE only after it's tag is set
+	 */
+	init_completion(&cmdq_req->mrq.completion);
+	WARN_ON(req->tag > card->ext_csd.cmdq_depth);
+	WARN_ON(test_and_set_bit(req->tag, &host->cmdq_ctx.active_reqs));
+	set_bit(CMDQ_STATE_DCMD_ACTIVE, &ctx_info->curr_state);
 	return cmdq_req;
 }
 
@@ -1922,8 +1928,21 @@ static int mmc_blk_cmdq_issue_discard_rq(struct mmc_queue *mq,
 	}
 	err = mmc_cmdq_erase(cmdq_req, card, from, nr, arg);
 clear_dcmd:
-	mmc_host_clk_hold(card->host);
-	blk_complete_request(req);
+	/*
+	 * If some other request got an error while there is a DCMD request
+	 * in the command queue, then err will be updated with -EAGAIN by the
+	 * error handler, which indicates that caller must not call
+	 * blk_complete_request() and let the request by handled by error
+	 * hanlder. In all other cases, the caller only must call
+	 * blk_complete_request().
+	 */
+	if (err != -EAGAIN) {
+		mmc_host_clk_hold(card->host);
+		blk_complete_request(req);
+	} else {
+		pr_err("%s: err(%d) handled by cmdq-error handler\n",
+			__func__, err);
+	}
 out:
 	return err ? 1 : 0;
 }
@@ -2028,8 +2047,13 @@ static int mmc_blk_cmdq_issue_secdiscard_rq(struct mmc_queue *mq,
 				MMC_SECURE_TRIM2_ARG);
 	}
 clear_dcmd:
-	mmc_host_clk_hold(card->host);
-	blk_complete_request(req);
+	if (err != -EAGAIN) {
+		mmc_host_clk_hold(card->host);
+		blk_complete_request(req);
+	} else {
+		pr_err("%s: err(%d) handled by cmdq-error handler\n",
+			__func__, err);
+	}
 out:
 	return err ? 1 : 0;
 }
@@ -3212,8 +3236,14 @@ static int mmc_blk_cmdq_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 	struct mmc_cmdq_req *mc_rq;
 	u8 active_small_sector_read = 0;
 	int ret = 0;
+	unsigned long timeout_ms = 10000; /* 10 sec safe timeout */
 
-	mmc_deferred_scaling(host);
+	mmc_cmdq_up_rwsem(host);
+	mmc_deferred_scaling(host, timeout_ms);
+	ret = mmc_cmdq_down_rwsem(host, req);
+	if (ret)
+		return ret;
+
 	mmc_cmdq_clk_scaling_start_busy(host, true);
 
 	BUG_ON((req->tag < 0) || (req->tag > card->ext_csd.cmdq_depth));
@@ -3246,9 +3276,18 @@ static int mmc_blk_cmdq_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 	 * empty faster and we will be able to scale up to Nominal frequency
 	 * when needed.
 	 */
-	if (!ret && (host->clk_scaling.state == MMC_LOAD_LOW))
-		wait_event_interruptible(ctx->queue_empty_wq,
-					(!ctx->active_reqs));
+
+	if (!ret && (host->clk_scaling.state == MMC_LOAD_LOW)) {
+
+		ret = wait_event_interruptible_timeout(ctx->queue_empty_wq,
+				(!ctx->active_reqs &&
+				 !test_bit(CMDQ_STATE_ERR, &ctx->curr_state)),
+				msecs_to_jiffies(5000));
+		if (!ret)
+			pr_err("%s: queue_empty_wq timeout case? ret = (%d)\n",
+				__func__, ret);
+		ret = 0;
+	}
 
 	if (ret) {
 		/* clear pending request */
@@ -3339,20 +3378,17 @@ out:
 }
 
 /**
- * is_cmdq_dcmd_req - Checks if tag belongs to DCMD request.
+ * get_cmdq_req_by_tag - returns cmdq_rq based on tag.
  * @q:		request_queue pointer.
  * @tag:	tag number of request to check.
  *
- * This function checks if the request with tag number "tag"
- * is a DCMD request or not based on cmdq_req_flags set.
- *
- * returns true if DCMD req, otherwise false.
  */
-static bool is_cmdq_dcmd_req(struct request_queue *q, int tag)
+static struct mmc_cmdq_req *get_cmdq_req_by_tag(struct request_queue *q,
+						int tag)
 {
 	struct request *req;
 	struct mmc_queue_req *mq_rq;
-	struct mmc_cmdq_req *cmdq_req;
+	struct mmc_cmdq_req *cmdq_req = NULL;
 
 	req = blk_queue_find_tag(q, tag);
 	if (WARN_ON(!req))
@@ -3361,9 +3397,8 @@ static bool is_cmdq_dcmd_req(struct request_queue *q, int tag)
 	if (WARN_ON(!mq_rq))
 		goto out;
 	cmdq_req = &(mq_rq->cmdq_req);
-	return (cmdq_req->cmdq_req_flags & DCMD);
 out:
-	return -ENOENT;
+	return cmdq_req;
 }
 
 /**
@@ -3383,7 +3418,9 @@ static void mmc_blk_cmdq_reset_all(struct mmc_host *host, int err)
 	struct mmc_cmdq_context_info *ctx_info = &host->cmdq_ctx;
 	struct request_queue *q;
 	int itag = 0;
-	int ret = 0;
+	struct mmc_cmdq_req *cmdq_req = NULL;
+	struct mmc_request *dcmd_mrq;
+	bool is_err_mrq_dcmd = false;
 
 	if (WARN_ON(!mrq))
 		return;
@@ -3399,18 +3436,31 @@ static void mmc_blk_cmdq_reset_all(struct mmc_host *host, int err)
 
 	mmc_blk_cmdq_reset(host, false);
 
+	if (mrq->cmdq_req->cmdq_req_flags & DCMD)
+		is_err_mrq_dcmd = true;
+
 	for_each_set_bit(itag, &ctx_info->active_reqs,
 			host->num_cq_slots) {
-		ret = is_cmdq_dcmd_req(q, itag);
-		if (WARN_ON(ret == -ENOENT))
+		cmdq_req = get_cmdq_req_by_tag(q, itag);
+		if (WARN_ON(!cmdq_req))
 			continue;
-		if (!ret) {
+		if (!(cmdq_req->cmdq_req_flags & DCMD)) {
 			WARN_ON(!test_and_clear_bit(itag,
 				 &ctx_info->data_active_reqs));
 			mmc_cmdq_post_req(host, itag, err);
 		} else {
-			clear_bit(CMDQ_STATE_DCMD_ACTIVE,
-					&ctx_info->curr_state);
+			dcmd_mrq = &cmdq_req->mrq;
+			WARN_ON(!test_and_clear_bit(CMDQ_STATE_DCMD_ACTIVE,
+					&ctx_info->curr_state));
+			pr_debug("%s: cmd(%u), req_op(%llu)\n", __func__,
+				 dcmd_mrq->cmd->opcode, req_op(dcmd_mrq->req));
+			if (!is_err_mrq_dcmd && !dcmd_mrq->cmd->error &&
+				(req_op(dcmd_mrq->req) == REQ_OP_SECURE_ERASE ||
+				 req_op(dcmd_mrq->req) == REQ_OP_DISCARD)) {
+				dcmd_mrq->cmd->error = -EAGAIN;
+				complete(&dcmd_mrq->completion);
+			}
+
 		}
 		WARN_ON(!test_and_clear_bit(itag,
 					&ctx_info->active_reqs));
@@ -3538,6 +3588,7 @@ static void mmc_blk_cmdq_err(struct mmc_queue *mq)
 	if (WARN_ON(!mrq))
 		return;
 
+	down_write(&ctx_info->err_rwsem);
 	q = mrq->req->q;
 	err = mmc_cmdq_halt(host, true);
 	if (err) {
@@ -3590,6 +3641,24 @@ reset:
 	host->err_mrq = NULL;
 	clear_bit(CMDQ_STATE_REQ_TIMED_OUT, &ctx_info->curr_state);
 	WARN_ON(!test_and_clear_bit(CMDQ_STATE_ERR, &ctx_info->curr_state));
+
+#ifdef CONFIG_MMC_CLKGATE
+	pr_err("%s: clk-rqs(%d), claim-cnt(%d), claimed(%d), claimer(%s)\n",
+		__func__, host->clk_requests, host->claim_cnt, host->claimed,
+		host->claimer->comm);
+#else
+	pr_err("%s: claim-cnt(%d), claimed(%d), claimer(%s)\n", __func__,
+			host->claim_cnt, host->claimed, host->claimer->comm);
+#endif
+	sched_show_task(mq->thread);
+	if (host->claimed && host->claimer)
+		sched_show_task(host->claimer);
+#ifdef CONFIG_MMC_CLKGATE
+	WARN_ON(host->clk_requests < 0);
+#endif
+	WARN_ON(host->claim_cnt < 0);
+
+	up_write(&ctx_info->err_rwsem);
 	wake_up(&ctx_info->wait);
 }
 
@@ -3604,6 +3673,16 @@ void mmc_blk_cmdq_complete_rq(struct request *rq)
 	struct mmc_queue *mq = (struct mmc_queue *)rq->q->queuedata;
 	int err = 0;
 	bool is_dcmd = false;
+	bool err_rwsem = false;
+
+	if (down_read_trylock(&ctx_info->err_rwsem)) {
+		err_rwsem = true;
+	} else {
+		pr_err("%s: err_rwsem lock failed to acquire => err handler active\n",
+		    __func__);
+		WARN_ON_ONCE(!test_bit(CMDQ_STATE_ERR, &ctx_info->curr_state));
+		goto out;
+	}
 
 	if (mrq->cmd && mrq->cmd->error)
 		err = mrq->cmd->error;
@@ -3625,12 +3704,6 @@ void mmc_blk_cmdq_complete_rq(struct request *rq)
 		}
 		goto out;
 	}
-	/*
-	 * In case of error CMDQ is expected to be either in halted
-	 * or disable state so cannot receive any completion of
-	 * other requests.
-	 */
-	WARN_ON(test_bit(CMDQ_STATE_ERR, &ctx_info->curr_state));
 
 	/* clear pending request */
 	BUG_ON(!test_and_clear_bit(cmdq_req->tag,
@@ -3664,9 +3737,10 @@ void mmc_blk_cmdq_complete_rq(struct request *rq)
 out:
 
 	mmc_cmdq_clk_scaling_stop_busy(host, true, is_dcmd);
-	if (!(err || cmdq_req->resp_err)) {
+	if (err_rwsem && !(err || cmdq_req->resp_err)) {
 		mmc_host_clk_release(host);
 		wake_up(&ctx_info->wait);
+		host->last_completed_rq_time = ktime_get();
 		mmc_put_card(host->card);
 	}
 
@@ -3676,6 +3750,8 @@ out:
 	if (blk_queue_stopped(mq->queue) && !ctx_info->active_reqs)
 		complete(&mq->cmdq_shutdown_complete);
 
+	if (err_rwsem)
+		up_read(&ctx_info->err_rwsem);
 	return;
 }
 
@@ -4056,6 +4132,7 @@ static int mmc_blk_cmdq_issue_rq(struct mmc_queue *mq, struct request *req)
 		if (mmc_req_is_special(req) &&
 		    (card->quirks & MMC_QUIRK_CMDQ_EMPTY_BEFORE_DCMD) &&
 		    ctx->active_small_sector_read_reqs) {
+			mmc_cmdq_up_rwsem(host);
 			ret = wait_event_interruptible(ctx->queue_empty_wq,
 						      !ctx->active_reqs);
 			if (ret) {
@@ -4064,6 +4141,10 @@ static int mmc_blk_cmdq_issue_rq(struct mmc_queue *mq, struct request *req)
 					__func__, ret);
 				BUG_ON(1);
 			}
+			ret = mmc_cmdq_down_rwsem(host, req);
+			if (ret)
+				return ret;
+
 			/* clear the counter now */
 			ctx->active_small_sector_read_reqs = 0;
 			/*

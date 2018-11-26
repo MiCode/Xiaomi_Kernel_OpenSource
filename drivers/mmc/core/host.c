@@ -155,6 +155,7 @@ static void mmc_host_clk_gate_delayed(struct mmc_host *host)
 		mmc_gate_clock(host);
 		spin_lock_irqsave(&host->clk_lock, flags);
 		pr_debug("%s: gated MCI clock\n", mmc_hostname(host));
+		MMC_TRACE(host, "clocks are gated\n");
 	}
 	spin_unlock_irqrestore(&host->clk_lock, flags);
 	mutex_unlock(&host->clk_gate_mutex);
@@ -193,6 +194,7 @@ void mmc_host_clk_hold(struct mmc_host *host)
 
 		spin_lock_irqsave(&host->clk_lock, flags);
 		pr_debug("%s: ungated MCI clock\n", mmc_hostname(host));
+		MMC_TRACE(host, "clocks are ungated\n");
 	}
 	host->clk_requests++;
 	spin_unlock_irqrestore(&host->clk_lock, flags);
@@ -765,7 +767,7 @@ static ssize_t store_enable(struct device *dev,
 		host->clk_scaling.state = MMC_LOAD_HIGH;
 		/* Set to max. frequency when disabling */
 		mmc_clk_update_freq(host, host->card->clk_scaling_highest,
-					host->clk_scaling.state);
+					host->clk_scaling.state, 0);
 	} else if (value) {
 		/* Unmask host capability and resume scaling */
 		host->caps2 |= MMC_CAP2_CLK_SCALE;
