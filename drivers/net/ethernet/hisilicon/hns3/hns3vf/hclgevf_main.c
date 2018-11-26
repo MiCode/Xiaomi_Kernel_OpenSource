@@ -299,6 +299,9 @@ void hclgevf_update_link_status(struct hclgevf_dev *hdev, int link_state)
 
 	client = handle->client;
 
+	link_state =
+		test_bit(HCLGEVF_STATE_DOWN, &hdev->state) ? 0 : link_state;
+
 	if (link_state != hdev->hw.mac.link) {
 		client->ops->link_status_change(handle, !!link_state);
 		hdev->hw.mac.link = link_state;
@@ -1447,6 +1450,8 @@ static void hclgevf_ae_stop(struct hnae3_handle *handle)
 {
 	struct hclgevf_dev *hdev = hclgevf_ae_get_hdev(handle);
 	int i, queue_id;
+
+	set_bit(HCLGEVF_STATE_DOWN, &hdev->state);
 
 	for (i = 0; i < hdev->num_tqps; i++) {
 		/* Ring disable */
