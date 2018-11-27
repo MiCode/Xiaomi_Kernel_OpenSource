@@ -1014,8 +1014,13 @@ static void gsi_ring_db(struct usb_ep *ep, struct usb_gsi_request *request)
 		&offset, gsi_dbl_address_lsb, request->db_reg_phs_addr_lsb,
 		ep->name);
 
+	dbg_log_string("ep:%s link TRB addr:%pa db:%x\n",
+		ep->name, &offset, request->db_reg_phs_addr_lsb);
+
 	writel_relaxed(offset, gsi_dbl_address_lsb);
+	readl_relaxed(gsi_dbl_address_lsb);
 	writel_relaxed(0, gsi_dbl_address_msb);
+	readl_relaxed(gsi_dbl_address_msb);
 }
 
 /*
