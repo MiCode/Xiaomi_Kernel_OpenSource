@@ -87,11 +87,11 @@ static int dma_buf_release(struct inode *inode, struct file *file)
 	 */
 	BUG_ON(dmabuf->cb_shared.active || dmabuf->cb_excl.active);
 
-	dmabuf->ops->release(dmabuf);
-
 	mutex_lock(&db_list.lock);
 	list_del(&dmabuf->list_node);
 	mutex_unlock(&db_list.lock);
+
+	dmabuf->ops->release(dmabuf);
 
 	dma_buf_ref_destroy(dmabuf);
 
