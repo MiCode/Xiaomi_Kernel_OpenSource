@@ -2196,6 +2196,42 @@ static struct attribute *coresight_etmv4_attrs[] = {
 	NULL,
 };
 
+struct etmv4_reg {
+	void __iomem *addr;
+	u32 data;
+};
+
+static void do_smp_cross_read(void *data)
+{
+	struct etmv4_reg *reg = data;
+
+	reg->data = readl_relaxed(reg->addr);
+}
+
+static u32 etmv4_cross_read(const struct device *dev, u32 offset)
+{
+	struct etmv4_drvdata *drvdata = dev_get_drvdata(dev);
+	struct etmv4_reg reg;
+
+	reg.addr = drvdata->base + offset;
+
+	smp_call_function_single(drvdata->cpu, do_smp_cross_read, &reg, 1);
+	return reg.data;
+}
+#define coresight_cross_read(name, offset)				\
+static ssize_t name##_show(struct device *_dev,				\
+			   struct device_attribute *attr, char *buf)	\
+{									\
+	u32 val;							\
+	pm_runtime_get_sync(_dev->parent);				\
+									\
+	val = etmv4_cross_read(_dev->parent, offset);			\
+									\
+	pm_runtime_put_sync(_dev->parent);				\
+	return scnprintf(buf, PAGE_SIZE, "0x%x\n", val);		\
+}									\
+static DEVICE_ATTR_RO(name)
+
 #define coresight_simple_func(name, offset)				\
 static ssize_t name##_show(struct device *_dev,				\
 			   struct device_attribute *attr, char *buf)	\
@@ -2206,17 +2242,17 @@ static ssize_t name##_show(struct device *_dev,				\
 }									\
 DEVICE_ATTR_RO(name)
 
-coresight_simple_func(trcoslsr, TRCOSLSR);
-coresight_simple_func(trcpdcr, TRCPDCR);
-coresight_simple_func(trcpdsr, TRCPDSR);
-coresight_simple_func(trclsr, TRCLSR);
-coresight_simple_func(trcauthstatus, TRCAUTHSTATUS);
-coresight_simple_func(trcdevid, TRCDEVID);
-coresight_simple_func(trcdevtype, TRCDEVTYPE);
-coresight_simple_func(trcpidr0, TRCPIDR0);
-coresight_simple_func(trcpidr1, TRCPIDR1);
-coresight_simple_func(trcpidr2, TRCPIDR2);
-coresight_simple_func(trcpidr3, TRCPIDR3);
+coresight_cross_read(trcoslsr, TRCOSLSR);
+coresight_cross_read(trcpdcr, TRCPDCR);
+coresight_cross_read(trcpdsr, TRCPDSR);
+coresight_cross_read(trclsr, TRCLSR);
+coresight_cross_read(trcauthstatus, TRCAUTHSTATUS);
+coresight_cross_read(trcdevid, TRCDEVID);
+coresight_cross_read(trcdevtype, TRCDEVTYPE);
+coresight_cross_read(trcpidr0, TRCPIDR0);
+coresight_cross_read(trcpidr1, TRCPIDR1);
+coresight_cross_read(trcpidr2, TRCPIDR2);
+coresight_cross_read(trcpidr3, TRCPIDR3);
 
 static struct attribute *coresight_etmv4_mgmt_attrs[] = {
 	&dev_attr_trcoslsr.attr,
@@ -2233,19 +2269,19 @@ static struct attribute *coresight_etmv4_mgmt_attrs[] = {
 	NULL,
 };
 
-coresight_simple_func(trcidr0, TRCIDR0);
-coresight_simple_func(trcidr1, TRCIDR1);
-coresight_simple_func(trcidr2, TRCIDR2);
-coresight_simple_func(trcidr3, TRCIDR3);
-coresight_simple_func(trcidr4, TRCIDR4);
-coresight_simple_func(trcidr5, TRCIDR5);
+coresight_cross_read(trcidr0, TRCIDR0);
+coresight_cross_read(trcidr1, TRCIDR1);
+coresight_cross_read(trcidr2, TRCIDR2);
+coresight_cross_read(trcidr3, TRCIDR3);
+coresight_cross_read(trcidr4, TRCIDR4);
+coresight_cross_read(trcidr5, TRCIDR5);
 /* trcidr[6,7] are reserved */
-coresight_simple_func(trcidr8, TRCIDR8);
-coresight_simple_func(trcidr9, TRCIDR9);
-coresight_simple_func(trcidr10, TRCIDR10);
-coresight_simple_func(trcidr11, TRCIDR11);
-coresight_simple_func(trcidr12, TRCIDR12);
-coresight_simple_func(trcidr13, TRCIDR13);
+coresight_cross_read(trcidr8, TRCIDR8);
+coresight_cross_read(trcidr9, TRCIDR9);
+coresight_cross_read(trcidr10, TRCIDR10);
+coresight_cross_read(trcidr11, TRCIDR11);
+coresight_cross_read(trcidr12, TRCIDR12);
+coresight_cross_read(trcidr13, TRCIDR13);
 
 static struct attribute *coresight_etmv4_trcidr_attrs[] = {
 	&dev_attr_trcidr0.attr,
