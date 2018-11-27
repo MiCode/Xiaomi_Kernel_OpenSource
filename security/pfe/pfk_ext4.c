@@ -142,7 +142,6 @@ int pfk_ext4_parse_inode(const struct bio *bio,
 	struct pfk_key_info *key_info,
 	enum ice_cryto_algo_mode *algo,
 	bool *is_pfe,
-	unsigned int *data_unit,
 	const char *storage_type)
 {
 	int ret = 0;
@@ -156,19 +155,6 @@ int pfk_ext4_parse_inode(const struct bio *bio,
 	 * otherwise we will consider it PFE
 	 */
 	*is_pfe = true;
-
-	/* Update dun based upon storage type.
-	 * For ext4 FS UFS has 4k dun whereas eMMC
-	 * uses 512Byte dun.
-	 */
-	if (storage_type && data_unit) {
-		if (!memcmp(storage_type, "ufs", strlen("ufs")))
-			*data_unit = 1 << ICE_CRYPTO_DATA_UNIT_4_KB;
-		else if (!memcmp(storage_type, "sdcc", strlen("sdcc")))
-			*data_unit = 1 << ICE_CRYPTO_DATA_UNIT_512_B;
-		else
-			return -EINVAL;
-	}
 
 	if (!pfk_ext4_is_ready())
 		return -ENODEV;

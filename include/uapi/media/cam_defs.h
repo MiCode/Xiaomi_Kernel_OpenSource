@@ -18,6 +18,10 @@
 #define CAM_FLUSH_REQ                           (CAM_COMMON_OPCODE_BASE + 0x8)
 #define CAM_COMMON_OPCODE_MAX                   (CAM_COMMON_OPCODE_BASE + 0x9)
 
+#define CAM_COMMON_OPCODE_BASE_v2           0x150
+#define CAM_ACQUIRE_HW                      (CAM_COMMON_OPCODE_BASE_v2 + 0x1)
+#define CAM_RELEASE_HW                      (CAM_COMMON_OPCODE_BASE_v2 + 0x2)
+
 #define CAM_EXT_OPCODE_BASE                     0x200
 #define CAM_CONFIG_DEV_EXTERNAL                 (CAM_EXT_OPCODE_BASE + 0x1)
 
@@ -450,6 +454,73 @@ struct cam_acquire_dev_cmd {
 	uint32_t        handle_type;
 	uint32_t        num_resources;
 	uint64_t        resource_hdl;
+};
+
+/*
+ * In old version, while acquiring device the num_resources in
+ * struct cam_acquire_dev_cmd will be a valid value. During ACQUIRE_DEV
+ * KMD driver will return dev_handle as well as associate HW to handle.
+ * If num_resources is set to the constant below, we are using
+ * the new version and we do not acquire HW in ACQUIRE_DEV IOCTL.
+ * ACQUIRE_DEV will only return handle and we should receive
+ * ACQUIRE_HW IOCTL after ACQUIRE_DEV and that is when the HW
+ * is associated with the dev_handle.
+ *
+ * (Data type): uint32_t
+ */
+#define CAM_API_COMPAT_CONSTANT                   0xFEFEFEFE
+
+#define CAM_ACQUIRE_HW_STRUCT_VERSION_1           1
+
+/**
+ * struct cam_acquire_hw_cmd_v1 - Control payload for acquire HW IOCTL (Ver 1)
+ *
+ * @struct_version:     = CAM_ACQUIRE_HW_STRUCT_VERSION_1 for this struct
+ *                      This value should be the first 32-bits in any structure
+ *                      related to this IOCTL. So that if the struct needs to
+ *                      change, we can first read the starting 32-bits, get the
+ *                      version number and then typecast the data to struct
+ *                      accordingly.
+ * @reserved:           Reserved field for 64-bit alignment
+ * @session_handle:     Session handle for the acquire command
+ * @dev_handle:         Device handle to be returned
+ * @handle_type:        Tells you how to interpret the variable resource_hdl-
+ *                      1 = user pointer, 2 = mem handle
+ * @data_size:          Total size of data contained in memory pointed
+ *                      to by resource_hdl
+ * @resource_hdl:       Resource handle that refers to the actual
+ *                      resource data.
+ */
+struct cam_acquire_hw_cmd_v1 {
+	uint32_t        struct_version;
+	uint32_t        reserved;
+	int32_t         session_handle;
+	int32_t         dev_handle;
+	uint32_t        handle_type;
+	uint32_t        data_size;
+	uint64_t        resource_hdl;
+};
+
+#define CAM_RELEASE_HW_STRUCT_VERSION_1           1
+
+/**
+ * struct cam_release_hw_cmd_v1 - Control payload for release HW IOCTL (Ver 1)
+ *
+ * @struct_version:     = CAM_RELEASE_HW_STRUCT_VERSION_1 for this struct
+ *                      This value should be the first 32-bits in any structure
+ *                      related to this IOCTL. So that if the struct needs to
+ *                      change, we can first read the starting 32-bits, get the
+ *                      version number and then typecast the data to struct
+ *                      accordingly.
+ * @reserved:           Reserved field for 64-bit alignment
+ * @session_handle:     Session handle for the release
+ * @dev_handle:         Device handle for the release
+ */
+struct cam_release_hw_cmd_v1 {
+	uint32_t                struct_version;
+	uint32_t                reserved;
+	int32_t                 session_handle;
+	int32_t                 dev_handle;
 };
 
 /**

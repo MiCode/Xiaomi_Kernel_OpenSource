@@ -274,6 +274,7 @@ static struct pll_freq_tbl apcs_c1_pll_freq[] = {
 	F_APCS_PLL(1708800000, 89, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL(1804800000, 94, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL(1958400000, 102, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(2016000000, 105, 0x0, 0x1, 0x0, 0x0, 0x0),
 };
 
 static struct pll_clk a53ss_c1_pll = {
@@ -304,7 +305,7 @@ static struct pll_clk a53ss_c1_pll = {
 		.vdd_class = &vdd_hf_pll,
 		.fmax = (unsigned long [VDD_HF_PLL_NUM]) {
 			[VDD_HF_PLL_SVS] = 1000000000,
-			[VDD_HF_PLL_NOM] = 2000000000,
+			[VDD_HF_PLL_NOM] = 2020000000,
 		},
 		.num_fmax = VDD_HF_PLL_NUM,
 		CLK_INIT(a53ss_c1_pll.c),

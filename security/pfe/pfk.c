@@ -76,7 +76,6 @@ typedef int (*pfk_parse_inode_type)(const struct bio *bio,
 	struct pfk_key_info *key_info,
 	enum ice_cryto_algo_mode *algo,
 	bool *is_pfe,
-	unsigned int *data_unit,
 	const char *storage_type);
 
 typedef bool (*pfk_allow_merge_bio_type)(const struct bio *bio1,
@@ -287,12 +286,16 @@ static int pfk_get_key_for_bio(const struct bio *bio,
 {
 	const struct inode *inode;
 	enum pfe_type which_pfe;
-	const struct blk_encryption_key *key;
 	char *s_type = NULL;
+	const struct blk_encryption_key *key = NULL;
 
 	inode = pfk_bio_get_inode(bio);
 	which_pfe = pfk_get_pfe_type(inode);
 	s_type = (char *)pfk_kc_get_storage_type();
+
+	if (data_unit && (bio_dun(bio) ||
+			!memcmp(s_type, "ufs", strlen("ufs"))))
+		*data_unit = 1 << ICE_CRYPTO_DATA_UNIT_4_KB;
 
 	if (which_pfe != INVALID_PFE) {
 		/* Encrypted file; override ->bi_crypt_key */
@@ -300,14 +303,16 @@ static int pfk_get_key_for_bio(const struct bio *bio,
 			 inode->i_ino, which_pfe);
 		return (*(pfk_parse_inode_ftable[which_pfe]))
 				(bio, inode, key_info, algo_mode, is_pfe,
-					data_unit, (const char *)s_type);
+					(const char *)s_type);
 	}
 
 	/*
 	 * bio is not for an encrypted file.  Use ->bi_crypt_key if it was set.
 	 * Otherwise, don't encrypt/decrypt the bio.
 	 */
+#ifdef CONFIG_DM_DEFAULT_KEY
 	key = bio->bi_crypt_key;
+#endif
 	if (!key) {
 		*is_pfe = false;
 		return -EINVAL;
@@ -469,12 +474,17 @@ int pfk_load_key_end(const struct bio *bio, bool *is_pfe)
  */
 bool pfk_allow_merge_bio(const struct bio *bio1, const struct bio *bio2)
 {
-	const struct blk_encryption_key *key1;
-	const struct blk_encryption_key *key2;
+	const struct blk_encryption_key *key1 = NULL;
+	const struct blk_encryption_key *key2 = NULL;
 	const struct inode *inode1;
 	const struct inode *inode2;
 	enum pfe_type which_pfe1;
 	enum pfe_type which_pfe2;
+
+#ifdef CONFIG_DM_DEFAULT_KEY
+	key1 = bio1->bi_crypt_key;
+	key2 = bio2->bi_crypt_key;
+#endif
 
 	if (!pfk_is_ready())
 		return false;

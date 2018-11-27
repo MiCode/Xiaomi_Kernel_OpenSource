@@ -428,6 +428,12 @@ static void msm_start_tx(struct uart_port *port)
 	struct msm_port *msm_port = UART_TO_MSM(port);
 	struct msm_dma *dma = &msm_port->tx_dma;
 
+	/* No need to start tx when system suspended. */
+	if (port->suspended) {
+		printk_deferred("port suspended!\n");
+		return;
+	}
+
 	/* Already started in DMA mode */
 	if (dma->count)
 		return;

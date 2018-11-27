@@ -1,0 +1,42 @@
+/*
+ * Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "pmi8937.dtsi"
+#include "msm8940-mtp.dtsi"
+
+&soc {
+	led_flash0: qcom,camera-flash {
+		cell-index = <0>;
+		compatible = "qcom,camera-flash";
+		qcom,flash-type = <1>;
+		qcom,flash-source = <&pmi8937_flash0 &pmi8937_flash1>;
+		qcom,torch-source = <&pmi8937_torch0 &pmi8937_torch1>;
+		qcom,switch-source = <&pmi8937_switch>;
+	};
+};
+
+&vendor {
+	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "batterydata-itech-3000mah.dtsi"
+		#include "batterydata-ascent-3450mAh.dtsi"
+	};
+};
+
+&qpnp_fg {
+	qcom,battery-data = <&mtp_batterydata>;
+};
+
+&qpnp_smbcharger {
+	qcom,battery-data = <&mtp_batterydata>;
+};
