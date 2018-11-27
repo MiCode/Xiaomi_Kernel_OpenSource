@@ -1408,25 +1408,6 @@ static int smblib_usb_irq_enable_vote_callback(struct votable *votable,
 	return 0;
 }
 
-static int smblib_wdog_snarl_irq_en_vote_callback(struct votable *votable,
-				void *data, int enable, const char *client)
-{
-	struct smb_charger *chg = data;
-
-	if (!chg->irq_info[WDOG_SNARL_IRQ].irq)
-		return 0;
-
-	if (enable) {
-		enable_irq(chg->irq_info[WDOG_SNARL_IRQ].irq);
-		enable_irq_wake(chg->irq_info[WDOG_SNARL_IRQ].irq);
-	} else {
-		disable_irq_wake(chg->irq_info[WDOG_SNARL_IRQ].irq);
-		disable_irq_nosync(chg->irq_info[WDOG_SNARL_IRQ].irq);
-	}
-
-	return 0;
-}
-
 /*******************
  * VCONN REGULATOR *
  * *****************/
@@ -2289,8 +2270,6 @@ static int smblib_set_sw_thermal_regulation(struct smb_charger *chg,
 			return rc;
 		}
 
-		vote(chg->wdog_snarl_irq_en_votable, SW_THERM_REGULATION_VOTER,
-							true, 0);
 		/*
 		 * Schedule SW_THERM_REGULATION_WORK directly if USB input
 		 * is suspended due to SW thermal regulation WA since WDOG
@@ -2303,8 +2282,6 @@ static int smblib_set_sw_thermal_regulation(struct smb_charger *chg,
 			schedule_delayed_work(&chg->thermal_regulation_work, 0);
 		}
 	} else {
-		vote(chg->wdog_snarl_irq_en_votable, SW_THERM_REGULATION_VOTER,
-							false, 0);
 		cancel_delayed_work_sync(&chg->thermal_regulation_work);
 		vote(chg->awake_votable, SW_THERM_REGULATION_VOTER, false, 0);
 	}
@@ -5644,16 +5621,6 @@ static int smblib_create_votables(struct smb_charger *chg)
 		return rc;
 	}
 
-	chg->wdog_snarl_irq_en_votable = create_votable("SNARL_WDOG_IRQ_ENABLE",
-					VOTE_SET_ANY,
-					smblib_wdog_snarl_irq_en_vote_callback,
-					chg);
-	if (IS_ERR(chg->wdog_snarl_irq_en_votable)) {
-		rc = PTR_ERR(chg->wdog_snarl_irq_en_votable);
-		chg->wdog_snarl_irq_en_votable = NULL;
-		return rc;
-	}
-
 	return rc;
 }
 
@@ -5667,8 +5634,6 @@ static void smblib_destroy_votables(struct smb_charger *chg)
 		destroy_votable(chg->awake_votable);
 	if (chg->chg_disable_votable)
 		destroy_votable(chg->chg_disable_votable);
-	if (chg->wdog_snarl_irq_en_votable)
-		destroy_votable(chg->wdog_snarl_irq_en_votable);
 }
 
 static void smblib_iio_deinit(struct smb_charger *chg)
