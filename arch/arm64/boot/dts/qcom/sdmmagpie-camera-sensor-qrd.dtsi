@@ -48,8 +48,8 @@
 		cam_vaf-supply = <&pm8009_s2>;
 		regulator-names = "cam_vaf";
 		rgltr-cntrl-support;
-		rgltr-min-voltage = <2800000>;
-		rgltr-max-voltage = <2800000>;
+		rgltr-min-voltage = <2900000>;
+		rgltr-max-voltage = <2900000>;
 		rgltr-load-current = <100000>;
 	};
 
