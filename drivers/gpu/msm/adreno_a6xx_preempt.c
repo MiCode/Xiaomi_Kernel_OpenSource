@@ -90,14 +90,6 @@ static void _a6xx_preemption_done(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int status;
 
-	/*
-	 * In the very unlikely case that the power is off, do nothing - the
-	 * state will be reset on power up and everybody will be happy
-	 */
-
-	if (!kgsl_state_is_awake(device))
-		return;
-
 	adreno_readreg(adreno_dev, ADRENO_REG_CP_PREEMPT, &status);
 
 	if (status & 0x1) {
@@ -457,6 +449,16 @@ void a6xx_preemption_schedule(struct adreno_device *adreno_dev)
 		return;
 
 	mutex_lock(&device->mutex);
+
+	/*
+	 * In the very unlikely case that the power is off, do nothing - the
+	 * state will be reset on power up and everybody will be happy
+	 */
+
+	if (!kgsl_state_is_awake(device)) {
+		mutex_unlock(&device->mutex);
+		return;
+	}
 
 	if (adreno_in_preempt_state(adreno_dev, ADRENO_PREEMPT_COMPLETE))
 		_a6xx_preemption_done(adreno_dev);
