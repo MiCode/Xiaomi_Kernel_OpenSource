@@ -151,6 +151,9 @@ config USB_U_SERIAL
 config USB_U_ETHER
 	tristate
 
+config USB_U_AUDIO
+	tristate
+
 config USB_F_SERIAL
 	tristate
 
