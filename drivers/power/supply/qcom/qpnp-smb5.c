@@ -2623,11 +2623,16 @@ static int smb5_request_interrupts(struct smb5 *chip)
 		chg->usb_icl_change_irq_enabled = true;
 
 	/*
-	 * Disable WDOG SNARL IRQ by default to prevent IRQ storm. If required
-	 * for any application, enable it through votable.
+	 * WDOG_SNARL_IRQ is required for SW Thermal Regulation WA only. In
+	 * case the WA is not required, disable the WDOG_SNARL_IRQ to prevent
+	 * interrupt storm.
 	 */
-	if (chg->irq_info[WDOG_SNARL_IRQ].irq)
-		vote(chg->wdog_snarl_irq_en_votable, DEFAULT_VOTER, false, 0);
+
+	if (chg->irq_info[WDOG_SNARL_IRQ].irq && !(chg->wa_flags &
+						SW_THERM_REGULATION_WA)) {
+		disable_irq_wake(chg->irq_info[WDOG_SNARL_IRQ].irq);
+		disable_irq_nosync(chg->irq_info[WDOG_SNARL_IRQ].irq);
+	}
 
 	return rc;
 }
