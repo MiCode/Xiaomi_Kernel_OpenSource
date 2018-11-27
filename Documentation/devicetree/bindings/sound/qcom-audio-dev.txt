@@ -2678,3 +2678,107 @@ Example 2:
 		qcom,spkr-tdm-rx = <&dai_quat_tdm_rx_0>;
 		qcom,mic-tdm-tx = <&dai_quat_tdm_tx_0>;
 	};
+
+* msm-dai-group-mi2s
+
+[First Level Nodes]
+
+Required properties:
+
+ - compatible : "qcom,msm-dai-group-mi2s"
+ - qcom,msm-cpudai-mi2s-group-id: ID of the group device. MI2S interface
+				supports up to 8 groups:
+				Secondary RX: 	4354
+				Secondary TX: 	4355
+				Tertiary RX: 	4356
+				Tertiary TX: 	4357
+				Quaternary RX: 	4358
+				Quaternary TX: 	4359
+
+ - qcom,msm-cpudai-mi2s-group-num-ports: Number of ports in
+				msm-cpudai-mi2s-group-port-id array.
+				Max number of ports supported by DSP is 8.
+
+ - qcom,msm-cpudai-mi2s-group-port-id: Array of mi2s port IDs of the group.
+				The size of the array is determined by
+				the value in msm-cpudai-mi2s-group-num-ports.
+				Each group supports up to 4 ports:
+				Secondary RX: 	4160, 4162, 4164, 4174,
+				Secondary TX:	4161, 4163, 4165, 4175,
+				Tertiary RX: 	4168, 4170, 4172, 4176,
+				Tertiary TX: 	4169, 4171, 4173, 4177,
+				Quaternary RX:	4102, 4128, 4130, 4132,
+				Quaternary TX:	4103, 4129, 4131, 4133,
+
+ - qcom,msm-cpudai-mi2s-channel-mode: group mi2s line channel mode.
+				I2S_SD0    :                  0x1
+				I2S_SD1    :                  0x2
+				I2S_SD2    :                  0x3
+				I2S_SD3    :                  0x4
+				I2S_QUAD01 :                  0x5
+				I2S_QUAD23 :                  0x6
+				I2S_6CHS   :                  0x7
+				I2S_8CHS   :                  0x8
+
+ - qcom,msm-cpudai-mi2s-sync-mode: group mi2s master mode.
+				0 - Slave
+				1 - Master
+
+ - qcom,msm-cpudai-mi2s-mclk: mi2s mclk value if required.
+				0 - not provided any mclk
+				others - the real mclk value, at least
+				equal with bclk.
+
+ - qcom,msm-cpudai-mi2s-bclk: mi2s bclk value required, the clk value should
+				equal channels * bit_width * rate.
+
+ [Second Level Nodes]
+
+Required properties:
+
+ - compatible : "qcom,msm-dai-group-mi2s-dev"
+ - qcom,msm-dai-q6-mi2s-dev-id: mi2s port ID.
+ - qcom,msm-cpudai-mi2s-channel-mode:  mi2s port line channel mode
+				I2S_SD0    :                  0x1
+				I2S_SD1    :                  0x2
+				I2S_SD2    :                  0x3
+				I2S_SD3    :                  0x4
+				I2S_QUAD01 :                  0x5
+				I2S_QUAD23 :                  0x6
+				I2S_6CHS   :                  0x7
+				I2S_8CHS   :                  0x8
+
+ - qcom,msm-cpudai-mi2s-data-align: Indicate how data is packed
+				within the slot. For example, 32 slot width in case of
+				sample bit width is 24.
+				0 - MSB
+				1 - LSB
+
+Optional properties:
+
+ - pinctrl-names: Pinctrl state names for each pin group
+				configuration.
+
+ - pinctrl-x: Defines pinctrl state for each pin group.
+
+Example:
+    qcom,msm-dai-group-mi2s-tert-tx {
+        compatible = "qcom,msm-dai-group-mi2s";
+        qcom,msm-cpudai-mi2s-group-id = <4357>;
+		qcom,msm-cpudai-mi2s-group-num-ports = <2>;
+        qcom,msm-cpudai-mi2s-group-port-id = <4167 4169>;
+	    qcom,msm-cpudai-mi2s-channel-mode = <5>;
+        dai_tert_mi2s_tx_1:qcom,msm-dai-q6-mi2s-tert-tx-1 {
+            compatible = "qcom,msm-dai-group-mi2s-dev";
+            qcom,msm-cpudai-mi2s-dev-id = <4167>;
+            qcom,msm-cpudai-mi2s-dev-channel-mode = <1>;
+			qcom,msm-cpudai-mi2s-data-align = <0>;
+        };
+
+        dai_tert_mi2s_tx_2:qcom,msm-dai-q6-mi2s-tert-tx-2 {
+            compatible = "qcom,msm-dai-group-mi2s-dev";
+            qcom,msm-cpudai-mi2s-dev-id = <4169>;
+            qcom,msm-cpudai-mi2s-dev-channel-mode = <2>;
+			qcom,msm-cpudai-mi2s-data-align = <0>;
+        };
+    };
