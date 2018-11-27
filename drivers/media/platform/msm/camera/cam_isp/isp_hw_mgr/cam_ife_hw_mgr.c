@@ -433,7 +433,7 @@ static int cam_ife_hw_mgr_free_hw_res(
 				sizeof(struct cam_isp_resource_node));
 			if (rc)
 				CAM_ERR(CAM_ISP,
-					"Release hw resrouce id %d failed",
+					"Release hw resource id %d failed",
 					isp_hw_res->res_id);
 			isp_hw_res->hw_res[i] = NULL;
 		} else
@@ -2232,10 +2232,6 @@ static int cam_ife_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 
 	CAM_DBG(CAM_ISP, "Halting CSIDs");
 
-	if (cam_cdm_stream_off(ctx->cdm_handle))
-		CAM_ERR(CAM_ISP, "CDM stream off failed %d",
-			ctx->cdm_handle);
-
 	CAM_DBG(CAM_ISP, "Going to stop IFE Out");
 
 	/* IFE out resources */
@@ -2302,11 +2298,12 @@ static int cam_ife_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 	if (stop_isp->stop_only)
 		goto end;
 
+	if (cam_cdm_stream_off(ctx->cdm_handle))
+		CAM_ERR(CAM_ISP, "CDM stream off failed %d", ctx->cdm_handle);
+
 	cam_ife_hw_mgr_deinit_hw(ctx);
 	CAM_DBG(CAM_ISP,
 		"Stop success for ctx id:%d rc :%d", ctx->ctx_index, rc);
-
-end:
 
 	mutex_lock(&g_ife_hw_mgr.ctx_mutex);
 	if (!atomic_dec_return(&g_ife_hw_mgr.active_ctx_cnt)) {
@@ -2319,6 +2316,7 @@ end:
 	}
 	mutex_unlock(&g_ife_hw_mgr.ctx_mutex);
 
+end:
 	return rc;
 }
 
@@ -2439,6 +2437,12 @@ static int cam_ife_mgr_start_hw(void *hw_mgr_priv, void *start_hw_args)
 		return -EPERM;
 	}
 
+	if ((!ctx->init_done) && start_isp->start_only) {
+		CAM_ERR(CAM_ISP, "Invalid args init_done %d start_only %d",
+			ctx->init_done, start_isp->start_only);
+		return -EINVAL;
+	}
+
 	CAM_DBG(CAM_ISP, "Enter... ctx id:%d",
 		ctx->ctx_index);
 
@@ -2480,10 +2484,10 @@ static int cam_ife_mgr_start_hw(void *hw_mgr_priv, void *start_hw_args)
 	rc = cam_ife_hw_mgr_init_hw(ctx);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Init failed");
-		goto err;
+		goto tasklet_stop;
 	}
 
-start_only:
+	ctx->init_done = true;
 
 	mutex_lock(&g_ife_hw_mgr.ctx_mutex);
 	if (!atomic_fetch_inc(&g_ife_hw_mgr.active_ctx_cnt)) {
@@ -2491,7 +2495,8 @@ start_only:
 		if (rc) {
 			CAM_ERR(CAM_ISP,
 				"SAFE SCM call failed:Check TZ/HYP dependency");
-			rc = -1;
+			rc = -EFAULT;
+			goto deinit_hw;
 		}
 	}
 	mutex_unlock(&g_ife_hw_mgr.ctx_mutex);
@@ -2501,19 +2506,18 @@ start_only:
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Can not start cdm (%d)",
 			 ctx->cdm_handle);
-		goto err;
+		goto safe_disable;
 	}
 
-	if (!start_isp->start_only) {
-		/* Apply initial configuration */
-		CAM_DBG(CAM_ISP, "Config HW");
-		rc = cam_ife_mgr_config_hw(hw_mgr_priv,
-			&start_isp->hw_config);
-		if (rc) {
-			CAM_ERR(CAM_ISP, "Config HW failed");
-			goto err;
-		}
+	/* Apply initial configuration */
+	CAM_DBG(CAM_ISP, "Config HW");
+	rc = cam_ife_mgr_config_hw(hw_mgr_priv, &start_isp->hw_config);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "Config HW failed");
+		goto cdm_streamoff;
 	}
+
+start_only:
 
 	CAM_DBG(CAM_ISP, "START IFE OUT ... in ctx id:%d",
 		ctx->ctx_index);
@@ -2564,7 +2568,6 @@ start_only:
 		}
 	}
 
-	ctx->init_done = true;
 	/* Start IFE root node: do nothing */
 	CAM_DBG(CAM_ISP, "Start success for ctx id:%d", ctx->ctx_index);
 
@@ -2578,6 +2581,21 @@ err:
 
 	cam_ife_mgr_stop_hw(hw_mgr_priv, &stop_args);
 	CAM_DBG(CAM_ISP, "Exit...(rc=%d)", rc);
+	return rc;
+
+cdm_streamoff:
+	cam_cdm_stream_off(ctx->cdm_handle);
+
+safe_disable:
+	cam_ife_notify_safe_lut_scm(CAM_IFE_SAFE_DISABLE);
+
+deinit_hw:
+	cam_ife_hw_mgr_deinit_hw(ctx);
+	ctx->init_done = false;
+
+tasklet_stop:
+	cam_tasklet_stop(ctx->common.tasklet_info);
+
 	return rc;
 }
 
@@ -3369,9 +3387,10 @@ static void cam_ife_mgr_print_io_bufs(struct cam_packet *packet,
 			}
 
 			CAM_INFO(CAM_ISP,
-				"pln %d w %d h %d s 0x%x addr 0x%x end_addr 0x%x offset %x memh %x",
+				"pln %d w %d h %d s %u size 0x%x addr 0x%x end_addr 0x%x offset %x memh %x",
 				j, io_cfg[i].planes[j].width,
 				io_cfg[i].planes[j].height,
+				io_cfg[i].planes[j].plane_stride,
 				(unsigned int)src_buf_size,
 				(unsigned int)iova_addr,
 				(unsigned int)iova_addr +
@@ -3463,17 +3482,25 @@ static int cam_ife_mgr_cmd_get_sof_timestamp(
 
 	list_for_each_entry(hw_mgr_res, &ife_ctx->res_list_ife_csid, list) {
 		for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
-			if (!hw_mgr_res->hw_res[i] ||
-				(i == CAM_ISP_HW_SPLIT_RIGHT))
+			if (!hw_mgr_res->hw_res[i])
 				continue;
+
 			/*
 			 * Get the SOF time stamp from left resource only.
 			 * Left resource is master for dual vfe case and
 			 * Rdi only context case left resource only hold
 			 * the RDI resource
 			 */
+
 			hw_intf = hw_mgr_res->hw_res[i]->hw_intf;
 			if (hw_intf->hw_ops.process_cmd) {
+				/*
+				 * Single VFE case, Get the time stamp from
+				 * available one csid hw in the context
+				 * Dual VFE case, get the time stamp from
+				 * master(left) would be sufficient
+				 */
+
 				csid_get_time.node_res =
 					hw_mgr_res->hw_res[i];
 				rc = hw_intf->hw_ops.process_cmd(
@@ -3482,23 +3509,16 @@ static int cam_ife_mgr_cmd_get_sof_timestamp(
 					&csid_get_time,
 					sizeof(
 					struct cam_csid_get_time_stamp_args));
-				if (!rc) {
+				if (!rc && (i == CAM_ISP_HW_SPLIT_LEFT)) {
 					*time_stamp =
 						csid_get_time.time_stamp_val;
 					*boot_time_stamp =
 						csid_get_time.boot_timestamp;
 				}
-			/*
-			 * Single VFE case, Get the time stamp from available
-			 * one csid hw in the context
-			 * Dual VFE case, get the time stamp from master(left)
-			 * would be sufficient
-			 */
-				goto end;
 			}
 		}
 	}
-end:
+
 	if (rc)
 		CAM_ERR(CAM_ISP, "Getting sof time stamp failed");
 
