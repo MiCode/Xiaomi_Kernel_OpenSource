@@ -1489,11 +1489,35 @@ struct adm_cmd_connect_afe_port_v5 {
 #define AFE_PORT_ID_PRIMARY_MI2S_RX         0x1000
 #define AFE_PORT_ID_PRIMARY_MI2S_TX         0x1001
 #define AFE_PORT_ID_SECONDARY_MI2S_RX       0x1002
+#define AFE_PORT_ID_SECONDARY_MI2S_RX_1     0x1040
+#define AFE_PORT_ID_SECONDARY_MI2S_RX_2     0x1042
+#define AFE_PORT_ID_SECONDARY_MI2S_RX_3     0x1044
+#define AFE_PORT_ID_SECONDARY_MI2S_RX_4     0x1046
 #define AFE_PORT_ID_SECONDARY_MI2S_TX       0x1003
+#define AFE_PORT_ID_SECONDARY_MI2S_TX_1     0x1041
+#define AFE_PORT_ID_SECONDARY_MI2S_TX_2     0x1043
+#define AFE_PORT_ID_SECONDARY_MI2S_TX_3     0x1045
+#define AFE_PORT_ID_SECONDARY_MI2S_TX_4     0x1047
 #define AFE_PORT_ID_TERTIARY_MI2S_RX        0x1004
+#define AFE_PORT_ID_TERTIARY_MI2S_RX_1      0x1048
+#define AFE_PORT_ID_TERTIARY_MI2S_RX_2      0x104A
+#define AFE_PORT_ID_TERTIARY_MI2S_RX_3      0x104C
+#define AFE_PORT_ID_TERTIARY_MI2S_RX_4      0x104E
 #define AFE_PORT_ID_TERTIARY_MI2S_TX        0x1005
+#define AFE_PORT_ID_TERTIARY_MI2S_TX_1      0x1049
+#define AFE_PORT_ID_TERTIARY_MI2S_TX_2      0x104B
+#define AFE_PORT_ID_TERTIARY_MI2S_TX_3      0x104D
+#define AFE_PORT_ID_TERTIARY_MI2S_TX_4      0x104F
 #define AFE_PORT_ID_QUATERNARY_MI2S_RX      0x1006
+#define AFE_PORT_ID_QUATERNARY_MI2S_RX_1    0x1020
+#define AFE_PORT_ID_QUATERNARY_MI2S_RX_2    0x1022
+#define AFE_PORT_ID_QUATERNARY_MI2S_RX_3    0x1024
+#define AFE_PORT_ID_QUATERNARY_MI2S_RX_4    0x1026
 #define AFE_PORT_ID_QUATERNARY_MI2S_TX      0x1007
+#define AFE_PORT_ID_QUATERNARY_MI2S_TX_1    0x1021
+#define AFE_PORT_ID_QUATERNARY_MI2S_TX_2    0x1023
+#define AFE_PORT_ID_QUATERNARY_MI2S_TX_3    0x1025
+#define AFE_PORT_ID_QUATERNARY_MI2S_TX_4    0x1027
 #define AUDIO_PORT_ID_I2S_RX                0x1008
 #define AFE_PORT_ID_DIGITAL_MIC_TX          0x1009
 #define AFE_PORT_ID_PRIMARY_PCM_RX          0x100A
@@ -10886,6 +10910,7 @@ struct afe_port_cmd_set_aanc_acdb_table {
 #define AFE_PARAM_ID_GROUP_DEVICE_CFG	0x00010255
 #define AFE_PARAM_ID_GROUP_DEVICE_ENABLE 0x00010256
 #define AFE_GROUP_DEVICE_ID_SECONDARY_MI2S_RX	0x1102
+#define AFE_PARAM_ID_GROUP_DEVICE_I2S_CONFIG	0x00010286
 
 /*  Payload of the #AFE_PARAM_ID_GROUP_DEVICE_CFG
  * parameter, which configures max of 8 AFE ports
@@ -11067,6 +11092,119 @@ struct afe_param_id_group_device_tdm_cfg {
 	the mask.  Only 8 individual bits can be enabled.
 	Bits 0..31 corresponding to slot 0..31
 	@values 1 to 2^32 -1 */
+} __packed;
+
+#define AFE_GROUP_DEVICE_ID_SECONDARY_MI2S_TX \
+	(AFE_PORT_ID_SECONDARY_MI2S_TX + 0x100)
+#define AFE_GROUP_DEVICE_ID_TERTIARY_MI2S_RX \
+	(AFE_PORT_ID_TERTIARY_MI2S_RX + 0x100)
+#define AFE_GROUP_DEVICE_ID_TERTIARY_MI2S_TX \
+	(AFE_PORT_ID_TERTIARY_MI2S_TX + 0x100)
+#define AFE_GROUP_DEVICE_ID_QUATERNARY_MI2S_RX \
+	(AFE_PORT_ID_QUATERNARY_MI2S_RX + 0x100)
+#define AFE_GROUP_DEVICE_ID_QUATERNARY_MI2S_TX \
+	(AFE_PORT_ID_QUATERNARY_MI2S_TX + 0x100)
+
+#define AFE_API_VERSION_GROUP_DEVICE_I2S_CONFIG 0x1
+
+/* Payload of the AFE_PARAM_ID_GROUP_DEVICE_I2S_CONFIG parameter ID
+*  used by AFE_MODULE_GROUP_DEVICE.
+*/
+struct afe_param_id_group_device_i2s_cfg_v1 {
+	u32 minor_version;
+	/**< Minor version used to track group device configuration.
+	* @values #AFE_API_VERSION_GROUP_DEVICE_I2S_CONFIG
+	*/
+
+	u16 group_id;
+	/**< ID for the group device.
+	* @values
+	* - #AFE_GROUP_DEVICE_ID_SECONDARY_MI2S_RX
+	* - #AFE_GROUP_DEVICE_ID_SECONDARY_MI2S_TX
+	* - #AFE_GROUP_DEVICE_ID_TERTIARY_MI2S_RX
+	* - #AFE_GROUP_DEVICE_ID_TERTIARY_MI2S_TX
+	* - #AFE_GROUP_DEVICE_ID_QUATERNARY_MI2S_RX
+	* - #AFE_GROUP_DEVICE_ID_QUATERNARY_MI2S_RX
+	*/
+
+	u16 channel_mode;
+	/**< Group line channel mode
+	* @values
+	* - #AFE_PORT_I2S_SD0
+	* - #AFE_PORT_I2S_SD1
+	* - #AFE_PORT_I2S_SD2
+	* - #AFE_PORT_I2S_SD3
+	* - #AFE_PORT_I2S_QUAD01
+	* - #AFE_PORT_I2S_QUAD23
+	* - #AFE_PORT_I2S_6CHS
+	* - #AFE_PORT_I2S_8CHS
+	*/
+
+	u32 sample_rate;
+	/**< Sampling rate of the port.
+	* @values
+	* - #AFE_PORT_SAMPLE_RATE_8K
+	* - #AFE_PORT_SAMPLE_RATE_16K
+	* - #AFE_PORT_SAMPLE_RATE_24K
+	* - #AFE_PORT_SAMPLE_RATE_32K
+	*/
+
+	u16 port_id[AFE_GROUP_DEVICE_NUM_PORTS];
+	/**< Array of member port IDs of this group.
+	* @values
+	* - #AFE_PORT_ID_SECONDARY_MI2S_RX_1
+	* - #AFE_PORT_ID_SECONDARY_MI2S_RX_2
+	* - #AFE_PORT_ID_SECONDARY_MI2S_RX_3
+	* - #AFE_PORT_ID_SECONDARY_MI2S_RX_4
+
+	* - #AFE_PORT_ID_SECONDARY_MI2S_TX_1
+	* - #AFE_PORT_ID_SECONDARY_MI2S_TX_2
+	* - #AFE_PORT_ID_SECONDARY_MI2S_TX_3
+	* - #AFE_PORT_ID_SECONDARY_MI2S_TX_4
+
+	* - #AFE_PORT_ID_TERTIARY_MI2S_RX_1
+	* - #AFE_PORT_ID_TERTIARY_MI2S_RX_2
+	* - #AFE_PORT_ID_TERTIARY_MI2S_RX_3
+	* - #AFE_PORT_ID_TERTIARY_MI2S_RX_4
+
+	* - #AFE_PORT_ID_TERTIARY_MI2S_TX_1
+	* - #AFE_PORT_ID_TERTIARY_MI2S_TX_2
+	* - #AFE_PORT_ID_TERTIARY_MI2S_TX_3
+	* - #AFE_PORT_ID_TERTIARY_MI2S_TX_4
+
+	* - #AFE_PORT_ID_QUATERNARY_MI2S_RX_1
+	* - #AFE_PORT_ID_QUATERNARY_MI2S_RX_2
+	* - #AFE_PORT_ID_QUATERNARY_MI2S_RX_3
+	* - #AFE_PORT_ID_QUATERNARY_MI2S_RX_4
+
+	* - #AFE_PORT_ID_QUATERNARY_MI2S_TX_1
+	* - #AFE_PORT_ID_QUATERNARY_MI2S_TX_2
+	* - #AFE_PORT_ID_QUATERNARY_MI2S_TX_3
+	* - #AFE_PORT_ID_QUATERNARY_MI2S_TX_4
+	* @tablebulletend
+	*/
+
+	u16 bit_width;
+	/**< Bit width of the sample.
+	* @values 16, 24, (32)
+	*/
+
+	u16 reserved;
+} __packed;
+
+struct afe_param_id_group_device_enable {
+	u16 group_id;
+	u16 enable;
+} __packed;
+
+union afe_port_group_mi2s_config {
+	struct afe_param_id_group_device_i2s_cfg_v1 i2s_cfg;
+	struct afe_param_id_group_device_enable group_enable;
+} __packed;
+
+struct afe_i2s_port_config {
+	struct afe_param_id_i2s_cfg i2s_cfg;
+	struct afe_param_id_slot_mapping_cfg slot_mapping;
 } __packed;
 
 /*  Payload of the #AFE_PARAM_ID_GROUP_DEVICE_ENABLE

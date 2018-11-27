@@ -124,6 +124,47 @@ struct msm_dai_q6_mi2s_dai_data {
 	struct msm_dai_q6_mi2s_dai_config rx_dai;
 };
 
+static DEFINE_MUTEX(group_mi2s_mutex);
+static atomic_t group_mi2s_ref[IDX_GROUP_MI2S_MAX];
+
+/* cache of mi2s group cfg per parent node */
+static struct afe_param_id_group_device_i2s_cfg_v1 group_mi2s_cfg = {
+	AFE_API_VERSION_GROUP_DEVICE_I2S_CONFIG,
+	AFE_GROUP_DEVICE_ID_TERTIARY_MI2S_TX,
+	AFE_PORT_I2S_QUAD01,
+	48000,
+	{
+	AFE_PORT_ID_INVALID,
+	AFE_PORT_ID_TERTIARY_MI2S_TX_1,
+	AFE_PORT_ID_TERTIARY_MI2S_TX_2,
+	AFE_PORT_ID_INVALID,
+	AFE_PORT_ID_INVALID,
+	AFE_PORT_ID_INVALID,
+	AFE_PORT_ID_INVALID,
+	AFE_PORT_ID_INVALID
+	},
+	32,
+	0,
+};
+
+static struct afe_clk_set group_mi2s_bclk_set = {
+	AFE_API_VERSION_CLOCK_SET,
+	Q6AFE_LPASS_CLK_ID_TER_MI2S_IBIT,
+	Q6AFE_LPASS_IBIT_CLK_3_P072_MHZ,
+	Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_NO,
+	Q6AFE_LPASS_CLK_ROOT_DEFAULT,
+	0,
+};
+
+static struct afe_clk_set group_mi2s_mclk_set = {
+	AFE_API_VERSION_CLOCK_SET,
+	Q6AFE_LPASS_CLK_ID_MCLK_2,
+	Q6AFE_LPASS_OSR_CLK_3_P072_MHZ,
+	Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_NO,
+	Q6AFE_LPASS_CLK_ROOT_DEFAULT,
+	0,
+};
+
 struct msm_dai_q6_auxpcm_dai_data {
 	/* BITMAP to track Rx and Tx port usage count */
 	DECLARE_BITMAP(auxpcm_port_status, STATUS_MAX);
@@ -145,6 +186,19 @@ struct msm_dai_q6_tdm_dai_data {
 	struct afe_clk_set clk_set; /* hold LPASS clock config. */
 	union afe_port_group_config group_cfg; /* hold tdm group config */
 	struct afe_tdm_port_config port_cfg; /* hold tdm config */
+};
+
+struct msm_dai_q6_group_mi2s_dai_data {
+	DECLARE_BITMAP(status_mask, STATUS_MAX);
+	u32 rate;
+	u32 channels;
+	u32 bit_width;
+	u32 num_group_ports;
+	u32 sync_mode;
+	struct afe_clk_set bclk_set;
+	struct afe_clk_set mclk_set;
+	union afe_port_group_mi2s_config group_cfg;
+	struct afe_i2s_port_config port_cfg;
 };
 
 /* MI2S format field for AFE_PORT_CMD_I2S_CONFIG command
@@ -455,6 +509,104 @@ int msm_dai_q6_get_port_idx(u16 id)
 	}
 }
 
+static int msm_dai_q6_get_mi2s_group_idx(u16 id)
+{
+	switch (id) {
+	case AFE_GROUP_DEVICE_ID_SECONDARY_MI2S_RX:
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_1:
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_2:
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_3:
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_4:
+		return IDX_GROUP_SECONDARY_MI2S_RX;
+	case AFE_GROUP_DEVICE_ID_SECONDARY_MI2S_TX:
+	case AFE_PORT_ID_SECONDARY_MI2S_TX_1:
+	case AFE_PORT_ID_SECONDARY_MI2S_TX_2:
+	case AFE_PORT_ID_SECONDARY_MI2S_TX_3:
+	case AFE_PORT_ID_SECONDARY_MI2S_TX_4:
+		return IDX_GROUP_SECONDARY_MI2S_TX;
+	case AFE_GROUP_DEVICE_ID_TERTIARY_MI2S_RX:
+	case AFE_PORT_ID_TERTIARY_MI2S_RX_1:
+	case AFE_PORT_ID_TERTIARY_MI2S_RX_2:
+	case AFE_PORT_ID_TERTIARY_MI2S_RX_3:
+	case AFE_PORT_ID_TERTIARY_MI2S_RX_4:
+		return IDX_GROUP_TERTIARY_MI2S_RX;
+	case AFE_GROUP_DEVICE_ID_TERTIARY_MI2S_TX:
+	case AFE_PORT_ID_TERTIARY_MI2S_TX_1:
+	case AFE_PORT_ID_TERTIARY_MI2S_TX_2:
+	case AFE_PORT_ID_TERTIARY_MI2S_TX_3:
+	case AFE_PORT_ID_TERTIARY_MI2S_TX_4:
+		return IDX_GROUP_TERTIARY_MI2S_TX;
+	case AFE_GROUP_DEVICE_ID_QUATERNARY_MI2S_RX:
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX_1:
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX_2:
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX_3:
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX_4:
+		return IDX_GROUP_QUATERNARY_MI2S_RX;
+	case AFE_GROUP_DEVICE_ID_QUATERNARY_MI2S_TX:
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX_1:
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX_2:
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX_3:
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX_4:
+		return IDX_GROUP_QUATERNARY_MI2S_TX;
+	default: return -EINVAL;
+	}
+}
+
+static int msm_dai_q6_get_mi2s_port_idx(u16 id)
+{
+	switch (id) {
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_1:
+	    return IDX_SECONDARY_MI2S_RX_1;
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_2:
+	    return IDX_SECONDARY_MI2S_RX_2;
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_3:
+	    return IDX_SECONDARY_MI2S_RX_3;
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_4:
+	    return IDX_SECONDARY_MI2S_RX_4;
+	case AFE_PORT_ID_SECONDARY_MI2S_TX_1:
+	    return IDX_SECONDARY_MI2S_TX_1;
+	case AFE_PORT_ID_SECONDARY_MI2S_TX_2:
+	    return IDX_SECONDARY_MI2S_TX_2;
+	case AFE_PORT_ID_SECONDARY_MI2S_TX_3:
+	    return IDX_SECONDARY_MI2S_TX_3;
+	case AFE_PORT_ID_SECONDARY_MI2S_TX_4:
+	    return IDX_SECONDARY_MI2S_TX_4;
+	case AFE_PORT_ID_TERTIARY_MI2S_RX_1:
+	    return IDX_TERTIARY_MI2S_RX_1;
+	case AFE_PORT_ID_TERTIARY_MI2S_RX_2:
+	    return IDX_TERTIARY_MI2S_RX_2;
+	case AFE_PORT_ID_TERTIARY_MI2S_RX_3:
+	    return IDX_TERTIARY_MI2S_RX_3;
+	case AFE_PORT_ID_TERTIARY_MI2S_RX_4:
+	    return IDX_TERTIARY_MI2S_RX_4;
+	case AFE_PORT_ID_TERTIARY_MI2S_TX_1:
+	    return IDX_TERTIARY_MI2S_TX_1;
+	case AFE_PORT_ID_TERTIARY_MI2S_TX_2:
+	    return IDX_TERTIARY_MI2S_TX_2;
+	case AFE_PORT_ID_TERTIARY_MI2S_TX_3:
+	    return IDX_TERTIARY_MI2S_TX_3;
+	case AFE_PORT_ID_TERTIARY_MI2S_TX_4:
+	    return IDX_TERTIARY_MI2S_TX_4;
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX_1:
+	    return IDX_QUATERNARY_MI2S_RX_1;
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX_2:
+	    return IDX_QUATERNARY_MI2S_RX_2;
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX_3:
+	    return IDX_QUATERNARY_MI2S_RX_3;
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX_4:
+	    return IDX_QUATERNARY_MI2S_RX_4;
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX_1:
+	    return IDX_QUATERNARY_MI2S_TX_1;
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX_2:
+	    return IDX_QUATERNARY_MI2S_TX_2;
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX_3:
+	    return IDX_QUATERNARY_MI2S_TX_3;
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX_4:
+	    return IDX_QUATERNARY_MI2S_TX_4;
+	default: return -EINVAL;
+	}
+}
+
 static u16 msm_dai_q6_max_num_slot(int frame_rate)
 {
 	/* Max num of slots is bits per frame divided
@@ -531,7 +683,7 @@ static int msm_dai_q6_auxpcm_hw_params(
 	int rc = 0, slot_mapping_copy_len = 0;
 
 	if (params_channels(params) != 1 || (params_rate(params) != 8000 &&
-	    params_rate(params) != 16000)) {
+		params_rate(params) != 16000)) {
 		dev_err(dai->dev, "%s: invalid param chan %d rate %d\n",
 			__func__, params_channels(params), params_rate(params));
 		return -EINVAL;
@@ -540,7 +692,7 @@ static int msm_dai_q6_auxpcm_hw_params(
 	mutex_lock(&aux_dai_data->rlock);
 
 	if (test_bit(STATUS_TX_PORT, aux_dai_data->auxpcm_port_status) ||
-	    test_bit(STATUS_RX_PORT, aux_dai_data->auxpcm_port_status)) {
+		test_bit(STATUS_RX_PORT, aux_dai_data->auxpcm_port_status)) {
 		/* AUXPCM DAI in use */
 		if (dai_data->rate != params_rate(params)) {
 			dev_err(dai->dev, "%s: rate mismatch of running DAI\n",
@@ -569,7 +721,7 @@ static int msm_dai_q6_auxpcm_hw_params(
 		dai_data->port_config.pcm.num_channels = dai_data->channels;
 		dai_data->port_config.pcm.bit_width = 16;
 		if (ARRAY_SIZE(dai_data->port_config.pcm.slot_number_mapping) <=
-		    auxpcm_pdata->mode_8k.num_slots)
+			auxpcm_pdata->mode_8k.num_slots)
 			slot_mapping_copy_len =
 				ARRAY_SIZE(
 				dai_data->port_config.pcm.slot_number_mapping)
@@ -580,8 +732,8 @@ static int msm_dai_q6_auxpcm_hw_params(
 
 		if (auxpcm_pdata->mode_8k.slot_mapping) {
 			memcpy(dai_data->port_config.pcm.slot_number_mapping,
-			       auxpcm_pdata->mode_8k.slot_mapping,
-			       slot_mapping_copy_len);
+				   auxpcm_pdata->mode_8k.slot_mapping,
+				   slot_mapping_copy_len);
 		} else {
 			dev_err(dai->dev, "%s 8khz slot mapping is NULL\n",
 				__func__);
@@ -605,7 +757,7 @@ static int msm_dai_q6_auxpcm_hw_params(
 		dai_data->port_config.pcm.num_channels = dai_data->channels;
 		dai_data->port_config.pcm.bit_width = 16;
 		if (ARRAY_SIZE(dai_data->port_config.pcm.slot_number_mapping) <=
-		    auxpcm_pdata->mode_16k.num_slots)
+			auxpcm_pdata->mode_16k.num_slots)
 			slot_mapping_copy_len =
 				ARRAY_SIZE(
 				dai_data->port_config.pcm.slot_number_mapping)
@@ -616,8 +768,8 @@ static int msm_dai_q6_auxpcm_hw_params(
 
 		if (auxpcm_pdata->mode_16k.slot_mapping) {
 			memcpy(dai_data->port_config.pcm.slot_number_mapping,
-			       auxpcm_pdata->mode_16k.slot_mapping,
-			       slot_mapping_copy_len);
+				   auxpcm_pdata->mode_16k.slot_mapping,
+				   slot_mapping_copy_len);
 		} else {
 			dev_err(dai->dev, "%s 16khz slot mapping is NULL\n",
 				__func__);
@@ -4322,6 +4474,908 @@ static struct snd_soc_dai_driver msm_dai_q6_mi2s_dai[] = {
 	},
 };
 
+static int msm_dai_q6_group_mi2s_set_clk_param(u32 group_id,
+			struct afe_clk_set *mclk_set,
+			struct afe_clk_set *bclk_set,
+			u32 sync_mode)
+{
+	switch (group_id) {
+	case AFE_GROUP_DEVICE_ID_SECONDARY_MI2S_RX:
+	case AFE_GROUP_DEVICE_ID_SECONDARY_MI2S_TX:
+		if (sync_mode)
+			bclk_set->clk_id = Q6AFE_LPASS_CLK_ID_SEC_MI2S_IBIT;
+		else
+			bclk_set->clk_id = Q6AFE_LPASS_CLK_ID_SEC_MI2S_EBIT;
+		mclk_set->clk_id = Q6AFE_LPASS_CLK_ID_MCLK_1;
+		break;
+	case AFE_GROUP_DEVICE_ID_TERTIARY_MI2S_RX:
+	case AFE_GROUP_DEVICE_ID_TERTIARY_MI2S_TX:
+		if (sync_mode)
+			bclk_set->clk_id = Q6AFE_LPASS_CLK_ID_TER_MI2S_IBIT;
+		else
+			bclk_set->clk_id = Q6AFE_LPASS_CLK_ID_TER_MI2S_EBIT;
+		mclk_set->clk_id = Q6AFE_LPASS_CLK_ID_MCLK_2;
+		break;
+	case AFE_GROUP_DEVICE_ID_QUATERNARY_MI2S_RX:
+	case AFE_GROUP_DEVICE_ID_QUATERNARY_MI2S_TX:
+		if (sync_mode)
+			bclk_set->clk_id = Q6AFE_LPASS_CLK_ID_QUAD_MI2S_IBIT;
+		else
+			bclk_set->clk_id = Q6AFE_LPASS_CLK_ID_QUAD_MI2S_EBIT;
+		mclk_set->clk_id = Q6AFE_LPASS_CLK_ID_MCLK_3;
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int msm_dai_q6_group_mi2s_set_clk(
+		struct msm_dai_q6_group_mi2s_dai_data *dai_data,
+		u16 port_id, bool enable)
+{
+	int rc = 0;
+
+	dai_data->bclk_set.enable = enable;
+	rc = afe_set_lpass_clock_v2(port_id,
+			&dai_data->bclk_set);
+	if (rc < 0)
+		pr_err("%s: afe lpass bclk failed, err: %d\n",
+		__func__, rc);
+
+	/*non zero mclk freq value means to enable mclk for mi2s intf*/
+	if (dai_data->mclk_set.clk_freq_in_hz != 0) {
+		dai_data->mclk_set.enable = enable;
+		rc = afe_set_lpass_clock_v2(port_id,
+				&dai_data->mclk_set);
+		if (rc < 0)
+			pr_err("%s: afe lpass mclk failed, err: %d\n",
+			__func__, rc);
+	}
+	return rc;
+}
+
+static int msm_dai_q6_dai_group_mi2s_probe(struct snd_soc_dai *dai)
+{
+	int rc = 0;
+
+	msm_dai_q6_set_dai_id(dai);
+	rc = msm_dai_q6_dai_add_route(dai);
+	return rc;
+}
+
+static int msm_dai_q6_dai_group_mi2s_remove(struct snd_soc_dai *dai)
+{
+	int rc = 0;
+	struct msm_dai_q6_group_mi2s_dai_data *dai_data =
+		dev_get_drvdata(dai->dev);
+	u16 group_id = dai_data->group_cfg.i2s_cfg.group_id;
+	int group_idx = 0;
+	atomic_t *group_ref = NULL;
+
+	dev_dbg(dai->dev, "%s rc %d", __func__, rc);
+
+	group_idx = msm_dai_q6_get_mi2s_group_idx(dai->id);
+	if (group_idx < 0 || group_idx > IDX_GROUP_MI2S_MAX) {
+		dev_err(dai->dev, "%s: port id 0x%x not supported\n",
+			__func__, dai->id);
+		return -EINVAL;
+	}
+
+	group_ref = &group_mi2s_ref[group_idx];
+
+	/* if AFE port is still up, close it */
+	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
+		rc = afe_close(dai->id); /* can block */
+		if (IS_ERR_VALUE(rc)) {
+			dev_err(dai->dev, "%s: fail to close Group MI2S port 0x%x\n",
+				 __func__, dai->id);
+		}
+		atomic_dec(group_ref);
+		clear_bit(STATUS_PORT_STARTED, dai_data->status_mask);
+
+		if (atomic_read(group_ref) == 0) {
+			rc = afe_port_group_mi2s_enable(group_id, NULL, false);
+			if (IS_ERR_VALUE(rc)) {
+				dev_err(dai->dev, "%s: fail to disable Group MI2S group 0x%x\n",
+				__func__, group_id);
+			}
+			rc = msm_dai_q6_group_mi2s_set_clk(dai_data,
+				dai->id, false);
+			if (IS_ERR_VALUE(rc)) {
+				dev_err(dai->dev, "%s: fail to disable AFE clk 0x%x\n",
+				__func__, dai->id);
+			}
+		}
+	 }
+	return 0;
+}
+
+static int msm_dai_q6_group_mi2s_set_channel_map(struct snd_soc_dai *dai,
+			unsigned int tx_num, unsigned int *tx_slot,
+			unsigned int rx_num, unsigned int *rx_slot)
+{
+	int rc = 0;
+	struct msm_dai_q6_group_mi2s_dai_data *dai_data =
+			dev_get_drvdata(dai->dev);
+	int i = 0;
+
+	switch (dai->id) {
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_1:
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_2:
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_3:
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_4:
+	case AFE_PORT_ID_TERTIARY_MI2S_RX_1:
+	case AFE_PORT_ID_TERTIARY_MI2S_RX_2:
+	case AFE_PORT_ID_TERTIARY_MI2S_RX_3:
+	case AFE_PORT_ID_TERTIARY_MI2S_RX_4:
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX_1:
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX_2:
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX_3:
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX_4:
+		if (!rx_slot) {
+			dev_err(dai->dev, "%s: rx slot not found\n",
+			 __func__);
+			return -EINVAL;
+		}
+		for (i = 0; i < rx_num; i++)
+			dai_data->port_cfg.slot_mapping.offset[i] = rx_slot[i];
+		for (i = rx_num; i < AFE_PORT_MAX_AUDIO_CHAN_CNT; i++)
+			dai_data->port_cfg.slot_mapping.offset[i] =
+				AFE_SLOT_MAPPING_OFFSET_INVALID;
+		dai_data->port_cfg.slot_mapping.num_channel = rx_num;
+		break;
+	case AFE_PORT_ID_SECONDARY_MI2S_TX_1:
+	case AFE_PORT_ID_SECONDARY_MI2S_TX_2:
+	case AFE_PORT_ID_SECONDARY_MI2S_TX_3:
+	case AFE_PORT_ID_SECONDARY_MI2S_TX_4:
+	case AFE_PORT_ID_TERTIARY_MI2S_TX_1:
+	case AFE_PORT_ID_TERTIARY_MI2S_TX_2:
+	case AFE_PORT_ID_TERTIARY_MI2S_TX_3:
+	case AFE_PORT_ID_TERTIARY_MI2S_TX_4:
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX_1:
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX_2:
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX_3:
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX_4:
+	if (!tx_slot) {
+		dev_err(dai->dev, "%s: tx slot not found\n",
+		__func__);
+		return -EINVAL;
+	}
+	for (i = 0; i < tx_num; i++)
+		dai_data->port_cfg.slot_mapping.offset[i] = tx_slot[i];
+	for (i = tx_num; i < AFE_PORT_MAX_AUDIO_CHAN_CNT; i++)
+		dai_data->port_cfg.slot_mapping.offset[i] =
+			AFE_SLOT_MAPPING_OFFSET_INVALID;
+
+	dai_data->port_cfg.slot_mapping.num_channel = tx_num;
+	break;
+	default:
+		dev_err(dai->dev, "%s: invalid dai id 0x%x\n",
+			__func__, dai->id);
+		return -EINVAL;
+	}
+
+	return rc;
+}
+
+static int msm_dai_q6_group_mi2s_hw_params(struct snd_pcm_substream *substream,
+			struct snd_pcm_hw_params *params,
+			struct snd_soc_dai *dai)
+{
+	struct msm_dai_q6_group_mi2s_dai_data *dai_data =
+			dev_get_drvdata(dai->dev);
+	struct afe_param_id_group_device_i2s_cfg_v1 *group_mi2s_cfg =
+			&dai_data->group_cfg.i2s_cfg;
+	struct afe_param_id_i2s_cfg *dev_i2s_cfg =
+			&dai_data->port_cfg.i2s_cfg;
+	struct afe_param_id_slot_mapping_cfg *slot_mapping =
+			&dai_data->port_cfg.slot_mapping;
+
+	/* update group_mi2s group config param */
+	dai_data->channels = params_channels(params);
+	dai_data->rate = params_rate(params);
+
+	switch (params_format(params)) {
+	case SNDRV_PCM_FORMAT_S16_LE:
+	case SNDRV_PCM_FORMAT_SPECIAL:
+		dai_data->bit_width = 16;
+		break;
+	case SNDRV_PCM_FORMAT_S24_LE:
+	case SNDRV_PCM_FORMAT_S24_3LE:
+		dai_data->bit_width = 24;
+		break;
+	default:
+		pr_err("%s: format %d\n",
+			__func__, params_format(params));
+		return -EINVAL;
+	}
+
+	/* update group_mi2s config param */
+	group_mi2s_cfg->sample_rate = dai_data->rate;
+	group_mi2s_cfg->bit_width = dai_data->bit_width;
+	pr_debug("%s: Group MI2S GROUP 0x%x:\n"
+		"channel_mode = %d sample_rate = %d bit_width = %d\n",
+		__func__, group_mi2s_cfg->group_id,
+		group_mi2s_cfg->channel_mode,
+		group_mi2s_cfg->sample_rate,
+		group_mi2s_cfg->bit_width);
+	pr_debug("%s: Group MI2S GROUP 0x%x:\n"
+		"port_id[0]=0x%x port_id[1]=0x%x port_id[2]=0x%x port_id[3]=0x%x\n"
+		"port_id[4]=0x%x port_id[5]=0x%x port_id[6]=0x%x port_id[7]=0x%x\n",
+		__func__, group_mi2s_cfg->group_id,
+		group_mi2s_cfg->port_id[0],
+		group_mi2s_cfg->port_id[1],
+		group_mi2s_cfg->port_id[2],
+		group_mi2s_cfg->port_id[3],
+		group_mi2s_cfg->port_id[4],
+		group_mi2s_cfg->port_id[5],
+		group_mi2s_cfg->port_id[6],
+		group_mi2s_cfg->port_id[7]);
+	/*i2s port cfg*/
+	dev_i2s_cfg->i2s_cfg_minor_version =
+		AFE_API_VERSION_I2S_CONFIG;
+	dev_i2s_cfg->bit_width = group_mi2s_cfg->bit_width;
+	dev_i2s_cfg->mono_stereo = AFE_PORT_I2S_STEREO;
+	dev_i2s_cfg->sample_rate = group_mi2s_cfg->sample_rate;
+	dev_i2s_cfg->data_format = AFE_LINEAR_PCM_DATA;
+	dev_i2s_cfg->ws_src = dai_data->sync_mode;
+	pr_debug("%s: MI2S port:\n"
+		"dai id %d dai_data->channels = %d\n"
+		"sample_rate = %u i2s_cfg_minor_version = 0x%x\n"
+		"bit_width = %hu  channel_mode = 0x%x mono_stereo = %#x\n"
+		"ws_src = 0x%x sample_rate = %u data_format = 0x%x\n"
+		"reserved = %u\n", __func__, dai->id, dai_data->channels,
+		dai_data->rate, dev_i2s_cfg->i2s_cfg_minor_version,
+		dev_i2s_cfg->bit_width, dev_i2s_cfg->channel_mode,
+		dev_i2s_cfg->mono_stereo, dev_i2s_cfg->ws_src,
+		dev_i2s_cfg->sample_rate, dev_i2s_cfg->data_format,
+		dev_i2s_cfg->reserved);
+
+	/*slot mapping cfg*/
+	slot_mapping->minor_version =
+		AFE_API_VERSION_SLOT_MAPPING_CONFIG;
+	slot_mapping->bitwidth = group_mi2s_cfg->bit_width;
+	slot_mapping->data_align_type =
+		AFE_SLOT_MAPPING_DATA_ALIGN_MSB;
+	pr_debug("%s: Group MI2S port 0x%x SLOT MAPPING:\n"
+		"num_channel=%d bitwidth=%d data_align=0x%x\n",
+		__func__, dai->id,
+		slot_mapping->num_channel,
+		slot_mapping->bitwidth,
+		slot_mapping->data_align_type);
+	pr_debug("%s: Group MI2S port 0x%x SLOT MAPPING:\n"
+		"offset[0]=0x%x offset[1]=0x%x offset[2]=0x%x offset[3]=0x%x\n"
+		"offset[4]=0x%x offset[5]=0x%x offset[6]=0x%x offset[7]=0x%x\n",
+		__func__, dai->id,
+		slot_mapping->offset[0],
+		slot_mapping->offset[1],
+		slot_mapping->offset[2],
+		slot_mapping->offset[3],
+		slot_mapping->offset[4],
+		slot_mapping->offset[5],
+		slot_mapping->offset[6],
+		slot_mapping->offset[7]);
+
+	return 0;
+}
+
+static int msm_dai_q6_group_mi2s_prepare(struct snd_pcm_substream *substream,
+			struct snd_soc_dai *dai)
+{
+	int rc = 0;
+	struct msm_dai_q6_group_mi2s_dai_data *dai_data =
+		dev_get_drvdata(dai->dev);
+	u16 group_id = dai_data->group_cfg.i2s_cfg.group_id;
+	int group_idx = 0;
+	atomic_t *group_ref = NULL;
+
+	group_idx = msm_dai_q6_get_mi2s_group_idx(dai->id);
+	if (group_idx < 0 || group_idx > IDX_GROUP_MI2S_MAX) {
+		dev_err(dai->dev, "%s port id 0x%x not supported\n",
+			__func__, dai->id);
+		return -EINVAL;
+	}
+
+	mutex_lock(&group_mi2s_mutex);
+
+	group_ref = &group_mi2s_ref[group_idx];
+
+	if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
+		/* PORT START should be set if prepare called
+		 * in active state.
+		 */
+		if (atomic_read(group_ref) == 0) {
+			/*
+			 * TX and RX share the same clk.
+			 * AFE clk is enabled per group to simplify the logic.
+			 * DSP will monitor the clk count.
+			 */
+			rc = msm_dai_q6_group_mi2s_set_clk(dai_data,
+				dai->id, true);
+			if (IS_ERR_VALUE(rc)) {
+				dev_err(dai->dev, "%s: fail to enable AFE clk 0x%x\n",
+					__func__, dai->id);
+				goto rtn;
+			}
+
+			/*
+			 * if only one port, don't do group enable as there
+			 * is no group need for only one port
+			 */
+			if (dai_data->num_group_ports > 1) {
+				rc = afe_port_group_mi2s_enable(group_id,
+					&dai_data->group_cfg, true);
+				if (IS_ERR_VALUE(rc)) {
+					dev_err(dai->dev,
+					"%s: fail to enable AFE group 0x%x\n",
+					__func__, group_id);
+					goto rtn;
+				}
+			}
+		}
+
+		rc = afe_i2s_port_start(dai->id, &dai_data->port_cfg,
+			dai_data->rate, dai_data->num_group_ports);
+		if (IS_ERR_VALUE(rc)) {
+			if (atomic_read(group_ref) == 0) {
+				afe_port_group_mi2s_enable(group_id,
+					NULL, false);
+				msm_dai_q6_group_mi2s_set_clk(dai_data,
+					dai->id, false);
+			}
+			dev_err(dai->dev, "%s: fail to open AFE port 0x%x\n",
+				__func__, dai->id);
+		} else {
+			set_bit(STATUS_PORT_STARTED,
+				dai_data->status_mask);
+			atomic_inc(group_ref);
+		}
+	}
+
+rtn:
+	mutex_unlock(&group_mi2s_mutex);
+	return rc;
+}
+
+static void msm_dai_q6_group_mi2s_shutdown(struct snd_pcm_substream *substream,
+				struct snd_soc_dai *dai)
+{
+	int rc = 0;
+	struct msm_dai_q6_group_mi2s_dai_data *dai_data =
+		dev_get_drvdata(dai->dev);
+	u16 group_id = dai_data->group_cfg.i2s_cfg.group_id;
+	int group_idx = 0;
+	atomic_t *group_ref = NULL;
+
+	group_idx = msm_dai_q6_get_mi2s_group_idx(dai->id);
+	if (group_idx < 0 || group_idx > IDX_GROUP_MI2S_MAX) {
+		dev_err(dai->dev, "%s port id 0x%x not supported\n",
+			__func__, dai->id);
+		return;
+	}
+
+	mutex_lock(&group_mi2s_mutex);
+	group_ref = &group_mi2s_ref[group_idx];
+
+	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
+		rc = afe_close(dai->id);
+		if (IS_ERR_VALUE(rc)) {
+			dev_err(dai->dev, "%s: fail to close AFE port 0x%x\n",
+				__func__, dai->id);
+		}
+		atomic_dec(group_ref);
+		clear_bit(STATUS_PORT_STARTED,
+			dai_data->status_mask);
+
+		if (atomic_read(group_ref) == 0) {
+			rc = afe_port_group_mi2s_enable(group_id,
+				NULL, false);
+			if (IS_ERR_VALUE(rc)) {
+				dev_err(dai->dev, "%s: fail to disable AFE group 0x%x\n",
+					__func__, group_id);
+			}
+			rc = msm_dai_q6_group_mi2s_set_clk(dai_data,
+				dai->id, false);
+			if (IS_ERR_VALUE(rc)) {
+				dev_err(dai->dev, "%s: fail to disable AFE clk 0x%x\n",
+					__func__, dai->id);
+			}
+		}
+	}
+
+	mutex_unlock(&group_mi2s_mutex);
+}
+
+static struct snd_soc_dai_ops msm_dai_q6_group_mi2s_ops = {
+	.prepare          = msm_dai_q6_group_mi2s_prepare,
+	.hw_params        = msm_dai_q6_group_mi2s_hw_params,
+	.set_channel_map  = msm_dai_q6_group_mi2s_set_channel_map,
+	.shutdown         = msm_dai_q6_group_mi2s_shutdown,
+};
+
+static struct snd_soc_dai_driver msm_dai_q6_group_mi2s_dai[] = {
+	{
+		.playback = {
+			.stream_name = "Secondary MI2S1 Playback",
+			.aif_name = "SEC_MI2S_RX_1",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
+				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
+				SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
+				SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+				SNDRV_PCM_RATE_192000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE,
+			.rate_min = 8000,
+			.rate_max = 192000,
+		},
+		.ops = &msm_dai_q6_group_mi2s_ops,
+		.id = AFE_PORT_ID_SECONDARY_MI2S_RX_1,
+		.probe = msm_dai_q6_dai_group_mi2s_probe,
+		.remove = msm_dai_q6_dai_group_mi2s_remove,
+	},
+	{
+		.playback = {
+			.stream_name = "Secondary MI2S2 Playback",
+			.aif_name = "SEC_MI2S_RX_2",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
+				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
+				SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
+				SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+				SNDRV_PCM_RATE_192000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE,
+			.rate_min = 8000,
+			.rate_max = 192000,
+		},
+		.ops = &msm_dai_q6_group_mi2s_ops,
+		.id = AFE_PORT_ID_SECONDARY_MI2S_RX_2,
+		.probe = msm_dai_q6_dai_group_mi2s_probe,
+		.remove = msm_dai_q6_dai_group_mi2s_remove,
+	},
+	{
+		.playback = {
+			.stream_name = "Secondary MI2S3 Playback",
+			.aif_name = "SEC_MI2S_RX_3",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
+				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
+				SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
+				SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+				SNDRV_PCM_RATE_192000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE,
+			.rate_min = 8000,
+			.rate_max = 192000,
+		},
+		.ops = &msm_dai_q6_group_mi2s_ops,
+		.id = AFE_PORT_ID_SECONDARY_MI2S_RX_3,
+		.probe = msm_dai_q6_dai_group_mi2s_probe,
+		.remove = msm_dai_q6_dai_group_mi2s_remove,
+	},
+	{
+		.playback = {
+			.stream_name = "Secondary MI2S4 Playback",
+			.aif_name = "SEC_MI2S_RX_4",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
+				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
+				SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
+				SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+				SNDRV_PCM_RATE_192000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE,
+			.rate_min = 8000,
+			.rate_max = 192000,
+		},
+		.ops = &msm_dai_q6_group_mi2s_ops,
+		.id = AFE_PORT_ID_SECONDARY_MI2S_RX_4,
+		.probe = msm_dai_q6_dai_group_mi2s_probe,
+		.remove = msm_dai_q6_dai_group_mi2s_remove,
+	},
+	{
+		.capture = {
+			.stream_name = "Secondary MI2S1 Capture",
+			.aif_name = "SEC_MI2S_TX_1",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
+				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
+				SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
+				SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+				SNDRV_PCM_RATE_192000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE,
+			.rate_min = 8000,
+			.rate_max = 192000,
+		},
+		.ops = &msm_dai_q6_group_mi2s_ops,
+		.id = AFE_PORT_ID_SECONDARY_MI2S_TX_1,
+		.probe = msm_dai_q6_dai_group_mi2s_probe,
+		.remove = msm_dai_q6_dai_group_mi2s_remove,
+	},
+	{
+		.capture = {
+			.stream_name = "Secondary MI2S2 Capture",
+			.aif_name = "SEC_MI2S_TX_2",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
+				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
+				SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
+				SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+				SNDRV_PCM_RATE_192000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE,
+			.rate_min = 8000,
+			.rate_max = 192000,
+		},
+		.ops = &msm_dai_q6_group_mi2s_ops,
+		.id = AFE_PORT_ID_SECONDARY_MI2S_TX_2,
+		.probe = msm_dai_q6_dai_group_mi2s_probe,
+		.remove = msm_dai_q6_dai_group_mi2s_remove,
+	},
+	{
+		.capture = {
+			.stream_name = "Secondary MI2S3 Capture",
+			.aif_name = "SEC_MI2S_TX_3",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
+				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
+				SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
+				SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+				SNDRV_PCM_RATE_192000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE,
+			.rate_min = 8000,
+			.rate_max = 192000,
+		},
+		.ops = &msm_dai_q6_group_mi2s_ops,
+		.id = AFE_PORT_ID_SECONDARY_MI2S_TX_3,
+		.probe = msm_dai_q6_dai_group_mi2s_probe,
+		.remove = msm_dai_q6_dai_group_mi2s_remove,
+	},
+	{
+		.capture = {
+			.stream_name = "Secondary MI2S4 Capture",
+			.aif_name = "SEC_MI2S_TX_4",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
+				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
+				SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
+				SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+				SNDRV_PCM_RATE_192000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE,
+			.rate_min = 8000,
+			.rate_max = 192000,
+		},
+		.ops = &msm_dai_q6_group_mi2s_ops,
+		.id = AFE_PORT_ID_SECONDARY_MI2S_TX_4,
+		.probe = msm_dai_q6_dai_group_mi2s_probe,
+		.remove = msm_dai_q6_dai_group_mi2s_remove,
+	},
+	{
+		.playback = {
+			.stream_name = "Tertiary MI2S1 Playback",
+			.aif_name = "TERT_MI2S_RX_1",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
+				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
+				SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
+				SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+				SNDRV_PCM_RATE_192000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE,
+			.rate_min = 8000,
+			.rate_max = 192000,
+		},
+		.ops = &msm_dai_q6_group_mi2s_ops,
+		.id = AFE_PORT_ID_TERTIARY_MI2S_RX_1,
+		.probe = msm_dai_q6_dai_group_mi2s_probe,
+		.remove = msm_dai_q6_dai_group_mi2s_remove,
+	},
+	{
+		.playback = {
+			.stream_name = "Tertiary MI2S2 Playback",
+			.aif_name = "TERT_MI2S_RX_2",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
+				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
+				SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
+				SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+				SNDRV_PCM_RATE_192000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE,
+			.rate_min = 8000,
+			.rate_max = 192000,
+		},
+		.ops = &msm_dai_q6_group_mi2s_ops,
+		.id = AFE_PORT_ID_TERTIARY_MI2S_RX_2,
+		.probe = msm_dai_q6_dai_group_mi2s_probe,
+		.remove = msm_dai_q6_dai_group_mi2s_remove,
+	},
+	{
+		.playback = {
+			.stream_name = "Tertiary MI2S3 Playback",
+			.aif_name = "TERT_MI2S_RX_3",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
+				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
+				SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
+				SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+				SNDRV_PCM_RATE_192000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE,
+			.rate_min = 8000,
+			.rate_max = 192000,
+		},
+		.ops = &msm_dai_q6_group_mi2s_ops,
+		.id = AFE_PORT_ID_TERTIARY_MI2S_RX_3,
+		.probe = msm_dai_q6_dai_group_mi2s_probe,
+		.remove = msm_dai_q6_dai_group_mi2s_remove,
+	},
+	{
+		.playback = {
+			.stream_name = "Tertiary MI2S4 Playback",
+			.aif_name = "TERT_MI2S_RX_4",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
+				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
+				SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
+				SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+				SNDRV_PCM_RATE_192000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE,
+			.rate_min = 8000,
+			.rate_max = 192000,
+		},
+		.ops = &msm_dai_q6_group_mi2s_ops,
+		.id = AFE_PORT_ID_TERTIARY_MI2S_RX_4,
+		.probe = msm_dai_q6_dai_group_mi2s_probe,
+		.remove = msm_dai_q6_dai_group_mi2s_remove,
+	},
+	{
+		.capture = {
+			.stream_name = "Tertiary MI2S1 Capture",
+			.aif_name = "TERT_MI2S_TX_1",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
+				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
+				SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
+				SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+				SNDRV_PCM_RATE_192000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE,
+			.rate_min = 8000,
+			.rate_max = 192000,
+		},
+		.ops = &msm_dai_q6_group_mi2s_ops,
+		.id = AFE_PORT_ID_TERTIARY_MI2S_TX_1,
+		.probe = msm_dai_q6_dai_group_mi2s_probe,
+		.remove = msm_dai_q6_dai_group_mi2s_remove,
+	},
+	{
+		.capture = {
+			.stream_name = "Tertiary MI2S2 Capture",
+			.aif_name = "TERT_MI2S_TX_2",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
+				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
+				SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
+				SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+				SNDRV_PCM_RATE_192000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE,
+			.rate_min = 8000,
+			.rate_max = 192000,
+		},
+		.ops = &msm_dai_q6_group_mi2s_ops,
+		.id = AFE_PORT_ID_TERTIARY_MI2S_TX_2,
+		.probe = msm_dai_q6_dai_group_mi2s_probe,
+		.remove = msm_dai_q6_dai_group_mi2s_remove,
+	},
+	{
+		.capture = {
+			.stream_name = "Tertiary MI2S3 Capture",
+			.aif_name = "TERT_MI2S_TX_3",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
+				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
+				SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
+				SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+				SNDRV_PCM_RATE_192000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE,
+			.rate_min = 8000,
+			.rate_max = 192000,
+		},
+		.ops = &msm_dai_q6_group_mi2s_ops,
+		.id = AFE_PORT_ID_TERTIARY_MI2S_TX_3,
+		.probe = msm_dai_q6_dai_group_mi2s_probe,
+		.remove = msm_dai_q6_dai_group_mi2s_remove,
+	},
+	{
+		.capture = {
+			.stream_name = "Tertiary MI2S4 Capture",
+			.aif_name = "TERT_MI2S_TX_4",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
+				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
+				SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
+				SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+				SNDRV_PCM_RATE_192000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE,
+			.rate_min = 8000,
+			.rate_max = 192000,
+		},
+		.ops = &msm_dai_q6_group_mi2s_ops,
+		.id = AFE_PORT_ID_TERTIARY_MI2S_TX_4,
+		.probe = msm_dai_q6_dai_group_mi2s_probe,
+		.remove = msm_dai_q6_dai_group_mi2s_remove,
+	},
+	{
+		.playback = {
+			.stream_name = "Quaternary MI2S1 Playback",
+			.aif_name = "QUAT_MI2S_RX_1",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
+				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
+				SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
+				SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+				SNDRV_PCM_RATE_192000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE,
+			.rate_min = 8000,
+			.rate_max = 192000,
+		},
+		.ops = &msm_dai_q6_group_mi2s_ops,
+		.id = AFE_PORT_ID_QUATERNARY_MI2S_RX_1,
+		.probe = msm_dai_q6_dai_group_mi2s_probe,
+		.remove = msm_dai_q6_dai_group_mi2s_remove,
+	},
+	{
+		.playback = {
+			.stream_name = "Quaternary MI2S2 Playback",
+			.aif_name = "QUAT_MI2S_RX_2",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
+				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
+				SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
+				SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+				SNDRV_PCM_RATE_192000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE,
+			.rate_min = 8000,
+			.rate_max = 192000,
+		},
+		.ops = &msm_dai_q6_group_mi2s_ops,
+		.id = AFE_PORT_ID_QUATERNARY_MI2S_RX_2,
+		.probe = msm_dai_q6_dai_group_mi2s_probe,
+		.remove = msm_dai_q6_dai_group_mi2s_remove,
+	},
+	{
+		.playback = {
+			.stream_name = "Quaternary MI2S3 Playback",
+			.aif_name = "QUAT_MI2S_RX_3",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
+				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
+				SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
+				SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+				SNDRV_PCM_RATE_192000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE,
+			.rate_min = 8000,
+			.rate_max = 192000,
+		},
+		.ops = &msm_dai_q6_group_mi2s_ops,
+		.id = AFE_PORT_ID_QUATERNARY_MI2S_RX_3,
+		.probe = msm_dai_q6_dai_group_mi2s_probe,
+		.remove = msm_dai_q6_dai_group_mi2s_remove,
+	},
+	{
+		.playback = {
+			.stream_name = "Quaternary MI2S4 Playback",
+			.aif_name = "QUAT_MI2S_RX_4",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
+				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
+				SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
+				SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+				SNDRV_PCM_RATE_192000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE,
+			.rate_min = 8000,
+			.rate_max = 192000,
+		},
+		.ops = &msm_dai_q6_group_mi2s_ops,
+		.id = AFE_PORT_ID_QUATERNARY_MI2S_RX_4,
+		.probe = msm_dai_q6_dai_group_mi2s_probe,
+		.remove = msm_dai_q6_dai_group_mi2s_remove,
+	},
+	{
+		.capture = {
+			.stream_name = "Quaternary MI2S1 Capture",
+			.aif_name = "QUAT_MI2S_TX_1",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
+				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
+				SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
+				SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+				SNDRV_PCM_RATE_192000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE,
+			.rate_min = 8000,
+			.rate_max = 192000,
+		},
+		.ops = &msm_dai_q6_group_mi2s_ops,
+		.id = AFE_PORT_ID_QUATERNARY_MI2S_TX_1,
+		.probe = msm_dai_q6_dai_group_mi2s_probe,
+		.remove = msm_dai_q6_dai_group_mi2s_remove,
+	},
+	{
+		.capture = {
+			.stream_name = "Quaternary MI2S2 Capture",
+			.aif_name = "QUAT_MI2S_TX_2",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
+				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
+				SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
+				SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+				SNDRV_PCM_RATE_192000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE,
+			.rate_min = 8000,
+			.rate_max = 192000,
+		},
+		.ops = &msm_dai_q6_group_mi2s_ops,
+		.id = AFE_PORT_ID_QUATERNARY_MI2S_TX_2,
+		.probe = msm_dai_q6_dai_group_mi2s_probe,
+		.remove = msm_dai_q6_dai_group_mi2s_remove,
+	},
+	{
+		.capture = {
+			.stream_name = "Quaternary MI2S3 Capture",
+			.aif_name = "QUAT_MI2S_TX_3",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
+				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
+				SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
+				SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+				SNDRV_PCM_RATE_192000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE,
+			.rate_min = 8000,
+			.rate_max = 192000,
+		},
+		.ops = &msm_dai_q6_group_mi2s_ops,
+		.id = AFE_PORT_ID_QUATERNARY_MI2S_TX_3,
+		.probe = msm_dai_q6_dai_group_mi2s_probe,
+		.remove = msm_dai_q6_dai_group_mi2s_remove,
+	},
+	{
+		.capture = {
+			.stream_name = "Quaternary MI2S4 Capture",
+			.aif_name = "QUAT_MI2S_TX_4",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
+				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
+				SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
+				SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+				SNDRV_PCM_RATE_192000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE,
+			.rate_min = 8000,
+			.rate_max = 192000,
+		},
+		.ops = &msm_dai_q6_group_mi2s_ops,
+		.id = AFE_PORT_ID_QUATERNARY_MI2S_TX_4,
+		.probe = msm_dai_q6_dai_group_mi2s_probe,
+		.remove = msm_dai_q6_dai_group_mi2s_remove,
+	}
+};
 
 static int msm_dai_q6_mi2s_get_lineconfig(u16 sd_lines, u16 *config_ptr,
 					  unsigned int *ch_cnt)
@@ -4920,6 +5974,297 @@ static struct platform_driver msm_dai_q6_mi2s_driver = {
 		.name = "msm-dai-q6-mi2s",
 		.owner = THIS_MODULE,
 		.of_match_table = msm_dai_q6_mi2s_dev_dt_match,
+	},
+};
+
+static int msm_dai_group_mi2s_probe(struct platform_device *pdev)
+{
+	int rc = 0;
+
+	/* probe child node info */
+	rc = of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
+	if (rc) {
+		dev_err(&pdev->dev, "%s: failed to add child nodes, rc=%d\n",
+			__func__, rc);
+		goto rtn;
+	} else
+		dev_dbg(&pdev->dev, "%s: added child node\n", __func__);
+
+rtn:
+	return rc;
+}
+
+static int msm_dai_group_mi2s_remove(struct platform_device *pdev)
+{
+	return 0;
+}
+
+static int msm_dai_q6_group_mi2s_dev_id_validation(u32 dev_id)
+{
+	switch (dev_id) {
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_1:
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_2:
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_3:
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_4:
+	case AFE_PORT_ID_SECONDARY_MI2S_TX_1:
+	case AFE_PORT_ID_SECONDARY_MI2S_TX_2:
+	case AFE_PORT_ID_SECONDARY_MI2S_TX_3:
+	case AFE_PORT_ID_SECONDARY_MI2S_TX_4:
+	case AFE_PORT_ID_TERTIARY_MI2S_RX_1:
+	case AFE_PORT_ID_TERTIARY_MI2S_RX_2:
+	case AFE_PORT_ID_TERTIARY_MI2S_RX_3:
+	case AFE_PORT_ID_TERTIARY_MI2S_RX_4:
+	case AFE_PORT_ID_TERTIARY_MI2S_TX_1:
+	case AFE_PORT_ID_TERTIARY_MI2S_TX_2:
+	case AFE_PORT_ID_TERTIARY_MI2S_TX_3:
+	case AFE_PORT_ID_TERTIARY_MI2S_TX_4:
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX_1:
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX_2:
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX_3:
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX_4:
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX_1:
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX_2:
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX_3:
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX_4:
+		return 0;
+	default:
+		return -EINVAL;
+	}
+}
+
+static const struct snd_soc_component_driver msm_q6_group_mi2s_dai_component = {
+	.name = "msm-dai-q6-mi2s-group",
+};
+
+static int msm_dai_group_mi2s_dev_probe(struct platform_device *pdev)
+{
+	int rc = 0;
+	struct msm_dai_q6_group_mi2s_dai_data *dai_data = NULL;
+	u32 mi2s_dev_id = 0;
+	u32 ch_mode = 0;
+	int port_idx = 0;
+	struct device_node *mi2s_parent_node = NULL;
+	u32 num_group_mi2s_ports = 0;
+	const uint32_t *port_id_array = NULL;
+	u32 array_length, i = 0;
+	u32 group_idx = 0;
+	u32 sync_mode = 0;
+
+	mi2s_parent_node = of_get_parent(pdev->dev.of_node);
+	/* extract mi2s group info into static */
+	rc = of_property_read_u32(mi2s_parent_node,
+			"qcom,msm-cpudai-mi2s-group-id",
+			(u32 *)&group_mi2s_cfg.group_id);
+	if (rc) {
+		dev_err(&pdev->dev, "%s: Group ID from DT file %s\n",
+			__func__, "qcom,msm-cpudai-mi2s-group-id");
+		goto rtn;
+	}
+
+	rc = of_property_read_u32(mi2s_parent_node,
+			"qcom,msm-cpudai-mi2s-group-num-ports",
+			&num_group_mi2s_ports);
+	if (rc) {
+		dev_err(&pdev->dev, "%s: ch_mode from DT file %s\n",
+			__func__, "qcom,msm-cpudai-mi2s-group-num-ports");
+		goto rtn;
+	}
+
+	if (num_group_mi2s_ports > AFE_GROUP_DEVICE_NUM_PORTS) {
+		dev_err(&pdev->dev, "%s: Group Num Ports %d greater than Man %d\n",
+			__func__, num_group_mi2s_ports,
+			AFE_GROUP_DEVICE_NUM_PORTS);
+		rc = -EINVAL;
+		goto rtn;
+	}
+
+	port_id_array = of_get_property(mi2s_parent_node,
+				"qcom,msm-cpudai-mi2s-group-port-id",
+				&array_length);
+	if (port_id_array == NULL) {
+		dev_err(&pdev->dev, "%s: prot_id_array is not valid\n",
+			__func__);
+		rc = -EINVAL;
+		goto rtn;
+	}
+	if (array_length != sizeof(uint32_t) * num_group_mi2s_ports) {
+		dev_err(&pdev->dev, "%s array_length is %d, expected is %zd\n",
+			__func__, array_length,
+			sizeof(uint32_t) * num_group_mi2s_ports);
+		rc = -EINVAL;
+		goto rtn;
+	}
+
+	for (i = 0; i < num_group_mi2s_ports; i++)
+		group_mi2s_cfg.port_id[i] = (u16)be32_to_cpu(port_id_array[i]);
+	/* Unused index should be filled with AFE_PORT_INVALID */
+	for (i = num_group_mi2s_ports; i < AFE_GROUP_DEVICE_NUM_PORTS; i++)
+		group_mi2s_cfg.port_id[i] = AFE_PORT_INVALID;
+
+	/*extract group_mi2s group sd line info into static */
+	rc = of_property_read_u32(mi2s_parent_node,
+			"qcom,msm-cpudai-mi2s-channel-mode",
+			&ch_mode);
+	if (rc) {
+		dev_err(&pdev->dev, "%s: ch_mode from DT file %s\n",
+			__func__, "qcom,msm-cpudai-mi2s-channel-mode");
+		goto rtn;
+	}
+
+	group_mi2s_cfg.channel_mode = ch_mode;
+	group_mi2s_cfg.minor_version = AFE_API_VERSION_I2S_CONFIG;
+	group_idx = msm_dai_q6_get_mi2s_group_idx(group_mi2s_cfg.group_id);
+	if (group_idx < 0 || group_idx > IDX_GROUP_MI2S_MAX) {
+		dev_err(&pdev->dev, "%s: group id 0x%x not supported\n",
+			__func__, group_mi2s_cfg.group_id);
+		rc = -EINVAL;
+		goto rtn;
+	}
+	atomic_set(&group_mi2s_ref[group_idx], 0);
+
+	rc = of_property_read_u32(mi2s_parent_node,
+			"qcom,msm-cpudai-mi2s-sync-mode",
+			&sync_mode);
+	if (rc) {
+		dev_err(&pdev->dev, "%s: ch_mode from DT file %s\n",
+			__func__, "qcom,msm-cpudai-mi2s-sync-mode");
+		goto rtn;
+	}
+
+	rc = of_property_read_u32(mi2s_parent_node,
+			"qcom,msm-cpudai-mi2s-mclk",
+			&group_mi2s_mclk_set.clk_freq_in_hz);
+	if (rc) {
+		dev_err(&pdev->dev, "%s: mclk from DT file %s\n",
+			__func__, "qcom,msm-cpudai-mi2s-mclk");
+		goto rtn;
+	}
+
+	rc = of_property_read_u32(mi2s_parent_node,
+			"qcom,msm-cpudai-mi2s-bclk",
+			&group_mi2s_bclk_set.clk_freq_in_hz);
+	if (rc) {
+		dev_err(&pdev->dev, "%s: bclk from DT file %s\n",
+			__func__, "qcom,msm-cpudai-mi2s-bclk");
+		goto rtn;
+	}
+
+	/*update default group mi2s clk set for master/slave select*/
+	rc = msm_dai_q6_group_mi2s_set_clk_param(group_mi2s_cfg.group_id,
+				&group_mi2s_mclk_set,
+				&group_mi2s_bclk_set,
+				sync_mode);
+	if (rc) {
+		dev_err(&pdev->dev, "%s: group id not supported 0x%x\n",
+			__func__, tdm_group_cfg.group_id);
+		goto rtn;
+	}
+
+	/* retrieve device/afe id */
+	rc = of_property_read_u32(pdev->dev.of_node,
+			"qcom,msm-cpudai-mi2s-dev-id",
+			&mi2s_dev_id);
+	if (rc) {
+		dev_err(&pdev->dev, "%s: DeviceID missing in DT file\n",
+			__func__);
+		goto rtn;
+	}
+	rc = msm_dai_q6_group_mi2s_dev_id_validation(mi2s_dev_id);
+	if (rc) {
+		dev_err(&pdev->dev, "%s: Invalid GMI2S device ID %d in DT file\n",
+			__func__, mi2s_dev_id);
+		rc = -ENXIO;
+		goto rtn;
+	}
+
+	pdev->id = mi2s_dev_id;
+	rc = of_property_read_u32(pdev->dev.of_node,
+			"qcom,msm-cpudai-mi2s-dev-channel-mode",
+			&ch_mode);
+	if (rc) {
+		dev_err(&pdev->dev, "%s: TX line from DT file %s\n",
+			__func__, "qcom,msm-cpudai-mi2s-dev-channel-mode");
+		goto rtn;
+	}
+
+	dai_data = kzalloc(sizeof(*dai_data),
+			GFP_KERNEL);
+	if (!dai_data) {
+		rc = -ENOMEM;
+		goto rtn;
+	}
+	dev_set_drvdata(&pdev->dev, dai_data);
+
+	dai_data->sync_mode = sync_mode;
+	dai_data->num_group_ports = num_group_mi2s_ports;
+	dai_data->port_cfg.i2s_cfg.channel_mode = ch_mode;
+	dai_data->bclk_set = group_mi2s_bclk_set;
+	dai_data->mclk_set = group_mi2s_mclk_set;
+	dai_data->group_cfg.i2s_cfg = group_mi2s_cfg;
+
+	port_idx = msm_dai_q6_get_mi2s_port_idx(mi2s_dev_id);
+	if (port_idx < 0 || port_idx > IDX_GROUP_MI2S_PORT_MAX) {
+		dev_err(&pdev->dev, "%s: Port id 0x%x not supported\n",
+			__func__, mi2s_dev_id);
+		rc = -EINVAL;
+		goto free_dai_data;
+	}
+
+	rc = snd_soc_register_component(&pdev->dev,
+			&msm_q6_group_mi2s_dai_component,
+			&msm_dai_q6_group_mi2s_dai[port_idx], 1);
+	if (rc) {
+		dev_err(&pdev->dev,
+			"%s: fail to register msm_q6_group_mi2s_dai_component\n",
+			__func__);
+		goto free_dai_data;
+	}
+
+	return 0;
+
+free_dai_data:
+	kfree(dai_data);
+rtn:
+	return rc;
+}
+
+static int msm_dai_group_mi2s_dev_remove(struct platform_device *pdev)
+{
+	snd_soc_unregister_component(&pdev->dev);
+	return 0;
+}
+
+static const struct of_device_id msm_dai_group_mi2s_dt_match[] = {
+	{ .compatible = "qcom,msm-dai-group-mi2s", },
+	{ }
+};
+
+MODULE_DEVICE_TABLE(of, msm_dai_group_mi2s_dt_match);
+
+static struct platform_driver msm_dai_group_mi2s_driver = {
+	.probe  = msm_dai_group_mi2s_probe,
+	.remove = msm_dai_group_mi2s_remove,
+	.driver = {
+		.name = "msm-dai-group-mi2s",
+		.owner = THIS_MODULE,
+		.of_match_table = msm_dai_group_mi2s_dt_match,
+	},
+};
+
+static const struct of_device_id msm_dai_group_mi2s_dev_dt_match[] = {
+	{ .compatible = "qcom,msm-dai-group-mi2s-dev", },
+	{ }
+};
+
+MODULE_DEVICE_TABLE(of, msm_dai_group_mi2s_dev_dt_match);
+
+static struct platform_driver msm_dai_group_mi2s_dev_driver = {
+	.probe  = msm_dai_group_mi2s_dev_probe,
+	.remove = msm_dai_group_mi2s_dev_remove,
+	.driver = {
+		.name = "msm-dai-group-mi2s-dev",
+		.owner = THIS_MODULE,
+		.of_match_table = msm_dai_group_mi2s_dev_dt_match,
 	},
 };
 
@@ -8344,8 +9689,27 @@ static int __init msm_dai_q6_init(void)
 		pr_err("%s: fail to register dai TDM\n", __func__);
 		goto dai_tdm_q6_fail;
 	}
+
+	rc = platform_driver_register(&msm_dai_group_mi2s_dev_driver);
+	if (rc) {
+		pr_err("%s: fail to register dai GMI2S dev drv\n",
+			__func__);
+		goto dai_q6_group_mi2s_dev_fail;
+	}
+
+	rc = platform_driver_register(&msm_dai_group_mi2s_driver);
+	if (rc) {
+		pr_err("%s: fail to register dai GMI2S\n",
+			__func__);
+		goto dai_group_mi2s_fail;
+	}
+
 	return rc;
 
+dai_group_mi2s_fail:
+	platform_driver_unregister(&msm_dai_group_mi2s_driver);
+dai_q6_group_mi2s_dev_fail:
+	platform_driver_unregister(&msm_dai_group_mi2s_dev_driver);
 dai_tdm_q6_fail:
 	platform_driver_unregister(&msm_dai_q6_tdm_driver);
 dai_q6_tdm_drv_fail:
@@ -8371,6 +9735,8 @@ static void __exit msm_dai_q6_exit(void)
 	platform_driver_unregister(&msm_dai_q6);
 	platform_driver_unregister(&msm_auxpcm_dev_driver);
 	platform_driver_unregister(&msm_dai_q6_spdif_driver);
+	platform_driver_unregister(&msm_dai_group_mi2s_driver);
+	platform_driver_unregister(&msm_dai_group_mi2s_dev_driver);
 }
 module_exit(msm_dai_q6_exit);
 

@@ -160,6 +160,42 @@ static int msm_tert_tdm_slot_num = 8;
 static int msm_quat_tdm_slot_width = 32;
 static int msm_quat_tdm_slot_num = 8;
 
+/* Group_MI2S default port channels */
+static int msm_sec_group_mi2s_rx_1_ch = 2;
+static int msm_sec_group_mi2s_rx_2_ch = 2;
+static int msm_sec_group_mi2s_rx_3_ch = 2;
+static int msm_sec_group_mi2s_rx_4_ch = 2;
+static int msm_sec_group_mi2s_tx_1_ch = 2;
+static int msm_sec_group_mi2s_tx_2_ch = 2;
+static int msm_sec_group_mi2s_tx_3_ch = 2;
+static int msm_sec_group_mi2s_tx_4_ch = 2;
+static int msm_tert_group_mi2s_rx_1_ch = 2;
+static int msm_tert_group_mi2s_rx_2_ch = 2;
+static int msm_tert_group_mi2s_rx_3_ch = 2;
+static int msm_tert_group_mi2s_rx_4_ch = 2;
+static int msm_tert_group_mi2s_tx_1_ch = 2;
+static int msm_tert_group_mi2s_tx_2_ch = 2;
+static int msm_tert_group_mi2s_tx_3_ch = 2;
+static int msm_tert_group_mi2s_tx_4_ch = 2;
+static int msm_quat_group_mi2s_rx_1_ch = 2;
+static int msm_quat_group_mi2s_rx_2_ch = 2;
+static int msm_quat_group_mi2s_rx_3_ch = 2;
+static int msm_quat_group_mi2s_rx_4_ch = 2;
+static int msm_quat_group_mi2s_tx_1_ch = 2;
+static int msm_quat_group_mi2s_tx_2_ch = 2;
+static int msm_quat_group_mi2s_tx_3_ch = 2;
+static int msm_quat_group_mi2s_tx_4_ch = 2;
+
+/* Group MI2S default sample rate*/
+static int msm_sec_group_mi2s_rate = SAMPLING_RATE_48KHZ;
+static int msm_tert_group_mi2s_rate = SAMPLING_RATE_48KHZ;
+static int msm_quat_group_mi2s_rate = SAMPLING_RATE_48KHZ;
+
+/* Group MI2S slot width bit format */
+static int msm_sec_group_mi2s_bit_format = SNDRV_PCM_FORMAT_S24_LE;
+static int msm_tert_group_mi2s_bit_format = SNDRV_PCM_FORMAT_S24_LE;
+static int msm_quat_group_mi2s_bit_format = SNDRV_PCM_FORMAT_S24_LE;
+
 /* EC Reference default values are set in mixer_paths.xml */
 static int msm_ec_ref_ch = 4;
 static int msm_ec_ref_bit_format = SNDRV_PCM_FORMAT_S16_LE;
@@ -171,6 +207,41 @@ static int msm_tdm_num_slots = 8;
 static void *adsp_state_notifier;
 static bool dummy_device_registered;
 static struct snd_soc_card  *sndcard;
+
+#define GROUP_MI2S_SLOT_OFFSET_MAX 8
+static unsigned int group_mi2s_slot_offset
+	[IDX_GROUP_MI2S_PORT_MAX][GROUP_MI2S_SLOT_OFFSET_MAX] = {
+	/* GROUP_SEC_MI2S_RX */
+	{0, 4, 0xFFFF},
+	{0, 4, 0xFFFF},
+	{0xFFFF},
+	{0xFFFF},
+	/* GROUP_SEC_MI2S_TX */
+	{0, 4, 0xFFFF},
+	{0, 4, 0xFFFF},
+	{0xFFFF},
+	{0xFFFF},
+	/* GROUP_TERT_MI2S_RX */
+	{0, 4, 0xFFFF},
+	{0, 4, 0xFFFF},
+	{0xFFFF},
+	{0xFFFF},
+	/* GROUP_TERT_MI2S_TX */
+	{0, 4, 0xFFFF},
+	{0, 4, 0xFFFF},
+	{0xFFFF},
+	{0xFFFF},
+	/* GROUP_QUAT_MI2S_RX */
+	{0, 4, 0xFFFF},
+	{0, 4, 0xFFFF},
+	{0, 4, 0xFFFF},
+	{0, 4, 0xFFFF},
+	/* GROUP_QUAT_MI2S_TX */
+	{0, 4, 0xFFFF},
+	{0, 4, 0xFFFF},
+	{0, 4, 0xFFFF},
+	{0, 4, 0xFFFF},
+};
 
 enum {
 	QUATERNARY_TDM_RX_0,
@@ -3307,6 +3378,173 @@ static int msm_mi2s_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
+static int msm_group_mi2s_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+			struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct snd_interval *rate =
+			hw_param_interval(params, SNDRV_PCM_HW_PARAM_RATE);
+	struct snd_interval *channels =
+			hw_param_interval(params, SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	switch (cpu_dai->id) {
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_1:
+		channels->min = channels->max = msm_sec_group_mi2s_rx_1_ch;
+		rate->min = rate->max = msm_sec_group_mi2s_rate;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			msm_sec_group_mi2s_bit_format);
+		break;
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_2:
+		channels->min = channels->max = msm_sec_group_mi2s_rx_2_ch;
+		rate->min = rate->max = msm_sec_group_mi2s_rate;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			msm_sec_group_mi2s_bit_format);
+		break;
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_3:
+		channels->min = channels->max = msm_sec_group_mi2s_rx_3_ch;
+		rate->min = rate->max = msm_sec_group_mi2s_rate;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			msm_sec_group_mi2s_bit_format);
+		break;
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_4:
+		channels->min = channels->max = msm_sec_group_mi2s_rx_4_ch;
+		rate->min = rate->max = msm_sec_group_mi2s_rate;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			msm_sec_group_mi2s_bit_format);
+		break;
+	case AFE_PORT_ID_SECONDARY_MI2S_TX_1:
+		channels->min = channels->max = msm_sec_group_mi2s_tx_1_ch;
+		rate->min = rate->max = msm_sec_group_mi2s_rate;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			msm_sec_group_mi2s_bit_format);
+		break;
+	case AFE_PORT_ID_SECONDARY_MI2S_TX_2:
+		channels->min = channels->max = msm_sec_group_mi2s_tx_2_ch;
+		rate->min = rate->max = msm_sec_group_mi2s_rate;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			msm_sec_group_mi2s_bit_format);
+		break;
+	case AFE_PORT_ID_SECONDARY_MI2S_TX_3:
+		channels->min = channels->max = msm_sec_group_mi2s_tx_3_ch;
+		rate->min = rate->max = msm_sec_group_mi2s_rate;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			msm_sec_group_mi2s_bit_format);
+		break;
+	case AFE_PORT_ID_SECONDARY_MI2S_TX_4:
+		channels->min = channels->max = msm_sec_group_mi2s_tx_4_ch;
+		rate->min = rate->max = msm_sec_group_mi2s_rate;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			msm_sec_group_mi2s_bit_format);
+		break;
+	case AFE_PORT_ID_TERTIARY_MI2S_RX_1:
+		channels->min = channels->max = msm_tert_group_mi2s_rx_1_ch;
+		rate->min = rate->max = msm_tert_group_mi2s_rate;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			msm_tert_group_mi2s_bit_format);
+		break;
+	case AFE_PORT_ID_TERTIARY_MI2S_RX_2:
+		channels->min = channels->max = msm_tert_group_mi2s_rx_2_ch;
+		rate->min = rate->max = msm_tert_group_mi2s_rate;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			msm_tert_group_mi2s_bit_format);
+		break;
+	case AFE_PORT_ID_TERTIARY_MI2S_RX_3:
+		channels->min = channels->max = msm_tert_group_mi2s_rx_3_ch;
+		rate->min = rate->max = msm_tert_group_mi2s_rate;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			msm_tert_group_mi2s_bit_format);
+		break;
+	case AFE_PORT_ID_TERTIARY_MI2S_RX_4:
+		channels->min = channels->max = msm_tert_group_mi2s_rx_4_ch;
+		rate->min = rate->max = msm_tert_group_mi2s_rate;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			msm_tert_group_mi2s_bit_format);
+		break;
+	case AFE_PORT_ID_TERTIARY_MI2S_TX_1:
+		channels->min = channels->max = msm_tert_group_mi2s_tx_1_ch;
+		rate->min = rate->max = msm_tert_group_mi2s_rate;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			msm_tert_group_mi2s_bit_format);
+		break;
+	case AFE_PORT_ID_TERTIARY_MI2S_TX_2:
+		channels->min = channels->max = msm_tert_group_mi2s_tx_2_ch;
+		rate->min = rate->max = msm_tert_group_mi2s_rate;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			msm_tert_group_mi2s_bit_format);
+		break;
+	case AFE_PORT_ID_TERTIARY_MI2S_TX_3:
+		channels->min = channels->max = msm_tert_group_mi2s_tx_3_ch;
+		rate->min = rate->max = msm_tert_group_mi2s_rate;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			msm_tert_group_mi2s_bit_format);
+		break;
+	case AFE_PORT_ID_TERTIARY_MI2S_TX_4:
+		channels->min = channels->max = msm_tert_group_mi2s_tx_4_ch;
+		rate->min = rate->max = msm_tert_group_mi2s_rate;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			msm_tert_group_mi2s_bit_format);
+		break;
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX_1:
+		channels->min = channels->max = msm_quat_group_mi2s_rx_1_ch;
+		rate->min = rate->max = msm_quat_group_mi2s_rate;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			msm_quat_group_mi2s_bit_format);
+		break;
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX_2:
+		channels->min = channels->max = msm_quat_group_mi2s_rx_2_ch;
+		rate->min = rate->max = msm_quat_group_mi2s_rate;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			msm_quat_group_mi2s_bit_format);
+		break;
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX_3:
+		channels->min = channels->max = msm_quat_group_mi2s_rx_3_ch;
+		rate->min = rate->max = msm_quat_group_mi2s_rate;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			msm_quat_group_mi2s_bit_format);
+		break;
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX_4:
+		channels->min = channels->max = msm_quat_group_mi2s_rx_4_ch;
+		rate->min = rate->max = msm_quat_group_mi2s_rate;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			msm_quat_group_mi2s_bit_format);
+		break;
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX_1:
+		channels->min = channels->max = msm_quat_group_mi2s_tx_1_ch;
+		rate->min = rate->max = msm_quat_group_mi2s_rate;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			msm_quat_group_mi2s_bit_format);
+		break;
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX_2:
+		channels->min = channels->max = msm_quat_group_mi2s_tx_2_ch;
+		rate->min = rate->max = msm_quat_group_mi2s_rate;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			msm_quat_group_mi2s_bit_format);
+		break;
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX_3:
+		channels->min = channels->max = msm_quat_group_mi2s_tx_3_ch;
+		rate->min = rate->max = msm_quat_group_mi2s_rate;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			msm_quat_group_mi2s_bit_format);
+		break;
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX_4:
+		channels->min = channels->max = msm_quat_group_mi2s_tx_4_ch;
+		rate->min = rate->max = msm_quat_group_mi2s_rate;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			msm_quat_group_mi2s_bit_format);
+		break;
+	default:
+		pr_err("%s: dai id 0x%x not supported\n",
+			__func__, cpu_dai->id);
+		return -EINVAL;
+	}
+
+	pr_debug("%s: dai id = 0x%x channels = %d rate = %d format = 0x%x\n",
+		__func__, cpu_dai->id, channels->max, rate->max,
+		params_format(params));
+
+	return 0;
+}
+
 static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 				  struct snd_pcm_hw_params *params)
 {
@@ -4083,6 +4321,142 @@ end:
 
 static struct snd_soc_ops apq8096_tdm_be_ops = {
 	.hw_params = apq8096_tdm_snd_hw_params,
+};
+
+static int apq8096_group_mi2s_snd_hw_params(struct snd_pcm_substream *substream,
+			struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	int ret = 0;
+	int channels, rate;
+	unsigned int *slot_offset;
+	int offset_channels = 0;
+	int i;
+
+	rate = params_rate(params);
+	channels = params_channels(params);
+
+	switch (cpu_dai->id) {
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_1:
+		slot_offset = group_mi2s_slot_offset[IDX_SECONDARY_MI2S_RX_1];
+		break;
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_2:
+		slot_offset = group_mi2s_slot_offset[IDX_SECONDARY_MI2S_RX_2];
+		break;
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_3:
+		slot_offset = group_mi2s_slot_offset[IDX_SECONDARY_MI2S_RX_3];
+		break;
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_4:
+		slot_offset = group_mi2s_slot_offset[IDX_SECONDARY_MI2S_RX_4];
+		break;
+	case AFE_PORT_ID_SECONDARY_MI2S_TX_1:
+		slot_offset = group_mi2s_slot_offset[IDX_SECONDARY_MI2S_TX_1];
+		break;
+	case AFE_PORT_ID_SECONDARY_MI2S_TX_2:
+		slot_offset = group_mi2s_slot_offset[IDX_SECONDARY_MI2S_TX_2];
+		break;
+	case AFE_PORT_ID_SECONDARY_MI2S_TX_3:
+		slot_offset = group_mi2s_slot_offset[IDX_SECONDARY_MI2S_TX_3];
+		break;
+	case AFE_PORT_ID_SECONDARY_MI2S_TX_4:
+		slot_offset = group_mi2s_slot_offset[IDX_SECONDARY_MI2S_TX_4];
+		break;
+	case AFE_PORT_ID_TERTIARY_MI2S_RX_1:
+		slot_offset = group_mi2s_slot_offset[IDX_TERTIARY_MI2S_RX_1];
+		break;
+	case AFE_PORT_ID_TERTIARY_MI2S_RX_2:
+		slot_offset = group_mi2s_slot_offset[IDX_TERTIARY_MI2S_RX_2];
+		break;
+	case AFE_PORT_ID_TERTIARY_MI2S_RX_3:
+		slot_offset = group_mi2s_slot_offset[IDX_TERTIARY_MI2S_RX_3];
+		break;
+	case AFE_PORT_ID_TERTIARY_MI2S_RX_4:
+		slot_offset = group_mi2s_slot_offset[IDX_TERTIARY_MI2S_RX_4];
+		break;
+	case AFE_PORT_ID_TERTIARY_MI2S_TX_1:
+		slot_offset = group_mi2s_slot_offset[IDX_TERTIARY_MI2S_TX_1];
+		break;
+	case AFE_PORT_ID_TERTIARY_MI2S_TX_2:
+		slot_offset = group_mi2s_slot_offset[IDX_TERTIARY_MI2S_TX_2];
+		break;
+	case AFE_PORT_ID_TERTIARY_MI2S_TX_3:
+		slot_offset = group_mi2s_slot_offset[IDX_TERTIARY_MI2S_TX_3];
+		break;
+	case AFE_PORT_ID_TERTIARY_MI2S_TX_4:
+		slot_offset = group_mi2s_slot_offset[IDX_TERTIARY_MI2S_TX_4];
+		break;
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX_1:
+		slot_offset = group_mi2s_slot_offset[IDX_QUATERNARY_MI2S_RX_1];
+		break;
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX_2:
+		slot_offset = group_mi2s_slot_offset[IDX_QUATERNARY_MI2S_RX_2];
+		break;
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX_3:
+		slot_offset = group_mi2s_slot_offset[IDX_QUATERNARY_MI2S_RX_3];
+		break;
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX_4:
+		slot_offset = group_mi2s_slot_offset[IDX_QUATERNARY_MI2S_RX_4];
+		break;
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX_1:
+		slot_offset = group_mi2s_slot_offset[IDX_QUATERNARY_MI2S_TX_1];
+		break;
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX_2:
+		slot_offset = group_mi2s_slot_offset[IDX_QUATERNARY_MI2S_TX_2];
+		break;
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX_3:
+		slot_offset = group_mi2s_slot_offset[IDX_QUATERNARY_MI2S_TX_3];
+		break;
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX_4:
+		slot_offset = group_mi2s_slot_offset[IDX_QUATERNARY_MI2S_TX_4];
+		break;
+	default:
+		pr_err("%s: dai id 0x%x not supported\n",
+				__func__, cpu_dai->id);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < GROUP_MI2S_SLOT_OFFSET_MAX; i++) {
+		if (slot_offset[i] != AFE_SLOT_MAPPING_OFFSET_INVALID)
+			offset_channels++;
+	}
+
+	if (offset_channels == 0) {
+		pr_err("%s: slot offset not supported, offset_channels %d\n",
+			__func__, offset_channels);
+		return -EINVAL;
+	}
+
+	if (channels > offset_channels) {
+		pr_err("%s: channels %d and offset_channels %d not match\n",
+			__func__, channels, offset_channels);
+		return -EINVAL;
+	}
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		ret = snd_soc_dai_set_channel_map(cpu_dai, 0, NULL,
+				channels, slot_offset);
+		if (ret < 0) {
+			pr_err("%s: failed to set channel map, err:%d\n",
+			__func__, ret);
+			goto end;
+		}
+	} else {
+		ret = snd_soc_dai_set_channel_map(cpu_dai,
+				channels, slot_offset,
+				0, NULL);
+		if (ret < 0) {
+			pr_err("%s: failed to set channel map, err:%d\n",
+			__func__, ret);
+			goto end;
+		}
+	}
+end:
+	return ret;
+}
+
+static struct snd_soc_ops apq8096_group_mi2s_be_ops = {
+	.hw_params = apq8096_group_mi2s_snd_hw_params,
 };
 
 static const struct soc_enum msm_snd_enum[] = {
@@ -6545,6 +6919,342 @@ static struct snd_soc_dai_link apq8096_auto_be_dai_links[] = {
 		.be_id = MSM_BACKEND_DAI_PRI_TDM_TX_3,
 		.be_hw_params_fixup = msm_tdm_be_hw_params_fixup,
 		.ops = &apq8096_tdm_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_SEC_MI2S_TX_1,
+		.stream_name = "Secondary MI2S1 Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.4161",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.be_id = MSM_BACKEND_DAI_SECONDARY_MI2S_TX_1,
+		.be_hw_params_fixup = msm_group_mi2s_be_hw_params_fixup,
+		.ops = &apq8096_group_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_SEC_MI2S_TX_2,
+		.stream_name = "Secondary MI2S2 Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.4163",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.be_id = MSM_BACKEND_DAI_SECONDARY_MI2S_TX_2,
+		.be_hw_params_fixup = msm_group_mi2s_be_hw_params_fixup,
+		.ops = &apq8096_group_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_SEC_MI2S_TX_3,
+		.stream_name = "Secondary MI2S3 Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.4165",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.be_id = MSM_BACKEND_DAI_SECONDARY_MI2S_TX_3,
+		.be_hw_params_fixup = msm_group_mi2s_be_hw_params_fixup,
+		.ops = &apq8096_group_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_SEC_MI2S_TX_4,
+		.stream_name = "Secondary MI2S4 Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.4167",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.be_id = MSM_BACKEND_DAI_SECONDARY_MI2S_TX_4,
+		.be_hw_params_fixup = msm_group_mi2s_be_hw_params_fixup,
+		.ops = &apq8096_group_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_TERT_MI2S_TX_1,
+		.stream_name = "Tertiary MI2S1 Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.4169",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.be_id = MSM_BACKEND_DAI_TERTIARY_MI2S_TX_1,
+		.be_hw_params_fixup = msm_group_mi2s_be_hw_params_fixup,
+		.ops = &apq8096_group_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_TERT_MI2S_TX_2,
+		.stream_name = "Tertiary MI2S2 Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.4171",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.be_id = MSM_BACKEND_DAI_TERTIARY_MI2S_TX_2,
+		.be_hw_params_fixup = msm_group_mi2s_be_hw_params_fixup,
+		.ops = &apq8096_group_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_TERT_MI2S_TX_3,
+		.stream_name = "Tertiary MI2S3 Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.4173",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.be_id = MSM_BACKEND_DAI_TERTIARY_MI2S_TX_3,
+		.be_hw_params_fixup = msm_group_mi2s_be_hw_params_fixup,
+		.ops = &apq8096_group_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_TERT_MI2S_TX_4,
+		.stream_name = "Tertiary MI2S4 Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.4175",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.be_id = MSM_BACKEND_DAI_TERTIARY_MI2S_TX_4,
+		.be_hw_params_fixup = msm_group_mi2s_be_hw_params_fixup,
+		.ops = &apq8096_group_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_QUAT_MI2S_TX_1,
+		.stream_name = "Quaternary MI2S1 Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.4129",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.be_id = MSM_BACKEND_DAI_QUATERNARY_MI2S_TX_1,
+		.be_hw_params_fixup = msm_group_mi2s_be_hw_params_fixup,
+		.ops = &apq8096_group_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_QUAT_MI2S_TX_2,
+		.stream_name = "Quaternary MI2S2 Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.4131",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.be_id = MSM_BACKEND_DAI_QUATERNARY_MI2S_TX_2,
+		.be_hw_params_fixup = msm_group_mi2s_be_hw_params_fixup,
+		.ops = &apq8096_group_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_QUAT_MI2S_TX_3,
+		.stream_name = "Quaternary MI2S3 Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.4133",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.be_id = MSM_BACKEND_DAI_QUATERNARY_MI2S_TX_3,
+		.be_hw_params_fixup = msm_group_mi2s_be_hw_params_fixup,
+		.ops = &apq8096_group_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_QUAT_MI2S_TX_4,
+		.stream_name = "Quaternary MI2S4 Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.4135",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.be_id = MSM_BACKEND_DAI_QUATERNARY_MI2S_TX_4,
+		.be_hw_params_fixup = msm_group_mi2s_be_hw_params_fixup,
+		.ops = &apq8096_group_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_SEC_MI2S_RX_1,
+		.stream_name = "Secondary MI2S1 Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.4160",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_SECONDARY_MI2S_RX_1,
+		.be_hw_params_fixup = msm_group_mi2s_be_hw_params_fixup,
+		.ops = &apq8096_group_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_SEC_MI2S_RX_2,
+		.stream_name = "Secondary MI2S2 Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.4162",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_SECONDARY_MI2S_RX_2,
+		.be_hw_params_fixup = msm_group_mi2s_be_hw_params_fixup,
+		.ops = &apq8096_group_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_SEC_MI2S_RX_3,
+		.stream_name = "Secondary MI2S3 Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.4164",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_SECONDARY_MI2S_RX_3,
+		.be_hw_params_fixup = msm_group_mi2s_be_hw_params_fixup,
+		.ops = &apq8096_group_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_SEC_MI2S_RX_4,
+		.stream_name = "Secondary MI2S4 Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.4166",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_SECONDARY_MI2S_RX_4,
+		.be_hw_params_fixup = msm_group_mi2s_be_hw_params_fixup,
+		.ops = &apq8096_group_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_TERT_MI2S_RX_1,
+		.stream_name = "Tertiary MI2S1 Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.4168",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_TERTIARY_MI2S_RX_1,
+		.be_hw_params_fixup = msm_group_mi2s_be_hw_params_fixup,
+		.ops = &apq8096_group_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_TERT_MI2S_RX_2,
+		.stream_name = "Tertiary MI2S2 Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.4170",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_TERTIARY_MI2S_RX_2,
+		.be_hw_params_fixup = msm_group_mi2s_be_hw_params_fixup,
+		.ops = &apq8096_group_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_TERT_MI2S_RX_3,
+		.stream_name = "Tertiary MI2S3 Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.4172",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_TERTIARY_MI2S_RX_3,
+		.be_hw_params_fixup = msm_group_mi2s_be_hw_params_fixup,
+		.ops = &apq8096_group_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_TERT_MI2S_RX_4,
+		.stream_name = "Tertiary MI2S4 Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.4174",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_TERTIARY_MI2S_RX_4,
+		.be_hw_params_fixup = msm_group_mi2s_be_hw_params_fixup,
+		.ops = &apq8096_group_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_QUAT_MI2S_RX_1,
+		.stream_name = "Quaternary MI2S1 Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.4128",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_QUATERNARY_MI2S_RX_1,
+		.be_hw_params_fixup = msm_group_mi2s_be_hw_params_fixup,
+		.ops = &apq8096_group_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_QUAT_MI2S_RX_2,
+		.stream_name = "Quaternary MI2S2 Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.4130",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_QUATERNARY_MI2S_RX_2,
+		.be_hw_params_fixup = msm_group_mi2s_be_hw_params_fixup,
+		.ops = &apq8096_group_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_QUAT_MI2S_RX_3,
+		.stream_name = "Quaternary MI2S3 Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.4132",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_QUATERNARY_MI2S_RX_3,
+		.be_hw_params_fixup = msm_group_mi2s_be_hw_params_fixup,
+		.ops = &apq8096_group_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_QUAT_MI2S_RX_4,
+		.stream_name = "Quaternary MI2S4 Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.4134",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_QUATERNARY_MI2S_RX_4,
+		.be_hw_params_fixup = msm_group_mi2s_be_hw_params_fixup,
+		.ops = &apq8096_group_mi2s_be_ops,
 		.ignore_suspend = 1,
 	}
 };
