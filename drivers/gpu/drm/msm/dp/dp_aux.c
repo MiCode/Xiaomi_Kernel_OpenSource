@@ -529,6 +529,7 @@ static ssize_t dp_aux_transfer_debug(struct drm_dp_aux *drm_aux,
 			timeout = wait_for_completion_timeout(&aux->comp, HZ);
 			if (!timeout) {
 				pr_err("aux timeout for 0x%x\n", msg->address);
+				atomic_set(&aux->aborted, 1);
 				ret = -ETIMEDOUT;
 				goto end;
 			}
