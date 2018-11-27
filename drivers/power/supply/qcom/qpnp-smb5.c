@@ -2530,8 +2530,8 @@ static int smb5_request_interrupts(struct smb5 *chip)
 	 * Disable WDOG SNARL IRQ by default to prevent IRQ storm. If required
 	 * for any application, enable it through votable.
 	 */
-	if (chg->irq_info[WDOG_SNARL_IRQ].irq)
-		vote(chg->wdog_snarl_irq_en_votable, DEFAULT_VOTER, false, 0);
+	if (!chg->wdog_snarl_irq_enable)
+		smblib_enable_wdog_snarl_irq(chg, false);
 
 	return rc;
 }

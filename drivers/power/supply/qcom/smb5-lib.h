@@ -361,7 +361,6 @@ struct smb_charger {
 	struct votable		*pl_enable_votable_indirect;
 	struct votable		*usb_irq_enable_votable;
 	struct votable		*cp_disable_votable;
-	struct votable		*wdog_snarl_irq_en_votable;
 	struct votable		*smb_override_votable;
 
 	/* work */
@@ -445,6 +444,7 @@ struct smb_charger {
 	u32			jeita_soft_hys_thlds[2];
 	int			jeita_soft_fcc[2];
 	int			jeita_soft_fv[2];
+	bool			wdog_snarl_irq_enable;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -509,6 +509,7 @@ int smblib_vbus_regulator_is_enabled(struct regulator_dev *rdev);
 int smblib_vconn_regulator_enable(struct regulator_dev *rdev);
 int smblib_vconn_regulator_disable(struct regulator_dev *rdev);
 int smblib_vconn_regulator_is_enabled(struct regulator_dev *rdev);
+int smblib_enable_wdog_snarl_irq(struct smb_charger *chg, bool enable);
 
 irqreturn_t default_irq_handler(int irq, void *data);
 irqreturn_t chg_state_change_irq_handler(int irq, void *data);
