@@ -11140,6 +11140,15 @@ static int btrfs_trim_free_extents(struct btrfs_device *device,
 	return ret;
 }
 
+/*
+ * Trim the whole filesystem by:
+ * 1) trimming the free space in each block group
+ * 2) trimming the unallocated space on each device
+ *
+ * This will also continue trimming even if a block group or device encounters
+ * an error.  The return value will be the last error, or 0 if nothing bad
+ * happens.
+ */
 int btrfs_trim_fs(struct btrfs_root *root, struct fstrim_range *range)
 {
 	struct btrfs_fs_info *fs_info = root->fs_info;
@@ -11150,18 +11159,14 @@ int btrfs_trim_fs(struct btrfs_root *root, struct fstrim_range *range)
 	u64 start;
 	u64 end;
 	u64 trimmed = 0;
-	u64 total_bytes = btrfs_super_total_bytes(fs_info->super_copy);
+	u64 bg_failed = 0;
+	u64 dev_failed = 0;
+	int bg_ret = 0;
+	int dev_ret = 0;
 	int ret = 0;
 
-	/*
-	 * try to trim all FS space, our block group may start from non-zero.
-	 */
-	if (range->len == total_bytes)
-		cache = btrfs_lookup_first_block_group(fs_info, range->start);
-	else
-		cache = btrfs_lookup_block_group(fs_info, range->start);
-
-	while (cache) {
+	cache = btrfs_lookup_first_block_group(fs_info, range->start);
+	for (; cache; cache = next_block_group(fs_info->tree_root, cache)) {
 		if (cache->key.objectid >= (range->start + range->len)) {
 			btrfs_put_block_group(cache);
 			break;
@@ -11175,13 +11180,15 @@ int btrfs_trim_fs(struct btrfs_root *root, struct fstrim_range *range)
 			if (!block_group_cache_done(cache)) {
 				ret = cache_block_group(cache, 0);
 				if (ret) {
-					btrfs_put_block_group(cache);
-					break;
+					bg_failed++;
+					bg_ret = ret;
+					continue;
 				}
 				ret = wait_block_group_cache_done(cache);
 				if (ret) {
-					btrfs_put_block_group(cache);
-					break;
+					bg_failed++;
+					bg_ret = ret;
+					continue;
 				}
 			}
 			ret = btrfs_trim_block_group(cache,
@@ -11192,28 +11199,40 @@ int btrfs_trim_fs(struct btrfs_root *root, struct fstrim_range *range)
 
 			trimmed += group_trimmed;
 			if (ret) {
-				btrfs_put_block_group(cache);
-				break;
+				bg_failed++;
+				bg_ret = ret;
+				continue;
 			}
 		}
-
-		cache = next_block_group(fs_info->tree_root, cache);
 	}
 
-	mutex_lock(&root->fs_info->fs_devices->device_list_mutex);
-	devices = &root->fs_info->fs_devices->devices;
+	if (bg_failed)
+		btrfs_warn(fs_info,
+			"failed to trim %llu block group(s), last error %d",
+			bg_failed, bg_ret);
+	mutex_lock(&fs_info->fs_devices->device_list_mutex);
+	devices = &fs_info->fs_devices->devices;
 	list_for_each_entry(device, devices, dev_list) {
 		ret = btrfs_trim_free_extents(device, range->minlen,
 					      &group_trimmed);
-		if (ret)
+		if (ret) {
+			dev_failed++;
+			dev_ret = ret;
 			break;
+		}
 
 		trimmed += group_trimmed;
 	}
 	mutex_unlock(&root->fs_info->fs_devices->device_list_mutex);
 
+	if (dev_failed)
+		btrfs_warn(fs_info,
+			"failed to trim %llu device(s), last error %d",
+			dev_failed, dev_ret);
 	range->len = trimmed;
-	return ret;
+	if (bg_ret)
+		return bg_ret;
+	return dev_ret;
 }
 
 /*
