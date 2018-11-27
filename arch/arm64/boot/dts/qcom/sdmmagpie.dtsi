@@ -2918,6 +2918,10 @@
 		qcom,msm-bus,active-only;
 		status = "ok";
 	};
+
+	demux {
+		compatible = "qcom,demux";
+	};
 };
 
 #include "sdmmagpie-gdsc.dtsi"
