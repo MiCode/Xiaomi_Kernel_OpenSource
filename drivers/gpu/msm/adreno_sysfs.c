@@ -222,6 +222,9 @@ static int _preemption_store(struct adreno_device *adreno_dev,
 		unsigned int val)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct kgsl_context *context;
+	struct adreno_context *drawctxt;
+	int id;
 
 	mutex_lock(&device->mutex);
 
@@ -235,6 +238,15 @@ static int _preemption_store(struct adreno_device *adreno_dev,
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
 	change_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
 	adreno_dev->cur_rb = &(adreno_dev->ringbuffers[0]);
+
+	/* Update the ringbuffer for each draw context */
+	write_lock(&device->context_lock);
+	idr_for_each_entry(&device->context_idr, context, id) {
+		drawctxt = ADRENO_CONTEXT(context);
+		drawctxt->rb = adreno_ctx_get_rb(adreno_dev, drawctxt);
+	}
+	write_unlock(&device->context_lock);
+
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
 
 	mutex_unlock(&device->mutex);
