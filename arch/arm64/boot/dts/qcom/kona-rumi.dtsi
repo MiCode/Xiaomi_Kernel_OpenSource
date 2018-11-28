@@ -45,6 +45,29 @@
 };
 
 &soc {
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	pcie2: qcom,pcie@1c10000 {
+		reg = <0x01c10000 0x4000>,
+			<0x01c16000 0x2000>,
+			<0x64000000 0xf1d>,
+			<0x64000f20 0xa8>,
+			<0x64001000 0x1000>,
+			<0x64100000 0x100000>,
+			<0x64200000 0x100000>,
+			<0x64300000 0x4000000>,
+			<0x01c15000 0x1000>;
+		reg-names = "parf", "phy", "dm_core", "elbi", "iatu", "conf",
+				"io", "bars", "rumi";
+
+		qcom,target-link-speed = <0x1>;
+		qcom,link-check-max-count = <200>; /* 1 sec */
+		qcom,no-l1-supported;
+		qcom,no-l1ss-supported;
+		qcom,no-aux-clk-sync;
+	};
+
 	usb_emu_phy: usb_emu_phy@a720000 {
 		compatible = "qcom,usb-emu-phy";
 		reg = <0x0a720000 0x9500>,

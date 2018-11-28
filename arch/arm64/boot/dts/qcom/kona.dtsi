@@ -30,6 +30,7 @@
 
 	aliases {
 		ufshc1 = &ufshc_mem; /* Embedded UFS slot */
+		pci-domain2 = &pcie2; /* PCIe2 domain */
 	};
 
 	cpus {
@@ -1570,6 +1571,7 @@
 
 #include "kona-bus.dtsi"
 #include "kona-ion.dtsi"
+#include "kona-pcie.dtsi"
 #include "msm-arm-smmu-kona.dtsi"
 #include "kona-pinctrl.dtsi"
 #include "kona-smp2p.dtsi"

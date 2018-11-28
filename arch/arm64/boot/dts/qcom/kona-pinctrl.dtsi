@@ -147,5 +147,46 @@
 				};
 			};
 		};
+
+		pcie2 {
+			pcie2_perst_default: pcie2_perst_default {
+				mux {
+					pins = "gpio85";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio85";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+
+			pcie2_clkreq_default: pcie2_clkreq_default {
+				mux {
+					pins = "gpio86";
+					function = "pci_e1";
+				};
+
+				config {
+					pins = "gpio86";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+
+			pcie2_wake_default: pcie2_wake_default {
+				mux {
+					pins = "gpio87";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio87";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+		};
 	};
 };
