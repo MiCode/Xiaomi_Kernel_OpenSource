@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2012,2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012,2017-2018 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/types.h>
@@ -78,6 +78,12 @@ static int of_coresight_alloc_memory(struct device *dev,
 	if (!pdata->outports)
 		return -ENOMEM;
 
+	pdata->source_names = devm_kzalloc(dev, pdata->nr_outport *
+					  sizeof(*pdata->source_names),
+					  GFP_KERNEL);
+	if (!pdata->source_names)
+		return -ENOMEM;
+
 	/* Children connected to this component via @outports */
 	pdata->child_names = devm_kcalloc(dev,
 					  pdata->nr_outport,
@@ -127,6 +133,7 @@ of_get_coresight_platform_data(struct device *dev,
 	struct device_node *ep = NULL;
 	struct device_node *rparent = NULL;
 	struct device_node *rport = NULL;
+	struct device_node *sn = NULL;
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata)
@@ -190,6 +197,14 @@ of_get_coresight_platform_data(struct device *dev,
 			if (ret)
 				pdata->child_names[i] = dev_name(rdev);
 			pdata->child_ports[i] = rendpoint.id;
+
+			pdata->source_names[i] = NULL;
+			sn = of_parse_phandle(ep, "source", 0);
+			if (sn) {
+				ret = of_property_read_string(sn,
+				"coresight-name", &pdata->source_names[i]);
+				of_node_put(sn);
+			}
 
 			i++;
 		} while (ep);
