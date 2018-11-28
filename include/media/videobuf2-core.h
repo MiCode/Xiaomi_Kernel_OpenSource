@@ -240,6 +240,7 @@ struct vb2_queue;
  * @num_planes:		number of planes in the buffer
  *			on an internal driver queue.
  * @timestamp:		frame timestamp in ns.
+ * @request:		the request this buffer is associated with.
  * @req_obj:		used to bind this buffer to a request. This
  *			request object has a refcount.
  */
@@ -250,6 +251,7 @@ struct vb2_buffer {
 	unsigned int		memory;
 	unsigned int		num_planes;
 	u64			timestamp;
+	struct media_request	*request;
 	struct media_request_object	req_obj;
 
 	/* private: internal use only
