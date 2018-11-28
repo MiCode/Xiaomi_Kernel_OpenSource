@@ -29,6 +29,7 @@
 | mocha-kk-oss | Mi Pad | Android KK | tegra-19r15.1-android-4.4 | [mocha-kk-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/mocha-kk-oss) |
 | nitrogen-o-oss | MI MAX3,Mi Note 3 | Android O | LA.UM.6.2.r1-07400-sdm660.0 | [nitrogen-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/nitrogen-o-oss) |
 | oxygen-n-oss | Mi Max 2 | Android N | LA.UM.5.6.r1-01900-89xx.0 | [oxygen-n-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/oxygen-n-oss) |
+| perseus-p-oss | MIX 3 | Android P | LA.UM.7.3.r1-04500-sdm845.0 | [perseus-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/perseus-p-oss) |
 | pisces-kk-oss | Mi 3 China Mobile | Android KK | tegra-17r18-android-4.2 | [pisces-kk-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/pisces-kk-oss) |
 | polaris-o-oss | Mi MIX 2S | Android O | LA.UM.6.3.r1_r00455 | [polaris-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/polaris-o-oss) |
 | riva-n-oss | Redmi 4A, Redmi 5, Redmi 5A | Android N | LA.UM.5.6.r1-05900-89xx.0 | [riva-n-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/riva-n-oss) |
