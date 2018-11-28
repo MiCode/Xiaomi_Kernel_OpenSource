@@ -199,20 +199,43 @@ static int rgmu_enable_clks(struct kgsl_device *device)
 	return 0;
 }
 
+#define CX_GDSC_TIMEOUT	5000	/* ms */
 static int rgmu_disable_gdsc(struct kgsl_device *device)
 {
 	struct rgmu_device *rgmu = KGSL_RGMU_DEVICE(device);
 	int ret = 0;
+	unsigned long t;
 
 	if (IS_ERR_OR_NULL(rgmu->cx_gdsc))
 		return 0;
 
 	ret = regulator_disable(rgmu->cx_gdsc);
-	if (ret)
+	if (ret) {
 		dev_err(&rgmu->pdev->dev,
 				"Failed to disable CX gdsc:%d\n", ret);
+		return ret;
+	}
 
-	return ret;
+	/*
+	 * After GX GDSC is off, CX GDSC must be off.
+	 * Voting off alone from GPU driver cannot
+	 * guarantee CX GDSC off. Polling with 5sec
+	 * timeout to ensure CX GDSC is off.
+	 */
+	t = jiffies + msecs_to_jiffies(CX_GDSC_TIMEOUT);
+	do {
+		if (!regulator_is_enabled(rgmu->cx_gdsc))
+			return 0;
+		usleep_range(10, 100);
+
+	} while (!(time_after(jiffies, t)));
+
+	if (!regulator_is_enabled(rgmu->cx_gdsc))
+		return 0;
+
+	dev_err(&rgmu->pdev->dev, "RGMU CX gdsc off timeout\n");
+
+	return -ETIMEDOUT;
 }
 
 static int rgmu_enable_gdsc(struct rgmu_device *rgmu)
