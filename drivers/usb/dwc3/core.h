@@ -688,6 +688,8 @@ struct dwc3_ep_events {
 
 #define DWC3_TRB_NUM		256
 
+#define DWC3_FRAME_WRAP_AROUND_MASK (BIT(14) | BIT(15))
+
 /**
  * struct dwc3_ep - device side endpoint representation
  * @endpoint: usb endpoint

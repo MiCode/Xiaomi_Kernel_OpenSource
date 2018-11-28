@@ -1438,6 +1438,8 @@ static int __dwc3_gadget_get_frame(struct dwc3 *dwc)
 
 static void __dwc3_gadget_start_isoc(struct dwc3_ep *dep)
 {
+	u16 wraparound_bits;
+
 	if (list_empty(&dep->pending_list)) {
 		dev_info(dep->dwc->dev, "%s: ran out of requests\n",
 				dep->name);
@@ -1445,7 +1447,20 @@ static void __dwc3_gadget_start_isoc(struct dwc3_ep *dep)
 		return;
 	}
 
-	dep->frame_number = DWC3_ALIGN_FRAME(dep);
+	wraparound_bits = dep->frame_number & DWC3_FRAME_WRAP_AROUND_MASK;
+	dep->frame_number = dep->frame_number & ~DWC3_FRAME_WRAP_AROUND_MASK;
+
+	/* if frame wrapped-around update wrap-around bits to reflect that */
+	if (__dwc3_gadget_get_frame(dep->dwc) < dep->frame_number)
+		wraparound_bits += BIT(14);
+
+	dep->frame_number = __dwc3_gadget_get_frame(dep->dwc) +
+				2 * dep->interval;
+
+	/* align uf to ep interval */
+	dep->frame_number = (wraparound_bits | dep->frame_number) &
+				~(dep->interval - 1);
+
 	__dwc3_gadget_kick_transfer(dep);
 }
 
