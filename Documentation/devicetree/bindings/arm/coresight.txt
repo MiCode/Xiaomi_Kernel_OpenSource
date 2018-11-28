@@ -186,6 +186,9 @@ its hardware characteristcs.
 
 * Optional properties for funnels:
 
+	* source: specifies the source that binds to this output port. Only
+	  trace from that source routes to this output port.
+
 	* qcom,duplicate-funnel: boolean, indicates its a duplicate of an
 	  existing funnel. Funnel devices are now capable of supporting
 	  multiple-input and multiple-output configuration with in built
