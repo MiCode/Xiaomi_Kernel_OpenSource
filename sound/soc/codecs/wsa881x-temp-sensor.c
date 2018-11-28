@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -98,9 +98,8 @@ int wsa881x_get_temp(struct thermal_zone_device *thermal,
 
 	if (temp_val <= LOW_TEMP_THRESHOLD ||
 		temp_val >= HIGH_TEMP_THRESHOLD) {
-		printk_ratelimited("%s: T0: %ld is out of range[%d, %d]\n",
-				   __func__, temp_val, LOW_TEMP_THRESHOLD,
-				   HIGH_TEMP_THRESHOLD);
+		pr_debug("%s: T0: %ld is out of range[%d, %d]\n", __func__,
+			 temp_val, LOW_TEMP_THRESHOLD, HIGH_TEMP_THRESHOLD);
 	}
 	if (temp)
 		*temp = temp_val;
