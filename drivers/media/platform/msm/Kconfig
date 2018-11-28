@@ -10,3 +10,4 @@ menuconfig SPECTRA_CAMERA
       IFE and postprocessing drivers.
 
 source "drivers/media/platform/msm/sde/Kconfig"
+source "drivers/media/platform/msm/vidc/Kconfig"
