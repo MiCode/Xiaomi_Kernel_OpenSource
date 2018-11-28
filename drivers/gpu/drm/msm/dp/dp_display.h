@@ -23,6 +23,11 @@
 
 #define DP_MST_SIM_MAX_PORTS	2
 
+enum dp_drv_state {
+	PM_DEFAULT,
+	PM_SUSPEND,
+};
+
 struct dp_mst_hpd_info {
 	bool mst_protocol;
 	bool mst_hpd_sim;
@@ -34,6 +39,8 @@ struct dp_mst_drm_cbs {
 	void (*hpd)(void *display, bool hpd_status,
 			struct dp_mst_hpd_info *info);
 	void (*hpd_irq)(void *display, struct dp_mst_hpd_info *info);
+	void (*set_drv_state)(void *dp_display,
+			enum dp_drv_state mst_state);
 };
 
 struct dp_mst_drm_install_info {
