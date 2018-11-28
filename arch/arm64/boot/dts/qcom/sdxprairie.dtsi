@@ -83,6 +83,9 @@
 	#size-cells = <1>;
 	ranges;
 
+	thermal_zones: thermal-zones {
+	};
+
 	intc: interrupt-controller@17800000 {
 		compatible = "qcom,msm-qgic2";
 		interrupt-controller;
