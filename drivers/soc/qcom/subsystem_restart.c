@@ -1581,7 +1581,7 @@ static int __get_smem_state(struct subsys_desc *desc, const char *prop,
 		desc->state = qcom_smem_state_get(desc->dev, prop, smem_bit);
 		if (IS_ERR_OR_NULL(desc->state)) {
 			pr_err("Could not get smem-states %s\n", prop);
-			return -ENXIO;
+			return PTR_ERR(desc->state);
 		}
 		return 0;
 	}
@@ -1877,6 +1877,7 @@ err_sysmon_notifier:
 	if (ofnode)
 		subsys_remove_restart_order(ofnode);
 err_register:
+	subsys_char_device_remove(subsys);
 	device_unregister(&subsys->dev);
 	return ERR_PTR(ret);
 }
