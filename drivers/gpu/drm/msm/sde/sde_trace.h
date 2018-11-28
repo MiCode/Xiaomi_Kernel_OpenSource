@@ -312,6 +312,112 @@ TRACE_EVENT(sde_perf_calc_crtc,
 			__entry->core_clk_rate)
 );
 
+TRACE_EVENT(sde_perf_uidle_cntr,
+	TP_PROTO(u32 crtc,
+			u32 fal1_gate_cntr,
+			u32 fal10_gate_cntr,
+			u32 fal_wait_gate_cntr,
+			u32 fal1_num_transitions_cntr,
+			u32 fal10_num_transitions_cntr,
+			u32 min_gate_cntr,
+			u32 max_gate_cntr
+			),
+	TP_ARGS(crtc,
+			fal1_gate_cntr,
+			fal10_gate_cntr,
+			fal_wait_gate_cntr,
+			fal1_num_transitions_cntr,
+			fal10_num_transitions_cntr,
+			min_gate_cntr,
+			max_gate_cntr),
+	TP_STRUCT__entry(
+			__field(u32, crtc)
+			__field(u32, fal1_gate_cntr)
+			__field(u32, fal10_gate_cntr)
+			__field(u32, fal_wait_gate_cntr)
+			__field(u32, fal1_num_transitions_cntr)
+			__field(u32, fal10_num_transitions_cntr)
+			__field(u32, min_gate_cntr)
+			__field(u32, max_gate_cntr)
+	),
+	TP_fast_assign(
+			__entry->crtc = crtc;
+			__entry->fal1_gate_cntr = fal1_gate_cntr;
+			__entry->fal10_gate_cntr = fal10_gate_cntr;
+			__entry->fal_wait_gate_cntr = fal_wait_gate_cntr;
+			__entry->fal1_num_transitions_cntr =
+				fal1_num_transitions_cntr;
+			__entry->fal10_num_transitions_cntr =
+				fal10_num_transitions_cntr;
+			__entry->min_gate_cntr = min_gate_cntr;
+			__entry->max_gate_cntr = max_gate_cntr;
+	),
+	 TP_printk(
+		"crtc:%d gate:fal1=%d fal10=%d wait=%d min=%d max=%d trns:fal1=%d fal10=%d",
+			__entry->crtc,
+			__entry->fal1_gate_cntr,
+			__entry->fal10_gate_cntr,
+			__entry->fal_wait_gate_cntr,
+			__entry->min_gate_cntr,
+			__entry->max_gate_cntr,
+			__entry->fal1_num_transitions_cntr,
+			__entry->fal10_num_transitions_cntr
+			)
+);
+
+TRACE_EVENT(sde_perf_uidle_status,
+	TP_PROTO(u32 crtc,
+			u32 uidle_danger_status_0,
+			u32 uidle_danger_status_1,
+			u32 uidle_safe_status_0,
+			u32 uidle_safe_status_1,
+			u32 uidle_idle_status_0,
+			u32 uidle_idle_status_1,
+			u32 uidle_fal_status_0,
+			u32 uidle_fal_status_1),
+	TP_ARGS(crtc,
+			uidle_danger_status_0,
+			uidle_danger_status_1,
+			uidle_safe_status_0,
+			uidle_safe_status_1,
+			uidle_idle_status_0,
+			uidle_idle_status_1,
+			uidle_fal_status_0,
+			uidle_fal_status_1),
+	TP_STRUCT__entry(
+			__field(u32, crtc)
+			__field(u32, uidle_danger_status_0)
+			__field(u32, uidle_danger_status_1)
+			__field(u32, uidle_safe_status_0)
+			__field(u32, uidle_safe_status_1)
+			__field(u32, uidle_idle_status_0)
+			__field(u32, uidle_idle_status_1)
+			__field(u32, uidle_fal_status_0)
+			__field(u32, uidle_fal_status_1)),
+	TP_fast_assign(
+			__entry->crtc = crtc;
+			__entry->uidle_danger_status_0 = uidle_danger_status_0;
+			__entry->uidle_danger_status_1 = uidle_danger_status_1;
+			__entry->uidle_safe_status_0 = uidle_safe_status_0;
+			__entry->uidle_safe_status_1 = uidle_safe_status_1;
+			__entry->uidle_idle_status_0 = uidle_idle_status_0;
+			__entry->uidle_idle_status_1 = uidle_idle_status_1;
+			__entry->uidle_fal_status_0 = uidle_fal_status_0;
+			__entry->uidle_fal_status_1 = uidle_fal_status_1;),
+	 TP_printk(
+		"crtc:%d danger[%d, %d] safe[%d, %d] idle[%d, %d] fal[%d, %d]",
+			__entry->crtc,
+			__entry->uidle_danger_status_0,
+			__entry->uidle_danger_status_1,
+			__entry->uidle_safe_status_0,
+			__entry->uidle_safe_status_1,
+			__entry->uidle_idle_status_0,
+			__entry->uidle_idle_status_1,
+			__entry->uidle_fal_status_0,
+			__entry->uidle_fal_status_1
+			)
+);
+
 #define SDE_ATRACE_END(name) trace_tracing_mark_write(current->tgid, name, 0)
 #define SDE_ATRACE_BEGIN(name) trace_tracing_mark_write(current->tgid, name, 1)
 #define SDE_ATRACE_FUNC() SDE_ATRACE_BEGIN(__func__)

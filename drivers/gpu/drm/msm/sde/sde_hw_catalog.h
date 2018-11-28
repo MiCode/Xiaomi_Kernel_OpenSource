@@ -743,7 +743,10 @@ struct sde_mdp_cfg {
  * @max_fps:                maximum fps to allow micro idle
  * @uidle_rev:              uidle revision supported by the target,
  *                          zero if no support
+ * @debugfs_perf:           enable/disable performance counters and status
+ *                          logging
  * @debugfs_ctrl:           uidle is enabled/disabled through debugfs
+ * @perf_cntr_en:           performance counters are enabled/disabled
  */
 struct sde_uidle_cfg {
 	SDE_HW_BLK_INFO;
@@ -758,7 +761,9 @@ struct sde_uidle_cfg {
 	u32 max_dwnscale;
 	u32 max_fps;
 	u32 uidle_rev;
+	u32 debugfs_perf;
 	bool debugfs_ctrl;
+	bool perf_cntr_en;
 };
 
 /* struct sde_mdp_cfg : MDP TOP-BLK instance info
