@@ -2819,7 +2819,10 @@ static inline void __update_min_max_capacity(void)
 	int i;
 	int max_cap = 0, min_cap = INT_MAX;
 
-	for_each_online_cpu(i) {
+	for_each_possible_cpu(i) {
+		if (!cpu_active(i))
+			continue;
+
 		max_cap = max(max_cap, cpu_capacity(i));
 		min_cap = min(min_cap, cpu_capacity(i));
 	}
@@ -3103,6 +3106,7 @@ static inline enum sched_boost_policy task_boost_policy(struct task_struct *p)
 }
 
 extern void walt_map_freq_to_load(void);
+extern void walt_update_min_max_capacity(void);
 
 static inline bool is_min_capacity_cluster(struct sched_cluster *cluster)
 {
@@ -3256,6 +3260,7 @@ static inline unsigned int power_cost(int cpu, u64 demand)
 
 static inline void note_task_waking(struct task_struct *p, u64 wallclock) { }
 static inline void walt_map_freq_to_load(void) { }
+static inline void walt_update_min_max_capacity(void) { }
 #endif	/* CONFIG_SCHED_WALT */
 
 #if defined(CONFIG_ENERGY_MODEL) && defined(CONFIG_CPU_FREQ_GOV_SCHEDUTIL)
