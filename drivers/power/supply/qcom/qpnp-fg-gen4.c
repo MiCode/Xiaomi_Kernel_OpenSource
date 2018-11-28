@@ -347,9 +347,9 @@ static struct fg_sram_param pm8150b_v1_sram_params[] = {
 	PARAM(SYS_TERM_CURR, SYS_TERM_CURR_WORD, SYS_TERM_CURR_OFFSET, 2,
 		100000, 48828, 0, fg_encode_current, NULL),
 	PARAM(DELTA_MSOC_THR, DELTA_MSOC_THR_WORD, DELTA_MSOC_THR_OFFSET,
-		1, 2048, 100, 0, fg_encode_default, NULL),
+		1, 2048, 1000, 0, fg_encode_default, NULL),
 	PARAM(DELTA_BSOC_THR, DELTA_BSOC_THR_WORD, DELTA_BSOC_THR_OFFSET,
-		1, 2048, 100, 0, fg_encode_default, NULL),
+		1, 2048, 1000, 0, fg_encode_default, NULL),
 	PARAM(ESR_TIMER_DISCHG_MAX, ESR_TIMER_DISCHG_MAX_WORD,
 		ESR_TIMER_DISCHG_MAX_OFFSET, 1, 1, 1, 0, fg_encode_default,
 		NULL),
@@ -439,9 +439,9 @@ static struct fg_sram_param pm8150b_v2_sram_params[] = {
 	PARAM(SYS_TERM_CURR, SYS_TERM_CURR_WORD, SYS_TERM_CURR_OFFSET, 2,
 		100000, 48828, 0, fg_encode_current, NULL),
 	PARAM(DELTA_MSOC_THR, DELTA_MSOC_THR_WORD, DELTA_MSOC_THR_OFFSET,
-		1, 2048, 100, 0, fg_encode_default, NULL),
+		1, 2048, 1000, 0, fg_encode_default, NULL),
 	PARAM(DELTA_BSOC_THR, DELTA_BSOC_THR_WORD, DELTA_BSOC_THR_OFFSET,
-		1, 2048, 100, 0, fg_encode_default, NULL),
+		1, 2048, 1000, 0, fg_encode_default, NULL),
 	PARAM(ESR_TIMER_DISCHG_MAX, ESR_TIMER_DISCHG_MAX_WORD,
 		ESR_TIMER_DISCHG_MAX_OFFSET, 1, 1, 1, 0, fg_encode_default,
 		NULL),
@@ -2750,10 +2750,13 @@ static irqreturn_t fg_delta_msoc_irq_handler(int irq, void *data)
 {
 	struct fg_dev *fg = data;
 	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
-	int rc, batt_soc, batt_temp;
+	int rc, batt_soc, batt_temp, msoc_raw;
 	bool input_present = is_input_present(fg);
 
-	fg_dbg(fg, FG_IRQ, "irq %d triggered\n", irq);
+	rc = fg_get_msoc_raw(fg, &msoc_raw);
+	if (!rc)
+		fg_dbg(fg, FG_IRQ, "irq %d triggered msoc_raw: %d\n", irq,
+			msoc_raw);
 
 	get_batt_psy_props(fg);
 
@@ -3963,7 +3966,7 @@ static int fg_gen4_hw_init(struct fg_gen4_chip *chip)
 		}
 	}
 
-	if (chip->dt.delta_soc_thr > 0 && chip->dt.delta_soc_thr < 100) {
+	if (chip->dt.delta_soc_thr > 0 && chip->dt.delta_soc_thr < 125) {
 		fg_encode(fg->sp, FG_SRAM_DELTA_MSOC_THR,
 			chip->dt.delta_soc_thr, buf);
 		rc = fg_sram_write(fg,
@@ -4434,7 +4437,7 @@ static void fg_gen4_parse_batt_temp_dt(struct fg_gen4_chip *chip)
 #define DEFAULT_EMPTY_VOLT_MV		2812
 #define DEFAULT_SYS_TERM_CURR_MA	-125
 #define DEFAULT_CUTOFF_CURR_MA		200
-#define DEFAULT_DELTA_SOC_THR		1
+#define DEFAULT_DELTA_SOC_THR		5	/* 0.5 % */
 #define DEFAULT_CL_START_SOC		15
 #define DEFAULT_CL_MIN_TEMP_DECIDEGC	150
 #define DEFAULT_CL_MAX_TEMP_DECIDEGC	500
