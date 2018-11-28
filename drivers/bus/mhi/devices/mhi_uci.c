@@ -429,21 +429,21 @@ read_error:
 
 static int mhi_uci_open(struct inode *inode, struct file *filp)
 {
-	struct uci_dev *uci_dev;
+	struct uci_dev *uci_dev = NULL, *tmp_dev;
 	int ret = -EIO;
 	struct uci_buf *buf_itr, *tmp;
 	struct uci_chan *dl_chan;
 
 	mutex_lock(&mhi_uci_drv.lock);
-	list_for_each_entry(uci_dev, &mhi_uci_drv.head, node) {
-		if (uci_dev->devt == inode->i_rdev) {
-			ret = 0;
+	list_for_each_entry(tmp_dev, &mhi_uci_drv.head, node) {
+		if (tmp_dev->devt == inode->i_rdev) {
+			uci_dev = tmp_dev;
 			break;
 		}
 	}
 
 	/* could not find a minor node */
-	if (ret)
+	if (!uci_dev)
 		goto error_exit;
 
 	mutex_lock(&uci_dev->mutex);
