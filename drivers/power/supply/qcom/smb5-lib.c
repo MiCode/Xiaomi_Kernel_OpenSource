@@ -1423,13 +1423,15 @@ static int smblib_set_moisture_protection(struct smb_charger *chg,
 
 		/* Set 1% duty cycle on ID detection */
 		rc = smblib_masked_write(chg,
-					TYPEC_U_USB_WATER_PROTECTION_CFG_REG,
-					EN_MICRO_USB_WATER_PROTECTION_BIT |
-					MICRO_USB_DETECTION_ON_TIME_CFG_MASK |
-					MICRO_USB_DETECTION_PERIOD_CFG_MASK,
-					EN_MICRO_USB_WATER_PROTECTION_BIT |
-					MICRO_USB_DETECTION_ON_TIME_20_MS |
-					MICRO_USB_DETECTION_PERIOD_X_100);
+				((chg->smb_version == PMI632_SUBTYPE) ?
+				PMI632_TYPEC_U_USB_WATER_PROTECTION_CFG_REG :
+				TYPEC_U_USB_WATER_PROTECTION_CFG_REG),
+				EN_MICRO_USB_WATER_PROTECTION_BIT |
+				MICRO_USB_DETECTION_ON_TIME_CFG_MASK |
+				MICRO_USB_DETECTION_PERIOD_CFG_MASK,
+				EN_MICRO_USB_WATER_PROTECTION_BIT |
+				MICRO_USB_DETECTION_ON_TIME_20_MS |
+				MICRO_USB_DETECTION_PERIOD_X_100);
 		if (rc < 0) {
 			smblib_err(chg, "Couldn't set 1 percent CC_ID duty cycle rc=%d\n",
 				rc);
@@ -1454,7 +1456,9 @@ static int smblib_set_moisture_protection(struct smb_charger *chg,
 		}
 
 		/* Disable periodic monitoring of CC_ID pin */
-		rc = smblib_write(chg, TYPEC_U_USB_WATER_PROTECTION_CFG_REG, 0);
+		rc = smblib_write(chg, ((chg->smb_version == PMI632_SUBTYPE) ?
+				PMI632_TYPEC_U_USB_WATER_PROTECTION_CFG_REG :
+				TYPEC_U_USB_WATER_PROTECTION_CFG_REG), 0);
 		if (rc < 0) {
 			smblib_err(chg, "Couldn't disable 1 percent CC_ID duty cycle rc=%d\n",
 				rc);
@@ -5782,7 +5786,9 @@ static void smblib_moisture_protection_work(struct work_struct *work)
 	 * Disable 1% duty cycle on CC_ID pin and enable uUSB factory mode
 	 * detection to track any change on RID, as interrupts are disable.
 	 */
-	rc = smblib_write(chg, TYPEC_U_USB_WATER_PROTECTION_CFG_REG, 0);
+	rc = smblib_write(chg, ((chg->smb_version == PMI632_SUBTYPE) ?
+			PMI632_TYPEC_U_USB_WATER_PROTECTION_CFG_REG :
+			TYPEC_U_USB_WATER_PROTECTION_CFG_REG), 0);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't disable periodic monitoring of CC_ID rc=%d\n",
 			rc);

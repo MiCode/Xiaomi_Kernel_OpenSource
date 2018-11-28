@@ -340,6 +340,8 @@ static int smb5_chg_config_init(struct smb5 *chip)
 		chg->name = "pmi632_charger";
 		/* PMI632 does not support PD */
 		chg->pd_not_supported = true;
+		if (pmic_rev_id->rev4 >= 2)
+			chg->uusb_moisture_protection_enabled = true;
 		chg->hw_max_icl_ua =
 			(chip->dt.usb_icl_ua > 0) ? chip->dt.usb_icl_ua
 						: PMI632_MAX_ICL_UA;
@@ -1926,7 +1928,9 @@ static int smb5_configure_micro_usb(struct smb_charger *chg)
 		}
 
 		/* Disable periodic monitoring of CC_ID pin */
-		rc = smblib_write(chg, TYPEC_U_USB_WATER_PROTECTION_CFG_REG, 0);
+		rc = smblib_write(chg, ((chg->smb_version == PMI632_SUBTYPE) ?
+			PMI632_TYPEC_U_USB_WATER_PROTECTION_CFG_REG :
+			TYPEC_U_USB_WATER_PROTECTION_CFG_REG), 0);
 		if (rc < 0) {
 			dev_err(chg->dev, "Couldn't disable periodic monitoring of CC_ID rc=%d\n",
 				rc);
@@ -2172,10 +2176,10 @@ static int smb5_init_hw(struct smb5 *chip)
 
 	/*
 	 * PMI632 can have the connector type defined by a dedicated register
-	 * TYPEC_MICRO_USB_MODE_REG or by a common TYPEC_U_USB_CFG_REG.
+	 * PMI632_TYPEC_MICRO_USB_MODE_REG or by a common TYPEC_U_USB_CFG_REG.
 	 */
 	if (chg->smb_version == PMI632_SUBTYPE) {
-		rc = smblib_read(chg, TYPEC_MICRO_USB_MODE_REG, &val);
+		rc = smblib_read(chg, PMI632_TYPEC_MICRO_USB_MODE_REG, &val);
 		if (rc < 0) {
 			dev_err(chg->dev, "Couldn't read USB mode rc=%d\n", rc);
 			return rc;
@@ -2184,7 +2188,7 @@ static int smb5_init_hw(struct smb5 *chip)
 	}
 
 	/*
-	 * If TYPEC_MICRO_USB_MODE_REG is not set and for all non-PMI632
+	 * If PMI632_TYPEC_MICRO_USB_MODE_REG is not set and for all non-PMI632
 	 * check the connector type using TYPEC_U_USB_CFG_REG.
 	 */
 	if (!type) {
