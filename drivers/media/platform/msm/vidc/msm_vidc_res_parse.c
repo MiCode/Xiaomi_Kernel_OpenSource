@@ -888,25 +888,10 @@ err_load_reg_table:
 	return rc;
 }
 
-static int get_secure_vmid(struct context_bank_info *cb)
-{
-	if (!strcasecmp(cb->name, "venus_sec_bitstream"))
-		return VMID_CP_BITSTREAM;
-	else if (!strcasecmp(cb->name, "venus_sec_pixel"))
-		return VMID_CP_PIXEL;
-	else if (!strcasecmp(cb->name, "venus_sec_non_pixel"))
-		return VMID_CP_NON_PIXEL;
-
-	WARN(1, "No matching secure vmid for cb name: %s\n",
-		cb->name);
-	return VMID_INVAL;
-}
-
 static int msm_vidc_setup_context_bank(struct msm_vidc_platform_resources *res,
 		struct context_bank_info *cb, struct device *dev)
 {
 	int rc = 0;
-	int secure_vmid = VMID_INVAL;
 	struct bus_type *bus;
 
 	if (!dev || !cb || !res) {
@@ -923,47 +908,9 @@ static int msm_vidc_setup_context_bank(struct msm_vidc_platform_resources *res,
 		goto remove_cb;
 	}
 
-	cb->mapping = arm_iommu_create_mapping(bus, cb->addr_range.start,
-					cb->addr_range.size);
-	if (IS_ERR_OR_NULL(cb->mapping)) {
-		dprintk(VIDC_ERR, "%s - failed to create mapping\n", __func__);
-		rc = PTR_ERR(cb->mapping) ? PTR_ERR(cb->mapping) : -ENODEV;
-		goto remove_cb;
-	}
+	 cb->domain = iommu_get_domain_for_dev(cb->dev);
 
-	if (cb->is_secure) {
-		secure_vmid = get_secure_vmid(cb);
-		rc = iommu_domain_set_attr(cb->mapping->domain,
-				DOMAIN_ATTR_SECURE_VMID, &secure_vmid);
-		if (rc) {
-			dprintk(VIDC_ERR,
-					"%s - programming secure vmid failed: %s %d\n",
-					__func__, dev_name(dev), rc);
-			goto release_mapping;
-		}
-	}
-
-	if (res->cache_pagetables) {
-		int cache_pagetables = 1;
-
-		rc = iommu_domain_set_attr(cb->mapping->domain,
-			DOMAIN_ATTR_USE_UPSTREAM_HINT, &cache_pagetables);
-		if (rc) {
-			WARN_ONCE(rc,
-				"%s: failed to set cache pagetables attribute, %d\n",
-				__func__, rc);
-			rc = 0;
-		}
-	}
-
-	rc = arm_iommu_attach_device(cb->dev, cb->mapping);
-	if (rc) {
-		dprintk(VIDC_ERR, "%s - Couldn't arm_iommu_attach_device\n",
-			__func__);
-		goto release_mapping;
-	}
-
-	/*
+	 /*
 	 * configure device segment size and segment boundary to ensure
 	 * iommu mapping returns one mapping (which is required for partial
 	 * cache operations)
@@ -976,14 +923,10 @@ static int msm_vidc_setup_context_bank(struct msm_vidc_platform_resources *res,
 
 	dprintk(VIDC_DBG, "Attached %s and created mapping\n", dev_name(dev));
 	dprintk(VIDC_DBG,
-		"Context bank name:%s, buffer_type: %#x, is_secure: %d, address range start: %#x, size: %#x, dev: %pK, mapping: %pK",
+		"Context bank name:%s, buffer_type: %#x, is_secure: %d, address range start: %#x, size: %#x, dev: %pK, domain: %pK",
 		cb->name, cb->buffer_type, cb->is_secure, cb->addr_range.start,
-		cb->addr_range.size, cb->dev, cb->mapping);
+		cb->addr_range.size, cb->dev, cb->domain);
 
-	return rc;
-
-release_mapping:
-	arm_iommu_release_mapping(cb->mapping);
 remove_cb:
 	return rc;
 }
@@ -1081,22 +1024,7 @@ static int msm_vidc_populate_context_bank(struct device *dev,
 		goto err_setup_cb;
 	}
 
-	if (core->resources.non_fatal_pagefaults) {
-		int data = 1;
-
-		dprintk(VIDC_DBG, "set non-fatal-faults attribute on %s\n",
-				dev_name(dev));
-		rc = iommu_domain_set_attr(cb->mapping->domain,
-					DOMAIN_ATTR_NON_FATAL_FAULTS, &data);
-		if (rc) {
-			dprintk(VIDC_WARN,
-				"%s: set non fatal attribute failed: %s %d\n",
-				__func__, dev_name(dev), rc);
-			/* ignore the error */
-		}
-	}
-
-	iommu_set_fault_handler(cb->mapping->domain,
+	iommu_set_fault_handler(cb->domain,
 		msm_vidc_smmu_fault_handler, (void *)core);
 
 	return 0;
