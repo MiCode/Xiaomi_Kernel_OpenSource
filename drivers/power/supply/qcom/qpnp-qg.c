@@ -2693,7 +2693,8 @@ static int qg_determine_pon_soc(struct qpnp_qg *chip)
 		goto use_pon_ocv;
 
 	if (!is_between(0, chip->dt.shutdown_temp_diff,
-			abs(shutdown[SDAM_TEMP] -  batt_temp)))
+			abs(shutdown[SDAM_TEMP] -  batt_temp)) &&
+			(shutdown[SDAM_TEMP] < 0 || batt_temp < 0))
 		goto use_pon_ocv;
 
 	if ((chip->dt.shutdown_soc_threshold != -EINVAL) &&
@@ -2709,32 +2710,39 @@ static int qg_determine_pon_soc(struct qpnp_qg *chip)
 
 use_pon_ocv:
 	if (use_pon_ocv == true) {
-		if (ocv[S3_LAST_OCV].ocv_raw == FIFO_V_RESET_VAL) {
-			if (!ocv[SDAM_PON_OCV].ocv_uv) {
-				strlcpy(ocv_type, "S7_PON_SOC", 20);
-				ocv_uv = ocv[S7_PON_OCV].ocv_uv;
-			} else if (ocv[SDAM_PON_OCV].ocv_uv <=
-					ocv[S7_PON_OCV].ocv_uv) {
-				strlcpy(ocv_type, "S7_PON_SOC", 20);
-				ocv_uv = ocv[S7_PON_OCV].ocv_uv;
-			} else if (!shutdown[SDAM_VALID] &&
-				((ocv[SDAM_PON_OCV].ocv_uv -
-					ocv[S7_PON_OCV].ocv_uv) >
-					S7_ERROR_MARGIN_UV)) {
-				strlcpy(ocv_type, "S7_PON_SOC", 20);
-				ocv_uv = ocv[S7_PON_OCV].ocv_uv;
+		if (chip->wa_flags & QG_PON_OCV_WA) {
+			if (ocv[S3_LAST_OCV].ocv_raw == FIFO_V_RESET_VAL) {
+				if (!ocv[SDAM_PON_OCV].ocv_uv) {
+					strlcpy(ocv_type, "S7_PON_SOC", 20);
+					ocv_uv = ocv[S7_PON_OCV].ocv_uv;
+				} else if (ocv[SDAM_PON_OCV].ocv_uv <=
+						ocv[S7_PON_OCV].ocv_uv) {
+					strlcpy(ocv_type, "S7_PON_SOC", 20);
+					ocv_uv = ocv[S7_PON_OCV].ocv_uv;
+				} else if (!shutdown[SDAM_VALID] &&
+					((ocv[SDAM_PON_OCV].ocv_uv -
+						ocv[S7_PON_OCV].ocv_uv) >
+						S7_ERROR_MARGIN_UV)) {
+					strlcpy(ocv_type, "S7_PON_SOC", 20);
+					ocv_uv = ocv[S7_PON_OCV].ocv_uv;
+				} else {
+					strlcpy(ocv_type, "SDAM_PON_SOC", 20);
+					ocv_uv = ocv[SDAM_PON_OCV].ocv_uv;
+				}
 			} else {
-				strlcpy(ocv_type, "SDAM_PON_SOC", 20);
-				ocv_uv = ocv[SDAM_PON_OCV].ocv_uv;
+				if (ocv[S3_LAST_OCV].ocv_uv >=
+						ocv[S7_PON_OCV].ocv_uv) {
+					strlcpy(ocv_type, "S3_LAST_SOC", 20);
+					ocv_uv = ocv[S3_LAST_OCV].ocv_uv;
+				} else {
+					strlcpy(ocv_type, "S7_PON_SOC", 20);
+					ocv_uv = ocv[S7_PON_OCV].ocv_uv;
+				}
 			}
 		} else {
-			if (ocv[S3_LAST_OCV].ocv_uv >= ocv[S7_PON_OCV].ocv_uv) {
-				strlcpy(ocv_type, "S3_LAST_SOC", 20);
-				ocv_uv = ocv[S3_LAST_OCV].ocv_uv;
-			} else {
-				strlcpy(ocv_type, "S7_PON_SOC", 20);
-				ocv_uv = ocv[S7_PON_OCV].ocv_uv;
-			}
+			/* Use S7 PON OCV */
+			strlcpy(ocv_type, "S7_PON_SOC", 20);
+			ocv_uv = ocv[S7_PON_OCV].ocv_uv;
 		}
 
 		ocv_uv = CAP(QG_MIN_OCV_UV, QG_MAX_OCV_UV, ocv_uv);
@@ -2805,7 +2813,7 @@ static int qg_set_wa_flags(struct qpnp_qg *chip)
 {
 	switch (chip->pmic_rev_id->pmic_subtype) {
 	case PMI632_SUBTYPE:
-		chip->wa_flags |= QG_RECHARGE_SOC_WA;
+		chip->wa_flags |= QG_RECHARGE_SOC_WA | QG_PON_OCV_WA;
 		if (chip->pmic_rev_id->rev4 == PMI632_V1P0_REV4)
 			chip->wa_flags |= QG_VBAT_LOW_WA;
 		break;

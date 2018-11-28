@@ -205,6 +205,7 @@ enum qg_wa_flags {
 	QG_VBAT_LOW_WA = BIT(0),
 	QG_RECHARGE_SOC_WA = BIT(1),
 	QG_CLK_ADJUST_WA = BIT(2),
+	QG_PON_OCV_WA = BIT(3),
 };
 
 
