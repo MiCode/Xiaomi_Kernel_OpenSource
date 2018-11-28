@@ -53,19 +53,6 @@
 		rgltr-load-current = <100000>;
 	};
 
-	actuator_front: qcom,actuator@1 {
-		cell-index = <1>;
-		reg = <0x1>;
-		compatible = "qcom,actuator";
-		cci-master = <1>;
-		cam_vaf-supply = <&pm8009_s2>;
-		regulator-names = "cam_vaf";
-		rgltr-cntrl-support;
-		rgltr-min-voltage = <2800000>;
-		rgltr-max-voltage = <2800000>;
-		rgltr-load-current = <100000>;
-	};
-
 	eeprom_rear: qcom,eeprom@0 {
 		cell-index = <0>;
 		reg = <0>;
@@ -78,8 +65,8 @@
 		regulator-names = "cam_vio", "cam_vana", "cam_vdig",
 			"cam_clk";
 		rgltr-cntrl-support;
-		rgltr-min-voltage = <1800000 2800000 1100000 0>;
-		rgltr-max-voltage = <1800000 2800000 1100000 0>;
+		rgltr-min-voltage = <1800000 2850000 1200000 0>;
+		rgltr-max-voltage = <1800000 2850000 1200000 0>;
 		rgltr-load-current = <0 80000 105000 0>;
 		gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
@@ -107,7 +94,6 @@
 		cell-index = <1>;
 		reg = <0x1>;
 		compatible = "qcom,eeprom";
-		//actuator-src = <&actuator_rear_aux>;
 		cam_vio-supply = <&pm8009_l7>;
 		cam_vana-supply = <&pm8009_l6>;
 		cam_vdig-supply = <&pm8009_l4>;
@@ -115,8 +101,8 @@
 		regulator-names = "cam_vio", "cam_vana", "cam_vdig",
 			"cam_clk";
 		rgltr-cntrl-support;
-		rgltr-min-voltage = <1800000 2800000 1200000 0>;
-		rgltr-max-voltage = <1800000 2800000 1200000 0>;
+		rgltr-min-voltage = <1800000 2850000 1200000 0>;
+		rgltr-max-voltage = <1800000 2850000 1200000 0>;
 		rgltr-load-current = <105000 0 80000 0>;
 		gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
@@ -152,8 +138,8 @@
 		regulator-names = "cam_vio", "cam_vana", "cam_vdig",
 			"cam_clk";
 		rgltr-cntrl-support;
-		rgltr-min-voltage = <1800000 2800000 1050000 0>;
-		rgltr-max-voltage = <1800000 2800000 1050000 0>;
+		rgltr-min-voltage = <1800000 2850000 1200000 0>;
+		rgltr-max-voltage = <1800000 2850000 1200000 0>;
 		rgltr-load-current = <0 80000 105000 0 0>;
 		gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
@@ -183,7 +169,7 @@
 		compatible = "qcom,cam-sensor";
 		reg = <0x0>;
 		csiphy-sd-index = <0>;
-		sensor-position-roll = <270>;
+		sensor-position-roll = <90>;
 		sensor-position-pitch = <0>;
 		sensor-position-yaw = <180>;
 		led-flash-src = <&led_flash_rear>;
@@ -226,12 +212,11 @@
 		compatible = "qcom,cam-sensor";
 		reg = <0x1>;
 		csiphy-sd-index = <1>;
-		sensor-position-roll = <270>;
+		sensor-position-roll = <90>;
 		sensor-position-pitch = <0>;
 		sensor-position-yaw = <180>;
 		led-flash-src = <&led_flash_rear_aux>;
 		eeprom-src = <&eeprom_rear_aux>;
-		//actuator-src = <&actuator_rear_aux>;
 		cam_vio-supply = <&pm8009_l7>;
 		cam_vana-supply = <&pm8009_l6>;
 		cam_vdig-supply = <&pm8009_l4>;
@@ -273,7 +258,6 @@
 		sensor-position-pitch = <0>;
 		sensor-position-yaw = <0>;
 		eeprom-src = <&eeprom_front>;
-        actuator-src = <&actuator_front>;
 		cam_vio-supply = <&pm8009_l7>;
 		cam_vana-supply = <&pm8009_l6>;
 		cam_vdig-supply = <&pm8009_l2>;
