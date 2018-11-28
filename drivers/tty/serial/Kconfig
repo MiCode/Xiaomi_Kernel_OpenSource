@@ -1098,6 +1098,16 @@ config SERIAL_MSM_CONSOLE
 	select SERIAL_CORE_CONSOLE
 	select SERIAL_EARLYCON
 
+config SERIAL_RX_CONSOLE_ONLY
+	bool "MSM serial rx only console support"
+	depends on SERIAL_MSM=y
+	select SERIAL_MSM_CONSOLE
+	help
+	 This enable RX i.e. input receive functionality only of
+	 generic serial driver while silencing TX i.e. kernel logging
+	 output to console functionality.
+	 If you want to enable RX only console say Y else say N.
+
 config SERIAL_MSM_GENI
 	tristate "MSM on-chip GENI HW based serial port support"
 	depends on ARCH_QCOM
