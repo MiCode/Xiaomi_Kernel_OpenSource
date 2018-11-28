@@ -240,6 +240,11 @@
 		};
 	};
 
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+
 	firmware: firmware {
 		android {
 			compatible = "android,firmware";
@@ -1102,11 +1107,14 @@
 				  <SLEEP_TCS   3>,
 				  <WAKE_TCS    3>,
 				  <CONTROL_TCS 1>;
-		status = "disabled";
 
 		msm_bus_apps_rsc {
 			compatible = "qcom,msm-bus-rsc";
 			qcom,msm-bus-id = <MSM_BUS_RSC_APPS>;
+		};
+
+		system_pm {
+			compatible = "qcom,system-pm";
 		};
 	};
 
@@ -1595,3 +1603,4 @@
 #include "kona-sde-pll.dtsi"
 #include "kona-sde-display.dtsi"
 #include "kona-audio.dtsi"
+#include "kona-pm.dtsi"
