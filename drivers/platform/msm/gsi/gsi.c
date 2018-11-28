@@ -92,6 +92,8 @@ static void __gsi_config_ieob_irq(int ee, uint32_t mask, uint32_t val)
 			GSI_EE_n_CNTXT_SRC_IEOB_IRQ_MSK_OFFS(ee));
 	gsi_writel((curr & ~mask) | (val & mask), gsi_ctx->base +
 			GSI_EE_n_CNTXT_SRC_IEOB_IRQ_MSK_OFFS(ee));
+	GSIDBG("current IEO_IRQ_MSK: 0x%x, change to: 0x%x\n",
+		curr, ((curr & ~mask) | (val & mask)));
 }
 
 static void __gsi_config_glob_irq(int ee, uint32_t mask, uint32_t val)
@@ -3486,6 +3488,8 @@ int gsi_config_channel_mode(unsigned long chan_hdl, enum gsi_chan_mode mode)
 		gsi_writel(1 << ctx->evtr->id, gsi_ctx->base +
 			GSI_EE_n_CNTXT_SRC_IEOB_IRQ_CLR_OFFS(gsi_ctx->per.ee));
 		atomic_set(&ctx->poll_mode, mode);
+		GSIDBG("set gsi_ctx evtr_id %d to %d mode\n",
+			ctx->evtr->id, mode);
 		ctx->stats.callback_to_poll++;
 	}
 
@@ -3493,6 +3497,8 @@ int gsi_config_channel_mode(unsigned long chan_hdl, enum gsi_chan_mode mode)
 			mode == GSI_CHAN_MODE_CALLBACK) {
 		atomic_set(&ctx->poll_mode, mode);
 		__gsi_config_ieob_irq(gsi_ctx->per.ee, 1 << ctx->evtr->id, ~0);
+		GSIDBG("set gsi_ctx evtr_id %d to %d mode\n",
+			ctx->evtr->id, mode);
 
 		/*
 		 * In GSI 2.2 and 2.5 there is a limitation that can lead
