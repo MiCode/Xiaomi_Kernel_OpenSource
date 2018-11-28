@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
 #include "cam_vfe170.h"
 #include "cam_vfe175.h"
 #include "cam_vfe175_130.h"
+#include "cam_vfe480.h"
 #include "cam_vfe_lite17x.h"
 #include "cam_vfe_hw_intf.h"
 #include "cam_vfe_core.h"
@@ -24,6 +25,10 @@ static const struct of_device_id cam_vfe_dt_match[] = {
 	{
 		.compatible = "qcom,vfe175_130",
 		.data = &cam_vfe175_130_hw_info,
+	},
+	{
+		.compatible = "qcom,vfe480",
+		.data = &cam_vfe480_hw_info,
 	},
 	{
 		.compatible = "qcom,vfe-lite170",

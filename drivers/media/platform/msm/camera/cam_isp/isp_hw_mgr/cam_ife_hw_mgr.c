@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -5147,14 +5147,6 @@ int cam_ife_mgr_do_tasklet_buf_done(void *handler_priv,
 		evt_payload, evt_payload->core_index);
 	CAM_DBG(CAM_ISP, "bus_irq_status_0: = %x", evt_payload->irq_reg_val[0]);
 	CAM_DBG(CAM_ISP, "bus_irq_status_1: = %x", evt_payload->irq_reg_val[1]);
-	CAM_DBG(CAM_ISP, "bus_irq_status_2: = %x", evt_payload->irq_reg_val[2]);
-	CAM_DBG(CAM_ISP, "bus_irq_comp_err: = %x", evt_payload->irq_reg_val[3]);
-	CAM_DBG(CAM_ISP, "bus_irq_comp_owrt: = %x",
-		evt_payload->irq_reg_val[4]);
-	CAM_DBG(CAM_ISP, "bus_irq_dual_comp_err: = %x",
-		evt_payload->irq_reg_val[5]);
-	CAM_DBG(CAM_ISP, "bus_irq_dual_comp_owrt: = %x",
-		evt_payload->irq_reg_val[6]);
 	/* WM Done */
 	return cam_ife_hw_mgr_handle_buf_done_for_hw_res(ife_hwr_mgr_ctx,
 		evt_payload_priv);

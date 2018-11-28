@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_VFE_BUS_H_
@@ -12,7 +12,18 @@
 
 #define CAM_VFE_BUS_VER_1_0             0x1000
 #define CAM_VFE_BUS_VER_2_0             0x2000
+#define CAM_VFE_BUS_VER_3_0             0x3000
+
 #define CAM_VFE_BUS_RD_VER_4_0          0x4000
+
+#define CAM_VFE_ADD_REG_VAL_PAIR(buf_array, index, offset, val)    \
+	do {                                               \
+		buf_array[(index)++] = offset;             \
+		buf_array[(index)++] = val;                \
+	} while (0)
+
+#define ALIGNUP(value, alignment) \
+	((value + alignment - 1) / alignment * alignment)
 
 enum cam_vfe_bus_plane_type {
 	PLANE_Y,

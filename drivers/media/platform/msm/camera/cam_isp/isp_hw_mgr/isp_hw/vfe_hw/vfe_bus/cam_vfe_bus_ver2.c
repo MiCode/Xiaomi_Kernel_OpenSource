@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/ratelimit.h>
@@ -38,20 +38,11 @@ static const char drv_name[] = "vfe_bus";
 #define CAM_VFE_BUS_ADDR_NO_SYNC_DEFAULT_VAL \
 	((1 << CAM_VFE_BUS_VER2_MAX_CLIENTS) - 1)
 
-#define ALIGNUP(value, alignment) \
-	((value + alignment - 1) / alignment * alignment)
-
 #define MAX_BUF_UPDATE_REG_NUM   \
 	((sizeof(struct cam_vfe_bus_ver2_reg_offset_bus_client) +  \
 	sizeof(struct cam_vfe_bus_ver2_reg_offset_ubwc_client))/4)
 #define MAX_REG_VAL_PAIR_SIZE    \
 	(MAX_BUF_UPDATE_REG_NUM * 2 * CAM_PACKET_MAX_PLANES)
-
-#define CAM_VFE_ADD_REG_VAL_PAIR(buf_array, index, offset, val)    \
-	do {                                               \
-		buf_array[(index)++] = offset;             \
-		buf_array[(index)++] = val;                \
-	} while (0)
 
 static uint32_t bus_error_irq_mask[3] = {
 	0x7800,
