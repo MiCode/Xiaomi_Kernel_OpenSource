@@ -21,7 +21,6 @@
 #include "msm_vidc_internal.h"
 #include "msm_vidc_res_parse.h"
 #include "msm_vidc_resources.h"
-#include "venus_boot.h"
 #include "vidc_hfi_api.h"
 #include "msm_v4l2_private.h"
 #include "msm_vidc_clocks.h"
@@ -705,9 +704,6 @@ static int msm_vidc_remove(struct platform_device *pdev)
 		dprintk(VIDC_ERR, "%s invalid core", __func__);
 		return -EINVAL;
 	}
-
-	if (core->resources.use_non_secure_pil)
-		venus_boot_deinit();
 
 	vidc_hfi_deinitialize(core->hfi_type, core->device);
 	if (core->resources.domain_cvp) {

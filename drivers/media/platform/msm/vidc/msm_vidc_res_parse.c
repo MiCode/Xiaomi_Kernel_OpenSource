@@ -11,7 +11,6 @@
 #include "msm_vidc_debug.h"
 #include "msm_vidc_resources.h"
 #include "msm_vidc_res_parse.h"
-#include "venus_boot.h"
 #include "soc/qcom/secure_buffer.h"
 
 enum clock_properties {
@@ -873,17 +872,6 @@ int read_platform_resources_from_dt(
 		goto err_setup_legacy_cb;
 	}
 
-	res->use_non_secure_pil = of_property_read_bool(pdev->dev.of_node,
-			"qcom,use-non-secure-pil");
-
-	if (res->use_non_secure_pil || !is_iommu_present(res)) {
-		of_property_read_u32(pdev->dev.of_node, "qcom,fw-bias",
-				&firmware_base);
-		res->firmware_base = (phys_addr_t)firmware_base;
-		dprintk(VIDC_DBG,
-				"Using fw-bias : %pa", &res->firmware_base);
-	}
-
 return rc;
 
 err_setup_legacy_cb:
@@ -1237,30 +1225,12 @@ int read_context_bank_resources_from_dt(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	if (of_property_read_bool(pdev->dev.of_node, "qcom,fw-context-bank")) {
-		if (core->resources.use_non_secure_pil) {
-			struct context_bank_info *cb;
+	rc = msm_vidc_populate_context_bank(&pdev->dev, core);
+	if (rc)
+		dprintk(VIDC_ERR, "Failed to probe context bank\n");
+	else
+		dprintk(VIDC_DBG, "Successfully probed context bank\n");
 
-			cb = devm_kzalloc(&pdev->dev, sizeof(*cb), GFP_KERNEL);
-			if (!cb) {
-				dprintk(VIDC_ERR, "alloc venus cb failed\n");
-				return -ENOMEM;
-			}
-
-			cb->dev = &pdev->dev;
-			rc = venus_boot_init(&core->resources, cb);
-			if (rc) {
-				dprintk(VIDC_ERR,
-				"Failed to init non-secure PIL %d\n", rc);
-			}
-		}
-	} else {
-		rc = msm_vidc_populate_context_bank(&pdev->dev, core);
-		if (rc)
-			dprintk(VIDC_ERR, "Failed to probe context bank\n");
-		else
-			dprintk(VIDC_DBG, "Successfully probed context bank\n");
-	}
 	return rc;
 }
 
