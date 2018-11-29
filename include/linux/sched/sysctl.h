@@ -140,5 +140,6 @@ extern int sched_energy_aware_handler(struct ctl_table *table, int write,
 extern char sched_lib_name[LIB_PATH_LENGTH];
 extern unsigned int sched_lib_mask_check;
 extern unsigned int sched_lib_mask_force;
+extern unsigned long *sched_busy_hysteresis_cpubits;
 
 #endif /* _LINUX_SCHED_SYSCTL_H */
