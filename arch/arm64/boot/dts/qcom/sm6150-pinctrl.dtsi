@@ -574,7 +574,7 @@
 				config {
 					pins = "gpio10", "gpio13";
 					drive-strength = <2>;
-					bias-no-pull;
+					bias-disable;
 				};
 			};
 
