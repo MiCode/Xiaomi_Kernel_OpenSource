@@ -29,7 +29,7 @@
 #include "cam_soc_util.h"
 #include "cam_debug_util.h"
 
-#define MAX_CSIPHY                  3
+#define MAX_CSIPHY                  6
 #define MAX_DPHY_DATA_LN            4
 #define MAX_LRME_V4l2_EVENTS        30
 #define CSIPHY_NUM_CLK_MAX          16
