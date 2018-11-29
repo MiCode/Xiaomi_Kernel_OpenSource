@@ -105,9 +105,6 @@ struct msm_hsphy {
 	struct regulator_desc	dpdm_rdesc;
 	struct regulator_dev	*dpdm_rdev;
 
-	void __iomem		*phy_rcal_reg;
-	u32			rcal_mask;
-
 	/* emulation targets specific */
 	void __iomem		*emu_phy_base;
 	int			*emu_init_seq;
