@@ -302,7 +302,7 @@
 		qcom,decimation = <0>;
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
-		qcom,scale-function = <22>;
+		qcom,scale-function = <26>;
 		qcom,hw-settle-time = <0xb>;
 		qcom,fast-avg-setup = <0>;
 	};
