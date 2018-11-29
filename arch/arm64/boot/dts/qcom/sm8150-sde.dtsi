@@ -67,6 +67,9 @@
 		qcom,sde-mixer-display-pref = "primary", "primary", "none",
 					      "none", "none", "none";
 
+		qcom,sde-mixer-cwb-pref = "none", "none", "cwb",
+					      "cwb", "cwb", "cwb";
+
 		qcom,sde-dspp-top-off = <0x1300>;
 		qcom,sde-dspp-top-size = <0x80>;
 		qcom,sde-dspp-off = <0x55000 0x57000 0x59000 0x5b000>;
