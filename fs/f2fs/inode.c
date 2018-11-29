@@ -104,6 +104,13 @@ static void __recover_inline_status(struct inode *inode, struct page *ipage)
 	return;
 }
 
+static bool sanity_check_inode(struct inode *inode)
+{
+	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
+
+	return true;
+}
+
 static int do_read_inode(struct inode *inode)
 {
 	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
@@ -152,6 +159,11 @@ static int do_read_inode(struct inode *inode)
 		set_page_dirty(node_page);
 
 	get_inline_info(inode, ri);
+
+	if (!sanity_check_inode(inode)) {
+		f2fs_put_page(node_page, 1);
+		return -EINVAL;
+	}
 
 	/* check data exist */
 	if (f2fs_has_inline_data(inode) && !f2fs_exist_data(inode))
