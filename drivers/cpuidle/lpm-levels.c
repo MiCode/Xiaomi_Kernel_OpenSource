@@ -106,7 +106,7 @@ static const int num_dbg_elements = 0x100;
 
 static void cluster_unprepare(struct lpm_cluster *cluster,
 		const struct cpumask *cpu, int child_idx, bool from_idle,
-		int64_t time);
+		int64_t time, bool success);
 static void cluster_prepare(struct lpm_cluster *cluster,
 		const struct cpumask *cpu, int child_idx, bool from_idle,
 		int64_t time);
@@ -317,7 +317,8 @@ static int lpm_starting_cpu(unsigned int cpu)
 	update_debug_pc_event(CPU_HP_STARTING, cpu,
 				cluster->num_children_in_sync.bits[0],
 				cluster->child_cpus.bits[0], false);
-	cluster_unprepare(cluster, get_cpu_mask(cpu), NR_LPM_LEVELS, false, 0);
+	cluster_unprepare(cluster, get_cpu_mask(cpu), NR_LPM_LEVELS, false,
+						0, true);
 	return 0;
 }
 
@@ -1127,7 +1128,7 @@ failed:
 
 static void cluster_unprepare(struct lpm_cluster *cluster,
 		const struct cpumask *cpu, int child_idx, bool from_idle,
-		int64_t end_time)
+		int64_t end_time, bool success)
 {
 	struct lpm_cluster_level *level;
 	bool first_cpu;
@@ -1164,13 +1165,13 @@ static void cluster_unprepare(struct lpm_cluster *cluster,
 	if (cluster->stats->sleep_time)
 		cluster->stats->sleep_time = end_time -
 			cluster->stats->sleep_time;
-	lpm_stats_cluster_exit(cluster->stats, cluster->last_level, true);
+	lpm_stats_cluster_exit(cluster->stats, cluster->last_level, success);
 
 	level = &cluster->levels[cluster->last_level];
 
 	if (level->notify_rpm)
 		if (sys_pm_ops && sys_pm_ops->exit)
-			sys_pm_ops->exit();
+			sys_pm_ops->exit(success);
 
 	update_debug_pc_event(CLUSTER_EXIT, cluster->last_level,
 			cluster->num_children_in_sync.bits[0],
@@ -1186,7 +1187,7 @@ static void cluster_unprepare(struct lpm_cluster *cluster,
 		update_cluster_history(&cluster->history, last_level);
 
 	cluster_unprepare(cluster->parent, &cluster->child_cpus,
-			last_level, from_idle, end_time);
+			last_level, from_idle, end_time, success);
 unlock_return:
 	spin_unlock(&cluster->sync_lock);
 }
@@ -1369,7 +1370,7 @@ exit:
 	end_time = ktime_to_ns(ktime_get());
 	lpm_stats_cpu_exit(idx, end_time, success);
 
-	cluster_unprepare(cpu->parent, cpumask, idx, true, end_time);
+	cluster_unprepare(cpu->parent, cpumask, idx, true, end_time, success);
 	cpu_unprepare(cpu, idx, true);
 	dev->last_residency = ktime_us_delta(ktime_get(), start);
 	update_history(dev, idx);
@@ -1387,6 +1388,7 @@ static void lpm_cpuidle_s2idle(struct cpuidle_device *dev,
 {
 	struct lpm_cpu *cpu = per_cpu(cpu_lpm, dev->cpu);
 	const struct cpumask *cpumask = get_cpu_mask(dev->cpu);
+	bool success = false;
 
 	for (; idx >= 0; idx--) {
 		if (lpm_cpu_mode_allow(dev->cpu, idx, false))
@@ -1400,9 +1402,9 @@ static void lpm_cpuidle_s2idle(struct cpuidle_device *dev,
 	cpu_prepare(cpu, idx, true);
 	cluster_prepare(cpu->parent, cpumask, idx, false, 0);
 
-	psci_enter_sleep(cpu, idx, false);
+	success = psci_enter_sleep(cpu, idx, false);
 
-	cluster_unprepare(cpu->parent, cpumask, idx, false, 0);
+	cluster_unprepare(cpu->parent, cpumask, idx, false, 0, success);
 	cpu_unprepare(cpu, idx, true);
 }
 
@@ -1613,6 +1615,7 @@ static int lpm_suspend_enter(suspend_state_t state)
 	struct lpm_cluster *cluster = lpm_cpu->parent;
 	const struct cpumask *cpumask = get_cpu_mask(cpu);
 	int idx;
+	bool success;
 
 	for (idx = lpm_cpu->nlevels - 1; idx >= 0; idx--) {
 		if (lpm_cpu_mode_allow(cpu, idx, false))
@@ -1625,9 +1628,9 @@ static int lpm_suspend_enter(suspend_state_t state)
 	cpu_prepare(lpm_cpu, idx, false);
 	cluster_prepare(cluster, cpumask, idx, false, 0);
 
-	psci_enter_sleep(lpm_cpu, idx, false);
+	success = psci_enter_sleep(lpm_cpu, idx, false);
 
-	cluster_unprepare(cluster, cpumask, idx, false, 0);
+	cluster_unprepare(cluster, cpumask, idx, false, 0, success);
 	cpu_unprepare(lpm_cpu, idx, false);
 	return 0;
 }
