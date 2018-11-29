@@ -332,6 +332,7 @@
 			qcom,smmu-version = <2>;
 			qcom,smmu-enabled;
 			iommus = <&apps_smmu 0x1801 0x0>;
+			dma-ranges = <0x10000000 0x10000000 0x10000000>;
 		};
 	};
 
