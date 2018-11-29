@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -993,7 +994,7 @@ int ipa3_reset_hdr(void)
 				if (entry->is_hdr_proc_ctx) {
 					IPAERR("default header is proc ctx\n");
 					mutex_unlock(&ipa3_ctx->lock);
-					WARN_ON_RATELIMIT_IPA(1);
+					WARN_ON(1);
 					return -EFAULT;
 				}
 				IPADBG("skip default header\n");

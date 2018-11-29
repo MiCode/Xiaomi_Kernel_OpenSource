@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -134,6 +135,12 @@ static void _sched_set_boost(int old_val, int type)
 	case CONSERVATIVE_BOOST:
 		update_cgroup_boost_settings();
 		boost_kick_cpus();
+		break;
+
+	case HIDEBOUND_BOOST:
+		update_cgroup_boost_settings_no_override();
+		boost_kick_cpus();
+		type = CONSERVATIVE_BOOST;
 		break;
 
 	case RESTRAINED_BOOST:

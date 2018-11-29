@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2013, 2014 ARM Limited, All Rights Reserved.
  * Author: Marc Zyngier <marc.zyngier@arm.com>
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -30,6 +31,7 @@
 #include <linux/irqchip/arm-gic-v3.h>
 #include <linux/syscore_ops.h>
 #include <linux/irqchip/msm-mpm-irq.h>
+#include <linux/wakeup_reason.h>
 
 #include <asm/cputype.h>
 #include <asm/exception.h>
@@ -443,6 +445,18 @@ static void gic_show_resume_irq(struct gic_chip_data *gic)
 			name = desc->action->name;
 
 		pr_warn("%s: %d triggered %s\n", __func__, irq, name);
+
+		/* ignore rpm interrupt, since every interrupt in power collapse is coming from rpm */
+		/* if (irq == 74)
+			continue; */
+		/* ignore spmi interrupt, since it will record in __qpnpint_handle_irq() */
+		/* if (irq == 12)
+			continue; */
+		/* ignore gpio interrupt, since it will record in show_resume_gpio_irq() */
+		/* if (irq == 198)
+			continue; */
+
+		log_wakeup_reason(irq);
 	}
 }
 

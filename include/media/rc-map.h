@@ -2,6 +2,7 @@
  * rc-map.h - define RC map names used by RC drivers
  *
  * Copyright (c) 2010 by Mauro Carvalho Chehab
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -215,6 +216,7 @@ void rc_map_init(void);
 #define RC_MAP_WINFAST                   "rc-winfast"
 #define RC_MAP_WINFAST_USBII_DELUXE      "rc-winfast-usbii-deluxe"
 #define RC_MAP_SU3000                    "rc-su3000"
+#define RC_MAP_RC6_P2FP                  "rc-rc6-p2fp"
 
 /*
  * Please, do not just append newer Remote Controller names at the end.

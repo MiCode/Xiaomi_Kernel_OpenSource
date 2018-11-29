@@ -3,6 +3,7 @@
  *
  * Copyright (c) 2013 Samsung Electronics Co., Ltd.
  *		http://www.samsung.com
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Author: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
  *
@@ -11,7 +12,6 @@
  * published by the Free Software Foundation.
  */
 
-#include <linux/usb/gadget.h>
 #include "u_f.h"
 
 struct usb_request *alloc_ep_req(struct usb_ep *ep, int len, int default_len)

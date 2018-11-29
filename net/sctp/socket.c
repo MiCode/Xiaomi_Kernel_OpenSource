@@ -5,6 +5,7 @@
  * Copyright (c) 2001-2003 Intel Corp.
  * Copyright (c) 2001-2002 Nokia, Inc.
  * Copyright (c) 2001 La Monte H.P. Yarroll
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This file is part of the SCTP kernel implementation
  *
@@ -4422,6 +4423,10 @@ int sctp_do_peeloff(struct sock *sk, sctp_assoc_t id, struct socket **sockp)
 	struct sctp_sock *sp = sctp_sk(sk);
 	struct socket *sock;
 	int err = 0;
+
+	/* Do not peel off from one netns to another one. */
+	if (!net_eq(current->nsproxy->net_ns, sock_net(sk)))
+		return -EINVAL;
 
 	if (!asoc)
 		return -EINVAL;

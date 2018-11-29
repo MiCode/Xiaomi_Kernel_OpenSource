@@ -103,6 +103,12 @@ config QCOM_DLOAD_MODE
 		make the kernel reboot on a kernel panic - that must be
 		enabled via another mechanism.
 
+config JASONO_DLOAD_MODE
+        bool "Jason-o download mode enable"
+	default n
+        help
+	  This set WARM_RESET when kernel panic for jason-o boards.
+
 config POWER_RESET_QNAP
 	bool "QNAP power-off driver"
 	depends on OF_GPIO && PLAT_ORION

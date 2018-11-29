@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -255,13 +256,13 @@
 			wsa881x_213_en: wsa881x_en@21170213 {
 				compatible = "qcom,wsa881x";
 				reg = <0x0 0x21170213>;
-				qcom,spkr-sd-n-node = <&wsa_spkr_en1>;
+				qcom,spkr-sd-n-node = <&wsa_spkr_en2>;
 			};
 
 			wsa881x_214_en: wsa881x_en@21170214 {
 				compatible = "qcom,wsa881x";
 				reg = <0x0 0x21170214>;
-				qcom,spkr-sd-n-node = <&wsa_spkr_en2>;
+				qcom,spkr-sd-n-node = <&wsa_spkr_en1>;
 			};
 		};
 	};

@@ -13,6 +13,7 @@
  *                    Juri Lelli <juri.lelli@gmail.com>,
  *                    Michael Trimarchi <michael@amarulasolutions.com>,
  *                    Fabio Checconi <fchecconi@gmail.com>
+ * Copyright (C) 2018 XiaoMi, Inc.
  */
 #include "sched.h"
 
@@ -762,6 +763,9 @@ static void update_curr_dl(struct rq *rq)
 		      max(curr->se.statistics.exec_max, delta_exec));
 
 	curr->se.sum_exec_runtime += delta_exec;
+#ifdef CONFIG_PACKAGE_RUNTIME_INFO
+	update_task_runtime_info(curr, delta_exec, cpu_of(rq));
+#endif
 	account_group_exec_runtime(curr, delta_exec);
 
 	curr->se.exec_start = rq_clock_task(rq);

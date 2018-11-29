@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 2013 Texas Instruments
  *  Copyright (C) 2013 Eduardo Valentin <eduardo.valentin@ti.com>
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *
  *
  *  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -87,6 +88,8 @@ struct __thermal_zone {
 	void *sensor_data;
 	const struct thermal_zone_of_device_ops *ops;
 };
+
+struct thermal_message *tm = NULL;
 
 /***   DT thermal zone device callbacks   ***/
 
@@ -985,4 +988,55 @@ void of_thermal_destroy_zones(void)
 		of_thermal_free_zone(zone->devdata);
 	}
 	of_node_put(np);
+}
+
+int __init of_parse_thermal_message(void)
+{
+	struct device_node *np;
+	int ret = 0;
+
+	np = of_find_node_by_name(NULL, "thermal-message");
+	if (!np) {
+		pr_err("unable to find thermal message\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	tm = kzalloc(sizeof(struct thermal_message), GFP_KERNEL);
+	if (!tm) {
+		pr_err("unable alloc memory for thermal message\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	ret = of_property_read_string(np, "thermal,batt-array-size", &tm->batt_array_size);
+	if (ret && (ret != -EINVAL)) {
+		pr_err("Unable to read batt array size\n");
+		tm->batt_array_size = NULL;
+	}
+
+	ret = of_property_read_string(np, "thermal,batt-level-screen-on", &tm->batt_level_screen_on);
+	if (ret && (ret != -EINVAL)) {
+		pr_err("Unable to read batt message screen on\n");
+		tm->batt_level_screen_on = NULL;
+	}
+
+	ret = of_property_read_string(np, "thermal,batt-level-screen-off", &tm->batt_level_screen_off);
+	if (ret && (ret != -EINVAL)) {
+		pr_err("Unable to read batt message screen off\n");
+		tm->batt_level_screen_off = NULL;
+	}
+out:
+	if (!ret && tm && tm->batt_level_screen_on && tm->batt_level_screen_off)
+		tm->message_ok = true;
+
+	return ret;
+}
+
+void free_thermal_message(void)
+{
+	if (tm) {
+		kfree(tm);
+		tm = NULL;
+	}
 }

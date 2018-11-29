@@ -485,7 +485,7 @@ static struct ctl_table kern_table[] = {
 		.mode		= 0644,
 		.proc_handler	= sched_boost_handler,
 		.extra1         = &zero,
-		.extra2		= &three,
+		.extra2		= &four,
 	},
 	{
 		.procname	= "sched_short_burst_ns",

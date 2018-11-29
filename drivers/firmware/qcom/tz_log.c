@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2015,2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,8 +28,8 @@
 #include <soc/qcom/scm.h>
 #include <soc/qcom/qseecomi.h>
 
-/* QSEE_LOG_BUF_SIZE = 32K */
-#define QSEE_LOG_BUF_SIZE 0x8000
+/* QSEE_LOG_BUF_SIZE = 64K */
+#define QSEE_LOG_BUF_SIZE 0x10000
 
 
 /* TZ Diagnostic Area legacy version number */

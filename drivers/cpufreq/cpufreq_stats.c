@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 2003-2004 Venkatesh Pallipadi <venkatesh.pallipadi@intel.com>.
  *  (C) 2004 Zou Nan hai <nanhai.zou@intel.com>.
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -15,6 +16,8 @@
 #include <linux/slab.h>
 #include <linux/cputime.h>
 
+#define CPUFREQ_TIME_SAMPLING (300*HZ)
+#define CPUFREQ_TIME_ITEMS    5
 static spinlock_t cpufreq_stats_lock;
 
 struct cpufreq_stats {
@@ -23,6 +26,8 @@ struct cpufreq_stats {
 	unsigned int max_state;
 	unsigned int state_num;
 	unsigned int last_index;
+	u64 last_update;
+	u64 *history_time_in_state[CPUFREQ_TIME_ITEMS];
 	u64 *time_in_state;
 	unsigned int *freq_table;
 #ifdef CONFIG_CPU_FREQ_STAT_DETAILS
@@ -32,10 +37,32 @@ struct cpufreq_stats {
 
 static int cpufreq_stats_update(struct cpufreq_stats *stats)
 {
+	u64 time_interval;
+	int widx, ridx;
 	unsigned long long cur_time = get_jiffies_64();
 
 	spin_lock(&cpufreq_stats_lock);
-	stats->time_in_state[stats->last_index] += cur_time - stats->last_time;
+	if (stats->history_time_in_state[CPUFREQ_TIME_ITEMS-1]) {
+		stats->time_in_state[stats->last_index] +=
+			cur_time - stats->last_time;
+		time_interval = cur_time - stats->last_update;
+		if (time_interval > CPUFREQ_TIME_SAMPLING) {
+			widx = CPUFREQ_TIME_ITEMS - 1;
+			ridx = widx - 1;
+
+			for (; ridx >= 0; --widx, --ridx)
+				memcpy(stats->history_time_in_state[widx],
+					stats->history_time_in_state[ridx],
+					(stats->max_state + 1) * sizeof(u64));
+			memcpy(stats->history_time_in_state[0],
+					stats->time_in_state,
+			stats->max_state * sizeof(u64));
+
+			stats->history_time_in_state[0][stats->max_state]
+				= cur_time;
+			stats->last_update = cur_time;
+		}
+	}
 	stats->last_time = cur_time;
 	spin_unlock(&cpufreq_stats_lock);
 	return 0;
@@ -61,6 +88,49 @@ static ssize_t show_time_in_state(struct cpufreq_policy *policy, char *buf)
 	return len;
 }
 
+static ssize_t show_history_time_in_state(struct cpufreq_policy *policy, char *buf)
+{
+	ssize_t len = 0;
+	int i, j;
+	struct cpufreq_stats *stats = policy->stats;
+
+	if (!stats)
+		return 0;
+	cpufreq_stats_update(stats);
+
+	len += snprintf(buf + len, 80, "cpufreq\\time %16llu",
+				(unsigned long long)jiffies_64_to_clock_t(stats->last_time));
+	for (i = 0; i < CPUFREQ_TIME_ITEMS; i++) {
+		len += snprintf(buf + len, 20, " %16llu",
+				(unsigned long long)jiffies_64_to_clock_t(stats->history_time_in_state[i][stats->max_state]));
+	}
+
+	len += snprintf(buf + len, 80,  "\n--------------------------------------------------------");
+	len += snprintf(buf + len, 80, "--------------------------------------------------------\n");
+	for (i = 0; i < stats->state_num; i++) {
+		if (len >= PAGE_SIZE)
+			return PAGE_SIZE;
+		len += snprintf(buf + len, 80, "%8u     %16llu ", stats->freq_table[i],
+			(unsigned long long)
+			jiffies_64_to_clock_t(stats->time_in_state[i]));
+		if (len >= PAGE_SIZE)
+			return PAGE_SIZE;
+
+		for (j = 0; j < CPUFREQ_TIME_ITEMS; j++) {
+			len += snprintf(buf + len, 80, "%16llu ",
+				jiffies_64_to_clock_t(stats->history_time_in_state[j][i]));
+			if (len >= PAGE_SIZE)
+				return PAGE_SIZE;
+		}
+		len += snprintf(buf + len, 10, "\n");
+		if (len >= PAGE_SIZE)
+			return PAGE_SIZE;
+	}
+
+	if (len >= PAGE_SIZE)
+		return PAGE_SIZE;
+	return len;
+}
 #ifdef CONFIG_CPU_FREQ_STAT_DETAILS
 static ssize_t show_trans_table(struct cpufreq_policy *policy, char *buf)
 {
@@ -107,10 +177,12 @@ cpufreq_freq_attr_ro(trans_table);
 
 cpufreq_freq_attr_ro(total_trans);
 cpufreq_freq_attr_ro(time_in_state);
+cpufreq_freq_attr_ro(history_time_in_state);
 
 static struct attribute *default_attrs[] = {
 	&total_trans.attr,
 	&time_in_state.attr,
+	&history_time_in_state.attr,
 #ifdef CONFIG_CPU_FREQ_STAT_DETAILS
 	&trans_table.attr,
 #endif
@@ -161,9 +233,10 @@ static void cpufreq_stats_free_table(unsigned int cpu)
 
 static int __cpufreq_stats_create_table(struct cpufreq_policy *policy)
 {
-	unsigned int i = 0, count = 0, ret = -ENOMEM;
+	unsigned int j, i = 0, count = 0, ret = -ENOMEM;
 	struct cpufreq_stats *stats;
 	unsigned int alloc_size;
+	unsigned int history_items_size;
 	unsigned int cpu = policy->cpu;
 	struct cpufreq_frequency_table *pos, *table;
 
@@ -200,9 +273,20 @@ static int __cpufreq_stats_create_table(struct cpufreq_policy *policy)
 #ifdef CONFIG_CPU_FREQ_STAT_DETAILS
 	stats->trans_table = stats->freq_table + count;
 #endif
+	history_items_size = (count + 1) * sizeof(u64);
+	for (i = 0; i < CPUFREQ_TIME_ITEMS; i++) {
+		stats->history_time_in_state[i]
+			= kzalloc(history_items_size, GFP_KERNEL);
 
+		if (!stats->history_time_in_state[i]) {
+			for (j = i-1; j >= 0 ; j--)
+				kfree(stats->history_time_in_state[j]);
+			goto free_time_in_state;
+		}
+	}
 	stats->max_state = count;
 
+	i = 0;
 	/* Find valid-unique entries */
 	cpufreq_for_each_valid_entry(pos, table)
 		if (freq_table_get_index(stats, pos->frequency) == -1)
@@ -210,6 +294,7 @@ static int __cpufreq_stats_create_table(struct cpufreq_policy *policy)
 
 	stats->state_num = i;
 	stats->last_time = get_jiffies_64();
+	stats->last_update = get_jiffies_64();
 	stats->last_index = freq_table_get_index(stats, policy->cur);
 
 	policy->stats = stats;
@@ -217,6 +302,7 @@ static int __cpufreq_stats_create_table(struct cpufreq_policy *policy)
 	if (!ret)
 		return 0;
 
+free_time_in_state:
 	/* We failed, release resources */
 	policy->stats = NULL;
 	kfree(stats->time_in_state);

@@ -3,6 +3,7 @@
  *
  *  Based originally on the cpuset system, extracted by Paul Menage
  *  Copyright (C) 2006 Google, Inc
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *
  *  Notifications support
  *  Copyright (C) 2009 Nokia Corporation
@@ -4092,7 +4093,9 @@ int cgroup_transfer_tasks(struct cgroup *to, struct cgroup *from)
 	 */
 	do {
 		css_task_iter_start(&from->self, &it);
-		task = css_task_iter_next(&it);
+		do {
+			task = css_task_iter_next(&it);
+		} while (task && (task->flags & PF_EXITING));
 		if (task)
 			get_task_struct(task);
 		css_task_iter_end(&it);

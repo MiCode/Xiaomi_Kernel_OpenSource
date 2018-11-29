@@ -72,6 +72,8 @@ struct suspend_stats {
 };
 
 extern struct suspend_stats suspend_stats;
+extern void gpiolib_print(void);
+extern void regulator_print_stats(void);
 
 static inline void dpm_save_failed_dev(const char *name)
 {

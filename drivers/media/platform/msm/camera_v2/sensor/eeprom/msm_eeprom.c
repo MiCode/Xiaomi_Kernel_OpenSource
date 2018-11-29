@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1603,7 +1604,11 @@ static int msm_eeprom_platform_probe(struct platform_device *pdev)
 
 	e_ctrl->cal_data.mapdata = NULL;
 	e_ctrl->cal_data.map = NULL;
+#ifdef CONFIG_JASON_CAMERA
+    e_ctrl->userspace_probe = 1;
+#else
 	e_ctrl->userspace_probe = 0;
+#endif
 	e_ctrl->is_supported = 0;
 	if (!of_node) {
 		pr_err("%s dev.of_node NULL\n", __func__);

@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -925,5 +926,14 @@
 					 66000  66000  40000>;
 			};
 		};
+	};
+
+	/* panel 1.8v power*/
+	disp_vdd_vreg: disp_vdd_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "disp_vdd_vreg";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		regulator-boot-on;
 	};
 };

@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -599,7 +600,7 @@ int adm_programable_channel_mixer(int port_id, int copp_idx, int session_id,
 			ch_mixer->input_channels[channel_index] +
 			ch_mixer->input_channels[channel_index] *
 			ch_mixer->output_channel);
-	roundup(param_size, 4);
+	param_size = roundup(param_size, 4);
 
 	sz = sizeof(struct adm_cmd_set_pspd_mtmx_strtr_params_v5) +
 			sizeof(struct default_chmixer_param_id_coeff) +
@@ -721,7 +722,7 @@ int adm_programable_channel_mixer(int port_id, int copp_idx, int session_id,
 	index = index + ch_mixer->input_channels[channel_index];
 	ret = adm_populate_channel_weight(&adm_pspd_params[index],
 					ch_mixer, channel_index);
-	if (!ret) {
+	if (ret) {
 		pr_err("%s: fail to get channel weight with error %d\n",
 			__func__, ret);
 		goto fail_cmd;

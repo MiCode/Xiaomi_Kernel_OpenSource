@@ -1,4 +1,5 @@
 /* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -293,6 +294,7 @@ enum mdss_intf_events {
 	MDSS_EVENT_DSI_CMDLIST_KOFF,
 	MDSS_EVENT_ENABLE_PARTIAL_ROI,
 	MDSS_EVENT_DSC_PPS_SEND,
+	MDSS_EVENT_DISPPARAM,
 	MDSS_EVENT_DSI_STREAM_SIZE,
 	MDSS_EVENT_DSI_UPDATE_PANEL_DATA,
 	MDSS_EVENT_REGISTER_RECOVERY_HANDLER,
@@ -774,6 +776,12 @@ struct mdss_panel_hdr_properties {
 	u32 blackness_level;
 };
 
+struct mdss_panel_esd_check {
+	unsigned char check_cmd;
+	unsigned char check_value;
+	unsigned int panel_dead_report_delay;
+};
+
 struct mdss_panel_info {
 	u32 xres;
 	u32 yres;
@@ -796,8 +804,14 @@ struct mdss_panel_info {
 	u32 out_format;
 	u32 rst_seq[MDSS_DSI_RST_SEQ_LEN];
 	u32 rst_seq_len;
+	u32 tp_rst_seq[MDSS_DSI_RST_SEQ_LEN];
+	u32 tp_rst_seq_len;
 	u32 vic; /* video identification code */
 	u32 deep_color;
+	u32 esd_err_irq_gpio;
+	u32 esd_err_irq;
+	u32 esd_interrupt_flags;
+	struct mdss_panel_esd_check initial_esd_check;
 	struct mdss_rect roi;
 	struct mdss_dsi_dual_pu_roi dual_roi;
 	int pwm_pmic_gpio;
@@ -837,6 +851,7 @@ struct mdss_panel_info {
 	bool esd_rdy;
 	u32 partial_update_supported; /* value from dts if pu is supported */
 	u32 partial_update_enabled; /* is pu currently allowed */
+	u32 dispparam_enabled;
 	u32 dcs_cmd_by_left;
 	u32 partial_update_roi_merge;
 	struct ion_handle *splash_ihdl;
@@ -885,6 +900,10 @@ struct mdss_panel_info {
 	char panel_name[MDSS_MAX_PANEL_LEN];
 	struct mdss_mdp_pp_tear_check te;
 	struct mdss_mdp_pp_tear_check te_cached;
+
+	uint32_t panel_paramstatus;
+	uint32_t panel_on_param;
+	uint32_t panel_on_dimming_delay;
 
 	/*
 	 * Value of 2 only when single DSI is configured with 2 DSC
@@ -1001,6 +1020,7 @@ struct mdss_panel_data {
 
 	int panel_te_gpio;
 	struct completion te_done;
+	void (*panel_dead_report)(void);
 };
 
 struct mdss_panel_debugfs_info {
