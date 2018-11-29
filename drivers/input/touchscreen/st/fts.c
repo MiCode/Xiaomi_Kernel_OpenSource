@@ -4390,6 +4390,14 @@ static int fts_probe(struct i2c_client *client,
 	info->client = client;
 
 	i2c_set_clientdata(client, info);
+
+	info->i2c_data = kmalloc(I2C_DATA_MAX_LEN, GFP_KERNEL);
+	if (info->i2c_data == NULL) {
+		error = -ENOMEM;
+		goto ProbeErrorExit_0P1;
+	}
+	info->i2c_data_len = I2C_DATA_MAX_LEN;
+
 	logError(0, "%s i2c address: %x\n", tag, client->addr);
 	info->dev = &info->client->dev;
 	if (dp) {
@@ -4685,6 +4693,8 @@ ProbeErrorExit_2:
 	fts_get_reg(info, false);
 
 ProbeErrorExit_1:
+	kfree(info->i2c_data);
+ProbeErrorExit_0P1:
 	kfree(info);
 
 ProbeErrorExit_0:
@@ -4745,6 +4755,7 @@ static int fts_remove(struct i2c_client *client)
 	fts_get_reg(info, false);
 
 	/* free all */
+	kfree(info->i2c_data);
 	kfree(info);
 
 	return OK;
