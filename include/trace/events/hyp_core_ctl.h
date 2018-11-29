@@ -48,6 +48,7 @@ TRACE_EVENT(hyp_core_ctl_status,
 		__array(char, our_isolated, 32)
 		__array(char, online, 32)
 		__array(char, isolated, 32)
+		__array(char, thermal, 32)
 	),
 
 	TP_fast_assign(
@@ -62,11 +63,14 @@ TRACE_EVENT(hyp_core_ctl_status,
 			  cpumask_pr_args(cpu_online_mask));
 		scnprintf(__entry->isolated, sizeof(__entry->reserve), "%*pbl",
 			  cpumask_pr_args(cpu_isolated_mask));
+		scnprintf(__entry->thermal, sizeof(__entry->reserve), "%*pbl",
+			  cpumask_pr_args(cpu_cooling_get_max_level_cpumask()));
 	),
 
-	TP_printk("event=%s reserve=%s reserved=%s our_isolated=%s online=%s isolated=%s",
+	TP_printk("event=%s reserve=%s reserved=%s our_isolated=%s online=%s isolated=%s thermal=%s",
 		  __get_str(event), __entry->reserve, __entry->reserved,
-		  __entry->our_isolated, __entry->online, __entry->isolated)
+		  __entry->our_isolated, __entry->online, __entry->isolated,
+		  __entry->thermal)
 );
 
 #endif /* _TRACE_HYP_CORE_CTL_H */
