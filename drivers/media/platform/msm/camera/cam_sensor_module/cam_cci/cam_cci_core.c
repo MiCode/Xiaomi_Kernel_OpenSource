@@ -870,7 +870,7 @@ static int32_t cam_cci_burst_read(struct v4l2_subdev *sd,
 	struct cam_cci_ctrl *c_ctrl)
 {
 	int32_t rc = 0;
-	uint32_t val = 0, i = 0, j = 0, irq_mask_update = 0;
+	uint32_t val = 0, i = 0, j = 0;
 	unsigned long rem_jiffies, flags;
 	int32_t read_words = 0, exp_words = 0;
 	int32_t index = 0, first_byte = 0, total_read_words = 0;
@@ -1049,20 +1049,13 @@ static int32_t cam_cci_burst_read(struct v4l2_subdev *sd,
 			j, total_read_words);
 
 		spin_lock_irqsave(&cci_dev->lock_status, flags);
-		if (cci_dev->irqs_disabled) {
-			irq_mask_update =
-				cam_io_r_mb(base + CCI_IRQ_MASK_1_ADDR) |
-				CCI_IRQ_STATUS_1_I2C_M0_RD_THRESHOLD;
-			if (master == MASTER_0 && cci_dev->irqs_disabled &
-				CCI_IRQ_STATUS_1_I2C_M0_RD_THRESHOLD)
-				irq_mask_update |=
-					CCI_IRQ_STATUS_1_I2C_M0_RD_THRESHOLD;
-			else if (master == MASTER_1 && cci_dev->irqs_disabled &
-				CCI_IRQ_STATUS_1_I2C_M1_RD_THRESHOLD)
-				irq_mask_update |=
-					CCI_IRQ_STATUS_1_I2C_M1_RD_THRESHOLD;
-			cam_io_w_mb(irq_mask_update,
-				base + CCI_IRQ_MASK_1_ADDR);
+		if (cci_dev->irq_status1) {
+			CAM_DBG(CAM_CCI, "clear irq_status1:%x",
+				cci_dev->irq_status1);
+			cam_io_w_mb(cci_dev->irq_status1,
+				base + CCI_IRQ_CLEAR_1_ADDR);
+			cam_io_w_mb(0x1, base + CCI_IRQ_GLOBAL_CLEAR_CMD_ADDR);
+			cci_dev->irq_status1 = 0;
 		}
 		spin_unlock_irqrestore(&cci_dev->lock_status, flags);
 
