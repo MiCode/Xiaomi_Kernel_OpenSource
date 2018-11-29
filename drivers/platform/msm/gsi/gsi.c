@@ -122,7 +122,6 @@ static void gsi_channel_state_change_wait(unsigned long chan_hdl,
 	int gsi_pending_intr;
 	int res;
 	uint32_t ch;
-	uint32_t val;
 	int ee = gsi_ctx->per.ee;
 
 	/*
@@ -143,16 +142,9 @@ static void gsi_channel_state_change_wait(unsigned long chan_hdl,
 			return;
 
 		/*
-		 * Check channel state here in case the channel is
-		 * already started but interrupt is not yet received.
+		 * for the case of pending interrupt we will continue in the
+		 * loop. So state update is not needed.
 		 */
-		val = gsi_readl(gsi_ctx->base +
-			GSI_EE_n_GSI_CH_k_CNTXT_0_OFFS(chan_hdl,
-				gsi_ctx->per.ee));
-
-		ctx->state = (val &
-			GSI_EE_n_GSI_CH_k_CNTXT_0_CHSTATE_BMSK) >>
-			GSI_EE_n_GSI_CH_k_CNTXT_0_CHSTATE_SHFT;
 
 		ch = gsi_readl(gsi_ctx->base +
 			GSI_EE_n_CNTXT_TYPE_IRQ_OFFS(gsi_ctx->per.ee));
