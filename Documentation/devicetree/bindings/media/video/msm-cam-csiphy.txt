@@ -15,7 +15,7 @@ First Level Node - CSIPHY device
   Value type: <string>
   Definition: Should be "qcom,csiphy-v1.0",
 	"qcom,csiphy-v1.1", "qcom,csiphy-v1.2",
-	"qcom,csiphy-v2.0", "qcom,csiphy".
+	"qcom,csiphy-v1.2.1", "qcom,csiphy-v2.0", "qcom,csiphy".
 
 - cell-index: csiphy hardware core index
   Usage: required
