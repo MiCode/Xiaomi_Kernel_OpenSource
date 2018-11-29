@@ -348,6 +348,24 @@ static void _sde_encoder_phys_cmd_setup_irq_hw_idx(
 		struct sde_encoder_phys *phys_enc)
 {
 	struct sde_encoder_irq *irq;
+	struct sde_kms *sde_kms = phys_enc->sde_kms;
+	int ret = 0;
+
+	mutex_lock(&sde_kms->vblank_ctl_global_lock);
+
+	if (atomic_read(&phys_enc->vblank_refcount)) {
+		SDE_ERROR(
+		"vblank_refcount mismatch detected, try to reset %d\n",
+				atomic_read(&phys_enc->vblank_refcount));
+		ret = sde_encoder_helper_unregister_irq(phys_enc,
+				INTR_IDX_RDPTR);
+		if (ret)
+			SDE_ERROR(
+			"control vblank irq registration error %d\n",
+				ret);
+
+	}
+	atomic_set(&phys_enc->vblank_refcount, 0);
 
 	irq = &phys_enc->irq[INTR_IDX_CTL_START];
 	irq->hw_idx = phys_enc->hw_ctl->idx;
@@ -368,6 +386,8 @@ static void _sde_encoder_phys_cmd_setup_irq_hw_idx(
 	irq = &phys_enc->irq[INTR_IDX_AUTOREFRESH_DONE];
 	irq->hw_idx = phys_enc->hw_pp->idx;
 	irq->irq_idx = -EINVAL;
+
+	mutex_unlock(&sde_kms->vblank_ctl_global_lock);
 }
 
 static void sde_encoder_phys_cmd_cont_splash_mode_set(
@@ -674,13 +694,15 @@ static int sde_encoder_phys_cmd_control_vblank_irq(
 		to_sde_encoder_phys_cmd(phys_enc);
 	int ret = 0;
 	int refcount;
+	struct sde_kms *sde_kms;
 
 	if (!phys_enc || !phys_enc->hw_pp) {
 		SDE_ERROR("invalid encoder\n");
 		return -EINVAL;
 	}
+	sde_kms = phys_enc->sde_kms;
 
-	mutex_lock(phys_enc->vblank_ctl_lock);
+	mutex_lock(&sde_kms->vblank_ctl_global_lock);
 	refcount = atomic_read(&phys_enc->vblank_refcount);
 
 	/* Slave encoders don't report vblank */
@@ -698,11 +720,17 @@ static int sde_encoder_phys_cmd_control_vblank_irq(
 	SDE_EVT32(DRMID(phys_enc->parent), phys_enc->hw_pp->idx - PINGPONG_0,
 			enable, refcount);
 
-	if (enable && atomic_inc_return(&phys_enc->vblank_refcount) == 1)
+	if (enable && atomic_inc_return(&phys_enc->vblank_refcount) == 1) {
 		ret = sde_encoder_helper_register_irq(phys_enc, INTR_IDX_RDPTR);
-	else if (!enable && atomic_dec_return(&phys_enc->vblank_refcount) == 0)
+		if (ret)
+			atomic_dec_return(&phys_enc->vblank_refcount);
+	} else if (!enable &&
+			atomic_dec_return(&phys_enc->vblank_refcount) == 0) {
 		ret = sde_encoder_helper_unregister_irq(phys_enc,
 				INTR_IDX_RDPTR);
+		if (ret)
+			atomic_inc_return(&phys_enc->vblank_refcount);
+	}
 
 end:
 	if (ret) {
@@ -714,7 +742,7 @@ end:
 				enable, refcount, SDE_EVTLOG_ERROR);
 	}
 
-	mutex_unlock(phys_enc->vblank_ctl_lock);
+	mutex_unlock(&sde_kms->vblank_ctl_global_lock);
 	return ret;
 }
 
