@@ -406,6 +406,8 @@ enum qpnp_adc_channel_scaling_param {
  * %SCALE_BATT_THERM_TEMP_PU400: Conversion to temperature(decidegC) for 400k
  * pullup.
  * %SCALE_SMB1390_DIE_TEMP: Conversion for SMB1390 die temp
+ * %SCALE_BATT_THERM_TEMP_QRD_215: Conversion to temperature(decidegC) based on
+ *			btm parameters for QRD.
  * %SCALE_NONE: Do not use this scaling type.
  */
 enum qpnp_adc_scale_fn_type {
@@ -432,6 +434,7 @@ enum qpnp_adc_scale_fn_type {
 	SCALE_SMB1390_DIE_TEMP,
 	SCALE_BATT_THERM_TEMP_PU30,
 	SCALE_BATT_THERM_TEMP_PU400,
+	SCALE_BATT_THERM_TEMP_QRD_215,
 	SCALE_NONE,
 };
 
@@ -1510,6 +1513,23 @@ int32_t qpnp_adc_batt_therm_pu400(struct qpnp_vadc_chip *dev,
 			const struct qpnp_vadc_chan_properties *chan_prop,
 			struct qpnp_vadc_result *chan_rslt);
 /**
+ * qpnp_adc_batt_therm_qrd_215() - Scales the pre-calibrated digital output
+ *		of an ADC to the ADC reference and compensates for the
+ *		gain and offset. Returns the temperature in decidegC for QRD.
+ * @dev:	Structure device for qpnp vadc
+ * @adc_code:	pre-calibrated digital output of the ADC.
+ * @adc_prop:	adc properties of the pm8xxx adc such as bit resolution,
+ *		reference voltage.
+ * @chan_prop:	individual channel properties to compensate the i/p scaling,
+ *		slope and offset.
+ * @chan_rslt:	physical result to be stored.
+ */
+int32_t qpnp_adc_batt_therm_qrd_215(struct qpnp_vadc_chip *dev,
+			int32_t adc_code,
+			const struct qpnp_adc_properties *adc_prop,
+			const struct qpnp_vadc_chan_properties *chan_prop,
+			struct qpnp_vadc_result *chan_rslt);
+/**
  * qpnp_adc_scale_batt_therm() - Scales the pre-calibrated digital output
  *		of an ADC to the ADC reference and compensates for the
  *		gain and offset. Returns the temperature in decidegC.
@@ -2159,6 +2179,12 @@ static inline int32_t qpnp_adc_batt_therm_pu30(struct qpnp_vadc_chip *vadc,
 			struct qpnp_vadc_result *chan_rslt)
 { return -ENXIO; }
 static inline int32_t qpnp_adc_batt_therm_pu400(struct qpnp_vadc_chip *vadc,
+			int32_t adc_code,
+			const struct qpnp_adc_properties *adc_prop,
+			const struct qpnp_vadc_chan_properties *chan_prop,
+			struct qpnp_vadc_result *chan_rslt)
+{ return -ENXIO; }
+static inline int32_t qpnp_adc_batt_therm_qrd_215(struct qpnp_vadc_chip *vadc,
 			int32_t adc_code,
 			const struct qpnp_adc_properties *adc_prop,
 			const struct qpnp_vadc_chan_properties *chan_prop,
