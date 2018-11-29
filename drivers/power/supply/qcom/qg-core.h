@@ -116,6 +116,7 @@ struct qpnp_qg {
 	bool			parallel_enabled;
 	bool			usb_present;
 	bool			charge_full;
+	bool			force_soc;
 	int			charge_status;
 	int			charge_type;
 	int			chg_iterm_ma;

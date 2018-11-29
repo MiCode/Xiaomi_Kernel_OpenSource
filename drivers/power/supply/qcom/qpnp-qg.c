@@ -1081,7 +1081,8 @@ static void process_udata_work(struct work_struct *work)
 			chip->catch_up_soc = chip->udata.param[QG_SOC].data;
 		}
 
-		qg_scale_soc(chip, false);
+		qg_scale_soc(chip, chip->force_soc);
+		chip->force_soc = false;
 
 		/* update parameters to SDAM */
 		chip->sdam_data[SDAM_SOC] = chip->msoc;
@@ -1664,6 +1665,94 @@ static int qg_ttf_awake_voter(void *data, bool val)
 	return 0;
 }
 
+#define MAX_QG_OK_RETRIES	20
+static int qg_reset(struct qpnp_qg *chip)
+{
+	int rc = 0, count = 0, soc = 0;
+	u32 ocv_uv = 0, ocv_raw = 0;
+	u8 reg = 0;
+
+	qg_dbg(chip, QG_DEBUG_STATUS, "QG RESET triggered\n");
+
+	mutex_lock(&chip->data_lock);
+
+	/* hold and release master to clear FIFO's */
+	rc = qg_master_hold(chip, true);
+	if (rc < 0) {
+		pr_err("Failed to hold master, rc=%d\n", rc);
+		goto done;
+	}
+
+	/* delay for the master-hold */
+	msleep(20);
+
+	rc = qg_master_hold(chip, false);
+	if (rc < 0) {
+		pr_err("Failed to release master, rc=%d\n", rc);
+		goto done;
+	}
+
+	/* delay for master to settle */
+	msleep(20);
+
+	qg_get_battery_voltage(chip, &rc);
+	qg_get_battery_capacity(chip, &soc);
+	qg_dbg(chip, QG_DEBUG_STATUS, "VBAT=%duV SOC=%d\n", rc, soc);
+
+	/* Trigger S7 */
+	rc = qg_masked_write(chip, chip->qg_base + QG_STATE_TRIG_CMD_REG,
+				S7_PON_OCV_START, S7_PON_OCV_START);
+	if (rc < 0) {
+		pr_err("Failed to trigger S7, rc=%d\n", rc);
+		goto done;
+	}
+
+	/* poll for QG OK */
+	do {
+		rc = qg_read(chip, chip->qg_base + QG_STATUS1_REG, &reg, 1);
+		if (rc < 0) {
+			pr_err("Failed to read STATUS1_REG rc=%d\n", rc);
+			goto done;
+		}
+
+		if (reg & QG_OK_BIT)
+			break;
+
+		msleep(200);
+		count++;
+	} while (count < MAX_QG_OK_RETRIES);
+
+	if (count == MAX_QG_OK_RETRIES) {
+		qg_dbg(chip, QG_DEBUG_STATUS, "QG_OK not set\n");
+		goto done;
+	}
+
+	/* read S7 PON OCV */
+	rc = qg_read_ocv(chip, &ocv_uv, &ocv_raw, S7_PON_OCV);
+	if (rc < 0) {
+		pr_err("Failed to read PON OCV rc=%d\n", rc);
+		goto done;
+	}
+
+	qg_dbg(chip, QG_DEBUG_STATUS, "S7_OCV = %duV\n", ocv_uv);
+
+	chip->kdata.param[QG_GOOD_OCV_UV].data = ocv_uv;
+	chip->kdata.param[QG_GOOD_OCV_UV].valid = true;
+	/* clear all the userspace data */
+	chip->kdata.param[QG_CLEAR_LEARNT_DATA].data = 1;
+	chip->kdata.param[QG_CLEAR_LEARNT_DATA].valid = true;
+
+	vote(chip->awake_votable, GOOD_OCV_VOTER, true, 0);
+	/* signal the read thread */
+	chip->data_ready = true;
+	chip->force_soc = true;
+	wake_up_interruptible(&chip->qg_wait_q);
+
+done:
+	mutex_unlock(&chip->data_lock);
+	return rc;
+}
+
 static int qg_psy_set_property(struct power_supply *psy,
 			       enum power_supply_property psp,
 			       const union power_supply_propval *pval)
@@ -1701,6 +1790,9 @@ static int qg_psy_set_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_ESR_NOMINAL:
 		chip->esr_nominal = pval->intval;
+		break;
+	case POWER_SUPPLY_PROP_FG_RESET:
+		qg_reset(chip);
 		break;
 	default:
 		break;
@@ -1829,6 +1921,7 @@ static int qg_property_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ESR_ACTUAL:
 	case POWER_SUPPLY_PROP_ESR_NOMINAL:
 	case POWER_SUPPLY_PROP_SOH:
+	case POWER_SUPPLY_PROP_FG_RESET:
 		return 1;
 	default:
 		break;
@@ -1864,6 +1957,7 @@ static enum power_supply_property qg_psy_props[] = {
 	POWER_SUPPLY_PROP_ESR_NOMINAL,
 	POWER_SUPPLY_PROP_SOH,
 	POWER_SUPPLY_PROP_CC_SOC,
+	POWER_SUPPLY_PROP_FG_RESET,
 };
 
 static const struct power_supply_desc qg_psy_desc = {
@@ -2030,7 +2124,6 @@ static int qg_handle_battery_removal(struct qpnp_qg *chip)
 	return rc;
 }
 
-#define MAX_QG_OK_RETRIES	20
 static int qg_handle_battery_insertion(struct qpnp_qg *chip)
 {
 	int rc, count = 0;
