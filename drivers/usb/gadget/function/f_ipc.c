@@ -407,7 +407,6 @@ static void ipc_function_work(struct work_struct *w)
 			break;
 
 		ctxt->current_state = IPC_CONNECTED;
-		ctxt->online = 1;
 		ctxt->pdev = platform_device_alloc("ipc_bridge", -1);
 		if (!ctxt->pdev)
 			goto pdev_fail;
@@ -431,9 +430,9 @@ static void ipc_function_work(struct work_struct *w)
 		if (ctxt->connected)
 			break;
 
-		platform_device_unregister(ctxt->pdev);
 		ctxt->current_state = IPC_DISCONNECTED;
 		wake_up(&ctxt->state_wq);
+		platform_device_unregister(ctxt->pdev);
 		break;
 	default:
 		pr_debug("%s: Unknown current state\n", __func__);
@@ -442,7 +441,6 @@ static void ipc_function_work(struct work_struct *w)
 	return;
 
 pdev_fail:
-	ctxt->online = 0;
 	ctxt->current_state = IPC_DISCONNECTED;
 	return;
 }
@@ -591,6 +589,7 @@ static int ipc_set_alt(struct usb_function *f, unsigned int intf,
 
 	spin_lock_irqsave(&ctxt->lock, flags);
 	ctxt->connected = 1;
+	ctxt->online = 1;
 	spin_unlock_irqrestore(&ctxt->lock, flags);
 	schedule_work(&ctxt->func_work);
 
@@ -604,6 +603,7 @@ static void ipc_disable(struct usb_function *f)
 
 	pr_debug("%s: Disabling\n", __func__);
 	spin_lock_irqsave(&ctxt->lock, flags);
+	ctxt->online = 0;
 	ctxt->connected = 0;
 	spin_unlock_irqrestore(&ctxt->lock, flags);
 	schedule_work(&ctxt->func_work);
