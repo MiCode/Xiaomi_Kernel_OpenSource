@@ -1182,7 +1182,7 @@ void _enable_gpuhtw_llc(struct kgsl_mmu *mmu, struct kgsl_iommu_pt *iommu_pt)
 		return;
 
 	/* Domain attribute to enable system cache for GPU pagetable walks */
-	if (adreno_is_a640(adreno_dev) || adreno_is_a608(adreno_dev))
+	if (adreno_is_a640(adreno_dev) || adreno_is_a612(adreno_dev))
 		ret = iommu_domain_set_attr(iommu_pt->domain,
 			DOMAIN_ATTR_USE_LLC_NWA, &gpuhtw_llc_enable);
 	else
