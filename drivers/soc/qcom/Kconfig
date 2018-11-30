@@ -202,6 +202,14 @@ config QCOM_SCM
 	  world(EL2 and EL3) by using smc call.
 	  SCM driver provides the support for atomic scm calls also.
 
+config QCOM_EARLY_RANDOM
+	bool "Initialize random pool very early"
+	help
+	 The standard random pool may not initialize until late in the boot
+	 process which means that any calls to get random numbers before then
+	 may not be truly random. Select this option to make an early call
+	 to get some random data to put in the pool. If unsure, say N.
+
 config QCOM_MEMORY_DUMP_V2
 	bool "QCOM Memory Dump V2 Support"
 	help
