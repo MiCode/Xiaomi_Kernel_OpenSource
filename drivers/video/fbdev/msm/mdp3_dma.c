@@ -16,6 +16,7 @@
 #include "mdp3_dma.h"
 #include "mdp3_hwio.h"
 #include "mdss_debug.h"
+#include "mdp3_ctrl.h"
 
 #define DMA_STOP_POLL_SLEEP_US 1000
 #define DMA_STOP_POLL_TIMEOUT_US 200000
@@ -1080,6 +1081,16 @@ static int mdp3_dma_stop(struct mdp3_dma *dma, struct mdp3_intf *intf)
 
 	reinit_completion(&dma->dma_comp);
 	dma->vsync_client.handler = NULL;
+
+	/*
+	 * Interrupts are disabled.
+	 * Check for blocked dma done interrupt.
+	 * Flush items waiting for dma done interrupt.
+	 */
+	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_CMD &&
+		atomic_read(&dma->session->dma_done_cnt))
+		mdp3_flush_dma_done(dma->session);
+
 	return ret;
 }
 
