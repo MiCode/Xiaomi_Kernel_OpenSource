@@ -88,6 +88,7 @@
 /*#define HX_PLATFOME_DEFINE_KEY*/  /* for specific platform to set key(button) */
 #endif
 
+#define HX_TOUCH_ID_MAX 10
 #define HX_KEY_MAX_COUNT 4
 #define DEFAULT_RETRY_CNT 3
 
@@ -119,11 +120,11 @@
 
 #define SHIFTBITS 5
 
-#define  FW_SIZE_32k 32768
-#define  FW_SIZE_60k 61440
-#define  FW_SIZE_64k 65536
-#define  FW_SIZE_124k 126976
-#define  FW_SIZE_128k 131072
+#define FW_SIZE_32k 32768
+#define FW_SIZE_60k 61440
+#define FW_SIZE_64k 65536
+#define FW_SIZE_124k 126976
+#define FW_SIZE_128k 131072
 
 #define NO_ERR 0
 #define READY_TO_SERVE 1
