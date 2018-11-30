@@ -133,7 +133,7 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 		CAM_SENSOR_PACKET_OPCODE_SENSOR_INITIAL_CONFIG &&
 		csl_packet->header.request_id <= s_ctrl->last_flush_req
 		&& s_ctrl->last_flush_req != 0) {
-		CAM_DBG(CAM_SENSOR,
+		CAM_ERR(CAM_SENSOR,
 			"reject request %lld, last request to flush %lld",
 			csl_packet->header.request_id, s_ctrl->last_flush_req);
 		rc = -EINVAL;
@@ -877,7 +877,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 	case CAM_CONFIG_DEV: {
 		rc = cam_sensor_i2c_pkt_parse(s_ctrl, arg);
 		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR, "Failed CCI Config: %d", rc);
+			CAM_ERR(CAM_SENSOR, "Failed i2c pkt parse: %d", rc);
 			goto release_mutex;
 		}
 		if (s_ctrl->i2c_data.init_settings.is_settings_valid &&
