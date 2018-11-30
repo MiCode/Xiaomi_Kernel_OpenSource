@@ -76,7 +76,6 @@ enum gmu_coretype {
 enum oob_request {
 	oob_gpu = 0,
 	oob_perfcntr = 1,
-	oob_preempt = 2,
 	oob_boot_slumber = 6, /* reserved special case */
 	oob_dcvs = 7, /* reserved special case */
 };
