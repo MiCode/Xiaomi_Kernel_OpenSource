@@ -16,3 +16,11 @@
 &wcd9xxx_intc {
 	qcom,gpio-connect = <&tlmm 58 0>;
 };
+
+&qupv3_se4_spi {
+	status = "disabled";
+};
+
+&qupv3_se0_spi {
+	status = "okay";
+};
