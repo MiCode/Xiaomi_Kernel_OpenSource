@@ -2726,36 +2726,14 @@ int smblib_get_prop_usb_voltage_max(struct smb_charger *chg,
 	return 0;
 }
 
-static int smblib_estimate_hvdcp_voltage(struct smb_charger *chg,
-					 union power_supply_propval *val)
-{
-	int rc;
-	u8 stat;
-
-	rc = smblib_read(chg, QC_CHANGE_STATUS_REG, &stat);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't read QC_CHANGE_STATUS_REG rc=%d\n",
-				rc);
-		return rc;
-	}
-
-	if (stat & QC_5V_BIT)
-		val->intval = MICRO_5V;
-	else if (stat & QC_9V_BIT)
-		val->intval = MICRO_9V;
-	else if (stat & QC_12V_BIT)
-		val->intval = MICRO_12V;
-
-	return 0;
-}
-
 #define HVDCP3_STEP_UV	200000
 static int smblib_estimate_adaptor_voltage(struct smb_charger *chg,
 					  union power_supply_propval *val)
 {
 	switch (chg->real_charger_type) {
 	case POWER_SUPPLY_TYPE_USB_HVDCP:
-		return smblib_estimate_hvdcp_voltage(chg, val);
+		val->intval = MICRO_12V;
+		break;
 	case POWER_SUPPLY_TYPE_USB_HVDCP_3:
 		val->intval = MICRO_5V + (HVDCP3_STEP_UV * chg->pulse_cnt);
 		break;
@@ -4455,7 +4433,7 @@ irqreturn_t usb_source_change_irq_handler(int irq, void *data)
 		smblib_err(chg, "Couldn't read APSD_STATUS rc=%d\n", rc);
 		return IRQ_HANDLED;
 	}
-	smblib_dbg(chg, PR_REGISTER, "APSD_STATUS = 0x%02x\n", stat);
+	smblib_dbg(chg, PR_INTERRUPT, "APSD_STATUS = 0x%02x\n", stat);
 
 	if ((chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB)
 		&& (stat & APSD_DTC_STATUS_DONE_BIT)
@@ -4497,7 +4475,7 @@ irqreturn_t usb_source_change_irq_handler(int irq, void *data)
 		smblib_err(chg, "Couldn't read APSD_STATUS rc=%d\n", rc);
 		return IRQ_HANDLED;
 	}
-	smblib_dbg(chg, PR_REGISTER, "APSD_STATUS = 0x%02x\n", stat);
+	smblib_dbg(chg, PR_INTERRUPT, "APSD_STATUS = 0x%02x\n", stat);
 
 	return IRQ_HANDLED;
 }
