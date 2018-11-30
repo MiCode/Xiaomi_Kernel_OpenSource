@@ -288,65 +288,6 @@ static void cam_ife_hw_mgr_deinit_hw_res(
 	}
 }
 
-static int cam_ife_hw_mgr_init_hw(
-	struct cam_ife_hw_mgr_ctx *ctx)
-{
-	struct cam_ife_hw_mgr_res *hw_mgr_res;
-	int rc = 0, i;
-
-	CAM_DBG(CAM_ISP, "INIT IFE CID ... in ctx id:%d",
-		ctx->ctx_index);
-	/* INIT IFE CID */
-	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_cid, list) {
-		rc = cam_ife_hw_mgr_init_hw_res(hw_mgr_res);
-		if (rc) {
-			CAM_ERR(CAM_ISP, "Can not INIT IFE CID(id :%d)",
-				 hw_mgr_res->res_id);
-			return rc;
-		}
-	}
-
-	CAM_DBG(CAM_ISP, "INIT IFE csid ... in ctx id:%d",
-		ctx->ctx_index);
-
-	/* INIT IFE csid */
-	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_csid, list) {
-		rc = cam_ife_hw_mgr_init_hw_res(hw_mgr_res);
-		if (rc) {
-			CAM_ERR(CAM_ISP, "Can not INIT IFE CSID(id :%d)",
-				 hw_mgr_res->res_id);
-			return rc;
-		}
-	}
-
-	/* INIT IFE SRC */
-	CAM_DBG(CAM_ISP, "INIT IFE SRC in ctx id:%d",
-		ctx->ctx_index);
-	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_src, list) {
-		rc = cam_ife_hw_mgr_init_hw_res(hw_mgr_res);
-		if (rc) {
-			CAM_ERR(CAM_ISP, "Can not INIT IFE SRC (%d)",
-				 hw_mgr_res->res_id);
-			return rc;
-		}
-	}
-
-	/* INIT IFE OUT */
-	CAM_DBG(CAM_ISP, "INIT IFE OUT RESOURCES in ctx id:%d",
-		ctx->ctx_index);
-
-	for (i = 0; i < CAM_IFE_HW_OUT_RES_MAX; i++) {
-		rc = cam_ife_hw_mgr_init_hw_res(&ctx->res_list_ife_out[i]);
-		if (rc) {
-			CAM_ERR(CAM_ISP, "Can not INIT IFE OUT (%d)",
-				 ctx->res_list_ife_out[i].res_id);
-			return rc;
-		}
-	}
-
-	return rc;
-}
-
 static void cam_ife_hw_mgr_deinit_hw(
 	struct cam_ife_hw_mgr_ctx *ctx)
 {
@@ -380,6 +321,69 @@ static void cam_ife_hw_mgr_deinit_hw(
 		cam_ife_hw_mgr_deinit_hw_res(&ctx->res_list_ife_out[i]);
 
 	ctx->init_done = false;
+}
+
+static int cam_ife_hw_mgr_init_hw(
+	struct cam_ife_hw_mgr_ctx *ctx)
+{
+	struct cam_ife_hw_mgr_res *hw_mgr_res;
+	int rc = 0, i;
+
+	CAM_DBG(CAM_ISP, "INIT IFE CID ... in ctx id:%d",
+		ctx->ctx_index);
+	/* INIT IFE CID */
+	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_cid, list) {
+		rc = cam_ife_hw_mgr_init_hw_res(hw_mgr_res);
+		if (rc) {
+			CAM_ERR(CAM_ISP, "Can not INIT IFE CID(id :%d)",
+				 hw_mgr_res->res_id);
+			goto deinit;
+		}
+	}
+
+	CAM_DBG(CAM_ISP, "INIT IFE csid ... in ctx id:%d",
+		ctx->ctx_index);
+
+	/* INIT IFE csid */
+	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_csid, list) {
+		rc = cam_ife_hw_mgr_init_hw_res(hw_mgr_res);
+		if (rc) {
+			CAM_ERR(CAM_ISP, "Can not INIT IFE CSID(id :%d)",
+				 hw_mgr_res->res_id);
+			goto deinit;
+		}
+	}
+
+	/* INIT IFE SRC */
+	CAM_DBG(CAM_ISP, "INIT IFE SRC in ctx id:%d",
+		ctx->ctx_index);
+	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_src, list) {
+		rc = cam_ife_hw_mgr_init_hw_res(hw_mgr_res);
+		if (rc) {
+			CAM_ERR(CAM_ISP, "Can not INIT IFE SRC (%d)",
+				 hw_mgr_res->res_id);
+			goto deinit;
+		}
+	}
+
+	/* INIT IFE OUT */
+	CAM_DBG(CAM_ISP, "INIT IFE OUT RESOURCES in ctx id:%d",
+		ctx->ctx_index);
+
+	for (i = 0; i < CAM_IFE_HW_OUT_RES_MAX; i++) {
+		rc = cam_ife_hw_mgr_init_hw_res(&ctx->res_list_ife_out[i]);
+		if (rc) {
+			CAM_ERR(CAM_ISP, "Can not INIT IFE OUT (%d)",
+				 ctx->res_list_ife_out[i].res_id);
+			goto deinit;
+		}
+	}
+
+	return rc;
+deinit:
+	ctx->init_done = true;
+	cam_ife_hw_mgr_deinit_hw(ctx);
+	return rc;
 }
 
 static int cam_ife_hw_mgr_put_res(
