@@ -675,6 +675,10 @@
 	};
 };
 
+&sdhc_1 {
+	qcom,ddr-config = <0x00040868>;
+};
+
 &mdss_mdp {
 	qcom,vbif-settings = <0xd0 0x20>;
 };
