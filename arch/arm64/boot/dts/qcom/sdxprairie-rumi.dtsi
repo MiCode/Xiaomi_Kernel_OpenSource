@@ -73,3 +73,11 @@
 		maximum-speed = "high-speed";
 	};
 };
+
+&usb_qmp_phy {
+	status = "disabled";
+};
+
+&usb2_phy {
+	status = "disabled";
+};
