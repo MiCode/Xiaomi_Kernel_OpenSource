@@ -205,7 +205,6 @@ struct sdhci_msm_offset {
 	u32 CORE_DLL_CONFIG_2;
 	u32 CORE_DLL_CONFIG_3;
 	u32 CORE_DDR_CONFIG;
-	u32 CORE_DDR_CONFIG_2;
 	u32 CORE_DLL_USR_CTL; /* Present on SDCC5.1 onwards */
 };
 
@@ -236,7 +235,6 @@ struct sdhci_msm_offset sdhci_msm_offset_mci_removed = {
 	.CORE_DLL_CONFIG_2 = 0x254,
 	.CORE_DLL_CONFIG_3 = 0x258,
 	.CORE_DDR_CONFIG = 0x25C,
-	.CORE_DDR_CONFIG_2 = 0x260,
 	.CORE_DLL_USR_CTL = 0x388,
 };
 
@@ -267,7 +265,6 @@ struct sdhci_msm_offset sdhci_msm_offset_mci_present = {
 	.CORE_DLL_CONFIG_2 = 0x1B4,
 	.CORE_DLL_CONFIG_3 = 0x1B8,
 	.CORE_DDR_CONFIG = 0x1BC,
-	.CORE_DDR_CONFIG_2 = 0x1C,
 };
 
 u8 sdhci_msm_readb_relaxed(struct sdhci_host *host, u32 offset)
@@ -1004,16 +1001,16 @@ static int sdhci_msm_cm_dll_sdc4_calibration(struct sdhci_host *host)
 	 */
 	if (msm_host->pdata->rclk_wa) {
 		writel_relaxed(msm_host->pdata->ddr_config, host->ioaddr +
-			msm_host_offset->CORE_DDR_CONFIG_2);
+			msm_host_offset->CORE_DDR_CONFIG);
 	} else if (msm_host->rclk_delay_fix) {
 		writel_relaxed(DDR_CONFIG_2_POR_VAL, host->ioaddr +
-			msm_host_offset->CORE_DDR_CONFIG_2);
+			msm_host_offset->CORE_DDR_CONFIG);
 	} else {
 		ddr_config = DDR_CONFIG_POR_VAL &
 				~DDR_CONFIG_PRG_RCLK_DLY_MASK;
 		ddr_config |= DDR_CONFIG_PRG_RCLK_DLY;
 		writel_relaxed(ddr_config, host->ioaddr +
-			msm_host_offset->CORE_DDR_CONFIG);
+			msm_host_offset->CORE_DLL_CONFIG_3);
 	}
 
 	if (msm_host->enhanced_strobe && mmc_card_strobe(msm_host->mmc->card))
