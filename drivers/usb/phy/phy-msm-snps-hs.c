@@ -81,6 +81,8 @@
 #define USB_HSPHY_1P8_VOL_MAX			1800000 /* uV */
 #define USB_HSPHY_1P8_HPM_LOAD			19000	/* uA */
 
+#define USB_HSPHY_VDD_HPM_LOAD			30000	/* uA */
+
 struct msm_hsphy {
 	struct usb_phy		phy;
 	void __iomem		*base;
@@ -146,23 +148,6 @@ static void msm_hsphy_enable_clocks(struct msm_hsphy *phy, bool on)
 	}
 
 }
-static int msm_hsphy_config_vdd(struct msm_hsphy *phy, int high)
-{
-	int min, ret;
-
-	min = high ? 1 : 0; /* low or none? */
-	ret = regulator_set_voltage(phy->vdd, phy->vdd_levels[min],
-				    phy->vdd_levels[2]);
-	if (ret) {
-		dev_err(phy->phy.dev, "unable to set voltage for hsusb vdd\n");
-		return ret;
-	}
-
-	dev_dbg(phy->phy.dev, "%s: min_vol:%d max_vol:%d\n", __func__,
-		phy->vdd_levels[min], phy->vdd_levels[2]);
-
-	return ret;
-}
 
 static int msm_hsphy_enable_power(struct msm_hsphy *phy, bool on)
 {
@@ -179,11 +164,17 @@ static int msm_hsphy_enable_power(struct msm_hsphy *phy, bool on)
 	if (!on)
 		goto disable_vdda33;
 
-	ret = msm_hsphy_config_vdd(phy, true);
-	if (ret) {
-		dev_err(phy->phy.dev, "Unable to config VDD:%d\n",
-							ret);
+	ret = regulator_set_load(phy->vdd, USB_HSPHY_VDD_HPM_LOAD);
+	if (ret < 0) {
+		dev_err(phy->phy.dev, "Unable to set HPM of vdd:%d\n", ret);
 		goto err_vdd;
+	}
+
+	ret = regulator_set_voltage(phy->vdd, phy->vdd_levels[1],
+				    phy->vdd_levels[2]);
+	if (ret) {
+		dev_err(phy->phy.dev, "unable to set voltage for hsusb vdd\n");
+		goto put_vdd_lpm;
 	}
 
 	ret = regulator_enable(phy->vdd);
@@ -272,14 +263,18 @@ put_vdda18_lpm:
 disable_vdd:
 	ret = regulator_disable(phy->vdd);
 	if (ret)
-		dev_err(phy->phy.dev, "Unable to disable vdd:%d\n",
-								ret);
+		dev_err(phy->phy.dev, "Unable to disable vdd:%d\n", ret);
 
 unconfig_vdd:
-	ret = msm_hsphy_config_vdd(phy, false);
+	ret = regulator_set_voltage(phy->vdd, phy->vdd_levels[0],
+				    phy->vdd_levels[2]);
 	if (ret)
-		dev_err(phy->phy.dev, "Unable unconfig VDD:%d\n",
-								ret);
+		dev_err(phy->phy.dev, "unable to set voltage for hsusb vdd\n");
+
+put_vdd_lpm:
+	ret = regulator_set_load(phy->vdd, 0);
+	if (ret < 0)
+		dev_err(phy->phy.dev, "Unable to set LPM of vdd\n");
 err_vdd:
 	phy->power_enabled = false;
 	dev_dbg(phy->phy.dev, "HSUSB PHY's regulators are turned OFF.\n");
