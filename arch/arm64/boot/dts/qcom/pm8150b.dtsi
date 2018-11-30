@@ -459,6 +459,7 @@
 			reg = <0xb100 0x200>;
 			reg-names = "lpg-base";
 			#pwm-cells = <2>;
+			qcom,num-lpg-channels = <2>;
 		};
 
 		pm8150b_hr_led: qcom,leds@d000 {

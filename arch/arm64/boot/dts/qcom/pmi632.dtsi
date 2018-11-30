@@ -291,6 +291,7 @@
 			reg = <0xb300 0x500>;
 			reg-names = "lpg-base";
 			#pwm-cells = <2>;
+			qcom,num-lpg-channels = <5>;
 			nvmem-names = "ppg_sdam";
 			nvmem = <&pmi632_sdam7>;
 			qcom,pbs-client = <&pmi632_pbs_client3>;
