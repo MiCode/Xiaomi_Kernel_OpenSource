@@ -1,0 +1,74 @@
+
+qcom,3434695_longcheer_l6600desay_4000mah_averaged_masterslave_may2nd2018 {
+	qcom, = <24>;
+	/* #3434695_Longcheer_L6600desay_4000mAh_averaged_MasterSlave_May2nd2018*/
+	qcom,max-voltage-uv = <4408000>;
+	qcom,fg-cc-cv-threshold-mv = <4398>;
+	qcom,fastchg-current-ma = <2500>;
+	qcom,nom-batt-capacity-mah = <4000>;
+	qcom,batt-id-kohm = <70>;
+	qcom,battery-beta = <3435>;
+	/*add for the total capacity of batt in  2017.10.18*/
+	qcom,battery-full-design = <4000>;
+	qcom,battery-type = "l6660desay_4000mah_averaged_masterslave_may2nd2018";
+	qcom,checksum = <0x3D57>;
+	qcom,gui-version = "PM660GUI - 0.0.0.45";
+	qcom,fg-profile-data = [
+		 8A 1F BE 05
+		 4F 0A 87 06
+		 EC 1C 5D FB
+		 B2 04 D3 03
+		 99 17 FA 23
+		 3C 44 6E 5A
+		 7F 00 00 00
+		 10 00 00 00
+		 00 00 F1 CD
+		 88 CD 99 CB
+		 1E 00 08 00
+		 02 E3 81 ED
+		 4F 06 19 FA
+		 9B F2 EA 13
+		 59 FD 3F 32
+		 22 06 09 20
+		 27 00 14 00
+		 E7 1F 6C 05
+		 98 0A 31 06
+		 C9 1C DD 02
+		 43 0C 01 12
+		 84 18 98 23
+		 55 44 99 5A
+		 6E 00 00 00
+		 0F 00 00 00
+		 00 00 AE D5
+		 1D CA 62 C2
+		 18 00 00 00
+		 7F EB 81 ED
+		 33 F4 E4 EB
+		 45 FD 59 FA
+		 B3 06 DC 1A
+		 A2 33 CC FF
+		 07 10 00 00
+		 9D 0F 66 46
+		 18 00 40 00
+		 5E 01 0A FA
+		 FF 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+	];
+};

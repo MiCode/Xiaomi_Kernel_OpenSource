@@ -1,0 +1,73 @@
+
+qcom,m6100sun_4000mah {
+	qcom, = <24>;
+	/* #3632066_LC_M6100_Sunwoda_4000mAh_FG_averaged_MasterSlave_Oct17th2018*/
+	qcom,max-voltage-uv = <4400000>;
+	qcom,fastchg-current-ma = <2900>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,nom-batt-capacity-mah = <4000>;
+	qcom,batt-id-kohm = <330>;
+	qcom,battery-beta = <4250>;
+	qcom,battery-full-design = <4000>;
+	qcom,battery-type = "3632066_lc_m6100_sunwoda_4000mah_fg_averaged_masterslave_oct17th2018";
+	qcom,checksum = <0xFAC0>;
+	qcom,gui-version = "PM660GUI - 0.0.0.45";
+	qcom,fg-profile-data = [
+		 D0 1E E7 FC
+		 AE 03 EE 06
+		 BF 1C 74 02
+		 AA 0C ED 0B
+		 91 17 26 2A
+		 C8 4D 26 5B
+		 63 00 00 00
+		 0F 00 00 00
+		 00 00 2C CD
+		 E8 C4 53 D2
+		 1C 00 08 00
+		 9A E2 46 ED
+		 6D FC 39 FA
+		 99 EC 5B 12
+		 1F F5 48 2A
+		 31 06 09 20
+		 27 00 14 00
+		 1D 20 14 05
+		 E0 0A EB 05
+		 BB 1C 20 03
+		 D7 15 56 12
+		 78 18 D9 23
+		 E6 4D 30 5B
+		 6B 00 00 00
+		 0E 00 00 00
+		 00 00 94 D5
+		 3E CA 89 C2
+		 16 00 00 00
+		 85 00 46 ED
+		 F3 06 16 F2
+		 CD EC 40 02
+		 05 FA A1 1A
+		 B4 33 CC FF
+		 07 10 00 00
+		 AB 0F 66 46
+		 16 00 40 00
+		 79 01 0A FA
+		 FF 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+	];
+};

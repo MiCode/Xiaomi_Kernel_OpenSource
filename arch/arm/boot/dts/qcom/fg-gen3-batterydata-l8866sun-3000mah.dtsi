@@ -1,0 +1,73 @@
+
+qcom,l8866sun_3000mah {
+	qcom, = <24>;
+	/* #3296509_Longcheer_BN36atl_3000mAh_averaged_MasterSlave_Feb5th2018*/
+	qcom,max-voltage-uv = <4400000>;
+	qcom,fastchg-current-ma = <2900>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,nom-batt-capacity-mah = <3000>;
+	qcom,batt-id-kohm = <68>;
+	qcom,battery-beta = <3435>;
+	qcom,battery-full-design = <3010>;
+	qcom,battery-type = "3296509_longcheer_bn36atl_3000mah_averaged_masterslave_feb5th2018";
+	qcom,checksum = <0xEE03>;
+	qcom,gui-version = "PM660GUI - 0.0.0.45";
+	qcom,fg-profile-data = [
+		 CC 1F 59 05
+		 AF 0A 35 FC
+		 EE 1C C5 01
+		 45 04 2C 0A
+		 D4 17 F0 23
+		 29 44 8E 5A
+		 7C 00 00 00
+		 10 00 00 00
+		 00 00 BD CD
+		 CA CD 05 D2
+		 22 00 08 00
+		 8F E2 99 ED
+		 65 FC 09 01
+		 83 F3 C0 13
+		 77 D3 20 2A
+		 28 06 09 20
+		 27 00 14 00
+		 F0 1F 41 05
+		 D1 0A E8 05
+		 C6 1C F6 02
+		 FB 15 3A 12
+		 91 18 CB 23
+		 ED 4D 25 5B
+		 6A 00 00 00
+		 0E 00 00 00
+		 00 00 4E CC
+		 A4 C2 27 B2
+		 19 00 00 00
+		 87 EB 99 ED
+		 E6 06 F5 EB
+		 CD 06 17 FB
+		 2D FC 7D 1A
+		 99 33 CC FF
+		 07 10 00 00
+		 80 0B 66 46
+		 19 00 40 00
+		 A8 01 0A FA
+		 FF 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+	];
+};

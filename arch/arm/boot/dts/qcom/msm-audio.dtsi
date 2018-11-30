@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -116,8 +117,8 @@
 		dai_mi2s0: qcom,msm-dai-q6-mi2s-prim {
 			compatible = "qcom,msm-dai-q6-mi2s";
 			qcom,msm-dai-q6-mi2s-dev-id = <0>;
-			qcom,msm-mi2s-rx-lines = <3>;
-			qcom,msm-mi2s-tx-lines = <0>;
+			qcom,msm-mi2s-rx-lines = <1>;
+			qcom,msm-mi2s-tx-lines = <2>;
 		};
 
 		dai_mi2s1: qcom,msm-dai-q6-mi2s-sec {
@@ -370,6 +371,9 @@
 
 	hostless: qcom,msm-pcm-hostless {
 		compatible = "qcom,msm-pcm-hostless";
+		audio_test_mod {
+			compatible = "qcom,audio-test-mod";
+		};
 	};
 
 	dai_pri_auxpcm: qcom,msm-pri-auxpcm {
@@ -747,8 +751,8 @@
 		qcom,hph-en0-gpio = <&tavil_hph_en0>;
 		qcom,hph-en1-gpio = <&tavil_hph_en1>;
 		qcom,msm-mclk-freq = <9600000>;
-		qcom,usbc-analog-en1_gpio = <&wcd_usbc_analog_en1_gpio>;
-		qcom,usbc-analog-en2_n_gpio = <&wcd_usbc_analog_en2n_gpio>;
+		//qcom,usbc-analog-en1_gpio = <&wcd_usbc_analog_en1_gpio>;
+		//qcom,usbc-analog-en2_n_gpio = <&wcd_usbc_analog_en2n_gpio>;
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
 				<&afe>, <&lsm>, <&routing>, <&cpe>, <&compr>,
@@ -823,12 +827,18 @@
 		qcom,msm-mclk-freq = <9600000>;
 		qcom,msm-mbhc-hphl-swh = <1>;
 		qcom,msm-mbhc-gnd-swh = <1>;
-		qcom,msm-micbias2-ext-cap;
+		qcom,msm-micbias1-ext-cap;
+		//qcom,msm-micbias2-ext-cap;
 		qcom,msm-hs-micbias-type = "external";
-		qcom,us-euro-gpios = <&us_euro_gpio>;
+		//qcom,us-euro-gpios = <&us_euro_gpio>;
 		qcom,cdc-pdm-gpios = <&cdc_pdm_gpios>;
 		qcom,cdc-comp-gpios = <&cdc_comp_gpios>;
 		qcom,cdc-dmic-gpios = <&cdc_dmic_gpios>;
+		pinctrl-names = "pri_i2s_active", "pri_i2s_sleep";
+		pinctrl-0 = <&pri_mi2s_sck_active &pri_mi2s_ws_active
+				&pri_mi2s_sd0_active &pri_mi2s_sd1_active>;
+		pinctrl-1 = <&pri_mi2s_sck_sleep &pri_mi2s_ws_sleep
+				&pri_mi2s_sd0_sleep &pri_mi2s_sd1_sleep>;
 		qcom,audio-routing =
 			"RX_BIAS", "INT_MCLK0",
 			"SPK_RX_BIAS", "INT_MCLK0",
@@ -964,4 +974,17 @@
 		pinctrl-1 = <&lpi_cdc_reset_sleep>;
 		qcom,lpi-gpios;
 	};
+		wcd_usbc_analog_en1_gpio: msm_cdc_pinctrl_usbc_audio_en1 {
+			compatible = "qcom,msm-cdc-pinctrl";
+			pinctrl-names = "aud_active", "aud_sleep";
+			pinctrl-0 = <&wcd_usbc_analog_en1_active>;
+			pinctrl-1 = <&wcd_usbc_analog_en1_idle>;
+		};
+
+		wcd_usbc_analog_en2n_gpio: msm_cdc_pinctrl_usbc_audio_en2 {
+			compatible = "qcom,msm-cdc-pinctrl";
+			pinctrl-names = "aud_active", "aud_sleep";
+			pinctrl-0 = <&wcd_usbc_analog_en2n_active>;
+			pinctrl-1 = <&wcd_usbc_analog_en2n_idle>;
+		};
 };

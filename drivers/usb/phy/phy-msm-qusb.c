@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -585,8 +586,8 @@ static int qusb_phy_init(struct usb_phy *phy)
 
 		pr_debug("%s(): Programming TUNE2 parameter as:%x\n", __func__,
 				qphy->tune2_val);
-		writel_relaxed(qphy->tune2_val,
-				qphy->base + QUSB2PHY_PORT_TUNE2);
+
+
 	}
 
 	/* If tune modparam set, override tune value */

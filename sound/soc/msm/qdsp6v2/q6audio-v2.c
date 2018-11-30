@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -261,6 +262,11 @@ int q6audio_get_port_index(u16 port_id)
 		return IDX_AFE_PORT_ID_INT6_MI2S_RX;
 	case AFE_PORT_ID_INT6_MI2S_TX:
 		return IDX_AFE_PORT_ID_INT6_MI2S_TX;
+#ifdef CONFIG_ELLIPTCLABS
+	case AFE_PORT_ID_PSEUDOPORT_01:
+		/* Need to define IDX_AFE_PORT_ID_PSEUDOPORT_01 in apr_audio-v2.h */
+		return IDX_AFE_PORT_ID_PSEUDOPORT_01;
+#endif
 	default: return -EINVAL;
 	}
 }
@@ -794,6 +800,10 @@ int q6audio_validate_port(u16 port_id)
 	case AFE_PORT_ID_INT5_MI2S_TX:
 	case AFE_PORT_ID_INT6_MI2S_RX:
 	case AFE_PORT_ID_INT6_MI2S_TX:
+#ifdef CONFIG_ELLIPTCLABS
+	/* TODO: Define a new PSEUDOPORT */
+	case AFE_PORT_ID_PSEUDOPORT_01:
+#endif
 	case AFE_PORT_ID_MULTICHAN_HDMI_RX:
 	{
 		ret = 0;

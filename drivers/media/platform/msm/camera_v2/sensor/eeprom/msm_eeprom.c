@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,7 +26,7 @@ DEFINE_MSM_MUTEX(msm_eeprom_mutex);
 #ifdef CONFIG_COMPAT
 static struct v4l2_file_operations msm_eeprom_v4l2_subdev_fops;
 #endif
-
+struct vendor_eeprom s_vendor_eeprom[CAMERA_VENDOR_EEPROM_COUNT_MAX];
 /**
   * msm_get_read_mem_size - Get the total size for allocation
   * @eeprom_map_array:	mem map
@@ -226,6 +227,9 @@ static int read_eeprom_memory(struct msm_eeprom_ctrl_t *e_ctrl,
 	}
 	return rc;
 }
+
+
+
 /**
   * msm_eeprom_parse_memory_map() - parse memory map in device node
   * @of:	device node
@@ -466,6 +470,131 @@ static int msm_eeprom_power_up(struct msm_eeprom_ctrl_t *e_ctrl,
 	return rc;
 }
 
+#ifdef CONFIG_KERNEL_CUSTOM_FACTORY
+static int write_eeprom_memory(struct msm_eeprom_ctrl_t *e_ctrl,
+	struct msm_eeprom_memory_block_t *block, uint32_t addr, unsigned char as_rewrite_data)
+	{
+		int rc = 0;
+		struct msm_eeprom_memory_map_t *emap = block->map;
+
+		if (!e_ctrl) {
+				pr_err("%s e_ctrl is NULL", __func__);
+				return -EINVAL;
+			}
+
+			e_ctrl->i2c_client.addr_type = emap[0].page.addr_t;
+			rc = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(
+			&(e_ctrl->i2c_client), addr, as_rewrite_data, 1);
+			msleep(5);
+			pr_err("Brave write_addr = %x,as_rewrite_data =%x \n", addr, as_rewrite_data);
+			addr += 1;
+			if (rc < 0)
+			{
+				pr_err("Brave %s: write failed\n", __func__);
+				return rc;
+			}
+		return rc;
+	}
+static int eeprom_write_dualcam_cal_data(struct msm_eeprom_ctrl_t *e_ctrl,
+						struct msm_eeprom_cfg_data *cdata)
+{
+	int rc = 0;
+	int ret = 0;
+	uint16_t csp_config_addr = 0x8000;
+	uint16_t csp_reg_val;
+	struct msm_eeprom_board_info *eb_info;
+	int j;
+	int i;
+	unsigned char buf[2048] = {0};
+	uint32_t addr = 0x1364;
+	uint32_t  checksum1 = 0x00;
+	uint32_t  checksum2 = 0x00;
+	mm_segment_t fs;
+	loff_t pos;
+	struct file *fp = NULL;
+	fs = get_fs();
+			set_fs(KERNEL_DS);
+			fp = filp_open("/data/misc/camera/rewrite_arcsoft_calibration_data.bin", O_RDWR, 0777);
+
+			if (IS_ERR(fp))
+			{
+				pr_err("Brave open file fail,Not need rewrite! \n");
+				return -EINVAL;
+			}
+
+			pr_err("Brave open file succeed,need rewrite! \n");
+			pos = 0;
+			vfs_read(fp, buf, sizeof(buf), &pos);
+			set_fs(fs);
+			filp_close(fp, NULL);
+
+			eb_info = e_ctrl->eboard_info;
+			e_ctrl->i2c_client.cci_client->sid = eb_info->i2c_slaveaddr >>1;
+				pr_err("qcom,e_ctrl->i2c_client.cci_client->sid = 0x%X\n ,i2c_slaveaddr =0x%X\n",
+						e_ctrl->i2c_client.cci_client->sid, eb_info->i2c_slaveaddr);
+			ret = e_ctrl->i2c_client.i2c_func_tbl->i2c_read(
+					 &e_ctrl->i2c_client, csp_config_addr, &csp_reg_val,
+					MSM_CAMERA_I2C_BYTE_DATA);
+			msleep(5);
+			pr_err("%s:  csp_reg_val %d\n", __func__,csp_reg_val);
+			ret = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(
+					&e_ctrl->i2c_client, csp_config_addr, 0x10,
+					MSM_CAMERA_I2C_BYTE_DATA);
+			msleep(5);
+			ret = e_ctrl->i2c_client.i2c_func_tbl->i2c_read(
+			 &e_ctrl->i2c_client, csp_config_addr, &csp_reg_val,
+			MSM_CAMERA_I2C_BYTE_DATA);
+			msleep(5);
+			pr_err("chb--3 %s:  csp_reg_val %d\n", __func__, csp_reg_val);
+		for (i = 0; i < 2048; i++){
+						pr_err("chb--2 enter\n");
+						rc = write_eeprom_memory(e_ctrl, &e_ctrl->cal_data, addr, buf[i]);
+					if (rc < 0)
+						{
+							pr_err("Brave rewrite fail!");
+						}
+					addr += 1;
+			}
+		rc = read_eeprom_memory(e_ctrl, &e_ctrl->cal_data);
+		if (rc < 0)
+		{
+			pr_err("%s read_eeprom_memory failed\n", __func__);
+			return -EINVAL;
+		}
+		for (j = 4964; j <= 7011; j++)
+		{
+			checksum1 = checksum1 + e_ctrl->cal_data.mapdata[j];
+;
+		}
+		pr_err("Brave  sum1 = 0x%X ,checksum1 = 0x%X \n", checksum1, checksum1%0xFF+1);
+		rc = write_eeprom_memory(e_ctrl, &e_ctrl->cal_data, 0x1B64, checksum1%0xFF+1);
+		if (rc < 0)
+		{
+			pr_err("Brave rewrite  checksum1 fail!");
+		}
+		rc = read_eeprom_memory(e_ctrl, &e_ctrl->cal_data);
+		if (rc < 0)
+		{
+			pr_err("%s read_eeprom_memory failed\n", __func__);
+			return -EINVAL;
+		}
+
+		for (j = 0; j <= 7156; j++)
+		{
+			checksum2 = checksum2 + e_ctrl->cal_data.mapdata[j];
+		}
+		pr_err("Brave  sum2 = 0x%X ,checksum2 = 0x%X \n", checksum2, checksum2%0xFF+1);
+		rc = write_eeprom_memory(e_ctrl, &e_ctrl->cal_data, 0x1BF5, checksum2%0xFF+1);
+		rc = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(
+				&(e_ctrl->i2c_client), 0x1BF5, checksum2%0xFF+1, 1);
+		if (rc < 0)
+		{
+			pr_err("Brave rewrite  checksum2 fail!");
+		}
+		return rc;
+}
+#endif
+
 /**
   * msm_eeprom_power_up - Do power up, parse and power down
   * @e_ctrl: ctrl structure
@@ -655,11 +784,12 @@ static int msm_eeprom_config(struct msm_eeprom_ctrl_t *e_ctrl,
 		CDBG("%s E CFG_EEPROM_GET_MM_INFO\n", __func__);
 		rc = msm_eeprom_get_cmm_data(e_ctrl, cdata);
 		break;
+
 	case CFG_EEPROM_INIT:
 		if (e_ctrl->userspace_probe == 0) {
 			pr_err("%s:%d Eeprom already probed at kernel boot",
 				__func__, __LINE__);
-			rc = -EINVAL;
+			rc = 0;
 			break;
 		}
 		if (e_ctrl->cal_data.num_data == 0) {
@@ -1517,11 +1647,12 @@ static int msm_eeprom_config32(struct msm_eeprom_ctrl_t *e_ctrl,
 		CDBG("%s E CFG_EEPROM_READ_CAL_DATA\n", __func__);
 		rc = eeprom_config_read_cal_data32(e_ctrl, argp);
 		break;
+
 	case CFG_EEPROM_INIT:
 		if (e_ctrl->userspace_probe == 0) {
 			pr_err("%s:%d Eeprom already probed at kernel boot",
 				__func__, __LINE__);
-			rc = -EINVAL;
+			rc = 0;
 			break;
 		}
 		if (e_ctrl->cal_data.num_data == 0) {
@@ -1579,6 +1710,17 @@ static long msm_eeprom_subdev_fops_ioctl32(struct file *file, unsigned int cmd,
 
 #endif
 
+
+static uint8_t get_otp_vendor_module_id(struct msm_eeprom_ctrl_t *e_ctrl, const char *eeprom_name)
+{
+	camera_vendor_module_id module_id = MID_NULL;
+
+
+	if (module_id>=MID_MAX) module_id = MID_NULL;
+		printk("%s %d eeprom_name=%s, module_id=0x%x\n", __func__, __LINE__,
+			eeprom_name, module_id);
+	return ((uint8_t)module_id);
+}
 static int msm_eeprom_platform_probe(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -1727,6 +1869,11 @@ static int msm_eeprom_platform_probe(struct platform_device *pdev)
 		for (j = 0; j < e_ctrl->cal_data.num_data; j++)
 			CDBG("memory_data[%d] = 0x%X\n", j,
 				e_ctrl->cal_data.mapdata[j]);
+
+		if (eb_info->eeprom_name != NULL){
+		s_vendor_eeprom[pdev->id].module_id = get_otp_vendor_module_id(e_ctrl, eb_info->eeprom_name);
+		strcpy(s_vendor_eeprom[pdev->id].eeprom_name, eb_info->eeprom_name);
+		}
 
 		e_ctrl->is_supported |= msm_eeprom_match_crc(&e_ctrl->cal_data);
 

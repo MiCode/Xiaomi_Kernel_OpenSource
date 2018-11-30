@@ -844,4 +844,12 @@ config INPUT_STMVL53L0
 	 To compile this driver as a module, choose M here: the
 	 module will be called stmvl53l0.
 
+
+config ELLIPTCLABS
+	tristate "CONFIG_ELLIPTCLABS fake proximity sensor support"
+	help
+	  Say Y here if you want to use  elliptclabs' algothrim
+	  for proximity sensor
+
+
 endif

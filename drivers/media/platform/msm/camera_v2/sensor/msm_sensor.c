@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -203,6 +204,18 @@ int msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 			sensor_i2c_client);
 		if (rc < 0)
 			return rc;
+
+
+		if (!s_ctrl->is_probe_succeed) {
+			rc = msm_sensor_match_vendor_id(s_ctrl);
+			if (rc < 0) {
+				msm_camera_power_down(power_info,
+					s_ctrl->sensor_device_type, sensor_i2c_client);
+				msleep(20);
+				continue;
+			}
+		}
+
 		rc = msm_sensor_check_id(s_ctrl);
 		if (rc < 0) {
 			msm_camera_power_down(power_info,
@@ -216,6 +229,112 @@ int msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 
 	return rc;
 }
+
+int msm_sensor_match_vendor_id(struct msm_sensor_ctrl_t *s_ctrl)
+{
+	int rc = 0;
+	uint16_t vendorid = 0;
+	struct msm_camera_i2c_client *sensor_i2c_client;
+	struct msm_camera_slave_info *slave_info;
+	const char *sensor_name;
+	uint16_t temp_sid = 0;
+	uint16_t vcmid = 0;
+	int have_vcmid = 0;
+	enum cci_i2c_master_t temp_master = MASTER_0;
+
+
+	if (!s_ctrl) {
+		pr_err("%s:%d failed: %pK\n",
+			__func__, __LINE__, s_ctrl);
+		return -EINVAL;
+	}
+	sensor_i2c_client = s_ctrl->sensor_i2c_client;
+	slave_info = s_ctrl->sensordata->slave_info;
+	sensor_name = s_ctrl->sensordata->sensor_name;
+
+	if (!sensor_i2c_client || !slave_info || !sensor_name) {
+		pr_err("%s:%d failed: %pK %pK %pK\n",
+			__func__, __LINE__, sensor_i2c_client, slave_info,
+			sensor_name);
+		return -EINVAL;
+	}
+
+	if (s_ctrl->sensordata->vendor_id_info->eeprom_slave_addr == 0) {
+	pr_err("%s: %s: read 3\n", __func__, sensor_name);
+		return rc;
+	}
+
+	temp_master = sensor_i2c_client->cci_client->cci_i2c_master;
+	switch (s_ctrl->sensordata->vendor_id_info->cci_i2c_master) {
+	case MSM_MASTER_0:
+		sensor_i2c_client->cci_client->cci_i2c_master = MASTER_0;
+		break;
+	case MSM_MASTER_1:
+		sensor_i2c_client->cci_client->cci_i2c_master = MASTER_1;
+		break;
+	default:
+		break;
+	}
+	temp_sid = sensor_i2c_client->cci_client->sid;
+
+	sensor_i2c_client->cci_client->sid =
+		s_ctrl->sensordata->vendor_id_info->eeprom_slave_addr >> 1;
+
+
+	rc = msm_camera_cci_i2c_read(
+		sensor_i2c_client,
+		s_ctrl->sensordata->vendor_id_info->vendor_id_addr,
+		&vendorid,
+		s_ctrl->sensordata->vendor_id_info->data_type);
+
+	if (s_ctrl->sensordata->vcm_id_info->vcm_id_addr != 0)
+	{
+	    msm_camera_cci_i2c_read(
+		sensor_i2c_client,
+		s_ctrl->sensordata->vcm_id_info->vcm_id_addr,
+		&vcmid,
+		s_ctrl->sensordata->vcm_id_info->data_type);
+		have_vcmid = 1;
+	}
+
+	sensor_i2c_client->cci_client->sid = temp_sid;
+	sensor_i2c_client->cci_client->cci_i2c_master = temp_master;
+	if (rc < 0) {
+		pr_err("%s: %s: read vendor id failed\n", __func__, sensor_name);
+		return rc;
+	}
+	if (s_ctrl->sensordata->vendor_id_info->vendor_id != vendorid) {
+		pr_err("%s:%s match vendor id failed read vendor id:0x%x expected id 0x%x eeprom_slave_addr 0x%x vendor_id_addr 0x%x\n",
+			__func__, s_ctrl->sensordata->sensor_name, vendorid, s_ctrl->sensordata->vendor_id_info->vendor_id,
+		s_ctrl->sensordata->vendor_id_info->eeprom_slave_addr,
+		s_ctrl->sensordata->vendor_id_info->vendor_id_addr);
+		rc = -1;
+		return rc;
+	}
+	else
+	{
+		if (have_vcmid == 1)
+		{
+			if (s_ctrl->sensordata->vcm_id_info->vcm_id != vcmid)
+			{
+				pr_err("%s:match vcmid if failed read vcm id: 0x%x expected id 0x%x:\n",
+				__func__, vcmid, s_ctrl->sensordata->vcm_id_info->vcm_id);
+				rc = -1;
+				return rc;
+			}
+			else
+			{
+				pr_err("%s: read vcmid id: 0x%x expected id 0x%x:\n",
+				__func__, vcmid, s_ctrl->sensordata->vcm_id_info->vcm_id);
+			}
+		}
+	}
+	pr_err("%s: read vendor id: 0x%x expected id 0x%x:\n",
+			__func__, vendorid, s_ctrl->sensordata->vendor_id_info->vendor_id);
+
+	return rc;
+}
+
 
 static uint16_t msm_sensor_id_by_mask(struct msm_sensor_ctrl_t *s_ctrl,
 	uint16_t chipid)

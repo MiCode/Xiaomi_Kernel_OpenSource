@@ -4,6 +4,7 @@
  *  Copyright © 2007  Anton Vorontsov <cbou@mail.ru>
  *  Copyright © 2004  Szabolcs Gyurko
  *  Copyright © 2003  Ian Molton <spyro@f2s.com>
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *
  *  Modified: 2004, Oct     Szabolcs Gyurko
  *
@@ -78,7 +79,6 @@ static void power_supply_changed_work(struct work_struct *work)
 						changed_work);
 
 	dev_dbg(&psy->dev, "%s\n", __func__);
-
 	spin_lock_irqsave(&psy->changed_lock, flags);
 	/*
 	 * Check 'changed' here to avoid issues due to race between

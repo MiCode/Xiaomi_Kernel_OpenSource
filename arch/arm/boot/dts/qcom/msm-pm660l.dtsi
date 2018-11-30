@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,6 +38,7 @@
 			qcom,secondary-pon-reset;
 			qcom,hard-reset-poweroff-type =
 				<PON_POWER_OFF_SHUTDOWN>;
+			qcom,store-hard-reset-reason;
 		};
 
 		qcom,temp-alarm@2400 {
@@ -214,10 +216,10 @@
 				qcom,default-state = "off";
 				linux,name = "red";
 				qcom,start-idx = <0>;
-				qcom,idx-len = <22>;
+				qcom,idx-len = <21>;
 				qcom,duty-pcts =
-					[01 0a 14 1e 28 32 3c 46 50 5a 64
-					64 5a 50 46 3c 32 28 1e 14 0a 01];
+					[00 19 32 4B 64
+					 64 4B 32 19 00];
 				qcom,use-blink;
 			};
 
@@ -264,12 +266,12 @@
 			qcom,dim-mode = "hybrid";
 			qcom,hyb-thres = <625>;
 			qcom,sync-dly-us = <800>;
-			qcom,fs-curr-ua = <25000>;
+			qcom,fs-curr-ua = <20000>;
 			qcom,cons-sync-write-delay-us = <1000>;
 			qcom,led-strings-list = [00 01 02];
 			qcom,loop-auto-gm-en;
+			qcom,en-cabc;
 			qcom,pmic-revid = <&pm660l_revid>;
-			qcom,auto-calibration-enable;
 			status = "ok";
 		};
 
@@ -298,7 +300,7 @@
 				qcom,max-current = <1500>;
 				qcom,default-led-trigger = "flash0_trigger";
 				qcom,id = <0>;
-				qcom,current-ma = <1000>;
+				qcom,current-ma = <900>;
 				qcom,duration-ms = <1280>;
 				qcom,ires-ua = <12500>;
 				qcom,hdrm-voltage-mv = <325>;
@@ -311,7 +313,7 @@
 				qcom,max-current = <1500>;
 				qcom,default-led-trigger = "flash1_trigger";
 				qcom,id = <1>;
-				qcom,current-ma = <1000>;
+				qcom,current-ma = <900>;
 				qcom,duration-ms = <1280>;
 				qcom,ires-ua = <12500>;
 				qcom,hdrm-voltage-mv = <325>;
@@ -321,10 +323,10 @@
 			pm660l_flash2: qcom,flash_2 {
 				label = "flash";
 				qcom,led-name = "led:flash_2";
-				qcom,max-current = <750>;
+				qcom,max-current = <100>;
 				qcom,default-led-trigger = "flash2_trigger";
 				qcom,id = <2>;
-				qcom,current-ma = <500>;
+				qcom,current-ma = <90>;
 				qcom,duration-ms = <1280>;
 				qcom,ires-ua = <12500>;
 				qcom,hdrm-voltage-mv = <325>;
@@ -334,10 +336,10 @@
 			pm660l_torch0: qcom,torch_0 {
 				label = "torch";
 				qcom,led-name = "led:torch_0";
-				qcom,max-current = <500>;
+				qcom,max-current = <100>;
 				qcom,default-led-trigger = "torch0_trigger";
 				qcom,id = <0>;
-				qcom,current-ma = <300>;
+				qcom,current-ma = <100>;
 				qcom,ires-ua = <12500>;
 				qcom,hdrm-voltage-mv = <325>;
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
@@ -346,10 +348,10 @@
 			pm660l_torch1: qcom,torch_1 {
 				label = "torch";
 				qcom,led-name = "led:torch_1";
-				qcom,max-current = <500>;
+				qcom,max-current = <100>;
 				qcom,default-led-trigger = "torch1_trigger";
 				qcom,id = <1>;
-				qcom,current-ma = <300>;
+				qcom,current-ma = <100>;
 				qcom,ires-ua = <12500>;
 				qcom,hdrm-voltage-mv = <325>;
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
@@ -358,13 +360,21 @@
 			pm660l_torch2: qcom,torch_2 {
 				label = "torch";
 				qcom,led-name = "led:torch_2";
-				qcom,max-current = <500>;
+				qcom,max-current = <150>;
 				qcom,default-led-trigger = "torch2_trigger";
 				qcom,id = <2>;
-				qcom,current-ma = <300>;
+				qcom,current-ma = <90>;
 				qcom,ires-ua = <12500>;
 				qcom,hdrm-voltage-mv = <325>;
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+			};
+
+			qcom,flashlight_0 {
+				label = "flashlight";
+				qcom,led-name = "flashlight";
+				qcom,torch-name = "led:torch_0", "led:torch_1";
+				qcom,switch-name = "led:switch_0";
+				qcom,id = <0>;
 			};
 
 			pm660l_switch0: qcom,led_switch_0 {
@@ -395,6 +405,7 @@
 			lcdb_ldo_vreg: ldo {
 				label = "ldo";
 				regulator-name = "lcdb_ldo";
+				qcom,ldo-ilim-ma = <260>;
 				regulator-min-microvolt = <4000000>;
 				regulator-max-microvolt = <6000000>;
 			};
@@ -402,6 +413,7 @@
 			lcdb_ncp_vreg: ncp {
 				label = "ncp";
 				regulator-name = "lcdb_ncp";
+				qcom,ncp-ilim-ma = <260>;
 				regulator-min-microvolt = <4000000>;
 				regulator-max-microvolt = <6000000>;
 			};

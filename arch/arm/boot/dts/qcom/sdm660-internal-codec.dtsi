@@ -1,4 +1,5 @@
 /* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,9 +47,9 @@
 	status = "disabled";
 };
 
-&spi_7 {
+/*&spi_7 {
 	status = "disabled";
-};
+};*/
 
 &wdsp_mgr {
 	status = "disabled";
@@ -72,6 +73,7 @@
 
 &int_codec {
 	status = "okay";
+	qcom,wsa-disable;
 };
 
 &pmic_analog_codec {
@@ -80,4 +82,41 @@
 
 &msm_sdw_codec {
 	status = "okay";
+};
+
+&i2c_6 { /* SmartPA TI */
+	status = "okay";
+	tas2557@4c {
+			compatible = "ti,tas2557";
+			reg = <0x4c>;
+			#ti,load = <0>;   /* 0, 8Ohm; 1, 6Ohm; 2, 4Ohm */
+			#ti,channel = <0>;   /* 0, left channel; 1, right channel */
+			i2c-pull-up;
+			vdd-supply = <&pm660l_l6>;
+			vcc_i2c-supply = <&pm660l_l6>;
+			ti,cdc-reset-gpio = <&tlmm 77 0>;
+			ti,irq-gpio = <&tlmm 73 0>;
+			ti,i2s-bits = <16>;
+			status = "ok";
+		};
+
+	max98927@3a {
+		compatible = "maxim,max98927L";
+		status = "okay";
+		reg = <0x3a>;
+		mono_stereo_mode = <0>;
+		interleave_mode = <0>;
+		maxim,98927-reset-gpio = <&tlmm 77 0>;
+	};
+
+	tfa98xx@34 {
+			compatible = "nxp,tfa98xx";
+			reg = <0x34>;
+			i2c-pull-up;
+			vdd-supply = <&pm660l_l6>;
+			vcc_i2c-supply = <&pm660l_l6>;
+			reset-gpio = <&tlmm 77 0>;
+			irq-gpio = <&tlmm 73 0>;
+			status = "ok";
+		};
 };

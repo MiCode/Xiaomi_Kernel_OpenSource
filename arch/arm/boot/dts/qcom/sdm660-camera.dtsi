@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -56,7 +57,7 @@
 			"camss_ispif_ahb_clk", "csiphy_clk_src", "csiphy_clk",
 			"csiphy_ahb2crif";
 		qcom,clock-rates = <0 0 0 0 0 0 310000000 0 0 269333333 0
-			0 200000000 0 0>;
+			0 269000000 0 0>;
 		status = "ok";
 	};
 
@@ -132,7 +133,7 @@
 			"camss_ispif_ahb_clk", "csiphy_clk_src", "csiphy_clk",
 			"csiphy_ahb2crif";
 		qcom,clock-rates = <0 0 0 0 0 0 310000000 0 0 269333333 0
-			0 200000000 0 0>;
+			0 269000000 0 0>;
 		status = "ok";
 	};
 

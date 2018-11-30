@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2011 Google, Inc.
  * Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -37,7 +38,7 @@ static gfp_t high_order_gfp_flags = (GFP_HIGHUSER | __GFP_NOWARN |
 static gfp_t low_order_gfp_flags  = (GFP_HIGHUSER | __GFP_NOWARN);
 
 #ifndef CONFIG_ALLOC_BUFFERS_IN_4K_CHUNKS
-static const unsigned int orders[] = {9, 8, 4, 0};
+static const unsigned int orders[] = {4, 0};
 #else
 static const unsigned int orders[] = {0};
 #endif

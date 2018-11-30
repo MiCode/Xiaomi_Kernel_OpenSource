@@ -7,6 +7,7 @@
  *
  * Copyright (c) 1999-2002 Vojtech Pavlik
  * Copyright (c) 2015 Hans de Goede <hdegoede@redhat.com>
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -337,6 +338,8 @@
 #define KEY_MICMUTE		248	/* Mute / unmute the microphone */
 
 /* Code 255 is reserved for special needs of AT keyboard driver */
+#define KEY_ANT_CONNECT         0x292
+#define KEY_ANT_UNCONNECT       0x293
 
 #define BTN_MISC		0x100
 #define BTN_0			0x100

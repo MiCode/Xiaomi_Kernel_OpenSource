@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,8 +27,8 @@ DEFINE_MSM_MUTEX(msm_actuator_mutex);
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 #endif
 
-#define PARK_LENS_LONG_STEP 7
-#define PARK_LENS_MID_STEP 5
+#define PARK_LENS_LONG_STEP 3
+#define PARK_LENS_MID_STEP 3
 #define PARK_LENS_SMALL_STEP 3
 #define MAX_QVALUE 4096
 

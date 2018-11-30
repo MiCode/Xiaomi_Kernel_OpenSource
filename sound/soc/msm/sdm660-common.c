@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -200,9 +201,15 @@ static struct wcd_mbhc_config mbhc_cfg = {
 	.swap_gnd_mic = NULL,
 	.hs_ext_micbias = true,
 	.key_code[0] = KEY_MEDIA,
-	.key_code[1] = KEY_VOICECOMMAND,
-	.key_code[2] = KEY_VOLUMEUP,
-	.key_code[3] = KEY_VOLUMEDOWN,
+#if defined CONFIG_KERNEL_CUSTOM_D2S
+	.key_code[1] = KEY_VOLUMEUP,
+    .key_code[2] = KEY_VOLUMEDOWN,
+    .key_code[3] = KEY_VOICECOMMAND,
+#else
+	.key_code[1] = BTN_1,
+	.key_code[2] = BTN_2,
+	.key_code[3] = 0,
+#endif
 	.key_code[4] = 0,
 	.key_code[5] = 0,
 	.key_code[6] = 0,
@@ -229,7 +236,12 @@ static struct dev_config mi2s_rx_cfg[] = {
 };
 
 static struct dev_config mi2s_tx_cfg[] = {
+
+#if defined(CONFIG_SND_I2S_PRIMARY)
+	[PRIM_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 2},
+#else
 	[PRIM_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
+#endif
 	[SEC_MI2S]  = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
 	[TERT_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
 	[QUAT_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
@@ -398,7 +410,9 @@ static struct afe_clk_set mi2s_mclk[MI2S_MAX] = {
 		0,
 	}
 };
-
+#if defined(CONFIG_SND_SOC_TAS2557) || defined(CONFIG_SND_I2S_PRIMARY)
+static int pri_i2s_gpio_enable(bool enable);
+#endif
 static struct mi2s_conf mi2s_intf_conf[MI2S_MAX];
 
 static int proxy_rx_ch_get(struct snd_kcontrol *kcontrol,
@@ -2477,6 +2491,9 @@ int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 			__func__, cpu_dai->id);
 		goto done;
 	}
+#if defined(CONFIG_SND_SOC_TAS2557) || defined(CONFIG_SND_I2S_PRIMARY)
+	pri_i2s_gpio_enable(true);
+#endif
 	/*
 	 * Muxtex protection in case the same MI2S
 	 * interface using for both TX and RX  so
@@ -2548,13 +2565,17 @@ void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 		pr_err("%s:invalid MI2S DAI(%d)\n", __func__, index);
 		return;
 	}
-
+#if defined(CONFIG_SND_SOC_TAS2557) || defined(CONFIG_SND_I2S_PRIMARY)
+	pri_i2s_gpio_enable(false);
+#endif
 	mutex_lock(&mi2s_intf_conf[index].lock);
 	if (--mi2s_intf_conf[index].ref_cnt == 0) {
 		ret = msm_mi2s_set_sclk(substream, false);
-		if (ret < 0)
+		if (ret < 0) {
 			pr_err("%s:clock disable failed for MI2S (%d); ret=%d\n",
 				__func__, index, ret);
+			mi2s_intf_conf[index].ref_cnt++;
+		}
 		if (mi2s_intf_conf[index].msm_is_ext_mclk) {
 			mi2s_mclk[index].enable = 0;
 			pr_debug("%s: Disabling mclk, clk_freq_in_hz = %u\n",
@@ -3024,6 +3045,63 @@ static const struct of_device_id sdm660_asoc_machine_of_match[]  = {
 	  .data = "tavil_codec"},
 	{},
 };
+#if defined(CONFIG_SND_SOC_TAS2557) || defined(CONFIG_SND_I2S_PRIMARY)
+	#define PRI_I2S_ACTIVE "pri_i2s_active"
+	#define PRI_I2S_SLEEP "pri_i2s_sleep"
+	struct pri_i2s_gpioset
+	{
+		struct pinctrl *pinctrl;
+		struct pinctrl_state *pinctrl_state_active;
+		struct pinctrl_state *pinctrl_state_sleep;
+		/* data */
+	};
+	struct pri_i2s_gpioset pri_i2s_pininfo;
+
+static int pri_i2s_gpio_init(struct device *dev)
+{
+	pr_info("%s:enter.\n", __func__);
+	pri_i2s_pininfo.pinctrl = devm_pinctrl_get(dev);
+	if (IS_ERR(pri_i2s_pininfo.pinctrl)) {
+		pr_err("%s:could not get pinctrl.\n", __func__);
+		return -ENOENT;
+	}
+
+	pri_i2s_pininfo.pinctrl_state_active = pinctrl_lookup_state(pri_i2s_pininfo.pinctrl, PRI_I2S_ACTIVE);
+	if (IS_ERR(pri_i2s_pininfo.pinctrl_state_active)) {
+		pr_err("%s:could not get active pinctrl state.\n", __func__);
+		return -ENOENT;
+	}
+
+	pri_i2s_pininfo.pinctrl_state_sleep = pinctrl_lookup_state(pri_i2s_pininfo.pinctrl, PRI_I2S_SLEEP);
+	if (IS_ERR(pri_i2s_pininfo.pinctrl_state_sleep)) {
+		pr_err("%s:could not get sleep pinctrl state.\n", __func__);
+		return -ENOENT;
+	}
+
+	return 0;
+}
+static int pri_i2s_gpio_enable(bool enable)
+{
+	int ret;
+
+	pr_info("%s:enable = %d.\n", __func__, enable);
+	if (enable){
+		ret = pinctrl_select_state(pri_i2s_pininfo.pinctrl, pri_i2s_pininfo.pinctrl_state_active);
+		if (ret) {
+			pr_err("%s:could not set active pinctrl.\n", __func__);
+			return -ENOENT;
+		}
+	}else{
+		ret = pinctrl_select_state(pri_i2s_pininfo.pinctrl, pri_i2s_pininfo.pinctrl_state_sleep);
+		if (ret) {
+			pr_err("%s:could not set sleep pinctrl.\n", __func__);
+			return -ENOENT;
+		}
+	}
+
+	return 0;
+}
+#endif
 
 static int msm_asoc_machine_probe(struct platform_device *pdev)
 {
@@ -3051,6 +3129,14 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 		id = DEFAULT_MCLK_RATE;
 	}
 	pdata->mclk_freq = id;
+
+#if defined(CONFIG_SND_SOC_TAS2557) || defined(CONFIG_SND_I2S_PRIMARY)
+	ret = pri_i2s_gpio_init(&pdev->dev);
+	if (ret) {
+		dev_err(&pdev->dev,
+			"%s: pri-i2s gpio init fail, ret %d.\n", __func__, ret);
+	}
+#endif
 
 	if (!strcmp(match->data, "tasha_codec") ||
 	    !strcmp(match->data, "tavil_codec")) {
@@ -3146,6 +3232,8 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 	}
 	if (pdata->snd_card_val != INT_SND_CARD)
 		msm_ext_register_audio_notifier(pdev);
+
+	printk("%s_ok\n",__func__);
 
 	return 0;
 err:

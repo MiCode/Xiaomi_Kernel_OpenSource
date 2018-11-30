@@ -4,6 +4,7 @@
  *  Copyright (C) 2008  Intel Corp
  *  Copyright (C) 2008  Zhang Rui <rui.zhang@intel.com>
  *  Copyright (C) 2008  Sujith Thomas <sujith.thomas@intel.com>
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *  This program is free software; you can redistribute it and/or modify
@@ -248,6 +249,15 @@ struct thermal_zone_device {
 	struct sensor_threshold tz_threshold[2];
 	struct sensor_info sensor;
 };
+
+#ifdef CONFIG_THERMAL_SWITCH
+struct thermal_message_device {
+	struct device device;
+	int sconfig;
+};
+int thermal_message_device_register(void);
+void thermal_message_device_unregister(void);
+#endif
 
 /**
  * struct thermal_governor - structure that holds thermal governor information

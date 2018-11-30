@@ -1,4 +1,5 @@
 /* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,7 +16,8 @@
 
 #include "sdm630.dtsi"
 #include "sdm630-mtp.dtsi"
-#include "sdm660-external-codec.dtsi"
+//#include "sdm660-external-codec.dtsi"
+#include "sdm660-internal-codec.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM 630 PM660 + PM660L MTP";
