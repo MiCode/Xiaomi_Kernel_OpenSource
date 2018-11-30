@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s: " fmt, __func__
@@ -1022,6 +1022,34 @@ static const struct pwm_ops qpnp_lpg_pwm_ops = {
 	.owner = THIS_MODULE,
 };
 
+static int qpnp_get_lpg_channels(struct qpnp_lpg_chip *chip, u32 *base)
+{
+	int rc;
+	const __be32 *addr;
+
+	addr = of_get_address(chip->dev->of_node, 0, NULL, NULL);
+	if (!addr) {
+		dev_err(chip->dev, "Get %s address failed\n", LPG_BASE);
+		return -EINVAL;
+	}
+
+	*base = be32_to_cpu(addr[0]);
+	rc = of_property_read_u32(chip->dev->of_node, "qcom,num-lpg-channels",
+						&chip->num_lpgs);
+	if (rc < 0) {
+		dev_err(chip->dev, "Failed to get qcom,num-lpg-channels, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	if (chip->num_lpgs == 0) {
+		dev_err(chip->dev, "No LPG channels specified\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int qpnp_lpg_parse_dt(struct qpnp_lpg_chip *chip)
 {
 	struct device_node *child;
@@ -1031,16 +1059,10 @@ static int qpnp_lpg_parse_dt(struct qpnp_lpg_chip *chip)
 	u32 base, length, lpg_chan_id, tmp;
 	const __be32 *addr;
 
-	addr = of_get_address(chip->dev->of_node, 0, NULL, NULL);
-	if (!addr) {
-		dev_err(chip->dev, "Get %s address failed\n", LPG_BASE);
-		return -EINVAL;
-	}
+	rc = qpnp_get_lpg_channels(chip, &base);
+	if (rc < 0)
+		return rc;
 
-	base = be32_to_cpu(addr[0]);
-	length = be32_to_cpu(addr[1]);
-
-	chip->num_lpgs = length / REG_SIZE_PER_LPG;
 	chip->lpgs = devm_kcalloc(chip->dev, chip->num_lpgs,
 			sizeof(*chip->lpgs), GFP_KERNEL);
 	if (!chip->lpgs)
