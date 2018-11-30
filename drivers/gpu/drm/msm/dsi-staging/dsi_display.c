@@ -388,6 +388,7 @@ static irqreturn_t dsi_display_panel_te_irq_handler(int irq, void *data)
 	if (!display)
 		return IRQ_HANDLED;
 
+	SDE_EVT32(SDE_EVTLOG_FUNC_CASE1);
 	complete_all(&display->esd_te_gate);
 	return IRQ_HANDLED;
 }
@@ -1264,6 +1265,10 @@ static ssize_t debugfs_esd_trigger_check(struct file *file,
 
 	if (!user_len || !user_buf)
 		return -EINVAL;
+
+	if (!display->panel ||
+		atomic_read(&display->panel->esd_recovery_pending))
+		return user_len;
 
 	buf = kzalloc(user_len, GFP_KERNEL);
 	if (!buf)
