@@ -1286,7 +1286,7 @@ static void retract_page_tables(struct address_space *mapping, pgoff_t pgoff)
  * collapse_shmem - collapse small tmpfs/shmem pages into huge one.
  *
  * Basic scheme is simple, details are more complex:
- *  - allocate and freeze a new huge page;
+ *  - allocate and lock a new huge page;
  *  - scan over radix tree replacing old pages the new one
  *    + swap in pages if necessary;
  *    + fill in gaps;
@@ -1294,11 +1294,11 @@ static void retract_page_tables(struct address_space *mapping, pgoff_t pgoff)
  *  - if replacing succeed:
  *    + copy data over;
  *    + free old pages;
- *    + unfreeze huge page;
+ *    + unlock huge page;
  *  - if replacing failed;
  *    + put all pages back and unfreeze them;
  *    + restore gaps in the radix-tree;
- *    + free huge page;
+ *    + unlock and free huge page;
  */
 static void collapse_shmem(struct mm_struct *mm,
 		struct address_space *mapping, pgoff_t start,
@@ -1336,13 +1336,11 @@ static void collapse_shmem(struct mm_struct *mm,
 	__SetPageSwapBacked(new_page);
 	new_page->index = start;
 	new_page->mapping = mapping;
-	BUG_ON(!page_ref_freeze(new_page, 1));
 
 	/*
-	 * At this point the new_page is 'frozen' (page_count() is zero), locked
-	 * and not up-to-date. It's safe to insert it into radix tree, because
-	 * nobody would be able to map it or use it in other way until we
-	 * unfreeze it.
+	 * At this point the new_page is locked and not up-to-date.
+	 * It's safe to insert it into the page cache, because nobody would
+	 * be able to map it or use it in another way until we unlock it.
 	 */
 
 	index = start;
@@ -1520,9 +1518,8 @@ tree_unlocked:
 			index++;
 		}
 
-		/* Everything is ready, let's unfreeze the new_page */
 		SetPageUptodate(new_page);
-		page_ref_unfreeze(new_page, HPAGE_PMD_NR);
+		page_ref_add(new_page, HPAGE_PMD_NR - 1);
 		set_page_dirty(new_page);
 		mem_cgroup_commit_charge(new_page, memcg, false, true);
 		lru_cache_add_anon(new_page);
@@ -1570,8 +1567,6 @@ tree_unlocked:
 		VM_BUG_ON(nr_none);
 		spin_unlock_irq(&mapping->tree_lock);
 
-		/* Unfreeze new_page, caller would take care about freeing it */
-		page_ref_unfreeze(new_page, 1);
 		mem_cgroup_cancel_charge(new_page, memcg, true);
 		new_page->mapping = NULL;
 	}
