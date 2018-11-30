@@ -2550,7 +2550,7 @@
 		iommus = <&apps_smmu 0x1520 0x0>;
 		qcom,iova-mapping = <0x20000000 0x40000000>;
 		/* modem tables in IMEM */
-		qcom,additional-mapping = <0x146bd000 0x146bd000 0x2000>;
+		qcom,additional-mapping = <0x146A8000 0x146A8000 0x2000>;
 	};
 
 	ipa_smmu_wlan: ipa_smmu_wlan {
