@@ -172,3 +172,31 @@
 		thermal-governor = "user_space";
 	};
 };
+
+&soc {
+	sdxprairie_mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "fg-gen4-batterydata-alium-3600mah.dtsi"
+	};
+};
+
+&pm8150b_charger {
+	qcom,sec-charger-config = <0>;
+	qcom,auto-recharge-soc = <98>;
+	io-channels = <&pm8150b_vadc ADC_MID_CHG_DIV6>,
+		      <&pm8150b_vadc ADC_USB_IN_I>,
+		      <&pm8150b_vadc ADC_SBUx>,
+		      <&pm8150b_vadc ADC_VPH_PWR>,
+		      <&pm8150b_vadc ADC_CHG_TEMP>;
+	io-channel-names = "mid_voltage",
+			   "usb_in_current",
+			   "sbux_res",
+			   "vph_voltage",
+			   "chg_temp";
+	qcom,battery-data = <&sdxprairie_mtp_batterydata>;
+	qcom,step-charging-enable;
+	qcom,wd-bark-time-secs = <16>;
+	qcom,suspend-input-on-debug-batt;
+	qcom,hvdcp-autonomous-enable;
+	qcom,usb-pd-disable;
+};
