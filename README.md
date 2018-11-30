@@ -15,6 +15,7 @@
 | hydrogen-m-oss | Mi Max, Mi Max Pro | Android M | LA.BR.1.3.4-05310-8976.0 | [hydrogen-m-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/hydrogen-m-oss) |
 | ido-l-oss | Redmi 2, Redmi 3 | Android L | LA.BR.1.2.4-04410-8x16.0 | [ido-l-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ido-l-oss) |
 | jasmine-o-oss| Mi A2 | Android O | LA.UM.6.2.r1-06100-sdm660.0-1.151426.0.156675.1 | [jasmine-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/jasmine-o-oss) |
+| jasmine-p-oss| Mi A2 | Android P | LA.UM.7.2.r1-04900-sdm660.0 | [jasmine-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/jasmine-p-oss) |
 | jason-n-oss | Mi Note 3 | Android N | LA.UM.6.1.r1-08100-sdm660.0 | [jason-n-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/jason-n-oss) |
 | kenzo-l-oss | Redmi Note 3 Full Netcom | Android L | LA.BR.1.3.2-04330-8976.0 | [kenzo-l-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/kenzo-l-oss) |
 | land-m-oss | Redmi 3S, Redmi 3X | Android M | LA.UM.5.1-03810-8x37.0 | [land-m-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/land-m-oss) |
