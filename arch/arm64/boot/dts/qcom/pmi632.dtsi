@@ -44,6 +44,7 @@
 			interrupt-names = "eoc-int-en-set";
 			qcom,adc-vdd-reference = <1875>;
 			qcom,adc-full-scale-code = <0x70e4>;
+			qcom,pmic-revid = <&pmi632_revid>;
 
 			chan@0 {
 				label = "ref_gnd";
