@@ -1244,12 +1244,19 @@ int32_t cam_sensor_flush_request(struct cam_req_mgr_flush_request *flush_req)
 		return -EINVAL;
 	}
 
+	mutex_lock(&(s_ctrl->cam_sensor_mutex));
+	if (s_ctrl->sensor_state != CAM_SENSOR_START ||
+		s_ctrl->sensor_state != CAM_SENSOR_CONFIG) {
+		mutex_unlock(&(s_ctrl->cam_sensor_mutex));
+		return rc;
+	}
+
 	if (s_ctrl->i2c_data.per_frame == NULL) {
 		CAM_ERR(CAM_SENSOR, "i2c frame data is NULL");
+		mutex_unlock(&(s_ctrl->cam_sensor_mutex));
 		return -EINVAL;
 	}
 
-	mutex_lock(&(s_ctrl->cam_sensor_mutex));
 	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_ALL) {
 		s_ctrl->last_flush_req = flush_req->req_id;
 		CAM_DBG(CAM_SENSOR, "last reqest to flush is %lld",
