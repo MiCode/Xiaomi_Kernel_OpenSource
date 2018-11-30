@@ -163,7 +163,7 @@ static int fill_dynamic_stats(struct msm_vidc_inst *inst,
 	}
 
 	dprintk(VIDC_PROF,
-		"Input CR = %d Recon CR = %d Complexity Factor = %d\n",
+		"Input CR = %d Recon CR = %llu Complexity Factor = %llu\n",
 			vote_data->input_cr, vote_data->compression_ratio,
 			vote_data->complexity_factor);
 
