@@ -100,9 +100,10 @@ static irqreturn_t qsee_intr(int irq, void *data)
 
 		irq_pin = irq_find_mapping(qirq->domain, to_hwirq(i, j));
 		desc = irq_to_desc(irq_pin);
-		if (desc)
-			handle_simple_irq(desc);
+
 		regmap_write(qirq->regmap, bank->data->clear, BIT(j));
+		if (desc)
+			handle_level_irq(desc);
 	}
 
 	return IRQ_HANDLED;
@@ -159,6 +160,9 @@ static int qsee_set_irq_type(struct irq_data *irqd, unsigned int type)
 	index = hwirq_to_index(irq);
 	bit = hwirq_to_bit(irq);
 	bank = &qirq->banks[index];
+
+	if (type & IRQ_TYPE_LEVEL_HIGH)
+		return 0;
 
 	if (!(type & IRQ_TYPE_EDGE_BOTH))
 		return -EINVAL;
@@ -289,7 +293,8 @@ static int qsee_irq_probe(struct platform_device *pdev)
 		regmap_write(qirq->regmap, bank->data->mask, mask);
 
 		ret = devm_request_irq(dev, bank->irq, qsee_intr,
-				       IRQF_NO_SUSPEND, "qsee_irq", qirq);
+				       IRQF_NO_SUSPEND | IRQF_ONESHOT,
+				       "qsee_irq", qirq);
 		if (ret) {
 			dev_err(dev, "failed to request interrupt\n");
 			return ret;
