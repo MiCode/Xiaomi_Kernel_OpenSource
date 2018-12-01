@@ -223,4 +223,6 @@ source "drivers/esoc/Kconfig"
 
 source "drivers/sensors/Kconfig"
 
+source "drivers/gpu/msm/Kconfig"
+
 endmenu
