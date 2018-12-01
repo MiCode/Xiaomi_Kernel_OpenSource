@@ -29,6 +29,7 @@
 #include "cam_debug_util.h"
 #include "cam_cpas_api.h"
 #include "cam_mem_mgr_api.h"
+#include "cam_common_util.h"
 
 #define CAM_IFE_HW_ENTRIES_MAX  20
 
@@ -95,7 +96,8 @@ static int cam_ife_mgr_get_hw_caps(void *hw_mgr_priv,
 
 	CAM_DBG(CAM_ISP, "enter");
 
-	if (copy_from_user(&query_isp, (void __user *)query->caps_handle,
+	if (copy_from_user(&query_isp,
+		u64_to_user_ptr(query->caps_handle),
 		sizeof(struct cam_isp_query_cap_cmd))) {
 		rc = -EFAULT;
 		return rc;
@@ -114,8 +116,8 @@ static int cam_ife_mgr_get_hw_caps(void *hw_mgr_priv,
 		query_isp.dev_caps[i].hw_version.reserved = 0;
 	}
 
-	if (copy_to_user((void __user *)query->caps_handle, &query_isp,
-		sizeof(struct cam_isp_query_cap_cmd)))
+	if (copy_to_user(u64_to_user_ptr(query->caps_handle),
+		&query_isp, sizeof(struct cam_isp_query_cap_cmd)))
 		rc = -EFAULT;
 
 	CAM_DBG(CAM_ISP, "exit rc :%d", rc);
@@ -1562,7 +1564,8 @@ static int cam_ife_mgr_acquire_hw(void *hw_mgr_priv,
 			goto free_res;
 		}
 
-		in_port = memdup_user((void __user *)isp_resource[i].res_hdl,
+		in_port = memdup_user(
+			u64_to_user_ptr(isp_resource[i].res_hdl),
 			isp_resource[i].length);
 		if (!IS_ERR(in_port)) {
 			in_port_length = sizeof(struct cam_isp_in_port_info) +
@@ -4148,8 +4151,8 @@ int cam_ife_mgr_do_tasklet_buf_done(void *handler_priv,
 	evt_payload = evt_payload_priv;
 	ife_hwr_mgr_ctx = (struct cam_ife_hw_mgr_ctx *)evt_payload->ctx;
 
-	CAM_DBG(CAM_ISP, "addr of evt_payload = %llx core index:0x%x",
-		(uint64_t)evt_payload, evt_payload->core_index);
+	CAM_DBG(CAM_ISP, "addr of evt_payload = %pK core index:0x%x",
+		evt_payload, evt_payload->core_index);
 	CAM_DBG(CAM_ISP, "bus_irq_status_0: = %x", evt_payload->irq_reg_val[0]);
 	CAM_DBG(CAM_ISP, "bus_irq_status_1: = %x", evt_payload->irq_reg_val[1]);
 	CAM_DBG(CAM_ISP, "bus_irq_status_2: = %x", evt_payload->irq_reg_val[2]);

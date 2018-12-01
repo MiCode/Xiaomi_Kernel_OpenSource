@@ -2438,7 +2438,7 @@ static int cam_vfe_bus_update_wm(void *priv, void *cmd_args,
 	for (i = 0, j = 0; i < vfe_out_data->num_wm; i++) {
 		if (j >= (MAX_REG_VAL_PAIR_SIZE - MAX_BUF_UPDATE_REG_NUM * 2)) {
 			CAM_ERR(CAM_ISP,
-				"reg_val_pair %d exceeds the array limit %lu",
+				"reg_val_pair %d exceeds the array limit %zu",
 				j, MAX_REG_VAL_PAIR_SIZE);
 			return -ENOMEM;
 		}
@@ -2711,7 +2711,7 @@ static int cam_vfe_bus_update_hfr(void *priv, void *cmd_args,
 	for (i = 0, j = 0; i < vfe_out_data->num_wm; i++) {
 		if (j >= (MAX_REG_VAL_PAIR_SIZE - MAX_BUF_UPDATE_REG_NUM * 2)) {
 			CAM_ERR(CAM_ISP,
-				"reg_val_pair %d exceeds the array limit %lu",
+				"reg_val_pair %d exceeds the array limit %zu",
 				j, MAX_REG_VAL_PAIR_SIZE);
 			return -ENOMEM;
 		}
