@@ -1,3 +1,4 @@
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 /*
  * Based on arch/arm/mm/mmu.c
  *
@@ -696,6 +697,36 @@ void __init paging_init(void)
 		      __pa_symbol(swapper_pg_end) - __pa_symbol(swapper_pg_dir)
 		      - PAGE_SIZE);
 }
+
+#ifdef CONFIG_MEMORY_HOTPLUG
+/*
+ * hotplug_paging() is used by memory hotplug to build new page tables
+ * for hot added memory.
+ */
+void hotplug_paging(phys_addr_t start, phys_addr_t size)
+{
+
+	struct page *pg;
+	phys_addr_t pgd_phys = pgd_pgtable_alloc();
+	pgd_t *pgd = pgd_set_fixmap(pgd_phys);
+
+	memcpy(pgd, swapper_pg_dir, PAGE_SIZE);
+
+	__create_pgd_mapping(pgd, start, __phys_to_virt(start), size,
+		PAGE_KERNEL, pgd_pgtable_alloc, !debug_pagealloc_enabled());
+
+	cpu_replace_ttbr1(__va(pgd_phys));
+	memcpy(swapper_pg_dir, pgd, PAGE_SIZE);
+	cpu_replace_ttbr1(swapper_pg_dir);
+
+	pgd_clear_fixmap();
+
+	pg = phys_to_page(pgd_phys);
+	pgtable_page_dtor(pg);
+	__free_pages(pg, 0);
+}
+
+#endif
 
 /*
  * Check whether a kernel address is valid (derived from arch/x86/).
