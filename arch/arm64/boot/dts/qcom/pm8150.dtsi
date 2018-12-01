@@ -62,6 +62,11 @@
 			clock-names = "xo";
 		};
 
+		pm8150_sdam_2: sdam@b100 {
+			compatible = "qcom,spmi-sdam";
+			reg = <0xb100 0x100>;
+		};
+
 		pm8150_gpios: pinctrl@c000 {
 			compatible = "qcom,spmi-gpio";
 			reg = <0xc000 0xa00>;
