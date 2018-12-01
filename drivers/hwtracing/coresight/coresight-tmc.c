@@ -21,8 +21,6 @@
 #include <linux/of.h>
 #include <linux/coresight.h>
 #include <linux/amba/bus.h>
-#include <linux/iommu.h>
-#include <asm/dma-iommu.h>
 
 #include "coresight-priv.h"
 #include "coresight-tmc.h"
@@ -448,59 +446,6 @@ static ssize_t block_size_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(block_size);
 
-static int tmc_iommu_init(struct tmc_drvdata *drvdata)
-{
-	struct device_node *node = drvdata->dev->of_node;
-	int s1_bypass;
-	int ret = 0;
-
-	if (!of_property_read_bool(node, "iommus"))
-		return 0;
-
-	drvdata->iommu_mapping = __depr_arm_iommu_create_mapping(&amba_bustype,
-							0, (SZ_1G * 4ULL));
-	if (IS_ERR_OR_NULL(drvdata->iommu_mapping)) {
-		dev_err(drvdata->dev, "Create mapping failed, err = %d\n", ret);
-		ret = PTR_ERR(drvdata->iommu_mapping);
-		goto iommu_map_err;
-	}
-
-	s1_bypass = of_property_read_bool(node, "qcom,smmu-s1-bypass");
-	ret = iommu_domain_set_attr(drvdata->iommu_mapping->domain,
-			DOMAIN_ATTR_S1_BYPASS, &s1_bypass);
-	if (ret) {
-		dev_err(drvdata->dev, "IOMMU set s1 bypass (%d) failed (%d)\n",
-			s1_bypass, ret);
-		goto iommu_attach_fail;
-	}
-
-	ret = __depr_arm_iommu_attach_device(drvdata->dev,
-					     drvdata->iommu_mapping);
-	if (ret) {
-		dev_err(drvdata->dev, "Attach device failed, err = %d\n", ret);
-		goto iommu_attach_fail;
-	}
-
-	return ret;
-
-iommu_attach_fail:
-	__depr_arm_iommu_release_mapping(drvdata->iommu_mapping);
-iommu_map_err:
-	drvdata->iommu_mapping = NULL;
-	return ret;
-}
-
-static void tmc_iommu_deinit(struct tmc_drvdata *drvdata)
-{
-	if (!drvdata->iommu_mapping)
-		return;
-
-	__depr_arm_iommu_detach_device(drvdata->dev);
-	__depr_arm_iommu_release_mapping(drvdata->iommu_mapping);
-
-	drvdata->iommu_mapping = NULL;
-}
-
 static struct attribute *coresight_tmc_etf_attrs[] = {
 	&dev_attr_trigger_cntr.attr,
 	&dev_attr_buffer_size.attr,
@@ -630,14 +575,14 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 	pdata = of_get_coresight_platform_data(dev, np);
 	if (IS_ERR(pdata)) {
 		ret = PTR_ERR(pdata);
-		goto out;
+		return ret;
 	}
 	adev->dev.platform_data = pdata;
 
 	ret = -ENOMEM;
 	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
 	if (!drvdata)
-		goto out;
+		return ret;
 
 	drvdata->dev = &adev->dev;
 	dev_set_drvdata(dev, drvdata);
@@ -646,7 +591,7 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 	base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(base)) {
 		ret = PTR_ERR(base);
-		goto out;
+		return ret;
 	}
 
 	drvdata->base = base;
@@ -700,26 +645,20 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 	desc.dev = dev;
 	ret = tmc_config_desc(drvdata, &desc);
 	if (ret)
-		goto out;
+		return ret;
 
 	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
 		ret = tmc_etr_setup_caps(drvdata, devid, id->data);
 		if (ret)
-			goto out;
+			return ret;
 
 		drvdata->byte_cntr = byte_cntr_init(adev, drvdata);
-	}
-
-	ret = tmc_iommu_init(drvdata);
-	if (ret) {
-		dev_err(dev, "TMC SMMU init failed, err =%d\n", ret);
-		goto out;
 	}
 
 	drvdata->csdev = coresight_register(&desc);
 	if (IS_ERR(drvdata->csdev)) {
 		ret = PTR_ERR(drvdata->csdev);
-		goto out_iommu_deinit;
+		return ret;
 	}
 
 	drvdata->miscdev.name = pdata->name;
@@ -728,17 +667,12 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 	ret = misc_register(&drvdata->miscdev);
 	if (ret) {
 		coresight_unregister(drvdata->csdev);
-		goto out_iommu_deinit;
+		return ret;
 	}
 
 	if (!ret)
 		pm_runtime_put(&adev->dev);
 
-	return ret;
-
-out_iommu_deinit:
-	tmc_iommu_deinit(drvdata);
-out:
 	return ret;
 }
 
