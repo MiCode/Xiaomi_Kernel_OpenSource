@@ -11,6 +11,7 @@ Required properties:
 - reg-names : "msgram" - string to identify the shared memory region.
 	"irq-reg-base" - string to identify the irq register region.
 - qcom,irq-mask : the bitmask to trigger an interrupt.
+- mboxes: - Handle to outgoing interrupt if not using irq-reg-base
 - interrupt : the receiving interrupt line.
 - mbox-desc-offset : offset of mailbox descriptor from start of the msgram.
 - priority : the priority of this mailbox compared to other mailboxes.
