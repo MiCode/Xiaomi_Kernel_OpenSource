@@ -6,11 +6,7 @@ Venus
 Required properties:
 - compatible : one of:
 	- "qcom,msm-vidc"
-	- "qcom,sm6150-vidc" : Invokes driver specific data for SM6150.
-        - "qcom,sm8150-vidc" : Invokes driver specific data for SM8150.
-        - "qcom,sm6150-vidc" : Invokes driver specific data for SM6150.
-        - "qcom,sdm845-vidc" : Invokes driver specific data for SDM845.
-        - "qcom,sdm670-vidc" : Invokes driver specific data for SDM670.
+        - "qcom,kona-vidc" : Invokes driver specific data for KONA.
 
 Optional properties:
 - reg : offset and length of the register set for the device.
@@ -60,9 +56,6 @@ Optional properties:
        macro block in low power mode.
        the required frequency to get the final frequency, the factor is
        represented in Q16 format.
-- qcom,use-non-secure-pil = A bool indicating which type of pil to use to load
-  the fw.
-- qcom,fw-bias = The address at which venus fw is loaded (manually).
 - qcom,vidc-iommu-domains = node containing individual domain nodes, each with:
      - a unique domain name for the domain node (e.g vidc,domain-ns)
      - qcom,vidc-domain-phandle: phandle for the domain as defined in
@@ -113,7 +106,6 @@ Optional properties:
           internal persist1 = 0x400
           internal cmd queue = 0x800
 - virtual-addr-pool : offset and length of virtual address pool.
-- qcom,fw-context-bank : bool indicating firmware context bank.
 - qcom,secure-context-bank : bool indicating secure context bank.
 
 Buses
@@ -165,25 +157,7 @@ Example:
 		qcom,clock-configs = <0x3 0x1 0x0>;
 		qcom,buffer-type-tz-usage-table = <0x1 0x1>,
 						<0x1fe 0x2>;
-		qcom,fw-bias = <0xe000000>;
 		qcom,allowed-clock-rates = <200000000 300000000 400000000>;
-		msm_vidc_cb1: msm_vidc_cb1 {
-			compatible = "qcom,msm-vidc,context-bank";
-			label = "venus_ns";
-			iommus = <&venus_smmu 0x0a>,
-				<&venus_smmu 0x0b>,
-				<&venus_smmu 0x0c>;
-			buffer-types = <0xfff>;
-			virtual-addr-pool = <0x5dc00000 0x80000000>;
-			qcom,secure-context-bank;
-		};
-
-		msm_vidc_cb2: msm_vidc_cb2 {
-			compatible = "qcom,msm-vidc,context-bank";
-			qcom,fw-context-bank;
-			iommus = <&venus_smmu 0x100>,
-				<&venus_smmu 0x106>;
-		};
 
 		bus_cnoc {
 			compatible = "qcom,msm-vidc,bus";
@@ -202,17 +176,14 @@ Example:
 			qcom,bus-governor = "msm-vidc-ddr";
 			qcom,bus-range-kbps = <1000 3388000>;
 		};
-		qcom,profile-dec-ubwc-10bit {
-			qcom,codec-mask = <0xffffffff>;
-			qcom,ubwc-10bit;
-			qcom,load-busfreq-tbl =
-				<979200 2446336>,  /* UHD30D     */
-				<864000 2108416>,  /* 720p240D   */
-				<489600 1207296>,  /* 1080p60D   */
-				<432000 1058816>,  /* 720p120D   */
-				<244800 616448>,   /* 1080p30D   */
-				<216000 534528>,   /* 720p60D    */
-				<108000 271360>,   /* 720p30D    */
-				<0 0>;
+
+		non_secure_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			label = "venus_ns";
+			iommus =
+				<&apps_smmu 0x1300 0x60>;
+			buffer-types = <0xfff>;
+			virtual-addr-pool = <0x25800000 0xba800000>;
 		};
+
 	};

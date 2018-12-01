@@ -4813,8 +4813,7 @@ static int __load_fw(struct venus_hfi_device *device)
 		goto fail_venus_power_on;
 	}
 
-	if ((!device->res->use_non_secure_pil && !device->res->firmware_base)
-			|| device->res->use_non_secure_pil) {
+	if (!device->res->firmware_base) {
 		if (!device->resources.fw.cookie)
 			device->resources.fw.cookie =
 				subsystem_get_with_fwname("venus",
@@ -4826,9 +4825,11 @@ static int __load_fw(struct venus_hfi_device *device)
 			rc = -ENOMEM;
 			goto fail_load_fw;
 		}
+	} else {
+		dprintk(VIDC_ERR, "Firmware base must be 0\n");
 	}
 
-	if (!device->res->use_non_secure_pil && !device->res->firmware_base) {
+	if (!device->res->firmware_base) {
 		rc = __protect_cp_mem(device);
 		if (rc) {
 			dprintk(VIDC_ERR, "Failed to protect memory\n");

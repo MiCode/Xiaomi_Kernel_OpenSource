@@ -166,7 +166,6 @@ struct msm_vidc_platform_resources {
 	struct regulator_set regulator_set;
 	struct clock_set clock_set;
 	struct bus_set bus_set;
-	bool use_non_secure_pil;
 	bool sw_power_collapsible;
 	bool slave_side_cp;
 	struct list_head context_banks;
