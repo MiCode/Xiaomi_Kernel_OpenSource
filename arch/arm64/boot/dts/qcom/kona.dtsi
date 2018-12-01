@@ -890,6 +890,11 @@
 		clocks = <&clock_gcc GCC_NPU_CFG_AHB_CLK>;
 	};
 
+	qcom,sps {
+		compatible = "qcom,msm-sps-4k";
+		qcom,pipe-attr-ee;
+	};
+
 	/* VIDEO_CC GDSCs */
 	mvs0_gdsc: qcom,gdsc@abf0d18 {
 		compatible = "qcom,gdsc";
