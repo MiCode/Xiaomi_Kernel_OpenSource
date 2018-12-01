@@ -251,7 +251,6 @@ static int service_locator_send_msg(struct pd_qmi_client_data *pd)
 	req->domain_offset_valid = true;
 	req->domain_offset = 0;
 
-	pd->domain_list = NULL;
 	do {
 		req->domain_offset += domains_read;
 		rc = servreg_loc_send_msg(&req_desc, &resp_desc, req, resp,
@@ -281,6 +280,7 @@ static int service_locator_send_msg(struct pd_qmi_client_data *pd)
 			pr_err("Service Locator DB updated for client %s\n",
 				pd->client_name);
 			kfree(pd->domain_list);
+			pd->domain_list = NULL;
 			rc = -EAGAIN;
 			goto out;
 		}
@@ -360,7 +360,7 @@ int get_service_location(char *client_name, char *service_name,
 		goto err;
 	}
 
-	pqcd = kmalloc(sizeof(struct pd_qmi_client_data), GFP_KERNEL);
+	pqcd = kzalloc(sizeof(struct pd_qmi_client_data), GFP_KERNEL);
 	if (!pqcd) {
 		rc = -ENOMEM;
 		pr_err("Allocation failed\n");
@@ -401,7 +401,7 @@ static void pd_locator_work(struct work_struct *work)
 		pr_err("Unable to connect to service locator!, rc = %d\n", rc);
 		pdqw->notifier->notifier_call(pdqw->notifier,
 			LOCATOR_DOWN, NULL);
-		goto err;
+		goto err_init_servloc;
 	}
 	rc = service_locator_send_msg(data);
 	if (rc) {
@@ -409,11 +409,13 @@ static void pd_locator_work(struct work_struct *work)
 			data->service_name, data->client_name, rc);
 		pdqw->notifier->notifier_call(pdqw->notifier,
 			LOCATOR_DOWN, NULL);
-		goto err;
+		goto err_servloc_send_msg;
 	}
 	pdqw->notifier->notifier_call(pdqw->notifier, LOCATOR_UP, data);
 
-err:
+err_servloc_send_msg:
+	kfree(data->domain_list);
+err_init_servloc:
 	kfree(data);
 	kfree(pdqw);
 }
