@@ -771,6 +771,10 @@ void mhi_create_devices(struct mhi_controller *mhi_cntrl)
 		/* add if there is a matching DT node */
 		mhi_assign_of_node(mhi_cntrl, mhi_dev);
 
+		/* init wake source */
+		if (mhi_dev->dl_chan && mhi_dev->dl_chan->wake_capable)
+			device_init_wakeup(&mhi_dev->dev, true);
+
 		ret = device_add(&mhi_dev->dev);
 		if (ret) {
 			MHI_ERR("Failed to register dev for  chan:%s\n",
