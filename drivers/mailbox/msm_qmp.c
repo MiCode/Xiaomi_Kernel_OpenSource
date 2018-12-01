@@ -10,6 +10,7 @@
 #include <linux/completion.h>
 #include <linux/platform_device.h>
 #include <linux/mailbox_controller.h>
+#include <linux/mailbox_client.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
@@ -200,6 +201,9 @@ struct qmp_device {
 	u32 tx_irq_count;
 	u32 rx_irq_count;
 
+	struct mbox_client mbox_client;
+	struct mbox_chan *mbox_chan;
+
 	void *ilc;
 };
 
@@ -214,7 +218,13 @@ static void send_irq(struct qmp_device *mdev)
 	 * before the interrupt is triggered
 	 */
 	wmb();
-	writel_relaxed(mdev->irq_mask, mdev->tx_irq_reg);
+
+	if (mdev->mbox_chan) {
+		mbox_send_message(mdev->mbox_chan, NULL);
+		mbox_client_txdone(mdev->mbox_chan, 0);
+	} else {
+		writel_relaxed(mdev->irq_mask, mdev->tx_irq_reg);
+	}
 	mdev->tx_irq_count++;
 }
 
@@ -849,6 +859,34 @@ static int qmp_mbox_init(struct device_node *n, struct qmp_device *mdev)
 	return 0;
 }
 
+static int qmp_parse_ipc(struct platform_device *pdev)
+{
+	struct qmp_device *mdev = platform_get_drvdata(pdev);
+	struct device_node *node = pdev->dev.of_node;
+	struct resource *res;
+	int rc;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+					   "irq-reg-base");
+	if (!res) {
+		pr_err("%s: missing key irq-reg-base\n", __func__);
+		return -ENODEV;
+	}
+
+	rc = of_property_read_u32(node, "qcom,irq-mask", &mdev->irq_mask);
+	if (rc) {
+		pr_err("%s: missing key qcom,irq-mask\n", __func__);
+		return -ENODEV;
+	}
+
+	mdev->tx_irq_reg = devm_ioremap_nocache(&pdev->dev, res->start,
+						resource_size(res));
+	if (!mdev->tx_irq_reg) {
+		pr_err("%s: unable to map tx irq reg\n", __func__);
+		return -EIO;
+	}
+	return 0;
+}
 
 /**
  * qmp_edge_init() - Parse the device tree information for QMP, map io
@@ -861,7 +899,7 @@ static int qmp_edge_init(struct platform_device *pdev)
 {
 	struct qmp_device *mdev = platform_get_drvdata(pdev);
 	struct device_node *node = pdev->dev.of_node;
-	struct resource *msgram_r, *tx_irq_reg_r;
+	struct resource *msgram_r;
 	char *key;
 	int rc;
 
@@ -879,18 +917,18 @@ static int qmp_edge_init(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	key = "irq-reg-base";
-	tx_irq_reg_r = platform_get_resource_byname(pdev, IORESOURCE_MEM, key);
-	if (!tx_irq_reg_r) {
-		pr_err("%s: missing key %s\n", __func__, key);
-		return -ENODEV;
-	}
+	mdev->mbox_client.dev = &pdev->dev;
+	mdev->mbox_client.knows_txdone = true;
+	mdev->mbox_chan = mbox_request_channel(&mdev->mbox_client, 0);
+	if (IS_ERR(mdev->mbox_chan)) {
+		if (PTR_ERR(mdev->mbox_chan) != -ENODEV)
+			return PTR_ERR(mdev->mbox_chan);
 
-	key = "qcom,irq-mask";
-	rc = of_property_read_u32(node, key, &mdev->irq_mask);
-	if (rc) {
-		pr_err("%s: missing key %s\n", __func__, key);
-		return -ENODEV;
+		mdev->mbox_chan = NULL;
+
+		rc = qmp_parse_ipc(pdev);
+		if (rc)
+			return rc;
 	}
 
 	key = "interrupts";
@@ -901,11 +939,9 @@ static int qmp_edge_init(struct platform_device *pdev)
 	}
 
 	mdev->dev = &pdev->dev;
-	mdev->tx_irq_reg = devm_ioremap_nocache(&pdev->dev, tx_irq_reg_r->start,
-						resource_size(tx_irq_reg_r));
 	mdev->msgram = devm_ioremap_nocache(&pdev->dev, msgram_r->start,
 						resource_size(msgram_r));
-	if (!mdev->msgram || !mdev->tx_irq_reg)
+	if (!mdev->msgram)
 		return -EIO;
 
 	INIT_LIST_HEAD(&mdev->mboxes);
