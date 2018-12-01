@@ -3,6 +3,7 @@
 
 #include <asm/arch_timer.h>
 #include <linux/debugfs.h>
+#include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/dma-direction.h>
 #include <linux/list.h>
@@ -32,6 +33,34 @@ static const struct firmware_info firmware_table[] = {
 
 static int debug_mode;
 module_param_named(debug_mode, debug_mode, int, 0644);
+
+int mhi_debugfs_trigger_m0(void *data, u64 val)
+{
+	struct mhi_controller *mhi_cntrl = data;
+	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
+
+	MHI_LOG("Trigger M3 Exit\n");
+	pm_runtime_get(&mhi_dev->pci_dev->dev);
+	pm_runtime_put(&mhi_dev->pci_dev->dev);
+
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(debugfs_trigger_m0_fops, NULL,
+			mhi_debugfs_trigger_m0, "%llu\n");
+
+int mhi_debugfs_trigger_m3(void *data, u64 val)
+{
+	struct mhi_controller *mhi_cntrl = data;
+	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
+
+	MHI_LOG("Trigger M3 Entry\n");
+	pm_runtime_mark_last_busy(&mhi_dev->pci_dev->dev);
+	pm_request_autosuspend(&mhi_dev->pci_dev->dev);
+
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(debugfs_trigger_m3_fops, NULL,
+			mhi_debugfs_trigger_m3, "%llu\n");
 
 void mhi_deinit_pci_dev(struct mhi_controller *mhi_cntrl)
 {
@@ -351,6 +380,45 @@ static int mhi_lpm_enable(struct mhi_controller *mhi_cntrl, void *priv)
 	return ret;
 }
 
+static int mhi_qcom_power_up(struct mhi_controller *mhi_cntrl)
+{
+	enum mhi_dev_state dev_state = mhi_get_mhi_state(mhi_cntrl);
+	const u32 delayus = 10;
+	int itr = DIV_ROUND_UP(mhi_cntrl->timeout_ms * 1000, delayus);
+	int ret;
+
+	/*
+	 * It's possible device did not go thru a cold reset before
+	 * power up and still in error state. If device in error state,
+	 * we need to trigger a soft reset before continue with power
+	 * up
+	 */
+	if (dev_state == MHI_STATE_SYS_ERR) {
+		mhi_set_mhi_state(mhi_cntrl, MHI_STATE_RESET);
+		while (itr--) {
+			dev_state = mhi_get_mhi_state(mhi_cntrl);
+			if (dev_state != MHI_STATE_SYS_ERR)
+				break;
+			usleep_range(delayus, delayus << 1);
+		}
+		/* device still in error state, abort power up */
+		if (dev_state == MHI_STATE_SYS_ERR)
+			return -EIO;
+	}
+
+	ret = mhi_async_power_up(mhi_cntrl);
+
+	/* power up create the dentry */
+	if (mhi_cntrl->dentry) {
+		debugfs_create_file("m0", 0444, mhi_cntrl->dentry, mhi_cntrl,
+				    &debugfs_trigger_m0_fops);
+		debugfs_create_file("m3", 0444, mhi_cntrl->dentry, mhi_cntrl,
+				    &debugfs_trigger_m3_fops);
+	}
+
+	return ret;
+}
+
 static int mhi_runtime_get(struct mhi_controller *mhi_cntrl, void *priv)
 {
 	struct mhi_dev *mhi_dev = priv;
@@ -386,36 +454,6 @@ static u64 mhi_time_get(struct mhi_controller *mhi_cntrl, void *priv)
 {
 	return arch_counter_get_cntvct();
 }
-
-int mhi_debugfs_trigger_m0(void *data, u64 val)
-{
-	struct mhi_controller *mhi_cntrl = data;
-	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
-
-	MHI_LOG("Trigger M3 Exit\n");
-	pm_runtime_get(&mhi_dev->pci_dev->dev);
-	pm_runtime_put(&mhi_dev->pci_dev->dev);
-
-	return 0;
-}
-
-int mhi_debugfs_trigger_m3(void *data, u64 val)
-{
-	struct mhi_controller *mhi_cntrl = data;
-	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
-
-	MHI_LOG("Trigger M3 Entry\n");
-	pm_runtime_mark_last_busy(&mhi_dev->pci_dev->dev);
-	pm_request_autosuspend(&mhi_dev->pci_dev->dev);
-
-	return 0;
-}
-
-DEFINE_DEBUGFS_ATTRIBUTE(debugfs_trigger_m0_fops, NULL,
-			 mhi_debugfs_trigger_m0, "%llu\n");
-
-DEFINE_DEBUGFS_ATTRIBUTE(debugfs_trigger_m3_fops, NULL,
-			 mhi_debugfs_trigger_m3, "%llu\n");
 
 static ssize_t timeout_ms_show(struct device *dev,
 			       struct device_attribute *attr,
@@ -455,7 +493,7 @@ static ssize_t power_up_store(struct device *dev,
 	struct mhi_device *mhi_dev = to_mhi_device(dev);
 	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
 
-	ret = mhi_async_power_up(mhi_cntrl);
+	ret = mhi_qcom_power_up(mhi_cntrl);
 	if (ret)
 		return ret;
 
@@ -612,20 +650,13 @@ int mhi_pci_probe(struct pci_dev *pci_dev,
 
 	/* start power up sequence */
 	if (!debug_mode) {
-		ret = mhi_async_power_up(mhi_cntrl);
+		ret = mhi_qcom_power_up(mhi_cntrl);
 		if (ret)
 			goto error_power_up;
 	}
 
 	pm_runtime_mark_last_busy(&pci_dev->dev);
 	pm_runtime_allow(&pci_dev->dev);
-
-	if (mhi_cntrl->dentry) {
-		debugfs_create_file_unsafe("m0", 0444, mhi_cntrl->dentry,
-					   mhi_cntrl, &debugfs_trigger_m0_fops);
-		debugfs_create_file_unsafe("m3", 0444, mhi_cntrl->dentry,
-					   mhi_cntrl, &debugfs_trigger_m3_fops);
-	}
 
 	MHI_LOG("Return successful\n");
 
