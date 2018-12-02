@@ -33,6 +33,10 @@ qcom,mlp356477_2800mah {
 	qcom,jeita-soft-thresholds = <0x4621 0x20b8>;
 	/* COLD = 0 DegC, HOT = 55 DegC */
 	qcom,jeita-hard-thresholds = <0x58cd 0x181d>;
+	/* COOL hys = 18 DegC, WARM hys = 42 DegC */
+	qcom,jeita-soft-hys-thresholds = <0x4206 0x23c0>;
+	qcom,jeita-soft-fcc-ua = <560000 2380000>;
+	qcom,jeita-soft-fv-uv = <4150000 4150000>;
 
 	qcom,fcc1-temp-lut {
 		qcom,lut-col-legend = <0 10 25 40 50>;
