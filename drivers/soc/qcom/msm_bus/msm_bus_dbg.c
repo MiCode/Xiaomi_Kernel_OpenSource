@@ -646,12 +646,6 @@ static ssize_t rules_dbg_read(struct file *file, char __user *buf,
 	return ret;
 }
 
-static int rules_dbg_open(struct inode *inode, struct file *file)
-{
-	file->private_data = inode->i_private;
-	return 0;
-}
-
 static const struct file_operations rules_dbg_fops = {
 	.open		= simple_open,
 	.read		= rules_dbg_read,
