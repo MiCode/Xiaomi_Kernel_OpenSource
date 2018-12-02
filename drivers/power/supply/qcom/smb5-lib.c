@@ -220,7 +220,7 @@ int smblib_icl_override(struct smb_charger *chg, enum icl_override_mode  mode)
 static int smblib_select_sec_charger_locked(struct smb_charger *chg,
 					int sec_chg)
 {
-	int rc;
+	int rc = 0;
 
 	switch (sec_chg) {
 	case POWER_SUPPLY_CHARGER_SEC_CP:
