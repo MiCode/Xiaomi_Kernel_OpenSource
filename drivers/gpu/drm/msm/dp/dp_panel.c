@@ -1539,10 +1539,12 @@ static int dp_panel_dsc_prepare_basic_params(
 	comp_info->dsc_info.pic_height = dp_mode->timing.v_active;
 	comp_info->dsc_info.slice_width = slice_width;
 
-	if (comp_info->dsc_info.pic_height % 16)
+	if (comp_info->dsc_info.pic_height % 16 == 0)
+		comp_info->dsc_info.slice_height = 16;
+	else if (comp_info->dsc_info.pic_height % 12 == 0)
 		comp_info->dsc_info.slice_height = 12;
 	else
-		comp_info->dsc_info.slice_height = 16;
+		comp_info->dsc_info.slice_height = 15;
 
 	comp_info->dsc_info.bpc = dp_mode->timing.bpp / 3;
 	comp_info->dsc_info.bpp = comp_info->dsc_info.bpc;
@@ -2239,6 +2241,7 @@ static void dp_panel_config_dsc(struct dp_panel *dp_panel, bool enable)
 
 		dsc->slice_per_pkt = comp_info->dsc_info.slice_per_pkt - 1;
 		dsc->bytes_per_pkt = comp_info->dsc_info.bytes_per_pkt;
+		dsc->bytes_per_pkt /= comp_info->dsc_info.slice_per_pkt;
 		dsc->eol_byte_num = comp_info->dsc_info.eol_byte_num;
 		dsc->dto_count = comp_info->dsc_info.pclk_per_line;
 		dsc->be_in_lane = _dp_panel_calc_be_in_lane(dp_panel);
