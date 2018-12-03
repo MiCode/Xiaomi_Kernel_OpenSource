@@ -2617,7 +2617,8 @@ static int _kgsl_iommu_cb_probe(struct kgsl_device *device,
 	}
 
 	if (ctx == NULL) {
-		KGSL_CORE_ERR("dt: Unused context label %s\n", node->name);
+		KGSL_DRV_INFO(device, "dt: Unused context label %s\n",
+			node->name);
 		return 0;
 	}
 

@@ -24,6 +24,7 @@
 			"system_noc-base", "ipa_virt-base";
 
 		mbox-names = "apps_rsc";
+		mboxes = <&apps_rsc 0>;
 
 		/*RSCs*/
 		rsc_apps: rsc-apps {

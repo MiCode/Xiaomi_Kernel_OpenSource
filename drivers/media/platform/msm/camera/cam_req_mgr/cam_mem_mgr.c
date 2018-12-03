@@ -615,6 +615,9 @@ int cam_mem_mgr_alloc_and_map(struct cam_mem_mgr_alloc_cmd *cmd)
 		if (cmd->flags & CAM_MEM_FLAG_HW_SHARED_ACCESS)
 			region = CAM_SMMU_REGION_SHARED;
 
+		if (cmd->flags & CAM_MEM_FLAG_PROTECTED_MODE)
+			region = CAM_SMMU_REGION_SECHEAP;
+
 		rc = cam_mem_util_map_hw_va(cmd->flags,
 			cmd->mmu_hdls,
 			cmd->num_hdl,

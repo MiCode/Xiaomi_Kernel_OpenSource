@@ -124,7 +124,7 @@
 
 			qcom,pon_1 {
 				qcom,pon-type = <0>;
-				qcom,pull-up = <1>;
+				qcom,pull-up;
 				linux,code = <KEY_POWER>;
 			};
 		};

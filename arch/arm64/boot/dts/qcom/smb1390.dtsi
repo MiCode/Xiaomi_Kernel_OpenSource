@@ -37,11 +37,11 @@ smb1390: qcom,smb1390@10 {
 		status = "disabled";
 
 		qcom,core {
-			interrupts = <0x10 0x0 IRQ_TYPE_EDGE_RISING>,
-				     <0x10 0x1 IRQ_TYPE_EDGE_RISING>,
-				     <0x10 0x2 IRQ_TYPE_EDGE_RISING>,
-				     <0x10 0x3 IRQ_TYPE_EDGE_RISING>,
-				     <0x10 0x4 IRQ_TYPE_EDGE_RISING>,
+			interrupts = <0x10 0x0 IRQ_TYPE_EDGE_BOTH>,
+				     <0x10 0x1 IRQ_TYPE_EDGE_BOTH>,
+				     <0x10 0x2 IRQ_TYPE_EDGE_BOTH>,
+				     <0x10 0x3 IRQ_TYPE_EDGE_BOTH>,
+				     <0x10 0x4 IRQ_TYPE_EDGE_BOTH>,
 				     <0x10 0x5 IRQ_TYPE_EDGE_RISING>,
 				     <0x10 0x6 IRQ_TYPE_EDGE_RISING>,
 				     <0x10 0x7 IRQ_TYPE_EDGE_RISING>;

@@ -53,7 +53,7 @@
 #define ICP_CLK_HW_BPS          0x1
 #define ICP_CLK_HW_MAX          0x2
 
-#define ICP_OVER_CLK_THRESHOLD  15
+#define ICP_OVER_CLK_THRESHOLD  5
 
 #define CPAS_IPE0_BIT           0x1000
 #define CPAS_IPE1_BIT           0x2000
@@ -304,7 +304,6 @@ struct cam_icp_clk_info {
  * @ipe0_enable: Flag for IPE0
  * @ipe1_enable: Flag for IPE1
  * @bps_enable: Flag for BPS
- * @core_info: 32 bit value , tells IPE0/1 and BPS
  * @a5_dev_intf : Device interface for A5
  * @ipe0_dev_intf: Device interface for IPE0
  * @ipe1_dev_intf: Device interface for IPE1
@@ -354,7 +353,6 @@ struct cam_icp_hw_mgr {
 	bool ipe0_enable;
 	bool ipe1_enable;
 	bool bps_enable;
-	uint32_t core_info;
 	struct cam_hw_intf *a5_dev_intf;
 	struct cam_hw_intf *ipe0_dev_intf;
 	struct cam_hw_intf *ipe1_dev_intf;

@@ -169,6 +169,10 @@ static int msm_ion_get_heap_dt_data(struct device_node *node,
 				base = cma_get_base(dev->cma_area);
 				size = cma_get_size(dev->cma_area);
 				ret = 0;
+			} else if (dev->dma_mem) {
+				base = dma_get_device_base(dev, dev->dma_mem);
+				size = dma_get_size(dev->dma_mem);
+				ret = 0;
 			}
 		} else {
 			base = of_translate_address(pnode, basep);

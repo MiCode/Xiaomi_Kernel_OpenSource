@@ -2650,6 +2650,25 @@ static int adreno_getproperty(struct kgsl_device *device,
 	}
 	break;
 
+	case KGSL_PROP_SPEED_BIN:
+		{
+			unsigned int speed_bin;
+
+			if (sizebytes != sizeof(unsigned int)) {
+				status = -EINVAL;
+				break;
+			}
+
+			speed_bin = adreno_dev->speed_bin;
+
+			if (copy_to_user(value, &speed_bin,
+						sizeof(unsigned int))) {
+				status = -EFAULT;
+				break;
+			}
+			status = 0;
+		}
+		break;
 	default:
 		status = -EINVAL;
 	}

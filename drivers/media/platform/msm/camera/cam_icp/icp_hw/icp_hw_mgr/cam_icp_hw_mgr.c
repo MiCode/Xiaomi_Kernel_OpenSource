@@ -1088,6 +1088,7 @@ static int cam_icp_mgr_ipe_bps_resume(struct cam_icp_hw_mgr *hw_mgr,
 	struct cam_hw_intf *ipe0_dev_intf = NULL;
 	struct cam_hw_intf *ipe1_dev_intf = NULL;
 	struct cam_hw_intf *bps_dev_intf = NULL;
+	uint32_t core_info_mask = 0;
 	int rc = 0;
 
 	ipe0_dev_intf = hw_mgr->ipe0_dev_intf;
@@ -1111,8 +1112,8 @@ static int cam_icp_mgr_ipe_bps_resume(struct cam_icp_hw_mgr *hw_mgr,
 			bps_dev_intf->hw_ops.process_cmd(
 				bps_dev_intf->hw_priv,
 				CAM_ICP_BPS_CMD_POWER_RESUME, NULL, 0);
-			hw_mgr->core_info = hw_mgr->core_info | ICP_PWR_CLP_BPS;
 		}
+		core_info_mask = ICP_PWR_CLP_BPS;
 	} else {
 		if (hw_mgr->ipe_ctxt_cnt++)
 			goto end;
@@ -1139,19 +1140,20 @@ static int cam_icp_mgr_ipe_bps_resume(struct cam_icp_hw_mgr *hw_mgr,
 			}
 		}
 		hw_mgr->ipe_clk_state = true;
-		if (icp_hw_mgr.ipe_bps_pc_flag) {
-			hw_mgr->core_info = hw_mgr->core_info |
-				(ICP_PWR_CLP_IPE0 | ICP_PWR_CLP_IPE1);
-		}
+
+		if ((icp_hw_mgr.ipe1_enable) &&
+			(ipe1_dev_intf))
+			core_info_mask = (ICP_PWR_CLP_IPE0 |
+				ICP_PWR_CLP_IPE1);
+		else
+			core_info_mask = ICP_PWR_CLP_IPE0;
 	}
 
-	CAM_DBG(CAM_ICP, "core_info %X",  hw_mgr->core_info);
+	CAM_DBG(CAM_ICP, "core_info %X", core_info_mask);
 	if (icp_hw_mgr.ipe_bps_pc_flag)
-		rc = hfi_enable_ipe_bps_pc(true, hw_mgr->core_info);
-	else if (icp_hw_mgr.icp_pc_flag)
-		rc = hfi_enable_ipe_bps_pc(false, hw_mgr->core_info);
+		rc = hfi_enable_ipe_bps_pc(true, core_info_mask);
 	else
-		rc = hfi_enable_ipe_bps_pc(false, hw_mgr->core_info);
+		rc = hfi_enable_ipe_bps_pc(false, core_info_mask);
 end:
 	return rc;
 }
@@ -1192,8 +1194,6 @@ static int cam_icp_mgr_ipe_bps_power_collapse(struct cam_icp_hw_mgr *hw_mgr,
 				bps_dev_intf->hw_priv,
 				CAM_ICP_BPS_CMD_POWER_COLLAPSE,
 				NULL, 0);
-			hw_mgr->core_info =
-				hw_mgr->core_info & (~ICP_PWR_CLP_BPS);
 		}
 
 		if (hw_mgr->bps_clk_state) {
@@ -1235,14 +1235,8 @@ static int cam_icp_mgr_ipe_bps_power_collapse(struct cam_icp_hw_mgr *hw_mgr,
 		}
 
 		hw_mgr->ipe_clk_state = false;
-		if (icp_hw_mgr.ipe_bps_pc_flag &&
-			!atomic_read(&hw_mgr->recovery)) {
-			hw_mgr->core_info = hw_mgr->core_info &
-				(~(ICP_PWR_CLP_IPE0 | ICP_PWR_CLP_IPE1));
-		}
 	}
 
-	CAM_DBG(CAM_ICP, "Exit: core_info = %x", hw_mgr->core_info);
 end:
 	return rc;
 }
@@ -3243,6 +3237,60 @@ static int cam_icp_mgr_prepare_frame_process_cmd(
 	return 0;
 }
 
+static bool cam_icp_mgr_is_valid_inconfig(struct cam_packet *packet)
+{
+	int i, num_in_map_entries = 0;
+	bool in_config_valid = false;
+	struct cam_buf_io_cfg *io_cfg_ptr = NULL;
+
+	io_cfg_ptr = (struct cam_buf_io_cfg *) ((uint32_t *) &packet->payload +
+					packet->io_configs_offset/4);
+
+	for (i = 0 ; i < packet->num_io_configs; i++)
+		if (io_cfg_ptr[i].direction == CAM_BUF_INPUT)
+			num_in_map_entries++;
+
+	if (num_in_map_entries <= CAM_MAX_IN_RES) {
+		in_config_valid = true;
+	} else {
+		CAM_ERR(CAM_ICP, "In config entries(%u) more than allowed(%u)",
+				num_in_map_entries, CAM_MAX_IN_RES);
+	}
+
+	CAM_DBG(CAM_ICP, "number of in_config info: %u %u %u %u",
+			packet->num_io_configs, IPE_IO_IMAGES_MAX,
+			num_in_map_entries, CAM_MAX_IN_RES);
+
+	return in_config_valid;
+}
+
+static bool cam_icp_mgr_is_valid_outconfig(struct cam_packet *packet)
+{
+	int i, num_out_map_entries = 0;
+	bool out_config_valid = false;
+	struct cam_buf_io_cfg *io_cfg_ptr = NULL;
+
+	io_cfg_ptr = (struct cam_buf_io_cfg *) ((uint32_t *) &packet->payload +
+					packet->io_configs_offset/4);
+
+	for (i = 0 ; i < packet->num_io_configs; i++)
+		if (io_cfg_ptr[i].direction == CAM_BUF_OUTPUT)
+			num_out_map_entries++;
+
+	if (num_out_map_entries <= CAM_MAX_OUT_RES) {
+		out_config_valid = true;
+	} else {
+		CAM_ERR(CAM_ICP, "Out config entries(%u) more than allowed(%u)",
+				num_out_map_entries, CAM_MAX_OUT_RES);
+	}
+
+	CAM_DBG(CAM_ICP, "number of out_config info: %u %u %u %u",
+			packet->num_io_configs, IPE_IO_IMAGES_MAX,
+			num_out_map_entries, CAM_MAX_OUT_RES);
+
+	return out_config_valid;
+}
+
 static int cam_icp_mgr_pkt_validation(struct cam_packet *packet)
 {
 	if (((packet->header.op_code & 0xff) !=
@@ -3263,6 +3311,11 @@ static int cam_icp_mgr_pkt_validation(struct cam_packet *packet)
 	if (packet->num_cmd_buf > CAM_ICP_CTX_MAX_CMD_BUFFERS) {
 		CAM_ERR(CAM_ICP, "Invalid number of cmd buffers: %d %d",
 			CAM_ICP_CTX_MAX_CMD_BUFFERS, packet->num_cmd_buf);
+		return -EINVAL;
+	}
+
+	if (!cam_icp_mgr_is_valid_inconfig(packet) ||
+		!cam_icp_mgr_is_valid_outconfig(packet)) {
 		return -EINVAL;
 	}
 
@@ -4648,6 +4701,12 @@ static int cam_icp_mgr_alloc_devs(struct device_node *of_node)
 		goto num_bps_failed;
 	}
 
+	icp_hw_mgr.ipe_bps_pc_flag = of_property_read_bool(of_node,
+		"ipe_bps_pc_en");
+
+	icp_hw_mgr.icp_pc_flag = of_property_read_bool(of_node,
+		"icp_pc_en");
+
 	return 0;
 num_bps_failed:
 	kfree(icp_hw_mgr.devices[CAM_ICP_DEV_IPE]);
@@ -4783,9 +4842,6 @@ static int cam_icp_mgr_create_wq(void)
 	rc = cam_icp_hw_mgr_create_debugfs_entry();
 	if (rc)
 		goto debugfs_create_failed;
-
-	icp_hw_mgr.icp_pc_flag = true;
-	icp_hw_mgr.ipe_bps_pc_flag = false;
 
 	for (i = 0; i < ICP_WORKQ_NUM_TASK; i++)
 		icp_hw_mgr.msg_work->task.pool[i].payload =

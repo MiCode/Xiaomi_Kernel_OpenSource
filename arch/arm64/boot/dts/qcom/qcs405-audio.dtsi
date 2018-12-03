@@ -11,7 +11,7 @@
  */
 
 #include <dt-bindings/clock/qcom,audio-ext-clk.h>
-#include "qcs405-lpi.dtsi"
+
 #include "msm-audio-lpass.dtsi"
 
 &msm_audio_ion {
@@ -33,12 +33,19 @@
 		compatible = "qcom,msm-audio-apr";
 		q6core: q6core {
 			compatible = "qcom,q6core-audio";
-			bolero: bolero-cdc {
-				compatible = "qcom,bolero-codec";
-			};
 		};
 	};
 };
+
+&q6core {
+	lpass_npa_rsc_island: island_lpass_npa_rsc  {
+		compatible = "qcom,audio-ref-clk";
+		qcom,codec-ext-clk-src = <9>;
+		#clock-cells = <1>;
+	};
+};
+
+#include "qcs405-lpi.dtsi"
 
 &i2c_3 {
 	status = "okay";

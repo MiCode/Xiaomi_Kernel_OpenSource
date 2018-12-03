@@ -84,6 +84,7 @@
 #define CP_VOTER		"CP_VOTER"
 #define USER_VOTER		"USER_VOTER"
 #define ILIM_VOTER		"ILIM_VOTER"
+#define TAPER_END_VOTER		"TAPER_END_VOTER"
 #define FCC_VOTER		"FCC_VOTER"
 #define ICL_VOTER		"ICL_VOTER"
 #define WIRELESS_VOTER		"WIRELESS_VOTER"
@@ -129,6 +130,7 @@ struct smb1390 {
 	struct votable		*disable_votable;
 	struct votable		*ilim_votable;
 	struct votable		*fcc_votable;
+	struct votable		*fv_votable;
 	struct votable		*cp_awake_votable;
 
 	/* power supplies */
@@ -142,6 +144,8 @@ struct smb1390 {
 	bool			taper_work_running;
 	struct smb1390_iio	iio;
 	int			irq_status;
+	int			taper_entry_fv;
+	bool			switcher_disabled;
 };
 
 struct smb_irq {
@@ -211,6 +215,19 @@ static bool is_psy_voter_available(struct smb1390 *chip)
 		}
 	}
 
+	if (!chip->fv_votable) {
+		chip->fv_votable = find_votable("FV");
+		if (!chip->fv_votable) {
+			pr_debug("Couldn't find FV votable\n");
+			return false;
+		}
+	}
+
+	if (!chip->disable_votable) {
+		pr_debug("Couldn't find CP DISABLE votable\n");
+		return false;
+	}
+
 	return true;
 }
 
@@ -254,7 +271,8 @@ static int smb1390_get_cp_en_status(struct smb1390 *chip, int id, bool *enable)
 static irqreturn_t default_irq_handler(int irq, void *data)
 {
 	struct smb1390 *chip = data;
-	int i;
+	int i, rc;
+	bool enable;
 
 	for (i = 0; i < NUM_IRQS; ++i) {
 		if (irq == chip->irqs[i]) {
@@ -263,8 +281,18 @@ static irqreturn_t default_irq_handler(int irq, void *data)
 		}
 	}
 
+	rc = smb1390_get_cp_en_status(chip, SWITCHER_EN, &enable);
+	if (!rc) {
+		if (chip->switcher_disabled == enable) {
+			chip->switcher_disabled = !chip->switcher_disabled;
+			if (chip->fcc_votable)
+				rerun_election(chip->fcc_votable);
+		}
+	}
+
 	if (chip->cp_master_psy)
 		power_supply_changed(chip->cp_master_psy);
+
 	return IRQ_HANDLED;
 }
 
@@ -442,19 +470,21 @@ static int smb1390_ilim_vote_cb(struct votable *votable, void *data,
 		return -EINVAL;
 	}
 
+	rc = smb1390_masked_write(chip, CORE_FTRIM_ILIM_REG,
+		CFG_ILIM_MASK,
+		DIV_ROUND_CLOSEST(max(ilim_uA, 500000) - 500000, 100000));
+	if (rc < 0) {
+		pr_err("Failed to write ILIM Register, rc=%d\n", rc);
+		return rc;
+	}
+
 	/* ILIM less than 1A is not accurate; disable charging */
 	if (ilim_uA < 1000000) {
 		pr_debug("ILIM %duA is too low to allow charging\n", ilim_uA);
 		vote(chip->disable_votable, ILIM_VOTER, true, 0);
 	} else {
-		pr_debug("setting ILIM to %duA\n", ilim_uA);
-		rc = smb1390_masked_write(chip, CORE_FTRIM_ILIM_REG,
-				CFG_ILIM_MASK,
-				DIV_ROUND_CLOSEST(ilim_uA - 500000, 100000));
-		if (rc < 0)
-			pr_err("Failed to write ILIM Register, rc=%d\n", rc);
-		if (rc >= 0)
-			vote(chip->disable_votable, ILIM_VOTER, false, 0);
+		pr_debug("ILIM set to %duA\n", ilim_uA);
+		vote(chip->disable_votable, ILIM_VOTER, false, 0);
 	}
 
 	return rc;
@@ -551,9 +581,13 @@ static void smb1390_status_change_work(struct work_struct *work)
 								pval.intval);
 		}
 
-		/* input current is always half the charge current */
-		vote(chip->ilim_votable, FCC_VOTER, true,
-				get_effective_result(chip->fcc_votable) / 2);
+		/*
+		 * Remove SMB1390 Taper condition disable vote if float voltage
+		 * increased in comparison to voltage at which it entered taper.
+		 */
+		if (chip->taper_entry_fv <
+				get_effective_result(chip->fv_votable))
+			vote(chip->disable_votable, TAPER_END_VOTER, false, 0);
 
 		/*
 		 * all votes that would result in disabling the charge pump have
@@ -581,6 +615,7 @@ static void smb1390_status_change_work(struct work_struct *work)
 		}
 	} else {
 		vote(chip->disable_votable, SRC_VOTER, true, 0);
+		vote(chip->disable_votable, TAPER_END_VOTER, false, 0);
 		vote(chip->fcc_votable, CP_VOTER, false, 0);
 	}
 
@@ -598,11 +633,8 @@ static void smb1390_taper_work(struct work_struct *work)
 	if (!is_psy_voter_available(chip))
 		goto out;
 
-	do {
-		fcc_uA = get_effective_result(chip->fcc_votable) - 100000;
-		pr_debug("taper work reducing FCC to %duA\n", fcc_uA);
-		vote(chip->fcc_votable, CP_VOTER, true, fcc_uA);
-
+	chip->taper_entry_fv = get_effective_result(chip->fv_votable);
+	while (true) {
 		rc = power_supply_get_property(chip->batt_psy,
 					POWER_SUPPLY_PROP_CHARGE_TYPE, &pval);
 		if (rc < 0) {
@@ -610,12 +642,30 @@ static void smb1390_taper_work(struct work_struct *work)
 			goto out;
 		}
 
-		msleep(500);
-	} while (fcc_uA >= 2000000
-		 && pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER);
+		if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER) {
+			fcc_uA = get_effective_result(chip->fcc_votable)
+								- 100000;
+			pr_debug("taper work reducing FCC to %duA\n", fcc_uA);
+			vote(chip->fcc_votable, CP_VOTER, true, fcc_uA);
 
+			if (fcc_uA < 2000000) {
+				vote(chip->disable_votable, TAPER_END_VOTER,
+								true, 0);
+				goto out;
+			}
+		} else if (get_effective_result(chip->fv_votable) >
+						chip->taper_entry_fv) {
+			pr_debug("Float voltage increased. Exiting taper\n");
+			goto out;
+		} else {
+			pr_debug("In fast charging. Wait for next taper\n");
+		}
+
+		msleep(500);
+	}
 out:
 	pr_debug("taper work exit\n");
+	vote(chip->fcc_votable, CP_VOTER, false, 0);
 	chip->taper_work_running = false;
 }
 
@@ -817,6 +867,14 @@ static int smb1390_create_votables(struct smb1390 *chip)
 	 */
 	vote(chip->disable_votable, USER_VOTER, true, 0);
 
+	/*
+	 * In case SMB1390 probe happens after FCC value has been configured,
+	 * update ilim vote to reflect FCC / 2 value.
+	 */
+	if (chip->fcc_votable)
+		vote(chip->ilim_votable, FCC_VOTER, true,
+			get_effective_result(chip->fcc_votable) / 2);
+
 	return 0;
 }
 
@@ -933,6 +991,7 @@ static int smb1390_probe(struct platform_device *pdev)
 	chip->dev = &pdev->dev;
 	spin_lock_init(&chip->status_change_lock);
 	mutex_init(&chip->die_chan_lock);
+	chip->switcher_disabled = true;
 
 	chip->regmap = dev_get_regmap(chip->dev->parent, NULL);
 	if (!chip->regmap) {

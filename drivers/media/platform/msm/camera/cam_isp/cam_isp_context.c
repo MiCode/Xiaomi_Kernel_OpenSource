@@ -1138,6 +1138,7 @@ move_to_pending:
 		}
 	}
 
+end:
 	do {
 		if (list_empty(&ctx->pending_req_list)) {
 			error_request_id = ctx_isp->last_applied_req_id + 1;
@@ -1167,7 +1168,6 @@ move_to_pending:
 
 	} while (req->request_id < ctx_isp->last_applied_req_id);
 
-end:
 	if (ctx->ctx_crm_intf && ctx->ctx_crm_intf->notify_err) {
 		notify.link_hdl = ctx->link_hdl;
 		notify.dev_hdl = ctx->dev_hdl;
@@ -3204,6 +3204,26 @@ static int cam_isp_context_dump_active_request(void *data, unsigned long iova,
 
 	list_for_each_entry_safe(req, req_temp,
 		&ctx->active_req_list, list) {
+		req_isp = (struct cam_isp_ctx_req *) req->req_priv;
+		hw_update_data = &req_isp->hw_update_data;
+		pf_dbg_entry = &(req->pf_data);
+		CAM_INFO(CAM_ISP, "req_id : %lld ", req->request_id);
+
+		rc = cam_context_dump_pf_info_to_hw(ctx, pf_dbg_entry->packet,
+			iova, buf_info, &mem_found);
+		if (rc)
+			CAM_ERR(CAM_ISP, "Failed to dump pf info");
+
+		if (mem_found)
+			CAM_ERR(CAM_ISP, "Found page fault in req %lld %d",
+				req->request_id, rc);
+	}
+
+	CAM_INFO(CAM_ISP, "Iterating over wait_list of isp ctx %d state %d",
+			ctx->ctx_id, ctx->state);
+
+	list_for_each_entry_safe(req, req_temp,
+		&ctx->wait_req_list, list) {
 		req_isp = (struct cam_isp_ctx_req *) req->req_priv;
 		hw_update_data = &req_isp->hw_update_data;
 		pf_dbg_entry = &(req->pf_data);
