@@ -4860,7 +4860,7 @@ static int _sde_encoder_init_debugfs(struct drm_encoder *drm_enc)
 		return -ENOMEM;
 
 	/* don't error check these */
-	debugfs_create_file("status", 0600,
+	debugfs_create_file("status", 0400,
 		sde_enc->debugfs_root, sde_enc, &debugfs_status_fops);
 
 	debugfs_create_file("misr_data", 0600,

@@ -1087,8 +1087,6 @@ int sde_core_perf_debugfs_init(struct sde_core_perf *perf,
 			&perf->max_core_clk_rate);
 	debugfs_create_u64("core_clk_rate", 0600, perf->debugfs_root,
 			&perf->core_clk_rate);
-	debugfs_create_u32("enable_bw_release", 0600, perf->debugfs_root,
-			(u32 *)&perf->enable_bw_release);
 	debugfs_create_u32("threshold_low", 0600, perf->debugfs_root,
 			(u32 *)&catalog->perf.max_bw_low);
 	debugfs_create_u32("threshold_high", 0600, perf->debugfs_root,

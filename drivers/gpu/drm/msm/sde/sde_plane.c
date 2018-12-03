@@ -4158,8 +4158,8 @@ static int _sde_plane_init_debugfs(struct drm_plane *plane)
 		return -ENOMEM;
 
 	/* don't error check these */
-	debugfs_create_x32("features", 0600,
-			psde->debugfs_root, &psde->features);
+	debugfs_create_x32("features", 0400,
+		psde->debugfs_root, &psde->features);
 
 	if (cfg->features & BIT(SDE_SSPP_SCALER_QSEED3) ||
 			cfg->features & BIT(SDE_SSPP_SCALER_QSEED3LITE) ||
@@ -4188,10 +4188,6 @@ static int _sde_plane_init_debugfs(struct drm_plane *plane)
 			0400,
 			psde->debugfs_root,
 			(u32 *) &cfg->xin_id);
-	debugfs_create_u32("clk_ctrl",
-			0400,
-			psde->debugfs_root,
-			(u32 *) &cfg->clk_ctrl);
 	debugfs_create_x32("creq_vblank",
 			0600,
 			psde->debugfs_root,
