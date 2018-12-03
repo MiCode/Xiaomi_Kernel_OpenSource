@@ -1984,6 +1984,8 @@ int mhi_dev_channel_isempty(struct mhi_dev_client *handle)
 	int rc;
 
 	ch = handle->channel;
+	if (!ch)
+		return -EINVAL;
 
 	rc = ch->ring->rd_offset == ch->ring->wr_offset;
 
@@ -2749,11 +2751,7 @@ static int mhi_deinit(struct mhi_dev *mhi)
 			ring->ring_cache_dma_handle);
 	}
 
-	for (i = 0; i < mhi->cfg.channels; i++)
-		mutex_destroy(&mhi->ch[i].ch_lock);
-
 	devm_kfree(&pdev->dev, mhi->mmio_backup);
-	devm_kfree(&pdev->dev, mhi->ch);
 	devm_kfree(&pdev->dev, mhi->ring);
 
 	mhi_dev_sm_exit(mhi);
@@ -2781,14 +2779,20 @@ static int mhi_init(struct mhi_dev *mhi)
 	if (!mhi->ring)
 		return -ENOMEM;
 
-	mhi->ch = devm_kzalloc(&pdev->dev,
+	/*
+	 * mhi_init is also called during device reset, in
+	 * which case channel mem will already be allocated.
+	 */
+	if (!mhi->ch) {
+		mhi->ch = devm_kzalloc(&pdev->dev,
 			(sizeof(struct mhi_dev_channel) *
 			(mhi->cfg.channels)), GFP_KERNEL);
-	if (!mhi->ch)
-		return -ENOMEM;
+		if (!mhi->ch)
+			return -ENOMEM;
 
-	for (i = 0; i < mhi->cfg.channels; i++)
-		mutex_init(&mhi->ch[i].ch_lock);
+		for (i = 0; i < mhi->cfg.channels; i++)
+			mutex_init(&mhi->ch[i].ch_lock);
+	}
 
 	spin_lock_init(&mhi->lock);
 	mhi->mmio_backup = devm_kzalloc(&pdev->dev,
