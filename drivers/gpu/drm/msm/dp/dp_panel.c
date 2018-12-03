@@ -1816,6 +1816,7 @@ static void dp_panel_read_sink_dsc_caps(struct dp_panel *dp_panel)
 	int rlen;
 	struct dp_panel_private *panel;
 	const int fec_cap = 0x90;
+	int dpcd_rev;
 
 	if (!dp_panel) {
 		pr_err("invalid input\n");
@@ -1825,10 +1826,12 @@ static void dp_panel_read_sink_dsc_caps(struct dp_panel *dp_panel)
 	dp_panel->dsc_en = false;
 	dp_panel->fec_en = false;
 
+	dpcd_rev = dp_panel->dpcd[DP_DPCD_REV];
+
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 
 	dp_panel->fec_overhead_fp = 0;
-	if (panel->parser->dsc_feature_enable) {
+	if (panel->parser->dsc_feature_enable && dpcd_rev >= 0x14) {
 		rlen = drm_dp_dpcd_read(panel->aux->drm_aux, DP_DSC_SUPPORT,
 			dp_panel->dsc_dpcd, (DP_RECEIVER_DSC_CAP_SIZE + 1));
 		if (rlen < (DP_RECEIVER_DSC_CAP_SIZE + 1)) {
