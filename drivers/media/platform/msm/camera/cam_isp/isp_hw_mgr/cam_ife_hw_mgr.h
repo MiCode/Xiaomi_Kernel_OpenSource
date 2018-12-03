@@ -26,6 +26,7 @@ enum cam_ife_hw_mgr_res_type {
 	CAM_IFE_HW_MGR_RES_CID,
 	CAM_IFE_HW_MGR_RES_CSID,
 	CAM_IFE_HW_MGR_RES_IFE_SRC,
+	CAM_IFE_HW_MGR_RES_IFE_IN_RD,
 	CAM_IFE_HW_MGR_RES_IFE_OUT,
 };
 
@@ -108,6 +109,7 @@ struct cam_ife_hw_mgr_debug {
  *                          one.
  * @res_list_csid:          CSID resource list
  * @res_list_ife_src:       IFE input resource list
+ * @res_list_ife_in_rd      IFE input resource list for read path
  * @res_list_ife_out:       IFE output resoruces array
  * @free_res_list:          Free resources list for the branch node
  * @res_pool:               memory storage for the free resource list
@@ -128,6 +130,7 @@ struct cam_ife_hw_mgr_debug {
  * @is_rdi_only_context     flag to specify the context has only rdi resource
  * @config_done_complete    indicator for configuration complete
  * @init_done               indicate whether init hw is done
+ * @is_fe_enable            indicate whether fetch engine\read path is enabled
  */
 struct cam_ife_hw_mgr_ctx {
 	struct list_head                list;
@@ -141,6 +144,7 @@ struct cam_ife_hw_mgr_ctx {
 	struct list_head                res_list_ife_cid;
 	struct list_head                res_list_ife_csid;
 	struct list_head                res_list_ife_src;
+	struct list_head                res_list_ife_in_rd;
 	struct cam_ife_hw_mgr_res       res_list_ife_out[
 						CAM_IFE_HW_OUT_RES_MAX];
 
@@ -162,6 +166,7 @@ struct cam_ife_hw_mgr_ctx {
 	uint32_t                        is_rdi_only_context;
 	struct completion               config_done_complete;
 	bool                            init_done;
+	bool                            is_fe_enable;
 };
 
 /**

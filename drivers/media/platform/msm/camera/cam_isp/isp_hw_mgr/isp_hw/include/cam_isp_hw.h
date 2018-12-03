@@ -80,14 +80,17 @@ enum cam_isp_resource_type {
 	CAM_ISP_RESOURCE_PIX_PATH,
 	CAM_ISP_RESOURCE_VFE_IN,
 	CAM_ISP_RESOURCE_VFE_OUT,
+	CAM_ISP_RESOURCE_VFE_BUS_RD,
 	CAM_ISP_RESOURCE_MAX,
 };
 
 enum cam_isp_hw_cmd_type {
 	CAM_ISP_HW_CMD_GET_CHANGE_BASE,
 	CAM_ISP_HW_CMD_GET_BUF_UPDATE,
+	CAM_ISP_HW_CMD_GET_BUF_UPDATE_RM,
 	CAM_ISP_HW_CMD_GET_REG_UPDATE,
 	CAM_ISP_HW_CMD_GET_HFR_UPDATE,
+	CAM_ISP_HW_CMD_GET_HFR_UPDATE_RM,
 	CAM_ISP_HW_CMD_GET_SECURE_MODE,
 	CAM_ISP_HW_CMD_STRIPE_UPDATE,
 	CAM_ISP_HW_CMD_CLOCK_UPDATE,
@@ -99,6 +102,8 @@ enum cam_isp_hw_cmd_type {
 	CAM_ISP_HW_CMD_SOF_IRQ_DEBUG,
 	CAM_ISP_HW_CMD_SET_CAMIF_DEBUG,
 	CAM_ISP_HW_CMD_CSID_CLOCK_UPDATE,
+	CAM_ISP_HW_CMD_FE_UPDATE_IN_RD,
+	CAM_ISP_HW_CMD_FE_UPDATE_BUS_RD,
 	CAM_ISP_HW_CMD_MAX,
 };
 
@@ -202,10 +207,12 @@ struct cam_isp_hw_get_cmd_update {
 	union {
 		void                                 *data;
 		struct cam_isp_hw_get_wm_update      *wm_update;
+		struct cam_isp_hw_get_wm_update      *rm_update;
 		struct cam_isp_port_hfr_config       *hfr_update;
 		struct cam_isp_clock_config          *clock_update;
 		struct cam_isp_bw_config             *bw_update;
 		struct cam_ubwc_plane_cfg_v1         *ubwc_update;
+		struct cam_fe_config                 *fe_update;
 	};
 };
 
