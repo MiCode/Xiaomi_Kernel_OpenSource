@@ -3256,30 +3256,44 @@ int smblib_get_prop_typec_select_rp(struct smb_charger *chg,
 int smblib_get_prop_usb_current_now(struct smb_charger *chg,
 				    union power_supply_propval *val)
 {
+	union power_supply_propval pval = {0, };
 	int rc = 0;
 
 	if (chg->iio.usbin_i_chan) {
 		rc = iio_read_channel_processed(chg->iio.usbin_i_chan,
 				&val->intval);
+		if (rc < 0) {
+			pr_err("Error in reading USBIN_I channel, rc=%d\n", rc);
+			return rc;
+		}
 
 		/*
 		 * For PM8150B, scaling factor = reciprocal of
 		 * 0.2V/A in Buck mode, 0.4V/A in Boost mode.
 		 */
-		if (smblib_get_prop_ufp_mode(chg) != POWER_SUPPLY_TYPEC_NONE) {
-			val->intval *= 5;
-			return rc;
-		}
-
-		if (smblib_get_prop_dfp_mode(chg) != POWER_SUPPLY_TYPEC_NONE) {
+		if (chg->otg_present || smblib_get_prop_dfp_mode(chg) !=
+				POWER_SUPPLY_TYPEC_NONE) {
 			val->intval = DIV_ROUND_CLOSEST(val->intval * 100, 40);
 			return rc;
 		}
+
+		rc = smblib_get_prop_usb_present(chg, &pval);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't get usb present status,rc=%d\n",
+				rc);
+			return -ENODATA;
+		}
+
+		/* If USB is not present, return 0 */
+		if (!pval.intval)
+			val->intval = 0;
+		else
+			val->intval *= 5;
 	} else {
+		val->intval = 0;
 		rc = -ENODATA;
 	}
 
-	val->intval = 0;
 	return rc;
 }
 
