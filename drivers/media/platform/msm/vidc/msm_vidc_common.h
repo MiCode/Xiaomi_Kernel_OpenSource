@@ -14,7 +14,7 @@
 #define SKIP_BATCH_WINDOW                      100
 #define MIN_FRAME_QUALITY 0
 #define MAX_FRAME_QUALITY 100
-#define DEFAULT_FRAME_QUALITY 80
+#define DEFAULT_FRAME_QUALITY 95
 #define FRAME_QUALITY_STEP 1
 #define HEIC_GRID_DIMENSION 512
 #define CBR_MB_LIMIT                           (((1280+15)/16)*((720+15)/16)*30)
@@ -103,6 +103,11 @@ static inline bool is_primary_output_mode(struct msm_vidc_inst *inst)
 static inline bool is_secondary_output_mode(struct msm_vidc_inst *inst)
 {
 	return inst->stream_output_mode == HAL_VIDEO_DECODER_SECONDARY;
+}
+
+static inline bool in_port_reconfig(struct msm_vidc_inst *inst)
+{
+	return inst->in_reconfig && inst->bufq[OUTPUT_PORT].vb2_bufq.streaming;
 }
 
 static inline int msm_comm_g_ctrl(struct msm_vidc_inst *inst,

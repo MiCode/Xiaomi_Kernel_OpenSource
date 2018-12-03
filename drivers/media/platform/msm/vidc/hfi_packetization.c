@@ -1425,7 +1425,6 @@ int create_pkt_cmd_session_set_property(
 	case HAL_CONFIG_VENC_INTRA_PERIOD:
 	{
 		struct hfi_intra_period *hfi;
-		struct hfi_idr_period *hfi_idr_period;
 		u32 *prop_type;
 
 		pkt->rg_property_data[0] =
@@ -1447,11 +1446,24 @@ int create_pkt_cmd_session_set_property(
 			pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
 			prop_type += sizeof(u32) + sizeof(struct hfi_enable);
 		}
-		*prop_type =  HFI_PROPERTY_CONFIG_VENC_IDR_PERIOD;
-		hfi_idr_period = (struct hfi_idr_period *)(prop_type + 1);
-		hfi_idr_period->idr_period = IDR_PERIOD;
-		pkt->num_properties += 1;
-		pkt->size += sizeof(struct hfi_idr_period) + sizeof(u32);
+		break;
+	}
+	case HAL_CONFIG_VENC_IDR_PERIOD:
+	{
+		struct hfi_idr_period *hfi;
+
+		pkt->rg_property_data[0] = HFI_PROPERTY_CONFIG_VENC_IDR_PERIOD;
+		hfi = (struct hfi_idr_period *) &pkt->rg_property_data[1];
+		hfi->idr_period = ((struct hfi_idr_period *) pdata)->idr_period;
+		pkt->size += sizeof(u32);
+		break;
+	}
+	case HAL_PARAM_VENC_ADAPTIVE_B:
+	{
+		create_pkt_enable(pkt->rg_property_data,
+			HFI_PROPERTY_PARAM_VENC_ADAPTIVE_B,
+			((struct hal_enable *)pdata)->enable);
+		pkt->size += sizeof(struct hfi_enable);
 		break;
 	}
 	case HAL_PARAM_VDEC_CONCEAL_COLOR:

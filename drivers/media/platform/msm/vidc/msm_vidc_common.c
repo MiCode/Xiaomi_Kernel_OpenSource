@@ -2992,7 +2992,6 @@ static int msm_comm_init_buffer_count(struct msm_vidc_inst *inst)
 {
 	int extra_buff_count = 0;
 	struct hal_buffer_requirements *bufreq;
-	int rc = 0;
 	int port;
 
 	if (!is_decode_session(inst) && !is_encode_session(inst))
@@ -3024,16 +3023,6 @@ static int msm_comm_init_buffer_count(struct msm_vidc_inst *inst)
 		bufreq->buffer_count_min, bufreq->buffer_count_min_host,
 		bufreq->buffer_count_actual);
 
-	rc = msm_comm_set_buffer_count(inst,
-			bufreq->buffer_count_min,
-			bufreq->buffer_count_actual, HAL_BUFFER_INPUT);
-	if (rc) {
-		dprintk(VIDC_ERR,
-			"%s: Failed to set in buffer count to FW\n",
-			__func__);
-		return -EINVAL;
-	}
-
 	bufreq = get_buff_req_buffer(inst, HAL_BUFFER_EXTRADATA_INPUT);
 	if (!bufreq)
 		return -EINVAL;
@@ -3057,15 +3046,6 @@ static int msm_comm_init_buffer_count(struct msm_vidc_inst *inst)
 		__func__, hash32_ptr(inst->session),
 		bufreq->buffer_count_min, bufreq->buffer_count_min_host,
 		bufreq->buffer_count_actual);
-
-	rc = msm_comm_set_buffer_count(inst,
-		bufreq->buffer_count_min,
-		bufreq->buffer_count_actual, HAL_BUFFER_OUTPUT);
-	if (rc) {
-		dprintk(VIDC_ERR,
-			"%s: Failed to set out buffer count to FW\n");
-		return -EINVAL;
-	}
 
 	bufreq = get_buff_req_buffer(inst, HAL_BUFFER_EXTRADATA_OUTPUT);
 	if (!bufreq)

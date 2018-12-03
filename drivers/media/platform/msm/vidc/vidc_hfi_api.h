@@ -140,6 +140,8 @@ enum hal_property {
 	HAL_PARAM_VENC_TEMPORAL_SPATIAL_TRADEOFF,
 	HAL_PARAM_VENC_SESSION_QP_RANGE,
 	HAL_CONFIG_VENC_INTRA_PERIOD,
+	HAL_CONFIG_VENC_IDR_PERIOD,
+	HAL_PARAM_VENC_ADAPTIVE_B,
 	HAL_PARAM_VPE_ROTATION,
 	HAL_PARAM_VENC_INTRA_REFRESH,
 	HAL_PARAM_VENC_MULTI_SLICE_CONTROL,
@@ -617,6 +619,10 @@ struct hal_quantization_range {
 struct hal_intra_period {
 	u32 pframes;
 	u32 bframes;
+};
+
+struct hal_idr_period {
+	u32 idr_period;
 };
 
 struct hal_heic_frame_quality {
