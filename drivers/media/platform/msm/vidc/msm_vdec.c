@@ -816,7 +816,7 @@ int msm_vdec_set_extradata(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	uint32_t enabled = false;
 	uint32_t display_info = HAL_EXTRADATA_VUI_DISPLAY_INFO;
 
-	switch (inst->fmts[CAPTURE_PORT].fourcc) {
+	switch (inst->fmts[OUTPUT_PORT].fourcc) {
 	case V4L2_PIX_FMT_H264:
 	case V4L2_PIX_FMT_HEVC:
 		display_info = HAL_EXTRADATA_VUI_DISPLAY_INFO;
@@ -824,8 +824,10 @@ int msm_vdec_set_extradata(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_PIX_FMT_VP8:
 	case V4L2_PIX_FMT_VP9:
 		display_info = HAL_EXTRADATA_VPX_COLORSPACE;
+		break;
 	case V4L2_PIX_FMT_MPEG2:
 		display_info = HAL_EXTRADATA_MPEG2_SEQDISP;
+		break;
 	}
 
 	if (!ctrl->val) {
@@ -864,8 +866,6 @@ int msm_vdec_set_extradata(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		msm_comm_set_extradata(inst,
 			HAL_EXTRADATA_INTERLACE_VIDEO, 0x1);
 		msm_comm_set_extradata(inst, display_info, 0x1);
-		msm_comm_set_extradata(inst,
-			HAL_EXTRADATA_UBWC_CR_STATS_INFO, 0x1);
 		msm_comm_set_extradata(inst,
 			HAL_EXTRADATA_NUM_CONCEALED_MB, 0x1);
 		if (inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_HEVC) {
