@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+#include <asm/arch_timer.h>
 #include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/dma-direction.h>
@@ -31,7 +32,7 @@ struct firmware_info {
 };
 
 static const struct firmware_info firmware_table[] = {
-	{.dev_id = 0x306, .fw_image = "sbl1.mbn"},
+	{.dev_id = 0x306, .fw_image = "sdx55m/sbl1.mbn"},
 	{.dev_id = 0x305, .fw_image = "sdx50m/sbl1.mbn"},
 	{.dev_id = 0x304, .fw_image = "sbl.mbn", .edl_image = "edl.mbn"},
 	/* default, set to debug.mbn */
@@ -297,6 +298,68 @@ static int mhi_link_status(struct mhi_controller *mhi_cntrl, void *priv)
 	return (ret || dev_id != mhi_cntrl->dev_id) ? -EIO : 0;
 }
 
+/* disable PCIe L1 */
+static int mhi_lpm_disable(struct mhi_controller *mhi_cntrl, void *priv)
+{
+	struct mhi_dev *mhi_dev = priv;
+	struct pci_dev *pci_dev = mhi_dev->pci_dev;
+	int lnkctl = pci_dev->pcie_cap + PCI_EXP_LNKCTL;
+	u8 val;
+	int ret;
+
+	ret = pci_read_config_byte(pci_dev, lnkctl, &val);
+	if (ret) {
+		MHI_ERR("Error reading LNKCTL, ret:%d\n", ret);
+		return ret;
+	}
+
+	/* L1 is not supported or already disabled */
+	if (!(val & PCI_EXP_LNKCTL_ASPM_L1))
+		return 0;
+
+	val &= ~PCI_EXP_LNKCTL_ASPM_L1;
+	ret = pci_write_config_byte(pci_dev, lnkctl, val);
+	if (ret) {
+		MHI_ERR("Error writing LNKCTL to disable LPM, ret:%d\n", ret);
+		return ret;
+	}
+
+	mhi_dev->lpm_disabled = true;
+
+	return ret;
+}
+
+/* enable PCIe L1 */
+static int mhi_lpm_enable(struct mhi_controller *mhi_cntrl, void *priv)
+{
+	struct mhi_dev *mhi_dev = priv;
+	struct pci_dev *pci_dev = mhi_dev->pci_dev;
+	int lnkctl = pci_dev->pcie_cap + PCI_EXP_LNKCTL;
+	u8 val;
+	int ret;
+
+	/* L1 is not supported or already disabled */
+	if (!mhi_dev->lpm_disabled)
+		return 0;
+
+	ret = pci_read_config_byte(pci_dev, lnkctl, &val);
+	if (ret) {
+		MHI_ERR("Error reading LNKCTL, ret:%d\n", ret);
+		return ret;
+	}
+
+	val |= PCI_EXP_LNKCTL_ASPM_L1;
+	ret = pci_write_config_byte(pci_dev, lnkctl, val);
+	if (ret) {
+		MHI_ERR("Error writing LNKCTL to enable LPM, ret:%d\n", ret);
+		return ret;
+	}
+
+	mhi_dev->lpm_disabled = false;
+
+	return ret;
+}
+
 static int mhi_runtime_get(struct mhi_controller *mhi_cntrl, void *priv)
 {
 	struct mhi_dev *mhi_dev = priv;
@@ -325,6 +388,12 @@ static void mhi_status_cb(struct mhi_controller *mhi_cntrl,
 		pm_runtime_mark_last_busy(dev);
 		pm_request_autosuspend(dev);
 	}
+}
+
+/* capture host SoC XO time in ticks */
+static u64 mhi_time_get(struct mhi_controller *mhi_cntrl, void *priv)
+{
+	return arch_counter_get_cntvct();
 }
 
 int mhi_debugfs_trigger_m0(void *data, u64 val)
@@ -486,6 +555,10 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 	mhi_cntrl->runtime_get = mhi_runtime_get;
 	mhi_cntrl->runtime_put = mhi_runtime_put;
 	mhi_cntrl->link_status = mhi_link_status;
+
+	mhi_cntrl->lpm_disable = mhi_lpm_disable;
+	mhi_cntrl->lpm_enable = mhi_lpm_enable;
+	mhi_cntrl->time_get = mhi_time_get;
 
 	ret = of_register_mhi_controller(mhi_cntrl);
 	if (ret)

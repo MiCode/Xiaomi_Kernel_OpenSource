@@ -37,8 +37,6 @@
 		clock-max-rate = <0 0 0 307000000 19200000 307000000>;
 		qcom,dss-cx-ipeak = <&cx_ipeak_lm 3>;
 
-		sde-vdd-supply = <&mdss_core_gdsc>;
-
 		/* interrupt config */
 		interrupts = <0 83 0>;
 		interrupt-controller;
@@ -209,20 +207,6 @@
 			qcom,sde-dspp-pcc = <0x1700 0x00040000>;
 			qcom,sde-dspp-gc = <0x17c0 0x00010008>;
 			qcom,sde-dspp-dither = <0x82c 0x00010007>;
-		};
-
-		qcom,platform-supply-entries {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			qcom,platform-supply-entry@0 {
-				reg = <0>;
-				qcom,supply-name = "sde-vdd";
-				qcom,supply-min-voltage = <0>;
-				qcom,supply-max-voltage = <0>;
-				qcom,supply-enable-load = <0>;
-				qcom,supply-disable-load = <0>;
-			};
 		};
 
 		smmu_sde_sec: qcom,smmu_sde_sec_cb {
@@ -537,9 +521,12 @@
 		qcom,mux-sel-gpio = <&tlmm 49 0>;
 		qcom,usbplug-cc-gpio = <&tlmm 104 0>;
 
-		pinctrl-names = "mdss_dp_active", "mdss_dp_sleep";
+		pinctrl-names = "mdss_dp_active", "mdss_dp_sleep",
+						"mdss_dp_hpd_active";
 		pinctrl-0 = <&sde_dp_usbplug_cc_active &sde_dp_switch_active>;
 		pinctrl-1 = <&sde_dp_usbplug_cc_suspend &sde_dp_switch_suspend>;
+		pinctrl-2 = <&sde_dp_connector_enable &sde_dp_switch_suspend
+						&sde_dp_hotplug_enable>;
 
 		qcom,ctrl-supply-entries {
 			#address-cells = <1>;

@@ -2478,13 +2478,6 @@ static void ufshcd_init_clk_gating(struct ufs_hba *hba)
 	if (!ufshcd_is_clkgating_allowed(hba))
 		return;
 
-	/*
-	 * Disable hibern8 during clk gating if
-	 * auto hibern8 is supported
-	 */
-	if (ufshcd_is_auto_hibern8_supported(hba))
-		hba->caps &= ~UFSHCD_CAP_HIBERN8_WITH_CLK_GATING;
-
 	INIT_WORK(&gating->gate_work, ufshcd_gate_work);
 	INIT_WORK(&gating->ungate_work, ufshcd_ungate_work);
 	/*
@@ -5137,6 +5130,8 @@ out:
 		ufshcd_print_pwr_info(hba);
 		ufshcd_print_host_regs(hba);
 		ufshcd_print_cmd_log(hba);
+		if (hba->crash_on_err)
+			BUG_ON(1);
 	}
 
 	ufshcd_save_tstamp_of_last_dme_cmd(hba);
@@ -7709,6 +7704,9 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 		ufshcd_print_host_state(hba);
 		ufshcd_print_pwr_info(hba);
 		ufshcd_print_trs(hba, 1 << tag, true);
+		/* crash the system upon setting this debugfs. */
+		if (hba->crash_on_err)
+			BUG_ON(1);
 	} else {
 		ufshcd_print_trs(hba, 1 << tag, false);
 	}
@@ -9279,6 +9277,11 @@ static int ufshcd_config_vreg(struct device *dev,
 	name = vreg->name;
 
 	if (regulator_count_voltages(reg) > 0) {
+		uA_load = on ? vreg->max_uA : 0;
+		ret = ufshcd_config_vreg_load(dev, vreg, uA_load);
+		if (ret)
+			goto out;
+
 		min_uV = on ? vreg->min_uV : 0;
 		ret = regulator_set_voltage(reg, min_uV, vreg->max_uV);
 		if (ret) {
@@ -9286,11 +9289,6 @@ static int ufshcd_config_vreg(struct device *dev,
 					__func__, name, ret);
 			goto out;
 		}
-
-		uA_load = on ? vreg->max_uA : 0;
-		ret = ufshcd_config_vreg_load(dev, vreg, uA_load);
-		if (ret)
-			goto out;
 	}
 out:
 	return ret;

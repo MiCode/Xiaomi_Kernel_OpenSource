@@ -1016,11 +1016,20 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	if (IS_ERR(qphy->ref_clk_src))
 		dev_dbg(dev, "clk get failed for ref_clk_src\n");
 
-	qphy->ref_clk = devm_clk_get(dev, "ref_clk");
-	if (IS_ERR(qphy->ref_clk))
-		dev_dbg(dev, "clk get failed for ref_clk\n");
-	else
+	/* ref_clk is needed only for DIFF_CLK case, hence make it optional. */
+	if (of_property_match_string(pdev->dev.of_node,
+				"clock-names", "ref_clk") >= 0) {
+		qphy->ref_clk = devm_clk_get(dev, "ref_clk");
+		if (IS_ERR(qphy->ref_clk)) {
+			ret = PTR_ERR(qphy->ref_clk);
+			if (ret != -EPROBE_DEFER)
+				dev_dbg(dev,
+					"clk get failed for ref_clk\n");
+			return ret;
+		}
+
 		clk_set_rate(qphy->ref_clk, 19200000);
+	}
 
 	qphy->cfg_ahb_clk = devm_clk_get(dev, "cfg_ahb_clk");
 	if (IS_ERR(qphy->cfg_ahb_clk))

@@ -905,6 +905,10 @@ Optional properties:
 	no SMMU. Audio lib introduce wrapper for ION APIs. The wrapper needs
         presence of SMMU in ADSP to handle ION APIs differently.
         Presence of this property means ADSP has SMMU in it.
+
+ - qcom,iova-start-addr:
+	Specify start IOVA address for audio.
+
  - iommus:
 	A phandle parsed by smmu driver. Number of entries will vary across
 	targets.
@@ -1511,6 +1515,8 @@ Optional properties:
 - qcom,wsa-max-devs : Maximum number of WSA881x devices present in the target
 - qcom,wsa-devs : List of phandles for all possible WSA881x devices supported for the target
 - qcom,wsa-aux-dev-prefix : Name prefix with Left/Right configuration for WSA881x device
+- qcom,codec-max-aux-devs: Maximum number of auxilary codecs present in the target
+- qcom,codec-aux-devs: List of phandles for all possible auxilary codecs supprted for the target
 - qcom,ext-disp-audio-rx: Property to specify if Audio over Display port is supported for the target
 - qcom,wcn-btfm : Property to specify if WCN BT/FM chip is used for the target
 - qcom,mi2s-audio-intf: Property to specify if MI2S interface is used for the target
@@ -1620,6 +1626,7 @@ Example:
 				<&wsa881x_0213>, <&wsa881x_0214>;
 		qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
 					  "SpkrLeft", "SpkrRight";
+		qcom,codec-max-aux-devs = <1>;
 		qcom,codec-aux-devs = <&wcd937x_codec>;
 		qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>;
 	};

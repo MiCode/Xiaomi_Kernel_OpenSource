@@ -25,6 +25,7 @@
 		#global-interrupts = <2>;
 		qcom,regulator-names = "vdd";
 		vdd-supply = <&gpu_cx_gdsc>;
+		qcom,deferred-regulator-disable-delay = <80>;
 		interrupts = <GIC_SPI 229 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 231 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 364 IRQ_TYPE_LEVEL_HIGH>,
@@ -342,4 +343,16 @@
 		iommus = <&apps_smmu 0x23 0>;
 		dma-coherent;
 	};
+};
+
+&apps_smmu {
+	qcom,actlr =
+		/* HF0 and HF1 TBUs: +3 deep PF */
+		<0x800 0x7ff 0x103>,
+
+		/* SF TBU: +3 deep PF */
+		<0x1000 0x3ff 0x103>,
+
+		/* NPU SIDs: +15 deep PF */
+		<0x1460 0x1f 0x303>;
 };

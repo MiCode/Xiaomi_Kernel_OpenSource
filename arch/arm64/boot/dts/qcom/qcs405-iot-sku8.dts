@@ -19,7 +19,7 @@
 #include "qcs405-circular-pca9956.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. QCS405 EVB1 4000 AMIC IOT";
+	model = "Qualcomm Technologies, Inc. QCS405 EVB1 4k with AMIC";
 	compatible = "qcom,qcs405-iot", "qcom,qcs405", "qcom,iot";
 	qcom,board-id = <0x060020 0x1>;
 };

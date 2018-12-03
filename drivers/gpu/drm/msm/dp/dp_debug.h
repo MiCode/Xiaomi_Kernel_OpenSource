@@ -45,8 +45,11 @@ struct dp_debug {
 	bool force_encryption;
 	char hdcp_status[SZ_128];
 	struct dp_mst_connector dp_mst_connector_list;
+	bool mst_hpd_sim;
+	u32 mst_port_cnt;
 
 	u8 *(*get_edid)(struct dp_debug *dp_debug);
+	void (*abort)(struct dp_debug *dp_debug);
 };
 
 /**

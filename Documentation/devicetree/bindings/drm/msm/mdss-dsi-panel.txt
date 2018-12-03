@@ -640,8 +640,6 @@ Example:
 		qcom,mdss-dsi-mdp-trigger = <0>;
 		qcom,mdss-dsi-dma-trigger = <0>;
 		qcom,mdss-dsi-panel-framerate = <60>;
-		qcom,mdss-dsi-panel-clockrate = <424000000>;
-		qcom,mdss-mdp-transfer-time-us = <12500>;
 		qcom,mdss-dsi-panel-timings = [7d 25 1d 00 37 33
 					22 27 1e 03 04 00];
                 qcom,mdss-dsi-panel-timings-8996 = [23 20 06 09 05 03 04 a0
@@ -719,6 +717,8 @@ Example:
 				qcom,mdss-dsi-v-front-porch = <728>;
 				qcom,mdss-dsi-v-pulse-width = <4>;
 				qcom,mdss-dsi-panel-framerate = <60>;
+				qcom,mdss-dsi-panel-clockrate = <424000000>;
+				qcom,mdss-mdp-transfer-time-us = <12500>;
 				qcom,mdss-dsi-panel-timings = [E6 38 26 00 68 6E 2A 3C 2C 03 04 00];
 				qcom,mdss-dsi-t-clk-post = <0x02>;
 				qcom,mdss-dsi-t-clk-pre = <0x2a>;

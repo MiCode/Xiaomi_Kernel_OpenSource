@@ -201,6 +201,7 @@ struct msm_vidc_platform_resources {
 	struct msm_vidc_mem_cdsp mem_cdsp;
 	uint32_t vpu_ver;
 	uint32_t fw_cycles;
+	uint32_t fw_vpp_cycles;
 	uint32_t clk_freq_threshold;
 	struct cx_ipeak_client *cx_ipeak_context;
 };

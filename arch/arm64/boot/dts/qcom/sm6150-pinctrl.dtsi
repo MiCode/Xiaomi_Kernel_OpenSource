@@ -712,6 +712,7 @@
 			config {
 				pins = "gpio49";
 				bias-pull-up;		/* pull up */
+				output-high;
 				drive-strength = <2>;
 			};
 		};
@@ -725,6 +726,35 @@
 			config {
 				pins = "gpio49";
 				bias-pull-down;
+				output-low;
+				drive-strength = <2>;
+			};
+		};
+
+		sde_dp_connector_enable: sde_dp_connector_enable {
+			mux {
+				pins = "gpio44";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio44";
+				bias-pull-up;
+				output-high;
+				drive-strength = <2>;
+			};
+		};
+
+		sde_dp_hotplug_enable: sde_dp_hotplug_enable {
+			mux {
+				pins = "gpio103";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio103";
+				bias-pull-down;
+				input-enable;
 				drive-strength = <2>;
 			};
 		};

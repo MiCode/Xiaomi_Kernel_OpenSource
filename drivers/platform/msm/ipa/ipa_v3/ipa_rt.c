@@ -969,6 +969,11 @@ static int __ipa_rt_validate_hndls(const struct ipa_rt_rule *rule,
 		}
 	}
 
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5 && rule->coalesce) {
+		IPAERR_RL("rt rule should not allow coalescing\n");
+		return -EPERM;
+	}
+
 	return 0;
 }
 
@@ -1003,6 +1008,11 @@ static int __ipa_create_rt_entry(struct ipa3_rt_entry **entry,
 	}
 	(*(entry))->rule_id = id;
 	(*(entry))->ipacm_installed = user;
+
+	if ((*(entry))->rule.coalesce &&
+		(*(entry))->rule.dst == IPA_CLIENT_APPS_WAN_CONS &&
+		ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) != -1)
+		(*(entry))->rule.dst = IPA_CLIENT_APPS_WAN_COAL_CONS;
 
 	return 0;
 

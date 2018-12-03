@@ -65,6 +65,7 @@ struct rmnet_port {
 	struct timespec agg_time;
 	struct timespec agg_last;
 	struct hrtimer hrtimer;
+	struct work_struct agg_wq;
 
 	void *qmi_info;
 
@@ -99,6 +100,7 @@ struct rmnet_priv_stats {
 	u64 csum_fragmented_pkt;
 	u64 csum_skipped;
 	u64 csum_sw;
+	u64 csum_hw;
 };
 
 struct rmnet_priv {

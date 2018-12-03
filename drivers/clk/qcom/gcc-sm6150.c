@@ -2947,10 +2947,10 @@ static struct clk_branch gcc_usb30_prim_sleep_clk = {
 };
 
 static struct clk_branch gcc_usb3_prim_clkref_clk = {
-	.halt_reg = 0x8c008,
+	.halt_reg = 0x8c014,
 	.halt_check = BRANCH_HALT,
 	.clkr = {
-		.enable_reg = 0x8c008,
+		.enable_reg = 0x8c014,
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_usb3_prim_clkref_clk",
@@ -3008,10 +3008,10 @@ static struct clk_branch gcc_usb3_prim_phy_pipe_clk = {
 };
 
 static struct clk_branch gcc_usb3_sec_clkref_clk = {
-	.halt_reg = 0x8c014,
+	.halt_reg = 0x8c008,
 	.halt_check = BRANCH_HALT,
 	.clkr = {
-		.enable_reg = 0x8c014,
+		.enable_reg = 0x8c008,
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_usb3_sec_clkref_clk",

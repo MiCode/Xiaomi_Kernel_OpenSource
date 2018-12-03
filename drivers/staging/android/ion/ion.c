@@ -183,8 +183,10 @@ err2:
 
 void ion_buffer_destroy(struct ion_buffer *buffer)
 {
-	if (WARN_ON_ONCE(buffer->kmap_cnt > 0))
+	if (buffer->kmap_cnt > 0) {
+		pr_warn_ratelimited("ION client likely missing a call to dma_buf_kunmap or dma_buf_vunmap\n");
 		buffer->heap->ops->unmap_kernel(buffer->heap, buffer);
+	}
 	buffer->heap->ops->free(buffer);
 	kfree(buffer);
 }
@@ -229,7 +231,7 @@ static void *ion_buffer_kmap_get(struct ion_buffer *buffer)
 static void ion_buffer_kmap_put(struct ion_buffer *buffer)
 {
 	if (buffer->kmap_cnt == 0) {
-		pr_warn_ratelimited("Call dma_buf_begin_cpu_access before dma_buf_end_cpu_access, pid:%d\n",
+		pr_warn_ratelimited("ION client likely missing a call to dma_buf_kmap or dma_buf_vmap, pid:%d\n",
 				    current->pid);
 		return;
 	}
@@ -508,29 +510,56 @@ static void ion_dma_buf_release(struct dma_buf *dmabuf)
 	kfree(dmabuf->exp_name);
 }
 
-static void *ion_dma_buf_kmap(struct dma_buf *dmabuf, unsigned long offset)
+static void *ion_dma_buf_vmap(struct dma_buf *dmabuf)
+{
+	struct ion_buffer *buffer = dmabuf->priv;
+	void *vaddr = ERR_PTR(-EINVAL);
+
+	if (buffer->heap->ops->map_kernel) {
+		mutex_lock(&buffer->lock);
+		vaddr = ion_buffer_kmap_get(buffer);
+		mutex_unlock(&buffer->lock);
+	} else {
+		pr_warn_ratelimited("heap %s doesn't support map_kernel\n",
+				    buffer->heap->name);
+	}
+
+	return vaddr;
+}
+
+static void ion_dma_buf_vunmap(struct dma_buf *dmabuf, void *vaddr)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
 
-	WARN(!buffer->vaddr, "Call dma_buf_begin_cpu_access before dma_buf_kmap\n");
-	return buffer->vaddr + offset * PAGE_SIZE;
+	if (buffer->heap->ops->map_kernel) {
+		mutex_lock(&buffer->lock);
+		ion_buffer_kmap_put(buffer);
+		mutex_unlock(&buffer->lock);
+	}
+}
+
+static void *ion_dma_buf_kmap(struct dma_buf *dmabuf, unsigned long offset)
+{
+	/*
+	 * TODO: Once clients remove their hacks where they assume kmap(ed)
+	 * addresses are virtually contiguous implement this properly
+	 */
+	void *vaddr = ion_dma_buf_vmap(dmabuf);
+
+	if (IS_ERR(vaddr))
+		return vaddr;
+
+	return vaddr + offset * PAGE_SIZE;
 }
 
 static void ion_dma_buf_kunmap(struct dma_buf *dmabuf, unsigned long offset,
 			       void *ptr)
 {
-}
-
-static void *ion_dma_buf_vmap(struct dma_buf *dmabuf)
-{
-	struct ion_buffer *buffer = dmabuf->priv;
-
-	WARN(!buffer->vaddr, "Call dma_buf_begin_cpu_access before dma_buf_vmap\n");
-	return buffer->vaddr;
-}
-
-static void ion_dma_buf_vunmap(struct dma_buf *dmabuf, void *vaddr)
-{
+	/*
+	 * TODO: Once clients remove their hacks where they assume kmap(ed)
+	 * addresses are virtually contiguous implement this properly
+	 */
+	ion_dma_buf_vunmap(dmabuf, ptr);
 }
 
 static int ion_sgl_sync_range(struct device *dev, struct scatterlist *sgl,
@@ -616,7 +645,6 @@ static int __ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 					  bool sync_only_mapped)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
-	void *vaddr;
 	struct ion_dma_buf_attachment *a;
 	int ret = 0;
 
@@ -627,15 +655,6 @@ static int __ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 						    sync_only_mapped);
 		ret = -EPERM;
 		goto out;
-	}
-
-	/*
-	 * TODO: Move this elsewhere because we don't always need a vaddr
-	 */
-	if (buffer->heap->ops->map_kernel) {
-		mutex_lock(&buffer->lock);
-		vaddr = ion_buffer_kmap_get(buffer);
-		mutex_unlock(&buffer->lock);
 	}
 
 	if (!(buffer->flags & ION_FLAG_CACHED)) {
@@ -730,12 +749,6 @@ static int __ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 						  sync_only_mapped);
 		ret = -EPERM;
 		goto out;
-	}
-
-	if (buffer->heap->ops->map_kernel) {
-		mutex_lock(&buffer->lock);
-		ion_buffer_kmap_put(buffer);
-		mutex_unlock(&buffer->lock);
 	}
 
 	if (!(buffer->flags & ION_FLAG_CACHED)) {
@@ -840,7 +853,6 @@ static int ion_dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
 						unsigned int len)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
-	void *vaddr;
 	struct ion_dma_buf_attachment *a;
 	int ret = 0;
 
@@ -851,15 +863,6 @@ static int ion_dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
 						    false);
 		ret = -EPERM;
 		goto out;
-	}
-
-	/*
-	 * TODO: Move this elsewhere because we don't always need a vaddr
-	 */
-	if (buffer->heap->ops->map_kernel) {
-		mutex_lock(&buffer->lock);
-		vaddr = ion_buffer_kmap_get(buffer);
-		mutex_unlock(&buffer->lock);
 	}
 
 	if (!(buffer->flags & ION_FLAG_CACHED)) {
@@ -940,12 +943,6 @@ static int ion_dma_buf_end_cpu_access_partial(struct dma_buf *dmabuf,
 						  false);
 		ret = -EPERM;
 		goto out;
-	}
-
-	if (buffer->heap->ops->map_kernel) {
-		mutex_lock(&buffer->lock);
-		ion_buffer_kmap_put(buffer);
-		mutex_unlock(&buffer->lock);
 	}
 
 	if (!(buffer->flags & ION_FLAG_CACHED)) {

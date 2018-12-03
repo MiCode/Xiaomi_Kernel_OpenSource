@@ -17,7 +17,31 @@
 #include "sdmmagpie-thermal-overlay.dtsi"
 
 #include "sdmmagpie-sde-display.dtsi"
+#include "sdmmagpie-camera-sensor-qrd.dtsi"
 &soc {
+	fpc1020 {
+		compatible = "fpc,fpc1020";
+		interrupt-parent = <&tlmm>;
+		interrupts = <90 0>;
+		fpc,gpio_rst = <&tlmm 91 0x0>;
+		fpc,gpio_irq = <&tlmm 90 0>;
+		vcc_spi-supply = <&pm6150_l10>;
+		vdd_io-supply  = <&pm6150_l10>;
+		vdd_ana-supply = <&pm6150_l10>;
+		fpc,enable-on-boot;
+		pinctrl-names = "fpc1020_reset_reset",
+				"fpc1020_reset_active",
+				"fpc1020_irq_active";
+		pinctrl-0 = <&fpc_reset_low>;
+		pinctrl-1 = <&fpc_reset_high>;
+		pinctrl-2 = <&fpc_int_low>;
+	};
+
+	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "qg-batterydata-alium-3600mah.dtsi"
+		#include "qg-batterydata-mlp466076-3200mah.dtsi"
+	};
 };
 
 &qupv3_se7_i2c{
@@ -121,6 +145,28 @@
 	status = "ok";
 };
 
+&qupv3_se2_i2c {
+	status = "ok";
+	qcom,clk-freq-out = <1000000>;
+	nq@28 {
+		compatible = "qcom,nq-nci";
+		reg = <0x28>;
+		qcom,nq-irq = <&tlmm 37 0x00>;
+		qcom,nq-ven = <&tlmm 12 0x00>;
+		qcom,nq-firm = <&tlmm 36 0x00>;
+		qcom,nq-clkreq = <&tlmm 31 0x00>;
+		qcom,nq-esepwr = <&tlmm 94 0x00>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <37 0>;
+		interrupt-names = "nfc_irq";
+		pinctrl-names = "nfc_active", "nfc_suspend";
+		pinctrl-0 = <&nfc_int_active &nfc_enable_active
+				&nfc_clk_req_active>;
+		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend
+				&nfc_clk_req_suspend>;
+	};
+};
+
 &sdhc_1 {
 	vdd-supply = <&pm6150_l19>;
 	qcom,vdd-voltage-level = <2950000 2950000>;
@@ -161,7 +207,7 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
 	qcom,mdss-dsi-bl-min-level = <1>;
-	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-bl-max-level = <1023>;
 	qcom,platform-te-gpio = <&tlmm 10 0>;
 	qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
 };
@@ -170,7 +216,7 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
 	qcom,mdss-dsi-bl-min-level = <1>;
-	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-bl-max-level = <1023>;
 	qcom,platform-te-gpio = <&tlmm 10 0>;
 	qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
 };
@@ -179,7 +225,7 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
 	qcom,mdss-dsi-bl-min-level = <1>;
-	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-bl-max-level = <1023>;
 	qcom,platform-te-gpio = <&tlmm 10 0>;
 	qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
 };
@@ -222,6 +268,10 @@
 
 &pm6150_qg {
 	qcom,battery-data = <&mtp_batterydata>;
+	qcom,qg-iterm-ma = <100>;
+	qcom,hold-soc-while-full;
+	qcom,linearize-soc;
+	qcom,cl-feedback-on;
 };
 
 &pm6150_charger {
@@ -229,16 +279,25 @@
 		      <&pm6150_vadc ADC_USB_IN_I>,
 		      <&pm6150_vadc ADC_CHG_TEMP>,
 		      <&pm6150_vadc ADC_DIE_TEMP>,
-		      <&pm6150l_vadc ADC_AMUX_THM1_PU2>;
+		      <&pm6150l_vadc ADC_AMUX_THM1_PU2>,
+		      <&pm6150_vadc ADC_SBUx>,
+		      <&pm6150_vadc ADC_VPH_PWR>;
 	io-channel-names = "usb_in_voltage",
 			   "usb_in_current",
 			   "chg_temp",
 			   "die_temp",
-			   "conn_temp";
+			   "conn_temp",
+			   "sbux_res",
+			   "vph_voltage";
 	qcom,battery-data = <&mtp_batterydata>;
+	qcom,auto-recharge-soc = <98>;
 	qcom,sw-jeita-enable;
 	qcom,fcc-stepping-enable;
+	qcom,suspend-input-on-debug-batt;
 	qcom,sec-charger-config = <1>;
+	qcom,thermal-mitigation = <4200000 3500000 3000000
+			2500000 2000000 1500000 1000000 500000>;
+	dpdm-supply = <&qusb_phy0>;
 };
 
 &pm6150_gpios {
@@ -268,6 +327,7 @@
 };
 
 &smb1390_charger {
+	compatible = "qcom,smb1390-charger-psy";
 	io-channels = <&pm6150l_vadc ADC_AMUX_THM2>;
 	io-channel-names = "cp_die_temp";
 	status = "ok";
@@ -303,4 +363,48 @@
 			gpio-key,wakeup;
 		};
 	};
+};
+
+&qusb_phy0 {
+	qcom,qusb-phy-init-seq =
+		/* <value reg_offset> */
+		   <0x23 0x210 /* PWR_CTRL1 */
+		    0x03 0x04  /* PLL_ANALOG_CONTROLS_TWO */
+		    0x7c 0x18c /* PLL_CLOCK_INVERTERS */
+		    0x80 0x2c  /* PLL_CMODE */
+		    0x0a 0x184 /* PLL_LOCK_DELAY */
+		    0x19 0xb4  /* PLL_DIGITAL_TIMERS_TWO */
+		    0x40 0x194 /* PLL_BIAS_CONTROL_1 */
+		    0x20 0x198 /* PLL_BIAS_CONTROL_2 */
+		    0x21 0x214 /* PWR_CTRL2 */
+		    0x00 0x220 /* IMP_CTRL1 */
+		    0x18 0x224 /* IMP_CTRL2 */
+		    0x37 0x240 /* TUNE1 */
+		    0x29 0x244 /* TUNE2 */
+		    0xca 0x248 /* TUNE3 */
+		    0x04 0x24c /* TUNE4 */
+		    0x03 0x250 /* TUNE5 */
+		    0x00 0x23c /* CHG_CTRL2 */
+		    0x22 0x210>; /* PWR_CTRL1 */
+
+	qcom,qusb-phy-host-init-seq =
+		/* <value reg_offset> */
+		   <0x23 0x210 /* PWR_CTRL1 */
+		    0x03 0x04  /* PLL_ANALOG_CONTROLS_TWO */
+		    0x7c 0x18c /* PLL_CLOCK_INVERTERS */
+		    0x80 0x2c  /* PLL_CMODE */
+		    0x0a 0x184 /* PLL_LOCK_DELAY */
+		    0x19 0xb4  /* PLL_DIGITAL_TIMERS_TWO */
+		    0x40 0x194 /* PLL_BIAS_CONTROL_1 */
+		    0x20 0x198 /* PLL_BIAS_CONTROL_2 */
+		    0x21 0x214 /* PWR_CTRL2 */
+		    0x00 0x220 /* IMP_CTRL1 */
+		    0x18 0x224 /* IMP_CTRL2 */
+		    0x37 0x240 /* TUNE1 */
+		    0x29 0x244 /* TUNE2 */
+		    0xca 0x248 /* TUNE3 */
+		    0x04 0x24c /* TUNE4 */
+		    0x03 0x250 /* TUNE5 */
+		    0x00 0x23c /* CHG_CTRL2 */
+		    0x22 0x210>; /* PWR_CTRL1 */
 };

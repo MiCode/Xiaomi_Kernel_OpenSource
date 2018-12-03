@@ -19,8 +19,8 @@
 
 /**
  * enum pon_trigger_source: List of PON trigger sources
- * %PON_SMPL:		PON triggered by SMPL - Sudden Momentary Power Loss
- * %PON_RTC:		PON triggered by RTC alarm
+ * %PON_SMPL:		PON triggered by Sudden Momentary Power Loss (SMPL)
+ * %PON_RTC:		PON triggered by real-time clock (RTC) alarm
  * %PON_DC_CHG:		PON triggered by insertion of DC charger
  * %PON_USB_CHG:	PON triggered by insertion of USB
  * %PON_PON1:		PON triggered by other PMIC (multi-PMIC option)
@@ -43,6 +43,7 @@ enum pon_trigger_source {
  * %PON_POWER_OFF_WARM_RESET:        Reset the MSM but not all PMIC peripherals
  * %PON_POWER_OFF_SHUTDOWN:          Shutdown the MSM and PMIC completely
  * %PON_POWER_OFF_HARD_RESET:        Reset the MSM and all PMIC peripherals
+ * %PON_POWER_OFF_MAX_TYPE:          Reserved, not used
  */
 enum pon_power_off_type {
 	PON_POWER_OFF_RESERVED		= 0x00,
@@ -75,7 +76,10 @@ static int qpnp_pon_system_pwr_off(enum pon_power_off_type type)
 {
 	return -ENODEV;
 }
-static inline int qpnp_pon_is_warm_reset(void) { return -ENODEV; }
+static inline int qpnp_pon_is_warm_reset(void)
+{
+	return -ENODEV;
+}
 static inline int qpnp_pon_trigger_config(enum pon_trigger_source pon_src,
 							bool enable)
 {

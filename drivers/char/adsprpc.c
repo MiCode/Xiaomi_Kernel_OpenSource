@@ -61,7 +61,9 @@
 #define FASTRPC_ENOSUCH 39
 #define VMID_SSC_Q6     5
 #define VMID_ADSP_Q6    6
-#define DEBUGFS_SIZE 1024
+#define DEBUGFS_SIZE 3072
+#define UL_SIZE 25
+#define PID_SIZE 10
 
 #define AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME   "audio_pdr_adsprpc"
 #define AUDIO_PDR_ADSP_SERVICE_NAME              "avs/audio"
@@ -382,6 +384,7 @@ struct fastrpc_file {
 	struct mutex internal_map_mutex;
 	/* Identifies the device (MINOR_NUM_DEV / MINOR_NUM_SECURE_DEV) */
 	int dev_minor;
+	char *debug_buf;
 };
 
 static struct fastrpc_apps gfa;
@@ -2486,6 +2489,31 @@ static int fastrpc_mmap_remove(struct fastrpc_file *fl, uintptr_t va,
 
 static void fastrpc_mmap_add(struct fastrpc_mmap *map);
 
+static inline void get_fastrpc_ioctl_mmap_64(
+			struct fastrpc_ioctl_mmap_64 *mmap64,
+			struct fastrpc_ioctl_mmap *immap)
+{
+	immap->fd = mmap64->fd;
+	immap->flags = mmap64->flags;
+	immap->vaddrin = (uintptr_t)mmap64->vaddrin;
+	immap->size = mmap64->size;
+}
+
+static inline void put_fastrpc_ioctl_mmap_64(
+			struct fastrpc_ioctl_mmap_64 *mmap64,
+			struct fastrpc_ioctl_mmap *immap)
+{
+	mmap64->vaddrout = (uint64_t)immap->vaddrout;
+}
+
+static inline void get_fastrpc_ioctl_munmap_64(
+			struct fastrpc_ioctl_munmap_64 *munmap64,
+			struct fastrpc_ioctl_munmap *imunmap)
+{
+	imunmap->vaddrout = (uintptr_t)munmap64->vaddrout;
+	imunmap->size = munmap64->size;
+}
+
 static int fastrpc_internal_munmap(struct fastrpc_file *fl,
 				   struct fastrpc_ioctl_munmap *ud)
 {
@@ -2803,6 +2831,7 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 	spin_lock(&fl->apps->hlock);
 	hlist_del_init(&fl->hn);
 	spin_unlock(&fl->apps->hlock);
+	kfree(fl->debug_buf);
 
 	if (!fl->sctx) {
 		kfree(fl);
@@ -2875,107 +2904,214 @@ static int fastrpc_debugfs_open(struct inode *inode, struct file *filp)
 }
 
 static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
-					 size_t count, loff_t *position)
-{
+					 size_t count, loff_t *position) {
+	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_file *fl = filp->private_data;
 	struct hlist_node *n;
 	struct fastrpc_buf *buf = NULL;
 	struct fastrpc_mmap *map = NULL;
+	struct fastrpc_mmap *gmaps = NULL;
 	struct smq_invoke_ctx *ictx = NULL;
-	struct fastrpc_channel_ctx *chan;
-	struct fastrpc_session_ctx *sess;
+	struct fastrpc_channel_ctx *chan = NULL;
 	unsigned int len = 0;
-	int i, j, ret = 0;
+	int i, j, sess_used = 0, ret = 0;
 	char *fileinfo = NULL;
+	char single_line[UL_SIZE] = "----------------";
+	char title[UL_SIZE] = "=========================";
 
 	fileinfo = kzalloc(DEBUGFS_SIZE, GFP_KERNEL);
 	if (!fileinfo)
 		goto bail;
 	if (fl == NULL) {
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"\n%s %s %s\n", title, " CHANNEL INFO ", title);
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"%-7s|%-10s|%-14s|%-9s|%-13s\n",
+			"subsys", "sesscount", "issubsystemup",
+			"ssrcount", "session_used");
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"-%s%s%s%s-\n", single_line, single_line,
+			single_line, single_line);
 		for (i = 0; i < NUM_CHANNELS; i++) {
+			sess_used = 0;
 			chan = &gcinfo[i];
 			len += scnprintf(fileinfo + len,
-					DEBUGFS_SIZE - len, "%s\n\n",
-					chan->name);
+				DEBUGFS_SIZE - len, "%-7s", chan->subsys);
 			len += scnprintf(fileinfo + len,
-					DEBUGFS_SIZE - len, "%s %d\n",
-					"secure:", chan->secure);
+				DEBUGFS_SIZE - len, "|%-10d",
+				chan->sesscount);
 			len += scnprintf(fileinfo + len,
-					DEBUGFS_SIZE - len, "%s %d\n",
-					"sesscount:", chan->sesscount);
+				DEBUGFS_SIZE - len, "|%-14d",
+				chan->issubsystemup);
+			len += scnprintf(fileinfo + len,
+				DEBUGFS_SIZE - len, "|%-9d",
+				chan->ssrcount);
 			for (j = 0; j < chan->sesscount; j++) {
-				sess = &chan->session[j];
-				len += scnprintf(fileinfo + len,
-						DEBUGFS_SIZE - len,
-						"%s%d\n\n", "SESSION", j);
-				len += scnprintf(fileinfo + len,
-						DEBUGFS_SIZE - len,
-						"%s %d\n", "sid:",
-						sess->smmu.cb);
-				len += scnprintf(fileinfo + len,
-						DEBUGFS_SIZE - len,
-						"%s %d\n", "SECURE:",
-						sess->smmu.secure);
+				sess_used += chan->session[j].used;
 			}
+			len += scnprintf(fileinfo + len,
+				DEBUGFS_SIZE - len, "|%-13d\n", sess_used);
+		}
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"\n%s%s%s\n", "=============",
+			" CMA HEAP ", "==============");
+		len += scnprintf(fileinfo + len,
+			DEBUGFS_SIZE - len, "%-20s|%-20s\n", "addr", "size");
+		len += scnprintf(fileinfo + len,
+			DEBUGFS_SIZE - len, "--%s%s---\n",
+			single_line, single_line);
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"0x%-18llX", me->range.addr);
+		len += scnprintf(fileinfo + len,
+			DEBUGFS_SIZE - len, "|0x%-18llX\n", me->range.size);
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"\n==========%s %s %s===========\n",
+			title, " GMAPS ", title);
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"%-20s|%-20s|%-20s|%-20s\n",
+			"fd", "phys", "size", "va");
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"%s%s%s%s%s\n", single_line, single_line,
+			single_line, single_line, single_line);
+		hlist_for_each_entry_safe(gmaps, n, &me->maps, hn) {
+			len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+				"%-20d|0x%-18llX|0x%-18X|0x%-20lX\n\n",
+				gmaps->fd, gmaps->phys,
+				(uint32_t)gmaps->size,
+				gmaps->va);
+		}
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"%-20s|%-20s|%-20s|%-20s\n",
+			"len", "refs", "raddr", "flags");
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"%s%s%s%s%s\n", single_line, single_line,
+			single_line, single_line, single_line);
+		hlist_for_each_entry_safe(gmaps, n, &me->maps, hn) {
+			len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+				"0x%-18X|%-20d|%-20lu|%-20u\n",
+				(uint32_t)gmaps->len, gmaps->refs,
+				gmaps->raddr, gmaps->flags);
 		}
 	} else {
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-				"%s %d\n\n",
-				"PROCESS_ID:", fl->tgid);
+			"\n%s %13s %d\n", "cid", ":", fl->cid);
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-				"%s %d\n\n",
-				"CHANNEL_ID:", fl->cid);
+			"%s %12s %d\n", "tgid", ":", fl->tgid);
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-				"%s %d\n\n",
-				"SSRCOUNT:", fl->ssrcount);
+			"%s %7s %d\n", "sessionid", ":", fl->sessionid);
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-				"%s %d\n\n",
-				"DEV_MINOR:", fl->dev_minor);
+			"%s %8s %d\n", "ssrcount", ":", fl->ssrcount);
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-				"%s %d\n\n",
-				"KERNEL MEMORY ALLOCATION:", 1);
+			"%s %14s %d\n", "pd", ":", fl->pd);
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-				"%s\n",
-				"LIST OF CACHED BUFS:");
-		spin_lock(&fl->hlock);
-		hlist_for_each_entry_safe(buf, n, &fl->cached_bufs, hn) {
-			len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-					"%s %pK %s %pK %s %llx %s %lx\n",
-					"buf:", buf, "buf->virt:", buf->virt,
-					"buf->phys:", buf->phys,
-					"buf->dma_attr:", buf->dma_attr);
-		}
+			"%s %9s %s\n", "spdname", ":", fl->spdname);
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-					"\n%s\n",
-					"LIST OF MAPS:");
+			"%s %6s %d\n", "file_close", ":", fl->file_close);
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"%s %9s %d\n", "profile", ":", fl->profile);
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"%s %3s %d\n", "smmu.coherent", ":",
+			fl->sctx->smmu.coherent);
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"%s %4s %d\n", "smmu.enabled", ":",
+			fl->sctx->smmu.enabled);
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"%s %9s %d\n", "smmu.cb", ":", fl->sctx->smmu.cb);
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"%s %5s %d\n", "smmu.secure", ":",
+			fl->sctx->smmu.secure);
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"%s %5s %d\n", "smmu.faults", ":",
+			fl->sctx->smmu.faults);
+
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"\n=======%s %s %s======\n", title,
+			" LIST OF MAPS ", title);
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"%-20s|%-20s|%-20s\n", "va", "phys", "size");
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"%s%s%s%s%s\n",
+			single_line, single_line, single_line,
+			single_line, single_line);
 		hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
 			len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-						"%s %pK %s %lx %s %llx\n",
-						"map:", map,
-						"map->va:", map->va,
-						"map->phys:", map->phys);
+				"0x%-20lX|0x%-20llX|0x%-20zu\n\n",
+				map->va, map->phys,
+				map->size);
 		}
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-					"\n%s\n",
-					"LIST OF PENDING SMQCONTEXTS:");
+			"%-20s|%-20s|%-20s|%-20s\n",
+			"len", "refs",
+			"raddr", "uncached");
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"%s%s%s%s%s\n",
+			single_line, single_line, single_line,
+			single_line, single_line);
+		hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
+			len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+				"%-20zu|%-20d|0x%-20lX|%-20d\n\n",
+				map->len, map->refs, map->raddr,
+				map->uncached);
+		}
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"%-20s|%-20s\n", "secure", "attr");
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"%s%s%s%s%s\n",
+			single_line, single_line, single_line,
+			single_line, single_line);
+		hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
+			len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+				"%-20d|0x%-20lX\n\n",
+				map->secure, map->attr);
+		}
+
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"\n======%s %s %s======\n", title,
+			" LIST OF BUFS ", title);
+		spin_lock(&fl->hlock);
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"%-19s|%-19s|%-19s\n",
+			"virt", "phys", "size");
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"%s%s%s%s%s\n", single_line, single_line,
+			single_line, single_line, single_line);
+		hlist_for_each_entry_safe(buf, n, &fl->cached_bufs, hn) {
+			len += scnprintf(fileinfo + len,
+				DEBUGFS_SIZE - len,
+				"0x%-17p|0x%-17llX|%-19zu\n",
+				buf->virt, (uint64_t)buf->phys, buf->size);
+		}
+
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"\n%s %s %s\n", title,
+			" LIST OF PENDING SMQCONTEXTS ", title);
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"%-20s|%-10s|%-10s|%-10s|%-20s\n",
+			"sc", "pid", "tgid", "used", "ctxid");
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"%s%s%s%s%s\n", single_line, single_line,
+			single_line, single_line, single_line);
 		hlist_for_each_entry_safe(ictx, n, &fl->clst.pending, hn) {
 			len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-						"%s %pK %s %u %s %u %s %u\n",
-						"smqcontext:", ictx,
-						"sc:", ictx->sc,
-						"tid:", ictx->pid,
-						"handle", ictx->rpra->h);
+				"0x%-18X|%-10d|%-10d|%-10zu|0x%-20llX\n\n",
+				ictx->sc, ictx->pid, ictx->tgid,
+				ictx->used, ictx->ctxid);
 		}
+
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-					"\n%s\n",
-					"LIST OF INTERRUPTED SMQCONTEXTS:");
+			"\n%s %s %s\n", title,
+			" LIST OF INTERRUPTED SMQCONTEXTS ", title);
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"%-20s|%-10s|%-10s|%-10s|%-20s\n",
+			"sc", "pid", "tgid", "used", "ctxid");
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"%s%s%s%s%s\n", single_line, single_line,
+			single_line, single_line, single_line);
 		hlist_for_each_entry_safe(ictx, n, &fl->clst.interrupted, hn) {
 			len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-					"%s %pK %s %u %s %u %s %u\n",
-					"smqcontext:", ictx,
-					"sc:", ictx->sc,
-					"tid:", ictx->pid,
-					"handle", ictx->rpra->h);
+			"%-20u|%-20d|%-20d|%-20zu|0x%-20llX\n\n",
+			ictx->sc, ictx->pid, ictx->tgid,
+			ictx->used, ictx->ctxid);
 		}
 		spin_unlock(&fl->hlock);
 	}
@@ -3050,6 +3186,8 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	struct dentry *debugfs_file;
 	struct fastrpc_file *fl = NULL;
 	struct fastrpc_apps *me = &gfa;
+	char strpid[PID_SIZE];
+	int buf_size = 0;
 
 	/*
 	 * Indicates the device node opened
@@ -3067,8 +3205,19 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	VERIFY(err, NULL != (fl = kzalloc(sizeof(*fl), GFP_KERNEL)));
 	if (err)
 		return err;
-	debugfs_file = debugfs_create_file(current->comm, 0644, debugfs_root,
+
+	snprintf(strpid, PID_SIZE, "%d", current->pid);
+	buf_size = strlen(current->comm) + strlen(strpid) + 1;
+	VERIFY(err, NULL != (fl->debug_buf = kzalloc(buf_size, GFP_KERNEL)));
+	if (err) {
+		kfree(fl);
+		return err;
+	}
+	snprintf(fl->debug_buf, UL_SIZE, "%.10s%s%d",
+			current->comm, "_", current->pid);
+	debugfs_file = debugfs_create_file(fl->debug_buf, 0644, debugfs_root,
 						fl, &debugfs_fops);
+
 	context_list_ctor(&fl->clst);
 	spin_lock_init(&fl->hlock);
 	INIT_HLIST_HEAD(&fl->maps);
@@ -3185,12 +3334,18 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 	union {
 		struct fastrpc_ioctl_invoke_crc inv;
 		struct fastrpc_ioctl_mmap mmap;
+		struct fastrpc_ioctl_mmap_64 mmap64;
 		struct fastrpc_ioctl_munmap munmap;
+		struct fastrpc_ioctl_munmap_64 munmap64;
 		struct fastrpc_ioctl_munmap_fd munmap_fd;
 		struct fastrpc_ioctl_init_attrs init;
 		struct fastrpc_ioctl_perf perf;
 		struct fastrpc_ioctl_control cp;
 	} p;
+	union {
+		struct fastrpc_ioctl_mmap mmap;
+		struct fastrpc_ioctl_munmap munmap;
+	} i;
 	void *param = (char *)ioctl_param;
 	struct fastrpc_file *fl = (struct fastrpc_file *)file->private_data;
 	int size = 0, err = 0;
@@ -3254,24 +3409,27 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 			goto bail;
 		break;
 	case FASTRPC_IOCTL_MMAP_64:
-		K_COPY_FROM_USER(err, 0, &p.mmap, param,
-						sizeof(p.mmap));
+		K_COPY_FROM_USER(err, 0, &p.mmap64, param,
+						sizeof(p.mmap64));
 		if (err)
 			goto bail;
-		VERIFY(err, 0 == (err = fastrpc_internal_mmap(fl, &p.mmap)));
+		get_fastrpc_ioctl_mmap_64(&p.mmap64, &i.mmap);
+		VERIFY(err, 0 == (err = fastrpc_internal_mmap(fl, &i.mmap)));
 		if (err)
 			goto bail;
-		K_COPY_TO_USER(err, 0, param, &p.mmap, sizeof(p.mmap));
+		put_fastrpc_ioctl_mmap_64(&p.mmap64, &i.mmap);
+		K_COPY_TO_USER(err, 0, param, &p.mmap64, sizeof(p.mmap64));
 		if (err)
 			goto bail;
 		break;
 	case FASTRPC_IOCTL_MUNMAP_64:
-		K_COPY_FROM_USER(err, 0, &p.munmap, param,
-						sizeof(p.munmap));
+		K_COPY_FROM_USER(err, 0, &p.munmap64, param,
+						sizeof(p.munmap64));
 		if (err)
 			goto bail;
+		get_fastrpc_ioctl_munmap_64(&p.munmap64, &i.munmap);
 		VERIFY(err, 0 == (err = fastrpc_internal_munmap(fl,
-							&p.munmap)));
+							&i.munmap)));
 		if (err)
 			goto bail;
 		break;
@@ -3532,6 +3690,7 @@ static int fastrpc_cb_probe(struct device *dev)
 	dma_addr_t start = 0x80000000;
 	int err = 0;
 	unsigned int sharedcb_count = 0, cid, i, j;
+	unsigned int index, num_indices = 0;
 	int secure_vmid = VMID_CP_PIXEL, cache_flush = 1;
 
 	VERIFY(err, NULL != (name = of_get_property(dev->of_node,
@@ -3623,6 +3782,32 @@ static int fastrpc_cb_probe(struct device *dev)
 			sizeof(*sess->smmu.dev->dma_parms), GFP_KERNEL);
 	dma_set_max_seg_size(sess->smmu.dev, DMA_BIT_MASK(32));
 	dma_set_seg_boundary(sess->smmu.dev, (unsigned long)DMA_BIT_MASK(64));
+
+	if (of_get_property(dev->of_node, "shared-sid", NULL) != NULL) {
+		struct fastrpc_session_ctx *new_sess;
+
+		err = of_property_read_u32(dev->of_node, "shared-sid",
+				&num_indices);
+		if (err)
+			goto bail;
+
+		for (index = 1; index < num_indices &&
+				chan->sesscount < NUM_SESSIONS; index++) {
+			err = of_parse_phandle_with_args(dev->of_node, "iommus",
+					"#iommu-cells", index, &iommuspec);
+			if (err) {
+				pr_err("adsprpc: %s: parsing iommu arguments failed for %s with err %d",
+						__func__, dev_name(dev), err);
+				goto bail;
+			}
+			chan->sesscount++;
+			new_sess = &chan->session[chan->sesscount];
+			memcpy(new_sess, sess,
+				sizeof(struct fastrpc_session_ctx));
+			new_sess->smmu.cb = iommuspec.args[0] & 0xf;
+			sess = new_sess;
+		}
+	}
 
 	if (of_get_property(dev->of_node, "shared-cb", NULL) != NULL) {
 		err = of_property_read_u32(dev->of_node, "shared-cb",
@@ -3897,8 +4082,8 @@ static int __init fastrpc_device_init(void)
 	struct device *secure_dev = NULL;
 	int err = 0, i;
 
+	debugfs_root = debugfs_create_dir("adsprpc", NULL);
 	memset(me, 0, sizeof(*me));
-
 	fastrpc_init(me);
 	me->dev = NULL;
 	me->legacy_remote_heap = 0;
@@ -3962,7 +4147,6 @@ static int __init fastrpc_device_init(void)
 		goto device_create_bail;
 	}
 	me->rpmsg_register = 1;
-	debugfs_root = debugfs_create_dir("adsprpc", NULL);
 	return 0;
 device_create_bail:
 	for (i = 0; i < NUM_CHANNELS; i++) {

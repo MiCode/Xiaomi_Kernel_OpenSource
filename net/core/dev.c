@@ -1690,6 +1690,28 @@ int call_netdevice_notifiers(unsigned long val, struct net_device *dev)
 }
 EXPORT_SYMBOL(call_netdevice_notifiers);
 
+/**
+ *	call_netdevice_notifiers_mtu - call all network notifier blocks
+ *	@val: value passed unmodified to notifier function
+ *	@dev: net_device pointer passed unmodified to notifier function
+ *	@arg: additional u32 argument passed to the notifier function
+ *
+ *	Call all network notifier blocks.  Parameters and return value
+ *	are as for raw_notifier_call_chain().
+ */
+static int call_netdevice_notifiers_mtu(unsigned long val,
+					struct net_device *dev, u32 arg)
+{
+	struct netdev_notifier_info_ext info = {
+		.info.dev = dev,
+		.ext.mtu = arg,
+	};
+
+	BUILD_BUG_ON(offsetof(struct netdev_notifier_info_ext, info) != 0);
+
+	return call_netdevice_notifiers_info(val, dev, &info.info);
+}
+
 #ifdef CONFIG_NET_INGRESS
 static struct static_key ingress_needed __read_mostly;
 
@@ -6941,14 +6963,16 @@ int dev_set_mtu(struct net_device *dev, int new_mtu)
 	err = __dev_set_mtu(dev, new_mtu);
 
 	if (!err) {
-		err = call_netdevice_notifiers(NETDEV_CHANGEMTU, dev);
+		err = call_netdevice_notifiers_mtu(NETDEV_CHANGEMTU, dev,
+						   orig_mtu);
 		err = notifier_to_errno(err);
 		if (err) {
 			/* setting mtu back and notifying everyone again,
 			 * so that they have a chance to revert changes.
 			 */
 			__dev_set_mtu(dev, orig_mtu);
-			call_netdevice_notifiers(NETDEV_CHANGEMTU, dev);
+			call_netdevice_notifiers_mtu(NETDEV_CHANGEMTU, dev,
+						     new_mtu);
 		}
 	}
 	return err;
@@ -7366,6 +7390,18 @@ static netdev_features_t netdev_fix_features(struct net_device *dev,
 		netdev_dbg(dev,
 			   "Dropping partially supported GSO features since no GSO partial.\n");
 		features &= ~dev->gso_partial_features;
+	}
+
+	if (!(features & NETIF_F_RXCSUM)) {
+		/* NETIF_F_GRO_HW implies doing RXCSUM since every packet
+		 * successfully merged by hardware must also have the
+		 * checksum verified by hardware.  If the user does not
+		 * want to enable RXCSUM, logically, we should disable GRO_HW.
+		 */
+		if (features & NETIF_F_GRO_HW) {
+			netdev_dbg(dev, "Dropping NETIF_F_GRO_HW since no RXCSUM feature.\n");
+			features &= ~NETIF_F_GRO_HW;
+		}
 	}
 
 	return features;

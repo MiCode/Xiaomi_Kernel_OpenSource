@@ -496,6 +496,7 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 	}
 	ddr.total = ddr.vsp_read + ddr.vsp_write +
 		ddr.collocated_read + ddr.collocated_write +
+		ddr.line_buffer_read + ddr.line_buffer_write +
 		ddr.opb_read + ddr.opb_write +
 		ddr.dpb_read + ddr.dpb_write;
 

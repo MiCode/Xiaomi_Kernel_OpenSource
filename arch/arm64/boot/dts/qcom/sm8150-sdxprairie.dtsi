@@ -15,3 +15,21 @@
 	qcom,mdm-link-info = "0306_01.01.00";
 };
 
+&mhi_1 {
+	esoc-names = "mdm";
+	esoc-0 = <&mdm3>;
+	qcom,smmu-cfg = <0x1d>;
+	qcom,addr-win = <0x0 0x20000000 0x0 0x2fffffff>;
+
+	mhi_chan@25 {
+		status = "disabled";
+	};
+
+	mhi_chan@104 {
+		status = "disabled";
+	};
+
+	mhi_chan@105 {
+		status = "disabled";
+	};
+};

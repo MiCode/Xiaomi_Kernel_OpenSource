@@ -53,12 +53,14 @@ static int qdss_destroy_mhi_buf_tbl(struct qdss_bridge_drvdata *drvdata)
 	struct list_head *start, *temp;
 	struct qdss_mhi_buf_tbl_t *entry = NULL;
 
+	spin_lock_bh(&drvdata->lock);
 	list_for_each_safe(start, temp, &drvdata->mhi_buf_tbl) {
 		entry = list_entry(start, struct qdss_mhi_buf_tbl_t, link);
 		list_del(&entry->link);
 		kfree(entry->buf);
 		kfree(entry);
 	}
+	spin_unlock_bh(&drvdata->lock);
 
 	return 0;
 }
@@ -68,6 +70,7 @@ static int qdss_destroy_buf_tbl(struct qdss_bridge_drvdata *drvdata)
 	struct list_head *start, *temp;
 	struct qdss_buf_tbl_lst *entry = NULL;
 
+	spin_lock_bh(&drvdata->lock);
 	list_for_each_safe(start, temp, &drvdata->buf_tbl) {
 		entry = list_entry(start, struct qdss_buf_tbl_lst, link);
 		list_del(&entry->link);
@@ -75,6 +78,23 @@ static int qdss_destroy_buf_tbl(struct qdss_bridge_drvdata *drvdata)
 		kfree(entry->usb_req);
 		kfree(entry);
 	}
+	spin_unlock_bh(&drvdata->lock);
+
+	return 0;
+}
+
+static int qdss_destroy_read_done_list(struct qdss_bridge_drvdata *drvdata)
+{
+	struct list_head *start, *temp;
+	struct qdss_mhi_buf_tbl_t *entry = NULL;
+
+	spin_lock_bh(&drvdata->lock);
+	list_for_each_safe(start, temp, &drvdata->read_done_list) {
+		entry = list_entry(start, struct qdss_mhi_buf_tbl_t, link);
+		list_del(&entry->link);
+		kfree(entry);
+	}
+	spin_unlock_bh(&drvdata->lock);
 
 	return 0;
 }
@@ -115,14 +135,38 @@ struct qdss_buf_tbl_lst *qdss_get_buf_tbl_entry(
 {
 	struct qdss_buf_tbl_lst *entry;
 
+	spin_lock_bh(&drvdata->lock);
 	list_for_each_entry(entry, &drvdata->buf_tbl, link) {
 		if (atomic_read(&entry->available))
 			continue;
-		if (entry->buf == buf)
+		if (entry->buf == buf) {
+			spin_unlock_bh(&drvdata->lock);
 			return entry;
+		}
 	}
 
+	spin_unlock_bh(&drvdata->lock);
 	return NULL;
+}
+
+
+static void qdss_del_buf_tbl_entry(struct qdss_bridge_drvdata *drvdata,
+				void *buf)
+{
+	struct qdss_mhi_buf_tbl_t *entry, *tmp;
+
+	spin_lock_bh(&drvdata->lock);
+	list_for_each_entry_safe(entry, tmp, &drvdata->mhi_buf_tbl, link) {
+		if (entry->buf == buf) {
+			list_del(&entry->link);
+			kfree(entry->buf);
+			kfree(entry);
+			spin_unlock_bh(&drvdata->lock);
+			return;
+		}
+	}
+
+	spin_unlock_bh(&drvdata->lock);
 }
 
 struct qdss_buf_tbl_lst *qdss_get_entry(struct qdss_bridge_drvdata *drvdata)
@@ -141,13 +185,15 @@ static void qdss_buf_tbl_remove(struct qdss_bridge_drvdata *drvdata,
 {
 	struct qdss_buf_tbl_lst *entry = NULL;
 
+	spin_lock_bh(&drvdata->lock);
 	list_for_each_entry(entry, &drvdata->buf_tbl, link) {
 		if (entry->buf != buf)
 			continue;
 		atomic_set(&entry->available, 1);
+		spin_unlock_bh(&drvdata->lock);
 		return;
 	}
-
+	spin_unlock_bh(&drvdata->lock);
 	pr_err_ratelimited("Failed to find buffer for removal\n");
 }
 
@@ -156,12 +202,11 @@ static void mhi_ch_close(struct qdss_bridge_drvdata *drvdata)
 	if (drvdata->mode == MHI_TRANSFER_TYPE_USB) {
 		flush_workqueue(drvdata->mhi_wq);
 		qdss_destroy_buf_tbl(drvdata);
+		qdss_destroy_read_done_list(drvdata);
 	} else if (drvdata->mode == MHI_TRANSFER_TYPE_UCI) {
 		qdss_destroy_mhi_buf_tbl(drvdata);
-		if (drvdata->cur_buf)
-			kfree(drvdata->cur_buf->buf);
-
 		drvdata->cur_buf = NULL;
+		qdss_destroy_read_done_list(drvdata);
 	}
 }
 
@@ -192,11 +237,11 @@ static ssize_t mhi_store_transfer_mode(struct device *dev,
 		if (drvdata->mode == MHI_TRANSFER_TYPE_USB) {
 			if (drvdata->opened == ENABLE) {
 				drvdata->opened = DISABLE;
-				drvdata->mode = MHI_TRANSFER_TYPE_UCI;
 				spin_unlock_bh(&drvdata->lock);
 				usb_qdss_close(drvdata->usb_ch);
 				mhi_unprepare_from_transfer(drvdata->mhi_dev);
 				mhi_ch_close(drvdata);
+				drvdata->mode = MHI_TRANSFER_TYPE_UCI;
 			} else if (drvdata->opened == DISABLE) {
 				drvdata->mode = MHI_TRANSFER_TYPE_UCI;
 				spin_unlock_bh(&drvdata->lock);
@@ -258,11 +303,16 @@ static void mhi_read_work_fn(struct work_struct *work)
 					     read_work);
 
 	do {
-		if (drvdata->opened != ENABLE)
+		spin_lock_bh(&drvdata->lock);
+		if (drvdata->opened != ENABLE) {
+			spin_unlock_bh(&drvdata->lock);
 			break;
+		}
 		entry = qdss_get_entry(drvdata);
-		if (!entry)
+		if (!entry) {
+			spin_unlock_bh(&drvdata->lock);
 			break;
+		}
 
 		err = mhi_queue_transfer(drvdata->mhi_dev, DMA_FROM_DEVICE,
 					entry->buf, drvdata->mtu, mhi_flags);
@@ -271,10 +321,13 @@ static void mhi_read_work_fn(struct work_struct *work)
 					   err);
 			goto fail;
 		}
+		spin_unlock_bh(&drvdata->lock);
+
 	} while (entry);
 
 	return;
 fail:
+	spin_unlock_bh(&drvdata->lock);
 	qdss_buf_tbl_remove(drvdata, entry->buf);
 	queue_work(drvdata->mhi_wq, &drvdata->read_work);
 }
@@ -315,9 +368,13 @@ static void mhi_read_done_work_fn(struct work_struct *work)
 	LIST_HEAD(head);
 
 	do {
-		if (drvdata->opened != ENABLE)
-			break;
 		spin_lock_bh(&drvdata->lock);
+		if (drvdata->opened != ENABLE
+		    || drvdata->mode != MHI_TRANSFER_TYPE_USB) {
+			spin_unlock_bh(&drvdata->lock);
+			break;
+		}
+
 		if (list_empty(&drvdata->read_done_list)) {
 			spin_unlock_bh(&drvdata->lock);
 			break;
@@ -339,12 +396,22 @@ static void mhi_read_done_work_fn(struct work_struct *work)
 			 * read, discard the buffers here and do not forward
 			 * them to the mux layer.
 			 */
-			if (drvdata->opened == ENABLE) {
-				err = usb_write(drvdata, buf, len);
-				if (err)
+			spin_lock_bh(&drvdata->lock);
+			if (drvdata->mode == MHI_TRANSFER_TYPE_USB) {
+				if (drvdata->opened == ENABLE) {
+					spin_unlock_bh(&drvdata->lock);
+					err = usb_write(drvdata, buf, len);
+					if (err)
+						qdss_buf_tbl_remove(drvdata,
+								    buf);
+				} else if (drvdata->opened == DISABLE) {
+					spin_unlock_bh(&drvdata->lock);
 					qdss_buf_tbl_remove(drvdata, buf);
+				} else {
+					spin_unlock_bh(&drvdata->lock);
+				}
 			} else {
-				qdss_buf_tbl_remove(drvdata, buf);
+				spin_unlock_bh(&drvdata->lock);
 			}
 		}
 		list_del_init(&head);
@@ -395,10 +462,14 @@ static int mhi_ch_open(struct qdss_bridge_drvdata *drvdata)
 	int ret;
 
 	spin_lock_bh(&drvdata->lock);
-	if (drvdata->opened == ENABLE)
+	if (drvdata->opened == ENABLE) {
+		spin_unlock_bh(&drvdata->lock);
 		return 0;
-	if (drvdata->opened == SSR)
+	}
+	if (drvdata->opened == SSR) {
+		spin_unlock_bh(&drvdata->lock);
 		return -ERESTARTSYS;
+	}
 	drvdata->opened = ENABLE;
 	spin_unlock_bh(&drvdata->lock);
 
@@ -601,16 +672,15 @@ static ssize_t mhi_uci_read(struct file *file,
 		else
 			ret = -ERESTARTSYS;
 
+		spin_unlock_bh(&drvdata->lock);
+
 		if (ret) {
 			pr_err("Failed to recycle element, ret: %d\n", ret);
-			kfree(uci_buf->buf);
-			kfree(uci_buf);
+			qdss_del_buf_tbl_entry(drvdata, uci_buf->buf);
 			uci_buf->buf = NULL;
 			uci_buf = NULL;
-			goto read_error;
+			return ret;
 		}
-
-		spin_unlock_bh(&drvdata->lock);
 	}
 
 	pr_debug("Returning %lu bytes\n", to_copy);
@@ -730,7 +800,8 @@ static void qdss_mhi_remove(struct mhi_device *mhi_dev)
 			wait_for_completion(&drvdata->completion);
 		} else {
 			spin_unlock_bh(&drvdata->lock);
-			usb_qdss_close(drvdata->usb_ch);
+			if (drvdata->usb_ch && drvdata->usb_ch->priv_usb)
+				usb_qdss_close(drvdata->usb_ch);
 		}
 		mhi_ch_close(drvdata);
 

@@ -33,15 +33,27 @@ uint32_t npu_reg_read(struct npu_device *npu_dev, uint32_t off)
 {
 	uint32_t ret = 0;
 
-	ret = readl_relaxed(npu_dev->npu_base + off);
+	ret = readl_relaxed(npu_dev->npu_io.base + off);
 	__iormb();
 	return ret;
 }
 
 void npu_reg_write(struct npu_device *npu_dev, uint32_t off, uint32_t val)
 {
-	writel_relaxed(val, npu_dev->npu_base + off);
+	writel_relaxed(val, npu_dev->npu_io.base + off);
 	__iowmb();
+}
+
+uint32_t npu_qfprom_reg_read(struct npu_device *npu_dev, uint32_t off)
+{
+	uint32_t ret = 0;
+
+	if (npu_dev->qfprom_io.base) {
+		ret = readl_relaxed(npu_dev->qfprom_io.base + off);
+		__iormb();
+	}
+
+	return ret;
 }
 
 /* -------------------------------------------------------------------------
@@ -59,7 +71,7 @@ void npu_mem_write(struct npu_device *npu_dev, void *dst, void *src,
 
 	num = size/4;
 	for (i = 0; i < num; i++) {
-		writel_relaxed(src_ptr32[i], npu_dev->npu_base + dst_off);
+		writel_relaxed(src_ptr32[i], npu_dev->npu_io.base + dst_off);
 		dst_off += 4;
 	}
 
@@ -67,7 +79,7 @@ void npu_mem_write(struct npu_device *npu_dev, void *dst, void *src,
 		src_ptr8 = (uint8_t *)((size_t)src + (num*4));
 		num = size%4;
 		for (i = 0; i < num; i++) {
-			writeb_relaxed(src_ptr8[i], npu_dev->npu_base +
+			writeb_relaxed(src_ptr8[i], npu_dev->npu_io.base +
 				dst_off);
 			dst_off += 1;
 		}
@@ -85,7 +97,7 @@ int32_t npu_mem_read(struct npu_device *npu_dev, void *src, void *dst,
 
 	num = size/4;
 	for (i = 0; i < num; i++) {
-		out32[i] = readl_relaxed(npu_dev->npu_base + src_off);
+		out32[i] = readl_relaxed(npu_dev->npu_io.base + src_off);
 		src_off += 4;
 	}
 
@@ -93,7 +105,7 @@ int32_t npu_mem_read(struct npu_device *npu_dev, void *src, void *dst,
 		out8 = (uint8_t *)((size_t)dst + (num*4));
 		num = size%4;
 		for (i = 0; i < num; i++) {
-			out8[i] = readb_relaxed(npu_dev->npu_base + src_off);
+			out8[i] = readb_relaxed(npu_dev->npu_io.base + src_off);
 			src_off += 1;
 		}
 	}
@@ -136,15 +148,13 @@ void npu_interrupt_ack(struct npu_device *npu_dev, uint32_t intr_num)
 
 int32_t npu_interrupt_raise_m0(struct npu_device *npu_dev)
 {
-	int ret = 0;
-
 	/* Bit 4 is setting IRQ_SOURCE_SELECT to local
 	 * and we're triggering a pulse to NPU_MASTER0_IPC_IN_IRQ0
 	 */
 	npu_reg_write(npu_dev, NPU_MASTERn_IPC_IRQ_IN_CTRL(0), 0x1
 		<< NPU_MASTER0_IPC_IRQ_IN_CTRL__IRQ_SOURCE_SELECT___S | 0x1);
 
-	return ret;
+	return 0;
 }
 
 int32_t npu_interrupt_raise_dsp(struct npu_device *npu_dev)
@@ -279,12 +289,14 @@ int npu_mem_map(struct npu_client *client, int buf_hdl, uint32_t size,
 	dma_sync_sg_for_device(&(npu_dev->pdev->dev), ion_buf->table->sgl,
 		ion_buf->table->nents, DMA_BIDIRECTIONAL);
 	ion_buf->iova = ion_buf->table->sgl->dma_address;
-	ion_buf->size = ion_buf->table->sgl->dma_length;
+	ion_buf->size = ion_buf->dma_buf->size;
+	*addr = ion_buf->iova;
+	pr_debug("mapped mem addr:0x%llx size:0x%x\n", ion_buf->iova,
+		ion_buf->size);
 map_end:
 	if (ret)
 		npu_mem_unmap(client, buf_hdl, 0);
 
-	*addr = ion_buf->iova;
 	return ret;
 }
 
@@ -344,6 +356,9 @@ void npu_mem_unmap(struct npu_client *client, int buf_hdl,  uint64_t addr)
 	if (ion_buf->dma_buf)
 		dma_buf_put(ion_buf->dma_buf);
 	npu_dev->smmu_ctx.attach_cnt--;
+
+	pr_debug("unmapped mem addr:0x%llx size:0x%x\n", ion_buf->iova,
+		ion_buf->size);
 	npu_free_npu_ion_buffer(client, buf_hdl);
 }
 
