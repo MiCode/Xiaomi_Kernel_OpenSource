@@ -3182,7 +3182,7 @@
 
 &msm_vidc {
 	qcom,cx-ipeak-data = <&cx_ipeak_lm 4>;
-	qcom,clock-freq-threshold = <380000000>;
+	qcom,clock-freq-threshold = <460000000>;
 };
 
 &msm_audio_ion {
