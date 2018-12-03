@@ -4512,11 +4512,19 @@ int ipa3_cfg_ep_aggr(u32 clnt_hdl, const struct ipa_ep_cfg_aggr *ep_aggr)
 			res = -EINVAL;
 			goto complete;
 		}
+		/*
+		 * HW bug on IPA4.5 where gran is used from pipe 0 instead of
+		 * coal pipe. Add this check to make sure that pipe 0 will
+		 * use gran 0 because that is what the coal pipe will use.
+		 */
 		if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_5 &&
-			ipa3_get_client_mapping(clnt_hdl) ==
-			IPA_CLIENT_APPS_WAN_COAL_CONS &&
-			ipa3_ctx->ep[clnt_hdl].cfg.aggr.pulse_generator != 0)
+		    ipa3_get_client_mapping(clnt_hdl) ==
+		    IPA_CLIENT_APPS_WAN_COAL_CONS &&
+		    ipa3_ctx->ep[clnt_hdl].cfg.aggr.pulse_generator != 0) {
+			IPAERR("coal pipe using GRAN_SEL = %d\n",
+			       ipa3_ctx->ep[clnt_hdl].cfg.aggr.pulse_generator);
 			ipa_assert();
+		}
 	} else {
 		/*
 		 * Global aggregation granularity is 0.5msec.
