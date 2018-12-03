@@ -1006,23 +1006,6 @@ static void __set_threshold_registers(struct venus_hfi_device *device)
 		dprintk(VIDC_ERR, "Failed to restore threshold values\n");
 }
 
-static void __iommu_detach(struct venus_hfi_device *device)
-{
-	struct context_bank_info *cb;
-
-	if (!device || !device->res) {
-		dprintk(VIDC_ERR, "Invalid parameter: %pK\n", device);
-		return;
-	}
-
-	list_for_each_entry(cb, &device->res->context_banks, list) {
-		if (cb->dev)
-			arm_iommu_detach_device(cb->dev);
-		if (cb->mapping)
-			arm_iommu_release_mapping(cb->mapping);
-	}
-}
-
 static int __devfreq_target(struct device *devfreq_dev,
 		unsigned long *freq, u32 flags)
 {
@@ -1514,7 +1497,7 @@ static int __iface_cmdq_write(struct venus_hfi_device *device, void *pkt)
 		/* Consumer of cmdq prefers that we raise an interrupt */
 		rc = 0;
 		__write_register(device, VIDC_CPU_IC_SOFTINT,
-				1 << VIDC_CPU_IC_SOFTINT_H2A_SHFT);
+				VIDC_CPU_IC_SOFTINT_H2A_SHFT);
 	}
 
 	return rc;
@@ -1550,7 +1533,7 @@ static int __iface_msgq_read(struct venus_hfi_device *device, void *pkt)
 		__hal_sim_modify_msg_packet((u8 *)pkt, device);
 		if (tx_req_is_set)
 			__write_register(device, VIDC_CPU_IC_SOFTINT,
-				1 << VIDC_CPU_IC_SOFTINT_H2A_SHFT);
+				VIDC_CPU_IC_SOFTINT_H2A_SHFT);
 		rc = 0;
 	} else
 		rc = -ENODATA;
@@ -1582,7 +1565,7 @@ static int __iface_dbgq_read(struct venus_hfi_device *device, void *pkt)
 	if (!__read_queue(q_info, (u8 *)pkt, &tx_req_is_set)) {
 		if (tx_req_is_set)
 			__write_register(device, VIDC_CPU_IC_SOFTINT,
-				1 << VIDC_CPU_IC_SOFTINT_H2A_SHFT);
+				VIDC_CPU_IC_SOFTINT_H2A_SHFT);
 		rc = 0;
 	} else
 		rc = -ENODATA;
@@ -1771,7 +1754,7 @@ static void __interface_queues_release(struct venus_hfi_device *device)
 			false, device->res, HAL_BUFFER_INTERNAL_CMD_QUEUE);
 
 		for (i = 0; cb && i < num_entries; i++) {
-			iommu_unmap(cb->mapping->domain,
+			iommu_unmap(cb->domain,
 						mem_map[i].virtual_addr,
 						mem_map[i].size);
 		}
@@ -1805,7 +1788,7 @@ static void __interface_queues_release(struct venus_hfi_device *device)
 }
 
 static int __get_qdss_iommu_virtual_addr(struct venus_hfi_device *dev,
-		struct hfi_mem_map *mem_map, struct dma_iommu_mapping *mapping)
+		struct hfi_mem_map *mem_map, struct iommu_domain *domain)
 {
 	int i;
 	int rc = 0;
@@ -1817,8 +1800,8 @@ static int __get_qdss_iommu_virtual_addr(struct venus_hfi_device *dev,
 		return -ENODATA;
 
 	for (i = 0; i < num_entries; i++) {
-		if (mapping) {
-			rc = iommu_map(mapping->domain, iova,
+		if (domain) {
+			rc = iommu_map(domain, iova,
 					qdss_addr_tbl[i].start,
 					qdss_addr_tbl[i].size,
 					IOMMU_READ | IOMMU_WRITE);
@@ -1846,8 +1829,8 @@ static int __get_qdss_iommu_virtual_addr(struct venus_hfi_device *dev,
 		dprintk(VIDC_ERR,
 			"QDSS mapping failed, Freeing other entries %d\n", i);
 
-		for (--i; mapping && i >= 0; i--) {
-			iommu_unmap(mapping->domain,
+		for (--i; domain && i >= 0; i--) {
+			iommu_unmap(domain,
 				mem_map[i].virtual_addr,
 				mem_map[i].size);
 		}
@@ -2001,7 +1984,7 @@ static int __interface_queues_init(struct venus_hfi_device *dev)
 			return -EINVAL;
 		}
 
-		rc = __get_qdss_iommu_virtual_addr(dev, mem_map, cb->mapping);
+		rc = __get_qdss_iommu_virtual_addr(dev, mem_map, cb->domain);
 		if (rc) {
 			dprintk(VIDC_ERR,
 				"IOMMU mapping failed, Freeing qdss memdata\n");
@@ -5151,10 +5134,6 @@ void venus_hfi_delete_device(void *device)
 		return;
 
 	dev = (struct venus_hfi_device *) device;
-
-	mutex_lock(&dev->lock);
-	__iommu_detach(dev);
-	mutex_unlock(&dev->lock);
 
 	list_for_each_entry_safe(close, tmp, &hal_ctxt.dev_head, list) {
 		if (close->hal_data->irq == dev->hal_data->irq) {
