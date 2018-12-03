@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,6 +11,8 @@
  */
 
 #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
+#include <linux/suspend.h>
+
 #include "msm_drv.h"
 
 #include "sde_kms.h"
@@ -586,11 +588,16 @@ void sde_connector_complete_commit(struct drm_connector *connector)
 	/* signal connector's retire fence */
 	sde_fence_signal(&to_sde_connector(connector)->retire_fence, 0);
 
-	/*
-	 * After LK totally exits, LK's early splash resource
-	 * should be released.
+	/* If below both 2 conditions are met, LK's early splash resources
+	 * should be freed.
+	 *	1) When get_hibernation_status() is returned as true.
+	 *		a. hibernation image snapshot failed.
+	 *		b. hibernation restore successful.
+	 *		c. hibernation restore failed.
+	 *	2) After LK totally exits.
 	 */
-	if (sde_splash_get_lk_complete_status(priv->kms)) {
+	if (get_hibernation_status() &&
+		sde_splash_get_lk_complete_status(priv->kms)) {
 		c_conn = to_sde_connector(connector);
 
 		sde_splash_free_resource(priv->kms, &priv->phandle,

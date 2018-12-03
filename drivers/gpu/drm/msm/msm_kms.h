@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, 2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -98,6 +98,7 @@ struct msm_kms_funcs {
 			struct drm_encoder *slave_encoder,
 			bool is_cmd_mode);
 	void (*postopen)(struct msm_kms *kms, struct drm_file *file);
+	bool (*early_display_status)(struct msm_kms *kms);
 	/* cleanup: */
 	void (*preclose)(struct msm_kms *kms, struct drm_file *file);
 	void (*postclose)(struct msm_kms *kms, struct drm_file *file);

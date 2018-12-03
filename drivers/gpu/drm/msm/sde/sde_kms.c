@@ -1171,6 +1171,13 @@ static void sde_kms_preclose(struct msm_kms *kms, struct drm_file *file)
 		sde_crtc_cancel_pending_flip(priv->crtcs[i], file);
 }
 
+static bool sde_kms_early_display_status(struct msm_kms *kms)
+{
+	struct sde_kms *sde_kms = to_sde_kms(kms);
+
+	return sde_kms->splash_info.handoff;
+}
+
 static const struct msm_kms_funcs kms_funcs = {
 	.hw_init         = sde_kms_hw_init,
 	.postinit        = sde_kms_postinit,
@@ -1190,6 +1197,7 @@ static const struct msm_kms_funcs kms_funcs = {
 	.get_format      = sde_get_msm_format,
 	.round_pixclk    = sde_kms_round_pixclk,
 	.destroy         = sde_kms_destroy,
+	.early_display_status = sde_kms_early_display_status,
 };
 
 /* the caller api needs to turn on clock before calling it */
