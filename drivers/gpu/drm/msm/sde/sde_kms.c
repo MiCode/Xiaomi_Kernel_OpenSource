@@ -1429,6 +1429,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.cmd_transfer = NULL,
 		.cont_splash_config = NULL,
 		.get_panel_vfp = NULL,
+		.update_pps = dp_connector_update_pps,
 	};
 	struct msm_display_info info;
 	struct drm_encoder *encoder;

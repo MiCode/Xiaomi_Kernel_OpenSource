@@ -22,6 +22,10 @@
 #include "dp_usbpd.h"
 #include "sde_edid_parser.h"
 #include "sde_connector.h"
+#include "msm_drv.h"
+
+#define DP_RECEIVER_DSC_CAP_SIZE    15
+#define DP_RECEIVER_FEC_STATUS_SIZE 3
 
 /*
  * A source initiated power down flag is set
@@ -57,11 +61,14 @@ struct dp_panel_info {
 	u32 pixel_clk_khz;
 	u32 bpp;
 	bool widebus_en;
+	struct msm_compression_info comp_info;
 };
 
 struct dp_display_mode {
 	struct dp_panel_info timing;
 	u32 capabilities;
+	s64 fec_overhead_fp;
+	s64 dsc_overhead_fp;
 };
 
 struct dp_panel;
@@ -76,12 +83,21 @@ struct dp_panel_in {
 	struct dp_parser *parser;
 };
 
+struct dp_dsc_caps {
+	bool dsc_capable;
+	u8 version;
+	bool block_pred_en;
+};
+
 struct dp_audio;
 
 struct dp_panel {
 	/* dpcd raw data */
 	u8 dpcd[DP_RECEIVER_CAP_SIZE + 1];
 	u8 ds_ports[DP_MAX_DOWNSTREAM_PORTS];
+	u8 dsc_dpcd[DP_RECEIVER_DSC_CAP_SIZE + 1];
+	u8 fec_dpcd;
+	u8 fec_sts_dpcd[DP_RECEIVER_FEC_STATUS_SIZE + 1];
 
 	struct drm_dp_link link_info;
 	struct sde_edid_ctrl *edid_ctrl;
@@ -109,8 +125,16 @@ struct dp_panel {
 
 	struct dp_audio *audio;
 	bool audio_supported;
+
+	struct dp_dsc_caps sink_dsc_caps;
+	bool dsc_feature_enable;
+	bool fec_feature_enable;
+	bool dsc_en;
+	bool fec_en;
 	bool widebus_en;
 	bool mst_state;
+
+	s64 fec_overhead_fp;
 
 	int (*init)(struct dp_panel *dp_panel);
 	int (*deinit)(struct dp_panel *dp_panel, u32 flags);
@@ -141,6 +165,7 @@ struct dp_panel {
 	void (*convert_to_dp_mode)(struct dp_panel *dp_panel,
 		const struct drm_display_mode *drm_mode,
 		struct dp_display_mode *dp_mode);
+	void (*update_pps)(struct dp_panel *dp_panel, char *pps_cmd);
 };
 
 struct dp_tu_calc_input {

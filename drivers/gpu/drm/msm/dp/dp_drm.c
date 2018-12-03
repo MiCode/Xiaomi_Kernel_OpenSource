@@ -374,6 +374,7 @@ int dp_connector_get_mode_info(struct drm_connector *connector,
 	struct msm_display_topology *topology;
 	struct sde_connector *sde_conn;
 	struct dp_panel *dp_panel;
+	struct dp_display_mode dp_mode;
 
 	if (!drm_mode || !mode_info || !max_mixer_width || !connector) {
 		pr_err("invalid params\n");
@@ -395,6 +396,15 @@ int dp_connector_get_mode_info(struct drm_connector *connector,
 	mode_info->vtotal = drm_mode->vtotal;
 
 	mode_info->wide_bus_en = dp_panel->widebus_en;
+
+	if (dp_panel->dsc_en) {
+		dp_panel->convert_to_dp_mode(dp_panel, drm_mode, &dp_mode);
+		memcpy(&mode_info->comp_info,
+			&dp_mode.timing.comp_info,
+			sizeof(mode_info->comp_info));
+
+		topology->num_enc = topology->num_lm;
+	}
 
 	return 0;
 }
@@ -595,4 +605,25 @@ enum drm_mode_status dp_connector_mode_valid(struct drm_connector *connector,
 	mode->vrefresh = drm_mode_vrefresh(mode);
 
 	return dp_disp->validate_mode(dp_disp, sde_conn->drv_panel, mode);
+}
+
+int dp_connector_update_pps(struct drm_connector *connector,
+		char *pps_cmd, void *display)
+{
+	struct dp_display *dp_disp;
+	struct sde_connector *sde_conn;
+
+	if (!display || !connector) {
+		pr_err("invalid params\n");
+		return -EINVAL;
+	}
+
+	sde_conn = to_sde_connector(connector);
+	if (!sde_conn->drv_panel) {
+		pr_err("invalid dp panel\n");
+		return MODE_ERROR;
+	}
+
+	dp_disp = display;
+	return dp_disp->update_pps(dp_disp, connector, pps_cmd);
 }
