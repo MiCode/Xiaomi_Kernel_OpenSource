@@ -17,6 +17,7 @@
 #include <linux/of.h>
 #include <linux/pm_runtime.h>
 #include <linux/memblock.h>
+#include <linux/completion.h>
 #include <soc/qcom/ramdump.h>
 
 #include "main.h"
@@ -570,6 +571,11 @@ static void cnss_qca6290_crash_shutdown(struct cnss_pci_data *pci_priv)
 	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_RDDM_KERNEL_PANIC);
 	if (ret) {
 		cnss_pr_err("Fail to complete RDDM, err = %d\n", ret);
+		return;
+	}
+
+	if (test_bit(CNSS_MHI_RDDM_DONE, &plat_priv->driver_state)) {
+		cnss_pr_dbg("RDDM already collected, return\n");
 		return;
 	}
 
@@ -1511,8 +1517,15 @@ int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv)
 	if (!plat_priv)
 		return -ENODEV;
 
+	if (test_bit(CNSS_MHI_RDDM_DONE, &pci_priv->mhi_state)) {
+		cnss_pr_err("RDDM already collected 0x%lx, return\n",
+			    pci_priv->mhi_state);
+		return 0;
+	}
+
 	ret = cnss_pci_set_mhi_state(pci_priv,
 				     CNSS_MHI_TRIGGER_RDDM);
+
 	if (ret) {
 		cnss_pr_err("Failed to trigger RDDM, err = %d\n", ret);
 		cnss_schedule_recovery(&pci_priv->pci_dev->dev,
@@ -1912,6 +1925,8 @@ static char *cnss_mhi_state_to_str(enum cnss_mhi_state mhi_state)
 		return "RDDM_KERNEL_PANIC";
 	case CNSS_MHI_NOTIFY_LINK_ERROR:
 		return "NOTIFY_LINK_ERROR";
+	case CNSS_MHI_RDDM_DONE:
+		return "RDDM_DONE";
 	default:
 		return "UNKNOWN";
 	}
@@ -1974,6 +1989,9 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv)
 
 	if (dump_data->nentries > 0)
 		plat_priv->ramdump_info_v2.dump_data_valid = true;
+
+	cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_RDDM_DONE);
+	complete(&plat_priv->rddm_complete);
 }
 
 void cnss_pci_clear_dump_info(struct cnss_pci_data *pci_priv)
@@ -2118,6 +2136,7 @@ static int cnss_pci_check_mhi_state_bit(struct cnss_pci_data *pci_priv,
 	case CNSS_MHI_RDDM:
 	case CNSS_MHI_RDDM_KERNEL_PANIC:
 	case CNSS_MHI_NOTIFY_LINK_ERROR:
+	case CNSS_MHI_RDDM_DONE:
 		return 0;
 	default:
 		cnss_pr_err("Unhandled MHI state: %s(%d)\n",
@@ -2146,6 +2165,7 @@ static void cnss_pci_set_mhi_state_bit(struct cnss_pci_data *pci_priv,
 		break;
 	case CNSS_MHI_POWER_OFF:
 		clear_bit(CNSS_MHI_POWER_ON, &pci_priv->mhi_state);
+		clear_bit(CNSS_MHI_RDDM_DONE, &pci_priv->mhi_state);
 		break;
 	case CNSS_MHI_SUSPEND:
 		set_bit(CNSS_MHI_SUSPEND, &pci_priv->mhi_state);
@@ -2157,6 +2177,9 @@ static void cnss_pci_set_mhi_state_bit(struct cnss_pci_data *pci_priv,
 	case CNSS_MHI_RDDM:
 	case CNSS_MHI_RDDM_KERNEL_PANIC:
 	case CNSS_MHI_NOTIFY_LINK_ERROR:
+		break;
+	case CNSS_MHI_RDDM_DONE:
+		set_bit(CNSS_MHI_RDDM_DONE, &pci_priv->mhi_state);
 		break;
 	default:
 		cnss_pr_err("Unhandled MHI state (%d)\n", mhi_state);
@@ -2188,6 +2211,7 @@ int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 
 	cnss_pr_dbg("Setting MHI state: %s(%d)\n",
 		    cnss_mhi_state_to_str(mhi_state), mhi_state);
+
 	ret = mhi_pm_control_device(&pci_priv->mhi_dev, mhi_dev_state);
 	if (ret) {
 		cnss_pr_err("Failed to set MHI state: %s(%d)\n",

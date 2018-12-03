@@ -24,6 +24,7 @@
 #include "qmi.h"
 
 #define MAX_NO_OF_MAC_ADDR		4
+#define CNSS_RDDM_TIMEOUT_MS		20000
 
 #define CNSS_EVENT_SYNC   BIT(0)
 #define CNSS_EVENT_UNINTERRUPTIBLE BIT(1)
@@ -225,6 +226,7 @@ struct cnss_plat_data {
 	u8 *diag_reg_read_buf;
 	void *caldb_mem;
 	bool cal_done;
+	struct completion rddm_complete;
 };
 
 struct cnss_plat_data *cnss_get_plat_priv(struct platform_device *plat_dev);
