@@ -15,6 +15,9 @@ extern int of_get_dma_window(struct device_node *dn, const char *prefix,
 extern const struct iommu_ops *of_iommu_configure(struct device *dev,
 					struct device_node *master_np);
 
+extern int of_iommu_fill_fwspec(struct device *dev, struct of_phandle_args
+				*iommu_spec);
+
 #else
 
 static inline int of_get_dma_window(struct device_node *dn, const char *prefix,
