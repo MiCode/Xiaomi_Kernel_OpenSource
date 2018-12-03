@@ -885,7 +885,6 @@ void clk_zonda_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 	/* Place the PLL in STANDBY mode */
 	regmap_update_bits(regmap, PLL_MODE(pll),
 				 PLL_RESET_N, PLL_RESET_N);
-	pll->inited = true;
 }
 
 static int clk_zonda_pll_enable(struct clk_hw *hw)
@@ -904,11 +903,6 @@ static int clk_zonda_pll_enable(struct clk_hw *hw)
 		if (ret)
 			return ret;
 		return wait_for_pll_enable_active(pll);
-	}
-
-	if (unlikely(!pll->inited)) {
-		clk_zonda_pll_configure(pll, pll->clkr.regmap,
-						pll->config);
 	}
 
 	/* Get the PLL out of bypass mode */
@@ -1496,14 +1490,6 @@ static int lucid_pll_is_enabled(struct clk_alpha_pll *pll,
 void clk_lucid_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 				const struct alpha_pll_config *config)
 {
-	/*
-	 * Disable the PLL if it's already been initialized. Not doing so might
-	 * lead to the PLL running with the old frequency configuration.
-	 */
-	if (pll->inited) {
-		regmap_update_bits(regmap, PLL_MODE(pll),
-						PLL_RESET_N, 0);
-	}
 	if (config->l)
 		regmap_write(regmap, PLL_L_VAL(pll), config->l);
 
@@ -1566,7 +1552,6 @@ void clk_lucid_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 	/* Place the PLL in STANDBY mode */
 	regmap_update_bits(regmap, PLL_MODE(pll),
 				 PLL_RESET_N, PLL_RESET_N);
-	pll->inited = true;
 }
 
 static int alpha_pll_lucid_enable(struct clk_hw *hw)
@@ -1585,11 +1570,6 @@ static int alpha_pll_lucid_enable(struct clk_hw *hw)
 		if (ret)
 			return ret;
 		return wait_for_pll_enable_active(pll);
-	}
-
-	if (unlikely(!pll->inited)) {
-		clk_lucid_pll_configure(pll, pll->clkr.regmap,
-						pll->config);
 	}
 
 	/* Set operation mode to RUN */

@@ -49,7 +49,6 @@ struct pll_vco {
 /**
  * struct clk_alpha_pll - phase locked loop (PLL)
  * @offset: base address of registers
- * @inited: flag that's set when the PLL is initialized
  * @vco_table: array of VCO settings
  * @regs: alpha pll register map (see @clk_alpha_pll_regs)
  * @clkr: regmap clock handle
@@ -58,7 +57,6 @@ struct clk_alpha_pll {
 	u32 offset;
 	const u8 *regs;
 	struct alpha_pll_config *config;
-	bool inited;
 	const struct pll_vco *vco_table;
 	size_t num_vco;
 #define SUPPORTS_OFFLINE_REQ	BIT(0)
