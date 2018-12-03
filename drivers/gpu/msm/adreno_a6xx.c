@@ -2190,12 +2190,16 @@ static struct adreno_coresight a6xx_coresight = {
 	.registers = a6xx_coresight_regs,
 	.count = ARRAY_SIZE(a6xx_coresight_regs),
 	.groups = a6xx_coresight_groups,
+	.read = kgsl_regread,
+	.write = kgsl_regwrite,
 };
 
 static struct adreno_coresight a6xx_coresight_cx = {
 	.registers = a6xx_coresight_regs_cx,
 	.count = ARRAY_SIZE(a6xx_coresight_regs_cx),
 	.groups = a6xx_coresight_groups_cx,
+	.read = adreno_cx_dbgc_regread,
+	.write = adreno_cx_dbgc_regwrite,
 };
 
 static struct adreno_perfcount_register a6xx_perfcounters_cp[] = {
