@@ -398,7 +398,6 @@ static ssize_t qpnp_vib_set_activate(struct device *dev,
 				 (vib->vib_play_ms % 1000) * 1000000),
 					HRTIMER_MODE_REL);
 	}
-	vib->vib_play_ms = 0;
 	mutex_unlock(&vib->lock);
 	schedule_work(&vib->work);
 
