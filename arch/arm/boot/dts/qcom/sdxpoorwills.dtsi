@@ -1391,7 +1391,7 @@
 			compatible = "qcom,ess-switch-qca83xx";
 			qcom,switch-access-mode = "mdio";
 			qcom,ar8327-initvals = <
-				0x00004 0x7600000   /* PAD0_MODE */
+				0x00004 0x4200000   /* PAD0_MODE */
 				0x00008 0x0         /* PAD5_MODE */
 				0x000e4 0xaa545     /* MAC_POWER_SEL */
 				0x000e0 0xc74164de  /* SGMII_CTRL */

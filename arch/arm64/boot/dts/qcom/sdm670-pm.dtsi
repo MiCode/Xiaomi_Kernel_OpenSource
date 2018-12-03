@@ -195,5 +195,6 @@
 	qcom,rpmh-master-stats@b221200 {
 		compatible = "qcom,rpmh-master-stats-v1";
 		reg = <0xb221200 0x60>;
+		qcom,use-alt-unit = <3>;
 	};
 };
