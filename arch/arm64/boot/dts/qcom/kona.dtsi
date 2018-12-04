@@ -1661,6 +1661,16 @@
 		memory-region = <&pil_video_mem>;
 	};
 
+	qcom,npu@9800000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0x9800000 0x800000>;
+
+		status = "ok";
+		qcom,pas-id = <23>;
+		qcom,firmware-name = "npu";
+		memory-region = <&pil_npu_mem>;
+	};
+
 	qcom,msm-cdsp-loader {
 		compatible = "qcom,cdsp-loader";
 		qcom,proc-img-to-load = "cdsp";
