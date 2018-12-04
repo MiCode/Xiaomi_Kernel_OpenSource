@@ -159,7 +159,6 @@ struct external_imu_format {
 	s16 mz3; //368 bytes
 };
 
-int qvr_send_package_wrap(u8 *message, int msize, struct hid_device *hid);
 void qvr_clear_def_parmeter(void);
 void qvr_init(struct hid_device *hdev);
 int qvr_input_init(void);
