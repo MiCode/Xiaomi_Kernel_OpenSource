@@ -1155,7 +1155,7 @@
 			qcom,bus-dev = <&fab_mmss_noc>;
 			qcom,bcms = <&bcm_mm3>;
 			qcom,ap-owned;
-			qcom,prio = <0>;
+			qcom,prio = <5>;
 			qcom,forwarding;
 			qcom,node-qos-bcms = <7012 0 1>;
 		};
