@@ -771,6 +771,7 @@ static int msm_init_cm_dll(struct sdhci_host *host)
 		u32 mclk_freq = 0;
 
 		switch (host->clock) {
+		case 208000000:
 		case 202000000:
 		case 201500000:
 		case 200000000:
