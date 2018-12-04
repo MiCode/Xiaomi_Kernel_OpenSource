@@ -10,4 +10,4 @@
  * GNU General Public License for more details.
  */
 
-#include "sdxprairie.dtsi"
+#include "sdxprairie-pmic-overlay.dtsi"

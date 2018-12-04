@@ -97,6 +97,9 @@
 	#size-cells = <1>;
 	ranges;
 
+	thermal_zones: thermal-zones {
+	};
+
 	intc: interrupt-controller@17800000 {
 		compatible = "qcom,msm-qgic2";
 		interrupt-controller;
@@ -256,6 +259,25 @@
 		clock-names = "xo_clk_src";
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		#clock-cells = <1>;
+	};
+
+	spmi_bus: qcom,spmi@c440000 {
+		compatible = "qcom,spmi-pmic-arb";
+		reg = <0xc440000 0xd00>,
+		      <0xc600000 0xff0110>,
+		      <0xe600000 0x7fa0>,
+		      <0xe700000 0x40>,
+		      <0xc40a000 0xb00>;
+		reg-names = "core", "chnls", "obsrvr", "intr", "cnfg";
+		interrupt-names = "periph_irq";
+		interrupts = <GIC_SPI 148 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,ee = <0>;
+		qcom,channel = <0>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+		interrupt-controller;
+		#interrupt-cells = <4>;
+		cell-index = <0>;
 	};
 
 	serial_uart: serial@831000 {
