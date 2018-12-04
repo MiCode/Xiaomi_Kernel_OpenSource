@@ -1572,6 +1572,30 @@
 
 };
 
+&spmi_bus {
+	qcom,pm6125@0 {
+		pm6125_adc_tm_iio: adc_tm@3400 {
+			compatible = "qcom,adc-tm5-iio";
+			reg = <0x3400 0x100>;
+			#thermal-sensor-cells = <1>;
+			io-channels = <&pm6125_vadc ADC_GPIO1_PU2>,
+					<&pm6125_vadc ADC_GPIO3_PU2>;
+
+			emmc_ufs_therm {
+				reg = <ADC_GPIO1_PU2>;
+				qcom,ratiometric;
+				qcom,hw-settle-time = <200>;
+			};
+
+			camera_flash_therm {
+				reg = <ADC_GPIO3_PU2>;
+				qcom,ratiometric;
+				qcom,hw-settle-time = <200>;
+			};
+		};
+	};
+};
+
 &pm6125_adc_tm {
 	io-channels = <&pm6125_vadc ADC_AMUX_THM1_PU2>,
 			<&pm6125_vadc ADC_AMUX_THM2_PU2>,
@@ -1699,3 +1723,4 @@
 &usb0 {
 	extcon = <&pmi632_charger>;
 };
+#include "trinket-thermal.dtsi"
