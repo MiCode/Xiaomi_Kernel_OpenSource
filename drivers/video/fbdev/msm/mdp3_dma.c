@@ -1084,12 +1084,17 @@ static int mdp3_dma_stop(struct mdp3_dma *dma, struct mdp3_intf *intf)
 
 	/*
 	 * Interrupts are disabled.
-	 * Check for blocked dma done interrupt.
-	 * Flush items waiting for dma done interrupt.
+	 * Check for blocked dma done and vsync interrupt.
+	 * Flush items waiting for interrupts.
 	 */
-	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_CMD &&
-		atomic_read(&dma->session->dma_done_cnt))
-		mdp3_flush_dma_done(dma->session);
+	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_CMD) {
+		if (atomic_read(&dma->session->dma_done_cnt))
+			mdp3_flush_dma_done(dma->session);
+		if (dma->session->retire_cnt) {
+			mdp3_vsync_retire_signal(dma->session->mfd,
+			dma->session->retire_cnt);
+		}
+	}
 
 	return ret;
 }
