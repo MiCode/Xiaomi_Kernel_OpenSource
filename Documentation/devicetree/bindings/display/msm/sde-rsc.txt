@@ -4,7 +4,8 @@ Snapdragon Display Engine implements display rsc to driver
 display core to different modes for power saving
 
 Required properties
-- compatible:			Must be "qcom,sde-rsc"
+- compatible:			"qcom,sde-rsc"
+				"qcom,sde-rsc-rpmh"
 - reg:				Offset and length of the register set for
 				the device.
 - reg-names:			Names to refer to register sets related
