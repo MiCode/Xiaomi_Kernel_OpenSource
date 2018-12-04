@@ -619,8 +619,9 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 					&shadow_status);
 
 				dev_crit_ratelimited(device->dev,
-					"AHB fence stuck in ISR: Shadow INT status=%8.8X\n",
-					shadow_status & irq_params->mask);
+					"Status=0x%x Unmasked status=0x%x Mask=0x%x\n",
+					shadow_status & irq_params->mask,
+					shadow_status, irq_params->mask);
 				goto done;
 			}
 			fence_retries++;
