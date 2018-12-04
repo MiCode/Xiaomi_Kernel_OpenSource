@@ -3193,10 +3193,6 @@ static void gsi_unbind(struct usb_configuration *c, struct usb_function *f)
 		mbim_gsi_ext_config_desc.function.subCompatibleID[0] = 0;
 
 	usb_free_all_descriptors(f);
-	f->hs_descriptors = NULL;
-	f->fs_descriptors = NULL;
-	f->ss_descriptors = NULL;
-	f->ssp_descriptors = NULL;
 
 	if (gsi->c_port.notify) {
 		kfree(gsi->c_port.notify_req->buf);
