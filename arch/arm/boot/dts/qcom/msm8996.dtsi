@@ -1904,7 +1904,7 @@
 
 		boot_stats@6b0 {
 			compatible = "qcom,msm-imem-boot_stats";
-			reg = <0x6b0 32>;
+			reg = <0x6b0 44>;
 		};
 
 		pil@94c {
