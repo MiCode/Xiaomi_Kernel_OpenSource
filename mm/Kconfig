@@ -182,6 +182,25 @@ config MEMORY_HOTPLUG_DEFAULT_ONLINE
 	  Say N here if you want the default policy to keep all hot-plugged
 	  memory blocks in 'offline' state.
 
+config MEMORY_HOTPLUG_MOVABLE_NODE
+        bool "Add hot-added memory blocks to ZONE_MOVABLE type"
+        default n
+        depends on MEMORY_HOTPLUG
+        depends on QCOM_MEM_OFFLINE
+        help
+	  When onlining memory blocks, this option helps to add the target
+	  memory block to ZONE_MOVABLE zone type. For successful offlining,
+	  these memory blocks should belong to 'ZONE_MOVABLE' since it carries
+	  only movable pages. When this option is not set, the default zone
+	  policy is to add the blocks to 'ZONE_NORMAL' which may pin pages.
+
+	  See Documentation/memory-hotplug.txt for more information.
+
+	  Say Y here if you want all hot-added memory blocks to be added to
+	  'ZONE_MOVABLE' type.state by default.
+	  Say N here if you want the default policy to add all hot-added
+	  memory blocks in 'ZONE_NORMAL' type.
+
 config MEMORY_HOTREMOVE
 	bool "Allow for memory hot remove"
 	select MEMORY_ISOLATION
