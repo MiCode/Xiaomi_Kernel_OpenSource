@@ -1739,8 +1739,9 @@ static inline int adreno_perfcntr_active_oob_get(struct kgsl_device *device)
 	if (!ret) {
 		ret = gmu_core_dev_oob_set(device, oob_perfcntr);
 		if (ret) {
+			gmu_core_snapshot(device);
 			adreno_set_gpu_fault(ADRENO_DEVICE(device),
-				ADRENO_GMU_FAULT);
+				ADRENO_GMU_FAULT_SKIP_SNAPSHOT);
 			adreno_dispatcher_schedule(device);
 			kgsl_active_count_put(device);
 		}
