@@ -2675,6 +2675,7 @@
 
 &pmi632_adc_tm {
 	io-channels = <&pmi632_vadc ADC_GPIO1_PU2>,
+			<&pmi632_vadc ADC_VBAT_SNS>,
 			<&pmi632_vadc ADC_GPIO2_PU2>;
 
 	/* Channel nodes */
@@ -2682,6 +2683,13 @@
 		reg = <ADC_GPIO1_PU2>;
 		qcom,ratiometric;
 		qcom,hw-settle-time = <200>;
+	};
+
+	vbat_sns {
+		reg = <ADC_VBAT_SNS>;
+		qcom,kernel-client;
+		qcom,scale-type = <0>;
+		qcom,prescaling = <3>;
 	};
 
 	skin_therm {
