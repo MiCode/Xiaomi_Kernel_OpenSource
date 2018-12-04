@@ -126,6 +126,9 @@ int dwc3_host_init(struct dwc3 *dwc)
 	if (dwc->revision <= DWC3_REVISION_300A)
 		props[prop_idx++].name = "quirk-broken-port-ped";
 
+	if (dwc->host_poweroff_in_pm_suspend)
+		props[prop_idx++].name = "host-poweroff-in-pm-suspend";
+
 	if (prop_idx) {
 		ret = platform_device_add_properties(xhci, props);
 		if (ret) {
