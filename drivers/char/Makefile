@@ -67,3 +67,5 @@ ifdef CONFIG_COMPAT
 obj-$(CONFIG_MSM_ADSPRPC)       += adsprpc_compat.o
 endif
 obj-$(CONFIG_MSM_RDBG)		+= rdbg.o
+obj-$(CONFIG_OKL4_PIPE)		+= okl4_pipe.o
+CFLAGS_okl4_pipe.o			+= -Werror
