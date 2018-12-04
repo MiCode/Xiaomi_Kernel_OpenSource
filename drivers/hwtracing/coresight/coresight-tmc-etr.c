@@ -870,7 +870,7 @@ static struct etr_buf *tmc_alloc_etr_buf(struct tmc_drvdata *drvdata,
 	return etr_buf;
 }
 
-static void tmc_free_etr_buf(struct etr_buf *etr_buf)
+void tmc_free_etr_buf(struct etr_buf *etr_buf)
 {
 	WARN_ON(!etr_buf->ops || !etr_buf->ops->free);
 	etr_buf->ops->free(etr_buf);
@@ -1113,6 +1113,282 @@ void tmc_etr_disable_hw(struct tmc_drvdata *drvdata)
 	drvdata->etr_buf = NULL;
 }
 
+static int tmc_etr_fill_usb_bam_data(struct tmc_drvdata *drvdata)
+{
+	struct tmc_etr_bam_data *bamdata = drvdata->bamdata;
+	dma_addr_t data_fifo_iova, desc_fifo_iova;
+
+	get_qdss_bam_connection_info(&bamdata->dest,
+				    &bamdata->dest_pipe_idx,
+				    &bamdata->src_pipe_idx,
+				    &bamdata->desc_fifo,
+				    &bamdata->data_fifo,
+				    NULL);
+
+	if (bamdata->props.options & SPS_BAM_SMMU_EN) {
+		data_fifo_iova = dma_map_resource(drvdata->csdev->dev.parent,
+			bamdata->data_fifo.phys_base, bamdata->data_fifo.size,
+			DMA_BIDIRECTIONAL, 0);
+		if (!data_fifo_iova)
+			return -ENOMEM;
+		dev_dbg(&drvdata->csdev->dev,
+			"%s:data p_addr:%pa,iova:%pad,size:%x\n",
+			__func__, &(bamdata->data_fifo.phys_base),
+			&data_fifo_iova, bamdata->data_fifo.size);
+		bamdata->data_fifo.iova = data_fifo_iova;
+		desc_fifo_iova = dma_map_resource(drvdata->csdev->dev.parent,
+			bamdata->desc_fifo.phys_base, bamdata->desc_fifo.size,
+			DMA_BIDIRECTIONAL, 0);
+		if (!desc_fifo_iova)
+			return -ENOMEM;
+		dev_dbg(&drvdata->csdev->dev,
+			"%s:desc p_addr:%pa,iova:%pad,size:%x\n",
+			__func__, &(bamdata->desc_fifo.phys_base),
+			&desc_fifo_iova, bamdata->desc_fifo.size);
+		bamdata->desc_fifo.iova = desc_fifo_iova;
+	}
+	return 0;
+}
+
+static void __tmc_etr_enable_to_bam(struct tmc_drvdata *drvdata)
+{
+	struct tmc_etr_bam_data *bamdata = drvdata->bamdata;
+	uint32_t axictl;
+
+	if (drvdata->enable_to_bam)
+		return;
+
+	/* Configure and enable required CSR registers */
+	msm_qdss_csr_enable_bam_to_usb(drvdata->csr);
+
+	/* Configure and enable ETR for usb bam output */
+
+	CS_UNLOCK(drvdata->base);
+
+	writel_relaxed(bamdata->data_fifo.size / 4, drvdata->base + TMC_RSZ);
+	writel_relaxed(TMC_MODE_CIRCULAR_BUFFER, drvdata->base + TMC_MODE);
+
+	axictl = readl_relaxed(drvdata->base + TMC_AXICTL);
+	axictl |= (0xF << 8);
+	writel_relaxed(axictl, drvdata->base + TMC_AXICTL);
+	axictl &= ~(0x1 << 7);
+	writel_relaxed(axictl, drvdata->base + TMC_AXICTL);
+	axictl = (axictl & ~0x3) | 0x2;
+	writel_relaxed(axictl, drvdata->base + TMC_AXICTL);
+
+	if (bamdata->props.options & SPS_BAM_SMMU_EN) {
+		writel_relaxed((uint32_t)bamdata->data_fifo.iova,
+		       drvdata->base + TMC_DBALO);
+		writel_relaxed((((uint64_t)bamdata->data_fifo.iova) >> 32)
+			& 0xFF, drvdata->base + TMC_DBAHI);
+	} else {
+		writel_relaxed((uint32_t)bamdata->data_fifo.phys_base,
+		       drvdata->base + TMC_DBALO);
+		writel_relaxed((((uint64_t)bamdata->data_fifo.phys_base) >> 32)
+			& 0xFF, drvdata->base + TMC_DBAHI);
+	}
+	/* Set FOnFlIn for periodic flush */
+	writel_relaxed(0x133, drvdata->base + TMC_FFCR);
+	writel_relaxed(drvdata->trigger_cntr, drvdata->base + TMC_TRG);
+	tmc_enable_hw(drvdata);
+
+	CS_LOCK(drvdata->base);
+
+	drvdata->enable_to_bam = true;
+}
+
+static int get_usb_bam_iova(struct device *dev, unsigned long usb_bam_handle,
+				unsigned long *iova)
+{
+	int ret = 0;
+	phys_addr_t p_addr;
+	u32 bam_size;
+
+	ret = sps_get_bam_addr(usb_bam_handle, &p_addr, &bam_size);
+	if (ret) {
+		dev_err(dev, "sps_get_bam_addr failed at handle:%lx, err:%d\n",
+			usb_bam_handle, ret);
+		return ret;
+	}
+	*iova = dma_map_resource(dev, p_addr, bam_size, DMA_BIDIRECTIONAL, 0);
+	if (!(*iova))
+		return -ENOMEM;
+	return 0;
+}
+
+static int tmc_etr_bam_enable(struct tmc_drvdata *drvdata)
+{
+	struct tmc_etr_bam_data *bamdata = drvdata->bamdata;
+	unsigned long iova;
+	int ret;
+
+	if (bamdata->enable)
+		return 0;
+
+	/* Reset bam to start with */
+	ret = sps_device_reset(bamdata->handle);
+	if (ret)
+		goto err0;
+
+	/* Now configure and enable bam */
+
+	bamdata->pipe = sps_alloc_endpoint();
+	if (!bamdata->pipe)
+		return -ENOMEM;
+
+	ret = sps_get_config(bamdata->pipe, &bamdata->connect);
+	if (ret)
+		goto err1;
+
+	bamdata->connect.mode = SPS_MODE_SRC;
+	bamdata->connect.source = bamdata->handle;
+	bamdata->connect.event_thresh = 0x4;
+	bamdata->connect.src_pipe_index = TMC_ETR_BAM_PIPE_INDEX;
+	bamdata->connect.options = SPS_O_AUTO_ENABLE;
+
+	bamdata->connect.destination = bamdata->dest;
+	bamdata->connect.dest_pipe_index = bamdata->dest_pipe_idx;
+	bamdata->connect.desc = bamdata->desc_fifo;
+	bamdata->connect.data = bamdata->data_fifo;
+
+	if (bamdata->props.options & SPS_BAM_SMMU_EN) {
+		ret = get_usb_bam_iova(drvdata->csdev->dev.parent,
+				bamdata->dest, &iova);
+		if (ret)
+			goto err1;
+		bamdata->connect.dest_iova = iova;
+	}
+	ret = sps_connect(bamdata->pipe, &bamdata->connect);
+	if (ret)
+		goto err1;
+
+	bamdata->enable = true;
+	return 0;
+err1:
+	sps_free_endpoint(bamdata->pipe);
+err0:
+	return ret;
+}
+
+static void tmc_wait_for_flush(struct tmc_drvdata *drvdata)
+{
+	int count;
+
+	/* Ensure no flush is in progress */
+	for (count = TIMEOUT_US;
+	     BVAL(readl_relaxed(drvdata->base + TMC_FFSR), 0) != 0
+	     && count > 0; count--)
+		udelay(1);
+	WARN(count == 0, "timeout while waiting for TMC flush, TMC_FFSR: %#x\n",
+	     readl_relaxed(drvdata->base + TMC_FFSR));
+}
+
+void __tmc_etr_disable_to_bam(struct tmc_drvdata *drvdata)
+{
+	if (!drvdata->enable_to_bam)
+		return;
+
+	/* Ensure periodic flush is disabled in CSR block */
+	msm_qdss_csr_disable_flush(drvdata->csr);
+
+	CS_UNLOCK(drvdata->base);
+
+	tmc_wait_for_flush(drvdata);
+	tmc_disable_hw(drvdata);
+
+	CS_LOCK(drvdata->base);
+
+	/* Disable CSR configuration */
+	msm_qdss_csr_disable_bam_to_usb(drvdata->csr);
+	drvdata->enable_to_bam = false;
+}
+
+void tmc_etr_bam_disable(struct tmc_drvdata *drvdata)
+{
+	struct tmc_etr_bam_data *bamdata = drvdata->bamdata;
+
+	if (!bamdata->enable)
+		return;
+
+	sps_disconnect(bamdata->pipe);
+	sps_free_endpoint(bamdata->pipe);
+	bamdata->enable = false;
+}
+
+void usb_notifier(void *priv, unsigned int event, struct qdss_request *d_req,
+		  struct usb_qdss_ch *ch)
+{
+	struct tmc_drvdata *drvdata = priv;
+	unsigned long flags;
+	int ret = 0;
+
+	mutex_lock(&drvdata->mem_lock);
+	if (event == USB_QDSS_CONNECT) {
+		ret = tmc_etr_fill_usb_bam_data(drvdata);
+		if (ret)
+			dev_err(&drvdata->csdev->dev,
+			"ETR get usb bam data failed\n");
+		ret = tmc_etr_bam_enable(drvdata);
+		if (ret)
+			dev_err(&drvdata->csdev->dev,
+			"ETR BAM enable failed\n");
+
+		spin_lock_irqsave(&drvdata->spinlock, flags);
+		__tmc_etr_enable_to_bam(drvdata);
+		spin_unlock_irqrestore(&drvdata->spinlock, flags);
+	} else if (event == USB_QDSS_DISCONNECT) {
+		spin_lock_irqsave(&drvdata->spinlock, flags);
+		__tmc_etr_disable_to_bam(drvdata);
+		spin_unlock_irqrestore(&drvdata->spinlock, flags);
+		tmc_etr_bam_disable(drvdata);
+	}
+	mutex_unlock(&drvdata->mem_lock);
+}
+
+int tmc_etr_bam_init(struct amba_device *adev,
+		     struct tmc_drvdata *drvdata)
+{
+	int ret;
+	struct device *dev = &adev->dev;
+	struct resource res;
+	struct tmc_etr_bam_data *bamdata;
+	int s1_bypass = 0;
+	struct iommu_domain *domain;
+
+	bamdata = devm_kzalloc(dev, sizeof(*bamdata), GFP_KERNEL);
+	if (!bamdata)
+		return -ENOMEM;
+	drvdata->bamdata = bamdata;
+
+	ret = of_address_to_resource(adev->dev.of_node, 1, &res);
+	if (ret)
+		return -ENODEV;
+
+	bamdata->props.phys_addr = res.start;
+	bamdata->props.virt_addr = devm_ioremap(dev, res.start,
+						resource_size(&res));
+	if (!bamdata->props.virt_addr)
+		return -ENOMEM;
+	bamdata->props.virt_size = resource_size(&res);
+
+	bamdata->props.event_threshold = 0x4; /* Pipe event threshold */
+	bamdata->props.summing_threshold = 0x10; /* BAM event threshold */
+	bamdata->props.irq = 0;
+	bamdata->props.num_pipes = TMC_ETR_BAM_NR_PIPES;
+	domain = iommu_get_domain_for_dev(dev);
+	if (domain) {
+		iommu_domain_get_attr(domain, DOMAIN_ATTR_S1_BYPASS,
+			&s1_bypass);
+		if (!s1_bypass) {
+			pr_info("%s: setting SPS_BAM_SMMU_EN flag with (%s)\n",
+			__func__, dev_name(dev));
+			bamdata->props.options |= SPS_BAM_SMMU_EN;
+		}
+	}
+
+	return sps_register_bam_device(&bamdata->props, &bamdata->handle);
+}
+
 static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 {
 	int ret = 0;
@@ -1134,13 +1410,34 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 	if (!sysfs_buf || (sysfs_buf->size != drvdata->size)) {
 		spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
-		/* Allocate memory with the locks released */
-		free_buf = new_buf = tmc_etr_setup_sysfs_buf(drvdata);
-		if (IS_ERR(new_buf)) {
-			mutex_unlock(&drvdata->mem_lock);
-			return PTR_ERR(new_buf);
+		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
+			/*
+			 * ETR DDR memory is not allocated until user enables
+			 * tmc at least once. If user specifies different ETR
+			 * DDR size than the default size or switches between
+			 * contiguous or scatter-gather memory type after
+			 * enabling tmc; the new selection will be honored from
+			 * next tmc enable session.
+			 */
+			/* Allocate memory with the locks released */
+			free_buf = new_buf = tmc_etr_setup_sysfs_buf(drvdata);
+			if (IS_ERR(new_buf)) {
+				mutex_unlock(&drvdata->mem_lock);
+				return PTR_ERR(new_buf);
+			}
+			coresight_cti_map_trigout(drvdata->cti_flush, 3, 0);
+			coresight_cti_map_trigin(drvdata->cti_reset, 2, 0);
+		} else {
+			drvdata->usbch = usb_qdss_open("qdss", drvdata,
+								usb_notifier);
+			if (IS_ERR_OR_NULL(drvdata->usbch)) {
+				dev_err(&drvdata->csdev->dev,
+					"usb_qdss_open failed\n");
+				ret = PTR_ERR(drvdata->usbch);
+				mutex_unlock(&drvdata->mem_lock);
+				return ret;
+			}
 		}
-		/* Let's try again */
 		spin_lock_irqsave(&drvdata->spinlock, flags);
 	}
 
@@ -1651,8 +1948,17 @@ static int tmc_disable_etr_sink(struct coresight_device *csdev)
 	/* Complain if we (somehow) got out of sync */
 	WARN_ON_ONCE(drvdata->mode == CS_MODE_DISABLED);
 	if (drvdata->mode != CS_MODE_DISABLED) {
-		if (drvdata->out_mode != TMC_ETR_OUT_MODE_USB)
+		if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
+			__tmc_etr_disable_to_bam(drvdata);
+			spin_unlock_irqrestore(&drvdata->spinlock, flags);
+			tmc_etr_bam_disable(drvdata);
+			usb_qdss_close(drvdata->usbch);
+			drvdata->mode = CS_MODE_DISABLED;
+			goto out;
+		} else {
 			tmc_etr_disable_hw(drvdata);
+		}
+		drvdata->mode = CS_MODE_DISABLED;
 	}
 	/* Dissociate from monitored process. */
 	drvdata->pid = -1;
@@ -1670,6 +1976,7 @@ static int tmc_disable_etr_sink(struct coresight_device *csdev)
 		tmc_etr_free_sysfs_buf(drvdata->etr_buf);
 		drvdata->etr_buf = NULL;
 	}
+out:
 	mutex_unlock(&drvdata->mem_lock);
 	dev_info(&csdev->dev, "TMC-ETR disabled\n");
 	return 0;
