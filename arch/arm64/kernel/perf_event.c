@@ -784,6 +784,41 @@ static void armv8pmu_start(struct arm_pmu *cpu_pmu)
 	armv8pmu_pmcr_write(armv8pmu_pmcr_read() | ARMV8_PMU_PMCR_E);
 	raw_spin_unlock_irqrestore(&events->pmu_lock, flags);
 }
+#ifdef CONFIG_KRYO_PMU_WORKAROUND
+static inline u32 armv8pmu_get_enabled_ints(void)
+{
+	u32 int_enset;
+
+	int_enset = read_sysreg(pmintenset_el1);
+	write_sysreg(0xffffffff, pmintenclr_el1);
+	isb();
+	return int_enset;
+}
+
+static inline u32 armv8pmu_update_enabled_ints(u32 value, int idx, int set)
+{
+	if (set)
+		value |=  BIT(ARMV8_IDX_TO_COUNTER(idx));
+	else
+		value &= ~(BIT(ARMV8_IDX_TO_COUNTER(idx)));
+
+	return value;
+}
+
+static inline void armv8pmu_set_enabled_ints(u32 mask)
+{
+	write_sysreg(mask, pmintenset_el1);
+	isb();
+}
+#else
+static inline u32 armv8pmu_get_enabled_ints(void)
+{ return 0; }
+
+static inline u32 armv8pmu_update_enabled_ints(u32 value, int idx, int set)
+{ return value; }
+
+static inline void armv8pmu_set_enabled_ints(u32 mask) { }
+#endif
 
 static void armv8pmu_stop(struct arm_pmu *cpu_pmu)
 {
@@ -803,6 +838,12 @@ static irqreturn_t armv8pmu_handle_irq(struct arm_pmu *cpu_pmu)
 	struct pmu_hw_events *cpuc = this_cpu_ptr(cpu_pmu->hw_events);
 	struct pt_regs *regs;
 	int idx;
+	u32 enabled_ints;
+
+	/*
+	 * Get enabled the PMU interrupts and mask all PMU interrupts.
+	 */
+	enabled_ints = armv8pmu_get_enabled_ints();
 
 	/*
 	 * Get and reset the IRQ flags
@@ -846,8 +887,16 @@ static irqreturn_t armv8pmu_handle_irq(struct arm_pmu *cpu_pmu)
 		if (!armpmu_event_set_period(event))
 			continue;
 
-		if (perf_event_overflow(event, &data, regs))
+		if (perf_event_overflow(event, &data, regs)) {
 			cpu_pmu->disable(event);
+
+			/*
+			 * Update the list of interrupts
+			 * that should be reenabled.
+			 */
+			enabled_ints = armv8pmu_update_enabled_ints(
+					enabled_ints, idx, 0);
+		}
 	}
 	armv8pmu_start(cpu_pmu);
 
@@ -859,6 +908,11 @@ static irqreturn_t armv8pmu_handle_irq(struct arm_pmu *cpu_pmu)
 	 * will not work.
 	 */
 	irq_work_run();
+
+	/*
+	 * Re-enable the PMU interrupts
+	 */
+	armv8pmu_set_enabled_ints(enabled_ints);
 
 	return IRQ_HANDLED;
 }
