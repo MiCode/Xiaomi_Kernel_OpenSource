@@ -17,6 +17,7 @@
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/of_platform.h>
+#include <linux/iopoll.h>
 #include "msm_sd.h"
 #include "msm_early_cam.h"
 #include "msm_cam_cci_hwreg.h"
@@ -37,6 +38,12 @@
 #define MSM_EARLY_CAM_DRV_NAME "msm_early_cam"
 static struct platform_driver msm_early_camera_driver;
 static struct early_cam_device *new_early_cam_dev;
+
+#define MMSS_A_VFE_0_BASE 0x00A10000
+#define MMSS_A_VFE_0_SIZE 0x1000
+#define EARLY_CAMERA_SIGNAL_DONE 0xa5a5a5a5
+#define EARLY_CAMERA_SIGNAL_DISABLED 0
+#define MMSS_A_VFE_0_SPARE 0xC84
 
 int msm_early_cam_disable_clocks(void)
 {
@@ -253,6 +260,19 @@ int msm_ais_disable_clocks(void)
 	return 0;
 
 }
+
+void msm_early_camera_wait(void)
+{
+	u32 val = 0;
+	void __iomem *base;
+
+	base = ioremap(MMSS_A_VFE_0_BASE, MMSS_A_VFE_0_SIZE);
+	readl_poll_timeout(base + MMSS_A_VFE_0_SPARE, val,
+		((val == EARLY_CAMERA_SIGNAL_DONE)
+		|| (val == EARLY_CAMERA_SIGNAL_DISABLED)), 0, 0);
+	iounmap(base);
+}
+
 static int msm_early_cam_probe(struct platform_device *pdev)
 {
 	int rc = 0;

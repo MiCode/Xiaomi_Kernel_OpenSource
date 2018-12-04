@@ -53,4 +53,5 @@ struct early_cam_device {
 int msm_early_cam_disable_clocks(void);
 int msm_ais_enable_clocks(void);
 int msm_ais_disable_clocks(void);
+void msm_early_camera_wait(void);
 #endif
