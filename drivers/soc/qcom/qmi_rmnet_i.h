@@ -22,8 +22,7 @@
 
 #define MAX_CLIENT_NUM 2
 #define MAX_FLOW_NUM 32
-#define DEFAULT_GRANT 1
-#define DFC_MAX_BEARERS_V01 16
+#define DEFAULT_GRANT 10240
 
 struct rmnet_flow_map {
 	struct list_head list;
@@ -116,7 +115,6 @@ int qmi_rmnet_flow_control(struct net_device *dev, u32 tcm_handle, int enable);
 
 void dfc_qmi_wq_flush(struct qmi_info *qmi);
 
-void dfc_qmi_query_flow(void *dfc_data);
 #else
 static inline struct rmnet_flow_map *
 qmi_rmnet_get_flow_map(struct qos_info *qos_info,
@@ -149,11 +147,6 @@ dfc_qmi_burst_check(struct net_device *dev, struct qos_info *qos,
 
 static inline void
 dfc_qmi_wq_flush(struct qmi_info *qmi)
-{
-}
-
-static inline void
-dfc_qmi_query_flow(void *dfc_data)
 {
 }
 #endif
