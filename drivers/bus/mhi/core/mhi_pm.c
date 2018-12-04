@@ -1019,6 +1019,7 @@ int mhi_pm_resume(struct mhi_controller *mhi_cntrl)
 	}
 
 	/* set dev to M0 and wait for completion */
+	mhi_cntrl->wake_get(mhi_cntrl, true);
 	mhi_set_mhi_state(mhi_cntrl, MHI_STATE_M0);
 	write_unlock_irq(&mhi_cntrl->pm_lock);
 
@@ -1026,6 +1027,10 @@ int mhi_pm_resume(struct mhi_controller *mhi_cntrl)
 				 mhi_cntrl->dev_state == MHI_STATE_M0 ||
 				 MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state),
 				 msecs_to_jiffies(mhi_cntrl->timeout_ms));
+
+	read_lock_bh(&mhi_cntrl->pm_lock);
+	mhi_cntrl->wake_put(mhi_cntrl, false);
+	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	if (!ret || MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state)) {
 		MHI_ERR("Did not enter M0 state, cur_state:%s pm_state:%s\n",
