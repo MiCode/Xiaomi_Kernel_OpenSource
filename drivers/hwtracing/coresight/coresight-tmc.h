@@ -13,6 +13,9 @@
 #include <asm/cacheflush.h>
 #include <linux/of_address.h>
 #include <linux/amba/bus.h>
+#include <linux/usb_bam.h>
+#include <linux/msm-sps.h>
+#include <linux/usb/usb_qdss.h>
 #include <linux/coresight-cti.h>
 
 #include "coresight-byte-cntr.h"
@@ -96,6 +99,8 @@
 #define TMC_DEVID_AXIAW_VALID	BIT(16)
 #define TMC_DEVID_AXIAW_SHIFT	17
 #define TMC_DEVID_AXIAW_MASK	0x7f
+#define TMC_ETR_BAM_PIPE_INDEX	0
+#define TMC_ETR_BAM_NR_PIPES	2
 
 enum tmc_config_type {
 	TMC_CONFIG_TYPE_ETB,
@@ -152,6 +157,18 @@ static const char * const str_tmc_etr_out_mode[] = {
 	[TMC_ETR_OUT_MODE_USB]		= "usb",
 };
 
+struct tmc_etr_bam_data {
+	struct sps_bam_props	props;
+	unsigned long		handle;
+	struct sps_pipe		*pipe;
+	struct sps_connect	connect;
+	uint32_t		src_pipe_idx;
+	unsigned long		dest;
+	uint32_t		dest_pipe_idx;
+	struct sps_mem_buffer	desc_fifo;
+	struct sps_mem_buffer	data_fifo;
+	bool			enable;
+};
 struct etr_buf_operations;
 
 struct etr_flat_buf {
@@ -223,6 +240,9 @@ struct tmc_drvdata {
 	struct coresight_csr	*csr;
 	const char		*csr_name;
 	bool			enable;
+	struct usb_qdss_ch	*usbch;
+	struct tmc_etr_bam_data	*bamdata;
+	bool			enable_to_bam;
 	struct coresight_cti	*cti_flush;
 	struct coresight_cti	*cti_reset;
 	enum tmc_etr_out_mode	out_mode;
@@ -288,8 +308,15 @@ ssize_t tmc_etb_get_sysfs_trace(struct tmc_drvdata *drvdata,
 /* ETR functions */
 int tmc_read_prepare_etr(struct tmc_drvdata *drvdata);
 int tmc_read_unprepare_etr(struct tmc_drvdata *drvdata);
+void tmc_free_etr_buf(struct etr_buf *etr_buf);
+void __tmc_etr_disable_to_bam(struct tmc_drvdata *drvdata);
+void tmc_etr_bam_disable(struct tmc_drvdata *drvdata);
 void tmc_etr_enable_hw(struct tmc_drvdata *drvdata);
 void tmc_etr_disable_hw(struct tmc_drvdata *drvdata);
+void usb_notifier(void *priv, unsigned int event, struct qdss_request *d_req,
+		  struct usb_qdss_ch *ch);
+int tmc_etr_bam_init(struct amba_device *adev,
+		     struct tmc_drvdata *drvdata);
 extern struct byte_cntr *byte_cntr_init(struct amba_device *adev,
 					struct tmc_drvdata *drvdata);
 extern const struct coresight_ops tmc_etr_cs_ops;
