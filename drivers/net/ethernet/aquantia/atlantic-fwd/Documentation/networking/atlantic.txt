@@ -1,0 +1,283 @@
+
+
+
+Supported hardware
+------------------
+
+AQC-107 / -108 / -109, revisions B0 / B1. FW versions 1.x / 2.x / 3.x
+supported
+
+
+
+Features / acceleration
+-----------------------
+
+ - Message-signalled interrupts
+ - Hardware VLAN tag offloads
+ - Hardware checksum offloads:
+    - IPv4 header checksums
+    - UDP / TCP checksums with IPv4 and IPv6
+ - Hardware LSO for TCP v4/v6
+ - Hardware LRO for TCP v4/v6
+   - Coalescing TCP segments with TCP options not supported due to a
+     HW limitation
+ - Software GRO using the Linux NAPI GRO interface
+ - Hardware Rx header splitting
+ - RSS over up to 8 queues using MSI-X
+ - Linear skb receive mode
+ - N-tuple Rx filters
+ - Runtime power management
+ - Hardware MACSEC offload
+
+
+Building and installation
+-------------------------
+
+1. Unpack the archive into a directory of your choice.
+
+2. Change to that directory and compile the module:
+   	$  make [KDIR=<path to kernel headers>]
+
+   Explicitly specifying KDIR is only necessary when the headers can't
+   be found automatically via the
+   /lib/modules/`uname -r`/{build,source} symlinks
+
+3. Load the module
+   	# insmod atlnew.ko [<module parameters>]
+
+4. Unload the module
+   	# rmmod atlnew
+
+
+
+Device configuration
+--------------------
+
+ # ip link set up dev <ifname>
+ # ip addr add <IP addr>/<CIDR prefix length> brd + dev	<ifname>
+
+Add a VLAN ID:
+ # ip link add link <ifname> name <ifname>.<VLAN id> type vlan id <VLAN id>
+ # ip link set up dev <ifname>.<VLAN id>
+
+Remove a VLAN ID:
+ # ip link del dev <ifname>.<VLAN id>
+
+
+
+Module parameters
+-----------------
+
+Module parameters may be specified at module load time on the insmod
+command line or via modprobe.conf files. Some parameters marked as
+[RW] below can also be changed at run time via files in
+/sys/module/atlnew/parameters directory
+
+ - msi = < 1 | 0 > (default: 1) [RO]
+       	Enable use of MSI interrupts.
+
+ - rx_refill_batch = <num> (default: 16) [RW]
+   	Number of cleaned Rx ring descriptors to trigger Rx refill
+
+ - tx_clean_budget = <num> (default: 256) [RW]
+   	Max number of processed Tx descriptors to clean in one pass of
+   	NAPI poll
+
+ - max_queues = <num> (default: 8) [RO]
+	Max number of RSS queues. The actual number of queues will the
+	minimum of this parameter and the number of logical CPUs in
+	the system.
+
+ - rx_linear = <0 | 1> (default: 0)
+	Enables linear skb receive mode. Frames larger than
+	ATL_RX_BUF_SIZE defined in atl_ring.h will be dropped.
+
+ - min_intr_delay (default: 10) [RW]
+	When an interrupt is about to be asserted on an LRO-enabled
+	queue, LRO requires some lead time to close and flush
+	in-progress flows. This parameter sets the LRO interrupt delay
+	and provides the lower boundary for interrupt coalescing
+	delays settable via ethtool. When modified, the new value
+	takes effect on interface down/up cycle or on setting an
+	interrupt coalescing delay via ethtool.
+
+ - rx_mod_hyst (default: 10) [RW]
+ - tx_mod_hyst (default: 10) [RW]
+	Each ring has two interrupt coalescing timers. When an
+	interrupt-causing event happens, they're initialized with
+	values called minimum and maximum respectively. The former
+	timer is restarted each time another such event happens, while
+	the latter keeps running. When either timer reaches zero, the
+	interrupt is reported to the host. The minimum value is set
+	via ethtool. These module parameters set the difference
+	between the maximum and minimum values for Rx and Tx
+	paths. When modified, the new max values go into effect upon
+	interface down/up cycle or upon modifying ethtool interrupt
+	coalescing settings.
+
+- keep_link = < 1 | 0 > (default: 0) [RO]
+	When set to 1, the ethernet link is established at PCI probe
+	time, and is not dropped on ifdown. This allows the rings
+	allocated to forwarding engines to handle traffic even when
+	linux network interface is down.
+
+- sleep_delay = (default: 10000) [RW]
+  Delay in ms after link goes down to suspend the device if runtime power
+  management is turned on.
+
+- macsec_bridge = < 1 | 0 > (default: 1) [RO]
+  When set to 0, several SecY can be created, macsec will filter by source mac
+  address to apply apropriate SecY.
+  By default, only 1 SecY can be created, macsec will handle all packets.
+
+- rx/tx_ring_size = <8..8184> (default: 4096) [RO]
+  Default size for the rings.
+
+VLAN filters
+------------
+
+Sixteen VLAN filters are programmable via the ethtool -N interface using
+locations 0 through 15. The only flow-type supported is ether and only
+VLAN id can be matched.
+
+For VLAN filters only, it's possible not to specify an explicit
+filter location. In this case an appropriate location will be assigned
+automatically.
+
+These filters are also used for HW filter acceleration for Linux VLAN
+subdevices. Filters automatically added by Linux VLAN code can be
+overridden using ethtool subject to restrictions described below:
+
+* A special ring number 32 is used in ethtool interface to signify
+  'any ring'. An ethtool filter rule with ring set to 32 accepts a
+  packet leaving the ring to be determined using the standard RSS
+  mechanism. VLAN code adds rules in this manner. Such a rule can be
+  modified using ethool to set a specific destination ring.
+
+* There can't be two filters with the same VID. An attempt to add a
+  duplicate filter using an explicit location different from the
+  location of existing filter with the same VID will fail. When the
+  location is not specified, the existing filter will be modified.
+
+* An attempt to change the VID of a filter added by VLAN code using an
+  explicit location will fail. Either use a different explicit
+  location or no location.
+
+* An attempt to delete a rule created by VLAN code will return
+  success, but the rule will remain in place. If a specific ring was
+  set in the rule, it will be reset to 'any ring'.
+
+* If a VLAN sub-device is added when there're no unused filters, VLAN
+  promiscuous mode will be enabled. This will result in all VIDs being
+  accepted. Filters can still be used to direct specific VIDs to
+  specific rings.
+
+* Even when all 16 filters are used, attempting to add a rule with a
+  new VID via ethtool will succeed as long as at least one existing
+  filter was set by VLAN code and still has 'any ring' as
+  destination. This filter will be re-used for the new rule and VLAN
+  promiscuous mode will be enabled.
+
+* When a filter becomes available as a result of a deletion of a VLAN
+  subdevice or a deletion of an ethtool filter rule, and a VLAN
+  promiscuous mode is enabled, the vacated filter will be re-used for
+  another enabled VLAN subdevice. This may result in VLAN promiscuous
+  mode being turned off if that VLAN subdevice was the last one with
+  no filter allocated.
+
+Ethertype filters
+-----------------
+
+Fifteen ethertype filters are programmable via the ethtool -N
+interface using locations 16 through 30. The only flow-type supported
+is ether and only the ethertype field can be matched.
+
+N-tuple filters
+---------------
+
+Eight IPv4 n-tuple filters are supported, programmable using ethtool
+-N command with filter locations 32 through 39.
+
+Fields that can be matched are source / destination IP addresses, and,
+for TCP / UDP / SCTP protocols, additionally source / destination
+ports can be matched. Partial (masked) matches are not supported, a
+mask for each field must consist of either all ones or all zeroes.
+
+Each aligned group of four filters (locations 32 through 35 or 36
+through 39) can alternatively be used as one IPv6 filter, using filter
+locations 32 or 36.
+
+
+
+Testing forwarding performance
+------------------------------
+
+Since this is a design for a router, the best way to test would be
+between our aquantia port and another high speed port on the same
+DUT. However, in the situation where the Aquantia interface is the
+only high speed one, we have devised the following testing strategy
+to emulate these two ports on same DUT.
+
+One of the simplest ways is to set up two VLAN interfaces and forward
+traffic between them as in the following example:
+
+Set up two VLANs with examlple ids 42 and 43 on the Aquantia
+interface, assign the switch port connected to it to both of those
+VLANs.
+# ip link set up dev <iface>
+# ip link add link <iface> name <iface>.42 type vlan id 42
+# ip link add link <iface> name <iface>.43 type vlan id 43
+# ip link set up dev <iface>.42
+# ip link set up dev <iface>.43
+# ip addr add 10.42.42.1/24 brd + dev <iface>.42
+# ip addr add 10.42.43.1/24 brd + dev <iface>.43
+# sysctl net.ipv4.ip_forward=1
+
+This sets up two VLAN interfaces with VLAN ids 42 and 43 and enables
+IP routing. Two hosts should be set up to generate and terminate the
+traffic:
+
+On a host on the 42 VLAN with IP 10.42.42.xx run
+ $ iperf3 -s
+On a host on the 43 VLAN run
+ $ iperf3 -c 10.42.42.xx
+
+Another possibility is to use a single host running Linux as a link
+partner both generating and terminating the traffic. Two VLAN
+sub-interfaces should be configured on a high-speed port on that host,
+belonging to VLAN 42 / IP network 10.42.42/24 and VLAN 43 / IP network
+10.42.43/24 respectively.
+
+Since, by default, traffic addressed to one of the local IPs is
+received locally, a special configuration of Linux policy routing is
+required to make such traffic actually go out on the wire to the DUT,
+as described below, where <lp_iface> stands for the chosen network interface:
+
+# ip rule add table local prio 100
+# ip rule del table local prio 0
+# ip rule add iif lo table 42 prio 42
+# ip link set up dev <lp_iface>
+
+# ip link add link <lp_iface> name <lp_iface>.42 type vlan id 42
+# ip link add link <lp_iface> name <lp_iface>.43 type vlan id 43
+# ip link set up dev <lp_iface>.42
+# ip link set up dev <lp_iface>.43
+# ip addr add 10.42.42.10/24 brd + dev <lp_iface>.42
+# ip addr add 10.42.43.10/24 brd + dev <lp_iface>.43
+
+# ip route add 10.42.42.10 via 10.42.43.1 table 42
+# ip route add 10.42.43.10 via 10.42.42.1 table 42
+
+This routes the locally-originated traffic, that is addressed to the local IP
+of one of the VLAN interfaces, out via the other VLAN interface, instead of
+being immediately looped back locally.
+
+
+$ iperf3 -s
+
+$ iperf3 -c 10.42.42.10
+
+The following command can be used to restore the default routing
+behavior:
+
+# ip route flush table 42
