@@ -170,6 +170,7 @@ static int msm_tdm_num_slots = 8;
 
 static void *adsp_state_notifier;
 static bool dummy_device_registered;
+static struct snd_soc_card  *sndcard;
 
 enum {
 	QUATERNARY_TDM_RX_0,
@@ -6902,6 +6903,7 @@ static int apq8096_asoc_machine_probe(struct platform_device *pdev)
 	}
 	dev_info(&pdev->dev, "Sound card %s registered\n", card->name);
 	place_marker("M - DRIVER Audio Ready");
+	sndcard = card;
 	return 0;
 
 err:
@@ -6912,6 +6914,7 @@ static int apq8096_asoc_machine_remove(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
 
+	sndcard = NULL;
 	snd_soc_unregister_card(card);
 
 	return 0;
@@ -6958,6 +6961,22 @@ static int  apq8096_adsp_state_callback(struct notifier_block *nb,
 		platform_driver_register(&apq8096_asoc_machine_dummy_driver);
 		platform_device_register(&dummy_machine_device);
 		dummy_device_registered = true;
+	}
+	if (sndcard) {
+		switch (value) {
+		case SUBSYS_AFTER_POWERUP:
+			pr_debug("%s:SSR complete, set sndcard state as ONLINE\n",
+				__func__);
+			snd_soc_card_change_online_state(sndcard, 1);
+			break;
+		case SUBSYS_AFTER_SHUTDOWN:
+			pr_debug("%s:SSR start, set sndcard state as OFFLINE\n",
+				__func__);
+			snd_soc_card_change_online_state(sndcard, 0);
+			break;
+		default:
+			pr_debug("%s: unsupport value\n", __func__);
+		}
 	}
 
 	return NOTIFY_OK;
