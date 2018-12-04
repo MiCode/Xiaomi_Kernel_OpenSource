@@ -52,8 +52,6 @@ enum MHI_DEBUG_LEVEL  mhi_ipc_log_lvl = MHI_MSG_LVL_ERROR;
 
 #endif
 
-extern void pm_runtime_init(struct device *dev);
-
 static int mhi_arch_set_bus_request(struct mhi_controller *mhi_cntrl, int index)
 {
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
@@ -105,7 +103,7 @@ static int mhi_arch_esoc_ops_power_on(void *priv, bool mdm_state)
 	MHI_LOG("Enter\n");
 
 	/* reset rpm state */
-	pm_runtime_init(&pci_dev->dev);
+	pm_runtime_set_active(&pci_dev->dev);
 	pm_runtime_enable(&pci_dev->dev);
 	mutex_unlock(&mhi_cntrl->pm_mutex);
 	pm_runtime_forbid(&pci_dev->dev);
