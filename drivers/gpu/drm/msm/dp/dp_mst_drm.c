@@ -22,6 +22,7 @@
 #include <drm/drm_atomic.h>
 #include <drm/drm_crtc.h>
 #include <drm/drm_dp_mst_helper.h>
+#include <drm/drm_fixed.h>
 
 #include "msm_drv.h"
 #include "msm_kms.h"
@@ -36,7 +37,7 @@
 #define HPD_STRING_SIZE			30
 
 struct dp_drm_mst_fw_helper_ops {
-	int (*calc_pbn_mode)(int clock, int bpp);
+	int (*calc_pbn_mode)(struct dp_display_mode *dp_mode);
 	int (*find_vcpi_slots)(struct drm_dp_mst_topology_mgr *mgr, int pbn);
 	int (*atomic_find_vcpi_slots)(struct drm_atomic_state *state,
 				  struct drm_dp_mst_topology_mgr *mgr,
@@ -361,8 +362,35 @@ static void _dp_mst_get_vcpi_info(
 			vcpi, *start_slot, *num_slots);
 }
 
+static int dp_mst_calc_pbn_mode(struct dp_display_mode *dp_mode)
+{
+	int pbn, bpp;
+	bool dsc_en;
+	s64 pbn_fp;
+
+	dsc_en = dp_mode->timing.comp_info.comp_ratio ? true : false;
+	bpp = dsc_en ? dp_mode->timing.comp_info.dsc_info.bpp :
+		dp_mode->timing.bpp;
+
+	pbn = drm_dp_calc_pbn_mode(dp_mode->timing.pixel_clk_khz, bpp);
+	pbn_fp = drm_fixp_from_fraction(pbn, 1);
+
+	pr_debug("before overhead pbn:%d, bpp:%d\n", pbn, bpp);
+
+	if (dsc_en)
+		pbn_fp = drm_fixp_mul(pbn_fp, dp_mode->dsc_overhead_fp);
+
+	if (dp_mode->fec_overhead_fp)
+		pbn_fp = drm_fixp_mul(pbn_fp, dp_mode->fec_overhead_fp);
+
+	pbn = drm_fixp2int(pbn_fp);
+
+	pr_debug("after overhead pbn:%d, bpp:%d\n", pbn, bpp);
+	return pbn;
+}
+
 static const struct dp_drm_mst_fw_helper_ops drm_dp_mst_fw_helper_ops = {
-	.calc_pbn_mode             = drm_dp_calc_pbn_mode,
+	.calc_pbn_mode             = dp_mst_calc_pbn_mode,
 	.find_vcpi_slots           = drm_dp_find_vcpi_slots,
 	.atomic_find_vcpi_slots    = drm_dp_atomic_find_vcpi_slots,
 	.allocate_vcpi             = drm_dp_mst_allocate_vcpi,
@@ -379,7 +407,7 @@ static const struct dp_drm_mst_fw_helper_ops drm_dp_mst_fw_helper_ops = {
 };
 
 static const struct dp_drm_mst_fw_helper_ops drm_dp_sim_mst_fw_helper_ops = {
-	.calc_pbn_mode             = drm_dp_calc_pbn_mode,
+	.calc_pbn_mode             = dp_mst_calc_pbn_mode,
 	.find_vcpi_slots           = drm_dp_find_vcpi_slots,
 	.atomic_find_vcpi_slots    = drm_dp_atomic_find_vcpi_slots,
 	.allocate_vcpi             = drm_dp_mst_allocate_vcpi,
@@ -465,8 +493,7 @@ static int _dp_mst_compute_config(struct drm_atomic_state *state,
 
 	DP_MST_DEBUG("enter\n");
 
-	pbn = mst->mst_fw_cbs->calc_pbn_mode(mode->timing.pixel_clk_khz,
-			mode->timing.bpp);
+	pbn = mst->mst_fw_cbs->calc_pbn_mode(mode);
 
 	slots = mst->mst_fw_cbs->atomic_find_vcpi_slots(state,
 			&mst->mst_mgr, c_conn->mst_port, pbn);
@@ -552,9 +579,7 @@ static void _dp_mst_bridge_pre_enable_part1(struct dp_mst_bridge *dp_bridge)
 		return;
 	}
 
-	pbn = mst->mst_fw_cbs->calc_pbn_mode(
-			dp_bridge->dp_mode.timing.pixel_clk_khz,
-			dp_bridge->dp_mode.timing.bpp);
+	pbn = mst->mst_fw_cbs->calc_pbn_mode(&dp_bridge->dp_mode);
 
 	slots = mst->mst_fw_cbs->find_vcpi_slots(&mst->mst_mgr, pbn);
 
@@ -1042,8 +1067,7 @@ enum drm_mode_status dp_mst_connector_mode_valid(
 	dp_display->convert_to_dp_mode(dp_display, c_conn->drv_panel,
 			mode, &dp_mode);
 
-	required_pbn = mst->mst_fw_cbs->calc_pbn_mode(
-			dp_mode.timing.pixel_clk_khz, dp_mode.timing.bpp);
+	required_pbn = mst->mst_fw_cbs->calc_pbn_mode(&dp_mode);
 	required_slots = mst->mst_fw_cbs->find_vcpi_slots(
 			&mst->mst_mgr, required_pbn);
 
