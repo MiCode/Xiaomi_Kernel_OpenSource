@@ -23,6 +23,7 @@
 	qcom,chgr-led-support;
 	qcom,vddmax-mv = <4400>;
 	qcom,vddsafe-mv = <4400>;
+	qcom,batt-hot-percentage = <35>;
 };
 
 &pm8916_bms{
