@@ -7943,6 +7943,20 @@ void ipa3_read_mailbox_17(enum uc_state state)
 }
 
 /**
+ * ipa3_is_apq() - indicate apq platform or not
+ *
+ * Return value: true if apq, false if not apq platform
+ *
+ */
+bool ipa3_is_apq(void)
+{
+	if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ)
+		return true;
+	else
+		return false;
+}
+
+/**
  * ipa3_disable_prefetch() - disable\enable tx prefetch
  *
  * @client: the client which is related to the TX where prefetch will be
