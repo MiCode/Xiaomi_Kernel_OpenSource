@@ -57,7 +57,7 @@
 		qcom,snapshot-size = <1048576>;
 
 		/* base addr, size */
-		qcom,gpu-qdss-stm = <0x16140000 0x40000>;
+		qcom,gpu-qdss-stm = <0x161c0000 0x40000>;
 		#cooling-cells = <2>;
 
 		clocks = <&clock_gpucc GPU_CC_GX_GFX3D_CLK>,
