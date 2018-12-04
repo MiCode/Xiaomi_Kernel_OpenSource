@@ -37,6 +37,16 @@ of A5, IPE and BPS devices present on the hardware.
   Value type: <u32>
   Definition: Number of supported BPS HW blocks.
 
+- icp_pc_en
+  Usage: optional
+  Value type: boolean
+  Definition: Specifies ICP power collapse enablement
+
+- ipe_bps_pc_en
+  Usage: optional
+  Value type: boolean
+  Definition: Specifies IPE/BPS power collapse enablement
+
 Example:
 	qcom,cam-icp {
 		compatible = "qcom,cam-icp";
@@ -44,6 +54,8 @@ Example:
 		num-a5 = <1>;
 		num-ipe = <2>;
 		num-bps = <1>;
+		icp_pc_en;
+		ipe_bps_pc_en;
 		status = "ok";
 	};
 

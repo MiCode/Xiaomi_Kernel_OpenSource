@@ -76,7 +76,6 @@ enum gmu_coretype {
 enum oob_request {
 	oob_gpu = 0,
 	oob_perfcntr = 1,
-	oob_preempt = 2,
 	oob_boot_slumber = 6, /* reserved special case */
 	oob_dcvs = 7, /* reserved special case */
 };
@@ -158,6 +157,7 @@ struct gmu_dev_ops {
 			unsigned int val);
 	unsigned int (*ifpc_show)(struct adreno_device *adreno_dev);
 	void (*snapshot)(struct adreno_device *, struct kgsl_snapshot *);
+	void (*halt_execution)(struct kgsl_device *device);
 	int (*wait_for_active_transition)(struct adreno_device *adreno_dev);
 	const unsigned int gmu2host_intr_mask;
 	const unsigned int gmu_ao_intr_mask;

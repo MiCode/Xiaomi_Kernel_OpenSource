@@ -24,6 +24,12 @@
 #include "mdss_spi_panel.h"
 #include "mdss_spi_client.h"
 #include "mdss_mdp.h"
+#include "mdss_sync.h"
+
+enum {
+	MDSS_SPI_RELEASE_FENCE = 0,
+	MDSS_SPI_RETIRE_FENCE,
+};
 
 static int mdss_spi_get_img(struct spi_panel_data *ctrl_pdata,
 			struct mdp_layer_commit_v1 *commit, struct device *dev)
@@ -97,6 +103,152 @@ static void mdss_spi_put_img(struct spi_panel_data *ctrl_pdata)
 	ctrl_pdata->image_data.mapped = false;
 }
 
+static struct mdss_fence *__create_spi_display_fence(
+	struct msm_fb_data_type *mfd,
+	struct msm_sync_pt_data *sync_pt_data, u32 fence_type,
+	int *fence_fd, int value)
+{
+	struct mdss_fence *sync_fence = NULL;
+	char fence_name[32];
+
+	if (fence_type == MDSS_SPI_RETIRE_FENCE) {
+		scnprintf(fence_name, sizeof(fence_name), "fb%d_retire",
+			mfd->index);
+		sync_fence = mdss_fb_sync_get_fence(
+			sync_pt_data->timeline_retire, fence_name, value);
+	} else {
+		scnprintf(fence_name, sizeof(fence_name), "fb%d_release",
+			mfd->index);
+		sync_fence = mdss_fb_sync_get_fence(
+			sync_pt_data->timeline, fence_name, value);
+	}
+
+	if (IS_ERR_OR_NULL(sync_fence)) {
+		pr_err("%s: unable to retrieve release fence\n", fence_name);
+		goto end;
+	}
+
+	/* get fence fd */
+	*fence_fd = mdss_get_sync_fence_fd(sync_fence);
+	if (*fence_fd < 0) {
+		pr_err("%s: get_unused_fd_flags failed error:0x%x\n",
+			fence_name, *fence_fd);
+		mdss_put_sync_fence(sync_fence);
+		sync_fence = NULL;
+		goto end;
+	}
+	pr_debug("%s:val=%d\n", mdss_get_sync_fence_name(sync_fence), value);
+
+end:
+	return sync_fence;
+}
+
+/*
+ * __handle_buffer_fences() - copy sync fences and return release/retire
+ * fence to caller.
+ *
+ * This function copies all input sync fences to acquire fence array and
+ * returns release/retire fences to caller. It acts like buff_sync ioctl.
+ */
+static int __handle_buffer_fences(struct msm_fb_data_type *mfd,
+	struct mdp_layer_commit_v1 *commit, struct mdp_input_layer *layer_list)
+{
+	struct mdss_fence *fence, *release_fence, *retire_fence;
+	struct msm_sync_pt_data *sync_pt_data = NULL;
+	struct mdp_input_layer *layer;
+	int value;
+
+	u32 acq_fen_count, i, ret = 0;
+	u32 layer_count = commit->input_layer_cnt;
+
+	sync_pt_data = &mfd->mdp_sync_pt_data;
+	if (!sync_pt_data) {
+		pr_err("sync point data are NULL\n");
+		return -EINVAL;
+	}
+
+	i = mdss_fb_wait_for_fence(sync_pt_data);
+	if (i > 0)
+		pr_warn("%s: waited on %d active fences\n",
+			sync_pt_data->fence_name, i);
+
+	mutex_lock(&sync_pt_data->sync_mutex);
+	for (i = 0, acq_fen_count = 0; i < layer_count; i++) {
+		layer = &layer_list[i];
+
+		if (layer->buffer.fence < 0)
+			continue;
+
+		fence = mdss_get_fd_sync_fence(layer->buffer.fence);
+		if (!fence) {
+			pr_err("%s: sync fence get failed! fd=%d\n",
+				sync_pt_data->fence_name, layer->buffer.fence);
+			ret = -EINVAL;
+			break;
+		}
+		sync_pt_data->acq_fen[acq_fen_count++] = fence;
+	}
+	sync_pt_data->acq_fen_cnt = acq_fen_count;
+	if (ret)
+		goto sync_fence_err;
+
+	value = sync_pt_data->threshold +
+			atomic_read(&sync_pt_data->commit_cnt);
+
+	release_fence = __create_spi_display_fence(mfd, sync_pt_data,
+		MDSS_SPI_RELEASE_FENCE, &commit->release_fence, value);
+	if (IS_ERR_OR_NULL(release_fence)) {
+		pr_err("unable to retrieve release fence\n");
+		ret = PTR_ERR(release_fence);
+		goto release_fence_err;
+	}
+
+	retire_fence = __create_spi_display_fence(mfd, sync_pt_data,
+		MDSS_SPI_RETIRE_FENCE, &commit->retire_fence, value);
+	if (IS_ERR_OR_NULL(retire_fence)) {
+		pr_err("unable to retrieve retire fence\n");
+		ret = PTR_ERR(retire_fence);
+		goto retire_fence_err;
+	}
+
+	mutex_unlock(&sync_pt_data->sync_mutex);
+	return ret;
+
+retire_fence_err:
+	put_unused_fd(commit->release_fence);
+	mdss_put_sync_fence(release_fence);
+release_fence_err:
+	commit->retire_fence = -1;
+	commit->release_fence = -1;
+sync_fence_err:
+	for (i = 0; i < sync_pt_data->acq_fen_cnt; i++)
+		mdss_put_sync_fence(sync_pt_data->acq_fen[i]);
+	sync_pt_data->acq_fen_cnt = 0;
+
+	mutex_unlock(&sync_pt_data->sync_mutex);
+
+	return ret;
+}
+
+void mdss_spi_display_notifier_register(struct spi_panel_data *ctrl_pdata,
+	struct notifier_block *notifier)
+{
+	blocking_notifier_chain_register(&ctrl_pdata->notifier_head, notifier);
+}
+
+void mdss_spi_display_notifier_unregister(struct spi_panel_data *ctrl_pdata,
+	struct notifier_block *notifier)
+{
+	blocking_notifier_chain_unregister(&ctrl_pdata->notifier_head,
+		notifier);
+}
+
+int mdss_spi_display_notify(struct spi_panel_data *ctrl_pdata, int event)
+{
+	return blocking_notifier_call_chain(&ctrl_pdata->notifier_head,
+		event, ctrl_pdata);
+}
+
 int mdss_spi_display_pre_commit(struct msm_fb_data_type *mfd,
 	struct file *file, struct mdp_layer_commit_v1 *commit)
 {
@@ -143,13 +295,16 @@ int mdss_spi_display_pre_commit(struct msm_fb_data_type *mfd,
 	rc = mdss_spi_wait_tx_done(ctrl_pdata);
 	if (!rc) {
 		pr_err("SPI transfer timeout\n");
+		mdss_spi_display_notify(ctrl_pdata, MDP_NOTIFY_FRAME_TIMEOUT);
 		return -EINVAL;
 	}
+	mdss_spi_display_notify(ctrl_pdata, MDP_NOTIFY_FRAME_DONE);
 
 	/* swap buffer */
 	temp_buf = ctrl_pdata->front_buf;
 	ctrl_pdata->front_buf = ctrl_pdata->back_buf;
 	ctrl_pdata->back_buf = temp_buf;
+	__handle_buffer_fences(mfd, commit, commit->input_layers);
 
 	return 0;
 }
@@ -191,6 +346,8 @@ int mdss_spi_panel_kickoff(struct msm_fb_data_type *mfd,
 
 	ctrl_pdata = container_of(pdata, struct spi_panel_data, panel_data);
 
+	mdss_spi_display_notify(ctrl_pdata, MDP_NOTIFY_FRAME_BEGIN);
+
 	enable_spi_panel_te_irq(ctrl_pdata, true);
 	mutex_lock(&ctrl_pdata->spi_tx_mutex);
 	reinit_completion(&ctrl_pdata->spi_panel_te);
@@ -207,6 +364,7 @@ int mdss_spi_panel_kickoff(struct msm_fb_data_type *mfd,
 	rc = mdss_spi_tx_pixel(ctrl_pdata->front_buf,
 				ctrl_pdata->byte_per_frame,
 				mdss_spi_tx_fb_complete, ctrl_pdata);
+	mdss_spi_display_notify(ctrl_pdata, MDP_NOTIFY_FRAME_FLUSHED);
 
 	mutex_unlock(&ctrl_pdata->spi_tx_mutex);
 	enable_spi_panel_te_irq(ctrl_pdata, false);
@@ -301,6 +459,8 @@ static int mdss_spi_display_off(struct msm_fb_data_type *mfd)
 		ctrl_pdata->ctrl_state &= ~CTRL_STATE_PANEL_INIT;
 	}
 	rc = mdss_spi_panel_power_ctrl(pdata, MDSS_PANEL_POWER_OFF);
+	mdss_spi_display_notifier_unregister(ctrl_pdata,
+			&mfd->mdp_sync_pt_data.notifier);
 
 	return rc;
 }
@@ -326,6 +486,9 @@ static int mdss_spi_display_on(struct msm_fb_data_type *mfd)
 	mdss_spi_panel_reset(pdata, 1);
 	ctrl_pdata->ctrl_state |= CTRL_STATE_PANEL_ACTIVE;
 	rc = mdss_spi_panel_on(&ctrl_pdata->panel_data);
+	mdss_spi_display_notifier_register(ctrl_pdata,
+			&mfd->mdp_sync_pt_data.notifier);
+
 	return rc;
 }
 
@@ -407,6 +570,19 @@ static ssize_t mdss_spi_vsync_show_event(struct device *dev,
 	return rc;
 }
 
+static int __vsync_retire_setup(struct msm_fb_data_type *mfd)
+{
+	char name[24];
+
+	scnprintf(name, sizeof(name), "mdss_fb%d_retire", mfd->index);
+	mfd->mdp_sync_pt_data.timeline_retire = mdss_create_timeline(name);
+	if (mfd->mdp_sync_pt_data.timeline_retire == NULL) {
+		pr_err("cannot vsync create time line\n");
+		return -ENOMEM;
+	}
+	return 0;
+}
+
 static DEVICE_ATTR(vsync_event, 0444, mdss_spi_vsync_show_event, NULL);
 static DEVICE_ATTR(caps, 0444, mdss_spi_show_capabilities, NULL);
 
@@ -461,17 +637,25 @@ int mdss_spi_overlay_init(struct msm_fb_data_type *mfd)
 	spi_display_interface->fb_mem_alloc_fnc = NULL;
 	spi_display_interface->check_dsi_status = NULL;
 
+	BLOCKING_INIT_NOTIFIER_HEAD(&ctrl_pdata->notifier_head);
+
 	rc = sysfs_create_group(&dev->kobj, &spi_vsync_sysfs_group);
 	if (rc)
 		pr_err("spi vsync sysfs group creation failed, ret=%d\n", rc);
 
 	rc = sysfs_create_link_nowarn(&dev->kobj,
 			&spi_mdata->pdev->dev.kobj, "mdp");
+	if (rc)
+		pr_warn("problem creating link to mdp sysfs\n");
 
 	ctrl_pdata->vsync_event_sd = sysfs_get_dirent(dev->kobj.sd,
 			"vsync_event");
 	if (!ctrl_pdata->vsync_event_sd)
 		pr_err("spi vsync_event sysfs lookup failed\n");
+
+	rc = __vsync_retire_setup(mfd);
+	if (IS_ERR_VALUE((unsigned long)rc))
+		pr_err("unable to create vsync timeline\n");
 
 	return rc;
 }

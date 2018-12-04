@@ -1158,6 +1158,14 @@ static int smb1351_hw_init(struct smb1351_charger *chip)
 		}
 	}
 
+	/* Disable watchdog */
+	rc = smb1351_masked_write(chip, WDOG_SAFETY_TIMER_CTRL_REG,
+				WDOG_TIMER_EN_BIT, 0);
+	if (rc) {
+		pr_err("Couldn't disable watchdog rc = %d\n", rc);
+		return rc;
+	}
+
 	return rc;
 }
 

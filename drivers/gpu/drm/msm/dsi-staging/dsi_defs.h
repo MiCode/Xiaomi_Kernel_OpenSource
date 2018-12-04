@@ -37,6 +37,9 @@
 	})
 
 #define DSI_DEBUG_NAME_LEN		32
+#define display_for_each_ctrl(index, display) \
+	for (index = 0; (index < (display)->ctrl_count) &&\
+			(index < MAX_DSI_CTRLS_PER_DISPLAY); index++)
 /**
  * enum dsi_pixel_format - DSI pixel formats
  * @DSI_PIXEL_FORMAT_RGB565:
@@ -372,6 +375,8 @@ struct dsi_panel_cmd_set {
  * @v_sync_polarity:  Polarity of VSYNC (false is active low).
  * @refresh_rate:     Refresh rate in Hz.
  * @clk_rate_hz:      DSI bit clock rate per lane in Hz.
+ * @mdp_transfer_time_us:   Specifies the mdp transfer time for command mode
+ *                    panels in microseconds.
  * @dsc_enabled:      DSC compression enabled.
  * @dsc:              DSC compression configuration.
  * @roi_caps:         Panel ROI capabilities.
@@ -392,6 +397,7 @@ struct dsi_mode_info {
 
 	u32 refresh_rate;
 	u64 clk_rate_hz;
+	u32 mdp_transfer_time_us;
 	bool dsc_enabled;
 	struct msm_display_dsc_info *dsc;
 	struct msm_roi_caps roi_caps;
@@ -484,15 +490,12 @@ struct dsi_video_engine_cfg {
  * @wr_mem_continue:               DCS command for write_memory_continue.
  * @insert_dcs_command:            Insert DCS command as first byte of payload
  *                                 of the pixel data.
- * @mdp_transfer_time_us   Specifies the mdp transfer time for command mode
- *                         panels in microseconds
  */
 struct dsi_cmd_engine_cfg {
 	u32 max_cmd_packets_interleave;
 	u32 wr_mem_start;
 	u32 wr_mem_continue;
 	bool insert_dcs_command;
-	u32 mdp_transfer_time_us;
 };
 
 /**
@@ -529,6 +532,8 @@ struct dsi_host_config {
  * @phy_timing_len:       Phy timing array length
  * @panel_jitter:         Panel jitter for RSC backoff
  * @panel_prefill_lines:  Panel prefill lines for RSC
+ * @mdp_transfer_time_us:   Specifies the mdp transfer time for command mode
+ *                          panels in microseconds.
  * @clk_rate_hz:          DSI bit clock per lane in hz.
  * @topology:             Topology selected for the panel
  * @dsc:                  DSC compression info
@@ -544,6 +549,7 @@ struct dsi_display_mode_priv_info {
 	u32 panel_jitter_numer;
 	u32 panel_jitter_denom;
 	u32 panel_prefill_lines;
+	u32 mdp_transfer_time_us;
 	u64 clk_rate_hz;
 
 	struct msm_display_topology topology;

@@ -36,6 +36,8 @@
 
 #define F(f, s, h, m, n) { (f), (s), (2 * (h) - 1), (m), (n) }
 
+#define IRIS_DISBALE_MULTIPIPE	10
+
 static DEFINE_VDD_REGULATORS(vdd_cx, VDD_NUM, 1, vdd_corner);
 
 enum {
@@ -77,7 +79,7 @@ static struct pll_vco fabia_vco[] = {
 	{ 125000000, 1000000000, 1 },
 };
 
-static const struct alpha_pll_config video_pll0_config = {
+static struct alpha_pll_config video_pll0_config = {
 	.l = 0x19,
 	.frac = 0x0,
 	.config_ctl_val = 0x20485699,
@@ -116,6 +118,10 @@ static const struct freq_tbl ftbl_video_cc_iris_clk_src[] = {
 	F(444000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
 	F(533000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
 	{ }
+};
+
+static const struct freq_tbl ftbl_video_cc_iris_multipipe_clk_src[] = {
+	F(200000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
 };
 
 static struct clk_rcg2 video_cc_iris_clk_src = {
@@ -338,6 +344,43 @@ static const struct of_device_id video_cc_sdmmagpie_match_table[] = {
 };
 MODULE_DEVICE_TABLE(of, video_cc_sdmmagpie_match_table);
 
+static int video_multipipe_fixup(struct platform_device *pdev,
+				struct regmap *regmap)
+{
+	void __iomem *base;
+	struct resource *res;
+	struct device *dev = &pdev->dev;
+	u32 val;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(base))
+		return PTR_ERR(base);
+
+	val = readl_relaxed(base);
+	val = (val >> IRIS_DISBALE_MULTIPIPE) & 0x1;
+
+	if (val) {
+		video_pll0_config.l = 0x14;
+		video_cc_iris_clk_src.freq_tbl =
+				ftbl_video_cc_iris_multipipe_clk_src;
+		video_cc_iris_clk_src.clkr.hw.init->rate_max[VDD_LOWER] =
+				200000000;
+		video_cc_iris_clk_src.clkr.hw.init->rate_max[VDD_LOW] =
+				200000000;
+		video_cc_iris_clk_src.clkr.hw.init->rate_max[VDD_LOW_L1] =
+				200000000;
+		video_cc_iris_clk_src.clkr.hw.init->rate_max[VDD_NOMINAL] =
+				200000000;
+		video_cc_iris_clk_src.clkr.hw.init->rate_max[VDD_HIGH] =
+				200000000;
+	}
+
+	clk_fabia_pll_configure(&video_pll0, regmap, &video_pll0_config);
+
+	return 0;
+}
+
 static int video_cc_sdmmagpie_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
@@ -357,7 +400,9 @@ static int video_cc_sdmmagpie_probe(struct platform_device *pdev)
 		return PTR_ERR(regmap);
 	}
 
-	clk_fabia_pll_configure(&video_pll0, regmap, &video_pll0_config);
+	ret = video_multipipe_fixup(pdev, regmap);
+	if (ret)
+		return ret;
 
 	ret = qcom_cc_really_probe(pdev, &video_cc_sdmmagpie_desc, regmap);
 	if (ret) {

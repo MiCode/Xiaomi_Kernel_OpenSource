@@ -142,20 +142,6 @@ static int ipa3_handle_interrupt(int irq_num, bool isr_context)
 		suspend_interrupt_data->endpoints = suspend_data;
 		interrupt_data = suspend_interrupt_data;
 		break;
-	case IPA_UC_IRQ_0:
-		if (ipa3_ctx->apply_rg10_wa) {
-			/*
-			 * Early detect of uC crash. If RG10 workaround is
-			 * enable uC crash will not be detected as before
-			 * processing uC event the interrupt is cleared using
-			 * uC register write which times out as it crashed
-			 * already.
-			 */
-			if (ipa3_ctx->uc_ctx.uc_sram_mmio->eventOp ==
-			    IPA_HW_2_CPU_EVENT_ERROR)
-				ipa3_ctx->uc_ctx.uc_failed = true;
-		}
-		break;
 	default:
 		break;
 	}
@@ -218,7 +204,7 @@ static void ipa3_enable_tx_suspend_wa(struct work_struct *work)
 	en |= suspend_bmask;
 	IPADBG("enable TX_SUSPEND_IRQ, IPA_IRQ_EN_EE reg, write val = %u\n"
 		, en);
-	ipa3_uc_rg10_write_reg(IPA_IRQ_EN_EE_n, ipa_ee, en);
+	ipahal_write_reg_n(IPA_IRQ_EN_EE_n, ipa_ee, en);
 	ipa3_process_interrupts(false);
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
@@ -246,7 +232,7 @@ static void ipa3_tx_suspend_interrupt_wa(void)
 	val &= ~suspend_bmask;
 	IPADBG("Disabling TX_SUSPEND_IRQ, write val: %u to IPA_IRQ_EN_EE reg\n",
 		val);
-	ipa3_uc_rg10_write_reg(IPA_IRQ_EN_EE_n, ipa_ee, val);
+	ipahal_write_reg_n(IPA_IRQ_EN_EE_n, ipa_ee, val);
 
 	IPADBG_LOW(" processing suspend interrupt work-around, delayed work\n");
 
@@ -301,7 +287,7 @@ static void ipa3_process_interrupts(bool isr_context)
 				 * clearing unhandled interrupts
 				 */
 				if (uc_irq)
-					ipa3_uc_rg10_write_reg(IPA_IRQ_CLR_EE_n,
+					ipahal_write_reg_n(IPA_IRQ_CLR_EE_n,
 							ipa_ee, bmsk);
 
 				/*
@@ -320,17 +306,11 @@ static void ipa3_process_interrupts(bool isr_context)
 				 * to avoid clearing interrupt data
 				 */
 				if (!uc_irq)
-					ipa3_uc_rg10_write_reg(IPA_IRQ_CLR_EE_n,
+					ipahal_write_reg_n(IPA_IRQ_CLR_EE_n,
 							ipa_ee, bmsk);
 			}
 			bmsk = bmsk << 1;
 		}
-		/*
-		 * In case uC failed interrupt cannot be cleared.
-		 * Device will crash as part of handling uC event handler.
-		 */
-		if (ipa3_ctx->apply_rg10_wa && ipa3_ctx->uc_ctx.uc_failed)
-			break;
 
 		reg = ipahal_read_reg_n(IPA_IRQ_STTS_EE_n, ipa_ee);
 		/* since the suspend interrupt HW bug we must
@@ -422,7 +402,7 @@ int ipa3_add_interrupt_handler(enum ipa_irq_type interrupt,
 	IPADBG("read IPA_IRQ_EN_EE_n register. reg = %d\n", val);
 	bmsk = 1 << irq_num;
 	val |= bmsk;
-	ipa3_uc_rg10_write_reg(IPA_IRQ_EN_EE_n, ipa_ee, val);
+	ipahal_write_reg_n(IPA_IRQ_EN_EE_n, ipa_ee, val);
 	IPADBG("wrote IPA_IRQ_EN_EE_n register. reg = %d\n", val);
 
 	/* register SUSPEND_IRQ_EN_EE_n_ADDR for L2 interrupt*/
@@ -488,7 +468,7 @@ int ipa3_remove_interrupt_handler(enum ipa_irq_type interrupt)
 	val = ipahal_read_reg_n(IPA_IRQ_EN_EE_n, ipa_ee);
 	bmsk = 1 << irq_num;
 	val &= ~bmsk;
-	ipa3_uc_rg10_write_reg(IPA_IRQ_EN_EE_n, ipa_ee, val);
+	ipahal_write_reg_n(IPA_IRQ_EN_EE_n, ipa_ee, val);
 
 	return 0;
 }

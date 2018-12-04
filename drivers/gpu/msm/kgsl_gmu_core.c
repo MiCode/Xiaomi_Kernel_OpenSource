@@ -45,7 +45,6 @@ const char *gmu_core_oob_type_str(enum oob_request req)
 	struct oob_entry table[] =  {
 			{ oob_gpu, "oob_gpu"},
 			{ oob_perfcntr, "oob_perfcntr"},
-			{ oob_preempt, "oob_preempt"},
 			{ oob_boot_slumber, "oob_boot_slumber"},
 			{ oob_dcvs, "oob_dcvs"},
 	};

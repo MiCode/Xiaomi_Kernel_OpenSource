@@ -211,7 +211,12 @@ static int _load_gmu_rpmh_ucode(struct kgsl_device *device)
 	_regwrite(cfg, PDC_GPU_TCS3_CMD0_DATA, 2);
 	_regwrite(cfg, PDC_GPU_TCS3_CMD0_MSGID + PDC_CMD_OFFSET, 0x10108);
 	_regwrite(cfg, PDC_GPU_TCS3_CMD0_ADDR + PDC_CMD_OFFSET, 0x30000);
-	_regwrite(cfg, PDC_GPU_TCS3_CMD0_DATA + PDC_CMD_OFFSET, 0x3);
+
+	if (adreno_is_a618(adreno_dev))
+		_regwrite(cfg, PDC_GPU_TCS3_CMD0_DATA + PDC_CMD_OFFSET, 0x2);
+	else
+		_regwrite(cfg, PDC_GPU_TCS3_CMD0_DATA + PDC_CMD_OFFSET, 0x3);
+
 	_regwrite(cfg, PDC_GPU_TCS3_CMD0_MSGID + PDC_CMD_OFFSET * 2, 0x10108);
 
 	if (adreno_is_a640(adreno_dev) || adreno_is_a680(adreno_dev) ||
@@ -897,11 +902,11 @@ static int a6xx_gmu_wait_for_lowest_idle(struct adreno_device *adreno_dev)
 
 	/* Collect abort data to help with debugging */
 	gmu_core_regread(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS, &reg2);
-	gmu_core_regread(device, A6XX_CP_STATUS_1, &reg3);
+	kgsl_regread(device, A6XX_CP_STATUS_1, &reg3);
 	gmu_core_regread(device, A6XX_GMU_RBBM_INT_UNMASKED_STATUS, &reg4);
 	gmu_core_regread(device, A6XX_GMU_GMU_PWR_COL_KEEPALIVE, &reg5);
-	gmu_core_regread(device, A6XX_CP_CP2GMU_STATUS, &reg6);
-	gmu_core_regread(device, A6XX_CP_CONTEXT_SWITCH_CNTL, &reg7);
+	kgsl_regread(device, A6XX_CP_CP2GMU_STATUS, &reg6);
+	kgsl_regread(device, A6XX_CP_CONTEXT_SWITCH_CNTL, &reg7);
 	gmu_core_regread(device, A6XX_GMU_AO_SPARE_CNTL, &reg8);
 
 	dev_err(&gmu->pdev->dev,

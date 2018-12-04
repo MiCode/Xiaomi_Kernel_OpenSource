@@ -123,6 +123,8 @@
 #define ADRENO_MIN_VOLT BIT(15)
 /* The core supports IO-coherent memory */
 #define ADRENO_IOCOHERENT BIT(16)
+/* To retain RBBM perfcntl enable setting in IFPC */
+#define ADRENO_PERFCTRL_RETAIN BIT(17)
 /*
  * The GMU supports Adaptive Clock Distribution (ACD)
  * for droop mitigation
@@ -217,7 +219,7 @@ enum adreno_gpurev {
 	ADRENO_REV_A512 = 512,
 	ADRENO_REV_A530 = 530,
 	ADRENO_REV_A540 = 540,
-	ADRENO_REV_A608 = 608,
+	ADRENO_REV_A612 = 612,
 	ADRENO_REV_A615 = 615,
 	ADRENO_REV_A616 = 616,
 	ADRENO_REV_A618 = 618,
@@ -1296,7 +1298,7 @@ static inline int adreno_is_a6xx(struct adreno_device *adreno_dev)
 			ADRENO_GPUREV(adreno_dev) < 700;
 }
 
-ADRENO_TARGET(a608, ADRENO_REV_A608)
+ADRENO_TARGET(a612, ADRENO_REV_A612)
 ADRENO_TARGET(a618, ADRENO_REV_A618)
 ADRENO_TARGET(a630, ADRENO_REV_A630)
 ADRENO_TARGET(a640, ADRENO_REV_A640)

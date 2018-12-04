@@ -937,18 +937,21 @@ static void gsi_store_ringbase_dbl_info(struct usb_ep *ep,
 		GSI_RING_BASE_ADDR_L(mdwc->gsi_reg[RING_BASE_ADDR_L], (n)),
 		dwc3_trb_dma_offset(dep, &dep->trb_pool[0]));
 
-	if (request->mapped_db_reg_phs_addr_lsb)
-		dma_unmap_resource(dwc->sysdev,
-			request->mapped_db_reg_phs_addr_lsb,
-			PAGE_SIZE, DMA_BIDIRECTIONAL, 0);
-
-	request->mapped_db_reg_phs_addr_lsb = dma_map_resource(dwc->sysdev,
-			(phys_addr_t)request->db_reg_phs_addr_lsb, PAGE_SIZE,
-			DMA_BIDIRECTIONAL, 0);
-	if (dma_mapping_error(dwc->sysdev, request->mapped_db_reg_phs_addr_lsb))
-		dev_err(mdwc->dev, "mapping error for db_reg_phs_addr_lsb\n");
+	if (!request->mapped_db_reg_phs_addr_lsb) {
+		request->mapped_db_reg_phs_addr_lsb =
+			dma_map_resource(dwc->sysdev,
+				(phys_addr_t)request->db_reg_phs_addr_lsb,
+				PAGE_SIZE, DMA_BIDIRECTIONAL, 0);
+		if (dma_mapping_error(dwc->sysdev,
+				request->mapped_db_reg_phs_addr_lsb))
+			dev_err(mdwc->dev, "mapping error for db_reg_phs_addr_lsb\n");
+	}
 
 	dev_dbg(mdwc->dev, "ep:%s dbl_addr_lsb:%x mapped_dbl_addr_lsb:%llx\n",
+		ep->name, request->db_reg_phs_addr_lsb,
+		(unsigned long long)request->mapped_db_reg_phs_addr_lsb);
+
+	dbg_log_string("ep:%s dbl_addr_lsb:%x mapped_addr:%llx\n",
 		ep->name, request->db_reg_phs_addr_lsb,
 		(unsigned long long)request->mapped_db_reg_phs_addr_lsb);
 
@@ -997,8 +1000,13 @@ static void gsi_ring_db(struct usb_ep *ep, struct usb_gsi_request *request)
 		&offset, gsi_dbl_address_lsb, request->db_reg_phs_addr_lsb,
 		ep->name);
 
+	dbg_log_string("ep:%s link TRB addr:%pa db:%x\n",
+		ep->name, &offset, request->db_reg_phs_addr_lsb);
+
 	writel_relaxed(offset, gsi_dbl_address_lsb);
+	readl_relaxed(gsi_dbl_address_lsb);
 	writel_relaxed(0, gsi_dbl_address_msb);
+	readl_relaxed(gsi_dbl_address_msb);
 }
 
 /**
@@ -1792,6 +1800,7 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event,
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 	struct dwc3_event_buffer *evt;
+	union extcon_property_value val;
 	u32 reg;
 	int i;
 
@@ -1862,6 +1871,16 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event,
 					PWR_EVNT_LPM_OUT_L1_MASK, 1);
 
 		atomic_set(&dwc->in_lpm, 0);
+
+		if (mdwc->extcon &&
+			!extcon_get_property(mdwc->extcon[mdwc->ext_idx].edev,
+					EXTCON_USB,
+					EXTCON_PROP_USB_TYPEC_MED_HIGH_CURRENT,
+					&val))
+			dwc->gadget.is_selfpowered = val.intval;
+		else
+			dwc->gadget.is_selfpowered = 0;
+
 		break;
 	case DWC3_CONTROLLER_NOTIFY_OTG_EVENT:
 		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_NOTIFY_OTG_EVENT received\n");
@@ -3673,6 +3692,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	return 0;
 
 put_dwc3:
+	platform_device_put(mdwc->dwc3);
 	if (mdwc->bus_perf_client)
 		msm_bus_scale_unregister_client(mdwc->bus_perf_client);
 
@@ -3723,6 +3743,7 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 
 	if (mdwc->hs_phy)
 		mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
+	platform_device_put(mdwc->dwc3);
 	of_platform_depopulate(&pdev->dev);
 
 	dbg_event(0xFF, "Remov put", 0);
@@ -3795,6 +3816,7 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 				 * ss phy to avoid turning on pipe clock during
 				 * these wake-ups.
 				 */
+				mdwc->ss_phy->flags |= PHY_WAKEUP_WA_EN;
 				usb_phy_powerdown(mdwc->ss_phy);
 
 				/*
@@ -3813,6 +3835,7 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 			}
 		} else {
 			usb_phy_powerup(mdwc->ss_phy);
+			mdwc->ss_phy->flags &= ~PHY_WAKEUP_WA_EN;
 			/* set rate back to default core clk rate */
 			clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate);
 			dev_dbg(mdwc->dev, "set core clk rate %ld\n",

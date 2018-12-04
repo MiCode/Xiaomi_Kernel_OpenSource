@@ -87,6 +87,7 @@ struct npu_host_ctx {
 	uint32_t fw_dbg_mode;
 	uint32_t exec_flags_override;
 	atomic_t ipc_trans_id;
+	atomic_t network_exeute_cnt;
 
 	uint32_t err_irq_sts;
 	uint32_t wdg_irq_sts;
@@ -130,6 +131,7 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 	struct msm_npu_exec_network_ioctl_v2 *exec_ioctl,
 	struct msm_npu_patch_buf_info *patch_buf_info);
 int32_t npu_host_loopback_test(struct npu_device *npu_dev);
+void npu_host_cleanup_networks(struct npu_client *client);
 
 void npu_dump_debug_timeout_stats(struct npu_device *npu_dev);
 void npu_dump_cal_state(struct npu_device *npu_dev);

@@ -214,11 +214,31 @@ vreg_get_fail:
 } /* msm_dss_config_vreg */
 EXPORT_SYMBOL(msm_dss_config_vreg);
 
+static bool msm_dss_is_hw_controlled(struct dss_vreg in_vreg)
+{
+	u32 mode = 0;
+	char const *regulator_gdsc = "gdsc";
+
+	/*
+	 * For gdsc-regulator devices only, REGULATOR_MODE_FAST specifies that
+	 * the GDSC is in HW controlled mode.
+	 */
+	mode = regulator_get_mode(in_vreg.vreg);
+	if (!strcmp(regulator_gdsc, in_vreg.vreg_name) &&
+			mode == REGULATOR_MODE_FAST) {
+		DEV_DBG("%pS->%s: %s is HW controlled\n",
+				__builtin_return_address(0), __func__,
+				in_vreg.vreg_name);
+		return true;
+	}
+
+	return false;
+}
+
 int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 {
 	int i = 0, rc = 0;
 	bool need_sleep;
-	int reg_mode;
 
 	if (enable) {
 		for (i = 0; i < num_vreg; i++) {
@@ -229,17 +249,9 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 					in_vreg[i].vreg_name, rc);
 				goto vreg_set_opt_mode_fail;
 			}
-			reg_mode = regulator_get_mode(in_vreg[i].vreg);
-			if (reg_mode == REGULATOR_MODE_FAST) {
-				DEV_DBG("%pS->%s: %s operation not allowed\n",
-					__builtin_return_address(0), __func__,
-					in_vreg[i].vreg_name);
-				/*
-				 * This regulator is controlled by Hw cannot be
-				 * controlled by Sw vote
-				 */
+			if (msm_dss_is_hw_controlled(in_vreg[i]))
 				continue;
-			}
+
 			need_sleep = !regulator_is_enabled(in_vreg[i].vreg);
 			if (in_vreg[i].pre_on_sleep && need_sleep)
 				usleep_range(in_vreg[i].pre_on_sleep * 1000,
@@ -265,17 +277,9 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 		}
 	} else {
 		for (i = num_vreg-1; i >= 0; i--) {
-			reg_mode = regulator_get_mode(in_vreg[i].vreg);
-			if (reg_mode == REGULATOR_MODE_FAST) {
-				DEV_DBG("%pS->%s: %s operation not allowed\n",
-					__builtin_return_address(0), __func__,
-					in_vreg[i].vreg_name);
-				/*
-				 * This regulator is controlled by Hw cannot be
-				 * controlled by Sw vote
-				 */
+			if (msm_dss_is_hw_controlled(in_vreg[i]))
 				continue;
-			}
+
 			if (in_vreg[i].pre_off_sleep)
 				usleep_range(in_vreg[i].pre_off_sleep * 1000,
 					(in_vreg[i].pre_off_sleep * 1000) + 10);

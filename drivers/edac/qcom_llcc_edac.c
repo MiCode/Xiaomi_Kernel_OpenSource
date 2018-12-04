@@ -79,15 +79,8 @@
 #define DRP_TRP_INT_CLEAR	0x3
 #define DRP_TRP_CNT_CLEAR	0x3
 
-#ifdef CONFIG_EDAC_LLCC_POLL
 static int poll_msec = 5000;
 module_param(poll_msec, int, 0444);
-#endif
-
-static int interrupt_mode = 1;
-module_param(interrupt_mode, int, 0444);
-MODULE_PARM_DESC(interrupt_mode,
-		 "Controls whether to use interrupt or poll mode");
 
 enum {
 	LLCC_DRAM_CE = 0,
@@ -341,12 +334,10 @@ static irqreturn_t qcom_llcc_check_cache_errors
 	return irq_rc;
 }
 
-#ifdef CONFIG_EDAC_LLCC_POLL
 static void qcom_llcc_poll_cache_errors(struct edac_device_ctl_info *edev_ctl)
 {
 	qcom_llcc_check_cache_errors(edev_ctl);
 }
-#endif
 
 static irqreturn_t llcc_ecc_irq_handler
 			(int irq, void *edev_ctl)
@@ -388,11 +379,6 @@ static int qcom_llcc_erp_probe(struct platform_device *pdev)
 	edev_ctl->mod_name = dev_name(dev);
 	edev_ctl->dev_name = dev_name(dev);
 	edev_ctl->ctl_name = "llcc";
-#ifdef CONFIG_EDAC_LLCC_POLL
-	edev_ctl->poll_msec = poll_msec;
-	edev_ctl->edac_check = qcom_llcc_poll_cache_errors;
-	edev_ctl->defer_work = 1;
-#endif
 	edev_ctl->panic_on_ce = LLCC_ERP_PANIC_ON_CE;
 	edev_ctl->panic_on_ue = LLCC_ERP_PANIC_ON_UE;
 
@@ -400,55 +386,54 @@ static int qcom_llcc_erp_probe(struct platform_device *pdev)
 	drv->num_banks = num_banks;
 	drv->llcc_map = llcc_map;
 
-	rc = edac_device_add_device(edev_ctl);
-	if (rc)
-		goto out_mem;
-
 	drv->llcc_banks = devm_kzalloc(&pdev->dev,
 		sizeof(u32) * drv->num_banks, GFP_KERNEL);
 
 	if (!drv->llcc_banks) {
 		dev_err(dev, "Cannot allocate memory for llcc_banks\n");
 		rc = -ENOMEM;
-		goto out_dev;
+		goto out_mem;
 	}
 
 	rc = of_property_read_u32_array(dev->parent->of_node,
 			"qcom,llcc-banks-off", drv->llcc_banks, drv->num_banks);
 	if (rc) {
 		dev_err(dev, "Cannot read llcc-banks-off property\n");
-		goto out_dev;
+		goto out_mem;
 	}
 
 	rc = of_property_read_u32(dev->parent->of_node,
 			"qcom,llcc-broadcast-off", &drv->b_off);
 	if (rc) {
 		dev_err(dev, "Cannot read llcc-broadcast-off property\n");
-		goto out_dev;
+		goto out_mem;
 	}
 
-	platform_set_drvdata(pdev, edev_ctl);
 
-	if (interrupt_mode) {
-		drv->ecc_irq = platform_get_irq_byname(pdev, "ecc_irq");
-		if (!drv->ecc_irq) {
-			rc = -ENODEV;
-			goto out_dev;
-		}
-
+	rc = platform_get_irq_byname(pdev, "ecc_irq");
+	if (rc > 0) {
+		drv->ecc_irq = rc;
 		rc = devm_request_irq(dev, drv->ecc_irq, llcc_ecc_irq_handler,
 				IRQF_SHARED | IRQF_ONESHOT | IRQF_TRIGGER_HIGH,
 				"llcc_ecc", edev_ctl);
 		if (rc) {
 			dev_err(dev, "failed to request ecc irq\n");
-			goto out_dev;
+			goto out_mem;
 		}
+	} else {
+		dev_info(dev, "No ECC IRQ; defaulting to polling mode\n");
+		edev_ctl->poll_msec = poll_msec;
+		edev_ctl->edac_check = qcom_llcc_poll_cache_errors;
+		edev_ctl->defer_work = 1;
 	}
 
+	rc = edac_device_add_device(edev_ctl);
+	if (rc)
+		goto out_mem;
+
+	platform_set_drvdata(pdev, edev_ctl);
 	return 0;
 
-out_dev:
-	edac_device_del_device(edev_ctl->dev);
 out_mem:
 	edac_device_free_ctl_info(edev_ctl);
 

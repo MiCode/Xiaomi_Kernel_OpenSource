@@ -1083,7 +1083,7 @@ TRACE_EVENT(core_ctl_set_busy,
 		__entry->is_busy = is_busy;
 		__entry->high_irqload = sched_cpu_high_irqload(cpu);
 	),
-	TP_printk("cpu=%u, busy=%u, old_is_busy=%u, new_is_busy=%u high_ieqload=%d",
+	TP_printk("cpu=%u, busy=%u, old_is_busy=%u, new_is_busy=%u high_irqload=%d",
 		  __entry->cpu, __entry->busy, __entry->old_is_busy,
 		  __entry->is_busy, __entry->high_irqload)
 );

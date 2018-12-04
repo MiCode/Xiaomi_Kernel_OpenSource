@@ -57,6 +57,7 @@
 #include "fts_lib/ftsTest.h"
 #include "fts_lib/ftsTime.h"
 #include "fts_lib/ftsTool.h"
+#include "linux/moduleparam.h"
 
 
 
@@ -133,6 +134,8 @@ static int fts_init_afterProbe(struct fts_ts_info *info);
 static int fts_mode_handler(struct fts_ts_info *info, int force);
 static int fts_command(struct fts_ts_info *info, unsigned char cmd);
 static int fts_chip_initialization(struct fts_ts_info *info);
+
+active_tp_setup(st);
 
 void touch_callback(unsigned int status)
 {
@@ -4365,6 +4368,7 @@ static int fts_probe(struct i2c_client *client,
 	struct device_node *dp = client->dev.of_node;
 	int retval;
 	int skip_5_1 = 0;
+	struct device_node *dt = client->dev.of_node;
 
 	logError(0, "%s %s: driver probe begin!\n", tag, __func__);
 
@@ -4372,6 +4376,9 @@ static int fts_probe(struct i2c_client *client,
 	openChannel(client);
 	logError(0, "%s driver ver. %s (built on)\n", tag, FTS_TS_DRV_VERSION);
 
+	if (st_check_assigned_tp(dt, "compatible",
+		"qcom,i2c-touch-active") < 0)
+		goto err_dt_not_match;
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		logError(1, "%s Unsupported I2C functionality\n", tag);
 		error = -EIO;
@@ -4390,6 +4397,14 @@ static int fts_probe(struct i2c_client *client,
 	info->client = client;
 
 	i2c_set_clientdata(client, info);
+
+	info->i2c_data = kmalloc(I2C_DATA_MAX_LEN, GFP_KERNEL);
+	if (info->i2c_data == NULL) {
+		error = -ENOMEM;
+		goto ProbeErrorExit_0P1;
+	}
+	info->i2c_data_len = I2C_DATA_MAX_LEN;
+
 	logError(0, "%s i2c address: %x\n", tag, client->addr);
 	info->dev = &info->client->dev;
 	if (dp) {
@@ -4685,9 +4700,12 @@ ProbeErrorExit_2:
 	fts_get_reg(info, false);
 
 ProbeErrorExit_1:
+	kfree(info->i2c_data);
+ProbeErrorExit_0P1:
 	kfree(info);
 
 ProbeErrorExit_0:
+err_dt_not_match:
 	logError(1, "%s Probe Failed!\n", tag);
 
 	return error;
@@ -4745,6 +4763,7 @@ static int fts_remove(struct i2c_client *client)
 	fts_get_reg(info, false);
 
 	/* free all */
+	kfree(info->i2c_data);
 	kfree(info);
 
 	return OK;

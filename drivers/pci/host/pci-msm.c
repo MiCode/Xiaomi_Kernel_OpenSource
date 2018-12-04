@@ -541,7 +541,6 @@ struct msm_pcie_dev_t {
 	struct msm_pcie_clk_info_t   pipeclk[MSM_PCIE_MAX_PIPE_CLK];
 	struct msm_pcie_res_info_t   res[MSM_PCIE_MAX_RES];
 	struct msm_pcie_irq_info_t   irq[MSM_PCIE_MAX_IRQ];
-	struct msm_pcie_irq_info_t	msi[MSM_PCIE_MAX_MSI];
 	struct msm_pcie_reset_info_t reset[MSM_PCIE_MAX_RESET];
 	struct msm_pcie_reset_info_t pipe_reset[MSM_PCIE_MAX_PIPE_RESET];
 
@@ -574,8 +573,6 @@ struct msm_pcie_dev_t {
 
 	struct irq_domain		*irq_domain;
 	DECLARE_BITMAP(msi_irq_in_use, PCIE_MSI_NR_IRQS);
-	uint32_t			   msi_gicm_addr;
-	uint32_t			   msi_gicm_base;
 	bool				 use_msi;
 
 	enum msm_pcie_link_status    link_status;
@@ -888,18 +885,6 @@ static const struct msm_pcie_irq_info_t msm_pcie_irq_info[MSM_PCIE_MAX_IRQ] = {
 	{"int_pls_link_down",	0},
 	{"int_bridge_flush_n",	0},
 	{"int_global_int",	0}
-};
-
-/* MSIs */
-static const struct msm_pcie_irq_info_t msm_pcie_msi_info[MSM_PCIE_MAX_MSI] = {
-	{"msi_0", 0}, {"msi_1", 0}, {"msi_2", 0}, {"msi_3", 0},
-	{"msi_4", 0}, {"msi_5", 0}, {"msi_6", 0}, {"msi_7", 0},
-	{"msi_8", 0}, {"msi_9", 0}, {"msi_10", 0}, {"msi_11", 0},
-	{"msi_12", 0}, {"msi_13", 0}, {"msi_14", 0}, {"msi_15", 0},
-	{"msi_16", 0}, {"msi_17", 0}, {"msi_18", 0}, {"msi_19", 0},
-	{"msi_20", 0}, {"msi_21", 0}, {"msi_22", 0}, {"msi_23", 0},
-	{"msi_24", 0}, {"msi_25", 0}, {"msi_26", 0}, {"msi_27", 0},
-	{"msi_28", 0}, {"msi_29", 0}, {"msi_30", 0}, {"msi_31", 0}
 };
 
 static void msm_pcie_config_sid(struct msm_pcie_dev_t *dev);
@@ -1257,10 +1242,6 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->shadow_en ? "" : "not");
 	PCIE_DBG_FS(dev, "the power of RC is %s on\n",
 		dev->power_on ? "" : "not");
-	PCIE_DBG_FS(dev, "msi_gicm_addr: 0x%x\n",
-		dev->msi_gicm_addr);
-	PCIE_DBG_FS(dev, "msi_gicm_base: 0x%x\n",
-		dev->msi_gicm_base);
 	PCIE_DBG_FS(dev, "bus_client: %d\n",
 		dev->bus_client);
 	PCIE_DBG_FS(dev, "smmu_sid_base: 0x%x\n",
@@ -3414,7 +3395,6 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 	struct resource *res;
 	struct msm_pcie_res_info_t *res_info;
 	struct msm_pcie_irq_info_t *irq_info;
-	struct msm_pcie_irq_info_t *msi_info;
 	struct msm_pcie_reset_info_t *reset_info;
 	struct msm_pcie_reset_info_t *pipe_reset_info;
 	char prop_name[MAX_PROP_SIZE];
@@ -3760,22 +3740,6 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 		}
 	}
 
-	for (i = 0; i < MSM_PCIE_MAX_MSI; i++) {
-		msi_info = &dev->msi[i];
-
-		res = platform_get_resource_byname(pdev, IORESOURCE_IRQ,
-							   msi_info->name);
-
-		if (!res) {
-			PCIE_DBG(dev, "PCIe: RC%d can't find IRQ # for %s.\n",
-				dev->rc_idx, msi_info->name);
-		} else {
-			msi_info->num = res->start;
-			PCIE_DBG(dev, "IRQ # for %s is %d.\n", msi_info->name,
-					msi_info->num);
-		}
-	}
-
 	/* All allocations succeeded */
 
 	if (dev->gpio[MSM_PCIE_GPIO_WAKE].num)
@@ -4080,7 +4044,7 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 		goto link_fail;
 	}
 
-	if (!dev->msi_gicm_addr)
+	if (!IS_ENABLED(CONFIG_PCI_MSM_MSI))
 		msm_pcie_config_msi_controller(dev);
 
 	if (dev->enumerated)
@@ -4435,6 +4399,12 @@ int msm_pcie_enumerate(u32 rc_idx)
 					"PCIe: RC%d: failed to request pci bus resources %d\n",
 					dev->rc_idx, ret);
 				goto out;
+			}
+
+			if (IS_ENABLED(CONFIG_PCI_MSM_MSI)) {
+				ret = msm_msi_init(&dev->pdev->dev);
+				if (ret)
+					return ret;
 			}
 
 			list_splice_init(&res, &bridge->windows);
@@ -4944,31 +4914,6 @@ static irqreturn_t handle_global_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static void msm_pcie_unmap_qgic_addr(struct msm_pcie_dev_t *dev,
-					struct pci_dev *pdev,
-					struct msi_desc *entry)
-{
-	struct iommu_domain *domain = iommu_get_domain_for_dev(&pdev->dev);
-	int bypass_en = 0;
-
-	if (!domain) {
-		PCIE_DBG(dev,
-			"PCIe: RC%d: client does not have an iommu domain\n",
-			dev->rc_idx);
-		return;
-	}
-
-	iommu_domain_get_attr(domain, DOMAIN_ATTR_S1_BYPASS, &bypass_en);
-	if (!bypass_en) {
-		dma_addr_t iova = entry->msg.address_lo;
-
-		PCIE_DBG(dev, "PCIe: RC%d: unmap QGIC MSI IOVA\n", dev->rc_idx);
-
-		dma_unmap_resource(&pdev->dev, iova, PAGE_SIZE,
-				DMA_BIDIRECTIONAL, 0);
-	}
-}
-
 static void msm_pcie_destroy_irq(struct msi_desc *entry, unsigned int irq)
 {
 	int pos;
@@ -4986,25 +4931,8 @@ static void msm_pcie_destroy_irq(struct msi_desc *entry, unsigned int irq)
 		return;
 	}
 
-	if (dev->msi_gicm_addr) {
-		int firstirq = entry->irq;
-		u32 nvec = (1 << entry->msi_attrib.multiple);
-
-		PCIE_DBG(dev, "destroy QGIC based irq %d\n", irq);
-
-		if (irq < firstirq || irq > firstirq + nvec - 1) {
-			PCIE_ERR(dev,
-				"Could not find irq: %d in RC%d MSI table\n",
-				irq, dev->rc_idx);
-			return;
-		}
-		if (irq == firstirq + nvec - 1)
-			msm_pcie_unmap_qgic_addr(dev, pdev, entry);
-		pos = irq - firstirq;
-	} else {
-		PCIE_DBG(dev, "destroy default MSI irq %d\n", irq);
-		pos = irq - irq_find_mapping(dev->irq_domain, 0);
-	}
+	PCIE_DBG(dev, "destroy default MSI irq %d\n", irq);
+	pos = irq - irq_find_mapping(dev->irq_domain, 0);
 
 	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
 
@@ -5116,128 +5044,13 @@ static int arch_setup_msi_irq_default(struct pci_dev *pdev,
 	return 0;
 }
 
-static int msm_pcie_create_irq_qgic(struct msm_pcie_dev_t *dev)
-{
-	int irq, pos;
-
-	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
-
-again:
-	pos = find_first_zero_bit(dev->msi_irq_in_use, PCIE_MSI_NR_IRQS);
-
-	if (pos >= PCIE_MSI_NR_IRQS)
-		return -ENOSPC;
-
-	PCIE_DBG(dev, "pos:%d msi_irq_in_use:%ld\n", pos, *dev->msi_irq_in_use);
-
-	if (test_and_set_bit(pos, dev->msi_irq_in_use))
-		goto again;
-	else
-		PCIE_DBG(dev, "test_and_set_bit is successful pos=%d\n", pos);
-
-	if (pos >= MSM_PCIE_MAX_MSI) {
-		PCIE_ERR(dev,
-			"PCIe: RC%d: pos %d is not less than %d\n",
-			dev->rc_idx, pos, MSM_PCIE_MAX_MSI);
-		return MSM_PCIE_ERROR;
-	}
-
-	irq = dev->msi[pos].num;
-	if (!irq) {
-		PCIE_ERR(dev, "PCIe: RC%d failed to create QGIC MSI IRQ.\n",
-			dev->rc_idx);
-		return -EINVAL;
-	}
-
-	return irq;
-}
-
-static int msm_pcie_map_qgic_addr(struct msm_pcie_dev_t *dev,
-					struct pci_dev *pdev,
-					struct msi_msg *msg)
-{
-	struct iommu_domain *domain = iommu_get_domain_for_dev(&pdev->dev);
-	int bypass_en = 0;
-	dma_addr_t iova;
-
-	msg->address_hi = 0;
-	msg->address_lo = dev->msi_gicm_addr;
-
-	if (!domain) {
-		PCIE_DBG(dev,
-			"PCIe: RC%d: client does not have an iommu domain\n",
-			dev->rc_idx);
-		return 0;
-	}
-
-	iommu_domain_get_attr(domain, DOMAIN_ATTR_S1_BYPASS, &bypass_en);
-
-	PCIE_DBG(dev,
-		"PCIe: RC%d: Stage 1 is %s for endpoint: %04x:%02x\n",
-		dev->rc_idx, bypass_en ? "bypass" : "enabled",
-		pdev->bus->number, pdev->devfn);
-
-	if (bypass_en)
-		return 0;
-
-	iova = dma_map_resource(&pdev->dev, dev->msi_gicm_addr, PAGE_SIZE,
-				DMA_BIDIRECTIONAL, 0);
-	if (dma_mapping_error(&pdev->dev, iova)) {
-		PCIE_ERR(dev, "PCIe: RC%d: failed to map QGIC address",
-			dev->rc_idx);
-		return -EIO;
-	}
-
-	msg->address_lo = iova;
-
-	return 0;
-}
-
-static int arch_setup_msi_irq_qgic(struct pci_dev *pdev,
-		struct msi_desc *desc, int nvec)
-{
-	int irq, index, ret, firstirq = 0;
-	struct msi_msg msg;
-	struct msm_pcie_dev_t *dev = PCIE_BUS_PRIV_DATA(pdev->bus);
-
-	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
-
-	for (index = 0; index < nvec; index++) {
-		irq = msm_pcie_create_irq_qgic(dev);
-		PCIE_DBG(dev, "irq %d is allocated\n", irq);
-
-		if (irq < 0)
-			return irq;
-
-		if (index == 0)
-			firstirq = irq;
-
-		irq_set_irq_type(irq, IRQ_TYPE_EDGE_RISING);
-	}
-
-	/* write msi vector and data */
-	irq_set_msi_desc(firstirq, desc);
-
-	ret = msm_pcie_map_qgic_addr(dev, pdev, &msg);
-	if (ret)
-		return ret;
-
-	msg.data = dev->msi_gicm_base + (firstirq - dev->msi[0].num);
-	write_msi_msg(firstirq, &msg);
-
-	return 0;
-}
-
 int arch_setup_msi_irq(struct pci_dev *pdev, struct msi_desc *desc)
 {
 	struct msm_pcie_dev_t *dev = PCIE_BUS_PRIV_DATA(pdev->bus);
 
 	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
 
-	if (dev->msi_gicm_addr)
-		return arch_setup_msi_irq_qgic(pdev, desc, 1);
-	else
-		return arch_setup_msi_irq_default(pdev, desc, 1);
+	return arch_setup_msi_irq_default(pdev, desc, 1);
 }
 
 int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
@@ -5257,10 +5070,7 @@ int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
 		entry->msi_attrib.multiple =
 			__ilog2_u32(__roundup_pow_of_two(nvec));
 
-		if (pcie_dev->msi_gicm_addr)
-			ret = arch_setup_msi_irq_qgic(dev, entry, nvec);
-		else
-			ret = arch_setup_msi_irq_default(dev, entry, nvec);
+		ret = arch_setup_msi_irq_default(dev, entry, nvec);
 
 		PCIE_DBG(pcie_dev, "ret from msi_irq: %d\n", ret);
 
@@ -5405,7 +5215,7 @@ static int32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 	}
 
 	/* Create a virtual domain of interrupts */
-	if (!dev->msi_gicm_addr) {
+	if (!IS_ENABLED(CONFIG_PCI_MSM_MSI)) {
 		dev->irq_domain = irq_domain_add_linear(dev->pdev->dev.of_node,
 			PCIE_MSI_NR_IRQS, &msm_pcie_msi_ops, dev);
 
@@ -6115,34 +5925,6 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		PCIE_DBG(&msm_pcie_dev[rc_idx], "RC%d: tlp-rd-size: 0x%x.\n",
 			rc_idx, msm_pcie_dev[rc_idx].tlp_rd_size);
 
-	msm_pcie_dev[rc_idx].msi_gicm_addr = 0;
-	msm_pcie_dev[rc_idx].msi_gicm_base = 0;
-	ret = of_property_read_u32((&pdev->dev)->of_node,
-				"qcom,msi-gicm-addr",
-				&msm_pcie_dev[rc_idx].msi_gicm_addr);
-
-	if (ret) {
-		PCIE_DBG(&msm_pcie_dev[rc_idx], "%s",
-			"msi-gicm-addr does not exist.\n");
-	} else {
-		PCIE_DBG(&msm_pcie_dev[rc_idx], "msi-gicm-addr: 0x%x.\n",
-				msm_pcie_dev[rc_idx].msi_gicm_addr);
-
-		ret = of_property_read_u32((&pdev->dev)->of_node,
-				"qcom,msi-gicm-base",
-				&msm_pcie_dev[rc_idx].msi_gicm_base);
-
-		if (ret) {
-			PCIE_ERR(&msm_pcie_dev[rc_idx],
-				"PCIe: RC%d: msi-gicm-base does not exist.\n",
-				rc_idx);
-			goto decrease_rc_num;
-		} else {
-			PCIE_DBG(&msm_pcie_dev[rc_idx], "msi-gicm-base: 0x%x\n",
-					msm_pcie_dev[rc_idx].msi_gicm_base);
-		}
-	}
-
 	msm_pcie_dev[rc_idx].rc_idx = rc_idx;
 	msm_pcie_dev[rc_idx].pdev = pdev;
 	msm_pcie_dev[rc_idx].vreg_n = 0;
@@ -6191,8 +5973,6 @@ static int msm_pcie_probe(struct platform_device *pdev)
 				sizeof(msm_pcie_res_info));
 	memcpy(msm_pcie_dev[rc_idx].irq, msm_pcie_irq_info,
 				sizeof(msm_pcie_irq_info));
-	memcpy(msm_pcie_dev[rc_idx].msi, msm_pcie_msi_info,
-				sizeof(msm_pcie_msi_info));
 	memcpy(msm_pcie_dev[rc_idx].reset, msm_pcie_reset_info[rc_idx],
 				sizeof(msm_pcie_reset_info[rc_idx]));
 	memcpy(msm_pcie_dev[rc_idx].pipe_reset,

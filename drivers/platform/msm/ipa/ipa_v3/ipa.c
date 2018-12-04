@@ -4444,9 +4444,9 @@ void ipa3_reset_freeze_vote(void)
 
 	qcom_smem_state_update_bits(ipa3_ctx->smp2p_info.smem_state,
 			IPA_SMP2P_SMEM_STATE_MASK,
-			((ipa3_ctx->smp2p_info.ipa_clk_on <<
+			((0 <<
 			IPA_SMP2P_OUT_CLK_VOTE_IDX) |
-			(1 << IPA_SMP2P_OUT_CLK_RSP_CMPLT_IDX)));
+			(0 << IPA_SMP2P_OUT_CLK_RSP_CMPLT_IDX)));
 
 	ipa3_ctx->smp2p_info.res_sent = false;
 	ipa3_ctx->smp2p_info.ipa_clk_on = false;
@@ -4754,15 +4754,11 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 		flt_tbl->rule_ids = &ipa3_ctx->flt_rule_ids[IPA_IP_v6];
 	}
 
-	if (!ipa3_ctx->apply_rg10_wa) {
-		result = ipa3_init_interrupts();
-		if (result) {
-			IPAERR("ipa initialization of interrupts failed\n");
-			result = -ENODEV;
-			goto fail_register_device;
-		}
-	} else {
-		IPADBG("Initialization of ipa interrupts skipped\n");
+	result = ipa3_init_interrupts();
+	if (result) {
+		IPAERR("ipa initialization of interrupts failed\n");
+		result = -ENODEV;
+		goto fail_init_interrupts;
 	}
 
 	/*
@@ -4892,6 +4888,9 @@ fail_setup_apps_pipes:
 	gsi_deregister_device(ipa3_ctx->gsi_dev_hdl, false);
 fail_register_device:
 	ipa3_destroy_flt_tbl_idrs();
+fail_init_interrupts:
+	 ipa3_remove_interrupt_handler(IPA_TX_SUSPEND_IRQ);
+	 ipa3_interrupts_destroy(ipa3_res.ipa_irq, &ipa3_ctx->master_pdev->dev);
 fail_allok_pkt_init:
 	ipa3_nat_ipv6ct_destroy_devices();
 fail_nat_ipv6ct_init_dev:
@@ -5272,7 +5271,6 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->skip_uc_pipe_reset = resource_p->skip_uc_pipe_reset;
 	ipa3_ctx->tethered_flow_control = resource_p->tethered_flow_control;
 	ipa3_ctx->ee = resource_p->ee;
-	ipa3_ctx->apply_rg10_wa = resource_p->apply_rg10_wa;
 	ipa3_ctx->gsi_ch20_wa = resource_p->gsi_ch20_wa;
 	ipa3_ctx->use_ipa_pm = resource_p->use_ipa_pm;
 	ipa3_ctx->wdi_over_pcie = resource_p->wdi_over_pcie;

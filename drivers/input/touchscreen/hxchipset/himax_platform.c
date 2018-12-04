@@ -17,9 +17,12 @@
 #include "himax_platform.h"
 #include "himax_common.h"
 #include "himax_ic_core.h"
+#include "linux/moduleparam.h"
 
 int i2c_error_count;
 int irq_enable_count;
+
+active_tp_setup(himax);
 
 int himax_dev_set(struct himax_ts_data *ts)
 {
@@ -787,9 +790,13 @@ int himax_chip_common_probe(struct i2c_client *client, const struct i2c_device_i
 {
 	int ret = 0;
 	struct himax_ts_data *ts;
+	struct device_node *dt = client->dev.of_node;
 
 	D("%s:Enter\n", __func__);
 
+	if (himax_check_assigned_tp(dt, "compatible",
+		"qcom,i2c-touch-active") < 0)
+		goto err_dt_not_match;
 	/* Check I2C functionality */
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		E("%s: i2c check functionality error\n", __func__);
@@ -845,6 +852,7 @@ err_alloc_i2c_data:
 	kfree(ts);
 err_alloc_data_failed:
 err_check_functionality_failed:
+err_dt_not_match:
 
 	return ret;
 }

@@ -40,7 +40,7 @@
 };
 
 &qupv3_se3_spi {
-	status = "ok";
+	status = "disabled";
 };
 
 &qupv3_se4_i2c {

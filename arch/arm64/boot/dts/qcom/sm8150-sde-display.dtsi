@@ -494,8 +494,6 @@
 	qcom,ext-disp = <&ext_disp>;
 	qcom,dp-aux-switch = <&fsa4480>;
 
-	qcom,aux-en-gpio = <&tlmm 43 0>;
-	qcom,aux-sel-gpio = <&tlmm 51 0>;
 	qcom,usbplug-cc-gpio = <&tlmm 38 0>;
 
 	pinctrl-names = "mdss_dp_active", "mdss_dp_sleep";

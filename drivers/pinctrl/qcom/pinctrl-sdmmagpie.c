@@ -533,7 +533,8 @@ enum sdmmagpie_functions {
 	msm_mux_uim1_clk,
 	msm_mux_uim1_reset,
 	msm_mux_uim1_present,
-	msm_mux_NAV_PPS,
+	msm_mux_NAV_PPS_IN,
+	msm_mux_NAV_PPS_OUT,
 	msm_mux_GPS_TX,
 	msm_mux_uim_batt,
 	msm_mux_edp_hot,
@@ -1021,8 +1022,11 @@ static const char * const uim1_reset_groups[] = {
 static const char * const uim1_present_groups[] = {
 	"gpio82",
 };
-static const char * const NAV_PPS_groups[] = {
-	"gpio83", "gpio83", "gpio84", "gpio84", "gpio107", "gpio107",
+static const char * const NAV_PPS_IN_groups[] = {
+	"gpio83", "gpio84", "gpio107",
+};
+static const char * const NAV_PPS_OUT_groups[] = {
+	"gpio83", "gpio84", "gpio107",
 };
 static const char * const GPS_TX_groups[] = {
 	"gpio83", "gpio84", "gpio107", "gpio109",
@@ -1227,7 +1231,8 @@ static const struct msm_function sdmmagpie_functions[] = {
 	FUNCTION(uim1_clk),
 	FUNCTION(uim1_reset),
 	FUNCTION(uim1_present),
-	FUNCTION(NAV_PPS),
+	FUNCTION(NAV_PPS_IN),
+	FUNCTION(NAV_PPS_OUT),
 	FUNCTION(GPS_TX),
 	FUNCTION(uim_batt),
 	FUNCTION(edp_hot),
@@ -1392,10 +1397,10 @@ static const struct msm_pingroup sdmmagpie_groups[] = {
 	[80] = PINGROUP(80, WEST, uim1_clk, NA, NA, NA, NA, NA, NA, NA, NA),
 	[81] = PINGROUP(81, WEST, uim1_reset, NA, NA, NA, NA, NA, NA, NA, NA),
 	[82] = PINGROUP(82, WEST, uim1_present, NA, NA, NA, NA, NA, NA, NA, NA),
-	[83] = PINGROUP(83, WEST, NA, NAV_PPS, NAV_PPS, GPS_TX, NA, NA, NA, NA,
-			NA),
-	[84] = PINGROUP(84, WEST, NA, NAV_PPS, NAV_PPS, GPS_TX, NA, NA, NA, NA,
-			NA),
+	[83] = PINGROUP(83, WEST, NA, NAV_PPS_IN, NAV_PPS_OUT, GPS_TX, NA, NA,
+			NA, NA, NA),
+	[84] = PINGROUP(84, WEST, NA, NAV_PPS_IN, NAV_PPS_OUT, GPS_TX, NA, NA,
+			NA, NA, NA),
 	[85] = PINGROUP(85, WEST, uim_batt, edp_hot, aoss_cti, NA, NA, NA, NA,
 			NA, NA),
 	[86] = PINGROUP(86, NORTH, qdss_gpio0, atest_char, NA, NA, NA, NA, NA,
@@ -1426,8 +1431,8 @@ static const struct msm_pingroup sdmmagpie_groups[] = {
 			 NA),
 	[105] = PINGROUP(105, NORTH, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	[106] = PINGROUP(106, NORTH, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[107] = PINGROUP(107, WEST, NA, NAV_PPS, NAV_PPS, GPS_TX, NA, NA, NA,
-			 NA, NA),
+	[107] = PINGROUP(107, WEST, NA, NAV_PPS_IN, NAV_PPS_OUT, GPS_TX, NA,
+			 NA, NA, NA, NA),
 	[108] = PINGROUP(108, SOUTH, mss_lte, NA, NA, NA, NA, NA, NA, NA, NA),
 	[109] = PINGROUP(109, SOUTH, mss_lte, GPS_TX, NA, NA, NA, NA, NA, NA,
 			 NA),
@@ -1517,14 +1522,14 @@ static struct msm_dir_conn sdmmagpie_dir_conn[] = {
 	{109, 619},
 	{110, 559},
 	{113, 565},
-	{0, 216},
-	{0, 215},
-	{0, 214},
-	{0, 213},
-	{0, 212},
-	{0, 211},
-	{0, 210},
-	{0, 209},
+	{-1, 216},
+	{-1, 215},
+	{-1, 214},
+	{-1, 213},
+	{-1, 212},
+	{-1, 211},
+	{-1, 210},
+	{-1, 209},
 };
 
 static const struct msm_pinctrl_soc_data sdmmagpie_pinctrl = {

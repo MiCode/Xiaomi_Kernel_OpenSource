@@ -630,6 +630,7 @@
 	qcom,step-charging-enable;
 	qcom,sw-jeita-enable;
 	qcom,wd-bark-time-secs = <16>;
+	qcom,suspend-input-on-debug-batt;
 };
 
 &smb1390 {

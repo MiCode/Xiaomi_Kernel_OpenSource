@@ -29,10 +29,14 @@ qcom,mlp466076_3200mAh {
 	qcom,jeita-fv-ranges = <0 150 4150000
 				151 450 4400000
 				451 550 4150000>;
-	/* COLD = 0 DegC, HOT = 55 DegC */
-	qcom,jeita-hard-thresholds = <0x5840 0x1810>;
 	/* COOL = 15 DegC, WARM = 45 DegC */
-	qcom,jeita-soft-thresholds = <0x45f3 0x20c4>;
+	qcom,jeita-soft-thresholds = <0x4621 0x20b8>;
+	/* COLD = 0 DegC, HOT = 55 DegC */
+	qcom,jeita-hard-thresholds = <0x58cd 0x181d>;
+	/* COOL hys = 18 DegC, WARM hys = 42 DegC */
+	qcom,jeita-soft-hys-thresholds = <0x4206 0x23c0>;
+	qcom,jeita-soft-fcc-ua = <650000 1625000>;
+	qcom,jeita-soft-fv-uv = <4150000 4150000>;
 
 	qcom,fcc1-temp-lut {
 		qcom,lut-col-legend = <0 10 25 40 50>;

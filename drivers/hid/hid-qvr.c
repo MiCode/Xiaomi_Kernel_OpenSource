@@ -112,8 +112,11 @@ int qvr_send_package_wrap(u8 *message, int msize, struct hid_device *hid)
 		data->ats = ts_base + ((ts_offset - imuData.gts0) * 100);
 	else
 		data->ats = ts_base + ((imuData.gts0 - ts_offset) * 100);
+	if (imuData.mts0 == 0)
+		data->mts = 0;
+	else
+		data->mts = data->ats;
 	data->gts = data->ats;
-	data->mts = data->ats;
 	data->ax = -imuData.ax0;
 	data->ay = imuData.ay0;
 	data->az = -imuData.az0;
@@ -304,18 +307,16 @@ static int qvr_external_sensor_probe(struct hid_device *hdev,
 		pr_err("%s: hid_hw_start failed", __func__);
 		goto err_free;
 	}
-	if (hdev->vendor == USB_VENDOR_ID_QVR5) {
-		hid_buf = kzalloc(255, GFP_ATOMIC);
-		if (hid_buf == NULL)
-			return -ENOMEM;
-		hid_buf[0] = hid_request_report_id;
-		hid_buf[1] = 7;
-		ret = hid_hw_raw_request(hdev, hid_buf[0], hid_buf,
-			hid_request_report_size,
-			HID_FEATURE_REPORT,
-			HID_REQ_SET_REPORT);
-		kfree(hid_buf);
-	}
+	hid_buf = kzalloc(255, GFP_ATOMIC);
+	if (hid_buf == NULL)
+		return -ENOMEM;
+	hid_buf[0] = hid_request_report_id;
+	hid_buf[1] = 7;
+	ret = hid_hw_raw_request(hdev, hid_buf[0], hid_buf,
+		hid_request_report_size,
+		HID_FEATURE_REPORT,
+		HID_REQ_SET_REPORT);
+	kfree(hid_buf);
 
 	qvr_device = &hdev->dev;
 
@@ -333,7 +334,7 @@ static int qvr_external_sensor_raw_event(struct hid_device *hid,
 	static int val;
 	int ret = -1;
 
-	if ((hid->vendor == USB_VENDOR_ID_QVR5) && (vaddr != NULL)) {
+	if (vaddr != NULL && report->id == 0x1) {
 		ret = qvr_send_package_wrap(data/*hid_value*/, size, hid);
 		if (ret == 0) {
 			val = 1 ^ val;
@@ -352,6 +353,7 @@ static void qvr_external_sensor_device_remove(struct hid_device *hdev)
 
 static struct hid_device_id qvr_external_sensor_table[] = {
 	{ HID_USB_DEVICE(USB_VENDOR_ID_QVR5, USB_DEVICE_ID_QVR5) },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_QVR32A, USB_DEVICE_ID_QVR32A) },
 	{ }
 };
 MODULE_DEVICE_TABLE(hid, qvr_external_sensor_table);

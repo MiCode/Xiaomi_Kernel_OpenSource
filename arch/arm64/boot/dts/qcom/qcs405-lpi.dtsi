@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-&soc {
+&q6core {
 	lpi_tlmm: lpi_pinctrl@C070000 {
 		compatible = "qcom,lpi-pinctrl";
 		reg = <0x0C070000 0x0>;
@@ -28,7 +28,8 @@
 				      <0x00000170>, <0x00000180>,
 				      <0x00000190>, <0x00000200>,
 				      <0x00000210>;
-
+		clock-names = "island_lpass_npa_rsc";
+		clocks = <&lpass_npa_rsc_island 0>;
 		cdc_dmic01_clk_active: dmic01_clk_active {
 			mux {
 				pins = "gpio8";
