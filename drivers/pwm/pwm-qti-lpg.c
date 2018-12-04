@@ -867,6 +867,19 @@ static int qpnp_lpg_pwm_enable(struct pwm_chip *pwm_chip,
 		return -ENODEV;
 	}
 
+	/*
+	 * Update PWM_VALUE_SYNC to make sure PWM_VALUE
+	 * will be updated everytime before enabling.
+	 */
+	if (lpg->src_sel == PWM_VALUE) {
+		rc = qpnp_lpg_write(lpg, REG_LPG_PWM_SYNC, LPG_PWM_VALUE_SYNC);
+		if (rc < 0) {
+			dev_err(lpg->chip->dev, "Write LPG_PWM_SYNC failed, rc=%d\n",
+					rc);
+			return rc;
+		}
+	}
+
 	rc = qpnp_lpg_set_glitch_removal(lpg, true);
 	if (rc < 0) {
 		dev_err(lpg->chip->dev, "Enable glitch-removal failed, rc=%d\n",
