@@ -241,6 +241,8 @@ static int dp_parser_gpio(struct dp_parser *parser)
 		return 0;
 	}
 
+	if (of_find_property(of_node, "qcom,dp-gpio-aux-switch", NULL))
+		parser->gpio_aux_switch = true;
 	mp->gpio_config = devm_kzalloc(dev,
 		sizeof(struct dss_gpio) * ARRAY_SIZE(dp_gpios), GFP_KERNEL);
 	if (!mp->gpio_config)
@@ -254,6 +256,10 @@ static int dp_parser_gpio(struct dp_parser *parser)
 
 		if (!gpio_is_valid(mp->gpio_config[i].gpio)) {
 			pr_debug("%s gpio not specified\n", dp_gpios[i]);
+			/* In case any gpio was not specified, we think gpio
+			 * aux switch also was not specified.
+			 */
+			parser->gpio_aux_switch = false;
 			continue;
 		}
 

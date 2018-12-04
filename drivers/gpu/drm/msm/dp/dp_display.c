@@ -772,7 +772,8 @@ static int dp_display_usbpd_configure_cb(struct device *dev)
 		goto end;
 	}
 
-	if (!dp->debug->sim_mode && !dp->parser->no_aux_switch) {
+	if (!dp->debug->sim_mode && !dp->parser->no_aux_switch
+	    && !dp->parser->gpio_aux_switch) {
 		rc = dp->aux->aux_switch(dp->aux, true, dp->hpd->orientation);
 		if (rc)
 			goto end;
@@ -914,7 +915,8 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 	dp_display_disconnect_sync(dp);
 	dp->dp_display.post_open = NULL;
 
-	if (!dp->debug->sim_mode && !dp->parser->no_aux_switch)
+	if (!dp->debug->sim_mode && !dp->parser->no_aux_switch
+	    && !dp->parser->gpio_aux_switch)
 		dp->aux->aux_switch(dp->aux, false, ORIENTATION_NONE);
 end:
 	return rc;
