@@ -145,7 +145,7 @@
 			"core_clk", "vcodec_clk", "cvp_clk", "iface_clk";
 
 		qcom,clock-configs = <0x0 0x0 0x0 0x1 0x1 0x1 0x0>;
-		qcom,allowed-clock-rates = <240000000>;
+		qcom,allowed-clock-rates = <200000000>;
 
 		/* Buses */
 		bus_cnoc {
