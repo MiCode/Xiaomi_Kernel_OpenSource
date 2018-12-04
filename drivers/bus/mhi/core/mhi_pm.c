@@ -560,13 +560,13 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 		tasklet_kill(&mhi_event->task);
 	}
 
+	mutex_unlock(&mhi_cntrl->pm_mutex);
+
 	MHI_LOG("Reset all active channels and remove mhi devices\n");
 	device_for_each_child(mhi_cntrl->dev, NULL, mhi_destroy_device);
 
 	MHI_LOG("Finish resetting channels\n");
 
-	/* release lock and wait for all pending thread to complete */
-	mutex_unlock(&mhi_cntrl->pm_mutex);
 	MHI_LOG("Waiting for all pending threads to complete\n");
 	wake_up_all(&mhi_cntrl->state_event);
 	flush_work(&mhi_cntrl->st_worker);
