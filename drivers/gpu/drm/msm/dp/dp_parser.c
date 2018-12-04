@@ -687,16 +687,37 @@ static int dp_parser_mst(struct dp_parser *parser)
 	return 0;
 }
 
-static int dp_parser_widebus(struct dp_parser *parser)
+static void dp_parser_dsc(struct dp_parser *parser)
+{
+	struct device *dev = &parser->pdev->dev;
+
+	parser->dsc_feature_enable = of_property_read_bool(dev->of_node,
+			"qcom,dsc-feature-enable");
+
+	pr_debug("dsc parsing successful. dsc:%d\n",
+			parser->dsc_feature_enable);
+}
+
+static void dp_parser_fec(struct dp_parser *parser)
+{
+	struct device *dev = &parser->pdev->dev;
+
+	parser->fec_feature_enable = of_property_read_bool(dev->of_node,
+			"qcom,fec-feature-enable");
+
+	pr_debug("fec parsing successful. fec:%d\n",
+			parser->fec_feature_enable);
+}
+
+static void dp_parser_widebus(struct dp_parser *parser)
 {
 	struct device *dev = &parser->pdev->dev;
 
 	parser->has_widebus = of_property_read_bool(dev->of_node,
 			"qcom,widebus-enable");
 
-	pr_debug("widebus parsing successful. dsc:%d\n", parser->has_widebus);
-
-	return 0;
+	pr_debug("widebus parsing successful. widebus:%d\n",
+			parser->has_widebus);
 }
 
 static int dp_parser_parse(struct dp_parser *parser)
@@ -749,7 +770,9 @@ static int dp_parser_parse(struct dp_parser *parser)
 	if (rc)
 		goto err;
 
-	rc = dp_parser_widebus(parser);
+	dp_parser_dsc(parser);
+	dp_parser_fec(parser);
+	dp_parser_widebus(parser);
 err:
 	return rc;
 }
