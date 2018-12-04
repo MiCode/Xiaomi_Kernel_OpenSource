@@ -2116,6 +2116,46 @@
 
 		qcom,devfreq,freq-table = <50000000 200000000>;
 
+		qcom,msm-bus,name = "sdhc1";
+		qcom,msm-bus,num-cases = <9>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+			/* No vote */
+			<150 512 0 0>, <1 806 0 0>,
+			/* 400 KB/s*/
+			<150 512 1000 2000>,
+			<1 806 2000 4000>,
+			/* 20 MB/s */
+			<150 512 25000 50000>,
+			<1 806 20000 40000>,
+			/* 25 MB/s */
+			<150 512 50000 100000>,
+			<1 806 30000 60000>,
+			/* 50 MB/s */
+			<150 512 80000 150000>,
+			<1 806 40000 80000>,
+			/* 100 MB/s */
+			<150 512 100000 200000>,
+			<1 806 50000 100000>,
+			/* 200 MB/s */
+			<150 512 150000 250000>,
+			<1 806 80000 120000>,
+			/* 400 MB/s */
+			<150 512 261438 2800000>,
+			<1 806 1200000 2400000>,
+			/* Max. bandwidth */
+			<150 512 1338562 4096000>,
+			<1 806 1338562 4096000>;
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
+			100750000 200000000 400000000 4294967295>;
+
+		/* PM QoS */
+		qcom,pm-qos-irq-type = "affine_irq";
+		qcom,pm-qos-irq-latency = <67 67>;
+		qcom,pm-qos-cpu-groups = <0x3f 0xc0>;
+		qcom,pm-qos-cmdq-latency-us = <67 67>, <67 67>;
+		qcom,pm-qos-legacy-latency-us = <67 67>, <67 67>;
+
 		clocks = <&clock_gcc GCC_SDCC1_AHB_CLK>,
 			<&clock_gcc GCC_SDCC1_APPS_CLK>,
 			<&clock_gcc GCC_SDCC1_ICE_CORE_CLK>;
@@ -2147,6 +2187,42 @@
 				      "SDR104";
 
 		qcom,devfreq,freq-table = <50000000 208000000>;
+
+		qcom,msm-bus,name = "sdhc2";
+		qcom,msm-bus,num-cases = <8>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+			/* No vote */
+			<81 512 0 0>, <1 608 0 0>,
+			/* 400 KB/s*/
+			<81 512 1000 2000>,
+			<1 608 1600 20000>,
+			/* 20 MB/s */
+			<81 512 20000 40000>,
+			<1 608 20000 40000>,
+			/* 25 MB/s */
+			<81 512 40000 80000>,
+			<1 608 30000 60000>,
+			/* 50 MB/s */
+			<81 512 60000 120000>,
+			<1 608 40000 80000>,
+			/* 100 MB/s */
+			<81 512 80000 160000>,
+			<1 608 50000 100000>,
+			/* 200 MB/s */
+			<81 512 100000 200000>,
+			<1 608 60000 120000>,
+			/* Max. bandwidth */
+			<81 512 1338562 4096000>,
+			<1 608 1338562 4096000>;
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
+			100750000 200000000 4294967295>;
+
+		/* PM QoS */
+		qcom,pm-qos-irq-type = "affine_irq";
+		qcom,pm-qos-irq-latency = <67 67>;
+		qcom,pm-qos-cpu-groups = <0x3f 0xc0>;
+		qcom,pm-qos-legacy-latency-us = <67 67>, <67 67>;
 
 		clocks = <&clock_gcc GCC_SDCC2_AHB_CLK>,
 			<&clock_gcc GCC_SDCC2_APPS_CLK>;
