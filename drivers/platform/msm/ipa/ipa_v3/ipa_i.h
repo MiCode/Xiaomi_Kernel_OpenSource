@@ -80,6 +80,16 @@
 
 #define NAPI_WEIGHT 60
 
+/* Bit pattern for SW to identify in middle of PC saving */
+#define PC_SAVE_CONTEXT_SAVE_ENTERED            0xDEAFDEAF
+/* Bit pattern for SW to identify that PC saving completed */
+#define PC_SAVE_CONTEXT_STATUS_SUCCESS          0xFADEFADE
+/* Bit pattern for SW to identify PC restoration is ongoing */
+#define PC_RESTORE_CONTEXT_ENTERED              0xFACEFACE
+/*Bit pattern for SW to identify PC restoration completed */
+#define PC_RESTORE_CONTEXT_STATUS_SUCCESS       0xCAFECAFE
+
+
 #define IPADBG(fmt, args...) \
 	do { \
 		pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
@@ -845,6 +855,13 @@ enum ipa3_sys_pipe_policy {
 	IPA_POLICY_INTR_MODE,
 	IPA_POLICY_NOINTR_MODE,
 	IPA_POLICY_INTR_POLL_MODE,
+};
+
+enum uc_state {
+	IPA_PC_SAVE_CONTEXT_SAVE_ENTERED,
+	IPA_PC_SAVE_CONTEXT_STATUS_SUCCESS,
+	IPA_PC_RESTORE_CONTEXT_ENTERED,
+	IPA_PC_RESTORE_CONTEXT_STATUS_SUCCESS,
 };
 
 struct ipa3_repl_ctx {
@@ -1672,6 +1689,9 @@ struct ipa3_context {
 	struct mbox_client mbox_client;
 	struct mbox_chan *mbox;
 	atomic_t ipa_clk_vote;
+	int gsi_chk_intset_value;
+	int uc_mailbox17_chk;
+	int uc_mailbox17_mismatch;
 };
 
 struct ipa3_plat_drv_res {
@@ -2527,6 +2547,7 @@ int ipa3_uc_interface_init(void);
 int ipa3_uc_is_gsi_channel_empty(enum ipa_client_type ipa_client);
 int ipa3_uc_state_check(void);
 int ipa3_uc_loaded_check(void);
+void ipa3_uc_map_cntr_reg_notify(void);
 int ipa3_uc_register_ready_cb(struct notifier_block *nb);
 int ipa3_uc_unregister_ready_cb(struct notifier_block *nb);
 int ipa3_uc_send_cmd(u32 cmd, u32 opcode, u32 expected_status,
@@ -2682,6 +2703,8 @@ int ipa3_ntn_init(void);
 int ipa3_get_ntn_stats(struct Ipa3HwStatsNTNInfoData_t *stats);
 struct dentry *ipa_debugfs_get_root(void);
 bool ipa3_is_msm_device(void);
+void ipa3_read_mailbox_17(enum uc_state state);
+
 struct device *ipa3_get_pdev(void);
 void ipa3_enable_dcd(void);
 void ipa3_disable_prefetch(enum ipa_client_type client);

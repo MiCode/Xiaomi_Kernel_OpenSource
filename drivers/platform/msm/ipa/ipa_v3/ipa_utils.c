@@ -7440,6 +7440,54 @@ bool ipa3_is_msm_device(void)
 	return false;
 }
 
+void ipa3_read_mailbox_17(enum uc_state state)
+{
+	u32 val = 0;
+
+	ipa3_ctx->gsi_chk_intset_value = gsi_chk_intset_value();
+
+	val = ipahal_read_reg_mn(IPA_UC_MAILBOX_m_n,
+			0,
+			17);
+		IPAERR_RL("GSI INTSET %d\n mailbox-17: 0x%x\n",
+			ipa3_ctx->gsi_chk_intset_value,
+			val);
+	switch (state)	{
+	case IPA_PC_SAVE_CONTEXT_SAVE_ENTERED:
+		if (val != PC_SAVE_CONTEXT_SAVE_ENTERED) {
+			IPAERR_RL("expected 0x%x, value: 0x%x\n",
+				PC_SAVE_CONTEXT_SAVE_ENTERED,
+				val);
+		}
+		break;
+	case IPA_PC_SAVE_CONTEXT_STATUS_SUCCESS:
+		if (val != PC_SAVE_CONTEXT_STATUS_SUCCESS) {
+			IPAERR_RL("expected 0x%x, value: 0x%x\n",
+				PC_SAVE_CONTEXT_STATUS_SUCCESS,
+				val);
+		}
+		break;
+	case IPA_PC_RESTORE_CONTEXT_ENTERED:
+		if (val != PC_RESTORE_CONTEXT_ENTERED) {
+			IPAERR_RL("expected 0x%x, value: 0x%x\n",
+				PC_RESTORE_CONTEXT_ENTERED,
+				val);
+		}
+		break;
+	case IPA_PC_RESTORE_CONTEXT_STATUS_SUCCESS:
+			ipa3_ctx->uc_mailbox17_chk++;
+		if (val != PC_RESTORE_CONTEXT_STATUS_SUCCESS) {
+			ipa3_ctx->uc_mailbox17_mismatch++;
+			IPAERR_RL("expected 0x%x, value: 0x%x\n",
+				PC_RESTORE_CONTEXT_STATUS_SUCCESS,
+				val);
+		}
+		break;
+	default:
+		break;
+	}
+}
+
 /**
  * ipa3_disable_prefetch() - disable\enable tx prefetch
  *
