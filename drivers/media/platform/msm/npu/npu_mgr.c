@@ -1284,6 +1284,7 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 
 	load_ioctl->network_hdl = network->network_hdl;
 	network->is_active = true;
+	kfree(load_packet);
 	network_put(network);
 	mutex_unlock(&host_ctx->lock);
 
