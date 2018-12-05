@@ -34,3 +34,7 @@
 	vbus-supply = <&smb5_vbus>;
 	vconn-supply = <&smb5_vconn>;
 };
+
+&usb {
+	extcon = <&pm8150b_pdphy>;
+};
