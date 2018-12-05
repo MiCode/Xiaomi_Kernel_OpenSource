@@ -1656,6 +1656,7 @@ struct ipa3_context {
 	struct ipa3_wdi2_ctx wdi2_ctx;
 	struct mbox_client mbox_client;
 	struct mbox_chan *mbox;
+	atomic_t ipa_clk_vote;
 };
 
 struct ipa3_plat_drv_res {
