@@ -241,8 +241,10 @@
 	vdd-hba-fixed-regulator;
 	vcc-supply = <&pm8150_l10>;
 	vcc-voltage-level = <2950000 2960000>;
+	vccq-supply = <&pm8150_l9>;
 	vccq2-supply = <&pm8150_s4>;
 	vcc-max-microamp = <750000>;
+	vccq-max-microamp = <700000>;
 	vccq2-max-microamp = <750000>;
 
 	qcom,vddp-ref-clk-supply = <&pm8150_l9>;
