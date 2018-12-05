@@ -123,6 +123,7 @@ struct gsi_per_props {
 	void (*req_clk_cb)(void *user_data, bool *granted);
 	int (*rel_clk_cb)(void *user_data);
 	void *user_data;
+	int (*clk_status_cb)(void);
 };
 
 enum gsi_evt_err {
