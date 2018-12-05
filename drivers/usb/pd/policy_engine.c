@@ -230,7 +230,7 @@ static void *usbpd_ipc_log;
 #define PS_HARD_RESET_TIME	25
 #define PS_SOURCE_ON		400
 #define PS_SOURCE_OFF		750
-#define FIRST_SOURCE_CAP_TIME	200
+#define FIRST_SOURCE_CAP_TIME	100
 #define VDM_BUSY_TIME		50
 #define VCONN_ON_TIME		100
 
@@ -344,8 +344,6 @@ static void *usbpd_ipc_log;
 #define ID_HDR_PRODUCT_PER	2
 #define ID_HDR_PRODUCT_AMA	5
 #define ID_HDR_PRODUCT_VPD	6
-#define ID_HDR_VID		0x05c6 /* qcom */
-#define PROD_VDO_PID		0x0a00 /* TBD */
 
 #define PD_MIN_SINK_CURRENT	900
 
@@ -668,14 +666,29 @@ static inline void pd_reset_protocol(struct usbpd *pd)
 static int pd_send_msg(struct usbpd *pd, u8 msg_type, const u32 *data,
 		size_t num_data, enum pd_sop_type sop)
 {
+	unsigned long flags;
 	int ret;
 	u16 hdr;
 
 	if (pd->hard_reset_recvd)
 		return -EBUSY;
 
-	hdr = PD_MSG_HDR(msg_type, pd->current_dr, pd->current_pr,
-			pd->tx_msgid[sop], num_data, pd->spec_rev);
+	if (sop == SOP_MSG)
+		hdr = PD_MSG_HDR(msg_type, pd->current_dr, pd->current_pr,
+				pd->tx_msgid[sop], num_data, pd->spec_rev);
+	else
+		/* sending SOP'/SOP'' to a cable, PR/DR fields should be 0 */
+		hdr = PD_MSG_HDR(msg_type, 0, 0, pd->tx_msgid[sop], num_data,
+				pd->spec_rev);
+
+	/* bail out and try again later if a message just arrived */
+	spin_lock_irqsave(&pd->rx_lock, flags);
+	if (!list_empty(&pd->rx_q)) {
+		spin_unlock_irqrestore(&pd->rx_lock, flags);
+		usbpd_dbg(&pd->dev, "Abort send due to pending RX\n");
+		return -EBUSY;
+	}
+	spin_unlock_irqrestore(&pd->rx_lock, flags);
 
 	ret = pd_phy_write(hdr, (u8 *)data, num_data * sizeof(u32), sop);
 	if (ret) {
@@ -820,10 +833,6 @@ static int pd_eval_src_caps(struct usbpd *pd)
 	power_supply_set_property(pd->usb_psy,
 			POWER_SUPPLY_PROP_PD_USB_SUSPEND_SUPPORTED, &val);
 
-	/* First time connecting to a PD source and it supports USB data */
-	if (pd->peer_usb_comm && pd->current_dr == DR_UFP && !pd->pd_connected)
-		start_usb_peripheral(pd);
-
 	/* Check for PPS APDOs */
 	if (pd->spec_rev == USBPD_REV_30) {
 		for (i = 1; i < PD_MAX_DATA_OBJ; i++) {
@@ -845,6 +854,10 @@ static int pd_eval_src_caps(struct usbpd *pd)
 			POWER_SUPPLY_PD_ACTIVE;
 	power_supply_set_property(pd->usb_psy,
 			POWER_SUPPLY_PROP_PD_ACTIVE, &val);
+
+	/* First time connecting to a PD source and it supports USB data */
+	if (pd->peer_usb_comm && pd->current_dr == DR_UFP && !pd->pd_connected)
+		start_usb_peripheral(pd);
 
 	/* Select the first PDO (vSafe5V) immediately. */
 	pd_select_pdo(pd, 1, 0, 0);
@@ -1452,18 +1465,7 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 	/* Standard Discovery or unhandled messages go here */
 	switch (cmd_type) {
 	case SVDM_CMD_TYPE_INITIATOR:
-		if (svid == USBPD_SID && cmd == USBPD_SVDM_DISCOVER_IDENTITY) {
-			u32 tx_vdos[3] = {
-				ID_HDR_USB_HOST | ID_HDR_USB_DEVICE |
-					ID_HDR_PRODUCT_PER_MASK | ID_HDR_VID,
-				0x0, /* TBD: Cert Stat VDO */
-				(PROD_VDO_PID << 16),
-				/* TBD: Get these from gadget */
-			};
-
-			usbpd_send_svdm(pd, USBPD_SID, cmd,
-					SVDM_CMD_TYPE_RESP_ACK, 0, tx_vdos, 3);
-		} else if (cmd != USBPD_SVDM_ATTENTION) {
+		if (cmd != USBPD_SVDM_ATTENTION) {
 			usbpd_send_svdm(pd, svid, cmd, SVDM_CMD_TYPE_RESP_NAK,
 					SVDM_HDR_OBJ_POS(vdm_hdr), NULL, 0);
 		}
@@ -1509,19 +1511,10 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 static void handle_vdm_tx(struct usbpd *pd, enum pd_sop_type sop_type)
 {
 	int ret;
-	unsigned long flags;
 
 	/* only send one VDM at a time */
 	if (pd->vdm_tx) {
 		u32 vdm_hdr = pd->vdm_tx->data[0];
-
-		/* bail out and try again later if a message just arrived */
-		spin_lock_irqsave(&pd->rx_lock, flags);
-		if (!list_empty(&pd->rx_q)) {
-			spin_unlock_irqrestore(&pd->rx_lock, flags);
-			return;
-		}
-		spin_unlock_irqrestore(&pd->rx_lock, flags);
 
 		ret = pd_send_msg(pd, MSG_VDM, pd->vdm_tx->data,
 				pd->vdm_tx->size, sop_type);
@@ -1597,6 +1590,9 @@ static void dr_swap(struct usbpd *pd)
 		if (pd->peer_usb_comm)
 			start_usb_host(pd, true);
 		pd->current_dr = DR_DFP;
+
+		/* ensure host is started before allowing DP */
+		extcon_blocking_sync(pd->extcon, EXTCON_USB_HOST, 0);
 
 		usbpd_send_svdm(pd, USBPD_SID, USBPD_SVDM_DISCOVER_IDENTITY,
 				SVDM_CMD_TYPE_INITIATOR, 0, NULL, 0);
@@ -1919,6 +1915,16 @@ static void handle_state_src_send_capabilities(struct usbpd *pd,
 	ret = pd_send_msg(pd, MSG_SOURCE_CAPABILITIES, default_src_caps,
 			ARRAY_SIZE(default_src_caps), SOP_MSG);
 	if (ret) {
+		if (pd->pd_connected) {
+			usbpd_set_state(pd, PE_SEND_SOFT_RESET);
+			break;
+		}
+
+		/*
+		 * Technically this is PE_SRC_Discovery, but we can
+		 * handle it by setting a timer to come back to the
+		 * same state for the next retry.
+		 */
 		pd->caps_count++;
 		if (pd->caps_count >= PD_CAPS_COUNT) {
 			usbpd_dbg(&pd->dev, "Src CapsCounter exceeded, disabling PD\n");
@@ -2206,8 +2212,18 @@ static void enter_state_snk_startup(struct usbpd *pd)
 	};
 	union power_supply_propval val = {0};
 
-	if (pd->current_dr == DR_NONE || pd->current_dr == DR_UFP)
+	if (pd->current_dr == DR_NONE || pd->current_dr == DR_UFP) {
 		pd->current_dr = DR_UFP;
+
+		ret = power_supply_get_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_REAL_TYPE, &val);
+		if (!ret) {
+			usbpd_dbg(&pd->dev, "type:%d\n", val.intval);
+			if (val.intval == POWER_SUPPLY_TYPE_USB ||
+				val.intval == POWER_SUPPLY_TYPE_USB_CDP)
+				start_usb_peripheral(pd);
+		}
+	}
 
 	dual_role_instance_changed(pd->dual_role);
 
@@ -3186,7 +3202,8 @@ static void usbpd_sm(struct work_struct *w)
 
 	/* Disconnect? */
 	if (pd->current_pr == PR_NONE) {
-		if (pd->current_state == PE_UNKNOWN)
+		if (pd->current_state == PE_UNKNOWN &&
+				pd->current_dr == DR_NONE)
 			goto sm_done;
 
 		handle_disconnect(pd);

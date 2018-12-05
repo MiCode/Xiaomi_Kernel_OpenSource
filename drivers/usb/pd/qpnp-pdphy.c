@@ -473,12 +473,15 @@ int pd_phy_write(u16 hdr, const u8 *data, size_t data_len, enum pd_sop_type sop)
 	u8 val;
 	int ret;
 	size_t total_len = data_len + USB_PDPHY_MSG_HDR_LEN;
-	struct usb_pdphy *pdphy;
+	struct usb_pdphy *pdphy = __pdphy;
+	unsigned int msg_rx_cnt;
 
 	if (!pdphy) {
 		pr_err("%s: pdphy not found\n", __func__);
 		return -ENODEV;
 	}
+
+	msg_rx_cnt = pdphy->msg_rx_cnt;
 
 	if (!pdphy->is_opened) {
 		dev_dbg(pdphy->dev, "%s: pdphy disabled\n", __func__);
@@ -536,6 +539,11 @@ int pd_phy_write(u16 hdr, const u8 *data, size_t data_len, enum pd_sop_type sop)
 		val |= TX_CONTROL_RETRY_COUNT(2);
 	else
 		val |= TX_CONTROL_RETRY_COUNT(3);
+
+	if (msg_rx_cnt != pdphy->msg_rx_cnt) {
+		dev_err(pdphy->dev, "%s: RX message arrived\n", __func__);
+		return -EBUSY;
+	}
 
 	ret = pdphy_reg_write(pdphy, USB_PDPHY_TX_CONTROL, val);
 	if (ret)
