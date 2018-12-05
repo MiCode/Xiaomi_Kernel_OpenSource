@@ -4108,6 +4108,7 @@ int glink_core_register_transport(struct glink_transport_if *if_ptr,
 		kfree(xprt_ptr);
 		return -ENOMEM;
 	}
+	cfg->tx_task = xprt_ptr->tx_task;
 	ret = glink_core_init_xprt_qos_cfg(xprt_ptr, cfg);
 	if (ret < 0) {
 		kfree(xprt_ptr);

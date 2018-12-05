@@ -33,6 +33,7 @@
 #include <linux/spinlock.h>
 #include <linux/srcu.h>
 #include <linux/wait.h>
+#include <linux/cpumask.h>
 #include <soc/qcom/smem.h>
 #include <soc/qcom/tracer_pkt.h>
 #include "glink_core_if.h"
@@ -2299,17 +2300,40 @@ static int subsys_name_to_id(const char *name)
 	return -ENODEV;
 }
 
+static void glink_set_affinity(struct edge_info *einfo, u32 *arr, size_t size)
+{
+	struct cpumask cpumask;
+	pid_t pid;
+	int i;
+
+	cpumask_clear(&cpumask);
+	for (i = 0; i < size; i++) {
+		if (arr[i] < num_possible_cpus())
+			cpumask_set_cpu(arr[i], &cpumask);
+	}
+	if (irq_set_affinity(einfo->irq_line, &cpumask))
+		pr_err("%s: Failed to set irq affinity\n", __func__);
+
+	if (sched_setaffinity(einfo->task->pid, &cpumask))
+		pr_err("%s: Failed to set rx cpu affinity\n", __func__);
+
+	pid = einfo->xprt_cfg.tx_task->pid;
+	if (sched_setaffinity(pid, &cpumask))
+		pr_err("%s: Failed to set tx cpu affinity\n", __func__);
+}
+
 static int glink_smem_native_probe(struct platform_device *pdev)
 {
 	struct device_node *node;
 	struct device_node *phandle_node;
 	struct edge_info *einfo;
-	int rc;
+	int rc, cpu_size;
 	char *key;
 	const char *subsys_name;
 	uint32_t irq_line;
 	uint32_t irq_mask;
 	struct resource *r;
+	u32 *cpu_array;
 
 	node = pdev->dev.of_node;
 
@@ -2455,6 +2479,20 @@ static int glink_smem_native_probe(struct platform_device *pdev)
 	if (rc < 0)
 		pr_err("%s: enable_irq_wake() failed on %d\n", __func__,
 								irq_line);
+
+	key = "cpu-affinity";
+	cpu_size = of_property_count_u32_elems(node, key);
+	if (cpu_size > 0) {
+		cpu_array = kmalloc_array(cpu_size, sizeof(u32), GFP_KERNEL);
+		if (!cpu_array) {
+			rc = -ENOMEM;
+			goto request_irq_fail;
+		}
+		rc = of_property_read_u32_array(node, key, cpu_array, cpu_size);
+		if (!rc)
+			glink_set_affinity(einfo, cpu_array, cpu_size);
+		kfree(cpu_array);
+	}
 
 	register_debugfs_info(einfo);
 	/* fake an interrupt on this edge to see if the remote side is up */
