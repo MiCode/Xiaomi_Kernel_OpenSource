@@ -473,11 +473,15 @@ static int scm_call_qcpe(u32 fn_id, struct scm_desc *desc)
 		goto err_ret;
 	}
 
-	size_bytes = sizeof(smc_params);
+
 	memset(&smc_params, 0x0, sizeof(smc_params));
 
-	ret = habmm_socket_recv(handle, &smc_params, &size_bytes, 0,
+	do {
+		size_bytes = sizeof(smc_params);
+		ret = habmm_socket_recv(handle, &smc_params, &size_bytes, 0,
 			HABMM_SOCKET_RECV_FLAGS_UNINTERRUPTIBLE);
+	} while (-EINTR == ret);
+
 	if (ret) {
 		pr_err("habmm_socket_recv failed, ret= 0x%x\n", ret);
 		goto err_ret;
