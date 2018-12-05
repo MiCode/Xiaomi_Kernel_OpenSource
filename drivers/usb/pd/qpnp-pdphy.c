@@ -734,7 +734,7 @@ static irqreturn_t pdphy_msg_rx_irq(int irq, void *data)
 	/* ack to change ownership of rx buffer back to PDPHY RX HW */
 	pdphy_reg_write(pdphy, USB_PDPHY_RX_ACKNOWLEDGE, 0);
 
-	if (((buf[0] & 0xf) == PD_MSG_BIST) && size >= 5) { /* BIST */
+	if (((buf[0] & 0xf) == PD_MSG_BIST) && !(buf[1] & 0x80) && size >= 5) {
 		u8 mode = buf[5] >> 4; /* [31:28] of 1st data object */
 
 		pd_phy_bist_mode(mode);
