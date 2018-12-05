@@ -883,6 +883,9 @@ static void dp_ctrl_mst_calculate_rg(struct dp_ctrl_private *ctrl,
 	u32 x_int = 0, y_frac_enum = 0;
 	u64 target_strm_sym, ts_int_fixp, ts_frac_fixp, y_frac_enum_fixp;
 
+	if (panel->pinfo.comp_info.comp_ratio)
+		bpp = panel->pinfo.comp_info.dsc_info.bpp;
+
 	/* min_slot_cnt */
 	numerator = pclk * bpp * 64 * 1000;
 	denominator = lclk * lanes * 8 * 1000;
@@ -897,6 +900,20 @@ static void dp_ctrl_mst_calculate_rg(struct dp_ctrl_private *ctrl,
 	numerator = max_slot_cnt + min_slot_cnt;
 	denominator = drm_fixp_from_fraction(2, 1);
 	raw_target_sc = drm_fixp_div(numerator, denominator);
+
+	pr_debug("raw_target_sc before overhead:0x%llx\n", raw_target_sc);
+	pr_debug("dsc_overhead_fp:0x%llx\n", panel->pinfo.dsc_overhead_fp);
+
+	/* apply fec and dsc overhead factor */
+	if (panel->pinfo.dsc_overhead_fp)
+		raw_target_sc = drm_fixp_mul(raw_target_sc,
+					panel->pinfo.dsc_overhead_fp);
+
+	if (panel->fec_overhead_fp)
+		raw_target_sc = drm_fixp_mul(raw_target_sc,
+					panel->fec_overhead_fp);
+
+	pr_debug("raw_target_sc after overhead:0x%llx\n", raw_target_sc);
 
 	/* target_sc */
 	temp = drm_fixp_from_fraction(256 * lanes, 1);

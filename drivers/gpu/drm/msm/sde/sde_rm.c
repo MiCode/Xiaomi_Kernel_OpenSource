@@ -241,12 +241,60 @@ static bool _sde_rm_get_hw_locked(struct sde_rm *rm, struct sde_rm_hw_iter *i)
 	return false;
 }
 
+static bool _sde_rm_request_hw_blk_locked(struct sde_rm *rm,
+		struct sde_rm_hw_request *hw_blk_info)
+{
+	struct list_head *blk_list;
+	struct sde_rm_hw_blk *blk = NULL;
+
+	if (!rm || !hw_blk_info || hw_blk_info->type >= SDE_HW_BLK_MAX) {
+		SDE_ERROR("invalid rm\n");
+		return false;
+	}
+
+	hw_blk_info->hw = NULL;
+	blk_list = &rm->hw_blks[hw_blk_info->type];
+
+	blk = list_prepare_entry(blk, blk_list, list);
+
+	list_for_each_entry_continue(blk, blk_list, list) {
+		if (blk->type != hw_blk_info->type) {
+			SDE_ERROR("found incorrect block type %d on %d list\n",
+					blk->type, hw_blk_info->type);
+			return false;
+		}
+
+		if (blk->hw->id == hw_blk_info->id) {
+			hw_blk_info->hw = blk->hw;
+			SDE_DEBUG("found type %d id %d\n",
+					blk->type, blk->id);
+			return true;
+		}
+	}
+
+	SDE_DEBUG("no match, type %d id %d\n", hw_blk_info->type,
+			hw_blk_info->id);
+
+	return false;
+}
+
 bool sde_rm_get_hw(struct sde_rm *rm, struct sde_rm_hw_iter *i)
 {
 	bool ret;
 
 	mutex_lock(&rm->rm_lock);
 	ret = _sde_rm_get_hw_locked(rm, i);
+	mutex_unlock(&rm->rm_lock);
+
+	return ret;
+}
+
+bool sde_rm_request_hw_blk(struct sde_rm *rm, struct sde_rm_hw_request *hw)
+{
+	bool ret;
+
+	mutex_lock(&rm->rm_lock);
+	ret = _sde_rm_request_hw_blk_locked(rm, hw);
 	mutex_unlock(&rm->rm_lock);
 
 	return ret;
