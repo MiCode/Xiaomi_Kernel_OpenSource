@@ -2633,10 +2633,6 @@ static int gsi_update_function_bind_params(struct f_gsi *gsi,
 	struct usb_function *f = &gsi->function;
 	int status;
 
-	/* maybe allocate device-global string IDs */
-	if (info->string_defs[0].id != 0)
-		goto skip_string_id_alloc;
-
 	if (info->ctrl_str_idx >= 0 && info->ctrl_desc) {
 		/* ctrl interface label */
 		status = usb_string_id(cdev);
@@ -2673,7 +2669,6 @@ static int gsi_update_function_bind_params(struct f_gsi *gsi,
 		info->cdc_eth_desc->iMACAddress = status;
 	}
 
-skip_string_id_alloc:
 	if (info->ctrl_desc)
 		info->ctrl_desc->bInterfaceNumber = gsi->ctrl_id;
 
