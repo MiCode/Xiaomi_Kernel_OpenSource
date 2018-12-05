@@ -1182,8 +1182,7 @@ static int qti_haptics_parse_dt_per_effect(struct qti_hap_chip *chip)
 	struct device_node *child_node;
 	struct qti_hap_config *config = &chip->config;
 	struct qti_hap_effect *effect;
-	int rc, i = 0, j, m;
-	u32 tmp;
+	int rc, i = 0, j, m, tmp;
 
 	for_each_available_child_of_node(node, child_node) {
 		effect = &chip->predefined[i++];
