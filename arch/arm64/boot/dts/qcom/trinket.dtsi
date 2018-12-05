@@ -785,6 +785,17 @@
 		dcc-ram-offset = <0x1000>;
 	};
 
+	tsens0: tsens@4410000 {
+		compatible = "qcom,sm6150-tsens";
+		reg = <0x4410000 0x8>,
+		      <0x4411000 0x1ff>;
+		reg-names = "tsens_srot_physical",
+			    "tsens_tm_physical";
+		interrupts = <0 275 0>, <0 190 0>;
+		interrupt-names = "tsens-upper-lower", "tsens-critical";
+		#thermal-sensor-cells = <1>;
+	};
+
 	cpu_pmu: cpu-pmu {
 		compatible = "arm,armv8-pmuv3";
 		qcom,irq-is-percpu;
