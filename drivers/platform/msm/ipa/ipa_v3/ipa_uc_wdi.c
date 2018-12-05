@@ -353,24 +353,25 @@ struct IpaHwEventLogInfoData_t *uc_event_top_mmio)
 {
 	struct Ipa3HwEventInfoData_t *stats_ptr = &uc_event_top_mmio->statsInfo;
 
-	if ((uc_event_top_mmio->featureMask &
-		(1 << IPA_HW_FEATURE_WDI)) == 0) {
-		IPAERR("WDI feature missing 0x%x\n",
-			uc_event_top_mmio->featureMask);
+	if ((uc_event_top_mmio->protocolMask &
+		(1 << IPA_HW_PROTOCOL_WDI)) == 0) {
+		IPAERR("WDI protocol missing 0x%x\n",
+			uc_event_top_mmio->protocolMask);
 		return;
 	}
 
-	if (stats_ptr->featureInfo[IPA_HW_FEATURE_WDI].params.size !=
+	if (stats_ptr->featureInfo[IPA_HW_PROTOCOL_WDI].params.size !=
 		sizeof(struct IpaHwStatsWDIInfoData_t)) {
 		IPAERR("wdi stats sz invalid exp=%zu is=%u\n",
 			sizeof(struct IpaHwStatsWDIInfoData_t),
-			stats_ptr->featureInfo[IPA_HW_FEATURE_WDI].params.size);
+			stats_ptr->featureInfo[
+				IPA_HW_PROTOCOL_WDI].params.size);
 		return;
 	}
 
 	ipa3_ctx->uc_wdi_ctx.wdi_uc_stats_ofst =
 		stats_ptr->baseAddrOffset +
-		stats_ptr->featureInfo[IPA_HW_FEATURE_WDI].params.offset;
+		stats_ptr->featureInfo[IPA_HW_PROTOCOL_WDI].params.offset;
 	IPAERR("WDI stats ofst=0x%x\n", ipa3_ctx->uc_wdi_ctx.wdi_uc_stats_ofst);
 	if (ipa3_ctx->uc_wdi_ctx.wdi_uc_stats_ofst +
 		sizeof(struct IpaHwStatsWDIInfoData_t) >=

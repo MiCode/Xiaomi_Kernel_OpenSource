@@ -270,6 +270,24 @@ enum gsi_chan_evt {
 };
 
 /**
+ * gsi_chan_xfer_veid - Virtual Channel ID
+ *
+ * @GSI_VEID_0: transfer completed for VEID 0
+ * @GSI_VEID_1: transfer completed for VEID 1
+ * @GSI_VEID_2: transfer completed for VEID 2
+ * @GSI_VEID_3: transfer completed for VEID 3
+ * @GSI_VEID_DEFAULT: used when veid is invalid
+ */
+enum gsi_chan_xfer_veid {
+	GSI_VEID_0 = 0,
+	GSI_VEID_1 = 1,
+	GSI_VEID_2 = 2,
+	GSI_VEID_3 = 3,
+	GSI_VEID_DEFAULT,
+	GSI_VEID_MAX
+};
+
+/**
  * gsi_chan_xfer_notify - Channel callback info
  *
  * @chan_user_data: cookie supplied in gsi_alloc_channel
@@ -279,6 +297,7 @@ enum gsi_chan_evt {
  *                  (corresponding to xfer_user_data)
  * @bytes_xfered:   number of bytes transferred by the associated TRE
  *                  (corresponding to xfer_user_data)
+ * @veid:           virtual endpoint id. Valid for GCI completions only
  *
  */
 struct gsi_chan_xfer_notify {
@@ -286,6 +305,7 @@ struct gsi_chan_xfer_notify {
 	void *xfer_user_data;
 	enum gsi_chan_evt evt_id;
 	uint16_t bytes_xfered;
+	uint8_t veid;
 };
 
 enum gsi_chan_err {

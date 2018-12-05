@@ -1567,7 +1567,7 @@ static int dp_panel_deinit_panel_info(struct dp_panel *dp_panel, u32 flags)
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 	hdr = &panel->catalog->hdr_data;
 
-	if (!panel->custom_edid)
+	if (!panel->custom_edid && dp_panel->edid_ctrl->edid)
 		sde_free_edid((void **)&dp_panel->edid_ctrl);
 
 	dp_panel_set_stream_info(dp_panel, DP_STREAM_MAX, 0, 0, 0);
@@ -1745,10 +1745,6 @@ static void dp_panel_config_ctrl(struct dp_panel *dp_panel)
 
 	config |= (2 << 13); /* Default-> LSCLK DIV: 1/4 LCLK  */
 	config |= (0 << 11); /* RGB */
-
-	/* Scrambler reset enable */
-	if (dpcd[DP_EDP_CONFIGURATION_CAP] & DP_ALTERNATE_SCRAMBLER_RESET_CAP)
-		config |= (1 << 10);
 
 	tbd = panel->link->get_test_bits_depth(panel->link,
 			dp_panel->pinfo.bpp);

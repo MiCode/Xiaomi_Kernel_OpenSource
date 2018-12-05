@@ -164,6 +164,7 @@
 
 		vdd-supply = <&pm8150_l5>;
 		qcom,vdd-voltage-level = <0 880000 880000>;
+		qcom,vdd-max-load-uA = <47000>;
 		core-supply = <&pm8150l_l3>;
 		qcom,vbus-valid-override;
 		qcom,link-training-reset;
@@ -458,6 +459,7 @@
 
 		vdd-supply = <&pm8150_l5>;
 		qcom,vdd-voltage-level = <0 880000 880000>;
+		qcom,vdd-max-load-uA = <47000>;
 		core-supply = <&pm8150l_l3>;
 		qcom,vbus-valid-override;
 		qcom,qmp-phy-init-seq =

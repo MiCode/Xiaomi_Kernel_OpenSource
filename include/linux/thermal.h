@@ -527,6 +527,8 @@ int thermal_zone_unbind_cooling_device(struct thermal_zone_device *, int,
 				       struct thermal_cooling_device *);
 void thermal_zone_device_update(struct thermal_zone_device *,
 				enum thermal_notify_event);
+void thermal_zone_device_update_temp(struct thermal_zone_device *tz,
+				enum thermal_notify_event event, int temp);
 void thermal_zone_set_trips(struct thermal_zone_device *);
 
 struct thermal_cooling_device *thermal_cooling_device_register(char *, void *,
@@ -579,6 +581,10 @@ static inline int thermal_zone_unbind_cooling_device(
 { return -ENODEV; }
 static inline void thermal_zone_device_update(struct thermal_zone_device *tz,
 					      enum thermal_notify_event event)
+{ }
+static inline void thermal_zone_device_update_temp(
+		struct thermal_zone_device *tz, enum thermal_notify_event event,
+		int temp)
 { }
 static inline void thermal_zone_set_trips(struct thermal_zone_device *tz)
 { }

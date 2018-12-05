@@ -1598,7 +1598,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 			continue;
 
 		if (rpra && rpra[i].buf.len && ctx->overps[oix]->mstart) {
-			if (map && map->handle) {
+			if (map && map->buf) {
 				dma_buf_begin_cpu_access(map->buf,
 					DMA_BIDIRECTIONAL);
 				dma_buf_end_cpu_access(map->buf,
@@ -1703,7 +1703,7 @@ static void inv_args_pre(struct smq_invoke_ctx *ctx)
 			continue;
 		if (!IS_CACHE_ALIGNED((uintptr_t)
 				uint64_to_ptr(rpra[i].buf.pv))) {
-			if (map && map->handle) {
+			if (map && map->buf) {
 				dma_buf_begin_cpu_access(map->buf,
 					DMA_BIDIRECTIONAL);
 				dma_buf_end_cpu_access(map->buf,
@@ -1717,7 +1717,7 @@ static void inv_args_pre(struct smq_invoke_ctx *ctx)
 		end = (uintptr_t)uint64_to_ptr(rpra[i].buf.pv +
 							rpra[i].buf.len);
 		if (!IS_CACHE_ALIGNED(end)) {
-			if (map && map->handle) {
+			if (map && map->buf) {
 				dma_buf_begin_cpu_access(map->buf,
 					DMA_BIDIRECTIONAL);
 				dma_buf_end_cpu_access(map->buf,
@@ -2488,6 +2488,31 @@ static int fastrpc_mmap_remove(struct fastrpc_file *fl, uintptr_t va,
 			     size_t len, struct fastrpc_mmap **ppmap);
 
 static void fastrpc_mmap_add(struct fastrpc_mmap *map);
+
+static inline void get_fastrpc_ioctl_mmap_64(
+			struct fastrpc_ioctl_mmap_64 *mmap64,
+			struct fastrpc_ioctl_mmap *immap)
+{
+	immap->fd = mmap64->fd;
+	immap->flags = mmap64->flags;
+	immap->vaddrin = (uintptr_t)mmap64->vaddrin;
+	immap->size = mmap64->size;
+}
+
+static inline void put_fastrpc_ioctl_mmap_64(
+			struct fastrpc_ioctl_mmap_64 *mmap64,
+			struct fastrpc_ioctl_mmap *immap)
+{
+	mmap64->vaddrout = (uint64_t)immap->vaddrout;
+}
+
+static inline void get_fastrpc_ioctl_munmap_64(
+			struct fastrpc_ioctl_munmap_64 *munmap64,
+			struct fastrpc_ioctl_munmap *imunmap)
+{
+	imunmap->vaddrout = (uintptr_t)munmap64->vaddrout;
+	imunmap->size = munmap64->size;
+}
 
 static int fastrpc_internal_munmap(struct fastrpc_file *fl,
 				   struct fastrpc_ioctl_munmap *ud)
@@ -3309,12 +3334,18 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 	union {
 		struct fastrpc_ioctl_invoke_crc inv;
 		struct fastrpc_ioctl_mmap mmap;
+		struct fastrpc_ioctl_mmap_64 mmap64;
 		struct fastrpc_ioctl_munmap munmap;
+		struct fastrpc_ioctl_munmap_64 munmap64;
 		struct fastrpc_ioctl_munmap_fd munmap_fd;
 		struct fastrpc_ioctl_init_attrs init;
 		struct fastrpc_ioctl_perf perf;
 		struct fastrpc_ioctl_control cp;
 	} p;
+	union {
+		struct fastrpc_ioctl_mmap mmap;
+		struct fastrpc_ioctl_munmap munmap;
+	} i;
 	void *param = (char *)ioctl_param;
 	struct fastrpc_file *fl = (struct fastrpc_file *)file->private_data;
 	int size = 0, err = 0;
@@ -3378,24 +3409,27 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 			goto bail;
 		break;
 	case FASTRPC_IOCTL_MMAP_64:
-		K_COPY_FROM_USER(err, 0, &p.mmap, param,
-						sizeof(p.mmap));
+		K_COPY_FROM_USER(err, 0, &p.mmap64, param,
+						sizeof(p.mmap64));
 		if (err)
 			goto bail;
-		VERIFY(err, 0 == (err = fastrpc_internal_mmap(fl, &p.mmap)));
+		get_fastrpc_ioctl_mmap_64(&p.mmap64, &i.mmap);
+		VERIFY(err, 0 == (err = fastrpc_internal_mmap(fl, &i.mmap)));
 		if (err)
 			goto bail;
-		K_COPY_TO_USER(err, 0, param, &p.mmap, sizeof(p.mmap));
+		put_fastrpc_ioctl_mmap_64(&p.mmap64, &i.mmap);
+		K_COPY_TO_USER(err, 0, param, &p.mmap64, sizeof(p.mmap64));
 		if (err)
 			goto bail;
 		break;
 	case FASTRPC_IOCTL_MUNMAP_64:
-		K_COPY_FROM_USER(err, 0, &p.munmap, param,
-						sizeof(p.munmap));
+		K_COPY_FROM_USER(err, 0, &p.munmap64, param,
+						sizeof(p.munmap64));
 		if (err)
 			goto bail;
+		get_fastrpc_ioctl_munmap_64(&p.munmap64, &i.munmap);
 		VERIFY(err, 0 == (err = fastrpc_internal_munmap(fl,
-							&p.munmap)));
+							&i.munmap)));
 		if (err)
 			goto bail;
 		break;
@@ -3656,6 +3690,7 @@ static int fastrpc_cb_probe(struct device *dev)
 	dma_addr_t start = 0x80000000;
 	int err = 0;
 	unsigned int sharedcb_count = 0, cid, i, j;
+	unsigned int index, num_indices = 0;
 	int secure_vmid = VMID_CP_PIXEL, cache_flush = 1;
 
 	VERIFY(err, NULL != (name = of_get_property(dev->of_node,
@@ -3747,6 +3782,32 @@ static int fastrpc_cb_probe(struct device *dev)
 			sizeof(*sess->smmu.dev->dma_parms), GFP_KERNEL);
 	dma_set_max_seg_size(sess->smmu.dev, DMA_BIT_MASK(32));
 	dma_set_seg_boundary(sess->smmu.dev, (unsigned long)DMA_BIT_MASK(64));
+
+	if (of_get_property(dev->of_node, "shared-sid", NULL) != NULL) {
+		struct fastrpc_session_ctx *new_sess;
+
+		err = of_property_read_u32(dev->of_node, "shared-sid",
+				&num_indices);
+		if (err)
+			goto bail;
+
+		for (index = 1; index < num_indices &&
+				chan->sesscount < NUM_SESSIONS; index++) {
+			err = of_parse_phandle_with_args(dev->of_node, "iommus",
+					"#iommu-cells", index, &iommuspec);
+			if (err) {
+				pr_err("adsprpc: %s: parsing iommu arguments failed for %s with err %d",
+						__func__, dev_name(dev), err);
+				goto bail;
+			}
+			chan->sesscount++;
+			new_sess = &chan->session[chan->sesscount];
+			memcpy(new_sess, sess,
+				sizeof(struct fastrpc_session_ctx));
+			new_sess->smmu.cb = iommuspec.args[0] & 0xf;
+			sess = new_sess;
+		}
+	}
 
 	if (of_get_property(dev->of_node, "shared-cb", NULL) != NULL) {
 		err = of_property_read_u32(dev->of_node, "shared-cb",

@@ -91,7 +91,8 @@ static inline void mmc_cmdq_ready_wait(struct mmc_host *host,
 	wait_event(ctx->wait, kthread_should_stop()
 		|| (mmc_peek_request(mq) &&
 		!(((req_op(mq->cmdq_req_peeked) == REQ_OP_FLUSH) ||
-		   (req_op(mq->cmdq_req_peeked) == REQ_OP_DISCARD))
+		   (req_op(mq->cmdq_req_peeked) == REQ_OP_DISCARD) ||
+		   (req_op(mq->cmdq_req_peeked) == REQ_OP_SECURE_ERASE))
 		  && test_bit(CMDQ_STATE_DCMD_ACTIVE, &ctx->curr_state))
 		&& !(!host->card->part_curr && !mmc_card_suspended(host->card)
 		     && mmc_host_halt(host))
@@ -515,7 +516,8 @@ void mmc_cleanup_queue(struct mmc_queue *mq)
 	blk_start_queue(q);
 	spin_unlock_irqrestore(q->queue_lock, flags);
 
-	blk_cleanup_queue(q);
+	if (likely(!blk_queue_dead(q)))
+		blk_cleanup_queue(q);
 
 	mq->card = NULL;
 }

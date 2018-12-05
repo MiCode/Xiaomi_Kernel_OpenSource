@@ -79,10 +79,11 @@
 		qcom,sde-wb-id = <2>;
 		qcom,sde-wb-clk-ctrl = <0x3b8 24>;
 
-		qcom,sde-intf-off = <0x6b000 0x6b800
-					 0x6c800>;
+		qcom,sde-intf-off = <0x6b000 0x6b800 0x6c000
+			 0x6c800>;
+
 		qcom,sde-intf-size = <0x2b8>;
-		qcom,sde-intf-type = "dp", "dsi", "dp";
+		qcom,sde-intf-type = "dp", "dsi","none", "dp";
 
 		qcom,sde-pp-off = <0x71000 0x71800
 					  0x72000>;
@@ -473,12 +474,14 @@
 			<0x780000 0x621c>,
 			<0x88e9c30 0x10>,
 			<0xaee1000 0x34>,
-			<0x1fcb200 0x50>;
+			<0x1fcb200 0x50>,
+			<0xae91000 0x098>;
+
 		/* dp_ctrl: dp_ahb, dp_aux, dp_link, dp_p0 */
 		reg-names = "dp_ahb", "dp_aux", "dp_link",
 			"dp_p0", "dp_phy", "dp_ln_tx0", "dp_ln_tx1",
 			"dp_mmss_cc", "qfprom_physical", "dp_pll",
-			"hdcp_physical", "dp_tcsr";
+			"hdcp_physical", "dp_tcsr","dp_p1";
 
 		interrupt-parent = <&mdss_mdp>;
 		interrupts = <12 0>;
@@ -490,14 +493,20 @@
 			<&clock_dispcc DISP_CC_MDSS_DP_LINK_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_DP_LINK_INTF_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_DP_PIXEL_CLK>,
+			<&clock_dispcc DISP_CC_MDSS_DP_PIXEL1_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_DP_CRYPTO_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_DP_PIXEL_CLK_SRC>,
+			<&mdss_dp_pll DP_PHY_PLL_VCO_DIV_CLK>,
+			<&clock_dispcc DISP_CC_MDSS_DP_PIXEL1_CLK_SRC>,
 			<&mdss_dp_pll DP_PHY_PLL_VCO_DIV_CLK>;
+
 		clock-names = "core_aux_clk", "core_usb_ref_clk_src",
 			"core_usb_ahb_clk", "core_usb_sec_ref_clk",
 			"link_clk", "link_iface_clk",
-			"strm0_pixel_clk", "crypto_clk",
-			"pixel_clk_rcg", "pixel_parent";
+			"strm0_pixel_clk","strm1_pixel_clk", "crypto_clk",
+			"pixel_clk_rcg", "pixel_parent","pixel1_clk_rcg",
+			"pixel1_parent";
+
 
 		qcom,phy-version = <0x200>;
 		qcom,aux-cfg0-settings = [20 00];

@@ -899,6 +899,13 @@ config XEN
 	help
 	  Say Y if you want to run Linux in a Virtual Machine on Xen on ARM64.
 
+config OKL4_GUEST
+	bool "OKL4 Hypervisor guest support"
+	depends on ARM64 && OF
+	default n
+	help
+	  Say Y if you want to run Linux as a guest of the OKL4 hypervisor
+
 config FORCE_MAX_ZONEORDER
 	int
 	default "14" if (ARM64_64K_PAGES && TRANSPARENT_HUGEPAGE)

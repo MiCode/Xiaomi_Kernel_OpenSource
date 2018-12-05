@@ -1496,11 +1496,6 @@ static int __cam_isp_ctx_flush_req_in_top_state(
 	struct cam_context *ctx,
 	struct cam_req_mgr_flush_request *flush_req)
 {
-	struct cam_isp_context           *ctx_isp =
-		(struct cam_isp_context *) ctx->ctx_priv;
-	struct cam_isp_stop_args          stop_isp;
-	struct cam_hw_stop_args           stop_args;
-	struct cam_isp_start_args         start_isp;
 	int rc = 0;
 
 	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_ALL) {
@@ -1514,47 +1509,6 @@ static int __cam_isp_ctx_flush_req_in_top_state(
 	rc = __cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list, flush_req);
 	spin_unlock_bh(&ctx->lock);
 
-	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_ALL) {
-		/* if active and wait list are empty, return */
-		spin_lock_bh(&ctx->lock);
-		if ((list_empty(&ctx->wait_req_list)) &&
-			(list_empty(&ctx->active_req_list))) {
-			spin_unlock_bh(&ctx->lock);
-			CAM_DBG(CAM_ISP, "active and wait list are empty");
-			goto end;
-		}
-		spin_unlock_bh(&ctx->lock);
-
-		/* Stop hw first before active list flush */
-		stop_args.ctxt_to_hw_map = ctx_isp->hw_ctx;
-		stop_isp.hw_stop_cmd = CAM_ISP_HW_STOP_AT_FRAME_BOUNDARY;
-		stop_isp.stop_only = true;
-		stop_args.args = (void *)&stop_isp;
-		ctx->hw_mgr_intf->hw_stop(ctx->hw_mgr_intf->hw_mgr_priv,
-				&stop_args);
-
-		spin_lock_bh(&ctx->lock);
-		CAM_DBG(CAM_ISP, "try to flush wait list");
-		rc = __cam_isp_ctx_flush_req(ctx, &ctx->wait_req_list,
-		flush_req);
-		CAM_DBG(CAM_ISP, "try to flush active list");
-		rc = __cam_isp_ctx_flush_req(ctx, &ctx->active_req_list,
-		flush_req);
-		ctx_isp->active_req_cnt = 0;
-		spin_unlock_bh(&ctx->lock);
-
-		/* Start hw */
-		start_isp.hw_config.ctxt_to_hw_map = ctx_isp->hw_ctx;
-		start_isp.start_only = true;
-		start_isp.hw_config.priv = NULL;
-
-		rc = ctx->hw_mgr_intf->hw_start(ctx->hw_mgr_intf->hw_mgr_priv,
-			&start_isp);
-	}
-
-end:
-	CAM_DBG(CAM_ISP, "Flush request in top state %d",
-		 ctx->state);
 	return rc;
 }
 
@@ -2103,6 +2057,7 @@ static int __cam_isp_ctx_release_hw_in_top_state(struct cam_context *ctx,
 		CAM_ERR(CAM_ISP, "No hw resources acquired for this ctx");
 	}
 
+	ctx->last_flush_req = 0;
 	ctx_isp->frame_id = 0;
 	ctx_isp->active_req_cnt = 0;
 	ctx_isp->reported_req_id = 0;
@@ -2159,6 +2114,7 @@ static int __cam_isp_ctx_release_dev_in_top_state(struct cam_context *ctx,
 	ctx->dev_hdl = -1;
 	ctx->link_hdl = -1;
 	ctx->ctx_crm_intf = NULL;
+	ctx->last_flush_req = 0;
 	ctx_isp->frame_id = 0;
 	ctx_isp->active_req_cnt = 0;
 	ctx_isp->reported_req_id = 0;
@@ -2241,16 +2197,14 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	CAM_DBG(CAM_ISP, "Packet size 0x%x", packet->header.size);
 	CAM_DBG(CAM_ISP, "packet op %d", packet->header.op_code);
 
-	if (packet->header.request_id <= ctx->last_flush_req) {
+	if ((((packet->header.op_code + 1) & 0xF) == CAM_ISP_PACKET_UPDATE_DEV)
+		&& (packet->header.request_id <= ctx->last_flush_req)) {
 		CAM_INFO(CAM_ISP,
 			"request %lld has been flushed, reject packet",
 			packet->header.request_id);
 		rc = -EINVAL;
 		goto free_cpu_buf;
 	}
-
-	if (packet->header.request_id > ctx->last_flush_req)
-		ctx->last_flush_req = 0;
 
 	/* preprocess the configuration */
 	memset(&cfg, 0, sizeof(cfg));

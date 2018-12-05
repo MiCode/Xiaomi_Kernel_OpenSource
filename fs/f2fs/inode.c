@@ -563,10 +563,14 @@ no_delete:
 	stat_dec_inline_dir(inode);
 	stat_dec_inline_inode(inode);
 
-	if (likely(!is_set_ckpt_flags(sbi, CP_ERROR_FLAG)))
-		f2fs_bug_on(sbi, is_inode_flag_set(inode, FI_DIRTY_INODE));
-	else
+	if (unlikely(is_inode_flag_set(inode, FI_DIRTY_INODE))) {
 		f2fs_inode_synced(inode);
+		f2fs_msg(sbi->sb, KERN_WARNING,
+			 "inconsistent dirty inode:%u entry found during eviction\n",
+			 inode->i_ino);
+		if (!is_set_ckpt_flags(sbi, CP_ERROR_FLAG))
+			f2fs_bug_on(sbi, 1);
+	}
 
 	/* ino == 0, if f2fs_new_inode() was failed t*/
 	if (inode->i_ino)

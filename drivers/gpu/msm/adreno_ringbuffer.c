@@ -109,8 +109,16 @@ static void adreno_ringbuffer_wptr(struct adreno_device *adreno_dev,
 			ret = adreno_gmu_fenced_write(adreno_dev,
 				ADRENO_REG_CP_RB_WPTR, rb->_wptr,
 				FENCE_STATUS_WRITEDROPPED0_MASK);
-
+			rb->skip_inline_wptr = false;
 		}
+	} else {
+		/*
+		 * We skipped inline submission because of preemption state
+		 * machine. Set things up so that we write the wptr to the
+		 * hardware eventually.
+		 */
+		if (adreno_dev->cur_rb == rb)
+			rb->skip_inline_wptr = true;
 	}
 
 	rb->wptr = rb->_wptr;
@@ -121,7 +129,6 @@ static void adreno_ringbuffer_wptr(struct adreno_device *adreno_dev,
 		adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
 		adreno_dispatcher_schedule(KGSL_DEVICE(adreno_dev));
 	}
-
 }
 
 static void adreno_profile_submit_time(struct adreno_submit_time *time)

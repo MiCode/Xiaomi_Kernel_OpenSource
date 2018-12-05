@@ -39,7 +39,7 @@ enum core_ldo_levels {
 /* default CORE votlage and load values */
 #define USB_SSPHY_1P2_VOL_MIN		1200000 /* uV */
 #define USB_SSPHY_1P2_VOL_MAX		1200000 /* uV */
-#define USB_SSPHY_HPM_LOAD		23000	/* uA */
+#define USB_SSPHY_HPM_LOAD		30000	/* uA */
 
 /* USB3PHY_PCIE_USB3_PCS_PCS_STATUS bit */
 #define PHYSTATUS				BIT(6)
@@ -83,12 +83,13 @@ enum core_ldo_levels {
 #define DP_MODE			BIT(1) /* enables DP mode */
 #define USB3_DP_COMBO_MODE	(USB3_MODE | DP_MODE) /*enables combo mode */
 
-/* USB3 Gen2 link training indicator */
+/* PCS_STATUS2 link training indicator */
 #define RX_EQUALIZATION_IN_PROGRESS	BIT(3)
-#define USB3_DP_PCS_CDR_RESET_TIME	0x1DB0
-#define USB3_UNI_PCS_CDR_RESET_TIME	0x09B0
+
+/* PCS_CONFIG5 register offsets for Gen2 link training SW WA */
 #define USB3_DP_PCS_EQ_CONFIG5		0x1DEC
 #define USB3_UNI_PCS_EQ_CONFIG5		0x09EC
+#define RXEQ_RETRAIN_MODE_SEL		BIT(6)
 
 enum qmp_phy_rev_reg {
 	USB3_PHY_PCS_STATUS,
@@ -132,8 +133,10 @@ struct msm_ssphy_qmp {
 
 	struct regulator	*vdd;
 	int			vdd_levels[3]; /* none, low, high */
+	int			vdd_max_uA;
 	struct regulator	*core_ldo;
 	int			core_voltage_levels[3];
+	int			core_max_uA;
 	struct clk		*ref_clk_src;
 	struct clk		*ref_clk;
 	struct clk		*aux_clk;
@@ -156,7 +159,6 @@ struct msm_ssphy_qmp {
 	struct hrtimer		timer;
 
 	bool			link_training_reset;
-	u32			cdr_reset_time_offset;
 	u32			eq_config5_offset;
 };
 
@@ -267,11 +269,17 @@ static int msm_ssusb_qmp_ldo_enable(struct msm_ssphy_qmp *phy, int on)
 	if (!on)
 		goto disable_regulators;
 
+	rc = regulator_set_load(phy->vdd, phy->vdd_max_uA);
+	if (rc < 0) {
+		dev_err(phy->phy.dev, "Unable to set HPM of %s\n", "vdd");
+		return rc;
+	}
+
 	rc = regulator_set_voltage(phy->vdd, phy->vdd_levels[min],
 				    phy->vdd_levels[2]);
 	if (rc) {
-		dev_err(phy->phy.dev, "unable to set voltage for ssusb vdd\n");
-		return rc;
+		dev_err(phy->phy.dev, "Unable to set voltage for %s\n", "vdd");
+		goto put_vdd_lpm;
 	}
 
 	dev_dbg(phy->phy.dev, "min_vol:%d max_vol:%d\n",
@@ -279,15 +287,13 @@ static int msm_ssusb_qmp_ldo_enable(struct msm_ssphy_qmp *phy, int on)
 
 	rc = regulator_enable(phy->vdd);
 	if (rc) {
-		dev_err(phy->phy.dev,
-			"regulator_enable(phy->vdd) failed, ret=%d",
-			rc);
+		dev_err(phy->phy.dev, "Unable to enable %s\n", "vdd");
 		goto unconfig_vdd;
 	}
 
-	rc = regulator_set_load(phy->core_ldo, USB_SSPHY_HPM_LOAD);
+	rc = regulator_set_load(phy->core_ldo, phy->core_max_uA);
 	if (rc < 0) {
-		dev_err(phy->phy.dev, "Unable to set HPM of core_ldo\n");
+		dev_err(phy->phy.dev, "Unable to set HPM of %s\n", "core_ldo");
 		goto disable_vdd;
 	}
 
@@ -295,13 +301,14 @@ static int msm_ssusb_qmp_ldo_enable(struct msm_ssphy_qmp *phy, int on)
 			phy->core_voltage_levels[CORE_LEVEL_MIN],
 			phy->core_voltage_levels[CORE_LEVEL_MAX]);
 	if (rc) {
-		dev_err(phy->phy.dev, "unable to set voltage for core_ldo\n");
+		dev_err(phy->phy.dev, "Unable to set voltage for %s\n",
+				"core_ldo");
 		goto put_core_ldo_lpm;
 	}
 
 	rc = regulator_enable(phy->core_ldo);
 	if (rc) {
-		dev_err(phy->phy.dev, "Unable to enable core_ldo\n");
+		dev_err(phy->phy.dev, "Unable to enable %s\n", "core_ldo");
 		goto unset_core_ldo;
 	}
 
@@ -310,31 +317,36 @@ static int msm_ssusb_qmp_ldo_enable(struct msm_ssphy_qmp *phy, int on)
 disable_regulators:
 	rc = regulator_disable(phy->core_ldo);
 	if (rc)
-		dev_err(phy->phy.dev, "Unable to disable core_ldo\n");
+		dev_err(phy->phy.dev, "Unable to disable %s\n", "core_ldo");
 
 unset_core_ldo:
 	rc = regulator_set_voltage(phy->core_ldo,
 			phy->core_voltage_levels[CORE_LEVEL_NONE],
 			phy->core_voltage_levels[CORE_LEVEL_MAX]);
 	if (rc)
-		dev_err(phy->phy.dev, "unable to set voltage for core_ldo\n");
+		dev_err(phy->phy.dev, "Unable to set voltage for %s\n",
+				"core_ldo");
 
 put_core_ldo_lpm:
 	rc = regulator_set_load(phy->core_ldo, 0);
 	if (rc < 0)
-		dev_err(phy->phy.dev, "Unable to set LPM of core_ldo\n");
+		dev_err(phy->phy.dev, "Unable to set LPM of %s\n", "core_ldo");
 
 disable_vdd:
 	rc = regulator_disable(phy->vdd);
 	if (rc)
-		dev_err(phy->phy.dev, "regulator_disable(phy->vdd) failed, ret=%d",
-			rc);
+		dev_err(phy->phy.dev, "Unable to disable %s\n", "vdd");
 
 unconfig_vdd:
 	rc = regulator_set_voltage(phy->vdd, phy->vdd_levels[min],
 				    phy->vdd_levels[2]);
 	if (rc)
-		dev_err(phy->phy.dev, "unable to set voltage for ssusb vdd\n");
+		dev_err(phy->phy.dev, "Unable to set voltage for %s\n", "vdd");
+
+put_vdd_lpm:
+	rc = regulator_set_load(phy->vdd, 0);
+	if (rc < 0)
+		dev_err(phy->phy.dev, "Unable to set LPM of %s\n", "vdd");
 
 	return rc < 0 ? rc : 0;
 }
@@ -461,7 +473,7 @@ static void usb_qmp_powerup_phy(struct msm_ssphy_qmp *phy)
 
 static void usb_qmp_apply_link_training_workarounds(struct msm_ssphy_qmp *phy)
 {
-	uint32_t version, major, minor;
+	u32 version, major, minor, val;
 
 	if (!phy->link_training_reset)
 		return;
@@ -472,15 +484,12 @@ static void usb_qmp_apply_link_training_workarounds(struct msm_ssphy_qmp *phy)
 
 	/* sw workaround is needed only for hw reviosions below 2.1 */
 	if ((major < 2) || (major == 2 && minor == 0)) {
-		writel_relaxed(0x52, phy->base + phy->eq_config5_offset);
+		val = readl_relaxed(phy->base + phy->eq_config5_offset);
+		val |= RXEQ_RETRAIN_MODE_SEL;
+		writel_relaxed(val, phy->base + phy->eq_config5_offset);
 		phy->phy.link_training	= msm_ssphy_qmp_link_training;
 		return;
 	}
-
-	if (!phy->cdr_reset_time_offset)
-		return;
-
-	writel_relaxed(0xA, phy->base + phy->cdr_reset_time_offset);
 }
 
 /* SSPHY Initialization */
@@ -1180,6 +1189,10 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		}
 	}
 
+	if (of_property_read_s32(dev->of_node, "qcom,core-max-load-uA",
+				&phy->core_max_uA) || !phy->core_max_uA)
+		phy->core_max_uA = USB_SSPHY_HPM_LOAD;
+
 	if (of_get_property(dev->of_node, "qcom,vdd-voltage-level", &len) &&
 		len == sizeof(phy->vdd_levels)) {
 		ret = of_property_read_u32_array(dev->of_node,
@@ -1195,6 +1208,10 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		dev_err(dev, "error invalid inputs for vdd-voltage-level\n");
 		goto err;
 	}
+
+	if (of_property_read_s32(dev->of_node, "qcom,vdd-max-load-uA",
+				&phy->vdd_max_uA) || !phy->vdd_max_uA)
+		phy->vdd_max_uA = USB_SSPHY_HPM_LOAD;
 
 	phy->vdd = devm_regulator_get(dev, "vdd");
 	if (IS_ERR(phy->vdd)) {
@@ -1228,13 +1245,9 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 
 	if (phy->phy.type == USB_PHY_TYPE_USB3_AND_DP) {
 		phy->eq_config5_offset = USB3_DP_PCS_EQ_CONFIG5;
-		phy->cdr_reset_time_offset = USB3_DP_PCS_CDR_RESET_TIME;
 		phy->phy.reset	= msm_ssphy_qmp_dp_combo_reset;
-	}
-
-	if (phy->phy.type == USB_PHY_TYPE_USB3) {
+	} else if (phy->phy.type == USB_PHY_TYPE_USB3) {
 		phy->eq_config5_offset = USB3_UNI_PCS_EQ_CONFIG5;
-		phy->cdr_reset_time_offset = USB3_UNI_PCS_CDR_RESET_TIME;
 	}
 
 	phy->link_training_reset = of_property_read_bool(dev->of_node,

@@ -64,6 +64,7 @@
 		cell-index = <0>;
 		reg = <0x0>;
 		compatible = "qcom,actuator";
+		cci-device = <0>;
 		cci-master = <0>;
 		cam_vaf-supply = <&pm8009_s2>;
 		regulator-names = "cam_vaf";
@@ -77,6 +78,7 @@
 		cell-index = <1>;
 		reg = <0x1>;
 		compatible = "qcom,actuator";
+		cci-device = <0>;
 		cci-master = <1>;
 		cam_vaf-supply = <&pm8009_s2>;
 		regulator-names = "cam_vaf";
@@ -90,6 +92,7 @@
 		cell-index = <2>;
 		reg = <0x2>;
 		compatible = "qcom,actuator";
+		cci-device = <0>;
 		cci-master = <1>;
 		cam_vaf-supply = <&pm8009_s2>;
 		regulator-names = "cam_vaf";
@@ -103,6 +106,7 @@
 		cell-index = <0>;
 		reg = <0x0>;
 		compatible = "qcom,ois";
+		cci-device = <0>;
 		cci-master = <0>;
 		cam_vaf-supply = <&pm8009_s2>;
 		regulator-names = "cam_vaf";
@@ -143,6 +147,7 @@
 					"CAM_RESET0";
 		sensor-position = <0>;
 		sensor-mode = <0>;
+		cci-device = <0>;
 		cci-master = <0>;
 		status = "ok";
 		clocks = <&clock_camcc CAM_CC_MCLK0_CLK>;
@@ -181,6 +186,7 @@
 					"CAM_RESET1";
 		sensor-position = <0>;
 		sensor-mode = <0>;
+		cci-device = <0>;
 		cci-master = <1>;
 		status = "ok";
 		clocks = <&clock_camcc CAM_CC_MCLK2_CLK>;
@@ -219,6 +225,7 @@
 					"CAM_RESET2";
 		sensor-position = <1>;
 		sensor-mode = <0>;
+		cci-device = <0>;
 		cci-master = <1>;
 		status = "ok";
 		clocks = <&clock_camcc CAM_CC_MCLK2_CLK>;
@@ -265,6 +272,7 @@
 		gpio-req-tbl-label = "CAMIF_MCLK0",
 					"CAM_RESET0";
 		sensor-mode = <0>;
+		cci-device = <0>;
 		cci-master = <0>;
 		status = "ok";
 		clocks = <&clock_camcc CAM_CC_MCLK0_CLK>;
@@ -310,6 +318,7 @@
 		gpio-req-tbl-label = "CAMIF_MCLK1",
 					"CAM_RESET1";
 		sensor-mode = <0>;
+		cci-device = <0>;
 		cci-master = <1>;
 		status = "ok";
 		clocks = <&clock_camcc CAM_CC_MCLK1_CLK>;
@@ -355,6 +364,7 @@
 		gpio-req-tbl-label = "CAMIF_MCLK2",
 					"CAM_RESET2";
 		sensor-mode = <0>;
+		cci-device = <0>;
 		cci-master = <1>;
 		status = "ok";
 		clocks = <&clock_camcc CAM_CC_MCLK2_CLK>;
@@ -398,6 +408,7 @@
 		gpio-req-tbl-label = "CAMIF_MCLK3",
 					"CAM_RESET3";
 		sensor-mode = <0>;
+		cci-device = <0>;
 		cci-master = <1>;
 		status = "ok";
 		clocks = <&clock_camcc CAM_CC_MCLK3_CLK>;

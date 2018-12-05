@@ -17,11 +17,13 @@ dtb-$(CONFIG_ARCH_QCS405) += qcs405-rumi.dtb \
 		qcs405-iot-sku7.dtb \
 		qcs405-iot-sku8.dtb \
 		qcs405-iot-sku9.dtb \
-		qcs405-iot-sku10.dtb
+		qcs405-iot-sku10.dtb \
+		qcs405-iot-sku12.dtb
 else
 dtb-$(CONFIG_ARCH_QCS405) += qcs403-iot-sku1.dtb \
 			qcs403-iot-sku2.dtb \
-			qcs403-iot-sku3.dtb
+			qcs403-iot-sku3.dtb \
+			qcs403-iot-sku4.dtb
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
@@ -84,6 +86,8 @@ dtb-$(CONFIG_ARCH_SM8150)	+= sm8150-rumi.dtb \
 	sm8150-hdk.dtb \
 	sm8150p-hdk.dtb
 endif
+
+dtb-$(CONFIG_QTI_GVM) += sa8155-vm.dtb
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 	dtbo-$(CONFIG_ARCH_SDMSHRIKE) += \

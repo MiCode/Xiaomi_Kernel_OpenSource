@@ -1456,7 +1456,7 @@ static int cam_icp_mgr_handle_frame_process(uint32_t *msg_ptr, int flag)
 	ctx_data = (struct cam_icp_hw_ctx_data *)
 		U64_TO_PTR(ioconfig_ack->user_data1);
 	if (!ctx_data) {
-		CAM_ERR(CAM_ICP, "Invalid Context");
+		CAM_ERR(CAM_ICP, "Invalid Context req %llu", request_id);
 		return -EINVAL;
 	}
 
@@ -1491,6 +1491,11 @@ static int cam_icp_mgr_handle_frame_process(uint32_t *msg_ptr, int flag)
 	}
 	idx = i;
 
+	if (flag == ICP_FRAME_PROCESS_FAILURE)
+		CAM_ERR(CAM_ICP, "Done with error: ctx_id %d req %llu dev %d",
+			ctx_data->ctx_id, request_id,
+			ctx_data->icp_dev_acquire_info->dev_type);
+
 	buf_data.request_id = hfi_frame_process->request_id[idx];
 	ctx_data->ctxt_event_cb(ctx_data->context_priv, flag, &buf_data);
 	hfi_frame_process->request_id[idx] = 0;
@@ -1520,7 +1525,9 @@ static int cam_icp_mgr_process_msg_frame_process(uint32_t *msg_ptr)
 	ioconfig_ack = (struct hfi_msg_ipebps_async_ack *)msg_ptr;
 	if (ioconfig_ack->err_type != HFI_ERR_SYS_NONE) {
 		CAM_ERR(CAM_ICP, "failed with error : %u",
-		ioconfig_ack->err_type);
+			ioconfig_ack->err_type);
+		cam_icp_mgr_handle_frame_process(msg_ptr,
+			ICP_FRAME_PROCESS_FAILURE);
 		return -EIO;
 	}
 
@@ -3871,9 +3878,11 @@ static void cam_icp_mgr_print_io_bufs(struct cam_packet *packet,
 			}
 
 			CAM_INFO(CAM_ICP,
-				"pln %d w %d h %d size %d addr 0x%x offset 0x%x memh %x",
+				"pln %d w %d h %d s %u sh %u size %d addr 0x%x offset 0x%x memh %x",
 				j, io_cfg[i].planes[j].width,
 				io_cfg[i].planes[j].height,
+				io_cfg[i].planes[j].plane_stride,
+				io_cfg[i].planes[j].slice_height,
 				(int32_t)src_buf_size,
 				(unsigned int)iova_addr,
 				io_cfg[i].offsets[j],

@@ -66,7 +66,7 @@ MODULE_ALIAS("mmc:block");
 #endif
 #define MODULE_PARAM_PREFIX "mmcblk."
 
-#define MMC_BLK_TIMEOUT_MS  (10 * 60 * 1000)        /* 10 minute timeout */
+#define MMC_BLK_TIMEOUT_MS  (30 * 1000)        /* 30 secs timeout */
 #define MMC_SANITIZE_REQ_TIMEOUT 240000
 #define MMC_EXTRACT_INDEX_FROM_ARG(x) ((x & 0x00FF0000) >> 16)
 #define MMC_EXTRACT_VALUE_FROM_ARG(x) ((x & 0x0000FF00) >> 8)
@@ -3641,6 +3641,9 @@ static int mmc_blk_cmdq_issue_rq(struct mmc_queue *mq, struct request *req)
 				ret = mmc_blk_cmdq_issue_discard_rq(mq, req);
 			break;
 		case REQ_OP_SECURE_ERASE:
+			ret = mmc_cmdq_wait_for_small_sector_read(card, req);
+			if (ret)
+				break;
 			if (!(card->quirks & MMC_QUIRK_SEC_ERASE_TRIM_BROKEN))
 				ret = mmc_blk_cmdq_issue_secdiscard_rq(mq, req);
 			else

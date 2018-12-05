@@ -1,0 +1,196 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+#include "sdxprairie-pinctrl.dtsi"
+
+/ {
+	aliases {
+		i2c1 = &i2c_1;
+		i2c2 = &i2c_2;
+		i2c3 = &i2c_3;
+		i2c4 = &i2c_4;
+		i2c5 = &i2c_5;
+		i2c6 = &i2c_6;
+		i2c7 = &i2c_7;
+	};
+};
+
+
+&soc {
+	dma_blsp1: qcom,sps-dma@804000 { /* BLSP1 */
+		#dma-cells = <4>;
+		compatible = "qcom,sps-dma";
+		reg = <0x804000 0x23000>;
+		interrupts = <0 58 0>;
+		qcom,summing-threshold = <0x10>;
+	};
+
+	i2c_1: i2c@835000 { /* BLSP1 QUP1: GPIO: 2,3 */
+		compatible = "qcom,i2c-msm-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x835000 0x600>;
+		reg-names = "qup_phys_addr";
+		interrupt-names = "qup_irq";
+		interrupts = <0 31 0>;
+		dmas = <&dma_blsp1 8 64 0x20000020 0x20>,
+			<&dma_blsp1 9 32 0x20000020 0x20>;
+		dma-names = "tx", "rx";
+		qcom,master-id = <86>;
+		qcom,clk-freq-out = <400000>;
+		qcom,clk-freq-in  = <19200000>;
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc GCC_BLSP1_AHB_CLK>,
+			 <&clock_gcc GCC_BLSP1_QUP1_I2C_APPS_CLK>;
+		pinctrl-names = "i2c_active", "i2c_sleep";
+		pinctrl-0 = <&i2c_1_active>;
+		pinctrl-1 = <&i2c_1_sleep>;
+		status = "disabled";
+	};
+
+	i2c_2: i2c@836000 { /* BLSP1 QUP2: GPIO: 6,7 */
+		compatible = "qcom,i2c-msm-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x836000 0x600>;
+		reg-names = "qup_phys_addr";
+		interrupt-names = "qup_irq";
+		interrupts = <0 32 0>;
+		dmas = <&dma_blsp1 10 64 0x20000020 0x20>,
+			<&dma_blsp1 11 32 0x20000020 0x20>;
+		dma-names = "tx", "rx";
+		qcom,master-id = <86>;
+		qcom,clk-freq-out = <400000>;
+		qcom,clk-freq-in  = <19200000>;
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc GCC_BLSP1_AHB_CLK>,
+			 <&clock_gcc GCC_BLSP1_QUP2_I2C_APPS_CLK>;
+		pinctrl-names = "i2c_active", "i2c_sleep";
+		pinctrl-0 = <&i2c_2_active>;
+		pinctrl-1 = <&i2c_2_sleep>;
+		status = "disabled";
+	};
+
+	i2c_3: i2c@837000 { /* BLSP1 QUP3: GPIO: 10,11 */
+		compatible = "qcom,i2c-msm-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x837000 0x600>;
+		reg-names = "qup_phys_addr";
+		interrupt-names = "qup_irq";
+		interrupts = <0 33 0>;
+		dmas = <&dma_blsp1 12 64 0x20000020 0x20>,
+			<&dma_blsp1 13 32 0x20000020 0x20>;
+		dma-names = "tx", "rx";
+		qcom,master-id = <86>;
+		qcom,clk-freq-out = <400000>;
+		qcom,clk-freq-in  = <19200000>;
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc GCC_BLSP1_AHB_CLK>,
+			 <&clock_gcc GCC_BLSP1_QUP3_I2C_APPS_CLK>;
+		pinctrl-names = "i2c_active", "i2c_sleep";
+		pinctrl-0 = <&i2c_3_active>;
+		pinctrl-1 = <&i2c_3_sleep>;
+	};
+
+	i2c_4: i2c@838000 { /* BLSP1 QUP4: GPIO: 78,79 */
+		compatible = "qcom,i2c-msm-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x838000 0x600>;
+		reg-names = "qup_phys_addr";
+		interrupt-names = "qup_irq";
+		interrupts = <0 34 0>;
+		dmas = <&dma_blsp1 14 64 0x20000020 0x20>,
+			<&dma_blsp1 15 32 0x20000020 0x20>;
+		dma-names = "tx", "rx";
+		qcom,master-id = <86>;
+		qcom,clk-freq-out = <400000>;
+		qcom,clk-freq-in  = <19200000>;
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc GCC_BLSP1_AHB_CLK>,
+			 <&clock_gcc GCC_BLSP1_QUP4_I2C_APPS_CLK>;
+		pinctrl-names = "i2c_active", "i2c_sleep";
+		pinctrl-0 = <&i2c_4_active>;
+		pinctrl-1 = <&i2c_4_sleep>;
+		status = "disabled";
+	};
+
+	i2c_5: i2c@835000 { /* BLSP1 QUP1: GPIO: 82,83 */
+		compatible = "qcom,i2c-msm-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x835000 0x600>;
+		reg-names = "qup_phys_addr";
+		interrupt-names = "qup_irq";
+		interrupts = <0 31 0>;
+		dmas = <&dma_blsp1 8 64 0x20000020 0x20>,
+			<&dma_blsp1 9 32 0x20000020 0x20>;
+		dma-names = "tx", "rx";
+		qcom,master-id = <86>;
+		qcom,clk-freq-out = <400000>;
+		qcom,clk-freq-in  = <19200000>;
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc GCC_BLSP1_AHB_CLK>,
+			 <&clock_gcc GCC_BLSP1_QUP1_I2C_APPS_CLK>;
+		pinctrl-names = "i2c_active", "i2c_sleep";
+		pinctrl-0 = <&i2c_5_active>;
+		pinctrl-1 = <&i2c_5_sleep>;
+		status = "disabled";
+	};
+
+	i2c_6: i2c@836000 { /* BLSP1 QUP2: GPIO: 65,66 */
+		compatible = "qcom,i2c-msm-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x836000 0x600>;
+		reg-names = "qup_phys_addr";
+		interrupt-names = "qup_irq";
+		interrupts = <0 32 0>;
+		dmas = <&dma_blsp1 10 64 0x20000020 0x20>,
+			<&dma_blsp1 11 32 0x20000020 0x20>;
+		dma-names = "tx", "rx";
+		qcom,master-id = <86>;
+		qcom,clk-freq-out = <400000>;
+		qcom,clk-freq-in  = <19200000>;
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc GCC_BLSP1_AHB_CLK>,
+			 <&clock_gcc GCC_BLSP1_QUP2_I2C_APPS_CLK>;
+		pinctrl-names = "i2c_active", "i2c_sleep";
+		pinctrl-0 = <&i2c_6_active>;
+		pinctrl-1 = <&i2c_6_sleep>;
+		status = "disabled";
+	};
+
+	i2c_7: i2c@838000 { /* BLSP1 QUP4: GPIO: 18,19 */
+		compatible = "qcom,i2c-msm-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x838000 0x600>;
+		reg-names = "qup_phys_addr";
+		interrupt-names = "qup_irq";
+		interrupts = <0 34 0>;
+		dmas = <&dma_blsp1 14 64 0x20000020 0x20>,
+			<&dma_blsp1 15 32 0x20000020 0x20>;
+		dma-names = "tx", "rx";
+		qcom,master-id = <86>;
+		qcom,clk-freq-out = <400000>;
+		qcom,clk-freq-in  = <19200000>;
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc GCC_BLSP1_AHB_CLK>,
+			 <&clock_gcc GCC_BLSP1_QUP4_I2C_APPS_CLK>;
+		pinctrl-names = "i2c_active", "i2c_sleep";
+		pinctrl-0 = <&i2c_7_active>;
+		pinctrl-1 = <&i2c_7_sleep>;
+		status = "disabled";
+	};
+
+};

@@ -313,11 +313,11 @@ static int a6xx_rgmu_wait_for_lowest_idle(struct adreno_device *adreno_dev)
 	gmu_core_regread(device, A6XX_RGMU_CX_PCC_DEBUG, &reg[1]);
 	gmu_core_regread(device, A6XX_RGMU_CX_PCC_STATUS, &reg[2]);
 	gmu_core_regread(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS, &reg[3]);
-	gmu_core_regread(device, A6XX_CP_STATUS_1, &reg[4]);
+	kgsl_regread(device, A6XX_CP_STATUS_1, &reg[4]);
 	gmu_core_regread(device, A6XX_GMU_RBBM_INT_UNMASKED_STATUS, &reg[5]);
 	gmu_core_regread(device, A6XX_GMU_GMU_PWR_COL_KEEPALIVE, &reg[6]);
-	gmu_core_regread(device, A6XX_CP_CP2GMU_STATUS, &reg[7]);
-	gmu_core_regread(device, A6XX_CP_CONTEXT_SWITCH_CNTL, &reg[8]);
+	kgsl_regread(device, A6XX_CP_CP2GMU_STATUS, &reg[7]);
+	kgsl_regread(device, A6XX_CP_CONTEXT_SWITCH_CNTL, &reg[8]);
 	gmu_core_regread(device, A6XX_GMU_AO_SPARE_CNTL, &reg[9]);
 
 	dev_err(&rgmu->pdev->dev,

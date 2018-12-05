@@ -53,6 +53,12 @@
 			gpio-key,wakeup;
 		};
 	};
+
+	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "qg-batterydata-alium-3600mah.dtsi"
+		#include "qg-batterydata-mlp356477-2800mah.dtsi"
+	};
 };
 
 &qupv3_se0_2uart {
@@ -182,6 +188,10 @@
 
 &pm6150_qg {
 	qcom,battery-data = <&mtp_batterydata>;
+	qcom,qg-iterm-ma = <100>;
+	qcom,hold-soc-while-full;
+	qcom,linearize-soc;
+	qcom,cl-feedback-on;
 };
 
 &pm6150_charger {
@@ -200,10 +210,15 @@
 			   "sbux_res",
 			   "vph_voltage";
 	qcom,battery-data = <&mtp_batterydata>;
+	qcom,auto-recharge-soc = <98>;
 	qcom,step-charging-enable;
 	qcom,sw-jeita-enable;
 	qcom,fcc-stepping-enable;
+	qcom,suspend-input-on-debug-batt;
 	qcom,sec-charger-config = <3>;
+	qcom,thermal-mitigation = <4200000 3500000 3000000
+			2500000 2000000 1500000 1000000 500000>;
+	dpdm-supply = <&qusb_phy0>;
 };
 
 &smb1390 {
@@ -269,4 +284,28 @@
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,platform-te-gpio = <&tlmm 90 0>;
 	qcom,platform-reset-gpio = <&tlmm 91 0>;
+};
+
+&dsi_rm69298_truly_amoled_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-te-gpio = <&tlmm 90 0>;
+	qcom,platform-reset-gpio = <&tlmm 91 0>;
+};
+
+&dsi_rm69298_truly_amoled_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-te-gpio = <&tlmm 90 0>;
+	qcom,platform-reset-gpio = <&tlmm 91 0>;
+};
+
+&thermal_zones {
+	quiet-therm-step {
+		status = "disabled";
+	};
 };
