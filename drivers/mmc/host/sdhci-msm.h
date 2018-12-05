@@ -195,6 +195,10 @@ struct sdhci_msm_regs_restore {
 	u32 hc_3c_3e;
 	u32 hc_caps_1;
 	u32 testbus_config;
+	u32 dll_config;
+	u32 dll_config2;
+	u32 dll_config3;
+	u32 dll_usr_ctl;
 };
 
 struct sdhci_msm_debug_data {
