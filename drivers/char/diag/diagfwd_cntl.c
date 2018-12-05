@@ -21,7 +21,7 @@
 #define FEATURE_SUPPORTED(x)	((feature_mask << (i * 8)) & (1 << x))
 
 /* tracks which peripheral is undergoing SSR */
-static uint16_t reg_dirty;
+static uint16_t reg_dirty[NUM_PERIPHERALS];
 static uint8_t diag_id = DIAG_ID_APPS;
 static void diag_notify_md_client(uint8_t peripheral, int data);
 
@@ -58,14 +58,14 @@ void diag_cntl_channel_close(struct diagfwd_info *p_info)
 
 	driver->feature[peripheral].sent_feature_mask = 0;
 	driver->feature[peripheral].rcvd_feature_mask = 0;
-	reg_dirty |= PERIPHERAL_MASK(peripheral);
+	reg_dirty[peripheral] = 1;
 	diag_cmd_remove_reg_by_proc(peripheral);
 	driver->diag_id_sent[peripheral] = 0;
 	driver->feature[peripheral].stm_support = DISABLE_STM;
 	driver->feature[peripheral].log_on_demand = 0;
 	driver->stm_state[peripheral] = DISABLE_STM;
 	driver->stm_state_requested[peripheral] = DISABLE_STM;
-	reg_dirty ^= PERIPHERAL_MASK(peripheral);
+	reg_dirty[peripheral] = 0;
 	diag_notify_md_client(peripheral, DIAG_STATUS_CLOSED);
 }
 
@@ -869,7 +869,7 @@ void diag_cntl_process_read_data(struct diagfwd_info *p_info, void *buf,
 	if (!buf || len <= 0 || !p_info)
 		return;
 
-	if (reg_dirty & PERIPHERAL_MASK(p_info->peripheral)) {
+	if (reg_dirty[p_info->peripheral]) {
 		pr_err_ratelimited("diag: dropping command registration from peripheral %d\n",
 		       p_info->peripheral);
 		return;
@@ -1644,13 +1644,14 @@ int diagfwd_cntl_init(void)
 {
 	uint8_t peripheral = 0;
 
-	reg_dirty = 0;
 	driver->polling_reg_flag = 0;
 	driver->log_on_demand_support = 1;
 	driver->stm_peripheral = 0;
 	driver->close_transport = 0;
-	for (peripheral = 0; peripheral < NUM_PERIPHERALS; peripheral++)
+	for (peripheral = 0; peripheral < NUM_PERIPHERALS; peripheral++) {
 		driver->buffering_flag[peripheral] = 0;
+		reg_dirty[peripheral] = 0;
+	}
 
 	mutex_init(&driver->cntl_lock);
 	INIT_WORK(&(driver->stm_update_work), diag_stm_update_work_fn);
