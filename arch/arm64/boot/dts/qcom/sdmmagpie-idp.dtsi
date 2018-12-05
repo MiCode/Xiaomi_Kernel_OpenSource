@@ -221,6 +221,27 @@
 	qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
 };
 
+&dsi_nt35695b_truly_fhd_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_no_labibb>;
+	qcom,panel-sec-supply-entries = <&dsi_panel_pwr_supply_no_labibb>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,platform-reset-gpio = <&pm6150l_gpios 11 0>;
+	qcom,platform-sec-reset-gpio = <&pm6150l_gpios 11 0>;
+	qcom,platform-en-gpio = <&pm6150l_gpios 4 0>;
+	qcom,platform-bklight-en-gpio = <&pm6150l_gpios 5 0>;
+};
+
+&dsi_nt35695b_truly_fhd_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_no_labibb>;
+	qcom,panel-sec-supply-entries = <&dsi_panel_pwr_supply_no_labibb>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,platform-reset-gpio = <&pm6150l_gpios 11 0>;
+	qcom,platform-sec-reset-gpio = <&pm6150l_gpios 11 0>;
+	qcom,platform-en-gpio = <&pm6150l_gpios 4 0>;
+	qcom,platform-bklight-en-gpio = <&pm6150l_gpios 5 0>;
+	qcom,platform-te-gpio = <&tlmm 11 0>;
+};
+
 &sde_dp {
 	qcom,dp-aux-switch = <&fsa4480>;
 };
