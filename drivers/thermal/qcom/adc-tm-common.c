@@ -129,5 +129,24 @@ void adc_tm_scale_therm_voltage_100k(struct adc_tm_config *param,
 }
 EXPORT_SYMBOL(adc_tm_scale_therm_voltage_100k);
 
+int32_t adc_tm_absolute_rthr(const struct adc_tm_data *data,
+			struct adc_tm_config *tm_config)
+{
+	int64_t low_thr = 0, high_thr = 0;
+
+	low_thr =  div_s64(tm_config->low_thr_voltage, tm_config->prescal);
+	low_thr *= data->full_scale_code_volt;
+	low_thr = div64_s64(low_thr, ADC_HC_VDD_REF);
+	tm_config->low_thr_voltage = low_thr;
+
+	high_thr =  div_s64(tm_config->high_thr_voltage, tm_config->prescal);
+	high_thr *= data->full_scale_code_volt;
+	high_thr = div64_s64(high_thr, ADC_HC_VDD_REF);
+	tm_config->high_thr_voltage = high_thr;
+
+	return 0;
+}
+EXPORT_SYMBOL(adc_tm_absolute_rthr);
+
 MODULE_DESCRIPTION("Qualcomm Technologies Inc. PMIC ADC_TM common driver");
 MODULE_LICENSE("GPL v2");
