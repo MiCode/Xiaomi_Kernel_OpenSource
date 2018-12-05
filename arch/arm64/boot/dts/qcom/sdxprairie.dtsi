@@ -36,6 +36,13 @@
 			label = "tz_mem";
 		};
 
+		qseecom_tz_apps_mem: qseecom_tz_apps_region@0x90000000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x90000000 0xc00000>;
+			label = "qseecom_tz_apps_mem";
+		};
+
 		smem_region: smem_region@8fe40000 {
 			no-map;
 			reg = <0x8fe40000 0xc0000>;
@@ -645,6 +652,26 @@
 			<1 618 0 0>,    /* No vote */
 			<1 618 0 300000>;  /* 75 MHz */
 		qcom,no-clock-support;
+	};
+
+	qcom_seecom: qseecom@90000000{
+		compatible = "qcom,qseecom";
+		reg = <0x90000000 0xc00000>;
+		reg-names = "secapp-region";
+		memory-region = <&qseecom_mem>;
+		qcom,hlos-num-ce-hw-instances = <1>;
+		qcom,hlos-ce-hw-instance = <0>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,no-clock-support;
+		qcom,msm-bus,name = "qseecom-noc";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<125 512 0 0>,
+			<125 512 20000 40000>,
+			<125 512 30000 80000>,
+			<125 512 40000 100000>;
+		qcom,qsee-reentrancy-support = <2>;
 	};
 
 	qnand_1: nand@1b00000 {
