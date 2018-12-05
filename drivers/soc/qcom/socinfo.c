@@ -315,6 +315,9 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* kona ID */
 	[356] = {MSM_CPU_KONA, "KONA"},
 
+	/* Lito ID */
+	[400] = {MSM_CPU_LITO, "LITO"},
+
 	/* Uninitialized IDs are not known to run Linux.
 	 * MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	 * considered as unknown CPU.
@@ -1177,6 +1180,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_kona()) {
 		dummy_socinfo.id = 356;
 		strlcpy(dummy_socinfo.build_id, "kona - ",
+		sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_lito()) {
+		dummy_socinfo.id = 400;
+		strlcpy(dummy_socinfo.build_id, "lito - ",
 		sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_sdmshrike()) {
 		dummy_socinfo.id = 340;
