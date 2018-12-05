@@ -208,8 +208,6 @@ static const char rmnet_port_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"DL header pkts received",
 	"DL header total bytes received",
 	"DL header total pkts received",
-	"DL header average bytes",
-	"DL header average packets",
 	"DL trailer last seen sequence",
 	"DL trailer pkts received",
 };

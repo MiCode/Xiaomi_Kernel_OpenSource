@@ -35,8 +35,6 @@ struct rmnet_port_priv_stats {
 	u64 dl_hdr_count;
 	u64 dl_hdr_total_bytes;
 	u64 dl_hdr_total_pkts;
-	u64 dl_hdr_avg_bytes;
-	u64 dl_hdr_avg_pkts;
 	u64 dl_trl_last_seq;
 	u64 dl_trl_count;
 };
