@@ -45,6 +45,19 @@ static struct msm_vidc_codec_data default_codec_data[] =  {
 	CODEC_ENTRY(V4L2_PIX_FMT_H264, MSM_VIDC_DECODER, 125, 675, 320),
 };
 
+/* Update with Kona data */
+static struct msm_vidc_codec_data kona_codec_data[] =  {
+	CODEC_ENTRY(V4L2_PIX_FMT_H264, MSM_VIDC_ENCODER, 10, 675, 320),
+	CODEC_ENTRY(V4L2_PIX_FMT_HEVC, MSM_VIDC_ENCODER, 10, 675, 320),
+	CODEC_ENTRY(V4L2_PIX_FMT_VP8, MSM_VIDC_ENCODER, 10, 675, 320),
+	CODEC_ENTRY(V4L2_PIX_FMT_TME, MSM_VIDC_ENCODER, 0, 540, 540),
+	CODEC_ENTRY(V4L2_PIX_FMT_MPEG2, MSM_VIDC_DECODER, 10, 200, 200),
+	CODEC_ENTRY(V4L2_PIX_FMT_H264, MSM_VIDC_DECODER, 10, 200, 200),
+	CODEC_ENTRY(V4L2_PIX_FMT_HEVC, MSM_VIDC_DECODER, 10, 200, 200),
+	CODEC_ENTRY(V4L2_PIX_FMT_VP8, MSM_VIDC_DECODER, 10, 200, 200),
+	CODEC_ENTRY(V4L2_PIX_FMT_VP9, MSM_VIDC_DECODER, 10, 200, 200),
+};
+
 /* Update with SM6150 data */
 static struct msm_vidc_codec_data sm6150_codec_data[] =  {
 	CODEC_ENTRY(V4L2_PIX_FMT_H264, MSM_VIDC_ENCODER, 125, 675, 320),
@@ -119,6 +132,86 @@ static struct msm_vidc_common_data default_common_data[] = {
 	{
 		.key = "qcom,never-unload-fw",
 		.value = 1,
+	},
+};
+
+/* Update with kona */
+static struct msm_vidc_common_data kona_common_data[] = {
+	{
+		.key = "qcom,never-unload-fw",
+		.value = 1,
+	},
+	{
+		.key = "qcom,sw-power-collapse",
+		.value = 1,
+	},
+	{
+		.key = "qcom,domain-attr-non-fatal-faults",
+		.value = 1,
+	},
+	{
+		.key = "qcom,max-secure-instances",
+		.value = 2,             /*
+					 * As per design driver allows 3rd
+					 * instance as well since the secure
+					 * flags were updated later for the
+					 * current instance. Hence total
+					 * secure sessions would be
+					 * max-secure-instances + 1.
+					 */
+	},
+	{
+		.key = "qcom,max-hw-load",
+		.value = 3916800,       /*
+					 * 1920x1088/256 MBs@480fps. It is less
+					 * any other usecases (ex:
+					 * 3840x2160@120fps, 4096x2160@96ps,
+					 * 7680x4320@30fps)
+					 */
+	},
+	{
+		.key = "qcom,max-hq-mbs-per-frame",
+		.value = 8160,
+	},
+	{
+		.key = "qcom,max-hq-frames-per-sec",
+		.value = 60,
+	},
+	{
+		.key = "qcom,max-b-frame-size",
+		.value = 8160,
+	},
+	{
+		.key = "qcom,max-b-frames-per-sec",
+		.value = 60,
+	},
+	{
+		.key = "qcom,power-collapse-delay",
+		.value = 1500,
+	},
+	{
+		.key = "qcom,hw-resp-timeout",
+		.value = 1000,
+	},
+	{
+		.key = "qcom,debug-timeout",
+		.value = 0,
+	},
+	{
+		.key = "qcom,domain-cvp",
+		.value = 0,
+	},
+	{
+		.key = "qcom,decode-batching",
+		.value = 0,
+	},
+	{
+		.key = "qcom,dcvs",
+		.value = 1,
+	},
+	{
+		.key = "qcom,fw-cycles",
+		.value = 760000,
 	},
 };
 
@@ -437,6 +530,22 @@ static struct msm_vidc_platform_data default_data = {
 	.vpu_ver = VPU_VERSION_5,
 };
 
+static struct msm_vidc_platform_data kona_data = {
+	.codec_data = kona_codec_data,
+	.codec_data_length =  ARRAY_SIZE(kona_codec_data),
+	.common_data = kona_common_data,
+	.common_data_length =  ARRAY_SIZE(kona_common_data),
+	.csc_data.vpe_csc_custom_bias_coeff = vpe_csc_custom_bias_coeff,
+	.csc_data.vpe_csc_custom_matrix_coeff = vpe_csc_custom_matrix_coeff,
+	.csc_data.vpe_csc_custom_limit_coeff = vpe_csc_custom_limit_coeff,
+	.efuse_data = NULL,
+	.efuse_data_length = 0,
+	.sku_version = 0,
+	.gcc_register_base = 0x10B024,//GCC_VIDEO_AXI0_CBCR,
+	.gcc_register_size = 0x8,//GCC_VIDEO_AXI0_CBCR + GCC_VIDEO_AXI1_CBCR,
+	.vpu_ver = VPU_VERSION_5,
+};
+
 static struct msm_vidc_platform_data sm6150_data = {
 	.codec_data = sm6150_codec_data,
 	.codec_data_length =  ARRAY_SIZE(sm6150_codec_data),
@@ -502,6 +611,10 @@ static struct msm_vidc_platform_data sdm670_data = {
 };
 
 static const struct of_device_id msm_vidc_dt_match[] = {
+	{
+		.compatible = "qcom,kona-vidc",
+		.data = &kona_data,
+	},
 	{
 		.compatible = "qcom,sm6150-vidc",
 		.data = &sm6150_data,
