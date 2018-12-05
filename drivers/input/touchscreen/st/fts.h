@@ -174,6 +174,10 @@
 
 #define TSP_BUF_SIZE         4096
 
+#define PINCTRL_STATE_ACTIVE    "pmx_ts_active"
+#define PINCTRL_STATE_SUSPEND   "pmx_ts_suspend"
+#define PINCTRL_STATE_RELEASE   "pmx_ts_release"
+
 /*add by guchong*/
 #ifdef PHONE_GESTURE
 extern u16 gesture_coordinates_x[GESTURE_COORDS_REPORT_MAX];
@@ -242,6 +246,11 @@ struct fts_ts_info {
 	struct delayed_work      fwu_work;
 	struct workqueue_struct  *fwu_workqueue;
 	struct completion        cmd_done;
+
+	struct pinctrl *ts_pinctrl;
+	struct pinctrl_state *pinctrl_state_active;
+	struct pinctrl_state *pinctrl_state_suspend;
+	struct pinctrl_state *pinctrl_state_release;
 
 	event_dispatch_handler_t *event_dispatch_table;
 
