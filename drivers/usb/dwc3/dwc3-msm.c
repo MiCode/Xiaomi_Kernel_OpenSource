@@ -176,7 +176,7 @@ static const struct usb_irq usb_irq_info[USB_MAX_IRQ] = {
 static const char * const gsi_op_strings[] = {
 	"EP_CONFIG", "START_XFER", "STORE_DBL_INFO",
 	"ENABLE_GSI", "UPDATE_XFER", "RING_DB",
-	"END_XFER", "GET_CH_INFO", "PREPARE_TRBS",
+	"END_XFER", "GET_CH_INFO", "GET_XFER_IDX", "PREPARE_TRBS",
 	"FREE_TRBS", "SET_CLR_BLOCK_DBL", "CHECK_FOR_SUSP",
 	"EP_DISABLE" };
 
@@ -3255,6 +3255,8 @@ static ssize_t speed_store(struct device *dev, struct device_attribute *attr,
 		req_speed = USB_SPEED_HIGH;
 	else if (sysfs_streq(buf, "super"))
 		req_speed = USB_SPEED_SUPER;
+	else if (sysfs_streq(buf, "ssp"))
+		req_speed = USB_SPEED_SUPER_PLUS;
 	else
 		return -EINVAL;
 
@@ -3663,13 +3665,15 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		if (ret)
 			goto put_dwc3;
 	} else {
-		if (dwc3_is_otg_or_drd(dwc) ||
-				dwc->dr_mode == USB_DR_MODE_PERIPHERAL) {
-			dev_dbg(mdwc->dev, "%s: no extcon, simulate vbus connect\n",
+		if ((dwc3_is_otg_or_drd(dwc) &&
+		     !of_property_read_bool(node, "qcom,default-mode-host")) ||
+		     dwc->dr_mode == USB_DR_MODE_PERIPHERAL) {
+			dev_dbg(mdwc->dev, "%s: no extcon, start peripheral mode\n",
 								__func__);
 			mdwc->vbus_active = true;
-		} else if (dwc->dr_mode == USB_DR_MODE_HOST) {
-			dev_dbg(mdwc->dev, "DWC3 in host only mode\n");
+		} else {
+			dev_dbg(mdwc->dev, "%s: no extcon, start host mode\n",
+								__func__);
 			mdwc->id_state = DWC3_ID_GROUND;
 		}
 
