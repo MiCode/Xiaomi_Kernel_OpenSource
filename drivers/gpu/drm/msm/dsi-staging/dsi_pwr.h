@@ -94,4 +94,22 @@ int dsi_pwr_get_dt_vreg_data(struct device *dev,
  * return: error code in case of failure or 0 for success.
  */
 int dsi_pwr_enable_regulator(struct dsi_regulator_info *regs, bool enable);
+
+/**
+ * dsi_pwr_panel_regulator_mode_set()
+ * set regulator mode for OLED panel
+ * @regs:       Pointer to set of regulators to enable or disable.
+ * @reg_name:	Panel regulator name
+ * @regulator_mode:	Regulator mode values, like:
+ *                  REGULATOR_MODE_INVALID
+ *                  REGULATOR_MODE_FAST
+ *                  REGULATOR_MODE_NORMAL
+ *                  REGULATOR_MODE_IDLE
+ *                  REGULATOR_MODE_STANDBY
+ *
+ * return: error code in case of failure or 0 for success.
+ */
+int dsi_pwr_panel_regulator_mode_set(struct dsi_regulator_info *regs,
+					const char *reg_name,
+					int regulator_mode);
 #endif /* _DSI_PWR_H_ */
