@@ -10,6 +10,7 @@
 #include <linux/iommu.h>
 #include <linux/idr.h>
 #include <linux/mutex.h>
+#include <linux/qcom-iommu-util.h>
 #include <linux/refcount.h>
 #include <linux/slab.h>
 #include <linux/types.h>
@@ -863,9 +864,22 @@ static struct etr_buf *tmc_alloc_etr_buf(struct tmc_drvdata *drvdata,
 	bool has_sg, has_catu;
 	struct etr_buf *etr_buf;
 	struct device *dev = &drvdata->csdev->dev;
+	int s1_bypass = 0;
+	struct iommu_domain *domain;
 
 	has_etr_sg = tmc_etr_has_cap(drvdata, TMC_ETR_SG);
-	has_iommu = iommu_get_domain_for_dev(dev->parent);
+	domain = iommu_get_domain_for_dev(dev->parent);
+	if (domain) {
+		iommu_domain_get_attr(domain, DOMAIN_ATTR_S1_BYPASS,
+			&s1_bypass);
+		if (s1_bypass)
+			has_iommu = false;
+		else
+			has_iommu = true;
+	} else {
+		has_iommu = false;
+	}
+
 	has_catu = !!tmc_etr_get_catu_device(drvdata);
 
 	has_sg = has_catu || has_etr_sg;
