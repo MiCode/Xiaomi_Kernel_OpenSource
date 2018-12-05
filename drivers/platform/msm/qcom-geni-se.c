@@ -991,6 +991,9 @@ int geni_se_clk_freq_match(struct se_geni_rsc *rsc, unsigned long req_freq,
 	unsigned long *tbl;
 	int num_clk_levels;
 	int i;
+	unsigned long best_delta = 0;
+	unsigned long new_delta;
+	unsigned int divider;
 
 	num_clk_levels = geni_se_clk_tbl_get(rsc, &tbl);
 	if (num_clk_levels < 0)
@@ -1000,17 +1003,21 @@ int geni_se_clk_freq_match(struct se_geni_rsc *rsc, unsigned long req_freq,
 		return -EFAULT;
 
 	*res_freq = 0;
-	for (i = 0; i < num_clk_levels; i++) {
-		if (!(tbl[i] % req_freq)) {
-			*index = i;
-			*res_freq = tbl[i];
-			return 0;
-		}
 
-		if (!(*res_freq) || ((tbl[i] > *res_freq) &&
-				     (tbl[i] < req_freq))) {
+	for (i = 0; i < num_clk_levels; i++) {
+		divider = DIV_ROUND_UP(tbl[i], req_freq);
+		new_delta = req_freq - (tbl[i] / divider);
+
+		if (!best_delta || new_delta < best_delta) {
+			/* We have a new best! */
 			*index = i;
 			*res_freq = tbl[i];
+
+			/*If the new best is exact then we're done*/
+			if (new_delta == 0)
+				return 0;
+
+			best_delta = new_delta;
 		}
 	}
 
