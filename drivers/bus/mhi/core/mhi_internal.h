@@ -594,6 +594,7 @@ struct mhi_chan {
 	bool offload_ch;
 	bool pre_alloc;
 	bool auto_start;
+	bool wake_capable; /* channel should wake up system */
 	/* functions that generate the transfer ring elements */
 	int (*gen_tre)(struct mhi_controller *, struct mhi_chan *, void *,
 		       void *, size_t, enum MHI_FLAGS);
