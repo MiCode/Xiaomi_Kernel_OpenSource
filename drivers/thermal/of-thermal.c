@@ -521,6 +521,26 @@ static bool of_thermal_is_wakeable(struct thermal_zone_device *tz)
 	return data->is_wakeable;
 }
 
+static int of_thermal_set_polling_delay(struct thermal_zone_device *tz,
+				    int delay)
+{
+	struct __thermal_zone *data = tz->devdata;
+
+	data->polling_delay = delay;
+
+	return 0;
+}
+
+static int of_thermal_set_passive_delay(struct thermal_zone_device *tz,
+				    int delay)
+{
+	struct __thermal_zone *data = tz->devdata;
+
+	data->passive_delay = delay;
+
+	return 0;
+}
+
 static int of_thermal_aggregate_trip_types(struct thermal_zone_device *tz,
 		unsigned int trip_type_mask, int *low, int *high)
 {
@@ -648,6 +668,8 @@ static struct thermal_zone_device_ops of_thermal_ops = {
 	.unbind = of_thermal_unbind,
 
 	.is_wakeable = of_thermal_is_wakeable,
+	.set_polling_delay = of_thermal_set_polling_delay,
+	.set_passive_delay = of_thermal_set_passive_delay,
 };
 
 static struct thermal_zone_of_device_ops of_virt_ops = {
