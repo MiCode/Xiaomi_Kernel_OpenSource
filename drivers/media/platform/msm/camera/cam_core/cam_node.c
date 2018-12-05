@@ -111,6 +111,7 @@ static int __cam_node_handle_acquire_dev(struct cam_node *node,
 		goto err;
 	}
 
+	ctx->last_flush_req = 0;
 	rc = cam_context_handle_acquire_dev(ctx, acquire);
 	if (rc) {
 		CAM_ERR(CAM_CORE, "Acquire device failed for node %s",
