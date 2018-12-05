@@ -1361,13 +1361,9 @@ static void gsi_set_clear_dbell(struct usb_ep *ep,
 *
 * @usb_ep - pointer to usb_ep instance to access DWC3 regs
 */
-static bool gsi_check_ready_to_suspend(struct usb_ep *ep, bool f_suspend)
+static bool gsi_check_ready_to_suspend(struct dwc3_msm *mdwc)
 {
 	u32	timeout = 500;
-	u32	reg = 0;
-	struct dwc3_ep *dep = to_dwc3_ep(ep);
-	struct dwc3 *dwc = dep->dwc;
-	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 
 	while (dwc3_msm_read_reg_field(mdwc->base,
 		GSI_IF_STS, GSI_WR_CTRL_STATE_MASK)) {
@@ -1377,14 +1373,6 @@ static bool gsi_check_ready_to_suspend(struct usb_ep *ep, bool f_suspend)
 			return false;
 		}
 		usleep_range(20, 22);
-	}
-	/* Check for U3 only if we are not handling Function Suspend */
-	if (!f_suspend) {
-		reg = dwc3_readl(dwc->regs, DWC3_DSTS);
-		if (DWC3_DSTS_USBLNKST(reg) != DWC3_LINK_STATE_U3) {
-			dev_err(mdwc->dev, "Unable to suspend GSI ch\n");
-			return false;
-		}
 	}
 
 	return true;
@@ -1417,7 +1405,7 @@ static int dwc3_msm_gsi_ep_op(struct usb_ep *ep,
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 	struct usb_gsi_request *request;
 	struct gsi_channel_info *ch_info;
-	bool block_db, f_suspend;
+	bool block_db;
 	unsigned long flags;
 
 	dbg_log_string("%s(%d):%s", ep->name, ep->ep_num, gsi_op_to_string(op));
@@ -1477,8 +1465,7 @@ static int dwc3_msm_gsi_ep_op(struct usb_ep *ep,
 		gsi_set_clear_dbell(ep, block_db);
 		break;
 	case GSI_EP_OP_CHECK_FOR_SUSPEND:
-		f_suspend = *((bool *)op_data);
-		ret = gsi_check_ready_to_suspend(ep, f_suspend);
+		ret = gsi_check_ready_to_suspend(mdwc);
 		break;
 	case GSI_EP_OP_DISABLE:
 		ret = ep->ops->disable(ep);
