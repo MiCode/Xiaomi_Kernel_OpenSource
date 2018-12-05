@@ -2843,16 +2843,13 @@ static void gsi_unbind(struct usb_configuration *c, struct usb_function *f)
 	if (gsi->prot_id == IPA_USB_MBIM)
 		mbim_gsi_ext_config_desc.function.subCompatibleID[0] = 0;
 
-	if (gadget_is_superspeed(c->cdev->gadget)) {
+	if (gadget_is_superspeed(c->cdev->gadget))
 		usb_free_descriptors(f->ss_descriptors);
-		f->ss_descriptors = NULL;
-	}
-	if (gadget_is_dualspeed(c->cdev->gadget)) {
+
+	if (gadget_is_dualspeed(c->cdev->gadget))
 		usb_free_descriptors(f->hs_descriptors);
-		f->hs_descriptors = NULL;
-	}
+
 	usb_free_descriptors(f->fs_descriptors);
-	f->fs_descriptors = NULL;
 
 	if (gsi->c_port.notify) {
 		kfree(gsi->c_port.notify_req->buf);
