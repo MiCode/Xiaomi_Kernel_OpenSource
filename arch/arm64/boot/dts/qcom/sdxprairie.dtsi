@@ -476,6 +476,10 @@
 		qcom,throughput-threshold = <600 2500 5000>;
 		qcom,scaling-exceptions = <>;
 
+		/* ipa tz unlock registers */
+		qcom,ipa-tz-unlock-reg =
+			<0x4043583c 0x1000>; /* 32-bit reg addr and size*/
+
 		ipa_smmu_ap: ipa_smmu_ap {
 			compatible = "qcom,ipa-smmu-ap-cb";
 			iommus = <&apps_smmu 0x5E0 0x0>;
