@@ -15,9 +15,14 @@
 
 #define UFS_PHY_NAME "ufs_phy_qmp_v4"
 
+#define check_v1(major, minor, step) \
+	((major == 0x4) && (minor == 0x000) && (step == 0x0000))
+#define check_v2(major, minor, step) \
+	((major == 0x4) && (minor == 0x001) && (step == 0x0000))
+
 static
 int ufs_qcom_phy_qmp_v4_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
-					bool is_rate_B)
+					bool is_rate_B, bool is_g4)
 {
 	u8 major = ufs_qcom_phy->host_ctrl_rev_major;
 	u16 minor = ufs_qcom_phy->host_ctrl_rev_minor;
@@ -30,29 +35,53 @@ int ufs_qcom_phy_qmp_v4_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 	/*
 	 * Writing PHY calibration in this order:
 	 * 1. Write Rate-A calibration first (1-lane mode).
+	 *    Apply G3 or G4 specific settings (v2 may have additional
+	 *    settings).
 	 * 2. Write 2nd lane configuration if needed.
+	 *    Apply G3 or G4 specific settings (v2 may have additional
+	 *    settings).
 	 * 3. Write Rate-B calibration overrides
 	 */
 	ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_rate_A,
 			       ARRAY_SIZE(phy_cal_table_rate_A));
-	if ((major == 0x4) && (minor == 0x001) && (step == 0x0000))
-		ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_rate_A_v2,
-				       ARRAY_SIZE(phy_cal_table_rate_A_v2));
+	if (!is_g4)
+		ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_rate_A_g3,
+				       ARRAY_SIZE(phy_cal_table_rate_A_g3));
+	else
+		ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_rate_A_g4,
+				       ARRAY_SIZE(phy_cal_table_rate_A_g4));
+
+	if (check_v2(major, minor, step)) {
+		if (!is_g4)
+			ufs_qcom_phy_write_tbl(ufs_qcom_phy,
+				phy_cal_table_rate_A_v2_g3,
+				ARRAY_SIZE(phy_cal_table_rate_A_v2_g3));
+		else
+			ufs_qcom_phy_write_tbl(ufs_qcom_phy,
+				phy_cal_table_rate_A_v2_g4,
+				ARRAY_SIZE(phy_cal_table_rate_A_v2_g4));
+	}
 
 	if (ufs_qcom_phy->lanes_per_direction == 2) {
 		ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_2nd_lane,
 				       ARRAY_SIZE(phy_cal_table_2nd_lane));
-		if ((major == 0x4) && (minor == 0x001) && (step == 0x0000))
-			ufs_qcom_phy_write_tbl(ufs_qcom_phy,
-					phy_cal_table_2nd_lane_v2,
-					ARRAY_SIZE(phy_cal_table_2nd_lane_v2));
+		if (check_v2(major, minor, step)) {
+			if (!is_g4)
+				ufs_qcom_phy_write_tbl(ufs_qcom_phy,
+				   phy_cal_table_2nd_lane_v2_g3,
+				   ARRAY_SIZE(phy_cal_table_2nd_lane_v2_g3));
+			else
+				ufs_qcom_phy_write_tbl(ufs_qcom_phy,
+				   phy_cal_table_2nd_lane_v2_g4,
+				   ARRAY_SIZE(phy_cal_table_2nd_lane_v2_g4));
+		}
 	}
 
 	if (is_rate_B)
 		ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_rate_B,
 				       ARRAY_SIZE(phy_cal_table_rate_B));
 
-	if ((major == 0x4) && (minor == 0x000) && (step == 0x0000)) {
+	if (check_v1(major, minor, step)) {
 		writel_relaxed(0x01, ufs_qcom_phy->mmio +
 					QSERDES_RX0_AC_JTAG_ENABLE);
 		writel_relaxed(0x01, ufs_qcom_phy->mmio +

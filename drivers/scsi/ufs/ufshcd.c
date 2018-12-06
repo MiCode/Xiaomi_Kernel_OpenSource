@@ -403,7 +403,6 @@ static struct ufs_dev_fix ufs_fixups[] = {
 	/* UFS cards deviations table */
 	UFS_FIX(UFS_VENDOR_SAMSUNG, UFS_ANY_MODEL,
 		UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM),
-	UFS_FIX(UFS_VENDOR_SAMSUNG, UFS_ANY_MODEL, UFS_DEVICE_NO_VCCQ),
 	UFS_FIX(UFS_VENDOR_SAMSUNG, UFS_ANY_MODEL,
 		UFS_DEVICE_NO_FASTAUTO),
 	UFS_FIX(UFS_VENDOR_SAMSUNG, UFS_ANY_MODEL,
@@ -5488,6 +5487,17 @@ int ufshcd_change_power_mode(struct ufs_hba *hba,
 		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_HSSERIES),
 						pwr_mode->hs_rate);
 
+	if (pwr_mode->gear_tx == UFS_HS_G4) {
+		ret = ufshcd_dme_set(hba, UIC_ARG_MIB(PA_PEERRXHSADAPTINITIAL),
+				     PA_PEERRXHSADAPTINITIAL_Default);
+		/* INITIAL ADAPT */
+		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TXHSADAPTTYPE),
+			       PA_INITIAL_ADAPT);
+	} else {
+		/* NO ADAPT */
+		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TXHSADAPTTYPE), PA_NO_ADAPT);
+	}
+
 	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_PWRMODEUSERDATA0),
 			DL_FC0ProtectionTimeOutVal_Default);
 	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_PWRMODEUSERDATA1),
@@ -8612,6 +8622,34 @@ static int ufs_read_device_desc_data(struct ufs_hba *hba)
 }
 
 /**
+ * ufshcd_is_g4_supported - check if device supports HS-G4
+ * @hba: per-adapter instance
+ *
+ * Returns True if device supports HS-G4, False otherwise.
+ */
+static bool ufshcd_is_g4_supported(struct ufs_hba *hba)
+{
+	int ret;
+	u32 tx_hsgear = 0;
+
+	/* check device capability */
+	ret = ufshcd_dme_peer_get(hba,
+			UIC_ARG_MIB_SEL(TX_HSGEAR_CAPABILITY,
+			UIC_ARG_MPHY_TX_GEN_SEL_INDEX(0)),
+			&tx_hsgear);
+	if (ret) {
+		dev_err(hba->dev, "%s: Failed getting peer TX_HSGEAR_CAPABILITY. err = %d\n",
+			__func__, ret);
+		return false;
+	}
+
+	if (tx_hsgear == UFS_HS_G4)
+		return true;
+	else
+		return false;
+}
+
+/**
  * ufshcd_probe_hba - probe hba to detect device and initialize
  * @hba: per-adapter instance
  *
@@ -8623,6 +8661,7 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	int ret;
 	ktime_t start = ktime_get();
 
+reinit:
 	ret = ufshcd_link_startup(hba);
 	if (ret)
 		goto out;
@@ -8660,6 +8699,40 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 		dev_err(hba->dev, "%s: Failed getting device info. err = %d\n",
 			__func__, ret);
 		goto out;
+	}
+
+	/*
+	 * Note: Some UFS 3.0 devices may still advertise UFS specification
+	 * version as 2.1. So let's also read the TX_HSGEAR_CAPABILITY from
+	 * device to know if device support HS-G4 or not.
+	 */
+	if ((card.wspecversion >= 0x300 || ufshcd_is_g4_supported(hba)) &&
+	    !hba->reinit_g4_rate_A) {
+		unsigned long flags;
+		int err;
+
+		hba->reinit_g4_rate_A = true;
+
+		err = ufshcd_vops_full_reset(hba);
+		if (err)
+			dev_warn(hba->dev, "%s: full reset returned %d\n",
+				 __func__, err);
+
+		err = ufshcd_reset_device(hba);
+		if (err)
+			dev_warn(hba->dev, "%s: device reset failed. err %d\n",
+				 __func__, err);
+
+		/* Reset the host controller */
+		spin_lock_irqsave(hba->host->host_lock, flags);
+		ufshcd_hba_stop(hba, false);
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+
+		err = ufshcd_hba_enable(hba);
+		if (err)
+			goto out;
+
+		goto reinit;
 	}
 
 	ufs_fixup_device_setup(hba, &card);
@@ -10869,6 +10942,9 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	if (err)
 		dev_warn(hba->dev, "%s: device reset failed. err %d\n",
 			 __func__, err);
+
+	if (hba->force_g4)
+		hba->reinit_g4_rate_A = true;
 
 	/* Host controller enable */
 	err = ufshcd_hba_enable(hba);

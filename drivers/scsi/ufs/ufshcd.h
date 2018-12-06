@@ -1039,6 +1039,9 @@ struct ufs_hba {
 
 	int latency_hist_enabled;
 	struct io_latency_state io_lat_s;
+
+	bool reinit_g4_rate_A;
+	bool force_g4;
 };
 
 static inline void ufshcd_mark_shutdown_ongoing(struct ufs_hba *hba)
