@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -44,7 +44,13 @@
 #define LLCC_TRP_ATTR0_CFGn(n)        (0x21000 + SZ_8 * n)
 #define LLCC_TRP_ATTR1_CFGn(n)        (0x21004 + SZ_8 * n)
 
-#define BANK_OFFSET_STRIDE	      0x80000
+#define LLCC_TRP_WRSC_EN              0x21F20
+#define LLCC_WRSC_SCID_EN(n)          BIT(n)
+
+#define LLCC_TRP_PCB_ACT	      0x21F04
+#define LLCC_TRP_SCID_DIS_CAP_ALLOC   0x21F00
+
+#define BANK_OFFSET_STRIDE            0x80000
 
 static struct llcc_drv_data *drv_data = (void *) -EPROBE_DEFER;
 
@@ -251,9 +257,13 @@ static int qcom_llcc_cfg_program(struct platform_device *pdev)
 	u32 attr0_val;
 	u32 max_cap_cacheline;
 	u32 sz;
+	u32 pcb = 0;
+	u32 cad = 0;
 	int ret = 0;
 	const struct llcc_slice_config *llcc_table;
 	struct llcc_slice_desc desc;
+	bool cap_based_alloc_and_pwr_collapse =
+		drv_data->cap_based_alloc_and_pwr_collapse;
 
 	sz = drv_data->cfg_size;
 	llcc_table = drv_data->cfg;
@@ -293,6 +303,23 @@ static int qcom_llcc_cfg_program(struct platform_device *pdev)
 					attr0_val);
 		if (ret)
 			return ret;
+
+		if (cap_based_alloc_and_pwr_collapse) {
+			cad |= llcc_table[i].dis_cap_alloc <<
+				llcc_table[i].slice_id;
+			ret = regmap_write(drv_data->bcast_regmap,
+					LLCC_TRP_SCID_DIS_CAP_ALLOC, cad);
+			if (ret)
+				return ret;
+
+			pcb |= llcc_table[i].retain_on_pc <<
+					llcc_table[i].slice_id;
+			ret = regmap_write(drv_data->bcast_regmap,
+						LLCC_TRP_PCB_ACT, pcb);
+			if (ret)
+				return ret;
+		}
+
 		if (llcc_table[i].activate_on_init) {
 			desc.slice_id = llcc_table[i].slice_id;
 			ret = llcc_slice_activate(&desc);
@@ -373,6 +400,10 @@ int qcom_llcc_probe(struct platform_device *pdev,
 		goto err;
 	}
 
+	drv_data->cap_based_alloc_and_pwr_collapse =
+		of_property_read_bool(pdev->dev.of_node,
+				      "cap-based-alloc-and-pwr-collapse");
+
 	for (i = 0; i < num_banks; i++)
 		drv_data->offsets[i] = i * BANK_OFFSET_STRIDE;
 
@@ -390,8 +421,10 @@ int qcom_llcc_probe(struct platform_device *pdev,
 	platform_set_drvdata(pdev, drv_data);
 
 	ret = qcom_llcc_cfg_program(pdev);
-	if (ret)
+	if (ret) {
+		pr_err("llcc configuration failed!!\n");
 		goto err;
+	}
 
 	drv_data->ecc_irq = platform_get_irq(pdev, 0);
 	if (drv_data->ecc_irq >= 0) {
