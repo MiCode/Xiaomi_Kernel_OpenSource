@@ -31,6 +31,13 @@ Properties:
 		    It's used for llcc cache single and double bit error detection
 		    and reporting.
 
+- cap-based-alloc-and-pwr-collapse:
+	Usage: optional
+	Value Type: Boolean
+	Definition: Property to express that HLOS can enable/disable capacity
+	based allocation and power collapse retention for a client. Include
+	this property to set it. If not set, it will be treated as false.
+
 Example:
 
 	cache-controller@9200000 {
