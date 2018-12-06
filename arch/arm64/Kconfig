@@ -755,7 +755,7 @@ config ARCH_ENABLE_MEMORY_HOTREMOVE
 # selected platforms.
 config ARCH_NR_GPIO
 	int
-	default 1024 if ARCH_QCOM
+	default 1280 if ARCH_QCOM
 	default 256
 	help
 	  Maximum number of GPIOs in the system.
