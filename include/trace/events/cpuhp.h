@@ -6,6 +6,7 @@
 #define _TRACE_CPUHP_H
 
 #include <linux/tracepoint.h>
+#include <linux/sched/clock.h>
 
 TRACE_EVENT(cpuhp_enter,
 
@@ -88,6 +89,34 @@ TRACE_EVENT(cpuhp_exit,
 	TP_printk(" cpu: %04u  state: %3d step: %3d ret: %d",
 		  __entry->cpu, __entry->state, __entry->idx,  __entry->ret)
 );
+
+TRACE_EVENT(cpuhp_latency,
+
+	TP_PROTO(unsigned int cpu, unsigned int state,
+		 u64 start_time,  int ret),
+
+	TP_ARGS(cpu, state, start_time, ret),
+
+	TP_STRUCT__entry(
+		__field(unsigned int,	cpu)
+		__field(unsigned int,	state)
+		__field(u64,		time)
+		__field(int,		ret)
+	),
+
+	TP_fast_assign(
+		__entry->cpu	= cpu;
+		__entry->state	= state;
+		__entry->time	= div64_u64(sched_clock() - start_time, 1000);
+		__entry->ret	= ret;
+	),
+
+	TP_printk(" cpu:%d state:%s latency:%llu USEC ret: %d",
+		__entry->cpu, __entry->state ? "online" : "offline",
+		__entry->time, __entry->ret)
+);
+
+
 
 #endif
 
