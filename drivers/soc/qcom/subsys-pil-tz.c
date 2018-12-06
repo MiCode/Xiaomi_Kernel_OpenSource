@@ -89,6 +89,7 @@ struct pil_tz_data {
 	int proxy_clk_count;
 	int smem_id;
 	void *ramdump_dev;
+	void *minidump_dev;
 	u32 pas_id;
 	u32 bus_client;
 	bool enable_bus_scaling;
@@ -862,7 +863,7 @@ static int subsys_ramdump(int enable, const struct subsys_desc *subsys)
 	if (!enable)
 		return 0;
 
-	return pil_do_ramdump(&d->desc, d->ramdump_dev, NULL);
+	return pil_do_ramdump(&d->desc, d->ramdump_dev, d->minidump_dev);
 }
 
 static void subsys_free_memory(const struct subsys_desc *subsys)
@@ -1065,6 +1066,7 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 	struct resource *res;
 	u32 proxy_timeout;
 	int len, rc;
+	char md_node[20];
 
 	d = devm_kzalloc(&pdev->dev, sizeof(*d), GFP_KERNEL);
 	if (!d)
@@ -1228,6 +1230,16 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 		goto err_ramdump;
 	}
 
+	scnprintf(md_node, sizeof(md_node), "md_%s", d->subsys_desc.name);
+
+	d->minidump_dev = create_ramdump_device(md_node, &pdev->dev);
+	if (!d->minidump_dev) {
+		pr_err("%s: Unable to create a %s minidump device.\n",
+				__func__, d->subsys_desc.name);
+		rc = -ENOMEM;
+		goto err_minidump;
+	}
+
 	d->subsys = subsys_register(&d->subsys_desc);
 	if (IS_ERR(d->subsys)) {
 		rc = PTR_ERR(d->subsys);
@@ -1236,6 +1248,8 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 
 	return 0;
 err_subsys:
+	destroy_ramdump_device(d->minidump_dev);
+err_minidump:
 	destroy_ramdump_device(d->ramdump_dev);
 err_ramdump:
 	pil_desc_release(&d->desc);
@@ -1253,6 +1267,7 @@ static int pil_tz_driver_exit(struct platform_device *pdev)
 
 	subsys_unregister(d->subsys);
 	destroy_ramdump_device(d->ramdump_dev);
+	destroy_ramdump_device(d->minidump_dev);
 	pil_desc_release(&d->desc);
 
 	return 0;
