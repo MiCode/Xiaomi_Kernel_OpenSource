@@ -153,6 +153,16 @@ and name of firmware image.
   Value type: <u32>
   Definition: UBWC configuration.
 
+- qcom,cam-cx-ipeak:
+  Usage: optional
+  Value type: <phandle bit>
+	phandle - phandle of CX Ipeak device node
+	bit     - Every bit corresponds to a client of CX Ipeak
+  Definition: CX Ipeak is a mitigation scheme which throttles camera frequency
+	if all the clients are running at their respective threshold
+	frequencies to limit CX peak current.
+	driver in the relevant register.
+
 Examples:
 a5: qcom,a5@ac00000 {
 	cell-index = <0>;
@@ -244,6 +254,7 @@ qcom,ipe1 {
 		<0 0 0 0 600000000>;
 	clock-cntl-level = "lowsvs", "svs",
 		"svs_l1", "nominal", "turbo";
+	qcom,cam-cx-ipeak = <&cx_ipeak_lm 2>;
 };
 
 bps: qcom,bps {
