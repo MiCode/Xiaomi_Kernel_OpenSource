@@ -152,6 +152,9 @@
 		/* offsets are based off dspp 0 and dspp 1 */
 		qcom,sde-dspp-ltm-off = <0x2a000 0x28100>;
 
+		qcom,sde-uidle-off = <0x80000>;
+		qcom,sde-uidle-size = <0x70>;
+
 		qcom,sde-vbif-off = <0>;
 		qcom,sde-vbif-size = <0x1040>;
 		qcom,sde-vbif-id = <0>;

@@ -260,6 +260,22 @@ struct sde_hw_pipe_sc_cfg {
 };
 
 /**
+ * struct sde_hw_pipe_uidle_cfg - uidle configuration
+ * @enable: disables uidle
+ * @fal_allowed_threshold: minimum fl to allow uidle
+ * @fal10_exit_threshold: number of lines to indicate fal_10_exit is okay
+ * @fal10_threshold: number of lines where fal_10_is okay
+ * @fal1_threshold: number of lines where fal_1 is okay
+ */
+struct sde_hw_pipe_uidle_cfg {
+	u32 enable;
+	u32 fal_allowed_threshold;
+	u32 fal10_exit_threshold;
+	u32 fal10_threshold;
+	u32 fal1_threshold;
+};
+
+/**
  * struct sde_hw_pipe_ts_cfg - traffic shaper configuration
  * @size: size to prefill in bytes, or zero to disable
  * @time: time to prefill in usec, or zero to disable
@@ -513,6 +529,16 @@ struct sde_hw_sspp_ops {
 	 */
 	void (*setup_sys_cache)(struct sde_hw_pipe *ctx,
 			struct sde_hw_pipe_sc_cfg *cfg);
+
+	 /**
+	  * setup_uidle - set uidle configuration
+	  * @ctx: Pointer to pipe context
+	  * @cfg: Pointer to uidle configuration
+	  * @index: rectangle index in multirect
+	  */
+	 void (*setup_uidle)(struct sde_hw_pipe *ctx,
+			 struct sde_hw_pipe_uidle_cfg *cfg,
+			 enum sde_sspp_multirect_index index);
 
 	/**
 	 * setup_ts_prefill - setup prefill traffic shaper

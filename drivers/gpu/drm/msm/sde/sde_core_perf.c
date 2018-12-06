@@ -20,6 +20,7 @@
 #include "sde_kms.h"
 #include "sde_trace.h"
 #include "sde_crtc.h"
+#include "sde_encoder.h"
 #include "sde_core_perf.h"
 
 #define SDE_PERF_MODE_STRING_SIZE	128
@@ -398,6 +399,173 @@ static void _sde_core_perf_crtc_update_llcc(struct sde_kms *kms,
 
 	_sde_core_perf_activate_llcc(kms, LLCC_ROTATOR,
 			total_llcc_active ? true : false);
+}
+
+static void _sde_core_uidle_setup_wd(struct sde_kms *kms,
+	bool enable)
+{
+	struct sde_uidle_wd_cfg wd;
+	struct sde_hw_uidle *uidle;
+
+	uidle = kms->hw_uidle;
+	wd.enable = enable;
+	wd.clear = false;
+	wd.granularity = SDE_UIDLE_WD_GRANULARITY;
+	wd.heart_beat = SDE_UIDLE_WD_HEART_BEAT;
+	wd.load_value = SDE_UIDLE_WD_LOAD_VAL;
+
+	if (uidle->ops.setup_wd_timer)
+		uidle->ops.setup_wd_timer(uidle, &wd);
+}
+
+static void _sde_core_uidle_setup_cfg(struct sde_kms *kms,
+	bool enable)
+{
+	struct sde_uidle_ctl_cfg cfg;
+	struct sde_hw_uidle *uidle;
+
+	uidle = kms->hw_uidle;
+	cfg.uidle_enable = enable;
+	cfg.fal10_danger =
+		kms->catalog->uidle_cfg.fal10_danger;
+	cfg.fal10_exit_cnt =
+		kms->catalog->uidle_cfg.fal10_exit_cnt;
+	cfg.fal10_exit_danger =
+		kms->catalog->uidle_cfg.fal10_exit_danger;
+
+	SDE_DEBUG("fal10_danger:%d fal10_exit_cnt:%d fal10_exit_danger:%d\n",
+		cfg.fal10_danger, cfg.fal10_exit_cnt, cfg.fal10_exit_danger);
+	SDE_EVT32(enable, cfg.fal10_danger, cfg.fal10_exit_cnt,
+		cfg.fal10_exit_danger);
+
+	if (uidle->ops.set_uidle_ctl)
+		uidle->ops.set_uidle_ctl(uidle, &cfg);
+}
+
+static void _sde_core_uidle_setup_ctl(struct drm_crtc *crtc,
+	bool enable)
+{
+	struct drm_encoder *drm_enc;
+
+	/* Disable uidle in the CTL */
+	drm_for_each_encoder(drm_enc, crtc->dev) {
+		if (drm_enc->crtc != crtc)
+			continue;
+
+		sde_encoder_uidle_enable(drm_enc, enable);
+	}
+}
+
+static int _sde_core_perf_enable_uidle(struct sde_kms *kms,
+	struct drm_crtc *crtc, bool enable)
+{
+	int rc = 0;
+
+	if (!kms->dev || !kms->dev->dev || !kms->hw_uidle) {
+		SDE_ERROR("wrong params won't enable uidlen");
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	/* if no status change, just return */
+	if ((enable && kms->perf.uidle_enabled) ||
+		(!enable && !kms->perf.uidle_enabled)) {
+		SDE_DEBUG("no status change enable:%d uidle:%d\n",
+			enable, kms->perf.uidle_enabled);
+		goto exit;
+	}
+
+	SDE_EVT32(enable);
+	_sde_core_uidle_setup_wd(kms, enable);
+	_sde_core_uidle_setup_cfg(kms, enable);
+	_sde_core_uidle_setup_ctl(crtc, enable);
+
+	kms->perf.uidle_enabled = enable;
+
+exit:
+	return rc;
+}
+
+static inline bool _sde_core_perf_is_wb(struct drm_crtc *crtc)
+{
+	enum sde_intf_mode if_mode = INTF_MODE_NONE;
+
+	if_mode = sde_crtc_get_intf_mode(crtc);
+	if (if_mode == INTF_MODE_WB_BLOCK ||
+		if_mode == INTF_MODE_WB_LINE)
+		return true;
+
+	return false;
+}
+
+static bool _sde_core_perf_is_cwb(struct drm_crtc *crtc)
+{
+	struct drm_encoder *encoder;
+
+	/* if any other encoder is connected to same crtc in clone mode */
+	drm_for_each_encoder(encoder, crtc->dev) {
+		if (encoder->crtc == crtc &&
+				sde_encoder_in_clone_mode(encoder)) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void sde_core_perf_crtc_update_uidle(struct drm_crtc *crtc,
+	bool enable)
+{
+	struct drm_crtc *tmp_crtc;
+	struct sde_kms *kms;
+	bool disable_uidle = false;
+	u32 fps;
+
+	if (!crtc) {
+		SDE_ERROR("invalid crtc\n");
+		return;
+	}
+
+	kms = _sde_crtc_get_kms(crtc);
+	if (!kms || !kms->catalog) {
+		SDE_ERROR("invalid kms\n");
+		return;
+	}
+
+	mutex_lock(&sde_core_perf_lock);
+
+	if (!kms->perf.catalog->uidle_cfg.uidle_rev ||
+		!kms->perf.catalog->uidle_cfg.debugfs_ctrl) {
+		SDE_DEBUG("uidle is not enabled %d %d\n",
+			kms->perf.catalog->uidle_cfg.uidle_rev,
+			kms->perf.catalog->uidle_cfg.debugfs_ctrl);
+		goto exit;
+	}
+
+	drm_for_each_crtc(tmp_crtc, crtc->dev) {
+		if (_sde_core_perf_crtc_is_power_on(tmp_crtc)) {
+
+			fps = sde_crtc_get_fps_mode(tmp_crtc);
+
+			SDE_DEBUG("crtc=%d fps:%d wb:%d cwb:%d dis:%d en:%d\n",
+				tmp_crtc->base.id, fps,
+				_sde_core_perf_is_wb(tmp_crtc),
+				_sde_core_perf_is_cwb(tmp_crtc),
+				disable_uidle, enable);
+
+			if (_sde_core_perf_is_wb(tmp_crtc) ||
+				_sde_core_perf_is_cwb(tmp_crtc) || (!fps ||
+				 fps > kms->perf.catalog->uidle_cfg.max_fps)) {
+				disable_uidle = true;
+				break;
+			}
+		}
+	}
+
+	_sde_core_perf_enable_uidle(kms, crtc,
+		(enable && !disable_uidle) ? true : false);
+exit:
+	mutex_unlock(&sde_core_perf_lock);
 }
 
 static void _sde_core_perf_crtc_update_bus(struct sde_kms *kms,

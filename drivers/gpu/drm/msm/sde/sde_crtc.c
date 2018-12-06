@@ -2056,6 +2056,22 @@ enum sde_intf_mode sde_crtc_get_intf_mode(struct drm_crtc *crtc)
 	return INTF_MODE_NONE;
 }
 
+u32 sde_crtc_get_fps_mode(struct drm_crtc *crtc)
+{
+	struct drm_encoder *encoder;
+
+	if (!crtc || !crtc->dev) {
+		SDE_ERROR("invalid crtc\n");
+		return INTF_MODE_NONE;
+	}
+
+	drm_for_each_encoder(encoder, crtc->dev)
+		if (encoder->crtc == crtc)
+			return sde_encoder_get_fps(encoder);
+
+	return 0;
+}
+
 static void sde_crtc_vblank_cb(void *data)
 {
 	struct drm_crtc *crtc = (struct drm_crtc *)data;
@@ -3751,6 +3767,9 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	}
 	sde_crtc->enabled = false;
 
+	/* Try to disable uidle */
+	sde_core_perf_crtc_update_uidle(crtc, false);
+
 	if (atomic_read(&sde_crtc->frame_pending)) {
 		SDE_ERROR("crtc%d frame_pending%d\n", crtc->base.id,
 				atomic_read(&sde_crtc->frame_pending));
@@ -3861,7 +3880,14 @@ static void sde_crtc_enable(struct drm_crtc *crtc,
 	SDE_EVT32(DRMID(crtc), sde_crtc->enabled, sde_crtc->suspend,
 			sde_crtc->vblank_requested);
 
-	/* return early if crtc is already enabled */
+	/*
+	 * Try to enable uidle (if possible), we do this before the call
+	 * to return early during seamless dms mode, so any fps
+	 * change is also consider to enable/disable UIDLE
+	 */
+	sde_core_perf_crtc_update_uidle(crtc, true);
+
+	/* return early if crtc is already enabled, do this after UIDLE check */
 	if (sde_crtc->enabled) {
 		if (msm_is_mode_seamless_dms(&crtc->state->adjusted_mode))
 			SDE_DEBUG("%s extra crtc enable expected during DMS\n",

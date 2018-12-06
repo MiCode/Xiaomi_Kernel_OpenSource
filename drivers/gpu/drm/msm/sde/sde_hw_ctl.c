@@ -45,6 +45,7 @@
 #define   CTL_PERIPH_FLUSH             0x128
 
 #define  CTL_INTF_MASTER               0x134
+#define  CTL_UIDLE_ACTIVE              0x138
 
 #define CTL_MIXER_BORDER_OUT            BIT(24)
 #define CTL_FLUSH_MASK_ROT              BIT(27)
@@ -301,6 +302,19 @@ static inline u32 sde_hw_ctl_get_flush_register(struct sde_hw_ctl *ctx)
 		return SDE_REG_READ(c, CTL_FLUSH) & ~CTL_FLUSH_MASK_ROT;
 
 	return SDE_REG_READ(c, CTL_FLUSH);
+}
+
+static inline void sde_hw_ctl_uidle_enable(struct sde_hw_ctl *ctx, bool enable)
+{
+	u32 val;
+
+	if (!ctx)
+		return;
+
+	val = SDE_REG_READ(&ctx->hw, CTL_UIDLE_ACTIVE);
+	val = (val & ~BIT(0)) | (enable ? BIT(0) : 0);
+
+	SDE_REG_WRITE(&ctx->hw, CTL_UIDLE_ACTIVE, val);
 }
 
 static inline int sde_hw_ctl_update_bitmask_sspp(struct sde_hw_ctl *ctx,
@@ -1242,6 +1256,9 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 	ops->update_bitmask_dspp_pavlut = sde_hw_ctl_update_bitmask_dspp_pavlut;
 	ops->reg_dma_flush = sde_hw_reg_dma_flush;
 	ops->get_start_state = sde_hw_ctl_get_start_state;
+
+	if (cap & BIT(SDE_CTL_UIDLE))
+		ops->uidle_enable = sde_hw_ctl_uidle_enable;
 };
 
 static struct sde_hw_blk_ops sde_hw_ops = {

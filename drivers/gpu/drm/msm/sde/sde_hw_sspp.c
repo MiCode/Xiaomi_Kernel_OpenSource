@@ -42,6 +42,9 @@
 #define SSPP_EXCL_REC_SIZE_REC1            0x184
 #define SSPP_EXCL_REC_XY_REC1              0x188
 
+#define SSPP_UIDLE_CTRL_VALUE              0x1f0
+#define SSPP_UIDLE_CTRL_VALUE_REC1         0x1f4
+
 /* SSPP_DGM */
 #define SSPP_DGM_OP_MODE                   0x804
 #define SSPP_DGM_OP_MODE_REC1              0x1804
@@ -953,6 +956,31 @@ static void sde_hw_sspp_setup_sys_cache(struct sde_hw_pipe *ctx,
 	SDE_REG_WRITE(&ctx->hw, SSPP_SYS_CACHE_MODE + idx, val);
 }
 
+static void sde_hw_sspp_setup_uidle(struct sde_hw_pipe *ctx,
+		struct sde_hw_pipe_uidle_cfg *cfg,
+		enum sde_sspp_multirect_index index)
+{
+	u32 idx, val;
+	u32 offset;
+
+	if (_sspp_subblk_offset(ctx, SDE_SSPP_SRC, &idx))
+		return;
+
+	if (index == SDE_SSPP_RECT_1)
+		offset = SSPP_UIDLE_CTRL_VALUE_REC1;
+	else
+		offset = SSPP_UIDLE_CTRL_VALUE;
+
+	val = SDE_REG_READ(&ctx->hw, offset + idx);
+	val = (val & ~BIT(31)) | (cfg->enable ? BIT(31) : 0x0);
+	val = (val & ~0xFF00000) | (cfg->fal_allowed_threshold << 20);
+	val = (val & ~0xF0000) | (cfg->fal10_exit_threshold << 16);
+	val = (val & ~0xF00) | (cfg->fal10_threshold << 8);
+	val = (val & ~0xF) | (cfg->fal1_threshold << 0);
+
+	SDE_REG_WRITE(&ctx->hw, offset + idx, val);
+}
+
 static void _setup_layer_ops_colorproc(struct sde_hw_pipe *c,
 		unsigned long features)
 {
@@ -1151,6 +1179,9 @@ static void _setup_layer_ops(struct sde_hw_pipe *c,
 
 	if (test_bit(SDE_PERF_SSPP_CDP, &perf_features))
 		c->ops.setup_cdp = sde_hw_sspp_setup_cdp;
+
+	if (test_bit(SDE_PERF_SSPP_UIDLE, &perf_features))
+		c->ops.setup_uidle = sde_hw_sspp_setup_uidle;
 
 	_setup_layer_ops_colorproc(c, features);
 

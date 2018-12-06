@@ -2697,6 +2697,65 @@ static void _sde_plane_sspp_setup_sys_cache(struct sde_plane *psde,
 	}
 }
 
+static inline bool _sde_plane_allow_uidle(struct sde_plane *psde,
+	struct sde_rect *src, struct sde_rect *dst)
+{
+	u32 max_downscale = psde->catalog->uidle_cfg.max_dwnscale;
+	u32 downscale = (src->h * 1000)/dst->h;
+
+	return (downscale > max_downscale) ? false : true;
+}
+
+static void _sde_plane_setup_uidle(struct drm_crtc *crtc,
+	struct sde_plane *psde, struct sde_plane_state *pstate,
+	struct sde_rect *src, struct sde_rect *dst)
+{
+	struct sde_hw_pipe_uidle_cfg cfg;
+	u32 line_time = sde_get_linetime(&crtc->mode); /* nS */
+	u32 fal1_target_idle_time_ns =
+		psde->catalog->uidle_cfg.fal1_target_idle_time * 1000; /* nS */
+	u32 fal10_target_idle_time_ns =
+		psde->catalog->uidle_cfg.fal10_target_idle_time * 1000; /* nS */
+	u32 fal10_threshold =
+		psde->catalog->uidle_cfg.fal10_threshold; /* uS */
+
+	if (line_time && fal10_threshold && fal10_target_idle_time_ns &&
+		fal1_target_idle_time_ns) {
+		cfg.enable = _sde_plane_allow_uidle(psde, src, dst);
+		cfg.fal10_threshold = fal10_threshold;
+		cfg.fal10_exit_threshold = fal10_threshold + 2;
+		cfg.fal1_threshold = 1 +
+			(fal1_target_idle_time_ns*1000/line_time*2)/1000;
+		cfg.fal_allowed_threshold = fal10_threshold +
+			(fal10_target_idle_time_ns*1000/line_time*2)/1000;
+	} else {
+		SDE_ERROR("invalid settings, will disable UIDLE %d %d %d %d\n",
+			line_time, fal10_threshold, fal10_target_idle_time_ns,
+			fal1_target_idle_time_ns);
+		cfg.enable = false;
+		cfg.fal10_threshold = 0;
+		cfg.fal1_threshold = 0;
+		cfg.fal_allowed_threshold = 0;
+	}
+
+	SDE_DEBUG_PLANE(psde,
+		"tholds: fal10=%d fal10_exit=%d fal1=%d fal_allowed=%d\n",
+			cfg.fal10_threshold, cfg.fal10_exit_threshold,
+			cfg.fal1_threshold, cfg.fal_allowed_threshold);
+	SDE_DEBUG_PLANE(psde,
+		"times: line:%d fal1_idle:%d fal10_idle:%d dwnscale:%d\n",
+			line_time, fal1_target_idle_time_ns,
+			fal10_target_idle_time_ns,
+			psde->catalog->uidle_cfg.max_dwnscale);
+	SDE_EVT32(cfg.enable, cfg.fal10_threshold, cfg.fal10_exit_threshold,
+		cfg.fal1_threshold, cfg.fal_allowed_threshold,
+		psde->catalog->uidle_cfg.max_dwnscale);
+
+	psde->pipe_hw->ops.setup_uidle(
+		psde->pipe_hw, &cfg,
+		pstate->multirect_index);
+}
+
 static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 				struct drm_plane_state *old_state)
 {
@@ -2895,6 +2954,10 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 		sde_crtc_get_crtc_roi(crtc->state, &crtc_roi);
 		dst.x -= crtc_roi->x;
 		dst.y -= crtc_roi->y;
+
+		/* check for UIDLE */
+		if (psde->pipe_hw->ops.setup_uidle)
+			_sde_plane_setup_uidle(crtc, psde, pstate, &src, &dst);
 
 		psde->pipe_cfg.src_rect = src;
 		psde->pipe_cfg.dst_rect = dst;

@@ -166,6 +166,12 @@ int sde_encoder_wait_for_event(struct drm_encoder *drm_encoder,
 int sde_encoder_idle_request(struct drm_encoder *drm_enc);
 
 /*
+ * sde_encoder_get_fps - get interface frame rate of the given encoder
+ * @encoder: Pointer to drm encoder object
+ */
+u32 sde_encoder_get_fps(struct drm_encoder *encoder);
+
+/*
  * sde_encoder_get_intf_mode - get interface mode of the given encoder
  * @encoder: Pointer to drm encoder object
  */
@@ -292,5 +298,12 @@ void sde_encoder_control_idle_pc(struct drm_encoder *enc, bool enable);
  * @Return:     true if display in continuous splash
  */
 int sde_encoder_in_cont_splash(struct drm_encoder *enc);
+
+/**
+ * sde_encoder_uidle_enable - control enable/disable of uidle
+ * @drm_enc:    Pointer to drm encoder structure
+ * @enable:	enable/disable flag
+ */
+void sde_encoder_uidle_enable(struct drm_encoder *drm_enc, bool enable);
 
 #endif /* __SDE_ENCODER_H__ */

@@ -536,3 +536,42 @@ uint32_t sde_copy_formats(
 
 	return i;
 }
+
+/**
+ * sde_get_linetime   - returns the line time for a given mode
+ * @mode:          pointer to drm mode to calculate the line time
+ * Return:         line time of display mode in nS
+ */
+uint32_t sde_get_linetime(struct drm_display_mode *mode)
+{
+	u64 pclk_rate;
+	u32 pclk_period;
+	u32 line_time;
+
+	pclk_rate = mode->clock; /* pixel clock in kHz */
+	if (pclk_rate == 0) {
+		SDE_ERROR("pclk is 0, cannot calculate line time\n");
+		return 0;
+	}
+
+	pclk_period = DIV_ROUND_UP_ULL(1000000000ull, pclk_rate);
+	if (pclk_period == 0) {
+		SDE_ERROR("pclk period is 0\n");
+		return 0;
+	}
+
+	/*
+	 * Line time calculation based on Pixel clock and HTOTAL.
+	 * Final unit is in ns.
+	 */
+	line_time = (pclk_period * mode->htotal) / 1000;
+	if (line_time == 0) {
+		SDE_ERROR("line time calculation is 0\n");
+		return 0;
+	}
+
+	pr_debug("clk_rate=%lldkHz, clk_period=%d, linetime=%dns, htotal=%d\n",
+			pclk_rate, pclk_period, line_time, mode->htotal);
+
+	return line_time;
+}

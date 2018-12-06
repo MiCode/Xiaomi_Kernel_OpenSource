@@ -62,6 +62,7 @@ struct sde_core_perf_tune {
  * @sde_rsc_available: is display rsc available
  * @bw_vote_mode_updated: bandwidth vote mode update
  * @llcc_active: status of the llcc, true if active.
+ * @uidle_enabled: indicates if uidle is already enabled
  */
 struct sde_core_perf {
 	struct drm_device *dev;
@@ -82,6 +83,7 @@ struct sde_core_perf {
 	bool sde_rsc_available;
 	bool bw_vote_mode_updated;
 	bool llcc_active;
+	bool uidle_enabled;
 };
 
 /**
@@ -107,6 +109,13 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
  * @crtc: Pointer to crtc
  */
 void sde_core_perf_crtc_release_bw(struct drm_crtc *crtc);
+
+/**
+ * sde_core_perf_crtc_update_uidle - attempts to enable uidle of the given crtc
+ * @crtc: Pointer to crtc
+ * @enable: enable/disable uidle
+ */
+void sde_core_perf_crtc_update_uidle(struct drm_crtc *crtc, bool enable);
 
 /**
  * sde_core_perf_destroy - destroy the given core performance context
