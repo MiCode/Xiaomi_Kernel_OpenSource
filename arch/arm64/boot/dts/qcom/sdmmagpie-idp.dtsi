@@ -221,6 +221,10 @@
 	qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
 };
 
+&sde_dp {
+	qcom,dp-aux-switch = <&fsa4480>;
+};
+
 &qupv3_se7_i2c {
 	status = "ok";
 	st_fts@49 {
