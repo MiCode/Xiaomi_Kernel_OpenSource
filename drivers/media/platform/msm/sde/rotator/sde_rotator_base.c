@@ -820,6 +820,13 @@ int sde_rotator_base_init(struct sde_rot_data_type **pmdata,
 	int rc;
 	struct sde_rot_data_type *mdata;
 
+
+	/* if probe deferral happened, return early*/
+	if (sde_rot_res) {
+		SDEROT_ERR("Rotator data already initialized, skip init\n");
+		return 0;
+	}
+
 	mdata = devm_kzalloc(&pdev->dev, sizeof(*mdata), GFP_KERNEL);
 	if (mdata == NULL)
 		return -ENOMEM;
