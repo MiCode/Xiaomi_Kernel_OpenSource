@@ -5,6 +5,7 @@
 
 #include <dt-bindings/clock/qcom,audio-ext-clk.h>
 #include <dt-bindings/sound/audio-codec-port-types.h>
+#include "kona-va-bolero.dtsi"
 
 &bolero {
 	qcom,num-macros = <4>;
@@ -127,11 +128,6 @@
 
 	};
 
-	va_macro: va-macro@3370000 {
-		compatible = "qcom,va-macro";
-		reg = <0x3370000 0x0>;
-	};
-
 	wcd938x_codec: wcd938x-codec {
 		compatible = "qcom,wcd938x-codec";
 		qcom,rx_swr_ch_map = <0 HPH_L 0x1 0 HPH_L>,
@@ -251,14 +247,6 @@
 		qcom,codec-ext-clk-src = <AUDIO_LPASS_MCLK_3>;
 		qcom,codec-lpass-ext-clk-freq = <19200000>;
 		qcom,codec-lpass-clk-id = <0x30A>;
-		#clock-cells = <1>;
-	};
-
-	clock_audio_va: va_core_clk  {
-		compatible = "qcom,audio-ref-clk";
-		qcom,codec-ext-clk-src = <AUDIO_LPASS_MCLK>;
-		qcom,codec-lpass-ext-clk-freq = <19200000>;
-		qcom,codec-lpass-clk-id = <0x30B>;
 		#clock-cells = <1>;
 	};
 
