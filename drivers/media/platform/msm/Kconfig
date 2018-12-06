@@ -51,6 +51,21 @@ if MSMB_CAMERA
 source "drivers/media/platform/msm/camera_v2/Kconfig"
 endif # MSMB_CAMERA
 
+menuconfig SPECTRA2_CAMERA
+   bool "Qualcomm Technologies, Inc. Spectra camera and video capture support"
+    depends on SPECTRA_CAMERA
+    ---help---
+      Say Y here to enable selecting the video adapters for
+      QTI msm camera and video capture 2.1, enabling this
+      adds support for the camera driver stack including sensor, isp
+      and postprocessing drivers.
+
+config SPECTRA2_CAMERA_DEBUG
+    bool "QTI MSM camera debugging with printk"
+    depends on SPECTRA2_CAMERA
+    ---help---
+      Enable printk() debug for msm camera 2.1
+
 source "drivers/media/platform/msm/vidc_3x/Kconfig"
 source "drivers/media/platform/msm/vidc/Kconfig"
 source "drivers/media/platform/msm/sde/Kconfig"
