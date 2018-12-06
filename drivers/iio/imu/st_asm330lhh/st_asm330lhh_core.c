@@ -841,6 +841,7 @@ static void st_asm330lhh_enable_acc_gyro(struct st_asm330lhh_hw *hw)
 	struct st_asm330lhh_sensor *sensor;
 	int  acc_gain = ST_ASM330LHH_ACC_FS_2G_GAIN;
 	int  gyro_gain = ST_ASM330LHH_GYRO_FS_125_GAIN;
+	int  delay;
 
 	for (i = 0; i < ST_ASM330LHH_ID_MAX; i++) {
 		if (!hw->iio_devs[i])
@@ -848,16 +849,29 @@ static void st_asm330lhh_enable_acc_gyro(struct st_asm330lhh_hw *hw)
 		sensor = iio_priv(hw->iio_devs[i]);
 		sensor->odr = 104;
 		sensor->watermark = 30;
-		st_asm330lhh_update_fifo(hw->iio_devs[i], false);
+		delay = 1000000 / sensor->odr;
 
-		if (sensor->id == ST_ASM330LHH_ID_ACC)
+		if (sensor->id == ST_ASM330LHH_ID_ACC) {
 			st_asm330lhh_set_full_scale(sensor, acc_gain);
-		else if (sensor->id == ST_ASM330LHH_ID_GYRO)
+			usleep_range(delay, 2 * delay);
+			st_asm330lhh_set_odr(sensor, sensor->odr);
+			usleep_range(delay, 2 * delay);
+			st_asm330lhh_update_watermark(sensor,
+					sensor->watermark);
+			usleep_range(delay, 2 * delay);
+			st_asm330lhh_update_fifo(hw->iio_devs[i], true);
+			usleep_range(delay, 2 * delay);
+		} else if (sensor->id == ST_ASM330LHH_ID_GYRO) {
 			st_asm330lhh_set_full_scale(sensor, gyro_gain);
-
-		st_asm330lhh_update_watermark(sensor, sensor->watermark);
-
-		st_asm330lhh_update_fifo(hw->iio_devs[i], true);
+			usleep_range(delay, 2 * delay);
+			st_asm330lhh_set_odr(sensor, sensor->odr);
+			usleep_range(delay, 2 * delay);
+			st_asm330lhh_update_watermark(sensor,
+					sensor->watermark);
+			usleep_range(delay, 2 * delay);
+			st_asm330lhh_update_fifo(hw->iio_devs[i], true);
+			usleep_range(delay, 2 * delay);
+		}
 	}
 }
 
