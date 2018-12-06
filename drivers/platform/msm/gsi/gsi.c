@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2503,6 +2503,7 @@ int gsi_write_channel_scratch3_reg(unsigned long chan_hdl,
 	mutex_unlock(&ctx->mlock);
 	return GSI_STATUS_SUCCESS;
 }
+EXPORT_SYMBOL(gsi_write_channel_scratch3_reg);
 
 static void __gsi_read_channel_scratch(unsigned long chan_hdl,
 		union __packed gsi_channel_scratch * val)
