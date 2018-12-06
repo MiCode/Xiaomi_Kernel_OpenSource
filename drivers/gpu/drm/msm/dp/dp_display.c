@@ -1266,7 +1266,15 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 
 	dp_display_get_usb_extcon(dp);
 
+	rc = dp->hpd->register_hpd(dp->hpd);
+	if (rc) {
+		pr_err("failed register hpd\n");
+		goto error_hpd_reg;
+	}
+
 	return rc;
+error_hpd_reg:
+	dp_debug_put(dp->debug);
 error_debug:
 	dp_hpd_put(dp->hpd);
 error_hpd:
