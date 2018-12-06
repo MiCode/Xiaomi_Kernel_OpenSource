@@ -106,12 +106,14 @@ int cam_packet_util_get_kmd_buffer(struct cam_packet *packet,
  * @iommu_hdl:          IOMMU handle of the HW Device that received the packet
  * @sec_iommu_hdl:      Secure IOMMU handle of the HW Device that
  *                      received the packet
+ * @pf_dump_flag:       if set, it will dump the info,
+ *                      otherwise will do patching
  *
  * @return:             0: Success
  *                      Negative: Failure
  */
 int cam_packet_util_process_patches(struct cam_packet *packet,
-	int32_t iommu_hdl, int32_t sec_mmu_hdl);
+	int32_t iommu_hdl, int32_t sec_mmu_hdl, int pf_dump_flag);
 
 /**
  * cam_packet_util_process_generic_cmd_buffer()
