@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved. */
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ */
 
 #ifndef _DT_BINDINGS_CLK_QCOM_GPU_CC_KONA_H
 #define _DT_BINDINGS_CLK_QCOM_GPU_CC_KONA_H
@@ -19,6 +21,7 @@
 #define GPU_CC_GX_QDSS_TSCTR_CLK				12
 #define GPU_CC_GX_VSENSE_CLK					13
 #define GPU_CC_PLL1						14
+#define GPU_CC_SLEEP_CLK					15
 
 #define CX_GDSC							0
 #define GX_GDSC							1
@@ -28,7 +31,10 @@
 #define GPUCC_GPU_CC_GFX3D_AON_BCR				2
 #define GPUCC_GPU_CC_GMU_BCR					3
 #define GPUCC_GPU_CC_GX_BCR					4
-#define GPUCC_GPU_CC_SPDM_BCR					5
-#define GPUCC_GPU_CC_XO_BCR					6
+#define GPUCC_GPU_CC_XO_BCR					5
+
+#define MEASURE_ONLY_GPU_CC_CX_GFX3D_CLK			0
+#define MEASURE_ONLY_GPU_CC_CX_GFX3D_SLV_CLK			1
+#define MEASURE_ONLY_GPU_CC_GX_GFX3D_CLK			2
 
 #endif

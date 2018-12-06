@@ -102,19 +102,18 @@
 #define CAM_CC_PLL3_OUT_EVEN					95
 #define CAM_CC_PLL4						96
 #define CAM_CC_PLL4_OUT_EVEN					97
-#define CAM_CC_QDSS_DEBUG_CLK					98
-#define CAM_CC_QDSS_DEBUG_CLK_SRC				99
-#define CAM_CC_QDSS_DEBUG_XO_CLK				100
-#define CAM_CC_SBI_AHB_CLK					101
-#define CAM_CC_SBI_AXI_CLK					102
-#define CAM_CC_SBI_CLK						103
-#define CAM_CC_SBI_CPHY_RX_CLK					104
-#define CAM_CC_SBI_CSID_CLK					105
-#define CAM_CC_SBI_CSID_CLK_SRC					106
-#define CAM_CC_SBI_IFE_0_CLK					107
-#define CAM_CC_SBI_IFE_1_CLK					108
-#define CAM_CC_SLOW_AHB_CLK_SRC					109
-#define CAM_CC_XO_CLK_SRC					110
+#define CAM_CC_SBI_AHB_CLK					98
+#define CAM_CC_SBI_AXI_CLK					99
+#define CAM_CC_SBI_CLK						100
+#define CAM_CC_SBI_CPHY_RX_CLK					101
+#define CAM_CC_SBI_CSID_CLK					102
+#define CAM_CC_SBI_CSID_CLK_SRC					103
+#define CAM_CC_SBI_IFE_0_CLK					104
+#define CAM_CC_SBI_IFE_1_CLK					105
+#define CAM_CC_SLEEP_CLK					106
+#define CAM_CC_SLEEP_CLK_SRC					107
+#define CAM_CC_SLOW_AHB_CLK_SRC					108
+#define CAM_CC_XO_CLK_SRC					109
 
 #define BPS_GDSC						0
 #define IFE_0_GDSC						1
@@ -128,7 +127,6 @@
 #define CAM_CC_IFE_0_BCR					2
 #define CAM_CC_IFE_1_BCR					3
 #define CAM_CC_IPE_0_BCR					4
-#define CAM_CC_QDSS_DEBUG_BCR					5
-#define CAM_CC_SBI_BCR						6
+#define CAM_CC_SBI_BCR						5
 
 #endif
