@@ -17,6 +17,18 @@
 #define	SDE_PERF_DEFAULT_MAX_CORE_CLK_RATE	320000000
 
 /**
+ *  uidle performance counters mode
+ * @SDE_PERF_UIDLE_DISABLE: Disable logging (default)
+ * @SDE_PERF_UIDLE_CNT: Enable logging of uidle performance counters
+ * @SDE_PERF_UIDLE_STATUS: Enable logging of uidle status
+ * @SDE_PERF_UIDLE_MAX: Max available mode
+ */
+#define SDE_PERF_UIDLE_DISABLE 0x0
+#define SDE_PERF_UIDLE_CNT BIT(0)
+#define SDE_PERF_UIDLE_STATUS BIT(1)
+#define SDE_PERF_UIDLE_MAX BIT(2)
+
+/**
  * struct sde_core_perf_params - definition of performance parameters
  * @max_per_pipe_ib: maximum instantaneous bandwidth request
  * @bw_ctl: arbitrated bandwidth request

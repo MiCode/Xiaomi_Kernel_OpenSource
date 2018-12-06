@@ -3260,6 +3260,56 @@ static enum sde_wb sde_encoder_get_wb(struct sde_mdss_cfg *catalog,
 	return WB_MAX;
 }
 
+void sde_encoder_perf_uidle_status(struct sde_kms *sde_kms,
+	struct drm_crtc *crtc)
+{
+	struct sde_hw_uidle *uidle;
+	struct sde_uidle_cntr cntr;
+	struct sde_uidle_status status;
+
+	if (!sde_kms || !crtc || !sde_kms->hw_uidle) {
+		pr_err("invalid params %d %d\n",
+			!sde_kms, !crtc);
+		return;
+	}
+
+	/* check if perf counters are enabled and setup */
+	if (!sde_kms->catalog->uidle_cfg.perf_cntr_en)
+		return;
+
+	uidle = sde_kms->hw_uidle;
+	if ((sde_kms->catalog->uidle_cfg.debugfs_perf & SDE_PERF_UIDLE_STATUS)
+			&& uidle->ops.uidle_get_status) {
+
+		uidle->ops.uidle_get_status(uidle, &status);
+		trace_sde_perf_uidle_status(
+			crtc->base.id,
+			status.uidle_danger_status_0,
+			status.uidle_danger_status_1,
+			status.uidle_safe_status_0,
+			status.uidle_safe_status_1,
+			status.uidle_idle_status_0,
+			status.uidle_idle_status_1,
+			status.uidle_fal_status_0,
+			status.uidle_fal_status_1);
+	}
+
+	if ((sde_kms->catalog->uidle_cfg.debugfs_perf & SDE_PERF_UIDLE_CNT)
+			&& uidle->ops.uidle_get_cntr) {
+
+		uidle->ops.uidle_get_cntr(uidle, &cntr);
+		trace_sde_perf_uidle_cntr(
+			crtc->base.id,
+			cntr.fal1_gate_cntr,
+			cntr.fal10_gate_cntr,
+			cntr.fal_wait_gate_cntr,
+			cntr.fal1_num_transitions_cntr,
+			cntr.fal10_num_transitions_cntr,
+			cntr.min_gate_cntr,
+			cntr.max_gate_cntr);
+	}
+}
+
 static void sde_encoder_vblank_callback(struct drm_encoder *drm_enc,
 		struct sde_encoder_phys *phy_enc)
 {
@@ -3276,6 +3326,10 @@ static void sde_encoder_vblank_callback(struct drm_encoder *drm_enc,
 	if (sde_enc->crtc_vblank_cb)
 		sde_enc->crtc_vblank_cb(sde_enc->crtc_vblank_cb_data);
 	spin_unlock_irqrestore(&sde_enc->enc_spinlock, lock_flags);
+
+	if (phy_enc->sde_kms &&
+			phy_enc->sde_kms->catalog->uidle_cfg.debugfs_perf)
+		sde_encoder_perf_uidle_status(phy_enc->sde_kms, sde_enc->crtc);
 
 	atomic_inc(&phy_enc->vsync_cnt);
 	SDE_ATRACE_END("encoder_vblank_callback");

@@ -513,6 +513,21 @@ static bool _sde_core_perf_is_cwb(struct drm_crtc *crtc)
 	return false;
 }
 
+static void _sde_core_perf_uidle_setup_cntr(struct sde_kms *sde_kms,
+	bool enable)
+{
+	struct sde_hw_uidle *uidle;
+
+	uidle = sde_kms->hw_uidle;
+
+	SDE_EVT32(enable);
+	if (uidle->ops.uidle_setup_cntr && (enable !=
+			sde_kms->catalog->uidle_cfg.perf_cntr_en)) {
+		uidle->ops.uidle_setup_cntr(uidle, enable);
+		sde_kms->catalog->uidle_cfg.perf_cntr_en = enable;
+	}
+}
+
 void sde_core_perf_crtc_update_uidle(struct drm_crtc *crtc,
 	bool enable)
 {
@@ -535,7 +550,7 @@ void sde_core_perf_crtc_update_uidle(struct drm_crtc *crtc,
 	mutex_lock(&sde_core_perf_lock);
 
 	if (!kms->perf.catalog->uidle_cfg.uidle_rev ||
-		!kms->perf.catalog->uidle_cfg.debugfs_ctrl) {
+		(enable && !kms->perf.catalog->uidle_cfg.debugfs_ctrl)) {
 		SDE_DEBUG("uidle is not enabled %d %d\n",
 			kms->perf.catalog->uidle_cfg.uidle_rev,
 			kms->perf.catalog->uidle_cfg.debugfs_ctrl);
@@ -564,6 +579,11 @@ void sde_core_perf_crtc_update_uidle(struct drm_crtc *crtc,
 
 	_sde_core_perf_enable_uidle(kms, crtc,
 		(enable && !disable_uidle) ? true : false);
+
+	/* If perf counters enabled, set them up now */
+	if (kms->catalog->uidle_cfg.debugfs_perf)
+		_sde_core_perf_uidle_setup_cntr(kms, enable);
+
 exit:
 	mutex_unlock(&sde_core_perf_lock);
 }
@@ -1083,6 +1103,11 @@ int sde_core_perf_debugfs_init(struct sde_core_perf *perf,
 			&perf->fix_core_ib_vote);
 	debugfs_create_u64("fix_core_ab_vote", 0600, perf->debugfs_root,
 			&perf->fix_core_ab_vote);
+
+	debugfs_create_u32("uidle_perf_cnt", 0600, perf->debugfs_root,
+			&sde_kms->catalog->uidle_cfg.debugfs_perf);
+	debugfs_create_bool("uidle_enable", 0600, perf->debugfs_root,
+			&sde_kms->catalog->uidle_cfg.debugfs_ctrl);
 
 	return 0;
 }
