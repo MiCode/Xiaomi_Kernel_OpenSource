@@ -16,7 +16,7 @@
 #include "qcs405.dtsi"
 #include "qcs405-amic-audio-overlay.dtsi"
 #include "qcs405-geni-ir-overlay.dtsi"
-#include "qcs405-circular-pca9956.dtsi"
+#include "qcs405-linear-pca9956.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS405 EVB1 4K/CSRA8 SPI/LiN";
