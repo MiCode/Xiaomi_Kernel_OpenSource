@@ -14,7 +14,7 @@
 /dts-v1/;
 
 #include "qcs405.dtsi"
-#include "qcs405-amic-audio-overlay.dtsi"
+#include "qcs405-csra8-audio-overlay.dtsi"
 #include "qcs405-geni-ir-overlay.dtsi"
 #include "qcs405-linear-pca9956.dtsi"
 
