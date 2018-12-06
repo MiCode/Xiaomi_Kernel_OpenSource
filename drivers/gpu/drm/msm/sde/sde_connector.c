@@ -1982,6 +1982,9 @@ static int sde_connector_populate_mode_info(struct drm_connector *conn,
 			continue;
 		}
 
+		sde_kms_info_add_keyint(info, "mdp_transfer_time_us",
+			mode_info.mdp_transfer_time_us);
+
 		if (!mode_info.roi_caps.num_roi)
 			continue;
 
