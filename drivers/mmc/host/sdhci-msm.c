@@ -154,10 +154,7 @@
 #define CORE_FLL_CYCLE_CNT	(1 << 18)
 #define CORE_DLL_CLOCK_DISABLE	(1 << 21)
 
-#define DDR_CONFIG_POR_VAL		0x80040853
-#define DDR_CONFIG_PRG_RCLK_DLY_MASK	0x1FF
-#define DDR_CONFIG_PRG_RCLK_DLY		115
-#define DDR_CONFIG_2_POR_VAL		0x80040873
+#define DDR_CONFIG_POR_VAL		0x80040873
 #define DLL_USR_CTL_POR_VAL		0x10800
 #define ENABLE_DLL_LOCK_STATUS		(1 << 26)
 #define FINE_TUNE_MODE_EN		(1 << 27)
@@ -205,7 +202,7 @@ struct sdhci_msm_offset {
 	u32 CORE_DLL_CONFIG_2;
 	u32 CORE_DLL_CONFIG_3;
 	u32 CORE_DDR_CONFIG;
-	u32 CORE_DDR_CONFIG_2;
+	u32 CORE_DDR_CONFIG_OLD; /* Applcable to sddcc minor ver < 0x49 only */
 	u32 CORE_DLL_USR_CTL; /* Present on SDCC5.1 onwards */
 };
 
@@ -236,7 +233,6 @@ struct sdhci_msm_offset sdhci_msm_offset_mci_removed = {
 	.CORE_DLL_CONFIG_2 = 0x254,
 	.CORE_DLL_CONFIG_3 = 0x258,
 	.CORE_DDR_CONFIG = 0x25C,
-	.CORE_DDR_CONFIG_2 = 0x260,
 	.CORE_DLL_USR_CTL = 0x388,
 };
 
@@ -266,8 +262,8 @@ struct sdhci_msm_offset sdhci_msm_offset_mci_present = {
 	.CORE_VENDOR_SPEC3 = 0x1B0,
 	.CORE_DLL_CONFIG_2 = 0x1B4,
 	.CORE_DLL_CONFIG_3 = 0x1B8,
+	.CORE_DDR_CONFIG_OLD = 0x1B8, /* Applicable to sdcc minor ver < 0x49 */
 	.CORE_DDR_CONFIG = 0x1BC,
-	.CORE_DDR_CONFIG_2 = 0x1C,
 };
 
 u8 sdhci_msm_readb_relaxed(struct sdhci_host *host, u32 offset)
@@ -993,7 +989,7 @@ static int sdhci_msm_cm_dll_sdc4_calibration(struct sdhci_host *host)
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	const struct sdhci_msm_offset *msm_host_offset =
 					msm_host->offset;
-	u32 dll_status, ddr_config;
+	u32 dll_status;
 	int ret = 0;
 
 	pr_debug("%s: Enter %s\n", mmc_hostname(host->mmc), __func__);
@@ -1004,16 +1000,13 @@ static int sdhci_msm_cm_dll_sdc4_calibration(struct sdhci_host *host)
 	 */
 	if (msm_host->pdata->rclk_wa) {
 		writel_relaxed(msm_host->pdata->ddr_config, host->ioaddr +
-			msm_host_offset->CORE_DDR_CONFIG_2);
-	} else if (msm_host->rclk_delay_fix) {
-		writel_relaxed(DDR_CONFIG_2_POR_VAL, host->ioaddr +
-			msm_host_offset->CORE_DDR_CONFIG_2);
-	} else {
-		ddr_config = DDR_CONFIG_POR_VAL &
-				~DDR_CONFIG_PRG_RCLK_DLY_MASK;
-		ddr_config |= DDR_CONFIG_PRG_RCLK_DLY;
-		writel_relaxed(ddr_config, host->ioaddr +
 			msm_host_offset->CORE_DDR_CONFIG);
+	} else if (msm_host->rclk_delay_fix) {
+		writel_relaxed(DDR_CONFIG_POR_VAL, host->ioaddr +
+			msm_host_offset->CORE_DDR_CONFIG);
+	} else {
+		writel_relaxed(DDR_CONFIG_POR_VAL, host->ioaddr +
+			msm_host_offset->CORE_DDR_CONFIG_OLD);
 	}
 
 	if (msm_host->enhanced_strobe && mmc_card_strobe(msm_host->mmc->card))
