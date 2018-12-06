@@ -5500,7 +5500,8 @@ static int msm_vidc_load_supported(struct msm_vidc_inst *inst)
 		LOAD_CALC_IGNORE_THUMBNAIL_LOAD |
 		LOAD_CALC_IGNORE_NON_REALTIME_LOAD;
 
-	if (inst->state == MSM_VIDC_OPEN_DONE) {
+	if (inst->state >= MSM_VIDC_OPEN_DONE &&
+		inst->state <= MSM_VIDC_STOP_DONE) {
 		max_load_adj = inst->core->resources.max_load;
 		num_mbs_per_sec = msm_comm_get_load(inst->core,
 					MSM_VIDC_DECODER, quirks);
