@@ -1796,7 +1796,8 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 		return -ENOTTY;
 	}
-	kfree(param);
+	if (!IS_ERR(param))
+		kfree(param);
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return retval;
@@ -4908,7 +4909,8 @@ static void ipa3_load_ipa_fw(struct work_struct *work)
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_EMULATION &&
-	    (ipa3_is_msm_device() || (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5)))
+	    ((ipa3_ctx->platform_type != IPA_PLAT_TYPE_MDM) ||
+	    (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5)))
 		result = ipa3_pil_load_ipa_fws();
 	else
 		result = ipa3_manual_load_ipa_fws();
@@ -4953,7 +4955,7 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 		return count;
 
 	/* Check MHI configuration on MDM devices */
-	if (!ipa3_is_msm_device()) {
+	if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_MDM) {
 
 		if (strnstr(dbg_buff, "vlan", strlen(dbg_buff))) {
 			if (strnstr(dbg_buff, "eth", strlen(dbg_buff)))
@@ -5167,6 +5169,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->ipa_wrapper_size = resource_p->ipa_mem_size;
 	ipa3_ctx->ipa_hw_type = resource_p->ipa_hw_type;
 	ipa3_ctx->ipa3_hw_mode = resource_p->ipa3_hw_mode;
+	ipa3_ctx->platform_type = resource_p->platform_type;
 	ipa3_ctx->use_ipa_teth_bridge = resource_p->use_ipa_teth_bridge;
 	ipa3_ctx->modem_cfg_emb_pipe_flt = resource_p->modem_cfg_emb_pipe_flt;
 	ipa3_ctx->ipa_wdi2 = resource_p->ipa_wdi2;
@@ -5753,6 +5756,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->ipa_pipe_mem_size = IPA_PIPE_MEM_SIZE;
 	ipa_drv_res->ipa_hw_type = 0;
 	ipa_drv_res->ipa3_hw_mode = 0;
+	ipa_drv_res->platform_type = 0;
 	ipa_drv_res->modem_cfg_emb_pipe_flt = false;
 	ipa_drv_res->ipa_wdi2 = false;
 	ipa_drv_res->ipa_wdi2_over_gsi = false;
@@ -5796,6 +5800,15 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	else
 		IPADBG(": found ipa_drv_res->ipa3_hw_mode = %d",
 				ipa_drv_res->ipa3_hw_mode);
+
+	/* Get Platform Type */
+	result = of_property_read_u32(pdev->dev.of_node, "qcom,platform-type",
+			&ipa_drv_res->platform_type);
+	if (result)
+		IPADBG("using default (IPA_PLAT_TYPE_MDM) for platform-type\n");
+	else
+		IPADBG(": found ipa_drv_res->platform_type = %d",
+				ipa_drv_res->platform_type);
 
 	/* Get IPA WAN / LAN RX pool size */
 	result = of_property_read_u32(pdev->dev.of_node,

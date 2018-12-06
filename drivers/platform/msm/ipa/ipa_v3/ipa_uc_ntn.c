@@ -413,9 +413,18 @@ int ipa3_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *in,
 	}
 
 	ipa_ep_idx_ul = ipa_get_ep_mapping(in->ul.client);
+	if (ipa_ep_idx_ul == IPA_EP_NOT_ALLOCATED ||
+		ipa_ep_idx_ul >= IPA3_MAX_NUM_PIPES) {
+		IPAERR("fail to alloc UL EP ipa_ep_idx_ul=%d\n",
+			ipa_ep_idx_ul);
+		return -EFAULT;
+	}
+
 	ipa_ep_idx_dl = ipa_get_ep_mapping(in->dl.client);
-	if (ipa_ep_idx_ul == -1 || ipa_ep_idx_dl == -1) {
-		IPAERR("fail to alloc EP.\n");
+	if (ipa_ep_idx_dl == IPA_EP_NOT_ALLOCATED ||
+		ipa_ep_idx_dl >= IPA3_MAX_NUM_PIPES) {
+		IPAERR("fail to alloc DL EP ipa_ep_idx_dl=%d\n",
+			ipa_ep_idx_dl);
 		return -EFAULT;
 	}
 

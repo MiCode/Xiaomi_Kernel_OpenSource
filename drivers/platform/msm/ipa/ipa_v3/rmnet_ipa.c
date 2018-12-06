@@ -87,7 +87,6 @@ enum ipa3_wwan_device_status {
 
 struct ipa3_rmnet_plat_drv_res {
 	bool ipa_rmnet_ssr;
-	bool is_platform_type_msm;
 	bool ipa_advertise_sg_support;
 	bool ipa_napi_enable;
 	u32 wan_rx_desc_size;
@@ -2138,11 +2137,6 @@ static int get_ipa_rmnet_dts_configuration(struct platform_device *pdev,
 			"qcom,rmnet-ipa-ssr");
 	pr_info("IPA SSR support = %s\n",
 		ipa_rmnet_drv_res->ipa_rmnet_ssr ? "True" : "False");
-	ipa_rmnet_drv_res->is_platform_type_msm =
-			of_property_read_bool(pdev->dev.of_node,
-			"qcom,ipa-platform-type-msm");
-	pr_info("IPA is_platform_type_msm = %s\n",
-		ipa_rmnet_drv_res->is_platform_type_msm ? "True" : "False");
 
 	ipa_rmnet_drv_res->ipa_advertise_sg_support =
 		of_property_read_bool(pdev->dev.of_node,
@@ -2323,7 +2317,7 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 {
 	int ret, i;
 	struct net_device *dev;
-	int wan_cons_ep = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
+	int wan_cons_ep;
 
 	pr_info("rmnet_ipa3 started initialization\n");
 
@@ -2342,6 +2336,7 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 		}
 	}
 
+	wan_cons_ep = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
 	ret = get_ipa_rmnet_dts_configuration(pdev, &ipa3_rmnet_res);
 	ipa3_rmnet_ctx.ipa_rmnet_ssr = ipa3_rmnet_res.ipa_rmnet_ssr;
 
@@ -2368,7 +2363,8 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 				sizeof(struct ipa3_rmnet_mux_val));
 
 	/* start A7 QMI service/client */
-	if (ipa3_rmnet_res.is_platform_type_msm)
+	if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_MSM ||
+		ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ)
 		/* Android platform loads uC */
 		ipa3_qmi_service_init(QMI_IPA_PLATFORM_TYPE_MSM_ANDROID_V01);
 	else
