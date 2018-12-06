@@ -103,6 +103,7 @@ struct llcc_drv_data {
 	unsigned long *bitmap;
 	u32 *offsets;
 	int ecc_irq;
+	bool cap_based_alloc_and_pwr_collapse;
 };
 
 /**
