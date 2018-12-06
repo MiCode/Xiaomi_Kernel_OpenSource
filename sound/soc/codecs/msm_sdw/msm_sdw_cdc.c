@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -471,9 +471,9 @@ static int msm_sdw_codec_enable_vi_feedback(struct snd_soc_dapm_widget *w,
 				MSM_SDW_TX10_SPKR_PROT_PATH_CTL, 0x20,
 				0x20);
 			snd_soc_update_bits(codec,
-				MSM_SDW_TX9_SPKR_PROT_PATH_CTL, 0x0F, 0x04);
+				MSM_SDW_TX9_SPKR_PROT_PATH_CTL, 0x0F, 0x00);
 			snd_soc_update_bits(codec,
-				MSM_SDW_TX10_SPKR_PROT_PATH_CTL, 0x0F, 0x04);
+				MSM_SDW_TX10_SPKR_PROT_PATH_CTL, 0x0F, 0x00);
 			snd_soc_update_bits(codec,
 				MSM_SDW_TX9_SPKR_PROT_PATH_CTL, 0x10, 0x10);
 			snd_soc_update_bits(codec,
@@ -496,10 +496,10 @@ static int msm_sdw_codec_enable_vi_feedback(struct snd_soc_dapm_widget *w,
 				0x20);
 			snd_soc_update_bits(codec,
 				MSM_SDW_TX11_SPKR_PROT_PATH_CTL, 0x0F,
-				0x04);
+				0x00);
 			snd_soc_update_bits(codec,
 				MSM_SDW_TX12_SPKR_PROT_PATH_CTL, 0x0F,
-				0x04);
+				0x00);
 			snd_soc_update_bits(codec,
 				MSM_SDW_TX11_SPKR_PROT_PATH_CTL, 0x10,
 				0x10);
