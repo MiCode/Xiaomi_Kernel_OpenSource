@@ -68,6 +68,7 @@ enum print_reason {
 #define FCC_STEPPER_VOTER		"FCC_STEPPER_VOTER"
 #define SW_THERM_REGULATION_VOTER	"SW_THERM_REGULATION_VOTER"
 #define JEITA_ARB_VOTER			"JEITA_ARB_VOTER"
+#define MOISTURE_VOTER			"MOISTURE_VOTER"
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -378,6 +379,7 @@ struct smb_charger {
 	struct work_struct	bms_update_work;
 	struct work_struct	pl_update_work;
 	struct work_struct	jeita_update_work;
+	struct work_struct	moisture_protection_work;
 	struct delayed_work	ps_change_timeout_work;
 	struct delayed_work	clear_hdc_work;
 	struct delayed_work	icl_change_work;
@@ -389,6 +391,7 @@ struct smb_charger {
 	struct delayed_work	thermal_regulation_work;
 
 	struct alarm		lpd_recheck_timer;
+	struct alarm		moisture_protection_alarm;
 
 	/* secondary charger config */
 	bool			sec_pl_present;
@@ -455,6 +458,8 @@ struct smb_charger {
 	u32			jeita_soft_hys_thlds[2];
 	int			jeita_soft_fcc[2];
 	int			jeita_soft_fv[2];
+	bool			moisture_present;
+	bool			uusb_moisture_protection_enabled;
 
 	/* workaround flag */
 	u32			wa_flags;
