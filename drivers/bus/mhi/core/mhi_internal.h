@@ -484,6 +484,13 @@ enum mhi_ch_ee_mask {
 	MHI_CH_EE_EDL = BIT(MHI_EE_EDL),
 };
 
+enum mhi_ch_type {
+	MHI_CH_TYPE_INVALID = 0,
+	MHI_CH_TYPE_OUTBOUND = DMA_TO_DEVICE,
+	MHI_CH_TYPE_INBOUND = DMA_FROM_DEVICE,
+	MHI_CH_TYPE_INBOUND_COALESCED = 3,
+};
+
 struct db_cfg {
 	bool reset_req;
 	bool db_mode;
@@ -577,6 +584,7 @@ struct mhi_chan {
 	struct mhi_ring tre_ring;
 	u32 er_index;
 	u32 intmod;
+	enum mhi_ch_type type;
 	enum dma_data_direction dir;
 	struct db_cfg db_cfg;
 	u32 ee_mask;
