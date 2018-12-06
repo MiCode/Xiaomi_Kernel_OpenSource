@@ -1664,6 +1664,11 @@ struct ipa3_context {
 	bool use_ipa_pm;
 	bool vlan_mode_iface[IPA_VLAN_IF_MAX];
 	bool wdi_over_pcie;
+	u32 entire_ipa_block_size;
+	bool do_register_collection_on_crash;
+	bool do_testbus_collection_on_crash;
+	bool do_non_tn_collection_on_crash;
+	void __iomem *reg_collection_base;
 	struct ipa3_wdi2_ctx wdi2_ctx;
 	struct mbox_client mbox_client;
 	struct mbox_chan *mbox;
@@ -1707,6 +1712,10 @@ struct ipa3_plat_drv_res {
 	bool use_ipa_pm;
 	struct ipa_pm_init_params pm_init;
 	bool wdi_over_pcie;
+	u32 entire_ipa_block_size;
+	bool do_register_collection_on_crash;
+	bool do_testbus_collection_on_crash;
+	bool do_non_tn_collection_on_crash;
 };
 
 /**
@@ -2701,4 +2710,13 @@ int ipa3_get_transport_info(
 	unsigned long *size_ptr);
 irq_handler_t ipa3_get_isr(void);
 void ipa_pc_qmp_enable(void);
+#if defined(CONFIG_IPA3_REGDUMP)
+int ipa_reg_save_init(uint8_t value);
+void ipa_save_registers(void);
+void ipa_save_gsi_ver(void);
+#else
+static inline int ipa_reg_save_init(uint8_t value) { return 0; }
+static inline void ipa_save_registers(void) {};
+static inline void ipa_save_gsi_ver(void) {};
+#endif
 #endif /* _IPA3_I_H_ */

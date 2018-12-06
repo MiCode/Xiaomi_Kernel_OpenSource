@@ -4411,8 +4411,10 @@ static int ipa3_panic_notifier(struct notifier_block *this,
 	if (res)
 		IPAERR("uC panic handler failed %d\n", res);
 
-	if (atomic_read(&ipa3_ctx->ipa3_active_clients.cnt) != 0)
+	if (atomic_read(&ipa3_ctx->ipa3_active_clients.cnt) != 0) {
 		ipahal_print_all_regs(false);
+		ipa_save_registers();
+	}
 
 	return NOTIFY_DONE;
 }
@@ -4581,6 +4583,9 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	/* move proxy vote for modem on ipa3_post_init */
 	if (ipa3_ctx->ipa_hw_type != IPA_HW_v4_0)
 		ipa3_proxy_clk_vote();
+
+	/* The following will retrieve and save the gsi fw version */
+	ipa_save_gsi_ver();
 
 	if (ipahal_init(ipa3_ctx->ipa_hw_type, ipa3_ctx->mmio,
 		ipa3_ctx->pdev)) {
@@ -5248,6 +5253,13 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->ipa_config_is_mhi = resource_p->ipa_mhi_dynamic_config;
 	ipa3_ctx->mhi_evid_limits[0] = resource_p->mhi_evid_limits[0];
 	ipa3_ctx->mhi_evid_limits[1] = resource_p->mhi_evid_limits[1];
+	ipa3_ctx->entire_ipa_block_size = resource_p->entire_ipa_block_size;
+	ipa3_ctx->do_register_collection_on_crash =
+	    resource_p->do_register_collection_on_crash;
+	ipa3_ctx->do_testbus_collection_on_crash =
+	    resource_p->do_testbus_collection_on_crash;
+	ipa3_ctx->do_non_tn_collection_on_crash =
+	    resource_p->do_non_tn_collection_on_crash;
 
 	WARN(ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_NORMAL,
 		"Non NORMAL IPA HW mode, is this emulation platform ?");
@@ -5364,6 +5376,14 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	    resource_p->ipa_mem_base + ipa3_ctx->ctrl->ipa_reg_base_ofst,
 	    ipa3_ctx->mmio,
 	    resource_p->ipa_mem_size);
+
+	/*
+	 * Setup access for register collection/dump on crash
+	 */
+	if (ipa_reg_save_init(0xFF) != 0) {
+		result = -EFAULT;
+		goto fail_gsi_map;
+	}
 
 	/*
 	 * Since we now know where the transport's registers live,
@@ -5683,6 +5703,8 @@ fail_create_transport_wq:
 fail_init_hw:
 	gsi_unmap_base();
 fail_gsi_map:
+	if (ipa3_ctx->reg_collection_base)
+		iounmap(ipa3_ctx->reg_collection_base);
 	iounmap(ipa3_ctx->mmio);
 fail_remap:
 	ipa3_disable_clks();
@@ -6150,6 +6172,46 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 		       ipa_drv_res->emulator_intcntrlr_mem_base,
 		       ipa_drv_res->emulator_intcntrlr_mem_size);
 	}
+
+	ipa_drv_res->entire_ipa_block_size = 0x100000;
+	result = of_property_read_u32(pdev->dev.of_node,
+				      "qcom,entire-ipa-block-size",
+				      &ipa_drv_res->entire_ipa_block_size);
+	IPADBG(": entire_ipa_block_size = %d\n",
+	       ipa_drv_res->entire_ipa_block_size);
+
+	/*
+	 * We'll read register-collection-on-crash here, but log it
+	 * later below because its value may change based on other
+	 * subsequent dtsi reads......
+	 */
+	ipa_drv_res->do_register_collection_on_crash =
+	    of_property_read_bool(pdev->dev.of_node,
+				  "qcom,register-collection-on-crash");
+	/*
+	 * We'll read testbus-collection-on-crash here...
+	 */
+	ipa_drv_res->do_testbus_collection_on_crash =
+	    of_property_read_bool(pdev->dev.of_node,
+				  "qcom,testbus-collection-on-crash");
+	IPADBG(": doing testbus collection on crash = %u\n",
+	       ipa_drv_res->do_testbus_collection_on_crash);
+
+	/*
+	 * We'll read non-tn-collection-on-crash here...
+	 */
+	ipa_drv_res->do_non_tn_collection_on_crash =
+	    of_property_read_bool(pdev->dev.of_node,
+				  "qcom,non-tn-collection-on-crash");
+	IPADBG(": doing non-tn collection on crash = %u\n",
+	       ipa_drv_res->do_non_tn_collection_on_crash);
+
+	if (ipa_drv_res->do_testbus_collection_on_crash ||
+		ipa_drv_res->do_non_tn_collection_on_crash)
+		ipa_drv_res->do_register_collection_on_crash = true;
+
+	IPADBG(": doing register collection on crash = %u\n",
+	       ipa_drv_res->do_register_collection_on_crash);
 
 	return 0;
 }
