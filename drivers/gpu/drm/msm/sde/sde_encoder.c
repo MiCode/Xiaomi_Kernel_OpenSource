@@ -1159,37 +1159,25 @@ static void _sde_encoder_dsc_pclk_param_calc(struct msm_display_dsc_info *dsc,
 static int _sde_encoder_dsc_initial_line_calc(struct msm_display_dsc_info *dsc,
 		int enc_ip_width)
 {
-	int ssm_delay, total_pixels, soft_slice_per_enc, fifo_size;
-	int first_line_offset, tmp[3];
+	int ssm_delay, total_pixels, soft_slice_per_enc;
 
 	soft_slice_per_enc = enc_ip_width / dsc->slice_width;
 
 	/*
 	 * minimum number of initial line pixels is a sum of:
-	 * 1. sub-stream multiplexer delay (84 groups for 8bpc,
-	 *    92 for 10 bpc) * 3
+	 * 1. sub-stream multiplexer delay (83 groups for 8bpc,
+	 *    91 for 10 bpc) * 3
 	 * 2. for two soft slice cases, add extra sub-stream multiplexer * 3
 	 * 3. the initial xmit delay
 	 * 4. total pipeline delay through the "lock step" of encoder (47)
 	 * 5. 6 additional pixels as the output of the rate buffer is
 	 *    48 bits wide
 	 */
-	ssm_delay = 3 * ((dsc->bpc < 10) ? 84 : 92);
-	total_pixels = (soft_slice_per_enc * ssm_delay)
-				+ dsc->initial_xmit_delay + 47;
-	fifo_size = ((soft_slice_per_enc == 2) ? 5610 : 11610);
-	first_line_offset =
-		(dsc->first_line_bpg_offset * dsc->pic_width) / (3 * 8);
-
+	ssm_delay = ((dsc->bpc < 10) ? 84 : 92);
+	total_pixels = ssm_delay * 3 + dsc->initial_xmit_delay + 47;
+	if (soft_slice_per_enc > 1)
+		total_pixels += (ssm_delay * 3);
 	dsc->initial_lines = DIV_ROUND_UP(total_pixels, dsc->slice_width);
-
-	tmp[0] = dsc->initial_xmit_delay + first_line_offset;
-	tmp[1] = (2 + (0.75 * soft_slice_per_enc)) * dsc->chunk_size;
-	tmp[2] = (total_pixels % dsc->slice_width) * (dsc->bpp / 8);
-
-	if ((tmp[0] + tmp[1] - tmp[2]) < fifo_size)
-		dsc->initial_lines++;
-
 	return 0;
 }
 
