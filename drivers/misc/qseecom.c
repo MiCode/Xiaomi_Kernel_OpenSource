@@ -2179,7 +2179,7 @@ static int __qseecom_reentrancy_process_incomplete_cmd(
 		}
 
 		if (ptr_svc->abort == 1) {
-			pr_debug("Service %d abort %d\n",
+			pr_err("Service %d abort %d\n",
 						lstnr, ptr_svc->abort);
 			rc = -ENODEV;
 			status = QSEOS_RESULT_FAILURE;
