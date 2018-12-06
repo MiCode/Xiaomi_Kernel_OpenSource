@@ -1393,6 +1393,8 @@ static int dma_procs_debug_show(struct seq_file *s, void *unused)
 
 	read_lock(&tasklist_lock);
 	for_each_process(task) {
+		struct files_struct *group_leader_files = NULL;
+
 		tmp = kzalloc(sizeof(*tmp), GFP_ATOMIC);
 		if (!tmp) {
 			ret = -ENOMEM;
@@ -1400,10 +1402,12 @@ static int dma_procs_debug_show(struct seq_file *s, void *unused)
 			goto mem_err;
 		}
 		INIT_LIST_HEAD(&tmp->dma_bufs);
+		group_leader_files = task->group_leader->files;
 		for_each_thread(task, thread) {
 			task_lock(thread);
 			files = thread->files;
-			if (files)
+			if (files && (group_leader_files != files ||
+				      thread == task->group_leader))
 				ret = iterate_fd(files, 0, get_dma_info, tmp);
 			task_unlock(thread);
 		}
