@@ -1625,7 +1625,6 @@ static int dsi_display_is_ulps_req_valid(struct dsi_display *display,
 		bool enable)
 {
 	/* TODO: make checks based on cont. splash */
-	int splash_enabled = false;
 
 	pr_debug("checking ulps req validity\n");
 
@@ -1659,7 +1658,7 @@ static int dsi_display_is_ulps_req_valid(struct dsi_display *display,
 	 * boot animation since it is expected that the clocks would be turned
 	 * right back on.
 	 */
-	if (enable && splash_enabled)
+	if (enable && display->is_cont_splash_enabled)
 		return false;
 
 	return true;
@@ -1694,40 +1693,60 @@ static int dsi_display_set_ulps(struct dsi_display *display, bool enable)
 	}
 
 	m_ctrl = &display->ctrl[display->cmd_master_idx];
-
-	rc = dsi_ctrl_set_ulps(m_ctrl->ctrl, enable);
-	if (rc) {
-		pr_err("Ulps controller state change(%d) failed\n", enable);
-		return rc;
-	}
+	/*
+	 * ULPS entry-exit can be either through the DSI controller or
+	 * the DSI PHY depending on hardware variation. For some chipsets,
+	 * both controller version and phy version ulps entry-exit ops can
+	 * be present. To handle such cases, send ulps request through PHY,
+	 * if ulps request is handled in PHY, then no need to send request
+	 * through controller.
+	 */
 
 	rc = dsi_phy_set_ulps(m_ctrl->phy, &display->config, enable,
-				display->clamp_enabled);
-	if (rc) {
+			display->clamp_enabled);
+
+	if (rc == DSI_PHY_ULPS_ERROR) {
 		pr_err("Ulps PHY state change(%d) failed\n", enable);
-		return rc;
+		return -EINVAL;
 	}
 
-	display_for_each_ctrl(i, display) {
-		ctrl = &display->ctrl[i];
-		if (!ctrl->ctrl || (ctrl == m_ctrl))
-			continue;
+	else if (rc == DSI_PHY_ULPS_HANDLED) {
+		display_for_each_ctrl(i, display) {
+			ctrl = &display->ctrl[i];
+			if (!ctrl->ctrl || (ctrl == m_ctrl))
+				continue;
 
-		rc = dsi_ctrl_set_ulps(ctrl->ctrl, enable);
+			rc = dsi_phy_set_ulps(ctrl->phy, &display->config,
+					enable, display->clamp_enabled);
+			if (rc == DSI_PHY_ULPS_ERROR) {
+				pr_err("Ulps PHY state change(%d) failed\n",
+						enable);
+				return -EINVAL;
+			}
+		}
+	}
+
+	else if (rc == DSI_PHY_ULPS_NOT_HANDLED) {
+		rc = dsi_ctrl_set_ulps(m_ctrl->ctrl, enable);
 		if (rc) {
 			pr_err("Ulps controller state change(%d) failed\n",
-				enable);
+					enable);
 			return rc;
 		}
+		display_for_each_ctrl(i, display) {
+			ctrl = &display->ctrl[i];
+			if (!ctrl->ctrl || (ctrl == m_ctrl))
+				continue;
 
-		rc = dsi_phy_set_ulps(ctrl->phy, &display->config, enable,
-					display->clamp_enabled);
-		if (rc) {
-			pr_err("Ulps PHY state change(%d) failed\n", enable);
-			return rc;
+			rc = dsi_ctrl_set_ulps(ctrl->ctrl, enable);
+			if (rc) {
+				pr_err("Ulps controller state change(%d) failed\n",
+						enable);
+				return rc;
+			}
 		}
-
 	}
+
 	display->ulps_enabled = enable;
 	return 0;
 }
