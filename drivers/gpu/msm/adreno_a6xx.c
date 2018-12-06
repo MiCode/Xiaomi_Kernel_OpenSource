@@ -59,7 +59,7 @@ static const struct adreno_vbif_platform a6xx_vbif_platforms[] = {
 	{ adreno_is_a640, a640_gbif },
 	{ adreno_is_a650, a650_gbif },
 	{ adreno_is_a680, a640_gbif },
-	{ adreno_is_a612, a615_gbif },
+	{ adreno_is_a612, a640_gbif },
 };
 
 struct kgsl_hwcg_reg {
