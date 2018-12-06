@@ -140,12 +140,12 @@
 			<3 LO 0x1 0 LO>, <4 DSD_L 0x1 0 DSD_L>,
 			<4 DSD_R 0x2 0 DSD_R>;
 		qcom,tx_swr_ch_map = <0 ADC1 0x1 0 ADC1>,
-			<0 ADC2 0x1 0 ADC2>, <1 ADC3 0x2 0 ADC3>,
+			<0 ADC2 0x2 0 ADC2>, <1 ADC3 0x1 0 ADC3>,
 			<1 ADC4 0x2 0 ADC4>, <2 DMIC0 0x1 0 DMIC0>,
-			<2 DMIC1 0x2 0 DMIC1>, <2 DMIC3 0x8 0 DMIC3>,
-			<2 MBHC 0x4 0 DMIC2>, <3 DMIC2 0x1 0 DMIC4>,
-			<3 DMIC4 0x1 0 DMIC4>, <3 DMIC5 0x2 0 DMIC5>,
-			<3 DMIC6 0x4 0 DMIC6>, <3 DMIC7 0x8 0 DMIC7>;
+			<2 DMIC1 0x2 0 DMIC1>, <2 MBHC 0x4 0 DMIC2>,
+			<2 DMIC3 0x8 0 DMIC3>, <3 DMIC4 0x1 0 DMIC4>,
+			<3 DMIC5 0x2 0 DMIC5>, <3 DMIC6 0x4 0 DMIC6>,
+			<3 DMIC7 0x8 0 DMIC7>;
 
 		qcom,wcd-rst-gpio-node = <&wcd938x_rst_gpio>;
 		qcom,rx-slave = <&wcd938x_rx_slave>;
