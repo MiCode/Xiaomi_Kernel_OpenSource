@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,5 +43,23 @@
 &soc {
 	ipa_hw: qcom,ipa@1e00000 {
 		qcom,platform-type = <2>; /* APQ platform */
+	};
+};
+
+&reserved_memory {
+	mailbox_mem: mailbox_region {
+		compatible = "shared-dma-pool";
+		no-map;
+		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+		alignment = <0x0 0x400000>;
+		size = <0x0 0x20000>;
+	};
+};
+
+&audio_apr {
+	voice_mhi_audio: qcom,voice-mhi-audio {
+		compatible = "qcom,voice-mhi-audio";
+		memory-region = <&mailbox_mem>;
+		voice_mhi_voting;
 	};
 };
