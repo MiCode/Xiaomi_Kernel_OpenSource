@@ -124,6 +124,22 @@ struct dsi_display_clk_info {
 };
 
 /**
+ * struct dsi_display_ext_bridge - dsi display external bridge information
+ * @display:           Pointer of DSI display.
+ * @node_of:           Bridge node created from bridge driver.
+ * @bridge:            Bridge created from bridge driver
+ * @orig_funcs:        Bridge function from bridge driver (split mode only)
+ * @bridge_funcs:      Overridden function from bridge driver (split mode only)
+ */
+struct dsi_display_ext_bridge {
+	void *display;
+	struct device_node *node_of;
+	struct drm_bridge *bridge;
+	const struct drm_bridge_funcs *orig_funcs;
+	struct drm_bridge_funcs bridge_funcs;
+};
+
+/**
  * struct dsi_display - dsi display information
  * @pdev:             Pointer to platform device.
  * @drm_dev:          DRM device associated with the display.
@@ -143,7 +159,8 @@ struct dsi_display_clk_info {
  * @ctrl:             Controller information for DSI display.
  * @panel:            Handle to DSI panel.
  * @panel_of:         pHandle to DSI panel.
- * @ext_bridge_of:    pHandle to external DSI bridge.
+ * @ext_bridge:       External bridge information for DSI display.
+ * @ext_bridge_cnt:   Number of external bridges
  * @modes:            Array of probed DSI modes
  * @type:             DSI display type.
  * @clk_master_idx:   The master controller for controlling clocks. This is an
@@ -163,7 +180,6 @@ struct dsi_display_clk_info {
  * @phy_idle_power_off:   PHY power state.
  * @host:             DRM MIPI DSI Host.
  * @bridge:           Pointer to DRM bridge object.
- * @ext_bridge:       Pointer to external bridge object attached to DSI bridge.
  * @cmd_engine_refcount:  Reference count enforcing single instance of cmd eng
  * @clk_mngr:         DSI clock manager.
  * @dsi_clk_handle:   DSI clock handle.
@@ -198,7 +214,10 @@ struct dsi_display {
 	struct device_node *disp_node;
 	struct device_node *panel_of;
 	struct device_node *parser_node;
-	struct device_node *ext_bridge_of;
+
+	/* external bridge */
+	struct dsi_display_ext_bridge ext_bridge[MAX_DSI_CTRLS_PER_DISPLAY];
+	u32 ext_bridge_cnt;
 
 	struct dsi_display_mode *modes;
 
@@ -228,7 +247,6 @@ struct dsi_display {
 
 	struct mipi_dsi_host host;
 	struct dsi_bridge    *bridge;
-	struct drm_bridge    *ext_bridge;
 	u32 cmd_engine_refcount;
 
 	struct sde_power_handle *phandle;
