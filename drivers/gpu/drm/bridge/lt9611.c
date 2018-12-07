@@ -43,6 +43,8 @@
 #define CFG_VID_CHK_INTERRUPTS BIT(3)
 
 #define EDID_SEG_SIZE 256
+#define READ_BUF_MAX_SIZE 9
+#define WRITE_BUF_MAX_SIZE 2
 
 struct lt9611_reg_cfg {
 	u8 reg;
@@ -117,6 +119,8 @@ struct lt9611 {
 	struct lt9611_video_cfg video_cfg;
 
 	u8 edid_buf[EDID_SEG_SIZE];
+	u8 i2c_wbuf[WRITE_BUF_MAX_SIZE];
+	u8 i2c_rbuf[READ_BUF_MAX_SIZE];
 	bool hdmi_mode;
 };
 
@@ -182,13 +186,15 @@ static struct lt9611 *connector_to_lt9611(struct drm_connector *connector)
 static int lt9611_write(struct lt9611 *pdata, u8 reg, u8 val)
 {
 	struct i2c_client *client = pdata->i2c_client;
-	u8 buf[2] = {reg, val};
 	struct i2c_msg msg = {
 		.addr = client->addr,
 		.flags = 0,
 		.len = 2,
-		.buf = buf,
+		.buf = pdata->i2c_wbuf,
 	};
+
+	pdata->i2c_wbuf[0] = reg;
+	pdata->i2c_wbuf[1] = val;
 
 	if (i2c_transfer(client->adapter, &msg, 1) < 1) {
 		pr_err("i2c write failed\n");
@@ -206,20 +212,24 @@ static int lt9611_read(struct lt9611 *pdata, u8 reg, char *buf, u32 size)
 			.addr = client->addr,
 			.flags = 0,
 			.len = 1,
-			.buf = &reg,
+			.buf = pdata->i2c_wbuf,
 		},
 		{
 			.addr = client->addr,
 			.flags = I2C_M_RD,
 			.len = size,
-			.buf = buf,
+			.buf = pdata->i2c_rbuf,
 		}
 	};
+
+	pdata->i2c_wbuf[0] = reg;
 
 	if (i2c_transfer(client->adapter, msg, 2) != 2) {
 		pr_err("i2c read failed\n");
 		return -EIO;
 	}
+
+	memcpy(buf, pdata->i2c_rbuf, size);
 
 	return 0;
 }
