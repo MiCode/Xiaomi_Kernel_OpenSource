@@ -36,6 +36,8 @@ Required properties:
 - vcca-supply:		phandle to vcca regulator node.
 - interrupt-parent	phandle to the interrupt parent device node.
 - interrupts:		The interrupt signal from the DSI block.
+- qcom,dsi-default-panel:	Specifies the default panel.
+- qcom,mdp:		Specifies the mdp node which can find panel node from this.
 
 Bus Scaling Data:
 - qcom,msm-bus,name:		String property describing MDSS client.
@@ -59,13 +61,11 @@ Bus Scaling Data:
 Optional properties:
 - label:                  String to describe controller.
 - qcom,platform-te-gpio:  Specifies the gpio used for TE.
-- qcom,dsi-display-active: Current active display
 - qcom,dsi-ctrl: handle to dsi controller device
 - qcom,dsi-phy: handle to dsi phy device
 - qcom,dsi-ctrl-num:		Specifies the DSI controllers to use
 - qcom,dsi-phy-num:		Specifies the DSI PHYs to use
 - qcom,dsi-select-clocks:	Specifies the required clocks to use
-- qcom,dsi-display-list:	Specifies the list of supported displays.
 - qcom,dsi-manager:       Specifies dsi manager is present
 - qcom,dsi-display:       Specifies dsi display is present
 - qcom,hdmi-display:      Specifies hdmi is present
