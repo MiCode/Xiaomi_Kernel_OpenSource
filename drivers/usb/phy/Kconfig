@@ -157,6 +157,16 @@ config MSM_QUSB_PHY
 	  Synopsys DWC3 USB IPs on MSM SOCs. This driver expects to configure the
 	  PHY with a dedicated register I/O memory region.
 
+config MSM_HSUSB_PHY
+	tristate "MSM HSUSB PHY Driver"
+	depends on ARCH_QCOM
+	select USB_PHY
+	help
+	  Enable this to support the HSUSB PHY on MSM chips. This driver supports
+	  the high-speed PHY which is usually paired with either the ChipIdea or
+	  Synopsys DWC3 USB IPs on MSM SOCs. This driver expects to configure the
+	  PHY with a dedicated register I/O memory region.
+
 config USB_QCOM_EMU_PHY
 	tristate "Qualcomm Technologies, Inc. emulation USB PHY driver"
 	depends on ARCH_QCOM || COMPILE_TEST
