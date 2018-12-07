@@ -84,7 +84,6 @@ struct mhi_netdev {
 	const char *interface_name;
 	struct napi_struct napi;
 	struct net_device *ndev;
-	struct sk_buff *frag_skb;
 
 	struct dentry *dentry;
 	enum MHI_DEBUG_LEVEL msg_lvl;
@@ -527,41 +526,12 @@ static void mhi_netdev_xfer_ul_cb(struct mhi_device *mhi_dev,
 		netif_wake_queue(ndev);
 }
 
-static int mhi_netdev_process_fragment(struct mhi_netdev *mhi_netdev,
-				      struct sk_buff *skb)
-{
-	struct sk_buff *temp_skb;
-
-	if (mhi_netdev->frag_skb) {
-		/* merge the new skb into the old fragment */
-		temp_skb = skb_copy_expand(mhi_netdev->frag_skb, 0, skb->len,
-					   GFP_ATOMIC);
-		if (!temp_skb) {
-			dev_kfree_skb(mhi_netdev->frag_skb);
-			mhi_netdev->frag_skb = NULL;
-			return -ENOMEM;
-		}
-
-		dev_kfree_skb_any(mhi_netdev->frag_skb);
-		mhi_netdev->frag_skb = temp_skb;
-		memcpy(skb_put(mhi_netdev->frag_skb, skb->len), skb->data,
-		       skb->len);
-	} else {
-		mhi_netdev->frag_skb = skb_copy(skb, GFP_ATOMIC);
-		if (!mhi_netdev->frag_skb)
-			return -ENOMEM;
-	}
-
-	return 0;
-}
-
 static void mhi_netdev_xfer_dl_cb(struct mhi_device *mhi_dev,
 				  struct mhi_result *mhi_result)
 {
 	struct mhi_netdev *mhi_netdev = mhi_device_get_devdata(mhi_dev);
 	struct sk_buff *skb = mhi_result->buf_addr;
 	struct net_device *dev = mhi_netdev->ndev;
-	int ret = 0;
 
 	if (mhi_result->transaction_status == -ENOTCONN) {
 		dev_kfree_skb(skb);
@@ -571,28 +541,6 @@ static void mhi_netdev_xfer_dl_cb(struct mhi_device *mhi_dev,
 	skb_put(skb, mhi_result->bytes_xferd);
 	dev->stats.rx_packets++;
 	dev->stats.rx_bytes += mhi_result->bytes_xferd;
-
-	/* merge skb's together, it's a chain transfer */
-	if (mhi_result->transaction_status == -EOVERFLOW ||
-	    mhi_netdev->frag_skb) {
-		ret = mhi_netdev_process_fragment(mhi_netdev, skb);
-
-		dev_kfree_skb(skb);
-
-		if (ret)
-			return;
-	}
-
-	/* more data will come, don't submit the buffer */
-	if (mhi_result->transaction_status == -EOVERFLOW)
-		return;
-
-	if (mhi_netdev->frag_skb) {
-		skb = mhi_netdev->frag_skb;
-		skb->dev = dev;
-		mhi_netdev->frag_skb = NULL;
-	}
-
 	skb->protocol = mhi_netdev_ip_type_trans(skb);
 	netif_receive_skb(skb);
 }
