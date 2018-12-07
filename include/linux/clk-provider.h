@@ -46,6 +46,7 @@
 					 * hand-off enable_count & prepare_count
 					 * to first consumer that enables clk
 					 */
+#define CLK_IS_MEASURE          BIT(14) /* measure clock */
 
 struct clk;
 struct clk_hw;
@@ -285,7 +286,7 @@ struct clk_init_data {
 	const char		*name;
 	const struct clk_ops	*ops;
 	const char		* const *parent_names;
-	u8			num_parents;
+	unsigned int		num_parents;
 	unsigned long		flags;
 	struct clk_vdd_class	*vdd_class;
 	unsigned long		*rate_max;
