@@ -11,6 +11,7 @@
 
 #include "sde_rsc_priv.h"
 #include "sde_dbg.h"
+#include "sde_rsc_hw.h"
 
 static void rsc_event_trigger(struct sde_rsc_priv *rsc, uint32_t event_type)
 {
