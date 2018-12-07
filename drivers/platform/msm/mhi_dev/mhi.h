@@ -982,7 +982,7 @@ int mhi_dev_get_mhi_addr(struct mhi_dev *dev);
  * @mhi_reset:	MHI device reset from host.
  */
 int mhi_dev_mmio_get_mhi_state(struct mhi_dev *dev, enum mhi_dev_state *state,
-						bool *mhi_reset);
+						u32 *mhi_reset);
 
 /**
  * mhi_dev_mmio_init() - Initializes the MMIO and reads the Number of event
