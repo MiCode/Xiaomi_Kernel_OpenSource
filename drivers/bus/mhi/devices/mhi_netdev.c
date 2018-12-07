@@ -625,38 +625,9 @@ static void mhi_netdev_status_cb(struct mhi_device *mhi_dev, enum MHI_CB mhi_cb)
 
 struct dentry *dentry;
 
-static int mhi_netdev_debugfs_trigger_reset(void *data, u64 val)
-{
-	struct mhi_netdev *mhi_netdev = data;
-	struct mhi_device *mhi_dev = mhi_netdev->mhi_dev;
-	int ret;
-
-	MSG_LOG("Triggering channel reset\n");
-
-	/* disable the interface so no data processing */
-	write_lock_irq(&mhi_netdev->pm_lock);
-	mhi_netdev->enabled = false;
-	write_unlock_irq(&mhi_netdev->pm_lock);
-	napi_disable(&mhi_netdev->napi);
-
-	/* disable all hardware channels */
-	mhi_unprepare_from_transfer(mhi_dev);
-
-	MSG_LOG("Restarting iface\n");
-
-	ret = mhi_netdev_enable_iface(mhi_netdev);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-DEFINE_DEBUGFS_ATTRIBUTE(mhi_netdev_debugfs_trigger_reset_fops, NULL,
-			 mhi_netdev_debugfs_trigger_reset, "%llu\n");
-
 static void mhi_netdev_create_debugfs(struct mhi_netdev *mhi_netdev)
 {
 	char node_name[32];
-	const umode_t mode = 0600;
 	struct mhi_device *mhi_dev = mhi_netdev->mhi_dev;
 
 	/* Both tx & rx client handle contain same device info */
@@ -670,10 +641,6 @@ static void mhi_netdev_create_debugfs(struct mhi_netdev *mhi_netdev)
 	mhi_netdev->dentry = debugfs_create_dir(node_name, dentry);
 	if (IS_ERR_OR_NULL(mhi_netdev->dentry))
 		return;
-
-	debugfs_create_file_unsafe("reset", mode, mhi_netdev->dentry,
-				   mhi_netdev,
-				   &mhi_netdev_debugfs_trigger_reset_fops);
 }
 
 static void mhi_netdev_create_debugfs_dir(void)
