@@ -322,16 +322,6 @@ static int mhi_netdev_ioctl_extended(struct net_device *dev, struct ifreq *ifr)
 		return rc;
 
 	switch (ext_cmd.extended_ioctl) {
-	case RMNET_IOCTL_SET_MRU:
-		if (!ext_cmd.u.data || ext_cmd.u.data > mhi_dev->mtu) {
-			MSG_ERR("Can't set MRU, value:%u is invalid max:%zu\n",
-				ext_cmd.u.data, mhi_dev->mtu);
-			return -EINVAL;
-		}
-
-		MSG_LOG("MRU change request to 0x%x\n", ext_cmd.u.data);
-		mhi_netdev->mru = ext_cmd.u.data;
-		break;
 	case RMNET_IOCTL_GET_SUPPORTED_FEATURES:
 		ext_cmd.u.data = 0;
 		break;
