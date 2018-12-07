@@ -732,6 +732,8 @@ static const struct usb_device_id diag_bridge_ids[] = {
 	.driver_info =  DEV_ID(0), },
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x901D, 0),
 	.driver_info =  DEV_ID(0), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x901F, 0),
+	.driver_info =  DEV_ID(0), },
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9034, 0),
 	.driver_info =  DEV_ID(0), },
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9048, 0),
