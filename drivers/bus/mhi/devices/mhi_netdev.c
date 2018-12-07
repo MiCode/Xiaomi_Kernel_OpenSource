@@ -74,10 +74,8 @@
 struct mhi_netdev {
 	int alias;
 	struct mhi_device *mhi_dev;
-	spinlock_t rx_lock;
 	bool enabled;
 	rwlock_t pm_lock; /* state change lock */
-	struct work_struct alloc_work;
 	int wake;
 
 	u32 mru;
@@ -141,10 +139,8 @@ static int mhi_netdev_alloc_skb(struct mhi_netdev *mhi_netdev, gfp_t gfp_t)
 
 		skb->dev = mhi_netdev->ndev;
 
-		spin_lock_bh(&mhi_netdev->rx_lock);
 		ret = mhi_queue_transfer(mhi_dev, DMA_FROM_DEVICE, skb, cur_mru,
 					 MHI_EOT);
-		spin_unlock_bh(&mhi_netdev->rx_lock);
 
 		if (ret) {
 			MSG_ERR("Failed to queue skb, ret:%d\n", ret);
@@ -164,30 +160,6 @@ error_queue:
 	return ret;
 }
 
-static void mhi_netdev_alloc_work(struct work_struct *work)
-{
-	struct mhi_netdev *mhi_netdev = container_of(work, struct mhi_netdev,
-						   alloc_work);
-	/* sleep about 1 sec and retry, that should be enough time
-	 * for system to reclaim freed memory back.
-	 */
-	const int sleep_ms =  1000;
-	int retry = 60;
-	int ret;
-
-	MSG_LOG("Entered\n");
-	do {
-		ret = mhi_netdev_alloc_skb(mhi_netdev, GFP_KERNEL);
-		/* sleep and try again */
-		if (ret == -ENOMEM) {
-			msleep(sleep_ms);
-			retry--;
-		}
-	} while (ret == -ENOMEM && retry);
-
-	MSG_LOG("Exit with status:%d retry:%d\n", ret, retry);
-}
-
 static int mhi_netdev_poll(struct napi_struct *napi, int budget)
 {
 	struct net_device *dev = napi->dev;
@@ -195,7 +167,6 @@ static int mhi_netdev_poll(struct napi_struct *napi, int budget)
 	struct mhi_netdev *mhi_netdev = mhi_netdev_priv->mhi_netdev;
 	struct mhi_device *mhi_dev = mhi_netdev->mhi_dev;
 	int rx_work = 0;
-	int ret;
 
 	MSG_VERB("Entered\n");
 
@@ -217,12 +188,7 @@ static int mhi_netdev_poll(struct napi_struct *napi, int budget)
 	}
 
 	/* queue new buffers */
-	ret = mhi_netdev_alloc_skb(mhi_netdev, GFP_ATOMIC);
-	if (ret == -ENOMEM) {
-		MSG_LOG("out of tre, queuing bg worker\n");
-		schedule_work(&mhi_netdev->alloc_work);
-
-	}
+	mhi_netdev_alloc_skb(mhi_netdev, GFP_ATOMIC);
 
 	/* complete work if # of packet processed less than allocated budget */
 	if (rx_work < budget)
@@ -487,9 +453,7 @@ static int mhi_netdev_enable_iface(struct mhi_netdev *mhi_netdev)
 
 	/* queue buffer for rx path */
 	no_tre = mhi_get_no_free_descriptors(mhi_dev, DMA_FROM_DEVICE);
-	ret = mhi_netdev_alloc_skb(mhi_netdev, GFP_KERNEL);
-	if (ret)
-		schedule_work(&mhi_netdev->alloc_work);
+	mhi_netdev_alloc_skb(mhi_netdev, GFP_KERNEL);
 
 	napi_enable(&mhi_netdev->napi);
 
@@ -612,7 +576,6 @@ static void mhi_netdev_remove(struct mhi_device *mhi_dev)
 	netif_napi_del(&mhi_netdev->napi);
 	unregister_netdev(mhi_netdev->ndev);
 	free_netdev(mhi_netdev->ndev);
-	flush_work(&mhi_netdev->alloc_work);
 
 	if (!IS_ERR_OR_NULL(mhi_netdev->dentry))
 		debugfs_remove_recursive(mhi_netdev->dentry);
@@ -650,9 +613,7 @@ static int mhi_netdev_probe(struct mhi_device *mhi_dev,
 	if (ret)
 		mhi_netdev->interface_name = mhi_netdev_driver.driver.name;
 
-	spin_lock_init(&mhi_netdev->rx_lock);
 	rwlock_init(&mhi_netdev->pm_lock);
-	INIT_WORK(&mhi_netdev->alloc_work, mhi_netdev_alloc_work);
 
 	/* create ipc log buffer */
 	snprintf(node_name, sizeof(node_name), "%s_%04x_%02u.%02u.%02u_%u",
