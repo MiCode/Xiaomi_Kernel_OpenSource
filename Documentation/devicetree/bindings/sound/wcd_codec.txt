@@ -41,8 +41,13 @@ Required properties:
  - compatible = "qcom,va-macro";
  - reg: Specifies the VA macro base address for Bolero
 	soundwire core registers.
- - clock-names : clock names defined for WSA macro
- - clocks : clock handles defined for WSA  macro
+ - clock-names : clock names defined for VA macro
+ - clocks : clock handles defined for VA macro
+ - va-vdd-micb-supply： phandle of mic bias supply's regulator device tree node
+ - qcom,va-vdd-micb-voltage： mic bias supply's voltage level min and max in mV
+ - qcom,va-vdd-micb-current： mic bias supply's max current in mA
+ - qcom,va-dmic-sample-rate： Sample rate defined for DMIC connected to VA macro
+ - qcom,va-clk-mux-select： VA macro MCLK MUX selection
 
 Example:
 
@@ -52,6 +57,11 @@ Example:
 		reg = <0x0C490000 0x0>;
 		clock-names = "va_core_clk";
 		clocks = <&clock_audio_va 0>;
+		va-vdd-micb-supply = <&S4A>;
+		qcom,va-vdd-micb-voltage = <1800000 1800000>;
+		qcom,va-vdd-micb-current = <11200>;
+		qcom,va-dmic-sample-rate = <4800000>;
+		qcom,va-clk-mux-select = <1>;
 	};
 };
 
