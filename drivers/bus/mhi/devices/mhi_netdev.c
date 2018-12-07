@@ -71,15 +71,6 @@
 			       __func__, ##__VA_ARGS__); \
 } while (0)
 
-struct mhi_stats {
-	u32 rx_int;
-	u32 tx_full;
-	u32 tx_pkts;
-	u32 rx_budget_overflow;
-	u32 rx_frag;
-	u32 alloc_failed;
-};
-
 struct mhi_netdev {
 	int alias;
 	struct mhi_device *mhi_dev;
@@ -95,7 +86,6 @@ struct mhi_netdev {
 	struct net_device *ndev;
 	struct sk_buff *frag_skb;
 
-	struct mhi_stats stats;
 	struct dentry *dentry;
 	enum MHI_DEBUG_LEVEL msg_lvl;
 	enum MHI_DEBUG_LEVEL ipc_log_lvl;
@@ -231,7 +221,6 @@ static int mhi_netdev_poll(struct napi_struct *napi, int budget)
 	ret = mhi_netdev_alloc_skb(mhi_netdev, GFP_ATOMIC);
 	if (ret == -ENOMEM) {
 		MSG_LOG("out of tre, queuing bg worker\n");
-		mhi_netdev->stats.alloc_failed++;
 		schedule_work(&mhi_netdev->alloc_work);
 
 	}
@@ -239,8 +228,6 @@ static int mhi_netdev_poll(struct napi_struct *napi, int budget)
 	/* complete work if # of packet processed less than allocated budget */
 	if (rx_work < budget)
 		napi_complete(napi);
-	else
-		mhi_netdev->stats.rx_budget_overflow++;
 
 exit_poll:
 	read_unlock_bh(&mhi_netdev->pm_lock);
@@ -310,12 +297,9 @@ static int mhi_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 	if (res) {
 		MSG_VERB("Failed to queue with reason:%d\n", res);
 		netif_stop_queue(dev);
-		mhi_netdev->stats.tx_full++;
 		res = NETDEV_TX_BUSY;
 		goto mhi_xmit_exit;
 	}
-
-	mhi_netdev->stats.tx_pkts++;
 
 mhi_xmit_exit:
 	read_unlock_bh(&mhi_netdev->pm_lock);
@@ -578,8 +562,6 @@ static int mhi_netdev_process_fragment(struct mhi_netdev *mhi_netdev,
 			return -ENOMEM;
 	}
 
-	mhi_netdev->stats.rx_frag++;
-
 	return 0;
 }
 
@@ -634,7 +616,6 @@ static void mhi_netdev_status_cb(struct mhi_device *mhi_dev, enum MHI_CB mhi_cb)
 
 	if (napi_schedule_prep(&mhi_netdev->napi)) {
 		__napi_schedule(&mhi_netdev->napi);
-		mhi_netdev->stats.rx_int++;
 		return;
 	}
 
@@ -675,43 +656,8 @@ DEFINE_DEBUGFS_ATTRIBUTE(mhi_netdev_debugfs_trigger_reset_fops, NULL,
 static void mhi_netdev_create_debugfs(struct mhi_netdev *mhi_netdev)
 {
 	char node_name[32];
-	int i;
 	const umode_t mode = 0600;
-	struct dentry *file;
 	struct mhi_device *mhi_dev = mhi_netdev->mhi_dev;
-
-	const struct {
-		char *name;
-		u32 *ptr;
-	} debugfs_table[] = {
-		{
-			"rx_int",
-			&mhi_netdev->stats.rx_int
-		},
-		{
-			"tx_full",
-			&mhi_netdev->stats.tx_full
-		},
-		{
-			"tx_pkts",
-			&mhi_netdev->stats.tx_pkts
-		},
-		{
-			"rx_budget_overflow",
-			&mhi_netdev->stats.rx_budget_overflow
-		},
-		{
-			"rx_fragmentation",
-			&mhi_netdev->stats.rx_frag
-		},
-		{
-			"alloc_failed",
-			&mhi_netdev->stats.alloc_failed
-		},
-		{
-			NULL, NULL
-		},
-	};
 
 	/* Both tx & rx client handle contain same device info */
 	snprintf(node_name, sizeof(node_name), "%s_%04x_%02u.%02u.%02u_%u",
@@ -724,20 +670,6 @@ static void mhi_netdev_create_debugfs(struct mhi_netdev *mhi_netdev)
 	mhi_netdev->dentry = debugfs_create_dir(node_name, dentry);
 	if (IS_ERR_OR_NULL(mhi_netdev->dentry))
 		return;
-
-	file = debugfs_create_u32("msg_lvl", mode, mhi_netdev->dentry,
-				  (u32 *)&mhi_netdev->msg_lvl);
-	if (IS_ERR_OR_NULL(file))
-		return;
-
-	/* Add debug stats table */
-	for (i = 0; debugfs_table[i].name; i++) {
-		file = debugfs_create_u32(debugfs_table[i].name, mode,
-					  mhi_netdev->dentry,
-					  debugfs_table[i].ptr);
-		if (IS_ERR_OR_NULL(file))
-			return;
-	}
 
 	debugfs_create_file_unsafe("reset", mode, mhi_netdev->dentry,
 				   mhi_netdev,
