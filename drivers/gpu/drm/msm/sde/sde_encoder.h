@@ -23,6 +23,7 @@
 
 #include "msm_prop.h"
 #include "sde_hw_mdss.h"
+#include "sde_kms.h"
 
 #define SDE_ENCODER_FRAME_EVENT_DONE			BIT(0)
 #define SDE_ENCODER_FRAME_EVENT_ERROR			BIT(1)
@@ -58,11 +59,13 @@ struct sde_encoder_hw_resources {
  * @affected_displays:  bitmask, bit set means the ROI of the commit lies within
  *                      the bounds of the physical display at the bit index
  * @recovery_events_enabled: indicates status of client for recoovery events
+ * @frame_trigger_mode: indicates frame trigger mode
  */
 struct sde_encoder_kickoff_params {
 	u32 is_primary;
 	unsigned long affected_displays;
 	bool recovery_events_enabled;
+	enum frame_trigger_mode_type frame_trigger_mode;
 };
 
 /**

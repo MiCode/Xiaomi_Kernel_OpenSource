@@ -196,23 +196,6 @@ static void sde_encoder_phys_cmd_pp_tx_done_irq(void *arg, int irq_idx)
 
 	SDE_ATRACE_BEGIN("pp_done_irq");
 
-	/* handle rare cases where the ctl_start_irq is not received */
-	if (sde_encoder_phys_cmd_is_master(phys_enc)) {
-		/*
-		 * Reduce the refcount for the retire fence as well
-		 * as for the ctl_start if the counters are greater
-		 * than zero. If there was a retire fence count pending,
-		 * then signal the RETIRE FENCE here.
-		 */
-		if (atomic_add_unless(&phys_enc->pending_retire_fence_cnt,
-				-1, 0))
-			phys_enc->parent_ops.handle_frame_done(
-				phys_enc->parent,
-				phys_enc,
-				SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE);
-		atomic_add_unless(&phys_enc->pending_ctlstart_cnt, -1, 0);
-	}
-
 	/* notify all synchronous clients first, then asynchronous clients */
 	if (phys_enc->parent_ops.handle_frame_done)
 		phys_enc->parent_ops.handle_frame_done(phys_enc->parent,
@@ -224,6 +207,23 @@ static void sde_encoder_phys_cmd_pp_tx_done_irq(void *arg, int irq_idx)
 
 	SDE_EVT32_IRQ(DRMID(phys_enc->parent),
 			phys_enc->hw_pp->idx - PINGPONG_0, new_cnt, event);
+
+	/*
+	 * Reduce the refcount for the retire fence as well as for the ctl_start
+	 * if the counters are greater than zero. Signal retire fence if there
+	 * was a retire fence count pending and kickoff count is zero.
+	 */
+	if (sde_encoder_phys_cmd_is_master(phys_enc) && (new_cnt == 0)) {
+		while (atomic_add_unless(&phys_enc->pending_retire_fence_cnt,
+				-1, 0)) {
+			if (phys_enc->parent_ops.handle_frame_done)
+				phys_enc->parent_ops.handle_frame_done(
+					phys_enc->parent, phys_enc,
+				SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE);
+			atomic_add_unless(&phys_enc->pending_ctlstart_cnt,
+				-1, 0);
+		}
+	}
 
 	/* Signal any waiting atomic commit thread */
 	wake_up_all(&phys_enc->pending_kickoff_wq);
@@ -519,6 +519,10 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 		return -EINVAL;
 
 	conn = phys_enc->connector;
+
+	if (atomic_read(&phys_enc->pending_kickoff_cnt) == 0)
+		return 0;
+
 	cmd_enc->pp_timeout_report_cnt++;
 	pending_kickoff_cnt = atomic_read(&phys_enc->pending_kickoff_cnt);
 
@@ -714,7 +718,7 @@ static int _sde_encoder_phys_cmd_wait_for_idle(
 			to_sde_encoder_phys_cmd(phys_enc);
 	struct sde_encoder_wait_info wait_info;
 	bool recovery_events;
-	int ret;
+	int ret, i, pending_cnt;
 
 	if (!phys_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -734,7 +738,9 @@ static int _sde_encoder_phys_cmd_wait_for_idle(
 	ret = sde_encoder_helper_wait_for_irq(phys_enc, INTR_IDX_PINGPONG,
 			&wait_info);
 	if (ret == -ETIMEDOUT) {
-		_sde_encoder_phys_cmd_handle_ppdone_timeout(phys_enc,
+		pending_cnt = atomic_read(&phys_enc->pending_kickoff_cnt);
+		for (i = 0; i < pending_cnt; i++)
+			_sde_encoder_phys_cmd_handle_ppdone_timeout(phys_enc,
 				recovery_events);
 	} else if (!ret) {
 		if (cmd_enc->pp_timeout_report_cnt && recovery_events) {
@@ -1334,7 +1340,7 @@ static int sde_encoder_phys_cmd_prepare_for_kickoff(
 	struct sde_hw_tear_check tc_cfg = {0};
 	struct sde_encoder_phys_cmd *cmd_enc =
 			to_sde_encoder_phys_cmd(phys_enc);
-	int ret;
+	int ret = 0;
 	u32 extra_frame_trigger_time;
 
 	if (!phys_enc || !phys_enc->hw_pp) {
@@ -1347,17 +1353,19 @@ static int sde_encoder_phys_cmd_prepare_for_kickoff(
 			atomic_read(&phys_enc->pending_kickoff_cnt),
 			atomic_read(&cmd_enc->autorefresh.kickoff_cnt));
 
-	/*
-	 * Mark kickoff request as outstanding. If there are more than one,
-	 * outstanding, then we have to wait for the previous one to complete
-	 */
-	ret = _sde_encoder_phys_cmd_wait_for_idle(phys_enc);
-	if (ret) {
-		/* force pending_kickoff_cnt 0 to discard failed kickoff */
-		atomic_set(&phys_enc->pending_kickoff_cnt, 0);
-		SDE_EVT32(DRMID(phys_enc->parent),
-				phys_enc->hw_pp->idx - PINGPONG_0);
-		SDE_ERROR("failed wait_for_idle: %d\n", ret);
+	if (phys_enc->frame_trigger_mode == FRAME_DONE_WAIT_DEFAULT) {
+		/*
+		 * Mark kickoff request as outstanding. If there are more
+		 * than one outstanding frame, then we have to wait for the
+		 * previous frame to complete
+		 */
+		ret = _sde_encoder_phys_cmd_wait_for_idle(phys_enc);
+		if (ret) {
+			atomic_set(&phys_enc->pending_kickoff_cnt, 0);
+			SDE_EVT32(DRMID(phys_enc->parent),
+					phys_enc->hw_pp->idx - PINGPONG_0);
+			SDE_ERROR("failed wait_for_idle: %d\n", ret);
+		}
 	}
 
 	if (sde_connector_qsync_updated(phys_enc->connector)) {
@@ -1465,9 +1473,18 @@ static int sde_encoder_phys_cmd_wait_for_commit_done(
 			cmd_enc->autorefresh.cfg.enable)
 		rc = _sde_encoder_phys_cmd_wait_for_autorefresh_done(phys_enc);
 
-	/* required for both controllers */
-	if (!rc && cmd_enc->serialize_wait4pp)
-		sde_encoder_phys_cmd_prepare_for_kickoff(phys_enc, NULL);
+	/* wait for posted start or serialize trigger */
+	if ((atomic_read(&phys_enc->pending_kickoff_cnt) > 1) ||
+	    (!rc && phys_enc->frame_trigger_mode ==
+						FRAME_DONE_WAIT_SERIALIZE)) {
+		rc = _sde_encoder_phys_cmd_wait_for_idle(phys_enc);
+		if (rc) {
+			atomic_set(&phys_enc->pending_kickoff_cnt, 0);
+			SDE_EVT32(DRMID(phys_enc->parent),
+					phys_enc->hw_pp->idx - PINGPONG_0);
+			SDE_ERROR("failed wait_for_idle: %d\n", rc);
+		}
+	}
 
 	return rc;
 }
