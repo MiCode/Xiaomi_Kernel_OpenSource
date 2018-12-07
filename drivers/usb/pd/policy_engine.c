@@ -17,7 +17,7 @@
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/workqueue.h>
-#include <linux/extcon.h>
+#include <linux/extcon-provider.h>
 #include <linux/usb/class-dual-role.h>
 #include <linux/usb/usbpd.h>
 #include "usbpd.h"
@@ -1327,10 +1327,11 @@ int usbpd_send_svdm(struct usbpd *pd, u16 svid, u8 cmd,
 EXPORT_SYMBOL(usbpd_send_svdm);
 
 static void handle_vdm_resp_ack(struct usbpd *pd, u32 *vdos, u8 num_vdos,
-	u8 cmd)
+	u16 vdm_hdr)
 {
 	int ret, i;
 	u16 svid, *psvid;
+	u8 cmd = SVDM_HDR_CMD(vdm_hdr);
 	struct usbpd_svid_handler *handler;
 
 	switch (cmd) {
@@ -1461,6 +1462,7 @@ static void handle_vdm_resp_ack(struct usbpd *pd, u32 *vdos, u8 num_vdos,
 }
 static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 {
+	int ret;
 	u32 vdm_hdr =
 	rx_msg->data_len >= sizeof(u32) ? ((u32 *)rx_msg->payload)[0] : 0;
 
@@ -1552,7 +1554,7 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 			break;
 		}
 
-		handle_vdm_resp_ack(pd, vdos, num_vdos, cmd);
+		handle_vdm_resp_ack(pd, vdos, num_vdos, vdm_hdr);
 		break;
 
 	case SVDM_CMD_TYPE_RESP_NAK:
@@ -2157,7 +2159,7 @@ static void handle_state_src_send_capabilities(struct usbpd *pd,
 	if (ret) {
 		if (pd->pd_connected) {
 			usbpd_set_state(pd, PE_SEND_SOFT_RESET);
-			break;
+			return;
 		}
 
 		/*
@@ -2353,7 +2355,7 @@ static void handle_state_src_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 		   IS_CTRL(rx_msg, MSG_WAIT)) {
 		usbpd_warn(&pd->dev, "Unexpected message\n");
 		usbpd_set_state(pd, PE_SEND_SOFT_RESET);
-		break;
+		return;
 	} else if (rx_msg && !IS_CTRL(rx_msg, MSG_NOT_SUPPORTED)) {
 		usbpd_dbg(&pd->dev, "Unsupported message\n");
 		ret = pd_send_msg(pd, pd->spec_rev == USBPD_REV_30 ?
@@ -2474,6 +2476,7 @@ static void handle_state_src_transition_to_default(struct usbpd *pd,
 
 static void enter_state_snk_startup(struct usbpd *pd)
 {
+	int ret;
 	struct pd_phy_params phy_params = {
 		.signal_cb		= phy_sig_received,
 		.msg_rx_cb		= phy_msg_received,
@@ -2760,21 +2763,19 @@ static bool handle_ctrl_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 		ret = pd_send_msg(pd, MSG_SOURCE_CAPABILITIES,
 				default_src_caps,
 				ARRAY_SIZE(default_src_caps), SOP_MSG);
-		if (ret) {
+		if (ret)
 			usbpd_set_state(pd, PE_SEND_SOFT_RESET);
-			return;
-		}
 		break;
 	case MSG_DR_SWAP:
 		if (pd->vdm_state == MODE_ENTERED) {
 			usbpd_set_state(pd, PE_SNK_HARD_RESET);
-			return;
+			break;
 		}
 
 		ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
 		if (ret) {
 			usbpd_set_state(pd, PE_SEND_SOFT_RESET);
-			return;
+			break;
 		}
 
 		dr_swap(pd);
@@ -2784,7 +2785,7 @@ static bool handle_ctrl_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 		ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
 		if (ret) {
 			usbpd_set_state(pd, PE_SEND_SOFT_RESET);
-			return;
+			break;
 		}
 
 		usbpd_set_state(pd, PE_PRS_SNK_SRC_TRANSITION_TO_OFF);
@@ -2829,6 +2830,8 @@ static bool handle_ctrl_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 
 static bool handle_data_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 {
+	u32 ado;
+
 	switch (PD_MSG_HDR_TYPE(rx_msg->hdr)) {
 	case MSG_SOURCE_CAPABILITIES:
 		/* save the PDOs so userspace can further evaluate */
@@ -2845,8 +2848,6 @@ static bool handle_data_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 		handle_vdm_rx(pd, rx_msg);
 		break;
 	case MSG_ALERT:
-		u32 ado;
-
 		if (rx_msg->data_len != sizeof(ado)) {
 			usbpd_err(&pd->dev, "Invalid ado\n");
 			break;
@@ -2861,6 +2862,15 @@ static bool handle_data_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 		 */
 		pd->send_get_status = true;
 		kick_sm(pd, 150);
+		break;
+	case MSG_BATTERY_STATUS:
+		if (rx_msg->data_len != sizeof(pd->battery_sts_dobj)) {
+			usbpd_err(&pd->dev, "Invalid bat sts dobj\n");
+			break;
+		}
+		memcpy(&pd->battery_sts_dobj, rx_msg->payload,
+			sizeof(pd->battery_sts_dobj));
+		complete(&pd->is_ready);
 		break;
 	default:
 		return false;
@@ -2906,15 +2916,6 @@ static bool handle_ext_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 		}
 		memcpy(&pd->battery_cap_db, rx_msg->payload,
 			sizeof(pd->battery_cap_db));
-		complete(&pd->is_ready);
-		break;
-	case MSG_BATTERY_STATUS:
-		if (rx_msg->data_len != sizeof(pd->battery_sts_dobj)) {
-			usbpd_err(&pd->dev, "Invalid bat sts dobj\n");
-			break;
-		}
-		memcpy(&pd->battery_sts_dobj, rx_msg->payload,
-			sizeof(pd->battery_sts_dobj));
 		complete(&pd->is_ready);
 		break;
 	case MSG_GET_BATTERY_CAP:
