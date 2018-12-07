@@ -27,6 +27,7 @@ obj-$(CONFIG_MSM_CAMCC_KONA) += camcc-kona.o
 obj-$(CONFIG_MDM_GCC_9615) += gcc-mdm9615.o
 obj-$(CONFIG_MDM_LCC_9615) += lcc-mdm9615.o
 obj-$(CONFIG_MSM_CLK_AOP_QMP) += clk-aop-qmp.o
+obj-$(CONFIG_MSM_DEBUGCC_KONA) += debugcc-kona.o
 obj-$(CONFIG_MSM_DISPCC_KONA) += dispcc-kona.o
 obj-$(CONFIG_MSM_GCC_8660) += gcc-msm8660.o
 obj-$(CONFIG_MSM_GCC_8916) += gcc-msm8916.o

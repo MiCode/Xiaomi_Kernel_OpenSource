@@ -1,0 +1,26 @@
+Qualcomm Technologies, Inc. Debug Clock Controller Binding
+----------------------------------------------------------
+
+Required properties :
+- compatible: Shall contain "qcom,kona-debugcc".
+- qcom,gcc: phandle to the GCC device node.
+- qcom,videocc: phandle to the Video CC device node.
+- qcom,camcc: phandle to the Camera CC device node.
+- qcom,dispcc: phandle to the Display CC device node.
+- qcom,npucc: phandle to the NPU CC device node.
+- clock-names: Shall contain "xo_clk_src"
+- clocks: phandle + clock reference to the CXO clock.
+- #clock-cells : Shall contain 1.
+
+Example:
+	clock_debug: qcom,cc-debug {
+		compatible = "qcom,kona-debugcc";
+		qcom,gcc = <&clock_gcc>;
+		qcom,videocc = <&clock_videocc>;
+		qcom,camcc = <&clock_camcc>;
+		qcom,dispcc = <&clock_dispcc>;
+		qcom,npucc = <&clock_npucc>;
+		clock-names = "xo_clk_src";
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		#clock-cells = <1>;
+	};
