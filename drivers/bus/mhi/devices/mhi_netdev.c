@@ -72,6 +72,10 @@
 			       __func__, ##__VA_ARGS__); \
 } while (0)
 
+struct mhi_net_chain {
+	struct sk_buff *head, *tail; /* chained skb */
+};
+
 struct mhi_netdev {
 	int alias;
 	struct mhi_device *mhi_dev;
@@ -86,6 +90,8 @@ struct mhi_netdev {
 	struct mhi_netbuf **netbuf_pool;
 	int pool_size; /* must be power of 2 */
 	int current_index;
+	bool chain_skb;
+	struct mhi_net_chain *chain;
 
 	struct dentry *dentry;
 	enum MHI_DEBUG_LEVEL msg_lvl;
@@ -332,11 +338,19 @@ static int mhi_netdev_poll(struct napi_struct *napi, int budget)
 	struct mhi_netdev_priv *mhi_netdev_priv = netdev_priv(dev);
 	struct mhi_netdev *mhi_netdev = mhi_netdev_priv->mhi_netdev;
 	struct mhi_device *mhi_dev = mhi_netdev->mhi_dev;
+	struct mhi_net_chain *chain = mhi_netdev->chain;
 	int rx_work = 0;
 
 	MSG_VERB("Entered\n");
 
 	rx_work = mhi_poll(mhi_dev, budget);
+
+	/* chained skb, push it to stack */
+	if (chain && chain->head) {
+		netif_receive_skb(chain->head);
+		chain->head = NULL;
+	}
+
 	if (rx_work < 0) {
 		MSG_ERR("Error polling ret:%d\n", rx_work);
 		rx_work = 0;
@@ -626,8 +640,10 @@ static void mhi_netdev_xfer_dl_cb(struct mhi_device *mhi_dev,
 	struct mhi_netdev *mhi_netdev = mhi_device_get_devdata(mhi_dev);
 	struct mhi_netbuf *netbuf = mhi_result->buf_addr;
 	struct mhi_buf *mhi_buf = &netbuf->mhi_buf;
+	struct sk_buff *skb;
 	struct net_device *ndev = mhi_netdev->ndev;
 	struct device *dev = mhi_dev->dev.parent;
+	struct mhi_net_chain *chain = mhi_netdev->chain;
 
 	netbuf->unmap(dev, mhi_buf->dma_addr, mhi_buf->len, DMA_FROM_DEVICE);
 
@@ -640,7 +656,30 @@ static void mhi_netdev_xfer_dl_cb(struct mhi_device *mhi_dev,
 	ndev->stats.rx_packets++;
 	ndev->stats.rx_bytes += mhi_result->bytes_xferd;
 
-	mhi_netdev_push_skb(mhi_netdev, mhi_buf, mhi_result);
+	if (unlikely(!chain)) {
+		mhi_netdev_push_skb(mhi_netdev, mhi_buf, mhi_result);
+		return;
+	}
+
+	/* we support chaining */
+	skb = alloc_skb(0, GFP_ATOMIC);
+	if (likely(skb)) {
+		skb_add_rx_frag(skb, 0, mhi_buf->page, 0,
+				mhi_result->bytes_xferd, mhi_netdev->mru);
+		/* this is first on list */
+		if (!chain->head) {
+			skb->dev = ndev;
+			skb->protocol =
+				mhi_netdev_ip_type_trans(*(u8 *)mhi_buf->buf);
+			chain->head = skb;
+		} else {
+			skb_shinfo(chain->tail)->frag_list = skb;
+		}
+
+		chain->tail = skb;
+	} else {
+		__free_pages(mhi_buf->page, mhi_netdev->order);
+	}
 }
 
 static void mhi_netdev_status_cb(struct mhi_device *mhi_dev, enum MHI_CB mhi_cb)
@@ -721,6 +760,7 @@ static int mhi_netdev_probe(struct mhi_device *mhi_dev,
 	struct device_node *of_node = mhi_dev->dev.of_node;
 	int nr_tre;
 	char node_name[32];
+	bool no_chain;
 
 	if (!of_node)
 		return -ENODEV;
@@ -741,6 +781,15 @@ static int mhi_netdev_probe(struct mhi_device *mhi_dev,
 	mhi_netdev->order = __ilog2_u32(mhi_netdev->mru / PAGE_SIZE);
 	if ((PAGE_SIZE << mhi_netdev->order) < mhi_netdev->mru)
 		return -EINVAL;
+
+	no_chain = of_property_read_bool(of_node, "mhi,disable-chain-skb");
+	if (!no_chain) {
+		mhi_netdev->chain = devm_kzalloc(&mhi_dev->dev,
+						 sizeof(*mhi_netdev->chain),
+						 GFP_KERNEL);
+		if (!mhi_netdev->chain)
+			return -ENOMEM;
+	}
 
 	ret = mhi_netdev_enable_iface(mhi_netdev);
 	if (ret)
