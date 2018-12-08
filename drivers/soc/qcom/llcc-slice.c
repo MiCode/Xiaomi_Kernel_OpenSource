@@ -45,6 +45,9 @@
 #define LLCC_TRP_WRSC_EN              0x21F20
 #define LLCC_WRSC_SCID_EN(n)          BIT(n)
 
+#define LLCC_TRP_PCB_ACT	      0x21F04
+#define LLCC_TRP_SCID_DIS_CAP_ALLOC   0x21F00
+
 #define BANK_OFFSET_STRIDE            0x80000
 
 static struct llcc_drv_data *drv_data;
@@ -227,9 +230,13 @@ static int qcom_llcc_cfg_program(struct platform_device *pdev)
 	u32 attr0_val;
 	u32 max_cap_cacheline;
 	u32 sz;
+	u32 pcb = 0;
+	u32 cad = 0;
 	int ret = 0;
 	const struct llcc_slice_config *llcc_table;
 	struct llcc_slice_desc desc;
+	bool cap_based_alloc_and_pwr_collapse =
+		drv_data->cap_based_alloc_and_pwr_collapse;
 
 	sz = drv_data->cfg_size;
 	llcc_table = drv_data->cfg;
@@ -276,6 +283,18 @@ static int qcom_llcc_cfg_program(struct platform_device *pdev)
 				LLCC_WRSC_SCID_EN(llcc_table[i].slice_id));
 			if (ret)
 				return ret;
+		}
+
+		if (cap_based_alloc_and_pwr_collapse) {
+			cad |= llcc_table[i].dis_cap_alloc <<
+				llcc_table[i].slice_id;
+			regmap_write(drv_data->bcast_regmap,
+					LLCC_TRP_SCID_DIS_CAP_ALLOC, cad);
+
+			pcb |= llcc_table[i].retain_on_pc <<
+					llcc_table[i].slice_id;
+			regmap_write(drv_data->bcast_regmap,
+					LLCC_TRP_PCB_ACT, pcb);
 		}
 
 		if (llcc_table[i].activate_on_init) {
@@ -341,6 +360,10 @@ int qcom_llcc_probe(struct platform_device *pdev,
 							GFP_KERNEL);
 	if (!drv_data->offsets)
 		return -ENOMEM;
+
+	drv_data->cap_based_alloc_and_pwr_collapse =
+		of_property_read_bool(pdev->dev.of_node,
+				      "cap-based-alloc-and-pwr-collapse");
 
 	for (i = 0; i < num_banks; i++)
 		drv_data->offsets[i] = i * BANK_OFFSET_STRIDE;
