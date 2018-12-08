@@ -79,12 +79,14 @@ struct mhi_net_chain {
 struct mhi_netdev {
 	int alias;
 	struct mhi_device *mhi_dev;
+	struct mhi_netdev *rsc_dev; /* rsc linked node */
+	bool is_rsc_dev;
 	int wake;
 
 	u32 mru;
 	u32 order;
 	const char *interface_name;
-	struct napi_struct napi;
+	struct napi_struct *napi;
 	struct net_device *ndev;
 
 	struct mhi_netbuf **netbuf_pool;
@@ -338,6 +340,7 @@ static int mhi_netdev_poll(struct napi_struct *napi, int budget)
 	struct mhi_netdev_priv *mhi_netdev_priv = netdev_priv(dev);
 	struct mhi_netdev *mhi_netdev = mhi_netdev_priv->mhi_netdev;
 	struct mhi_device *mhi_dev = mhi_netdev->mhi_dev;
+	struct mhi_netdev *rsc_dev = mhi_netdev->rsc_dev;
 	struct mhi_net_chain *chain = mhi_netdev->chain;
 	int rx_work = 0;
 
@@ -359,6 +362,9 @@ static int mhi_netdev_poll(struct napi_struct *napi, int budget)
 
 	/* queue new buffers */
 	mhi_netdev_queue(mhi_netdev);
+
+	if (rsc_dev)
+		mhi_netdev_queue(rsc_dev);
 
 	/* complete work if # of packet processed less than allocated budget */
 	if (rx_work < budget)
@@ -575,7 +581,14 @@ static int mhi_netdev_enable_iface(struct mhi_netdev *mhi_netdev)
 	mhi_netdev_priv->mhi_netdev = mhi_netdev;
 	rtnl_unlock();
 
-	netif_napi_add(mhi_netdev->ndev, &mhi_netdev->napi,
+	mhi_netdev->napi = devm_kzalloc(&mhi_dev->dev,
+					sizeof(*mhi_netdev->napi), GFP_KERNEL);
+	if (!mhi_netdev->napi) {
+		ret = -ENOMEM;
+		goto napi_alloc_fail;
+	}
+
+	netif_napi_add(mhi_netdev->ndev, mhi_netdev->napi,
 		       mhi_netdev_poll, NAPI_POLL_WEIGHT);
 	ret = register_netdev(mhi_netdev->ndev);
 	if (ret) {
@@ -583,14 +596,16 @@ static int mhi_netdev_enable_iface(struct mhi_netdev *mhi_netdev)
 		goto net_dev_reg_fail;
 	}
 
-	napi_enable(&mhi_netdev->napi);
+	napi_enable(mhi_netdev->napi);
 
 	MSG_LOG("Exited.\n");
 
 	return 0;
 
 net_dev_reg_fail:
-	netif_napi_del(&mhi_netdev->napi);
+	netif_napi_del(mhi_netdev->napi);
+
+napi_alloc_fail:
 	free_netdev(mhi_netdev->ndev);
 	mhi_netdev->ndev = NULL;
 
@@ -686,11 +701,7 @@ static void mhi_netdev_status_cb(struct mhi_device *mhi_dev, enum MHI_CB mhi_cb)
 	if (mhi_cb != MHI_CB_PENDING_DATA)
 		return;
 
-	if (napi_schedule_prep(&mhi_netdev->napi)) {
-		__napi_schedule(&mhi_netdev->napi);
-		return;
-	}
-
+	napi_schedule(mhi_netdev->napi);
 }
 
 #ifdef CONFIG_DEBUG_FS
@@ -738,10 +749,16 @@ static void mhi_netdev_remove(struct mhi_device *mhi_dev)
 
 	MSG_LOG("Remove notification received\n");
 
+	/* rsc parent takes cares of the cleanup */
+	if (mhi_netdev->is_rsc_dev) {
+		mhi_netdev_free_pool(mhi_netdev);
+		return;
+	}
+
 	netif_stop_queue(mhi_netdev->ndev);
-	napi_disable(&mhi_netdev->napi);
+	napi_disable(mhi_netdev->napi);
 	unregister_netdev(mhi_netdev->ndev);
-	netif_napi_del(&mhi_netdev->napi);
+	netif_napi_del(mhi_netdev->napi);
 	free_netdev(mhi_netdev->ndev);
 	mhi_netdev_free_pool(mhi_netdev);
 
@@ -749,14 +766,33 @@ static void mhi_netdev_remove(struct mhi_device *mhi_dev)
 		debugfs_remove_recursive(mhi_netdev->dentry);
 }
 
+static int mhi_netdev_match(struct device *dev, void *data)
+{
+	/* if phandle dt == device dt, we found a match */
+	return (dev->of_node == data);
+}
+
+static void mhi_netdev_clone_dev(struct mhi_netdev *mhi_netdev,
+				 struct mhi_netdev *parent)
+{
+	mhi_netdev->ndev = parent->ndev;
+	mhi_netdev->napi = parent->napi;
+	mhi_netdev->ipc_log = parent->ipc_log;
+	mhi_netdev->msg_lvl = parent->msg_lvl;
+	mhi_netdev->ipc_log_lvl = parent->ipc_log_lvl;
+	mhi_netdev->is_rsc_dev = true;
+	mhi_netdev->chain = parent->chain;
+}
+
 static int mhi_netdev_probe(struct mhi_device *mhi_dev,
 			    const struct mhi_device_id *id)
 {
 	int ret;
-	struct mhi_netdev *mhi_netdev;
+	struct mhi_netdev *mhi_netdev, *p_netdev = NULL;
 	struct device_node *of_node = mhi_dev->dev.of_node;
 	int nr_tre;
 	char node_name[32];
+	struct device_node *phandle;
 	bool no_chain;
 
 	if (!of_node)
@@ -779,29 +815,53 @@ static int mhi_netdev_probe(struct mhi_device *mhi_dev,
 	if ((PAGE_SIZE << mhi_netdev->order) < mhi_netdev->mru)
 		return -EINVAL;
 
-	no_chain = of_property_read_bool(of_node, "mhi,disable-chain-skb");
-	if (!no_chain) {
-		mhi_netdev->chain = devm_kzalloc(&mhi_dev->dev,
-						 sizeof(*mhi_netdev->chain),
-						 GFP_KERNEL);
-		if (!mhi_netdev->chain)
-			return -ENOMEM;
+	/* check if this device shared by a parent device */
+	phandle = of_parse_phandle(of_node, "mhi,rsc-parent", 0);
+	if (phandle) {
+		struct device *dev;
+		struct mhi_device *pdev;
+		/* find the parent device */
+		dev = driver_find_device(mhi_dev->dev.driver, NULL, phandle,
+					 mhi_netdev_match);
+		if (!dev)
+			return -ENODEV;
+
+		/* this device is shared with parent device. so we won't be
+		 * creating a new network interface. Clone parent
+		 * information to child node
+		 */
+		pdev = to_mhi_device(dev);
+		p_netdev = mhi_device_get_devdata(pdev);
+		mhi_netdev_clone_dev(mhi_netdev, p_netdev);
+		put_device(dev);
+	} else {
+		mhi_netdev->msg_lvl = MHI_MSG_LVL_ERROR;
+		no_chain = of_property_read_bool(of_node,
+						 "mhi,disable-chain-skb");
+		if (!no_chain) {
+			mhi_netdev->chain = devm_kzalloc(&mhi_dev->dev,
+						sizeof(*mhi_netdev->chain),
+						GFP_KERNEL);
+			if (!mhi_netdev->chain)
+				return -ENOMEM;
+		}
+
+		ret = mhi_netdev_enable_iface(mhi_netdev);
+		if (ret)
+			return ret;
+
+		/* create ipc log buffer */
+		snprintf(node_name, sizeof(node_name),
+			 "%s_%04x_%02u.%02u.%02u_%u",
+			 mhi_netdev->interface_name, mhi_dev->dev_id,
+			 mhi_dev->domain, mhi_dev->bus, mhi_dev->slot,
+			 mhi_netdev->alias);
+		mhi_netdev->ipc_log = ipc_log_context_create(IPC_LOG_PAGES,
+							     node_name, 0);
+		mhi_netdev->ipc_log_lvl = IPC_LOG_LVL;
+
+		mhi_netdev_create_debugfs(mhi_netdev);
 	}
-
-	ret = mhi_netdev_enable_iface(mhi_netdev);
-	if (ret)
-		return ret;
-
-	/* create ipc log buffer */
-	snprintf(node_name, sizeof(node_name), "%s_%04x_%02u.%02u.%02u_%u",
-		 mhi_netdev->interface_name, mhi_dev->dev_id, mhi_dev->domain,
-		 mhi_dev->bus, mhi_dev->slot, mhi_netdev->alias);
-	mhi_netdev->ipc_log = ipc_log_context_create(IPC_LOG_PAGES,
-						     node_name, 0);
-	mhi_netdev->msg_lvl = MHI_MSG_LVL_ERROR;
-	mhi_netdev->ipc_log_lvl = IPC_LOG_LVL;
-
-	mhi_netdev_create_debugfs(mhi_netdev);
 
 	/* move mhi channels to start state */
 	ret = mhi_prepare_for_transfer(mhi_dev);
@@ -822,18 +882,25 @@ static int mhi_netdev_probe(struct mhi_device *mhi_dev,
 	if (ret)
 		goto error_start;
 
+	/* link child node with parent node if it's children dev */
+	if (p_netdev)
+		p_netdev->rsc_dev = mhi_netdev;
+
 	/* now we have a pool of buffers allocated, queue to hardware
 	 * by triggering a napi_poll
 	 */
-	napi_schedule(&mhi_netdev->napi);
+	napi_schedule(mhi_netdev->napi);
 
 	return 0;
 
 error_start:
+	if (phandle)
+		return ret;
+
 	netif_stop_queue(mhi_netdev->ndev);
-	napi_disable(&mhi_netdev->napi);
+	napi_disable(mhi_netdev->napi);
 	unregister_netdev(mhi_netdev->ndev);
-	netif_napi_del(&mhi_netdev->napi);
+	netif_napi_del(mhi_netdev->napi);
 	free_netdev(mhi_netdev->ndev);
 
 	return ret;
@@ -842,6 +909,7 @@ error_start:
 static const struct mhi_device_id mhi_netdev_match_table[] = {
 	{ .chan = "IP_HW0" },
 	{ .chan = "IP_HW_ADPL" },
+	{ .chan = "IP_HW0_RSC" },
 	{},
 };
 
