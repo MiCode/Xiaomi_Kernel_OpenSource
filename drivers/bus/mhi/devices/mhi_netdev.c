@@ -71,31 +71,18 @@
 			       __func__, ##__VA_ARGS__); \
 } while (0)
 
-struct mhi_stats {
-	u32 rx_int;
-	u32 tx_full;
-	u32 tx_pkts;
-	u32 rx_budget_overflow;
-	u32 rx_frag;
-	u32 alloc_failed;
-};
-
 struct mhi_netdev {
 	int alias;
 	struct mhi_device *mhi_dev;
-	spinlock_t rx_lock;
 	bool enabled;
 	rwlock_t pm_lock; /* state change lock */
-	struct work_struct alloc_work;
 	int wake;
 
 	u32 mru;
 	const char *interface_name;
 	struct napi_struct napi;
 	struct net_device *ndev;
-	struct sk_buff *frag_skb;
 
-	struct mhi_stats stats;
 	struct dentry *dentry;
 	enum MHI_DEBUG_LEVEL msg_lvl;
 	enum MHI_DEBUG_LEVEL ipc_log_lvl;
@@ -152,10 +139,8 @@ static int mhi_netdev_alloc_skb(struct mhi_netdev *mhi_netdev, gfp_t gfp_t)
 
 		skb->dev = mhi_netdev->ndev;
 
-		spin_lock_bh(&mhi_netdev->rx_lock);
 		ret = mhi_queue_transfer(mhi_dev, DMA_FROM_DEVICE, skb, cur_mru,
 					 MHI_EOT);
-		spin_unlock_bh(&mhi_netdev->rx_lock);
 
 		if (ret) {
 			MSG_ERR("Failed to queue skb, ret:%d\n", ret);
@@ -175,30 +160,6 @@ error_queue:
 	return ret;
 }
 
-static void mhi_netdev_alloc_work(struct work_struct *work)
-{
-	struct mhi_netdev *mhi_netdev = container_of(work, struct mhi_netdev,
-						   alloc_work);
-	/* sleep about 1 sec and retry, that should be enough time
-	 * for system to reclaim freed memory back.
-	 */
-	const int sleep_ms =  1000;
-	int retry = 60;
-	int ret;
-
-	MSG_LOG("Entered\n");
-	do {
-		ret = mhi_netdev_alloc_skb(mhi_netdev, GFP_KERNEL);
-		/* sleep and try again */
-		if (ret == -ENOMEM) {
-			msleep(sleep_ms);
-			retry--;
-		}
-	} while (ret == -ENOMEM && retry);
-
-	MSG_LOG("Exit with status:%d retry:%d\n", ret, retry);
-}
-
 static int mhi_netdev_poll(struct napi_struct *napi, int budget)
 {
 	struct net_device *dev = napi->dev;
@@ -206,7 +167,6 @@ static int mhi_netdev_poll(struct napi_struct *napi, int budget)
 	struct mhi_netdev *mhi_netdev = mhi_netdev_priv->mhi_netdev;
 	struct mhi_device *mhi_dev = mhi_netdev->mhi_dev;
 	int rx_work = 0;
-	int ret;
 
 	MSG_VERB("Entered\n");
 
@@ -228,19 +188,11 @@ static int mhi_netdev_poll(struct napi_struct *napi, int budget)
 	}
 
 	/* queue new buffers */
-	ret = mhi_netdev_alloc_skb(mhi_netdev, GFP_ATOMIC);
-	if (ret == -ENOMEM) {
-		MSG_LOG("out of tre, queuing bg worker\n");
-		mhi_netdev->stats.alloc_failed++;
-		schedule_work(&mhi_netdev->alloc_work);
-
-	}
+	mhi_netdev_alloc_skb(mhi_netdev, GFP_ATOMIC);
 
 	/* complete work if # of packet processed less than allocated budget */
 	if (rx_work < budget)
 		napi_complete(napi);
-	else
-		mhi_netdev->stats.rx_budget_overflow++;
 
 exit_poll:
 	read_unlock_bh(&mhi_netdev->pm_lock);
@@ -310,12 +262,9 @@ static int mhi_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 	if (res) {
 		MSG_VERB("Failed to queue with reason:%d\n", res);
 		netif_stop_queue(dev);
-		mhi_netdev->stats.tx_full++;
 		res = NETDEV_TX_BUSY;
 		goto mhi_xmit_exit;
 	}
-
-	mhi_netdev->stats.tx_pkts++;
 
 mhi_xmit_exit:
 	read_unlock_bh(&mhi_netdev->pm_lock);
@@ -338,16 +287,6 @@ static int mhi_netdev_ioctl_extended(struct net_device *dev, struct ifreq *ifr)
 		return rc;
 
 	switch (ext_cmd.extended_ioctl) {
-	case RMNET_IOCTL_SET_MRU:
-		if (!ext_cmd.u.data || ext_cmd.u.data > mhi_dev->mtu) {
-			MSG_ERR("Can't set MRU, value:%u is invalid max:%zu\n",
-				ext_cmd.u.data, mhi_dev->mtu);
-			return -EINVAL;
-		}
-
-		MSG_LOG("MRU change request to 0x%x\n", ext_cmd.u.data);
-		mhi_netdev->mru = ext_cmd.u.data;
-		break;
 	case RMNET_IOCTL_GET_SUPPORTED_FEATURES:
 		ext_cmd.u.data = 0;
 		break;
@@ -514,9 +453,7 @@ static int mhi_netdev_enable_iface(struct mhi_netdev *mhi_netdev)
 
 	/* queue buffer for rx path */
 	no_tre = mhi_get_no_free_descriptors(mhi_dev, DMA_FROM_DEVICE);
-	ret = mhi_netdev_alloc_skb(mhi_netdev, GFP_KERNEL);
-	if (ret)
-		schedule_work(&mhi_netdev->alloc_work);
+	mhi_netdev_alloc_skb(mhi_netdev, GFP_KERNEL);
 
 	napi_enable(&mhi_netdev->napi);
 
@@ -553,43 +490,12 @@ static void mhi_netdev_xfer_ul_cb(struct mhi_device *mhi_dev,
 		netif_wake_queue(ndev);
 }
 
-static int mhi_netdev_process_fragment(struct mhi_netdev *mhi_netdev,
-				      struct sk_buff *skb)
-{
-	struct sk_buff *temp_skb;
-
-	if (mhi_netdev->frag_skb) {
-		/* merge the new skb into the old fragment */
-		temp_skb = skb_copy_expand(mhi_netdev->frag_skb, 0, skb->len,
-					   GFP_ATOMIC);
-		if (!temp_skb) {
-			dev_kfree_skb(mhi_netdev->frag_skb);
-			mhi_netdev->frag_skb = NULL;
-			return -ENOMEM;
-		}
-
-		dev_kfree_skb_any(mhi_netdev->frag_skb);
-		mhi_netdev->frag_skb = temp_skb;
-		memcpy(skb_put(mhi_netdev->frag_skb, skb->len), skb->data,
-		       skb->len);
-	} else {
-		mhi_netdev->frag_skb = skb_copy(skb, GFP_ATOMIC);
-		if (!mhi_netdev->frag_skb)
-			return -ENOMEM;
-	}
-
-	mhi_netdev->stats.rx_frag++;
-
-	return 0;
-}
-
 static void mhi_netdev_xfer_dl_cb(struct mhi_device *mhi_dev,
 				  struct mhi_result *mhi_result)
 {
 	struct mhi_netdev *mhi_netdev = mhi_device_get_devdata(mhi_dev);
 	struct sk_buff *skb = mhi_result->buf_addr;
 	struct net_device *dev = mhi_netdev->ndev;
-	int ret = 0;
 
 	if (mhi_result->transaction_status == -ENOTCONN) {
 		dev_kfree_skb(skb);
@@ -599,28 +505,6 @@ static void mhi_netdev_xfer_dl_cb(struct mhi_device *mhi_dev,
 	skb_put(skb, mhi_result->bytes_xferd);
 	dev->stats.rx_packets++;
 	dev->stats.rx_bytes += mhi_result->bytes_xferd;
-
-	/* merge skb's together, it's a chain transfer */
-	if (mhi_result->transaction_status == -EOVERFLOW ||
-	    mhi_netdev->frag_skb) {
-		ret = mhi_netdev_process_fragment(mhi_netdev, skb);
-
-		dev_kfree_skb(skb);
-
-		if (ret)
-			return;
-	}
-
-	/* more data will come, don't submit the buffer */
-	if (mhi_result->transaction_status == -EOVERFLOW)
-		return;
-
-	if (mhi_netdev->frag_skb) {
-		skb = mhi_netdev->frag_skb;
-		skb->dev = dev;
-		mhi_netdev->frag_skb = NULL;
-	}
-
 	skb->protocol = mhi_netdev_ip_type_trans(skb);
 	netif_receive_skb(skb);
 }
@@ -634,7 +518,6 @@ static void mhi_netdev_status_cb(struct mhi_device *mhi_dev, enum MHI_CB mhi_cb)
 
 	if (napi_schedule_prep(&mhi_netdev->napi)) {
 		__napi_schedule(&mhi_netdev->napi);
-		mhi_netdev->stats.rx_int++;
 		return;
 	}
 
@@ -644,74 +527,10 @@ static void mhi_netdev_status_cb(struct mhi_device *mhi_dev, enum MHI_CB mhi_cb)
 
 struct dentry *dentry;
 
-static int mhi_netdev_debugfs_trigger_reset(void *data, u64 val)
-{
-	struct mhi_netdev *mhi_netdev = data;
-	struct mhi_device *mhi_dev = mhi_netdev->mhi_dev;
-	int ret;
-
-	MSG_LOG("Triggering channel reset\n");
-
-	/* disable the interface so no data processing */
-	write_lock_irq(&mhi_netdev->pm_lock);
-	mhi_netdev->enabled = false;
-	write_unlock_irq(&mhi_netdev->pm_lock);
-	napi_disable(&mhi_netdev->napi);
-
-	/* disable all hardware channels */
-	mhi_unprepare_from_transfer(mhi_dev);
-
-	MSG_LOG("Restarting iface\n");
-
-	ret = mhi_netdev_enable_iface(mhi_netdev);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-DEFINE_DEBUGFS_ATTRIBUTE(mhi_netdev_debugfs_trigger_reset_fops, NULL,
-			 mhi_netdev_debugfs_trigger_reset, "%llu\n");
-
 static void mhi_netdev_create_debugfs(struct mhi_netdev *mhi_netdev)
 {
 	char node_name[32];
-	int i;
-	const umode_t mode = 0600;
-	struct dentry *file;
 	struct mhi_device *mhi_dev = mhi_netdev->mhi_dev;
-
-	const struct {
-		char *name;
-		u32 *ptr;
-	} debugfs_table[] = {
-		{
-			"rx_int",
-			&mhi_netdev->stats.rx_int
-		},
-		{
-			"tx_full",
-			&mhi_netdev->stats.tx_full
-		},
-		{
-			"tx_pkts",
-			&mhi_netdev->stats.tx_pkts
-		},
-		{
-			"rx_budget_overflow",
-			&mhi_netdev->stats.rx_budget_overflow
-		},
-		{
-			"rx_fragmentation",
-			&mhi_netdev->stats.rx_frag
-		},
-		{
-			"alloc_failed",
-			&mhi_netdev->stats.alloc_failed
-		},
-		{
-			NULL, NULL
-		},
-	};
 
 	/* Both tx & rx client handle contain same device info */
 	snprintf(node_name, sizeof(node_name), "%s_%04x_%02u.%02u.%02u_%u",
@@ -724,24 +543,6 @@ static void mhi_netdev_create_debugfs(struct mhi_netdev *mhi_netdev)
 	mhi_netdev->dentry = debugfs_create_dir(node_name, dentry);
 	if (IS_ERR_OR_NULL(mhi_netdev->dentry))
 		return;
-
-	file = debugfs_create_u32("msg_lvl", mode, mhi_netdev->dentry,
-				  (u32 *)&mhi_netdev->msg_lvl);
-	if (IS_ERR_OR_NULL(file))
-		return;
-
-	/* Add debug stats table */
-	for (i = 0; debugfs_table[i].name; i++) {
-		file = debugfs_create_u32(debugfs_table[i].name, mode,
-					  mhi_netdev->dentry,
-					  debugfs_table[i].ptr);
-		if (IS_ERR_OR_NULL(file))
-			return;
-	}
-
-	debugfs_create_file_unsafe("reset", mode, mhi_netdev->dentry,
-				   mhi_netdev,
-				   &mhi_netdev_debugfs_trigger_reset_fops);
 }
 
 static void mhi_netdev_create_debugfs_dir(void)
@@ -775,7 +576,6 @@ static void mhi_netdev_remove(struct mhi_device *mhi_dev)
 	netif_napi_del(&mhi_netdev->napi);
 	unregister_netdev(mhi_netdev->ndev);
 	free_netdev(mhi_netdev->ndev);
-	flush_work(&mhi_netdev->alloc_work);
 
 	if (!IS_ERR_OR_NULL(mhi_netdev->dentry))
 		debugfs_remove_recursive(mhi_netdev->dentry);
@@ -813,9 +613,7 @@ static int mhi_netdev_probe(struct mhi_device *mhi_dev,
 	if (ret)
 		mhi_netdev->interface_name = mhi_netdev_driver.driver.name;
 
-	spin_lock_init(&mhi_netdev->rx_lock);
 	rwlock_init(&mhi_netdev->pm_lock);
-	INIT_WORK(&mhi_netdev->alloc_work, mhi_netdev_alloc_work);
 
 	/* create ipc log buffer */
 	snprintf(node_name, sizeof(node_name), "%s_%04x_%02u.%02u.%02u_%u",
