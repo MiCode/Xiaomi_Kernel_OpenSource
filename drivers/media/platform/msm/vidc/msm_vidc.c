@@ -421,6 +421,24 @@ int msm_vidc_reqbufs(void *instance, struct v4l2_requestbuffers *b)
 }
 EXPORT_SYMBOL(msm_vidc_reqbufs);
 
+int msm_vidc_s_parm(void *instance, struct v4l2_streamparm *a)
+{
+	struct msm_vidc_inst *inst = instance;
+
+	if (!inst || !a) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+
+	if (is_decode_session(inst))
+		return msm_vdec_s_parm(inst, a);
+	else if (is_encode_session(inst))
+		return msm_venc_s_parm(inst, a);
+
+	return 0;
+}
+EXPORT_SYMBOL(msm_vidc_s_parm);
+
 static bool valid_v4l2_buffer(struct v4l2_buffer *b,
 		struct msm_vidc_inst *inst)
 {
@@ -765,9 +783,6 @@ static int msm_vidc_queue_setup(struct vb2_queue *q,
 			sizes[i] = inst->bufq[OUTPUT_PORT].plane_sizes[i];
 
 		bufreq->buffer_count_actual = *num_buffers;
-		rc = msm_comm_set_buffer_count(inst,
-			bufreq->buffer_count_min,
-			bufreq->buffer_count_actual, HAL_BUFFER_INPUT);
 		}
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE: {
@@ -799,9 +814,6 @@ static int msm_vidc_queue_setup(struct vb2_queue *q,
 			sizes[i] = inst->bufq[CAPTURE_PORT].plane_sizes[i];
 
 		bufreq->buffer_count_actual = *num_buffers;
-		rc = msm_comm_set_buffer_count(inst,
-			bufreq->buffer_count_min,
-			bufreq->buffer_count_actual, buffer_type);
 		}
 		break;
 	default:
@@ -1060,6 +1072,18 @@ static int msm_vidc_set_rotation(struct msm_vidc_inst *inst)
 	return rc;
 }
 
+static int msm_vidc_set_properties(struct msm_vidc_inst *inst)
+{
+	int rc = 0;
+
+	if (is_decode_session(inst))
+		rc = msm_vdec_set_properties(inst);
+	else if (is_encode_session(inst))
+		rc = msm_venc_set_properties(inst);
+
+	return rc;
+}
+
 static inline int start_streaming(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
@@ -1070,6 +1094,13 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 	dprintk(VIDC_DBG, "%s: %x : inst %pK\n", __func__,
 		hash32_ptr(inst->session), inst);
 	hdev = inst->core->device;
+
+	rc = msm_vidc_set_properties(inst);
+	if (rc) {
+		dprintk(VIDC_ERR, "%s: %x: set props failed\n",
+			__func__, hash32_ptr(inst->session));
+		goto fail_start;
+	}
 
 	if (inst->session_type == MSM_VIDC_ENCODER) {
 		rc = msm_vidc_set_rotation(inst);

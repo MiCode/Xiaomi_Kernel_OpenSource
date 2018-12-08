@@ -213,7 +213,7 @@ static int msm_v4l2_s_parm(struct file *file, void *fh,
 {
 	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
 
-	return msm_vidc_comm_s_parm(vidc_inst, a);
+	return msm_vidc_s_parm(vidc_inst, a);
 }
 
 static int msm_v4l2_g_parm(struct file *file, void *fh,
