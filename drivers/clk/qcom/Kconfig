@@ -512,3 +512,11 @@ config SM_GCC_TRINKET
 	  TRINKET devices.
 	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
 	  USB, UFS, SD/eMMC, PCIe, etc.
+
+config SM_GPUCC_TRINKET
+	tristate "TRINKET graphics Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc.
+	  TRINKET devices.
+	  Say Y if you want to support graphics clocks.
