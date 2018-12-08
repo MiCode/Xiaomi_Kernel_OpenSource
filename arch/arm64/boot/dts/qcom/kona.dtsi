@@ -367,13 +367,13 @@
 		pil_adsp_mem: pil_adsp_region@89300000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x89300000 0x0 0x1900000>;
+			reg = <0x0 0x89300000 0x0 0x1a00000>;
 		};
 
-		pil_spss_mem: pil_spss_region@8ac00000 {
+		pil_spss_mem: pil_spss_region@8ad00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x8ac00000 0x0 0x100000>;
+			reg = <0x0 0x8ad00000 0x0 0x100000>;
 		};
 
 		adsp_mem: adsp_region {
