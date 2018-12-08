@@ -955,6 +955,14 @@ static int clk_debug_kona_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	ret = map_debug_bases(pdev, "qcom,camcc", CAM_CC);
+	if (ret)
+		return ret;
+
+	ret = map_debug_bases(pdev, "qcom,gpucc", GPU_CC);
+	if (ret)
+		return ret;
+
 	clk = devm_clk_register(&pdev->dev, &gcc_debug_mux.hw);
 	if (IS_ERR(clk)) {
 		dev_err(&pdev->dev, "Unable to register GCC debug mux\n");
