@@ -735,7 +735,7 @@
 	};
 
 	clock_gcc: qcom,gcc@100000 {
-		compatible = "qcom,gcc-kona";
+		compatible = "qcom,gcc-kona", "syscon";
 		reg = <0x100000 0x1f0000>;
 		reg-names = "cc_base";
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
@@ -777,7 +777,7 @@
 	};
 
 	clock_dispcc: qcom,dispcc@af00000 {
-		compatible = "qcom,kona-dispcc";
+		compatible = "qcom,kona-dispcc", "syscon";
 		reg = <0xaf00000 0x20000>;
 		reg-names = "cc_base";
 		vdd_mm-supply = <&VDD_MMCX_LEVEL>;
@@ -800,6 +800,18 @@
 	clock_cpucc: qcom,cpucc {
 		compatible = "qcom,dummycc";
 		clock-output-names = "cpucc_clocks";
+		#clock-cells = <1>;
+	};
+
+	clock_debugcc: qcom,cc-debug {
+		compatible = "qcom,kona-debugcc";
+		qcom,gcc = <&clock_gcc>;
+		qcom,videocc = <&clock_videocc>;
+		qcom,dispcc = <&clock_dispcc>;
+		qcom,camcc = <&clock_camcc>;
+		qcom,gpucc = <&clock_gpucc>;
+		clock-names = "xo_clk_src";
+		clocks = <&clock_xo>;
 		#clock-cells = <1>;
 	};
 
