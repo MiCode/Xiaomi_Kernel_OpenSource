@@ -76,6 +76,7 @@
 // duplicated since it was introduced at the same time as CEPH_FEATURE_CRUSH_TUNABLES5
 #define CEPH_FEATURE_NEW_OSDOPREPLY_ENCODING   (1ULL<<58) /* New, v7 encoding */
 #define CEPH_FEATURE_FS_FILE_LAYOUT_V2       (1ULL<<58) /* file_layout_t */
+#define CEPH_FEATURE_CEPHX_V2	(1ULL<<61) // *do not share this bit*
 
 /*
  * The introduction of CEPH_FEATURE_OSD_SNAPMAPPER caused the feature
@@ -124,7 +125,8 @@ static inline u64 ceph_sanitize_features(u64 features)
 	 CEPH_FEATURE_MSGR_KEEPALIVE2 |		\
 	 CEPH_FEATURE_CRUSH_V4 |		\
 	 CEPH_FEATURE_CRUSH_TUNABLES5 |		\
-	 CEPH_FEATURE_NEW_OSDOPREPLY_ENCODING)
+	 CEPH_FEATURE_NEW_OSDOPREPLY_ENCODING |	\
+	 CEPH_FEATURE_CEPHX_V2)
 
 #define CEPH_FEATURES_REQUIRED_DEFAULT   \
 	(CEPH_FEATURE_NOSRCADDR |	 \
