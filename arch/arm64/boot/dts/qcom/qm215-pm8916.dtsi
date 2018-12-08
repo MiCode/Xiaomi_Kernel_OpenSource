@@ -148,17 +148,6 @@
 	};
 };
 
-&pm8916_mpps {
-	backlight_mpp {
-		backlight_pwm_en_default: backlight_pwm_en_default {
-			pins = "mpp4";
-			function = "digital";
-			power-source = <0>;
-			output-high;
-		};
-	};
-};
-
 &soc {
 	disp_vdda_eldo1: gpio-regulator@0 {
 		compatible = "regulator-fixed";

@@ -1195,6 +1195,49 @@
 			};
 		};
 
+		fpc_reset_int {
+			fpc_reset_low: reset_low {
+				mux {
+					pins = "gpio124";
+					function = "fpc_reset_gpio_low";
+				};
+
+				config {
+					pins = "gpio124";
+					drive-strength = <2>;
+					bias-disable;
+					output-low;
+				};
+			};
+
+			fpc_reset_high: reset_high {
+				mux {
+					pins = "gpio124";
+					function = "fpc_reset_gpio_high";
+				};
+
+				config {
+					pins = "gpio124";
+					drive-strength = <2>;
+					bias-disable;
+					output-high;
+				};
+			};
+
+			fpc_int_low: int_low {
+				mux {
+					pins = "gpio48";
+				};
+				config {
+					pins = "gpio48";
+					drive-strength = <2>;
+					bias-pull-down;
+					input-enable;
+				};
+			};
+		};
+
+
 		i2c_2 {
 			i2c_2_active: i2c_2_active {
 				/* active state */

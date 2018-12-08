@@ -32,7 +32,8 @@ static int cam_eeprom_read_memory(struct cam_eeprom_ctrl_t *e_ctrl,
 {
 	int                                rc = 0;
 	int                                j;
-	struct cam_sensor_i2c_reg_setting  i2c_reg_settings;
+	struct cam_sensor_i2c_reg_setting  i2c_reg_settings = {
+						NULL, 0, 0, 0, 0};
 	struct cam_sensor_i2c_reg_array    i2c_reg_array;
 	struct cam_eeprom_memory_map_t    *emap = block->map;
 	struct cam_eeprom_soc_private     *eb_info;
