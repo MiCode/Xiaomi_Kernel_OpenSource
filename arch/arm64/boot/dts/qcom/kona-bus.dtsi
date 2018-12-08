@@ -17,15 +17,14 @@
 			<0x1740000 0x1f080>,
 			<0x1620000 0x1c200>,
 			<0x1620000 0x40000>,
-			<0x1620000 0x40000>,
 			<0x1700000 0x3d180>,
 			<0x9990000 0x1600>;
 
 		reg-names = "aggre1_noc-base", "aggre2_noc-base",
 			"config_noc-base", "dc_noc-base",
 			"mc_virt-base", "gem_noc-base",
-			"mmss_noc-base", "system_noc-base", "ipa_virt-base",
-			"camnoc_virt-base", "compute_noc-base", "npu_noc-base";
+			"mmss_noc-base", "system_noc-base",
+			"ipa_virt-base", "compute_noc-base", "npu_noc-base";
 
 		/*RSCs*/
 		rsc_apps: rsc-apps {
@@ -359,18 +358,6 @@
 			clocks = <>;
 		};
 
-		fab_camnoc_virt: fab-camnoc_virt {
-			cell-id = <MSM_BUS_FAB_CAMNOC_VIRT>;
-			label = "fab-camnoc_virt";
-			qcom,fab-dev;
-			qcom,base-name = "camnoc_virt-base";
-			qcom,qos-off = <0>;
-			qcom,base-offset = <0>;
-			qcom,sbm-offset = <0>;
-			qcom,bypass-qos-prg;
-			clocks = <>;
-		};
-
 		fab_compute_noc: fab-compute_noc {
 			cell-id = <MSM_BUS_FAB_COMP_NOC>;
 			label = "fab-compute_noc";
@@ -544,6 +531,7 @@
 			qcom,qport = <7>;
 			qcom,connections = <&slv_qns_a1noc_snoc>;
 			qcom,bus-dev = <&fab_aggre1_noc>;
+			qcom,blacklist = <&slv_qns_cnoc>;
 			qcom,ap-owned;
 			qcom,prio = <2>;
 		};
@@ -557,6 +545,7 @@
 			qcom,connections = <&slv_qns_a1noc_snoc>;
 			qcom,bus-dev = <&fab_aggre1_noc>;
 			qcom,bcms = <&bcm_qup0>;
+			qcom,blacklist = <&slv_qns_cnoc>;
 			qcom,ap-owned;
 			qcom,prio = <2>;
 		};
@@ -570,6 +559,7 @@
 			qcom,connections = <&slv_qns_a1noc_snoc>;
 			qcom,bus-dev = <&fab_aggre1_noc>;
 			qcom,bcms = <&bcm_qup0>;
+			qcom,blacklist = <&slv_qns_cnoc>;
 			qcom,ap-owned;
 			qcom,prio = <2>;
 		};
@@ -582,6 +572,7 @@
 			qcom,qport = <8>;
 			qcom,connections = <&slv_qns_a1noc_snoc>;
 			qcom,bus-dev = <&fab_aggre1_noc>;
+			qcom,blacklist = <&slv_qns_cnoc>;
 			qcom,ap-owned;
 			qcom,prio = <2>;
 		};
@@ -594,6 +585,7 @@
 			qcom,qport = <4>;
 			qcom,connections = <&slv_qns_pcie_modem_mem_noc>;
 			qcom,bus-dev = <&fab_aggre1_noc>;
+			qcom,blacklist = <&slv_qns_cnoc>;
 			qcom,ap-owned;
 			qcom,prio = <2>;
 		};
@@ -606,6 +598,7 @@
 			qcom,qport = <2>;
 			qcom,connections = <&slv_qns_a1noc_snoc>;
 			qcom,bus-dev = <&fab_aggre1_noc>;
+			qcom,blacklist = <&slv_qns_cnoc>;
 			qcom,ap-owned;
 			qcom,prio = <2>;
 		};
@@ -618,6 +611,7 @@
 			qcom,qport = <3>;
 			qcom,connections = <&slv_qns_a1noc_snoc>;
 			qcom,bus-dev = <&fab_aggre1_noc>;
+			qcom,blacklist = <&slv_qns_cnoc>;
 			qcom,ap-owned;
 			qcom,prio = <2>;
 		};
@@ -630,6 +624,7 @@
 			qcom,qport = <0>;
 			qcom,connections = <&slv_qns_a1noc_snoc>;
 			qcom,bus-dev = <&fab_aggre1_noc>;
+			qcom,blacklist = <&slv_qns_cnoc>;
 			qcom,ap-owned;
 			qcom,prio = <2>;
 		};
@@ -642,6 +637,7 @@
 			qcom,qport = <1>;
 			qcom,connections = <&slv_qns_a1noc_snoc>;
 			qcom,bus-dev = <&fab_aggre1_noc>;
+			qcom,blacklist = <&slv_qns_cnoc>;
 			qcom,ap-owned;
 			qcom,prio = <2>;
 		};
@@ -663,6 +659,7 @@
 			qcom,qport = <11>;
 			qcom,connections = <&slv_qns_a2noc_snoc>;
 			qcom,bus-dev = <&fab_aggre2_noc>;
+			qcom,blacklist = <&slv_qns_cnoc>;
 			qcom,ap-owned;
 			qcom,prio = <2>;
 		};
@@ -676,6 +673,7 @@
 			qcom,connections = <&slv_qns_a2noc_snoc>;
 			qcom,bus-dev = <&fab_aggre2_noc>;
 			qcom,bcms = <&bcm_qup0>;
+			qcom,blacklist = <&slv_qns_cnoc>;
 			qcom,ap-owned;
 			qcom,prio = <2>;
 		};
@@ -688,6 +686,7 @@
 			qcom,qport = <0>;
 			qcom,connections = <&slv_qns_a2noc_snoc>;
 			qcom,bus-dev = <&fab_aggre2_noc>;
+			qcom,blacklist = <&slv_qns_cnoc>;
 			qcom,ap-owned;
 			qcom,prio = <2>;
 			qcom,forwarding;
@@ -702,6 +701,7 @@
 			qcom,connections = <&slv_qns_a2noc_snoc>;
 			qcom,bus-dev = <&fab_aggre2_noc>;
 			qcom,bcms = <&bcm_ce0>;
+			qcom,blacklist = <&slv_qns_cnoc>;
 			qcom,ap-owned;
 			qcom,prio = <2>;
 			qcom,forwarding;
@@ -715,6 +715,7 @@
 			qcom,qport = <2>;
 			qcom,connections = <&slv_qns_a2noc_snoc>;
 			qcom,bus-dev = <&fab_aggre2_noc>;
+			qcom,blacklist = <&slv_qns_cnoc>;
 			qcom,ap-owned;
 			qcom,prio = <2>;
 			qcom,forwarding;
@@ -728,6 +729,7 @@
 			qcom,qport = <8>;
 			qcom,connections = <&slv_qns_pcie_mem_noc>;
 			qcom,bus-dev = <&fab_aggre2_noc>;
+			qcom,blacklist = <&slv_qns_cnoc>;
 			qcom,ap-owned;
 			qcom,prio = <2>;
 		};
@@ -740,6 +742,7 @@
 			qcom,qport = <9>;
 			qcom,connections = <&slv_qns_pcie_mem_noc>;
 			qcom,bus-dev = <&fab_aggre2_noc>;
+			qcom,blacklist = <&slv_qns_cnoc>;
 			qcom,ap-owned;
 			qcom,prio = <2>;
 		};
@@ -752,6 +755,7 @@
 			qcom,qport = <7>;
 			qcom,connections = <&slv_qns_a2noc_snoc>;
 			qcom,bus-dev = <&fab_aggre2_noc>;
+			qcom,blacklist = <&slv_qns_cnoc>;
 			qcom,ap-owned;
 			qcom,prio = <2>;
 		};
@@ -764,6 +768,7 @@
 			qcom,qport = <3>;
 			qcom,connections = <&slv_qns_a2noc_snoc>;
 			qcom,bus-dev = <&fab_aggre2_noc>;
+			qcom,blacklist = <&slv_qns_cnoc>;
 			qcom,ap-owned;
 			qcom,prio = <2>;
 		};
@@ -776,35 +781,9 @@
 			qcom,qport = <4>;
 			qcom,connections = <&slv_qns_a2noc_snoc>;
 			qcom,bus-dev = <&fab_aggre2_noc>;
+			qcom,blacklist = <&slv_qns_cnoc>;
 			qcom,ap-owned;
 			qcom,prio = <2>;
-		};
-
-		mas_qxm_camnoc_hf0_uncomp: mas-qxm-camnoc-hf0-uncomp {
-			cell-id = <MSM_BUS_MASTER_CAMNOC_HF0_UNCOMP>;
-			label = "mas-qxm-camnoc-hf0-uncomp";
-			qcom,buswidth = <32>;
-			qcom,agg-ports = <1>;
-			qcom,connections = <&slv_qns_camnoc_uncomp>;
-			qcom,bus-dev = <&fab_camnoc_virt>;
-		};
-
-		mas_qxm_camnoc_hf1_uncomp: mas-qxm-camnoc-hf1-uncomp {
-			cell-id = <MSM_BUS_MASTER_CAMNOC_HF1_UNCOMP>;
-			label = "mas-qxm-camnoc-hf1-uncomp";
-			qcom,buswidth = <32>;
-			qcom,agg-ports = <1>;
-			qcom,connections = <&slv_qns_camnoc_uncomp>;
-			qcom,bus-dev = <&fab_camnoc_virt>;
-		};
-
-		mas_qxm_camnoc_sf_uncomp: mas-qxm-camnoc-sf-uncomp {
-			cell-id = <MSM_BUS_MASTER_CAMNOC_SF_UNCOMP>;
-			label = "mas-qxm-camnoc-sf-uncomp";
-			qcom,buswidth = <32>;
-			qcom,agg-ports = <1>;
-			qcom,connections = <&slv_qns_camnoc_uncomp>;
-			qcom,bus-dev = <&fab_camnoc_virt>;
 		};
 
 		mas_qnm_npu: mas-qnm-npu {
@@ -888,6 +867,7 @@
 				 &slv_qhs_clk_ctl>;
 			qcom,bus-dev = <&fab_config_noc>;
 			qcom,bcms = <&bcm_cn0>;
+			qcom,blacklist = <&slv_qns_gem_noc_snoc>;
 		};
 
 		mas_qhm_cnoc_dc_noc: mas-qhm-cnoc-dc-noc {
@@ -985,6 +965,7 @@
 			qcom,qport = <2 66>;
 			qcom,connections = <&slv_qns_llcc>;
 			qcom,bus-dev = <&fab_gem_noc>;
+			qcom,blacklist = <&slv_qns_cnoc>;
 			qcom,ap-owned;
 			qcom,prio = <0>;
 			qcom,forwarding;
@@ -1005,7 +986,7 @@
 		};
 
 		mas_qnm_pcie: mas-qnm-pcie {
-			cell-id = <MSM_BUS_MASTER_GEM_NOC_PCIE_SNOC>;
+			cell-id = <MSM_BUS_MASTER_ANOC_PCIE_GEM_NOC>;
 			label = "mas-qnm-pcie";
 			qcom,buswidth = <16>;
 			qcom,agg-ports = <1>;
@@ -1423,14 +1404,6 @@
 			qcom,buswidth = <4>;
 			qcom,agg-ports = <1>;
 			qcom,bus-dev = <&fab_aggre2_noc>;
-		};
-
-		slv_qns_camnoc_uncomp:slv-qns-camnoc-uncomp {
-			cell-id = <MSM_BUS_SLAVE_CAMNOC_UNCOMP>;
-			label = "slv-qns-camnoc-uncomp";
-			qcom,buswidth = <32>;
-			qcom,agg-ports = <1>;
-			qcom,bus-dev = <&fab_camnoc_virt>;
 		};
 
 		slv_qns_cdsp_mem_noc:slv-qns-cdsp-mem-noc {
