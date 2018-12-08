@@ -28,7 +28,7 @@ TRACE_EVENT(scm_call_start,
 	TP_fast_assign(
 		__entry->x0		= x0;
 		__entry->arginfo	= p->arginfo;
-		memcpy(__entry->args, p->args, MAX_SCM_ARGS);
+		memcpy(__entry->args, p->args, sizeof(__entry->args));
 		__entry->x5		= p->x5;
 	),
 
@@ -49,7 +49,7 @@ TRACE_EVENT(scm_call_end,
 	),
 
 	TP_fast_assign(
-		memcpy(__entry->ret, p->ret, MAX_SCM_RETS);
+		memcpy(__entry->ret, p->ret, sizeof(__entry->ret));
 	),
 
 	TP_printk("ret: %#llx, %#llx, %#llx",
