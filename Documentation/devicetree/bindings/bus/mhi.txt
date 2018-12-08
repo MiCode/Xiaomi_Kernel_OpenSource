@@ -52,6 +52,14 @@ mhi channel node properties:
   Value type: <u32>
   Definition: Number of elements transfer ring support
 
+- mhi,local-elements
+  Usage: optional
+  Value type: <u32>
+  Definition: Number of elements local ring should allocate. In most cases this
+	should be left empty. For channels such as RSC, number of elements
+	should be large enough such that next element in the ring should be
+	free to queue.
+
 - mhi,event-ring
   Usage: required
   Value type: <u32>
