@@ -26,6 +26,7 @@
 #define MAX_NO_OF_MAC_ADDR		4
 #define QMI_WLFW_MAX_TIMESTAMP_LEN	32
 #define QMI_WLFW_MAX_NUM_MEM_SEG	32
+#define CNSS_RDDM_TIMEOUT_MS		20000
 
 #define CNSS_EVENT_SYNC   BIT(0)
 #define CNSS_EVENT_UNINTERRUPTIBLE BIT(1)
@@ -250,6 +251,7 @@ struct cnss_plat_data {
 	bool cal_done;
 	bool powered_on;
 	char firmware_name[13];
+	struct completion rddm_complete;
 };
 
 struct cnss_plat_data *cnss_get_plat_priv(struct platform_device *plat_dev);
