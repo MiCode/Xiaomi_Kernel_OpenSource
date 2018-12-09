@@ -1016,20 +1016,6 @@ struct ipa3_rx_pkt_wrapper {
 };
 
 /**
- * struct ipa_pdn_entry - IPA PDN config table entry
- * @public_ip: the PDN's public ip
- * @src_metadata: the PDN's metadata to be replaced for source NAT
- * @dst_metadata: the PDN's metadata to be replaced for destination NAT
- * @resrvd: reserved field
- */
-struct ipa_pdn_entry {
-	u32 public_ip;
-	u32 src_metadata;
-	u32 dst_metadata;
-	u32 resrvd;
-};
-
-/**
  * struct ipa3_nat_ipv6ct_tmp_mem - NAT/IPv6CT temporary memory
  *
  * In case NAT/IPv6CT table are destroyed the HW is provided with the
