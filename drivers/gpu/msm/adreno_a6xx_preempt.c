@@ -34,43 +34,34 @@ enum {
 static void _update_wptr(struct adreno_device *adreno_dev, bool reset_timer)
 {
 	struct adreno_ringbuffer *rb = adreno_dev->cur_rb;
-	unsigned int wptr;
 	unsigned long flags;
-	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(
-			KGSL_DEVICE(adreno_dev));
-
-	/*
-	 * Need to make sure GPU is up before we read the
-	 * WPTR as fence doesn't wake GPU on read operation.
-	 */
-	if (in_interrupt() == 0) {
-		int status;
-
-		if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_set)) {
-			status = gmu_dev_ops->oob_set(adreno_dev, oob_preempt);
-			if (status) {
-				adreno_set_gpu_fault(adreno_dev,
-					ADRENO_GMU_FAULT);
-				adreno_dispatcher_schedule(
-					KGSL_DEVICE(adreno_dev));
-				return;
-			}
-		}
-	}
-
+	int ret = 0;
 
 	spin_lock_irqsave(&rb->preempt_lock, flags);
 
-	adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_WPTR, &wptr);
-
-	if (wptr != rb->wptr) {
-		adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_WPTR,
-			rb->wptr);
+	if (in_interrupt() == 0) {
 		/*
-		 * In case something got submitted while preemption was on
-		 * going, reset the timer.
+		 * We might have skipped updating the wptr in case we are in
+		 * dispatcher context. Do it now.
 		 */
-		reset_timer = true;
+		if (rb->skip_inline_wptr) {
+
+			ret = adreno_gmu_fenced_write(adreno_dev,
+				ADRENO_REG_CP_RB_WPTR, rb->wptr,
+				FENCE_STATUS_WRITEDROPPED0_MASK);
+
+			reset_timer = true;
+			rb->skip_inline_wptr = false;
+		}
+	} else {
+		unsigned int wptr;
+
+		adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_WPTR, &wptr);
+		if (wptr != rb->wptr) {
+			adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_WPTR,
+				rb->wptr);
+			reset_timer = true;
+		}
 	}
 
 	if (reset_timer)
@@ -80,8 +71,11 @@ static void _update_wptr(struct adreno_device *adreno_dev, bool reset_timer)
 	spin_unlock_irqrestore(&rb->preempt_lock, flags);
 
 	if (in_interrupt() == 0) {
-		if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_clear))
-			gmu_dev_ops->oob_clear(adreno_dev, oob_preempt);
+		/* If WPTR update fails, set the fault and trigger recovery */
+		if (ret) {
+			adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
+			adreno_dispatcher_schedule(KGSL_DEVICE(adreno_dev));
+		}
 	}
 }
 

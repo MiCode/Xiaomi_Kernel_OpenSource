@@ -574,7 +574,7 @@
 				config {
 					pins = "gpio10", "gpio13";
 					drive-strength = <2>;
-					bias-no-pull;
+					bias-disable;
 				};
 			};
 
@@ -1694,6 +1694,19 @@
 					bias-pull-up;
 					drive-strength = <16>;
 				};
+			};
+		};
+
+		bt_en_active: bt_en_active {
+			mux {
+				pins = "gpio85";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio85";
+				drive-strength = <2>;
+				bias-pull-down;
 			};
 		};
 	};

@@ -120,6 +120,10 @@
 			qcom,iova-mapping = <0x80000000 0x40000000>;
 		};
 	};
+
+	bluetooth_ext: bt_qca6174 {
+		status = "ok";
+	};
 };
 
 &ufsphy_mem {

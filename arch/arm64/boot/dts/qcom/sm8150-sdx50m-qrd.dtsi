@@ -38,14 +38,14 @@
 		qca,bt-vdd-ldo-current-level = <0>; /* LPM/PFM */
 	};
 
-	qrd_batterydata: qcom,battery-data {
+	fusion_qrd_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
-		#include "fg-gen4-batterydata-mlp466076-3250mah.dtsi"
+		#include "fg-gen4-batterydata-alium-3600mah.dtsi"
 	};
 };
 
 &pm8150b_fg {
-	qcom,battery-data = <&qrd_batterydata>;
+	qcom,battery-data = <&fusion_qrd_batterydata>;
 	qcom,hold-soc-while-full;
 	qcom,linearize-soc;
 	/* ESR fast calibration */
@@ -572,8 +572,9 @@
 			   "sbux_res",
 			   "vph_voltage",
 			   "chg_temp";
-	qcom,battery-data = <&qrd_batterydata>;
+	qcom,battery-data = <&fusion_qrd_batterydata>;
 	qcom,sw-jeita-enable;
+	qcom,step-charging-enable;
 	qcom,wd-bark-time-secs = <16>;
 	qcom,suspend-input-on-debug-batt;
 };

@@ -534,7 +534,8 @@ static int cam_fd_mgr_util_prepare_io_buf_info(int32_t iommu_hdl,
 	struct cam_fd_hw_io_buffer *output_buf, uint32_t io_buf_size)
 {
 	int rc = -EINVAL;
-	uint32_t i, j, plane, num_out_buf, num_in_buf;
+	uint32_t plane, num_out_buf, num_in_buf;
+	int i, j;
 	struct cam_buf_io_cfg *io_cfg;
 	dma_addr_t io_addr[CAM_PACKET_MAX_PLANES];
 	uintptr_t cpu_addr[CAM_PACKET_MAX_PLANES];
@@ -606,7 +607,7 @@ static int cam_fd_mgr_util_prepare_io_buf_info(int32_t iommu_hdl,
 						io_cfg[i].direction,
 						io_cfg[i].resource_type, plane,
 						rc);
-					return rc;
+					goto rel_cpu_buf;
 				}
 
 				cpu_addr[plane] += io_cfg[i].offsets[plane];
@@ -656,14 +657,34 @@ static int cam_fd_mgr_util_prepare_io_buf_info(int32_t iommu_hdl,
 		default:
 			CAM_ERR(CAM_FD, "Unsupported io direction %d",
 				io_cfg[i].direction);
-			return -EINVAL;
+			rc = -EINVAL;
+			break;
+		}
+
+		for (j = 0; j < plane; j++) {
+			if (need_cpu_map) {
+				if (cam_mem_put_cpu_buf(
+					io_cfg[i].mem_handle[j]))
+					CAM_WARN(CAM_FD,
+						"Invalid cpu buf %d %d %d %d",
+						io_cfg[i].direction,
+						io_cfg[i].resource_type, j);
+			}
 		}
 	}
 
 	prepare->num_in_map_entries  = num_in_buf;
 	prepare->num_out_map_entries = num_out_buf;
+	return rc;
 
-	return 0;
+rel_cpu_buf:
+	for (j = plane - 1; j >= 0; j--) {
+		if (cam_mem_put_cpu_buf(io_cfg[i].mem_handle[j]))
+			CAM_WARN(CAM_FD, "Fail to put cpu buf %d %d %d",
+				io_cfg[i].direction,
+				io_cfg[i].resource_type, j);
+	}
+	return rc;
 }
 
 static int cam_fd_mgr_util_prepare_hw_update_entries(

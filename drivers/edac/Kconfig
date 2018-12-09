@@ -543,17 +543,6 @@ config EDAC_QCOM_LLCC
 	  For debugging issues having to do with stability and overall system
 	  health, you should probably say 'Y' here.
 
-config EDAC_LLCC_POLL
-	depends on EDAC_QCOM_LLCC
-	bool "Poll on LLCC ECC registers - LLCC"
-	help
-	   This option chooses whether or not you want to poll on the LLCC
-	   ECC registers. When this is enabled, the polling rate can be set as
-	   a module parameter. By default, it will call the polling function
-	   every second.
-	   This option should only be used if the associated interrupt lines
-	   are not enabled.
-
 config EDAC_QCOM_LLCC_PANIC_ON_CE
 	depends on EDAC_QCOM_LLCC
 	bool "panic on correctable errors - qcom llcc"
