@@ -27,11 +27,12 @@ struct edrm_plane {
 	u32 sspp_offset;
 	u32 sspp_cfg_id;
 	u32 lm_stage;
+	u32 sspp_type;
 };
 
 int edrm_plane_flush(struct drm_plane *plane);
 
-struct drm_plane *edrm_plane_init(struct drm_device *dev, int id);
+struct drm_plane *edrm_plane_init(struct drm_device *dev, int id, u32 type);
 
 void edrm_plane_destroy(struct drm_plane *plane);
 

@@ -418,7 +418,8 @@ static int _edrm_kms_parse_dt(struct msm_edrm_kms *edrm_kms)
 			}
 
 			plane = edrm_plane_init(edrm_kms->dev,
-					edrm_kms->plane_id[disp_cnt]);
+					edrm_kms->plane_id[disp_cnt],
+					sspp_type);
 			if (IS_ERR(plane)) {
 				pr_err("edrm_plane_init failed\n");
 				ret = PTR_ERR(plane);
@@ -431,6 +432,7 @@ static int _edrm_kms_parse_dt(struct msm_edrm_kms *edrm_kms)
 			edrm_plane->lm_stage = lm_stage;
 			edrm_plane->sspp_offset = sspp_offset;
 			edrm_plane->sspp_cfg_id = sspp_cfg_id;
+			edrm_plane->sspp_type = sspp_type;
 			plane->possible_crtcs = (1 << disp_cnt);
 			priv->num_planes++;
 			plane_cnt++;
