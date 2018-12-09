@@ -1031,6 +1031,32 @@
 			};
 		};
 
+		sde_dp_aux_active: sde_dp_aux_active {
+			mux {
+				pins = "gpio42", "gpio33";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio42", "gpio33";
+				bias-disable = <0>; /* no pull */
+				drive-strength = <8>;
+			};
+		};
+
+		sde_dp_aux_suspend: sde_dp_aux_suspend {
+			mux {
+				pins = "gpio42", "gpio33";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio42", "gpio33";
+				bias-pull-down;
+				drive-strength = <2>;
+			};
+		};
+
 		sde_dp_usbplug_cc_active: sde_dp_usbplug_cc_active {
 			mux {
 				pins = "gpio104";
