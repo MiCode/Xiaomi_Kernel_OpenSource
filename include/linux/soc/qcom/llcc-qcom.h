@@ -36,6 +36,7 @@
 #define LLCC_CVP         28
 #define LLCC_APTCM       30
 #define LLCC_WRTCH       31
+#define LLCC_CVPFW       32
 
 /**
  * llcc_slice_desc - Cache slice descriptor
