@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2017, 2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _ARCH_ARM_MACH_MSM_BUS_CORE_H
@@ -47,6 +47,7 @@ enum msm_bus_hw_sel {
 	MSM_BUS_RPM = 0,
 	MSM_BUS_NOC,
 	MSM_BUS_BIMC,
+	MSM_BUS_QNOC,
 };
 
 struct msm_bus_arb_ops {
