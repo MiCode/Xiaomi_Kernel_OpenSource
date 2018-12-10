@@ -36,7 +36,7 @@
 #include <linux/regulator/consumer.h>
 #include "synaptics_tcm_core.h"
 
-#define RESET_ON_RESUME
+/* #define RESET_ON_RESUME */
 
 /* #define RESUME_EARLY_UNBLANK */
 

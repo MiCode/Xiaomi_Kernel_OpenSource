@@ -44,7 +44,7 @@
 
 #define CUSTOM_DIR_NAME "custom"
 
-#define FW_IMAGE_NAME "synaptics/firmware.img"
+#define FW_IMAGE_NAME "synaptics_firmware.img"
 
 #define BOOT_CONFIG_ID "BOOT_CONFIG"
 
@@ -60,7 +60,7 @@
 
 #define FB_READY_WAIT_MS 100
 
-#define FB_READY_TIMEOUT_S 30
+#define FB_READY_TIMEOUT_S 80
 
 #define IMAGE_FILE_MAGIC_VALUE 0x4818472b
 
@@ -1945,7 +1945,7 @@ static void reflash_startup_work(struct work_struct *work)
 #if defined(CONFIG_DRM) || defined(CONFIG_FB)
 	timeout = FB_READY_TIMEOUT_S * 1000 / FB_READY_WAIT_MS;
 
-	while (tcm_hcd->fb_ready != FB_READY_COUNT) {
+	while (tcm_hcd->fb_ready != FB_READY_COUNT - 1) {
 		if (timeout == 0) {
 			LOGE(tcm_hcd->pdev->dev.parent,
 					"Timed out waiting for FB ready\n");

@@ -58,7 +58,7 @@
 #define TOUCH_INPUT_NAME "synaptics_tcm_touch"
 #define TOUCH_INPUT_PHYS_PATH "synaptics_tcm/touch_input"
 
-#define WAKEUP_GESTURE
+/* #define WAKEUP_GESTURE */
 
 #define RD_CHUNK_SIZE 0 /* read length limit in bytes, 0 = unlimited */
 #define WR_CHUNK_SIZE 0 /* write length limit in bytes, 0 = unlimited */
