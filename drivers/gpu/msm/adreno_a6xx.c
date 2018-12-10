@@ -673,7 +673,7 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 	 * skip GMU_GX registers for A12.
 	 */
 
-	if (!adreno_is_a612(adreno_dev))
+	if (gmu_core_isenabled(device) && !adreno_is_a612(adreno_dev))
 		gmu_core_regrmw(device,
 			A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 1, 0);
 
@@ -685,7 +685,7 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 	 * A612 GPU is not having the GX power domain. Hence
 	 * skip GMU_GX registers for A612.
 	 */
-	if (!adreno_is_a612(adreno_dev))
+	if (gmu_core_isenabled(device) && !adreno_is_a612(adreno_dev))
 		gmu_core_regrmw(device,
 			A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 0, 1);
 

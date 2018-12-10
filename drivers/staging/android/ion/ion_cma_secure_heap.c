@@ -353,8 +353,8 @@ static void ion_secure_cma_free_chunk(struct ion_cma_secure_heap *sheap,
 	kfree(chunk);
 }
 
-static void __ion_secure_cma_shrink_pool(struct ion_cma_secure_heap *sheap,
-					 int max_nr)
+static unsigned long
+__ion_secure_cma_shrink_pool(struct ion_cma_secure_heap *sheap, int max_nr)
 {
 	struct list_head *entry, *_n;
 	unsigned long drained_size = 0, skipped_size = 0;
@@ -378,6 +378,7 @@ static void __ion_secure_cma_shrink_pool(struct ion_cma_secure_heap *sheap,
 	}
 
 	trace_ion_secure_cma_shrink_pool_end(drained_size, skipped_size);
+	return drained_size;
 }
 
 int ion_secure_cma_drain_pool(struct ion_heap *heap, void *unused)
@@ -395,6 +396,7 @@ int ion_secure_cma_drain_pool(struct ion_heap *heap, void *unused)
 static unsigned long ion_secure_cma_shrinker(struct shrinker *shrinker,
 					     struct shrink_control *sc)
 {
+	unsigned long freed;
 	struct ion_cma_secure_heap *sheap = container_of(shrinker,
 					struct ion_cma_secure_heap, shrinker);
 	int nr_to_scan = sc->nr_to_scan;
@@ -407,11 +409,11 @@ static unsigned long ion_secure_cma_shrinker(struct shrinker *shrinker,
 	if (!mutex_trylock(&sheap->chunk_lock))
 		return -EAGAIN;
 
-	__ion_secure_cma_shrink_pool(sheap, nr_to_scan);
+	freed = __ion_secure_cma_shrink_pool(sheap, nr_to_scan);
 
 	mutex_unlock(&sheap->chunk_lock);
 
-	return atomic_read(&sheap->total_pool_size);
+	return freed;
 }
 
 static unsigned long ion_secure_cma_shrinker_count(struct shrinker *shrinker,

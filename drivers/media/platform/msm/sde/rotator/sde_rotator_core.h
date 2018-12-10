@@ -402,6 +402,7 @@ struct sde_rot_bus_data_type {
  * @fudge_factor: fudge factor for clock calculation
  * @overhead: software overhead for offline rotation in msec
  * @min_rot_clk: minimum rotator clock rate
+ * @max_rot_clk: maximum allowed rotator clock rate
  * @sbuf_ctx: pointer to sbuf session context
  * @ops_xxx: function pointers of rotator HAL layer
  * @hw_data: private handle of rotator HAL layer
@@ -448,6 +449,7 @@ struct sde_rot_mgr {
 	struct sde_mult_factor fudge_factor;
 	struct sde_mult_factor overhead;
 	unsigned long min_rot_clk;
+	unsigned long max_rot_clk;
 
 	struct sde_rot_file_private *sbuf_ctx;
 

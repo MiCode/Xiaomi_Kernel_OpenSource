@@ -29,18 +29,34 @@
  * Functions - Register
  * -------------------------------------------------------------------------
  */
-uint32_t npu_reg_read(struct npu_device *npu_dev, uint32_t off)
+uint32_t npu_core_reg_read(struct npu_device *npu_dev, uint32_t off)
 {
 	uint32_t ret = 0;
 
-	ret = readl_relaxed(npu_dev->npu_io.base + off);
+	ret = readl_relaxed(npu_dev->core_io.base + off);
 	__iormb();
 	return ret;
 }
 
-void npu_reg_write(struct npu_device *npu_dev, uint32_t off, uint32_t val)
+void npu_core_reg_write(struct npu_device *npu_dev, uint32_t off, uint32_t val)
 {
-	writel_relaxed(val, npu_dev->npu_io.base + off);
+	writel_relaxed(val, npu_dev->core_io.base + off);
+	__iowmb();
+}
+
+uint32_t npu_bwmon_reg_read(struct npu_device *npu_dev, uint32_t off)
+{
+	uint32_t ret = 0;
+
+	ret = readl_relaxed(npu_dev->bwmon_io.base + off);
+	__iormb();
+	return ret;
+}
+
+void npu_bwmon_reg_write(struct npu_device *npu_dev, uint32_t off,
+	uint32_t val)
+{
+	writel_relaxed(val, npu_dev->bwmon_io.base + off);
 	__iowmb();
 }
 
@@ -71,7 +87,7 @@ void npu_mem_write(struct npu_device *npu_dev, void *dst, void *src,
 
 	num = size/4;
 	for (i = 0; i < num; i++) {
-		writel_relaxed(src_ptr32[i], npu_dev->npu_io.base + dst_off);
+		writel_relaxed(src_ptr32[i], npu_dev->tcm_io.base + dst_off);
 		dst_off += 4;
 	}
 
@@ -79,7 +95,7 @@ void npu_mem_write(struct npu_device *npu_dev, void *dst, void *src,
 		src_ptr8 = (uint8_t *)((size_t)src + (num*4));
 		num = size%4;
 		for (i = 0; i < num; i++) {
-			writeb_relaxed(src_ptr8[i], npu_dev->npu_io.base +
+			writeb_relaxed(src_ptr8[i], npu_dev->tcm_io.base +
 				dst_off);
 			dst_off += 1;
 		}
@@ -97,7 +113,7 @@ int32_t npu_mem_read(struct npu_device *npu_dev, void *src, void *dst,
 
 	num = size/4;
 	for (i = 0; i < num; i++) {
-		out32[i] = readl_relaxed(npu_dev->npu_io.base + src_off);
+		out32[i] = readl_relaxed(npu_dev->tcm_io.base + src_off);
 		src_off += 4;
 	}
 
@@ -105,7 +121,7 @@ int32_t npu_mem_read(struct npu_device *npu_dev, void *src, void *dst,
 		out8 = (uint8_t *)((size_t)dst + (num*4));
 		num = size%4;
 		for (i = 0; i < num; i++) {
-			out8[i] = readb_relaxed(npu_dev->npu_io.base + src_off);
+			out8[i] = readb_relaxed(npu_dev->tcm_io.base + src_off);
 			src_off += 1;
 		}
 	}
@@ -151,7 +167,7 @@ int32_t npu_interrupt_raise_m0(struct npu_device *npu_dev)
 	/* Bit 4 is setting IRQ_SOURCE_SELECT to local
 	 * and we're triggering a pulse to NPU_MASTER0_IPC_IN_IRQ0
 	 */
-	npu_reg_write(npu_dev, NPU_MASTERn_IPC_IRQ_IN_CTRL(0), 0x1
+	npu_core_reg_write(npu_dev, NPU_MASTERn_IPC_IRQ_IN_CTRL(0), 0x1
 		<< NPU_MASTER0_IPC_IRQ_IN_CTRL__IRQ_SOURCE_SELECT___S | 0x1);
 
 	return 0;
@@ -159,7 +175,7 @@ int32_t npu_interrupt_raise_m0(struct npu_device *npu_dev)
 
 int32_t npu_interrupt_raise_dsp(struct npu_device *npu_dev)
 {
-	npu_reg_write(npu_dev, NPU_MASTERn_IPC_IRQ_OUT_CTRL(1), 0x8);
+	npu_core_reg_write(npu_dev, NPU_MASTERn_IPC_IRQ_OUT_CTRL(1), 0x8);
 
 	return 0;
 }

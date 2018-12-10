@@ -30,8 +30,8 @@
 #define QFPROM_FMAX_BITS_MASK  0x0000000C
 #define QFPROM_FMAX_BITS_SHIFT 2
 
-#define REGW(npu_dev, off, val) npu_reg_write(npu_dev, off, val)
-#define REGR(npu_dev, off) npu_reg_read(npu_dev, off)
+#define REGW(npu_dev, off, val) npu_core_reg_write(npu_dev, off, val)
+#define REGR(npu_dev, off) npu_core_reg_read(npu_dev, off)
 #define MEMW(npu_dev, dst, src, size) npu_mem_write(npu_dev, (void *)(dst),\
 	(void *)(src), size)
 #define MEMR(npu_dev, src, dst, size) npu_mem_read(npu_dev, (void *)(src),\
@@ -56,8 +56,11 @@ typedef void (*wq_hdlr_fn) (struct work_struct *work);
  * Function Prototypes
  * -------------------------------------------------------------------------
  */
-uint32_t npu_reg_read(struct npu_device *npu_dev, uint32_t off);
-void npu_reg_write(struct npu_device *npu_dev, uint32_t off, uint32_t val);
+uint32_t npu_core_reg_read(struct npu_device *npu_dev, uint32_t off);
+void npu_core_reg_write(struct npu_device *npu_dev, uint32_t off, uint32_t val);
+uint32_t npu_bwmon_reg_read(struct npu_device *npu_dev, uint32_t off);
+void npu_bwmon_reg_write(struct npu_device *npu_dev, uint32_t off,
+	uint32_t val);
 void npu_mem_write(struct npu_device *npu_dev, void *dst, void *src,
 	uint32_t size);
 int32_t npu_mem_read(struct npu_device *npu_dev, void *src, void *dst,

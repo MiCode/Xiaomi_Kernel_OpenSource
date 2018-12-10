@@ -1,0 +1,124 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&q6core {
+	cdc_dmic01_gpios: cdc_dmic01_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_dmic01_clk_active &cdc_dmic01_data_active>;
+		pinctrl-1 = <&cdc_dmic01_clk_sleep &cdc_dmic01_data_sleep>;
+		qcom,lpi-gpios;
+	};
+
+	cdc_dmic23_gpios: cdc_dmic23_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_dmic23_clk_active &cdc_dmic23_data_active>;
+		pinctrl-1 = <&cdc_dmic23_clk_sleep &cdc_dmic23_data_sleep>;
+		qcom,lpi-gpios;
+	};
+
+	cdc_dmic45_gpios: cdc_dmic45_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_dmic45_clk_active &cdc_dmic45_data_active>;
+		pinctrl-1 = <&cdc_dmic45_clk_sleep &cdc_dmic45_data_sleep>;
+		qcom,lpi-gpios;
+	};
+
+	cdc_dmic67_gpios: cdc_dmic67_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_dmic67_clk_active &cdc_dmic67_data_active>;
+		pinctrl-1 = <&cdc_dmic67_clk_sleep &cdc_dmic67_data_sleep>;
+		qcom,lpi-gpios;
+	};
+};
+
+&q6core {
+	bolero: bolero-cdc {
+		compatible = "qcom,bolero-codec";
+		clock-names = "island_lpass_npa_rsc";
+		clocks = <&lpass_npa_rsc_island 0>;
+		qcom,num-macros = <1>;
+	};
+};
+
+&qcs405_snd {
+	qcom,model = "qcs405-csra8-snd-card";
+	qcom,va-bolero-codec = <1>;
+	qcom,tasha-codec = <1>;
+	qcom,csra-codec = <1>;
+	asoc-codec = <&stub_codec>, <&bolero>;
+	asoc-codec-names = "msm-stub-codec.1", "bolero_codec";
+	qcom,csra-max-devs = <8>;
+	qcom,csra-devs = <&csra66x0_ampl_6B>, <&csra66x0_ampl_6A>,
+		<&csra66x0_ampl_69>, <&csra66x0_ampl_68>,
+		<&csra66x0_ampl_6B_1>, <&csra66x0_ampl_6A_1>,
+		<&csra66x0_ampl_69_1>, <&csra66x0_ampl_68_1>;
+	qcom,csra-aux-dev-prefix = "CSRA_78", "CSRA_56", "CSRA_34",
+		"CSRA_12", "CSRA_F0", "CSRA_DE", "CSRA_BC", "CSRA_9A";
+	qcom,cdc-dmic01-gpios = <&cdc_dmic01_gpios>;
+	qcom,cdc-dmic23-gpios = <&cdc_dmic23_gpios>;
+	qcom,cdc-dmic45-gpios = <&cdc_dmic45_gpios>;
+	qcom,cdc-dmic67-gpios = <&cdc_dmic67_gpios>;
+	qcom,audio-routing =
+		"RX_BIAS", "MCLK",
+		"AMIC3", "MIC BIAS3",
+		"AMIC4", "MIC BIAS4",
+		"MIC BIAS3", "Analog Mic3",
+		"MIC BIAS4", "Analog Mic4",
+		"VA DMIC0", "VA MIC BIAS1",
+		"VA MIC BIAS1", "Digital Mic0",
+		"VA DMIC1", "VA MIC BIAS1",
+		"VA MIC BIAS1", "Digital Mic1",
+		"VA DMIC2", "VA MIC BIAS1",
+		"VA MIC BIAS1", "Digital Mic2",
+		"VA DMIC3", "VA MIC BIAS1",
+		"VA MIC BIAS1", "Digital Mic3",
+		"VA DMIC4", "VA MIC BIAS1",
+		"VA MIC BIAS1", "Digital Mic4",
+		"VA DMIC5", "VA MIC BIAS1",
+		"VA MIC BIAS1", "Digital Mic5",
+		"VA DMIC6", "VA MIC BIAS1",
+		"VA MIC BIAS1", "Digital Mic6",
+		"VA DMIC7", "VA MIC BIAS1",
+		"VA MIC BIAS1", "Digital Mic7",
+		"CSRA_12 IN", "PRI_MI2S_RX",
+		"CSRA_34 IN", "PRI_MI2S_RX",
+		"CSRA_56 IN", "PRI_MI2S_RX",
+		"CSRA_78 IN", "PRI_MI2S_RX",
+		"CSRA_9A IN", "PRI_MI2S_RX",
+		"CSRA_BC IN", "PRI_MI2S_RX",
+		"CSRA_DE IN", "PRI_MI2S_RX",
+		"CSRA_F0 IN", "PRI_MI2S_RX";
+	pinctrl-names = "default";
+	pinctrl-0 = <&spdifrx_opt_default
+		&pri_mi2s_sck_active &pri_mi2s_ws_active
+		&pri_mi2s_sd0_active &pri_mi2s_sd1_active
+		&pri_mi2s_sd2_active &pri_mi2s_sd3_active
+		&pri_mi2s_sd4_active &pri_mi2s_sd5_active
+		&pri_mi2s_sd6_active &pri_mi2s_sd7_active
+		&sec_mi2s_sck_active &sec_mi2s_ws_active
+		&sec_mi2s_sd0_active &sec_mi2s_sd1_active
+		&sec_mi2s_sd2_active &sec_mi2s_sd3_active>;
+};
+
+&dai_mi2s0 {
+	qcom,msm-mi2s-rx-lines = <0xff>;
+};
+
+#include "qcs405-tasha.dtsi"
+#include "qcs405-va-bolero.dtsi"
+#include "qcs405-csra8.dtsi"
+

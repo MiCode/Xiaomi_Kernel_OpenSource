@@ -15,6 +15,8 @@
 
 #include "qcs403.dtsi"
 #include "qcs405-wsa-audio-overlay.dtsi"
+#include "qcs405-circular-pca9956.dtsi"
+
 / {
 	model = "Qualcomm Technologies, Inc. QCS403 SSRD IOT";
 	compatible = "qcom,qcs403-iot", "qcom,qcs403", "qcom,iot";
@@ -61,6 +63,15 @@
 		ports {
 			/delete-node/ port@3;
 			/delete-node/ port@4;
+		};
+	};
+
+	spi@78b5000 {
+		status = "ok";
+		spi@0 {
+			compatible = "qcom,spi-msm-codec-slave";
+			reg = <0>;
+			spi-max-frequency = <50000000>;
 		};
 	};
 };
