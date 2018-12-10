@@ -225,9 +225,11 @@ static int __mhi_close(struct diag_mhi_info *mhi_info, int close_flag)
 
 	flush_workqueue(mhi_info->mhi_wq);
 
-	if (close_flag == CLOSE_CHANNELS)
+	if (close_flag == CLOSE_CHANNELS) {
+		mutex_lock(&mhi_info->ch_mutex);
 		mhi_unprepare_from_transfer(mhi_info->mhi_dev);
-
+		mutex_unlock(&mhi_info->ch_mutex);
+	}
 	mhi_buf_tbl_clear(mhi_info);
 	diag_remote_dev_close(mhi_info->dev_id);
 	return 0;
@@ -276,7 +278,9 @@ static int __mhi_open(struct diag_mhi_info *mhi_info, int open_flag)
 		if ((atomic_read(&(mhi_info->read_ch.opened))) &&
 			(atomic_read(&(mhi_info->write_ch.opened))))
 			return 0;
+		mutex_lock(&mhi_info->ch_mutex);
 		err = mhi_prepare_for_transfer(mhi_info->mhi_dev);
+		mutex_unlock(&mhi_info->ch_mutex);
 		if (err) {
 			pr_err("diag: In %s, unable to open ch, err: %d\n",
 				__func__, err);
@@ -693,6 +697,7 @@ int diag_mhi_init(void)
 		spin_lock_init(&mhi_info->lock);
 		spin_lock_init(&mhi_info->read_ch.lock);
 		spin_lock_init(&mhi_info->write_ch.lock);
+		mutex_init(&mhi_info->ch_mutex);
 		INIT_LIST_HEAD(&mhi_info->read_ch.buf_tbl);
 		INIT_LIST_HEAD(&mhi_info->write_ch.buf_tbl);
 		atomic_set(&(mhi_info->read_ch.opened), 0);

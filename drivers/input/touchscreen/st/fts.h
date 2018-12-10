@@ -161,8 +161,8 @@
 
 #define EXP_FN_WORK_DELAY_MS 1000
 
-#define CMD_STR_LEN          32
-
+#define CMD_STR_LEN		32
+#define I2C_DATA_MAX_LEN	32
 
 #ifdef SCRIPTLESS
 /*
@@ -296,6 +296,9 @@ struct fts_ts_info {
 	int edge_rej_enabled;
 	int corner_rej_enabled;
 	int edge_palm_rej_enabled;
+
+	uint8_t *i2c_data;
+	uint8_t i2c_data_len;
 };
 
 extern struct chipInfo ftsInfo;

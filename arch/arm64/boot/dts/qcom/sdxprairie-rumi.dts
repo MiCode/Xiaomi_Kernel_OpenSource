@@ -21,3 +21,7 @@
 		"qcom,sdxprairie", "qcom,rumi";
 	qcom,board-id = <15 0>;
 };
+
+&qnand_1 {
+	status = "ok";
+};

@@ -14,6 +14,7 @@
 
 #include "sdmmagpie.dtsi"
 #include "sdmmagpie-idp.dtsi"
+#include "sdmmagpie-usbc-idp.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDMMAGPIE PM6150 USBC Audio IDP";

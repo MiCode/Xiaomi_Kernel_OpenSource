@@ -2161,6 +2161,12 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
 			{ 16, 10, 9, 9, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY, 0 } },
+	[IPA_4_5][IPA_CLIENT_APPS_WAN_COAL_CONS]       = {
+			true, IPA_v4_5_GROUP_UL_DL_DST,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 13, 4, 8, 11, IPA_EE_AP, GSI_SMART_PRE_FETCH, 4 } },
 	[IPA_4_5][IPA_CLIENT_APPS_WAN_CONS]       = {
 			true, IPA_v4_5_GROUP_UL_DL_DST,
 			false,
@@ -4362,6 +4368,8 @@ const char *ipa3_get_aggr_type_str(enum ipa_aggr_type aggr_type)
 			return "GENERIC";
 	case (IPA_QCMAP):
 			return "QCMAP";
+	case (IPA_COALESCE):
+			return "COALESCE";
 	}
 	return "undefined";
 }
@@ -4504,6 +4512,11 @@ int ipa3_cfg_ep_aggr(u32 clnt_hdl, const struct ipa_ep_cfg_aggr *ep_aggr)
 			res = -EINVAL;
 			goto complete;
 		}
+		if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_5 &&
+			ipa3_get_client_mapping(clnt_hdl) ==
+			IPA_CLIENT_APPS_WAN_COAL_CONS &&
+			ipa3_ctx->ep[clnt_hdl].cfg.aggr.pulse_generator != 0)
+			ipa_assert();
 	} else {
 		/*
 		 * Global aggregation granularity is 0.5msec.
@@ -6162,7 +6175,6 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_get_ipc_logbuf = ipa3_get_ipc_logbuf;
 	api_ctrl->ipa_get_ipc_logbuf_low = ipa3_get_ipc_logbuf_low;
 	api_ctrl->ipa_rx_poll = ipa3_rx_poll;
-	api_ctrl->ipa_recycle_wan_skb = ipa3_recycle_wan_skb;
 	api_ctrl->ipa_setup_uc_ntn_pipes = ipa3_setup_uc_ntn_pipes;
 	api_ctrl->ipa_tear_down_uc_offload_pipes =
 		ipa3_tear_down_uc_offload_pipes;

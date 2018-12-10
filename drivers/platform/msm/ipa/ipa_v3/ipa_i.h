@@ -21,6 +21,8 @@
 #include <linux/mutex.h>
 #include <linux/skbuff.h>
 #include <linux/slab.h>
+#include <linux/notifier.h>
+
 #include <linux/ipa.h>
 #include <linux/ipa_usb.h>
 #include <asm/dma-iommu.h>
@@ -882,7 +884,7 @@ struct ipa3_sys_context {
 	struct delayed_work replenish_rx_work;
 	struct work_struct repl_work;
 	void (*repl_hdlr)(struct ipa3_sys_context *sys);
-	struct ipa3_repl_ctx repl;
+	struct ipa3_repl_ctx *repl;
 	u32 pkt_sent;
 	struct napi_struct *napi_obj;
 
@@ -2488,7 +2490,8 @@ int ipa3_uc_interface_init(void);
 int ipa3_uc_is_gsi_channel_empty(enum ipa_client_type ipa_client);
 int ipa3_uc_state_check(void);
 int ipa3_uc_loaded_check(void);
-void ipa3_uc_load_notify(void);
+int ipa3_uc_register_ready_cb(struct notifier_block *nb);
+int ipa3_uc_unregister_ready_cb(struct notifier_block *nb);
 int ipa3_uc_send_cmd(u32 cmd, u32 opcode, u32 expected_status,
 		    bool polling_mode, unsigned long timeout_jiffies);
 void ipa3_uc_register_handlers(enum ipa3_hw_features feature,
@@ -2519,7 +2522,6 @@ int ipa3_uc_send_remote_ipa_info(u32 remote_addr, uint32_t mbox_n);
 void ipa3_tag_destroy_imm(void *user1, int user2);
 const struct ipa_gsi_ep_config *ipa3_get_gsi_ep_info
 	(enum ipa_client_type client);
-void ipa3_uc_rg10_write_reg(enum ipahal_reg_name reg, u32 n, u32 val);
 
 /* Hardware stats */
 
@@ -2628,7 +2630,6 @@ int ipa3_register_ipa_ready_cb(void (*ipa_ready_cb)(void *), void *user_data);
 const char *ipa_hw_error_str(enum ipa3_hw_errors err_type);
 int ipa_gsi_ch20_wa(void);
 int ipa3_rx_poll(u32 clnt_hdl, int budget);
-void ipa3_recycle_wan_skb(struct sk_buff *skb);
 int ipa3_smmu_map_peer_reg(phys_addr_t phys_addr, bool map,
 	enum ipa_smmu_cb_type cb_type);
 int ipa3_smmu_map_peer_buff(u64 iova, u32 size, bool map, struct sg_table *sgt,

@@ -164,6 +164,8 @@ int of_thermal_aggregate_trip(struct thermal_zone_device *tz,
 			      enum thermal_trip_type type,
 			      int *low, int *high);
 void of_thermal_handle_trip(struct thermal_zone_device *tz);
+void of_thermal_handle_trip_temp(struct thermal_zone_device *tz,
+					int trip_temp);
 #else
 static inline int of_parse_thermal_zones(void) { return 0; }
 static inline void of_thermal_destroy_zones(void) { }
@@ -189,6 +191,10 @@ static inline int of_thermal_aggregate_trip(struct thermal_zone_device *tz,
 }
 static inline
 void of_thermal_handle_trip(struct thermal_zone_device *tz)
+{ }
+static inline
+void of_thermal_handle_trip_temp(struct thermal_zone_device *tz,
+					int trip_temp)
 { }
 #endif
 

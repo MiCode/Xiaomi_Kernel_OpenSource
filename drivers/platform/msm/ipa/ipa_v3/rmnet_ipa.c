@@ -98,6 +98,9 @@ static void tethering_stats_poll_queue(struct work_struct *work);
 static DECLARE_DELAYED_WORK(ipa_tether_stats_poll_wakequeue_work,
 			    tethering_stats_poll_queue);
 
+static int rmnet_ipa_send_coalesce_notification(uint8_t qmap_id, bool enable,
+					bool tcp, bool udp);
+
 enum ipa3_wwan_device_status {
 	WWAN_DEVICE_INACTIVE = 0,
 	WWAN_DEVICE_ACTIVE   = 1
@@ -194,7 +197,23 @@ static int ipa3_setup_a7_qmap_hdr(void)
 
 	strlcpy(hdr_entry->name, IPA_A7_QMAP_HDR_NAME,
 				IPA_RESOURCE_NAME_MAX);
-	hdr_entry->hdr_len = IPA_QMAP_HEADER_LENGTH; /* 4 bytes */
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5) {
+		hdr_entry->hdr_len = IPA_DL_CHECKSUM_LENGTH; /* 8 bytes */
+		/* new DL QMAP header format */
+		hdr->hdr[0].hdr[0] = 0x40;
+		hdr->hdr[0].hdr[1] = 0;
+		hdr->hdr[0].hdr[2] = 0;
+		hdr->hdr[0].hdr[3] = 0;
+		hdr->hdr[0].hdr[4] = 0x4;
+		/*
+		 * Need to set csum required/valid bit on which will be replaced
+		 * by HW if checksum is incorrect after validation
+		 */
+		hdr->hdr[0].hdr[5] = 0x80;
+		hdr->hdr[0].hdr[6] = 0;
+		hdr->hdr[0].hdr[7] = 0;
+	} else
+		hdr_entry->hdr_len = IPA_QMAP_HEADER_LENGTH; /* 4 bytes */
 
 	if (ipa3_add_hdr(hdr)) {
 		IPAWANERR("fail to add IPA_A7_QMAP hdr\n");
@@ -1302,9 +1321,15 @@ static int handle3_ingress_format(struct net_device *dev,
 	}
 
 	ipa_wan_ep_cfg = &rmnet_ipa3_ctx->ipa_to_apps_ep_cfg;
-	if ((in->u.data) & RMNET_IOCTL_INGRESS_FORMAT_CHECKSUM)
-		ipa_wan_ep_cfg->ipa_ep_cfg.cfg.cs_offload_en =
-		   IPA_ENABLE_CS_OFFLOAD_DL;
+	if ((in->u.data) & RMNET_IOCTL_INGRESS_FORMAT_CHECKSUM) {
+		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
+			ipa_wan_ep_cfg->ipa_ep_cfg.cfg.cs_offload_en =
+				IPA_ENABLE_CS_DL_QMAP;
+		else
+			ipa_wan_ep_cfg->ipa_ep_cfg.cfg.cs_offload_en =
+				IPA_ENABLE_CS_OFFLOAD_DL;
+		IPAWANDBG("DL chksum set\n");
+	}
 
 	if ((in->u.data) & RMNET_IOCTL_INGRESS_FORMAT_AGG_DATA) {
 		IPAWANDBG("get AGG size %d count %d\n",
@@ -1323,7 +1348,11 @@ static int handle3_ingress_format(struct net_device *dev,
 		}
 	}
 
-	ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_len = 4;
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5 &&
+		(in->u.data) & RMNET_IOCTL_INGRESS_FORMAT_CHECKSUM)
+		ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_len = 8;
+	else
+		ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_len = 4;
 	ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_ofst_metadata_valid = 1;
 	ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_ofst_metadata = 1;
 	ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_ofst_pkt_size_valid = 1;
@@ -1337,6 +1366,11 @@ static int handle3_ingress_format(struct net_device *dev,
 	ipa_wan_ep_cfg->ipa_ep_cfg.metadata_mask.metadata_mask = 0xFF000000;
 
 	ipa_wan_ep_cfg->client = IPA_CLIENT_APPS_WAN_CONS;
+
+	if (dev->features & NETIF_F_GRO_HW)
+	 /* Setup coalescing pipes */
+		ipa_wan_ep_cfg->client = IPA_CLIENT_APPS_WAN_COAL_CONS;
+
 	ipa_wan_ep_cfg->notify = apps_ipa_packet_receive_notify;
 	ipa_wan_ep_cfg->priv = dev;
 
@@ -1389,6 +1423,7 @@ static int handle3_egress_format(struct net_device *dev,
 
 	ipa_wan_ep_cfg = &rmnet_ipa3_ctx->apps_to_ipa_ep_cfg;
 	if ((e->u.data) & RMNET_IOCTL_EGRESS_FORMAT_CHECKSUM) {
+		IPAWANDBG("UL chksum set\n");
 		ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_len = 8;
 		ipa_wan_ep_cfg->ipa_ep_cfg.cfg.cs_offload_en =
 			IPA_ENABLE_CS_OFFLOAD_UL;
@@ -1501,6 +1536,7 @@ static int ipa3_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	int8_t *v_name;
 	struct mutex *mux_mutex_ptr;
 	int wan_ep;
+	bool tcp_en = false, udp_en = false;
 
 	IPAWANDBG("rmnet_ipa got ioctl number 0x%08x", cmd);
 	switch (cmd) {
@@ -1714,7 +1750,7 @@ static int ipa3_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			if (rmnet_ipa3_ctx->num_q6_rules != 0) {
 				mux_mutex_ptr =
 					&rmnet_ipa3_ctx->add_mux_channel_lock;
-				IPAWANERR("dev(%s) register to IPA\n",
+				IPAWANERR_RL("dev(%s) register to IPA\n",
 					v_name);
 				rc = ipa3_wwan_register_to_ipa(
 						rmnet_ipa3_ctx->rmnet_index);
@@ -1791,6 +1827,18 @@ static int ipa3_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			break;
 		/*  Set RX Headroom  */
 		case RMNET_IOCTL_SET_RX_HEADROOM:
+			break;
+		/*  Set RSC/RSB  */
+		case RMNET_IOCTL_SET_OFFLOAD:
+			if (ext_ioctl_data.u.offload_params.flags
+				& RMNET_IOCTL_COALESCING_FORMAT_TCP)
+				tcp_en = true;
+			if (ext_ioctl_data.u.offload_params.flags
+				& RMNET_IOCTL_COALESCING_FORMAT_UDP)
+				udp_en = true;
+			rc = rmnet_ipa_send_coalesce_notification(
+				ext_ioctl_data.u.offload_params.mux_id,
+				tcp_en || udp_en, tcp_en, udp_en);
 			break;
 		default:
 			IPAWANERR("[%s] unsupported extended cmd[%d]",
@@ -1903,6 +1951,48 @@ static void ipa3_q6_rm_notify_cb(void *user_data,
 	default:
 		return;
 	}
+}
+
+/**
+ * rmnet_ipa_send_coalesce_notification
+ * (uint8_t qmap_id, bool enable, bool tcp, bool udp)
+ * send RSC notification
+ *
+ * This function sends the rsc enable/disable notification
+ * fot tcp, udp to user-space module
+ */
+static int rmnet_ipa_send_coalesce_notification(uint8_t qmap_id,
+		bool enable,
+		bool tcp,
+		bool udp)
+{
+	struct ipa_msg_meta msg_meta;
+	struct ipa_coalesce_info *coalesce_info;
+	int rc;
+
+	memset(&msg_meta, 0, sizeof(struct ipa_msg_meta));
+	coalesce_info = kzalloc(sizeof(*coalesce_info), GFP_KERNEL);
+	if (!coalesce_info)
+		return -ENOMEM;
+
+	if (enable) {
+		coalesce_info->qmap_id = qmap_id;
+		coalesce_info->tcp_enable = tcp;
+		coalesce_info->udp_enable = udp;
+		msg_meta.msg_type = IPA_COALESCE_ENABLE;
+		msg_meta.msg_len = sizeof(struct ipa_coalesce_info);
+	} else {
+		msg_meta.msg_type = IPA_COALESCE_DISABLE;
+		msg_meta.msg_len = sizeof(struct ipa_coalesce_info);
+	}
+	rc = ipa_send_msg(&msg_meta, coalesce_info, ipa3_wwan_msg_free_cb);
+	if (rc) {
+		IPAWANERR("ipa_send_msg failed: %d\n", rc);
+		return -EFAULT;
+	}
+	IPAWANDBG("qmap-id(%d),enable(%d),tcp(%d),udp(%d)\n",
+		qmap_id, enable, tcp, udp);
+	return 0;
 }
 
 int ipa3_wwan_set_modem_state(struct wan_ioctl_notify_wan_state *state)
@@ -2465,6 +2555,10 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 				ret);
 		goto config_err;
 	}
+
+	/* for > IPA 4.5, we set the colaescing feature flag on */
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
+		dev->hw_features |= NETIF_F_GRO_HW | NETIF_F_RXCSUM;
 
 	/*
 	 * for IPA 4.0 offline charge is not needed and we need to prevent
@@ -3711,7 +3805,11 @@ static inline int rmnet_ipa3_delete_lan_client_info
 	int i;
 	struct ipa_tether_device_info *teth_ptr = NULL;
 
+	IPAWANDBG("Delete lan client info: %d, %d, %d\n",
+		rmnet_ipa3_ctx->tether_device[device_type].num_clients,
+		lan_clnt_idx, device_type);
 	/* Check if Device type is valid. */
+
 	if (device_type >= IPACM_MAX_CLIENT_DEVICE_TYPES ||
 		device_type < 0) {
 		IPAWANERR("Invalid Device type: %d\n", device_type);
@@ -3734,6 +3832,8 @@ static inline int rmnet_ipa3_delete_lan_client_info
 		/* Reset the client info before sending the message. */
 		memset(lan_client, 0, sizeof(struct ipa_lan_client));
 		lan_client->client_idx = -1;
+		/* Decrement the number of clients. */
+		rmnet_ipa3_ctx->tether_device[device_type].num_clients--;
 
 	}
 	return 0;
@@ -3851,6 +3951,10 @@ int rmnet_ipa3_clear_lan_client_info(
 		IPAWANERR("Invalid Client Index: %d\n", data->client_idx);
 		return -EINVAL;
 	}
+
+	IPAWANDBG("Client : %d:%d:%d\n",
+		data->device_type, data->client_idx,
+		rmnet_ipa3_ctx->tether_device[data->device_type].num_clients);
 
 	teth_ptr = &rmnet_ipa3_ctx->tether_device[data->device_type];
 	mutex_lock(&rmnet_ipa3_ctx->per_client_stats_guard);
@@ -4000,6 +4104,21 @@ int rmnet_ipa3_query_per_client_stats(
 
 	mutex_lock(&rmnet_ipa3_ctx->per_client_stats_guard);
 
+	/* Check if Source pipe is valid. */
+	if (rmnet_ipa3_ctx->tether_device
+		[data->device_type].ul_src_pipe == -1) {
+		IPAWANERR("Device not initialized: %d\n", data->device_type);
+		mutex_unlock(&rmnet_ipa3_ctx->per_client_stats_guard);
+		return -EINVAL;
+	}
+
+	/* Check if we have clients connected. */
+	if (rmnet_ipa3_ctx->tether_device[data->device_type].num_clients == 0) {
+		IPAWANERR("No clients connected: %d\n", data->device_type);
+		mutex_unlock(&rmnet_ipa3_ctx->per_client_stats_guard);
+		return -EINVAL;
+	}
+
 	if (data->num_clients == 1) {
 		/* Check if the client info is valid.*/
 		lan_clnt_idx1 = rmnet_ipa3_get_lan_client_info(
@@ -4056,6 +4175,9 @@ int rmnet_ipa3_query_per_client_stats(
 	}
 	memset(req, 0, sizeof(struct ipa_get_stats_per_client_req_msg_v01));
 	memset(resp, 0, sizeof(struct ipa_get_stats_per_client_resp_msg_v01));
+
+	IPAWANDBG("Reset stats: %s",
+		data->reset_stats?"Yes":"No");
 
 	if (data->reset_stats) {
 		req->reset_stats_valid = true;
@@ -4123,6 +4245,9 @@ int rmnet_ipa3_query_per_client_stats(
 				IPA_MAC_ADDR_SIZE);
 		}
 	}
+
+	IPAWANDBG("Disconnect clnt: %s",
+		data->disconnect_clnt?"Yes":"No");
 
 	if (data->disconnect_clnt) {
 		rmnet_ipa3_delete_lan_client_info(data->device_type,

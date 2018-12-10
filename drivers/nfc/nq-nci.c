@@ -57,7 +57,8 @@ MODULE_DEVICE_TABLE(of, msm_match_table);
 #define NCI_INIT_CMD_LEN		3
 #define NCI_RESET_RSP_LEN		6
 #define NCI_INIT_RSP_LEN		28
-
+#define NCI_GET_VERSION_CMD_LEN		8
+#define NCI_GET_VERSION_RSP_LEN		12
 
 struct nqx_dev {
 	wait_queue_head_t	read_wq;
@@ -696,6 +697,8 @@ static int nfcc_hw_check(struct i2c_client *client, struct nqx_dev *nqx_dev)
 	char *nci_init_cmd = NULL;
 	char *nci_init_rsp = NULL;
 	char *nci_reset_rsp = NULL;
+	char *nci_get_version_cmd = NULL;
+	char *nci_get_version_rsp = NULL;
 
 	nci_reset_cmd = kzalloc(NCI_RESET_CMD_LEN + 1, GFP_DMA | GFP_KERNEL);
 	if (!nci_reset_cmd) {
@@ -721,6 +724,20 @@ static int nfcc_hw_check(struct i2c_client *client, struct nqx_dev *nqx_dev)
 		goto done;
 	}
 
+	nci_get_version_cmd = kzalloc(NCI_GET_VERSION_CMD_LEN + 1,
+					GFP_DMA | GFP_KERNEL);
+	if (!nci_get_version_cmd) {
+		ret = -ENOMEM;
+		goto done;
+	}
+
+	nci_get_version_rsp = kzalloc(NCI_GET_VERSION_RSP_LEN + 1,
+					GFP_DMA | GFP_KERNEL);
+	if (!nci_get_version_rsp) {
+		ret = -ENOMEM;
+		goto done;
+	}
+
 reset_enable_gpio:
 	/* making sure that the NFCC starts in a clean state. */
 	gpio_set_value(enable_gpio, 0);/* ULPM: Disable */
@@ -738,8 +755,55 @@ reset_enable_gpio:
 	ret = i2c_master_send(client, nci_reset_cmd, NCI_RESET_CMD_LEN);
 	if (ret < 0) {
 		dev_err(&client->dev,
-		"%s: - i2c_master_send Error\n", __func__);
-		goto err_nfcc_hw_check;
+		"%s: - i2c_master_send core reset Error\n", __func__);
+
+		if (gpio_is_valid(nqx_dev->firm_gpio)) {
+			gpio_set_value(nqx_dev->firm_gpio, 1);
+			usleep_range(10000, 10100);
+		}
+		gpio_set_value(nqx_dev->en_gpio, 0);
+		usleep_range(10000, 10100);
+		gpio_set_value(nqx_dev->en_gpio, 1);
+		usleep_range(10000, 10100);
+
+		nci_get_version_cmd[0] = 0x00;
+		nci_get_version_cmd[1] = 0x04;
+		nci_get_version_cmd[2] = 0xF1;
+		nci_get_version_cmd[3] = 0x00;
+		nci_get_version_cmd[4] = 0x00;
+		nci_get_version_cmd[5] = 0x00;
+		nci_get_version_cmd[6] = 0x6E;
+		nci_get_version_cmd[7] = 0xEF;
+		ret = i2c_master_send(client, nci_get_version_cmd,
+						NCI_GET_VERSION_CMD_LEN);
+
+		if (ret < 0) {
+			dev_err(&client->dev,
+				"%s: - i2c_master_send get version cmd Error\n",
+				__func__);
+			goto err_nfcc_hw_check;
+		}
+		/* hardware dependent delay */
+		usleep_range(10000, 10100);
+
+		ret = i2c_master_recv(client, nci_get_version_rsp,
+						NCI_GET_VERSION_RSP_LEN);
+		if (ret < 0) {
+			dev_err(&client->dev,
+				"%s: - i2c_master_recv get version rsp Error\n",
+				__func__);
+			goto err_nfcc_hw_check;
+		} else {
+			nqx_dev->nqx_info.info.chip_type =
+				nci_get_version_rsp[3];
+			nqx_dev->nqx_info.info.rom_version =
+				nci_get_version_rsp[4];
+			nqx_dev->nqx_info.info.fw_minor =
+				nci_get_version_rsp[6];
+			nqx_dev->nqx_info.info.fw_major =
+				nci_get_version_rsp[7];
+		}
+		goto err_nfcc_reset_failed;
 	}
 	/* hardware dependent delay */
 	msleep(30);
@@ -760,7 +824,7 @@ reset_enable_gpio:
 	ret = nqx_standby_write(nqx_dev, nci_init_cmd, NCI_INIT_CMD_LEN);
 	if (ret < 0) {
 		dev_err(&client->dev,
-		"%s: - i2c_master_send Error\n", __func__);
+		"%s: - i2c_master_send failed for Core INIT\n", __func__);
 		goto err_nfcc_core_init_fail;
 	}
 	/* hardware dependent delay */
@@ -788,6 +852,7 @@ reset_enable_gpio:
 		__func__, nci_reset_rsp[0],
 		nci_reset_rsp[1], nci_reset_rsp[2]);
 
+err_nfcc_reset_failed:
 	dev_dbg(&nqx_dev->client->dev, "NQ NFCC chip_type = %x\n",
 		nqx_dev->nqx_info.info.chip_type);
 	dev_dbg(&nqx_dev->client->dev, "NQ fw version = %x.%x.%x\n",
@@ -843,6 +908,8 @@ done:
 	kfree(nci_init_rsp);
 	kfree(nci_init_cmd);
 	kfree(nci_reset_cmd);
+	kfree(nci_get_version_cmd);
+	kfree(nci_get_version_rsp);
 
 	return ret;
 }

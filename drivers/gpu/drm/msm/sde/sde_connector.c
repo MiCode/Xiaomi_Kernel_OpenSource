@@ -1325,24 +1325,17 @@ void sde_connector_commit_reset(struct drm_connector *connector, ktime_t ts)
 static void sde_connector_update_hdr_props(struct drm_connector *connector)
 {
 	struct sde_connector *c_conn = to_sde_connector(connector);
-	struct drm_msm_ext_hdr_properties hdr = {};
+	struct drm_msm_ext_hdr_properties hdr = {
+		connector->hdr_metadata_type_one,
+		connector->hdr_supported,
+		connector->hdr_eotf,
+		connector->hdr_max_luminance,
+		connector->hdr_avg_luminance,
+		connector->hdr_min_luminance,
+	};
 
-	hdr.hdr_supported = connector->hdr_supported;
-
-	if (hdr.hdr_supported) {
-		hdr.hdr_eotf = connector->hdr_eotf;
-		hdr.hdr_metadata_type_one = connector->hdr_metadata_type_one;
-		hdr.hdr_max_luminance = connector->hdr_max_luminance;
-		hdr.hdr_avg_luminance = connector->hdr_avg_luminance;
-		hdr.hdr_min_luminance = connector->hdr_min_luminance;
-
-		msm_property_set_blob(&c_conn->property_info,
-			      &c_conn->blob_ext_hdr,
-			      &hdr,
-			      sizeof(hdr),
-			      CONNECTOR_PROP_EXT_HDR_INFO);
-
-	}
+	msm_property_set_blob(&c_conn->property_info, &c_conn->blob_ext_hdr,
+			&hdr, sizeof(hdr), CONNECTOR_PROP_EXT_HDR_INFO);
 }
 
 static enum drm_connector_status
@@ -1742,7 +1735,8 @@ static int sde_connector_get_modes(struct drm_connector *connector)
 		return 0;
 	}
 
-	sde_connector_update_hdr_props(connector);
+	if (c_conn->hdr_capable)
+		sde_connector_update_hdr_props(connector);
 
 	return mode_count;
 }
@@ -2264,6 +2258,8 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 
 	if (connector_type == DRM_MODE_CONNECTOR_DisplayPort) {
 		struct drm_msm_ext_hdr_properties hdr = {0};
+
+		c_conn->hdr_capable = true;
 
 		msm_property_install_blob(&c_conn->property_info,
 				"ext_hdr_properties",

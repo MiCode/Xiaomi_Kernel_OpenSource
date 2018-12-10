@@ -40,25 +40,26 @@
 				     0x10060 0x3c
 				     0x0 0x4>;
 	};
+};
 
-	clock_rpmh: qcom,rpmh {
-		compatible = "qcom,dummycc";
-		clock-output-names = "rpmh_clocks";
-		#clock-cells = <1>;
-	};
+&clock_rpmh {
+	compatible = "qcom,dummycc";
+	clock-output-names = "rpmh_clocks";
+};
 
-	clock_aop: qcom,aop {
-		compatible = "qcom,dummycc";
-		clock-output-names = "aop_clocks";
-		#clock-cells = <1>;
-	};
+&clock_aop {
+	compatible = "qcom,dummycc";
+	clock-output-names = "aop_clocks";
+};
 
-	clock_gcc: qcom,gcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gcc_clocks";
-		#clock-cells = <1>;
-		#reset-cells = <1>;
-	};
+&clock_gcc {
+	compatible = "qcom,dummycc";
+	clock-output-names = "gcc_clocks";
+};
+
+&clock_debugcc {
+	compatible = "qcom,dummycc";
+	clock-output-names = "dummy_clocks";
 };
 
 &ipa_hw {
@@ -71,4 +72,12 @@
 		usb-phy = <&usb_emu_phy>, <&usb_nop_phy>;
 		maximum-speed = "high-speed";
 	};
+};
+
+&usb_qmp_phy {
+	status = "disabled";
+};
+
+&usb2_phy {
+	status = "disabled";
 };

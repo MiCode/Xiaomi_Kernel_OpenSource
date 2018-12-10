@@ -1527,7 +1527,7 @@
 		reg-names = "osm_l3_base", "osm_pwrcl_base",
 			"osm_perfcl_base", "osm_perfpcl_base";
 		l3-devs = <&cpu0_cpu_l3_lat &cpu4_cpu_l3_lat &cdsp_cdsp_l3_lat
-			&msm_gpu &cpu7_cpu_l3_lat>;
+			&cpu7_cpu_l3_lat>;
 
 		#clock-cells = <1>;
 	};
@@ -1971,8 +1971,6 @@
 
 		qcom,llcc-erp {
 			compatible = "qcom,llcc-erp";
-			interrupt-names = "ecc_irq";
-			interrupts = <GIC_SPI 582 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
 		qcom,llcc-amon {
@@ -3095,7 +3093,7 @@
 		};
 
 		pmic {
-			qcom,dump-size = <0x10000>;
+			qcom,dump-size = <0x80000>;
 			qcom,dump-id = <0xe4>;
 		};
 
@@ -3820,6 +3818,7 @@
 		qcom,smmu-s1-en;
 		qcom,smmu-fast-map;
 		qcom,smmu-coherent;
+		qcom,keep-radio-on-during-sleep;
 		status = "disabled";
 	};
 

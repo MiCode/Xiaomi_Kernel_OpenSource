@@ -32,23 +32,24 @@ Main node properties:
   Definition: Pair of values describing iova start and stop address
 
 - qcom,msm-bus,name
-  Usage: required
+  Usage: required if bus scale used
   Value type: <string>
-  Definition: string representing the bus scale client name to register
+  Definition: string representing the bus scale client name to register if
+	bus scale voting is supported and required.
 
 - qcom,msm-bus,num-cases
-  Usage: required
+  Usage: required if bus scale used
   Value type: <u32>
   Definition: Must be set to two, MHI support two scales
 
 - qcom,msm-bus,num-paths
-  Usage: required
+  Usage: required if bus scale used
   Value type: <u32>
   Definition: Total number of master-slave pairs MHI host will vote. Must be set
 	to one.
 
 - qcom,msm-bus,vectors-KBps
-  Usage: required
+  Usage: required if bus scale used
   Value type: Array of <u32>
   Definition: Array of tuples which define the bus bandwidth requirements.
 	Each tuple is of length 4, values are master-id, slave-id,

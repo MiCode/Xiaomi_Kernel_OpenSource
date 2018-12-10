@@ -19,13 +19,6 @@ Main node properties:
   Value type: <u32>
   Definition: Maximum timeout in ms wait for state and cmd completion
 
-- mhi,time-sync
-  Usage: optional
-  Value type: <bool>
-  Definition: Set true, if the external device support MHI get time
-	feature for time synchronization between host processor and
-	external modem.
-
 - mhi,use-bb
   Usage: optional
   Value type: <bool>

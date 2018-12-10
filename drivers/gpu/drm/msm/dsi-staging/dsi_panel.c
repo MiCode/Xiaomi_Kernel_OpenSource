@@ -1718,6 +1718,9 @@ static int dsi_panel_parse_reset_sequence(struct dsi_panel *panel)
 	struct dsi_parser_utils *utils = &panel->utils;
 	struct dsi_reset_seq *seq;
 
+	if (panel->host_config.ext_bridge_mode)
+		return 0;
+
 	arr = utils->get_property(utils->data,
 			"qcom,mdss-dsi-reset-sequence", &length);
 	if (!arr) {
@@ -1850,6 +1853,9 @@ static int dsi_panel_parse_power_cfg(struct dsi_panel *panel)
 {
 	int rc = 0;
 	char *supply_name;
+
+	if (panel->host_config.ext_bridge_mode)
+		return 0;
 
 	if (!strcmp(panel->type, "primary"))
 		supply_name = "qcom,panel-supply-entries";

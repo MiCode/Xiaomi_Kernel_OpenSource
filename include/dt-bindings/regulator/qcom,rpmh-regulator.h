@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +25,7 @@
 #define RPMH_REGULATOR_LEVEL_LOW_SVS	(64 + RPMH_REGULATOR_LEVEL_OFFSET)
 #define RPMH_REGULATOR_LEVEL_SVS	(128 + RPMH_REGULATOR_LEVEL_OFFSET)
 #define RPMH_REGULATOR_LEVEL_SVS_L1	(192 + RPMH_REGULATOR_LEVEL_OFFSET)
+#define RPMH_REGULATOR_LEVEL_SVS_L2	(224 + RPMH_REGULATOR_LEVEL_OFFSET)
 #define RPMH_REGULATOR_LEVEL_NOM	(256 + RPMH_REGULATOR_LEVEL_OFFSET)
 #define RPMH_REGULATOR_LEVEL_NOM_L1	(320 + RPMH_REGULATOR_LEVEL_OFFSET)
 #define RPMH_REGULATOR_LEVEL_NOM_L2	(336 + RPMH_REGULATOR_LEVEL_OFFSET)

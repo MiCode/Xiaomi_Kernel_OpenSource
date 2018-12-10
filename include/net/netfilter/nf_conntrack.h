@@ -47,6 +47,11 @@ union nf_conntrack_expect_proto {
 #include <net/netfilter/ipv4/nf_conntrack_ipv4.h>
 #include <net/netfilter/ipv6/nf_conntrack_ipv6.h>
 
+/* Handle NATTYPE Stuff,only if NATTYPE module was defined */
+#ifdef CONFIG_IP_NF_TARGET_NATTYPE_MODULE
+#include <linux/netfilter_ipv4/ipt_NATTYPE.h>
+#endif
+
 struct nf_conn {
 	/* Usage count in here is 1 for hash table, 1 per skb,
 	 * plus 1 for any connection(s) we are `master' for
@@ -97,6 +102,10 @@ struct nf_conn {
 	struct nf_ct_ext *ext;
 
 	void *sfe_entry;
+
+#ifdef CONFIG_IP_NF_TARGET_NATTYPE_MODULE
+	unsigned long nattype_entry;
+#endif
 
 	/* Storage reserved for other modules, must be the last member */
 	union nf_conntrack_proto proto;

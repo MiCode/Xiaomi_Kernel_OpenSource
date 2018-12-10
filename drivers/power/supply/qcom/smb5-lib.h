@@ -42,6 +42,7 @@ enum print_reason {
 #define CHG_STATE_VOTER			"CHG_STATE_VOTER"
 #define TAPER_END_VOTER			"TAPER_END_VOTER"
 #define THERMAL_DAEMON_VOTER		"THERMAL_DAEMON_VOTER"
+#define DIE_TEMP_VOTER			"DIE_TEMP_VOTER"
 #define BOOST_BACK_VOTER		"BOOST_BACK_VOTER"
 #define MICRO_USB_VOTER			"MICRO_USB_VOTER"
 #define DEBUG_BOARD_VOTER		"DEBUG_BOARD_VOTER"
@@ -233,6 +234,15 @@ enum thermal_status_levels {
 	TEMP_ABOVE_RANGE,
 	TEMP_WITHIN_RANGE,
 	TEMP_BELOW_RANGE,
+};
+
+enum icl_override_mode {
+	/* APSD/Type-C/QC auto */
+	HW_AUTO_MODE,
+	/* 100/150/500/900mA */
+	SW_OVERRIDE_USB51_MODE,
+	/* ICL other than USB51 */
+	SW_OVERRIDE_HC_MODE,
 };
 
 /* EXTCON_USB and EXTCON_USB_HOST are mutually exclusive */
@@ -527,6 +537,7 @@ irqreturn_t switcher_power_ok_irq_handler(int irq, void *data);
 irqreturn_t wdog_snarl_irq_handler(int irq, void *data);
 irqreturn_t wdog_bark_irq_handler(int irq, void *data);
 irqreturn_t typec_or_rid_detection_change_irq_handler(int irq, void *data);
+irqreturn_t temp_change_irq_handler(int irq, void *data);
 
 int smblib_get_prop_input_suspend(struct smb_charger *chg,
 				union power_supply_propval *val);
@@ -650,7 +661,7 @@ int smblib_get_iio_channel(struct smb_charger *chg, const char *propname,
 int smblib_read_iio_channel(struct smb_charger *chg, struct iio_channel *chan,
 							int div, int *data);
 int smblib_configure_hvdcp_apsd(struct smb_charger *chg, bool enable);
-int smblib_icl_override(struct smb_charger *chg, bool override);
+int smblib_icl_override(struct smb_charger *chg, enum icl_override_mode mode);
 enum alarmtimer_restart smblib_lpd_recheck_timer(struct alarm *alarm,
 				ktime_t time);
 int smblib_toggle_smb_en(struct smb_charger *chg, int toggle);

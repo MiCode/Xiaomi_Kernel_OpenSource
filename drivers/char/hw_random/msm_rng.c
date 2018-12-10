@@ -121,10 +121,12 @@ static int msm_rng_direct_read(struct msm_rng_device *msm_rng_dev,
 		}
 	}
 	/* enable PRNG clock */
-	ret = clk_prepare_enable(msm_rng_dev->prng_clk);
-	if (ret) {
-		pr_err("failed to enable prng clock\n");
-		goto err;
+	if (msm_rng_dev->prng_clk) {
+		ret = clk_prepare_enable(msm_rng_dev->prng_clk);
+		if (ret) {
+			pr_err("failed to enable prng clock\n");
+			goto err;
+		}
 	}
 	/* read random data from h/w */
 	do {
@@ -153,7 +155,8 @@ static int msm_rng_direct_read(struct msm_rng_device *msm_rng_dev,
 	} while (currsize < max);
 
 	/* vote to turn off clock */
-	clk_disable_unprepare(msm_rng_dev->prng_clk);
+	if (msm_rng_dev->prng_clk)
+		clk_disable_unprepare(msm_rng_dev->prng_clk);
 err:
 	if (msm_rng_dev->qrng_perf_client) {
 		ret = msm_bus_scale_client_update_request(
@@ -198,11 +201,13 @@ static int msm_rng_enable_hw(struct msm_rng_device *msm_rng_dev)
 			pr_err("bus_scale_client_update_req failed\n");
 	}
 	/* Enable the PRNG CLK */
-	ret = clk_prepare_enable(msm_rng_dev->prng_clk);
-	if (ret) {
-		dev_err(&(msm_rng_dev->pdev)->dev,
+	if (msm_rng_dev->prng_clk) {
+		ret = clk_prepare_enable(msm_rng_dev->prng_clk);
+		if (ret) {
+			dev_err(&(msm_rng_dev->pdev)->dev,
 				"failed to enable clock in probe\n");
-		return -EPERM;
+			return -EPERM;
+		}
 	}
 
 	/* Enable PRNG h/w only if it is NOT ON */
@@ -228,7 +233,8 @@ static int msm_rng_enable_hw(struct msm_rng_device *msm_rng_dev)
 		 */
 		mb();
 	}
-	clk_disable_unprepare(msm_rng_dev->prng_clk);
+	if (msm_rng_dev->prng_clk)
+		clk_disable_unprepare(msm_rng_dev->prng_clk);
 
 	if (msm_rng_dev->qrng_perf_client) {
 		ret = msm_bus_scale_client_update_request(
@@ -280,12 +286,22 @@ static int msm_rng_probe(struct platform_device *pdev)
 	msm_rng_dev->base = base;
 
 	/* create a handle for clock control */
-	if ((pdev->dev.of_node) && (of_property_read_bool(pdev->dev.of_node,
-					"qcom,msm-rng-iface-clk")))
-		msm_rng_dev->prng_clk = clk_get(&pdev->dev,
+	if (pdev->dev.of_node) {
+		if (of_property_read_bool(pdev->dev.of_node,
+					"qcom,no-clock-support")) {
+			msm_rng_dev->prng_clk = NULL;
+		} else {
+			if (of_property_read_bool(pdev->dev.of_node,
+					"qcom,msm-rng-iface-clk")) {
+				msm_rng_dev->prng_clk = clk_get(&pdev->dev,
 							"iface_clk");
-	else
-		msm_rng_dev->prng_clk = clk_get(&pdev->dev, "core_clk");
+			} else {
+				msm_rng_dev->prng_clk = clk_get(&pdev->dev,
+							 "core_clk");
+			}
+		}
+	}
+
 	if (IS_ERR(msm_rng_dev->prng_clk)) {
 		dev_err(&pdev->dev, "failed to register clock source\n");
 		error = -EPERM;
@@ -352,7 +368,8 @@ static int msm_rng_probe(struct platform_device *pdev)
 unregister_chrdev:
 	unregister_chrdev(QRNG_IOC_MAGIC, DRIVER_NAME);
 rollback_clk:
-	clk_put(msm_rng_dev->prng_clk);
+	if (msm_rng_dev->prng_clk)
+		clk_put(msm_rng_dev->prng_clk);
 err_clk_get:
 	iounmap(msm_rng_dev->base);
 err_iomap:
@@ -367,7 +384,8 @@ static int msm_rng_remove(struct platform_device *pdev)
 
 	unregister_chrdev(QRNG_IOC_MAGIC, DRIVER_NAME);
 	hwrng_unregister(&msm_rng);
-	clk_put(msm_rng_dev->prng_clk);
+	if (msm_rng_dev->prng_clk)
+		clk_put(msm_rng_dev->prng_clk);
 	iounmap(msm_rng_dev->base);
 	platform_set_drvdata(pdev, NULL);
 	if (msm_rng_dev->qrng_perf_client)

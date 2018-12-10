@@ -1,0 +1,112 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/input/qcom,qpnp-power-on.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/spmi/spmi.h>
+#include <dt-bindings/iio/qcom,spmi-vadc.h>
+
+&spmi_bus {
+	qcom,pm6125@0 {
+		compatible = "qcom,spmi-pmic";
+		reg = <0x0 SPMI_USID>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		pm6125_revid: qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100 0x100>;
+		};
+
+		qcom,power-on@800 {
+			compatible = "qcom,qpnp-power-on";
+			reg = <0x800 0x100>;
+			interrupts = <0x0 0x8 0x0 IRQ_TYPE_NONE>,
+				     <0x0 0x8 0x1 IRQ_TYPE_NONE>;
+			interrupt-names = "kpdpwr", "resin";
+			qcom,pon-dbc-delay = <15625>;
+			qcom,kpdpwr-sw-debounce;
+			qcom,system-reset;
+			qcom,store-hard-reset-reason;
+
+			qcom,pon_1 {
+				qcom,pon-type = <PON_POWER_ON_TYPE_KPDPWR>;
+				qcom,pull-up = <1>;
+				linux,code = <KEY_POWER>;
+			};
+
+			qcom,pon_2 {
+				qcom,pon-type = <PON_POWER_ON_TYPE_RESIN>;
+				qcom,pull-up = <1>;
+				linux,code = <KEY_VOLUMEDOWN>;
+			};
+		};
+
+		pm6125_misc: qcom,misc@900 {
+			compatible = "qcom,qpnp-misc";
+			reg = <0x900 0x100>;
+		};
+
+		pm6125_tz: qcom,temp-alarm@2400 {
+			compatible = "qcom,spmi-temp-alarm";
+			reg = <0x2400 0x100>;
+			interrupts = <0x0 0x24 0x0 IRQ_TYPE_EDGE_RISING>;
+			#thermal-sensor-cells = <0>;
+			qcom,temperature-threshold-set = <1>;
+		};
+
+		pm6125_clkdiv: clock-controller@5b00 {
+			compatible = "qcom,spmi-clkdiv";
+			reg = <0x5b00 0x100>;
+			#clock-cells = <1>;
+			qcom,num-clkdivs = <1>;
+			clock-output-names = "pm6125_div_clk1";
+			clocks = <&clock_rpmcc RPM_SMD_XO_CLK_SRC>;
+			clock-names = "xo";
+			assigned-clocks = <&pm6125_clkdiv 1>;
+			assigned-clock-rates = <19200000>;
+		};
+
+		pm6125_gpios: pinctrl@c000 {
+			compatible = "qcom,spmi-gpio";
+			reg = <0xc000 0xa00>;
+			interrupts = <0x0 0xc0 0 IRQ_TYPE_NONE>,
+					<0x0 0xc1 0 IRQ_TYPE_NONE>,
+					<0x0 0xc2 0 IRQ_TYPE_NONE>,
+					<0x0 0xc3 0 IRQ_TYPE_NONE>,
+					<0x0 0xc4 0 IRQ_TYPE_NONE>,
+					<0x0 0xc5 0 IRQ_TYPE_NONE>,
+					<0x0 0xc6 0 IRQ_TYPE_NONE>,
+					<0x0 0xc7 0 IRQ_TYPE_NONE>,
+					<0x0 0xc8 0 IRQ_TYPE_NONE>;
+			interrupt-names = "pm6125_gpio1", "pm6125_gpio2",
+					"pm6125_gpio3", "pm6125_gpio4",
+					"pm6125_gpio5", "pm6125_gpio6",
+					"pm6125_gpio7", "pm6125_gpio8",
+					"pm6125_gpio9";
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+
+	};
+
+	qcom,pm6125@1 {
+		compatible ="qcom,spmi-pmic";
+		reg = <0x1 SPMI_USID>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+	};
+};
+

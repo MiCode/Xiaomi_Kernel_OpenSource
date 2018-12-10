@@ -244,6 +244,7 @@ struct cam_req_mgr_link_control {
 #define CAM_MEM_FLAG_PACKET_BUF_TYPE            (1<<9)
 #define CAM_MEM_FLAG_CACHE                      (1<<10)
 #define CAM_MEM_FLAG_HW_SHARED_ACCESS           (1<<11)
+#define CAM_MEM_FLAG_CDSP_OUTPUT                (1<<12)
 
 #define CAM_MEM_MMU_MAX_HANDLE                  16
 

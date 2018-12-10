@@ -33,7 +33,6 @@
 #define MAX_DP_MST_STREAMS		2
 #define MAX_DP_MST_DRM_ENCODERS		2
 #define MAX_DP_MST_DRM_BRIDGES		2
-#define DP_MST_SIM_MAX_PORTS    2
 #define HPD_STRING_SIZE			30
 
 struct dp_drm_mst_fw_helper_ops {
@@ -68,27 +67,25 @@ struct dp_drm_mst_fw_helper_ops {
 			struct drm_dp_mst_port *port);
 };
 
-struct dp_mst_sim_port {
-	struct drm_dp_mst_port port;
-	int port_id;
-	int vcpi;
-	int slots;
-	int start_slot;
-	struct drm_connector *connector;
-	struct edid *edid;
-	enum drm_connector_status status;
+struct dp_mst_sim_port_data {
+	bool input_port;
+	u8 peer_device_type;
+	u8 port_number;
+	bool mcs;
+	bool ddps;
+	bool legacy_device_plug_status;
+	u8 dpcd_revision;
+	u8 peer_guid[16];
+	u8 num_sdp_streams;
+	u8 num_sdp_stream_sinks;
 };
 
 struct dp_mst_sim_mode {
 	bool mst_state;
-	struct dp_mst_sim_port sim_port[DP_MST_SIM_MAX_PORTS];
-	int vcpi[DP_MST_SIM_MAX_PORTS];
-	int free_slot_id;
 	struct edid *edid;
 	struct work_struct probe_work;
-	struct work_struct conn_destroy_work;
 	const struct drm_dp_mst_topology_cbs *cbs;
-	int pbn_div;
+	u32 port_cnt;
 };
 
 struct dp_mst_bridge {
@@ -121,6 +118,7 @@ struct dp_mst_private {
 	const struct dp_drm_mst_fw_helper_ops *mst_fw_cbs;
 	struct dp_mst_sim_mode simulator;
 	struct mutex mst_lock;
+	enum dp_drv_state state;
 };
 
 struct dp_mst_encoder_info_cache {
@@ -134,262 +132,213 @@ struct dp_mst_private dp_mst;
 struct dp_mst_encoder_info_cache dp_mst_enc_cache;
 
 /* DRM DP MST Framework simulator OPs */
-
-static void drm_dp_mst_sim_link_probe_work(struct work_struct *work)
+static void dp_mst_sim_add_port(struct dp_mst_private *mst,
+			struct dp_mst_sim_port_data *port_msg)
 {
-	struct dp_mst_sim_mode *sim;
-	struct dp_mst_private *mst;
-	u8 cnt, dp_link_count;
-	u8 dpcd[DP_RECEIVER_CAP_SIZE];
-	char pathprop[] = "0.1";
-	int rc;
+	struct drm_dp_mst_branch *mstb;
+	struct drm_dp_mst_port *port;
 
-	DP_MST_DEBUG("enter\n");
+	mstb = mst->mst_mgr.mst_primary;
 
-	sim = container_of(work, struct dp_mst_sim_mode, probe_work);
-	mst = container_of(sim, struct dp_mst_private, simulator);
-
-	rc = drm_dp_dpcd_read(mst->caps.drm_aux, DP_DPCD_REV,
-		dpcd, DP_RECEIVER_CAP_SIZE);
-	if (rc != DP_RECEIVER_CAP_SIZE) {
-		pr_err("dpcd sync read failed, rlen=%d\n", rc);
+	port = kzalloc(sizeof(*port), GFP_KERNEL);
+	if (!port)
 		return;
+	kref_init(&port->kref);
+	port->parent = mstb;
+	port->port_num = port_msg->port_number;
+	port->mgr = mstb->mgr;
+	port->aux.name = dp_mst.caps.drm_aux->name;
+	port->aux.dev = mst->dp_display->drm_dev->dev;
+
+	port->pdt = port_msg->peer_device_type;
+	port->input = port_msg->input_port;
+	port->mcs = port_msg->mcs;
+	port->ddps = port_msg->ddps;
+	port->ldps = port_msg->legacy_device_plug_status;
+	port->dpcd_rev = port_msg->dpcd_revision;
+	port->num_sdp_streams = port_msg->num_sdp_streams;
+	port->num_sdp_stream_sinks = port_msg->num_sdp_stream_sinks;
+
+	mutex_lock(&mstb->mgr->lock);
+	kref_get(&port->kref);
+	list_add(&port->next, &mstb->ports);
+	mutex_unlock(&mstb->mgr->lock);
+
+	/* use fixed pbn for simulator ports */
+	port->available_pbn = 2520;
+
+	if (!port->input) {
+		port->connector = (*mstb->mgr->cbs->add_connector)
+				(mstb->mgr, port, NULL);
+		if (!port->connector) {
+			/* remove it from the port list */
+			mutex_lock(&mstb->mgr->lock);
+			list_del(&port->next);
+			mutex_unlock(&mstb->mgr->lock);
+			return;
+		}
+		(*mstb->mgr->cbs->register_connector)(port->connector);
 	}
-
-	dp_link_count = dpcd[2] & DP_MAX_LANE_COUNT_MASK;
-
-	switch (dpcd[1]) {
-	default:
-		pr_err("invalid link bandwidth in DPCD: %x (link count: %d)\n",
-			      dpcd[1], dp_link_count);
-		return;
-
-	case DP_LINK_BW_1_62:
-		sim->pbn_div = 3 * dp_link_count;
-		break;
-	case DP_LINK_BW_2_7:
-		sim->pbn_div = 5 * dp_link_count;
-		break;
-	case DP_LINK_BW_5_4:
-		sim->pbn_div = 10 * dp_link_count;
-		break;
-	}
-
-	for (cnt = 0; cnt < DP_MST_SIM_MAX_PORTS; cnt++) {
-		sim->sim_port[cnt].port_id = cnt;
-
-		sim->sim_port[cnt].connector = sim->cbs->add_connector(
-				&mst->mst_mgr,
-				&sim->sim_port[cnt].port,
-				pathprop);
-
-		sim->sim_port[cnt].status = connector_status_connected;
-
-		sim->cbs->register_connector(sim->sim_port[cnt].connector);
-	}
-
-	sim->free_slot_id = 0;
-	mst->mst_mgr.cbs->hotplug(&mst->mst_mgr);
-
-	DP_MST_DEBUG("completed\n");
 }
 
-static void drm_dp_mst_sim_conn_destroy_work(struct work_struct *work)
+static void dp_mst_sim_link_probe_work(struct work_struct *work)
 {
 	struct dp_mst_sim_mode *sim;
 	struct dp_mst_private *mst;
+	struct dp_mst_sim_port_data port_data;
 	u8 cnt;
 
 	DP_MST_DEBUG("enter\n");
-
-	sim = container_of(work, struct dp_mst_sim_mode, conn_destroy_work);
+	sim = container_of(work, struct dp_mst_sim_mode, probe_work);
 	mst = container_of(sim, struct dp_mst_private, simulator);
 
-	for (cnt = 0; cnt < DP_MST_SIM_MAX_PORTS; cnt++) {
+	port_data.input_port = false;
+	port_data.peer_device_type = DP_PEER_DEVICE_SST_SINK;
+	port_data.mcs = false;
+	port_data.ddps = DP_PEER_DEVICE_SST_SINK;
+	port_data.legacy_device_plug_status = false;
+	port_data.dpcd_revision = 0;
+	port_data.num_sdp_streams = 0;
+	port_data.num_sdp_stream_sinks = 0;
 
-		sim->sim_port[cnt].status = connector_status_disconnected;
-
-		sim->cbs->destroy_connector(&mst->mst_mgr,
-				sim->sim_port[cnt].connector);
+	for (cnt = 0; cnt < sim->port_cnt; cnt++) {
+		port_data.port_number = cnt;
+		dp_mst_sim_add_port(mst, &port_data);
 	}
 
 	mst->mst_mgr.cbs->hotplug(&mst->mst_mgr);
-
 	DP_MST_DEBUG("completed\n");
 }
 
-static int drm_dp_sim_find_vcpi_slots(struct drm_dp_mst_topology_mgr *mgr,
-			   int pbn)
+static int dp_mst_sim_no_action(struct drm_dp_mst_topology_mgr *mgr)
 {
-	int num_slots;
-	struct dp_mst_private *mst = container_of(mgr,
-			struct dp_mst_private, mst_mgr);
-
-	DP_MST_DEBUG("enter\n");
-
-	num_slots = DIV_ROUND_UP(pbn, mst->simulator.pbn_div);
-	DP_MST_DEBUG("num_slots:%d\n", num_slots);
-
-	DP_MST_DEBUG("completed\n");
-
-	return num_slots;
+	return 0;
 }
 
-static int drm_dp_sim_atomic_find_vcpi_slots(struct drm_atomic_state *state,
-				  struct drm_dp_mst_topology_mgr *mgr,
-				  struct drm_dp_mst_port *port, int pbn)
+static int dp_mst_sim_update_payload_part1(struct drm_dp_mst_topology_mgr *mgr)
 {
-	return drm_dp_sim_find_vcpi_slots(mgr, pbn);
+	int i, j;
+	int cur_slots = 1;
+	struct drm_dp_payload req_payload;
+	struct drm_dp_mst_port *port;
+
+	mutex_lock(&mgr->payload_lock);
+	for (i = 0; i < mgr->max_payloads; i++) {
+		req_payload.start_slot = cur_slots;
+		if (mgr->proposed_vcpis[i]) {
+			port = container_of(mgr->proposed_vcpis[i],
+					struct drm_dp_mst_port, vcpi);
+			req_payload.num_slots =
+					mgr->proposed_vcpis[i]->num_slots;
+			req_payload.vcpi = mgr->proposed_vcpis[i]->vcpi;
+		} else {
+			port = NULL;
+			req_payload.num_slots = 0;
+		}
+
+		if (mgr->payloads[i].start_slot != req_payload.start_slot)
+			mgr->payloads[i].start_slot = req_payload.start_slot;
+
+		if (mgr->payloads[i].num_slots != req_payload.num_slots) {
+			if (req_payload.num_slots) {
+				req_payload.payload_state = DP_PAYLOAD_LOCAL;
+				mgr->payloads[i].num_slots =
+						req_payload.num_slots;
+				mgr->payloads[i].vcpi = req_payload.vcpi;
+			} else if (mgr->payloads[i].num_slots) {
+				mgr->payloads[i].num_slots = 0;
+				mgr->payloads[i].payload_state =
+						DP_PAYLOAD_DELETE_LOCAL;
+				req_payload.payload_state =
+						mgr->payloads[i].payload_state;
+				mgr->payloads[i].start_slot = 0;
+			} else
+				req_payload.payload_state =
+					mgr->payloads[i].payload_state;
+
+			mgr->payloads[i].payload_state =
+				req_payload.payload_state;
+		}
+		cur_slots += req_payload.num_slots;
+	}
+
+	for (i = 0; i < mgr->max_payloads; i++) {
+		if (mgr->payloads[i].payload_state == DP_PAYLOAD_DELETE_LOCAL) {
+			pr_debug("removing payload %d\n", i);
+			for (j = i; j < mgr->max_payloads - 1; j++) {
+				memcpy(&mgr->payloads[j],
+					&mgr->payloads[j + 1],
+					sizeof(struct drm_dp_payload));
+				mgr->proposed_vcpis[j] =
+					mgr->proposed_vcpis[j + 1];
+				if (mgr->proposed_vcpis[j] &&
+					mgr->proposed_vcpis[j]->num_slots) {
+					set_bit(j + 1, &mgr->payload_mask);
+				} else {
+					clear_bit(j + 1, &mgr->payload_mask);
+				}
+			}
+			memset(&mgr->payloads[mgr->max_payloads - 1], 0,
+					sizeof(struct drm_dp_payload));
+			mgr->proposed_vcpis[mgr->max_payloads - 1] = NULL;
+			clear_bit(mgr->max_payloads, &mgr->payload_mask);
+		}
+	}
+	mutex_unlock(&mgr->payload_lock);
+	return 0;
 }
 
-static bool drm_dp_sim_mst_allocate_vcpi(struct drm_dp_mst_topology_mgr *mgr,
-			      struct drm_dp_mst_port *port, int pbn, int slots)
+static int dp_mst_sim_update_payload_part2(struct drm_dp_mst_topology_mgr *mgr)
 {
+	struct drm_dp_mst_port *port;
 	int i;
-	struct dp_mst_private *mst = container_of(mgr,
-			struct dp_mst_private, mst_mgr);
-	struct dp_mst_sim_port *sim_port = container_of(port,
-						struct dp_mst_sim_port, port);
 
-	DP_MST_DEBUG("enter\n");
+	mutex_lock(&mgr->payload_lock);
+	for (i = 0; i < mgr->max_payloads; i++) {
 
-	for (i = 0; i < DP_MST_SIM_MAX_PORTS; i++) {
-		if (!mst->simulator.vcpi[i])
-			break;
+		if (!mgr->proposed_vcpis[i])
+			continue;
+
+		port = container_of(mgr->proposed_vcpis[i],
+				struct drm_dp_mst_port, vcpi);
+
+		pr_debug("payload %d %d\n", i, mgr->payloads[i].payload_state);
+		if (mgr->payloads[i].payload_state == DP_PAYLOAD_LOCAL)
+			mgr->payloads[i].payload_state = DP_PAYLOAD_REMOTE;
+		else if (mgr->payloads[i].payload_state ==
+				DP_PAYLOAD_DELETE_LOCAL)
+			mgr->payloads[i].payload_state = 0;
 	}
-
-	if (i == DP_MST_SIM_MAX_PORTS) {
-		pr_err("simulator allocate vcpi failed\n");
-		return false;
-	}
-
-	sim_port->vcpi = i + 1; /* vcpi starts from 1 */
-	sim_port->slots = slots;
-	sim_port->start_slot = mst->simulator.free_slot_id;
-	mst->simulator.vcpi[i] = sim_port->vcpi;
-	mst->simulator.free_slot_id = mst->simulator.free_slot_id + slots;
-
-	DP_MST_DEBUG("ch:%d, start_slot:%d, slots:%d\n",
-			sim_port->port_id, sim_port->start_slot,
-			sim_port->start_slot);
-
-	DP_MST_DEBUG("completed\n");
-
-	return true;
-}
-
-static int drm_dp_sim_atomic_release_vcpi_slots(struct drm_atomic_state *state,
-				     struct drm_dp_mst_topology_mgr *mgr,
-				     int slots)
-{
+	mutex_unlock(&mgr->payload_lock);
 	return 0;
 }
 
-static int drm_dp_sim_update_payload_part1(struct drm_dp_mst_topology_mgr *mgr)
-{
-	return 0;
-}
-
-static int drm_dp_sim_check_act_status(struct drm_dp_mst_topology_mgr *mgr)
-{
-	return 0;
-}
-
-static int drm_dp_sim_update_payload_part2(struct drm_dp_mst_topology_mgr *mgr)
-{
-	return 0;
-}
-
-static void drm_dp_sim_reset_vcpi_slots(struct drm_dp_mst_topology_mgr *mgr,
-			struct drm_dp_mst_port *port)
-{
-}
-
-static void drm_dp_sim_deallocate_vcpi(struct drm_dp_mst_topology_mgr *mgr,
-			struct drm_dp_mst_port *port)
-{
-	struct dp_mst_private *mst = container_of(mgr,
-			struct dp_mst_private, mst_mgr);
-	struct dp_mst_sim_port *sim_port = container_of(port,
-						struct dp_mst_sim_port, port);
-
-	mst->simulator.vcpi[sim_port->vcpi - 1] = 0;
-	sim_port->vcpi = 0;
-}
-
-static enum drm_connector_status drm_dp_sim_mst_detect_port(
-		struct drm_connector *connector,
-		struct drm_dp_mst_topology_mgr *mgr,
-		struct drm_dp_mst_port *port)
-{
-	struct dp_mst_sim_port *sim_port;
-
-	if (!port)
-		return connector_status_disconnected;
-
-	sim_port = container_of(port, struct dp_mst_sim_port, port);
-
-	return sim_port->status;
-}
-
-static struct edid *drm_dp_sim_mst_get_edid(struct drm_connector *connector,
+static struct edid *dp_mst_sim_get_edid(struct drm_connector *connector,
 		struct drm_dp_mst_topology_mgr *mgr,
 		struct drm_dp_mst_port *port)
 {
 	struct dp_mst_private *mst = container_of(mgr,
 			struct dp_mst_private, mst_mgr);
-	struct dp_mst_sim_port *sim_port = container_of(port,
-						struct dp_mst_sim_port, port);
 
-	sim_port->edid = drm_edid_duplicate(mst->simulator.edid);
-
-	return sim_port->edid;
+	return drm_edid_duplicate(mst->simulator.edid);
 }
 
-static int drm_dp_sim_mst_topology_mgr_set_mst(
+static int dp_mst_sim_topology_mgr_set_mst(
 		struct drm_dp_mst_topology_mgr *mgr,
 		bool mst_state)
 {
 	struct dp_mst_private *mst = container_of(mgr,
 			struct dp_mst_private, mst_mgr);
 
-	if (mst->simulator.mst_state == mst_state)
-		return 0;
-
+	drm_dp_mst_topology_mgr_set_mst(mgr, mst_state);
 	if (mst_state)
 		queue_work(system_long_wq, &mst->simulator.probe_work);
-	else
-		queue_work(system_long_wq, &mst->simulator.conn_destroy_work);
 
 	mst->simulator.mst_state = mst_state;
-
 	return 0;
 }
 
-static void _drm_dp_sim_mst_get_vcpi_info(
-		struct drm_dp_mst_topology_mgr *mgr,
-		int vcpi, int *start_slot, int *num_slots)
-{
-	int i;
-	struct dp_mst_private *mst = container_of(mgr,
-			struct dp_mst_private, mst_mgr);
-
-	*start_slot = 0;
-	*num_slots = 0;
-
-	if (!mst->simulator.vcpi[vcpi - 1])
-		return;
-
-	for (i = 0; i < DP_MST_SIM_MAX_PORTS; i++) {
-		if (mst->simulator.sim_port[i].vcpi == vcpi) {
-			*start_slot = mst->simulator.sim_port[i].start_slot;
-			*num_slots = mst->simulator.sim_port[i].slots;
-			return;
-		}
-	}
-}
-
-static void _drm_dp_mst_get_vcpi_info(
+static void _dp_mst_get_vcpi_info(
 		struct drm_dp_mst_topology_mgr *mgr,
 		int vcpi, int *start_slot, int *num_slots)
 {
@@ -423,7 +372,7 @@ static const struct dp_drm_mst_fw_helper_ops drm_dp_mst_fw_helper_ops = {
 	.detect_port               = drm_dp_mst_detect_port,
 	.get_edid                  = drm_dp_mst_get_edid,
 	.topology_mgr_set_mst      = drm_dp_mst_topology_mgr_set_mst,
-	.get_vcpi_info             = _drm_dp_mst_get_vcpi_info,
+	.get_vcpi_info             = _dp_mst_get_vcpi_info,
 	.atomic_release_vcpi_slots = drm_dp_atomic_release_vcpi_slots,
 	.reset_vcpi_slots          = drm_dp_mst_reset_vcpi_slots,
 	.deallocate_vcpi           = drm_dp_mst_deallocate_vcpi,
@@ -431,19 +380,19 @@ static const struct dp_drm_mst_fw_helper_ops drm_dp_mst_fw_helper_ops = {
 
 static const struct dp_drm_mst_fw_helper_ops drm_dp_sim_mst_fw_helper_ops = {
 	.calc_pbn_mode             = drm_dp_calc_pbn_mode,
-	.find_vcpi_slots           = drm_dp_sim_find_vcpi_slots,
-	.atomic_find_vcpi_slots    = drm_dp_sim_atomic_find_vcpi_slots,
-	.allocate_vcpi             = drm_dp_sim_mst_allocate_vcpi,
-	.update_payload_part1      = drm_dp_sim_update_payload_part1,
-	.check_act_status          = drm_dp_sim_check_act_status,
-	.update_payload_part2      = drm_dp_sim_update_payload_part2,
-	.detect_port               = drm_dp_sim_mst_detect_port,
-	.get_edid                  = drm_dp_sim_mst_get_edid,
-	.topology_mgr_set_mst      = drm_dp_sim_mst_topology_mgr_set_mst,
-	.get_vcpi_info             = _drm_dp_sim_mst_get_vcpi_info,
-	.atomic_release_vcpi_slots = drm_dp_sim_atomic_release_vcpi_slots,
-	.reset_vcpi_slots          = drm_dp_sim_reset_vcpi_slots,
-	.deallocate_vcpi           = drm_dp_sim_deallocate_vcpi,
+	.find_vcpi_slots           = drm_dp_find_vcpi_slots,
+	.atomic_find_vcpi_slots    = drm_dp_atomic_find_vcpi_slots,
+	.allocate_vcpi             = drm_dp_mst_allocate_vcpi,
+	.update_payload_part1      = dp_mst_sim_update_payload_part1,
+	.check_act_status          = dp_mst_sim_no_action,
+	.update_payload_part2      = dp_mst_sim_update_payload_part2,
+	.detect_port               = drm_dp_mst_detect_port,
+	.get_edid                  = dp_mst_sim_get_edid,
+	.topology_mgr_set_mst      = dp_mst_sim_topology_mgr_set_mst,
+	.get_vcpi_info             = _dp_mst_get_vcpi_info,
+	.atomic_release_vcpi_slots = drm_dp_atomic_release_vcpi_slots,
+	.reset_vcpi_slots          = drm_dp_mst_reset_vcpi_slots,
+	.deallocate_vcpi           = drm_dp_mst_deallocate_vcpi,
 };
 
 /* DP MST Bridge OPs */
@@ -566,6 +515,27 @@ static void _dp_mst_update_timeslots(struct dp_mst_private *mst,
 	}
 }
 
+static void _dp_mst_update_single_timeslot(struct dp_mst_private *mst,
+		struct dp_mst_bridge *mst_bridge)
+{
+	int pbn = 0, start_slot = 0, num_slots = 0;
+
+	if (mst->state == PM_SUSPEND) {
+		if (mst_bridge->vcpi) {
+			mst->mst_fw_cbs->get_vcpi_info(&mst->mst_mgr,
+					mst_bridge->vcpi,
+					&start_slot, &num_slots);
+			pbn = mst_bridge->pbn;
+		}
+
+		mst_bridge->num_slots = num_slots;
+
+		mst->dp_display->set_stream_info(mst->dp_display,
+				mst_bridge->dp_panel,
+				mst_bridge->id, start_slot, num_slots, pbn);
+	}
+}
+
 static void _dp_mst_bridge_pre_enable_part1(struct dp_mst_bridge *dp_bridge)
 {
 	struct dp_display *dp_display = dp_bridge->display;
@@ -575,6 +545,12 @@ static void _dp_mst_bridge_pre_enable_part1(struct dp_mst_bridge *dp_bridge)
 	struct drm_dp_mst_port *port = c_conn->mst_port;
 	bool ret;
 	int pbn, slots;
+
+	/* skip mst specific disable operations during suspend */
+	if (mst->state == PM_SUSPEND) {
+		_dp_mst_update_single_timeslot(mst, dp_bridge);
+		return;
+	}
 
 	pbn = mst->mst_fw_cbs->calc_pbn_mode(
 			dp_bridge->dp_mode.timing.pixel_clk_khz,
@@ -608,6 +584,10 @@ static void _dp_mst_bridge_pre_enable_part2(struct dp_mst_bridge *dp_bridge)
 
 	DP_MST_DEBUG("enter\n");
 
+	/* skip mst specific disable operations during suspend */
+	if (mst->state == PM_SUSPEND)
+		return;
+
 	mst->mst_fw_cbs->check_act_status(&mst->mst_mgr);
 
 	mst->mst_fw_cbs->update_payload_part2(&mst->mst_mgr);
@@ -625,6 +605,12 @@ static void _dp_mst_bridge_pre_disable_part1(struct dp_mst_bridge *dp_bridge)
 	struct drm_dp_mst_port *port = c_conn->mst_port;
 
 	DP_MST_DEBUG("enter\n");
+
+	/* skip mst specific disable operations during suspend */
+	if (mst->state == PM_SUSPEND) {
+		_dp_mst_update_single_timeslot(mst, dp_bridge);
+		return;
+	}
 
 	mst->mst_fw_cbs->reset_vcpi_slots(&mst->mst_mgr, port);
 
@@ -645,6 +631,10 @@ static void _dp_mst_bridge_pre_disable_part2(struct dp_mst_bridge *dp_bridge)
 	struct drm_dp_mst_port *port = c_conn->mst_port;
 
 	DP_MST_DEBUG("enter\n");
+
+	/* skip mst specific disable operations during suspend */
+	if (mst->state == PM_SUSPEND)
+		return;
 
 	mst->mst_fw_cbs->check_act_status(&mst->mst_mgr);
 
@@ -823,10 +813,13 @@ static void dp_mst_bridge_post_disable(struct drm_bridge *drm_bridge)
 		pr_info("[%d] DP display unprepare failed, rc=%d\n",
 		       bridge->id, rc);
 
-	/* Disconnect the connector and panel info from bridge */
-	mst->mst_bridge[bridge->id].connector = NULL;
-	mst->mst_bridge[bridge->id].dp_panel = NULL;
-	mst->mst_bridge[bridge->id].encoder_active_sts = false;
+	/* maintain the connector to encoder link during suspend/resume */
+	if (mst->state != PM_SUSPEND) {
+		/* Disconnect the connector and panel info from bridge */
+		mst->mst_bridge[bridge->id].connector = NULL;
+		mst->mst_bridge[bridge->id].dp_panel = NULL;
+		mst->mst_bridge[bridge->id].encoder_active_sts = false;
+	}
 
 	DP_MST_DEBUG("mst bridge [%d] post disable complete\n", bridge->id);
 }
@@ -956,12 +949,20 @@ dp_mst_connector_detect(struct drm_connector *connector, bool force,
 	struct dp_display *dp_display = c_conn->display;
 	struct dp_mst_private *mst = dp_display->dp_mst_prv_info;
 	enum drm_connector_status status;
+	struct dp_mst_connector mst_conn;
 
 	DP_MST_DEBUG("enter:\n");
 
 	status = mst->mst_fw_cbs->detect_port(connector,
 			&mst->mst_mgr,
 			c_conn->mst_port);
+
+	memset(&mst_conn, 0, sizeof(mst_conn));
+	dp_display->mst_get_connector_info(dp_display, connector, &mst_conn);
+	if (mst_conn.conn == connector &&
+			mst_conn.state != connector_status_unknown) {
+		status = mst_conn.state;
+	}
 
 	DP_MST_DEBUG("mst connector:%d detect, status:%d\n",
 			connector->base.id, status);
@@ -1001,18 +1002,57 @@ enum drm_mode_status dp_mst_connector_mode_valid(
 		struct drm_display_mode *mode,
 		void *display)
 {
-	enum drm_mode_status status;
+	struct dp_display *dp_display = display;
+	struct dp_mst_private *mst;
+	struct sde_connector *c_conn;
+	struct drm_dp_mst_port *mst_port;
+	struct dp_display_mode dp_mode;
+	uint16_t available_pbn, required_pbn;
+	int i, slots_in_use = 0, active_enc_cnt = 0;
+	int available_slots, required_slots;
+	const u32 tot_slots = 63;
 
-	DP_MST_DEBUG("enter:\n");
+	if (!connector || !mode || !display) {
+		pr_err("invalid input\n");
+		return 0;
+	}
 
-	status = dp_connector_mode_valid(connector, mode, display);
+	mst = dp_display->dp_mst_prv_info;
+	c_conn = to_sde_connector(connector);
+	mst_port = c_conn->mst_port;
 
-	DP_MST_DEBUG("mst connector:%d mode:%s valid status:%d\n",
-			connector->base.id, mode->name, status);
+	mutex_lock(&mst->mst_lock);
+	available_pbn = mst_port->available_pbn;
+	for (i = 0; i < MAX_DP_MST_DRM_BRIDGES; i++) {
+		if (mst->mst_bridge[i].encoder_active_sts &&
+			(mst->mst_bridge[i].connector != connector)) {
+			active_enc_cnt++;
+			slots_in_use += mst->mst_bridge[i].num_slots;
+		}
+	}
+	mutex_unlock(&mst->mst_lock);
 
-	DP_MST_DEBUG("exit:\n");
+	if (active_enc_cnt < DP_STREAM_MAX)
+		available_slots = tot_slots - slots_in_use;
+	else {
+		pr_debug("all mst streams are active\n");
+		return MODE_BAD;
+	}
 
-	return status;
+	dp_display->convert_to_dp_mode(dp_display, c_conn->drv_panel,
+			mode, &dp_mode);
+
+	required_pbn = mst->mst_fw_cbs->calc_pbn_mode(
+			dp_mode.timing.pixel_clk_khz, dp_mode.timing.bpp);
+	required_slots = mst->mst_fw_cbs->find_vcpi_slots(
+			&mst->mst_mgr, required_pbn);
+
+	if (required_pbn > available_pbn || required_slots > available_slots) {
+		pr_debug("mode:%s not supported\n", mode->name);
+		return MODE_BAD;
+	}
+
+	return dp_connector_mode_valid(connector, mode, display);
 }
 
 int dp_mst_connector_get_info(struct drm_connector *connector,
@@ -1134,8 +1174,17 @@ static int dp_mst_connector_atomic_check(struct drm_connector *connector,
 
 	DP_MST_DEBUG("enter:\n");
 
+	/*
+	 * Skip atomic check during mst suspend, to avoid mismanagement of
+	 * available vcpi slots.
+	 */
+	if (mst->state == PM_SUSPEND)
+		return rc;
+
 	if (!new_conn_state)
 		return rc;
+
+	mutex_lock(&mst->mst_lock);
 
 	state = new_conn_state->state;
 
@@ -1159,7 +1208,7 @@ static int dp_mst_connector_atomic_check(struct drm_connector *connector,
 	bridge = _dp_mst_get_bridge_from_encoder(dp_display,
 			old_conn_state->best_encoder);
 	if (!bridge)
-		return rc;
+		goto end;
 
 	slots = bridge->num_slots;
 	if (drm_atomic_crtc_needs_modeset(crtc_state) && slots > 0) {
@@ -1168,13 +1217,13 @@ static int dp_mst_connector_atomic_check(struct drm_connector *connector,
 		if (rc) {
 			pr_err("failed releasing %d vcpi slots rc:%d\n",
 					slots, rc);
-			return rc;
+			goto end;
 		}
 	}
 
 mode_set:
 	if (!new_conn_state->crtc)
-		return rc;
+		goto end;
 
 	crtc_state = drm_atomic_get_new_crtc_state(state, new_conn_state->crtc);
 
@@ -1201,6 +1250,7 @@ mode_set:
 	}
 
 end:
+	mutex_unlock(&mst->mst_lock);
 	DP_MST_DEBUG("mst connector:%d atomic check\n", connector->base.id);
 	return rc;
 }
@@ -1372,7 +1422,7 @@ static void dp_mst_hpd_event_notify(struct dp_mst_private *mst, bool hpd_status)
 /* DP Driver Callback OPs */
 
 static void dp_mst_display_hpd(void *dp_display, bool hpd_status,
-		struct dp_mst_hdp_info *info)
+		struct dp_mst_hpd_info *info)
 {
 	int rc;
 	struct dp_display *dp = dp_display;
@@ -1385,8 +1435,10 @@ static void dp_mst_display_hpd(void *dp_display, bool hpd_status,
 				hpd_status);
 
 	if (info && !info->mst_protocol) {
-		if (hpd_status)
+		if (hpd_status) {
 			mst->simulator.edid = (struct edid *)info->edid;
+			mst->simulator.port_cnt = info->mst_port_cnt;
+		}
 		mst->mst_fw_cbs = &drm_dp_sim_mst_fw_helper_ops;
 	} else {
 		mst->mst_fw_cbs = &drm_dp_mst_fw_helper_ops;
@@ -1403,7 +1455,8 @@ static void dp_mst_display_hpd(void *dp_display, bool hpd_status,
 	DP_MST_DEBUG("exit:\n");
 }
 
-static void dp_mst_display_hpd_irq(void *dp_display)
+static void dp_mst_display_hpd_irq(void *dp_display,
+			struct dp_mst_hpd_info *info)
 {
 	int rc;
 	struct dp_display *dp = dp_display;
@@ -1413,6 +1466,11 @@ static void dp_mst_display_hpd_irq(void *dp_display)
 	bool handled;
 
 	DP_MST_DEBUG("enter:\n");
+
+	if (info->mst_hpd_sim) {
+		dp_mst_hotplug(&mst->mst_mgr);
+		return;
+	}
 
 	rc = drm_dp_dpcd_read(mst->caps.drm_aux, DP_SINK_COUNT_ESI,
 		esi, 14);
@@ -1440,11 +1498,25 @@ end:
 	DP_MST_DEBUG("exit:\n");
 }
 
+static void dp_mst_set_state(void *dp_display, enum dp_drv_state mst_state)
+{
+	struct dp_display *dp = dp_display;
+	struct dp_mst_private *mst = dp->dp_mst_prv_info;
+
+	if (!mst) {
+		pr_debug("mst not initialized\n");
+		return;
+	}
+
+	mst->state = mst_state;
+}
+
 /* DP MST APIs */
 
 static const struct dp_mst_drm_cbs dp_mst_display_cbs = {
 	.hpd = dp_mst_display_hpd,
 	.hpd_irq = dp_mst_display_hpd_irq,
+	.set_drv_state = dp_mst_set_state,
 };
 
 static const struct drm_dp_mst_topology_cbs dp_mst_drm_cbs = {
@@ -1454,11 +1526,9 @@ static const struct drm_dp_mst_topology_cbs dp_mst_drm_cbs = {
 	.hotplug = dp_mst_hotplug,
 };
 
-static void drm_dp_sim_mst_init(struct dp_mst_private *mst)
+static void dp_mst_sim_init(struct dp_mst_private *mst)
 {
-	INIT_WORK(&mst->simulator.probe_work, drm_dp_mst_sim_link_probe_work);
-	INIT_WORK(&mst->simulator.conn_destroy_work,
-			drm_dp_mst_sim_conn_destroy_work);
+	INIT_WORK(&mst->simulator.probe_work, dp_mst_sim_link_probe_work);
 	mst->simulator.cbs = &dp_mst_drm_cbs;
 }
 
@@ -1509,7 +1579,7 @@ int dp_mst_init(struct dp_display *dp_display)
 		goto error;
 	}
 
-	drm_dp_sim_mst_init(&dp_mst);
+	dp_mst_sim_init(&dp_mst);
 
 	dp_mst.mst_initialized = true;
 

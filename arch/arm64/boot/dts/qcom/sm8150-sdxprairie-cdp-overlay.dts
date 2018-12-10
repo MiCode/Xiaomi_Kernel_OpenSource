@@ -27,5 +27,5 @@
 / {
 	model = "SDXPRAIRIE CDP";
 	compatible = "qcom,sm8150-cdp", "qcom,sm8150", "qcom,cdp";
-	qcom,board-id = <1 3>;
+	qcom,board-id = <1 2>;
 };

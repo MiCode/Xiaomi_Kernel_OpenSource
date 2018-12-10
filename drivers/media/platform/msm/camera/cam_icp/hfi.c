@@ -42,8 +42,8 @@
 
 #define HFI_MAX_POLL_TRY 5
 
-#define HFI_MAX_PC_POLL_TRY 50
-#define HFI_POLL_TRY_SLEEP 20
+#define HFI_MAX_PC_POLL_TRY 150
+#define HFI_POLL_TRY_SLEEP 2
 
 static struct hfi_info *g_hfi;
 unsigned int g_icp_mmu_hdl;

@@ -416,11 +416,12 @@
 				1324800	676
 				1555200	973
 				1708800	1060
-				1843800	1298
+				1843200	1298
 				1939200	1362
 				2169600	1801
+				2208000	2000
 				2361600	2326
-				2438400	2568
+				2400000	2568
 			>;
 			idle-cost-data = <
 				100 80 60 40
@@ -441,7 +442,7 @@
 				1804800	14
 			>;
 			idle-cost-data = <
-				4 3 2 1
+				5 4 3 2 1
 			>;
 		};
 
@@ -456,14 +457,15 @@
 				1324800	33
 				1555200	41
 				1708800	43
-				1843800	49
+				1843200	49
 				1939200	50
 				2169600	60
+				2208000	61
 				2361600	62
-				2438400	63
+				2400000	63
 			>;
 			idle-cost-data = <
-				4 3 2 1
+				5 4 3 2 1
 			>;
 		};
 	};
@@ -562,37 +564,49 @@
 		pil_cdsp_mem: cdsp_regions@93400000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x93400000 0 0x800000>;
+			reg = <0 0x93400000 0 0x1e00000>;
 		};
 
-		pil_adsp_mem: pil_adsp_region@93c00000 {
+		pil_adsp_mem: pil_adsp_region@95200000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x93c00000 0 0x1e00000>;
+			reg = <0 0x95200000 0 0x1e00000>;
 		};
 
-		pil_ipa_fw_mem: ips_fw_region@95a00000 {
+		pil_ipa_fw_mem: ips_fw_region@97000000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x95a00000 0 0x10000>;
+			reg = <0 0x97000000 0 0x10000>;
 		};
 
-		pil_ipa_gsi_mem: ipa_gsi_region@95a10000 {
+		pil_ipa_gsi_mem: ipa_gsi_region@97010000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x95a10000 0 0x5000>;
+			reg = <0 0x97010000 0 0x5000>;
 		};
 
-		npu_mem: npu_region@95a80000 {
+		pil_gpu_mem: gpu_region@97015000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x95a80000 0 0x80000>;
+			reg = <0 0x97015000 0 0x2000>;
+		};
+
+		npu_mem: npu_region@97080000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x97080000 0 0x80000>;
 		};
 
 		qseecom_mem: qseecom_region@9e400000 {
 			compatible = "shared-dma-pool";
 			no-map;
 			reg = <0 0x9e400000 0 0x1400000>;
+		};
+
+		cdsp_sec_mem: cdsp_sec_regions@0x9f800000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x9f800000 0x0 0xc00000>;
 		};
 
 		adsp_mem: adsp_region {
@@ -655,12 +669,6 @@
 			size = <0 0x2000000>;
 			linux,cma-default;
 		};
-	};
-
-	mtp_batterydata: qcom,battery-data {
-		qcom,batt-id-range-pct = <15>;
-		#include "qg-batterydata-alium-3600mah.dtsi"
-		#include "qg-batterydata-mlp466076-3200mah.dtsi"
 	};
 };
 
@@ -844,8 +852,9 @@
 	clock_videocc: qcom,videocc@ab00000 {
 		compatible = "qcom,videocc-sdmmagpie", "syscon";
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
-		reg = <0xab00000 0x10000>;
-		reg-names = "cc_base";
+		reg = <0xab00000 0x10000>,
+			<0x00786018 0x4>;
+		reg-names = "cc_base", "efuse";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -1719,6 +1728,31 @@
 				compatible = "qcom,msm-fastrpc-rpmsg";
 				qcom,glink-channels = "fastrpcglink-apps-dsp";
 				qcom,intents = <0x64 64>;
+			};
+
+			qcom,msm_cdsprm_rpmsg {
+				compatible = "qcom,msm-cdsprm-rpmsg";
+				qcom,glink-channels = "cdsprmglink-apps-dsp";
+				qcom,intents = <0x20 12>;
+
+				qcom,cdsp-cdsp-l3-gov {
+					compatible = "qcom,cdsp-l3";
+					qcom,target-dev = <&cdsp_cdsp_l3_lat>;
+				};
+
+				msm_cdsp_rm: qcom,msm_cdsp_rm {
+					compatible = "qcom,msm-cdsp-rm";
+					qcom,qos-latency-us = <44>;
+					qcom,qos-maxhold-ms = <20>;
+					qcom,compute-cx-limit-en;
+					qcom,compute-priority-mode = <2>;
+					#cooling-cells = <2>;
+				};
+
+				msm_hvx_rm: qcom,msm_hvx_rm {
+					compatible = "qcom,msm-hvx-rm";
+					#cooling-cells = <2>;
+				};
 			};
 
 			qcom,cdsp_glink_ssr {
@@ -2678,7 +2712,7 @@
 		qcom,cachemiss-ev = <0x17>;
 		qcom,core-dev-table =
 			<  768000  300000000 >,
-			< 1017600  566800000 >,
+			< 1017600  556800000 >,
 			< 1248000  768000000 >,
 			< 1497000  940800000 >,
 			< 1804800 1459200000 >;
@@ -2697,10 +2731,10 @@
 		qcom,target-dev = <&cpu6_cpu_l3_lat>;
 		qcom,cachemiss-ev = <0x17>;
 		qcom,core-dev-table =
-			< 1094000  566800000 >,
+			< 1094000  556800000 >,
 			< 1324000  768000000 >,
-			< 1708800 1190800000 >,
-			< 1939000 1382000000 >,
+			< 1708800 1190400000 >,
+			< 1939000 1382400000 >,
 			< 2438400 1459200000 >;
 	};
 
@@ -2855,7 +2889,7 @@
 		iommus = <&apps_smmu 0x520 0x0>;
 		qcom,iova-mapping = <0x20000000 0x40000000>;
 		/* modem tables in IMEM */
-		qcom,additional-mapping = <0x146bd000 0x146bd000 0x2000>;
+		qcom,additional-mapping = <0x146A8000 0x146A8000 0x2000>;
 	};
 
 	ipa_smmu_wlan: ipa_smmu_wlan {
@@ -2881,21 +2915,21 @@
 		memory-region = <&pil_ipa_fw_mem>;
 	};
 
-        keepalive_opp_table: keepalive-opp-table {
-                compatible = "operating-points-v2";
-                opp-1 {
-                        opp-hz = /bits/ 64 < 1 >;
-                };
-        };
+	keepalive_opp_table: keepalive-opp-table {
+		compatible = "operating-points-v2";
+		opp-1 {
+			opp-hz = /bits/ 64 < 1 >;
+		};
+	};
 
-        snoc_cnoc_keepalive: qcom,snoc_cnoc_keepalive {
-                compatible = "qcom,devbw";
-                governor = "powersave";
-                qcom,src-dst-ports = <1 627>;
-                qcom,active-only;
-                status = "ok";
-                operating-points-v2 = <&keepalive_opp_table>;
-        };
+	snoc_cnoc_keepalive: qcom,snoc_cnoc_keepalive {
+		compatible = "qcom,devbw";
+		governor = "powersave";
+		qcom,src-dst-ports = <1 627>;
+		qcom,active-only;
+		status = "ok";
+		operating-points-v2 = <&keepalive_opp_table>;
+	};
 
 	bus_proxy_client: qcom,bus_proxy_client {
 		compatible = "qcom,bus-proxy-client";
@@ -2908,6 +2942,10 @@
 			MSM_BUS_SLAVE_EBI_CH0 0 5000000>;
 		qcom,msm-bus,active-only;
 		status = "ok";
+	};
+
+	demux {
+		compatible = "qcom,demux";
 	};
 };
 
@@ -3072,11 +3110,6 @@
 
 &usb0 {
 	extcon = <&pm6150_pdphy>, <&pm6150_charger>, <&eud>;
-};
-
-&pm6150_charger {
-	dpdm-supply = <&qusb_phy0>;
-	qcom,suspend-input-on-debug-batt;
 };
 
 &pm6150_vadc {

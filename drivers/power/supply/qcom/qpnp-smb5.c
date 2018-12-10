@@ -513,7 +513,6 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_TYPEC_MODE,
 	POWER_SUPPLY_PROP_TYPEC_POWER_ROLE,
 	POWER_SUPPLY_PROP_TYPEC_CC_ORIENTATION,
-	POWER_SUPPLY_PROP_TYPEC_SRC_RP,
 	POWER_SUPPLY_PROP_LOW_POWER,
 	POWER_SUPPLY_PROP_PD_ACTIVE,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
@@ -523,10 +522,8 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_CTM_CURRENT_MAX,
 	POWER_SUPPLY_PROP_HW_CURRENT_MAX,
 	POWER_SUPPLY_PROP_REAL_TYPE,
-	POWER_SUPPLY_PROP_PR_SWAP,
 	POWER_SUPPLY_PROP_PD_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_PD_VOLTAGE_MIN,
-	POWER_SUPPLY_PROP_SDP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_CONNECTOR_TYPE,
 	POWER_SUPPLY_PROP_CONNECTOR_HEALTH,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
@@ -1771,15 +1768,6 @@ static int smb5_init_hw(struct smb5 *chip)
 		}
 	}
 
-	/* Disable SMB Temperature ADC INT */
-	rc = smblib_masked_write(chg, MISC_THERMREG_SRC_CFG_REG,
-					 THERMREG_SMB_ADC_SRC_EN_BIT, 0);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't configure SMB thermal regulation  rc=%d\n",
-				rc);
-		return rc;
-	}
-
 	/*
 	 * If SW thermal regulation WA is active then all the HW temperature
 	 * comparators need to be disabled to prevent HW thermal regulation,
@@ -1791,6 +1779,15 @@ static int smb5_init_hw(struct smb5 *chip)
 		if (rc < 0) {
 			dev_err(chg->dev, "Couldn't disable HW thermal regulation rc=%d\n",
 				rc);
+			return rc;
+		}
+	} else {
+		/* Allows software thermal regulation only */
+		rc = smblib_write(chg, MISC_THERMREG_SRC_CFG_REG,
+					 THERMREG_SW_ICL_ADJUST_BIT);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't configure SMB thermal regulation rc=%d\n",
+					rc);
 			return rc;
 		}
 	}
@@ -1864,8 +1861,8 @@ static int smb5_init_hw(struct smb5 *chip)
 		smblib_rerun_apsd_if_required(chg);
 	}
 
-	/* clear the ICL override if it is set */
-	rc = smblib_icl_override(chg, false);
+	/* Use ICL results from HW */
+	rc = smblib_icl_override(chg, HW_AUTO_MODE);
 	if (rc < 0) {
 		pr_err("Couldn't disable ICL override rc=%d\n", rc);
 		return rc;
@@ -2412,8 +2409,14 @@ static struct smb_irq_info smb5_irqs[] = {
 	[IMP_TRIGGER_IRQ] = {
 		.name		= "imp-trigger",
 	},
+	/*
+	 * triggered when DIE or SKIN or CONNECTOR temperature across
+	 * either of the _REG_L, _REG_H, _RST, or _SHDN thresholds
+	 */
 	[TEMP_CHANGE_IRQ] = {
 		.name		= "temp-change",
+		.handler	= temp_change_irq_handler,
+		.wake		= true,
 	},
 	[TEMP_CHANGE_SMB_IRQ] = {
 		.name		= "temp-change-smb",

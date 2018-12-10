@@ -183,23 +183,65 @@
 		qcom,force-warm-reboot;
 	};
 
+	keepalive_opp_table: keepalive-opp-table {
+		compatible = "operating-points-v2";
+		opp-1 {
+			opp-hz = /bits/ 64 < 1 >;
+		};
+	};
+
+	snoc_pcnoc_keepalive: qcom,snoc_pcnoc_keepalive {
+		compatible = "qcom,devbw";
+		governor = "powersave";
+		qcom,src-dst-ports = <1 627>;
+		qcom,active-only;
+		status = "ok";
+		operating-points-v2 = <&keepalive_opp_table>;
+	};
+
+	ddr_keepalive: qcom,ddr_keepalive {
+		compatible = "qcom,devbw";
+		governor = "powersave";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		status = "ok";
+		operating-points-v2 = <&keepalive_opp_table>;
+	};
+
 	clock_rpmh: qcom,rpmh {
-		compatible = "qcom,dummycc";
-		clock-output-names = "rpmh_clocks";
+		compatible = "qcom,rpmh-clk-sdxprairie";
+		mboxes = <&apps_rsc 0>;
+		mbox-names = "apps";
 		#clock-cells = <1>;
 	};
 
 	clock_aop: qcom,aop {
-		compatible = "qcom,dummycc";
-		clock-output-names = "aop_clocks";
+		compatible = "qcom,aop-qmp-clk";
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "qdss_clk";
 		#clock-cells = <1>;
 	};
 
-	clock_gcc: qcom,gcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gcc_clocks";
+	clock_gcc: qcom,gcc@100000 {
+		compatible = "qcom,gcc-sdxprairie", "syscon";
+		reg = <0x100000 0x1f0000>;
+		reg-names = "cc_base";
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		clock-names = "bi_tcxo";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		vdd_cx_ao-supply = <&VDD_CX_LEVEL_AO>;
+		vdd_mx-supply = <&VDD_MX_LEVEL>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+	};
+
+	clock_debugcc: qcom,cc-debug {
+		compatible = "qcom,debugcc-sdxprairie";
+		qcom,cc-count = <1>;
+		qcom,gcc = <&clock_gcc>;
+		clock-names = "xo_clk_src";
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		#clock-cells = <1>;
 	};
 
 	serial_uart: serial@831000 {
@@ -212,6 +254,78 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&uart3_console_active>;
 		pinctrl-1 = <&uart3_console_sleep>;
+		status = "ok";
+	};
+
+	qcom,msm-imem@1468F000 {
+		compatible = "qcom,msm-imem";
+		reg = <0x1468F000 0x1000>; /* Address and size of IMEM */
+		ranges = <0x0 0x1468F000 0x1000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		mem_dump_table@10 {
+			compatible = "qcom,msm-imem-mem_dump_table";
+			reg = <0x10 8>;
+		};
+
+		restart_reason@65c {
+			compatible = "qcom,msm-imem-restart_reason";
+			reg = <0x65c 4>;
+		};
+
+		boot_stats@6b0 {
+			compatible = "qcom,msm-imem-boot_stats";
+			reg = <0x6b0 32>;
+		};
+
+		pil@94c {
+			compatible = "qcom,msm-imem-pil";
+			reg = <0x94c 200>;
+		};
+
+		diag_dload@c8 {
+			compatible = "qcom,msm-imem-diag-dload";
+			reg = <0xc8 200>;
+		};
+	};
+
+	pil_modem: qcom,mss@4080000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0x4080000 0x100>;
+
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		clock-names = "xo";
+		qcom,proxy-clock-names = "xo";
+
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+		vdd_mss-supply = <&VDD_MODEM_LEVEL>;
+		qcom,vdd_mss-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+		qcom,proxy-reg-names = "vdd_cx", "vdd_mss";
+
+		qcom,firmware-name = "modem";
+		memory-region = <&mpss_adsp_mem>;
+		qcom,pas-id = <4>;
+		qcom,smem-id = <421>;
+		qcom,sysmon-id = <0>;
+		qcom,ssctl-instance-id = <0x12>;
+
+		interrupts-extended = <&intc 0 250 1>,
+				<&modem_smp2p_in 0 0>,
+				<&modem_smp2p_in 2 0>,
+				<&modem_smp2p_in 1 0>,
+				<&modem_smp2p_in 3 0>;
+
+		interrupt-names = "qcom,wdog",
+				"qcom,err-fatal",
+				"qcom,proxy-unvote",
+				"qcom,err-ready",
+				"qcom,stop-ack";
+
+		qcom,smem-states = <&modem_smp2p_out 0>;
+		qcom,smem-state-names = "qcom,force-stop";
+
 		status = "ok";
 	};
 
@@ -484,6 +598,42 @@
 		reg = <0x1468f720 0x2000>;
 		status = "disabled";
 	};
+
+	qcom_rng: qrng@793000{
+		compatible = "qcom,msm-rng";
+		reg = <0x793000 0x1000>;
+		qcom,no-qrng-config;
+		qcom,msm-bus,name = "msm-rng-noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<1 618 0 0>,    /* No vote */
+			<1 618 0 300000>;  /* 75 MHz */
+		qcom,no-clock-support;
+	};
+
+	qnand_1: nand@1b00000 {
+		compatible = "qcom,msm-nand";
+		reg =   <0x01b00000 0x1000>,
+			<0x01b04000 0x1c000>;
+		reg-names =     "nand_phys",
+				"bam_phys";
+		qcom,reg-adjustment-offset = <0x4000>;
+		qcom,qpic-clk-rpmh;
+
+		interrupts = <0 135 0>;
+		interrupt-names = "bam_irq";
+
+		qcom,msm-bus,name = "qpic_nand";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<91 512 0 0>,
+		/* Voting for max b/w on PNOC bus for now */
+			<91 512 400000 400000>;
+
+		status = "disabled";
+	};
 };
 
 #include "sdxprairie-pm.dtsi"
@@ -493,6 +643,7 @@
 #include "msm-arm-smmu-sdxprairie.dtsi"
 #include "sdxprairie-gdsc.dtsi"
 #include "sdxprairie-usb.dtsi"
+#include "sdxprairie-blsp.dtsi"
 
 &gdsc_usb30 {
 	status = "ok";

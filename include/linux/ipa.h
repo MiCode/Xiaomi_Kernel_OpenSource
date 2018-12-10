@@ -80,6 +80,7 @@ enum ipa_aggr_type {
 	IPA_TLP     = 2,
 	IPA_RNDIS   = 3,
 	IPA_GENERIC = 4,
+	IPA_COALESCE = 5,
 	IPA_QCMAP   = 6,
 };
 
@@ -373,7 +374,14 @@ struct ipa_ep_cfg_deaggr {
  */
 enum ipa_cs_offload {
 	IPA_DISABLE_CS_OFFLOAD,
+	/*
+	 * For enum value = 1, we check the csum required/valid bit which is the
+	 * same bit used for both DL and UL but have different meanings.
+	 * For UL pipe, HW checks if it needs to perform Csum caluclation.
+	 * For DL pipe, HW checks if the csum is valid or invalid
+	 */
 	IPA_ENABLE_CS_OFFLOAD_UL,
+	IPA_ENABLE_CS_DL_QMAP = IPA_ENABLE_CS_OFFLOAD_UL,
 	IPA_ENABLE_CS_OFFLOAD_DL,
 	IPA_CS_RSVD
 };
