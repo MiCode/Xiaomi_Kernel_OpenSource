@@ -1456,6 +1456,7 @@ struct usb_descriptor_header **usb_copy_descriptors(
 static inline void usb_free_descriptors(struct usb_descriptor_header **v)
 {
 	kfree(v);
+	v = NULL;
 }
 
 struct usb_function;
