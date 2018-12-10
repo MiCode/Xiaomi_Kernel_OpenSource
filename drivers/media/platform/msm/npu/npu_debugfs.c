@@ -169,7 +169,7 @@ static ssize_t npu_debug_reg_read(struct file *file,
 		if (!debugfs->buf)
 			return -ENOMEM;
 
-		ptr = npu_dev->npu_base + debugfs->reg_off;
+		ptr = npu_dev->npu_io.base + debugfs->reg_off;
 		tot = 0;
 		off = (int)debugfs->reg_off;
 
@@ -183,7 +183,7 @@ static ssize_t npu_debug_reg_read(struct file *file,
 			len = scnprintf(debugfs->buf + tot,
 				debugfs->buf_len - tot, "0x%08x: %s\n",
 				((int) (unsigned long) ptr) -
-				((int) (unsigned long) npu_dev->npu_base),
+				((int) (unsigned long) npu_dev->npu_io.base),
 				dump_buf);
 
 			ptr += ROW_BYTES;
@@ -200,7 +200,7 @@ static ssize_t npu_debug_reg_read(struct file *file,
 		return 0; /* done reading */
 
 	len = min(count, debugfs->buf_len - (size_t) *ppos);
-	pr_debug("read %zi %zi", count, debugfs->buf_len - (size_t) *ppos);
+	pr_debug("read %zi %zi\n", count, debugfs->buf_len - (size_t) *ppos);
 	if (copy_to_user(user_buf, debugfs->buf + *ppos, len)) {
 		pr_err("failed to copy to user\n");
 		return -EFAULT;
@@ -305,7 +305,8 @@ static ssize_t npu_debug_log_read(struct file *file,
 
 			if (copy_to_user(dst_addr, src_addr,
 				remaining_to_end)) {
-				pr_err("%s failed to copy to user", __func__);
+				pr_err("%s failed to copy to user\n", __func__);
+				mutex_unlock(&debugfs->log_lock);
 				return -EFAULT;
 			}
 			src_addr = debugfs->log_buf;
@@ -313,7 +314,8 @@ static ssize_t npu_debug_log_read(struct file *file,
 			if (copy_to_user(dst_addr, src_addr,
 				debugfs->log_num_bytes_buffered -
 				remaining_to_end)) {
-				pr_err("%s failed to copy to user", __func__);
+				pr_err("%s failed to copy to user\n", __func__);
+				mutex_unlock(&debugfs->log_lock);
 				return -EFAULT;
 			}
 			debugfs->log_read_index =
@@ -323,7 +325,8 @@ static ssize_t npu_debug_log_read(struct file *file,
 			if (copy_to_user(user_buf, (debugfs->log_buf +
 				debugfs->log_read_index),
 				debugfs->log_num_bytes_buffered)) {
-				pr_err("%s failed to copy to user", __func__);
+				pr_err("%s failed to copy to user\n", __func__);
+				mutex_unlock(&debugfs->log_lock);
 				return -EFAULT;
 			}
 			debugfs->log_read_index +=
@@ -352,6 +355,7 @@ static ssize_t npu_debug_ctrl_write(struct file *file,
 	struct npu_device *npu_dev = file->private_data;
 	struct npu_debugfs_ctx *debugfs;
 	int32_t rc = 0;
+	uint32_t val;
 
 	pr_debug("npu_dev %pK %pK\n", npu_dev, g_npu_dev);
 	npu_dev = g_npu_dev;
@@ -374,7 +378,7 @@ static ssize_t npu_debug_ctrl_write(struct file *file,
 			pr_info("error in fw_init\n");
 	} else if (strcmp(buf, "off") == 0) {
 		pr_info("triggering fw_deinit\n");
-		fw_deinit(npu_dev, false);
+		fw_deinit(npu_dev, false, true);
 	} else if (strcmp(buf, "ssr") == 0) {
 		pr_info("trigger error irq\n");
 		if (npu_enable_core_power(npu_dev))
@@ -390,26 +394,15 @@ static ssize_t npu_debug_ctrl_write(struct file *file,
 		pr_debug("loopback test\n");
 		rc = npu_host_loopback_test(npu_dev);
 		pr_debug("loopback test end: %d\n", rc);
-	} else if (strcmp(buf, "0") == 0) {
-		pr_info("setting power state to 0\n");
-		npu_dev->pwrctrl.active_pwrlevel = 0;
-	} else if (strcmp(buf, "1") == 0) {
-		pr_info("setting power state to 1\n");
-		npu_dev->pwrctrl.active_pwrlevel = 1;
-	} else if (strcmp(buf, "2") == 0) {
-		pr_info("setting power state to 2\n");
-		npu_dev->pwrctrl.active_pwrlevel = 2;
-	} else if (strcmp(buf, "3") == 0) {
-		pr_info("setting power state to 3\n");
-		npu_dev->pwrctrl.active_pwrlevel = 3;
-	} else if (strcmp(buf, "4") == 0) {
-		pr_info("setting power state to 4\n");
-		npu_dev->pwrctrl.active_pwrlevel = 4;
-	} else if (strcmp(buf, "5") == 0) {
-		pr_info("setting power state to 5\n");
-		npu_dev->pwrctrl.active_pwrlevel = 5;
 	} else {
-		pr_info("ctrl invalid value\n");
+		rc = kstrtou32(buf, 10, &val);
+		if (rc) {
+			pr_err("Invalid input for power level settings\n");
+		} else {
+			val = min(val, npu_dev->pwrctrl.max_pwrlevel);
+			npu_dev->pwrctrl.active_pwrlevel = val;
+			pr_info("setting power state to %d\n", val);
+		}
 	}
 
 	return count;

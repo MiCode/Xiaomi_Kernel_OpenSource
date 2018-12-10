@@ -1153,6 +1153,15 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		),
 		.qmenu = mpeg_video_stream_format,
 	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VENC_BITRATE_SAVINGS,
+		.name = "Enable/Disable bitrate savings",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum = V4L2_MPEG_MSM_VIDC_DISABLE,
+		.maximum = V4L2_MPEG_MSM_VIDC_ENABLE,
+		.default_value = V4L2_MPEG_MSM_VIDC_ENABLE,
+		.step = 1,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(msm_venc_ctrls)
@@ -2192,6 +2201,13 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		property_id = HAL_PARAM_NAL_STREAM_FORMAT_SELECT;
 		stream_format.nal_stream_format_select = BIT(ctrl->val);
 		pdata = &stream_format;
+		break;
+	}
+	case V4L2_CID_MPEG_VIDC_VENC_BITRATE_SAVINGS:
+	{
+		property_id = HAL_PARAM_VENC_BITRATE_SAVINGS;
+		enable.enable = ctrl->val;
+		pdata = &enable;
 		break;
 	}
 	case V4L2_CID_MPEG_VIDC_VIDEO_LTRCOUNT:

@@ -1207,6 +1207,11 @@ static void sde_kms_wait_for_commit_done(struct msm_kms *kms,
 		return;
 	}
 
+	if (!sde_kms_power_resource_is_enabled(crtc->dev)) {
+		SDE_ERROR("power resource is not enabled\n");
+		return;
+	}
+
 	SDE_ATRACE_BEGIN("sde_kms_wait_for_commit_done");
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
 		if (encoder->crtc != crtc)
@@ -3410,7 +3415,6 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	mutex_init(&sde_kms->secure_transition_lock);
 	atomic_set(&sde_kms->detach_sec_cb, 0);
 	atomic_set(&sde_kms->detach_all_cb, 0);
-	atomic_set(&sde_kms->pm_qos_counts, 0);
 
 	/*
 	 * Support format modifiers for compression etc.

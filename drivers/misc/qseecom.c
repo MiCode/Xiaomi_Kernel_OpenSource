@@ -1772,19 +1772,9 @@ static void __qseecom_clean_listener_sglistinfo(
 	}
 }
 
-/* wait listener retry delay (ms) and max attemp count */
-#define QSEECOM_WAIT_LISTENER_DELAY          10
-#define QSEECOM_WAIT_LISTENER_MAX_ATTEMP     3
-
 static int __is_listener_rcv_wq_not_ready(
 			struct qseecom_registered_listener_list *ptr_svc)
 {
-	int retry = 0;
-
-	while (ptr_svc->rcv_req_flag == -1 &&
-		retry++ < QSEECOM_WAIT_LISTENER_MAX_ATTEMP) {
-		msleep(QSEECOM_WAIT_LISTENER_DELAY);
-	}
 	return ptr_svc->rcv_req_flag == -1;
 }
 
@@ -1805,6 +1795,7 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 	void *cmd_buf = NULL;
 	size_t cmd_len;
 	struct sglist_info *table = NULL;
+	bool not_ready = false;
 
 	while (resp->result == QSEOS_RESULT_INCOMPLETE) {
 		lstnr = resp->data;
@@ -1816,8 +1807,10 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 		list_for_each_entry(ptr_svc,
 				&qseecom.registered_listener_list_head, list) {
 			if (ptr_svc->svc.listener_id == lstnr) {
-				if (__is_listener_rcv_wq_not_ready(ptr_svc))
+				if (__is_listener_rcv_wq_not_ready(ptr_svc)) {
+					not_ready = true;
 					break;
+				}
 				ptr_svc->listener_in_use = true;
 				ptr_svc->rcv_req_flag = 1;
 				wake_up_interruptible(&ptr_svc->rcv_req_wq);
@@ -1858,7 +1851,7 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 			goto err_resp;
 		}
 
-		if (ptr_svc->rcv_req_flag == -1) {
+		if (not_ready) {
 			pr_err("Service %d is not ready to receive request\n",
 					lstnr);
 			rc = -ENOENT;
@@ -2137,6 +2130,7 @@ static int __qseecom_reentrancy_process_incomplete_cmd(
 	void *cmd_buf = NULL;
 	size_t cmd_len;
 	struct sglist_info *table = NULL;
+	bool not_ready = false;
 
 	while (ret == 0 && resp->result == QSEOS_RESULT_INCOMPLETE) {
 		lstnr = resp->data;
@@ -2148,8 +2142,10 @@ static int __qseecom_reentrancy_process_incomplete_cmd(
 		list_for_each_entry(ptr_svc,
 				&qseecom.registered_listener_list_head, list) {
 			if (ptr_svc->svc.listener_id == lstnr) {
-				if (__is_listener_rcv_wq_not_ready(ptr_svc))
+				if (__is_listener_rcv_wq_not_ready(ptr_svc)) {
+					not_ready = true;
 					break;
+				}
 				ptr_svc->listener_in_use = true;
 				ptr_svc->rcv_req_flag = 1;
 				wake_up_interruptible(&ptr_svc->rcv_req_wq);
@@ -2190,7 +2186,7 @@ static int __qseecom_reentrancy_process_incomplete_cmd(
 			goto err_resp;
 		}
 
-		if (ptr_svc->rcv_req_flag == -1) {
+		if (not_ready) {
 			pr_err("Service %d is not ready to receive request\n",
 					lstnr);
 			rc = -ENOENT;
@@ -3998,7 +3994,9 @@ static int qseecom_receive_req(struct qseecom_dev_handle *data)
 		pr_err("Invalid listener ID\n");
 		return -ENODATA;
 	}
-	this_lstnr->rcv_req_flag = 0;
+
+	if (this_lstnr->rcv_req_flag == -1)
+		this_lstnr->rcv_req_flag = 0;
 
 	while (1) {
 		if (wait_event_freezable(this_lstnr->rcv_req_wq,
@@ -4007,6 +4005,7 @@ static int qseecom_receive_req(struct qseecom_dev_handle *data)
 			pr_debug("Interrupted: exiting Listener Service = %d\n",
 						(uint32_t)data->listener.id);
 			/* woken up for different reason */
+			this_lstnr->rcv_req_flag = -1;
 			return -ERESTARTSYS;
 		}
 
@@ -4100,7 +4099,7 @@ static int __qseecom_get_fw_size(const char *appname, uint32_t *fw_size,
 	int num_images = 0;
 
 	snprintf(fw_name, sizeof(fw_name), "%s.mdt", appname);
-	rc = request_firmware(&fw_entry, fw_name,  qseecom.pdev);
+	rc = request_firmware(&fw_entry, fw_name,  qseecom.dev);
 	if (rc) {
 		pr_err("error with request_firmware\n");
 		ret = -EIO;
@@ -4130,7 +4129,7 @@ static int __qseecom_get_fw_size(const char *appname, uint32_t *fw_size,
 	for (i = 0; i < num_images; i++) {
 		memset(fw_name, 0, sizeof(fw_name));
 		snprintf(fw_name, ARRAY_SIZE(fw_name), "%s.b%02d", appname, i);
-		ret = request_firmware(&fw_entry, fw_name, qseecom.pdev);
+		ret = request_firmware(&fw_entry, fw_name, qseecom.dev);
 		if (ret)
 			goto err;
 		if (*fw_size > U32_MAX - fw_entry->size) {
@@ -4166,7 +4165,7 @@ static int __qseecom_get_fw_data(const char *appname, u8 *img_data,
 	unsigned char app_arch = 0;
 
 	snprintf(fw_name, sizeof(fw_name), "%s.mdt", appname);
-	rc = request_firmware(&fw_entry, fw_name,  qseecom.pdev);
+	rc = request_firmware(&fw_entry, fw_name,  qseecom.dev);
 	if (rc) {
 		ret = -EIO;
 		goto err;
@@ -4200,7 +4199,7 @@ static int __qseecom_get_fw_data(const char *appname, u8 *img_data,
 	fw_entry = NULL;
 	for (i = 0; i < num_images; i++) {
 		snprintf(fw_name, ARRAY_SIZE(fw_name), "%s.b%02d", appname, i);
-		ret = request_firmware(&fw_entry, fw_name,  qseecom.pdev);
+		ret = request_firmware(&fw_entry, fw_name,  qseecom.dev);
 		if (ret) {
 			pr_err("Failed to locate blob %s\n", fw_name);
 			goto err;

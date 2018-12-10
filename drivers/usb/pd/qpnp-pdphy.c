@@ -481,6 +481,7 @@ int pd_phy_write(u16 hdr, const u8 *data, size_t data_len, enum pd_sop_type sop)
 	int ret;
 	size_t total_len = data_len + USB_PDPHY_MSG_HDR_LEN;
 	struct usb_pdphy *pdphy = __pdphy;
+	unsigned int msg_rx_cnt;
 
 	dev_dbg(pdphy->dev, "%s: hdr %x frame sop_type %d\n",
 			__func__, hdr, sop);
@@ -493,6 +494,8 @@ int pd_phy_write(u16 hdr, const u8 *data, size_t data_len, enum pd_sop_type sop)
 		pr_err("%s: pdphy not found\n", __func__);
 		return -ENODEV;
 	}
+
+	msg_rx_cnt = pdphy->msg_rx_cnt;
 
 	if (!pdphy->is_opened) {
 		dev_dbg(pdphy->dev, "%s: pdphy disabled\n", __func__);
@@ -544,6 +547,11 @@ int pd_phy_write(u16 hdr, const u8 *data, size_t data_len, enum pd_sop_type sop)
 		val |= TX_CONTROL_RETRY_COUNT(2);
 	else
 		val |= TX_CONTROL_RETRY_COUNT(3);
+
+	if (msg_rx_cnt != pdphy->msg_rx_cnt) {
+		dev_err(pdphy->dev, "%s: RX message arrived\n", __func__);
+		return -EBUSY;
+	}
 
 	ret = pdphy_reg_write(pdphy, USB_PDPHY_TX_CONTROL, val);
 	if (ret)
@@ -734,7 +742,7 @@ static irqreturn_t pdphy_msg_rx_irq(int irq, void *data)
 	/* ack to change ownership of rx buffer back to PDPHY RX HW */
 	pdphy_reg_write(pdphy, USB_PDPHY_RX_ACKNOWLEDGE, 0);
 
-	if (((buf[0] & 0xf) == PD_MSG_BIST) && size >= 5) { /* BIST */
+	if (((buf[0] & 0xf) == PD_MSG_BIST) && !(buf[1] & 0x80) && size >= 5) {
 		u8 mode = buf[5] >> 4; /* [31:28] of 1st data object */
 
 		pd_phy_bist_mode(mode);

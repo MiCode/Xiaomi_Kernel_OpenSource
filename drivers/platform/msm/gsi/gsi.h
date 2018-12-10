@@ -226,6 +226,7 @@ enum gsi_re_type {
 	GSI_RE_XFER = 0x2,
 	GSI_RE_IMMD_CMD = 0x3,
 	GSI_RE_NOP = 0x4,
+	GSI_RE_COAL = 0x8,
 };
 
 struct __packed gsi_tre {
@@ -242,10 +243,28 @@ struct __packed gsi_tre {
 	uint8_t resvd2;
 };
 
+struct __packed gsi_gci_tre {
+	uint64_t buffer_ptr:41;
+	uint64_t resvd1:7;
+	uint64_t buf_len:16;
+	uint64_t cookie:40;
+	uint64_t resvd2:8;
+	uint64_t re_type:8;
+	uint64_t resvd3:8;
+};
+
+#define GSI_XFER_COMPL_TYPE_GCI 0x28
+
 struct __packed gsi_xfer_compl_evt {
-	uint64_t xfer_ptr;
+	union {
+		uint64_t xfer_ptr;
+		struct {
+			uint64_t cookie:40;
+			uint64_t resvd1:24;
+		};
+	};
 	uint16_t len;
-	uint8_t resvd1;
+	uint8_t veid;
 	uint8_t code;  /* see gsi_chan_evt */
 	uint16_t resvd;
 	uint8_t type;

@@ -35,6 +35,14 @@ Subsystem properties:
 		2. pa1
 		3. qfe_pa0
 		4. qfe_wtr0
+		5. modem_tsens
+		6. qfe_mmw0
+		7. qfe_mmw1
+		8. qfe_mmw2
+		9. qfe_mmw3
+		10. xo_therm
+		11. qfe_pa_mdm
+		12. qfe_pa_wtr
 
 Example:
 

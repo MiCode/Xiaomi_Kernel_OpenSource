@@ -26,6 +26,10 @@
 #define IPC_MEM_OFFSET_FROM_SSTCM 0x00010000
 #define SYS_CACHE_SCID 23
 
+#define QFPROM_FMAX_REG_OFFSET 0x000001C8
+#define QFPROM_FMAX_BITS_MASK  0x0000000C
+#define QFPROM_FMAX_BITS_SHIFT 2
+
 #define REGW(npu_dev, off, val) npu_reg_write(npu_dev, off, val)
 #define REGR(npu_dev, off) npu_reg_read(npu_dev, off)
 #define MEMW(npu_dev, dst, src, size) npu_mem_write(npu_dev, (void *)(dst),\
@@ -58,6 +62,7 @@ void npu_mem_write(struct npu_device *npu_dev, void *dst, void *src,
 	uint32_t size);
 int32_t npu_mem_read(struct npu_device *npu_dev, void *src, void *dst,
 	uint32_t size);
+uint32_t npu_qfprom_reg_read(struct npu_device *npu_dev, uint32_t off);
 
 int npu_mem_map(struct npu_client *client, int buf_hdl, uint32_t size,
 	uint64_t *addr);

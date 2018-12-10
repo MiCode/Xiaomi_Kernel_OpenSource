@@ -1874,15 +1874,24 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	if (regulator_left_on)
 		_soft_reset(adreno_dev);
 
-	if ((adreno_is_a640v1(adreno_dev)) &&
-		scm_is_call_available(SCM_SVC_MP, CP_SMMU_APERTURE_ID)) {
-		ret = kgsl_program_smmu_aperture();
-		if (ret) {
-			pr_err("SMMU aperture programming call failed with error %d\n",
-				ret);
-			goto error_pwr_off;
+
+	if (adreno_is_a640v1(adreno_dev)) {
+		unsigned long start = jiffies;
+
+		if (scm_is_call_available(SCM_SVC_MP, CP_SMMU_APERTURE_ID)) {
+			ret = kgsl_program_smmu_aperture();
+			/* Log it if it takes more than 2 seconds */
+			if (((jiffies - start) / HZ) > 2)
+				dev_err(device->dev, "scm call took too long to finish on a640v1: %lu seconds\n",
+					((jiffies - start) / HZ));
+			if (ret) {
+				dev_err(device->dev, "SMMU aperture programming call failed with error %d\n",
+					ret);
+				goto error_pwr_off;
+			}
 		}
 	}
+
 	adreno_ringbuffer_set_global(adreno_dev, 0);
 
 	status = kgsl_mmu_start(device);
@@ -2641,6 +2650,25 @@ static int adreno_getproperty(struct kgsl_device *device,
 	}
 	break;
 
+	case KGSL_PROP_SPEED_BIN:
+		{
+			unsigned int speed_bin;
+
+			if (sizebytes != sizeof(unsigned int)) {
+				status = -EINVAL;
+				break;
+			}
+
+			speed_bin = adreno_dev->speed_bin;
+
+			if (copy_to_user(value, &speed_bin,
+						sizeof(unsigned int))) {
+				status = -EFAULT;
+				break;
+			}
+			status = 0;
+		}
+		break;
 	default:
 		status = -EINVAL;
 	}

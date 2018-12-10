@@ -1357,6 +1357,14 @@ int create_pkt_cmd_session_set_property(
 		pkt->size += sizeof(u32);
 		break;
 	}
+	case HAL_PARAM_VENC_BITRATE_SAVINGS:
+	{
+		create_pkt_enable(pkt->rg_property_data,
+			HFI_PROPERTY_PARAM_VENC_BITRATE_SAVINGS,
+			((struct hal_enable *)pdata)->enable);
+		pkt->size += sizeof(u32);
+		break;
+	}
 	case HAL_PARAM_VENC_H264_DEBLOCK_CONTROL:
 	{
 		struct hfi_h264_db_control *hfi;

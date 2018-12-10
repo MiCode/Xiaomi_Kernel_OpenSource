@@ -679,10 +679,8 @@ static int dp_audio_notify(struct dp_audio_private *audio, u32 state)
 	reinit_completion(&audio->hpd_comp);
 	rc = ext->intf_ops.audio_notify(audio->ext_pdev,
 			&ext->codec, state);
-	if (rc) {
-		pr_err("failed to notify audio. state=%d err=%d\n", state, rc);
+	if (rc)
 		goto end;
-	}
 
 	if (atomic_read(&audio->acked))
 		goto end;

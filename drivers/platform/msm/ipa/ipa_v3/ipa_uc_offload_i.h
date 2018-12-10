@@ -26,9 +26,6 @@
 #define IPA_NTN_TX_DIR 1
 #define IPA_NTN_RX_DIR 2
 
-#define IPA_WDI3_TX_DIR 1
-#define IPA_WDI3_RX_DIR 2
-
 /**
  *  @brief   Enum value determined based on the feature it
  *           corresponds to
@@ -52,8 +49,9 @@
  * @IPA_HW_FEATURE_POWER_COLLAPSE: Feature related to IPA Power collapse
  * @IPA_HW_FEATURE_WDI : Feature related to WDI operation in IPA HW
  * @IPA_HW_FEATURE_NTN : Feature related to NTN operation in IPA HW
- * @IPA_HW_FEATURE_OFFLOAD : Feature related to NTN operation in IPA HW
- * @IPA_HW_FEATURE_WDI3 : Feature related to WDI operation in IPA HW
+ * @IPA_HW_FEATURE_OFFLOAD : Feature related to several protocols operation in
+ *				IPA HW. use protocol field to
+ *				 determine (e.g. IPA_HW_PROTOCOL_11ad).
  */
 enum ipa3_hw_features {
 	IPA_HW_FEATURE_COMMON		=	0x0,
@@ -63,8 +61,25 @@ enum ipa3_hw_features {
 	IPA_HW_FEATURE_ZIP		=	0x4,
 	IPA_HW_FEATURE_NTN		=	0x5,
 	IPA_HW_FEATURE_OFFLOAD		=	0x6,
-	IPA_HW_FEATURE_WDI3		=	0x7,
 	IPA_HW_FEATURE_MAX		=	IPA_HW_NUM_FEATURES
+};
+
+/**
+* enum ipa4_hw_protocol - Values that represent the protocols supported
+* in IPA HW when using the IPA_HW_FEATURE_OFFLOAD feature.
+* @IPA_HW_FEATURE_COMMON : protocol related to common operation of IPA HW
+* @IPA_HW_PROTOCOL_AQC : protocol related to AQC operation in IPA HW
+* @IPA_HW_PROTOCOL_11ad: protocol related to 11ad operation in IPA HW
+* @IPA_HW_PROTOCOL_WDI : protocol related to WDI operation in IPA HW
+* @IPA_HW_PROTOCOL_ETH : protocol related to ETH operation in IPA HW
+*/
+enum ipa4_hw_protocol {
+	IPA_HW_PROTOCOL_COMMON = 0x0,
+	IPA_HW_PROTOCOL_AQC = 0x1,
+	IPA_HW_PROTOCOL_11ad = 0x2,
+	IPA_HW_PROTOCOL_WDI = 0x3,
+	IPA_HW_PROTOCOL_ETH = 0x5,
+	IPA_HW_PROTOCOL_MAX
 };
 
 /**
@@ -92,6 +107,8 @@ enum ipa3_hw_2_cpu_events {
  * @IPA_HW_INVALID_OPCODE : Invalid opcode sent
  * @IPA_HW_INVALID_PARAMS : Invalid params for the requested command
  * @IPA_HW_GSI_CH_NOT_EMPTY_FAILURE : GSI channel emptiness validation failed
+ * @IPA_HW_CONS_STOP_FAILURE : NTN/ETH CONS stop failed
+ * @IPA_HW_PROD_STOP_FAILURE : NTN/ETH PROD stop failed
  */
 enum ipa3_hw_errors {
 	IPA_HW_ERROR_NONE              =
@@ -111,7 +128,11 @@ enum ipa3_hw_errors {
 	IPA_HW_PROD_DISABLE_CMD_GSI_STOP_FAILURE =
 		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 7),
 	IPA_HW_GSI_CH_NOT_EMPTY_FAILURE =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 8)
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 8),
+	IPA_HW_CONS_STOP_FAILURE =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 9),
+	IPA_HW_PROD_STOP_FAILURE =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 10)
 };
 
 /**
@@ -212,7 +233,7 @@ struct Ipa3HwEventInfoData_t {
  * struct IpaHwEventLogInfoData_t - Structure holding the parameters for
  * IPA_HW_2_CPU_EVENT_LOG_INFO Event
  *
- * @featureMask : Mask indicating the features enabled in HW.
+ * @protocolMask : Mask indicating the protocols enabled in HW.
  * Refer IPA_HW_FEATURE_MASK
  * @circBuffBaseAddrOffset : Base Address Offset of the Circular Event
  * Log Buffer structure
@@ -224,7 +245,7 @@ struct Ipa3HwEventInfoData_t {
  * Event
  */
 struct IpaHwEventLogInfoData_t {
-	u32 featureMask;
+	u32 protocolMask;
 	u32 circBuffBaseAddrOffset;
 	struct Ipa3HwEventInfoData_t statsInfo;
 	struct Ipa3HwEventInfoData_t configInfo;
@@ -243,29 +264,6 @@ struct ipa3_uc_ntn_ctx {
 	struct Ipa3HwStatsNTNInfoData_t *ntn_uc_stats_mmio;
 	void *priv;
 	ipa_uc_ready_cb uc_ready_cb;
-};
-
-/**
- * enum ipa3_hw_2_cpu_ntn_events - Values that represent HW event
- *			to be sent to CPU
- * @IPA_HW_2_CPU_EVENT_NTN_ERROR : Event to specify that HW
- *			detected an error in NTN
- *
- */
-enum ipa3_hw_2_cpu_ntn_events {
-	IPA_HW_2_CPU_EVENT_NTN_ERROR =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_NTN, 0),
-};
-
-
-/**
- * enum ipa3_hw_ntn_errors - NTN specific error types.
- * @IPA_HW_NTN_ERROR_NONE : No error persists
- * @IPA_HW_NTN_CHANNEL_ERROR : Error is specific to channel
- */
-enum ipa3_hw_ntn_errors {
-	IPA_HW_NTN_ERROR_NONE    = 0,
-	IPA_HW_NTN_CHANNEL_ERROR = 1
 };
 
 /**
@@ -347,33 +345,6 @@ struct Ipa3HwNtnSetUpCmdData_t {
 
 } __packed;
 
-struct IpaHwWdi3SetUpCmdData_t {
-	u32  transfer_ring_base_pa;
-	u32  transfer_ring_base_pa_hi;
-
-	u32  transfer_ring_size;
-
-	u32  transfer_ring_doorbell_pa;
-	u32  transfer_ring_doorbell_pa_hi;
-
-	u32  event_ring_base_pa;
-	u32  event_ring_base_pa_hi;
-
-	u32  event_ring_size;
-
-	u32  event_ring_doorbell_pa;
-	u32  event_ring_doorbell_pa_hi;
-
-	u16  num_pkt_buffers;
-	u8   ipa_pipe_number;
-	u8   dir;
-
-	u16  pkt_offset;
-	u16  reserved0;
-
-	u32  desc_format_template[IPA_HW_WDI3_MAX_ER_DESC_SIZE];
-} __packed;
-
 /**
  * struct Ipa3HwNtnCommonChCmdData_t - Structure holding the
  * parameters for Ntn Tear down command data params
@@ -384,35 +355,6 @@ union Ipa3HwNtnCommonChCmdData_t {
 	struct IpaHwNtnCommonChCmdParams_t {
 		u32  ipa_pipe_number :8;
 		u32  reserved        :24;
-	} __packed params;
-	uint32_t raw32b;
-} __packed;
-
-union IpaHwWdi3CommonChCmdData_t {
-	struct IpaHwWdi3CommonChCmdParams_t {
-		u32  ipa_pipe_number :8;
-		u32  reserved        :24;
-	} __packed params;
-	u32 raw32b;
-} __packed;
-
-/**
- * struct Ipa3HwNTNErrorEventData_t - Structure holding the
- * IPA_HW_2_CPU_EVENT_NTN_ERROR event. The parameters are passed
- * as immediate params in the shared memory
- *
- *@ntn_error_type: type of NTN error (ipa3_hw_ntn_errors)
- *@ipa_pipe_number: IPA pipe number on which error has happened
- *   Applicable only if error type indicates channel error
- *@ntn_ch_err_type: Information about the channel error (if
- *		available)
- */
-union Ipa3HwNTNErrorEventData_t {
-	struct IpaHwNTNErrorEventParams_t {
-		u32  ntn_error_type  :8;
-		u32  reserved        :8;
-		u32  ipa_pipe_number :8;
-		u32  ntn_ch_err_type :8;
 	} __packed params;
 	uint32_t raw32b;
 } __packed;
@@ -487,28 +429,18 @@ struct Ipa3HwStatsNTNInfoData_t {
  *				Offload protocol's Tx/Rx Path
  * @IPA_CPU_2_HW_CMD_OFFLOAD_TEAR_DOWN : Command to tear down
  *				Offload protocol's Tx/ Rx Path
- * @IPA_CPU_2_HW_CMD_OFFLOAD_ENABLE : Command to enable
- *				Offload protocol's Tx/Rx Path
- * @IPA_CPU_2_HW_CMD_OFFLOAD_DISABLE : Command to disable
- *				Offload protocol's Tx/ Rx Path
- * @IPA_CPU_2_HW_CMD_OFFLOAD_SUSPEND : Command to suspend
- *				Offload protocol's Tx/Rx Path
- * @IPA_CPU_2_HW_CMD_OFFLOAD_RESUME : Command to resume
- *				Offload protocol's Tx/ Rx Path
+ * @IPA_CPU_2_HW_CMD_PERIPHERAL_INIT :Command to initialize peripheral
+ * @IPA_CPU_2_HW_CMD_PERIPHERAL_DEINIT : Command to deinitialize peripheral
  */
 enum ipa_cpu_2_hw_offload_commands {
 	IPA_CPU_2_HW_CMD_OFFLOAD_CHANNEL_SET_UP  =
 		FEATURE_ENUM_VAL(IPA_HW_FEATURE_OFFLOAD, 1),
 	IPA_CPU_2_HW_CMD_OFFLOAD_TEAR_DOWN =
 		FEATURE_ENUM_VAL(IPA_HW_FEATURE_OFFLOAD, 2),
-	IPA_CPU_2_HW_CMD_OFFLOAD_ENABLE  =
+	IPA_CPU_2_HW_CMD_PERIPHERAL_INIT =
 		FEATURE_ENUM_VAL(IPA_HW_FEATURE_OFFLOAD, 3),
-	IPA_CPU_2_HW_CMD_OFFLOAD_DISABLE =
+	IPA_CPU_2_HW_CMD_PERIPHERAL_DEINIT =
 		FEATURE_ENUM_VAL(IPA_HW_FEATURE_OFFLOAD, 4),
-	IPA_CPU_2_HW_CMD_OFFLOAD_SUSPEND  =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_OFFLOAD, 5),
-	IPA_CPU_2_HW_CMD_OFFLOAD_RESUME =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_OFFLOAD, 6),
 };
 
 
@@ -572,30 +504,70 @@ enum ipa3_hw_2_cpu_offload_cmd_resp_status {
 };
 
 /**
- * struct IpaHwSetUpCmd  -
+ * struct IpaHw11adSetupCmdData_t  - 11ad setup channel command data
+ * @dir: Direction RX/TX
+ * @wifi_ch: 11ad peripheral pipe number
+ * @gsi_ch: GSI Channel number
+ * @reserved: 8 bytes padding
+ * @wifi_hp_addr_lsb: Head/Tail pointer absolute address
+ * @wifi_hp_addr_msb: Head/Tail pointer absolute address
+ */
+struct IpaHw11adSetupCmdData_t {
+	u8 dir;
+	u8 wifi_ch;
+	u8 gsi_ch;
+	u8 reserved;
+	u32 wifi_hp_addr_lsb;
+	u32 wifi_hp_addr_msb;
+} __packed;
+
+
+/**
+ * struct IpaHw11adCommonChCmdData_t - 11ad tear down channel command data
+ * @gsi_ch: GSI Channel number
+ * @reserved_0: padding
+ * @reserved_1: padding
+ */
+struct IpaHw11adCommonChCmdData_t {
+	u8 gsi_ch;
+	u8 reserved_0;
+	u16 reserved_1;
+} __packed;
+
+/**
+ * struct IpaHw11adInitCmdData_t - 11ad peripheral init command data
+ * @periph_baddr_lsb: Peripheral Base Address LSB (pa/IOVA)
+ * @periph_baddr_msb: Peripheral Base Address MSB (pa/IOVA)
+ */
+struct IpaHw11adInitCmdData_t {
+	u32 periph_baddr_lsb;
+	u32 periph_baddr_msb;
+} __packed;
+
+/**
+ * struct IpaHw11adDeinitCmdData_t - 11ad peripheral deinit command data
+ * @reserved: Reserved for future
+ */
+struct IpaHw11adDeinitCmdData_t {
+	u32 reserved;
+};
+
+/**
+ * struct IpaHwSetUpCmd  - Structure holding the parameters
+ * for IPA_CPU_2_HW_CMD_OFFLOAD_CHANNEL_SET_UP
  *
  *
  */
 union IpaHwSetUpCmd {
 	struct Ipa3HwNtnSetUpCmdData_t NtnSetupCh_params;
-	struct IpaHwWdi3SetUpCmdData_t Wdi3SetupCh_params;
+	struct IpaHw11adSetupCmdData_t	W11AdSetupCh_params;
 } __packed;
 
-/**
- * struct IpaHwOffloadSetUpCmdData_t  -
- *
- *
- */
 struct IpaHwOffloadSetUpCmdData_t {
 	u8 protocol;
 	union IpaHwSetUpCmd SetupCh_params;
 } __packed;
 
-/**
- * struct IpaHwOffloadSetUpCmdData_t_v4_0  -
- *
- *
- */
 struct IpaHwOffloadSetUpCmdData_t_v4_0 {
 	u32 protocol;
 	union IpaHwSetUpCmd SetupCh_params;
@@ -609,7 +581,7 @@ struct IpaHwOffloadSetUpCmdData_t_v4_0 {
  */
 union IpaHwCommonChCmd {
 	union Ipa3HwNtnCommonChCmdData_t NtnCommonCh_params;
-	union IpaHwWdi3CommonChCmdData_t Wdi3CommonCh_params;
+	struct IpaHw11adCommonChCmdData_t W11AdCommonCh_params;
 } __packed;
 
 struct IpaHwOffloadCommonChCmdData_t {
@@ -622,5 +594,34 @@ struct IpaHwOffloadCommonChCmdData_t_v4_0 {
 	union IpaHwCommonChCmd CommonCh_params;
 } __packed;
 
+
+/**
+ * union IpaHwPeripheralInitCmd - Structure holding the parameters
+ * for IPA_CPU_2_HW_CMD_PERIPHERAL_INIT
+ *
+ */
+union IpaHwPeripheralInitCmd {
+	struct IpaHw11adInitCmdData_t W11AdInit_params;
+} __packed;
+
+struct IpaHwPeripheralInitCmdData_t {
+	u32 protocol;
+	union IpaHwPeripheralInitCmd Init_params;
+} __packed;
+
+/**
+ * union IpaHwPeripheralDeinitCmd - Structure holding the parameters
+ * for IPA_CPU_2_HW_CMD_PERIPHERAL_DEINIT
+ *
+ */
+union IpaHwPeripheralDeinitCmd {
+	struct IpaHw11adDeinitCmdData_t W11AdDeinit_params;
+} __packed;
+
+struct IpaHwPeripheralDeinitCmdData_t {
+	u32 protocol;
+	union IpaHwPeripheralDeinitCmd PeripheralDeinit_params;
+
+} __packed;
 
 #endif /* _IPA_UC_OFFLOAD_I_H_ */

@@ -279,7 +279,7 @@ void sde_encoder_recovery_events_handler(struct drm_encoder *encoder,
  * @drm_enc:    Pointer to drm encoder structure
  * @Return:     true if successful in updating the encoder structure
  */
-int sde_encoder_in_clone_mode(struct drm_encoder *enc);
+bool sde_encoder_in_clone_mode(struct drm_encoder *enc);
 
 /**
  * sde_encoder_is_primary_display - checks if underlying display is primary

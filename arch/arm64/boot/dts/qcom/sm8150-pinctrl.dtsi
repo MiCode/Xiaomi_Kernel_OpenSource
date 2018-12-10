@@ -3798,6 +3798,33 @@
 				drive-strength = <2>; /* 2 MA */
 			};
 		};
+		camera_vaf_en_default: camera_vaf_en_default {
+			/*  VAF ELDO1 */
+			mux {
+				pins = "gpio29";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio29";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		camera_vana_en_default: camera_vana_en_default {
+			 /*  VANA ELDO2 */
+			 mux {
+				pins = "gpio11";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio11";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
 
 		cam_sensor_active_rear: cam_sensor_active_rear {
 			/* RESET REAR2 */

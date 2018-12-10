@@ -244,6 +244,7 @@ static void rmnet_force_unassociate_device(struct net_device *dev)
 	ASSERT_RTNL();
 
 	port = rmnet_get_port_rtnl(dev);
+	qmi_rmnet_qmi_exit(port->qmi_info, port);
 
 	rmnet_unregister_bridge(dev, port);
 
@@ -257,8 +258,6 @@ static void rmnet_force_unassociate_device(struct net_device *dev)
 	}
 
 	unregister_netdevice_many(&list);
-
-	qmi_rmnet_qmi_exit(port->qmi_info, port);
 
 	rmnet_unregister_real_device(real_dev, port);
 }

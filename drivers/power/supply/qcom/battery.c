@@ -46,6 +46,7 @@
 #define PL_FCC_LOW_VOTER		"PL_FCC_LOW_VOTER"
 #define ICL_LIMIT_VOTER			"ICL_LIMIT_VOTER"
 #define FCC_STEPPER_VOTER		"FCC_STEPPER_VOTER"
+#define FCC_VOTER			"FCC_VOTER"
 
 struct pl_data {
 	int			pl_mode;
@@ -63,6 +64,7 @@ struct pl_data {
 	struct votable		*hvdcp_hw_inov_dis_votable;
 	struct votable		*usb_icl_votable;
 	struct votable		*pl_enable_votable_indirect;
+	struct votable		*cp_ilim_votable;
 	struct delayed_work	status_change_work;
 	struct work_struct	pl_disable_forever_work;
 	struct work_struct	pl_taper_work;
@@ -74,6 +76,7 @@ struct pl_data {
 	struct power_supply	*batt_psy;
 	struct power_supply	*usb_psy;
 	struct power_supply	*dc_psy;
+	struct power_supply	*cp_master_psy;
 	int			charge_type;
 	int			total_settled_ua;
 	int			pl_settled_ua;
@@ -91,6 +94,7 @@ struct pl_data {
 	struct wakeup_source	*pl_ws;
 	struct notifier_block	nb;
 	bool			pl_disable;
+	bool			cp_disabled;
 	int			taper_entry_fv;
 	int			main_fcc_max;
 };
@@ -481,6 +485,46 @@ static void get_fcc_split(struct pl_data *chip, int total_ua,
 	}
 }
 
+static void get_main_fcc_config(struct pl_data *chip, int *total_fcc)
+{
+	union power_supply_propval pval = {0, };
+	int rc;
+
+	if (!chip->cp_master_psy)
+		chip->cp_master_psy =
+			power_supply_get_by_name("charge_pump_master");
+	if (!chip->cp_master_psy)
+		goto out;
+
+	rc = power_supply_get_property(chip->cp_master_psy,
+			POWER_SUPPLY_PROP_CP_SWITCHER_EN, &pval);
+	if (rc < 0) {
+		pr_err("Couldn't get switcher enable status, rc=%d\n", rc);
+		goto out;
+	}
+
+	if (!pval.intval) {
+		/*
+		 * To honor main charger upper FCC limit, on CP switcher
+		 * disable, skip fcc slewing as it will cause delay in limiting
+		 * the charge current flowing through main charger.
+		 */
+		if (!chip->cp_disabled) {
+			chip->fcc_stepper_enable = false;
+			pl_dbg(chip, PR_PARALLEL,
+				"Disabling FCC slewing on CP Switcher disable\n");
+		}
+		chip->cp_disabled = true;
+	} else {
+		chip->cp_disabled = false;
+		pl_dbg(chip, PR_PARALLEL,
+			"CP Switcher is enabled, don't limit main fcc\n");
+		return;
+	}
+out:
+	*total_fcc = min(*total_fcc, chip->main_fcc_max);
+}
+
 static void get_fcc_stepper_params(struct pl_data *chip, int main_fcc_ua,
 			int parallel_fcc_ua)
 {
@@ -622,6 +666,9 @@ static int pl_fcc_vote_callback(struct votable *votable, void *data,
 
 	if (!chip->main_psy)
 		return 0;
+
+	if (!chip->cp_ilim_votable)
+		chip->cp_ilim_votable = find_votable("CP_ILIM");
 
 	if (chip->pl_mode != POWER_SUPPLY_PL_NONE) {
 		get_fcc_split(chip, total_fcc_ua, &master_fcc_ua,
@@ -819,6 +866,10 @@ stepper_exit:
 	chip->main_fcc_ua = main_fcc;
 	chip->slave_fcc_ua = parallel_fcc;
 
+	if (chip->cp_ilim_votable)
+		vote(chip->cp_ilim_votable, FCC_VOTER, true,
+					chip->main_fcc_ua / 2);
+
 	if (reschedule_ms) {
 		schedule_delayed_work(&chip->fcc_stepper_work,
 				msecs_to_jiffies(reschedule_ms));
@@ -933,6 +984,9 @@ static int usb_icl_vote_callback(struct votable *votable, void *data,
 			&pval);
 
 	vote(chip->pl_disable_votable, ICL_CHANGE_VOTER, false, 0);
+
+	if (chip->cp_ilim_votable)
+		vote(chip->cp_ilim_votable, ICL_CHANGE_VOTER, true, icl_ua);
 
 	return 0;
 }
@@ -1166,8 +1220,7 @@ static int pl_disable_vote_callback(struct votable *votable,
 			(slave_fcc_ua * 100) / total_fcc_ua);
 	} else {
 		if (chip->main_fcc_max)
-			total_fcc_ua = min(total_fcc_ua,
-						chip->main_fcc_max);
+			get_main_fcc_config(chip, &total_fcc_ua);
 
 		if (!chip->fcc_stepper_enable) {
 			if (IS_USBIN(chip->pl_mode))
@@ -1192,6 +1245,10 @@ static int pl_disable_vote_callback(struct votable *votable,
 				pr_err("Could not set main fcc, rc=%d\n", rc);
 				return rc;
 			}
+
+			if (chip->cp_ilim_votable)
+				vote(chip->cp_ilim_votable, FCC_VOTER, true,
+						total_fcc_ua / 2);
 
 			/* reset parallel FCC */
 			chip->slave_fcc_ua = 0;
@@ -1610,6 +1667,7 @@ int qcom_batt_init(int smb_version)
 					chip);
 	if (IS_ERR(chip->fcc_votable)) {
 		rc = PTR_ERR(chip->fcc_votable);
+		chip->fcc_votable = NULL;
 		goto release_wakeup_source;
 	}
 
@@ -1618,6 +1676,7 @@ int qcom_batt_init(int smb_version)
 					chip);
 	if (IS_ERR(chip->fv_votable)) {
 		rc = PTR_ERR(chip->fv_votable);
+		chip->fv_votable = NULL;
 		goto destroy_votable;
 	}
 
@@ -1626,6 +1685,7 @@ int qcom_batt_init(int smb_version)
 					chip);
 	if (IS_ERR(chip->usb_icl_votable)) {
 		rc = PTR_ERR(chip->usb_icl_votable);
+		chip->usb_icl_votable = NULL;
 		goto destroy_votable;
 	}
 
@@ -1634,6 +1694,7 @@ int qcom_batt_init(int smb_version)
 					chip);
 	if (IS_ERR(chip->pl_disable_votable)) {
 		rc = PTR_ERR(chip->pl_disable_votable);
+		chip->pl_disable_votable = NULL;
 		goto destroy_votable;
 	}
 	vote(chip->pl_disable_votable, CHG_STATE_VOTER, true, 0);
@@ -1644,7 +1705,8 @@ int qcom_batt_init(int smb_version)
 					pl_awake_vote_callback,
 					chip);
 	if (IS_ERR(chip->pl_awake_votable)) {
-		rc = PTR_ERR(chip->pl_disable_votable);
+		rc = PTR_ERR(chip->pl_awake_votable);
+		chip->pl_awake_votable = NULL;
 		goto destroy_votable;
 	}
 
@@ -1654,7 +1716,8 @@ int qcom_batt_init(int smb_version)
 					chip);
 	if (IS_ERR(chip->pl_enable_votable_indirect)) {
 		rc = PTR_ERR(chip->pl_enable_votable_indirect);
-		return rc;
+		chip->pl_enable_votable_indirect = NULL;
+		goto destroy_votable;
 	}
 
 	vote(chip->pl_disable_votable, PL_INDIRECT_VOTER, true, 0);
@@ -1678,6 +1741,7 @@ int qcom_batt_init(int smb_version)
 	}
 
 	chip->pl_disable = true;
+	chip->cp_disabled = true;
 	chip->qcom_batt_class.name = "qcom-battery",
 	chip->qcom_batt_class.owner = THIS_MODULE,
 	chip->qcom_batt_class.class_groups = batt_class_groups;

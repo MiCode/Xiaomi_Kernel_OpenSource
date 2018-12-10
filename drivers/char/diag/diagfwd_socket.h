@@ -57,6 +57,7 @@ struct diag_socket_info {
 	struct work_struct read_work;
 	struct diagfwd_info *fwd_ctxt;
 	wait_queue_head_t read_wait_q;
+	struct mutex socket_info_mutex;
 };
 
 

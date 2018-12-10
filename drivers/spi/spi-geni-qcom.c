@@ -917,7 +917,7 @@ static void setup_fifo_xfer(struct spi_transfer *xfer,
 	u32 m_cmd = 0;
 	u32 m_param = 0;
 	u32 spi_tx_cfg = geni_read_reg(mas->base, SE_SPI_TRANS_CFG);
-	u32 trans_len = 0;
+	u32 trans_len = 0, fifo_size = 0;
 
 	if (xfer->bits_per_word != mas->cur_word_len) {
 		spi_setup_word_len(mas, mode, xfer->bits_per_word);
@@ -981,7 +981,9 @@ static void setup_fifo_xfer(struct spi_transfer *xfer,
 		mas->rx_rem_bytes = xfer->len;
 	}
 
-	if (trans_len > (mas->tx_fifo_depth * mas->tx_fifo_width)) {
+	fifo_size =
+		(mas->tx_fifo_depth * mas->tx_fifo_width / mas->cur_word_len);
+	if (trans_len > fifo_size) {
 		if (mas->cur_xfer_mode != SE_DMA) {
 			mas->cur_xfer_mode = SE_DMA;
 			geni_se_select_mode(mas->base, mas->cur_xfer_mode);
@@ -1255,12 +1257,12 @@ static void geni_spi_handle_rx(struct spi_geni_master *mas)
 	mas->rx_rem_bytes -= rx_bytes;
 }
 
-static irqreturn_t geni_spi_irq(int irq, void *dev)
+static irqreturn_t geni_spi_irq(int irq, void *data)
 {
-	struct spi_geni_master *mas = dev;
+	struct spi_geni_master *mas = data;
 	u32 m_irq = 0;
 
-	if (pm_runtime_status_suspended(dev)) {
+	if (pm_runtime_status_suspended(mas->dev)) {
 		GENI_SE_DBG(mas->ipc, false, mas->dev,
 				"%s: device is suspended\n", __func__);
 		goto exit_geni_spi_irq;
@@ -1391,6 +1393,13 @@ static int spi_geni_probe(struct platform_device *pdev)
 	if (IS_ERR_OR_NULL(rsc->geni_gpio_sleep)) {
 		dev_err(&pdev->dev, "No sleep config specified!\n");
 		ret = PTR_ERR(rsc->geni_gpio_sleep);
+		goto spi_geni_probe_err;
+	}
+
+	ret = pinctrl_select_state(rsc->geni_pinctrl,
+					rsc->geni_gpio_sleep);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to set sleep configuration\n");
 		goto spi_geni_probe_err;
 	}
 

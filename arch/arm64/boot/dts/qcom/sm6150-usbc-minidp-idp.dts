@@ -20,3 +20,7 @@
 	compatible = "qcom,sm6150-idp", "qcom,sm6150", "qcom,idp";
 	qcom,board-id = <34 4>;
 };
+
+&sde_dp {
+	qcom,dp-hpd-gpio = <&tlmm 103 0>;
+};

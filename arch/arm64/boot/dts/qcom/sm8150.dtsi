@@ -40,8 +40,8 @@
 
 	mem-offline {
 		compatible = "qcom,mem-offline";
-		/* 1 Gb out of 6 Gb*/
-		mem-percent = "17";
+		offline-sizes = <0x1 0x40000000 0x0 0x40000000>,
+				<0x1 0xc0000000 0x0 0x80000000>;
 		granule = <512>;
 		mboxes = <&qmp_aop 0>;
 	};
@@ -1527,7 +1527,7 @@
 		reg-names = "osm_l3_base", "osm_pwrcl_base",
 			"osm_perfcl_base", "osm_perfpcl_base";
 		l3-devs = <&cpu0_cpu_l3_lat &cpu4_cpu_l3_lat &cdsp_cdsp_l3_lat
-			&msm_gpu &cpu7_cpu_l3_lat>;
+			&cpu7_cpu_l3_lat>;
 
 		#clock-cells = <1>;
 	};
@@ -2781,10 +2781,17 @@
 					qcom,target-dev = <&cdsp_cdsp_l3_lat>;
 				};
 
-				qcom,msm_cdsp_rm {
+				msm_cdsp_rm: qcom,msm_cdsp_rm {
 					compatible = "qcom,msm-cdsp-rm";
 					qcom,qos-latency-us = <44>;
 					qcom,qos-maxhold-ms = <20>;
+					qcom,compute-priority-mode = <2>;
+					#cooling-cells = <2>;
+				};
+
+				msm_hvx_rm: qcom,msm_hvx_rm {
+					compatible = "qcom,msm-hvx-rm";
+					#cooling-cells = <2>;
 				};
 			};
 
@@ -3088,7 +3095,7 @@
 		};
 
 		pmic {
-			qcom,dump-size = <0x10000>;
+			qcom,dump-size = <0x80000>;
 			qcom,dump-id = <0xe4>;
 		};
 

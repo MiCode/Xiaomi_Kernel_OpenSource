@@ -387,4 +387,13 @@ u32 sde_plane_get_ubwc_error(struct drm_plane *plane);
  */
 void sde_plane_clear_ubwc_error(struct drm_plane *plane);
 
+/*
+ * sde_plane_setup_src_split_order - enable/disable pipe's src_split_order
+ * @plane: Pointer to DRM plane object
+ * @rect_mode: multirect mode
+ * @enable: enable/disable flag
+ */
+void sde_plane_setup_src_split_order(struct drm_plane *plane,
+		enum sde_sspp_multirect_index rect_mode, bool enable);
+
 #endif /* _SDE_PLANE_H_ */

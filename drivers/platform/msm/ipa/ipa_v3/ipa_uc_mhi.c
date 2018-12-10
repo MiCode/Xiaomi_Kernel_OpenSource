@@ -534,9 +534,10 @@ static void ipa3_uc_mhi_event_log_info_hdlr(
 	struct Ipa3HwEventInfoData_t *evt_info_ptr;
 	u32 size;
 
-	if ((uc_event_top_mmio->featureMask & (1 << IPA_HW_FEATURE_MHI)) == 0) {
+	if ((uc_event_top_mmio->protocolMask & (1 << IPA_HW_FEATURE_MHI))
+		== 0) {
 		IPAERR("MHI feature missing 0x%x\n",
-			uc_event_top_mmio->featureMask);
+			uc_event_top_mmio->protocolMask);
 		return;
 	}
 

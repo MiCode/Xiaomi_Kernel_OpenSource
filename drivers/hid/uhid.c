@@ -142,22 +142,15 @@ static void uhid_hid_stop(struct hid_device *hid)
 static int uhid_hid_open(struct hid_device *hid)
 {
 	struct uhid_device *uhid = hid->driver_data;
-	int retval = 0;
 
-	if (!hid->ll_open_count++) {
-		retval = uhid_queue_event(uhid, UHID_OPEN);
-		if (retval)
-			hid->ll_open_count--;
-	}
-	return retval;
+	return uhid_queue_event(uhid, UHID_OPEN);
 }
 
 static void uhid_hid_close(struct hid_device *hid)
 {
 	struct uhid_device *uhid = hid->driver_data;
 
-	if (!--hid->ll_open_count)
-		uhid_queue_event(uhid, UHID_CLOSE);
+	uhid_queue_event(uhid, UHID_CLOSE);
 }
 
 static int uhid_hid_parse(struct hid_device *hid)

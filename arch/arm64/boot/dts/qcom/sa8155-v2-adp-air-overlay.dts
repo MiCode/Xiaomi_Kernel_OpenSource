@@ -13,6 +13,7 @@
 /dts-v1/;
 /plugin/;
 
+#include <dt-bindings/clock/qcom,camcc-sm8150.h>
 #include "sa8155-adp-star.dtsi"
 
 / {

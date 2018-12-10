@@ -1767,6 +1767,12 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 		goto err;
 	}
 
+	if (!debugfs_create_bool("crash_on_err",
+		0600, hba->debugfs_files.debugfs_root,
+		&hba->crash_on_err))
+		goto err;
+
+
 	ufsdbg_setup_fault_injection(hba);
 
 	ufshcd_vops_add_debugfs(hba, hba->debugfs_files.debugfs_root);

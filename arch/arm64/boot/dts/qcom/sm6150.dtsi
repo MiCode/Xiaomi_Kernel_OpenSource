@@ -21,6 +21,7 @@
 #include <dt-bindings/clock/qcom,dispcc-sm6150.h>
 #include <dt-bindings/clock/qcom,gpucc-sm6150.h>
 #include <dt-bindings/clock/qcom,videocc-sm6150.h>
+#include <dt-bindings/clock/qcom,scc-sm6150.h>
 #include <dt-bindings/soc/qcom,tcs-mbox.h>
 #include <dt-bindings/spmi/spmi.h>
 #include <dt-bindings/msm/msm-bus-ids.h>
@@ -659,12 +660,6 @@
 			linux,cma-default;
 		};
 	};
-
-	mtp_batterydata: qcom,battery-data {
-		qcom,batt-id-range-pct = <15>;
-		#include "qg-batterydata-alium-3600mah.dtsi"
-		#include "qg-batterydata-mlp356477-2800mah.dtsi"
-	};
 };
 
 &soc {
@@ -871,6 +866,14 @@
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 		qcom,gpu_cc_gx_gfx3d_clk_src-opp-handle = <&msm_gpu>;
+	};
+
+	clock_scc: qcom,scc@62b10000 {
+		compatible = "qcom,scc-sm6150";
+		reg = <0x62b10000 0x30000>;
+		vdd_scc_cx-supply = <&VDD_CX_LEVEL>;
+		#clock-cells = <1>;
+		status = "disabled";
 	};
 
 	cpucc_debug: syscon@182a0018 {
@@ -2894,6 +2897,22 @@
 		status = "ok";
 	};
 
+	keepalive_opp_table: keepalive-opp-table {
+		compatible = "operating-points-v2";
+		opp-1 {
+			opp-hz = /bits/ 64 < 1 >;
+		};
+	};
+
+	snoc_cnoc_keepalive: qcom,snoc_cnoc_keepalive {
+		compatible = "qcom,devbw";
+		governor = "powersave";
+		qcom,src-dst-ports = <1 627>;
+		qcom,active-only;
+		status = "ok";
+		operating-points-v2 = <&keepalive_opp_table>;
+	};
+
 	cx_ipeak_lm: cx_ipeak@01fed000 {
 		compatible = "qcom,cx-ipeak-sm6150";
 		reg = <0x1fed000 0x28>;
@@ -2907,6 +2926,7 @@
 #include "pm6150.dtsi"
 #include "pm6150l.dtsi"
 #include "sm6150-pinctrl.dtsi"
+#include "sm6150-slpi-pinctrl.dtsi"
 #include "sm6150-regulator.dtsi"
 #include "sm6150-pm.dtsi"
 #include "sm6150-gdsc.dtsi"
@@ -2914,11 +2934,6 @@
 #include "sm6150-thermal.dtsi"
 #include "sm6150-gpu.dtsi"
 #include "sm6150-usb.dtsi"
-
-&pm6150_charger {
-	dpdm-supply = <&qusb_phy0>;
-	qcom,suspend-input-on-debug-batt;
-};
 
 &usb0 {
 	extcon = <&pm6150_pdphy>, <&pm6150_charger>, <&eud>;
@@ -3167,4 +3182,8 @@
 &msm_vidc {
 	qcom,cx-ipeak-data = <&cx_ipeak_lm 4>;
 	qcom,clock-freq-threshold = <380000000>;
+};
+
+&msm_audio_ion {
+	qcom,iova-start-addr = <0x20000000>;
 };

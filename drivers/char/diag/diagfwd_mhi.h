@@ -74,6 +74,7 @@ struct diag_mhi_info {
 	wait_queue_head_t mhi_wait_q;
 	struct diag_mhi_ch_t read_ch;
 	struct diag_mhi_ch_t write_ch;
+	struct mutex ch_mutex;
 	spinlock_t lock;
 };
 

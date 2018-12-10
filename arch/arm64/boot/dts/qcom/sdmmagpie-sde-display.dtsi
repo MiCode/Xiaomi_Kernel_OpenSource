@@ -19,6 +19,8 @@
 #include "dsi-panel-sw43404-amoled-dsc-wqhd-video.dtsi"
 #include "dsi-panel-sw43404-amoled-dsc-wqhd-cmd.dtsi"
 #include "dsi-panel-sw43404-amoled-dsc-fhd-plus-cmd.dtsi"
+#include "dsi-panel-sharp-dualdsi-wqhd-video.dtsi"
+#include "dsi-panel-sharp-dualdsi-wqhd-cmd.dtsi"
 #include <dt-bindings/clock/mdss-10nm-pll-clk.h>
 
 &soc {
@@ -193,6 +195,28 @@
 		qcom,dsi-panel = <&dsi_dual_sim_dsc_375_cmd>;
 	};
 
+	dsi_dual_sharp_wqhd_video_display: qcom,dsi-display@9 {
+		label = "dsi_dual_sharp_wqhd_video_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0 1>;
+		qcom,dsi-phy-num = <0 1>;
+		qcom,dsi-select-clocks = "src_byte_clk0", "src_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_dual_sharp_wqhd_video>;
+	};
+
+	dsi_dual_sharp_wqhd_cmd_display: qcom,dsi-display@10 {
+		label = "dsi_dual_sharp_wqhd_cmd_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0 1>;
+		qcom,dsi-phy-num = <0 1>;
+		qcom,dsi-select-clocks = "src_byte_clk0", "src_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_dual_sharp_wqhd_cmd>;
+	};
+
 	sde_dsi: qcom,dsi-display {
 		compatible = "qcom,dsi-display";
 
@@ -227,22 +251,15 @@
 			&dsi_sim_cmd_display
 			&dsi_dual_sim_cmd_display
 			&dsi_sim_dsc_375_cmd_display
-			&dsi_dual_sim_dsc_375_cmd_display>;
+			&dsi_dual_sim_dsc_375_cmd_display
+			&dsi_dual_sharp_wqhd_video_display
+			&dsi_dual_sharp_wqhd_cmd_display>;
 	};
 
 	sde_wb: qcom,wb-display@0 {
 		compatible = "qcom,wb-display";
 		cell-index = <0>;
 		label = "wb_display";
-	};
-
-	ext_disp: qcom,msm-ext-disp {
-		status = "disabled";
-		compatible = "qcom,msm-ext-disp";
-
-		ext_disp_audio_codec: qcom,msm-ext-disp-audio-codec-rx {
-			compatible = "qcom,msm-ext-disp-audio-codec-rx";
-		};
 	};
 };
 
@@ -251,7 +268,7 @@
 };
 
 &mdss_mdp {
-	connectors = <&sde_rscc &sde_wb &sde_dsi>;
+	connectors = <&sde_rscc &sde_wb &sde_dsi &sde_dp>;
 };
 
 &dsi_sw43404_amoled_video {
@@ -324,6 +341,31 @@
 	};
 };
 
+&dsi_dual_sharp_wqhd_video {
+	qcom,mdss-dsi-t-clk-post = <0x0c>;
+	qcom,mdss-dsi-t-clk-pre = <0x21>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 2e 08 0a 12 18 08
+				0b 09 03 04 00];
+			qcom,display-topology = <2 0 2>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_dual_sharp_wqhd_cmd {
+	qcom,mdss-dsi-t-clk-post = <0x0c>;
+	qcom,mdss-dsi-t-clk-pre = <0x21>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 2e 08 0a 12 18 08
+				0b 09 03 04 00];
+			qcom,display-topology = <2 0 2>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
 
 &dsi_sim_vid {
 	qcom,mdss-dsi-t-clk-post = <0x0D>;

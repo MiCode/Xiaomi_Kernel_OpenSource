@@ -324,11 +324,13 @@ phys_addr_t bootloader_memory_limit;
 static void __init update_memory_limit(void)
 {
 	unsigned long dt_root = of_get_flat_dt_root();
-	unsigned long node, mp;
-	const char *p;
+	unsigned long node;
 	unsigned long long ram_sz, sz;
 	phys_addr_t end_addr, addr_aligned, offset;
-	int ret;
+	int len;
+	const __be32 *prop;
+	phys_addr_t min_ddr_sz = 0, offline_sz = 0;
+	int t_len = (2 * dt_root_size_cells) * sizeof(__be32);
 
 	ram_sz = memblock_phys_mem_size();
 	node = of_get_flat_dt_subnode_by_name(dt_root, "mem-offline");
@@ -336,23 +338,46 @@ static void __init update_memory_limit(void)
 		pr_err("mem-offine node not found in FDT\n");
 		return;
 	}
-	p = of_get_flat_dt_prop(node, "mem-percent", NULL);
-	if (!p) {
-		pr_err("mem-offine: mem-percent property not found in FDT\n");
+
+	prop = of_get_flat_dt_prop(node, "offline-sizes", &len);
+	if (prop) {
+		if (len % t_len != 0) {
+			pr_err("mem-offline: invalid offline-sizes property\n");
+			return;
+		}
+
+		while (len > 0) {
+			phys_addr_t tmp_min_ddr_sz = dt_mem_next_cell(
+							dt_root_addr_cells,
+							&prop);
+			phys_addr_t tmp_offline_sz = dt_mem_next_cell(
+							dt_root_size_cells,
+							&prop);
+
+			if (tmp_min_ddr_sz < ram_sz &&
+			    tmp_min_ddr_sz > min_ddr_sz) {
+				if (tmp_offline_sz < ram_sz) {
+					min_ddr_sz = tmp_min_ddr_sz;
+					offline_sz = tmp_offline_sz;
+				} else {
+					pr_info("mem-offline: invalid offline size:%pa\n",
+						 &tmp_offline_sz);
+				}
+			}
+			len -= t_len;
+		}
+	} else {
+		pr_err("mem-offine: offline-sizes property not found in DT\n");
 		return;
 	}
 
-	ret = kstrtoul(p, 10, &mp);
-	if (ret) {
-		pr_err("mem-offine: kstrtoul failed\n");
+	if (offline_sz == 0) {
+		pr_info("mem-offline: no memory to offline for DDR size:%llu\n",
+			ram_sz);
 		return;
 	}
 
-	if (mp > 100) {
-		pr_err("mem-offine: Invalid mem-percent DT property\n");
-		return;
-	}
-	sz = ram_sz - ((ram_sz * mp) / 100);
+	sz = ram_sz - offline_sz;
 	memory_limit = (phys_addr_t)sz;
 	end_addr = memblock_max_addr(memory_limit);
 	addr_aligned = ALIGN(end_addr, MIN_MEMORY_BLOCK_SIZE);

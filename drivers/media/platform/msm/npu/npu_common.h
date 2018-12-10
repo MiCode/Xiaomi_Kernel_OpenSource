@@ -50,6 +50,18 @@
 #define NPU_MAX_PWRLEVELS		8
 #define NPU_MAX_STATS_BUF_SIZE 16384
 
+enum npu_power_level {
+	NPU_PWRLEVEL_MINSVS = 0,
+	NPU_PWRLEVEL_LOWSVS,
+	NPU_PWRLEVEL_SVS,
+	NPU_PWRLEVEL_SVS_L1,
+	NPU_PWRLEVEL_NOM,
+	NPU_PWRLEVEL_NOM_L1,
+	NPU_PWRLEVEL_TURBO,
+	NPU_PWRLEVEL_TURBO_L1,
+	NPU_PWRLEVEL_OFF = 0xFFFFFFFF,
+};
+
 /* -------------------------------------------------------------------------
  * Data Structures
  * -------------------------------------------------------------------------
@@ -107,9 +119,11 @@ struct npu_mbox {
 /**
  * struct npul_pwrlevel - Struct holding different pwrlevel info obtained from
  * from dtsi file
+ * @pwr_level:           NPU power level
  * @freq[]:              NPU frequency vote in Hz
  */
 struct npu_pwrlevel {
+	uint32_t pwr_level;
 	long clk_freq[NUM_MAX_CLK_NUM];
 };
 
@@ -134,6 +148,11 @@ struct npu_reg {
  * @max_pwrlevel - maximum allowable powerlevel per the user
  * @min_pwrlevel - minimum allowable powerlevel per the user
  * @num_pwrlevels - number of available power levels
+ * @cdsprm_pwrlevel - maximum power level from cdsprm
+ * @fmax_pwrlevel - maximum power level from qfprom fmax setting
+ * @uc_pwrlevel - power level from user driver setting
+ * @perf_mode_override - perf mode from sysfs to override perf mode
+ *                       settings from user driver
  * @devbw - bw device
  */
 struct npu_pwrctrl {
@@ -149,6 +168,9 @@ struct npu_pwrctrl {
 	struct device *devbw;
 	uint32_t bwmon_enabled;
 	uint32_t uc_pwrlevel;
+	uint32_t cdsprm_pwrlevel;
+	uint32_t fmax_pwrlevel;
+	uint32_t perf_mode_override;
 };
 
 /**
@@ -171,6 +193,11 @@ struct npu_irq {
 	int irq_type;
 };
 
+struct npu_io_data {
+	size_t size;
+	void __iomem *base;
+};
+
 struct npu_device {
 	struct mutex dev_lock;
 
@@ -181,9 +208,8 @@ struct npu_device {
 	struct class *class;
 	struct device *device;
 
-	size_t reg_size;
-	char __iomem *npu_base;
-	uint32_t npu_phys;
+	struct npu_io_data npu_io;
+	struct npu_io_data qfprom_io;
 
 	uint32_t core_clk_num;
 	struct npu_clk core_clks[NUM_MAX_CLK_NUM];
@@ -207,6 +233,7 @@ struct npu_device {
 
 	struct llcc_slice_desc *sys_cache;
 	uint32_t execute_v2_flag;
+	bool cxlimit_registered;
 };
 
 struct npu_kevent {
@@ -242,6 +269,7 @@ int npu_set_uc_power_level(struct npu_device *npu_dev,
 	uint32_t pwr_level);
 
 int fw_init(struct npu_device *npu_dev);
-void fw_deinit(struct npu_device *npu_dev, bool ssr);
+void fw_deinit(struct npu_device *npu_dev, bool ssr, bool fw_alive);
+int npu_notify_cdsprm_cxlimit_activity(struct npu_device *npu_dev, bool enable);
 
 #endif /* _NPU_COMMON_H */

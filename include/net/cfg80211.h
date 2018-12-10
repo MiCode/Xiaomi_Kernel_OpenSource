@@ -41,6 +41,12 @@
 /* Indicate backport support for FILS SK offload in cfg80211 */
 #define CFG80211_FILS_SK_OFFLOAD_SUPPORT 1
 
+/* Indicate backport support for DBS scan control */
+#define CFG80211_SCAN_DBS_CONTROL_SUPPORT 1
+
+/* Indicate backport support for per chain rssi scan */
+#define CFG80211_SCAN_PER_CHAIN_RSSI_SUPPORT 1
+
 /**
  * DOC: Introduction
  *

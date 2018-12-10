@@ -485,7 +485,7 @@ static ssize_t show_allocated_bytes(struct device *dev,
 		&NODE_DATA(numa_node_id())->node_zones[ZONE_MOVABLE];
 	unsigned long used, block_sz = get_memory_block_size();
 
-	if (mem->state != MEM_ONLINE)
+	if (!populated_zone(movable_zone) || mem->state != MEM_ONLINE)
 		return snprintf(buf, 100, "0\n");
 
 	block_id = base_memory_block_id(mem->start_section_nr);

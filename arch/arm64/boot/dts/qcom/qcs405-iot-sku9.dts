@@ -53,3 +53,15 @@
 &smb1351_otg_supply {
 	status = "disabled";
 };
+
+&usb3 {
+	status = "disabled";
+};
+
+&usb_ss_phy {
+	status = "disabled";
+};
+
+&usb2_phy1 {
+	status = "disabled";
+};

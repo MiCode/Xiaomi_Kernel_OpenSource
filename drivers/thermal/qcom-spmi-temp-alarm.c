@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2015, 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2015, 2017-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -271,6 +271,7 @@ static int qpnp_tm_probe(struct platform_device *pdev)
 	struct qpnp_tm_chip *chip;
 	struct device_node *node;
 	u8 type, subtype, dig_major;
+	unsigned long int flags;
 	u32 res;
 	int ret, irq;
 
@@ -350,8 +351,30 @@ static int qpnp_tm_probe(struct platform_device *pdev)
 		goto fail;
 	}
 
+	if (subtype == QPNP_TM_SUBTYPE_GEN2) {
+		/*
+		 * The interrupt signal on TEMP_GEN2 modules is low when the
+		 * over-temperature stage is 0 and high when the stage is
+		 * greater than 0.  Therefore, triggering on both edges is
+		 * required in order to detect both stage 0 -> 1 and 1 -> 0
+		 * transitions.
+		 *
+		 * There is no mechanism to receive interrupts on other stage
+		 * transitions (e.g. 1 -> 2 or 2 -> 1).
+		 */
+		flags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING;
+	} else {
+		/*
+		 * The interrupt signal on older modules provides a short pulse
+		 * on every over-temperature stage transition (e.g. 0 -> 1,
+		 * 1 -> 0, 1 -> 2, 2 -> 1, etc).  Therefore, triggering should
+		 * only be performed on the rising edge.
+		 */
+		flags = IRQF_TRIGGER_RISING;
+	}
+
 	ret = devm_request_threaded_irq(&pdev->dev, irq, NULL, qpnp_tm_isr,
-					IRQF_ONESHOT, node->name, chip);
+					flags | IRQF_ONESHOT, node->name, chip);
 	if (ret < 0)
 		goto fail;
 

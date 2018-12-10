@@ -32,6 +32,8 @@ Subnode Required properties:
 - dma-coherent :  A flag marking a context bank as I/O coherent
 - shared-cb    :  A value indicating how many fastrpc sessions can share a
 			context bank
+- shared-sid   :  A value indicating the number of sids that are using the same
+			context bank
 
 Example:
 	qcom,msm_fastrpc {
@@ -58,6 +60,13 @@ Example:
 			label = "sdsprpc-smd";
 			iommus = <&apps_smmu 0x1402 0x0>;
 			shared-cb = <5>;
+		};
+		qcom,msm_fastrpc_compute_cb_3 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&apps_smmu 0x0043 0x0>,
+				 <&apps_smmu 0x0044 0x0>;
+			shared-sid = <2>;
 		};
 	};
 

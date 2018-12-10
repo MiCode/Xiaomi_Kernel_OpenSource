@@ -737,8 +737,11 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 	int rc = 0;
 	u64 tmp64 = 0;
 	struct dsi_display_mode *display_mode;
+	struct dsi_display_mode_priv_info *priv_info;
 
 	display_mode = container_of(mode, struct dsi_display_mode, timing);
+
+	priv_info = display_mode->priv_info;
 
 	rc = utils->read_u64(utils->data,
 			"qcom,mdss-dsi-panel-clockrate", &tmp64);
@@ -750,6 +753,15 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 
 	mode->clk_rate_hz = !rc ? tmp64 : 0;
 	display_mode->priv_info->clk_rate_hz = mode->clk_rate_hz;
+
+	rc = utils->read_u32(utils->data, "qcom,mdss-mdp-transfer-time-us",
+				&mode->mdp_transfer_time_us);
+	if (!rc)
+		display_mode->priv_info->mdp_transfer_time_us =
+			mode->mdp_transfer_time_us;
+	else
+		display_mode->priv_info->mdp_transfer_time_us =
+			DEFAULT_MDP_TRANSFER_TIME;
 
 	rc = utils->read_u32(utils->data,
 				"qcom,mdss-dsi-panel-framerate",
@@ -1342,14 +1354,6 @@ static int dsi_panel_parse_cmd_host_config(struct dsi_cmd_engine_cfg *cfg,
 		goto error;
 	}
 
-	if (utils->read_u32(utils->data, "qcom,mdss-mdp-transfer-time-us",
-				&val)) {
-		pr_debug("[%s] Fallback to default transfer-time-us\n", name);
-		cfg->mdp_transfer_time_us = DEFAULT_MDP_TRANSFER_TIME;
-	} else {
-		cfg->mdp_transfer_time_us = val;
-	}
-
 error:
 	return rc;
 }
@@ -1882,8 +1886,8 @@ static int dsi_panel_parse_gpios(struct dsi_panel *panel)
 					      reset_gpio_name, 0);
 	if (!gpio_is_valid(panel->reset_config.reset_gpio) &&
 		!panel->host_config.ext_bridge_mode) {
+		rc = panel->reset_config.reset_gpio;
 		pr_err("[%s] failed get reset gpio, rc=%d\n", panel->name, rc);
-		rc = -EINVAL;
 		goto error;
 	}
 
@@ -1907,7 +1911,7 @@ static int dsi_panel_parse_gpios(struct dsi_panel *panel)
 	if (!gpio_is_valid(panel->reset_config.lcd_mode_sel_gpio))
 		pr_debug("%s:%d mode gpio not specified\n", __func__, __LINE__);
 
-	pr_err("mode gpio=%d\n", panel->reset_config.lcd_mode_sel_gpio);
+	pr_debug("mode gpio=%d\n", panel->reset_config.lcd_mode_sel_gpio);
 
 	data = utils->get_property(utils->data,
 		"qcom,mdss-dsi-mode-sel-gpio-state", NULL);
@@ -2983,13 +2987,15 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 		goto error;
 	}
 
+	rc = dsi_panel_parse_gpios(panel);
+	if (rc) {
+		pr_err("failed to parse panel gpios, rc=%d\n", rc);
+		goto error;
+	}
+
 	rc = dsi_panel_parse_power_cfg(panel);
 	if (rc)
 		pr_err("failed to parse power config, rc=%d\n", rc);
-
-	rc = dsi_panel_parse_gpios(panel);
-	if (rc)
-		pr_err("failed to parse panel gpios, rc=%d\n", rc);
 
 	rc = dsi_panel_parse_bl_config(panel);
 	if (rc)
@@ -3359,6 +3365,8 @@ int dsi_panel_get_host_cfg_for_mode(struct dsi_panel *panel,
 
 	memcpy(&config->video_timing, &mode->timing,
 	       sizeof(config->video_timing));
+	config->video_timing.mdp_transfer_time_us =
+			mode->priv_info->mdp_transfer_time_us;
 	config->video_timing.dsc_enabled = mode->priv_info->dsc_enabled;
 	config->video_timing.dsc = &mode->priv_info->dsc;
 

@@ -147,6 +147,8 @@ enum ipahal_reg_name {
 	IPA_ENDP_GSI_CFG1_n,
 	IPA_ENDP_GSI_CFG_AOS_n,
 	IPA_ENDP_GSI_CFG_TLV_n,
+	IPA_COAL_EVICT_LRU,
+	IPA_COAL_QMAP_CFG,
 	IPA_REG_MAX,
 };
 
@@ -619,11 +621,55 @@ struct ipahal_reg_idle_indication_cfg {
 };
 
 /*
- * struct ipa_ep_cfg_ctrl_scnd - PA_ENDP_INIT_CTRL_SCND_n register
+ * struct ipa_ep_cfg_ctrl_scnd - IPA_ENDP_INIT_CTRL_SCND_n register
  * @endp_delay: delay endpoint
  */
 struct ipahal_ep_cfg_ctrl_scnd {
 	bool endp_delay;
+};
+
+/*
+ * struct ipahal_reg_state_coal_master- IPA_STATE_COAL_MASTER register
+ * @vp_timer_expired: VP bitmap. If set, Vp aggregation timer has expired
+ * @lru_cp: least recently used VP index
+ * @init_vp_fsm_state: init VP FSM current state
+ * @check_fir_fsm_state: check fir FMS current state
+ * @hash_calc_fsm_state: hash calculation FSM current state
+ * @find_open_fsm_state: find open VP FSM current state
+ * @main_fsm_state: main coalescing master state FSM current state
+ * @vp_vld: VP bitmap. If set, VP is valid, and coalescing frame is open.
+ */
+struct ipahal_reg_state_coal_master {
+	u32 vp_timer_expired;
+	u32 lru_vp;
+	u32 init_vp_fsm_state;
+	u32 check_fir_fsm_state;
+	u32 hash_calc_fsm_state;
+	u32 find_open_fsm_state;
+	u32 main_fsm_state;
+	u32 vp_vld;
+};
+
+/*
+ * struct ipahal_reg_coal_evict_lru - IPA_COAL_EVICT_LRU register
+ * @coal_vp_lru_thrshld: Connection that is opened below  this val
+ *			 will not get evicted
+ * @coal_eviction_en: Enable eviction
+ */
+struct ipahal_reg_coal_evict_lru {
+	u32 coal_vp_lru_thrshld;
+	bool coal_eviction_en;
+};
+
+/*
+ * struct ipahal_reg_coal_qmap_cfg - IPA_COAL_QMAP_CFG register
+ * @mux_id_byte_sel: MUX_ID field in the QMAP portion in COALESCING header is
+ * taken from injected packet metadata field in PKT_CTX.
+ * Metadata consists of 4 bytes, configuring value 0 to MUX_ID_BYTE_SEL will
+ * take bits 7:0 from metadata field, value 1 will take bits 15:8 and so on ...
+ */
+struct ipahal_reg_coal_qmap_cfg {
+	u32 mux_id_byte_sel;
 };
 
 /*
@@ -743,6 +789,8 @@ u32 ipahal_get_reg_base(void);
  *  specific and cannot be generically defined. For such operations we define
  *  these specific functions.
  */
+u32 ipahal_aggr_get_max_byte_limit(void);
+u32 ipahal_aggr_get_max_pkt_limit(void);
 void ipahal_get_aggr_force_close_valmask(int ep_idx,
 	struct ipahal_reg_valmask *valmask);
 void ipahal_get_fltrt_hash_flush_valmask(

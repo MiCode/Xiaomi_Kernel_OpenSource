@@ -1,0 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ */
+
+/dts-v1/;
+
+#include "sa8155-vm.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SA8155 Virtual Machine";
+	compatible = "qcom,sa8155";
+	qcom,pmic-name = "PM8150";
+	qcom,board-id = <0 0>;
+};

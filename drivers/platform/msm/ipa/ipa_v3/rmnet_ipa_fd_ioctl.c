@@ -89,7 +89,7 @@ static long ipa3_wan_ioctl(struct file *filp,
 			IPAWANDBG("Still allow IOCTL for exceptions (%d)\n",
 				cmd);
 		} else {
-			IPAWANERR("Modem is in SSR, ignoring ioctl (%d)\n",
+			IPAWANERR_RL("Modem is in SSR, ignoring ioctl (%d)\n",
 				cmd);
 			return -EAGAIN;
 		}
@@ -236,7 +236,7 @@ static long ipa3_wan_ioctl(struct file *filp,
 		}
 		if (rmnet_ipa3_poll_tethering_stats(
 		(struct wan_ioctl_poll_tethering_stats *)param)) {
-			IPAWANERR("WAN_IOCTL_POLL_TETHERING_STATS failed\n");
+			IPAWANERR_RL("WAN_IOCTL_POLL_TETHERING_STATS failed\n");
 			retval = -EFAULT;
 			break;
 		}

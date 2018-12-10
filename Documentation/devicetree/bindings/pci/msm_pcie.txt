@@ -73,7 +73,10 @@ Optional Properties:
   - qcom,common-clk-en: Enables the common clock configuration for the endpoint.
   - qcom,clk-power-manage-en: Enables the clock power management for the
     endpoint.
-  - qcom,max-link-speed: Max Gen speed Root complex supports.
+  - qcom,target-link-speed: Override maximum GEN speed.
+	GEN 1: 0x1
+	GEN 2: 0x2
+	GEN 3: 0x3
   - qcom,n-fts: The number of fast training sequences sent when the link state
     is changed from L0s to L0.
   - qcom,phy-power-down-offset: Offset from PCIe PHY base to control the power state
@@ -89,8 +92,6 @@ Optional Properties:
 		Clients will control when PCIe bus driver should do enumeration.
 	BIT(1): PCIe bus driver will not start enumeration if it receives a WAKE
 		interrupt.
-  - qcom,msi-gicm-addr: MSI address for GICv2m.
-  - qcom,msi-gicm-base: MSI IRQ base for GICv2m.
   - qcom,ext-ref-clk: The reference clock is external.
   - iommu-map: For details of iommu-map properties, please refer to:
     "Documentation/devicetree/bindings/pci/pci-iommu.txt"
@@ -284,12 +285,10 @@ Example:
 		qcom,no-l1-supported;
 		qcom,no-l1ss-supported;
 		qcom,no-aux-clk-sync;
-		qcom,max-link-speed = <0x2>;
+		qcom,target-link-speed = <0x2>;
 		qcom,n-fts = <0x50>;
 		qcom,pcie-phy-ver = <1>;
 		qcom,boot-option = <0x1>;
-		qcom,msi-gicm-addr = <0xf9040040>;
-		qcom,msi-gicm-base = <0x160>;
 		qcom,ext-ref-clk;
 		qcom,tlp-rd-size = <0x5>;
 		qcom,smmu-sid-base = <0x1480>;

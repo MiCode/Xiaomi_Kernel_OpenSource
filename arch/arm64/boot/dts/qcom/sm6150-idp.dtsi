@@ -53,6 +53,12 @@
 			gpio-key,wakeup;
 		};
 	};
+
+	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "qg-batterydata-alium-3600mah.dtsi"
+		#include "qg-batterydata-mlp356477-2800mah.dtsi"
+	};
 };
 
 &qupv3_se0_2uart {
@@ -182,6 +188,10 @@
 
 &pm6150_qg {
 	qcom,battery-data = <&mtp_batterydata>;
+	qcom,qg-iterm-ma = <100>;
+	qcom,hold-soc-while-full;
+	qcom,linearize-soc;
+	qcom,cl-feedback-on;
 };
 
 &pm6150_charger {
@@ -200,10 +210,15 @@
 			   "sbux_res",
 			   "vph_voltage";
 	qcom,battery-data = <&mtp_batterydata>;
+	qcom,auto-recharge-soc = <98>;
 	qcom,step-charging-enable;
 	qcom,sw-jeita-enable;
 	qcom,fcc-stepping-enable;
+	qcom,suspend-input-on-debug-batt;
 	qcom,sec-charger-config = <3>;
+	qcom,thermal-mitigation = <4200000 3500000 3000000
+			2500000 2000000 1500000 1000000 500000>;
+	dpdm-supply = <&qusb_phy0>;
 };
 
 &smb1390 {
@@ -215,6 +230,8 @@
 };
 
 &smb1390_charger {
+	/delete-property/ compatible;
+	compatible = "qcom,smb1390-charger-psy";
 	io-channels = <&pm6150_vadc ADC_AMUX_THM3>;
 	io-channel-names = "cp_die_temp";
 	status = "ok";
@@ -267,10 +284,4 @@
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,platform-te-gpio = <&tlmm 90 0>;
 	qcom,platform-reset-gpio = <&tlmm 91 0>;
-};
-
-&thermal_zones {
-	quiet-therm-step {
-		status = "disabled";
-	};
 };

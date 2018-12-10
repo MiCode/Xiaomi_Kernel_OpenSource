@@ -87,11 +87,11 @@ static int dma_buf_release(struct inode *inode, struct file *file)
 	 */
 	BUG_ON(dmabuf->cb_shared.active || dmabuf->cb_excl.active);
 
-	dmabuf->ops->release(dmabuf);
-
 	mutex_lock(&db_list.lock);
 	list_del(&dmabuf->list_node);
 	mutex_unlock(&db_list.lock);
+
+	dmabuf->ops->release(dmabuf);
 
 	dma_buf_ref_destroy(dmabuf);
 
@@ -1401,11 +1401,11 @@ static int dma_procs_debug_show(struct seq_file *s, void *unused)
 		}
 		INIT_LIST_HEAD(&tmp->dma_bufs);
 		for_each_thread(task, thread) {
-			files = get_files_struct(task);
-			if (!files)
-				continue;
-			ret = iterate_fd(files, 0, get_dma_info, tmp);
-			put_files_struct(files);
+			task_lock(thread);
+			files = thread->files;
+			if (files)
+				ret = iterate_fd(files, 0, get_dma_info, tmp);
+			task_unlock(thread);
 		}
 		if (ret || list_empty(&tmp->dma_bufs))
 			goto skip;

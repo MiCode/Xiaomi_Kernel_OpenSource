@@ -309,6 +309,16 @@ qmi_rmnet_del_flow(struct net_device *dev, struct tcmsg *tcm,
 	return 0;
 }
 
+static void qmi_rmnet_query_flows(struct qmi_info *qmi)
+{
+	void *dfc_data = qmi_rmnet_has_dfc_client(qmi);
+
+	if (!dfc_data)
+		return;
+
+	dfc_qmi_query_flow(dfc_data);
+}
+
 static int qmi_rmnet_set_scale_factor(const char *val,
 				      const struct kernel_param *kp)
 {
@@ -358,6 +368,10 @@ qmi_rmnet_del_flow(struct net_device *dev, struct tcmsg *tcm,
 		   struct qmi_info *qmi)
 {
 	return -EINVAL;
+}
+
+static inline void qmi_rmnet_query_flows(struct qmi_info *qmi)
+{
 }
 #endif
 
@@ -533,7 +547,7 @@ void qmi_rmnet_enable_all_flows(struct net_device *dev)
 		bearer->grant_before_ps = bearer->grant_size;
 		bearer->seq_before_ps = bearer->seq;
 		bearer->grant_size = DEFAULT_GRANT;
-		bearer->grant_thresh = qmi_rmnet_grant_per(DEFAULT_GRANT);
+		bearer->grant_thresh = DEFAULT_GRANT;
 		bearer->seq = 0;
 		bearer->ack_req = 0;
 		bearer->ancillary = 0;
@@ -737,6 +751,8 @@ int qmi_rmnet_set_powersave_mode(void *port, uint8_t enable)
 
 	if (enable)
 		dfc_qmi_wq_flush(qmi);
+	else
+		qmi_rmnet_query_flows(qmi);
 
 	return 0;
 }
