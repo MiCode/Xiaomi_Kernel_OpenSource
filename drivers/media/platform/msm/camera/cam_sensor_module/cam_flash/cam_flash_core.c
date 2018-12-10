@@ -302,7 +302,6 @@ int cam_flash_pmic_flush_request(struct cam_flash_ctrl *fctrl,
 	}
 
 	if (type == FLUSH_ALL) {
-		cam_flash_off(fctrl);
 	/* flush all requests*/
 		for (i = 0; i < MAX_PER_FRAME_ARRAY; i++) {
 			fctrl->per_frame[i].cmn_attr.request_id = 0;
