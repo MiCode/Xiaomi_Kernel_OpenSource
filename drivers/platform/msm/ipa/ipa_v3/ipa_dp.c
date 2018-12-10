@@ -55,8 +55,6 @@
 /* less 1 nominal MTU (1500 bytes) rounded to units of KB */
 #define IPA_ADJUST_AGGR_BYTE_LIMIT(X) (((X) - IPA_MTU)/1000)
 
-#define IPA_ADJUST_AGGR_BYTE_HARD_LIMIT(X) (X/1000)
-
 #define IPA_RX_BUFF_CLIENT_HEADROOM 256
 
 #define IPA_WLAN_RX_POOL_SZ 100

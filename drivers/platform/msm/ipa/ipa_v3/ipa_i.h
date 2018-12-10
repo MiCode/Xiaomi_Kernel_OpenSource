@@ -254,6 +254,8 @@ enum {
 #define IPA_AGGR_STR_IN_BYTES(str) \
 	(strnlen((str), IPA_AGGR_MAX_STR_LENGTH - 1) + 1)
 
+#define IPA_ADJUST_AGGR_BYTE_HARD_LIMIT(X) (X/1000)
+
 #define IPA_TRANSPORT_PROD_TIMEOUT_MSEC 100
 
 #define IPA3_ACTIVE_CLIENTS_TABLE_BUF_SIZE 2048
@@ -1287,6 +1289,18 @@ struct ipa3_uc_wdi_ctx {
 };
 
 /**
+* struct ipa3_uc_wigig_ctx
+* @priv: wigig driver private data
+* @uc_ready_cb: wigig driver uc ready callback
+* @int_notify: wigig driver misc interrupt callback
+*/
+struct ipa3_uc_wigig_ctx {
+	void *priv;
+	ipa_uc_ready_cb uc_ready_cb;
+	ipa_wigig_misc_int_cb misc_notify_cb;
+};
+
+/**
  * struct ipa3_wdi2_ctx - IPA wdi2 context
  */
 struct ipa3_wdi2_ctx {
@@ -1499,6 +1513,7 @@ struct ipa3_char_device_context {
  * @wcstats: wlan common buffer stats
  * @uc_ctx: uC interface context
  * @uc_wdi_ctx: WDI specific fields for uC interface
+ * @uc_wigig_ctx: WIGIG specific fields for uC interface
  * @ipa_num_pipes: The number of pipes used by IPA HW
  * @skip_uc_pipe_reset: Indicates whether pipe reset via uC needs to be avoided
  * @ipa_client_apps_wan_cons_agg_gro: RMNET_IOCTL_INGRESS_FORMAT_AGG_DATA
@@ -1621,6 +1636,7 @@ struct ipa3_context {
 
 	struct ipa3_uc_wdi_ctx uc_wdi_ctx;
 	struct ipa3_uc_ntn_ctx uc_ntn_ctx;
+	struct ipa3_uc_wigig_ctx uc_wigig_ctx;
 	u32 wan_rx_ring_size;
 	u32 lan_rx_ring_size;
 	bool skip_uc_pipe_reset;
@@ -2217,6 +2233,26 @@ int ipa3_disconn_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
 int ipa3_enable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
 int ipa3_disable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
 
+int ipa3_conn_wigig_rx_pipe_i(void *in,
+	struct ipa_wigig_conn_out_params *out);
+
+int ipa3_conn_wigig_client_i(void *in, struct ipa_wigig_conn_out_params *out);
+
+int ipa3_wigig_uc_msi_init(bool init,
+	phys_addr_t periph_baddr_pa,
+	phys_addr_t pseudo_cause_pa,
+	phys_addr_t int_gen_tx_pa,
+	phys_addr_t int_gen_rx_pa,
+	phys_addr_t dma_ep_misc_pa);
+
+int ipa3_disconn_wigig_pipe_i(enum ipa_client_type client,
+	struct ipa_wigig_pipe_setup_info_smmu *pipe_smmu,
+	void *dbuff);
+
+int ipa3_enable_wigig_pipe_i(enum ipa_client_type client);
+
+int ipa3_disable_wigig_pipe_i(enum ipa_client_type client);
+
 /*
  * To retrieve doorbell physical address of
  * wlan pipes
@@ -2522,6 +2558,12 @@ int ipa3_uc_send_remote_ipa_info(u32 remote_addr, uint32_t mbox_n);
 void ipa3_tag_destroy_imm(void *user1, int user2);
 const struct ipa_gsi_ep_config *ipa3_get_gsi_ep_info
 	(enum ipa_client_type client);
+
+int ipa3_wigig_init_i(void);
+int ipa3_wigig_uc_init(
+	struct ipa_wdi_uc_ready_params *inout,
+	ipa_wigig_misc_int_cb int_notify,
+	phys_addr_t *uc_db_pa);
 
 /* Hardware stats */
 
