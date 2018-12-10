@@ -554,7 +554,7 @@ static long cam_cdm_util_dump_dmi_cmd(uint32_t *cmd_buf_addr)
 	long ret = 0;
 
 	ret += CDMCmdHeaderSizes[CAM_CDM_CMD_DMI];
-	CAM_INFO(CAM_CDM, "DMI");
+	CAM_INFO_RATE_LIMIT(CAM_CDM, "DMI");
 	return ret;
 }
 
@@ -578,11 +578,11 @@ static long cam_cdm_util_dump_reg_cont_cmd(uint32_t *cmd_buf_addr)
 	temp_ptr += CDMCmdHeaderSizes[CAM_CDM_CMD_REG_CONT];
 	ret += CDMCmdHeaderSizes[CAM_CDM_CMD_REG_CONT];
 
-	CAM_INFO(CAM_CDM, "REG_CONT: COUNT: %u OFFSET: 0x%X",
+	CAM_INFO_RATE_LIMIT(CAM_CDM, "REG_CONT: COUNT: %u OFFSET: 0x%X",
 		p_regcont_cmd->count, p_regcont_cmd->offset);
 
 	for (i = 0; i < p_regcont_cmd->count; i++) {
-		CAM_INFO(CAM_CDM, "DATA_%d: 0x%X", i,
+		CAM_INFO_RATE_LIMIT(CAM_CDM, "DATA_%d: 0x%X", i,
 			*temp_ptr);
 		temp_ptr++;
 		ret++;
@@ -602,11 +602,11 @@ static long cam_cdm_util_dump_reg_random_cmd(uint32_t *cmd_buf_addr)
 	temp_ptr += CDMCmdHeaderSizes[CAM_CDM_CMD_REG_RANDOM];
 	ret += CDMCmdHeaderSizes[CAM_CDM_CMD_REG_RANDOM];
 
-	CAM_INFO(CAM_CDM, "REG_RAND: COUNT: %u",
+	CAM_INFO_RATE_LIMIT(CAM_CDM, "REG_RAND: COUNT: %u",
 		p_regrand_cmd->count);
 
 	for (i = 0; i < p_regrand_cmd->count; i++) {
-		CAM_INFO(CAM_CDM, "OFFSET_%d: 0x%X DATA_%d: 0x%X",
+		CAM_INFO_RATE_LIMIT(CAM_CDM, "OFFSET_%d: 0x%X DATA_%d: 0x%X",
 			i, *temp_ptr & CAM_CDM_REG_OFFSET_MASK, i,
 			*(temp_ptr + 1));
 		temp_ptr += 2;

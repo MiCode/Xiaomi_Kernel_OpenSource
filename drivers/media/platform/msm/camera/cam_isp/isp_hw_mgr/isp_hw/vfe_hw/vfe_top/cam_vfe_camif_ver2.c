@@ -334,52 +334,52 @@ static int cam_vfe_camif_reg_dump(
 	soc_private = camif_priv->soc_info->soc_private;
 	for (i = 0xA3C; i <= 0xA90; i += 4) {
 		val = cam_io_r_mb(camif_priv->mem_base + i);
-		CAM_INFO(CAM_ISP, "offset 0x%x val 0x%x", i, val);
+		CAM_DBG(CAM_ISP, "offset 0x%x val 0x%x", i, val);
 	}
 
 	for (i = 0xE0C; i <= 0xE3C; i += 4) {
 		val = cam_io_r_mb(camif_priv->mem_base + i);
-		CAM_INFO(CAM_ISP, "offset 0x%x val 0x%x", i, val);
+		CAM_DBG(CAM_ISP, "offset 0x%x val 0x%x", i, val);
 	}
 
 	for (i = 0x2000; i <= 0x20B8; i += 4) {
 		val = cam_io_r_mb(camif_priv->mem_base + i);
-		CAM_INFO(CAM_ISP, "offset 0x%x val 0x%x", i, val);
+		CAM_DBG(CAM_ISP, "offset 0x%x val 0x%x", i, val);
 	}
 
 	for (i = 0x2500; i <= 0x255C; i += 4) {
 		val = cam_io_r_mb(camif_priv->mem_base + i);
-		CAM_INFO(CAM_ISP, "offset 0x%x val 0x%x", i, val);
+		CAM_DBG(CAM_ISP, "offset 0x%x val 0x%x", i, val);
 	}
 
 	for (i = 0x2600; i <= 0x265C; i += 4) {
 		val = cam_io_r_mb(camif_priv->mem_base + i);
-		CAM_INFO(CAM_ISP, "offset 0x%x val 0x%x", i, val);
+		CAM_DBG(CAM_ISP, "offset 0x%x val 0x%x", i, val);
 	}
 
 	if (soc_private->cpas_version == CAM_CPAS_TITAN_175_V120) {
 		cam_cpas_reg_read(soc_private->cpas_handle[0],
 			CAM_CPAS_REG_CAMNOC, 0x3A20, true, &val);
-		CAM_INFO(CAM_ISP, "IFE0_nRDI_MAXWR_LOW offset 0x3A20 val 0x%x",
+		CAM_DBG(CAM_ISP, "IFE0_nRDI_MAXWR_LOW offset 0x3A20 val 0x%x",
 			val);
 
 		cam_cpas_reg_read(soc_private->cpas_handle[0],
 			CAM_CPAS_REG_CAMNOC, 0x5420, true, &val);
-		CAM_INFO(CAM_ISP, "IFE1_nRDI_MAXWR_LOW offset 0x5420 val 0x%x",
+		CAM_DBG(CAM_ISP, "IFE1_nRDI_MAXWR_LOW offset 0x5420 val 0x%x",
 			val);
 
 		cam_cpas_reg_read(soc_private->cpas_handle[1],
 			CAM_CPAS_REG_CAMNOC, 0x3620, true, &val);
-		CAM_INFO(CAM_ISP,
+		CAM_DBG(CAM_ISP,
 			"IFE0123_RDI_WR_MAXWR_LOW offset 0x3620 val 0x%x", val);
 	} else {
 		cam_cpas_reg_read(soc_private->cpas_handle[0],
 			CAM_CPAS_REG_CAMNOC, 0x420, true, &val);
-		CAM_INFO(CAM_ISP, "IFE02_MAXWR_LOW offset 0x420 val 0x%x", val);
+		CAM_DBG(CAM_ISP, "IFE02_MAXWR_LOW offset 0x420 val 0x%x", val);
 
 		cam_cpas_reg_read(soc_private->cpas_handle[0],
 			CAM_CPAS_REG_CAMNOC, 0x820, true, &val);
-		CAM_INFO(CAM_ISP, "IFE13_MAXWR_LOW offset 0x820 val 0x%x", val);
+		CAM_DBG(CAM_ISP, "IFE13_MAXWR_LOW offset 0x820 val 0x%x", val);
 	}
 	return rc;
 }
@@ -390,31 +390,31 @@ static int cam_vfe_camif_reg_dump_bh(struct cam_vfe_mux_camif_data *camif_priv)
 
 	for (offset = 0x0; offset < 0x1000; offset += 0x4) {
 		val = cam_soc_util_r(camif_priv->soc_info, 0, offset);
-		CAM_INFO(CAM_ISP, "offset 0x%x value 0x%x", offset, val);
+		CAM_DBG(CAM_ISP, "offset 0x%x value 0x%x", offset, val);
 	}
 
 	for (offset = 0x2000; offset <= 0x20B8; offset += 0x4) {
 		val = cam_soc_util_r(camif_priv->soc_info, 0, offset);
-		CAM_INFO(CAM_ISP, "offset 0x%x value 0x%x", offset, val);
+		CAM_DBG(CAM_ISP, "offset 0x%x value 0x%x", offset, val);
 	}
 
 	for (wm_idx = 0; wm_idx <= 23; wm_idx++) {
 		for (offset = 0x2200 + 0x100 * wm_idx;
 			offset < 0x2278 + 0x100 * wm_idx; offset += 0x4) {
 			val = cam_soc_util_r(camif_priv->soc_info, 0, offset);
-			CAM_INFO(CAM_ISP,
+			CAM_DBG(CAM_ISP,
 				"offset 0x%x value 0x%x", offset, val);
 		}
 	}
 
 	offset = 0x420;
 	val = cam_soc_util_r(camif_priv->soc_info, 1, offset);
-	CAM_INFO(CAM_ISP, "CAMNOC IFE02 MaxWR_LOW offset 0x%x value 0x%x",
+	CAM_DBG(CAM_ISP, "CAMNOC IFE02 MaxWR_LOW offset 0x%x value 0x%x",
 		offset, val);
 
 	offset = 0x820;
 	val = cam_soc_util_r(camif_priv->soc_info, 1, offset);
-	CAM_INFO(CAM_ISP, "CAMNOC IFE13 MaxWR_LOW offset 0x%x value 0x%x",
+	CAM_DBG(CAM_ISP, "CAMNOC IFE13 MaxWR_LOW offset 0x%x value 0x%x",
 		offset, val);
 
 	return 0;
