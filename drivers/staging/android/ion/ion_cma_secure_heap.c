@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) Linaro 2012
  * Author: <benjamin.gaignard@linaro.org> for ST-Ericsson.

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-2.0
+# SPDX-License-Identifier: GPL-2.0-only
 
 ccflags-y += -Idrivers/media/platform/msm/camera/isp/isp_hw/include
 ccflags-y += -Idrivers/media/platform/msm/camera/cam_icp/icp_hw/include

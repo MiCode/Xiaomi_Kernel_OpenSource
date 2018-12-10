@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-2.0
+# SPDX-License-Identifier: GPL-2.0-only
 
 menuconfig SPECTRA_CAMERA
     bool "Qualcomm Technologies, Inc. Spectra camera and video capture support"

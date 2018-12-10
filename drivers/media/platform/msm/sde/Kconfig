@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-2.0
+# SPDX-License-Identifier: GPL-2.0-only
 
 config MSM_SDE_ROTATOR
 	bool "QTI V4L2 based SDE Rotator"

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only
 /* drivers/usb/gadget/f_diag.c
  * Diag Function Device - Route ARM9 and ARM11 DIAG messages
  * between HOST and DEVICE.

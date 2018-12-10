@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-2.0
+# SPDX-License-Identifier: GPL-2.0-only
 # generic  external soc control support
 
 ccflags-$(CONFIG_ESOC_DEBUG)	:= -DDEBUG

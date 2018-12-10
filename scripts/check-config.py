@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# SPDX-License-Identifier: GPL-2.0
+# SPDX-License-Identifier: GPL-2.0-only
 
 # Copyright (c) 2015, 2018 The Linux Foundation. All rights reserved.
 

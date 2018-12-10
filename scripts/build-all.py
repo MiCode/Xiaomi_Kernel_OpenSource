@@ -1,5 +1,5 @@
 #! /usr/bin/env python2
-# SPDX-License-Identifier: GPL-2.0
+# SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2009-2015, 2017-18, The Linux Foundation. All rights reserved.
 
 # Build the kernel for all targets using the Android build environment.

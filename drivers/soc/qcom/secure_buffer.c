@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2011 Google, Inc
  * Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.

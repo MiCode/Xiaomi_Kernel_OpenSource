@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-2.0
+# SPDX-License-Identifier: GPL-2.0-only
 
 obj-$(CONFIG_SPECTRA_CAMERA) += cam_req_mgr/
 obj-$(CONFIG_SPECTRA_CAMERA) += cam_utils/
