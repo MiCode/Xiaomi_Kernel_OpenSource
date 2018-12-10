@@ -2722,6 +2722,8 @@ static void dp_panel_convert_to_dp_mode(struct dp_panel *dp_panel,
 {
 	const u32 num_components = 3, default_bpp = 24;
 	struct msm_compression_info *comp_info;
+	bool dsc_cap = (dp_mode->capabilities & DP_PANEL_CAPS_DSC) ?
+				true : false;
 
 	dp_mode->timing.h_active = drm_mode->hdisplay;
 	dp_mode->timing.h_back_porch = drm_mode->htotal - drm_mode->hsync_end;
@@ -2760,7 +2762,7 @@ static void dp_panel_convert_to_dp_mode(struct dp_panel *dp_panel,
 	dp_mode->timing.widebus_en = dp_panel->widebus_en;
 	dp_mode->timing.dsc_overhead_fp = 0;
 
-	if (dp_panel->dsc_en) {
+	if (dp_panel->dsc_en && dsc_cap) {
 		comp_info = &dp_mode->timing.comp_info;
 
 		if (dp_panel_dsc_prepare_basic_params(comp_info,
