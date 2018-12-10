@@ -235,9 +235,9 @@
 	rpm-regulator-ldoa11 {
 		status = "okay";
 		pms405_l11: regulator-l11 {
-			regulator-min-microvolt = <2696000>;
+			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <3304000>;
-			qcom,init-voltage = <2696000>;
+			qcom,init-voltage = <1800000>;
 			status = "okay";
 		};
 	};

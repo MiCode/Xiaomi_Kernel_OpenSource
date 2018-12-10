@@ -438,23 +438,22 @@ read_error:
 
 static int mhi_uci_open(struct inode *inode, struct file *filp)
 {
-	struct uci_dev *uci_dev;
+	struct uci_dev *uci_dev = NULL, *tmp_dev;
 	int ret = -EIO;
 	struct uci_buf *buf_itr, *tmp;
 	struct uci_chan *dl_chan;
 
 	mutex_lock(&mhi_uci_drv.lock);
-	list_for_each_entry(uci_dev, &mhi_uci_drv.head, node) {
-		if (uci_dev->devt == inode->i_rdev) {
-			ret = 0;
+	list_for_each_entry(tmp_dev, &mhi_uci_drv.head, node) {
+		if (tmp_dev->devt == inode->i_rdev) {
+			uci_dev = tmp_dev;
 			break;
 		}
 	}
-	mutex_unlock(&mhi_uci_drv.lock);
 
 	/* could not find a minor node */
-	if (ret)
-		return ret;
+	if (!uci_dev)
+		goto error_exit;
 
 	mutex_lock(&uci_dev->mutex);
 	if (!uci_dev->enabled) {
@@ -482,6 +481,7 @@ static int mhi_uci_open(struct inode *inode, struct file *filp)
 
 	filp->private_data = uci_dev;
 	mutex_unlock(&uci_dev->mutex);
+	mutex_unlock(&mhi_uci_drv.lock);
 
 	return 0;
 
@@ -495,6 +495,9 @@ static int mhi_uci_open(struct inode *inode, struct file *filp)
 
  error_open_chan:
 	mutex_unlock(&uci_dev->mutex);
+
+error_exit:
+	mutex_unlock(&mhi_uci_drv.lock);
 
 	return ret;
 }
@@ -514,8 +517,11 @@ static void mhi_uci_remove(struct mhi_device *mhi_dev)
 
 	MSG_LOG("Enter\n");
 
-	/* disable the node */
+
+	mutex_lock(&mhi_uci_drv.lock);
 	mutex_lock(&uci_dev->mutex);
+
+	/* disable the node */
 	spin_lock_irq(&uci_dev->dl_chan.lock);
 	spin_lock_irq(&uci_dev->ul_chan.lock);
 	uci_dev->enabled = false;
@@ -527,9 +533,7 @@ static void mhi_uci_remove(struct mhi_device *mhi_dev)
 	/* delete the node to prevent new opens */
 	device_destroy(mhi_uci_drv.class, uci_dev->devt);
 	uci_dev->dev = NULL;
-	mutex_lock(&mhi_uci_drv.lock);
 	list_del(&uci_dev->node);
-	mutex_unlock(&mhi_uci_drv.lock);
 
 	/* safe to free memory only if all file nodes are closed */
 	if (!uci_dev->ref_count) {
@@ -537,11 +541,14 @@ static void mhi_uci_remove(struct mhi_device *mhi_dev)
 		mutex_destroy(&uci_dev->mutex);
 		clear_bit(MINOR(uci_dev->devt), uci_minors);
 		kfree(uci_dev);
+		mutex_unlock(&mhi_uci_drv.lock);
 		return;
 	}
 
 	MSG_LOG("Exit\n");
 	mutex_unlock(&uci_dev->mutex);
+	mutex_unlock(&mhi_uci_drv.lock);
+
 }
 
 static int mhi_uci_probe(struct mhi_device *mhi_dev,

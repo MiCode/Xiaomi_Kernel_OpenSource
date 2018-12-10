@@ -1031,9 +1031,19 @@ static int qpnp_lpg_parse_dt(struct qpnp_lpg_chip *chip)
 	}
 
 	base = be32_to_cpu(addr[0]);
-	length = be32_to_cpu(addr[1]);
+	rc = of_property_read_u32(chip->dev->of_node, "qcom,num-lpg-channels",
+						&chip->num_lpgs);
+	if (rc < 0) {
+		dev_err(chip->dev, "Failed to get qcom,num-lpg-channels, rc=%d\n",
+				rc);
+		return rc;
+	}
 
-	chip->num_lpgs = length / REG_SIZE_PER_LPG;
+	if (chip->num_lpgs == 0) {
+		dev_err(chip->dev, "No LPG channels specified\n");
+		return -EINVAL;
+	}
+
 	chip->lpgs = devm_kcalloc(chip->dev, chip->num_lpgs,
 			sizeof(*chip->lpgs), GFP_KERNEL);
 	if (!chip->lpgs)
