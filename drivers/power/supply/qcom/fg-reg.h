@@ -34,6 +34,8 @@
 #define BATT_THERM_PULL_UP_400K			3
 #define BATT_THERM_PULL_UP_MASK			GENMASK(1, 0)
 
+#define ADC_RR_BATT_THERM_FREQ(chip)		(chip->rradc_base + 0x82)
+
 #define ADC_RR_BATT_TEMP_LSB(chip)		(chip->rradc_base + 0x88)
 #define ADC_RR_BATT_TEMP_MSB(chip)		(chip->rradc_base + 0x89)
 #define GEN4_BATT_TEMP_MSB_MASK			GENMASK(1, 0)
