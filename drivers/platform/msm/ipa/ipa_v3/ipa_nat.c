@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -266,14 +266,21 @@ static void ipa3_nat_ipv6ct_destroy_device(
 
 	mutex_lock(&dev->lock);
 
-	dma_free_coherent(ipa3_ctx->pdev, IPA_NAT_IPV6CT_TEMP_MEM_SIZE,
-		dev->tmp_mem->vaddr, dev->tmp_mem->dma_handle);
-	kfree(dev->tmp_mem);
+	if (dev->tmp_mem != NULL &&
+		ipa3_ctx->nat_mem.is_tmp_mem_allocated == false) {
+		dev->tmp_mem = NULL;
+	} else if (dev->tmp_mem != NULL &&
+		ipa3_ctx->nat_mem.is_tmp_mem_allocated) {
+		dma_free_coherent(ipa3_ctx->pdev, IPA_NAT_IPV6CT_TEMP_MEM_SIZE,
+			dev->tmp_mem->vaddr, dev->tmp_mem->dma_handle);
+		kfree(dev->tmp_mem);
+		dev->tmp_mem = NULL;
+		ipa3_ctx->nat_mem.is_tmp_mem_allocated = false;
+	}
 	device_destroy(dev->class, dev->dev_num);
 	unregister_chrdev_region(dev->dev_num, 1);
 	class_destroy(dev->class);
 	dev->is_dev_init = false;
-
 	mutex_unlock(&dev->lock);
 
 	IPADBG("return\n");
@@ -296,9 +303,14 @@ int ipa3_nat_ipv6ct_init_devices(void)
 	/*
 	 * Allocate NAT/IPv6CT temporary memory. The memory is never deleted,
 	 * because provided to HW once NAT or IPv6CT table is deleted.
-	 * NULL is a legal value
 	 */
 	tmp_mem = ipa3_nat_ipv6ct_allocate_tmp_memory();
+
+	if (tmp_mem == NULL) {
+		IPAERR("unable to allocate tmp_mem\n");
+		return -ENOMEM;
+	}
+	ipa3_ctx->nat_mem.is_tmp_mem_allocated = true;
 
 	if (ipa3_nat_ipv6ct_init_device(
 		&ipa3_ctx->nat_mem.dev,
@@ -328,10 +340,11 @@ int ipa3_nat_ipv6ct_init_devices(void)
 fail_init_ipv6ct_dev:
 	ipa3_nat_ipv6ct_destroy_device(&ipa3_ctx->nat_mem.dev);
 fail_init_nat_dev:
-	if (tmp_mem != NULL) {
+	if (tmp_mem != NULL && ipa3_ctx->nat_mem.is_tmp_mem_allocated) {
 		dma_free_coherent(ipa3_ctx->pdev, IPA_NAT_IPV6CT_TEMP_MEM_SIZE,
 			tmp_mem->vaddr, tmp_mem->dma_handle);
 		kfree(tmp_mem);
+		ipa3_ctx->nat_mem.is_tmp_mem_allocated = false;
 	}
 	return result;
 }
