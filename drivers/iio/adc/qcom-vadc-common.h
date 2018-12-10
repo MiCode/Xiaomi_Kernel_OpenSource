@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Code shared between the different Qualcomm PMIC voltage ADCs
  */
@@ -22,17 +22,35 @@
 #define VADC_DEF_HW_SETTLE_TIME			0 /* 0 us */
 #define VADC_DEF_AVG_SAMPLES			0 /* 1 sample */
 #define VADC_DEF_CALIB_TYPE			VADC_CALIB_ABSOLUTE
+#define VADC_DEF_VBAT_PRESCALING		1 /* 1:3 */
+
+#define VADC_DEF_LUT_INDEX			0 /* Default or no LUT used */
 
 #define VADC_DECIMATION_MIN			512
 #define VADC_DECIMATION_MAX			4096
+#define ADC5_DECIMATION_SHORT			250
+#define ADC5_DECIMATION_MEDIUM			420
+#define ADC5_DECIMATION_LONG			840
+/* Default decimation - 1024 for rev2, 840 for pmic5 */
+#define ADC_DECIMATION_DEFAULT			2
+#define ADC_DECIMATION_SAMPLES_MAX		3
 
 #define VADC_HW_SETTLE_DELAY_MAX		10000
+#define VADC_HW_SETTLE_SAMPLES_MAX		16
 #define VADC_AVG_SAMPLES_MAX			512
+#define ADC5_AVG_SAMPLES_MAX			16
 
 #define KELVINMIL_CELSIUSMIL			273150
+#define PMIC5_CHG_TEMP_SCALE_FACTOR		377500
+#define PMIC5_SMB_TEMP_CONSTANT			419400
+#define PMIC5_SMB_TEMP_SCALE_FACTOR		356
 
 #define PMI_CHG_SCALE_1				-138890
 #define PMI_CHG_SCALE_2				391750000000LL
+
+#define VADC5_MAX_CODE				0x7fff
+#define VADC5_FULL_SCALE_CODE			0x70e4
+#define ADC_USR_DATA_CHECK			0x8000
 
 /**
  * struct vadc_map_pt - Map the graph representation for ADC channel
@@ -89,6 +107,28 @@ struct vadc_prescale_ratio {
  * SCALE_PMIC_THERM: Returns result in milli degree's Centigrade.
  * SCALE_XOTHERM: Returns XO thermistor voltage in millidegC.
  * SCALE_PMI_CHG_TEMP: Conversion for PMI CHG temp
+ * SCALE_HW_CALIB_DEFAULT: Default scaling to convert raw adc code to
+ *	voltage (uV) with hardware applied offset/slope values to adc code.
+ * SCALE_HW_CALIB_THERM_100K_PULLUP: Returns temperature in millidegC using
+ *	lookup table. The hardware applies offset/slope to adc code.
+ * SCALE_HW_CALIB_XOTHERM: Returns XO thermistor voltage in millidegC using
+ *	100k pullup. The hardware applies offset/slope to adc code.
+ * SCALE_HW_CALIB_PMIC_THERM: Returns result in milli degree's Centigrade.
+ *	The hardware applies offset/slope to adc code.
+ * SCALE_HW_CALIB_CUR: Returns result in uA for PMIC5.
+ * SCALE_HW_CALIB_PM5_CHG_TEMP: Returns result in millidegrees for PMIC5
+ *	charger temperature.
+ * SCALE_HW_CALIB_PM5_SMB_TEMP: Returns result in millidegrees for PMIC5
+ *	SMB1390 temperature.
+ * SCALE_HW_CALIB_BATT_THERM_100K: Returns battery thermistor voltage in
+ *	decidegC using 100k pullup. The hardware applies offset/slope to adc
+ *	code.
+ * SCALE_HW_CALIB_BATT_THERM_30K: Returns battery thermistor voltage in
+ *	decidegC using 30k pullup. The hardware applies offset/slope to adc
+ *	code.
+ * SCALE_HW_CALIB_BATT_THERM_400K: Returns battery thermistor voltage in
+ *	decidegC using 400k pullup. The hardware applies offset/slope to adc
+ *	code.
  */
 enum vadc_scale_fn_type {
 	SCALE_DEFAULT = 0,
@@ -96,6 +136,24 @@ enum vadc_scale_fn_type {
 	SCALE_PMIC_THERM,
 	SCALE_XOTHERM,
 	SCALE_PMI_CHG_TEMP,
+	SCALE_HW_CALIB_DEFAULT,
+	SCALE_HW_CALIB_THERM_100K_PULLUP,
+	SCALE_HW_CALIB_XOTHERM,
+	SCALE_HW_CALIB_PMIC_THERM,
+	SCALE_HW_CALIB_CUR,
+	SCALE_HW_CALIB_PM5_CHG_TEMP,
+	SCALE_HW_CALIB_PM5_SMB_TEMP,
+	SCALE_HW_CALIB_BATT_THERM_100K,
+	SCALE_HW_CALIB_BATT_THERM_30K,
+	SCALE_HW_CALIB_BATT_THERM_400K,
+};
+
+struct adc_data {
+	const u32	full_scale_code_volt;
+	const u32	full_scale_code_cur;
+	const struct adc_channels *adc_chans;
+	unsigned int	*decimation;
+	unsigned int	*hw_settle;
 };
 
 int qcom_vadc_scale(enum vadc_scale_fn_type scaletype,
@@ -104,6 +162,13 @@ int qcom_vadc_scale(enum vadc_scale_fn_type scaletype,
 		    bool absolute,
 		    u16 adc_code, int *result_mdec);
 
+int qcom_vadc_hw_scale(enum vadc_scale_fn_type scaletype,
+		    const struct vadc_prescale_ratio *prescale,
+		    const struct adc_data *data, unsigned int lut_index,
+		    u16 adc_code, int *result_mdec);
+
 int qcom_vadc_decimation_from_dt(u32 value);
+
+int qcom_adc5_decimation_from_dt(u32 value, const unsigned int *decimation);
 
 #endif /* QCOM_VADC_COMMON_H */
