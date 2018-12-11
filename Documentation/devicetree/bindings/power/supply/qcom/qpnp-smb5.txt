@@ -201,6 +201,12 @@ Charger specific properties:
   Value type: bool
   Definition: Boolean flag which when present enables step-charging.
 
+- qcom,typec-legacy-rp-icl
+  Usage:       optional
+  Value type:  bool
+  Definition:  Boolean property to enable setting ICL based on Rp for
+		Type-C non-compliant legacy cables.
+
 - qcom,wd-bark-time-secs
   Usage:      optional
   Value type: <u32>
