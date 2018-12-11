@@ -745,83 +745,9 @@ static inline void fipc_debugfs_init(void) {}
 static inline void fipc_debugfs_remove(void) {}
 #endif
 
-static void ipc_opts_release(struct config_item *item)
-{
-	struct ipc_opts *opts = to_ipc_opts(item);
-
-	usb_put_function_instance(&opts->func_inst);
-}
-
-static struct configfs_item_operations ipc_item_ops = {
-	.release	= ipc_opts_release,
-};
-
-static struct config_item_type ipc_func_type = {
-	.ct_item_ops	= &ipc_item_ops,
-	.ct_owner	= THIS_MODULE,
-};
-
-static int ipc_set_inst_name(struct usb_function_instance *fi,
-	const char *name)
-{
-	struct ipc_opts *opts = container_of(fi, struct ipc_opts, func_inst);
-	int name_len;
-
-	name_len = strlen(name) + 1;
-	if (name_len > MAX_INST_NAME_LEN)
-		return -ENAMETOOLONG;
-
-	ipc_dev = kzalloc(sizeof(*ipc_dev), GFP_KERNEL);
-	if (!ipc_dev)
-		return -ENOMEM;
-
-	spin_lock_init(&ipc_dev->lock);
-	init_waitqueue_head(&ipc_dev->state_wq);
-	init_completion(&ipc_dev->read_done);
-	init_completion(&ipc_dev->write_done);
-	INIT_WORK(&ipc_dev->func_work, ipc_function_work);
-
-	opts->ctxt = ipc_dev;
-
-	return 0;
-}
-
-static void ipc_free_inst(struct usb_function_instance *f)
-{
-	struct ipc_opts *opts = container_of(f, struct ipc_opts, func_inst);
-
-	kfree(opts->ctxt);
-	kfree(opts);
-}
-
-static struct usb_function_instance *ipc_alloc_inst(void)
-{
-	struct ipc_opts *opts;
-
-	opts = kzalloc(sizeof(*opts), GFP_KERNEL);
-	if (!opts)
-		return ERR_PTR(-ENOMEM);
-
-	opts->func_inst.set_inst_name = ipc_set_inst_name;
-	opts->func_inst.free_func_inst = ipc_free_inst;
-	config_group_init_type_name(&opts->func_inst.group, "",
-				    &ipc_func_type);
-
-	return &opts->func_inst;
-}
-
-static struct usb_function *ipc_alloc(struct usb_function_instance *fi)
-{
-	return ipc_bind_config(fi);
-}
-
-DECLARE_USB_FUNCTION(ipc, ipc_alloc_inst, ipc_alloc);
-
 void *ipc_setup(void)
 {
 	struct ipc_opts *opts;
-
-	fipc_debugfs_init();
 
 	opts = kzalloc(sizeof(*opts), GFP_KERNEL);
 	if (!opts)
@@ -839,6 +765,8 @@ void *ipc_setup(void)
 
 	opts->ctxt = ipc_dev;
 
+	fipc_debugfs_init();
+
 	return (void *)&opts->func_inst;
 
 dev_err:
@@ -849,35 +777,15 @@ err:
 
 void ipc_cleanup(void *fi)
 {
-	struct usb_function_instance *func_inst = NULL;
+	struct usb_function_instance *f_inst =
+					(struct usb_function_instance *)fi;
+	struct ipc_opts *opts =
+			container_of(f_inst, struct ipc_opts, func_inst);
 
-	func_inst = (struct usb_function_instance *)fi;
-
-	ipc_free_inst(func_inst);
 	fipc_debugfs_remove();
+	kfree(opts->ctxt);
+	kfree(opts);
 }
-
-static int __init ipc_init(void)
-{
-	int ret;
-
-	ret = usb_function_register(&ipcusb_func);
-	if (ret)
-		pr_err("%s: failed to register ipc %d\n", __func__, ret);
-
-	fipc_debugfs_init();
-
-	return ret;
-}
-
-static void __exit ipc_exit(void)
-{
-	fipc_debugfs_remove();
-	usb_function_unregister(&ipcusb_func);
-}
-
-module_init(ipc_init);
-module_exit(ipc_exit);
 
 MODULE_DESCRIPTION("IPC function driver");
 MODULE_LICENSE("GPL v2");
