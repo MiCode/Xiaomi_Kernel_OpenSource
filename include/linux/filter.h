@@ -599,7 +599,7 @@ void bpf_warn_invalid_xdp_action(u32 act);
 #ifdef CONFIG_BPF_JIT
 extern int bpf_jit_enable;
 extern int bpf_jit_harden;
-extern int bpf_jit_limit;
+extern long bpf_jit_limit;
 
 typedef void (*bpf_jit_fill_hole_t)(void *area, unsigned int size);
 
