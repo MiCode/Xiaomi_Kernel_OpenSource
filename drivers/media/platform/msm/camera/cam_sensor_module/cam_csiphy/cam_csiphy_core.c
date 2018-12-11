@@ -845,6 +845,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 			if (rc < 0) {
 				csiphy_dev->csiphy_info.secure_mode[offset] =
 					CAM_SECURE_MODE_NON_SECURE;
+				cam_cpas_stop(csiphy_dev->cpas_handle);
 				goto release_mutex;
 			}
 		}
