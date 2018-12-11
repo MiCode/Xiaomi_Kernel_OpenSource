@@ -93,7 +93,9 @@ struct dp_mst_bridge {
 	struct drm_display_mode drm_mode;
 	struct dp_display_mode dp_mode;
 	struct drm_connector *connector;
+	struct drm_connector *old_connector;
 	void *dp_panel;
+	void *old_dp_panel;
 
 	int vcpi;
 	int pbn;
@@ -682,6 +684,9 @@ static void dp_mst_bridge_pre_enable(struct drm_bridge *drm_bridge)
 	bridge = to_dp_mst_bridge(drm_bridge);
 	dp = bridge->display;
 
+	bridge->old_connector = NULL;
+	bridge->old_dp_panel = NULL;
+
 	if (!bridge->connector) {
 		pr_err("Invalid connector\n");
 		return;
@@ -832,6 +837,10 @@ static void dp_mst_bridge_post_disable(struct drm_bridge *drm_bridge)
 	/* maintain the connector to encoder link during suspend/resume */
 	if (mst->state != PM_SUSPEND) {
 		/* Disconnect the connector and panel info from bridge */
+		mst->mst_bridge[bridge->id].old_connector =
+				mst->mst_bridge[bridge->id].connector;
+		mst->mst_bridge[bridge->id].old_dp_panel =
+				mst->mst_bridge[bridge->id].dp_panel;
 		mst->mst_bridge[bridge->id].connector = NULL;
 		mst->mst_bridge[bridge->id].dp_panel = NULL;
 		mst->mst_bridge[bridge->id].encoder_active_sts = false;
@@ -856,13 +865,21 @@ static void dp_mst_bridge_mode_set(struct drm_bridge *drm_bridge,
 
 	bridge = to_dp_mst_bridge(drm_bridge);
 	if (!bridge->connector) {
-		pr_err("Invalid connector\n");
-		return;
+		if (!bridge->old_connector) {
+			pr_err("Invalid connector\n");
+			return;
+		}
+		bridge->connector = bridge->old_connector;
+		bridge->old_connector = NULL;
 	}
 
 	if (!bridge->dp_panel) {
-		pr_err("Invalid dp_panel\n");
-		return;
+		if (!bridge->old_dp_panel) {
+			pr_err("Invalid dp_panel\n");
+			return;
+		}
+		bridge->dp_panel = bridge->old_dp_panel;
+		bridge->old_dp_panel = NULL;
 	}
 
 	dp = bridge->display;
