@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -145,38 +145,23 @@ TRACE_EVENT(sde_encoder_underrun,
 );
 
 TRACE_EVENT(tracing_mark_write,
-	TP_PROTO(int pid, const char *name, bool trace_begin),
-	TP_ARGS(pid, name, trace_begin),
+	TP_PROTO(char trace_type, int pid, const char *name, int value),
+	TP_ARGS(trace_type, pid, name, value),
 	TP_STRUCT__entry(
+			__field(char, trace_type)
 			__field(int, pid)
 			__string(trace_name, name)
-			__field(bool, trace_begin)
-	),
-	TP_fast_assign(
-			__entry->pid = pid;
-			__assign_str(trace_name, name);
-			__entry->trace_begin = trace_begin;
-	),
-	TP_printk("%s|%d|%s", __entry->trace_begin ? "B" : "E",
-		__entry->pid, __get_str(trace_name))
-)
-
-TRACE_EVENT(sde_trace_counter,
-	TP_PROTO(int pid, char *name, int value),
-	TP_ARGS(pid, name, value),
-	TP_STRUCT__entry(
-			__field(int, pid)
-			__string(counter_name, name)
 			__field(int, value)
 	),
 	TP_fast_assign(
-			__entry->pid = current->tgid;
-			__assign_str(counter_name, name);
+			__entry->trace_type = trace_type;
+			__entry->pid = pid;
+			__assign_str(trace_name, name);
 			__entry->value = value;
 	),
-	TP_printk("%d|%s|%d", __entry->pid,
-			__get_str(counter_name), __entry->value)
-)
+	TP_printk("%c|%d|%s|%d", __entry->trace_type,
+		__entry->pid, __get_str(trace_name), __entry->value)
+);
 
 #define SDE_TRACE_EVTLOG_SIZE	15
 TRACE_EVENT(sde_evtlog,
@@ -319,12 +304,14 @@ TRACE_EVENT(sde_perf_calc_crtc,
 			__entry->core_clk_rate)
 );
 
-#define SDE_ATRACE_END(name) trace_tracing_mark_write(current->tgid, name, 0)
-#define SDE_ATRACE_BEGIN(name) trace_tracing_mark_write(current->tgid, name, 1)
+#define SDE_ATRACE_END(name) \
+		trace_tracing_mark_write('E', current->tgid, name, 0)
+#define SDE_ATRACE_BEGIN(name) \
+		trace_tracing_mark_write('B', current->tgid, name, 0)
 #define SDE_ATRACE_FUNC() SDE_ATRACE_BEGIN(__func__)
 
 #define SDE_ATRACE_INT(name, value) \
-	trace_sde_trace_counter(current->tgid, name, value)
+		trace_tracing_mark_write('C', current->tgid, name, value)
 
 #endif /* _SDE_TRACE_H_ */
 
