@@ -13,6 +13,10 @@
 
 #include "msm-audio-lpass.dtsi"
 
+&voice {
+	qcom,vote-bms;
+};
+
 &msm_audio_ion {
 	iommus = <&apps_iommu 0x2001 0x0>;
 	qcom,smmu-sid-mask = /bits/ 64 <0xf>;
