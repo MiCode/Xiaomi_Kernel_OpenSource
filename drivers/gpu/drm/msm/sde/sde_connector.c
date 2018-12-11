@@ -570,6 +570,22 @@ void sde_connector_set_qsync_params(struct drm_connector *connector)
 	}
 }
 
+static int _sde_connector_update_hdr_metadata(struct sde_connector *c_conn,
+		struct sde_connector_state *c_state)
+{
+	int rc = 0;
+
+	if (c_conn->ops.config_hdr)
+		rc = c_conn->ops.config_hdr(&c_conn->base, c_conn->display,
+				c_state);
+
+	if (rc)
+		SDE_ERROR_CONN(c_conn, "cannot apply hdr metadata %d\n", rc);
+
+	SDE_DEBUG_CONN(c_conn, "updated hdr metadata: %d\n", rc);
+	return rc;
+}
+
 static int _sde_connector_update_dirty_properties(
 				struct drm_connector *connector)
 {
@@ -598,6 +614,9 @@ static int _sde_connector_update_dirty_properties(
 		case CONNECTOR_PROP_BL_SCALE:
 		case CONNECTOR_PROP_AD_BL_SCALE:
 			_sde_connector_update_bl_scale(c_conn);
+			break;
+		case CONNECTOR_PROP_HDR_METADATA:
+			_sde_connector_update_hdr_metadata(c_conn, c_state);
 			break;
 		default:
 			/* nothing to do for most properties */
@@ -1101,9 +1120,6 @@ static int _sde_connector_set_ext_hdr_info(
 				   hdr_meta->display_primaries_y[i]);
 	}
 
-	if (c_conn->ops.config_hdr)
-		rc = c_conn->ops.config_hdr(&c_conn->base,
-				c_conn->display, c_state);
 end:
 	return rc;
 }
