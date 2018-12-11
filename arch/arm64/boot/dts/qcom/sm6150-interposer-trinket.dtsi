@@ -26,3 +26,18 @@
 };
 
 #include "sm6150-pm6125-interposer-trinket.dtsi"
+
+&qusb_phy0 {
+	vdd-supply = <&L7A>;
+	vdda18-supply = <&L10A>;
+	vdda33-supply = <&L15A>;
+};
+
+&usb_qmp_phy {
+	vdd-supply = <&L7A>;
+	core-supply = <&L10A>;
+};
+
+&usb0 {
+	extcon = <&pmi632_charger>;
+};
