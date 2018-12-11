@@ -36,6 +36,8 @@
 #define QRTR_MIN_EPH_SOCKET 0x4000
 #define QRTR_MAX_EPH_SOCKET 0x7fff
 
+#define QRTR_PORT_CTRL_LEGACY 0xffff
+
 /* qrtr socket states */
 #define QRTR_STATE_MULTI	-2
 #define QRTR_STATE_INIT	-1
@@ -667,6 +669,9 @@ int qrtr_endpoint_post(struct qrtr_endpoint *ep, const void *data, size_t len)
 		pr_err("qrtr: Invalid version %d\n", ver);
 		goto err;
 	}
+
+	if (cb->dst_port == QRTR_PORT_CTRL_LEGACY)
+		cb->dst_port = QRTR_PORT_CTRL;
 
 	if (len != ALIGN(size, 4) + hdrlen)
 		goto err;
