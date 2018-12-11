@@ -827,3 +827,13 @@ source "drivers/misc/echo/Kconfig"
 source "drivers/misc/cxl/Kconfig"
 source "drivers/misc/fpr_FingerprintCard/Kconfig"
 endmenu
+
+config OKL4_LINK_SHBUF
+	tristate "OKL4 link with shared buffer transport"
+	default y
+	depends on OKL4_GUEST
+	help
+	  Enable driver for OKL4 inter-cell links using the "shared-buffer"
+	  transport. This driver presents the link to Linux as a character device
+	  which can be written to or read from to access the shared memory. An ioctl
+	  on the device is used to send a virtual interrupt to the partner cell.
