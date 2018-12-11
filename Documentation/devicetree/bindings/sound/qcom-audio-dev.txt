@@ -1934,4 +1934,22 @@ Example:
 		qcom,codec-aux-devs = <&wcd937x_codec>;
 		qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>;
 	};
+
+* voice-mhi-audio
+
+Required properties:
+ - compatible : "qcom,voice-mhi-audio"
+ - memory-region : CMA region owned by this device
+
+Optional properties:
+ - voice_mhi_voting : Property that defines whether voting is needed or not for this device
+
+Example:
+
+	qcom,voice-mhi-audio {
+		compatible = "qcom,voice-mhi-audio";
+		memory-region = <&mailbox_mem>;
+		voice_mhi_voting;
+	};
+
 };
