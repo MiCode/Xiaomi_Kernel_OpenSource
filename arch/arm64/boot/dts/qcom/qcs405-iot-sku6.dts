@@ -50,3 +50,14 @@
 	qcom,mdss-dsi-bl-pmic-bank-select = <0>;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
+
+&soc {
+	spi@78b5000 {
+		status = "ok";
+		spi@0 {
+			compatible = "qcom,spi-msm-codec-slave";
+			reg = <0>;
+			spi-max-frequency = <50000000>;
+		};
+	};
+};
