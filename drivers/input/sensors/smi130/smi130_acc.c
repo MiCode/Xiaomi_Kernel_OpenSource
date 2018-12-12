@@ -7404,64 +7404,6 @@ void smi130_acc_shutdown(struct i2c_client *client)
 	mutex_unlock(&data->enable_mutex);
 }
 
-#ifdef CONFIG_PM
-static int smi130_acc_suspend(struct i2c_client *client, pm_message_t mesg)
-{
-	struct smi130_acc_data *data = i2c_get_clientdata(client);
-
-	mutex_lock(&data->enable_mutex);
-	if (atomic_read(&data->enable) == 1) {
-		smi130_acc_set_mode(data->smi130_acc_client,
-			SMI_ACC2X2_MODE_SUSPEND, SMI_ACC_ENABLED_INPUT);
-#ifndef CONFIG_SMI_ACC_ENABLE_NEWDATA_INT
-		cancel_delayed_work_sync(&data->work);
-#endif
-	}
-	if (data->is_timer_running) {
-		hrtimer_cancel(&data->timer);
-		data->base_time = 0;
-		data->timestamp = 0;
-		data->fifo_time = 0;
-		data->acc_count = 0;
-	}
-	mutex_unlock(&data->enable_mutex);
-
-	return 0;
-}
-
-static int smi130_acc_resume(struct i2c_client *client)
-{
-	struct smi130_acc_data *data = i2c_get_clientdata(client);
-
-	mutex_lock(&data->enable_mutex);
-	if (atomic_read(&data->enable) == 1) {
-		smi130_acc_set_mode(data->smi130_acc_client,
-			SMI_ACC2X2_MODE_NORMAL, SMI_ACC_ENABLED_INPUT);
-#ifndef CONFIG_SMI_ACC_ENABLE_NEWDATA_INT
-		schedule_delayed_work(&data->work,
-				msecs_to_jiffies(atomic_read(&data->delay)));
-#endif
-	}
-	if (data->is_timer_running) {
-		hrtimer_start(&data->timer,
-					ns_to_ktime(data->time_odr),
-			HRTIMER_MODE_REL);
-		data->base_time = 0;
-		data->timestamp = 0;
-		data->is_timer_running = 1;
-	}
-	mutex_unlock(&data->enable_mutex);
-
-	return 0;
-}
-
-#else
-
-#define smi130_acc_suspend      NULL
-#define smi130_acc_resume       NULL
-
-#endif /* CONFIG_PM */
-
 static const struct i2c_device_id smi130_acc_id[] = {
 	{ SENSOR_NAME, 0 },
 	{ }
@@ -7480,8 +7422,6 @@ static struct i2c_driver smi130_acc_driver = {
 		.name   = SENSOR_NAME,
 		.of_match_table = smi130_acc_of_match,
 	},
-	//.suspend    = smi130_acc_suspend,
-	//.resume     = smi130_acc_resume,
 	.id_table   = smi130_acc_id,
 	.probe      = smi130_acc_probe,
 	.remove     = smi130_acc_remove,

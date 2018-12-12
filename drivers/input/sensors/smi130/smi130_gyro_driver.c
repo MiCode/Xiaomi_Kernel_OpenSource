@@ -293,10 +293,9 @@ static int smi_gyro_i2c_write(struct i2c_client *client, u8 reg_addr,
 static void smi_gyro_dump_reg(struct i2c_client *client);
 static int smi_gyro_check_chip_id(struct i2c_client *client);
 
-static int smi_gyro_pre_suspend(struct i2c_client *client);
-static int smi_gyro_post_resume(struct i2c_client *client);
-
 #ifdef CONFIG_HAS_EARLYSUSPEND
+static int smi_gyro_post_resume(struct i2c_client *client);
+static int smi_gyro_pre_suspend(struct i2c_client *client);
 static void smi_gyro_early_suspend(struct early_suspend *handler);
 static void smi_gyro_late_resume(struct early_suspend *handler);
 #endif
@@ -1812,6 +1811,7 @@ exit_err_clean:
 	return err;
 }
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static int smi_gyro_pre_suspend(struct i2c_client *client)
 {
 	int err = 0;
@@ -1861,7 +1861,6 @@ static int smi_gyro_post_resume(struct i2c_client *client)
 	return err;
 }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
 static void smi_gyro_early_suspend(struct early_suspend *handler)
 {
 	int err = 0;
@@ -1901,45 +1900,6 @@ static void smi_gyro_late_resume(struct early_suspend *handler)
 	smi_gyro_post_resume(client);
 
 	mutex_unlock(&client_data->mutex_op_mode);
-}
-#else
-static int smi_gyro_suspend(struct i2c_client *client, pm_message_t mesg)
-{
-	int err = 0;
-	struct smi_gyro_client_data *client_data =
-		(struct smi_gyro_client_data *)i2c_get_clientdata(client);
-
-	PINFO("function entrance");
-
-	mutex_lock(&client_data->mutex_op_mode);
-	if (client_data->enable) {
-		err = smi_gyro_pre_suspend(client);
-		err = SMI_GYRO_CALL_API(set_mode)(
-				SMI_GYRO_VAL_NAME(MODE_SUSPEND));
-	}
-	mutex_unlock(&client_data->mutex_op_mode);
-	return err;
-}
-
-static int smi_gyro_resume(struct i2c_client *client)
-{
-
-	int err = 0;
-	struct smi_gyro_client_data *client_data =
-		(struct smi_gyro_client_data *)i2c_get_clientdata(client);
-
-	PINFO("function entrance");
-
-	mutex_lock(&client_data->mutex_op_mode);
-
-	if (client_data->enable)
-		err = SMI_GYRO_CALL_API(set_mode)(SMI_GYRO_VAL_NAME(MODE_NORMAL));
-
-	/* post resume operation */
-	smi_gyro_post_resume(client);
-
-	mutex_unlock(&client_data->mutex_op_mode);
-	return err;
 }
 #endif
 
@@ -2012,10 +1972,6 @@ static struct i2c_driver smi_gyro_driver = {
 	.probe = smi_gyro_probe,
 	.remove = smi_gyro_remove,
 	.shutdown = smi_gyro_shutdown,
-#ifndef CONFIG_HAS_EARLYSUSPEND
-	//.suspend = smi_gyro_suspend,
-	//.resume = smi_gyro_resume,
-#endif
 };
 
 static int __init SMI_GYRO_init(void)
