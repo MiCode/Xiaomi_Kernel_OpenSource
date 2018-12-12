@@ -173,13 +173,16 @@ endif
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 	dtbo-$(CONFIG_ARCH_TRINKET) += \
 		trinket-rumi-overlay.dtbo \
-		trinket-idp-overlay.dtbo
+		trinket-idp-overlay.dtbo \
+		trinket-qrd-overlay.dtbo
 
 trinket-rumi-overlay.dtbo-base := trinket.dtb
 trinket-idp-overlay.dtbo-base := trinket.dtb
+trinket-qrd-overlay.dtbo-base := trinket.dtb
 else
 dtb-$(CONFIG_ARCH_TRINKET)	+= trinket-rumi.dtb \
-	trinket-idp.dtb
+	trinket-idp.dtb \
+	trinket-qrd.dtb
 endif
 
 dtb-$(CONFIG_ARCH_SDXPRAIRIE) += sdxprairie-rumi.dtb \
