@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -445,6 +445,7 @@ struct msm_display_topology {
  * @wide_bus_en:	wide-bus mode cfg for interface module
  * @mdp_transfer_time_us   Specifies the mdp transfer time for command mode
  *                         panels in microseconds.
+ * @vpadding:        panel stacking height
  */
 struct msm_mode_info {
 	uint32_t frame_rate;
@@ -458,6 +459,7 @@ struct msm_mode_info {
 	struct msm_roi_caps roi_caps;
 	bool wide_bus_en;
 	u32 mdp_transfer_time_us;
+	u32 vpadding;
 };
 
 /**
