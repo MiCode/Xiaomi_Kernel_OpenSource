@@ -1741,5 +1741,6 @@
 		function = "normal";
 		power-source = <0>;
 		output-low;
+
 	};
 };

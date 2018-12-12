@@ -14,7 +14,6 @@
 #include <soc/qcom/subsystem_restart.h>
 #include <linux/pm_opp.h>
 #include <linux/jiffies.h>
-#include <linux/clk/qcom.h>
 
 #include "adreno.h"
 #include "a6xx_reg.h"
