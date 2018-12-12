@@ -295,7 +295,7 @@ int mdp3_dma_sync_config(struct mdp3_dma *dma,
 
 	vsync_clk_speed_hz = MDP_VSYNC_CLK_RATE;
 
-	cfg = total_lines << VSYNC_TOTAL_LINES_SHIFT;
+	cfg = te->sync_cfg_height << VSYNC_TOTAL_LINES_SHIFT;
 	total_lines *= te->frame_rate;
 
 	vclks_line = (total_lines) ? vsync_clk_speed_hz / total_lines : 0;
