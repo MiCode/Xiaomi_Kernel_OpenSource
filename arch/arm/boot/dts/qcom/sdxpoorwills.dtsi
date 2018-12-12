@@ -257,9 +257,9 @@
 		qcom,cpulist = <&CPU0>;
 		qcom,target-dev = <&cpubw>;
 		qcom,core-dev-table =
-				<  153600 MHZ_TO_MBPS(200, 2) >,
-				<  576000 MHZ_TO_MBPS(691, 2) >,
-				< 1497600 MHZ_TO_MBPS(1383, 2)>;
+				<  153600 MHZ_TO_MBPS( 200, 4) >,
+				<  576000 MHZ_TO_MBPS( 691, 4) >,
+				< 1497600 MHZ_TO_MBPS(1383, 4)>;
 	};
 
 	clock_gcc: qcom,gcc@100000 {
