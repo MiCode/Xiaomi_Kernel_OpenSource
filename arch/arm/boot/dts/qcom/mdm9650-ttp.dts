@@ -58,11 +58,16 @@
 			};
 		};
 	};
+
 	usb_detect {
 		compatible = "qcom,gpio-usbdetect";
 		interrupt-parent = <&spmi_bus>;
 		interrupts = <0x0 0x0d 0x0>; /* PMD9655 VBUS DETECT */
 		interrupt-names = "vbus_det_irq";
+	};
+
+	pps {
+		use-system-time-ts;
 	};
 };
 
