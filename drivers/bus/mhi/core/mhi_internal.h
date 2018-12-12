@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -221,7 +221,7 @@ extern struct bus_type mhi_bus_type;
 #define BHIE_RXVECSTATUS_STATUS_ERROR (0x03)
 
 /* convert ticks to micro seconds by dividing by 19.2 */
-#define TIME_TICKS_TO_US(x) (((x) * 10) / 192)
+#define TIME_TICKS_TO_US(x) (div_u64((x) * 10, 192))
 
 struct mhi_event_ctxt {
 	u32 reserved : 8;
@@ -330,7 +330,7 @@ enum mhi_cmd_type {
 	| (ieot << 9) | (ieob << 8) | chain)
 
 /* rsc transfer descriptor macros */
-#define MHI_RSCTRE_DATA_PTR(ptr, len) ((len << 48) | ptr)
+#define MHI_RSCTRE_DATA_PTR(ptr, len) (((u64)len << 48) | ptr)
 #define MHI_RSCTRE_DATA_DWORD0(cookie) (cookie)
 #define MHI_RSCTRE_DATA_DWORD1 (MHI_PKT_TYPE_COALESCING << 16)
 
