@@ -200,6 +200,14 @@ const char *ipa_clients_strings[IPA_CLIENT_MAX] = {
 	__stringify(IPA_CLIENT_Q6_AUDIO_DMA_MHI_CONS),
 	__stringify(RESERVED_PROD_86),
 	__stringify(IPA_CLIENT_APPS_WAN_COAL_CONS),
+	__stringify(IPA_CLIENT_WIGIG_PROD),
+	__stringify(IPA_CLIENT_WIGIG_CONS1),
+	__stringify(RESERVERD_PROD_90),
+	__stringify(IPA_CLIENT_WIGIG_CONS2),
+	__stringify(RESERVERD_PROD_92),
+	__stringify(IPA_CLIENT_WIGIG_CONS3),
+	__stringify(RESERVERD_PROD_94),
+	__stringify(IPA_CLIENT_WIGIG_CONS4),
 };
 
 /**
@@ -1929,7 +1937,7 @@ EXPORT_SYMBOL(ipa_uc_wdi_get_dbpa);
 
 /**
  * ipa_uc_reg_rdyCB() - To register uC
- * ready CB if uC not ready
+ * ready CB if uC not ready, wdi only.
  * @inout:	[in/out] input/output parameters
  * from/to client
  *
@@ -1946,6 +1954,31 @@ int ipa_uc_reg_rdyCB(
 	return ret;
 }
 EXPORT_SYMBOL(ipa_uc_reg_rdyCB);
+
+/**
+* ipa_wigig_uc_init() - get uc db and register uC
+* ready CB if uC not ready, wigig only.
+* @inout:	[in/out] uc ready input/output parameters
+* from/to client
+* @int_notify: [in] wigig misc interrupt handler function
+*
+* Returns:	0 on success, negative on failure
+*
+*/
+
+int ipa_wigig_uc_init(
+	struct ipa_wdi_uc_ready_params *inout,
+	ipa_wigig_misc_int_cb int_notify,
+	phys_addr_t *uc_db_pa)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_wigig_uc_init, inout,
+		int_notify, uc_db_pa);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_wigig_uc_init);
 
 /**
  * ipa_uc_dereg_rdyCB() - To de-register uC ready CB
@@ -3373,6 +3406,98 @@ int ipa_disable_wdi_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
 
 	return ret;
 }
+
+/**
+ * ipa_wigig_uc_msi_init() - smmu map\unmap msi related wigig HW registers
+ *	and init\deinit uC msi config
+ */
+int ipa_wigig_uc_msi_init(bool init,
+	phys_addr_t periph_baddr_pa,
+	phys_addr_t pseudo_cause_pa,
+	phys_addr_t int_gen_tx_pa,
+	phys_addr_t int_gen_rx_pa,
+	phys_addr_t dma_ep_misc_pa)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_wigig_uc_msi_init, init,
+		periph_baddr_pa,
+		pseudo_cause_pa,
+		int_gen_tx_pa,
+		int_gen_rx_pa,
+		dma_ep_misc_pa);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_wigig_uc_msi_init);
+
+/**
+ * ipa_conn_wigig_rx_pipe_i() - connect wigig rx pipe
+ */
+int ipa_conn_wigig_rx_pipe_i(void *in, struct ipa_wigig_conn_out_params *out)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_conn_wigig_rx_pipe_i, in, out);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_conn_wigig_rx_pipe_i);
+
+/**
+ * ipa_conn_wigig_client_i() - connect a wigig client
+ */
+int ipa_conn_wigig_client_i(void *in, struct ipa_wigig_conn_out_params *out)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_conn_wigig_client_i, in, out);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_conn_wigig_client_i);
+
+/**
+ * ipa_disconn_wigig_pipe_i() - disconnect a wigig pipe
+ */
+int ipa_disconn_wigig_pipe_i(enum ipa_client_type client,
+	struct ipa_wigig_pipe_setup_info_smmu *pipe_smmu,
+	void *dbuff)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_disconn_wigig_pipe_i, client,
+		pipe_smmu, dbuff);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_disconn_wigig_pipe_i);
+
+/**
+ * ipa_enable_wigig_pipe() - enable a wigig pipe
+ */
+int ipa_enable_wigig_pipe_i(enum ipa_client_type client)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_enable_wigig_pipe_i, client);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_enable_wigig_pipe_i);
+
+/**
+ * ipa_disable_wigig_pipe_i() - disable a wigig pipe
+ */
+int ipa_disable_wigig_pipe_i(enum ipa_client_type client)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_disable_wigig_pipe_i, client);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_disable_wigig_pipe_i);
 
 /**
  * ipa_tz_unlock_reg() - Allow AP access to memory regions controlled by TZ

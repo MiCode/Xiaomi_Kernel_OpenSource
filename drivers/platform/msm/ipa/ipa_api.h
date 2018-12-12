@@ -428,6 +428,32 @@ struct ipa_api_controller {
 	int (*ipa_is_vlan_mode)(enum ipa_vlan_ifaces iface, bool *res);
 
 	bool (*ipa_pm_is_used)(void);
+
+	int (*ipa_wigig_uc_init)(
+		struct ipa_wdi_uc_ready_params *inout,
+		ipa_wigig_misc_int_cb int_notify,
+		phys_addr_t *uc_db_pa);
+
+	int (*ipa_conn_wigig_rx_pipe_i)(void *in,
+		struct ipa_wigig_conn_out_params *out);
+
+	int (*ipa_conn_wigig_client_i)(void *in,
+		struct ipa_wigig_conn_out_params *out);
+
+	int (*ipa_disconn_wigig_pipe_i)(enum ipa_client_type client,
+		struct ipa_wigig_pipe_setup_info_smmu *pipe_smmu,
+		void *dbuff);
+
+	int (*ipa_wigig_uc_msi_init)(bool init,
+		phys_addr_t periph_baddr_pa,
+		phys_addr_t pseudo_cause_pa,
+		phys_addr_t int_gen_tx_pa,
+		phys_addr_t int_gen_rx_pa,
+		phys_addr_t dma_ep_misc_pa);
+
+	int (*ipa_enable_wigig_pipe_i)(enum ipa_client_type client);
+
+	int (*ipa_disable_wigig_pipe_i)(enum ipa_client_type client);
 };
 
 #ifdef CONFIG_IPA3

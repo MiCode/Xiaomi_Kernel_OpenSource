@@ -711,7 +711,7 @@ struct __packed gsi_wdi_channel_scratch {
 * @status_ring_hwtail_address_msb: High 32 bits of status ring hwtail address.
 * @data_buffers_base_address_lsb: Low 32 bits of the data buffers address.
 * @data_buffers_base_address_msb: High 32 bits of the data buffers address.
-* @fixed_data_buffer_size: the fixed buffer size (> MTU).
+* @fixed_data_buffer_size_pow_2: the fixed buffer size power of 2 (> MTU).
 * @resv1: reserved bits.
 */
 struct __packed gsi_11ad_rx_channel_scratch {
@@ -719,7 +719,7 @@ struct __packed gsi_11ad_rx_channel_scratch {
 	uint32_t status_ring_hwtail_address_msb;
 	uint32_t data_buffers_base_address_lsb;
 	uint32_t data_buffers_base_address_msb:8;
-	uint32_t fixed_data_buffer_size:16;
+	uint32_t fixed_data_buffer_size_pow_2:16;
 	uint32_t resv1:8;
 };
 
@@ -733,7 +733,7 @@ struct __packed gsi_11ad_rx_channel_scratch {
  *	updating descriptor ring 11ad HWTAIL pointer moderation.
  * @resv1: reserved bits.
  * @resv2: reserved bit.
- * @fixed_data_buffer_size: the fixed buffer size (> MTU).
+ * @fixed_data_buffer_size_pow_2: the fixed buffer size power of 2 (> MTU).
  * @resv3: reserved bits.
  */
 struct __packed gsi_11ad_tx_channel_scratch {
@@ -742,7 +742,7 @@ struct __packed gsi_11ad_tx_channel_scratch {
 	uint32_t update_status_hwtail_mod_threshold:8;
 	uint32_t resv1:24;
 	uint32_t resv2:8;
-	uint32_t fixed_data_buffer_size:16;
+	uint32_t fixed_data_buffer_size_pow_2:16;
 	uint32_t resv3:8;
 };
 
@@ -843,7 +843,7 @@ union __packed gsi_evt_scratch {
 	struct __packed gsi_mhi_evt_scratch mhi;
 	struct __packed gsi_xdci_evt_scratch xdci;
 	struct __packed gsi_wdi_evt_scratch wdi;
-	struct __packed gsi_11ad_evt_scratch ad11;
+	struct __packed gsi_11ad_evt_scratch w11ad;
 	struct __packed {
 		uint32_t word1;
 		uint32_t word2;
