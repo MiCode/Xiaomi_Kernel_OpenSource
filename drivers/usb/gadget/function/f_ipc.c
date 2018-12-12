@@ -671,21 +671,24 @@ static ssize_t debug_read_stats(struct file *file, char __user *ubuf,
 	int temp = 0;
 	unsigned long flags;
 
-	if (ipc_dev) {
-		spin_lock_irqsave(&ipc_dev->lock, flags);
-		temp += scnprintf(buf + temp, PAGE_SIZE - temp,
-				"endpoints: %s, %s\n"
-				"bytes to host: %lu\n"
-				"bytes to mdm:  %lu\n"
-				"pending writes:  %u\n"
-				"pending reads: %u\n",
-				ipc_dev->in->name, ipc_dev->out->name,
-				ipc_dev->bytes_to_host,
-				ipc_dev->bytes_to_mdm,
-				ipc_dev->pending_writes,
-				ipc_dev->pending_reads);
-		spin_unlock_irqrestore(&ipc_dev->lock, flags);
+	if (!ipc_dev || !ipc_dev->in || !ipc_dev->out) {
+		pr_err("ipc_dev instance, or EPs not yet initialised\n");
+		return 0;
 	}
+
+	spin_lock_irqsave(&ipc_dev->lock, flags);
+	temp += scnprintf(buf + temp, PAGE_SIZE - temp,
+			"endpoints: %s, %s\n"
+			"bytes to host: %lu\n"
+			"bytes to mdm:  %lu\n"
+			"pending writes:  %u\n"
+			"pending reads: %u\n",
+			ipc_dev->in->name, ipc_dev->out->name,
+			ipc_dev->bytes_to_host,
+			ipc_dev->bytes_to_mdm,
+			ipc_dev->pending_writes,
+			ipc_dev->pending_reads);
+	spin_unlock_irqrestore(&ipc_dev->lock, flags);
 
 	return simple_read_from_buffer(ubuf, count, ppos, buf, temp);
 }
@@ -695,12 +698,15 @@ static ssize_t debug_reset_stats(struct file *file, const char __user *buf,
 {
 	unsigned long flags;
 
-	if (ipc_dev) {
-		spin_lock_irqsave(&ipc_dev->lock, flags);
-		ipc_dev->bytes_to_host = 0;
-		ipc_dev->bytes_to_mdm = 0;
-		spin_unlock_irqrestore(&ipc_dev->lock, flags);
+	if (!ipc_dev) {
+		pr_err("ipc_dev instance not yet initialised\n");
+		return count;
 	}
+
+	spin_lock_irqsave(&ipc_dev->lock, flags);
+	ipc_dev->bytes_to_host = 0;
+	ipc_dev->bytes_to_mdm = 0;
+	spin_unlock_irqrestore(&ipc_dev->lock, flags);
 
 	return count;
 }
