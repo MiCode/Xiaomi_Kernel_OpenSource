@@ -1547,7 +1547,8 @@ static size_t a6xx_snapshot_gmu_tcm(struct kgsl_device *device,
 
 	mem_hdr->type = SNAPSHOT_GMU_MEM_BIN_BLOCK;
 	mem_hdr->hostaddr = 0;
-	mem_hdr->gmuaddr = gmu_get_memtype_base(tcm->type);
+	mem_hdr->gmuaddr = gmu_get_memtype_base(KGSL_GMU_DEVICE(device),
+			tcm->type);
 	mem_hdr->gpuaddr = 0;
 
 	for (i = tcm->start; i <= tcm->last; i++)

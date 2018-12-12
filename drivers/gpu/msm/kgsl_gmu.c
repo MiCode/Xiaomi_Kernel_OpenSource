@@ -38,16 +38,30 @@ struct gmu_iommu_context {
 #define DUMMY_SIZE   SZ_4K
 
 /* Define target specific GMU VMA configurations */
-static const struct gmu_vma_entry {
+
+struct gmu_vma_entry {
 	unsigned int start;
 	unsigned int size;
-} gmu_vma[] = {
+};
+
+static const struct gmu_vma_entry gmu_vma_legacy[] = {
 	[GMU_ITCM] = { .start = 0x00000, .size = SZ_16K },
 	[GMU_ICACHE] = { .start = 0x04000, .size = (SZ_256K - SZ_16K) },
 	[GMU_DTCM] = { .start = 0x40000, .size = SZ_16K },
 	[GMU_DCACHE] = { .start = 0x44000, .size = (SZ_256K - SZ_16K) },
 	[GMU_NONCACHED_KERNEL] = { .start = 0x60000000, .size = SZ_512M },
 	[GMU_NONCACHED_USER] = { .start = 0x80000000, .size = SZ_1G },
+	[GMU_MEM_TYPE_MAX] = { .start = 0x0, .size = 0x0 },
+};
+
+static const struct gmu_vma_entry gmu_vma[] = {
+	[GMU_ITCM] = { .start = 0x00000000, .size = SZ_16K },
+	[GMU_CACHE] = { .start = SZ_16K, .size = (SZ_16M - SZ_16K) },
+	[GMU_DTCM] = { .start = SZ_256M + SZ_16K, .size = SZ_16K },
+	[GMU_DCACHE] = { .start = 0x0, .size = 0x0 },
+	[GMU_NONCACHED_KERNEL] = { .start = 0x60000000, .size = SZ_512M },
+	[GMU_NONCACHED_USER] = { .start = 0x80000000, .size = SZ_1G },
+	[GMU_MEM_TYPE_MAX] = { .start = 0x0, .size = 0x0 },
 };
 
 struct gmu_iommu_context gmu_ctx[] = {
@@ -70,9 +84,10 @@ static unsigned int next_uncached_user_alloc;
 static void gmu_snapshot(struct kgsl_device *device);
 static void gmu_remove(struct kgsl_device *device);
 
-unsigned int gmu_get_memtype_base(enum gmu_mem_type type)
+unsigned int gmu_get_memtype_base(struct gmu_device *gmu,
+		enum gmu_mem_type type)
 {
-	return gmu_vma[type].start;
+	return gmu->vma[type].start;
 }
 
 static int _gmu_iommu_fault_handler(struct device *dev,
@@ -218,7 +233,7 @@ static struct gmu_memdesc *allocate_gmu_kmem(struct gmu_device *gmu,
 	case GMU_NONCACHED_KERNEL:
 		/* Set start address for first uncached kernel alloc */
 		if (next_uncached_kernel_alloc == 0)
-			next_uncached_kernel_alloc = gmu_vma[mem_type].start;
+			next_uncached_kernel_alloc = gmu->vma[mem_type].start;
 
 		if (addr == 0)
 			addr = next_uncached_kernel_alloc;
@@ -230,7 +245,7 @@ static struct gmu_memdesc *allocate_gmu_kmem(struct gmu_device *gmu,
 	case GMU_NONCACHED_USER:
 		/* Set start address for first uncached user alloc */
 		if (next_uncached_kernel_alloc == 0)
-			next_uncached_user_alloc = gmu_vma[mem_type].start;
+			next_uncached_user_alloc = gmu->vma[mem_type].start;
 
 		if (addr == 0)
 			addr = next_uncached_user_alloc;
@@ -395,14 +410,15 @@ static void gmu_memory_close(struct gmu_device *gmu)
 
 }
 
-static enum gmu_mem_type gmu_get_blk_memtype(struct gmu_block_header *blk)
+static enum gmu_mem_type gmu_get_blk_memtype(struct gmu_device *gmu,
+		struct gmu_block_header *blk)
 {
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(gmu_vma); i++) {
-		if (blk->addr >= gmu_vma[i].start &&
+	for (i = 0; i < GMU_MEM_TYPE_MAX; i++) {
+		if (blk->addr >= gmu->vma[i].start &&
 				blk->addr + blk->value <=
-				gmu_vma[i].start + gmu_vma[i].size)
+				gmu->vma[i].start + gmu->vma[i].size)
 			return (enum gmu_mem_type)i;
 	}
 
@@ -420,7 +436,7 @@ int gmu_prealloc_req(struct kgsl_device *device, struct gmu_block_header *blk)
 	if (md)
 		return 0;
 
-	type = gmu_get_blk_memtype(blk);
+	type = gmu_get_blk_memtype(gmu, blk);
 	if (type >= GMU_MEM_TYPE_MAX)
 		return -EINVAL;
 
@@ -1273,14 +1289,14 @@ static int gmu_tcm_init(struct gmu_device *gmu)
 	struct gmu_memdesc *md;
 
 	/* Reserve a memdesc for ITCM. No actually memory allocated */
-	md = allocate_gmu_kmem(gmu, GMU_ITCM, gmu_vma[GMU_ITCM].start,
-			gmu_vma[GMU_ITCM].size, 0);
+	md = allocate_gmu_kmem(gmu, GMU_ITCM, gmu->vma[GMU_ITCM].start,
+			gmu->vma[GMU_ITCM].size, 0);
 	if (IS_ERR(md))
 		return PTR_ERR(md);
 
 	/* Reserve a memdesc for DTCM. No actually memory allocated */
-	md = allocate_gmu_kmem(gmu, GMU_DTCM, gmu_vma[GMU_DTCM].start,
-			gmu_vma[GMU_DTCM].size, 0);
+	md = allocate_gmu_kmem(gmu, GMU_DTCM, gmu->vma[GMU_DTCM].start,
+			gmu->vma[GMU_DTCM].size, 0);
 
 	return PTR_ERR_OR_ZERO(md);
 }
@@ -1295,16 +1311,19 @@ int gmu_cache_finalize(struct kgsl_device *device)
 		return 0;
 
 	md = allocate_gmu_kmem(gmu, GMU_ICACHE,
-			gmu_vma[GMU_ICACHE].start, gmu_vma[GMU_ICACHE].size,
+			gmu->vma[GMU_ICACHE].start, gmu->vma[GMU_ICACHE].size,
 			(IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV));
 	if (IS_ERR(md))
 		return PTR_ERR(md);
 
-	md = allocate_gmu_kmem(gmu, GMU_DCACHE,
-			gmu_vma[GMU_DCACHE].start, gmu_vma[GMU_DCACHE].size,
-			(IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV));
-	if (IS_ERR(md))
-		return PTR_ERR(md);
+	if (!adreno_is_a650(ADRENO_DEVICE(device))) {
+		md = allocate_gmu_kmem(gmu, GMU_DCACHE,
+				gmu->vma[GMU_DCACHE].start,
+				gmu->vma[GMU_DCACHE].size,
+				(IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV));
+		if (IS_ERR(md))
+			return PTR_ERR(md);
+	}
 
 	md = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL,
 			0, DUMMY_SIZE,
@@ -1361,6 +1380,11 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 	ret = gmu_iommu_init(gmu, node);
 	if (ret)
 		goto error;
+
+	if (adreno_is_a650(adreno_dev))
+		gmu->vma = gmu_vma;
+	else
+		gmu->vma = gmu_vma_legacy;
 
 	ret = gmu_tcm_init(gmu);
 	if (ret)

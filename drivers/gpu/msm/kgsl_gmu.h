@@ -85,6 +85,7 @@ extern struct gmu_dev_ops adreno_a6xx_gmudev;
 enum gmu_mem_type {
 	GMU_ITCM = 0,
 	GMU_ICACHE,
+	GMU_CACHE = GMU_ICACHE,
 	GMU_DTCM,
 	GMU_DCACHE,
 	GMU_NONCACHED_KERNEL,
@@ -212,11 +213,13 @@ struct gmu_device {
 	bool preallocations;
 	struct gmu_memdesc kmem_entries[GMU_KERNEL_ENTRIES];
 	unsigned long kmem_bitmap;
+	const struct gmu_vma_entry *vma;
 };
 
 struct gmu_memdesc *gmu_get_memdesc(struct gmu_device *gmu,
 		unsigned int addr, unsigned int size);
-unsigned int gmu_get_memtype_base(enum gmu_mem_type type);
+unsigned int gmu_get_memtype_base(struct gmu_device *gmu,
+		enum gmu_mem_type type);
 
 int gmu_prealloc_req(struct kgsl_device *device, struct gmu_block_header *blk);
 int gmu_memory_probe(struct kgsl_device *device);
