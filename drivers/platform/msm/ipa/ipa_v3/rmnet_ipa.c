@@ -2826,6 +2826,10 @@ static int ipa3_ssr_notifier_cb(struct notifier_block *this,
 		if (atomic_read(&rmnet_ipa3_ctx->is_ssr) &&
 			ipa3_ctx->ipa_hw_type < IPA_HW_v4_0)
 			ipa3_q6_post_shutdown_cleanup();
+
+		if (ipa3_ctx->ipa_endp_delay_wa)
+			ipa3_client_prod_post_shutdown_cleanup();
+
 		IPAWANINFO("IPA AFTER_SHUTDOWN handling is complete\n");
 		break;
 	case SUBSYS_BEFORE_POWERUP:

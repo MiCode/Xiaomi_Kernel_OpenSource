@@ -1115,6 +1115,38 @@ int ipa3_set_reset_client_prod_pipe_delay(bool set_reset,
 	return result;
 }
 
+/*
+ * Start/stop the CLIENT PROD pipes in SSR scenarios
+ */
+
+int ipa3_start_stop_client_prod_gsi_chnl(enum ipa_client_type client,
+		bool start_chnl)
+{
+	int result = 0;
+	int pipe_idx;
+	struct ipa3_ep_context *ep;
+
+	if (IPA_CLIENT_IS_CONS(client)) {
+		IPAERR("client (%d) not PROD\n", client);
+		return -EINVAL;
+	}
+
+	pipe_idx = ipa3_get_ep_mapping(client);
+
+	if (pipe_idx == IPA_EP_NOT_ALLOCATED) {
+		IPAERR("client (%d) not valid\n", client);
+		return -EINVAL;
+	}
+
+	client_lock_unlock_cb(pipe_idx, true);
+	ep = &ipa3_ctx->ep[pipe_idx];
+	if (start_chnl)
+		result = ipa3_start_gsi_channel(pipe_idx);
+	else
+		result = ipa3_stop_gsi_channel(pipe_idx);
+	client_lock_unlock_cb(pipe_idx, false);
+	return result;
+}
 int ipa3_set_reset_client_cons_pipe_sus_holb(bool set_reset,
 		enum ipa_client_type client)
 {
