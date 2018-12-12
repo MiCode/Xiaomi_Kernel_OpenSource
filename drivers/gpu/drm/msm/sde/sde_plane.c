@@ -1387,6 +1387,13 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 				if (cstate->is_shared) {
 					dst.x += cstate->shared_roi.x;
 					dst.y += cstate->shared_roi.y;
+
+					if (sde_plane_get_property(pstate,
+						PLANE_PROP_SRC_CONFIG) &
+						BIT(SDE_DRM_LINEPADDING)) {
+						src.h = cstate->shared_roi.h;
+						dst.h = cstate->shared_roi.h;
+					}
 				}
 			}
 
@@ -1806,7 +1813,8 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 		{SDE_DRM_BLEND_OP_COVERAGE,       "coverage"}
 	};
 	static const struct drm_prop_enum_list e_src_config[] = {
-		{SDE_DRM_DEINTERLACE, "deinterlace"}
+		{SDE_DRM_DEINTERLACE, "deinterlace"},
+		{SDE_DRM_LINEPADDING, "linepadding"},
 	};
 	static const struct drm_prop_enum_list e_fb_translation_mode[] = {
 		{SDE_DRM_FB_NON_SEC, "non_sec"},

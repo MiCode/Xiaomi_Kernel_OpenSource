@@ -60,6 +60,7 @@
  * construct bitmask via (1UL << SDE_DRM_<flag>)
  */
 #define SDE_DRM_DEINTERLACE         0   /* Specifies interlaced input */
+#define SDE_DRM_LINEPADDING         1   /* Specifies line padding input */
 
 /* DRM bitmasks are restricted to 0..63 */
 #define SDE_DRM_BITMASK_COUNT       64
