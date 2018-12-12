@@ -47,24 +47,28 @@ static struct sync_fence *__mdp3_create_fence(struct msm_fb_data_type *mfd,
 
 	mdp3_session = (struct mdp3_session_data *)mfd->mdp.private1;
 
-	if (fence_type == MDP3_RETIRE_FENCE)
-		snprintf(fence_name, sizeof(fence_name), "fb%d_retire",
-			mfd->index);
-	else
-		snprintf(fence_name, sizeof(fence_name), "fb%d_release",
-			mfd->index);
-
 	if ((fence_type == MDP3_RETIRE_FENCE) &&
 		(mfd->panel.type == MIPI_CMD_PANEL)) {
 		if (mdp3_session->vsync_timeline) {
 			value = mdp3_session->vsync_timeline->value + 1 +
 				mdp3_session->retire_cnt++;
-			sync_fence = mdss_fb_sync_get_fence(
-					mdp3_session->vsync_timeline,
-						fence_name, value);
 		} else {
 			return ERR_PTR(-EPERM);
 		}
+	}
+
+	if (fence_type == MDP3_RETIRE_FENCE)
+		snprintf(fence_name, sizeof(fence_name), "fb%d_retire_%d",
+			mfd->index, value);
+	else
+		snprintf(fence_name, sizeof(fence_name), "fb%d_release_%d",
+			mfd->index, value);
+
+	if ((fence_type == MDP3_RETIRE_FENCE) &&
+		(mfd->panel.type == MIPI_CMD_PANEL)) {
+			sync_fence = mdss_fb_sync_get_fence(
+					mdp3_session->vsync_timeline,
+						fence_name, value);
 	} else {
 		sync_fence = mdss_fb_sync_get_fence(sync_pt_data->timeline,
 			fence_name, value);
