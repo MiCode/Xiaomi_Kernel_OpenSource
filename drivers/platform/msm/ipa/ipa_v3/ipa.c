@@ -3682,7 +3682,7 @@ void ipa3_enable_clks(void)
 	if (msm_bus_scale_client_update_request(ipa3_ctx->ipa_bus_hdl,
 	    ipa3_get_bus_vote()))
 		WARN(1, "bus scaling failed");
-
+	atomic_set(&ipa3_ctx->ipa_clk_vote, 1);
 	ipa3_ctx->ctrl->ipa3_enable_clks();
 }
 
@@ -3718,6 +3718,7 @@ void ipa3_disable_clks(void)
 
 	if (msm_bus_scale_client_update_request(ipa3_ctx->ipa_bus_hdl, 0))
 		WARN(1, "bus scaling failed");
+	atomic_set(&ipa3_ctx->ipa_clk_vote, 0);
 }
 
 /**
@@ -3879,6 +3880,15 @@ void ipa3_inc_client_enable_clks(struct ipa_active_client_logging_info *id)
 		atomic_read(&ipa3_ctx->ipa3_active_clients.cnt));
 	ipa3_suspend_apps_pipes(false);
 	mutex_unlock(&ipa3_ctx->ipa3_active_clients.mutex);
+}
+
+/**
+ * ipa3_active_clks_status() - update the current msm bus clock vote
+ * status
+ */
+int ipa3_active_clks_status(void)
+{
+	return atomic_read(&ipa3_ctx->ipa_clk_vote);
 }
 
 /**
@@ -4794,6 +4804,7 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	gsi_props.notify_cb = ipa_gsi_notify_cb;
 	gsi_props.req_clk_cb = NULL;
 	gsi_props.rel_clk_cb = NULL;
+	gsi_props.clk_status_cb = ipa3_active_clks_status;
 
 	if (ipa3_ctx->ipa_config_is_mhi) {
 		gsi_props.mhi_er_id_limits_valid = true;

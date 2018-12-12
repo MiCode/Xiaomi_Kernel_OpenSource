@@ -28,6 +28,9 @@
 #define GSI_STOP_CMD_TIMEOUT_MS 200
 #define GSI_MAX_CH_LOW_WEIGHT 15
 
+#define GSI_STOP_CMD_POLL_CNT 4
+#define GSI_STOP_IN_PROC_CMD_POLL_CNT 2
+
 #define GSI_RESET_WA_MIN_SLEEP 1000
 #define GSI_RESET_WA_MAX_SLEEP 2000
 #define GSI_CHNL_STATE_MAX_RETRYCNT 10
@@ -118,17 +121,21 @@ static void __gsi_config_gen_irq(int ee, uint32_t mask, uint32_t val)
 
 static void gsi_channel_state_change_wait(unsigned long chan_hdl,
 	struct gsi_chan_ctx *ctx,
-	uint32_t tm)
+	uint32_t tm, enum gsi_ch_cmd_opcode op)
 {
 	int poll_cnt;
 	int gsi_pending_intr;
 	int res;
-	uint32_t ch;
+	uint32_t type;
+	uint32_t val;
 	int ee = gsi_ctx->per.ee;
+	enum gsi_chan_state curr_state = GSI_CHAN_STATE_NOT_ALLOCATED;
+	int stop_in_proc_retry = 0;
+	int stop_retry = 0;
 
 	/*
 	 * Start polling the GSI channel for
-	 * duration = tm * poll_cnt.
+	 * duration = tm * GSI_CMD_POLL_CNT.
 	 * We need to do polling of gsi state for improving debugability
 	 * of gsi hw state.
 	 */
@@ -143,28 +150,71 @@ static void gsi_channel_state_change_wait(unsigned long chan_hdl,
 		if (res != 0)
 			return;
 
-		/*
-		 * for the case of pending interrupt we will continue in the
-		 * loop. So state update is not needed.
-		 */
-
-		ch = gsi_readl(gsi_ctx->base +
+		type = gsi_readl(gsi_ctx->base +
 			GSI_EE_n_CNTXT_TYPE_IRQ_OFFS(gsi_ctx->per.ee));
 
 		gsi_pending_intr = gsi_readl(gsi_ctx->base +
 			GSI_EE_n_CNTXT_SRC_GSI_CH_IRQ_OFFS(ee));
 
-		/*
-		 * Continue in the loop if a pending interrupt of
-		 * corresponding channel is present till an interrupt
-		 * is received.
+		/* Update the channel state only if interrupt was raised
+		 * on praticular channel and also checking global interrupt
+		 * is raised for channel control.
 		 */
-		if ((gsi_pending_intr >> chan_hdl) & 1)
+		if ((type & GSI_EE_n_CNTXT_TYPE_IRQ_CH_CTRL_BMSK) &&
+				((gsi_pending_intr >> chan_hdl) & 1)) {
+			/*
+			 * Check channel state here in case the channel is
+			 * already started but interrupt is not yet received.
+			 */
+			val = gsi_readl(gsi_ctx->base +
+				GSI_EE_n_GSI_CH_k_CNTXT_0_OFFS(chan_hdl,
+					gsi_ctx->per.ee));
+			curr_state = (val &
+				GSI_EE_n_GSI_CH_k_CNTXT_0_CHSTATE_BMSK) >>
+				GSI_EE_n_GSI_CH_k_CNTXT_0_CHSTATE_SHFT;
+		}
+
+		if (op == GSI_CH_START) {
+			if (curr_state == GSI_CHAN_STATE_STARTED) {
+				ctx->state = curr_state;
+				return;
+			}
+		}
+
+		if (op == GSI_CH_STOP) {
+			if (curr_state == GSI_CHAN_STATE_STOPPED)
+				stop_retry++;
+			else if (curr_state == GSI_CHAN_STATE_STOP_IN_PROC)
+				stop_in_proc_retry++;
+		}
+
+		/* if interrupt marked reg after poll count reaching to max
+		 * keep loop to continue reach max stop proc and max stop count.
+		 */
+		if (stop_retry == 1 || stop_in_proc_retry == 1)
 			poll_cnt = 0;
 
-		GSIDBG("GSI wait on chan_hld=%lu chan=%lu state=%u intr=%u\n",
+		/* If stop channel retry reached to max count
+		 * clear the pending interrupt, if channel already stopped.
+		 */
+		if (stop_retry == GSI_STOP_CMD_POLL_CNT) {
+			gsi_writel(gsi_pending_intr, gsi_ctx->base +
+				GSI_EE_n_CNTXT_SRC_GSI_CH_IRQ_CLR_OFFS(ee));
+			ctx->state = curr_state;
+			return;
+		}
+
+		/* If channel state stop in progress case no need
+		 * to wait for long time.
+		 */
+		if (stop_in_proc_retry == GSI_STOP_IN_PROC_CMD_POLL_CNT) {
+			ctx->state = curr_state;
+			return;
+		}
+
+		GSIDBG("GSI wait on chan_hld=%lu irqtyp=%lu state=%u intr=%u\n",
 			chan_hdl,
-			ch,
+			type,
 			ctx->state,
 			gsi_pending_intr);
 	}
@@ -748,6 +798,8 @@ static irqreturn_t gsi_isr(int irq, void *ctxt)
 			gsi_handle_irq();
 			gsi_ctx->per.rel_clk_cb(gsi_ctx->per.user_data);
 		}
+	} else if (!gsi_ctx->per.clk_status_cb()) {
+		return IRQ_HANDLED;
 	} else {
 		gsi_handle_irq();
 	}
@@ -2641,7 +2693,7 @@ int gsi_start_channel(unsigned long chan_hdl)
 	GSIDBG("GSI Channel Start, waiting for completion\n");
 	gsi_channel_state_change_wait(chan_hdl,
 		ctx,
-		GSI_START_CMD_TIMEOUT_MS);
+		GSI_START_CMD_TIMEOUT_MS, op);
 
 	if (ctx->state != GSI_CHAN_STATE_STARTED) {
 		/*
@@ -2723,12 +2775,13 @@ int gsi_stop_channel(unsigned long chan_hdl)
 	GSIDBG("GSI Channel Stop, waiting for completion\n");
 	gsi_channel_state_change_wait(chan_hdl,
 		ctx,
-		GSI_STOP_CMD_TIMEOUT_MS);
+		GSI_STOP_CMD_TIMEOUT_MS, op);
 
 	if (ctx->state != GSI_CHAN_STATE_STOPPED &&
 		ctx->state != GSI_CHAN_STATE_STOP_IN_PROC) {
 		GSIERR("chan=%lu unexpected state=%u\n", chan_hdl, ctx->state);
 		res = -GSI_STATUS_BAD_STATE;
+		BUG();
 		goto free_lock;
 	}
 
