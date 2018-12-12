@@ -1645,12 +1645,12 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 		planes[0] = event_notify->packet_buffer;
 		planes[1] = event_notify->extra_data_buffer;
 		mbuf = msm_comm_get_buffer_using_device_planes(inst, planes);
-		mbuf->output_tag = event_notify->output_tag;
 		if (!mbuf || !kref_get_mbuf(inst, mbuf)) {
 			dprintk(VIDC_ERR,
 				"%s: data_addr %x, extradata_addr %x not found\n",
 				__func__, planes[0], planes[1]);
 		} else {
+			mbuf->output_tag = event_notify->output_tag;
 			handle_release_buffer_reference(inst, mbuf);
 			kref_put_mbuf(mbuf);
 		}
@@ -6444,7 +6444,7 @@ struct msm_vidc_buffer *msm_comm_get_buffer_using_device_planes(
 	mutex_lock(&inst->registeredbufs.lock);
 	found = false;
 	list_for_each_entry(mbuf, &inst->registeredbufs.list, list) {
-		if (msm_comm_compare_device_planes(mbuf, planes)) {
+		if (msm_comm_compare_device_plane(mbuf, planes, 0)) {
 			found = true;
 			break;
 		}
@@ -6519,8 +6519,14 @@ struct msm_vidc_buffer *msm_comm_get_vidc_buffer(struct msm_vidc_inst *inst,
 	mutex_lock(&inst->registeredbufs.lock);
 	if (inst->session_type == MSM_VIDC_DECODER) {
 		list_for_each_entry(mbuf, &inst->registeredbufs.list, list) {
-			if (msm_comm_compare_dma_planes(inst, mbuf,
-					dma_planes)) {
+			/*
+			 * client might have queued same plane[0] but different
+			 * plane[1] search plane[0] and if found don't queue the
+			 * buffer, the buffer will be queued when rbr event
+			 * arrived.
+			 */
+			if (msm_comm_compare_dma_plane(inst, mbuf,
+						dma_planes, 0)) {
 				found = true;
 				break;
 			}
@@ -6577,37 +6583,15 @@ struct msm_vidc_buffer *msm_comm_get_vidc_buffer(struct msm_vidc_inst *inst,
 		}
 	}
 
-	/* special handling for decoder */
+    /* special handling for decoder
+     * If RBR pending on this buffer then enable RBR_PENDING flag
+     * and clear the DEFERRED flag to avoid this buffer getting
+     * queued to video hardware in msm_comm_qbuf() which tries to
+     * queue all the DEFERRED buffers.
+     */
 	if (inst->session_type == MSM_VIDC_DECODER) {
 		if (found) {
 			rc = -EEXIST;
-		} else {
-			bool found_plane0 = false;
-			struct msm_vidc_buffer *temp;
-			/*
-			 * client might have queued same plane[0] but different
-			 * plane[1] search plane[0] and if found don't queue the
-			 * buffer, the buffer will be queued when rbr event
-			 * arrived.
-			 */
-			list_for_each_entry(temp, &inst->registeredbufs.list,
-						list) {
-				if (msm_comm_compare_dma_plane(inst, temp,
-						dma_planes, 0)) {
-					found_plane0 = true;
-					break;
-				}
-			}
-			if (found_plane0)
-				rc = -EEXIST;
-		}
-		/*
-		 * If RBR pending on this buffer then enable RBR_PENDING flag
-		 * and clear the DEFERRED flag to avoid this buffer getting
-		 * queued to video hardware in msm_comm_qbuf() which tries to
-		 * queue all the DEFERRED buffers.
-		 */
-		if (rc == -EEXIST) {
 			mbuf->flags |= MSM_VIDC_FLAG_RBR_PENDING;
 			mbuf->flags &= ~MSM_VIDC_FLAG_DEFERRED;
 		}
@@ -6662,22 +6646,23 @@ void msm_comm_put_vidc_buffer(struct msm_vidc_inst *inst,
 		goto unlock;
 	}
 
-	print_vidc_buffer(VIDC_DBG, "dqbuf", inst, mbuf);
 	for (i = 0; i < mbuf->vvb.vb2_buf.num_planes; i++) {
 		if (msm_smem_unmap_dma_buf(inst, &mbuf->smem[i]))
 			print_vidc_buffer(VIDC_ERR,
-				"dqbuf: unmap failed.", inst, mbuf);
+					"dqbuf: unmap failed.", inst, mbuf);
 
-		if (!(mbuf->vvb.flags & V4L2_QCOM_BUF_FLAG_READONLY)) {
-			/* rbr won't come for this buffer */
-			if (msm_smem_unmap_dma_buf(inst, &mbuf->smem[i]))
-				print_vidc_buffer(VIDC_ERR,
-					"dqbuf: unmap failed..", inst, mbuf);
-		} else {
-			/* RBR event expected */
+		if (i == 0 && mbuf->vvb.flags & V4L2_QCOM_BUF_FLAG_READONLY) {
+			/* RBR event expected only for plane[0] */
 			mbuf->flags |= MSM_VIDC_FLAG_RBR_PENDING;
+			continue;
+		}
+
+		if (msm_smem_unmap_dma_buf(inst, &mbuf->smem[i])) {
+			print_vidc_buffer(VIDC_ERR,
+					"dqbuf: unmap failed..", inst, mbuf);
 		}
 	}
+	print_vidc_buffer(VIDC_DBG, "dqbuf", inst, mbuf);
 	/*
 	 * remove the entry if plane[0].refcount is zero else
 	 * don't remove as client queued same buffer that's why
@@ -6725,39 +6710,27 @@ void handle_release_buffer_reference(struct msm_vidc_inst *inst,
 		/* clear RBR_PENDING flag */
 		mbuf->flags &= ~MSM_VIDC_FLAG_RBR_PENDING;
 
-		for (i = 0; i < mbuf->vvb.vb2_buf.num_planes; i++) {
-			if (msm_smem_unmap_dma_buf(inst, &mbuf->smem[i]))
-				print_vidc_buffer(VIDC_ERR,
+		/*
+		 * Extradata plane is not accounted for in the registered list.
+		 * Hence unref only the image plane to check if it has
+		 * outstanding refs (pending rbr case)
+		 */
+		if (msm_smem_unmap_dma_buf(inst, &mbuf->smem[0]))
+			print_vidc_buffer(VIDC_ERR,
 					"rbr unmap failed.", inst, mbuf);
-		}
+
 		/* refcount is not zero if client queued the same buffer */
 		if (!mbuf->smem[0].refcount) {
 			list_del(&mbuf->list);
 			kref_put_mbuf(mbuf);
 			mbuf = NULL;
+			found = false;
 		}
 	} else {
 		print_vidc_buffer(VIDC_ERR, "mbuf not found", inst, mbuf);
 		goto unlock;
 	}
 
-	/*
-	 * 1. client might have pushed same planes in which case mbuf will be
-	 *    same and refcounts are positive and buffer wouldn't have been
-	 *    removed from the registeredbufs list.
-	 * 2. client might have pushed same planes[0] but different planes[1]
-	 *    in which case mbuf will be different.
-	 * 3. in either case we can search mbuf->smem[0].device_addr in the list
-	 *    and if found queue it to video hw (if not flushing).
-	 */
-	found = false;
-	list_for_each_entry(temp, &inst->registeredbufs.list, list) {
-		if (msm_comm_compare_device_plane(temp, planes, 0)) {
-			mbuf = temp;
-			found = true;
-			break;
-		}
-	}
 	if (!found)
 		goto unlock;
 
