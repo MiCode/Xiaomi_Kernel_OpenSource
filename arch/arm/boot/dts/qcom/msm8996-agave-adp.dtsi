@@ -1465,7 +1465,6 @@
 &usb2s {
 	status = "ok";
 	qcom,no-wakeup-src-in-hostmode;
-	qcom,disable-host-mode-pm;
 };
 
 &usb3 {
@@ -1474,7 +1473,6 @@
 	vdda33-supply = <&pm8994_l24>;
 	vdda18-supply = <&pm8994_l12>;
 	qcom,no-wakeup-src-in-hostmode;
-	qcom,disable-host-mode-pm;
 };
 
 &blsp1_uart2 {
