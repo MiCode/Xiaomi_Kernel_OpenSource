@@ -39,4 +39,8 @@ atlantic-fwd-objs := atl_fw.o \
 		     atl_compat.o \
 		     atl_hwmon.o
 
+atlantic-fwd-$(CONFIG_OF) += atl_of.o
+
+atlantic-fwd-$(CONFIG_AQFWD_QCOM) += atl_qcom.o
+
 CFLAGS_atl_trace.o := -I$(src)

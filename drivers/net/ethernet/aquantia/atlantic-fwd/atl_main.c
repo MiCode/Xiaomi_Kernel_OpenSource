@@ -13,6 +13,8 @@
 #include <linux/etherdevice.h>
 #include <linux/rtnetlink.h>
 
+#include "atl_of.h"
+
 const char atl_driver_name[] = "atlantic-fwd";
 
 int atl_max_queues = ATL_MAX_QUEUES;
@@ -289,6 +291,10 @@ static int atl_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 			 atl_max_queues, ATL_MAX_QUEUES);
 		return -EINVAL;
 	}
+
+	ret = atl_parse_dt(&pdev->dev);
+	if (ret)
+		return ret;
 
 	ret = pci_enable_device_mem(pdev);
 	if (ret)
