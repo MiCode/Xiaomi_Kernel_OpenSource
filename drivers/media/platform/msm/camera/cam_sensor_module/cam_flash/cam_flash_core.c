@@ -1565,9 +1565,7 @@ void cam_flash_shutdown(struct cam_flash_ctrl *fctrl)
 
 	if ((fctrl->flash_state == CAM_FLASH_STATE_CONFIG) ||
 		(fctrl->flash_state == CAM_FLASH_STATE_START)) {
-		mutex_lock(&(fctrl->flash_mutex));
 		fctrl->func_tbl.flush_req(fctrl, FLUSH_ALL, 0);
-		mutex_unlock(&(fctrl->flash_mutex));
 		rc = fctrl->func_tbl.power_ops(fctrl, false);
 		if (rc)
 			CAM_ERR(CAM_FLASH, "Power Down Failed rc: %d",
