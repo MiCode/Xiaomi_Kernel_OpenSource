@@ -7,6 +7,7 @@ clocks and allows CPU frequency scaling on qcs405 based platforms.
 Required properties:
 - compatible:	Shall contain following:
 		"qcom,cpu-qcs405"
+		"qcom,cpu-sdxprairie"
 - clocks:	Phandle to the clock device.
 - clock-names:	Names of the used clocks. Shall contain following:
 		"xo_ao", "gpll0_ao"
@@ -46,5 +47,23 @@ Example:
 			< 1113600000 2>,
 			< 1267200000 3>,
 			< 1382400000 4>;
+		#clock-cells = <1>;
+	};
+
+	clock_cpu: qcom,clock-cpu@17808100 {
+		compatible = "qcom,cpu-sdxprairie";
+		clocks = <&clock_rpmh RPMH_CXO_CLK>>;
+		clock-names = "&clock_rpmh RPMH_CXO_CLK";
+		reg = <0x17810008 0x8>,
+			<0x17808100 0x44>;
+		reg-names = "apcs_cmd" , "apcs_pll";
+		vdd-lucid-pll-supply = <&VDD_CX_LEVEL_AO>;
+		cpu-vdd-supply = <&VDD_CX_LEVEL_AO>;
+		qcom,speed0-bin-v0 =
+			<          0 RPMH_REGULATOR_LEVEL_OFF>,
+			<  345600000 RPMH_REGULATOR_LEVEL_LOW_SVS>,
+			<  576000000 RPMH_REGULATOR_LEVEL_SVS>,
+			< 1094400000 RPMH_REGULATOR_LEVEL_NOM>,
+			< 1555200000 RPMH_REGULATOR_LEVEL_TURBO>;
 		#clock-cells = <1>;
 	};
