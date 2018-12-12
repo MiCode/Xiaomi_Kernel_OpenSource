@@ -233,6 +233,10 @@ static void qrtr_log_tx_msg(struct qrtr_node *node, struct qrtr_hdr_v1 *hdr,
 			QRTR_INFO(node->ilc,
 				  "TX CTRL: cmd:0x%x node[0x%x]\n",
 				  hdr->type, hdr->src_node_id);
+		else if (hdr->type == QRTR_TYPE_DEL_PROC)
+			QRTR_INFO(node->ilc,
+				  "TX CTRL: cmd:0x%x node[0x%x]\n",
+				  hdr->type, pkt->proc.node);
 	}
 }
 
@@ -949,6 +953,60 @@ int qrtr_endpoint_register(struct qrtr_endpoint *ep, unsigned int net_id)
 }
 EXPORT_SYMBOL_GPL(qrtr_endpoint_register);
 
+static u32 qrtr_calc_checksum(struct qrtr_ctrl_pkt *pkt)
+{
+	u32 checksum = 0;
+	u32 mask = 0xffff;
+	u16 upper_nb;
+	u16 lower_nb;
+	u32 *msg;
+	int i;
+
+	if (!pkt)
+		return checksum;
+	msg = (u32 *)pkt;
+
+	for (i = 0; i < sizeof(*pkt) / sizeof(*msg); i++) {
+		lower_nb = *msg & mask;
+		upper_nb = (*msg >> 16) & mask;
+		checksum += (upper_nb + lower_nb);
+		msg++;
+	}
+	while (checksum > 0xffff)
+		checksum = (checksum & mask) + ((checksum >> 16) & mask);
+
+	checksum = ~checksum & mask;
+
+	return checksum;
+}
+
+static void qrtr_fwd_del_proc(struct qrtr_node *src, unsigned int nid)
+{
+	struct sockaddr_qrtr from = {AF_QIPCRTR, 0, QRTR_PORT_CTRL};
+	struct sockaddr_qrtr to = {AF_QIPCRTR, 0, QRTR_PORT_CTRL};
+	struct qrtr_ctrl_pkt *pkt;
+	struct qrtr_node *dst;
+	struct sk_buff *skb;
+
+	list_for_each_entry(dst, &qrtr_all_epts, item) {
+		if (!qrtr_must_forward(nid, dst->nid, QRTR_TYPE_DEL_PROC))
+			continue;
+
+		skb = qrtr_alloc_ctrl_packet(&pkt);
+		if (!skb)
+			return;
+
+		pkt->cmd = cpu_to_le32(QRTR_TYPE_DEL_PROC);
+		pkt->proc.rsvd = QRTR_DEL_PROC_MAGIC;
+		pkt->proc.node = cpu_to_le32(nid);
+		pkt->proc.rsvd = cpu_to_le32(qrtr_calc_checksum(pkt));
+
+		from.sq_node = src->nid;
+		to.sq_node = dst->nid;
+		qrtr_node_enqueue(dst, skb, QRTR_TYPE_DEL_PROC, &from, &to, 0);
+	}
+}
+
 /**
  * qrtr_endpoint_unregister - unregister endpoint
  * @ep: endpoint to unregister
@@ -980,6 +1038,8 @@ void qrtr_endpoint_unregister(struct qrtr_endpoint *ep)
 		src.sq_node = iter.index;
 		pkt->cmd = cpu_to_le32(QRTR_TYPE_BYE);
 		qrtr_local_enqueue(NULL, skb, QRTR_TYPE_BYE, &src, &dst, 0);
+
+		qrtr_fwd_del_proc(node, iter.index);
 	}
 	up_read(&qrtr_node_lock);
 
