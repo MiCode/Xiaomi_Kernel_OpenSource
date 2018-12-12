@@ -1605,6 +1605,7 @@ static int cnss_misc_init(struct cnss_plat_data *plat_priv)
 
 	init_completion(&plat_priv->power_up_complete);
 	init_completion(&plat_priv->cal_complete);
+	init_completion(&plat_priv->rddm_complete);
 	mutex_init(&plat_priv->dev_lock);
 
 	return 0;
@@ -1612,6 +1613,7 @@ static int cnss_misc_init(struct cnss_plat_data *plat_priv)
 
 static void cnss_misc_deinit(struct cnss_plat_data *plat_priv)
 {
+	complete_all(&plat_priv->rddm_complete);
 	complete_all(&plat_priv->cal_complete);
 	complete_all(&plat_priv->power_up_complete);
 	device_init_wakeup(&plat_priv->plat_dev->dev, false);
