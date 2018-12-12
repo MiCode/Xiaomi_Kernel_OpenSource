@@ -569,8 +569,6 @@ static int msm_11ad_suspend_power_off(void *handle)
 
 	pcidev = ctx->pcidev;
 
-	msm_pcie_shadow_control(ctx->pcidev, 0);
-
 	rc = pci_save_state(pcidev);
 	if (rc) {
 		dev_err(ctx->dev, "pci_save_state failed :%d\n", rc);
@@ -608,8 +606,6 @@ static int ops_suspend(void *handle, bool keep_device_power)
 		return msm_11ad_suspend_power_off(handle);
 
 	pcidev = ctx->pcidev;
-
-	msm_pcie_shadow_control(pcidev, 0);
 
 	dev_dbg(ctx->dev, "disable device and save config\n");
 	pci_disable_device(pcidev);
@@ -659,8 +655,6 @@ static int msm_11ad_resume_power_on(void *handle)
 		pci_load_saved_state(ctx->pcidev, ctx->pristine_state);
 	pci_restore_state(ctx->pcidev);
 
-	msm_pcie_shadow_control(ctx->pcidev, 1);
-
 	return 0;
 
 err_disable_power:
@@ -703,8 +697,6 @@ static int ops_resume(void *handle, bool device_powered_on)
 		dev_err(ctx->dev, "pci_enable_device failed (%d)\n", rc);
 		goto out;
 	}
-
-	msm_pcie_shadow_control(pcidev, 1);
 
 	dev_dbg(ctx->dev, "pci set master\n");
 	pci_set_master(pcidev);
