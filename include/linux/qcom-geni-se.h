@@ -35,7 +35,8 @@ enum se_protocol_types {
 	SPI,
 	UART,
 	I2C,
-	I3C
+	I3C,
+	SPI_SLAVE
 };
 
 /**
@@ -86,6 +87,8 @@ struct se_geni_rsc {
 #define GENI_FW_REVISION_RO		(0x68)
 #define GENI_FW_S_REVISION_RO		(0x6C)
 #define SE_GENI_CLK_SEL			(0x7C)
+#define SE_GENI_CFG_SEQ_START			(0x84)
+#define SE_GENI_CFG_REG		(0x200)
 #define SE_GENI_BYTE_GRAN		(0x254)
 #define SE_GENI_DMA_MODE_EN		(0x258)
 #define SE_GENI_TX_PACKING_CFG0		(0x260)
@@ -118,6 +121,8 @@ struct se_geni_rsc {
 #define SE_HW_PARAM_1			(0xE28)
 #define SE_DMA_GENERAL_CFG		(0xE30)
 #define SE_DMA_DEBUG_REG0		(0xE40)
+#define SLAVE_MODE_EN			(BIT(3))
+#define START_TRIGGER			(BIT(0))
 
 /* GENI_OUTPUT_CTRL fields */
 #define DEFAULT_IO_OUTPUT_CTRL_MSK	(GENMASK(6, 0))
