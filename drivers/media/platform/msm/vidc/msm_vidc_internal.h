@@ -300,6 +300,7 @@ struct msm_vidc_inst {
 	u32 pic_struct;
 	u32 colour_space;
 	u32 operating_rate;
+	bool allow_ubwc_linear_event;
 };
 
 extern struct msm_vidc_drv *vidc_driver;

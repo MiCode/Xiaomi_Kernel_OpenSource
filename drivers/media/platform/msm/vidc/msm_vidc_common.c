@@ -1210,6 +1210,20 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 		break;
 	}
 
+	/*
+	 * Force output to linear format if it's interlaced UBWC format
+	 * to support interlaced clips playback
+	 */
+	if ((inst->allow_ubwc_linear_event) &&
+		(event_notify->pic_struct ==
+			MSM_VIDC_PIC_STRUCT_MAYBE_INTERLACED)) {
+		u32 fmt_fourcc = inst->fmts[CAPTURE_PORT].fourcc;
+
+		if ((fmt_fourcc == V4L2_PIX_FMT_NV12_TP10_UBWC) ||
+			(fmt_fourcc == V4L2_PIX_FMT_NV12_UBWC))
+			inst->fmts[CAPTURE_PORT].fourcc = V4L2_PIX_FMT_NV12;
+	}
+
 	/* Bit depth and pic struct changed event are combined into a single
 	 * event (insufficient event) for the userspace. Currently bitdepth
 	 * changes is only for HEVC and interlaced support is for all

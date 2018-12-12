@@ -1232,6 +1232,12 @@ enum v4l2_mpeg_vidc_video_venc_send_skipped_frame {
 	V4L2_MPEG_VIDC_VIDEO_SEND_SKIPPED_FRAME_ENABLE = 1
 };
 
+#define V4L2_CID_MPEG_VIDC_VIDEO_ALLOW_UBWC_LINEAR_EVENT \
+		(V4L2_CID_MPEG_MSM_VIDC_BASE + 104)
+enum v4l2_mpeg_vidc_video_allow_ubwc_linear_event {
+	V4L2_MPEG_VIDC_VIDEO_ALLOW_UBWC_LINEAR_EVENT_DISABLE = 0,
+	V4L2_MPEG_VIDC_VIDEO_ALLOW_UBWC_LINEAR_EVENT_ENABLE = 1
+};
 
 /*  Camera class control IDs */
 
