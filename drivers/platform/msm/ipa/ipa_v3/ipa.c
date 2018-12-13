@@ -7023,7 +7023,9 @@ void ipa_pc_qmp_enable(void)
 		ret = PTR_ERR(ipa3_ctx->mbox);
 		if (ret != -EPROBE_DEFER)
 			IPAERR("mailbox channel request failed, ret=%d\n", ret);
-		goto cleanup;
+
+		ipa3_ctx->mbox = NULL;
+		return;
 	}
 
 	/* prepare the QMP packet to send */
@@ -7038,8 +7040,10 @@ void ipa_pc_qmp_enable(void)
 	}
 
 cleanup:
-	ipa3_ctx->mbox = NULL;
-	mbox_free_channel(ipa3_ctx->mbox);
+	if (ipa3_ctx->mbox) {
+		mbox_free_channel(ipa3_ctx->mbox);
+		ipa3_ctx->mbox = NULL;
+	}
 }
 
 /**************************************************************
