@@ -43,5 +43,6 @@ atlantic-fwd-$(CONFIG_ATLFWD_FWD) += atl_fwd.o
 atlantic-fwd-$(CONFIG_OF) += atl_of.o
 
 atlantic-fwd-$(CONFIG_AQFWD_QCOM) += atl_qcom.o
+atlantic-fwd-$(CONFIG_AQFWD_QCOM_IPA) += atl_qcom_ipa.o
 
 CFLAGS_atl_trace.o := -I$(src)
