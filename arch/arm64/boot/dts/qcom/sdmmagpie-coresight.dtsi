@@ -1186,6 +1186,7 @@
 		reg = <0x7040000 0x1000>;
 		cpu = <&CPU0>;
 
+		qcom,tupwr-disable;
 		coresight-name = "coresight-etm0";
 
 		clocks = <&clock_aop QDSS_CLK>;
@@ -1205,6 +1206,7 @@
 		reg = <0x7140000 0x1000>;
 		cpu = <&CPU1>;
 
+		qcom,tupwr-disable;
 		coresight-name = "coresight-etm1";
 
 		clocks = <&clock_aop QDSS_CLK>;
@@ -1224,6 +1226,7 @@
 		reg = <0x7240000 0x1000>;
 		cpu = <&CPU2>;
 
+		qcom,tupwr-disable;
 		coresight-name = "coresight-etm2";
 
 		clocks = <&clock_aop QDSS_CLK>;
@@ -1243,6 +1246,7 @@
 		reg = <0x7340000 0x1000>;
 		cpu = <&CPU3>;
 
+		qcom,tupwr-disable;
 		coresight-name = "coresight-etm3";
 
 		clocks = <&clock_aop QDSS_CLK>;
@@ -1262,6 +1266,7 @@
 		reg = <0x7440000 0x1000>;
 		cpu = <&CPU4>;
 
+		qcom,tupwr-disable;
 		coresight-name = "coresight-etm4";
 
 		clocks = <&clock_aop QDSS_CLK>;
@@ -1281,6 +1286,7 @@
 		reg = <0x7540000 0x1000>;
 		cpu = <&CPU5>;
 
+		qcom,tupwr-disable;
 		coresight-name = "coresight-etm5";
 
 		clocks = <&clock_aop QDSS_CLK>;
@@ -1300,6 +1306,7 @@
 		reg = <0x7640000 0x1000>;
 		cpu = <&CPU6>;
 
+		qcom,tupwr-disable;
 		coresight-name = "coresight-etm6";
 
 		clocks = <&clock_aop QDSS_CLK>;
@@ -1319,6 +1326,7 @@
 		reg = <0x7740000 0x1000>;
 		cpu = <&CPU7>;
 
+		qcom,tupwr-disable;
 		coresight-name = "coresight-etm7";
 
 		clocks = <&clock_aop QDSS_CLK>;
