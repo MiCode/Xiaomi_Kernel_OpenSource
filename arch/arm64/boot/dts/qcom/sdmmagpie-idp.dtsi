@@ -379,3 +379,9 @@
 		};
 	};
 };
+
+&thermal_zones {
+	quiet-therm-step {
+		status = "disabled";
+	};
+};
