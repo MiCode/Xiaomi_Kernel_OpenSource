@@ -102,7 +102,7 @@ struct dp_display_private {
 
 	struct workqueue_struct *wq;
 	struct delayed_work hdcp_cb_work;
-	struct delayed_work connect_work;
+	struct work_struct connect_work;
 	struct work_struct attention_work;
 	struct mutex session_lock;
 
@@ -532,21 +532,15 @@ static void dp_display_post_open(struct dp_display *dp_display)
 
 	/* if cable is already connected, send notification */
 	if (dp->hpd->hpd_high)
-		queue_delayed_work(dp->wq, &dp->connect_work, HZ * 10);
+		queue_work(dp->wq, &dp->connect_work);
 	else
 		dp_display->post_open = NULL;
 }
 
 static int dp_display_send_hpd_notification(struct dp_display_private *dp)
 {
-	u32 timeout_sec;
 	int ret = 0;
 	bool hpd = dp->is_connected;
-
-	if (dp_display_framework_ready(dp))
-		timeout_sec = 5;
-	else
-		timeout_sec = 10;
 
 	dp->aux->state |= DP_STATE_NOTIFICATION_SENT;
 
@@ -562,8 +556,11 @@ static int dp_display_send_hpd_notification(struct dp_display_private *dp)
 	if (!dp->mst.mst_active && (dp->power_on == hpd))
 		goto skip_wait;
 
+	if (!dp_display_framework_ready(dp))
+		goto skip_wait;
+
 	if (!wait_for_completion_timeout(&dp->notification_comp,
-						HZ * timeout_sec)) {
+						HZ * 5)) {
 		pr_warn("%s timeout\n", hpd ? "connect" : "disconnect");
 		ret = -EINVAL;
 	}
@@ -781,9 +778,9 @@ static int dp_display_usbpd_configure_cb(struct device *dev)
 
 	dp_display_host_init(dp);
 
-	/* check for hpd high and framework ready */
-	if (dp->hpd->hpd_high && dp_display_framework_ready(dp))
-		queue_delayed_work(dp->wq, &dp->connect_work, 0);
+	/* check for hpd high */
+	if (dp->hpd->hpd_high)
+		queue_work(dp->wq, &dp->connect_work);
 end:
 	return rc;
 }
@@ -874,7 +871,7 @@ static void dp_display_disconnect_sync(struct dp_display_private *dp)
 	dp->aux->abort(dp->aux);
 
 	/* wait for idle state */
-	cancel_delayed_work(&dp->connect_work);
+	cancel_work(&dp->connect_work);
 	cancel_work(&dp->attention_work);
 	flush_workqueue(dp->wq);
 
@@ -971,8 +968,7 @@ static void dp_display_attention_work(struct work_struct *work)
 			dp_display_handle_disconnect(dp);
 		} else {
 			if (!dp->mst.mst_active)
-				queue_delayed_work(dp->wq,
-					&dp->connect_work, 0);
+				queue_work(dp->wq, &dp->connect_work);
 		}
 
 		goto mst_attention;
@@ -982,7 +978,7 @@ static void dp_display_attention_work(struct work_struct *work)
 		dp_display_handle_disconnect(dp);
 
 		dp->panel->video_test = true;
-		queue_delayed_work(dp->wq, &dp->connect_work, 0);
+		queue_work(dp->wq, &dp->connect_work);
 
 		goto mst_attention;
 	}
@@ -1032,7 +1028,7 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 			dp->debug->mst_hpd_sim)
 		queue_work(dp->wq, &dp->attention_work);
 	else if (!dp->power_on)
-		queue_delayed_work(dp->wq, &dp->connect_work, 0);
+		queue_work(dp->wq, &dp->connect_work);
 	else
 		pr_debug("ignored\n");
 
@@ -1042,8 +1038,7 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 static void dp_display_connect_work(struct work_struct *work)
 {
 	int rc = 0;
-	struct delayed_work *dw = to_delayed_work(work);
-	struct dp_display_private *dp = container_of(dw,
+	struct dp_display_private *dp = container_of(work,
 			struct dp_display_private, connect_work);
 
 	if (atomic_read(&dp->aborted)) {
@@ -1911,7 +1906,7 @@ static int dp_display_create_workqueue(struct dp_display_private *dp)
 	}
 
 	INIT_DELAYED_WORK(&dp->hdcp_cb_work, dp_display_hdcp_cb_work);
-	INIT_DELAYED_WORK(&dp->connect_work, dp_display_connect_work);
+	INIT_WORK(&dp->connect_work, dp_display_connect_work);
 	INIT_WORK(&dp->attention_work, dp_display_attention_work);
 
 	return 0;
