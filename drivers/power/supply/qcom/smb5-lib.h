@@ -470,6 +470,10 @@ struct smb_charger {
 	int			jeita_soft_fv[2];
 	bool			moisture_present;
 	bool			uusb_moisture_protection_enabled;
+	bool			hw_die_temp_mitigation;
+	bool			hw_connector_mitigation;
+	bool			hw_skin_temp_mitigation;
+	int			connector_pull_up;
 
 	/* workaround flag */
 	u32			wa_flags;
