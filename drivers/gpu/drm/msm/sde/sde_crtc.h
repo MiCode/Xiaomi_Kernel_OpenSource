@@ -292,4 +292,13 @@ static inline bool sde_crtc_is_enabled(struct drm_crtc *crtc)
 	return crtc ? crtc->enabled : false;
 }
 
+/**
+ * sde_crtc_update_blob_property - update blob property of a given crtc
+ * @crtc: Pointer to crtc
+ * @key:  Pointer to key string
+ * @value: Signed 32 bit integer value
+ */
+void sde_crtc_update_blob_property(struct drm_crtc *crtc,
+				const char *key,
+				int32_t value);
 #endif /* _SDE_CRTC_H_ */

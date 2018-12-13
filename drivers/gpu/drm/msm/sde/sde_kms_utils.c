@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +38,64 @@ void sde_kms_info_add_keyint(struct sde_kms_info *info,
 		/* check if snprintf truncated the string */
 		if ((info->len + len) < SDE_KMS_INFO_MAX_SIZE)
 			info->len += len;
+	}
+}
+
+void sde_kms_info_update_keystr(char *info_str,
+				const char *key,
+				int32_t value)
+{
+	char *str, *temp, *append_str;
+	uint32_t dst_len = 0, prefix_len = 0;
+	char c;
+	int32_t size = 0;
+
+	if (info_str && key) {
+		str = strnstr(info_str, key, strlen(info_str));
+		if (str) {
+			temp = str + strlen(key);
+			c = *temp;
+			while (c != '\n') {
+				dst_len++;
+				c = *(++temp);
+			}
+			/*
+			 * If input key string to update is exactly the last
+			 * string in source string, no need to allocate one
+			 * memory to store the string after string key. Just
+			 * replace the value of the last string.
+			 *
+			 * If it is not, allocate one new memory to save
+			 * the string after string key+"\n". This new allocated
+			 * string will be appended to the whole source string
+			 * after key value is updated.
+			 */
+			size = strlen(str) - strlen(key) - dst_len - 1;
+			if (size > 0) {
+				append_str = kzalloc(size + 1, GFP_KERNEL);
+				if (!append_str) {
+					SDE_ERROR("failed to alloc memory\n");
+					return;
+				}
+				memcpy(append_str,
+					str + strlen(key) + dst_len + 1, size);
+			}
+
+			prefix_len = strlen(info_str) - strlen(str);
+			/* Update string with new value for the string key. */
+			snprintf(info_str + prefix_len,
+				SDE_KMS_INFO_MAX_SIZE - prefix_len,
+				"%s%d\n", key, value);
+
+			/* Append the string save aboved. */
+			if (size > 0 && append_str) {
+				size = prefix_len + strlen(key) + dst_len + 1;
+				snprintf(info_str + size,
+					SDE_KMS_INFO_MAX_SIZE - size,
+					"%s", append_str);
+				kfree(append_str);
+			}
+		}
 	}
 }
 

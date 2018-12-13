@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -302,6 +302,16 @@ void sde_kms_info_reset(struct sde_kms_info *info);
  * @value: Signed 32-bit integer value
  */
 void sde_kms_info_add_keyint(struct sde_kms_info *info,
+		const char *key,
+		int32_t value);
+
+/**
+ * sde_kms_info_update_keystr - update the special string's value.
+ * @info_str: Pointer to source blob str
+ * @key:      Pointer to key string
+ * @value:    Signed 32-bit integer value
+ */
+void sde_kms_info_update_keystr(char *info_str,
 		const char *key,
 		int32_t value);
 

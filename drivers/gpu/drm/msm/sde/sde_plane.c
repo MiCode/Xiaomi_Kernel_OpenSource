@@ -2732,6 +2732,24 @@ end:
 	return rc;
 }
 
+void sde_plane_update_blob_property(struct drm_plane *plane,
+				const char *key,
+				int32_t value)
+{
+	char *kms_info_str = NULL;
+	struct sde_plane *sde_plane = to_sde_plane(plane);
+	size_t len;
+
+	kms_info_str = (char *)msm_property_get_blob(&sde_plane->property_info,
+				&sde_plane->blob_info, &len, 0);
+	if (!kms_info_str) {
+		SDE_ERROR("get plane property_info failed\n");
+		return;
+	}
+
+	sde_kms_info_update_keystr(kms_info_str, key, value);
+}
+
 /* initialize plane */
 struct drm_plane *sde_plane_init(struct drm_device *dev,
 		uint32_t pipe, bool primary_plane,

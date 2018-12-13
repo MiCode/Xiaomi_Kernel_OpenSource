@@ -1995,6 +1995,26 @@ static void _sde_crtc_init_debugfs(struct sde_crtc *sde_crtc,
 }
 #endif
 
+void sde_crtc_update_blob_property(struct drm_crtc *crtc,
+				const char *key,
+				int32_t value)
+{
+	struct sde_crtc *sde_crtc;
+	char *kms_info_str = NULL;
+	size_t len;
+
+	sde_crtc = to_sde_crtc(crtc);
+
+	kms_info_str = (char *)msm_property_get_blob(&sde_crtc->property_info,
+				&sde_crtc->blob_info, &len, CRTC_PROP_INFO);
+	if (!kms_info_str) {
+		SDE_ERROR("get crtc property_info failed");
+		return;
+	}
+
+	sde_kms_info_update_keystr(kms_info_str, key, value);
+}
+
 /* initialize crtc */
 struct drm_crtc *sde_crtc_init(struct drm_device *dev,
 	struct drm_plane *plane)

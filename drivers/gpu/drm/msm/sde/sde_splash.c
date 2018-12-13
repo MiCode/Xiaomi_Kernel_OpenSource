@@ -26,6 +26,7 @@
 #include "dsi_display.h"
 #include "sde_hdmi.h"
 #include "sde_crtc.h"
+#include "sde_plane.h"
 
 #define MDP_SSPP_TOP0_OFF		0x1000
 #define DISP_INTF_SEL			0x004
@@ -389,6 +390,28 @@ static bool _sde_splash_validate_commit(struct sde_kms *sde_kms,
 	}
 
 	return false;
+}
+
+static void _sde_splash_update_property(struct sde_kms *sde_kms)
+{
+	struct drm_device *dev = sde_kms->dev;
+	struct drm_crtc *crtc;
+	struct drm_plane *plane;
+	struct sde_mdss_cfg *catalog = sde_kms->catalog;
+
+	/*
+	 * Update plane availability property
+	 * after splash handoff is done.
+	 */
+	drm_for_each_plane(plane, dev) {
+		sde_plane_update_blob_property(plane,
+					"plane_unavailability=", 0);
+	}
+
+	/* update crtc blend stage property */
+	drm_for_each_crtc(crtc, dev)
+		sde_crtc_update_blob_property(crtc, "max_blendstages=",
+					catalog->max_mixer_blendstages);
 }
 
 __ref int sde_splash_init(struct sde_power_handle *phandle, struct msm_kms *kms)
@@ -836,6 +859,9 @@ int sde_splash_free_resource(struct msm_kms *kms,
 
 		/* send uevent to notify user to recycle resource */
 		_sde_splash_sent_pipe_update_uevent(sde_kms);
+
+		/* update impacted crtc and plane property by splash */
+		_sde_splash_update_property(sde_kms);
 
 		/* set display's splash status to false after handoff is done */
 		_sde_splash_update_display_splash_status(sde_kms);
