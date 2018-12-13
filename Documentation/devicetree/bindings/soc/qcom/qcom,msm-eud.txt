@@ -14,6 +14,7 @@ Required properties:
 Optional properties:
  - reg-names: Can be "eud_mode_mgr2" for secure eud
  - qcom,secure-eud-en: To enable secure eud
+ - qcom,eud-clock-vote-req: To enable clock voting from eud
 
 Driver notifies clients via extcon for VBUS spoof attach/detach
 and charger enable/disable events. Clients registered for these
