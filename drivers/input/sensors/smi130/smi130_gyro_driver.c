@@ -1812,8 +1812,21 @@ static int smi130_gyro_early_buff_init(struct smi_gyro_client_data *client_data)
 	client_data->gyro_buffer_smi130_samples = true;
 
 	smi130_gyro_set_mode(SMI130_GYRO_MODE_NORMAL);
+	smi130_gyro_delay(5);
+
 	smi130_gyro_set_bw(5);
+	smi130_gyro_delay(5);
+
 	smi130_gyro_set_range_reg(4);
+	smi130_gyro_delay(5);
+
+	smi130_gyro_set_mode(SMI130_GYRO_MODE_NORMAL);
+	smi130_gyro_delay(5);
+
+	smi130_gyro_set_range_reg(4);
+	smi130_gyro_delay(5);
+
+	smi130_gyro_set_data_en(SMI130_GYRO_ENABLE);
 
 	return 1;
 
@@ -1839,6 +1852,11 @@ static void smi130_gyro_input_cleanup(struct smi_gyro_client_data *client_data)
 				client_data->smi130_gyro_samplist[i]);
 	kmem_cache_destroy(client_data->smi_gyro_cachepool);
 }
+
+static int smi130_enable_int1(void)
+{
+	return smi130_gyro_set_data_en(SMI130_GYRO_DISABLE);
+}
 #else
 static int smi130_gyro_early_buff_init(struct smi_gyro_client_data *client_data)
 {
@@ -1846,6 +1864,10 @@ static int smi130_gyro_early_buff_init(struct smi_gyro_client_data *client_data)
 }
 static void smi130_gyro_input_cleanup(struct smi_gyro_client_data *client_data)
 {
+}
+static int smi130_enable_int1(void)
+{
+	return smi130_gyro_set_data_en(SMI130_GYRO_ENABLE);
 }
 #endif
 
@@ -2002,7 +2024,7 @@ static int smi_gyro_probe(struct i2c_client *client, const struct i2c_device_id 
 	smi130_gyro_delay(5);
 	err += smi130_gyro_set_int_data(SMI130_GYRO_INT1_DATA, SMI130_GYRO_ENABLE);
 	smi130_gyro_delay(5);
-	err += smi130_gyro_set_data_en(SMI130_GYRO_ENABLE);
+	err += smi130_enable_int1();
 	smi130_gyro_delay(5);
 	/*default odr is 100HZ*/
 	err += SMI_GYRO_CALL_API(set_bw)(7);
@@ -2062,7 +2084,7 @@ static int smi_gyro_probe(struct i2c_client *client, const struct i2c_device_id 
 #endif
 
 	err = smi130_gyro_early_buff_init(client_data);
-	if (err)
+	if (!err)
 		return err;
 
 	PINFO("sensor %s probed successfully", SENSOR_NAME);
