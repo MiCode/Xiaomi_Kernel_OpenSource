@@ -154,7 +154,7 @@
 #include "bs_log.h"
 #define DRIVER_VERSION "0.0.53.0"
 #define ACC_NAME  "ACC"
-#define SMI_ACC2X2_ENABLE_INT1 1
+#define SMI_ACC2X2_ENABLE_INT2 1
 #define CONFIG_SMI_ACC_ENABLE_NEWDATA_INT 1
 
 #define SENSOR_NAME                 "smi130_acc"
@@ -6802,7 +6802,7 @@ static void smi130_acc_irq_work_func(struct work_struct *work)
 #endif
 
 	smi130_acc_get_interruptstatus1(smi130_acc->smi130_acc_client, &status);
-	PINFO("smi130_acc_irq_work_func, status = 0x%x\n", status);
+	PDEBUG("smi130_acc_irq_work_func, status = 0x%x\n", status);
 
 #ifdef CONFIG_SIG_MOTION
 	if (status & 0x04)	{
