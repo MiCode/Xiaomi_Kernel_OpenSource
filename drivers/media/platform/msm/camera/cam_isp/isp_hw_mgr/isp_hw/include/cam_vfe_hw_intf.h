@@ -18,6 +18,8 @@
 #define VFE_VBIF_BASE_IDX             1
 #define VFE_BUS_BASE_IDX              1
 
+#define CAM_VFE_MAX_UBWC_PORTS        4
+
 enum cam_isp_hw_vfe_in_mux {
 	CAM_ISP_HW_VFE_IN_CAMIF       = 0,
 	CAM_ISP_HW_VFE_IN_TESTGEN     = 1,
