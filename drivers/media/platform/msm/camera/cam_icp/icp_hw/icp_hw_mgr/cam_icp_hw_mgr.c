@@ -3400,6 +3400,11 @@ static int cam_icp_mgr_process_cmd_desc(struct cam_icp_hw_mgr *hw_mgr,
 		}
 	}
 
+	if (!cpu_addr) {
+		CAM_ERR(CAM_ICP, "invalid number of cmd buf");
+		return -EINVAL;
+	}
+
 	if (ctx_data->icp_dev_acquire_info->dev_type !=
 		CAM_ICP_RES_TYPE_BPS) {
 		CAM_DBG(CAM_ICP, "cpu addr = %zx", cpu_addr);
