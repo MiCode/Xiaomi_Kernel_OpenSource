@@ -10,3 +10,7 @@ ipa-eth-y := \
 	ipa_eth_pci.o \
 	ipa_eth_pm.o \
 	ipa_eth_uc.o
+
+ifneq ($(wildcard $(srctree)/$(src)/aquantia/Makefile),)
+obj-$(CONFIG_AQC_IPA) += aquantia/
+endif
