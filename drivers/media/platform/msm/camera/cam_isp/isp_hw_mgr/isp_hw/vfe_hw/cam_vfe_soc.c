@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -106,7 +106,7 @@ int cam_vfe_init_soc_resources(struct cam_hw_soc_info *soc_info,
 		CAM_VFE_DSP_CLK_NAME, &soc_private->dsp_clk,
 		&soc_private->dsp_clk_index, &soc_private->dsp_clk_rate);
 	if (rc)
-		CAM_WARN(CAM_ISP, "option clk get failed");
+		CAM_WARN(CAM_ISP, "Option clk get failed with rc %d", rc);
 
 	rc = cam_vfe_request_platform_resource(soc_info, vfe_irq_handler,
 		irq_data);
