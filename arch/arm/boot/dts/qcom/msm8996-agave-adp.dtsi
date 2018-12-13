@@ -1652,7 +1652,7 @@
 		};
 		reserved_plane1: qcom,sde-reserved-plane@1 {
 			reg = <0x1>;
-			qcom,plane-name = "rgb3";
+			qcom,plane-name = "vig3";
 			lm-stage = <5>;
 		};
 	};
