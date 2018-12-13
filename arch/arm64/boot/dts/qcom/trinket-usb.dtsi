@@ -138,7 +138,7 @@
 			"tcsr_clamp_dig_n_1p8",
 			"tune2_efuse_addr";
 
-		vdd-supply = <&pm6125_l4>;
+		vdd-supply = <&pm6125_l7>;
 		vdda18-supply = <&pm6125_l10>;
 		vdda33-supply = <&pm6125_l15>;
 		qcom,vdd-voltage-level = <0 925000 970000>;
@@ -173,7 +173,7 @@
 		reg = <0x01615000 0x1000>;
 		reg-names = "qmp_phy_base";
 
-		vdd-supply = <&pm6125_l4>;
+		vdd-supply = <&pm6125_l7>;
 		core-supply = <&pm6125_l10>;
 		qcom,vdd-voltage-level = <0 925000 970000>;
 		qcom,core-voltage-level = <0 1800000 1800000>;
