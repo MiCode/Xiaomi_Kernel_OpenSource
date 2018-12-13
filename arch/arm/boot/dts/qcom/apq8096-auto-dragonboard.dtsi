@@ -729,7 +729,19 @@
 				<&dai_quat_tdm_rx_1>, <&dai_quat_tdm_rx_2>,
 				<&dai_quat_tdm_rx_3>, <&dai_quat_tdm_tx_0>,
 				<&dai_quat_tdm_tx_1>, <&dai_quat_tdm_tx_2>,
-				<&dai_quat_tdm_tx_3>;
+				<&dai_quat_tdm_tx_3>, <&dai_sec_mi2s_rx_1>,
+				<&dai_sec_mi2s_rx_2>, <&dai_sec_mi2s_rx_3>,
+				<&dai_sec_mi2s_rx_4>, <&dai_sec_mi2s_tx_1>,
+				<&dai_sec_mi2s_tx_2>, <&dai_sec_mi2s_tx_3>,
+				<&dai_sec_mi2s_tx_4>, <&dai_tert_mi2s_rx_1>,
+				<&dai_tert_mi2s_rx_2>, <&dai_tert_mi2s_rx_3>,
+				<&dai_tert_mi2s_rx_4>, <&dai_tert_mi2s_tx_1>,
+				<&dai_tert_mi2s_tx_2>, <&dai_tert_mi2s_tx_3>,
+				<&dai_tert_mi2s_tx_4>, <&dai_quat_mi2s_rx_1>,
+				<&dai_quat_mi2s_rx_2>, <&dai_quat_mi2s_rx_3>,
+				<&dai_quat_mi2s_rx_4>, <&dai_quat_mi2s_tx_1>,
+				<&dai_quat_mi2s_tx_2>, <&dai_quat_mi2s_tx_3>,
+				<&dai_quat_mi2s_tx_4>;
 		asoc-cpu-names = "msm-dai-q6-auxpcm.1", "msm-dai-q6-auxpcm.2",
 				"msm-dai-q6-hdmi.8", "msm-dai-q6-mi2s.1",
 				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
@@ -753,7 +765,19 @@
 				"msm-dai-q6-tdm.36914", "msm-dai-q6-tdm.36916",
 				"msm-dai-q6-tdm.36918", "msm-dai-q6-tdm.36913",
 				"msm-dai-q6-tdm.36915", "msm-dai-q6-tdm.36917",
-				"msm-dai-q6-tdm.36919";
+				"msm-dai-q6-tdm.36919", "msm-dai-q6-mi2s.4160",
+				"msm-dai-q6-mi2s.4162", "msm-dai-q6-mi2s.4164",
+				"msm-dai-q6-mi2s.4174", "msm-dai-q6-mi2s.4161",
+				"msm-dai-q6-mi2s.4163", "msm-dai-q6-mi2s.4165",
+				"msm-dai-q6-mi2s.4175", "msm-dai-q6-mi2s.4168",
+				"msm-dai-q6-mi2s.4170", "msm-dai-q6-mi2s.4172",
+				"msm-dai-q6-mi2s.4176", "msm-dai-q6-mi2s.4169",
+				"msm-dai-q6-mi2s.4171", "msm-dai-q6-mi2s.4173",
+				"msm-dai-q6-mi2s.4177", "msm-dai-q6-mi2s.4128",
+				"msm-dai-q6-mi2s.4130", "msm-dai-q6-mi2s.4132",
+				"msm-dai-q6-mi2s.4134", "msm-dai-q6-mi2s.4129",
+				"msm-dai-q6-mi2s.4131", "msm-dai-q6-mi2s.4133",
+				"msm-dai-q6-mi2s.4135";
 		asoc-codec = <&stub_codec>;
 		asoc-codec-names = "msm-stub-codec.1";
 	};
