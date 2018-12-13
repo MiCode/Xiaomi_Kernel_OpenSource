@@ -1998,6 +1998,8 @@ static int __interface_queues_init(struct venus_hfi_device *dev)
 		dev->sfr.align_virtual_addr = mem_addr->align_virtual_addr;
 		dev->sfr.mem_size = ALIGNED_SFR_SIZE;
 		dev->sfr.mem_data = mem_addr->mem_data;
+		vsfr = (struct hfi_sfr_struct *) dev->sfr.align_virtual_addr;
+		vsfr->bufSize = ALIGNED_SFR_SIZE;
 	}
 
 	q_tbl_hdr = (struct hfi_queue_table_header *)
@@ -2057,8 +2059,6 @@ static int __interface_queues_init(struct venus_hfi_device *dev)
 		}
 	}
 
-	vsfr = (struct hfi_sfr_struct *) dev->sfr.align_virtual_addr;
-	vsfr->bufSize = ALIGNED_SFR_SIZE;
 
 	if (dev->res->domain_cvp) {
 		rc = __interface_dsp_queues_init(dev);
