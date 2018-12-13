@@ -1168,6 +1168,10 @@ static int geni_se_iommu_map_and_attach(struct geni_se_device *geni_se_dev)
 	int bypass = 1;
 	struct device *cb_dev = geni_se_dev->cb_dev;
 
+	/*Don't proceed if IOMMU node is disabled*/
+	if (!iommu_present(&platform_bus_type))
+		return 0;
+
 	mutex_lock(&geni_se_dev->iommu_lock);
 	if (likely(geni_se_dev->iommu_map)) {
 		mutex_unlock(&geni_se_dev->iommu_lock);
