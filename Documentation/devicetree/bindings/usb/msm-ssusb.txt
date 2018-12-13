@@ -46,6 +46,8 @@ Optional properties :
 - vbus_dwc3-supply: phandle to the 5V VBUS supply regulator used for host mode.
 - USB3_GDSC-supply : phandle to the globally distributed switch controller
   regulator node to the USB controller.
+- dpdm-supply: phandle to dpdm supply which will be used to drive dp/dm lines
+  in high-z state.
 - qcom,dwc-usb3-msm-tx-fifo-size: If present, represents RAM size available for
 		TX fifo allocation in bytes
 - qcom,lpm-to-suspend-delay-ms: Indicates timeout (in milliseconds) to release wakeup source
