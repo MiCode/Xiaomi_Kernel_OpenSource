@@ -476,6 +476,10 @@ struct smb_charger {
 	bool			uusb_moisture_protection_enabled;
 	int			charge_full_cc;
 	int			cc_soc_ref;
+	bool			hw_die_temp_mitigation;
+	bool			hw_connector_mitigation;
+	bool			hw_skin_temp_mitigation;
+	int			connector_pull_up;
 
 	/* workaround flag */
 	u32			wa_flags;
