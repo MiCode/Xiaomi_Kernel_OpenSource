@@ -68,6 +68,7 @@
 
 &usb {
 	/delete-property/ iommus;
+	/delete-property/ extcon;
 	dwc3@a600000 {
 		usb-phy = <&usb_emu_phy>, <&usb_nop_phy>;
 		maximum-speed = "high-speed";
