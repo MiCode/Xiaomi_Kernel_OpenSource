@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,10 +12,28 @@
  */
 
 &soc {
-	led_flash_rear: qcom,camera-flash@0 {
+	ir_led: qcom,camera-ir-led@0 {
 		cell-index = <0>;
-		reg = <0x00 0x00>;
-		compatible = "qcom,camera-flash";
+		reg = <0x00>;
+		compatible = "qcom,camera-ir-led";
+		enable-active-high;
+
+		gpio-no-mux = <0>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&cam_sensor_ir_led_on>;
+		pinctrl-1 = <&cam_sensor_ir_led_off>;
+		gpios = <&tlmm 22 0>,
+			<&tlmm 141 0>,
+			<&tlmm 142 0>,
+			<&tlmm 107 0>,
+			<&tlmm 110 0>;
+		gpio-req-tbl-num = <0 1 2 3 4>;
+		gpio-req-tbl-flags = <0 0 0 0 0>;
+		gpio-req-tbl-label = "CAM_IR_LED",
+					"CAM_IR_LED_CUR0",
+					"CAM_IR_LED_CUR1",
+					"CAM_IR_CUT1",
+					"CAM_IR_CUT2";
 		status = "ok";
 	};
 };
@@ -34,7 +52,7 @@
 		sensor-position-roll = <270>;
 		sensor-position-pitch = <0>;
 		sensor-position-yaw = <180>;
-		led-flash-src = <&led_flash_rear>;
+		ir-led-src = <&ir_led>;
 		cam_vio-supply = <&pm660_l11>;
 		cam_vana-supply = <&pm660_l15>;
 		cam_vdig-supply = <&pm660_l5>;

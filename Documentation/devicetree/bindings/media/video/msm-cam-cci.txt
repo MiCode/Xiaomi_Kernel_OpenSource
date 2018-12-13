@@ -711,6 +711,59 @@ OIS MODULE
   Definition: This property is required if the clk is shared clk between different
 	sensor and ois, if this device need to be opened together.
 
+=============================
+IRLED MODULE
+=============================
+
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: Should be "qcom,camera-ir-led".
+
+- cell-index: cci hardware core index
+  Usage: required
+  Value type: <u32>
+  Definition: Should specify the Hardware index id.
+
+- reg
+  Usage: required
+  Value type: <u32>
+  Definition: offset and length of the register set
+	for the device for the cci operating in
+	compatible mode.
+
+- pinctrl-names
+  Usage: required
+  Value type: <string>
+  Definition: List of names to assign the shared pin state defined in pinctrl device node
+
+- pinctrl-<0..n>
+  Usage: required
+  Value type: <phandle>
+  Definition: Lists phandles each pointing to the pin configuration node within a pin
+
+- gpios
+  Usage: required
+  Value type: <phandle>
+  Definition: should contain phandle to gpio controller node and array of
+	#gpio-cells specifying specific gpio (controller specific)
+
+- gpio-req-tbl-num
+  Usage: required
+  Value type: <u32>
+  Definition: should specify the gpio table index.
+
+- gpio-req-tbl-flags
+  Usage: required
+  Value type: <u32>
+  Definition: should specify the gpio functions.
+
+- gpio-req-tbl-label
+  Usage: required
+  Value type: <string>
+  Definition: should specify the gpio labels in
+	gpio-req-tbl-num property (in the same order)
+
 Example:
 &soc {
     led_flash0: qcom,camera-flash@0 {
@@ -721,6 +774,32 @@ Example:
          switch-source = <&pmi8998_switch>;
          status = "ok";
     };
+
+    ir_led: qcom,camera-ir-led@0 {
+        cell-index = <0>;
+        reg = <0x00>;
+        compatible = "qcom,camera-ir-led";
+        enable-active-high;
+
+        gpio-no-mux = <0>;
+        pinctrl-names = "cam_default", "cam_suspend";
+        pinctrl-0 = <&cam_sensor_ir_led_on>;
+        pinctrl-1 = <&cam_sensor_ir_led_off>;
+        gpios = <&tlmm 22 0>,
+                <&tlmm 141 0>,
+                <&tlmm 142 0>,
+                <&tlmm 107 0>,
+                <&tlmm 110 0>;
+        gpio-req-tbl-num = <0 1 2 3 4>;
+        gpio-req-tbl-flags = <0 0 0 0 0>;
+        gpio-req-tbl-label = "CAM_IR_LED",
+                             "CAM_IR_LED_CUR0",
+                             "CAM_IR_LED_CUR1",
+                             "CAM_IR_CUT1",
+                             "CAM_IR_CUT2";
+        status = "ok";
+    };
+
 };
 
 &cam_cci0 {
