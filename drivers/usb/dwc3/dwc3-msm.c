@@ -37,6 +37,7 @@
 #include <linux/usb/gadget.h>
 #include <linux/usb/of.h>
 #include <linux/regulator/consumer.h>
+#include <linux/regulator/driver.h>
 #include <linux/pm_wakeup.h>
 #include <linux/power_supply.h>
 #include <linux/cdev.h>
@@ -320,6 +321,10 @@ struct dwc3_msm {
 	enum usb_device_speed override_usb_speed;
 	u32			*gsi_reg;
 	int			gsi_reg_offset_cnt;
+
+	struct notifier_block	dpdm_nb;
+	struct regulator	*dpdm_reg;
+
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -2777,6 +2782,17 @@ static void dwc3_resume_work(struct work_struct *w)
 	}
 
 	/*
+	 * Skip scheduling sm work if no work is pending. When boot-up
+	 * with USB cable connected, usb state m/c is skipped to avoid
+	 * any changes to dp/dm lines. As PM supsend and resume can
+	 * happen while charger is connected, scheduling sm work during
+	 * pm resume will reset the controller and phy which might impact
+	 * dp/dm lines (and charging voltage).
+	 */
+	if (mdwc->drd_state == DRD_STATE_UNDEFINED &&
+		!edev && !mdwc->resume_pending)
+		return;
+	/*
 	 * exit LPM first to meet resume timeline from device side.
 	 * resume_pending flag would prevent calling
 	 * dwc3_msm_resume() in case we are here due to system
@@ -3389,6 +3405,29 @@ static ssize_t bus_vote_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(bus_vote);
 
+static int dwc_dpdm_cb(struct notifier_block *nb, unsigned long evt, void *p)
+{
+	struct dwc3_msm *mdwc = container_of(nb, struct dwc3_msm, dpdm_nb);
+
+	switch (evt) {
+	case REGULATOR_EVENT_ENABLE:
+		dev_dbg(mdwc->dev, "%s: enable state:%s\n", __func__,
+				dwc3_drd_state_string(mdwc->drd_state));
+		break;
+	case REGULATOR_EVENT_DISABLE:
+		dev_dbg(mdwc->dev, "%s: disable state:%s\n", __func__,
+				dwc3_drd_state_string(mdwc->drd_state));
+		if (mdwc->drd_state == DRD_STATE_UNDEFINED)
+			schedule_delayed_work(&mdwc->sm_work, 0);
+		break;
+	default:
+		dev_dbg(mdwc->dev, "%s: unknown event state:%s\n", __func__,
+				dwc3_drd_state_string(mdwc->drd_state));
+		break;
+	}
+
+	return NOTIFY_OK;
+}
 static int dwc3_msm_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node, *dwc3_node;
@@ -3696,6 +3735,29 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		ret = dwc3_msm_extcon_register(mdwc);
 		if (ret)
 			goto put_dwc3;
+
+		/*
+		 * dpdm regulator will be turned on to perform apsd
+		 * (automatic power source detection). dpdm regulator is
+		 * used to float (or high-z) dp/dm lines. Do not reset
+		 * controller/phy if regulator is turned on.
+		 * if dpdm is not present controller can be reset
+		 * as this controller may not be used for charger detection.
+		 */
+		mdwc->dpdm_reg = devm_regulator_get(&pdev->dev, "dpdm");
+		if (IS_ERR(mdwc->dpdm_reg)) {
+			dev_dbg(mdwc->dev, "assume cable is not connected\n");
+			mdwc->dpdm_reg = NULL;
+		}
+
+		if (!mdwc->vbus_active && mdwc->dpdm_reg &&
+				regulator_is_enabled(mdwc->dpdm_reg)) {
+			mdwc->dpdm_nb.notifier_call = dwc_dpdm_cb;
+			regulator_register_notifier(mdwc->dpdm_reg,
+					&mdwc->dpdm_nb);
+		} else {
+			queue_delayed_work(mdwc->sm_usb_wq, &mdwc->sm_work, 0);
+		}
 	} else {
 		if ((dwc->dr_mode == USB_DR_MODE_OTG &&
 		     !of_property_read_bool(node, "qcom,default-mode-host")) ||
@@ -3743,6 +3805,12 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	int ret_pm;
 
 	device_remove_file(&pdev->dev, &dev_attr_mode);
+
+	if (mdwc->dpdm_nb.notifier_call) {
+		regulator_unregister_notifier(mdwc->dpdm_reg, &mdwc->dpdm_nb);
+		mdwc->dpdm_nb.notifier_call = NULL;
+	}
+
 	if (mdwc->usb_psy)
 		power_supply_put(mdwc->usb_psy);
 
@@ -4299,6 +4367,12 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 	/* Check OTG state */
 	switch (mdwc->drd_state) {
 	case DRD_STATE_UNDEFINED:
+		if (mdwc->dpdm_nb.notifier_call) {
+			regulator_unregister_notifier(mdwc->dpdm_reg,
+					&mdwc->dpdm_nb);
+			mdwc->dpdm_nb.notifier_call = NULL;
+		}
+
 		/* put controller and phy in suspend if no cable connected */
 		if (test_bit(ID, &mdwc->inputs) &&
 				!test_bit(B_SESS_VLD, &mdwc->inputs)) {
