@@ -940,8 +940,6 @@ static void mhi_dev_process_cmd_ring(struct mhi_dev *mhi,
 	struct mhi_addr host_addr;
 	struct mhi_dev_channel *ch;
 	struct mhi_dev_ring *ring;
-	char *connected[2] = { "MHI_CHANNEL_STATE_12=CONNECTED", NULL};
-	char *disconnected[2] = { "MHI_CHANNEL_STATE_12=DISCONNECTED", NULL};
 
 	ch_id = el->generic.chid;
 	mhi_log(MHI_MSG_VERBOSE, "for channel:%d and cmd:%d\n",
@@ -1027,9 +1025,7 @@ send_start_completion_event:
 		mhi_update_state_info(ch_id, MHI_STATE_CONNECTED);
 		/* Trigger callback to clients */
 		mhi_dev_trigger_cb(ch_id);
-		if (ch_id == MHI_CLIENT_MBIM_OUT)
-			kobject_uevent_env(&mhi_ctx->dev->kobj,
-						KOBJ_CHANGE, connected);
+		mhi_uci_chan_state_notify(mhi, ch_id, MHI_STATE_CONNECTED);
 		break;
 	case MHI_DEV_RING_EL_STOP:
 		if (ch_id >= HW_CHANNEL_BASE) {
@@ -1083,9 +1079,10 @@ send_start_completion_event:
 
 			mutex_unlock(&ch->ch_lock);
 			mhi_update_state_info(ch_id, MHI_STATE_DISCONNECTED);
-			if (ch_id == MHI_CLIENT_MBIM_OUT)
-				kobject_uevent_env(&mhi_ctx->dev->kobj,
-						KOBJ_CHANGE, disconnected);
+			/* Trigger callback to clients */
+			mhi_dev_trigger_cb(ch_id);
+			mhi_uci_chan_state_notify(mhi, ch_id,
+					MHI_STATE_DISCONNECTED);
 		}
 		break;
 	case MHI_DEV_RING_EL_RESET:
@@ -1159,9 +1156,9 @@ send_start_completion_event:
 				pr_err("Error sending command completion event\n");
 			mutex_unlock(&ch->ch_lock);
 			mhi_update_state_info(ch_id, MHI_STATE_DISCONNECTED);
-			if (ch_id == MHI_CLIENT_MBIM_OUT)
-				kobject_uevent_env(&mhi_ctx->dev->kobj,
-						KOBJ_CHANGE, disconnected);
+			mhi_dev_trigger_cb(ch_id);
+			mhi_uci_chan_state_notify(mhi, ch_id,
+					MHI_STATE_DISCONNECTED);
 		}
 		break;
 	default:
@@ -1324,13 +1321,25 @@ static void mhi_dev_check_channel_interrupt(struct mhi_dev *mhi)
 	}
 }
 
+static void mhi_update_state_info_all(enum mhi_ctrl_info info)
+{
+	int i;
+	struct mhi_dev_client_cb_reason reason;
+
+	mhi_ctx->ctrl_info = info;
+	for (i = 0; i < MHI_MAX_CHANNELS; ++i)
+		channel_state_info[i].ctrl_info = info;
+
+	/* For legacy reasons for QTI client */
+	reason.reason = MHI_DEV_CTRL_UPDATE;
+	uci_ctrl_update(&reason);
+}
+
 static int mhi_dev_abort(struct mhi_dev *mhi)
 {
 	struct mhi_dev_channel *ch;
 	struct mhi_dev_ring *ring;
 	int ch_id = 0, rc = 0;
-	char *disconnected_12[2] = { "MHI_CHANNEL_STATE_12=DISCONNECTED", NULL};
-	char *disconnected_14[2] = { "MHI_CHANNEL_STATE_14=DISCONNECTED", NULL};
 
 	/* Hard stop all the channels */
 	for (ch_id = 0; ch_id < mhi->cfg.channels; ch_id++) {
@@ -1344,19 +1353,9 @@ static int mhi_dev_abort(struct mhi_dev *mhi)
 		mutex_unlock(&ch->ch_lock);
 	}
 
-	/* Update ctrl node */
-	mhi_update_state_info(MHI_DEV_UEVENT_CTRL, MHI_STATE_DISCONNECTED);
-	mhi_update_state_info(MHI_CLIENT_MBIM_OUT, MHI_STATE_DISCONNECTED);
-	mhi_update_state_info(MHI_CLIENT_QMI_OUT, MHI_STATE_DISCONNECTED);
-	rc = kobject_uevent_env(&mhi_ctx->dev->kobj,
-				KOBJ_CHANGE, disconnected_12);
-	if (rc)
-		pr_err("Error sending uevent:%d\n", rc);
-
-	rc = kobject_uevent_env(&mhi_ctx->dev->kobj,
-				KOBJ_CHANGE, disconnected_14);
-	if (rc)
-		pr_err("Error sending uevent:%d\n", rc);
+	/* Update channel state and notify clients */
+	mhi_update_state_info_all(MHI_STATE_DISCONNECTED);
+	mhi_uci_chan_state_notify_all(mhi, MHI_STATE_DISCONNECTED);
 
 	flush_workqueue(mhi->ring_init_wq);
 	flush_workqueue(mhi->pending_ring_wq);

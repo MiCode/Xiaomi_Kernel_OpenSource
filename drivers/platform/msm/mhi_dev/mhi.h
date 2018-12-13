@@ -1092,5 +1092,17 @@ int mhi_dev_net_interface_init(void);
 void mhi_dev_notify_a7_event(struct mhi_dev *mhi);
 
 void uci_ctrl_update(struct mhi_dev_client_cb_reason *reason);
+/**
+ * mhi_uci_chan_state_notify_all - Notifies channel state updates for
+ *				all clients who have uevents enabled.
+ */
+void mhi_uci_chan_state_notify_all(struct mhi_dev *mhi,
+		enum mhi_ctrl_info ch_state);
+/**
+ * mhi_uci_chan_state_notify - Notifies channel state update to the client
+ *				if uevents are enabled.
+ */
+void mhi_uci_chan_state_notify(struct mhi_dev *mhi,
+		enum mhi_client_channel ch_id, enum mhi_ctrl_info ch_state);
 
 #endif /* _MHI_H */
