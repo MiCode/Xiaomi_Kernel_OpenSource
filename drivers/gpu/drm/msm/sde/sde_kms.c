@@ -1056,13 +1056,11 @@ static void _sde_kms_release_splash_resource(struct sde_kms *sde_kms,
 	enum sde_sspp plane_id;
 	bool is_virtual;
 	int i;
-	struct sde_crtc *sde_crtc = NULL;
 
 	if (!sde_kms || !crtc)
 		return;
 
 	priv = sde_kms->dev->dev_private;
-	sde_crtc = to_sde_crtc(crtc);
 
 	SDE_EVT32(crtc->base.id, crtc->state->active,
 			sde_kms->splash_data.num_splash_displays);
@@ -1089,19 +1087,6 @@ static void _sde_kms_release_splash_resource(struct sde_kms *sde_kms,
 			plane_id = sde_plane_pipe(plane);
 			is_virtual = is_sde_plane_virtual(plane);
 
-			/* If the pipes used for splash is same as the pipes
-			 * used for next commit, update the plane mask so
-			 * that the same pipes can be staged for the next
-			 * commit.
-			 */
-			if (sde_crtc &&
-				(plane_id == splash_display->pipes[i].sspp) &&
-					(splash_display->pipes[i].is_virtual ==
-						is_virtual)) {
-				sde_crtc->plane_mask_old |=
-					(1 << drm_plane_index(plane));
-			}
-
 			if ((plane_id != splash_display->pipes[i].sspp) ||
 				(splash_display->pipes[i].is_virtual !=
 					 is_virtual) || (plane->state->fb))
@@ -1114,9 +1099,6 @@ static void _sde_kms_release_splash_resource(struct sde_kms *sde_kms,
 			break;
 		}
 	}
-
-	if (sde_crtc && !crtc->state->plane_mask)
-		crtc->state->plane_mask = sde_crtc->plane_mask_old;
 
 	_sde_kms_splash_mem_put(sde_kms, splash_display->splash);
 
