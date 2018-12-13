@@ -301,6 +301,7 @@ static void qcom_usb_qrtr_disconnect(struct usb_interface *interface)
 static const struct usb_device_id qcom_usb_qrtr_ids[] = {
 	{ USB_DEVICE_INTERFACE_NUMBER(QRTR_VENDOR_ID, 0x90ef, 3) },
 	{ USB_DEVICE_INTERFACE_NUMBER(QRTR_VENDOR_ID, 0x90f0, 3) },
+	{ USB_DEVICE_INTERFACE_NUMBER(QRTR_VENDOR_ID, 0x90f3, 2) },
 	{ } /* Terminating entry */
 };
 MODULE_DEVICE_TABLE(usb, qcom_usb_qrtr_ids);
