@@ -2758,4 +2758,13 @@ void ipa_save_registers(void);
 static inline int ipa_reg_save_init(uint8_t value) { return 0; }
 static inline void ipa_save_registers(void) {};
 #endif
+
+#ifdef CONFIG_IPA_ETH
+int ipa_eth_init(void);
+void ipa_eth_exit(void);
+#else
+static inline int ipa_eth_init(void) { return 0; }
+static inline void ipa_eth_exit(void) { }
+#endif // CONFIG_IPA_ETH
+
 #endif /* _IPA3_I_H_ */

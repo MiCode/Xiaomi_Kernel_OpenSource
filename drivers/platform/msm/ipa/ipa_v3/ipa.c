@@ -5760,6 +5760,13 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_ipa_dma_setup;
 	}
 
+	result = ipa_eth_init();
+	if (result) {
+		IPAERR("Failed to initialize Ethernet Offload Subsystem\n");
+		result = -ENODEV;
+		goto fail_eth_init;
+	}
+
 	/*
 	 * We can't register the GSI driver yet, as it expects
 	 * the GSI FW to be up and running before the registration.
@@ -5814,6 +5821,8 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	return 0;
 fail_cdev_add:
 fail_gsi_pre_fw_load_init:
+	ipa_eth_exit();
+fail_eth_init:
 	ipa3_dma_shutdown();
 fail_ipa_dma_setup:
 	if (ipa3_ctx->use_ipa_pm)
