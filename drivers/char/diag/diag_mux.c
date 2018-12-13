@@ -127,7 +127,7 @@ int diag_pcie_register_ops(int proc, int ctx, struct diag_mux_ops *ops)
 	pcie_logger.ops[proc] = ops;
 	err = diag_pcie_register(proc, ctx, ops);
 	if (err) {
-		driver->transport_set == DIAG_ROUTE_TO_USB;
+		driver->transport_set = DIAG_ROUTE_TO_USB;
 		diag_mux->logger = &usb_logger;
 		diag_mux->mode = DIAG_USB_MODE;
 		usb_logger.ops[proc] = ops;
