@@ -252,9 +252,11 @@ enum ipa_ver {
 	IPA_4_0,
 	IPA_4_0_MHI,
 	IPA_4_1,
+	IPA_4_1_APQ,
 	IPA_4_2,
 	IPA_4_5,
 	IPA_4_5_MHI,
+	IPA_4_5_APQ,
 	IPA_VER_MAX,
 };
 
@@ -3046,10 +3048,6 @@ static u8 ipa3_get_hw_type_index(void)
 		break;
 	case IPA_HW_v3_5:
 		hw_type_index = IPA_3_5;
-		/*
-		 *this flag is initialized only after fw load trigger from
-		 * user space (ipa3_write)
-		 */
 		if (ipa3_ctx->ipa_config_is_mhi)
 			hw_type_index = IPA_3_5_MHI;
 		break;
@@ -3058,15 +3056,13 @@ static u8 ipa3_get_hw_type_index(void)
 		break;
 	case IPA_HW_v4_0:
 		hw_type_index = IPA_4_0;
-		/*
-		 *this flag is initialized only after fw load trigger from
-		 * user space (ipa3_write)
-		 */
 		if (ipa3_ctx->ipa_config_is_mhi)
 			hw_type_index = IPA_4_0_MHI;
 		break;
 	case IPA_HW_v4_1:
 		hw_type_index = IPA_4_1;
+		if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ)
+			hw_type_index = IPA_4_1_APQ;
 		break;
 	case IPA_HW_v4_2:
 		hw_type_index = IPA_4_2;
@@ -3075,6 +3071,8 @@ static u8 ipa3_get_hw_type_index(void)
 		hw_type_index = IPA_4_5;
 		if (ipa3_ctx->ipa_config_is_mhi)
 			hw_type_index = IPA_4_5_MHI;
+		if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ)
+			hw_type_index = IPA_4_5_APQ;
 		break;
 	default:
 		IPAERR("Incorrect IPA version %d\n", ipa3_ctx->ipa_hw_type);
