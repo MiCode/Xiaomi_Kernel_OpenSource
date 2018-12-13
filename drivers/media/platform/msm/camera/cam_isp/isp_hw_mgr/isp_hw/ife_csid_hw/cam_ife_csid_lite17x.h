@@ -286,6 +286,7 @@ static const struct cam_ife_csid_common_reg_offset
 	.version_incr                                 = 0,
 	.num_rdis                                     = 4,
 	.num_pix                                      = 0,
+	.csid_reg_rst_stb                             = 1,
 	.csid_rst_stb                                 = 0x1e,
 	.csid_rst_stb_sw_all                          = 0x1f,
 	.path_rst_stb_all                             = 0x7f,
