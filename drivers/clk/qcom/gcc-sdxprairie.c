@@ -27,7 +27,7 @@
 #include "clk-branch.h"
 #include "reset.h"
 #include "clk-alpha-pll.h"
-#include "vdd-level.h"
+#include "vdd-level-sdxprairie.h"
 
 #define F(f, s, h, m, n) { (f), (s), (2 * (h) - 1), (m), (n) }
 
@@ -1366,7 +1366,7 @@ static struct clk_branch gcc_gp3_clk = {
 
 static struct clk_branch gcc_pcie_0_clkref_clk = {
 	.halt_reg = 0x88004,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
 		.enable_reg = 0x88004,
 		.enable_mask = BIT(0),
@@ -1696,7 +1696,7 @@ static struct clk_branch gcc_usb3_phy_pipe_clk = {
 
 static struct clk_branch gcc_usb3_prim_clkref_clk = {
 	.halt_reg = 0x88000,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
 		.enable_reg = 0x88000,
 		.enable_mask = BIT(0),
