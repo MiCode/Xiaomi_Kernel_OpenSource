@@ -21,6 +21,7 @@
 #include <linux/of.h>
 #include <linux/coresight.h>
 #include <linux/regulator/consumer.h>
+#include <soc/qcom/scm.h>
 
 #include "coresight-priv.h"
 
@@ -137,6 +138,8 @@ do {									\
 
 #define TPDM_REVISION_A		0
 #define TPDM_REVISION_B		1
+
+#define HW_ENABLE_CHECK_VALUE   0x10
 
 enum tpdm_dataset {
 	TPDM_DS_IMPLDEF,
@@ -4352,11 +4355,21 @@ static int tpdm_probe(struct amba_device *adev, const struct amba_id *id)
 	static int traceid = TPDM_TRACE_ID_START;
 	uint32_t version;
 	const char *tclk_name, *treg_name;
+	struct scm_desc des = {0};
+	u32 scm_ret = 0;
 
 	pdata = of_get_coresight_platform_data(dev, adev->dev.of_node);
 	if (IS_ERR(pdata))
 		return PTR_ERR(pdata);
 	adev->dev.platform_data = pdata;
+
+	if (of_property_read_bool(adev->dev.of_node, "qcom,hw-enable-check")) {
+		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_UTIL,
+				HW_ENABLE_CHECK_VALUE),	&des);
+		scm_ret = des.ret[0];
+		if (scm_ret == 0)
+			return -ENXIO;
+	}
 
 	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
 	if (!drvdata)
