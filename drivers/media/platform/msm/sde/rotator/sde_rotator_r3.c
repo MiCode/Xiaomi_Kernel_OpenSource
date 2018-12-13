@@ -1488,7 +1488,7 @@ static void sde_hw_rotator_setup_fetchengine(struct sde_hw_rotator_context *ctx,
 			((rot->highest_bank & 0x3) << 18));
 
 	if (test_bit(SDE_CAPS_UBWC_2, mdata->sde_caps_map))
-		SDE_REGDMA_WRITE(wrptr, ROT_SSPP_UBWC_STATIC_CTRL, BIT(31) |
+		SDE_REGDMA_WRITE(wrptr, ROT_SSPP_UBWC_STATIC_CTRL,
 				((ctx->rot->ubwc_malsize & 0x3) << 8) |
 				((ctx->rot->highest_bank & 0x3) << 4) |
 				((ctx->rot->ubwc_swizzle & 0x1) << 0));
