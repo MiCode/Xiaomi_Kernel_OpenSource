@@ -2763,7 +2763,7 @@ static int cam_vfe_bus_ver3_init_hw(void *hw_priv,
 		NULL,
 		NULL);
 
-	if (bus_priv->irq_handle <= 0) {
+	if ((int)bus_priv->irq_handle <= 0) {
 		CAM_ERR(CAM_ISP, "Failed to subscribe BUS IRQ");
 		return -EFAULT;
 	}
@@ -2779,7 +2779,7 @@ static int cam_vfe_bus_ver3_init_hw(void *hw_priv,
 			bus_priv->tasklet_info,
 			&tasklet_bh_api);
 
-		if (bus_priv->error_irq_handle <= 0) {
+		if ((int)bus_priv->error_irq_handle <= 0) {
 			CAM_ERR(CAM_ISP, "Failed to subscribe BUS Error IRQ");
 			return -EFAULT;
 		}
