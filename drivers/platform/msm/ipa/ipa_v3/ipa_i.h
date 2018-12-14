@@ -779,9 +779,8 @@ struct ipa3_ep_context {
 	unsigned long gsi_evt_ring_hdl;
 	struct ipa_gsi_ep_mem_info gsi_mem_info;
 	union __packed gsi_channel_scratch chan_scratch;
-	bool bytes_xfered_valid;
-	u16 bytes_xfered;
-	dma_addr_t phys_base;
+	struct gsi_chan_xfer_notify xfer_notify;
+	bool xfer_notify_valid;
 	struct ipa_ep_cfg cfg;
 	struct ipa_ep_cfg_holb holb;
 	struct ipahal_reg_ep_cfg_status status;
@@ -889,6 +888,7 @@ struct ipa3_sys_context {
 	struct ipa3_repl_ctx *repl;
 	u32 pkt_sent;
 	struct napi_struct *napi_obj;
+	struct list_head pending_pkts[GSI_VEID_MAX];
 
 	/* ordering is important - mutable fields go above */
 	struct ipa3_ep_context *ep;
