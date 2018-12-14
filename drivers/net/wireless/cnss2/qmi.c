@@ -21,7 +21,6 @@
 
 #define WLFW_SERVICE_INS_ID_V01		1
 #define WLFW_CLIENT_ID			0x4b4e454c
-#define MAX_BDF_FILE_NAME		13
 #define ELF_BDF_FILE_NAME		"bdwlan.elf"
 #define ELF_BDF_FILE_NAME_PREFIX	"bdwlan.e"
 #define BIN_BDF_FILE_NAME		"bdwlan.bin"
@@ -410,11 +409,12 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv)
 	struct wlfw_bdf_download_req_msg_v01 *req;
 	struct wlfw_bdf_download_resp_msg_v01 *resp;
 	struct qmi_txn txn;
-	char filename[MAX_BDF_FILE_NAME];
+	char filename[CNSS_FW_PATH_MAX_LEN];
 	const struct firmware *fw_entry;
 	const u8 *temp;
 	unsigned int remaining;
 	int ret = 0;
+	const char *fw_path;
 
 	cnss_pr_dbg("Sending BDF download message, state: 0x%lx\n",
 		    plat_priv->driver_state);
@@ -429,36 +429,40 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv)
 		return -ENOMEM;
 	}
 
+	fw_path = cnss_get_fw_path(plat_priv);
 	switch (plat_priv->ctrl_params.bdf_type) {
 	case CNSS_BDF_ELF:
 		if (plat_priv->board_info.board_id == 0xFF)
-			snprintf(filename, sizeof(filename), ELF_BDF_FILE_NAME);
+			snprintf(filename, sizeof(filename),
+				 "%s" ELF_BDF_FILE_NAME, fw_path);
 		else if (plat_priv->board_info.board_id < 0xFF)
 			snprintf(filename, sizeof(filename),
-				 ELF_BDF_FILE_NAME_PREFIX "%02x",
-				 plat_priv->board_info.board_id);
+				 "%s" ELF_BDF_FILE_NAME_PREFIX "%02x",
+				 fw_path, plat_priv->board_info.board_id);
 		else
 			snprintf(filename, sizeof(filename),
-				 ELF_BDF_FILE_NAME_PREFIX "%04x",
-				 plat_priv->board_info.board_id);
+				 "%s" ELF_BDF_FILE_NAME_PREFIX "%04x",
+				 fw_path, plat_priv->board_info.board_id);
 		break;
 	case CNSS_BDF_BIN:
 		if (plat_priv->board_info.board_id == 0xFF)
-			snprintf(filename, sizeof(filename), BIN_BDF_FILE_NAME);
+			snprintf(filename, sizeof(filename),
+				 "%s" BIN_BDF_FILE_NAME, fw_path);
 		else if (plat_priv->board_info.board_id < 0xFF)
 			snprintf(filename, sizeof(filename),
-				 BIN_BDF_FILE_NAME_PREFIX "%02x",
-				 plat_priv->board_info.board_id);
+				 "%s" BIN_BDF_FILE_NAME_PREFIX "%02x",
+				 fw_path, plat_priv->board_info.board_id);
 		else
 			snprintf(filename, sizeof(filename),
-				 BIN_BDF_FILE_NAME_PREFIX "%04x",
-				 plat_priv->board_info.board_id);
+				 "%s" BIN_BDF_FILE_NAME_PREFIX "%04x",
+				 fw_path, plat_priv->board_info.board_id);
 		break;
 	case CNSS_BDF_DUMMY:
 		cnss_pr_dbg("CNSS_BDF_DUMMY is set, sending dummy BDF\n");
-		snprintf(filename, sizeof(filename), DUMMY_BDF_FILE_NAME);
+		snprintf(filename, sizeof(filename),
+			 "%s" DUMMY_BDF_FILE_NAME, fw_path);
 		temp = DUMMY_BDF_FILE_NAME;
-		remaining = MAX_BDF_FILE_NAME;
+		remaining = CNSS_FW_PATH_MAX_LEN;
 		goto bypass_bdf;
 	default:
 		cnss_pr_err("Invalid BDF type: %d\n",
