@@ -514,6 +514,36 @@ static bool msm_vidc_check_for_vp9d_overload(struct msm_vidc_core *core)
 	return false;
 }
 
+int msm_vdec_update_stream_output_mode(struct msm_vidc_inst *inst)
+{
+	u32 format;
+	u32 stream_output_mode;
+	u32 fourcc;
+
+	if (!inst) {
+		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
+		return -EINVAL;
+	}
+
+	format = inst->fmts[CAPTURE_PORT].fourcc;
+	stream_output_mode = HAL_VIDEO_DECODER_PRIMARY;
+	if ((format == V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010_VENUS) ||
+		(format == V4L2_PIX_FMT_NV12)) {
+		stream_output_mode = HAL_VIDEO_DECODER_SECONDARY;
+	}
+
+	msm_comm_set_stream_output_mode(inst,
+		stream_output_mode);
+
+	fourcc = V4L2_PIX_FMT_NV12_UBWC;
+	if (inst->bit_depth == MSM_VIDC_BIT_DEPTH_10)
+		fourcc = V4L2_PIX_FMT_NV12_TP10_UBWC;
+
+	inst->clk_data.dpb_fourcc = fourcc;
+
+	return 0;
+}
+
 int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 {
 	struct msm_vidc_format *fmt = NULL;
@@ -550,6 +580,13 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		memcpy(&inst->fmts[fmt->type], fmt,
 				sizeof(struct msm_vidc_format));
 
+		inst->bit_depth = MSM_VIDC_BIT_DEPTH_8;
+		if ((f->fmt.pix_mp.pixelformat ==
+			V4L2_PIX_FMT_NV12_TP10_UBWC) ||
+			(f->fmt.pix_mp.pixelformat ==
+			V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010_VENUS)) {
+			inst->bit_depth = MSM_VIDC_BIT_DEPTH_10;
+		}
 		inst->prop.width[CAPTURE_PORT] = f->fmt.pix_mp.width;
 		inst->prop.height[CAPTURE_PORT] = f->fmt.pix_mp.height;
 		rc = msm_vidc_check_session_supported(inst);
@@ -577,6 +614,13 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 				f->fmt.pix_mp.plane_fmt[i].sizeimage;
 		}
 
+		rc = msm_vdec_update_stream_output_mode(inst);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"%s: failed to update output stream mode\n",
+				__func__);
+			goto err_invalid_fmt;
+		}
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 
 		fmt = msm_comm_get_pixel_fmt_fourcc(vdec_formats,
@@ -695,9 +739,13 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 	inst->buffer_mode_set[OUTPUT_PORT] = HAL_BUFFER_MODE_STATIC;
 	inst->buffer_mode_set[CAPTURE_PORT] = HAL_BUFFER_MODE_DYNAMIC;
 	inst->stream_output_mode = HAL_VIDEO_DECODER_PRIMARY;
-	/* To start with, both ports are 1 plane each */
+	/* To start with, in port is 1 plane and out is 2 */
 	inst->bufq[OUTPUT_PORT].num_planes = 1;
-	inst->bufq[CAPTURE_PORT].num_planes = 1;
+	inst->bufq[CAPTURE_PORT].num_planes = 2;
+	inst->bufq[CAPTURE_PORT].plane_sizes[1] =
+		VENUS_EXTRADATA_SIZE(
+			inst->prop.height[CAPTURE_PORT],
+			inst->prop.width[CAPTURE_PORT]);
 	inst->prop.fps = DEFAULT_FPS;
 	inst->clk_data.operating_rate = 0;
 	if (core->resources.decode_batching)
@@ -794,41 +842,17 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		bufreq->buffer_count_actual =
 			MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
 
-		if (msm_comm_get_stream_output_mode(inst) ==
-				HAL_VIDEO_DECODER_SECONDARY) {
-			bufreq = get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
-			if (!bufreq)
-				return -EINVAL;
+		bufreq = get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
+		if (!bufreq)
+			return -EINVAL;
 
-			bufreq->buffer_count_min =
-				MIN_NUM_THUMBNAIL_MODE_CAPTURE_BUFFERS;
-			bufreq->buffer_count_min_host =
-				MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
-			bufreq->buffer_count_actual =
-				MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
+		bufreq->buffer_count_min =
+			MIN_NUM_THUMBNAIL_MODE_CAPTURE_BUFFERS;
+		bufreq->buffer_count_min_host =
+			MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
+		bufreq->buffer_count_actual =
+			MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
 
-			bufreq = get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT2);
-			if (!bufreq)
-				return -EINVAL;
-
-			bufreq->buffer_count_min =
-				MIN_NUM_THUMBNAIL_MODE_CAPTURE_BUFFERS;
-			bufreq->buffer_count_min_host =
-				MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
-			bufreq->buffer_count_actual =
-				MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
-		} else {
-			bufreq = get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
-			if (!bufreq)
-				return -EINVAL;
-
-			bufreq->buffer_count_min =
-				MIN_NUM_THUMBNAIL_MODE_CAPTURE_BUFFERS;
-			bufreq->buffer_count_min_host =
-				MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
-			bufreq->buffer_count_actual =
-				MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
-		}
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_SECURE:
 		inst->flags &= ~VIDC_SECURE;
@@ -1022,7 +1046,8 @@ int msm_vdec_set_output_buffer_counts(struct msm_vidc_inst *inst)
 	hdev = inst->core->device;
 
 	buffer_type = msm_comm_get_hal_output_buffer(inst);
-	bufreq = get_buff_req_buffer(inst, buffer_type);
+	/* Correct buffer counts is always stored in HAL_BUFFER_OUTPUT */
+	bufreq = get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
 	if (!bufreq) {
 		dprintk(VIDC_ERR, "%s: failed to set bufreqs(%#x)\n",
 			__func__, buffer_type);
@@ -1215,9 +1240,7 @@ int msm_vdec_set_secure_mode(struct msm_vidc_inst *inst)
 int msm_vdec_set_output_stream_mode(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
-	int fourcc;
 	struct hfi_device *hdev;
-	u32 output_stream_mode;
 	struct hal_multi_stream multi_stream;
 	struct hal_frame_size frame_sz;
 
@@ -1227,66 +1250,50 @@ int msm_vdec_set_output_stream_mode(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
-	/* Decide split/combined mode here */
-	output_stream_mode = V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_PRIMARY;
-
-	switch (output_stream_mode) {
-	case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_PRIMARY:
+	if (is_primary_output_mode(inst)) {
 		multi_stream.buffer_type = HAL_BUFFER_OUTPUT;
 		multi_stream.enable = true;
 		rc = call_hfi_op(hdev, session_set_property, inst->session,
-				HAL_PARAM_VDEC_MULTI_STREAM, &multi_stream);
+			HAL_PARAM_VDEC_MULTI_STREAM, &multi_stream);
 		if (rc) {
 			dprintk(VIDC_ERR,
-				"%s: set prop multistream primary (output) failed\n",
+				"%s: set prop multistream primary failed : %d\n",
 				__func__, rc);
 			return rc;
 		}
 		multi_stream.buffer_type = HAL_BUFFER_OUTPUT2;
 		multi_stream.enable = false;
 		rc = call_hfi_op(hdev, session_set_property, inst->session,
-				HAL_PARAM_VDEC_MULTI_STREAM, &multi_stream);
+			HAL_PARAM_VDEC_MULTI_STREAM, &multi_stream);
 		if (rc) {
 			dprintk(VIDC_ERR,
-				"%s: set prop multistream primary (output2) failed\n",
+				"%s: set prop multistream primary2 failed : %d\n",
 				__func__, rc);
 			return rc;
 		}
-		break;
-	case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_SECONDARY:
-		switch (inst->bit_depth) {
-		case MSM_VIDC_BIT_DEPTH_8:
-			fourcc = V4L2_PIX_FMT_NV12_UBWC;
-			break;
-		case MSM_VIDC_BIT_DEPTH_10:
-			fourcc = V4L2_PIX_FMT_NV12_TP10_UBWC;
-			break;
-		default:
-			dprintk(VIDC_ERR, "%s: invalid bitdepth\n", __func__);
-			return -EINVAL;
-		}
+	} else {
 		rc = msm_comm_set_color_format(inst,
-					HAL_BUFFER_OUTPUT, fourcc);
+			HAL_BUFFER_OUTPUT, inst->clk_data.dpb_fourcc);
 		if (rc)
 			return rc;
 
 		multi_stream.buffer_type = HAL_BUFFER_OUTPUT2;
 		multi_stream.enable = true;
 		rc = call_hfi_op(hdev, session_set_property, inst->session,
-				HAL_PARAM_VDEC_MULTI_STREAM, &multi_stream);
+			HAL_PARAM_VDEC_MULTI_STREAM, &multi_stream);
 		if (rc) {
 			dprintk(VIDC_ERR,
-				"%s: set prop multistream (output2) failed\n",
+				"%s: set prop multistream secondary failed : %d\n",
 				__func__, rc);
 			return rc;
 		}
 		multi_stream.buffer_type = HAL_BUFFER_OUTPUT;
 		multi_stream.enable = false;
 		rc = call_hfi_op(hdev, session_set_property, inst->session,
-				HAL_PARAM_VDEC_MULTI_STREAM, &multi_stream);
+			HAL_PARAM_VDEC_MULTI_STREAM, &multi_stream);
 		if (rc) {
 			dprintk(VIDC_ERR,
-				"%s: set prop multistream (output) failed\n",
+				"%s: set prop multistream secondary2 failed : %d\n",
 				__func__, rc);
 			return rc;
 		}
@@ -1297,20 +1304,13 @@ int msm_vdec_set_output_stream_mode(struct msm_vidc_inst *inst)
 			"frame_size: hal buffer type %d, width %d, height %d\n",
 			frame_sz.buffer_type, frame_sz.width, frame_sz.height);
 		rc = call_hfi_op(hdev, session_set_property, inst->session,
-				HAL_PARAM_FRAME_SIZE, &frame_sz);
+			HAL_PARAM_FRAME_SIZE, &frame_sz);
 		if (rc) {
 			dprintk(VIDC_ERR,
 				"%s: set prop frame_size failed\n",
 				__func__, rc);
 			return rc;
 		}
-		break;
-	default:
-		dprintk(VIDC_ERR,
-			"%s: unknown multistream type %#x\n",
-			__func__, output_stream_mode);
-		rc = -EINVAL;
-		return rc;
 	}
 
 	return rc;
@@ -1462,7 +1462,7 @@ int msm_vdec_set_extradata(struct msm_vidc_inst *inst)
 			HAL_EXTRADATA_UBWC_CR_STATS_INFO, 0x0);
 		msm_comm_set_extradata(inst,
 			HAL_EXTRADATA_NUM_CONCEALED_MB, 0x0);
-		if (inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_HEVC) {
+		if (inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_HEVC) {
 			msm_comm_set_extradata(inst,
 				HAL_EXTRADATA_MASTERING_DISPLAY_COLOUR_SEI,
 				0x0);
@@ -1489,7 +1489,7 @@ int msm_vdec_set_extradata(struct msm_vidc_inst *inst)
 		msm_comm_set_extradata(inst, display_info, 0x1);
 		msm_comm_set_extradata(inst,
 			HAL_EXTRADATA_NUM_CONCEALED_MB, 0x1);
-		if (inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_HEVC) {
+		if (inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_HEVC) {
 			msm_comm_set_extradata(inst,
 				HAL_EXTRADATA_MASTERING_DISPLAY_COLOUR_SEI,
 				0x1);
@@ -1559,10 +1559,10 @@ int msm_vdec_set_properties(struct msm_vidc_inst *inst)
 	rc = msm_vdec_set_color_format(inst);
 	if (rc)
 		goto exit;
-	rc = msm_vdec_set_output_buffer_counts(inst);
+	rc = msm_vdec_set_output_stream_mode(inst);
 	if (rc)
 		goto exit;
-	rc = msm_vdec_set_output_stream_mode(inst);
+	rc = msm_vdec_set_output_buffer_counts(inst);
 	if (rc)
 		goto exit;
 	rc = msm_vdec_set_operating_rate(inst);
