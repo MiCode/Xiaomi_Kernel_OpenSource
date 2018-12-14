@@ -21,7 +21,7 @@ enum qg {
 	QG_FULL_SOC,
 	QG_CLEAR_LEARNT_DATA,
 	QG_SYS_SOC,
-	QG_RESERVED_10,
+	QG_VBMS_IBAT,
 	QG_MAX,
 };
 
@@ -34,6 +34,7 @@ enum qg {
 #define QG_FULL_SOC QG_FULL_SOC
 #define QG_CLEAR_LEARNT_DATA QG_CLEAR_LEARNT_DATA
 #define QG_SYS_SOC QG_SYS_SOC
+#define QG_VBMS_IBAT QG_VBMS_IBAT
 
 struct fifo_data {
 	unsigned int			v;
