@@ -13,9 +13,11 @@
 #include "cam_vfe_bus.h"
 #include "cam_vfe_bus_ver1.h"
 #include "cam_vfe_bus_ver2.h"
+#include "cam_vfe_bus_rd_ver1.h"
 #include "cam_debug_util.h"
 
 int cam_vfe_bus_init(uint32_t          bus_version,
+	int                            bus_type,
 	struct cam_hw_soc_info        *soc_info,
 	struct cam_hw_intf            *hw_intf,
 	void                          *bus_hw_info,
@@ -24,10 +26,16 @@ int cam_vfe_bus_init(uint32_t          bus_version,
 {
 	int rc = -ENODEV;
 
-	switch (bus_version) {
-	case CAM_VFE_BUS_VER_2_0:
-		rc = cam_vfe_bus_ver2_init(soc_info, hw_intf, bus_hw_info,
-			vfe_irq_controller, vfe_bus);
+	switch (bus_type) {
+	case BUS_TYPE_WR:
+		if (CAM_VFE_BUS_VER_2_0)
+			rc = cam_vfe_bus_ver2_init(soc_info, hw_intf,
+				bus_hw_info, vfe_irq_controller, vfe_bus);
+		break;
+	case BUS_TYPE_RD:
+		/* Call vfe bus rd init function */
+		rc = cam_vfe_bus_rd_ver1_init(soc_info, hw_intf,
+			bus_hw_info, vfe_irq_controller, vfe_bus);
 		break;
 	default:
 		CAM_ERR(CAM_ISP, "Unsupported Bus Version %x", bus_version);
