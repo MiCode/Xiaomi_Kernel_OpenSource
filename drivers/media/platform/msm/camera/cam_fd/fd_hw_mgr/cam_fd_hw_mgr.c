@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -162,8 +162,10 @@ static int cam_fd_mgr_util_put_frame_req(
 
 	mutex_lock(&g_fd_hw_mgr.frame_req_mutex);
 	req_ptr = *frame_req;
-	if (req_ptr)
+	if (req_ptr) {
+		list_del_init(&req_ptr->list);
 		list_add_tail(&req_ptr->list, src_list);
+	}
 	*frame_req = NULL;
 	mutex_unlock(&g_fd_hw_mgr.frame_req_mutex);
 
@@ -1465,6 +1467,16 @@ unlock_dev_flush_ctx:
 	for (i = 0; i < flush_args->num_req_pending; i++) {
 		flush_req = (struct cam_fd_mgr_frame_request *)
 			flush_args->flush_req_pending[i];
+		CAM_DBG(CAM_FD, "flush pending req %llu",
+			flush_req->request_id);
+		cam_fd_mgr_util_put_frame_req(&hw_mgr->frame_free_list,
+			&flush_req);
+	}
+
+	for (i = 0; i < flush_args->num_req_active; i++) {
+		flush_req = (struct cam_fd_mgr_frame_request *)
+			flush_args->flush_req_active[i];
+		CAM_DBG(CAM_FD, "flush active req %llu", flush_req->request_id);
 		cam_fd_mgr_util_put_frame_req(&hw_mgr->frame_free_list,
 			&flush_req);
 	}
