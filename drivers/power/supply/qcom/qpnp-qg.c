@@ -1029,6 +1029,9 @@ static void process_udata_work(struct work_struct *work)
 	if (chip->udata.param[QG_FULL_SOC].valid)
 		chip->full_soc = chip->udata.param[QG_FULL_SOC].data;
 
+	if (chip->udata.param[QG_VBMS_IBAT].valid)
+		chip->vbms_ibat_ua = chip->udata.param[QG_VBMS_IBAT].data;
+
 	if (chip->udata.param[QG_SOC].valid ||
 			chip->udata.param[QG_SYS_SOC].valid) {
 
@@ -1573,7 +1576,8 @@ static int qg_get_ttf_param(void *data, enum ttf_param param, int *val)
 
 	switch (param) {
 	case TTF_VALID:
-		*val = (!chip->battery_missing && chip->profile_loaded);
+		*val = (!chip->battery_missing && chip->profile_loaded &&
+				!chip->dt.qg_vbms_mode);
 		break;
 	case TTF_MSOC:
 		rc = qg_get_battery_capacity(chip, val);
@@ -1791,6 +1795,9 @@ static int qg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CC_SOC:
 		rc = qg_get_cc_soc(chip, &pval->intval);
 		break;
+	case POWER_SUPPLY_PROP_QG_VBMS_MODE:
+		pval->intval = !!chip->dt.qg_vbms_mode;
+		break;
 	default:
 		pr_debug("Unsupported property %d\n", psp);
 		break;
@@ -1842,6 +1849,7 @@ static enum power_supply_property qg_psy_props[] = {
 	POWER_SUPPLY_PROP_ESR_NOMINAL,
 	POWER_SUPPLY_PROP_SOH,
 	POWER_SUPPLY_PROP_CC_SOC,
+	POWER_SUPPLY_PROP_QG_VBMS_MODE,
 };
 
 static const struct power_supply_desc qg_psy_desc = {
@@ -2839,6 +2847,9 @@ done_fifo:
 		}
 	}
 
+	if (chip->dt.qg_vbms_mode)
+		chip->dt.s3_entry_fifo_length = 1;
+
 	if (chip->dt.s3_entry_fifo_length != -EINVAL) {
 		if (chip->dt.s3_entry_fifo_length < 1)
 			chip->dt.s3_entry_fifo_length = 1;
@@ -2954,6 +2965,11 @@ static int qg_post_init(struct qpnp_qg *chip)
 				PROFILE_IRQ_DISABLE, true, 0);
 		vote(chip->good_ocv_irq_disable_votable,
 				PROFILE_IRQ_DISABLE, true, 0);
+	}
+
+	if (chip->dt.qg_vbms_mode) {
+		chip->dt.esr_disable = true;
+		chip->dt.cl_disable = true;
 	}
 
 	/* restore ESR data */
@@ -3443,18 +3459,24 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 			chip->cl->dt.min_start_soc, chip->cl->dt.max_start_soc,
 			chip->cl->dt.min_temp, chip->cl->dt.max_temp);
 	}
-	qg_dbg(chip, QG_DEBUG_PON, "DT: vbatt_empty_mv=%dmV vbatt_low_mv=%dmV delta_soc=%d ext-sns=%d\n",
+
+	chip->dt.qg_vbms_mode = of_property_read_bool(node,
+					"qcom,qg-vbms-mode");
+
+	qg_dbg(chip, QG_DEBUG_PON, "DT: vbatt_empty_mv=%dmV vbatt_low_mv=%dmV delta_soc=%d ext-sns=%d qg_vbms_mode=%d\n",
 			chip->dt.vbatt_empty_mv, chip->dt.vbatt_low_mv,
-			chip->dt.delta_soc, chip->dt.qg_ext_sense);
+			chip->dt.delta_soc, chip->dt.qg_ext_sense,
+			chip->dt.qg_vbms_mode);
 
 	return 0;
 }
 
 static int process_suspend(struct qpnp_qg *chip)
 {
-	u8 status = 0;
+	u8 status = 0, val;
 	int rc;
 	u32 fifo_rt_length = 0, sleep_fifo_length = 0;
+	bool process_fifo = false;
 
 	/* skip if profile is not loaded */
 	if (!chip->profile_loaded)
@@ -3464,6 +3486,12 @@ static int process_suspend(struct qpnp_qg *chip)
 
 	chip->suspend_data = false;
 
+	val = (chip->seq_no % 128) + 1;
+	rc = qg_sdam_multibyte_write(QG_SDAM_SEQ_OFFSET, &val, 1);
+	if (rc < 0) {
+		pr_err("Failed to write sdam seq, rc=%d\n", rc);
+		return rc;
+	}
 	/* read STATUS2 register to clear its last state */
 	qg_read(chip, chip->qg_base + QG_STATUS2_REG, &status, 1);
 
@@ -3491,7 +3519,13 @@ static int process_suspend(struct qpnp_qg *chip)
 	 * the the #fifo to enter sleep, save the FIFO data
 	 * and reset the fifo count.
 	 */
-	if (fifo_rt_length >= (chip->dt.s2_fifo_length - sleep_fifo_length)) {
+	if (chip->dt.qg_vbms_mode && fifo_rt_length >= 1)
+		process_fifo = true;
+	else if (fifo_rt_length >=
+			(chip->dt.s2_fifo_length - sleep_fifo_length))
+		process_fifo = true;
+
+	if (process_fifo) {
 		rc = qg_master_hold(chip, true);
 		if (rc < 0) {
 			pr_err("Failed to hold master, rc=%d\n", rc);
@@ -3525,7 +3559,7 @@ static int process_suspend(struct qpnp_qg *chip)
 
 static int process_resume(struct qpnp_qg *chip)
 {
-	u8 status2 = 0, rt_status = 0;
+	u8 status2 = 0, rt_status = 0, val = 0;
 	u32 ocv_uv = 0, ocv_raw = 0;
 	int rc;
 
@@ -3581,6 +3615,11 @@ static int process_resume(struct qpnp_qg *chip)
 		chip->suspend_data = false;
 	}
 
+	rc = qg_sdam_multibyte_write(QG_SDAM_SEQ_OFFSET, &val, 1);
+	if (rc < 0) {
+		pr_err("Failed to write sdam seq, rc=%d\n", rc);
+		return rc;
+	}
 	schedule_delayed_work(&chip->ttf->ttf_work, 0);
 
 	return rc;

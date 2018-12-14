@@ -64,6 +64,7 @@ struct qg_dt {
 	bool			esr_disable;
 	bool			esr_discharge_enable;
 	bool			qg_ext_sense;
+	bool			qg_vbms_mode;
 };
 
 struct qg_esr_data {
@@ -128,6 +129,7 @@ struct qpnp_qg {
 	int			esr_nominal;
 	int			soh;
 	int			soc_reporting_ready;
+	int			vbms_ibat_ua;
 	u32			fifo_done_count;
 	u32			wa_flags;
 	u32			seq_no;
