@@ -16,8 +16,9 @@
 #include "cam_vfe_camif_ver2.h"
 #include "cam_vfe_camif_lite_ver2.h"
 #include "cam_vfe_rdi.h"
+#include "cam_vfe_fe_ver1.h"
 
-#define CAM_VFE_TOP_VER2_MUX_MAX     5
+#define CAM_VFE_TOP_VER2_MUX_MAX     6
 
 enum cam_vfe_top_ver2_module_type {
 	CAM_VFE_TOP_VER2_MODULE_LENS,
@@ -55,6 +56,7 @@ struct cam_vfe_top_ver2_hw_info {
 	struct cam_vfe_camif_ver2_hw_info           camif_hw_info;
 	struct cam_vfe_camif_lite_ver2_hw_info      camif_lite_hw_info;
 	struct cam_vfe_rdi_ver2_hw_info             rdi_hw_info;
+	struct cam_vfe_fe_ver1_hw_info              fe_hw_info;
 	uint32_t mux_type[CAM_VFE_TOP_VER2_MUX_MAX];
 };
 
