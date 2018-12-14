@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  */
@@ -132,9 +132,9 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA,
 		.name = "Extradata Type",
 		.type = V4L2_CTRL_TYPE_BITMASK,
-		.minimum = 0,
-		.maximum = 0x3,
-		.default_value = 0,
+		.minimum = EXTRADATA_NONE,
+		.maximum = EXTRADATA_DEFAULT | EXTRADATA_ADVANCED,
+		.default_value = EXTRADATA_DEFAULT,
 		.menu_skip_mask = 0,
 		.qmenu = NULL,
 	},
@@ -539,6 +539,7 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			goto err_invalid_fmt;
 		}
 
+		inst->clk_data.opb_fourcc = f->fmt.pix_mp.pixelformat;
 		if (inst->fmts[fmt->type].fourcc == f->fmt.pix_mp.pixelformat &&
 			inst->prop.width[CAPTURE_PORT] == f->fmt.pix_mp.width &&
 			inst->prop.height[CAPTURE_PORT] ==
@@ -558,7 +559,6 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			goto err_invalid_fmt;
 		}
 
-		inst->clk_data.opb_fourcc = f->fmt.pix_mp.pixelformat;
 		f->fmt.pix_mp.plane_fmt[0].sizeimage =
 			inst->fmts[fmt->type].get_frame_size(0,
 			f->fmt.pix_mp.height, f->fmt.pix_mp.width);
@@ -836,6 +836,15 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			inst->flags |= VIDC_SECURE;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA:
+		inst->bufq[CAPTURE_PORT].num_planes = 1;
+		inst->bufq[CAPTURE_PORT].plane_sizes[1] = 0;
+		if (ctrl->val != EXTRADATA_NONE) {
+			inst->bufq[CAPTURE_PORT].num_planes = 2;
+			inst->bufq[CAPTURE_PORT].plane_sizes[1] =
+				VENUS_EXTRADATA_SIZE(
+					inst->prop.height[CAPTURE_PORT],
+					inst->prop.width[CAPTURE_PORT]);
+		}
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_BUFFER_SIZE_LIMIT:
 		inst->buffer_size_limit = ctrl->val;
@@ -1419,7 +1428,6 @@ int msm_vdec_set_conceal_color(struct msm_vidc_inst *inst)
 
 int msm_vdec_set_extradata(struct msm_vidc_inst *inst)
 {
-	uint32_t enabled = false;
 	uint32_t display_info = HAL_EXTRADATA_VUI_DISPLAY_INFO;
 	struct v4l2_ctrl *ctrl;
 
@@ -1444,14 +1452,14 @@ int msm_vdec_set_extradata(struct msm_vidc_inst *inst)
 		break;
 	}
 
-	if (!ctrl->val) {
+	if (ctrl->val == EXTRADATA_NONE) {
 		// Disable all Extradata
 		msm_comm_set_extradata(inst, HAL_EXTRADATA_OUTPUT_CROP, 0x0);
 		msm_comm_set_extradata(inst,
 			HAL_EXTRADATA_INTERLACE_VIDEO, 0x0);
 		msm_comm_set_extradata(inst, display_info, 0x0);
 		msm_comm_set_extradata(inst,
-			HAL_EXTRADATA_UBWC_CR_STATS_INFO, 0x1);
+			HAL_EXTRADATA_UBWC_CR_STATS_INFO, 0x0);
 		msm_comm_set_extradata(inst,
 			HAL_EXTRADATA_NUM_CONCEALED_MB, 0x0);
 		if (inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_HEVC) {
@@ -1472,9 +1480,8 @@ int msm_vdec_set_extradata(struct msm_vidc_inst *inst)
 			HAL_EXTRADATA_RECOVERY_POINT_SEI, 0x0);
 		msm_comm_set_extradata(inst, HAL_EXTRADATA_ASPECT_RATIO, 0x0);
 		msm_comm_set_extradata(inst, HAL_EXTRADATA_FRAME_QP, 0x0);
-		enabled = false;
 	}
-	if (ctrl->val & 0x1) {
+	if (ctrl->val & EXTRADATA_DEFAULT) {
 		// Enable Default Extradata
 		msm_comm_set_extradata(inst, HAL_EXTRADATA_OUTPUT_CROP, 0x1);
 		msm_comm_set_extradata(inst,
@@ -1489,9 +1496,8 @@ int msm_vdec_set_extradata(struct msm_vidc_inst *inst)
 			msm_comm_set_extradata(inst,
 				HAL_EXTRADATA_CONTENT_LIGHT_LEVEL_SEI, 0x1);
 		}
-		enabled = true;
 	}
-	if (ctrl->val & 0x2) {
+	if (ctrl->val & EXTRADATA_ADVANCED) {
 		// Enable Advanced Extradata
 		msm_comm_set_extradata(inst,
 			HAL_EXTRADATA_STREAM_USERDATA, 0x1);
@@ -1504,18 +1510,6 @@ int msm_vdec_set_extradata(struct msm_vidc_inst *inst)
 			HAL_EXTRADATA_RECOVERY_POINT_SEI, 0x1);
 		msm_comm_set_extradata(inst, HAL_EXTRADATA_ASPECT_RATIO, 0x1);
 		msm_comm_set_extradata(inst, HAL_EXTRADATA_FRAME_QP, 0x1);
-		enabled = true;
-	}
-
-	if (enabled) {
-		inst->bufq[CAPTURE_PORT].num_planes = 2;
-		inst->bufq[CAPTURE_PORT].plane_sizes[EXTRADATA_IDX(2)] =
-			VENUS_EXTRADATA_SIZE(
-			   inst->prop.height[CAPTURE_PORT],
-			   inst->prop.width[CAPTURE_PORT]);
-	} else {
-		inst->bufq[CAPTURE_PORT].num_planes = 1;
-		inst->bufq[CAPTURE_PORT].plane_sizes[EXTRADATA_IDX(2)] = 0;
 	}
 
 	return 0;

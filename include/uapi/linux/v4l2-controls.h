@@ -814,6 +814,9 @@ enum v4l2_mpeg_vidc_video_stream_format {
 #define V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA \
 		(V4L2_CID_MPEG_MSM_VIDC_BASE + 17)
 enum v4l2_mpeg_vidc_extradata {
+#define EXTRADATA_NONE \
+	EXTRADATA_NONE
+	EXTRADATA_NONE = 0,
 	EXTRADATA_DEFAULT = 1,
 	EXTRADATA_ADVANCED = 2,
 	EXTRADATA_ENC_INPUT_ROI = 4,
