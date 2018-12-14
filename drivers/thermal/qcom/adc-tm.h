@@ -332,6 +332,10 @@ int32_t adc_tm_absolute_rthr(const struct adc_tm_data *data,
 void notify_adc_tm_fn(struct work_struct *work);
 
 struct adc_tm_chip *get_adc_tm(struct device *dev, const char *name);
+int32_t adc_tm5_channel_measure(struct adc_tm_chip *chip,
+					struct adc_tm_param *param);
+int32_t adc_tm5_disable_chan_meas(struct adc_tm_chip *chip,
+					struct adc_tm_param *param);
 
 int adc_tm_is_valid(struct adc_tm_chip *chip);
 
