@@ -453,8 +453,13 @@ static ssize_t block_size_store(struct device *dev,
 	if (!drvdata->byte_cntr)
 		return -EINVAL;
 
+	if (val && val < 4096) {
+		pr_err("Assign minimum block size of 4096 bytes\n");
+		return -EINVAL;
+	}
+
 	mutex_lock(&drvdata->byte_cntr->byte_cntr_lock);
-	drvdata->byte_cntr->block_size = val * 8;
+	drvdata->byte_cntr->block_size = val;
 	mutex_unlock(&drvdata->byte_cntr->byte_cntr_lock);
 
 	return size;

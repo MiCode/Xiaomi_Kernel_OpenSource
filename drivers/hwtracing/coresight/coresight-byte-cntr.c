@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * Description: CoreSight Trace Memory Controller driver
  */
@@ -20,21 +20,17 @@ static struct tmc_drvdata *tmcdrvdata;
 static void tmc_etr_read_bytes(struct byte_cntr *byte_cntr_data, loff_t *ppos,
 			       size_t bytes, size_t *len, char **bufp)
 {
-	struct etr_flat_buf *flat_buf = tmcdrvdata->etr_buf->private;
-
-	if (*bufp >= (char *)(flat_buf->vaddr + tmcdrvdata->size))
-		*bufp = flat_buf->vaddr;
+	struct etr_buf *etr_buf = tmcdrvdata->etr_buf;
+	size_t actual;
 
 	if (*len >= bytes)
 		*len = bytes;
 	else if (((uint32_t)*ppos % bytes) + *len > bytes)
 		*len = bytes - ((uint32_t)*ppos % bytes);
 
-	if ((*bufp + *len) > (char *)(flat_buf->vaddr +
-		tmcdrvdata->size))
-		*len = (char *)(flat_buf->vaddr + tmcdrvdata->size) -
-			*bufp;
-	if (*len == bytes || (*len + (uint32_t)*ppos) % bytes == 0)
+	actual = tmc_etr_buf_get_data(etr_buf, *ppos, *len, bufp);
+	*len = actual;
+	if (actual == bytes || (actual + (uint32_t)*ppos) % bytes == 0)
 		atomic_dec(&byte_cntr_data->irq_cnt);
 }
 
@@ -75,8 +71,6 @@ static ssize_t tmc_etr_byte_cntr_read(struct file *fp, char __user *data,
 	mutex_lock(&byte_cntr_data->byte_cntr_lock);
 	if (!byte_cntr_data->read_active)
 		goto err0;
-
-	bufp = (char *)(tmcdrvdata->buf + *ppos);
 
 	if (byte_cntr_data->enable) {
 		if (!atomic_read(&byte_cntr_data->irq_cnt)) {
