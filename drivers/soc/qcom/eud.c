@@ -670,8 +670,8 @@ static const struct of_device_id msm_eud_dt_match[] = {
 MODULE_DEVICE_TABLE(of, msm_eud_dt_match);
 
 static const struct dev_pm_ops msm_eud_dev_pm_ops = {
-	.suspend = msm_eud_suspend,
-	.resume = msm_eud_resume,
+	.suspend_noirq = msm_eud_suspend,
+	.resume_noirq = msm_eud_resume,
 };
 
 static struct platform_driver msm_eud_driver = {
