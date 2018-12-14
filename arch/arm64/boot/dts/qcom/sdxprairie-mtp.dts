@@ -19,7 +19,7 @@
 	model = "Qualcomm Technologies, Inc. SDXPRAIRIE MTP";
 	compatible = "qcom,sdxprairie-mtp",
 		"qcom,sdxprairie", "qcom,mtp";
-	qcom,board-id = <8 0x102>;
+	qcom,board-id = <0x10008 0x0>,<0x4010008 0x0>;
 };
 
 &qnand_1 {
