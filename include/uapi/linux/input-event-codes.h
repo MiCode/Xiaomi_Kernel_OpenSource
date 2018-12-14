@@ -7,6 +7,7 @@
  *
  * Copyright (c) 1999-2002 Vojtech Pavlik
  * Copyright (c) 2015 Hans de Goede <hdegoede@redhat.com>
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -273,7 +274,10 @@
 #define KEY_F22			192
 #define KEY_F23			193
 #define KEY_F24			194
-
+#define KEY_GESTURE_NAV_UP		195
+#define KEY_GESTURE_NAV_DOWN	196
+#define KEY_GESTURE_NAV_LEFT	197
+#define KEY_GESTURE_NAV_RIGHT	198
 #define KEY_PLAYCD		200
 #define KEY_PAUSECD		201
 #define KEY_PROG3		202

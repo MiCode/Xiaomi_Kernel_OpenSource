@@ -5,6 +5,7 @@
  *  Copyright (C) 2008 Zhang Rui <rui.zhang@intel.com>
  *  Copyright (C) 2008 Sujith Thomas <sujith.thomas@intel.com>
  *  Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *
  *  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
@@ -2596,6 +2597,71 @@ static void thermal_unregister_governors(void)
 	thermal_gov_power_allocator_unregister();
 }
 
+
+unsigned int sconfig;
+
+#define to_backlight_device(obj) container_of(obj, struct backlight_device, dev)
+ static ssize_t sconfig_show(struct device *dev,struct device_attribute *attr, char *buf)
+{
+
+
+
+
+	pr_err("sconfig_show sconfig = %d\n",sconfig);
+
+	return sprintf(buf, "%d\n", sconfig);
+}
+
+
+static ssize_t sconfig_store(struct device *dev,
+                                      struct device_attribute *attr, const char *buf, size_t size)
+{
+
+	int ret;
+
+
+	sysfs_notify(&dev->kobj, NULL, "sconfig");
+
+	ret = kstrtoint(buf, 0, &sconfig);
+	if (ret)
+		return ret;
+
+	pr_err("sconfig_store sconfig = %d\n",sconfig);
+
+	return size;
+}
+
+
+static struct device_attribute dev_attr_thermal_config = {
+    .attr = {
+        .name = "sconfig",
+        .mode = 0666,
+    },
+    .show = sconfig_show,
+    .store = sconfig_store,
+};
+
+
+void thermalsconfig_init(void)
+{
+	   static struct device *dev;
+
+	   int result;
+
+	   dev = device_create(&thermal_class, NULL, MKDEV(0, 0), NULL, "thermal_message");
+	   if (IS_ERR(dev)) {
+		   result = PTR_ERR(dev);
+		   printk(KERN_ALERT "Failed to create device.\n");
+	   }
+	   #if 1
+	   result = device_create_file(dev, &dev_attr_thermal_config);
+	   if (result < 0) {
+		   printk(KERN_ALERT"Failed to create attribute file.");
+	   }
+	   #endif
+}
+
+
 static int __init thermal_init(void)
 {
 	int result;
@@ -2615,6 +2681,10 @@ static int __init thermal_init(void)
 	result = of_parse_thermal_zones();
 	if (result)
 		goto exit_netlink;
+
+
+	thermalsconfig_init();
+
 
 	return 0;
 

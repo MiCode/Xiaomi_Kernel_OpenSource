@@ -164,6 +164,7 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_WM9705 if SND_SOC_AC97_BUS
 	select SND_SOC_WM9712 if SND_SOC_AC97_BUS
 	select SND_SOC_WM9713 if SND_SOC_AC97_BUS
+	select SND_SOC_MAX98927 if I2C
         help
           Normally ASoC codec drivers are only built if a machine driver which
           uses them is also built since they are only usable with a machine
@@ -879,4 +880,31 @@ config SND_SOC_MSM_HDMI_CODEC_RX
 config SND_SOC_MSM_HDMI_DBA_CODEC_RX
 	bool "HDMI DBA Audio Playback"
 	depends on MSM_DBA
+
+config SND_SOC_MAX98927
+	tristate "Audio SMART PA 98927 support"
+	help
+	  Say Y here to enable Audio SMART PA support. This allows
+	  monitoring switches by userspace via sysfs and uevent.
+
+config MBHC_UART
+	bool "audio MBHC with UART"
+	help
+	Say Y here to use UART para.
+
+menuconfig SND_SOC_TAS2557
+	tristate "Texas Instruments TAS2557 SmartAmp(R)"
+
+if SND_SOC_TAS2557
+config TAS2557_REGMAP
+	bool "Use of RegMap API"
+
+config TAS2557_CODEC
+	bool "Codec Driver support"
+
+config TAS2557_MISC
+	bool "Misc Driver support"
+
+endif
+
 endmenu

@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -589,6 +590,10 @@ static int32_t msm_actuator_move_focus(
 	CDBG("called, dir %d, num_steps %d\n", dir, num_steps);
 
 	if (dest_step_pos == a_ctrl->curr_step_pos)
+		return rc;
+
+	if (a_ctrl->step_position_table[dest_step_pos] ==
+	a_ctrl->step_position_table[a_ctrl->curr_step_pos])
 		return rc;
 
 	if ((sign_dir > MSM_ACTUATOR_MOVE_SIGNED_NEAR) ||

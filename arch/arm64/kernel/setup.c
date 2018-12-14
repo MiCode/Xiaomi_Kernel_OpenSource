@@ -3,6 +3,7 @@
  *
  * Copyright (C) 1995-2001 Russell King
  * Copyright (C) 2012 ARM Ltd.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -62,6 +63,15 @@
 #include <asm/psci.h>
 #include <asm/efi.h>
 #include <asm/system_misc.h>
+#include <asm/bootinfo.h>
+
+#ifdef CONFIG_OF_FLATTREE
+void __init early_init_dt_setup_pureason_arch(unsigned long pu_reason)
+{
+       set_powerup_reason(pu_reason);
+       pr_info("Powerup reason=0x%x\n", get_powerup_reason());
+}
+#endif
 
 unsigned int boot_reason;
 EXPORT_SYMBOL(boot_reason);

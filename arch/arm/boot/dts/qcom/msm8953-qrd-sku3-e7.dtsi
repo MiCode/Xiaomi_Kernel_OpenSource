@@ -1,0 +1,203 @@
+/*
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msm8953-qrd-e7.dtsi"
+
+&spmi_bus {
+	qcom,pmi8950@3 {
+		labibb: qpnp-labibb-regulator {
+			ibb_regulator: qcom,ibb@dc00 {
+				/delete-property/
+					qcom,qpnp-ibb-use-default-voltage;
+				qcom,qpnp-ibb-init-lcd-voltage = <5700000>;
+			};
+
+			lab_regulator: qcom,lab@de00 {
+				/delete-property/
+					qcom,qpnp-ibb-use-default-voltage;
+				qcom,qpnp-ibb-init-lcd-voltage = <5700000>;
+			};
+		};
+	};
+};
+
+#include "msm8953-mdss-panels.dtsi"
+
+&tlmm {
+	pmx_mdss {
+		mdss_dsi_active: mdss_dsi_active {
+			mux {
+				pins = "gpio61";
+			};
+			config {
+				pins = "gpio61";
+			};
+		};
+		mdss_dsi_suspend: mdss_dsi_suspend {
+			mux {
+				pins = "gpio61";
+			};
+			config {
+				pins = "gpio61";
+			};
+		};
+	};
+};
+
+&dsi_r69006_1080p_cmd {
+	qcom,esd-check-enabled;
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi {
+	hw-config = "single_dsi";
+};
+
+&mdss_dsi0 {
+	lab-supply = <&lab_regulator>;
+	ibb-supply = <&ibb_regulator>;
+	/delete-property/ vdd-supply;
+
+	//qcom,dsi-pref-prim-pan = <&dsi_r69006_1080p_cmd>;
+	qcom,dsi-pref-prim-pan = <&dsi_td4310_fhdplus_e7_vid>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	qcom,platform-te-gpio = <&tlmm 24 0>;
+	qcom,platform-reset-gpio = <&tlmm 61 0>;
+};
+
+&mdss_dsi1 {
+	status = "disabled";
+};
+
+&labibb {
+	status = "ok";
+	qpnp,qpnp-labibb-mode = "lcd";
+};
+
+&dsi_otm1911_fhd_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	//qcom,esd-check-enabled;
+
+};
+
+&dsi_ili7807_fhdplus_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	//qcom,esd-check-enabled;
+
+};
+
+/*add begin for E7 display*/
+&dsi_td4310_fhdplus_e7_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_td4310_fhdplus_e7_g55_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+
+&dsi_td4310_ebbg_fhdplus_e7_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_nt36672_tianma_fhdplus_e7_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_nt36672_csot_fhdplus_e7_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+/*add end for E7 display*/
+
+&dsi_otm1911_fhdplus_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	//qcom,esd-check-enabled;
+
+};
+
+&dsi_r69006_1080p_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_r69006_1080p_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&int_codec {
+	status = "ok";
+};
+
+&pm8953_diangu_dig {
+	status = "ok";
+};
+
+&pm8953_diangu_analog {
+	status = "ok";
+};
+
+&ext_codec {
+	status = "disabled";
+	qcom,model = "msm8953-sku3-tasha-snd-card";
+
+	qcom,audio-routing =
+		"AIF4 VI", "MCLK",
+		"RX_BIAS", "MCLK",
+		"DMIC0", "MIC BIAS1",
+		"MIC BIAS1", "Digital Mic0",
+		"AMIC2", "MIC BIAS2",
+		"MIC BIAS2", "Headset Mic",
+		"DMIC2", "MIC BIAS3",
+		"MIC BIAS3", "Digital Mic2",
+		"MIC BIAS1", "MICBIAS_REGULATOR",
+		"MIC BIAS2", "MICBIAS_REGULATOR",
+		"MIC BIAS3", "MICBIAS_REGULATOR",
+		"SpkrLeft IN", "SPK1 OUT";
+
+	qcom,cdc-us-euro-gpios;
+
+	qcom,msm-mbhc-hphl-swh = <1>;
+
+	qcom,wsa-max-devs = <1>;
+	qcom,wsa-devs = <&wsa881x_211>, <&wsa881x_213>;
+	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrLeft";
+};
+
+&slim_msm {
+	status = "disabled";
+};
+
+&dai_slim {
+	status = "disabled";
+};
+
+&wcd9xxx_intc {
+	status = "disabled";
+};
+
+&clock_audio {
+	status = "disabled";
+};
+
+&wcd9335 {
+	status = "disabled";
+};
+
+&wcd_rst_gpio {
+	status = "disabled";
+};

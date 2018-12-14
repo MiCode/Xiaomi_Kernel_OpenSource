@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1851,7 +1852,12 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 		return rc;
 	}
 
-	if (!(val & (IBB_ENABLE_CTL_SWIRE_RDY | IBB_ENABLE_CTL_MODULE_EN))) {
+#ifdef CONFIG_PROJECT_VINCE
+	if (1)
+#else
+	if (!(val & (IBB_ENABLE_CTL_SWIRE_RDY | IBB_ENABLE_CTL_MODULE_EN)))
+#endif
+	{
 		/* SWIRE_RDY and IBB_MODULE_EN not enabled */
 		rc = qpnp_lab_dt_init(labibb, of_node);
 		if (rc) {
@@ -2492,8 +2498,13 @@ static int register_qpnp_ibb_regulator(struct qpnp_labibb *labibb,
 		return rc;
 	}
 
+#ifdef CONFIG_PROJECT_VINCE
+	if (0)
+#else
 	if (ibb_enable_ctl &
-		(IBB_ENABLE_CTL_SWIRE_RDY | IBB_ENABLE_CTL_MODULE_EN)) {
+		(IBB_ENABLE_CTL_SWIRE_RDY | IBB_ENABLE_CTL_MODULE_EN))
+#endif
+	{
 		/* SWIRE_RDY or IBB_MODULE_EN enabled */
 		rc = qpnp_labibb_read(labibb, &val,
 			labibb->ibb_base + REG_IBB_LCD_AMOLED_SEL, 1);

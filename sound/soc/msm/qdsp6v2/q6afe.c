@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -119,6 +120,9 @@ struct afe_ctl {
 	struct aanc_data aanc_info;
 	struct mutex afe_cmd_lock;
 	int set_custom_topology;
+#ifdef CONFIG_SND_SOC_MAX98927
+	uint8_t *dsm_payload;
+#endif
 };
 
 #define MAD_SLIMBUS_PORT_COUNT ((SLIMBUS_PORT_LAST - SLIMBUS_0_RX) + 1)
@@ -255,6 +259,33 @@ static int32_t sp_make_afe_callback(uint32_t *payload, uint32_t payload_size)
 			atomic_set(&this_afe.state, -1);
 		}
 	}
+
+#ifdef CONFIG_SND_SOC_MAX98927
+	if (
+			param_id == AFE_PARAM_ID_DSM_CFG  ||
+			param_id == AFE_PARAM_ID_DSM_INFO ||
+			param_id == AFE_PARAM_ID_CALIB){
+		struct afe_dsm_get_resp *dsm_resp =
+			(struct afe_dsm_get_resp *) payload;
+
+		if (payload_size < sizeof(*dsm_resp)) {
+			pr_err("%s: Error: received size %d, afe_dsm_get_resp size %zu\n",
+					__func__, payload_size, sizeof(*dsm_resp));
+			return -EINVAL;
+		}
+
+		if (this_afe.dsm_payload)
+			memcpy(this_afe.dsm_payload, dsm_resp->payload,
+					payload_size - sizeof(*dsm_resp));
+
+		if (!dsm_resp->status) {
+			atomic_set(&this_afe.state, 0);
+		} else {
+			pr_debug("%s: dsm resp status: %d", __func__, dsm_resp->status);
+			atomic_set(&this_afe.state, -1);
+		}
+	}
+#endif
 
 	return 0;
 }
@@ -889,6 +920,198 @@ fail_cmd:
 		__func__, config.pdata.param_id, ret);
 return ret;
 }
+
+#ifdef CONFIG_SND_SOC_MAX98927
+int afe_dsm_setget_params(uint8_t *payload, int size, int dir, uint32_t dst_port, uint32_t mod_id, uint32_t param_id)
+{
+	struct afe_dsm_set_command *set = NULL;
+	struct afe_dsm_get_command *get = NULL;
+	uint32_t *config = NULL;
+	int index = 0, ret = -EINVAL;
+
+	if (!payload || size <= 0) {
+		pr_err("%s: Invalid params\n", __func__);
+		goto fail_cmd;
+	}
+	ret = q6audio_validate_port(dst_port);
+	if (ret < 0) {
+		pr_err("%s: Invalid src port 0x%x ret %d",
+				__func__, dst_port, ret);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	index = q6audio_get_port_index(dst_port);
+	if (index < 0 || index > AFE_MAX_PORTS) {
+		pr_err("%s: AFE port index[%d] invalid!\n",
+				__func__, index);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	if (dir){
+		get = (struct afe_dsm_get_command *) (payload - sizeof(*get));
+
+		memset(get, 0 , sizeof(*get));
+
+		get->hdr.hdr_field		= APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+		get->hdr.pkt_size		= size + sizeof(*get);
+		get->hdr.token			= index;
+		get->hdr.opcode		    = AFE_PORT_CMD_GET_PARAM_V2;
+		get->param.port_id		= q6audio_get_port_id(dst_port);
+		get->param.payload_size = size + sizeof(struct afe_port_param_data_v2);
+		get->param.module_id	= mod_id;
+		get->param.param_id		= param_id;
+		get->pdata.module_id	= mod_id;
+		get->pdata.param_id		= param_id;
+		get->pdata.param_size	= size;
+
+		this_afe.dsm_payload	= payload;
+
+		config = (uint32_t *)get;
+	}
+	else{
+		set = (struct afe_dsm_set_command *) (payload - sizeof(*set));
+
+		memset(set, 0 , sizeof(*set));
+
+		set->hdr.hdr_field		= APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+					APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+		set->hdr.pkt_size		= size + sizeof(*set);
+		set->hdr.token			= index;
+		set->hdr.opcode			= AFE_PORT_CMD_SET_PARAM_V2;
+		set->param.port_id		= q6audio_get_port_id(dst_port);
+		set->param.payload_size = size + sizeof(struct afe_port_param_data_v2);
+		set->pdata.module_id	= mod_id;
+		set->pdata.param_id		= param_id;
+		set->pdata.param_size	= size;
+
+		config = (uint32_t *)set;
+	}
+
+	atomic_set(&this_afe.state, 1);
+	atomic_set(&this_afe.status, 0);
+	ret = apr_send_pkt(this_afe.apr, config);
+	if (ret < 0) {
+		pr_err("%s: port = 0x%x failed %d\n", __func__, dst_port, ret);
+		goto fail_cmd;
+	}
+	ret = wait_event_timeout(this_afe.wait[index],
+		(atomic_read(&this_afe.state) == 0),
+		msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: wait_event timeout\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+	if (atomic_read(&this_afe.status) > 0) {
+		pr_err("%s: config cmd failed [%s]\n",
+			__func__, adsp_err_get_err_str(
+			atomic_read(&this_afe.status)));
+		ret = adsp_err_get_lnx_err_code(
+				atomic_read(&this_afe.status));
+		goto fail_cmd;
+	}
+
+	ret = 0;
+
+fail_cmd:
+	pr_debug("%s: status %d 0x%x\n",__func__, ret, dst_port);
+
+	this_afe.dsm_payload = NULL;
+
+	return ret;
+}
+
+int afe_dsm_ramp_dn_cfg(uint8_t *payload, int delay_in_ms)
+{
+	uint32_t *params = (uint32_t *)payload;
+	*(params)		= 0;
+	*(params + 1)	= 3;
+	*(params + 2)	= 0x03000063;
+	*(params + 3)	= 5;
+	*(params + 4)	= 0x03000064;
+	*(params + 5)	= 300;
+	*(params + 6)	= 0x03000066;
+	*(params + 7)	= 1;
+
+	afe_dsm_setget_params(payload, 8*sizeof(uint32_t), 0, DSM_RX_PORT_ID, AFE_MODULE_DSM_RX, AFE_PARAM_ID_DSM_CFG);
+
+	usleep_range(delay_in_ms*1000, delay_in_ms*1000 + 10);
+    return 0;
+}
+
+int afe_dsm_rx_set_params(uint8_t *payload, int size)
+{
+	return afe_dsm_setget_params(payload, size, 0, DSM_RX_PORT_ID, AFE_MODULE_DSM_RX, AFE_PARAM_ID_DSM_CFG);
+}
+
+int afe_dsm_rx_get_params(uint8_t *payload, int size)
+{
+	return afe_dsm_setget_params(payload, size, 1, DSM_RX_PORT_ID, AFE_MODULE_DSM_RX, AFE_PARAM_ID_DSM_CFG);
+}
+
+int afe_dsm_set_calib(uint8_t *payload)
+{
+	return afe_dsm_setget_params(payload, sizeof(uint32_t)*3, 0, DSM_TX_PORT_ID, AFE_MODULE_DSM_TX, AFE_PARAM_ID_CALIB);
+}
+
+int afe_dsm_pre_calib(uint8_t *payload)
+{
+ 	uint32_t *params = (uint32_t *)payload;
+ 	*(params)		= 0;
+	*(params + 1)	= 1;
+	*(params + 2)	= 0x03000001;
+	*(params + 3)	= 4;
+	afe_dsm_setget_params(payload, 4*sizeof(uint32_t), 0, DSM_RX_PORT_ID, AFE_MODULE_DSM_RX, AFE_PARAM_ID_DSM_CFG);
+	usleep_range(1000*1000, 1000*1000 + 10);
+	return 0;
+}
+
+int afe_dsm_post_calib(uint8_t *payload)
+{
+ 	uint32_t *params = (uint32_t *)payload;
+ 	*(params)		= 0;
+	*(params + 1)	= 1;
+	*(params + 2)	= 0x03000001;
+	*(params + 3)	= 1;
+    return afe_dsm_setget_params(payload, 4*sizeof(uint32_t), 0, DSM_RX_PORT_ID, AFE_MODULE_DSM_RX, AFE_PARAM_ID_DSM_CFG);
+}
+
+int afe_dsm_get_calib(uint8_t *payload){
+	return afe_dsm_setget_params(payload, sizeof(uint32_t)*14, 1, DSM_TX_PORT_ID, AFE_MODULE_DSM_TX, AFE_PARAM_ID_CALIB);
+}
+
+int afe_dsm_get_average_calib(uint8_t *payload)
+{
+ 	uint32_t *params = (uint32_t *)payload;
+    uint64_t sum_rdc[2] = {0, 0};
+ 	int i, rc = 0;
+ 	for (i = 0; i < 4; i++){
+        rc = afe_dsm_setget_params(payload, sizeof(uint32_t)*14, 1, DSM_TX_PORT_ID, AFE_MODULE_DSM_TX, AFE_PARAM_ID_CALIB);
+        if (rc != 0){
+            sum_rdc[0] = 0;
+            sum_rdc[1] = 0;
+            goto failed;
+        }
+        sum_rdc[0] += params[0];
+        sum_rdc[1] += params[1];
+        usleep_range(50*1000, 50*1000 + 10);
+ 	}
+
+failed:
+    params[0] = (sum_rdc[0] >> 2);
+    params[1] = (sum_rdc[1] >> 2);
+	return rc;
+}
+
+int afe_dsm_get_libary_info(uint32_t *payload, int size)
+{
+    return afe_dsm_setget_params((int8_t*)payload, 4*100, 1, DSM_TX_PORT_ID, AFE_MODULE_DSM_TX, AFE_PARAM_ID_DSM_INFO);
+}
+
+#endif
 
 static int afe_spk_prot_prepare(int src_port, int dst_port, int param_id,
 		union afe_spkr_prot_config *prot_config)

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,7 +21,7 @@
 	model = "Qualcomm Technologies, Inc. MSM8953 + PMI8950 QRD SKU3";
 	compatible = "qcom,msm8953-qrd-sku3",
 		   "qcom,msm8953-qrd", "qcom,msm8953", "qcom,qrd";
-	qcom,board-id= <0x2000b 0>;
+	qcom,board-id= <0x1000b 0>;
 };
 
 &soc {
@@ -53,6 +54,8 @@
 		qcom,supply-max-voltage = <6000000>;
 		qcom,supply-enable-load = <100000>;
 		qcom,supply-disable-load = <100>;
+		qcom,supply-post-on-sleep = <10>;
+		qcom,supply-post-off-sleep = <2>;
 	};
 
 	qcom,panel-supply-entry@3 {
@@ -62,6 +65,6 @@
 		qcom,supply-max-voltage = <6000000>;
 		qcom,supply-enable-load = <100000>;
 		qcom,supply-disable-load = <100>;
-		qcom,supply-post-on-sleep = <10>;
+		/*qcom,supply-post-on-sleep = <10>;*/
 	};
 };

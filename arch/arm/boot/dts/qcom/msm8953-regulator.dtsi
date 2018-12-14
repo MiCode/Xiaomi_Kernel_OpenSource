@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -138,9 +139,9 @@
 	rpm-regulator-ldoa2 {
 		status = "okay";
 		pm8953_l2: regulator-l2 {
-			regulator-min-microvolt = <975000>;
+			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1225000>;
-			qcom,init-voltage = <975000>;
+			qcom,init-voltage = <1200000>;
 			status = "okay";
 		};
 	};
@@ -267,9 +268,9 @@
 	rpm-regulator-ldoa17 {
 		status = "okay";
 		pm8953_l17: regulator-l17 {
-			regulator-min-microvolt = <2850000>;
+			regulator-min-microvolt = <2750000>;
 			regulator-max-microvolt = <2850000>;
-			qcom,init-voltage = <2850000>;
+			qcom,init-voltage = <2750000>;
 			status = "okay";
 		};
 	};
@@ -278,7 +279,7 @@
 		status = "okay";
 		pm8953_l19: regulator-l19 {
 			regulator-min-microvolt = <1200000>;
-			regulator-max-microvolt = <1350000>;
+			regulator-max-microvolt = <1380000>;
 			qcom,init-voltage = <1200000>;
 			status = "okay";
 		};
@@ -288,7 +289,7 @@
 		status = "okay";
 		pm8953_l22: regulator-l22 {
 			regulator-min-microvolt = <2800000>;
-			regulator-max-microvolt = <2850000>;
+			regulator-max-microvolt = <2800000>;
 			qcom,init-voltage = <2800000>;
 			status = "okay";
 		};
@@ -297,9 +298,9 @@
 	rpm-regulator-ldoa23 {
 		status = "okay";
 		pm8953_l23: regulator-l23 {
-			regulator-min-microvolt = <975000>;
+			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1225000>;
-			qcom,init-voltage = <975000>;
+			qcom,init-voltage = <1200000>;
 			status = "okay";
 		};
 	};

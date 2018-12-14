@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,7 +26,6 @@
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
 #include <linux/regmap.h>
-#include <linux/debugfs.h>
 #include <linux/soundwire/soundwire.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
@@ -122,13 +122,6 @@ module_param(wsa881x_ocp_poll_timer_sec, int,
 		S_IRUGO | S_IWUSR | S_IWGRP);
 MODULE_PARM_DESC(wsa881x_ocp_poll_timer_sec, "timer for ocp ctl polling");
 
-static struct wsa881x_priv *dbgwsa881x;
-static struct dentry *debugfs_wsa881x_dent;
-static struct dentry *debugfs_peek;
-static struct dentry *debugfs_poke;
-static struct dentry *debugfs_reg_dump;
-static unsigned int read_data;
-static unsigned int devnum;
 
 static int32_t wsa881x_resource_acquire(struct snd_soc_codec *codec,
 						bool enable);
@@ -176,30 +169,6 @@ static const struct snd_kcontrol_new wsa_analog_gain_controls[] = {
 
 static int codec_debug_open(struct inode *inode, struct file *file)
 {
-	file->private_data = inode->i_private;
-	return 0;
-}
-
-static int get_parameters(char *buf, u32 *param1, int num_of_par)
-{
-	char *token;
-	int base, cnt;
-
-	token = strsep(&buf, " ");
-	for (cnt = 0; cnt < num_of_par; cnt++) {
-		if (token) {
-			if ((token[1] == 'x') || (token[1] == 'X'))
-				base = 16;
-			else
-				base = 10;
-
-			if (kstrtou32(token, base, &param1[cnt]) != 0)
-				return -EINVAL;
-
-			token = strsep(&buf, " ");
-		} else
-			return -EINVAL;
-	}
 	return 0;
 }
 
@@ -285,142 +254,19 @@ int wsa881x_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
 }
 EXPORT_SYMBOL(wsa881x_codec_info_create_codec_entry);
 
-static bool is_swr_slv_reg_readable(int reg)
-{
-	bool ret = true;
-
-	if (((reg > 0x46) && (reg < 0x4A)) ||
-	    ((reg > 0x4A) && (reg < 0x50)) ||
-	    ((reg > 0x55) && (reg < 0xE0)) ||
-	    ((reg > 0xE0) && (reg < 0xF0)) ||
-	    ((reg > 0xF0) && (reg < 0x100)) ||
-	    ((reg > 0x105) && (reg < 0x120)) ||
-	    ((reg > 0x128) && (reg < 0x130)) ||
-	    ((reg > 0x138) && (reg < 0x200)) ||
-	    ((reg > 0x205) && (reg < 0x220)) ||
-	    ((reg > 0x228) && (reg < 0x230)) ||
-	    ((reg > 0x238) && (reg < 0x300)) ||
-	    ((reg > 0x305) && (reg < 0x320)) ||
-	    ((reg > 0x328) && (reg < 0x330)) ||
-	    ((reg > 0x338) && (reg < 0x400)) ||
-	    ((reg > 0x405) && (reg < 0x420)))
-		ret = false;
-
-	return ret;
-}
-
-static ssize_t wsa881x_swrslave_reg_show(char __user *ubuf, size_t count,
-					  loff_t *ppos)
-{
-	int i, reg_val, len;
-	ssize_t total = 0;
-	char tmp_buf[SWR_SLV_MAX_BUF_LEN];
-
-	if (!ubuf || !ppos || (devnum == 0))
-		return 0;
-
-	for (i = (((int) *ppos / BYTES_PER_LINE) + SWR_SLV_START_REG_ADDR);
-		i <= SWR_SLV_MAX_REG_ADDR; i++) {
-		if (!is_swr_slv_reg_readable(i))
-			continue;
-		swr_read(dbgwsa881x->swr_slave, devnum,
-			i, &reg_val, 1);
-		len = snprintf(tmp_buf, 25, "0x%.3x: 0x%.2x\n", i,
-			       (reg_val & 0xFF));
-		if ((total + len) >= count - 1)
-			break;
-		if (copy_to_user((ubuf + total), tmp_buf, len)) {
-			pr_err("%s: fail to copy reg dump\n", __func__);
-			total = -EFAULT;
-			goto copy_err;
-		}
-		*ppos += len;
-		total += len;
-	}
-
-copy_err:
-	return total;
-}
-
 static ssize_t codec_debug_read(struct file *file, char __user *ubuf,
 				size_t count, loff_t *ppos)
 {
-	char lbuf[SWR_SLV_RD_BUF_LEN];
-	char *access_str;
-	ssize_t ret_cnt;
-
 	if (!count || !file || !ppos || !ubuf)
 		return -EINVAL;
-
-	access_str = file->private_data;
-	if (*ppos < 0)
-		return -EINVAL;
-
-	if (!strcmp(access_str, "swrslave_peek")) {
-		snprintf(lbuf, sizeof(lbuf), "0x%x\n", (read_data & 0xFF));
-		ret_cnt = simple_read_from_buffer(ubuf, count, ppos, lbuf,
-					       strnlen(lbuf, 7));
-	} else if (!strcmp(access_str, "swrslave_reg_dump")) {
-		ret_cnt = wsa881x_swrslave_reg_show(ubuf, count, ppos);
-	} else {
-		pr_err("%s: %s not permitted to read\n", __func__, access_str);
-		ret_cnt = -EPERM;
-	}
-	return ret_cnt;
 }
 
 static ssize_t codec_debug_write(struct file *filp,
 	const char __user *ubuf, size_t cnt, loff_t *ppos)
 {
-	char lbuf[SWR_SLV_WR_BUF_LEN];
-	int rc;
-	u32 param[5];
-	char *access_str;
 
 	if (!filp || !ppos || !ubuf)
 		return -EINVAL;
-
-	access_str = filp->private_data;
-	if (cnt > sizeof(lbuf) - 1)
-		return -EINVAL;
-
-	rc = copy_from_user(lbuf, ubuf, cnt);
-	if (rc)
-		return -EFAULT;
-
-	lbuf[cnt] = '\0';
-	if (!strcmp(access_str, "swrslave_poke")) {
-		/* write */
-		rc = get_parameters(lbuf, param, 3);
-		if ((param[0] <= SWR_SLV_MAX_REG_ADDR) && (param[1] <= 0xFF) &&
-			(rc == 0))
-			swr_write(dbgwsa881x->swr_slave, param[2],
-				param[0], &param[1]);
-		else
-			rc = -EINVAL;
-	} else if (!strcmp(access_str, "swrslave_peek")) {
-		/* read */
-		rc = get_parameters(lbuf, param, 2);
-		if ((param[0] <= SWR_SLV_MAX_REG_ADDR) && (rc == 0))
-			swr_read(dbgwsa881x->swr_slave, param[1],
-				param[0], &read_data, 1);
-		else
-			rc = -EINVAL;
-	} else if (!strcmp(access_str, "swrslave_reg_dump")) {
-		/* reg dump */
-		rc = get_parameters(lbuf, param, 1);
-		if ((rc == 0) && (param[0] > 0) &&
-		    (param[0] <= SWR_SLV_MAX_DEVICES))
-			devnum = param[0];
-		else
-			rc = -EINVAL;
-	}
-	if (rc == 0)
-		rc = cnt;
-	else
-		pr_err("%s: rc = %d\n", __func__, rc);
-
-	return rc;
 }
 
 static const struct file_operations codec_debug_ops = {
@@ -1211,29 +1057,6 @@ static int wsa881x_swr_probe(struct swr_device *pdev)
 	wsa881x_gpio_ctrl(wsa881x, true);
 	wsa881x->state = WSA881X_DEV_UP;
 
-	if (!debugfs_wsa881x_dent) {
-		dbgwsa881x = wsa881x;
-		debugfs_wsa881x_dent = debugfs_create_dir(
-						"wsa881x_swr_slave", 0);
-		if (!IS_ERR(debugfs_wsa881x_dent)) {
-			debugfs_peek = debugfs_create_file("swrslave_peek",
-					S_IFREG | S_IRUGO, debugfs_wsa881x_dent,
-					(void *) "swrslave_peek",
-					&codec_debug_ops);
-
-			debugfs_poke = debugfs_create_file("swrslave_poke",
-					S_IFREG | S_IRUGO, debugfs_wsa881x_dent,
-					(void *) "swrslave_poke",
-					&codec_debug_ops);
-
-			debugfs_reg_dump = debugfs_create_file(
-						"swrslave_reg_dump",
-						S_IFREG | S_IRUGO,
-						debugfs_wsa881x_dent,
-						(void *) "swrslave_reg_dump",
-						&codec_debug_ops);
-		}
-	}
 	return 0;
 
 err:
@@ -1249,7 +1072,6 @@ static int wsa881x_swr_remove(struct swr_device *pdev)
 		dev_err(&pdev->dev, "%s: wsa881x is NULL\n", __func__);
 		return -EINVAL;
 	}
-	debugfs_remove_recursive(debugfs_wsa881x_dent);
 	snd_soc_unregister_codec(&pdev->dev);
 	if (wsa881x->pd_gpio)
 		gpio_free(wsa881x->pd_gpio);

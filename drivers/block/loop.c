@@ -4,6 +4,7 @@
  *  Written by Theodore Ts'o, 3/29/93
  *
  * Copyright 1993 by Theodore Ts'o.  Redistribution of this file is
+ * Copyright (C) 2018 XiaoMi, Inc.
  * permitted under the GNU General Public License.
  *
  * DES encryption plus some minor changes by Werner Almesberger, 30-MAY-1993
@@ -146,13 +147,13 @@ static int xor_init(struct loop_device *lo, const struct loop_info64 *info)
 static struct loop_func_table none_funcs = {
 	.number = LO_CRYPT_NONE,
 	.transfer = transfer_none,
-}; 	
+};
 
 static struct loop_func_table xor_funcs = {
 	.number = LO_CRYPT_XOR,
 	.transfer = transfer_xor,
 	.init = xor_init
-}; 	
+};
 
 /* xfer_funcs[0] is special - its release function is never called */
 static struct loop_func_table *xfer_funcs[MAX_LO_CRYPT] = {
@@ -1142,7 +1143,7 @@ loop_set_status(struct loop_device *lo, const struct loop_info64 *info)
 		memcpy(lo->lo_encrypt_key, info->lo_encrypt_key,
 		       info->lo_encrypt_key_size);
 		lo->lo_key_owner = uid;
-	}	
+	}
 
 	return 0;
 }

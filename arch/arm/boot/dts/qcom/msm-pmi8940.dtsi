@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -494,6 +495,7 @@
 			qcom,fs-curr-ua = <20000>;
 			qcom,en-phase-stag;
 			qcom,led-strings-list = [00 01];
+			qcom,en-cabc;
 			qcom,en-ext-pfet-sc-pro;
 			qcom,cons-sync-write-delay-us = <1000>;
 		};

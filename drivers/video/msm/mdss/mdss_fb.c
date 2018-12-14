@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2007 Google Incorporated
  * Copyright (c) 2008-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -14,7 +15,8 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt)	"%s: " fmt, __func__
+
+
 
 #include <linux/videodev2.h>
 #include <linux/bootmem.h>
@@ -24,6 +26,8 @@
 #include <linux/device.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-buf.h>
+#include <linux/mdss_io_util.h>
+#include <linux/wakelock.h>
 #include <linux/fb.h>
 #include <linux/init.h>
 #include <linux/ioport.h>
@@ -54,7 +58,25 @@
 #include "mdss_debug.h"
 #include "mdss_smmu.h"
 #include "mdss_mdp.h"
+#include "mdss_dsi.h"
 #include "mdp3_ctrl.h"
+
+extern struct mdss_dsi_ctrl_pdata *change_par_ctrl ;
+extern int change_par_buf;
+#ifdef CONFIG_PROJECT_VINCE
+extern int LCM_effect[4];
+#else
+extern int LCM_effect[3];
+#endif
+
+
+#if defined(CONFIG_WPONIT_ADJUST_FUN)
+extern uint32_t white_point_num_x;
+extern uint32_t white_point_num_y;
+extern uint32_t white_point_num_r;
+extern uint32_t white_point_num_g;
+extern uint32_t white_point_num_b;
+#endif
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 #define MDSS_FB_NUM 3
@@ -122,6 +144,39 @@ static int mdss_fb_send_panel_event(struct msm_fb_data_type *mfd,
 					int event, void *arg);
 static void mdss_fb_set_mdp_sync_pt_threshold(struct msm_fb_data_type *mfd,
 		int type);
+
+
+#define WAIT_RESUME_TIMEOUT 200
+struct fb_info *prim_fbi;
+static struct delayed_work prim_panel_work;
+static atomic_t prim_panel_is_on;
+static struct wake_lock prim_panel_wakelock;
+static void prim_panel_off_delayed_work(struct work_struct *work)
+{
+#ifdef CONFIG_FRAMEBUFFER_CONSOLE
+	console_lock();
+#endif
+	if (!lock_fb_info(prim_fbi)) {
+#ifdef CONFIG_FRAMEBUFFER_CONSOLE
+		console_unlock();
+#endif
+		return;
+	}
+	printk("linson prim_panel_off_delayed_work close FB\n");
+	if (atomic_read(&prim_panel_is_on)) {
+	printk("linson2 prim_panel_is_on = %d \n",atomic_read(&prim_panel_is_on));
+		fb_blank(prim_fbi, FB_BLANK_POWERDOWN);
+		atomic_set(&prim_panel_is_on, false);
+		wake_unlock(&prim_panel_wakelock);
+	}
+
+	unlock_fb_info(prim_fbi);
+#ifdef CONFIG_FRAMEBUFFER_CONSOLE
+	console_unlock();
+#endif
+}
+
+
 void mdss_fb_no_update_notify_timer_cb(unsigned long data)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)data;
@@ -752,6 +807,205 @@ static int mdss_fb_blanking_mode_switch(struct msm_fb_data_type *mfd, int mode)
 	return 0;
 }
 
+static ssize_t mdss_fb_change_dispparam(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t len)
+{
+
+	struct dsi_panel_cmds *CABC_on_cmds_point;
+	struct dsi_panel_cmds *CABC_off_cmds_point;
+	struct dsi_panel_cmds *CE_on_cmds_point;
+	struct dsi_panel_cmds *CE_off_cmds_point;
+	struct dsi_panel_cmds *cold_gamma_cmds_point;
+	struct dsi_panel_cmds *warm_gamma_cmds_point;
+	struct dsi_panel_cmds *default_gamma_cmds_point;
+	struct dsi_panel_cmds *white_gamma_cmds_point;
+	struct dsi_panel_cmds *PM1_cmds_point;
+	struct dsi_panel_cmds *PM2_cmds_point;
+	struct dsi_panel_cmds *PM3_cmds_point;
+	struct dsi_panel_cmds *PM4_cmds_point;
+	struct dsi_panel_cmds *PM5_cmds_point;
+	struct dsi_panel_cmds *PM6_cmds_point;
+	struct dsi_panel_cmds *PM7_cmds_point;
+	struct dsi_panel_cmds *PM8_cmds_point;
+#ifdef CONFIG_PROJECT_VINCE
+	struct dsi_panel_cmds *sRGB_on_cmds_point;
+	struct dsi_panel_cmds *sRGB_off_cmds_point;
+#endif
+
+    sscanf(buf, "%x", &change_par_buf) ;
+
+	if (!change_par_ctrl){
+		pr_err("%s: change_par_ctrl is NULL, change lcm effect failed\n",__func__);
+		return 0;
+	}
+
+	CABC_on_cmds_point = &change_par_ctrl->CABC_on_cmds;
+	CABC_off_cmds_point = &change_par_ctrl->CABC_off_cmds;
+	CE_on_cmds_point = &change_par_ctrl->CE_on_cmds;
+	CE_off_cmds_point = &change_par_ctrl->CE_off_cmds;
+	cold_gamma_cmds_point = &change_par_ctrl->cold_gamma_cmds;
+	warm_gamma_cmds_point = &change_par_ctrl->warm_gamma_cmds;
+	default_gamma_cmds_point = &change_par_ctrl->default_gamma_cmds;
+	white_gamma_cmds_point = &change_par_ctrl->white_gamma_cmds;
+	PM1_cmds_point = &change_par_ctrl->PM1_cmds;
+	PM2_cmds_point = &change_par_ctrl->PM2_cmds;
+	PM3_cmds_point = &change_par_ctrl->PM3_cmds;
+	PM4_cmds_point = &change_par_ctrl->PM4_cmds;
+	PM5_cmds_point = &change_par_ctrl->PM5_cmds;
+	PM6_cmds_point = &change_par_ctrl->PM6_cmds;
+	PM7_cmds_point = &change_par_ctrl->PM7_cmds;
+	PM8_cmds_point = &change_par_ctrl->PM8_cmds;
+#ifdef CONFIG_PROJECT_VINCE
+	sRGB_on_cmds_point = &change_par_ctrl->sRGB_on_cmds;
+	sRGB_off_cmds_point = &change_par_ctrl->sRGB_off_cmds;
+#endif
+
+	if ((change_par_buf >= 0x01) && (change_par_buf <= 0x0c)) {
+		LCM_effect[0] = change_par_buf;
+	} else if ((change_par_buf == 0x10) || (change_par_buf == 0xf0)) {
+		LCM_effect[1] = change_par_buf;
+	} else if ((change_par_buf == 0x100) || (change_par_buf == 0xf00)) {
+		LCM_effect[2] = change_par_buf;
+	}
+	#ifdef CONFIG_PROJECT_VINCE
+	else if ((change_par_buf == 0x1000) || (change_par_buf == 0xf000)) {
+		LCM_effect[3] = change_par_buf;
+	}
+	#endif
+
+	printk("mdss_fb_change_dispparam: mode=%x\n", change_par_buf);
+	switch(change_par_buf){
+		case 0x0001:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, warm_gamma_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x0002:
+ 			mdss_dsi_panel_cmds_send(change_par_ctrl, default_gamma_cmds_point, CMD_REQ_COMMIT);
+ 			break;
+		case 0x0003:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, cold_gamma_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x0004:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, white_gamma_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x0006:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM1_cmds_point, CMD_REQ_COMMIT); break;
+		case 0x0007:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM2_cmds_point, CMD_REQ_COMMIT); break;
+		case 0x0008:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM3_cmds_point, CMD_REQ_COMMIT); break;
+		case 0x0009:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM4_cmds_point, CMD_REQ_COMMIT); break;
+		case 0x000a:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM5_cmds_point, CMD_REQ_COMMIT); break;
+		case 0x000b:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM6_cmds_point, CMD_REQ_COMMIT); break;
+		case 0x000c:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM7_cmds_point, CMD_REQ_COMMIT); break;
+		case 0x0005:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM8_cmds_point, CMD_REQ_COMMIT); break;
+		case 0x0010:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, CE_on_cmds_point, CMD_REQ_COMMIT); break;
+		case 0x00f0:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, CE_off_cmds_point, CMD_REQ_COMMIT); break;
+		case 0x0100:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, CABC_on_cmds_point, CMD_REQ_COMMIT); break;
+		case 0x0f00:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, CABC_off_cmds_point, CMD_REQ_COMMIT); break;
+		#ifdef CONFIG_PROJECT_VINCE
+		case 0x1000:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, sRGB_on_cmds_point, CMD_REQ_COMMIT); break;
+		case 0xf000:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, sRGB_off_cmds_point, CMD_REQ_COMMIT); break;
+		#endif
+	}
+
+       return len;
+}
+
+static ssize_t mdss_fb_get_dispparam(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+
+	int ret;
+	#ifdef CONFIG_PROJECT_VINCE
+	ret = scnprintf(buf, PAGE_SIZE, "%x%x%x%x\n",
+		LCM_effect[0] , LCM_effect[1] ,LCM_effect[2] , LCM_effect[3]);
+	#else
+	ret = scnprintf(buf, PAGE_SIZE, "%x%x%x\n",
+		LCM_effect[0] , LCM_effect[1] ,LCM_effect[2]);
+	#endif
+	return ret;
+}
+
+#if defined(CONFIG_WPONIT_ADJUST_FUN)
+bool set_white_point_x = true;
+static ssize_t mdss_fb_set_wpoint(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t len)
+{
+	if (set_white_point_x)
+	{
+		sscanf(buf, "%3d", &white_point_num_x) ;
+		set_white_point_x = false;
+	}
+	else
+	{
+		sscanf(buf, "%3d", &white_point_num_y) ;
+		set_white_point_x = true;
+	}
+       return len;
+}
+static ssize_t mdss_fb_get_wpoint(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int ret;
+	ret = scnprintf(buf, PAGE_SIZE, "%3d%3d\n",
+		white_point_num_x, white_point_num_y);
+	return ret;
+}
+static ssize_t mdss_fb_set_rpoint(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t len)
+{
+	sscanf(buf, "%6d", &white_point_num_r) ;
+       return len;
+}
+static ssize_t mdss_fb_get_rpoint(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int ret;
+	ret = scnprintf(buf, PAGE_SIZE, "%6d\n",
+		white_point_num_r);
+	return ret;
+}
+static ssize_t mdss_fb_set_gpoint(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t len)
+{
+	sscanf(buf, "%6d", &white_point_num_g) ;
+       return len;
+}
+static ssize_t mdss_fb_get_gpoint(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int ret;
+	ret = scnprintf(buf, PAGE_SIZE, "%6d\n",
+		white_point_num_g);
+	return ret;
+}
+static ssize_t mdss_fb_set_bpoint(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t len)
+{
+	sscanf(buf, "%6d", &white_point_num_b) ;
+       return len;
+}
+static ssize_t mdss_fb_get_bpoint(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int ret;
+	ret = scnprintf(buf, PAGE_SIZE, "%6d\n",
+		white_point_num_b);
+	return ret;
+}
+#endif
+
 static ssize_t mdss_fb_change_dfps_mode(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t len)
 {
@@ -906,6 +1160,18 @@ static DEVICE_ATTR(measured_fps, S_IRUGO | S_IWUSR | S_IWGRP,
 	mdss_fb_get_fps_info, NULL);
 static DEVICE_ATTR(msm_fb_persist_mode, S_IRUGO | S_IWUSR,
 	mdss_fb_get_persist_mode, mdss_fb_change_persist_mode);
+static DEVICE_ATTR(msm_fb_dispparam, S_IRUGO | S_IWUSR,
+	mdss_fb_get_dispparam, mdss_fb_change_dispparam);
+#if defined(CONFIG_WPONIT_ADJUST_FUN)
+static DEVICE_ATTR(msm_fb_wpoint, S_IRUGO | S_IWUSR,
+	mdss_fb_get_wpoint, mdss_fb_set_wpoint);
+static DEVICE_ATTR(msm_fb_rpoint, S_IRUGO | S_IWUSR,
+	mdss_fb_get_rpoint, mdss_fb_set_rpoint);
+static DEVICE_ATTR(msm_fb_gpoint, S_IRUGO | S_IWUSR,
+	mdss_fb_get_gpoint, mdss_fb_set_gpoint);
+static DEVICE_ATTR(msm_fb_bpoint, S_IRUGO | S_IWUSR,
+	mdss_fb_get_bpoint, mdss_fb_set_bpoint);
+#endif
 static struct attribute *mdss_fb_attrs[] = {
 	&dev_attr_msm_fb_type.attr,
 	&dev_attr_msm_fb_split.attr,
@@ -919,6 +1185,13 @@ static struct attribute *mdss_fb_attrs[] = {
 	&dev_attr_msm_fb_dfps_mode.attr,
 	&dev_attr_measured_fps.attr,
 	&dev_attr_msm_fb_persist_mode.attr,
+	&dev_attr_msm_fb_dispparam.attr,
+#if defined(CONFIG_WPONIT_ADJUST_FUN)
+	&dev_attr_msm_fb_wpoint.attr,
+	&dev_attr_msm_fb_rpoint.attr,
+	&dev_attr_msm_fb_gpoint.attr,
+	&dev_attr_msm_fb_bpoint.attr,
+#endif
 	NULL,
 };
 
@@ -1199,6 +1472,7 @@ static int mdss_fb_init_panel_modes(struct msm_fb_data_type *mfd,
 	return 0;
 }
 
+static int ffbm_first_close_bl;
 static int mdss_fb_probe(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd = NULL;
@@ -1294,6 +1568,12 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	fbi_list[fbi_list_index++] = fbi;
 
 	platform_set_drvdata(pdev, mfd);
+
+	if (strnstr(saved_command_line, "androidboot.mode=ffbm-01",
+			strlen(saved_command_line))){
+		ffbm_first_close_bl = true;
+		pr_err("We are in ffbm-01 mode!\n");
+	}
 
 	rc = mdss_fb_register(mfd);
 	if (rc)
@@ -1401,6 +1681,14 @@ static int mdss_fb_remove(struct platform_device *pdev)
 		return -ENODEV;
 
 	mdss_fb_remove_sysfs(mfd);
+
+
+	if (mfd->panel_info && mfd->panel_info->is_prim_panel) {
+		atomic_set(&prim_panel_is_on, false);
+		cancel_delayed_work_sync(&prim_panel_work);
+		wake_lock_destroy(&prim_panel_wakelock);
+	}
+
 
 	pm_runtime_disable(mfd->fbi->dev);
 
@@ -1575,6 +1863,32 @@ static int mdss_fb_resume(struct platform_device *pdev)
 #endif
 
 #ifdef CONFIG_PM_SLEEP
+
+static int mdss_fb_pm_prepare(struct device *dev)
+{
+	struct msm_fb_data_type *mfd = dev_get_drvdata(dev);
+
+	if (!mfd)
+		return -ENODEV;
+	if (mfd->panel_info->is_prim_panel)
+		atomic_inc(&mfd->resume_pending);
+	return 0;
+}
+
+static void mdss_fb_pm_complete(struct device *dev)
+{
+	struct msm_fb_data_type *mfd = dev_get_drvdata(dev);
+
+	if (!mfd)
+		return;
+	if (mfd->panel_info->is_prim_panel) {
+		atomic_set(&mfd->resume_pending, 0);
+		wake_up_all(&mfd->resume_wait_q);
+	}
+	return;
+}
+
+
 static int mdss_fb_pm_suspend(struct device *dev)
 {
 	struct msm_fb_data_type *mfd = dev_get_drvdata(dev);
@@ -1609,6 +1923,10 @@ static int mdss_fb_pm_resume(struct device *dev)
 #endif
 
 static const struct dev_pm_ops mdss_fb_pm_ops = {
+
+	   	.prepare = mdss_fb_pm_prepare,
+	.complete = mdss_fb_pm_complete,
+
 	SET_SYSTEM_SLEEP_PM_OPS(mdss_fb_pm_suspend, mdss_fb_pm_resume)
 };
 
@@ -1700,6 +2018,10 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 		 */
 		if (mfd->bl_level_scaled == temp) {
 			mfd->bl_level = bkl_lvl;
+			if ((0 == temp) && (ffbm_first_close_bl == true)){
+				pdata->set_backlight(pdata, temp);
+				ffbm_first_close_bl = false;
+			}
 		} else {
 			if (mfd->bl_level != bkl_lvl)
 				bl_notify_needed = true;
@@ -2065,6 +2387,18 @@ static int mdss_fb_blank(int blank_mode, struct fb_info *info)
 	int ret;
 	struct mdss_panel_data *pdata;
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+
+
+
+	if ((info == prim_fbi) && (blank_mode == FB_BLANK_UNBLANK) &&
+		atomic_read(&prim_panel_is_on)) {
+		atomic_set(&prim_panel_is_on, false);
+		wake_unlock(&prim_panel_wakelock);
+		cancel_delayed_work_sync(&prim_panel_work);
+
+		return 0;
+	}
+
 
 	ret = mdss_fb_pan_idle(mfd);
 	if (ret) {
@@ -2694,6 +3028,7 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	atomic_set(&mfd->commits_pending, 0);
 	atomic_set(&mfd->ioctl_ref_cnt, 0);
 	atomic_set(&mfd->kickoff_pending, 0);
+	atomic_set(&mfd->resume_pending, 0);
 
 	init_timer(&mfd->no_update.timer);
 	mfd->no_update.timer.function = mdss_fb_no_update_notify_timer_cb;
@@ -2709,6 +3044,7 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	init_waitqueue_head(&mfd->idle_wait_q);
 	init_waitqueue_head(&mfd->ioctl_q);
 	init_waitqueue_head(&mfd->kickoff_wait_q);
+	init_waitqueue_head(&mfd->resume_wait_q);
 
 	ret = fb_alloc_cmap(&fbi->cmap, 256, 0);
 	if (ret)
@@ -2726,6 +3062,15 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	mdss_panel_debugfs_init(panel_info, panel_name);
 	pr_info("FrameBuffer[%d] %dx%d registered successfully!\n", mfd->index,
 					fbi->var.xres, fbi->var.yres);
+
+
+		if (panel_info->is_prim_panel) {
+		prim_fbi = fbi;
+		atomic_set(&prim_panel_is_on, false);
+		INIT_DELAYED_WORK(&prim_panel_work, prim_panel_off_delayed_work);
+		wake_lock_init(&prim_panel_wakelock, WAKE_LOCK_SUSPEND, "prim_panel_wakelock");
+	}
+
 
 	return 0;
 }
@@ -3361,6 +3706,8 @@ int mdss_fb_atomic_commit(struct fb_info *info,
 	bool wait_for_finish, wb_change = false;
 	int ret = -EPERM;
 	u32 old_xres, old_yres, old_format;
+
+
 
 	if (!mfd || (!mfd->op_enable)) {
 		pr_err("mfd is NULL or operation not permitted\n");
@@ -4927,6 +5274,7 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 	if (!info || !info->par)
 		return -EINVAL;
 
+
 	return mdss_fb_do_ioctl(info, cmd, arg, file);
 }
 
@@ -5117,6 +5465,70 @@ void mdss_fb_report_panel_dead(struct msm_fb_data_type *mfd)
 	kobject_uevent_env(&mfd->fbi->dev->kobj,
 		KOBJ_CHANGE, envp);
 	pr_err("Panel has gone bad, sending uevent - %s\n", envp[0]);
+}
+
+
+
+ /*
+ * mdss_prim_panel_fb_unblank() - Unblank primary panel FB
+ * @timeout : >0 blank primary panel FB after timeout (ms)
+ */
+int mdss_prim_panel_fb_unblank(int timeout)
+{
+	int ret = 0;
+	struct msm_fb_data_type *mfd = NULL;
+
+        printk("SXF Enter %s\n",__func__);
+	if (prim_fbi) {
+		mfd = (struct msm_fb_data_type *)prim_fbi->par;
+		ret = wait_event_timeout(mfd->resume_wait_q,
+				!atomic_read(&mfd->resume_pending),
+				msecs_to_jiffies(WAIT_RESUME_TIMEOUT));
+		if (!ret) {
+			printk("Primary fb resume timeout\n");
+			return -ETIMEDOUT;
+		}
+#ifdef CONFIG_FRAMEBUFFER_CONSOLE
+		console_lock();
+#endif
+		if (!lock_fb_info(prim_fbi)) {
+#ifdef CONFIG_FRAMEBUFFER_CONSOLE
+			console_unlock();
+#endif
+			printk("SXF  !lock_fb_info(prim_fbi) %s_%d\n",__func__,__LINE__);
+			return -ENODEV;
+		}
+		if (prim_fbi->blank == FB_BLANK_UNBLANK) {
+			unlock_fb_info(prim_fbi);
+#ifdef CONFIG_FRAMEBUFFER_CONSOLE
+			console_unlock();
+#endif
+			printk("SXF  %s_%d\n",__func__,__LINE__);
+			return 0;
+		}
+		wake_lock(&prim_panel_wakelock);
+		ret = fb_blank(prim_fbi, FB_BLANK_UNBLANK);
+		printk("SXF fb_blank(prim_fbi, FB_BLANK_UNBLANK) %s ,ret  = %d\n",__func__,ret);
+		if (!ret) {
+			atomic_set(&prim_panel_is_on, true);
+			if (timeout > 0){
+				printk("SXF %s ,timeout  = %d\n",__func__,timeout);
+				schedule_delayed_work(&prim_panel_work, msecs_to_jiffies(timeout));
+			}
+			else
+				wake_unlock(&prim_panel_wakelock);
+		} else
+			wake_unlock(&prim_panel_wakelock);
+		unlock_fb_info(prim_fbi);
+#ifdef CONFIG_FRAMEBUFFER_CONSOLE
+		console_unlock();
+#endif
+		printk("SXF Exit %s\n",__func__);
+		return ret;
+	}
+
+	pr_err("primary panel is not existed\n");
+	return -EINVAL;
 }
 
 

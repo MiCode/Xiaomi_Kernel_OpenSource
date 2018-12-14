@@ -1,6 +1,7 @@
 /* Request a key from userspace
  *
  * Copyright (C) 2004-2007 Red Hat, Inc. All Rights Reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  * Written by David Howells (dhowells@redhat.com)
  *
  * This program is free software; you can redistribute it and/or
@@ -466,16 +467,11 @@ static struct key *construct_key_and_link(struct keyring_search_context *ctx,
 	ret = construct_get_dest_keyring(&dest_keyring);
 	if (ret)
 		goto error;
-
-	if (ctx->index_key.type == &key_type_keyring)
-		return ERR_PTR(-EPERM);
-
 	user = key_user_lookup(current_fsuid());
 	if (!user) {
 		ret = -ENOMEM;
 		goto error_put_dest_keyring;
 	}
-
 	ret = construct_alloc_key(ctx, dest_keyring, flags, user, &key);
 	key_user_put(user);
 

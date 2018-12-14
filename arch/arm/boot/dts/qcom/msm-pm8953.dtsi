@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,6 +41,10 @@
 			qcom,pon_1 {
 				qcom,pon-type = <0>;
 				qcom,pull-up = <1>;
+				qcom,support-reset = <1>;
+				qcom,s1-timer = <6720>;
+				qcom,s2-timer = <0>;
+				qcom,s2-type = <7>;
 				linux,code = <116>;
 			};
 
@@ -47,6 +52,15 @@
 				qcom,pon-type = <1>;
 				qcom,pull-up = <1>;
 				linux,code = <114>;
+			};
+			qcom,pon_3 {
+				qcom,pon-type = <3>;
+				qcom,support-reset = <1>;
+				qcom,pull-up = <1>;
+				qcom,s1-timer = <3072>;
+				qcom,s2-timer = <2000>;
+				qcom,s2-type = <1>;
+				qcom,use-bark;
 			};
 		};
 
@@ -151,7 +165,10 @@
 			gpio@c700 {
 				reg = <0xc700 0x100>;
 				qcom,pin-num = <8>;
+				/*
 				status = "disabled";
+				*/
+				qcom,master-en = <0>;/* disable this gpio */
 			};
 		};
 
@@ -245,7 +262,7 @@
 				interrupts = <0x0 0x61 0x1>;
 			};
 		};
-
+/*
 		pm8953_typec: qcom,pm8953_typec@bf00 {
 			compatible = "qcom,qpnp-typec";
 			reg = <0xbf00 0x100>;
@@ -265,6 +282,7 @@
 						"vbus-err",
 						"vconn-oc";
 		};
+*/
 	};
 
 	pm8953_1: qcom,pm8953@1 {

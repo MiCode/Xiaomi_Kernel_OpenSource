@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -99,7 +100,7 @@ enum {
 #define SPK_PMD 2
 #define SPK_PMU 3
 
-#define MICBIAS_DEFAULT_VAL 1800000
+#define MICBIAS_DEFAULT_VAL 2200000
 #define MICBIAS_MIN_VAL 1600000
 #define MICBIAS_STEP_SIZE 50000
 

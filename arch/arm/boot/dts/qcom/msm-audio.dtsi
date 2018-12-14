@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -306,7 +307,7 @@
 	};
 
 	int_codec: sound {
-		status = "disabled";
+		status = "ok";
 		compatible = "qcom,msm8952-audio-codec";
 		qcom,model = "msm8952-snd-card-mtp";
 		reg = <0xc051000 0x4>,
@@ -322,22 +323,19 @@
 		qcom,msm-mclk-freq = <9600000>;
 		qcom,msm-mbhc-hphl-swh = <0>;
 		qcom,msm-mbhc-gnd-swh = <0>;
-		qcom,msm-hs-micbias-type = "external";
+		qcom,msm-hs-micbias-type = "internal";
 		qcom,msm-micbias1-ext-cap;
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
 			"SPK_RX_BIAS", "MCLK",
 			"INT_LDO_H", "MCLK",
 			"MIC BIAS External", "Handset Mic",
-			"MIC BIAS External2", "Headset Mic",
+			"MIC BIAS Internal2", "Headset Mic",
 			"MIC BIAS External", "Secondary Mic",
 			"AMIC1", "MIC BIAS External",
-			"AMIC2", "MIC BIAS External2",
-			"AMIC3", "MIC BIAS External",
-			"WSA_SPK OUT", "VDD_WSA_SWITCH",
-			"SpkrMono WSA_IN", "WSA_SPK OUT";
+			"AMIC2", "MIC BIAS Internal2",
+			"AMIC3", "MIC BIAS External";
 
-		qcom,hdmi-dba-codec-rx;
 
 		qcom,msm-gpios =
 			"pri_i2s",
@@ -542,6 +540,19 @@
 	};
 
 	i2c@78b6000 {
+		status = "okay";
+		spkamp@3a {/* max98927 smartpa device*/
+			compatible = "maxim,max98927L";
+			status = "okay";
+			reg = <0x3a>;
+			mono_stereo_mode = <0>;
+			interleave_mode = <0>;
+			vmon-l-slot = <1>;
+			imon-l-slot = <1>;
+			vmon-r-slot = <1>;
+			imon-r-slot = <1>;
+			maxim,98927-reset-gpio = <&tlmm 89 0>;
+		};
 		wsa881x_i2c_e: wsa881x-i2c-codec@e {
 			status = "disabled";
 			compatible = "qcom,wsa881x-i2c-codec";

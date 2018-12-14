@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2381,6 +2382,7 @@ static void wcnss_nvbin_dnld(void)
 	unsigned int nv_blob_size = 0;
 	const struct firmware *nv = NULL;
 	struct device *dev = &penv->pdev->dev;
+
 
 	down_read(&wcnss_pm_sem);
 

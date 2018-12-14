@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -75,8 +76,8 @@
 		pinctrl-0 = <&cam_sensor_mclk0_default
 				&cam_sensor_rear_default1
 				&cam_sensor_rear_vana1>;
-		pinctrl-1 = <&cam_sensor_mclk0_sleep &cam_sensor_rear_sleep1
-				&cam_sensor_rear_vana_sleep1>;
+		//pinctrl-1 = <&cam_sensor_mclk0_sleep &cam_sensor_rear_sleep1
+		//		&cam_sensor_rear_vana_sleep1>;
 		gpios = <&tlmm 26 0>,
 			<&tlmm 40 0>,
 			<&tlmm 46 0>,

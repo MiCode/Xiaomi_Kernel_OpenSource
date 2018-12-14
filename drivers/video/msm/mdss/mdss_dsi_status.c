@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,12 +32,17 @@
 #include "mdss_panel.h"
 #include "mdss_mdp.h"
 
+#ifdef CONFIG_PROJECT_VINCE
+#define STATUS_CHECK_INTERVAL_MS 1000
+#else
 #define STATUS_CHECK_INTERVAL_MS 5000
+#endif
 #define STATUS_CHECK_INTERVAL_MIN_MS 50
 #define DSI_STATUS_CHECK_INIT -1
 #define DSI_STATUS_CHECK_DISABLE 1
 
-static uint32_t interval = STATUS_CHECK_INTERVAL_MS;
+uint32_t ESD_interval = STATUS_CHECK_INTERVAL_MS;
+
 static int32_t dsi_status_disable = DSI_STATUS_CHECK_INIT;
 struct dsi_status_data *pstatus_data;
 
@@ -68,7 +74,7 @@ static void check_dsi_ctrl_status(struct work_struct *work)
 		return;
 	}
 
-	pdsi_status->mfd->mdp.check_dsi_status(work, interval);
+	pdsi_status->mfd->mdp.check_dsi_status(work, ESD_interval);
 }
 
 /*
@@ -91,7 +97,7 @@ irqreturn_t hw_vsync_handler(int irq, void *data)
 
 	if (pstatus_data)
 		mod_delayed_work(system_wq, &pstatus_data->check_status,
-			msecs_to_jiffies(interval));
+			msecs_to_jiffies(ESD_interval));
 	else
 		pr_err("Pstatus data is NULL\n");
 
@@ -175,7 +181,7 @@ static int fb_event_callback(struct notifier_block *self,
 		switch (*blank) {
 		case FB_BLANK_UNBLANK:
 			schedule_delayed_work(&pdata->check_status,
-				msecs_to_jiffies(interval));
+				msecs_to_jiffies(ESD_interval));
 			break;
 		case FB_BLANK_VSYNC_SUSPEND:
 		case FB_BLANK_NORMAL:
@@ -259,7 +265,7 @@ int __init mdss_dsi_status_init(void)
 		return -EPERM;
 	}
 
-	pr_info("%s: DSI status check interval:%d\n", __func__,	interval);
+	pr_info("%s: DSI status check interval:%d\n", __func__,	ESD_interval);
 
 	INIT_DELAYED_WORK(&pstatus_data->check_status, check_dsi_ctrl_status);
 
@@ -276,9 +282,9 @@ void __exit mdss_dsi_status_exit(void)
 	pr_debug("%s: DSI ctrl status work queue removed\n", __func__);
 }
 
-module_param_call(interval, param_set_interval, param_get_uint,
-						&interval, 0644);
-MODULE_PARM_DESC(interval,
+module_param_call(ESD_interval, param_set_interval, param_get_uint,
+						&ESD_interval, 0644);
+MODULE_PARM_DESC(ESD_interval,
 		"Duration in milliseconds to send BTA command for checking"
 		"DSI status periodically");
 

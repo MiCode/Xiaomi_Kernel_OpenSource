@@ -3,6 +3,7 @@
  * Copyright (C) 2008 Google, Inc.
  * Author: Brian Swetland <swetland@google.com>
  * Copyright (c) 2009-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -677,6 +678,7 @@ static inline void msm_usb_irq_disable(bool disable)
 }
 #endif
 
+int qusb_phy_run_dcd(struct usb_phy *phy);
 /* CONFIG_PM_RUNTIME */
 #ifdef CONFIG_PM_RUNTIME
 static inline int get_pm_runtime_counter(struct device *dev)

@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,7 +32,7 @@
 		/* Fudge factors */
 		qcom,mdss-ab-factor = <1 1>;		/* 1 time  */
 		qcom,mdss-ib-factor = <1 1>;		/* 1 time  */
-		qcom,mdss-clk-factor = <105 100>;	/* 1.05 times */
+		qcom,mdss-clk-factor = <110 100>;	/* 1.10 times */
 
 		qcom,max-mixer-width = <2048>;
 		qcom,max-pipe-width = <2048>;

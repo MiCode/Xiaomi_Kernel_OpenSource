@@ -1194,6 +1194,7 @@ struct ravg {
 	u64 mark_start;
 	u32 sum, demand;
 	u32 sum_history[RAVG_HIST_SIZE_MAX];
+	u64 proc_load;
 #ifdef CONFIG_SCHED_FREQ_INPUT
 	u32 curr_window, prev_window;
 	u16 active_windows;

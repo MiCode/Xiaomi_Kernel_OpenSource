@@ -2,6 +2,7 @@
  *  linux/drivers/video/fbmem.c
  *
  *  Copyright (C) 1994 Martin Schaller
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  *	2001 - Documented with DocBook
  *	- Brad Douglas <brad@neruo.com>
@@ -1054,20 +1055,36 @@ EXPORT_SYMBOL(fb_set_var);
 
 int
 fb_blank(struct fb_info *info, int blank)
-{	
+{
 	struct fb_event event;
 	int ret = -EINVAL, early_ret;
 
+	printk("lcm enter %s fb_blank = %d\n",__func__,blank);
  	if (blank > FB_BLANK_POWERDOWN)
  		blank = FB_BLANK_POWERDOWN;
+
+	if (info->blank == blank) {
+		if (info->fbops->fb_blank)
+			ret = info->fbops->fb_blank(blank, info);
+		return ret;
+	}
 
 	event.info = info;
 	event.data = &blank;
 
+	#ifdef CONFIG_PROJECT_SAKURA
+	/*fast tp suspend in LPWG*/
+	if (blank == FB_BLANK_POWERDOWN){
+		fb_notifier_call_chain(FB_EVENT_BLANK, &event);
+	}
+	#endif
+
 	early_ret = fb_notifier_call_chain(FB_EARLY_EVENT_BLANK, &event);
 
+	printk("lcm enter do fbops fb_blank = %d\n",blank);
 	if (info->fbops->fb_blank)
  		ret = info->fbops->fb_blank(blank, info);
+ 	printk("lcm enter  do fbops fb_blank = %d\n",blank);
 
 	if (!ret)
 		fb_notifier_call_chain(FB_EVENT_BLANK, &event);
@@ -1079,6 +1096,10 @@ fb_blank(struct fb_info *info, int blank)
 		if (!early_ret)
 			fb_notifier_call_chain(FB_R_EARLY_EVENT_BLANK, &event);
 	}
+	printk("lcm out %s fb_blank = %d\n",__func__,blank);
+
+    	if (!ret)
+		info->blank = blank;
 
  	return ret;
 }
@@ -1641,6 +1662,7 @@ static int do_register_framebuffer(struct fb_info *fb_info)
 		if (!registered_fb[i])
 			break;
 	fb_info->node = i;
+	fb_info->blank = -1;
 	atomic_set(&fb_info->count, 1);
 	mutex_init(&fb_info->lock);
 	mutex_init(&fb_info->mm_lock);

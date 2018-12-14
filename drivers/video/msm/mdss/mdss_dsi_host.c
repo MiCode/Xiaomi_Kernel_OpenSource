@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1155,6 +1156,78 @@ static int mdss_dsi_read_status(struct mdss_dsi_ctrl_pdata *ctrl)
  * Return: positive value if the panel is in good state, negative value or
  * zero otherwise.
  */
+#ifdef CONFIG_PROJECT_VINCE
+int mdss_dsi_reg_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+	int ret = 0;
+	struct mdss_dsi_ctrl_pdata *sctrl_pdata = NULL;
+	/*Add by HQ-zmc [Date: 2017-12-18 11:16:00]*/
+	struct NVT_CSOT_ESD *nvt_csot_esd_status = get_nvt_csot_esd_status();
+
+	if (nvt_csot_esd_status == NULL){
+		pr_err("%s: Invalid nvt_csot_esd_status\n", __func__);
+		return 0;
+	}
+
+	if (ctrl_pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return 0;
+	}
+
+	pr_debug("%s: Checking Register status\n", __func__);
+
+	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
+			  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_ON);
+
+	sctrl_pdata = mdss_dsi_get_other_ctrl(ctrl_pdata);
+	if (!mdss_dsi_sync_wait_enable(ctrl_pdata)) {
+		ret = mdss_dsi_read_status(ctrl_pdata);
+	} else {
+		/*
+		 * Read commands to check ESD status are usually sent at
+		 * the same time to both the controllers. However, if
+		 * sync_wait is enabled, we need to ensure that the
+		 * dcs commands are first sent to the non-trigger
+		 * controller so that when the commands are triggered,
+		 * both controllers receive it at the same time.
+		 */
+		if (mdss_dsi_sync_wait_trigger(ctrl_pdata)) {
+			if (sctrl_pdata)
+				ret = mdss_dsi_read_status(sctrl_pdata);
+			ret = mdss_dsi_read_status(ctrl_pdata);
+		} else {
+			ret = mdss_dsi_read_status(ctrl_pdata);
+			if (sctrl_pdata)
+				ret = mdss_dsi_read_status(sctrl_pdata);
+		}
+	}
+
+	/*
+	 * mdss_dsi_read_status returns the number of bytes returned
+	 * by the panel. Success value is greater than zero and failure
+	 * case returns zero.
+	 */
+	if (ret > 0) {
+		if (!mdss_dsi_sync_wait_enable(ctrl_pdata) ||
+			mdss_dsi_sync_wait_trigger(ctrl_pdata))
+			ret = ctrl_pdata->check_read_status(ctrl_pdata);
+		else if (sctrl_pdata)
+			ret = ctrl_pdata->check_read_status(sctrl_pdata);
+	} else {
+		pr_err("%s: Read status register returned error\n", __func__);
+	}
+
+	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
+			  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_OFF);
+	pr_debug("%s: Read register done with ret: %d\n", __func__, ret);
+
+	/*Add by HQ-zmc [Date: 2017-12-19 18:39:41]*/
+	if ((ret <= 0) && (!nvt_csot_esd_status->ESD_TE_status))
+		nvt_csot_esd_status->ESD_TE_status = true;
+
+	return ret;
+}
+#else
 int mdss_dsi_reg_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	int ret = 0;
@@ -1214,6 +1287,51 @@ int mdss_dsi_reg_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 
 	return ret;
 }
+#endif
+
+extern u32 te_count;
+
+#ifdef CONFIG_PROJECT_VINCE
+/*Add by HQ-zmc [Date: 2018-03-05 17:58:53]
+  TE_check per 1000ms, te_count < 48
+*/
+int mdss_dsi_TE_NT35596_check (struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+    int ret = 1;
+    /*Add by HQ-zmc [Date: 2017-12-18 11:16:00]*/
+	struct NVT_CSOT_ESD *nvt_csot_esd_status = get_nvt_csot_esd_status();
+
+    if (te_count < 48){
+		ret = 0;
+		nvt_csot_esd_status->ESD_TE_status = true;
+		pr_err("liujia te_count doesnt add as time");
+    }
+
+	te_count = 0;
+
+	return ret;
+}
+#else
+static u32 te_count_old = 1;
+
+int mdss_dsi_TE_NT35596_check (struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+       int ret = 1;
+
+	if (te_count_old != te_count){
+
+		te_count_old = te_count;
+	}else{
+		ret = 0;
+		pr_err("liujia te_count doesnt add as time");
+	}
+      if (te_count>=10000)
+      	{te_count = 0; }
+
+	return ret;
+
+}
+#endif
 
 void mdss_dsi_dsc_config(struct mdss_dsi_ctrl_pdata *ctrl, struct dsc_desc *dsc)
 {

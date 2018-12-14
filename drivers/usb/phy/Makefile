@@ -26,6 +26,7 @@ obj-$(CONFIG_USB_MSM_HSPHY)     	+= phy-msm-hsusb.o
 obj-$(CONFIG_USB_MSM_SSPHY)     	+= phy-msm-ssusb.o
 obj-$(CONFIG_USB_MSM_SSPHY_QMP)     	+= phy-msm-ssusb-qmp.o
 obj-$(CONFIG_MSM_QUSB_PHY)              += phy-msm-qusb.o phy-msm-qusb-v2.o
+obj-$(CONFIG_MSM_QUSB_PHY_E7)			+= phy-msm-qusb_e7.o phy-msm-qusb-v2.o
 obj-$(CONFIG_USB_MV_OTG)		+= phy-mv-usb.o
 obj-$(CONFIG_USB_MXS_PHY)		+= phy-mxs-usb.o
 obj-$(CONFIG_USB_RCAR_PHY)		+= phy-rcar-usb.o

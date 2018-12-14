@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -402,6 +403,7 @@
 			<0xff 264>, /* arm-smmu context fault */
 			<0xff 269>, /* rpm_wdog_expired_irq */
 			<0xff 270>, /* blsp1_bam_irq[0] */
+			<0xff 271>, /* blsp1_bam_irq[0] */
 			<0xff 273>, /* smmu_bus_intr[18] */
 			<0xff 274>, /* smmu_bus_intr[19] */
 			<0xff 275>, /* rpm_ipc(30) */
@@ -475,6 +477,7 @@
 			<72  139>,
 			<73  140>,
 			<74  141>,
+			<0xff 24>,
 			<0xff 88>;
 	};
 

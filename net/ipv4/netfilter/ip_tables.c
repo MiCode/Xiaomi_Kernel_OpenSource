@@ -4,6 +4,7 @@
  * Copyright (C) 1999 Paul `Rusty' Russell & Michael J. Neuling
  * Copyright (C) 2000-2005 Netfilter Core Team <coreteam@netfilter.org>
  * Copyright (C) 2006-2010 Patrick McHardy <kaber@trash.net>
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -576,7 +577,12 @@ static void cleanup_match(struct xt_entry_match *m, struct net *net)
 static int
 check_entry(const struct ipt_entry *e)
 {
+	long size_of_base_struct = e->elems - (const unsigned char *)e;
 	const struct xt_entry_target *t;
+
+	/* target start is within the ip/ip6/arpt_entry struct */
+	if (e->target_offset < size_of_base_struct)
+		return -EINVAL;
 
 	if (!ip_checkentry(&e->ip))
 		return -EINVAL;

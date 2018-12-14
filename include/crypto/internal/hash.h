@@ -2,6 +2,7 @@
  * Hash algorithms.
  * 
  * Copyright (c) 2008 Herbert Xu <herbert@gondor.apana.org.au>
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -90,8 +91,6 @@ static inline bool crypto_shash_alg_has_setkey(struct shash_alg *alg)
 {
 	return alg->setkey != shash_no_setkey;
 }
-
-bool crypto_hash_alg_has_setkey(struct hash_alg_common *halg);
 
 int crypto_init_ahash_spawn(struct crypto_ahash_spawn *spawn,
 			    struct hash_alg_common *alg,

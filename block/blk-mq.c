@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2013-2014 Jens Axboe
  * Copyright (C) 2013-2014 Christoph Hellwig
+ * Copyright (C) 2018 XiaoMi, Inc.
  */
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -498,6 +499,7 @@ void blk_mq_kick_requeue_list(struct request_queue *q)
 }
 EXPORT_SYMBOL(blk_mq_kick_requeue_list);
 
+
 struct request *blk_mq_tag_to_rq(struct blk_mq_tags *tags, unsigned int tag)
 {
 	return tags->rqs[tag];
@@ -544,7 +546,7 @@ void blk_mq_rq_timed_out(struct request *req, bool reserved)
 		break;
 	}
 }
-		
+
 static void blk_mq_check_expired(struct blk_mq_hw_ctx *hctx,
 		struct request *rq, void *priv, bool reserved)
 {

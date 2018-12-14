@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +32,7 @@
 #include <linux/qpnp/power-on.h>
 #include <linux/qpnp/qpnp-pbs.h>
 #include <linux/qpnp-misc.h>
+
 
 #define CREATE_MASK(NUM_BITS, POS) \
 	((unsigned char) (((1 << (NUM_BITS)) - 1) << (POS)))
@@ -71,6 +73,7 @@
 #define QPNP_POFF_REASON1(pon) \
 	((pon)->base + PON_OFFSET((pon)->subtype, 0xC, 0xC5))
 #define QPNP_PON_WARM_RESET_REASON2(pon)	((pon)->base + 0xB)
+#define QPNP_POFF_REASON2(pon)                 ((pon)->base + 0xD)
 #define QPNP_PON_OFF_REASON(pon)		((pon)->base + 0xC7)
 #define QPNP_FAULT_REASON1(pon)			((pon)->base + 0xC8)
 #define QPNP_S3_RESET_REASON(pon)		((pon)->base + 0xCA)
@@ -675,6 +678,77 @@ int qpnp_pon_is_warm_reset(void)
 		return pon->warm_reset_reason1;
 }
 EXPORT_SYMBOL(qpnp_pon_is_warm_reset);
+
+int qpnp_pon_is_ps_hold_reset(void)
+{
+       struct qpnp_pon *pon = sys_reset_dev;
+       int rc;
+       u8 reg = 0;
+
+       if (!pon)
+               return 0;
+
+       rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+                       QPNP_POFF_REASON1(pon), &reg, 1);
+       if (rc) {
+               dev_err(&pon->spmi->dev,
+                       "Unable to read addr=%x, rc(%d)\n",
+                       QPNP_POFF_REASON1(pon), rc);
+               return 0;
+       }
+
+       /* The bit 1 is 1, means by PS_HOLD/MSM controlled shutdown */
+       if (reg & 0x2)
+               return 1;
+       dev_info(&pon->spmi->dev,
+                       "hw_reset reason1 is 0x%x\n",
+                       reg);
+
+       rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+                       QPNP_POFF_REASON2(pon), &reg, 1);
+
+       dev_info(&pon->spmi->dev,
+                       "hw_reset reason2 is 0x%x\n",
+                       reg);
+       return 0;
+}
+EXPORT_SYMBOL(qpnp_pon_is_ps_hold_reset);
+
+int qpnp_pon_is_lpk(void)
+{
+       struct qpnp_pon *pon = sys_reset_dev;
+       int rc;
+       u8 reg = 0;
+
+       if (!pon)
+               return 0;
+
+       rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+                       QPNP_POFF_REASON1(pon), &reg, 1);
+       if (rc) {
+               dev_err(&pon->spmi->dev,
+                       "Unable to read addr=%x, rc(%d)\n",
+                       QPNP_POFF_REASON1(pon), rc);
+               return 0;
+       }
+
+
+       if (reg & 0x80)
+               return 1;
+
+       dev_info(&pon->spmi->dev,
+                       "hw_reset reason1 is 0x%x\n",
+                       reg);
+
+       rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+                       QPNP_POFF_REASON2(pon), &reg, 1);
+
+       dev_info(&pon->spmi->dev,
+                       "hw_reset reason2 is 0x%x\n",
+                       reg);
+       return 0;
+}
+EXPORT_SYMBOL(qpnp_pon_is_lpk);
 
 /**
  * qpnp_pon_wd_config - Disable the wd in a warm reset.
@@ -2046,6 +2120,54 @@ static int pon_register_twm_notifier(struct qpnp_pon *pon)
 	return rc;
 }
 
+
+
+
+
+static ssize_t qpnp_kpdpwr_reset_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct qpnp_pon *pon = dev_get_drvdata(dev);
+	u8 val;
+         spmi_ext_register_readl(pon->spmi->ctrl,
+					pon->spmi->sid, QPNP_PON_KPDPWR_S2_CNTL2(pon),
+							&val, 1);
+
+	val &= QPNP_PON_S2_RESET_ENABLE;
+	val = val >> 7;
+
+	return snprintf(buf, QPNP_PON_BUFFER_SIZE, "%d\n", val);
+}
+
+static ssize_t qpnp_kpdpwr_reset_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
+{
+	struct qpnp_pon *pon = dev_get_drvdata(dev);
+	u8 value;
+	int rc;
+
+	if (size > QPNP_PON_BUFFER_SIZE)
+		return -EINVAL;
+
+	rc = kstrtou8(buf, 10, &value);
+	if (rc)
+		return rc;
+
+	value = value << 7;
+	value &= QPNP_PON_S2_RESET_ENABLE;
+
+        rc = qpnp_pon_masked_write(pon,
+						QPNP_PON_KPDPWR_S2_CNTL2(pon),
+						QPNP_PON_S2_CNTL_EN, value);
+	return size;
+}
+
+static DEVICE_ATTR(kpdpwr_reset, 0664, qpnp_kpdpwr_reset_show, qpnp_kpdpwr_reset_store);
+
+
+
+
 static int qpnp_pon_probe(struct spmi_device *spmi)
 {
 	struct qpnp_pon *pon;
@@ -2400,6 +2522,13 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 		return rc;
 	}
 
+        rc = device_create_file(&spmi->dev, &dev_attr_kpdpwr_reset);
+        if (rc) {
+            dev_err(&spmi->dev, "sys file creation failed rc: %d\n", rc);
+             return rc;
+            }
+
+
 	if (of_property_read_bool(spmi->dev.of_node,
 					"qcom,pon-reset-off")) {
 		rc = qpnp_pon_trigger_config(PON_CBLPWR_N, false);
@@ -2438,6 +2567,7 @@ static int qpnp_pon_remove(struct spmi_device *spmi)
 	unsigned long flags;
 
 	device_remove_file(&spmi->dev, &dev_attr_debounce_us);
+	device_remove_file(&spmi->dev, &dev_attr_kpdpwr_reset);
 
 	cancel_delayed_work_sync(&pon->bark_work);
 

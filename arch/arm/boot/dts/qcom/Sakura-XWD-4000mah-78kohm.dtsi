@@ -1,0 +1,50 @@
+
+qcom,3464413_huaqin_d1ssun_4000mah_averaged_masterslave_may31st2018 {
+	/* #3464413_Huaqin_D1Ssun_4000mAh_averaged_MasterSlave_May31st2018*/
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <4000>;
+	qcom,batt-id-kohm = <78>;
+	qcom,battery-beta = <3380>;
+	qcom,battery-type = "XWD-4000mah-78kohm";
+	qcom,chg-rslow-comp-c1 = <4038035>;
+	qcom,chg-rslow-comp-c2 = <7085423>;
+	qcom,chg-rs-to-rslow = <940608>;
+	qcom,chg-rslow-comp-thr = <0xB7>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,checksum = <0xDC28>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.16";
+	qcom,fg-profile-data = [
+		 BC 83 91 76
+		 7B 7B 4B 74
+		 36 83 22 78
+		 0C 85 DF 81
+		 ED 81 1D A0
+		 21 C4 AA D1
+		 6C 0F 18 88
+		 FA 7E 66 82
+		 A6 7C 38 83
+		 34 79 6F 86
+		 B1 82 26 82
+		 B0 9B 3B C4
+		 6B D2 79 0E
+		 99 0F BD 59
+		 14 70 EE FC
+		 5C 22 99 45
+		 27 38 00 00
+		 82 46 F0 41
+		 C5 3E 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 CF 70 80 6A
+		 0B 84 CD 88
+		 58 7D 4C 73
+		 DA 74 2B 73
+		 25 76 7F 6B
+		 65 4B B3 A2
+		 35 76 61 4C
+		 5F A0 71 0C
+		 28 00 FF 36
+		 F0 11 30 03
+		 00 00 00 0C
+	];
+};

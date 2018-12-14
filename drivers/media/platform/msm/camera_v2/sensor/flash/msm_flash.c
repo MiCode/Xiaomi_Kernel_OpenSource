@@ -1,4 +1,5 @@
 /* Copyright (c) 2009-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,7 +37,10 @@ static const struct i2c_device_id msm_flash_i2c_id[] = {
 	{"qcom,camera-flash", (kernel_ulong_t)NULL},
 	{ }
 };
-
+#ifdef CONFIG_FLASHLIGHT_VINCE_O
+static struct msm_flash_ctrl_t *flashlight_ctrl;
+static unsigned char flashlight_brightness_value;
+#endif
 static const struct of_device_id msm_flash_dt_match[] = {
 	{.compatible = "qcom,camera-flash", .data = NULL},
 	{}
@@ -102,7 +106,73 @@ static struct led_classdev msm_torch_led[MAX_LED_TRIGGERS] = {
 		.brightness	= LED_OFF,
 	},
 };
+#ifdef CONFIG_FLASHLIGHT_VINCE_O
+static void msm_flashlight_brightness_vince_set(struct led_classdev *led_cdev,
+		enum led_brightness value)
+{
+	uint32_t torch_curr[2];
+	int32_t i = 0;
+	struct msm_flash_ctrl_t *flash_ctrl = flashlight_ctrl;
 
+
+	torch_curr[0] = 200;
+	torch_curr[1] = 88;
+
+	flashlight_brightness_value = value;
+
+	if (value == 0) {
+		/* Turn off flash triggers */
+		for (i = 0; i < flash_ctrl->torch_num_sources; i++)
+			if (flash_ctrl->torch_trigger[i])
+				led_trigger_event(flash_ctrl->torch_trigger[i], 0);
+
+		if (flash_ctrl->switch_trigger)
+			led_trigger_event(flash_ctrl->switch_trigger, 0);
+
+	} else {
+		/* Turn on flash triggers */
+		for (i = 0; i < flash_ctrl->torch_num_sources; i++)
+				led_trigger_event(flash_ctrl->torch_trigger[i], torch_curr[i]);
+
+		if (flash_ctrl->switch_trigger)
+			led_trigger_event(flash_ctrl->switch_trigger, 1);
+
+	}
+}
+
+static enum led_brightness msm_flashlight_brightness_vince_get(struct led_classdev *led_cdev)
+{
+	return flashlight_brightness_value;
+}
+
+static struct led_classdev msm_pmic_flashlight_led = {
+       .name           = "flashlight",
+       .brightness_set = msm_flashlight_brightness_vince_set,
+       .brightness_get = msm_flashlight_brightness_vince_get,
+       .brightness     = LED_OFF,
+};
+int32_t msm_flashlight_create_classdev(struct platform_device *pdev,
+		void *data)
+{
+	int32_t i, rc = 0;
+	struct msm_flash_ctrl_t *fctrl =
+		(struct msm_flash_ctrl_t *)data;
+
+	if (!fctrl) {
+		pr_err("Invalid fctrl\n");
+		return -EINVAL;
+	}
+
+	flashlight_ctrl = fctrl;
+
+	rc = led_classdev_register(&pdev->dev, &msm_pmic_flashlight_led);
+	if (rc) {
+		pr_err("Failed to register %d led dev. rc = %d\n", i, rc);
+		return rc;
+	}
+	return 0;
+}
+#endif
 static int32_t msm_torch_create_classdev(struct platform_device *pdev,
 				void *data)
 {
@@ -688,6 +758,9 @@ static int32_t msm_flash_config(struct msm_flash_ctrl_t *flash_ctrl,
 	switch (flash_data->cfg_type) {
 	case CFG_FLASH_INIT:
 		rc = msm_flash_init_prepare(flash_ctrl, flash_data);
+#ifdef CONFIG_FLASHLIGHT_VINCE_O
+		flashlight_brightness_value = 0;
+#endif
 		break;
 	case CFG_FLASH_RELEASE:
 		if (flash_ctrl->flash_state != MSM_CAMERA_FLASH_RELEASE) {
@@ -703,6 +776,9 @@ static int32_t msm_flash_config(struct msm_flash_ctrl_t *flash_ctrl,
 			(flash_ctrl->flash_state != MSM_CAMERA_FLASH_OFF)) {
 			rc = flash_ctrl->func_tbl->camera_flash_off(
 				flash_ctrl, flash_data);
+#ifdef CONFIG_FLASHLIGHT_VINCE_O
+			flashlight_brightness_value = 0;
+#endif
 			if (!rc)
 				flash_ctrl->flash_state = MSM_CAMERA_FLASH_OFF;
 		} else {
@@ -715,6 +791,9 @@ static int32_t msm_flash_config(struct msm_flash_ctrl_t *flash_ctrl,
 			(flash_ctrl->flash_state == MSM_CAMERA_FLASH_INIT)) {
 			rc = flash_ctrl->func_tbl->camera_flash_low(
 				flash_ctrl, flash_data);
+#ifdef CONFIG_FLASHLIGHT_VINCE_O
+			flashlight_brightness_value = 100;
+#endif
 			if (!rc)
 				flash_ctrl->flash_state = MSM_CAMERA_FLASH_LOW;
 		} else {
@@ -727,6 +806,9 @@ static int32_t msm_flash_config(struct msm_flash_ctrl_t *flash_ctrl,
 			(flash_ctrl->flash_state == MSM_CAMERA_FLASH_INIT)) {
 			rc = flash_ctrl->func_tbl->camera_flash_high(
 				flash_ctrl, flash_data);
+#ifdef CONFIG_FLASHLIGHT_VINCE_O
+			flashlight_brightness_value = 100;
+#endif
 			if (!rc)
 				flash_ctrl->flash_state = MSM_CAMERA_FLASH_HIGH;
 		} else {
@@ -1273,7 +1355,9 @@ static int32_t msm_flash_platform_probe(struct platform_device *pdev)
 
 	if (flash_ctrl->flash_driver_type == FLASH_DRIVER_PMIC)
 		rc = msm_torch_create_classdev(pdev, flash_ctrl);
-
+#ifdef CONFIG_FLASHLIGHT_VINCE_O
+	msm_flashlight_create_classdev(pdev, flash_ctrl);
+#endif
 	CDBG("probe success\n");
 	return rc;
 }
@@ -1306,6 +1390,10 @@ static int __init msm_flash_init_module(void)
 {
 	int32_t rc = 0;
 	CDBG("Enter\n");
+#ifdef CONFIG_FLASHLIGHT_VINCE_O
+	flashlight_ctrl = NULL;
+	flashlight_brightness_value = 0;
+#endif
 	rc = platform_driver_register(&msm_flash_platform_driver);
 	if (!rc)
 		return rc;

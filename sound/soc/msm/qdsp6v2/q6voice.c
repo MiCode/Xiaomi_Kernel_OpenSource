@@ -1,4 +1,5 @@
 /*  Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,6 +49,7 @@ struct cvd_version_table cvd_version_table_mapping[CVD_INT_VERSION_MAX] = {
 		{CVD_VERSION_0_0, CVD_INT_VERSION_0_0},
 		{CVD_VERSION_2_1, CVD_INT_VERSION_2_1},
 		{CVD_VERSION_2_2, CVD_INT_VERSION_2_2},
+		{CVD_VERSION_2_3, CVD_INT_VERSION_2_3},
 };
 
 static struct common_data common;
@@ -5713,7 +5715,7 @@ int voc_set_rx_vol_step(uint32_t session_id, uint32_t dir, uint32_t vol_step,
 	int ret = 0;
 	struct voice_session_itr itr;
 
-	pr_debug("%s session id = %#x vol = %u", __func__, session_id,
+	printk("%s session id = %#x vol = %u", __func__, session_id,
 		vol_step);
 
 	voice_itr_init(&itr, session_id);
@@ -5726,7 +5728,7 @@ int voc_set_rx_vol_step(uint32_t session_id, uint32_t dir, uint32_t vol_step,
 				ret = voice_send_vol_step_cmd(v);
 			mutex_unlock(&v->lock);
 		} else {
-			pr_err("%s: invalid session_id 0x%x\n", __func__,
+			printk("%s: invalid session_id 0x%x\n", __func__,
 				session_id);
 
 			ret = -EINVAL;

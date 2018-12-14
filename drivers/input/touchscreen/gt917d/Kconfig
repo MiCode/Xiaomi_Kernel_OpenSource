@@ -1,0 +1,35 @@
+#
+# Goodix GT9xx Touchscreen driver
+#
+config TOUCHSCREEN_GT917d
+	bool "Goodix touchpanel GT9xx series"
+	depends on I2C
+	help
+	  Say Y here if you have a Goodix GT9xx touchscreen
+	  controller.
+
+          If unsure, say N.
+
+config TOUCHSCREEN_GT917d_UPDATE
+	tristate "Goodix GT9xx touch controller auto update support"
+	depends on TOUCHSCREEN_GT9XX
+	default y
+	help
+	  Enable this for support firmware update.
+
+	  Say Y here if you want update touch controller firmware.
+
+	  If unsure, say N.
+
+config TOUCHSCREEN_GT917d_TOOL
+	tristate "Goodix GT9xx Tools for debuging"
+	depends on TOUCHSCREEN_GT9XX
+	default y
+	help
+	  This implement interface support for Goodix GT9xx
+	  touchscreen debug.
+
+	  Say Y here if you want to have a Android app debug interface
+	  to your system.
+
+	  If unsure, say N.

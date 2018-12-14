@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -211,9 +212,15 @@ static int mdss_pll_clock_register(struct platform_device *pdev,
 	return rc;
 }
 
+#if defined(CONFIG_PROJECT_SAKURA) || defined(CONFIG_PROJECT_DAISY)
+extern char *saved_command_line;
+#endif
 static int mdss_pll_probe(struct platform_device *pdev)
 {
 	int rc = 0;
+#if defined(CONFIG_PROJECT_SAKURA) || defined(CONFIG_PROJECT_DAISY)
+	int len = 0;
+#endif
 	const char *label;
 	struct resource *pll_base_reg;
 	struct resource *phy_base_reg;
@@ -249,6 +256,29 @@ static int mdss_pll_probe(struct platform_device *pdev)
 		pll_res->index = 0;
 	}
 
+#if defined(CONFIG_PROJECT_SAKURA) || defined(CONFIG_PROJECT_DAISY)
+	len = strlen(saved_command_line);
+	if (strnstr(saved_command_line, "ili7807_fhdplus_video", len)){
+
+		pll_res->ssc_en = 0;
+		printk("[sunbo] panel: CDY_ili7807.\n");
+
+	} else if (strnstr(saved_command_line, "hx8399c_fhdplus_video", len)){
+
+		pll_res->ssc_en = 1;
+		pll_res->ssc_freq = 30000;
+		pll_res->ssc_ppm = 5000;
+		pll_res->ssc_center = false;
+		printk("[sunbo] panel: CSOT_hx8399c.\n");
+	} else if (strnstr(saved_command_line, "otm1911_fhdplus_video", len)){
+		pll_res->ssc_en = 1;
+		pll_res->ssc_freq = 30000;
+		pll_res->ssc_ppm = 5000;
+		pll_res->ssc_center = false;
+		printk("[sunbo] panel: TIANMA_otm1911.\n");
+	}
+
+#else
 	pll_res->ssc_en = of_property_read_bool(pdev->dev.of_node,
 						"qcom,dsi-pll-ssc-en");
 
@@ -269,6 +299,9 @@ static int mdss_pll_probe(struct platform_device *pdev)
 		if (label && !strcmp(label, "center-spread"))
 			pll_res->ssc_center = true;
 	}
+#endif
+	printk("[sunbo] SSC state: ssc_en = %d, frequency-hz = %u, ssc-ppm = %u, ssc_center = %d.\n",
+						pll_res->ssc_en,pll_res->ssc_freq,pll_res->ssc_ppm,pll_res->ssc_center);
 
 	pll_base_reg = platform_get_resource_byname(pdev,
 						IORESOURCE_MEM, "pll_base");
