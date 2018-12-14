@@ -1090,7 +1090,6 @@ const char * const vmstat_text[] = {
 #ifdef CONFIG_DEBUG_VM_VMACACHE
 	"vmacache_find_calls",
 	"vmacache_find_hits",
-	"vmacache_full_flushes",
 #endif
 #ifdef CONFIG_SPECULATIVE_PAGE_FAULT
 	"speculative_pgfault"
