@@ -516,7 +516,8 @@ void mmc_cleanup_queue(struct mmc_queue *mq)
 	blk_start_queue(q);
 	spin_unlock_irqrestore(q->queue_lock, flags);
 
-	blk_cleanup_queue(q);
+	if (likely(!blk_queue_dead(q)))
+		blk_cleanup_queue(q);
 
 	mq->card = NULL;
 }

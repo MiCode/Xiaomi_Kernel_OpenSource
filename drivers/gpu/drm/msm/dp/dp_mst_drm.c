@@ -118,6 +118,7 @@ struct dp_mst_private {
 	const struct dp_drm_mst_fw_helper_ops *mst_fw_cbs;
 	struct dp_mst_sim_mode simulator;
 	struct mutex mst_lock;
+	enum dp_drv_state state;
 };
 
 struct dp_mst_encoder_info_cache {
@@ -163,7 +164,8 @@ static void dp_mst_sim_add_port(struct dp_mst_private *mst,
 	list_add(&port->next, &mstb->ports);
 	mutex_unlock(&mstb->mgr->lock);
 
-	port->available_pbn = 0;
+	/* use fixed pbn for simulator ports */
+	port->available_pbn = 2520;
 
 	if (!port->input) {
 		port->connector = (*mstb->mgr->cbs->add_connector)
@@ -513,6 +515,27 @@ static void _dp_mst_update_timeslots(struct dp_mst_private *mst,
 	}
 }
 
+static void _dp_mst_update_single_timeslot(struct dp_mst_private *mst,
+		struct dp_mst_bridge *mst_bridge)
+{
+	int pbn = 0, start_slot = 0, num_slots = 0;
+
+	if (mst->state == PM_SUSPEND) {
+		if (mst_bridge->vcpi) {
+			mst->mst_fw_cbs->get_vcpi_info(&mst->mst_mgr,
+					mst_bridge->vcpi,
+					&start_slot, &num_slots);
+			pbn = mst_bridge->pbn;
+		}
+
+		mst_bridge->num_slots = num_slots;
+
+		mst->dp_display->set_stream_info(mst->dp_display,
+				mst_bridge->dp_panel,
+				mst_bridge->id, start_slot, num_slots, pbn);
+	}
+}
+
 static void _dp_mst_bridge_pre_enable_part1(struct dp_mst_bridge *dp_bridge)
 {
 	struct dp_display *dp_display = dp_bridge->display;
@@ -522,6 +545,12 @@ static void _dp_mst_bridge_pre_enable_part1(struct dp_mst_bridge *dp_bridge)
 	struct drm_dp_mst_port *port = c_conn->mst_port;
 	bool ret;
 	int pbn, slots;
+
+	/* skip mst specific disable operations during suspend */
+	if (mst->state == PM_SUSPEND) {
+		_dp_mst_update_single_timeslot(mst, dp_bridge);
+		return;
+	}
 
 	pbn = mst->mst_fw_cbs->calc_pbn_mode(
 			dp_bridge->dp_mode.timing.pixel_clk_khz,
@@ -555,6 +584,10 @@ static void _dp_mst_bridge_pre_enable_part2(struct dp_mst_bridge *dp_bridge)
 
 	DP_MST_DEBUG("enter\n");
 
+	/* skip mst specific disable operations during suspend */
+	if (mst->state == PM_SUSPEND)
+		return;
+
 	mst->mst_fw_cbs->check_act_status(&mst->mst_mgr);
 
 	mst->mst_fw_cbs->update_payload_part2(&mst->mst_mgr);
@@ -572,6 +605,12 @@ static void _dp_mst_bridge_pre_disable_part1(struct dp_mst_bridge *dp_bridge)
 	struct drm_dp_mst_port *port = c_conn->mst_port;
 
 	DP_MST_DEBUG("enter\n");
+
+	/* skip mst specific disable operations during suspend */
+	if (mst->state == PM_SUSPEND) {
+		_dp_mst_update_single_timeslot(mst, dp_bridge);
+		return;
+	}
 
 	mst->mst_fw_cbs->reset_vcpi_slots(&mst->mst_mgr, port);
 
@@ -592,6 +631,10 @@ static void _dp_mst_bridge_pre_disable_part2(struct dp_mst_bridge *dp_bridge)
 	struct drm_dp_mst_port *port = c_conn->mst_port;
 
 	DP_MST_DEBUG("enter\n");
+
+	/* skip mst specific disable operations during suspend */
+	if (mst->state == PM_SUSPEND)
+		return;
 
 	mst->mst_fw_cbs->check_act_status(&mst->mst_mgr);
 
@@ -770,10 +813,13 @@ static void dp_mst_bridge_post_disable(struct drm_bridge *drm_bridge)
 		pr_info("[%d] DP display unprepare failed, rc=%d\n",
 		       bridge->id, rc);
 
-	/* Disconnect the connector and panel info from bridge */
-	mst->mst_bridge[bridge->id].connector = NULL;
-	mst->mst_bridge[bridge->id].dp_panel = NULL;
-	mst->mst_bridge[bridge->id].encoder_active_sts = false;
+	/* maintain the connector to encoder link during suspend/resume */
+	if (mst->state != PM_SUSPEND) {
+		/* Disconnect the connector and panel info from bridge */
+		mst->mst_bridge[bridge->id].connector = NULL;
+		mst->mst_bridge[bridge->id].dp_panel = NULL;
+		mst->mst_bridge[bridge->id].encoder_active_sts = false;
+	}
 
 	DP_MST_DEBUG("mst bridge [%d] post disable complete\n", bridge->id);
 }
@@ -956,18 +1002,57 @@ enum drm_mode_status dp_mst_connector_mode_valid(
 		struct drm_display_mode *mode,
 		void *display)
 {
-	enum drm_mode_status status;
+	struct dp_display *dp_display = display;
+	struct dp_mst_private *mst;
+	struct sde_connector *c_conn;
+	struct drm_dp_mst_port *mst_port;
+	struct dp_display_mode dp_mode;
+	uint16_t available_pbn, required_pbn;
+	int i, slots_in_use = 0, active_enc_cnt = 0;
+	int available_slots, required_slots;
+	const u32 tot_slots = 63;
 
-	DP_MST_DEBUG("enter:\n");
+	if (!connector || !mode || !display) {
+		pr_err("invalid input\n");
+		return 0;
+	}
 
-	status = dp_connector_mode_valid(connector, mode, display);
+	mst = dp_display->dp_mst_prv_info;
+	c_conn = to_sde_connector(connector);
+	mst_port = c_conn->mst_port;
 
-	DP_MST_DEBUG("mst connector:%d mode:%s valid status:%d\n",
-			connector->base.id, mode->name, status);
+	mutex_lock(&mst->mst_lock);
+	available_pbn = mst_port->available_pbn;
+	for (i = 0; i < MAX_DP_MST_DRM_BRIDGES; i++) {
+		if (mst->mst_bridge[i].encoder_active_sts &&
+			(mst->mst_bridge[i].connector != connector)) {
+			active_enc_cnt++;
+			slots_in_use += mst->mst_bridge[i].num_slots;
+		}
+	}
+	mutex_unlock(&mst->mst_lock);
 
-	DP_MST_DEBUG("exit:\n");
+	if (active_enc_cnt < DP_STREAM_MAX)
+		available_slots = tot_slots - slots_in_use;
+	else {
+		pr_debug("all mst streams are active\n");
+		return MODE_BAD;
+	}
 
-	return status;
+	dp_display->convert_to_dp_mode(dp_display, c_conn->drv_panel,
+			mode, &dp_mode);
+
+	required_pbn = mst->mst_fw_cbs->calc_pbn_mode(
+			dp_mode.timing.pixel_clk_khz, dp_mode.timing.bpp);
+	required_slots = mst->mst_fw_cbs->find_vcpi_slots(
+			&mst->mst_mgr, required_pbn);
+
+	if (required_pbn > available_pbn || required_slots > available_slots) {
+		pr_debug("mode:%s not supported\n", mode->name);
+		return MODE_BAD;
+	}
+
+	return dp_connector_mode_valid(connector, mode, display);
 }
 
 int dp_mst_connector_get_info(struct drm_connector *connector,
@@ -1089,8 +1174,17 @@ static int dp_mst_connector_atomic_check(struct drm_connector *connector,
 
 	DP_MST_DEBUG("enter:\n");
 
+	/*
+	 * Skip atomic check during mst suspend, to avoid mismanagement of
+	 * available vcpi slots.
+	 */
+	if (mst->state == PM_SUSPEND)
+		return rc;
+
 	if (!new_conn_state)
 		return rc;
+
+	mutex_lock(&mst->mst_lock);
 
 	state = new_conn_state->state;
 
@@ -1114,7 +1208,7 @@ static int dp_mst_connector_atomic_check(struct drm_connector *connector,
 	bridge = _dp_mst_get_bridge_from_encoder(dp_display,
 			old_conn_state->best_encoder);
 	if (!bridge)
-		return rc;
+		goto end;
 
 	slots = bridge->num_slots;
 	if (drm_atomic_crtc_needs_modeset(crtc_state) && slots > 0) {
@@ -1123,13 +1217,13 @@ static int dp_mst_connector_atomic_check(struct drm_connector *connector,
 		if (rc) {
 			pr_err("failed releasing %d vcpi slots rc:%d\n",
 					slots, rc);
-			return rc;
+			goto end;
 		}
 	}
 
 mode_set:
 	if (!new_conn_state->crtc)
-		return rc;
+		goto end;
 
 	crtc_state = drm_atomic_get_new_crtc_state(state, new_conn_state->crtc);
 
@@ -1156,6 +1250,7 @@ mode_set:
 	}
 
 end:
+	mutex_unlock(&mst->mst_lock);
 	DP_MST_DEBUG("mst connector:%d atomic check\n", connector->base.id);
 	return rc;
 }
@@ -1403,11 +1498,25 @@ end:
 	DP_MST_DEBUG("exit:\n");
 }
 
+static void dp_mst_set_state(void *dp_display, enum dp_drv_state mst_state)
+{
+	struct dp_display *dp = dp_display;
+	struct dp_mst_private *mst = dp->dp_mst_prv_info;
+
+	if (!mst) {
+		pr_debug("mst not initialized\n");
+		return;
+	}
+
+	mst->state = mst_state;
+}
+
 /* DP MST APIs */
 
 static const struct dp_mst_drm_cbs dp_mst_display_cbs = {
 	.hpd = dp_mst_display_hpd,
 	.hpd_irq = dp_mst_display_hpd_irq,
+	.set_drv_state = dp_mst_set_state,
 };
 
 static const struct drm_dp_mst_topology_cbs dp_mst_drm_cbs = {

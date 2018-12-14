@@ -437,6 +437,7 @@ static struct clk_rcg2 gcc_blsp1_qup4_spi_apps_clk_src = {
 	},
 };
 
+/* TODO: Revisit the frequency table for 19354839*/
 static const struct freq_tbl ftbl_gcc_blsp1_uart1_apps_clk_src[] = {
 	F(3686400, P_GPLL0_OUT_EVEN, 1, 192, 15625),
 	F(7372800, P_GPLL0_OUT_EVEN, 1, 384, 15625),
@@ -444,7 +445,6 @@ static const struct freq_tbl ftbl_gcc_blsp1_uart1_apps_clk_src[] = {
 	F(14745600, P_GPLL0_OUT_EVEN, 1, 768, 15625),
 	F(16000000, P_GPLL0_OUT_EVEN, 1, 4, 75),
 	F(19200000, P_BI_TCXO, 1, 0, 0),
-	F(19354839, P_GPLL0_OUT_MAIN, 15.5, 1, 2),
 	F(20000000, P_GPLL0_OUT_MAIN, 15, 1, 2),
 	F(20689655, P_GPLL0_OUT_MAIN, 14.5, 1, 2),
 	F(21428571, P_GPLL0_OUT_MAIN, 14, 1, 2),
@@ -557,6 +557,9 @@ static struct clk_rcg2 gcc_blsp1_uart4_apps_clk_src = {
 
 static const struct freq_tbl ftbl_gcc_cpuss_ahb_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(50000000, P_GPLL0_OUT_EVEN, 6, 0, 0),
+	F(100000000, P_GPLL0_OUT_MAIN, 6, 0, 0),
+	F(133333333, P_GPLL0_OUT_MAIN, 4.5, 0, 0),
 	{ }
 };
 
@@ -574,7 +577,10 @@ static struct clk_rcg2 gcc_cpuss_ahb_clk_src = {
 		.vdd_class = &vdd_cx_ao,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_MIN] = 19200000},
+			[VDD_MIN] = 19200000,
+			[VDD_LOWER] = 50000000,
+			[VDD_NOMINAL] = 100000000,
+			[VDD_HIGH] = 133333333},
 	},
 };
 
@@ -1373,7 +1379,7 @@ static struct clk_branch gcc_pcie_0_clkref_clk = {
 
 static struct clk_branch gcc_pcie_aux_clk = {
 	.halt_reg = 0x37024,
-	.halt_check = BRANCH_HALT_VOTED,
+	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
 		.enable_reg = 0x6d010,
 		.enable_mask = BIT(3),
@@ -1412,7 +1418,7 @@ static struct clk_branch gcc_pcie_mstr_axi_clk = {
 
 static struct clk_branch gcc_pcie_pipe_clk = {
 	.halt_reg = 0x3702c,
-	.halt_check = BRANCH_HALT_VOTED,
+	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
 		.enable_reg = 0x6d010,
 		.enable_mask = BIT(4),
@@ -1677,7 +1683,7 @@ static struct clk_branch gcc_usb3_phy_aux_clk = {
 
 static struct clk_branch gcc_usb3_phy_pipe_clk = {
 	.halt_reg = 0xb05c,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
 		.enable_reg = 0xb05c,
 		.enable_mask = BIT(0),
@@ -1930,8 +1936,12 @@ static int gcc_sdxprairie_probe(struct platform_device *pdev)
 	}
 
 	ret = qcom_cc_probe(pdev, &gcc_sdxprairie_desc);
-	if (ret)
+	if (ret) {
 		dev_err(&pdev->dev, "Failed to register GCC clocks\n");
+		return ret;
+	}
+
+	dev_info(&pdev->dev, "Registered GCC clocks\n");
 
 	return ret;
 }

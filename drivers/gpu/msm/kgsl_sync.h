@@ -93,7 +93,7 @@ void kgsl_sync_timeline_put(struct kgsl_sync_timeline *ktimeline);
 
 struct kgsl_sync_fence_cb *kgsl_sync_fence_async_wait(int fd,
 					bool (*func)(void *priv), void *priv,
-					char *fence_name, int name_len);
+					struct event_fence_info *info_ptr);
 
 void kgsl_sync_fence_async_cancel(struct kgsl_sync_fence_cb *kcb);
 
@@ -139,7 +139,7 @@ static inline void kgsl_sync_timeline_put(struct kgsl_sync_timeline *ktimeline)
 
 static inline struct kgsl_sync_fence_cb *kgsl_sync_fence_async_wait(int fd,
 					bool (*func)(void *priv), void *priv,
-					char *fence_name, int name_len)
+					struct event_fence_info *info_ptr)
 {
 	return NULL;
 }

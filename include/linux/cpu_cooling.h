@@ -93,6 +93,9 @@ of_cpufreq_power_cooling_register(struct device_node *np,
  */
 void cpufreq_cooling_unregister(struct thermal_cooling_device *cdev);
 
+extern void cpu_cooling_max_level_notifier_register(struct notifier_block *n);
+extern void cpu_cooling_max_level_notifier_unregister(struct notifier_block *n);
+extern const struct cpumask *cpu_cooling_get_max_level_cpumask(void);
 #else /* !CONFIG_CPU_THERMAL */
 static inline struct thermal_cooling_device *
 cpufreq_cooling_register(struct cpufreq_policy *policy)
@@ -133,6 +136,21 @@ static inline
 void cpufreq_cooling_unregister(struct thermal_cooling_device *cdev)
 {
 	return;
+}
+
+static inline
+void cpu_cooling_max_level_notifier_register(struct notifier_block *n)
+{
+}
+
+static inline
+void cpu_cooling_max_level_notifier_unregister(struct notifier_block *n)
+{
+}
+
+static inline const struct cpumask *cpu_cooling_get_max_level_cpumask(void)
+{
+	return cpu_none_mask;
 }
 #endif	/* CONFIG_CPU_THERMAL */
 

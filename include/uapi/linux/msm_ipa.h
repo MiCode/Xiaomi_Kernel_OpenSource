@@ -548,7 +548,7 @@ enum ipa_quota_event {
 enum ipa_ssr_event {
 	IPA_SSR_BEFORE_SHUTDOWN = IPA_QUOTA_EVENT_MAX,
 	IPA_SSR_AFTER_POWERUP,
-	IPA_SSR_EVENT_MAX
+	IPA_SSR_EVENT_MAX,
 };
 
 enum ipa_vlan_l2tp_event {
@@ -562,29 +562,34 @@ enum ipa_vlan_l2tp_event {
 enum ipa_per_client_stats_event {
 	IPA_PER_CLIENT_STATS_CONNECT_EVENT = IPA_VLAN_L2TP_EVENT_MAX,
 	IPA_PER_CLIENT_STATS_DISCONNECT_EVENT,
-	IPA_PER_CLIENT_STATS_EVENT_MAX
+	IPA_PER_CLIENT_STATS_EVENT_MAX,
 };
 
 enum ipa_vlan_bridge_event {
 	ADD_BRIDGE_VLAN_MAPPING = IPA_PER_CLIENT_STATS_EVENT_MAX,
 	DEL_BRIDGE_VLAN_MAPPING,
-	BRIDGE_VLAN_MAPPING_MAX
+	BRIDGE_VLAN_MAPPING_MAX,
 };
 
 enum ipa_wlan_fw_ssr_event {
 	WLAN_FWR_SSR_BEFORE_SHUTDOWN = BRIDGE_VLAN_MAPPING_MAX,
-	IPA_WLAN_FW_SSR_EVENT_MAX
-#define IPA_WLAN_FW_SSR_EVENT_MAX IPA_WLAN_FW_SSR_EVENT_MAX
+	IPA_WLAN_FW_SSR_EVENT_MAX,
 };
 
 enum ipa_gsb_event {
 	IPA_GSB_CONNECT = IPA_WLAN_FW_SSR_EVENT_MAX,
 	IPA_GSB_DISCONNECT,
 	IPA_GSB_EVENT_MAX,
-#define IPA_GSB_EVENT_MAX IPA_GSB_EVENT_MAX
 };
 
-#define IPA_EVENT_MAX_NUM (IPA_GSB_EVENT_MAX)
+enum ipa_coalesce_event {
+	IPA_COALESCE_ENABLE = IPA_GSB_EVENT_MAX,
+	IPA_COALESCE_DISABLE,
+	IPA_COALESCE_EVENT_MAX
+#define IPA_COALESCE_EVENT_MAX IPA_COALESCE_EVENT_MAX
+};
+
+#define IPA_EVENT_MAX_NUM (IPA_COALESCE_EVENT_MAX)
 #define IPA_EVENT_MAX ((int)IPA_EVENT_MAX_NUM)
 
 /**
@@ -1987,6 +1992,12 @@ struct ipa_ioc_bridge_vlan_mapping_info {
 	uint16_t vlan_id;
 	uint32_t bridge_ipv4;
 	uint32_t subnet_mask;
+};
+
+struct ipa_coalesce_info {
+	uint8_t qmap_id;
+	uint8_t tcp_enable;
+	uint8_t udp_enable;
 };
 
 struct ipa_odl_ep_info {

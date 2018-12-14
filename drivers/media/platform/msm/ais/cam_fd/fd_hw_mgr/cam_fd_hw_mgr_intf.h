@@ -1,5 +1,4 @@
-/*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,15 +10,16 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
+#ifndef _CAM_FD_HW_MGR_INTF_H_
+#define _CAM_FD_HW_MGR_INTF_H_
 
-#include "qcs405.dtsi"
-#include "qcs405-amic-audio-overlay.dtsi"
-#include "qcs405-geni-ir-overlay.dtsi"
-#include "qcs405-circular-pca9956.dtsi"
+#include <linux/of.h>
 
-/ {
-	model = "Qualcomm Technologies, Inc. QCS405 EVB1 4K with TDM";
-	compatible = "qcom,qcs405-iot", "qcom,qcs405", "qcom,iot";
-	qcom,board-id = <0x070020 0x1>;
-};
+#include "cam_debug_util.h"
+#include "cam_hw_mgr_intf.h"
+
+int cam_fd_hw_mgr_init(struct device_node *of_node,
+	struct cam_hw_mgr_intf *hw_mgr_intf);
+int cam_fd_hw_mgr_deinit(struct device_node *of_node);
+
+#endif /* _CAM_FD_HW_MGR_INTF_H_ */

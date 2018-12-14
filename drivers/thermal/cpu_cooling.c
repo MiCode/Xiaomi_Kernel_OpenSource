@@ -131,6 +131,24 @@ static DEFINE_IDA(cpufreq_ida);
 static DEFINE_MUTEX(cooling_list_lock);
 static LIST_HEAD(cpufreq_cdev_list);
 
+static struct cpumask cpus_in_max_cooling_level;
+static BLOCKING_NOTIFIER_HEAD(cpu_max_cooling_level_notifer);
+
+void cpu_cooling_max_level_notifier_register(struct notifier_block *n)
+{
+	blocking_notifier_chain_register(&cpu_max_cooling_level_notifer, n);
+}
+
+void cpu_cooling_max_level_notifier_unregister(struct notifier_block *n)
+{
+	blocking_notifier_chain_unregister(&cpu_max_cooling_level_notifer, n);
+}
+
+const struct cpumask *cpu_cooling_get_max_level_cpumask(void)
+{
+	return &cpus_in_max_cooling_level;
+}
+
 /* Below code defines functions to be used for cpufreq as cooling device */
 
 /**
@@ -677,6 +695,9 @@ static int cpufreq_set_cur_state(struct thermal_cooling_device *cdev,
 				cpumask_clear_cpu(cpu,
 					&cpus_isolated_by_thermal);
 		}
+		cpumask_set_cpu(cpu, &cpus_in_max_cooling_level);
+		blocking_notifier_call_chain(&cpu_max_cooling_level_notifer,
+					     1, (void *)(long)cpu);
 		return ret;
 	} else if ((prev_state == cpufreq_cdev->max_level)
 			&& (state < cpufreq_cdev->max_level)) {
@@ -690,6 +711,9 @@ static int cpufreq_set_cur_state(struct thermal_cooling_device *cdev,
 			&cpus_isolated_by_thermal)) {
 			sched_unisolate_cpu(cpu);
 		}
+		cpumask_clear_cpu(cpu, &cpus_in_max_cooling_level);
+		blocking_notifier_call_chain(&cpu_max_cooling_level_notifer,
+					     0, (void *)(long)cpu);
 	}
 update_frequency:
 	clip_freq = cpufreq_cdev->freq_table[state].frequency;
@@ -1071,6 +1095,7 @@ __cpufreq_cooling_register(struct device_node *np,
 		register_pm_notifier(&cpufreq_cooling_pm_nb);
 		cpumask_clear(&cpus_pending_online);
 		cpumask_clear(&cpus_isolated_by_thermal);
+		cpumask_clear(&cpus_in_max_cooling_level);
 		INIT_WORK(&cpuhp_register_work, register_cdev);
 		queue_work(system_wq, &cpuhp_register_work);
 	}

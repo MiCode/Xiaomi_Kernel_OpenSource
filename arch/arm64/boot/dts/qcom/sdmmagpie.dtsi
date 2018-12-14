@@ -1730,6 +1730,31 @@
 				qcom,intents = <0x64 64>;
 			};
 
+			qcom,msm_cdsprm_rpmsg {
+				compatible = "qcom,msm-cdsprm-rpmsg";
+				qcom,glink-channels = "cdsprmglink-apps-dsp";
+				qcom,intents = <0x20 12>;
+
+				qcom,cdsp-cdsp-l3-gov {
+					compatible = "qcom,cdsp-l3";
+					qcom,target-dev = <&cdsp_cdsp_l3_lat>;
+				};
+
+				msm_cdsp_rm: qcom,msm_cdsp_rm {
+					compatible = "qcom,msm-cdsp-rm";
+					qcom,qos-latency-us = <44>;
+					qcom,qos-maxhold-ms = <20>;
+					qcom,compute-cx-limit-en;
+					qcom,compute-priority-mode = <2>;
+					#cooling-cells = <2>;
+				};
+
+				msm_hvx_rm: qcom,msm_hvx_rm {
+					compatible = "qcom,msm-hvx-rm";
+					#cooling-cells = <2>;
+				};
+			};
+
 			qcom,cdsp_glink_ssr {
 				qcom,glink-channels = "glink_ssr";
 				qcom,notify-edges = <&glink_modem>,
@@ -1742,6 +1767,9 @@
 			transport = "spi";
 			tx-descriptors = <0x12000 0x12004>;
 			rx-descriptors = <0x1200c 0x12010>;
+
+			label = "wdsp";
+			qcom,glink-label = "wdsp";
 
 			qcom,wdsp_ctrl {
 				qcom,glink-channels = "g_glink_ctrl";
@@ -2687,7 +2715,7 @@
 		qcom,cachemiss-ev = <0x17>;
 		qcom,core-dev-table =
 			<  768000  300000000 >,
-			< 1017600  566800000 >,
+			< 1017600  556800000 >,
 			< 1248000  768000000 >,
 			< 1497000  940800000 >,
 			< 1804800 1459200000 >;
@@ -2706,10 +2734,10 @@
 		qcom,target-dev = <&cpu6_cpu_l3_lat>;
 		qcom,cachemiss-ev = <0x17>;
 		qcom,core-dev-table =
-			< 1094000  566800000 >,
+			< 1094000  556800000 >,
 			< 1324000  768000000 >,
-			< 1708800 1190800000 >,
-			< 1939000 1382000000 >,
+			< 1708800 1190400000 >,
+			< 1939000 1382400000 >,
 			< 2438400 1459200000 >;
 	};
 
@@ -2864,7 +2892,7 @@
 		iommus = <&apps_smmu 0x520 0x0>;
 		qcom,iova-mapping = <0x20000000 0x40000000>;
 		/* modem tables in IMEM */
-		qcom,additional-mapping = <0x146bd000 0x146bd000 0x2000>;
+		qcom,additional-mapping = <0x146A8000 0x146A8000 0x2000>;
 	};
 
 	ipa_smmu_wlan: ipa_smmu_wlan {
@@ -2917,6 +2945,10 @@
 			MSM_BUS_SLAVE_EBI_CH0 0 5000000>;
 		qcom,msm-bus,active-only;
 		status = "ok";
+	};
+
+	demux {
+		compatible = "qcom,demux";
 	};
 };
 

@@ -534,6 +534,12 @@ typedef uint32_t okl4_arm_psci_function_t;
 #define OKL4_ARM_PSCI_FUNCTION_PSCI_STAT_RESIDENCY ((okl4_arm_psci_function_t)0x10U)
 /*lint -esym(621, OKL4_ARM_PSCI_FUNCTION_PSCI_STAT_COUNT) */
 #define OKL4_ARM_PSCI_FUNCTION_PSCI_STAT_COUNT ((okl4_arm_psci_function_t)0x11U)
+/*lint -esym(621, OKL4_ARM_PSCI_FUNCTION_SYSTEM_RESET2) */
+#define OKL4_ARM_PSCI_FUNCTION_SYSTEM_RESET2 ((okl4_arm_psci_function_t)0x12U)
+/*lint -esym(621, OKL4_ARM_PSCI_FUNCTION_MEM_PROTECT) */
+#define OKL4_ARM_PSCI_FUNCTION_MEM_PROTECT ((okl4_arm_psci_function_t)0x13U)
+/*lint -esym(621, OKL4_ARM_PSCI_FUNCTION_MEM_PROTECT_CHECK_RANGE) */
+#define OKL4_ARM_PSCI_FUNCTION_MEM_PROTECT_CHECK_RANGE ((okl4_arm_psci_function_t)0x14U)
 
 /*lint -esym(714, okl4_arm_psci_function_is_element_of) */
 OKL4_FORCE_INLINE okl4_bool_t
@@ -563,7 +569,10 @@ okl4_arm_psci_function_is_element_of(okl4_arm_psci_function_t var)
             (var == OKL4_ARM_PSCI_FUNCTION_SYSTEM_SUSPEND) ||
             (var == OKL4_ARM_PSCI_FUNCTION_PSCI_SET_SUSPEND_MODE) ||
             (var == OKL4_ARM_PSCI_FUNCTION_PSCI_STAT_RESIDENCY) ||
-            (var == OKL4_ARM_PSCI_FUNCTION_PSCI_STAT_COUNT));
+            (var == OKL4_ARM_PSCI_FUNCTION_PSCI_STAT_COUNT) ||
+            (var == OKL4_ARM_PSCI_FUNCTION_SYSTEM_RESET2) ||
+            (var == OKL4_ARM_PSCI_FUNCTION_MEM_PROTECT) ||
+            (var == OKL4_ARM_PSCI_FUNCTION_MEM_PROTECT_CHECK_RANGE));
 }
 
 
@@ -616,220 +625,6 @@ okl4_arm_psci_result_is_element_of(okl4_arm_psci_result_t var)
 
 
 /**
-    - BITS 15..0 -   @ref OKL4_MASK_STATE_ID_ARM_PSCI_SUSPEND_STATE
-    - BIT 16 -   @ref OKL4_MASK_POWER_DOWN_ARM_PSCI_SUSPEND_STATE
-    - BITS 25..24 -   @ref OKL4_MASK_POWER_LEVEL_ARM_PSCI_SUSPEND_STATE
-*/
-
-/*lint -esym(621, okl4_arm_psci_suspend_state_t) */
-typedef uint32_t okl4_arm_psci_suspend_state_t;
-
-/*lint -esym(621, okl4_arm_psci_suspend_state_getstateid) */
-/*lint -esym(714, okl4_arm_psci_suspend_state_getstateid) */
-OKL4_FORCE_INLINE uint32_t
-okl4_arm_psci_suspend_state_getstateid(const okl4_arm_psci_suspend_state_t *x);
-
-/*lint -esym(621, okl4_arm_psci_suspend_state_setstateid) */
-OKL4_FORCE_INLINE void
-okl4_arm_psci_suspend_state_setstateid(okl4_arm_psci_suspend_state_t *x, uint32_t _state_id);
-
-/*lint -esym(621, okl4_arm_psci_suspend_state_getpowerdown) */
-/*lint -esym(714, okl4_arm_psci_suspend_state_getpowerdown) */
-OKL4_FORCE_INLINE okl4_bool_t
-okl4_arm_psci_suspend_state_getpowerdown(const okl4_arm_psci_suspend_state_t *x);
-
-/*lint -esym(621, okl4_arm_psci_suspend_state_setpowerdown) */
-OKL4_FORCE_INLINE void
-okl4_arm_psci_suspend_state_setpowerdown(okl4_arm_psci_suspend_state_t *x, okl4_bool_t _power_down);
-
-/*lint -esym(621, okl4_arm_psci_suspend_state_getpowerlevel) */
-/*lint -esym(714, okl4_arm_psci_suspend_state_getpowerlevel) */
-OKL4_FORCE_INLINE uint32_t
-okl4_arm_psci_suspend_state_getpowerlevel(const okl4_arm_psci_suspend_state_t *x);
-
-/*lint -esym(621, okl4_arm_psci_suspend_state_setpowerlevel) */
-OKL4_FORCE_INLINE void
-okl4_arm_psci_suspend_state_setpowerlevel(okl4_arm_psci_suspend_state_t *x, uint32_t _power_level);
-
-/*lint -esym(714, okl4_arm_psci_suspend_state_init) */
-OKL4_FORCE_INLINE void
-okl4_arm_psci_suspend_state_init(okl4_arm_psci_suspend_state_t *x);
-
-/*lint -esym(714, okl4_arm_psci_suspend_state_cast) */
-OKL4_FORCE_INLINE okl4_arm_psci_suspend_state_t
-okl4_arm_psci_suspend_state_cast(uint32_t p, okl4_bool_t force);
-
-
-
-/*lint -esym(621, OKL4_ARM_PSCI_POWER_LEVEL_CPU) */
-#define OKL4_ARM_PSCI_POWER_LEVEL_CPU ((okl4_arm_psci_suspend_state_t)(0U))
-
-/*lint -esym(621, OKL4_ARM_PSCI_SUSPEND_STATE_STATE_ID_MASK) */
-#define OKL4_ARM_PSCI_SUSPEND_STATE_STATE_ID_MASK ((okl4_arm_psci_suspend_state_t)65535U) /* Deprecated */
-/*lint -esym(621, OKL4_MASK_STATE_ID_ARM_PSCI_SUSPEND_STATE) */
-#define OKL4_MASK_STATE_ID_ARM_PSCI_SUSPEND_STATE ((okl4_arm_psci_suspend_state_t)65535U)
-/*lint -esym(621, OKL4_SHIFT_STATE_ID_ARM_PSCI_SUSPEND_STATE) */
-#define OKL4_SHIFT_STATE_ID_ARM_PSCI_SUSPEND_STATE (0)
-/*lint -esym(621, OKL4_WIDTH_STATE_ID_ARM_PSCI_SUSPEND_STATE) */
-#define OKL4_WIDTH_STATE_ID_ARM_PSCI_SUSPEND_STATE (16)
-/*lint -esym(621, OKL4_ARM_PSCI_SUSPEND_STATE_POWER_DOWN_MASK) */
-#define OKL4_ARM_PSCI_SUSPEND_STATE_POWER_DOWN_MASK ((okl4_arm_psci_suspend_state_t)1U << 16) /* Deprecated */
-/*lint -esym(621, OKL4_MASK_POWER_DOWN_ARM_PSCI_SUSPEND_STATE) */
-#define OKL4_MASK_POWER_DOWN_ARM_PSCI_SUSPEND_STATE ((okl4_arm_psci_suspend_state_t)1U << 16)
-/*lint -esym(621, OKL4_SHIFT_POWER_DOWN_ARM_PSCI_SUSPEND_STATE) */
-#define OKL4_SHIFT_POWER_DOWN_ARM_PSCI_SUSPEND_STATE (16)
-/*lint -esym(621, OKL4_WIDTH_POWER_DOWN_ARM_PSCI_SUSPEND_STATE) */
-#define OKL4_WIDTH_POWER_DOWN_ARM_PSCI_SUSPEND_STATE (1)
-/*lint -esym(621, OKL4_ARM_PSCI_SUSPEND_STATE_POWER_LEVEL_MASK) */
-#define OKL4_ARM_PSCI_SUSPEND_STATE_POWER_LEVEL_MASK ((okl4_arm_psci_suspend_state_t)3U << 24) /* Deprecated */
-/*lint -esym(621, OKL4_MASK_POWER_LEVEL_ARM_PSCI_SUSPEND_STATE) */
-#define OKL4_MASK_POWER_LEVEL_ARM_PSCI_SUSPEND_STATE ((okl4_arm_psci_suspend_state_t)3U << 24)
-/*lint -esym(621, OKL4_SHIFT_POWER_LEVEL_ARM_PSCI_SUSPEND_STATE) */
-#define OKL4_SHIFT_POWER_LEVEL_ARM_PSCI_SUSPEND_STATE (24)
-/*lint -esym(621, OKL4_WIDTH_POWER_LEVEL_ARM_PSCI_SUSPEND_STATE) */
-#define OKL4_WIDTH_POWER_LEVEL_ARM_PSCI_SUSPEND_STATE (2)
-
-
-/*lint -sem(okl4_arm_psci_suspend_state_getstateid, 1p, @n >= 0 && @n <= 65535) */
-/*lint -esym(621, okl4_arm_psci_suspend_state_getstateid) */
-/*lint -esym(714, okl4_arm_psci_suspend_state_getstateid) */
-OKL4_FORCE_INLINE uint32_t
-okl4_arm_psci_suspend_state_getstateid(const okl4_arm_psci_suspend_state_t *x)
-{
-    uint32_t field;
-    union {
-        /*lint -e{806} -e{958} -e{959} */
-        struct {
-            uint32_t field : 16;
-        } bits;
-        okl4_arm_psci_suspend_state_t raw;
-    } _conv;
-
-    _conv.raw = *x;
-    field = (uint32_t)_conv.bits.field;
-    return field;
-}
-
-/*lint -sem(okl4_arm_psci_suspend_state_setstateid, 2n >= 0 && 2n <= 65535) */
-/*lint -esym(714, okl4_arm_psci_suspend_state_setstateid) */
-
-/*lint -esym(621, okl4_arm_psci_suspend_state_setstateid) */
-OKL4_FORCE_INLINE void
-okl4_arm_psci_suspend_state_setstateid(okl4_arm_psci_suspend_state_t *x, uint32_t _state_id)
-{
-    union {
-        /*lint -e{806} -e{958} -e{959} */
-        struct {
-            uint32_t field : 16;
-        } bits;
-        okl4_arm_psci_suspend_state_t raw;
-    } _conv;
-
-    _conv.raw = *x;
-    _conv.bits.field = (uint32_t)_state_id;
-    *x = _conv.raw;
-}
-/*lint -sem(okl4_arm_psci_suspend_state_getpowerdown, 1p, @n >= 0 && @n <= 1) */
-/*lint -esym(621, okl4_arm_psci_suspend_state_getpowerdown) */
-/*lint -esym(714, okl4_arm_psci_suspend_state_getpowerdown) */
-OKL4_FORCE_INLINE okl4_bool_t
-okl4_arm_psci_suspend_state_getpowerdown(const okl4_arm_psci_suspend_state_t *x)
-{
-    okl4_bool_t field;
-    union {
-        /*lint -e{806} -e{958} -e{959} */
-        struct {
-            uint32_t _skip : 16;
-            _Bool field : 1;
-        } bits;
-        okl4_arm_psci_suspend_state_t raw;
-    } _conv;
-
-    _conv.raw = *x;
-    field = (okl4_bool_t)_conv.bits.field;
-    return field;
-}
-
-/*lint -sem(okl4_arm_psci_suspend_state_setpowerdown, 2n >= 0 && 2n <= 1) */
-/*lint -esym(714, okl4_arm_psci_suspend_state_setpowerdown) */
-
-/*lint -esym(621, okl4_arm_psci_suspend_state_setpowerdown) */
-OKL4_FORCE_INLINE void
-okl4_arm_psci_suspend_state_setpowerdown(okl4_arm_psci_suspend_state_t *x, okl4_bool_t _power_down)
-{
-    union {
-        /*lint -e{806} -e{958} -e{959} */
-        struct {
-            uint32_t _skip : 16;
-            _Bool field : 1;
-        } bits;
-        okl4_arm_psci_suspend_state_t raw;
-    } _conv;
-
-    _conv.raw = *x;
-    _conv.bits.field = (_Bool)_power_down;
-    *x = _conv.raw;
-}
-/*lint -sem(okl4_arm_psci_suspend_state_getpowerlevel, 1p, @n >= 0 && @n <= 3) */
-/*lint -esym(621, okl4_arm_psci_suspend_state_getpowerlevel) */
-/*lint -esym(714, okl4_arm_psci_suspend_state_getpowerlevel) */
-OKL4_FORCE_INLINE uint32_t
-okl4_arm_psci_suspend_state_getpowerlevel(const okl4_arm_psci_suspend_state_t *x)
-{
-    uint32_t field;
-    union {
-        /*lint -e{806} -e{958} -e{959} */
-        struct {
-            uint32_t _skip : 24;
-            uint32_t field : 2;
-        } bits;
-        okl4_arm_psci_suspend_state_t raw;
-    } _conv;
-
-    _conv.raw = *x;
-    field = (uint32_t)_conv.bits.field;
-    return field;
-}
-
-/*lint -sem(okl4_arm_psci_suspend_state_setpowerlevel, 2n >= 0 && 2n <= 3) */
-/*lint -esym(714, okl4_arm_psci_suspend_state_setpowerlevel) */
-
-/*lint -esym(621, okl4_arm_psci_suspend_state_setpowerlevel) */
-OKL4_FORCE_INLINE void
-okl4_arm_psci_suspend_state_setpowerlevel(okl4_arm_psci_suspend_state_t *x, uint32_t _power_level)
-{
-    union {
-        /*lint -e{806} -e{958} -e{959} */
-        struct {
-            uint32_t _skip : 24;
-            uint32_t field : 2;
-        } bits;
-        okl4_arm_psci_suspend_state_t raw;
-    } _conv;
-
-    _conv.raw = *x;
-    _conv.bits.field = (uint32_t)_power_level;
-    *x = _conv.raw;
-}
-/*lint -esym(714, okl4_arm_psci_suspend_state_init) */
-OKL4_FORCE_INLINE void
-okl4_arm_psci_suspend_state_init(okl4_arm_psci_suspend_state_t *x)
-{
-    *x = (okl4_arm_psci_suspend_state_t)0U;
-}
-
-/*lint -esym(714, okl4_arm_psci_suspend_state_cast) */
-OKL4_FORCE_INLINE okl4_arm_psci_suspend_state_t
-okl4_arm_psci_suspend_state_cast(uint32_t p, okl4_bool_t force)
-{
-    okl4_arm_psci_suspend_state_t x = (okl4_arm_psci_suspend_state_t)p;
-    (void)force;
-    return x;
-}
-
-
-
-/**
     - BIT 0 -   @ref OKL4_MASK_MMU_ENABLE_ARM_SCTLR
     - BIT 1 -   @ref OKL4_MASK_ALIGNMENT_CHECK_ENABLE_ARM_SCTLR
     - BIT 2 -   @ref OKL4_MASK_DATA_CACHE_ENABLE_ARM_SCTLR
@@ -850,7 +645,7 @@ okl4_arm_psci_suspend_state_cast(uint32_t p, okl4_bool_t force)
     - BIT 19 -   @ref OKL4_MASK_WRITE_EXEC_NEVER_ARM_SCTLR
     - BIT 20 -   @ref OKL4_MASK_USER_WRITE_EXEC_NEVER_ARM_SCTLR
     - BIT 22 -   @ref OKL4_MASK_RESERVED22_ARM_SCTLR
-    - BIT 23 -   @ref OKL4_MASK_RESERVED23_ARM_SCTLR
+    - BIT 23 -   @ref OKL4_MASK_SPAN_ARM_SCTLR
     - BIT 24 -   @ref OKL4_MASK_EL0_ENDIANNESS_ARM_SCTLR
     - BIT 25 -   @ref OKL4_MASK_EXCEPTION_ENDIANNESS_ARM_SCTLR
     - BIT 28 -   @ref OKL4_MASK_TEX_REMAP_ENABLE_ARM_SCTLR
@@ -961,10 +756,14 @@ okl4_arm_sctlr_setwriteexecnever(okl4_arm_sctlr_t *x, okl4_bool_t _write_exec_ne
 OKL4_FORCE_INLINE uint32_t
 okl4_arm_sctlr_getreserved22(const okl4_arm_sctlr_t *x);
 
-/*lint -esym(621, okl4_arm_sctlr_getreserved23) */
-/*lint -esym(714, okl4_arm_sctlr_getreserved23) */
+/*lint -esym(621, okl4_arm_sctlr_getspan) */
+/*lint -esym(714, okl4_arm_sctlr_getspan) */
 OKL4_FORCE_INLINE uint32_t
-okl4_arm_sctlr_getreserved23(const okl4_arm_sctlr_t *x);
+okl4_arm_sctlr_getspan(const okl4_arm_sctlr_t *x);
+
+/*lint -esym(621, okl4_arm_sctlr_setspan) */
+OKL4_FORCE_INLINE void
+okl4_arm_sctlr_setspan(okl4_arm_sctlr_t *x, uint32_t _span);
 
 /*lint -esym(621, okl4_arm_sctlr_getel0endianness) */
 /*lint -esym(714, okl4_arm_sctlr_getel0endianness) */
@@ -1254,14 +1053,14 @@ okl4_arm_sctlr_cast(uint32_t p, okl4_bool_t force);
 #define OKL4_SHIFT_RESERVED22_ARM_SCTLR (22)
 /*lint -esym(621, OKL4_WIDTH_RESERVED22_ARM_SCTLR) */
 #define OKL4_WIDTH_RESERVED22_ARM_SCTLR (1)
-/*lint -esym(621, OKL4_ARM_SCTLR_RESERVED23_MASK) */
-#define OKL4_ARM_SCTLR_RESERVED23_MASK ((okl4_arm_sctlr_t)1U << 23) /* Deprecated */
-/*lint -esym(621, OKL4_MASK_RESERVED23_ARM_SCTLR) */
-#define OKL4_MASK_RESERVED23_ARM_SCTLR ((okl4_arm_sctlr_t)1U << 23)
-/*lint -esym(621, OKL4_SHIFT_RESERVED23_ARM_SCTLR) */
-#define OKL4_SHIFT_RESERVED23_ARM_SCTLR (23)
-/*lint -esym(621, OKL4_WIDTH_RESERVED23_ARM_SCTLR) */
-#define OKL4_WIDTH_RESERVED23_ARM_SCTLR (1)
+/*lint -esym(621, OKL4_ARM_SCTLR_SPAN_MASK) */
+#define OKL4_ARM_SCTLR_SPAN_MASK ((okl4_arm_sctlr_t)1U << 23) /* Deprecated */
+/*lint -esym(621, OKL4_MASK_SPAN_ARM_SCTLR) */
+#define OKL4_MASK_SPAN_ARM_SCTLR ((okl4_arm_sctlr_t)1U << 23)
+/*lint -esym(621, OKL4_SHIFT_SPAN_ARM_SCTLR) */
+#define OKL4_SHIFT_SPAN_ARM_SCTLR (23)
+/*lint -esym(621, OKL4_WIDTH_SPAN_ARM_SCTLR) */
+#define OKL4_WIDTH_SPAN_ARM_SCTLR (1)
 /*lint -esym(621, OKL4_ARM_SCTLR_EL0_ENDIANNESS_MASK) */
 #define OKL4_ARM_SCTLR_EL0_ENDIANNESS_MASK ((okl4_arm_sctlr_t)1U << 24) /* Deprecated */
 /*lint -esym(621, OKL4_MASK_EL0_ENDIANNESS_ARM_SCTLR) */
@@ -2082,11 +1881,11 @@ okl4_arm_sctlr_getreserved22(const okl4_arm_sctlr_t *x)
     return field;
 }
 
-/*lint -sem(okl4_arm_sctlr_getreserved23, 1p, @n >= 0 && @n <= 1) */
-/*lint -esym(621, okl4_arm_sctlr_getreserved23) */
-/*lint -esym(714, okl4_arm_sctlr_getreserved23) */
+/*lint -sem(okl4_arm_sctlr_getspan, 1p, @n >= 0 && @n <= 1) */
+/*lint -esym(621, okl4_arm_sctlr_getspan) */
+/*lint -esym(714, okl4_arm_sctlr_getspan) */
 OKL4_FORCE_INLINE uint32_t
-okl4_arm_sctlr_getreserved23(const okl4_arm_sctlr_t *x)
+okl4_arm_sctlr_getspan(const okl4_arm_sctlr_t *x)
 {
     uint32_t field;
     union {
@@ -2103,6 +1902,26 @@ okl4_arm_sctlr_getreserved23(const okl4_arm_sctlr_t *x)
     return field;
 }
 
+/*lint -sem(okl4_arm_sctlr_setspan, 2n >= 0 && 2n <= 1) */
+/*lint -esym(714, okl4_arm_sctlr_setspan) */
+
+/*lint -esym(621, okl4_arm_sctlr_setspan) */
+OKL4_FORCE_INLINE void
+okl4_arm_sctlr_setspan(okl4_arm_sctlr_t *x, uint32_t _span)
+{
+    union {
+        /*lint -e{806} -e{958} -e{959} */
+        struct {
+            uint32_t _skip : 23;
+            uint32_t field : 1;
+        } bits;
+        okl4_arm_sctlr_t raw;
+    } _conv;
+
+    _conv.raw = *x;
+    _conv.bits.field = (uint32_t)_span;
+    *x = _conv.raw;
+}
 /*lint -sem(okl4_arm_sctlr_getel0endianness, 1p, @n >= 0 && @n <= 1) */
 /*lint -esym(621, okl4_arm_sctlr_getel0endianness) */
 /*lint -esym(714, okl4_arm_sctlr_getel0endianness) */
@@ -2325,8 +2144,6 @@ okl4_arm_sctlr_cast(uint32_t p, okl4_bool_t force)
         x |= (okl4_arm_sctlr_t)0x800U; /* x.reserved11 */
         x &= ~(okl4_arm_sctlr_t)0x400000U;
         x |= (okl4_arm_sctlr_t)0x400000U; /* x.reserved22 */
-        x &= ~(okl4_arm_sctlr_t)0x800000U;
-        x |= (okl4_arm_sctlr_t)0x800000U; /* x.reserved23 */
     }
     return x;
 }
@@ -6332,6 +6149,12 @@ typedef uint32_t okl4_cpu_exec_mode;
 
 
 
+
+typedef okl4_count_t okl4_cpu_id_t;
+
+
+
+
 /**
     CPU mode specifier
 
@@ -6816,20 +6639,17 @@ struct okl4_env_segment_table {
     - @ref OKL4_ERROR_INTERRUPT_NOT_ATTACHED
     - @ref OKL4_ERROR_INVALID_ARGUMENT
     - @ref OKL4_ERROR_INVALID_DESIGNATOR
-    - @ref OKL4_ERROR_INVALID_POWER_STATE
     - @ref OKL4_ERROR_INVALID_SEGMENT_INDEX
     - @ref OKL4_ERROR_MEMORY_FAULT
     - @ref OKL4_ERROR_MISSING_MAPPING
     - @ref OKL4_ERROR_NON_EMPTY_MMU_CONTEXT
     - @ref OKL4_ERROR_NOT_IN_SEGMENT
-    - @ref OKL4_ERROR_NOT_LAST_CPU
     - @ref OKL4_ERROR_NO_RESOURCES
     - @ref OKL4_ERROR_PIPE_BAD_STATE
     - @ref OKL4_ERROR_PIPE_EMPTY
     - @ref OKL4_ERROR_PIPE_FULL
     - @ref OKL4_ERROR_PIPE_NOT_READY
     - @ref OKL4_ERROR_PIPE_RECV_OVERFLOW
-    - @ref OKL4_ERROR_POWER_VCPU_RESUMED
     - @ref OKL4_ERROR_SEGMENT_USED
     - @ref OKL4_ERROR_THREAD_ALREADY_WATCHING_SUSPENDED
     - @ref OKL4_ERROR_TIMER_ACTIVE
@@ -6837,6 +6657,7 @@ struct okl4_env_segment_table {
     - @ref OKL4_ERROR_TRY_AGAIN
     - @ref OKL4_ERROR_WOULD_BLOCK
     - @ref OKL4_ERROR_ALLOC_EXHAUSTED
+    - @ref OKL4_ERROR_INVALID_AFFINITY
     - @ref OKL4_ERROR_KSP_ERROR_0
     - @ref OKL4_ERROR_KSP_ERROR_1
     - @ref OKL4_ERROR_KSP_ERROR_2
@@ -6940,12 +6761,6 @@ typedef uint32_t okl4_error_t;
 /*lint -esym(621, OKL4_ERROR_INVALID_DESIGNATOR) */
 #define OKL4_ERROR_INVALID_DESIGNATOR ((okl4_error_t)0x11U)
 /**
-    The operation failed because the power_state
-    argument is invalid.
-*/
-/*lint -esym(621, OKL4_ERROR_INVALID_POWER_STATE) */
-#define OKL4_ERROR_INVALID_POWER_STATE ((okl4_error_t)0x12U)
-/**
     The operation failed because the given segment index does
     not correspond to an attached physical segment.
 */
@@ -6976,12 +6791,6 @@ typedef uint32_t okl4_error_t;
 /*lint -esym(621, OKL4_ERROR_NOT_IN_SEGMENT) */
 #define OKL4_ERROR_NOT_IN_SEGMENT ((okl4_error_t)0x17U)
 /**
-    The operation failed because the caller is not on the last
-    online cpu.
-*/
-/*lint -esym(621, OKL4_ERROR_NOT_LAST_CPU) */
-#define OKL4_ERROR_NOT_LAST_CPU ((okl4_error_t)0x18U)
-/**
     Insufficient resources are available to perform the operation.
 */
 /*lint -esym(621, OKL4_ERROR_NO_RESOURCES) */
@@ -7011,12 +6820,6 @@ typedef uint32_t okl4_error_t;
 */
 /*lint -esym(621, OKL4_ERROR_PIPE_RECV_OVERFLOW) */
 #define OKL4_ERROR_PIPE_RECV_OVERFLOW ((okl4_error_t)0x1eU)
-/**
-    The operation failed because at least one VCPU has a monitored
-    power state and is not currently suspended.
-*/
-/*lint -esym(621, OKL4_ERROR_POWER_VCPU_RESUMED) */
-#define OKL4_ERROR_POWER_VCPU_RESUMED ((okl4_error_t)0x1fU)
 /**
     The operation requires a segment to be unused, or not attached
     to an MMU context.
@@ -7051,6 +6854,11 @@ typedef uint32_t okl4_error_t;
 */
 /*lint -esym(621, OKL4_ERROR_ALLOC_EXHAUSTED) */
 #define OKL4_ERROR_ALLOC_EXHAUSTED ((okl4_error_t)0x26U)
+/**
+    The operation failed because the affinity argument is invalid.
+*/
+/*lint -esym(621, OKL4_ERROR_INVALID_AFFINITY) */
+#define OKL4_ERROR_INVALID_AFFINITY ((okl4_error_t)0x27U)
 /**
     KSP specific error 0
 */
@@ -7148,9 +6956,9 @@ okl4_error_is_element_of(okl4_error_t var)
             (var == OKL4_ERROR_INTERRUPT_ALREADY_ATTACHED) ||
             (var == OKL4_ERROR_INTERRUPT_INVALID_IRQ) ||
             (var == OKL4_ERROR_INTERRUPT_NOT_ATTACHED) ||
+            (var == OKL4_ERROR_INVALID_AFFINITY) ||
             (var == OKL4_ERROR_INVALID_ARGUMENT) ||
             (var == OKL4_ERROR_INVALID_DESIGNATOR) ||
-            (var == OKL4_ERROR_INVALID_POWER_STATE) ||
             (var == OKL4_ERROR_INVALID_SEGMENT_INDEX) ||
             (var == OKL4_ERROR_KSP_ERROR_0) ||
             (var == OKL4_ERROR_KSP_ERROR_1) ||
@@ -7170,7 +6978,6 @@ okl4_error_is_element_of(okl4_error_t var)
             (var == OKL4_ERROR_NON_EMPTY_MMU_CONTEXT) ||
             (var == OKL4_ERROR_NOT_IMPLEMENTED) ||
             (var == OKL4_ERROR_NOT_IN_SEGMENT) ||
-            (var == OKL4_ERROR_NOT_LAST_CPU) ||
             (var == OKL4_ERROR_NO_RESOURCES) ||
             (var == OKL4_ERROR_OK) ||
             (var == OKL4_ERROR_PIPE_BAD_STATE) ||
@@ -7178,7 +6985,6 @@ okl4_error_is_element_of(okl4_error_t var)
             (var == OKL4_ERROR_PIPE_FULL) ||
             (var == OKL4_ERROR_PIPE_NOT_READY) ||
             (var == OKL4_ERROR_PIPE_RECV_OVERFLOW) ||
-            (var == OKL4_ERROR_POWER_VCPU_RESUMED) ||
             (var == OKL4_ERROR_SEGMENT_USED) ||
             (var == OKL4_ERROR_THREAD_ALREADY_WATCHING_SUSPENDED) ||
             (var == OKL4_ERROR_TIMER_ACTIVE) ||
@@ -9075,13 +8881,16 @@ okl4_pipe_state_cast(uint8_t p, okl4_bool_t force)
 typedef uint32_t okl4_power_state_t;
 
 /*lint -esym(621, OKL4_POWER_STATE_IDLE) */
-#define OKL4_POWER_STATE_IDLE ((okl4_power_state_t)(0U))
+#define OKL4_POWER_STATE_IDLE ((okl4_power_state_t)(2147483648U))
 
-/*lint -esym(621, OKL4_POWER_STATE_PLATFORM_BASE) */
-#define OKL4_POWER_STATE_PLATFORM_BASE ((okl4_power_state_t)(256U))
+/*lint -esym(621, OKL4_POWER_STATE_PLATFORM_LAST) */
+#define OKL4_POWER_STATE_PLATFORM_LAST ((okl4_power_state_t)(2147483647U))
 
 /*lint -esym(621, OKL4_POWER_STATE_POWEROFF) */
-#define OKL4_POWER_STATE_POWEROFF ((okl4_power_state_t)(1U))
+#define OKL4_POWER_STATE_POWEROFF ((okl4_power_state_t)(2147483650U))
+
+/*lint -esym(621, OKL4_POWER_STATE_RETENTION) */
+#define OKL4_POWER_STATE_RETENTION ((okl4_power_state_t)(2147483649U))
 
 
 
@@ -11298,151 +11107,157 @@ typedef uint32_t okl4_tracepoint_evt_t;
 #define OKL4_TRACEPOINT_EVT_SWI_AXON_SET_SEND_SEGMENT ((okl4_tracepoint_evt_t)0xbU)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_AXON_TRIGGER_SEND) */
 #define OKL4_TRACEPOINT_EVT_SWI_AXON_TRIGGER_SEND ((okl4_tracepoint_evt_t)0xcU)
+/*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_DEBUG_RESUME) */
+#define OKL4_TRACEPOINT_EVT_SWI_DEBUG_RESUME ((okl4_tracepoint_evt_t)0xdU)
+/*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_DEBUG_SUSPEND) */
+#define OKL4_TRACEPOINT_EVT_SWI_DEBUG_SUSPEND ((okl4_tracepoint_evt_t)0xeU)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_ACK) */
-#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_ACK ((okl4_tracepoint_evt_t)0xdU)
+#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_ACK ((okl4_tracepoint_evt_t)0xfU)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_ATTACH_PRIVATE) */
-#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_ATTACH_PRIVATE ((okl4_tracepoint_evt_t)0xeU)
+#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_ATTACH_PRIVATE ((okl4_tracepoint_evt_t)0x10U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_ATTACH_SHARED) */
-#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_ATTACH_SHARED ((okl4_tracepoint_evt_t)0xfU)
+#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_ATTACH_SHARED ((okl4_tracepoint_evt_t)0x11U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_DETACH) */
-#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_DETACH ((okl4_tracepoint_evt_t)0x10U)
+#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_DETACH ((okl4_tracepoint_evt_t)0x12U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_DIST_ENABLE) */
-#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_DIST_ENABLE ((okl4_tracepoint_evt_t)0x11U)
+#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_DIST_ENABLE ((okl4_tracepoint_evt_t)0x13U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_EOI) */
-#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_EOI ((okl4_tracepoint_evt_t)0x12U)
+#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_EOI ((okl4_tracepoint_evt_t)0x14U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_GET_HIGHEST_PRIORITY_PENDING) */
-#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_GET_HIGHEST_PRIORITY_PENDING ((okl4_tracepoint_evt_t)0x13U)
+#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_GET_HIGHEST_PRIORITY_PENDING ((okl4_tracepoint_evt_t)0x15U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_GET_PAYLOAD) */
-#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_GET_PAYLOAD ((okl4_tracepoint_evt_t)0x14U)
+#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_GET_PAYLOAD ((okl4_tracepoint_evt_t)0x16U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_LIMITS) */
-#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_LIMITS ((okl4_tracepoint_evt_t)0x15U)
+#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_LIMITS ((okl4_tracepoint_evt_t)0x17U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_MASK) */
-#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_MASK ((okl4_tracepoint_evt_t)0x16U)
+#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_MASK ((okl4_tracepoint_evt_t)0x18U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_RAISE) */
-#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_RAISE ((okl4_tracepoint_evt_t)0x17U)
+#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_RAISE ((okl4_tracepoint_evt_t)0x19U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_SET_BINARY_POINT) */
-#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_SET_BINARY_POINT ((okl4_tracepoint_evt_t)0x18U)
+#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_SET_BINARY_POINT ((okl4_tracepoint_evt_t)0x1aU)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_SET_CONFIG) */
-#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_SET_CONFIG ((okl4_tracepoint_evt_t)0x19U)
+#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_SET_CONFIG ((okl4_tracepoint_evt_t)0x1bU)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_SET_CONTROL) */
-#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_SET_CONTROL ((okl4_tracepoint_evt_t)0x1aU)
+#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_SET_CONTROL ((okl4_tracepoint_evt_t)0x1cU)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_SET_PRIORITY) */
-#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_SET_PRIORITY ((okl4_tracepoint_evt_t)0x1bU)
+#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_SET_PRIORITY ((okl4_tracepoint_evt_t)0x1dU)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_SET_PRIORITY_MASK) */
-#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_SET_PRIORITY_MASK ((okl4_tracepoint_evt_t)0x1cU)
+#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_SET_PRIORITY_MASK ((okl4_tracepoint_evt_t)0x1eU)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_SET_TARGETS) */
-#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_SET_TARGETS ((okl4_tracepoint_evt_t)0x1dU)
+#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_SET_TARGETS ((okl4_tracepoint_evt_t)0x1fU)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_UNMASK) */
-#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_UNMASK ((okl4_tracepoint_evt_t)0x1eU)
+#define OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_UNMASK ((okl4_tracepoint_evt_t)0x20U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_KDB_INTERACT) */
-#define OKL4_TRACEPOINT_EVT_SWI_KDB_INTERACT ((okl4_tracepoint_evt_t)0x1fU)
+#define OKL4_TRACEPOINT_EVT_SWI_KDB_INTERACT ((okl4_tracepoint_evt_t)0x21U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_KDB_SET_OBJECT_NAME) */
-#define OKL4_TRACEPOINT_EVT_SWI_KDB_SET_OBJECT_NAME ((okl4_tracepoint_evt_t)0x20U)
+#define OKL4_TRACEPOINT_EVT_SWI_KDB_SET_OBJECT_NAME ((okl4_tracepoint_evt_t)0x22U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_KSP_PROCEDURE_CALL) */
-#define OKL4_TRACEPOINT_EVT_SWI_KSP_PROCEDURE_CALL ((okl4_tracepoint_evt_t)0x21U)
+#define OKL4_TRACEPOINT_EVT_SWI_KSP_PROCEDURE_CALL ((okl4_tracepoint_evt_t)0x23U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_MMU_ATTACH_SEGMENT) */
-#define OKL4_TRACEPOINT_EVT_SWI_MMU_ATTACH_SEGMENT ((okl4_tracepoint_evt_t)0x22U)
+#define OKL4_TRACEPOINT_EVT_SWI_MMU_ATTACH_SEGMENT ((okl4_tracepoint_evt_t)0x24U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_MMU_DETACH_SEGMENT) */
-#define OKL4_TRACEPOINT_EVT_SWI_MMU_DETACH_SEGMENT ((okl4_tracepoint_evt_t)0x23U)
+#define OKL4_TRACEPOINT_EVT_SWI_MMU_DETACH_SEGMENT ((okl4_tracepoint_evt_t)0x25U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_MMU_FLUSH_RANGE) */
-#define OKL4_TRACEPOINT_EVT_SWI_MMU_FLUSH_RANGE ((okl4_tracepoint_evt_t)0x24U)
+#define OKL4_TRACEPOINT_EVT_SWI_MMU_FLUSH_RANGE ((okl4_tracepoint_evt_t)0x26U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_MMU_FLUSH_RANGE_PN) */
-#define OKL4_TRACEPOINT_EVT_SWI_MMU_FLUSH_RANGE_PN ((okl4_tracepoint_evt_t)0x25U)
+#define OKL4_TRACEPOINT_EVT_SWI_MMU_FLUSH_RANGE_PN ((okl4_tracepoint_evt_t)0x27U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_MMU_LOOKUP_PAGE) */
-#define OKL4_TRACEPOINT_EVT_SWI_MMU_LOOKUP_PAGE ((okl4_tracepoint_evt_t)0x26U)
+#define OKL4_TRACEPOINT_EVT_SWI_MMU_LOOKUP_PAGE ((okl4_tracepoint_evt_t)0x28U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_MMU_LOOKUP_PN) */
-#define OKL4_TRACEPOINT_EVT_SWI_MMU_LOOKUP_PN ((okl4_tracepoint_evt_t)0x27U)
+#define OKL4_TRACEPOINT_EVT_SWI_MMU_LOOKUP_PN ((okl4_tracepoint_evt_t)0x29U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_MMU_MAP_PAGE) */
-#define OKL4_TRACEPOINT_EVT_SWI_MMU_MAP_PAGE ((okl4_tracepoint_evt_t)0x28U)
+#define OKL4_TRACEPOINT_EVT_SWI_MMU_MAP_PAGE ((okl4_tracepoint_evt_t)0x2aU)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_MMU_MAP_PN) */
-#define OKL4_TRACEPOINT_EVT_SWI_MMU_MAP_PN ((okl4_tracepoint_evt_t)0x29U)
+#define OKL4_TRACEPOINT_EVT_SWI_MMU_MAP_PN ((okl4_tracepoint_evt_t)0x2bU)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_MMU_UNMAP_PAGE) */
-#define OKL4_TRACEPOINT_EVT_SWI_MMU_UNMAP_PAGE ((okl4_tracepoint_evt_t)0x2aU)
+#define OKL4_TRACEPOINT_EVT_SWI_MMU_UNMAP_PAGE ((okl4_tracepoint_evt_t)0x2cU)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_MMU_UNMAP_PN) */
-#define OKL4_TRACEPOINT_EVT_SWI_MMU_UNMAP_PN ((okl4_tracepoint_evt_t)0x2bU)
+#define OKL4_TRACEPOINT_EVT_SWI_MMU_UNMAP_PN ((okl4_tracepoint_evt_t)0x2dU)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_MMU_UPDATE_PAGE_ATTRS) */
-#define OKL4_TRACEPOINT_EVT_SWI_MMU_UPDATE_PAGE_ATTRS ((okl4_tracepoint_evt_t)0x2cU)
+#define OKL4_TRACEPOINT_EVT_SWI_MMU_UPDATE_PAGE_ATTRS ((okl4_tracepoint_evt_t)0x2eU)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_MMU_UPDATE_PAGE_PERMS) */
-#define OKL4_TRACEPOINT_EVT_SWI_MMU_UPDATE_PAGE_PERMS ((okl4_tracepoint_evt_t)0x2dU)
+#define OKL4_TRACEPOINT_EVT_SWI_MMU_UPDATE_PAGE_PERMS ((okl4_tracepoint_evt_t)0x2fU)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_MMU_UPDATE_PN_ATTRS) */
-#define OKL4_TRACEPOINT_EVT_SWI_MMU_UPDATE_PN_ATTRS ((okl4_tracepoint_evt_t)0x2eU)
+#define OKL4_TRACEPOINT_EVT_SWI_MMU_UPDATE_PN_ATTRS ((okl4_tracepoint_evt_t)0x30U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_MMU_UPDATE_PN_PERMS) */
-#define OKL4_TRACEPOINT_EVT_SWI_MMU_UPDATE_PN_PERMS ((okl4_tracepoint_evt_t)0x2fU)
+#define OKL4_TRACEPOINT_EVT_SWI_MMU_UPDATE_PN_PERMS ((okl4_tracepoint_evt_t)0x31U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_PERFORMANCE_NULL_SYSCALL) */
-#define OKL4_TRACEPOINT_EVT_SWI_PERFORMANCE_NULL_SYSCALL ((okl4_tracepoint_evt_t)0x30U)
+#define OKL4_TRACEPOINT_EVT_SWI_PERFORMANCE_NULL_SYSCALL ((okl4_tracepoint_evt_t)0x32U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_PIPE_CONTROL) */
-#define OKL4_TRACEPOINT_EVT_SWI_PIPE_CONTROL ((okl4_tracepoint_evt_t)0x31U)
+#define OKL4_TRACEPOINT_EVT_SWI_PIPE_CONTROL ((okl4_tracepoint_evt_t)0x33U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_PIPE_RECV) */
-#define OKL4_TRACEPOINT_EVT_SWI_PIPE_RECV ((okl4_tracepoint_evt_t)0x32U)
+#define OKL4_TRACEPOINT_EVT_SWI_PIPE_RECV ((okl4_tracepoint_evt_t)0x34U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_PIPE_SEND) */
-#define OKL4_TRACEPOINT_EVT_SWI_PIPE_SEND ((okl4_tracepoint_evt_t)0x33U)
+#define OKL4_TRACEPOINT_EVT_SWI_PIPE_SEND ((okl4_tracepoint_evt_t)0x35U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_PRIORITY_WAIVE) */
-#define OKL4_TRACEPOINT_EVT_SWI_PRIORITY_WAIVE ((okl4_tracepoint_evt_t)0x34U)
+#define OKL4_TRACEPOINT_EVT_SWI_PRIORITY_WAIVE ((okl4_tracepoint_evt_t)0x36U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_REMOTE_GET_REGISTER) */
-#define OKL4_TRACEPOINT_EVT_SWI_REMOTE_GET_REGISTER ((okl4_tracepoint_evt_t)0x35U)
+#define OKL4_TRACEPOINT_EVT_SWI_REMOTE_GET_REGISTER ((okl4_tracepoint_evt_t)0x37U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_REMOTE_GET_REGISTERS) */
-#define OKL4_TRACEPOINT_EVT_SWI_REMOTE_GET_REGISTERS ((okl4_tracepoint_evt_t)0x36U)
+#define OKL4_TRACEPOINT_EVT_SWI_REMOTE_GET_REGISTERS ((okl4_tracepoint_evt_t)0x38U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_REMOTE_READ_MEMORY32) */
-#define OKL4_TRACEPOINT_EVT_SWI_REMOTE_READ_MEMORY32 ((okl4_tracepoint_evt_t)0x37U)
+#define OKL4_TRACEPOINT_EVT_SWI_REMOTE_READ_MEMORY32 ((okl4_tracepoint_evt_t)0x39U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_REMOTE_SET_REGISTER) */
-#define OKL4_TRACEPOINT_EVT_SWI_REMOTE_SET_REGISTER ((okl4_tracepoint_evt_t)0x38U)
+#define OKL4_TRACEPOINT_EVT_SWI_REMOTE_SET_REGISTER ((okl4_tracepoint_evt_t)0x3aU)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_REMOTE_SET_REGISTERS) */
-#define OKL4_TRACEPOINT_EVT_SWI_REMOTE_SET_REGISTERS ((okl4_tracepoint_evt_t)0x39U)
+#define OKL4_TRACEPOINT_EVT_SWI_REMOTE_SET_REGISTERS ((okl4_tracepoint_evt_t)0x3bU)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_REMOTE_WRITE_MEMORY32) */
-#define OKL4_TRACEPOINT_EVT_SWI_REMOTE_WRITE_MEMORY32 ((okl4_tracepoint_evt_t)0x3aU)
+#define OKL4_TRACEPOINT_EVT_SWI_REMOTE_WRITE_MEMORY32 ((okl4_tracepoint_evt_t)0x3cU)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_SCHEDULE_METRICS_STATUS_SUSPENDED) */
-#define OKL4_TRACEPOINT_EVT_SWI_SCHEDULE_METRICS_STATUS_SUSPENDED ((okl4_tracepoint_evt_t)0x3bU)
+#define OKL4_TRACEPOINT_EVT_SWI_SCHEDULE_METRICS_STATUS_SUSPENDED ((okl4_tracepoint_evt_t)0x3dU)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_SCHEDULE_METRICS_WATCH_SUSPENDED) */
-#define OKL4_TRACEPOINT_EVT_SWI_SCHEDULE_METRICS_WATCH_SUSPENDED ((okl4_tracepoint_evt_t)0x3cU)
+#define OKL4_TRACEPOINT_EVT_SWI_SCHEDULE_METRICS_WATCH_SUSPENDED ((okl4_tracepoint_evt_t)0x3eU)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_CPU_DISABLE) */
-#define OKL4_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_CPU_DISABLE ((okl4_tracepoint_evt_t)0x3dU)
+#define OKL4_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_CPU_DISABLE ((okl4_tracepoint_evt_t)0x3fU)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_CPU_ENABLE) */
-#define OKL4_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_CPU_ENABLE ((okl4_tracepoint_evt_t)0x3eU)
+#define OKL4_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_CPU_ENABLE ((okl4_tracepoint_evt_t)0x40U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_CPU_GET_DATA) */
-#define OKL4_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_CPU_GET_DATA ((okl4_tracepoint_evt_t)0x3fU)
+#define OKL4_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_CPU_GET_DATA ((okl4_tracepoint_evt_t)0x41U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_VCPU_DISABLE) */
-#define OKL4_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_VCPU_DISABLE ((okl4_tracepoint_evt_t)0x40U)
+#define OKL4_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_VCPU_DISABLE ((okl4_tracepoint_evt_t)0x42U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_VCPU_ENABLE) */
-#define OKL4_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_VCPU_ENABLE ((okl4_tracepoint_evt_t)0x41U)
+#define OKL4_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_VCPU_ENABLE ((okl4_tracepoint_evt_t)0x43U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_VCPU_GET_DATA) */
-#define OKL4_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_VCPU_GET_DATA ((okl4_tracepoint_evt_t)0x42U)
-/*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_SCHEDULER_SUSPEND) */
-#define OKL4_TRACEPOINT_EVT_SWI_SCHEDULER_SUSPEND ((okl4_tracepoint_evt_t)0x43U)
+#define OKL4_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_VCPU_GET_DATA ((okl4_tracepoint_evt_t)0x44U)
+/*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_SCHEDULER_AFFINITY_GET) */
+#define OKL4_TRACEPOINT_EVT_SWI_SCHEDULER_AFFINITY_GET ((okl4_tracepoint_evt_t)0x45U)
+/*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_SCHEDULER_AFFINITY_SET) */
+#define OKL4_TRACEPOINT_EVT_SWI_SCHEDULER_AFFINITY_SET ((okl4_tracepoint_evt_t)0x46U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_TIMER_CANCEL) */
-#define OKL4_TRACEPOINT_EVT_SWI_TIMER_CANCEL ((okl4_tracepoint_evt_t)0x44U)
+#define OKL4_TRACEPOINT_EVT_SWI_TIMER_CANCEL ((okl4_tracepoint_evt_t)0x47U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_TIMER_GET_RESOLUTION) */
-#define OKL4_TRACEPOINT_EVT_SWI_TIMER_GET_RESOLUTION ((okl4_tracepoint_evt_t)0x45U)
+#define OKL4_TRACEPOINT_EVT_SWI_TIMER_GET_RESOLUTION ((okl4_tracepoint_evt_t)0x48U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_TIMER_GET_TIME) */
-#define OKL4_TRACEPOINT_EVT_SWI_TIMER_GET_TIME ((okl4_tracepoint_evt_t)0x46U)
+#define OKL4_TRACEPOINT_EVT_SWI_TIMER_GET_TIME ((okl4_tracepoint_evt_t)0x49U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_TIMER_QUERY) */
-#define OKL4_TRACEPOINT_EVT_SWI_TIMER_QUERY ((okl4_tracepoint_evt_t)0x47U)
+#define OKL4_TRACEPOINT_EVT_SWI_TIMER_QUERY ((okl4_tracepoint_evt_t)0x4aU)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_TIMER_START) */
-#define OKL4_TRACEPOINT_EVT_SWI_TIMER_START ((okl4_tracepoint_evt_t)0x48U)
+#define OKL4_TRACEPOINT_EVT_SWI_TIMER_START ((okl4_tracepoint_evt_t)0x4bU)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_TRACEBUFFER_SYNC) */
-#define OKL4_TRACEPOINT_EVT_SWI_TRACEBUFFER_SYNC ((okl4_tracepoint_evt_t)0x49U)
+#define OKL4_TRACEPOINT_EVT_SWI_TRACEBUFFER_SYNC ((okl4_tracepoint_evt_t)0x4cU)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_VCPU_RESET) */
-#define OKL4_TRACEPOINT_EVT_SWI_VCPU_RESET ((okl4_tracepoint_evt_t)0x4aU)
+#define OKL4_TRACEPOINT_EVT_SWI_VCPU_RESET ((okl4_tracepoint_evt_t)0x4dU)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_VCPU_START) */
-#define OKL4_TRACEPOINT_EVT_SWI_VCPU_START ((okl4_tracepoint_evt_t)0x4bU)
+#define OKL4_TRACEPOINT_EVT_SWI_VCPU_START ((okl4_tracepoint_evt_t)0x4eU)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_VCPU_STOP) */
-#define OKL4_TRACEPOINT_EVT_SWI_VCPU_STOP ((okl4_tracepoint_evt_t)0x4cU)
+#define OKL4_TRACEPOINT_EVT_SWI_VCPU_STOP ((okl4_tracepoint_evt_t)0x4fU)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_VCPU_SWITCH_MODE) */
-#define OKL4_TRACEPOINT_EVT_SWI_VCPU_SWITCH_MODE ((okl4_tracepoint_evt_t)0x4dU)
+#define OKL4_TRACEPOINT_EVT_SWI_VCPU_SWITCH_MODE ((okl4_tracepoint_evt_t)0x50U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_VCPU_SYNC_SEV) */
-#define OKL4_TRACEPOINT_EVT_SWI_VCPU_SYNC_SEV ((okl4_tracepoint_evt_t)0x4eU)
+#define OKL4_TRACEPOINT_EVT_SWI_VCPU_SYNC_SEV ((okl4_tracepoint_evt_t)0x51U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_VCPU_SYNC_WFE) */
-#define OKL4_TRACEPOINT_EVT_SWI_VCPU_SYNC_WFE ((okl4_tracepoint_evt_t)0x4fU)
+#define OKL4_TRACEPOINT_EVT_SWI_VCPU_SYNC_WFE ((okl4_tracepoint_evt_t)0x52U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_VINTERRUPT_CLEAR_AND_RAISE) */
-#define OKL4_TRACEPOINT_EVT_SWI_VINTERRUPT_CLEAR_AND_RAISE ((okl4_tracepoint_evt_t)0x50U)
+#define OKL4_TRACEPOINT_EVT_SWI_VINTERRUPT_CLEAR_AND_RAISE ((okl4_tracepoint_evt_t)0x53U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_VINTERRUPT_MODIFY) */
-#define OKL4_TRACEPOINT_EVT_SWI_VINTERRUPT_MODIFY ((okl4_tracepoint_evt_t)0x51U)
+#define OKL4_TRACEPOINT_EVT_SWI_VINTERRUPT_MODIFY ((okl4_tracepoint_evt_t)0x54U)
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_SWI_VINTERRUPT_RAISE) */
-#define OKL4_TRACEPOINT_EVT_SWI_VINTERRUPT_RAISE ((okl4_tracepoint_evt_t)0x52U)
+#define OKL4_TRACEPOINT_EVT_SWI_VINTERRUPT_RAISE ((okl4_tracepoint_evt_t)0x55U)
 /**
     Maximum enumeration value
 */
 /*lint -esym(621, OKL4_TRACEPOINT_EVT_MAX) */
-#define OKL4_TRACEPOINT_EVT_MAX ((okl4_tracepoint_evt_t)0x52U)
+#define OKL4_TRACEPOINT_EVT_MAX ((okl4_tracepoint_evt_t)0x55U)
 /**
     Invalid enumeration value
 */
@@ -11473,6 +11288,8 @@ okl4_tracepoint_evt_is_element_of(okl4_tracepoint_evt_t var)
             (var == OKL4_TRACEPOINT_EVT_SWI_AXON_SET_SEND_QUEUE) ||
             (var == OKL4_TRACEPOINT_EVT_SWI_AXON_SET_SEND_SEGMENT) ||
             (var == OKL4_TRACEPOINT_EVT_SWI_AXON_TRIGGER_SEND) ||
+            (var == OKL4_TRACEPOINT_EVT_SWI_DEBUG_RESUME) ||
+            (var == OKL4_TRACEPOINT_EVT_SWI_DEBUG_SUSPEND) ||
             (var == OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_ACK) ||
             (var == OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_ATTACH_PRIVATE) ||
             (var == OKL4_TRACEPOINT_EVT_SWI_INTERRUPT_ATTACH_SHARED) ||
@@ -11527,7 +11344,8 @@ okl4_tracepoint_evt_is_element_of(okl4_tracepoint_evt_t var)
             (var == OKL4_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_VCPU_DISABLE) ||
             (var == OKL4_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_VCPU_ENABLE) ||
             (var == OKL4_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_VCPU_GET_DATA) ||
-            (var == OKL4_TRACEPOINT_EVT_SWI_SCHEDULER_SUSPEND) ||
+            (var == OKL4_TRACEPOINT_EVT_SWI_SCHEDULER_AFFINITY_GET) ||
+            (var == OKL4_TRACEPOINT_EVT_SWI_SCHEDULER_AFFINITY_SET) ||
             (var == OKL4_TRACEPOINT_EVT_SWI_TIMER_CANCEL) ||
             (var == OKL4_TRACEPOINT_EVT_SWI_TIMER_GET_RESOLUTION) ||
             (var == OKL4_TRACEPOINT_EVT_SWI_TIMER_GET_TIME) ||
@@ -11767,7 +11585,7 @@ okl4_vfp_ops_is_element_of(okl4_vfp_ops_t var)
 
 
 struct okl4_vfp_register {
-    __attribute__((aligned(16))) uint8_t __bytes[16];
+    ALIGNED(16) uint8_t __bytes[16];
 };
 
 
@@ -12102,6 +11920,14 @@ struct _okl4_sys_axon_trigger_send_return {
     okl4_error_t error;
 };
 
+struct _okl4_sys_debug_resume_return {
+    okl4_error_t error;
+};
+
+struct _okl4_sys_debug_suspend_return {
+    okl4_error_t error;
+};
+
 struct _okl4_sys_interrupt_ack_return {
     okl4_interrupt_number_t irq;
     uint8_t source;
@@ -12337,7 +12163,12 @@ struct _okl4_sys_schedule_profile_vcpu_get_data_return {
     okl4_error_t error;
 };
 
-struct _okl4_sys_scheduler_suspend_return {
+struct _okl4_sys_scheduler_affinity_get_return {
+    okl4_error_t error;
+    okl4_cpu_id_t cpu_index;
+};
+
+struct _okl4_sys_scheduler_affinity_set_return {
     okl4_error_t error;
 };
 
@@ -12438,12 +12269,6 @@ GLOBAL_STATIC_ASSERT(sizeof(okl4_arm_psci_result_t) == 4U,
 #if !defined(LINTER)
 GLOBAL_STATIC_ASSERT(_Alignof(okl4_arm_psci_result_t) == 4U,
         __autogen_confused_about_alignof_arm_psci_result)
-#endif
-GLOBAL_STATIC_ASSERT(sizeof(okl4_arm_psci_suspend_state_t) == 4U,
-        __autogen_confused_about_sizeof_arm_psci_suspend_state)
-#if !defined(LINTER)
-GLOBAL_STATIC_ASSERT(_Alignof(okl4_arm_psci_suspend_state_t) == 4U,
-        __autogen_confused_about_alignof_arm_psci_suspend_state)
 #endif
 GLOBAL_STATIC_ASSERT(sizeof(okl4_arm_sctlr_t) == 4U,
         __autogen_confused_about_sizeof_arm_sctlr)
@@ -13199,6 +13024,12 @@ GLOBAL_STATIC_ASSERT(_Alignof(struct okl4_vservices_transports) == 8U,
 #define OKL4_ASM_ARM_PSCI_FUNCTION_PSCI_STAT_RESIDENCY (0x10)
 /*lint -esym(621, OKL4_ASM_ARM_PSCI_FUNCTION_PSCI_STAT_COUNT) */
 #define OKL4_ASM_ARM_PSCI_FUNCTION_PSCI_STAT_COUNT (0x11)
+/*lint -esym(621, OKL4_ASM_ARM_PSCI_FUNCTION_SYSTEM_RESET2) */
+#define OKL4_ASM_ARM_PSCI_FUNCTION_SYSTEM_RESET2 (0x12)
+/*lint -esym(621, OKL4_ASM_ARM_PSCI_FUNCTION_MEM_PROTECT) */
+#define OKL4_ASM_ARM_PSCI_FUNCTION_MEM_PROTECT (0x13)
+/*lint -esym(621, OKL4_ASM_ARM_PSCI_FUNCTION_MEM_PROTECT_CHECK_RANGE) */
+#define OKL4_ASM_ARM_PSCI_FUNCTION_MEM_PROTECT_CHECK_RANGE (0x14)
 
 /**
  *  okl4_arm_psci_result_t
@@ -13223,33 +13054,6 @@ GLOBAL_STATIC_ASSERT(_Alignof(struct okl4_vservices_transports) == 8U,
 #define OKL4_ASM_ARM_PSCI_RESULT_INVALID_PARAMETERS (0xfffffffe)
 /*lint -esym(621, OKL4_ASM_ARM_PSCI_RESULT_NOT_SUPPORTED) */
 #define OKL4_ASM_ARM_PSCI_RESULT_NOT_SUPPORTED (0xffffffff)
-
-/**
- *  okl4_arm_psci_suspend_state_t
- **/
-
-/*lint -esym(621, OKL4_ARM_PSCI_POWER_LEVEL_CPU) */
-#define OKL4_ARM_PSCI_POWER_LEVEL_CPU (0)
-
-/*lint -esym(621, OKL4_ASM_MASK_STATE_ID_ARM_PSCI_SUSPEND_STATE) */
-#define OKL4_ASM_MASK_STATE_ID_ARM_PSCI_SUSPEND_STATE (65535)
-/*lint -esym(621, OKL4_ASM_SHIFT_STATE_ID_ARM_PSCI_SUSPEND_STATE) */
-#define OKL4_ASM_SHIFT_STATE_ID_ARM_PSCI_SUSPEND_STATE (0)
-/*lint -esym(621, OKL4_ASM_WIDTH_STATE_ID_ARM_PSCI_SUSPEND_STATE) */
-#define OKL4_ASM_WIDTH_STATE_ID_ARM_PSCI_SUSPEND_STATE (16)
-/*lint -esym(621, OKL4_ASM_MASK_POWER_DOWN_ARM_PSCI_SUSPEND_STATE) */
-#define OKL4_ASM_MASK_POWER_DOWN_ARM_PSCI_SUSPEND_STATE (1 << 16)
-/*lint -esym(621, OKL4_ASM_SHIFT_POWER_DOWN_ARM_PSCI_SUSPEND_STATE) */
-#define OKL4_ASM_SHIFT_POWER_DOWN_ARM_PSCI_SUSPEND_STATE (16)
-/*lint -esym(621, OKL4_ASM_WIDTH_POWER_DOWN_ARM_PSCI_SUSPEND_STATE) */
-#define OKL4_ASM_WIDTH_POWER_DOWN_ARM_PSCI_SUSPEND_STATE (1)
-/*lint -esym(621, OKL4_ASM_MASK_POWER_LEVEL_ARM_PSCI_SUSPEND_STATE) */
-#define OKL4_ASM_MASK_POWER_LEVEL_ARM_PSCI_SUSPEND_STATE (3 << 24)
-/*lint -esym(621, OKL4_ASM_SHIFT_POWER_LEVEL_ARM_PSCI_SUSPEND_STATE) */
-#define OKL4_ASM_SHIFT_POWER_LEVEL_ARM_PSCI_SUSPEND_STATE (24)
-/*lint -esym(621, OKL4_ASM_WIDTH_POWER_LEVEL_ARM_PSCI_SUSPEND_STATE) */
-#define OKL4_ASM_WIDTH_POWER_LEVEL_ARM_PSCI_SUSPEND_STATE (2)
-
 
 /**
  *  okl4_arm_sctlr_t
@@ -13376,12 +13180,12 @@ GLOBAL_STATIC_ASSERT(_Alignof(struct okl4_vservices_transports) == 8U,
 #define OKL4_ASM_SHIFT_RESERVED22_ARM_SCTLR (22)
 /*lint -esym(621, OKL4_ASM_WIDTH_RESERVED22_ARM_SCTLR) */
 #define OKL4_ASM_WIDTH_RESERVED22_ARM_SCTLR (1)
-/*lint -esym(621, OKL4_ASM_MASK_RESERVED23_ARM_SCTLR) */
-#define OKL4_ASM_MASK_RESERVED23_ARM_SCTLR (1 << 23)
-/*lint -esym(621, OKL4_ASM_SHIFT_RESERVED23_ARM_SCTLR) */
-#define OKL4_ASM_SHIFT_RESERVED23_ARM_SCTLR (23)
-/*lint -esym(621, OKL4_ASM_WIDTH_RESERVED23_ARM_SCTLR) */
-#define OKL4_ASM_WIDTH_RESERVED23_ARM_SCTLR (1)
+/*lint -esym(621, OKL4_ASM_MASK_SPAN_ARM_SCTLR) */
+#define OKL4_ASM_MASK_SPAN_ARM_SCTLR (1 << 23)
+/*lint -esym(621, OKL4_ASM_SHIFT_SPAN_ARM_SCTLR) */
+#define OKL4_ASM_SHIFT_SPAN_ARM_SCTLR (23)
+/*lint -esym(621, OKL4_ASM_WIDTH_SPAN_ARM_SCTLR) */
+#define OKL4_ASM_WIDTH_SPAN_ARM_SCTLR (1)
 /*lint -esym(621, OKL4_ASM_MASK_EL0_ENDIANNESS_ARM_SCTLR) */
 #define OKL4_ASM_MASK_EL0_ENDIANNESS_ARM_SCTLR (1 << 24)
 /*lint -esym(621, OKL4_ASM_SHIFT_EL0_ENDIANNESS_ARM_SCTLR) */
@@ -15100,12 +14904,6 @@ GLOBAL_STATIC_ASSERT(_Alignof(struct okl4_vservices_transports) == 8U,
 /*lint -esym(621, OKL4_ASM_ERROR_INVALID_DESIGNATOR) */
 #define OKL4_ASM_ERROR_INVALID_DESIGNATOR (0x11)
 /**
-    The operation failed because the power_state
-    argument is invalid.
-*/
-/*lint -esym(621, OKL4_ASM_ERROR_INVALID_POWER_STATE) */
-#define OKL4_ASM_ERROR_INVALID_POWER_STATE (0x12)
-/**
     The operation failed because the given segment index does
     not correspond to an attached physical segment.
 */
@@ -15136,12 +14934,6 @@ GLOBAL_STATIC_ASSERT(_Alignof(struct okl4_vservices_transports) == 8U,
 /*lint -esym(621, OKL4_ASM_ERROR_NOT_IN_SEGMENT) */
 #define OKL4_ASM_ERROR_NOT_IN_SEGMENT (0x17)
 /**
-    The operation failed because the caller is not on the last
-    online cpu.
-*/
-/*lint -esym(621, OKL4_ASM_ERROR_NOT_LAST_CPU) */
-#define OKL4_ASM_ERROR_NOT_LAST_CPU (0x18)
-/**
     Insufficient resources are available to perform the operation.
 */
 /*lint -esym(621, OKL4_ASM_ERROR_NO_RESOURCES) */
@@ -15171,12 +14963,6 @@ GLOBAL_STATIC_ASSERT(_Alignof(struct okl4_vservices_transports) == 8U,
 */
 /*lint -esym(621, OKL4_ASM_ERROR_PIPE_RECV_OVERFLOW) */
 #define OKL4_ASM_ERROR_PIPE_RECV_OVERFLOW (0x1e)
-/**
-    The operation failed because at least one VCPU has a monitored
-    power state and is not currently suspended.
-*/
-/*lint -esym(621, OKL4_ASM_ERROR_POWER_VCPU_RESUMED) */
-#define OKL4_ASM_ERROR_POWER_VCPU_RESUMED (0x1f)
 /**
     The operation requires a segment to be unused, or not attached
     to an MMU context.
@@ -15211,6 +14997,11 @@ GLOBAL_STATIC_ASSERT(_Alignof(struct okl4_vservices_transports) == 8U,
 */
 /*lint -esym(621, OKL4_ASM_ERROR_ALLOC_EXHAUSTED) */
 #define OKL4_ASM_ERROR_ALLOC_EXHAUSTED (0x26)
+/**
+    The operation failed because the affinity argument is invalid.
+*/
+/*lint -esym(621, OKL4_ASM_ERROR_INVALID_AFFINITY) */
+#define OKL4_ASM_ERROR_INVALID_AFFINITY (0x27)
 /**
     KSP specific error 0
 */
@@ -15542,13 +15333,16 @@ GLOBAL_STATIC_ASSERT(_Alignof(struct okl4_vservices_transports) == 8U,
  *  okl4_power_state_t
  **/
 /*lint -esym(621, OKL4_POWER_STATE_IDLE) */
-#define OKL4_POWER_STATE_IDLE (0)
+#define OKL4_POWER_STATE_IDLE (2147483648)
 
-/*lint -esym(621, OKL4_POWER_STATE_PLATFORM_BASE) */
-#define OKL4_POWER_STATE_PLATFORM_BASE (256)
+/*lint -esym(621, OKL4_POWER_STATE_PLATFORM_LAST) */
+#define OKL4_POWER_STATE_PLATFORM_LAST (2147483647)
 
 /*lint -esym(621, OKL4_POWER_STATE_POWEROFF) */
-#define OKL4_POWER_STATE_POWEROFF (1)
+#define OKL4_POWER_STATE_POWEROFF (2147483650)
+
+/*lint -esym(621, OKL4_POWER_STATE_RETENTION) */
+#define OKL4_POWER_STATE_RETENTION (2147483649)
 
 /**
  *  okl4_register_set_t
@@ -15831,151 +15625,157 @@ GLOBAL_STATIC_ASSERT(_Alignof(struct okl4_vservices_transports) == 8U,
 #define OKL4_ASM_TRACEPOINT_EVT_SWI_AXON_SET_SEND_SEGMENT (0xb)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_AXON_TRIGGER_SEND) */
 #define OKL4_ASM_TRACEPOINT_EVT_SWI_AXON_TRIGGER_SEND (0xc)
+/*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_DEBUG_RESUME) */
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_DEBUG_RESUME (0xd)
+/*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_DEBUG_SUSPEND) */
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_DEBUG_SUSPEND (0xe)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_ACK) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_ACK (0xd)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_ACK (0xf)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_ATTACH_PRIVATE) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_ATTACH_PRIVATE (0xe)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_ATTACH_PRIVATE (0x10)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_ATTACH_SHARED) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_ATTACH_SHARED (0xf)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_ATTACH_SHARED (0x11)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_DETACH) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_DETACH (0x10)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_DETACH (0x12)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_DIST_ENABLE) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_DIST_ENABLE (0x11)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_DIST_ENABLE (0x13)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_EOI) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_EOI (0x12)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_EOI (0x14)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_GET_HIGHEST_PRIORITY_PENDING) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_GET_HIGHEST_PRIORITY_PENDING (0x13)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_GET_HIGHEST_PRIORITY_PENDING (0x15)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_GET_PAYLOAD) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_GET_PAYLOAD (0x14)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_GET_PAYLOAD (0x16)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_LIMITS) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_LIMITS (0x15)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_LIMITS (0x17)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_MASK) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_MASK (0x16)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_MASK (0x18)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_RAISE) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_RAISE (0x17)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_RAISE (0x19)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_SET_BINARY_POINT) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_SET_BINARY_POINT (0x18)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_SET_BINARY_POINT (0x1a)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_SET_CONFIG) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_SET_CONFIG (0x19)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_SET_CONFIG (0x1b)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_SET_CONTROL) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_SET_CONTROL (0x1a)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_SET_CONTROL (0x1c)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_SET_PRIORITY) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_SET_PRIORITY (0x1b)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_SET_PRIORITY (0x1d)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_SET_PRIORITY_MASK) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_SET_PRIORITY_MASK (0x1c)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_SET_PRIORITY_MASK (0x1e)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_SET_TARGETS) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_SET_TARGETS (0x1d)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_SET_TARGETS (0x1f)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_UNMASK) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_UNMASK (0x1e)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_INTERRUPT_UNMASK (0x20)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_KDB_INTERACT) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_KDB_INTERACT (0x1f)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_KDB_INTERACT (0x21)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_KDB_SET_OBJECT_NAME) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_KDB_SET_OBJECT_NAME (0x20)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_KDB_SET_OBJECT_NAME (0x22)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_KSP_PROCEDURE_CALL) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_KSP_PROCEDURE_CALL (0x21)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_KSP_PROCEDURE_CALL (0x23)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_ATTACH_SEGMENT) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_ATTACH_SEGMENT (0x22)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_ATTACH_SEGMENT (0x24)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_DETACH_SEGMENT) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_DETACH_SEGMENT (0x23)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_DETACH_SEGMENT (0x25)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_FLUSH_RANGE) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_FLUSH_RANGE (0x24)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_FLUSH_RANGE (0x26)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_FLUSH_RANGE_PN) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_FLUSH_RANGE_PN (0x25)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_FLUSH_RANGE_PN (0x27)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_LOOKUP_PAGE) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_LOOKUP_PAGE (0x26)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_LOOKUP_PAGE (0x28)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_LOOKUP_PN) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_LOOKUP_PN (0x27)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_LOOKUP_PN (0x29)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_MAP_PAGE) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_MAP_PAGE (0x28)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_MAP_PAGE (0x2a)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_MAP_PN) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_MAP_PN (0x29)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_MAP_PN (0x2b)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_UNMAP_PAGE) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_UNMAP_PAGE (0x2a)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_UNMAP_PAGE (0x2c)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_UNMAP_PN) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_UNMAP_PN (0x2b)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_UNMAP_PN (0x2d)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_UPDATE_PAGE_ATTRS) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_UPDATE_PAGE_ATTRS (0x2c)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_UPDATE_PAGE_ATTRS (0x2e)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_UPDATE_PAGE_PERMS) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_UPDATE_PAGE_PERMS (0x2d)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_UPDATE_PAGE_PERMS (0x2f)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_UPDATE_PN_ATTRS) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_UPDATE_PN_ATTRS (0x2e)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_UPDATE_PN_ATTRS (0x30)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_UPDATE_PN_PERMS) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_UPDATE_PN_PERMS (0x2f)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_MMU_UPDATE_PN_PERMS (0x31)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_PERFORMANCE_NULL_SYSCALL) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_PERFORMANCE_NULL_SYSCALL (0x30)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_PERFORMANCE_NULL_SYSCALL (0x32)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_PIPE_CONTROL) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_PIPE_CONTROL (0x31)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_PIPE_CONTROL (0x33)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_PIPE_RECV) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_PIPE_RECV (0x32)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_PIPE_RECV (0x34)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_PIPE_SEND) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_PIPE_SEND (0x33)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_PIPE_SEND (0x35)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_PRIORITY_WAIVE) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_PRIORITY_WAIVE (0x34)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_PRIORITY_WAIVE (0x36)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_REMOTE_GET_REGISTER) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_REMOTE_GET_REGISTER (0x35)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_REMOTE_GET_REGISTER (0x37)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_REMOTE_GET_REGISTERS) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_REMOTE_GET_REGISTERS (0x36)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_REMOTE_GET_REGISTERS (0x38)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_REMOTE_READ_MEMORY32) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_REMOTE_READ_MEMORY32 (0x37)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_REMOTE_READ_MEMORY32 (0x39)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_REMOTE_SET_REGISTER) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_REMOTE_SET_REGISTER (0x38)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_REMOTE_SET_REGISTER (0x3a)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_REMOTE_SET_REGISTERS) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_REMOTE_SET_REGISTERS (0x39)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_REMOTE_SET_REGISTERS (0x3b)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_REMOTE_WRITE_MEMORY32) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_REMOTE_WRITE_MEMORY32 (0x3a)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_REMOTE_WRITE_MEMORY32 (0x3c)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULE_METRICS_STATUS_SUSPENDED) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULE_METRICS_STATUS_SUSPENDED (0x3b)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULE_METRICS_STATUS_SUSPENDED (0x3d)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULE_METRICS_WATCH_SUSPENDED) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULE_METRICS_WATCH_SUSPENDED (0x3c)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULE_METRICS_WATCH_SUSPENDED (0x3e)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_CPU_DISABLE) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_CPU_DISABLE (0x3d)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_CPU_DISABLE (0x3f)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_CPU_ENABLE) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_CPU_ENABLE (0x3e)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_CPU_ENABLE (0x40)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_CPU_GET_DATA) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_CPU_GET_DATA (0x3f)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_CPU_GET_DATA (0x41)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_VCPU_DISABLE) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_VCPU_DISABLE (0x40)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_VCPU_DISABLE (0x42)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_VCPU_ENABLE) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_VCPU_ENABLE (0x41)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_VCPU_ENABLE (0x43)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_VCPU_GET_DATA) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_VCPU_GET_DATA (0x42)
-/*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULER_SUSPEND) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULER_SUSPEND (0x43)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULE_PROFILE_VCPU_GET_DATA (0x44)
+/*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULER_AFFINITY_GET) */
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULER_AFFINITY_GET (0x45)
+/*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULER_AFFINITY_SET) */
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_SCHEDULER_AFFINITY_SET (0x46)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_TIMER_CANCEL) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_TIMER_CANCEL (0x44)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_TIMER_CANCEL (0x47)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_TIMER_GET_RESOLUTION) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_TIMER_GET_RESOLUTION (0x45)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_TIMER_GET_RESOLUTION (0x48)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_TIMER_GET_TIME) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_TIMER_GET_TIME (0x46)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_TIMER_GET_TIME (0x49)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_TIMER_QUERY) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_TIMER_QUERY (0x47)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_TIMER_QUERY (0x4a)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_TIMER_START) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_TIMER_START (0x48)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_TIMER_START (0x4b)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_TRACEBUFFER_SYNC) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_TRACEBUFFER_SYNC (0x49)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_TRACEBUFFER_SYNC (0x4c)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_VCPU_RESET) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_VCPU_RESET (0x4a)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_VCPU_RESET (0x4d)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_VCPU_START) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_VCPU_START (0x4b)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_VCPU_START (0x4e)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_VCPU_STOP) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_VCPU_STOP (0x4c)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_VCPU_STOP (0x4f)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_VCPU_SWITCH_MODE) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_VCPU_SWITCH_MODE (0x4d)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_VCPU_SWITCH_MODE (0x50)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_VCPU_SYNC_SEV) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_VCPU_SYNC_SEV (0x4e)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_VCPU_SYNC_SEV (0x51)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_VCPU_SYNC_WFE) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_VCPU_SYNC_WFE (0x4f)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_VCPU_SYNC_WFE (0x52)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_VINTERRUPT_CLEAR_AND_RAISE) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_VINTERRUPT_CLEAR_AND_RAISE (0x50)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_VINTERRUPT_CLEAR_AND_RAISE (0x53)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_VINTERRUPT_MODIFY) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_VINTERRUPT_MODIFY (0x51)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_VINTERRUPT_MODIFY (0x54)
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_SWI_VINTERRUPT_RAISE) */
-#define OKL4_ASM_TRACEPOINT_EVT_SWI_VINTERRUPT_RAISE (0x52)
+#define OKL4_ASM_TRACEPOINT_EVT_SWI_VINTERRUPT_RAISE (0x55)
 /**
     Maximum enumeration value
 */
 /*lint -esym(621, OKL4_ASM_TRACEPOINT_EVT_MAX) */
-#define OKL4_ASM_TRACEPOINT_EVT_MAX (0x52)
+#define OKL4_ASM_TRACEPOINT_EVT_MAX (0x55)
 /**
     Invalid enumeration value
 */

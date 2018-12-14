@@ -333,12 +333,15 @@ static int dp_power_clk_enable(struct dp_power *dp_power,
 	else if (pm_type == DP_LINK_PM)
 		power->link_clks_on = enable;
 
-	pr_debug("%s clocks for %s\n",
-			enable ? "enable" : "disable",
-			dp_parser_pm_name(pm_type));
-	pr_debug("link_clks:%s core_clks:%s strm0_clks:%s strm1_clks:%s\n",
-		power->link_clks_on ? "on" : "off",
+	/*
+	 * This log is printed only when user connects or disconnects
+	 * a DP cable. As this is a user-action and not a frequent
+	 * usecase, it is not going to flood the kernel logs. Also,
+	 * helpful in debugging the NOC issues.
+	 */
+	pr_info("core:%s link:%s strm0:%s strm1:%s\n",
 		power->core_clks_on ? "on" : "off",
+		power->link_clks_on ? "on" : "off",
 		power->strm0_clks_on ? "on" : "off",
 		power->strm1_clks_on ? "on" : "off");
 error:

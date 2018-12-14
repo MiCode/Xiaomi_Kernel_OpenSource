@@ -77,17 +77,32 @@
 	pinctrl-0 = <&dp_hpd_cfg_pins>;
 	pinctrl-1 = <&dp_hpd_cfg_pins>;
 
+	vdda-1p2-supply = <&pm6155_1_l11>;
+	vdda-0p9-supply = <&pm6155_1_l5>;
+	/delete-property/ qcom,dp-aux-switch;
+	qcom,mst-enable;
+
 	qcom,core-supply-entries {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		qcom,core-supply-entry@0 {
 			reg = <0>;
+			qcom,supply-name = "refgen";
 			qcom,supply-min-voltage = <0>;
 			qcom,supply-max-voltage = <0>;
 			qcom,supply-enable-load = <0>;
 			qcom,supply-disable-load = <0>;
 		};
 	};
+};
+
+/* FSA & Rotator not required in Auto */
+&qupv3_se3_i2c {
+	status = "disabled";
+};
+
+&mdss_rotator {
+	status = "disabled";
 };
 
 &qupv3_se2_i2c {
@@ -234,7 +249,7 @@
 };
 
 &mdss_mdp {
-	connectors = <&sde_rscc &dsi_dp1 &sde_wb>;
+	connectors = <&sde_rscc &dsi_dp1 &sde_wb &sde_dp>;
 };
 
 &slpi_tlmm {

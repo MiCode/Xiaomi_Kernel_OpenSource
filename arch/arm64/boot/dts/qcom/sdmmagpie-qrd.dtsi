@@ -45,6 +45,7 @@
 };
 
 &qupv3_se7_i2c{
+	qcom,i2c-touch-active="st,fts";
 	status = "ok";
 	st_fts@49 {
 		compatible = "st,fts";

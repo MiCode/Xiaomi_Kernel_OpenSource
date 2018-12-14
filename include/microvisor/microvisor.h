@@ -46,6 +46,11 @@
 #define OKL4_FORCE_INLINE static inline __attribute__((always_inline))
 #endif
 
+#if !defined(ALIGNED)
+#define _OKL4_CPP_ALIGNED
+#define ALIGNED(x) __attribute__((__aligned__(x)))
+#endif
+
 #include <microvisor/kernel/types.h>
 #include <microvisor/kernel/microvisor.h>
 #include <microvisor/kernel/syscalls.h>
@@ -59,6 +64,11 @@
 #if defined(_OKL4_CPP_BOOL)
 #undef _Bool
 #undef _OKL4_CPP_BOOL
+#endif
+
+#if defined(_OKL4_CPP_ALIGNED)
+#undef ALIGNED
+#undef _OKL4_CPP_ALIGNED
 #endif
 
 #endif /* _MICROVISOR_H_ */
