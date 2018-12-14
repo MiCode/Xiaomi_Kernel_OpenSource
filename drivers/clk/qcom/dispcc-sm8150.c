@@ -722,6 +722,7 @@ static struct clk_rcg2 disp_cc_mdss_mdp_clk_src = {
 	.parent_map = disp_cc_parent_map_5,
 	.freq_tbl = ftbl_disp_cc_mdss_mdp_clk_src,
 	.enable_safe_config = true,
+	.flags = HW_CLK_CTRL_MODE,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "disp_cc_mdss_mdp_clk_src",
 		.parent_names = disp_cc_parent_names_5,
