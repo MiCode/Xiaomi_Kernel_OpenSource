@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -91,6 +91,7 @@ static const char *const debug_mux_parent_names[] = {
 	"measure_only_bimc_clk",
 	"measure_only_ipa_2x_clk",
 	"measure_only_snoc_clk",
+	"apcs_mux_clk",
 };
 
 static struct clk_debug_mux gcc_debug_mux = {
@@ -219,6 +220,8 @@ static struct clk_debug_mux gcc_debug_mux = {
 			0xAC, 0x3FF, 0, 0xF, 0, 4, 0x79000, 0x29000, 0x29004 },
 		{ "measure_only_snoc_clk", 0x109, 4, GCC,
 			0x109, 0x3FF, 0, 0xF, 0, 4, 0x79000, 0x29000, 0x29004 },
+		{ "apcs_mux_clk", 0x7C, 4, CPU_CC,
+			0x3, 0x7, 0x3, 0x0, 0, 1, 0, 0, U32_MAX, 1 },
 	),
 	.hw.init = &(struct clk_init_data){
 		.name = "gcc_debug_mux",
@@ -270,6 +273,10 @@ static int clk_debug_sdxprairie_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	ret = map_debug_bases(pdev, "qcom,gcc", GCC);
+	if (ret)
+		return ret;
+
+	ret = map_debug_bases(pdev, "qcom,cpucc", CPU_CC);
 	if (ret)
 		return ret;
 
