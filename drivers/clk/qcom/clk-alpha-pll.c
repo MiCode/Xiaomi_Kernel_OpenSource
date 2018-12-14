@@ -2341,22 +2341,6 @@ int clk_lucid_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 {
 	int ret;
 
-	if (lucid_pll_is_enabled(pll, regmap)) {
-		pr_warn("PLL is already enabled. Skipping configuration.\n");
-		return 0;
-	}
-
-	/*
-	 * Disable the PLL if it's already been initialized. Not doing so might
-	 * lead to the PLL running with the old frequency configuration.
-	 */
-	if (pll->inited) {
-		ret = regmap_update_bits(regmap, pll->offset + PLL_MODE,
-						PLL_RESET_N, 0);
-		if (ret)
-			return ret;
-	}
-
 	if (config->l)
 		regmap_write(regmap, pll->offset + LUCID_PLL_OFF_L_VAL,
 				config->l);
@@ -2426,15 +2410,6 @@ static int alpha_pll_lucid_enable(struct clk_hw *hw)
 		if (ret)
 			return ret;
 		return wait_for_pll_enable_active(pll);
-	}
-
-	if (unlikely(!pll->inited)) {
-		ret = clk_lucid_pll_configure(pll, pll->clkr.regmap,
-						pll->config);
-		if (ret) {
-			pr_err("Failed to configure %s\n", clk_hw_get_name(hw));
-			return ret;
-		}
 	}
 
 	/* Set operation mode to RUN */
