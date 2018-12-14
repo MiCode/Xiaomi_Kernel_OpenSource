@@ -446,6 +446,16 @@ static ssize_t out_mode_store(struct device *dev,
 			spin_unlock_irqrestore(&drvdata->spinlock, flags);
 			goto out;
 		}
+
+		if (!drvdata->vaddr) {
+			spin_unlock_irqrestore(&drvdata->spinlock, flags);
+			ret = tmc_etr_alloc_mem(drvdata);
+			if (ret) {
+				mutex_unlock(&drvdata->mem_lock);
+				return ret;
+			}
+			spin_lock_irqsave(&drvdata->spinlock, flags);
+		}
 		__tmc_etr_disable_to_bam(drvdata);
 		tmc_etr_enable_hw(drvdata);
 		drvdata->out_mode = TMC_ETR_OUT_MODE_MEM;
@@ -474,9 +484,10 @@ static ssize_t out_mode_store(struct device *dev,
 		drvdata->out_mode = TMC_ETR_OUT_MODE_USB;
 		spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
-		if (drvdata->mode != CS_MODE_DISABLED) {
-			coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
-			coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
+		coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
+		coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
+
+		if (drvdata->vaddr) {
 			tmc_etr_byte_cntr_stop(drvdata->byte_cntr);
 			tmc_etr_free_mem(drvdata);
 		}
