@@ -16,6 +16,7 @@
 #include "cam_fd_hw_soc.h"
 #include "cam_fd_hw_v41.h"
 #include "cam_fd_hw_v501.h"
+#include "cam_fd_hw_v600.h"
 
 static char fd_dev_name[8];
 
@@ -200,8 +201,8 @@ static const struct of_device_id cam_fd_hw_dt_match[] = {
 		.data = &cam_fd_wrapper200_core501_info,
 	},
 	{
-		.compatible = "qcom,fd501",
-		.data = &cam_fd_wrapper200_core501_info,
+		.compatible = "qcom,fd600",
+		.data = &cam_fd_wrapper200_core600_info,
 	},
 	{}
 };
