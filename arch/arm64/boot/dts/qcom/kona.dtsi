@@ -1466,6 +1466,7 @@
 			qcom,glink-label = "npu";
 
 			qcom,npu_qrtr {
+				qcom,net-id = <1>;
 				qcom,glink-channels = "IPCRTR";
 				qcom,intents = <0x800  5
 						0x2000 3
@@ -1493,6 +1494,7 @@
 			qcom,glink-label = "lpass";
 
 			qcom,adsp_qrtr {
+				qcom,net-id = <2>;
 				qcom,glink-channels = "IPCRTR";
 				qcom,intents = <0x800  5
 						0x2000 3
@@ -1527,6 +1529,7 @@
 			qcom,glink-label = "dsps";
 
 			qcom,slpi_qrtr {
+				qcom,net-id = <2>;
 				qcom,glink-channels = "IPCRTR";
 				qcom,intents = <0x800  5
 						0x2000 3
@@ -1561,6 +1564,7 @@
 			qcom,glink-label = "cdsp";
 
 			qcom,cdsp_qrtr {
+				qcom,net-id = <1>;
 				qcom,glink-channels = "IPCRTR";
 				qcom,intents = <0x800  5
 						0x2000 3

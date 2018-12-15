@@ -408,6 +408,11 @@
 				mhi,interface-name = "rmnet_mhi";
 				mhi,mru = <0x4000>;
 			};
+
+			mhi_qrtr {
+				mhi,chan = "IPCR";
+				qcom,net-id = <3>;
+			};
 		};
 	};
 };
