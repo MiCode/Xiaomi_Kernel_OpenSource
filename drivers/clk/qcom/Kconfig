@@ -520,3 +520,12 @@ config SM_GPUCC_TRINKET
 	  Support for the graphics clock controller on Qualcomm Technologies, Inc.
 	  TRINKET devices.
 	  Say Y if you want to support graphics clocks.
+
+config SM_VIDEOCC_TRINKET
+	tristate "TRINKET Video Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the video clock controller on Qualcomm Technologies, Inc.
+	  TRINKET devices.
+	  Say Y if you want to support video devices and functionality such as
+	  video encode/decode.
