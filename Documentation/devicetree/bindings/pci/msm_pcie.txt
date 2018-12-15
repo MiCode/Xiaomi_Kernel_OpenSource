@@ -21,20 +21,12 @@ Required properties:
 		    For PCIe device node, it should define 12 mappings for
 		    the corresponding PCIe interrupts supporting the specification.
   - interrupt-names: indicates interrupts passed to driver by name.
-		     Should be "int_msi", "int_a", "int_b", "int_c", "int_d",
+		     Should be "int_a", "int_b", "int_c", "int_d",
 		     "int_pls_pme", "int_pme_legacy", "int_pls_err",
 		     "int_aer_legacy", "int_pls_link_up",
-		     "int_pls_link_down", "int_bridge_flush_n",
-		     "msi_0", "msi_1", "msi_2", "msi_3",
-		     "msi_4", "msi_5", "msi_6", "msi_7",
-		     "msi_8", "msi_9", "msi_10", "msi_11",
-		     "msi_12", "msi_13", "msi_14", "msi_15",
-		     "msi_16", "msi_17", "msi_18", "msi_19",
-		     "msi_20", "msi_21", "msi_22", "msi_23",
-		     "msi_24", "msi_25", "msi_26", "msi_27",
-		     "msi_28", "msi_29", "msi_30", "msi_31"
+		     "int_pls_link_down", "int_bridge_flush_n"
 		     These correspond to the standard PCIe specification to support
-		     MSIs, virtual IRQ's (INT#), link state notifications.
+		     virtual IRQ's (INT#), link state notifications.
   - perst-gpio: PERST GPIO specified by PCIe spec.
   - wake-gpio: WAKE GPIO specified by PCIe spec.
   - phy-status-offset: Offset from PCIe PHY base to check if PCIe PHY is up.
@@ -221,18 +213,10 @@ Example:
 				0x0 0x0 0x0 41 &intc 0 477 0
 				0x0 0x0 0x0 42 &intc 0 478 0
 				0x0 0x0 0x0 43 &intc 0 479 0>;
-		interrupt-names = "int_msi", "int_a", "int_b", "int_c", "int_d",
+		interrupt-names = int_a", "int_b", "int_c", "int_d",
 				"int_pls_pme", "int_pme_legacy", "int_pls_err",
 				"int_aer_legacy", "int_pls_link_up",
-				"int_pls_link_down", "int_bridge_flush_n",
-				"msi_0", "msi_1", "msi_2", "msi_3",
-				"msi_4", "msi_5", "msi_6", "msi_7",
-				"msi_8", "msi_9", "msi_10", "msi_11",
-				"msi_12", "msi_13", "msi_14", "msi_15",
-				"msi_16", "msi_17", "msi_18", "msi_19",
-				"msi_20", "msi_21", "msi_22", "msi_23",
-				"msi_24", "msi_25", "msi_26", "msi_27",
-				"msi_28", "msi_29", "msi_30", "msi_31";
+				"int_pls_link_down", "int_bridge_flush_n";
 
 		qcom,phy-sequence = <0x804 0x01 0x00
 					0x034 0x14 0x00
