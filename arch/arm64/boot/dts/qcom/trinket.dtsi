@@ -846,7 +846,7 @@
 
 	rpm_msg_ram: memory@045F0000 {
 			compatible = "qcom,rpm-msg-ram";
-			reg = <0x045F0000 0x8000>;
+			reg = <0x045f0000 0x7000>;
 	};
 
 	apcs_glb: mailbox@0F111000 {
