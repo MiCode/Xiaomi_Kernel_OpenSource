@@ -138,6 +138,10 @@ static irqreturn_t dp_display_irq(int irq, void *dev_id)
 		return IRQ_NONE;
 	}
 
+	/* DP HPD isr */
+	if (dp->hpd->type ==  DP_HPD_LPHW)
+		dp->hpd->isr(dp->hpd);
+
 	/* DP controller isr */
 	dp->ctrl->isr(dp->ctrl);
 
@@ -618,6 +622,7 @@ static void dp_display_host_init(struct dp_display_private *dp)
 	reset = dp->debug->sim_mode ? false : !dp->hpd->multi_func;
 
 	dp->power->init(dp->power, flip);
+	dp->hpd->host_init(dp->hpd, &dp->catalog->hpd);
 	dp->ctrl->init(dp->ctrl, flip, reset);
 	dp->aux->init(dp->aux, dp->parser->aux_cfg);
 	enable_irq(dp->irq);
@@ -639,6 +644,7 @@ static void dp_display_host_deinit(struct dp_display_private *dp)
 
 	dp->aux->deinit(dp->aux);
 	dp->ctrl->deinit(dp->ctrl);
+	dp->hpd->host_deinit(dp->hpd, &dp->catalog->hpd);
 	dp->power->deinit(dp->power);
 	disable_irq(dp->irq);
 	dp->core_initialized = false;
@@ -1231,7 +1237,7 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 	cb->disconnect = dp_display_usbpd_disconnect_cb;
 	cb->attention  = dp_display_usbpd_attention_cb;
 
-	dp->hpd = dp_hpd_get(dev, dp->parser, cb);
+	dp->hpd = dp_hpd_get(dev, dp->parser, &dp->catalog->hpd, cb);
 	if (IS_ERR(dp->hpd)) {
 		rc = PTR_ERR(dp->hpd);
 		pr_err("failed to initialize hpd, rc = %d\n", rc);

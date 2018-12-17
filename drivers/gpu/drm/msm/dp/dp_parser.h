@@ -95,6 +95,8 @@ struct dp_pinctrl {
 	struct pinctrl *pin;
 	struct pinctrl_state *state_active;
 	struct pinctrl_state *state_hpd_active;
+	struct pinctrl_state *state_hpd_tlmm;
+	struct pinctrl_state *state_hpd_ctrl;
 	struct pinctrl_state *state_suspend;
 };
 
@@ -224,6 +226,7 @@ struct dp_parser {
 	bool gpio_aux_switch;
 	u32 max_dp_dsc_blks;
 	u32 max_dp_dsc_input_width_pixs;
+	bool lphw_hpd;
 
 	int (*parse)(struct dp_parser *parser);
 	struct dp_io_data *(*get_io)(struct dp_parser *parser, char *name);
