@@ -163,7 +163,8 @@ struct cam_iommu_handle {
 #define CAM_FORMAT_PLAIN8_10_SWAP               43
 #define CAM_FORMAT_YV12                         44
 #define CAM_FORMAT_Y_ONLY                       45
-#define CAM_FORMAT_MAX                          46
+#define CAM_FORMAT_DPCM_12_10_12                46
+#define CAM_FORMAT_MAX                          47
 
 /* camera rotaion */
 #define CAM_ROTATE_CW_0_DEGREE                  0

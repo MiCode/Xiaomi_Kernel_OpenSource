@@ -67,6 +67,7 @@ static int cam_ife_csid_is_ipp_ppp_format_supported(
 	case CAM_FORMAT_DPCM_12_8_12:
 	case CAM_FORMAT_DPCM_14_8_14:
 	case CAM_FORMAT_DPCM_14_10_14:
+	case CAM_FORMAT_DPCM_12_10_12:
 		rc = 0;
 		break;
 	default:
@@ -206,6 +207,10 @@ static int cam_ife_csid_get_format_rdi(
 		*decode_fmt  = 0xC;
 		*plain_fmt = 0x1;
 		break;
+	case CAM_FORMAT_DPCM_12_10_12:
+		*decode_fmt  = 0xD;
+		*plain_fmt = 0x1;
+		break;
 	default:
 		rc = -EINVAL;
 		break;
@@ -280,6 +285,10 @@ static int cam_ife_csid_get_format_ipp_ppp(
 		*decode_fmt  = 0xC;
 		*plain_fmt = 0x1;
 		break;
+	case CAM_FORMAT_DPCM_12_10_12:
+		*decode_fmt  = 0xD;
+		*plain_fmt = 0x1;
+		break;
 	default:
 		CAM_ERR(CAM_ISP, "Unsupported format %d",
 			in_format);
@@ -309,6 +318,9 @@ static int cam_ife_csid_cid_get(struct cam_ife_csid_hw *csid_hw,
 			if (cid_data->vc == vc && cid_data->dt == dt) {
 				cid_data->cnt++;
 				*res = &csid_hw->cid_res[i];
+				CAM_DBG(CAM_ISP, "CSID:%d CID %d allocated",
+					csid_hw->hw_intf->hw_idx,
+					csid_hw->cid_res[i].res_id);
 				return 0;
 			}
 		}
@@ -647,12 +659,12 @@ static int cam_ife_csid_cid_reserve(struct cam_ife_csid_hw *csid_hw,
 		CAM_ERR(CAM_ISP, "Failed to get HW version rc:%d", rc);
 		goto end;
 	}
-	CAM_DBG(CAM_ISP, "HW version: %d", camera_hw_version);
+	CAM_DBG(CAM_ISP, "HW version: %x", camera_hw_version);
 
 	switch (camera_hw_version) {
 	case CAM_CPAS_TITAN_NONE:
 	case CAM_CPAS_TITAN_MAX:
-		CAM_ERR(CAM_ISP, "Invalid HW version: %d", camera_hw_version);
+		CAM_ERR(CAM_ISP, "Invalid HW version: %x", camera_hw_version);
 		break;
 	case CAM_CPAS_TITAN_170_V100:
 	case CAM_CPAS_TITAN_170_V110:
@@ -1328,10 +1340,12 @@ static int cam_ife_csid_enable_csi2(
 		return rc;
 
 	/* rx cfg0 */
+	val = 0;
 	val = (csid_hw->csi2_rx_cfg.lane_num - 1)  |
 		(csid_hw->csi2_rx_cfg.lane_cfg << 4) |
 		(csid_hw->csi2_rx_cfg.lane_type << 24);
-	val |= (csid_hw->csi2_rx_cfg.phy_sel & 0x3) << 20;
+	val |= (csid_hw->csi2_rx_cfg.phy_sel &
+		csid_reg->csi2_reg->csi2_rx_phy_num_mask) << 20;
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 		csid_reg->csi2_reg->csid_csi2_rx_cfg0_addr);
 
@@ -1754,6 +1768,9 @@ static int cam_ife_csid_enable_pxl_path(
 	/* Enable the required pxl path interrupts */
 	val = CSID_PATH_INFO_RST_DONE | CSID_PATH_ERROR_FIFO_OVERFLOW;
 
+	if (pxl_reg->ccif_violation_en)
+		val |= CSID_PATH_ERROR_CCIF_VIOLATION;
+
 	if (csid_hw->csid_debug & CSID_DEBUG_ENABLE_SOF_IRQ)
 		val |= CSID_PATH_INFO_INPUT_SOF;
 	if (csid_hw->csid_debug & CSID_DEBUG_ENABLE_EOF_IRQ)
@@ -2063,6 +2080,9 @@ static int cam_ife_csid_enable_rdi_path(
 
 	/* Enable the required RDI interrupts */
 	val = CSID_PATH_INFO_RST_DONE | CSID_PATH_ERROR_FIFO_OVERFLOW;
+
+	if (csid_reg->rdi_reg[id]->ccif_violation_en)
+		val |= CSID_PATH_ERROR_CCIF_VIOLATION;
 
 	if (csid_hw->csid_debug & CSID_DEBUG_ENABLE_SOF_IRQ)
 		val |= CSID_PATH_INFO_INPUT_SOF;
@@ -3174,6 +3194,11 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 			CAM_INFO_RATE_LIMIT(CAM_ISP, "CSID:%d IPP EOF received",
 				csid_hw->hw_intf->hw_idx);
 
+		if ((irq_status_ipp & CSID_PATH_ERROR_CCIF_VIOLATION))
+			CAM_INFO_RATE_LIMIT(CAM_ISP,
+				"CSID:%d IPP CCIF violation",
+				csid_hw->hw_intf->hw_idx);
+
 		if (irq_status_ipp & CSID_PATH_ERROR_FIFO_OVERFLOW) {
 			CAM_ERR_RATE_LIMIT(CAM_ISP,
 				"CSID:%d IPP fifo over flow",
@@ -3207,6 +3232,11 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 			CAM_INFO_RATE_LIMIT(CAM_ISP, "CSID:%d PPP EOF received",
 				csid_hw->hw_intf->hw_idx);
 
+		if ((irq_status_ipp & CSID_PATH_ERROR_CCIF_VIOLATION))
+			CAM_INFO_RATE_LIMIT(CAM_ISP,
+				"CSID:%d PPP CCIF violation",
+				csid_hw->hw_intf->hw_idx);
+
 		if (irq_status_ppp & CSID_PATH_ERROR_FIFO_OVERFLOW) {
 			CAM_ERR_RATE_LIMIT(CAM_ISP,
 				"CSID:%d PPP fifo over flow",
@@ -3237,6 +3267,10 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 			(csid_hw->csid_debug & CSID_DEBUG_ENABLE_EOF_IRQ))
 			CAM_INFO_RATE_LIMIT(CAM_ISP,
 				"CSID RDI:%d EOF received", i);
+
+		if ((irq_status_rdi[i] & CSID_PATH_ERROR_CCIF_VIOLATION))
+			CAM_INFO_RATE_LIMIT(CAM_ISP,
+			"CSIDi RDI :%d CCIF violation", i);
 
 		if (irq_status_rdi[i] & CSID_PATH_ERROR_FIFO_OVERFLOW) {
 			CAM_ERR_RATE_LIMIT(CAM_ISP,
