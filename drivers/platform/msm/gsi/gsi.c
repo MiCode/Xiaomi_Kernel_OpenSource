@@ -279,7 +279,7 @@ static void gsi_handle_glob_err(uint32_t err)
 			GSIDBG("ch %u state updated to %u\n", log->virt_idx,
 					ch->state);
 			ch->stats.invalid_tre_error++;
-			if (ch->state != GSI_CHAN_STATE_ERROR) {
+			if (ch->state == GSI_CHAN_STATE_ERROR) {
 				GSIERR("Unexpected channel state %d\n",
 					ch->state);
 				GSI_ASSERT();
