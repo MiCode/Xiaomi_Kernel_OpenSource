@@ -1935,7 +1935,7 @@ err_unmap:
 			mdss_smmu_dma_data_direction(DMA_BIDIRECTIONAL));
 	dma_buf_detach(data->srcp_dma_buf, data->srcp_attachment);
 	dma_buf_put(data->srcp_dma_buf);
-
+	data->skip_detach = true;
 	if (client ==  MDP3_CLIENT_PPP || client == MDP3_CLIENT_DMA_P) {
 		vfree(data->tab_clone->sgl);
 		kfree(data->tab_clone);
