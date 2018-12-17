@@ -17,8 +17,8 @@ Required properties:
   Usage: required
   Value type: <string>
   Definition: Should specify the compatibility string for matching the
-	driver. e.g. "qcom,vfe480", "qcom,vfe175", "qcom,vfe170",
-	"qcom,vfe-lite480", "qcom,vfe-lite175", "qcom,vfe-lite170".
+	driver. e.g. "qcom,vfe480", "qcom,vfe175", "qcom,vfe170", "qcom,vfe175_130",
+	"qcom,vfe-lite480", "qcom,vfe-lite175", "qcom,vfe-lite175_130", "qcom,vfe-lite170".
 
 - cell-index
   Usage: required
@@ -97,6 +97,16 @@ Optional properties:
   Value type: <string>
   Definition: Enable/Disable clk rate control.
 
+- qcom,cam-cx-ipeak:
+  Usage: optional
+  Value type: <phandle bit>
+	phandle - phandle of CX Ipeak device node
+	bit     - Every bit corresponds to a client of CX Ipeak
+  Definition: CX Ipeak is a mitigation scheme which throttles camera frequency
+	if all the clients are running at their respective threshold
+	frequencies to limit CX peak current.
+	driver in the relevant register.
+
 Example:
 	qcom,vfe0@acaf000 {
 		cell-index = <0>;
@@ -131,5 +141,6 @@ Example:
 		clock-names-option = "ife_dsp_clk";
 		clocks-option = <&clock_camcc CAM_CC_IFE_0_DSP_CLK>;
 		clock-rates-option = <600000000>;
+		qcom,cam-cx-ipeak = <&cx_ipeak_lm 2>;
 		status = "ok";
 	};
