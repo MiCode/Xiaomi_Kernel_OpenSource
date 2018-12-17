@@ -2043,6 +2043,18 @@
 			#interrupt-cells = <2>;
 		};
 
+		smp2p_rdbg2_out: qcom,smp2p-rdbg2-out {
+			qcom,entry-name = "rdbg";
+			#qcom,smem-state-cells = <1>;
+		};
+
+		smp2p_rdbg2_in: qcom,smp2p-rdbg2-in {
+			qcom,entry-name = "rdbg";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+
+
 		sleepstate_smp2p_out: sleepstate-out {
 			qcom,entry-name = "sleepstate";
 			#qcom,smem-state-cells = <1>;
@@ -2070,6 +2082,17 @@
 
 		cdsp_smp2p_in: slave-kernel {
 			qcom,entry-name = "slave-kernel";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+
+		smp2p_rdbg5_out: qcom,smp2p-rdbg5-out {
+			qcom,entry-name = "rdbg";
+			#qcom,smem-state-cells = <1>;
+		};
+
+		smp2p_rdbg5_in: qcom,smp2p-rdbg5-in {
+			qcom,entry-name = "rdbg";
 			interrupt-controller;
 			#interrupt-cells = <2>;
 		};
@@ -3048,6 +3071,7 @@
 #include "sdmmagpie-sde-pll.dtsi"
 #include "sdmmagpie-sde.dtsi"
 #include "sdmmagpie-camera.dtsi"
+#include "msm-rdbg.dtsi"
 
 &pcie_0_gdsc {
 	status = "ok";
