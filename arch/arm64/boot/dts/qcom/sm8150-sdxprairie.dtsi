@@ -33,3 +33,9 @@
 		status = "disabled";
 	};
 };
+
+&soc {
+	ipa_hw: qcom,ipa@1e00000 {
+		qcom,platform-type = <2>; /* APQ platform */
+	};
+};
