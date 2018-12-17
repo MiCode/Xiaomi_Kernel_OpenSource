@@ -41,6 +41,8 @@
 #define SE_SPI_RX_TRANS_LEN	(0x270)
 #define SE_SPI_PRE_POST_CMD_DLY	(0x274)
 #define SE_SPI_DELAY_COUNTERS	(0x278)
+#define SE_SPI_SLAVE_EN	(0x2BC)
+#define SPI_SLAVE_EN	BIT(0)
 
 /* SE_SPI_CPHA register fields */
 #define CPHA			(BIT(0))
@@ -133,6 +135,7 @@ struct spi_geni_master {
 	int tx_fifo_width;
 	int tx_wm;
 	bool setup;
+	bool slave_setup;
 	u32 cur_speed_hz;
 	int cur_word_len;
 	unsigned int tx_rem_bytes;
@@ -158,12 +161,62 @@ struct spi_geni_master {
 	bool dis_autosuspend;
 };
 
+static void spi_slv_setup(struct spi_geni_master *mas);
+
+static ssize_t show_slave_state(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	ssize_t ret = 0;
+	struct platform_device *pdev = container_of(dev, struct
+						platform_device, dev);
+	struct spi_master *spi = platform_get_drvdata(pdev);
+	struct spi_geni_master *geni_mas;
+
+	geni_mas = spi_master_get_devdata(spi);
+
+	if (geni_mas)
+		ret = snprintf(buf, sizeof(int), "%d\n",
+				spi->slave_state);
+	return ret;
+}
+
+static ssize_t set_slave_state(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	return 1;
+}
+
+static DEVICE_ATTR(spi_slave_state, 0644,
+			show_slave_state, set_slave_state);
+
 static struct spi_master *get_spi_master(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct spi_master *spi = platform_get_drvdata(pdev);
 
 	return spi;
+}
+
+static void spi_slv_setup(struct spi_geni_master *mas)
+{
+	geni_write_reg(SPI_SLAVE_EN, mas->base, SE_SPI_SLAVE_EN);
+
+	geni_write_reg(1, mas->base, GENI_OUTPUT_CTRL);
+
+	geni_write_reg(START_TRIGGER, mas->base, SE_GENI_CFG_SEQ_START);
+	/* ensure data is written to hardware register */
+	wmb();
+	dev_info(mas->dev, "spi slave setup done\n");
+}
+
+static int spi_slv_abort(struct spi_master *spi)
+{
+	struct spi_geni_master *mas = spi_master_get_devdata(spi);
+
+	complete_all(&mas->tx_cb);
+	complete_all(&mas->rx_cb);
+	return 0;
 }
 
 static int get_spi_clk_cfg(u32 speed_hz, struct spi_geni_master *mas,
@@ -256,8 +309,10 @@ static int setup_fifo_params(struct spi_device *spi_slv,
 	if (mode & SPI_CPOL)
 		cpol |= CPOL;
 
-	if (mode & SPI_CPHA)
-		cpha |= CPHA;
+	if (!spi->slave) {
+		if (mode & SPI_CPHA)
+			cpha |= CPHA;
+	}
 
 	if (spi_slv->mode & SPI_CS_HIGH)
 		demux_output_inv |= BIT(spi_slv->chip_select);
@@ -757,7 +812,7 @@ static int spi_geni_unprepare_message(struct spi_master *spi_mas,
 static int spi_geni_prepare_transfer_hardware(struct spi_master *spi)
 {
 	struct spi_geni_master *mas = spi_master_get_devdata(spi);
-	int ret = 0, count = 0;
+	int ret = 0, count = 0, proto;
 	u32 max_speed = spi->cur_msg->spi->max_speed_hz;
 	struct se_geni_rsc *rsc = &mas->spi_rsc;
 
@@ -790,18 +845,36 @@ static int spi_geni_prepare_transfer_hardware(struct spi_master *spi)
 			GENI_SE_ERR(mas->ipc, false, NULL,
 				"resume usage count mismatch:%d", count);
 	}
+
+	if (spi->slave) {
+		proto = get_se_proto(mas->base);
+
+		if (mas->slave_setup)
+			goto setup_ipc;
+
+		if (unlikely(proto != SPI_SLAVE)) {
+			dev_err(mas->dev, "Invalid proto %d\n", proto);
+			return -ENXIO;
+		}
+	}
+
 	if (unlikely(!mas->setup)) {
-		int proto = get_se_proto(mas->base);
 		unsigned int major;
 		unsigned int minor;
 		unsigned int step;
 		int hw_ver;
 
-		if (unlikely(proto != SPI)) {
+		proto = get_se_proto(mas->base);
+		if ((unlikely(proto != SPI)) && (!spi->slave)) {
 			dev_err(mas->dev, "Invalid proto %d\n", proto);
 			return -ENXIO;
 		}
+
+		dev_info(mas->dev, "proto %d\n", proto);
 		geni_se_init(mas->base, 0x0, (mas->tx_fifo_depth - 2));
+		mb();  /*ensure all writes are done*/
+		if (spi->slave)
+			spi_slv_setup(mas);
 		mas->tx_fifo_depth = get_tx_fifo_depth(mas->base);
 		mas->rx_fifo_depth = get_rx_fifo_depth(mas->base);
 		mas->tx_fifo_width = get_tx_fifo_width(mas->base);
@@ -863,6 +936,8 @@ setup_ipc:
 			mas->tx_fifo_depth, mas->rx_fifo_depth,
 			mas->tx_fifo_width);
 		mas->setup = true;
+		if (spi->slave)
+			mas->slave_setup = true;
 		hw_ver = geni_se_qupv3_hw_version(mas->wrapper_dev, &major,
 							&minor, &step);
 		if (hw_ver)
@@ -959,7 +1034,8 @@ static void setup_fifo_xfer(struct spi_transfer *xfer,
 	else if (xfer->rx_buf)
 		m_cmd = SPI_RX_ONLY;
 
-	spi_tx_cfg &= ~CS_TOGGLE;
+	if (!spi->slave)
+		spi_tx_cfg &= ~CS_TOGGLE;
 	if (!(mas->cur_word_len % MIN_WORD_LEN)) {
 		trans_len =
 			((xfer->len << 3) / mas->cur_word_len) & TRANS_LEN_MSK;
@@ -1000,7 +1076,8 @@ static void setup_fifo_xfer(struct spi_transfer *xfer,
 		}
 	}
 
-	geni_write_reg(spi_tx_cfg, mas->base, SE_SPI_TRANS_CFG);
+	if (!spi->slave)
+		geni_write_reg(spi_tx_cfg, mas->base, SE_SPI_TRANS_CFG);
 	geni_setup_m_cmd(mas->base, m_cmd, m_param);
 	GENI_SE_DBG(mas->ipc, false, mas->dev,
 	"%s: trans_len %d xferlen%d tx_cfg 0x%x cmd 0x%x cs%d mode%d\n",
@@ -1086,8 +1163,13 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 	if (mas->cur_xfer_mode != GSI_DMA) {
 		reinit_completion(&mas->xfer_done);
 		setup_fifo_xfer(xfer, mas, slv->mode, spi);
+		if (spi->slave)
+			spi->slave_state = true;
 		timeout = wait_for_completion_timeout(&mas->xfer_done,
 					msecs_to_jiffies(SPI_XFER_TIMEOUT_MS));
+		if (spi->slave)
+			spi->slave_state = false;
+
 		if (!timeout) {
 			GENI_SE_ERR(mas->ipc, true, mas->dev,
 				"Xfer[len %d tx %pK rx %pK n %d] timed out.\n",
@@ -1157,7 +1239,10 @@ err_gsi_geni_transfer_one:
 	dmaengine_terminate_all(mas->tx);
 	return ret;
 err_fifo_geni_transfer_one:
-	handle_fifo_timeout(mas, xfer);
+	if (!spi->slave)
+		handle_fifo_timeout(mas, xfer);
+	if (spi->slave)
+		geni_se_dump_dbg_regs(&mas->spi_rsc, mas->base, mas->ipc);
 	return ret;
 }
 
@@ -1341,7 +1426,7 @@ static int spi_geni_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct platform_device *wrapper_pdev;
 	struct device_node *wrapper_ph_node;
-	bool rt_pri;
+	bool rt_pri, slave_en;
 
 	spi = spi_alloc_master(&pdev->dev, sizeof(struct spi_geni_master));
 	if (!spi) {
@@ -1482,6 +1567,13 @@ static int spi_geni_probe(struct platform_device *pdev)
 		goto spi_geni_probe_unmap;
 	}
 
+	slave_en = of_property_read_bool(pdev->dev.of_node,
+			"qcom,slv-ctrl");
+	if (slave_en) {
+		spi->slave = true;
+		spi->slave_abort = spi_slv_abort;
+	}
+
 	spi->mode_bits = (SPI_CPOL | SPI_CPHA | SPI_LOOP | SPI_CS_HIGH);
 	spi->bits_per_word_mask = SPI_BPW_RANGE_MASK(4, 32);
 	spi->num_chipselect = SPI_NUM_CHIPSELECT;
@@ -1508,6 +1600,8 @@ static int spi_geni_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to register SPI master\n");
 		goto spi_geni_probe_unmap;
 	}
+	sysfs_create_file(&(geni_mas->dev->kobj),
+				&dev_attr_spi_slave_state.attr);
 	return ret;
 spi_geni_probe_unmap:
 	devm_iounmap(&pdev->dev, geni_mas->base);
@@ -1521,6 +1615,7 @@ static int spi_geni_remove(struct platform_device *pdev)
 	struct spi_master *master = platform_get_drvdata(pdev);
 	struct spi_geni_master *geni_mas = spi_master_get_devdata(master);
 
+	sysfs_remove_file(&pdev->dev.kobj, &dev_attr_spi_slave_state.attr);
 	spi_unregister_master(master);
 	se_geni_resources_off(&geni_mas->spi_rsc);
 	pm_runtime_put_noidle(&pdev->dev);
