@@ -247,7 +247,9 @@
 };
 
 &qupv3_se7_i2c {
+	qcom,i2c-touch-active="st,fts";
 	status = "ok";
+
 	st_fts@49 {
 		compatible = "st,fts";
 		reg = <0x49>;
@@ -266,6 +268,31 @@
 		st,regulator_avdd = "avdd";
 		st,x-flip;
 		st,y-flip;
+	};
+
+	synaptics_dsx@20 {
+		compatible = "synaptics,dsx-i2c";
+		reg = <0x20>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <9 0x2008>;
+		vdd-supply = <&pm6150_l10>;
+		avdd-supply = <&pm6150l_l7>;
+		pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
+					"pmx_ts_release";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+		synaptics,pwr-reg-name = "avdd";
+		synaptics,bus-reg-name = "vdd";
+		synaptics,ub-i2c-addr = <0x20>;
+		synaptics,max-y-for-2d = <2159>;
+		synaptics,irq-gpio = <&tlmm 9 0x2008>;
+		synaptics,reset-gpio = <&tlmm 8 0x0>;
+		synaptics,irq-on-state = <0>;
+		synaptics,power-delay-ms = <200>;
+		synaptics,reset-delay-ms = <200>;
+		synaptics,reset-on-state = <0>;
+		synaptics,reset-active-ms = <20>;
 	};
 };
 
