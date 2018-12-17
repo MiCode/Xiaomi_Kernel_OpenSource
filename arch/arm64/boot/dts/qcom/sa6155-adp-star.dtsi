@@ -207,12 +207,3 @@
 &qupv3_se7_4uart {
 	status = "ok";
 };
-
-&qupv3_se2_i2c {
-	status = "disabled";
-};
-
-&qupv3_se2_spi {
-	status = "ok";
-	qcom,slv-ctrl;
-};
