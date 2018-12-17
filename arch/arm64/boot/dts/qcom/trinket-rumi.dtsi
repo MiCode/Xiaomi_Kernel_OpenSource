@@ -96,4 +96,17 @@
 	/delete-node/ rpm-regulator-ldoa24;
 };
 
+&thermal_zones {
+	/delete-node/ aoss0-lowf;
+	/delete-node/ cdsp-lowf;
+	/delete-node/ wlan-lowf;
+	/delete-node/ camera-lowf;
+	/delete-node/ video-lowf;
+	/delete-node/ cpu-1-0-lowf;
+	/delete-node/ cpu-0-0-lowf;
+	/delete-node/ mdm-core-lowf;
+	/delete-node/ display-lowf;
+	/delete-node/ gpu-lowf;
+};
+
 #include "trinket-stub-regulator.dtsi"
