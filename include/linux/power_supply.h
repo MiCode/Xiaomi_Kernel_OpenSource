@@ -2,6 +2,7 @@
  *  Universal power supply monitor class
  *
  *  Copyright © 2007  Anton Vorontsov <cbou@mail.ru>
+ * Copyright (C) 2018 XiaoMi, Inc.
  *  Copyright © 2004  Szabolcs Gyurko
  *  Copyright © 2003  Ian Molton <spyro@f2s.com>
  *
@@ -267,6 +268,7 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_MANUFACTURER,
 	POWER_SUPPLY_PROP_SERIAL_NUMBER,
 	POWER_SUPPLY_PROP_BATTERY_TYPE,
+	POWER_SUPPLY_PROP_DUMP_SRAM,
 };
 
 enum power_supply_type {

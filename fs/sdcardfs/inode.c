@@ -2,6 +2,7 @@
  * fs/sdcardfs/inode.c
  *
  * Copyright (c) 2013 Samsung Electronics Co. Ltd
+ * Copyright (C) 2018 XiaoMi, Inc.
  *   Authors: Daeho Jeong, Woojoong Lee, Seunghwan Hyun,
  *               Sunghwan Yun, Sungjong Seo
  *
@@ -95,8 +96,11 @@ static int sdcardfs_create(struct inode *dir, struct dentry *dentry,
 		err = -ENOMEM;
 		goto out_unlock;
 	}
+        copied_fs->umask = 0;
+	task_lock(current);
 	current->fs = copied_fs;
-	current->fs->umask = 0;
+	task_unlock(current);
+
 	err = vfs_create2(lower_dentry_mnt, lower_parent_dentry->d_inode, lower_dentry, mode, want_excl);
 	if (err)
 		goto out;
@@ -110,7 +114,9 @@ static int sdcardfs_create(struct inode *dir, struct dentry *dentry,
 	fixup_lower_ownership(dentry, dentry->d_name.name);
 
 out:
+        task_lock(current);
 	current->fs = saved_fs;
+        task_unlock(current);
 	free_fs_struct(copied_fs);
 out_unlock:
 	unlock_dir(lower_parent_dentry);
@@ -316,8 +322,11 @@ static int sdcardfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode
 		unlock_dir(lower_parent_dentry);
 		goto out_unlock;
 	}
+        copied_fs->umask = 0;
+	task_lock(current);
 	current->fs = copied_fs;
-	current->fs->umask = 0;
+	task_unlock(current);
+
 	err = vfs_mkdir2(lower_mnt, lower_parent_dentry->d_inode, lower_dentry, mode);
 
 	if (err) {
@@ -377,7 +386,10 @@ static int sdcardfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode
 		}
 	}
 out:
+        task_lock(current);
 	current->fs = saved_fs;
+        task_unlock(current);
+
 	free_fs_struct(copied_fs);
 out_unlock:
 	sdcardfs_put_lower_path(dentry, &lower_path);
@@ -870,6 +882,7 @@ static int sdcardfs_getattr(struct vfsmount *mnt, struct dentry *dentry,
 		goto out;
 	sdcardfs_copy_and_fix_attrs(dentry->d_inode,
 			      lower_path.dentry->d_inode);
+	fsstack_copy_inode_size(dentry->d_inode, lower_path.dentry->d_inode);
 	err = sdcardfs_fillattr(mnt, dentry->d_inode, &lower_stat, stat);
 out:
 	sdcardfs_put_lower_path(dentry, &lower_path);

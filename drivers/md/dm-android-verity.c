@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 Google, Inc.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -770,7 +771,7 @@ static int android_verity_ctr(struct dm_target *ti, unsigned argc, char **argv)
 		goto free_metadata;
 	}
 
-	if (verity_enabled) {
+	if (verity_enabled && !is_unlocked()) {
 		err = verify_verity_signature(key_id, metadata);
 
 		if (err) {

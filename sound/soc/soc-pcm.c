@@ -2,6 +2,7 @@
  * soc-pcm.c  --  ALSA SoC PCM
  *
  * Copyright 2005 Wolfson Microelectronics PLC.
+ * Copyright (C) 2018 XiaoMi, Inc.
  * Copyright 2005 Openedhand Ltd.
  * Copyright (C) 2010 Slimlogic Ltd.
  * Copyright (C) 2010 Texas Instruments Inc.
@@ -3000,6 +3001,11 @@ int snd_soc_dpcm_can_be_free_stop(struct snd_soc_pcm_runtime *fe,
 			state == SND_SOC_DPCM_STATE_PAUSED ||
 			state == SND_SOC_DPCM_STATE_SUSPEND)
 			return 0;
+		if (dpcm->fe->cpu_dai->playback_active){
+			dev_info(dpcm->fe->dev, "ASoc: playback_active %d, cpu_dai->name %s\n",
+				dpcm->fe->cpu_dai->playback_active, dpcm->fe->cpu_dai->name);
+			return 0;
+		}
 	}
 
 	/* it's safe to free/stop this BE DAI */

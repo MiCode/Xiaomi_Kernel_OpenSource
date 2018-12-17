@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +34,7 @@
 #include "mdss_debug.h"
 #include "mdss_dsi_phy.h"
 #include "mdss_dba_utils.h"
+#include <linux/hqsysfs.h>
 
 #define XO_CLK_RATE	19200000
 #define CMDLINE_DSI_CTL_NUM_STRING_LEN 2
@@ -44,6 +46,9 @@ static struct mdss_dsi_data *mdss_dsi_res;
 #define DSI_ENABLE_PC_LATENCY PM_QOS_DEFAULT_VALUE
 
 static struct pm_qos_request mdss_dsi_pm_qos_request;
+
+int panel_suspend_reset_flag = 0;
+int panel_suspend_power_flag = 0;
 
 static void mdss_dsi_pm_qos_add_request(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
@@ -272,11 +277,15 @@ static int mdss_dsi_regulator_init(struct platform_device *pdev,
 	return rc;
 }
 
-static int mdss_dsi_panel_power_off(struct mdss_panel_data *pdata)
+
+#if 1
+extern int ft8716_suspend;
+int acc_vreg = 0;
+#endif
+int mdss_dsi_panel_power_off(struct mdss_panel_data *pdata)
 {
 	int ret = 0;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
-
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		ret = -EINVAL;
@@ -291,17 +300,36 @@ static int mdss_dsi_panel_power_off(struct mdss_panel_data *pdata)
 		pr_warn("%s: Panel reset failed. rc=%d\n", __func__, ret);
 		ret = 0;
 	}
-
 	if (mdss_dsi_pinctrl_set_state(ctrl_pdata, false))
-		pr_debug("reset disable: pinctrl not enabled\n");
+			pr_debug("reset disable: pinctrl not enabled\n");
 
-	ret = msm_dss_enable_vreg(
+        dump_stack();
+
+	if ((panel_suspend_power_flag != 3) && acc_vreg) {
+		ret = msm_dss_enable_vreg(
 		ctrl_pdata->panel_power_data.vreg_config,
 		ctrl_pdata->panel_power_data.num_vreg, 0);
-	if (ret)
-		pr_err("%s: failed to disable vregs for %s\n",
+		acc_vreg --;
+		printk("SXF set 5V low : panel_suspend_power_flag : %d acc_vreg : %d\n",panel_suspend_power_flag,acc_vreg);
+		if (ret)
+			pr_err("%s: failed to disable vregs for %s\n",
 			__func__, __mdss_dsi_pm_name(DSI_PANEL_PM));
+	} else {
+	         if (ft8716_suspend && acc_vreg)
+	         {
+			ret = msm_dss_enable_vreg(
+					ctrl_pdata->panel_power_data.vreg_config,
+					ctrl_pdata->panel_power_data.num_vreg, 0);
+			 printk("set 5V low : panel_suspend_power_flag : %d acc_vreg : %d\n",panel_suspend_power_flag,acc_vreg);
+			acc_vreg --;
+			printk("%s acc_vreg : %d\n",__func__,acc_vreg);
+			if (ret)
+				pr_err("%s: failed to disable vregs for %s\n",
+					 __func__, __mdss_dsi_pm_name(DSI_PANEL_PM));
 
+		}
+
+	}
 end:
 	return ret;
 }
@@ -315,16 +343,25 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata)
 		pr_err("%s: Invalid input data\n", __func__);
 		return -EINVAL;
 	}
+        printk("SXF enter %s\n",__func__);
+	dump_stack();
+
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
-	ret = msm_dss_enable_vreg(
+	pr_err("%s SXF before acc_vreg : %d\n",__func__,acc_vreg);
+       if (!acc_vreg)
+       {
+		ret = msm_dss_enable_vreg(
 		ctrl_pdata->panel_power_data.vreg_config,
 		ctrl_pdata->panel_power_data.num_vreg, 1);
-	if (ret) {
-		pr_err("%s: failed to enable vregs for %s\n",
-			__func__, __mdss_dsi_pm_name(DSI_PANEL_PM));
-		return ret;
+		acc_vreg ++ ;
+		printk("%s SXF acc_vreg : %d\n",__func__,acc_vreg);
+		if (ret) {
+			pr_err("%s: failed to enable vregs for %s\n",
+				__func__, __mdss_dsi_pm_name(DSI_PANEL_PM));
+			return ret;
+		}
 	}
 
 	/*
@@ -410,6 +447,7 @@ int mdss_dsi_panel_power_ctrl(struct mdss_panel_data *pdata,
 	struct mdss_panel_info *pinfo;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
+        printk("SXF Enter %s\n",__func__);
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return -EINVAL;
@@ -1408,6 +1446,7 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	int cur_power_state;
 
+        printk("SXF Enter %s \n",__func__);
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return -EINVAL;
@@ -2893,6 +2932,34 @@ static struct device_node *mdss_dsi_find_panel_of_node(
 		if (!strcmp(panel_name, NONE_PANEL))
 			goto exit;
 
+
+	    if (!strcmp(panel_name, "qcom,mdss_dsi_td4310_fhd_video")) {
+			panel_suspend_reset_flag = 1;
+			panel_suspend_power_flag = 1;
+			hq_regiser_hw_info(HWID_LCM,"incell,vendor:tianma,IC:td4310(synaptics)");
+		} else if (!strcmp(panel_name, "qcom,mdss_dsi_otm1911_fhd_video")) {
+			panel_suspend_reset_flag = 2;
+			panel_suspend_power_flag = 2;
+			hq_regiser_hw_info(HWID_LCM,"GFF,vendor:tianma,IC:otm1911(focal)");
+		} else if (!strcmp(panel_name, "qcom,mdss_dsi_ft8716_fhd_video")) {
+			panel_suspend_reset_flag = 3;
+			panel_suspend_power_flag = 3;
+			hq_regiser_hw_info(HWID_LCM,"incell,vendor:sharp,IC:ft8716(focal)");
+		} else if (!strcmp(panel_name, "qcom,mdss_dsi_ili7807_fhd_video")) {
+			hq_regiser_hw_info(HWID_LCM,"GFF,vendor:EBBG,IC:ili7807(ilitek)");
+		} else if (!strcmp(panel_name, "qcom,mdss_dsi_nt35596_tianma_fhd_video_c6lite")) {
+			hq_regiser_hw_info(HWID_LCM,"GFF,vendor:Tianma,IC:NT35596(novatek)");
+		} else if (!strcmp(panel_name, "qcom,mdss_dsi_td4310_fhdplus_video_e7")){
+			hq_regiser_hw_info(HWID_LCM,"incell,vendor:Tianma,IC:TD4310(synaptics)");
+		} else if (!strcmp(panel_name, "qcom,mdss_dsi_td4310_ebbg_fhdplus_video_e7")){
+			hq_regiser_hw_info(HWID_LCM,"incell,vendor:EBBG,IC:TD4310(synaptics)");
+		} else if (!strcmp(panel_name, "qcom,mdss_dsi_nt36672_tianma_fhdplus_video_e7")){
+			hq_regiser_hw_info(HWID_LCM,"incell,vendor:Tianma,IC:NT36672(novatek)");
+		} else if (!strcmp(panel_name, "qcom,mdss_dsi_nt36672_csot_fhdplus_video_e7")){
+			hq_regiser_hw_info(HWID_LCM,"incell,vendor:CSOT,IC:NT36672(novatek)");
+		}
+
+
 		mdss_node = of_parse_phandle(pdev->dev.of_node,
 			"qcom,mdss-mdp", 0);
 		if (!mdss_node) {
@@ -3166,6 +3233,8 @@ static int mdss_dsi_get_bridge_chip_params(struct mdss_panel_info *pinfo,
 end:
 	return rc;
 }
+
+struct mdss_panel_data *panel_data;
 
 static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 {

@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,12 +43,14 @@
 #define CVD_VERSION_0_0                      "0.0"
 #define CVD_VERSION_2_1                      "2.1"
 #define CVD_VERSION_2_2                      "2.2"
+#define CVD_VERSION_2_3                      "2.3"
 
 #define CVD_INT_VERSION_DEFAULT              0
 #define CVD_INT_VERSION_0_0                  1
 #define CVD_INT_VERSION_2_1                  2
 #define CVD_INT_VERSION_2_2                  3
-#define CVD_INT_VERSION_LAST                 CVD_INT_VERSION_2_2
+#define CVD_INT_VERSION_2_3                  4
+#define CVD_INT_VERSION_LAST                 CVD_INT_VERSION_2_3
 #define CVD_INT_VERSION_MAX                  (CVD_INT_VERSION_LAST + 1)
 
 struct cvd_version_table {

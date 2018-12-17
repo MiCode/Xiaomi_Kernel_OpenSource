@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,6 +50,10 @@
 
 #define DEFAULT_MCLK_RATE 9600000
 
+int ext_pa_gpio = 0;
+int ext_pa_status = 0;
+
+
 #define WCD_MBHC_DEF_RLOADS 5
 #define MAX_WSA_CODEC_NAME_LENGTH 80
 #define MSM_DT_MAX_PROP_SIZE 80
@@ -92,14 +97,22 @@ static int msm8952_wsa_switch_event(struct snd_soc_dapm_widget *w,
 static struct wcd_mbhc_config mbhc_cfg = {
 	.read_fw_bin = false,
 	.calibration = NULL,
-	.detect_extn_cable = true,
+
+	.detect_extn_cable = false,
+
 	.mono_stero_detection = false,
 	.swap_gnd_mic = NULL,
 	.hs_ext_micbias = false,
+	/*
 	.key_code[0] = KEY_MEDIA,
 	.key_code[1] = KEY_VOICECOMMAND,
 	.key_code[2] = KEY_VOLUMEUP,
 	.key_code[3] = KEY_VOLUMEDOWN,
+	*/
+	.key_code[0] = KEY_MEDIA,
+	.key_code[1] = BTN_1,
+	.key_code[2] = BTN_2,
+	.key_code[3] = 0,
 	.key_code[4] = 0,
 	.key_code[5] = 0,
 	.key_code[6] = 0,
@@ -245,6 +258,7 @@ int is_ext_spk_gpio_support(struct platform_device *pdev,
 			struct msm8916_asoc_mach_data *pdata)
 {
 	const char *spk_ext_pa = "qcom,msm-spk-ext-pa";
+	int ret;
 
 	pr_debug("%s:Enter\n", __func__);
 
@@ -259,6 +273,14 @@ int is_ext_spk_gpio_support(struct platform_device *pdev,
 			pr_err("%s: Invalid external speaker gpio: %d",
 				__func__, pdata->spk_ext_pa_gpio);
 			return -EINVAL;
+		}
+		ext_pa_gpio = pdata->spk_ext_pa_gpio;
+		ret = msm_get_gpioset_index(CLIENT_WCD_INT,
+						"ext_pa_gpio");
+		if (ret < 0) {
+			pr_err("%s: gpio set name does not exist: %s",
+						__func__, "ext_pa_gpio");
+			return ret;
 		}
 	}
 	return 0;
@@ -275,12 +297,12 @@ static int enable_spk_ext_pa(struct snd_soc_codec *codec, int enable)
 			pdata->spk_ext_pa_gpio);
 		return false;
 	}
-
+	ext_pa_status = enable;
 	pr_debug("%s: %s external speaker PA\n", __func__,
 		enable ? "Enable" : "Disable");
 
 	if (enable) {
-		ret = msm_gpioset_activate(CLIENT_WCD_INT, "ext_spk_gpio");
+		ret = msm_gpioset_activate(CLIENT_WCD_INT, "ext_pa_gpio");
 		if (ret) {
 			pr_err("%s: gpio set cannot be de-activated %s\n",
 					__func__, "ext_spk_gpio");
@@ -289,7 +311,7 @@ static int enable_spk_ext_pa(struct snd_soc_codec *codec, int enable)
 		gpio_set_value_cansleep(pdata->spk_ext_pa_gpio, enable);
 	} else {
 		gpio_set_value_cansleep(pdata->spk_ext_pa_gpio, enable);
-		ret = msm_gpioset_suspend(CLIENT_WCD_INT, "ext_spk_gpio");
+		ret = msm_gpioset_suspend(CLIENT_WCD_INT, "ext_pa_gpio");
 		if (ret) {
 			pr_err("%s: gpio set cannot be de-activated %s\n",
 					__func__, "ext_spk_gpio");
@@ -1608,7 +1630,7 @@ static void *def_msm8952_wcd_mbhc_cal(void)
 		return NULL;
 
 #define S(X, Y) ((WCD_MBHC_CAL_PLUG_TYPE_PTR(msm8952_wcd_cal)->X) = (Y))
-	S(v_hs_max, 1500);
+	S(v_hs_max, 1600);
 #undef S
 #define S(X, Y) ((WCD_MBHC_CAL_BTN_DET_PTR(msm8952_wcd_cal)->X) = (Y))
 	S(num_btn, WCD_MBHC_DEF_BUTTONS);
@@ -1631,16 +1653,29 @@ static void *def_msm8952_wcd_mbhc_cal(void)
 	 * 210-290 == Button 2
 	 * 360-680 == Button 3
 	 */
-	btn_low[0] = 75;
-	btn_high[0] = 75;
-	btn_low[1] = 150;
-	btn_high[1] = 150;
-	btn_low[2] = 225;
-	btn_high[2] = 225;
-	btn_low[3] = 450;
-	btn_high[3] = 450;
-	btn_low[4] = 500;
-	btn_high[4] = 500;
+	#if 0
+	btn_low[0] = 177;
+	btn_high[0] = 277;
+	btn_low[1] = 206;
+	btn_high[1] = 437;
+	btn_low[2] = 243;
+	btn_high[2] = 612;
+	btn_low[3] = 243;
+	btn_high[3] = 612;
+	btn_low[4] = 243;
+	btn_high[4] = 612;
+	#else
+	btn_low[0] = 91;
+	btn_high[0] = 91;
+	btn_low[1] = 259;
+	btn_high[1] = 259;
+	btn_low[2] = 488;
+	btn_high[2] = 488;
+	btn_low[3] = 488;
+	btn_high[3] = 488;
+	btn_low[4] = 488;
+	btn_high[4] = 488;
+	#endif
 
 	return msm8952_wcd_cal;
 }
@@ -2426,6 +2461,38 @@ static struct snd_soc_dai_link msm8952_dai[] = {
 		.ignore_pmdown_time = 1,
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA29,
 	},
+	{/* hw:x,43 */
+		.name = "Quinary MI2S TX_Hostless",
+		.stream_name = "Quinary MI2S_TX Hostless Capture",
+		.cpu_dai_name = "QUIN_MI2S_TX_HOSTLESS",
+		.platform_name = "msm-pcm-hostless",
+		.dynamic = 1,
+		.dpcm_capture = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
+	{ /* hw:x,44 */
+		.name = "Quinary MI2S_RX Hostless",
+		.stream_name = "Quinary MI2S_RX Hostless",
+		.cpu_dai_name = "QUIN_MI2S_RX_HOSTLESS",
+		.platform_name	= "msm-pcm-hostless",
+		.dynamic = 1,
+		.dpcm_playback = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		 /* this dailink has playback support */
+		.ignore_pmdown_time = 1,
+		/* This dainlink has MI2S support */
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
 	/* Backend I2S DAI Links */
 	{
 		.name = LPASS_BE_PRI_MI2S_RX,
@@ -2679,8 +2746,8 @@ static struct snd_soc_dai_link msm8952_dai[] = {
 		.stream_name = "Quinary MI2S Capture",
 		.cpu_dai_name = "msm-dai-q6-mi2s.5",
 		.platform_name = "msm-pcm-routing",
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "max98927-aif1",
+		.codec_name = "max98927",
 		.no_pcm = 1,
 		.dpcm_capture = 1,
 		.be_id = MSM_BACKEND_DAI_QUINARY_MI2S_TX,
@@ -2713,8 +2780,8 @@ static struct snd_soc_dai_link msm8952_quin_dai_link[] = {
 		.stream_name = "Quinary MI2S Playback",
 		.cpu_dai_name = "msm-dai-q6-mi2s.5",
 		.platform_name = "msm-pcm-routing",
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "max98927-aif1",
+		.codec_name = "max98927",
 		.no_pcm = 1,
 		.dpcm_playback = 1,
 		.be_id = MSM_BACKEND_DAI_QUINARY_MI2S_RX,

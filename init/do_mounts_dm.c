@@ -1,5 +1,6 @@
 /* do_mounts_dm.c
  * Copyright (C) 2010 The Chromium OS Authors <chromium-os-dev@chromium.org>
+ * Copyright (C) 2018 XiaoMi, Inc.
  *                    All Rights Reserved.
  * Based on do_mounts_md.c
  *
@@ -202,6 +203,93 @@ parse_fail:
 	return NULL;
 }
 
+static size_t __init get_dm_option_str(char *str, char **next, char sep)
+{
+	size_t len = 0;
+	char *endp = NULL;
+
+	if (!str)
+		return 0;
+
+	endp = strchr(str, sep);
+	if (!endp) {  /* act like strchrnul */
+		len = strlen(str);
+		endp = str + len;
+	} else {
+		len = endp - str;
+	}
+
+	if (endp == str)
+		return 0;
+
+	if (!next)
+		return len;
+
+	if (*endp == 0) {
+		/* Don't advance past the nul. */
+		*next = endp;
+	} else {
+		*next = endp + 1;
+	}
+	return len;
+}
+
+static void __init dm_substitute_devices(char *str, size_t str_len)
+{
+	char *candidate = str;
+	char *candidate_end = str;
+	char old_char;
+	size_t len = 0;
+	dev_t dev;
+
+	if (str_len < 3)
+		return;
+
+	while (str && *str) {
+		candidate = strchr(str, '/');
+		if (!candidate)
+			break;
+
+		/* Avoid embedded slashes */
+		if (candidate != str && *(candidate - 1) != ' ') {
+			str = strchr(candidate, ' ');
+			continue;
+		}
+
+		len = get_dm_option_str(candidate, &candidate_end, ' ');
+		str = skip_spaces(candidate_end);
+		if (len < 3 || len > 37)  /* name_to_dev_t max; maj:mix min */
+			continue;
+
+		/* Temporarily terminate with a nul */
+		if (*candidate_end)
+			candidate_end--;
+		old_char = *candidate_end;
+		*candidate_end = '\0';
+
+		DMERR("converting candidate device '%s' to dev_t", candidate);
+		/* Use the boot-time specific device naming */
+		dev = name_to_dev_t(candidate);
+		*candidate_end = old_char;
+
+		DMERR(" -> %u", dev);
+		/* No suitable replacement found */
+		if (!dev)
+			continue;
+
+		/* Rewrite the /dev/path as a major:minor */
+		len = snprintf(candidate, len, "%u:%u", MAJOR(dev), MINOR(dev));
+		if (!len) {
+			DMERR("error substituting device major/minor.");
+			break;
+		}
+		candidate += len;
+		/* Pad out with spaces (fixing our nul) */
+		while (candidate < candidate_end)
+			*(candidate++) = ' ';
+	}
+}
+
 static char * __init dm_parse_targets(struct dm_device *dev, char *str)
 {
 	struct dm_option opt;
@@ -251,6 +339,13 @@ static char * __init dm_parse_targets(struct dm_device *dev, char *str)
 				dev->name, i);
 			goto parse_fail;
 		}
+
+		/* Before moving on, walk through the copied target and
+		 * attempt to replace all /dev/xxx with the major:minor number.
+		 * It may not be possible to resolve them traditionally at
+		 * boot-time. */
+		dm_substitute_devices((*target)->params, opt.len);
+
 		target = &((*target)->next);
 	}
 	DMDEBUG("parsed %d targets", dev->target_count);

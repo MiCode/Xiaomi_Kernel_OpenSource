@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2012 Google, Inc.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -298,11 +299,21 @@ ssize_t persistent_ram_ecc_string(struct persistent_ram_zone *prz,
 	return ret;
 }
 
+static void *memcpy_pstore(void *dest, const void *src, size_t count)
+{
+	char *tmp = dest;
+	const char *s = src;
+
+	while (count--)
+		*tmp++ = *s++;
+	return dest;
+}
+
 static void notrace persistent_ram_update(struct persistent_ram_zone *prz,
 	const void *s, unsigned int start, unsigned int count)
 {
 	struct persistent_ram_buffer *buffer = prz->buffer;
-	memcpy(buffer->data + start, s, count);
+	memcpy_pstore(buffer->data + start, s, count);
 	persistent_ram_update_ecc(prz, start, count);
 }
 

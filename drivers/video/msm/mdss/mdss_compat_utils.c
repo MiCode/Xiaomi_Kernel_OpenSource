@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  * Copyright (C) 1994 Martin Schaller
  *
  * 2001 - Documented with DocBook
@@ -4292,6 +4293,9 @@ int mdss_fb_compat_ioctl(struct fb_info *info, unsigned int cmd,
 
 	if (!info || !info->par)
 		return -EINVAL;
+
+
+	printk("linson run mdss_fb_compat_ioctl\n");
 
 	cmd = __do_compat_ioctl_nr(cmd);
 	switch (cmd) {

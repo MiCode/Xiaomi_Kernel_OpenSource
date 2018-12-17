@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +18,7 @@
 #include "camera.h"
 #include "msm_cci.h"
 #include "msm_camera_dt_util.h"
+#include <linux/hqsysfs.h>
 
 /* Logging macro */
 #undef CDBG
@@ -1022,6 +1024,14 @@ CSID_TG:
 	s_ctrl->sensordata->cam_slave_info = slave_info;
 
 	msm_sensor_fill_sensor_info(s_ctrl, probed_info, entity_name);
+
+	if (0 == s_ctrl->id){
+		hq_regiser_hw_info(HWID_MAIN_CAM, (char *)(s_ctrl->sensordata->eeprom_name));
+	}else if (1 == s_ctrl->id){
+		hq_regiser_hw_info(HWID_MAIN_CAM_2, (char *)(s_ctrl->sensordata->eeprom_name));
+	}else if (2 == s_ctrl->id){
+		hq_regiser_hw_info(HWID_SUB_CAM, (char *)(s_ctrl->sensordata->eeprom_name));
+	}
 
 	/*
 	 * Set probe succeeded flag to 1 so that no other camera shall

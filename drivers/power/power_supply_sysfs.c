@@ -2,6 +2,7 @@
  *  Sysfs interface for the universal power supply monitor class
  *
  *  Copyright © 2007  David Woodhouse <dwmw2@infradead.org>
+ * Copyright (C) 2018 XiaoMi, Inc.
  *  Copyright © 2007  Anton Vorontsov <cbou@mail.ru>
  *  Copyright © 2004  Szabolcs Gyurko
  *  Copyright © 2003  Ian Molton <spyro@f2s.com>
@@ -314,6 +315,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(manufacturer),
 	POWER_SUPPLY_ATTR(serial_number),
 	POWER_SUPPLY_ATTR(battery_type),
+	POWER_SUPPLY_ATTR(dump_sram),
 };
 
 static struct attribute *

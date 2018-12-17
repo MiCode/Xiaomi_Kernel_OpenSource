@@ -2,6 +2,7 @@
  *  linux/kernel/fork.c
  *
  *  Copyright (C) 1991, 1992  Linus Torvalds
+ * Copyright (C) 2018 XiaoMi, Inc.
  */
 
 /*
@@ -683,6 +684,7 @@ static inline void __mmput(struct mm_struct *mm)
 		module_put(mm->binfmt->module);
 	mmdrop(mm);
 }
+
 
 /*
  * Decrement the use count and release all resources for an mm.

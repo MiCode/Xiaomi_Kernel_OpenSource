@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +21,7 @@
 #include <linux/fs.h>
 #include <linux/of_device.h>
 #include <asm/arch_timer.h>
+#include <asm/io.h>
 #include <linux/uaccess.h>
 
 #include <linux/kernel.h>
