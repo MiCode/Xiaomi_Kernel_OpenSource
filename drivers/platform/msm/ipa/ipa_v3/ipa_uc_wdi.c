@@ -1299,20 +1299,20 @@ int ipa3_connect_gsi_wdi_pipe(struct ipa_wdi_in_params *in,
 	out->clnt_hdl = ipa_ep_idx;
 	return 0;
 
-ipa_cfg_ep_fail:
-	memset(&ipa3_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa3_ep_context));
 fail_write_channel_scratch:
 	gsi_dealloc_channel(ep->gsi_chan_hdl);
-gsi_timeout:
-	ipa_release_uc_smmu_mappings(in->sys.client);
 fail_alloc_channel:
 	if (ep->gsi_evt_ring_hdl != ~0) {
 		gsi_dealloc_evt_ring(ep->gsi_evt_ring_hdl);
 		ep->gsi_evt_ring_hdl = ~0;
 	}
 fail_alloc_evt_ring:
-fail:
+ipa_cfg_ep_fail:
+	memset(&ipa3_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa3_ep_context));
+gsi_timeout:
+	ipa_release_uc_smmu_mappings(in->sys.client);
 	IPA_ACTIVE_CLIENTS_DEC_EP(in->sys.client);
+fail:
 	return result;
 }
 
@@ -1938,7 +1938,6 @@ int ipa3_disconnect_wdi_pipe(u32 clnt_hdl)
 	ipa3_delete_dflt_flt_rules(clnt_hdl);
 	ipa_release_uc_smmu_mappings(ep->client);
 
-	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	memset(&ipa3_ctx->ep[clnt_hdl], 0, sizeof(struct ipa3_ep_context));
 
 	IPADBG("client (ep: %d) disconnected\n", clnt_hdl);
@@ -1950,6 +1949,7 @@ int ipa3_disconnect_wdi_pipe(u32 clnt_hdl)
 		IPADBG("uc_wdi_ctx.stats_notify already null\n");
 
 uc_timeout:
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	return result;
 }
 
@@ -1971,8 +1971,7 @@ int ipa3_enable_gsi_wdi_pipe(u32 clnt_hdl)
 	ipa_ep_idx = ipa3_get_ep_mapping(ipa3_get_client_mapping(clnt_hdl));
 	if (ipa_ep_idx == -1) {
 		IPAERR("fail to alloc EP.\n");
-		result = -EPERM;
-		goto fail;
+		return -EPERM;
 	}
 
 	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
@@ -1984,7 +1983,7 @@ int ipa3_enable_gsi_wdi_pipe(u32 clnt_hdl)
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	ep->gsi_offload_state |= IPA_WDI_ENABLED;
 	IPADBG("client (ep: %d) enabled\n", clnt_hdl);
-fail:
+
 	return result;
 }
 int ipa3_disable_gsi_wdi_pipe(u32 clnt_hdl)
@@ -2044,11 +2043,11 @@ int ipa3_disable_gsi_wdi_pipe(u32 clnt_hdl)
 		ep_cfg_ctrl.ipa_ep_delay = true;
 		ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
 	}
-	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	ep->gsi_offload_state &= ~IPA_WDI_ENABLED;
 	IPADBG("client (ep: %d) disabled\n", clnt_hdl);
 
 gsi_timeout:
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	return result;
 }
 /**
@@ -2106,11 +2105,12 @@ int ipa3_enable_wdi_pipe(u32 clnt_hdl)
 		holb_cfg.tmr_val = 0;
 		result = ipa3_cfg_ep_holb(clnt_hdl, &holb_cfg);
 	}
-	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
+
 	ep->uc_offload_state |= IPA_WDI_ENABLED;
 	IPADBG("client (ep: %d) enabled\n", clnt_hdl);
 
 uc_timeout:
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	return result;
 }
 
@@ -2206,12 +2206,12 @@ int ipa3_disable_wdi_pipe(u32 clnt_hdl)
 		ep_cfg_ctrl.ipa_ep_delay = true;
 		ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
 	}
-	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	ep->uc_offload_state &= ~IPA_WDI_ENABLED;
 	IPADBG("client (ep: %d) disabled\n", clnt_hdl);
 
 
 uc_timeout:
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	return result;
 }
 
@@ -2309,6 +2309,7 @@ int ipa3_resume_wdi_pipe(u32 clnt_hdl)
 
 	if (result) {
 		result = -EFAULT;
+		IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 		goto uc_timeout;
 	}
 
@@ -2624,11 +2625,11 @@ int ipa3_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id)
 		result = -EFAULT;
 		goto uc_timeout;
 	}
-	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	IPADBG("client (ep: %d) qmap_id %d updated\n", clnt_hdl, qmap_id);
 
 uc_timeout:
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	return result;
 }
 

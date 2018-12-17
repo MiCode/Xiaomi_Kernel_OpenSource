@@ -918,15 +918,13 @@ static void dci_process_ctrl_handshake_pkt(unsigned char *buf, int len,
 	if (header->magic == DCI_MAGIC) {
 		dci_channel_status[token].open = 1;
 		err = dci_ops_tbl[token].send_log_mask(token);
-		if (err) {
+		if (err && err != DIAG_DCI_NO_ERROR)
 			pr_err("diag: In %s, unable to send log mask to token: %d, err: %d\n",
 			       __func__, token, err);
-		}
 		err = dci_ops_tbl[token].send_event_mask(token);
-		if (err) {
+		if (err && err != DIAG_DCI_NO_ERROR)
 			pr_err("diag: In %s, unable to send event mask to token: %d, err: %d\n",
 			       __func__, token, err);
-		}
 	}
 }
 
