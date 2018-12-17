@@ -1029,6 +1029,33 @@
 					bias-pull-down;         /* PULL DOWN */
 				};
 			};
+
+
+			sde_te1_active: sde_te1_active {
+				mux {
+					pins = "gpio11";
+					function = "mdp_vsync";
+				};
+
+				config {
+					pins = "gpio11";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+
+			sde_te1_suspend: sde_te1_suspend {
+				mux {
+					pins = "gpio11";
+					function = "mdp_vsync";
+				};
+
+				config {
+					pins = "gpio11";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
 		};
 
 		sde_dp_aux_active: sde_dp_aux_active {
