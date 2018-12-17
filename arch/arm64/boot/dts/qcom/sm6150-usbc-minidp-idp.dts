@@ -23,4 +23,5 @@
 
 &sde_dp {
 	qcom,dp-hpd-gpio = <&tlmm 103 0>;
+	qcom,dp-low-power-hw-hpd;
 };
