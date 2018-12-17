@@ -147,6 +147,7 @@ enum dwc3_drd_state {
 };
 
 static const char *const state_names[] = {
+	[DRD_STATE_UNDEFINED] = "undefined",
 	[DRD_STATE_IDLE] = "idle",
 	[DRD_STATE_PERIPHERAL] = "peripheral",
 	[DRD_STATE_PERIPHERAL_SUSPEND] = "peripheral_suspend",
@@ -157,7 +158,7 @@ static const char *const state_names[] = {
 static const char *dwc3_drd_state_string(enum dwc3_drd_state state)
 {
 	if (state < 0 || state >= ARRAY_SIZE(state_names))
-		return "UNDEFINED";
+		return "UNKNOWN";
 
 	return state_names[state];
 }
