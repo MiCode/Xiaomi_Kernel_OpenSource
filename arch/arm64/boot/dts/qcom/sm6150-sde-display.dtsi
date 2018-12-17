@@ -210,6 +210,27 @@
 
 &sde_dp {
 	qcom,dp-usbpd-detection = <&pm6150_pdphy>;
+	hpd-pwr-supply = <&pm6150_l17>;
+	qcom,phy-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		qcom,phy-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vdda-0p9";
+			qcom,supply-min-voltage = <880000>;
+			qcom,supply-max-voltage = <975000>;
+			qcom,supply-enable-load = <36000>;
+			qcom,supply-disable-load = <0>;
+		};
+		qcom,phy-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "hpd-pwr";
+			qcom,supply-min-voltage = <3000000>;
+			qcom,supply-max-voltage = <3230000>;
+			qcom,supply-enable-load = <30000>;
+			qcom,supply-disable-load = <0>;
+		};
+	};
 };
 
 &mdss_mdp {
