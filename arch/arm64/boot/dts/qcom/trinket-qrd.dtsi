@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/iio/qcom,spmi-vadc.h>
 
 &qupv3_se1_i2c {
 	status = "ok";
@@ -171,6 +172,20 @@
 	qcom,vddp-ref-clk-max-microamp = <100>;
 
 	status = "ok";
+};
+
+&pmi632_vadc {
+	bat_therm {
+		qcom,lut-index = <0>;
+	};
+
+	bat_therm_30k {
+		qcom,lut-index = <0>;
+	};
+
+	bat_therm_400k {
+		qcom,lut-index = <0>;
+	};
 };
 
 &usb0 {
