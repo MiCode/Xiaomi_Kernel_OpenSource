@@ -1463,6 +1463,7 @@ static int spi_geni_probe(struct platform_device *pdev)
 		goto spi_geni_probe_err;
 	}
 
+	geni_mas->spi_rsc.ctrl_dev = geni_mas->dev;
 	rsc->geni_pinctrl = devm_pinctrl_get(&pdev->dev);
 	if (IS_ERR_OR_NULL(rsc->geni_pinctrl)) {
 		dev_err(&pdev->dev, "No pinctrl config specified!\n");
