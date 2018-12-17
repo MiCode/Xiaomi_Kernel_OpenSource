@@ -11,6 +11,8 @@
  * GNU General Public License for more details.
  */
 
+#include "trinket-thermal-overlay.dtsi"
+
 &soc {
 	mtp_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
