@@ -142,6 +142,7 @@ struct cam_soc_gpio_data {
  * @clk:                    Array of associated clock resources
  * @clk_rate:               2D array of clock rates representing clock rate
  *                          values at different vote levels
+ * @prev_clk_level          Last vote level
  * @src_clk_idx:            Source clock index that is rate-controllable
  * @clk_level_valid:        Indicates whether corresponding level is valid
  * @gpio_data:              Pointer to gpio info
@@ -149,6 +150,8 @@ struct cam_soc_gpio_data {
  * @dentry:                 Debugfs entry
  * @clk_level_override:     Clk level set from debugfs
  * @clk_control:            Enable/disable clk rate control through debugfs
+ * @cam_cx_ipeak_enable     cx-ipeak enable/disable flag
+ * @cam_cx_ipeak_bit        cx-ipeak mask for driver
  * @soc_private:            Soc private data
  */
 struct cam_hw_soc_info {
@@ -184,6 +187,7 @@ struct cam_hw_soc_info {
 	const char                     *clk_name[CAM_SOC_MAX_CLK];
 	struct clk                     *clk[CAM_SOC_MAX_CLK];
 	int32_t                         clk_rate[CAM_MAX_VOTE][CAM_SOC_MAX_CLK];
+	int32_t                         prev_clk_level;
 	int32_t                         src_clk_idx;
 	bool                            clk_level_valid[CAM_MAX_VOTE];
 
@@ -193,6 +197,8 @@ struct cam_hw_soc_info {
 	struct dentry                  *dentry;
 	uint32_t                        clk_level_override;
 	bool                            clk_control_enable;
+	bool                            cam_cx_ipeak_enable;
+	int32_t                         cam_cx_ipeak_bit;
 
 	void                           *soc_private;
 };

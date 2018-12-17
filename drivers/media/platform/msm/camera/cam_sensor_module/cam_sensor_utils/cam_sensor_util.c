@@ -311,13 +311,13 @@ int cam_sensor_i2c_command_parser(
 
 		rc = cam_mem_get_cpu_buf(cmd_desc[i].mem_handle,
 			&generic_ptr, &len_of_buff);
-		cmd_buf = (uint32_t *)generic_ptr;
 		if (rc < 0) {
 			CAM_ERR(CAM_SENSOR,
 				"cmd hdl failed:%d, Err: %d, Buffer_len: %zd",
 				cmd_desc[i].mem_handle, rc, len_of_buff);
 			return rc;
 		}
+		cmd_buf = (uint32_t *)generic_ptr;
 		cmd_buf += cmd_desc[i].offset / sizeof(uint32_t);
 
 		while (byte_cnt < cmd_desc[i].length) {
@@ -337,7 +337,7 @@ int cam_sensor_i2c_command_parser(
 				if (rc < 0) {
 					CAM_ERR(CAM_SENSOR,
 					"Failed in random write %d", rc);
-					return rc;
+					goto rel_buf;
 				}
 
 				cmd_buf += cmd_length_in_bytes /
@@ -359,7 +359,7 @@ int cam_sensor_i2c_command_parser(
 				if (rc < 0) {
 					CAM_ERR(CAM_SENSOR,
 					"Failed in continuous write %d", rc);
-					return rc;
+					goto rel_buf;
 				}
 
 				cmd_buf += cmd_length_in_bytes /
@@ -381,7 +381,7 @@ int cam_sensor_i2c_command_parser(
 						CAM_ERR(CAM_SENSOR,
 							"delay hdl failed: %d",
 							rc);
-						return rc;
+						goto rel_buf;
 					}
 
 				} else if (generic_op_code ==
@@ -393,13 +393,14 @@ int cam_sensor_i2c_command_parser(
 						CAM_ERR(CAM_SENSOR,
 							"Random read fail: %d",
 							rc);
-						return rc;
+						goto rel_buf;
 					}
 				} else {
 					CAM_ERR(CAM_SENSOR,
 						"Wrong Wait Command: %d",
 						generic_op_code);
-					return -EINVAL;
+					rc = -EINVAL;
+					goto rel_buf;
 				}
 				break;
 			}
@@ -410,7 +411,7 @@ int cam_sensor_i2c_command_parser(
 					CAM_ERR(CAM_SENSOR,
 						"Handle slave info failed with rc: %d",
 						rc);
-					return rc;
+					goto rel_buf;
 				}
 				cmd_length_in_bytes =
 					sizeof(struct cam_cmd_i2c_info);
@@ -422,12 +423,22 @@ int cam_sensor_i2c_command_parser(
 			default:
 				CAM_ERR(CAM_SENSOR, "Invalid Command Type:%d",
 					 cmm_hdr->cmd_type);
-				return -EINVAL;
+				rc = -EINVAL;
+				goto rel_buf;
 			}
 		}
 		i2c_reg_settings->is_settings_valid = 1;
+		if (cam_mem_put_cpu_buf(cmd_desc[i].mem_handle))
+			CAM_WARN(CAM_SENSOR, "put failed for buffer :0x%x",
+				cmd_desc[i].mem_handle);
 	}
 
+	return rc;
+
+rel_buf:
+	if (cam_mem_put_cpu_buf(cmd_desc[i].mem_handle))
+		CAM_WARN(CAM_SENSOR, "put failed for buffer :0x%x",
+			cmd_desc[i].mem_handle);
 	return rc;
 }
 
@@ -782,11 +793,20 @@ int32_t cam_sensor_update_power_settings(void *cmd_buf,
 			struct cam_cmd_power *pwr_cmd =
 				(struct cam_cmd_power *)ptr;
 
+			if ((U16_MAX - power_info->power_setting_size) <
+				pwr_cmd->count) {
+				CAM_ERR(CAM_SENSOR, "ERR: Overflow occurs");
+				rc = -EINVAL;
+				goto free_power_settings;
+			}
+
 			power_info->power_setting_size += pwr_cmd->count;
-			if (power_info->power_setting_size > MAX_POWER_CONFIG) {
+			if ((power_info->power_setting_size > MAX_POWER_CONFIG)
+				|| (pwr_cmd->count >= SENSOR_SEQ_TYPE_MAX)) {
 				CAM_ERR(CAM_SENSOR,
-					"Invalid: power up setting size %d",
-					power_info->power_setting_size);
+				"pwr_up setting size %d, pwr_cmd->count: %d",
+					power_info->power_setting_size,
+					pwr_cmd->count);
 				rc = -EINVAL;
 				goto free_power_settings;
 			}
@@ -881,12 +901,21 @@ int32_t cam_sensor_update_power_settings(void *cmd_buf,
 
 			scr = ptr + sizeof(struct cam_cmd_power);
 			tot_size = tot_size + sizeof(struct cam_cmd_power);
+			if ((U16_MAX - power_info->power_down_setting_size) <
+				pwr_cmd->count) {
+				CAM_ERR(CAM_SENSOR, "ERR: Overflow");
+				rc = -EINVAL;
+				goto free_power_settings;
+			}
+
 			power_info->power_down_setting_size += pwr_cmd->count;
-			if (power_info->power_down_setting_size >
-				MAX_POWER_CONFIG) {
+			if ((power_info->power_down_setting_size >
+				MAX_POWER_CONFIG) || (pwr_cmd->count >=
+				SENSOR_SEQ_TYPE_MAX)) {
 				CAM_ERR(CAM_SENSOR,
-					"Invalid: power down setting size %d",
-					power_info->power_down_setting_size);
+				"pwr_down_setting_size %d, pwr_cmd->count: %d",
+					power_info->power_down_setting_size,
+					pwr_cmd->count);
 				rc = -EINVAL;
 				goto free_power_settings;
 			}
@@ -1734,13 +1763,14 @@ power_up_failed:
 			ctrl->pinctrl_info.gpio_state_suspend);
 		if (ret)
 			CAM_ERR(CAM_SENSOR, "cannot set pin to suspend state");
-		cam_res_mgr_shared_pinctrl_select_state(false);
 		devm_pinctrl_put(ctrl->pinctrl_info.pinctrl);
-		cam_res_mgr_shared_pinctrl_put();
 	}
 
 	if (soc_info->use_shared_clk)
 		cam_res_mgr_shared_clk_config(false);
+
+	cam_res_mgr_shared_pinctrl_select_state(false);
+	cam_res_mgr_shared_pinctrl_put();
 
 	ctrl->cam_pinctrl_status = 0;
 
@@ -1916,13 +1946,14 @@ int cam_sensor_util_power_down(struct cam_sensor_power_ctrl_t *ctrl,
 		if (ret)
 			CAM_ERR(CAM_SENSOR, "cannot set pin to suspend state");
 
-		cam_res_mgr_shared_pinctrl_select_state(false);
 		devm_pinctrl_put(ctrl->pinctrl_info.pinctrl);
-		cam_res_mgr_shared_pinctrl_put();
 	}
 
 	if (soc_info->use_shared_clk)
 		cam_res_mgr_shared_clk_config(false);
+
+	cam_res_mgr_shared_pinctrl_select_state(false);
+	cam_res_mgr_shared_pinctrl_put();
 
 	ctrl->cam_pinctrl_status = 0;
 

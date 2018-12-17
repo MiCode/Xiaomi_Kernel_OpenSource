@@ -567,7 +567,8 @@ static int32_t cam_eeprom_init_pkt_parser(struct cam_eeprom_ctrl_t *e_ctrl,
 		cmd_buf = (uint32_t *)generic_pkt_addr;
 		if (!cmd_buf) {
 			CAM_ERR(CAM_EEPROM, "invalid cmd buf");
-			return -EINVAL;
+			rc = -EINVAL;
+			goto rel_cmd_buf;
 		}
 		cmd_buf += cmd_desc[i].offset / sizeof(uint32_t);
 		/* Loop through multiple cmd formats in one cmd buffer */
@@ -598,7 +599,7 @@ static int32_t cam_eeprom_init_pkt_parser(struct cam_eeprom_ctrl_t *e_ctrl,
 					sizeof(uint32_t);
 				if (rc) {
 					CAM_ERR(CAM_EEPROM, "Failed");
-					return rc;
+					goto rel_cmd_buf;
 				}
 				break;
 			case CAMERA_SENSOR_CMD_TYPE_I2C_RNDM_WR:
@@ -618,7 +619,18 @@ static int32_t cam_eeprom_init_pkt_parser(struct cam_eeprom_ctrl_t *e_ctrl,
 			}
 		}
 		e_ctrl->cal_data.num_map = num_map + 1;
+		if (cam_mem_put_cpu_buf(cmd_desc[i].mem_handle))
+			CAM_WARN(CAM_EEPROM, "Failed to put cpu buf: 0x%x",
+				cmd_desc[i].mem_handle);
 	}
+
+	return rc;
+
+rel_cmd_buf:
+	if (cam_mem_put_cpu_buf(cmd_desc[i].mem_handle))
+		CAM_WARN(CAM_EEPROM, "Failed to put cpu buf: 0x%x",
+			cmd_desc[i].mem_handle);
+
 	return rc;
 }
 
@@ -652,6 +664,12 @@ static int32_t cam_eeprom_get_cal_data(struct cam_eeprom_ctrl_t *e_ctrl,
 		if (io_cfg->direction == CAM_BUF_OUTPUT) {
 			rc = cam_mem_get_cpu_buf(io_cfg->mem_handle[0],
 				&buf_addr, &buf_size);
+			if (rc) {
+				CAM_ERR(CAM_EEPROM, "Fail in get buffer: %d",
+					rc);
+				return rc;
+			}
+
 			CAM_DBG(CAM_EEPROM, "buf_addr : %pK, buf_size : %zu\n",
 				(void *)buf_addr, buf_size);
 
@@ -659,26 +677,38 @@ static int32_t cam_eeprom_get_cal_data(struct cam_eeprom_ctrl_t *e_ctrl,
 			if (!read_buffer) {
 				CAM_ERR(CAM_EEPROM,
 					"invalid buffer to copy data");
-				return -EINVAL;
+				rc = -EINVAL;
+				goto rel_cmd_buf;
 			}
 			read_buffer += io_cfg->offsets[0];
 
 			if (buf_size < e_ctrl->cal_data.num_data) {
 				CAM_ERR(CAM_EEPROM,
 					"failed to copy, Invalid size");
-				return -EINVAL;
+				rc = -EINVAL;
+				goto rel_cmd_buf;
 			}
 
 			CAM_DBG(CAM_EEPROM, "copy the data, len:%d",
 				e_ctrl->cal_data.num_data);
 			memcpy(read_buffer, e_ctrl->cal_data.mapdata,
 					e_ctrl->cal_data.num_data);
-
+			if (cam_mem_put_cpu_buf(io_cfg->mem_handle[0]))
+				CAM_WARN(CAM_EEPROM, "Fail in put buffer: 0x%x",
+					io_cfg->mem_handle[0]);
 		} else {
 			CAM_ERR(CAM_EEPROM, "Invalid direction");
 			rc = -EINVAL;
 		}
 	}
+
+	return rc;
+
+rel_cmd_buf:
+	if (cam_mem_put_cpu_buf(io_cfg->mem_handle[0]))
+		CAM_WARN(CAM_EEPROM, "Fail in put buffer : 0x%x",
+			io_cfg->mem_handle[0]);
+
 	return rc;
 }
 
@@ -719,7 +749,8 @@ static int32_t cam_eeprom_pkt_parse(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 		CAM_ERR(CAM_EEPROM,
 			"Offset is out of bound: off: %lld, %zu",
 			dev_config.offset, pkt_len);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto release_buf;
 	}
 
 	csl_packet = (struct cam_packet *)
@@ -731,7 +762,7 @@ static int32_t cam_eeprom_pkt_parse(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 					e_ctrl->soc_info.dev->of_node, e_ctrl);
 			if (rc < 0) {
 				CAM_ERR(CAM_EEPROM, "Failed: rc : %d", rc);
-				return rc;
+				goto release_buf;
 			}
 			rc = cam_eeprom_get_cal_data(e_ctrl, csl_packet);
 			vfree(e_ctrl->cal_data.mapdata);
@@ -746,7 +777,7 @@ static int32_t cam_eeprom_pkt_parse(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 		if (rc) {
 			CAM_ERR(CAM_EEPROM,
 				"Failed in parsing the pkt");
-			return rc;
+			goto release_buf;
 		}
 
 		e_ctrl->cal_data.mapdata =
@@ -789,7 +820,13 @@ static int32_t cam_eeprom_pkt_parse(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 	default:
 		break;
 	}
+
+	if (cam_mem_put_cpu_buf(dev_config.packet_handle))
+		CAM_WARN(CAM_EEPROM, "Put cpu buffer failed : 0x%x",
+			dev_config.packet_handle);
+
 	return rc;
+
 power_down:
 	cam_eeprom_power_down(e_ctrl);
 memdata_free:
@@ -803,6 +840,11 @@ error:
 	e_ctrl->cal_data.num_data = 0;
 	e_ctrl->cal_data.num_map = 0;
 	e_ctrl->cam_eeprom_state = CAM_EEPROM_INIT;
+release_buf:
+	if (cam_mem_put_cpu_buf(dev_config.packet_handle))
+		CAM_WARN(CAM_EEPROM, "Put cpu buffer failed : 0x%x",
+			dev_config.packet_handle);
+
 	return rc;
 }
 

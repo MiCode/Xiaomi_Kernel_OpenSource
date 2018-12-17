@@ -420,6 +420,7 @@ static int cam_fd_hw_util_processcmd_frame_done(struct cam_hw_info *fd_hw,
 	unsigned long flags;
 	int i;
 
+	mutex_lock(&fd_hw->hw_mutex);
 	spin_lock_irqsave(&fd_core->spin_lock, flags);
 	if ((fd_core->core_state != CAM_FD_CORE_STATE_IDLE) ||
 		(fd_core->results_valid == false) ||
@@ -429,6 +430,7 @@ static int cam_fd_hw_util_processcmd_frame_done(struct cam_hw_info *fd_hw,
 			fd_core->core_state, fd_core->results_valid,
 			fd_core->hw_req_private);
 		spin_unlock_irqrestore(&fd_core->spin_lock, flags);
+		mutex_unlock(&fd_hw->hw_mutex);
 		return -EINVAL;
 	}
 	fd_core->core_state = CAM_FD_CORE_STATE_READING_RESULTS;
@@ -509,6 +511,7 @@ static int cam_fd_hw_util_processcmd_frame_done(struct cam_hw_info *fd_hw,
 	fd_core->hw_req_private = NULL;
 	fd_core->core_state = CAM_FD_CORE_STATE_IDLE;
 	spin_unlock_irqrestore(&fd_core->spin_lock, flags);
+	mutex_unlock(&fd_hw->hw_mutex);
 
 	return 0;
 }

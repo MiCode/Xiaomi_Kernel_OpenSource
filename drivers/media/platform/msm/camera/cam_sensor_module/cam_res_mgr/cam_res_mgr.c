@@ -171,8 +171,10 @@ int cam_res_mgr_shared_pinctrl_init(void)
 		return 0;
 	}
 
+	mutex_lock(&cam_res->gpio_res_lock);
 	if (cam_res->pstatus != PINCTRL_STATUS_PUT) {
 		CAM_DBG(CAM_RES, "The shared pinctrl already been got.");
+		mutex_unlock(&cam_res->gpio_res_lock);
 		return 0;
 	}
 
@@ -183,6 +185,7 @@ int cam_res_mgr_shared_pinctrl_init(void)
 	if (IS_ERR_OR_NULL(pinctrl_info->pinctrl)) {
 		CAM_ERR(CAM_RES, "Pinctrl not available");
 		cam_res->shared_gpio_enabled = false;
+		mutex_unlock(&cam_res->gpio_res_lock);
 		return -EINVAL;
 	}
 
@@ -193,6 +196,7 @@ int cam_res_mgr_shared_pinctrl_init(void)
 		CAM_ERR(CAM_RES,
 			"Failed to get the active state pinctrl handle");
 		cam_res->shared_gpio_enabled = false;
+		mutex_unlock(&cam_res->gpio_res_lock);
 		return -EINVAL;
 	}
 
@@ -203,10 +207,10 @@ int cam_res_mgr_shared_pinctrl_init(void)
 		CAM_ERR(CAM_RES,
 			"Failed to get the active state pinctrl handle");
 		cam_res->shared_gpio_enabled = false;
+		mutex_unlock(&cam_res->gpio_res_lock);
 		return -EINVAL;
 	}
 
-	mutex_lock(&cam_res->gpio_res_lock);
 	cam_res->pstatus = PINCTRL_STATUS_GOT;
 	mutex_unlock(&cam_res->gpio_res_lock);
 
@@ -306,6 +310,7 @@ int cam_res_mgr_shared_pinctrl_select_state(bool active)
 			pinctrl_info->gpio_state_suspend);
 		cam_res->pstatus = PINCTRL_STATUS_SUSPEND;
 	}
+
 	mutex_unlock(&cam_res->gpio_res_lock);
 
 	return rc;
@@ -372,12 +377,14 @@ static bool cam_res_mgr_gpio_is_shared(uint gpio)
 	bool found = false;
 	struct cam_res_mgr_dt *dt = &cam_res->dt;
 
+	mutex_lock(&cam_res->gpio_res_lock);
 	for (; index < dt->num_shared_gpio; index++) {
 		if (gpio == dt->shared_gpio[index]) {
 			found = true;
 			break;
 		}
 	}
+	mutex_unlock(&cam_res->gpio_res_lock);
 
 	return found;
 }
@@ -434,13 +441,14 @@ int cam_res_mgr_gpio_request(struct device *dev, uint gpio,
 		INIT_LIST_HEAD(&gpio_res->list);
 		INIT_LIST_HEAD(&gpio_res->dev_list);
 
+		mutex_lock(&cam_res->gpio_res_lock);
 		rc = cam_res_mgr_add_device(dev, gpio_res);
 		if (rc) {
 			kfree(gpio_res);
+			mutex_unlock(&cam_res->gpio_res_lock);
 			return rc;
 		}
 
-		mutex_lock(&cam_res->gpio_res_lock);
 		list_add_tail(&gpio_res->list, &cam_res->gpio_res_list);
 		mutex_unlock(&cam_res->gpio_res_lock);
 	}
