@@ -15,6 +15,7 @@
 
 #include "qcs403.dtsi"
 #include "qcs405-circular-pca9956.dtsi"
+#include "qcs403-ext-pll-audio.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS403 SSRD IOT AUDIO PLL";
