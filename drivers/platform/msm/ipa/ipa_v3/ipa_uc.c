@@ -524,6 +524,21 @@ static void ipa3_uc_response_hdlr(enum ipa_irq_type interrupt,
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 }
 
+static void ipa3_uc_wigig_misc_int_handler(enum ipa_irq_type interrupt,
+	void *private_data,
+	void *interrupt_data)
+{
+	IPADBG("\n");
+
+	WARN_ON(private_data != ipa3_ctx);
+
+	if (ipa3_ctx->uc_wigig_ctx.misc_notify_cb)
+		ipa3_ctx->uc_wigig_ctx.misc_notify_cb(
+			ipa3_ctx->uc_wigig_ctx.priv);
+
+	IPADBG("exit\n");
+}
+
 static int ipa3_uc_send_cmd_64b_param(u32 cmd_lo, u32 cmd_hi, u32 opcode,
 	u32 expected_status, bool polling_mode, unsigned long timeout_jiffies)
 {
@@ -687,7 +702,7 @@ int ipa3_uc_interface_init(void)
 		ipa3_uc_event_handler, true,
 		ipa3_ctx);
 	if (result) {
-		IPAERR("Fail to register for UC_IRQ0 rsp interrupt\n");
+		IPAERR("Fail to register for UC_IRQ0 event interrupt\n");
 		result = -EFAULT;
 		goto irq_fail0;
 	}
@@ -701,11 +716,21 @@ int ipa3_uc_interface_init(void)
 		goto irq_fail1;
 	}
 
+	result = ipa3_add_interrupt_handler(IPA_UC_IRQ_2,
+		ipa3_uc_wigig_misc_int_handler, true,
+		ipa3_ctx);
+	if (result) {
+		IPAERR("fail to register for UC_IRQ2 wigig misc interrupt\n");
+		result = -EFAULT;
+		goto irq_fail2;
+	}
+
 	ipa3_ctx->uc_ctx.uc_inited = true;
 
 	IPADBG("IPA uC interface is initialized\n");
 	return 0;
-
+irq_fail2:
+	ipa3_remove_interrupt_handler(IPA_UC_IRQ_1);
 irq_fail1:
 	ipa3_remove_interrupt_handler(IPA_UC_IRQ_0);
 irq_fail0:

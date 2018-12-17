@@ -55,8 +55,6 @@
 /* less 1 nominal MTU (1500 bytes) rounded to units of KB */
 #define IPA_ADJUST_AGGR_BYTE_LIMIT(X) (((X) - IPA_MTU)/1000)
 
-#define IPA_ADJUST_AGGR_BYTE_HARD_LIMIT(X) (X/1000)
-
 #define IPA_RX_BUFF_CLIENT_HEADROOM 256
 
 #define IPA_WLAN_RX_POOL_SZ 100
@@ -299,7 +297,7 @@ int ipa3_send(struct ipa3_sys_context *sys,
 		struct ipa3_desc *desc,
 		bool in_atomic)
 {
-	struct ipa3_tx_pkt_wrapper *tx_pkt, *tx_pkt_first;
+	struct ipa3_tx_pkt_wrapper *tx_pkt, *tx_pkt_first = NULL;
 	struct ipahal_imm_cmd_pyld *tag_pyld_ret = NULL;
 	struct ipa3_tx_pkt_wrapper *next_pkt;
 	struct gsi_xfer_elem gsi_xfer[IPA_SEND_MAX_DESC];
@@ -4434,7 +4432,7 @@ static uint64_t pointer_to_tag_wa(struct ipa3_tx_pkt_wrapper *tx_pkt)
 {
 	u16 temp;
 	/* Add the check but it might have throughput issue */
-	if (ipa3_is_msm_device()) {
+	if (BITS_PER_LONG == 64) {
 		temp = (u16) (~((unsigned long) tx_pkt &
 			0xFFFF000000000000) >> 48);
 		if (temp) {

@@ -873,6 +873,19 @@ static int qpnp_lpg_pwm_enable(struct pwm_chip *pwm_chip,
 		return -ENODEV;
 	}
 
+	/*
+	 * Update PWM_VALUE_SYNC to make sure PWM_VALUE
+	 * will be updated everytime before enabling.
+	 */
+	if (lpg->src_sel == PWM_VALUE) {
+		rc = qpnp_lpg_write(lpg, REG_LPG_PWM_SYNC, LPG_PWM_VALUE_SYNC);
+		if (rc < 0) {
+			dev_err(lpg->chip->dev, "Write LPG_PWM_SYNC failed, rc=%d\n",
+					rc);
+			return rc;
+		}
+	}
+
 	rc = qpnp_lpg_set_glitch_removal(lpg, true);
 	if (rc < 0) {
 		dev_err(lpg->chip->dev, "Enable glitch-removal failed, rc=%d\n",
@@ -1031,9 +1044,19 @@ static int qpnp_lpg_parse_dt(struct qpnp_lpg_chip *chip)
 	}
 
 	base = be32_to_cpu(addr[0]);
-	length = be32_to_cpu(addr[1]);
+	rc = of_property_read_u32(chip->dev->of_node, "qcom,num-lpg-channels",
+						&chip->num_lpgs);
+	if (rc < 0) {
+		dev_err(chip->dev, "Failed to get qcom,num-lpg-channels, rc=%d\n",
+				rc);
+		return rc;
+	}
 
-	chip->num_lpgs = length / REG_SIZE_PER_LPG;
+	if (chip->num_lpgs == 0) {
+		dev_err(chip->dev, "No LPG channels specified\n");
+		return -EINVAL;
+	}
+
 	chip->lpgs = devm_kcalloc(chip->dev, chip->num_lpgs,
 			sizeof(*chip->lpgs), GFP_KERNEL);
 	if (!chip->lpgs)

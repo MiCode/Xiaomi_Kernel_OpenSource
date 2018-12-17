@@ -3041,10 +3041,12 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 	if (irq_status_rx & CSID_CSI2_RX_ERROR_STREAM_UNDERFLOW) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d ERROR_STREAM_UNDERFLOW",
 			 csid_hw->hw_intf->hw_idx);
+		csid_hw->error_irq_count++;
 	}
 	if (irq_status_rx & CSID_CSI2_RX_ERROR_UNBOUNDED_FRAME) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d UNBOUNDED_FRAME",
 			 csid_hw->hw_intf->hw_idx);
+		csid_hw->error_irq_count++;
 	}
 
 	if (csid_hw->error_irq_count >

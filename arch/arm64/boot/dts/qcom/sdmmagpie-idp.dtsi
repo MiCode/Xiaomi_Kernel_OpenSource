@@ -122,7 +122,7 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
 	qcom,mdss-dsi-bl-min-level = <1>;
-	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-bl-max-level = <1023>;
 	qcom,platform-te-gpio = <&tlmm 10 0>;
 	qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
 };
@@ -131,7 +131,7 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
 	qcom,mdss-dsi-bl-min-level = <1>;
-	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-bl-max-level = <1023>;
 	qcom,platform-te-gpio = <&tlmm 10 0>;
 	qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
 };
@@ -140,7 +140,7 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
 	qcom,mdss-dsi-bl-min-level = <1>;
-	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-bl-max-level = <1023>;
 	qcom,platform-te-gpio = <&tlmm 10 0>;
 	qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
 };
@@ -171,7 +171,7 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
 	qcom,mdss-dsi-bl-min-level = <1>;
-	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-bl-max-level = <255>;
 	qcom,platform-te-gpio = <&tlmm 10 0>;
 	qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
 };
@@ -180,7 +180,7 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
 	qcom,mdss-dsi-bl-min-level = <1>;
-	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-bl-max-level = <255>;
 	qcom,platform-te-gpio = <&tlmm 10 0>;
 	qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
 };
@@ -221,6 +221,31 @@
 	qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
 };
 
+&dsi_nt35695b_truly_fhd_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_no_labibb>;
+	qcom,panel-sec-supply-entries = <&dsi_panel_pwr_supply_no_labibb>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,platform-reset-gpio = <&pm6150l_gpios 11 0>;
+	qcom,platform-sec-reset-gpio = <&pm6150l_gpios 11 0>;
+	qcom,platform-en-gpio = <&pm6150l_gpios 4 0>;
+	qcom,platform-bklight-en-gpio = <&pm6150l_gpios 5 0>;
+};
+
+&dsi_nt35695b_truly_fhd_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_no_labibb>;
+	qcom,panel-sec-supply-entries = <&dsi_panel_pwr_supply_no_labibb>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,platform-reset-gpio = <&pm6150l_gpios 11 0>;
+	qcom,platform-sec-reset-gpio = <&pm6150l_gpios 11 0>;
+	qcom,platform-en-gpio = <&pm6150l_gpios 4 0>;
+	qcom,platform-bklight-en-gpio = <&pm6150l_gpios 5 0>;
+	qcom,platform-te-gpio = <&tlmm 11 0>;
+};
+
+&sde_dp {
+	qcom,dp-aux-switch = <&fsa4480>;
+};
+
 &qupv3_se7_i2c {
 	status = "ok";
 	st_fts@49 {
@@ -230,9 +255,11 @@
 		interrupts = <9 0x2008>;
 		vdd-supply = <&pm6150_l10>;
 		avdd-supply = <&pm6150l_l7>;
-		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend",
+					"pmx_ts_release";
 		pinctrl-0 = <&ts_active>;
 		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
 		st,irq-gpio = <&tlmm 9 0x2008>;
 		st,reset-gpio = <&tlmm 8 0x00>;
 		st,regulator_dvdd = "vdd";
@@ -350,5 +377,11 @@
 			debounce-interval = <15>;
 			gpio-key,wakeup;
 		};
+	};
+};
+
+&thermal_zones {
+	quiet-therm-step {
+		status = "disabled";
 	};
 };

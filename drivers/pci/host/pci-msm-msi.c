@@ -154,6 +154,9 @@ static int msm_msi_irq_set_affinity(struct irq_data *data,
 {
 	struct irq_data *parent_data = irq_get_irq_data(irqd_to_hwirq(data));
 
+	if (!parent_data)
+		return -ENODEV;
+
 	/* set affinity for MSM MSI HW IRQ */
 	if (parent_data->chip->irq_set_affinity)
 		return parent_data->chip->irq_set_affinity(parent_data,
@@ -167,6 +170,9 @@ static void msm_msi_irq_compose_msi_msg(struct irq_data *data,
 {
 	struct msm_msi_client *client = irq_data_get_irq_chip_data(data);
 	struct irq_data *parent_data = irq_get_irq_data(irqd_to_hwirq(data));
+
+	if (!parent_data)
+		return;
 
 	msg->address_lo = lower_32_bits(client->msi_addr);
 	msg->address_hi = upper_32_bits(client->msi_addr);
@@ -233,9 +239,15 @@ static void msm_msi_irq_domain_free(struct irq_domain *domain,
 				      unsigned int virq, unsigned int nr_irqs)
 {
 	struct irq_data *data = irq_domain_get_irq_data(domain, virq);
-	struct msm_msi_client *client = irq_data_get_irq_chip_data(data);
-	struct msm_msi *msi = client->msi;
+	struct msm_msi_client *client;
+	struct msm_msi *msi;
 	int i;
+
+	if (!data)
+		return;
+
+	client = irq_data_get_irq_chip_data(data);
+	msi = client->msi;
 
 	mutex_lock(&msi->mutex);
 	for (i = 0; i < nr_irqs; i++)

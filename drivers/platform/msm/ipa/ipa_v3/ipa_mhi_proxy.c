@@ -882,8 +882,7 @@ static void imp_mhi_status_cb(struct mhi_device *mhi_dev, enum MHI_CB mhi_cb)
 		}
 		break;
 
-	case MHI_CB_EE_RDDM:
-	case MHI_CB_PENDING_DATA:
+	default:
 		IMP_ERR("unexpected event %d\n", mhi_cb);
 		break;
 	}

@@ -417,7 +417,7 @@ static int msm_get_apps_irq(unsigned int mpm_irq)
 
 }
 
-static void system_pm_exit_sleep(void)
+static void system_pm_exit_sleep(bool success)
 {
 	msm_rpm_exit_sleep();
 }

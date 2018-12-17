@@ -1029,6 +1029,59 @@
 					bias-pull-down;         /* PULL DOWN */
 				};
 			};
+
+
+			sde_te1_active: sde_te1_active {
+				mux {
+					pins = "gpio11";
+					function = "mdp_vsync";
+				};
+
+				config {
+					pins = "gpio11";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+
+			sde_te1_suspend: sde_te1_suspend {
+				mux {
+					pins = "gpio11";
+					function = "mdp_vsync";
+				};
+
+				config {
+					pins = "gpio11";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+		};
+
+		sde_dp_aux_active: sde_dp_aux_active {
+			mux {
+				pins = "gpio42", "gpio33";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio42", "gpio33";
+				bias-disable = <0>; /* no pull */
+				drive-strength = <8>;
+			};
+		};
+
+		sde_dp_aux_suspend: sde_dp_aux_suspend {
+			mux {
+				pins = "gpio42", "gpio33";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio42", "gpio33";
+				bias-pull-down;
+				drive-strength = <2>;
+			};
 		};
 
 		sde_dp_usbplug_cc_active: sde_dp_usbplug_cc_active {
@@ -1565,7 +1618,7 @@
 				config {
 					pins = "gpio9";
 					drive-strength = <2>;
-					bias-pull-down;
+					bias-disable;
 				};
 			};
 		};
@@ -1580,7 +1633,22 @@
 				config {
 					pins = "gpio8";
 					drive-strength = <2>;
-					bias-pull-down;
+					bias-disable;
+				};
+			};
+		};
+
+		pmx_ts_release {
+			ts_release: ts_release {
+				mux {
+					pins = "gpio9", "gpio8";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio9", "gpio8";
+					drive-strength = <2>;
+					bias-disable;
 				};
 			};
 		};
@@ -1594,6 +1662,19 @@
 			function = "func1";
 			qcom,drive-strength = <2>;
 			power-source = <0>;
+			bias-disable;
+			output-low;
+		};
+	};
+};
+
+&pm6150l_gpios {
+	disp_pins {
+		disp_pins_default: disp_pins_default{
+			pins = "gpio9";
+			function = "func1";
+			qcom,drive-strength = <2>;
+			power-source = <1>;
 			bias-disable;
 			output-low;
 		};

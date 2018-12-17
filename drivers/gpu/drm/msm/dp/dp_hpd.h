@@ -54,9 +54,9 @@ struct dp_hpd_cb {
  * @hpd_high: Hot Plug Detect signal is high.
  * @hpd_irq: Change in the status since last message
  * @alt_mode_cfg_done: bool to specify alt mode status
- * @switch_needed: bool to specify if switch is needed
  * @multi_func: multi-function preferred, USBPD type only
  * @isr: event interrupt, BUILTIN type only
+ * @register_hpd: register hardware callback
  * @simulate_connect: simulate disconnect or connect for debug mode
  * @simulate_attention: simulate attention messages for debug mode
  */
@@ -69,6 +69,7 @@ struct dp_hpd {
 	bool multi_func;
 
 	void (*isr)(struct dp_hpd *dp_hpd, int event);
+	int (*register_hpd)(struct dp_hpd *dp_hpd);
 	int (*simulate_connect)(struct dp_hpd *dp_hpd, bool hpd);
 	int (*simulate_attention)(struct dp_hpd *dp_hpd, int vdo);
 };

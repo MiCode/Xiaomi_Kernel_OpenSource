@@ -1388,6 +1388,12 @@ static int sde_rotator_calc_perf(struct sde_rot_mgr *mgr,
 	if (mgr->min_rot_clk > perf->clk_rate)
 		perf->clk_rate = mgr->min_rot_clk;
 
+	if (mgr->max_rot_clk && (perf->clk_rate > mgr->max_rot_clk)) {
+		SDEROT_ERR("invalid clock:%ld exceeds max:%ld allowed\n",
+				perf->clk_rate, mgr->max_rot_clk);
+		return -EINVAL;
+	}
+
 	read_bw =  sde_rotator_calc_buf_bw(in_fmt, config->input.width,
 				config->input.height, max_fps);
 
@@ -3129,6 +3135,15 @@ int sde_rotator_core_init(struct sde_rot_mgr **pmgr,
 			SDE_MDP_HW_REV_500)) {
 		mgr->ops_hw_init = sde_rotator_r3_init;
 		mgr->min_rot_clk = ROT_MIN_ROT_CLK;
+
+		/*
+		 * on platforms where the maxlinewidth is greater than
+		 * default we need to have a max clock rate check to
+		 * ensure we do not cross the max allowed clock for rotator
+		 */
+		if (IS_SDE_MAJOR_SAME(mdata->mdss_version,
+			SDE_MDP_HW_REV_500))
+			mgr->max_rot_clk = ROT_R3_MAX_ROT_CLK;
 
 		if (!IS_SDE_MAJOR_SAME(mdata->mdss_version,
 					SDE_MDP_HW_REV_500) &&

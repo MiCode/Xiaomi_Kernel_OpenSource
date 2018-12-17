@@ -3682,7 +3682,7 @@ void ipa3_enable_clks(void)
 	if (msm_bus_scale_client_update_request(ipa3_ctx->ipa_bus_hdl,
 	    ipa3_get_bus_vote()))
 		WARN(1, "bus scaling failed");
-
+	atomic_set(&ipa3_ctx->ipa_clk_vote, 1);
 	ipa3_ctx->ctrl->ipa3_enable_clks();
 }
 
@@ -3718,6 +3718,7 @@ void ipa3_disable_clks(void)
 
 	if (msm_bus_scale_client_update_request(ipa3_ctx->ipa_bus_hdl, 0))
 		WARN(1, "bus scaling failed");
+	atomic_set(&ipa3_ctx->ipa_clk_vote, 0);
 }
 
 /**
@@ -3879,6 +3880,15 @@ void ipa3_inc_client_enable_clks(struct ipa_active_client_logging_info *id)
 		atomic_read(&ipa3_ctx->ipa3_active_clients.cnt));
 	ipa3_suspend_apps_pipes(false);
 	mutex_unlock(&ipa3_ctx->ipa3_active_clients.mutex);
+}
+
+/**
+ * ipa3_active_clks_status() - update the current msm bus clock vote
+ * status
+ */
+int ipa3_active_clks_status(void)
+{
+	return atomic_read(&ipa3_ctx->ipa_clk_vote);
 }
 
 /**
@@ -4794,6 +4804,7 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	gsi_props.notify_cb = ipa_gsi_notify_cb;
 	gsi_props.req_clk_cb = NULL;
 	gsi_props.rel_clk_cb = NULL;
+	gsi_props.clk_status_cb = ipa3_active_clks_status;
 
 	if (ipa3_ctx->ipa_config_is_mhi) {
 		gsi_props.mhi_er_id_limits_valid = true;
@@ -4854,6 +4865,12 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 		IPAERR(":wdi init failed (%d)\n", -result);
 	else
 		IPADBG(":wdi init ok\n");
+
+	result = ipa3_wigig_init_i();
+	if (result)
+		IPAERR(":wigig init failed (%d)\n", -result);
+	else
+		IPADBG(":wigig init ok\n");
 
 	result = ipa3_ntn_init();
 	if (result)
@@ -5001,7 +5018,8 @@ static void ipa3_load_ipa_fw(struct work_struct *work)
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_EMULATION &&
-	    (ipa3_is_msm_device() || (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5)))
+	    ((ipa3_ctx->platform_type != IPA_PLAT_TYPE_MDM) ||
+	    (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5)))
 		result = ipa3_pil_load_ipa_fws();
 	else
 		result = ipa3_manual_load_ipa_fws();
@@ -5260,6 +5278,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->ipa_wrapper_size = resource_p->ipa_mem_size;
 	ipa3_ctx->ipa_hw_type = resource_p->ipa_hw_type;
 	ipa3_ctx->ipa3_hw_mode = resource_p->ipa3_hw_mode;
+	ipa3_ctx->platform_type = resource_p->platform_type;
 	ipa3_ctx->use_ipa_teth_bridge = resource_p->use_ipa_teth_bridge;
 	ipa3_ctx->modem_cfg_emb_pipe_flt = resource_p->modem_cfg_emb_pipe_flt;
 	ipa3_ctx->ipa_wdi2 = resource_p->ipa_wdi2;
@@ -5865,6 +5884,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->ipa_pipe_mem_size = IPA_PIPE_MEM_SIZE;
 	ipa_drv_res->ipa_hw_type = 0;
 	ipa_drv_res->ipa3_hw_mode = 0;
+	ipa_drv_res->platform_type = 0;
 	ipa_drv_res->modem_cfg_emb_pipe_flt = false;
 	ipa_drv_res->ipa_wdi2 = false;
 	ipa_drv_res->ipa_wdi2_over_gsi = false;
@@ -5908,6 +5928,15 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	else
 		IPADBG(": found ipa_drv_res->ipa3_hw_mode = %d",
 				ipa_drv_res->ipa3_hw_mode);
+
+	/* Get Platform Type */
+	result = of_property_read_u32(pdev->dev.of_node, "qcom,platform-type",
+			&ipa_drv_res->platform_type);
+	if (result)
+		IPADBG("using default (IPA_PLAT_TYPE_MDM) for platform-type\n");
+	else
+		IPADBG(": found ipa_drv_res->platform_type = %d",
+				ipa_drv_res->platform_type);
 
 	/* Get IPA WAN / LAN RX pool size */
 	result = of_property_read_u32(pdev->dev.of_node,

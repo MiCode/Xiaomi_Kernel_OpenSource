@@ -252,9 +252,11 @@ enum ipa_ver {
 	IPA_4_0,
 	IPA_4_0_MHI,
 	IPA_4_1,
+	IPA_4_1_APQ,
 	IPA_4_2,
 	IPA_4_5,
 	IPA_4_5_MHI,
+	IPA_4_5_APQ,
 	IPA_VER_MAX,
 };
 
@@ -2042,13 +2044,13 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 	[IPA_4_5][IPA_CLIENT_WLAN1_PROD]          = {
 			true, IPA_v4_5_GROUP_UL_DL_SRC,
 			true,
-			IPA_DPS_HPS_REP_SEQ_TYPE_2PKT_PROC_PASS_NO_DEC_UCP_DMAP,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
 			{ 9, 12, 8, 16, IPA_EE_AP, GSI_SMART_PRE_FETCH, 4 } },
 	[IPA_4_5][IPA_CLIENT_USB_PROD]            = {
 			true, IPA_v4_5_GROUP_UL_DL_SRC,
 			true,
-			IPA_DPS_HPS_REP_SEQ_TYPE_2PKT_PROC_PASS_NO_DEC_UCP_DMAP,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
 			{ 1, 0, 8, 16, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY, 0 } },
 	[IPA_4_5][IPA_CLIENT_APPS_LAN_PROD]	  = {
@@ -2060,7 +2062,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 	[IPA_4_5][IPA_CLIENT_APPS_WAN_PROD]	  = {
 			true, IPA_v4_5_GROUP_UL_DL_SRC,
 			true,
-			IPA_DPS_HPS_REP_SEQ_TYPE_2PKT_PROC_PASS_NO_DEC_UCP_DMAP,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
 			{ 2, 7, 16, 32, IPA_EE_AP, GSI_SMART_PRE_FETCH, 8 } },
 	[IPA_4_5][IPA_CLIENT_APPS_CMD_PROD]	  = {
@@ -2072,13 +2074,13 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 	[IPA_4_5][IPA_CLIENT_ODU_PROD]            = {
 			true, IPA_v4_5_GROUP_UL_DL_SRC,
 			true,
-			IPA_DPS_HPS_REP_SEQ_TYPE_2PKT_PROC_PASS_NO_DEC_UCP_DMAP,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
 			{ 10, 13, 8, 19, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY, 0 } },
 	[IPA_4_5][IPA_CLIENT_ETHERNET_PROD]	  = {
 			true, IPA_v4_5_GROUP_UL_DL_SRC,
 			true,
-			IPA_DPS_HPS_REP_SEQ_TYPE_2PKT_PROC_PASS_NO_DEC_UCP_DMAP,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
 			{ 12, 0, 8, 16, IPA_EE_UC, GSI_SMART_PRE_FETCH, 4 } },
 	[IPA_4_5][IPA_CLIENT_Q6_WAN_PROD]         = {
@@ -3046,10 +3048,6 @@ static u8 ipa3_get_hw_type_index(void)
 		break;
 	case IPA_HW_v3_5:
 		hw_type_index = IPA_3_5;
-		/*
-		 *this flag is initialized only after fw load trigger from
-		 * user space (ipa3_write)
-		 */
 		if (ipa3_ctx->ipa_config_is_mhi)
 			hw_type_index = IPA_3_5_MHI;
 		break;
@@ -3058,15 +3056,13 @@ static u8 ipa3_get_hw_type_index(void)
 		break;
 	case IPA_HW_v4_0:
 		hw_type_index = IPA_4_0;
-		/*
-		 *this flag is initialized only after fw load trigger from
-		 * user space (ipa3_write)
-		 */
 		if (ipa3_ctx->ipa_config_is_mhi)
 			hw_type_index = IPA_4_0_MHI;
 		break;
 	case IPA_HW_v4_1:
 		hw_type_index = IPA_4_1;
+		if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ)
+			hw_type_index = IPA_4_1_APQ;
 		break;
 	case IPA_HW_v4_2:
 		hw_type_index = IPA_4_2;
@@ -3075,6 +3071,8 @@ static u8 ipa3_get_hw_type_index(void)
 		hw_type_index = IPA_4_5;
 		if (ipa3_ctx->ipa_config_is_mhi)
 			hw_type_index = IPA_4_5_MHI;
+		if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ)
+			hw_type_index = IPA_4_5_APQ;
 		break;
 	default:
 		IPAERR("Incorrect IPA version %d\n", ipa3_ctx->ipa_hw_type);
@@ -4512,11 +4510,19 @@ int ipa3_cfg_ep_aggr(u32 clnt_hdl, const struct ipa_ep_cfg_aggr *ep_aggr)
 			res = -EINVAL;
 			goto complete;
 		}
+		/*
+		 * HW bug on IPA4.5 where gran is used from pipe 0 instead of
+		 * coal pipe. Add this check to make sure that pipe 0 will
+		 * use gran 0 because that is what the coal pipe will use.
+		 */
 		if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_5 &&
-			ipa3_get_client_mapping(clnt_hdl) ==
-			IPA_CLIENT_APPS_WAN_COAL_CONS &&
-			ipa3_ctx->ep[clnt_hdl].cfg.aggr.pulse_generator != 0)
+		    ipa3_get_client_mapping(clnt_hdl) ==
+		    IPA_CLIENT_APPS_WAN_COAL_CONS &&
+		    ipa3_ctx->ep[clnt_hdl].cfg.aggr.pulse_generator != 0) {
+			IPAERR("coal pipe using GRAN_SEL = %d\n",
+			       ipa3_ctx->ep[clnt_hdl].cfg.aggr.pulse_generator);
 			ipa_assert();
+		}
 	} else {
 		/*
 		 * Global aggregation granularity is 0.5msec.
@@ -6189,6 +6195,13 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_get_smmu_params = ipa3_get_smmu_params;
 	api_ctrl->ipa_is_vlan_mode = ipa3_is_vlan_mode;
 	api_ctrl->ipa_pm_is_used = ipa3_pm_is_used;
+	api_ctrl->ipa_wigig_uc_init = ipa3_wigig_uc_init;
+	api_ctrl->ipa_conn_wigig_rx_pipe_i = ipa3_conn_wigig_rx_pipe_i;
+	api_ctrl->ipa_conn_wigig_client_i = ipa3_conn_wigig_client_i;
+	api_ctrl->ipa_disconn_wigig_pipe_i = ipa3_disconn_wigig_pipe_i;
+	api_ctrl->ipa_wigig_uc_msi_init = ipa3_wigig_uc_msi_init;
+	api_ctrl->ipa_enable_wigig_pipe_i = ipa3_enable_wigig_pipe_i;
+	api_ctrl->ipa_disable_wigig_pipe_i = ipa3_disable_wigig_pipe_i;
 
 	return 0;
 }

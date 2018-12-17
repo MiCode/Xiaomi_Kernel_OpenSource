@@ -320,12 +320,19 @@ enum mhi_cmd_type {
 #define MHI_TRE_GET_EV_EXECENV(tre) (((tre)->dword[0] >> 24) & 0xFF)
 #define MHI_TRE_GET_EV_SEQ(tre) ((tre)->dword[0])
 #define MHI_TRE_GET_EV_TIME(tre) ((tre)->ptr)
+#define MHI_TRE_GET_EV_COOKIE(tre) lower_32_bits((tre)->ptr)
+#define MHI_TRE_GET_EV_VEID(tre) (((tre)->dword[0] >> 16) & 0xFF)
 
 /* transfer descriptor macros */
 #define MHI_TRE_DATA_PTR(ptr) (ptr)
 #define MHI_TRE_DATA_DWORD0(len) (len & MHI_MAX_MTU)
 #define MHI_TRE_DATA_DWORD1(bei, ieot, ieob, chain) ((2 << 16) | (bei << 10) \
 	| (ieot << 9) | (ieob << 8) | chain)
+
+/* rsc transfer descriptor macros */
+#define MHI_RSCTRE_DATA_PTR(ptr, len) ((len << 48) | ptr)
+#define MHI_RSCTRE_DATA_DWORD0(cookie) (cookie)
+#define MHI_RSCTRE_DATA_DWORD1 (MHI_PKT_TYPE_COALESCING << 16)
 
 enum MHI_CMD {
 	MHI_CMD_RESET_CHAN,
@@ -337,12 +344,14 @@ enum MHI_PKT_TYPE {
 	MHI_PKT_TYPE_INVALID = 0x0,
 	MHI_PKT_TYPE_NOOP_CMD = 0x1,
 	MHI_PKT_TYPE_TRANSFER = 0x2,
+	MHI_PKT_TYPE_COALESCING = 0x8,
 	MHI_PKT_TYPE_RESET_CHAN_CMD = 0x10,
 	MHI_PKT_TYPE_STOP_CHAN_CMD = 0x11,
 	MHI_PKT_TYPE_START_CHAN_CMD = 0x12,
 	MHI_PKT_TYPE_STATE_CHANGE_EVENT = 0x20,
 	MHI_PKT_TYPE_CMD_COMPLETION_EVENT = 0x21,
 	MHI_PKT_TYPE_TX_EVENT = 0x22,
+	MHI_PKT_TYPE_RSC_TX_EVENT = 0x28,
 	MHI_PKT_TYPE_EE_EVENT = 0x40,
 	MHI_PKT_TYPE_TSYNC_EVENT = 0x48,
 	MHI_PKT_TYPE_STALE_EVENT, /* internal event */
@@ -446,7 +455,7 @@ enum MHI_PM_STATE {
 #define MHI_PM_IN_FATAL_STATE(pm_state) (pm_state == MHI_PM_LD_ERR_FATAL_DETECT)
 #define MHI_DB_ACCESS_VALID(pm_state) (pm_state & MHI_PM_M0)
 #define MHI_WAKE_DB_CLEAR_VALID(pm_state) (pm_state & (MHI_PM_M0 | \
-						       MHI_PM_M2))
+						MHI_PM_M2 | MHI_PM_M3_EXIT))
 #define MHI_WAKE_DB_SET_VALID(pm_state) (pm_state & MHI_PM_M2)
 #define MHI_WAKE_DB_FORCE_SET_VALID(pm_state) MHI_WAKE_DB_CLEAR_VALID(pm_state)
 #define MHI_EVENT_ACCESS_INVALID(pm_state) (pm_state == MHI_PM_DISABLE || \
@@ -460,6 +469,7 @@ enum MHI_XFER_TYPE {
 	MHI_XFER_SKB,
 	MHI_XFER_SCLIST,
 	MHI_XFER_NOP, /* CPU offload channel, host does not accept transfer */
+	MHI_XFER_RSC_SKB, /* RSC type, accept skb from client */
 };
 
 #define NR_OF_CMD_RINGS (1)
@@ -488,6 +498,13 @@ enum mhi_ch_ee_mask {
 	MHI_CH_EE_PTHRU = BIT(MHI_EE_PTHRU),
 	MHI_CH_EE_WFW = BIT(MHI_EE_WFW),
 	MHI_CH_EE_EDL = BIT(MHI_EE_EDL),
+};
+
+enum mhi_ch_type {
+	MHI_CH_TYPE_INVALID = 0,
+	MHI_CH_TYPE_OUTBOUND = DMA_TO_DEVICE,
+	MHI_CH_TYPE_INBOUND = DMA_FROM_DEVICE,
+	MHI_CH_TYPE_INBOUND_COALESCED = 3,
 };
 
 struct db_cfg {
@@ -547,6 +564,7 @@ struct mhi_buf_info {
 	void *wp;
 	size_t len;
 	void *cb_buf;
+	bool used; /* indicate element is free to use */
 	enum dma_data_direction dir;
 };
 
@@ -583,6 +601,7 @@ struct mhi_chan {
 	struct mhi_ring tre_ring;
 	u32 er_index;
 	u32 intmod;
+	enum mhi_ch_type type;
 	enum dma_data_direction dir;
 	struct db_cfg db_cfg;
 	u32 ee_mask;
@@ -594,6 +613,7 @@ struct mhi_chan {
 	bool offload_ch;
 	bool pre_alloc;
 	bool auto_start;
+	bool wake_capable; /* channel should wake up system */
 	/* functions that generate the transfer ring elements */
 	int (*gen_tre)(struct mhi_controller *, struct mhi_chan *, void *,
 		       void *, size_t, enum MHI_FLAGS);

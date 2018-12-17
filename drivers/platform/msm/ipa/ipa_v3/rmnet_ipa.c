@@ -2421,7 +2421,7 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 {
 	int ret, i;
 	struct net_device *dev;
-	int wan_cons_ep = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
+	int wan_cons_ep;
 
 	pr_info("rmnet_ipa3 started initialization\n");
 
@@ -2440,6 +2440,7 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 		}
 	}
 
+	wan_cons_ep = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
 	ret = get_ipa_rmnet_dts_configuration(pdev, &ipa3_rmnet_res);
 	ipa3_rmnet_ctx.ipa_rmnet_ssr = ipa3_rmnet_res.ipa_rmnet_ssr;
 

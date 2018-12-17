@@ -300,7 +300,7 @@ int mhi_init_dev_ctxt(struct mhi_controller *mhi_cntrl)
 		chan_ctxt->chstate = MHI_CH_STATE_DISABLED;
 		chan_ctxt->brstmode = mhi_chan->db_cfg.brstmode;
 		chan_ctxt->pollcfg = mhi_chan->db_cfg.pollcfg;
-		chan_ctxt->chtype = mhi_chan->dir;
+		chan_ctxt->chtype = mhi_chan->type;
 		chan_ctxt->erindex = mhi_chan->er_index;
 
 		mhi_chan->ch_state = MHI_CH_STATE_DISABLED;
@@ -932,11 +932,22 @@ static int of_parse_ch_cfg(struct mhi_controller *mhi_cntrl,
 		mhi_chan->chan = chan;
 
 		ret = of_property_read_u32(child, "mhi,num-elements",
-					   (u32 *)&mhi_chan->buf_ring.elements);
-		if (!ret && !mhi_chan->buf_ring.elements)
+					   (u32 *)&mhi_chan->tre_ring.elements);
+		if (!ret && !mhi_chan->tre_ring.elements)
 			goto error_chan_cfg;
 
-		mhi_chan->tre_ring.elements = mhi_chan->buf_ring.elements;
+		/*
+		 * For some channels, local ring len should be bigger than
+		 * transfer ring len due to internal logical channels in device.
+		 * So host can queue much more buffers than transfer ring len.
+		 * Example, RSC channels should have a larger local channel
+		 * than transfer ring length.
+		 */
+		ret = of_property_read_u32(child, "mhi,local-elements",
+					   (u32 *)&mhi_chan->buf_ring.elements);
+		if (ret)
+			mhi_chan->buf_ring.elements =
+				mhi_chan->tre_ring.elements;
 
 		ret = of_property_read_u32(child, "mhi,event-ring",
 					   &mhi_chan->er_index);
@@ -947,6 +958,15 @@ static int of_parse_ch_cfg(struct mhi_controller *mhi_cntrl,
 					   &mhi_chan->dir);
 		if (ret)
 			goto error_chan_cfg;
+
+		/*
+		 * For most channels, chtype is identical to channel directions,
+		 * if not defined, assign ch direction to chtype
+		 */
+		ret = of_property_read_u32(child, "mhi,chan-type",
+					   &mhi_chan->type);
+		if (ret)
+			mhi_chan->type = (enum mhi_ch_type)mhi_chan->dir;
 
 		ret = of_property_read_u32(child, "mhi,ee", &mhi_chan->ee_mask);
 		if (ret)
@@ -965,6 +985,7 @@ static int of_parse_ch_cfg(struct mhi_controller *mhi_cntrl,
 			mhi_chan->gen_tre = mhi_gen_tre;
 			mhi_chan->queue_xfer = mhi_queue_buf;
 			break;
+		case MHI_XFER_RSC_SKB:
 		case MHI_XFER_SKB:
 			mhi_chan->queue_xfer = mhi_queue_skb;
 			break;
@@ -989,6 +1010,8 @@ static int of_parse_ch_cfg(struct mhi_controller *mhi_cntrl,
 							    "mhi,auto-queue");
 		mhi_chan->auto_start = of_property_read_bool(child,
 							     "mhi,auto-start");
+		mhi_chan->wake_capable = of_property_read_bool(child,
+							"mhi,wake-capable");
 
 		if (mhi_chan->pre_alloc &&
 		    (mhi_chan->dir != DMA_FROM_DEVICE ||
@@ -1301,6 +1324,12 @@ static void mhi_release_device(struct device *dev)
 {
 	struct mhi_device *mhi_dev = to_mhi_device(dev);
 
+	if (mhi_dev->ul_chan)
+		mhi_dev->ul_chan->mhi_dev = NULL;
+
+	if (mhi_dev->dl_chan)
+		mhi_dev->dl_chan->mhi_dev = NULL;
+
 	kfree(mhi_dev);
 }
 
@@ -1438,9 +1467,6 @@ static int mhi_driver_remove(struct device *dev)
 			mhi_deinit_chan_ctxt(mhi_cntrl, mhi_chan);
 
 		mhi_chan->ch_state = MHI_CH_STATE_DISABLED;
-
-		/* remove associated device */
-		mhi_chan->mhi_dev = NULL;
 
 		mutex_unlock(&mhi_chan->mutex);
 	}

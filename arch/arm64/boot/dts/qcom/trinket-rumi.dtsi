@@ -45,6 +45,10 @@
 	};
 };
 
+&qupv3_se4_2uart {
+	status = "ok";
+};
+
 &usb0 {
 	/delete-property/ extcon;
 	dwc3@4e00000 {
@@ -52,6 +56,14 @@
 		maximum-speed = "high-speed";
 		dr_mode = "peripheral";
 	};
+};
+
+&qusb_phy0 {
+	status = "disabled";
+};
+
+&usb_qmp_phy {
+	status = "disabled";
 };
 
 &rpm_bus {

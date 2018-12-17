@@ -175,6 +175,9 @@
 		qcom,msm-cpudai-tdm-data-out = <0>;
 		qcom,msm-cpudai-tdm-invert-sync = <0>;
 		qcom,msm-cpudai-tdm-data-delay = <0>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&ter_i2s_sck_active &ter_i2s_data0_active>;
+		pinctrl-1 = <&ter_i2s_sck_sleep &ter_i2s_data0_sleep>;
 		dai_tert_tdm_rx_0: qcom,msm-dai-q6-tdm-tert-rx-0 {
 			compatible = "qcom,msm-dai-q6-tdm";
 			qcom,msm-cpudai-tdm-dev-id = <36896>;
@@ -218,6 +221,9 @@
 		qcom,msm-cpudai-tdm-data-out = <0>;
 		qcom,msm-cpudai-tdm-invert-sync = <0>;
 		qcom,msm-cpudai-tdm-data-delay = <0>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&ter_i2s_data1_active>;
+		pinctrl-1 = <&ter_i2s_data1_sleep>;
 		dai_tert_tdm_tx_0: qcom,msm-dai-q6-tdm-tert-tx-0 {
 			compatible = "qcom,msm-dai-q6-tdm";
 			qcom,msm-cpudai-tdm-dev-id = <36897>;
@@ -503,3 +509,14 @@
 		status = "disabled";
 	};
 };
+
+&qupv3_se10_spi {
+	status = "ok";
+	spi_codec@0 {
+		compatible = "qcom,spi-msm-codec-slave";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+		spi-cpha;
+	};
+};
+
