@@ -15,7 +15,7 @@
 
 struct system_pm_ops {
 	int (*enter)(struct cpumask *mask);
-	void (*exit)(void);
+	void (*exit)(bool success);
 	int (*update_wakeup)(bool);
 	bool (*sleep_allowed)(void);
 };
