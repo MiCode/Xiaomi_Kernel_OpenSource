@@ -271,7 +271,7 @@
 			reg = <0x1a00 0x100>;
 			regulator-name = "pms405_s3";
 			regulator-min-microvolt = <1048000>;
-			regulator-max-microvolt = <1352000>;
+			regulator-max-microvolt = <1384000>;
 		};
 	};
 };
@@ -314,7 +314,7 @@
 		regulator-max-microvolt = <3>;
 
 		qcom,cpr-fuse-corners = <3>;
-		qcom,cpr-voltage-ceiling = <1224000 1288000 1352000>;
+		qcom,cpr-voltage-ceiling = <1224000 1288000 1384000>;
 		qcom,cpr-voltage-floor =   <1048000 1048000 1088000>;
 		vdd-apc-supply = <&pms405_s3>;
 
