@@ -35,60 +35,16 @@
 		ranges = <0x01000000 0x0 0x40200000 0x40200000 0x0 0x100000>,
 			<0x02000000 0x0 0x40300000 0x40300000 0x0 0x1fd00000>;
 		interrupt-parent = <&pcie0>;
-		interrupts = <0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19
-				20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35
-				36 37>;
+		interrupts = <0 1 2 3 4>;
+		interrupt-names = "int_global_int", "int_a", "int_b", "int_c",
+					"int_d";
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0 0 0 0xffffffff>;
-		interrupt-map = <0 0 0 0 &intc 0 141 0
+		interrupt-map = <0 0 0 0 &intc 0 140 0
 				0 0 0 1 &intc 0 149 0
 				0 0 0 2 &intc 0 150 0
 				0 0 0 3 &intc 0 151 0
-				0 0 0 4 &intc 0 152 0
-				0 0 0 5 &intc 0 140 0
-				0 0 0 6 &intc 0 768 0
-				0 0 0 7 &intc 0 769 0
-				0 0 0 8 &intc 0 770 0
-				0 0 0 9 &intc 0 771 0
-				0 0 0 10 &intc 0 772 0
-				0 0 0 11 &intc 0 773 0
-				0 0 0 12 &intc 0 774 0
-				0 0 0 13 &intc 0 775 0
-				0 0 0 14 &intc 0 776 0
-				0 0 0 15 &intc 0 777 0
-				0 0 0 16 &intc 0 778 0
-				0 0 0 17 &intc 0 779 0
-				0 0 0 18 &intc 0 780 0
-				0 0 0 19 &intc 0 781 0
-				0 0 0 20 &intc 0 782 0
-				0 0 0 21 &intc 0 783 0
-				0 0 0 22 &intc 0 784 0
-				0 0 0 23 &intc 0 785 0
-				0 0 0 24 &intc 0 786 0
-				0 0 0 25 &intc 0 787 0
-				0 0 0 26 &intc 0 788 0
-				0 0 0 27 &intc 0 789 0
-				0 0 0 28 &intc 0 790 0
-				0 0 0 29 &intc 0 791 0
-				0 0 0 30 &intc 0 792 0
-				0 0 0 31 &intc 0 793 0
-				0 0 0 32 &intc 0 794 0
-				0 0 0 33 &intc 0 795 0
-				0 0 0 34 &intc 0 796 0
-				0 0 0 35 &intc 0 797 0
-				0 0 0 36 &intc 0 798 0
-				0 0 0 37 &intc 0 799 0>;
-
-		interrupt-names = "int_msi", "int_a", "int_b", "int_c",
-				"int_d", "int_global_int",
-				"msi_0", "msi_1", "msi_2", "msi_3",
-				"msi_4", "msi_5", "msi_6", "msi_7",
-				"msi_8", "msi_9", "msi_10", "msi_11",
-				"msi_12", "msi_13", "msi_14", "msi_15",
-				"msi_16", "msi_17", "msi_18", "msi_19",
-				"msi_20", "msi_21", "msi_22", "msi_23",
-				"msi_24", "msi_25", "msi_26", "msi_27",
-				"msi_28", "msi_29", "msi_30", "msi_31";
+				0 0 0 4 &intc 0 152 0>;
 
 		qcom,phy-sequence = <0x0800 0x01 0x0
 				0x0804 0x03 0x0
@@ -177,6 +133,8 @@
 		qcom,vreg-cx-voltage-level = <RPMH_REGULATOR_LEVEL_MAX
 						RPMH_REGULATOR_LEVEL_NOM 0>;
 
+		msi-parent = <&pcie0_msi>;
+
 		qcom,no-l0s-supported;
 		qcom,no-l1-supported;
 		qcom,no-l1ss-supported;
@@ -195,9 +153,6 @@
 		qcom,boot-option = <0x1>;
 
 		linux,pci-domain = <0>;
-
-		qcom,msi-gicm-addr = <0x17a00040>;
-		qcom,msi-gicm-base = <0x320>;
 
 		qcom,pcie-phy-ver = <0x10>;
 		qcom,use-19p2mhz-aux-clk;
@@ -253,5 +208,44 @@
 
 		reset-names = "pcie_0_core_reset",
 				"pcie_0_phy_reset";
+	};
+
+	pcie0_msi: qcom,pcie0_msi@17a00040 {
+		compatible = "qcom,pci-msi";
+		msi-controller;
+		reg = <0x17a00040 0x0>;
+		interrupt-parent = <&intc>;
+		interrupts = <GIC_SPI 710 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 711 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 712 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 713 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 714 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 715 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 716 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 717 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 718 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 719 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 720 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 721 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 722 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 723 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 724 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 725 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 726 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 727 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 728 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 729 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 730 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 731 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 732 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 733 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 734 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 735 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 736 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 737 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 738 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 739 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 740 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 741 IRQ_TYPE_EDGE_RISING>;
 	};
 };
