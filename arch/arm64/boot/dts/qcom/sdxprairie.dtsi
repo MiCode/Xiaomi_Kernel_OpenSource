@@ -93,6 +93,12 @@
 			alignment = <0x400000>;
 			size = <0x1000000>;
 		};
+
+		audio_mem: audio_region@0 {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0x400000>;
+		 };
 	};
 
 	cpus {
@@ -793,6 +799,7 @@
 #include "sdxprairie-gdsc.dtsi"
 #include "sdxprairie-usb.dtsi"
 #include "sdxprairie-blsp.dtsi"
+#include "sdxprairie-audio.dtsi"
 
 &gdsc_usb30 {
 	status = "ok";

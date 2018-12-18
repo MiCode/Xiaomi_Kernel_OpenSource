@@ -11,6 +11,7 @@
  */
 
 #include "sdxprairie-pmic-overlay.dtsi"
+#include "sdxprairie-mtp-audio-overlay.dtsi"
 
 &pmxprairie_vadc {
 	vph_pwr {
