@@ -48,6 +48,7 @@
 | tissot-n-oss | Mi A1 | Android N | LA.UM.5.3-06310-89xx.0 | [tissot-n-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/tissot-n-oss) |
 | tissot-o-oss | Mi A1 | Android 8.0 | LA.UM.6.6.r1-04000-89xx.0 | [tissot-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/tissot-o-oss) |
 | tissot-o-oss-8.1 | Mi A1 | Android 8.1 | LA.UM.6.6.r1-08600-89xx.0 | [tissot-o-oss-8.1](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/tissot-o-oss-8.1) |
+| tissot-p-oss | Mi A1 | Android P | LA.UM.7.6.r1-02800-89xx.0 | [tissot-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/tissot-p-oss) |
 | ulysse-n-oss | Redmi Note 5A | Android N | LA.UM.5.6.r1-04600-89xx.0 | [ulysse-n-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ulysse-n-oss) |
 | whyred-n-oss | Redmi Note 5 | Android N | LA.UM.6.1.r1-11000-sdm660.0 | [whyred-n-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/whyred-n-oss) |
 | whyred-o-oss | Redmi Note 5, Mi 6X | Android O | LA.UM.6.2.r1-06100-sdm660.0 | [whyred-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/whyred-o-oss) |
