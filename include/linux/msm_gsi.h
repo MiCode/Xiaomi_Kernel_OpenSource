@@ -406,6 +406,7 @@ enum gsi_chan_use_db_eng {
  *	             callback for RE3 using GSI_CHAN_EVT_EOT
  *
  * @err_cb:          error notification callback
+ * @cleanup_cb;	     cleanup rx-pkt/skb callback
  * @chan_user_data:  cookie used for notifications
  *
  * All the callbacks are in interrupt context
@@ -428,6 +429,7 @@ struct gsi_chan_props {
 	uint8_t empty_lvl_threshold;
 	void (*xfer_cb)(struct gsi_chan_xfer_notify *notify);
 	void (*err_cb)(struct gsi_chan_err_notify *notify);
+	void (*cleanup_cb)(void *chan_user_data, void *xfer_user_data);
 	void *chan_user_data;
 };
 
