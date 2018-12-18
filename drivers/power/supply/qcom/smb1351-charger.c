@@ -1001,6 +1001,14 @@ static int smb1351_hw_init(struct smb1351_charger *chip)
 		return rc;
 	}
 
+	/* Disable watchdog */
+	rc = smb1351_masked_write(chip, WDOG_SAFETY_TIMER_CTRL_REG,
+				WDOG_TIMER_EN_BIT, 0);
+	if (rc) {
+		pr_err("Couldn't disable watchdog rc = %d\n", rc);
+		return rc;
+	}
+
 	/* enable/disable charging by suspending usb */
 	rc = smb1351_usb_suspend(chip, USER, chip->usb_suspended_status);
 	if (rc) {
@@ -1156,14 +1164,6 @@ static int smb1351_hw_init(struct smb1351_charger *chip)
 			pr_err("Couldn't configure RID enable rc = %d\n", rc);
 			return rc;
 		}
-	}
-
-	/* Disable watchdog */
-	rc = smb1351_masked_write(chip, WDOG_SAFETY_TIMER_CTRL_REG,
-				WDOG_TIMER_EN_BIT, 0);
-	if (rc) {
-		pr_err("Couldn't disable watchdog rc = %d\n", rc);
-		return rc;
 	}
 
 	return rc;
@@ -2706,21 +2706,20 @@ static int smb1351_determine_initial_state(struct smb1351_charger *chip)
 		goto fail_init_status;
 	}
 
+	/* check initial state of OTG */
+	rc = smb1351_read_reg(chip, IRQ_F_REG, &reg);
+	if (rc) {
+		pr_err("Couldn't read IRQ_F rc = %d\n", rc);
+		goto fail_init_status;
+	}
+	smb1351_rid_handler(chip, reg & IRQ_RID_BIT);
+
 	if (reg & IRQ_USBIN_UV_BIT) {
 		smb1351_usbin_uv_handler(chip, 1);
 	} else {
 		smb1351_usbin_uv_handler(chip, 0);
 		smb1351_apsd_complete_handler(chip, 1);
 	}
-
-	rc = smb1351_read_reg(chip, IRQ_G_REG, &reg);
-	if (rc) {
-		pr_err("Couldn't read IRQ_G rc = %d\n", rc);
-		goto fail_init_status;
-	}
-
-	if (reg & IRQ_SOURCE_DET_BIT)
-		smb1351_apsd_complete_handler(chip, 1);
 
 	return 0;
 
