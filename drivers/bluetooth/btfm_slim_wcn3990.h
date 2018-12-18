@@ -12,7 +12,7 @@
 #ifndef BTFM_SLIM_WCN3990_H
 #define BTFM_SLIM_WCN3990_H
 //#ifdef CONFIG_BTFM_SLIM_WCN3990
-#include <btfm_slim.h>
+#include "btfm_slim.h"
 
 /* Registers Address */
 #define CHRK_SB_COMP_TEST			0x00000000
