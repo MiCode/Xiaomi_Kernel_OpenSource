@@ -2703,12 +2703,12 @@ Required properties:
 				The size of the array is determined by
 				the value in msm-cpudai-mi2s-group-num-ports.
 				Each group supports up to 4 ports:
-				Secondary RX: 	4160, 4162, 4164, 4174,
-				Secondary TX:	4161, 4163, 4165, 4175,
-				Tertiary RX: 	4168, 4170, 4172, 4176,
-				Tertiary TX: 	4169, 4171, 4173, 4177,
-				Quaternary RX:	4102, 4128, 4130, 4132,
-				Quaternary TX:	4103, 4129, 4131, 4133,
+				Secondary RX: 	4160, 4162, 4164, 4166,
+				Secondary TX:	4161, 4163, 4165, 4167,
+				Tertiary RX: 	4168, 4170, 4172, 4174,
+				Tertiary TX: 	4169, 4171, 4173, 4175,
+				Quaternary RX:	4128, 4130, 4132, 4134,
+				Quaternary TX:	4129, 4131, 4133, 4135,
 
  - qcom,msm-cpudai-mi2s-channel-mode: group mi2s line channel mode.
 				I2S_SD0    :                  0x1

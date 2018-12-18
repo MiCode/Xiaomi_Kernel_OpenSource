@@ -86,13 +86,13 @@
 			"msm-dai-q6-tdm.36915", "msm-dai-q6-tdm.36917",
 			"msm-dai-q6-tdm.36919", "msm-dai-q6-mi2s.4160",
 			"msm-dai-q6-mi2s.4162", "msm-dai-q6-mi2s.4164",
-			"msm-dai-q6-mi2s.4174", "msm-dai-q6-mi2s.4161",
+			"msm-dai-q6-mi2s.4166", "msm-dai-q6-mi2s.4161",
 			"msm-dai-q6-mi2s.4163", "msm-dai-q6-mi2s.4165",
-			"msm-dai-q6-mi2s.4175", "msm-dai-q6-mi2s.4168",
+			"msm-dai-q6-mi2s.4167", "msm-dai-q6-mi2s.4168",
 			"msm-dai-q6-mi2s.4170", "msm-dai-q6-mi2s.4172",
-			"msm-dai-q6-mi2s.4176", "msm-dai-q6-mi2s.4169",
+			"msm-dai-q6-mi2s.4174", "msm-dai-q6-mi2s.4169",
 			"msm-dai-q6-mi2s.4171", "msm-dai-q6-mi2s.4173",
-			"msm-dai-q6-mi2s.4177", "msm-dai-q6-mi2s.4128",
+			"msm-dai-q6-mi2s.4175", "msm-dai-q6-mi2s.4128",
 			"msm-dai-q6-mi2s.4130", "msm-dai-q6-mi2s.4132",
 			"msm-dai-q6-mi2s.4134", "msm-dai-q6-mi2s.4129",
 			"msm-dai-q6-mi2s.4131", "msm-dai-q6-mi2s.4133",
@@ -277,7 +277,7 @@
 		compatible = "qcom,msm-dai-group-mi2s";
 		qcom,msm-cpudai-mi2s-group-id = <4354>;
 		qcom,msm-cpudai-mi2s-group-num-ports = <4>;
-		qcom,msm-cpudai-mi2s-group-port-id = <4160 4162 4164 4174>;
+		qcom,msm-cpudai-mi2s-group-port-id = <4160 4162 4164 4166>;
 		qcom,msm-cpudai-mi2s-channel-mode = <2>;
 		qcom,msm-cpudai-mi2s-sync-mode = <1>;
 		qcom,msm-cpudai-mi2s-mclk = <12288000>;
@@ -305,7 +305,7 @@
 
 		dai_sec_mi2s_rx_4:qcom,msm-dai-q6-mi2s-sec-rx-4 {
 			compatible = "qcom,msm-dai-group-mi2s-dev";
-			qcom,msm-cpudai-mi2s-dev-id = <4174>;
+			qcom,msm-cpudai-mi2s-dev-id = <4166>;
 			qcom,msm-cpudai-mi2s-dev-channel-mode = <2>;
 			qcom,msm-cpudai-mi2s-data-align = <0>;
 		};
@@ -315,7 +315,7 @@
 		compatible = "qcom,msm-dai-group-mi2s";
 		qcom,msm-cpudai-mi2s-group-id = <4355>;
 		qcom,msm-cpudai-mi2s-group-num-ports = <4>;
-		qcom,msm-cpudai-mi2s-group-port-id = <4161 4163 4165 4175>;
+		qcom,msm-cpudai-mi2s-group-port-id = <4161 4163 4165 4167>;
 		qcom,msm-cpudai-mi2s-channel-mode = <1>;
 		qcom,msm-cpudai-mi2s-sync-mode = <1>;
 		qcom,msm-cpudai-mi2s-mclk = <12288000>;
@@ -343,7 +343,7 @@
 
 		dai_sec_mi2s_tx_4:qcom,msm-dai-q6-mi2s-sec-tx-4 {
 			compatible = "qcom,msm-dai-group-mi2s-dev";
-			qcom,msm-cpudai-mi2s-dev-id = <4175>;
+			qcom,msm-cpudai-mi2s-dev-id = <4167>;
 			qcom,msm-cpudai-mi2s-dev-channel-mode = <1>;
 			qcom,msm-cpudai-mi2s-data-align = <0>;
 		};
@@ -353,7 +353,7 @@
 		compatible = "qcom,msm-dai-group-mi2s";
 		qcom,msm-cpudai-mi2s-group-id = <4356>;
 		qcom,msm-cpudai-mi2s-group-num-ports = <4>;
-		qcom,msm-cpudai-mi2s-group-port-id = <4168 4170 4172 4176>;
+		qcom,msm-cpudai-mi2s-group-port-id = <4168 4170 4172 4174>;
 		qcom,msm-cpudai-mi2s-channel-mode = <5>;
 		qcom,msm-cpudai-mi2s-sync-mode = <1>;
 		qcom,msm-cpudai-mi2s-mclk = <3072000>;
@@ -381,7 +381,7 @@
 
 		dai_tert_mi2s_rx_4:qcom,msm-dai-q6-mi2s-tert-rx-4 {
 			compatible = "qcom,msm-dai-group-mi2s-dev";
-			qcom,msm-cpudai-mi2s-dev-id = <4176>;
+			qcom,msm-cpudai-mi2s-dev-id = <4174>;
 			qcom,msm-cpudai-mi2s-dev-channel-mode = <2>;
 			qcom,msm-cpudai-mi2s-data-align = <0>;
 		};
@@ -391,7 +391,7 @@
 		compatible = "qcom,msm-dai-group-mi2s";
 		qcom,msm-cpudai-mi2s-group-id = <4357>;
 		qcom,msm-cpudai-mi2s-group-num-ports = <4>;
-		qcom,msm-cpudai-mi2s-group-port-id = <4169 4171 4173 4177>;
+		qcom,msm-cpudai-mi2s-group-port-id = <4169 4171 4173 4175>;
 		qcom,msm-cpudai-mi2s-channel-mode = <5>;
 		qcom,msm-cpudai-mi2s-sync-mode = <1>;
 		qcom,msm-cpudai-mi2s-mclk = <3072000>;
@@ -419,7 +419,7 @@
 
 		dai_tert_mi2s_tx_4:qcom,msm-dai-q6-mi2s-tert-tx-4 {
 			compatible = "qcom,msm-dai-group-mi2s-dev";
-			qcom,msm-cpudai-mi2s-dev-id = <4177>;
+			qcom,msm-cpudai-mi2s-dev-id = <4175>;
 			qcom,msm-cpudai-mi2s-dev-channel-mode = <2>;
 			qcom,msm-cpudai-mi2s-data-align = <0>;
 		};
