@@ -743,9 +743,6 @@ struct msm_frame {
 	uint32_t frame_id;
 	int stcam_quality_ind;
 	uint32_t stcam_conv_value;
-
-	struct ion_allocation_data ion_alloc;
-	struct ion_fd_data fd_data;
 	int ion_dev_fd;
 };
 
