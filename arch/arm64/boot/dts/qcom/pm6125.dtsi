@@ -107,6 +107,13 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
+		pm6125_pwm: qcom,pwms@b300 {
+			status = "disabled";
+			compatible = "qcom,pwm-lpg";
+			reg = <0xb300 0x100>;
+			reg-names = "lpg-base";
+			#pwm-cells = <2>;
+		};
 	};
 };
 
