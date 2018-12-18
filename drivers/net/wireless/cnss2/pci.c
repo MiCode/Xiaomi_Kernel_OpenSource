@@ -1090,11 +1090,6 @@ static int cnss_pci_suspend_noirq(struct device *dev)
 	if (driver_ops && driver_ops->suspend_noirq)
 		ret = driver_ops->suspend_noirq(pci_dev);
 
-	ret = cnss_set_pci_link(pci_priv, PCI_LINK_DOWN);
-	if (ret)
-		goto out;
-	pci_priv->pci_link_state = PCI_LINK_DOWN;
-
 out:
 	return ret;
 }
@@ -1108,11 +1103,6 @@ static int cnss_pci_resume_noirq(struct device *dev)
 
 	if (!pci_priv)
 		goto out;
-
-	ret = cnss_set_pci_link(pci_priv, PCI_LINK_UP);
-	if (ret)
-		goto out;
-	pci_priv->pci_link_state = PCI_LINK_UP;
 
 	driver_ops = pci_priv->driver_ops;
 	if (driver_ops && driver_ops->resume_noirq &&
