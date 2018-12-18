@@ -924,7 +924,7 @@ static int sde_rotator_core_create_debugfs(
 {
 	int ret;
 
-	if (!debugfs_create_u32("hwacquire_timeout", 0644,
+	if (!debugfs_create_u32("hwacquire_timeout", 0400,
 			debugfs_root, &mgr->hwacquire_timeout)) {
 		SDEROT_WARN("failed to create debugfs hw acquire timeout\n");
 		return -EINVAL;
@@ -936,7 +936,7 @@ static int sde_rotator_core_create_debugfs(
 		return -EINVAL;
 	}
 
-	if (!debugfs_create_u32("ppc_denom", 0644,
+	if (!debugfs_create_u32("ppc_denom", 0600,
 			debugfs_root, &mgr->pixel_per_clk.denom)) {
 		SDEROT_WARN("failed to create debugfs ppc denominator\n");
 		return -EINVAL;
@@ -1304,49 +1304,49 @@ struct dentry *sde_rotator_create_debugfs(
 		return NULL;
 	}
 
-	if (!debugfs_create_file("stats", 0644,
+	if (!debugfs_create_file("stats", 0400,
 		debugfs_root, rot_dev, &sde_rotator_stat_ops)) {
 		SDEROT_ERR("fail create debugfs stats\n");
 		debugfs_remove_recursive(debugfs_root);
 		return NULL;
 	}
 
-	if (!debugfs_create_file("raw", 0644,
+	if (!debugfs_create_file("raw", 0400,
 		debugfs_root, rot_dev, &sde_rotator_raw_ops)) {
 		SDEROT_ERR("fail create debugfs raw\n");
 		debugfs_remove_recursive(debugfs_root);
 		return NULL;
 	}
 
-	if (!debugfs_create_u32("fence_timeout", 0644,
+	if (!debugfs_create_u32("fence_timeout", 0400,
 			debugfs_root, &rot_dev->fence_timeout)) {
 		SDEROT_ERR("fail create fence_timeout\n");
 		debugfs_remove_recursive(debugfs_root);
 		return NULL;
 	}
 
-	if (!debugfs_create_u32("open_timeout", 0644,
+	if (!debugfs_create_u32("open_timeout", 0400,
 			debugfs_root, &rot_dev->open_timeout)) {
 		SDEROT_ERR("fail create open_timeout\n");
 		debugfs_remove_recursive(debugfs_root);
 		return NULL;
 	}
 
-	if (!debugfs_create_u32("disable_syscache", 0644,
+	if (!debugfs_create_u32("disable_syscache", 0400,
 			debugfs_root, &rot_dev->disable_syscache)) {
 		SDEROT_ERR("fail create disable_syscache\n");
 		debugfs_remove_recursive(debugfs_root);
 		return NULL;
 	}
 
-	if (!debugfs_create_u32("streamoff_timeout", 0644,
+	if (!debugfs_create_u32("streamoff_timeout", 0400,
 			debugfs_root, &rot_dev->streamoff_timeout)) {
 		SDEROT_ERR("fail create streamoff_timeout\n");
 		debugfs_remove_recursive(debugfs_root);
 		return NULL;
 	}
 
-	if (!debugfs_create_u32("early_submit", 0644,
+	if (!debugfs_create_u32("early_submit", 0400,
 			debugfs_root, &rot_dev->early_submit)) {
 		SDEROT_ERR("fail create early_submit\n");
 		debugfs_remove_recursive(debugfs_root);
