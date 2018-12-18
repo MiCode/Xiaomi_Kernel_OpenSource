@@ -185,8 +185,22 @@
 	qcom,host-poweroff-in-pm-suspend;
 };
 
+&usb2_phy0 {
+	qcom,param-override-seq =
+		<0x43 0x70
+		 0x01 0xb0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&usb2phy_ac_en1_default>;
+};
+
 &usb1 {
 	status = "ok";
 	qcom,default-mode-host;
 	qcom,host-poweroff-in-pm-suspend;
+};
+
+&usb2_phy1 {
+	qcom,param-override-seq = <0x01 0xb0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&usb2phy_ac_en2_default>;
 };
