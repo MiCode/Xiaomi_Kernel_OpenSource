@@ -286,6 +286,25 @@
 		#clock-cells = <1>;
 	};
 
+	clock_cpu: qcom,clock-cpu@17808100 {
+		compatible = "qcom,cpu-sdxprairie";
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		clock-names = "bi_tcxo";
+		reg = <0x17810008 0x8>,
+			<0x17808100 0x44>;
+		reg-names = "apcs_cmd" , "apcs_pll";
+		vdd-lucid-pll-supply = <&VDD_CX_LEVEL_AO>;
+		cpu-vdd-supply = <&VDD_CX_LEVEL_AO>;
+		qcom,speed0-bin-v0 =
+			<          0 RPMH_REGULATOR_LEVEL_OFF>,
+			<  345600000 RPMH_REGULATOR_LEVEL_LOW_SVS>,
+			<  576000000 RPMH_REGULATOR_LEVEL_SVS>,
+			< 1094400000 RPMH_REGULATOR_LEVEL_NOM>,
+			< 1555200000 RPMH_REGULATOR_LEVEL_TURBO>;
+		#clock-cells = <1>;
+		status = "disabled";
+	};
+
 	spmi_bus: qcom,spmi@c440000 {
 		compatible = "qcom,spmi-pmic-arb";
 		reg = <0xc440000 0xd00>,
