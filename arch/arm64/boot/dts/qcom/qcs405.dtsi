@@ -418,11 +418,6 @@
 		reg = <0x000b2000 0x1000>,
 		      <0x000bfc00 0x400>;
 
-		clk-enable;
-		clocks = <&clock_gcc GCC_DCC_CLK>,
-			<&clock_gcc GCC_DCC_XO_CLK>;
-		clock-names = "dcc_clk", "dcc_xo_clk";
-
 		reg-names = "dcc-base", "dcc-ram-base";
 		dcc-ram-offset = <0x400>;
 		qcom,curr-link-list = <1>;
