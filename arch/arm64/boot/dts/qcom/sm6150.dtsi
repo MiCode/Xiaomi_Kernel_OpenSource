@@ -2916,7 +2916,7 @@
 	};
 
 	cx_ipeak_lm: cx_ipeak@01fed000 {
-		compatible = "qcom,cx-ipeak-sm6150";
+		compatible = "qcom,cx-ipeak-v1";
 		reg = <0x1fed000 0x28>;
 	};
 
@@ -3183,7 +3183,7 @@
 
 &msm_vidc {
 	qcom,cx-ipeak-data = <&cx_ipeak_lm 4>;
-	qcom,clock-freq-threshold = <380000000>;
+	qcom,clock-freq-threshold = <460000000>;
 };
 
 &msm_audio_ion {

@@ -3038,6 +3038,11 @@
 	demux {
 		compatible = "qcom,demux";
 	};
+
+	cx_ipeak_lm: cx_ipeak@01fed000 {
+		compatible = "qcom,cx-ipeak-v2";
+		reg = <0x1fed000 0x8008>;
+	};
 };
 
 #include "sdmmagpie-gdsc.dtsi"
@@ -3329,6 +3334,11 @@
 		qcom,ratiometric;
 		qcom,hw-settle-time = <200>;
 	};
+};
+
+&msm_vidc0 {
+	qcom,cx-ipeak-data = <&cx_ipeak_lm 5>;
+	qcom,clock-freq-threshold = <533000000>;
 };
 
 #include "sdmmagpie-npu.dtsi"
