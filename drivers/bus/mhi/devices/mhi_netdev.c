@@ -74,8 +74,6 @@
 struct mhi_netdev {
 	int alias;
 	struct mhi_device *mhi_dev;
-	bool enabled;
-	rwlock_t pm_lock; /* state change lock */
 	int wake;
 
 	u32 mru;
@@ -130,13 +128,6 @@ static int mhi_netdev_alloc_skb(struct mhi_netdev *mhi_netdev, gfp_t gfp_t)
 		if (!skb)
 			return -ENOMEM;
 
-		read_lock_bh(&mhi_netdev->pm_lock);
-		if (unlikely(!mhi_netdev->enabled)) {
-			MSG_ERR("Interface not enabled\n");
-			ret = -EIO;
-			goto error_queue;
-		}
-
 		skb->dev = mhi_netdev->ndev;
 
 		ret = mhi_queue_transfer(mhi_dev, DMA_FROM_DEVICE, skb, cur_mru,
@@ -148,13 +139,11 @@ static int mhi_netdev_alloc_skb(struct mhi_netdev *mhi_netdev, gfp_t gfp_t)
 			goto error_queue;
 		}
 
-		read_unlock_bh(&mhi_netdev->pm_lock);
 	}
 
 	return 0;
 
 error_queue:
-	read_unlock_bh(&mhi_netdev->pm_lock);
 	dev_kfree_skb_any(skb);
 
 	return ret;
@@ -169,15 +158,6 @@ static int mhi_netdev_poll(struct napi_struct *napi, int budget)
 	int rx_work = 0;
 
 	MSG_VERB("Entered\n");
-
-	read_lock_bh(&mhi_netdev->pm_lock);
-
-	if (!mhi_netdev->enabled) {
-		MSG_LOG("interface is disabled!\n");
-		napi_complete(napi);
-		read_unlock_bh(&mhi_netdev->pm_lock);
-		return 0;
-	}
 
 	rx_work = mhi_poll(mhi_dev, budget);
 	if (rx_work < 0) {
@@ -195,7 +175,6 @@ static int mhi_netdev_poll(struct napi_struct *napi, int budget)
 		napi_complete(napi);
 
 exit_poll:
-	read_unlock_bh(&mhi_netdev->pm_lock);
 
 	MSG_VERB("polled %d pkts\n", rx_work);
 
@@ -244,30 +223,14 @@ static int mhi_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	MSG_VERB("Entered\n");
 
-	read_lock_bh(&mhi_netdev->pm_lock);
-
-	if (unlikely(!mhi_netdev->enabled)) {
-		/* Only reason interface could be disabled and we get data
-		 * is due to an SSR. We do not want to stop the queue and
-		 * return error. Instead we will flush all the uplink packets
-		 * and return successful
-		 */
-		res = NETDEV_TX_OK;
-		dev_kfree_skb_any(skb);
-		goto mhi_xmit_exit;
-	}
-
 	res = mhi_queue_transfer(mhi_dev, DMA_TO_DEVICE, skb, skb->len,
 				 MHI_EOT);
 	if (res) {
 		MSG_VERB("Failed to queue with reason:%d\n", res);
 		netif_stop_queue(dev);
 		res = NETDEV_TX_BUSY;
-		goto mhi_xmit_exit;
 	}
 
-mhi_xmit_exit:
-	read_unlock_bh(&mhi_netdev->pm_lock);
 	MSG_VERB("Exited\n");
 
 	return res;
@@ -295,25 +258,17 @@ static int mhi_netdev_ioctl_extended(struct net_device *dev, struct ifreq *ifr)
 			sizeof(ext_cmd.u.if_name));
 		break;
 	case RMNET_IOCTL_SET_SLEEP_STATE:
-		read_lock_bh(&mhi_netdev->pm_lock);
-		if (mhi_netdev->enabled) {
-			if (ext_cmd.u.data && mhi_netdev->wake) {
-				/* Request to enable LPM */
-				MSG_VERB("Enable MHI LPM");
-				mhi_netdev->wake--;
-				mhi_device_put(mhi_dev);
-			} else if (!ext_cmd.u.data && !mhi_netdev->wake) {
-				/* Request to disable LPM */
-				MSG_VERB("Disable MHI LPM");
-				mhi_netdev->wake++;
-				mhi_device_get(mhi_dev);
-			}
-		} else {
-			MSG_ERR("Cannot set LPM value, MHI is not up.\n");
-			read_unlock_bh(&mhi_netdev->pm_lock);
-			return -ENODEV;
+		if (ext_cmd.u.data && mhi_netdev->wake) {
+			/* Request to enable LPM */
+			MSG_VERB("Enable MHI LPM");
+			mhi_netdev->wake--;
+			mhi_device_put(mhi_dev);
+		} else if (!ext_cmd.u.data && !mhi_netdev->wake) {
+			/* Request to disable LPM */
+			MSG_VERB("Disable MHI LPM");
+			mhi_netdev->wake++;
+			mhi_device_get(mhi_dev);
 		}
-		read_unlock_bh(&mhi_netdev->pm_lock);
 		break;
 	default:
 		rc = -EINVAL;
@@ -447,10 +402,6 @@ static int mhi_netdev_enable_iface(struct mhi_netdev *mhi_netdev)
 		}
 	}
 
-	write_lock_irq(&mhi_netdev->pm_lock);
-	mhi_netdev->enabled =  true;
-	write_unlock_irq(&mhi_netdev->pm_lock);
-
 	/* queue buffer for rx path */
 	no_tre = mhi_get_no_free_descriptors(mhi_dev, DMA_FROM_DEVICE);
 	mhi_netdev_alloc_skb(mhi_netdev, GFP_KERNEL);
@@ -568,13 +519,10 @@ static void mhi_netdev_remove(struct mhi_device *mhi_dev)
 
 	MSG_LOG("Remove notification received\n");
 
-	write_lock_irq(&mhi_netdev->pm_lock);
-	mhi_netdev->enabled = false;
-	write_unlock_irq(&mhi_netdev->pm_lock);
-
+	netif_stop_queue(mhi_netdev->ndev);
 	napi_disable(&mhi_netdev->napi);
-	netif_napi_del(&mhi_netdev->napi);
 	unregister_netdev(mhi_netdev->ndev);
+	netif_napi_del(&mhi_netdev->napi);
 	free_netdev(mhi_netdev->ndev);
 
 	if (!IS_ERR_OR_NULL(mhi_netdev->dentry))
@@ -612,8 +560,6 @@ static int mhi_netdev_probe(struct mhi_device *mhi_dev,
 				      &mhi_netdev->interface_name);
 	if (ret)
 		mhi_netdev->interface_name = mhi_netdev_driver.driver.name;
-
-	rwlock_init(&mhi_netdev->pm_lock);
 
 	/* create ipc log buffer */
 	snprintf(node_name, sizeof(node_name), "%s_%04x_%02u.%02u.%02u_%u",
