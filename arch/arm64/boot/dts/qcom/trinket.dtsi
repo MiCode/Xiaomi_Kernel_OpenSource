@@ -19,6 +19,7 @@
 #include <dt-bindings/clock/qcom,dispcc-trinket.h>
 #include <dt-bindings/clock/qcom,gpucc-trinket.h>
 #include <dt-bindings/clock/qcom,videocc-sm6150.h>
+#include <dt-bindings/iio/qcom,spmi-vadc.h>
 #include <dt-bindings/spmi/spmi.h>
 #include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 
@@ -685,6 +686,8 @@
 		compatible = "qcom,msm-rtb";
 		qcom,rtb-size = <0x100000>;
 	};
+
+	thermal_zones: thermal-zones {};
 
 	cpu_pmu: cpu-pmu {
 		compatible = "arm,armv8-pmuv3";
@@ -1376,6 +1379,117 @@
 #include "trinket-usb.dtsi"
 #include "msm-arm-smmu-trinket.dtsi"
 #include "trinket-qupv3.dtsi"
+
+&pm6125_vadc {
+	rf_pa0_therm {
+		reg = <ADC_AMUX_THM1_PU2>;
+		label = "rf_pa0_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	quiet_therm {
+		reg = <ADC_AMUX_THM2_PU2>;
+		label = "quiet_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	camera_flash_therm {
+		reg = <ADC_GPIO1_PU2>;
+		label = "camera_flash_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	emmc_ufs_therm {
+		reg = <ADC_GPIO3_PU2>;
+		label = "emmc_ufs_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	rf_pa1_therm {
+		reg = <ADC_GPIO4_PU2>;
+		label = "rf_pa1_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+};
+
+&pm6125_adc_tm {
+	io-channels = <&pm6125_vadc ADC_AMUX_THM1_PU2>,
+			<&pm6125_vadc ADC_AMUX_THM2_PU2>,
+			<&pm6125_vadc ADC_XO_THERM_PU2>,
+			<&pm6125_vadc ADC_GPIO4_PU2>;
+
+	/* Channel nodes */
+	rf_pa0_therm {
+		reg = <ADC_AMUX_THM1_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	quiet_therm {
+		reg = <ADC_AMUX_THM2_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	xo_therm {
+		reg = <ADC_XO_THERM_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	rf_pa1_therm {
+		reg = <ADC_GPIO4_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+};
+
+&pmi632_vadc {
+	conn_therm {
+		reg = <ADC_GPIO1_PU2>;
+		label = "conn_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	skin_therm {
+		reg = <ADC_GPIO2_PU2>;
+		label = "skin_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+};
+
+&pmi632_adc_tm {
+	io-channels = <&pmi632_vadc ADC_GPIO1_PU2>,
+			<&pmi632_vadc ADC_GPIO2_PU2>;
+
+	/* Channel nodes */
+	conn_therm {
+		reg = <ADC_GPIO1_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	skin_therm {
+		reg = <ADC_GPIO2_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+};
 
 &ufs_phy_gdsc {
 	status = "ok";
