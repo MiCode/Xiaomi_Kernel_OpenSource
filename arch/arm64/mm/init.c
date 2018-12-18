@@ -42,6 +42,7 @@
 #include <linux/crash_dump.h>
 #include <linux/memory.h>
 #include <linux/libfdt.h>
+#include <linux/memblock.h>
 
 #include <asm/boot.h>
 #include <asm/fixmap.h>
@@ -326,9 +327,10 @@ static void __init update_memory_limit(void)
 	unsigned long node, mp;
 	const char *p;
 	unsigned long long ram_sz, sz;
+	phys_addr_t end_addr, addr_aligned, offset;
 	int ret;
 
-	ram_sz = memblock_end_of_DRAM() - memblock_start_of_DRAM();
+	ram_sz = memblock_phys_mem_size();
 	node = of_get_flat_dt_subnode_by_name(dt_root, "mem-offline");
 	if (node == -FDT_ERR_NOTFOUND) {
 		pr_err("mem-offine node not found in FDT\n");
@@ -352,7 +354,17 @@ static void __init update_memory_limit(void)
 	}
 	sz = ram_sz - ((ram_sz * mp) / 100);
 	memory_limit = (phys_addr_t)sz;
-	memory_limit = ALIGN(memory_limit, MIN_MEMORY_BLOCK_SIZE);
+	end_addr = memblock_max_addr(memory_limit);
+	addr_aligned = ALIGN(end_addr, MIN_MEMORY_BLOCK_SIZE);
+	offset = addr_aligned - end_addr;
+
+	if (offset > MIN_MEMORY_BLOCK_SIZE / 2) {
+		addr_aligned = ALIGN_DOWN(end_addr, MIN_MEMORY_BLOCK_SIZE);
+		offset = end_addr - addr_aligned;
+		memory_limit -= offset;
+	} else {
+		memory_limit += offset;
+	}
 
 	pr_notice("Memory limit set/overridden to %lldMB\n",
 							memory_limit >> 20);
@@ -497,7 +509,7 @@ void __init arm64_memblock_init(void)
 	if (IS_ENABLED(CONFIG_RANDOMIZE_BASE)) {
 		extern u16 memstart_offset_seed;
 		u64 range = linear_region_size -
-			    (memblock_end_of_DRAM() - memblock_start_of_DRAM());
+			   (bootloader_memory_limit - memblock_start_of_DRAM());
 
 		/*
 		 * If the size of the linear region exceeds, by a sufficient
@@ -859,7 +871,7 @@ static int arm64_online_page(struct page *page)
 {
 	unsigned long phy_addr = page_to_phys(page);
 
-	if (phy_addr + PAGE_SIZE >= bootloader_memory_limit)
+	if (phy_addr + PAGE_SIZE > bootloader_memory_limit)
 		return -EINVAL;
 
 	__online_page_set_limits(page);
