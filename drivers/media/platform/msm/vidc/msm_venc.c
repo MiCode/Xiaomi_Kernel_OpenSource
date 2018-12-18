@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  */
@@ -499,9 +499,10 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA,
 		.name = "Extradata Type",
 		.type = V4L2_CTRL_TYPE_BITMASK,
-		.minimum = 0,
-		.maximum = 0xF,
-		.default_value = 0,
+		.minimum = EXTRADATA_NONE,
+		.maximum = EXTRADATA_ADVANCED | EXTRADATA_ENC_INPUT_ROI |
+			EXTRADATA_ENC_INPUT_HDR10PLUS,
+		.default_value = EXTRADATA_NONE,
 		.menu_skip_mask = 0,
 		.qmenu = NULL,
 	},
@@ -1296,6 +1297,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	int rc = 0;
 	struct msm_vidc_mastering_display_colour_sei_payload *mdisp_sei = NULL;
 	struct msm_vidc_content_light_level_sei_payload *cll_sei = NULL;
+	struct hal_buffer_requirements *buff_req_buffer = NULL;
 
 	if (!inst || !inst->core || !inst->core->device || !ctrl) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
@@ -1492,6 +1494,54 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			}
 		}
 		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA:
+		inst->bufq[OUTPUT_PORT].num_planes = 1;
+		inst->bufq[CAPTURE_PORT].num_planes = 1;
+
+		if (ctrl->val & EXTRADATA_ADVANCED)
+			inst->bufq[CAPTURE_PORT].num_planes = 2;
+
+		if ((ctrl->val & EXTRADATA_ENC_INPUT_ROI) ||
+			(ctrl->val & EXTRADATA_ENC_INPUT_HDR10PLUS))
+			inst->bufq[OUTPUT_PORT].num_planes = 2;
+
+		/* Needs internal calculation of extradata */
+		rc = msm_comm_try_get_bufreqs(inst);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"Failed to get buffer requirements: %d\n", rc);
+			break;
+		}
+
+		if (inst->bufq[OUTPUT_PORT].num_planes == 2) {
+			buff_req_buffer = get_buff_req_buffer(inst,
+						HAL_BUFFER_EXTRADATA_INPUT);
+			if (!buff_req_buffer) {
+				dprintk(VIDC_ERR,
+				"Failed to get extradata buff info\n");
+				rc = -EINVAL;
+				break;
+			}
+
+			inst->bufq[OUTPUT_PORT].plane_sizes[1] =
+					buff_req_buffer->buffer_size;
+		}
+
+		if (inst->bufq[CAPTURE_PORT].num_planes == 2) {
+			buff_req_buffer = get_buff_req_buffer(inst,
+						HAL_BUFFER_EXTRADATA_OUTPUT);
+			if (!buff_req_buffer) {
+				dprintk(VIDC_ERR,
+				"Failed to get extradata buff info\n");
+				rc = -EINVAL;
+				break;
+			}
+
+			inst->bufq[CAPTURE_PORT].plane_sizes[1] =
+					buff_req_buffer->buffer_size;
+		}
+
+		break;
 	case V4L2_CID_MPEG_VIDEO_B_FRAMES:
 	case V4L2_CID_ROTATE:
 	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_LAYER:
@@ -1543,7 +1593,6 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDEO_H264_VUI_EXT_SAR_HEIGHT:
 	case V4L2_CID_MPEG_VIDC_VIDEO_BLUR_DIMENSIONS:
 	case V4L2_CID_MPEG_VIDC_VIDEO_PRIORITY:
-	case V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA:
 			dprintk(VIDC_DBG, "Control set: ID : %x Val : %d\n",
 			ctrl->id, ctrl->val);
 		break;
@@ -1999,12 +2048,12 @@ int msm_venc_set_rate_control(struct msm_vidc_inst *inst)
 	if ((bitrate_mode->val == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR) &&
 		(inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_H264)) {
 		hier_layers = msm_venc_get_ctrl(inst,
-			V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING);
+			V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_LAYER);
 		hier_type = msm_venc_get_ctrl(inst,
-			V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_TYPE);
+			V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_TYPE);
 		if ((hier_layers && hier_layers->val) &&
 			(hier_type && hier_type->val ==
-			V4L2_MPEG_VIDEO_H264_HIERARCHICAL_CODING_P)){
+			V4L2_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_P)){
 			dprintk(VIDC_ERR,
 				"%s: CBR_VFR not allowed with Hybrid HP\n",
 				__func__);
@@ -2646,7 +2695,7 @@ int msm_venc_set_hierp_layers(struct msm_vidc_inst *inst)
 		return 0;
 
 	ctrl = msm_venc_get_ctrl(inst,
-			V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING);
+			V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_TYPE);
 	if (!ctrl) {
 		dprintk(VIDC_ERR,
 			"%s: get heirp num layers failed\n", __func__);
@@ -3221,8 +3270,6 @@ int msm_venc_set_hdr_info(struct msm_vidc_inst *inst)
 int msm_venc_set_extradata(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
-	struct hal_buffer_requirements *buff_req_buffer = NULL;
-	int extra_idx = 0;
 	struct v4l2_ctrl *ctrl = msm_venc_get_ctrl(inst,
 		V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA);
 
@@ -3232,7 +3279,7 @@ int msm_venc_set_extradata(struct msm_vidc_inst *inst)
 		return -EINVAL;
 	}
 
-	if (!ctrl->val) {
+	if (ctrl->val == EXTRADATA_NONE) {
 		// Disable all Extradata
 		msm_comm_set_extradata(inst, HAL_EXTRADATA_ASPECT_RATIO, 0x0);
 		msm_comm_set_extradata(inst, HAL_EXTRADATA_LTR_INFO, 0x0);
@@ -3241,55 +3288,22 @@ int msm_venc_set_extradata(struct msm_vidc_inst *inst)
 			msm_comm_set_extradata(inst,
 					HAL_EXTRADATA_HDR10PLUS_METADATA, 0x0);
 		}
-		inst->bufq[OUTPUT_PORT].num_planes = 1;
-		inst->bufq[CAPTURE_PORT].num_planes = 1;
 	}
-	if (ctrl->val & 0x2) {
-		// Enable Advanced Extradata
-		msm_comm_set_extradata(inst, HAL_EXTRADATA_ASPECT_RATIO, 0x1);
-		inst->bufq[OUTPUT_PORT].num_planes = 2;
+
+	if (ctrl->val & EXTRADATA_ADVANCED)
+		// Enable Advanced Extradata - LTR Info
 		msm_comm_set_extradata(inst, HAL_EXTRADATA_LTR_INFO, 0x1);
-		inst->bufq[CAPTURE_PORT].num_planes = 2;
-	}
-	if (ctrl->val & 0x4) {
+
+	if (ctrl->val & EXTRADATA_ENC_INPUT_ROI)
 		// Enable ROIQP Extradata
 		msm_comm_set_extradata(inst, HAL_EXTRADATA_ROI_QP, 0x1);
-		inst->bufq[OUTPUT_PORT].num_planes = 2;
-	}
-	if (ctrl->val & 0x8) {
+
+	if (ctrl->val & EXTRADATA_ENC_INPUT_HDR10PLUS) {
 		// Enable HDR10+ Extradata
 		if (inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_HEVC) {
 			msm_comm_set_extradata(inst,
 					HAL_EXTRADATA_HDR10PLUS_METADATA, 0x1);
 		}
-		inst->bufq[OUTPUT_PORT].num_planes = 2;
-	}
-
-	rc = msm_comm_try_get_bufreqs(inst);
-	if (rc) {
-		dprintk(VIDC_ERR,
-			"Failed to get buffer requirements: %d\n", rc);
-		return rc;
-	}
-
-	extra_idx = EXTRADATA_IDX(inst->bufq[OUTPUT_PORT].num_planes);
-	if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)) {
-		buff_req_buffer = get_buff_req_buffer(inst,
-					HAL_BUFFER_EXTRADATA_INPUT);
-
-		inst->bufq[OUTPUT_PORT].plane_sizes[extra_idx] =
-				buff_req_buffer ?
-				buff_req_buffer->buffer_size : 0;
-	}
-
-	extra_idx = EXTRADATA_IDX(inst->bufq[CAPTURE_PORT].num_planes);
-	if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)) {
-		buff_req_buffer = get_buff_req_buffer(inst,
-					HAL_BUFFER_EXTRADATA_OUTPUT);
-
-		inst->bufq[CAPTURE_PORT].plane_sizes[extra_idx] =
-			buff_req_buffer ?
-			buff_req_buffer->buffer_size : 0;
 	}
 
 	return rc;
