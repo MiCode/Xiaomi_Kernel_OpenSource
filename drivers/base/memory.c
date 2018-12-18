@@ -109,7 +109,7 @@ static unsigned long get_memory_block_size(void)
  * uses.
  */
 
-static ssize_t show_mem_start_phys_index(struct device *dev,
+static ssize_t phys_index_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
 	struct memory_block *mem = to_memory_block(dev);
@@ -449,10 +449,62 @@ out:
 static DEVICE_ATTR(valid_zones, 0444, show_valid_zones, NULL);
 #endif
 
-static DEVICE_ATTR(phys_index, 0444, show_mem_start_phys_index, NULL);
+#ifdef CONFIG_MEMORY_HOTPLUG
+static int count_num_free_block_pages(struct zone *zone, int bid)
+{
+	int order, type;
+	unsigned long freecount = 0;
+	unsigned long flags;
+
+	spin_lock_irqsave(&zone->lock, flags);
+	for (type = 0; type < MIGRATE_TYPES; type++) {
+		for (order = 0; order < MAX_ORDER; ++order) {
+			struct free_area *area;
+			struct page *page;
+
+			area = &(zone->free_area[order]);
+			list_for_each_entry(page, &area->free_list[type], lru) {
+				unsigned long pfn = page_to_pfn(page);
+				int section_nr = pfn_to_section_nr(pfn);
+
+				if (bid == base_memory_block_id(section_nr))
+					freecount += (1 << order);
+			}
+
+		}
+	}
+	spin_unlock_irqrestore(&zone->lock, flags);
+
+	return freecount;
+}
+
+static ssize_t allocated_bytes_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct memory_block *mem = to_memory_block(dev);
+	int block_id, free_pages;
+	struct zone *movable_zone =
+		&NODE_DATA(numa_node_id())->node_zones[ZONE_MOVABLE];
+	unsigned long used, block_sz = get_memory_block_size();
+
+	if (mem->state != MEM_ONLINE)
+		return snprintf(buf, 100, "0\n");
+
+	block_id = base_memory_block_id(mem->start_section_nr);
+	free_pages = count_num_free_block_pages(movable_zone, block_id);
+	used =  block_sz - (free_pages * PAGE_SIZE);
+
+	return snprintf(buf, 100, "%lu\n", used);
+}
+#endif
+
+static DEVICE_ATTR_RO(phys_index, 0444, phys_index_show, NULL);
 static DEVICE_ATTR(state, 0644, show_mem_state, store_mem_state);
 static DEVICE_ATTR(phys_device, 0444, show_phys_device, NULL);
 static DEVICE_ATTR(removable, 0444, show_mem_removable, NULL);
+#ifdef CONFIG_MEMORY_HOTPLUG
+static DEVICE_ATTR_RO(allocated_bytes, 0444, allocated_bytes_show, NULL);
+#endif
 
 /*
  * Block size attribute stuff
@@ -657,6 +709,9 @@ static struct attribute *memory_memblk_attrs[] = {
 	&dev_attr_removable.attr,
 #ifdef CONFIG_MEMORY_HOTREMOVE
 	&dev_attr_valid_zones.attr,
+#endif
+#ifdef CONFIG_MEMORY_HOTPLUG
+	&dev_attr_allocated_bytes.attr,
 #endif
 	NULL
 };
