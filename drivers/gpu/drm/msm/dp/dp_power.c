@@ -127,7 +127,7 @@ static int dp_power_pinctrl_set(struct dp_power_private *power, bool active)
 		return 0;
 
 	if (IS_ERR_OR_NULL(parser->pinctrl.pin))
-		return PTR_ERR(parser->pinctrl.pin);
+		return 0;
 
 	pin_state = active ? parser->pinctrl.state_active
 				: parser->pinctrl.state_suspend;

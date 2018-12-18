@@ -200,8 +200,7 @@ static int dp_parser_pinctrl(struct dp_parser *parser)
 	pinctrl->pin = devm_pinctrl_get(&parser->pdev->dev);
 
 	if (IS_ERR_OR_NULL(pinctrl->pin)) {
-		rc = PTR_ERR(pinctrl->pin);
-		pr_err("failed to get pinctrl, rc=%d\n", rc);
+		pr_debug("failed to get pinctrl, rc=%d\n", rc);
 		goto error;
 	}
 
