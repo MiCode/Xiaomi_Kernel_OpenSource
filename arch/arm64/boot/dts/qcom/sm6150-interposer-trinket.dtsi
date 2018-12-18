@@ -12,6 +12,7 @@
  */
 
 #include "sm6150.dtsi"
+#include <dt-bindings/clock/qcom,rpmcc.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. SM6150 Interposer TRINKET";
@@ -19,3 +20,24 @@
 	qcom,msm-id = <355 0>;
 };
 
+&soc {
+	clock_rpmcc: qcom,rpmcc {
+	};
+};
+
+#include "sm6150-pm6125-interposer-trinket.dtsi"
+
+&qusb_phy0 {
+	vdd-supply = <&L7A>;
+	vdda18-supply = <&L10A>;
+	vdda33-supply = <&L15A>;
+};
+
+&usb_qmp_phy {
+	vdd-supply = <&L7A>;
+	core-supply = <&L10A>;
+};
+
+&usb0 {
+	extcon = <&pmi632_charger>;
+};
