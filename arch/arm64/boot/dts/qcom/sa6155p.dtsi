@@ -97,6 +97,10 @@
 	vdda33-supply = <&L13A>;
 };
 
+&tpdm_west {
+	status = "disabled";
+};
+
 &usb_qmp_phy {
 	vdd-supply = <&L5A>;
 	core-supply = <&L12A>;
