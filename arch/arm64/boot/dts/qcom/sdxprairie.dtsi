@@ -49,13 +49,6 @@
 			label = "tz_mem";
 		};
 
-		qseecom_tz_apps_mem: qseecom_tz_apps_region@0x90000000 {
-			compatible = "removed-dma-pool";
-			no-map;
-			reg = <0x90000000 0xc00000>;
-			label = "qseecom_tz_apps_mem";
-		};
-
 		smem_mem: smem_region@8fe40000 {
 			no-map;
 			reg = <0x8fe40000 0xc0000>;
