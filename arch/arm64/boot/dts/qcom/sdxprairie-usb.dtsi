@@ -143,6 +143,7 @@
 
 		resets = <&clock_gcc GCC_QUSB2PHY_BCR>;
 		reset-names = "phy_reset";
+		qcom,no-rext-present;
 	};
 
 	usb_qmp_phy: ssphy@ff6000 {
