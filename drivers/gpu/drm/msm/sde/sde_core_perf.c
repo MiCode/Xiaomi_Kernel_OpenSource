@@ -917,7 +917,7 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 			update_clk = 1;
 		}
 	} else {
-		SDE_ERROR("crtc=%d disable\n", crtc->base.id);
+		SDE_DEBUG("crtc=%d disable\n", crtc->base.id);
 		memset(old, 0, sizeof(*old));
 		memset(new, 0, sizeof(*new));
 		update_bus = ~0;
