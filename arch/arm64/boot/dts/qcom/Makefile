@@ -37,6 +37,8 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sa8155p-adp-star-overlay.dtbo \
 		sa8155-v2-adp-air-overlay.dtbo \
                 sa8155p-v2-adp-air-overlay.dtbo \
+		sa8155-adp-qdrive-overlay.dtbo \
+		sa8155p-adp-qdrive-overlay.dtbo \
 		sm8150-sdx50m-cdp-overlay.dtbo \
 		sm8150-sdx50m-mtp-overlay.dtbo \
 		sm8150-sdx50m-mtp-2.5k-panel-overlay.dtbo \
@@ -55,6 +57,8 @@ sa8155-adp-star-overlay.dtbo-base := sa8155.dtb sa8155-v2.dtb
 sa8155p-adp-star-overlay.dtbo-base := sa8155p.dtb sa8155p-v2.dtb
 sa8155-v2-adp-air-overlay.dtbo-base := sa8155.dtb sa8155-v2.dtb
 sa8155p-v2-adp-air-overlay.dtbo-base := sa8155p.dtb sa8155p-v2.dtb
+sa8155-adp-qdrive-overlay.dtbo-base := sa8155.dtb sa8155-v2.dtb
+sa8155p-adp-qdrive-overlay.dtbo-base := sa8155p.dtb sa8155p-v2.dtb
 sm8150-sdx50m-cdp-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb sm8150p.dtb sm8150p-v2.dtb
 sm8150-sdx50m-mtp-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb sm8150p.dtb sm8150p-v2.dtb
 sm8150-sdx50m-mtp-2.5k-panel-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb sm8150p.dtb sm8150p-v2.dtb
@@ -72,6 +76,8 @@ dtb-$(CONFIG_ARCH_SM8150)	+= sm8150-rumi.dtb \
 	sa8155p-v2-adp-star.dtb \
 	sa8155-v2-adp-air.dtb \
 	sa8155p-v2-adp-air.dtb \
+	sa8155-adp-qdrive.dtb \
+	sa8155p-adp-qdrive.dtb \
 	sm8150-v2-rumi.dtb \
 	sm8150-v2-mtp.dtb \
 	sm8150-v2-cdp.dtb \
