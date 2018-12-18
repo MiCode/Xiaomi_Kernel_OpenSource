@@ -14,7 +14,7 @@
 #include <linux/of_address.h>
 #include <linux/debugfs.h>
 #include <linux/memblock.h>
-
+#include <soc/qcom/early_domain.h>
 #include "msm_drv.h"
 #include "msm_mmu.h"
 #include "sde_kms.h"
@@ -64,49 +64,6 @@ static void _sde_splash_free_bootup_memory_to_system(phys_addr_t phys,
 
 	for (pfn_idx = pfn_start; pfn_idx < pfn_end; pfn_idx++)
 		free_reserved_page(pfn_to_page(pfn_idx));
-}
-
-static int _sde_splash_parse_dt_get_lk_pool_node(struct drm_device *dev,
-					struct sde_splash_info *sinfo)
-{
-	struct device_node *parent, *node;
-	struct resource r;
-	int ret = 0;
-
-	if (!sinfo)
-		return -EINVAL;
-
-	parent = of_find_node_by_path("/reserved-memory");
-	if (!parent)
-		return -EINVAL;
-
-	node = of_find_node_by_name(parent, "lk_pool");
-	if (!node) {
-		SDE_ERROR("mem reservation for lk_pool is not presented\n");
-		ret = -EINVAL;
-		goto parent_node_err;
-	}
-
-	/* find the mode */
-	if (of_address_to_resource(node, 0, &r)) {
-		ret = -EINVAL;
-		goto child_node_err;
-	}
-
-	sinfo->lk_pool_paddr = (dma_addr_t)r.start;
-	sinfo->lk_pool_size = r.end - r.start;
-
-	DRM_INFO("lk_pool: addr:%pK, size:%pK\n",
-			(void *)sinfo->lk_pool_paddr,
-			(void *)sinfo->lk_pool_size);
-
-child_node_err:
-	of_node_put(node);
-
-parent_node_err:
-	of_node_put(parent);
-
-	return ret;
 }
 
 static int _sde_splash_parse_dt_get_display_node(struct drm_device *dev,
@@ -183,10 +140,9 @@ error:
 	return -ENOMEM;
 }
 
-static bool _sde_splash_lk_check(struct sde_hw_intr *intr)
+static bool _sde_splash_lk_check(void)
 {
-	return (SDE_LK_RUNNING_VALUE == SDE_REG_READ(&intr->hw,
-			SCRATCH_REGISTER_1)) ? true : false;
+	return get_early_service_status(EARLY_DISPLAY);
 }
 
 /**
@@ -194,10 +150,9 @@ static bool _sde_splash_lk_check(struct sde_hw_intr *intr)
  *
  * Function to stop early splash in LK.
  */
-static inline void _sde_splash_notify_lk_stop_splash(struct sde_hw_intr *intr)
+static inline void _sde_splash_notify_lk_stop_splash(void)
 {
-	/* write splash stop signal to scratch register*/
-	SDE_REG_WRITE(&intr->hw, SCRATCH_REGISTER_1, SDE_LK_STOP_SPLASH_VALUE);
+	request_early_service_shutdown(EARLY_DISPLAY);
 }
 
 static int _sde_splash_gem_new(struct drm_device *dev,
@@ -502,12 +457,6 @@ int sde_splash_parse_memory_dt(struct drm_device *dev)
 		SDE_ERROR("get display node failed\n");
 		return -EINVAL;
 	}
-
-	if (_sde_splash_parse_dt_get_lk_pool_node(dev, sinfo)) {
-		SDE_ERROR("get LK pool node failed\n");
-		return -EINVAL;
-	}
-
 	return 0;
 }
 
@@ -781,9 +730,8 @@ bool sde_splash_get_lk_complete_status(struct msm_kms *kms)
 
 	if (sde_kms->splash_info.handoff &&
 		!sde_kms->splash_info.display_splash_enabled &&
-		SDE_LK_EXIT_VALUE == SDE_REG_READ(&intr->hw,
-					SCRATCH_REGISTER_1)) {
-		SDE_DEBUG("LK totoally exits\n");
+		!_sde_splash_lk_check()) {
+		SDE_DEBUG("LK totally exits\n");
 		return true;
 	}
 
@@ -840,10 +788,6 @@ int sde_splash_free_resource(struct msm_kms *kms,
 		_sde_splash_free_module_resource(mmu, sinfo);
 
 		_sde_splash_destroy_splash_node(sinfo);
-
-		/* free lk_pool heap memory */
-		_sde_splash_free_bootup_memory_to_system(sinfo->lk_pool_paddr,
-						sinfo->lk_pool_size);
 
 		/* withdraw data bus vote */
 		sde_power_data_bus_bandwidth_ctrl(phandle,
@@ -974,8 +918,8 @@ int sde_splash_lk_stop_splash(struct msm_kms *kms,
 	mutex_lock(&sde_splash_lock);
 	if (_sde_splash_validate_commit(sde_kms, state) &&
 			sinfo->display_splash_enabled) {
-		if (_sde_splash_lk_check(sde_kms->hw_intr))
-			_sde_splash_notify_lk_stop_splash(sde_kms->hw_intr);
+		if (_sde_splash_lk_check())
+			_sde_splash_notify_lk_stop_splash();
 
 		sinfo->display_splash_enabled = false;
 
