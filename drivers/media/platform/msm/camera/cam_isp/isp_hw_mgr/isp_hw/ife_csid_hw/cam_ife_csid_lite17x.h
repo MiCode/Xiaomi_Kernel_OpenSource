@@ -232,6 +232,7 @@ static const struct cam_ife_csid_csi2_rx_reg_offset
 	.csi2_capture_short_pkt_vc_shift              = 15,
 	.csi2_capture_cphy_pkt_dt_shift               = 20,
 	.csi2_capture_cphy_pkt_vc_shift               = 26,
+	.csi2_rx_phy_num_mask                         = 0x3,
 };
 
 
