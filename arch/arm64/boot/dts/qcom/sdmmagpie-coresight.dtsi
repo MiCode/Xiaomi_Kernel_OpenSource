@@ -2401,6 +2401,8 @@
 
 		coresight-name = "coresight-cti-titan";
 
+		status = "disabled";
+
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
 	};
