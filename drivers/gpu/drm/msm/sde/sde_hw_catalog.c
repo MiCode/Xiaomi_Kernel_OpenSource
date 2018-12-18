@@ -3002,6 +3002,9 @@ static int _sde_parse_prop_check(struct sde_mdss_cfg *cfg,
 	if (!prop_exists[BANK_BIT])
 		cfg->mdp[0].highest_bank_bit = DEFAULT_SDE_HIGHEST_BANK_BIT;
 
+	if (of_fdt_get_ddrtype() == LP_DDR4_TYPE)
+		cfg->mdp[0].highest_bank_bit = 0x02;
+
 	cfg->ubwc_version = SDE_HW_UBWC_VER(PROP_VALUE_ACCESS(prop_value,
 			UBWC_VERSION, 0));
 	if (!prop_exists[UBWC_VERSION])
