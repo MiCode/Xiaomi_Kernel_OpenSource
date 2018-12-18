@@ -122,7 +122,7 @@ enum blk_eh_timer_return mmc_cmdq_rq_timed_out(struct request *req)
 {
 	struct mmc_queue *mq = req->q->queuedata;
 
-	pr_err("%s: request with tag: %d flags: 0x%llx timed out\n",
+	pr_err("%s: request with tag: %d flags: 0x%x timed out\n",
 	       mmc_hostname(mq->card->host), req->tag, req->cmd_flags);
 
 	return mq->cmdq_req_timed_out(req);

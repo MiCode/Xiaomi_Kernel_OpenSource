@@ -528,7 +528,7 @@ static void *add_service_notif(const char *service_path, int instance_id,
 			&server_ops,
 			qmi_indication_handler);
 	if (rc < 0) {
-		pr_err("Service Notifier qmi handle init failed rc:%d\n", rc);
+		pr_err("Service Notifier qmi handle init failed rc:%ld\n", rc);
 		goto exit;
 	}
 

@@ -1206,7 +1206,8 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 				HAL_BUFFER_OUTPUT2);
 			if (rc) {
 				dprintk(VIDC_ERR,
-					"%s: Failed to set opb buffer count to FW\n");
+					"%s: Failed to set opb buffer count to FW\n",
+					__func__);
 				break;
 			}
 

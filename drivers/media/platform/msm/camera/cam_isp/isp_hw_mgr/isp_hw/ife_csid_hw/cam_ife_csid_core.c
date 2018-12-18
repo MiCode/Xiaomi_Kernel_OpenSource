@@ -1832,7 +1832,7 @@ static int cam_ife_csid_disable_pxl_path(
 	}
 
 	if (!pxl_reg) {
-		CAM_ERR(CAM_ISP, "CSID:%d &s %d is not supported on HW",
+		CAM_ERR(CAM_ISP, "CSID:%d %s %d is not supported on HW",
 			csid_hw->hw_intf->hw_idx, (is_ipp) ? "IPP" : "PPP",
 			res->res_id);
 		return -EINVAL;

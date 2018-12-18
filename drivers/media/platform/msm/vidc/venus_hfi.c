@@ -285,11 +285,11 @@ static int __dsp_send_hfi_queue(struct venus_hfi_device *device)
 	}
 
 	if (device->dsp_flags & DSP_INIT) {
-		dprintk(VIDC_DBG, "%s: dsp already inited\n");
+		dprintk(VIDC_DBG, "%s: dsp already inited\n", __func__);
 		return 0;
 	}
 
-	dprintk(VIDC_DBG, "%s: hfi queue %#x size %d\n",
+	dprintk(VIDC_DBG, "%s: hfi queue %#llx size %d\n",
 		__func__, device->dsp_iface_q_table.mem_data.dma_handle,
 		device->dsp_iface_q_table.mem_data.size);
 	rc = fastcvpd_video_send_cmd_hfi_queue(
@@ -1720,7 +1720,7 @@ static int __interface_dsp_queues_init(struct venus_hfi_device *dev)
 		goto fail_dma_map;
 	}
 	dprintk(VIDC_DBG,
-		"%s: kvaddr %pK dma_handle %#lx iova %#lx size %d\n",
+		"%s: kvaddr %pK dma_handle %#llx iova %#llx size %ld\n",
 		__func__, kvaddr, dma_handle, iova, q_size);
 
 	memset(mem_data, 0, sizeof(struct msm_smem));

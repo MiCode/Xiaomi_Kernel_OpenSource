@@ -755,7 +755,7 @@ static int cdsprm_rpmsg_callback(struct rpmsg_device *dev, void *data,
 
 	if (!data || (len < sizeof(*msg))) {
 		dev_err(&dev->dev,
-		"Invalid message in rpmsg callback, length: %d, expected: %d\n",
+		"Invalid message in rpmsg callback, length: %d, expected: %lu\n",
 				len, sizeof(*msg));
 		return -EINVAL;
 	}

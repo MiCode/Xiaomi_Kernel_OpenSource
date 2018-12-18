@@ -8750,7 +8750,7 @@ static int qseecom_probe(struct platform_device *pdev)
 
 	rc = dma_set_mask(qseecom.dev, DMA_BIT_MASK(64));
 	if (rc) {
-		pr_err("qseecom failed to set dma mask\n", rc);
+		pr_err("qseecom failed to set dma mask %d\n", rc);
 		goto exit_del_cdev;
 	}
 

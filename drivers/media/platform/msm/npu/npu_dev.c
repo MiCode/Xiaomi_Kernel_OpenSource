@@ -1720,7 +1720,7 @@ static int npu_of_parse_pwrlevels(struct npu_device *npu_dev,
 
 			clk_rate = clk_round_rate(npu_dev->core_clks[j].clk,
 				clk_array_values[i]);
-			pr_debug("clk %s rate [%ld]:[%ld]\n", clock_name,
+			pr_debug("clk %s rate [%u]:[%u]\n", clock_name,
 				clk_array_values[i], clk_rate);
 			level->clk_freq[j] = clk_rate;
 		}
