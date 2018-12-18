@@ -66,11 +66,5 @@ int sde_rotator_r3_create_debugfs(struct sde_rot_mgr *mgr,
 		return -EINVAL;
 	}
 
-	if (!debugfs_create_u32("constant_color", 0644,
-			debugfs_root, &hw_data->constant_color)) {
-		SDEROT_ERR("fail create constant_color\n");
-		return -EINVAL;
-	}
-
 	return 0;
 }
