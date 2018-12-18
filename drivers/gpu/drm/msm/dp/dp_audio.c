@@ -738,6 +738,8 @@ static int dp_audio_on(struct dp_audio *dp_audio)
 		return -EINVAL;
 	}
 
+	dp_audio_register_ext_disp(audio);
+
 	ext = &audio->ext_audio_data;
 
 	audio->session_on = true;
@@ -784,6 +786,8 @@ end:
 
 	audio->session_on = false;
 	audio->engine_on  = false;
+
+	dp_audio_deregister_ext_disp(audio);
 
 	return rc;
 }
@@ -858,8 +862,6 @@ struct dp_audio *dp_audio_get(struct platform_device *pdev,
 
 	catalog->init(catalog);
 
-	dp_audio_register_ext_disp(audio);
-
 	return dp_audio;
 
 error_notify_workqueue:
@@ -876,8 +878,6 @@ void dp_audio_put(struct dp_audio *dp_audio)
 		return;
 
 	audio = container_of(dp_audio, struct dp_audio_private, dp_audio);
-
-	dp_audio_deregister_ext_disp(audio);
 
 	mutex_destroy(&audio->ops_lock);
 
