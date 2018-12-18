@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -207,6 +207,7 @@ static void remote_etm_disable(struct coresight_device *csdev,
 				drvdata->inst_id);
 err:
 	mutex_unlock(&drvdata->mutex);
+	return;
 }
 
 static int remote_etm_trace_id(struct coresight_device *csdev)
@@ -315,6 +316,7 @@ static struct platform_driver remote_etm_driver = {
 	.remove         = remote_etm_remove,
 	.driver         = {
 		.name   = "coresight-remote-etm",
+		.owner	= THIS_MODULE,
 		.of_match_table = remote_etm_match,
 	},
 };
