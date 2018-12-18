@@ -136,8 +136,8 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "HEVC Quantization Range Minimum",
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.minimum = 0,
-		.maximum = 127,
-		.default_value = 1,
+		.maximum = 0x7F7F7F,
+		.default_value = 0x010101,
 		.step = 1,
 		.menu_skip_mask = 0,
 		.qmenu = NULL,
@@ -147,8 +147,8 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "HEVC Quantization Range Maximum",
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.minimum = 0,
-		.maximum = 127,
-		.default_value = 127,
+		.maximum = 0x7F7F7F,
+		.default_value = 0x7F7F7F,
 		.step = 1,
 		.menu_skip_mask = 0,
 		.qmenu = NULL,
@@ -2153,9 +2153,7 @@ int msm_venc_set_qp_range(struct msm_vidc_inst *inst)
 		dprintk(VIDC_ERR, "%s: get qpi_min failed\n", __func__);
 		return -EINVAL;
 	}
-	qp_range.qpi_min = ctrl->val;
-	qp_range.qpp_min = ctrl->val;
-	qp_range.qpb_min = ctrl->val;
+	qp_range.qp_min_packed = ctrl->val;
 
 	ctrl = msm_venc_get_ctrl(inst,
 			V4L2_CID_MPEG_VIDEO_HEVC_MAX_QP);
@@ -2163,16 +2161,12 @@ int msm_venc_set_qp_range(struct msm_vidc_inst *inst)
 		dprintk(VIDC_ERR, "%s: get qpi_max failed\n", __func__);
 		return -EINVAL;
 	}
-	qp_range.qpi_max = ctrl->val;
-	qp_range.qpp_max = ctrl->val;
-	qp_range.qpb_max = ctrl->val;
+	qp_range.qp_max_packed = ctrl->val;
 
 	dprintk(VIDC_DBG,
-		"%s: layers %#x qpi_min %#x qpi_max %#x qpp_min %#x qpp_max %#x qpb_min %#x qpb_max %#x\n",
-		__func__, qp_range.layer_id,
-		qp_range.qpi_min, qp_range.qpi_max,
-		qp_range.qpp_min, qp_range.qpp_max,
-		qp_range.qpb_min, qp_range.qpb_max);
+			"%s: layers %#x qp_min %#x qp_max %#x\n",
+			__func__, qp_range.layer_id,
+			qp_range.qp_min_packed, qp_range.qp_max_packed);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
 			HAL_PARAM_VENC_SESSION_QP_RANGE, &qp_range);
 	if (rc)

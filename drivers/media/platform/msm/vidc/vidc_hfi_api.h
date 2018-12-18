@@ -607,12 +607,8 @@ struct hal_quantization {
 };
 
 struct hal_quantization_range {
-	u32 qpi_min;
-	u32 qpp_min;
-	u32 qpb_min;
-	u32 qpi_max;
-	u32 qpp_max;
-	u32 qpb_max;
+	u32 qp_min_packed;
+	u32 qp_max_packed;
 	u32 layer_id;
 };
 

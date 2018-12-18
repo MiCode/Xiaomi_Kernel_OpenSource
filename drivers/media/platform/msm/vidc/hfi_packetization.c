@@ -1410,12 +1410,9 @@ int create_pkt_cmd_session_set_property(
 		 * 0xbbppii, where ii = qp range for I-frames,
 		 * pp = qp range for P-frames, etc.
 		 */
-		hfi->min_qp.qp_packed = hal_range->qpi_min |
-			hal_range->qpp_min << 8 |
-			hal_range->qpb_min << 16;
-		hfi->max_qp.qp_packed = hal_range->qpi_max |
-			hal_range->qpp_max << 8 |
-			hal_range->qpb_max << 16;
+		hfi->min_qp.qp_packed = hal_range->qp_min_packed;
+		hfi->max_qp.qp_packed = hal_range->qp_max_packed;
+
 		hfi->max_qp.layer_id = hal_range->layer_id;
 		hfi->min_qp.layer_id = hal_range->layer_id;
 
