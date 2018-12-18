@@ -303,7 +303,7 @@ void fixup_walt_sched_stats_common(struct rq *rq, struct task_struct *p,
  *	C1 busy time = 5 + 5 + 6 = 16ms
  *
  */
-__read_mostly int sched_freq_aggregate_threshold;
+__read_mostly bool sched_freq_aggr_en;
 
 static u64
 update_window_start(struct rq *rq, u64 wallclock, int event)
@@ -506,7 +506,6 @@ static u32  top_task_load(struct rq *rq)
 u64 freq_policy_load(struct rq *rq)
 {
 	unsigned int reporting_policy = sysctl_sched_freq_reporting_policy;
-	int freq_aggr_thresh = sched_freq_aggregate_threshold;
 	struct sched_cluster *cluster = rq->cluster;
 	u64 aggr_grp_load = cluster->aggr_grp_load;
 	u64 load, tt_load = 0;
@@ -517,7 +516,7 @@ u64 freq_policy_load(struct rq *rq)
 		goto done;
 	}
 
-	if (aggr_grp_load > freq_aggr_thresh)
+	if (sched_freq_aggr_en)
 		load = rq->prev_runnable_sum + aggr_grp_load;
 	else
 		load = rq->prev_runnable_sum + rq->grp_time.prev_runnable_sum;
@@ -540,7 +539,7 @@ u64 freq_policy_load(struct rq *rq)
 	}
 
 done:
-	trace_sched_load_to_gov(rq, aggr_grp_load, tt_load, freq_aggr_thresh,
+	trace_sched_load_to_gov(rq, aggr_grp_load, tt_load, sched_freq_aggr_en,
 				load, reporting_policy, walt_rotation_enabled,
 				sysctl_sched_little_cluster_coloc_fmin_khz,
 				coloc_boost_load);
@@ -2505,14 +2504,9 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
  */
 unsigned int __read_mostly sysctl_sched_enable_thread_grouping;
 
-/* Maximum allowed threshold before freq aggregation must be enabled */
-#define MAX_FREQ_AGGR_THRESH 1000
-
 struct related_thread_group *related_thread_groups[MAX_NUM_CGROUP_COLOC_ID];
 static LIST_HEAD(active_related_thread_groups);
 DEFINE_RWLOCK(related_thread_group_lock);
-
-unsigned int __read_mostly sysctl_sched_freq_aggregate_threshold_pct;
 
 /*
  * Task groups whose aggregate demand on a cpu is more than
@@ -2664,23 +2658,6 @@ DEFINE_MUTEX(policy_mutex);
 
 #define pct_to_real(tunable)	\
 		(div64_u64((u64)tunable * (u64)max_task_load(), 100))
-
-unsigned int update_freq_aggregate_threshold(unsigned int threshold)
-{
-	unsigned int old_threshold;
-
-	mutex_lock(&policy_mutex);
-
-	old_threshold = sysctl_sched_freq_aggregate_threshold_pct;
-
-	sysctl_sched_freq_aggregate_threshold_pct = threshold;
-	sched_freq_aggregate_threshold =
-		pct_to_real(sysctl_sched_freq_aggregate_threshold_pct);
-
-	mutex_unlock(&policy_mutex);
-
-	return old_threshold;
-}
 
 #define ADD_TASK	0
 #define REM_TASK	1
@@ -2912,7 +2889,6 @@ static int __init create_default_coloc_group(void)
 	list_add(&grp->list, &active_related_thread_groups);
 	write_unlock_irqrestore(&related_thread_group_lock, flags);
 
-	update_freq_aggregate_threshold(MAX_FREQ_AGGR_THRESH);
 	return 0;
 }
 late_initcall(create_default_coloc_group);
