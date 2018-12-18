@@ -176,8 +176,8 @@
 			qcom,sde-vig-csc-off = <0x1a00>;
 			qcom,sde-vig-qseed-off = <0xa00>;
 			qcom,sde-vig-qseed-size = <0xa0>;
-			qcom,sde-vig-gamut = <0x1d00 0x00050000>;
-			qcom,sde-vig-igc = <0x1d00 0x00050000>;
+			qcom,sde-vig-gamut = <0x1d00 0x00060000>;
+			qcom,sde-vig-igc = <0x1d00 0x00060000>;
 			qcom,sde-vig-inverse-pma;
 		};
 
