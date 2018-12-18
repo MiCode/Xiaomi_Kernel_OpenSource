@@ -19,7 +19,6 @@
 #include <dt-bindings/soc/qcom,ipcc.h>
 #include <dt-bindings/soc/qcom,rpmh-rsc.h>
 #include <dt-bindings/gpio/gpio.h>
-#include <dt-bindings/soc/qcom,dcc_v2.h>
 
 #include "kona-regulators.dtsi"
 
@@ -649,15 +648,6 @@
 		reg = <0xc264000 0x4>,
 		      <0x1fd3000 0x4>;
 		reg-names = "pshold-base", "tcsr-boot-misc-detect";
-	};
-
-	dcc: dcc_v2@1023000 {
-		compatible = "qcom,dcc-v2";
-		reg = <0x1023000 0x1000>,
-		      <0x103a000 0x6000>;
-		reg-names = "dcc-base", "dcc-ram-base";
-
-		dcc-ram-offset = <0x1a000>;
 	};
 
 	mdm0: qcom,mdm0 {
