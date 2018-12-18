@@ -47,7 +47,6 @@ extern struct mutex cluster_lock;
 extern rwlock_t related_thread_group_lock;
 extern __read_mostly unsigned int sched_ravg_hist_size;
 extern __read_mostly unsigned int sched_freq_aggregate;
-extern __read_mostly int sched_freq_aggregate_threshold;
 extern __read_mostly unsigned int sched_window_stats_policy;
 extern __read_mostly unsigned int sched_group_upmigrate;
 extern __read_mostly unsigned int sched_group_downmigrate;
@@ -305,6 +304,12 @@ extern void walt_rotate_work_init(void);
 extern void walt_rotation_checkpoint(int nr_big);
 extern unsigned int walt_rotation_enabled;
 extern unsigned int walt_get_default_coloc_group_load(void);
+
+extern __read_mostly bool sched_freq_aggr_en;
+static inline void walt_enable_frequency_aggregation(bool enable)
+{
+	sched_freq_aggr_en = enable;
+}
 
 #else /* CONFIG_SCHED_WALT */
 
