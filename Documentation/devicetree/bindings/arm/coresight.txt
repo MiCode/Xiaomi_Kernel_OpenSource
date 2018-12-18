@@ -157,6 +157,9 @@ its hardware characteristcs.
 
 	* qcom,tpdm-regs: List of regulators required.
 
+	* qcom,hw-enable-check: Check if the tpdm need to be probed as some tpdms
+	  are not enabled in secure device.
+
 * Required property for Remote ETMs:
 
 	* qcom,inst-id: must be present. QMI instance id for remote ETMs.
