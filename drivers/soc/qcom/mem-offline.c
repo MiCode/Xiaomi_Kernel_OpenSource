@@ -168,7 +168,7 @@ static int mem_event_callback(struct notifier_block *self,
 static int mem_online_remaining_blocks(void)
 {
 	unsigned long memblock_end_pfn = __phys_to_pfn(memblock_end_of_DRAM());
-	unsigned long ram_end_pfn = __phys_to_pfn(bootloader_memory_limit);
+	unsigned long ram_end_pfn = __phys_to_pfn(bootloader_memory_limit - 1);
 	unsigned long block_size, memblock, pfn;
 	unsigned int nid;
 	phys_addr_t phys_addr;
@@ -316,8 +316,12 @@ static int mem_parse_dt(struct platform_device *pdev)
 	struct device_node *node = pdev->dev.of_node;
 
 	val = of_get_property(node, "granule", NULL);
-	if (!val && !*val) {
+	if (!val) {
 		pr_err("mem-offine: granule property not found in DT\n");
+		return -EINVAL;
+	}
+	if (!*val) {
+		pr_err("mem-offine: invalid granule property\n");
 		return -EINVAL;
 	}
 	offline_granule = be32_to_cpup(val);
