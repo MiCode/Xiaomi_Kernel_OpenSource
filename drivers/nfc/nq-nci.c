@@ -488,25 +488,11 @@ int nfc_ioctl_power_states(struct file *filp, unsigned long arg)
 			usleep_range(10000, 10100);
 		}
 
-		if (gpio_is_valid(nqx_dev->ese_gpio)) {
-			if (!gpio_get_value(nqx_dev->ese_gpio)) {
-				dev_dbg(&nqx_dev->client->dev, "disabling en_gpio\n");
-				gpio_set_value(nqx_dev->en_gpio, 0);
-				usleep_range(10000, 10100);
-			} else {
-				dev_dbg(&nqx_dev->client->dev, "keeping en_gpio high\n");
-			}
-		} else {
-			dev_dbg(&nqx_dev->client->dev, "ese_gpio invalid, set en_gpio to low\n");
-			gpio_set_value(nqx_dev->en_gpio, 0);
-			usleep_range(10000, 10100);
-		}
 		if (nqx_dev->pdata->clk_pin_voting) {
 			r = nqx_clock_deselect(nqx_dev);
 			if (r < 0)
 				dev_err(&nqx_dev->client->dev, "unable to disable clock\n");
 		}
-		nqx_dev->nfc_ven_enabled = false;
 	} else if (arg == 1) {
 		nqx_enable_irq(nqx_dev);
 		dev_dbg(&nqx_dev->client->dev,
@@ -516,8 +502,6 @@ int nfc_ioctl_power_states(struct file *filp, unsigned long arg)
 			gpio_set_value(nqx_dev->firm_gpio, 0);
 			usleep_range(10000, 10100);
 		}
-		gpio_set_value(nqx_dev->en_gpio, 1);
-		usleep_range(10000, 10100);
 		if (nqx_dev->pdata->clk_pin_voting) {
 			r = nqx_clock_select(nqx_dev);
 			if (r < 0)
@@ -887,8 +871,6 @@ err_nfcc_reset_failed:
 		break;
 	}
 
-	/*Disable NFC by default to save power on boot*/
-	gpio_set_value(enable_gpio, 0);/* ULPM: Disable */
 	ret = 0;
 	goto done;
 
