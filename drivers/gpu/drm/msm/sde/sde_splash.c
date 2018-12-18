@@ -801,11 +801,11 @@ int sde_splash_free_resource(struct msm_kms *kms,
 		sde_power_resource_enable(phandle,
 					sde_kms->core_client, false);
 
-		/* send uevent to notify user to recycle resource */
-		_sde_splash_sent_pipe_update_uevent(sde_kms);
-
 		/* update impacted crtc and plane property by splash */
 		_sde_splash_update_property(sde_kms);
+
+		/* send uevent to notify user to recycle resource */
+		_sde_splash_sent_pipe_update_uevent(sde_kms);
 
 		/* set display's splash status to false after handoff is done */
 		_sde_splash_update_display_splash_status(sde_kms);
