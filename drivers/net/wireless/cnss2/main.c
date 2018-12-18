@@ -1696,6 +1696,7 @@ static ssize_t cnss_wl_pwr_on(struct device *dev,
 {
 	int pwr_state = 0;
 	struct cnss_plat_data *plat_priv = dev_get_drvdata(dev);
+	unsigned int timeout;
 
 	if (sscanf(buf, "%du", &pwr_state) != 1)
 		return -EINVAL;
@@ -1703,11 +1704,17 @@ static ssize_t cnss_wl_pwr_on(struct device *dev,
 	cnss_pr_dbg("vreg-wlan-en state change %d, count %zu", pwr_state,
 		    count);
 
-	if (pwr_state)
+	timeout = cnss_get_qmi_timeout();
+	if (pwr_state) {
 		cnss_power_on_device(plat_priv);
-	else
+		if (timeout) {
+			mod_timer(&plat_priv->fw_boot_timer,
+				  jiffies + msecs_to_jiffies(timeout));
+		}
+	} else {
 		cnss_power_off_device(plat_priv);
-
+		del_timer(&plat_priv->fw_boot_timer);
+	}
 	return count;
 }
 

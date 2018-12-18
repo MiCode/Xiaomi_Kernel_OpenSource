@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -101,6 +101,9 @@ static int cnss_stats_show_state(struct seq_file *s,
 			continue;
 		case CNSS_DRIVER_DEBUG:
 			seq_puts(s, "DRIVER_DEBUG");
+			continue;
+		case CNSS_DEV_REMOVED:
+			seq_puts(s, "DEV_REMOVED");
 			continue;
 		}
 

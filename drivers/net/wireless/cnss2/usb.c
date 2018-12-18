@@ -14,14 +14,50 @@
 #include "bus.h"
 #include "debug.h"
 #include "usb.h"
+#include "linux/delay.h"
 
-int cnss_usb_dev_powerup(struct cnss_usb_data *usb_priv)
+void cnss_usb_fw_boot_timeout_hdlr(struct cnss_usb_data *usb_priv)
+{
+	if (!usb_priv)
+		return;
+
+	cnss_pr_err("Timeout waiting for FW ready indication\n");
+}
+
+static int cnss_qcn7605_usb_powerup(struct cnss_plat_data *plat_priv)
+{
+	int ret = 0;
+	unsigned int timeout;
+
+	ret = cnss_power_on_device(plat_priv);
+	if (ret) {
+		cnss_pr_err("Failed to power on device, err = %d\n", ret);
+		goto out;
+	}
+
+	timeout = cnss_get_qmi_timeout();
+	if (timeout) {
+		mod_timer(&plat_priv->fw_boot_timer,
+			  jiffies + msecs_to_jiffies(timeout));
+	}
+
+out:
+	return ret;
+}
+
+int cnss_usb_dev_powerup(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
 
-	if (!usb_priv) {
-		cnss_pr_err("usb_priv is NULL\n");
-		return -ENODEV;
+	switch (plat_priv->device_id) {
+	case QCN7605_COMPOSITE_DEVICE_ID:
+	case QCN7605_STANDALONE_DEVICE_ID:
+		ret = cnss_qcn7605_usb_powerup(plat_priv);
+		break;
+	default:
+		cnss_pr_err("Unknown device_id found: %lu\n",
+			    plat_priv->device_id);
+		ret = -ENODEV;
 	}
 	return ret;
 }
@@ -38,10 +74,7 @@ int cnss_usb_wlan_register_driver(struct cnss_usb_wlan_driver *driver_ops)
 	}
 
 	usb_priv = plat_priv->bus_priv;
-	if (!usb_priv) {
-		cnss_pr_err("usb_priv is NULL\n");
-		return -ENODEV;
-	}
+	usb_priv->plat_priv = plat_priv;
 
 	if (usb_priv->driver_ops) {
 		cnss_pr_err("Driver has already registered\n");
@@ -74,16 +107,14 @@ EXPORT_SYMBOL(cnss_usb_wlan_unregister_driver);
 int cnss_usb_is_device_down(struct device *dev)
 {
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
-	struct cnss_usb_data *usb_priv;
 
 	if (!plat_priv) {
 		cnss_pr_err("plat_priv is NULL\n");
 		return -ENODEV;
 	}
 
-	usb_priv = plat_priv->bus_priv;
-	if (!usb_priv) {
-		cnss_pr_err("usb_priv is NULL\n");
+	if (test_bit(CNSS_DEV_REMOVED, &plat_priv->driver_state)) {
+		cnss_pr_err("usb device disconnected\n");
 		return -ENODEV;
 	}
 	return 0;
@@ -99,7 +130,17 @@ int cnss_usb_register_driver_hdlr(struct cnss_usb_data *usb_priv,
 	set_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state);
 	usb_priv->driver_ops = data;
 
-	ret = cnss_bus_call_driver_probe(plat_priv);
+	if (test_bit(CNSS_FW_READY, &plat_priv->driver_state)) {
+		cnss_pr_dbg("CNSS_FW_READY set - call wlan probe\n");
+		ret = cnss_bus_call_driver_probe(plat_priv);
+	} else {
+		ret = cnss_usb_dev_powerup(usb_priv->plat_priv);
+		if (ret) {
+			clear_bit(CNSS_DRIVER_LOADING,
+				  &plat_priv->driver_state);
+			usb_priv->driver_ops = NULL;
+		}
+	}
 
 	return ret;
 }
@@ -111,23 +152,31 @@ int cnss_usb_unregister_driver_hdlr(struct cnss_usb_data *usb_priv)
 	set_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state);
 	cnss_usb_dev_shutdown(usb_priv);
 	usb_priv->driver_ops = NULL;
-
+	usb_priv->plat_priv = NULL;
 	return 0;
 }
 
 int cnss_usb_dev_shutdown(struct cnss_usb_data *usb_priv)
 {
 	int ret = 0;
+	struct cnss_plat_data *plat_priv;
 
 	if (!usb_priv) {
 		cnss_pr_err("usb_priv is NULL\n");
 		return -ENODEV;
 	}
+	plat_priv = usb_priv->plat_priv;
 
 	switch (usb_priv->device_id) {
 	case QCN7605_COMPOSITE_DEVICE_ID:
 	case QCN7605_STANDALONE_DEVICE_ID:
-		cnss_usb_call_driver_remove(usb_priv);
+		cnss_pr_dbg("cnss driver state %lu\n", plat_priv->driver_state);
+		if (!test_bit(CNSS_DEV_REMOVED, &plat_priv->driver_state))
+			cnss_usb_call_driver_remove(usb_priv);
+
+		cnss_power_off_device(plat_priv);
+		clear_bit(CNSS_FW_READY, &plat_priv->driver_state);
+		clear_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state);
 		break;
 	default:
 		cnss_pr_err("Unknown device_id found: 0x%x\n",
@@ -222,8 +271,7 @@ static int cnss_usb_probe(struct usb_interface *interface,
 		    id->idVendor, id->idProduct);
 
 	usb_dev = interface_to_usbdev(interface);
-	usb_priv = devm_kzalloc(&usb_dev->dev, sizeof(*usb_priv),
-				GFP_KERNEL);
+	usb_priv = (struct cnss_usb_data *)plat_priv->bus_priv;
 	if (!usb_priv) {
 		ret = -ENOMEM;
 		goto out;
@@ -237,11 +285,11 @@ static int cnss_usb_probe(struct usb_interface *interface,
 	usb_priv->target_version = bcd_device;
 	cnss_set_usb_priv(interface, usb_priv);
 	plat_priv->device_id = usb_priv->device_id;
-	plat_priv->bus_priv = usb_priv;
 
 	/*increment the ref count of usb dev structure*/
 	usb_get_dev(usb_dev);
 
+	clear_bit(CNSS_DEV_REMOVED, &plat_priv->driver_state);
 	ret = cnss_register_subsys(plat_priv);
 	if (ret)
 		goto reset_ctx;
@@ -269,7 +317,6 @@ unregister_subsys:
 	cnss_unregister_subsys(plat_priv);
 reset_ctx:
 	plat_priv->bus_priv = NULL;
-	devm_kfree(&usb_dev->dev, usb_priv);
 out:
 	return ret;
 }
@@ -283,11 +330,12 @@ static void cnss_usb_remove(struct usb_interface *interface)
 	cnss_pr_dbg("driver state %lu\n", plat_priv->driver_state);
 	cnss_unregister_ramdump(plat_priv);
 	cnss_unregister_subsys(plat_priv);
-	usb_priv->plat_priv = NULL;
-	plat_priv->bus_priv = NULL;
 	usb_dev = interface_to_usbdev(interface);
 	usb_put_dev(usb_dev);
-	devm_kfree(&usb_dev->dev, usb_priv);
+	usb_priv->usb_intf = NULL;
+	usb_priv->usb_device_id = NULL;
+	set_bit(CNSS_DEV_REMOVED, &plat_priv->driver_state);
+	del_timer(&plat_priv->fw_boot_timer);
 }
 
 static int cnss_usb_suspend(struct usb_interface *interface, pm_message_t state)
@@ -349,6 +397,13 @@ static struct usb_driver cnss_usb_driver = {
 int cnss_usb_init(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
+	struct cnss_usb_data *usb_priv;
+
+	plat_priv->bus_priv = kzalloc(sizeof(*usb_priv), GFP_KERNEL);
+	if (!plat_priv->bus_priv) {
+		ret = -ENOMEM;
+		goto out;
+	}
 
 	ret = usb_register(&cnss_usb_driver);
 	if (ret) {
@@ -359,10 +414,12 @@ int cnss_usb_init(struct cnss_plat_data *plat_priv)
 
 	return 0;
 out:
+	kfree(plat_priv->bus_priv);
 	return ret;
 }
 
 void cnss_usb_deinit(struct cnss_plat_data *plat_priv)
 {
+	kfree(plat_priv->bus_priv);
 	usb_deregister(&cnss_usb_driver);
 }

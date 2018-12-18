@@ -196,6 +196,8 @@ void cnss_bus_fw_boot_timeout_hdlr(unsigned long data)
 	switch (plat_priv->bus_type) {
 	case CNSS_BUS_PCI:
 		return cnss_pci_fw_boot_timeout_hdlr(plat_priv->bus_priv);
+	case CNSS_BUS_USB:
+		return cnss_usb_fw_boot_timeout_hdlr(plat_priv->bus_priv);
 	default:
 		cnss_pr_err("Unsupported bus type: %d\n",
 			    plat_priv->bus_type);
@@ -269,7 +271,7 @@ int cnss_bus_dev_powerup(struct cnss_plat_data *plat_priv)
 	case CNSS_BUS_PCI:
 		return cnss_pci_dev_powerup(plat_priv->bus_priv);
 	case CNSS_BUS_USB:
-		return 0;
+		return cnss_usb_dev_powerup(plat_priv);
 	default:
 		cnss_pr_err("Unsupported bus type: %d\n",
 			    plat_priv->bus_type);
