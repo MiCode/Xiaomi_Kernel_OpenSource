@@ -42,25 +42,32 @@ static int cam_context_handle_hw_event(void *context, uint32_t evt_id,
 int cam_context_shutdown(struct cam_context *ctx)
 {
 	int rc = 0;
-	int32_t ctx_hdl = ctx->dev_hdl;
+	struct cam_release_dev_cmd cmd;
 
-	mutex_lock(&ctx->ctx_mutex);
-	if (ctx->state_machine[ctx->state].ioctl_ops.stop_dev) {
-		rc = ctx->state_machine[ctx->state].ioctl_ops.stop_dev(
-			ctx, NULL);
-		if (rc < 0)
-			CAM_ERR(CAM_CORE, "Error while dev stop %d", rc);
+	if (ctx->state > CAM_CTX_AVAILABLE && ctx->state < CAM_CTX_STATE_MAX) {
+		cmd.session_handle = ctx->session_hdl;
+		cmd.dev_handle = ctx->dev_hdl;
+		rc = cam_context_handle_release_dev(ctx, &cmd);
+		if (rc)
+			CAM_ERR(CAM_CORE,
+				"context release failed for dev_name %s",
+				ctx->dev_name);
+		else
+			cam_context_putref(ctx);
+	} else {
+		CAM_WARN(CAM_CORE,
+			"dev %s context id %u state %d invalid to release hdl",
+			ctx->dev_name, ctx->ctx_id, ctx->state);
+		rc = -EINVAL;
 	}
-	if (ctx->state_machine[ctx->state].ioctl_ops.release_dev) {
-		rc = ctx->state_machine[ctx->state].ioctl_ops.release_dev(
-			ctx, NULL);
-		if (rc < 0)
-			CAM_ERR(CAM_CORE, "Error while dev release %d", rc);
-	}
-	mutex_unlock(&ctx->ctx_mutex);
 
-	if (!rc)
-		rc = cam_destroy_device_hdl(ctx_hdl);
+	rc = cam_destroy_device_hdl(ctx->dev_hdl);
+	if (rc)
+		CAM_ERR(CAM_CORE, "destroy device hdl failed for node %s",
+			ctx->dev_name);
+	else
+		ctx->dev_hdl = -1;
+
 	return rc;
 }
 
@@ -484,6 +491,8 @@ int cam_context_handle_stop_dev(struct cam_context *ctx,
 		/* stop device can be optional for some driver */
 		CAM_WARN(CAM_CORE, "No stop device in dev %d, name %s state %d",
 			ctx->dev_hdl, ctx->dev_name, ctx->state);
+
+	ctx->last_flush_req = 0;
 	mutex_unlock(&ctx->ctx_mutex);
 
 	return rc;
@@ -518,6 +527,7 @@ int cam_context_init(struct cam_context *ctx,
 	ctx->dev_name = dev_name;
 	ctx->dev_id = dev_id;
 	ctx->ctx_id = ctx_id;
+	ctx->last_flush_req = 0;
 	ctx->ctx_crm_intf = NULL;
 	ctx->crm_ctx_intf = crm_node_intf;
 	ctx->hw_mgr_intf = hw_mgr_intf;

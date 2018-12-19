@@ -367,7 +367,7 @@ int cam_cpas_subdev_cmd(struct cam_cpas_intf *cpas_intf,
 	case CAM_QUERY_CAP: {
 		struct cam_cpas_query_cap query;
 
-		rc = copy_from_user(&query, (void __user *) cmd->handle,
+		rc = copy_from_user(&query, u64_to_user_ptr(cmd->handle),
 			sizeof(query));
 		if (rc) {
 			CAM_ERR(CAM_CPAS, "Failed in copy from user, rc=%d",
@@ -381,7 +381,7 @@ int cam_cpas_subdev_cmd(struct cam_cpas_intf *cpas_intf,
 		if (rc)
 			break;
 
-		rc = copy_to_user((void __user *) cmd->handle, &query,
+		rc = copy_to_user(u64_to_user_ptr(cmd->handle), &query,
 			sizeof(query));
 		if (rc)
 			CAM_ERR(CAM_CPAS, "Failed in copy to user, rc=%d", rc);
