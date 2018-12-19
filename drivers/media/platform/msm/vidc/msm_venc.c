@@ -3161,7 +3161,6 @@ int msm_venc_set_blur_resolution(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
-	struct hal_frame_size blur_res;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -3172,20 +3171,14 @@ int msm_venc_set_blur_resolution(struct msm_vidc_inst *inst)
 	ctrl = msm_venc_get_ctrl(inst,
 		V4L2_CID_MPEG_VIDC_VIDEO_BLUR_DIMENSIONS);
 	if (!ctrl) {
-		dprintk(VIDC_ERR, "%s: get blur width failed\n", __func__);
+		dprintk(VIDC_ERR,
+				"%s: Failed to get blur dimentions\n",
+				__func__);
 		return -EINVAL;
 	}
-	if (!ctrl->val)
-		return 0;
 
-	blur_res.width = (0xFFFF & ctrl->val);
-	blur_res.height = (0xFFFF0000 & ctrl->val) >> 16;
-	blur_res.buffer_type = HAL_BUFFER_INPUT;
-
-	dprintk(VIDC_DBG, "%s: %d %d\n", __func__,
-			blur_res.width, blur_res.height);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_CONFIG_VENC_BLUR_RESOLUTION, &blur_res);
+			HAL_CONFIG_VENC_BLUR_RESOLUTION, &ctrl->val);
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
