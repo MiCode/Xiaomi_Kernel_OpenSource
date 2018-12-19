@@ -9,6 +9,7 @@
 #include <linux/module.h>
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
+#include <linux/pm_opp.h>
 
 #define LUT_MAX_ENTRIES			40U
 #define CORE_COUNT_VAL(val)		(((val) & (GENMASK(18, 16))) >> 16)
@@ -17,7 +18,8 @@
 
 enum {
 	REG_ENABLE,
-	REG_LUT_TABLE,
+	REG_FREQ_LUT_TABLE,
+	REG_VOLT_LUT_TABLE,
 	REG_PERF_STATE,
 
 	REG_ARRAY_SIZE,
@@ -34,7 +36,8 @@ struct cpufreq_qcom {
 
 static const u16 cpufreq_qcom_std_offsets[REG_ARRAY_SIZE] = {
 	[REG_ENABLE]		= 0x0,
-	[REG_LUT_TABLE]		= 0x100,
+	[REG_FREQ_LUT_TABLE]	= 0x100,
+	[REG_VOLT_LUT_TABLE]	= 0x200,
 	[REG_PERF_STATE]	= 0x320,
 };
 
@@ -88,6 +91,15 @@ qcom_cpufreq_hw_fast_switch(struct cpufreq_policy *policy,
 static int qcom_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)
 {
 	struct cpufreq_qcom *c;
+	struct device *cpu_dev;
+	int ret;
+
+	cpu_dev = get_cpu_device(policy->cpu);
+	if (!cpu_dev) {
+		pr_err("%s: failed to get cpu%d device\n", __func__,
+				policy->cpu);
+		return -ENODEV;
+	}
 
 	c = qcom_freq_domain_map[policy->cpu];
 	if (!c) {
@@ -96,6 +108,10 @@ static int qcom_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)
 	}
 
 	cpumask_copy(policy->cpus, &c->related_cpus);
+
+	ret = dev_pm_opp_get_opp_count(cpu_dev);
+	if (ret <= 0)
+		dev_err(cpu_dev, "OPP table is not ready\n");
 
 	policy->fast_switch_possible = true;
 	policy->freq_table = c->table;
@@ -127,21 +143,26 @@ static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 				    struct cpufreq_qcom *c)
 {
 	struct device *dev = &pdev->dev;
-	void __iomem *base;
-	u32 data, src, lval, i, core_count, prev_cc, prev_freq, cur_freq;
+	void __iomem *base_freq, *base_volt;
+	u32 data, src, lval, i, core_count, prev_cc, prev_freq, cur_freq, volt;
+	unsigned long cpu;
 
 	c->table = devm_kcalloc(dev, LUT_MAX_ENTRIES + 1,
 				sizeof(*c->table), GFP_KERNEL);
 	if (!c->table)
 		return -ENOMEM;
 
-	base = c->reg_bases[REG_LUT_TABLE];
+	base_freq = c->reg_bases[REG_FREQ_LUT_TABLE];
+	base_volt = c->reg_bases[REG_VOLT_LUT_TABLE];
 
 	for (i = 0; i < LUT_MAX_ENTRIES; i++) {
-		data = readl_relaxed(base + i * LUT_ROW_SIZE);
+		data = readl_relaxed(base_freq + i * LUT_ROW_SIZE);
 		src = (data & GENMASK(31, 30)) >> 30;
 		lval = data & GENMASK(7, 0);
 		core_count = CORE_COUNT_VAL(data);
+
+		data = readl_relaxed(base_volt + i * LUT_ROW_SIZE);
+		volt = (data & GENMASK(11, 0)) * 1000;
 
 		if (src)
 			c->table[i].frequency = c->xo_rate * lval / 1000;
@@ -170,6 +191,10 @@ static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 		}
 		prev_cc = core_count;
 		prev_freq = cur_freq;
+
+		cur_freq *= 1000;
+		for_each_cpu(cpu, &c->related_cpus)
+			dev_pm_opp_add(get_cpu_device(cpu), cur_freq, volt);
 	}
 
 	c->table[i].frequency = CPUFREQ_TABLE_END;
