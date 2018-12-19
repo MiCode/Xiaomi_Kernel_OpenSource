@@ -5211,7 +5211,8 @@ int dsi_display_drm_ext_bridge_init(struct dsi_display *display,
 		return 0;
 
 	/* check if there is no external bridge defined */
-	if (!display->ext_bridge_of)
+	if (!display->ext_bridge_of ||
+		!display->panel->host_config.ext_bridge_mode)
 		return 0;
 
 	ext_bridge = of_drm_find_bridge(display->ext_bridge_of);
