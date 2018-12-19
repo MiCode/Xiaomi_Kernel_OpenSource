@@ -39,7 +39,7 @@
 				0 0 0 2 &intc GIC_SPI 415 IRQ_TYPE_LEVEL_HIGH
 				0 0 0 3 &intc GIC_SPI 416 IRQ_TYPE_LEVEL_HIGH
 				0 0 0 4 &intc GIC_SPI 417 IRQ_TYPE_LEVEL_HIGH
-				0 0 0 5 &pdc GIC_SPI 236 IRQ_TYPE_LEVEL_HIGH>;
+				0 0 0 5 &intc GIC_SPI 236 IRQ_TYPE_LEVEL_HIGH>;
 		msi-parent = <&pcie2_msi>;
 
 		perst-gpio = <&tlmm 85 0>;
