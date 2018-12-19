@@ -1029,7 +1029,7 @@ static int msm_vidc_set_rotation(struct msm_vidc_inst *inst)
 		return value;
 	}
 
-	vflip = msm_comm_g_ctrl_for_id(inst, V4L2_CID_HFLIP);
+	vflip = msm_comm_g_ctrl_for_id(inst, V4L2_CID_VFLIP);
 	if (vflip < 0) {
 		dprintk(VIDC_ERR, "Get control for vflip failed\n");
 		return value;
