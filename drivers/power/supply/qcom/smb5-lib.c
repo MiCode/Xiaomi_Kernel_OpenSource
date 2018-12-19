@@ -5210,7 +5210,7 @@ int smblib_set_prop_pr_swap_in_progress(struct smb_charger *chg,
 				const union power_supply_propval *val)
 {
 	int rc;
-	u8 stat, orientation;
+	u8 stat = 0, orientation;
 
 	chg->pr_swap_in_progress = val->intval;
 
