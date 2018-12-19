@@ -102,12 +102,14 @@ struct dp_display_private {
 
 	struct workqueue_struct *wq;
 	struct delayed_work hdcp_cb_work;
-	struct delayed_work connect_work;
+	struct work_struct connect_work;
 	struct work_struct attention_work;
 	struct mutex session_lock;
 
 	u32 active_stream_cnt;
 	struct dp_mst mst;
+
+	u32 tot_dsc_blks_in_use;
 
 	struct notifier_block usb_nb;
 };
@@ -260,7 +262,7 @@ static void dp_display_hdcp_cb_work(struct work_struct *work)
 
 	dp = container_of(dw, struct dp_display_private, hdcp_cb_work);
 
-	if (!dp->power_on || atomic_read(&dp->aborted))
+	if (!dp->power_on || !dp->is_connected || atomic_read(&dp->aborted))
 		return;
 
 	status = &dp->link->hdcp_status;
@@ -327,10 +329,7 @@ static void dp_display_notify_hdcp_status_cb(void *ptr,
 
 	dp->link->hdcp_status.hdcp_state = state;
 
-	mutex_lock(&dp->session_lock);
-	if (dp->power_on && !atomic_read(&dp->aborted))
-		queue_delayed_work(dp->wq, &dp->hdcp_cb_work, HZ/4);
-	mutex_unlock(&dp->session_lock);
+	queue_delayed_work(dp->wq, &dp->hdcp_cb_work, HZ/4);
 }
 
 static void dp_display_deinitialize_hdcp(struct dp_display_private *dp)
@@ -532,21 +531,15 @@ static void dp_display_post_open(struct dp_display *dp_display)
 
 	/* if cable is already connected, send notification */
 	if (dp->hpd->hpd_high)
-		queue_delayed_work(dp->wq, &dp->connect_work, HZ * 10);
+		queue_work(dp->wq, &dp->connect_work);
 	else
 		dp_display->post_open = NULL;
 }
 
 static int dp_display_send_hpd_notification(struct dp_display_private *dp)
 {
-	u32 timeout_sec;
 	int ret = 0;
 	bool hpd = dp->is_connected;
-
-	if (dp_display_framework_ready(dp))
-		timeout_sec = 5;
-	else
-		timeout_sec = 10;
 
 	dp->aux->state |= DP_STATE_NOTIFICATION_SENT;
 
@@ -562,8 +555,11 @@ static int dp_display_send_hpd_notification(struct dp_display_private *dp)
 	if (!dp->mst.mst_active && (dp->power_on == hpd))
 		goto skip_wait;
 
+	if (!dp_display_framework_ready(dp))
+		goto skip_wait;
+
 	if (!wait_for_completion_timeout(&dp->notification_comp,
-						HZ * timeout_sec)) {
+						HZ * 5)) {
 		pr_warn("%s timeout\n", hpd ? "connect" : "disconnect");
 		ret = -EINVAL;
 	}
@@ -781,9 +777,9 @@ static int dp_display_usbpd_configure_cb(struct device *dev)
 
 	dp_display_host_init(dp);
 
-	/* check for hpd high and framework ready */
-	if (dp->hpd->hpd_high && dp_display_framework_ready(dp))
-		queue_delayed_work(dp->wq, &dp->connect_work, 0);
+	/* check for hpd high */
+	if (dp->hpd->hpd_high)
+		queue_work(dp->wq, &dp->connect_work);
 end:
 	return rc;
 }
@@ -874,7 +870,7 @@ static void dp_display_disconnect_sync(struct dp_display_private *dp)
 	dp->aux->abort(dp->aux);
 
 	/* wait for idle state */
-	cancel_delayed_work(&dp->connect_work);
+	cancel_work(&dp->connect_work);
 	cancel_work(&dp->attention_work);
 	flush_workqueue(dp->wq);
 
@@ -971,8 +967,7 @@ static void dp_display_attention_work(struct work_struct *work)
 			dp_display_handle_disconnect(dp);
 		} else {
 			if (!dp->mst.mst_active)
-				queue_delayed_work(dp->wq,
-					&dp->connect_work, 0);
+				queue_work(dp->wq, &dp->connect_work);
 		}
 
 		goto mst_attention;
@@ -982,7 +977,7 @@ static void dp_display_attention_work(struct work_struct *work)
 		dp_display_handle_disconnect(dp);
 
 		dp->panel->video_test = true;
-		queue_delayed_work(dp->wq, &dp->connect_work, 0);
+		queue_work(dp->wq, &dp->connect_work);
 
 		goto mst_attention;
 	}
@@ -1032,7 +1027,7 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 			dp->debug->mst_hpd_sim)
 		queue_work(dp->wq, &dp->attention_work);
 	else if (!dp->power_on)
-		queue_delayed_work(dp->wq, &dp->connect_work, 0);
+		queue_work(dp->wq, &dp->connect_work);
 	else
 		pr_debug("ignored\n");
 
@@ -1042,8 +1037,7 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 static void dp_display_connect_work(struct work_struct *work)
 {
 	int rc = 0;
-	struct delayed_work *dw = to_delayed_work(work);
-	struct dp_display_private *dp = container_of(dw,
+	struct dp_display_private *dp = container_of(work,
 			struct dp_display_private, connect_work);
 
 	if (atomic_read(&dp->aborted)) {
@@ -1263,6 +1257,8 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 		goto error_debug;
 	}
 
+	dp->tot_dsc_blks_in_use = 0;
+
 	dp->debug->hdcp_disabled = hdcp_disabled;
 	dp_display_update_hdcp_status(dp, true);
 
@@ -1464,6 +1460,29 @@ static int dp_display_set_stream_info(struct dp_display *dp_display,
 	return rc;
 }
 
+static void dp_display_update_dsc_resources(struct dp_display_private *dp,
+		struct dp_panel *panel, bool enable)
+{
+	u32 dsc_blk_cnt = 0;
+
+	if (panel->pinfo.comp_info.comp_type == MSM_DISPLAY_COMPRESSION_DSC &&
+		panel->pinfo.comp_info.comp_ratio) {
+		dsc_blk_cnt = panel->pinfo.h_active /
+				dp->parser->max_dp_dsc_input_width_pixs;
+		if (panel->pinfo.h_active %
+				dp->parser->max_dp_dsc_input_width_pixs)
+			dsc_blk_cnt++;
+	}
+
+	if (enable) {
+		dp->tot_dsc_blks_in_use += dsc_blk_cnt;
+		panel->tot_dsc_blks_in_use += dsc_blk_cnt;
+	} else {
+		dp->tot_dsc_blks_in_use -= dsc_blk_cnt;
+		panel->tot_dsc_blks_in_use -= dsc_blk_cnt;
+	}
+}
+
 static int dp_display_enable(struct dp_display *dp_display, void *panel)
 {
 	int rc = 0;
@@ -1487,6 +1506,7 @@ static int dp_display_enable(struct dp_display *dp_display, void *panel)
 	if (rc)
 		goto end;
 
+	dp_display_update_dsc_resources(dp, panel, true);
 	dp->power_on = true;
 end:
 	mutex_unlock(&dp->session_lock);
@@ -1607,6 +1627,7 @@ static int dp_display_disable(struct dp_display *dp_display, void *panel)
 	}
 
 	dp_display_stream_disable(dp, dp_panel);
+	dp_display_update_dsc_resources(dp, dp_panel, false);
 end:
 	mutex_unlock(&dp->session_lock);
 	return 0;
@@ -1869,6 +1890,7 @@ static void dp_display_convert_to_dp_mode(struct dp_display *dp_display,
 {
 	struct dp_display_private *dp;
 	struct dp_panel *dp_panel;
+	u32 free_dsc_blks = 0, required_dsc_blks = 0;
 
 	if (!dp_display || !drm_mode || !dp_mode || !panel) {
 		pr_err("invalid input\n");
@@ -1879,6 +1901,23 @@ static void dp_display_convert_to_dp_mode(struct dp_display *dp_display,
 	dp_panel = panel;
 
 	memset(dp_mode, 0, sizeof(*dp_mode));
+
+	free_dsc_blks = dp->parser->max_dp_dsc_blks -
+				dp->tot_dsc_blks_in_use +
+				dp_panel->tot_dsc_blks_in_use;
+	required_dsc_blks = drm_mode->hdisplay /
+				dp->parser->max_dp_dsc_input_width_pixs;
+	if (drm_mode->hdisplay % dp->parser->max_dp_dsc_input_width_pixs)
+		required_dsc_blks++;
+
+	if (free_dsc_blks >= required_dsc_blks)
+		dp_mode->capabilities |= DP_PANEL_CAPS_DSC;
+
+	pr_debug("in_use:%d, max:%d, free:%d, req:%d, caps:0x%x, width:%d",
+			dp->tot_dsc_blks_in_use, dp->parser->max_dp_dsc_blks,
+			free_dsc_blks, required_dsc_blks, dp_mode->capabilities,
+			dp->parser->max_dp_dsc_input_width_pixs);
+
 	dp_panel->convert_to_dp_mode(dp_panel, drm_mode, dp_mode);
 }
 
@@ -1911,7 +1950,7 @@ static int dp_display_create_workqueue(struct dp_display_private *dp)
 	}
 
 	INIT_DELAYED_WORK(&dp->hdcp_cb_work, dp_display_hdcp_cb_work);
-	INIT_DELAYED_WORK(&dp->connect_work, dp_display_connect_work);
+	INIT_WORK(&dp->connect_work, dp_display_connect_work);
 	INIT_WORK(&dp->attention_work, dp_display_attention_work);
 
 	return 0;

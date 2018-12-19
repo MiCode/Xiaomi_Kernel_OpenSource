@@ -605,8 +605,8 @@ static void dp_catalog_panel_config_hdr(struct dp_catalog_panel *panel, bool en)
 
 	if (panel->stream_id == DP_STREAM_1) {
 		sdp_cfg_off = MMSS_DP1_SDP_CFG - MMSS_DP_SDP_CFG;
-		sdp_cfg2_off = MMSS_DP1_SDP_CFG2 - MMSS_DP_SDP_CFG;
-		sdp_cfg3_off = MMSS_DP1_SDP_CFG3 - MMSS_DP_SDP_CFG;
+		sdp_cfg2_off = MMSS_DP1_SDP_CFG2 - MMSS_DP_SDP_CFG2;
+		sdp_cfg3_off = MMSS_DP1_SDP_CFG3 - MMSS_DP_SDP_CFG3;
 		misc1_misc0_off = DP1_MISC1_MISC0 - DP_MISC1_MISC0;
 	}
 
@@ -727,8 +727,6 @@ static void dp_catalog_ctrl_config_ctrl(struct dp_catalog_ctrl *ctrl, u8 ln_cnt)
 	dp_write(catalog->exe_mode, io_data, DP_MAINLINK_CTRL, cfg);
 
 	pr_debug("DP_MAINLINK_CTRL=0x%x\n", cfg);
-
-	dp_write(catalog->exe_mode, io_data, DP_MAINLINK_LEVELS, 0xa08);
 }
 
 static void dp_catalog_panel_config_ctrl(struct dp_catalog_panel *panel,
@@ -1867,6 +1865,46 @@ static void dp_catalog_ctrl_update_rg(struct dp_catalog_ctrl *ctrl, u32 ch,
 	dp_write(catalog->exe_mode, io_data, DP_DP0_RG + reg_off, rg);
 }
 
+static void dp_catalog_ctrl_mainlink_levels(struct dp_catalog_ctrl *ctrl,
+		u8 lane_cnt)
+{
+	struct dp_catalog_private *catalog;
+	struct dp_io_data *io_data;
+	u32 mainlink_levels, safe_to_exit_level = 14;
+
+	catalog = dp_catalog_get_priv(ctrl);
+
+	io_data   = catalog->io.dp_link;
+
+	switch (lane_cnt) {
+	case 1:
+		safe_to_exit_level = 14;
+		break;
+	case 2:
+		safe_to_exit_level = 8;
+		break;
+	case 4:
+		safe_to_exit_level = 5;
+		break;
+	default:
+		pr_debug("setting the default safe_to_exit_level = %u\n",
+				safe_to_exit_level);
+		break;
+	}
+
+	mainlink_levels = dp_read(catalog->exe_mode, io_data,
+					DP_MAINLINK_LEVELS);
+	mainlink_levels &= 0xFE0;
+	mainlink_levels |= safe_to_exit_level;
+
+	pr_debug("mainlink_level = 0x%x, safe_to_exit_level = 0x%x\n",
+			mainlink_levels, safe_to_exit_level);
+
+	dp_write(catalog->exe_mode, io_data, DP_MAINLINK_LEVELS,
+			mainlink_levels);
+}
+
+
 /* panel related catalog functions */
 static int dp_catalog_panel_timing_cfg(struct dp_catalog_panel *panel)
 {
@@ -2070,29 +2108,6 @@ static void dp_catalog_audio_config_acr(struct dp_catalog_audio *audio)
 	dp_write(catalog->exe_mode, io_data, MMSS_DP_AUDIO_ACR_CTRL, acr_ctrl);
 }
 
-static void dp_catalog_audio_safe_to_exit_level(struct dp_catalog_audio *audio)
-{
-	struct dp_catalog_private *catalog;
-	struct dp_io_data *io_data;
-	u32 mainlink_levels, safe_to_exit_level;
-
-	catalog = dp_catalog_get_priv(audio);
-
-	io_data   = catalog->io.dp_link;
-	safe_to_exit_level = audio->data;
-
-	mainlink_levels = dp_read(catalog->exe_mode, io_data,
-					DP_MAINLINK_LEVELS);
-	mainlink_levels &= 0xFE0;
-	mainlink_levels |= safe_to_exit_level;
-
-	pr_debug("mainlink_level = 0x%x, safe_to_exit_level = 0x%x\n",
-			mainlink_levels, safe_to_exit_level);
-
-	dp_write(catalog->exe_mode, io_data, DP_MAINLINK_LEVELS,
-			mainlink_levels);
-}
-
 static void dp_catalog_audio_enable(struct dp_catalog_audio *audio)
 {
 	struct dp_catalog_private *catalog;
@@ -2256,8 +2271,8 @@ static void dp_catalog_panel_config_spd(struct dp_catalog_panel *panel)
 
 	if (panel->stream_id == DP_STREAM_1) {
 		sdp_cfg_off = MMSS_DP1_SDP_CFG - MMSS_DP_SDP_CFG;
-		sdp_cfg2_off = MMSS_DP1_SDP_CFG2 - MMSS_DP_SDP_CFG;
-		sdp_cfg3_off = MMSS_DP1_SDP_CFG3 - MMSS_DP_SDP_CFG;
+		sdp_cfg2_off = MMSS_DP1_SDP_CFG2 - MMSS_DP_SDP_CFG2;
+		sdp_cfg3_off = MMSS_DP1_SDP_CFG3 - MMSS_DP_SDP_CFG3;
 	}
 
 	spd_cfg = dp_read(catalog->exe_mode, io_data,
@@ -2417,6 +2432,7 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_parser *parser)
 		.update_rg = dp_catalog_ctrl_update_rg,
 		.channel_dealloc = dp_catalog_ctrl_channel_dealloc,
 		.fec_config = dp_catalog_ctrl_fec_config,
+		.mainlink_levels = dp_catalog_ctrl_mainlink_levels,
 	};
 	struct dp_catalog_audio audio = {
 		.init       = dp_catalog_audio_init,
@@ -2425,7 +2441,6 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_parser *parser)
 		.config_sdp = dp_catalog_audio_config_sdp,
 		.set_header = dp_catalog_audio_set_header,
 		.get_header = dp_catalog_audio_get_header,
-		.safe_to_exit_level = dp_catalog_audio_safe_to_exit_level,
 	};
 	struct dp_catalog_panel panel = {
 		.timing_cfg = dp_catalog_panel_timing_cfg,

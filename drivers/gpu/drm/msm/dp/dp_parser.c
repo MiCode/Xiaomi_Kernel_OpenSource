@@ -695,13 +695,27 @@ static int dp_parser_mst(struct dp_parser *parser)
 
 static void dp_parser_dsc(struct dp_parser *parser)
 {
+	int rc;
 	struct device *dev = &parser->pdev->dev;
 
 	parser->dsc_feature_enable = of_property_read_bool(dev->of_node,
 			"qcom,dsc-feature-enable");
 
-	pr_debug("dsc parsing successful. dsc:%d\n",
-			parser->dsc_feature_enable);
+	rc = of_property_read_u32(dev->of_node,
+		"qcom,max-dp-dsc-blks", &parser->max_dp_dsc_blks);
+	if (rc || !parser->max_dp_dsc_blks)
+		parser->dsc_feature_enable = false;
+
+	rc = of_property_read_u32(dev->of_node,
+		"qcom,max-dp-dsc-input-width-pixs",
+		&parser->max_dp_dsc_input_width_pixs);
+	if (rc || !parser->max_dp_dsc_input_width_pixs)
+		parser->dsc_feature_enable = false;
+
+	pr_debug("dsc parsing successful. dsc:%d, blks:%d, width:%d\n",
+			parser->dsc_feature_enable,
+			parser->max_dp_dsc_blks,
+			parser->max_dp_dsc_input_width_pixs);
 }
 
 static void dp_parser_fec(struct dp_parser *parser)
