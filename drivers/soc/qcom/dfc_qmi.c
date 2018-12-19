@@ -603,7 +603,7 @@ static struct qmi_elem_info dfc_get_flow_status_resp_msg_v01_ei[] = {
 		.data_type	= QMI_STRUCT,
 		.elem_len	= DFC_MAX_BEARERS_V01,
 		.elem_size	= sizeof(struct
-					 dfc_get_flow_status_resp_msg_v01),
+					 dfc_flow_status_info_type_v01),
 		.is_array	= VAR_LEN_ARRAY,
 		.tlv_type	= 0x10,
 		.offset		= offsetof(struct

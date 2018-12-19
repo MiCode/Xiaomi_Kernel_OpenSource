@@ -60,6 +60,20 @@
 			reg = <0x84000000 0xb700000>;
 			label = "mpss_adsp_mem";
 		};
+
+		qseecom_mem: qseecom_region@0 {
+			compatible = "shared-dma-pool";
+			reusable;
+			alignment = <0x400000>;
+			size = <0x1400000>;
+		};
+
+		qseecom_ta_mem: qseecom_ta_region@0 {
+			compatible = "shared-dma-pool";
+			reusable;
+			alignment = <0x400000>;
+			size = <0x1000000>;
+		};
 	};
 
 	cpus {
@@ -209,22 +223,39 @@
 	};
 
 	clock_rpmh: qcom,rpmh {
-		compatible = "qcom,dummycc";
-		clock-output-names = "rpmh_clocks";
+		compatible = "qcom,rpmh-clk-sdxprairie";
+		mboxes = <&apps_rsc 0>;
+		mbox-names = "apps";
 		#clock-cells = <1>;
 	};
 
 	clock_aop: qcom,aop {
-		compatible = "qcom,dummycc";
-		clock-output-names = "aop_clocks";
+		compatible = "qcom,aop-qmp-clk";
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "qdss_clk";
 		#clock-cells = <1>;
 	};
 
-	clock_gcc: qcom,gcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gcc_clocks";
+	clock_gcc: qcom,gcc@100000 {
+		compatible = "qcom,gcc-sdxprairie", "syscon";
+		reg = <0x100000 0x1f0000>;
+		reg-names = "cc_base";
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		clock-names = "bi_tcxo";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		vdd_cx_ao-supply = <&VDD_CX_LEVEL_AO>;
+		vdd_mx-supply = <&VDD_MX_LEVEL>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+	};
+
+	clock_debugcc: qcom,cc-debug {
+		compatible = "qcom,debugcc-sdxprairie";
+		qcom,cc-count = <1>;
+		qcom,gcc = <&clock_gcc>;
+		clock-names = "xo_clk_src";
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		#clock-cells = <1>;
 	};
 
 	serial_uart: serial@831000 {
@@ -626,6 +657,7 @@
 #include "msm-arm-smmu-sdxprairie.dtsi"
 #include "sdxprairie-gdsc.dtsi"
 #include "sdxprairie-usb.dtsi"
+#include "sdxprairie-blsp.dtsi"
 
 &gdsc_usb30 {
 	status = "ok";

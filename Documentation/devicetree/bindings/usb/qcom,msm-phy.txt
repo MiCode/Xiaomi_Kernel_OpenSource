@@ -110,8 +110,12 @@ Optional properties:
  - qcom,vbus-valid-override: If present, indicates VBUS pin is not connected to
    the USB PHY and the controller must rely on external VBUS notification in
    order to manually relay the notification to the SSPHY.
+ - qcom,vdd-max-load-uA: If present, indicates the maximum current (in uA) the
+   PHY is expected to draw from the vdd power supply.
  - qcom,core-voltage-level: This property must be a list of three integer
    values (no, min, max) where each value represents either a voltage in
+ - qcom,core-max-load-uA: If present, indicates the maximum current (in uA) the
+   PHY is expected to draw from the core power supply.
    microvolts or a value corresponding to voltage corner.
  - qcom,link-training-reset: This property indicates to start link training
    timer to reset the elastic buffer based on rx equalization value.

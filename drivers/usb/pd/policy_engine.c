@@ -3352,6 +3352,7 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 	struct usbpd *pd = container_of(nb, struct usbpd, psy_nb);
 	union power_supply_propval val;
 	enum power_supply_typec_mode typec_mode;
+	union extcon_property_value eval;
 	int ret;
 
 	if (ptr != pd->usb_psy || evt != PSY_EVENT_PROP_CHANGED)
@@ -3468,6 +3469,11 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 		}
 
 		pd->current_pr = PR_SINK;
+
+		eval.intval = typec_mode > POWER_SUPPLY_TYPEC_SOURCE_DEFAULT ?
+				1 : 0;
+		extcon_set_property(pd->extcon, EXTCON_USB,
+				EXTCON_PROP_USB_TYPEC_MED_HIGH_CURRENT, eval);
 		break;
 
 	/* Source states */

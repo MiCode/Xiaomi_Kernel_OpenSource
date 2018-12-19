@@ -79,6 +79,8 @@ const char *ipa3_event_name[] = {
 	__stringify(WLAN_FWR_SSR_BEFORE_SHUTDOWN),
 	__stringify(IPA_GSB_CONNECT),
 	__stringify(IPA_GSB_DISCONNECT),
+	__stringify(IPA_COALESCE_ENABLE),
+	__stringify(IPA_COALESCE_DISABLE),
 };
 
 const char *ipa3_hdr_l2_type_name[] = {

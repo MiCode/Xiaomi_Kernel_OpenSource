@@ -113,13 +113,13 @@
 #define S0_P2_SHIFT_405				0x6
 #define S1_P2_SHIFT_405				0x12
 #define S2_P2_SHIFT_0_1_405			0x1E
-#define S2_P2_SHIFT_2_5_405			0x0
+#define S2_P2_SHIFT_2_5_405			0x2
 #define S3_P2_SHIFT_405				0xA
 #define S4_P2_SHIFT_405				0x16
 #define S5_P2_SHIFT_405				0x6
 #define S6_P2_SHIFT_405				0x12
 #define S7_P2_SHIFT_0_1_405			0x1E
-#define S7_P2_SHIFT_2_5_405			0x0
+#define S7_P2_SHIFT_2_5_405			0x2
 #define S8_P2_SHIFT_405				0xA
 #define S9_P2_SHIFT_405				0x16
 
@@ -258,7 +258,7 @@ int calibrate_405(struct tsens_device *tmdev)
 		tmp = ((qfprom_cdata[0] & S2_P2_MASK_0_1_405)
 				>> S2_P2_SHIFT_0_1_405);
 		p2[2] = ((qfprom_cdata[1] & S2_P2_MASK_2_5_405)
-				>> S2_P2_SHIFT_2_5_405) | tmp;
+				<< S2_P2_SHIFT_2_5_405) | tmp;
 		p2[3] = (qfprom_cdata[1] & S3_P2_MASK_405) >> S3_P2_SHIFT_405;
 		p2[4] = (qfprom_cdata[1] & S4_P2_MASK_405) >> S4_P2_SHIFT_405;
 		p2[5] = (qfprom_cdata[2] & S5_P2_MASK_405) >> S5_P2_SHIFT_405;
@@ -266,7 +266,7 @@ int calibrate_405(struct tsens_device *tmdev)
 		tmp = ((qfprom_cdata[2] & S7_P2_MASK_0_1_405)
 				>> S7_P2_SHIFT_0_1_405);
 		p2[7] = ((qfprom_cdata[3] & S7_P2_MASK_2_5_405)
-				>> S7_P2_SHIFT_2_5_405) | tmp;
+				<< S7_P2_SHIFT_2_5_405) | tmp;
 		p2[8] = (qfprom_cdata[3] & S8_P2_MASK_405) >> S8_P2_SHIFT_405;
 		p2[9] = (qfprom_cdata[3] & S9_P2_MASK_405) >> S9_P2_SHIFT_405;
 

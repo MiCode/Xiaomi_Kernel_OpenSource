@@ -43,6 +43,7 @@
 #include <linux/platform_device.h>
 #include <linux/input/synaptics_dsx.h>
 #include "synaptics_dsx_core.h"
+#include "linux/moduleparam.h"
 
 #define SYN_I2C_RETRY_TIMES 10
 #define rd_msgs  1
@@ -52,6 +53,8 @@ static unsigned char *wr_buf;
 static struct synaptics_dsx_hw_interface hw_if;
 
 static struct platform_device *synaptics_dsx_i2c_device;
+
+active_tp_setup(synaptics);
 
 #ifdef CONFIG_OF
 static int parse_dt(struct device *dev, struct synaptics_dsx_board_data *bdata)
@@ -475,7 +478,11 @@ static int synaptics_rmi4_i2c_probe(struct i2c_client *client,
 		const struct i2c_device_id *dev_id)
 {
 	int retval;
+	struct device_node *dt = client->dev.of_node;
 
+	if (synaptics_check_assigned_tp(dt, "compatible",
+		"qcom,i2c-touch-active") < 0)
+		goto err_dt_not_match;
 	if (!i2c_check_functionality(client->adapter,
 			I2C_FUNC_SMBUS_BYTE_DATA)) {
 		dev_err(&client->dev,
@@ -548,6 +555,9 @@ static int synaptics_rmi4_i2c_probe(struct i2c_client *client,
 	}
 
 	return 0;
+
+err_dt_not_match:
+	return -ENODEV;
 }
 
 static int synaptics_rmi4_i2c_remove(struct i2c_client *client)

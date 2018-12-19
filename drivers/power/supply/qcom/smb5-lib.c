@@ -220,7 +220,7 @@ int smblib_icl_override(struct smb_charger *chg, enum icl_override_mode  mode)
 static int smblib_select_sec_charger_locked(struct smb_charger *chg,
 					int sec_chg)
 {
-	int rc;
+	int rc = 0;
 
 	switch (sec_chg) {
 	case POWER_SUPPLY_CHARGER_SEC_CP:
@@ -4565,7 +4565,13 @@ static bool smblib_src_lpd(struct smb_charger *chg)
 
 static void typec_sink_insertion(struct smb_charger *chg)
 {
+	int rc;
+
 	vote(chg->usb_icl_votable, OTG_VOTER, true, 0);
+	rc = smblib_set_charge_param(chg, &chg->param.freq_switcher,
+					chg->chg_freq.freq_above_otg_threshold);
+	if (rc < 0)
+		dev_err(chg->dev, "Error in setting freq_boost rc=%d\n", rc);
 
 	if (chg->use_extcon) {
 		smblib_notify_usb_host(chg, true);
@@ -4603,7 +4609,13 @@ static void typec_src_insertion(struct smb_charger *chg)
 
 static void typec_sink_removal(struct smb_charger *chg)
 {
+	int rc;
+
 	vote(chg->usb_icl_votable, OTG_VOTER, false, 0);
+	rc = smblib_set_charge_param(chg, &chg->param.freq_switcher,
+					chg->chg_freq.freq_removal);
+	if (rc < 0)
+		dev_err(chg->dev, "Error in setting freq_removal rc=%d\n", rc);
 
 	if (chg->use_extcon) {
 		if (chg->otg_present)
@@ -5671,6 +5683,14 @@ static void smblib_iio_deinit(struct smb_charger *chg)
 		iio_channel_release(chg->iio.sbux_chan);
 	if (!IS_ERR_OR_NULL(chg->iio.vph_v_chan))
 		iio_channel_release(chg->iio.vph_v_chan);
+	if (!IS_ERR_OR_NULL(chg->iio.die_temp_chan))
+		iio_channel_release(chg->iio.die_temp_chan);
+	if (!IS_ERR_OR_NULL(chg->iio.connector_temp_chan))
+		iio_channel_release(chg->iio.connector_temp_chan);
+	if (!IS_ERR_OR_NULL(chg->iio.skin_temp_chan))
+		iio_channel_release(chg->iio.skin_temp_chan);
+	if (!IS_ERR_OR_NULL(chg->iio.smb_temp_chan))
+		iio_channel_release(chg->iio.smb_temp_chan);
 }
 
 int smblib_init(struct smb_charger *chg)

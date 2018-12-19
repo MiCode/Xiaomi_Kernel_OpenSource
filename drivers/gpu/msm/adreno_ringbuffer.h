@@ -108,6 +108,8 @@ struct adreno_ringbuffer_pagetable_info {
  * @gpr11: The gpr11 value of this RB
  * @preempted_midway: Indicates that the RB was preempted before rptr = wptr
  * @preempt_lock: Lock to protect the wptr pointer while it is being updated
+ * @skip_inline_wptr: Used during preemption to make sure wptr is updated in
+ * hardware
  */
 struct adreno_ringbuffer {
 	uint32_t flags;
@@ -130,6 +132,7 @@ struct adreno_ringbuffer {
 	unsigned int gpr11;
 	int preempted_midway;
 	spinlock_t preempt_lock;
+	bool skip_inline_wptr;
 };
 
 /* Returns the current ringbuffer */

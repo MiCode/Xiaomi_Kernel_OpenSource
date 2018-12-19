@@ -730,4 +730,9 @@
 		compatible = "qcom,msm-dai-q6-spdif";
 		qcom,msm-dai-q6-dev-id = <20483>;
 	};
+
+	afe_loopback_tx: qcom,msm-dai-q6-afe-loopback-tx {
+		compatible = "qcom,msm-dai-q6-dev";
+		qcom,msm-dai-q6-dev-id = <24577>;
+	};
 };

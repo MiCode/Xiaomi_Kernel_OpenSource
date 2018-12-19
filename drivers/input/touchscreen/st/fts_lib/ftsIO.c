@@ -67,11 +67,11 @@
 #include "ftsHardware.h"
 #include "ftsIO.h"
 #include "ftsTool.h"
+#include "../fts.h"
 
 static char tag[8] = "[ FTS ]\0";
 static struct i2c_client *client;
 static u16 I2CSAD;
-
 
 int openChannel(struct i2c_client *clt)
 {
@@ -102,18 +102,37 @@ int fts_readCmd(u8 *cmd, int cmdLength, u8 *outBuf, int byteToRead)
 	int ret = -1;
 	int retry = 0;
 	struct i2c_msg I2CMsg[2];
+	struct fts_ts_info *info = i2c_get_clientdata(client);
+	uint8_t *buf = info->i2c_data;
+
+	/*
+	 * Reassign memory for i2c_data in case length is greater than 32 bytes
+	 */
+	if (info->i2c_data_len < cmdLength + byteToRead + 1) {
+		kfree(info->i2c_data);
+		info->i2c_data = kmalloc(cmdLength + byteToRead + 1,
+							GFP_KERNEL);
+		if (!info->i2c_data) {
+			info->i2c_data_len = 0;
+			return -ENOMEM;
+		}
+		info->i2c_data_len = cmdLength + byteToRead + 1;
+		buf = info->i2c_data;
+	}
 
 	//write msg
 	I2CMsg[0].addr = (__u16)I2CSAD;
 	I2CMsg[0].flags = (__u16)0;
 	I2CMsg[0].len = (__u16)cmdLength;
-	I2CMsg[0].buf = (__u8 *)cmd;
+	I2CMsg[0].buf = buf;
 
 	//read msg
 	I2CMsg[1].addr = (__u16)I2CSAD;
 	I2CMsg[1].flags = I2C_M_RD;
 	I2CMsg[1].len = byteToRead;
-	I2CMsg[1].buf = (__u8 *)outBuf;
+	I2CMsg[1].buf = buf + cmdLength;
+
+	memcpy(buf, cmd, cmdLength);
 
 	if (client == NULL)
 		return ERROR_I2C_O;
@@ -128,6 +147,9 @@ int fts_readCmd(u8 *cmd, int cmdLength, u8 *outBuf, int byteToRead)
 			tag, __func__, ERROR_I2C_R);
 		return ERROR_I2C_R;
 	}
+
+	memcpy(outBuf, buf + cmdLength, byteToRead);
+
 	return OK;
 }
 
@@ -136,11 +158,29 @@ int fts_writeCmd(u8 *cmd, int cmdLength)
 	int ret = -1;
 	int retry = 0;
 	struct i2c_msg I2CMsg[1];
+	struct fts_ts_info *info = i2c_get_clientdata(client);
+	uint8_t *buf = info->i2c_data;
+
+	/*
+	 * Reassign memory for i2c_data in case length is greater than 32 bytes
+	 */
+	if (info->i2c_data_len < cmdLength + 1) {
+		kfree(info->i2c_data);
+		info->i2c_data = kmalloc(cmdLength + 1, GFP_KERNEL);
+		if (!info->i2c_data) {
+			info->i2c_data_len = 0;
+			return -ENOMEM;
+		}
+		info->i2c_data_len = cmdLength + 1;
+		buf = info->i2c_data;
+	}
 
 	I2CMsg[0].addr = (__u16)I2CSAD;
 	I2CMsg[0].flags = (__u16)0;
 	I2CMsg[0].len = (__u16)cmdLength;
-	I2CMsg[0].buf = (__u8 *)cmd;
+	I2CMsg[0].buf = buf;
+
+	memcpy(buf, cmd, cmdLength);
 
 	if (client == NULL)
 		return ERROR_I2C_O;
@@ -164,11 +204,29 @@ int fts_writeFwCmd(u8 *cmd, int cmdLength)
 	int ret2 = -1;
 	int retry = 0;
 	struct i2c_msg I2CMsg[1];
+	struct fts_ts_info *info = i2c_get_clientdata(client);
+	uint8_t *buf = info->i2c_data;
+
+	/*
+	 * Reassign memory for i2c_data in case length is greater than 32 bytes
+	 */
+	if (info->i2c_data_len < cmdLength + 1) {
+		kfree(info->i2c_data);
+		info->i2c_data = kmalloc(cmdLength + 1, GFP_KERNEL);
+		if (!info->i2c_data) {
+			info->i2c_data_len = 0;
+			return -ENOMEM;
+		}
+		info->i2c_data_len = cmdLength + 1;
+		buf = info->i2c_data;
+	}
 
 	I2CMsg[0].addr = (__u16)I2CSAD;
 	I2CMsg[0].flags = (__u16)0;
 	I2CMsg[0].len = (__u16)cmdLength;
-	I2CMsg[0].buf = (__u8 *)cmd;
+	I2CMsg[0].buf = buf;
+
+	memcpy(buf, cmd, cmdLength);
 
 	if (client == NULL)
 		return ERROR_I2C_O;
@@ -201,23 +259,44 @@ int writeReadCmd(u8 *writeCmd1, int writeCmdLength, u8 *readCmd1,
 	int ret = -1;
 	int retry = 0;
 	struct i2c_msg I2CMsg[3];
+	struct fts_ts_info *info = i2c_get_clientdata(client);
+	uint8_t *buf = info->i2c_data;
+	uint8_t wr_len = writeCmdLength + readCmdLength + byteToRead;
+
+	/*
+	 * Reassign memory for i2c_data in case length is greater than 32 bytes
+	 */
+	if (info->i2c_data_len < wr_len + 1) {
+		kfree(info->i2c_data);
+		info->i2c_data = kmalloc(wr_len + 1, GFP_KERNEL);
+		if (!info->i2c_data) {
+			info->i2c_data_len = 0;
+			return -ENOMEM;
+		}
+		info->i2c_data_len = wr_len + 1;
+		buf = info->i2c_data;
+	}
+
 	//write msg
 	I2CMsg[0].addr = (__u16)I2CSAD;
 	I2CMsg[0].flags = (__u16)0;
 	I2CMsg[0].len = (__u16)writeCmdLength;
-	I2CMsg[0].buf = (__u8 *)writeCmd1;
+	I2CMsg[0].buf = buf;
 
 	//write msg
 	I2CMsg[1].addr = (__u16)I2CSAD;
 	I2CMsg[1].flags = (__u16)0;
 	I2CMsg[1].len = (__u16)readCmdLength;
-	I2CMsg[1].buf = (__u8 *)readCmd1;
+	I2CMsg[1].buf = buf + writeCmdLength;
 
 	//read msg
 	I2CMsg[2].addr = (__u16)I2CSAD;
 	I2CMsg[2].flags = I2C_M_RD;
 	I2CMsg[2].len = byteToRead;
-	I2CMsg[2].buf = (__u8 *)outBuf;
+	I2CMsg[2].buf = buf + writeCmdLength + readCmdLength;
+
+	memcpy(buf, writeCmd1, writeCmdLength);
+	memcpy(buf + writeCmdLength, readCmd1, readCmdLength);
 
 	if (client == NULL)
 		return ERROR_I2C_O;
@@ -233,6 +312,9 @@ int writeReadCmd(u8 *writeCmd1, int writeCmdLength, u8 *readCmd1,
 			tag, __func__, ERROR_I2C_WR);
 		return ERROR_I2C_WR;
 	}
+
+	memcpy(outBuf, buf + writeCmdLength + readCmdLength, byteToRead);
+
 	return OK;
 }
 

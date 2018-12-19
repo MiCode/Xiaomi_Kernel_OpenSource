@@ -359,6 +359,14 @@
 			reg = <0 0x3e400000 0 0x1400000>;
 		};
 
+		adsp_mem: adsp_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0 0x00000000 0 0xffffffff>;
+			reusable;
+			alignment = <0 0x400000>;
+			size = <0 0x800000>;
+		};
+
 		/* global autoconfigured region for contiguous allocations */
 		linux,cma {
 			compatible = "shared-dma-pool";
@@ -567,8 +575,10 @@
 		compatible = "qcom,msm-eud";
 		interrupt-names = "eud_irq";
 		interrupts = <GIC_SPI 189 IRQ_TYPE_LEVEL_HIGH>;
-		reg = <0x1610000 0x2000>;
-		reg-names = "eud_base";
+		reg = <0x1610000 0x2000>,
+		      <0x1612000 0x1000>;
+		reg-names = "eud_base", "eud_mode_mgr2";
+		qcom,secure-eud-en;
 		status = "ok";
 	};
 
@@ -624,6 +634,38 @@
 				      0x0f1d1424 0x0f1d1428
 				      0x0f1d142c 0x0f1d1430>;
 		qcom,config-reg = <0x0f1d1434>;
+	};
+
+	gpi_dma0: qcom,gpi-dma@0x04a00000 {
+		#dma-cells = <5>;
+		compatible = "qcom,gpi-dma";
+		reg = <0x04a00000 0x60000>;
+		reg-names = "gpi-top";
+		interrupts = <0 335 0>, <0 336 0>, <0 337 0>, <0 338 0>,
+			     <0 339 0>, <0 340 0>, <0 341 0>, <0 342 0>;
+		qcom,ev-factor = <2>;
+		qcom,max-num-gpii = <8>;
+		qcom,gpii-mask = <0x1f>;
+		iommus = <&apps_smmu 0x0136 0x0>;
+		qcom,smmu-cfg = <0x1>;
+		qcom,iova-range = <0x0 0x100000 0x0 0x100000>;
+		status = "ok";
+	};
+
+	gpi_dma1: qcom,gpi-dma@0x04c00000 {
+		#dma-cells = <5>;
+		compatible = "qcom,gpi-dma";
+		reg = <0x04c00000 0x60000>;
+		reg-names = "gpi-top";
+		interrupts = <0 314 0>, <0 315 0>, <0 316 0>, <0 317 0>,
+			     <0 318 0>, <0 319 0>, <0 320 0>, <0 321 0>;
+		qcom,ev-factor = <2>;
+		qcom,max-num-gpii = <8>;
+		qcom,gpii-mask = <0x0f>;
+		qcom,smmu-cfg = <0x1>;
+		qcom,iova-range = <0x0 0x100000 0x0 0x100000>;
+		iommus = <&apps_smmu 0x0156 0x0>;
+		status = "ok";
 	};
 
 	cpuss_dump: cpuss_dump {
@@ -753,6 +795,85 @@
 		reg = <0x0F111000 0x1000>;
 
 		#mbox-cells = <1>;
+	};
+
+	qcom,msm-cdsp-loader {
+		compatible = "qcom,cdsp-loader";
+		qcom,proc-img-to-load = "cdsp";
+	};
+
+	qcom,msm-adsprpc-mem {
+		compatible = "qcom,msm-adsprpc-mem-region";
+		memory-region = <&adsp_mem>;
+		restrict-access;
+	};
+
+	qcom,msm_fastrpc {
+		compatible = "qcom,msm-fastrpc-compute";
+		qcom,rpc-latency-us = <611>;
+		qcom,adsp-remoteheap-vmid = <22 37>;
+		qcom,fastrpc-adsp-audio-pdr;
+		qcom,fastrpc-adsp-sensors-pdr;
+
+		qcom,msm_fastrpc_compute_cb1 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x0C01 0x0>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb2 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x0C02 0x0>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb3 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x0C03 0x0>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb4 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x0C04 0x0>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb5 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x0C05 0x0>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb6 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x0C06 0x0>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb9 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			qcom,secure-context-bank;
+			iommus = <&apps_smmu 0x0C09 0x0>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb10 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&apps_smmu 0x0043 0x0>,
+				 <&apps_smmu 0x0044 0x0>;
+			shared-sid = <2>;
+			shared-cb  = <5>;
+			dma-coherent;
+		};
 	};
 
 	rpm-glink {
@@ -1051,6 +1172,7 @@
 #include "trinket-gdsc.dtsi"
 #include "trinket-usb.dtsi"
 #include "msm-arm-smmu-trinket.dtsi"
+#include "trinket-qupv3.dtsi"
 
 &ufs_phy_gdsc {
 	status = "ok";

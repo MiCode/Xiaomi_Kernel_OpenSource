@@ -1162,9 +1162,9 @@
 					qcom,msm-bus,num-cases = <2>;
 					qcom,msm-bus,num-paths = <1>;
 					qcom,msm-bus,vectors-KBps =
-					<MSM_BUS_MASTER_CAMNOC_HF1
+					<MSM_BUS_MASTER_CAMNOC_RT
 					MSM_BUS_SLAVE_EBI_CH0 0 0>,
-					<MSM_BUS_MASTER_CAMNOC_HF1
+					<MSM_BUS_MASTER_CAMNOC_RT
 					MSM_BUS_SLAVE_EBI_CH0 0 0>;
 				};
 				qcom,axi-port-camnoc {
@@ -1173,9 +1173,9 @@
 					qcom,msm-bus,num-cases = <2>;
 					qcom,msm-bus,num-paths = <1>;
 					qcom,msm-bus,vectors-KBps =
-					<MSM_BUS_MASTER_CAMNOC_HF1_UNCOMP
+					<MSM_BUS_MASTER_CAMNOC_RT_UNCOMP
 					MSM_BUS_SLAVE_CAMNOC_UNCOMP 0 0>,
-					<MSM_BUS_MASTER_CAMNOC_HF1_UNCOMP
+					<MSM_BUS_MASTER_CAMNOC_RT_UNCOMP
 					MSM_BUS_SLAVE_CAMNOC_UNCOMP 0 0>;
 				};
 			};
@@ -1204,6 +1204,32 @@
 					MSM_BUS_SLAVE_CAMNOC_UNCOMP 0 0>;
 				};
 			};
+			qcom,axi-port4 {
+				qcom,axi-port-name = "cam_sf_1";
+				qcom,axi-port-mnoc {
+					qcom,msm-bus,name = "cam_sf_1_mnoc";
+					qcom,msm-bus-vector-dyn-vote;
+					qcom,msm-bus,num-cases = <2>;
+					qcom,msm-bus,num-paths = <1>;
+					qcom,msm-bus,vectors-KBps =
+					<MSM_BUS_MASTER_CAMNOC_NRT
+					MSM_BUS_SLAVE_EBI_CH0 0 0>,
+					<MSM_BUS_MASTER_CAMNOC_NRT
+					MSM_BUS_SLAVE_EBI_CH0 0 0>;
+				};
+				qcom,axi-port-camnoc {
+					qcom,msm-bus,name = "cam_sf_1_camnoc";
+					qcom,msm-bus-vector-dyn-vote;
+					qcom,msm-bus,num-cases = <2>;
+					qcom,msm-bus,num-paths = <1>;
+					qcom,msm-bus,vectors-KBps =
+					<MSM_BUS_MASTER_CAMNOC_NRT_UNCOMP
+					MSM_BUS_SLAVE_CAMNOC_UNCOMP 0 0>,
+					<MSM_BUS_MASTER_CAMNOC_NRT_UNCOMP
+					MSM_BUS_SLAVE_CAMNOC_UNCOMP 0 0>;
+				};
+			};
+
 		};
 	};
 };

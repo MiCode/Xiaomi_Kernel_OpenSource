@@ -50,9 +50,6 @@ static void qiib_cleanup(void);
  * @devicep:		Pointer to the qiib class device structure.
  * @poll_wait_queue:	poll thread wait queue.
  * @irq_num:		IRQ number usd for this device.
- * @rx_irq_reset_reg:	Reference to the register to reset the rx irq
- *			line, if applicable.
- * @irq_mask:		Mask written to @rx_irq_reset_reg to clear the irq.
  * @irq_pending_count:	The number of IRQs pending.
  * @irq_pending_count_lock: Lock to protect @irq_pending_cont.
  * @ssr_name:		Name of the subsystem recognized by the SSR framework.
@@ -71,8 +68,6 @@ struct qiib_dev {
 	wait_queue_head_t poll_wait_queue;
 
 	uint32_t irq_line;
-	void __iomem *rx_irq_reset_reg;
-	uint32_t irq_mask;
 	uint32_t irq_pending_count;
 	spinlock_t irq_pending_count_lock;
 
@@ -331,9 +326,6 @@ static irqreturn_t qiib_irq_handler(int irq, void *priv)
 	spin_unlock_irqrestore(&devp->irq_pending_count_lock, flags);
 	wake_up_interruptible(&devp->poll_wait_queue);
 
-	if (devp->rx_irq_reset_reg)
-		writel_relaxed(devp->irq_mask, devp->rx_irq_reset_reg);
-
 	QIIB_DBG("%s name[%s] pend_count[%d]\n", __func__,
 				devp->dev_name, devp->irq_pending_count);
 
@@ -379,7 +371,6 @@ static int qiib_parse_node(struct device_node *node, struct qiib_dev *devp)
 static int qiib_init_notifs(struct device_node *node, struct qiib_dev *devp)
 {
 	struct irq_data *irqtype_data;
-	uint32_t irq_clear[2];
 	uint32_t irqtype;
 	char *key;
 	int ret = -ENODEV;
@@ -400,41 +391,13 @@ static int qiib_init_notifs(struct device_node *node, struct qiib_dev *devp)
 	irqtype = irqd_get_trigger_type(irqtype_data);
 	QIIB_DBG("%s: irqtype = %d\n", __func__, irqtype);
 
-	if (irqtype & IRQF_TRIGGER_HIGH) {
-		key = "qcom,rx-irq-clr-mask";
-		ret = of_property_read_u32(node, key, &devp->irq_mask);
-		if (ret) {
-			QIIB_ERR("%s: missing key: %s\n", __func__, key);
-			ret = -ENODEV;
-			goto missing_key;
-		}
-		QIIB_DBG("%s: %s = %d\n", __func__, key, devp->irq_mask);
-
-		key = "qcom,rx-irq-clr";
-		ret = of_property_read_u32_array(node, key, irq_clear,
-							ARRAY_SIZE(irq_clear));
-		if (ret) {
-			QIIB_ERR("%s: missing key: %s\n", __func__, key);
-			ret = -ENODEV;
-			goto missing_key;
-		}
-
-		devp->rx_irq_reset_reg = ioremap_nocache(irq_clear[0],
-								irq_clear[1]);
-		if (!devp->rx_irq_reset_reg) {
-			QIIB_ERR("%s: unable to map rx reset reg\n", __func__);
-			ret = -ENOMEM;
-			goto missing_key;
-		}
-	}
-
 	devp->nb.notifier_call = qiib_restart_notifier_cb;
 	devp->notifier_handle = subsys_notif_register_notifier(devp->ssr_name,
 								&devp->nb);
 	if (IS_ERR_OR_NULL(devp->notifier_handle)) {
 		QIIB_ERR("%s: Could not register SSR notifier cb\n", __func__);
 		ret = -EINVAL;
-		goto ssr_reg_fail;
+		goto missing_key;
 	}
 
 	ret = request_irq(devp->irq_line, qiib_irq_handler, irqtype,
@@ -449,11 +412,6 @@ static int qiib_init_notifs(struct device_node *node, struct qiib_dev *devp)
 
 req_irq_fail:
 	subsys_notif_unregister_notifier(devp->notifier_handle,	&devp->nb);
-ssr_reg_fail:
-	if (devp->rx_irq_reset_reg) {
-		iounmap(devp->rx_irq_reset_reg);
-		devp->rx_irq_reset_reg = NULL;
-	}
 missing_key:
 	return ret;
 }

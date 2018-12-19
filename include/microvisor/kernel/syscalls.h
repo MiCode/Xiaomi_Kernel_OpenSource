@@ -582,6 +582,123 @@ _okl4_sys_axon_trigger_send(okl4_kcap_t axon_id)
 
 /**
  *
+ * @brief Re-start a vCPU that was stopped for debug.
+ *
+ *    @details
+ *    This operation starts a vCPU that was stopped for debug, either with
+ *        an
+ *    explicit debug_suspend operation, or because of a single-step or
+ *        hitting a
+ *    breakpoint instruction.
+ *
+ * @param target
+ * @param single_step
+ *    If true, single-step the target.
+ *
+ * @retval error
+ *
+ */
+
+#if defined(__ARM_EABI__)
+
+#if defined(__RVCT__) || defined(__RVCT_GNU__)
+#elif defined(__ADS__)
+#else
+OKL4_FORCE_INLINE okl4_error_t
+_okl4_sys_debug_resume(okl4_kcap_t target, okl4_bool_t single_step)
+{
+    register uint32_t r0 asm("r0") = (uint32_t)target;
+    register uint32_t r1 asm("r1") = (uint32_t)single_step;
+    __asm__ __volatile__(
+            ""hvc(5208)"\n\t"
+            : "+r"(r0), "+r"(r1)
+            :
+            : "cc", "memory", "r2", "r3", "r4", "r5"
+            );
+
+
+    return (okl4_error_t)r0;
+}
+#endif
+
+#else
+
+OKL4_FORCE_INLINE okl4_error_t
+_okl4_sys_debug_resume(okl4_kcap_t target, okl4_bool_t single_step)
+{
+    register okl4_register_t x0 asm("x0") = (okl4_register_t)target;
+    register okl4_register_t x1 asm("x1") = (okl4_register_t)single_step;
+    __asm__ __volatile__(
+            "" hvc(5208) "\n\t"
+            : "+r"(x0), "+r"(x1)
+            :
+            : "cc", "memory", "x2", "x3", "x4", "x5", "x6", "x7"
+            );
+
+
+    return (okl4_error_t)x0;
+}
+
+#endif
+
+/**
+ *
+ * @brief Stop a vCPU executing for debug purposes.
+ *
+ *    @details
+ *    This operation stops a vCPU's execution until next restarted by the
+ *    corresponding debug resume.
+ *
+ *    Note: A vCPU cannot debug-suspend itself.
+ *
+ * @param target
+ *
+ * @retval error
+ *
+ */
+
+#if defined(__ARM_EABI__)
+
+#if defined(__RVCT__) || defined(__RVCT_GNU__)
+#elif defined(__ADS__)
+#else
+OKL4_FORCE_INLINE okl4_error_t
+_okl4_sys_debug_suspend(okl4_kcap_t target)
+{
+    register uint32_t r0 asm("r0") = (uint32_t)target;
+    __asm__ __volatile__(
+            ""hvc(5209)"\n\t"
+            : "+r"(r0)
+            :
+            : "cc", "memory", "r1", "r2", "r3", "r4", "r5"
+            );
+
+
+    return (okl4_error_t)r0;
+}
+#endif
+
+#else
+
+OKL4_FORCE_INLINE okl4_error_t
+_okl4_sys_debug_suspend(okl4_kcap_t target)
+{
+    register okl4_register_t x0 asm("x0") = (okl4_register_t)target;
+    __asm__ __volatile__(
+            "" hvc(5209) "\n\t"
+            : "+r"(x0)
+            :
+            : "cc", "memory", "x1", "x2", "x3", "x4", "x5", "x6", "x7"
+            );
+
+
+    return (okl4_error_t)x0;
+}
+
+#endif
+
+/**
+ *
  * @brief Acknowledge the delivery of an interrupt.
  *
  *    @details
@@ -4516,10 +4633,73 @@ _okl4_sys_schedule_profile_vcpu_get_data(okl4_kcap_t vcpu,
 
 /**
  *
- * OKL4 Microvisor system call: SCHEDULER_SUSPEND
+ * OKL4 Microvisor system call: SCHEDULER_AFFINITY_GET
  *
  * @param scheduler_id
- * @param power_state
+ * @param vcpu_id
+ *
+ * @retval error
+ * @retval cpu_index
+ *
+ */
+
+#if defined(__ARM_EABI__)
+
+#if defined(__RVCT__) || defined(__RVCT_GNU__)
+#elif defined(__ADS__)
+#else
+OKL4_FORCE_INLINE struct _okl4_sys_scheduler_affinity_get_return
+_okl4_sys_scheduler_affinity_get(okl4_kcap_t scheduler_id, okl4_kcap_t vcpu_id)
+{
+    struct _okl4_sys_scheduler_affinity_get_return result;
+
+    register uint32_t r0 asm("r0") = (uint32_t)scheduler_id;
+    register uint32_t r1 asm("r1") = (uint32_t)vcpu_id;
+    __asm__ __volatile__(
+            ""hvc(5182)"\n\t"
+            : "+r"(r0), "+r"(r1)
+            :
+            : "cc", "memory", "r2", "r3", "r4", "r5"
+            );
+
+
+    result.error = (okl4_error_t)(r0);
+    result.cpu_index = (okl4_cpu_id_t)(r1);
+    return result;
+}
+#endif
+
+#else
+
+OKL4_FORCE_INLINE struct _okl4_sys_scheduler_affinity_get_return
+_okl4_sys_scheduler_affinity_get(okl4_kcap_t scheduler_id, okl4_kcap_t vcpu_id)
+{
+    struct _okl4_sys_scheduler_affinity_get_return result;
+
+    register okl4_register_t x0 asm("x0") = (okl4_register_t)scheduler_id;
+    register okl4_register_t x1 asm("x1") = (okl4_register_t)vcpu_id;
+    __asm__ __volatile__(
+            "" hvc(5182) "\n\t"
+            : "+r"(x0), "+r"(x1)
+            :
+            : "cc", "memory", "x2", "x3", "x4", "x5", "x6", "x7"
+            );
+
+
+    result.error = (okl4_error_t)(x0);
+    result.cpu_index = (okl4_cpu_id_t)(x1);
+    return result;
+}
+
+#endif
+
+/**
+ *
+ * OKL4 Microvisor system call: SCHEDULER_AFFINITY_SET
+ *
+ * @param scheduler_id
+ * @param vcpu_id
+ * @param cpu_index
  *
  * @retval error
  *
@@ -4531,16 +4711,17 @@ _okl4_sys_schedule_profile_vcpu_get_data(okl4_kcap_t vcpu,
 #elif defined(__ADS__)
 #else
 OKL4_FORCE_INLINE okl4_error_t
-_okl4_sys_scheduler_suspend(okl4_kcap_t scheduler_id,
-        okl4_power_state_t power_state)
+_okl4_sys_scheduler_affinity_set(okl4_kcap_t scheduler_id, okl4_kcap_t vcpu_id,
+        okl4_cpu_id_t cpu_index)
 {
     register uint32_t r0 asm("r0") = (uint32_t)scheduler_id;
-    register uint32_t r1 asm("r1") = (uint32_t)power_state;
+    register uint32_t r1 asm("r1") = (uint32_t)vcpu_id;
+    register uint32_t r2 asm("r2") = (uint32_t)cpu_index;
     __asm__ __volatile__(
-            ""hvc(5150)"\n\t"
-            : "+r"(r0), "+r"(r1)
+            ""hvc(5183)"\n\t"
+            : "+r"(r0), "+r"(r1), "+r"(r2)
             :
-            : "cc", "memory", "r2", "r3", "r4", "r5"
+            : "cc", "memory", "r3", "r4", "r5"
             );
 
 
@@ -4551,16 +4732,17 @@ _okl4_sys_scheduler_suspend(okl4_kcap_t scheduler_id,
 #else
 
 OKL4_FORCE_INLINE okl4_error_t
-_okl4_sys_scheduler_suspend(okl4_kcap_t scheduler_id,
-        okl4_power_state_t power_state)
+_okl4_sys_scheduler_affinity_set(okl4_kcap_t scheduler_id, okl4_kcap_t vcpu_id,
+        okl4_cpu_id_t cpu_index)
 {
     register okl4_register_t x0 asm("x0") = (okl4_register_t)scheduler_id;
-    register okl4_register_t x1 asm("x1") = (okl4_register_t)power_state;
+    register okl4_register_t x1 asm("x1") = (okl4_register_t)vcpu_id;
+    register okl4_register_t x2 asm("x2") = (okl4_register_t)cpu_index;
     __asm__ __volatile__(
-            "" hvc(5150) "\n\t"
-            : "+r"(x0), "+r"(x1)
+            "" hvc(5183) "\n\t"
+            : "+r"(x0), "+r"(x1), "+r"(x2)
             :
-            : "cc", "memory", "x2", "x3", "x4", "x5", "x6", "x7"
+            : "cc", "memory", "x3", "x4", "x5", "x6", "x7"
             );
 
 
@@ -5885,6 +6067,10 @@ _okl4_sys_vinterrupt_raise(okl4_kcap_t virqline, okl4_virq_flags_t payload)
 
 #define OKL4_SYSCALL_AXON_TRIGGER_SEND 5185
 
+#define OKL4_SYSCALL_DEBUG_RESUME 5208
+
+#define OKL4_SYSCALL_DEBUG_SUSPEND 5209
+
 #define OKL4_SYSCALL_INTERRUPT_ACK 5128
 
 #define OKL4_SYSCALL_INTERRUPT_ATTACH_PRIVATE 5134
@@ -5993,7 +6179,9 @@ _okl4_sys_vinterrupt_raise(okl4_kcap_t virqline, okl4_virq_flags_t payload)
 
 #define OKL4_SYSCALL_SCHEDULE_PROFILE_VCPU_GET_DATA 5173
 
-#define OKL4_SYSCALL_SCHEDULER_SUSPEND 5150
+#define OKL4_SYSCALL_SCHEDULER_AFFINITY_GET 5182
+
+#define OKL4_SYSCALL_SCHEDULER_AFFINITY_SET 5183
 
 #define OKL4_SYSCALL_TIMER_CANCEL 5176
 
@@ -6039,6 +6227,8 @@ _okl4_sys_vinterrupt_raise(okl4_kcap_t virqline, okl4_virq_flags_t payload)
 /*lint -esym(621, _okl4_sys_axon_set_send_queue) */
 /*lint -esym(621, _okl4_sys_axon_set_send_segment) */
 /*lint -esym(621, _okl4_sys_axon_trigger_send) */
+/*lint -esym(621, _okl4_sys_debug_resume) */
+/*lint -esym(621, _okl4_sys_debug_suspend) */
 /*lint -esym(621, _okl4_sys_interrupt_ack) */
 /*lint -esym(621, _okl4_sys_interrupt_attach_private) */
 /*lint -esym(621, _okl4_sys_interrupt_attach_shared) */
@@ -6093,7 +6283,8 @@ _okl4_sys_vinterrupt_raise(okl4_kcap_t virqline, okl4_virq_flags_t payload)
 /*lint -esym(621, _okl4_sys_schedule_profile_vcpu_disable) */
 /*lint -esym(621, _okl4_sys_schedule_profile_vcpu_enable) */
 /*lint -esym(621, _okl4_sys_schedule_profile_vcpu_get_data) */
-/*lint -esym(621, _okl4_sys_scheduler_suspend) */
+/*lint -esym(621, _okl4_sys_scheduler_affinity_get) */
+/*lint -esym(621, _okl4_sys_scheduler_affinity_set) */
 /*lint -esym(621, _okl4_sys_timer_cancel) */
 /*lint -esym(621, _okl4_sys_timer_get_resolution) */
 /*lint -esym(621, _okl4_sys_timer_get_time) */

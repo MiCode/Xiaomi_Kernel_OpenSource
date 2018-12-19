@@ -29,15 +29,10 @@
 #define OKL4_SDK_VERSION_MAJOR 5
 /** SDK Minor number */
 #define OKL4_SDK_VERSION_MINOR 3
-/**
- * If defined, indicates this is an internal development version.
- * In this case, OKL4_SDK_VERSION_RELEASE == -1
- */
-#define OKL4_SDK_VERSION_DEVELOPMENT 1
 /** SDK Release (revision) number */
-#define OKL4_SDK_VERSION_RELEASE (-1)
+#define OKL4_SDK_VERSION_RELEASE 6
 /** SDK Maintenance number. Indicates the maintenance sequence revision. */
-#define OKL4_SDK_VERSION_MAINTENANCE 0
+#define OKL4_SDK_VERSION_MAINTENANCE 15
 
 
 /** @addtogroup lib_microvisor_helpers Microvisor Helpers

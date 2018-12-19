@@ -843,3 +843,12 @@ config QCOM_AOP_DDR_MESSAGING
 	  the device is rebooting, to ensure that the device is powered off
 	  cleanly.
 endmenu
+
+config QCOM_HYP_CORE_CTL
+	bool "CPU reservation scheme for Hypervisor"
+	depends on OKL4_GUEST
+	help
+	  This driver reserve the specified CPUS by isolating them. The reserved
+	  CPUs can be assigned to the other guest OS by the hypervisor.
+	  An offline CPU is considered as a reserved CPU since this OS can't use
+	  it.

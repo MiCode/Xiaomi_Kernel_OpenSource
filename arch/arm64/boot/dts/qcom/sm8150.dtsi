@@ -1971,8 +1971,6 @@
 
 		qcom,llcc-erp {
 			compatible = "qcom,llcc-erp";
-			interrupt-names = "ecc_irq";
-			interrupts = <GIC_SPI 582 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
 		qcom,llcc-amon {
@@ -2633,7 +2631,7 @@
 			qcom,dev-name = "qsee_ipc_irq_spss";
 			label = "spss";
 			interrupt-parent = <&intsp>;
-			interrupts = <1 0 IRQ_TYPE_EDGE_RISING>;
+			interrupts = <1 0 IRQ_TYPE_LEVEL_HIGH>;
 		};
 	};
 
@@ -2809,7 +2807,7 @@
 			mboxes = <&sp_scsr 0>;
 			mbox-names = "spss_spss";
 			interrupt-parent = <&intsp>;
-			interrupts = <0 0 IRQ_TYPE_EDGE_RISING>;
+			interrupts = <0 0 IRQ_TYPE_LEVEL_HIGH>;
 
 			reg = <0x1885008 0x8>,
 			      <0x1885010 0x4>;
@@ -3820,6 +3818,7 @@
 		qcom,smmu-s1-en;
 		qcom,smmu-fast-map;
 		qcom,smmu-coherent;
+		qcom,keep-radio-on-during-sleep;
 		status = "disabled";
 	};
 

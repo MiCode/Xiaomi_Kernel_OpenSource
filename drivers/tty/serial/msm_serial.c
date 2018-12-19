@@ -1642,6 +1642,12 @@ static void __msm_console_write(struct uart_port *port, const char *s,
 	spin_unlock(&port->lock);
 }
 
+#ifdef CONFIG_SERIAL_RX_CONSOLE_ONLY
+static void msm_console_write(struct console *co, const char *s,
+			      unsigned int count)
+{
+}
+#else
 static void msm_console_write(struct console *co, const char *s,
 			      unsigned int count)
 {
@@ -1655,6 +1661,7 @@ static void msm_console_write(struct console *co, const char *s,
 
 	__msm_console_write(port, s, count, msm_port->is_uartdm);
 }
+#endif
 
 static int __init msm_console_setup(struct console *co, char *options)
 {

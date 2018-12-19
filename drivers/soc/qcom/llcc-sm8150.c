@@ -60,7 +60,6 @@ static struct llcc_slice_config sm8150_data[] =  {
 	SCT_ENTRY("cpuss",       1, 1, 3072, 1, 1, 0xFFF, 0x0, 0, 0, 0, 1, 1),
 	SCT_ENTRY("vidsc0",      2, 2, 512, 2, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("vidsc1",      3, 3, 512, 2, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("voice",       5, 5, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("audio",       6, 6, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("modemhp_grow", 7, 7, 3072, 1, 0, 0xFF, 0xF00, 0, 0, 0, 1, 0),
 	SCT_ENTRY("modem",       8, 8, 3072, 1, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
