@@ -101,6 +101,15 @@
 	};
 };
 
+&qupv3_se12_2uart {
+	status = "disabled";
+};
+
+/* RUMI UART console */
+&qupv3_se2_2uart {
+	status = "ok";
+};
+
 &audio_apr {
 	sound-stub {
 		compatible = "qcom,kona-asoc-snd-stub";

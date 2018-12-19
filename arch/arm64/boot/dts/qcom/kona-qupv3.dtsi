@@ -1,0 +1,87 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ */
+
+#include <dt-bindings/msm/msm-bus-ids.h>
+
+&soc {
+	/* QUPv3_0  wrapper  instance : North QUP*/
+	qupv3_0: qcom,qupv3_0_geni_se@9c0000 {
+		compatible = "qcom,qupv3-geni-se";
+		reg = <0x9c0000 0x2000>;
+		qcom,bus-mas-id = <MSM_BUS_MASTER_QUP_0>;
+		qcom,bus-slv-id = <MSM_BUS_SLAVE_EBI_CH0>;
+
+		qcom,iommu-s1-bypass;
+		iommu_qupv3_0_geni_se_cb: qcom,iommu_qupv3_0_geni_se_cb {
+			compatible = "qcom,qupv3-geni-se-cb";
+			iommus = <&apps_smmu 0x5a3 0x0>;
+			qcom,iommu-dma = "disabled";
+		};
+	};
+
+	/* Debug UART Instance for RUMI platform */
+	qupv3_se2_2uart: qcom,qup_uart@988000 {
+		compatible = "qcom,msm-geni-console";
+		reg = <0x988000 0x4000>;
+		reg-names = "se_phys";
+		clock-names = "se-clk", "m-ahb", "s-ahb";
+		clocks = <&clock_gcc GCC_QUPV3_WRAP0_S2_CLK>,
+			<&clock_gcc GCC_QUPV3_WRAP_0_M_AHB_CLK>,
+			<&clock_gcc GCC_QUPV3_WRAP_0_S_AHB_CLK>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&qupv3_se2_2uart_active>;
+		pinctrl-1 = <&qupv3_se2_2uart_sleep>;
+		interrupts = <GIC_SPI 603 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,wrapper-core = <&qupv3_0>;
+		status = "disabled";
+	};
+
+	/* QUPv3_1  wrapper  instance : South_1 QUP */
+	qupv3_1: qcom,qupv3_1_geni_se@ac0000 {
+		compatible = "qcom,qupv3-geni-se";
+		reg = <0xac0000 0x2000>;
+		qcom,bus-mas-id = <MSM_BUS_MASTER_QUP_1>;
+		qcom,bus-slv-id = <MSM_BUS_SLAVE_EBI_CH0>;
+
+		qcom,iommu-s1-bypass;
+		iommu_qupv3_1_geni_se_cb: qcom,iommu_qupv3_1_geni_se_cb {
+			compatible = "qcom,qupv3-geni-se-cb";
+			iommus = <&apps_smmu 0x43 0x0>;
+			qcom,iommu-dma = "disabled";
+		};
+	};
+
+	/* Debug UART Instance for CDP/MTP platform */
+	qupv3_se12_2uart: qcom,qup_uart@a90000 {
+		compatible = "qcom,msm-geni-console";
+		reg = <0xa90000 0x4000>;
+		reg-names = "se_phys";
+		clock-names = "se-clk", "m-ahb", "s-ahb";
+		clocks = <&clock_gcc GCC_QUPV3_WRAP1_S4_CLK>,
+			<&clock_gcc GCC_QUPV3_WRAP_1_M_AHB_CLK>,
+			<&clock_gcc GCC_QUPV3_WRAP_1_S_AHB_CLK>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&qupv3_se12_2uart_active>;
+		pinctrl-1 = <&qupv3_se12_2uart_sleep>;
+		interrupts = <GIC_SPI 357 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,wrapper-core = <&qupv3_1>;
+		status = "disabled";
+	};
+
+	/* QUPv3_2  wrapper  instance : South_2 QUP */
+	qupv3_2: qcom,qupv3_2_geni_se@8c0000 {
+		compatible = "qcom,qupv3-geni-se";
+		reg = <0x8c0000 0x2000>;
+		qcom,bus-mas-id = <MSM_BUS_MASTER_QUP_2>;
+		qcom,bus-slv-id = <MSM_BUS_SLAVE_EBI_CH0>;
+
+		qcom,iommu-s1-bypass;
+		iommu_qupv3_2_geni_se_cb: qcom,iommu_qupv3_2_geni_se_cb {
+			compatible = "qcom,qupv3-geni-se-cb";
+			iommus = <&apps_smmu 0x63 0x0>;
+			qcom,iommu-dma = "disabled";
+		};
+	};
+};

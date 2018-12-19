@@ -7,3 +7,6 @@
 #include "kona-pmic-overlay.dtsi"
 #include "kona-camera-sensor-cdp.dtsi"
 
+&qupv3_se12_2uart {
+	status = "disabled";
+};

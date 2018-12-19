@@ -13,6 +13,62 @@
 		interrupt-controller;
 		#interrupt-cells = <2>;
 
+		qupv3_se2_2uart_pins: qupv3_se2_2uart_pins {
+			qupv3_se2_2uart_active: qupv3_se2_2uart_active {
+				mux {
+					pins = "gpio117", "gpio118";
+					function = "qup2";
+				};
+
+				config {
+					pins = "gpio117", "gpio118";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se2_2uart_sleep: qupv3_se2_2uart_sleep {
+				mux {
+					pins = "gpio117", "gpio118";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio117", "gpio118";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
+
+		qupv3_se12_2uart_pins: qupv3_se12_2uart_pins {
+			qupv3_se12_2uart_active: qupv3_se12_2uart_active {
+				mux {
+					pins = "gpio34", "gpio35";
+					function = "qup12";
+				};
+
+				config {
+					pins = "gpio34", "gpio35";
+					drive-strength = <2>;
+				};
+			};
+
+			qupv3_se12_2uart_sleep: qupv3_se12_2uart_sleep {
+				mux {
+					pins = "gpio34", "gpio35";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+
+				config {
+					pins = "gpio34", "gpio35";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
+
 		ufs_dev_reset_assert: ufs_dev_reset_assert {
 			config {
 				pins = "ufs_reset";

@@ -4,3 +4,7 @@
  */
 
 #include "kona-pmic-overlay.dtsi"
+
+&qupv3_se12_2uart {
+	status = "disabled";
+};
