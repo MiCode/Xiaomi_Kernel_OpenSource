@@ -129,6 +129,7 @@ struct dp_catalog_ctrl {
 	void (*channel_dealloc)(struct dp_catalog_ctrl *ctrl,
 			u32 ch, u32 ch_start_timeslot, u32 tot_ch_cnt);
 	void (*fec_config)(struct dp_catalog_ctrl *ctrl, bool enable);
+	void (*mainlink_levels)(struct dp_catalog_ctrl *ctrl, u8 lane_cnt);
 };
 
 #define HEADER_BYTE_2_BIT	 0
@@ -167,7 +168,6 @@ struct dp_catalog_audio {
 	void (*config_sdp)(struct dp_catalog_audio *audio);
 	void (*set_header)(struct dp_catalog_audio *audio);
 	void (*get_header)(struct dp_catalog_audio *audio);
-	void (*safe_to_exit_level)(struct dp_catalog_audio *audio);
 };
 
 struct dp_dsc_cfg_data {
