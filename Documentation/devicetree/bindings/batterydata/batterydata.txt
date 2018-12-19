@@ -139,6 +139,8 @@ Profile data node optional properties:
 			JEITA conditions (cool/warm).
 			Element 0 - FV value for soft cool.
 			Element 1 - FV value for soft warm.
+- qcom,batt-age-level:  Battery age level. This is used only when multiple
+			profile loading is supported.
 Profile data node required subnodes:
 - qcom,fcc-temp-lut : An 1-dimensional lookup table node that encodes
 			temperature to fcc lookup. The units for this lookup
