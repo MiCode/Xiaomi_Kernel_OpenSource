@@ -67,6 +67,11 @@ DP Controller: Required properties:
 					within DP AUX, while the remaining entries indicate the
 					programmable values.
 - qcom,max-pclk-frequency-khz:	An integer specifying the max. pixel clock in KHz supported by Display Port.
+- qcom,mst-enable:		MST feature enable control node.
+- qcom,dsc-feature-enable:	DSC feature enable control node.
+- qcom,fec-feature-enable:	FEC feature enable control node.
+- qcom,max-dp-dsc-blks:		An integer specifying the max. DSC blocks available for Display port.
+- qcom,max-dp-dsc-input-width-pixs: An integer specifying the max. input width of pixels for each DSC block.
 - qcom,dp-usbpd-detection:	Phandle for the PMI regulator node for USB PHY PD detection.
 - qcom,dp-aux-switch:		Phandle for the driver used to program the AUX switch for Display Port orientation.
 - qcom,dp-hpd-gpio:		HPD gpio for direct DP connector without USB PHY or AUX switch.
@@ -172,6 +177,11 @@ Example:
 		qcom,aux-cfg8-settings = [3c bb];
 		qcom,aux-cfg9-settings = [40 03];
 		qcom,max-pclk-frequency-khz = <593470>;
+		qcom,mst-enable;
+		qcom,dsc-feature-enable;
+		qcom,fec-feature-enable;
+		qcom,max-dp-dsc-blks = <2>;
+		qcom,max-dp-dsc-input-width-pixs = <2048>;
 		pinctrl-names = "mdss_dp_active", "mdss_dp_sleep";
 		pinctrl-0 = <&sde_dp_aux_active &sde_dp_usbplug_cc_active>;
 		pinctrl-1 = <&sde_dp_aux_suspend &sde_dp_usbplug_cc_suspend>;
