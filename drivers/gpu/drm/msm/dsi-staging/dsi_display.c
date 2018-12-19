@@ -416,6 +416,7 @@ static void dsi_display_register_te_irq(struct dsi_display *display)
 	int rc = 0;
 	struct platform_device *pdev;
 	struct device *dev;
+	unsigned int te_irq;
 
 	pdev = display->pdev;
 	if (!pdev) {
@@ -435,16 +436,21 @@ static void dsi_display_register_te_irq(struct dsi_display *display)
 	}
 
 	init_completion(&display->esd_te_gate);
+	te_irq = gpio_to_irq(display->disp_te_gpio);
 
-	rc = devm_request_irq(dev, gpio_to_irq(display->disp_te_gpio),
-			dsi_display_panel_te_irq_handler, IRQF_TRIGGER_FALLING,
-			"TE_GPIO", display);
+	/* Avoid deferred spurious irqs with disable_irq() */
+	irq_set_status_flags(te_irq, IRQ_DISABLE_UNLAZY);
+
+	rc = devm_request_irq(dev, te_irq, dsi_display_panel_te_irq_handler,
+			      IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+			      "TE_GPIO", display);
 	if (rc) {
 		pr_err("TE request_irq failed for ESD rc:%d\n", rc);
+		irq_clear_status_flags(te_irq, IRQ_DISABLE_UNLAZY);
 		goto error;
 	}
 
-	disable_irq(gpio_to_irq(display->disp_te_gpio));
+	disable_irq(te_irq);
 	display->is_te_irq_enabled = false;
 
 	return;
