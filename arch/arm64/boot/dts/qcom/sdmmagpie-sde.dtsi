@@ -38,6 +38,7 @@
 					200000000>;
 		clock-max-rate = <0 0 0 0 430000000 19200000 430000000
 					430000000>;
+		qcom,dss-cx-ipeak = <&cx_ipeak_lm 4>;
 
 		/* interrupt config */
 		interrupts = <0 83 0>;
