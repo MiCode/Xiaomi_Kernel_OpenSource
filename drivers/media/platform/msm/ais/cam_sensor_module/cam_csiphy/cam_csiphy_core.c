@@ -414,12 +414,11 @@ int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev)
 			continue;
 		}
 
-		settle_cnt = (csiphy_dev->csiphy_info.settle_time / 200000000);
+		settle_cnt = csiphy_dev->csiphy_info.settle_time;
 		if (csiphy_dev->csiphy_info.combo_mode == 1 &&
 			(lane_pos >= 3))
 			settle_cnt =
-			(csiphy_dev->csiphy_info.settle_time_combo_sensor /
-				200000000);
+			csiphy_dev->csiphy_info.settle_time_combo_sensor;
 		for (i = 0; i < cfg_size; i++) {
 			switch (reg_array[lane_pos][i].csiphy_param_type) {
 			case CSIPHY_LANE_ENABLE:
