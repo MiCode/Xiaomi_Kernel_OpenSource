@@ -3498,8 +3498,15 @@ static int dsi_display_parse_dt(struct dsi_display *display)
 	/* Parse TE data */
 	dsi_display_parse_te_data(display);
 
-	/* Parse external bridge from port 0, reg 0 */
-	display->ext_bridge_of = of_graph_get_remote_node(of_node, 0, 0);
+	/* Parse all external bridges from port 0 */
+	display_for_each_ctrl(i, display) {
+		display->ext_bridge[i].node_of =
+			of_graph_get_remote_node(of_node, 0, i);
+		if (display->ext_bridge[i].node_of)
+			display->ext_bridge_cnt++;
+		else
+			break;
+	}
 
 	pr_debug("success\n");
 error:
@@ -5112,6 +5119,102 @@ static int dsi_display_ext_get_mode_info(struct drm_connector *connector,
 	return 0;
 }
 
+static struct dsi_display_ext_bridge *dsi_display_ext_get_bridge(
+		struct drm_bridge *bridge)
+{
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+	struct list_head *connector_list;
+	struct drm_connector *conn_iter;
+	struct sde_connector *sde_conn;
+	struct dsi_display *display;
+	int i;
+
+	if (!bridge || !bridge->encoder) {
+		SDE_ERROR("invalid argument\n");
+		return NULL;
+	}
+
+	priv = bridge->dev->dev_private;
+	sde_kms = to_sde_kms(priv->kms);
+	connector_list = &sde_kms->dev->mode_config.connector_list;
+
+	list_for_each_entry(conn_iter, connector_list, head) {
+		sde_conn = to_sde_connector(conn_iter);
+		if (sde_conn->encoder == bridge->encoder) {
+			display = sde_conn->display;
+			for (i = 0; i < display->ctrl_count; i++) {
+				if (display->ext_bridge[i].bridge == bridge)
+					return &display->ext_bridge[i];
+			}
+		}
+	}
+
+	return NULL;
+}
+
+static void dsi_display_drm_ext_adjust_timing(
+		const struct dsi_display *display,
+		struct drm_display_mode *mode)
+{
+	mode->hdisplay /= display->ctrl_count;
+	mode->hsync_start /= display->ctrl_count;
+	mode->hsync_end /= display->ctrl_count;
+	mode->htotal /= display->ctrl_count;
+	mode->hskew /= display->ctrl_count;
+	mode->clock /= display->ctrl_count;
+}
+
+static enum drm_mode_status dsi_display_drm_ext_bridge_mode_valid(
+		struct drm_bridge *bridge,
+		const struct drm_display_mode *mode)
+{
+	struct dsi_display_ext_bridge *ext_bridge;
+	struct drm_display_mode tmp;
+
+	ext_bridge = dsi_display_ext_get_bridge(bridge);
+	if (!ext_bridge)
+		return MODE_ERROR;
+
+	tmp = *mode;
+	dsi_display_drm_ext_adjust_timing(ext_bridge->display, &tmp);
+	return ext_bridge->orig_funcs->mode_valid(bridge, &tmp);
+}
+
+static bool dsi_display_drm_ext_bridge_mode_fixup(
+		struct drm_bridge *bridge,
+		const struct drm_display_mode *mode,
+		struct drm_display_mode *adjusted_mode)
+{
+	struct dsi_display_ext_bridge *ext_bridge;
+	struct drm_display_mode tmp;
+
+	ext_bridge = dsi_display_ext_get_bridge(bridge);
+	if (!ext_bridge)
+		return false;
+
+	tmp = *mode;
+	dsi_display_drm_ext_adjust_timing(ext_bridge->display, &tmp);
+	return ext_bridge->orig_funcs->mode_fixup(bridge, &tmp, &tmp);
+}
+
+static void dsi_display_drm_ext_bridge_mode_set(
+		struct drm_bridge *bridge,
+		struct drm_display_mode *mode,
+		struct drm_display_mode *adjusted_mode)
+{
+	struct dsi_display_ext_bridge *ext_bridge;
+	struct drm_display_mode tmp;
+
+	ext_bridge = dsi_display_ext_get_bridge(bridge);
+	if (!ext_bridge)
+		return;
+
+	tmp = *mode;
+	dsi_display_drm_ext_adjust_timing(ext_bridge->display, &tmp);
+	ext_bridge->orig_funcs->mode_set(bridge, &tmp, &tmp);
+}
+
 static int dsi_host_ext_attach(struct mipi_dsi_host *host,
 			   struct mipi_dsi_device *dsi)
 {
@@ -5204,75 +5307,100 @@ int dsi_display_drm_ext_bridge_init(struct dsi_display *display,
 	struct drm_bridge *ext_bridge;
 	struct drm_connector *ext_conn;
 	struct sde_connector *sde_conn = to_sde_connector(connector);
-	int rc;
+	struct drm_bridge *prev_bridge = bridge;
+	int rc = 0, i;
 
-	/* check if ext_bridge is already attached */
-	if (display->ext_bridge)
-		return 0;
+	for (i = 0; i < display->ext_bridge_cnt; i++) {
+		struct dsi_display_ext_bridge *ext_bridge_info =
+				&display->ext_bridge[i];
 
-	/* check if there is no external bridge defined */
-	if (!display->ext_bridge_of)
-		return 0;
+		/* return if ext bridge is already initialized */
+		if (ext_bridge_info->bridge)
+			return 0;
 
-	ext_bridge = of_drm_find_bridge(display->ext_bridge_of);
-	if (IS_ERR_OR_NULL(ext_bridge)) {
-		rc = PTR_ERR(ext_bridge);
-		pr_err("failed to find ext bridge\n");
-		goto error;
+		ext_bridge = of_drm_find_bridge(ext_bridge_info->node_of);
+		if (IS_ERR_OR_NULL(ext_bridge)) {
+			rc = PTR_ERR(ext_bridge);
+			pr_err("failed to find ext bridge\n");
+			goto error;
+		}
+
+		/* override functions for mode adjustment */
+		if (display->ext_bridge_cnt > 1) {
+			ext_bridge_info->bridge_funcs = *ext_bridge->funcs;
+			if (ext_bridge->funcs->mode_fixup)
+				ext_bridge_info->bridge_funcs.mode_fixup =
+					dsi_display_drm_ext_bridge_mode_fixup;
+			if (ext_bridge->funcs->mode_valid)
+				ext_bridge_info->bridge_funcs.mode_valid =
+					dsi_display_drm_ext_bridge_mode_valid;
+			if (ext_bridge->funcs->mode_set)
+				ext_bridge_info->bridge_funcs.mode_set =
+					dsi_display_drm_ext_bridge_mode_set;
+			ext_bridge_info->orig_funcs = ext_bridge->funcs;
+			ext_bridge->funcs = &ext_bridge_info->bridge_funcs;
+		}
+
+		rc = drm_bridge_attach(encoder, ext_bridge, prev_bridge);
+		if (rc) {
+			pr_err("[%s] ext brige attach failed, %d\n",
+				display->name, rc);
+			goto error;
+		}
+
+		ext_bridge_info->display = display;
+		ext_bridge_info->bridge = ext_bridge;
+		prev_bridge = ext_bridge;
+
+		/* ext bridge will init its own connector during attach,
+		 * we need to extract it out of the connector list
+		 */
+		spin_lock_irq(&drm->mode_config.connector_list_lock);
+		ext_conn = list_last_entry(&drm->mode_config.connector_list,
+			struct drm_connector, head);
+		if (ext_conn && ext_conn != connector &&
+			ext_conn->encoder_ids[0] == bridge->encoder->base.id) {
+			list_del_init(&ext_conn->head);
+			display->ext_conn = ext_conn;
+		}
+		spin_unlock_irq(&drm->mode_config.connector_list_lock);
+
+		/* if there is no valid external connector created, or in split
+		 * mode, default setting is used from panel defined in DT file.
+		 */
+		if (!display->ext_conn ||
+		    !display->ext_conn->funcs ||
+		    !display->ext_conn->helper_private ||
+		    display->ext_bridge_cnt > 1) {
+			display->ext_conn = NULL;
+			continue;
+		}
+
+		/* otherwise, hook up the functions to use external connector */
+		if (display->ext_conn->funcs->detect)
+			sde_conn->ops.detect = dsi_display_drm_ext_detect;
+
+		if (display->ext_conn->helper_private->get_modes)
+			sde_conn->ops.get_modes =
+				dsi_display_drm_ext_get_modes;
+
+		if (display->ext_conn->helper_private->mode_valid)
+			sde_conn->ops.mode_valid =
+				dsi_display_drm_ext_mode_valid;
+
+		if (display->ext_conn->helper_private->atomic_check)
+			sde_conn->ops.atomic_check =
+				dsi_display_drm_ext_atomic_check;
+
+		sde_conn->ops.get_info =
+				dsi_display_ext_get_info;
+		sde_conn->ops.get_mode_info =
+				dsi_display_ext_get_mode_info;
+
+		/* add support to attach/detach */
+		display->host.ops = &dsi_host_ext_ops;
 	}
 
-	rc = drm_bridge_attach(bridge->encoder, ext_bridge, bridge);
-	if (rc) {
-		pr_err("[%s] ext brige attach failed, %d\n",
-			display->name, rc);
-		goto error;
-	}
-
-	display->ext_bridge = ext_bridge;
-
-	/* ext bridge will init its own connector during attach,
-	 * we need to extract it out of the connector list
-	 */
-	spin_lock_irq(&drm->mode_config.connector_list_lock);
-	ext_conn = list_last_entry(&drm->mode_config.connector_list,
-		struct drm_connector, head);
-	if (ext_conn && ext_conn != connector &&
-		ext_conn->encoder_ids[0] == bridge->encoder->base.id) {
-		list_del_init(&ext_conn->head);
-		display->ext_conn = ext_conn;
-	}
-	spin_unlock_irq(&drm->mode_config.connector_list_lock);
-
-	/* if there is no valid external connector created, we'll use default
-	 * setting from panel defined in DT file.
-	 */
-	if (!display->ext_conn ||
-	    !display->ext_conn->funcs ||
-	    !display->ext_conn->helper_private) {
-		display->ext_conn = NULL;
-		return 0;
-	}
-
-	/* otherwise, hook up the functions to use external connector */
-	if (display->ext_conn->funcs->detect)
-		sde_conn->ops.detect = dsi_display_drm_ext_detect;
-
-	if (display->ext_conn->helper_private->get_modes)
-		sde_conn->ops.get_modes = dsi_display_drm_ext_get_modes;
-
-	if (display->ext_conn->helper_private->mode_valid)
-		sde_conn->ops.mode_valid = dsi_display_drm_ext_mode_valid;
-
-	if (display->ext_conn->helper_private->atomic_check)
-		sde_conn->ops.atomic_check = dsi_display_drm_ext_atomic_check;
-
-	sde_conn->ops.get_info =
-			dsi_display_ext_get_info;
-	sde_conn->ops.get_mode_info =
-			dsi_display_ext_get_mode_info;
-
-	/* add support to attach/detach */
-	display->host.ops = &dsi_host_ext_ops;
 	return 0;
 error:
 	return rc;
