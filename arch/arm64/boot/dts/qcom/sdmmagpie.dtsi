@@ -3338,4 +3338,9 @@
 	};
 };
 
+&msm_vidc0 {
+	qcom,cx-ipeak-data = <&cx_ipeak_lm 5>;
+	qcom,clock-freq-threshold = <533000000>;
+};
+
 #include "sdmmagpie-npu.dtsi"
