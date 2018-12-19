@@ -162,4 +162,12 @@ config USB_BAM
 	  Peripheral-to-Peripheral transfers between the USB and other
 	  peripheral.
 
+config QCOM_GENI_SE
+	tristate "QCOM GENI Serial Engine Driver"
+	help
+	  This module is used to interact with GENI based Serial Engines on
+	  Qualcomm Technologies, Inc. Universal Peripheral(QUPv3). This
+	  module is used to configure and read the configuration from the
+	  Serial Engines.
+
 endmenu
