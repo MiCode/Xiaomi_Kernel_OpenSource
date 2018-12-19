@@ -33,11 +33,11 @@
 #include "icnss_private.h"
 
 #ifdef CONFIG_ICNSS_DEBUG
-unsigned long qmi_timeout = 10000;
+unsigned long qmi_timeout = 3000;
 module_param(qmi_timeout, ulong, 0600);
 #define WLFW_TIMEOUT			msecs_to_jiffies(qmi_timeout)
 #else
-#define WLFW_TIMEOUT			msecs_to_jiffies(10000)
+#define WLFW_TIMEOUT			msecs_to_jiffies(3000)
 #endif
 
 #define WLFW_SERVICE_INS_ID_V01		0
