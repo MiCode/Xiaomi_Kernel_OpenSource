@@ -109,6 +109,8 @@
 #define RCONN_OFFSET			0
 #define ACT_BATT_CAP_WORD		285
 #define ACT_BATT_CAP_OFFSET		0
+#define BATT_AGE_LEVEL_WORD		288
+#define BATT_AGE_LEVEL_OFFSET		0
 #define CYCLE_COUNT_WORD		291
 #define CYCLE_COUNT_OFFSET		0
 #define PROFILE_INTEGRITY_WORD		299
@@ -183,6 +185,7 @@ struct fg_dt_props {
 	bool	linearize_soc;
 	bool	rapid_soc_dec_en;
 	bool	five_pin_battery;
+	bool	multi_profile_load;
 	int	cutoff_volt_mv;
 	int	empty_volt_mv;
 	int	cutoff_curr_ma;
@@ -242,6 +245,8 @@ struct fg_gen4_chip {
 	int			esr_nominal;
 	int			soh;
 	int			esr_soh_cycle_count;
+	int			batt_age_level;
+	int			last_batt_age_level;
 	bool			first_profile_load;
 	bool			ki_coeff_dischg_en;
 	bool			slope_limit_en;
@@ -1339,86 +1344,11 @@ static int fg_gen4_rapid_soc_config(struct fg_gen4_chip *chip, bool en)
 	return 0;
 }
 
-static int fg_gen4_get_batt_profile(struct fg_dev *fg)
+static int qpnp_fg_gen4_get_step_charging_params(struct fg_gen4_chip *chip,
+					struct device_node *profile_node)
 {
-	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
-	struct device_node *node = fg->dev->of_node;
-	struct device_node *batt_node, *profile_node;
-	const char *data;
+	struct fg_dev *fg = &chip->fg;
 	int rc, len, i, tuple_len;
-
-	batt_node = of_find_node_by_name(node, "qcom,battery-data");
-	if (!batt_node) {
-		pr_err("Batterydata not available\n");
-		return -ENXIO;
-	}
-
-	profile_node = of_batterydata_get_best_profile(batt_node,
-				fg->batt_id_ohms / 1000, NULL);
-	if (IS_ERR(profile_node))
-		return PTR_ERR(profile_node);
-
-	if (!profile_node) {
-		pr_err("couldn't find profile handle\n");
-		return -ENODATA;
-	}
-
-	rc = of_property_read_string(profile_node, "qcom,battery-type",
-			&fg->bp.batt_type_str);
-	if (rc < 0) {
-		pr_err("battery type unavailable, rc:%d\n", rc);
-		return rc;
-	}
-
-	rc = of_property_read_u32(profile_node, "qcom,max-voltage-uv",
-			&fg->bp.float_volt_uv);
-	if (rc < 0) {
-		pr_err("battery float voltage unavailable, rc:%d\n", rc);
-		fg->bp.float_volt_uv = -EINVAL;
-	}
-
-	rc = of_property_read_u32(profile_node, "qcom,fastchg-current-ma",
-			&fg->bp.fastchg_curr_ma);
-	if (rc < 0) {
-		pr_err("battery fastchg current unavailable, rc:%d\n", rc);
-		fg->bp.fastchg_curr_ma = -EINVAL;
-	}
-
-	rc = of_property_read_u32(profile_node, "qcom,fg-cc-cv-threshold-mv",
-			&fg->bp.vbatt_full_mv);
-	if (rc < 0) {
-		pr_err("battery cc_cv threshold unavailable, rc:%d\n", rc);
-		fg->bp.vbatt_full_mv = -EINVAL;
-	}
-
-	if (of_find_property(profile_node, "qcom,therm-coefficients", &len)) {
-		len /= sizeof(u32);
-		if (len == BATT_THERM_NUM_COEFFS) {
-			if (!fg->bp.therm_coeffs) {
-				fg->bp.therm_coeffs = devm_kcalloc(fg->dev,
-					BATT_THERM_NUM_COEFFS, sizeof(u32),
-					GFP_KERNEL);
-				if (!fg->bp.therm_coeffs)
-					return -ENOMEM;
-			}
-		}
-
-		rc = of_property_read_u32_array(profile_node,
-			"qcom,therm-coefficients", fg->bp.therm_coeffs, len);
-		if (rc < 0) {
-			pr_err("Couldn't read therm coefficients, rc:%d\n", rc);
-			devm_kfree(fg->dev, fg->bp.therm_coeffs);
-			fg->bp.therm_coeffs = NULL;
-		}
-
-		rc = of_property_read_u32(profile_node,
-			"qcom,therm-center-offset", &fg->bp.therm_ctr_offset);
-		if (rc < 0) {
-			pr_err("battery therm-center-offset unavailable, rc:%d\n",
-				rc);
-			fg->bp.therm_ctr_offset = -EINVAL;
-		}
-	}
 
 	/*
 	 * Currently step charging thresholds should be read only for Vbatt
@@ -1478,6 +1408,72 @@ static int fg_gen4_get_batt_profile(struct fg_dev *fg)
 		}
 	}
 
+	return 0;
+}
+
+static int fg_gen4_get_batt_profile_dt_props(struct fg_gen4_chip *chip,
+					struct device_node *profile_node)
+{
+	struct fg_dev *fg = &chip->fg;
+	int rc, len;
+
+	rc = of_property_read_string(profile_node, "qcom,battery-type",
+			&fg->bp.batt_type_str);
+	if (rc < 0) {
+		pr_err("battery type unavailable, rc:%d\n", rc);
+		return rc;
+	}
+
+	rc = of_property_read_u32(profile_node, "qcom,max-voltage-uv",
+			&fg->bp.float_volt_uv);
+	if (rc < 0) {
+		pr_err("battery float voltage unavailable, rc:%d\n", rc);
+		fg->bp.float_volt_uv = -EINVAL;
+	}
+
+	rc = of_property_read_u32(profile_node, "qcom,fastchg-current-ma",
+			&fg->bp.fastchg_curr_ma);
+	if (rc < 0) {
+		pr_err("battery fastchg current unavailable, rc:%d\n", rc);
+		fg->bp.fastchg_curr_ma = -EINVAL;
+	}
+
+	rc = of_property_read_u32(profile_node, "qcom,fg-cc-cv-threshold-mv",
+			&fg->bp.vbatt_full_mv);
+	if (rc < 0) {
+		pr_err("battery cc_cv threshold unavailable, rc:%d\n", rc);
+		fg->bp.vbatt_full_mv = -EINVAL;
+	}
+
+	if (of_find_property(profile_node, "qcom,therm-coefficients", &len)) {
+		len /= sizeof(u32);
+		if (len == BATT_THERM_NUM_COEFFS) {
+			if (!fg->bp.therm_coeffs) {
+				fg->bp.therm_coeffs = devm_kcalloc(fg->dev,
+					BATT_THERM_NUM_COEFFS, sizeof(u32),
+					GFP_KERNEL);
+				if (!fg->bp.therm_coeffs)
+					return -ENOMEM;
+			}
+		}
+
+		rc = of_property_read_u32_array(profile_node,
+			"qcom,therm-coefficients", fg->bp.therm_coeffs, len);
+		if (rc < 0) {
+			pr_err("Couldn't read therm coefficients, rc:%d\n", rc);
+			devm_kfree(fg->dev, fg->bp.therm_coeffs);
+			fg->bp.therm_coeffs = NULL;
+		}
+
+		rc = of_property_read_u32(profile_node,
+			"qcom,therm-center-offset", &fg->bp.therm_ctr_offset);
+		if (rc < 0) {
+			pr_err("battery therm-center-offset unavailable, rc:%d\n",
+				rc);
+			fg->bp.therm_ctr_offset = -EINVAL;
+		}
+	}
+
 	if (of_find_property(profile_node, "qcom,therm-pull-up", NULL)) {
 		rc = of_property_read_u32(profile_node, "qcom,therm-pull-up",
 				&fg->bp.therm_pull_up_kohms);
@@ -1531,6 +1527,49 @@ static int fg_gen4_get_batt_profile(struct fg_dev *fg)
 		}
 	}
 
+	rc = qpnp_fg_gen4_get_step_charging_params(chip, profile_node);
+	if (rc < 0)
+		return rc;
+
+	return 0;
+}
+
+static int fg_gen4_get_batt_profile(struct fg_dev *fg)
+{
+	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
+	struct device_node *node = fg->dev->of_node;
+	struct device_node *batt_node, *profile_node;
+	const char *data;
+	int rc, len, avail_age_level = 0;
+
+	batt_node = of_find_node_by_name(node, "qcom,battery-data");
+	if (!batt_node) {
+		pr_err("Batterydata not available\n");
+		return -ENXIO;
+	}
+
+	if (chip->dt.multi_profile_load)
+		profile_node = of_batterydata_get_best_aged_profile(batt_node,
+					fg->batt_id_ohms / 1000,
+					chip->batt_age_level, &avail_age_level);
+	else
+		profile_node = of_batterydata_get_best_profile(batt_node,
+					fg->batt_id_ohms / 1000, NULL);
+	if (IS_ERR(profile_node))
+		return PTR_ERR(profile_node);
+
+	if (!profile_node) {
+		pr_err("couldn't find profile handle\n");
+		return -ENODATA;
+	}
+
+	if (chip->dt.multi_profile_load &&
+		chip->batt_age_level != avail_age_level) {
+		fg_dbg(fg, FG_STATUS, "Batt_age_level %d doesn't exist, using %d\n",
+			chip->batt_age_level, avail_age_level);
+		chip->batt_age_level = avail_age_level;
+	}
+
 	data = of_get_property(profile_node, "qcom,fg-profile-data", &len);
 	if (!data) {
 		pr_err("No profile data available\n");
@@ -1544,6 +1583,11 @@ static int fg_gen4_get_batt_profile(struct fg_dev *fg)
 
 	fg->profile_available = true;
 	memcpy(chip->batt_profile, data, len);
+
+	/* Read all other DT properties after getting profile */
+	rc = fg_gen4_get_batt_profile_dt_props(chip, profile_node);
+	if (rc < 0)
+		return rc;
 
 	return 0;
 }
@@ -1709,6 +1753,10 @@ static bool is_profile_load_required(struct fg_gen4_chip *chip)
 			FIRST_PROFILE_LOAD_BIT,
 	};
 
+	if (chip->dt.multi_profile_load &&
+		(chip->batt_age_level != chip->last_batt_age_level))
+		return true;
+
 	rc = fg_sram_read(fg, PROFILE_INTEGRITY_WORD,
 			PROFILE_INTEGRITY_OFFSET, &val, 1, FG_IMA_DEFAULT);
 	if (rc < 0) {
@@ -1778,6 +1826,103 @@ static bool is_profile_load_required(struct fg_gen4_chip *chip)
 }
 
 #define SOC_READY_WAIT_TIME_MS	1000
+static int qpnp_fg_gen4_load_profile(struct fg_gen4_chip *chip)
+{
+	struct fg_dev *fg = &chip->fg;
+	u8 val, mask, buf[2];
+	int rc;
+	bool normal_profile_load = false;
+
+	/*
+	 * This is used to determine if the profile is loaded normally i.e.
+	 * either multi profile loading is disabled OR if it is enabled, then
+	 * only loading the profile with battery age level 0 is considered.
+	 */
+	normal_profile_load = !chip->dt.multi_profile_load ||
+				(chip->dt.multi_profile_load &&
+					chip->batt_age_level == 0);
+	if (normal_profile_load) {
+		rc = fg_masked_write(fg, BATT_SOC_RESTART(fg), RESTART_GO_BIT,
+					0);
+		if (rc < 0) {
+			pr_err("Error in writing to %04x, rc=%d\n",
+				BATT_SOC_RESTART(fg), rc);
+			return rc;
+		}
+	}
+
+	/* load battery profile */
+	rc = fg_sram_write(fg, PROFILE_LOAD_WORD, PROFILE_LOAD_OFFSET,
+			chip->batt_profile, PROFILE_LEN, FG_IMA_ATOMIC);
+	if (rc < 0) {
+		pr_err("Error in writing battery profile, rc:%d\n", rc);
+		return rc;
+	}
+
+	if (normal_profile_load) {
+		/* Enable side loading for voltage and current */
+		val = mask = BIT(0);
+		rc = fg_sram_masked_write(fg, SYS_CONFIG_WORD,
+				SYS_CONFIG_OFFSET, mask, val, FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in setting SYS_CONFIG_WORD[0], rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		/* Clear first logged main current ADC values */
+		buf[0] = buf[1] = 0;
+		rc = fg_sram_write(fg, FIRST_LOG_CURRENT_v2_WORD,
+				FIRST_LOG_CURRENT_v2_OFFSET, buf, 2,
+				FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in clearing FIRST_LOG_CURRENT rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	/* Set the profile integrity bit */
+	val = HLOS_RESTART_BIT | PROFILE_LOAD_BIT;
+	rc = fg_sram_write(fg, PROFILE_INTEGRITY_WORD,
+			PROFILE_INTEGRITY_OFFSET, &val, 1, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("failed to write profile integrity rc=%d\n", rc);
+		return rc;
+	}
+
+	if (chip->dt.multi_profile_load && chip->batt_age_level >= 0) {
+		val = (u8)chip->batt_age_level;
+		rc = fg_sram_write(fg, BATT_AGE_LEVEL_WORD,
+				BATT_AGE_LEVEL_OFFSET, &val, 1, FG_IMA_ATOMIC);
+		if (rc < 0) {
+			pr_err("Error in writing batt_age_level, rc:%d\n", rc);
+			return rc;
+		}
+	}
+
+	if (normal_profile_load) {
+		rc = fg_restart(fg, SOC_READY_WAIT_TIME_MS);
+		if (rc < 0) {
+			pr_err("Error in restarting FG, rc=%d\n", rc);
+			return rc;
+		}
+
+		/* Clear side loading for voltage and current */
+		val = 0;
+		mask = BIT(0);
+		rc = fg_sram_masked_write(fg, SYS_CONFIG_WORD,
+				SYS_CONFIG_OFFSET, mask, val, FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in clearing SYS_CONFIG_WORD[0], rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	return 0;
+}
+
 static void profile_load_work(struct work_struct *work)
 {
 	struct fg_dev *fg = container_of(work,
@@ -1786,7 +1931,7 @@ static void profile_load_work(struct work_struct *work)
 	struct fg_gen4_chip *chip = container_of(fg,
 				struct fg_gen4_chip, fg);
 	int64_t nom_cap_uah;
-	u8 val, mask, buf[2];
+	u8 val, buf[2];
 	int rc;
 
 	vote(fg->awake_votable, PROFILE_LOAD, true, 0);
@@ -1811,66 +1956,14 @@ static void profile_load_work(struct work_struct *work)
 	if (!is_profile_load_required(chip))
 		goto done;
 
-	clear_cycle_count(chip->counter);
+	if (!chip->dt.multi_profile_load)
+		clear_cycle_count(chip->counter);
 
 	fg_dbg(fg, FG_STATUS, "profile loading started\n");
-	rc = fg_masked_write(fg, BATT_SOC_RESTART(fg), RESTART_GO_BIT, 0);
-	if (rc < 0) {
-		pr_err("Error in writing to %04x, rc=%d\n",
-			BATT_SOC_RESTART(fg), rc);
-		goto out;
-	}
 
-	/* load battery profile */
-	rc = fg_sram_write(fg, PROFILE_LOAD_WORD, PROFILE_LOAD_OFFSET,
-			chip->batt_profile, PROFILE_LEN, FG_IMA_ATOMIC);
-	if (rc < 0) {
-		pr_err("Error in writing battery profile, rc:%d\n", rc);
+	rc = qpnp_fg_gen4_load_profile(chip);
+	if (rc < 0)
 		goto out;
-	}
-
-	/* Enable side loading for voltage and current */
-	val = mask = BIT(0);
-	rc = fg_sram_masked_write(fg, SYS_CONFIG_WORD,
-			SYS_CONFIG_OFFSET, mask, val, FG_IMA_DEFAULT);
-	if (rc < 0) {
-		pr_err("Error in setting SYS_CONFIG_WORD[0], rc=%d\n", rc);
-		goto out;
-	}
-
-	/* Clear first logged main current ADC values */
-	buf[0] = buf[1] = 0;
-	rc = fg_sram_write(fg, FIRST_LOG_CURRENT_v2_WORD,
-			FIRST_LOG_CURRENT_v2_OFFSET, buf, 2, FG_IMA_DEFAULT);
-	if (rc < 0) {
-		pr_err("Error in clearing FIRST_LOG_CURRENT rc=%d\n", rc);
-		goto out;
-	}
-
-	/* Set the profile integrity bit */
-	val = HLOS_RESTART_BIT | PROFILE_LOAD_BIT;
-	rc = fg_sram_write(fg, PROFILE_INTEGRITY_WORD,
-			PROFILE_INTEGRITY_OFFSET, &val, 1, FG_IMA_DEFAULT);
-	if (rc < 0) {
-		pr_err("failed to write profile integrity rc=%d\n", rc);
-		goto out;
-	}
-
-	rc = fg_restart(fg, SOC_READY_WAIT_TIME_MS);
-	if (rc < 0) {
-		pr_err("Error in restarting FG, rc=%d\n", rc);
-		goto out;
-	}
-
-	/* Clear side loading for voltage and current */
-	val = 0;
-	mask = BIT(0);
-	rc = fg_sram_masked_write(fg, SYS_CONFIG_WORD,
-			SYS_CONFIG_OFFSET, mask, val, FG_IMA_DEFAULT);
-	if (rc < 0) {
-		pr_err("Error in clearing SYS_CONFIG_WORD[0], rc=%d\n", rc);
-		goto out;
-	}
 
 	fg_dbg(fg, FG_STATUS, "SOC is ready\n");
 	fg->profile_load_status = PROFILE_LOADED;
@@ -1922,6 +2015,8 @@ done:
 	schedule_delayed_work(&chip->ttf->ttf_work, msecs_to_jiffies(10000));
 	fg_dbg(fg, FG_STATUS, "profile loaded successfully");
 out:
+	if (chip->dt.multi_profile_load && rc < 0)
+		chip->batt_age_level = chip->last_batt_age_level;
 	fg->soc_reporting_ready = true;
 	vote(fg->awake_votable, ESR_FCC_VOTER, true, 0);
 	schedule_delayed_work(&chip->pl_enable_work, msecs_to_jiffies(5000));
@@ -3556,6 +3651,9 @@ static int fg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CC_STEP_SEL:
 		pval->intval = chip->ttf->cc_step.sel;
 		break;
+	case POWER_SUPPLY_PROP_BATT_AGE_LEVEL:
+		pval->intval = chip->batt_age_level;
+		break;
 	default:
 		pr_err("unsupported property %d\n", psp);
 		rc = -EINVAL;
@@ -3637,6 +3735,14 @@ static int fg_psy_set_property(struct power_supply *psy,
 				chip->first_profile_load = false;
 		}
 		break;
+	case POWER_SUPPLY_PROP_BATT_AGE_LEVEL:
+		if (!chip->dt.multi_profile_load || pval->intval < 0 ||
+			chip->batt_age_level == pval->intval)
+			return -EINVAL;
+		chip->last_batt_age_level = chip->batt_age_level;
+		chip->batt_age_level = pval->intval;
+		schedule_delayed_work(&fg->profile_load_work, 0);
+		break;
 	default:
 		break;
 	}
@@ -3655,6 +3761,7 @@ static int fg_property_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ESR_NOMINAL:
 	case POWER_SUPPLY_PROP_SOH:
 	case POWER_SUPPLY_PROP_CLEAR_SOH:
+	case POWER_SUPPLY_PROP_BATT_AGE_LEVEL:
 		return 1;
 	default:
 		break;
@@ -3691,6 +3798,7 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG,
 	POWER_SUPPLY_PROP_CC_STEP,
 	POWER_SUPPLY_PROP_CC_STEP_SEL,
+	POWER_SUPPLY_PROP_BATT_AGE_LEVEL,
 };
 
 static const struct power_supply_desc fg_psy_desc = {
@@ -4278,6 +4386,13 @@ static int fg_gen4_hw_init(struct fg_gen4_chip *chip)
 		return rc;
 	}
 
+	chip->batt_age_level = chip->last_batt_age_level = -EINVAL;
+	if (chip->dt.multi_profile_load) {
+		rc = fg_sram_read(fg, BATT_AGE_LEVEL_WORD,
+			BATT_AGE_LEVEL_OFFSET, &val, 1, FG_IMA_DEFAULT);
+		if (!rc)
+			chip->batt_age_level = chip->last_batt_age_level = val;
+	}
 	return 0;
 }
 
@@ -4773,6 +4888,8 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 
 	chip->dt.five_pin_battery = of_property_read_bool(node,
 					"qcom,five-pin-battery");
+	chip->dt.multi_profile_load = of_property_read_bool(node,
+					"qcom,multi-profile-load");
 	return 0;
 }
 
