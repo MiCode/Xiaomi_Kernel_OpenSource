@@ -173,6 +173,8 @@ static void dp_ctrl_configure_source_link_params(struct dp_ctrl_private *ctrl,
 		ctrl->catalog->mst_config(ctrl->catalog, ctrl->mst_mode);
 		ctrl->catalog->config_ctrl(ctrl->catalog,
 				ctrl->link->link_params.lane_count);
+		ctrl->catalog->mainlink_levels(ctrl->catalog,
+				ctrl->link->link_params.lane_count);
 		ctrl->catalog->mainlink_ctrl(ctrl->catalog, true);
 	} else {
 		ctrl->catalog->mainlink_ctrl(ctrl->catalog, false);

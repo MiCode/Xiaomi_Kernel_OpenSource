@@ -346,32 +346,6 @@ static void dp_audio_setup_acr(struct dp_audio_private *audio)
 	catalog->config_acr(catalog);
 }
 
-static void dp_audio_safe_to_exit_level(struct dp_audio_private *audio)
-{
-	struct dp_catalog_audio *catalog = audio->catalog;
-	u32 safe_to_exit_level = 0;
-
-	switch (audio->dp_audio.lane_count) {
-	case 1:
-		safe_to_exit_level = 14;
-		break;
-	case 2:
-		safe_to_exit_level = 8;
-		break;
-	case 4:
-		safe_to_exit_level = 5;
-		break;
-	default:
-		pr_debug("setting the default safe_to_exit_level = %u\n",
-				safe_to_exit_level);
-		safe_to_exit_level = 14;
-		break;
-	}
-
-	catalog->data = safe_to_exit_level;
-	catalog->safe_to_exit_level(catalog);
-}
-
 static void dp_audio_enable(struct dp_audio_private *audio, bool enable)
 {
 	struct dp_catalog_audio *catalog = audio->catalog;
@@ -432,7 +406,6 @@ static int dp_audio_info_setup(struct platform_device *pdev,
 
 	dp_audio_setup_sdp(audio);
 	dp_audio_setup_acr(audio);
-	dp_audio_safe_to_exit_level(audio);
 	dp_audio_enable(audio, true);
 
 	mutex_unlock(&audio->ops_lock);
