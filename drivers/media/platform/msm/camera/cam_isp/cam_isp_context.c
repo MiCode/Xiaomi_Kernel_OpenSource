@@ -129,6 +129,8 @@ static void cam_isp_ctx_dump_req(struct cam_isp_ctx_req *req_isp)
 	size_t len = 0;
 	uint32_t *buf_addr;
 	uint32_t *buf_start, *buf_end;
+	size_t   remain_len = 0;
+	bool     need_put = false;
 
 	for (i = 0; i < req_isp->num_cfg; i++) {
 		rc = cam_packet_util_get_cmd_mem_addr(
@@ -138,20 +140,31 @@ static void cam_isp_ctx_dump_req(struct cam_isp_ctx_req *req_isp)
 				"Failed to get_cmd_mem_addr, rc=%d",
 				rc);
 		} else {
-			buf_start = (uint32_t *)((uint8_t *) buf_addr +
-				req_isp->cfg[i].offset);
-			buf_end = (uint32_t *)((uint8_t *) buf_start +
-				req_isp->cfg[i].len - 1);
-			if (len < (buf_end - buf_start + 1)) {
-				CAM_ERR(CAM_ISP,
-					"Invalid len %lld buf_start-end=%d",
-					len, (buf_end - buf_start + 1));
+			if (req_isp->cfg[i].offset >= len) {
+				CAM_ERR(CAM_ISP, "Invalid offset");
+				need_put = true;
+				goto put;
+			}
+			remain_len = len - req_isp->cfg[i].offset;
+
+			if (req_isp->cfg[i].len > remain_len) {
+				CAM_ERR(CAM_ISP, "Invalid offset");
+				need_put = true;
+			}
+put:
+			if (need_put) {
 				if (cam_mem_put_cpu_buf(req_isp->cfg[i].handle))
 					CAM_WARN(CAM_ISP,
 						"Failed to put cpu buf: 0x%x",
 						req_isp->cfg[i].handle);
+				need_put = false;
 				continue;
 			}
+
+			buf_start = (uint32_t *)((uint8_t *) buf_addr +
+				req_isp->cfg[i].offset);
+			buf_end = (uint32_t *)((uint8_t *) buf_start +
+				req_isp->cfg[i].len - 1);
 			cam_cdm_util_dump_cmd_buf(buf_start, buf_end);
 			if (cam_mem_put_cpu_buf(req_isp->cfg[i].handle))
 				CAM_WARN(CAM_ISP, "Failed to put cpu buf: 0x%x",
@@ -2557,6 +2570,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	uintptr_t                         packet_addr;
 	struct cam_packet                *packet;
 	size_t                            len = 0;
+	size_t                            remain_len = 0;
 	struct cam_hw_prepare_update_args cfg;
 	struct cam_req_mgr_add_request    add_req;
 	struct cam_isp_context           *ctx_isp =
@@ -2590,6 +2604,15 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 		goto free_req;
 	}
 
+	remain_len = len;
+	if ((len < sizeof(struct cam_packet)) ||
+		((size_t)cmd->offset >= len - sizeof(struct cam_packet))) {
+		CAM_ERR(CAM_ISP, "invalid buff length: %zu or offset", len);
+		rc = -EINVAL;
+		goto free_cpu_buf;
+	}
+
+	remain_len -= (size_t)cmd->offset;
 	packet = (struct cam_packet *)(packet_addr + (uint32_t)cmd->offset);
 	CAM_DBG(CAM_ISP, "pack_handle %llx", cmd->packet_handle);
 	CAM_DBG(CAM_ISP, "packet address is 0x%zx", packet_addr);
@@ -2612,6 +2635,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	/* preprocess the configuration */
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.packet = packet;
+	cfg.remain_len = remain_len;
 	cfg.ctxt_to_hw_map = ctx_isp->hw_ctx;
 	cfg.max_hw_update_entries = CAM_ISP_CTX_CFG_MAX;
 	cfg.hw_update_entries = req_isp->cfg;
