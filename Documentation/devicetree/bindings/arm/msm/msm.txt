@@ -47,6 +47,9 @@ SoCs:
 - KONA
   compatible = "qcom,kona"
 
+- LITO
+  compatible = "qcom,lito"
+
 - SDMSHRIKE
   compatible = "qcom,sdmshrike"
 
@@ -159,6 +162,7 @@ compatible = "qcom,kona-rumi"
 compatible = "qcom,kona-mtp"
 compatible = "qcom,kona-cdp"
 compatible = "qcom,kona-qrd"
+compatible = "qcom,lito-rumi"
 compatible = "qcom,sdmshrike-rumi"
 compatible = "qcom,sdmshrike-mtp"
 compatible = "qcom,sdmshrike-cdp"
