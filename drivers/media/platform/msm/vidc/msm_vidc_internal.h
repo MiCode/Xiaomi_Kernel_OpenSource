@@ -218,15 +218,10 @@ struct msm_vidc_efuse_data {
 };
 
 enum vpu_version {
-	VPU_VERSION_4 = 1,
-	VPU_VERSION_5,
+	VPU_VERSION_AR50 = 1,
+	VPU_VERSION_IRIS1,
+	VPU_VERSION_IRIS2,
 };
-
-#define IS_VPU_4(ver) \
-	(ver == VPU_VERSION_4)
-
-#define IS_VPU_5(ver) \
-	(ver == VPU_VERSION_5)
 
 struct msm_vidc_platform_data {
 	struct msm_vidc_common_data *common_data;

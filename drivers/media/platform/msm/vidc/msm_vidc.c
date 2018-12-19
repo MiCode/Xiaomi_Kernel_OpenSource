@@ -943,13 +943,7 @@ int msm_vidc_set_internal_config(struct msm_vidc_inst *inst)
 		rc = call_hfi_op(hdev, session_set_property,
 			(void *)inst->session, HAL_CONFIG_VENC_VBV_HRD_BUF_SIZE,
 			(void *)&hrd_buf_size);
-
-		latency.enable = true;
-		rc = call_hfi_op(hdev, session_set_property,
-			(void *)inst->session, HAL_PARAM_VENC_LOW_LATENCY,
-			(void *)&latency);
-
-		inst->clk_data.low_latency_mode = latency.enable;
+		inst->clk_data.low_latency_mode = true;
 	}
 
 	/* Update Slice Config */
@@ -1144,19 +1138,20 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		goto fail_start;
 	}
 
-	/* Decide work route for current session */
-	rc = call_core_op(inst->core, decide_work_route, inst);
-	if (rc) {
-		dprintk(VIDC_ERR,
-			"Failed to decide work route for session %pK\n", inst);
-		goto fail_start;
-	}
 
 	/* Decide work mode for current session */
 	rc = call_core_op(inst->core, decide_work_mode, inst);
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"Failed to decide work mode for session %pK\n", inst);
+		goto fail_start;
+	}
+
+	/* Decide work route for current session */
+	rc = call_core_op(inst->core, decide_work_route, inst);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"Failed to decide work route for session %pK\n", inst);
 		goto fail_start;
 	}
 
@@ -1898,17 +1893,12 @@ void *msm_vidc_open(int core_id, int session_type)
 	inst->session_type = session_type;
 	inst->state = MSM_VIDC_CORE_UNINIT_DONE;
 	inst->core = core;
-	inst->clk_data.min_freq = 0;
-	inst->clk_data.curr_freq = 0;
-	inst->clk_data.ddr_bw = 0;
-	inst->clk_data.sys_cache_bw = 0;
-	inst->clk_data.bitrate = 0;
 	inst->clk_data.core_id = VIDC_CORE_ID_DEFAULT;
 	inst->bit_depth = MSM_VIDC_BIT_DEPTH_8;
 	inst->pic_struct = MSM_VIDC_PIC_STRUCT_PROGRESSIVE;
 	inst->colour_space = MSM_VIDC_BT601_6_525;
 	inst->profile = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE;
-	inst->level = V4L2_MPEG_VIDEO_H264_LEVEL_1_0;
+	inst->level = V4L2_MPEG_VIDEO_H264_LEVEL_UNKNOWN;
 	inst->entropy_mode = V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CAVLC;
 	inst->smem_ops = &msm_vidc_smem_ops;
 

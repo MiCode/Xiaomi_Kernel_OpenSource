@@ -1444,7 +1444,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		}
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_MODE:
-		inst->clk_data.low_latency_mode = (bool)ctrl->val;
+		inst->clk_data.low_latency_mode = !!ctrl->val;
 		break;
 	case V4L2_CID_MPEG_VIDC_VENC_HDR_INFO: {
 		u32 info_type = (ctrl->val >> 28);
@@ -2857,37 +2857,6 @@ int msm_venc_set_video_csc(struct msm_vidc_inst *inst)
 	return rc;
 }
 
-int msm_venc_set_low_latency_mode(struct msm_vidc_inst *inst)
-{
-	int rc = 0;
-	struct hfi_device *hdev;
-	struct v4l2_ctrl *ctrl;
-	struct hal_enable enable;
-
-	if (!inst || !inst->core) {
-		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
-		return -EINVAL;
-	}
-	hdev = inst->core->device;
-
-	ctrl = msm_venc_get_ctrl(inst,
-			V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_MODE);
-	if (!ctrl) {
-		dprintk(VIDC_ERR,
-			"%s: get lowlatency mode failed\n", __func__);
-		return -EINVAL;
-	}
-	enable.enable = !!ctrl->val;
-
-	dprintk(VIDC_DBG, "%s: %d\n", __func__, enable.enable);
-	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_PARAM_VENC_LOW_LATENCY, &enable);
-	if (rc)
-		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
-
-	return rc;
-}
-
 int msm_venc_set_8x8_transform(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
@@ -3382,9 +3351,6 @@ int msm_venc_set_properties(struct msm_vidc_inst *inst)
 	if (rc)
 		goto exit;
 	rc = msm_venc_set_vpx_error_resilience(inst);
-	if (rc)
-		goto exit;
-	rc = msm_venc_set_low_latency_mode(inst);
 	if (rc)
 		goto exit;
 	rc = msm_venc_set_video_signal_info(inst);
