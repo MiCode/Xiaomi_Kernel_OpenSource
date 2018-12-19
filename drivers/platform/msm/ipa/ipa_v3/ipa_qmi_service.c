@@ -293,25 +293,19 @@ static void ipa3_handle_mhi_vote_req(struct qmi_handle *qmi_handle,
 	const void *decoded_msg)
 {
 	struct ipa_mhi_clk_vote_req_msg_v01 *vote_req;
-	struct ipa_mhi_clk_vote_resp_msg_v01 resp;
+	struct ipa_mhi_clk_vote_resp_msg_v01 *resp;
 	int rc;
 
 	vote_req = (struct ipa_mhi_clk_vote_req_msg_v01 *)decoded_msg;
 	IPAWANDBG("Received QMI_IPA_MHI_CLK_VOTE_REQ_V01(%d)\n",
 		vote_req->mhi_vote);
-	rc = imp_handle_vote_req(vote_req->mhi_vote);
-	if (rc) {
-		resp.resp.result = IPA_QMI_RESULT_FAILURE_V01;
-		resp.resp.error = IPA_QMI_ERR_INTERNAL_V01;
-	} else {
-		resp.resp.result = IPA_QMI_RESULT_SUCCESS_V01;
-	}
+	resp = imp_handle_vote_req(vote_req->mhi_vote);
 	IPAWANDBG("start sending QMI_IPA_MHI_CLK_VOTE_RESP_V01\n");
 	rc = qmi_send_response(qmi_handle, sq, txn,
 		QMI_IPA_MHI_CLK_VOTE_RESP_V01,
 		IPA_MHI_CLK_VOTE_RESP_MSG_V01_MAX_MSG_LEN,
 		ipa_mhi_clk_vote_resp_msg_v01_ei,
-		&resp);
+		resp);
 
 	if (rc < 0)
 		IPAWANERR("QMI_IPA_MHI_CLK_VOTE_RESP_V01 failed\n");
