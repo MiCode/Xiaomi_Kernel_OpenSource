@@ -34,6 +34,14 @@ enum qmi_ts_sensor {
 	QMI_TS_PA_1,
 	QMI_TS_QFE_PA_0,
 	QMI_TS_QFE_WTR_0,
+	QMI_TS_MODEM_MODEM,
+	QMI_TS_MMW_0,
+	QMI_TS_MMW_1,
+	QMI_TS_MMW_2,
+	QMI_TS_MMW_3,
+	QMI_TS_MODEM_SKIN,
+	QMI_TS_QFE_PA_MDM,
+	QMI_TS_QFE_PA_WTR,
 	QMI_TS_MAX_NR
 };
 
@@ -61,6 +69,7 @@ struct qmi_ts_instance {
 };
 
 static struct qmi_ts_instance *ts_instances;
+static int ts_inst_cnt;
 static atomic_t in_suspend;
 
 static char sensor_clients[QMI_TS_MAX_NR][QMI_CLIENT_NAME_LENGTH] = {
@@ -68,6 +77,14 @@ static char sensor_clients[QMI_TS_MAX_NR][QMI_CLIENT_NAME_LENGTH] = {
 	{"pa_1"},
 	{"qfe_pa0"},
 	{"qfe_wtr0"},
+	{"modem_tsens"},
+	{"qfe_mmw0"},
+	{"qfe_mmw1"},
+	{"qfe_mmw2"},
+	{"qfe_mmw3"},
+	{"xo_therm"},
+	{"qfe_pa_mdm"},
+	{"qfe_pa_wtr"},
 };
 
 static int32_t encode_qmi(int32_t val)
@@ -326,7 +343,7 @@ static int qmi_register_sensor_device(struct qmi_sensor *qmi_sens)
 
 	qmi_sens->tz_dev = thermal_zone_of_sensor_register(
 				qmi_sens->dev,
-				qmi_sens->sens_type,
+				qmi_sens->sens_type + qmi_sens->ts->inst_id,
 				qmi_sens, &qmi_sensor_ops);
 	if (IS_ERR(qmi_sens->tz_dev)) {
 		ret = PTR_ERR(qmi_sens->tz_dev);
@@ -488,101 +505,117 @@ static struct qmi_ops thermal_qmi_event_ops = {
 
 static void qmi_ts_cleanup(void)
 {
-	struct qmi_ts_instance *ts = ts_instances;
+	struct qmi_ts_instance *ts;
 	struct qmi_sensor *qmi_sens, *c_next;
+	int idx = 0;
 
-	mutex_lock(&ts->mutex);
-	list_for_each_entry_safe(qmi_sens, c_next,
+	for (; idx < ts_inst_cnt; idx++) {
+		ts = &ts_instances[idx];
+		mutex_lock(&ts->mutex);
+		list_for_each_entry_safe(qmi_sens, c_next,
 			&ts->ts_sensor_list, ts_node) {
-		qmi_sens->connection_active = false;
-		if (qmi_sens->tz_dev)
-			thermal_zone_of_sensor_unregister(
+			qmi_sens->connection_active = false;
+			if (qmi_sens->tz_dev)
+				thermal_zone_of_sensor_unregister(
 				qmi_sens->dev, qmi_sens->tz_dev);
 
-		list_del(&qmi_sens->ts_node);
-	}
-	qmi_handle_release(&ts->handle);
+			list_del(&qmi_sens->ts_node);
+		}
+		qmi_handle_release(&ts->handle);
 
-	mutex_unlock(&ts->mutex);
+		mutex_unlock(&ts->mutex);
+	}
+	ts_inst_cnt = 0;
 }
 
 static int of_get_qmi_ts_platform_data(struct device *dev)
 {
-	int ret = 0, i = 0;
+	int ret = 0, i = 0, idx = 0;
 	struct device_node *np = dev->of_node;
 	struct device_node *subsys_np;
 	struct qmi_ts_instance *ts;
 	struct qmi_sensor *qmi_sens;
-	int sens_name_max = 0, sens_idx = 0;
+	int sens_name_max = 0, sens_idx = 0, subsys_cnt = 0;
 
-	ts = devm_kzalloc(dev, sizeof(*ts), GFP_KERNEL);
+	subsys_cnt = of_get_available_child_count(np);
+	if (!subsys_cnt) {
+		dev_err(dev, "No child node to process\n");
+		return -EFAULT;
+	}
+
+	ts = devm_kcalloc(dev, subsys_cnt, sizeof(*ts), GFP_KERNEL);
 	if (!ts)
 		return -ENOMEM;
 
-	subsys_np = of_get_next_child(np, NULL);
-	if (!subsys_np) {
-		dev_err(dev, "No child node\n");
-		return -EINVAL;
-	}
+	for_each_available_child_of_node(np, subsys_np) {
+		if (idx >= subsys_cnt)
+			break;
 
-	ret = of_property_read_u32(subsys_np, "qcom,instance-id",
-				&ts->inst_id);
-	if (ret) {
-		dev_err(dev, "error reading qcom,insance-id. ret:%d\n", ret);
-		goto data_fetch_err;
-	}
-
-	ts->dev = dev;
-	mutex_init(&ts->mutex);
-	INIT_LIST_HEAD(&ts->ts_sensor_list);
-	INIT_WORK(&ts->svc_arrive_work, qmi_ts_svc_arrive);
-
-	sens_name_max = of_property_count_strings(subsys_np,
-				"qcom,qmi-sensor-names");
-	if (sens_name_max <= 0) {
-		dev_err(dev, "Invalid or no sensor. err:%d\n", sens_name_max);
-		ret = -EINVAL;
-		goto data_fetch_err;
-	}
-
-	for (sens_idx = 0; sens_idx < sens_name_max; sens_idx++) {
-		const char *qmi_name;
-
-		qmi_sens = devm_kzalloc(dev, sizeof(*qmi_sens),	GFP_KERNEL);
-		if (!qmi_sens) {
-			ret = -ENOMEM;
+		ret = of_property_read_u32(subsys_np, "qcom,instance-id",
+					&ts[idx].inst_id);
+		if (ret) {
+			dev_err(dev, "error reading qcom,insance-id. ret:%d\n",
+					ret);
 			goto data_fetch_err;
 		}
 
-		of_property_read_string_index(subsys_np,
-					"qcom,qmi-sensor-names", sens_idx,
-					&qmi_name);
-		strlcpy(qmi_sens->qmi_name, qmi_name,
-						QMI_CLIENT_NAME_LENGTH);
-			/* Check for supported qmi sensors */
-		for (i = 0; i < QMI_TS_MAX_NR; i++) {
-			if (!strcmp(sensor_clients[i], qmi_sens->qmi_name))
-				break;
-		}
+		ts[idx].dev = dev;
+		mutex_init(&ts[idx].mutex);
+		INIT_LIST_HEAD(&ts[idx].ts_sensor_list);
+		INIT_WORK(&ts[idx].svc_arrive_work, qmi_ts_svc_arrive);
 
-		if (i >= QMI_TS_MAX_NR) {
-			dev_err(dev, "Unknown sensor:%s\n",
-					qmi_sens->qmi_name);
+		sens_name_max = of_property_count_strings(subsys_np,
+					"qcom,qmi-sensor-names");
+		if (sens_name_max <= 0) {
+			dev_err(dev, "Invalid or no sensor. err:%d\n",
+					sens_name_max);
 			ret = -EINVAL;
 			goto data_fetch_err;
 		}
-		dev_dbg(dev, "QMI sensor:%s available\n", qmi_name);
-		qmi_sens->sens_type = i;
-		qmi_sens->ts = ts;
-		qmi_sens->dev = dev;
-		qmi_sens->last_reading = 0;
-		qmi_sens->high_thresh = INT_MAX;
-		qmi_sens->low_thresh = INT_MIN;
-		INIT_WORK(&qmi_sens->therm_notify_work,
-				qmi_ts_thresh_notify);
-		list_add(&qmi_sens->ts_node, &ts->ts_sensor_list);
+
+		for (sens_idx = 0; sens_idx < sens_name_max; sens_idx++) {
+			const char *qmi_name;
+
+			qmi_sens = devm_kzalloc(dev, sizeof(*qmi_sens),
+							GFP_KERNEL);
+			if (!qmi_sens) {
+				ret = -ENOMEM;
+				goto data_fetch_err;
+			}
+
+			of_property_read_string_index(subsys_np,
+					"qcom,qmi-sensor-names", sens_idx,
+					&qmi_name);
+			strlcpy(qmi_sens->qmi_name, qmi_name,
+						QMI_CLIENT_NAME_LENGTH);
+			/* Check for supported qmi sensors */
+			for (i = 0; i < QMI_TS_MAX_NR; i++) {
+				if (!strcmp(sensor_clients[i],
+							qmi_sens->qmi_name))
+					break;
+			}
+
+			if (i >= QMI_TS_MAX_NR) {
+				dev_err(dev, "Unknown sensor:%s\n",
+					qmi_sens->qmi_name);
+				ret = -EINVAL;
+				goto data_fetch_err;
+			}
+			dev_dbg(dev, "QMI sensor:%s available\n", qmi_name);
+			qmi_sens->sens_type = i;
+			qmi_sens->ts = &ts[idx];
+			qmi_sens->dev = dev;
+			qmi_sens->last_reading = 0;
+			qmi_sens->high_thresh = INT_MAX;
+			qmi_sens->low_thresh = INT_MIN;
+			INIT_WORK(&qmi_sens->therm_notify_work,
+					qmi_ts_thresh_notify);
+			list_add(&qmi_sens->ts_node, &ts[idx].ts_sensor_list);
+		}
+		idx++;
 	}
 	ts_instances = ts;
+	ts_inst_cnt = subsys_cnt;
 
 data_fetch_err:
 	of_node_put(subsys_np);
@@ -592,36 +625,39 @@ data_fetch_err:
 static int qmi_sens_device_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	int ret = 0;
+	int ret = 0, idx = 0;
 	struct qmi_ts_instance *ts;
 
 	ret = of_get_qmi_ts_platform_data(dev);
 	if (ret)
 		goto probe_err;
 
-	if (!ts_instances) {
+	if (!ts_instances || !ts_inst_cnt) {
 		dev_err(dev, "Empty ts instances\n");
 		return -EINVAL;
 	}
 
-	ts = ts_instances;
-	if (list_empty(&ts->ts_sensor_list))
-		goto probe_err;
-
-	ret = qmi_handle_init(&ts->handle,
+	for (; idx < ts_inst_cnt; idx++) {
+		ts = &ts_instances[idx];
+		if (list_empty(&ts->ts_sensor_list)) {
+			ret = -ENODEV;
+			goto probe_err;
+		}
+		ret = qmi_handle_init(&ts->handle,
 			TS_GET_SENSOR_LIST_RESP_MSG_V01_MAX_MSG_LEN,
 			&thermal_qmi_event_ops, handlers);
-	if (ret < 0) {
-		dev_err(dev, "QMI[0x%x] handle init failed. err:%d\n",
+		if (ret < 0) {
+			dev_err(dev, "QMI[0x%x] handle init failed. err:%d\n",
 					ts->inst_id, ret);
-		goto probe_err;
-	}
-	ret = qmi_add_lookup(&ts->handle, TS_SERVICE_ID_V01,
+			goto probe_err;
+		}
+		ret = qmi_add_lookup(&ts->handle, TS_SERVICE_ID_V01,
 				TS_SERVICE_VERS_V01, ts->inst_id);
-	if (ret < 0) {
-		dev_err(dev, "QMI register failed for 0x%x, ret:%d\n",
+		if (ret < 0) {
+			dev_err(dev, "QMI register failed for 0x%x, ret:%d\n",
 				ts->inst_id, ret);
-		goto probe_err;
+			goto probe_err;
+		}
 	}
 	atomic_set(&in_suspend, 0);
 	register_pm_notifier(&qmi_sensor_pm_nb);
