@@ -243,6 +243,9 @@ static void ipa3_handle_modem_init_cmplt_req(struct qmi_handle *qmi_handle,
 
 	if (ipa3_modem_init_cmplt == false) {
 		ipa3_modem_init_cmplt = true;
+		if ((ipa3_qmi_modem_init_fin == true) &&
+			(ipa3_ctx->ipa_hw_type == IPA_HW_v4_1))
+			ipa3_uc_map_cntr_reg_notify();
 	}
 
 	memset(&resp, 0, sizeof(resp));
@@ -1113,6 +1116,10 @@ static void ipa3_q6_clnt_svc_arrive(struct work_struct *work)
 	}
 
 	ipa3_qmi_modem_init_fin = true;
+
+	if ((ipa3_modem_init_cmplt == true) &&
+		(ipa3_ctx->ipa_hw_type == IPA_HW_v4_1))
+		ipa3_uc_map_cntr_reg_notify();
 
 	/* In cold-bootup, first_time_handshake = false */
 	ipa3_q6_handshake_complete(first_time_handshake);

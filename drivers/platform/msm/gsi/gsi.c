@@ -4085,6 +4085,17 @@ free_lock:
 }
 EXPORT_SYMBOL(gsi_alloc_channel_ee);
 
+
+int gsi_chk_intset_value(void)
+{
+	uint32_t val;
+
+	val = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_CNTXT_INTSET_OFFS(gsi_ctx->per.ee));
+	return val;
+}
+EXPORT_SYMBOL(gsi_chk_intset_value);
+
 int gsi_map_virtual_ch_to_per_ep(u32 ee, u32 chan_num, u32 per_ep_index)
 {
 	if (!gsi_ctx) {

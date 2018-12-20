@@ -3879,6 +3879,15 @@ void ipa3_inc_client_enable_clks(struct ipa_active_client_logging_info *id)
 	IPADBG_LOW("active clients = %d\n",
 		atomic_read(&ipa3_ctx->ipa3_active_clients.cnt));
 	ipa3_suspend_apps_pipes(false);
+	if (!ipa3_uc_state_check() &&
+		(ipa3_ctx->ipa_hw_type >= IPA_HW_v4_1)) {
+		ipa3_read_mailbox_17(IPA_PC_RESTORE_CONTEXT_STATUS_SUCCESS);
+		/* assert if intset = 0 */
+		if (ipa3_ctx->gsi_chk_intset_value == 0) {
+			IPAERR("expected 1, value: 0\n");
+			ipa_assert();
+		}
+	}
 	mutex_unlock(&ipa3_ctx->ipa3_active_clients.mutex);
 }
 
@@ -5297,6 +5306,8 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->ipa_config_is_mhi = resource_p->ipa_mhi_dynamic_config;
 	ipa3_ctx->mhi_evid_limits[0] = resource_p->mhi_evid_limits[0];
 	ipa3_ctx->mhi_evid_limits[1] = resource_p->mhi_evid_limits[1];
+	ipa3_ctx->uc_mailbox17_chk = 0;
+	ipa3_ctx->uc_mailbox17_mismatch = 0;
 
 	WARN(ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_NORMAL,
 		"Non NORMAL IPA HW mode, is this emulation platform ?");
@@ -6329,6 +6340,12 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 	int fast = 1;
 	int ret;
 	u32 iova_ap_mapping[2];
+	/* G_RD_CNTR register */
+	u32 a1 = 0x0C220000;
+	u32 a2 = 0x4000;
+	unsigned long iova_p;
+	phys_addr_t pa_p;
+	u32 size_p;
 
 	IPADBG("UC CB PROBE sub pdev=%pK\n", dev);
 
@@ -6427,6 +6444,18 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 		arm_iommu_release_mapping(cb->mapping);
 		cb->valid = false;
 		return ret;
+	}
+
+	/* map G_RD_CNTR for uc*/
+	IPA_SMMU_ROUND_TO_PAGE(a1, a1, a2,
+		iova_p, pa_p, size_p);
+
+	if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_1) {
+		IPADBG("mapping 0x%lx to 0x%pa size %d\n",
+			iova_p, &pa_p, size_p);
+		ipa3_iommu_map(cb->mapping->domain,
+			iova_p, pa_p, size_p,
+			IOMMU_READ | IOMMU_WRITE | IOMMU_MMIO);
 	}
 
 	cb->next_addr = cb->va_end;

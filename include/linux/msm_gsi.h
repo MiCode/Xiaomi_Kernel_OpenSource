@@ -1449,6 +1449,9 @@ int gsi_map_virtual_ch_to_per_ep(u32 ee, u32 chan_num, u32 per_ep_index);
  */
 int gsi_alloc_channel_ee(unsigned int chan_idx, unsigned int ee, int *code);
 
+
+int gsi_chk_intset_value(void);
+
 /*
  * Here is a typical sequence of calls
  *
@@ -1708,6 +1711,11 @@ static inline int gsi_map_virtual_ch_to_per_ep(
 
 static inline int gsi_alloc_channel_ee(unsigned int chan_idx, unsigned int ee,
 	 int *code)
+{
+	return -GSI_STATUS_UNSUPPORTED_OP;
+}
+
+static inline int gsi_chk_intset_value(vodi)
 {
 	return -GSI_STATUS_UNSUPPORTED_OP;
 }
