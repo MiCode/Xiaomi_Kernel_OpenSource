@@ -219,6 +219,8 @@ static void gsi_channel_state_change_wait(unsigned long chan_hdl,
 			gsi_pending_intr);
 	}
 
+	GSIDBG("invalidating the channel state when timeout happens\n");
+	ctx->state = curr_state;
 }
 
 static void gsi_handle_ch_ctrl(int ee)
