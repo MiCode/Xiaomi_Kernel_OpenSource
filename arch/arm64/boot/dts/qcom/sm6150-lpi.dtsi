@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,6 +34,9 @@
 				      <0x0001A000>, <0x0001B000>,
 				      <0x0001C000>, <0x0001D000>,
 				      <0x0001E000>, <0x0001F000>;
+
+		clock-names = "lpass_core_hw_vote";
+		clocks = <&lpass_core_hw_vote 0>;
 
 		lpi_wcd934x_reset_active: lpi_wcd934x_reset_active {
 			mux {
