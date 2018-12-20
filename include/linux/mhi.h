@@ -628,6 +628,19 @@ enum mhi_dev_state mhi_get_mhi_state(struct mhi_controller *mhi_cntrl);
 void mhi_set_mhi_state(struct mhi_controller *mhi_cntrl,
 		       enum mhi_dev_state state);
 
+
+/**
+ * mhi_is_active - helper function to determine if MHI in active state
+ * @mhi_dev: client device
+ */
+static inline bool mhi_is_active(struct mhi_device *mhi_dev)
+{
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+
+	return (mhi_cntrl->dev_state >= MHI_STATE_M0 &&
+		mhi_cntrl->dev_state <= MHI_STATE_M3);
+}
+
 #ifndef CONFIG_ARCH_QCOM
 
 #ifdef CONFIG_MHI_DEBUG
