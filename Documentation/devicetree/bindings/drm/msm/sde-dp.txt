@@ -86,11 +86,6 @@ DP Controller: Required properties:
 					-- qcom,supply-post-on-sleep: time to sleep (ms) after turning on
 					-- qcom,supply-pre-off-sleep: time to sleep (ms) before turning off
 					-- qcom,supply-post-off-sleep: time to sleep (ms) after turning off
-- pinctrl-names:	List of names to assign mdss pin states defined in pinctrl device node
-					Refer to pinctrl-bindings.txt
-- pinctrl-<0..n>:	Lists phandles each pointing to the pin configuration node within a pin
-					controller. These pin configurations are installed in the pinctrl
-					device node. Refer to pinctrl-bindings.txt
 
 msm_ext_disp is a device which manages the interaction between external
 display interfaces, e.g. Display Port, and the audio subsystem.
@@ -99,6 +94,11 @@ Optional properties:
 - qcom,ext-disp:		phandle for msm-ext-display module
 - compatible:			Must be "qcom,msm-ext-disp"
 - qcom,phy-version:		Phy version
+- pinctrl-names:		List of names to assign mdss pin states defined in pinctrl device node
+				Refer to pinctrl-bindings.txt
+- pinctrl-<0..n>:		Lists phandles each pointing to the pin configuration node within a pin
+				controller. These pin configurations are installed in the pinctrl
+				device node. Refer to pinctrl-bindings.txt
 
 [Optional child nodes]: These nodes are for devices which are
 dependent on msm_ext_disp. If msm_ext_disp is disabled then
