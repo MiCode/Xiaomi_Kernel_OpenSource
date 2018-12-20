@@ -3498,7 +3498,7 @@ void ipahal_get_aggr_force_close_valmask(int ep_idx,
 	struct ipahal_reg_valmask *valmask)
 {
 	u32 shft;
-	u32 bmsk;
+	u32 bmsk = 0;
 
 	if (!valmask) {
 		IPAHAL_ERR("Input error\n");
