@@ -82,6 +82,42 @@ static struct qmi_dev_info device_clients[] = {
 		.type = QMI_CDEV_MAX_LIMIT_TYPE,
 	},
 	{
+		.dev_name = "vbatt_low",
+		.type = QMI_CDEV_MAX_LIMIT_TYPE,
+	},
+	{
+		.dev_name = "mmw0",
+		.type = QMI_CDEV_MAX_LIMIT_TYPE,
+	},
+	{
+		.dev_name = "mmw1",
+		.type = QMI_CDEV_MAX_LIMIT_TYPE,
+	},
+	{
+		.dev_name = "mmw2",
+		.type = QMI_CDEV_MAX_LIMIT_TYPE,
+	},
+	{
+		.dev_name = "mmw3",
+		.type = QMI_CDEV_MAX_LIMIT_TYPE,
+	},
+	{
+		.dev_name = "modem_skin0",
+		.type = QMI_CDEV_MAX_LIMIT_TYPE,
+	},
+	{
+		.dev_name = "modem_skin1",
+		.type = QMI_CDEV_MAX_LIMIT_TYPE,
+	},
+	{
+		.dev_name = "modem_skin2",
+		.type = QMI_CDEV_MAX_LIMIT_TYPE,
+	},
+	{
+		.dev_name = "modem_skin3",
+		.type = QMI_CDEV_MAX_LIMIT_TYPE,
+	},
+	{
 		.dev_name = "cpuv_restriction_cold",
 		.type = QMI_CDEV_MIN_LIMIT_TYPE,
 	},
