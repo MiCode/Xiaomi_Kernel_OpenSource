@@ -46,6 +46,7 @@
 #define QMI_SSCTL_SUBSYS_EVENT_REQ_LENGTH	40
 #define QMI_SSCTL_RESP_MSG_LENGTH		7
 #define QMI_SSCTL_EMPTY_MSG_LENGTH		0
+#define QMI_SSCTL_MAX_MSG_LENGTH		90
 
 #define SSCTL_SERVICE_ID			0x2B
 #define SSCTL_VER_2				2
@@ -541,11 +542,10 @@ static struct qmi_elem_info qmi_ssctl_get_failure_reason_resp_msg_ei[] = {
  */
 int sysmon_get_reason(struct subsys_desc *dest_desc, char *buf, size_t len)
 {
-	struct qmi_ssctl_get_failure_reason_resp_msg resp;
+	struct qmi_ssctl_get_failure_reason_resp_msg resp = { { 0 } };
 	struct sysmon_qmi_data *data = NULL, *temp;
 	struct qmi_txn txn;
 	const char *dest_ss = dest_desc->name;
-	const char expect[] = "ssr:return:";
 	char req = 0;
 	int ret;
 
@@ -610,12 +610,8 @@ int sysmon_get_reason(struct subsys_desc *dest_desc, char *buf, size_t len)
 		goto out;
 	}
 
-	if (!strcmp(resp.error_message, expect)) {
-		pr_err("Unexpected response %s\n", resp.error_message);
-		ret = -EPROTO;
-		goto out;
-	}
 	strlcpy(buf, resp.error_message, resp.error_message_len);
+	return 0;
 out:
 	return ret;
 }
@@ -652,7 +648,7 @@ int sysmon_notifier_register(struct subsys_desc *desc)
 	}
 
 	rc = qmi_handle_init(&data->clnt_handle,
-			QMI_SSCTL_RESP_MSG_LENGTH, &ssctl_ops,
+			QMI_SSCTL_MAX_MSG_LENGTH, &ssctl_ops,
 			qmi_indication_handler);
 	if (rc < 0) {
 		pr_err("Sysmon QMI handle init failed rc:%d\n", rc);
