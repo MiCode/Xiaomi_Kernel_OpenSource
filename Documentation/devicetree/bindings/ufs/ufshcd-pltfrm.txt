@@ -27,6 +27,8 @@ Optional properties:
                           Should be specified in pairs (min, max), units uV.
 - vccq-supply           : phandle to VCCQ supply regulator node
 - vccq2-supply          : phandle to VCCQ2 supply regulator node
+- vccq2-voltage-level   : specifies voltage levels for VCCQ2 supply.
+                          Should be specified in pairs (min, max), units uV.
 - vcc-supply-1p8        : For embedded UFS devices, valid VCC range is 1.7-1.95V
                           or 2.7-3.6V. This boolean property when set, specifies
 			  to use low voltage range of 1.7-1.95V. Note for external
