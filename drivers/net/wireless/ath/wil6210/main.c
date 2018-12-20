@@ -1399,13 +1399,22 @@ static int wil_get_otp_info(struct wil6210_priv *wil)
 	u8 mac[8];
 	int mac_addr;
 
-	if (wil->hw_version >= HW_VER_TALYN_MB)
-		mac_addr = RGF_OTP_MAC_TALYN_MB;
-	else
-		mac_addr = RGF_OTP_MAC;
+	/* OEM MAC has precedence */
+	mac_addr = RGF_OTP_OEM_MAC;
+	wil_memcpy_fromio_32(mac, wil->csr + HOSTADDR(mac_addr), sizeof(mac));
 
-	wil_memcpy_fromio_32(mac, wil->csr + HOSTADDR(mac_addr),
-			     sizeof(mac));
+	if (is_valid_ether_addr(mac)) {
+		wil_info(wil, "using OEM MAC %pM\n", mac);
+	} else {
+		if (wil->hw_version >= HW_VER_TALYN_MB)
+			mac_addr = RGF_OTP_MAC_TALYN_MB;
+		else
+			mac_addr = RGF_OTP_MAC;
+
+		wil_memcpy_fromio_32(mac, wil->csr + HOSTADDR(mac_addr),
+				     sizeof(mac));
+	}
+
 	if (!is_valid_ether_addr(mac)) {
 		u8 dummy_mac[ETH_ALEN] = {
 			0x00, 0xde, 0xad, 0x12, 0x34, 0x56,
