@@ -1903,20 +1903,20 @@ int create_pkt_cmd_session_set_property(
 	case HAL_CONFIG_VENC_BLUR_RESOLUTION:
 	{
 		struct hfi_frame_size *hfi;
-		struct hal_frame_size *prop = (struct hal_frame_size *) pdata;
+		u32 *prop = (u32 *) pdata;
 		u32 buffer_type;
 
 		pkt->rg_property_data[0] =
 			HFI_PROPERTY_CONFIG_VENC_BLUR_FRAME_SIZE;
 		hfi = (struct hfi_frame_size *) &pkt->rg_property_data[1];
-		buffer_type = get_hfi_buffer(prop->buffer_type);
+		buffer_type = get_hfi_buffer(HAL_BUFFER_INPUT);
 		if (buffer_type)
 			hfi->buffer_type = buffer_type;
 		else
 			return -EINVAL;
 
-		hfi->height = prop->height;
-		hfi->width = prop->width;
+		hfi->height = *prop & 0xFFFF;
+		hfi->width = (*prop & 0xFFFF0000) >> 16;
 		pkt->size += sizeof(struct hfi_frame_size);
 		break;
 	}
