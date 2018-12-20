@@ -22,7 +22,8 @@ config DRM_MSM
 
 config DRM_MSM_SDE
 	bool "SDE in Display Driver"
-	default n
+	depends on DRM_MSM
+	default y
 	help
 	  Enable this option to support display driver
 	  compilation. Choosing this option will compile
