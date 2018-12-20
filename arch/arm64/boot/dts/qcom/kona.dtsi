@@ -31,6 +31,7 @@
 	aliases {
 		ufshc1 = &ufshc_mem; /* Embedded UFS slot */
 		pci-domain2 = &pcie2; /* PCIe2 domain */
+		serial0 = &qupv3_se2_2uart; /* RUMI */
 	};
 
 	cpus {
@@ -1987,5 +1988,5 @@
 #include "kona-pm.dtsi"
 
 #include "kona-camera.dtsi"
-
+#include "kona-qupv3.dtsi"
 
