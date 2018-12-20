@@ -801,6 +801,11 @@
 		qcom,config-reg = <0x0f1d1434>;
 	};
 
+	qcom,sps {
+		compatible = "qcom,msm-sps-4k";
+		qcom,pipe-attr-ee;
+	};
+
 	gpi_dma0: qcom,gpi-dma@0x04a00000 {
 		#dma-cells = <5>;
 		compatible = "qcom,gpi-dma";
