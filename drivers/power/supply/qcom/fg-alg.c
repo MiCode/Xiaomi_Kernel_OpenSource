@@ -365,20 +365,20 @@ static void cap_learning_post_process(struct cap_learning *cl)
 /**
  * cap_wt_learning_process_full_data -
  * @cl: Capacity learning object
- * @batt_soc_pct: Battery State of Charge in percent
- * @cc_soc_delta_pct: percentage change in cc_soc
  * @delta_batt_soc_pct: percentage change in battery State of Charge
+ * @batt_soc_msb: MSB of battery State of Charge
  *
  * Calculates the final learnt capacity when
  * weighted capacity learning is enabled.
  *
  */
 static int cap_wt_learning_process_full_data(struct cap_learning *cl,
-					int batt_soc_pct, int cc_soc_delta_pct,
-					int delta_batt_soc_pct)
+					int delta_batt_soc_pct,
+					int batt_soc_msb)
 {
-	int64_t delta_cap_uah, del_cap_uah, total_cap_uah,
+	int64_t del_cap_uah, total_cap_uah,
 		res_cap_uah, wt_learnt_cap_uah;
+	int delta_batt_soc_msb, res_batt_soc_msb;
 
 	/* If the delta is < 10%, then skip processing full data */
 	if (delta_batt_soc_pct < cl->dt.min_delta_batt_soc) {
@@ -386,23 +386,27 @@ static int cap_wt_learning_process_full_data(struct cap_learning *cl,
 		return -ERANGE;
 	}
 
-	delta_cap_uah = div64_s64(cl->learned_cap_uah * cc_soc_delta_pct, 100);
-	/* Learnt Capacity from end Battery SOC to 100 % */
+	delta_batt_soc_msb = batt_soc_msb - cl->init_batt_soc_msb;
+	res_batt_soc_msb = FULL_SOC_RAW - batt_soc_msb;
+	/* Learnt Capacity from end Battery SOC MSB to FULL_SOC_RAW */
 	res_cap_uah = div64_s64(cl->learned_cap_uah *
-				(100 - batt_soc_pct), 100);
-	total_cap_uah = cl->init_cap_uah + delta_cap_uah + res_cap_uah;
+				res_batt_soc_msb, FULL_SOC_RAW);
+	total_cap_uah = cl->init_cap_uah + cl->delta_cap_uah + res_cap_uah;
 	/*
 	 * difference in capacity learnt in this
 	 * charge cycle and previous learnt capacity
 	 */
 	del_cap_uah = total_cap_uah - cl->learned_cap_uah;
-	/* Applying weight based on change in battery SOC */
-	wt_learnt_cap_uah = div64_s64(del_cap_uah * delta_batt_soc_pct,
-					100);
+	/* Applying weight based on change in battery SOC MSB */
+	wt_learnt_cap_uah = div64_s64(del_cap_uah * delta_batt_soc_msb,
+					FULL_SOC_RAW);
 	cl->final_cap_uah = cl->learned_cap_uah + wt_learnt_cap_uah;
 
-	pr_debug("cc_soc_delta_pct=%d total_cap_uah=%lld\n",
-		cc_soc_delta_pct, cl->final_cap_uah);
+	pr_debug("wt_learnt_cap_uah=%lld, del_cap_uah=%lld\n",
+			wt_learnt_cap_uah, del_cap_uah);
+	pr_debug("init_cap_uah=%lld, total_cap_uah=%lld, res_cap_uah=%lld, delta_cap_uah=%lld\n",
+			cl->init_cap_uah, cl->final_cap_uah,
+			res_cap_uah, cl->delta_cap_uah);
 	return 0;
 }
 
@@ -418,8 +422,9 @@ static int cap_wt_learning_process_full_data(struct cap_learning *cl,
 static int cap_learning_process_full_data(struct cap_learning *cl,
 					int batt_soc_msb)
 {
-	int rc, cc_soc_sw, cc_soc_delta_pct, delta_batt_soc_pct, batt_soc_pct;
-	int64_t delta_cap_uah;
+	int rc, cc_soc_sw, cc_soc_delta_pct, delta_batt_soc_pct, batt_soc_pct,
+		cc_soc_fraction;
+	int64_t cc_soc_cap_uah, cc_soc_fraction_uah;
 
 	rc = cl->get_cc_soc(cl->data, &cc_soc_sw);
 	if (rc < 0) {
@@ -430,13 +435,18 @@ static int cap_learning_process_full_data(struct cap_learning *cl,
 	batt_soc_pct = DIV_ROUND_CLOSEST(batt_soc_msb * 100, FULL_SOC_RAW);
 	delta_batt_soc_pct = batt_soc_pct - cl->init_batt_soc;
 	cc_soc_delta_pct =
-		div64_s64((int64_t)(cc_soc_sw - cl->init_cc_soc_sw) * 100,
-			cl->cc_soc_max);
+		div_s64_rem((int64_t)(cc_soc_sw - cl->init_cc_soc_sw) * 100,
+				cl->cc_soc_max, &cc_soc_fraction);
+	cc_soc_fraction_uah = div64_s64(cl->learned_cap_uah *
+				cc_soc_fraction, (int64_t)cl->cc_soc_max * 100);
+	cc_soc_cap_uah = div64_s64(cl->learned_cap_uah * cc_soc_delta_pct, 100);
+	cl->delta_cap_uah = cc_soc_cap_uah + cc_soc_fraction_uah;
+	pr_debug("cc_soc_delta_pct=%d, cc_soc_cap_uah=%lld, cc_soc_fraction_uah=%lld\n",
+			cc_soc_delta_pct, cc_soc_cap_uah, cc_soc_fraction_uah);
 
 	if (cl->dt.cl_wt_enable) {
-		rc = cap_wt_learning_process_full_data(cl, batt_soc_pct,
-							cc_soc_delta_pct,
-							delta_batt_soc_pct);
+		rc = cap_wt_learning_process_full_data(cl, delta_batt_soc_pct,
+							batt_soc_msb);
 		return rc;
 	}
 
@@ -446,8 +456,7 @@ static int cap_learning_process_full_data(struct cap_learning *cl,
 		return -ERANGE;
 	}
 
-	delta_cap_uah = div64_s64(cl->learned_cap_uah * cc_soc_delta_pct, 100);
-	cl->final_cap_uah = cl->init_cap_uah + delta_cap_uah;
+	cl->final_cap_uah = cl->init_cap_uah + cl->delta_cap_uah;
 	pr_debug("Current cc_soc=%d cc_soc_delta_pct=%d total_cap_uah=%lld\n",
 		cc_soc_sw, cc_soc_delta_pct, cl->final_cap_uah);
 	return 0;
@@ -502,6 +511,7 @@ static int cap_learning_begin(struct cap_learning *cl, u32 batt_soc)
 
 	cl->init_cc_soc_sw = cc_soc_sw;
 	cl->init_batt_soc = batt_soc_pct;
+	cl->init_batt_soc_msb = batt_soc_msb;
 	pr_debug("Capacity learning started @ battery SOC %d init_cc_soc_sw:%d\n",
 		batt_soc_msb, cl->init_cc_soc_sw);
 out:

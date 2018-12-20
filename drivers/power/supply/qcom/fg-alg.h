@@ -50,10 +50,12 @@ struct cap_learning {
 	int			init_cc_soc_sw;
 	int			cc_soc_max;
 	int			init_batt_soc;
+	int			init_batt_soc_msb;
 	int64_t			nom_cap_uah;
 	int64_t			init_cap_uah;
 	int64_t			final_cap_uah;
 	int64_t			learned_cap_uah;
+	int64_t			delta_cap_uah;
 	bool			active;
 	struct mutex		lock;
 	struct cl_params	dt;
