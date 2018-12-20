@@ -634,7 +634,6 @@
 		qcom,aux-cfg9-settings = [44 03];
 
 		qcom,max-pclk-frequency-khz = <675000>;
-		qcom,mst-enable;
 
 		qcom,ext-disp = <&ext_disp>;
 
