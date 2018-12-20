@@ -171,6 +171,7 @@ struct imp_qmi_cache {
 	struct ipa_mhi_ready_indication_msg_v01 ready_ind;
 	struct ipa_mhi_alloc_channel_req_msg_v01 alloc_ch_req;
 	struct ipa_mhi_alloc_channel_resp_msg_v01 alloc_ch_resp;
+	struct ipa_mhi_clk_vote_resp_msg_v01 clk_vote_resp;
 };
 
 struct imp_mhi_driver {
@@ -387,7 +388,12 @@ static int __imp_configure_mhi_device(
 			ridx++;
 			resp->alloc_resp_arr_len = ridx;
 			resp->resp.result = IPA_QMI_RESULT_FAILURE_V01;
-			resp->resp.error = IPA_QMI_ERR_INVALID_ID_V01;
+			/* return INCOMPATIBLE_STATE if mhi not active */
+			if (mhi_is_active(imp_ctx->md.mhi_dev))
+				resp->resp.error = IPA_QMI_ERR_INVALID_ID_V01;
+			else
+				resp->resp.error =
+					IPA_QMI_ERR_INCOMPATIBLE_STATE_V01;
 			return -EINVAL;
 		}
 
@@ -443,6 +449,7 @@ static int __imp_configure_mhi_device(
 		IMP_DBG("Configuring MHI device for ch %d\n", ch->props.id);
 		ret = mhi_device_configure(imp_ctx->md.mhi_dev, ch->props.dir,
 			ch_config, 2);
+		/* configure mhi-host, no need check mhi state */
 		if (ret) {
 			IMP_ERR("mhi_device_configure failed for ch %d\n",
 				req->tr_info_arr[i].ch_id);
@@ -485,7 +492,7 @@ struct ipa_mhi_alloc_channel_resp_msg_v01 *imp_handle_allocate_channel_req(
 	if (imp_ctx->state != IMP_READY) {
 		IMP_ERR("invalid state %d\n", imp_ctx->state);
 		resp->resp.result = IPA_QMI_RESULT_FAILURE_V01;
-		resp->resp.error = IPA_QMI_ERR_INCOMPATIBLE_STATE_V01;
+		resp->resp.error = IPA_QMI_ERR_INTERNAL_V01;
 		mutex_unlock(&imp_ctx->mutex);
 		return resp;
 	}
@@ -549,7 +556,11 @@ struct ipa_mhi_alloc_channel_resp_msg_v01 *imp_handle_allocate_channel_req(
 			.is_success = 0;
 		resp->alloc_resp_arr_len++;
 		resp->resp.result = IPA_QMI_RESULT_FAILURE_V01;
-		resp->resp.error = IPA_QMI_ERR_INTERNAL_V01;
+		/* return INCOMPATIBLE_STATE if mhi not active */
+		if (mhi_is_active(imp_ctx->md.mhi_dev))
+			resp->resp.error = IPA_QMI_ERR_INTERNAL_V01;
+		else
+			resp->resp.error = IPA_QMI_ERR_INCOMPATIBLE_STATE_V01;
 		goto fail_smmu;
 	}
 
@@ -599,23 +610,29 @@ fail_smmu:
  *
  * Return: 0 on success, negative otherwise
  */
-int imp_handle_vote_req(bool vote)
+struct ipa_mhi_clk_vote_resp_msg_v01
+	*imp_handle_vote_req(bool vote)
 {
 	int ret;
+	struct ipa_mhi_clk_vote_resp_msg_v01 *resp =
+	&imp_ctx->qmi.clk_vote_resp;
 
 	IMP_DBG_LOW("vote %d\n", vote);
+	memset(resp, 0, sizeof(struct ipa_mhi_clk_vote_resp_msg_v01));
+	resp->resp.result = IPA_QMI_RESULT_FAILURE_V01;
+	resp->resp.error = IPA_QMI_ERR_INTERNAL_V01;
 
 	mutex_lock(&imp_ctx->mutex);
 	if (imp_ctx->state != IMP_STARTED) {
 		IMP_ERR("unexpected vote when in state %d\n", imp_ctx->state);
 		mutex_unlock(&imp_ctx->mutex);
-		return -EPERM;
+		return resp;
 	}
 
 	if (vote == imp_ctx->lpm_disabled) {
 		IMP_ERR("already voted/devoted %d\n", vote);
 		mutex_unlock(&imp_ctx->mutex);
-		return -EPERM;
+		return resp;
 	}
 	mutex_unlock(&imp_ctx->mutex);
 
@@ -629,7 +646,14 @@ int imp_handle_vote_req(bool vote)
 		ret = mhi_device_get_sync(imp_ctx->md.mhi_dev);
 		if (ret) {
 			IMP_ERR("mhi_sync_get failed %d\n", ret);
-			return ret;
+			resp->resp.result = IPA_QMI_RESULT_FAILURE_V01;
+			/* return INCOMPATIBLE_STATE if mhi not active */
+			if (mhi_is_active(imp_ctx->md.mhi_dev))
+				resp->resp.error = IPA_QMI_ERR_INVALID_ID_V01;
+			else
+				resp->resp.error =
+					IPA_QMI_ERR_INCOMPATIBLE_STATE_V01;
+			return resp;
 		}
 	} else {
 		mhi_device_put(imp_ctx->md.mhi_dev);
@@ -642,7 +666,8 @@ int imp_handle_vote_req(bool vote)
 		imp_ctx->lpm_disabled = false;
 	mutex_unlock(&imp_ctx->mutex);
 
-	return 0;
+	resp->resp.result = IPA_QMI_RESULT_SUCCESS_V01;
+	return resp;
 }
 
 static int imp_read_iova_from_dtsi(const char *node, struct imp_iova_addr *out)
