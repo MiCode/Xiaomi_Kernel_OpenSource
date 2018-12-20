@@ -1,0 +1,658 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ */
+
+#define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
+
+#include <linux/module.h>
+#include <linux/platform_device.h>
+#include <linux/thermal.h>
+#include <linux/err.h>
+#include <linux/slab.h>
+#include <linux/of.h>
+#include <linux/soc/qcom/qmi.h>
+#include <linux/net.h>
+#include <linux/kernel.h>
+#include <linux/suspend.h>
+
+#include "thermal_sensor_service_v01.h"
+#include "../thermal_core.h"
+
+#define QMI_SENS_DRIVER		"qmi-therm-sensors"
+#define QMI_TS_RESP_TOUT	msecs_to_jiffies(100)
+#define QMI_CLIENT_NAME_LENGTH	40
+#define QMI_FL_SIGN		0x80000000
+#define QMI_FL_EXP		0x7f800000
+#define QMI_FL_MANTISSA		0x007fffff
+#define QMI_FL_NORM		0x00800000
+#define QMI_FL_SIGN_BIT		31
+#define QMI_MANTISSA_MSB	23
+
+enum qmi_ts_sensor {
+	QMI_TS_PA,
+	QMI_TS_PA_1,
+	QMI_TS_QFE_PA_0,
+	QMI_TS_QFE_WTR_0,
+	QMI_TS_MAX_NR
+};
+
+struct qmi_sensor {
+	struct device			*dev;
+	char				qmi_name[QMI_CLIENT_NAME_LENGTH];
+	bool                            connection_active;
+	struct list_head		ts_node;
+	struct thermal_zone_device	*tz_dev;
+	int32_t				last_reading;
+	int32_t				high_thresh;
+	int32_t				low_thresh;
+	struct qmi_ts_instance		*ts;
+	enum qmi_ts_sensor		sens_type;
+	struct work_struct		therm_notify_work;
+};
+
+struct qmi_ts_instance {
+	struct device			*dev;
+	struct qmi_handle		handle;
+	struct mutex			mutex;
+	uint32_t			inst_id;
+	struct list_head		ts_sensor_list;
+	struct work_struct		svc_arrive_work;
+};
+
+static struct qmi_ts_instance *ts_instances;
+static atomic_t in_suspend;
+
+static char sensor_clients[QMI_TS_MAX_NR][QMI_CLIENT_NAME_LENGTH] = {
+	{"pa"},
+	{"pa_1"},
+	{"qfe_pa0"},
+	{"qfe_wtr0"},
+};
+
+static int32_t encode_qmi(int32_t val)
+{
+	uint32_t shift = 0, local_val = 0;
+	int32_t temp_val = 0;
+
+	if (val == INT_MAX || val == INT_MIN)
+		return 0;
+
+	temp_val = val = val / 1000;
+	if (val < 0) {
+		temp_val *= -1;
+		local_val |= 1 << QMI_FL_SIGN_BIT;
+	}
+	shift = find_last_bit((const unsigned long *)&temp_val,
+			sizeof(temp_val) * 8);
+	local_val |= ((shift + 127) << QMI_MANTISSA_MSB);
+	temp_val &= ~(1 << shift);
+
+	local_val |= temp_val << (QMI_MANTISSA_MSB - shift);
+	pr_debug("inp:%d shift:%d out:%x temp_val:%x\n",
+			val, shift, local_val, temp_val);
+
+	return local_val;
+}
+
+static int32_t decode_qmi(int32_t val)
+{
+	int32_t sign = 0, shift = 0, local_val;
+
+	sign = (val & QMI_FL_SIGN) ? -1 : 1;
+	shift = (val & QMI_FL_EXP) >> QMI_MANTISSA_MSB;
+	shift = QMI_MANTISSA_MSB - (shift - 127);
+	local_val = (val & QMI_FL_MANTISSA) | QMI_FL_NORM;
+	pr_debug("val:0x%x sign:%d shift:%d mantissa:%x temp:%d\n",
+			val, sign, shift, local_val,
+			sign * (local_val >> shift));
+
+	return sign * (local_val >> shift);
+}
+
+static int qmi_sensor_pm_notify(struct notifier_block *nb,
+				unsigned long mode, void *_unused)
+{
+	switch (mode) {
+	case PM_HIBERNATION_PREPARE:
+	case PM_RESTORE_PREPARE:
+	case PM_SUSPEND_PREPARE:
+		atomic_set(&in_suspend, 1);
+		break;
+	case PM_POST_HIBERNATION:
+	case PM_POST_RESTORE:
+	case PM_POST_SUSPEND:
+		atomic_set(&in_suspend, 0);
+		break;
+	default:
+		break;
+	}
+	return 0;
+}
+
+static struct notifier_block qmi_sensor_pm_nb = {
+	.notifier_call = qmi_sensor_pm_notify,
+};
+
+static void qmi_ts_thresh_notify(struct work_struct *work)
+{
+	struct qmi_sensor *qmi_sens = container_of(work,
+						struct qmi_sensor,
+						therm_notify_work);
+
+	of_thermal_handle_trip(qmi_sens->tz_dev);
+};
+
+static void qmi_ts_update_temperature(struct qmi_ts_instance *ts,
+		const struct ts_temp_report_ind_msg_v01 *ind_msg,
+		uint8_t notify)
+{
+	struct qmi_sensor *qmi_sens;
+
+	list_for_each_entry(qmi_sens, &ts->ts_sensor_list,
+					ts_node) {
+		if ((strncasecmp(qmi_sens->qmi_name,
+			ind_msg->sensor_id.sensor_id,
+			QMI_TS_SENSOR_ID_LENGTH_MAX_V01)))
+			continue;
+
+		qmi_sens->last_reading =
+			decode_qmi(ind_msg->temp) * 1000;
+		pr_debug("sensor:%s temperature:%d\n",
+				qmi_sens->qmi_name, qmi_sens->last_reading);
+		if (!qmi_sens->tz_dev)
+			return;
+		if (notify &&
+			((qmi_sens->high_thresh != INT_MAX &&
+			qmi_sens->last_reading >= qmi_sens->high_thresh) ||
+			(qmi_sens->low_thresh != INT_MIN &&
+			 qmi_sens->last_reading <= qmi_sens->low_thresh))) {
+			pr_debug("Sensor:%s Notify. temp:%d\n",
+					ind_msg->sensor_id.sensor_id,
+					qmi_sens->last_reading);
+			queue_work(system_highpri_wq,
+					&qmi_sens->therm_notify_work);
+		}
+		return;
+	}
+}
+
+void qmi_ts_ind_cb(struct qmi_handle *qmi, struct sockaddr_qrtr *sq,
+				   struct qmi_txn *txn, const void *decoded)
+{
+	const struct ts_temp_report_ind_msg_v01 *ind_msg = decoded;
+	uint8_t notify = 0;
+	struct qmi_ts_instance *ts = container_of(qmi, struct qmi_ts_instance,
+							handle);
+
+	if (!txn) {
+		pr_err("Invalid transaction\n");
+		return;
+	}
+
+	if ((ind_msg->report_type != QMI_TS_TEMP_REPORT_CURRENT_TEMP_V01) ||
+		ind_msg->seq_num_valid)
+		notify = 1;
+
+	if (ind_msg->temp_valid)
+		qmi_ts_update_temperature(ts, ind_msg, notify);
+	else
+		pr_err("Error invalid temperature field.\n");
+}
+
+static int qmi_ts_request(struct qmi_sensor *qmi_sens,
+				bool send_current_temp_report)
+{
+	int ret = 0;
+	struct ts_register_notification_temp_resp_msg_v01 resp;
+	struct ts_register_notification_temp_req_msg_v01 req;
+	struct qmi_ts_instance *ts = qmi_sens->ts;
+	struct qmi_txn txn;
+
+	memset(&req, 0, sizeof(req));
+	memset(&resp, 0, sizeof(resp));
+
+	strlcpy(req.sensor_id.sensor_id, qmi_sens->qmi_name,
+		QMI_TS_SENSOR_ID_LENGTH_MAX_V01);
+	req.seq_num = 0;
+	if (send_current_temp_report) {
+		req.send_current_temp_report = 1;
+		req.seq_num_valid = true;
+	} else {
+		req.seq_num_valid = false;
+		req.temp_threshold_high_valid =
+			qmi_sens->high_thresh != INT_MAX;
+		req.temp_threshold_high =
+			encode_qmi(qmi_sens->high_thresh);
+		req.temp_threshold_low_valid =
+			qmi_sens->low_thresh != INT_MIN;
+		req.temp_threshold_low =
+			encode_qmi(qmi_sens->low_thresh);
+	}
+
+	mutex_lock(&ts->mutex);
+
+	ret = qmi_txn_init(&ts->handle, &txn,
+		ts_register_notification_temp_resp_msg_v01_ei, &resp);
+	if (ret < 0) {
+		pr_err("qmi txn init failed for %s ret:%d\n",
+			qmi_sens->qmi_name, ret);
+		goto qmi_send_exit;
+	}
+
+	ret = qmi_send_request(&ts->handle, NULL, &txn,
+			QMI_TS_REGISTER_NOTIFICATION_TEMP_REQ_V01,
+			TS_REGISTER_NOTIFICATION_TEMP_REQ_MSG_V01_MAX_MSG_LEN,
+			ts_register_notification_temp_req_msg_v01_ei, &req);
+	if (ret < 0) {
+		pr_err("qmi txn send failed for %s ret:%d\n",
+			qmi_sens->qmi_name, ret);
+		qmi_txn_cancel(&txn);
+		goto qmi_send_exit;
+	}
+
+	ret = qmi_txn_wait(&txn, QMI_TS_RESP_TOUT);
+	if (ret < 0) {
+		pr_err("qmi txn wait failed for %s ret:%d\n",
+			qmi_sens->qmi_name, ret);
+		goto qmi_send_exit;
+	}
+	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
+		ret = resp.resp.result;
+		pr_err("qmi NOT success for %s ret:%d\n",
+			qmi_sens->qmi_name, ret);
+		goto qmi_send_exit;
+	}
+	ret = 0;
+
+qmi_send_exit:
+	mutex_unlock(&ts->mutex);
+	return ret;
+}
+
+static int qmi_sensor_read(void *data, int *temp)
+{
+	struct qmi_sensor *qmi_sens = (struct qmi_sensor *)data;
+
+	if (qmi_sens->connection_active && !atomic_read(&in_suspend))
+		qmi_ts_request(qmi_sens, true);
+	*temp = qmi_sens->last_reading;
+
+	return 0;
+}
+
+static int qmi_sensor_set_trips(void *data, int low, int high)
+{
+	struct qmi_sensor *qmi_sens = (struct qmi_sensor *)data;
+	int ret = 0;
+
+	if (qmi_sens->high_thresh == high &&
+		qmi_sens->low_thresh == low)
+		return ret;
+	qmi_sens->high_thresh = high;
+	qmi_sens->low_thresh = low;
+	if (!qmi_sens->connection_active)
+		return ret;
+	ret = qmi_ts_request(qmi_sens, false);
+	if (ret)
+		pr_err("Sensor:%s set high trip:%d low trip:%d error%d\n",
+				qmi_sens->qmi_name,
+				qmi_sens->high_thresh,
+				qmi_sens->low_thresh,
+				ret);
+
+	return ret;
+}
+
+static struct thermal_zone_of_device_ops qmi_sensor_ops = {
+	.get_temp = qmi_sensor_read,
+	.set_trips = qmi_sensor_set_trips,
+};
+
+static struct qmi_msg_handler handlers[] = {
+	{
+		.type = QMI_INDICATION,
+		.msg_id = QMI_TS_TEMP_REPORT_IND_V01,
+		.ei = ts_temp_report_ind_msg_v01_ei,
+		.decoded_size = sizeof(struct ts_temp_report_ind_msg_v01),
+		.fn = qmi_ts_ind_cb
+	},
+	{}
+};
+
+static int qmi_register_sensor_device(struct qmi_sensor *qmi_sens)
+{
+	int ret = 0;
+
+	qmi_sens->tz_dev = thermal_zone_of_sensor_register(
+				qmi_sens->dev,
+				qmi_sens->sens_type,
+				qmi_sens, &qmi_sensor_ops);
+	if (IS_ERR(qmi_sens->tz_dev)) {
+		ret = PTR_ERR(qmi_sens->tz_dev);
+		if (ret != -ENODEV)
+			pr_err("sensor register failed for %s, ret:%ld\n",
+				qmi_sens->qmi_name, ret);
+		qmi_sens->tz_dev = NULL;
+		return ret;
+	}
+	pr_debug("Sensor register success for %s\n", qmi_sens->qmi_name);
+
+	return 0;
+}
+
+static int verify_sensor_and_register(struct qmi_ts_instance *ts)
+{
+	struct ts_get_sensor_list_req_msg_v01 req;
+	struct ts_get_sensor_list_resp_msg_v01 *ts_resp;
+	int ret = 0, i;
+	struct qmi_txn txn;
+
+	memset(&req, 0, sizeof(req));
+	/* size of ts_resp is very high, use heap memory rather than stack */
+	ts_resp = kzalloc(sizeof(*ts_resp), GFP_KERNEL);
+	if (!ts_resp)
+		return -ENOMEM;
+
+	mutex_lock(&ts->mutex);
+	ret = qmi_txn_init(&ts->handle, &txn,
+		ts_get_sensor_list_resp_msg_v01_ei, ts_resp);
+	if (ret < 0) {
+		pr_err("Transaction Init error for inst_id:0x%x ret:%d\n",
+			ts->inst_id, ret);
+		goto reg_exit;
+	}
+
+	ret = qmi_send_request(&ts->handle, NULL, &txn,
+			QMI_TS_GET_SENSOR_LIST_REQ_V01,
+			TS_GET_SENSOR_LIST_REQ_MSG_V01_MAX_MSG_LEN,
+			ts_get_sensor_list_req_msg_v01_ei,
+			&req);
+	if (ret < 0) {
+		qmi_txn_cancel(&txn);
+		goto reg_exit;
+	}
+
+	ret = qmi_txn_wait(&txn, QMI_TS_RESP_TOUT);
+	if (ret < 0) {
+		pr_err("Transaction wait error for inst_id:0x%x ret:%d\n",
+			ts->inst_id, ret);
+		goto reg_exit;
+	}
+	if (ts_resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+		ret = ts_resp->resp.result;
+		pr_err("Get sensor list NOT success for inst_id:0x%x ret:%d\n",
+			ts->inst_id, ret);
+		goto reg_exit;
+	}
+	mutex_unlock(&ts->mutex);
+
+	for (i = 0; i < ts_resp->sensor_list_len; i++) {
+		struct qmi_sensor *qmi_sens = NULL;
+
+		list_for_each_entry(qmi_sens, &ts->ts_sensor_list,
+					ts_node) {
+			if ((strncasecmp(qmi_sens->qmi_name,
+				ts_resp->sensor_list[i].sensor_id,
+				QMI_TS_SENSOR_ID_LENGTH_MAX_V01)))
+				continue;
+
+			qmi_sens->connection_active = true;
+			/*
+			 * Send a temperature request notification.
+			 */
+			qmi_ts_request(qmi_sens, true);
+			if (!qmi_sens->tz_dev)
+				ret = qmi_register_sensor_device(qmi_sens);
+			break;
+		}
+	}
+
+	kfree(ts_resp);
+	return ret;
+
+reg_exit:
+	mutex_unlock(&ts->mutex);
+	kfree(ts_resp);
+
+	return ret;
+}
+
+static void qmi_ts_svc_arrive(struct work_struct *work)
+{
+	struct qmi_ts_instance *ts = container_of(work,
+						struct qmi_ts_instance,
+						svc_arrive_work);
+
+	verify_sensor_and_register(ts);
+}
+
+static void thermal_qmi_net_reset(struct qmi_handle *qmi)
+{
+	struct qmi_ts_instance *ts = container_of(qmi,
+						struct qmi_ts_instance,
+						handle);
+	struct qmi_sensor *qmi_sens = NULL;
+	int ret;
+
+	pr_debug("reset QMI server\n");
+	list_for_each_entry(qmi_sens, &ts->ts_sensor_list,
+					ts_node) {
+		if (!qmi_sens->connection_active)
+			continue;
+		qmi_ts_request(qmi_sens, true);
+		ret = qmi_ts_request(qmi_sens, false);
+		if (ret)
+			pr_err("Sensor:%s set high trip:%d low trip:%d err%d\n",
+				qmi_sens->tz_dev->type,
+				qmi_sens->high_thresh,
+				qmi_sens->low_thresh,
+				ret);
+	}
+}
+
+static void thermal_qmi_del_server(struct qmi_handle *qmi,
+				    struct qmi_service *service)
+{
+	struct qmi_ts_instance *ts = container_of(qmi,
+						struct qmi_ts_instance,
+						handle);
+	struct qmi_sensor *qmi_sens = NULL;
+
+	pr_debug("QMI server deleted\n");
+	list_for_each_entry(qmi_sens, &ts->ts_sensor_list, ts_node)
+		qmi_sens->connection_active = false;
+}
+
+static int thermal_qmi_new_server(struct qmi_handle *qmi,
+				    struct qmi_service *service)
+{
+	struct qmi_ts_instance *ts = container_of(qmi,
+						struct qmi_ts_instance,
+						handle);
+	struct sockaddr_qrtr sq = {AF_QIPCRTR, service->node, service->port};
+
+	mutex_lock(&ts->mutex);
+	kernel_connect(qmi->sock, (struct sockaddr *)&sq, sizeof(sq), 0);
+	mutex_unlock(&ts->mutex);
+	queue_work(system_highpri_wq, &ts->svc_arrive_work);
+
+	return 0;
+}
+
+static struct qmi_ops thermal_qmi_event_ops = {
+	.new_server = thermal_qmi_new_server,
+	.del_server = thermal_qmi_del_server,
+	.net_reset = thermal_qmi_net_reset,
+};
+
+static void qmi_ts_cleanup(void)
+{
+	struct qmi_ts_instance *ts = ts_instances;
+	struct qmi_sensor *qmi_sens, *c_next;
+
+	mutex_lock(&ts->mutex);
+	list_for_each_entry_safe(qmi_sens, c_next,
+			&ts->ts_sensor_list, ts_node) {
+		qmi_sens->connection_active = false;
+		if (qmi_sens->tz_dev)
+			thermal_zone_of_sensor_unregister(
+				qmi_sens->dev, qmi_sens->tz_dev);
+
+		list_del(&qmi_sens->ts_node);
+	}
+	qmi_handle_release(&ts->handle);
+
+	mutex_unlock(&ts->mutex);
+}
+
+static int of_get_qmi_ts_platform_data(struct device *dev)
+{
+	int ret = 0, i = 0;
+	struct device_node *np = dev->of_node;
+	struct device_node *subsys_np;
+	struct qmi_ts_instance *ts;
+	struct qmi_sensor *qmi_sens;
+	int sens_name_max = 0, sens_idx = 0;
+
+	ts = devm_kzalloc(dev, sizeof(*ts), GFP_KERNEL);
+	if (!ts)
+		return -ENOMEM;
+
+	subsys_np = of_get_next_child(np, NULL);
+	if (!subsys_np) {
+		dev_err(dev, "No child node\n");
+		return -EINVAL;
+	}
+
+	ret = of_property_read_u32(subsys_np, "qcom,instance-id",
+				&ts->inst_id);
+	if (ret) {
+		dev_err(dev, "error reading qcom,insance-id. ret:%d\n", ret);
+		goto data_fetch_err;
+	}
+
+	ts->dev = dev;
+	mutex_init(&ts->mutex);
+	INIT_LIST_HEAD(&ts->ts_sensor_list);
+	INIT_WORK(&ts->svc_arrive_work, qmi_ts_svc_arrive);
+
+	sens_name_max = of_property_count_strings(subsys_np,
+				"qcom,qmi-sensor-names");
+	if (sens_name_max <= 0) {
+		dev_err(dev, "Invalid or no sensor. err:%d\n", sens_name_max);
+		ret = -EINVAL;
+		goto data_fetch_err;
+	}
+
+	for (sens_idx = 0; sens_idx < sens_name_max; sens_idx++) {
+		const char *qmi_name;
+
+		qmi_sens = devm_kzalloc(dev, sizeof(*qmi_sens),	GFP_KERNEL);
+		if (!qmi_sens) {
+			ret = -ENOMEM;
+			goto data_fetch_err;
+		}
+
+		of_property_read_string_index(subsys_np,
+					"qcom,qmi-sensor-names", sens_idx,
+					&qmi_name);
+		strlcpy(qmi_sens->qmi_name, qmi_name,
+						QMI_CLIENT_NAME_LENGTH);
+			/* Check for supported qmi sensors */
+		for (i = 0; i < QMI_TS_MAX_NR; i++) {
+			if (!strcmp(sensor_clients[i], qmi_sens->qmi_name))
+				break;
+		}
+
+		if (i >= QMI_TS_MAX_NR) {
+			dev_err(dev, "Unknown sensor:%s\n",
+					qmi_sens->qmi_name);
+			ret = -EINVAL;
+			goto data_fetch_err;
+		}
+		dev_dbg(dev, "QMI sensor:%s available\n", qmi_name);
+		qmi_sens->sens_type = i;
+		qmi_sens->ts = ts;
+		qmi_sens->dev = dev;
+		qmi_sens->last_reading = 0;
+		qmi_sens->high_thresh = INT_MAX;
+		qmi_sens->low_thresh = INT_MIN;
+		INIT_WORK(&qmi_sens->therm_notify_work,
+				qmi_ts_thresh_notify);
+		list_add(&qmi_sens->ts_node, &ts->ts_sensor_list);
+	}
+	ts_instances = ts;
+
+data_fetch_err:
+	of_node_put(subsys_np);
+	return ret;
+}
+
+static int qmi_sens_device_probe(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	int ret = 0;
+	struct qmi_ts_instance *ts;
+
+	ret = of_get_qmi_ts_platform_data(dev);
+	if (ret)
+		goto probe_err;
+
+	if (!ts_instances) {
+		dev_err(dev, "Empty ts instances\n");
+		return -EINVAL;
+	}
+
+	ts = ts_instances;
+	if (list_empty(&ts->ts_sensor_list))
+		goto probe_err;
+
+	ret = qmi_handle_init(&ts->handle,
+			TS_GET_SENSOR_LIST_RESP_MSG_V01_MAX_MSG_LEN,
+			&thermal_qmi_event_ops, handlers);
+	if (ret < 0) {
+		dev_err(dev, "QMI[0x%x] handle init failed. err:%d\n",
+					ts->inst_id, ret);
+		goto probe_err;
+	}
+	ret = qmi_add_lookup(&ts->handle, TS_SERVICE_ID_V01,
+				TS_SERVICE_VERS_V01, ts->inst_id);
+	if (ret < 0) {
+		dev_err(dev, "QMI register failed for 0x%x, ret:%d\n",
+				ts->inst_id, ret);
+		goto probe_err;
+	}
+	atomic_set(&in_suspend, 0);
+	register_pm_notifier(&qmi_sensor_pm_nb);
+	return 0;
+
+probe_err:
+	qmi_ts_cleanup();
+	return ret;
+}
+
+static int qmi_sens_device_remove(struct platform_device *pdev)
+{
+	qmi_ts_cleanup();
+	unregister_pm_notifier(&qmi_sensor_pm_nb);
+
+	return 0;
+}
+
+static const struct of_device_id qmi_sens_device_match[] = {
+	{.compatible = "qcom,qmi-sensors"},
+	{}
+};
+
+static struct platform_driver qmi_sens_device_driver = {
+	.probe          = qmi_sens_device_probe,
+	.remove         = qmi_sens_device_remove,
+	.driver         = {
+		.name   = QMI_SENS_DRIVER,
+		.owner  = THIS_MODULE,
+		.of_match_table = qmi_sens_device_match,
+	},
+};
+
+builtin_platform_driver(qmi_sens_device_driver);
