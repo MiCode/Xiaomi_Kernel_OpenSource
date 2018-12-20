@@ -689,6 +689,14 @@
 
 	thermal_zones: thermal-zones {};
 
+	dcc: dcc_v2@1be2000 {
+		compatible = "qcom,dcc-v2";
+		reg = <0x1be2000 0x1000>,
+			<0x1bef000 0x1000>;
+		reg-names = "dcc-base", "dcc-ram-base";
+		dcc-ram-offset = <0x1000>;
+	};
+
 	cpu_pmu: cpu-pmu {
 		compatible = "arm,armv8-pmuv3";
 		qcom,irq-is-percpu;
