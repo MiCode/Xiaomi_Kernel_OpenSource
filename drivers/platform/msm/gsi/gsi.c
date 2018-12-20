@@ -551,14 +551,9 @@ static void gsi_process_chan(struct gsi_xfer_compl_evt *evt,
 
 	ch_ctx->stats.completed++;
 
-	notify->xfer_user_data = ch_ctx->user_data[rp_idx];
-
-	/*
-	 * TODO in future: have a way to differentiate processed rx packets
-	 * for coalescing channel instead of nulling
-	 */
-	if (ch_ctx->props.prot == GSI_CHAN_PROT_GCI)
-		ch_ctx->user_data[rp_idx] = NULL;
+	WARN_ON(!ch_ctx->user_data[rp_idx].valid);
+	notify->xfer_user_data = ch_ctx->user_data[rp_idx].p;
+	ch_ctx->user_data[rp_idx].valid = false;
 
 	notify->chan_user_data = ch_ctx->props.chan_user_data;
 	notify->evt_id = evt->code;
@@ -1585,18 +1580,21 @@ static int gsi_cleanup_xfer_user_data(unsigned long chan_hdl,
 
 	/* for coalescing, traverse the whole array */
 	if (ctx->props.prot == GSI_CHAN_PROT_GCI) {
-		for (i = 0; i < ctx->ring.max_num_elem + 1; i++) {
-			if (ctx->user_data[i])
+		size_t user_data_size =
+			ctx->ring.max_num_elem + 1 + GSI_VEID_MAX;
+		for (i = 0; i < user_data_size; i++) {
+			if (ctx->user_data[i].valid)
 				cleanup_cb(ctx->props.chan_user_data,
-					ctx->user_data[i]);
+					ctx->user_data[i].p);
 		}
 	} else {
 		/* for non-coalescing, clean between RP and WP */
 		while (ctx->ring.rp_local != ctx->ring.wp_local) {
 			rp_idx = gsi_find_idx_from_addr(&ctx->ring,
 				ctx->ring.rp_local);
+			WARN_ON(!ctx->user_data[rp_idx].valid);
 			cleanup_cb(ctx->props.chan_user_data,
-				ctx->user_data[rp_idx]);
+				ctx->user_data[rp_idx].p);
 			gsi_incr_ring_rp(&ctx->ring);
 		}
 	}
@@ -2281,7 +2279,8 @@ int gsi_alloc_channel(struct gsi_chan_props *props, unsigned long dev_hdl,
 	int ee;
 	enum gsi_ch_cmd_opcode op = GSI_CH_ALLOCATE;
 	uint8_t erindex;
-	void **user_data;
+	struct gsi_user_data *user_data;
+	size_t user_data_size;
 
 	if (!gsi_ctx) {
 		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
@@ -2321,10 +2320,18 @@ int gsi_alloc_channel(struct gsi_chan_props *props, unsigned long dev_hdl,
 		GSIERR("chan %d already allocated\n", props->ch_id);
 		return -GSI_STATUS_NODEV;
 	}
-
 	memset(ctx, 0, sizeof(*ctx));
+	user_data_size = props->ring_len / props->re_size;
+	/*
+	 * GCI channels might have OOO event completions up to GSI_VEID_MAX.
+	 * user_data needs to be large enough to accommodate those.
+	 * TODO: increase user data size if GSI_VEID_MAX is not enough
+	 */
+	if (props->prot == GSI_CHAN_PROT_GCI)
+		user_data_size += GSI_VEID_MAX;
+
 	user_data = devm_kzalloc(gsi_ctx->dev,
-		(props->ring_len / props->re_size) * sizeof(void *),
+		user_data_size * sizeof(*user_data),
 		GFP_KERNEL);
 	if (user_data == NULL) {
 		GSIERR("context not allocated\n");
@@ -3293,7 +3300,37 @@ int gsi_is_channel_empty(unsigned long chan_hdl, bool *is_empty)
 }
 EXPORT_SYMBOL(gsi_is_channel_empty);
 
-int __gsi_populate_gci_tre(struct gsi_chan_ctx *ctx, struct gsi_xfer_elem *xfer)
+int __gsi_get_gci_cookie(struct gsi_chan_ctx *ctx, uint16_t idx)
+{
+	int i;
+	int end;
+
+	if (!ctx->user_data[idx].valid) {
+		ctx->user_data[idx].valid = true;
+		return idx;
+	}
+
+	/*
+	 * at this point we need to find an "escape buffer" for the cookie
+	 * as the userdata in this spot is in use. This happens if the TRE at
+	 * idx is not completed yet and it is getting reused by a new TRE.
+	 */
+	ctx->stats.userdata_in_use++;
+	for (i = 0; i < GSI_VEID_MAX; i++) {
+		end = ctx->ring.max_num_elem + 1;
+		if (!ctx->user_data[end + i].valid) {
+			ctx->user_data[end + i].valid = true;
+			return end + i;
+		}
+	}
+
+	/* TODO: Increase escape buffer size if we hit this */
+	GSIERR("user_data is full\n");
+	return -EPERM;
+}
+
+int __gsi_populate_gci_tre(struct gsi_chan_ctx *ctx,
+	struct gsi_xfer_elem *xfer)
 {
 	struct gsi_gci_tre gci_tre;
 	struct gsi_gci_tre *tre_gci_ptr;
@@ -3319,11 +3356,13 @@ int __gsi_populate_gci_tre(struct gsi_chan_ctx *ctx, struct gsi_xfer_elem *xfer)
 	gci_tre.buffer_ptr = xfer->addr;
 	gci_tre.buf_len = xfer->len;
 	gci_tre.re_type = GSI_RE_COAL;
-	gci_tre.cookie = idx;
+	gci_tre.cookie = __gsi_get_gci_cookie(ctx, idx);
+	if (gci_tre.cookie < 0)
+		return -EPERM;
 
 	/* write the TRE to ring */
 	*tre_gci_ptr = gci_tre;
-	ctx->user_data[idx] = xfer->xfer_user_data;
+	ctx->user_data[idx].p = xfer->xfer_user_data;
 
 	return 0;
 }
@@ -3361,7 +3400,8 @@ int __gsi_populate_tre(struct gsi_chan_ctx *ctx,
 
 	/* write the TRE to ring */
 	*tre_ptr = tre;
-	ctx->user_data[idx] = xfer->xfer_user_data;
+	ctx->user_data[idx].valid = true;
+	ctx->user_data[idx].p = xfer->xfer_user_data;
 
 	return 0;
 }
