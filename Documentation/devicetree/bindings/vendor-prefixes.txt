@@ -31,6 +31,7 @@ andestech	Andes Technology Corporation
 android	Google
 apm	Applied Micro Circuits Corporation (APM)
 aptina	Aptina Imaging
+aquantia	Aquantia Corporation
 arasan	Arasan Chip Systems
 arctic	Arctic Sand
 aries	Aries Embedded GmbH
