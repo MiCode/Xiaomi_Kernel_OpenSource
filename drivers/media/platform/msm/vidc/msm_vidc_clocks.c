@@ -1160,7 +1160,6 @@ int msm_vidc_decide_work_route(struct msm_vidc_inst *inst)
 		}
 	} else if (inst->session_type == MSM_VIDC_ENCODER) {
 		u32 slice_mode = 0;
-		u32 rc_mode = 0;
 		u32 output_width, output_height, fps, mbps;
 
 		switch (inst->fmts[CAPTURE_PORT].fourcc) {
@@ -1170,10 +1169,7 @@ int msm_vidc_decide_work_route(struct msm_vidc_inst *inst)
 			goto decision_done;
 		}
 
-		rc_mode = msm_comm_g_ctrl_for_id(inst,
-			V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
-		if (rc_mode ==
-			V4L2_MPEG_VIDEO_BITRATE_MODE_CQ) {
+		if (inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_CQ) {
 			pdata.video_work_route = 2;
 			goto decision_done;
 		}
@@ -1185,9 +1181,10 @@ int msm_vidc_decide_work_route(struct msm_vidc_inst *inst)
 		mbps = NUM_MBS_PER_SEC(output_height, output_width, fps);
 		if (slice_mode ==
 			V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_BYTES ||
-			(rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR &&
+			(inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR &&
 			mbps <= CBR_MB_LIMIT) ||
-			(rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR &&
+			(inst->rc_type ==
+				V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR &&
 			mbps <= CBR_VFR_MB_LIMIT)) {
 			pdata.video_work_route = 1;
 			dprintk(VIDC_DBG, "Configured work route = 1");
@@ -1362,7 +1359,6 @@ static inline int msm_vidc_power_save_mode_enable(struct msm_vidc_inst *inst,
 	void *pdata = NULL;
 	struct hfi_device *hdev = NULL;
 	enum hal_perf_mode venc_mode;
-	u32 rc_mode = 0;
 
 	hdev = inst->core->device;
 	if (inst->session_type != MSM_VIDC_ENCODER) {
@@ -1378,9 +1374,7 @@ static inline int msm_vidc_power_save_mode_enable(struct msm_vidc_inst *inst,
 		enable = true;
 	}
 	/* Power saving always disabled for CQ RC mode. */
-	rc_mode = msm_comm_g_ctrl_for_id(inst,
-		V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
-	if (rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CQ)
+	if (inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_CQ)
 		enable = false;
 
 	prop_id = HAL_CONFIG_VENC_PERF_MODE;
