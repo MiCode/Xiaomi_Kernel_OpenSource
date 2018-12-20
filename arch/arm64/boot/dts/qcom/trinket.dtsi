@@ -1500,6 +1500,18 @@
 };
 
 &pmi632_vadc {
+	bat_therm {
+		qcom,lut-index = <1>;
+	};
+
+	bat_therm_30k {
+		qcom,lut-index = <1>;
+	};
+
+	bat_therm_400k {
+		qcom,lut-index = <1>;
+	};
+
 	conn_therm {
 		reg = <ADC_GPIO1_PU2>;
 		label = "conn_therm";
