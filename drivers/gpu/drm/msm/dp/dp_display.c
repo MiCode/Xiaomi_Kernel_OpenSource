@@ -1739,7 +1739,6 @@ static enum drm_mode_status dp_display_validate_mode(
 		struct dp_display *dp_display,
 		void *panel, struct drm_display_mode *mode)
 {
-	const u32 num_components = 3, default_bpp = 24;
 	struct dp_display_private *dp;
 	struct drm_dp_link *link_info;
 	u32 mode_rate_khz = 0, supported_rate_khz = 0, mode_bpp = 0;
@@ -1749,6 +1748,8 @@ static enum drm_mode_status dp_display_validate_mode(
 	bool in_list = false;
 	struct dp_mst_connector *mst_connector;
 	int hdis, vdis, vref, ar, _hdis, _vdis, _vref, _ar, rate;
+	struct dp_display_mode dp_mode;
+	bool dsc_en;
 
 	if (!dp_display || !mode || !panel) {
 		pr_err("invalid params\n");
@@ -1771,11 +1772,11 @@ static enum drm_mode_status dp_display_validate_mode(
 	if (!debug)
 		goto end;
 
-	mode_bpp = dp_panel->connector->display_info.bpc * num_components;
-	if (!mode_bpp)
-		mode_bpp = default_bpp;
+	dp_display->convert_to_dp_mode(dp_display, panel, mode, &dp_mode);
 
-	mode_bpp = dp_panel->get_mode_bpp(dp_panel, mode_bpp, mode->clock);
+	dsc_en = dp_mode.timing.comp_info.comp_ratio ? true : false;
+	mode_bpp = dsc_en ? dp_mode.timing.comp_info.dsc_info.bpp :
+			dp_mode.timing.bpp;
 
 	mode_rate_khz = mode->clock * mode_bpp;
 	rate = drm_dp_bw_code_to_link_rate(dp->link->link_params.bw_code);
