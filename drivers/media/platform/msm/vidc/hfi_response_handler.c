@@ -1842,7 +1842,7 @@ static int hfi_process_sys_property_info(u32 device_id,
 	default:
 		dprintk(VIDC_DBG,
 				"%s: unknown_prop_id: %x\n",
-				pkt->rg_property_data[0], __func__);
+				__func__, pkt->rg_property_data[0]);
 		return -ENOTSUPP;
 	}
 

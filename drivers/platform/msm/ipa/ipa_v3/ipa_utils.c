@@ -7504,7 +7504,7 @@ int emulator_load_fws(
 	 */
 	if (phdr->p_memsz > gsi_ram_size) {
 		IPAERR(
-		    "Invalid GSI FW img size memsz=%d gsi_ram_size=%u\n",
+		    "Invalid GSI FW img size memsz=%d gsi_ram_size=%lu\n",
 		    phdr->p_memsz, gsi_ram_size);
 		return -EINVAL;
 	}

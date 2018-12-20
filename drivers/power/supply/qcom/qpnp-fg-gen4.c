@@ -1012,7 +1012,7 @@ static int fg_gen4_store_count(void *data, u16 *buf, int id, int length)
 	rc = fg_sram_write(&chip->fg, CYCLE_COUNT_WORD + id, CYCLE_COUNT_OFFSET,
 			(u8 *)buf, length, FG_IMA_DEFAULT);
 	if (rc < 0)
-		pr_err("failed to write bucket %d rc=%d\n", rc);
+		pr_err("failed to write bucket rc=%d\n", rc);
 
 	return rc;
 }

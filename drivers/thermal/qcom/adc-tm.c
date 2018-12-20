@@ -88,7 +88,7 @@ static int adc_tm_register_tzd(struct adc_tm_chip *adc_tm, int dt_chan_num,
 					&adc_tm->sensor[i], &adc_tm_ops_iio);
 
 			if (IS_ERR(tzd)) {
-				pr_err("Error registering TZ zone:%d for dt_ch:%d\n",
+				pr_err("Error registering TZ zone:%ld for dt_ch:%d\n",
 					PTR_ERR(tzd), adc_tm->sensor[i].adc_ch);
 				continue;
 			}

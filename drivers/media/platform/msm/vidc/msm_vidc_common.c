@@ -3220,7 +3220,8 @@ static int msm_comm_init_buffer_count(struct msm_vidc_inst *inst)
 		bufreq->buffer_count_actual, HAL_BUFFER_OUTPUT);
 	if (rc) {
 		dprintk(VIDC_ERR,
-			"%s: Failed to set out buffer count to FW\n");
+			"%s: Failed to set out buffer count to FW\n",
+			__func__);
 		return -EINVAL;
 	}
 

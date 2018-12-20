@@ -4430,7 +4430,7 @@ static void ipa3_freeze_clock_vote_and_notify_modem(void)
 		return;
 
 	if (IS_ERR(ipa3_ctx->smp2p_info.smem_state)) {
-		IPAERR("fail to get smp2p clk resp bit %d\n",
+		IPAERR("fail to get smp2p clk resp bit %ld\n",
 			PTR_ERR(ipa3_ctx->smp2p_info.smem_state));
 		return;
 	}

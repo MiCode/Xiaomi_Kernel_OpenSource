@@ -1062,7 +1062,7 @@ static int adc_tm5_init(struct adc_tm_chip *chip, uint32_t dt_chans)
 
 	for (i = 0; i < dt_chans; i++) {
 		if ((i + offset_btm_idx) > ADC_TM_CHAN7) {
-			pr_err("Invalid BTM index\n", (i + offset_btm_idx));
+			pr_err("Invalid BTM index %d\n", (i + offset_btm_idx));
 			return -EINVAL;
 		}
 
