@@ -395,6 +395,7 @@ struct fg_memif {
 };
 
 struct fg_dev {
+	struct thermal_zone_device	*tz_dev;
 	struct device		*dev;
 	struct pmic_revid_data	*pmic_rev_id;
 	struct regmap		*regmap;

@@ -12,6 +12,7 @@
 #include <linux/of_batterydata.h>
 #include <linux/platform_device.h>
 #include <linux/qpnp/qpnp-revid.h>
+#include <linux/thermal.h>
 #include "fg-core.h"
 #include "fg-reg.h"
 #include "fg-alg.h"
@@ -680,6 +681,27 @@ static int fg_gen4_get_battery_temp(struct fg_dev *fg, int *val)
 
 	return 0;
 }
+
+static int fg_gen4_tz_get_temp(void *data, int *temperature)
+{
+	struct fg_dev *fg = (struct fg_dev *)data;
+	int rc, temp;
+
+	if (!temperature)
+		return -EINVAL;
+
+	rc = fg_gen4_get_battery_temp(fg, &temp);
+	if (rc < 0)
+		return rc;
+
+	/* Convert deciDegC to milliDegC */
+	*temperature = temp * 100;
+	return rc;
+}
+
+static struct thermal_zone_of_device_ops fg_gen4_tz_ops = {
+	.get_temp = fg_gen4_tz_get_temp,
+};
 
 static int fg_gen4_get_debug_batt_id(struct fg_dev *fg, int *batt_id)
 {
@@ -4974,6 +4996,15 @@ static int fg_gen4_probe(struct platform_device *pdev)
 		fg->last_batt_temp = batt_temp;
 		pr_info("battery SOC:%d voltage: %duV temp: %d id: %d ohms\n",
 			msoc, volt_uv, batt_temp, fg->batt_id_ohms);
+	}
+
+	fg->tz_dev = thermal_zone_of_sensor_register(fg->dev, 0, fg,
+							&fg_gen4_tz_ops);
+	if (IS_ERR_OR_NULL(fg->tz_dev)) {
+		rc = PTR_ERR(fg->tz_dev);
+		fg->tz_dev = NULL;
+		dev_dbg(fg->dev, "Couldn't register with thermal framework rc:%d\n",
+			rc);
 	}
 
 	device_init_wakeup(fg->dev, true);
