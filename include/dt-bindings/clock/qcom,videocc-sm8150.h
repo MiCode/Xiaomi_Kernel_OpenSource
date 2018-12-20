@@ -22,4 +22,6 @@
 #define VIDEO_CC_XO_CLK						5
 #define VIDEO_PLL0						6
 
+#define VIDEO_CC_MVSC_CORE_CLK_BCR				0
+
 #endif
