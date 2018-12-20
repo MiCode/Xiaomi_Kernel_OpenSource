@@ -59,6 +59,10 @@ int msm_camera_fill_vreg_params(struct cam_hw_soc_info *soc_info,
 	struct cam_sensor_power_setting *power_setting,
 	uint16_t power_setting_size);
 
+int32_t ais_sensor_update_power_settings(
+	struct ais_sensor_probe_cmd *probe_cmd,
+	struct cam_sensor_power_ctrl_t *power_info);
+
 int32_t cam_sensor_update_power_settings(void *cmd_buf,
 	int cmd_length, struct cam_sensor_power_ctrl_t *power_info);
 
