@@ -656,7 +656,6 @@ static int msm_vidc_load_clock_table(
 		if (clock_props[c] & CLOCK_PROP_HAS_SCALING) {
 			vc->has_scaling = true;
 		} else {
-			vc->count = 0;
 			vc->has_scaling = false;
 		}
 
@@ -666,7 +665,7 @@ static int msm_vidc_load_clock_table(
 			vc->has_mem_retention = false;
 
 		dprintk(VIDC_DBG, "Found clock %s: scale-able = %s\n", vc->name,
-			vc->count ? "yes" : "no");
+			vc->has_scaling ? "yes" : "no");
 	}
 
 

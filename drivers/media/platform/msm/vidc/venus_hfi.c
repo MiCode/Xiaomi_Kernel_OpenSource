@@ -877,7 +877,7 @@ static void __write_register(struct venus_hfi_device *device,
 	}
 
 	base_addr = device->hal_data->register_base;
-	dprintk(VIDC_DBG, "Base addr: %pK, written to: %#x, Value: %#x...\n",
+	dprintk(VIDC_DBG, "Base addr: %pK, writing to: %#x, Value: %#x...\n",
 		base_addr, hwiosymaddr, value);
 	base_addr += hwiosymaddr;
 	writel_relaxed(value, base_addr);
@@ -904,7 +904,7 @@ static void __write_gcc_register(struct venus_hfi_device *device,
 	}
 
 	base_addr = device->hal_data->gcc_reg_base;
-	dprintk(VIDC_DBG, "GCC Base addr: %pK, written to: %#x, Value: %#x.\n",
+	dprintk(VIDC_DBG, "GCC Base addr: %pK, writing to: %#x, Value: %#x.\n",
 		base_addr, hwiosymaddr, value);
 	base_addr += hwiosymaddr;
 	writel_relaxed(value, base_addr);
@@ -4013,6 +4013,7 @@ static int __init_bus(struct venus_hfi_device *device)
 			.target = __devfreq_target,
 			.get_dev_status = __devfreq_get_status,
 			.exit = NULL,
+			/*.get_cur_greq = NULL,*/
 		};
 
 		if (!strcmp(bus->governor, "msm-vidc-llcc")) {
@@ -4025,7 +4026,7 @@ static int __init_bus(struct venus_hfi_device *device)
 		}
 
 		/*
-		 * This is stupid, but there's no other easy way to ahold
+		 * This is stupid, but there's no other easy way to get a hold
 		 * of struct bus_info in venus_hfi_devfreq_*()
 		 */
 		WARN(dev_get_drvdata(bus->dev), "%s's drvdata already set\n",
