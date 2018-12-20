@@ -1423,6 +1423,7 @@
 #include "trinket-usb.dtsi"
 #include "msm-arm-smmu-trinket.dtsi"
 #include "trinket-qupv3.dtsi"
+#include "trinket-coresight.dtsi"
 
 &pm6125_vadc {
 	rf_pa0_therm {
