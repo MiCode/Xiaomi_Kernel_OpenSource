@@ -11,6 +11,7 @@
 #define DP_LABEL "MDSS DP DISPLAY"
 #define AUX_CFG_LEN	10
 #define DP_MAX_PIXEL_CLK_KHZ	675000
+#define DP_MAX_LINK_CLK_KHZ	810000
 
 enum dp_pm_type {
 	DP_CORE_PM,
@@ -181,6 +182,8 @@ static inline char *dp_phy_aux_config_type_to_string(u32 cfg_type)
  * @mp: gpio, regulator and clock related data
  * @pinctrl: pin-control related data
  * @disp_data: controller's display related data
+ * @max_pclk_khz: maximum pixel clock supported for the platform
+ * @max_lclk_khz: maximum link clock supported for the platform
  * @hw_cfg: DP HW specific settings
  * @has_mst: MST feature enable status
  * @has_mst_sideband: MST sideband feature enable status
@@ -207,6 +210,7 @@ struct dp_parser {
 	u8 l_map[4];
 	struct dp_aux_cfg aux_cfg[AUX_CFG_LEN];
 	u32 max_pclk_khz;
+	u32 max_lclk_khz;
 	struct dp_hw_cfg hw_cfg;
 	bool has_mst;
 	bool has_mst_sideband;

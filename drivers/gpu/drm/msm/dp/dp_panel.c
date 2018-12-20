@@ -1657,8 +1657,8 @@ skip_dpcd_read:
 	panel->minor = link_info->revision & 0x0f;
 	pr_debug("version: %d.%d\n", panel->major, panel->minor);
 
-	link_info->rate =
-		drm_dp_bw_code_to_link_rate(dp_panel->dpcd[DP_MAX_LINK_RATE]);
+	link_info->rate = min_t(unsigned long, panel->parser->max_lclk_khz,
+		drm_dp_bw_code_to_link_rate(dp_panel->dpcd[DP_MAX_LINK_RATE]));
 	pr_debug("link_rate=%d\n", link_info->rate);
 
 	link_info->num_lanes = dp_panel->dpcd[DP_MAX_LANE_COUNT] &

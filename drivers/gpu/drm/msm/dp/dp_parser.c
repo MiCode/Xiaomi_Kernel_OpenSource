@@ -156,6 +156,11 @@ static int dp_parser_misc(struct dp_parser *parser)
 	if (rc)
 		parser->max_pclk_khz = DP_MAX_PIXEL_CLK_KHZ;
 
+	rc = of_property_read_u32(of_node,
+		"qcom,max-lclk-frequency-khz", &parser->max_lclk_khz);
+	if (rc)
+		parser->max_lclk_khz = DP_MAX_LINK_CLK_KHZ;
+
 	return 0;
 }
 
