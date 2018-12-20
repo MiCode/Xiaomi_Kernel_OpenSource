@@ -7,6 +7,11 @@
 	dsi_ext_bridge_1080p: qcom,mdss_dsi_ext_bridge_1080p {
 		qcom,mdss-dsi-panel-name = "ext video mode dsi bridge";
 		qcom,mdss-dsi-panel-type = "dsi_video_mode";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "src_byte_clk0", "src_pixel_clk0";
+
 		qcom,mdss-dsi-virtual-channel-id = <0>;
 		qcom,mdss-dsi-stream = <0>;
 		qcom,mdss-dsi-bpp = <24>;
