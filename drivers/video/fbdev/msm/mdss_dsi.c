@@ -477,7 +477,7 @@ end:
 	return ret;
 }
 
-static void mdss_dsi_put_dt_vreg_data(struct device *dev,
+void mdss_dsi_put_dt_vreg_data(struct device *dev,
 	struct dss_module_power *module_power)
 {
 	if (!module_power) {
@@ -492,7 +492,7 @@ static void mdss_dsi_put_dt_vreg_data(struct device *dev,
 	module_power->num_vreg = 0;
 }
 
-static int mdss_dsi_get_dt_vreg_data(struct device *dev,
+int mdss_dsi_get_dt_vreg_data(struct device *dev,
 	struct device_node *of_node, struct dss_module_power *mp,
 	enum dsi_pm_type module)
 {
