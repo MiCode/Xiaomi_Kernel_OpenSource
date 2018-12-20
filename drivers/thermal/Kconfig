@@ -142,6 +142,16 @@ config THERMAL_GOV_USER_SPACE
 	help
 	  Enable this to let the user space manage the platform thermals.
 
+config THERMAL_GOV_LOW_LIMITS
+	bool "Low limits mitigation governor"
+	help
+	  Enable this to manage platform limits using low limits
+	  governor.
+
+	  Enable this governor to monitor and trigger floor mitigation.
+	  This governor will monitor the limits going below a
+	  trip threshold to trigger a floor mitigation.
+
 config THERMAL_GOV_POWER_ALLOCATOR
 	bool "Power allocator thermal governor"
 	help
