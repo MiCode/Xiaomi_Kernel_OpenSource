@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -433,6 +433,47 @@
 		clock-rates = <24000000>;
 	};
 
+	eeprom_depth: qcom,eeprom@3 {
+		cell-index = <3>;
+		reg = <0x3>;
+		compatible = "qcom,eeprom";
+		cam_vio-supply = <&pm8998_l9>;
+		cam_vana-supply = <&pm8998_l16>;
+		cam_vdig-supply = <&pm8998_l10>;
+		cam_clk-supply = <&titan_top_gdsc>;
+		regulator-names = "cam_vio", "cam_vana", "cam_vdig", "cam_clk";
+		rgltr-cntrl-support;
+		rgltr-min-voltage = <1800000 3312000 1800000 0>;
+		rgltr-max-voltage = <1800000 3312000 1800000 0>;
+		rgltr-load-current = <0 80000 105000 0>;
+		gpio-no-mux = <0>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&cam_sensor_mclk2_active
+				&cam_sensor_iris_active>;
+		pinctrl-1 = <&cam_sensor_mclk2_suspend
+				&cam_sensor_iris_suspend>;
+		gpios = <&tlmm 15 0>,
+			<&tlmm 21 0>,
+			<&tlmm 122 0>,
+			<&tlmm 59 0>;
+		gpio-reset = <1>;
+		gpio-vana = <2>;
+		gpio-vdig = <3>;
+		gpio-req-tbl-num = <0 1 2 3> ;
+		gpio-req-tbl-flags = <1 0 0 0>;
+		gpio-req-tbl-label = "CAMIF_MCLK3",
+					"CAM_RESET3",
+					"CAM_VANA3",
+					"CAM_VDIG3";
+		sensor-position = <0>;
+		cci-master = <1>;
+		status = "ok";
+		clocks = <&clock_camcc CAM_CC_MCLK2_CLK>;
+		clock-names = "cam_clk";
+		clock-cntl-level = "turbo";
+		clock-rates = <24000000>;
+	};
+
 	qcom,cam-sensor@3 {
 		cell-index = <3>;
 		compatible = "qcom,cam-sensor";
@@ -441,6 +482,7 @@
 		sensor-position-roll = <270>;
 		sensor-position-pitch = <0>;
 		sensor-position-yaw = <0>;
+		eeprom-src = <&eeprom_depth>;
 		cam_vio-supply = <&pm8998_l9>;
 		cam_vana-supply = <&pm8998_l16>;
 		cam_vdig-supply = <&pm8998_l10>;
