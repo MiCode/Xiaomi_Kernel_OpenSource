@@ -61,6 +61,26 @@ config QTI_QMI_COOLING_DEVICE
 	   The QMI cooling device will interface with remote subsystem
 	   using QTI QMI interface.
 
+config QTI_THERMAL_LIMITS_DCVS
+	bool "QTI LMH DCVS Driver"
+	depends on THERMAL_OF
+	depends on CPU_THERMAL
+	help
+	  This enables the driver for Limits Management Hardware - DCVS block
+	  for the application processors. The h/w block that is available for
+	  each cluster can be used to perform quick thermal mitigations by
+	  tracking temperatures of the CPUs and taking thermal action in the
+	  hardware without s/w intervention.
+
+config QTI_AOP_REG_COOLING_DEVICE
+	bool "QTI AOP Regulator cooling device"
+	depends on THERMAL_OF && MSM_QMP
+	help
+	  This enables the AOP based Regulator cooling device. This cooling
+	  device will be used by QTI chipset to place a floor voltage
+	  restriction at low temperatures. The cooling device will message
+	  the AOP using mail box to establish the floor voltage.
+
 config REGULATOR_COOLING_DEVICE
 	bool "Regulator voltage floor cooling device"
 	depends on REGULATOR && THERMAL_OF
