@@ -3648,6 +3648,21 @@ void __iomem *gpu_base;
 u64 efuse;
 int gpu_speed_bin;
 
+static int mmss_pll_suspend(struct device *dev)
+{
+	return 0;
+}
+
+static int mmss_pll_resume(struct device *dev)
+{
+#ifdef CONFIG_HIBERNATION
+	mmpll9.c.ops->set_rate(&mmpll9.c, 1248000000);
+	mmpll8.c.ops->set_rate(&mmpll8.c, 510000);
+	mmpll2.c.ops->set_rate(&mmpll2.c, 510000);
+#endif
+	return 0;
+}
+
 int msm_mmsscc_8996_probe(struct platform_device *pdev)
 {
 	struct resource *res;
@@ -3810,11 +3825,19 @@ static struct of_device_id msm_clock_mmss_match_table[] = {
 	{},
 };
 
+static const struct dev_pm_ops msm_clock_mmss_pm_ops = {
+	.freeze_late = mmss_pll_suspend,
+	.thaw_early = mmss_pll_resume,
+	.poweroff_late = mmss_pll_suspend,
+	.restore_early = mmss_pll_resume,
+};
+
 static struct platform_driver msm_clock_mmss_driver = {
 	.probe = msm_mmsscc_8996_probe,
 	.driver = {
 		.name = "qcom,mmsscc-8996",
 		.of_match_table = msm_clock_mmss_match_table,
+		.pm = &msm_clock_mmss_pm_ops,
 		.owner = THIS_MODULE,
 	},
 };
