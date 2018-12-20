@@ -635,6 +635,15 @@ static void smb1390_taper_work(struct work_struct *work)
 			goto out;
 		}
 
+		if (get_effective_result(chip->fv_votable) >
+						chip->taper_entry_fv) {
+			pr_debug("Float voltage increased. Exiting taper\n");
+			goto out;
+		} else {
+			chip->taper_entry_fv =
+					get_effective_result(chip->fv_votable);
+		}
+
 		if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER) {
 			fcc_uA = get_effective_result(chip->fcc_votable)
 								- 100000;
@@ -646,10 +655,6 @@ static void smb1390_taper_work(struct work_struct *work)
 								true, 0);
 				goto out;
 			}
-		} else if (get_effective_result(chip->fv_votable) >
-						chip->taper_entry_fv) {
-			pr_debug("Float voltage increased. Exiting taper\n");
-			goto out;
 		} else {
 			pr_debug("In fast charging. Wait for next taper\n");
 		}
