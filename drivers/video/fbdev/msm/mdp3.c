@@ -1986,7 +1986,7 @@ static int mdp3_debug_init(struct platform_device *pdev)
 
 	mdata->debug_inf.debug_enable_clock = mdp3_debug_enable_clock;
 	mdata->mdp_rev = mdp3_res->mdp_rev;
-
+	mdata->pdev = pdev;
 	rc = mdss_debugfs_init(mdata);
 	if (rc)
 		return rc;
