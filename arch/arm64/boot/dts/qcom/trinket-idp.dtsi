@@ -12,5 +12,21 @@
  */
 
 &soc {
+	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "qg-batterydata-ascent-3450mah.dtsi"
+		#include "qg-batterydata-mlp356477-2800mah.dtsi"
+	};
+};
 
+&pmi632_qg {
+	qcom,battery-data = <&mtp_batterydata>;
+};
+
+&pmi632_charger {
+	qcom,battery-data = <&mtp_batterydata>;
+	qcom,suspend-input-on-debug-batt;
+	/* SMB1355 only */
+	qcom,sec-charger-config = <2>;
+	dpdm-supply = <&qusb_phy0>;
 };
