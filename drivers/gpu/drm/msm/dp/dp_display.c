@@ -109,6 +109,8 @@ struct dp_display_private {
 	u32 active_stream_cnt;
 	struct dp_mst mst;
 
+	u32 tot_dsc_blks_in_use;
+
 	struct notifier_block usb_nb;
 };
 
@@ -260,7 +262,7 @@ static void dp_display_hdcp_cb_work(struct work_struct *work)
 
 	dp = container_of(dw, struct dp_display_private, hdcp_cb_work);
 
-	if (!dp->power_on || atomic_read(&dp->aborted))
+	if (!dp->power_on || !dp->is_connected || atomic_read(&dp->aborted))
 		return;
 
 	status = &dp->link->hdcp_status;
@@ -327,10 +329,7 @@ static void dp_display_notify_hdcp_status_cb(void *ptr,
 
 	dp->link->hdcp_status.hdcp_state = state;
 
-	mutex_lock(&dp->session_lock);
-	if (dp->power_on && !atomic_read(&dp->aborted))
-		queue_delayed_work(dp->wq, &dp->hdcp_cb_work, HZ/4);
-	mutex_unlock(&dp->session_lock);
+	queue_delayed_work(dp->wq, &dp->hdcp_cb_work, HZ/4);
 }
 
 static void dp_display_deinitialize_hdcp(struct dp_display_private *dp)
@@ -1258,6 +1257,8 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 		goto error_debug;
 	}
 
+	dp->tot_dsc_blks_in_use = 0;
+
 	dp->debug->hdcp_disabled = hdcp_disabled;
 	dp_display_update_hdcp_status(dp, true);
 
@@ -1459,6 +1460,29 @@ static int dp_display_set_stream_info(struct dp_display *dp_display,
 	return rc;
 }
 
+static void dp_display_update_dsc_resources(struct dp_display_private *dp,
+		struct dp_panel *panel, bool enable)
+{
+	u32 dsc_blk_cnt = 0;
+
+	if (panel->pinfo.comp_info.comp_type == MSM_DISPLAY_COMPRESSION_DSC &&
+		panel->pinfo.comp_info.comp_ratio) {
+		dsc_blk_cnt = panel->pinfo.h_active /
+				dp->parser->max_dp_dsc_input_width_pixs;
+		if (panel->pinfo.h_active %
+				dp->parser->max_dp_dsc_input_width_pixs)
+			dsc_blk_cnt++;
+	}
+
+	if (enable) {
+		dp->tot_dsc_blks_in_use += dsc_blk_cnt;
+		panel->tot_dsc_blks_in_use += dsc_blk_cnt;
+	} else {
+		dp->tot_dsc_blks_in_use -= dsc_blk_cnt;
+		panel->tot_dsc_blks_in_use -= dsc_blk_cnt;
+	}
+}
+
 static int dp_display_enable(struct dp_display *dp_display, void *panel)
 {
 	int rc = 0;
@@ -1482,6 +1506,7 @@ static int dp_display_enable(struct dp_display *dp_display, void *panel)
 	if (rc)
 		goto end;
 
+	dp_display_update_dsc_resources(dp, panel, true);
 	dp->power_on = true;
 end:
 	mutex_unlock(&dp->session_lock);
@@ -1602,6 +1627,7 @@ static int dp_display_disable(struct dp_display *dp_display, void *panel)
 	}
 
 	dp_display_stream_disable(dp, dp_panel);
+	dp_display_update_dsc_resources(dp, dp_panel, false);
 end:
 	mutex_unlock(&dp->session_lock);
 	return 0;
@@ -1864,6 +1890,7 @@ static void dp_display_convert_to_dp_mode(struct dp_display *dp_display,
 {
 	struct dp_display_private *dp;
 	struct dp_panel *dp_panel;
+	u32 free_dsc_blks = 0, required_dsc_blks = 0;
 
 	if (!dp_display || !drm_mode || !dp_mode || !panel) {
 		pr_err("invalid input\n");
@@ -1874,6 +1901,23 @@ static void dp_display_convert_to_dp_mode(struct dp_display *dp_display,
 	dp_panel = panel;
 
 	memset(dp_mode, 0, sizeof(*dp_mode));
+
+	free_dsc_blks = dp->parser->max_dp_dsc_blks -
+				dp->tot_dsc_blks_in_use +
+				dp_panel->tot_dsc_blks_in_use;
+	required_dsc_blks = drm_mode->hdisplay /
+				dp->parser->max_dp_dsc_input_width_pixs;
+	if (drm_mode->hdisplay % dp->parser->max_dp_dsc_input_width_pixs)
+		required_dsc_blks++;
+
+	if (free_dsc_blks >= required_dsc_blks)
+		dp_mode->capabilities |= DP_PANEL_CAPS_DSC;
+
+	pr_debug("in_use:%d, max:%d, free:%d, req:%d, caps:0x%x, width:%d",
+			dp->tot_dsc_blks_in_use, dp->parser->max_dp_dsc_blks,
+			free_dsc_blks, required_dsc_blks, dp_mode->capabilities,
+			dp->parser->max_dp_dsc_input_width_pixs);
+
 	dp_panel->convert_to_dp_mode(dp_panel, drm_mode, dp_mode);
 }
 
