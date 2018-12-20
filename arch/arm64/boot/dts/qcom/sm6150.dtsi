@@ -42,7 +42,6 @@
 		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
 		sdhc2 = &sdhc_2; /* SDC2 SD Card slot */
 		spi0 = &qupv3_se4_spi;
-		spi2 = &qupv3_se2_spi;
 		i2c0 = &qupv3_se5_i2c;
 		i2c1 = &qupv3_se1_i2c;
 		i2c2 = &qupv3_se3_i2c;
