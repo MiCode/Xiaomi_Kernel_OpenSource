@@ -163,6 +163,7 @@ struct adc_chip {
 	struct completion	complete;
 	struct mutex		lock;
 	bool			skip_usb_wa;
+	struct pmic_revid_data	*pmic_rev_id;
 	const struct adc_data	*data;
 };
 
@@ -334,6 +335,35 @@ static void adc_update_dig_param(struct adc_chip *adc,
 	*data |= (prop->decimation << ADC_USR_DIG_PARAM_DEC_RATIO_SEL_SHIFT);
 }
 
+static int adc_channel_check(struct adc_chip *adc, u8 buf)
+{
+	int ret = 0;
+	u8 chno = 0;
+
+	ret = adc_read(adc, ADC_USR_CH_SEL_CTL, &chno, 1);
+	if (ret)
+		return ret;
+
+	if (buf != chno) {
+		pr_debug("Channel write fails once: written:0x%x actual:0x%x\n",
+			chno, buf);
+
+		ret = adc_write(adc, ADC_USR_CH_SEL_CTL, &buf, 1);
+		if (ret)
+			return ret;
+
+		ret = adc_read(adc, ADC_USR_CH_SEL_CTL, &chno, 1);
+		if (ret)
+			return ret;
+
+		if (chno != buf) {
+			pr_err("Write fails twice: written: 0x%x\n", chno);
+			return -EINVAL;
+		}
+	}
+	return 0;
+}
+
 static int adc_post_configure_usb_in_read(struct adc_chip *adc,
 					struct adc_channel_prop *prop)
 {
@@ -355,6 +385,11 @@ static int adc_pre_configure_usb_in_read(struct adc_chip *adc)
 {
 	int ret;
 	u8 data = ADC_CAL_DELAY_CTL_VAL_256S;
+	bool channel_check = false;
+
+	if (adc->pmic_rev_id)
+		if (adc->pmic_rev_id->pmic_subtype == PMI632_SUBTYPE)
+			channel_check = true;
 
 	/* Increase calibration measurement interval to 256s */
 	ret = regmap_bulk_write(adc->regmap,
@@ -370,6 +405,12 @@ static int adc_pre_configure_usb_in_read(struct adc_chip *adc)
 	ret = adc_write(adc, ADC_USR_CH_SEL_CTL, &data, 1);
 	if (ret)
 		return ret;
+
+	if (channel_check) {
+		ret = adc_channel_check(adc, data);
+		if (ret)
+			return ret;
+	}
 
 	data = ADC_USR_EN_CTL1_ADC_EN;
 	ret = adc_write(adc, ADC_USR_EN_CTL1, &data, 1);
@@ -395,6 +436,12 @@ static int adc_pre_configure_usb_in_read(struct adc_chip *adc)
 	if (ret)
 		return ret;
 
+	if (channel_check) {
+		ret = adc_channel_check(adc, data);
+		if (ret)
+			return ret;
+	}
+
 	/* Check EOC for GND conversion */
 	ret = adc_wait_eoc(adc);
 	if (ret < 0)
@@ -412,7 +459,13 @@ static int adc_configure(struct adc_chip *adc,
 			struct adc_channel_prop *prop)
 {
 	int ret;
-	u8 buf[6];
+	u8 buf[5];
+	u8 conv_req = 0;
+	bool channel_check = false;
+
+	if (adc->pmic_rev_id)
+		if (adc->pmic_rev_id->pmic_subtype == PMI632_SUBTYPE)
+			channel_check = true;
 
 	/* Read registers 0x42 through 0x46 */
 	ret = adc_read(adc, ADC_USR_DIG_PARAM, buf, 6);
@@ -437,12 +490,22 @@ static int adc_configure(struct adc_chip *adc,
 	buf[4] |= ADC_USR_EN_CTL1_ADC_EN;
 
 	/* Select CONV request */
-	buf[5] |= ADC_USR_CONV_REQ_REQ;
+	conv_req = ADC_USR_CONV_REQ_REQ;
 
 	if (!adc->poll_eoc)
 		reinit_completion(&adc->complete);
 
-	ret = adc_write(adc, ADC_USR_DIG_PARAM, buf, 6);
+	ret = adc_write(adc, ADC_USR_DIG_PARAM, buf, 5);
+	if (ret)
+		return ret;
+
+	if (channel_check) {
+		ret = adc_channel_check(adc, buf[2]);
+		if (ret)
+			return ret;
+	}
+
+	ret = adc_write(adc, ADC_USR_CONV_REQ, &conv_req, 1);
 
 	return ret;
 }
@@ -909,7 +972,7 @@ static int adc_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
 	struct device_node *revid_dev_node;
-	struct pmic_revid_data	*pmic_rev_id;
+	struct pmic_revid_data	*pmic_rev_id = NULL;
 	struct device *dev = &pdev->dev;
 	struct iio_dev *indio_dev;
 	struct adc_chip *adc;
@@ -932,8 +995,10 @@ static int adc_probe(struct platform_device *pdev)
 		pmic_rev_id = get_revid_data(revid_dev_node);
 		if (!(IS_ERR(pmic_rev_id)))
 			skip_usb_wa = skip_usb_in_wa(pmic_rev_id);
-		else
+		else {
 			pr_err("Unable to get revid\n");
+			pmic_rev_id = NULL;
+		}
 		of_node_put(revid_dev_node);
 	}
 
@@ -944,6 +1009,7 @@ static int adc_probe(struct platform_device *pdev)
 	adc = iio_priv(indio_dev);
 	adc->regmap = regmap;
 	adc->dev = dev;
+	adc->pmic_rev_id = pmic_rev_id;
 
 	prop_addr = of_get_address(dev->of_node, 0, NULL, NULL);
 	if (!prop_addr) {
