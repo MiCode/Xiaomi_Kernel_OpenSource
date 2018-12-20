@@ -9,3 +9,25 @@ config QCOM_TSENS
 	  thermal zone device via the mode file results in disabling the sensor.
 	  Also able to set threshold temperature for both hot and cold and update
 	  when a threshold is reached.
+
+config QTI_BCL_PMIC5
+	bool "BCL driver for BCL peripherals in PMIC5"
+	depends on SPMI && THERMAL_OF
+	help
+	  Say Y here to enable this BCL driver for PMIC5. This driver
+	  provides routines to configure and monitor the BCL
+	  PMIC peripheral. This driver registers the battery current and
+	  voltage sensors with the thermal core framework and can take
+	  threshold input and notify the thermal core when the threshold is
+	  reached.
+
+config QTI_BCL_SOC_DRIVER
+	bool "QTI Battery state of charge sensor driver"
+	depends on THERMAL_OF
+	help
+	  This driver registers battery state of charge as a sensor with
+	  thermal zone. This sensor can monitor for state of charge
+	  threshold and notify the thermal framework.
+
+	  If you want this support, you should say Y here.
+
