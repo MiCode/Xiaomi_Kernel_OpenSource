@@ -194,7 +194,14 @@
 			qcom,pmic-revid = <&pmi632_revid>;
 			/* TODO Add dpdm supply once USB node is added */
 			qcom,auto-recharge-soc = <98>;
-			/* TODO Add chg-vadc property once VADC node is added */
+			io-channels = <&pmi632_vadc ADC_USB_IN_V_16>,
+				      <&pmi632_vadc ADC_USB_IN_I>,
+				      <&pmi632_vadc ADC_CHG_TEMP>,
+				      <&pmi632_vadc ADC_DIE_TEMP>;
+			io-channel-names = "usb_in_voltage",
+					   "usb_in_current",
+					   "chg_temp",
+					   "die_temp";
 			qcom,flash-disable-soc = <10>;
 			qcom,sw-jeita-enable;
 			qcom,step-charging-enable;
@@ -351,7 +358,6 @@
 						"ilim2-s2",
 						"vreg-ok";
 			};
-
 		};
 
 		pmi632_qg: qpnp,qg {
@@ -362,8 +368,11 @@
 			qcom,qg-iterm-ma = <100>;
 			qcom,hold-soc-while-full;
 			qcom,linearize-soc;
-			/* TODO Add qg-vadc property once VADC node is added */
 			qcom,pmic-revid = <&pmi632_revid>;
+			io-channels = <&pmi632_vadc ADC_BAT_THERM_PU2>,
+				      <&pmi632_vadc ADC_BAT_ID_PU2>;
+			io-channel-names = "batt-therm",
+					   "batt-id";
 
 			qcom,qgauge@4800 {
 				status = "okay";
