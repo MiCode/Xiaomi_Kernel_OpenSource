@@ -318,10 +318,12 @@ int mdp3_ppp_pipe_wait(void)
 	 */
 	ret = wait_for_completion_timeout(
 	  &ppp_stat->ppp_comp, msecs_to_jiffies(200));
-	if (!ret)
+	if (!ret) {
 		pr_err("%s: Timed out waiting for the MDP.\n",
 			__func__);
-
+		MDSS_XLOG_TOUT_HANDLER("mdp", "vbif",
+				"dsi0_ctrl", "dsi0_phy");
+	}
 	return ret;
 }
 

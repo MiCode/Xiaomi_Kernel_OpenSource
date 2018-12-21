@@ -704,7 +704,11 @@ retry_dma_done:
 				}
 				rc = -1;
 			}
-				ATRACE_END("mdp3_wait_for_dma_comp");
+			ATRACE_END("mdp3_wait_for_dma_comp");
+			if (rc <= 0 && retry_count == 0) {
+				MDSS_XLOG_TOUT_HANDLER("mdp", "vbif",
+						"dsi0_ctrl", "dsi0_phy");
+			}
 		}
 	}
 	if (dma->update_src_cfg) {
