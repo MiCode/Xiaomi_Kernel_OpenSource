@@ -206,4 +206,11 @@ int msm_isp47_ahb_clk_cfg(struct vfe_device *vfe_dev,
 void msm_vfe47_set_halt_restart_mask(struct vfe_device *vfe_dev);
 uint32_t msm_vfe47_ub_reg_offset(struct vfe_device *vfe_dev, int wm_idx);
 uint32_t msm_vfe47_get_ub_size(struct vfe_device *vfe_dev);
+void msm_vfe47_read_and_clear_dual_irq_status(struct vfe_device *vfe_dev,
+	uint32_t *dual_irq_status);
+void msm_vfe47_dual_config_irq(struct vfe_device *vfe_dev,
+		uint32_t irq0_mask, uint32_t irq1_mask,
+		enum msm_isp_irq_operation oper);
+void msm_vfe47_set_dual_vfe_mode(struct vfe_device *vfe_dev);
+void msm_vfe47_clear_dual_vfe_mode(struct vfe_device *vfe_dev);
 #endif /* __MSM_ISP47_H__ */

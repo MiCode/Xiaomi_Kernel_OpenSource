@@ -310,7 +310,7 @@ static int32_t msm_isp_stats_configure(struct vfe_device *vfe_dev,
 }
 
 void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
-	uint32_t irq_status0, uint32_t irq_status1,
+	uint32_t irq_status0, uint32_t irq_status1, uint32_t dual_irq_status,
 	uint32_t pingpong_status, struct msm_isp_timestamp *ts)
 {
 	int j, rc;
@@ -320,10 +320,19 @@ void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 	uint32_t num_stats_comp_mask =
 		vfe_dev->hw_info->stats_hw_info->num_stats_comp_mask;
 
-	stats_comp_mask = vfe_dev->hw_info->vfe_ops.stats_ops.get_comp_mask(
-						irq_status0, irq_status1);
-	stats_irq_mask = vfe_dev->hw_info->vfe_ops.stats_ops.get_wm_mask(
-						irq_status0, irq_status1);
+	if (vfe_dev->dual_vfe_sync_mode)
+		stats_comp_mask =
+		vfe_dev->hw_info->vfe_ops.stats_ops.get_comp_mask(
+			dual_irq_status, irq_status1);
+	else
+		stats_comp_mask =
+		vfe_dev->hw_info->vfe_ops.stats_ops.get_comp_mask(
+			irq_status0, irq_status1);
+
+	stats_irq_mask =
+		vfe_dev->hw_info->vfe_ops.stats_ops.get_wm_mask(
+			irq_status0, irq_status1);
+
 	if (!(stats_comp_mask || stats_irq_mask))
 		return;
 
