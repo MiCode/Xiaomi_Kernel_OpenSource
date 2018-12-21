@@ -51,7 +51,6 @@ struct dp_hdcp2p2_ctrl {
 	u8 rx_status;
 	char abort_mask;
 
-	bool cp_irq_done;
 	bool polling;
 };
 
@@ -174,6 +173,7 @@ static int dp_hdcp2p2_wakeup(struct hdcp_transport_wakeup_data *data)
 	if (dp_hdcp2p2_copy_buf(ctrl, data))
 		goto exit;
 
+	ctrl->polling = false;
 	switch (data->cmd) {
 	case HDCP_TRANSPORT_CMD_STATUS_SUCCESS:
 		atomic_set(&ctrl->auth_state, HDCP_STATE_AUTHENTICATED);
@@ -493,26 +493,12 @@ static void dp_hdcp2p2_recv_msg(struct dp_hdcp2p2_ctrl *ctrl)
 		return;
 	}
 
-	if (ctrl->rx_status) {
-		if (!ctrl->cp_irq_done) {
-			pr_debug("waiting for CP_IRQ\n");
-			ctrl->polling = true;
-			return;
-		}
-
-		if (ctrl->rx_status & ctrl->sink_rx_status) {
-			ctrl->cp_irq_done = false;
-			ctrl->sink_rx_status = 0;
-			ctrl->rx_status = 0;
-		}
-	}
-
 	dp_hdcp2p2_get_msg_from_sink(ctrl);
 }
 
 static void dp_hdcp2p2_link_check(struct dp_hdcp2p2_ctrl *ctrl)
 {
-	int rc = 0;
+	int rc = 0, retries = 10;
 	struct sde_hdcp_2x_wakeup_data cdata = {HDCP_2X_CMD_INVALID};
 
 	if (!ctrl) {
@@ -545,6 +531,11 @@ static void dp_hdcp2p2_link_check(struct dp_hdcp2p2_ctrl *ctrl)
 		goto exit;
 	}
 
+	/* wait for polling to start till spec allowed timeout */
+	while (!ctrl->polling && retries--)
+		msleep(20);
+
+	/* check if sink has made a message available */
 	if (ctrl->polling && (ctrl->sink_rx_status & ctrl->rx_status)) {
 		ctrl->sink_rx_status = 0;
 		ctrl->rx_status = 0;
@@ -552,8 +543,6 @@ static void dp_hdcp2p2_link_check(struct dp_hdcp2p2_ctrl *ctrl)
 		dp_hdcp2p2_get_msg_from_sink(ctrl);
 
 		ctrl->polling = false;
-	} else {
-		ctrl->cp_irq_done = true;
 	}
 exit:
 	if (rc)
@@ -769,7 +758,10 @@ static int dp_hdcp2p2_main(void *data)
 			dp_hdcp2p2_send_msg(ctrl);
 			break;
 		case HDCP_TRANSPORT_CMD_RECV_MESSAGE:
-			dp_hdcp2p2_recv_msg(ctrl);
+			if (ctrl->rx_status)
+				ctrl->polling = true;
+			else
+				dp_hdcp2p2_recv_msg(ctrl);
 			break;
 		case HDCP_TRANSPORT_CMD_STATUS_SUCCESS:
 			dp_hdcp2p2_send_auth_status(ctrl);
@@ -779,10 +771,7 @@ static int dp_hdcp2p2_main(void *data)
 			dp_hdcp2p2_send_auth_status(ctrl);
 			break;
 		case HDCP_TRANSPORT_CMD_LINK_POLL:
-			if (ctrl->cp_irq_done)
-				dp_hdcp2p2_recv_msg(ctrl);
-			else
-				ctrl->polling = true;
+			ctrl->polling = true;
 			break;
 		case HDCP_TRANSPORT_CMD_LINK_CHECK:
 			dp_hdcp2p2_link_check(ctrl);
