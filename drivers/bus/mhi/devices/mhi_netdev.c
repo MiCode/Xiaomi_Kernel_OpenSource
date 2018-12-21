@@ -83,17 +83,12 @@
 struct mhi_netdev {
 	int alias;
 	struct mhi_device *mhi_dev;
-	spinlock_t rx_lock;
-	bool enabled;
-	rwlock_t pm_lock; /* state change lock */
-	struct work_struct alloc_work;
 	int wake;
 
 	u32 mru;
 	const char *interface_name;
 	struct napi_struct napi;
 	struct net_device *ndev;
-	struct sk_buff *frag_skb;
 
 	struct dentry *dentry;
 	enum MHI_DEBUG_LEVEL msg_lvl;
@@ -142,19 +137,10 @@ static int mhi_netdev_alloc_skb(struct mhi_netdev *mhi_netdev, gfp_t gfp_t)
 		if (!skb)
 			return -ENOMEM;
 
-		read_lock_bh(&mhi_netdev->pm_lock);
-		if (unlikely(!mhi_netdev->enabled)) {
-			MSG_ERR("Interface not enabled\n");
-			ret = -EIO;
-			goto error_queue;
-		}
-
 		skb->dev = mhi_netdev->ndev;
 
-		spin_lock_bh(&mhi_netdev->rx_lock);
 		ret = mhi_queue_transfer(mhi_dev, DMA_FROM_DEVICE, skb, cur_mru,
 					 MHI_EOT);
-		spin_unlock_bh(&mhi_netdev->rx_lock);
 
 		if (ret) {
 			MSG_ERR("Failed to queue skb, ret:%d\n", ret);
@@ -162,40 +148,14 @@ static int mhi_netdev_alloc_skb(struct mhi_netdev *mhi_netdev, gfp_t gfp_t)
 			goto error_queue;
 		}
 
-		read_unlock_bh(&mhi_netdev->pm_lock);
 	}
 
 	return 0;
 
 error_queue:
-	read_unlock_bh(&mhi_netdev->pm_lock);
 	dev_kfree_skb_any(skb);
 
 	return ret;
-}
-
-static void mhi_netdev_alloc_work(struct work_struct *work)
-{
-	struct mhi_netdev *mhi_netdev = container_of(work, struct mhi_netdev,
-						   alloc_work);
-	/* sleep about 1 sec and retry, that should be enough time
-	 * for system to reclaim freed memory back.
-	 */
-	const int sleep_ms =  1000;
-	int retry = 60;
-	int ret;
-
-	MSG_LOG("Entered\n");
-	do {
-		ret = mhi_netdev_alloc_skb(mhi_netdev, GFP_KERNEL);
-		/* sleep and try again */
-		if (ret == -ENOMEM) {
-			msleep(sleep_ms);
-			retry--;
-		}
-	} while (ret == -ENOMEM && retry);
-
-	MSG_LOG("Exit with status:%d retry:%d\n", ret, retry);
 }
 
 static int mhi_netdev_poll(struct napi_struct *napi, int budget)
@@ -205,18 +165,8 @@ static int mhi_netdev_poll(struct napi_struct *napi, int budget)
 	struct mhi_netdev *mhi_netdev = mhi_netdev_priv->mhi_netdev;
 	struct mhi_device *mhi_dev = mhi_netdev->mhi_dev;
 	int rx_work = 0;
-	int ret;
 
 	MSG_VERB("Entered\n");
-
-	read_lock_bh(&mhi_netdev->pm_lock);
-
-	if (!mhi_netdev->enabled) {
-		MSG_LOG("interface is disabled!\n");
-		napi_complete(napi);
-		read_unlock_bh(&mhi_netdev->pm_lock);
-		return 0;
-	}
 
 	rx_work = mhi_poll(mhi_dev, budget);
 	if (rx_work < 0) {
@@ -227,19 +177,13 @@ static int mhi_netdev_poll(struct napi_struct *napi, int budget)
 	}
 
 	/* queue new buffers */
-	ret = mhi_netdev_alloc_skb(mhi_netdev, GFP_ATOMIC);
-	if (ret == -ENOMEM) {
-		MSG_LOG("out of tre, queuing bg worker\n");
-		schedule_work(&mhi_netdev->alloc_work);
-
-	}
+	mhi_netdev_alloc_skb(mhi_netdev, GFP_ATOMIC);
 
 	/* complete work if # of packet processed less than allocated budget */
 	if (rx_work < budget)
 		napi_complete(napi);
 
 exit_poll:
-	read_unlock_bh(&mhi_netdev->pm_lock);
 
 	MSG_VERB("polled %d pkts\n", rx_work);
 
@@ -288,30 +232,14 @@ static int mhi_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	MSG_VERB("Entered\n");
 
-	read_lock_bh(&mhi_netdev->pm_lock);
-
-	if (unlikely(!mhi_netdev->enabled)) {
-		/* Only reason interface could be disabled and we get data
-		 * is due to an SSR. We do not want to stop the queue and
-		 * return error. Instead we will flush all the uplink packets
-		 * and return successful
-		 */
-		res = NETDEV_TX_OK;
-		dev_kfree_skb_any(skb);
-		goto mhi_xmit_exit;
-	}
-
 	res = mhi_queue_transfer(mhi_dev, DMA_TO_DEVICE, skb, skb->len,
 				 MHI_EOT);
 	if (res) {
 		MSG_VERB("Failed to queue with reason:%d\n", res);
 		netif_stop_queue(dev);
 		res = NETDEV_TX_BUSY;
-		goto mhi_xmit_exit;
 	}
 
-mhi_xmit_exit:
-	read_unlock_bh(&mhi_netdev->pm_lock);
 	MSG_VERB("Exited\n");
 
 	return res;
@@ -331,16 +259,6 @@ static int mhi_netdev_ioctl_extended(struct net_device *dev, struct ifreq *ifr)
 		return rc;
 
 	switch (ext_cmd.extended_ioctl) {
-	case RMNET_IOCTL_SET_MRU:
-		if (!ext_cmd.u.data || ext_cmd.u.data > mhi_dev->mtu) {
-			MSG_ERR("Can't set MRU, value:%u is invalid max:%zu\n",
-				ext_cmd.u.data, mhi_dev->mtu);
-			return -EINVAL;
-		}
-
-		MSG_LOG("MRU change request to 0x%x\n", ext_cmd.u.data);
-		mhi_netdev->mru = ext_cmd.u.data;
-		break;
 	case RMNET_IOCTL_GET_SUPPORTED_FEATURES:
 		ext_cmd.u.data = 0;
 		break;
@@ -349,25 +267,17 @@ static int mhi_netdev_ioctl_extended(struct net_device *dev, struct ifreq *ifr)
 			sizeof(ext_cmd.u.if_name));
 		break;
 	case RMNET_IOCTL_SET_SLEEP_STATE:
-		read_lock_bh(&mhi_netdev->pm_lock);
-		if (mhi_netdev->enabled) {
-			if (ext_cmd.u.data && mhi_netdev->wake) {
-				/* Request to enable LPM */
-				MSG_VERB("Enable MHI LPM");
-				mhi_netdev->wake--;
-				mhi_device_put(mhi_dev);
-			} else if (!ext_cmd.u.data && !mhi_netdev->wake) {
-				/* Request to disable LPM */
-				MSG_VERB("Disable MHI LPM");
-				mhi_netdev->wake++;
-				mhi_device_get(mhi_dev);
-			}
-		} else {
-			MSG_ERR("Cannot set LPM value, MHI is not up.\n");
-			read_unlock_bh(&mhi_netdev->pm_lock);
-			return -ENODEV;
+		if (ext_cmd.u.data && mhi_netdev->wake) {
+			/* Request to enable LPM */
+			MSG_VERB("Enable MHI LPM");
+			mhi_netdev->wake--;
+			mhi_device_put(mhi_dev);
+		} else if (!ext_cmd.u.data && !mhi_netdev->wake) {
+			/* Request to disable LPM */
+			MSG_VERB("Disable MHI LPM");
+			mhi_netdev->wake++;
+			mhi_device_get(mhi_dev);
 		}
-		read_unlock_bh(&mhi_netdev->pm_lock);
 		break;
 	default:
 		rc = -EINVAL;
@@ -501,15 +411,9 @@ static int mhi_netdev_enable_iface(struct mhi_netdev *mhi_netdev)
 		}
 	}
 
-	write_lock_irq(&mhi_netdev->pm_lock);
-	mhi_netdev->enabled =  true;
-	write_unlock_irq(&mhi_netdev->pm_lock);
-
 	/* queue buffer for rx path */
 	no_tre = mhi_get_no_free_descriptors(mhi_dev, DMA_FROM_DEVICE);
-	ret = mhi_netdev_alloc_skb(mhi_netdev, GFP_KERNEL);
-	if (ret)
-		schedule_work(&mhi_netdev->alloc_work);
+	mhi_netdev_alloc_skb(mhi_netdev, GFP_KERNEL);
 
 	napi_enable(&mhi_netdev->napi);
 
@@ -546,41 +450,12 @@ static void mhi_netdev_xfer_ul_cb(struct mhi_device *mhi_dev,
 		netif_wake_queue(ndev);
 }
 
-static int mhi_netdev_process_fragment(struct mhi_netdev *mhi_netdev,
-				      struct sk_buff *skb)
-{
-	struct sk_buff *temp_skb;
-
-	if (mhi_netdev->frag_skb) {
-		/* merge the new skb into the old fragment */
-		temp_skb = skb_copy_expand(mhi_netdev->frag_skb, 0, skb->len,
-					   GFP_ATOMIC);
-		if (!temp_skb) {
-			dev_kfree_skb(mhi_netdev->frag_skb);
-			mhi_netdev->frag_skb = NULL;
-			return -ENOMEM;
-		}
-
-		dev_kfree_skb_any(mhi_netdev->frag_skb);
-		mhi_netdev->frag_skb = temp_skb;
-		memcpy(skb_put(mhi_netdev->frag_skb, skb->len), skb->data,
-		       skb->len);
-	} else {
-		mhi_netdev->frag_skb = skb_copy(skb, GFP_ATOMIC);
-		if (!mhi_netdev->frag_skb)
-			return -ENOMEM;
-	}
-
-	return 0;
-}
-
 static void mhi_netdev_xfer_dl_cb(struct mhi_device *mhi_dev,
 				  struct mhi_result *mhi_result)
 {
 	struct mhi_netdev *mhi_netdev = mhi_device_get_devdata(mhi_dev);
 	struct sk_buff *skb = mhi_result->buf_addr;
 	struct net_device *dev = mhi_netdev->ndev;
-	int ret = 0;
 
 	if (mhi_result->transaction_status == -ENOTCONN) {
 		dev_kfree_skb(skb);
@@ -590,28 +465,6 @@ static void mhi_netdev_xfer_dl_cb(struct mhi_device *mhi_dev,
 	skb_put(skb, mhi_result->bytes_xferd);
 	dev->stats.rx_packets++;
 	dev->stats.rx_bytes += mhi_result->bytes_xferd;
-
-	/* merge skb's together, it's a chain transfer */
-	if (mhi_result->transaction_status == -EOVERFLOW ||
-	    mhi_netdev->frag_skb) {
-		ret = mhi_netdev_process_fragment(mhi_netdev, skb);
-
-		dev_kfree_skb(skb);
-
-		if (ret)
-			return;
-	}
-
-	/* more data will come, don't submit the buffer */
-	if (mhi_result->transaction_status == -EOVERFLOW)
-		return;
-
-	if (mhi_netdev->frag_skb) {
-		skb = mhi_netdev->frag_skb;
-		skb->dev = dev;
-		mhi_netdev->frag_skb = NULL;
-	}
-
 	skb->protocol = mhi_netdev_ip_type_trans(skb);
 	netif_receive_skb(skb);
 }
@@ -634,38 +487,9 @@ static void mhi_netdev_status_cb(struct mhi_device *mhi_dev, enum MHI_CB mhi_cb)
 
 struct dentry *dentry;
 
-static int mhi_netdev_debugfs_trigger_reset(void *data, u64 val)
-{
-	struct mhi_netdev *mhi_netdev = data;
-	struct mhi_device *mhi_dev = mhi_netdev->mhi_dev;
-	int ret;
-
-	MSG_LOG("Triggering channel reset\n");
-
-	/* disable the interface so no data processing */
-	write_lock_irq(&mhi_netdev->pm_lock);
-	mhi_netdev->enabled = false;
-	write_unlock_irq(&mhi_netdev->pm_lock);
-	napi_disable(&mhi_netdev->napi);
-
-	/* disable all hardware channels */
-	mhi_unprepare_from_transfer(mhi_dev);
-
-	MSG_LOG("Restarting iface\n");
-
-	ret = mhi_netdev_enable_iface(mhi_netdev);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-DEFINE_SIMPLE_ATTRIBUTE(mhi_netdev_debugfs_trigger_reset_fops, NULL,
-			mhi_netdev_debugfs_trigger_reset, "%llu\n");
-
 static void mhi_netdev_create_debugfs(struct mhi_netdev *mhi_netdev)
 {
 	char node_name[32];
-	const umode_t mode = 0600;
 	struct mhi_device *mhi_dev = mhi_netdev->mhi_dev;
 
 	/* Both tx & rx client handle contain same device info */
@@ -679,9 +503,6 @@ static void mhi_netdev_create_debugfs(struct mhi_netdev *mhi_netdev)
 	mhi_netdev->dentry = debugfs_create_dir(node_name, dentry);
 	if (IS_ERR_OR_NULL(mhi_netdev->dentry))
 		return;
-
-	debugfs_create_file("reset", mode, mhi_netdev->dentry, mhi_netdev,
-			    &mhi_netdev_debugfs_trigger_reset_fops);
 }
 
 static void mhi_netdev_create_debugfs_dir(void)
@@ -707,15 +528,11 @@ static void mhi_netdev_remove(struct mhi_device *mhi_dev)
 
 	MSG_LOG("Remove notification received\n");
 
-	write_lock_irq(&mhi_netdev->pm_lock);
-	mhi_netdev->enabled = false;
-	write_unlock_irq(&mhi_netdev->pm_lock);
-
+	netif_stop_queue(mhi_netdev->ndev);
 	napi_disable(&mhi_netdev->napi);
-	netif_napi_del(&mhi_netdev->napi);
 	unregister_netdev(mhi_netdev->ndev);
+	netif_napi_del(&mhi_netdev->napi);
 	free_netdev(mhi_netdev->ndev);
-	flush_work(&mhi_netdev->alloc_work);
 
 	if (!IS_ERR_OR_NULL(mhi_netdev->dentry))
 		debugfs_remove_recursive(mhi_netdev->dentry);
@@ -752,10 +569,6 @@ static int mhi_netdev_probe(struct mhi_device *mhi_dev,
 				      &mhi_netdev->interface_name);
 	if (ret)
 		mhi_netdev->interface_name = mhi_netdev_driver.driver.name;
-
-	spin_lock_init(&mhi_netdev->rx_lock);
-	rwlock_init(&mhi_netdev->pm_lock);
-	INIT_WORK(&mhi_netdev->alloc_work, mhi_netdev_alloc_work);
 
 	/* create ipc log buffer */
 	snprintf(node_name, sizeof(node_name), "%s_%04x_%02u.%02u.%02u_%u",
