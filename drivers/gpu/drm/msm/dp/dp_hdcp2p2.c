@@ -62,7 +62,6 @@ struct dp_hdcp2p2_ctrl {
 	u8 rx_status;
 	char abort_mask;
 
-	bool cp_irq_done;
 	bool polling;
 };
 
@@ -191,6 +190,8 @@ static int dp_hdcp2p2_wakeup(struct hdcp_transport_wakeup_data *data)
 	if (dp_hdcp2p2_copy_buf(ctrl, data))
 		goto exit;
 
+	ctrl->polling = false;
+
 	pr_debug("%s\n", hdcp_transport_cmd_to_str(ctrl->wakeup_cmd));
 
 	switch (ctrl->wakeup_cmd) {
@@ -198,7 +199,10 @@ static int dp_hdcp2p2_wakeup(struct hdcp_transport_wakeup_data *data)
 		kthread_queue_work(&ctrl->worker, &ctrl->send_msg);
 		break;
 	case HDCP_TRANSPORT_CMD_RECV_MESSAGE:
-		kthread_queue_work(&ctrl->worker, &ctrl->recv_msg);
+		if (ctrl->rx_status)
+			ctrl->polling = true;
+		else
+			kthread_queue_work(&ctrl->worker, &ctrl->recv_msg);
 		break;
 	case HDCP_TRANSPORT_CMD_STATUS_SUCCESS:
 		atomic_set(&ctrl->auth_state, HDCP_STATE_AUTHENTICATED);
@@ -212,10 +216,7 @@ static int dp_hdcp2p2_wakeup(struct hdcp_transport_wakeup_data *data)
 		dp_hdcp2p2_send_auth_status(ctrl);
 		break;
 	case HDCP_TRANSPORT_CMD_LINK_POLL:
-		if (ctrl->cp_irq_done)
-			kthread_queue_work(&ctrl->worker, &ctrl->recv_msg);
-		else
-			ctrl->polling = true;
+		ctrl->polling = true;
 		break;
 	case HDCP_TRANSPORT_CMD_AUTHENTICATE:
 		kthread_queue_work(&ctrl->worker, &ctrl->auth);
@@ -533,26 +534,12 @@ static void dp_hdcp2p2_recv_msg_work(struct kthread_work *work)
 		return;
 	}
 
-	if (ctrl->rx_status) {
-		if (!ctrl->cp_irq_done) {
-			pr_debug("waiting for CP_IRQ\n");
-			ctrl->polling = true;
-			return;
-		}
-
-		if (ctrl->rx_status & ctrl->sink_rx_status) {
-			ctrl->cp_irq_done = false;
-			ctrl->sink_rx_status = 0;
-			ctrl->rx_status = 0;
-		}
-	}
-
 	dp_hdcp2p2_get_msg_from_sink(ctrl);
 }
 
 static void dp_hdcp2p2_link_work(struct kthread_work *work)
 {
-	int rc = 0;
+	int rc = 0, retries = 10;
 	struct dp_hdcp2p2_ctrl *ctrl = container_of(work,
 		struct dp_hdcp2p2_ctrl, link);
 	struct sde_hdcp_2x_wakeup_data cdata = {HDCP_2X_CMD_INVALID};
@@ -587,6 +574,11 @@ static void dp_hdcp2p2_link_work(struct kthread_work *work)
 		goto exit;
 	}
 
+	/* wait for polling to start till spec allowed timeout */
+	while (!ctrl->polling && retries--)
+		msleep(20);
+
+	/* check if sink has made a message available */
 	if (ctrl->polling && (ctrl->sink_rx_status & ctrl->rx_status)) {
 		ctrl->sink_rx_status = 0;
 		ctrl->rx_status = 0;
@@ -594,8 +586,6 @@ static void dp_hdcp2p2_link_work(struct kthread_work *work)
 		dp_hdcp2p2_get_msg_from_sink(ctrl);
 
 		ctrl->polling = false;
-	} else {
-		ctrl->cp_irq_done = true;
 	}
 exit:
 	if (rc)
