@@ -1897,6 +1897,37 @@ static int sde_dbg_reg_base_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
+/**
+ * sde_dbg_reg_base_is_valid_range - verify if requested memory range is valid
+ * @off: address offset in bytes
+ * @cnt: memory size in bytes
+ * Return: true if valid; false otherwise
+ */
+static bool sde_dbg_reg_base_is_valid_range(u32 off, u32 cnt)
+{
+	static struct sde_dbg_base *dbg_base = &sde_dbg_base;
+	struct sde_dbg_reg_range *node;
+	struct sde_dbg_reg_base *base;
+
+	pr_debug("check offset=0x%x cnt=0x%x\n", off, cnt);
+
+	list_for_each_entry(base, &dbg_base->reg_base_list, reg_base_head) {
+		list_for_each_entry(node, &base->sub_range_list, head) {
+			pr_debug("%s: start=0x%x end=0x%x\n", node->range_name,
+					node->offset.start, node->offset.end);
+
+			if (node->offset.start <= off
+					&& off <= node->offset.end
+					&& off + cnt <= node->offset.end) {
+				pr_debug("valid range requested\n");
+				return true;
+			}
+		}
+	}
+
+	pr_err("invalid range requested\n");
+	return false;
+}
 
 /**
  * sde_dbg_reg_base_offset_write - set new offset and len to debugfs reg base
@@ -1951,8 +1982,15 @@ static ssize_t sde_dbg_reg_base_offset_write(struct file *file,
 		goto exit;
 	}
 
-	if (cnt == 0)
-		return -EINVAL;
+	if (cnt == 0) {
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	if (!sde_dbg_reg_base_is_valid_range(off, cnt)) {
+		rc = -EINVAL;
+		goto exit;
+	}
 
 	dbg->off = off;
 	dbg->cnt = cnt;
