@@ -47,6 +47,9 @@
 #define BATT_GT_PRE_TO_FAST_BIT			BIT(4)
 #define ENABLE_CHARGING_BIT			BIT(3)
 
+#define CHGR_CHARGING_ENABLE_CMD_REG		(CHGR_BASE + 0x42)
+#define CHARGING_ENABLE_CMD_BIT			BIT(0)
+
 #define CHGR_CFG2_REG				(CHGR_BASE + 0x51)
 #define CHG_EN_SRC_BIT				BIT(7)
 #define CHG_EN_POLARITY_BIT			BIT(6)
@@ -1032,7 +1035,17 @@ static int smb1355_init_hw(struct smb1355 *chip)
 		return rc;
 	}
 
-	/* disable parallel charging path */
+	/*
+	 * Disable command based SMB1355 enablement and disable parallel
+	 * charging path by switching to command based mode.
+	 */
+	rc = smb1355_masked_write(chip, CHGR_CHARGING_ENABLE_CMD_REG,
+				CHARGING_ENABLE_CMD_BIT, 0);
+	if (rc < 0) {
+		pr_err("Coudln't configure command bit, rc=%d\n", rc);
+		return rc;
+	}
+
 	rc = smb1355_set_parallel_charging(chip, true);
 	if (rc < 0) {
 		pr_err("Couldn't disable parallel path rc=%d\n", rc);
