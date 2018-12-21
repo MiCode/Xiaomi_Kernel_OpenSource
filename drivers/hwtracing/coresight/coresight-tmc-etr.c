@@ -542,7 +542,7 @@ void tmc_etr_disable_hw(struct tmc_drvdata *drvdata)
 	CS_LOCK(drvdata->base);
 }
 
-static int tmc_etr_alloc_mem(struct tmc_drvdata *drvdata)
+int tmc_etr_alloc_mem(struct tmc_drvdata *drvdata)
 {
 	int ret;
 
