@@ -1224,7 +1224,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			true, IPA_v3_5_GROUP_UL_DL, false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 16, 3, 8, 8, IPA_EE_UC } },
+			{ 16, 11, 8, 8, IPA_EE_UC } },
 	[IPA_3_5_1][IPA_CLIENT_WLAN2_CONS]          =  {
 			true, IPA_v3_5_GROUP_UL_DL, false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
@@ -1671,6 +1671,12 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_REP_SEQ_TYPE_2PKT_PROC_PASS_NO_DEC_UCP_DMAP,
 			QMB_MASTER_SELECT_DDR,
 			{ 6, 2, 8, 16, IPA_EE_UC } },
+	[IPA_4_1][IPA_CLIENT_WLAN2_PROD]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_REP_SEQ_TYPE_2PKT_PROC_PASS_NO_DEC_UCP_DMAP,
+			QMB_MASTER_SELECT_DDR,
+			{ 7, 9, 8, 16, IPA_EE_AP } },
 	[IPA_4_1][IPA_CLIENT_USB_PROD]            = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			true,
@@ -1763,7 +1769,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 20, 13, 9, 9, IPA_EE_AP } },
+			{ 17, 1, 8, 13, IPA_EE_AP } },
 	[IPA_4_1][IPA_CLIENT_WLAN3_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
@@ -4957,9 +4963,15 @@ int ipa3_write_qmap_id(struct ipa_ioc_write_qmapid *param_in)
 	    param_in->client == IPA_CLIENT_ODU_PROD ||
 	    param_in->client == IPA_CLIENT_ETHERNET_PROD) {
 		result = ipa3_cfg_ep_metadata(ipa_ep_idx, &meta);
-	} else if (param_in->client == IPA_CLIENT_WLAN1_PROD) {
+	} else if (param_in->client == IPA_CLIENT_WLAN1_PROD ||
+			   param_in->client == IPA_CLIENT_WLAN2_PROD) {
 		ipa3_ctx->ep[ipa_ep_idx].cfg.meta = meta;
-		result = ipa3_write_qmapid_wdi_pipe(ipa_ep_idx, meta.qmap_id);
+		if (param_in->client == IPA_CLIENT_WLAN2_PROD)
+			result = ipa3_write_qmapid_wdi3_gsi_pipe(
+				ipa_ep_idx, meta.qmap_id);
+		else
+			result = ipa3_write_qmapid_wdi_pipe(
+				ipa_ep_idx, meta.qmap_id);
 		if (result)
 			IPAERR_RL("qmap_id %d write failed on ep=%d\n",
 					meta.qmap_id, ipa_ep_idx);
