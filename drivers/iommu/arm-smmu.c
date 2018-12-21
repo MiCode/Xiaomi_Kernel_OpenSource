@@ -1090,6 +1090,7 @@ static int __arm_smmu_tlb_sync(struct arm_smmu_device *smmu,
 {
 	unsigned int spin_cnt, delay;
 	u32 sync_inv_ack;
+	u32 pwr_status;
 
 	writel_relaxed(0, sync);
 	for (delay = 1; delay < TLB_LOOP_TIMEOUT; delay *= 2) {
@@ -1102,10 +1103,12 @@ static int __arm_smmu_tlb_sync(struct arm_smmu_device *smmu,
 	}
 	sync_inv_ack = scm_io_read((unsigned long)(smmu->phys_addr +
 				     ARM_SMMU_STATS_SYNC_INV_TBU_ACK));
+	pwr_status = readl_relaxed(ARM_SMMU_GR0(smmu) +
+				   ARM_SMMU_TBU_PWR_STATUS);
 	trace_tlbsync_timeout(smmu->dev, 0);
 	dev_err_ratelimited(smmu->dev,
-			    "TLB sync timed out -- SMMU may be deadlocked, ack 0x%x\n",
-			    sync_inv_ack);
+			    "TLB sync timed out -- SMMU may be deadlocked, SYNC_INV_ACK 0x%x, PWR_STATUS 0x%x\n",
+			    sync_inv_ack, pwr_status);
 	return -EINVAL;
 }
 
