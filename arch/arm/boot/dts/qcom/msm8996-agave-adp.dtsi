@@ -1536,41 +1536,6 @@
 	};
 };
 
-&i2c_10 {
-	 bmi160@68 {
-		compatible = "bosch-sensortec,bmi160";
-		reg = <0x68>;
-		vdd-supply = <&pm8994_lvs2>;
-		vio-supply = <&pm8994_lvs2>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&sensor_int1_default &sensor_int2_default>;
-		interrupt-parent = <&tlmm>;
-		interrupts = <117 0x2002>;
-		bmi,init-interval = <200>;
-		bmi,place = <1>;
-		bmi,gpio_irq = <&tlmm 117 0x2002>;
-	};
-	 iam20680@69 {
-		 compatible = "inven,iam20680";
-		 reg = <0x69>;
-		 vdd-supply = <&pm8994_lvs2>;
-		 vio-supply = <&pm8994_lvs2>;
-		 pinctrl-names = "default";
-		 pinctrl-0 = <&sensor_int1_default &sensor_int2_default>;
-		 interrupt-parent = <&tlmm>;
-		 interrupts = <118 IRQ_TYPE_EDGE_RISING>;
-		 axis_map_x = <1>;
-		 axis_map_y = <0>;
-		 axis_map_z = <2>;
-		 negate_x = <1>;
-		 negate_y = <0>;
-		 negate_z = <0>;
-		 inven,secondary_type = "none";
-		 inven,aux_type = "none";
-		 inven,read_only_slave_type = "none";
-	 };
-};
-
 &dsi_dual_jdi_video {
 	/delete-property/ pwms;
 	/delete-property/ qcom,5v-boost-gpio;

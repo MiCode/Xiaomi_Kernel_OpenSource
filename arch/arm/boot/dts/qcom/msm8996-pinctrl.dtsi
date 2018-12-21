@@ -850,58 +850,6 @@
 				};
 			};
 		};
-		i2c_10 {
-			i2c_10_active: i2c_10_active {
-				mux {
-					pins = "gpio10", "gpio11";
-					function = "blsp_i2c10";
-				};
-
-				config {
-					pins = "gpio10", "gpio11";
-					drive-strength = <16>;
-					bias-pull-up;
-				};
-			};
-
-			i2c_10_sleep: i2c_10_sleep {
-				mux {
-					pins = "gpio10", "gpio11";
-					function = "blsp_i2c10";
-				};
-
-				config {
-					pins = "gpio10", "gpio11";
-					drive-strength = <16>;
-					bias-pull-up;
-				};
-			};
-		};
-
-		sensor_int1_default: sensor_int1_default {
-			mux {
-				pins = "gpio117";
-				function = "gpio";
-			};
-
-			config {
-				pins = "gpio117";
-				drive-strength = <16>; /* 16 mA */
-				bias-pull-down; /* pull down */
-			};
-		};
-		sensor_int2_default: sensor_int2_default {
-			mux {
-				pins = "gpio118";
-				function = "gpio";
-			};
-
-			config {
-				pins = "gpio118";
-				drive-strength = <16>; /* 16 mA */
-				bias-pull-down; /* pull down */
-			};
-		};
 
 		pmx_fm_int {
 			fm_int_active: fm_int_active {

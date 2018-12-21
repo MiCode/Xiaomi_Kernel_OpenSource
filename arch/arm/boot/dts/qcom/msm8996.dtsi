@@ -39,7 +39,6 @@
 		i2c6 = &i2c_6;
 		i2c7 = &i2c_7;
 		i2c8 = &i2c_8;
-		i2c10 = &i2c_10;
 		i2c12 = &i2c_12;
 		spi0 = &spi_0;
 		serial0 = &uartblsp2dm1;
@@ -386,28 +385,6 @@
 		clocks = <&clock_gcc clk_gcc_blsp1_uart2_apps_clk>,
 			 <&clock_gcc clk_gcc_blsp1_ahb_clk>;
 		clock-names = "core_clk", "iface_clk";
-	};
-
-	i2c_10: i2c@75b8000 { /* BLSP2 QUP4 */
-		compatible = "qcom,i2c-msm-v2";
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg-names = "qup_phys_addr";
-		reg = <0x75b8000 0x600>;
-		interrupt-names = "qup_irq";
-		interrupts = <0 104 0>;
-		dmas = <&dma_blsp2 18 32 0x20000020 0x20>,
-		<&dma_blsp2 19 32 0x20000020 0x20>;
-		dma-names = "tx", "rx";
-		qcom,master-id = <84>;
-		qcom,clk-freq-out = <400000>;
-		qcom,clk-freq-in  = <19200000>;
-		clock-names = "iface_clk", "core_clk";
-		clocks = <&clock_gcc clk_gcc_blsp2_ahb_clk>,
-		<&clock_gcc clk_gcc_blsp2_qup4_i2c_apps_clk>;
-		pinctrl-names = "i2c_active", "i2c_sleep";
-		pinctrl-0 = <&i2c_10_active>;
-		pinctrl-1 = <&i2c_10_sleep>;
 	};
 
 	i2c_12: i2c@75ba000 {
