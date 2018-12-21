@@ -329,6 +329,8 @@
 	qcom,thermal-mitigation = <4200000 3500000 3000000
 			2500000 2000000 1500000 1000000 500000>;
 	dpdm-supply = <&qusb_phy0>;
+	qcom,charger-temp-max = <800>;
+	qcom,smb-temp-max = <800>;
 };
 
 &pm6150_gpios {
