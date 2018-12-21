@@ -909,6 +909,7 @@ static ssize_t reset_store(struct device *dev,
 {
 	int ret = 0;
 	unsigned long val;
+	struct mcmb_dataset *mcmb_temp = NULL;
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
 	ret = kstrtoul(buf, 10, &val);
@@ -927,11 +928,14 @@ static ssize_t reset_store(struct device *dev,
 		memset(drvdata->dsb, 0, sizeof(struct dsb_dataset));
 
 	if (drvdata->cmb != NULL) {
-		if (drvdata->cmb->mcmb != NULL)
+		if (drvdata->cmb->mcmb != NULL) {
+			mcmb_temp = drvdata->cmb->mcmb;
 			memset(drvdata->cmb->mcmb, 0,
 				sizeof(struct mcmb_dataset));
+			}
 
 		memset(drvdata->cmb, 0, sizeof(struct cmb_dataset));
+		drvdata->cmb->mcmb = mcmb_temp;
 	}
 	/* Init the default data */
 	tpdm_init_default_data(drvdata);
