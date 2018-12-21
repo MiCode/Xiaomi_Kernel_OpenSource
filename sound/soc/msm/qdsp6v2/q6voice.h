@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, 2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -815,6 +815,37 @@ struct vss_icommon_cmd_set_ui_property_enable_t {
 };
 
 /*
+ *Event sent by the stream to the client that enables Tx Mute DTMF
+ *detection whenever DTMF is detected in the Tx path
+ */
+
+#define VSS_IVOCPROC_CMD_SET_TX_DTMF_MUTE 0x00013362
+
+/* DTMF mute enable flag. */
+#define VSS_IVOCPROC_TX_DTMF_MUTE_ENABLE 1
+
+/* DTMF mute disable flag. */
+#define VSS_IVOCPROC_TX_DTMF_MUTE_DISABLE 0
+
+struct vss_ivocproc_cmd_set_tx_dtmf_mute_t {
+
+	uint16_t enable;
+	/*Specifies whether Tx DTMF mute is enabled.
+
+	@values
+	- #VSS_IVOCPROC_TX_DTMF_MUTE_ENABLE
+	- #VSS_IVOCPROC_TX_DTMF_MUTE_DISABLE @tablebulletend */
+	uint16_t delay_us;
+	/*This is delay between input and output of DTMF module.*/
+};
+
+struct cvp_set_tx_dtmf_mute_detection_cmd {
+	struct apr_hdr hdr;
+	struct vss_ivocproc_cmd_set_tx_dtmf_mute_t cvp_dtmf_det;
+} __packed;
+
+
+/*
  * Event sent by the stream to the client that enables Rx DTMF
  * detection whenever DTMF is detected in the Rx path.
  *
@@ -1580,6 +1611,8 @@ struct voice_data {
 	uint32_t st_enable;
 	uint32_t hd_enable;
 	uint32_t dtmf_rx_detect_en;
+	uint16_t dtmf_mute_tx_detect_en;
+	uint16_t dtmf_mute_tx_detect_delay;
 	/* Local Call Hold mode */
 	uint8_t lch_mode;
 
@@ -1745,6 +1778,8 @@ int voc_set_route_flag(uint32_t session_id, uint8_t path_dir, uint8_t set);
 uint8_t voc_get_route_flag(uint32_t session_id, uint8_t path_dir);
 int voc_enable_dtmf_rx_detection(uint32_t session_id, uint32_t enable);
 void voc_disable_dtmf_det_on_active_sessions(void);
+int voc_enable_dtmf_mute_tx_detection(uint32_t session_id,
+				      uint16_t enable, uint16_t delay_us);
 int voc_alloc_cal_shared_memory(void);
 int voc_alloc_voip_shared_memory(void);
 int is_voc_initialized(void);
