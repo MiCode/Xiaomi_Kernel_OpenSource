@@ -153,16 +153,9 @@ int mdp3_ctrl_notify(struct mdp3_session_data *ses, int event)
 	return blocking_notifier_call_chain(&ses->notifier_head, event, ses);
 }
 
-static void mdp3_dispatch_dma_done(struct kthread_work *work)
+static void __mdp3_dispatch_dma_done(struct mdp3_session_data *session)
 {
-	struct mdp3_session_data *session;
-	int cnt = 0;
-
-	pr_debug("%s\n", __func__);
-	session = container_of(work, struct mdp3_session_data,
-				dma_done_work);
-	if (!session)
-		return;
+	int cnt;
 
 	cnt = atomic_read(&session->dma_done_cnt);
 	MDSS_XLOG(cnt);
@@ -171,6 +164,29 @@ static void mdp3_dispatch_dma_done(struct kthread_work *work)
 		atomic_dec(&session->dma_done_cnt);
 		cnt--;
 	}
+}
+
+void mdp3_flush_dma_done(struct mdp3_session_data *session)
+{
+	if (!session)
+		return;
+
+	pr_debug("%s\n", __func__);
+
+	__mdp3_dispatch_dma_done(session);
+}
+
+static void mdp3_dispatch_dma_done(struct kthread_work *work)
+{
+	struct mdp3_session_data *session;
+
+	pr_debug("%s\n", __func__);
+	session = container_of(work, struct mdp3_session_data,
+				dma_done_work);
+	if (!session)
+		return;
+
+	__mdp3_dispatch_dma_done(session);
 }
 
 static void mdp3_dispatch_clk_off(struct work_struct *work)
@@ -865,6 +881,14 @@ static int mdp3_ctrl_dma_init(struct msm_fb_data_type *mfd,
 	te.hw_vsync_mode = panel_info->mipi.hw_vsync_mode;
 	te.tear_check_en = panel_info->te.tear_check_en;
 	te.sync_cfg_height = panel_info->te.sync_cfg_height;
+
+	/*
+	 * for MDP3, max value of CFG_HEIGHT is 0x7ff
+	 * for MDP5, max value of CFG_HEIGHT is 0xffff
+	 */
+	if (te.sync_cfg_height > 0x7ff)
+		te.sync_cfg_height = 0x7ff;
+
 	te.vsync_init_val = panel_info->te.vsync_init_val;
 	te.sync_threshold_start = panel_info->te.sync_threshold_start;
 	te.sync_threshold_continue = panel_info->te.sync_threshold_continue;
@@ -3044,6 +3068,7 @@ int mdp3_ctrl_init(struct msm_fb_data_type *mfd)
 		pr_err("fail to init dma\n");
 		goto init_done;
 	}
+	mdp3_session->dma->session = mdp3_session;
 
 	intf_type = mdp3_ctrl_get_intf_type(mfd);
 	mdp3_session->intf = mdp3_get_display_intf(intf_type);

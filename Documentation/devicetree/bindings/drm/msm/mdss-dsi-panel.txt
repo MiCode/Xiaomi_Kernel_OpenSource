@@ -164,10 +164,7 @@ Optional properties:
 					"dfps_immediate_porch_mode_vfp" = FPS change request is
 					implemented immediately by changing panel vertical
 					front porch values.
-- qcom,min-refresh-rate:		Minimum refresh rate supported by the panel.
-- qcom,max-refresh-rate:		Maximum refresh rate supported by the panel. If max refresh
-					rate is not specified, then the frame rate of the panel in
-					qcom,mdss-dsi-panel-framerate is used.
+- qcom,dsi-supported-dfps-list:		List containing all the supported refresh rates.
 - qcom,mdss-dsi-bl-pmic-control-type:	A string that specifies the implementation of backlight
 					control for this panel.
 					"bl_ctrl_pwm" = Backlight controlled by PWM gpio.
@@ -524,6 +521,10 @@ Optional properties:
 - qcom,mdss-dsi-panel-cmds-only-by-right: Boolean used to mention whether the panel support DSI1 or
 					DSI0 to send commands. If this was set, that mean the panel only support
 					DSI1 to send commands, otherwise DSI0 will send comands.
+- qcom,dsi-dyn-clk-enable:		Boolean to indicate dsi dynamic clock switch feature
+					is supported.
+- qcom,dsi-dyn-clk-list:		An u32 array which lists all the supported dsi bit clock
+					frequencies in Hz for the given panel.
 
 Required properties for sub-nodes:	None
 Optional properties:
@@ -645,8 +646,7 @@ Example:
 		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
 		qcom,mdss-dsi-pan-enable-dynamic-fps;
 		qcom,mdss-dsi-pan-fps-update = "dfps_suspend_resume_mode";
-		qcom,min-refresh-rate = <30>;
-		qcom,max-refresh-rate = <60>;
+		qcom,dsi-supported-dfps-list = <48 55 60>;
 		qcom,mdss-dsi-bl-pmic-bank-select = <0>;
 		qcom,mdss-dsi-bl-pmic-pwm-frequency = <0>;
 		qcom,mdss-dsi-pwm-gpio = <&pm8941_mpps 5 0>;
@@ -777,5 +777,7 @@ Example:
 			                <2 2 1>;
 		qcom,default-topology-index = <0>;
 		qcom,mdss-dsi-dma-schedule-line = <5>;
+		qcom,dsi-dyn-clk-enable;
+		qcom,dsi-dyn-clk-list = <798240576 801594528 804948480>;
 	};
 };

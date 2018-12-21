@@ -159,6 +159,43 @@ struct phy_ulps_config_ops {
 	bool (*is_lanes_in_ulps)(u32 ulps, u32 ulps_lanes);
 };
 
+struct phy_dyn_refresh_ops {
+	/**
+	 * dyn_refresh_helper - helper function to config particular registers
+	 * @phy:           Pointer to DSI PHY hardware instance.
+	 * @offset:         register offset to program.
+	 */
+	void (*dyn_refresh_helper)(struct dsi_phy_hw *phy, u32 offset);
+
+	/**
+	 * dyn_refresh_config - configure dynamic refresh ctrl registers
+	 * @phy:           Pointer to DSI PHY hardware instance.
+	 * @cfg:	   Pointer to DSI PHY timings.
+	 * @is_master:	   Boolean to indicate whether for master or slave.
+	 */
+	void (*dyn_refresh_config)(struct dsi_phy_hw *phy,
+				   struct dsi_phy_cfg *cfg, bool is_master);
+
+	/**
+	 * dyn_refresh_pipe_delay - configure pipe delay registers for dynamic
+	 *				refresh.
+	 * @phy:           Pointer to DSI PHY hardware instance.
+	 * @delay:	   structure containing all the delays to be programed.
+	 */
+	void (*dyn_refresh_pipe_delay)(struct dsi_phy_hw *phy,
+				      struct dsi_dyn_clk_delay *delay);
+
+	/**
+	 * cache_phy_timings - cache the phy timings calculated as part of
+	 *				dynamic refresh.
+	 * @timings:       Pointer to calculated phy timing parameters.
+	 * @dst:	   Pointer to cache location.
+	 * @size:	   Number of phy lane settings.
+	 */
+	int (*cache_phy_timings)(struct dsi_phy_per_lane_cfgs *timings,
+				  u32 *dst, u32 size);
+};
+
 /**
  * struct dsi_phy_hw_ops - Operations for DSI PHY hardware.
  * @regulator_enable:          Enable PHY regulators.
@@ -218,11 +255,14 @@ struct dsi_phy_hw_ops {
 	 * @mode:     Mode information for which timing has to be calculated.
 	 * @config:   DSI host configuration for this mode.
 	 * @timing:   Timing parameters for each lane which will be returned.
+	 * @use_mode_bit_clk: Boolean to indicate whether reacalculate dsi
+	 *		bitclk or use the existing bitclk(for dynamic clk case).
 	 */
 	int (*calculate_timing_params)(struct dsi_phy_hw *phy,
 				       struct dsi_mode_info *mode,
 				       struct dsi_host_common_cfg *config,
-				       struct dsi_phy_per_lane_cfgs *timing);
+				       struct dsi_phy_per_lane_cfgs *timing,
+				       bool use_mode_bit_clk);
 
 	/**
 	 * phy_timing_val() - Gets PHY timing values.
@@ -257,12 +297,15 @@ struct dsi_phy_hw_ops {
 
 	void *timing_ops;
 	struct phy_ulps_config_ops ulps_ops;
+	struct phy_dyn_refresh_ops dyn_refresh_ops;
 };
 
 /**
  * struct dsi_phy_hw - DSI phy hardware object specific to an instance
  * @base:                  VA for the DSI PHY base address.
  * @length:                Length of the DSI PHY register base map.
+ * @dyn_pll_base:      VA for the DSI dynamic refresh base address.
+ * @length:                Length of the DSI dynamic refresh register base map.
  * @index:                 Instance ID of the controller.
  * @version:               DSI PHY version.
  * @feature_map:           Features supported by DSI PHY.
@@ -271,6 +314,8 @@ struct dsi_phy_hw_ops {
 struct dsi_phy_hw {
 	void __iomem *base;
 	u32 length;
+	void __iomem *dyn_pll_base;
+	u32 dyn_refresh_len;
 	u32 index;
 
 	enum dsi_phy_version version;

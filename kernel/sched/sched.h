@@ -2422,7 +2422,11 @@ static inline void __update_min_max_capacity(void)
 	int i;
 	int max_cap = 0, min_cap = INT_MAX;
 
-	for_each_online_cpu(i) {
+	for_each_possible_cpu(i) {
+
+		if (!cpu_active(i))
+			continue;
+
 		max_cap = max(max_cap, cpu_capacity(i));
 		min_cap = min(min_cap, cpu_capacity(i));
 	}
@@ -2687,6 +2691,7 @@ static inline unsigned int power_cost(int cpu, bool max)
 }
 
 extern void walt_sched_energy_populated_callback(void);
+extern void walt_update_min_max_capacity(void);
 
 #else	/* CONFIG_SCHED_WALT */
 
@@ -2820,6 +2825,7 @@ static inline unsigned int power_cost(int cpu, bool max)
 }
 
 static inline void walt_sched_energy_populated_callback(void) { }
+static inline void walt_update_min_max_capacity(void) { }
 
 #endif	/* CONFIG_SCHED_WALT */
 

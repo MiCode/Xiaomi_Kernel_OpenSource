@@ -110,6 +110,101 @@
 		qcom,bw-dwnstep = <4000>;
 		qcom,max-vote = <4000>;
 	};
+
+	/delete-node/ funnel@6120000;
+	funnel_right: funnel@6120000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b908>;
+
+		reg = <0x6120000 0x1000>;
+		reg-names = "funnel-base";
+
+		coresight-name = "coresight-funnel-right";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "apb_pclk";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				funnel_right_out_funnel_in0: endpoint {
+					remote-endpoint =
+						<&funnel_in0_in_funnel_right>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+				funnel_right_in_modem_etm1: endpoint {
+					slave-mode;
+					remote-endpoint =
+						<&modem_etm1_out_funnel_right>;
+				};
+			};
+
+			port@2 {
+				reg = <2>;
+				funnel_right_in_modem_etm0: endpoint {
+					slave-mode;
+					remote-endpoint =
+						<&modem_etm0_out_funnel_right>;
+				};
+			};
+
+			port@3 {
+				reg = <3>;
+				funnel_right_in_funnel_apss: endpoint {
+					slave-mode;
+					remote-endpoint =
+					       <&funnel_apss_out_funnel_right>;
+				};
+			};
+		};
+	};
+
+	/delete-node/ cti@6124000;
+	cti_modem_cpu0: cti@6128000{
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
+
+		reg = <0x6128000 0x1000>;
+		reg-names = "cti-base";
+		coresight-name = "coresight-cti-modem-cpu0";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "apb_pclk";
+	};
+
+
+	cti_modem_cpu1: cti@6124000{
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
+
+		reg = <0x6124000 0x1000>;
+		reg-names = "cti-base";
+		coresight-name = "coresight-cti-modem-cpu1";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "apb_pclk";
+	};
+
+	modem_etm1 {
+		compatible = "qcom,coresight-remote-etm";
+		coresight-name = "coresight-modem-etm1";
+		qcom,inst-id = <11>;
+
+		port {
+			modem_etm1_out_funnel_right: endpoint {
+				remote-endpoint = <&funnel_right_in_modem_etm1>;
+			};
+		};
+	};
+
 };
 
 &clock_gcc {

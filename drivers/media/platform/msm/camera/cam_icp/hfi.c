@@ -540,7 +540,7 @@ void cam_hfi_disable_cpu(void __iomem *icp_base)
 	cam_io_w_mb((uint32_t)ICP_INIT_REQUEST_RESET,
 		icp_base + HFI_REG_HOST_ICP_INIT_REQUEST);
 	cam_io_w_mb((uint32_t)INTR_DISABLE,
-		icp_base + HFI_REG_A5_CSR_A2HOSTINTEN);
+		g_hfi->csr_base + HFI_REG_A5_CSR_A2HOSTINTEN);
 }
 
 void cam_hfi_enable_cpu(void __iomem *icp_base)

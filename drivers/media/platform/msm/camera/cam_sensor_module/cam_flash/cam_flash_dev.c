@@ -110,15 +110,6 @@ static int32_t cam_flash_driver_cmd(struct cam_flash_ctrl *fctrl,
 			goto release_mutex;
 		}
 
-		if (fctrl->bridge_intf.link_hdl != -1) {
-			CAM_ERR(CAM_SENSOR,
-				"Device [%d] still active on link 0x%x",
-				fctrl->flash_state,
-				fctrl->bridge_intf.link_hdl);
-			rc = -EAGAIN;
-			goto release_mutex;
-		}
-
 		if ((fctrl->flash_state == CAM_FLASH_STATE_CONFIG) ||
 			(fctrl->flash_state == CAM_FLASH_STATE_START))
 			fctrl->func_tbl.flush_req(fctrl, FLUSH_ALL, 0);
@@ -478,7 +469,6 @@ static int32_t cam_flash_platform_probe(struct platform_device *pdev)
 	}
 
 	fctrl->bridge_intf.device_hdl = -1;
-	fctrl->bridge_intf.link_hdl = -1;
 	fctrl->bridge_intf.ops.get_dev_info = cam_flash_publish_dev_info;
 	fctrl->bridge_intf.ops.link_setup = cam_flash_establish_link;
 	fctrl->bridge_intf.ops.apply_req = cam_flash_apply_request;
@@ -564,7 +554,6 @@ static int32_t cam_flash_i2c_driver_probe(struct i2c_client *client,
 	fctrl->func_tbl.flush_req = cam_flash_i2c_flush_request;
 
 	fctrl->bridge_intf.device_hdl = -1;
-	fctrl->bridge_intf.link_hdl = -1;
 	fctrl->bridge_intf.ops.get_dev_info = cam_flash_publish_dev_info;
 	fctrl->bridge_intf.ops.link_setup = cam_flash_establish_link;
 	fctrl->bridge_intf.ops.apply_req = cam_flash_apply_request;

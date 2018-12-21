@@ -2184,7 +2184,7 @@ static int compute_max_possible_capacity(struct sched_cluster *cluster)
 	return capacity;
 }
 
-static void update_min_max_capacity(void)
+void walt_update_min_max_capacity(void)
 {
 	unsigned long flags;
 
@@ -2410,7 +2410,7 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 		return 0;
 
 	if (val == CPUFREQ_REMOVE_POLICY || val == CPUFREQ_CREATE_POLICY) {
-		update_min_max_capacity();
+		walt_update_min_max_capacity();
 		return 0;
 	}
 
