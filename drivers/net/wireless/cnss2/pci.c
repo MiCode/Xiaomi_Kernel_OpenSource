@@ -151,6 +151,8 @@ int cnss_suspend_pci_link(struct cnss_pci_data *pci_priv)
 		goto out;
 	}
 
+	pci_clear_master(pci_priv->pci_dev);
+
 	ret = cnss_set_pci_config_space(pci_priv, SAVE_PCI_CONFIG_SPACE);
 	if (ret)
 		goto out;
@@ -200,15 +202,15 @@ int cnss_resume_pci_link(struct cnss_pci_data *pci_priv)
 		}
 	}
 
-	ret = cnss_set_pci_config_space(pci_priv, RESTORE_PCI_CONFIG_SPACE);
-	if (ret)
-		goto out;
-
 	ret = pci_enable_device(pci_priv->pci_dev);
 	if (ret) {
 		cnss_pr_err("Failed to enable PCI device, err = %d\n", ret);
 		goto out;
 	}
+
+	ret = cnss_set_pci_config_space(pci_priv, RESTORE_PCI_CONFIG_SPACE);
+	if (ret)
+		goto out;
 
 	pci_set_master(pci_priv->pci_dev);
 
@@ -1017,6 +1019,7 @@ static int cnss_pci_suspend(struct device *dev)
 			goto out;
 		}
 
+		pci_clear_master(pci_dev);
 		cnss_set_pci_config_space(pci_priv,
 					  SAVE_PCI_CONFIG_SPACE);
 		pci_disable_device(pci_dev);
@@ -1261,6 +1264,7 @@ int cnss_auto_suspend(struct device *dev)
 			goto out;
 		}
 
+		pci_clear_master(pci_dev);
 		cnss_set_pci_config_space(pci_priv, SAVE_PCI_CONFIG_SPACE);
 		pci_disable_device(pci_dev);
 
