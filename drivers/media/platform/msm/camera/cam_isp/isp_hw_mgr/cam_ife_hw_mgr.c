@@ -4897,12 +4897,6 @@ int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf, int *iommu_hdl)
 		return -EINVAL;
 	}
 
-	if (cam_smmu_ops(g_ife_hw_mgr.mgr_common.img_iommu_hdl,
-		CAM_SMMU_ATTACH)) {
-		CAM_ERR(CAM_ISP, "Attach iommu handle failed.");
-		goto attach_fail;
-	}
-
 	if (cam_smmu_get_handle("cam-secure",
 		&g_ife_hw_mgr.mgr_common.img_iommu_hdl_secure)) {
 		CAM_ERR(CAM_ISP, "Failed to get secure iommu handle");
@@ -5016,9 +5010,6 @@ end:
 		g_ife_hw_mgr.mgr_common.img_iommu_hdl_secure);
 	g_ife_hw_mgr.mgr_common.img_iommu_hdl_secure = -1;
 secure_fail:
-	cam_smmu_ops(g_ife_hw_mgr.mgr_common.img_iommu_hdl,
-		CAM_SMMU_DETACH);
-attach_fail:
 	cam_smmu_destroy_handle(g_ife_hw_mgr.mgr_common.img_iommu_hdl);
 	g_ife_hw_mgr.mgr_common.img_iommu_hdl = -1;
 	return rc;
