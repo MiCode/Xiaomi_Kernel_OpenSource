@@ -1,0 +1,48 @@
+Qualcomm Technologies, Inc. GENI I3C master block
+
+Generic bindings document for GENI I3C master controller driver.
+
+Required properties:
+- compatible: shall be "qcom,geni-i3c".
+- clocks: shall reference the se clock.
+- clock-names: shall contain clock name corresponding to the serial engine.
+- interrupts: the interrupt line connected to this I3C master.
+- reg: I3C master registers.
+- qcom,wrapper-core: Wrapper QUPv3 core containing this I3C controller.
+
+Optional properties:
+- se-clock-frequency: Source serial clock frequency to use.
+- dfs-index: Dynamic frequency scaling table index to use.
+
+Mandatory properties defined by the generic binding (see
+Documentation/devicetree/bindings/i3c/i3c.txt for more details):
+
+- #address-cells: shall be set to 3.
+- #size-cells: shall be set to 0.
+
+Optional properties defined by the generic binding (see
+Documentation/devicetree/bindings/i3c/i3c.txt for more details):
+
+- i2c-scl-hz: frequency for i2c transfers.
+- i3c-scl-hz: frequency for i3c transfers.
+
+I3C device connected on the bus follow the generic description (see
+Documentation/devicetree/bindings/i3c/i3c.txt for more details).
+
+Example:
+        i3c0: i3c@980000 {
+		compatible = "qcom,geni-i3c";
+		reg = <0x980000 0x4000>,
+			<0xec30000 0x10000>;
+		clock-names = "se-clk", "m-ahb", "s-ahb";
+		clocks = <&clock_gcc GCC_QUPV3_WRAP0_S0_CLK>,
+			<&clock_gcc GCC_QUPV3_WRAP_0_M_AHB_CLK>,
+			<&clock_gcc GCC_QUPV3_WRAP_0_S_AHB_CLK>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&qupv3_se0_i3c_active>;
+		pinctrl-1 = <&qupv3_se0_i3c_sleep>;
+		interrupts = <GIC_SPI 601 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <3>;
+		#size-cells = <0>;
+		qcom,wrapper-core = <&qupv3_0>;
+	};
