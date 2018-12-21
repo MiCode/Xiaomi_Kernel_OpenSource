@@ -3539,7 +3539,7 @@ struct fib6_info *rt6_get_dflt_router(struct net *net,
 				     const struct in6_addr *addr,
 				     struct net_device *dev)
 {
-	u32 tb_id = l3mdev_fib_table(dev) ? : addrconf_rt_table(dev, RT6_TABLE_MAIN);
+	u32 tb_id = l3mdev_fib_table(dev) ? : addrconf_rt_table(dev, RT6_TABLE_DFLT);
 	struct fib6_info *rt;
 	struct fib6_table *table;
 
@@ -3591,15 +3591,18 @@ struct fib6_info *rt6_add_dflt_router(struct net *net,
 	return rt6_get_dflt_router(net, gwaddr, dev);
 }
 
-int rt6_addrconf_purge(struct fib6_info *rt, void *arg)
+static int rt6_addrconf_purge(struct fib6_info *rt, void *arg)
 {
 	struct net_device *dev = fib6_info_nh_dev(rt);
 	struct inet6_dev *idev = dev ? __in6_dev_get(dev) : NULL;
 
 	if (rt->fib6_flags & (RTF_DEFAULT | RTF_ADDRCONF) &&
-	    (!idev || idev->cnf.accept_ra != 2))
+	    (!idev || idev->cnf.accept_ra != 2)) {
+		/* Delete this route. See fib6_clean_tree() */
 		return -1;
+	}
 
+	/* Continue walking */
 	return 0;
 }
 

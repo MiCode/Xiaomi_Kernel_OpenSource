@@ -494,6 +494,15 @@ config DM_VERITY_HASH_PREFETCH_MIN_SIZE
 	  performance with increased memory consumption for keeping more hashes
 	  in RAM.
 
+config DM_VERITY_AVB
+	tristate "Support AVB specific verity error behavior"
+	depends on DM_VERITY
+	---help---
+	  Enables Android Verified Boot platform-specific error
+	  behavior. In particular, it will modify the vbmeta partition
+	  specified on the kernel command-line when non-transient error
+	  occurs (followed by a panic).
+
 config DM_VERITY_FEC
 	bool "Verity forward error correction support"
 	depends on DM_VERITY
@@ -573,15 +582,6 @@ config DM_ZONED
 	  be called dm-zoned.
 
 	  If unsure, say N.
-
-config DM_VERITY_AVB
-	tristate "Support AVB specific verity error behavior"
-	depends on DM_VERITY
-	---help---
-	  Enables Android Verified Boot platform-specific error
-	  behavior. In particular, it will modify the vbmeta partition
-	  specified on the kernel command-line when non-transient error
-	  occurs (followed by a panic).
 
 config DM_ANDROID_VERITY
 	bool "Android verity target support"
