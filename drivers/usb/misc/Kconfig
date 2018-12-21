@@ -275,3 +275,9 @@ config USB_CHAOSKEY
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called chaoskey.
+
+config USB_REDRIVER_NB7VPQ904M
+	tristate "USB 3.1 Gen1/Gen2 10Gbps re-driver driver for NB7VPQ904M"
+	depends on USB_PHY
+	help
+	  Say Y here if you want to support USB super speed re-driver NB7VPQ904M.
