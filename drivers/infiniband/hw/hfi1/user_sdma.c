@@ -151,10 +151,6 @@ MODULE_PARM_DESC(sdma_comp_size, "Size of User SDMA completion ring. Default: 12
 #define SDMA_REQ_HAVE_AHG   1
 #define SDMA_REQ_HAS_ERROR  2
 
-#define SDMA_PKT_Q_INACTIVE BIT(0)
-#define SDMA_PKT_Q_ACTIVE   BIT(1)
-#define SDMA_PKT_Q_DEFERRED BIT(2)
-
 /*
  * Maximum retry attempts to submit a TX request
  * before putting the process to sleep.
@@ -408,7 +404,6 @@ int hfi1_user_sdma_alloc_queues(struct hfi1_ctxtdata *uctxt, struct file *fp)
 	pq->ctxt = uctxt->ctxt;
 	pq->subctxt = fd->subctxt;
 	pq->n_max_reqs = hfi1_sdma_comp_ring_size;
-	pq->state = SDMA_PKT_Q_INACTIVE;
 	atomic_set(&pq->n_reqs, 0);
 	init_waitqueue_head(&pq->wait);
 	atomic_set(&pq->n_locked, 0);
@@ -491,7 +486,7 @@ int hfi1_user_sdma_free_queues(struct hfi1_filedata *fd)
 		/* Wait until all requests have been freed. */
 		wait_event_interruptible(
 			pq->wait,
-			(ACCESS_ONCE(pq->state) == SDMA_PKT_Q_INACTIVE));
+			!atomic_read(&pq->n_reqs));
 		kfree(pq->reqs);
 		kfree(pq->req_in_use);
 		kmem_cache_destroy(pq->txreq_cache);
@@ -527,6 +522,13 @@ static u8 dlid_to_selector(u16 dlid)
 	return mapping[hash];
 }
 
+/**
+ * hfi1_user_sdma_process_request() - Process and start a user sdma request
+ * @fp: valid file pointer
+ * @iovec: array of io vectors to process
+ * @dim: overall iovec array size
+ * @count: number of io vector array entries processed
+ */
 int hfi1_user_sdma_process_request(struct file *fp, struct iovec *iovec,
 				   unsigned long dim, unsigned long *count)
 {
@@ -768,19 +770,11 @@ int hfi1_user_sdma_process_request(struct file *fp, struct iovec *iovec,
 	}
 
 	set_comp_state(pq, cq, info.comp_idx, QUEUED, 0);
+	pq->state = SDMA_PKT_Q_ACTIVE;
 	/* Send the first N packets in the request to buy us some time */
 	ret = user_sdma_send_pkts(req, pcount);
 	if (unlikely(ret < 0 && ret != -EBUSY))
 		goto free_req;
-
-	/*
-	 * It is possible that the SDMA engine would have processed all the
-	 * submitted packets by the time we get here. Therefore, only set
-	 * packet queue state to ACTIVE if there are still uncompleted
-	 * requests.
-	 */
-	if (atomic_read(&pq->n_reqs))
-		xchg(&pq->state, SDMA_PKT_Q_ACTIVE);
 
 	/*
 	 * This is a somewhat blocking send implementation.
@@ -1526,10 +1520,8 @@ static void user_sdma_txreq_cb(struct sdma_txreq *txreq, int status)
 
 static inline void pq_update(struct hfi1_user_sdma_pkt_q *pq)
 {
-	if (atomic_dec_and_test(&pq->n_reqs)) {
-		xchg(&pq->state, SDMA_PKT_Q_INACTIVE);
+	if (atomic_dec_and_test(&pq->n_reqs))
 		wake_up(&pq->wait);
-	}
 }
 
 static void user_sdma_free_request(struct user_sdma_request *req, bool unpin)

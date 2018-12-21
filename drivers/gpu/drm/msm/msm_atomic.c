@@ -98,7 +98,12 @@ static void msm_atomic_wait_for_commit_done(struct drm_device *dev,
 		if (old_state->legacy_cursor_update)
 			continue;
 
+		if (drm_crtc_vblank_get(crtc))
+			continue;
+
 		kms->funcs->wait_for_crtc_commit_done(kms, crtc);
+
+		drm_crtc_vblank_put(crtc);
 	}
 }
 
