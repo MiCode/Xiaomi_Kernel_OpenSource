@@ -38,4 +38,13 @@ config QRTR_MHI
 	  transport will wait for the uplink callback notification before
 	  returning to qrtr.
 
+config QRTR_USB
+	tristate "USB IPC Router channels"
+	depends on USB || (COMPILE_TEST && USB=n)
+	help
+	  Say Y here to support USB based ipcrouter channels. USB transport
+	  is used for connections with other sytems for IPC Router. The USB
+	  transport provides bulk endpoints to facilitate sending and receiving
+	  IPC Router data packets.
+
 endif # QRTR
