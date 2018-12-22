@@ -579,7 +579,6 @@ static int dp_ctrl_link_setup(struct dp_ctrl_private *ctrl, bool shallow)
 	catalog = ctrl->catalog;
 	link_params = &ctrl->link->link_params;
 
-	catalog->hpd_config(catalog, true);
 	catalog->phy_lane_cfg(catalog, ctrl->orientation,
 				link_params->lane_count);
 
