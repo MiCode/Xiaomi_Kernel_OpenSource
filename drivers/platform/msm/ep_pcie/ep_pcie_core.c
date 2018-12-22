@@ -91,6 +91,7 @@ static const struct ep_pcie_res_info_t ep_pcie_res_info[EP_PCIE_MAX_RES] = {
 	{"dm_core",	NULL, NULL},
 	{"elbi",	NULL, NULL},
 	{"iatu",	NULL, NULL},
+	{"tcsr_pcie_perst_en",	NULL, NULL},
 };
 
 static const struct ep_pcie_irq_info_t ep_pcie_irq_info[EP_PCIE_MAX_IRQ] = {
@@ -527,6 +528,8 @@ static void ep_pcie_bar_init(struct ep_pcie_dev_t *dev)
 
 static void ep_pcie_config_mmio(struct ep_pcie_dev_t *dev)
 {
+	u32 mhi_status;
+
 	EP_PCIE_DBG(dev,
 		"Initial version of MMIO is:0x%x\n",
 		readl_relaxed(dev->mmio + PCIE20_MHIVER));
@@ -535,6 +538,14 @@ static void ep_pcie_config_mmio(struct ep_pcie_dev_t *dev)
 		EP_PCIE_DBG(dev,
 			"PCIe V%d: MMIO already initialized, return\n",
 				dev->rev);
+		return;
+	}
+
+	mhi_status = readl_relaxed(dev->mmio + PCIE20_MHISTATUS);
+	if (mhi_status & BIT(2)) {
+		EP_PCIE_DBG(dev,
+			"MHISYS error is set:%d, proceed to MHI\n",
+			mhi_status);
 		return;
 	}
 
@@ -1219,6 +1230,7 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 	dev->dm_core = dev->res[EP_PCIE_RES_DM_CORE].base;
 	dev->elbi = dev->res[EP_PCIE_RES_ELBI].base;
 	dev->iatu = dev->res[EP_PCIE_RES_IATU].base;
+	dev->tcsr_perst_en = dev->res[EP_PCIE_RES_TCSR_PERST].base;
 
 out:
 	kfree(clkfreq);
@@ -1387,6 +1399,20 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 
 	if (!(opt & EP_PCIE_OPT_ENUM))
 		goto out;
+
+	EP_PCIE_DBG(dev,
+		"TCSR PERST_EN value before configure:0x%x\n",
+		readl_relaxed(dev->tcsr_perst_en + 0x258));
+
+	/*
+	 * Delatch PERST_EN with TCSR to avoid device reset
+	 * during host reboot case.
+	 */
+	writel_relaxed(0, dev->tcsr_perst_en + 0x258);
+
+	EP_PCIE_DBG(dev,
+		"TCSR PERST_EN value after configure:0x%x\n",
+		readl_relaxed(dev->tcsr_perst_en));
 
 	if (opt & EP_PCIE_OPT_AST_WAKE) {
 		/* assert PCIe WAKE# */
