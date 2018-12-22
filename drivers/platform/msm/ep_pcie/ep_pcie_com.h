@@ -238,6 +238,7 @@ enum ep_pcie_res {
 	EP_PCIE_RES_ELBI,
 	EP_PCIE_RES_IATU,
 	EP_PCIE_RES_EDMA,
+	EP_PCIE_RES_TCSR_PERST,
 	EP_PCIE_MAX_RES,
 };
 
@@ -330,6 +331,7 @@ struct ep_pcie_dev_t {
 	void __iomem                 *edma;
 	void __iomem                 *elbi;
 	void __iomem                 *iatu;
+	void __iomem		     *tcsr_perst_en;
 
 	struct msm_bus_scale_pdata   *bus_scale_table;
 	u32                          bus_client;
