@@ -363,9 +363,10 @@
 			<0x40001000 0x1000>,
 			<0x01c00000 0x2000>,
 			<0x01c02000 0x1000>,
-			<0x01c04000 0x1000>;
+			<0x01c04000 0x1000>,
+			<0x01fcb000 0x1000>;
 		reg-names = "msi", "dm_core", "elbi", "iatu", "parf",
-				"phy", "mmio";
+				"phy", "mmio", "tcsr_pcie_perst_en";
 
 		#address-cells = <0>;
 		interrupt-parent = <&pcie_ep>;
