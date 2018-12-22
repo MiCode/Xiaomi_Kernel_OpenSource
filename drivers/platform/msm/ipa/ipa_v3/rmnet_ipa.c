@@ -3388,6 +3388,7 @@ static int rmnet_ipa3_query_tethering_stats_hw(
 {
 	int rc = 0;
 	struct ipa_quota_stats_all *con_stats;
+	struct ipa_quota_stats  *client;
 
 	/* qet HW-stats */
 	rc = ipa_get_teth_stats();
@@ -3466,6 +3467,24 @@ static int rmnet_ipa3_query_tethering_stats_hw(
 	data->ipv6_tx_bytes =
 		con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv6_bytes;
 
+	/* usb UL stats on cv2 */
+	client = &con_stats->client[IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS];
+	IPAWANDBG("usb (cv2): v4_tx_p(%d) b(%lld) v6_tx_p(%d) b(%lld)\n",
+		client->num_ipv4_pkts,
+		client->num_ipv4_bytes,
+		client->num_ipv6_pkts,
+		client->num_ipv6_bytes);
+
+	/* update cv2 USB UL stats */
+	data->ipv4_tx_packets +=
+		client->num_ipv4_pkts;
+	data->ipv6_tx_packets +=
+		client->num_ipv6_pkts;
+	data->ipv4_tx_bytes +=
+		client->num_ipv4_bytes;
+	data->ipv6_tx_bytes +=
+		client->num_ipv6_bytes;
+
 	/* query WLAN UL stats */
 	memset(con_stats, 0, sizeof(struct ipa_quota_stats_all));
 	rc = ipa_query_teth_stats(IPA_CLIENT_WLAN1_PROD, con_stats, reset);
@@ -3490,6 +3509,24 @@ static int rmnet_ipa3_query_tethering_stats_hw(
 		con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv4_bytes;
 	data->ipv6_tx_bytes +=
 		con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv6_bytes;
+
+	/* wlan UL stats on cv2 */
+	IPAWANDBG("wlan (cv2): v4_tx_p(%d) b(%lld) v6_tx_p(%d) b(%lld)\n",
+	con_stats->client[IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS].num_ipv4_pkts,
+	con_stats->client[IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS].num_ipv4_bytes,
+	con_stats->client[IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS].num_ipv6_pkts,
+	con_stats->client[IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS].num_ipv6_bytes);
+
+	/* update cv2 wlan UL stats */
+	client = &con_stats->client[IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS];
+	data->ipv4_tx_packets +=
+		client->num_ipv4_pkts;
+	data->ipv6_tx_packets +=
+		client->num_ipv6_pkts;
+	data->ipv4_tx_bytes +=
+		client->num_ipv4_bytes;
+	data->ipv6_tx_bytes +=
+		client->num_ipv6_bytes;
 
 	IPAWANDBG("v4_tx_p(%lu) v6_tx_p(%lu) v4_tx_b(%lu) v6_tx_b(%lu)\n",
 		(unsigned long int) data->ipv4_tx_packets,
