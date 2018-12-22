@@ -235,13 +235,15 @@
 		smmu_sde_unsec: qcom,smmu_sde_unsec_cb {
 			compatible = "qcom,smmu_sde_unsec";
 			iommus = <&apps_smmu 0x820 0x402>;
-			qcom,iommu-dma = "disabled";
+			qcom,iommu-dma-addr-pool = <0x00020000 0xfffe0000>;
+			qcom,iommu-earlymap; /* for cont-splash */
 		};
 
 		smmu_sde_sec: qcom,smmu_sde_sec_cb {
 			compatible = "qcom,smmu_sde_sec";
 			iommus = <&apps_smmu 0x821 0x400>;
-			qcom,iommu-dma = "disabled";
+			qcom,iommu-dma-addr-pool = <0x00020000 0xfffe0000>;
+			qcom,iommu-vmid = <0xa>;
 		};
 
 		/* data and reg bus scale settings */
