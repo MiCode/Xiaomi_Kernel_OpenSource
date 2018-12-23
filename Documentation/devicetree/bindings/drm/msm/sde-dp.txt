@@ -98,6 +98,7 @@ display interfaces, e.g. Display Port, and the audio subsystem.
 Optional properties:
 - qcom,ext-disp:		phandle for msm-ext-display module
 - compatible:			Must be "qcom,msm-ext-disp"
+- qcom,dp-low-power-hw-hpd:	Low power hardware HPD feature enable control node
 - qcom,phy-version:		Phy version
 - pinctrl-names:		List of names to assign mdss pin states defined in pinctrl device node
 				Refer to pinctrl-bindings.txt
