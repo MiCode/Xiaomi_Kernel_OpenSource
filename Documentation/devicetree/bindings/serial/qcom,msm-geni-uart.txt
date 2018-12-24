@@ -19,6 +19,8 @@ Required properties:
 
 Optional properties:
 - qcom,wakeup-byte: Byte to be injected in the tty layer during wakeup isr.
+- qcom,change-sampling-rate: This is a boolean parameter and use this to decide
+  the samping rate at which sequencer engine runs.
 
 Example:
 qupv3_uart11: qcom,qup_uart@0xa88000 {
@@ -34,5 +36,6 @@ qupv3_uart11: qcom,qup_uart@0xa88000 {
 	pinctrl-1 = <&qup_1_uart_3_sleep>;
 	interrupts = <0 355 0>;
 	qcom,wrapper-core = <&qupv3_0>;
+	qcom,change-sampling-rate;
 	qcom,wakeup-byte = <0xFF>;
 };
