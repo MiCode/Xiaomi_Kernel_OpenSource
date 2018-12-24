@@ -1697,6 +1697,7 @@
 #include "trinket-qupv3.dtsi"
 #include "trinket-coresight.dtsi"
 #include "trinket-vidc.dtsi"
+#include "trinket-pm.dtsi"
 
 &pm6125_vadc {
 	rf_pa0_therm {
