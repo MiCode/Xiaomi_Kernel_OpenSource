@@ -226,6 +226,7 @@ static void rtc6226_i2c_interrupt_handler(struct rtc6226_device *radio)
 {
 	unsigned char regnr;
 	int retval = 0;
+	unsigned short current_chan;
 
 	pr_info("%s enter\n", __func__);
 
@@ -235,34 +236,67 @@ static void rtc6226_i2c_interrupt_handler(struct rtc6226_device *radio)
 		pr_err("%s read fail to STATUS\n", __func__);
 		goto end;
 	}
+	pr_debug("%s : STATUS=0x%4.4hx\n", __func__, radio->registers[STATUS]);
+
 	retval = rtc6226_get_register(radio, RSSI);
 	if (retval < 0) {
 		pr_err("%s read fail to RSSI\n", __func__);
 		goto end;
 	}
+	pr_debug("%s : RSSI=0x%4.4hx\n", __func__, radio->registers[RSSI]);
 
 	if (radio->registers[STATUS] & STATUS_STD) {
-		complete(&radio->completion);
-		pr_info("%s Seek/Tune Done\n", __func__);
-	}
-
-	/* Update RDS registers */
-	for (regnr = 1; regnr < RDS_REGISTER_NUM; regnr++) {
-		retval = rtc6226_get_register(radio, STATUS + regnr);
+			/* stop seeking : clear STD*/
+		radio->registers[SEEKCFG1] &= ~SEEKCFG1_CSR0_SEEK;
+		retval = rtc6226_set_register(radio, SEEKCFG1);
+		/*clear the status bit to allow another tune or seek*/
+		current_chan = radio->registers[CHANNEL] & CHANNEL_CSR0_CH;
+		radio->registers[CHANNEL] &= ~CHANNEL_CSR0_TUNE;
+		retval = rtc6226_set_register(radio, CHANNEL);
 		if (retval < 0)
-			goto end;
-	}
-
-	/* get rds blocks */
-	if ((radio->registers[STATUS] & STATUS_RDS_RDY) == 0) {
-		/* No RDS group ready, better luck next time */
-		pr_err("%s No RDS group ready\n", __func__);
-		goto end;
+			radio->registers[CHANNEL] = current_chan;
+		rtc6226_reset_rds_data(radio);
+		pr_debug("%s clear Seek/Tune bit\n", __func__);
+		if (radio->seek_tune_status == SEEK_PENDING) {
+			pr_debug("posting RTC6226_EVT_SEEK_COMPLETE event\n");
+			rtc6226_q_event(radio, RTC6226_EVT_SEEK_COMPLETE);
+			/* post tune comp evt since seek results in a tune.*/
+			pr_debug("posting RICHWAVE_EVT_TUNE_SUCC event\n");
+			rtc6226_q_event(radio, RTC6226_EVT_TUNE_SUCC);
+			radio->seek_tune_status = NO_SEEK_TUNE_PENDING;
+		} else if (radio->seek_tune_status == TUNE_PENDING) {
+			pr_debug("posting RICHWAVE_EVT_TUNE_SUCC event\n");
+			rtc6226_q_event(radio, RTC6226_EVT_TUNE_SUCC);
+			radio->seek_tune_status = NO_SEEK_TUNE_PENDING;
+		} else if (radio->seek_tune_status == SCAN_PENDING) {
+			/* when scan is pending and STC int is set, signal
+			 * so that scan can proceed
+			 */
+			pr_debug("In %s, signalling scan thread\n", __func__);
+			complete(&radio->completion);
+		}
+		pr_debug("%s Seek/Tune done\n", __func__);
 	} else {
+		/* Check RDS data after tune/seek interrupt finished
+		 * Update RDS registers
+		 */
+		for (regnr = 1; regnr < RDS_REGISTER_NUM; regnr++) {
+			retval = rtc6226_get_register(radio, STATUS + regnr);
+			if (retval < 0)
+				goto end;
+		}
+		/* get rds blocks */
+		if ((radio->registers[STATUS] & STATUS_RDS_RDY) == 0) {
+			/* No RDS group ready, better luck next time */
+			pr_err("%s No RDS group ready\n", __func__);
+			goto end;
+		} else {
 			/* avoid RDS interrupt lock disable_irq*/
-		if ((radio->registers[SYSCFG] & SYSCFG_CSR0_RDS_EN) != 0) {
-			pr_info("%s start rds handler\n", __func__);
-			schedule_work(&radio->rds_worker);
+			if ((radio->registers[SYSCFG] &
+						SYSCFG_CSR0_RDS_EN) != 0) {
+				pr_debug("%s start rds handler\n", __func__);
+				schedule_work(&radio->rds_worker);
+			}
 		}
 	}
 end:
@@ -363,40 +397,28 @@ int rtc6226_fops_open(struct file *file)
 {
 	struct rtc6226_device *radio = video_drvdata(file);
 	int retval = v4l2_fh_open(file);
-	int i;
 
-	pr_info("%s enter\n", __func__);
+	pr_debug("%s enter user num = %d\n", __func__, radio->users);
 	if (retval) {
 		pr_err("%s fail to open v4l2\n", __func__);
 		return retval;
+	}
+
+	if (radio->users == 0)
+		radio->users++;
+	else {
+		pr_err("Device already in use. Try again later\n");
+		return -EBUSY;
 	}
 
 	INIT_DELAYED_WORK(&radio->work, rtc6226_handler);
 	INIT_DELAYED_WORK(&radio->work_scan, rtc6226_scan);
 	INIT_WORK(&radio->rds_worker, rtc6226_rds_handler);
 
-	if (v4l2_fh_is_singular_file(file)) {
-		retval = rtc6226_power_up(radio);
-		if (retval < 0) {
-			pr_err("%s fail to power_up\n", __func__);
-			goto done;
-			//return retval;
-		}
-	}
-
-	retval = rtc6226_get_all_registers(radio);
-	if (retval < 0)
-		pr_err("%s fail to get register %d\n", __func__, retval);
-	else {
-		for (i = 0; i < 16; i++)
-			pr_info("%s registers[%d]:%x\n", __func__, i,
-				radio->registers[i]);
-	}
 	/* Wait for the value to take effect on gpio. */
 	msleep(100);
 	rtc6226_enable_irq(radio);
 
-done:
 	if (retval)
 		v4l2_fh_release(file);
 	return retval;
@@ -417,6 +439,7 @@ int rtc6226_fops_release(struct file *file)
 		}
 	}
 	rtc6226_disable_irq(radio);
+	radio->users--;
 	return v4l2_fh_release(file);
 }
 
@@ -601,6 +624,7 @@ static int rtc6226_i2c_probe(struct i2c_client *client,
 	radio->wqueue = NULL;
 	radio->wqueue_scan = NULL;
 	radio->wqueue_rds = NULL;
+	radio->band = -1;
 
 	/* rds buffer configuration */
 	radio->wr_index = 0;

@@ -182,7 +182,7 @@
 
 #define WRAP_ENABLE      1
 #define WRAP_DISABLE     0
-
+#define DEFAULT_RSSI_TH  8
 /* Standard buffer size */
 #define STD_BUF_SIZE     256
 
@@ -191,6 +191,8 @@
 #define TUNE_PENDING 1
 #define SEEK_PENDING 2
 #define SCAN_PENDING 3
+#define START_SCAN 1
+#define WAIT_TIMEOUT_MSEC 7000
 
 #define RTC6226_MIN_SRCH_MODE 0x00
 #define RTC6226_MAX_SRCH_MODE 0x02
@@ -302,6 +304,8 @@
 #define GET_AF_LIST_LEN(x) (x*4)
 #define MIN_AF_FREQ_CODE 1
 #define MAX_AF_FREQ_CODE 204
+#define MIN_RSSI 0
+#define MAX_RSSI 15
 
 /* 25 AFs supported for a freq. 224 means 1 AF. 225 means 2 AFs and so on */
 #define NO_AF_CNT_CODE 224
@@ -349,12 +353,11 @@
 #define V4L2_CID_PRIVATE_RDS_SYNC	    (RW_PRIBASE + (CHIPID<<4) + 5)
 #define V4L2_CID_PRIVATE_SI	            (RW_PRIBASE + (CHIPID<<4) + 6)
 
-#define WAIT_OVER			0
-#define SEEK_WAITING		1
 #define NO_WAIT				2
-#define TUNE_WAITING		4
 #define RDS_WAITING			5
 #define SEEK_CANCEL			6
+#define TUNE_PARAM 16
+
 /**************************************************************************
  * General Driver Definitions
  **************************************************************************/
@@ -666,3 +669,5 @@ void rtc6226_scan(struct work_struct *work);
 void rtc6226_search(struct rtc6226_device *radio, bool on);
 int rtc6226_cancel_seek(struct rtc6226_device *radio);
 void rtc6226_rds_handler(struct work_struct *worker);
+void rtc6226_q_event(struct rtc6226_device *radio, enum rtc6226_evt_t event);
+int rtc6226_reset_rds_data(struct rtc6226_device *radio);
