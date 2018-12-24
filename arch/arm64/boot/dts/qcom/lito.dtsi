@@ -729,6 +729,7 @@
 
 #include "lito-pinctrl.dtsi"
 #include "lito-gdsc.dtsi"
+#include "lito-regulators.dtsi"
 
 &ufs_phy_gdsc {
 	status = "ok";
