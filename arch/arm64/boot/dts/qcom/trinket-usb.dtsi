@@ -171,8 +171,10 @@
 	/* Primary USB port related QMP USB PHY */
 	usb_qmp_phy: ssphy@1615000 {
 		compatible = "qcom,usb-ssphy-qmp-usb3-or-dp";
-		reg = <0x01615000 0x1000>;
-		reg-names = "qmp_phy_base";
+		reg = <0x01615000 0x1000>,
+			<0x03cb244 0x4>;
+		reg-names = "qmp_phy_base",
+			"vls_clamp-reg";
 
 		vdd-supply = <&pm6125_l7>;
 		core-supply = <&pm6125_l10>;
