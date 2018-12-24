@@ -208,7 +208,9 @@ struct npu_device {
 	struct class *class;
 	struct device *device;
 
-	struct npu_io_data npu_io;
+	struct npu_io_data core_io;
+	struct npu_io_data tcm_io;
+	struct npu_io_data bwmon_io;
 	struct npu_io_data qfprom_io;
 
 	uint32_t core_clk_num;

@@ -1,0 +1,118 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&i2c_5 {
+	qcom,clk-freq-out = <100000>;
+	status = "okay";
+	/* CSRA66X0 cluster GRP_0 */
+	csra66x0_ampl_68: csra66x0@68 {
+		compatible = "qcom,csra66x0";
+		reg = <0x68>;
+		qcom,csra-vreg-en-gpio = <&tlmm 113 0>;
+		qcom,csra-cluster = <1>;
+		qcom,csra-cluster-master = <1>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <80 IRQ_TYPE_LEVEL_HIGH>;
+		irq-active-low = <0>;
+	};
+
+	csra66x0_ampl_69: csra66x0@69 {
+		compatible = "qcom,csra66x0";
+		reg = <0x69>;
+		qcom,csra-vreg-en-gpio = <&tlmm 113 0>;
+		qcom,csra-cluster = <1>;
+	};
+
+	csra66x0_ampl_6A: csra66x0@6A {
+		compatible = "qcom,csra66x0";
+		reg = <0x6A>;
+		qcom,csra-vreg-en-gpio = <&tlmm 113 0>;
+		qcom,csra-cluster = <1>;
+	};
+
+	csra66x0_ampl_6B: csra66x0@6B {
+		compatible = "qcom,csra66x0";
+		reg = <0x6B>;
+		qcom,csra-vreg-en-gpio = <&tlmm 113 0>;
+		qcom,csra-cluster = <1>;
+	};
+};
+
+&i2c_2 {
+	status = "okay";
+	/* CSRA66X0 cluster GRP_1 */
+	csra66x0_ampl_68_1: csra66x0_1@68 {
+		compatible = "qcom,csra66x0";
+		reg = <0x68>;
+		qcom,csra-vreg-en-gpio = <&tlmm 114 0>;
+		qcom,csra-cluster = <1>;
+		qcom,csra-cluster-master = <1>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <81 IRQ_TYPE_LEVEL_HIGH>;
+		irq-active-low = <0>;
+	};
+
+	csra66x0_ampl_69_1: csra66x0_1@69 {
+		compatible = "qcom,csra66x0";
+		reg = <0x69>;
+		qcom,csra-vreg-en-gpio = <&tlmm 114 0>;
+		qcom,csra-cluster = <1>;
+	};
+
+	csra66x0_ampl_6A_1: csra66x0_1@6A {
+		compatible = "qcom,csra66x0";
+		reg = <0x6A>;
+		qcom,csra-vreg-en-gpio = <&tlmm 114 0>;
+		qcom,csra-cluster = <1>;
+	};
+
+	csra66x0_ampl_6B_1: csra66x0_1@6B {
+		compatible = "qcom,csra66x0";
+		reg = <0x6B>;
+		qcom,csra-vreg-en-gpio = <&tlmm 114 0>;
+		qcom,csra-cluster = <1>;
+	};
+};
+
+&csra66x0_ampl_68 {
+	status = "okay";
+};
+
+&csra66x0_ampl_69 {
+	status = "okay";
+};
+
+&csra66x0_ampl_6A {
+	status = "okay";
+};
+
+&csra66x0_ampl_6B {
+	status = "okay";
+};
+
+&csra66x0_ampl_68_1 {
+	status = "okay";
+};
+
+&csra66x0_ampl_69_1 {
+	status = "okay";
+};
+
+&csra66x0_ampl_6A_1 {
+	status = "okay";
+};
+
+&csra66x0_ampl_6B_1 {
+	status = "okay";
+};
+

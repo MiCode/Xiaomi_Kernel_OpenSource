@@ -37,6 +37,10 @@ qcom,alium_860_89032_0000_3600mAh {
 	qcom,jeita-soft-thresholds = <0x5314 0x25e3>;
 	/* COLD = 0 DegC, HOT = 45 DegC */
 	qcom,jeita-hard-thresholds = <0x58cd 0x20b8>;
+	/* COOL hys = 8 DegC, WARM hys = 37 DegC */
+	qcom,jeita-soft-hys-thresholds = <0x4f5e 0x2943>;
+	qcom,jeita-soft-fcc-ua = <2500000 2500000>;
+	qcom,jeita-soft-fv-uv = <4250000 4250000>;
 
 	qcom,fcc1-temp-lut {
 		qcom,lut-col-legend = <0 10 25 40 50>;

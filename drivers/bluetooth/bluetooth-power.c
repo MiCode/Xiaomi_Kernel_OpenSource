@@ -47,6 +47,25 @@ static const struct of_device_id bt_power_match_table[] = {
 	{}
 };
 
+static struct bt_power_vreg_data bt_power_vreg_info[] = {
+	{NULL, "qca,bt-vdd-vl", 1055000, 1055000, 0, false, false},
+	{NULL, "qca,bt-vdd-vm", 1350000, 1350000, 0, false, false},
+	{NULL, "qca,bt-vdd-5c", 2040000, 2040000, 0, false, false},
+	{NULL, "qca,bt-vdd-vh", 1900000, 1900000, 0, false, false},
+	{NULL, "qca,bt-vdd-io", 1700000, 1900000, 0, false, false},
+	{NULL, "qca,bt-vdd-xtal", 1700000, 1900000, 0, false, false},
+	{NULL, "qca,bt-vdd-core", 1245000, 1350000, 0, false, false},
+	{NULL, "qca,bt-vdd-pa", 0, 0, 0, false, false},
+	{NULL, "qca,bt-vdd-ldo", 3312000, 3312000, 0, false, false},
+	{NULL, "qca,bt-chip-pwd", 0, 0, 0, false, false},
+};
+
+#define BT_VREG_INFO_SIZE ARRAY_SIZE(bt_power_vreg_info)
+
+static int bt_power_vreg_get(struct platform_device *pdev);
+static int bt_power_vreg_set(bool on);
+static void bt_power_vreg_put(void);
+
 static struct bluetooth_power_platform_data *bt_power_pdata;
 static struct platform_device *btpdev;
 static bool previous;
@@ -258,47 +277,10 @@ static int bluetooth_power(int on)
 	BT_PWR_DBG("on: %d", on);
 
 	if (on) {
-		if (bt_power_pdata->bt_vdd_io) {
-			rc = bt_configure_vreg(bt_power_pdata->bt_vdd_io);
-			if (rc < 0) {
-				BT_PWR_ERR("bt_power vddio config failed");
-				goto out;
-			}
-		}
-		if (bt_power_pdata->bt_vdd_xtal) {
-			rc = bt_configure_vreg(bt_power_pdata->bt_vdd_xtal);
-			if (rc < 0) {
-				BT_PWR_ERR("bt_power vddxtal config failed");
-				goto vdd_xtal_fail;
-			}
-		}
-		if (bt_power_pdata->bt_vdd_core) {
-			rc = bt_configure_vreg(bt_power_pdata->bt_vdd_core);
-			if (rc < 0) {
-				BT_PWR_ERR("bt_power vddcore config failed");
-				goto vdd_core_fail;
-			}
-		}
-		if (bt_power_pdata->bt_vdd_pa) {
-			rc = bt_configure_vreg(bt_power_pdata->bt_vdd_pa);
-			if (rc < 0) {
-				BT_PWR_ERR("bt_power vddpa config failed");
-				goto vdd_pa_fail;
-			}
-		}
-		if (bt_power_pdata->bt_vdd_ldo) {
-			rc = bt_configure_vreg(bt_power_pdata->bt_vdd_ldo);
-			if (rc < 0) {
-				BT_PWR_ERR("bt_power vddldo config failed");
-				goto vdd_ldo_fail;
-			}
-		}
-		if (bt_power_pdata->bt_chip_pwd) {
-			rc = bt_configure_vreg(bt_power_pdata->bt_chip_pwd);
-			if (rc < 0) {
-				BT_PWR_ERR("bt_power chippwd config failed");
-				goto chip_pwd_fail;
-			}
+		rc = bt_power_vreg_set(true);
+		if (rc < 0) {
+			BT_PWR_ERR("bt_power regulators config failed");
+			goto regulator_fail;
 		}
 		/* Parse dt_info and check if a target requires clock voting.
 		 * Enable BT clock when BT is on and disable it when BT is off
@@ -326,25 +308,9 @@ gpio_fail:
 		if (bt_power_pdata->bt_chip_clk)
 			bt_clk_disable(bt_power_pdata->bt_chip_clk);
 clk_fail:
-		if (bt_power_pdata->bt_chip_pwd)
-			bt_vreg_disable(bt_power_pdata->bt_chip_pwd);
-chip_pwd_fail:
-		if (bt_power_pdata->bt_vdd_ldo)
-			bt_vreg_disable(bt_power_pdata->bt_vdd_ldo);
-vdd_ldo_fail:
-		if (bt_power_pdata->bt_vdd_pa)
-			bt_vreg_disable(bt_power_pdata->bt_vdd_pa);
-vdd_pa_fail:
-		if (bt_power_pdata->bt_vdd_core)
-			bt_vreg_disable(bt_power_pdata->bt_vdd_core);
-vdd_core_fail:
-		if (bt_power_pdata->bt_vdd_xtal)
-			bt_vreg_disable(bt_power_pdata->bt_vdd_xtal);
-vdd_xtal_fail:
-		if (bt_power_pdata->bt_vdd_io)
-			bt_vreg_disable(bt_power_pdata->bt_vdd_io);
+regulator_fail:
+		bt_power_vreg_set(false);
 	}
-out:
 	return rc;
 }
 
@@ -449,23 +415,13 @@ static int bt_dt_parse_vreg_info(struct device *dev,
 	int len, ret = 0;
 	const __be32 *prop;
 	char prop_name[MAX_PROP_SIZE];
-	struct bt_power_vreg_data *vreg;
+	struct bt_power_vreg_data *vreg = *vreg_data;
 	struct device_node *np = dev->of_node;
 
 	BT_PWR_DBG("vreg dev tree parse for %s", vreg_name);
 
-	*vreg_data = NULL;
 	snprintf(prop_name, MAX_PROP_SIZE, "%s-supply", vreg_name);
 	if (of_parse_phandle(np, prop_name, 0)) {
-		vreg = devm_kzalloc(dev, sizeof(*vreg), GFP_KERNEL);
-		if (!vreg) {
-			BT_PWR_ERR("No memory for vreg: %s", vreg_name);
-			ret = -ENOMEM;
-			goto err;
-		}
-
-		vreg->name = vreg_name;
-
 		/* Parse voltage-level from each node */
 		snprintf(prop_name, MAX_PROP_SIZE,
 				"%s-voltage-level", vreg_name);
@@ -484,11 +440,9 @@ static int bt_dt_parse_vreg_info(struct device *dev,
 		ret = of_property_read_u32(np, prop_name, &vreg->load_uA);
 		if (ret < 0) {
 			BT_PWR_DBG("%s property is not valid\n", prop_name);
-			vreg->load_uA = -1;
 			ret = 0;
 		}
 
-		*vreg_data = vreg;
 		BT_PWR_DBG("%s: vol=[%d %d]uV, current=[%d]uA\n",
 			vreg->name, vreg->low_vol_level,
 			vreg->high_vol_level,
@@ -496,7 +450,6 @@ static int bt_dt_parse_vreg_info(struct device *dev,
 	} else
 		BT_PWR_INFO("%s: is not provided in device tree", vreg_name);
 
-err:
 	return ret;
 }
 
@@ -547,6 +500,66 @@ err:
 	return ret;
 }
 
+static int bt_power_vreg_get(struct platform_device *pdev)
+{
+	struct bt_power_vreg_data *vreg_info;
+	int i = 0, ret = 0;
+
+	bt_power_pdata->vreg_info =
+		devm_kzalloc(&(pdev->dev), sizeof(bt_power_vreg_info),
+							GFP_KERNEL);
+	if (!bt_power_pdata->vreg_info) {
+		ret = -ENOMEM;
+		goto out;
+	}
+	memcpy(bt_power_pdata->vreg_info, bt_power_vreg_info,
+				sizeof(bt_power_vreg_info));
+
+	for (; i < BT_VREG_INFO_SIZE; i++) {
+		vreg_info = &bt_power_pdata->vreg_info[i];
+		ret = bt_dt_parse_vreg_info(&(pdev->dev), &vreg_info,
+							vreg_info->name);
+	}
+
+out:
+	return ret;
+}
+
+static int bt_power_vreg_set(bool on)
+{
+	int i = 0, ret = 0;
+	struct bt_power_vreg_data *vreg_info = NULL;
+
+	if (on) {
+		for (; i < BT_VREG_INFO_SIZE; i++) {
+			vreg_info = &bt_power_pdata->vreg_info[i];
+			ret = bt_configure_vreg(vreg_info);
+			if (ret < 0)
+				return ret;
+		}
+	} else {
+		for (; i < BT_VREG_INFO_SIZE; i++) {
+			vreg_info = &bt_power_pdata->vreg_info[i];
+			ret = bt_vreg_disable(vreg_info);
+		}
+	}
+
+	return ret;
+}
+
+static void bt_power_vreg_put(void)
+{
+	int i = 0;
+	struct bt_power_vreg_data *vreg_info = NULL;
+
+	for (; i < BT_VREG_INFO_SIZE; i++) {
+		vreg_info = &bt_power_pdata->vreg_info[i];
+		if (vreg_info->reg)
+			regulator_put(vreg_info->reg);
+	}
+}
+
+
 static int bt_power_populate_dt_pinfo(struct platform_device *pdev)
 {
 	int rc;
@@ -557,47 +570,13 @@ static int bt_power_populate_dt_pinfo(struct platform_device *pdev)
 		return -ENOMEM;
 
 	if (pdev->dev.of_node) {
+		bt_power_vreg_get(pdev);
+
 		bt_power_pdata->bt_gpio_sys_rst =
 			of_get_named_gpio(pdev->dev.of_node,
 						"qca,bt-reset-gpio", 0);
 		if (bt_power_pdata->bt_gpio_sys_rst < 0)
 			BT_PWR_ERR("bt-reset-gpio not provided in device tree");
-
-		rc = bt_dt_parse_vreg_info(&pdev->dev,
-					&bt_power_pdata->bt_vdd_core,
-					"qca,bt-vdd-core");
-		if (rc < 0)
-			BT_PWR_ERR("bt-vdd-core not provided in device tree");
-
-		rc = bt_dt_parse_vreg_info(&pdev->dev,
-					&bt_power_pdata->bt_vdd_io,
-					"qca,bt-vdd-io");
-		if (rc < 0)
-			BT_PWR_ERR("bt-vdd-io not provided in device tree");
-
-		rc = bt_dt_parse_vreg_info(&pdev->dev,
-					&bt_power_pdata->bt_vdd_xtal,
-					"qca,bt-vdd-xtal");
-		if (rc < 0)
-			BT_PWR_ERR("bt-vdd-xtal not provided in device tree");
-
-		rc = bt_dt_parse_vreg_info(&pdev->dev,
-					&bt_power_pdata->bt_vdd_pa,
-					"qca,bt-vdd-pa");
-		if (rc < 0)
-			BT_PWR_ERR("bt-vdd-pa not provided in device tree");
-
-		rc = bt_dt_parse_vreg_info(&pdev->dev,
-					&bt_power_pdata->bt_vdd_ldo,
-					"qca,bt-vdd-ldo");
-		if (rc < 0)
-			BT_PWR_ERR("bt-vdd-ldo not provided in device tree");
-
-		rc = bt_dt_parse_vreg_info(&pdev->dev,
-					&bt_power_pdata->bt_chip_pwd,
-					"qca,bt-chip-pwd");
-		if (rc < 0)
-			BT_PWR_ERR("bt-chip-pwd not provided in device tree");
 
 		rc = bt_dt_parse_clk_info(&pdev->dev,
 					&bt_power_pdata->bt_chip_clk);
@@ -665,9 +644,7 @@ static int bt_power_remove(struct platform_device *pdev)
 	dev_dbg(&pdev->dev, "%s\n", __func__);
 
 	bluetooth_power_rfkill_remove(pdev);
-
-	if (bt_power_pdata->bt_chip_pwd->reg)
-		regulator_put(bt_power_pdata->bt_chip_pwd->reg);
+	bt_power_vreg_put();
 
 	kfree(bt_power_pdata);
 

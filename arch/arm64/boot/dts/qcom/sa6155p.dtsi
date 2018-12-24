@@ -41,6 +41,19 @@
 	/delete-node/ rpmh-regulator-ldoc16;
 	/delete-node/ rpmh-regulator-ldoc17;
 	/delete-node/ rpmh-regulator-ldoc18;
+	/delete-node/ bt_wcn3990;
+
+	bluetooth_ext: bt_qca6174 {
+		compatible = "qca,qca6174";
+		/* BT_EN */
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_en_active>;
+		qca,bt-reset-gpio = <&tlmm 85 0>;
+		/* PWR_CTR1_VDD_PA */
+		qca,bt-vdd-pa-supply = <&vreg_conn_pa>;
+		qca,bt-chip-pwd-supply = <&vreg_conn_1p8>;
+		status = "disabled";
+	};
 };
 
 &pil_modem {
@@ -99,17 +112,32 @@
 	pinctrl-0 = <&dp_hpd_cfg_pins>;
 	pinctrl-1 = <&dp_hpd_cfg_pins>;
 
+	vdda-1p2-supply = <&pm6155_1_l11>;
+	vdda-0p9-supply = <&pm6155_1_l5>;
+	/delete-property/ qcom,dp-aux-switch;
+	qcom,mst-enable;
+
 	qcom,core-supply-entries {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		qcom,core-supply-entry@0 {
 			reg = <0>;
+			qcom,supply-name = "refgen";
 			qcom,supply-min-voltage = <0>;
 			qcom,supply-max-voltage = <0>;
 			qcom,supply-enable-load = <0>;
 			qcom,supply-disable-load = <0>;
 		};
 	};
+};
+
+/* FSA & Rotator not required in Auto */
+&qupv3_se3_i2c {
+	status = "disabled";
+};
+
+&mdss_rotator {
+	status = "disabled";
 };
 
 &qupv3_se2_i2c {
@@ -256,7 +284,7 @@
 };
 
 &mdss_mdp {
-	connectors = <&sde_rscc &dsi_dp1 &sde_wb>;
+	connectors = <&sde_rscc &dsi_dp1 &sde_wb &sde_dp>;
 };
 
 &slpi_tlmm {

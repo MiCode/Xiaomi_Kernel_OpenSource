@@ -19,6 +19,8 @@ Required properties:
 				micro seconds
 	- qcom,qos-maxhold-ms: Maximum hold time for pm_qos latency vote from CDSP
 				in milli seconds
+	- qcom,compute-cx-limit-en: To enable CX ipeak limit management for compute
+				subsystem
 	- qcom,compute-priority-mode: when Cx iPeak mitigation is enabled,
 				this field sets desired compute priority mode
 				for AIX and HVX concurrency cases based on
@@ -64,6 +66,7 @@ Example:
 			compatible = "qcom,msm-cdsp-rm";
 			qcom,qos-latency-us = <100>;
 			qcom,qos-maxhold-ms = <20>;
+			qcom,compute-cx-limit-en;
 			qcom,compute-priority-mode = <2>;
 			#cooling-cells = <2>;
 		};

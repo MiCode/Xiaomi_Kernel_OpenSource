@@ -63,6 +63,7 @@
 		qcom,afe-force-power-on;
 		qcom,afe-power-on-delay-us = <6>;
 		qcom,afe-power-off-delay-us = <6>;
+		qcom,platform-en-gpio = <&tlmm 53 0>;
 	};
 
 	usb1_otg_supply: usb1_otg_supply {
@@ -87,6 +88,12 @@
 
 &usb_qmp_phy {
 	status = "ok";
+};
+
+&usb2_phy0 {
+	qcom,param-override-seq =
+		<0x40 0x70
+		 0x28 0x74>;
 };
 
 &qupv3_se17_i2c {

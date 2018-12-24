@@ -2217,6 +2217,9 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	VERIFY(err, fl->cid >= 0 && fl->cid < NUM_CHANNELS);
 	if (err)
 		goto bail;
+	VERIFY(err, fl->sctx != NULL);
+	if (err)
+		goto bail;
 	VERIFY(err, fl->apps->channel[fl->cid].rpdev != NULL);
 	if (err)
 		goto bail;
@@ -3207,7 +3210,7 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 		return err;
 
 	snprintf(strpid, PID_SIZE, "%d", current->pid);
-	buf_size = strlen(current->comm) + strlen(strpid) + 1;
+	buf_size = strlen(current->comm) + strlen("_") + strlen(strpid) + 1;
 	VERIFY(err, NULL != (fl->debug_buf = kzalloc(buf_size, GFP_KERNEL)));
 	if (err) {
 		kfree(fl);

@@ -1405,6 +1405,8 @@ static int dma_procs_debug_show(struct seq_file *s, void *unused)
 		group_leader_files = task->group_leader->files;
 		for_each_thread(task, thread) {
 			task_lock(thread);
+			if (unlikely(!group_leader_files))
+				group_leader_files = task->group_leader->files;
 			files = thread->files;
 			if (files && (group_leader_files != files ||
 				      thread == task->group_leader))

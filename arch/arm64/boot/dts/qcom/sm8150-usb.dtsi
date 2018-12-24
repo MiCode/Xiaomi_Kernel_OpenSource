@@ -420,7 +420,7 @@
 			snps,hird-threshold = /bits/ 8 <0x10>;
 			snps,usb3_lpm_capable;
 			snps,bus-suspend-enable;
-			usb-core-id = <0>;
+			usb-core-id = <1>;
 			maximum-speed = "super-speed";
 			dr_mode = "otg";
 		};

@@ -675,9 +675,9 @@ static int geni_se_rmv_ab_ib(struct geni_se_device *geni_se_dev,
 						geni_se_dev->cur_ab,
 						geni_se_dev->cur_ib);
 	GENI_SE_DBG(geni_se_dev->log_ctx, false, NULL,
-		    "%s: %lu:%lu (%lu:%lu) %d\n", __func__,
-		    geni_se_dev->cur_ab, geni_se_dev->cur_ib,
-		    rsc->ab, rsc->ib, bus_bw_update);
+			"%s: %s: cur_ab_ib(%lu:%lu) req_ab_ib(%lu:%lu) %d\n",
+			__func__, dev_name(rsc->ctrl_dev), geni_se_dev->cur_ab,
+			geni_se_dev->cur_ib, rsc->ab, rsc->ib, bus_bw_update);
 	mutex_unlock(&geni_se_dev->geni_dev_lock);
 	return ret;
 }
@@ -773,9 +773,9 @@ static int geni_se_add_ab_ib(struct geni_se_device *geni_se_dev,
 						geni_se_dev->cur_ab,
 						geni_se_dev->cur_ib);
 	GENI_SE_DBG(geni_se_dev->log_ctx, false, NULL,
-		    "%s: %lu:%lu (%lu:%lu) %d\n", __func__,
-		    geni_se_dev->cur_ab, geni_se_dev->cur_ib,
-		    rsc->ab, rsc->ib, bus_bw_update);
+			"%s: %s: cur_ab_ib(%lu:%lu) req_ab_ib(%lu:%lu) %d\n",
+			__func__, dev_name(rsc->ctrl_dev), geni_se_dev->cur_ab,
+			geni_se_dev->cur_ib, rsc->ab, rsc->ib, bus_bw_update);
 	mutex_unlock(&geni_se_dev->geni_dev_lock);
 	return ret;
 }
@@ -991,6 +991,9 @@ int geni_se_clk_freq_match(struct se_geni_rsc *rsc, unsigned long req_freq,
 	unsigned long *tbl;
 	int num_clk_levels;
 	int i;
+	unsigned long best_delta = 0;
+	unsigned long new_delta;
+	unsigned int divider;
 
 	num_clk_levels = geni_se_clk_tbl_get(rsc, &tbl);
 	if (num_clk_levels < 0)
@@ -1000,17 +1003,21 @@ int geni_se_clk_freq_match(struct se_geni_rsc *rsc, unsigned long req_freq,
 		return -EFAULT;
 
 	*res_freq = 0;
-	for (i = 0; i < num_clk_levels; i++) {
-		if (!(tbl[i] % req_freq)) {
-			*index = i;
-			*res_freq = tbl[i];
-			return 0;
-		}
 
-		if (!(*res_freq) || ((tbl[i] > *res_freq) &&
-				     (tbl[i] < req_freq))) {
+	for (i = 0; i < num_clk_levels; i++) {
+		divider = DIV_ROUND_UP(tbl[i], req_freq);
+		new_delta = req_freq - (tbl[i] / divider);
+
+		if (!best_delta || new_delta < best_delta) {
+			/* We have a new best! */
 			*index = i;
 			*res_freq = tbl[i];
+
+			/*If the new best is exact then we're done*/
+			if (new_delta == 0)
+				return 0;
+
+			best_delta = new_delta;
 		}
 	}
 
@@ -1160,6 +1167,10 @@ static int geni_se_iommu_map_and_attach(struct geni_se_device *geni_se_dev)
 	size_t va_size = GENI_SE_IOMMU_VA_SIZE;
 	int bypass = 1;
 	struct device *cb_dev = geni_se_dev->cb_dev;
+
+	/*Don't proceed if IOMMU node is disabled*/
+	if (!iommu_present(&platform_bus_type))
+		return 0;
 
 	mutex_lock(&geni_se_dev->iommu_lock);
 	if (likely(geni_se_dev->iommu_map)) {

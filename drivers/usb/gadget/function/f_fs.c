@@ -3158,8 +3158,6 @@ static inline struct f_fs_opts *ffs_do_functionfs_bind(struct usb_function *f,
 
 	ENTER();
 
-	ffs_log("enter");
-
 	/*
 	 * Legacy gadget triggers binding in functionfs_ready_callback,
 	 * which already uses locking; taking the same lock here would
@@ -3376,10 +3374,10 @@ static int ffs_func_bind(struct usb_configuration *c,
 	struct ffs_data *ffs = func->ffs;
 	int ret;
 
-	ffs_log("enter");
-
 	if (IS_ERR(ffs_opts))
 		return PTR_ERR(ffs_opts);
+
+	ffs_log("enter");
 
 	ret = _ffs_func_bind(c, f);
 	if (ret && !--ffs_opts->refcnt)

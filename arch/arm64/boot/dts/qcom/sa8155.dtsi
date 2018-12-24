@@ -68,6 +68,16 @@
 		qca,bt-vdd-pa-supply = <&vreg_conn_pa>;
 		/* PWR_CTR2_VDD_1P8 */
 		qca,bt-chip-pwd-supply = <&vreg_conn_1p8>;
+		qca,bt-vdd-vl-supply = <&pm8150_1_s6>;
+		qca,bt-vdd-vm-supply = <&pm8150_2_s4>;
+		qca,bt-vdd-5c-supply = <&pm8150_2_s5>;
+		qca,bt-vdd-vh-supply = <&pm8150_2_l15>;
+
+		qca,bt-vdd-vl-voltage-level = <1055000 1055000>;
+		qca,bt-vdd-vm-voltage-level = <1350000 1350000>;
+		qca,bt-vdd-5c-voltage-level = <2040000 2040000>;
+		qca,bt-vdd-vh-voltage-level = <1900000 1900000>;
+
 		status = "disabled";
 	};
 };

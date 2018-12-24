@@ -169,6 +169,7 @@ struct cdsprm {
 	unsigned int			qos_max_ms;
 	unsigned int			compute_prio_idx;
 	struct mutex			npu_activity_lock;
+	bool				b_cx_limit_en;
 	unsigned int			b_npu_enabled;
 	unsigned int			b_camera_enabled;
 	unsigned int			b_npu_activity_waiting;
@@ -235,14 +236,12 @@ EXPORT_SYMBOL(cdsprm_cxlimit_npu_limit_register);
 
 int cdsprm_cxlimit_npu_limit_deregister(void)
 {
-	int result = 0;
+	if (!gcdsprm.set_corner_limit)
+		return -EINVAL;
 
-	if (gcdsprm.set_corner_limit)
-		gcdsprm.set_corner_limit = NULL;
-	else
-		result = -EINVAL;
+	gcdsprm.set_corner_limit = NULL;
 
-	return result;
+	return 0;
 }
 EXPORT_SYMBOL(cdsprm_cxlimit_npu_limit_deregister);
 
@@ -273,6 +272,9 @@ int cdsprm_cxlimit_npu_activity_notify(unsigned int b_enabled)
 {
 	int result = -EINVAL;
 	struct sysmon_msg_tx rpmsg_msg_tx;
+
+	if (!gcdsprm.b_cx_limit_en)
+		return result;
 
 	mutex_lock(&gcdsprm.npu_activity_lock);
 	if (b_enabled)
@@ -325,7 +327,7 @@ enum cdsprm_npu_corner cdsprm_cxlimit_npu_corner_notify(
 	enum cdsprm_npu_corner return_npu_corner = corner;
 	struct sysmon_msg_tx rpmsg_msg_tx;
 
-	if (gcdsprm.b_applyingNpuLimit)
+	if (gcdsprm.b_applyingNpuLimit || !gcdsprm.b_cx_limit_en)
 		return corner;
 
 	mutex_lock(&gcdsprm.npu_activity_lock);
@@ -370,9 +372,12 @@ int cdsprm_cxlimit_camera_activity_notify(unsigned int b_enabled)
 {
 	struct sysmon_msg_tx rpmsg_msg_tx;
 
+	if (!gcdsprm.b_cx_limit_en)
+		return -EINVAL;
+
 	gcdsprm.b_camera_enabled = b_enabled;
 
-	if (gcdsprm.rpmsgdev) {
+	if (gcdsprm.rpmsgdev && gcdsprm.cdsp_version) {
 		rpmsg_msg_tx.feature_id =
 			SYSMON_CDSP_FEATURE_CAMERA_ACTIVITY_TX;
 		rpmsg_msg_tx.fs.camera.b_enabled =
@@ -566,42 +571,44 @@ static void cdsprm_rpmsg_send_details(void)
 	if (!gcdsprm.cdsp_version)
 		return;
 
-	reinit_completion(&gcdsprm.npu_activity_complete);
-	reinit_completion(&gcdsprm.npu_corner_complete);
+	if (gcdsprm.b_cx_limit_en) {
+		reinit_completion(&gcdsprm.npu_activity_complete);
+		reinit_completion(&gcdsprm.npu_corner_complete);
 
-	if (gcdsprm.npu_corner) {
-		rpmsg_msg_tx.feature_id =
-			SYSMON_CDSP_FEATURE_NPU_CORNER_TX;
-		rpmsg_msg_tx.fs.npu_corner.corner =
-			(unsigned int)gcdsprm.npu_corner;
-		rpmsg_msg_tx.size = sizeof(rpmsg_msg_tx);
-		rpmsg_send(gcdsprm.rpmsgdev->ept,
+		if (gcdsprm.npu_corner) {
+			rpmsg_msg_tx.feature_id =
+				SYSMON_CDSP_FEATURE_NPU_CORNER_TX;
+			rpmsg_msg_tx.fs.npu_corner.corner =
+				(unsigned int)gcdsprm.npu_corner;
+			rpmsg_msg_tx.size = sizeof(rpmsg_msg_tx);
+			rpmsg_send(gcdsprm.rpmsgdev->ept,
+					&rpmsg_msg_tx,
+					sizeof(rpmsg_msg_tx));
+		}
+
+		if (gcdsprm.b_npu_enabled) {
+			rpmsg_msg_tx.feature_id =
+				SYSMON_CDSP_FEATURE_NPU_ACTIVITY_TX;
+			rpmsg_msg_tx.fs.npu_activity.b_enabled =
+				gcdsprm.b_npu_enabled;
+			rpmsg_msg_tx.size = sizeof(rpmsg_msg_tx);
+			rpmsg_send(gcdsprm.rpmsgdev->ept,
 				&rpmsg_msg_tx,
 				sizeof(rpmsg_msg_tx));
-	}
+		}
 
-	if (gcdsprm.b_npu_enabled) {
-		rpmsg_msg_tx.feature_id =
-			SYSMON_CDSP_FEATURE_NPU_ACTIVITY_TX;
-		rpmsg_msg_tx.fs.npu_activity.b_enabled =
-			gcdsprm.b_npu_enabled;
-		rpmsg_msg_tx.size = sizeof(rpmsg_msg_tx);
-		rpmsg_send(gcdsprm.rpmsgdev->ept,
-			&rpmsg_msg_tx,
-			sizeof(rpmsg_msg_tx));
-	}
+		cdsprm_compute_core_set_priority(gcdsprm.compute_prio_idx);
 
-	cdsprm_compute_core_set_priority(gcdsprm.compute_prio_idx);
-
-	if (gcdsprm.b_camera_enabled) {
-		rpmsg_msg_tx.feature_id =
-			SYSMON_CDSP_FEATURE_CAMERA_ACTIVITY_TX;
-		rpmsg_msg_tx.fs.camera.b_enabled =
-				gcdsprm.b_camera_enabled;
-		rpmsg_msg_tx.size = sizeof(rpmsg_msg_tx);
-		rpmsg_send(gcdsprm.rpmsgdev->ept,
-			&rpmsg_msg_tx,
-			sizeof(rpmsg_msg_tx));
+		if (gcdsprm.b_camera_enabled) {
+			rpmsg_msg_tx.feature_id =
+				SYSMON_CDSP_FEATURE_CAMERA_ACTIVITY_TX;
+			rpmsg_msg_tx.fs.camera.b_enabled =
+					gcdsprm.b_camera_enabled;
+			rpmsg_msg_tx.size = sizeof(rpmsg_msg_tx);
+			rpmsg_send(gcdsprm.rpmsgdev->ept,
+				&rpmsg_msg_tx,
+				sizeof(rpmsg_msg_tx));
+		}
 	}
 
 	if (gcdsprm.thermal_cdsp_level) {
@@ -722,18 +729,20 @@ static int cdsprm_rpmsg_probe(struct rpmsg_device *dev)
 static void cdsprm_rpmsg_remove(struct rpmsg_device *dev)
 {
 	gcdsprm.rpmsgdev = NULL;
-
-	mutex_lock(&gcdsprm.npu_activity_lock);
-	complete_all(&gcdsprm.npu_activity_complete);
-	complete_all(&gcdsprm.npu_corner_complete);
-	mutex_unlock(&gcdsprm.npu_activity_lock);
-
 	gcdsprm.cdsp_version = 0;
-	gcdsprm.set_corner_limit_cached = gcdsprm.set_corner_limit;
 
-	if ((gcdsprm.npu_corner_limit < CDSPRM_NPU_TURBO_L1) &&
-		gcdsprm.set_corner_limit_cached)
-		gcdsprm.set_corner_limit_cached(CDSPRM_NPU_TURBO_L1);
+	if (gcdsprm.b_cx_limit_en) {
+		mutex_lock(&gcdsprm.npu_activity_lock);
+		complete_all(&gcdsprm.npu_activity_complete);
+		complete_all(&gcdsprm.npu_corner_complete);
+		mutex_unlock(&gcdsprm.npu_activity_lock);
+
+		gcdsprm.set_corner_limit_cached = gcdsprm.set_corner_limit;
+
+		if ((gcdsprm.npu_corner_limit < CDSPRM_NPU_TURBO_L1) &&
+			gcdsprm.set_corner_limit_cached)
+			gcdsprm.set_corner_limit_cached(CDSPRM_NPU_TURBO_L1);
+	}
 }
 
 static int cdsprm_rpmsg_callback(struct rpmsg_device *dev, void *data,
@@ -762,18 +771,21 @@ static int cdsprm_rpmsg_callback(struct rpmsg_device *dev, void *data,
 		spin_unlock_irqrestore(&gcdsprm.l3_lock, flags);
 		if (gcdsprm.set_l3_freq_cached)
 			b_valid = true;
-	} else if (msg->feature_id == SYSMON_CDSP_FEATURE_NPU_CORNER_RX) {
+	} else if ((msg->feature_id == SYSMON_CDSP_FEATURE_NPU_CORNER_RX) &&
+			(gcdsprm.b_cx_limit_en)) {
 		gcdsprm.allowed_npu_corner = msg->fs.npu_corner.corner;
 		dev_dbg(&dev->dev,
 			"Processing NPU corner request ack for %d\n",
 			gcdsprm.allowed_npu_corner);
 		if (gcdsprm.b_npu_corner_waiting)
 			complete(&gcdsprm.npu_corner_complete);
-	} else if (msg->feature_id == SYSMON_CDSP_FEATURE_NPU_LIMIT_RX) {
+	} else if ((msg->feature_id == SYSMON_CDSP_FEATURE_NPU_LIMIT_RX) &&
+			(gcdsprm.b_cx_limit_en)) {
 		dev_dbg(&dev->dev, "Processing NPU limit request for %d\n",
 			msg->fs.npu_limit.corner);
 		b_valid = true;
-	} else if (msg->feature_id == SYSMON_CDSP_FEATURE_NPU_ACTIVITY_RX) {
+	} else if ((msg->feature_id == SYSMON_CDSP_FEATURE_NPU_ACTIVITY_RX) &&
+			(gcdsprm.b_cx_limit_en)) {
 		dev_dbg(&dev->dev, "Processing NPU activity request ack\n");
 		if (gcdsprm.b_npu_activity_waiting)
 			complete(&gcdsprm.npu_activity_complete);
@@ -874,6 +886,25 @@ static int hvx_set_cur_state(struct thermal_cooling_device *cdev,
 	return 0;
 }
 
+static int cdsprm_compute_prio_read(void *data, u64 *val)
+{
+	*val = gcdsprm.compute_prio_idx;
+
+	return 0;
+}
+
+static int cdsprm_compute_prio_write(void *data, u64 val)
+{
+	cdsprm_compute_core_set_priority((unsigned int)val);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(cdsprm_debugfs_fops,
+			cdsprm_compute_prio_read,
+			cdsprm_compute_prio_write,
+			"%llu\n");
+
 static const struct thermal_cooling_device_ops hvx_cooling_ops = {
 	.get_max_state = hvx_get_max_state,
 	.get_cur_state = hvx_get_cur_state,
@@ -884,6 +915,7 @@ static int cdsp_rm_driver_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct thermal_cooling_device *tcdev = 0;
+	unsigned int cooling_cells = 0;
 
 	if (of_property_read_u32(dev->of_node,
 			"qcom,qos-latency-us", &gcdsprm.qos_latency_us)) {
@@ -900,7 +932,32 @@ static int cdsp_rm_driver_probe(struct platform_device *pdev)
 				"qcom,compute-priority-mode",
 				&gcdsprm.compute_prio_idx);
 
-	if (IS_ENABLED(CONFIG_THERMAL)) {
+	gcdsprm.b_cx_limit_en = of_property_read_bool(dev->of_node,
+				"qcom,compute-cx-limit-en");
+
+	if (gcdsprm.b_cx_limit_en) {
+		gcdsprm.debugfs_dir = debugfs_create_dir("compute", NULL);
+
+		if (!gcdsprm.debugfs_dir) {
+			dev_err(dev,
+			"Failed to create debugfs directory for cdsprm\n");
+		} else {
+			gcdsprm.debugfs_file = debugfs_create_file("priority",
+						0644, gcdsprm.debugfs_dir,
+						NULL, &cdsprm_debugfs_fops);
+			if (!gcdsprm.debugfs_file) {
+				debugfs_remove_recursive(gcdsprm.debugfs_dir);
+				dev_err(dev,
+					"Failed to create debugfs file\n");
+			}
+		}
+	}
+
+	of_property_read_u32(dev->of_node,
+				"#cooling-cells",
+				&cooling_cells);
+
+	if (cooling_cells && IS_ENABLED(CONFIG_THERMAL)) {
 		tcdev = thermal_of_cooling_device_register(dev->of_node,
 							"cdsp", NULL,
 							&cdsp_cooling_ops);
@@ -922,8 +979,13 @@ static int hvx_rm_driver_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct thermal_cooling_device *tcdev = 0;
+	unsigned int cooling_cells = 0;
 
-	if (IS_ENABLED(CONFIG_THERMAL)) {
+	of_property_read_u32(dev->of_node,
+				"#cooling-cells",
+				&cooling_cells);
+
+	if (cooling_cells && IS_ENABLED(CONFIG_THERMAL)) {
 		tcdev = thermal_of_cooling_device_register(dev->of_node,
 							"hvx", NULL,
 							&hvx_cooling_ops);
@@ -939,25 +1001,6 @@ static int hvx_rm_driver_probe(struct platform_device *pdev)
 
 	return 0;
 }
-
-static int cdsprm_compute_prio_read(void *data, u64 *val)
-{
-	*val = gcdsprm.compute_prio_idx;
-
-	return 0;
-}
-
-static int cdsprm_compute_prio_write(void *data, u64 val)
-{
-	cdsprm_compute_core_set_priority((unsigned int)val);
-
-	return 0;
-}
-
-DEFINE_SIMPLE_ATTRIBUTE(cdsprm_debugfs_fops,
-			cdsprm_compute_prio_read,
-			cdsprm_compute_prio_write,
-			"%llu\n");
 
 static const struct rpmsg_device_id cdsprm_rpmsg_match[] = {
 	{ "cdsprmglink-apps-dsp" },
@@ -1063,21 +1106,6 @@ static int __init cdsprm_init(void)
 	}
 
 	gcdsprm.b_rpmsg_register = true;
-	gcdsprm.debugfs_dir = debugfs_create_dir("compute", NULL);
-
-	if (!gcdsprm.debugfs_dir) {
-		pr_err("Failed to create debugfs directory for cdsprm\n");
-		goto bail;
-	} else {
-		gcdsprm.debugfs_file = debugfs_create_file("priority",
-						0644, gcdsprm.debugfs_dir,
-						NULL, &cdsprm_debugfs_fops);
-		if (!gcdsprm.debugfs_file) {
-			debugfs_remove_recursive(gcdsprm.debugfs_dir);
-			pr_err("Failed to create debugfs file\n");
-			goto bail;
-		}
-	}
 
 	pr_debug("Init successful\n");
 
@@ -1095,12 +1123,14 @@ static void __exit cdsprm_exit(void)
 	if (gcdsprm.b_rpmsg_register)
 		unregister_rpmsg_driver(&cdsprm_rpmsg_client);
 
+	gcdsprm.b_rpmsg_register = false;
 	platform_driver_unregister(&cdsp_rm);
 	platform_driver_unregister(&hvx_rm);
 	gcdsprm.work_state = CDSP_DELAY_THREAD_NOT_STARTED;
 	complete(&gcdsprm.msg_avail);
 	destroy_workqueue(gcdsprm.work_queue);
 	destroy_workqueue(gcdsprm.delay_work_queue);
+	debugfs_remove_recursive(gcdsprm.debugfs_dir);
 }
 
 module_init(cdsprm_init);

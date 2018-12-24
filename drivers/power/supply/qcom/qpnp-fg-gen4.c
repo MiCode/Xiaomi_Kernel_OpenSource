@@ -123,6 +123,8 @@
 #define IBAT_FINAL_OFFSET		0
 #define VBAT_FINAL_WORD			321
 #define VBAT_FINAL_OFFSET		0
+#define BATT_TEMP_WORD			328
+#define BATT_TEMP_OFFSET		0
 #define ESR_WORD			331
 #define ESR_OFFSET			0
 #define ESR_MDL_WORD			335
@@ -175,6 +177,8 @@
 #define CC_SOC_v2_OFFSET		0
 #define MONOTONIC_SOC_v2_WORD		469
 #define MONOTONIC_SOC_v2_OFFSET		0
+#define FIRST_LOG_CURRENT_v2_WORD	471
+#define FIRST_LOG_CURRENT_v2_OFFSET	0
 
 static struct fg_irq_info fg_irqs[FG_GEN4_IRQ_MAX];
 
@@ -634,20 +638,20 @@ static int fg_gen4_get_charge_counter_shadow(struct fg_gen4_chip *chip,
 static int fg_gen4_get_battery_temp(struct fg_dev *fg, int *val)
 {
 	int rc = 0;
-	u8 buf;
+	u16 buf;
 
-	rc = fg_read(fg, ADC_RR_BATT_TEMP_LSB(fg), &buf, 1);
+	rc = fg_sram_read(fg, BATT_TEMP_WORD, BATT_TEMP_OFFSET, (u8 *)&buf,
+			2, FG_IMA_DEFAULT);
 	if (rc < 0) {
-		pr_err("failed to read addr=0x%04x, rc=%d\n",
-			ADC_RR_BATT_TEMP_LSB(fg), rc);
+		pr_err("Failed to read BATT_TEMP_WORD rc=%d\n", rc);
 		return rc;
 	}
 
-	/* Only 8 bits are used. Bit 7 is sign bit */
-	*val = sign_extend32(buf, 7);
-
-	/* Value is in Celsius; Convert it to deciDegC */
-	*val *= 10;
+	/*
+	 * 10 bits representing temperature from -128 to 127 and each LSB is
+	 * 0.25 C. Multiply by 10 to convert it to deci degrees C.
+	 */
+	*val = sign_extend32(buf, 9) * 100 / 40;
 
 	return 0;
 }
@@ -1735,7 +1739,7 @@ static void profile_load_work(struct work_struct *work)
 	struct fg_gen4_chip *chip = container_of(fg,
 				struct fg_gen4_chip, fg);
 	int64_t nom_cap_uah;
-	u8 val, buf[2];
+	u8 val, mask, buf[2];
 	int rc;
 
 	vote(fg->awake_votable, PROFILE_LOAD, true, 0);
@@ -1778,6 +1782,24 @@ static void profile_load_work(struct work_struct *work)
 		goto out;
 	}
 
+	/* Enable side loading for voltage and current */
+	val = mask = BIT(0);
+	rc = fg_sram_masked_write(fg, SYS_CONFIG_WORD,
+			SYS_CONFIG_OFFSET, mask, val, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in setting SYS_CONFIG_WORD[0], rc=%d\n", rc);
+		goto out;
+	}
+
+	/* Clear first logged main current ADC values */
+	buf[0] = buf[1] = 0;
+	rc = fg_sram_write(fg, FIRST_LOG_CURRENT_v2_WORD,
+			FIRST_LOG_CURRENT_v2_OFFSET, buf, 2, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in clearing FIRST_LOG_CURRENT rc=%d\n", rc);
+		goto out;
+	}
+
 	/* Set the profile integrity bit */
 	val = HLOS_RESTART_BIT | PROFILE_LOAD_BIT;
 	rc = fg_sram_write(fg, PROFILE_INTEGRITY_WORD,
@@ -1790,6 +1812,16 @@ static void profile_load_work(struct work_struct *work)
 	rc = fg_restart(fg, SOC_READY_WAIT_TIME_MS);
 	if (rc < 0) {
 		pr_err("Error in restarting FG, rc=%d\n", rc);
+		goto out;
+	}
+
+	/* Clear side loading for voltage and current */
+	val = 0;
+	mask = BIT(0);
+	rc = fg_sram_masked_write(fg, SYS_CONFIG_WORD,
+			SYS_CONFIG_OFFSET, mask, val, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in clearing SYS_CONFIG_WORD[0], rc=%d\n", rc);
 		goto out;
 	}
 
@@ -2087,6 +2119,16 @@ static int fg_gen4_adjust_recharge_soc(struct fg_gen4_chip *chip)
 				fg->recharge_soc_adjusted = true;
 			} else {
 				/* adjusted already, do nothing */
+				if (fg->health != POWER_SUPPLY_HEALTH_GOOD)
+					return 0;
+
+				/*
+				 * Device is out of JEITA. Restore back default
+				 * threshold.
+				 */
+
+				new_recharge_soc = recharge_soc;
+				fg->recharge_soc_adjusted = false;
 				return 0;
 			}
 		} else {

@@ -24,7 +24,8 @@
 
 #define CAM_VFE_CAMIF_LITE_VER_2_0 0x02
 
-#define CAM_VFE_RDI_VER_1_0 0x1000
+#define CAM_VFE_RDI_VER_1_0    0x1000
+#define CAM_VFE_IN_RD_VER_1_0  0x2000
 
 struct cam_vfe_top {
 	void                   *top_priv;

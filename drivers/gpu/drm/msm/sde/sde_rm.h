@@ -143,6 +143,18 @@ struct sde_rm_hw_iter {
 };
 
 /**
+ * struct sde_rm_hw_request - data for requesting hw blk
+ * @hw: sde_hw object requested, or NULL on failure
+ * @type: Hardware Block Type client wishes to search for
+ * @id: Hardware block id
+ */
+struct sde_rm_hw_request {
+	void *hw;
+	enum sde_hw_blk_type type;
+	int id;
+};
+
+/**
  * sde_rm_get_topology_name - get the name of the given topology config
  * @topology: msm_display_topology topology config
  * @Return: name of the given topology
@@ -234,6 +246,14 @@ void sde_rm_init_hw_iter(
  * @Return: true on match found, false on no match found
  */
 bool sde_rm_get_hw(struct sde_rm *rm, struct sde_rm_hw_iter *iter);
+
+/**
+ * sde_rm_request_hw_blk - retrieve the requested hardware block
+ * @rm: SDE Resource Manager handle
+ * @hw: holds the input and output information of the requested hw block
+ * @Return: true on match found, false on no match found
+ */
+bool sde_rm_request_hw_blk(struct sde_rm *rm, struct sde_rm_hw_request *hw);
 
 /**
  * sde_rm_check_property_topctl - validate property bitmask before it is set

@@ -28,7 +28,7 @@
 #define GSI_STOP_CMD_TIMEOUT_MS 200
 #define GSI_MAX_CH_LOW_WEIGHT 15
 
-#define GSI_STOP_CMD_POLL_CNT 5
+#define GSI_STOP_CMD_POLL_CNT 4
 #define GSI_STOP_IN_PROC_CMD_POLL_CNT 2
 
 #define GSI_RESET_WA_MIN_SLEEP 1000
@@ -135,7 +135,7 @@ static void gsi_channel_state_change_wait(unsigned long chan_hdl,
 
 	/*
 	 * Start polling the GSI channel for
-	 * duration = tm * poll_cnt.
+	 * duration = tm * GSI_CMD_POLL_CNT.
 	 * We need to do polling of gsi state for improving debugability
 	 * of gsi hw state.
 	 */

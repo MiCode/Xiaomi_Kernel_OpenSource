@@ -75,12 +75,12 @@ static void dsi_catalog_cmn_init(struct dsi_ctrl_hw *ctrl,
 	switch (version) {
 	case DSI_CTRL_VERSION_1_4:
 		ctrl->ops.setup_lane_map = dsi_ctrl_hw_14_setup_lane_map;
-		ctrl->ops.ulps_ops.ulps_request = dsi_ctrl_hw_14_ulps_request;
-		ctrl->ops.ulps_ops.ulps_exit = dsi_ctrl_hw_14_ulps_exit;
+		ctrl->ops.ulps_ops.ulps_request = dsi_ctrl_hw_cmn_ulps_request;
+		ctrl->ops.ulps_ops.ulps_exit = dsi_ctrl_hw_cmn_ulps_exit;
 		ctrl->ops.wait_for_lane_idle =
 			dsi_ctrl_hw_14_wait_for_lane_idle;
 		ctrl->ops.ulps_ops.get_lanes_in_ulps =
-			dsi_ctrl_hw_14_get_lanes_in_ulps;
+			dsi_ctrl_hw_cmn_get_lanes_in_ulps;
 		ctrl->ops.clamp_enable = dsi_ctrl_hw_14_clamp_enable;
 		ctrl->ops.clamp_disable = dsi_ctrl_hw_14_clamp_disable;
 		ctrl->ops.reg_dump_to_buffer =
@@ -117,9 +117,10 @@ static void dsi_catalog_cmn_init(struct dsi_ctrl_hw *ctrl,
 			dsi_ctrl_hw_20_wait_for_lane_idle;
 		ctrl->ops.reg_dump_to_buffer =
 			dsi_ctrl_hw_20_reg_dump_to_buffer;
-		ctrl->ops.ulps_ops.ulps_request = NULL;
-		ctrl->ops.ulps_ops.ulps_exit = NULL;
-		ctrl->ops.ulps_ops.get_lanes_in_ulps = NULL;
+		ctrl->ops.ulps_ops.ulps_request = dsi_ctrl_hw_cmn_ulps_request;
+		ctrl->ops.ulps_ops.ulps_exit = dsi_ctrl_hw_cmn_ulps_exit;
+		ctrl->ops.ulps_ops.get_lanes_in_ulps =
+			dsi_ctrl_hw_cmn_get_lanes_in_ulps;
 		ctrl->ops.clamp_enable = NULL;
 		ctrl->ops.clamp_disable = NULL;
 		ctrl->ops.schedule_dma_cmd = dsi_ctrl_hw_22_schedule_dma_cmd;
@@ -197,6 +198,7 @@ static void dsi_catalog_phy_2_0_init(struct dsi_phy_hw *phy)
 	phy->ops.calculate_timing_params =
 		dsi_phy_hw_calculate_timing_params;
 	phy->ops.phy_timing_val = dsi_phy_hw_timing_val_v2_0;
+	phy->ops.clamp_ctrl = dsi_phy_hw_v2_0_clamp_ctrl;
 }
 
 /**

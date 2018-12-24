@@ -554,7 +554,7 @@
 
 	cam_csid0: qcom,csid0@acb3000 {
 		cell-index = <0>;
-		compatible = "qcom,csid175";
+		compatible = "qcom,csid175_200";
 		reg-names = "csid";
 		reg = <0xacb3000 0x1000>;
 		reg-cam-base = <0xb3000>;
@@ -592,7 +592,7 @@
 
 	cam_vfe0: qcom,vfe0@acaf000 {
 		cell-index = <0>;
-		compatible = "qcom,vfe175";
+		compatible = "qcom,vfe175_130";
 		reg-names = "ife";
 		reg = <0xacaf000 0x5200>;
 		reg-cam-base = <0xaf000>;
@@ -625,7 +625,7 @@
 
 	cam_csid1: qcom,csid1@acba000 {
 		cell-index = <1>;
-		compatible = "qcom,csid175";
+		compatible = "qcom,csid175_200";
 		reg-names = "csid";
 		reg = <0xacba000 0x1000>;
 		reg-cam-base = <0xba000>;
@@ -663,7 +663,7 @@
 
 	cam_vfe1: qcom,vfe1@acb6000 {
 		cell-index = <1>;
-		compatible = "qcom,vfe175";
+		compatible = "qcom,vfe175_130";
 		reg-names = "ife";
 		reg = <0xacb6000 0x5200>;
 		reg-cam-base = <0xb6000>;
