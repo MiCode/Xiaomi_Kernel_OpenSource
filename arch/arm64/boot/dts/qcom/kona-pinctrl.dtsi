@@ -41,6 +41,47 @@
 			};
 		};
 
+		qupv3_se6_4uart_pins: qupv3_se6_4uart_pins {
+			qupv3_se6_ctsrx: qupv3_se6_ctsrx {
+				mux {
+					pins = "gpio16", "gpio19";
+					function = "qup6";
+				};
+
+				config {
+					pins = "gpio16", "gpio19";
+					drive-strength = <2>;
+					bias-no-pull;
+				};
+			};
+
+			qupv3_se6_rts: qupv3_se6_rts {
+				mux {
+					pins = "gpio17";
+					function = "qup6";
+				};
+
+				config {
+					pins = "gpio17";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+
+			qupv3_se6_tx: qupv3_se6_tx {
+				mux {
+					pins = "gpio18";
+					function = "qup6";
+				};
+
+				config {
+					pins = "gpio18";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+		};
+
 		qupv3_se12_2uart_pins: qupv3_se12_2uart_pins {
 			qupv3_se12_2uart_active: qupv3_se12_2uart_active {
 				mux {
@@ -65,6 +106,75 @@
 					pins = "gpio34", "gpio35";
 					drive-strength = <2>;
 					bias-pull-down;
+				};
+			};
+		};
+
+		qupv3_se17_4uart_pins: qupv3_se17_4uart_pins {
+			qupv3_se17_ctsrx: qupv3_se17_ctsrx {
+				mux {
+					pins = "gpio52", "gpio55";
+					function = "qup17";
+				};
+
+				config {
+					pins = "gpio52", "gpio55";
+					drive-strength = <2>;
+					bias-no-pull;
+				};
+			};
+
+			qupv3_se17_rts: qupv3_se17_rts {
+				mux {
+					pins = "gpio53";
+					function = "qup17";
+				};
+
+				config {
+					pins = "gpio53";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+
+			qupv3_se17_tx: qupv3_se17_tx {
+				mux {
+					pins = "gpio54";
+					function = "qup17";
+				};
+
+				config {
+					pins = "gpio54";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		qupv3_se18_2uart_pins: qupv3_se18_2uart_pins {
+			qupv3_se18_rx: qupv3_se18_rx {
+				mux {
+					pins = "gpio59";
+					function = "qup18";
+				};
+
+				config {
+					pins = "gpio59";
+					drive-strength = <2>;
+					bias-no-pull;
+				};
+			};
+
+			qupv3_se18_tx: qupv3_se18_tx {
+				mux {
+					pins = "gpio58";
+					function = "qup18";
+				};
+
+				config {
+					pins = "gpio58";
+					drive-strength = <2>;
+					bias-pull-up;
 				};
 			};
 		};
