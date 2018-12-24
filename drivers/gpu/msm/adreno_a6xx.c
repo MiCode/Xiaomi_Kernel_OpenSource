@@ -1,4 +1,4 @@
-/* Copyright (c)2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c)2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,7 @@
 #include <soc/qcom/subsystem_restart.h>
 #include <linux/pm_opp.h>
 #include <linux/jiffies.h>
+#include <linux/clk/qcom.h>
 
 #include "adreno.h"
 #include "a6xx_reg.h"
@@ -58,6 +59,7 @@ static const struct adreno_vbif_platform a6xx_vbif_platforms[] = {
 	{ adreno_is_a640, a640_gbif },
 	{ adreno_is_a680, a640_gbif },
 	{ adreno_is_a612, a640_gbif },
+	{ adreno_is_a610, a640_gbif },
 };
 
 struct kgsl_hwcg_reg {
@@ -352,6 +354,7 @@ static const struct {
 	{adreno_is_a640, a640_hwcg_regs, ARRAY_SIZE(a640_hwcg_regs)},
 	{adreno_is_a680, a640_hwcg_regs, ARRAY_SIZE(a640_hwcg_regs)},
 	{adreno_is_a612, a612_hwcg_regs, ARRAY_SIZE(a612_hwcg_regs)},
+	{adreno_is_a610, a612_hwcg_regs, ARRAY_SIZE(a612_hwcg_regs)},
 };
 
 static struct a6xx_protected_regs {
@@ -591,7 +594,7 @@ __get_rbbm_clock_cntl_on(struct adreno_device *adreno_dev)
 {
 	if (adreno_is_a630(adreno_dev))
 		return 0x8AA8AA02;
-	else if (adreno_is_a612(adreno_dev))
+	else if (adreno_is_a612(adreno_dev) || adreno_is_a610(adreno_dev))
 		return 0xAAA8AA82;
 	else
 		return 0x8AA8AA82;
@@ -669,11 +672,12 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 
 	/*
 	 * Disable SP clock before programming HWCG registers.
-	 * A612 GPU is not having the GX power domain. Hence
-	 * skip GMU_GX registers for A12.
+	 * A612 and A610 GPU is not having the GX power domain.
+	 * Hence skip GMU_GX registers for A612 and A610.
 	 */
 
-	if (gmu_core_isenabled(device) && !adreno_is_a612(adreno_dev))
+	if (gmu_core_isenabled(device) && !adreno_is_a612(adreno_dev) &&
+		!adreno_is_a610(adreno_dev))
 		gmu_core_regrmw(device,
 			A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 1, 0);
 
@@ -682,10 +686,11 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 
 	/*
 	 * Enable SP clock after programming HWCG registers.
-	 * A612 GPU is not having the GX power domain. Hence
-	 * skip GMU_GX registers for A612.
+	 * A612 and A610 GPU is not having the GX power domain.
+	 * Hence skip GMU_GX registers for A612 and A610.
 	 */
-	if (gmu_core_isenabled(device) && !adreno_is_a612(adreno_dev))
+	if (gmu_core_isenabled(device) && !adreno_is_a612(adreno_dev) &&
+		!adreno_is_a610(adreno_dev))
 		gmu_core_regrmw(device,
 			A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 0, 1);
 
@@ -830,7 +835,7 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	if (adreno_is_a640(adreno_dev) || adreno_is_a680(adreno_dev)) {
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_2, 0x02000140);
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_1, 0x8040362C);
-	} else if (adreno_is_a612(adreno_dev)) {
+	} else if (adreno_is_a612(adreno_dev) || adreno_is_a610(adreno_dev)) {
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_2, 0x00800060);
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_1, 0x40201b16);
 	} else {
@@ -838,8 +843,8 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_1, 0x8040362C);
 	}
 
-	if (adreno_is_a612(adreno_dev)) {
-		/* For A612 Mem pool size is reduced to 48 */
+	if (adreno_is_a612(adreno_dev) || adreno_is_a610(adreno_dev)) {
+		/* For A612 and A610 Mem pool size is reduced to 48 */
 		kgsl_regwrite(device, A6XX_CP_MEM_POOL_SIZE, 48);
 		kgsl_regwrite(device, A6XX_CP_MEM_POOL_DBG_ADDR, 47);
 	} else {
@@ -851,7 +856,7 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL, (0x400 << 11));
 	else if (adreno_is_a680(adreno_dev))
 		kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL, (0x800 << 11));
-	else if (adreno_is_a612(adreno_dev))
+	else if (adreno_is_a612(adreno_dev) || adreno_is_a610(adreno_dev))
 		kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL, (0x100 << 11));
 	else
 		kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL, (0x300 << 11));
@@ -1246,7 +1251,7 @@ static int a6xx_rb_start(struct adreno_device *adreno_dev,
  */
 static int a6xx_sptprac_enable(struct adreno_device *adreno_dev)
 {
-	if (adreno_is_a612(adreno_dev))
+	if (adreno_is_a612(adreno_dev) || adreno_is_a610(adreno_dev))
 		return 0;
 
 	return a6xx_gmu_sptprac_enable(adreno_dev);
@@ -1258,7 +1263,7 @@ static int a6xx_sptprac_enable(struct adreno_device *adreno_dev)
  */
 static void a6xx_sptprac_disable(struct adreno_device *adreno_dev)
 {
-	if (adreno_is_a612(adreno_dev))
+	if (adreno_is_a612(adreno_dev) || adreno_is_a610(adreno_dev))
 		return;
 
 	a6xx_gmu_sptprac_disable(adreno_dev);
@@ -1625,7 +1630,8 @@ static void a6xx_llc_configure_gpu_scid(struct adreno_device *adreno_dev)
 		gpu_cntl1_val = (gpu_cntl1_val << A6XX_GPU_LLC_SCID_NUM_BITS)
 			| gpu_scid;
 
-	if (adreno_is_a640(adreno_dev) || adreno_is_a612(adreno_dev)) {
+	if (adreno_is_a640(adreno_dev) || adreno_is_a612(adreno_dev) ||
+		adreno_is_a610(adreno_dev)) {
 		kgsl_regrmw(KGSL_DEVICE(adreno_dev), A6XX_GBIF_SCACHE_CNTL1,
 			A6XX_GPU_LLC_SCID_MASK, gpu_cntl1_val);
 	} else {
@@ -1647,7 +1653,8 @@ static void a6xx_llc_configure_gpuhtw_scid(struct adreno_device *adreno_dev)
 	 * On A640, the GPUHTW SCID is configured via a NoC override in the
 	 * XBL image.
 	 */
-	if (adreno_is_a640(adreno_dev) || adreno_is_a612(adreno_dev))
+	if (adreno_is_a640(adreno_dev) || adreno_is_a612(adreno_dev) ||
+		adreno_is_a610(adreno_dev))
 		return;
 
 	gpuhtw_scid = adreno_llc_get_scid(adreno_dev->gpuhtw_llc_slice);
@@ -1668,7 +1675,8 @@ static void a6xx_llc_enable_overrides(struct adreno_device *adreno_dev)
 	 * Attributes override through GBIF is not supported with MMU-500.
 	 * Attributes are used as configured through SMMU pagetable entries.
 	 */
-	if (adreno_is_a640(adreno_dev) || adreno_is_a612(adreno_dev))
+	if (adreno_is_a640(adreno_dev) || adreno_is_a612(adreno_dev) ||
+		adreno_is_a610(adreno_dev))
 		return;
 
 	/*
@@ -2661,7 +2669,13 @@ static int a6xx_enable_pwr_counters(struct adreno_device *adreno_dev,
 		return -ENODEV;
 
 	kgsl_regwrite(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_MASK, 0xFF000000);
-	kgsl_regrmw(device,
+
+	/*
+	 * A610 GPU has only one power counter fixed to count GPU busy
+	 * cycles with no select register.
+	 */
+	if (!adreno_is_a610(adreno_dev))
+		kgsl_regrmw(device,
 			A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0, 0xFF, 0x20);
 	kgsl_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE, 0x1);
 
@@ -2903,6 +2917,17 @@ static void a6xx_perfcounter_init(struct adreno_device *adreno_dev)
 	if (adreno_is_a612(adreno_dev)) {
 		a6xx_pwrcounters_gpmu[4].countable = KGSL_PERFCOUNTER_BROKEN;
 		a6xx_pwrcounters_gpmu[5].countable = KGSL_PERFCOUNTER_BROKEN;
+	} else if (adreno_is_a610(adreno_dev)) {
+		/*
+		 * A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_1 to 5 are not
+		 * present on A610. Mark them as broken so that they
+		 * can't be used.
+		 */
+		a6xx_pwrcounters_gpmu[1].countable = KGSL_PERFCOUNTER_BROKEN;
+		a6xx_pwrcounters_gpmu[2].countable = KGSL_PERFCOUNTER_BROKEN;
+		a6xx_pwrcounters_gpmu[3].countable = KGSL_PERFCOUNTER_BROKEN;
+		a6xx_pwrcounters_gpmu[4].countable = KGSL_PERFCOUNTER_BROKEN;
+		a6xx_pwrcounters_gpmu[5].countable = KGSL_PERFCOUNTER_BROKEN;
 	}
 }
 
@@ -2988,6 +3013,29 @@ unlock:
 	return ret;
 }
 
+static void a6xx_clk_set_options(struct adreno_device *adreno_dev,
+	const char *name, struct clk *clk, bool on)
+{
+	if (!adreno_is_a610(adreno_dev))
+		return;
+
+	/* Handle clock settings for GFX PSCBCs */
+	if (on) {
+		if (!strcmp(name, "mem_iface_clk")) {
+			clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
+			clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
+		} else if (!strcmp(name, "core_clk")) {
+			clk_set_flags(clk, CLKFLAG_RETAIN_PERIPH);
+			clk_set_flags(clk, CLKFLAG_RETAIN_MEM);
+		}
+	} else {
+		if (!strcmp(name, "core_clk")) {
+			clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
+			clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
+		}
+	}
+}
+
 struct adreno_gpudev adreno_a6xx_gpudev = {
 	.reg_offsets = &a6xx_reg_offsets,
 	.start = a6xx_start,
@@ -3026,4 +3074,5 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.perfcounter_init = a6xx_perfcounter_init,
 	.perfcounter_update = a6xx_perfcounter_update,
 	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
+	.clk_set_options = a6xx_clk_set_options,
 };
