@@ -25,6 +25,7 @@
 #include "cam_soc_api.h"
 #include "msm_isp48.h"
 #include "linux/iopoll.h"
+#include "msm_cam_cx_ipeak.h"
 
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
@@ -2680,7 +2681,9 @@ int msm_vfe47_set_clk_rate(struct vfe_device *vfe_dev, long *rate)
 		prev_clk_rate <
 		vfe_dev->vfe_clk_rates[MSM_VFE_CLK_RATE_NOMINAL]
 		[vfe_dev->hw_info->vfe_clk_idx]) {
-		ret = cx_ipeak_update(vfe_dev->vfe_cx_ipeak, true);
+		pr_debug("%s: clk is more than Nominal vfe %d, ipeak bit %d\n",
+			__func__, vfe_dev->pdev->id, vfe_dev->cx_ipeak_bit);
+		ret = cam_cx_ipeak_update_vote_cx_ipeak(vfe_dev->cx_ipeak_bit);
 		if (ret) {
 			pr_err("%s: cx_ipeak_update failed %d\n",
 				__func__, ret);
@@ -2703,7 +2706,9 @@ int msm_vfe47_set_clk_rate(struct vfe_device *vfe_dev, long *rate)
 		prev_clk_rate >=
 		vfe_dev->vfe_clk_rates[MSM_VFE_CLK_RATE_NOMINAL]
 		[vfe_dev->hw_info->vfe_clk_idx]) {
-		ret = cx_ipeak_update(vfe_dev->vfe_cx_ipeak, false);
+		pr_debug("%s:clk is less than Nominal vfe %d, ipeak bit %d\n",
+			__func__, vfe_dev->pdev->id, vfe_dev->cx_ipeak_bit);
+		ret = cam_cx_ipeak_unvote_cx_ipeak(vfe_dev->cx_ipeak_bit);
 		if (ret) {
 			pr_err("%s: cx_ipeak_update failed %d\n",
 				__func__, ret);
