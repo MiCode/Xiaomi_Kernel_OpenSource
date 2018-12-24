@@ -30,9 +30,10 @@
 #define to_clk_regmap_mux_div(_hw) \
 	container_of(to_clk_regmap(_hw), struct clk_regmap_mux_div, clkr)
 
-#define REG_OFFSET	0x4
 #define APCS_PLL	0x17808100
 #define APCS_CMD	0x17810008
+#define REG_OFFSET	0x4
+
 #define XO_RATE		19200000
 
 /* PLL speficic settings and offsets */
@@ -185,6 +186,27 @@ static u8 cpucc_clk_get_parent(struct clk_hw *hw)
 	return clk_regmap_mux_div_ops.get_parent(hw);
 }
 
+/*
+ * We use the notifier function for switching to a temporary safe configuration
+ * (mux and divider), while the APSS pll is reconfigured.
+ */
+static int cpucc_notifier_cb(struct notifier_block *nb, unsigned long event,
+			     void *data)
+{
+	struct clk_regmap_mux_div *cpuclk = container_of(nb,
+					struct clk_regmap_mux_div, clk_nb);
+	int ret = 0;
+
+	if (event == PRE_RATE_CHANGE)
+		/* set the mux to safe source(gpll0) & div */
+		ret = __mux_div_set_src_div(cpuclk,  cpuclk->safe_src, 1);
+
+	if (event == ABORT_RATE_CHANGE)
+		pr_err("Error in configuring PLL - stay at safe src only\n");
+
+	return notifier_from_errno(ret);
+}
+
 static const struct clk_ops cpucc_clk_ops = {
 	.enable = cpucc_clk_enable,
 	.disable = cpucc_clk_disable,
@@ -219,6 +241,7 @@ static struct clk_alpha_pll apcs_cpu_pll = {
 	.type = LUCID_PLL,
 	.vco_table = lucid_vco,
 	.num_vco = ARRAY_SIZE(lucid_vco),
+	.flags = SUPPORTS_NO_SLEW,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "apcs_cpu_pll",
 		.parent_names = (const char *[]){ "bi_tcxo_ao" },
@@ -240,7 +263,10 @@ static struct clk_regmap_mux_div apcs_mux_clk = {
 	.hid_shift  = 0,
 	.src_width  = 3,
 	.src_shift  = 8,
+	.safe_src = 1,
+	.safe_div = 1,
 	.parent_map = apcs_mux_clk_parent_map,
+	.clk_nb.notifier_call = cpucc_notifier_cb,
 	.clkr.hw.init = &(struct clk_init_data) {
 		.name = "apcs_mux_clk",
 		.parent_names = apcs_mux_clk_parent_name,
@@ -482,6 +508,13 @@ static int cpucc_driver_probe(struct platform_device *pdev)
 		return PTR_ERR(clk);
 	}
 
+	clk = devm_clk_get(dev, "gpll0");
+	if (IS_ERR(clk)) {
+		if (PTR_ERR(clk) != -EPROBE_DEFER)
+			dev_err(dev, "Unable to get GPLL0 clock\n");
+		return PTR_ERR(clk);
+	}
+
 	 /* Rail Regulator for apcs_cpu_pll & cpuss mux*/
 	vdd_lucid_pll.regulator[0] = devm_regulator_get(&pdev->dev,
 							"vdd-lucid-pll");
@@ -554,7 +587,7 @@ static int cpucc_driver_probe(struct platform_device *pdev)
 
 	ret = of_property_read_u32(of, "qcom,cpucc-init-rate", &rate);
 	if (ret || !rate)
-		dev_err(&pdev->dev, "Init rate for clock not defined\n");
+		dev_dbg(&pdev->dev, "Init rate for clock not defined\n");
 
 	cpucc_clk_init_rate = max(cpucc_clk_init_rate, rate);
 
@@ -580,6 +613,13 @@ static int cpucc_driver_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	ret = clk_notifier_register(apcs_mux_clk.clkr.hw.clk,
+							&apcs_mux_clk.clk_nb);
+	if (ret) {
+		dev_err(dev, "failed to register clock notifier: %d\n", ret);
+		return ret;
+	}
+
 	/* Set to boot frequency */
 	ret = clk_set_rate(apcs_mux_clk.clkr.hw.clk, cpucc_clk_init_rate);
 	if (ret)
@@ -599,6 +639,7 @@ static int cpucc_driver_probe(struct platform_device *pdev)
 	put_online_cpus();
 
 	cpucc_clk_populate_opp_table(pdev);
+
 	dev_info(dev, "CPU clock Driver probed successfully\n");
 
 	return ret;
@@ -654,7 +695,9 @@ static void __init configure_lucid_pll(void __iomem *base)
 	u32 regval;
 
 	/* Starting the PLL is in the OFF mode */
-	writel_relaxed(0x0, base + apcs_cpu_pll.offset);
+	regval = readl_relaxed(base);
+	regval |= BIT(0);
+	writel_relaxed(regval, base);
 
 	/* Program the PLL’s user, config, and test registers */
 	writel_relaxed(0x1, base + LUCID_PLL_OFF_USER_CTL);
@@ -666,6 +709,7 @@ static void __init configure_lucid_pll(void __iomem *base)
 
 	/* Program the PLL L register and its associated calibration register */
 	writel_relaxed(apcs_cpu_pll_config.l, base + LUCID_PLL_OFF_L_VAL);
+
 	writel_relaxed(0x44, base + LUCID_PLL_OFF_CAL_L_VAL);
 
 	/* Turn off the outputs */
@@ -686,8 +730,9 @@ static int __init cpu_clock_init(void)
 {
 	struct device_node *dev;
 	void __iomem  *base;
-	int count, regval = 0, l_val;
+	int count, l_val;
 	unsigned long enable_mask = 0x7;
+	u32 regval;
 
 	dev = of_find_compatible_node(NULL, NULL, "qcom,cpu-sdxprairie");
 	if (!dev) {
@@ -699,7 +744,7 @@ static int __init cpu_clock_init(void)
 	if (!base)
 		return -ENOMEM;
 
-	l_val =  readl_relaxed(base + LUCID_PLL_OFF_L_VAL);
+	l_val = readl_relaxed(base + LUCID_PLL_OFF_L_VAL);
 	if (!l_val) {
 		configure_lucid_pll(base);
 		l_val =  readl_relaxed(base + LUCID_PLL_OFF_L_VAL);
