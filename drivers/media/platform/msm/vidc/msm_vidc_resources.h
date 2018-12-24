@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -204,6 +204,32 @@ struct msm_vidc_platform_resources {
 	uint32_t fw_vpp_cycles;
 	uint32_t clk_freq_threshold;
 	struct cx_ipeak_client *cx_ipeak_context;
+	struct msm_vidc_ubwc_config *ubwc_config;
+	uint32_t ubwc_config_length;
+};
+
+/**
+ * @bMaxChannelsOverride : enable - 1 /disable - 0 max channel override
+ * @bMalLengthOverride : enable - 1 /disable - 0 HBB override
+ * @bHBBOverride : enable - 1 /disable – 0 mal length override
+ * @nMaxChannels: Num DDR channels 4/8 channel,
+ *                This is to control mircotilling mode.
+ * @nMalLength : UBWC compression ratio granularity 32B/64B MAL
+ * @nHighestBankBit : Valid range 13-19
+ */
+
+struct msm_vidc_ubwc_config {
+	struct {
+		u32 bMaxChannelsOverride : 1;
+		u32 bMalLengthOverride : 1;
+		u32 bHBBOverride : 1;
+		u32 reserved1 : 29;
+	} sOverrideBitInfo;
+
+	u32 nMaxChannels;
+	u32 nMalLength;
+	u32 nHighestBankBit;
+	u32 reserved2[2];
 };
 
 static inline bool is_iommu_present(struct msm_vidc_platform_resources *res)

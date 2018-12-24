@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -810,6 +810,10 @@ int read_platform_resources_from_drv_data(
 	res->gcc_register_size = platform_data->gcc_register_size;
 
 	res->vpu_ver = platform_data->vpu_ver;
+
+	res->ubwc_config = platform_data->ubwc_config;
+	res->ubwc_config_length = platform_data->ubwc_config_length;
+
 	return rc;
 
 }
