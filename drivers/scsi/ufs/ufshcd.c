@@ -6945,6 +6945,8 @@ static void ufshcd_err_handler(struct work_struct *work)
 	 * process of gating when the err handler runs.
 	 */
 	if (unlikely((hba->clk_gating.state != CLKS_ON) &&
+	    (hba->clk_gating.state == REQ_CLKS_OFF &&
+	     ufshcd_is_link_hibern8(hba)) &&
 	    ufshcd_is_auto_hibern8_supported(hba) &&
 	    hba->hibern8_on_idle.is_enabled)) {
 		spin_unlock_irqrestore(hba->host->host_lock, flags);
