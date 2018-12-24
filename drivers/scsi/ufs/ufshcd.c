@@ -5209,6 +5209,7 @@ static int ufshcd_link_recovery(struct ufs_hba *hba)
 	 */
 	hba->ufshcd_state = UFSHCD_STATE_ERROR;
 	hba->force_host_reset = true;
+	ufshcd_set_eh_in_progress(hba);
 	schedule_work(&hba->eh_work);
 
 	/* wait for the reset work to finish */
