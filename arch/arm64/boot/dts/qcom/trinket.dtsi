@@ -1980,6 +1980,7 @@
 #include "trinket-coresight.dtsi"
 #include "trinket-vidc.dtsi"
 #include "trinket-pm.dtsi"
+#include "trinket-gpu.dtsi"
 
 &pm6125_vadc {
 	rf_pa0_therm {
