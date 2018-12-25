@@ -9,6 +9,7 @@
 | clover-o-oss | Mi Pad 4 | Android O | LA.UM.6.2.r1-08100-sdm660.0 | [clover-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/clover-o-oss) |
 | dior-kk-oss | Redmi Note Single SIM | Android KK | LNX.LA.3.5.2.2.2-00510-8x26.0 | [dior-kk-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/dior-kk-oss) |
 | dipper-o-oss | Mi 8/MI 8 Explorer Edition/POCOPHONE F1 | Android 8.1 | LA.UM.6.3.r4-03000-sdm845.0 | [dipper-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/dipper-o-oss) |
+| dipper-p-oss | MIX2S, MIX3, MI 8, POCOPHONE F1, MI 8UD, MI 8 Explorer Edition | Android P | LA.UM.7.3.r1-04500-sdm845.0 | [dipper-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/dipper-p-oss) |
 | daisy-o-oss | Mi A2 lite, Redmi 6pro | Android O | LA.UM.6.6.r1-07400-89xx.0-1 | [daisy-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/daisy-o-oss) |
 | daisy-p-oss | Mi A2 lite | Android P | LA.UM.7.6.r1-02800-89xx.0 | [daisy-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/daisy-p-oss) |
 | ferrari-l-oss | Mi 4i | Android L | LA.BR.1.1.2-01120-8x16.0 | [ferrari-l-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ferrari-l-oss) |
