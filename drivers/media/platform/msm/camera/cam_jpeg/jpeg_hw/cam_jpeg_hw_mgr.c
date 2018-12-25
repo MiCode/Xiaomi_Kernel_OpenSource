@@ -1545,11 +1545,6 @@ int cam_jpeg_hw_mgr_init(struct device_node *of_node, uint64_t *hw_mgr_hdl,
 	}
 
 	CAM_DBG(CAM_JPEG, "mmu handle :%d", g_jpeg_hw_mgr.iommu_hdl);
-	rc = cam_smmu_ops(g_jpeg_hw_mgr.iommu_hdl, CAM_SMMU_ATTACH);
-	if (rc) {
-		CAM_ERR(CAM_JPEG, "jpeg attach failed: %d", rc);
-		goto jpeg_attach_failed;
-	}
 
 	rc = cam_cdm_get_iommu_handle("jpegenc", &cdm_handles);
 	if (rc) {
@@ -1592,9 +1587,7 @@ int cam_jpeg_hw_mgr_init(struct device_node *of_node, uint64_t *hw_mgr_hdl,
 	return rc;
 
 cdm_iommu_failed:
-	cam_smmu_ops(g_jpeg_hw_mgr.iommu_hdl, CAM_SMMU_DETACH);
 	cam_smmu_destroy_handle(g_jpeg_hw_mgr.iommu_hdl);
-jpeg_attach_failed:
 	g_jpeg_hw_mgr.iommu_hdl = 0;
 smmu_get_failed:
 	mutex_destroy(&g_jpeg_hw_mgr.hw_mgr_mutex);
