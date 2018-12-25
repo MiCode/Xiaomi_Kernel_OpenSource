@@ -876,9 +876,8 @@ static inline int msm_vidc_verify_buffer_counts(struct msm_vidc_inst *inst)
 int msm_vidc_set_internal_config(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
-	u32 rc_mode;
+	u32 rc_mode = RATE_CONTROL_OFF;
 	bool set_rc = false;
-	u32 rc_enable = 0;
 	struct hal_vbv_hdr_buf_size hrd_buf_size;
 	struct hal_enable latency;
 	struct hfi_device *hdev;
@@ -899,19 +898,13 @@ int msm_vidc_set_internal_config(struct msm_vidc_inst *inst)
 	hdev = inst->core->device;
 
 	codec = inst->fmts[CAPTURE_PORT].fourcc;
-	rc_enable = msm_comm_g_ctrl_for_id(inst,
-			V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE);
-	rc_mode =  msm_comm_g_ctrl_for_id(inst,
-			V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
 	latency.enable =  msm_comm_g_ctrl_for_id(inst,
 			V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_MODE);
 
-	if (rc_enable == 0) {
-		set_rc = false;
-	} else if (rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_MBR_VFR) {
+	if (inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_MBR_VFR) {
 		rc_mode = V4L2_MPEG_VIDEO_BITRATE_MODE_MBR;
 		set_rc = true;
-	} else if (rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_VBR &&
+	} else if (inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_VBR &&
 			   latency.enable == V4L2_MPEG_MSM_VIDC_ENABLE &&
 			   codec != V4L2_PIX_FMT_VP8) {
 		rc_mode = V4L2_MPEG_VIDEO_BITRATE_MODE_CBR;
@@ -955,9 +948,8 @@ int msm_vidc_set_internal_config(struct msm_vidc_inst *inst)
 		bitrate = inst->clk_data.bitrate;
 		mb_per_frame = NUM_MBS_PER_FRAME(output_height, output_width);
 
-		if (rc_enable == V4L2_MPEG_MSM_VIDC_ENABLE &&
-			rc_mode != V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR &&
-			rc_mode != V4L2_MPEG_VIDEO_BITRATE_MODE_CBR) {
+		if (rc_mode != V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR &&
+				rc_mode != V4L2_MPEG_VIDEO_BITRATE_MODE_CBR) {
 			slice_mode = V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE;
 			slice_val = 0;
 		} else if (slice_mode ==
@@ -1083,7 +1075,6 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct hal_buffer_size_minimum b;
-	u32 rc_mode;
 
 	dprintk(VIDC_DBG, "%s: %x : inst %pK\n", __func__,
 		hash32_ptr(inst->session), inst);
@@ -1105,10 +1096,8 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		}
 	}
 
-	rc_mode =  msm_comm_g_ctrl_for_id(inst,
-		V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
 	/* HEIC HW/FWK tiling encode is supported only for CQ RC mode */
-	if (rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CQ) {
+	if (inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_CQ) {
 		if (!heic_encode_session_supported(inst)) {
 			dprintk(VIDC_ERR,
 				"HEIC Encode session not supported\n");
@@ -1901,6 +1890,7 @@ void *msm_vidc_open(int core_id, int session_type)
 	inst->level = V4L2_MPEG_VIDEO_H264_LEVEL_UNKNOWN;
 	inst->entropy_mode = V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CAVLC;
 	inst->smem_ops = &msm_vidc_smem_ops;
+	inst->rc_type = RATE_CONTROL_OFF;
 
 	for (i = SESSION_MSG_INDEX(SESSION_MSG_START);
 		i <= SESSION_MSG_INDEX(SESSION_MSG_END); i++) {

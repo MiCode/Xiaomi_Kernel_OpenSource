@@ -52,6 +52,7 @@
 
 #define V4L2_EVENT_VIDC_BASE  10
 
+#define RATE_CONTROL_OFF (V4L2_MPEG_VIDEO_BITRATE_MODE_CQ + 1)
 #define SYS_MSG_START HAL_SYS_INIT_DONE
 #define SYS_MSG_END HAL_SYS_ERROR
 #define SESSION_MSG_START HAL_SESSION_EVENT_CHANGE
@@ -469,6 +470,7 @@ struct msm_vidc_inst {
 	u32 entropy_mode;
 	u32 grid_enable;
 	u32 frame_quality;
+	u32 rc_type;
 	struct msm_vidc_codec_data *codec_data;
 	struct hal_hdr10_pq_sei hdr10_sei_params;
 	struct batch_mode batch;

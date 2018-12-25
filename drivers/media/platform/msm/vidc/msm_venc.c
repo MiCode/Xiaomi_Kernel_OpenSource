@@ -1292,6 +1292,50 @@ struct v4l2_ctrl *msm_venc_get_ctrl(struct msm_vidc_inst *inst, u32 id)
 	return NULL;
 }
 
+static int msm_venc_resolve_rc_enable(struct msm_vidc_inst *inst,
+		struct v4l2_ctrl *ctrl)
+{
+	struct v4l2_ctrl *rc_mode;
+
+	if (!ctrl->val) {
+		dprintk(VIDC_DBG,
+			"RC is not enabled. Setting RC OFF\n");
+		inst->rc_type = RATE_CONTROL_OFF;
+	} else {
+		rc_mode = msm_venc_get_ctrl(inst,
+				V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
+		if (!rc_mode) {
+			dprintk(VIDC_ERR,
+				"%s: get bitrate mode failed\n", __func__);
+			return -EINVAL;
+		}
+		inst->rc_type = rc_mode->val;
+	}
+	return 0;
+}
+
+static int msm_venc_resolve_rate_control(struct msm_vidc_inst *inst,
+		struct v4l2_ctrl *ctrl)
+{
+	struct v4l2_ctrl *rc_enable;
+
+	rc_enable = msm_venc_get_ctrl(inst,
+			V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE);
+	if (rc_enable) {
+		if ((ctrl->val == V4L2_MPEG_VIDEO_BITRATE_MODE_CQ) &&
+			inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_HEVC) {
+			dprintk(VIDC_ERR, "CQ supported only for HEVC\n");
+			return -EINVAL;
+		}
+		inst->rc_type = ctrl->val;
+	} else {
+		dprintk(VIDC_ERR,
+			"RC is not enabled.\n");
+		return -EINVAL;
+	}
+	return 0;
+}
+
 int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 {
 	int rc = 0;
@@ -1339,20 +1383,10 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDEO_BITRATE_MODE:
 	{
-		struct v4l2_ctrl *rc_enable = try_get_ctrl(
-			V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE, ctrl);
-		if (!rc_enable->val) {
+		rc = msm_venc_resolve_rate_control(inst, ctrl);
+		if (rc)
 			dprintk(VIDC_ERR,
-				"RC is not enabled. Cannot set RC mode\n");
-			rc = -ENOTSUPP;
-			break;
-		}
-		if ((ctrl->val == V4L2_MPEG_VIDEO_BITRATE_MODE_CQ) &&
-			inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_HEVC) {
-			dprintk(VIDC_ERR, "CQ supported only for HEVC\n");
-			rc = -ENOTSUPP;
-			break;
-		}
+				"%s: set bitrate mode failed\n", __func__);
 		break;
 	}
 	case V4L2_CID_MPEG_VIDC_COMPRESSION_QUALITY:
@@ -1542,11 +1576,16 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		}
 
 		break;
+	case V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE:
+		rc = msm_venc_resolve_rc_enable(inst, ctrl);
+		if (rc)
+			dprintk(VIDC_ERR,
+				"%s: set rc enable failed.\n", __func__);
+		break;
 	case V4L2_CID_MPEG_VIDEO_B_FRAMES:
 	case V4L2_CID_ROTATE:
 	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_LAYER:
 	case V4L2_CID_MPEG_VIDC_VIDEO_LTRCOUNT:
-	case V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE:
 	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
@@ -2023,7 +2062,6 @@ int msm_venc_set_rate_control(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
-	struct v4l2_ctrl *bitrate_mode;
 	struct v4l2_ctrl *hier_layers;
 	struct v4l2_ctrl *hier_type;
 
@@ -2033,19 +2071,7 @@ int msm_venc_set_rate_control(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
-	bitrate_mode = msm_venc_get_ctrl(inst,
-		V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
-	if (!bitrate_mode) {
-		dprintk(VIDC_ERR, "%s: get bitrate mode failed\n", __func__);
-		return -EINVAL;
-	}
-	if (bitrate_mode->val == V4L2_MPEG_VIDEO_BITRATE_MODE_CQ &&
-		inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_HEVC) {
-		dprintk(VIDC_ERR,
-			"%s: CQ supported only for HEVC\n", __func__);
-		return -EINVAL;
-	}
-	if ((bitrate_mode->val == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR) &&
+	if ((inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR) &&
 		(inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_H264)) {
 		hier_layers = msm_venc_get_ctrl(inst,
 			V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_LAYER);
@@ -2060,9 +2086,9 @@ int msm_venc_set_rate_control(struct msm_vidc_inst *inst)
 			return -EINVAL;
 		}
 	}
-	dprintk(VIDC_DBG, "%s: %d\n", __func__, bitrate_mode->val);
+	dprintk(VIDC_DBG, "%s: %d\n", __func__, inst->rc_type);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_PARAM_VENC_RATE_CONTROL, &bitrate_mode->val);
+			HAL_PARAM_VENC_RATE_CONTROL, &inst->rc_type);
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -2229,7 +2255,6 @@ int msm_venc_set_frame_quality(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
-	struct v4l2_ctrl *ctrl_t;
 	struct hal_heic_frame_quality frame_quality;
 
 	if (!inst || !inst->core) {
@@ -2238,15 +2263,7 @@ int msm_venc_set_frame_quality(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
-	if (inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_HEVC)
-		return 0;
-
-	ctrl_t = msm_venc_get_ctrl(inst, V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
-	if (!ctrl_t) {
-		dprintk(VIDC_ERR, "%s: get bitrate mode failed\n", __func__);
-		return -EINVAL;
-	}
-	if (ctrl_t->val != V4L2_MPEG_VIDEO_BITRATE_MODE_CQ)
+	if (inst->rc_type != V4L2_MPEG_VIDEO_BITRATE_MODE_CQ)
 		return 0;
 
 	ctrl = msm_venc_get_ctrl(inst,
@@ -2271,7 +2288,6 @@ int msm_venc_set_grid(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
-	struct v4l2_ctrl *ctrl_t;
 	struct hal_heic_grid_enable grid_enable;
 
 	if (!inst || !inst->core) {
@@ -2280,15 +2296,7 @@ int msm_venc_set_grid(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
-	if (inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_HEVC)
-		return 0;
-
-	ctrl_t = msm_venc_get_ctrl(inst, V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
-	if (!ctrl_t) {
-		dprintk(VIDC_ERR, "%s: get bitrate mode failed\n", __func__);
-		return -EINVAL;
-	}
-	if (ctrl_t->val != V4L2_MPEG_VIDEO_BITRATE_MODE_CQ)
+	if (inst->rc_type != V4L2_MPEG_VIDEO_BITRATE_MODE_CQ)
 		return 0;
 
 	ctrl = msm_venc_get_ctrl(inst, V4L2_CID_MPEG_VIDC_IMG_GRID_SIZE);
@@ -2598,8 +2606,6 @@ int msm_venc_hierp_check(struct msm_vidc_inst *inst, u32 value)
 
 int msm_venc_hybrid_hp_check(struct msm_vidc_inst *inst, bool *hyb_hp)
 {
-	struct v4l2_ctrl *bitrate_mode;
-	struct v4l2_ctrl *rc_enable;
 	*hyb_hp = false;
 
 	if (!inst || !inst->core) {
@@ -2610,22 +2616,7 @@ int msm_venc_hybrid_hp_check(struct msm_vidc_inst *inst, bool *hyb_hp)
 	if (inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_H264)
 		return 0;
 
-	bitrate_mode = msm_venc_get_ctrl(inst,
-		V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
-	if (!bitrate_mode) {
-		dprintk(VIDC_ERR, "%s: get bitrate mode failed\n", __func__);
-		return -EINVAL;
-	}
-
-	rc_enable = msm_venc_get_ctrl(inst,
-		V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE);
-	if (!rc_enable) {
-		dprintk(VIDC_ERR, "%s: get bitrate mode failed\n", __func__);
-		return -EINVAL;
-	}
-
-	if (rc_enable->val &&
-		bitrate_mode->val == V4L2_MPEG_VIDEO_BITRATE_MODE_VBR)
+	if (inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_VBR)
 		*hyb_hp = true;
 	return 0;
 }
@@ -2910,7 +2901,6 @@ int msm_venc_set_vui_timing_info(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
-	struct v4l2_ctrl *ctrl_t;
 	struct hal_vui_timing_info timing_info;
 	bool cfr;
 
@@ -2934,12 +2924,7 @@ int msm_venc_set_vui_timing_info(struct msm_vidc_inst *inst)
 	if (ctrl->val == V4L2_MPEG_MSM_VIDC_DISABLE)
 		return 0;
 
-	ctrl_t = msm_venc_get_ctrl(inst, V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
-	if (!ctrl_t) {
-		dprintk(VIDC_ERR, "%s: get bitrate mode failed\n", __func__);
-		return -EINVAL;
-	}
-	switch (ctrl_t->val) {
+	switch (inst->rc_type) {
 	case V4L2_MPEG_VIDEO_BITRATE_MODE_VBR:
 	case V4L2_MPEG_VIDEO_BITRATE_MODE_CBR:
 	case V4L2_MPEG_VIDEO_BITRATE_MODE_MBR:
