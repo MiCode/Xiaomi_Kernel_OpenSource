@@ -2606,10 +2606,187 @@ end:
 	return 0;
 }
 
+static int _sde_vbif_populate_ot_parsing(struct sde_vbif_cfg *vbif,
+	struct sde_prop_value *prop_value, int *prop_count)
+{
+	int j, k;
+
+	vbif->default_ot_rd_limit = PROP_VALUE_ACCESS(prop_value,
+			VBIF_DEFAULT_OT_RD_LIMIT, 0);
+	SDE_DEBUG("default_ot_rd_limit=%u\n",
+			vbif->default_ot_rd_limit);
+
+	vbif->default_ot_wr_limit = PROP_VALUE_ACCESS(prop_value,
+			VBIF_DEFAULT_OT_WR_LIMIT, 0);
+	SDE_DEBUG("default_ot_wr_limit=%u\n",
+			vbif->default_ot_wr_limit);
+
+	vbif->dynamic_ot_rd_tbl.count =
+			prop_count[VBIF_DYNAMIC_OT_RD_LIMIT] / 2;
+	SDE_DEBUG("dynamic_ot_rd_tbl.count=%u\n",
+			vbif->dynamic_ot_rd_tbl.count);
+	if (vbif->dynamic_ot_rd_tbl.count) {
+		vbif->dynamic_ot_rd_tbl.cfg = kcalloc(
+			vbif->dynamic_ot_rd_tbl.count,
+			sizeof(struct sde_vbif_dynamic_ot_cfg),
+			GFP_KERNEL);
+		if (!vbif->dynamic_ot_rd_tbl.cfg)
+			return -ENOMEM;
+	}
+
+	for (j = 0, k = 0; j < vbif->dynamic_ot_rd_tbl.count; j++) {
+		vbif->dynamic_ot_rd_tbl.cfg[j].pps = (u64)
+			PROP_VALUE_ACCESS(prop_value,
+			VBIF_DYNAMIC_OT_RD_LIMIT, k++);
+		vbif->dynamic_ot_rd_tbl.cfg[j].ot_limit =
+			PROP_VALUE_ACCESS(prop_value,
+			VBIF_DYNAMIC_OT_RD_LIMIT, k++);
+		SDE_DEBUG("dynamic_ot_rd_tbl[%d].cfg=<%llu %u>\n", j,
+			vbif->dynamic_ot_rd_tbl.cfg[j].pps,
+			vbif->dynamic_ot_rd_tbl.cfg[j].ot_limit);
+	}
+
+	vbif->dynamic_ot_wr_tbl.count =
+			prop_count[VBIF_DYNAMIC_OT_WR_LIMIT] / 2;
+	SDE_DEBUG("dynamic_ot_wr_tbl.count=%u\n",
+			vbif->dynamic_ot_wr_tbl.count);
+	if (vbif->dynamic_ot_wr_tbl.count) {
+		vbif->dynamic_ot_wr_tbl.cfg = kcalloc(
+			vbif->dynamic_ot_wr_tbl.count,
+			sizeof(struct sde_vbif_dynamic_ot_cfg),
+			GFP_KERNEL);
+		if (!vbif->dynamic_ot_wr_tbl.cfg)
+			return -ENOMEM;
+	}
+
+	for (j = 0, k = 0; j < vbif->dynamic_ot_wr_tbl.count; j++) {
+		vbif->dynamic_ot_wr_tbl.cfg[j].pps = (u64)
+			PROP_VALUE_ACCESS(prop_value,
+			VBIF_DYNAMIC_OT_WR_LIMIT, k++);
+		vbif->dynamic_ot_wr_tbl.cfg[j].ot_limit =
+			PROP_VALUE_ACCESS(prop_value,
+			VBIF_DYNAMIC_OT_WR_LIMIT, k++);
+		SDE_DEBUG("dynamic_ot_wr_tbl[%d].cfg=<%llu %u>\n", j,
+			vbif->dynamic_ot_wr_tbl.cfg[j].pps,
+			vbif->dynamic_ot_wr_tbl.cfg[j].ot_limit);
+	}
+
+	if (vbif->default_ot_rd_limit || vbif->default_ot_wr_limit ||
+			vbif->dynamic_ot_rd_tbl.count ||
+			vbif->dynamic_ot_wr_tbl.count)
+		set_bit(SDE_VBIF_QOS_OTLIM, &vbif->features);
+
+	return 0;
+}
+
+static int _sde_vbif_populate_qos_parsing(struct sde_mdss_cfg *sde_cfg,
+	struct sde_vbif_cfg *vbif, struct sde_prop_value *prop_value,
+	int *prop_count)
+{
+	int j;
+
+	vbif->qos_rt_tbl.npriority_lvl =
+			prop_count[VBIF_QOS_RT_REMAP];
+	SDE_DEBUG("qos_rt_tbl.npriority_lvl=%u\n",
+			vbif->qos_rt_tbl.npriority_lvl);
+	if (vbif->qos_rt_tbl.npriority_lvl == sde_cfg->vbif_qos_nlvl) {
+		vbif->qos_rt_tbl.priority_lvl = kcalloc(
+			vbif->qos_rt_tbl.npriority_lvl, sizeof(u32),
+			GFP_KERNEL);
+		if (!vbif->qos_rt_tbl.priority_lvl)
+			return -ENOMEM;
+	} else if (vbif->qos_rt_tbl.npriority_lvl) {
+		vbif->qos_rt_tbl.npriority_lvl = 0;
+		vbif->qos_rt_tbl.priority_lvl = NULL;
+		SDE_ERROR("invalid qos rt table\n");
+	}
+
+	for (j = 0; j < vbif->qos_rt_tbl.npriority_lvl; j++) {
+		vbif->qos_rt_tbl.priority_lvl[j] =
+			PROP_VALUE_ACCESS(prop_value,
+					VBIF_QOS_RT_REMAP, j);
+		SDE_DEBUG("lvl[%d]=%u\n", j,
+				vbif->qos_rt_tbl.priority_lvl[j]);
+	}
+
+	vbif->qos_nrt_tbl.npriority_lvl =
+			prop_count[VBIF_QOS_NRT_REMAP];
+	SDE_DEBUG("qos_nrt_tbl.npriority_lvl=%u\n",
+			vbif->qos_nrt_tbl.npriority_lvl);
+
+	if (vbif->qos_nrt_tbl.npriority_lvl == sde_cfg->vbif_qos_nlvl) {
+		vbif->qos_nrt_tbl.priority_lvl = kcalloc(
+			vbif->qos_nrt_tbl.npriority_lvl, sizeof(u32),
+			GFP_KERNEL);
+		if (!vbif->qos_nrt_tbl.priority_lvl)
+			return -ENOMEM;
+	} else if (vbif->qos_nrt_tbl.npriority_lvl) {
+		vbif->qos_nrt_tbl.npriority_lvl = 0;
+		vbif->qos_nrt_tbl.priority_lvl = NULL;
+		SDE_ERROR("invalid qos nrt table\n");
+	}
+
+	for (j = 0; j < vbif->qos_nrt_tbl.npriority_lvl; j++) {
+		vbif->qos_nrt_tbl.priority_lvl[j] =
+			PROP_VALUE_ACCESS(prop_value,
+					VBIF_QOS_NRT_REMAP, j);
+		SDE_DEBUG("lvl[%d]=%u\n", j,
+				vbif->qos_nrt_tbl.priority_lvl[j]);
+	}
+
+	if (vbif->qos_rt_tbl.npriority_lvl ||
+			vbif->qos_nrt_tbl.npriority_lvl)
+		set_bit(SDE_VBIF_QOS_REMAP, &vbif->features);
+
+	return 0;
+}
+
+static int _sde_vbif_populate(struct sde_mdss_cfg *sde_cfg,
+	struct sde_vbif_cfg *vbif, struct sde_prop_value *prop_value,
+	int *prop_count, u32 vbif_len, int i)
+{
+	int j, k, rc;
+
+	vbif = sde_cfg->vbif + i;
+	vbif->base = PROP_VALUE_ACCESS(prop_value, VBIF_OFF, i);
+	vbif->len = vbif_len;
+	vbif->id = VBIF_0 + PROP_VALUE_ACCESS(prop_value, VBIF_ID, i);
+	snprintf(vbif->name, SDE_HW_BLK_NAME_LEN, "vbif_%u",
+			vbif->id - VBIF_0);
+
+	SDE_DEBUG("vbif:%d\n", vbif->id - VBIF_0);
+
+	vbif->xin_halt_timeout = VBIF_XIN_HALT_TIMEOUT;
+
+	rc = _sde_vbif_populate_ot_parsing(vbif, prop_value, prop_count);
+	if (rc)
+		return rc;
+
+	rc = _sde_vbif_populate_qos_parsing(sde_cfg, vbif, prop_value,
+			prop_count);
+	if (rc)
+		return rc;
+
+	vbif->memtype_count = prop_count[VBIF_MEMTYPE_0] +
+				prop_count[VBIF_MEMTYPE_1];
+	if (vbif->memtype_count > MAX_XIN_COUNT) {
+		vbif->memtype_count = 0;
+		SDE_ERROR("too many memtype defs, ignoring entries\n");
+	}
+	for (j = 0, k = 0; j < prop_count[VBIF_MEMTYPE_0]; j++)
+		vbif->memtype[k++] = PROP_VALUE_ACCESS(
+				prop_value, VBIF_MEMTYPE_0, j);
+	for (j = 0; j < prop_count[VBIF_MEMTYPE_1]; j++)
+		vbif->memtype[k++] = PROP_VALUE_ACCESS(
+				prop_value, VBIF_MEMTYPE_1, j);
+
+	return 0;
+}
+
 static int sde_vbif_parse_dt(struct device_node *np,
 				struct sde_mdss_cfg *sde_cfg)
 {
-	int rc, prop_count[VBIF_PROP_MAX], i, j, k;
+	int rc, prop_count[VBIF_PROP_MAX], i;
 	struct sde_prop_value *prop_value = NULL;
 	bool prop_exists[VBIF_PROP_MAX];
 	u32 off_count, vbif_len;
@@ -2675,155 +2852,10 @@ static int sde_vbif_parse_dt(struct device_node *np,
 		vbif_len = DEFAULT_SDE_HW_BLOCK_LEN;
 
 	for (i = 0; i < off_count; i++) {
-		vbif = sde_cfg->vbif + i;
-		vbif->base = PROP_VALUE_ACCESS(prop_value, VBIF_OFF, i);
-		vbif->len = vbif_len;
-		vbif->id = VBIF_0 + PROP_VALUE_ACCESS(prop_value, VBIF_ID, i);
-		snprintf(vbif->name, SDE_HW_BLK_NAME_LEN, "vbif_%u",
-				vbif->id - VBIF_0);
-
-		SDE_DEBUG("vbif:%d\n", vbif->id - VBIF_0);
-
-		vbif->xin_halt_timeout = VBIF_XIN_HALT_TIMEOUT;
-
-		vbif->default_ot_rd_limit = PROP_VALUE_ACCESS(prop_value,
-				VBIF_DEFAULT_OT_RD_LIMIT, 0);
-		SDE_DEBUG("default_ot_rd_limit=%u\n",
-				vbif->default_ot_rd_limit);
-
-		vbif->default_ot_wr_limit = PROP_VALUE_ACCESS(prop_value,
-				VBIF_DEFAULT_OT_WR_LIMIT, 0);
-		SDE_DEBUG("default_ot_wr_limit=%u\n",
-				vbif->default_ot_wr_limit);
-
-		vbif->dynamic_ot_rd_tbl.count =
-				prop_count[VBIF_DYNAMIC_OT_RD_LIMIT] / 2;
-		SDE_DEBUG("dynamic_ot_rd_tbl.count=%u\n",
-				vbif->dynamic_ot_rd_tbl.count);
-		if (vbif->dynamic_ot_rd_tbl.count) {
-			vbif->dynamic_ot_rd_tbl.cfg = kcalloc(
-				vbif->dynamic_ot_rd_tbl.count,
-				sizeof(struct sde_vbif_dynamic_ot_cfg),
-				GFP_KERNEL);
-			if (!vbif->dynamic_ot_rd_tbl.cfg) {
-				rc = -ENOMEM;
-				goto end;
-			}
-		}
-
-		for (j = 0, k = 0; j < vbif->dynamic_ot_rd_tbl.count; j++) {
-			vbif->dynamic_ot_rd_tbl.cfg[j].pps = (u64)
-				PROP_VALUE_ACCESS(prop_value,
-				VBIF_DYNAMIC_OT_RD_LIMIT, k++);
-			vbif->dynamic_ot_rd_tbl.cfg[j].ot_limit =
-				PROP_VALUE_ACCESS(prop_value,
-				VBIF_DYNAMIC_OT_RD_LIMIT, k++);
-			SDE_DEBUG("dynamic_ot_rd_tbl[%d].cfg=<%llu %u>\n", j,
-				vbif->dynamic_ot_rd_tbl.cfg[j].pps,
-				vbif->dynamic_ot_rd_tbl.cfg[j].ot_limit);
-		}
-
-		vbif->dynamic_ot_wr_tbl.count =
-				prop_count[VBIF_DYNAMIC_OT_WR_LIMIT] / 2;
-		SDE_DEBUG("dynamic_ot_wr_tbl.count=%u\n",
-				vbif->dynamic_ot_wr_tbl.count);
-		if (vbif->dynamic_ot_wr_tbl.count) {
-			vbif->dynamic_ot_wr_tbl.cfg = kcalloc(
-				vbif->dynamic_ot_wr_tbl.count,
-				sizeof(struct sde_vbif_dynamic_ot_cfg),
-				GFP_KERNEL);
-			if (!vbif->dynamic_ot_wr_tbl.cfg) {
-				rc = -ENOMEM;
-				goto end;
-			}
-		}
-
-		for (j = 0, k = 0; j < vbif->dynamic_ot_wr_tbl.count; j++) {
-			vbif->dynamic_ot_wr_tbl.cfg[j].pps = (u64)
-				PROP_VALUE_ACCESS(prop_value,
-				VBIF_DYNAMIC_OT_WR_LIMIT, k++);
-			vbif->dynamic_ot_wr_tbl.cfg[j].ot_limit =
-				PROP_VALUE_ACCESS(prop_value,
-				VBIF_DYNAMIC_OT_WR_LIMIT, k++);
-			SDE_DEBUG("dynamic_ot_wr_tbl[%d].cfg=<%llu %u>\n", j,
-				vbif->dynamic_ot_wr_tbl.cfg[j].pps,
-				vbif->dynamic_ot_wr_tbl.cfg[j].ot_limit);
-		}
-
-		if (vbif->default_ot_rd_limit || vbif->default_ot_wr_limit ||
-				vbif->dynamic_ot_rd_tbl.count ||
-				vbif->dynamic_ot_wr_tbl.count)
-			set_bit(SDE_VBIF_QOS_OTLIM, &vbif->features);
-
-		vbif->qos_rt_tbl.npriority_lvl =
-				prop_count[VBIF_QOS_RT_REMAP];
-		SDE_DEBUG("qos_rt_tbl.npriority_lvl=%u\n",
-				vbif->qos_rt_tbl.npriority_lvl);
-		if (vbif->qos_rt_tbl.npriority_lvl == sde_cfg->vbif_qos_nlvl) {
-			vbif->qos_rt_tbl.priority_lvl = kcalloc(
-				vbif->qos_rt_tbl.npriority_lvl, sizeof(u32),
-				GFP_KERNEL);
-			if (!vbif->qos_rt_tbl.priority_lvl) {
-				rc = -ENOMEM;
-				goto end;
-			}
-		} else if (vbif->qos_rt_tbl.npriority_lvl) {
-			vbif->qos_rt_tbl.npriority_lvl = 0;
-			vbif->qos_rt_tbl.priority_lvl = NULL;
-			SDE_ERROR("invalid qos rt table\n");
-		}
-
-		for (j = 0; j < vbif->qos_rt_tbl.npriority_lvl; j++) {
-			vbif->qos_rt_tbl.priority_lvl[j] =
-				PROP_VALUE_ACCESS(prop_value,
-						VBIF_QOS_RT_REMAP, j);
-			SDE_DEBUG("lvl[%d]=%u\n", j,
-					vbif->qos_rt_tbl.priority_lvl[j]);
-		}
-
-		vbif->qos_nrt_tbl.npriority_lvl =
-				prop_count[VBIF_QOS_NRT_REMAP];
-		SDE_DEBUG("qos_nrt_tbl.npriority_lvl=%u\n",
-				vbif->qos_nrt_tbl.npriority_lvl);
-
-		if (vbif->qos_nrt_tbl.npriority_lvl == sde_cfg->vbif_qos_nlvl) {
-			vbif->qos_nrt_tbl.priority_lvl = kcalloc(
-				vbif->qos_nrt_tbl.npriority_lvl, sizeof(u32),
-				GFP_KERNEL);
-			if (!vbif->qos_nrt_tbl.priority_lvl) {
-				rc = -ENOMEM;
-				goto end;
-			}
-		} else if (vbif->qos_nrt_tbl.npriority_lvl) {
-			vbif->qos_nrt_tbl.npriority_lvl = 0;
-			vbif->qos_nrt_tbl.priority_lvl = NULL;
-			SDE_ERROR("invalid qos nrt table\n");
-		}
-
-		for (j = 0; j < vbif->qos_nrt_tbl.npriority_lvl; j++) {
-			vbif->qos_nrt_tbl.priority_lvl[j] =
-				PROP_VALUE_ACCESS(prop_value,
-						VBIF_QOS_NRT_REMAP, j);
-			SDE_DEBUG("lvl[%d]=%u\n", j,
-					vbif->qos_nrt_tbl.priority_lvl[j]);
-		}
-
-		if (vbif->qos_rt_tbl.npriority_lvl ||
-				vbif->qos_nrt_tbl.npriority_lvl)
-			set_bit(SDE_VBIF_QOS_REMAP, &vbif->features);
-
-		vbif->memtype_count = prop_count[VBIF_MEMTYPE_0] +
-					prop_count[VBIF_MEMTYPE_1];
-		if (vbif->memtype_count > MAX_XIN_COUNT) {
-			vbif->memtype_count = 0;
-			SDE_ERROR("too many memtype defs, ignoring entries\n");
-		}
-		for (j = 0, k = 0; j < prop_count[VBIF_MEMTYPE_0]; j++)
-			vbif->memtype[k++] = PROP_VALUE_ACCESS(
-					prop_value, VBIF_MEMTYPE_0, j);
-		for (j = 0; j < prop_count[VBIF_MEMTYPE_1]; j++)
-			vbif->memtype[k++] = PROP_VALUE_ACCESS(
-					prop_value, VBIF_MEMTYPE_1, j);
+		rc = _sde_vbif_populate(sde_cfg, vbif, prop_value,
+				prop_count, vbif_len, i);
+		if (rc)
+			goto end;
 	}
 
 end:
@@ -2934,57 +2966,9 @@ end:
 	return rc;
 }
 
-static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
+static int _sde_parse_prop_check(struct sde_mdss_cfg *cfg,
+	bool prop_exists[SDE_PROP_MAX], struct sde_prop_value *prop_value)
 {
-	int rc, i, dma_rc, len, prop_count[SDE_PROP_MAX];
-	struct sde_prop_value *prop_value = NULL;
-	bool prop_exists[SDE_PROP_MAX];
-	const char *type;
-	u32 major_version;
-
-	if (!cfg) {
-		SDE_ERROR("invalid argument\n");
-		rc = -EINVAL;
-		goto end;
-	}
-
-	prop_value = kzalloc(SDE_PROP_MAX *
-			sizeof(struct sde_prop_value), GFP_KERNEL);
-	if (!prop_value) {
-		rc = -ENOMEM;
-		goto end;
-	}
-
-	rc = _validate_dt_entry(np, sde_prop, ARRAY_SIZE(sde_prop), prop_count,
-		&len);
-	if (rc)
-		goto end;
-
-	rc = _validate_dt_entry(np, &sde_prop[SEC_SID_MASK], 1,
-				&prop_count[SEC_SID_MASK], NULL);
-	if (rc)
-		goto end;
-
-	rc = _read_dt_entry(np, sde_prop, ARRAY_SIZE(sde_prop), prop_count,
-		prop_exists, prop_value);
-	if (rc)
-		goto end;
-
-	cfg->mdss_count = 1;
-	cfg->mdss[0].base = MDSS_BASE_OFFSET;
-	cfg->mdss[0].id = MDP_TOP;
-	snprintf(cfg->mdss[0].name, SDE_HW_BLK_NAME_LEN, "mdss_%u",
-			cfg->mdss[0].id - MDP_TOP);
-
-	cfg->mdp_count = 1;
-	cfg->mdp[0].id = MDP_TOP;
-	snprintf(cfg->mdp[0].name, SDE_HW_BLK_NAME_LEN, "top_%u",
-		cfg->mdp[0].id - MDP_TOP);
-	cfg->mdp[0].base = PROP_VALUE_ACCESS(prop_value, SDE_OFF, 0);
-	cfg->mdp[0].len = PROP_VALUE_ACCESS(prop_value, SDE_LEN, 0);
-	if (!prop_exists[SDE_LEN])
-		cfg->mdp[0].len = DEFAULT_SDE_HW_BLOCK_LEN;
-
 	cfg->max_sspp_linewidth = PROP_VALUE_ACCESS(prop_value,
 			SSPP_LINEWIDTH, 0);
 	if (!prop_exists[SSPP_LINEWIDTH])
@@ -3035,6 +3019,60 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 
 	cfg->mdp[0].smart_panel_align_mode =
 		PROP_VALUE_ACCESS(prop_value, SMART_PANEL_ALIGN_MODE, 0);
+	return 0;
+}
+
+static int sde_top_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
+{
+	int rc, i, dma_rc, len, prop_count[SDE_PROP_MAX];
+	struct sde_prop_value *prop_value = NULL;
+	bool prop_exists[SDE_PROP_MAX];
+	const char *type;
+	u32 major_version;
+
+	if (!cfg) {
+		SDE_ERROR("invalid argument\n");
+		return -EINVAL;
+	}
+
+	prop_value = kzalloc(SDE_PROP_MAX *
+			sizeof(struct sde_prop_value), GFP_KERNEL);
+	if (!prop_value)
+		return -ENOMEM;
+
+	rc = _validate_dt_entry(np, sde_prop, ARRAY_SIZE(sde_prop), prop_count,
+		&len);
+	if (rc)
+		goto end;
+
+	rc = _validate_dt_entry(np, &sde_prop[SEC_SID_MASK], 1,
+				&prop_count[SEC_SID_MASK], NULL);
+	if (rc)
+		goto end;
+
+	rc = _read_dt_entry(np, sde_prop, ARRAY_SIZE(sde_prop), prop_count,
+		prop_exists, prop_value);
+	if (rc)
+		goto end;
+
+	cfg->mdss_count = 1;
+	cfg->mdss[0].base = MDSS_BASE_OFFSET;
+	cfg->mdss[0].id = MDP_TOP;
+	snprintf(cfg->mdss[0].name, SDE_HW_BLK_NAME_LEN, "mdss_%u",
+			cfg->mdss[0].id - MDP_TOP);
+
+	cfg->mdp_count = 1;
+	cfg->mdp[0].id = MDP_TOP;
+	snprintf(cfg->mdp[0].name, SDE_HW_BLK_NAME_LEN, "top_%u",
+		cfg->mdp[0].id - MDP_TOP);
+	cfg->mdp[0].base = PROP_VALUE_ACCESS(prop_value, SDE_OFF, 0);
+	cfg->mdp[0].len = PROP_VALUE_ACCESS(prop_value, SDE_LEN, 0);
+	if (!prop_exists[SDE_LEN])
+		cfg->mdp[0].len = DEFAULT_SDE_HW_BLOCK_LEN;
+
+	rc = _sde_parse_prop_check(cfg, prop_exists, prop_value);
+	if (rc)
+		SDE_ERROR("sde parse property check failed\n");
 
 	major_version = SDE_HW_MAJOR(cfg->hwversion);
 	if (major_version < SDE_HW_MAJOR(SDE_HW_VER_500))
@@ -3132,99 +3170,188 @@ static int sde_parse_reg_dma_dt(struct device_node *np,
 	return 0;
 }
 
-static int sde_perf_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
+static int _sde_perf_parse_dt_validate(struct device_node *np, int *prop_count)
 {
-	int rc, len, prop_count[PERF_PROP_MAX];
-	struct sde_prop_value *prop_value = NULL;
-	bool prop_exists[PERF_PROP_MAX];
-	const char *str = NULL;
-	int j, k;
-
-	if (!cfg) {
-		SDE_ERROR("invalid argument\n");
-		rc = -EINVAL;
-		goto end;
-	}
-
-	prop_value = kzalloc(PERF_PROP_MAX *
-			sizeof(struct sde_prop_value), GFP_KERNEL);
-	if (!prop_value) {
-		rc = -ENOMEM;
-		goto end;
-	}
+	int rc, len;
 
 	rc = _validate_dt_entry(np, sde_perf_prop, ARRAY_SIZE(sde_perf_prop),
 			prop_count, &len);
 	if (rc)
-		goto freeprop;
+		return rc;
 
 	rc = _validate_dt_entry(np, &sde_perf_prop[PERF_DANGER_LUT], 1,
 			&prop_count[PERF_DANGER_LUT], NULL);
 	if (rc)
-		goto freeprop;
+		return rc;
 
 	rc = _validate_dt_entry(np, &sde_perf_prop[PERF_SAFE_LUT_LINEAR], 1,
 			&prop_count[PERF_SAFE_LUT_LINEAR], NULL);
 	if (rc)
-		goto freeprop;
+		return rc;
 
 	rc = _validate_dt_entry(np, &sde_perf_prop[PERF_SAFE_LUT_MACROTILE], 1,
 			&prop_count[PERF_SAFE_LUT_MACROTILE], NULL);
 	if (rc)
-		goto freeprop;
+		return rc;
 
 	rc = _validate_dt_entry(np, &sde_perf_prop[PERF_SAFE_LUT_NRT], 1,
 			&prop_count[PERF_SAFE_LUT_NRT], NULL);
 	if (rc)
-		goto freeprop;
+		return rc;
 
 	rc = _validate_dt_entry(np, &sde_perf_prop[PERF_SAFE_LUT_CWB], 1,
 			&prop_count[PERF_SAFE_LUT_CWB], NULL);
 	if (rc)
-		goto freeprop;
+		return rc;
 
 	rc = _validate_dt_entry(np, &sde_perf_prop[PERF_QOS_LUT_LINEAR], 1,
 			&prop_count[PERF_QOS_LUT_LINEAR], NULL);
 	if (rc)
-		goto freeprop;
+		return rc;
 
 	rc = _validate_dt_entry(np, &sde_perf_prop[PERF_QOS_LUT_MACROTILE], 1,
 			&prop_count[PERF_QOS_LUT_MACROTILE], NULL);
 	if (rc)
-		goto freeprop;
+		return rc;
 
 	rc = _validate_dt_entry(np, &sde_perf_prop[PERF_QOS_LUT_NRT], 1,
 			&prop_count[PERF_QOS_LUT_NRT], NULL);
 	if (rc)
-		goto freeprop;
+		return rc;
 
 	rc = _validate_dt_entry(np, &sde_perf_prop[PERF_QOS_LUT_CWB], 1,
 			&prop_count[PERF_QOS_LUT_CWB], NULL);
 	if (rc)
-		goto freeprop;
+		return rc;
 
 	rc = _validate_dt_entry(np, &sde_perf_prop[PERF_CDP_SETTING], 1,
 			&prop_count[PERF_CDP_SETTING], NULL);
 	if (rc)
-		goto freeprop;
+		return rc;
 
 	rc = _validate_dt_entry(np,
 			&sde_perf_prop[PERF_QOS_LUT_MACROTILE_QSEED], 1,
 			&prop_count[PERF_QOS_LUT_MACROTILE_QSEED], NULL);
 	if (rc)
-		goto freeprop;
+		return rc;
 
 	rc = _validate_dt_entry(np,
 			&sde_perf_prop[PERF_SAFE_LUT_MACROTILE_QSEED], 1,
 			&prop_count[PERF_SAFE_LUT_MACROTILE_QSEED], NULL);
-	if (rc)
-		goto freeprop;
 
-	rc = _read_dt_entry(np, sde_perf_prop, ARRAY_SIZE(sde_perf_prop),
-			prop_count, prop_exists, prop_value);
-	if (rc)
-		goto freeprop;
+	return rc;
+}
 
+static int _sde_perf_parse_dt_cfg_qos(struct sde_mdss_cfg *cfg, int *prop_count,
+	struct sde_prop_value *prop_value, bool *prop_exists)
+{
+	int j, k;
+
+	if (prop_exists[PERF_DANGER_LUT] && prop_count[PERF_DANGER_LUT] <=
+			SDE_QOS_LUT_USAGE_MAX) {
+		for (j = 0; j < prop_count[PERF_DANGER_LUT]; j++) {
+			cfg->perf.danger_lut_tbl[j] =
+					PROP_VALUE_ACCESS(prop_value,
+						PERF_DANGER_LUT, j);
+			SDE_DEBUG("danger usage:%d lut:0x%x\n",
+					j, cfg->perf.danger_lut_tbl[j]);
+		}
+	}
+
+	for (j = 0; j < SDE_QOS_LUT_USAGE_MAX; j++) {
+		static const u32 safe_key[SDE_QOS_LUT_USAGE_MAX] = {
+			[SDE_QOS_LUT_USAGE_LINEAR] =
+					PERF_SAFE_LUT_LINEAR,
+			[SDE_QOS_LUT_USAGE_MACROTILE] =
+					PERF_SAFE_LUT_MACROTILE,
+			[SDE_QOS_LUT_USAGE_NRT] =
+					PERF_SAFE_LUT_NRT,
+			[SDE_QOS_LUT_USAGE_CWB] =
+					PERF_SAFE_LUT_CWB,
+			[SDE_QOS_LUT_USAGE_MACROTILE_QSEED] =
+					PERF_SAFE_LUT_MACROTILE_QSEED,
+		};
+		const u32 entry_size = 2;
+		int m, count;
+		int key = safe_key[j];
+
+		if (!prop_exists[key])
+			continue;
+
+		count = prop_count[key] / entry_size;
+
+		cfg->perf.sfe_lut_tbl[j].entries = kcalloc(count,
+			sizeof(struct sde_qos_lut_entry), GFP_KERNEL);
+		if (!cfg->perf.sfe_lut_tbl[j].entries)
+			return -ENOMEM;
+
+		for (k = 0, m = 0; k < count; k++, m += entry_size) {
+			u64 lut_lo;
+
+			cfg->perf.sfe_lut_tbl[j].entries[k].fl =
+					PROP_VALUE_ACCESS(prop_value, key, m);
+			lut_lo = PROP_VALUE_ACCESS(prop_value, key, m + 1);
+			cfg->perf.sfe_lut_tbl[j].entries[k].lut = lut_lo;
+			SDE_DEBUG("safe usage:%d.%d fl:%d lut:0x%llx\n",
+				j, k,
+				cfg->perf.sfe_lut_tbl[j].entries[k].fl,
+				cfg->perf.sfe_lut_tbl[j].entries[k].lut);
+		}
+		cfg->perf.sfe_lut_tbl[j].nentry = count;
+	}
+
+	for (j = 0; j < SDE_QOS_LUT_USAGE_MAX; j++) {
+		static const u32 prop_key[SDE_QOS_LUT_USAGE_MAX] = {
+			[SDE_QOS_LUT_USAGE_LINEAR] =
+					PERF_QOS_LUT_LINEAR,
+			[SDE_QOS_LUT_USAGE_MACROTILE] =
+					PERF_QOS_LUT_MACROTILE,
+			[SDE_QOS_LUT_USAGE_NRT] =
+					PERF_QOS_LUT_NRT,
+			[SDE_QOS_LUT_USAGE_CWB] =
+					PERF_QOS_LUT_CWB,
+			[SDE_QOS_LUT_USAGE_MACROTILE_QSEED] =
+					PERF_QOS_LUT_MACROTILE_QSEED,
+		};
+		const u32 entry_size = 3;
+		int m, count;
+		int key = prop_key[j];
+
+		if (!prop_exists[key])
+			continue;
+
+		count = prop_count[key] / entry_size;
+
+		cfg->perf.qos_lut_tbl[j].entries = kcalloc(count,
+			sizeof(struct sde_qos_lut_entry), GFP_KERNEL);
+		if (!cfg->perf.qos_lut_tbl[j].entries)
+			return -ENOMEM;
+
+		for (k = 0, m = 0; k < count; k++, m += entry_size) {
+			u64 lut_hi, lut_lo;
+
+			cfg->perf.qos_lut_tbl[j].entries[k].fl =
+					PROP_VALUE_ACCESS(prop_value, key, m);
+			lut_hi = PROP_VALUE_ACCESS(prop_value, key, m + 1);
+			lut_lo = PROP_VALUE_ACCESS(prop_value, key, m + 2);
+			cfg->perf.qos_lut_tbl[j].entries[k].lut =
+					(lut_hi << 32) | lut_lo;
+			SDE_DEBUG("usage:%d.%d fl:%d lut:0x%llx\n",
+				j, k,
+				cfg->perf.qos_lut_tbl[j].entries[k].fl,
+				cfg->perf.qos_lut_tbl[j].entries[k].lut);
+		}
+		cfg->perf.qos_lut_tbl[j].nentry = count;
+	}
+
+	return 0;
+}
+
+static void _sde_perf_parse_dt_cfg_populate(struct sde_mdss_cfg *cfg,
+		int *prop_count,
+		struct sde_prop_value *prop_value,
+		bool *prop_exists)
+{
 	cfg->perf.max_bw_low =
 			prop_exists[PERF_MAX_BW_LOW] ?
 			PROP_VALUE_ACCESS(prop_value, PERF_MAX_BW_LOW, 0) :
@@ -3245,24 +3372,6 @@ static int sde_perf_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 			prop_exists[PERF_MIN_DRAM_IB] ?
 			PROP_VALUE_ACCESS(prop_value, PERF_MIN_DRAM_IB, 0) :
 			DEFAULT_MAX_BW_LOW;
-
-	/*
-	 * The following performance parameters (e.g. core_ib_ff) are
-	 * mapped directly as device tree string constants.
-	 */
-	rc = of_property_read_string(np,
-			sde_perf_prop[PERF_CORE_IB_FF].prop_name, &str);
-	cfg->perf.core_ib_ff = rc ? DEFAULT_CORE_IB_FF : str;
-	rc = of_property_read_string(np,
-			sde_perf_prop[PERF_CORE_CLK_FF].prop_name, &str);
-	cfg->perf.core_clk_ff = rc ? DEFAULT_CORE_CLK_FF : str;
-	rc = of_property_read_string(np,
-			sde_perf_prop[PERF_COMP_RATIO_RT].prop_name, &str);
-	cfg->perf.comp_ratio_rt = rc ? DEFAULT_COMP_RATIO_RT : str;
-	rc = of_property_read_string(np,
-			sde_perf_prop[PERF_COMP_RATIO_NRT].prop_name, &str);
-	cfg->perf.comp_ratio_nrt = rc ? DEFAULT_COMP_RATIO_NRT : str;
-	rc = 0;
 
 	cfg->perf.undersized_prefill_lines =
 			prop_exists[PERF_UNDERSIZED_PREFILL_LINES] ?
@@ -3304,107 +3413,40 @@ static int sde_perf_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 			PROP_VALUE_ACCESS(prop_value,
 					PERF_AMORTIZABLE_THRESHOLD, 0) :
 			DEFAULT_AMORTIZABLE_THRESHOLD;
+}
 
-	if (prop_exists[PERF_DANGER_LUT] && prop_count[PERF_DANGER_LUT] <=
-			SDE_QOS_LUT_USAGE_MAX) {
-		for (j = 0; j < prop_count[PERF_DANGER_LUT]; j++) {
-			cfg->perf.danger_lut_tbl[j] =
-					PROP_VALUE_ACCESS(prop_value,
-						PERF_DANGER_LUT, j);
-			SDE_DEBUG("danger usage:%d lut:0x%x\n",
-					j, cfg->perf.danger_lut_tbl[j]);
-		}
-	}
+static int _sde_perf_parse_dt_cfg(struct device_node *np,
+	struct sde_mdss_cfg *cfg, int *prop_count,
+	struct sde_prop_value *prop_value, bool *prop_exists)
+{
+	int rc, j;
+	const char *str = NULL;
 
-	for (j = 0; j < SDE_QOS_LUT_USAGE_MAX; j++) {
-		static const u32 safe_key[SDE_QOS_LUT_USAGE_MAX] = {
-			[SDE_QOS_LUT_USAGE_LINEAR] =
-					PERF_SAFE_LUT_LINEAR,
-			[SDE_QOS_LUT_USAGE_MACROTILE] =
-					PERF_SAFE_LUT_MACROTILE,
-			[SDE_QOS_LUT_USAGE_NRT] =
-					PERF_SAFE_LUT_NRT,
-			[SDE_QOS_LUT_USAGE_CWB] =
-					PERF_SAFE_LUT_CWB,
-			[SDE_QOS_LUT_USAGE_MACROTILE_QSEED] =
-					PERF_SAFE_LUT_MACROTILE_QSEED,
-		};
-		const u32 entry_size = 2;
-		int m, count;
-		int key = safe_key[j];
+	/*
+	 * The following performance parameters (e.g. core_ib_ff) are
+	 * mapped directly as device tree string constants.
+	 */
+	rc = of_property_read_string(np,
+			sde_perf_prop[PERF_CORE_IB_FF].prop_name, &str);
+	cfg->perf.core_ib_ff = rc ? DEFAULT_CORE_IB_FF : str;
+	rc = of_property_read_string(np,
+			sde_perf_prop[PERF_CORE_CLK_FF].prop_name, &str);
+	cfg->perf.core_clk_ff = rc ? DEFAULT_CORE_CLK_FF : str;
+	rc = of_property_read_string(np,
+			sde_perf_prop[PERF_COMP_RATIO_RT].prop_name, &str);
+	cfg->perf.comp_ratio_rt = rc ? DEFAULT_COMP_RATIO_RT : str;
+	rc = of_property_read_string(np,
+			sde_perf_prop[PERF_COMP_RATIO_NRT].prop_name, &str);
+	cfg->perf.comp_ratio_nrt = rc ? DEFAULT_COMP_RATIO_NRT : str;
+	rc = 0;
 
-		if (!prop_exists[key])
-			continue;
+	_sde_perf_parse_dt_cfg_populate(cfg, prop_count, prop_value,
+			prop_exists);
 
-		count = prop_count[key] / entry_size;
-
-		cfg->perf.sfe_lut_tbl[j].entries = kcalloc(count,
-			sizeof(struct sde_qos_lut_entry), GFP_KERNEL);
-		if (!cfg->perf.sfe_lut_tbl[j].entries) {
-			rc = -ENOMEM;
-			goto freeprop;
-		}
-
-		for (k = 0, m = 0; k < count; k++, m += entry_size) {
-			u64 lut_lo;
-
-			cfg->perf.sfe_lut_tbl[j].entries[k].fl =
-					PROP_VALUE_ACCESS(prop_value, key, m);
-			lut_lo = PROP_VALUE_ACCESS(prop_value, key, m + 1);
-			cfg->perf.sfe_lut_tbl[j].entries[k].lut = lut_lo;
-			SDE_DEBUG("safe usage:%d.%d fl:%d lut:0x%llx\n",
-				j, k,
-				cfg->perf.sfe_lut_tbl[j].entries[k].fl,
-				cfg->perf.sfe_lut_tbl[j].entries[k].lut);
-		}
-		cfg->perf.sfe_lut_tbl[j].nentry = count;
-	}
-
-	for (j = 0; j < SDE_QOS_LUT_USAGE_MAX; j++) {
-		static const u32 prop_key[SDE_QOS_LUT_USAGE_MAX] = {
-			[SDE_QOS_LUT_USAGE_LINEAR] =
-					PERF_QOS_LUT_LINEAR,
-			[SDE_QOS_LUT_USAGE_MACROTILE] =
-					PERF_QOS_LUT_MACROTILE,
-			[SDE_QOS_LUT_USAGE_NRT] =
-					PERF_QOS_LUT_NRT,
-			[SDE_QOS_LUT_USAGE_CWB] =
-					PERF_QOS_LUT_CWB,
-			[SDE_QOS_LUT_USAGE_MACROTILE_QSEED] =
-					PERF_QOS_LUT_MACROTILE_QSEED,
-		};
-		const u32 entry_size = 3;
-		int m, count;
-		int key = prop_key[j];
-
-		if (!prop_exists[key])
-			continue;
-
-		count = prop_count[key] / entry_size;
-
-		cfg->perf.qos_lut_tbl[j].entries = kcalloc(count,
-			sizeof(struct sde_qos_lut_entry), GFP_KERNEL);
-		if (!cfg->perf.qos_lut_tbl[j].entries) {
-			rc = -ENOMEM;
-			goto freeprop;
-		}
-
-		for (k = 0, m = 0; k < count; k++, m += entry_size) {
-			u64 lut_hi, lut_lo;
-
-			cfg->perf.qos_lut_tbl[j].entries[k].fl =
-					PROP_VALUE_ACCESS(prop_value, key, m);
-			lut_hi = PROP_VALUE_ACCESS(prop_value, key, m + 1);
-			lut_lo = PROP_VALUE_ACCESS(prop_value, key, m + 2);
-			cfg->perf.qos_lut_tbl[j].entries[k].lut =
-					(lut_hi << 32) | lut_lo;
-			SDE_DEBUG("usage:%d.%d fl:%d lut:0x%llx\n",
-				j, k,
-				cfg->perf.qos_lut_tbl[j].entries[k].fl,
-				cfg->perf.qos_lut_tbl[j].entries[k].lut);
-		}
-		cfg->perf.qos_lut_tbl[j].nentry = count;
-	}
+	rc = _sde_perf_parse_dt_cfg_qos(cfg, prop_count, prop_value,
+			prop_exists);
+	if (rc)
+		return rc;
 
 	if (prop_exists[PERF_CDP_SETTING]) {
 		const u32 prop_size = 2;
@@ -3435,6 +3477,40 @@ static int sde_perf_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 			prop_exists[PERF_CPU_DMA_LATENCY] ?
 			PROP_VALUE_ACCESS(prop_value, PERF_CPU_DMA_LATENCY, 0) :
 			DEFAULT_CPU_DMA_LATENCY;
+
+	return 0;
+}
+
+static int sde_perf_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
+{
+	int rc, prop_count[PERF_PROP_MAX];
+	struct sde_prop_value *prop_value = NULL;
+	bool prop_exists[PERF_PROP_MAX];
+
+	if (!cfg) {
+		SDE_ERROR("invalid argument\n");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	prop_value = kzalloc(PERF_PROP_MAX *
+			sizeof(struct sde_prop_value), GFP_KERNEL);
+	if (!prop_value) {
+		rc = -ENOMEM;
+		goto end;
+	}
+
+	rc = _sde_perf_parse_dt_validate(np, prop_count);
+	if (rc)
+		goto freeprop;
+
+	rc = _read_dt_entry(np, sde_perf_prop, ARRAY_SIZE(sde_perf_prop),
+			prop_count, prop_exists, prop_value);
+	if (rc)
+		goto freeprop;
+
+	rc = _sde_perf_parse_dt_cfg(np, cfg, prop_count, prop_value,
+			prop_exists);
 
 freeprop:
 	kfree(prop_value);
