@@ -101,7 +101,7 @@ err:
 	return 0;
 }
 
-static int update_config(struct clk_rcg2 *rcg)
+static int update_config(struct clk_rcg2 *rcg, u32 cfg)
 {
 	int count, ret;
 	u32 cmd;
@@ -123,22 +123,28 @@ static int update_config(struct clk_rcg2 *rcg)
 		udelay(1);
 	}
 
-	WARN(1, "%s: rcg didn't update its configuration.", name);
-	return 0;
+	pr_err("CFG_RCGR old frequency configuration 0x%x !\n", cfg);
+
+	WARN_CLK(hw->core, name, count == 0,
+			"%s: rcg didn't update its configuration.", name);
+	return -EBUSY;
 }
 
 static int clk_rcg2_set_parent(struct clk_hw *hw, u8 index)
 {
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
 	int ret;
-	u32 cfg = rcg->parent_map[index].cfg << CFG_SRC_SEL_SHIFT;
+	u32 old_cfg, cfg = rcg->parent_map[index].cfg << CFG_SRC_SEL_SHIFT;
+
+	/* Read back the old configuration */
+	regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + CFG_REG, &old_cfg);
 
 	ret = regmap_update_bits(rcg->clkr.regmap, rcg->cmd_rcgr + CFG_REG,
 				 CFG_SRC_SEL_MASK, cfg);
 	if (ret)
 		return ret;
 
-	return update_config(rcg);
+	return update_config(rcg, old_cfg);
 }
 
 static int clk_rcg2_set_force_enable(struct clk_hw *hw)
@@ -395,13 +401,17 @@ static int __clk_rcg2_configure(struct clk_rcg2 *rcg, const struct freq_tbl *f)
 
 static int clk_rcg2_configure(struct clk_rcg2 *rcg, const struct freq_tbl *f)
 {
+	u32 old_cfg;
 	int ret;
+
+	/* Read back the old configuration */
+	regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + CFG_REG, &old_cfg);
 
 	ret = __clk_rcg2_configure(rcg, f);
 	if (ret)
 		return ret;
 
-	return update_config(rcg);
+	return update_config(rcg, old_cfg);
 }
 
 static void clk_rcg2_list_registers(struct seq_file *f, struct clk_hw *hw)
@@ -427,14 +437,16 @@ static void clk_rcg2_list_registers(struct seq_file *f, struct clk_hw *hw)
 		for (i = 0; i < size; i++) {
 			regmap_read(rcg->clkr.regmap, (rcg->cmd_rcgr +
 					data1[i].offset), &val);
-			seq_printf(f, "%20s: 0x%.8x\n",	data1[i].name, val);
+			clock_debug_output(f, false,
+					"%20s: 0x%.8x\n", data1[i].name, val);
 		}
 	} else {
 		size = ARRAY_SIZE(data);
 		for (i = 0; i < size; i++) {
 			regmap_read(rcg->clkr.regmap, (rcg->cmd_rcgr +
 				data[i].offset), &val);
-			seq_printf(f, "%20s: 0x%.8x\n",	data[i].name, val);
+			clock_debug_output(f, false,
+					"%20s: 0x%.8x\n", data[i].name, val);
 		}
 	}
 }
@@ -1145,8 +1157,11 @@ static int clk_gfx3d_set_rate_and_parent(struct clk_hw *hw, unsigned long rate,
 		unsigned long parent_rate, u8 index)
 {
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
-	u32 cfg;
+	u32 cfg, old_cfg;
 	int ret;
+
+	/* Read back the old configuration */
+	regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + CFG_REG, &old_cfg);
 
 	/* Just mux it, we don't use the division or m/n hardware */
 	cfg = rcg->parent_map[index].cfg << CFG_SRC_SEL_SHIFT;
@@ -1154,7 +1169,7 @@ static int clk_gfx3d_set_rate_and_parent(struct clk_hw *hw, unsigned long rate,
 	if (ret)
 		return ret;
 
-	return update_config(rcg);
+	return update_config(rcg, old_cfg);
 }
 
 static int clk_gfx3d_set_rate(struct clk_hw *hw, unsigned long rate,
@@ -1226,7 +1241,11 @@ static int clk_rcg2_shared_set_rate_and_parent(struct clk_hw *hw,
 static int clk_rcg2_shared_enable(struct clk_hw *hw)
 {
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+	u32 old_cfg;
 	int ret;
+
+	/* Read back the old configuration */
+	regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + CFG_REG, &old_cfg);
 
 	/*
 	 * Set the update bit because required configuration has already
@@ -1236,7 +1255,7 @@ static int clk_rcg2_shared_enable(struct clk_hw *hw)
 	if (ret)
 		return ret;
 
-	ret = update_config(rcg);
+	ret = update_config(rcg, old_cfg);
 	if (ret)
 		return ret;
 
@@ -1267,7 +1286,7 @@ static void clk_rcg2_shared_disable(struct clk_hw *hw)
 	regmap_write(rcg->clkr.regmap, rcg->cmd_rcgr + CFG_REG,
 		     rcg->safe_src_index << CFG_SRC_SEL_SHIFT);
 
-	update_config(rcg);
+	update_config(rcg, cfg);
 
 	clk_rcg2_clear_force_enable(hw);
 

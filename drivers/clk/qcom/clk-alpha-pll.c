@@ -8,6 +8,7 @@
 #include <linux/clk-provider.h>
 #include <linux/regmap.h>
 #include <linux/delay.h>
+#include <linux/sched/clock.h>
 
 #include "clk-alpha-pll.h"
 #include "common.h"
@@ -180,11 +181,15 @@ static int wait_for_pll(struct clk_alpha_pll *pll, u32 mask, bool inverse,
 	u32 val;
 	int count;
 	int ret;
-	const char *name = clk_hw_get_name(&pll->clkr.hw);
+	u64 time;
+	struct clk_hw *hw = &pll->clkr.hw;
+	const char *name = clk_hw_get_name(hw);
 
 	ret = regmap_read(pll->clkr.regmap, PLL_MODE(pll), &val);
 	if (ret)
 		return ret;
+
+	time = sched_clock();
 
 	for (count = 100; count > 0; count--) {
 		ret = regmap_read(pll->clkr.regmap, PLL_MODE(pll), &val);
@@ -197,8 +202,11 @@ static int wait_for_pll(struct clk_alpha_pll *pll, u32 mask, bool inverse,
 
 		udelay(1);
 	}
+	time = sched_clock() - time;
 
-	WARN(1, "%s failed to %s!\n", name, action);
+	pr_err("PLL lock bit detection total wait time: %lld ns\n", time);
+
+	WARN_CLK(hw->core, name, 1, "failed to %s!\n", action);
 	return -ETIMEDOUT;
 }
 
@@ -794,7 +802,8 @@ static void clk_alpha_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 	for (i = 0; i < size; i++) {
 		regmap_read(pll->clkr.regmap, pll->offset + data[i].offset,
 					&val);
-		seq_printf(f, "%20s: 0x%.8x\n", data[i].name, val);
+		clock_debug_output(f, false,
+				"%20s: 0x%.8x\n", data[i].name, val);
 	}
 
 	regmap_read(pll->clkr.regmap, pll->offset + data[0].offset, &val);
@@ -802,7 +811,8 @@ static void clk_alpha_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 	if (val & PLL_FSM_ENA) {
 		regmap_read(pll->clkr.regmap, pll->clkr.enable_reg +
 					data1[0].offset, &val);
-		seq_printf(f, "%20s: 0x%.8x\n", data1[0].name, val);
+		clock_debug_output(f, false,
+				"%20s: 0x%.8x\n", data1[0].name, val);
 	}
 }
 
@@ -1056,7 +1066,8 @@ static void clk_zonda_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 	for (i = 0; i < size; i++) {
 		regmap_read(pll->clkr.regmap, pll->offset + pll_regs[i].offset,
 					&val);
-		seq_printf(f, "%20s: 0x%.8x\n", pll_regs[i].name, val);
+		clock_debug_output(f, false,
+				"%20s: 0x%.8x\n", pll_regs[i].name, val);
 	}
 
 	regmap_read(pll->clkr.regmap, pll->offset + pll_vote_reg.offset, &val);
@@ -1064,7 +1075,8 @@ static void clk_zonda_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 	if (val & PLL_FSM_ENA) {
 		regmap_read(pll->clkr.regmap, pll->clkr.enable_reg +
 					pll_vote_reg.offset, &val);
-		seq_printf(f, "%20s: 0x%.8x\n", pll_vote_reg.name, val);
+		clock_debug_output(f, false,
+				"%20s: 0x%.8x\n", pll_vote_reg.name, val);
 	}
 }
 
