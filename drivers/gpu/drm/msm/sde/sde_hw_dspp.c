@@ -216,6 +216,10 @@ static void dspp_ltm(struct sde_hw_dspp *c)
 			c->ops.setup_ltm_roi = NULL;
 			c->ops.setup_ltm_vlut = NULL;
 		}
+		c->ops.setup_ltm_thresh = sde_setup_dspp_ltm_threshv1;
+		c->ops.setup_ltm_hist_ctrl = sde_setup_dspp_ltm_hist_ctrlv1;
+		c->ops.setup_ltm_hist_buffer = sde_setup_dspp_ltm_hist_bufferv1;
+		c->ops.ltm_read_intr_status = sde_ltm_read_intr_status;
 	}
 }
 

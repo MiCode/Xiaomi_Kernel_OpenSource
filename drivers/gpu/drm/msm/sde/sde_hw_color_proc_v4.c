@@ -268,3 +268,124 @@ void sde_setup_dspp_pccv4(struct sde_hw_dspp *ctx, void *cfg)
 
 	SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->pcc.base, PCC_EN);
 }
+
+void sde_setup_dspp_ltm_threshv1(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	u64 thresh = 0;
+
+	if (!ctx || !cfg) {
+		DRM_ERROR("invalid parameters ctx %pK cfg %pK\n", ctx, cfg);
+		return;
+	}
+
+	if (!hw_cfg->payload) {
+		DRM_ERROR("invalid payload parameters for ltm thresh param\n");
+		return;
+	}
+
+	thresh = *((u64 *)hw_cfg->payload);
+
+	SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->ltm.base + 0x60,
+			(thresh & 0x3FF));
+}
+
+void sde_setup_dspp_ltm_hist_bufferv1(struct sde_hw_dspp *ctx, u64 addr)
+{
+	struct drm_msm_ltm_stats_data *hist = NULL;
+	u64 lh_addr, hs_addr;
+
+	if (!ctx || !addr) {
+		DRM_ERROR("invalid parameter ctx %pK addr 0x%llx\n", ctx, addr);
+		return;
+	}
+
+	hist = (struct drm_msm_ltm_stats_data *)addr;
+	lh_addr = (u64)(&hist->stats_02[0]);
+	hs_addr = (u64)(&hist->stats_03[0]);
+	SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->ltm.base + 0x70,
+			(addr & 0xFFFFFF00));
+	SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->ltm.base + 0x74,
+			(lh_addr & 0xFFFFFF00));
+	SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->ltm.base + 0x78,
+			(hs_addr & 0xFFFFFF00));
+}
+
+void sde_setup_dspp_ltm_hist_ctrlv1(struct sde_hw_dspp *ctx, void *cfg,
+				    bool enable, u64 addr)
+{
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	struct sde_ltm_phase_info phase;
+	u32 op_mode, offset;
+
+	if (!ctx) {
+		DRM_ERROR("invalid parameters ctx %pK\n", ctx);
+		return;
+	}
+
+	if (enable && (!addr || !cfg)) {
+		DRM_ERROR("invalid addr 0x%llx cfg %pK\n", addr, cfg);
+		return;
+	}
+
+	offset = ctx->cap->sblk->ltm.base + 0x4;
+	op_mode = SDE_REG_READ(&ctx->hw, offset);
+
+	if (!enable) {
+		op_mode &= ~BIT(0);
+		SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->ltm.base + 0x4,
+			(op_mode & 0x1FFFFFF));
+		return;
+	}
+
+	if (ctx->idx >= LTM_MAX) {
+		DRM_ERROR("Invalid idx %d\n", ctx->idx);
+		return;
+	}
+
+	memset(&phase, 0, sizeof(phase));
+	sde_ltm_get_phase_info(hw_cfg, &phase);
+
+	if (phase.portrait_en)
+		op_mode |= BIT(2);
+	else
+		op_mode &= ~BIT(2);
+
+	if (phase.merge_en)
+		op_mode |= BIT(16);
+	else
+		op_mode &= ~(BIT(16) | BIT(17));
+
+	offset = ctx->cap->sblk->ltm.base + 0x8;
+	SDE_REG_WRITE(&ctx->hw, offset, (phase.init_h[ctx->idx] & 0x7FFFFFF));
+	offset += 4;
+	SDE_REG_WRITE(&ctx->hw, offset, (phase.init_v & 0xFFFFFF));
+	offset += 4;
+	SDE_REG_WRITE(&ctx->hw, offset, (phase.inc_h & 0xFFFFFF));
+	offset += 4;
+	SDE_REG_WRITE(&ctx->hw, offset, (phase.inc_v & 0xFFFFFF));
+
+	op_mode |= BIT(0);
+	sde_setup_dspp_ltm_hist_bufferv1(ctx, addr);
+
+	SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->ltm.base + 0x4,
+			(op_mode & 0x1FFFFFF));
+}
+
+void sde_ltm_read_intr_status(struct sde_hw_dspp *ctx, u32 *status)
+{
+	u32 clear;
+
+	if (!ctx || !status) {
+		DRM_ERROR("invalid parameters ctx %pK status %pK\n", ctx,
+				status);
+		return;
+	}
+
+	*status = SDE_REG_READ(&ctx->hw, ctx->cap->sblk->ltm.base + 0x54);
+	pr_debug("%s(): LTM interrupt status 0x%x\n", __func__, *status);
+	/* clear the hist_sat and hist_merge_sat bits */
+	clear = SDE_REG_READ(&ctx->hw, ctx->cap->sblk->ltm.base + 0x58);
+	clear |= BIT(1) | BIT(2);
+	SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->ltm.base + 0x58, clear);
+}

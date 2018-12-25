@@ -163,4 +163,23 @@ void sde_cp_crtc_post_ipc(struct drm_crtc *crtc);
  */
 int sde_cp_hist_interrupt(struct drm_crtc *crtc_drm, bool en,
 	struct sde_irq_callback *hist_irq);
+
+/**
+ * sde_cp_ltm_hist_interrupt: API to enable/disable LTM hist interrupt
+ * @crtc: Pointer to crtc.
+ * @en: Variable to enable/disable interrupt.
+ * @irq: Pointer to irq callback
+ */
+int sde_cp_ltm_hist_interrupt(struct drm_crtc *crtc_drm, bool en,
+	struct sde_irq_callback *hist_irq);
+
+/**
+ * sde_cp_ltm_wb_pb_interrupt: API to enable/disable LTM wb_pb interrupt
+ * @crtc: Pointer to crtc.
+ * @en: Variable to enable/disable interrupt.
+ * @irq: Pointer to irq callback
+ */
+int sde_cp_ltm_wb_pb_interrupt(struct drm_crtc *crtc_drm, bool en,
+	struct sde_irq_callback *hist_irq);
+
 #endif /*_SDE_COLOR_PROCESSING_H */

@@ -473,6 +473,7 @@ struct drm_msm_ad4_roi_cfg {
 #define LTM_DATA_SIZE_2 256
 #define LTM_DATA_SIZE_3 33
 #define LTM_BUFFER_SIZE 5
+#define LTM_GUARD_BYTES 255
 
 #define LTM_STATS_SAT (1 << 1)
 #define LTM_STATS_MERGE_SAT (1 << 2)
