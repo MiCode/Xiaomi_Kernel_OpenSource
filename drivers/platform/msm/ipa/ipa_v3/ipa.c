@@ -51,6 +51,7 @@
 #endif
 
 #define IPA_SUBSYSTEM_NAME "ipa_fws"
+#define IPA_UC_SUBSYSTEM_NAME "ipa_uc"
 
 #include "ipa_i.h"
 #include "../ipa_rm_i.h"
@@ -4996,19 +4997,20 @@ static int ipa3_manual_load_ipa_fws(void)
 	return 0;
 }
 
-static int ipa3_pil_load_ipa_fws(void)
+static int ipa3_pil_load_ipa_fws(const char *sub_sys)
 {
 	void *subsystem_get_retval = NULL;
 
-	IPADBG("PIL FW loading process initiated\n");
+	IPADBG("PIL FW loading process initiated sub_sys=%s\n",
+		sub_sys);
 
-	subsystem_get_retval = subsystem_get(IPA_SUBSYSTEM_NAME);
+	subsystem_get_retval = subsystem_get(sub_sys);
 	if (IS_ERR_OR_NULL(subsystem_get_retval)) {
-		IPAERR("Unable to trigger PIL process for FW loading\n");
+		IPAERR("Unable to PIL load FW for sub_sys=%s\n", sub_sys);
 		return -EINVAL;
 	}
 
-	IPADBG("PIL FW loading process is complete\n");
+	IPADBG("PIL FW loading process is complete sub_sys=%s\n", sub_sys);
 	return 0;
 }
 
@@ -5029,21 +5031,43 @@ static void ipa3_load_ipa_fw(struct work_struct *work)
 	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_EMULATION &&
 	    ((ipa3_ctx->platform_type != IPA_PLAT_TYPE_MDM) ||
 	    (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5)))
-		result = ipa3_pil_load_ipa_fws();
+		result = ipa3_pil_load_ipa_fws(IPA_SUBSYSTEM_NAME);
 	else
 		result = ipa3_manual_load_ipa_fws();
 
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	if (result) {
-		IPAERR("IPA FW loading process has failed\n");
+		IPAERR("IPA FW loading process has failed result=%d\n",
+			result);
 		return;
 	}
 	pr_info("IPA FW loaded successfully\n");
 
 	result = ipa3_post_init(&ipa3_res, ipa3_ctx->cdev.dev);
-	if (result)
+	if (result) {
 		IPAERR("IPA post init failed %d\n", result);
+		return;
+	}
+
+	if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ &&
+		ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_VIRTUAL &&
+		ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_EMULATION) {
+
+		IPADBG("Loading IPA uC via PIL\n");
+
+		/* Unvoting will happen when uC loaded event received. */
+		ipa3_proxy_clk_vote();
+
+		result = ipa3_pil_load_ipa_fws(IPA_UC_SUBSYSTEM_NAME);
+		if (result) {
+			IPAERR("IPA uC loading process has failed result=%d\n",
+				result);
+			ipa3_proxy_clk_unvote();
+			return;
+		}
+		IPADBG("IPA uC PIL loading succeeded\n");
+	}
 }
 
 static ssize_t ipa3_write(struct file *file, const char __user *buf,
