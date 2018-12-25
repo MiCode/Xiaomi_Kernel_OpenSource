@@ -1402,7 +1402,6 @@ static int dma_procs_debug_show(struct seq_file *s, void *unused)
 			goto mem_err;
 		}
 		INIT_LIST_HEAD(&tmp->dma_bufs);
-		group_leader_files = task->group_leader->files;
 		for_each_thread(task, thread) {
 			task_lock(thread);
 			if (unlikely(!group_leader_files))
