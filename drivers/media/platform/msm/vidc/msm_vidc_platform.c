@@ -527,7 +527,7 @@ static struct msm_vidc_platform_data default_data = {
 	.sku_version = 0,
 	.gcc_register_base = 0,
 	.gcc_register_size = 0,
-	.vpu_ver = VPU_VERSION_5,
+	.vpu_ver = VPU_VERSION_IRIS2,
 };
 
 static struct msm_vidc_platform_data kona_data = {
@@ -543,7 +543,7 @@ static struct msm_vidc_platform_data kona_data = {
 	.sku_version = 0,
 	.gcc_register_base = 0x10B024,//GCC_VIDEO_AXI0_CBCR,
 	.gcc_register_size = 0x8,//GCC_VIDEO_AXI0_CBCR + GCC_VIDEO_AXI1_CBCR,
-	.vpu_ver = VPU_VERSION_5,
+	.vpu_ver = VPU_VERSION_IRIS1,
 };
 
 static struct msm_vidc_platform_data sm6150_data = {
@@ -559,7 +559,7 @@ static struct msm_vidc_platform_data sm6150_data = {
 	.sku_version = 0,
 	.gcc_register_base = 0,
 	.gcc_register_size = 0,
-	.vpu_ver = VPU_VERSION_4,
+	.vpu_ver = VPU_VERSION_AR50,
 };
 
 static struct msm_vidc_platform_data sm8150_data = {
@@ -575,7 +575,7 @@ static struct msm_vidc_platform_data sm8150_data = {
 	.sku_version = 0,
 	.gcc_register_base = GCC_VIDEO_AXI_REG_START_ADDR,
 	.gcc_register_size = GCC_VIDEO_AXI_REG_SIZE,
-	.vpu_ver = VPU_VERSION_5,
+	.vpu_ver = VPU_VERSION_IRIS1,
 };
 
 static struct msm_vidc_platform_data sdm845_data = {
@@ -591,7 +591,7 @@ static struct msm_vidc_platform_data sdm845_data = {
 	.sku_version = 0,
 	.gcc_register_base = 0,
 	.gcc_register_size = 0,
-	.vpu_ver = VPU_VERSION_4,
+	.vpu_ver = VPU_VERSION_AR50,
 };
 
 static struct msm_vidc_platform_data sdm670_data = {
@@ -607,7 +607,7 @@ static struct msm_vidc_platform_data sdm670_data = {
 	.sku_version = 0,
 	.gcc_register_base = 0,
 	.gcc_register_size = 0,
-	.vpu_ver = VPU_VERSION_4,
+	.vpu_ver = VPU_VERSION_AR50,
 };
 
 static const struct of_device_id msm_vidc_dt_match[] = {

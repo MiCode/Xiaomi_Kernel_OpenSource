@@ -101,9 +101,9 @@ static int __power_collapse(struct venus_hfi_device *device, bool force);
 static int venus_hfi_noc_error_info(void *dev);
 
 static void interrupt_init_vpu4(struct venus_hfi_device *device);
-static void interrupt_init_vpu5(struct venus_hfi_device *device);
-static void setup_dsp_uc_memmap_vpu5(struct venus_hfi_device *device);
-static void clock_config_on_enable_vpu5(struct venus_hfi_device *device);
+static void interrupt_init_iris1(struct venus_hfi_device *device);
+static void setup_dsp_uc_memmap_iris1(struct venus_hfi_device *device);
+static void clock_config_on_enable_iris1(struct venus_hfi_device *device);
 
 struct venus_hfi_vpu_ops vpu4_ops = {
 	.interrupt_init = interrupt_init_vpu4,
@@ -111,10 +111,16 @@ struct venus_hfi_vpu_ops vpu4_ops = {
 	.clock_config_on_enable = NULL,
 };
 
-struct venus_hfi_vpu_ops vpu5_ops = {
-	.interrupt_init = interrupt_init_vpu5,
-	.setup_dsp_uc_memmap = setup_dsp_uc_memmap_vpu5,
-	.clock_config_on_enable = clock_config_on_enable_vpu5,
+struct venus_hfi_vpu_ops iris1_ops = {
+	.interrupt_init = interrupt_init_iris1,
+	.setup_dsp_uc_memmap = setup_dsp_uc_memmap_iris1,
+	.clock_config_on_enable = clock_config_on_enable_iris1,
+};
+
+struct venus_hfi_vpu_ops iris2_ops = {
+	.interrupt_init = interrupt_init_iris1,
+	.setup_dsp_uc_memmap = NULL,
+	.clock_config_on_enable = NULL,
 };
 
 /**
@@ -4532,7 +4538,7 @@ static int __disable_subcaches(struct venus_hfi_device *device)
 	return 0;
 }
 
-static void interrupt_init_vpu5(struct venus_hfi_device *device)
+static void interrupt_init_iris1(struct venus_hfi_device *device)
 {
 	u32 mask_val = 0;
 
@@ -4551,7 +4557,7 @@ static void interrupt_init_vpu4(struct venus_hfi_device *device)
 			VIDC_WRAPPER_INTR_MASK_A2HVCODEC_BMSK);
 }
 
-static void setup_dsp_uc_memmap_vpu5(struct venus_hfi_device *device)
+static void setup_dsp_uc_memmap_iris1(struct venus_hfi_device *device)
 {
 	/* initialize DSP QTBL & UCREGION with CPU queues */
 	__write_register(device, HFI_DSP_QTBL_ADDR,
@@ -4569,7 +4575,7 @@ static void setup_dsp_uc_memmap_vpu5(struct venus_hfi_device *device)
 	}
 }
 
-static void clock_config_on_enable_vpu5(struct venus_hfi_device *device)
+static void clock_config_on_enable_iris1(struct venus_hfi_device *device)
 {
 	__write_register(device, VIDC_WRAPPER_CPU_CGC_DIS, 0);
 	__write_register(device, VIDC_WRAPPER_CPU_CLOCK_CONFIG, 0);
@@ -5029,10 +5035,12 @@ static int __initialize_packetization(struct venus_hfi_device *device)
 
 void __init_venus_ops(struct venus_hfi_device *device)
 {
-	if (device->res->vpu_ver == VPU_VERSION_4)
+	if (device->res->vpu_ver == VPU_VERSION_AR50)
 		device->vpu_ops = &vpu4_ops;
+	else if (device->res->vpu_ver == VPU_VERSION_IRIS1)
+		device->vpu_ops = &iris1_ops;
 	else
-		device->vpu_ops = &vpu5_ops;
+		device->vpu_ops = &iris2_ops;
 }
 
 static struct venus_hfi_device *__add_device(u32 device_id,

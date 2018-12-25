@@ -878,7 +878,7 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		}
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_MODE:
-		inst->clk_data.low_latency_mode = (bool)ctrl->val;
+		inst->clk_data.low_latency_mode = !!ctrl->val;
 		break;
 	default:
 		dprintk(VIDC_ERR,

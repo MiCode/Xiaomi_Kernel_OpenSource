@@ -25,8 +25,10 @@ int msm_vidc_get_mbs_per_frame(struct msm_vidc_inst *inst);
 int msm_comm_scale_clocks_and_bus(struct msm_vidc_inst *inst);
 int msm_comm_init_clocks_and_bus_data(struct msm_vidc_inst *inst);
 void msm_comm_free_freq_table(struct msm_vidc_inst *inst);
-int msm_vidc_decide_work_route(struct msm_vidc_inst *inst);
-int msm_vidc_decide_work_mode(struct msm_vidc_inst *inst);
+int msm_vidc_decide_work_route_iris1(struct msm_vidc_inst *inst);
+int msm_vidc_decide_work_mode_iris1(struct msm_vidc_inst *inst);
+int msm_vidc_decide_work_route_iris2(struct msm_vidc_inst *inst);
+int msm_vidc_decide_work_mode_iris2(struct msm_vidc_inst *inst);
 int msm_vidc_decide_core_and_power_mode(struct msm_vidc_inst *inst);
 void msm_print_core_status(struct msm_vidc_core *core, u32 core_id);
 void msm_vidc_clear_freq_entry(struct msm_vidc_inst *inst,
