@@ -220,7 +220,6 @@ static enum hrtimer_restart alarmtimer_fired(struct hrtimer *timer)
 	spin_unlock_irqrestore(&base->lock, flags);
 
 	return ret;
-
 }
 
 ktime_t alarm_expires_remaining(const struct alarm *alarm)

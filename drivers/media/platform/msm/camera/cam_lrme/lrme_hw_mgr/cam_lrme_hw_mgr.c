@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -391,14 +391,13 @@ static int cam_lrme_mgr_util_submit_req(void *priv, void *data)
 	work_data = (struct cam_lrme_mgr_work_data *)data;
 	hw_device = work_data->hw_device;
 
-	rc = cam_lrme_mgr_util_get_frame_req(
-		&hw_device->frame_pending_list_high, &frame_req,
-		&hw_device->high_req_lock);
+	rc = cam_lrme_mgr_util_get_frame_req(&hw_device->
+		frame_pending_list_high, &frame_req, &hw_device->high_req_lock);
 
 	if (!frame_req) {
-		rc = cam_lrme_mgr_util_get_frame_req(
-			&hw_device->frame_pending_list_normal, &frame_req,
-			&hw_device->normal_req_lock);
+		rc = cam_lrme_mgr_util_get_frame_req(&hw_device->
+				frame_pending_list_normal, &frame_req,
+				&hw_device->normal_req_lock);
 		if (frame_req)
 			req_prio = 1;
 	}
@@ -879,7 +878,6 @@ static int cam_lrme_mgr_hw_prepare_update(void *hw_mgr_priv,
 	if (args->num_in_map_entries == 0 || args->num_out_map_entries == 0) {
 		CAM_ERR(CAM_LRME, "Error in port number in %d, out %d",
 			args->num_in_map_entries, args->num_out_map_entries);
-		rc = -EINVAL;
 		goto error;
 	}
 
@@ -989,8 +987,7 @@ int cam_lrme_mgr_register_device(
 	CAM_DBG(CAM_LRME, "Create submit workq for %s", buf);
 	rc = cam_req_mgr_workq_create(buf,
 		CAM_LRME_WORKQ_NUM_TASK,
-		&hw_device->work, CRM_WORKQ_USAGE_NON_IRQ,
-		0);
+		&hw_device->work, CRM_WORKQ_USAGE_NON_IRQ);
 	if (rc) {
 		CAM_ERR(CAM_LRME,
 			"Unable to create a worker, rc=%d", rc);

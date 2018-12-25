@@ -43,6 +43,11 @@
 			#gpio-cells = <2>;
 			qcom,gpios-disallowed = <3 4>;
 		};
+
+		qcom,power-on@800 {
+			compatible = "qcom,qpnp-power-on";
+			reg = <0x800 0x100>;
+		};
 	};
 
 	qcom,pm8005@5 {

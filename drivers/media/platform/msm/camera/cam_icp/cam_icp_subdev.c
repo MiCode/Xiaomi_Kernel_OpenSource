@@ -236,7 +236,6 @@ static struct platform_driver cam_icp_driver = {
 		.name = "cam_icp",
 		.owner = THIS_MODULE,
 		.of_match_table = cam_icp_dt_match,
-		.suppress_bind_attrs = true,
 	},
 };
 

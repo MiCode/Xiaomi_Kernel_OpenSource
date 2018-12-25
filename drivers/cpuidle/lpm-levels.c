@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  * Copyright (C) 2006-2007 Adam Belay <abelay@novell.com>
  * Copyright (C) 2009 Intel Corporation
  *
@@ -84,6 +85,7 @@ struct lpm_debug {
 
 static struct system_pm_ops *sys_pm_ops;
 
+static DEFINE_SPINLOCK(bc_timer_lock);
 
 struct lpm_cluster *lpm_root_node;
 
@@ -1029,6 +1031,7 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 	struct lpm_cluster_level *level = &cluster->levels[idx];
 	struct cpumask online_cpus, cpumask;
 	unsigned int cpu;
+	int ret = 0;
 
 	cpumask_and(&online_cpus, &cluster->num_children_in_sync,
 					cpu_online_mask);
@@ -1067,9 +1070,13 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 
 		clear_predict_history();
 		clear_cl_predict_history();
-		if (sys_pm_ops && sys_pm_ops->enter)
-			if ((sys_pm_ops->enter(&cpumask)))
+		if (sys_pm_ops && sys_pm_ops->enter) {
+			spin_lock(&bc_timer_lock);
+			ret = sys_pm_ops->enter(&cpumask);
+			spin_unlock(&bc_timer_lock);
+			if (ret)
 				return -EBUSY;
+		}
 	}
 	/* Notify cluster enter event after successfully config completion */
 	cluster_notify(cluster, level, true);
@@ -1202,8 +1209,11 @@ static void cluster_unprepare(struct lpm_cluster *cluster,
 	level = &cluster->levels[cluster->last_level];
 
 	if (level->notify_rpm)
-		if (sys_pm_ops && sys_pm_ops->exit)
+		if (sys_pm_ops && sys_pm_ops->exit) {
+			spin_lock(&bc_timer_lock);
 			sys_pm_ops->exit();
+			spin_unlock(&bc_timer_lock);
+		}
 
 	update_debug_pc_event(CLUSTER_EXIT, cluster->last_level,
 			cluster->num_children_in_sync.bits[0],
@@ -1298,6 +1308,7 @@ static bool psci_enter_sleep(struct lpm_cpu *cpu, int idx, bool from_idle)
 {
 	int affinity_level = 0, state_id = 0, power_state = 0;
 	bool success = false;
+	int ret = 0;
 	/*
 	 * idx = 0 is the default LPM state
 	 */
@@ -1310,7 +1321,17 @@ static bool psci_enter_sleep(struct lpm_cpu *cpu, int idx, bool from_idle)
 	}
 
 	if (from_idle && cpu->levels[idx].use_bc_timer) {
-		if (tick_broadcast_enter())
+		/*
+		 * tick_broadcast_enter can change the affinity of the
+		 * broadcast timer interrupt, during which interrupt will
+		 * be disabled and enabled back. To avoid system pm ops
+		 * doing any interrupt state save or restore in between
+		 * this window hold the lock.
+		 */
+		spin_lock(&bc_timer_lock);
+		ret = tick_broadcast_enter();
+		spin_unlock(&bc_timer_lock);
+		if (ret)
 			return success;
 	}
 
@@ -1663,6 +1684,14 @@ static int lpm_suspend_enter(suspend_state_t state)
 	}
 	cpu_prepare(lpm_cpu, idx, false);
 	cluster_prepare(cluster, cpumask, idx, false, 0);
+
+	/*
+	 * Print the clocks which are enabled during system suspend
+	 * This debug information is useful to know which are the
+	 * clocks that are enabled and preventing the system level
+	 * LPMs(XO and Vmin).
+	 */
+	clock_debug_print_enabled(true);
 
 	psci_enter_sleep(lpm_cpu, idx, false);
 

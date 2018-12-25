@@ -196,7 +196,6 @@
 		qcom,vreg-cx-voltage-level = <RPMH_REGULATOR_LEVEL_MAX
 						RPMH_REGULATOR_LEVEL_SVS 0>;
 
-		qcom,l1-supported;
 		qcom,l1ss-supported;
 		qcom,aux-clk-sync;
 
@@ -474,7 +473,6 @@
 		qcom,vreg-cx-voltage-level = <RPMH_REGULATOR_LEVEL_MAX
 						RPMH_REGULATOR_LEVEL_NOM 0>;
 
-		qcom,l1-supported;
 		qcom,l1ss-supported;
 		qcom,aux-clk-sync;
 

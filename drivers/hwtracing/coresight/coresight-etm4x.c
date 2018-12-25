@@ -953,6 +953,43 @@ static void etm4_init_trace_id(struct etmv4_drvdata *drvdata)
 	drvdata->trcid = coresight_get_trace_id(drvdata->cpu);
 }
 
+static int etm4_set_reg_dump(struct etmv4_drvdata *drvdata)
+{
+	int ret;
+	void *baddr;
+	struct amba_device *adev;
+	struct resource *res;
+	struct device *dev = drvdata->dev;
+	struct msm_dump_entry dump_entry;
+	uint32_t size;
+
+	adev = to_amba_device(dev);
+	if (!adev)
+		return -EINVAL;
+
+	res = &adev->res;
+	size = resource_size(res);
+
+	baddr = devm_kzalloc(dev, size, GFP_KERNEL);
+	if (!baddr)
+		return -ENOMEM;
+
+	drvdata->reg_data.addr = virt_to_phys(baddr);
+	drvdata->reg_data.len = size;
+	scnprintf(drvdata->reg_data.name, sizeof(drvdata->reg_data.name),
+		"KETM_REG%d", drvdata->cpu);
+
+	dump_entry.id = MSM_DUMP_DATA_ETM_REG + drvdata->cpu;
+	dump_entry.addr = virt_to_phys(&drvdata->reg_data);
+
+	ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS,
+				     &dump_entry);
+	if (ret)
+		devm_kfree(dev, baddr);
+
+	return ret;
+}
+
 static int etm4_probe(struct amba_device *adev, const struct amba_id *id)
 {
 	int ret;
@@ -1043,6 +1080,10 @@ static int etm4_probe(struct amba_device *adev, const struct amba_id *id)
 	}
 
 	pm_runtime_put(&adev->dev);
+
+	ret = etm4_set_reg_dump(drvdata);
+	if (ret)
+		dev_err(dev, "ETM REG dump setup failed. ret %d\n", ret);
 
 	etmdrvdata[drvdata->cpu] = drvdata;
 

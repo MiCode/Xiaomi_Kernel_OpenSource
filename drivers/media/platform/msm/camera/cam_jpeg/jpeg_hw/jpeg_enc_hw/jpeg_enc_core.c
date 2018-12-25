@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -58,8 +58,9 @@ int cam_jpeg_enc_init_hw(void *device_priv,
 	}
 
 	soc_info = &jpeg_enc_dev->soc_info;
-	core_info = (struct cam_jpeg_enc_device_core_info *)
-		jpeg_enc_dev->core_info;
+	core_info =
+		(struct cam_jpeg_enc_device_core_info *)jpeg_enc_dev->
+		core_info;
 
 	if (!soc_info || !core_info) {
 		CAM_ERR(CAM_JPEG, "soc_info = %pK core_info = %pK",
@@ -167,8 +168,9 @@ irqreturn_t cam_jpeg_enc_irq(int irq_num, void *data)
 		return IRQ_HANDLED;
 	}
 	soc_info = &jpeg_enc_dev->soc_info;
-	core_info = (struct cam_jpeg_enc_device_core_info *)
-		jpeg_enc_dev->core_info;
+	core_info =
+		(struct cam_jpeg_enc_device_core_info *)jpeg_enc_dev->
+		core_info;
 	hw_info = core_info->jpeg_enc_hw_info;
 	mem_base = soc_info->reg_map[0].mem_base;
 
@@ -186,7 +188,8 @@ irqreturn_t cam_jpeg_enc_irq(int irq_num, void *data)
 		spin_lock(&jpeg_enc_dev->hw_lock);
 		if (core_info->core_state == CAM_JPEG_ENC_CORE_READY) {
 			encoded_size = cam_io_r_mb(mem_base +
-			core_info->jpeg_enc_hw_info->reg_offset.encode_size);
+				core_info->jpeg_enc_hw_info->reg_offset.
+				encode_size);
 			if (core_info->irq_cb.jpeg_hw_mgr_cb) {
 				core_info->irq_cb.jpeg_hw_mgr_cb(irq_status,
 					encoded_size,
@@ -260,8 +263,9 @@ int cam_jpeg_enc_reset_hw(void *data,
 	}
 	/* maskdisable.clrirq.maskenable.resetcmd */
 	soc_info = &jpeg_enc_dev->soc_info;
-	core_info = (struct cam_jpeg_enc_device_core_info *)
-		jpeg_enc_dev->core_info;
+	core_info =
+		(struct cam_jpeg_enc_device_core_info *)jpeg_enc_dev->
+		core_info;
 	hw_info = core_info->jpeg_enc_hw_info;
 	mem_base = soc_info->reg_map[0].mem_base;
 
@@ -344,12 +348,13 @@ int cam_jpeg_enc_stop_hw(void *data,
 		return -EINVAL;
 	}
 	soc_info = &jpeg_enc_dev->soc_info;
-	core_info = (struct cam_jpeg_enc_device_core_info *)
-		jpeg_enc_dev->core_info;
+	core_info =
+		(struct cam_jpeg_enc_device_core_info *)jpeg_enc_dev->
+		core_info;
 	hw_info = core_info->jpeg_enc_hw_info;
 	mem_base = soc_info->reg_map[0].mem_base;
 
-	mutex_lock(&core_info->core_mutex);
+	mutex_unlock(&core_info->core_mutex);
 	spin_lock(&jpeg_enc_dev->hw_lock);
 	if (core_info->core_state == CAM_JPEG_ENC_CORE_ABORTING) {
 		CAM_ERR(CAM_JPEG, "alrady stopping");
@@ -393,8 +398,9 @@ int cam_jpeg_enc_process_cmd(void *device_priv, uint32_t cmd_type,
 		return -EINVAL;
 	}
 
-	core_info = (struct cam_jpeg_enc_device_core_info *)
-		jpeg_enc_dev->core_info;
+	core_info =
+		(struct cam_jpeg_enc_device_core_info *)jpeg_enc_dev->
+		core_info;
 
 	switch (cmd_type) {
 	case CAM_JPEG_CMD_SET_IRQ_CB:

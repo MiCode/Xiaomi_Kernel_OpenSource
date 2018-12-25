@@ -3506,6 +3506,10 @@ static void kswapd_try_to_sleep(pg_data_t *pgdat, int alloc_order, int reclaim_o
 	finish_wait(&pgdat->kswapd_wait, &wait);
 }
 
+#if defined(CONFIG_ANDROID_WHETSTONE)
+extern void wakeup_kmemsw_chkd(void);
+#endif
+
 /*
  * The background pageout daemon, started as a kernel thread
  * from the init process.
@@ -3592,6 +3596,9 @@ kswapd_try_sleep:
 		trace_mm_vmscan_kswapd_wake(pgdat->node_id, classzone_idx,
 						alloc_order);
 		reclaim_order = balance_pgdat(pgdat, alloc_order, classzone_idx);
+#if defined(CONFIG_ANDROID_WHETSTONE)
+                     wakeup_kmemsw_chkd();
+#endif
 		if (reclaim_order < alloc_order)
 			goto kswapd_try_sleep;
 	}

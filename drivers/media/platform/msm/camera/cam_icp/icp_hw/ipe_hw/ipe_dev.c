@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,8 +40,6 @@ static struct cam_ipe_device_hw_info cam_ipe_hw_info[] = {
 	},
 };
 EXPORT_SYMBOL(cam_ipe_hw_info);
-
-static char ipe_dev_name[8];
 
 int cam_ipe_register_cpas(struct cam_hw_soc_info *soc_info,
 	struct cam_ipe_device_core_info *core_info,
@@ -98,14 +96,9 @@ int cam_ipe_probe(struct platform_device *pdev)
 		kfree(ipe_dev_intf);
 		return -ENOMEM;
 	}
-
-	memset(ipe_dev_name, 0, sizeof(ipe_dev_name));
-	snprintf(ipe_dev_name, sizeof(ipe_dev_name),
-		"ipe%1u", ipe_dev_intf->hw_idx);
-
 	ipe_dev->soc_info.pdev = pdev;
 	ipe_dev->soc_info.dev = &pdev->dev;
-	ipe_dev->soc_info.dev_name = ipe_dev_name;
+	ipe_dev->soc_info.dev_name = pdev->name;
 	ipe_dev_intf->hw_priv = ipe_dev;
 	ipe_dev_intf->hw_ops.init = cam_ipe_init_hw;
 	ipe_dev_intf->hw_ops.deinit = cam_ipe_deinit_hw;
@@ -186,7 +179,6 @@ static struct platform_driver cam_ipe_driver = {
 		.name = "cam-ipe",
 		.owner = THIS_MODULE,
 		.of_match_table = cam_ipe_dt_match,
-		.suppress_bind_attrs = true,
 	},
 };
 

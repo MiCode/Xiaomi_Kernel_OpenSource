@@ -87,6 +87,11 @@
 
 #define MAX_CC_STEPS			20
 
+#define VBAT_RESTART_FG_EMPTY_UV		3700000
+#define TEMP_THR_RESTART_FG		150
+#define RESTART_FG_START_WORK_MS		1000
+#define RESTART_FG_WORK_MS		2000
+
 enum prof_load_status {
 	PROFILE_MISSING,
 	PROFILE_LOADED,
@@ -328,6 +333,7 @@ struct fg_batt_props {
 	int		float_volt_uv;
 	int		vbatt_full_mv;
 	int		fastchg_curr_ma;
+	int		nom_cap_uah;
 };
 
 struct fg_cyc_ctr_data {
@@ -336,6 +342,7 @@ struct fg_cyc_ctr_data {
 	u16		count[BUCKET_COUNT];
 	u8		last_soc[BUCKET_COUNT];
 	char		counter[BUCKET_COUNT * 8];
+	int		id;
 	struct mutex	lock;
 };
 
@@ -411,6 +418,22 @@ static const struct fg_pt fg_tsmc_osc_table[] = {
 	{  90,		444992 },
 };
 
+#define BATT_MA_AVG_SAMPLES		8
+struct batt_params {
+	bool	update_now;
+	int		batt_raw_soc;
+	int		batt_soc;
+	int		samples_num;
+	int		samples_index;
+	int		batt_ma_avg_samples[BATT_MA_AVG_SAMPLES];
+	int		batt_ma_avg;
+	int		batt_ma_prev;
+	int		batt_ma;
+	int		batt_mv;
+	int		batt_temp;
+	struct timespec		last_soc_change_time;
+};
+
 struct fg_chip {
 	struct thermal_zone_device	*tz_dev;
 	struct device		*dev;
@@ -482,19 +505,26 @@ struct fg_chip {
 	bool			esr_flt_cold_temp_en;
 	bool			slope_limit_en;
 	bool			use_ima_single_mode;
+	bool			report_full;
 	bool			use_dma;
 	bool			qnovo_enable;
+	bool			empty_restart_fg;
 	bool			suspended;
+	struct batt_params	param;
+	struct delayed_work	soc_monitor_work;
 	struct completion	soc_update;
 	struct completion	soc_ready;
 	struct delayed_work	profile_load_work;
 	struct work_struct	status_change_work;
 	struct delayed_work	ttf_work;
+	struct delayed_work	esr_timer_config_work;
 	struct delayed_work	sram_dump_work;
+	struct delayed_work	soc_work;
 	struct delayed_work	pl_enable_work;
 	struct work_struct	esr_filter_work;
 	struct alarm		esr_filter_alarm;
 	ktime_t			last_delta_temp_time;
+	struct delayed_work	empty_restart_fg_work;
 };
 
 /* Debugfs data structures are below */

@@ -126,6 +126,7 @@
 
 		qcom,efuse-bit-pos = <25>;
 		qcom,efuse-num-bits = <3>;
+		qcom,tune-efuse-correction = <0x00000000>;	/* you can adjust this from 0xffff,fff9(-7) to 0x0000,0007(+7), 80-P6348-5D*/
 		vdd-supply = <&pm8998_l1>;
 		vdda18-supply = <&pm8998_l12>;
 		vdda33-supply = <&pm8998_l24>;

@@ -36,6 +36,30 @@ struct input_value {
 	__s32 value;
 };
 
+#ifdef CONFIG_LAST_TOUCH_EVENTS
+#define TOUCH_EVENT_MAX 512
+#define TOUCH_MAX_FINGER 10
+enum {
+	TOUCH_IS_INIT	=	0,
+	TOUCH_IS_PRESSED,
+	TOUCH_IS_RELEASED,
+};
+
+struct touch_event {
+	struct timespec touch_time_stamp;
+	u32 touch_state;
+	__s32 finger_num;
+};
+
+struct touch_event_info {
+	u32 touch_event_num;
+	u32 touch_slot;
+	u32 finger_bitmap;
+	bool touch_is_pressed;
+	struct touch_event touch_event_buf[TOUCH_EVENT_MAX];
+};
+#endif
+
 /**
  * struct input_dev - represents an input device
  * @name: name of the device
@@ -187,6 +211,9 @@ struct input_dev {
 	struct input_value *vals;
 
 	bool devres_managed;
+#ifdef CONFIG_LAST_TOUCH_EVENTS
+	struct touch_event_info *touch_events;
+#endif
 };
 #define to_input_dev(d) container_of(d, struct input_dev, dev)
 

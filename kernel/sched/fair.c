@@ -902,7 +902,10 @@ static void update_curr(struct cfs_rq *cfs_rq)
 
 	if (entity_is_task(curr)) {
 		struct task_struct *curtask = task_of(curr);
-
+#ifdef CONFIG_PACKAGE_RUNTIME_INFO
+		int cpu = cpu_of(rq_of(cfs_rq));
+		update_task_runtime_info(curtask, delta_exec, cpu);
+#endif
 		trace_sched_stat_runtime(curtask, delta_exec, curr->vruntime);
 		cpuacct_charge(curtask, delta_exec);
 		account_group_exec_runtime(curtask, delta_exec);
@@ -7487,7 +7490,8 @@ static int select_energy_cpu_brute(struct task_struct *p, int prev_cpu, int sync
 
 	if (fbt_env.placement_boost || fbt_env.need_idle ||
 			fbt_env.avoid_prev_cpu || (rtg_target &&
-			!cpumask_test_cpu(prev_cpu, rtg_target))) {
+			(!cpumask_test_cpu(prev_cpu, rtg_target) ||
+				cpumask_test_cpu(next_cpu, rtg_target)))) {
 		target_cpu = next_cpu;
 		goto out;
 	}

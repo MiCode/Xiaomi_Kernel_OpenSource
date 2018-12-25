@@ -931,6 +931,7 @@ static irqreturn_t subsys_err_fatal_intr_handler (int irq, void *dev_id)
 	struct pil_tz_data *d = subsys_to_data(dev_id);
 
 	pr_err("Fatal error on %s!\n", d->subsys_desc.name);
+
 	if (subsys_get_crash_status(d->subsys)) {
 		pr_err("%s: Ignoring error fatal, restart in progress\n",
 							d->subsys_desc.name);

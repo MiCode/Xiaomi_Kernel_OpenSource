@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -240,8 +240,6 @@ static int cam_ois_i2c_driver_remove(struct i2c_client *client)
 
 	kfree(power_info->power_setting);
 	kfree(power_info->power_down_setting);
-	power_info->power_setting = NULL;
-	power_info->power_down_setting = NULL;
 	kfree(o_ctrl->soc_info.soc_private);
 	kfree(o_ctrl);
 
@@ -343,8 +341,6 @@ static int cam_ois_platform_driver_remove(struct platform_device *pdev)
 
 	kfree(power_info->power_setting);
 	kfree(power_info->power_down_setting);
-	power_info->power_setting = NULL;
-	power_info->power_down_setting = NULL;
 	kfree(o_ctrl->soc_info.soc_private);
 	kfree(o_ctrl->io_master_info.cci_client);
 	kfree(o_ctrl);

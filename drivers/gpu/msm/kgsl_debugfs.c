@@ -410,8 +410,10 @@ void kgsl_process_init_debugfs(struct kgsl_process_private *private)
 	 */
 
 	if (IS_ERR_OR_NULL(private->debug_root)) {
-		WARN((private->debug_root == NULL),
-			"Unable to create debugfs dir for %s\n", name);
+		//WARN((private->debug_root == NULL),
+		//	"Unable to create debugfs dir for %s\n", name);
+		pr_warn("%s: Unable to create debugfs dir for %s\n",
+			 __func__, name);
 		private->debug_root = NULL;
 		return;
 	}

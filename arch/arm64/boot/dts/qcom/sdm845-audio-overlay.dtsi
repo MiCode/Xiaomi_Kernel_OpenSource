@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,8 +48,6 @@
 
 	qcom,msm-mbhc-hphl-swh = <1>;
 	qcom,msm-mbhc-gnd-swh = <1>;
-	qcom,msm-mbhc-hs-mic-max-threshold-mv = <1700>;
-	qcom,msm-mbhc-hs-mic-min-threshold-mv = <50>;
 	qcom,hph-en0-gpio = <&tavil_hph_en0>;
 	qcom,hph-en1-gpio = <&tavil_hph_en1>;
 	qcom,tavil-mclk-clk-freq = <9600000>;
@@ -56,9 +55,7 @@
 	asoc-codec = <&stub_codec>, <&ext_disp_audio_codec>;
 	asoc-codec-names = "msm-stub-codec.1",
 			   "msm-ext-disp-audio-codec-rx";
-
 	qcom,usbc-analog-en1-gpio = <&wcd_usbc_analog_en1_gpio>;
-	qcom,usbc-analog-en2-gpio = <&tlmm 51 0>;
 	pinctrl-names = "aud_active", "aud_sleep";
 	pinctrl-0 = <&wcd_usbc_analog_en2_active>;
 	pinctrl-1 = <&wcd_usbc_analog_en2_idle>;
@@ -160,10 +157,10 @@
 					   "cdc-vdd-rx-h",
 					   "cdc-vddpx-1";
 
-		qcom,cdc-micbias1-mv = <1800>;
+		qcom,cdc-micbias1-mv = <2700>;
 		qcom,cdc-micbias2-mv = <1800>;
-		qcom,cdc-micbias3-mv = <1800>;
-		qcom,cdc-micbias4-mv = <1800>;
+		qcom,cdc-micbias3-mv = <2700>;
+		qcom,cdc-micbias4-mv = <2700>;
 
 		qcom,cdc-mclk-clk-rate = <9600000>;
 		qcom,cdc-slim-ifd = "tavil-slim-ifd";

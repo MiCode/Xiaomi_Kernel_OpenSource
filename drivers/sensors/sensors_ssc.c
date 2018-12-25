@@ -103,6 +103,7 @@ static void slpi_load_fw(struct work_struct *slpi_ldr_work)
 		pr_err("can't get fw name.\n");
 		goto fail;
 	}
+	printk("get fw name: %s \n", firmware_name);
 
 	priv = platform_get_drvdata(pdev);
 	if (!priv) {

@@ -1,4 +1,5 @@
 /* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +32,7 @@
  *                            0 = uninitialized, 1 = initialized
  * @list_mutex:            Mutex for the context pool
  * @free_ctx_list:         Free context pool list
+ * @acquired_ctx_list:     Acquired context pool list
  * @ctx_list:              Context list
  * @ctx_size:              Context list size
  * @hw_mgr_intf:           Interface for cam_node to HW
@@ -44,6 +46,7 @@ struct cam_node {
 	/* context pool */
 	struct mutex                 list_mutex;
 	struct list_head             free_ctx_list;
+	struct list_head             acquired_ctx_list;
 	struct cam_context          *ctx_list;
 	uint32_t                     ctx_size;
 

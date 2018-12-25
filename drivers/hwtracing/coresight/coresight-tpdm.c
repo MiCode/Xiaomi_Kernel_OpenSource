@@ -4045,7 +4045,6 @@ static int tpdm_probe(struct amba_device *adev, const struct amba_id *id)
 		return PTR_ERR(drvdata->csdev);
 
 	dev_dbg(drvdata->dev, "TPDM initialized\n");
-
 	if (boot_enable)
 		coresight_enable(drvdata->csdev);
 

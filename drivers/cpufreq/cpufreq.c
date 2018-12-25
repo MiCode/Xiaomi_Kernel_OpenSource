@@ -1221,6 +1221,7 @@ static void cpufreq_policy_put_kobj(struct cpufreq_policy *policy, bool notify)
 
 	down_write(&policy->rwsem);
 	cpufreq_stats_free_table(policy);
+	cpufreq_gov_stats_free_table(policy);
 	kobj = &policy->kobj;
 	cmp = &policy->kobj_unregister;
 	up_write(&policy->rwsem);
@@ -1378,6 +1379,7 @@ static int cpufreq_online(unsigned int cpu)
 
 		cpufreq_stats_create_table(policy);
 		cpufreq_times_create_policy(policy);
+		cpufreq_gov_stats_create_table(policy);
 		blocking_notifier_call_chain(&cpufreq_policy_notifier_list,
 				CPUFREQ_CREATE_POLICY, policy);
 

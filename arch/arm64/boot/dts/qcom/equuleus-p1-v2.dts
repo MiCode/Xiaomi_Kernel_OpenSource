@@ -1,0 +1,27 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+/dts-v1/;
+
+#include "sdm845-v2.dtsi"
+#include "sdm845-sde-display.dtsi"
+#include "sdm845-audio-overlay.dtsi"
+#include "equuleus-p1-pinctrl.dtsi"
+#include "equuleus-p1.dtsi"
+
+/ {
+	model = "Xiaomi Technologies, Inc. Equuleus P1 v2";
+	compatible = "qcom,sdm845-mtp", "qcom,sdm845", "qcom,mtp";
+	qcom,board-id = <71 0>;
+};

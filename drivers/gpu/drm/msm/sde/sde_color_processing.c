@@ -1294,7 +1294,15 @@ void sde_cp_crtc_suspend(struct drm_crtc *crtc)
 
 void sde_cp_crtc_resume(struct drm_crtc *crtc)
 {
-	/* placeholder for operations needed during resume */
+	struct sde_crtc *sde_crtc;
+
+	sde_crtc = to_sde_crtc(crtc);
+	if (!sde_crtc) {
+		DRM_ERROR("invalid sde_crtc %pK\n", sde_crtc);
+		return;
+	}
+
+	sde_cp_ad_set_prop(sde_crtc, AD_RESUME);
 }
 
 void sde_cp_crtc_clear(struct drm_crtc *crtc)

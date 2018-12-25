@@ -156,7 +156,7 @@ static inline u64 arch_counter_get_cntvct(void)
 		cval = arch_timer_reg_read_stable(cntvct_el0);
 	} while ((cval & L32_BITS) == L32_BITS);
 #else
-		cval = arch_timer_reg_read_stable(cntvct_el0);
+	cval = arch_timer_reg_read_stable(cntvct_el0);
 #endif
 	return cval;
 }

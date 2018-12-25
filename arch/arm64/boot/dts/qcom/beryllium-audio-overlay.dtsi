@@ -1,0 +1,81 @@
+/*
+ * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+#include "sdm845-audio-overlay.dtsi"
+&snd_934x {
+	qcom,audio-routing =
+		"AIF4 VI", "MCLK",
+		"RX_BIAS", "MCLK",
+		"MADINPUT", "MCLK",
+		"hifi amp", "LINEOUT1",
+		"hifi amp", "LINEOUT2",
+		"AMIC2", "MIC BIAS2",
+		"MIC BIAS2", "Headset Mic",
+		"AMIC3", "MIC BIAS3",
+		"MIC BIAS3", "ANCRight Headset Mic",
+		"AMIC1", "MIC BIAS1",
+		"MIC BIAS1", "ANCLeft Headset Mic",
+		"AMIC4", "MIC BIAS3",
+		"MIC BIAS3", "ANCRight Headset Mic",
+		"AMIC5", "MIC BIAS4",
+		"MIC BIAS4", "Analog Mic5";
+
+	qcom,msm-mbhc-hphl-swh = <1>;
+	qcom,msm-mbhc-gnd-swh = <1>;
+	qcom,wsa-max-devs = <0>;
+	qcom,uart-audio-sw-gpio = <&sbu_uart_en>;
+	qcom,msm-mbhc-usbc-audio-supported = <0>;
+	pinctrl-names = "aud_active", "aud_sleep",
+			"quat-mi2s-active", "quat-mi2s-sleep",
+			"quat-tdm-active", "quat-tdm-sleep";
+	pinctrl-0 = <&wcd_usbc_analog_en2_active>;
+	pinctrl-1 = <&wcd_usbc_analog_en2_idle>;
+	pinctrl-2 = <&quat_mi2s_active &quat_mi2s_sd0_active
+				&quat_mi2s_sd1_active>;
+	pinctrl-3 = <&quat_mi2s_sleep &quat_mi2s_sd0_sleep
+				&quat_mi2s_sd1_sleep>;
+	pinctrl-4 = <&quat_tdm_active &quat_tdm_dout_active>;
+	pinctrl-5 = <&quat_tdm_sleep &quat_tdm_dout_sleep>;
+
+};
+
+&wcd_usbc_analog_en1_gpio {
+	qcom,lpi-gpios;
+};
+
+&soc {
+	sbu_uart_en: msm_cdc_pinctrl@49 {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&sbu_uart_en_active>;
+		pinctrl-1 = <&sbu_uart_en_idle>;
+	};
+
+/*
+	vreg_pa_p_5p0: vreg_pa_p_5p0 {
+		compatible = "regulator-fixed";
+		regulator-name = "vreg_pa_p_5p0";
+		startup-delay-us=<2000>;
+		gpio = <&tlmm 31 0>;
+		enable-active-high;
+		};
+
+	vreg_pa_n_5p0: vreg_pa_n_5p0 {
+		compatible = "regulator-fixed";
+		regulator-name = "vreg_pa_n_5p0";
+		startup-delay-us=<4000>;
+		gpio = <&tlmm 32 0>;
+		enable-active-high;
+		};
+*/
+};

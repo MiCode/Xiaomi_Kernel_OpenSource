@@ -132,7 +132,7 @@ struct cpufreq_policy {
 
 	/* cpufreq-stats */
 	struct cpufreq_stats	*stats;
-
+	struct cpufreq_stats	*gov_stats;
 	/* For cpufreq driver's internal use */
 	void			*driver_data;
 };
@@ -201,12 +201,21 @@ static inline void disable_cpufreq(void) { }
 void cpufreq_stats_create_table(struct cpufreq_policy *policy);
 void cpufreq_stats_free_table(struct cpufreq_policy *policy);
 void cpufreq_stats_record_transition(struct cpufreq_policy *policy,
-				     unsigned int new_freq);
+					unsigned int new_freq);
+void cpufreq_gov_stats_create_table(struct cpufreq_policy *policy);
+void cpufreq_gov_stats_free_table(struct cpufreq_policy *policy);
+void cpufreq_gov_stats_record_transition(struct cpufreq_policy *policy,
+					unsigned int new_freq);
 #else
 static inline void cpufreq_stats_create_table(struct cpufreq_policy *policy) { }
 static inline void cpufreq_stats_free_table(struct cpufreq_policy *policy) { }
 static inline void cpufreq_stats_record_transition(struct cpufreq_policy *policy,
 						   unsigned int new_freq) { }
+static inline void cpufreq_gov_stats_create_table(struct cpufreq_policy *policy) { }
+static inline void cpufreq_gov_stats_free_table(struct cpufreq_policy *policy) { }
+static inline void cpufreq_gov_stats_record_transition(struct cpufreq_policy *policy,
+						   unsigned int new_freq) { }
+
 #endif /* CONFIG_CPU_FREQ_STAT */
 
 /*********************************************************************

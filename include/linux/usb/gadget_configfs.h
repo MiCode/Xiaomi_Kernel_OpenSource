@@ -6,6 +6,10 @@
 int check_user_usb_string(const char *name,
 		struct usb_gadget_strings *stringtab_dev);
 
+#define VNAME(var) (#var)
+/*default usbserial number, defined in init.qcom.usb.sh*/
+#define DEFAULT_USB_SERIAL_NUMBER "1234567"
+
 #define GS_STRINGS_W(__struct, __name)	\
 static ssize_t __struct##_##__name##_store(struct config_item *item, \
 		const char *page, size_t len)		\
@@ -13,6 +17,16 @@ static ssize_t __struct##_##__name##_store(struct config_item *item, \
 	struct __struct *gs = to_##__struct(item);	\
 	int ret;					\
 							\
+	if ((strncmp(VNAME(__name), "serialnumber", 12) == 0) \
+		&& (gs->__name != NULL) \
+		&& (strncmp(page, DEFAULT_USB_SERIAL_NUMBER, 7) == 0)) \
+	{ \
+	  /*if serialnumber is not null, don't set it to*/  \
+	  /* default serialnumber */						\
+		pr_err("usb serialnumber is not NULL, don't set to %s\n", page); \
+		return -EINVAL; \
+	} \
+								\
 	ret = usb_string_copy(page, &gs->__name);	\
 	if (ret)					\
 		return ret;				\

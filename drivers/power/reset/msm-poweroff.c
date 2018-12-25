@@ -43,10 +43,10 @@
 #define SCM_IO_DISABLE_PMIC_ARBITER	1
 #define SCM_IO_DEASSERT_PS_HOLD		2
 #define SCM_WDOG_DEBUG_BOOT_PART	0x9
-#define SCM_DLOAD_FULLDUMP		0X10
+#define SCM_DLOAD_FULLDUMP              0x40
+#define SCM_DLOAD_MINIDUMP              0x80
 #define SCM_EDLOAD_MODE			0X01
 #define SCM_DLOAD_CMD			0x10
-#define SCM_DLOAD_MINIDUMP		0X20
 #define SCM_DLOAD_BOTHDUMPS	(SCM_DLOAD_MINIDUMP | SCM_DLOAD_FULLDUMP)
 
 static int restart_mode;
@@ -73,7 +73,7 @@ static void scm_disable_sdi(void);
 #endif
 
 static int in_panic;
-static int dload_type = SCM_DLOAD_FULLDUMP;
+static int dload_type = SCM_DLOAD_FULLDUMP | SCM_DLOAD_MINIDUMP;
 static void *dload_mode_addr;
 static bool dload_mode_enabled;
 static void *emergency_dload_mode_addr;
@@ -187,12 +187,14 @@ static void enable_emergency_dload_mode(void)
 
 static int dload_set(const char *val, const struct kernel_param *kp)
 {
+	pr_err("dload_set failed ! Always enable. \n");
+	return 0;
+#if 0
 	int ret;
 
 	int old_val = download_mode;
 
 	ret = param_set_int(val, kp);
-
 	if (ret)
 		return ret;
 
@@ -205,6 +207,7 @@ static int dload_set(const char *val, const struct kernel_param *kp)
 	set_dload_mode(download_mode);
 
 	return 0;
+#endif
 }
 #else
 static void set_dload_mode(int on)
@@ -303,7 +306,9 @@ static void msm_restart_prepare(const char *cmd)
 	else
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_HARD_RESET);
 
-	if (cmd != NULL) {
+	if (in_panic) {
+		qpnp_pon_set_restart_reason(PON_RESTART_REASON_PANIC);
+	} else if (cmd != NULL) {
 		if (!strncmp(cmd, "bootloader", 10)) {
 			qpnp_pon_set_restart_reason(
 				PON_RESTART_REASON_BOOTLOADER);
@@ -354,10 +359,15 @@ static void msm_restart_prepare(const char *cmd)
 					     restart_reason);
 			}
 		} else if (!strncmp(cmd, "edl", 3)) {
+			if (0)
 			enable_emergency_dload_mode();
 		} else {
+			qpnp_pon_set_restart_reason(PON_RESTART_REASON_NORMAL);
 			__raw_writel(0x77665501, restart_reason);
 		}
+	} else {
+		qpnp_pon_set_restart_reason(PON_RESTART_REASON_NORMAL);
+		__raw_writel(0x77665501, restart_reason);
 	}
 
 	flush_cache_all();
@@ -505,15 +515,20 @@ static size_t store_emmc_dload(struct kobject *kobj, struct attribute *attr,
 	return count;
 }
 
-#ifdef CONFIG_QCOM_MINIDUMP
+#ifdef CONFIG_MINIDUMP
+
 static DEFINE_MUTEX(tcsr_lock);
 
 static ssize_t show_dload_mode(struct kobject *kobj, struct attribute *attr,
 				char *buf)
 {
-	return scnprintf(buf, PAGE_SIZE, "DLOAD dump type: %s\n",
-		(dload_type == SCM_DLOAD_BOTHDUMPS) ? "both" :
-		((dload_type == SCM_DLOAD_MINIDUMP) ? "mini" : "full"));
+	if (dload_type == SCM_DLOAD_MINIDUMP)
+		return scnprintf(buf, PAGE_SIZE, "DLOAD dump type: %s\n", "mini");
+
+	if (dload_type == SCM_DLOAD_FULLDUMP)
+		return scnprintf(buf, PAGE_SIZE, "DLOAD dump type: %s\n", "full");
+
+	return scnprintf(buf, PAGE_SIZE, "DLOAD dump type: %s\n", "both");
 }
 
 static size_t store_dload_mode(struct kobject *kobj, struct attribute *attr,
@@ -522,21 +537,19 @@ static size_t store_dload_mode(struct kobject *kobj, struct attribute *attr,
 	if (sysfs_streq(buf, "full")) {
 		dload_type = SCM_DLOAD_FULLDUMP;
 	} else if (sysfs_streq(buf, "mini")) {
-		if (!msm_minidump_enabled()) {
+		if (!minidump_enabled) {
 			pr_err("Minidump is not enabled\n");
 			return -ENODEV;
 		}
 		dload_type = SCM_DLOAD_MINIDUMP;
 	} else if (sysfs_streq(buf, "both")) {
-		if (!msm_minidump_enabled()) {
-			pr_err("Minidump not enabled, setting fulldump only\n");
-			dload_type = SCM_DLOAD_FULLDUMP;
-			return count;
+		if (!minidump_enabled) {
+			pr_err("Minidump is not enabled\n");
+			return -ENODEV;
 		}
-		dload_type = SCM_DLOAD_BOTHDUMPS;
-	} else{
-		pr_err("Invalid Dump setup request..\n");
-		pr_err("Supported dumps:'full', 'mini', or 'both'\n");
+		dload_type = SCM_DLOAD_FULLDUMP | SCM_DLOAD_MINIDUMP;
+	} else {
+		pr_err("Invalid value. Use 'full' or 'mini'\n");
 		return -EINVAL;
 	}
 
@@ -552,7 +565,7 @@ RESET_ATTR(emmc_dload, 0644, show_emmc_dload, store_emmc_dload);
 
 static struct attribute *reset_attrs[] = {
 	&reset_attr_emmc_dload.attr,
-#ifdef CONFIG_QCOM_MINIDUMP
+#ifdef CONFIG_MINIDUMP
 	&reset_attr_dload_mode.attr,
 #endif
 	NULL
@@ -591,7 +604,6 @@ static int msm_restart_probe(struct platform_device *pdev)
 		if (!emergency_dload_mode_addr)
 			pr_err("unable to map imem EDLOAD mode offset\n");
 	}
-
 #ifdef CONFIG_RANDOMIZE_BASE
 #define KASLR_OFFSET_BIT_MASK	0x00000000FFFFFFFF
 	np = of_find_compatible_node(NULL, NULL, KASLR_OFFSET_PROP);

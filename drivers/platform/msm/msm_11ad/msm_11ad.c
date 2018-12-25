@@ -980,6 +980,8 @@ static int msm_11ad_ssr_init(struct msm11ad_ctx *ctx)
 
 	ctx->dump_data.addr = virt_to_phys(ctx->ramdump_addr);
 	ctx->dump_data.len = ctx->ramdump_size;
+	strlcpy(ctx->dump_data.name, "KWIGIG",
+			 sizeof(ctx->dump_data.name));
 	dump_entry.id = MSM_DUMP_DATA_WIGIG;
 	dump_entry.addr = virt_to_phys(&ctx->dump_data);
 

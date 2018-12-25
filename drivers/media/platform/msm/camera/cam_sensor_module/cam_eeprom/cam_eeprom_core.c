@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,11 @@
 #include "cam_eeprom_core.h"
 #include "cam_eeprom_soc.h"
 #include "cam_debug_util.h"
+
+#ifdef CONFIG_USE_ROHM_BU64753
+uint8_t g_eeprom_mapdata[EEPROM_MAP_DATA_CNT] = {0};
+EXPORT_SYMBOL(g_eeprom_mapdata);
+#endif
 
 /**
  * cam_eeprom_read_memory() - read map data into buffer
@@ -62,6 +67,7 @@ static int cam_eeprom_read_memory(struct cam_eeprom_ctrl_t *e_ctrl,
 			i2c_reg_settings.addr_type = emap[j].page.addr_type;
 			i2c_reg_settings.data_type = emap[j].page.data_type;
 			i2c_reg_settings.size = 1;
+			i2c_reg_settings.delay = emap[j].page.delay;
 			i2c_reg_array.reg_addr = emap[j].page.addr;
 			i2c_reg_array.reg_data = emap[j].page.data;
 			i2c_reg_array.delay = emap[j].page.delay;
@@ -105,36 +111,32 @@ static int cam_eeprom_read_memory(struct cam_eeprom_ctrl_t *e_ctrl,
 			}
 		}
 
+		if (emap[j].delay.valid_size)
+			msleep(emap[j].delay.delay);
+
 		if (emap[j].mem.valid_size) {
 			rc = camera_io_dev_read_seq(&e_ctrl->io_master_info,
 				emap[j].mem.addr, memptr,
 				emap[j].mem.addr_type,
-				emap[j].mem.data_type,
 				emap[j].mem.valid_size);
+
 			if (rc) {
 				CAM_ERR(CAM_EEPROM, "read failed rc %d",
 					rc);
 				return rc;
 			}
-			memptr += emap[j].mem.valid_size;
-		}
 
-		if (emap[j].pageen.valid_size) {
-			i2c_reg_settings.addr_type = emap[j].pageen.addr_type;
-			i2c_reg_settings.data_type = emap[j].pageen.data_type;
-			i2c_reg_settings.size = 1;
-			i2c_reg_array.reg_addr = emap[j].pageen.addr;
-			i2c_reg_array.reg_data = 0;
-			i2c_reg_array.delay = emap[j].pageen.delay;
-			i2c_reg_settings.reg_setting = &i2c_reg_array;
-			rc = camera_io_dev_write(&e_ctrl->io_master_info,
-				&i2c_reg_settings);
-			if (rc) {
-				CAM_ERR(CAM_EEPROM,
-					"page disable failed rc %d",
-					rc);
-				return rc;
+#ifdef CONFIG_USE_ROHM_BU64753
+			if ((memptr != NULL) &&
+				(memptr[1] == LITEON_VENDOR_ID) &&
+				(emap[j].saddr == BACK_CAMERA_LILTEON_EEPROM_ADDR) &&
+				(emap[j].mem.valid_size >= (EEPROM_READ_START_INDEX + EEPROM_MAP_DATA_CNT))) {
+				memset(g_eeprom_mapdata, 0, ARRAY_SIZE(g_eeprom_mapdata));
+				memcpy(g_eeprom_mapdata, memptr+EEPROM_READ_START_INDEX, EEPROM_MAP_DATA_CNT);
 			}
+#endif
+
+			memptr += emap[j].mem.valid_size;
 		}
 	}
 	return rc;
@@ -708,6 +710,11 @@ static int32_t cam_eeprom_pkt_parse(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 
 	ioctl_ctrl = (struct cam_control *)arg;
 
+	if (ioctl_ctrl->handle_type != CAM_HANDLE_USER_POINTER) {
+		CAM_ERR(CAM_EEPROM, "Invalid Handle Type");
+		return -EINVAL;
+	}
+
 	if (copy_from_user(&dev_config, (void __user *) ioctl_ctrl->handle,
 		sizeof(dev_config)))
 		return -EFAULT;
@@ -781,12 +788,6 @@ static int32_t cam_eeprom_pkt_parse(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 		e_ctrl->cam_eeprom_state = CAM_EEPROM_ACQUIRE;
 		vfree(e_ctrl->cal_data.mapdata);
 		vfree(e_ctrl->cal_data.map);
-		kfree(power_info->power_setting);
-		kfree(power_info->power_down_setting);
-		power_info->power_setting = NULL;
-		power_info->power_down_setting = NULL;
-		power_info->power_setting_size = 0;
-		power_info->power_down_setting_size = 0;
 		e_ctrl->cal_data.num_data = 0;
 		e_ctrl->cal_data.num_map = 0;
 		break;
@@ -801,12 +802,10 @@ memdata_free:
 error:
 	kfree(power_info->power_setting);
 	kfree(power_info->power_down_setting);
-	power_info->power_setting = NULL;
-	power_info->power_down_setting = NULL;
 	vfree(e_ctrl->cal_data.map);
 	e_ctrl->cal_data.num_data = 0;
 	e_ctrl->cal_data.num_map = 0;
-	e_ctrl->cam_eeprom_state = CAM_EEPROM_INIT;
+	e_ctrl->cam_eeprom_state = CAM_EEPROM_ACQUIRE;
 	return rc;
 }
 
@@ -838,10 +837,6 @@ void cam_eeprom_shutdown(struct cam_eeprom_ctrl_t *e_ctrl)
 
 		kfree(power_info->power_setting);
 		kfree(power_info->power_down_setting);
-		power_info->power_setting = NULL;
-		power_info->power_down_setting = NULL;
-		power_info->power_setting_size = 0;
-		power_info->power_down_setting_size = 0;
 	}
 
 	e_ctrl->cam_eeprom_state = CAM_EEPROM_INIT;
@@ -860,14 +855,8 @@ int32_t cam_eeprom_driver_cmd(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 	struct cam_eeprom_query_cap_t  eeprom_cap = {0};
 	struct cam_control            *cmd = (struct cam_control *)arg;
 
-	if (!e_ctrl || !cmd) {
-		CAM_ERR(CAM_EEPROM, "Invalid Arguments");
-		return -EINVAL;
-	}
-
-	if (cmd->handle_type != CAM_HANDLE_USER_POINTER) {
-		CAM_ERR(CAM_EEPROM, "Invalid handle type: %d",
-			cmd->handle_type);
+	if (!e_ctrl) {
+		CAM_ERR(CAM_EEPROM, "e_ctrl is NULL");
 		return -EINVAL;
 	}
 

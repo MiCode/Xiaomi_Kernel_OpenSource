@@ -2843,3 +2843,15 @@ find_first_cpu_bit(struct task_struct *p, const cpumask_t *search_cpus,
 #else
 #define find_first_cpu_bit(...) -1
 #endif
+
+#ifdef CONFIG_PACKAGE_RUNTIME_INFO
+void __weak update_task_runtime_info(struct task_struct *tsk, u64 delta, int run_on_bcore)
+{
+	return;
+}
+
+void __weak init_task_runtime_info(struct task_struct *tsk)
+{
+	return;
+}
+#endif

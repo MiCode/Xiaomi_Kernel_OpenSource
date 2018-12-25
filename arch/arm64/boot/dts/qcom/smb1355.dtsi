@@ -12,6 +12,7 @@
 
 #include <dt-bindings/interrupt-controller/irq.h>
 
+
 smb1355_0: qcom,smb1355@8 {
 	compatible = "qcom,i2c-pmic";
 	reg = <0x8>;

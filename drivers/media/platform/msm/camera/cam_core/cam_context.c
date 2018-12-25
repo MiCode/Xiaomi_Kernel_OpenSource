@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,7 +41,6 @@ static int cam_context_handle_hw_event(void *context, uint32_t evt_id,
 int cam_context_shutdown(struct cam_context *ctx)
 {
 	int rc = 0;
-	int32_t ctx_hdl = ctx->dev_hdl;
 
 	if (ctx->state_machine[ctx->state].ioctl_ops.stop_dev) {
 		rc = ctx->state_machine[ctx->state].ioctl_ops.stop_dev(
@@ -55,8 +55,6 @@ int cam_context_shutdown(struct cam_context *ctx)
 			CAM_ERR(CAM_CORE, "Error while dev release %d", rc);
 	}
 
-	if (!rc)
-		cam_destroy_device_hdl(ctx_hdl);
 	return rc;
 }
 
@@ -355,7 +353,7 @@ int cam_context_handle_start_dev(struct cam_context *ctx,
 {
 	int rc = 0;
 
-	if (!ctx || !ctx->state_machine) {
+	if (!ctx->state_machine) {
 		CAM_ERR(CAM_CORE, "Context is not ready");
 		return -EINVAL;
 	}
@@ -384,7 +382,7 @@ int cam_context_handle_stop_dev(struct cam_context *ctx,
 {
 	int rc = 0;
 
-	if (!ctx || !ctx->state_machine) {
+	if (!ctx->state_machine) {
 		CAM_ERR(CAM_CORE, "Context is not ready");
 		return -EINVAL;
 	}
@@ -439,6 +437,7 @@ int cam_context_init(struct cam_context *ctx,
 	ctx->ctx_crm_intf = NULL;
 	ctx->crm_ctx_intf = crm_node_intf;
 	ctx->hw_mgr_intf = hw_mgr_intf;
+	ctx->ctx_released = true;
 	ctx->irq_cb_intf = cam_context_handle_hw_event;
 
 	INIT_LIST_HEAD(&ctx->active_req_list);

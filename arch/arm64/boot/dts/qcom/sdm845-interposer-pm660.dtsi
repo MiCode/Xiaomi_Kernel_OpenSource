@@ -255,11 +255,6 @@
 	/delete-property/ vdd_gfx-supply;
 };
 
-&clock_cpucc {
-	/delete-property/ vdd_l3_mx_ao-supply;
-	/delete-property/ vdd_pwrcl_mx_ao-supply;
-};
-
 &pil_modem {
 	/delete-property/ vdd_cx-supply;
 	/delete-property/ vdd_mx-supply;

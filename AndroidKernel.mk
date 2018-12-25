@@ -54,6 +54,10 @@ ifeq ($(strip $(KERNEL_GCC_NOANDROID_CHK)),0)
 KERNEL_CFLAGS := KCFLAGS=-mno-android
 endif
 
+ifeq (global,$(MIUI_CURRENT_CUST_VARIANT))
+KERNEL_CFLAGS += CONFIG_MIUI_CUST_GLOBAL=y
+endif
+
 mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
 current_dir := $(notdir $(patsubst %/,%,$(dir $(mkfile_path))))
 TARGET_KERNEL := msm-$(TARGET_KERNEL_VERSION)

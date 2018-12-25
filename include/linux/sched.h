@@ -63,7 +63,10 @@ struct sched_param {
 #include <asm/processor.h>
 
 #define SCHED_ATTR_SIZE_VER0	48	/* sizeof first published struct */
-
+#ifdef CONFIG_PACKAGE_RUNTIME_INFO
+#define HISTORY_ITMES           4
+#define HISTORY_WINDOWS          (HISTORY_ITMES+2)
+#endif
 /*
  * Extended scheduling parameters data structure.
  *
@@ -987,6 +990,10 @@ struct user_struct {
 	struct key *session_keyring;	/* UID's default session keyring */
 #endif
 
+#ifdef CONFIG_PACKAGE_RUNTIME_INFO
+	u64 big_cluster_runtime[HISTORY_WINDOWS];
+	u64 little_cluster_runtime[HISTORY_WINDOWS];
+#endif
 	/* Hash table maintenance information */
 	struct hlist_node uidhash_node;
 	kuid_t uid;
@@ -1784,8 +1791,11 @@ struct task_struct {
 	struct list_head grp_list;
 	u64 cpu_cycles;
 	bool misfit;
+#ifdef CONFIG_PACKAGE_RUNTIME_INFO
+	u64 big_cluster_runtime[HISTORY_WINDOWS];
+	u64 little_cluster_runtime[HISTORY_WINDOWS];
 #endif
-
+#endif
 #ifdef CONFIG_CGROUP_SCHED
 	struct task_group *sched_task_group;
 #endif

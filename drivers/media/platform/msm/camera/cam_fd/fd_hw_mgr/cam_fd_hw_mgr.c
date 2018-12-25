@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1067,6 +1068,7 @@ static int cam_fd_mgr_irq_cb(void *data, enum cam_fd_hw_irq_type irq_type)
 		spin_unlock_irqrestore(&hw_mgr->hw_mgr_slock, flags);
 		return -ENOMEM;
 	}
+	spin_unlock_irqrestore(&hw_mgr->hw_mgr_slock, flags);
 
 	work_data = (struct cam_fd_mgr_work_data *)task->payload;
 	work_data->type = CAM_FD_WORK_IRQ;
@@ -1076,8 +1078,6 @@ static int cam_fd_mgr_irq_cb(void *data, enum cam_fd_hw_irq_type irq_type)
 	rc = cam_req_mgr_workq_enqueue_task(task, hw_mgr, CRM_TASK_PRIORITY_0);
 	if (rc)
 		CAM_ERR(CAM_FD, "Failed in enqueue work task, rc=%d", rc);
-
-	spin_unlock_irqrestore(&hw_mgr->hw_mgr_slock, flags);
 
 	return rc;
 }
@@ -1860,7 +1860,7 @@ int cam_fd_hw_mgr_init(struct device_node *of_node,
 		g_fd_hw_mgr.cdm_iommu.secure);
 
 	/* Init hw mgr contexts and add to free list */
-	for (i = 0; i < CAM_CTX_MAX; i++) {
+	for (i = 0; i < CAM_FD_CTX_MAX; i++) {
 		hw_mgr_ctx = &g_fd_hw_mgr.ctx_pool[i];
 
 		memset(hw_mgr_ctx, 0x0, sizeof(*hw_mgr_ctx));
@@ -1884,7 +1884,7 @@ int cam_fd_hw_mgr_init(struct device_node *of_node,
 	}
 
 	rc = cam_req_mgr_workq_create("cam_fd_worker", CAM_FD_WORKQ_NUM_TASK,
-		&g_fd_hw_mgr.work, CRM_WORKQ_USAGE_IRQ, 0);
+		&g_fd_hw_mgr.work, CRM_WORKQ_USAGE_IRQ);
 	if (rc) {
 		CAM_ERR(CAM_FD, "Unable to create a worker, rc=%d", rc);
 		goto detach_smmu;

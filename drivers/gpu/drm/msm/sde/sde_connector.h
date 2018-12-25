@@ -373,8 +373,11 @@ struct sde_connector {
 	bool bl_scale_dirty;
 	u32 bl_scale;
 	u32 bl_scale_ad;
+	u32 unset_bl_level;
+	bool allow_bl_update;
 
 	bool last_cmd_tx_sts;
+	bool panel_dead_skip;
 };
 
 /**
