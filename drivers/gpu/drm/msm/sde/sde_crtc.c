@@ -5744,7 +5744,6 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 				NULL);
 
 	drm_crtc_helper_add(crtc, &sde_crtc_helper_funcs);
-	plane->crtc = crtc;
 
 	/* save user friendly CRTC name for later */
 	snprintf(sde_crtc->name, SDE_CRTC_NAME_SIZE, "crtc%u", crtc->base.id);
