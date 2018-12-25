@@ -1,0 +1,116 @@
+#
+# (C) COPYRIGHT 2010-2013, 2016 ARM Limited. All rights reserved.
+#
+# This program is free software and is provided to you under the terms of the
+# GNU General Public License version 2 as published by the Free Software
+# Foundation, and any use by you of this program is subject to the terms
+# of such GNU licence.
+#
+# A copy of the licence is included with the program, and can also be obtained
+# from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+# Boston, MA  02110-1301, USA.
+#
+#
+
+
+import glob
+import os
+import shutil
+import subprocess
+
+from SCons.Script import SCons
+
+Import("env")
+
+# -----------------------------------------------------------------------------
+g_kernel_config = dict()
+
+def kernel_config_enabled(sEnv, option):
+    """Return true if a given kernel config option is enabled"""
+    global g_kernel_config
+    if not g_kernel_config:
+        config_file = os.path.join(sEnv["ENV"]["KDIR"], "include/config/auto.conf")
+        print "Parsing kernel config '%s'." % config_file
+        with open(config_file, "rt") as fp:
+            for line in fp.readlines():
+                try:
+                    (key, val) = line.split("=")
+                    g_kernel_config[key.strip()] = val.strip()
+                except ValueError:
+                    pass
+    if option not in g_kernel_config:
+        return False
+    val = g_kernel_config[option]
+    if val == "y":
+        return True
+    return False
+
+env.AddMethod(kernel_config_enabled, "KernelConfigEnabled")
+
+def kernel_module_builder(env = None, target = None, source = None):
+    assert (len(target) == 1 and 'M' in env and 'make_args' in env and
+            'built_module' in env)
+
+    module_dir = str(env['M'])
+    cmd = ['make', '-j%d' % GetOption('num_jobs')] + env['make_args']
+    status = subprocess.call(cmd, cwd = module_dir, env = env['ENV'])
+    if status:
+        return status
+
+    shutil.copy2(env['built_module'], target[0].abspath)
+    return 0 # Success (SCons will catch any exceptions thrown by copy2).
+
+action = SCons.Action.Action(kernel_module_builder, "[KBUILD] $TARGET")
+builder = env.Builder(action = action)
+env.Append(BUILDERS = {'KernelModuleBuilder': builder})
+
+def build_kernel_module(env, target, sources, M = None, make_args = [],
+                        built_module = None):
+    if not M:
+        M = Dir('.').srcnode().abspath
+    if not built_module:
+        built_module = os.path.basename(str(target))
+    built_module = os.path.join(M, built_module)
+
+    env_kern = env.Clone()
+    kdir = env_kern['ENV']['KDIR']
+    env_kern.Append(CPPPATH = [M, '#kernel/include', os.path.join(kdir, 'include')])
+    mod = env_kern.KernelModuleBuilder(target, sources, M = M,
+                                       make_args = make_args,
+                                       built_module = built_module)
+
+    # Kbuild implicitly #includes kconfig.h (which includes autoconf.h) when
+    # building kernel module source files.
+    env_kern.Depends(mod, os.path.join(kdir, 'include/generated/autoconf.h'))
+    # Built files may change depending on CONFIG_* values in auto.conf.
+    env_kern.Depends(mod, os.path.join(kdir, 'include/config/auto.conf'))
+
+    for f in ['Kconfig', 'Kbuild', 'Makefile*']:
+        env_kern.Depends(mod, glob.glob(os.path.join(M, f)))
+
+    scanner = SCons.Scanner.C.CScanner()
+    all_headers = set()
+    for src in Flatten(sources):
+        src = env_kern.File(src)
+        (base, ext) = os.path.splitext(src.abspath)
+        if ext == '.c':
+            env_kern.Clean(mod, base + '.o')
+            # Scan for header dependencies explicitly.
+            headers = scanner(src, env_kern, scanner.path_function(env_kern))
+            env_kern.Depends(mod, headers)
+            all_headers.update(headers)
+
+    env_kern.Clean(mod, os.path.join(M, 'Module.symvers'))
+    env_kern.Clean(mod, os.path.join(M, 'module.order'))
+
+    return mod
+
+env.AddMethod(build_kernel_module, 'BuildKernelModule')
+
+if Glob('base/sconscript'):
+	SConscript('base/sconscript')
+
+if Glob('video/sconscript'):
+	SConscript('video/sconscript')
+
+SConscript('gpu/sconscript')

@@ -1,0 +1,41 @@
+$(info mali MTK evironment, building r3p0-00rel0 DDK)
+
+MTK_TOP = $(srctree)/drivers/misc/mediatek/
+
+#build support for a ARM Mali Midgard GPU
+CONFIG_MALI_MIDGARD := y
+
+#use mtk platform
+CONFIG_MALI_PLATFORM_THIRDPARTY := y
+CONFIG_MALI_PLATFORM_THIRDPARTY_NAME := $(CONFIG_MTK_PLATFORM)
+
+$(info mtk-Kbuild CONFIG_MALI_PLATFORM_THIRDPARTY := $(CONFIG_MALI_PLATFORM_THIRDPARTY))
+$(info mtk-Kbuild CONFIG_MALI_PLATFORM_THIRDPARTY_NAME := $(CONFIG_MALI_PLATFORM_THIRDPARTY_NAME))
+
+#CONFIG_MALI_PLATFORM_FAKE := y
+
+CONFIG_MALI_DEBUG := y
+
+ccflags-y += -I-I$(srctree)/include
+ccflags-y += -I$(srctree)/drivers/staging/android
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/$(CONFIG_MTK_PLATFORM)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/gpu/ged/include
+
+#ccflags-y += -DCONFIG_MALI_PLATFORM_FAKE
+ccflags-y += -DCONFIG_MALI_MIDGARD_DVFS
+ccflags-y += -DCONFIG_DEBUG_FS
+ccflags-y += -DCONFIG_PROC_FS
+#ccflags-y += -DENABLE_MTK_MEMINFO
+
+#ifneq ($(CONFIG_FPGA_EARLY_PORTING), y)
+ifeq ($(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT),y)
+ifeq ($(CONFIG_MALI_PLATFORM_THIRDPARTY_NAME),"mt6763")
+ccflags-y += -DENABLE_COMMON_DVFS
+endif
+ifeq ($(CONFIG_MALI_PLATFORM_THIRDPARTY_NAME),"mt6758")
+ccflags-y += -DENABLE_COMMON_DVFS
+endif
+endif
+#else
+#$(info $[MALI]CONFIG_FPGA_EARLY_PORTING is [${CONFIG_FPGA_EARLY_PORTING}])
+#endif

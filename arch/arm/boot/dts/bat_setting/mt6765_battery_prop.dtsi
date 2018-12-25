@@ -1,0 +1,63 @@
+/*
+ * Copyright (C) 2017 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
+bat_gm30: battery{
+	compatible = "mediatek,bat_gm30";
+	/*	Charging termination current.*/
+	DIFFERENCE_FULLOCV_ITH = <(200)>;
+	/*If ui_soc shows 1% more than X minites, system will shutdown.*/
+	SHUTDOWN_1_TIME = <(30)>;
+	/*The ui_soc will keep 100% until SOC drop X percents after unplugged.*/
+	KEEP_100_PERCENT = <(1)>;
+	/*	R_sense resistance.*/
+	R_FG_VALUE = <(10)>;
+	/*	Configures whether using embedded battery or not.*/
+	EMBEDDED_SEL = <(1)>;
+	/*	System shutdown current.*/
+	PMIC_SHUTDOWN_CURRENT = <(20)>;
+	/*	The resistance of PCB*/
+	FG_METER_RESISTANCE = <(75)>;
+	/*	Tune value for current measurement.*/
+	CAR_TUNE_VALUE = <(100)>;
+	/*	Battery temperature T0*/
+	PMIC_MIN_VOL = <(33500)>;
+	/*	vboot voltage for gauge 0%.*/
+	POWERON_SYSTEM_IBOOT = <(500)>;
+	/*	power on system iboot*/
+	SHUTDOWN_GAUGE0_VOLTAGE = <(34000)>;
+	/*	shutdown gauge 0% voltage*/
+	TEMPERATURE_T0 = <(25)>;
+	/*	Battery temperature T1*/
+	TEMPERATURE_T1 = <(10)>;
+	/*	Battery temperature T2*/
+	TEMPERATURE_T2 = <(0)>;
+	/*	Battery temperature T3*/
+	TEMPERATURE_T3 = <(-10)>;
+	/*	Pseudo 100% percentage at T0.*/
+	g_FG_PSEUDO100_T0 = <(98)>;
+	/*	Pseudo 100% percentage at T1.*/
+	g_FG_PSEUDO100_T1 = <(95)>;
+	/*	Pseudo 100% percentage at T2.*/
+	g_FG_PSEUDO100_T2 = <(90)>;
+	/*	Pseudo 100% percentage at T3.*/
+	g_FG_PSEUDO100_T3 = <(80)>;
+	/*	System shut down voltage.*/
+	Q_MAX_SYS_VOLTAGE_BAT0 = <(3350)>;
+	/*	System shut down voltage.*/
+	Q_MAX_SYS_VOLTAGE_BAT1 = <(3350)>;
+	/*	System shut down voltage.*/
+	Q_MAX_SYS_VOLTAGE_BAT2 = <(3350)>;
+	/*	System shut down voltage.*/
+	Q_MAX_SYS_VOLTAGE_BAT3 = <(3350)>;
+#include "mt6765_battery_table.dtsi"
+};

@@ -1,0 +1,23 @@
+config MTK2712_FREQ_HOPPING
+	bool "MT2712 FREQHOPPING driver"
+	depends on MTK_FREQ_HOPPING
+	help
+	  Freqhopping can help you control some PLLs by freqhopping HW.
+
+config MTK8173_FREQ_HOPPING
+	bool "MT8173 FREQHOPPING driver"
+	depends on MTK_FREQ_HOPPING
+	help
+	  Freqhopping can help you control some PLLs by freqhopping HW.
+
+config MTK6758_FREQ_HOPPING
+	bool "MT6758 FREQHOPPING driver"
+	depends on MTK_FREQ_HOPPING
+	help
+	  Freqhopping can help you control some PLLs by freqhopping HW.
+
+config MTK6765_FREQ_HOPPING
+	bool "MT6765 FREQHOPPING driver"
+	depends on MTK_FREQ_HOPPING
+	help
+	  Freqhopping can help you control some PLLs by freqhopping HW.

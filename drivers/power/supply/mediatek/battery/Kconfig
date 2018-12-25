@@ -1,0 +1,29 @@
+ menuconfig MEDIATEK_BATTERY_SOLUTION
+	bool "MediaTek Propritary Configuration for Battery"
+	help
+	  Check this to enable MediaTek Battery configuration.
+
+config MTK_GAUGE_VERSION
+	int "MediaTek Fuel Gauge version"
+	default 20
+	help
+	  Select MTK Gauge Master version
+	  30: Gauge Master 3.0
+
+config MTK_DISABLE_GAUGE
+	bool "disable Gauge Master 3.0"
+	default n
+	help
+	  Set Yes to disable Gauge Master 3.0
+	  under new MTK Charger Framework
+	  Set No to enable Gauge Master 3.0
+	  under new MTK Charger Framework
+
+config MTK_ADDITIONAL_BATTERY_TABLE
+	bool "Enable the fifth battery table"
+	default y
+	help
+	  Set Yes to enable the fifth battery table
+	  Table number is five.
+	  Set No to disable the fifth battery table
+	  Table number is four.

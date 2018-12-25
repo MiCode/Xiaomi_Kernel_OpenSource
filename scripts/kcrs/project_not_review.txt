@@ -1,0 +1,6 @@
+evb.*
+tb.*
+cv.*
+fpga.*
+.*_pre_.*
+.*_schem.*

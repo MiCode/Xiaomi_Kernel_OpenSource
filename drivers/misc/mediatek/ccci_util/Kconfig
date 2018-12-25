@@ -1,0 +1,108 @@
+menuconfig MTK_CCCI_DEVICES
+	bool "CCCI Devices"
+	default y
+	help
+	  Say Y here to enable CCCI basic support.
+	  If you say N, all CCCI related code (including dummy API) will be disable.
+
+config MTK_MD1_SUPPORT
+	int "configure modem 1 boot up capability"
+	depends on MTK_CCCI_DRIVER || MTK_CCCI_EXT || MTK_ECCCI_DRIVER
+	default 0
+	help
+	  modem 1 mode:
+	  0=>invalid,
+	  1=>2g,
+	  2=>3g,
+	  3=>wg,
+	  4=>tg,
+	  5=>lwg,
+	  6=>ltg,
+	  7=>sglte,
+	  8=>ultg,
+	  9=>ulwg,
+	  10=>ulwtg,
+	  11=>ulwcg,
+	  12=>ulwctg,
+	  13=>ulttg,
+	  14=>ulfwg,
+	  15=>ulfwcg,
+	  16=>ulctg,
+	  17=>ultctg,
+	  18=>ultwg,
+	  19=>ultwcg,
+	  20=>ulftg,
+	  21=>ulfctg
+
+
+config MD1_SIZE
+	hex "Configure modem 1 rserved RO+RW memory size"
+	depends on MTK_CCCI_DRIVER || MTK_CCCI_EXT || MTK_ECCCI_DRIVER
+	default 0x5000000
+	help
+	   modem 1 memory size.
+
+
+
+config MD1_SMEM_SIZE
+	hex "Configure modem 1 rserved share memory size"
+	depends on MTK_CCCI_DRIVER || MTK_CCCI_EXT || MTK_ECCCI_DRIVER
+	default 0x200000
+	help
+	   modem 1 share memory size.
+
+
+config MTK_MD2_SUPPORT
+	int "configure modem 1 boot up capability"
+	depends on MTK_CCCI_EXT
+	default 1
+	help
+	  modem 2 mode:
+	  1=>2g,
+	  2=>3g,
+	  3=>wg,
+	  4=>tg,
+	  5=>lwg,
+	  6=>ltg,
+	  7=>sglte,
+	  0=>invalid
+
+
+config MD2_SIZE
+	hex "Configure modem 2 rserved RO+RW memory size"
+	depends on MTK_CCCI_EXT || MTK_ECCCI_DRIVER
+	default 0x1000000
+	help
+	  modem 2 memory size.
+
+
+
+config MD2_SMEM_SIZE
+	hex "Configure modem 1 rserved share memory size"
+	depends on MTK_CCCI_EXT || MTK_ECCCI_DRIVER
+	default 0x400000
+	help
+	   modem 2 share memory size.
+
+
+config MTK_MD3_SUPPORT
+	int "configure modem 3 boot up capability"
+	depends on MTK_CCCI_DRIVER || MTK_CCCI_EXT || MTK_ECCCI_DRIVER
+	default 0
+	help
+	  modem 3 mode:
+	  1=>2g,
+	  2=>3g,
+	  0=>invalid
+
+
+config MTK_C2K_LTE_MODE
+	int "configure modem working on SRLTE or SVLTE mode"
+	depends on MTK_CCCI_DRIVER || MTK_CCCI_EXT || MTK_ECCCI_DRIVER
+	default 0
+	help
+	  modem work mode:
+	  0=>disable srlte and svlte,
+	  1=>svlte mode,
+	  2=>srlte mode
+

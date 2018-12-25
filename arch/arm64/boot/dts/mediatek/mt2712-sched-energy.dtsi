@@ -1,0 +1,144 @@
+/*
+ * Copyright (c) 2017 MediaTek Inc.
+ * Author: Sami Lee <sami.lee@mediatek.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+energy-costs {
+	MT2712E_CPU_COST_0: mt2712e-core-cost0 {
+		busy-cost-data = <
+			334	40
+			392	41
+			443	44
+		>;
+		idle-cost-data = <
+			5
+			5
+			0
+			0
+		>;
+	};
+	MT2712E_CPU_COST_1: mt2712e-core-cost1 {
+		busy-cost-data = <
+			610	218
+			716	252
+			810	282
+			915	315
+			1024	349
+		>;
+		idle-cost-data = <
+			19
+			19
+			0
+			0
+		>;
+	};
+	MT2712E_CLUSTER_COST_0: mt2712e-cluster-cost0 {
+		busy-cost-data = <
+			334	111
+			392	122
+			443	130
+		>;
+		idle-cost-data = <
+			116
+			116
+			116
+			70
+		>;
+	};
+	MT2712E_CLUSTER_COST_1: mt2712e-cluster-cost1 {
+		busy-cost-data = <
+			610	23
+			716	27
+			810	30
+			915	34
+			1024	39
+		>;
+		idle-cost-data = <
+			33
+			33
+			33
+			3
+		>;
+	};
+
+	MT2712H_CPU_COST_0: mt2712h-core-cost0 {
+		busy-cost-data = <
+			240	40
+			282	41
+			318	44
+			360	48
+			403	54
+			445	61
+			482	69
+		>;
+		idle-cost-data = <
+			5
+			5
+			0
+			0
+		>;
+	};
+	MT2712H_CPU_COST_1: mt2712h-core-cost1 {
+		busy-cost-data = <
+			438	218
+			515	252
+			583	282
+			658	315
+			737	349
+			812	382
+			878	411
+			955	443
+			1024	472
+		>;
+		idle-cost-data = <
+			19
+			19
+			0
+			0
+		>;
+	};
+	MT2712H_CLUSTER_COST_0: mt2712h-cluster-cost0 {
+		busy-cost-data = <
+			240	111
+			282	122
+			318	130
+			360	138
+			406	145
+			445	150
+			482	154
+		>;
+		idle-cost-data = <
+			116
+			116
+			116
+			70
+		>;
+	};
+	MT2712H_CLUSTER_COST_1: mt2712h-cluster-cost1 {
+		busy-cost-data = <
+			438	23
+			515	27
+			583	30
+			658	34
+			737	39
+			812	44
+			878	49
+			955	56
+			1024	62
+		>;
+		idle-cost-data = <
+			33
+			33
+			33
+			3
+		>;
+	};
+};

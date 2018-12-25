@@ -1,0 +1,1115 @@
+/*************************************************************************/ /*!
+@File
+@Title          DDK implementation of the Services abstraction layer
+@Copyright      Copyright (c) Imagination Technologies Ltd. All Rights Reserved
+@Description    DDK implementation of the Services abstraction layer
+@License        Dual MIT/GPLv2
+
+The contents of this file are subject to the MIT license as set out below.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+Alternatively, the contents of this file may be used under the terms of
+the GNU General Public License Version 2 ("GPL") in which case the provisions
+of GPL are applicable instead of those above.
+
+If you wish to allow use of your version of this file only under the terms of
+GPL, and not to allow others to use your version of this file under the terms
+of the MIT license, indicate your decision by deleting the provisions above
+and replace them with the notice and other provisions required by GPL as set
+out in the file called "GPL-COPYING" included in this distribution. If you do
+not delete the provisions above, a recipient may use your version of this file
+under the terms of either the MIT license or GPL.
+
+This License is also included in this distribution in the file called
+"MIT-COPYING".
+
+EXCEPT AS OTHERWISE STATED IN A NEGOTIATED AGREEMENT: (A) THE SOFTWARE IS
+PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE AND NONINFRINGEMENT; AND (B) IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*/ /**************************************************************************/
+
+#include "rgxlayer_impl.h"
+#include "osfunc.h"
+#include "pdump_km.h"
+#include "rgxfwutils.h"
+#include "devicemem.h"
+#include "cache_km.h"
+#include "pmr.h"
+
+#if defined (PDUMP)
+#include <stdarg.h>
+#endif
+
+void RGXMemCopy(const void *hPrivate,
+                void *pvDst,
+                void *pvSrc,
+                size_t uiSize)
+{
+	PVR_UNREFERENCED_PARAMETER(hPrivate);
+	OSDeviceMemCopy(pvDst, pvSrc, uiSize);
+}
+
+void RGXMemSet(const void *hPrivate,
+               void *pvDst,
+               IMG_UINT8 ui8Value,
+               size_t uiSize)
+{
+	PVR_UNREFERENCED_PARAMETER(hPrivate);
+	OSDeviceMemSet(pvDst, ui8Value, uiSize);
+}
+
+void RGXCommentLog(const void *hPrivate,
+                   const IMG_CHAR *pszString,
+                   ...)
+{
+#if defined(PDUMP)
+	va_list argList;
+	va_start(argList, pszString);
+	PDumpCommentWithFlagsVA(PDUMP_FLAGS_CONTINUOUS, pszString, argList);
+	va_end(argList);
+	PVR_UNREFERENCED_PARAMETER(hPrivate);
+#else
+	PVR_UNREFERENCED_PARAMETER(hPrivate);
+	PVR_UNREFERENCED_PARAMETER(pszString);
+#endif
+}
+
+void RGXErrorLog(const void *hPrivate,
+                 const IMG_CHAR *pszString,
+                 ...)
+{
+	IMG_CHAR szBuffer[PVR_MAX_DEBUG_MESSAGE_LEN];
+	va_list argList;
+
+	PVR_UNREFERENCED_PARAMETER(hPrivate);
+
+	va_start(argList, pszString);
+	vsnprintf(szBuffer, sizeof(szBuffer), pszString, argList);
+	va_end(argList);
+
+	PVR_DPF((PVR_DBG_ERROR, "%s", szBuffer));
+}
+
+IMG_UINT32 RGXGetFWCorememSize(const void *hPrivate)
+{
+	RGX_LAYER_PARAMS *psParams;
+	PVRSRV_RGXDEV_INFO *psDevInfo;
+
+	PVR_ASSERT(hPrivate != NULL);
+
+	psParams = (RGX_LAYER_PARAMS*)hPrivate;
+	psDevInfo = psParams->psDevInfo;
+
+	return psDevInfo->sDevFeatureCfg.ui32MCMS;
+}
+
+void RGXWriteReg32(const void *hPrivate, IMG_UINT32 ui32RegAddr, IMG_UINT32 ui32RegValue)
+{
+	RGX_LAYER_PARAMS *psParams;
+	PVRSRV_RGXDEV_INFO *psDevInfo;
+	void *pvRegsBase;
+
+	PVR_ASSERT(hPrivate != NULL);
+	psParams = (RGX_LAYER_PARAMS*)hPrivate;
+	psDevInfo = psParams->psDevInfo;
+	pvRegsBase = psDevInfo->pvRegsBaseKM;
+
+#if defined(PDUMP)
+	if (!(psParams->ui32PdumpFlags & PDUMP_FLAGS_NOHW))
+#endif
+	{
+		OSWriteHWReg32(pvRegsBase, ui32RegAddr, ui32RegValue);
+	}
+
+	PDUMPREG32(RGX_PDUMPREG_NAME, ui32RegAddr, ui32RegValue, psParams->ui32PdumpFlags);
+}
+
+void RGXWriteReg64(const void *hPrivate, IMG_UINT32 ui32RegAddr, IMG_UINT64 ui64RegValue)
+{
+	RGX_LAYER_PARAMS *psParams;
+	PVRSRV_RGXDEV_INFO *psDevInfo;
+	void *pvRegsBase;
+
+	PVR_ASSERT(hPrivate != NULL);
+	psParams = (RGX_LAYER_PARAMS*)hPrivate;
+	psDevInfo = psParams->psDevInfo;
+	pvRegsBase = psDevInfo->pvRegsBaseKM;
+
+#if defined(PDUMP)
+	if (!(psParams->ui32PdumpFlags & PDUMP_FLAGS_NOHW))
+#endif
+	{
+		OSWriteHWReg64(pvRegsBase, ui32RegAddr, ui64RegValue);
+	}
+
+	PDUMPREG64(RGX_PDUMPREG_NAME, ui32RegAddr, ui64RegValue, psParams->ui32PdumpFlags);
+}
+
+IMG_UINT32 RGXReadReg32(const void *hPrivate, IMG_UINT32 ui32RegAddr)
+{
+	RGX_LAYER_PARAMS *psParams;
+	PVRSRV_RGXDEV_INFO *psDevInfo;
+	void *pvRegsBase;
+	IMG_UINT32 ui32RegValue;
+
+	PVR_ASSERT(hPrivate != NULL);
+	psParams = (RGX_LAYER_PARAMS*)hPrivate;
+	psDevInfo = psParams->psDevInfo;
+	pvRegsBase = psDevInfo->pvRegsBaseKM;
+
+#if defined(PDUMP)
+	if (psParams->ui32PdumpFlags & PDUMP_FLAGS_NOHW)
+	{
+		ui32RegValue = IMG_UINT32_MAX;
+	}
+	else
+#endif
+	{
+		ui32RegValue = OSReadHWReg32(pvRegsBase, ui32RegAddr);
+	}
+
+	PDUMPREGREAD32(RGX_PDUMPREG_NAME, ui32RegAddr, psParams->ui32PdumpFlags);
+
+	return ui32RegValue;
+}
+
+IMG_UINT64 RGXReadReg64(const void *hPrivate, IMG_UINT32 ui32RegAddr)
+{
+	RGX_LAYER_PARAMS *psParams;
+	PVRSRV_RGXDEV_INFO *psDevInfo;
+	void *pvRegsBase;
+	IMG_UINT64 ui64RegValue;
+
+	PVR_ASSERT(hPrivate != NULL);
+	psParams = (RGX_LAYER_PARAMS*)hPrivate;
+	psDevInfo = psParams->psDevInfo;
+	pvRegsBase = psDevInfo->pvRegsBaseKM;
+
+#if defined(PDUMP)
+	if (psParams->ui32PdumpFlags & PDUMP_FLAGS_NOHW)
+	{
+		ui64RegValue = IMG_UINT64_MAX;
+	}
+	else
+#endif
+	{
+		ui64RegValue = OSReadHWReg64(pvRegsBase, ui32RegAddr);
+	}
+
+	PDUMPREGREAD64(RGX_PDUMPREG_NAME, ui32RegAddr, PDUMP_FLAGS_CONTINUOUS);
+
+	return ui64RegValue;
+}
+
+PVRSRV_ERROR RGXPollReg32(const void *hPrivate,
+                          IMG_UINT32 ui32RegAddr,
+                          IMG_UINT32 ui32RegValue,
+                          IMG_UINT32 ui32RegMask)
+{
+	RGX_LAYER_PARAMS *psParams;
+	PVRSRV_RGXDEV_INFO *psDevInfo;
+	void *pvRegsBase;
+
+	PVR_ASSERT(hPrivate != NULL);
+	psParams = (RGX_LAYER_PARAMS*)hPrivate;
+	psDevInfo = psParams->psDevInfo;
+	pvRegsBase = psDevInfo->pvRegsBaseKM;
+
+#if defined(PDUMP)
+	if (!(psParams->ui32PdumpFlags & PDUMP_FLAGS_NOHW))
+#endif
+	{
+		if (PVRSRVPollForValueKM((IMG_UINT32 *)((IMG_UINT8*)pvRegsBase + ui32RegAddr),
+		                         ui32RegValue,
+		                         ui32RegMask) != PVRSRV_OK)
+		{
+			PVR_DPF((PVR_DBG_ERROR, "RGXPollReg32: Poll for Reg (0x%x) failed", ui32RegAddr));
+			return PVRSRV_ERROR_TIMEOUT;
+		}
+	}
+
+	PDUMPREGPOL(RGX_PDUMPREG_NAME,
+	            ui32RegAddr,
+	            ui32RegValue,
+	            ui32RegMask,
+	            psParams->ui32PdumpFlags,
+	            PDUMP_POLL_OPERATOR_EQUAL);
+
+	return PVRSRV_OK;
+}
+
+PVRSRV_ERROR RGXPollReg64(const void *hPrivate,
+                          IMG_UINT32 ui32RegAddr,
+                          IMG_UINT64 ui64RegValue,
+                          IMG_UINT64 ui64RegMask)
+{
+	RGX_LAYER_PARAMS *psParams;
+	PVRSRV_RGXDEV_INFO *psDevInfo;
+	void *pvRegsBase;
+
+	/* Split lower and upper words */
+	IMG_UINT32 ui32UpperValue = (IMG_UINT32) (ui64RegValue >> 32);
+	IMG_UINT32 ui32LowerValue = (IMG_UINT32) (ui64RegValue);
+	IMG_UINT32 ui32UpperMask = (IMG_UINT32) (ui64RegMask >> 32);
+	IMG_UINT32 ui32LowerMask = (IMG_UINT32) (ui64RegMask);
+
+	PVR_ASSERT(hPrivate != NULL);
+	psParams = (RGX_LAYER_PARAMS*)hPrivate;
+	psDevInfo = psParams->psDevInfo;
+	pvRegsBase = psDevInfo->pvRegsBaseKM;
+
+#if defined(PDUMP)
+	if (!(psParams->ui32PdumpFlags & PDUMP_FLAGS_NOHW))
+#endif
+	{
+		if (PVRSRVPollForValueKM((IMG_UINT32 *)((IMG_UINT8*)pvRegsBase + ui32RegAddr + 4),
+		                         ui32UpperValue,
+		                         ui32UpperMask) != PVRSRV_OK)
+		{
+			PVR_DPF((PVR_DBG_ERROR, "RGXPollReg64: Poll for upper part of Reg (0x%x) failed", ui32RegAddr));
+			return PVRSRV_ERROR_TIMEOUT;
+		}
+
+		if (PVRSRVPollForValueKM((IMG_UINT32 *)((IMG_UINT8*)pvRegsBase + ui32RegAddr),
+		                         ui32LowerValue,
+		                         ui32LowerMask) != PVRSRV_OK)
+		{
+			PVR_DPF((PVR_DBG_ERROR, "RGXPollReg64: Poll for upper part of Reg (0x%x) failed", ui32RegAddr));
+			return PVRSRV_ERROR_TIMEOUT;
+		}
+	}
+
+	PDUMPREGPOL(RGX_PDUMPREG_NAME,
+	            ui32RegAddr + 4,
+	            ui32UpperValue,
+	            ui32UpperMask,
+	            psParams->ui32PdumpFlags,
+	            PDUMP_POLL_OPERATOR_EQUAL);
+
+
+	PDUMPREGPOL(RGX_PDUMPREG_NAME,
+	            ui32RegAddr,
+	            ui32LowerValue,
+	            ui32LowerMask,
+	            psParams->ui32PdumpFlags,
+	            PDUMP_POLL_OPERATOR_EQUAL);
+
+	return PVRSRV_OK;
+}
+
+void RGXWaitCycles(const void *hPrivate, IMG_UINT32 ui32Cycles, IMG_UINT32 ui32TimeUs)
+{
+	PVR_UNREFERENCED_PARAMETER(hPrivate);
+	OSWaitus(ui32TimeUs);
+	PDUMPIDLWITHFLAGS(ui32Cycles, PDUMP_FLAGS_CONTINUOUS);
+}
+
+void RGXAcquireKernelMMUPC(const void *hPrivate, IMG_DEV_PHYADDR *psPCAddr)
+{
+	PVR_ASSERT(hPrivate != NULL);
+	*psPCAddr = ((RGX_LAYER_PARAMS*)hPrivate)->sPCAddr;
+}
+
+#if defined(PDUMP)
+void RGXWriteKernelMMUPC64(const void *hPrivate,
+                           IMG_UINT32 ui32PCReg,
+                           IMG_UINT32 ui32PCRegAlignShift,
+                           IMG_UINT32 ui32PCRegShift,
+                           IMG_UINT64 ui64PCVal)
+{
+	PVRSRV_RGXDEV_INFO *psDevInfo;
+
+	PVR_ASSERT(hPrivate != NULL);
+	psDevInfo = ((RGX_LAYER_PARAMS*)hPrivate)->psDevInfo;
+
+	/* Write the cat-base address */
+	OSWriteHWReg64(psDevInfo->pvRegsBaseKM, ui32PCReg, ui64PCVal);
+
+	/* Pdump catbase address */
+	MMU_PDumpWritePageCatBase(psDevInfo->psKernelMMUCtx,
+	                          RGX_PDUMPREG_NAME,
+	                          ui32PCReg,
+	                          8,
+	                          ui32PCRegAlignShift,
+	                          ui32PCRegShift,
+	                          PDUMP_FLAGS_CONTINUOUS);
+}
+
+void RGXWriteKernelMMUPC32(const void *hPrivate,
+                           IMG_UINT32 ui32PCReg,
+                           IMG_UINT32 ui32PCRegAlignShift,
+                           IMG_UINT32 ui32PCRegShift,
+                           IMG_UINT32 ui32PCVal)
+{
+	PVRSRV_RGXDEV_INFO *psDevInfo;
+
+	PVR_ASSERT(hPrivate != NULL);
+	psDevInfo = ((RGX_LAYER_PARAMS*)hPrivate)->psDevInfo;
+
+	/* Write the cat-base address */
+	OSWriteHWReg32(psDevInfo->pvRegsBaseKM, ui32PCReg, ui32PCVal);
+
+	/* Pdump catbase address */
+	MMU_PDumpWritePageCatBase(psDevInfo->psKernelMMUCtx,
+	                          RGX_PDUMPREG_NAME,
+	                          ui32PCReg,
+	                          4,
+	                          ui32PCRegAlignShift,
+	                          ui32PCRegShift,
+	                          PDUMP_FLAGS_CONTINUOUS);
+}
+#endif /* defined(PDUMP) */
+
+void RGXAcquireGPURegsAddr(const void *hPrivate, IMG_DEV_PHYADDR *psGPURegsAddr)
+{
+	PVR_ASSERT(hPrivate != NULL);
+	*psGPURegsAddr = ((RGX_LAYER_PARAMS*)hPrivate)->sGPURegAddr;
+}
+
+#if defined(PDUMP)
+void RGXMIPSWrapperConfig(const void *hPrivate,
+                          IMG_UINT32 ui32RegAddr,
+                          IMG_UINT64 ui64GPURegsAddr,
+                          IMG_UINT32 ui32GPURegsAlign,
+                          IMG_UINT32 ui32BootMode)
+{
+	PVRSRV_RGXDEV_INFO *psDevInfo;
+
+	PVR_ASSERT(hPrivate != NULL);
+	psDevInfo = ((RGX_LAYER_PARAMS*)hPrivate)->psDevInfo;
+
+	OSWriteHWReg64(psDevInfo->pvRegsBaseKM,
+	               ui32RegAddr,
+	               (ui64GPURegsAddr >> ui32GPURegsAlign) | ui32BootMode);
+
+	/* Store register offset to temp PDump variable */
+	PDumpRegLabelToInternalVar(RGX_PDUMPREG_NAME, ui32RegAddr, ":SYSMEM:$1", PDUMP_FLAGS_CONTINUOUS);
+
+	/* Align register transactions identifier */
+	PDumpWriteVarSHRValueOp(":SYSMEM:$1", ui32GPURegsAlign, PDUMP_FLAGS_CONTINUOUS);
+
+	/* Enable micromips instruction encoding */
+	PDumpWriteVarORValueOp(":SYSMEM:$1", ui32BootMode, PDUMP_FLAGS_CONTINUOUS);
+
+	/* Do the actual register write */
+	PDumpInternalVarToReg64(RGX_PDUMPREG_NAME, ui32RegAddr, ":SYSMEM:$1", 0);
+}
+#endif
+
+void RGXAcquireBootRemapAddr(const void *hPrivate, IMG_DEV_PHYADDR *psBootRemapAddr)
+{
+	PVR_ASSERT(hPrivate != NULL);
+	*psBootRemapAddr = ((RGX_LAYER_PARAMS*)hPrivate)->sBootRemapAddr;
+}
+
+void RGXAcquireCodeRemapAddr(const void *hPrivate, IMG_DEV_PHYADDR *psCodeRemapAddr)
+{
+	PVR_ASSERT(hPrivate != NULL);
+	*psCodeRemapAddr = ((RGX_LAYER_PARAMS*)hPrivate)->sCodeRemapAddr;
+}
+
+void RGXAcquireDataRemapAddr(const void *hPrivate, IMG_DEV_PHYADDR *psDataRemapAddr)
+{
+	PVR_ASSERT(hPrivate != NULL);
+	*psDataRemapAddr = ((RGX_LAYER_PARAMS*)hPrivate)->sDataRemapAddr;
+}
+
+void RGXAcquireTrampolineRemapAddr(const void *hPrivate, IMG_DEV_PHYADDR *psTrampolineRemapAddr)
+{
+	PVR_ASSERT(hPrivate != NULL);
+	*psTrampolineRemapAddr = ((RGX_LAYER_PARAMS*)hPrivate)->sTrampolineRemapAddr;
+}
+
+#if defined(PDUMP)
+static inline
+void RGXWriteRemapConfig2Reg(void *pvRegs,
+                             PMR *psPMR,
+                             IMG_DEVMEM_OFFSET_T uiLogicalOffset,
+                             IMG_UINT32 ui32RegAddr,
+                             IMG_UINT64 ui64PhyAddr,
+                             IMG_UINT64 ui64PhyMask,
+                             IMG_UINT64 ui64Settings)
+{
+	OSWriteHWReg64(pvRegs, ui32RegAddr, (ui64PhyAddr & ui64PhyMask) | ui64Settings);
+
+	/* Store memory offset to temp PDump variable */
+	PDumpMemLabelToInternalVar64(":SYSMEM:$1", psPMR, uiLogicalOffset, PDUMP_FLAGS_CONTINUOUS);
+
+	/* Keep only the relevant bits of the output physical address */
+	PDumpWriteVarANDValueOp(":SYSMEM:$1", ui64PhyMask, PDUMP_FLAGS_CONTINUOUS);
+
+	/* Extra settings for this remapped region */
+	PDumpWriteVarORValueOp(":SYSMEM:$1", ui64Settings, PDUMP_FLAGS_CONTINUOUS);
+
+	/* Do the actual register write */
+	PDumpInternalVarToReg64(RGX_PDUMPREG_NAME, ui32RegAddr, ":SYSMEM:$1", PDUMP_FLAGS_CONTINUOUS);
+}
+
+void RGXBootRemapConfig(const void *hPrivate,
+                        IMG_UINT32 ui32Config1RegAddr,
+                        IMG_UINT64 ui64Config1RegValue,
+                        IMG_UINT32 ui32Config2RegAddr,
+                        IMG_UINT64 ui64Config2PhyAddr,
+                        IMG_UINT64 ui64Config2PhyMask,
+                        IMG_UINT64 ui64Config2Settings)
+{
+	PVRSRV_RGXDEV_INFO *psDevInfo;
+	IMG_UINT32 ui32BootRemapMemOffset = RGXMIPSFW_BOOT_NMI_CODE_BASE_PAGE * (IMG_UINT32)RGXMIPSFW_PAGE_SIZE;
+
+	PVR_ASSERT(hPrivate != NULL);
+	psDevInfo = ((RGX_LAYER_PARAMS*)hPrivate)->psDevInfo;
+
+	/* Write remap config1 register */
+	RGXWriteReg64(hPrivate,
+	              ui32Config1RegAddr,
+	              ui64Config1RegValue);
+
+	/* Write remap config2 register */
+	RGXWriteRemapConfig2Reg(psDevInfo->pvRegsBaseKM,
+	                        psDevInfo->psRGXFWCodeMemDesc->psImport->hPMR,
+	                        psDevInfo->psRGXFWCodeMemDesc->uiOffset + ui32BootRemapMemOffset,
+	                        ui32Config2RegAddr,
+	                        ui64Config2PhyAddr,
+	                        ui64Config2PhyMask,
+	                        ui64Config2Settings);
+}
+
+void RGXCodeRemapConfig(const void *hPrivate,
+                        IMG_UINT32 ui32Config1RegAddr,
+                        IMG_UINT64 ui64Config1RegValue,
+                        IMG_UINT32 ui32Config2RegAddr,
+                        IMG_UINT64 ui64Config2PhyAddr,
+                        IMG_UINT64 ui64Config2PhyMask,
+                        IMG_UINT64 ui64Config2Settings)
+{
+	PVRSRV_RGXDEV_INFO *psDevInfo;
+	IMG_UINT32 ui32CodeRemapMemOffset = RGXMIPSFW_EXCEPTIONSVECTORS_BASE_PAGE * (IMG_UINT32)RGXMIPSFW_PAGE_SIZE;
+
+	PVR_ASSERT(hPrivate != NULL);
+	psDevInfo = ((RGX_LAYER_PARAMS*)hPrivate)->psDevInfo;
+
+	/* Write remap config1 register */
+	RGXWriteReg64(hPrivate,
+	              ui32Config1RegAddr,
+	              ui64Config1RegValue);
+
+	/* Write remap config2 register */
+	RGXWriteRemapConfig2Reg(psDevInfo->pvRegsBaseKM,
+	                        psDevInfo->psRGXFWCodeMemDesc->psImport->hPMR,
+	                        psDevInfo->psRGXFWCodeMemDesc->uiOffset + ui32CodeRemapMemOffset,
+	                        ui32Config2RegAddr,
+	                        ui64Config2PhyAddr,
+	                        ui64Config2PhyMask,
+	                        ui64Config2Settings);
+}
+
+void RGXDataRemapConfig(const void *hPrivate,
+                        IMG_UINT32 ui32Config1RegAddr,
+                        IMG_UINT64 ui64Config1RegValue,
+                        IMG_UINT32 ui32Config2RegAddr,
+                        IMG_UINT64 ui64Config2PhyAddr,
+                        IMG_UINT64 ui64Config2PhyMask,
+                        IMG_UINT64 ui64Config2Settings)
+{
+	PVRSRV_RGXDEV_INFO *psDevInfo;
+	IMG_UINT32 ui32DataRemapMemOffset = RGXMIPSFW_BOOT_NMI_DATA_BASE_PAGE * (IMG_UINT32)RGXMIPSFW_PAGE_SIZE;
+
+	PVR_ASSERT(hPrivate != NULL);
+	psDevInfo = ((RGX_LAYER_PARAMS*)hPrivate)->psDevInfo;
+
+	/* Write remap config1 register */
+	RGXWriteReg64(hPrivate,
+	              ui32Config1RegAddr,
+	              ui64Config1RegValue);
+
+	/* Write remap config2 register */
+	RGXWriteRemapConfig2Reg(psDevInfo->pvRegsBaseKM,
+	                        psDevInfo->psRGXFWDataMemDesc->psImport->hPMR,
+	                        psDevInfo->psRGXFWDataMemDesc->uiOffset + ui32DataRemapMemOffset,
+	                        ui32Config2RegAddr,
+	                        ui64Config2PhyAddr,
+	                        ui64Config2PhyMask,
+	                        ui64Config2Settings);
+}
+
+void RGXTrampolineRemapConfig(const void *hPrivate,
+                        IMG_UINT32 ui32Config1RegAddr,
+                        IMG_UINT64 ui64Config1RegValue,
+                        IMG_UINT32 ui32Config2RegAddr,
+                        IMG_UINT64 ui64Config2PhyAddr,
+                        IMG_UINT64 ui64Config2PhyMask,
+                        IMG_UINT64 ui64Config2Settings)
+{
+	PVRSRV_RGXDEV_INFO *psDevInfo;
+
+	PVR_ASSERT(hPrivate != NULL);
+	psDevInfo = ((RGX_LAYER_PARAMS*)hPrivate)->psDevInfo;
+
+	/* write the register for real, without PDump */
+	OSWriteHWReg64(psDevInfo->pvRegsBaseKM,
+	               ui32Config1RegAddr,
+	               ui64Config1RegValue);
+
+	/* Store the memory address in a PDump variable */
+	PDumpPhysHandleToInternalVar64(":SYSMEM:$1",
+	                               psDevInfo->sTrampoline.hPdumpPages,
+	                               PDUMP_FLAGS_CONTINUOUS);
+
+	/* Keep only the relevant bits of the input physical address */
+	PDumpWriteVarANDValueOp(":SYSMEM:$1",
+                                ~RGX_CR_MIPS_ADDR_REMAP4_CONFIG1_BASE_ADDR_IN_CLRMSK,
+	                        PDUMP_FLAGS_CONTINUOUS);
+
+	/* Enable bit */
+	PDumpWriteVarORValueOp(":SYSMEM:$1",
+	                       RGX_CR_MIPS_ADDR_REMAP4_CONFIG1_MODE_ENABLE_EN,
+	                       PDUMP_FLAGS_CONTINUOUS);
+
+	/* Do the PDump register write */
+	PDumpInternalVarToReg64(RGX_PDUMPREG_NAME,
+	                        ui32Config1RegAddr,
+	                        ":SYSMEM:$1",
+	                        PDUMP_FLAGS_CONTINUOUS);
+
+	/* this can be written directly */
+	RGXWriteReg64(hPrivate,
+	              ui32Config2RegAddr,
+	              (ui64Config2PhyAddr & ui64Config2PhyMask) | ui64Config2Settings);
+}
+#endif
+
+#define MAX_NUM_COHERENCY_TESTS  (10)
+IMG_BOOL RGXDoFWSlaveBoot(const void *hPrivate)
+{
+	PVRSRV_RGXDEV_INFO *psDevInfo;
+	PVRSRV_DEVICE_CONFIG *psDevConfig;
+
+	PVR_ASSERT(hPrivate != NULL);
+	psDevInfo = ((RGX_LAYER_PARAMS*)hPrivate)->psDevInfo;
+
+	if (psDevInfo->ui32CoherencyTestsDone >= MAX_NUM_COHERENCY_TESTS)
+	{
+		return IMG_FALSE;
+	}
+
+	psDevConfig = ((RGX_LAYER_PARAMS*)hPrivate)->psDevConfig;
+
+	return PVRSRVSystemSnoopingOfCPUCache(psDevConfig);
+}
+
+static PVRSRV_ERROR RGXWriteMetaRegThroughSP(const void *hPrivate, IMG_UINT32 ui32RegAddr, IMG_UINT32 ui32RegValue)
+{
+	PVRSRV_ERROR eError = PVRSRV_OK;
+
+	/* Wait for Slave Port to be Ready */
+	eError = RGXPollReg32(hPrivate,
+	                      RGX_CR_META_SP_MSLVCTRL1,
+	                      RGX_CR_META_SP_MSLVCTRL1_READY_EN|RGX_CR_META_SP_MSLVCTRL1_GBLPORT_IDLE_EN,
+	                      RGX_CR_META_SP_MSLVCTRL1_READY_EN|RGX_CR_META_SP_MSLVCTRL1_GBLPORT_IDLE_EN);
+	if (eError != PVRSRV_OK) return eError;
+
+	/* Issue a Write */
+	RGXWriteReg32(hPrivate, RGX_CR_META_SP_MSLVCTRL0, ui32RegAddr);
+	RGXWriteReg32(hPrivate, RGX_CR_META_SP_MSLVDATAT, ui32RegValue);
+
+	return eError;
+}
+
+/*
+ * The fabric coherency test is performed when platform supports fabric coherency
+ * either in the form of ACE-lite or Full-ACE. This test is done quite early
+ * with the firmware processor quiescent and makes exclusive use of the slave
+ * port interface for reading/writing through the device memory hierarchy. The
+ * rationale for the test is to ensure that what the CPU writes to its dcache
+ * is visible to the GPU via coherency snoop miss/hit and vice-versa without
+ * any intervening cache maintenance by the writing agent.
+ */
+PVRSRV_ERROR RGXFabricCoherencyTest(const void *hPrivate)
+{
+	PVRSRV_RGXDEV_INFO *psDevInfo;
+	IMG_UINT32 *pui32FabricCohTestBufferCpuVA;
+	DEVMEM_MEMDESC *psFabricCohTestBufferMemDesc;
+	RGXFWIF_DEV_VIRTADDR sFabricCohTestBufferDevVA;
+	IMG_DEVMEM_SIZE_T uiFabricCohTestBlockSize = sizeof(IMG_UINT64);
+	IMG_DEVMEM_ALIGN_T uiFabricCohTestBlockAlign = sizeof(IMG_UINT64);
+	IMG_UINT64 ui64SegOutAddrTopCached = 0;
+	IMG_UINT64 ui64SegOutAddrTopUncached = 0;
+	IMG_UINT32 ui32SLCCTRL = 0;
+	IMG_UINT32 ui32OddEven;
+	IMG_BOOL   bFeatureS7;
+	IMG_UINT32 ui32TestType;
+	IMG_UINT32 ui32OddEvenSeed = 1;
+	PVRSRV_ERROR eError = PVRSRV_OK;
+	IMG_BOOL bFullTestPassed = IMG_TRUE;
+	IMG_BOOL bSubTestPassed = IMG_FALSE;
+	IMG_BOOL bExit = IMG_FALSE;
+
+	PVR_ASSERT(hPrivate != NULL);
+	psDevInfo = ((RGX_LAYER_PARAMS*)hPrivate)->psDevInfo;
+
+	PVR_LOG(("Starting fabric coherency test ....."));
+
+	bFeatureS7 = RGXDeviceHasFeature(hPrivate, RGX_FEATURE_S7_TOP_INFRASTRUCTURE_BIT_MASK);
+
+	if (bFeatureS7)
+	{
+		if (RGXDeviceHasErnBrn(hPrivate, HW_ERN_49144_BIT_MASK))
+		{
+			ui64SegOutAddrTopCached   = RGXFW_SEGMMU_OUTADDR_TOP_S7_SLC_CACHED_ERN_49144(META_MMU_CONTEXT_MAPPING);
+			ui64SegOutAddrTopUncached = RGXFW_SEGMMU_OUTADDR_TOP_S7_SLC_UNCACHED_ERN_49144(META_MMU_CONTEXT_MAPPING);
+		}
+		else if (RGXDeviceHasErnBrn(hPrivate, HW_ERN_45914_BIT_MASK))
+		{
+			ui64SegOutAddrTopCached   = RGXFW_SEGMMU_OUTADDR_TOP_S7_SLC_CACHED_ERN_45914(META_MMU_CONTEXT_MAPPING);
+			ui64SegOutAddrTopUncached = RGXFW_SEGMMU_OUTADDR_TOP_S7_SLC_UNCACHED_ERN_45914(META_MMU_CONTEXT_MAPPING);
+		}
+
+		/* Configure META to use SLC force-linefill for the bootloader segment */
+		RGXWriteMetaRegThroughSP(hPrivate, META_CR_MMCU_SEGMENTn_OUTA1(6),
+		                         (ui64SegOutAddrTopUncached | RGXFW_BOOTLDR_DEVV_ADDR) >> 32);
+	}
+	else
+	{
+		/* Bypass the SLC when IO coherency is enabled */
+		ui32SLCCTRL = RGXReadReg32(hPrivate, RGX_CR_SLC_CTRL_BYPASS);
+		RGXWriteReg32(hPrivate,
+		              RGX_CR_SLC_CTRL_BYPASS,
+		              ui32SLCCTRL | RGX_CR_SLC_CTRL_BYPASS_BYP_CC_EN);
+	}
+
+	/* Size and align are 'expanded' because we request an export align allocation */
+	DevmemExportalignAdjustSizeAndAlign(DevmemGetHeapLog2PageSize(psDevInfo->psFirmwareHeap),
+										&uiFabricCohTestBlockSize,
+										&uiFabricCohTestBlockAlign);
+
+	/* Allocate, acquire cpu address and set firmware address */
+	eError = DevmemFwAllocateExportable(psDevInfo->psDeviceNode,
+										uiFabricCohTestBlockSize,
+										uiFabricCohTestBlockAlign,
+										PVRSRV_MEMALLOCFLAG_DEVICE_FLAG(PMMETA_PROTECT) |
+										PVRSRV_MEMALLOCFLAG_KERNEL_CPU_MAPPABLE |
+										PVRSRV_MEMALLOCFLAG_ZERO_ON_ALLOC |
+										PVRSRV_MEMALLOCFLAG_GPU_CACHE_COHERENT |
+										PVRSRV_MEMALLOCFLAG_CPU_CACHE_INCOHERENT |
+										PVRSRV_MEMALLOCFLAG_GPU_READABLE |
+										PVRSRV_MEMALLOCFLAG_GPU_WRITEABLE |
+										PVRSRV_MEMALLOCFLAG_CPU_READABLE |
+										PVRSRV_MEMALLOCFLAG_CPU_WRITEABLE,
+										"FwExFabricCoherencyTestBuffer",
+										&psFabricCohTestBufferMemDesc);
+	if (eError != PVRSRV_OK)
+	{
+		PVR_DPF((PVR_DBG_ERROR,
+				"DevmemFwAllocateExportable() error: %s, exiting",
+				PVRSRVGetErrorStringKM(eError)));
+		goto e0;
+	}
+
+	eError = DevmemAcquireCpuVirtAddr(psFabricCohTestBufferMemDesc, (void **) &pui32FabricCohTestBufferCpuVA);
+	if (eError != PVRSRV_OK)
+	{
+		PVR_DPF((PVR_DBG_ERROR,
+				"DevmemAcquireCpuVirtAddr() error: %s, exiting",
+				PVRSRVGetErrorStringKM(eError)));
+		goto e0;
+	}
+
+	/* Create a FW address which is uncached in the Meta DCache and in the SLC
+	 * using the Meta bootloader segment.
+	 * This segment is the only one configured correctly out of reset
+	 * (when this test is meant to be executed).
+	 */
+	RGXSetFirmwareAddress(&sFabricCohTestBufferDevVA,
+						  psFabricCohTestBufferMemDesc,
+						  0,
+						  RFW_FWADDR_FLAG_NONE);
+
+	/* Undo most of the FW mappings done by RGXSetFirmwareAddress */
+	sFabricCohTestBufferDevVA.ui32Addr &= ~RGXFW_SEGMMU_DATA_META_CACHE_MASK;
+	sFabricCohTestBufferDevVA.ui32Addr &= ~RGXFW_SEGMMU_DATA_VIVT_SLC_CACHE_MASK;
+	sFabricCohTestBufferDevVA.ui32Addr -= RGXFW_SEGMMU_DATA_BASE_ADDRESS;
+
+	/* Map the buffer in the bootloader segment as uncached */
+	sFabricCohTestBufferDevVA.ui32Addr |= RGXFW_BOOTLDR_META_ADDR;
+	sFabricCohTestBufferDevVA.ui32Addr |= RGXFW_SEGMMU_DATA_META_UNCACHED;
+
+	for (ui32TestType = 0; ui32TestType < 4 && bExit == IMG_FALSE; ui32TestType++)
+	{
+		IMG_CPU_PHYADDR sCpuPhyAddr;
+		IMG_BOOL bValid;
+		PMR *psPMR;
+
+		/* Acquire underlying PMR CpuPA in preparation for cache maintenance */
+		(void) DevmemLocalGetImportHandle(psFabricCohTestBufferMemDesc, (void**)&psPMR);
+		eError = PMR_CpuPhysAddr(psPMR, OSGetPageShift(), 1, 0, &sCpuPhyAddr, &bValid);
+		if (eError != PVRSRV_OK || bValid != IMG_TRUE)
+		{
+			PVR_DPF((PVR_DBG_ERROR,
+					"PMR_CpuPhysAddr error: %s, exiting",
+					 PVRSRVGetErrorStringKM(eError)));
+			bExit = IMG_TRUE;
+			continue;
+		}
+
+		/* Here we do two passes [runs] mostly to account for the effects of using
+		   the different seed (i.e. ui32OddEvenSeed) value to read and write */
+		for (ui32OddEven = 1; ui32OddEven < 3 && bExit == IMG_FALSE; ui32OddEven++)
+		{
+			IMG_UINT32 i;
+
+#if defined(DEBUG)
+			switch(ui32TestType)
+			{
+			case 0:
+				PVR_LOG(("CPU:Write/GPU:Read Snoop Miss Test: starting  [run #%u]", ui32OddEven));
+				break;
+			case 1:
+				PVR_LOG(("GPU:Write/CPU:Read Snoop Miss Test: starting  [run #%u]", ui32OddEven));
+				break;
+			case 2:
+				PVR_LOG(("CPU:Write/GPU:Read Snoop Hit  Test: starting  [run #%u]", ui32OddEven));
+				break;
+			case 3:
+				PVR_LOG(("GPU:Write/CPU:Read Snoop Hit  Test: starting  [run #%u]", ui32OddEven));
+				break;
+			default:
+				PVR_LOG(("Internal error, exiting test"));
+				eError = PVRSRV_ERROR_INIT_FAILURE;
+				bExit = IMG_TRUE;
+				continue;
+				break;
+			}
+#endif
+
+			for (i = 0; i < 2 && bExit == IMG_FALSE; i++)
+			{
+				IMG_UINT32 ui32FWAddr;
+				IMG_UINT32 ui32FWValue;
+				IMG_UINT32 ui32FWValue2;
+				IMG_CPU_PHYADDR sCpuPhyAddrStart;
+				IMG_CPU_PHYADDR sCpuPhyAddrEnd;
+				IMG_UINT32 ui32LastFWValue = ~0;
+				IMG_UINT32 ui32Offset = i * sizeof(IMG_UINT32);
+
+				/* Calculate next address and seed value to write/read from slave-port */
+				ui32FWAddr = sFabricCohTestBufferDevVA.ui32Addr + ui32Offset;
+				sCpuPhyAddrStart.uiAddr = sCpuPhyAddr.uiAddr + ui32Offset;
+				sCpuPhyAddrEnd.uiAddr = sCpuPhyAddrStart.uiAddr;
+				ui32OddEvenSeed += 1;
+
+				if (ui32TestType & 0x1)
+				{
+					ui32FWValue = i + ui32OddEvenSeed;
+
+					switch(ui32TestType)
+					{
+					case 1:
+					case 3:
+						/* Clean dcache to ensure there is no stale data in dcache that might over-write
+						   what we are about to write via slave-port here because if it drains from the CPU
+						   dcache before we read it, it would corrupt what we are going to read back via
+						   the CPU */
+						sCpuPhyAddrEnd.uiAddr += sizeof(IMG_UINT32);
+						CacheOpExecKM(psDevInfo->psDeviceNode,
+									  pui32FabricCohTestBufferCpuVA + ui32Offset,
+									  pui32FabricCohTestBufferCpuVA + ui32Offset + sizeof(IMG_UINT32),
+									  sCpuPhyAddrStart,
+									  sCpuPhyAddrEnd,
+									  PVRSRV_CACHE_OP_CLEAN);
+						break;
+					}
+
+					/* Write the value using the RGX slave-port interface */
+					eError = RGXWriteMETAAddr(psDevInfo, ui32FWAddr, ui32FWValue);
+					if (eError != PVRSRV_OK)
+					{
+						PVR_DPF((PVR_DBG_ERROR,
+								"RGXWriteMETAAddr error: %s, exiting",
+								 PVRSRVGetErrorStringKM(eError)));
+						bExit = IMG_TRUE;
+						continue;
+					}
+
+					/* Read back value using RGX slave-port interface, this is used
+					   as a sort of memory barrier for the above write */
+					eError = RGXReadMETAAddr(psDevInfo, ui32FWAddr, &ui32FWValue2);
+					if (eError != PVRSRV_OK)
+					{
+						PVR_DPF((PVR_DBG_ERROR,
+								"RGXReadMETAAddr error: %s, exiting",
+								 PVRSRVGetErrorStringKM(eError)));
+						bExit = IMG_TRUE;
+						continue;
+					}
+					else if (ui32FWValue != ui32FWValue2)
+					{
+						/* Fatal error, we should abort */
+						PVR_DPF((PVR_DBG_ERROR,
+								"At Offset: %d, RAW via SlavePort failed: expected: %x, got: %x",
+								i,
+								ui32FWValue,
+								ui32FWValue2));
+						eError = PVRSRV_ERROR_INIT_FAILURE;
+						bExit = IMG_TRUE;
+						continue;
+					}
+
+					if (! PVRSRVSystemSnoopingOfDeviceCache(psDevInfo->psDeviceNode->psDevConfig))
+					{
+						/* Invalidate dcache to ensure that any prefetched data by the CPU from this memory
+						   region is discarded before we read (i.e. next read must trigger a cache miss).
+						   If there is snooping of device cache, then any prefetching done by the CPU
+						   will reflect the most up to date datum writing by GPU into said location,
+						   that is to say prefetching must be coherent so CPU d-flush is not needed */
+						sCpuPhyAddrEnd.uiAddr += sizeof(IMG_UINT32);
+						CacheOpExecKM(psDevInfo->psDeviceNode,
+									  pui32FabricCohTestBufferCpuVA + ui32Offset,
+									  pui32FabricCohTestBufferCpuVA + ui32Offset + sizeof(IMG_UINT32),
+									  sCpuPhyAddrStart,
+									  sCpuPhyAddrEnd,
+									  PVRSRV_CACHE_OP_INVALIDATE);
+					}
+				}
+				else
+				{
+					IMG_UINT32 ui32RAWCpuValue;
+
+					/* Ensures line is in dcache */
+					ui32FWValue = pui32FabricCohTestBufferCpuVA[i];
+					ui32FWValue = ~0;
+
+					/* Dirty allocation in dcache */
+					ui32RAWCpuValue = i + ui32OddEvenSeed;
+					pui32FabricCohTestBufferCpuVA[i] = i + ui32OddEvenSeed;
+
+					/* Flush possible cpu store-buffer(ing) on LMA */
+					OSWriteMemoryBarrier();
+
+					switch(ui32TestType)
+					{
+					case 0:
+						/* Flush dcache to force subsequent incoming CPU-bound snoop to miss so
+						   memory is coherent before the SlavePort reads */
+						sCpuPhyAddrEnd.uiAddr += sizeof(IMG_UINT32);
+						CacheOpExecKM(psDevInfo->psDeviceNode,
+									  pui32FabricCohTestBufferCpuVA + ui32Offset,
+									  pui32FabricCohTestBufferCpuVA + ui32Offset + sizeof(IMG_UINT32),
+									  sCpuPhyAddrStart,
+									  sCpuPhyAddrEnd,
+									  PVRSRV_CACHE_OP_FLUSH);
+						break;
+					}
+
+					/* Read back value using RGX slave-port interface */
+					eError = RGXReadMETAAddr(psDevInfo, ui32FWAddr, &ui32FWValue);
+					if (eError != PVRSRV_OK)
+					{
+						PVR_DPF((PVR_DBG_ERROR,
+								"RGXReadWithSP error: %s, exiting",
+								PVRSRVGetErrorStringKM(eError)));
+						bExit = IMG_TRUE;
+						continue;
+					}
+
+					/* We are being mostly paranoid here, just to account for CPU RAW operations */
+					sCpuPhyAddrEnd.uiAddr += sizeof(IMG_UINT32);
+					CacheOpExecKM(psDevInfo->psDeviceNode,
+								  pui32FabricCohTestBufferCpuVA + ui32Offset,
+								  pui32FabricCohTestBufferCpuVA + ui32Offset + sizeof(IMG_UINT32),
+								  sCpuPhyAddrStart,
+								  sCpuPhyAddrEnd,
+								  PVRSRV_CACHE_OP_FLUSH);
+					if (pui32FabricCohTestBufferCpuVA[i] != ui32RAWCpuValue)
+					{
+						/* Fatal error, we should abort */
+						PVR_DPF((PVR_DBG_ERROR,
+								"At Offset: %d, RAW by CPU failed: expected: %x, got: %x",
+								i,
+								ui32RAWCpuValue,
+								pui32FabricCohTestBufferCpuVA[i]));
+						eError = PVRSRV_ERROR_INIT_FAILURE;
+						bExit = IMG_TRUE;
+						continue;
+					}
+				}
+
+				/* Compare to see if sub-test passed */
+				if (pui32FabricCohTestBufferCpuVA[i] == ui32FWValue)
+				{
+					bSubTestPassed = IMG_TRUE;
+				}
+				else
+				{
+					bSubTestPassed = IMG_FALSE;
+					bFullTestPassed = IMG_FALSE;
+					eError = PVRSRV_ERROR_INIT_FAILURE;
+					if (ui32LastFWValue != ui32FWValue)
+					{
+#if defined(DEBUG)
+						PVR_LOG(("At Offset: %d, Expected: %x, Got: %x",
+								 i,
+								 (ui32TestType & 0x1) ? ui32FWValue : pui32FabricCohTestBufferCpuVA[i],
+	 							 (ui32TestType & 0x1) ? pui32FabricCohTestBufferCpuVA[i] : ui32FWValue));
+#endif
+					}
+					else
+					{
+						PVR_DPF((PVR_DBG_ERROR,
+								"test encountered unexpected error, exiting"));
+						eError = PVRSRV_ERROR_INIT_FAILURE;
+						bExit = IMG_TRUE;
+						continue;
+					}
+				}
+
+				ui32LastFWValue = (ui32TestType & 0x1) ? ui32FWValue : pui32FabricCohTestBufferCpuVA[i];
+			}
+
+#if defined(DEBUG)
+			if (bExit)
+			{
+				continue;
+			}
+
+			switch(ui32TestType)
+			{
+			case 0:
+				PVR_LOG(("CPU:Write/GPU:Read Snoop Miss Test: completed [run #%u]: %s", ui32OddEven, bSubTestPassed ? "PASSED" : "FAILED"));
+				break;
+			case 1:
+				PVR_LOG(("GPU:Write/CPU:Read Snoop Miss Test: completed [run #%u]: %s", ui32OddEven, bSubTestPassed ? "PASSED" : "FAILED"));
+				break;
+			case 2:
+				PVR_LOG(("CPU:Write/GPU:Read Snoop Hit  Test: completed [run #%u]: %s", ui32OddEven, bSubTestPassed ? "PASSED" : "FAILED"));
+				break;
+			case 3:
+				PVR_LOG(("GPU:Write/CPU:Read Snoop Hit  Test: completed [run #%u]: %s", ui32OddEven, bSubTestPassed ? "PASSED" : "FAILED"));
+				break;
+			default:
+				PVR_LOG(("Internal error, exiting test"));
+				bExit = IMG_TRUE;
+				continue;
+				break;
+			}
+#endif
+		}
+	}
+
+	RGXUnsetFirmwareAddress(psFabricCohTestBufferMemDesc);
+	DevmemReleaseCpuVirtAddr(psFabricCohTestBufferMemDesc);
+	DevmemFwFree(psDevInfo, psFabricCohTestBufferMemDesc);
+
+e0:
+	if (bFeatureS7)
+	{
+		/* Restore bootloader segment settings */
+		RGXWriteMetaRegThroughSP(hPrivate, META_CR_MMCU_SEGMENTn_OUTA1(6),
+		                         (ui64SegOutAddrTopCached | RGXFW_BOOTLDR_DEVV_ADDR) >> 32);
+	}
+	else
+	{
+		/* Restore SLC bypass settings */
+		RGXWriteReg32(hPrivate, RGX_CR_SLC_CTRL_BYPASS, ui32SLCCTRL);
+	}
+
+	bFullTestPassed = bExit ? IMG_FALSE: bFullTestPassed;
+	if (bFullTestPassed)
+	{
+		PVR_LOG(("fabric coherency test: PASSED"));
+		psDevInfo->ui32CoherencyTestsDone = MAX_NUM_COHERENCY_TESTS + 1;
+	}
+	else
+	{
+		PVR_LOG(("fabric coherency test: FAILED"));
+		psDevInfo->ui32CoherencyTestsDone++;
+	}
+
+	return eError;
+}
+
+IMG_BOOL RGXDeviceHasFeature(const void *hPrivate, IMG_UINT64 ui64Feature)
+{
+	RGX_LAYER_PARAMS *psParams;
+	PVRSRV_RGXDEV_INFO *psDevInfo;
+
+	PVR_ASSERT(hPrivate != NULL);
+
+	psParams = (RGX_LAYER_PARAMS*)hPrivate;
+	psDevInfo = psParams->psDevInfo;
+
+	return (psDevInfo->sDevFeatureCfg.ui64Features & ui64Feature) != 0;
+}
+
+IMG_BOOL RGXDeviceHasErnBrn(const void *hPrivate, IMG_UINT64 ui64ErnsBrns)
+{
+	RGX_LAYER_PARAMS *psParams;
+	PVRSRV_RGXDEV_INFO *psDevInfo;
+
+	PVR_ASSERT(hPrivate != NULL);
+	psParams = (RGX_LAYER_PARAMS*)hPrivate;
+	psDevInfo = psParams->psDevInfo;
+
+	return (psDevInfo->sDevFeatureCfg.ui64ErnsBrns & ui64ErnsBrns) != 0;
+}
+
+IMG_UINT32 RGXGetDeviceSLCBanks(const void *hPrivate)
+{
+	RGX_LAYER_PARAMS *psParams;
+	PVRSRV_RGXDEV_INFO *psDevInfo;
+
+	PVR_ASSERT(hPrivate != NULL);
+	psParams = (RGX_LAYER_PARAMS*)hPrivate;
+	psDevInfo = psParams->psDevInfo;
+
+	return psDevInfo->sDevFeatureCfg.ui32SLCBanks;
+}
+
+IMG_UINT32 RGXGetDeviceSLCSize(const void *hPrivate)
+{
+	RGX_LAYER_PARAMS *psParams;
+	PVRSRV_RGXDEV_INFO *psDevInfo;
+
+	PVR_ASSERT(hPrivate != NULL);
+	psParams = (RGX_LAYER_PARAMS*)hPrivate;
+	psDevInfo = psParams->psDevInfo;
+
+	return psDevInfo->sDevFeatureCfg.ui32SLCSize;
+}
+
+IMG_UINT32 RGXGetDeviceCacheLineSize(const void *hPrivate)
+{
+	RGX_LAYER_PARAMS *psParams;
+	PVRSRV_RGXDEV_INFO *psDevInfo;
+
+	PVR_ASSERT(hPrivate != NULL);
+	psParams = (RGX_LAYER_PARAMS*)hPrivate;
+	psDevInfo = psParams->psDevInfo;
+
+	return psDevInfo->sDevFeatureCfg.ui32CacheLineSize;
+}
+
+IMG_UINT32 RGXGetDevicePhysBusWidth(const void *hPrivate)
+{
+	RGX_LAYER_PARAMS *psParams;
+	PVRSRV_RGXDEV_INFO *psDevInfo;
+
+	PVR_ASSERT(hPrivate != NULL);
+	psParams = (RGX_LAYER_PARAMS*)hPrivate;
+	psDevInfo = psParams->psDevInfo;
+
+	return psDevInfo->sDevFeatureCfg.ui32PBW;
+}
+

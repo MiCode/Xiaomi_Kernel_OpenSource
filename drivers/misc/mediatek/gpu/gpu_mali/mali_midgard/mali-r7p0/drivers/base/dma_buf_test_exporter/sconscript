@@ -1,0 +1,36 @@
+#
+# (C) COPYRIGHT 2010-2013 ARM Limited. All rights reserved.
+#
+# This program is free software and is provided to you under the terms of the
+# GNU General Public License version 2 as published by the Free Software
+# Foundation, and any use by you of this program is subject to the terms
+# of such GNU licence.
+#
+# A copy of the licence is included with the program, and can also be obtained
+# from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+# Boston, MA  02110-1301, USA.
+#
+#
+
+
+
+import os
+Import('env')
+
+if env['v'] != '1':
+	env['MAKECOMSTR'] = '[MAKE] ${SOURCE.dir}'
+
+src = [Glob('#kernel/drivers/base/dma_buf_test_exporter/*.c'), Glob('#kernel/include/linux/*.h'), Glob('#kernel/drivers/base/dma_buf_test_exporter/K*')]
+
+env.Append( CPPPATH = '#kernel/include' )
+
+if env.GetOption('clean') :
+	env.Execute(Action("make clean", '[CLEAN] dma-buf-test-exporter'))
+	cmd = env.Command('$STATIC_LIB_PATH/dma-buf-test-exporter.ko', src, [])
+	env.ProgTarget('dma-buf-test-exporter', cmd)
+else:
+	makeAction=Action("cd ${SOURCE.dir} && make && ( ( [ -f dma-buf-test-exporter.ko ] && cp dma-buf-test-exporter.ko $STATIC_LIB_PATH/ ) || touch $STATIC_LIB_PATH/dma-buf-test-exporter.ko)", '$MAKECOMSTR')
+	cmd = env.Command('$STATIC_LIB_PATH/dma-buf-test-exporter.ko', src, [makeAction])
+	env.ProgTarget('dma-buf-test-exporter', cmd)
+
+	

@@ -1,0 +1,7 @@
+config MTK_SYNC
+	bool "Simplified software synchronization objects"
+	depends on SW_SYNC
+	default n
+	help
+	  A simplified SW_SYNC that provides essential APIs for
+	  other kernel modules.

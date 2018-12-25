@@ -1,0 +1,59 @@
+#
+# (C) COPYRIGHT 2010-2013 ARM Limited. All rights reserved.
+#
+# This program is free software and is provided to you under the terms of the
+# GNU General Public License version 2 as published by the Free Software
+# Foundation, and any use by you of this program is subject to the terms
+# of such GNU licence.
+#
+# A copy of the licence is included with the program, and can also be obtained
+# from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+# Boston, MA  02110-1301, USA.
+#
+#
+
+
+import os
+import shutil
+Import('env')
+
+# Generate a build environment for the integration tests, taking a copy of the top-level build environment 
+# (env) as a start.
+drm_env = env.Clone()
+
+# Xorg uses C++ style comments and 'inline' keyword
+if '-std=c89' in drm_env['CFLAGS']:
+	drm_env['CFLAGS'].remove('-std=c89')
+
+# X11 generates a lot of warnings
+if '-Werror' in drm_env['CCFLAGS']:
+	drm_env['CCFLAGS'].remove('-Werror')
+
+#remove the 'lib'prefix
+drm_env['LIBPREFIX'] = ''
+
+src = Glob('*.c')
+
+# Note: cleaning via the Linux kernel build system does not yet work
+if drm_env.GetOption('clean') :
+	makeAction=Action("cd ${SOURCE.dir} && make clean", '$MAKECOMSTR')
+else:
+	makeAction=Action("cd ${SOURCE.dir} && make MALI_DEBUG=${debug} && cp pl111_drm.ko $STATIC_LIB_PATH/mali_drm.ko", '$MAKECOMSTR')
+	
+# The target is mali_drm.ko, built from the source in pl111_drm/pl111, via the action makeAction
+# mali_drm.ko will be copied to $STATIC_LIB_PATH after being built by the standard Linux
+# kernel build system, after which it can be installed to the directory specified if
+# "libs_install" is set; this is done by LibTarget.
+cmd = drm_env.Command('$STATIC_LIB_PATH/mali_drm.ko', src, [makeAction])
+
+# need Module.symvers from drm.ko
+#drm_env.Depends('$STATIC_LIB_PATH/pl111_drm.ko', '$STATIC_LIB_PATH/drm.ko')
+
+# Until we fathom out how the invoke the Linux build system to clean, we can use Clean
+# to remove generated files.
+patterns = ['*.mod.c', '*.o', '*.ko', '*.a', '.*.cmd', 'modules.order', '.tmp_versions', 'Module.symvers']
+for p in patterns:
+	Clean(cmd, Glob('#kernel/drivers/gpu/drm/pl111/%s' % p))
+
+env.ProgTarget('x11', cmd)
+

@@ -1,0 +1,43 @@
+#
+# (C) COPYRIGHT 2017 ARM Limited. All rights reserved.
+#
+# This program is free software and is provided to you under the terms of the
+# GNU General Public License version 2 as published by the Free Software
+# Foundation, and any use by you of this program is subject to the terms
+# of such GNU licence.
+#
+# A copy of the licence is included with the program, and can also be obtained
+# from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+# Boston, MA  02110-1301, USA.
+#
+#
+
+
+
+import os
+import re
+Import('env')
+
+if env['v'] != '1':
+	env['MAKECOMSTR'] = '[MAKE] ${SOURCE.dir}'
+
+src = [ Glob('#kernel/drivers/base/smc_protected_mode_switcher/*.c'),
+		Glob('#kernel/drivers/base/smc_protected_mode_switcher/*.S'),
+		Glob('#kernel/drivers/base/smc_protected_mode_switcher/*.h'),
+		Glob('#kernel/drivers/base/smc_protected_mode_switcher/K*'),
+		Glob('#kernel/drivers/base/smc_protected_mode_switcher/Makefile') ]
+
+env.Append( CPPPATH = '#kernel/include' )
+env['smc_protected_mode_switcher'] = 1
+
+if env.GetOption('clean') :
+	# Clean module
+	env.Execute(Action("make clean", '[CLEAN] smc_protected_mode_switcher'))
+	cmd = env.Command('$STATIC_LIB_PATH/smc_protected_mode_switcher.ko', src, [])
+	env.ProgTarget('smc_protected_mode_switcher', cmd)
+else:
+	# Build module
+	makeAction=Action("cd ${SOURCE.dir} && make && cp smc_protected_mode_switcher.ko $STATIC_LIB_PATH/", '$MAKECOMSTR')
+	cmd = env.Command('$STATIC_LIB_PATH/smc_protected_mode_switcher.ko', src, [makeAction])
+	env.ProgTarget('smc_protected_mode_switcher', cmd)
+

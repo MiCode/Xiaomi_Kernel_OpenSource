@@ -1,0 +1,5 @@
+#MTK port custom Kbuild
+#To Add 1.environment variable
+include $(src)/../../Kbuild-mtk-custom-env
+
+obj-y += mtk_platform_common.o

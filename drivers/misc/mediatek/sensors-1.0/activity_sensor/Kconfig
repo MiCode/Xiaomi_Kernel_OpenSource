@@ -1,0 +1,10 @@
+
+config CUSTOM_KERNEL_ACTIVITY_SENSOR
+	bool "CUSTOM KERNEL ACTIVITY SENSOR"
+	help
+	  Kernel space activity sensor driver.
+	  A activity is a device,
+	  usually portable and electronic or electromechanical,
+	  the state of some device motion.
+
+source "drivers/misc/mediatek/sensors-1.0/activity_sensor/activityhub/Kconfig"

@@ -1,0 +1,19 @@
+config PHY_MTK_USB
+	bool "Mediatek usb phy"
+	select GENERIC_PHY
+	help
+	  Enables support for ASIC PHY.
+	  This driver provides interface to interact with USB 2.0 and
+	  USB 3.0 PHY that is part of the Mediatek SOC.
+	  Say Y here if your system using in-circuit Mediatek USB PHY.
+	  If unsure, say N.
+
+config PHY_MTK_SSUSB
+	tristate "USB PHY Transceiver Driver"
+	select PHY_MTK_USB
+	depends on MEDIATEK_SOLUTION
+	help
+	  Enable this to support USB phy with SSUSB chip.
+	  This driver provides interface to interact
+	  with USB 2.0 and USB 3.0 PHY and for device
+	  and host mode.

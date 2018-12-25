@@ -1,0 +1,6 @@
+source "drivers/power/avs/Kconfig"
+source "drivers/power/reset/Kconfig"
+source "drivers/power/supply/Kconfig"
+if MACH_MT8173
+source "drivers/power/mt81xx/Kconfig"
+endif

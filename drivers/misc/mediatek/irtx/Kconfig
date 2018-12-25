@@ -1,0 +1,8 @@
+config MTK_IRTX_PWM_SUPPORT
+	bool "MediaTek consumer IR tansmitter"
+	default n
+	---help---
+	  This selects MediaTek(R) internal IRTX driver.
+          IRTX is used as remove controller to control machine, like TV.
+	  If you want to use MediaTek(R) internal IRTX driver, say
+	  Y or M here. If unsure, say N.

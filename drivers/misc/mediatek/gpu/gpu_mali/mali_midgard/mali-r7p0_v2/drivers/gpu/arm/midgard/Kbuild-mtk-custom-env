@@ -1,0 +1,59 @@
+$(info mali MTK evironment)
+
+MTK_TOP = $(srctree)/drivers/misc/mediatek/
+
+#build support for a ARM Mali Midgard GPU
+CONFIG_MALI_MIDGARD := y
+
+#use mt6752 platform
+CONFIG_MALI_PLATFORM_THIRDPARTY := n
+CONFIG_MALI_PLATFORM_THIRDPARTY_NAME := vexpress
+
+CONFIG_MALI_PLATFORM_FAKE := y
+
+CONFIG_MALI_PLATFORM_VEXPRESS := y
+CONFIG_MALI_DEBUG := y
+
+ccflags-y += -DCONFIG_MALI_PLATFORM_FAKE
+ccflags-y += -DCONFIG_MALI_MIDGARD_DVFS
+
+#Add include path for kernel 3.10
+ccflags-y += -I-I$(srctree)/include
+
+#Add include path for linux sync.h
+ccflags-y += -I$(srctree)/drivers/staging/android
+
+#include clock manager for clock use
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/mach/mt6735/include
+
+#Add include path for mtk dvfs
+ccflags-y += \
+	-I$(srctree)/include/ \
+    -I$(MTK_TOP)/include/ \
+    -I$(MTK_TOP)/include/mt-plat \
+    -I$(MTK_TOP)/include/mt-plat/$(subst ",,$(CONFIG_MTK_PLATFORM))/include \
+    -I$(MTK_TOP)/base/power/$(subst ",,$(CONFIG_MTK_PLATFORM))/
+
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/gpu/ged/include
+
+ifeq ($(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT),y)
+ccflags-y += -DENABLE_COMMON_DVFS
+endif
+    
+VER:=eng
+ifneq ($(strip $(TARGET_BUILD_VARIANT)),)
+ifneq ($(strip $(TARGET_BUILD_VARIANT)),eng)
+VER:=user
+endif
+endif
+
+ccflags-y += -DCONFIG_DEBUG_FS
+ccflags-y += -DCONFIG_PROC_FS
+
+ifeq ($(VER),eng)
+ccflags-y += -DCONFIG_MALI_DEBUG
+else
+ccflags-y += -UCONFIG_MALI_DEBUG
+endif
+
+#ccflags-y += -DCONFIG_HAVE_CLK

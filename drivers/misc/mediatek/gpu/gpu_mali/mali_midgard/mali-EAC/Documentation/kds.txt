@@ -1,0 +1,268 @@
+#
+# (C) COPYRIGHT 2012-2013 ARM Limited. All rights reserved.
+#
+# This program is free software and is provided to you under the terms of the
+# GNU General Public License version 2 as published by the Free Software
+# Foundation, and any use by you of this program is subject to the terms
+# of such GNU licence.
+#
+# A copy of the licence is included with the program, and can also be obtained
+# from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+# Boston, MA  02110-1301, USA.
+#
+#
+
+
+
+==============================
+kds - Kernel Dependency System
+==============================
+
+Introduction
+------------
+kds provides a mechanism for clients to atomically lock down multiple abstract resources.
+This can be done either synchronously or asynchronously.
+Abstract resources is used to allow a set of clients to use kds to control access to any
+resource, an example is structured memory buffers.
+
+kds supports that buffer is locked for exclusive access and sharing of buffers.
+
+kds can be built as either a integrated feature of the kernel or as a module.
+It supports being compiled as a module both in-tree and out-of-tree.
+
+
+Concepts
+--------
+A core concept in kds is abstract resources.
+A kds resource is just an abstraction for some client object, kds doesn't care what it is.
+Typically EGL will consider UMP buffers as being a resource, thus each UMP buffer has
+a kds resource for synchronization to the buffer.
+
+kds allows a client to create and destroy the abstract resource objects.
+A new resource object is made available asap (it is just a simple malloc with some initializations),
+while destroy it requires some external synchronization.
+
+The other core concept in kds is consumer of resources.
+kds is requested to allow a client to consume a set of resources and the client will be notified when it can consume the resources.
+
+Exclusive access allows only one client to consume a resource.
+Shared access permits multiple consumers to acceess a resource concurrently.
+
+
+APIs
+----
+kds provides simple resource allocate and destroy functions.
+Clients use this to instantiate and control the lifetime of the resources kds manages.
+
+kds provides two ways to wait for resources:
+- Asynchronous wait: the client specifies a function pointer to be called when wait is over
+- Synchronous wait: Function blocks until access is gained.
+
+The synchronous API has a timeout for the wait.
+The call can early out if a signal is delivered.
+
+After a client is done consuming the resource kds must be notified to release the resources and let some other client take ownership.
+This is done via resource set release call.
+
+A Windows comparison:
+kds implements WaitForMultipleObjectsEx(..., bWaitAll = TRUE, ...) but also has an asynchronous version in addition.
+kds resources can be seen as being the same as NT object manager resources.
+
+Internals
+---------
+kds guarantees atomicity when a set of resources is operated on.
+This is implemented via a global resource lock which is taken by kds when it updates resource objects.
+
+Internally a resource in kds is a linked list head with some flags.
+
+When a consumer requests access to a set of resources it is queued on each of the resources.
+The link from the consumer to the resources can be triggered. Once all links are triggered
+the registered callback is called or the blocking function returns.
+A link is considered triggered if it is the first on the list of consumers of a resource,
+or if all the links ahead of it is marked as shared and itself is of the type shared.
+
+When the client is done consuming the consumer object is removed from the linked lists of
+the resources and a potential new consumer becomes the head of the resources.
+As we add and remove consumers atomically across all resources we can guarantee that
+we never introduces a A->B + B->A type of loops/deadlocks.
+
+
+kbase/base implementation
+-------------------------
+A HW job needs access to a set of shared resources.
+EGL tracks this and encodes the set along with the atom in the ringbuffer.
+EGL allocates a (k)base dep object to represent the dependency to the set of resources and encodes that along with the list of resources.
+This dep object is use to create a dependency from a job chain(atom) to the resources it needs to run.
+When kbase decodes the atom in the ringbuffer it finds the set of resources and calls kds to request all the needed resources.
+As EGL needs to know when the kds request is delivered a new base event object is needed: atom enqueued. This event is only delivered for atoms which uses kds.
+The callback kbase registers trigger the dependency object described which would trigger the existing JD system to release the job chain.
+When the atom is done kds resource set release is call to release the resources.
+
+EGL will typically use exclusive access to the render target, while all buffers used as input can be marked as shared.
+
+
+Buffer publish/vsync
+--------------------
+EGL will use a separate ioctl or DRM flip to request the flip.
+If the LCD driver is integrated with kds EGL can do these operations early.
+The LCD driver must then implement the ioctl or DRM flip to be asynchronous with kds async call.
+The LCD driver binds a kds resource to each virtual buffer (2 buffers in case of double-buffering).
+EGL will make a dependency to the target kds resource in the kbase atom.
+After EGL receives a atom enqueued event it can ask the LCD driver to pan to the target kds resource.
+When the atom is completed it'll release the resource and the LCD driver will get its callback.
+In the callback it'll load the target buffer into the DMA unit of the LCD hardware.
+The LCD driver will be the consumer of both buffers for a short period.
+The LCD driver will call kds resource set release on the previous on-screen buffer when the next vsync/dma read end is handled.
+
+===============================================
+Kernel driver kds client design considerations
+=============================================== 
+
+Number of resources
+--------------------
+
+The kds api allows a client to wait for ownership of a number of resources, where by the client does not take on ownership of any of the resources in the resource set 
+until all of the resources in the set are released.  Consideration must be made with respect to performance, as waiting on large number of resources will incur
+a greater overhead and may increase system latency.  It may be worth considering how independent each of the resources are, for example if the same set of resources 
+are waited upon by each of the clients, then it may be possible to aggregate these into one resource that each client waits upon.
+
+Clients with shared access
+---------------------------
+
+The kds api allows a number of clients to gain shared access to a resource simultaneously, consideration must be made with respect to performance, large numbers of clients
+wanting shared access can incur a performance penalty and may increase system latency, specifically when the clients are granted access. Having an excessively high 
+number of clients with shared access should be avoided, consideration should be made to the call back configuration being used. See Callbacks and Scenario 1 below.
+
+Callbacks
+----------
+
+Careful consideration must be made as to which callback type is most appropriate for kds clients, direct callbacks are called immediately from the context in which the
+ownership of the resource is passed to the next waiter in the list.  Where as when using deferred callbacks the callback is deferred and called from outside the context
+that is relinquishing ownership, while this reduces the latency in the releasing clients context it does incur a cost as there is more latency between a resource 
+becoming free and the new client owning the resource callback being executed.  
+
+Obviously direct callbacks have a performance advantage, as the call back is immediate and does not have to wait for the kernel to context switch to schedule in the 
+execution of the callback.  
+
+However as the callback is immediate and within the context that is granting ownership it is important that the callback perform the MINIMUM amount of work necessary, 
+long call backs could cause poor system latency.  Special care and attention must be taken if the direct callbacks can be called from IRQ handlers, such as when 
+kds_resource_set_release is called from an IRQ handler, in this case you have to avoid any calls that may sleep.  
+
+Deferred contexts have the advantage that the call backs are deferred until they are scheduled by the kernel, therefore they are allowed to call functions that may sleep
+and if scheduled from IRQ context not incur as much system latency as would be seen with direct callbacks from within the IRQ.
+
+Once the clients callback has been called, the client is considered to be owning the resource.  Within the callback the client may only need to perform a small amount of work
+before the client need to give up owner ship.  The kds_resource_release function may be called from with in the call back, but consideration must be made when using direct 
+callbacks, with both respect to execution time and stack usage. Consider the example in Scenario 2 with direct callbacks:
+
+Scenario 1 - Shared client access - direct callbacks:
+
+Resources: X
+Clients: A(S), B(S), C(S), D(S), E(E)
+where: (S) = shared user, (E) = exclusive
+
+Clients kds callback handler:
+
+client_<client>_cb( p1, p2 )
+{
+}
+
+Where <client> is either A,B,C,D
+                                        Queue   |Owner 
+1.  E Requests X exclusive                      |
+2.  E Owns     X exclusive                      |E
+3.  A Requests X shared                        A|E
+4.  B Requests X shared                       BA|E
+5.  C Requests X shared                      CBA|E
+6.  D Requests X shared                     DCBA|E
+7.  E Releases X                                |DCBA
+8.  A Owns X shared                             |DCBA
+9.  B Owns X shared                             |DCBA
+10. C Owns X shared                             |DCBA
+11. D Owns X shared                             |DCBA
+
+At point 7 it is important to note that when E releases X; A,B,C and D become the new shared owners of X and the call back for each of the client(A,B,C,D) triggered, so consideration
+must be made as to whether a direct or deferred callback is suitable, using direct callbacks would result in the call graph.
+
+Call graph when E releases X:
+    kds_resource_set_release( .. )
+        +->client_A_cb( .. )
+        +->client_B_cb( .. )
+        +->client_C_cb( .. )
+        +->client_D_cb( .. )
+
+
+Scenario 2 - Immediate resource release - direct callbacks:
+
+Resource: X
+Clients: A, B, C, D
+
+Clients kds callback handler:
+
+client_<client>_cb( p1, p2 )
+{
+    kds_resource_set_release( .. );
+}
+
+Where <client> is either A,B,C,D
+
+1. A Owns     X exclusive
+2. B Requests X exclusive	(direct callback)
+3. C Requests X exclusive	(direct callback)
+4. D Requests X exclusive	(direct callback)
+5. A Releases X
+
+Call graph when A releases X:
+    kds_resource_set_release( .. )
+        +->client_B_cb( .. )
+            +->kds_resource_set_release( .. )
+                +->client_C_cb( .. )
+                    +->kds_resource_set_release( .. )
+                        +->client_D_cb( .. )
+
+As can be seen when a client releases the resource, with direct call backs it is possible to create nested calls
+
+IRQ Considerations
+-------------------
+
+Usage of kds_resource_release in IRQ handlers should be carefully considered.
+
+Things to keep in mind:
+
+1.) Are you using direct or deferred callbacks?
+2.) How many resources are you releasing?
+3.) How many shared waiters are pending on the resource?
+
+Releasing ownership and wait cancellation
+------------------------------------------
+
+Client Wait Cancellation
+-------------------------
+
+It may be necessary in certain circumstances for the client to cancel the wait for kds resources for error handling, process termination etc.  Cancellation is 
+performed using kds_resource_set_release or kds_resource_set_release_sync using the rset that was received from kds_async_waitall, kds_resource_set_release_sync 
+being used for waits which are using deferred callbacks.
+
+It is possible that while the request to cancel the wait is being issued by the client, the client is granted access to the resources.  Normally after the client
+has taken ownership and finishes with that resource, it will release ownership to signal other waiters which are pending, this causes a race with the cancellation.
+To prevent KDS trying to remove a wait twice from the internal list and accessing memory that is potentially freed, it is very important that all releasers use the
+same rset pointer.  Here is a simplified example of bad usage that must be avoided in any client implementation:
+
+Senario 3 - Bad release from multiple contexts:
+
+	This scenaro is highlighting bad usage of the kds API
+
+	kds_resource_set * rset;
+	kds_resource_set * rset_copy;
+
+	kds_async_waitall( &rset, ... ... ... );
+
+	/* Don't do this */
+	rset_copy = rset;
+
+Context A:
+	kds_resource_set_release( &rset )
+
+Context B:
+	kds_resource_set_release( &rset_copy )
+

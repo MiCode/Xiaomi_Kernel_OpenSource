@@ -1,0 +1,324 @@
+/*
+ * Copyright (c) 2017 MediaTek Inc.
+ * Author: Huiguo.Zhu <huiguo.zhu@mediatek.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#ifndef __NR_CTRL_H__
+#define __NR_CTRL_H__
+
+#include <linux/regmap.h>
+
+struct NR_QUALITY_INST_T {
+	unsigned char u1BNRLevel;
+	unsigned char u1MNRLevel;
+	unsigned char u1SNRLevel[7];
+	unsigned char u1Tone1YMax;
+	unsigned char u1Tone1YMin;
+	unsigned char u1Tone1UMax;
+	unsigned char u1Tone1UMin;
+	unsigned char u1Tone1VMax;
+	unsigned char u1Tone1VMin;
+	unsigned char u1Tone2YMax;
+	unsigned char u1Tone2YMin;
+	unsigned char u1Tone2UMax;
+	unsigned char u1Tone2UMin;
+	unsigned char u1Tone2VMax;
+	unsigned char u1Tone2VMin;
+	unsigned char u1Tone3YMax;
+	unsigned char u1Tone3YMin;
+	unsigned char u1Tone3UMax;
+	unsigned char u1Tone3UMin;
+	unsigned char u1Tone3VMax;
+	unsigned char u1Tone3VMin;
+	unsigned char u1MNRThd;
+	unsigned short u2SNRSMThd[7];
+	unsigned short u2SNREdgeThd[7];
+	unsigned short u2FilterType[6];
+	unsigned char u1BNRHBlockThd;
+	unsigned short u2BNRHEdgeThd;
+	unsigned char u1BNRVBlockThd;
+	unsigned short u2BNRVEdgeThd;
+	unsigned char u1SNRStillThd;
+	unsigned char u1SNRMotionThd;
+	unsigned short u2SNRFrmStillThd;
+	unsigned char u1FNRStillThd;
+	unsigned char u1FNRMotionThd;
+	unsigned short u2FNRFrmStillThd;
+	unsigned char u1ChainThd[8];
+	unsigned int u4ChainTableGain[8];
+};
+
+enum NR_MODE {
+	NR_STD_MODE = 0,
+	NR_NSTD_2D_MODE,
+	NR_NSTD_3D_MODE
+};
+
+enum NR_SELECT_MODE {
+	NR_MNR_MODE = 0,
+	NR_BNR_MODE,
+	NR_TNR_MODE
+};
+
+#define MODE_FRAME              0
+#define MODE_FIELD              1
+#define MODE_TOP_FIELD          2
+#define MODE_BOT_FIELD          3
+
+#define MT8520_SWAP_MODE_0      0
+#define MT8520_SWAP_MODE_1      1
+#define MT8520_SWAP_MODE_2      2
+#define MT5351_SWAP_MODE_0      3
+#define MT5351_SWAP_MODE_1      4
+#define MT5351_SWAP_MODE_2      5
+#define MT5351_SWAP_MODE_3      6
+
+#define NR_STRENGTH_OFF         0
+#define NR_STRENGTH_LOW         1
+#define NR_STRENGTH_MED         2
+#define NR_STRENGTH_HIGH        3
+#define NR_STRENGTH_LV4         4
+#define NR_STRENGTH_LV5         5
+#define NR_STRENGTH_LV6         6
+#define NR_STRENGTH_LV7         7
+#define NR_STRENGTH_LV8         8
+
+#define NR_QUALITY_TEST         0
+#define NR_FNR_SUPPORT          1
+
+#define NR_DEMO_0               1
+#define NR_DEMO_1               2
+
+struct NR_PROCESS_PARAM_T {
+	unsigned int u4InputAddrMvaYCurr;
+	unsigned int u4InputAddrMvaCbcrCurr;
+	unsigned int u4OutputAddrMvaY;
+	unsigned int u4OutputAddrMvaCbcr;
+	unsigned int u4InputAddrMvaYLast;
+	unsigned int u4InputAddrMvaCbcrLast;
+
+	unsigned long u4InputAddrVaYCurr;
+	unsigned long u4InputAddrVaCbcrCurr;
+	unsigned long u4OutputAddrVaY;
+	unsigned long u4OutputAddrVaCbcr;
+	unsigned long u4InputAddrVaYLast;
+	unsigned long u4InputAddrVaCbcrLast;
+
+	unsigned short u2SrcPicWidth;
+	unsigned short u2SrcPicHeight;
+	unsigned short u2SrcFrmWidth;
+	unsigned short u2SrcFrmHeight;
+
+	unsigned int u4TotalLevel;
+	unsigned int u4MnrLevel;
+	unsigned int u4BnrLevel;
+	unsigned int u4FnrLevel;
+};
+
+struct NR_PRM_INFO_T {
+	bool fgBypassEn;
+	bool fgBurstRdEn;
+	bool fgRangeRemapYEn;
+	bool fgRangeRemapUVEn;
+	bool fgNoiseMeterEn;
+	bool fgUseBlockMeter;
+
+	unsigned char u1AddrSwapMode;
+	unsigned char u1FrameMode;
+	unsigned char u1DemoMode;
+
+	unsigned short u2PicWidth;
+	unsigned short u2PicHeight;
+	unsigned short u2FrameWidth;
+	unsigned short u2FrameHeight;
+
+	unsigned int u4NRMode;
+	unsigned int u4Strength;
+	unsigned int u4MNRStrength;
+	unsigned int u4FNRStrength;
+	unsigned int u4BNRStrength;
+	unsigned int u4RangeMapY;
+	unsigned int u4RangeMapUV;
+	unsigned int u4CurrRdYAddr;
+	unsigned int u4CurrRdCAddr;
+	unsigned int u4LastRdYAddr;
+	unsigned int u4LastRdCAddr;
+	unsigned int u4CurrWrYAddr;
+	unsigned int u4CurrWrCAddr;
+};
+
+enum NR_QUALITY_ITEM_T {
+	QUALITY_SNR_MESSSFT_SM_CO1MO,
+	QUALITY_SNR_MESSTHL_SM_CO1MO,
+	QUALITY_SNR_MESSSFT_MESS_CO1MO,
+	QUALITY_SNR_MESSTHL_MESS_CO1MO,
+	QUALITY_SNR_MESSSFT_EDGE_CO1MO,
+	QUALITY_SNR_MESSTHL_EDGE_CO1MO,
+	QUALITY_SNR_MESSSFT_MOS_CO1MO,
+	QUALITY_SNR_MESSTHL_MOS_CO1MO,
+	QUALITY_SNR_MESSSFT_SM_CO1ST,
+	QUALITY_SNR_MESSTHL_SM_CO1ST,
+	QUALITY_SNR_MESSSFT_MESS_CO1ST,
+	QUALITY_SNR_MESSTHL_MESS_CO1ST,
+	QUALITY_SNR_MESSSFT_EDGE_CO1ST,
+	QUALITY_SNR_MESSTHL_EDGE_CO1ST,
+	QUALITY_SNR_MESSSFT_MOS_CO1ST,
+	QUALITY_SNR_MESSTHL_MOS_CO1ST,
+	QUALITY_SNR_BLDLV_BK_CO1,
+	QUALITY_SNR_BLDLV_SM_CO1,
+	QUALITY_SNR_BLDLV_MESS_CO1,
+	QUALITY_SNR_BLDLV_EDGE_CO1,
+	QUALITY_SNR_BLDLV_MOS_CO1,
+	QUALITY_SNR_MESSSFT_SM_CO2MO,
+	QUALITY_SNR_MESSTHL_SM_CO2MO,
+	QUALITY_SNR_MESSSFT_MESS_CO2MO,
+	QUALITY_SNR_MESSTHL_MESS_CO2MO,
+	QUALITY_SNR_MESSSFT_EDGE_CO2MO,
+	QUALITY_SNR_MESSTHL_EDGE_CO2MO,
+	QUALITY_SNR_MESSSFT_MOS_CO2MO,
+	QUALITY_SNR_MESSTHL_MOS_CO2MO,
+	QUALITY_SNR_MESSSFT_SM_CO2ST,
+	QUALITY_SNR_MESSTHL_SM_CO2ST,
+	QUALITY_SNR_MESSSFT_MESS_CO2ST,
+	QUALITY_SNR_MESSTHL_MESS_CO2ST,
+	QUALITY_SNR_MESSSFT_EDGE_CO2ST,
+	QUALITY_SNR_MESSTHL_EDGE_CO2ST,
+	QUALITY_SNR_MESSSFT_MOS_CO2ST,
+	QUALITY_SNR_MESSTHL_MOS_CO2ST,
+	QUALITY_SNR_BLDLV_BK_CO2,
+	QUALITY_SNR_BLDLV_SM_CO2,
+	QUALITY_SNR_BLDLV_MESS_CO2,
+	QUALITY_SNR_BLDLV_EDGE_CO2,
+	QUALITY_SNR_BLDLV_MOS_CO2,
+	QUALITY_SNR_MESSSFT_SM_CO3MO,
+	QUALITY_SNR_MESSTHL_SM_CO3MO,
+	QUALITY_SNR_MESSSFT_MESS_CO3MO,
+	QUALITY_SNR_MESSTHL_MESS_CO3MO,
+	QUALITY_SNR_MESSSFT_EDGE_CO3MO,
+	QUALITY_SNR_MESSTHL_EDGE_CO3MO,
+	QUALITY_SNR_MESSSFT_MOS_CO3MO,
+	QUALITY_SNR_MESSTHL_MOS_CO3MO,
+	QUALITY_SNR_MESSSFT_SM_CO3ST,
+	QUALITY_SNR_MESSTHL_SM_CO3ST,
+	QUALITY_SNR_MESSSFT_MESS_CO3ST,
+	QUALITY_SNR_MESSTHL_MESS_CO3ST,
+	QUALITY_SNR_MESSSFT_EDGE_CO3ST,
+	QUALITY_SNR_MESSTHL_EDGE_CO3ST,
+	QUALITY_SNR_MESSSFT_MOS_CO3ST,
+	QUALITY_SNR_MESSTHL_MOS_CO3ST,
+	QUALITY_SNR_BLDLV_BK_CO3,
+	QUALITY_SNR_BLDLV_SM_CO3,
+	QUALITY_SNR_BLDLV_MESS_CO3,
+	QUALITY_SNR_BLDLV_EDGE_CO3,
+	QUALITY_SNR_BLDLV_MOS_CO3,
+	QUALITY_SNR_MESSSFT_SM_FRST,
+	QUALITY_SNR_MESSTHL_SM_FRST,
+	QUALITY_SNR_MESSSFT_MESS_FRST,
+	QUALITY_SNR_MESSTHL_MESS_FRST,
+	QUALITY_SNR_MESSSFT_EDGE_FRST,
+	QUALITY_SNR_MESSTHL_EDGE_FRST,
+	QUALITY_SNR_MESSSFT_MOS_FRST,
+	QUALITY_SNR_MESSTHL_MOS_FRST,
+	QUALITY_SNR_BLDLV_BK_FRST,
+	QUALITY_SNR_BLDLV_SM_FRST,
+	QUALITY_SNR_BLDLV_MESS_FRST,
+	QUALITY_SNR_BLDLV_EDGE_FRST,
+	QUALITY_SNR_BLDLV_MOS_FRST,
+	QUALITY_SNR_MESSSFT_SM_MO,
+	QUALITY_SNR_MESSTHL_SM_MO,
+	QUALITY_SNR_MESSSFT_MESS_MO,
+	QUALITY_SNR_MESSTHL_MESS_MO,
+	QUALITY_SNR_MESSSFT_EDGE_MO,
+	QUALITY_SNR_MESSTHL_EDGE_MO,
+	QUALITY_SNR_MESSSFT_MOS_MO,
+	QUALITY_SNR_MESSTHL_MOS_MO,
+	QUALITY_SNR_BLDLV_BK_MO,
+	QUALITY_SNR_BLDLV_SM_MO,
+	QUALITY_SNR_BLDLV_MESS_MO,
+	QUALITY_SNR_BLDLV_EDGE_MO,
+	QUALITY_SNR_BLDLV_MOS_MO,
+	QUALITY_SNR_MESSSFT_SM_ST,
+	QUALITY_SNR_MESSTHL_SM_ST,
+	QUALITY_SNR_MESSSFT_MESS_ST,
+	QUALITY_SNR_MESSTHL_MESS_ST,
+	QUALITY_SNR_MESSSFT_EDGE_ST,
+	QUALITY_SNR_MESSTHL_EDGE_ST,
+	QUALITY_SNR_MESSSFT_MOS_ST,
+	QUALITY_SNR_MESSTHL_MOS_ST,
+	QUALITY_SNR_BLDLV_BK_ST,
+	QUALITY_SNR_BLDLV_SM_ST,
+	QUALITY_SNR_BLDLV_MESS_ST,
+	QUALITY_SNR_BLDLV_EDGE_ST,
+	QUALITY_SNR_BLDLV_MOS_ST,
+	QUALITY_SNR_MESSSFT_SM_BK,
+	QUALITY_SNR_MESSTHL_SM_BK,
+	QUALITY_SNR_MESSSFT_MESS_BK,
+	QUALITY_SNR_MESSTHL_MESS_BK,
+	QUALITY_SNR_MESSSFT_EDGE_BK,
+	QUALITY_SNR_MESSTHL_EDGE_BK,
+	QUALITY_SNR_MESSSFT_MOS_BK,
+	QUALITY_SNR_MESSTHL_MOS_BK,
+	QUALITY_SNR_BLDLV_BK_BK,
+	QUALITY_SNR_BLDLV_SM_BK,
+	QUALITY_SNR_BLDLV_MESS_BK,
+	QUALITY_SNR_BLDLV_EDGE_BK,
+	QUALITY_SNR_BLDLV_MOS_BK,
+	QUALITY_SNR_MESSSFT_SM_DEF,
+	QUALITY_SNR_MESSTHL_SM_DEF,
+	QUALITY_SNR_MESSSFT_MESS_DEF,
+	QUALITY_SNR_MESSTHL_MESS_DEF,
+	QUALITY_SNR_MESSSFT_EDGE_DEF,
+	QUALITY_SNR_MESSTHL_EDGE_DEF,
+	QUALITY_SNR_MESSSFT_MOS_DEF,
+	QUALITY_SNR_MESSTHL_MOS_DEF,
+	QUALITY_SNR_BLDLV_SM_DEF,
+	QUALITY_SNR_BLDLV_MESS_DEF,
+	QUALITY_SNR_BLDLV_EDGE_DEF,
+	QUALITY_SNR_BLDLV_MOS_DEF,
+	QUALITY_SNR_CUR_SM_NUM,
+	QUALITY_SNR_CUR_SM_THR,
+	QUALITY_SNR_NEAREDGE_SELWIDTH,
+	QUALITY_SNR_NEAREDGE_EDGE_THR,
+	QUALITY_SNR_GLOBAL_BLEND,
+	QUALITY_TNR_REG_TBTHX1,
+	QUALITY_TNR_REG_TBTHX2,
+	QUALITY_TNR_REG_TBTHX3,
+	QUALITY_TNR_REG_TBTHX4,
+	QUALITY_TNR_REG_TBTHX5,
+	QUALITY_TNR_REG_TBTHX6,
+	QUALITY_TNR_REG_TBTHX7,
+	QUALITY_TNR_REG_TBTHX8,
+	QUALITY_TNR_DEF_TBL0,
+	QUALITY_TNR_DEF_TBL1,
+	QUALITY_TNR_DEF_TBL2,
+	QUALITY_TNR_DEF_TBL3,
+	QUALITY_TNR_DEF_TBL4,
+	QUALITY_TNR_DEF_TBL5,
+	QUALITY_TNR_DEF_TBL6,
+	QUALITY_TNR_DEF_TBL7,
+	QUALITY_TNR_CIIR_TBL0,
+	QUALITY_TNR_CIIR_TBL1,
+	QUALITY_TNR_CIIR_TBL2,
+	QUALITY_TNR_CIIR_TBL3,
+	QUALITY_TNR_CIIR_TBL4,
+	QUALITY_TNR_CIIR_TBL5,
+	QUALITY_TNR_CIIR_TBL6,
+	QUALITY_TNR_CIIR_TBL7,
+	QUALITY_NR_MAX
+};
+
+int MTK_NR_Process(struct NR_PROCESS_PARAM_T *prNrParam, unsigned long reg_base);
+void MTK_NR_Param_Init(unsigned long reg_base);
+int MTK_NR_Config_DispSysCfg(struct regmap *mmsys_regmap);
+void MTK_NR_Clear_Irq(unsigned long reg_base);
+
+#endif				//__NR_CTRL_H__
