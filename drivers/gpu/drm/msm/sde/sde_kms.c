@@ -196,9 +196,9 @@ static int sde_debugfs_danger_init(struct sde_kms *sde_kms,
 		return -EINVAL;
 	}
 
-	debugfs_create_file("danger_status", 0600, sde_kms->debugfs_danger,
+	debugfs_create_file("danger_status", 0400, sde_kms->debugfs_danger,
 			sde_kms, &sde_debugfs_danger_stats_fops);
-	debugfs_create_file("safe_status", 0600, sde_kms->debugfs_danger,
+	debugfs_create_file("safe_status", 0400, sde_kms->debugfs_danger,
 			sde_kms, &sde_debugfs_safe_stats_fops);
 
 	return 0;

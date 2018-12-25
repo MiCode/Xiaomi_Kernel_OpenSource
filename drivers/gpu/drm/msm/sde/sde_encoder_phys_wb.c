@@ -1631,12 +1631,6 @@ static int sde_encoder_phys_wb_init_debugfs(
 		return -ENOMEM;
 	}
 
-	if (!debugfs_create_u32("bypass_irqreg", 0600,
-			debugfs_root, &wb_enc->bypass_irqreg)) {
-		SDE_ERROR("failed to create debugfs/bypass_irqreg\n");
-		return -ENOMEM;
-	}
-
 	return 0;
 }
 #else

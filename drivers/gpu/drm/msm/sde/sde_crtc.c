@@ -5510,7 +5510,7 @@ static int _sde_crtc_init_debugfs(struct drm_crtc *crtc)
 	debugfs_create_file("status", 0400,
 			sde_crtc->debugfs_root,
 			sde_crtc, &debugfs_status_fops);
-	debugfs_create_file("state", 0600,
+	debugfs_create_file("state", 0400,
 			sde_crtc->debugfs_root,
 			&sde_crtc->base,
 			&sde_crtc_debugfs_state_fops);

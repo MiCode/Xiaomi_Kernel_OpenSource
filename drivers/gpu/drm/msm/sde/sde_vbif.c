@@ -545,7 +545,7 @@ int sde_debugfs_vbif_init(struct sde_kms *sde_kms, struct dentry *debugfs_root)
 		debugfs_vbif = debugfs_create_dir(vbif_name,
 				sde_kms->debugfs_vbif);
 
-		debugfs_create_u32("features", 0600, debugfs_vbif,
+		debugfs_create_u32("features", 0400, debugfs_vbif,
 			(u32 *)&vbif->features);
 
 		debugfs_create_u32("xin_halt_timeout", 0400, debugfs_vbif,
