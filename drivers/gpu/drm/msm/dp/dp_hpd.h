@@ -19,6 +19,7 @@
 #include <linux/types.h>
 #include <linux/device.h>
 #include "dp_parser.h"
+#include "dp_catalog.h"
 
 /**
  * enum dp_hpd_type - dp hpd type
@@ -30,6 +31,7 @@
 enum dp_hpd_type {
 	DP_HPD_USBPD,
 	DP_HPD_GPIO,
+	DP_HPD_LPHW,
 	DP_HPD_BUILTIN,
 };
 
@@ -55,8 +57,10 @@ struct dp_hpd_cb {
  * @hpd_irq: Change in the status since last message
  * @alt_mode_cfg_done: bool to specify alt mode status
  * @multi_func: multi-function preferred, USBPD type only
- * @isr: event interrupt, BUILTIN type only
+ * @isr: event interrupt, BUILTIN and LPHW type only
  * @register_hpd: register hardware callback
+ * @host_init: source or host side setup for hpd
+ * @host_deinit: source or host side de-initializations
  * @simulate_connect: simulate disconnect or connect for debug mode
  * @simulate_attention: simulate attention messages for debug mode
  */
@@ -68,8 +72,10 @@ struct dp_hpd {
 	bool alt_mode_cfg_done;
 	bool multi_func;
 
-	void (*isr)(struct dp_hpd *dp_hpd, int event);
+	void (*isr)(struct dp_hpd *dp_hpd);
 	int (*register_hpd)(struct dp_hpd *dp_hpd);
+	void (*host_init)(struct dp_hpd *hpd, struct dp_catalog_hpd *catalog);
+	void (*host_deinit)(struct dp_hpd *hpd, struct dp_catalog_hpd *catalog);
 	int (*simulate_connect)(struct dp_hpd *dp_hpd, bool hpd);
 	int (*simulate_attention)(struct dp_hpd *dp_hpd, int vdo);
 };
@@ -84,8 +90,8 @@ struct dp_hpd {
  *
  * This function sets up the hpd module
  */
-struct dp_hpd *dp_hpd_get(struct device *dev,
-	struct dp_parser *parser, struct dp_hpd_cb *cb);
+struct dp_hpd *dp_hpd_get(struct device *dev, struct dp_parser *parser,
+		struct dp_catalog_hpd *catalog, struct dp_hpd_cb *cb);
 
 /**
  * dp_hpd_put()
