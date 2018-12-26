@@ -2102,6 +2102,10 @@ static void monitor_soc_work(struct work_struct *work)
 				monitor_soc_work.work);
 	int rc, new_soc = 0, batt_temp;
 
+	/*skip if its a debug-board */
+	if (is_debug_batt_id(chip))
+		return;
+
 	bms_stay_awake(&chip->vbms_soc_wake_source);
 
 	calculate_delta_time(&chip->tm_sec, &chip->delta_time_s);
