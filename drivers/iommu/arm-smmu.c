@@ -699,6 +699,20 @@ static int arm_smmu_arch_device_group(struct device *dev,
 	return smmu->arch_ops->device_group(dev, group);
 }
 
+static void arm_smmu_arch_write_sync(struct arm_smmu_device *smmu)
+{
+	u32 id;
+
+	if (!smmu)
+		return;
+
+	/* Read to complete prior write transcations */
+	id = readl_relaxed(ARM_SMMU_GR0(smmu) + ARM_SMMU_GR0_ID0);
+
+	/* Wait for read to complete before off */
+	rmb();
+}
+
 static struct device_node *dev_get_dev_node(struct device *dev)
 {
 	if (dev_is_pci(dev)) {
@@ -946,9 +960,9 @@ static int arm_smmu_power_on_atomic(struct arm_smmu_power_resources *pwr)
 static void arm_smmu_power_off_atomic(struct arm_smmu_power_resources *pwr)
 {
 	unsigned long flags;
+	struct arm_smmu_device *smmu = pwr->dev->driver_data;
 
-	/* Wait for writes to complete before off */
-	wmb();
+	arm_smmu_arch_write_sync(smmu);
 
 	spin_lock_irqsave(&pwr->clock_refs_lock, flags);
 	if (pwr->clock_refs_count == 0) {
@@ -1090,6 +1104,7 @@ static int __arm_smmu_tlb_sync(struct arm_smmu_device *smmu,
 {
 	unsigned int spin_cnt, delay;
 	u32 sync_inv_ack;
+	u32 pwr_status;
 
 	writel_relaxed(0, sync);
 	for (delay = 1; delay < TLB_LOOP_TIMEOUT; delay *= 2) {
@@ -1102,10 +1117,12 @@ static int __arm_smmu_tlb_sync(struct arm_smmu_device *smmu,
 	}
 	sync_inv_ack = scm_io_read((unsigned long)(smmu->phys_addr +
 				     ARM_SMMU_STATS_SYNC_INV_TBU_ACK));
+	pwr_status = readl_relaxed(ARM_SMMU_GR0(smmu) +
+				   ARM_SMMU_TBU_PWR_STATUS);
 	trace_tlbsync_timeout(smmu->dev, 0);
 	dev_err_ratelimited(smmu->dev,
-			    "TLB sync timed out -- SMMU may be deadlocked, ack 0x%x\n",
-			    sync_inv_ack);
+			    "TLB sync timed out -- SMMU may be deadlocked, SYNC_INV_ACK 0x%x, PWR_STATUS 0x%x\n",
+			    sync_inv_ack, pwr_status);
 	return -EINVAL;
 }
 
@@ -5380,6 +5397,12 @@ out_resume:
 	qsmmuv500_tbu_resume(tbu);
 
 out_power_off:
+	/* Read to complete prior write transcations */
+	val = readl_relaxed(tbu->base + DEBUG_SR_HALT_ACK_REG);
+
+	/* Wait for read to complete before off */
+	rmb();
+
 	arm_smmu_power_off(tbu->pwr);
 
 	return phys;
