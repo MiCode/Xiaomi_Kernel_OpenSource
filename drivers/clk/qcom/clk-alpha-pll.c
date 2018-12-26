@@ -1760,6 +1760,50 @@ static int alpha_pll_lucid_is_enabled(struct clk_hw *hw)
 	return lucid_pll_is_enabled(pll, pll->clkr.regmap);
 }
 
+static void clk_alpha_pll_lucid_list_registers(struct seq_file *f,
+		struct clk_hw *hw)
+{
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	int size, i, val;
+
+	static struct clk_register_data data[] = {
+		{"PLL_MODE", 0x0},
+		{"PLL_L_VAL", 0x4},
+		{"PLL_CAL_L_VAL", 0x8},
+		{"PLL_USER_CTL", 0x0c},
+		{"PLL_USER_CTL_U", 0x10},
+		{"PLL_USER_CTL_U1", 0x14},
+		{"PLL_CONFIG_CTL", 0x18},
+		{"PLL_CONFIG_CTL_U", 0x1c},
+		{"PLL_CONFIG_CTL_U1", 0x20},
+		{"PLL_TEST_CTL", 0x24},
+		{"PLL_TEST_CTL_U1", 0x28},
+		{"PLL_STATUS", 0x30},
+		{"PLL_ALPHA_VAL", 0x40},
+	};
+
+	static struct clk_register_data data1[] = {
+		{"APSS_PLL_VOTE", 0x0},
+	};
+
+	size = ARRAY_SIZE(data);
+
+	for (i = 0; i < size; i++) {
+		regmap_read(pll->clkr.regmap, pll->offset + data[i].offset,
+					&val);
+		clock_debug_output(f, false,
+				"%20s: 0x%.8x\n", data[i].name, val);
+	}
+
+	regmap_read(pll->clkr.regmap, pll->offset + data[0].offset, &val);
+
+	if (val & PLL_FSM_ENA) {
+		regmap_read(pll->clkr.regmap, pll->clkr.enable_reg +
+					data1[0].offset, &val);
+		clock_debug_output(f, false,
+				"%20s: 0x%.8x\n", data1[0].name, val);
+	}
+}
 const struct clk_ops clk_alpha_pll_lucid_ops = {
 	.prepare = alpha_pll_lucid_prepare,
 	.enable = alpha_pll_lucid_enable,
@@ -1768,7 +1812,7 @@ const struct clk_ops clk_alpha_pll_lucid_ops = {
 	.recalc_rate = alpha_pll_lucid_recalc_rate,
 	.round_rate = clk_alpha_pll_round_rate,
 	.set_rate = alpha_pll_lucid_set_rate,
-	.list_registers = clk_alpha_pll_list_registers,
+	.list_registers = clk_alpha_pll_lucid_list_registers,
 };
 EXPORT_SYMBOL_GPL(clk_alpha_pll_lucid_ops);
 
@@ -1778,6 +1822,7 @@ const struct clk_ops clk_alpha_pll_fixed_lucid_ops = {
 	.is_enabled = alpha_pll_lucid_is_enabled,
 	.recalc_rate = alpha_pll_lucid_recalc_rate,
 	.round_rate = clk_alpha_pll_round_rate,
+	.list_registers = clk_alpha_pll_lucid_list_registers,
 };
 EXPORT_SYMBOL_GPL(clk_alpha_pll_fixed_lucid_ops);
 
