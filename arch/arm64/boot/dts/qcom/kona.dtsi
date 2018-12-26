@@ -591,6 +591,28 @@
 	thermal_zones: thermal-zones {
 	};
 
+	slim_aud: slim@3ac0000 {
+		cell-index = <1>;
+		compatible = "qcom,slim-ngd";
+		reg = <0x3ac0000 0x2c000>,
+			<0x3a84000 0x2c000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 163 0>, <0 164 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,apps-ch-pipes = <0x700000>;
+		qcom,ea-pc = <0x2d0>;
+		status = "disabled";
+		qcom,iommu-s1-bypass;
+
+		iommu_slim_aud_ctrl_cb: qcom,iommu_slim_ctrl_cb {
+			compatible = "qcom,iommu-slim-ctrl-cb";
+			iommus = <&apps_smmu 0x1826 0x0>,
+				 <&apps_smmu 0x182f 0x0>,
+				 <&apps_smmu 0x1830 0x1>;
+			status = "disabled";
+		};
+	};
+
 	intc: interrupt-controller@17a00000 {
 		compatible = "arm,gic-v3";
 		#interrupt-cells = <3>;
