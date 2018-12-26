@@ -11,13 +11,13 @@
  */
 
 /dts-v1/;
-/plugin/;
 
+#include "sa8155p-v2.dtsi"
 #include "sa8155-adp-common.dtsi"
 
 / {
-	model = "ADP-QDRIVE";
-	compatible = "qcom,sa8155p-adp-qdrive", "qcom,sa8155p",
-		"qcom,adp-qdrive";
+	model = "Qualcomm Technologies, Inc. SA8155P ADP ALCOR";
+	compatible = "qcom,sa8155p-adp-alcor", "qcom,sa8155p",
+			"qcom,adp-alcor";
 	qcom,board-id = <0x02000019 0>;
 };

@@ -16,8 +16,8 @@
 #include "sa8155-adp-common.dtsi"
 
 / {
-	model = "ADP-QDRIVE";
-	compatible = "qcom,sa8155-adp-qdrive", "qcom,sa8155",
-		"qcom,adp-qdrive";
+	model = "ADP-ALCOR";
+	compatible = "qcom,sa8155-adp-alcor", "qcom,sa8155",
+		"qcom,adp-alcor";
 	qcom,board-id = <0x02000019 0>;
 };
