@@ -13,6 +13,7 @@
 
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
+#include "sm6150-sde-display.dtsi"
 
 &pm6125_gpios {
 	key_vol_up {
@@ -44,4 +45,46 @@
 			gpio-key,wakeup;
 		};
 	};
+};
+
+&sde_dp {
+	/delete-property/ qcom,dp-usbpd-detection;
+	status = "disabled";
+};
+
+&mdss_dsi0 {
+	vdda-1p2-supply = <&L18A>;
+};
+
+&mdss_dsi_phy0 {
+	vdda-0p9-supply = <&L4A>;
+};
+
+&sde_dsi {
+	vddio-supply = <&L9A>;
+};
+
+&mdss_mdp {
+	connectors = <&sde_rscc &sde_wb &sde_dsi>;
+};
+
+&dsi_td4330_truly_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-reset-gpio = <&tlmm 91 0>;
+	qcom,platform-en-gpio = <&pm6125_gpios 8 0>;
+	qcom,platform-bklight-en-gpio = <&pmi632_gpios 6 0>;
+};
+
+&dsi_td4330_truly_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-te-gpio = <&tlmm 90 0>;
+	qcom,platform-reset-gpio = <&tlmm 91 0>;
+	qcom,platform-en-gpio = <&pm6125_gpios 8 0>;
+	qcom,platform-bklight-en-gpio = <&pmi632_gpios 6 0>;
 };
