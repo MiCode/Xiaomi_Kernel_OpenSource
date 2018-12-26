@@ -151,6 +151,9 @@ config USB_U_SERIAL
 config USB_U_ETHER
 	tristate
 
+config USB_U_AUDIO
+	tristate
+
 config USB_F_SERIAL
 	tristate
 
@@ -188,6 +191,9 @@ config USB_F_FS
 	tristate
 
 config USB_F_UAC1
+	tristate
+
+config USB_F_UAC1_LEGACY
 	tristate
 
 config USB_F_UAC2
@@ -462,12 +468,30 @@ config USB_CONFIGFS_F_UAC1
 	depends on SND
 	select USB_LIBCOMPOSITE
 	select SND_PCM
+	select USB_U_AUDIO
 	select USB_F_UAC1
 	help
 	  This Audio function implements 1 AudioControl interface,
 	  1 AudioStreaming Interface each for USB-OUT and USB-IN.
-	  This driver requires a real Audio codec to be present
-	  on the device.
+	  This driver doesn't expect any real Audio codec to be present
+	  on the device - the audio streams are simply sinked to and
+	  sourced from a virtual ALSA sound card created. The user-space
+	  application may choose to do whatever it wants with the data
+	  received from the USB Host and choose to provide whatever it
+	  wants as audio data to the USB Host.
+
+config USB_CONFIGFS_F_UAC1_LEGACY
+	bool "Audio Class 1.0 (legacy implementation)"
+	depends on USB_CONFIGFS
+	depends on SND
+	select USB_LIBCOMPOSITE
+	select SND_PCM
+	select USB_F_UAC1_LEGACY
+	help
+	  This Audio function implements 1 AudioControl interface,
+	  1 AudioStreaming Interface each for USB-OUT and USB-IN.
+	  This is a legacy driver and requires a real Audio codec
+	  to be present on the device.
 
 config USB_CONFIGFS_F_UAC2
 	bool "Audio Class 2.0"
