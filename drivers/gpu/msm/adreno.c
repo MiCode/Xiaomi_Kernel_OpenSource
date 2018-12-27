@@ -3098,6 +3098,9 @@ int adreno_spin_idle(struct adreno_device *adreno_dev, unsigned int timeout)
 		if (adreno_isidle(KGSL_DEVICE(adreno_dev)))
 			return 0;
 
+		/* relax tight loop */
+		cond_resched();
+
 	} while (time_before(jiffies, wait));
 
 	/*
