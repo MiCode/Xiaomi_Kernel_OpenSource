@@ -92,7 +92,6 @@ void sdhci_dumpregs(struct sdhci_host *host)
 		sdhci_readl(host, SDHCI_INT_STATUS),
 		sdhci_readl(host, SDHCI_INT_ENABLE),
 		sdhci_readl(host, SDHCI_SIGNAL_ENABLE));
-	mmc_stop_tracing(host->mmc);
 
 	SDHCI_DUMP("============ SDHCI REGISTER DUMP ===========\n");
 
@@ -3576,11 +3575,18 @@ out:
 	spin_unlock(&host->lock);
 
 	if (unexpected) {
+		struct mmc_host *mmc = host->mmc;
+
 		pr_err("%s: Unexpected interrupt 0x%08x.\n",
 			   mmc_hostname(host->mmc), unexpected);
 		MMC_TRACE(host->mmc, "Unexpected interrupt 0x%08x.\n",
 				unexpected);
-		sdhci_dumpregs(host);
+		if (mmc->cmdq_ops && mmc->cmdq_ops->dumpstate)
+			mmc->cmdq_ops->dumpstate(mmc);
+		else
+			sdhci_dumpregs(host);
+		mmc_stop_tracing(host->mmc);
+		BUG_ON(1);
 	}
 
 	return result;
