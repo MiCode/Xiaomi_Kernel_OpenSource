@@ -1982,6 +1982,9 @@
 #include "trinket-pm.dtsi"
 
 &pm6125_vadc {
+	pinctrl-names = "default";
+	pinctrl-0 = <&camera_therm_default &emmc_therm_default>;
+
 	rf_pa0_therm {
 		reg = <ADC_AMUX_THM1_PU2>;
 		label = "rf_pa0_therm";
@@ -2020,6 +2023,23 @@
 		qcom,ratiometric;
 		qcom,hw-settle-time = <200>;
 		qcom,pre-scaling = <1 1>;
+	};
+
+};
+
+&pm6125_gpios {
+	camera_therm {
+		camera_therm_default: camera_therm_default {
+			pins = "gpio3";
+			bias-high-impedance;
+		};
+	};
+
+	emmc_therm {
+		emmc_therm_default: emmc_therm_default {
+			pins = "gpio6";
+			bias-high-impedance;
+		};
 	};
 
 };
@@ -2081,6 +2101,13 @@
 };
 
 &pmi632_vadc {
+	pinctrl-names = "default";
+	pinctrl-0 = <&conn_therm_default &skin_therm_default>;
+
+	xo_therm {
+		status = "disabled";
+	};
+
 	bat_therm {
 		qcom,lut-index = <1>;
 	};
@@ -2108,6 +2135,23 @@
 		qcom,hw-settle-time = <200>;
 		qcom,pre-scaling = <1 1>;
 	};
+};
+
+&pmi632_gpios {
+	conn_therm {
+		conn_therm_default: conn_therm_default {
+			pins = "gpio1";
+			bias-high-impedance;
+		};
+	};
+
+	skin_therm {
+		skin_therm_default: skin_therm_default {
+			pins = "gpio3";
+			bias-high-impedance;
+		};
+	};
+
 };
 
 &pmi632_adc_tm {
