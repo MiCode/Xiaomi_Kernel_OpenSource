@@ -119,7 +119,6 @@ struct qusb_phy {
 	int			efuse_bit_pos;
 	int			efuse_num_of_bits;
 
-	int			power_enabled_ref;
 	bool			cable_connected;
 	bool			suspended;
 	bool			dpdm_enable;
@@ -191,29 +190,11 @@ static int qusb_phy_enable_power(struct qusb_phy *qphy, bool on)
 
 	mutex_lock(&qphy->lock);
 
-	dev_dbg(qphy->phy.dev,
-		"%s:req to turn %s regulators. power_enabled_ref:%d\n",
-			__func__, on ? "on" : "off", qphy->power_enabled_ref);
+	dev_dbg(qphy->phy.dev, "%s:req to turn %s regulators\n",
+			__func__, on ? "on" : "off");
 
-	if (on && ++qphy->power_enabled_ref > 1) {
-		dev_dbg(qphy->phy.dev, "PHYs' regulators are already on\n");
-		goto done;
-	}
-
-	if (!on) {
-		if (on == qphy->power_enabled_ref) {
-			dev_dbg(qphy->phy.dev,
-				"PHYs' regulators are already off\n");
-			goto done;
-		}
-
-		qphy->power_enabled_ref--;
-		if (!qphy->power_enabled_ref)
-			goto disable_vdda33;
-
-		dev_dbg(qphy->phy.dev, "Skip turning off PHYs' regulators\n");
-		goto done;
-	}
+	if (!on)
+		goto disable_vdda33;
 
 	ret = qusb_phy_config_vdd(qphy, true);
 	if (ret) {
@@ -319,11 +300,8 @@ unconfig_vdd:
 err_vdd:
 	dev_dbg(qphy->phy.dev, "QUSB PHY's regulators are turned OFF.\n");
 
-	/* in case of error in turning on regulators */
-	if (qphy->power_enabled_ref)
-		qphy->power_enabled_ref--;
-done:
 	mutex_unlock(&qphy->lock);
+
 	return ret;
 }
 
@@ -464,14 +442,10 @@ static void qusb_phy_host_init(struct usb_phy *phy)
 static int qusb_phy_init(struct usb_phy *phy)
 {
 	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
-	int ret, p_index;
+	int p_index;
 	u8 reg;
 
 	dev_dbg(phy->dev, "%s\n", __func__);
-
-	ret = qusb_phy_enable_power(qphy, true);
-	if (ret)
-		return ret;
 
 	qusb_phy_reset(qphy);
 
