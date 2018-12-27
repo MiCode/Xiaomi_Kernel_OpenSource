@@ -149,7 +149,6 @@ struct qusb_phy {
 	int			tune2_efuse_num_of_bits;
 	int			tune2_efuse_correction;
 
-	bool			power_enabled;
 	bool			cable_connected;
 	bool			suspended;
 	bool			ulpi_mode;
@@ -243,13 +242,8 @@ static int qusb_phy_enable_power(struct qusb_phy *qphy, bool on)
 {
 	int ret = 0;
 
-	dev_dbg(qphy->phy.dev, "%s turn %s regulators. power_enabled:%d\n",
-			__func__, on ? "on" : "off", qphy->power_enabled);
-
-	if (qphy->power_enabled == on) {
-		dev_dbg(qphy->phy.dev, "PHYs' regulators are already ON.\n");
-		return 0;
-	}
+	dev_dbg(qphy->phy.dev, "%s turn %s regulators\n",
+			__func__, on ? "on" : "off");
 
 	if (!on)
 		goto disable_vdda33;
@@ -307,8 +301,6 @@ static int qusb_phy_enable_power(struct qusb_phy *qphy, bool on)
 		goto unset_vdd33;
 	}
 
-	qphy->power_enabled = true;
-
 	pr_debug("%s(): QUSB PHY's regulators are turned ON.\n", __func__);
 	return ret;
 
@@ -356,8 +348,8 @@ unconfig_vdd:
 		dev_err(qphy->phy.dev, "Unable unconfig VDD:%d\n",
 								ret);
 err_vdd:
-	qphy->power_enabled = false;
 	dev_dbg(qphy->phy.dev, "QUSB PHY's regulators are turned OFF.\n");
+
 	return ret;
 }
 
@@ -431,10 +423,6 @@ static int qusb_phy_init(struct usb_phy *phy)
 	bool pll_lock_fail = false;
 
 	dev_dbg(phy->dev, "%s\n", __func__);
-
-	ret = qusb_phy_enable_power(qphy, true);
-	if (ret)
-		return ret;
 
 	/*
 	 * ref clock is enabled by default after power on reset. Linux clock
@@ -712,11 +700,7 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			}
 
 			qusb_phy_enable_clocks(qphy, false);
-			/* Do not disable power rails if there is vote for it */
-			if (!qphy->dpdm_enable)
-				qusb_phy_enable_power(qphy, false);
-			else
-				dev_dbg(phy->dev, "race with rm_pulldown. Keep ldo ON\n");
+			qusb_phy_enable_power(qphy, false);
 			mutex_unlock(&qphy->phy_lock);
 
 			/*
@@ -851,19 +835,18 @@ static int qusb_phy_dpdm_regulator_disable(struct regulator_dev *rdev)
 
 	mutex_lock(&qphy->phy_lock);
 	if (qphy->dpdm_enable) {
+		/* If usb core is active, rely on set_suspend to clamp phy */
 		if (!qphy->cable_connected) {
 			if (qphy->tcsr_clamp_dig_n)
 				writel_relaxed(0x0,
 					qphy->tcsr_clamp_dig_n);
-			dev_dbg(qphy->phy.dev, "turn off for HVDCP case\n");
-			ret = qusb_phy_enable_power(qphy, false);
-			if (ret < 0) {
-				dev_dbg(qphy->phy.dev,
-					"dpdm regulator disable failed:%d\n",
-					ret);
-				mutex_unlock(&qphy->phy_lock);
-				return ret;
-			}
+		}
+		ret = qusb_phy_enable_power(qphy, false);
+		if (ret < 0) {
+			dev_dbg(qphy->phy.dev,
+				"dpdm regulator disable failed:%d\n", ret);
+			mutex_unlock(&qphy->phy_lock);
+			return ret;
 		}
 		qphy->dpdm_enable = false;
 	}
