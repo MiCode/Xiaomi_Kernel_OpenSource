@@ -60,14 +60,8 @@ static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
 	 * returning from this function, we expect device to reset.
 	 *
 	 * Normaly, we would read/write pm_state only after grabbing
-	 * pm_lock, since we're in a panic, skipping it.
-	 */
-
-	if (!MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
-		return -EIO;
-
-	/*
-	 * There is no gurantee this state change would take effect since
+	 * pm_lock, since we're in a panic, skipping it. Also there is no
+	 * gurantee this state change would take effect since
 	 * we're setting it w/o grabbing pmlock, it's best effort
 	 */
 	mhi_cntrl->pm_state = MHI_PM_LD_ERR_FATAL_DETECT;
