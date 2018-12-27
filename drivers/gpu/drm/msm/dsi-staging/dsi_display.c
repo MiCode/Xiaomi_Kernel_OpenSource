@@ -5479,6 +5479,7 @@ int dsi_display_get_info(struct drm_connector *connector,
 {
 	struct dsi_display *display;
 	struct dsi_panel_phy_props phy_props;
+	struct dsi_host_common_cfg *host;
 	int i, rc;
 
 	if (!info || !disp) {
@@ -5539,6 +5540,10 @@ int dsi_display_get_info(struct drm_connector *connector,
 		info->capabilities |= MSM_DISPLAY_ESD_ENABLED;
 
 	info->te_source = display->te_source;
+
+	host = &display->panel->host_config;
+	if (host->split_link.split_link_enabled)
+		info->capabilities |= MSM_DISPLAY_SPLIT_LINK;
 
 error:
 	mutex_unlock(&display->display_lock);
