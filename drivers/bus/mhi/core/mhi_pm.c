@@ -1054,6 +1054,12 @@ int mhi_pm_resume(struct mhi_controller *mhi_cntrl)
 		MHI_ERR("Did not enter M0 state, cur_state:%s pm_state:%s\n",
 			TO_MHI_STATE_STR(mhi_cntrl->dev_state),
 			to_mhi_pm_state_str(mhi_cntrl->pm_state));
+
+		/*
+		 * It's possible device already in error state and we didn't
+		 * process it due to low power mode, force a check
+		 */
+		mhi_intvec_threaded_handlr(0, mhi_cntrl);
 		return -EIO;
 	}
 
