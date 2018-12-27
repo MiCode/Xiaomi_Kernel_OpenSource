@@ -2322,6 +2322,33 @@ const struct clk_ops clk_agera_pll_ops = {
 };
 EXPORT_SYMBOL(clk_agera_pll_ops);
 
+static void clk_alpha_pll_lucid_list_registers(struct seq_file *f,
+							struct clk_hw *hw)
+{
+	static struct clk_register_data pll_regs[] = {
+		{"PLL_MODE", 0x0},
+		{"PLL_L_VAL", 0x4},
+		{"PLL_CAL_L_VAL", 0x8},
+		{"PLL_USER_CTL", 0x0c},
+		{"PLL_USER_CTL_U", 0x10},
+		{"PLL_USER_CTL_U1", 0x14},
+		{"PLL_CONFIG_CTL", 0x18},
+		{"PLL_CONFIG_CTL_U", 0x1c},
+		{"PLL_CONFIG_CTL_U1", 0x20},
+		{"PLL_TEST_CTL", 0x24},
+		{"PLL_TEST_CTL_U", 0x28},
+		{"PLL_STATUS", 0x30},
+		{"PLL_ALPHA_VAL", 0x40},
+	};
+
+	static struct clk_register_data pll_vote_reg = {
+		"APSS_PLL_VOTE", 0x0
+	};
+
+	print_pll_registers(f, hw, pll_regs, ARRAY_SIZE(pll_regs),
+							&pll_vote_reg);
+}
+
 static int lucid_pll_is_enabled(struct clk_alpha_pll *pll,
 					struct regmap *regmap)
 {
@@ -2493,6 +2520,9 @@ static int alpha_pll_lucid_prepare(struct clk_hw *hw)
 	unsigned long prate;
 	int ret;
 
+	if (pll->flags & SUPPORTS_NO_SLEW)
+		return 0;
+
 	/* Return early if calibration is not needed. */
 	ret = regmap_read(pll->clkr.regmap, pll->offset + LUCID_PLL_OFF_STATUS,
 		      &regval);
@@ -2522,7 +2552,7 @@ static unsigned long
 alpha_pll_lucid_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 {
 	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
-	u32 l, frac;
+	u32 l = 0, frac = 0;
 
 	regmap_read(pll->clkr.regmap, pll->offset + LUCID_PLL_OFF_L_VAL, &l);
 	regmap_read(pll->clkr.regmap, pll->offset + LUCID_PLL_OFF_ALPHA_VAL,
@@ -2551,9 +2581,15 @@ static int alpha_pll_lucid_set_rate(struct clk_hw *hw, unsigned long rate,
 		return -EINVAL;
 	}
 
+	if (pll->flags & SUPPORTS_NO_SLEW)
+		alpha_pll_lucid_disable(hw);
+
 	regmap_write(pll->clkr.regmap, pll->offset + LUCID_PLL_OFF_L_VAL, l);
 	regmap_write(pll->clkr.regmap, pll->offset + LUCID_PLL_OFF_ALPHA_VAL,
 							a);
+
+	if (pll->flags & SUPPORTS_NO_SLEW)
+		return alpha_pll_lucid_enable(hw);
 
 	/* Latch the PLL input */
 	ret = regmap_update_bits(pll->clkr.regmap, pll->offset + PLL_MODE,
@@ -2601,7 +2637,7 @@ const struct clk_ops clk_alpha_pll_lucid_ops = {
 	.recalc_rate = alpha_pll_lucid_recalc_rate,
 	.round_rate = clk_alpha_pll_round_rate,
 	.set_rate = alpha_pll_lucid_set_rate,
-	.list_registers = clk_alpha_pll_list_registers,
+	.list_registers = clk_alpha_pll_lucid_list_registers,
 };
 EXPORT_SYMBOL(clk_alpha_pll_lucid_ops);
 
@@ -2611,6 +2647,7 @@ const struct clk_ops clk_alpha_pll_fixed_lucid_ops = {
 	.is_enabled = alpha_pll_lucid_is_enabled,
 	.recalc_rate = alpha_pll_lucid_recalc_rate,
 	.round_rate = clk_alpha_pll_round_rate,
+	.list_registers = clk_alpha_pll_lucid_list_registers,
 };
 EXPORT_SYMBOL(clk_alpha_pll_fixed_lucid_ops);
 
