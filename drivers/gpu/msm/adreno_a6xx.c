@@ -899,14 +899,8 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	}
 
 	/* Setting the primFifo thresholds values */
-	if (adreno_is_a640(adreno_dev))
-		kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL, (0x400 << 11));
-	else if (adreno_is_a680(adreno_dev))
-		kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL, (0x800 << 11));
-	else if (adreno_is_a612(adreno_dev))
-		kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL, (0x100 << 11));
-	else
-		kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL, (0x300 << 11));
+	kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL,
+			adreno_dev->gpucore->prim_fifo_threshold);
 
 	/* Set the AHB default slave response to "ERROR" */
 	kgsl_regwrite(device, A6XX_CP_AHB_CNTL, 0x1);
