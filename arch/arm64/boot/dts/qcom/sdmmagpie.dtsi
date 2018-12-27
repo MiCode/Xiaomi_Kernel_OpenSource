@@ -555,46 +555,46 @@
 			reg = <0 0x92e00000 0 0x500000>;
 		};
 
-		wlan_msa_mem: wlan_msa_region@93300000 {
+		pil_cdsp_mem: cdsp_regions@93300000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x93300000 0 0x100000>;
+			reg = <0 0x93300000 0 0x1e00000>;
 		};
 
-		pil_cdsp_mem: cdsp_regions@93400000 {
+		pil_adsp_mem: pil_adsp_region@95100000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x93400000 0 0x1e00000>;
+			reg = <0 0x95100000 0 0x1e00000>;
 		};
 
-		pil_adsp_mem: pil_adsp_region@95200000 {
+		wlan_msa_mem: wlan_msa_region@96f00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x95200000 0 0x1e00000>;
-		};
-
-		pil_ipa_fw_mem: ips_fw_region@97000000 {
-			compatible = "removed-dma-pool";
-			no-map;
-			reg = <0 0x97000000 0 0x10000>;
-		};
-
-		pil_ipa_gsi_mem: ipa_gsi_region@97010000 {
-			compatible = "removed-dma-pool";
-			no-map;
-			reg = <0 0x97010000 0 0x5000>;
-		};
-
-		pil_gpu_mem: gpu_region@97015000 {
-			compatible = "removed-dma-pool";
-			no-map;
-			reg = <0 0x97015000 0 0x2000>;
+			reg = <0 0x96f00000 0 0x180000>;
 		};
 
 		npu_mem: npu_region@97080000 {
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0 0x97080000 0 0x80000>;
+		};
+
+		pil_ipa_fw_mem: ips_fw_region@97100000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x97100000 0 0x10000>;
+		};
+
+		pil_ipa_gsi_mem: ipa_gsi_region@97110000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x97110000 0 0x5000>;
+		};
+
+		pil_gpu_mem: gpu_region@97115000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x97115000 0 0x2000>;
 		};
 
 		qseecom_mem: qseecom_region@9e400000 {
@@ -677,6 +677,94 @@
 	#size-cells = <1>;
 	ranges = <0 0 0 0xffffffff>;
 	compatible = "simple-bus";
+
+	jtag_mm0: jtagmm@7040000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x7040000 0x1000>;
+		reg-names = "etm-base";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "core_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU0>;
+	};
+
+	jtag_mm1: jtagmm@7140000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x7140000 0x1000>;
+		reg-names = "etm-base";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "core_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU1>;
+	};
+
+	jtag_mm2: jtagmm@7240000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x7240000 0x1000>;
+		reg-names = "etm-base";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "core_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU2>;
+	};
+
+	jtag_mm3: jtagmm@7340000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x7340000 0x1000>;
+		reg-names = "etm-base";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "core_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU3>;
+	};
+
+	jtag_mm4: jtagmm@7440000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x7440000 0x1000>;
+		reg-names = "etm-base";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "core_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU4>;
+	};
+
+	jtag_mm5: jtagmm@7540000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x7540000 0x1000>;
+		reg-names = "etm-base";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "core_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU5>;
+	};
+
+	jtag_mm6: jtagmm@7640000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x7640000 0x1000>;
+		reg-names = "etm-base";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "core_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU6>;
+	};
+
+	jtag_mm7: jtagmm@7740000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x7740000 0x1000>;
+		reg-names = "etm-base";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "core_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU7>;
+	};
 
 	intc: interrupt-controller@17a00000 {
 		compatible = "arm,gic-v3";
@@ -1122,6 +1210,9 @@
 		      <0x88e4000 0x1000>;
 		reg-names = "eud_base", "eud_mode_mgr2";
 		qcom,secure-eud-en;
+		qcom,eud-clock-vote-req;
+		clocks = <&clock_gcc GCC_USB_PHY_CFG_AHB2PHY_CLK>;
+		clock-names = "eud_ahb2phy_clk";
 		status = "ok";
 	};
 
@@ -1954,6 +2045,18 @@
 			#interrupt-cells = <2>;
 		};
 
+		smp2p_rdbg2_out: qcom,smp2p-rdbg2-out {
+			qcom,entry-name = "rdbg";
+			#qcom,smem-state-cells = <1>;
+		};
+
+		smp2p_rdbg2_in: qcom,smp2p-rdbg2-in {
+			qcom,entry-name = "rdbg";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+
+
 		sleepstate_smp2p_out: sleepstate-out {
 			qcom,entry-name = "sleepstate";
 			#qcom,smem-state-cells = <1>;
@@ -1981,6 +2084,17 @@
 
 		cdsp_smp2p_in: slave-kernel {
 			qcom,entry-name = "slave-kernel";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+
+		smp2p_rdbg5_out: qcom,smp2p-rdbg5-out {
+			qcom,entry-name = "rdbg";
+			#qcom,smem-state-cells = <1>;
+		};
+
+		smp2p_rdbg5_in: qcom,smp2p-rdbg5-in {
+			qcom,entry-name = "rdbg";
 			interrupt-controller;
 			#interrupt-cells = <2>;
 		};
@@ -2175,7 +2289,7 @@
 			<&clock_gcc GCC_UFS_PHY_TX_SYMBOL_0_CLK>,
 			<&clock_gcc GCC_UFS_PHY_RX_SYMBOL_0_CLK>;
 		freq-table-hz =
-			<50000000 240000000>,
+			<50000000 200000000>,
 			<0 0>,
 			<0 0>,
 			<37500000 150000000>,
@@ -2433,6 +2547,7 @@
 		qcom,pas-id = <4>;
 		qcom,smem-id = <421>;
 		qcom,signal-aop;
+		qcom,minidump-id = <3>;
 		qcom,complete-ramdump;
 
 		/* Inputs from mss */
@@ -2950,6 +3065,11 @@
 	demux {
 		compatible = "qcom,demux";
 	};
+
+	cx_ipeak_lm: cx_ipeak@01fed000 {
+		compatible = "qcom,cx-ipeak-v2";
+		reg = <0x1fed000 0x8008>;
+	};
 };
 
 #include "sdmmagpie-gdsc.dtsi"
@@ -2959,6 +3079,7 @@
 #include "sdmmagpie-sde-pll.dtsi"
 #include "sdmmagpie-sde.dtsi"
 #include "sdmmagpie-camera.dtsi"
+#include "msm-rdbg.dtsi"
 
 &pcie_0_gdsc {
 	status = "ok";
@@ -3241,6 +3362,11 @@
 		qcom,ratiometric;
 		qcom,hw-settle-time = <200>;
 	};
+};
+
+&msm_vidc0 {
+	qcom,cx-ipeak-data = <&cx_ipeak_lm 5>;
+	qcom,clock-freq-threshold = <533000000>;
 };
 
 #include "sdmmagpie-npu.dtsi"

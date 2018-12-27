@@ -507,6 +507,11 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 		TO_MHI_STATE_STR(mhi_cntrl->dev_state),
 		to_mhi_pm_state_str(transition_state));
 
+	/* We must notify MHI control driver so it can clean up first */
+	if (transition_state == MHI_PM_SYS_ERR_PROCESS)
+		mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
+				     MHI_CB_SYS_ERROR);
+
 	mutex_lock(&mhi_cntrl->pm_mutex);
 	write_lock_irq(&mhi_cntrl->pm_lock);
 	prev_state = mhi_cntrl->pm_state;
@@ -564,13 +569,13 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 		tasklet_kill(&mhi_event->task);
 	}
 
+	mutex_unlock(&mhi_cntrl->pm_mutex);
+
 	MHI_LOG("Reset all active channels and remove mhi devices\n");
 	device_for_each_child(mhi_cntrl->dev, NULL, mhi_destroy_device);
 
 	MHI_LOG("Finish resetting channels\n");
 
-	/* release lock and wait for all pending thread to complete */
-	mutex_unlock(&mhi_cntrl->pm_mutex);
 	MHI_LOG("Waiting for all pending threads to complete\n");
 	wake_up_all(&mhi_cntrl->state_event);
 	flush_work(&mhi_cntrl->st_worker);
@@ -1023,6 +1028,7 @@ int mhi_pm_resume(struct mhi_controller *mhi_cntrl)
 	}
 
 	/* set dev to M0 and wait for completion */
+	mhi_cntrl->wake_get(mhi_cntrl, true);
 	mhi_set_mhi_state(mhi_cntrl, MHI_STATE_M0);
 	write_unlock_irq(&mhi_cntrl->pm_lock);
 
@@ -1030,6 +1036,10 @@ int mhi_pm_resume(struct mhi_controller *mhi_cntrl)
 				 mhi_cntrl->dev_state == MHI_STATE_M0 ||
 				 MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state),
 				 msecs_to_jiffies(mhi_cntrl->timeout_ms));
+
+	read_lock_bh(&mhi_cntrl->pm_lock);
+	mhi_cntrl->wake_put(mhi_cntrl, false);
+	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	if (!ret || MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state)) {
 		MHI_ERR("Did not enter M0 state, cur_state:%s pm_state:%s\n",

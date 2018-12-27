@@ -257,6 +257,12 @@ Charger specific properties:
   Definition: Boolean flag which when present disables suspend on collapse
 		feature of charger hardware.
 
+- qcom,uusb-moisture-protection-enable
+	Usage:      optional
+	Value type: bool
+	Definition: Boolean flag which when present enables mositure protection
+		    feature for uUSB connector type.
+
 =============================================
 Second Level Nodes - SMB5 Charger Peripherals
 =============================================

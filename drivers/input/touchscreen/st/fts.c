@@ -4021,6 +4021,19 @@ static void fts_resume_work(struct work_struct *work)
 
 	__pm_wakeup_event(&info->wakeup_source, HZ);
 
+	if (info->ts_pinctrl) {
+		/*
+		 * Pinctrl handle is optional. If pinctrl handle is found
+		 * let pins to be configured in active state. If not
+		 * found continue further without error.
+		 */
+		if (pinctrl_select_state(info->ts_pinctrl,
+					info->pinctrl_state_active) < 0) {
+			logError(1, "%s: Failed to select %s pinstate\n",
+				__func__, PINCTRL_STATE_ACTIVE);
+		}
+	}
+
 	info->resume_bit = 1;
 #ifdef USE_NOISE_PARAM
 	readNoiseParameters(noise_params);
@@ -4057,6 +4070,19 @@ static void fts_suspend_work(struct work_struct *work)
 	info->sensor_sleep = true;
 
 	fts_enableInterrupt();
+
+	if (info->ts_pinctrl) {
+		/*
+		 * Pinctrl handle is optional. If pinctrl handle is found
+		 * let pins to be configured in suspend state. If not
+		 * found continue further without error.
+		 */
+		if (pinctrl_select_state(info->ts_pinctrl,
+					info->pinctrl_state_suspend) < 0) {
+			logError(1, "%s: Failed to select %s pinstate\n",
+				__func__, PINCTRL_STATE_SUSPEND);
+		}
+	}
 }
 
 
@@ -4156,6 +4182,53 @@ static int fts_fb_state_chg_callback(struct notifier_block *nb,
 static struct notifier_block fts_noti_block = {
 	.notifier_call = fts_fb_state_chg_callback,
 };
+
+static int fts_pinctrl_init(struct fts_ts_info *info)
+{
+	int retval;
+
+	/* Get pinctrl if target uses pinctrl */
+	info->ts_pinctrl = devm_pinctrl_get(info->dev);
+	if (IS_ERR_OR_NULL(info->ts_pinctrl)) {
+		retval = PTR_ERR(info->ts_pinctrl);
+		logError(1, "Target does not use pinctrl %d\n", retval);
+		goto err_pinctrl_get;
+	}
+
+	info->pinctrl_state_active
+		= pinctrl_lookup_state(info->ts_pinctrl, PINCTRL_STATE_ACTIVE);
+	if (IS_ERR_OR_NULL(info->pinctrl_state_active)) {
+		retval = PTR_ERR(info->pinctrl_state_active);
+		logError(1, "Can not lookup %s pinstate %d\n",
+					PINCTRL_STATE_ACTIVE, retval);
+		goto err_pinctrl_lookup;
+	}
+
+	info->pinctrl_state_suspend
+		= pinctrl_lookup_state(info->ts_pinctrl, PINCTRL_STATE_SUSPEND);
+	if (IS_ERR_OR_NULL(info->pinctrl_state_suspend)) {
+		retval = PTR_ERR(info->pinctrl_state_suspend);
+		logError(1, "Can not lookup %s pinstate %d\n",
+					PINCTRL_STATE_SUSPEND, retval);
+		goto err_pinctrl_lookup;
+	}
+
+	info->pinctrl_state_release
+		= pinctrl_lookup_state(info->ts_pinctrl, PINCTRL_STATE_RELEASE);
+	if (IS_ERR_OR_NULL(info->pinctrl_state_release)) {
+		retval = PTR_ERR(info->pinctrl_state_release);
+		logError(1, "Can not lookup %s pinstate %d\n",
+					PINCTRL_STATE_RELEASE, retval);
+	}
+
+	return 0;
+
+err_pinctrl_lookup:
+	devm_pinctrl_put(info->ts_pinctrl);
+err_pinctrl_get:
+	info->ts_pinctrl = NULL;
+	return retval;
+}
 
 static int fts_get_reg(struct fts_ts_info *info, bool get)
 {
@@ -4443,6 +4516,21 @@ static int fts_probe(struct i2c_client *client,
 	}
 	info->client->irq = gpio_to_irq(info->bdata->irq_gpio);
 
+	retval = fts_pinctrl_init(info);
+	if (!retval && info->ts_pinctrl) {
+		/*
+		 * Pinctrl handle is optional. If pinctrl handle is found
+		 * let pins to be configured in active state. If not
+		 * found continue further without error.
+		 */
+		retval = pinctrl_select_state(info->ts_pinctrl,
+						info->pinctrl_state_active);
+		if (retval < 0) {
+			logError(1, "%s: Failed to select %s pinstate %d\n",
+				__func__, PINCTRL_STATE_ACTIVE, retval);
+		}
+	}
+
 	logError(0, "%s SET Auto Fw Update:\n", tag);
 	info->fwu_workqueue = alloc_workqueue("fts-fwu-queue",
 				WQ_UNBOUND|WQ_HIGHPRI|WQ_CPU_INTENSIVE, 1);
@@ -4692,6 +4780,17 @@ ProbeErrorExit_4:
 	wakeup_source_trash(&info->wakeup_source);
 
 ProbeErrorExit_3:
+	if (info->ts_pinctrl) {
+		if (IS_ERR_OR_NULL(info->pinctrl_state_release)) {
+			devm_pinctrl_put(info->ts_pinctrl);
+			info->ts_pinctrl = NULL;
+		} else {
+			if (pinctrl_select_state(info->ts_pinctrl,
+						info->pinctrl_state_release))
+				logError(1, "%s:Failed to select %s pinstate\n",
+					__func__, PINCTRL_STATE_RELEASE);
+		}
+	}
 	fts_enable_reg(info, false);
 	fts_gpio_setup(info->bdata->irq_gpio, false, 0, 0);
 	fts_gpio_setup(info->bdata->reset_gpio, false, 0, 0);
@@ -4756,6 +4855,15 @@ static int fts_remove(struct i2c_client *client)
 	wakeup_source_trash(&info->wakeup_source);
 	destroy_workqueue(info->fwu_workqueue);
 
+	if (info->ts_pinctrl) {
+		if (IS_ERR_OR_NULL(info->pinctrl_state_release)) {
+			devm_pinctrl_put(info->ts_pinctrl);
+			info->ts_pinctrl = NULL;
+		} else {
+			pinctrl_select_state(info->ts_pinctrl,
+						info->pinctrl_state_release);
+		}
+	}
 	fts_enable_reg(info, false);
 	fts_gpio_setup(info->bdata->irq_gpio, false, 0, 0);
 	fts_gpio_setup(info->bdata->reset_gpio, false, 0, 0);

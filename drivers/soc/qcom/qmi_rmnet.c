@@ -103,6 +103,22 @@ qmi_rmnet_has_client(struct qmi_info *qmi)
 	return qmi_rmnet_has_dfc_client(qmi) ? 1 : 0;
 }
 
+static int
+qmi_rmnet_has_pending(struct qmi_info *qmi)
+{
+	int i;
+
+	if (qmi->wda_pending)
+		return 1;
+
+	for (i = 0; i < MAX_CLIENT_NUM; i++) {
+		if (qmi->dfc_pending[i])
+			return 1;
+	}
+
+	return 0;
+}
+
 #ifdef CONFIG_QCOM_QMI_DFC
 static void
 qmi_rmnet_clean_flow_list(struct qmi_info *qmi, struct net_device *dev,
@@ -311,12 +327,12 @@ qmi_rmnet_del_flow(struct net_device *dev, struct tcmsg *tcm,
 
 static void qmi_rmnet_query_flows(struct qmi_info *qmi)
 {
-	void *dfc_data = qmi_rmnet_has_dfc_client(qmi);
+	int i;
 
-	if (!dfc_data)
-		return;
-
-	dfc_qmi_query_flow(dfc_data);
+	for (i = 0; i < MAX_CLIENT_NUM; i++) {
+		if (qmi->dfc_clients[i])
+			dfc_qmi_query_flow(qmi->dfc_clients[i]);
+	}
 }
 
 static int qmi_rmnet_set_scale_factor(const char *val,
@@ -403,15 +419,15 @@ qmi_rmnet_setup_client(void *port, struct qmi_info *qmi, struct tcmsg *tcm)
 	svc.iface_id = tcm->tcm_parent;
 
 	if (((tcm->tcm_ifindex & FLAG_DFC_MASK) == DFC_MODE_MULTIQ) &&
-	    (qmi->dfc_clients[idx] == NULL)) {
-		rc = dfc_qmi_client_init(port, idx, &svc);
+	    !qmi->dfc_clients[idx] && !qmi->dfc_pending[idx]) {
+		rc = dfc_qmi_client_init(port, idx, &svc, qmi);
 		if (rc < 0)
 			err = rc;
 	}
 
 	if ((tcm->tcm_ifindex & FLAG_POWERSAVE_MASK) &&
-	    (idx == 0) && (qmi->wda_client == NULL)) {
-		rc = wda_qmi_client_init(port, &svc);
+	    (idx == 0) && !qmi->wda_client && !qmi->wda_pending) {
+		rc = wda_qmi_client_init(port, &svc, qmi);
 		if (rc < 0)
 			err = rc;
 	}
@@ -422,11 +438,19 @@ qmi_rmnet_setup_client(void *port, struct qmi_info *qmi, struct tcmsg *tcm)
 static int
 __qmi_rmnet_delete_client(void *port, struct qmi_info *qmi, int idx)
 {
+	void *data = NULL;
+
 	ASSERT_RTNL();
 
-	if (qmi->dfc_clients[idx]) {
-		dfc_qmi_client_exit(qmi->dfc_clients[idx]);
+	if (qmi->dfc_clients[idx])
+		data = qmi->dfc_clients[idx];
+	else if (qmi->dfc_pending[idx])
+		data = qmi->dfc_pending[idx];
+
+	if (data) {
+		dfc_qmi_client_exit(data);
 		qmi->dfc_clients[idx] = NULL;
+		qmi->dfc_pending[idx] = NULL;
 	}
 
 	if (!qmi_rmnet_has_client(qmi)) {
@@ -442,15 +466,21 @@ static void
 qmi_rmnet_delete_client(void *port, struct qmi_info *qmi, struct tcmsg *tcm)
 {
 	int idx;
+	void *data = NULL;
 
 	/* client delete: tcm->tcm_handle - instance*/
 	idx = (tcm->tcm_handle == 0) ? 0 : 1;
 
 	ASSERT_RTNL();
+	if (qmi->wda_client)
+		data = qmi->wda_client;
+	else if (qmi->wda_pending)
+		data = qmi->wda_pending;
 
-	if ((idx == 0) && qmi->wda_client) {
-		wda_qmi_client_exit(qmi->wda_client);
+	if ((idx == 0) && data) {
+		wda_qmi_client_exit(data);
 		qmi->wda_client = NULL;
+		qmi->wda_pending = NULL;
 	}
 
 	__qmi_rmnet_delete_client(port, qmi, idx);
@@ -481,7 +511,8 @@ void qmi_rmnet_change_link(struct net_device *dev, void *port, void *tcm_pt)
 			return;
 
 		if (qmi_rmnet_setup_client(port, qmi, tcm) < 0) {
-			if (!qmi_rmnet_has_client(qmi)) {
+			if (!qmi_rmnet_has_client(qmi) &&
+			    !qmi_rmnet_has_pending(qmi)) {
 				kfree(qmi);
 				rmnet_reset_qmi_pt(port);
 			}
@@ -511,6 +542,7 @@ void qmi_rmnet_qmi_exit(void *qmi_pt, void *port)
 {
 	struct qmi_info *qmi = (struct qmi_info *)qmi_pt;
 	int i;
+	void *data = NULL;
 
 	if (!qmi)
 		return;
@@ -519,9 +551,15 @@ void qmi_rmnet_qmi_exit(void *qmi_pt, void *port)
 
 	qmi_rmnet_work_exit(port);
 
-	if (qmi->wda_client) {
+	if (qmi->wda_client)
+		data = qmi->wda_client;
+	else if (qmi->wda_pending)
+		data = qmi->wda_pending;
+
+	if (data) {
 		wda_qmi_client_exit(qmi->wda_client);
 		qmi->wda_client = NULL;
+		qmi->wda_pending = NULL;
 	}
 
 	for (i = 0; i < MAX_CLIENT_NUM; i++) {

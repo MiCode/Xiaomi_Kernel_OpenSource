@@ -258,6 +258,8 @@ static int smb5_chg_config_init(struct smb5 *chip)
 		chg->param = smb5_pm8150b_params;
 		chg->name = "pm6150_charger";
 		chg->wa_flags |= SW_THERM_REGULATION_WA;
+		if (pmic_rev_id->rev4 >= 2)
+			chg->uusb_moisture_protection_enabled = true;
 		chg->main_fcc_max = PM6150_MAX_FCC_UA;
 		break;
 	case PMI632_SUBTYPE:
@@ -444,6 +446,11 @@ static int smb5_parse_dt(struct smb5 *chip)
 	chg->fcc_stepper_enable = of_property_read_bool(node,
 					"qcom,fcc-stepping-enable");
 
+	chg->uusb_moisture_protection_enabled =
+				chg->uusb_moisture_protection_enabled &&
+				of_property_read_bool(node,
+				"qcom,uusb-moisture-protection-enable");
+
 	/* Extract ADC channels */
 	rc = smblib_get_iio_channel(chg, "mid_voltage", &chg->iio.mid_chan);
 	if (rc < 0)
@@ -530,6 +537,7 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_SMB_EN_MODE,
 	POWER_SUPPLY_PROP_SMB_EN_REASON,
 	POWER_SUPPLY_PROP_SCOPE,
+	POWER_SUPPLY_PROP_MOISTURE_DETECTED,
 };
 
 static int smb5_usb_get_prop(struct power_supply *psy,
@@ -670,6 +678,9 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_SMB_EN_REASON:
 		val->intval = chg->cp_reason;
+		break;
+	case POWER_SUPPLY_PROP_MOISTURE_DETECTED:
+		val->intval = chg->moisture_present;
 		break;
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);
@@ -1673,6 +1684,36 @@ static int smb5_configure_micro_usb(struct smb_charger *chg)
 		return rc;
 	}
 
+	if (chg->uusb_moisture_protection_enabled) {
+		/* Enable moisture detection interrupt */
+		rc = smblib_masked_write(chg, TYPE_C_INTERRUPT_EN_CFG_2_REG,
+				TYPEC_WATER_DETECTION_INT_EN_BIT,
+				TYPEC_WATER_DETECTION_INT_EN_BIT);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't enable moisture detection interrupt rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		/* Enable uUSB factory mode */
+		rc = smblib_masked_write(chg, TYPEC_U_USB_CFG_REG,
+					EN_MICRO_USB_FACTORY_MODE_BIT,
+					EN_MICRO_USB_FACTORY_MODE_BIT);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't enable uUSB factory mode c=%d\n",
+				rc);
+			return rc;
+		}
+
+		/* Disable periodic monitoring of CC_ID pin */
+		rc = smblib_write(chg, TYPEC_U_USB_WATER_PROTECTION_CFG_REG, 0);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't disable periodic monitoring of CC_ID rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
 	return rc;
 }
 
@@ -1911,6 +1952,15 @@ static int smb5_init_hw(struct smb5 *chip)
 	if (rc < 0) {
 		dev_err(chg->dev,
 			"Couldn't set dc_icl rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Disable DC Input missing poller function */
+	rc = smblib_masked_write(chg, DCIN_LOAD_CFG_REG,
+					INPUT_MISS_POLL_EN_BIT, 0);
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"Couldn't disable DC Input missing poller rc=%d\n", rc);
 		return rc;
 	}
 
@@ -2541,11 +2591,16 @@ static int smb5_request_interrupts(struct smb5 *chip)
 		chg->usb_icl_change_irq_enabled = true;
 
 	/*
-	 * Disable WDOG SNARL IRQ by default to prevent IRQ storm. If required
-	 * for any application, enable it through votable.
+	 * WDOG_SNARL_IRQ is required for SW Thermal Regulation WA only. In
+	 * case the WA is not required, disable the WDOG_SNARL_IRQ to prevent
+	 * interrupt storm.
 	 */
-	if (chg->irq_info[WDOG_SNARL_IRQ].irq)
-		vote(chg->wdog_snarl_irq_en_votable, DEFAULT_VOTER, false, 0);
+
+	if (chg->irq_info[WDOG_SNARL_IRQ].irq && !(chg->wa_flags &
+						SW_THERM_REGULATION_WA)) {
+		disable_irq_wake(chg->irq_info[WDOG_SNARL_IRQ].irq);
+		disable_irq_nosync(chg->irq_info[WDOG_SNARL_IRQ].irq);
+	}
 
 	return rc;
 }

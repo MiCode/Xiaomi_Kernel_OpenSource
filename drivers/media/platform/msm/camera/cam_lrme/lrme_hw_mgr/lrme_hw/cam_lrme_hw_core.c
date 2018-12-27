@@ -42,7 +42,10 @@ static void cam_lrme_hw_util_fill_fe_reg(struct cam_lrme_hw_io_buffer *io_buf,
 	uint32_t reg_val;
 
 	/* 1. config buffer size */
-	reg_val = io_buf->io_cfg->planes[0].width;
+	if (io_buf->io_cfg->format == CAM_FORMAT_PLAIN16_10)
+		reg_val = io_buf->io_cfg->planes[0].width * 2;
+	else
+		reg_val = io_buf->io_cfg->planes[0].width;
 	reg_val |= (io_buf->io_cfg->planes[0].height << 16);
 	cam_lrme_cdm_write_reg_val_pair(reg_val_pair, num_cmd,
 		hw_info->bus_rd_reg.bus_client_reg[index].rd_buffer_size,

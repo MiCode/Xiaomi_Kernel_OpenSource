@@ -123,6 +123,7 @@ int cam_isp_add_command_buffers(
  * @base_idx:              Base or dev index of the IFE/VFE HW instance
  * @kmd_buf_info:          Kmd buffer to store the change base command
  * @res_list_isp_out:      IFE /VFE out resource list
+ * @res_list_ife_in_rd:    IFE /VFE in rd resource list
  * @size_isp_out:          Size of the res_list_isp_out array
  * @fill_fence:            If true, Fence map table will be filled
  *
@@ -136,6 +137,7 @@ int cam_isp_add_io_buffers(
 	uint32_t                              base_idx,
 	struct cam_kmd_buf_info              *kmd_buf_info,
 	struct cam_ife_hw_mgr_res            *res_list_isp_out,
+	struct list_head                     *res_list_ife_in_rd,
 	uint32_t                              size_isp_out,
 	bool                                  fill_fence);
 

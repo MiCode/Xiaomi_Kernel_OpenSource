@@ -23,6 +23,8 @@
 #include "dsi-panel-sharp-dualdsi-wqhd-cmd.dtsi"
 #include "dsi-panel-rm69298-truly-amoled-fhd-plus-video.dtsi"
 #include "dsi-panel-rm69298-truly-amoled-fhd-plus-cmd.dtsi"
+#include "dsi-panel-nt35695b-truly-fhd-video.dtsi"
+#include "dsi-panel-nt35695b-truly-fhd-cmd.dtsi"
 #include <dt-bindings/clock/mdss-10nm-pll-clk.h>
 
 &soc {
@@ -33,11 +35,10 @@
 		qcom,panel-supply-entry@0 {
 			reg = <0>;
 			qcom,supply-name = "vddio";
-			qcom,supply-min-voltage = <1800000>;
-			qcom,supply-max-voltage = <1800000>;
-			qcom,supply-enable-load = <62000>;
+			qcom,supply-min-voltage = <1904000>;
+			qcom,supply-max-voltage = <1904000>;
+			qcom,supply-enable-load = <32000>;
 			qcom,supply-disable-load = <80>;
-			qcom,supply-post-on-sleep = <20>;
 		};
 
 		qcom,panel-supply-entry@1 {
@@ -67,11 +68,10 @@
 		qcom,panel-supply-entry@0 {
 			reg = <0>;
 			qcom,supply-name = "vddio";
-			qcom,supply-min-voltage = <1800000>;
-			qcom,supply-max-voltage = <1800000>;
-			qcom,supply-enable-load = <62000>;
+			qcom,supply-min-voltage = <1904000>;
+			qcom,supply-max-voltage = <1904000>;
+			qcom,supply-enable-load = <32000>;
 			qcom,supply-disable-load = <80>;
-			qcom,supply-post-on-sleep = <20>;
 		};
 	};
 
@@ -241,6 +241,50 @@
 		qcom,dsi-panel = <&dsi_rm69298_truly_amoled_cmd>;
 	};
 
+	dsi_nt35695b_truly_fhd_video_display: qcom,dsi-display@13 {
+		label = "dsi_nt35695b_truly_fhd_video_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <1>;
+		qcom,dsi-phy-num = <1>;
+		qcom,dsi-select-clocks = "src_byte_clk1", "src_pixel_clk1";
+
+		qcom,dsi-panel = <&dsi_nt35695b_truly_fhd_video>;
+	};
+
+	dsi_nt35695b_truly_fhd_cmd_display: qcom,dsi-display@14 {
+		label = "dsi_nt35695b_truly_fhd_cmd_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <1>;
+		qcom,dsi-phy-num = <1>;
+		qcom,dsi-select-clocks = "src_byte_clk1", "src_pixel_clk1";
+
+		qcom,dsi-panel = <&dsi_nt35695b_truly_fhd_cmd>;
+	};
+
+	dsi_nt35695b_truly_fhd_video_sec_display: qcom,dsi-display@15 {
+		label = "dsi_nt35695b_truly_fhd_video_sec_display";
+		 qcom,display-type = "secondary";
+
+		qcom,dsi-ctrl-num = <1>;
+		qcom,dsi-phy-num = <1>;
+		qcom,dsi-select-clocks = "src_byte_clk1", "src_pixel_clk1";
+
+		qcom,dsi-panel = <&dsi_nt35695b_truly_fhd_video>;
+	};
+
+	 dsi_nt35695b_truly_fhd_cmd_sec_display: qcom,dsi-display@16 {
+		label = "dsi_nt35695b_truly_fhd_cmd_sec_display";
+		qcom,display-type = "secondary";
+
+		qcom,dsi-ctrl-num = <1>;
+		qcom,dsi-phy-num = <1>;
+		qcom,dsi-select-clocks = "src_byte_clk1", "src_pixel_clk1";
+
+		qcom,dsi-panel = <&dsi_nt35695b_truly_fhd_cmd>;
+	};
+
 	sde_dsi: qcom,dsi-display {
 		compatible = "qcom,dsi-display";
 
@@ -260,6 +304,7 @@
 
 		qcom,platform-te-gpio = <&tlmm 10 0>;
 		qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
+		qcom,panel-te-source = <0>;
 
 		vddio-supply = <&pm6150_l13>;
 		vdda-3p3-supply = <&pm6150_l18>;
@@ -279,7 +324,41 @@
 			&dsi_dual_sharp_wqhd_video_display
 			&dsi_dual_sharp_wqhd_cmd_display
 			&dsi_rm69298_truly_amoled_vid_display
-			&dsi_rm69298_truly_amoled_cmd_display>;
+			&dsi_rm69298_truly_amoled_cmd_display
+			&dsi_nt35695b_truly_fhd_video_display
+			&dsi_nt35695b_truly_fhd_cmd_display>;
+
+	};
+
+	sde_dsi1: qcom,dsi-display-secondary {
+		compatible = "qcom,dsi-display";
+		label = "secondary";
+
+		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
+		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
+
+		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
+			<&mdss_dsi0_pll PCLK_MUX_0_CLK>,
+			<&mdss_dsi1_pll BYTECLK_MUX_1_CLK>,
+			<&mdss_dsi1_pll PCLK_MUX_1_CLK>;
+		clock-names = "src_byte_clk0", "src_pixel_clk0",
+			"src_byte_clk1", "src_pixel_clk1";
+
+		pinctrl-names = "panel_active", "panel_suspend";
+		pinctrl-0 = <&sde_te1_active>;
+		pinctrl-1 = <&sde_te1_suspend>;
+
+		qcom,platform-te-gpio = <&tlmm 11 0>;
+		qcom,panel-te-source = <1>;
+
+		vddio-supply = <&pm6150_l13>;
+		vdda-3p3-supply = <&pm6150_l18>;
+		lab-supply = <&lcdb_ldo_vreg>;
+		ibb-supply = <&lcdb_ncp_vreg>;
+
+		qcom,dsi-display-list =
+			<&dsi_nt35695b_truly_fhd_video_sec_display
+			&dsi_nt35695b_truly_fhd_cmd_sec_display>;
 	};
 
 	sde_wb: qcom,wb-display@0 {
@@ -294,7 +373,7 @@
 };
 
 &mdss_mdp {
-	connectors = <&sde_rscc &sde_wb &sde_dsi &sde_dp>;
+	connectors = <&sde_rscc &sde_wb &sde_dsi &sde_dp &sde_dsi1>;
 };
 
 &dsi_sw43404_amoled_video {
@@ -569,6 +648,54 @@
 			qcom,mdss-dsi-panel-phy-timings = [00 18 06 06 21 20 06
 				06 04 02 04 00];
 			qcom,display-topology = <2 2 2>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_nt35695b_truly_fhd_video {
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_hs_mode";
+	qcom,mdss-dsi-panel-status-value = <0x9c>;
+	qcom,mdss-dsi-panel-on-check-value = <0x9c>;
+	qcom,mdss-dsi-panel-status-read-length = <1>;
+
+	qcom,mdss-dsi-min-refresh-rate = <48>;
+	qcom,mdss-dsi-max-refresh-rate = <60>;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
+
+	qcom,mdss-dsi-t-clk-post = <0x07>;
+	qcom,mdss-dsi-t-clk-pre = <0x1c>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 13 05 04 1F 1E 05
+				05 03 02 04 00];
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_nt35695b_truly_fhd_cmd {
+	qcom,ulps-enabled;
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_hs_mode";
+	qcom,mdss-dsi-panel-status-value = <0x9c>;
+	qcom,mdss-dsi-panel-on-check-value = <0x9c>;
+	qcom,mdss-dsi-panel-status-read-length = <1>;
+
+	qcom,mdss-dsi-t-clk-post = <0x07>;
+	qcom,mdss-dsi-t-clk-pre = <0x1c>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 13 05 04 1F 1E 05
+				05 03 02 04 00];
+			qcom,display-topology = <1 0 1>;
 			qcom,default-topology-index = <0>;
 		};
 	};
