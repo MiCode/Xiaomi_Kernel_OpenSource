@@ -367,12 +367,27 @@ static const struct clk_rpmh_desc clk_rpmh_sdmshrike = {
 	.num_clks = ARRAY_SIZE(sdmshrike_rpmh_clocks),
 };
 
+static struct clk_hw *sdxprairie_rpmh_clocks[] = {
+	[RPMH_CXO_CLK]          = &sm8150_bi_tcxo.hw,
+	[RPMH_CXO_CLK_A]        = &sm8150_bi_tcxo_ao.hw,
+	[RPMH_RF_CLK1]          = &sdmshrike_rf_clk1.hw,
+	[RPMH_RF_CLK1_A]        = &sdmshrike_rf_clk1_ao.hw,
+	[RPMH_RF_CLK2]          = &sdmshrike_rf_clk2.hw,
+	[RPMH_RF_CLK2_A]        = &sdmshrike_rf_clk2_ao.hw,
+};
+
+static const struct clk_rpmh_desc clk_rpmh_sdxprairie = {
+	.clks = sdxprairie_rpmh_clocks,
+	.num_clks = ARRAY_SIZE(sdxprairie_rpmh_clocks),
+};
+
 static const struct of_device_id clk_rpmh_match_table[] = {
 	{ .compatible = "qcom,rpmh-clk-sm8150", .data = &clk_rpmh_sm8150},
 	{ .compatible = "qcom,rpmh-clk-sdmshrike", .data = &clk_rpmh_sdmshrike},
 	{ .compatible = "qcom,rpmh-clk-sm6150", .data = &clk_rpmh_sm6150},
 	{ .compatible = "qcom,rpmh-clk-sdmmagpie", .data = &clk_rpmh_sm6150},
-	{ .compatible = "qcom,rpmh-clk-sdxprairie", .data = &clk_rpmh_sm8150},
+	{ .compatible = "qcom,rpmh-clk-sdxprairie",
+						.data = &clk_rpmh_sdxprairie},
 	{ }
 };
 MODULE_DEVICE_TABLE(of, clk_rpmh_match_table);
