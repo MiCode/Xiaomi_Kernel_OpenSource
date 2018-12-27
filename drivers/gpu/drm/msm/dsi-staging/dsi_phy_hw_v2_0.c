@@ -42,23 +42,17 @@
 #define DSIPHY_CMN_REGULATOR_CAL_STATUS1          0x0068
 #define DSI_MDP_ULPS_CLAMP_ENABLE_OFF             0x0054
 
-/* n = 0..3 for data lanes and n = 4 for clock lane */
-#define DSIPHY_DLNX_CFG0(n)                     (0x100 + ((n) * 0x80))
-#define DSIPHY_DLNX_CFG1(n)                     (0x104 + ((n) * 0x80))
-#define DSIPHY_DLNX_CFG2(n)                     (0x108 + ((n) * 0x80))
-#define DSIPHY_DLNX_CFG3(n)                     (0x10C + ((n) * 0x80))
+/* n = 0..3 for data lanes and n = 4 for clock lane
+ * t for count per lane
+ */
+#define DSIPHY_DLNX_CFG(n, t) \
+			(0x100 + ((t) * 0x04) + ((n) * 0x80))
+#define DSIPHY_DLNX_TIMING_CTRL(n, t) \
+			(0x118 + ((t) * 0x04) + ((n) * 0x80))
+#define DSIPHY_DLNX_STRENGTH_CTRL(n, t) \
+			(0x138 + ((t) * 0x04) + ((n) * 0x80))
 #define DSIPHY_DLNX_TEST_DATAPATH(n)            (0x110 + ((n) * 0x80))
 #define DSIPHY_DLNX_TEST_STR(n)                 (0x114 + ((n) * 0x80))
-#define DSIPHY_DLNX_TIMING_CTRL_4(n)            (0x118 + ((n) * 0x80))
-#define DSIPHY_DLNX_TIMING_CTRL_5(n)            (0x11C + ((n) * 0x80))
-#define DSIPHY_DLNX_TIMING_CTRL_6(n)            (0x120 + ((n) * 0x80))
-#define DSIPHY_DLNX_TIMING_CTRL_7(n)            (0x124 + ((n) * 0x80))
-#define DSIPHY_DLNX_TIMING_CTRL_8(n)            (0x128 + ((n) * 0x80))
-#define DSIPHY_DLNX_TIMING_CTRL_9(n)            (0x12C + ((n) * 0x80))
-#define DSIPHY_DLNX_TIMING_CTRL_10(n)           (0x130 + ((n) * 0x80))
-#define DSIPHY_DLNX_TIMING_CTRL_11(n)           (0x134 + ((n) * 0x80))
-#define DSIPHY_DLNX_STRENGTH_CTRL_0(n)          (0x138 + ((n) * 0x80))
-#define DSIPHY_DLNX_STRENGTH_CTRL_1(n)          (0x13C + ((n) * 0x80))
 #define DSIPHY_DLNX_BIST_POLY(n)                (0x140 + ((n) * 0x80))
 #define DSIPHY_DLNX_BIST_SEED0(n)               (0x144 + ((n) * 0x80))
 #define DSIPHY_DLNX_BIST_SEED1(n)               (0x148 + ((n) * 0x80))
@@ -88,9 +82,14 @@ void dsi_phy_hw_v2_0_regulator_enable(struct dsi_phy_hw *phy,
 				      struct dsi_phy_per_lane_cfgs *reg_cfg)
 {
 	int i;
+	bool is_split_link = test_bit(DSI_PHY_SPLIT_LINK, phy->feature_map);
 
 	for (i = DSI_LOGICAL_LANE_0; i < DSI_LANE_MAX; i++)
 		DSI_W32(phy, DSIPHY_DLNX_VREG_CNTRL(i), reg_cfg->lane[i][0]);
+
+	if (is_split_link)
+		DSI_W32(phy, DSIPHY_DLNX_VREG_CNTRL(DSI_LOGICAL_CLOCK_LANE+1),
+				reg_cfg->lane[DSI_LOGICAL_CLOCK_LANE][0]);
 
 	/* make sure all values are written to hardware */
 	wmb();
@@ -116,35 +115,55 @@ void dsi_phy_hw_v2_0_regulator_disable(struct dsi_phy_hw *phy)
 void dsi_phy_hw_v2_0_enable(struct dsi_phy_hw *phy,
 			    struct dsi_phy_cfg *cfg)
 {
-	int i;
+	int i, j;
+	struct dsi_phy_per_lane_cfgs *lanecfg = &cfg->lanecfg;
 	struct dsi_phy_per_lane_cfgs *timing = &cfg->timing;
+	struct dsi_phy_per_lane_cfgs *strength = &cfg->strength;
 	u32 data;
+	bool is_split_link = test_bit(DSI_PHY_SPLIT_LINK, phy->feature_map);
 
 	DSI_W32(phy, DSIPHY_CMN_LDO_CNTRL, 0x1C);
 
 	DSI_W32(phy, DSIPHY_CMN_GLBL_TEST_CTRL, 0x1);
 	for (i = DSI_LOGICAL_LANE_0; i < DSI_LANE_MAX; i++) {
-
-		DSI_W32(phy, DSIPHY_DLNX_CFG0(i), cfg->lanecfg.lane[i][0]);
-		DSI_W32(phy, DSIPHY_DLNX_CFG1(i), cfg->lanecfg.lane[i][1]);
-		DSI_W32(phy, DSIPHY_DLNX_CFG2(i), cfg->lanecfg.lane[i][2]);
-		DSI_W32(phy, DSIPHY_DLNX_CFG3(i), cfg->lanecfg.lane[i][3]);
+		for (j = 0; j < lanecfg->count_per_lane; j++)
+			DSI_W32(phy, DSIPHY_DLNX_CFG(i, j),
+				lanecfg->lane[i][j]);
 
 		DSI_W32(phy, DSIPHY_DLNX_TEST_STR(i), 0x88);
 
-		DSI_W32(phy, DSIPHY_DLNX_TIMING_CTRL_4(i), timing->lane[i][0]);
-		DSI_W32(phy, DSIPHY_DLNX_TIMING_CTRL_5(i), timing->lane[i][1]);
-		DSI_W32(phy, DSIPHY_DLNX_TIMING_CTRL_6(i), timing->lane[i][2]);
-		DSI_W32(phy, DSIPHY_DLNX_TIMING_CTRL_7(i), timing->lane[i][3]);
-		DSI_W32(phy, DSIPHY_DLNX_TIMING_CTRL_8(i), timing->lane[i][4]);
-		DSI_W32(phy, DSIPHY_DLNX_TIMING_CTRL_9(i), timing->lane[i][5]);
-		DSI_W32(phy, DSIPHY_DLNX_TIMING_CTRL_10(i), timing->lane[i][6]);
-		DSI_W32(phy, DSIPHY_DLNX_TIMING_CTRL_11(i), timing->lane[i][7]);
+		for (j = 0; j < timing->count_per_lane; j++)
+			DSI_W32(phy, DSIPHY_DLNX_TIMING_CTRL(i, j),
+				timing->lane[i][j]);
 
-		DSI_W32(phy, DSIPHY_DLNX_STRENGTH_CTRL_0(i),
-			cfg->strength.lane[i][0]);
-		DSI_W32(phy, DSIPHY_DLNX_STRENGTH_CTRL_1(i),
-			cfg->strength.lane[i][1]);
+		for (j = 0; j < strength->count_per_lane; j++)
+			DSI_W32(phy, DSIPHY_DLNX_STRENGTH_CTRL(i, j),
+				strength->lane[i][j]);
+	}
+
+	if (is_split_link) {
+		i = DSI_LOGICAL_CLOCK_LANE;
+
+		for (j = 0; j < lanecfg->count_per_lane; j++)
+			DSI_W32(phy, DSIPHY_DLNX_CFG(i+1, j),
+				lanecfg->lane[i][j]);
+
+		DSI_W32(phy, DSIPHY_DLNX_TEST_STR(i+1), 0x0);
+		DSI_W32(phy, DSIPHY_DLNX_TEST_DATAPATH(i+1), 0x88);
+
+		for (j = 0; j < timing->count_per_lane; j++)
+			DSI_W32(phy, DSIPHY_DLNX_TIMING_CTRL(i+1, j),
+				timing->lane[i][j]);
+
+		for (j = 0; j < strength->count_per_lane; j++)
+			DSI_W32(phy, DSIPHY_DLNX_STRENGTH_CTRL(i+1, j),
+				strength->lane[i][j]);
+
+		/* enable split link for cmn clk cfg1 */
+		data = DSI_R32(phy, DSIPHY_CMN_CLK_CFG1);
+		data |= BIT(1);
+		DSI_W32(phy, DSIPHY_CMN_CLK_CFG1, data);
+
 	}
 
 	/* make sure all values are written to hardware before enabling phy */
@@ -201,18 +220,25 @@ void dsi_phy_hw_v2_0_disable(struct dsi_phy_hw *phy,
  */
 void dsi_phy_hw_v2_0_idle_on(struct dsi_phy_hw *phy, struct dsi_phy_cfg *cfg)
 {
-	int i = 0;
+	int i = 0, j;
+	struct dsi_phy_per_lane_cfgs *strength = &cfg->strength;
+	bool is_split_link = test_bit(DSI_PHY_SPLIT_LINK, phy->feature_map);
 
 	for (i = DSI_LOGICAL_LANE_0; i < DSI_LANE_MAX; i++) {
-		DSI_W32(phy, DSIPHY_DLNX_STRENGTH_CTRL_0(i),
-			cfg->strength.lane[i][0]);
-		DSI_W32(phy, DSIPHY_DLNX_STRENGTH_CTRL_1(i),
-			cfg->strength.lane[i][1]);
+		for (j = 0; j < strength->count_per_lane; j++)
+			DSI_W32(phy, DSIPHY_DLNX_STRENGTH_CTRL(i, j),
+				strength->lane[i][j]);
 	}
+	if (is_split_link) {
+		i = DSI_LOGICAL_CLOCK_LANE;
+		for (j = 0; j < strength->count_per_lane; j++)
+			DSI_W32(phy, DSIPHY_DLNX_STRENGTH_CTRL(i+1, j),
+				strength->lane[i][j]);
+	}
+
 	wmb(); /* make sure write happens */
 	pr_debug("[DSI_%d]Phy enabled out of idle screen\n", phy->index);
 }
-
 
 /**
  * dsi_phy_hw_v2_0_idle_off() - Disable DSI PHY hardware during idle screen
@@ -221,14 +247,24 @@ void dsi_phy_hw_v2_0_idle_on(struct dsi_phy_hw *phy, struct dsi_phy_cfg *cfg)
 void dsi_phy_hw_v2_0_idle_off(struct dsi_phy_hw *phy)
 {
 	int i = 0;
+	bool is_split_link = test_bit(DSI_PHY_SPLIT_LINK, phy->feature_map);
 
 	DSI_W32(phy, DSIPHY_CMN_CTRL_0, 0x7f);
+
 	for (i = DSI_LOGICAL_LANE_0; i < DSI_LANE_MAX; i++)
 		DSI_W32(phy, DSIPHY_DLNX_VREG_CNTRL(i), 0x1c);
+	if (is_split_link)
+		DSI_W32(phy, DSIPHY_DLNX_VREG_CNTRL(DSI_LOGICAL_CLOCK_LANE+1),
+									0x1c);
+
 	DSI_W32(phy, DSIPHY_CMN_LDO_CNTRL, 0x1C);
 
 	for (i = DSI_LOGICAL_LANE_0; i < DSI_LANE_MAX; i++)
-		DSI_W32(phy, DSIPHY_DLNX_STRENGTH_CTRL_1(i), 0x0);
+		DSI_W32(phy, DSIPHY_DLNX_STRENGTH_CTRL(i, 1), 0x0);
+	if (is_split_link)
+		DSI_W32(phy,
+		DSIPHY_DLNX_STRENGTH_CTRL(DSI_LOGICAL_CLOCK_LANE+1, 1), 0x0);
+
 	wmb(); /* make sure write happens */
 	pr_debug("[DSI_%d]Phy disabled during idle screen\n", phy->index);
 }

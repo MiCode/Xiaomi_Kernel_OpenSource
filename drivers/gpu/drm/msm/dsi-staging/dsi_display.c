@@ -1617,7 +1617,18 @@ static int dsi_display_debugfs_deinit(struct dsi_display *display)
 static void adjust_timing_by_ctrl_count(const struct dsi_display *display,
 					struct dsi_display_mode *mode)
 {
-	if (display->ctrl_count > 1) {
+	struct dsi_host_common_cfg *host = &display->panel->host_config;
+	bool is_split_link = host->split_link.split_link_enabled;
+	u32 sublinks_count = host->split_link.num_sublinks;
+
+	if (is_split_link && sublinks_count > 1) {
+		mode->timing.h_active /= sublinks_count;
+		mode->timing.h_front_porch /= sublinks_count;
+		mode->timing.h_sync_width /= sublinks_count;
+		mode->timing.h_back_porch /= sublinks_count;
+		mode->timing.h_skew /= sublinks_count;
+		mode->pixel_clk_khz /= sublinks_count;
+	} else if (display->ctrl_count > 1) {
 		mode->timing.h_active /= display->ctrl_count;
 		mode->timing.h_front_porch /= display->ctrl_count;
 		mode->timing.h_sync_width /= display->ctrl_count;
@@ -4423,6 +4434,42 @@ static struct attribute_group dynamic_dsi_clock_fs_attrs_group = {
 	.attrs = dynamic_dsi_clock_fs_attrs,
 };
 
+static int dsi_display_validate_split_link(struct dsi_display *display)
+{
+	int i, rc = 0;
+	struct dsi_display_ctrl *ctrl;
+	struct dsi_host_common_cfg *host = &display->panel->host_config;
+
+	if (!host->split_link.split_link_enabled)
+		return 0;
+
+	if (display->panel->panel_mode == DSI_OP_CMD_MODE) {
+		pr_err("[%s] split link is not supported in command mode\n",
+			display->name);
+		rc = -ENOTSUPP;
+		goto error;
+	}
+
+	display_for_each_ctrl(i, display) {
+		ctrl = &display->ctrl[i];
+		if (!ctrl->ctrl->split_link_supported) {
+			pr_err("[%s] split link is not supported by hw\n",
+				display->name);
+			rc = -ENOTSUPP;
+			goto error;
+		}
+
+		set_bit(DSI_PHY_SPLIT_LINK, ctrl->phy->hw.feature_map);
+	}
+
+	pr_debug("Split link is enabled\n");
+	return 0;
+
+error:
+	host->split_link.split_link_enabled = false;
+	return rc;
+}
+
 static int dsi_display_sysfs_init(struct dsi_display *display)
 {
 	int rc = 0;
@@ -4491,6 +4538,13 @@ static int dsi_display_bind(struct device *dev,
 		return 0;
 
 	mutex_lock(&display->display_lock);
+
+	rc = dsi_display_validate_split_link(display);
+	if (rc) {
+		pr_err("[%s] split link validation failed, rc=%d\n",
+						 display->name, rc);
+		goto error;
+	}
 
 	rc = dsi_display_debugfs_init(display);
 	if (rc) {
@@ -5550,8 +5604,10 @@ int dsi_display_get_modes(struct dsi_display *display,
 			  struct dsi_display_mode **out_modes)
 {
 	struct dsi_dfps_capabilities dfps_caps;
+	struct dsi_host_common_cfg *host = &display->panel->host_config;
+	bool is_split_link;
 	u32 num_dfps_rates, panel_mode_count, total_mode_count;
-	u32 mode_idx, array_idx = 0;
+	u32 sublinks_count, mode_idx, array_idx = 0;
 	int i, rc = -EINVAL;
 
 	if (!display || !out_modes) {
@@ -5607,7 +5663,16 @@ int dsi_display_get_modes(struct dsi_display *display,
 			goto error;
 		}
 
-		if (display->ctrl_count > 1) { /* TODO: remove if */
+		is_split_link = host->split_link.split_link_enabled;
+		sublinks_count = host->split_link.num_sublinks;
+		if (is_split_link && sublinks_count > 1) {
+			panel_mode.timing.h_active *= sublinks_count;
+			panel_mode.timing.h_front_porch *= sublinks_count;
+			panel_mode.timing.h_sync_width *= sublinks_count;
+			panel_mode.timing.h_back_porch *= sublinks_count;
+			panel_mode.timing.h_skew *= sublinks_count;
+			panel_mode.pixel_clk_khz *= sublinks_count;
+		} else if (display->ctrl_count > 1) {
 			panel_mode.timing.h_active *= display->ctrl_count;
 			panel_mode.timing.h_front_porch *= display->ctrl_count;
 			panel_mode.timing.h_sync_width *= display->ctrl_count;
@@ -5667,6 +5732,7 @@ int dsi_display_get_panel_vfp(void *dsi_display,
 	u32 count, refresh_rate = 0;
 	struct dsi_dfps_capabilities dfps_caps;
 	struct dsi_display *display = (struct dsi_display *)dsi_display;
+	struct dsi_host_common_cfg *host;
 
 	if (!display)
 		return -EINVAL;
@@ -5690,7 +5756,11 @@ int dsi_display_get_panel_vfp(void *dsi_display,
 		return -EINVAL;
 	}
 
-	h_active *= display->ctrl_count;
+	host = &display->panel->host_config;
+	if (host->split_link.split_link_enabled)
+		h_active *= host->split_link.num_sublinks;
+	else
+		h_active *= display->ctrl_count;
 
 	for (i = 0; i < count; i++) {
 		struct dsi_display_mode *m = &display->modes[i];
