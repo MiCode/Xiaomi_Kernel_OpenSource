@@ -28,7 +28,9 @@
 #define MAX_NUM_Q6_RULE 35
 #define MAX_NUM_QMI_RULE_CACHE 10
 #define DEV_NAME "ipa-wan"
-#define SUBSYS_MODEM "modem"
+#define SUBSYS_LOCAL_MODEM "modem"
+#define SUBSYS_REMOTE_MODEM "esoc0"
+
 
 #define IPAWANDBG(fmt, args...) \
 	do { \
