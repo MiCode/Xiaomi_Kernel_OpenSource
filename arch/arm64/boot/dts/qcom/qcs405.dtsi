@@ -1265,9 +1265,9 @@
 
 	ddr_bw_opp_table: ddr-bw-opp-table {
 		compatible = "operating-points-v2";
-		BW_OPP_ENTRY( 297, 4); /* 1132 MB/s */
-		BW_OPP_ENTRY( 595, 4); /* 2269 MB/s */
-		BW_OPP_ENTRY( 710, 4); /* 2708 MB/s */
+		BW_OPP_ENTRY( 297, 8); /* 2265 MB/s */
+		BW_OPP_ENTRY( 595, 8); /* 4539 MB/s */
+		BW_OPP_ENTRY( 710, 8); /* 5416 MB/s */
 	};
 
 	cpubw: qcom,cpubw {
@@ -1300,8 +1300,8 @@
 		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
 		qcom,target-dev = <&cpu0_cpu_ddr_latfloor>;
 		qcom,core-dev-table =
-			< 1094400 MHZ_TO_MBPS( 297, 4) >,
-			< 1248000 MHZ_TO_MBPS( 597, 4) >;
+			< 1094400 MHZ_TO_MBPS( 297, 8) >,
+			< 1248000 MHZ_TO_MBPS( 597, 8) >;
 	};
 
 	emac_hw: qcom,emac@07A80000 {
