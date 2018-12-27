@@ -296,7 +296,7 @@ int ipa3_conn_wdi3_pipes(struct ipa_wdi_conn_in_params *in,
 	u32 evt_ring_db_addr_low, evt_ring_db_addr_high;
 
 	/* wdi3 only support over gsi */
-	if (!ipa3_ctx->ipa_wdi_over_gsi) {
+	if (!ipa3_ctx->ipa_wdi3_over_gsi) {
 		IPAERR("wdi3 over uc offload not supported");
 		WARN_ON(1);
 		return -EFAULT;
@@ -374,8 +374,8 @@ int ipa3_conn_wdi3_pipes(struct ipa_wdi_conn_in_params *in,
 		goto fail;
 	}
 
-	IPADBG("ipa3_ctx->ipa_wdi_over_gsi %d\n",
-		   ipa3_ctx->ipa_wdi_over_gsi);
+	IPADBG("ipa3_ctx->ipa_wdi3_over_gsi %d\n",
+		   ipa3_ctx->ipa_wdi3_over_gsi);
 	/* setup RX gsi channel */
 	if (ipa3_setup_wdi3_gsi_channel(in->is_smmu_enabled,
 		&in->u_rx.rx, &in->u_rx.rx_smmu, IPA_WDI3_RX_DIR,
@@ -484,7 +484,7 @@ int ipa3_disconn_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
 	int result = 0;
 
 	/* wdi3 only support over gsi */
-	if (!ipa3_ctx->ipa_wdi_over_gsi) {
+	if (!ipa3_ctx->ipa_wdi3_over_gsi) {
 		IPAERR("wdi3 over uc offload not supported");
 		WARN_ON(1);
 		return -EFAULT;
@@ -542,7 +542,7 @@ int ipa3_enable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
 	int result = 0;
 
 	/* wdi3 only support over gsi */
-	if (!ipa3_ctx->ipa_wdi_over_gsi) {
+	if (!ipa3_ctx->ipa_wdi3_over_gsi) {
 		IPAERR("wdi3 over uc offload not supported");
 		WARN_ON(1);
 		return -EFAULT;
@@ -600,7 +600,7 @@ int ipa3_disable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
 	struct ipahal_ep_cfg_ctrl_scnd ep_ctrl_scnd = { 0 };
 
 	/* wdi3 only support over gsi */
-	if (!ipa3_ctx->ipa_wdi_over_gsi) {
+	if (!ipa3_ctx->ipa_wdi3_over_gsi) {
 		IPAERR("wdi3 over uc offload not supported");
 		WARN_ON(1);
 		return -EFAULT;

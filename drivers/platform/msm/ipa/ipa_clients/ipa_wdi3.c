@@ -121,7 +121,7 @@ int ipa_wdi_init(struct ipa_wdi_init_in_params *in,
 
 	ipa_wdi_ctx->is_smmu_enabled = out->is_smmu_enabled;
 
-	if (ipa3_ctx->ipa_wdi_over_gsi)
+	if (ipa3_ctx->ipa_wdi3_over_gsi)
 		out->is_over_gsi = true;
 	else
 		out->is_over_gsi = false;
@@ -255,7 +255,7 @@ int ipa_wdi_reg_intf(struct ipa_wdi_reg_intf_in_params *in)
 
 	memset(tx_prop, 0, sizeof(tx_prop));
 	tx_prop[0].ip = IPA_IP_v4;
-	if (!ipa3_ctx->ipa_wdi_over_gsi)
+	if (!ipa3_ctx->ipa_wdi3_over_gsi)
 		tx_prop[0].dst_pipe = IPA_CLIENT_WLAN1_CONS;
 	else
 		tx_prop[0].dst_pipe = IPA_CLIENT_WLAN2_CONS;
@@ -265,7 +265,7 @@ int ipa_wdi_reg_intf(struct ipa_wdi_reg_intf_in_params *in)
 		sizeof(tx_prop[0].hdr_name));
 
 	tx_prop[1].ip = IPA_IP_v6;
-	if (!ipa3_ctx->ipa_wdi_over_gsi)
+	if (!ipa3_ctx->ipa_wdi3_over_gsi)
 		tx_prop[1].dst_pipe = IPA_CLIENT_WLAN1_CONS;
 	else
 		tx_prop[1].dst_pipe = IPA_CLIENT_WLAN2_CONS;
@@ -279,7 +279,7 @@ int ipa_wdi_reg_intf(struct ipa_wdi_reg_intf_in_params *in)
 	rx.prop = rx_prop;
 	memset(rx_prop, 0, sizeof(rx_prop));
 	rx_prop[0].ip = IPA_IP_v4;
-	if (!ipa3_ctx->ipa_wdi_over_gsi)
+	if (!ipa3_ctx->ipa_wdi3_over_gsi)
 		rx_prop[0].src_pipe = IPA_CLIENT_WLAN1_PROD;
 	else
 		rx_prop[0].src_pipe = IPA_CLIENT_WLAN2_PROD;
@@ -291,7 +291,7 @@ int ipa_wdi_reg_intf(struct ipa_wdi_reg_intf_in_params *in)
 	}
 
 	rx_prop[1].ip = IPA_IP_v6;
-	if (!ipa3_ctx->ipa_wdi_over_gsi)
+	if (!ipa3_ctx->ipa_wdi3_over_gsi)
 		rx_prop[1].src_pipe = IPA_CLIENT_WLAN1_PROD;
 	else
 		rx_prop[1].src_pipe = IPA_CLIENT_WLAN2_PROD;
@@ -672,7 +672,7 @@ int ipa_wdi_disconn_pipes(void)
 		}
 	}
 
-	if (!ipa3_ctx->ipa_wdi_over_gsi) {
+	if (!ipa3_ctx->ipa_wdi3_over_gsi) {
 		ipa_ep_idx_rx = ipa_get_ep_mapping(IPA_CLIENT_WLAN1_PROD);
 		ipa_ep_idx_tx = ipa_get_ep_mapping(IPA_CLIENT_WLAN1_CONS);
 	} else {
@@ -733,7 +733,7 @@ int ipa_wdi_enable_pipes(void)
 		return -EPERM;
 	}
 
-	if (!ipa3_ctx->ipa_wdi_over_gsi) {
+	if (!ipa3_ctx->ipa_wdi3_over_gsi) {
 		ipa_ep_idx_rx = ipa_get_ep_mapping(IPA_CLIENT_WLAN1_PROD);
 		ipa_ep_idx_tx = ipa_get_ep_mapping(IPA_CLIENT_WLAN1_CONS);
 	} else {
@@ -799,7 +799,7 @@ int ipa_wdi_disable_pipes(void)
 		return -EPERM;
 	}
 
-	if (!ipa3_ctx->ipa_wdi_over_gsi) {
+	if (!ipa3_ctx->ipa_wdi3_over_gsi) {
 		ipa_ep_idx_rx = ipa_get_ep_mapping(IPA_CLIENT_WLAN1_PROD);
 		ipa_ep_idx_tx = ipa_get_ep_mapping(IPA_CLIENT_WLAN1_CONS);
 	} else {
