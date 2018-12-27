@@ -66,6 +66,9 @@ void request_early_service_shutdown(enum service_id sid)
 	struct early_domain_core *domain = ed_core_data;
 	unsigned long *request;
 
+	if (!early_domain_enabled)
+		return;
+
 	request = &domain->pdata->early_domain_request;
 	set_bit(sid, request);
 }
