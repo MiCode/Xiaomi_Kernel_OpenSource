@@ -573,16 +573,21 @@ static void qmi_data_ready_work(struct work_struct *work)
 
 static void qmi_data_ready(struct sock *sk)
 {
-	struct qmi_handle *qmi = sk->sk_user_data;
+	struct qmi_handle *qmi = NULL;
 
 	/*
 	 * This will be NULL if we receive data while being in
 	 * qmi_handle_release()
 	 */
-	if (!qmi)
+	read_lock_bh(&sk->sk_callback_lock);
+	qmi = sk->sk_user_data;
+	if (!qmi) {
+		read_unlock_bh(&sk->sk_callback_lock);
 		return;
+	}
 
 	queue_work(qmi->wq, &qmi->work);
+	read_unlock_bh(&sk->sk_callback_lock);
 }
 
 static struct socket *qmi_sock_create(struct qmi_handle *qmi,
@@ -691,7 +696,9 @@ void qmi_handle_release(struct qmi_handle *qmi)
 	struct qmi_txn *txn;
 	int txn_id;
 
+	write_lock_bh(&sock->sk->sk_callback_lock);
 	sock->sk->sk_user_data = NULL;
+	write_unlock_bh(&sock->sk->sk_callback_lock);
 	cancel_work_sync(&qmi->work);
 
 	qmi_recv_del_server(qmi, -1, -1);
