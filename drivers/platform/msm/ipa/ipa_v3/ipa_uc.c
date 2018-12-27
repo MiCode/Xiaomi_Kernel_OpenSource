@@ -545,7 +545,7 @@ void ipa3_uc_map_cntr_reg_notify(void)
 	ipa3_uc_send_cmd(0,
 		IPA_CPU_2_HW_CMD_DEBUG_GET_INFO,
 		IPA_HW_2_CPU_RESPONSE_CMD_COMPLETED,
-		false, 0);
+		false, 6*HZ);
 }
 
 static int ipa3_uc_send_cmd_64b_param(u32 cmd_lo, u32 cmd_hi, u32 opcode,
