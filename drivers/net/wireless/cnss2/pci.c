@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1010,7 +1010,7 @@ static int cnss_pci_suspend(struct device *dev)
 		}
 	}
 
-	if (pci_priv->pci_link_state == PCI_LINK_UP) {
+	if (pci_priv->pci_link_state == PCI_LINK_UP && !pci_priv->disable_pc) {
 		ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_SUSPEND);
 		if (ret) {
 			if (driver_ops && driver_ops->resume)
@@ -1051,7 +1051,7 @@ static int cnss_pci_resume(struct device *dev)
 	if (pci_priv->pci_link_down_ind)
 		goto out;
 
-	if (pci_priv->pci_link_state == PCI_LINK_UP) {
+	if (pci_priv->pci_link_state == PCI_LINK_UP && !pci_priv->disable_pc) {
 		ret = pci_enable_device(pci_dev);
 		if (ret)
 			cnss_pr_err("Failed to enable PCI device, err = %d\n",
@@ -1182,11 +1182,23 @@ static int cnss_pci_runtime_idle(struct device *dev)
 int cnss_wlan_pm_control(struct device *dev, bool vote)
 {
 	struct pci_dev *pci_dev = to_pci_dev(dev);
+	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
+	int ret = 0;
 
-	return msm_pcie_pm_control(vote ? MSM_PCIE_DISABLE_PC :
-				   MSM_PCIE_ENABLE_PC,
-				   pci_dev->bus->number, pci_dev,
-				   NULL, PM_OPTIONS_DEFAULT);
+	if (!pci_priv)
+		return -ENODEV;
+
+	ret = msm_pcie_pm_control(vote ? MSM_PCIE_DISABLE_PC :
+				  MSM_PCIE_ENABLE_PC,
+				  pci_dev->bus->number, pci_dev,
+				  NULL, PM_OPTIONS_DEFAULT);
+	if (ret)
+		return ret;
+
+	pci_priv->disable_pc = vote;
+	cnss_pr_dbg("%s PCIe power collapse\n", vote ? "disable" : "enable");
+
+	return 0;
 }
 EXPORT_SYMBOL(cnss_wlan_pm_control);
 
