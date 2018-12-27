@@ -1134,6 +1134,20 @@ static struct usb_function *hidg_alloc(struct usb_function_instance *fi)
 }
 
 DECLARE_USB_FUNCTION_INIT(hid, hidg_alloc_inst, hidg_alloc);
+
+static int __init afunc_init(void)
+{
+	return usb_function_register(&hidusb_func);
+}
+
+static void __exit afunc_exit(void)
+{
+	usb_function_unregister(&hidusb_func);
+}
+
+module_init(afunc_init);
+module_exit(afunc_exit);
+
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Fabien Chouteau");
 
