@@ -1199,7 +1199,8 @@ static void qrtr_reset_ports(void)
 
 		sock_hold(&ipc->sk);
 		ipc->sk.sk_err = ENETRESET;
-		ipc->sk.sk_error_report(&ipc->sk);
+		if (ipc->sk.sk_error_report)
+			ipc->sk.sk_error_report(&ipc->sk);
 		sock_put(&ipc->sk);
 	}
 }
@@ -1300,7 +1301,8 @@ static int qrtr_local_enqueue(struct qrtr_node *node, struct sk_buff *skb,
 	if (sk && sk->sk_err == ENETRESET) {
 		sock_hold(sk);
 		sk->sk_err = ENETRESET;
-		sk->sk_error_report(sk);
+		if (sk->sk_error_report)
+			sk->sk_error_report(sk);
 		sock_put(sk);
 		kfree_skb(skb);
 		return 0;
