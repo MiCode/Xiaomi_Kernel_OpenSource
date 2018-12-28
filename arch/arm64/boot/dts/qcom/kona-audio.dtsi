@@ -49,7 +49,8 @@
 		compatible = "qcom,kona-asoc-snd";
 		qcom,mi2s-audio-intf = <1>;
 		qcom,auxpcm-audio-intf = <1>;
-		qcom,wcn-btfm = <1>;
+		qcom,wcn-bt = <0>;
+		qcom,ext-disp-audio-rx = <0>;
 
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
