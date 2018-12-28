@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -157,7 +157,14 @@ static struct msm_vidc_common_data sm6150_common_data[] = {
 	},
 	{
 		.key = "qcom,max-secure-instances",
-		.value = 5,
+		.value = 2,             /*
+					 * As per design driver allows 3rd
+					 * instance as well since the secure
+					 * flags were updated later for the
+					 * current instance. Hence total
+					 * secure sessions would be
+					 * max-secure-instances + 1.
+					 */
 	},
 	{
 		.key = "qcom,max-hw-load",
