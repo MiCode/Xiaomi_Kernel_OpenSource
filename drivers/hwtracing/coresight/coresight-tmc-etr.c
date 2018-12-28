@@ -1338,7 +1338,7 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 			free_buf = new_buf = tmc_etr_setup_sysfs_buf(drvdata);
 			if (IS_ERR(new_buf)) {
 				mutex_unlock(&drvdata->mem_lock);
-				return PTR_ERR(new_buf);
+				return -ENOMEM;
 			}
 			coresight_cti_map_trigout(drvdata->cti_flush, 3, 0);
 			coresight_cti_map_trigin(drvdata->cti_reset, 2, 0);
@@ -1347,9 +1347,8 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 								usb_notifier);
 			if (IS_ERR_OR_NULL(drvdata->usbch)) {
 				dev_err(drvdata->dev, "usb_qdss_open failed\n");
-				ret = PTR_ERR(drvdata->usbch);
 				mutex_unlock(&drvdata->mem_lock);
-				return ret;
+				return -ENODEV;
 			}
 		}
 		spin_lock_irqsave(&drvdata->spinlock, flags);
@@ -1463,6 +1462,39 @@ static void tmc_disable_etr_sink(struct coresight_device *csdev)
 out:
 	mutex_unlock(&drvdata->mem_lock);
 	dev_info(drvdata->dev, "TMC-ETR disabled\n");
+}
+
+int tmc_etr_switch_mode(struct tmc_drvdata *drvdata, const char *out_mode)
+{
+	enum tmc_etr_out_mode new_mode, old_mode;
+
+	if (!strcmp(out_mode, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_MEM]))
+		new_mode = TMC_ETR_OUT_MODE_MEM;
+	else if (!strcmp(out_mode, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_USB]))
+		new_mode = TMC_ETR_OUT_MODE_USB;
+	else
+		return -EINVAL;
+
+	if (new_mode == drvdata->out_mode)
+		return 0;
+
+	if (drvdata->mode == CS_MODE_DISABLED) {
+		drvdata->out_mode = new_mode;
+		return 0;
+	}
+
+	tmc_disable_etr_sink(drvdata->csdev);
+	old_mode = drvdata->out_mode;
+	drvdata->out_mode = new_mode;
+	if (tmc_enable_etr_sink_sysfs(drvdata->csdev)) {
+		drvdata->out_mode = old_mode;
+		tmc_enable_etr_sink_sysfs(drvdata->csdev);
+		dev_err(drvdata->dev, "Switch to %s failed. Fall back to %s.\n",
+			str_tmc_etr_out_mode[new_mode],
+			str_tmc_etr_out_mode[old_mode]);
+		return -EINVAL;
+	}
+	return 0;
 }
 
 static const struct coresight_ops_sink tmc_etr_sink_ops = {
