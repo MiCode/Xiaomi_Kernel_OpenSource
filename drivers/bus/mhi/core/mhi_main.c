@@ -1464,6 +1464,8 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 	if (MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state)) {
 		state = mhi_get_mhi_state(mhi_cntrl);
 		ee = mhi_get_exec_env(mhi_cntrl);
+		MHI_LOG("device ee:%s dev_state:%s\n", TO_MHI_EXEC_STR(ee),
+			TO_MHI_STATE_STR(state));
 	}
 
 	if (state == MHI_STATE_SYS_ERR) {
