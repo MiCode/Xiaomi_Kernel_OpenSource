@@ -202,5 +202,5 @@ void *devm_memremap_pages(struct device *dev, struct resource *res)
 	devres_add(dev, page_map);
 	return __va(res->start);
 }
-EXPORT_SYMBOL(devm_memremap_pages);
+EXPORT_SYMBOL_GPL(devm_memremap_pages);
 #endif /* CONFIG_ZONE_DEVICE */
