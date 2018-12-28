@@ -3365,7 +3365,6 @@ static bool zone_allows_reclaim(struct zone *local_zone, struct zone *zone)
 }
 #endif	/* CONFIG_NUMA */
 
-#ifdef CONFIG_ZONE_DMA32
 /*
  * The restriction on ZONE_DMA32 as being a suitable zone to use to avoid
  * fragmentation is subtle. If the preferred zone was HIGHMEM then
@@ -3375,10 +3374,16 @@ static bool zone_allows_reclaim(struct zone *local_zone, struct zone *zone)
  * fragmentation between the Normal and DMA32 zones.
  */
 static inline unsigned int
-alloc_flags_nofragment(struct zone *zone)
+alloc_flags_nofragment(struct zone *zone, gfp_t gfp_mask)
 {
+	unsigned int alloc_flags = 0;
+
+	if (gfp_mask & __GFP_KSWAPD_RECLAIM)
+		alloc_flags |= ALLOC_KSWAPD;
+
+#ifdef CONFIG_ZONE_DMA32
 	if (zone_idx(zone) != ZONE_NORMAL)
-		return 0;
+		goto out;
 
 	/*
 	 * If ZONE_DMA32 exists, assume it is the one after ZONE_NORMAL and
@@ -3387,17 +3392,12 @@ alloc_flags_nofragment(struct zone *zone)
 	 */
 	BUILD_BUG_ON(ZONE_NORMAL - ZONE_DMA32 != 1);
 	if (nr_online_nodes > 1 && !populated_zone(--zone))
-		return 0;
+		goto out;
 
-	return ALLOC_NOFRAGMENT;
+out:
+#endif /* CONFIG_ZONE_DMA32 */
+	return alloc_flags;
 }
-#else
-static inline unsigned int
-alloc_flags_nofragment(struct zone *zone)
-{
-	return 0;
-}
-#endif
 
 /*
  * get_page_from_freelist goes through the zonelist trying to allocate
@@ -4094,6 +4094,9 @@ gfp_to_alloc_flags(gfp_t gfp_mask)
 	} else if (unlikely(rt_task(current)) && !in_interrupt())
 		alloc_flags |= ALLOC_HARDER;
 
+	if (gfp_mask & __GFP_KSWAPD_RECLAIM)
+		alloc_flags |= ALLOC_KSWAPD;
+
 #ifdef CONFIG_CMA
 	if ((gfpflags_to_migratetype(gfp_mask) == MIGRATE_MOVABLE) &&
 				(gfp_mask & __GFP_CMA))
@@ -4327,7 +4330,7 @@ retry_cpuset:
 	if (!ac->preferred_zoneref->zone)
 		goto nopage;
 
-	if (gfp_mask & __GFP_KSWAPD_RECLAIM)
+	if (alloc_flags & ALLOC_KSWAPD)
 		wake_all_kswapds(order, gfp_mask, ac);
 
 	/*
@@ -4385,7 +4388,7 @@ retry_cpuset:
 
 retry:
 	/* Ensure kswapd doesn't accidentally go to sleep as long as we loop */
-	if (gfp_mask & __GFP_KSWAPD_RECLAIM)
+	if (alloc_flags & ALLOC_KSWAPD)
 		wake_all_kswapds(order, gfp_mask, ac);
 
 	reserve_flags = __gfp_pfmemalloc_flags(gfp_mask);
@@ -4613,7 +4616,7 @@ __alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order, int preferred_nid,
 	 * Forbid the first pass from falling back to types that fragment
 	 * memory until all local zones are considered.
 	 */
-	alloc_flags |= alloc_flags_nofragment(ac.preferred_zoneref->zone);
+	alloc_flags |= alloc_flags_nofragment(ac.preferred_zoneref->zone, gfp_mask);
 
 	/* First allocation attempt */
 	page = get_page_from_freelist(alloc_mask, order, alloc_flags, &ac);
