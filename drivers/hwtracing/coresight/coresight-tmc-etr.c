@@ -1404,7 +1404,6 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 	 * buffer, provided the size matches. Any allocation has to be done
 	 * with the lock released.
 	 */
-	mutex_lock(&drvdata->mem_lock);
 	spin_lock_irqsave(&drvdata->spinlock, flags);
 	sysfs_buf = READ_ONCE(drvdata->sysfs_buf);
 	if (!sysfs_buf || (sysfs_buf->size != drvdata->size)) {
@@ -1422,8 +1421,7 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 			/* Allocate memory with the locks released */
 			free_buf = new_buf = tmc_etr_setup_sysfs_buf(drvdata);
 			if (IS_ERR(new_buf)) {
-				mutex_unlock(&drvdata->mem_lock);
-				return PTR_ERR(new_buf);
+				return -ENOMEM;
 			}
 			coresight_cti_map_trigout(drvdata->cti_flush, 3, 0);
 			coresight_cti_map_trigin(drvdata->cti_reset, 2, 0);
@@ -1431,11 +1429,8 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 			drvdata->usbch = usb_qdss_open("qdss", drvdata,
 								usb_notifier);
 			if (IS_ERR_OR_NULL(drvdata->usbch)) {
-				dev_err(&drvdata->csdev->dev,
-					"usb_qdss_open failed\n");
-				ret = PTR_ERR(drvdata->usbch);
-				mutex_unlock(&drvdata->mem_lock);
-				return ret;
+				dev_err(&csdev->dev, "usb_qdss_open failed\n");
+				return -ENODEV;
 			}
 		}
 		spin_lock_irqsave(&drvdata->spinlock, flags);
@@ -1483,8 +1478,8 @@ out:
 	if (free_buf)
 		tmc_etr_free_sysfs_buf(free_buf);
 
-	tmc_etr_byte_cntr_start(drvdata->byte_cntr);
-	mutex_unlock(&drvdata->mem_lock);
+	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
+		tmc_etr_byte_cntr_start(drvdata->byte_cntr);
 
 	if (!ret)
 		dev_dbg(&csdev->dev, "TMC-ETR enabled\n");
@@ -1914,34 +1909,37 @@ unlock_out:
 static int tmc_enable_etr_sink(struct coresight_device *csdev,
 			       u32 mode, void *data)
 {
+	struct tmc_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
+	int ret;
+
 	switch (mode) {
 	case CS_MODE_SYSFS:
-		return tmc_enable_etr_sink_sysfs(csdev);
+		mutex_lock(&drvdata->mem_lock);
+		ret = tmc_enable_etr_sink_sysfs(csdev);
+		mutex_unlock(&drvdata->mem_lock);
+		return ret;
+
 	case CS_MODE_PERF:
 		return tmc_enable_etr_sink_perf(csdev, data);
 	}
-
 	/* We shouldn't be here */
 	return -EINVAL;
 }
 
-static int tmc_disable_etr_sink(struct coresight_device *csdev)
+static int _tmc_disable_etr_sink(struct coresight_device *csdev)
 {
 	unsigned long flags;
 	struct tmc_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
 
-	mutex_lock(&drvdata->mem_lock);
 	spin_lock_irqsave(&drvdata->spinlock, flags);
 
 	if (drvdata->reading) {
 		spin_unlock_irqrestore(&drvdata->spinlock, flags);
-		mutex_unlock(&drvdata->mem_lock);
 		return -EBUSY;
 	}
 
 	if (atomic_dec_return(csdev->refcnt)) {
 		spin_unlock_irqrestore(&drvdata->spinlock, flags);
-		mutex_unlock(&drvdata->mem_lock);
 		return -EBUSY;
 	}
 
@@ -1977,8 +1975,61 @@ static int tmc_disable_etr_sink(struct coresight_device *csdev)
 		drvdata->etr_buf = NULL;
 	}
 out:
-	mutex_unlock(&drvdata->mem_lock);
 	dev_info(&csdev->dev, "TMC-ETR disabled\n");
+	return 0;
+}
+
+static int tmc_disable_etr_sink(struct coresight_device *csdev)
+{
+	struct tmc_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
+	int ret;
+
+	mutex_lock(&drvdata->mem_lock);
+	ret = _tmc_disable_etr_sink(csdev);
+	mutex_unlock(&drvdata->mem_lock);
+	return ret;
+}
+
+int tmc_etr_switch_mode(struct tmc_drvdata *drvdata, const char *out_mode)
+{
+	enum tmc_etr_out_mode new_mode, old_mode;
+
+	mutex_lock(&drvdata->mem_lock);
+	if (!strcmp(out_mode, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_MEM]))
+		new_mode = TMC_ETR_OUT_MODE_MEM;
+	else if (!strcmp(out_mode, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_USB]))
+		new_mode = TMC_ETR_OUT_MODE_USB;
+	else {
+		mutex_unlock(&drvdata->mem_lock);
+		return -EINVAL;
+	}
+
+	if (new_mode == drvdata->out_mode) {
+		mutex_unlock(&drvdata->mem_lock);
+		return 0;
+	}
+
+	if (drvdata->mode == CS_MODE_DISABLED) {
+		drvdata->out_mode = new_mode;
+		mutex_unlock(&drvdata->mem_lock);
+		return 0;
+	}
+
+	tmc_disable_etr_sink(drvdata->csdev);
+	old_mode = drvdata->out_mode;
+	drvdata->out_mode = new_mode;
+	if (tmc_enable_etr_sink_sysfs(drvdata->csdev)) {
+		drvdata->out_mode = old_mode;
+		tmc_enable_etr_sink_sysfs(drvdata->csdev);
+		dev_err(&drvdata->csdev->dev,
+			"Switch to %s failed. Fall back to %s.\n",
+			str_tmc_etr_out_mode[new_mode],
+			str_tmc_etr_out_mode[old_mode]);
+		mutex_unlock(&drvdata->mem_lock);
+		return -EINVAL;
+	}
+
+	mutex_unlock(&drvdata->mem_lock);
 	return 0;
 }
 

@@ -416,77 +416,14 @@ static ssize_t out_mode_store(struct device *dev,
 {
 	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	char str[10] = "";
-	unsigned long flags;
 	int ret;
 
 	if (strlen(buf) >= 10)
 		return -EINVAL;
 	if (sscanf(buf, "%10s", str) != 1)
 		return -EINVAL;
-
-	mutex_lock(&drvdata->mem_lock);
-	if (!strcmp(str, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_MEM])) {
-		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
-			goto out;
-
-		spin_lock_irqsave(&drvdata->spinlock, flags);
-		if (!drvdata->enable) {
-			drvdata->out_mode = TMC_ETR_OUT_MODE_MEM;
-			spin_unlock_irqrestore(&drvdata->spinlock, flags);
-			goto out;
-		}
-		__tmc_etr_disable_to_bam(drvdata);
-		tmc_etr_enable_hw(drvdata, drvdata->sysfs_buf);
-		drvdata->out_mode = TMC_ETR_OUT_MODE_MEM;
-		spin_unlock_irqrestore(&drvdata->spinlock, flags);
-
-		coresight_cti_map_trigout(drvdata->cti_flush, 3, 0);
-		coresight_cti_map_trigin(drvdata->cti_reset, 2, 0);
-
-		tmc_etr_bam_disable(drvdata);
-		usb_qdss_close(drvdata->usbch);
-	} else if (!strcmp(str, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_USB])) {
-		if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB)
-			goto out;
-
-		spin_lock_irqsave(&drvdata->spinlock, flags);
-		if (!drvdata->enable) {
-			drvdata->out_mode = TMC_ETR_OUT_MODE_USB;
-			spin_unlock_irqrestore(&drvdata->spinlock, flags);
-			goto out;
-		}
-		if (drvdata->reading) {
-			ret = -EBUSY;
-			goto err1;
-		}
-		tmc_etr_disable_hw(drvdata);
-		drvdata->out_mode = TMC_ETR_OUT_MODE_USB;
-		spin_unlock_irqrestore(&drvdata->spinlock, flags);
-
-		if (drvdata->mode != CS_MODE_DISABLED) {
-			coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
-			coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
-			tmc_etr_byte_cntr_stop(drvdata->byte_cntr);
-			if (drvdata->etr_buf)
-				tmc_free_etr_buf(drvdata->etr_buf);
-		}
-
-		drvdata->usbch = usb_qdss_open("qdss", drvdata,
-					       usb_notifier);
-		if (IS_ERR(drvdata->usbch)) {
-			dev_err(dev, "usb_qdss_open failed\n");
-			ret = PTR_ERR(drvdata->usbch);
-			goto err0;
-		}
-	}
-out:
-	mutex_unlock(&drvdata->mem_lock);
-	return size;
-err1:
-	spin_unlock_irqrestore(&drvdata->spinlock, flags);
-err0:
-	mutex_unlock(&drvdata->mem_lock);
-	return ret;
+	ret = tmc_etr_switch_mode(drvdata, str);
+	return ret ? ret : size;
 }
 static DEVICE_ATTR_RW(out_mode);
 
@@ -508,7 +445,6 @@ static DEVICE_ATTR_RO(available_out_modes);
 
 static struct attribute *coresight_tmc_etf_attrs[] = {
 	&dev_attr_trigger_cntr.attr,
-	&dev_attr_buffer_size.attr,
 	NULL,
 };
 

@@ -338,6 +338,8 @@ ssize_t tmc_etr_get_sysfs_trace(struct tmc_drvdata *drvdata,
 				loff_t pos, size_t len, char **bufpp);
 ssize_t tmc_etr_buf_get_data(struct etr_buf *etr_buf,
 				u64 offset, size_t len, char **bufpp);
+int tmc_etr_switch_mode(struct tmc_drvdata *drvdata, const char *out_mode);
+
 
 #define TMC_REG_PAIR(name, lo_off, hi_off)				\
 static inline u64							\
