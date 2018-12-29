@@ -3214,6 +3214,15 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 	struct platform_device *pdev;
 	int rc = 0;
 
+	/*
+	 * There could be multiple calls to this function if device gets
+	 * multiple link-up events (bme irqs).
+	 */
+	if (mhi_ctx->init_done) {
+		mhi_log(MHI_MSG_INFO, "mhi init already done, returning\n");
+		return 0;
+	}
+
 	pdev = mhi_ctx->pdev;
 
 	INIT_WORK(&mhi_ctx->chdb_ctrl_work, mhi_dev_scheduler);
@@ -3344,6 +3353,8 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 
 	if (mhi_ctx->use_edma)
 		mhi_ring_init_cb(mhi_ctx);
+
+	mhi_ctx->init_done = true;
 
 	return 0;
 }
