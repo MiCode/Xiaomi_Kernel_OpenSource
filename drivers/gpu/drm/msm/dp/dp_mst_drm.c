@@ -21,6 +21,7 @@
 #include "dp_drm.h"
 
 #define DP_MST_DEBUG(fmt, ...) pr_debug(fmt, ##__VA_ARGS__)
+#define DP_MST_INFO_LOG(fmt, ...) pr_debug(fmt, ##__VA_ARGS__)
 
 #define MAX_DP_MST_STREAMS		2
 #define MAX_DP_MST_DRM_ENCODERS		2
@@ -674,8 +675,6 @@ static void dp_mst_bridge_pre_enable(struct drm_bridge *drm_bridge)
 	struct dp_display *dp;
 	struct dp_mst_private *mst;
 
-	DP_MST_DEBUG("enter\n");
-
 	if (!drm_bridge) {
 		pr_err("Invalid params\n");
 		return;
@@ -723,7 +722,14 @@ static void dp_mst_bridge_pre_enable(struct drm_bridge *drm_bridge)
 		_dp_mst_bridge_pre_enable_part2(bridge);
 	}
 
-	DP_MST_DEBUG("mst bridge [%d] pre enable complete\n", bridge->id);
+	DP_MST_INFO_LOG("mode: id(%d) mode(%s), refresh(%d)\n",
+			bridge->id, bridge->drm_mode.name,
+			bridge->drm_mode.vrefresh);
+	DP_MST_INFO_LOG("dsc: id(%d) dsc(%d)\n", bridge->id,
+			bridge->dp_mode.timing.comp_info.comp_ratio);
+	DP_MST_INFO_LOG("channel: id(%d) vcpi(%d) start(%d) tot(%d)\n",
+			bridge->id, bridge->vcpi, bridge->start_slot,
+			bridge->num_slots);
 end:
 	mutex_unlock(&mst->mst_lock);
 }
@@ -733,8 +739,6 @@ static void dp_mst_bridge_enable(struct drm_bridge *drm_bridge)
 	int rc = 0;
 	struct dp_mst_bridge *bridge;
 	struct dp_display *dp;
-
-	DP_MST_DEBUG("enter\n");
 
 	if (!drm_bridge) {
 		pr_err("Invalid params\n");
@@ -756,7 +760,8 @@ static void dp_mst_bridge_enable(struct drm_bridge *drm_bridge)
 		return;
 	}
 
-	DP_MST_DEBUG("mst bridge [%d] post enable complete\n", bridge->id);
+	DP_MST_INFO_LOG("mst bridge [%d] post enable complete\n",
+			bridge->id);
 }
 
 static void dp_mst_bridge_disable(struct drm_bridge *drm_bridge)
@@ -765,8 +770,6 @@ static void dp_mst_bridge_disable(struct drm_bridge *drm_bridge)
 	struct dp_mst_bridge *bridge;
 	struct dp_display *dp;
 	struct dp_mst_private *mst;
-
-	DP_MST_DEBUG("enter\n");
 
 	if (!drm_bridge) {
 		pr_err("Invalid params\n");
@@ -796,7 +799,7 @@ static void dp_mst_bridge_disable(struct drm_bridge *drm_bridge)
 
 	_dp_mst_bridge_pre_disable_part2(bridge);
 
-	DP_MST_DEBUG("mst bridge [%d] disable complete\n", bridge->id);
+	DP_MST_INFO_LOG("mst bridge [%d] disable complete\n", bridge->id);
 
 	mutex_unlock(&mst->mst_lock);
 }
@@ -807,8 +810,6 @@ static void dp_mst_bridge_post_disable(struct drm_bridge *drm_bridge)
 	struct dp_mst_bridge *bridge;
 	struct dp_display *dp;
 	struct dp_mst_private *mst;
-
-	DP_MST_DEBUG("enter\n");
 
 	if (!drm_bridge) {
 		pr_err("Invalid params\n");
@@ -846,7 +847,8 @@ static void dp_mst_bridge_post_disable(struct drm_bridge *drm_bridge)
 		mst->mst_bridge[bridge->id].encoder_active_sts = false;
 	}
 
-	DP_MST_DEBUG("mst bridge [%d] post disable complete\n", bridge->id);
+	DP_MST_INFO_LOG("mst bridge [%d] post disable complete\n",
+			bridge->id);
 }
 
 static void dp_mst_bridge_mode_set(struct drm_bridge *drm_bridge,
@@ -1389,7 +1391,7 @@ dp_mst_add_connector(struct drm_dp_mst_topology_mgr *mgr,
 	/* unlock connector and make it accessible */
 	drm_modeset_unlock_all(dev);
 
-	DP_MST_DEBUG("add mst connector:%d\n", connector->base.id);
+	DP_MST_INFO_LOG("add mst connector id:%d\n", connector->base.id);
 
 	return connector;
 }
@@ -1400,7 +1402,8 @@ static void dp_mst_register_connector(struct drm_connector *connector)
 
 	connector->status = connector->funcs->detect(connector, false);
 
-	DP_MST_DEBUG("register mst connector:%d\n", connector->base.id);
+	DP_MST_INFO_LOG("register mst connector id:%d\n",
+			connector->base.id);
 	drm_connector_register(connector);
 }
 
@@ -1409,7 +1412,7 @@ static void dp_mst_destroy_connector(struct drm_dp_mst_topology_mgr *mgr,
 {
 	DP_MST_DEBUG("enter\n");
 
-	DP_MST_DEBUG("destroy mst connector:%d\n", connector->base.id);
+	DP_MST_INFO_LOG("destroy mst connector id:%d\n", connector->base.id);
 
 	drm_connector_unregister(connector);
 	drm_connector_put(connector);
@@ -1428,7 +1431,7 @@ static void dp_mst_hotplug(struct drm_dp_mst_topology_mgr *mgr)
 
 	kobject_uevent_env(&dev->primary->kdev->kobj, KOBJ_CHANGE, envp);
 
-	DP_MST_DEBUG("mst hot plug event\n");
+	DP_MST_INFO_LOG("mst hot plug event\n");
 }
 
 static void dp_mst_hpd_event_notify(struct dp_mst_private *mst, bool hpd_status)
@@ -1449,7 +1452,7 @@ static void dp_mst_hpd_event_notify(struct dp_mst_private *mst, bool hpd_status)
 
 	kobject_uevent_env(&dev->primary->kdev->kobj, KOBJ_CHANGE, envp);
 
-	DP_MST_DEBUG("%s finished\n", __func__);
+	DP_MST_INFO_LOG("%s finished\n", __func__);
 }
 
 /* DP Driver Callback OPs */
@@ -1460,8 +1463,6 @@ static void dp_mst_display_hpd(void *dp_display, bool hpd_status,
 	int rc;
 	struct dp_display *dp = dp_display;
 	struct dp_mst_private *mst = dp->dp_mst_prv_info;
-
-	DP_MST_DEBUG("enter:\n");
 
 	if (!hpd_status)
 		rc = mst->mst_fw_cbs->topology_mgr_set_mst(&mst->mst_mgr,
@@ -1483,9 +1484,7 @@ static void dp_mst_display_hpd(void *dp_display, bool hpd_status,
 
 	dp_mst_hpd_event_notify(mst, hpd_status);
 
-	DP_MST_DEBUG("mst display hpd:%d, rc:%d\n", hpd_status, rc);
-
-	DP_MST_DEBUG("exit:\n");
+	DP_MST_INFO_LOG("mst display hpd:%d, rc:%d\n", hpd_status, rc);
 }
 
 static void dp_mst_display_hpd_irq(void *dp_display,
@@ -1494,11 +1493,9 @@ static void dp_mst_display_hpd_irq(void *dp_display,
 	int rc;
 	struct dp_display *dp = dp_display;
 	struct dp_mst_private *mst = dp->dp_mst_prv_info;
-	u8 esi[14], idx;
+	u8 esi[14];
 	unsigned int esi_res = DP_SINK_COUNT_ESI + 1;
 	bool handled;
-
-	DP_MST_DEBUG("enter:\n");
 
 	if (info->mst_hpd_sim) {
 		dp_mst_hotplug(&mst->mst_mgr);
@@ -1508,12 +1505,12 @@ static void dp_mst_display_hpd_irq(void *dp_display,
 	rc = drm_dp_dpcd_read(mst->caps.drm_aux, DP_SINK_COUNT_ESI,
 		esi, 14);
 	if (rc != 14) {
-		pr_err("dpcd sync status read failed, rlen=%d\n", rc);
-		goto end;
+		pr_err("dpcd sink status read failed, rlen=%d\n", rc);
+		return;
 	}
 
-	for (idx = 0; idx < 14; idx++)
-		DP_MST_DEBUG("mst irq: esi[%d]: 0x%x\n", idx, esi[idx]);
+	DP_MST_DEBUG("mst irq: esi1[0x%x] esi2[0x%x] esi3[%x]\n",
+			esi[1], esi[2], esi[3]);
 
 	rc = drm_dp_mst_hpd_irq(&mst->mst_mgr, esi, &handled);
 
@@ -1526,9 +1523,6 @@ static void dp_mst_display_hpd_irq(void *dp_display,
 	}
 
 	DP_MST_DEBUG("mst display hpd_irq handled:%d rc:%d\n", handled, rc);
-
-end:
-	DP_MST_DEBUG("exit:\n");
 }
 
 static void dp_mst_set_state(void *dp_display, enum dp_drv_state mst_state)
@@ -1542,6 +1536,7 @@ static void dp_mst_set_state(void *dp_display, enum dp_drv_state mst_state)
 	}
 
 	mst->state = mst_state;
+	DP_MST_INFO_LOG("mst power state:%d\n", mst_state);
 }
 
 /* DP MST APIs */
@@ -1623,7 +1618,7 @@ int dp_mst_init(struct dp_display *dp_display)
 	}
 	memset(&dp_mst_enc_cache, 0, sizeof(dp_mst_enc_cache));
 
-	DP_MST_DEBUG("dp drm mst topology manager init completed\n");
+	DP_MST_INFO_LOG("dp drm mst topology manager init completed\n");
 
 	return ret;
 
@@ -1654,6 +1649,6 @@ void dp_mst_deinit(struct dp_display *dp_display)
 
 	mutex_destroy(&mst->mst_lock);
 
-	DP_MST_DEBUG("dp drm mst topology manager deinit completed\n");
+	DP_MST_INFO_LOG("dp drm mst topology manager deinit completed\n");
 }
 
