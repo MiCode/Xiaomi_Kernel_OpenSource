@@ -63,6 +63,11 @@ Required properties
 				from register "mdp_phys" defined in reg property.
 - qcom,sde-pp-slave:		Array of flags indicating whether each ping pong
 				block may be configured as a pp slave.
+- qcom,sde-pp-merge-3d-id:	Array of index ID values for the merge 3d block
+				connected to each pingpong, starting at 0.
+- qcom,sde-merge-3d-off:	Array of offset addresses for the available
+				merge 3d blocks. These offsets are calculated
+				from register "mdp_phys" defined in reg property.
 - qcom,sde-intf-off:		Array of offset addresses for the available SDE
 				interface blocks that can drive data to a
 				panel controller. The offsets are calculated
@@ -101,6 +106,7 @@ Optional properties:
 - qcom,sde-dsc-size:		A u32 value indicates the address range for each dsc.
 - qcom,sde-cdm-size:		A u32 value indicates the address range for each cdm.
 - qcom,sde-pp-size:		A u32 value indicates the address range for each pingpong.
+- qcom,sde-merge-3d-size:	A u32 value indicates the address range for each merge 3d.
 - qcom,sde-wb-size:		A u32 value indicates the address range for each writeback.
 - qcom,sde-len:			A u32 entry for SDE address range.
 - qcom,sde-intf-max-prefetch-lines:	Array of u32 values for max prefetch lines on
