@@ -564,6 +564,9 @@ struct mhi_dev {
 	/* iATU is required to map control and data region */
 	bool				config_iatu;
 
+	/* Indicates if mhi init is done */
+	bool				init_done;
+
 	/* MHI state info */
 	enum mhi_ctrl_info		ctrl_info;
 
