@@ -120,10 +120,6 @@
 		qcom,pronto-vddpx-current = <0>;
 	};
 
-	/delete-node/ qcom,csid@1b30000;
-	/delete-node/ qcom,csid@1b30400;
-	/delete-node/ qcom,csid@1b30800;
-
 	/* mem_acc */
 	/delete-node/ regulator@01946004;
 	/* apc vreg */

@@ -15,6 +15,9 @@
 	status = "ok";
 };
 
+#include <dt-bindings/clock/msm-clocks-8952.h>
+#include "qm215-camera-sensor-qrd.dtsi"
+
 &pm8916_chg{
 	status = "ok";
 	qcom,chgr-led-support;
