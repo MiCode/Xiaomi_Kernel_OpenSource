@@ -140,8 +140,8 @@ struct qusb_phy {
 	bool			chirp_disable;
 
 	struct pinctrl		*pinctrl;
-	struct pinctrl_state	*atest_usb13_suspend;
-	struct pinctrl_state	*atest_usb13_active;
+	struct pinctrl_state	*atest_usb_suspend;
+	struct pinctrl_state	*atest_usb_active;
 
 	/* emulation targets specific */
 	void __iomem		*emu_phy_base;
@@ -669,9 +669,9 @@ static enum hrtimer_restart qusb_dis_ext_pulldown_timer(struct hrtimer *timer)
 	struct qusb_phy *qphy = container_of(timer, struct qusb_phy, timer);
 	int ret = 0;
 
-	if (qphy->pinctrl && qphy->atest_usb13_suspend) {
+	if (qphy->pinctrl && qphy->atest_usb_suspend) {
 		ret = pinctrl_select_state(qphy->pinctrl,
-				qphy->atest_usb13_suspend);
+				qphy->atest_usb_suspend);
 		if (ret < 0)
 			dev_err(qphy->phy.dev,
 				"pinctrl state suspend select failed\n");
@@ -687,9 +687,9 @@ static void qusb_phy_enable_ext_pulldown(struct usb_phy *phy)
 
 	dev_dbg(phy->dev, "%s\n", __func__);
 
-	if (qphy->pinctrl && qphy->atest_usb13_active) {
+	if (qphy->pinctrl && qphy->atest_usb_active) {
 		ret = pinctrl_select_state(qphy->pinctrl,
-				qphy->atest_usb13_active);
+				qphy->atest_usb_active);
 		if (ret < 0) {
 			dev_err(phy->dev,
 					"pinctrl state active select failed\n");
@@ -1306,17 +1306,28 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		dev_err(dev, "pinctrl not available\n");
 		goto skip_pinctrl_config;
 	}
-	qphy->atest_usb13_suspend = pinctrl_lookup_state(qphy->pinctrl,
+	qphy->atest_usb_suspend = pinctrl_lookup_state(qphy->pinctrl,
 							"atest_usb13_suspend");
-	if (IS_ERR(qphy->atest_usb13_suspend)) {
-		dev_err(dev, "pinctrl lookup atest_usb13_suspend failed\n");
-		goto skip_pinctrl_config;
+
+	if (IS_ERR(qphy->atest_usb_suspend) &&
+			PTR_ERR(qphy->atest_usb_suspend) == -ENODEV) {
+		qphy->atest_usb_suspend = pinctrl_lookup_state(qphy->pinctrl,
+								"suspend");
+		if (IS_ERR(qphy->atest_usb_suspend)) {
+			dev_err(dev, "pinctrl lookup suspend failed\n");
+			goto skip_pinctrl_config;
+		}
 	}
 
-	qphy->atest_usb13_active = pinctrl_lookup_state(qphy->pinctrl,
+	qphy->atest_usb_active = pinctrl_lookup_state(qphy->pinctrl,
 							"atest_usb13_active");
-	if (IS_ERR(qphy->atest_usb13_active))
-		dev_err(dev, "pinctrl lookup atest_usb13_active failed\n");
+	if (IS_ERR(qphy->atest_usb_active) &&
+			PTR_ERR(qphy->atest_usb_active) == -ENODEV) {
+		qphy->atest_usb_active = pinctrl_lookup_state(qphy->pinctrl,
+							"active");
+		if (IS_ERR(qphy->atest_usb_active))
+			dev_err(dev, "pinctrl lookup active failed\n");
+	}
 
 	hrtimer_init(&qphy->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	qphy->timer.function = qusb_dis_ext_pulldown_timer;
