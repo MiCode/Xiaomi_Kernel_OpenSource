@@ -4427,6 +4427,11 @@ static void ipa3_freeze_clock_vote_and_notify_modem(void)
 	int res;
 	struct ipa_active_client_logging_info log_info;
 
+	if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ) {
+		IPADBG("Ignore smp2p on APQ platform\n");
+		return;
+	}
+
 	if (ipa3_ctx->smp2p_info.res_sent)
 		return;
 
@@ -6720,6 +6725,11 @@ static int ipa3_smp2p_probe(struct device *dev)
 		return -EPROBE_DEFER;
 	}
 	IPADBG("node->name=%s\n", node->name);
+	if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ) {
+		IPADBG("Ignore smp2p on APQ platform\n");
+		return 0;
+	}
+
 	if (strcmp("qcom,smp2p_map_ipa_1_out", node->name) == 0) {
 		if (of_find_property(node, "qcom,smem-states", NULL)) {
 			ipa3_ctx->smp2p_info.smem_state =
