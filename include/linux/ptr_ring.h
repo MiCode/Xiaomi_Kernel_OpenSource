@@ -384,6 +384,8 @@ static inline void **__ptr_ring_swap_queue(struct ptr_ring *r, void **queue,
 		else if (destroy)
 			destroy(ptr);
 
+	if (producer >= size)
+		producer = 0;
 	r->size = size;
 	r->producer = producer;
 	r->consumer = 0;
