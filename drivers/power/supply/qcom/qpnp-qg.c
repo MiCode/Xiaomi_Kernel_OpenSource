@@ -1772,6 +1772,9 @@ static int qg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SOH:
 		pval->intval = chip->soh;
 		break;
+	case POWER_SUPPLY_PROP_CC_SOC:
+		rc = qg_get_cc_soc(chip, &pval->intval);
+		break;
 	default:
 		pr_debug("Unsupported property %d\n", psp);
 		break;
@@ -1822,6 +1825,7 @@ static enum power_supply_property qg_psy_props[] = {
 	POWER_SUPPLY_PROP_ESR_ACTUAL,
 	POWER_SUPPLY_PROP_ESR_NOMINAL,
 	POWER_SUPPLY_PROP_SOH,
+	POWER_SUPPLY_PROP_CC_SOC,
 };
 
 static const struct power_supply_desc qg_psy_desc = {
