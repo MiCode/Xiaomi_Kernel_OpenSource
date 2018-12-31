@@ -1402,6 +1402,9 @@ clk_alpha_pll_postdiv_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 		post_div_mask = AGERA_PLL_POST_DIV_MASK;
 	}
 
+	if (pll->type == LUCID_PLL)
+		user_ctl = LUCID_PLL_OFF_USER_CTL;
+
 	regmap_read(pll->clkr.regmap, pll->offset + user_ctl, &ctl);
 
 	ctl >>= PLL_POST_DIV_SHIFT;
