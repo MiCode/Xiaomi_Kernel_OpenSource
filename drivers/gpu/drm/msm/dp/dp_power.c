@@ -124,7 +124,7 @@ static int dp_power_pinctrl_set(struct dp_power_private *power, bool active)
 	parser = power->parser;
 
 	if (IS_ERR_OR_NULL(parser->pinctrl.pin))
-		return PTR_ERR(parser->pinctrl.pin);
+		return 0;
 
 	if (parser->no_aux_switch && parser->lphw_hpd) {
 		pin_state = active ? parser->pinctrl.state_hpd_ctrl
