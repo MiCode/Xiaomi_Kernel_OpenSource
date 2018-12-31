@@ -76,6 +76,7 @@ struct clk_alpha_pll {
 #define SUPPORTS_SLEW		BIT(4)
 	/* Associated with soft_vote for multiple PLL software instances */
 #define SUPPORTS_FSM_VOTE	BIT(5)
+#define SUPPORTS_NO_SLEW	BIT(6)
 	u8 flags;
 
 	struct clk_regmap clkr;
