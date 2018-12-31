@@ -776,6 +776,12 @@
 		qcom,qsee-reentrancy-support = <2>;
 	};
 
+	qcom_smcinvoke: smcinvoke@90000000{
+		compatible = "qcom,smcinvoke";
+		reg = <0x90000000 0xc00000>;
+		reg-names = "secapp-region";
+	};
+
 	qnand_1: nand@1b00000 {
 		compatible = "qcom,msm-nand";
 		reg =   <0x01b00000 0x1000>,
