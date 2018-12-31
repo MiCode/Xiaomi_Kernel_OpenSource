@@ -103,6 +103,8 @@ struct dp_display_private {
 
 	u32 tot_dsc_blks_in_use;
 
+	bool process_hpd_connect;
+
 	struct notifier_block usb_nb;
 };
 
@@ -110,11 +112,6 @@ static const struct of_device_id dp_dt_match[] = {
 	{.compatible = "qcom,dp-display"},
 	{}
 };
-
-static bool dp_display_framework_ready(struct dp_display_private *dp)
-{
-	return dp->dp_display.post_open ? false : true;
-}
 
 static inline bool dp_display_is_hdcp_enabled(struct dp_display_private *dp)
 {
@@ -502,36 +499,6 @@ static void dp_display_send_hpd_event(struct dp_display_private *dp)
 			envp);
 }
 
-static void dp_display_post_open(struct dp_display *dp_display)
-{
-	struct drm_connector *connector;
-	struct dp_display_private *dp;
-
-	if (!dp_display) {
-		pr_err("invalid input\n");
-		return;
-	}
-
-	dp = container_of(dp_display, struct dp_display_private, dp_display);
-	if (IS_ERR_OR_NULL(dp)) {
-		pr_err("invalid params\n");
-		return;
-	}
-
-	connector = dp->dp_display.base_connector;
-
-	if (!connector) {
-		pr_err("base connector not set\n");
-		return;
-	}
-
-	/* if cable is already connected, send notification */
-	if (dp->hpd->hpd_high)
-		queue_work(dp->wq, &dp->connect_work);
-	else
-		dp_display->post_open = NULL;
-}
-
 static int dp_display_send_hpd_notification(struct dp_display_private *dp)
 {
 	int ret = 0;
@@ -541,6 +508,8 @@ static int dp_display_send_hpd_notification(struct dp_display_private *dp)
 
 	if (!dp->mst.mst_active)
 		dp->dp_display.is_sst_connected = hpd;
+	else
+		dp->dp_display.is_sst_connected = false;
 
 	reinit_completion(&dp->notification_comp);
 	dp_display_send_hpd_event(dp);
@@ -549,9 +518,6 @@ static int dp_display_send_hpd_notification(struct dp_display_private *dp)
 		goto skip_wait;
 
 	if (!dp->mst.mst_active && (dp->power_on == hpd))
-		goto skip_wait;
-
-	if (!dp_display_framework_ready(dp))
 		goto skip_wait;
 
 	if (!wait_for_completion_timeout(&dp->notification_comp,
@@ -650,7 +616,17 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 {
 	int rc = 0;
 
+	mutex_lock(&dp->session_lock);
+
+	if (dp->is_connected) {
+		pr_debug("dp already connected, skipping hpd high\n");
+		mutex_unlock(&dp->session_lock);
+		rc = -EISCONN;
+		goto end;
+	}
+
 	dp->is_connected = true;
+	mutex_unlock(&dp->session_lock);
 
 	dp->dp_display.max_pclk_khz = min(dp->parser->max_pclk_khz,
 					dp->debug->max_pclk_khz);
@@ -671,8 +647,12 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 	 * ETIMEDOUT --> cable may have been removed
 	 * ENOTCONN --> no downstream device connected
 	 */
-	if (rc == -ETIMEDOUT || rc == -ENOTCONN)
+	if (rc == -ETIMEDOUT || rc == -ENOTCONN) {
+		mutex_lock(&dp->session_lock);
+		dp->is_connected = false;
+		mutex_unlock(&dp->session_lock);
 		goto end;
+	}
 
 	dp->link->process_request(dp->link);
 	dp->panel->handle_sink_request(dp->panel);
@@ -683,11 +663,13 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 	rc = dp->ctrl->on(dp->ctrl, dp->mst.mst_active,
 				dp->panel->fec_en, false);
 	if (rc) {
+		dp->is_connected = false;
 		mutex_unlock(&dp->session_lock);
 		goto end;
 	}
 	mutex_unlock(&dp->session_lock);
 
+	dp->process_hpd_connect = false;
 	dp_display_send_hpd_notification(dp);
 end:
 	return rc;
@@ -715,6 +697,7 @@ static int dp_display_process_hpd_low(struct dp_display_private *dp)
 	int rc = 0;
 
 	dp->is_connected = false;
+	dp->process_hpd_connect = false;
 
 	dp_display_process_mst_hpd_low(dp);
 
@@ -760,6 +743,9 @@ static int dp_display_usbpd_configure_cb(struct device *dev)
 	/* check for hpd high */
 	if (dp->hpd->hpd_high)
 		queue_work(dp->wq, &dp->connect_work);
+	else
+		dp->process_hpd_connect = true;
+
 end:
 	return rc;
 }
@@ -878,18 +864,10 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 		goto end;
 	}
 
-	/*
-	 * In case cable/dongle is disconnected during adb shell stop,
-	 * reset psm_enabled flag to false since it is no more needed
-	 */
-	if (dp->dp_display.post_open)
-		dp->debug->psm_enabled = false;
-
 	if (dp->debug->psm_enabled)
 		dp->link->psm_config(dp->link, &dp->panel->link_info, true);
 
 	dp_display_disconnect_sync(dp);
-	dp->dp_display.post_open = NULL;
 
 	if (!dp->debug->sim_mode && !dp->parser->no_aux_switch
 	    && !dp->parser->gpio_aux_switch)
@@ -997,16 +975,16 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 		return -ENODEV;
 	}
 
-	pr_debug("hpd_irq:%d, hpd_high:%d, power_on:%d\n",
+	pr_debug("hpd_irq:%d, hpd_high:%d, power_on:%d, is_connected:%d\n",
 			dp->hpd->hpd_irq, dp->hpd->hpd_high,
-			dp->power_on);
+			dp->power_on, dp->is_connected);
 
 	if (!dp->hpd->hpd_high)
 		dp_display_disconnect_sync(dp);
 	else if ((dp->hpd->hpd_irq && dp->core_initialized) ||
 			dp->debug->mst_hpd_sim)
 		queue_work(dp->wq, &dp->attention_work);
-	else if (!dp->power_on)
+	else if (dp->process_hpd_connect || !dp->is_connected)
 		queue_work(dp->wq, &dp->connect_work);
 	else
 		pr_debug("ignored\n");
@@ -1539,8 +1517,6 @@ static int dp_display_post_enable(struct dp_display *dp_display, void *panel)
 	cancel_delayed_work_sync(&dp->hdcp_cb_work);
 	queue_delayed_work(dp->wq, &dp->hdcp_cb_work, HZ);
 end:
-	/* clear framework event notifier */
-	dp_display->post_open = NULL;
 	dp->aux->state |= DP_STATE_CTRL_POWERED_ON;
 
 	complete_all(&dp->notification_comp);
@@ -1688,14 +1664,6 @@ static int dp_display_unprepare(struct dp_display *dp_display, void *panel)
 	if (flags & DP_PANEL_SRC_INITIATED_POWER_DOWN) {
 		dp->link->psm_config(dp->link, &dp->panel->link_info, true);
 		dp->debug->psm_enabled = true;
-
-		/*
-		 * In case of framework reboot, the DP off sequence is executed
-		 * without any notification from driver. Initialize post_open
-		 * callback to notify DP connection once framework restarts.
-		 */
-		dp_display->post_open = dp_display_post_open;
-		dp->dp_display.is_sst_connected = false;
 
 		dp->ctrl->off(dp->ctrl);
 		dp_display_host_deinit(dp);
@@ -2332,7 +2300,7 @@ static int dp_display_probe(struct platform_device *pdev)
 	g_dp_display->unprepare     = dp_display_unprepare;
 	g_dp_display->request_irq   = dp_request_irq;
 	g_dp_display->get_debug     = dp_get_debug;
-	g_dp_display->post_open     = dp_display_post_open;
+	g_dp_display->post_open     = NULL;
 	g_dp_display->post_init     = dp_display_post_init;
 	g_dp_display->config_hdr    = dp_display_config_hdr;
 	g_dp_display->mst_install   = dp_display_mst_install;
