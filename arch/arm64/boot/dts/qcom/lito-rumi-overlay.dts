@@ -12,6 +12,6 @@
 / {
 	model = "RUMI";
 	compatible = "qcom,lito-rumi", "qcom,lito", "qcom,rumi";
-	qcom,msm-id = <777 0x0>;
+	qcom,msm-id = <400 0x10000>;
 	qcom,board-id = <15 0>;
 };
