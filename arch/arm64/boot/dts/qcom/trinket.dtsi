@@ -433,31 +433,31 @@
 		pil_cdsp_mem: cdsp_regions@53500000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x53500000 0 0x800000>;
+			reg = <0 0x53500000 0 0x1e00000>;
 		};
 
-		pil_adsp_mem: pil_adsp_region@53d00000 {
+		pil_adsp_mem: pil_adsp_region@55300000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x53d00000 0 0x1e00000>;
+			reg = <0 0x55300000 0 0x1e00000>;
 		};
 
-		pil_ipa_fw_mem: ips_fw_region@55b00000 {
+		pil_ipa_fw_mem: ips_fw_region@57100000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x55b00000 0 0x10000>;
+			reg = <0 0x57100000 0 0x10000>;
 		};
 
-		pil_ipa_gsi_mem: ipa_gsi_region@55b10000 {
+		pil_ipa_gsi_mem: ipa_gsi_region@57110000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x55b10000 0 0x5000>;
+			reg = <0 0x57110000 0 0x5000>;
 		};
 
-		pil_gpu_mem: gpu_region@55b15000 {
+		pil_gpu_mem: gpu_region@57115000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x55b15000 0 0x2000>;
+			reg = <0 0x57115000 0 0x2000>;
 		};
 
 		qseecom_mem: qseecom_region@5e400000 {
