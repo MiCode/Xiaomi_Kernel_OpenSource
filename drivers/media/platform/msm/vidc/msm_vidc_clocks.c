@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -184,13 +184,17 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 	hdev = core->device;
 
 	mutex_lock(&core->lock);
-	vote_data = core->vote_data;
+	list_for_each_entry(inst, &core->instances, list)
+		++vote_data_count;
+
+	vote_data = kcalloc(vote_data_count, sizeof(*vote_data),
+			GFP_TEMPORARY);
+	vote_data_count = 0;
 	if (!vote_data) {
-		dprintk(VIDC_PROF,
-			"Failed to get vote_data for inst %pK\n",
-				inst);
+		dprintk(VIDC_ERR, "%s: failed to allocate memory\n", __func__);
 		mutex_unlock(&core->lock);
-		return -EINVAL;
+		rc = -ENOMEM;
+		return rc;
 	}
 
 	list_for_each_entry(inst, &core->instances, list) {
@@ -303,6 +307,7 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 		rc = call_hfi_op(hdev, vote_bus, hdev->hfi_device_data,
 			vote_data, vote_data_count);
 
+	kfree(vote_data);
 	return rc;
 }
 
