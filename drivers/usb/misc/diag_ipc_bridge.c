@@ -300,6 +300,8 @@ int diag_bridge_read(int id, char *data, int size)
 		pr_err_ratelimited("submitting urb failed err:%d", ret);
 		dev->pending_reads--;
 		usb_unanchor_urb(urb);
+		usb_autopm_put_interface(dev->ifc);
+		goto free_error;
 	}
 
 	if (id == IPC_BRIDGE) {
@@ -307,13 +309,15 @@ int diag_bridge_read(int id, char *data, int size)
 		ret = dev->read_result;
 	}
 
-	usb_autopm_put_interface(dev->ifc);
+	usb_free_urb(urb);
+	mutex_unlock(&dev->read_mutex);
+	return ret;
 
 free_error:
 	usb_free_urb(urb);
 put_error:
-	if (ret < 0) /* otherwise this is done in the completion handler */
-		kref_put(&dev->kref, diag_bridge_delete);
+	/* If URB submit successful, this is done in the completion handler */
+	kref_put(&dev->kref, diag_bridge_delete);
 error:
 	mutex_unlock(&dev->read_mutex);
 	return ret;
@@ -449,11 +453,15 @@ int diag_bridge_write(int id, char *data, int size)
 		ret = dev->write_result;
 	}
 
+	usb_free_urb(urb);
+	mutex_unlock(&dev->write_mutex);
+	return ret;
+
 free_error:
 	usb_free_urb(urb);
 put_error:
-	if (ret < 0) /* otherwise this is done in the completion handler */
-		kref_put(&dev->kref, diag_bridge_delete);
+	/* If URB submit successful, this is done in the completion handler */
+	kref_put(&dev->kref, diag_bridge_delete);
 error:
 	mutex_unlock(&dev->write_mutex);
 	return ret;
