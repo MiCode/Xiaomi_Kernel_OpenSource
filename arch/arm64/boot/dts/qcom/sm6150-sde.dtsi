@@ -531,11 +531,14 @@
 		qcom,usbplug-cc-gpio = <&tlmm 104 0>;
 
 		pinctrl-names = "mdss_dp_active", "mdss_dp_sleep",
-						"mdss_dp_hpd_active";
+				"mdss_dp_hpd_active", "mdss_dp_hpd_tlmm",
+				"mdss_dp_hpd_ctrl";
 		pinctrl-0 = <&sde_dp_usbplug_cc_active &sde_dp_switch_active>;
 		pinctrl-1 = <&sde_dp_usbplug_cc_suspend &sde_dp_switch_suspend>;
 		pinctrl-2 = <&sde_dp_connector_enable &sde_dp_switch_suspend
-						&sde_dp_hotplug_enable>;
+						&sde_dp_hotplug_tlmm>;
+		pinctrl-3 = <&sde_dp_hotplug_tlmm>;
+		pinctrl-4 = <&sde_dp_hotplug_ctrl>;
 
 		qcom,ctrl-supply-entries {
 			#address-cells = <1>;
@@ -547,20 +550,6 @@
 				qcom,supply-min-voltage = <1232000>;
 				qcom,supply-max-voltage = <1232000>;
 				qcom,supply-enable-load = <21800>;
-				qcom,supply-disable-load = <0>;
-			};
-		};
-
-		qcom,phy-supply-entries {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			qcom,phy-supply-entry@0 {
-				reg = <0>;
-				qcom,supply-name = "vdda-0p9";
-				qcom,supply-min-voltage = <880000>;
-				qcom,supply-max-voltage = <975000>;
-				qcom,supply-enable-load = <36000>;
 				qcom,supply-disable-load = <0>;
 			};
 		};

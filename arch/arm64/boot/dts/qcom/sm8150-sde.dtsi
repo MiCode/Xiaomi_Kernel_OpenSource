@@ -644,6 +644,8 @@
 		qcom,mst-enable;
 		qcom,dsc-feature-enable;
 		qcom,fec-feature-enable;
+		qcom,max-dp-dsc-blks = <2>;
+		qcom,max-dp-dsc-input-width-pixs = <2048>;
 
 		qcom,ctrl-supply-entries {
 			#address-cells = <1>;
