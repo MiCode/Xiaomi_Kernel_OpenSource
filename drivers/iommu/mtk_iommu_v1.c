@@ -656,7 +656,7 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 	return component_master_add_with_match(dev, &mtk_iommu_com_ops, match);
 }
 
-static int mtk_iommu_remove(struct platform_device *pdev)
+static void mtk_iommu_shutdown(struct platform_device *pdev)
 {
 	struct mtk_iommu_data *data = platform_get_drvdata(pdev);
 
@@ -669,12 +669,6 @@ static int mtk_iommu_remove(struct platform_device *pdev)
 	clk_disable_unprepare(data->bclk);
 	devm_free_irq(&pdev->dev, data->irq, data);
 	component_master_del(&pdev->dev, &mtk_iommu_com_ops);
-	return 0;
-}
-
-static void mtk_iommu_shutdown(struct platform_device *pdev)
-{
-	mtk_iommu_remove(pdev);
 }
 
 static int __maybe_unused mtk_iommu_suspend(struct device *dev)
@@ -713,7 +707,6 @@ static const struct dev_pm_ops mtk_iommu_pm_ops = {
 
 static struct platform_driver mtk_iommu_driver = {
 	.probe	= mtk_iommu_probe,
-	.remove	= mtk_iommu_remove,
 	.shutdown = mtk_iommu_shutdown,
 	.driver	= {
 		.name = "mtk-iommu-v1",
@@ -721,19 +714,7 @@ static struct platform_driver mtk_iommu_driver = {
 		.pm = &mtk_iommu_pm_ops,
 	}
 };
-
-static int __init m4u_init(void)
-{
-	return platform_driver_register(&mtk_iommu_driver);
-}
-
-static void __exit m4u_exit(void)
-{
-	return platform_driver_unregister(&mtk_iommu_driver);
-}
-
-subsys_initcall(m4u_init);
-module_exit(m4u_exit);
+builtin_platform_driver(mtk_iommu_driver);
 
 MODULE_DESCRIPTION("IOMMU API for MTK architected m4u v1 implementations");
 MODULE_AUTHOR("Honghui Zhang <honghui.zhang@mediatek.com>");
