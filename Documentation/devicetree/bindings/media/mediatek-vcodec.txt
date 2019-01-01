@@ -9,7 +9,6 @@ Required properties:
 - reg : Physical base address of the video codec registers and length of
   memory mapped region.
 - interrupts : interrupt number to the cpu.
-- mediatek,larb : must contain the local arbiters in the current Socs.
 - clocks : list of clock specifiers, corresponding to entries in
   the clock-names property.
 - clock-names: encoder must contain "venc_sel_src", "venc_sel",,
@@ -39,7 +38,6 @@ vcodec_dec: vcodec@16000000 {
           <0 0x16027800 0 0x800>,   /*VP8_VL*/
           <0 0x16028400 0 0x400>;   /*VP9_VD*/
     interrupts = <GIC_SPI 204 IRQ_TYPE_LEVEL_LOW>;
-    mediatek,larb = <&larb1>;
     iommus = <&iommu M4U_PORT_HW_VDEC_MC_EXT>,
              <&iommu M4U_PORT_HW_VDEC_PP_EXT>,
              <&iommu M4U_PORT_HW_VDEC_AVC_MV_EXT>,
@@ -74,8 +72,6 @@ vcodec_dec: vcodec@16000000 {
           <0 0x19002000 0 0x1000>;    /*VENC_LT_SYS*/
     interrupts = <GIC_SPI 198 IRQ_TYPE_LEVEL_LOW>,
 		 <GIC_SPI 202 IRQ_TYPE_LEVEL_LOW>;
-    mediatek,larb = <&larb3>,
-		    <&larb5>;
     iommus = <&iommu M4U_PORT_VENC_RCPU>,
              <&iommu M4U_PORT_VENC_REC>,
              <&iommu M4U_PORT_VENC_BSDMA>,
