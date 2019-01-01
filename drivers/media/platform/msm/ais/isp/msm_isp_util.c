@@ -24,7 +24,6 @@
 #define CREATE_TRACE_POINTS
 #include "trace/events/msm_cam.h"
 #include "sensor/cci/msm_early_cam.h"
-#include <soc/qcom/early_domain.h>
 
 #define MAX_ISP_V4l2_EVENTS 100
 #define MAX_ISP_REG_LIST 100
@@ -2293,8 +2292,6 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	vfe_dev->isp_raw2_debug = 0;
 
 	/* Postpone hardware changes until early camera is complete */
-	/* Signal LK early camera that Kernel started running AIS */
-	request_early_service_shutdown(EARLY_CAMERA);
 	msm_early_camera_wait();
 
 	if (vfe_dev->hw_info->vfe_ops.core_ops.init_hw(vfe_dev) < 0) {
