@@ -270,6 +270,7 @@ static void mtk_iommu_config(struct mtk_iommu_data *data,
 	struct mtk_smi_larb_iommu    *larb_mmu;
 	unsigned int                 larbid, portid;
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
+	struct device_link *link;
 	int i;
 
 	for (i = 0; i < fwspec->num_ids; ++i) {
@@ -280,10 +281,20 @@ static void mtk_iommu_config(struct mtk_iommu_data *data,
 		dev_dbg(dev, "%s iommu port: %d\n",
 			enable ? "enable" : "disable", portid);
 
-		if (enable)
+		if (enable) {
 			larb_mmu->mmu |= MTK_SMI_MMU_EN(portid);
-		else
+			/* Link the consumer with the larb device(supplier) */
+			link = device_link_add(dev, larb_mmu->dev,
+					       DL_FLAG_PM_RUNTIME |
+					       DL_FLAG_AUTOREMOVE_CONSUMER);
+			if (!link) {
+				dev_err(dev, "Unable to link %s\n",
+					dev_name(larb_mmu->dev));
+				return;
+			}
+		} else {
 			larb_mmu->mmu &= ~MTK_SMI_MMU_EN(portid);
+		}
 	}
 }
 
