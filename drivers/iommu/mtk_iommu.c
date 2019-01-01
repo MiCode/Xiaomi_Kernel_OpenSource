@@ -670,7 +670,7 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 			id = i;
 
 		plarbdev = of_find_device_by_node(larbnode);
-		if (!plarbdev)
+		if (!plarbdev || !plarbdev->dev.driver)
 			return -EPROBE_DEFER;
 		data->smi_imu.larb_imu[id].dev = &plarbdev->dev;
 
