@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -757,7 +757,7 @@ static ssize_t dp_debug_write_exe_mode(struct file *file,
 		const char __user *user_buff, size_t count, loff_t *ppos)
 {
 	struct dp_debug_private *debug = file->private_data;
-	char *buf;
+	char buf[SZ_32];
 	size_t len = 0;
 
 	if (!debug)
@@ -767,7 +767,9 @@ static ssize_t dp_debug_write_exe_mode(struct file *file,
 		return 0;
 
 	len = min_t(size_t, count, SZ_32 - 1);
-	buf = memdup_user(user_buff, len);
+	if (copy_from_user(buf, user_buff, len))
+		goto end;
+
 	buf[len] = '\0';
 
 	if (sscanf(buf, "%3s", debug->exe_mode) != 1)
