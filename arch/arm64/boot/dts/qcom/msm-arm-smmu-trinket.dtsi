@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,7 +14,7 @@
 
 &soc {
 	kgsl_smmu: kgsl-smmu@0x59a0000 {
-		status = "disabled";
+		status = "okay";
 		compatible = "qcom,qsmmu-v500";
 		reg = <0x59a0000 0x10000>,
 			<0x59c2000 0x20>;
@@ -47,7 +47,7 @@
 	};
 
 	apps_smmu: apps-smmu@0xc600000 {
-		status = "disabled";
+		status = "okay";
 		compatible = "qcom,qsmmu-v500";
 		reg = <0xc600000 0x80000>,
 			<0xc782000 0x20>;
@@ -156,5 +156,15 @@
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0xc00 0x400>;
 		};
+	};
+
+	kgsl_iommu_test_device {
+		compatible = "iommu-debug-test";
+		iommus = <&kgsl_smmu 0x7 0>;
+	};
+
+	apps_iommu_test_device {
+		compatible = "iommu-debug-test";
+		iommus = <&apps_smmu 0x21 0>;
 	};
 };
