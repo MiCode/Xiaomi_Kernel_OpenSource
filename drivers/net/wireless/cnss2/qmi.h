@@ -8,14 +8,29 @@
 
 struct cnss_plat_data;
 
-#ifdef CONFIG_CNSS2_QMI
-#include "wlan_firmware_service_v01.h"
-#include "coexistence_service_v01.h"
-
 struct cnss_qmi_event_server_arrive_data {
 	unsigned int node;
 	unsigned int port;
 };
+
+#define QDSS_TRACE_SEG_LEN_MAX 32
+#define QDSS_TRACE_FILE_NAME_MAX 16
+
+struct cnss_mem_seg {
+	u64 addr;
+	u32 size;
+};
+
+struct cnss_qmi_event_qdss_trace_save_data {
+	u32 total_size;
+	u32 mem_seg_len;
+	struct cnss_mem_seg mem_seg[QDSS_TRACE_SEG_LEN_MAX];
+	char file_name[QDSS_TRACE_FILE_NAME_MAX + 1];
+};
+
+#ifdef CONFIG_CNSS2_QMI
+#include "wlan_firmware_service_v01.h"
+#include "coexistence_service_v01.h"
 
 int cnss_qmi_init(struct cnss_plat_data *plat_priv);
 void cnss_qmi_deinit(struct cnss_plat_data *plat_priv);
@@ -46,7 +61,7 @@ int cnss_register_coex_service(struct cnss_plat_data *plat_priv);
 void cnss_unregister_coex_service(struct cnss_plat_data *plat_priv);
 int coex_antenna_switch_to_wlan_send_sync_msg(struct cnss_plat_data *plat_priv);
 int coex_antenna_switch_to_mdm_send_sync_msg(struct cnss_plat_data *plat_priv);
-
+int cnss_wlfw_qdss_trace_mem_info_send_sync(struct cnss_plat_data *plat_priv);
 #else
 #define QMI_WLFW_TIMEOUT_MS		10000
 
@@ -165,6 +180,9 @@ int coex_antenna_switch_to_wlan_send_sync_msg(struct cnss_plat_data *plat_priv)
 
 static inline
 int coex_antenna_switch_to_mdm_send_sync_msg(struct cnss_plat_data *plat_priv)
+
+static inline
+int cnss_wlfw_qdss_trace_mem_info_send_sync(struct cnss_plat_data *plat_priv)
 {
 	return 0;
 }
