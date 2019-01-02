@@ -135,6 +135,7 @@
 	msm_digital_codec: msm-dig-codec@771c000 {
 		compatible = "qcom,msm-digital-codec";
 		reg = <0x0771c000 0x0>;
+		qcom,no-analog-codec;
 
 		cdc-vdd-digital-supply = <&pm660_l11>;
 		qcom,cdc-vdd-digital-voltage = <1800000 1800000>;
@@ -173,6 +174,20 @@
 				qcom,supply-disable-load = <100>;
 			};
 		};
+	};
+
+	cdc_dmic_gpios: cdc_dmic_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_dmic0_clk_act &cdc_dmic0_data_act>;
+		pinctrl-1 = <&cdc_dmic0_clk_sus &cdc_dmic0_data_sus>;
+	};
+
+	cdc_quat_mi2s_gpios: msm_cdc_pinctrl_quat {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&quat_mi2s_active &quat_mi2s_din_active>;
+		pinctrl-1 = <&quat_mi2s_sleep &quat_mi2s_din_sleep>;
 	};
 };
 
@@ -339,10 +354,12 @@
 	qcom,split-a2dp;
 	qcom,audio-routing =
 		"CDC_CONN", "MCLK",
-		"QUAT_MI2S_RX", "DIGIT_REGULATOR",
-		"TX_I2S_CLK", "DIGIT_REGULATOR",
+		"QUAT_MI2S_RX", "DIGITAL_REGULATOR",
+		"TX_I2S_CLK", "DIGITAL_REGULATOR",
 		"DMIC1", "Digital Mic1",
 		"DMIC2", "Digital Mic2";
+	qcom,cdc-dmic-gpios = <&cdc_dmic_gpios>;
+	qcom,quat-mi2s-gpios = <&cdc_quat_mi2s_gpios>;
 	qcom,msm-gpios =
 		"quat_i2s",
 		"dmic";
