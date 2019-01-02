@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -79,7 +79,7 @@ static int msm_smmu_attach(struct msm_mmu *mmu, const char * const *names,
 	if (client->domain_attached)
 		return 0;
 
-	rc = arm_iommu_attach_device(client->dev,
+	rc = __depr_arm_iommu_attach_device(client->dev,
 			client->mmu_mapping);
 	if (rc) {
 		dev_err(client->dev, "iommu attach dev failed (%d)\n",
@@ -109,7 +109,7 @@ static void msm_smmu_detach(struct msm_mmu *mmu, const char * const *names,
 		return;
 
 	pm_runtime_get_sync(mmu->dev);
-	arm_iommu_detach_device(client->dev);
+	__depr_arm_iommu_detach_device(client->dev);
 	pm_runtime_put_sync(mmu->dev);
 
 	client->domain_attached = false;
@@ -467,8 +467,8 @@ static int _msm_smmu_create_mapping(struct msm_smmu_client *client,
 	int rc;
 	int mdphtw_llc_enable = 1;
 
-	client->mmu_mapping = arm_iommu_create_mapping(&platform_bus_type,
-			domain->va_start, domain->va_size);
+	client->mmu_mapping = __depr_arm_iommu_create_mapping(
+			&platform_bus_type, domain->va_start, domain->va_size);
 	if (IS_ERR(client->mmu_mapping)) {
 		dev_err(client->dev,
 			"iommu create mapping failed for domain=%s\n",
@@ -513,7 +513,7 @@ static int _msm_smmu_create_mapping(struct msm_smmu_client *client,
 	return 0;
 
 error:
-	arm_iommu_release_mapping(client->mmu_mapping);
+	__depr_arm_iommu_release_mapping(client->mmu_mapping);
 	return rc;
 }
 
@@ -565,10 +565,10 @@ static int msm_smmu_remove(struct platform_device *pdev)
 
 	client = platform_get_drvdata(pdev);
 	if (client->domain_attached) {
-		arm_iommu_detach_device(client->dev);
+		__depr_arm_iommu_detach_device(client->dev);
 		client->domain_attached = false;
 	}
-	arm_iommu_release_mapping(client->mmu_mapping);
+	__depr_arm_iommu_release_mapping(client->mmu_mapping);
 
 	return 0;
 }
