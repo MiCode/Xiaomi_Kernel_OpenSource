@@ -1007,20 +1007,6 @@ struct ipa3_rx_pkt_wrapper {
 };
 
 /**
- * struct ipa_pdn_entry - IPA PDN config table entry
- * @public_ip: the PDN's public ip
- * @src_metadata: the PDN's metadata to be replaced for source NAT
- * @dst_metadata: the PDN's metadata to be replaced for destination NAT
- * @resrvd: reserved field
- */
-struct ipa_pdn_entry {
-	u32 public_ip;
-	u32 src_metadata;
-	u32 dst_metadata;
-	u32 resrvd;
-};
-
-/**
  * struct ipa3_nat_ipv6ct_tmp_mem - NAT/IPv6CT temporary memory
  *
  * In case NAT/IPv6CT table are destroyed the HW is provided with the
@@ -2495,7 +2481,6 @@ int ipa3_uc_interface_init(void);
 int ipa3_uc_is_gsi_channel_empty(enum ipa_client_type ipa_client);
 int ipa3_uc_state_check(void);
 int ipa3_uc_loaded_check(void);
-void ipa3_uc_load_notify(void);
 int ipa3_uc_send_cmd(u32 cmd, u32 opcode, u32 expected_status,
 		    bool polling_mode, unsigned long timeout_jiffies);
 void ipa3_uc_register_handlers(enum ipa3_hw_features feature,
@@ -2526,7 +2511,6 @@ int ipa3_uc_send_remote_ipa_info(u32 remote_addr, uint32_t mbox_n);
 void ipa3_tag_destroy_imm(void *user1, int user2);
 const struct ipa_gsi_ep_config *ipa3_get_gsi_ep_info
 	(enum ipa_client_type client);
-void ipa3_uc_rg10_write_reg(enum ipahal_reg_name reg, u32 n, u32 val);
 
 /* Hardware stats */
 
