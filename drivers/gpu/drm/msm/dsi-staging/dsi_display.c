@@ -3550,6 +3550,14 @@ static int dsi_display_res_init(struct dsi_display *display)
 				display->parser_node,
 				display->display_type,
 				display->cmdline_topology);
+
+	display_for_each_ctrl(i, display) {
+		struct msm_dsi_phy *phy = display->ctrl[i].phy;
+
+		phy->cfg.force_clk_lane_hs =
+			display->panel->host_config.force_hs_clk_lane;
+	}
+
 	if (IS_ERR_OR_NULL(display->panel)) {
 		rc = PTR_ERR(display->panel);
 		pr_err("failed to get panel, rc=%d\n", rc);
