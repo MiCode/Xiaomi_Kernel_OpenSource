@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -123,6 +123,7 @@ struct dp_mst_private {
 	struct dp_mst_sim_mode simulator;
 	struct mutex mst_lock;
 	enum dp_drv_state state;
+	bool mst_session_state;
 };
 
 struct dp_mst_encoder_info_cache {
@@ -1473,6 +1474,10 @@ static void dp_mst_display_hpd(void *dp_display, bool hpd_status,
 	struct dp_display *dp = dp_display;
 	struct dp_mst_private *mst = dp->dp_mst_prv_info;
 
+	mutex_lock(&mst->mst_lock);
+	mst->mst_session_state = hpd_status;
+	mutex_unlock(&mst->mst_lock);
+
 	if (!hpd_status)
 		rc = mst->mst_fw_cbs->topology_mgr_set_mst(&mst->mst_mgr,
 				hpd_status);
@@ -1508,6 +1513,11 @@ static void dp_mst_display_hpd_irq(void *dp_display,
 
 	if (info->mst_hpd_sim) {
 		dp_mst_hotplug(&mst->mst_mgr);
+		return;
+	}
+
+	if (!mst->mst_session_state) {
+		pr_err("mst_hpd_irq received before mst session start\n");
 		return;
 	}
 
