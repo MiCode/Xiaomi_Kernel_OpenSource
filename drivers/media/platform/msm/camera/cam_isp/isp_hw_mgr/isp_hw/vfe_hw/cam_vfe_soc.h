@@ -11,6 +11,12 @@
 
 #define CAM_VFE_DSP_CLK_NAME "ife_dsp_clk"
 
+enum cam_cpas_handle_id {
+	CAM_CPAS_HANDLE_CAMIF,
+	CAM_CPAS_HANDLE_RAW,
+	CAM_CPAS_HANDLE_MAX,
+};
+
 /*
  * struct cam_vfe_soc_private:
  *
@@ -19,9 +25,11 @@
  * @cpas_handle:             Handle returned on registering with CPAS driver.
  *                           This handle is used for all further interface
  *                           with CPAS.
+ * @cpas_version:            Has cpas version read from Hardware
  */
 struct cam_vfe_soc_private {
-	uint32_t    cpas_handle;
+	uint32_t    cpas_handle[CAM_CPAS_HANDLE_MAX];
+	uint32_t    cpas_version;
 	struct clk *dsp_clk;
 	int32_t     dsp_clk_index;
 	int32_t     dsp_clk_rate;

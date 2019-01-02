@@ -43,6 +43,7 @@ static int cam_jpeg_mgr_process_cmd(void *priv, void *data);
 static int cam_jpeg_mgr_process_irq(void *priv, void *data)
 {
 	int rc = 0;
+	int mem_hdl = 0;
 	struct cam_jpeg_process_irq_work_data_t *task_data;
 	struct cam_jpeg_hw_mgr *hw_mgr;
 	int32_t i;
@@ -138,9 +139,9 @@ static int cam_jpeg_mgr_process_irq(void *priv, void *data)
 		return rc;
 	}
 
-	rc = cam_mem_get_cpu_buf(
-		p_cfg_req->hw_cfg_args.hw_update_entries[CAM_JPEG_PARAM].handle,
-		&kaddr, &cmd_buf_len);
+	mem_hdl =
+		p_cfg_req->hw_cfg_args.hw_update_entries[CAM_JPEG_PARAM].handle;
+	rc = cam_mem_get_cpu_buf(mem_hdl, &kaddr, &cmd_buf_len);
 	if (rc) {
 		CAM_ERR(CAM_JPEG, "unable to get info for cmd buf: %x %d",
 			hw_mgr->iommu_hdl, rc);
@@ -171,6 +172,9 @@ static int cam_jpeg_mgr_process_irq(void *priv, void *data)
 
 	list_add_tail(&p_cfg_req->list, &hw_mgr->free_req_list);
 
+	if (cam_mem_put_cpu_buf(mem_hdl))
+		CAM_WARN(CAM_JPEG, "unable to put info for cmd buf: 0x%x",
+			mem_hdl);
 	return rc;
 }
 
@@ -251,7 +255,7 @@ static int cam_jpeg_insert_cdm_change_base(
 	struct cam_jpeg_hw_ctx_data *ctx_data,
 	struct cam_jpeg_hw_mgr *hw_mgr)
 {
-	int rc;
+	int rc = 0;
 	uint32_t dev_type;
 	struct cam_cdm_bl_request *cdm_cmd;
 	uint32_t size;
@@ -453,13 +457,13 @@ static int cam_jpeg_mgr_process_cmd(void *priv, void *data)
 		hw_mgr->cdm_info[dev_type][0].cdm_handle, cdm_cmd);
 	if (rc) {
 		CAM_ERR(CAM_JPEG, "Failed to apply the configs %d", rc);
-		goto end_callcb;
+		goto rel_cpu_buf;
 	}
 
 	if (!hw_mgr->devices[dev_type][0]->hw_ops.start) {
 		CAM_ERR(CAM_JPEG, "op start null ");
 		rc = -EINVAL;
-		goto end_callcb;
+		goto rel_cpu_buf;
 	}
 	rc = hw_mgr->devices[dev_type][0]->hw_ops.start(
 		hw_mgr->devices[dev_type][0]->hw_priv,
@@ -467,12 +471,22 @@ static int cam_jpeg_mgr_process_cmd(void *priv, void *data)
 	if (rc) {
 		CAM_ERR(CAM_JPEG, "Failed to start hw %d",
 			rc);
-		goto end_callcb;
+		goto rel_cpu_buf;
 	}
+
+	if (cam_mem_put_cpu_buf(
+		config_args->hw_update_entries[CAM_JPEG_CHBASE].handle))
+		CAM_WARN(CAM_JPEG, "unable to put info for cmd buf: 0x%x",
+			config_args->hw_update_entries[CAM_JPEG_CHBASE].handle);
 
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 	return rc;
 
+rel_cpu_buf:
+	if (cam_mem_put_cpu_buf(
+		config_args->hw_update_entries[CAM_JPEG_CHBASE].handle))
+		CAM_WARN(CAM_JPEG, "unable to put info for cmd buf: 0x%x",
+			config_args->hw_update_entries[CAM_JPEG_CHBASE].handle);
 end_callcb:
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 	if (p_cfg_req) {
@@ -487,7 +501,6 @@ end_callcb:
 			(uintptr_t)p_cfg_req->hw_cfg_args.priv;
 		ctx_data->ctxt_event_cb(ctx_data->context_priv, 0, &buf_data);
 	}
-
 end_unusedev:
 	mutex_lock(&hw_mgr->hw_mgr_mutex);
 	hw_mgr->device_in_use[p_cfg_req->dev_type][0] = false;

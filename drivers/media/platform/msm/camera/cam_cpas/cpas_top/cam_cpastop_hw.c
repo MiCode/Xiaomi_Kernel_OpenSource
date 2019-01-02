@@ -17,6 +17,7 @@
 #include "cpastop_v170_110.h"
 #include "cpastop_v175_100.h"
 #include "cpastop_v175_101.h"
+#include "cpastop_v175_120.h"
 
 struct cam_camnoc_info *camnoc_info;
 
@@ -98,6 +99,10 @@ static int cam_cpastop_get_hw_info(struct cam_hw_info *cpas_hw,
 			(hw_caps->cpas_version.minor == 0) &&
 			(hw_caps->cpas_version.incr == 1))
 			soc_info->hw_version = CAM_CPAS_TITAN_175_V101;
+		else if ((hw_caps->cpas_version.major == 1) &&
+			(hw_caps->cpas_version.minor == 2) &&
+			(hw_caps->cpas_version.incr == 0))
+			soc_info->hw_version = CAM_CPAS_TITAN_175_V120;
 	} else if ((hw_caps->camera_version.major == 1) &&
 		(hw_caps->camera_version.minor == 5) &&
 		(hw_caps->camera_version.incr == 0)) {
@@ -493,8 +498,6 @@ static int cam_cpastop_poweron(struct cam_hw_info *cpas_hw)
 {
 	int i;
 
-	cam_cpastop_reset_irq(cpas_hw);
-
 	for (i = 0; i < camnoc_info->specific_size; i++) {
 		if (camnoc_info->specific[i].enable) {
 			cam_cpas_util_reg_update(cpas_hw, CAM_CPAS_REG_CAMNOC,
@@ -579,6 +582,9 @@ static int cam_cpastop_init_hw_version(struct cam_hw_info *cpas_hw,
 		break;
 	case CAM_CPAS_TITAN_175_V101:
 		camnoc_info = &cam175_cpas101_camnoc_info;
+		break;
+	case CAM_CPAS_TITAN_175_V120:
+		camnoc_info = &cam175_cpas120_camnoc_info;
 		break;
 	case CAM_CPAS_TITAN_150_V100:
 		camnoc_info = &cam150_cpas100_camnoc_info;
