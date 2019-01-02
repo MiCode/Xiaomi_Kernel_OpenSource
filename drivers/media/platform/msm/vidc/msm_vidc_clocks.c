@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -114,7 +114,9 @@ static int fill_dynamic_stats(struct msm_vidc_inst *inst,
 {
 	struct recon_buf *binfo, *nextb;
 	struct vidc_input_cr_data *temp, *next;
-	u32 max_cr = 0, max_cf = 0, max_input_cr = 0;
+	u32 max_cr = MSM_VIDC_MIN_UBWC_COMPRESSION_RATIO;
+	u32 max_cf = MSM_VIDC_MIN_UBWC_COMPLEXITY_FACTOR;
+	u32 max_input_cr = MSM_VIDC_MIN_UBWC_COMPRESSION_RATIO;
 	u32 min_cr = MSM_VIDC_MAX_UBWC_COMPRESSION_RATIO;
 	u32 min_input_cr = MSM_VIDC_MAX_UBWC_COMPRESSION_RATIO;
 	u32 min_cf = MSM_VIDC_MAX_UBWC_COMPLEXITY_FACTOR;
