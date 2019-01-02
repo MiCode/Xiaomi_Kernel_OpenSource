@@ -160,6 +160,7 @@ struct msm_geni_serial_port {
 	int ioctl_count;
 	int edge_count;
 	bool manual_flow;
+	bool sampling_rate;
 };
 
 static const struct uart_ops msm_geni_serial_pops;
@@ -1768,6 +1769,8 @@ static void geni_serial_write_term_regs(struct uart_port *uport, u32 loopback,
 		u32 rx_parity_cfg, u32 bits_per_char, u32 stop_bit_len,
 		u32 s_clk_cfg)
 {
+	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
+
 	geni_write_reg_nolog(loopback, uport->membase, SE_UART_LOOPBACK_CFG);
 	geni_write_reg_nolog(tx_trans_cfg, uport->membase,
 							SE_UART_TX_TRANS_CFG);
@@ -1785,6 +1788,8 @@ static void geni_serial_write_term_regs(struct uart_port *uport, u32 loopback,
 						SE_UART_TX_STOP_BIT_LEN);
 	geni_write_reg_nolog(s_clk_cfg, uport->membase, GENI_SER_M_CLK_CFG);
 	geni_write_reg_nolog(s_clk_cfg, uport->membase, GENI_SER_S_CLK_CFG);
+	if (msm_port->sampling_rate)
+		geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
 }
 
 static int get_clk_div_rate(unsigned int baud, unsigned long *desired_clk_rate)
@@ -1824,6 +1829,12 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 	unsigned long clk_rate;
 	unsigned long flags;
 
+	if (port->sampling_rate) {
+		geni_write_reg_nolog(0x21, uport->membase, GENI_SER_M_CLK_CFG);
+		geni_write_reg_nolog(0x21, uport->membase, GENI_SER_S_CLK_CFG);
+		geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
+	}
+
 	if (!uart_console(uport)) {
 		int ret = msm_geni_serial_power_on(uport);
 
@@ -1848,6 +1859,8 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 	if (clk_div <= 0)
 		goto exit_set_termios;
 
+	if (port->sampling_rate)
+		clk_div = clk_div*2;
 	uport->uartclk = clk_rate;
 	clk_set_rate(port->serial_rsc.se_clk, clk_rate);
 	ser_clk_cfg |= SER_CLK_EN;
@@ -2069,6 +2082,7 @@ msm_geni_serial_earlycon_setup(struct earlycon_device *dev,
 		const char *opt)
 {
 	struct uart_port *uport = &dev->port;
+	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
 	int ret = 0;
 	u32 tx_trans_cfg = 0;
 	u32 tx_parity_cfg = 0;
@@ -2115,6 +2129,8 @@ msm_geni_serial_earlycon_setup(struct earlycon_device *dev,
 		goto exit_geni_serial_earlyconsetup;
 	}
 
+	if (port->sampling_rate)
+		clk_div = clk_div*2;
 	s_clk_cfg |= SER_CLK_EN;
 	s_clk_cfg |= (clk_div << CLK_DIV_SHFT);
 
@@ -2124,6 +2140,11 @@ msm_geni_serial_earlycon_setup(struct earlycon_device *dev,
 	 */
 	msm_geni_serial_poll_cancel_tx(uport);
 	msm_geni_serial_abort_rx(uport);
+	if (port->sampling_rate) {
+		geni_write_reg_nolog(0x21, uport->membase, GENI_SER_M_CLK_CFG);
+		geni_write_reg_nolog(0x21, uport->membase, GENI_SER_S_CLK_CFG);
+		geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
+	}
 	se_get_packing_config(8, 1, false, &cfg0, &cfg1);
 	geni_se_init(uport->membase, (DEF_FIFO_DEPTH_WORDS >> 1),
 					(DEF_FIFO_DEPTH_WORDS - 2));
@@ -2146,6 +2167,8 @@ msm_geni_serial_earlycon_setup(struct earlycon_device *dev,
 	geni_write_reg_nolog(s_clk_cfg, uport->membase, GENI_SER_M_CLK_CFG);
 	geni_write_reg_nolog(s_clk_cfg, uport->membase, GENI_SER_S_CLK_CFG);
 
+	if (port->sampling_rate)
+		geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
 	dev->con->write = msm_geni_serial_early_console_write;
 	dev->con->setup = NULL;
 	/*
@@ -2364,6 +2387,10 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 
 	uport->dev = &pdev->dev;
 
+	dev_port->sampling_rate =
+		of_property_read_bool(pdev->dev.of_node,
+				"qcom,change-sampling-rate");
+
 	wrapper_ph_node = of_parse_phandle(pdev->dev.of_node,
 					"qcom,wrapper-core", 0);
 	if (IS_ERR_OR_NULL(wrapper_ph_node)) {
@@ -2504,6 +2531,11 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 		pm_runtime_enable(&pdev->dev);
 	}
 
+	if (dev_port->sampling_rate) {
+		geni_write_reg_nolog(0x21, uport->membase, GENI_SER_M_CLK_CFG);
+		geni_write_reg_nolog(0x21, uport->membase, GENI_SER_S_CLK_CFG);
+		geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
+	}
 	dev_info(&pdev->dev, "Serial port%d added.FifoSize %d is_console%d\n",
 				line, uport->fifosize, is_console);
 	device_create_file(uport->dev, &dev_attr_loopback);
