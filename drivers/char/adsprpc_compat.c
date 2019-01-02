@@ -34,6 +34,8 @@
 		_IOWR('R', 14, struct compat_fastrpc_ioctl_mmap_64)
 #define COMPAT_FASTRPC_IOCTL_MUNMAP_64 \
 		_IOWR('R', 15, struct compat_fastrpc_ioctl_munmap_64)
+#define COMPAT_FASTRPC_IOCTL_CONTROL \
+		_IOWR('R', 12, struct compat_fastrpc_ioctl_control)
 
 struct compat_remote_buf {
 	compat_uptr_t pv;	/* buffer pointer */
@@ -92,6 +94,30 @@ struct compat_fastrpc_ioctl_init {
 	compat_int_t memfd;	/* ION fd for the mem */
 };
 
+#define FASTRPC_CONTROL_LATENCY		(1)
+struct compat_fastrpc_ctrl_latency {
+	compat_uint_t enable;		/* !latency control enable */
+	compat_uint_t level;		/* !level of control */
+};
+
+#define FASTRPC_CONTROL_SMMU		(2)
+struct compat_fastrpc_ctrl_smmu {
+	compat_uint_t sharedcb;
+};
+
+#define FASTRPC_CONTROL_KALLOC		(3)
+struct compat_fastrpc_ctrl_kalloc {
+	compat_uint_t kalloc_support; /* Remote memory allocation from kernel */
+};
+
+struct compat_fastrpc_ioctl_control {
+	compat_uint_t req;
+	union {
+		struct compat_fastrpc_ctrl_latency lp;
+		struct compat_fastrpc_ctrl_smmu smmu;
+		struct compat_fastrpc_ctrl_kalloc kalloc;
+	};
+};
 static int compat_get_fastrpc_ioctl_invoke(
 			struct compat_fastrpc_ioctl_invoke_fd __user *inv32,
 			struct fastrpc_ioctl_invoke_fd __user **inva,
@@ -277,6 +303,19 @@ static int compat_get_fastrpc_ioctl_munmap_64(
 	return err;
 }
 
+static int compat_get_fastrpc_ioctl_control(
+			struct compat_fastrpc_ioctl_control __user *ctrl32,
+			struct fastrpc_ioctl_control __user *ctrl)
+{
+	compat_uptr_t p;
+	int err;
+
+	err = get_user(p, &ctrl32->req);
+	err |= put_user(p, &ctrl->req);
+
+	return err;
+}
+
 static int compat_get_fastrpc_ioctl_init(
 			struct compat_fastrpc_ioctl_init __user *init32,
 			struct fastrpc_ioctl_init __user *init)
@@ -448,6 +487,34 @@ long compat_fastrpc_device_ioctl(struct file *filp, unsigned int cmd,
 	case FASTRPC_IOCTL_SETMODE:
 		return filp->f_op->unlocked_ioctl(filp, cmd,
 						(unsigned long)compat_ptr(arg));
+	case COMPAT_FASTRPC_IOCTL_CONTROL:
+	{
+		struct compat_fastrpc_ioctl_control __user *ctrl32;
+		struct fastrpc_ioctl_control __user *ctrl;
+		compat_uptr_t p;
+
+		ctrl32 = compat_ptr(arg);
+		VERIFY(err, NULL != (ctrl = compat_alloc_user_space(
+							sizeof(*ctrl))));
+		if (err)
+			return -EFAULT;
+		VERIFY(err, 0 == compat_get_fastrpc_ioctl_control(ctrl32,
+							ctrl));
+		if (err)
+			return err;
+		err = filp->f_op->unlocked_ioctl(filp, FASTRPC_IOCTL_CONTROL,
+							(unsigned long)ctrl);
+		if (err)
+			return err;
+		err = get_user(p, &ctrl32->req);
+		if (err)
+			return err;
+		if (p == FASTRPC_CONTROL_KALLOC) {
+			err = get_user(p, &ctrl->kalloc.kalloc_support);
+			err |= put_user(p, &ctrl32->kalloc.kalloc_support);
+		}
+		return err;
+	}
 	default:
 		return -ENOIOCTLCMD;
 	}
