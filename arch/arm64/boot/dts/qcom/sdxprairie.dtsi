@@ -924,6 +924,7 @@
 #include "sdxprairie-blsp.dtsi"
 #include "sdxprairie-audio.dtsi"
 #include "sdxprairie-pcie.dtsi"
+#include "sdxprairie-coresight.dtsi"
 
 &gdsc_usb30 {
 	status = "ok";
