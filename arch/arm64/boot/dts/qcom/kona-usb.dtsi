@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <dt-bindings/clock/qcom,gcc-kona.h>
@@ -74,7 +74,7 @@
 		qcom,usbbam@a704000 {
 			compatible = "qcom,usb-bam-msm";
 			reg = <0xa704000 0x17000>;
-			interrupts = <0 132 0>;
+			interrupts = <GIC_SPI 132 IRQ_TYPE_LEVEL_HIGH>;
 
 			qcom,usb-bam-fifo-baseaddr = <0x146bb000>;
 			qcom,usb-bam-num-pipes = <4>;
