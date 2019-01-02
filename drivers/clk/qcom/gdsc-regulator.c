@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +29,8 @@
 #include <linux/reset.h>
 #include <linux/mfd/syscon.h>
 #include <linux/clk/qcom.h>
+
+#include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 
 /* GDSCR */
 #define PWR_ON_MASK		BIT(31)
@@ -72,6 +74,7 @@ struct gdsc {
 	struct regmap           *hw_ctrl;
 	struct regmap           *sw_reset;
 	struct clk		**clocks;
+	struct regulator	*parent_regulator;
 	struct reset_control	**reset_clocks;
 	bool			toggle_mem;
 	bool			toggle_periph;
@@ -198,6 +201,17 @@ static int gdsc_enable(struct regulator_dev *rdev)
 	uint32_t regval, cfg_regval, hw_ctrl_regval = 0x0;
 	int i, ret = 0;
 
+	if (sc->parent_regulator) {
+		ret = regulator_set_voltage(sc->parent_regulator,
+				RPMH_REGULATOR_LEVEL_LOW_SVS, INT_MAX);
+		if (ret) {
+			dev_warn(&rdev->dev,
+				"Unable to set the voltage on parent for %s\n",
+				sc->rdesc.name);
+			return ret;
+		}
+	}
+
 	mutex_lock(&gdsc_seq_lock);
 
 	if (sc->root_en || sc->force_root_en)
@@ -208,6 +222,8 @@ static int gdsc_enable(struct regulator_dev *rdev)
 		dev_warn(&rdev->dev, "Invalid enable while %s is under HW control\n",
 				sc->rdesc.name);
 		mutex_unlock(&gdsc_seq_lock);
+		if (sc->parent_regulator)
+			regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
 		return -EBUSY;
 	}
 
@@ -296,6 +312,11 @@ static int gdsc_enable(struct regulator_dev *rdev)
 						regval, hw_ctrl_regval);
 
 					mutex_unlock(&gdsc_seq_lock);
+
+					if (sc->parent_regulator)
+						regulator_set_voltage(
+							sc->parent_regulator,
+							 0, INT_MAX);
 					return ret;
 				}
 			} else {
@@ -321,6 +342,10 @@ static int gdsc_enable(struct regulator_dev *rdev)
 				}
 				mutex_unlock(&gdsc_seq_lock);
 
+				if (sc->parent_regulator)
+					regulator_set_voltage(
+						sc->parent_regulator,
+						0, INT_MAX);
 				return ret;
 			}
 		}
@@ -438,6 +463,9 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	sc->is_gdsc_enabled = false;
 
 	mutex_unlock(&gdsc_seq_lock);
+
+	if (sc->parent_regulator)
+		regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
 
 	return ret;
 }
@@ -635,6 +663,19 @@ static int gdsc_probe(struct platform_device *pdev)
 						"qcom,toggle-sw-collapse-in-disable");
 	if (prop_val)
 		sc->flags |= TOGGLE_SW_COLLAPSE_IN_DISABLE;
+
+	if (of_find_property(pdev->dev.of_node, "vdd_parent-supply", NULL)) {
+		sc->parent_regulator = devm_regulator_get(&pdev->dev,
+							"vdd_parent");
+		if (IS_ERR(sc->parent_regulator)) {
+			ret = PTR_ERR(sc->parent_regulator);
+			if (ret != -EPROBE_DEFER)
+				dev_err(&pdev->dev,
+				"Unable to get vdd_parent regulator, err: %d\n",
+					ret);
+			return ret;
+		}
+	}
 
 	for (i = 0; i < sc->clock_count; i++) {
 		const char *clock_name;
