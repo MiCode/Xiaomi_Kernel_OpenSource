@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3699,6 +3699,7 @@ int dsi_panel_send_roi_dcs(struct dsi_panel *panel, int ctrl_idx,
 	mutex_unlock(&panel->panel_lock);
 
 	dsi_panel_destroy_cmd_packets(set);
+	dsi_panel_dealloc_cmd_packets(set);
 
 	return rc;
 }
