@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -421,14 +421,14 @@
 		status = "disabled";
 	};
 
-	blsp1_uart4_hs: uart@78B2000 { /* BLSP1 UART4 */
+	blsp1_uart4a_hs: uarta@78B2000 { /* BLSP1 UART4 */
 		compatible = "qcom,msm-hsuart-v14";
 		reg = <0x78B2000 0x200>,
 		    <0x7884000 0x23000>;
 		reg-names = "core_mem", "bam_mem";
 		interrupt-names = "core_irq", "bam_irq", "wakeup_irq";
 		#address-cells = <0>;
-		interrupt-parent = <&blsp1_uart4_hs>;
+		interrupt-parent = <&blsp1_uart4a_hs>;
 		interrupts = <0 1 2>;
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0xffffffff>;
@@ -458,14 +458,14 @@
 		status = "disabled";
 	};
 
-	blsp1_uart4b_hs: uart@78B2000 { /* BLSP1 UART4b */
+	blsp1_uart4b_hs: uartb@78B2000 { /* BLSP1 UART4b */
 		compatible = "qcom,msm-hsuart-v14";
 		reg = <0x78B2000 0x200>,
 		    <0x7884000 0x23000>;
 		reg-names = "core_mem", "bam_mem";
 		interrupt-names = "core_irq", "bam_irq", "wakeup_irq";
 		#address-cells = <0>;
-		interrupt-parent = <&blsp1_uart4_hs>;
+		interrupt-parent = <&blsp1_uart4b_hs>;
 		interrupts = <0 1 2>;
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0xffffffff>;
