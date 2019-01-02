@@ -2012,4 +2012,5 @@
 #include "kona-camera.dtsi"
 #include "kona-qupv3.dtsi"
 #include "kona-thermal.dtsi"
+#include "kona-vidc.dtsi"
 
