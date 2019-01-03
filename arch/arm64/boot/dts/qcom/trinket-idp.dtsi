@@ -12,6 +12,8 @@
  */
 #include <dt-bindings/gpio/gpio.h>
 
+#include "trinket-thermal-overlay.dtsi"
+
 &soc {
 	mtp_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
