@@ -11,3 +11,4 @@ menuconfig SPECTRA_CAMERA
 
 source "drivers/media/platform/msm/sde/Kconfig"
 source "drivers/media/platform/msm/vidc/Kconfig"
+source "drivers/media/platform/msm/npu/Kconfig"
