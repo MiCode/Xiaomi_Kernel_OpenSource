@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include "msm_vidc_common.h"
@@ -1545,11 +1545,12 @@ int msm_vidc_decide_work_mode_iris2(struct msm_vidc_inst *inst)
 			(inst->pic_struct != MSM_VIDC_PIC_STRUCT_PROGRESSIVE) ||
 			(num_mbs < NUM_MBS_PER_FRAME(720, 1280)))
 			pdata.video_work_mode = VIDC_WORK_MODE_1;
-	} else if (inst->session_type == MSM_VIDC_ENCODER &&
-			inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_VP8) {
-		pdata.video_work_mode = VIDC_WORK_MODE_1;
-		/* For WORK_MODE_1, set Low Latency mode by default to HW. */
-		inst->clk_data.low_latency_mode = true;
+	} else if (inst->session_type == MSM_VIDC_ENCODER) {
+		if (inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_VP8) {
+			pdata.video_work_mode = VIDC_WORK_MODE_1;
+			/* For WORK_MODE_1, set Low Latency mode by default */
+			inst->clk_data.low_latency_mode = true;
+		}
 	} else {
 		return -EINVAL;
 	}
