@@ -9,12 +9,12 @@ Required properties:
 - compatible:		Must be "devfreq-simple-dev"
 - clock-names:		Must be "devfreq_clk"
 - clocks:		Must refer to the clock that's fed to the device.
-- freq-tbl-khz:		A list of usable frequencies (in KHz) for the device
-			clock.
 Optional properties:
 - polling-ms:	Polling interval for the device in milliseconds. Default: 50
 - governor:	Initial governor to user for the device. Default: "performance"
 - qcom,prepare-clk:	Prepare the device clock during initialization.
+- freq-tbl-khz:		A list of usable frequencies (in kHz) for the device
+			clock.
 
 Example:
 
