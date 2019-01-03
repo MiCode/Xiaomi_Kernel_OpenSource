@@ -3728,7 +3728,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (of_property_read_bool(node, "extcon")) {
 		ret = dwc3_msm_extcon_register(mdwc);
 		if (ret)
-			goto put_dwc3;
+			goto err_get_extcon;
 
 		/*
 		 * dpdm regulator will be turned on to perform apsd
@@ -3775,17 +3775,21 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	return 0;
 
+err_get_extcon:
+	if (mdwc->iommu_map)
+		arm_iommu_attach_device(mdwc->dev, mdwc->iommu_map);
+
 put_dwc3:
 	platform_device_put(mdwc->dwc3);
 	if (mdwc->bus_perf_client)
 		msm_bus_scale_unregister_client(mdwc->bus_perf_client);
 
 uninit_iommu:
+	of_platform_depopulate(&pdev->dev);
 	if (mdwc->iommu_map) {
 		arm_iommu_detach_device(mdwc->dev);
 		arm_iommu_release_mapping(mdwc->iommu_map);
 	}
-	of_platform_depopulate(&pdev->dev);
 err:
 	destroy_workqueue(mdwc->sm_usb_wq);
 	destroy_workqueue(mdwc->dwc3_wq);
