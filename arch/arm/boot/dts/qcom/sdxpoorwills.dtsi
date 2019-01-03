@@ -619,7 +619,7 @@
 		clock-frequency = <32768>;
 	};
 
-	restart@c264000 {
+	restart_pshold: restart@c264000 {
 		compatible = "qcom,pshold";
 		reg = <0x0c264000 0x4>,
 			<0x01fd3000 0x4>;
