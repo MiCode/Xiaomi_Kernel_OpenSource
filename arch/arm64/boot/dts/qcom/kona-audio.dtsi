@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include "msm-audio-lpass.dtsi"
@@ -81,14 +81,15 @@
 				<&wsa_cdc_dma_0_rx>, <&wsa_cdc_dma_0_tx>,
 				<&wsa_cdc_dma_1_rx>, <&wsa_cdc_dma_1_tx>,
 				<&wsa_cdc_dma_2_tx>,
+				<&va_cdc_dma_0_tx>, <&va_cdc_dma_1_tx>,
+				<&va_cdc_dma_2_tx>,
 				<&rx_cdc_dma_0_rx>, <&tx_cdc_dma_0_tx>,
 				<&rx_cdc_dma_1_rx>, <&tx_cdc_dma_1_tx>,
 				<&rx_cdc_dma_2_rx>, <&tx_cdc_dma_2_tx>,
 				<&rx_cdc_dma_3_rx>, <&tx_cdc_dma_3_tx>,
 				<&rx_cdc_dma_4_rx>, <&tx_cdc_dma_4_tx>,
 				<&rx_cdc_dma_5_rx>, <&tx_cdc_dma_5_tx>,
-				<&rx_cdc_dma_6_rx>, <&rx_cdc_dma_7_rx>,
-				<&va_cdc_dma_0_tx>, <&va_cdc_dma_1_tx>;
+				<&rx_cdc_dma_6_rx>, <&rx_cdc_dma_7_rx>;
 		asoc-cpu-names = "msm-dai-q6-dp.24608",
 				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
 				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
@@ -115,6 +116,7 @@
 				"msm-dai-cdc-dma-dev.45061",
 				"msm-dai-cdc-dma-dev.45089",
 				"msm-dai-cdc-dma-dev.45091",
+				"msm-dai-cdc-dma-dev.45093",
 				"msm-dai-cdc-dma-dev.45104",
 				"msm-dai-cdc-dma-dev.45105",
 				"msm-dai-cdc-dma-dev.45106",
