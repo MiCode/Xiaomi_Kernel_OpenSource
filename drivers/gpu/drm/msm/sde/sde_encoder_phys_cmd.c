@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -597,7 +597,7 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 		sde_connector_event_notify(conn, DRM_EVENT_SDE_HW_RECOVERY,
 				sizeof(uint8_t), event);
 	} else if (cmd_enc->pp_timeout_report_cnt) {
-		SDE_DBG_DUMP("panic");
+		SDE_DBG_DUMP("dsi_dbg_bus", "panic");
 	}
 
 	/* request a ctl reset before the next kickoff */
