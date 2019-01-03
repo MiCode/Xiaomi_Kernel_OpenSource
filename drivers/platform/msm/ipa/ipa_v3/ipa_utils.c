@@ -5988,7 +5988,7 @@ int ipa3_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res)
 		return -EINVAL;
 	}
 
-	if (iface < 0 || iface > IPA_VLAN_IF_MAX) {
+	if (iface < 0 || iface >= IPA_VLAN_IF_MAX) {
 		IPAERR("invalid iface %d\n", iface);
 		return -EINVAL;
 	}
