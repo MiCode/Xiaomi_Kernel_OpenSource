@@ -1119,6 +1119,7 @@
 #include "lito-pm.dtsi"
 #include "lito-gdsc.dtsi"
 #include "lito-regulators.dtsi"
+#include "lito-smp2p.dtsi"
 
 &ufs_phy_gdsc {
 	status = "ok";
