@@ -927,6 +927,14 @@
 				IPCC_MPROC_SIGNAL_SMP2P IRQ_TYPE_LEVEL_HIGH>;
 		mboxes = <&ipcc_mproc IPCC_CLIENT_APSS IPCC_MPROC_SIGNAL_SMP2P>;
 	};
+
+	cache-controller@9200000 {
+		compatible = "qcom,lito-llcc";
+		reg = <0x9200000 0xd0000> , <0x9600000 0x50000>;
+		reg-names = "llcc_base", "llcc_broadcast_base";
+		interrupts = <GIC_SPI 582 IRQ_TYPE_LEVEL_HIGH>;
+		cap-based-alloc-and-pwr-collapse;
+	};
 };
 
 #include "lito-pinctrl.dtsi"
