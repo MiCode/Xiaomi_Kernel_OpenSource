@@ -630,6 +630,11 @@
 						0x2000 3
 						0x4400 2>;
 			};
+
+			qcom,apr_tal_rpmsg {
+				qcom,glink-channels = "apr_audio_svc";
+				qcom,intents = <0x200 20>;
+			};
 		};
 	};
 
