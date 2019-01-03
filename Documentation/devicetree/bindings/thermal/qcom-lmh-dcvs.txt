@@ -57,6 +57,12 @@ Properties:
 			register space in index 0 should be LLM and index 1
 			should be OSM.
 
+- qcom,plat-mitigation-disable:
+	Usage: optional
+	Value type: <none>
+	Definition: Should define this property if platform based cpu cooling
+			device is not required.
+
 Example:
 
 	lmh_dcvs0: qcom,limits-dcvs@18350800 {
@@ -69,6 +75,7 @@ Example:
 		isens-vref-0p8-settings = <880000 880000 36000>;
 		reg =  <0x18350800 0x1000>, //LLM
 			<0x18323000 0x1000>; //OSM
+		qcom,plat-mitigation-disable;
 	};
 
 	CPU0: cpu@0 {
