@@ -8,6 +8,7 @@
 #include <linux/clk-provider.h>
 #include <linux/regmap.h>
 #include <linux/delay.h>
+#include <linux/sched/clock.h>
 
 #include "clk-alpha-pll.h"
 #include "common.h"
@@ -180,11 +181,15 @@ static int wait_for_pll(struct clk_alpha_pll *pll, u32 mask, bool inverse,
 	u32 val;
 	int count;
 	int ret;
-	const char *name = clk_hw_get_name(&pll->clkr.hw);
+	u64 time;
+	struct clk_hw *hw = &pll->clkr.hw;
+	const char *name = clk_hw_get_name(hw);
 
 	ret = regmap_read(pll->clkr.regmap, PLL_MODE(pll), &val);
 	if (ret)
 		return ret;
+
+	time = sched_clock();
 
 	for (count = 100; count > 0; count--) {
 		ret = regmap_read(pll->clkr.regmap, PLL_MODE(pll), &val);
@@ -197,8 +202,11 @@ static int wait_for_pll(struct clk_alpha_pll *pll, u32 mask, bool inverse,
 
 		udelay(1);
 	}
+	time = sched_clock() - time;
 
-	WARN(1, "%s failed to %s!\n", name, action);
+	pr_err("PLL lock bit detection total wait time: %lld ns\n", time);
+
+	WARN_CLK(hw->core, name, 1, "failed to %s!\n", action);
 	return -ETIMEDOUT;
 }
 
@@ -794,7 +802,8 @@ static void clk_alpha_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 	for (i = 0; i < size; i++) {
 		regmap_read(pll->clkr.regmap, pll->offset + data[i].offset,
 					&val);
-		seq_printf(f, "%20s: 0x%.8x\n", data[i].name, val);
+		clock_debug_output(f, false,
+				"%20s: 0x%.8x\n", data[i].name, val);
 	}
 
 	regmap_read(pll->clkr.regmap, pll->offset + data[0].offset, &val);
@@ -802,7 +811,8 @@ static void clk_alpha_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 	if (val & PLL_FSM_ENA) {
 		regmap_read(pll->clkr.regmap, pll->clkr.enable_reg +
 					data1[0].offset, &val);
-		seq_printf(f, "%20s: 0x%.8x\n", data1[0].name, val);
+		clock_debug_output(f, false,
+				"%20s: 0x%.8x\n", data1[0].name, val);
 	}
 }
 
@@ -1056,7 +1066,8 @@ static void clk_zonda_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 	for (i = 0; i < size; i++) {
 		regmap_read(pll->clkr.regmap, pll->offset + pll_regs[i].offset,
 					&val);
-		seq_printf(f, "%20s: 0x%.8x\n", pll_regs[i].name, val);
+		clock_debug_output(f, false,
+				"%20s: 0x%.8x\n", pll_regs[i].name, val);
 	}
 
 	regmap_read(pll->clkr.regmap, pll->offset + pll_vote_reg.offset, &val);
@@ -1064,7 +1075,8 @@ static void clk_zonda_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 	if (val & PLL_FSM_ENA) {
 		regmap_read(pll->clkr.regmap, pll->clkr.enable_reg +
 					pll_vote_reg.offset, &val);
-		seq_printf(f, "%20s: 0x%.8x\n", pll_vote_reg.name, val);
+		clock_debug_output(f, false,
+				"%20s: 0x%.8x\n", pll_vote_reg.name, val);
 	}
 }
 
@@ -1748,6 +1760,50 @@ static int alpha_pll_lucid_is_enabled(struct clk_hw *hw)
 	return lucid_pll_is_enabled(pll, pll->clkr.regmap);
 }
 
+static void clk_alpha_pll_lucid_list_registers(struct seq_file *f,
+		struct clk_hw *hw)
+{
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	int size, i, val;
+
+	static struct clk_register_data data[] = {
+		{"PLL_MODE", 0x0},
+		{"PLL_L_VAL", 0x4},
+		{"PLL_CAL_L_VAL", 0x8},
+		{"PLL_USER_CTL", 0x0c},
+		{"PLL_USER_CTL_U", 0x10},
+		{"PLL_USER_CTL_U1", 0x14},
+		{"PLL_CONFIG_CTL", 0x18},
+		{"PLL_CONFIG_CTL_U", 0x1c},
+		{"PLL_CONFIG_CTL_U1", 0x20},
+		{"PLL_TEST_CTL", 0x24},
+		{"PLL_TEST_CTL_U1", 0x28},
+		{"PLL_STATUS", 0x30},
+		{"PLL_ALPHA_VAL", 0x40},
+	};
+
+	static struct clk_register_data data1[] = {
+		{"APSS_PLL_VOTE", 0x0},
+	};
+
+	size = ARRAY_SIZE(data);
+
+	for (i = 0; i < size; i++) {
+		regmap_read(pll->clkr.regmap, pll->offset + data[i].offset,
+					&val);
+		clock_debug_output(f, false,
+				"%20s: 0x%.8x\n", data[i].name, val);
+	}
+
+	regmap_read(pll->clkr.regmap, pll->offset + data[0].offset, &val);
+
+	if (val & PLL_FSM_ENA) {
+		regmap_read(pll->clkr.regmap, pll->clkr.enable_reg +
+					data1[0].offset, &val);
+		clock_debug_output(f, false,
+				"%20s: 0x%.8x\n", data1[0].name, val);
+	}
+}
 const struct clk_ops clk_alpha_pll_lucid_ops = {
 	.prepare = alpha_pll_lucid_prepare,
 	.enable = alpha_pll_lucid_enable,
@@ -1756,7 +1812,7 @@ const struct clk_ops clk_alpha_pll_lucid_ops = {
 	.recalc_rate = alpha_pll_lucid_recalc_rate,
 	.round_rate = clk_alpha_pll_round_rate,
 	.set_rate = alpha_pll_lucid_set_rate,
-	.list_registers = clk_alpha_pll_list_registers,
+	.list_registers = clk_alpha_pll_lucid_list_registers,
 };
 EXPORT_SYMBOL_GPL(clk_alpha_pll_lucid_ops);
 
@@ -1766,6 +1822,7 @@ const struct clk_ops clk_alpha_pll_fixed_lucid_ops = {
 	.is_enabled = alpha_pll_lucid_is_enabled,
 	.recalc_rate = alpha_pll_lucid_recalc_rate,
 	.round_rate = clk_alpha_pll_round_rate,
+	.list_registers = clk_alpha_pll_lucid_list_registers,
 };
 EXPORT_SYMBOL_GPL(clk_alpha_pll_fixed_lucid_ops);
 

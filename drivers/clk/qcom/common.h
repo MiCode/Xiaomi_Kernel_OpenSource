@@ -72,4 +72,21 @@ extern int qcom_cc_really_probe(struct platform_device *pdev,
 extern int qcom_cc_probe(struct platform_device *pdev,
 			 const struct qcom_cc_desc *desc);
 extern const struct clk_ops clk_dummy_ops;
+
+extern void clk_debug_print_hw(struct clk_core *clk, struct seq_file *f);
+
+#define WARN_CLK(core, name, cond, fmt, ...) do {	\
+	clk_debug_print_hw(core, NULL);			\
+	WARN(cond, "%s: " fmt, name, ##__VA_ARGS__);	\
+} while (0)
+
+#define clock_debug_output(m, c, fmt, ...)			\
+	do {							\
+		if (m)						\
+			seq_printf(m, fmt, ##__VA_ARGS__);      \
+		else if (c)					\
+			pr_alert(fmt, ##__VA_ARGS__);		\
+		else						\
+			pr_info(fmt, ##__VA_ARGS__);		\
+} while (0)
 #endif
