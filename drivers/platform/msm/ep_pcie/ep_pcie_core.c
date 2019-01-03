@@ -39,6 +39,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/platform_device.h>
 
+#define PCIE_MHI_STATUS(n)			((n) + 0x148)
 /* debug mask sys interface */
 static int ep_pcie_debug_mask;
 static int ep_pcie_debug_keep_resource;
@@ -534,6 +535,7 @@ static void ep_pcie_bar_init(struct ep_pcie_dev_t *dev)
 static void ep_pcie_config_mmio(struct ep_pcie_dev_t *dev)
 {
 	u32 mhi_status;
+	void __iomem *mhi_status_addr;
 
 	EP_PCIE_DBG(dev,
 		"Initial version of MMIO is:0x%x\n",
@@ -546,7 +548,8 @@ static void ep_pcie_config_mmio(struct ep_pcie_dev_t *dev)
 		return;
 	}
 
-	mhi_status = readl_relaxed(dev->mmio + PCIE20_MHISTATUS);
+	mhi_status_addr = PCIE_MHI_STATUS(dev->mmio);
+	mhi_status = readl_relaxed(mhi_status_addr);
 	if (mhi_status & BIT(2)) {
 		EP_PCIE_DBG(dev,
 			"MHISYS error is set:%d, proceed to MHI\n",
@@ -1386,7 +1389,22 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 		}
 
 		dev->power_on = true;
-		/* check link status during initial bootup */
+
+		 EP_PCIE_DBG(dev,
+			 "TCSR PERST_EN value before configure:0x%x\n",
+			 readl_relaxed(dev->tcsr_perst_en + 0x258));
+
+		 /*
+		  * Delatch PERST_EN with TCSR to avoid device reset
+		  * during host reboot case.
+		  */
+		 writel_relaxed(0, dev->tcsr_perst_en + 0x258);
+
+		 EP_PCIE_DBG(dev,
+			 "TCSR PERST_EN value after configure:0x%x\n",
+			 readl_relaxed(dev->tcsr_perst_en));
+
+		 /* check link status during initial bootup */
 		if (!dev->enumerated) {
 			val = readl_relaxed(dev->parf + PCIE20_PARF_PM_STTS);
 			val = val & PARF_XMLH_LINK_UP;
