@@ -119,8 +119,6 @@ struct qusb_phy {
 	int			efuse_bit_pos;
 	int			efuse_num_of_bits;
 
-	int			power_enabled_ref;
-	bool			clocks_enabled;
 	bool			cable_connected;
 	bool			suspended;
 	bool			dpdm_enable;
@@ -148,10 +146,9 @@ struct qusb_phy {
 
 static void qusb_phy_enable_clocks(struct qusb_phy *qphy, bool on)
 {
-	dev_dbg(qphy->phy.dev, "%s(): clocks_enabled:%d on:%d\n",
-			__func__, qphy->clocks_enabled, on);
+	dev_dbg(qphy->phy.dev, "%s(): on:%d\n", __func__, on);
 
-	if (!qphy->clocks_enabled && on) {
+	if (on) {
 		clk_prepare_enable(qphy->ref_clk_src);
 		if (qphy->ref_clk)
 			clk_prepare_enable(qphy->ref_clk);
@@ -159,10 +156,7 @@ static void qusb_phy_enable_clocks(struct qusb_phy *qphy, bool on)
 		if (qphy->cfg_ahb_clk)
 			clk_prepare_enable(qphy->cfg_ahb_clk);
 
-		qphy->clocks_enabled = true;
-	}
-
-	if (qphy->clocks_enabled && !on) {
+	} else {
 		if (qphy->cfg_ahb_clk)
 			clk_disable_unprepare(qphy->cfg_ahb_clk);
 
@@ -170,11 +164,7 @@ static void qusb_phy_enable_clocks(struct qusb_phy *qphy, bool on)
 			clk_disable_unprepare(qphy->ref_clk);
 
 		clk_disable_unprepare(qphy->ref_clk_src);
-		qphy->clocks_enabled = false;
 	}
-
-	dev_dbg(qphy->phy.dev, "%s(): clocks_enabled:%d\n", __func__,
-						qphy->clocks_enabled);
 }
 
 static int qusb_phy_config_vdd(struct qusb_phy *qphy, int high)
@@ -200,29 +190,11 @@ static int qusb_phy_enable_power(struct qusb_phy *qphy, bool on)
 
 	mutex_lock(&qphy->lock);
 
-	dev_dbg(qphy->phy.dev,
-		"%s:req to turn %s regulators. power_enabled_ref:%d\n",
-			__func__, on ? "on" : "off", qphy->power_enabled_ref);
+	dev_dbg(qphy->phy.dev, "%s:req to turn %s regulators\n",
+			__func__, on ? "on" : "off");
 
-	if (on && ++qphy->power_enabled_ref > 1) {
-		dev_dbg(qphy->phy.dev, "PHYs' regulators are already on\n");
-		goto done;
-	}
-
-	if (!on) {
-		if (on == qphy->power_enabled_ref) {
-			dev_dbg(qphy->phy.dev,
-				"PHYs' regulators are already off\n");
-			goto done;
-		}
-
-		qphy->power_enabled_ref--;
-		if (!qphy->power_enabled_ref)
-			goto disable_vdda33;
-
-		dev_dbg(qphy->phy.dev, "Skip turning off PHYs' regulators\n");
-		goto done;
-	}
+	if (!on)
+		goto disable_vdda33;
 
 	ret = qusb_phy_config_vdd(qphy, true);
 	if (ret) {
@@ -328,11 +300,8 @@ unconfig_vdd:
 err_vdd:
 	dev_dbg(qphy->phy.dev, "QUSB PHY's regulators are turned OFF.\n");
 
-	/* in case of error in turning on regulators */
-	if (qphy->power_enabled_ref)
-		qphy->power_enabled_ref--;
-done:
 	mutex_unlock(&qphy->lock);
+
 	return ret;
 }
 
@@ -473,16 +442,10 @@ static void qusb_phy_host_init(struct usb_phy *phy)
 static int qusb_phy_init(struct usb_phy *phy)
 {
 	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
-	int ret, p_index;
+	int p_index;
 	u8 reg;
 
 	dev_dbg(phy->dev, "%s\n", __func__);
-
-	ret = qusb_phy_enable_power(qphy, true);
-	if (ret)
-		return ret;
-
-	qusb_phy_enable_clocks(qphy, true);
 
 	qusb_phy_reset(qphy);
 
@@ -609,7 +572,7 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
 	u32 linestate = 0, intr_mask = 0;
 
-	if (qphy->suspended && suspend) {
+	if (qphy->suspended == suspend) {
 		dev_dbg(phy->dev, "%s: USB PHY is already suspended\n",
 			__func__);
 		return 0;
@@ -1137,6 +1100,7 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	if (ret)
 		usb_remove_phy(&qphy->phy);
 
+	qphy->suspended = true;
 	qusb_phy_create_debugfs(qphy);
 
 	return ret;
@@ -1147,8 +1111,8 @@ static int qusb_phy_remove(struct platform_device *pdev)
 	struct qusb_phy *qphy = platform_get_drvdata(pdev);
 
 	usb_remove_phy(&qphy->phy);
-	qusb_phy_enable_clocks(qphy, false);
-	qusb_phy_enable_power(qphy, false);
+	qphy->cable_connected = false;
+	qusb_phy_set_suspend(&qphy->phy, true);
 	debugfs_remove_recursive(qphy->root);
 
 	return 0;
