@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -996,12 +996,14 @@ static int _sde_encoder_atomic_check_pu_roi(struct sde_encoder_virt *sde_enc,
 }
 
 static int _sde_encoder_atomic_check_reserve(struct drm_encoder *drm_enc,
-	struct drm_crtc_state *crtc_state, struct sde_encoder_virt *sde_enc,
-	struct drm_crtc_state *crtc_state, struct sde_kms *sde_kms,
+	struct drm_crtc_state *crtc_state,
+	struct drm_connector_state *conn_state,
+	struct sde_encoder_virt *sde_enc, struct sde_kms *sde_kms,
 	struct sde_connector *sde_conn,
 	struct sde_connector_state *sde_conn_state)
 {
 	int ret = 0;
+	struct drm_display_mode *adj_mode = &crtc_state->adjusted_mode;
 
 	if (sde_conn && drm_atomic_crtc_needs_modeset(crtc_state)) {
 		struct msm_display_topology *topology = NULL;
@@ -1078,7 +1080,6 @@ static int sde_encoder_virt_atomic_check(
 	struct sde_connector_state *sde_conn_state = NULL;
 	struct sde_crtc_state *sde_crtc_state = NULL;
 	enum sde_rm_topology_name old_top;
-	int i = 0;
 	int ret = 0;
 
 	if (!drm_enc || !crtc_state || !conn_state) {
@@ -1121,7 +1122,7 @@ static int sde_encoder_virt_atomic_check(
 		return ret;
 
 	ret = _sde_encoder_atomic_check_reserve(drm_enc, crtc_state,
-			sde_enc, crtc_state, sde_kms, sde_conn, sde_conn_state);
+			conn_state, sde_enc, sde_kms, sde_conn, sde_conn_state);
 
 	ret = sde_connector_roi_v1_check_roi(conn_state);
 	if (ret) {
@@ -2536,18 +2537,11 @@ static int _sde_encoder_rc_idle(struct drm_encoder *drm_enc,
 		SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
 				SDE_EVTLOG_ERROR);
 		goto end;
-	}
-
-	/*
-	 * if we are in ON but a frame was just kicked off,
-	 * ignore the IDLE event, it's probably a stale timer event
-	 */
-	if (sde_enc->frame_busy_mask[0]) {
-		SDE_ERROR_ENC(sde_enc,
-				"sw_event:%d, rc:%d frame pending\n",
-				sw_event, sde_enc->rc_state);
+	} else if (sde_crtc_frame_pending(sde_enc->crtc) > 1) {
+		SDE_ERROR_ENC(sde_enc, "skip idle entry");
 		SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
-				SDE_EVTLOG_ERROR);
+			sde_crtc_frame_pending(sde_enc->crtc),
+			SDE_EVTLOG_ERROR);
 		goto end;
 	}
 
