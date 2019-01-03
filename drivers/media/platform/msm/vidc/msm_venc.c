@@ -2359,8 +2359,8 @@ int msm_venc_set_slice_control_mode(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
-	struct v4l2_ctrl *ctrl;
-	struct v4l2_ctrl *ctrl_t;
+	struct v4l2_ctrl *slicemode_ctrl = NULL;
+	struct v4l2_ctrl *slicesize_ctrl = NULL;
 	struct hal_multi_slice_control multi_slice_control;
 	int temp = 0;
 
@@ -2374,14 +2374,14 @@ int msm_venc_set_slice_control_mode(struct msm_vidc_inst *inst)
 		inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_H264)
 		return 0;
 
-	ctrl = msm_venc_get_ctrl(inst,
+	slicemode_ctrl = msm_venc_get_ctrl(inst,
 			V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE);
-	if (!ctrl) {
+	if (!slicemode_ctrl) {
 		dprintk(VIDC_ERR,
 			"%s: get multi slice mode failed\n", __func__);
 		return -EINVAL;
 	}
-	switch (ctrl->val) {
+	switch (slicemode_ctrl->val) {
 	case V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_MB:
 		temp = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB;
 		break;
@@ -2394,15 +2394,15 @@ int msm_venc_set_slice_control_mode(struct msm_vidc_inst *inst)
 		break;
 	}
 	if (temp) {
-		ctrl_t = msm_venc_get_ctrl(inst, temp);
-		if (!ctrl_t) {
+		slicesize_ctrl = msm_venc_get_ctrl(inst, temp);
+		if (!slicesize_ctrl) {
 			dprintk(VIDC_ERR,
 				"%s: get slice mode failed\n", __func__);
 			return -EINVAL;
 		}
 	}
-	multi_slice_control.multi_slice = ctrl->val;
-	multi_slice_control.slice_size = temp ? ctrl_t->val : 0;
+	multi_slice_control.multi_slice = slicemode_ctrl->val;
+	multi_slice_control.slice_size = temp ? slicesize_ctrl->val : 0;
 
 	dprintk(VIDC_DBG, "%s: %d %d\n", __func__,
 			multi_slice_control.multi_slice,
