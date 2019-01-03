@@ -1134,7 +1134,7 @@ void msm_clock_data_reset(struct msm_vidc_inst *inst)
 				__func__, HAL_BUFFER_INPUT);
 
 	} else if (inst->session_type == MSM_VIDC_DECODER) {
-		dcvs->buffer_type = msm_comm_get_hal_output_buffer(inst);
+		dcvs->buffer_type = HAL_BUFFER_OUTPUT;
 		buf_req = get_buff_req_buffer(inst, dcvs->buffer_type);
 		if (buf_req)
 			dcvs->max_threshold =
@@ -1179,17 +1179,6 @@ void msm_clock_data_reset(struct msm_vidc_inst *inst)
 			__func__);
 }
 
-static bool is_output_buffer(struct msm_vidc_inst *inst,
-	enum hal_buffer buffer_type)
-{
-	if (msm_comm_get_stream_output_mode(inst) ==
-			HAL_VIDEO_DECODER_SECONDARY) {
-		return buffer_type == HAL_BUFFER_OUTPUT2;
-	} else {
-		return buffer_type == HAL_BUFFER_OUTPUT;
-	}
-}
-
 int msm_vidc_get_extra_buff_count(struct msm_vidc_inst *inst,
 	enum hal_buffer buffer_type)
 {
@@ -1209,7 +1198,7 @@ int msm_vidc_get_extra_buff_count(struct msm_vidc_inst *inst,
 	/* Add DCVS extra buffer count */
 	if (inst->core->resources.dcvs) {
 		if (is_decode_session(inst) &&
-			is_output_buffer(inst, buffer_type)) {
+			buffer_type == HAL_BUFFER_OUTPUT) {
 			count += DCVS_DEC_EXTRA_OUTPUT_BUFFERS;
 		} else if ((is_encode_session(inst) &&
 			buffer_type == HAL_BUFFER_INPUT)) {
@@ -1221,7 +1210,7 @@ int msm_vidc_get_extra_buff_count(struct msm_vidc_inst *inst,
 	 * if platform supports decode batching ensure minimum
 	 * batch size count of extra buffers added on output port
 	 */
-	if (is_output_buffer(inst, buffer_type)) {
+	if (buffer_type == HAL_BUFFER_OUTPUT) {
 		if (inst->core->resources.decode_batching &&
 			is_decode_session(inst) &&
 			count < inst->batch.size)

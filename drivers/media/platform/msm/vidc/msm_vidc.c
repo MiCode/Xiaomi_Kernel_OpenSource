@@ -744,7 +744,6 @@ static int msm_vidc_queue_setup(struct vb2_queue *q,
 	int rc = 0;
 	unsigned int i = 0;
 	struct hal_buffer_requirements *bufreq;
-	enum hal_buffer buffer_type;
 
 	if (!q || !num_buffers || !num_planes
 		|| !sizes || !q->drv_priv) {
@@ -786,13 +785,12 @@ static int msm_vidc_queue_setup(struct vb2_queue *q,
 		}
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE: {
-		buffer_type = msm_comm_get_hal_output_buffer(inst);
 		bufreq = get_buff_req_buffer(inst,
-			buffer_type);
+			HAL_BUFFER_OUTPUT);
 		if (!bufreq) {
 			dprintk(VIDC_ERR,
 				"Failed : No buffer requirements : %x\n",
-				buffer_type);
+				HAL_BUFFER_OUTPUT);
 			return -EINVAL;
 		}
 		if (inst->session_type != MSM_VIDC_DECODER &&
@@ -845,8 +843,7 @@ static inline int msm_vidc_verify_buffer_counts(struct msm_vidc_inst *inst)
 	for (i = 0; i < HAL_BUFFER_MAX; i++) {
 		struct hal_buffer_requirements *req = &inst->buff_req.buffer[i];
 
-		if (req && (msm_comm_get_hal_output_buffer(inst) ==
-				req->buffer_type)) {
+		if (req && (req->buffer_type == HAL_BUFFER_OUTPUT)) {
 			dprintk(VIDC_DBG, "Verifying Buffer : %d\n",
 				req->buffer_type);
 			if (req->buffer_count_actual <
@@ -1087,6 +1084,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		goto fail_start;
 	}
 
+	b.buffer_type = HAL_BUFFER_OUTPUT;
 	if (inst->session_type == MSM_VIDC_ENCODER) {
 		rc = msm_vidc_set_rotation(inst);
 		if (rc) {
@@ -1094,7 +1092,9 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 				"Set rotation for encoder failed %pK\n");
 			goto fail_start;
 		}
-	}
+	} else if ((inst->session_type == MSM_VIDC_DECODER) &&
+			(is_secondary_output_mode(inst)))
+		b.buffer_type = HAL_BUFFER_OUTPUT2;
 
 	/* HEIC HW/FWK tiling encode is supported only for CQ RC mode */
 	if (inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_CQ) {
@@ -1152,13 +1152,6 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		goto fail_start;
 	}
 
-	if (msm_comm_get_stream_output_mode(inst) ==
-			HAL_VIDEO_DECODER_SECONDARY) {
-		b.buffer_type = HAL_BUFFER_OUTPUT2;
-	} else {
-		b.buffer_type = HAL_BUFFER_OUTPUT;
-	}
-
 	rc = msm_comm_try_get_bufreqs(inst);
 
 	b.buffer_size = inst->bufq[CAPTURE_PORT].plane_sizes[0];
@@ -1196,7 +1189,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 
 	if (msm_comm_get_stream_output_mode(inst) ==
 			HAL_VIDEO_DECODER_SECONDARY) {
-		rc = msm_comm_set_output_buffers(inst);
+		rc = msm_comm_set_dpb_only_buffers(inst);
 		if (rc) {
 			dprintk(VIDC_ERR,
 				"Failed to set output buffers: %d\n", rc);
@@ -1239,7 +1232,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 
 	if (msm_comm_get_stream_output_mode(inst) ==
 			HAL_VIDEO_DECODER_SECONDARY) {
-		rc = msm_comm_queue_output_buffers(inst);
+		rc = msm_comm_queue_dpb_only_buffers(inst);
 		if (rc) {
 			dprintk(VIDC_ERR,
 				"Failed to queue output buffers: %d\n", rc);
@@ -1688,7 +1681,6 @@ static int try_get_ctrl_for_instance(struct msm_vidc_inst *inst,
 {
 	int rc = 0;
 	struct hal_buffer_requirements *bufreq = NULL;
-	enum hal_buffer buffer_type;
 
 	switch (ctrl->id) {
 
@@ -1726,18 +1718,17 @@ static int try_get_ctrl_for_instance(struct msm_vidc_inst *inst,
 		break;
 
 	case V4L2_CID_MIN_BUFFERS_FOR_CAPTURE:
-		buffer_type = msm_comm_get_hal_output_buffer(inst);
-		bufreq = get_buff_req_buffer(inst,
-			buffer_type);
+		bufreq = get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
 		if (!bufreq) {
 			dprintk(VIDC_ERR,
 				"Failed to find bufreqs for buffer type = %d\n",
-					buffer_type);
+				HAL_BUFFER_OUTPUT);
 			return -EINVAL;
 		}
 		ctrl->val = bufreq->buffer_count_min_host;
 		dprintk(VIDC_DBG, "g_min: %x : hal_buffer %d min buffers %d\n",
-			hash32_ptr(inst->session), buffer_type, ctrl->val);
+			hash32_ptr(inst->session), HAL_BUFFER_OUTPUT,
+			ctrl->val);
 		break;
 	case V4L2_CID_MIN_BUFFERS_FOR_OUTPUT:
 		bufreq = get_buff_req_buffer(inst, HAL_BUFFER_INPUT);
@@ -1883,6 +1874,8 @@ void *msm_vidc_open(int core_id, int session_type)
 	inst->state = MSM_VIDC_CORE_UNINIT_DONE;
 	inst->core = core;
 	inst->clk_data.core_id = VIDC_CORE_ID_DEFAULT;
+	inst->clk_data.dpb_fourcc = V4L2_PIX_FMT_NV12_UBWC;
+	inst->clk_data.opb_fourcc = V4L2_PIX_FMT_NV12_UBWC;
 	inst->bit_depth = MSM_VIDC_BIT_DEPTH_8;
 	inst->pic_struct = MSM_VIDC_PIC_STRUCT_PROGRESSIVE;
 	inst->colour_space = MSM_VIDC_BT601_6_525;
@@ -1891,6 +1884,7 @@ void *msm_vidc_open(int core_id, int session_type)
 	inst->entropy_mode = V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CAVLC;
 	inst->smem_ops = &msm_vidc_smem_ops;
 	inst->rc_type = RATE_CONTROL_OFF;
+	inst->dpb_extra_binfo = NULL;
 
 	for (i = SESSION_MSG_INDEX(SESSION_MSG_START);
 		i <= SESSION_MSG_INDEX(SESSION_MSG_END); i++) {
@@ -2041,7 +2035,7 @@ static void msm_vidc_cleanup_instance(struct msm_vidc_inst *inst)
 
 	msm_comm_release_eos_buffers(inst);
 
-	if (msm_comm_release_output_buffers(inst, true))
+	if (msm_comm_release_dpb_only_buffers(inst, true))
 		dprintk(VIDC_ERR,
 			"Failed to release output buffers\n");
 

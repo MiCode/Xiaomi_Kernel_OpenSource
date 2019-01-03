@@ -1592,47 +1592,18 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 	inst->reconfig_width = event_notify->width;
 	inst->bit_depth = event_notify->bit_depth;
 
-	if (msm_comm_get_stream_output_mode(inst) ==
-			HAL_VIDEO_DECODER_SECONDARY) {
-		bufreq = get_buff_req_buffer(inst,
-				HAL_BUFFER_OUTPUT);
-		if (!bufreq) {
-			mutex_unlock(&inst->lock);
-			return;
-		}
-
-		/* No need to add extra buffers to DPBs */
-		bufreq->buffer_count_min = event_notify->capture_buf_count;
-		bufreq->buffer_count_min_host = bufreq->buffer_count_min;
-
-		bufreq = NULL;
-		bufreq = get_buff_req_buffer(inst,
-				HAL_BUFFER_OUTPUT2);
-		if (!bufreq) {
-			mutex_unlock(&inst->lock);
-			return;
-		}
-
-		extra_buff_count = msm_vidc_get_extra_buff_count(inst,
-						HAL_BUFFER_OUTPUT2);
-		bufreq->buffer_count_min = event_notify->capture_buf_count;
-		bufreq->buffer_count_min_host = bufreq->buffer_count_min +
-							extra_buff_count;
-	} else {
-
-		bufreq = get_buff_req_buffer(inst,
-				HAL_BUFFER_OUTPUT);
-		if (!bufreq) {
-			mutex_unlock(&inst->lock);
-			return;
-		}
-
-		extra_buff_count = msm_vidc_get_extra_buff_count(inst,
-						HAL_BUFFER_OUTPUT);
-		bufreq->buffer_count_min = event_notify->capture_buf_count;
-		bufreq->buffer_count_min_host = bufreq->buffer_count_min +
-							extra_buff_count;
+	bufreq = get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
+	if (!bufreq) {
+		mutex_unlock(&inst->lock);
+		return;
 	}
+
+	extra_buff_count = msm_vidc_get_extra_buff_count(inst,
+					HAL_BUFFER_OUTPUT);
+	bufreq->buffer_count_min = event_notify->capture_buf_count;
+	bufreq->buffer_count_min_host = bufreq->buffer_count_min +
+						extra_buff_count;
+
 	dprintk(VIDC_DBG, "%s: buffer[%d] count: min %d min_host %d\n",
 		__func__, bufreq->buffer_type, bufreq->buffer_count_min,
 		bufreq->buffer_count_min_host);
@@ -1840,12 +1811,11 @@ void msm_comm_validate_output_buffers(struct msm_vidc_inst *inst)
 	}
 }
 
-int msm_comm_queue_output_buffers(struct msm_vidc_inst *inst)
+int msm_comm_queue_dpb_only_buffers(struct msm_vidc_inst *inst)
 {
-	struct internal_buf *binfo;
+	struct internal_buf *binfo, *extra_info;
 	struct hfi_device *hdev;
 	struct vidc_frame_data frame_data = {0};
-	struct hal_buffer_requirements *output_buf, *extra_buf;
 	int rc = 0;
 
 	if (!inst || !inst->core || !inst->core->device) {
@@ -1855,43 +1825,30 @@ int msm_comm_queue_output_buffers(struct msm_vidc_inst *inst)
 
 	hdev = inst->core->device;
 
-	output_buf = get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
-	if (!output_buf) {
-		dprintk(VIDC_DBG,
-			"This output buffer not required, buffer_type: %x\n",
-			HAL_BUFFER_OUTPUT);
-		return 0;
-	}
-	dprintk(VIDC_DBG,
-		"output: num = %d, size = %d\n",
-		output_buf->buffer_count_actual,
-		output_buf->buffer_size);
-
-	extra_buf = get_buff_req_buffer(inst, HAL_BUFFER_EXTRADATA_OUTPUT);
-
+	extra_info = inst->dpb_extra_binfo;
 	mutex_lock(&inst->outputbufs.lock);
 	list_for_each_entry(binfo, &inst->outputbufs.list, list) {
 		if (binfo->buffer_ownership != DRIVER)
 			continue;
 		if (binfo->mark_remove)
 			continue;
-		frame_data.alloc_len = output_buf->buffer_size;
+		frame_data.alloc_len = binfo->smem.size;
 		frame_data.filled_len = 0;
 		frame_data.offset = 0;
 		frame_data.device_addr = binfo->smem.device_addr;
 		frame_data.flags = 0;
-		frame_data.extradata_addr = binfo->smem.device_addr +
-		output_buf->buffer_size;
+		frame_data.extradata_addr =
+			extra_info ? extra_info->smem.device_addr : 0;
 		frame_data.buffer_type = HAL_BUFFER_OUTPUT;
-		frame_data.extradata_size = extra_buf ?
-			extra_buf->buffer_size : 0;
+		frame_data.extradata_size =
+			extra_info ? extra_info->smem.size : 0;
 		rc = call_hfi_op(hdev, session_ftb,
 			(void *) inst->session, &frame_data);
 		binfo->buffer_ownership = FIRMWARE;
 	}
 	mutex_unlock(&inst->outputbufs.lock);
 
-	return 0;
+	return rc;
 }
 
 static void handle_session_flush(enum hal_command_response cmd, void *data)
@@ -1924,7 +1881,7 @@ static void handle_session_flush(enum hal_command_response cmd, void *data)
 			msm_comm_validate_output_buffers(inst);
 
 		if (!inst->in_reconfig) {
-			rc = msm_comm_queue_output_buffers(inst);
+			rc = msm_comm_queue_dpb_only_buffers(inst);
 			if (rc) {
 				dprintk(VIDC_ERR,
 						"Failed to queue output buffers: %d\n",
@@ -3455,12 +3412,28 @@ struct hal_buffer_requirements *get_buff_req_buffer(
 	return NULL;
 }
 
-static int set_output_buffers(struct msm_vidc_inst *inst,
+static int convert_color_fmt(int v4l2_fmt)
+{
+	switch (v4l2_fmt) {
+	case V4L2_PIX_FMT_NV12:
+		return COLOR_FMT_NV12;
+	case V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010_VENUS:
+		return COLOR_FMT_P010;
+	case V4L2_PIX_FMT_NV12_UBWC:
+		return COLOR_FMT_NV12_UBWC;
+	case V4L2_PIX_FMT_NV12_TP10_UBWC:
+		return COLOR_FMT_NV12_BPP10_UBWC;
+	default:
+		return COLOR_FMT_NV12;
+	}
+}
+
+static int set_dpb_only_buffers(struct msm_vidc_inst *inst,
 	enum hal_buffer buffer_type)
 {
 	int rc = 0;
 	struct internal_buf *binfo = NULL;
-	u32 smem_flags = SMEM_UNCACHED, buffer_size;
+	u32 smem_flags = SMEM_UNCACHED, buffer_size, num_buffers, hfi_fmt;
 	struct hal_buffer_requirements *output_buf, *extradata_buf;
 	unsigned int i;
 	struct hfi_device *hdev;
@@ -3477,15 +3450,16 @@ static int set_output_buffers(struct msm_vidc_inst *inst,
 	}
 
 	/* For DPB buffers, Always use FW count */
-	output_buf->buffer_count_actual = output_buf->buffer_count_min_host =
-		output_buf->buffer_count_min;
-
+	num_buffers = output_buf->buffer_count_min;
+	hfi_fmt = convert_color_fmt(inst->clk_data.dpb_fourcc);
+	buffer_size = VENUS_BUFFER_SIZE(hfi_fmt,
+			inst->prop.width[CAPTURE_PORT],
+			inst->prop.height[CAPTURE_PORT]);
 	dprintk(VIDC_DBG,
 		"output: num = %d, size = %d\n",
-		output_buf->buffer_count_actual,
-		output_buf->buffer_size);
+		num_buffers,
+		buffer_size);
 
-	buffer_size = output_buf->buffer_size;
 	b.buffer_type = buffer_type;
 	b.buffer_size = buffer_size;
 	rc = call_hfi_op(hdev, session_set_property,
@@ -3498,7 +3472,21 @@ static int set_output_buffers(struct msm_vidc_inst *inst,
 			"extradata: num = %d, size = %d\n",
 			extradata_buf->buffer_count_actual,
 			extradata_buf->buffer_size);
-		buffer_size += extradata_buf->buffer_size;
+		inst->dpb_extra_binfo = NULL;
+		inst->dpb_extra_binfo = kzalloc(sizeof(*binfo), GFP_KERNEL);
+		if (!inst->dpb_extra_binfo) {
+			dprintk(VIDC_ERR, "Out of memory\n");
+			rc = -ENOMEM;
+			goto fail_kzalloc;
+		}
+		rc = msm_comm_smem_alloc(inst,
+			extradata_buf->buffer_size, 1, smem_flags,
+			buffer_type, 0, &inst->dpb_extra_binfo->smem);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"Failed to allocate output memory\n");
+			goto err_no_mem;
+		}
 	} else {
 		dprintk(VIDC_DBG,
 			"This extradata buffer not required, buffer_type: %x\n",
@@ -3508,9 +3496,8 @@ static int set_output_buffers(struct msm_vidc_inst *inst,
 	if (inst->flags & VIDC_SECURE)
 		smem_flags |= SMEM_SECURE;
 
-	if (output_buf->buffer_size) {
-		for (i = 0; i < output_buf->buffer_count_actual;
-				i++) {
+	if (buffer_size) {
+		for (i = 0; i < num_buffers; i++) {
 			binfo = kzalloc(sizeof(*binfo), GFP_KERNEL);
 			if (!binfo) {
 				dprintk(VIDC_ERR, "Out of memory\n");
@@ -3534,18 +3521,15 @@ static int set_output_buffers(struct msm_vidc_inst *inst,
 				HAL_BUFFER_MODE_STATIC) {
 				struct vidc_buffer_addr_info buffer_info = {0};
 
-				buffer_info.buffer_size =
-					output_buf->buffer_size;
+				buffer_info.buffer_size = buffer_size;
 				buffer_info.buffer_type = buffer_type;
 				buffer_info.num_buffers = 1;
 				buffer_info.align_device_addr =
 					binfo->smem.device_addr;
 				buffer_info.extradata_addr =
-					binfo->smem.device_addr +
-					output_buf->buffer_size;
-				if (extradata_buf)
-					buffer_info.extradata_size =
-						extradata_buf->buffer_size;
+				inst->dpb_extra_binfo->smem.device_addr;
+				buffer_info.extradata_size =
+					inst->dpb_extra_binfo->smem.size;
 				rc = call_hfi_op(hdev, session_set_buffers,
 					(void *) inst->session, &buffer_info);
 				if (rc) {
@@ -4483,7 +4467,7 @@ exit:
 	return rc;
 }
 
-int msm_comm_release_output_buffers(struct msm_vidc_inst *inst,
+int msm_comm_release_dpb_only_buffers(struct msm_vidc_inst *inst,
 	bool force_release)
 {
 	struct msm_smem *handle;
@@ -4553,6 +4537,12 @@ int msm_comm_release_output_buffers(struct msm_vidc_inst *inst,
 		list_del(&buf->list);
 		msm_comm_smem_free(inst, &buf->smem);
 		kfree(buf);
+	}
+
+	if (inst->dpb_extra_binfo) {
+		msm_comm_smem_free(inst, &inst->dpb_extra_binfo->smem);
+		kfree(inst->dpb_extra_binfo);
+		inst->dpb_extra_binfo = NULL;
 	}
 
 	mutex_unlock(&inst->outputbufs.lock);
@@ -4835,7 +4825,7 @@ int msm_comm_set_buffer_count(struct msm_vidc_inst *inst,
 	return rc;
 }
 
-int msm_comm_set_output_buffers(struct msm_vidc_inst *inst)
+int msm_comm_set_dpb_only_buffers(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	bool force_release = true;
@@ -4848,15 +4838,15 @@ int msm_comm_set_output_buffers(struct msm_vidc_inst *inst)
 	if (inst->fmts[OUTPUT_PORT].defer_outputs)
 		force_release = false;
 
-	if (msm_comm_release_output_buffers(inst, force_release))
+	if (msm_comm_release_dpb_only_buffers(inst, force_release))
 		dprintk(VIDC_WARN, "Failed to release output buffers\n");
 
-	rc = set_output_buffers(inst, HAL_BUFFER_OUTPUT);
+	rc = set_dpb_only_buffers(inst, HAL_BUFFER_OUTPUT);
 	if (rc)
 		goto error;
 	return rc;
 error:
-	msm_comm_release_output_buffers(inst, true);
+	msm_comm_release_dpb_only_buffers(inst, true);
 	return rc;
 }
 
@@ -4906,15 +4896,13 @@ int msm_comm_set_recon_buffers(struct msm_vidc_inst *inst)
 		return -EINVAL;
 	}
 
-	if (inst->session_type == MSM_VIDC_ENCODER)
-		internal_buf = get_buff_req_buffer(inst,
-			HAL_BUFFER_INTERNAL_RECON);
-	else if (inst->session_type == MSM_VIDC_DECODER)
-		internal_buf = get_buff_req_buffer(inst,
-			msm_comm_get_hal_output_buffer(inst));
-	else
-		return -EINVAL;
+	if (inst->session_type != MSM_VIDC_ENCODER) {
+		dprintk(VIDC_DBG, "Recon buffs not req for decoder/cvp\n");
+		return 0;
+	}
 
+	internal_buf = get_buff_req_buffer(inst,
+			HAL_BUFFER_INTERNAL_RECON);
 	if (!internal_buf || !internal_buf->buffer_count_actual) {
 		dprintk(VIDC_DBG, "Inst : %pK Recon buffers not required\n",
 			inst);
@@ -5713,7 +5701,7 @@ int msm_comm_session_continue(void *instance)
 		inst->prop.width[OUTPUT_PORT] = inst->reconfig_width;
 		if (msm_comm_get_stream_output_mode(inst) ==
 			HAL_VIDEO_DECODER_SECONDARY) {
-			rc = msm_comm_queue_output_buffers(inst);
+			rc = msm_comm_queue_dpb_only_buffers(inst);
 			if (rc) {
 				dprintk(VIDC_ERR,
 						"Failed to queue output buffers: %d\n",

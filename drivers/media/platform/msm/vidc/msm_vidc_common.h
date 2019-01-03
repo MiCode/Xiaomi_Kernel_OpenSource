@@ -151,8 +151,8 @@ int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst);
 int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst);
 int msm_comm_set_buffer_count(struct msm_vidc_inst *inst,
 	int host_count, int act_count, enum hal_buffer type);
-int msm_comm_set_output_buffers(struct msm_vidc_inst *inst);
-int msm_comm_queue_output_buffers(struct msm_vidc_inst *inst);
+int msm_comm_set_dpb_only_buffers(struct msm_vidc_inst *inst);
+int msm_comm_queue_dpb_only_buffers(struct msm_vidc_inst *inst);
 int msm_comm_qbuf(struct msm_vidc_inst *inst, struct msm_vidc_buffer *mbuf);
 int msm_comm_qbufs(struct msm_vidc_inst *inst);
 void msm_comm_flush_dynamic_buffers(struct msm_vidc_inst *inst);
@@ -162,7 +162,7 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst,
 int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst);
 int msm_comm_release_recon_buffers(struct msm_vidc_inst *inst);
 void msm_comm_release_eos_buffers(struct msm_vidc_inst *inst);
-int msm_comm_release_output_buffers(struct msm_vidc_inst *inst,
+int msm_comm_release_dpb_only_buffers(struct msm_vidc_inst *inst,
 	bool force_release);
 void msm_comm_validate_output_buffers(struct msm_vidc_inst *inst);
 int msm_comm_force_cleanup(struct msm_vidc_inst *inst);
