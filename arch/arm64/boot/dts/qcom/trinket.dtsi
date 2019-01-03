@@ -31,6 +31,8 @@
 
 	aliases {
 		serial0 = &qupv3_se4_2uart;
+		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
+		sdhc2 = &sdhc_2; /* SDC2 SD Card slot */
 	};
 
 	cpus {
@@ -1608,6 +1610,58 @@
 			compatible = "qcom,iommu-slim-ctrl-cb";
 			iommus = <&apps_smmu 0x73 0x0>;
 		};
+	};
+
+	sdhc_1: sdhci@4744000 {
+		compatible = "qcom,sdhci-msm-v5";
+		reg = <0x4744000 0x1000>, <0x4745000 0x1000>;
+		reg-names = "hc_mem", "cmdq_mem";
+
+		interrupts = <GIC_SPI 348 IRQ_TYPE_NONE>,
+					<GIC_SPI 352 IRQ_TYPE_NONE>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		qcom,bus-width = <8>;
+		qcom,large-address-bus;
+
+		qcom,clk-rates = <400000 20000000 25000000 50000000 100000000
+						192000000 384000000>;
+		qcom,bus-speed-mode = "HS400_1p8v", "HS200_1p8v", "DDR_1p8v";
+
+		qcom,devfreq,freq-table = <50000000 200000000>;
+
+		clocks = <&clock_gcc GCC_SDCC1_AHB_CLK>,
+			<&clock_gcc GCC_SDCC1_APPS_CLK>;
+		clock-names = "iface_clk", "core_clk";
+
+		qcom,nonremovable;
+		status = "disabled";
+	};
+
+	sdhc_2: sdhci@4784000 {
+		compatible = "qcom,sdhci-msm-v5";
+		reg = <0x4784000 0x1000>;
+		reg-names = "hc_mem";
+
+		interrupts = <GIC_SPI 350 IRQ_TYPE_NONE>,
+					<GIC_SPI 353 IRQ_TYPE_NONE>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		qcom,bus-width = <4>;
+		qcom,large-address-bus;
+
+		qcom,clk-rates = <400000 20000000 25000000
+				50000000 100000000 202000000>;
+		qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50",
+				      "SDR104";
+
+		qcom,devfreq,freq-table = <50000000 202000000>;
+
+		clocks = <&clock_gcc GCC_SDCC2_AHB_CLK>,
+			<&clock_gcc GCC_SDCC2_APPS_CLK>;
+		clock-names = "iface_clk", "core_clk";
+
+		status = "disabled";
 	};
 };
 
