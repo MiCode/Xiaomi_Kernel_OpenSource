@@ -1621,7 +1621,8 @@ struct ipa3_context {
 	bool use_ipa_teth_bridge;
 	bool modem_cfg_emb_pipe_flt;
 	bool ipa_wdi2;
-	bool ipa_wdi_over_gsi;
+	bool ipa_wdi2_over_gsi;
+	bool ipa_wdi3_over_gsi;
 	bool ipa_fltrt_not_hashable;
 	bool use_64_bit_dma_mask;
 	/* featurize if memory footprint becomes a concern */
@@ -1713,7 +1714,8 @@ struct ipa3_plat_drv_res {
 	u32 ee;
 	bool modem_cfg_emb_pipe_flt;
 	bool ipa_wdi2;
-	bool ipa_wdi_over_gsi;
+	bool ipa_wdi2_over_gsi;
+	bool ipa_wdi3_over_gsi;
 	bool ipa_fltrt_not_hashable;
 	bool use_64_bit_dma_mask;
 	bool use_bw_vote;
