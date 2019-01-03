@@ -458,7 +458,7 @@ static void handle_critical_trips(struct thermal_zone_device *tz,
 	}
 }
 
-void handle_thermal_trip(struct thermal_zone_device *tz, int trip)
+static void handle_thermal_trip(struct thermal_zone_device *tz, int trip)
 {
 	enum thermal_trip_type type;
 
@@ -576,19 +576,8 @@ exit:
 }
 EXPORT_SYMBOL_GPL(thermal_zone_set_trips);
 
-static void update_temperature(struct thermal_zone_device *tz)
+static void store_temperature(struct thermal_zone_device *tz, int temp)
 {
-	int temp, ret;
-
-	ret = thermal_zone_get_temp(tz, &temp);
-	if (ret) {
-		if (ret != -EAGAIN)
-			dev_warn(&tz->device,
-				 "failed to read out thermal zone (%d)\n",
-				 ret);
-		return;
-	}
-
 	mutex_lock(&tz->lock);
 	tz->last_temperature = tz->temperature;
 	tz->temperature = temp;
@@ -604,6 +593,21 @@ static void update_temperature(struct thermal_zone_device *tz)
 			tz->last_temperature, tz->temperature);
 }
 
+static void update_temperature(struct thermal_zone_device *tz)
+{
+	int temp, ret;
+
+	ret = thermal_zone_get_temp(tz, &temp);
+	if (ret) {
+		if (ret != -EAGAIN)
+			dev_warn(&tz->device,
+				 "failed to read out thermal zone (%d)\n",
+				 ret);
+		return;
+	}
+	store_temperature(tz, temp);
+}
+
 static void thermal_zone_device_reset(struct thermal_zone_device *tz)
 {
 	struct thermal_instance *pos;
@@ -613,6 +617,26 @@ static void thermal_zone_device_reset(struct thermal_zone_device *tz)
 	list_for_each_entry(pos, &tz->thermal_instances, tz_node)
 		pos->initialized = false;
 }
+
+void thermal_zone_device_update_temp(struct thermal_zone_device *tz,
+				enum thermal_notify_event event, int temp)
+{
+	int count;
+
+	if (atomic_read(&in_suspend))
+		return;
+
+	trace_thermal_device_update(tz, event);
+	store_temperature(tz, temp);
+
+	thermal_zone_set_trips(tz);
+
+	tz->notify_event = event;
+
+	for (count = 0; count < tz->trips; count++)
+		handle_thermal_trip(tz, count);
+}
+EXPORT_SYMBOL(thermal_zone_device_update_temp);
 
 void thermal_zone_device_update(struct thermal_zone_device *tz,
 				enum thermal_notify_event event)
