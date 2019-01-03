@@ -57,7 +57,7 @@
 		qcom,snapshot-size = <1048576>;
 
 		/* base addr, size */
-		qcom,gpu-qdss-stm = <0x16140000 0x40000>;
+		qcom,gpu-qdss-stm = <0x161c0000 0x40000>;
 		#cooling-cells = <2>;
 
 		clocks = <&clock_gpucc GPU_CC_GX_GFX3D_CLK>,
@@ -98,6 +98,10 @@
 		vdd-supply = <&gpu_gx_gdsc>;
 		/* Cx ipeak limit supprt */
 		qcom,gpu-cx-ipeak = <&cx_ipeak_lm 1>;
+
+		/* GPU related llc slices */
+		cache-slice-names = "gpu", "gpuhtw";
+		cache-slices = <&llcc 12>, <&llcc 11>;
 
 		/* CPU latency parameter */
 		qcom,pm-qos-active-latency = <67>;

@@ -28,6 +28,8 @@ struct mhi_buf_info;
  * @MHI_CB_LPM_ENTER: MHI host entered low power mode
  * @MHI_CB_LPM_EXIT: MHI host about to exit low power mode
  * @MHI_CB_EE_RDDM: MHI device entered RDDM execution enviornment
+ * @MHI_CB_SYS_ERROR: MHI device enter error state (may recover)
+ * @MHI_CB_FATAL_ERROR: MHI device entered fatal error
  */
 enum MHI_CB {
 	MHI_CB_IDLE,
@@ -35,6 +37,8 @@ enum MHI_CB {
 	MHI_CB_LPM_ENTER,
 	MHI_CB_LPM_EXIT,
 	MHI_CB_EE_RDDM,
+	MHI_CB_SYS_ERROR,
+	MHI_CB_FATAL_ERROR,
 };
 
 /**
@@ -624,6 +628,19 @@ enum mhi_dev_state mhi_get_mhi_state(struct mhi_controller *mhi_cntrl);
  */
 void mhi_set_mhi_state(struct mhi_controller *mhi_cntrl,
 		       enum mhi_dev_state state);
+
+
+/**
+ * mhi_is_active - helper function to determine if MHI in active state
+ * @mhi_dev: client device
+ */
+static inline bool mhi_is_active(struct mhi_device *mhi_dev)
+{
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+
+	return (mhi_cntrl->dev_state >= MHI_STATE_M0 &&
+		mhi_cntrl->dev_state <= MHI_STATE_M3);
+}
 
 #ifndef CONFIG_ARCH_QCOM
 

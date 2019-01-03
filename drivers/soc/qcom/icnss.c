@@ -1923,6 +1923,12 @@ EXPORT_SYMBOL(icnss_wlan_enable);
 
 int icnss_wlan_disable(struct device *dev, enum icnss_driver_mode mode)
 {
+	if (test_bit(ICNSS_FW_DOWN, &penv->state)) {
+		icnss_pr_dbg("FW down, ignoring wlan_disable state: 0x%lx\n",
+			     penv->state);
+		return 0;
+	}
+
 	return icnss_send_wlan_disable_to_fw(penv);
 }
 EXPORT_SYMBOL(icnss_wlan_disable);

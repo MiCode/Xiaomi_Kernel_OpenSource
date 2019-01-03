@@ -3870,7 +3870,8 @@ should_reclaim_retry(gfp_t gfp_mask, unsigned order,
 	 * their order will become available due to high fragmentation so
 	 * always increment the no progress counter for them
 	 */
-	if (did_some_progress && order <= PAGE_ALLOC_COSTLY_ORDER)
+	if ((did_some_progress || lmk_kill_possible()) &&
+				order <= PAGE_ALLOC_COSTLY_ORDER)
 		*no_progress_loops = 0;
 	else
 		(*no_progress_loops)++;

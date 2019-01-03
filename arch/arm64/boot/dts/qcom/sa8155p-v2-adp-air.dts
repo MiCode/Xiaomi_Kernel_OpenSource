@@ -13,7 +13,7 @@
 /dts-v1/;
 
 #include "sa8155p-v2.dtsi"
-#include "sa8155-adp-star.dtsi"
+#include "sa8155-adp-common.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SA8155P V2 ADP AIR";

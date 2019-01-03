@@ -134,6 +134,5 @@ int32_t npu_host_loopback_test(struct npu_device *npu_dev);
 void npu_host_cleanup_networks(struct npu_client *client);
 
 void npu_dump_debug_timeout_stats(struct npu_device *npu_dev);
-void npu_dump_cal_state(struct npu_device *npu_dev);
 
 #endif /* _NPU_MGR_H */

@@ -1411,18 +1411,19 @@ static int __set_clk_rate(struct venus_hfi_device *device,
 		return rc;
 	}
 
-	device->clk_freq = rate;
-
 	if (device->clk_freq >= threshold_freq && rate < threshold_freq) {
 		rc = cx_ipeak_update(ipeak, false);
 		if (rc) {
 			dprintk(VIDC_ERR,
 				"cx_ipeak_update failed! ipeak %pK\n", ipeak);
+			device->clk_freq = rate;
 			return rc;
 		}
 		dprintk(VIDC_PROF, "cx_ipeak_update: down, clk freq = %lu\n",
 			device->clk_freq);
 	}
+
+	device->clk_freq = rate;
 
 	return rc;
 }

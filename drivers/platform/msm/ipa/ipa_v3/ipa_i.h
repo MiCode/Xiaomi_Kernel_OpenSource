@@ -249,7 +249,7 @@ enum {
 
 #define IPA_AGGR_MAX_STR_LENGTH (10)
 
-#define CLEANUP_TAG_PROCESS_TIMEOUT 500
+#define CLEANUP_TAG_PROCESS_TIMEOUT 1000
 
 #define IPA_AGGR_STR_IN_BYTES(str) \
 	(strnlen((str), IPA_AGGR_MAX_STR_LENGTH - 1) + 1)
@@ -1656,6 +1656,7 @@ struct ipa3_context {
 	struct ipa3_wdi2_ctx wdi2_ctx;
 	struct mbox_client mbox_client;
 	struct mbox_chan *mbox;
+	atomic_t ipa_clk_vote;
 };
 
 struct ipa3_plat_drv_res {

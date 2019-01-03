@@ -488,6 +488,7 @@ static int __cam_isp_ctx_handle_buf_done_in_activated_state(
 		req_isp->bubble_detected = false;
 		list_del_init(&req->list);
 		list_add(&req->list, &ctx->pending_req_list);
+		atomic_set(&ctx_isp->process_bubble, 0);
 
 		CAM_DBG(CAM_REQ,
 			"Move active request %lld to pending list(cnt = %d) [bubble recovery]",
@@ -805,6 +806,7 @@ static int __cam_isp_ctx_epoch_in_applied(struct cam_isp_context *ctx_isp,
 		notify.req_id = req->request_id;
 		notify.error = CRM_KMD_ERR_BUBBLE;
 		ctx->ctx_crm_intf->notify_err(&notify);
+		atomic_set(&ctx_isp->process_bubble, 1);
 		CAM_DBG(CAM_ISP, "Notify CRM about Bubble frame %lld",
 			ctx_isp->frame_id);
 	} else {
@@ -1301,6 +1303,14 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 	 *
 	 */
 	ctx_isp = (struct cam_isp_context *) ctx->ctx_priv;
+
+	if (atomic_read(&ctx_isp->process_bubble)) {
+		CAM_DBG(CAM_ISP,
+			"Processing bubble cannot apply Request Id %llu",
+			apply->request_id);
+		rc = -EAGAIN;
+		goto end;
+	}
 
 	spin_lock_bh(&ctx->lock);
 	req = list_first_entry(&ctx->pending_req_list, struct cam_ctx_request,
