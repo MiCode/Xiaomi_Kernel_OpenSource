@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2014, 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2015-2019, The Linux Foundation. All rights reserved.
  */
 #if !defined(TRACE_SDE_ROTATOR_H) || defined(TRACE_HEADER_MULTI_READ)
 #define TRACE_SDE_ROTATOR_H
@@ -13,16 +13,11 @@
 #define TRACE_INCLUDE_FILE sde_rotator_trace
 
 #include <linux/tracepoint.h>
+#include <sde_rotator_core.h>
 
 DECLARE_EVENT_CLASS(rot_entry_template,
-	TP_PROTO(u32 ss_id, u32 sq_id, u32 pr_id, u32 flags,
-			u32 src_fmt, u32 src_bw, u32 src_bh,
-			u32 src_x, u32 src_y, u32 src_w, u32 src_h,
-			u32 dst_fmt, u32 dst_bw, u32 dst_bh,
-			u32 dst_x, u32 dst_y, u32 dst_w, u32 dst_h),
-	TP_ARGS(ss_id, sq_id, pr_id, flags,
-			src_fmt, src_bw, src_bh, src_x, src_y, src_w, src_h,
-			dst_fmt, dst_bw, dst_bh, dst_x, dst_y, dst_w, dst_h),
+	TP_PROTO(u32 ss_id, u32 sq_id, struct sde_rot_trace_entry *rot),
+	TP_ARGS(ss_id, sq_id, rot),
 	TP_STRUCT__entry(
 			__field(u32, ss_id)
 			__field(u32, sq_id)
@@ -46,22 +41,22 @@ DECLARE_EVENT_CLASS(rot_entry_template,
 	TP_fast_assign(
 			__entry->ss_id = ss_id;
 			__entry->sq_id = sq_id;
-			__entry->pr_id = pr_id;
-			__entry->flags = flags;
-			__entry->src_fmt = src_fmt;
-			__entry->src_bw = src_bw;
-			__entry->src_bh = src_bh;
-			__entry->src_x = src_x;
-			__entry->src_y = src_y;
-			__entry->src_w = src_w;
-			__entry->src_h = src_h;
-			__entry->dst_fmt = dst_fmt;
-			__entry->dst_bw = dst_bw;
-			__entry->dst_bh = dst_bh;
-			__entry->dst_x = dst_x;
-			__entry->dst_y = dst_y;
-			__entry->dst_w = dst_w;
-			__entry->dst_h = dst_h;
+			__entry->pr_id = rot->wb_idx;
+			__entry->flags = rot->flags;
+			__entry->src_fmt = rot->input_format;
+			__entry->src_bw = rot->input_width;
+			__entry->src_bh = rot->input_height;
+			__entry->src_x = rot->src_x;
+			__entry->src_y = rot->src_y;
+			__entry->src_w = rot->src_w;
+			__entry->src_h = rot->src_h;
+			__entry->dst_fmt = rot->output_format;
+			__entry->dst_bw = rot->output_width;
+			__entry->dst_bh = rot->output_height;
+			__entry->dst_x = rot->dst_x;
+			__entry->dst_y = rot->dst_y;
+			__entry->dst_w = rot->dst_w;
+			__entry->dst_h = rot->dst_h;
 	),
 
 	TP_printk("%d.%d|%d|%x|%x|%u,%u|%u,%u,%u,%u|%x|%u,%u|%u,%u,%u,%u|",
@@ -76,36 +71,18 @@ DECLARE_EVENT_CLASS(rot_entry_template,
 );
 
 DEFINE_EVENT(rot_entry_template, rot_entry_fence,
-	TP_PROTO(u32 ss_id, u32 sq_id, u32 pr_id, u32 flags,
-			u32 src_fmt, u32 src_bw, u32 src_bh,
-			u32 src_x, u32 src_y, u32 src_w, u32 src_h,
-			u32 dst_fmt, u32 dst_bw, u32 dst_bh,
-			u32 dst_x, u32 dst_y, u32 dst_w, u32 dst_h),
-	TP_ARGS(ss_id, sq_id, pr_id, flags,
-			src_fmt, src_bw, src_bh, src_x, src_y, src_w, src_h,
-			dst_fmt, dst_bw, dst_bh, dst_x, dst_y, dst_w, dst_h)
+	TP_PROTO(u32 ss_id, u32 sq_id, struct sde_rot_trace_entry *rot),
+	TP_ARGS(ss_id, sq_id, rot)
 );
 
 DEFINE_EVENT(rot_entry_template, rot_entry_commit,
-	TP_PROTO(u32 ss_id, u32 sq_id, u32 pr_id, u32 flags,
-			u32 src_fmt, u32 src_bw, u32 src_bh,
-			u32 src_x, u32 src_y, u32 src_w, u32 src_h,
-			u32 dst_fmt, u32 dst_bw, u32 dst_bh,
-			u32 dst_x, u32 dst_y, u32 dst_w, u32 dst_h),
-	TP_ARGS(ss_id, sq_id, pr_id, flags,
-			src_fmt, src_bw, src_bh, src_x, src_y, src_w, src_h,
-			dst_fmt, dst_bw, dst_bh, dst_x, dst_y, dst_w, dst_h)
+	TP_PROTO(u32 ss_id, u32 sq_id, struct sde_rot_trace_entry *rot),
+	TP_ARGS(ss_id, sq_id, rot)
 );
 
 DEFINE_EVENT(rot_entry_template, rot_entry_done,
-	TP_PROTO(u32 ss_id, u32 sq_id, u32 pr_id, u32 flags,
-			u32 src_fmt, u32 src_bw, u32 src_bh,
-			u32 src_x, u32 src_y, u32 src_w, u32 src_h,
-			u32 dst_fmt, u32 dst_bw, u32 dst_bh,
-			u32 dst_x, u32 dst_y, u32 dst_w, u32 dst_h),
-	TP_ARGS(ss_id, sq_id, pr_id, flags,
-			src_fmt, src_bw, src_bh, src_x, src_y, src_w, src_h,
-			dst_fmt, dst_bw, dst_bh, dst_x, dst_y, dst_w, dst_h)
+	TP_PROTO(u32 ss_id, u32 sq_id, struct sde_rot_trace_entry *rot),
+	TP_ARGS(ss_id, sq_id, rot)
 );
 
 TRACE_EVENT(rot_perf_set_qos_luts,
@@ -289,7 +266,7 @@ TRACE_EVENT(rot_bw_ao_as_context,
 
 #define SDE_ROT_TRACE_EVTLOG_SIZE	15
 TRACE_EVENT(sde_rot_evtlog,
-	TP_PROTO(const char *tag, u32 tag_id, u32 cnt, u32 data[]),
+	TP_PROTO(const char *tag, u32 tag_id, u32 cnt, u32 *data),
 	TP_ARGS(tag, tag_id, cnt, data),
 	TP_STRUCT__entry(
 			__field(int, pid)

@@ -1508,6 +1508,7 @@ static void sde_rotator_commit_handler(struct kthread_work *work)
 	struct sde_rot_hw_resource *hw;
 	struct sde_rot_mgr *mgr;
 	struct sched_param param = { .sched_priority = 5 };
+	struct sde_rot_trace_entry rot_trace;
 	int ret;
 
 	entry = container_of(work, struct sde_rot_entry, commit_work);
@@ -1556,17 +1557,26 @@ static void sde_rotator_commit_handler(struct kthread_work *work)
 	if (entry->item.ts)
 		entry->item.ts[SDE_ROTATOR_TS_COMMIT] = ktime_get();
 
+	/* Set values to pass to trace */
+	rot_trace.wb_idx = entry->item.wb_idx;
+	rot_trace.flags = entry->item.flags;
+	rot_trace.input_format = entry->item.input.format;
+	rot_trace.input_width = entry->item.input.width;
+	rot_trace.input_height = entry->item.input.height;
+	rot_trace.src_x = entry->item.src_rect.x;
+	rot_trace.src_y = entry->item.src_rect.y;
+	rot_trace.src_w = entry->item.src_rect.w;
+	rot_trace.src_h = entry->item.src_rect.h;
+	rot_trace.output_format = entry->item.output.format;
+	rot_trace.output_width = entry->item.output.width;
+	rot_trace.output_height = entry->item.output.height;
+	rot_trace.dst_x = entry->item.dst_rect.x;
+	rot_trace.dst_y = entry->item.dst_rect.y;
+	rot_trace.dst_w = entry->item.dst_rect.w;
+	rot_trace.dst_h = entry->item.dst_rect.h;
+
 	trace_rot_entry_commit(
-		entry->item.session_id, entry->item.sequence_id,
-		entry->item.wb_idx, entry->item.flags,
-		entry->item.input.format,
-		entry->item.input.width, entry->item.input.height,
-		entry->item.src_rect.x, entry->item.src_rect.y,
-		entry->item.src_rect.w, entry->item.src_rect.h,
-		entry->item.output.format,
-		entry->item.output.width, entry->item.output.height,
-		entry->item.dst_rect.x, entry->item.dst_rect.y,
-		entry->item.dst_rect.w, entry->item.dst_rect.h);
+		entry->item.session_id, entry->item.sequence_id, &rot_trace);
 
 	ATRACE_INT("sde_smmu_ctrl", 0);
 	ret = sde_smmu_ctrl(1);
@@ -1652,6 +1662,7 @@ static void sde_rotator_done_handler(struct kthread_work *work)
 	struct sde_rot_entry_container *request;
 	struct sde_rot_hw_resource *hw;
 	struct sde_rot_mgr *mgr;
+	struct sde_rot_trace_entry rot_trace;
 	int ret;
 
 	entry = container_of(work, struct sde_rot_entry, done_work);
@@ -1686,17 +1697,26 @@ static void sde_rotator_done_handler(struct kthread_work *work)
 	if (entry->item.ts)
 		entry->item.ts[SDE_ROTATOR_TS_DONE] = ktime_get();
 
-	trace_rot_entry_done(
-		entry->item.session_id, entry->item.sequence_id,
-		entry->item.wb_idx, entry->item.flags,
-		entry->item.input.format,
-		entry->item.input.width, entry->item.input.height,
-		entry->item.src_rect.x, entry->item.src_rect.y,
-		entry->item.src_rect.w, entry->item.src_rect.h,
-		entry->item.output.format,
-		entry->item.output.width, entry->item.output.height,
-		entry->item.dst_rect.x, entry->item.dst_rect.y,
-		entry->item.dst_rect.w, entry->item.dst_rect.h);
+	/* Set values to pass to trace */
+	rot_trace.wb_idx = entry->item.wb_idx;
+	rot_trace.flags = entry->item.flags;
+	rot_trace.input_format = entry->item.input.format;
+	rot_trace.input_width = entry->item.input.width;
+	rot_trace.input_height = entry->item.input.height;
+	rot_trace.src_x = entry->item.src_rect.x;
+	rot_trace.src_y = entry->item.src_rect.y;
+	rot_trace.src_w = entry->item.src_rect.w;
+	rot_trace.src_h = entry->item.src_rect.h;
+	rot_trace.output_format = entry->item.output.format;
+	rot_trace.output_width = entry->item.output.width;
+	rot_trace.output_height = entry->item.output.height;
+	rot_trace.dst_x = entry->item.dst_rect.x;
+	rot_trace.dst_y = entry->item.dst_rect.y;
+	rot_trace.dst_w = entry->item.dst_rect.w;
+	rot_trace.dst_h = entry->item.dst_rect.h;
+
+	trace_rot_entry_done(entry->item.session_id, entry->item.sequence_id,
+			&rot_trace);
 
 	sde_rot_mgr_lock(mgr);
 	sde_rotator_put_hw_resource(entry->commitq, entry, entry->commitq->hw);
