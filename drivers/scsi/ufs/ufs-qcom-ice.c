@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -226,15 +226,17 @@ int ufs_qcom_ice_init(struct ufs_qcom_host *qcom_host)
 	}
 
 	qcom_host->dbg_print_en |= UFS_QCOM_ICE_DEFAULT_DBG_PRINT_EN;
-	ice_workqueue = alloc_workqueue("ice-set-key",
-			WQ_MEM_RECLAIM | WQ_HIGHPRI, 0);
 	if (!ice_workqueue) {
-		dev_err(ufs_dev, "%s: workqueue allocation failed.\n",
+		ice_workqueue = alloc_workqueue("ice-set-key",
+			WQ_MEM_RECLAIM | WQ_HIGHPRI, 0);
+		if (!ice_workqueue) {
+			dev_err(ufs_dev, "%s: workqueue allocation failed.\n",
 			__func__);
-		err = -ENOMEM;
-		goto out;
+			err = -ENOMEM;
+			goto out;
+		}
+		INIT_WORK(&qcom_host->ice_cfg_work, ufs_qcom_ice_cfg_work);
 	}
-	INIT_WORK(&qcom_host->ice_cfg_work, ufs_qcom_ice_cfg_work);
 
 out:
 	return err;
@@ -288,16 +290,13 @@ int ufs_qcom_ice_req_setup(struct ufs_qcom_host *qcom_host,
 			 */
 			if (err == -EAGAIN) {
 				if (!ice_workqueue) {
+					spin_unlock_irqrestore(
+					&qcom_host->ice_work_lock,
+					flags);
+
 					dev_err(qcom_host->hba->dev,
 						"%s: error %d workqueue NULL\n",
 						__func__, err);
-					/*
-					 * over write the error code to halt
-					 * the request from upper layer as
-					 * system is possibly in low memory
-					 * state. Give system a chance to
-					 * recover and reinitialize ice driver.
-					 */
 					return -EINVAL;
 				}
 
@@ -421,16 +420,13 @@ int ufs_qcom_ice_cfg_start(struct ufs_qcom_host *qcom_host,
 			 */
 			if (err == -EAGAIN) {
 				if (!ice_workqueue) {
+					spin_unlock_irqrestore(
+					&qcom_host->ice_work_lock,
+					flags);
+
 					dev_err(qcom_host->hba->dev,
 						"%s: error %d workqueue NULL\n",
 						__func__, err);
-					/*
-					 * over write the error code to halt
-					 * the request from upper layer as
-					 * system is possibly in low memory
-					 * state. Give system a chance to
-					 * recover and reinitialize ice driver.
-					 */
 					return -EINVAL;
 				}
 
