@@ -1563,6 +1563,23 @@
 		};
 	};
 
+	qcom_seecom: qseecom@46d00000 {
+		compatible = "qcom,qseecom";
+		reg = <0x46d00000 0x2200000>;
+		reg-names = "secapp-region";
+		memory-region = <&qseecom_mem>;
+		qcom,hlos-num-ce-hw-instances = <1>;
+		qcom,hlos-ce-hw-instance = <0>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,disk-encrypt-pipe-pair = <2>;
+		qcom,support-fde;
+		qcom,no-clock-support;
+		qcom,fde-key-size;
+		qcom,appsbl-qseecom-support;
+		qcom,commonlib64-loaded-by-uefi;
+		qcom,qsee-reentrancy-support = <2>;
+	};
+
 	spmi_bus: qcom,spmi@1c40000 {
 		compatible = "qcom,spmi-pmic-arb";
 		reg = <0x1c40000 0x1100>,
