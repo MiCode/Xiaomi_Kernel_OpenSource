@@ -1496,7 +1496,7 @@ static void mhi_dev_scheduler(struct work_struct *work)
 	struct mhi_dev_ring *ring;
 	enum mhi_dev_state state;
 	enum mhi_dev_event event = 0;
-	bool mhi_reset = false;
+	u32 mhi_reset;
 	uint32_t bhi_imgtxdb = 0;
 
 	mutex_lock(&mhi_ctx->mhi_lock);
@@ -2371,7 +2371,7 @@ static int mhi_dev_recover(struct mhi_dev *mhi)
 {
 	int rc = 0;
 	uint32_t syserr, max_cnt = 0, bhi_intvec = 0;
-	bool mhi_reset;
+	u32 mhi_reset;
 	enum mhi_dev_state state;
 
 	/* Check if MHI is in syserr */
@@ -2381,6 +2381,16 @@ static int mhi_dev_recover(struct mhi_dev *mhi)
 
 	mhi_log(MHI_MSG_VERBOSE, "mhi_syserr = 0x%X\n", syserr);
 	if (syserr) {
+		/* Poll for the host to set the reset bit */
+		rc = mhi_dev_mmio_get_mhi_state(mhi, &state, &mhi_reset);
+		if (rc) {
+			pr_err("%s: get mhi state failed\n", __func__);
+			return rc;
+		}
+
+		mhi_log(MHI_MSG_VERBOSE, "mhi_state = 0x%X, reset = %d\n",
+				state, mhi_reset);
+
 		rc = mhi_dev_mmio_read(mhi, BHI_INTVEC, &bhi_intvec);
 		if (rc)
 			return rc;
@@ -2400,7 +2410,11 @@ static int mhi_dev_recover(struct mhi_dev *mhi)
 			pr_err("%s: get mhi state failed\n", __func__);
 			return rc;
 		}
-		while (mhi_reset != true && max_cnt < MHI_SUSPEND_TIMEOUT) {
+
+		mhi_log(MHI_MSG_VERBOSE, "mhi_state = 0x%X, reset = %d\n",
+				state, mhi_reset);
+
+		while (mhi_reset != 0x1 && max_cnt < MHI_SUSPEND_TIMEOUT) {
 			/* Wait for Host to set the reset */
 			msleep(MHI_SUSPEND_MIN);
 			rc = mhi_dev_mmio_get_mhi_state(mhi, &state,
@@ -2431,7 +2445,7 @@ static void mhi_dev_enable(struct work_struct *work)
 	struct ep_pcie_msi_config msi_cfg;
 	struct mhi_dev *mhi = container_of(work,
 				struct mhi_dev, ring_init_cb_work);
-	bool mhi_reset;
+	u32 mhi_reset;
 	enum mhi_dev_state state;
 	uint32_t max_cnt = 0, bhi_intvec = 0;
 
