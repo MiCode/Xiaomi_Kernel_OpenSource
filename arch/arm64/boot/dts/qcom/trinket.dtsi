@@ -846,7 +846,7 @@
 
 	rpm_msg_ram: memory@045F0000 {
 			compatible = "qcom,rpm-msg-ram";
-			reg = <0x045F0000 0x8000>;
+			reg = <0x045f0000 0x7000>;
 	};
 
 	apcs_glb: mailbox@0F111000 {
@@ -937,7 +937,7 @@
 
 	rpm-glink {
 		compatible = "qcom,glink-rpm";
-		interrupts = <GIC_SPI 198 IRQ_TYPE_EDGE_RISING>;
+		interrupts = <GIC_SPI 194 IRQ_TYPE_EDGE_RISING>;
 		qcom,rpm-msg-ram = <&rpm_msg_ram>;
 		mboxes = <&apcs_glb 0>;
 

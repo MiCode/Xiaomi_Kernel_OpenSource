@@ -95,6 +95,8 @@ struct dp_pinctrl {
 	struct pinctrl *pin;
 	struct pinctrl_state *state_active;
 	struct pinctrl_state *state_hpd_active;
+	struct pinctrl_state *state_hpd_tlmm;
+	struct pinctrl_state *state_hpd_ctrl;
 	struct pinctrl_state *state_suspend;
 };
 
@@ -195,6 +197,8 @@ static inline char *dp_phy_aux_config_type_to_string(u32 cfg_type)
  * @gpio_aux_switch: presence GPIO AUX switch status
  * @dsc_feature_enable: DSC feature enable status
  * @fec_feature_enable: FEC feature enable status
+ * @max_dp_dsc_blks: maximum DSC blks for DP interface
+ * @max_dp_dsc_input_width_pixs: Maximum input width for DSC block
  * @has_widebus: widebus (2PPC) feature eanble status
  * @parse: function to be called by client to parse device tree.
  * @get_io: function to be called by client to get io data.
@@ -220,6 +224,9 @@ struct dp_parser {
 	bool fec_feature_enable;
 	bool has_widebus;
 	bool gpio_aux_switch;
+	u32 max_dp_dsc_blks;
+	u32 max_dp_dsc_input_width_pixs;
+	bool lphw_hpd;
 
 	int (*parse)(struct dp_parser *parser);
 	struct dp_io_data *(*get_io)(struct dp_parser *parser, char *name);

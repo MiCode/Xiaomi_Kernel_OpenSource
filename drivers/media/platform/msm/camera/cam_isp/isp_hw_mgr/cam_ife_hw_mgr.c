@@ -1955,6 +1955,14 @@ static int cam_ife_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 
 	/* acquire HW resources */
 	for (i = 0; i < acquire_hw_info->num_inputs; i++) {
+
+		if (in_port->num_out_res > CAM_IFE_HW_OUT_RES_MAX) {
+			CAM_ERR(CAM_ISP, "too many output res %d",
+				in_port->num_out_res);
+			rc = -EINVAL;
+			goto free_res;
+		}
+
 		in_port_length = sizeof(struct cam_isp_in_port_info) +
 			(in_port->num_out_res - 1) *
 			sizeof(struct cam_isp_out_port_info);
@@ -4323,17 +4331,17 @@ static int  cam_ife_hw_mgr_handle_camif_error(
 
 	error_status = cam_ife_hw_mgr_get_err_type(ife_hwr_mgr_ctx,
 		evt_payload);
-
-	if (atomic_read(&ife_hwr_mgr_ctx->overflow_pending))
-		return error_status;
+	if (atomic_read(&ife_hwr_mgr_ctx->overflow_pending)) {
+		rc = error_status;
+		goto end;
+	}
 
 	switch (error_status) {
 	case CAM_ISP_HW_ERROR_OVERFLOW:
 	case CAM_ISP_HW_ERROR_P2I_ERROR:
 	case CAM_ISP_HW_ERROR_VIOLATION:
 		CAM_ERR(CAM_ISP, "Enter: error_type (%d)", error_status);
-		rc = -EFAULT;
-
+		rc = error_status;
 		if (g_ife_hw_mgr.debug_cfg.enable_recovery)
 			error_event_data.recovery_enabled = true;
 
@@ -4360,6 +4368,7 @@ static int  cam_ife_hw_mgr_handle_camif_error(
 		break;
 	}
 
+end:
 	return rc;
 }
 

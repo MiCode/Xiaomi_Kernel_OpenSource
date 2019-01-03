@@ -22,7 +22,7 @@ void imp_handle_modem_ready(void);
 struct ipa_mhi_alloc_channel_resp_msg_v01 *imp_handle_allocate_channel_req(
 	struct ipa_mhi_alloc_channel_req_msg_v01 *req);
 
-int imp_handle_vote_req(bool vote);
+struct ipa_mhi_clk_vote_resp_msg_v01 *imp_handle_vote_req(bool vote);
 
 void imp_handle_modem_shutdown(void);
 
@@ -40,9 +40,10 @@ static inline struct ipa_mhi_alloc_channel_resp_msg_v01
 		return NULL;
 }
 
-static inline int imp_handle_vote_req(bool vote)
+static inline struct ipa_mhi_clk_vote_resp_msg_v01
+	*imp_handle_vote_req(bool vote)
 {
-	return -EPERM;
+	return NULL;
 }
 
 static inline  void imp_handle_modem_shutdown(void)

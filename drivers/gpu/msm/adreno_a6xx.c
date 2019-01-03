@@ -57,7 +57,7 @@ static const struct adreno_vbif_platform a6xx_vbif_platforms[] = {
 	{ adreno_is_a615_family, a615_gbif },
 	{ adreno_is_a640, a640_gbif },
 	{ adreno_is_a680, a640_gbif },
-	{ adreno_is_a612, a615_gbif },
+	{ adreno_is_a612, a640_gbif },
 };
 
 struct kgsl_hwcg_reg {
@@ -1101,6 +1101,7 @@ static void _set_ordinals(struct adreno_device *adreno_dev,
 static int a6xx_send_cp_init(struct adreno_device *adreno_dev,
 			 struct adreno_ringbuffer *rb)
 {
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int *cmds;
 	int ret;
 
@@ -1113,9 +1114,16 @@ static int a6xx_send_cp_init(struct adreno_device *adreno_dev,
 	_set_ordinals(adreno_dev, cmds, 11);
 
 	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
-	if (ret)
+	if (ret) {
 		adreno_spin_idle_debug(adreno_dev,
 				"CP initialization failed to idle\n");
+
+		if (!adreno_is_a3xx(adreno_dev))
+			kgsl_sharedmem_writel(device, &device->scratch,
+					SCRATCH_RPTR_OFFSET(rb->id), 0);
+		rb->wptr = 0;
+		rb->_wptr = 0;
+	}
 
 	return ret;
 }

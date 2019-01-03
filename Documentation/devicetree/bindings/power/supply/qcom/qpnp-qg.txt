@@ -262,6 +262,21 @@ First Level Node - QGAUGE device
 		    capacity learning cycle. If this is not specified, then
 		    the default value is 0. Unit is in decipercentage.
 
+- qcom,cl-min-delta-batt-soc
+        Usage:      optional
+        Value type: <u32>
+        Definition: Minimum change in battery SOC to qualify for capacity
+                    learning. If this is not specified, then the default
+                    value is 10. Unit is in percentage.
+
+- qcom,cl-wt-enable
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property to enable weighted capacity learning
+		    based on change in battery SOC during a charging cycle.
+		    If this is specified, then "qcom,cl-min-start-soc" and
+		    "qcom,cl-max-start-soc" is not used.
+
 - qcom,esr-disable
 	Usage:      optional
 	Value type: <bool>

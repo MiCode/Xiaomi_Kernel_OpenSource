@@ -2323,13 +2323,14 @@ void reg_dmav1_setup_scaler3_lut(struct sde_reg_dma_setup_ops_cfg *buf,
 				+ off_tbl[filter][i][1];
 			lut_len = off_tbl[filter][i][0] << 2;
 			REG_DMA_SETUP_OPS(*buf, lut_addr,
-				&lut[filter][0], lut_len * sizeof(u32),
+				&lut[filter][lut_offset], lut_len * sizeof(u32),
 				REG_BLK_WRITE_SINGLE, 0, 0, 0);
 			rc = dma_ops->setup_payload(buf);
 			if (rc) {
 				DRM_ERROR("lut write failed ret %d\n", rc);
 				return;
 			}
+			lut_offset += lut_len;
 		}
 	}
 

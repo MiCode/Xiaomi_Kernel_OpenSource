@@ -394,6 +394,7 @@
 		qcom,mdss-default-ot-wr-limit = <32>;
 
 		qcom,mdss-sbuf-headroom = <20>;
+		qcom,mdss-rot-linewidth = <8192>;
 
 		cache-slice-names = "rotator";
 		cache-slices = <&llcc 4>;
@@ -643,6 +644,8 @@
 		qcom,mst-enable;
 		qcom,dsc-feature-enable;
 		qcom,fec-feature-enable;
+		qcom,max-dp-dsc-blks = <2>;
+		qcom,max-dp-dsc-input-width-pixs = <2048>;
 
 		qcom,ctrl-supply-entries {
 			#address-cells = <1>;
