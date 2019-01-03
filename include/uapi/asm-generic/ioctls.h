@@ -2,7 +2,6 @@
 #ifndef __ASM_GENERIC_IOCTLS_H
 #define __ASM_GENERIC_IOCTLS_H
 
-#include <asm/termbits.h>
 #include <linux/ioctl.h>
 
 /*
