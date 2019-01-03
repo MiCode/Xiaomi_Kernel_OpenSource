@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -4414,7 +4414,7 @@ int ipa3_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res)
 		return -EINVAL;
 	}
 
-	if (iface < 0 || iface > IPA_VLAN_IF_MAX) {
+	if (iface < 0 || iface >= IPA_VLAN_IF_MAX) {
 		IPAERR("invalid iface %d\n", iface);
 		return -EINVAL;
 	}
