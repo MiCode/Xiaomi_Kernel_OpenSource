@@ -458,6 +458,8 @@ int tty_ldisc_receive_buf(struct tty_ldisc *ld, unsigned char *p,
 		if (count && ld->ops->receive_buf)
 			ld->ops->receive_buf(ld->tty, p, f, count);
 	}
+	if (count > 0)
+		memset(p, 0, count);
 	return count;
 }
 EXPORT_SYMBOL_GPL(tty_ldisc_receive_buf);

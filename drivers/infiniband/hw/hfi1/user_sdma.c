@@ -148,11 +148,8 @@ MODULE_PARM_DESC(sdma_comp_size, "Size of User SDMA completion ring. Default: 12
 #define TXREQ_FLAGS_REQ_LAST_PKT BIT(0)
 
 /* SDMA request flag bits */
-#define SDMA_REQ_FOR_THREAD 1
-#define SDMA_REQ_SEND_DONE  2
-#define SDMA_REQ_HAVE_AHG   3
-#define SDMA_REQ_HAS_ERROR  4
-#define SDMA_REQ_DONE_ERROR 5
+#define SDMA_REQ_HAVE_AHG   1
+#define SDMA_REQ_HAS_ERROR  2
 
 #define SDMA_PKT_Q_INACTIVE BIT(0)
 #define SDMA_PKT_Q_ACTIVE   BIT(1)
@@ -252,8 +249,6 @@ struct user_sdma_request {
 	u64 seqsubmitted;
 	struct list_head txps;
 	unsigned long flags;
-	/* status of the last txreq completed */
-	int status;
 };
 
 /*
@@ -546,7 +541,6 @@ int hfi1_user_sdma_process_request(struct file *fp, struct iovec *iovec,
 	struct sdma_req_info info;
 	struct user_sdma_request *req;
 	u8 opcode, sc, vl;
-	int req_queued = 0;
 	u16 dlid;
 	u32 selector;
 
@@ -611,10 +605,12 @@ int hfi1_user_sdma_process_request(struct file *fp, struct iovec *iovec,
 	req->data_iovs = req_iovcnt(info.ctrl) - 1; /* subtract header vector */
 	req->pq = pq;
 	req->cq = cq;
-	req->status = -1;
 	INIT_LIST_HEAD(&req->txps);
 
 	memcpy(&req->info, &info, sizeof(info));
+
+	/* The request is initialized, count it */
+	atomic_inc(&pq->n_reqs);
 
 	if (req_opcode(info.ctrl) == EXPECTED) {
 		/* expected must have a TID info and at least one data vector */
@@ -704,7 +700,7 @@ int hfi1_user_sdma_process_request(struct file *fp, struct iovec *iovec,
 		memcpy(&req->iovs[i].iov, iovec + idx++, sizeof(struct iovec));
 		ret = pin_vector_pages(req, &req->iovs[i]);
 		if (ret) {
-			req->status = ret;
+			req->data_iovs = i;
 			goto free_req;
 		}
 		req->data_len += req->iovs[i].iov.iov_len;
@@ -772,14 +768,10 @@ int hfi1_user_sdma_process_request(struct file *fp, struct iovec *iovec,
 	}
 
 	set_comp_state(pq, cq, info.comp_idx, QUEUED, 0);
-	atomic_inc(&pq->n_reqs);
-	req_queued = 1;
 	/* Send the first N packets in the request to buy us some time */
 	ret = user_sdma_send_pkts(req, pcount);
-	if (unlikely(ret < 0 && ret != -EBUSY)) {
-		req->status = ret;
+	if (unlikely(ret < 0 && ret != -EBUSY))
 		goto free_req;
-	}
 
 	/*
 	 * It is possible that the SDMA engine would have processed all the
@@ -796,17 +788,11 @@ int hfi1_user_sdma_process_request(struct file *fp, struct iovec *iovec,
 	 * request have been submitted to the SDMA engine. However, it
 	 * will not wait for send completions.
 	 */
-	while (!test_bit(SDMA_REQ_SEND_DONE, &req->flags)) {
+	while (req->seqsubmitted != req->info.npkts) {
 		ret = user_sdma_send_pkts(req, pcount);
 		if (ret < 0) {
-			if (ret != -EBUSY) {
-				req->status = ret;
-				set_bit(SDMA_REQ_DONE_ERROR, &req->flags);
-				if (ACCESS_ONCE(req->seqcomp) ==
-				    req->seqsubmitted - 1)
-					goto free_req;
-				return ret;
-			}
+			if (ret != -EBUSY)
+				goto free_req;
 			wait_event_interruptible_timeout(
 				pq->busy.wait_dma,
 				(pq->state == SDMA_PKT_Q_ACTIVE),
@@ -817,10 +803,19 @@ int hfi1_user_sdma_process_request(struct file *fp, struct iovec *iovec,
 	*count += idx;
 	return 0;
 free_req:
-	user_sdma_free_request(req, true);
-	if (req_queued)
+	/*
+	 * If the submitted seqsubmitted == npkts, the completion routine
+	 * controls the final state.  If sequbmitted < npkts, wait for any
+	 * outstanding packets to finish before cleaning up.
+	 */
+	if (req->seqsubmitted < req->info.npkts) {
+		if (req->seqsubmitted)
+			wait_event(pq->busy.wait_dma,
+				   (req->seqcomp == req->seqsubmitted - 1));
+		user_sdma_free_request(req, true);
 		pq_update(pq);
-	set_comp_state(pq, cq, info.comp_idx, ERROR, req->status);
+		set_comp_state(pq, cq, info.comp_idx, ERROR, ret);
+	}
 	return ret;
 }
 
@@ -903,10 +898,8 @@ static int user_sdma_send_pkts(struct user_sdma_request *req, unsigned maxpkts)
 	pq = req->pq;
 
 	/* If tx completion has reported an error, we are done. */
-	if (test_bit(SDMA_REQ_HAS_ERROR, &req->flags)) {
-		set_bit(SDMA_REQ_DONE_ERROR, &req->flags);
+	if (test_bit(SDMA_REQ_HAS_ERROR, &req->flags))
 		return -EFAULT;
-	}
 
 	/*
 	 * Check if we might have sent the entire request already
@@ -929,10 +922,8 @@ static int user_sdma_send_pkts(struct user_sdma_request *req, unsigned maxpkts)
 		 * with errors. If so, we are not going to process any
 		 * more packets from this request.
 		 */
-		if (test_bit(SDMA_REQ_HAS_ERROR, &req->flags)) {
-			set_bit(SDMA_REQ_DONE_ERROR, &req->flags);
+		if (test_bit(SDMA_REQ_HAS_ERROR, &req->flags))
 			return -EFAULT;
-		}
 
 		tx = kmem_cache_alloc(pq->txreq_cache, GFP_KERNEL);
 		if (!tx)
@@ -1090,7 +1081,6 @@ dosend:
 	ret = sdma_send_txlist(req->sde, &pq->busy, &req->txps, &count);
 	req->seqsubmitted += count;
 	if (req->seqsubmitted == req->info.npkts) {
-		set_bit(SDMA_REQ_SEND_DONE, &req->flags);
 		/*
 		 * The txreq has already been submitted to the HW queue
 		 * so we can free the AHG entry now. Corruption will not
@@ -1489,11 +1479,15 @@ static int set_txreq_header_ahg(struct user_sdma_request *req,
 	return diff;
 }
 
-/*
- * SDMA tx request completion callback. Called when the SDMA progress
- * state machine gets notification that the SDMA descriptors for this
- * tx request have been processed by the DMA engine. Called in
- * interrupt context.
+/**
+ * user_sdma_txreq_cb() - SDMA tx request completion callback.
+ * @txreq: valid sdma tx request
+ * @status: success/failure of request
+ *
+ * Called when the SDMA progress state machine gets notification that
+ * the SDMA descriptors for this tx request have been processed by the
+ * DMA engine. Called in interrupt context.
+ * Only do work on completed sequences.
  */
 static void user_sdma_txreq_cb(struct sdma_txreq *txreq, int status)
 {
@@ -1502,7 +1496,7 @@ static void user_sdma_txreq_cb(struct sdma_txreq *txreq, int status)
 	struct user_sdma_request *req;
 	struct hfi1_user_sdma_pkt_q *pq;
 	struct hfi1_user_sdma_comp_q *cq;
-	u16 idx;
+	enum hfi1_sdma_comp_state state = COMPLETE;
 
 	if (!tx->req)
 		return;
@@ -1515,31 +1509,19 @@ static void user_sdma_txreq_cb(struct sdma_txreq *txreq, int status)
 		SDMA_DBG(req, "SDMA completion with error %d",
 			 status);
 		set_bit(SDMA_REQ_HAS_ERROR, &req->flags);
+		state = ERROR;
 	}
 
 	req->seqcomp = tx->seqnum;
 	kmem_cache_free(pq->txreq_cache, tx);
-	tx = NULL;
 
-	idx = req->info.comp_idx;
-	if (req->status == -1 && status == SDMA_TXREQ_S_OK) {
-		if (req->seqcomp == req->info.npkts - 1) {
-			req->status = 0;
-			user_sdma_free_request(req, false);
-			pq_update(pq);
-			set_comp_state(pq, cq, idx, COMPLETE, 0);
-		}
-	} else {
-		if (status != SDMA_TXREQ_S_OK)
-			req->status = status;
-		if (req->seqcomp == (ACCESS_ONCE(req->seqsubmitted) - 1) &&
-		    (test_bit(SDMA_REQ_SEND_DONE, &req->flags) ||
-		     test_bit(SDMA_REQ_DONE_ERROR, &req->flags))) {
-			user_sdma_free_request(req, false);
-			pq_update(pq);
-			set_comp_state(pq, cq, idx, ERROR, req->status);
-		}
-	}
+	/* sequence isn't complete?  We are done */
+	if (req->seqcomp != req->info.npkts - 1)
+		return;
+
+	user_sdma_free_request(req, false);
+	set_comp_state(pq, cq, req->info.comp_idx, state, status);
+	pq_update(pq);
 }
 
 static inline void pq_update(struct hfi1_user_sdma_pkt_q *pq)
@@ -1571,6 +1553,8 @@ static void user_sdma_free_request(struct user_sdma_request *req, bool unpin)
 			node = req->iovs[i].node;
 			if (!node)
 				continue;
+
+			req->iovs[i].node = NULL;
 
 			if (unpin)
 				hfi1_mmu_rb_remove(req->pq->handler,
