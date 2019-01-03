@@ -543,7 +543,7 @@ static struct msm_vidc_platform_data kona_data = {
 	.sku_version = 0,
 	.gcc_register_base = 0x10B024,//GCC_VIDEO_AXI0_CBCR,
 	.gcc_register_size = 0x8,//GCC_VIDEO_AXI0_CBCR + GCC_VIDEO_AXI1_CBCR,
-	.vpu_ver = VPU_VERSION_IRIS1,
+	.vpu_ver = VPU_VERSION_IRIS2,
 };
 
 static struct msm_vidc_platform_data sm6150_data = {
