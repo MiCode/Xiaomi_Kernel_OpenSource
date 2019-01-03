@@ -30,6 +30,7 @@ Required properties:
   - perst-gpio: PERST GPIO specified by PCIe spec.
   - wake-gpio: WAKE GPIO specified by PCIe spec.
   - phy-status-offset: Offset from PCIe PHY base to check if PCIe PHY is up.
+  - phy-status-bit: BIT to check PCIe PHY status.
   - pcie_rc<PCIe index>: PCI node is a sub-node of PCIe controller node.
     node. This node holds root complex specific configurations and properties.
   - <supply-name>-supply: phandle to the regulator device tree node.
@@ -281,6 +282,7 @@ Example:
 		qcom,wr-halt-size = <0xa>; /* 1KB */
 		qcom,slv-addr-space-size = <0x1000000>; /* 16MB */
 		qcom,phy-status-offset = <0x800>;
+		qcom,phy-status-status = <6>;
 		qcom,phy-power-down-offset = <0x840>;
 		qcom,cpl-timeout = <0x2>;
 
