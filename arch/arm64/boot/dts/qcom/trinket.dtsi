@@ -2414,5 +2414,10 @@
 	};
 };
 
+&msm_vidc {
+	qcom,cx-ipeak-data = <&cx_ipeak_lm 6>;
+	qcom,clock-freq-threshold = <460000000>;
+};
+
 #include "trinket-audio.dtsi"
 #include "trinket-thermal.dtsi"
