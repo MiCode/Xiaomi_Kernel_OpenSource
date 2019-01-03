@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -421,8 +421,8 @@ static int wait_for_status_ready(struct npu_device *npu_dev,
 		msleep(NPU_FW_TIMEOUT_POLL_INTERVAL_MS);
 		wait_cnt += NPU_FW_TIMEOUT_POLL_INTERVAL_MS;
 		if (wait_cnt >= max_wait_ms) {
-			pr_err("timeout wait for status %x in %s\n",
-				status_bits, __func__);
+			pr_err("timeout wait for status %x[%x] in reg %x\n",
+				status_bits, ctrl_sts, status_reg);
 			return -EPERM;
 		}
 	}
