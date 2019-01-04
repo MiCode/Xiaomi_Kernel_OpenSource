@@ -1,12 +1,11 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _DP_HPD_H_
 #define _DP_HPD_H_
 
-#include <linux/usb/usbpd.h>
 #include <linux/types.h>
 #include <linux/device.h>
 #include "dp_parser.h"
@@ -53,7 +52,7 @@ struct dp_hpd_cb {
  */
 struct dp_hpd {
 	enum dp_hpd_type type;
-	enum plug_orientation orientation;
+	u32 orientation;
 	bool hpd_high;
 	bool hpd_irq;
 	bool alt_mode_cfg_done;
