@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _DP_DISPLAY_H_
@@ -95,7 +95,22 @@ struct dp_display {
 			struct dp_display_mode *dp_mode);
 };
 
+#ifdef CONFIG_DRM_MSM_DP
 int dp_display_get_num_of_displays(void);
 int dp_display_get_displays(void **displays, int count);
 int dp_display_get_num_of_streams(void);
+#else
+static inline int dp_display_get_num_of_displays(void)
+{
+	return 0;
+}
+static inline int dp_display_get_displays(void **displays, int count)
+{
+	return 0;
+}
+static inline int dp_display_get_num_of_streams(void)
+{
+	return 0;
+}
+#endif
 #endif /* _DP_DISPLAY_H_ */

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _DP_DRM_H_
@@ -24,6 +24,8 @@ struct dp_bridge {
 	void *dp_panel;
 };
 
+
+#ifdef CONFIG_DRM_MSM_DP
 /**
  * dp_connector_config_hdr - callback to configure HDR
  * @connector: Pointer to drm connector structure
@@ -143,5 +145,94 @@ int dp_mst_init(struct dp_display *dp_display);
  * @display: Pointer to private display structure
  */
 void dp_mst_deinit(struct dp_display *dp_display);
+#else
+static inline int dp_connector_config_hdr(struct drm_connector *connector,
+		void *display, struct sde_connector_state *c_state)
+{
+	return 0;
+}
+
+static inline int dp_connector_post_init(struct drm_connector *connector,
+		void *display)
+{
+	return 0;
+}
+
+static inline enum drm_connector_status dp_connector_detect(
+		struct drm_connector *conn,
+		bool force,
+		void *display)
+{
+	return 0;
+}
+
+
+static inline int dp_connector_get_modes(struct drm_connector *connector,
+		void *display)
+{
+	return 0;
+}
+
+static inline enum drm_mode_status dp_connector_mode_valid(
+		struct drm_connector *connector,
+		struct drm_display_mode *mode,
+		void *display)
+{
+	return MODE_OK;
+}
+
+static inline int dp_connector_get_mode_info(struct drm_connector *connector,
+		const struct drm_display_mode *drm_mode,
+		struct msm_mode_info *mode_info,
+		u32 max_mixer_width, void *display)
+{
+	return 0;
+}
+
+static inline int dp_connector_get_info(struct drm_connector *connector,
+		struct msm_display_info *info, void *display)
+{
+	return 0;
+}
+
+static inline void dp_connector_post_open(struct drm_connector *connector,
+		void *display)
+{
+}
+
+static inline int dp_drm_bridge_init(void *display, struct drm_encoder *encoder)
+{
+	return 0;
+}
+
+static inline void dp_drm_bridge_deinit(void *display)
+{
+}
+
+static inline void convert_to_drm_mode(const struct dp_display_mode *dp_mode,
+				struct drm_display_mode *drm_mode)
+{
+}
+
+static inline int dp_mst_drm_bridge_init(void *display,
+	struct drm_encoder *encoder)
+{
+	return 0;
+}
+
+static inline void dp_mst_drm_bridge_deinit(void *display)
+{
+}
+
+static inline int dp_mst_init(struct dp_display *dp_display)
+{
+	return 0;
+}
+
+static inline int dp_mst_deinit(struct dp_display *dp_display)
+{
+	return 0;
+}
+#endif
 
 #endif /* _DP_DRM_H_ */
