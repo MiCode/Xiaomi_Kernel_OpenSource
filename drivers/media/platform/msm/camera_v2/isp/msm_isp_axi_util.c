@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2372,7 +2372,7 @@ static void msm_isp_input_disable(struct vfe_device *vfe_dev, int cmd_type)
 			vfe_dev->hw_info->vfe_ops.core_ops.update_camif_state(
 				vfe_dev, DISABLE_CAMIF);
 	}
-	hw_info = &vfe_dev->hw_info;
+	hw_info = vfe_dev->hw_info;
 	/*
 	 * halt and reset hardware if all streams are disabled, in this case
 	 * ispif is halted immediately as well
