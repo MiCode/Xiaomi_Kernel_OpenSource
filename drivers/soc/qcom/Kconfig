@@ -102,6 +102,16 @@ config QCOM_SDMMAGPIE_LLCC
 	  data required to configure LLCC so that clients can start using the
 	  LLCC slices.
 
+config QCOM_SDXPRAIRIE_LLCC
+	tristate "Qualcomm Technologies, Inc. SDXPRAIRIE LLCC driver"
+	depends on QCOM_LLCC
+	help
+	  This configuration option enables LLCC driver specific to SDXPRAIRIE.
+	  Say 'Y' here to enable the LLCC driver for SDXPRAIRIE which provides
+	  data required to configure LLCC so that clients can start using the
+	  LLCC slices.
+
+
 config QCOM_LLCC_AMON
 	tristate "Qualcomm Technologies, Inc. LLCC Activity Monitor(AMON) driver"
 	depends on QCOM_LLCC
