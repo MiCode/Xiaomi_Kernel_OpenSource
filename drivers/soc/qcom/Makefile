@@ -69,3 +69,4 @@ obj-$(CONFIG_QTI_RPM_STATS_LOG) += rpmh_master_stat.o
 obj-$(CONFIG_QTI_RPM_STATS_LOG) += rpm_stats.o
 obj-$(CONFIG_QCOM_MEM_OFFLINE) += mem-offline.o
 obj-$(CONFIG_QMP_DEBUGFS_CLIENT) += qmp-debugfs-client.o
+obj-$(CONFIG_QCOM_HYP_CORE_CTL) += hyp_core_ctl.o
