@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -502,7 +502,7 @@ static void __socket_close_channel(struct diag_socket_info *info)
 {
 	unsigned long flags;
 
-	if (!info || !info->hdl)
+	if (!info)
 		return;
 
 	memset(&info->remote_addr, 0, sizeof(info->remote_addr));
@@ -513,12 +513,11 @@ static void __socket_close_channel(struct diag_socket_info *info)
 	if (info->port_type == PORT_TYPE_SERVER)
 		return;
 
-	write_lock_bh(&info->hdl->sk->sk_callback_lock);
-	info->hdl->sk->sk_user_data = NULL;
-	info->hdl->sk->sk_data_ready = NULL;
-	info->hdl->sk->sk_error_report = NULL;
-	write_unlock_bh(&info->hdl->sk->sk_callback_lock);
 	mutex_lock(&info->socket_info_mutex);
+	if (!info->hdl) {
+		mutex_unlock(&info->socket_info_mutex);
+		return;
+	}
 	sock_release(info->hdl);
 	info->hdl = NULL;
 	mutex_unlock(&info->socket_info_mutex);
