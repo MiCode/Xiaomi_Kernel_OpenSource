@@ -2676,9 +2676,15 @@ static int dp_panel_read_sink_sts(struct dp_panel *dp_panel, u8 *sts, u32 size)
 
 static int dp_panel_update_edid(struct dp_panel *dp_panel, struct edid *edid)
 {
+	int rc;
+
 	dp_panel->edid_ctrl->edid = edid;
 	sde_parse_edid(dp_panel->edid_ctrl);
-	return _sde_edid_update_modes(dp_panel->connector, dp_panel->edid_ctrl);
+
+	rc = _sde_edid_update_modes(dp_panel->connector, dp_panel->edid_ctrl);
+	dp_panel->audio_supported = drm_detect_monitor_audio(edid);
+
+	return rc;
 }
 
 static bool dp_panel_read_mst_cap(struct dp_panel *dp_panel)
@@ -2716,6 +2722,8 @@ static void dp_panel_convert_to_dp_mode(struct dp_panel *dp_panel,
 {
 	const u32 num_components = 3, default_bpp = 24;
 	struct msm_compression_info *comp_info;
+	bool dsc_cap = (dp_mode->capabilities & DP_PANEL_CAPS_DSC) ?
+				true : false;
 
 	dp_mode->timing.h_active = drm_mode->hdisplay;
 	dp_mode->timing.h_back_porch = drm_mode->htotal - drm_mode->hsync_end;
@@ -2754,7 +2762,7 @@ static void dp_panel_convert_to_dp_mode(struct dp_panel *dp_panel,
 	dp_mode->timing.widebus_en = dp_panel->widebus_en;
 	dp_mode->timing.dsc_overhead_fp = 0;
 
-	if (dp_panel->dsc_en) {
+	if (dp_panel->dsc_en && dsc_cap) {
 		comp_info = &dp_mode->timing.comp_info;
 
 		if (dp_panel_dsc_prepare_basic_params(comp_info,

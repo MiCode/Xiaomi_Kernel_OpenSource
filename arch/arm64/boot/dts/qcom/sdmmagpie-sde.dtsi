@@ -38,6 +38,7 @@
 					200000000>;
 		clock-max-rate = <0 0 0 0 430000000 19200000 430000000
 					430000000>;
+		qcom,dss-cx-ipeak = <&cx_ipeak_lm 4>;
 
 		/* interrupt config */
 		interrupts = <0 83 0>;
@@ -633,7 +634,6 @@
 		qcom,aux-cfg9-settings = [44 03];
 
 		qcom,max-pclk-frequency-khz = <675000>;
-		qcom,mst-enable;
 
 		qcom,ext-disp = <&ext_disp>;
 

@@ -117,6 +117,9 @@ static unsigned int tune5;
 module_param(tune5, uint, 0644);
 MODULE_PARM_DESC(tune5, "QUSB PHY TUNE5");
 
+static bool eud_connected;
+module_param(eud_connected, bool, 0644);
+MODULE_PARM_DESC(eud_connected, "EUD_CONNECTED");
 
 struct qusb_phy {
 	struct usb_phy		phy;
@@ -704,18 +707,21 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			writel_relaxed(0x00,
 				qphy->base + QUSB2PHY_PORT_INTR_CTRL);
 
-			/* Disable PHY */
-			writel_relaxed(POWER_DOWN |
-				readl_relaxed(qphy->base +
-					QUSB2PHY_PORT_POWERDOWN),
-				qphy->base + QUSB2PHY_PORT_POWERDOWN);
-			/* Make sure that above write is completed */
-			wmb();
+			if (!eud_connected) {
+				/* Disable PHY */
+				writel_relaxed(POWER_DOWN |
+					readl_relaxed(qphy->base +
+						QUSB2PHY_PORT_POWERDOWN),
+					qphy->base + QUSB2PHY_PORT_POWERDOWN);
+				/* Make sure that above write is completed */
+				wmb();
+
+				if (qphy->tcsr_clamp_dig_n)
+					writel_relaxed(0x0,
+						qphy->tcsr_clamp_dig_n);
+			}
 
 			qusb_phy_enable_clocks(qphy, false);
-			if (qphy->tcsr_clamp_dig_n)
-				writel_relaxed(0x0,
-					qphy->tcsr_clamp_dig_n);
 			/* Do not disable power rails if there is vote for it */
 			if (!qphy->dpdm_enable)
 				qusb_phy_enable_power(qphy, false);

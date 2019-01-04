@@ -149,6 +149,7 @@ struct cam_cpas_bus_client {
  * @camnoc_bus: CAMNOC bus client info for this port
  * @mnoc_bus: MNOC bus client info for this port
  * @axi_port_name: Name of this AXI port
+ * @ib_bw_voting_needed: if this port can update ib bw dynamically
  * @axi_port_node: Node representing this AXI Port
  * @axi_port_mnoc_node: Node representing mnoc in this AXI Port
  * @axi_port_camnoc_node: Node representing camnoc in this AXI Port
@@ -161,6 +162,7 @@ struct cam_cpas_axi_port {
 	struct cam_cpas_bus_client camnoc_bus;
 	struct cam_cpas_bus_client mnoc_bus;
 	const char *axi_port_name;
+	bool ib_bw_voting_needed;
 	struct device_node *axi_port_node;
 	struct device_node *axi_port_mnoc_node;
 	struct device_node *axi_port_camnoc_node;

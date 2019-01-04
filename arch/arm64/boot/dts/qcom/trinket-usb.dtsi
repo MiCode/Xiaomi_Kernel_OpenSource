@@ -29,6 +29,7 @@
 		interrupt-names = "pwr_event_irq", "ss_phy_irq", "hs_phy_irq";
 
 		USB3_GDSC-supply = <&usb30_prim_gdsc>;
+		dpdm-supply = <&qusb_phy0>;
 		clocks = <&clock_gcc  GCC_USB30_PRIM_MASTER_CLK>,
 			<&clock_gcc GCC_SYS_NOC_USB3_PRIM_AXI_CLK>,
 			<&clock_gcc GCC_CFG_NOC_USB3_PRIM_AXI_CLK>,

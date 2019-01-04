@@ -803,11 +803,20 @@ int32_t cam_sensor_update_power_settings(void *cmd_buf,
 			struct cam_cmd_power *pwr_cmd =
 				(struct cam_cmd_power *)ptr;
 
+			if ((U16_MAX - power_info->power_setting_size) <
+				pwr_cmd->count) {
+				CAM_ERR(CAM_SENSOR, "ERR: Overflow occurs");
+				rc = -EINVAL;
+				goto free_power_settings;
+			}
+
 			power_info->power_setting_size += pwr_cmd->count;
-			if (power_info->power_setting_size > MAX_POWER_CONFIG) {
+			if ((power_info->power_setting_size > MAX_POWER_CONFIG)
+				|| (pwr_cmd->count >= SENSOR_SEQ_TYPE_MAX)) {
 				CAM_ERR(CAM_SENSOR,
-					"Invalid: power up setting size %d",
-					power_info->power_setting_size);
+				"pwr_up setting size %d, pwr_cmd->count: %d",
+					power_info->power_setting_size,
+					pwr_cmd->count);
 				rc = -EINVAL;
 				goto free_power_settings;
 			}
@@ -902,12 +911,21 @@ int32_t cam_sensor_update_power_settings(void *cmd_buf,
 
 			scr = ptr + sizeof(struct cam_cmd_power);
 			tot_size = tot_size + sizeof(struct cam_cmd_power);
+			if ((U16_MAX - power_info->power_down_setting_size) <
+				pwr_cmd->count) {
+				CAM_ERR(CAM_SENSOR, "ERR: Overflow");
+				rc = -EINVAL;
+				goto free_power_settings;
+			}
+
 			power_info->power_down_setting_size += pwr_cmd->count;
-			if (power_info->power_down_setting_size >
-				MAX_POWER_CONFIG) {
+			if ((power_info->power_down_setting_size >
+				MAX_POWER_CONFIG) || (pwr_cmd->count >=
+				SENSOR_SEQ_TYPE_MAX)) {
 				CAM_ERR(CAM_SENSOR,
-					"Invalid: power down setting size %d",
-					power_info->power_down_setting_size);
+				"pwr_down_setting_size %d, pwr_cmd->count: %d",
+					power_info->power_down_setting_size,
+					pwr_cmd->count);
 				rc = -EINVAL;
 				goto free_power_settings;
 			}

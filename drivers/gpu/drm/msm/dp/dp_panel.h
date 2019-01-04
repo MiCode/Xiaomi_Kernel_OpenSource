@@ -92,6 +92,8 @@ struct dp_dsc_caps {
 
 struct dp_audio;
 
+#define DP_PANEL_CAPS_DSC	BIT(0)
+
 struct dp_panel {
 	/* dpcd raw data */
 	u8 dpcd[DP_RECEIVER_CAP_SIZE + 1];
@@ -121,6 +123,7 @@ struct dp_panel {
 	u32 channel_total_slots;
 	u32 pbn;
 
+	u32 tot_dsc_blks_in_use;
 	/* DRM connector assosiated with this panel */
 	struct drm_connector *connector;
 

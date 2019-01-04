@@ -1267,7 +1267,7 @@ int smblib_set_icl_current(struct smb_charger *chg, int icl_ua)
 		if (icl_ua <= USBIN_500MA) {
 			rc = set_sdp_current(chg, icl_ua);
 			if (rc >= 0)
-				goto out;
+				goto unsuspend;
 		}
 
 		rc = smblib_set_charge_param(chg, &chg->param.usb_icl, icl_ua);
@@ -1285,6 +1285,7 @@ set_mode:
 		goto out;
 	}
 
+unsuspend:
 	/* unsuspend after configuring current and override */
 	rc = smblib_set_usb_suspend(chg, false);
 	if (rc < 0) {
@@ -1293,8 +1294,9 @@ set_mode:
 	}
 
 	/* Re-run AICL */
-	if (chg->real_charger_type != POWER_SUPPLY_TYPE_USB)
+	if (icl_override != SW_OVERRIDE_HC_MODE)
 		rc = smblib_rerun_aicl(chg);
+
 out:
 	return rc;
 }

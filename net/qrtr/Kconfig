@@ -28,4 +28,10 @@ config QRTR_MHI
 	  Say Y here to support MHI based ipcrouter channels.  MHI is the
 	  transport used for external modem connections for IPC Router.
 
+config QRTR_FIFO
+	tristate "FIFO IPC Router channels"
+	---help---
+	Say Y here to support FIFO based ipcrouter channels. FIFO Transport
+	Layer enables IPC Router communication between two virtual machines.
+
 endif # QRTR

@@ -322,34 +322,27 @@ static void wda_svc_config(struct work_struct *work)
 	int rc;
 
 	rc = wda_set_powersave_config_req(&data->handle);
+	if (rc < 0) {
+		pr_err("%s Failed to init service, err[%d]\n", __func__, rc);
+		return;
+	}
 
 	rtnl_lock();
 	qmi = (struct qmi_info *)rmnet_get_qmi_pt(data->rmnet_port);
 	if (!qmi) {
 		rtnl_unlock();
-		goto clean_out;
+		return;
 	}
 
 	qmi->wda_pending = NULL;
-	if (rc < 0) {
-		rtnl_unlock();
-		goto clean_out;
-	} else {
-		qmi->wda_client = (void *)data;
-		trace_wda_client_state_up(data->svc.instance,
-					  data->svc.ep_type,
-					  data->svc.iface_id);
+	qmi->wda_client = (void *)data;
+	trace_wda_client_state_up(data->svc.instance,
+				  data->svc.ep_type,
+				  data->svc.iface_id);
 
-	}
 	rtnl_unlock();
 
 	pr_info("Connection established with the WDA Service\n");
-	return;
-
-clean_out:
-	qmi_handle_release(&data->handle);
-	destroy_workqueue(data->wda_wq);
-	kfree(data);
 }
 
 static int wda_svc_arrive(struct qmi_handle *qmi, struct qmi_service *svc)

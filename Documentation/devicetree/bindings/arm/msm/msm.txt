@@ -44,6 +44,9 @@ SoCs:
 - SM8150
   compatible = "qcom,sm8150"
 
+- SM8150P
+  compatible = "qcom,sm8150p"
+
 - SDMSHRIKE
   compatible = "qcom,sdmshrike"
 

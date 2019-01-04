@@ -1848,6 +1848,7 @@ static void _sde_connector_report_panel_dead(struct sde_connector *conn)
 int sde_connector_esd_status(struct drm_connector *conn)
 {
 	struct sde_connector *sde_conn = NULL;
+	struct dsi_display *display;
 	int ret = 0;
 
 	if (!conn)
@@ -1857,10 +1858,17 @@ int sde_connector_esd_status(struct drm_connector *conn)
 	if (!sde_conn || !sde_conn->ops.check_status)
 		return ret;
 
+	display = sde_conn->display;
+
 	/* protect this call with ESD status check call */
 	mutex_lock(&sde_conn->lock);
-	ret = sde_conn->ops.check_status(&sde_conn->base, sde_conn->display,
-								true);
+	if (atomic_read(&(display->panel->esd_recovery_pending))) {
+		SDE_ERROR("ESD recovery already pending\n");
+		mutex_unlock(&sde_conn->lock);
+		return -ETIMEDOUT;
+	}
+	ret = sde_conn->ops.check_status(&sde_conn->base,
+					 sde_conn->display, true);
 	mutex_unlock(&sde_conn->lock);
 
 	if (ret <= 0) {

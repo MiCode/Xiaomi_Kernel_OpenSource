@@ -642,6 +642,8 @@ int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 	case DSI_BACKLIGHT_DCS:
 		rc = dsi_panel_update_backlight(panel, bl_lvl);
 		break;
+	case DSI_BACKLIGHT_EXTERNAL:
+		break;
 	default:
 		pr_err("Backlight type(%d) not supported\n", bl->type);
 		rc = -ENOTSUPP;
@@ -665,6 +667,7 @@ static u32 dsi_panel_get_brightness(struct dsi_backlight_config *bl)
 			cur_bl_level = bd->ops->get_brightness(bd);
 		break;
 	case DSI_BACKLIGHT_DCS:
+	case DSI_BACKLIGHT_EXTERNAL:
 	default:
 		/*
 		 * Ideally, we should read the backlight level from the
@@ -698,6 +701,8 @@ static int dsi_panel_bl_register(struct dsi_panel *panel)
 		break;
 	case DSI_BACKLIGHT_DCS:
 		break;
+	case DSI_BACKLIGHT_EXTERNAL:
+		break;
 	default:
 		pr_err("Backlight type(%d) not supported\n", bl->type);
 		rc = -ENOTSUPP;
@@ -720,6 +725,8 @@ static int dsi_panel_bl_unregister(struct dsi_panel *panel)
 	case DSI_BACKLIGHT_WLED:
 		break;
 	case DSI_BACKLIGHT_DCS:
+		break;
+	case DSI_BACKLIGHT_EXTERNAL:
 		break;
 	default:
 		pr_err("Backlight type(%d) not supported\n", bl->type);
@@ -1997,10 +2004,14 @@ static int dsi_panel_parse_bl_config(struct dsi_panel *panel)
 	const char *bl_type;
 	const char *data;
 	struct dsi_parser_utils *utils = &panel->utils;
+	char *bl_name;
 
-	bl_type = utils->get_property(utils->data,
-				  "qcom,mdss-dsi-bl-pmic-control-type",
-				  NULL);
+	if (!strcmp(panel->type, "primary"))
+		bl_name = "qcom,mdss-dsi-bl-pmic-control-type";
+	else
+		bl_name = "qcom,mdss-dsi-sec-bl-pmic-control-type";
+
+	bl_type = utils->get_property(utils->data, bl_name, NULL);
 	if (!bl_type) {
 		panel->bl_config.type = DSI_BACKLIGHT_UNKNOWN;
 	} else if (!strcmp(bl_type, "bl_ctrl_pwm")) {
@@ -2009,6 +2020,8 @@ static int dsi_panel_parse_bl_config(struct dsi_panel *panel)
 		panel->bl_config.type = DSI_BACKLIGHT_WLED;
 	} else if (!strcmp(bl_type, "bl_ctrl_dcs")) {
 		panel->bl_config.type = DSI_BACKLIGHT_DCS;
+	} else if (!strcmp(bl_type, "bl_ctrl_external")) {
+		panel->bl_config.type = DSI_BACKLIGHT_EXTERNAL;
 	} else {
 		pr_debug("[%s] bl-pmic-control-type unknown-%s\n",
 			 panel->name, bl_type);

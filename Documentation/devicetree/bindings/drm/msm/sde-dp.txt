@@ -67,6 +67,11 @@ DP Controller: Required properties:
 					within DP AUX, while the remaining entries indicate the
 					programmable values.
 - qcom,max-pclk-frequency-khz:	An integer specifying the max. pixel clock in KHz supported by Display Port.
+- qcom,mst-enable:		MST feature enable control node.
+- qcom,dsc-feature-enable:	DSC feature enable control node.
+- qcom,fec-feature-enable:	FEC feature enable control node.
+- qcom,max-dp-dsc-blks:		An integer specifying the max. DSC blocks available for Display port.
+- qcom,max-dp-dsc-input-width-pixs: An integer specifying the max. input width of pixels for each DSC block.
 - qcom,dp-usbpd-detection:	Phandle for the PMI regulator node for USB PHY PD detection.
 - qcom,dp-aux-switch:		Phandle for the driver used to program the AUX switch for Display Port orientation.
 - qcom,dp-hpd-gpio:		HPD gpio for direct DP connector without USB PHY or AUX switch.
@@ -86,11 +91,6 @@ DP Controller: Required properties:
 					-- qcom,supply-post-on-sleep: time to sleep (ms) after turning on
 					-- qcom,supply-pre-off-sleep: time to sleep (ms) before turning off
 					-- qcom,supply-post-off-sleep: time to sleep (ms) after turning off
-- pinctrl-names:	List of names to assign mdss pin states defined in pinctrl device node
-					Refer to pinctrl-bindings.txt
-- pinctrl-<0..n>:	Lists phandles each pointing to the pin configuration node within a pin
-					controller. These pin configurations are installed in the pinctrl
-					device node. Refer to pinctrl-bindings.txt
 
 msm_ext_disp is a device which manages the interaction between external
 display interfaces, e.g. Display Port, and the audio subsystem.
@@ -98,7 +98,13 @@ display interfaces, e.g. Display Port, and the audio subsystem.
 Optional properties:
 - qcom,ext-disp:		phandle for msm-ext-display module
 - compatible:			Must be "qcom,msm-ext-disp"
+- qcom,dp-low-power-hw-hpd:	Low power hardware HPD feature enable control node
 - qcom,phy-version:		Phy version
+- pinctrl-names:		List of names to assign mdss pin states defined in pinctrl device node
+				Refer to pinctrl-bindings.txt
+- pinctrl-<0..n>:		Lists phandles each pointing to the pin configuration node within a pin
+				controller. These pin configurations are installed in the pinctrl
+				device node. Refer to pinctrl-bindings.txt
 
 [Optional child nodes]: These nodes are for devices which are
 dependent on msm_ext_disp. If msm_ext_disp is disabled then
@@ -172,6 +178,11 @@ Example:
 		qcom,aux-cfg8-settings = [3c bb];
 		qcom,aux-cfg9-settings = [40 03];
 		qcom,max-pclk-frequency-khz = <593470>;
+		qcom,mst-enable;
+		qcom,dsc-feature-enable;
+		qcom,fec-feature-enable;
+		qcom,max-dp-dsc-blks = <2>;
+		qcom,max-dp-dsc-input-width-pixs = <2048>;
 		pinctrl-names = "mdss_dp_active", "mdss_dp_sleep";
 		pinctrl-0 = <&sde_dp_aux_active &sde_dp_usbplug_cc_active>;
 		pinctrl-1 = <&sde_dp_aux_suspend &sde_dp_usbplug_cc_suspend>;

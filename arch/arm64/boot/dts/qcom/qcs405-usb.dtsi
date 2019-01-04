@@ -26,6 +26,7 @@
 		interrupts = <0 25 0>, <0 319 0>;
 		interrupt-names = "pwr_event_irq", "hs_phy_irq";
 
+		dpdm-supply = <&usb2_phy0>;
 		clocks = <&clock_gcc GCC_USB30_MASTER_CLK>,
 			 <&clock_gcc GCC_SYS_NOC_USB3_CLK>,
 			 <&clock_gcc GCC_USB30_SLEEP_CLK>,

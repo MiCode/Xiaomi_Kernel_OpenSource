@@ -1076,34 +1076,28 @@ static void dfc_svc_init(struct work_struct *work)
 		return;
 
 	rc = dfc_init_service(data);
+	if (rc < 0) {
+		pr_err("%s Failed to init service, err[%d]\n", __func__, rc);
+		return;
+	}
 
 	rtnl_lock();
 	qmi = (struct qmi_info *)rmnet_get_qmi_pt(data->rmnet_port);
 	if (!qmi) {
 		rtnl_unlock();
-		goto clean_out;
+		return;
 	}
 
 	qmi->dfc_pending[data->index] = NULL;
-	if (rc < 0) {
-		rtnl_unlock();
-		goto clean_out;
-	} else {
-		qmi->dfc_clients[data->index] = (void *)data;
-		trace_dfc_client_state_up(data->index,
-					  data->svc.instance,
-					  data->svc.ep_type,
-					  data->svc.iface_id);
-	}
+	qmi->dfc_clients[data->index] = (void *)data;
+	trace_dfc_client_state_up(data->index,
+				  data->svc.instance,
+				  data->svc.ep_type,
+				  data->svc.iface_id);
+
 	rtnl_unlock();
 
 	pr_info("Connection established with the DFC Service\n");
-	return;
-
-clean_out:
-	qmi_handle_release(&data->handle);
-	destroy_workqueue(data->dfc_wq);
-	kfree(data);
 }
 
 static int dfc_svc_arrive(struct qmi_handle *qmi, struct qmi_service *svc)
