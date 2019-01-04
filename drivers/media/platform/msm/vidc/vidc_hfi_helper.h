@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __H_VIDC_HFI_HELPER_H__
 #define __H_VIDC_HFI_HELPER_H__
 
 #include <linux/types.h>
+#include <media/msm_vidc_utils.h>
 #define HFI_COMMON_BASE				(0)
 #define HFI_OX_BASE					(0x01000000)
 
@@ -125,6 +126,22 @@
 #define HFI_VP8_LEVEL_VERSION_2			0x00000004
 #define HFI_VP8_LEVEL_VERSION_3			0x00000008
 
+#define HFI_VP9_PROFILE_P0		0x00000001
+#define HFI_VP9_PROFILE_P2_10B	0x00000004
+
+#define  HFI_VP9_LEVEL_1	0x00000001
+#define  HFI_VP9_LEVEL_11	0x00000002
+#define  HFI_VP9_LEVEL_2	0x00000004
+#define  HFI_VP9_LEVEL_21	0x00000008
+#define  HFI_VP9_LEVEL_3	0x00000010
+#define  HFI_VP9_LEVEL_31	0x00000020
+#define  HFI_VP9_LEVEL_4	0x00000040
+#define  HFI_VP9_LEVEL_41	0x00000080
+#define  HFI_VP9_LEVEL_5	0x00000100
+#define  HFI_VP9_LEVEL_51	0x00000200
+#define  HFI_VP9_LEVEL_6	0x00000400
+#define  HFI_VP9_LEVEL_61	0x00000800
+
 #define  HFI_HEVC_PROFILE_MAIN			0x00000001
 #define  HFI_HEVC_PROFILE_MAIN10		0x00000002
 #define  HFI_HEVC_PROFILE_MAIN_STILL_PIC	0x00000004
@@ -144,7 +161,7 @@
 #define  HFI_HEVC_LEVEL_62	0x00001000
 
 #define HFI_HEVC_TIER_MAIN	0x1
-#define HFI_HEVC_TIER_HIGH0	0x2
+#define HFI_HEVC_TIER_HIGH	0x2
 
 #define  HFI_TME_PROFILE_DEFAULT	0x00000001
 #define  HFI_TME_PROFILE_FRC		0x00000002
@@ -562,6 +579,9 @@ struct hfi_nal_stream_format_select {
 #define HFI_PICTURE_TYPE_B					0x04
 #define HFI_PICTURE_TYPE_IDR					0x08
 #define HFI_PICTURE_TYPE_CRA					0x10
+#define HFI_FRAME_NOTCODED		0x7F002000
+#define HFI_FRAME_YUV			0x7F004000
+#define HFI_UNUSED_PICT			0x10000000
 
 struct hfi_profile_level {
 	u32 profile;
@@ -1118,23 +1138,9 @@ struct hfi_cmd_sys_test_ssr_packet {
 	u32 trigger_type;
 };
 
-struct hfi_mastering_display_colour_sei_payload {
-	u32 display_primariesX[3];
-	u32 display_primariesY[3];
-	u32 white_pointX;
-	u32 white_pointY;
-	u32 max_display_mastering_luminance;
-	u32 min_display_mastering_luminance;
-};
-
-struct hfi_content_light_level_sei_payload {
-	u32 max_content_light;
-	u32 max_pic_average_light;
-};
-
 struct hfi_hdr10_pq_sei {
-	struct hfi_mastering_display_colour_sei_payload mdisp_info;
-	struct hfi_content_light_level_sei_payload cll_info;
+	struct msm_vidc_mastering_display_colour_sei_payload mdisp_info;
+	struct msm_vidc_content_light_level_sei_payload cll_info;
 };
 
 struct hfi_vbv_hdr_buf_size {

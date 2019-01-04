@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 
@@ -420,7 +420,7 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 
 	bitrate = __lut(width, height, fps)->bitrate;
 
-	bins_to_bit_factor = d->work_mode == VIDC_WORK_MODE_1 ?
+	bins_to_bit_factor = d->work_mode == HFI_WORKMODE_1 ?
 		FP_INT(0) : FP_INT(4);
 
 	vsp_read_factor = bins_to_bit_factor + FP_INT(2);
@@ -648,7 +648,7 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 	dpb_compression_enabled = __ubwc(dpb_color_format);
 	original_compression_enabled = __ubwc(original_color_format);
 
-	work_mode_1 = d->work_mode == VIDC_WORK_MODE_1;
+	work_mode_1 = d->work_mode == HFI_WORKMODE_1;
 	low_power = d->power_mode == VIDC_POWER_LOW;
 	bins_to_bit_factor = work_mode_1 ?
 		FP_INT(0) : FP_INT(4);

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/dma-direction.h>
@@ -14,6 +14,8 @@
 #include "msm_cvp.h"
 #include "msm_vidc_common.h"
 #include <linux/delay.h>
+#include "vidc_hfi.h"
+#include "vidc_hfi_helper.h"
 #include "vidc_hfi_api.h"
 #include "msm_vidc_clocks.h"
 #include <linux/dma-buf.h>
@@ -30,7 +32,7 @@ static int get_poll_flags(void *instance)
 	struct vb2_queue *capq = &inst->bufq[CAPTURE_PORT].vb2_bufq;
 	struct vb2_buffer *out_vb = NULL;
 	struct vb2_buffer *cap_vb = NULL;
-	unsigned long flags;
+	unsigned long flags = 0;
 	int rc = 0;
 
 	if (v4l2_event_pending(&inst->event_handler))
@@ -168,7 +170,7 @@ int msm_vidc_query_ctrl(void *instance, struct v4l2_queryctrl *ctrl)
 	{
 		prof_lev_supp = &inst->capability.profile_level;
 		for (i = 0; i < prof_lev_supp->profile_count; i++) {
-			v4l2_prof_value = msm_comm_hal_to_v4l2(ctrl->id,
+			v4l2_prof_value = msm_comm_hfi_to_v4l2(ctrl->id,
 				prof_lev_supp->profile_level[i].profile);
 			if (v4l2_prof_value == -EINVAL) {
 				dprintk(VIDC_WARN, "Invalid profile");
@@ -195,7 +197,7 @@ int msm_vidc_query_ctrl(void *instance, struct v4l2_queryctrl *ctrl)
 		if (ctrl->id == V4L2_CID_MPEG_VIDEO_HEVC_LEVEL)
 			max_level &= ~(0xF << 28);
 
-		ctrl->maximum = msm_comm_hal_to_v4l2(ctrl->id, max_level);
+		ctrl->maximum = msm_comm_hfi_to_v4l2(ctrl->id, max_level);
 		if (ctrl->maximum == -EINVAL) {
 			dprintk(VIDC_WARN, "Invalid max level");
 			rc = -EINVAL;
@@ -874,14 +876,11 @@ int msm_vidc_set_internal_config(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	u32 rc_mode = RATE_CONTROL_OFF;
-	bool set_rc = false;
-	struct hal_vbv_hdr_buf_size hrd_buf_size;
-	struct hal_enable latency;
+	struct hfi_vbv_hdr_buf_size hrd_buf_size;
+	struct hfi_enable latency;
 	struct hfi_device *hdev;
-	struct hal_multi_slice_control multi_slice_control;
 	u32 codec;
-	u32 mbps, mb_per_frame, fps, bitrate;
-	u32 slice_val, slice_mode, max_avg_slicesize;
+	u32 mbps, fps;
 	u32 output_width, output_height;
 
 	if (!inst || !inst->core || !inst->core->device) {
@@ -898,21 +897,12 @@ int msm_vidc_set_internal_config(struct msm_vidc_inst *inst)
 	latency.enable =  msm_comm_g_ctrl_for_id(inst,
 			V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_MODE);
 
-	if (inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_MBR_VFR) {
+	if (inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_MBR_VFR)
 		rc_mode = V4L2_MPEG_VIDEO_BITRATE_MODE_MBR;
-		set_rc = true;
-	} else if (inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_VBR &&
+	else if (inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_VBR &&
 			   latency.enable == V4L2_MPEG_MSM_VIDC_ENABLE &&
-			   codec != V4L2_PIX_FMT_VP8) {
+			   codec != V4L2_PIX_FMT_VP8)
 		rc_mode = V4L2_MPEG_VIDEO_BITRATE_MODE_CBR;
-		set_rc = true;
-	}
-
-	if (set_rc) {
-		rc = call_hfi_op(hdev, session_set_property,
-			(void *)inst->session, HAL_PARAM_VENC_RATE_CONTROL,
-			(void *)&rc_mode);
-	}
 
 	output_height = inst->prop.height[CAPTURE_PORT];
 	output_width = inst->prop.width[CAPTURE_PORT];
@@ -931,60 +921,12 @@ int msm_vidc_set_internal_config(struct msm_vidc_inst *inst)
 		dprintk(VIDC_DBG, "Enable hdr_buf_size %d :\n",
 				hrd_buf_size.vbv_hdr_buf_size);
 		rc = call_hfi_op(hdev, session_set_property,
-			(void *)inst->session, HAL_CONFIG_VENC_VBV_HRD_BUF_SIZE,
-			(void *)&hrd_buf_size);
+			(void *)inst->session,
+			HFI_PROPERTY_CONFIG_VENC_VBV_HRD_BUF_SIZE,
+			(void *)&hrd_buf_size, sizeof(hrd_buf_size));
 		inst->clk_data.low_latency_mode = true;
 	}
 
-	/* Update Slice Config */
-	slice_mode =  msm_comm_g_ctrl_for_id(inst,
-		 V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE);
-
-	if ((codec == V4L2_PIX_FMT_H264 || codec == V4L2_PIX_FMT_HEVC) &&
-		slice_mode != V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE) {
-		bitrate = inst->clk_data.bitrate;
-		mb_per_frame = NUM_MBS_PER_FRAME(output_height, output_width);
-
-		if (rc_mode != V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR &&
-				rc_mode != V4L2_MPEG_VIDEO_BITRATE_MODE_CBR) {
-			slice_mode = V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE;
-			slice_val = 0;
-		} else if (slice_mode ==
-				    V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_MB) {
-			if (output_width > 3840 || output_height > 3840 ||
-				mb_per_frame > NUM_MBS_PER_FRAME(3840, 2160) ||
-				fps > 60) {
-				slice_mode =
-					V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE;
-				slice_val = 0;
-			} else {
-				slice_val = msm_comm_g_ctrl_for_id(inst,
-				   V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB);
-				slice_val = max(slice_val, mb_per_frame / 10);
-			}
-		} else {
-			if (output_width > 1920 || output_height > 1920 ||
-				mb_per_frame > NUM_MBS_PER_FRAME(1920, 1088) ||
-				 fps > 30) {
-				slice_mode =
-					V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE;
-				slice_val = 0;
-			} else {
-				slice_val = msm_comm_g_ctrl_for_id(inst,
-				   V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES);
-				max_avg_slicesize = ((bitrate / fps) / 8) / 10;
-				slice_val =
-					max(slice_val, max_avg_slicesize);
-			}
-		}
-
-		multi_slice_control.multi_slice = slice_mode;
-		multi_slice_control.slice_size = slice_val;
-
-		rc = call_hfi_op(hdev, session_set_property,
-		 (void *)inst->session, HAL_PARAM_VENC_MULTI_SLICE_CONTROL,
-		 (void *)&multi_slice_control);
-	}
 	return rc;
 }
 
@@ -993,8 +935,8 @@ static int msm_vidc_set_rotation(struct msm_vidc_inst *inst)
 	int rc = 0;
 	int value = 0, hflip = 0, vflip = 0;
 	struct hfi_device *hdev;
-	struct hal_vpe_rotation vpe_rotation;
-	struct hal_frame_size frame_sz;
+	struct hfi_vpe_rotation_type vpe_rotation;
+	struct hfi_frame_size frame_sz;
 
 	hdev = inst->core->device;
 
@@ -1004,7 +946,14 @@ static int msm_vidc_set_rotation(struct msm_vidc_inst *inst)
 		dprintk(VIDC_ERR, "Get control for rotation failed\n");
 		return value;
 	}
-	vpe_rotation.rotate = value;
+
+	vpe_rotation.rotation = HFI_ROTATE_NONE;
+	if (value == 90)
+		vpe_rotation.rotation = HFI_ROTATE_90;
+	else if (value == 180)
+		vpe_rotation.rotation = HFI_ROTATE_180;
+	else if (value ==  270)
+		vpe_rotation.rotation = HFI_ROTATE_270;
 
 	hflip = msm_comm_g_ctrl_for_id(inst, V4L2_CID_HFLIP);
 	if (hflip < 0) {
@@ -1017,35 +966,38 @@ static int msm_vidc_set_rotation(struct msm_vidc_inst *inst)
 		dprintk(VIDC_ERR, "Get control for vflip failed\n");
 		return value;
 	}
+
+	vpe_rotation.flip = HFI_FLIP_NONE;
 	if ((hflip == V4L2_MPEG_MSM_VIDC_ENABLE) &&
 		(vflip == V4L2_MPEG_MSM_VIDC_ENABLE))
-		vpe_rotation.flip = HAL_FLIP_BOTH;
+		vpe_rotation.flip = HFI_FLIP_HORIZONTAL | HFI_FLIP_VERTICAL;
 	else if (hflip == V4L2_MPEG_MSM_VIDC_ENABLE)
-		vpe_rotation.flip = HAL_FLIP_HORIZONTAL;
+		vpe_rotation.flip = HFI_FLIP_HORIZONTAL;
 	else if (vflip == V4L2_MPEG_MSM_VIDC_ENABLE)
-		vpe_rotation.flip = HAL_FLIP_VERTICAL;
-	else
-		vpe_rotation.flip = HAL_FLIP_NONE;
+		vpe_rotation.flip = HFI_FLIP_VERTICAL;
 
 	dprintk(VIDC_DBG, "Set rotation = %d, flip = %d for capture port.\n",
-			vpe_rotation.rotate, vpe_rotation.flip);
+			vpe_rotation.rotation, vpe_rotation.flip);
 	rc = call_hfi_op(hdev, session_set_property,
 				(void *)inst->session,
-				HAL_PARAM_VPE_ROTATION, &vpe_rotation);
+				HFI_PROPERTY_PARAM_VPE_ROTATION,
+				&vpe_rotation, sizeof(vpe_rotation));
 	if (rc) {
 		dprintk(VIDC_ERR, "Set rotation/flip at start stream failed\n");
 		return rc;
 	}
 
 	/* flip the output resolution if required */
-	if (vpe_rotation.rotate == 90 || vpe_rotation.rotate == 270) {
-		frame_sz.buffer_type = HAL_BUFFER_OUTPUT;
+	if (vpe_rotation.rotation == HFI_ROTATE_90 ||
+		vpe_rotation.rotation == HFI_ROTATE_270) {
+		frame_sz.buffer_type = HFI_BUFFER_OUTPUT;
 		frame_sz.width = inst->prop.height[CAPTURE_PORT];
 		frame_sz.height = inst->prop.width[CAPTURE_PORT];
 		dprintk(VIDC_DBG, "CAPTURE port width = %d, height = %d\n",
 			frame_sz.width, frame_sz.height);
 		rc = call_hfi_op(hdev, session_set_property, (void *)
-			inst->session, HAL_PARAM_FRAME_SIZE, &frame_sz);
+			inst->session, HFI_PROPERTY_PARAM_FRAME_SIZE,
+			&frame_sz, sizeof(frame_sz));
 		if (rc) {
 			dprintk(VIDC_ERR,
 				"Failed to set framesize for CAPTURE port\n");
@@ -1071,7 +1023,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
-	struct hal_buffer_size_minimum b;
+	struct hfi_buffer_size_minimum b;
 
 	dprintk(VIDC_DBG, "%s: %x : inst %pK\n", __func__,
 		hash32_ptr(inst->session), inst);
@@ -1084,7 +1036,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		goto fail_start;
 	}
 
-	b.buffer_type = HAL_BUFFER_OUTPUT;
+	b.buffer_type = HFI_BUFFER_OUTPUT;
 	if (inst->session_type == MSM_VIDC_ENCODER) {
 		rc = msm_vidc_set_rotation(inst);
 		if (rc) {
@@ -1094,7 +1046,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		}
 	} else if ((inst->session_type == MSM_VIDC_DECODER) &&
 			(is_secondary_output_mode(inst)))
-		b.buffer_type = HAL_BUFFER_OUTPUT2;
+		b.buffer_type = HFI_BUFFER_OUTPUT2;
 
 	/* HEIC HW/FWK tiling encode is supported only for CQ RC mode */
 	if (inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_CQ) {
@@ -1156,8 +1108,8 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 
 	b.buffer_size = inst->bufq[CAPTURE_PORT].plane_sizes[0];
 	rc = call_hfi_op(hdev, session_set_property,
-			inst->session, HAL_PARAM_BUFFER_SIZE_MINIMUM,
-			&b);
+			inst->session, HFI_PROPERTY_PARAM_BUFFER_SIZE_MINIMUM,
+			&b, sizeof(b));
 
 	/* Verify if buffer counts are correct */
 	rc = msm_vidc_verify_buffer_counts(inst);
@@ -1685,12 +1637,12 @@ static int try_get_ctrl_for_instance(struct msm_vidc_inst *inst,
 	switch (ctrl->id) {
 
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
-		ctrl->val = msm_comm_hal_to_v4l2(
+		ctrl->val = msm_comm_hfi_to_v4l2(
 			V4L2_CID_MPEG_VIDEO_H264_PROFILE,
 			inst->profile);
 		break;
 	case V4L2_CID_MPEG_VIDEO_HEVC_PROFILE:
-		ctrl->val = msm_comm_hal_to_v4l2(
+		ctrl->val = msm_comm_hfi_to_v4l2(
 			V4L2_CID_MPEG_VIDEO_HEVC_PROFILE,
 			inst->profile);
 		break;
@@ -1698,17 +1650,17 @@ static int try_get_ctrl_for_instance(struct msm_vidc_inst *inst,
 		ctrl->val = inst->grid_enable;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
-		ctrl->val = msm_comm_hal_to_v4l2(
+		ctrl->val = msm_comm_hfi_to_v4l2(
 			V4L2_CID_MPEG_VIDEO_H264_LEVEL,
 			inst->level);
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
-		ctrl->val = msm_comm_hal_to_v4l2(
+		ctrl->val = msm_comm_hfi_to_v4l2(
 			V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL,
 			inst->level);
 		break;
 	case V4L2_CID_MPEG_VIDEO_HEVC_LEVEL:
-		ctrl->val = msm_comm_hal_to_v4l2(
+		ctrl->val = msm_comm_hfi_to_v4l2(
 			V4L2_CID_MPEG_VIDEO_HEVC_LEVEL,
 			inst->level);
 		break;

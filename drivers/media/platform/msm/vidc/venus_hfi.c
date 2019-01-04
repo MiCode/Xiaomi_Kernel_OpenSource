@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <asm/dma-iommu.h>
@@ -2329,7 +2329,7 @@ err_create_pkt:
 }
 
 static int venus_hfi_session_set_property(void *sess,
-					enum hal_property ptype, void *pdata)
+					u32 ptype, void *pdata, u32 size)
 {
 	u8 packet[VIDC_IFACEQ_VAR_LARGE_PKT_SIZE];
 	struct hfi_cmd_session_set_property_packet *pkt =
@@ -2353,7 +2353,7 @@ static int venus_hfi_session_set_property(void *sess,
 	}
 
 	rc = call_hfi_pkt_op(device, session_set_property,
-			pkt, session, ptype, pdata);
+			pkt, session, ptype, pdata, size);
 
 	if (rc == -ENOTSUPP) {
 		dprintk(VIDC_DBG,
@@ -2372,45 +2372,6 @@ static int venus_hfi_session_set_property(void *sess,
 	}
 
 err_set_prop:
-	mutex_unlock(&device->lock);
-	return rc;
-}
-
-static int venus_hfi_session_get_property(void *sess,
-					enum hal_property ptype)
-{
-	struct hfi_cmd_session_get_property_packet pkt = {0};
-	struct hal_session *session = sess;
-	int rc = 0;
-	struct venus_hfi_device *device;
-
-	if (!session || !session->device) {
-		dprintk(VIDC_ERR, "Invalid Params\n");
-		return -EINVAL;
-	}
-
-	device = session->device;
-	mutex_lock(&device->lock);
-
-	dprintk(VIDC_INFO, "%s: property id: %d\n", __func__, ptype);
-	if (!__is_session_valid(device, session, __func__)) {
-		rc = -EINVAL;
-		goto err_create_pkt;
-	}
-
-	rc = call_hfi_pkt_op(device, session_get_property,
-				&pkt, session, ptype);
-	if (rc) {
-		dprintk(VIDC_ERR, "get property profile: pkt failed\n");
-		goto err_create_pkt;
-	}
-
-	if (__iface_cmdq_write(session->device, &pkt)) {
-		rc = -ENOTEMPTY;
-		dprintk(VIDC_ERR, "%s cmdq_write error\n", __func__);
-	}
-
-err_create_pkt:
 	mutex_unlock(&device->lock);
 	return rc;
 }
@@ -5188,7 +5149,6 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->session_get_buf_req = venus_hfi_session_get_buf_req;
 	hdev->session_flush = venus_hfi_session_flush;
 	hdev->session_set_property = venus_hfi_session_set_property;
-	hdev->session_get_property = venus_hfi_session_get_property;
 	hdev->session_pause = venus_hfi_session_pause;
 	hdev->session_resume = venus_hfi_session_resume;
 	hdev->scale_clocks = venus_hfi_scale_clocks;

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/jiffies.h>
@@ -12,6 +12,7 @@
 #include <asm/div64.h>
 #include "msm_vidc_common.h"
 #include "vidc_hfi_api.h"
+#include "vidc_hfi.h"
 #include "msm_vidc_debug.h"
 #include "msm_vidc_clocks.h"
 #include "msm_cvp.h"
@@ -60,71 +61,71 @@ static struct v4l2_ctrl **get_super_cluster(struct msm_vidc_inst *inst,
 	return cluster;
 }
 
-int msm_comm_hal_to_v4l2(int id, int value)
+int msm_comm_hfi_to_v4l2(int id, int value)
 {
 	switch (id) {
 		/* H264 */
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
 		switch (value) {
-		case HAL_H264_PROFILE_BASELINE:
+		case HFI_H264_PROFILE_BASELINE:
 			return V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE;
-		case HAL_H264_PROFILE_CONSTRAINED_BASE:
+		case HFI_H264_PROFILE_CONSTRAINED_BASE:
 			return
 			V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE;
-		case HAL_H264_PROFILE_MAIN:
+		case HFI_H264_PROFILE_MAIN:
 			return V4L2_MPEG_VIDEO_H264_PROFILE_MAIN;
-		case HAL_H264_PROFILE_HIGH:
+		case HFI_H264_PROFILE_HIGH:
 			return V4L2_MPEG_VIDEO_H264_PROFILE_HIGH;
-		case HAL_H264_PROFILE_STEREO_HIGH:
+		case HFI_H264_PROFILE_STEREO_HIGH:
 			return V4L2_MPEG_VIDEO_H264_PROFILE_STEREO_HIGH;
-		case HAL_H264_PROFILE_MULTIVIEW_HIGH:
+		case HFI_H264_PROFILE_MULTIVIEW_HIGH:
 			return V4L2_MPEG_VIDEO_H264_PROFILE_MULTIVIEW_HIGH;
-		case HAL_H264_PROFILE_CONSTRAINED_HIGH:
+		case HFI_H264_PROFILE_CONSTRAINED_HIGH:
 			return V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_HIGH;
 		default:
 			goto unknown_value;
 		}
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
 		switch (value) {
-		case HAL_H264_LEVEL_1:
+		case HFI_H264_LEVEL_1:
 			return V4L2_MPEG_VIDEO_H264_LEVEL_1_0;
-		case HAL_H264_LEVEL_1b:
+		case HFI_H264_LEVEL_1b:
 			return V4L2_MPEG_VIDEO_H264_LEVEL_1B;
-		case HAL_H264_LEVEL_11:
+		case HFI_H264_LEVEL_11:
 			return V4L2_MPEG_VIDEO_H264_LEVEL_1_1;
-		case HAL_H264_LEVEL_12:
+		case HFI_H264_LEVEL_12:
 			return V4L2_MPEG_VIDEO_H264_LEVEL_1_2;
-		case HAL_H264_LEVEL_13:
+		case HFI_H264_LEVEL_13:
 			return V4L2_MPEG_VIDEO_H264_LEVEL_1_3;
-		case HAL_H264_LEVEL_2:
+		case HFI_H264_LEVEL_2:
 			return V4L2_MPEG_VIDEO_H264_LEVEL_2_0;
-		case HAL_H264_LEVEL_21:
+		case HFI_H264_LEVEL_21:
 			return V4L2_MPEG_VIDEO_H264_LEVEL_2_1;
-		case HAL_H264_LEVEL_22:
+		case HFI_H264_LEVEL_22:
 			return V4L2_MPEG_VIDEO_H264_LEVEL_2_2;
-		case HAL_H264_LEVEL_3:
+		case HFI_H264_LEVEL_3:
 			return V4L2_MPEG_VIDEO_H264_LEVEL_3_0;
-		case HAL_H264_LEVEL_31:
+		case HFI_H264_LEVEL_31:
 			return V4L2_MPEG_VIDEO_H264_LEVEL_3_1;
-		case HAL_H264_LEVEL_32:
+		case HFI_H264_LEVEL_32:
 			return V4L2_MPEG_VIDEO_H264_LEVEL_3_2;
-		case HAL_H264_LEVEL_4:
+		case HFI_H264_LEVEL_4:
 			return V4L2_MPEG_VIDEO_H264_LEVEL_4_0;
-		case HAL_H264_LEVEL_41:
+		case HFI_H264_LEVEL_41:
 			return V4L2_MPEG_VIDEO_H264_LEVEL_4_1;
-		case HAL_H264_LEVEL_42:
+		case HFI_H264_LEVEL_42:
 			return V4L2_MPEG_VIDEO_H264_LEVEL_4_2;
-		case HAL_H264_LEVEL_5:
+		case HFI_H264_LEVEL_5:
 			return V4L2_MPEG_VIDEO_H264_LEVEL_5_0;
-		case HAL_H264_LEVEL_51:
+		case HFI_H264_LEVEL_51:
 			return V4L2_MPEG_VIDEO_H264_LEVEL_5_1;
-		case HAL_H264_LEVEL_52:
+		case HFI_H264_LEVEL_52:
 			return V4L2_MPEG_VIDEO_H264_LEVEL_5_2;
-		case HAL_H264_LEVEL_6:
+		case HFI_H264_LEVEL_6:
 			return V4L2_MPEG_VIDEO_H264_LEVEL_6_0;
-		case HAL_H264_LEVEL_61:
+		case HFI_H264_LEVEL_61:
 			return V4L2_MPEG_VIDEO_H264_LEVEL_6_1;
-		case HAL_H264_LEVEL_62:
+		case HFI_H264_LEVEL_62:
 			return V4L2_MPEG_VIDEO_H264_LEVEL_6_2;
 		default:
 			goto unknown_value;
@@ -132,117 +133,117 @@ int msm_comm_hal_to_v4l2(int id, int value)
 
 	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:
 		switch (value) {
-		case HAL_H264_ENTROPY_CAVLC:
+		case HFI_H264_ENTROPY_CAVLC:
 			return V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CAVLC;
-		case HAL_H264_ENTROPY_CABAC:
+		case HFI_H264_ENTROPY_CABAC:
 			return V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CABAC;
 		default:
 			goto unknown_value;
 		}
 	case V4L2_CID_MPEG_VIDEO_HEVC_PROFILE:
 		switch (value) {
-		case HAL_HEVC_PROFILE_MAIN:
+		case HFI_HEVC_PROFILE_MAIN:
 			return V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN;
-		case HAL_HEVC_PROFILE_MAIN10:
+		case HFI_HEVC_PROFILE_MAIN10:
 			return V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN_10;
-		case HAL_HEVC_PROFILE_MAIN_STILL_PIC:
+		case HFI_HEVC_PROFILE_MAIN_STILL_PIC:
 			return V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN_STILL_PICTURE;
 		default:
 			goto unknown_value;
 		}
 	case V4L2_CID_MPEG_VIDEO_HEVC_LEVEL:
 	switch (value) {
-	case HAL_HEVC_LEVEL_1:
+	case HFI_HEVC_LEVEL_1:
 		return V4L2_MPEG_VIDEO_HEVC_LEVEL_1;
-	case HAL_HEVC_LEVEL_2:
+	case HFI_HEVC_LEVEL_2:
 		return V4L2_MPEG_VIDEO_HEVC_LEVEL_2;
-	case HAL_HEVC_LEVEL_2_1:
+	case HFI_HEVC_LEVEL_21:
 		return V4L2_MPEG_VIDEO_HEVC_LEVEL_2_1;
-	case HAL_HEVC_LEVEL_3:
+	case HFI_HEVC_LEVEL_3:
 		return V4L2_MPEG_VIDEO_HEVC_LEVEL_3;
-	case HAL_HEVC_LEVEL_3_1:
+	case HFI_HEVC_LEVEL_31:
 		return V4L2_MPEG_VIDEO_HEVC_LEVEL_3_1;
-	case HAL_HEVC_LEVEL_4:
+	case HFI_HEVC_LEVEL_4:
 		return V4L2_MPEG_VIDEO_HEVC_LEVEL_4;
-	case HAL_HEVC_LEVEL_4_1:
+	case HFI_HEVC_LEVEL_41:
 		return V4L2_MPEG_VIDEO_HEVC_LEVEL_4_1;
-	case HAL_HEVC_LEVEL_5:
+	case HFI_HEVC_LEVEL_5:
 		return V4L2_MPEG_VIDEO_HEVC_LEVEL_5;
-	case HAL_HEVC_LEVEL_5_1:
+	case HFI_HEVC_LEVEL_51:
 		return V4L2_MPEG_VIDEO_HEVC_LEVEL_5_1;
-	case HAL_HEVC_LEVEL_5_2:
+	case HFI_HEVC_LEVEL_52:
 		return V4L2_MPEG_VIDEO_HEVC_LEVEL_5_2;
-	case HAL_HEVC_LEVEL_6:
+	case HFI_HEVC_LEVEL_6:
 		return V4L2_MPEG_VIDEO_HEVC_LEVEL_6;
-	case HAL_HEVC_LEVEL_6_1:
+	case HFI_HEVC_LEVEL_61:
 		return V4L2_MPEG_VIDEO_HEVC_LEVEL_6_1;
-	case HAL_HEVC_LEVEL_6_2:
+	case HFI_HEVC_LEVEL_62:
 		return V4L2_MPEG_VIDEO_HEVC_LEVEL_6_2;
-	case HAL_HEVC_LEVEL_UNKNOWN:
+	case HFI_LEVEL_UNKNOWN:
 		return V4L2_MPEG_VIDEO_HEVC_LEVEL_UNKNOWN;
 	default:
 		goto unknown_value;
 	}
 	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
 		switch (value) {
-		case HAL_VP8_LEVEL_VERSION_0:
+		case HFI_VP8_LEVEL_VERSION_0:
 			return V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_0;
-		case HAL_VP8_LEVEL_VERSION_1:
+		case HFI_VP8_LEVEL_VERSION_1:
 			return V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_1;
-		case HAL_VP8_LEVEL_VERSION_2:
+		case HFI_VP8_LEVEL_VERSION_2:
 			return V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_2;
-		case HAL_VP8_LEVEL_VERSION_3:
+		case HFI_VP8_LEVEL_VERSION_3:
 			return V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_3;
-		case HAL_VP8_LEVEL_UNUSED:
+		case HFI_LEVEL_UNKNOWN:
 			return V4L2_MPEG_VIDC_VIDEO_VP8_UNUSED;
 		default:
 			goto unknown_value;
 		}
 	case V4L2_CID_MPEG_VIDEO_VP9_PROFILE:
 		switch (value) {
-		case HAL_VP9_PROFILE_P0:
+		case HFI_VP9_PROFILE_P0:
 			return V4L2_MPEG_VIDEO_VP9_PROFILE_0;
-		case HAL_VP9_PROFILE_P2_10:
+		case HFI_VP9_PROFILE_P2_10B:
 			return V4L2_MPEG_VIDEO_VP9_PROFILE_2;
 		default:
 			goto unknown_value;
 		}
 	case V4L2_CID_MPEG_VIDC_VIDEO_VP9_LEVEL:
 		switch (value) {
-		case HAL_VP9_LEVEL_1:
+		case HFI_VP9_LEVEL_1:
 			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_1;
-		case HAL_VP9_LEVEL_11:
+		case HFI_VP9_LEVEL_11:
 			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_11;
-		case HAL_VP9_LEVEL_2:
+		case HFI_VP9_LEVEL_2:
 			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_2;
-		case HAL_VP9_LEVEL_21:
+		case HFI_VP9_LEVEL_21:
 			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_21;
-		case HAL_VP9_LEVEL_3:
+		case HFI_VP9_LEVEL_3:
 			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_3;
-		case HAL_VP9_LEVEL_31:
+		case HFI_VP9_LEVEL_31:
 			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_31;
-		case HAL_VP9_LEVEL_4:
+		case HFI_VP9_LEVEL_4:
 			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_4;
-		case HAL_VP9_LEVEL_41:
+		case HFI_VP9_LEVEL_41:
 			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_41;
-		case HAL_VP9_LEVEL_5:
+		case HFI_VP9_LEVEL_5:
 			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_5;
-		case HAL_VP9_LEVEL_51:
+		case HFI_VP9_LEVEL_51:
 			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_51;
-		case HAL_VP9_LEVEL_6:
+		case HFI_VP9_LEVEL_6:
 			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_6;
-		case HAL_VP9_LEVEL_61:
+		case HFI_VP9_LEVEL_61:
 			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_61;
-		case HAL_VP9_LEVEL_UNUSED:
+		case HFI_LEVEL_UNKNOWN:
 			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_UNUSED;
 		default:
 			goto unknown_value;
 		}
 	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_PROFILE:
 		switch (value) {
-		case HAL_MPEG2_PROFILE_SIMPLE:
+		case HFI_MPEG2_PROFILE_SIMPLE:
 			return V4L2_MPEG_VIDC_VIDEO_MPEG2_PROFILE_SIMPLE;
-		case HAL_MPEG2_PROFILE_MAIN:
+		case HFI_MPEG2_PROFILE_MAIN:
 			return V4L2_MPEG_VIDC_VIDEO_MPEG2_PROFILE_MAIN;
 		default:
 			goto unknown_value;
@@ -250,11 +251,11 @@ int msm_comm_hal_to_v4l2(int id, int value)
 	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_LEVEL:
 		/* This mapping is not defined properly in V4L2 */
 		switch (value) {
-		case HAL_MPEG2_LEVEL_LL:
+		case HFI_MPEG2_LEVEL_LL:
 			return V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_0;
-		case HAL_MPEG2_LEVEL_ML:
+		case HFI_MPEG2_LEVEL_ML:
 			return V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_1;
-		case HAL_MPEG2_LEVEL_HL:
+		case HFI_MPEG2_LEVEL_HL:
 			return V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_2;
 		default:
 			goto unknown_value;
@@ -266,159 +267,168 @@ unknown_value:
 	return -EINVAL;
 }
 
-int msm_comm_v4l2_to_hal(int id, int value)
+int msm_comm_v4l2_to_hfi(int id, int value)
 {
 	switch (id) {
 	/* H264 */
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
 		switch (value) {
 		case V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE:
-			return HAL_H264_PROFILE_BASELINE;
+			return HFI_H264_PROFILE_BASELINE;
 		case V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE:
-			return HAL_H264_PROFILE_CONSTRAINED_BASE;
+			return HFI_H264_PROFILE_CONSTRAINED_BASE;
 		case V4L2_MPEG_VIDEO_H264_PROFILE_MAIN:
-			return HAL_H264_PROFILE_MAIN;
+			return HFI_H264_PROFILE_MAIN;
 		case V4L2_MPEG_VIDEO_H264_PROFILE_HIGH:
-			return HAL_H264_PROFILE_HIGH;
+			return HFI_H264_PROFILE_HIGH;
 		case V4L2_MPEG_VIDEO_H264_PROFILE_STEREO_HIGH:
-			return HAL_H264_PROFILE_STEREO_HIGH;
+			return HFI_H264_PROFILE_STEREO_HIGH;
 		case V4L2_MPEG_VIDEO_H264_PROFILE_MULTIVIEW_HIGH:
-			return HAL_H264_PROFILE_MULTIVIEW_HIGH;
+			return HFI_H264_PROFILE_MULTIVIEW_HIGH;
 		case V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_HIGH:
-			return HAL_H264_PROFILE_CONSTRAINED_HIGH;
+			return HFI_H264_PROFILE_CONSTRAINED_HIGH;
 		default:
 			goto unknown_value;
 		}
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
 		switch (value) {
 		case V4L2_MPEG_VIDEO_H264_LEVEL_1_0:
-			return HAL_H264_LEVEL_1;
+			return HFI_H264_LEVEL_1;
 		case V4L2_MPEG_VIDEO_H264_LEVEL_1B:
-			return HAL_H264_LEVEL_1b;
+			return HFI_H264_LEVEL_1b;
 		case V4L2_MPEG_VIDEO_H264_LEVEL_1_1:
-			return HAL_H264_LEVEL_11;
+			return HFI_H264_LEVEL_11;
 		case V4L2_MPEG_VIDEO_H264_LEVEL_1_2:
-			return HAL_H264_LEVEL_12;
+			return HFI_H264_LEVEL_12;
 		case V4L2_MPEG_VIDEO_H264_LEVEL_1_3:
-			return HAL_H264_LEVEL_13;
+			return HFI_H264_LEVEL_13;
 		case V4L2_MPEG_VIDEO_H264_LEVEL_2_0:
-			return HAL_H264_LEVEL_2;
+			return HFI_H264_LEVEL_2;
 		case V4L2_MPEG_VIDEO_H264_LEVEL_2_1:
-			return HAL_H264_LEVEL_21;
+			return HFI_H264_LEVEL_21;
 		case V4L2_MPEG_VIDEO_H264_LEVEL_2_2:
-			return HAL_H264_LEVEL_22;
+			return HFI_H264_LEVEL_22;
 		case V4L2_MPEG_VIDEO_H264_LEVEL_3_0:
-			return HAL_H264_LEVEL_3;
+			return HFI_H264_LEVEL_3;
 		case V4L2_MPEG_VIDEO_H264_LEVEL_3_1:
-			return HAL_H264_LEVEL_31;
+			return HFI_H264_LEVEL_31;
 		case V4L2_MPEG_VIDEO_H264_LEVEL_3_2:
-			return HAL_H264_LEVEL_32;
+			return HFI_H264_LEVEL_32;
 		case V4L2_MPEG_VIDEO_H264_LEVEL_4_0:
-			return HAL_H264_LEVEL_4;
+			return HFI_H264_LEVEL_4;
 		case V4L2_MPEG_VIDEO_H264_LEVEL_4_1:
-			return HAL_H264_LEVEL_41;
+			return HFI_H264_LEVEL_41;
 		case V4L2_MPEG_VIDEO_H264_LEVEL_4_2:
-			return HAL_H264_LEVEL_42;
+			return HFI_H264_LEVEL_42;
 		case V4L2_MPEG_VIDEO_H264_LEVEL_5_0:
-			return HAL_H264_LEVEL_5;
+			return HFI_H264_LEVEL_5;
 		case V4L2_MPEG_VIDEO_H264_LEVEL_5_1:
-			return HAL_H264_LEVEL_51;
+			return HFI_H264_LEVEL_51;
 		case V4L2_MPEG_VIDEO_H264_LEVEL_5_2:
-			return HAL_H264_LEVEL_52;
+			return HFI_H264_LEVEL_52;
 		case V4L2_MPEG_VIDEO_H264_LEVEL_6_0:
-			return HAL_H264_LEVEL_6;
+			return HFI_H264_LEVEL_6;
 		case V4L2_MPEG_VIDEO_H264_LEVEL_6_1:
-			return HAL_H264_LEVEL_61;
+			return HFI_H264_LEVEL_61;
 		case V4L2_MPEG_VIDEO_H264_LEVEL_6_2:
-			return HAL_H264_LEVEL_62;
+			return HFI_H264_LEVEL_62;
 		case V4L2_MPEG_VIDEO_H264_LEVEL_UNKNOWN:
-			return HAL_H264_LEVEL_UNKNOWN;
+			return HFI_LEVEL_UNKNOWN;
 		default:
 			goto unknown_value;
 		}
 	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:
 		switch (value) {
 		case V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CAVLC:
-			return HAL_H264_ENTROPY_CAVLC;
+			return HFI_H264_ENTROPY_CAVLC;
 		case V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CABAC:
-			return HAL_H264_ENTROPY_CABAC;
+			return HFI_H264_ENTROPY_CABAC;
 		default:
 			goto unknown_value;
 		}
 	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
 		switch (value) {
 		case V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_0:
-			return HAL_VP8_LEVEL_VERSION_0;
+			return HFI_VP8_LEVEL_VERSION_0;
 		case V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_1:
-			return HAL_VP8_LEVEL_VERSION_1;
+			return HFI_VP8_LEVEL_VERSION_1;
 		case V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_2:
-			return HAL_VP8_LEVEL_VERSION_2;
+			return HFI_VP8_LEVEL_VERSION_2;
 		case V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_3:
-			return HAL_VP8_LEVEL_VERSION_3;
+			return HFI_VP8_LEVEL_VERSION_3;
 		case V4L2_MPEG_VIDC_VIDEO_VP8_UNUSED:
-			return HAL_VP8_LEVEL_UNUSED;
+			return HFI_LEVEL_UNKNOWN;
 		default:
 			goto unknown_value;
 		}
 	case V4L2_CID_MPEG_VIDEO_HEVC_PROFILE:
 		switch (value) {
 		case V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN:
-			return HAL_HEVC_PROFILE_MAIN;
+			return HFI_HEVC_PROFILE_MAIN;
 		case V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN_10:
-			return HAL_HEVC_PROFILE_MAIN10;
+			return HFI_HEVC_PROFILE_MAIN10;
 		case V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN_STILL_PICTURE:
-			return HAL_HEVC_PROFILE_MAIN_STILL_PIC;
+			return HFI_HEVC_PROFILE_MAIN_STILL_PIC;
 		default:
 			goto unknown_value;
 		}
 	case V4L2_CID_MPEG_VIDEO_HEVC_LEVEL:
 		switch (value) {
 		case V4L2_MPEG_VIDEO_HEVC_LEVEL_1:
-			return HAL_HEVC_LEVEL_1;
+			return HFI_HEVC_LEVEL_1;
 		case V4L2_MPEG_VIDEO_HEVC_LEVEL_2:
-			return HAL_HEVC_LEVEL_2;
+			return HFI_HEVC_LEVEL_2;
 		case V4L2_MPEG_VIDEO_HEVC_LEVEL_2_1:
-			return HAL_HEVC_LEVEL_2_1;
+			return HFI_HEVC_LEVEL_21;
 		case V4L2_MPEG_VIDEO_HEVC_LEVEL_3:
-			return HAL_HEVC_LEVEL_3;
+			return HFI_HEVC_LEVEL_3;
 		case V4L2_MPEG_VIDEO_HEVC_LEVEL_3_1:
-			return HAL_HEVC_LEVEL_3_1;
+			return HFI_HEVC_LEVEL_31;
 		case V4L2_MPEG_VIDEO_HEVC_LEVEL_4:
-			return HAL_HEVC_LEVEL_4;
+			return HFI_HEVC_LEVEL_4;
 		case V4L2_MPEG_VIDEO_HEVC_LEVEL_4_1:
-			return HAL_HEVC_LEVEL_4_1;
+			return HFI_HEVC_LEVEL_41;
 		case V4L2_MPEG_VIDEO_HEVC_LEVEL_5:
-			return HAL_HEVC_LEVEL_5;
+			return HFI_HEVC_LEVEL_5;
 		case V4L2_MPEG_VIDEO_HEVC_LEVEL_5_1:
-			return HAL_HEVC_LEVEL_5_1;
+			return HFI_HEVC_LEVEL_51;
 		case V4L2_MPEG_VIDEO_HEVC_LEVEL_5_2:
-			return HAL_HEVC_LEVEL_5_2;
+			return HFI_HEVC_LEVEL_52;
 		case V4L2_MPEG_VIDEO_HEVC_LEVEL_6:
-			return HAL_HEVC_LEVEL_6;
+			return HFI_HEVC_LEVEL_6;
 		case V4L2_MPEG_VIDEO_HEVC_LEVEL_6_1:
-			return HAL_HEVC_LEVEL_6_1;
+			return HFI_HEVC_LEVEL_61;
 		case V4L2_MPEG_VIDEO_HEVC_LEVEL_6_2:
-			return HAL_HEVC_LEVEL_6_2;
+			return HFI_HEVC_LEVEL_62;
 		case V4L2_MPEG_VIDEO_HEVC_LEVEL_UNKNOWN:
-			return HAL_HEVC_LEVEL_UNKNOWN;
+			return HFI_LEVEL_UNKNOWN;
+		default:
+			goto unknown_value;
+		}
+	case V4L2_CID_MPEG_VIDEO_HEVC_TIER:
+		switch (value) {
+		case V4L2_MPEG_VIDEO_HEVC_TIER_MAIN:
+			return HFI_HEVC_TIER_MAIN;
+		case V4L2_MPEG_VIDEO_HEVC_TIER_HIGH:
+			return HFI_HEVC_TIER_HIGH;
 		default:
 			goto unknown_value;
 		}
 	case V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_MODE:
 		switch (value) {
 		case V4L2_MPEG_VIDEO_H264_LOOP_FILTER_MODE_DISABLED:
-			return HAL_H264_DB_MODE_DISABLE;
+			return HFI_H264_DB_MODE_DISABLE;
 		case V4L2_MPEG_VIDEO_H264_LOOP_FILTER_MODE_ENABLED:
-			return HAL_H264_DB_MODE_ALL_BOUNDARY;
+			return HFI_H264_DB_MODE_ALL_BOUNDARY;
 		case L_MODE:
-			return HAL_H264_DB_MODE_SKIP_SLICE_BOUNDARY;
+			return HFI_H264_DB_MODE_SKIP_SLICE_BOUNDARY;
 		default:
 			goto unknown_value;
 		}
 	}
 
 unknown_value:
-	dprintk(VIDC_WARN, "Unknown control (%x, %d)\n", id, value);
+	dprintk(VIDC_WARN, "Unknown control/val (%x, %d)\n", id, value);
 	return -EINVAL;
 }
 
@@ -426,11 +436,11 @@ int msm_comm_get_v4l2_profile(int fourcc, int profile)
 {
 	switch (fourcc) {
 	case V4L2_PIX_FMT_H264:
-		return msm_comm_hal_to_v4l2(
+		return msm_comm_hfi_to_v4l2(
 			V4L2_CID_MPEG_VIDEO_H264_PROFILE,
 			profile);
 	case V4L2_PIX_FMT_HEVC:
-		return msm_comm_hal_to_v4l2(
+		return msm_comm_hfi_to_v4l2(
 			V4L2_CID_MPEG_VIDEO_HEVC_PROFILE,
 			profile);
 	case V4L2_PIX_FMT_VP8:
@@ -447,16 +457,16 @@ int msm_comm_get_v4l2_level(int fourcc, int level)
 {
 	switch (fourcc) {
 	case V4L2_PIX_FMT_H264:
-		return msm_comm_hal_to_v4l2(
+		return msm_comm_hfi_to_v4l2(
 			V4L2_CID_MPEG_VIDEO_H264_LEVEL,
 			level);
 	case V4L2_PIX_FMT_HEVC:
 		level &= ~(0xF << 28);
-		return msm_comm_hal_to_v4l2(
+		return msm_comm_hfi_to_v4l2(
 			V4L2_CID_MPEG_VIDEO_HEVC_LEVEL,
 			level);
 	case V4L2_PIX_FMT_VP8:
-		return msm_comm_hal_to_v4l2(
+		return msm_comm_hfi_to_v4l2(
 			V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL,
 			level);
 	case V4L2_PIX_FMT_VP9:
@@ -824,6 +834,37 @@ enum hal_uncompressed_format msm_comm_get_hal_uncompressed(int fourcc)
 	return format;
 }
 
+u32 msm_comm_get_hfi_uncompressed(int fourcc)
+{
+	u32 format;
+
+	switch (fourcc) {
+	case V4L2_PIX_FMT_NV12:
+		format = HFI_COLOR_FORMAT_NV12;
+		break;
+	case V4L2_PIX_FMT_NV12_512:
+		format = HFI_COLOR_FORMAT_NV12;
+		break;
+	case V4L2_PIX_FMT_NV21:
+		format = HFI_COLOR_FORMAT_NV21;
+		break;
+	case V4L2_PIX_FMT_NV12_UBWC:
+		format = HFI_COLOR_FORMAT_NV12_UBWC;
+		break;
+	case V4L2_PIX_FMT_NV12_TP10_UBWC:
+		format = HFI_COLOR_FORMAT_YUV420_TP10_UBWC;
+		break;
+	case V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010_VENUS:
+		format = HFI_COLOR_FORMAT_P010;
+		break;
+	default:
+		format = HFI_COLOR_FORMAT_NV12_UBWC;
+		dprintk(VIDC_ERR, "Invalid format, defaulting to UBWC");
+		break;
+	}
+
+	return format;
+}
 struct msm_vidc_core *get_vidc_core(int core_id)
 {
 	struct msm_vidc_core *core;
@@ -2486,16 +2527,16 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 	if (fill_buf_done->flags1 & HAL_BUFFERFLAG_DATACORRUPT)
 		mbuf->vvb.flags |= V4L2_BUF_FLAG_DATA_CORRUPT;
 	switch (fill_buf_done->picture_type) {
-	case HAL_PICTURE_P:
+	case HFI_PICTURE_TYPE_P:
 		mbuf->vvb.flags |= V4L2_BUF_FLAG_PFRAME;
 		break;
-	case HAL_PICTURE_B:
+	case HFI_PICTURE_TYPE_B:
 		mbuf->vvb.flags |= V4L2_BUF_FLAG_BFRAME;
 		break;
-	case HAL_FRAME_NOTCODED:
-	case HAL_UNUSED_PICT:
+	case HFI_FRAME_NOTCODED:
+	case HFI_UNUSED_PICT:
 		/* Do we need to care about these? */
-	case HAL_FRAME_YUV:
+	case HFI_FRAME_YUV:
 		break;
 	default:
 		break;
@@ -3428,6 +3469,53 @@ static int convert_color_fmt(int v4l2_fmt)
 	}
 }
 
+static u32 get_hfi_buffer(int hal_buffer)
+{
+	u32 buffer;
+
+	switch (hal_buffer) {
+	case HAL_BUFFER_INPUT:
+		buffer = HFI_BUFFER_INPUT;
+		break;
+	case HAL_BUFFER_OUTPUT:
+		buffer = HFI_BUFFER_OUTPUT;
+		break;
+	case HAL_BUFFER_OUTPUT2:
+		buffer = HFI_BUFFER_OUTPUT2;
+		break;
+	case HAL_BUFFER_EXTRADATA_INPUT:
+		buffer = HFI_BUFFER_EXTRADATA_INPUT;
+		break;
+	case HAL_BUFFER_EXTRADATA_OUTPUT:
+		buffer = HFI_BUFFER_EXTRADATA_OUTPUT;
+		break;
+	case HAL_BUFFER_EXTRADATA_OUTPUT2:
+		buffer = HFI_BUFFER_EXTRADATA_OUTPUT2;
+		break;
+	case HAL_BUFFER_INTERNAL_SCRATCH:
+		buffer = HFI_BUFFER_COMMON_INTERNAL_SCRATCH;
+		break;
+	case HAL_BUFFER_INTERNAL_SCRATCH_1:
+		buffer = HFI_BUFFER_COMMON_INTERNAL_SCRATCH_1;
+		break;
+	case HAL_BUFFER_INTERNAL_SCRATCH_2:
+		buffer = HFI_BUFFER_COMMON_INTERNAL_SCRATCH_2;
+		break;
+	case HAL_BUFFER_INTERNAL_PERSIST:
+		buffer = HFI_BUFFER_INTERNAL_PERSIST;
+		break;
+	case HAL_BUFFER_INTERNAL_PERSIST_1:
+		buffer = HFI_BUFFER_INTERNAL_PERSIST_1;
+		break;
+	default:
+		dprintk(VIDC_ERR, "Invalid buffer: %#x\n",
+			hal_buffer);
+		buffer = 0;
+		break;
+	}
+	return buffer;
+}
+
 static int set_dpb_only_buffers(struct msm_vidc_inst *inst,
 	enum hal_buffer buffer_type)
 {
@@ -3437,7 +3525,7 @@ static int set_dpb_only_buffers(struct msm_vidc_inst *inst,
 	struct hal_buffer_requirements *output_buf, *extradata_buf;
 	unsigned int i;
 	struct hfi_device *hdev;
-	struct hal_buffer_size_minimum b;
+	struct hfi_buffer_size_minimum b;
 
 	hdev = inst->core->device;
 
@@ -3460,11 +3548,13 @@ static int set_dpb_only_buffers(struct msm_vidc_inst *inst,
 		num_buffers,
 		buffer_size);
 
-	b.buffer_type = buffer_type;
+	b.buffer_type = get_hfi_buffer(buffer_type);
+	if (!b.buffer_type)
+		return -EINVAL;
 	b.buffer_size = buffer_size;
 	rc = call_hfi_op(hdev, session_set_property,
-		inst->session, HAL_PARAM_BUFFER_SIZE_MINIMUM,
-		&b);
+		inst->session, HFI_PROPERTY_PARAM_BUFFER_SIZE_MINIMUM,
+		&b, sizeof(b));
 
 	extradata_buf = get_buff_req_buffer(inst, HAL_BUFFER_EXTRADATA_OUTPUT);
 	if (extradata_buf) {
@@ -4322,8 +4412,7 @@ int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst)
 
 	memset(&hprop, 0x0, sizeof(hprop));
 
-	rc = msm_comm_try_get_prop(inst, HAL_PARAM_GET_BUFFER_REQUIREMENTS,
-		&hprop);
+	rc = msm_comm_try_get_buff_req(inst, &hprop);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed getting buffer requirements: %d", rc);
 		return rc;
@@ -4386,7 +4475,7 @@ int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst)
 	return rc;
 }
 
-int msm_comm_try_get_prop(struct msm_vidc_inst *inst, enum hal_property ptype,
+int msm_comm_try_get_buff_req(struct msm_vidc_inst *inst,
 				union hal_get_property *hprop)
 {
 	int rc = 0;
@@ -4418,15 +4507,7 @@ int msm_comm_try_get_prop(struct msm_vidc_inst *inst, enum hal_property ptype,
 	}
 	mutex_unlock(&inst->sync_lock);
 
-	switch (ptype) {
-	case HAL_PARAM_GET_BUFFER_REQUIREMENTS:
-		rc = call_hfi_op(hdev, session_get_buf_req, inst->session);
-		break;
-	default:
-		rc = -EAGAIN;
-		break;
-	}
-
+	rc = call_hfi_op(hdev, session_get_buf_req, inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR, "Can't query hardware for property: %d\n",
 				rc);
@@ -4769,55 +4850,24 @@ int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst)
 	return rc;
 }
 
-int msm_comm_try_set_prop(struct msm_vidc_inst *inst,
-	enum hal_property ptype, void *pdata)
-{
-	int rc = 0;
-	struct hfi_device *hdev;
-
-	if (!inst) {
-		dprintk(VIDC_ERR, "Invalid input: %pK\n", inst);
-		return -EINVAL;
-	}
-
-	if (!inst->core || !inst->core->device) {
-		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
-		return -EINVAL;
-	}
-	hdev = inst->core->device;
-
-	mutex_lock(&inst->sync_lock);
-	if (inst->state < MSM_VIDC_OPEN_DONE || inst->state >= MSM_VIDC_CLOSE) {
-		dprintk(VIDC_ERR, "Not in proper state to set property\n");
-		rc = -EAGAIN;
-		goto exit;
-	}
-	rc = call_hfi_op(hdev, session_set_property, (void *)inst->session,
-			ptype, pdata);
-	if (rc)
-		dprintk(VIDC_ERR, "Failed to set hal property for framesize\n");
-exit:
-	mutex_unlock(&inst->sync_lock);
-	return rc;
-}
-
 int msm_comm_set_buffer_count(struct msm_vidc_inst *inst,
 	int host_count, int act_count, enum hal_buffer type)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
-	struct hal_buffer_count_actual buf_count;
+	struct hfi_buffer_count_actual buf_count;
 
 	hdev = inst->core->device;
 
-	buf_count.buffer_type = type;
+	buf_count.buffer_type = get_hfi_buffer(type);
 	buf_count.buffer_count_actual = act_count;
 	buf_count.buffer_count_min_host = host_count;
 	dprintk(VIDC_DBG, "%s: %x : hal_buffer %d min_host %d actual %d\n",
 		__func__, hash32_ptr(inst->session), type,
 		host_count, act_count);
 	rc = call_hfi_op(hdev, session_set_property,
-		inst->session, HAL_PARAM_BUFFER_COUNT_ACTUAL, &buf_count);
+		inst->session, HFI_PROPERTY_PARAM_BUFFER_COUNT_ACTUAL,
+		&buf_count, sizeof(buf_count));
 	if (rc)
 		dprintk(VIDC_ERR,
 			"Failed to set actual buffer count %d for buffer type %d\n",
@@ -5492,8 +5542,8 @@ void msm_vidc_fw_unload_handler(struct work_struct *work)
 int msm_comm_set_color_format(struct msm_vidc_inst *inst,
 		enum hal_buffer buffer_type, int fourcc)
 {
-	struct hal_uncompressed_format_select hal_fmt = {0};
-	enum hal_uncompressed_format format = HAL_UNUSED_COLOR;
+	struct hfi_uncompressed_format_select hfi_fmt = {0};
+	u32 format = HFI_COLOR_FORMAT_NV12_UBWC;
 	int rc = 0;
 	struct hfi_device *hdev;
 
@@ -5504,19 +5554,13 @@ int msm_comm_set_color_format(struct msm_vidc_inst *inst,
 
 	hdev = inst->core->device;
 
-	format = msm_comm_get_hal_uncompressed(fourcc);
-	if (format == HAL_UNUSED_COLOR) {
-		dprintk(VIDC_ERR, "Using unsupported colorformat %#x\n",
-				fourcc);
-		rc = -ENOTSUPP;
-		goto exit;
-	}
-
-	hal_fmt.buffer_type = buffer_type;
-	hal_fmt.format = format;
+	format = msm_comm_get_hfi_uncompressed(fourcc);
+	hfi_fmt.buffer_type = get_hfi_buffer(buffer_type);
+	hfi_fmt.format = format;
 
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-		HAL_PARAM_UNCOMPRESSED_FORMAT_SELECT, &hal_fmt);
+		HFI_PROPERTY_PARAM_UNCOMPRESSED_FORMAT_SELECT, &hfi_fmt,
+		sizeof(hfi_fmt));
 	if (rc)
 		dprintk(VIDC_ERR,
 			"Failed to set input color format\n");
@@ -5524,7 +5568,6 @@ int msm_comm_set_color_format(struct msm_vidc_inst *inst,
 		dprintk(VIDC_DBG, "Setting uncompressed colorformat to %#x\n",
 				format);
 
-exit:
 	return rc;
 }
 
@@ -5535,7 +5578,7 @@ int msm_vidc_comm_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 	void *pdata;
 	int rc = 0;
 	unsigned int fps = 0;
-	struct hal_frame_rate frame_rate;
+	struct hfi_frame_rate frame_rate;
 	struct hfi_device *hdev;
 
 	if (!inst || !inst->core || !inst->core->device || !a) {
@@ -5544,7 +5587,7 @@ int msm_vidc_comm_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 	}
 
 	hdev = inst->core->device;
-	property_id = HAL_CONFIG_FRAME_RATE;
+	property_id = HFI_PROPERTY_CONFIG_FRAME_RATE;
 
 	if (a->parm.output.timeperframe.denominator) {
 		switch (a->type) {
@@ -5595,10 +5638,10 @@ int msm_vidc_comm_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 		get_hal_codec(inst->fmts[CAPTURE_PORT].fourcc) !=
 			HAL_VIDEO_CODEC_TME) {
 		frame_rate.frame_rate = inst->prop.fps * BIT(16);
-		frame_rate.buffer_type = HAL_BUFFER_OUTPUT;
+		frame_rate.buffer_type = HFI_BUFFER_OUTPUT;
 		pdata = &frame_rate;
 		rc = call_hfi_op(hdev, session_set_property,
-			inst->session, property_id, pdata);
+			inst->session, property_id, pdata, sizeof(frame_rate));
 		if (rc)
 			dprintk(VIDC_WARN,
 				"Failed to set frame rate %d\n", rc);
@@ -6634,7 +6677,7 @@ int msm_comm_set_color_format_constraints(struct msm_vidc_inst *inst,
 		enum hal_buffer buffer_type,
 		struct msm_vidc_format_constraint *pix_constraint)
 {
-	struct hal_uncompressed_plane_actual_constraints_info
+	struct hfi_uncompressed_plane_actual_constraints_info
 		*pconstraint = NULL;
 	u32 num_planes = 2;
 	u32 size = 0;
@@ -6651,7 +6694,7 @@ int msm_comm_set_color_format_constraints(struct msm_vidc_inst *inst,
 	size = sizeof(buffer_type)
 			+ sizeof(u32)
 			+ num_planes
-			* sizeof(struct hal_uncompressed_plane_constraints);
+			* sizeof(struct hfi_uncompressed_plane_constraints);
 
 	pconstraint = kzalloc(size, GFP_KERNEL);
 	if (!pconstraint) {
@@ -6685,10 +6728,11 @@ int msm_comm_set_color_format_constraints(struct msm_vidc_inst *inst,
 			pix_constraint->uv_buffer_alignment;
 
 	rc = call_hfi_op(hdev,
-			session_set_property,
-			inst->session,
-			HAL_PARAM_UNCOMPRESSED_PLANE_ACTUAL_CONSTRAINTS_INFO,
-			pconstraint);
+		session_set_property,
+		inst->session,
+		HFI_PROPERTY_PARAM_UNCOMPRESSED_PLANE_ACTUAL_CONSTRAINTS_INFO,
+		pconstraint,
+		size);
 	if (rc)
 		dprintk(VIDC_ERR,
 			"Failed to set input color format constraint\n");
@@ -6701,20 +6745,40 @@ exit:
 	return rc;
 }
 
-int msm_comm_set_extradata(struct msm_vidc_inst *inst,
+int msm_comm_set_index_extradata(struct msm_vidc_inst *inst,
 	uint32_t extradata_id, uint32_t value)
 {
 	int rc = 0;
-	struct hal_extradata_enable extradata;
+	struct hfi_index_extradata_config extradata;
 	struct hfi_device *hdev;
 
 	hdev = inst->core->device;
 
-	extradata.index = extradata_id;
+	extradata.index_extra_data_id = extradata_id;
 	extradata.enable = value;
 
 	rc = call_hfi_op(hdev, session_set_property, (void *)
-			inst->session, HAL_PARAM_INDEX_EXTRADATA, &extradata);
+		inst->session, HFI_PROPERTY_PARAM_INDEX_EXTRADATA, &extradata,
+		sizeof(extradata));
+
+	return rc;
+}
+
+int msm_comm_set_extradata(struct msm_vidc_inst *inst,
+	uint32_t extradata_id, uint32_t value)
+{
+	int rc = 0;
+	struct hfi_index_extradata_config extradata;
+	struct hfi_device *hdev;
+
+	hdev = inst->core->device;
+
+	extradata.index_extra_data_id = extradata_id;
+	extradata.enable = value;
+
+	rc = call_hfi_op(hdev, session_set_property, (void *)
+			inst->session, extradata_id, &extradata,
+			sizeof(extradata));
 
 	return rc;
 }
