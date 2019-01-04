@@ -168,25 +168,16 @@ void adreno_perfcounter_restore(struct adreno_device *adreno_dev)
  * Save the performance counter values before GPU power collapse.
  * The saved values are restored on restart.
  * This ensures physical counters are coherent across power-collapse.
+ * This function must be called with the oob_gpu set request.
  */
 inline void adreno_perfcounter_save(struct adreno_device *adreno_dev)
 {
 	struct adreno_perfcounters *counters = ADRENO_PERFCOUNTERS(adreno_dev);
-	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(
-				KGSL_DEVICE(adreno_dev));
 	struct adreno_perfcount_group *group;
 	unsigned int counter, groupid;
-	int ret = 0;
 
 	if (counters == NULL)
 		return;
-
-	if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_set))
-		ret = gmu_dev_ops->oob_set(adreno_dev, oob_perfcntr);
-
-	/* if oob_set timeout, clear the mask and return */
-	if (ret)
-		goto done;
 
 	for (groupid = 0; groupid < counters->group_count; groupid++) {
 		group = &(counters->groups[groupid]);
@@ -207,10 +198,6 @@ inline void adreno_perfcounter_save(struct adreno_device *adreno_dev)
 								counter);
 		}
 	}
-
-done:
-	if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_clear))
-		gmu_dev_ops->oob_clear(adreno_dev, oob_perfcntr);
 }
 
 static int adreno_perfcounter_enable(struct adreno_device *adreno_dev,

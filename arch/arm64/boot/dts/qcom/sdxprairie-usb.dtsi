@@ -28,6 +28,7 @@
 		interrupts = <0 157 0>, <0 130 0>, <0 158 0>;
 		interrupt-names = "dp_hs_phy_irq", "pwr_event_irq",
 				"dm_hs_phy_irq";
+		qcom,use-pdc-interrupts;
 
 		USB3_GDSC-supply = <&gdsc_usb30>;
 		clocks = <&clock_gcc GCC_USB30_MASTER_CLK>,

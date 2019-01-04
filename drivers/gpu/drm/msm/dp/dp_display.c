@@ -686,7 +686,8 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 	dp_display_process_mst_hpd_high(dp);
 
 	mutex_lock(&dp->session_lock);
-	rc = dp->ctrl->on(dp->ctrl, dp->mst.mst_active, false);
+	rc = dp->ctrl->on(dp->ctrl, dp->mst.mst_active,
+				dp->panel->fec_en, false);
 	if (rc) {
 		mutex_unlock(&dp->session_lock);
 		goto end;
@@ -771,7 +772,8 @@ static int dp_display_usbpd_configure_cb(struct device *dev)
 		goto end;
 	}
 
-	if (!dp->debug->sim_mode && !dp->parser->no_aux_switch) {
+	if (!dp->debug->sim_mode && !dp->parser->no_aux_switch
+	    && !dp->parser->gpio_aux_switch) {
 		rc = dp->aux->aux_switch(dp->aux, true, dp->hpd->orientation);
 		if (rc)
 			goto end;
@@ -913,7 +915,8 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 	dp_display_disconnect_sync(dp);
 	dp->dp_display.post_open = NULL;
 
-	if (!dp->debug->sim_mode && !dp->parser->no_aux_switch)
+	if (!dp->debug->sim_mode && !dp->parser->no_aux_switch
+	    && !dp->parser->gpio_aux_switch)
 		dp->aux->aux_switch(dp->aux, false, ORIENTATION_NONE);
 end:
 	return rc;
@@ -1265,7 +1268,15 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 
 	dp_display_get_usb_extcon(dp);
 
+	rc = dp->hpd->register_hpd(dp->hpd);
+	if (rc) {
+		pr_err("failed register hpd\n");
+		goto error_hpd_reg;
+	}
+
 	return rc;
+error_hpd_reg:
+	dp_debug_put(dp->debug);
 error_debug:
 	dp_hpd_put(dp->hpd);
 error_hpd:
@@ -1400,7 +1411,7 @@ static int dp_display_prepare(struct dp_display *dp_display, void *panel)
 	 * So, we execute in shallow mode here to do only minimal
 	 * and required things.
 	 */
-	rc = dp->ctrl->on(dp->ctrl, dp->mst.mst_active, true);
+	rc = dp->ctrl->on(dp->ctrl, dp->mst.mst_active, dp_panel->fec_en, true);
 	if (rc)
 		goto end;
 
@@ -2202,6 +2213,26 @@ static int dp_display_mst_connector_update_edid(struct dp_display *dp_display,
 	return rc;
 }
 
+static int dp_display_update_pps(struct dp_display *dp_display,
+		struct drm_connector *connector, char *pps_cmd)
+{
+	struct sde_connector *sde_conn;
+	struct dp_panel *dp_panel;
+	struct dp_display_private *dp;
+
+	dp = container_of(dp_display, struct dp_display_private, dp_display);
+
+	sde_conn = to_sde_connector(connector);
+	if (!sde_conn->drv_panel) {
+		pr_err("invalid panel for connector:%d\n", connector->base.id);
+		return -EINVAL;
+	}
+
+	dp_panel = sde_conn->drv_panel;
+	dp_panel->update_pps(dp_panel, pps_cmd);
+	return 0;
+}
+
 static int dp_display_get_mst_caps(struct dp_display *dp_display,
 			struct dp_mst_caps *mst_caps)
 {
@@ -2287,6 +2318,7 @@ static int dp_display_probe(struct platform_device *pdev)
 					dp_display_mst_connector_update_edid;
 	g_dp_display->get_mst_caps = dp_display_get_mst_caps;
 	g_dp_display->set_stream_info = dp_display_set_stream_info;
+	g_dp_display->update_pps = dp_display_update_pps;
 	g_dp_display->convert_to_dp_mode = dp_display_convert_to_dp_mode;
 	g_dp_display->mst_get_connector_info =
 					dp_display_mst_get_connector_info;

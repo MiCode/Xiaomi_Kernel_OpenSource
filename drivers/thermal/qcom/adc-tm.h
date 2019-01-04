@@ -32,6 +32,8 @@ struct adc_tm_chip;
 #define ADC_TM_TIMER1			3 /* 3.9ms */
 #define ADC_TM_TIMER2			10 /* 1 second */
 #define ADC_TM_TIMER3			4 /* 4 second */
+#define ADC_HC_VDD_REF			1875000
+#define MAX_PROP_NAME_LEN					32
 
 enum adc_cal_method {
 	ADC_NO_CAL = 0,
@@ -53,6 +55,72 @@ enum adc_timer_select {
 	ADC_TIMER_SEL_NONE,
 };
 
+/**
+ * enum adc_tm_state - This lets the client know whether the threshold
+ *		that was crossed was high/low.
+ * %ADC_TM_HIGH_STATE: Client is notified of crossing the requested high
+ *			voltage threshold.
+ * %ADC_TM_COOL_STATE: Client is notified of crossing the requested cool
+ *			temperature threshold.
+ * %ADC_TM_LOW_STATE: Client is notified of crossing the requested low
+ *			voltage threshold.
+ * %ADC_TM_WARM_STATE: Client is notified of crossing the requested high
+ *			temperature threshold.
+ */
+enum adc_tm_state {
+	ADC_TM_HIGH_STATE = 0,
+	ADC_TM_COOL_STATE = ADC_TM_HIGH_STATE,
+	ADC_TM_LOW_STATE,
+	ADC_TM_WARM_STATE = ADC_TM_LOW_STATE,
+	ADC_TM_STATE_NUM,
+};
+
+/**
+ * enum adc_tm_state_request - Request to enable/disable the corresponding
+ *			high/low voltage/temperature thresholds.
+ * %ADC_TM_HIGH_THR_ENABLE: Enable high voltage threshold.
+ * %ADC_TM_COOL_THR_ENABLE = Enables cool temperature threshold.
+ * %ADC_TM_LOW_THR_ENABLE: Enable low voltage/temperature threshold.
+ * %ADC_TM_WARM_THR_ENABLE = Enables warm temperature threshold.
+ * %ADC_TM_HIGH_LOW_THR_ENABLE: Enable high and low voltage/temperature
+ *				threshold.
+ * %ADC_TM_HIGH_THR_DISABLE: Disable high voltage/temperature threshold.
+ * %ADC_TM_COOL_THR_ENABLE = Disables cool temperature threshold.
+ * %ADC_TM_LOW_THR_DISABLE: Disable low voltage/temperature threshold.
+ * %ADC_TM_WARM_THR_ENABLE = Disables warm temperature threshold.
+ * %ADC_TM_HIGH_THR_DISABLE: Disable high and low voltage/temperature
+ *				threshold.
+ */
+enum adc_tm_state_request {
+	ADC_TM_HIGH_THR_ENABLE = 0,
+	ADC_TM_COOL_THR_ENABLE = ADC_TM_HIGH_THR_ENABLE,
+	ADC_TM_LOW_THR_ENABLE,
+	ADC_TM_WARM_THR_ENABLE = ADC_TM_LOW_THR_ENABLE,
+	ADC_TM_HIGH_LOW_THR_ENABLE,
+	ADC_TM_HIGH_THR_DISABLE,
+	ADC_TM_COOL_THR_DISABLE = ADC_TM_HIGH_THR_DISABLE,
+	ADC_TM_LOW_THR_DISABLE,
+	ADC_TM_WARM_THR_DISABLE = ADC_TM_LOW_THR_DISABLE,
+	ADC_TM_HIGH_LOW_THR_DISABLE,
+	ADC_TM_THR_NUM,
+};
+
+/**
+ * enum adc_tm_rscale_fn_type - Scaling function used to convert the
+ *	channels input voltage/temperature to corresponding ADC code that is
+ *	applied for thresholds. Check the corresponding channels scaling to
+ *	determine the appropriate temperature/voltage units that are passed
+ *	to the scaling function. Example battery follows the power supply
+ *	framework that needs its units to be in decidegreesC so it passes
+ *	deci-degreesC. PA_THERM clients pass the temperature in degrees.
+ *	The order below should match the one in the driver for
+ *	adc_tm_rscale_fn[].
+ */
+enum adc_tm_rscale_fn_type {
+	SCALE_R_ABSOLUTE = 0,
+	SCALE_RSCALE_NONE,
+};
+
 struct adc_tm_sensor {
 	struct adc_tm_chip		*chip;
 	struct thermal_zone_device	*tzd;
@@ -63,7 +131,36 @@ struct adc_tm_sensor {
 	unsigned int			btm_ch;
 	unsigned int			prescaling;
 	unsigned int			timer_select;
+	enum adc_tm_rscale_fn_type	adc_rscale_fn;
 	struct iio_channel		*adc;
+	struct list_head		thr_list;
+	bool					non_thermal;
+	bool				high_thr_triggered;
+	bool				low_thr_triggered;
+	struct workqueue_struct		*req_wq;
+	struct work_struct		work;
+};
+
+struct adc_tm_param {
+	int			low_thr;
+	int			high_thr;
+	uint32_t				channel;
+	enum adc_tm_state_request	state_request;
+	void					*btm_ctx;
+	void	(*threshold_notification)(enum adc_tm_state state,
+						void *ctx);
+};
+
+struct adc_tm_client_info {
+	struct list_head			list;
+	struct adc_tm_param			*param;
+	int32_t						low_thr_requested;
+	int32_t						high_thr_requested;
+	bool						notify_low_thr;
+	bool						notify_high_thr;
+	bool						high_thr_set;
+	bool						low_thr_set;
+	enum adc_tm_state_request	state_request;
 };
 
 struct adc_tm_cmn_prop {
@@ -89,6 +186,7 @@ struct adc_tm_chip {
 	u16				base;
 	struct adc_tm_cmn_prop		prop;
 	spinlock_t			adc_tm_lock;
+	struct mutex		adc_mutex_lock;
 	const struct adc_tm_ops		*ops;
 	const struct adc_tm_data	*data;
 	unsigned int			dt_channels;
@@ -182,10 +280,21 @@ struct adc_tm_trip_reg_type {
 struct adc_tm_config {
 	int	channel;
 	int	adc_code;
+	int	prescal;
 	int	high_thr_temp;
 	int	low_thr_temp;
 	int64_t	high_thr_voltage;
 	int64_t	low_thr_voltage;
+};
+
+/**
+ * struct adc_tm_reverse_scale_fn - Reverse scaling prototype
+ * @chan: Function pointer to one of the scaling functions
+ *	which takes the adc properties and returns the physical result
+ */
+struct adc_tm_reverse_scale_fn {
+	int32_t (*chan)(const struct adc_tm_data *,
+		struct adc_tm_config *);
 };
 
 /**
@@ -216,5 +325,14 @@ struct adc_tm_linear_graph {
 
 void adc_tm_scale_therm_voltage_100k(struct adc_tm_config *param,
 				const struct adc_tm_data *data);
+
+int32_t adc_tm_absolute_rthr(const struct adc_tm_data *data,
+			struct adc_tm_config *tm_config);
+
+void notify_adc_tm_fn(struct work_struct *work);
+
+struct adc_tm_chip *get_adc_tm(struct device *dev, const char *name);
+
+int adc_tm_is_valid(struct adc_tm_chip *chip);
 
 #endif /* __QCOM_ADC_TM_H__ */

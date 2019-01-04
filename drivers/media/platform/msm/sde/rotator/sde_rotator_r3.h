@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,9 @@
 #define __SDE_ROTATOR_R3_H__
 
 #include "sde_rotator_core.h"
+
+/* Maximum allowed Rotator clock value */
+#define ROT_R3_MAX_ROT_CLK			345000000
 
 int sde_rotator_r3_init(struct sde_rot_mgr *mgr);
 

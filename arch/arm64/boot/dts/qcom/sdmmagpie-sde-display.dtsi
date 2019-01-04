@@ -255,7 +255,7 @@
 				"src_byte_clk1", "src_pixel_clk1";
 
 		pinctrl-names = "panel_active", "panel_suspend";
-		pinctrl-0 = <&sde_te_active>;
+		pinctrl-0 = <&sde_te_active &disp_pins_default>;
 		pinctrl-1 = <&sde_te_suspend>;
 
 		qcom,platform-te-gpio = <&tlmm 10 0>;

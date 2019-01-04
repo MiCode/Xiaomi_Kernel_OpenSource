@@ -1184,6 +1184,9 @@ static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
 	void __iomem *reg = ARM_SMMU_CB(smmu_domain->smmu, cfg->cbndx);
 	bool use_tlbiall = smmu->options & ARM_SMMU_OPT_NO_ASID_RETENTION;
 
+	if (smmu_domain->smmu->features & ARM_SMMU_FEAT_COHERENT_WALK)
+		wmb();
+
 	if (stage1 && !use_tlbiall) {
 		reg += leaf ? ARM_SMMU_CB_S1_TLBIVAL : ARM_SMMU_CB_S1_TLBIVA;
 
@@ -1227,6 +1230,9 @@ static void arm_smmu_tlb_inv_vmid_nosync(unsigned long iova, size_t size,
 {
 	struct arm_smmu_domain *smmu_domain = cookie;
 	void __iomem *base = ARM_SMMU_GR0(smmu_domain->smmu);
+
+	if (smmu_domain->smmu->features & ARM_SMMU_FEAT_COHERENT_WALK)
+		wmb();
 
 	writel_relaxed(smmu_domain->cfg.vmid, base + ARM_SMMU_GR0_TLBIVMID);
 }
@@ -5026,6 +5032,11 @@ IOMMU_OF_DECLARE(cavium_smmuv2, "cavium,smmu-v2", arm_smmu_of_init);
 #define DEBUG_PAR_PA_SHIFT		12
 #define DEBUG_PAR_FAULT_VAL		0x1
 
+#define DEBUG_AXUSER_REG		0x30
+#define DEBUG_AXUSER_CDMID_MASK         0xff
+#define DEBUG_AXUSER_CDMID_SHIFT        36
+#define DEBUG_AXUSER_CDMID_VAL          255
+
 #define TBU_DBG_TIMEOUT_US		100
 
 #define QSMMUV500_ACTLR_DEEP_PREFETCH_MASK	0x3
@@ -5292,6 +5303,9 @@ redo:
 	val |= sid & DEBUG_SID_HALT_SID_MASK;
 	writeq_relaxed(val, tbu->base + DEBUG_SID_HALT_REG);
 	writeq_relaxed(iova, tbu->base + DEBUG_VA_ADDR_REG);
+	val = (u64)(DEBUG_AXUSER_CDMID_VAL & DEBUG_AXUSER_CDMID_MASK) <<
+		DEBUG_AXUSER_CDMID_SHIFT;
+	writeq_relaxed(val, tbu->base + DEBUG_AXUSER_REG);
 
 	/*
 	 * Write-back Read and Write-Allocate

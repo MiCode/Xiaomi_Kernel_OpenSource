@@ -817,7 +817,9 @@ struct dp_aux *dp_aux_get(struct device *dev, struct dp_catalog_aux *catalog,
 	struct dp_aux *dp_aux;
 
 	if (!catalog || !parser ||
-			(!parser->no_aux_switch && !aux_switch)) {
+			(!parser->no_aux_switch &&
+				!aux_switch &&
+				!parser->gpio_aux_switch)) {
 		pr_err("invalid input\n");
 		rc = -ENODEV;
 		goto error;

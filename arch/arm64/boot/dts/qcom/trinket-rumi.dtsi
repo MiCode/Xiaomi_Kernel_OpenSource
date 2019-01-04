@@ -54,6 +54,14 @@
 	};
 };
 
+&qusb_phy0 {
+	status = "disabled";
+};
+
+&usb_qmp_phy {
+	status = "disabled";
+};
+
 &rpm_bus {
 	rpm-standalone;
 	/delete-node/ rpm-regulator-smpa3;

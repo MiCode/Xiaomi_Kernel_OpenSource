@@ -1927,6 +1927,22 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 		goto error_remove_dir;
 	}
 
+	file = debugfs_create_bool("dsc_feature_enable", 0644, dir,
+			&debug->parser->dsc_feature_enable);
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs dsc_feature failed, rc=%d\n",
+		       DEBUG_NAME, rc);
+	}
+
+	file = debugfs_create_bool("fec_feature_enable", 0644, dir,
+			&debug->parser->fec_feature_enable);
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs fec_feature_enable failed, rc=%d\n",
+		       DEBUG_NAME, rc);
+	}
+
 	file = debugfs_create_file("widebus_mode", 0644, dir,
 			debug, &widebus_mode_fops);
 	if (IS_ERR_OR_NULL(file)) {

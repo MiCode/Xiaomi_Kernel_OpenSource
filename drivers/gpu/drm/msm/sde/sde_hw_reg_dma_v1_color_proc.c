@@ -111,6 +111,7 @@ static u32 sspp_feature_map[SDE_SSPP_MAX] = {
 	[SDE_SSPP_DMA_IGC] = IGC,
 	[SDE_SSPP_DMA_GC] = GC,
 	[SDE_SSPP_SCALER_QSEED3] = QSEED,
+	[SDE_SSPP_SCALER_QSEED3LITE] = REG_DMA_FEATURES_MAX,
 };
 
 static u32 feature_reg_dma_sz[SDE_DSPP_MAX] = {

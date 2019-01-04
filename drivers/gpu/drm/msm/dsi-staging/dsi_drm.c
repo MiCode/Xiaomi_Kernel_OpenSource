@@ -65,6 +65,11 @@ static void convert_to_dsi_mode(const struct drm_display_mode *drm_mode,
 	dsi_mode->priv_info =
 		(struct dsi_display_mode_priv_info *)drm_mode->private;
 
+	if (dsi_mode->priv_info) {
+		dsi_mode->timing.dsc_enabled = dsi_mode->priv_info->dsc_enabled;
+		dsi_mode->timing.dsc = &dsi_mode->priv_info->dsc;
+	}
+
 	if (msm_is_mode_seamless(drm_mode))
 		dsi_mode->dsi_mode_flags |= DSI_MODE_FLAG_SEAMLESS;
 	if (msm_is_mode_dynamic_fps(drm_mode))
@@ -341,6 +346,8 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 	/* propagate the private info to the adjusted_mode derived dsi mode */
 	dsi_mode.priv_info = panel_dsi_mode->priv_info;
 	dsi_mode.dsi_mode_flags = panel_dsi_mode->dsi_mode_flags;
+	dsi_mode.timing.dsc_enabled = dsi_mode.priv_info->dsc_enabled;
+	dsi_mode.timing.dsc = &dsi_mode.priv_info->dsc;
 
 	rc = dsi_display_validate_mode(c_bridge->display, &dsi_mode,
 			DSI_VALIDATE_FLAG_ALLOW_ADJUST);
@@ -354,6 +361,9 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 
 		convert_to_dsi_mode(&crtc_state->crtc->state->mode,
 							&cur_dsi_mode);
+		cur_dsi_mode.timing.dsc_enabled =
+				dsi_mode.priv_info->dsc_enabled;
+		cur_dsi_mode.timing.dsc = &dsi_mode.priv_info->dsc;
 		rc = dsi_display_validate_mode_vrr(c_bridge->display,
 					&cur_dsi_mode, &dsi_mode);
 		if (rc)

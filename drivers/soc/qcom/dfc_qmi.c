@@ -1072,14 +1072,10 @@ static void dfc_svc_init(struct work_struct *work)
 						 svc_arrive);
 	struct qmi_info *qmi;
 
-	rc = dfc_init_service(data);
-	if (rc < 0)
-		goto clean_out;
+	if (data->restart_state == 1)
+		return;
 
-	trace_dfc_client_state_up(data->index,
-			   data->svc.instance,
-			   data->svc.ep_type,
-			   data->svc.iface_id);
+	rc = dfc_init_service(data);
 
 	rtnl_lock();
 	qmi = (struct qmi_info *)rmnet_get_qmi_pt(data->rmnet_port);
@@ -1088,7 +1084,17 @@ static void dfc_svc_init(struct work_struct *work)
 		goto clean_out;
 	}
 
-	qmi->dfc_clients[data->index] = (void *)data;
+	qmi->dfc_pending[data->index] = NULL;
+	if (rc < 0) {
+		rtnl_unlock();
+		goto clean_out;
+	} else {
+		qmi->dfc_clients[data->index] = (void *)data;
+		trace_dfc_client_state_up(data->index,
+					  data->svc.instance,
+					  data->svc.ep_type,
+					  data->svc.iface_id);
+	}
 	rtnl_unlock();
 
 	pr_info("Connection established with the DFC Service\n");
@@ -1139,10 +1145,14 @@ static struct qmi_msg_handler qmi_indication_handler[] = {
 	{},
 };
 
-int dfc_qmi_client_init(void *port, int index, struct svc_info *psvc)
+int dfc_qmi_client_init(void *port, int index, struct svc_info *psvc,
+			struct qmi_info *qmi)
 {
 	struct dfc_qmi_data *data;
 	int rc = -ENOMEM;
+
+	if (!port || !qmi)
+		return -EINVAL;
 
 	data = kzalloc(sizeof(struct dfc_qmi_data), GFP_KERNEL);
 	if (!data)
@@ -1179,6 +1189,8 @@ int dfc_qmi_client_init(void *port, int index, struct svc_info *psvc)
 		pr_err("%s: failed qmi_add_lookup - rc[%d]\n", __func__, rc);
 		goto err2;
 	}
+
+	qmi->dfc_pending[index] = (void *)data;
 
 	return 0;
 
