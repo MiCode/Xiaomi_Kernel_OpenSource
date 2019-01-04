@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,7 +42,7 @@
 		resets = <&clock_gcc GCC_USB30_PRIM_BCR>;
 		reset-names = "core_reset";
 
-		qcom,core-clk-rate = <200000000>;
+		qcom,core-clk-rate = <133333333>;
 		qcom,core-clk-rate-hs = <66666667>;
 		qcom,num-gsi-evt-buffs = <0x3>;
 		qcom,gsi-reg-offset =
@@ -65,7 +65,7 @@
 
 			/*  nominal vote */
 			<MSM_BUS_MASTER_USB3
-				MSM_BUS_SLAVE_EBI_CH0 1000000 2500000>,
+				MSM_BUS_SLAVE_EBI_CH0 240000 700000>,
 			<MSM_BUS_MASTER_USB3 MSM_BUS_SLAVE_IPA_CFG 0 2400>,
 			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_USB3 0 40000>,
 
