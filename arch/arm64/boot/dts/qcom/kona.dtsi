@@ -16,11 +16,10 @@
 #include <dt-bindings/clock/qcom,videocc-kona.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/msm/msm-bus-ids.h>
+#include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
 #include <dt-bindings/soc/qcom,ipcc.h>
 #include <dt-bindings/soc/qcom,rpmh-rsc.h>
 #include <dt-bindings/gpio/gpio.h>
-
-#include "kona-regulators.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. kona";
@@ -2059,6 +2058,7 @@
 	};
 };
 
+#include "kona-regulators.dtsi"
 #include "kona-bus.dtsi"
 #include "kona-ion.dtsi"
 #include "kona-pcie.dtsi"
