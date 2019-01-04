@@ -1,4 +1,4 @@
-/* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2728,6 +2728,11 @@ int smblib_get_prop_dc_present(struct smb_charger *chg,
 	int rc;
 	u8 stat;
 
+	if (chg->smb_version == PMI632_SUBTYPE) {
+		val->intval = 0;
+		return 0;
+	}
+
 	rc = smblib_read(chg, DCIN_BASE + INT_RT_STS_OFFSET, &stat);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't read DCIN_RT_STS rc=%d\n", rc);
@@ -2743,6 +2748,11 @@ int smblib_get_prop_dc_online(struct smb_charger *chg,
 {
 	int rc = 0;
 	u8 stat;
+
+	if (chg->smb_version == PMI632_SUBTYPE) {
+		val->intval = 0;
+		return 0;
+	}
 
 	if (get_client_vote(chg->dc_suspend_votable, USER_VOTER)) {
 		val->intval = false;
