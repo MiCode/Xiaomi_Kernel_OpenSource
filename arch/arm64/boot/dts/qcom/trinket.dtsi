@@ -1892,4 +1892,9 @@
 &usb0 {
 	extcon = <&pmi632_charger>;
 };
+
+&qupv3_se4_2uart {
+	status = "ok";
+};
+
 #include "trinket-thermal.dtsi"
