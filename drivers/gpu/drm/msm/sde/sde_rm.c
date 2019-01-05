@@ -18,8 +18,7 @@
 #include "sde_hw_dsc.h"
 
 #define RESERVED_BY_OTHER(h, r) \
-	(((h)->rsvp && ((h)->rsvp->enc_id != (r)->enc_id)) ||\
-		((h)->rsvp_nxt && ((h)->rsvp_nxt->enc_id != (r)->enc_id)))
+	((h)->rsvp && ((h)->rsvp->enc_id != (r)->enc_id))
 
 #define RM_RQ_LOCK(r) ((r)->top_ctrl & BIT(SDE_RM_TOPCTL_RESERVE_LOCK))
 #define RM_RQ_CLEAR(r) ((r)->top_ctrl & BIT(SDE_RM_TOPCTL_RESERVE_CLEAR))
@@ -1453,30 +1452,6 @@ static struct sde_rm_rsvp *_sde_rm_get_rsvp(
 	return NULL;
 }
 
-static struct sde_rm_rsvp *_sde_rm_get_rsvp_nxt(
-		struct sde_rm *rm,
-		struct drm_encoder *enc)
-{
-	struct sde_rm_rsvp *i, *j;
-
-	if (list_empty(&rm->rsvps))
-		return NULL;
-
-	list_for_each_entry(i, &rm->rsvps, list)
-		if (i->enc_id == enc->base.id)
-			break;
-
-	j = i;
-	list_for_each_entry_continue(j, &rm->rsvps, list)
-		if (j->enc_id == enc->base.id)
-			break;
-
-	if (i && j && (i->seq != j->seq))
-		return j;
-
-	return NULL;
-}
-
 static struct drm_connector *_sde_rm_get_connector(
 		struct drm_encoder *enc)
 {
@@ -1564,7 +1539,7 @@ static void _sde_rm_release_rsvp(
 	kfree(rsvp);
 }
 
-void sde_rm_release(struct sde_rm *rm, struct drm_encoder *enc, bool nxt)
+void sde_rm_release(struct sde_rm *rm, struct drm_encoder *enc)
 {
 	struct sde_rm_rsvp *rsvp;
 	struct drm_connector *conn;
@@ -1577,20 +1552,15 @@ void sde_rm_release(struct sde_rm *rm, struct drm_encoder *enc, bool nxt)
 
 	mutex_lock(&rm->rm_lock);
 
-	if (nxt)
-		rsvp = _sde_rm_get_rsvp_nxt(rm, enc);
-	else
-		rsvp = _sde_rm_get_rsvp(rm, enc);
+	rsvp = _sde_rm_get_rsvp(rm, enc);
 	if (!rsvp) {
-		SDE_ERROR("failed to find rsvp for enc %d, nxt %d",
-				enc->base.id, nxt);
+		SDE_ERROR("failed to find rsvp for enc %d\n", enc->base.id);
 		goto end;
 	}
 
 	conn = _sde_rm_get_connector(enc);
 	if (!conn) {
-		SDE_ERROR("failed to get connector for enc %d, nxt %d",
-				enc->base.id, nxt);
+		SDE_ERROR("failed to get connector for enc %d\n", enc->base.id);
 		goto end;
 	}
 
@@ -1681,12 +1651,6 @@ int sde_rm_reserve(
 
 	_sde_rm_print_rsvps(rm, SDE_RM_STAGE_BEGIN);
 
-	rsvp_cur = _sde_rm_get_rsvp(rm, enc);
-	rsvp_nxt = _sde_rm_get_rsvp_nxt(rm, enc);
-
-	if (!test_only && rsvp_nxt)
-		goto commit_rsvp;
-
 	ret = _sde_rm_populate_requirements(rm, enc, crtc_state,
 			conn_state, &reqs);
 	if (ret) {
@@ -1711,6 +1675,8 @@ int sde_rm_reserve(
 		goto end;
 	}
 
+	rsvp_cur = _sde_rm_get_rsvp(rm, enc);
+
 	/*
 	 * User can request that we clear out any reservation during the
 	 * atomic_check phase by using this CLEAR bit
@@ -1730,31 +1696,30 @@ int sde_rm_reserve(
 	_sde_rm_print_rsvps(rm, SDE_RM_STAGE_AFTER_RSVPNEXT);
 
 	if (ret) {
-		SDE_ERROR("failed to reserve hw resources: %d, test_only %d\n",
-				ret, test_only);
+		SDE_ERROR("failed to reserve hw resources: %d\n", ret);
 		_sde_rm_release_rsvp(rm, rsvp_nxt, conn_state->connector);
-		goto end;
 	} else if (test_only && !RM_RQ_LOCK(&reqs)) {
 		/*
 		 * Normally, if test_only, test the reservation and then undo
 		 * However, if the user requests LOCK, then keep the reservation
 		 * made during the atomic_check phase.
 		 */
-		SDE_DEBUG("test_only: rsvp[s%de%d]\n",
+		SDE_DEBUG("test_only: discard test rsvp[s%de%d]\n",
 				rsvp_nxt->seq, rsvp_nxt->enc_id);
-		goto end;
+		_sde_rm_release_rsvp(rm, rsvp_nxt, conn_state->connector);
 	} else {
 		if (test_only && RM_RQ_LOCK(&reqs))
 			SDE_DEBUG("test_only & LOCK: lock rsvp[s%de%d]\n",
 					rsvp_nxt->seq, rsvp_nxt->enc_id);
+
+		_sde_rm_release_rsvp(rm, rsvp_cur, conn_state->connector);
+
+		ret = _sde_rm_commit_rsvp(rm, rsvp_nxt, conn_state);
 	}
 
-commit_rsvp:
-	_sde_rm_release_rsvp(rm, rsvp_cur, conn_state->connector);
-	ret = _sde_rm_commit_rsvp(rm, rsvp_nxt, conn_state);
+	_sde_rm_print_rsvps(rm, SDE_RM_STAGE_FINAL);
 
 end:
-	_sde_rm_print_rsvps(rm, SDE_RM_STAGE_FINAL);
 	mutex_unlock(&rm->rm_lock);
 
 	return ret;
