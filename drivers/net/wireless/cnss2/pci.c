@@ -59,32 +59,7 @@
 
 static DEFINE_SPINLOCK(pci_link_down_lock);
 
-static unsigned int pci_link_down_panic;
-module_param(pci_link_down_panic, uint, 0600);
-MODULE_PARM_DESC(pci_link_down_panic,
-		 "Trigger kernel panic when PCI link down is detected");
-
-static bool fbc_bypass;
-#ifdef CONFIG_CNSS2_DEBUG
-module_param(fbc_bypass, bool, 0600);
-MODULE_PARM_DESC(fbc_bypass,
-		 "Bypass firmware download when loading WLAN driver");
-#endif
-
-#ifdef CONFIG_CNSS2_DEBUG
-#ifdef CONFIG_CNSS_EMULATION
-static unsigned int mhi_timeout = 90000;
-#else
-static unsigned int mhi_timeout;
-#endif
-module_param(mhi_timeout, uint, 0600);
-MODULE_PARM_DESC(mhi_timeout,
-		 "Timeout for MHI operation in milliseconds");
-
-#define MHI_TIMEOUT_OVERWRITE_MS	mhi_timeout
-#else
-#define MHI_TIMEOUT_OVERWRITE_MS	0
-#endif
+#define MHI_TIMEOUT_OVERWRITE_MS	(plat_priv->ctrl_params.mhi_timeout)
 
 static int cnss_set_pci_config_space(struct cnss_pci_data *pci_priv, bool save)
 {
@@ -227,13 +202,16 @@ int cnss_pci_link_down(struct device *dev)
 	unsigned long flags;
 	struct pci_dev *pci_dev = to_pci_dev(dev);
 	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
+	struct cnss_plat_data *plat_priv;
 
 	if (!pci_priv) {
 		cnss_pr_err("pci_priv is NULL!\n");
 		return -EINVAL;
 	}
 
-	if (pci_link_down_panic)
+	plat_priv = pci_priv->plat_priv;
+	if (test_bit(ENABLE_PCI_LINK_DOWN_PANIC,
+		     &plat_priv->ctrl_params.quirks))
 		panic("cnss: PCI link is down!\n");
 
 	spin_lock_irqsave(&pci_link_down_lock, flags);
@@ -510,7 +488,7 @@ static int cnss_qca6290_powerup(struct cnss_pci_data *pci_priv)
 		return 0;
 	}
 
-	if (test_bit(USE_CORE_ONLY_FW, cnss_get_debug_quirks())) {
+	if (test_bit(USE_CORE_ONLY_FW, &plat_priv->ctrl_params.quirks)) {
 		clear_bit(CNSS_FW_BOOT_RECOVERY, &plat_priv->driver_state);
 		clear_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state);
 		return 0;
@@ -518,7 +496,7 @@ static int cnss_qca6290_powerup(struct cnss_pci_data *pci_priv)
 
 	cnss_set_pin_connect_status(plat_priv);
 
-	if (*cnss_get_qmi_bypass()) {
+	if (test_bit(QMI_BYPASS, &plat_priv->ctrl_params.quirks)) {
 		ret = cnss_pci_call_driver_probe(pci_priv);
 		if (ret)
 			goto stop_mhi;
@@ -919,6 +897,7 @@ static void cnss_pci_event_cb(struct msm_pcie_notify *notify)
 	unsigned long flags;
 	struct pci_dev *pci_dev;
 	struct cnss_pci_data *pci_priv;
+	struct cnss_plat_data *plat_priv;
 
 	if (!notify)
 		return;
@@ -931,9 +910,11 @@ static void cnss_pci_event_cb(struct msm_pcie_notify *notify)
 	if (!pci_priv)
 		return;
 
+	plat_priv = pci_priv->plat_priv;
 	switch (notify->event) {
 	case MSM_PCIE_EVENT_LINKDOWN:
-		if (pci_link_down_panic)
+		if (test_bit(ENABLE_PCI_LINK_DOWN_PANIC,
+			     &plat_priv->ctrl_params.quirks))
 			panic("cnss: PCI link is down!\n");
 
 		spin_lock_irqsave(&pci_link_down_lock, flags);
@@ -2346,13 +2327,15 @@ out:
 int cnss_pci_start_mhi(struct cnss_pci_data *pci_priv)
 {
 	int ret = 0;
+	struct cnss_plat_data *plat_priv;
 
 	if (!pci_priv) {
 		cnss_pr_err("pci_priv is NULL!\n");
 		return -ENODEV;
 	}
 
-	if (fbc_bypass)
+	plat_priv = pci_priv->plat_priv;
+	if (test_bit(FBC_BYPASS, &plat_priv->ctrl_params.quirks))
 		return 0;
 
 	if (MHI_TIMEOUT_OVERWRITE_MS)
@@ -2381,10 +2364,9 @@ void cnss_pci_stop_mhi(struct cnss_pci_data *pci_priv)
 		return;
 	}
 
-	if (fbc_bypass)
-		return;
-
 	plat_priv = pci_priv->plat_priv;
+	if (test_bit(FBC_BYPASS, &plat_priv->ctrl_params.quirks))
+		return;
 
 	cnss_pci_set_mhi_state_bit(pci_priv, CNSS_MHI_RESUME);
 	if (!pci_priv->pci_link_down_ind)
