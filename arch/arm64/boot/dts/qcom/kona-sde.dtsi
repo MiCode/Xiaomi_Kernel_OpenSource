@@ -33,6 +33,7 @@
 		interrupts = <GIC_SPI 83 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-controller;
 		iommus = <&apps_smmu 0x820 0x402>;
+		qcom,iommu-dma = "disabled";
 
 		/* hw blocks */
 		qcom,sde-off = <0x1000>;
@@ -229,6 +230,7 @@
 		smmu_sde_sec: qcom,smmu_sde_sec_cb {
 			compatible = "qcom,smmu_sde_sec";
 			iommus = <&apps_smmu 0x821 0x400>;
+			qcom,iommu-dma = "disabled";
 		};
 
 		/* data and reg bus scale settings */
