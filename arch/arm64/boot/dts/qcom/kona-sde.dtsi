@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 &soc {
 	mdss_mdp: qcom,mdss_mdp@ae00000 {
@@ -26,6 +26,8 @@
 				"lut_clk", "rot_clk";
 		clock-rate = <0 0 0 0 300000000 19200000 300000000>;
 		clock-max-rate = <0 0 0 0 460000000 19200000 460000000>;
+
+		sde-vdd-supply = <&mdss_core_gdsc>;
 
 		/* interrupt config */
 		interrupts = <GIC_SPI 83 IRQ_TYPE_LEVEL_HIGH>;
@@ -216,7 +218,7 @@
 
 			qcom,platform-supply-entry@0 {
 				reg = <0>;
-				qcom,supply-name = "mmcx";
+				qcom,supply-name = "sde-vdd";
 				qcom,supply-min-voltage = <0>;
 				qcom,supply-max-voltage = <0>;
 				qcom,supply-enable-load = <0>;
