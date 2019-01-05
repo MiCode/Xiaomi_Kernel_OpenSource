@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  */
 
 /*
@@ -137,7 +137,8 @@ struct rmnet_ipa3_context {
 	struct workqueue_struct *rm_q6_wq;
 	atomic_t is_initialized;
 	atomic_t is_ssr;
-	void *subsys_notify_handle;
+	void *lcl_mdm_subsys_notify_handle;
+	void *rmt_mdm_subsys_notify_handle;
 	u32 apps_to_ipa3_hdl;
 	u32 ipa3_to_apps_hdl;
 	struct mutex pipe_handle_guard;
@@ -2145,13 +2146,22 @@ static void ipa3_rm_notify(void *dev, enum ipa_rm_event event,
 
 /* IPA_RM related functions end*/
 
-static int ipa3_ssr_notifier_cb(struct notifier_block *this,
+static int ipa3_lcl_mdm_ssr_notifier_cb(struct notifier_block *this,
 			   unsigned long code,
 			   void *data);
 
-static struct notifier_block ipa3_ssr_notifier = {
-	.notifier_call = ipa3_ssr_notifier_cb,
+static int ipa3_rmt_mdm_ssr_notifier_cb(struct notifier_block *this,
+			   unsigned long code,
+			   void *data);
+
+static struct notifier_block ipa3_lcl_mdm_ssr_notifier = {
+	.notifier_call = ipa3_lcl_mdm_ssr_notifier_cb,
 };
+
+static struct notifier_block ipa3_rmt_mdm_ssr_notifier = {
+	.notifier_call = ipa3_rmt_mdm_ssr_notifier_cb,
+};
+
 
 static int get_ipa_rmnet_dts_configuration(struct platform_device *pdev,
 		struct ipa3_rmnet_plat_drv_res *ipa_rmnet_drv_res)
@@ -2706,12 +2716,18 @@ static void rmnet_ipa_send_ssr_notification(bool ssr_done)
 	}
 }
 
-static int ipa3_ssr_notifier_cb(struct notifier_block *this,
+static int ipa3_lcl_mdm_ssr_notifier_cb(struct notifier_block *this,
 			   unsigned long code,
 			   void *data)
 {
 	if (!ipa3_rmnet_ctx.ipa_rmnet_ssr)
 		return NOTIFY_DONE;
+
+	if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ) {
+		IPAWANERR("Local modem SSR event=%lu on APQ platform\n",
+			code);
+		return NOTIFY_DONE;
+	}
 
 	switch (code) {
 	case SUBSYS_BEFORE_SHUTDOWN:
@@ -2766,6 +2782,41 @@ static int ipa3_ssr_notifier_cb(struct notifier_block *this,
 	}
 
 	IPAWANDBG_LOW("Exit\n");
+	return NOTIFY_DONE;
+}
+
+static int ipa3_rmt_mdm_ssr_notifier_cb(struct notifier_block *this,
+			   unsigned long code,
+			   void *data)
+{
+	if (!ipa3_rmnet_ctx.ipa_rmnet_ssr) {
+		IPAWANERR("SSR event=%lu while not enabled\n", code);
+		return NOTIFY_DONE;
+	}
+
+	if (ipa3_ctx->platform_type != IPA_PLAT_TYPE_APQ) {
+		IPAWANERR("Remote mdm SSR event=%lu on non-APQ platform=%d\n",
+			code, ipa3_ctx->platform_type);
+		return NOTIFY_DONE;
+	}
+
+	switch (code) {
+	case SUBSYS_BEFORE_SHUTDOWN:
+		IPAWANINFO("IPA received RMT MPSS BEFORE_SHUTDOWN\n");
+		break;
+	case SUBSYS_AFTER_SHUTDOWN:
+		IPAWANINFO("IPA Received RMT MPSS AFTER_SHUTDOWN\n");
+		break;
+	case SUBSYS_BEFORE_POWERUP:
+		IPAWANINFO("IPA received RMT MPSS BEFORE_POWERUP\n");
+		break;
+	case SUBSYS_AFTER_POWERUP:
+		IPAWANINFO("IPA received RMT MPSS AFTER_POWERUP\n");
+		break;
+	default:
+		IPAWANDBG("IPA received RMT MPSS event %lu", code);
+		break;
+	}
 	return NOTIFY_DONE;
 }
 
@@ -4247,6 +4298,8 @@ static int __init ipa3_wwan_init(void)
 {
 	int i, j;
 	struct ipa_tether_device_info *teth_ptr = NULL;
+	void *ssr_hdl;
+	int rc = 0;
 
 	rmnet_ipa3_ctx = kzalloc(sizeof(*rmnet_ipa3_ctx), GFP_KERNEL);
 
@@ -4278,14 +4331,52 @@ static int __init ipa3_wwan_init(void)
 
 	rmnet_ipa_debugfs_init();
 
-	/* Register for Modem SSR */
-	rmnet_ipa3_ctx->subsys_notify_handle = subsys_notif_register_notifier(
-		SUBSYS_MODEM,
-		&ipa3_ssr_notifier);
-	if (!IS_ERR(rmnet_ipa3_ctx->subsys_notify_handle))
-		return platform_driver_register(&rmnet_ipa_driver);
-	else
-		return (int)PTR_ERR(rmnet_ipa3_ctx->subsys_notify_handle);
+	/* Register for Local Modem SSR */
+	ssr_hdl = subsys_notif_register_notifier(SUBSYS_LOCAL_MODEM,
+		&ipa3_lcl_mdm_ssr_notifier);
+	if (!IS_ERR(ssr_hdl)) {
+		rmnet_ipa3_ctx->lcl_mdm_subsys_notify_handle = ssr_hdl;
+	} else {
+		if (ipa3_ctx->platform_type != IPA_PLAT_TYPE_APQ) {
+			rc = PTR_ERR(ssr_hdl);
+			goto fail_dbgfs_rm;
+		}
+	}
+
+	if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ) {
+		/* Register for Remote Modem SSR */
+		ssr_hdl = subsys_notif_register_notifier(SUBSYS_REMOTE_MODEM,
+			&ipa3_rmt_mdm_ssr_notifier);
+		if (IS_ERR(ssr_hdl)) {
+			rc = PTR_ERR(ssr_hdl);
+			goto fail_unreg_lcl_mdm_ssr;
+		}
+		rmnet_ipa3_ctx->rmt_mdm_subsys_notify_handle = ssr_hdl;
+	}
+
+	rc = platform_driver_register(&rmnet_ipa_driver);
+	if (rc)
+		goto fail_unreg_rmt_mdm_ssr;
+
+	return 0;
+
+fail_unreg_rmt_mdm_ssr:
+	if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ) {
+		subsys_notif_unregister_notifier(
+			rmnet_ipa3_ctx->rmt_mdm_subsys_notify_handle,
+			&ipa3_rmt_mdm_ssr_notifier);
+		rmnet_ipa3_ctx->rmt_mdm_subsys_notify_handle = NULL;
+	}
+fail_unreg_lcl_mdm_ssr:
+	if (rmnet_ipa3_ctx->lcl_mdm_subsys_notify_handle) {
+		subsys_notif_unregister_notifier(
+			rmnet_ipa3_ctx->lcl_mdm_subsys_notify_handle,
+			&ipa3_lcl_mdm_ssr_notifier);
+		rmnet_ipa3_ctx->lcl_mdm_subsys_notify_handle = NULL;
+	}
+fail_dbgfs_rm:
+	rmnet_ipa_debugfs_remove();
+	return rc;
 }
 
 static void __exit ipa3_wwan_cleanup(void)
@@ -4293,20 +4384,29 @@ static void __exit ipa3_wwan_cleanup(void)
 	int ret;
 
 	platform_driver_unregister(&rmnet_ipa_driver);
-
-	ret = subsys_notif_unregister_notifier(
-		rmnet_ipa3_ctx->subsys_notify_handle, &ipa3_ssr_notifier);
-	if (ret)
-		IPAWANERR(
-		"Error subsys_notif_unregister_notifier system %s, ret=%d\n",
-		SUBSYS_MODEM, ret);
-
+	if (rmnet_ipa3_ctx->lcl_mdm_subsys_notify_handle) {
+		ret = subsys_notif_unregister_notifier(
+			rmnet_ipa3_ctx->lcl_mdm_subsys_notify_handle,
+			&ipa3_lcl_mdm_ssr_notifier);
+		if (ret)
+			IPAWANERR(
+			"Failed to unregister subsys %s notifier ret=%d\n",
+			SUBSYS_LOCAL_MODEM, ret);
+	}
+	if (rmnet_ipa3_ctx->rmt_mdm_subsys_notify_handle) {
+		ret = subsys_notif_unregister_notifier(
+			rmnet_ipa3_ctx->rmt_mdm_subsys_notify_handle,
+			&ipa3_rmt_mdm_ssr_notifier);
+		if (ret)
+			IPAWANERR(
+			"Failed to unregister subsys %s notifier ret=%d\n",
+			SUBSYS_REMOTE_MODEM, ret);
+	}
 	rmnet_ipa_debugfs_remove();
 	ipa3_qmi_cleanup();
-	mutex_destroy(&rmnet_ipa3_ctx->pipe_handle_guard);
-	mutex_destroy(&rmnet_ipa3_ctx->add_mux_channel_lock);
 	mutex_destroy(&rmnet_ipa3_ctx->per_client_stats_guard);
-
+	mutex_destroy(&rmnet_ipa3_ctx->add_mux_channel_lock);
+	mutex_destroy(&rmnet_ipa3_ctx->pipe_handle_guard);
 	kfree(rmnet_ipa3_ctx);
 	rmnet_ipa3_ctx = NULL;
 }
