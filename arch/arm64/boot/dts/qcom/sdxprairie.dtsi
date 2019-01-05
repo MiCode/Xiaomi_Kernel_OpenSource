@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -625,7 +625,7 @@
 		reg = <0xc310000 0x1000>, <0x17811008 0x4>;
 		reg-names = "msgram", "irq-reg-base";
 		qcom,irq-mask = <0x1>;
-		interrupts = <GIC_SPI 147 IRQ_TYPE_EDGE_RISING>;
+		interrupts = <GIC_SPI 221 IRQ_TYPE_EDGE_RISING>;
 
 		label = "aop";
 		qcom,early-boot;
@@ -660,7 +660,7 @@
 	qcom,smp2p-modem@1799000c {
 		compatible = "qcom,smp2p";
 		qcom,smem = <435>, <428>;
-		interrupts = <GIC_SPI 112 IRQ_TYPE_EDGE_RISING>;
+		interrupts = <GIC_SPI 113 IRQ_TYPE_EDGE_RISING>;
 		mboxes = <&apcs_glb 14>;
 		qcom,local-pid = <0>;
 		qcom,remote-pid = <1>;
