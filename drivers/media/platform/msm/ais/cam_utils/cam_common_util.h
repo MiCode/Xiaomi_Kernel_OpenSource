@@ -13,7 +13,13 @@
 #ifndef _CAM_COMMON_UTIL_H_
 #define _CAM_COMMON_UTIL_H_
 
+#include <linux/types.h>
+#include <linux/kernel.h>
+
 #define CAM_BITS_MASK_SHIFT(x, mask, shift) (((x) & (mask)) >> shift)
+
+#define PTR_TO_U64(ptr) ((uint64_t)(uintptr_t)ptr)
+#define U64_TO_PTR(ptr) ((void *)(uintptr_t)ptr)
 
 /**
  * cam_common_util_get_string_index()

@@ -285,6 +285,7 @@ static int cam_vfe_camif_resource_start(
 	case CAM_CPAS_TITAN_170_V100:
 	case CAM_CPAS_TITAN_170_V110:
 	case CAM_CPAS_TITAN_170_V120:
+	case CAM_CPAS_TITAN_150_V100:
 		cam_io_w_mb(rsrc_data->reg_data->epoch_line_cfg,
 				rsrc_data->mem_base +
 				rsrc_data->camif_reg->epoch_irq);
@@ -376,6 +377,42 @@ static int cam_vfe_camif_reg_dump(
 	CAM_INFO(CAM_ISP, "IFE13_MAXWR_LOW offset 0x820 val 0x%x", val);
 
 	return rc;
+}
+
+static int cam_vfe_camif_reg_dump_bh(struct cam_vfe_mux_camif_data *camif_priv)
+{
+	uint32_t offset, val, wm_idx;
+
+	for (offset = 0x0; offset < 0x1000; offset += 0x4) {
+		val = cam_soc_util_r(camif_priv->soc_info, 0, offset);
+		CAM_INFO(CAM_ISP, "offset 0x%x value 0x%x", offset, val);
+	}
+
+	for (offset = 0x2000; offset <= 0x20B8; offset += 0x4) {
+		val = cam_soc_util_r(camif_priv->soc_info, 0, offset);
+		CAM_INFO(CAM_ISP, "offset 0x%x value 0x%x", offset, val);
+	}
+
+	for (wm_idx = 0; wm_idx <= 23; wm_idx++) {
+		for (offset = 0x2200 + 0x100 * wm_idx;
+			offset < 0x2278 + 0x100 * wm_idx; offset += 0x4) {
+			val = cam_soc_util_r(camif_priv->soc_info, 0, offset);
+			CAM_INFO(CAM_ISP,
+				"offset 0x%x value 0x%x", offset, val);
+		}
+	}
+
+	offset = 0x420;
+	val = cam_soc_util_r(camif_priv->soc_info, 1, offset);
+	CAM_INFO(CAM_ISP, "CAMNOC IFE02 MaxWR_LOW offset 0x%x value 0x%x",
+		offset, val);
+
+	offset = 0x820;
+	val = cam_soc_util_r(camif_priv->soc_info, 1, offset);
+	CAM_INFO(CAM_ISP, "CAMNOC IFE13 MaxWR_LOW offset 0x%x value 0x%x",
+		offset, val);
+
+	return 0;
 }
 
 static int cam_vfe_camif_resource_stop(
@@ -548,7 +585,7 @@ static int cam_vfe_camif_handle_irq_bottom_half(void *handler_priv,
 		if (irq_status1 & camif_priv->reg_data->error_irq_mask1) {
 			CAM_DBG(CAM_ISP, "Received ERROR\n");
 			ret = CAM_ISP_HW_ERROR_OVERFLOW;
-			cam_vfe_camif_reg_dump(camif_node);
+			cam_vfe_camif_reg_dump_bh(camif_node->res_priv);
 		} else {
 			ret = CAM_ISP_HW_ERROR_NONE;
 		}

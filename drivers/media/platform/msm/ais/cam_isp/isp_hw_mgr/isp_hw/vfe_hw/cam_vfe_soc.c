@@ -26,6 +26,8 @@ static bool cam_vfe_cpas_cb(uint32_t client_handle, void *userdata,
 	switch (irq_data->irq_type) {
 	case CAM_CAMNOC_IRQ_IFE02_UBWC_ENCODE_ERROR:
 	case CAM_CAMNOC_IRQ_IFE13_UBWC_ENCODE_ERROR:
+	case CAM_CAMNOC_IRQ_IFE0_UBWC_ENCODE_ERROR:
+	case CAM_CAMNOC_IRQ_IFE1_WRITE_UBWC_ENCODE_ERROR:
 		CAM_ERR_RATE_LIMIT(CAM_ISP,
 			"IFE UBWC Encode error type=%d status=%x",
 			irq_data->irq_type,
