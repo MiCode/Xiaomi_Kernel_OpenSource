@@ -452,6 +452,25 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 	return 0;
 }
 
+static int _load_legacy_gmu_fw(struct kgsl_device *device,
+	struct gmu_device *gmu)
+{
+	const struct firmware *fw = gmu->fw_image;
+	u32 *fwptr = (u32 *)fw->data;
+	int i;
+
+	if (fw->size > MAX_GMUFW_SIZE)
+		return -EINVAL;
+
+	for (i = 0; i < (fw->size >> 2); i++)
+		gmu_core_regwrite(device,
+			A6XX_GMU_CM3_ITCM_START + i, fwptr[i]);
+
+	/* Proceed only after the FW is written */
+	wmb();
+	return 0;
+}
+
 static int load_gmu_fw(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
@@ -460,6 +479,10 @@ static int load_gmu_fw(struct kgsl_device *device)
 	int tcm_addr;
 	struct gmu_block_header *blk;
 	struct gmu_memdesc *md;
+
+	if (adreno_is_a630(ADRENO_DEVICE(device)) ||
+		adreno_is_a615_family(ADRENO_DEVICE(device)))
+		return _load_legacy_gmu_fw(device, gmu);
 
 	while (fw < (uint8_t *)gmu->fw_image->data + gmu->fw_image->size) {
 		blk = (struct gmu_block_header *)fw;
