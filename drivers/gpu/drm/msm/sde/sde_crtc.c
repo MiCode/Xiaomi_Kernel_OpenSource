@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019 The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -4207,6 +4207,7 @@ static int _sde_crtc_check_secure_state_smmu_translation(struct drm_crtc *crtc,
 	int fb_ns, int fb_sec, int fb_sec_dir)
 {
 	struct sde_kms_smmu_state_data *smmu_state = &sde_kms->smmu_state;
+	struct drm_encoder *encoder;
 	int is_video_mode = false;
 
 	drm_for_each_encoder_mask(encoder, crtc->dev,
@@ -4330,7 +4331,6 @@ static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
 	uint32_t secure;
 	uint32_t fb_ns = 0, fb_sec = 0, fb_sec_dir = 0;
 	int rc;
-	bool is_video_mode = false;
 
 	if (!crtc || !state) {
 		SDE_ERROR("invalid arguments\n");
@@ -4481,8 +4481,7 @@ static int _sde_crtc_check_zpos(struct drm_crtc_state *state,
 		int cnt)
 {
 	int rc = 0, i, z_pos;
-	int left_zpos_cnt = 0, right_zpos_cnt = 0;
-	int mixer_width = sde_crtc_get_mixer_width(sde_crtc, cstate, mode);
+	u32 zpos_cnt = 0;
 
 	sort(pstates, cnt, sizeof(pstates[0]), pstate_cmp, NULL);
 
@@ -4515,21 +4514,11 @@ static int _sde_crtc_check_zpos(struct drm_crtc_state *state,
 			SDE_ERROR("> %d plane stages assigned\n",
 					SDE_STAGE_MAX - SDE_STAGE_0);
 			return -EINVAL;
-		} else if (pstates[i].drm_pstate->crtc_x < mixer_width) {
-			if (left_zpos_cnt == 2) {
-				SDE_ERROR("> 2 planes @ stage %d on left\n",
-					z_pos);
-				return -EINVAL;
-			}
-			left_zpos_cnt++;
-
+		} else if (zpos_cnt == 2) {
+			SDE_ERROR("> 2 planes @ stage %d\n", z_pos);
+			return -EINVAL;
 		} else {
-			if (right_zpos_cnt == 2) {
-				SDE_ERROR("> 2 planes @ stage %d on right\n",
-					z_pos);
-				return -EINVAL;
-			}
-			right_zpos_cnt++;
+			zpos_cnt++;
 		}
 
 		pstates[i].sde_pstate->stage = z_pos + SDE_STAGE_0;

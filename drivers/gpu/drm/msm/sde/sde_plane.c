@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2018 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2014-2019 The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -2699,25 +2699,25 @@ void sde_plane_set_error(struct drm_plane *plane, bool error)
 static void _sde_plane_sspp_setup_sys_cache(struct sde_plane *psde,
 	struct sde_plane_state *pstate, const struct sde_format *fmt)
 {
-	if (psde->pipe_hw->ops.setup_sys_cache &&
-		(psde->perf_features & BIT(SDE_PERF_SSPP_SYS_CACHE))) {
+	if (!psde->pipe_hw->ops.setup_sys_cache ||
+	    !(psde->perf_features & BIT(SDE_PERF_SSPP_SYS_CACHE)))
+		return;
 
-		SDE_DEBUG("features:0x%x rotation:0x%x\n",
-			__func__, psde->features, pstate->rotation);
+	SDE_DEBUG("features:0x%x rotation:0x%x\n",
+		__func__, psde->features, pstate->rotation);
 
-		if ((pstate->rotation & DRM_MODE_ROTATE_90) &&
-				sde_format_is_tp10_ubwc(fmt)) {
-			pstate->sc_cfg.rd_en = true;
-			pstate->sc_cfg.rd_scid =
-				psde->pipe_sblk->llcc_scid;
-			pstate->sc_cfg.flags = SSPP_SYS_CACHE_EN_FLAG |
-				SSPP_SYS_CACHE_SCID;
-		} else {
-			pstate->sc_cfg.rd_en = false;
-			pstate->sc_cfg.rd_scid = 0x0;
-			pstate->sc_cfg.flags = SSPP_SYS_CACHE_EN_FLAG |
-				SSPP_SYS_CACHE_SCID;
-		}
+	if ((pstate->rotation & DRM_MODE_ROTATE_90) &&
+			sde_format_is_tp10_ubwc(fmt)) {
+		pstate->sc_cfg.rd_en = true;
+		pstate->sc_cfg.rd_scid =
+			psde->pipe_sblk->llcc_scid;
+		pstate->sc_cfg.flags = SSPP_SYS_CACHE_EN_FLAG |
+			SSPP_SYS_CACHE_SCID;
+	} else {
+		pstate->sc_cfg.rd_en = false;
+		pstate->sc_cfg.rd_scid = 0x0;
+		pstate->sc_cfg.flags = SSPP_SYS_CACHE_EN_FLAG |
+			SSPP_SYS_CACHE_SCID;
 	}
 
 	psde->pipe_hw->ops.setup_sys_cache(
@@ -2772,6 +2772,65 @@ static void _sde_plane_map_prop_to_dirty_bits(void)
 	plane_prop_array[PLANE_PROP_VALUE_ADJUST] =
 	plane_prop_array[PLANE_PROP_CONTRAST_ADJUST] =
 		SDE_PLANE_DIRTY_ALL;
+}
+
+static inline bool _sde_plane_allow_uidle(struct sde_plane *psde,
+	struct sde_rect *src, struct sde_rect *dst)
+{
+	u32 max_downscale = psde->catalog->uidle_cfg.max_dwnscale;
+	u32 downscale = (src->h * 1000)/dst->h;
+
+	return (downscale > max_downscale) ? false : true;
+}
+
+static void _sde_plane_setup_uidle(struct drm_crtc *crtc,
+	struct sde_plane *psde, struct sde_plane_state *pstate,
+	struct sde_rect *src, struct sde_rect *dst)
+{
+	struct sde_hw_pipe_uidle_cfg cfg;
+	u32 line_time = sde_get_linetime(&crtc->mode); /* nS */
+	u32 fal1_target_idle_time_ns =
+		psde->catalog->uidle_cfg.fal1_target_idle_time * 1000; /* nS */
+	u32 fal10_target_idle_time_ns =
+		psde->catalog->uidle_cfg.fal10_target_idle_time * 1000; /* nS */
+	u32 fal10_threshold =
+		psde->catalog->uidle_cfg.fal10_threshold; /* uS */
+
+	if (line_time && fal10_threshold && fal10_target_idle_time_ns &&
+		fal1_target_idle_time_ns) {
+		cfg.enable = _sde_plane_allow_uidle(psde, src, dst);
+		cfg.fal10_threshold = fal10_threshold;
+		cfg.fal10_exit_threshold = fal10_threshold + 2;
+		cfg.fal1_threshold = 1 +
+			(fal1_target_idle_time_ns*1000/line_time*2)/1000;
+		cfg.fal_allowed_threshold = fal10_threshold +
+			(fal10_target_idle_time_ns*1000/line_time*2)/1000;
+	} else {
+		SDE_ERROR("invalid settings, will disable UIDLE %d %d %d %d\n",
+			line_time, fal10_threshold, fal10_target_idle_time_ns,
+			fal1_target_idle_time_ns);
+		cfg.enable = false;
+		cfg.fal10_threshold = 0;
+		cfg.fal1_threshold = 0;
+		cfg.fal_allowed_threshold = 0;
+	}
+
+	SDE_DEBUG_PLANE(psde,
+		"tholds: fal10=%d fal10_exit=%d fal1=%d fal_allowed=%d\n",
+			cfg.fal10_threshold, cfg.fal10_exit_threshold,
+			cfg.fal1_threshold, cfg.fal_allowed_threshold);
+	SDE_DEBUG_PLANE(psde,
+		"times: line:%d fal1_idle:%d fal10_idle:%d dwnscale:%d\n",
+			line_time, fal1_target_idle_time_ns,
+			fal10_target_idle_time_ns,
+			psde->catalog->uidle_cfg.max_dwnscale);
+	SDE_EVT32(cfg.enable, cfg.fal10_threshold, cfg.fal10_exit_threshold,
+		cfg.fal1_threshold, cfg.fal_allowed_threshold,
+		psde->catalog->uidle_cfg.max_dwnscale);
+
+	psde->pipe_hw->ops.setup_uidle(
+		psde->pipe_hw, &cfg,
+		pstate->multirect_index);
 }
 
 static void _sde_plane_update_secure_session(struct sde_plane *psde,
@@ -2889,65 +2948,6 @@ static void _sde_plane_update_roi_config(struct drm_plane *plane,
 				psde->pipe_hw,
 				pstate->multirect_index,
 				pstate->multirect_mode);
-}
-
-static inline bool _sde_plane_allow_uidle(struct sde_plane *psde,
-	struct sde_rect *src, struct sde_rect *dst)
-{
-	u32 max_downscale = psde->catalog->uidle_cfg.max_dwnscale;
-	u32 downscale = (src->h * 1000)/dst->h;
-
-	return (downscale > max_downscale) ? false : true;
-}
-
-static void _sde_plane_setup_uidle(struct drm_crtc *crtc,
-	struct sde_plane *psde, struct sde_plane_state *pstate,
-	struct sde_rect *src, struct sde_rect *dst)
-{
-	struct sde_hw_pipe_uidle_cfg cfg;
-	u32 line_time = sde_get_linetime(&crtc->mode); /* nS */
-	u32 fal1_target_idle_time_ns =
-		psde->catalog->uidle_cfg.fal1_target_idle_time * 1000; /* nS */
-	u32 fal10_target_idle_time_ns =
-		psde->catalog->uidle_cfg.fal10_target_idle_time * 1000; /* nS */
-	u32 fal10_threshold =
-		psde->catalog->uidle_cfg.fal10_threshold; /* uS */
-
-	if (line_time && fal10_threshold && fal10_target_idle_time_ns &&
-		fal1_target_idle_time_ns) {
-		cfg.enable = _sde_plane_allow_uidle(psde, src, dst);
-		cfg.fal10_threshold = fal10_threshold;
-		cfg.fal10_exit_threshold = fal10_threshold + 2;
-		cfg.fal1_threshold = 1 +
-			(fal1_target_idle_time_ns*1000/line_time*2)/1000;
-		cfg.fal_allowed_threshold = fal10_threshold +
-			(fal10_target_idle_time_ns*1000/line_time*2)/1000;
-	} else {
-		SDE_ERROR("invalid settings, will disable UIDLE %d %d %d %d\n",
-			line_time, fal10_threshold, fal10_target_idle_time_ns,
-			fal1_target_idle_time_ns);
-		cfg.enable = false;
-		cfg.fal10_threshold = 0;
-		cfg.fal1_threshold = 0;
-		cfg.fal_allowed_threshold = 0;
-	}
-
-	SDE_DEBUG_PLANE(psde,
-		"tholds: fal10=%d fal10_exit=%d fal1=%d fal_allowed=%d\n",
-			cfg.fal10_threshold, cfg.fal10_exit_threshold,
-			cfg.fal1_threshold, cfg.fal_allowed_threshold);
-	SDE_DEBUG_PLANE(psde,
-		"times: line:%d fal1_idle:%d fal10_idle:%d dwnscale:%d\n",
-			line_time, fal1_target_idle_time_ns,
-			fal10_target_idle_time_ns,
-			psde->catalog->uidle_cfg.max_dwnscale);
-	SDE_EVT32(cfg.enable, cfg.fal10_threshold, cfg.fal10_exit_threshold,
-		cfg.fal1_threshold, cfg.fal_allowed_threshold,
-		psde->catalog->uidle_cfg.max_dwnscale);
-
-	psde->pipe_hw->ops.setup_uidle(
-		psde->pipe_hw, &cfg,
-		pstate->multirect_index);
 }
 
 static void _sde_plane_update_format_and_rects(struct sde_plane *psde,
@@ -3170,7 +3170,7 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 	psde->is_rt_pipe = (sde_crtc_get_client_type(crtc) != NRT_CLIENT);
 	_sde_plane_set_qos_ctrl(plane, false, SDE_PLANE_QOS_PANIC_CTRL);
 
-	sde_plane_update_properties(plane, crtc, fb);
+	_sde_plane_update_properties(plane, crtc, fb);
 
 	return 0;
 }
