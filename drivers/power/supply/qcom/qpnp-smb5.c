@@ -326,6 +326,8 @@ static int smb5_parse_dt(struct smb5 *chip)
 	chg->pd_not_supported = of_property_read_bool(node,
 				"qcom,usb-pd-disable");
 
+	chg->lpd_disabled = of_property_read_bool(node, "qcom,lpd-disable");
+
 	rc = of_property_read_u32(node, "qcom,wd-bark-time-secs",
 					&chip->dt.wd_bark_time);
 	if (rc < 0 || chip->dt.wd_bark_time < MIN_WD_BARK_TIME)
@@ -1663,10 +1665,10 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		return rc;
 	}
 
+	val = chg->lpd_disabled ? 0 : TYPEC_WATER_DETECTION_INT_EN_BIT;
 	/* Use simple write to enable only required interrupts */
 	rc = smblib_write(chg, TYPE_C_INTERRUPT_EN_CFG_2_REG,
-				TYPEC_SRC_BATT_HPWR_INT_EN_BIT |
-				TYPEC_WATER_DETECTION_INT_EN_BIT);
+				TYPEC_SRC_BATT_HPWR_INT_EN_BIT | val);
 	if (rc < 0) {
 		dev_err(chg->dev,
 			"Couldn't configure Type-C interrupts rc=%d\n", rc);

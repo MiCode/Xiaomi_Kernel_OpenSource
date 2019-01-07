@@ -283,6 +283,13 @@ Charger specific properties:
   Definition: Boolean flag which when present disables USB-PD operation. Not
 		applicable for PMI632, where PD is not supported.
 
+- qcom,lpd-disable
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present disables liquid presence
+		detection. Not applicable for PMI632, which does not
+		support Type-C port.
+
 =============================================
 Second Level Nodes - SMB5 Charger Peripherals
 =============================================
