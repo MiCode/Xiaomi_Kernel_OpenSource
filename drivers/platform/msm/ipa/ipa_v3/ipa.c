@@ -4463,6 +4463,9 @@ static enum gsi_ver ipa3_get_gsi_ver(enum ipa_hw_type ipa_hw_type)
 	case IPA_HW_v4_5:
 		gsi_ver = GSI_VER_2_5;
 		break;
+	case IPA_HW_v4_7:
+		gsi_ver = GSI_VER_2_7;
+		break;
 	default:
 		IPAERR("No GSI version for ipa type %d\n", ipa_hw_type);
 		WARN_ON(1);

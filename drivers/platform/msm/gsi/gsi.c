@@ -857,6 +857,13 @@ static uint32_t gsi_get_max_channels(enum gsi_ver ver)
 			GSI_V2_5_EE_n_GSI_HW_PARAM_2_GSI_NUM_CH_PER_EE_BMSK) >>
 			GSI_V2_5_EE_n_GSI_HW_PARAM_2_GSI_NUM_CH_PER_EE_SHFT;
 		break;
+	case GSI_VER_2_7:
+		reg = gsi_readl(gsi_ctx->base +
+			GSI_V2_7_EE_n_GSI_HW_PARAM_2_OFFS(gsi_ctx->per.ee));
+		reg = (reg &
+			GSI_V2_7_EE_n_GSI_HW_PARAM_2_GSI_NUM_CH_PER_EE_BMSK) >>
+			GSI_V2_7_EE_n_GSI_HW_PARAM_2_GSI_NUM_CH_PER_EE_SHFT;
+		break;
 	}
 
 	GSIDBG("max channels %d\n", reg);
@@ -913,6 +920,13 @@ static uint32_t gsi_get_max_event_rings(enum gsi_ver ver)
 		reg = (reg &
 			GSI_V2_5_EE_n_GSI_HW_PARAM_2_GSI_NUM_EV_PER_EE_BMSK) >>
 			GSI_V2_5_EE_n_GSI_HW_PARAM_2_GSI_NUM_EV_PER_EE_SHFT;
+		break;
+	case GSI_VER_2_7:
+		reg = gsi_readl(gsi_ctx->base +
+			GSI_V2_7_EE_n_GSI_HW_PARAM_2_OFFS(gsi_ctx->per.ee));
+		reg = (reg &
+			GSI_V2_7_EE_n_GSI_HW_PARAM_2_GSI_NUM_EV_PER_EE_BMSK) >>
+			GSI_V2_7_EE_n_GSI_HW_PARAM_2_GSI_NUM_EV_PER_EE_SHFT;
 		break;
 	}
 
@@ -1038,6 +1052,7 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 		needed_reg_ver = GSI_REGISTER_VER_1;
 		break;
 	case GSI_VER_2_5:
+	case GSI_VER_2_7:
 		needed_reg_ver = GSI_REGISTER_VER_2;
 		break;
 	case GSI_VER_ERR:
@@ -3972,6 +3987,9 @@ void gsi_get_inst_ram_offset_and_size(unsigned long *base_offset,
 		break;
 	case GSI_VER_2_5:
 		maxn = GSI_V2_5_GSI_INST_RAM_n_MAXn;
+		break;
+	case GSI_VER_2_7:
+		maxn = GSI_V2_7_GSI_INST_RAM_n_MAXn;
 		break;
 	case GSI_VER_ERR:
 	case GSI_VER_MAX:
