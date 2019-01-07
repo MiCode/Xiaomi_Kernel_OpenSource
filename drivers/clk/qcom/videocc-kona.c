@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "clk: %s: " fmt, __func__
@@ -482,6 +482,8 @@ static const struct qcom_reset_map video_cc_kona_resets[] = {
 	[CVP_VIDEO_CC_MVS0C_BCR] = { 0xbf4 },
 	[CVP_VIDEO_CC_MVS1_BCR] = { 0xd94 },
 	[CVP_VIDEO_CC_MVS1C_BCR] = { 0xc94 },
+	[VIDEO_CC_MVS0C_CLK_BCR] = { 0xc34, 2},
+	[VIDEO_CC_MVS1C_CLK_BCR] = { 0xcd4, 2},
 };
 
 static const struct regmap_config video_cc_kona_regmap_config = {
