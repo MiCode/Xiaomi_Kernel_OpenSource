@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017,2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -80,7 +80,7 @@
 			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
 			qcom,bus-slave = <MSM_BUS_SLAVE_LLCC>;
 			qcom,bus-governor = "msm-vidc-llcc";
-			qcom,bus-range-kbps = <17000 125700>;
+			qcom,bus-range-kbps = <17000 3388000>;
 		};
 
 		/* MMUs */
