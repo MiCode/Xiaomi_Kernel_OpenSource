@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1306,6 +1306,7 @@
 		compatible = "qcom,cnss_sdio";
 		subsys-name = "AR6320_SDIO";
 		vdd-wlan-supply = <&vreg_wlan>;
+		vdd-wlan-xtal-supply = <&pmxpoorwills_l5>;
 		vdd-wlan-io-supply = <&pmxpoorwills_l6>;
 		qcom,wlan-ramdump-dynamic = <0x200000>;
 		pinctrl-names = "active", "sleep";
