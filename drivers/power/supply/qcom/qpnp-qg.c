@@ -2851,6 +2851,7 @@ use_pon_ocv:
 			pr_err("Failed to lookup FULL_SOC@PON rc=%d\n", rc);
 			goto done;
 		}
+		full_soc = CAP(0, 99, full_soc);
 
 		rc = lookup_soc_ocv(&cutoff_soc,
 				chip->dt.vbatt_cutoff_mv * 1000,
@@ -2868,7 +2869,7 @@ use_pon_ocv:
 
 		qg_dbg(chip, QG_DEBUG_PON, "v_float=%d v_cutoff=%d FULL_SOC=%d CUTOFF_SOC=%d PON_SYS_SOC=%d pon_soc=%d\n",
 			chip->bp.float_volt_uv, chip->dt.vbatt_cutoff_mv * 1000,
-			full_soc, cutoff_soc, pon_soc, soc);
+			full_soc, cutoff_soc, soc, pon_soc);
 	}
 done:
 	if (rc < 0) {
