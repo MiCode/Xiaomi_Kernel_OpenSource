@@ -115,6 +115,11 @@ struct cnss_shadow_reg_v2_cfg {
 	u32 addr;
 };
 
+struct cnss_rri_over_ddr_cfg {
+	u32 base_addr_low;
+	u32 base_addr_high;
+};
+
 struct cnss_wlan_enable_cfg {
 	u32 num_ce_tgt_cfg;
 	struct cnss_ce_tgt_pipe_cfg *ce_tgt_cfg;
@@ -124,6 +129,8 @@ struct cnss_wlan_enable_cfg {
 	struct cnss_shadow_reg_cfg *shadow_reg_cfg;
 	u32 num_shadow_reg_v2_cfg;
 	struct cnss_shadow_reg_v2_cfg *shadow_reg_v2_cfg;
+	bool rri_over_ddr_cfg_valid;
+	struct cnss_rri_over_ddr_cfg rri_over_ddr_cfg;
 };
 
 enum cnss_driver_mode {
