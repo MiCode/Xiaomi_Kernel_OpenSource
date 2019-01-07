@@ -3287,7 +3287,7 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 
 	SDE_DEBUG_ENC(sde_enc, "encoder disabled\n");
 
-	sde_rm_release(&sde_kms->rm, drm_enc, false);
+	sde_rm_release(&sde_kms->rm, drm_enc);
 }
 
 void sde_encoder_helper_phys_disable(struct sde_encoder_phys *phys_enc,
