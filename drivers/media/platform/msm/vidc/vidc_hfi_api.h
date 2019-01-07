@@ -1404,7 +1404,7 @@ struct vidc_bus_vote_data {
 	enum hal_video_codec codec;
 	enum hal_uncompressed_format color_formats[2];
 	int num_formats; /* 1 = DPB-OPB unified; 2 = split */
-	int input_height, input_width, fps;
+	int input_height, input_width, fps, bitrate;
 	int output_height, output_width;
 	int compression_ratio;
 	int complexity_factor;
