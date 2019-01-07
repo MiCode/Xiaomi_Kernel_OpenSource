@@ -38,6 +38,31 @@
 	mhi_chan@105 {
 		status = "disabled";
 	};
+
+	mhi_devices {
+		mhi_qrtr {
+			mhi,chan = "IPCR";
+			qcom,net-id = <3>;
+		};
+	};
+};
+
+&glink_adsp {
+	qcom,adsp_qrtr {
+		qcom,net-id = <2>;
+	};
+};
+
+&glink_slpi {
+	qcom,slpi_qrtr {
+		qcom,net-id = <1>;
+	};
+};
+
+&glink_cdsp {
+	qcom,cdsp_qrtr {
+		qcom,net-id = <1>;
+	};
 };
 
 &soc {
