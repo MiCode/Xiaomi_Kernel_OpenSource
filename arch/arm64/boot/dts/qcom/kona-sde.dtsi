@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 &soc {
 	mdss_mdp: qcom,mdss_mdp@ae00000 {
@@ -27,10 +27,13 @@
 		clock-rate = <0 0 0 0 300000000 19200000 300000000>;
 		clock-max-rate = <0 0 0 0 460000000 19200000 460000000>;
 
+		sde-vdd-supply = <&mdss_core_gdsc>;
+
 		/* interrupt config */
 		interrupts = <GIC_SPI 83 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-controller;
 		iommus = <&apps_smmu 0x820 0x402>;
+		qcom,iommu-dma = "disabled";
 
 		/* hw blocks */
 		qcom,sde-off = <0x1000>;
@@ -216,7 +219,7 @@
 
 			qcom,platform-supply-entry@0 {
 				reg = <0>;
-				qcom,supply-name = "mmcx";
+				qcom,supply-name = "sde-vdd";
 				qcom,supply-min-voltage = <0>;
 				qcom,supply-max-voltage = <0>;
 				qcom,supply-enable-load = <0>;
@@ -227,6 +230,7 @@
 		smmu_sde_sec: qcom,smmu_sde_sec_cb {
 			compatible = "qcom,smmu_sde_sec";
 			iommus = <&apps_smmu 0x821 0x400>;
+			qcom,iommu-dma = "disabled";
 		};
 
 		/* data and reg bus scale settings */
