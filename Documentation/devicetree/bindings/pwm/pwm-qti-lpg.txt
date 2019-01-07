@@ -11,9 +11,7 @@ device module in Qualcomm Technologies, Inc. PMIC chips.
 - reg:
 	Usage: required
 	Value type: <prop-encoded-array>
-	Definition: Register base and length for LPG and LUT modules. LPG size
-		      or length available per channel varies depending on the
-		      number of channels in PMIC.
+	Definition: Register base for LPG and LUT modules.
 
 - reg-names:
 	Usage: required
@@ -29,6 +27,11 @@ device module in Qualcomm Technologies, Inc. PMIC chips.
 		      PWM user nodes. It should be 2. The first cell is
 		      the PWM channel ID indexed from 0, and the second
 		      cell is the PWM default period in nanoseconds.
+
+- qcom,num-lpg-channels:
+	Usage: required
+	Value type: <u32>
+	Definition: The number of the consecutive LPG/PWM channels in the chip.
 
 - qcom,lut-patterns:
 	Usage: optional
@@ -122,6 +125,7 @@ Example:
 		compatible = "qcom,pwm-lpg";
 		reg = <0xb100 0x600>, <0xb000 0x100>;
 		reg-names = "lpg-base", "lut-base";
+		qcom,num-lpg-channels = <6>;
 		#pwm-cells = <2>;
 		qcom,lut-patterns = <0 14 28 42 56 70 84 100
 					100 84 70 56 42 28 14 0>;

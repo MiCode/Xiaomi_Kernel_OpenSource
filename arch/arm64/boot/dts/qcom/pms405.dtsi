@@ -201,6 +201,7 @@
 			reg = <0xbc00 0x200>;
 			reg-names = "lpg-base";
 			#pwm-cells = <2>;
+			qcom,num-lpg-channels = <2>;
 		};
 	};
 };

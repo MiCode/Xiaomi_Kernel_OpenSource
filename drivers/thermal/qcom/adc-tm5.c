@@ -76,6 +76,10 @@ static struct adc_tm_trip_reg_type adc_tm_ch_data[] = {
 	[ADC_TM_CHAN7] = {ADC_TM_M7_ADC_CH_SEL_CTL},
 };
 
+static struct adc_tm_reverse_scale_fn adc_tm_rscale_fn[] = {
+	[SCALE_R_ABSOLUTE] = {adc_tm_absolute_rthr},
+};
+
 static int adc_tm5_get_temp(struct adc_tm_sensor *sensor, int *temp)
 {
 	int ret, milli_celsius;
@@ -218,6 +222,441 @@ static int adc_tm5_configure(struct adc_tm_sensor *sensor,
 
 	return 0;
 }
+
+static int32_t adc_tm_add_to_list(struct adc_tm_chip *chip,
+				uint32_t dt_index,
+				struct adc_tm_param *param)
+{
+	struct adc_tm_client_info *client_info = NULL;
+	bool client_info_exists = false;
+
+	list_for_each_entry(client_info,
+			&chip->sensor[dt_index].thr_list, list) {
+		if (client_info->param == param) {
+			client_info->low_thr_requested = param->low_thr;
+			client_info->high_thr_requested = param->high_thr;
+			client_info->state_request = param->state_request;
+			client_info->notify_low_thr = false;
+			client_info->notify_high_thr = false;
+			client_info_exists = true;
+			pr_debug("client found\n");
+		}
+	}
+
+	if (!client_info_exists) {
+		client_info = devm_kzalloc(chip->dev,
+			sizeof(struct adc_tm_client_info), GFP_KERNEL);
+		if (!client_info)
+			return -ENOMEM;
+
+		pr_debug("new client\n");
+		client_info->param = param;
+		client_info->low_thr_requested = param->low_thr;
+		client_info->high_thr_requested = param->high_thr;
+		client_info->state_request = param->state_request;
+
+		list_add_tail(&client_info->list,
+					&chip->sensor[dt_index].thr_list);
+	}
+	return 0;
+}
+
+static int32_t adc_tm5_thr_update(struct adc_tm_sensor *sensor,
+			int32_t high_thr, int32_t low_thr)
+{
+	int ret = 0;
+	u8 trip_low_thr[2], trip_high_thr[2];
+	uint16_t reg_low_thr_lsb, reg_high_thr_lsb;
+	uint32_t scale_type = 0, mask = 0, btm_chan_idx = 0;
+	struct adc_tm_config tm_config;
+	struct adc_tm_chip *chip;
+
+	ret = adc_tm5_get_btm_idx(chip,
+		sensor->btm_ch, &btm_chan_idx);
+	if (ret < 0) {
+		pr_err("Invalid btm channel idx\n");
+		return ret;
+	}
+
+	chip = sensor->chip;
+
+	tm_config.high_thr_voltage = (int64_t)high_thr;
+	tm_config.low_thr_voltage = (int64_t)low_thr;
+	tm_config.prescal = sensor->prescaling;
+
+	scale_type = sensor->adc_rscale_fn;
+	if (scale_type >= SCALE_RSCALE_NONE) {
+		ret = -EBADF;
+		return ret;
+	}
+
+	adc_tm_rscale_fn[scale_type].chan(chip->data, &tm_config);
+
+	mask = lower_32_bits(tm_config.high_thr_voltage);
+	trip_high_thr[0] = ADC_TM_LOWER_MASK(mask);
+	trip_high_thr[1] = ADC_TM_UPPER_MASK(mask);
+
+	mask = lower_32_bits(tm_config.low_thr_voltage);
+	trip_low_thr[0] = ADC_TM_LOWER_MASK(mask);
+	trip_low_thr[1] = ADC_TM_UPPER_MASK(mask);
+
+	pr_debug("high_thr:0x%llx, low_thr:0x%llx\n",
+		tm_config.high_thr_voltage, tm_config.low_thr_voltage);
+
+	reg_low_thr_lsb = ADC_TM_Mn_LOW_THR0(btm_chan_idx);
+	reg_high_thr_lsb = ADC_TM_Mn_HIGH_THR0(btm_chan_idx);
+
+	if (low_thr != INT_MIN) {
+		ret = adc_tm5_write_reg(chip, reg_low_thr_lsb,
+						trip_low_thr, 2);
+		if (ret) {
+			pr_err("Low set threshold err\n");
+			return ret;
+		}
+	}
+
+	if (high_thr != INT_MAX) {
+		ret = adc_tm5_write_reg(chip, reg_high_thr_lsb,
+						trip_high_thr, 2);
+		if (ret) {
+			pr_err("High set threshold err\n");
+			return ret;
+		}
+	}
+	return ret;
+}
+
+static int32_t adc_tm5_manage_thresholds(struct adc_tm_sensor *sensor)
+{
+	int ret = 0, high_thr = INT_MAX, low_thr = INT_MIN;
+	struct adc_tm_client_info *client_info = NULL;
+	struct list_head *thr_list;
+	uint32_t btm_chan_idx = 0;
+	struct adc_tm_chip *chip = sensor->chip;
+
+	ret = adc_tm5_get_btm_idx(chip, sensor->btm_ch, &btm_chan_idx);
+	if (ret < 0) {
+		pr_err("Invalid btm channel idx with %d\n", ret);
+		return ret;
+	}
+	/*
+	 * Reset the high_thr_set and low_thr_set of all
+	 * clients since the thresholds will be recomputed.
+	 */
+	list_for_each(thr_list, &sensor->thr_list) {
+		client_info = list_entry(thr_list,
+					struct adc_tm_client_info, list);
+		client_info->high_thr_set = false;
+		client_info->low_thr_set = false;
+	}
+
+	/* Find the min of high_thr and max of low_thr */
+	list_for_each(thr_list, &sensor->thr_list) {
+		client_info = list_entry(thr_list,
+					struct adc_tm_client_info, list);
+
+		if ((client_info->state_request == ADC_TM_HIGH_THR_ENABLE) ||
+			(client_info->state_request ==
+				ADC_TM_HIGH_LOW_THR_ENABLE))
+			if (client_info->high_thr_requested < high_thr)
+				high_thr = client_info->high_thr_requested;
+
+		if ((client_info->state_request == ADC_TM_LOW_THR_ENABLE) ||
+			(client_info->state_request ==
+				ADC_TM_HIGH_LOW_THR_ENABLE))
+			if (client_info->low_thr_requested > low_thr)
+				low_thr = client_info->low_thr_requested;
+
+		pr_debug("threshold compared is high:%d and low:%d\n",
+				client_info->high_thr_requested,
+				client_info->low_thr_requested);
+		pr_debug("current threshold is high:%d and low:%d\n",
+							high_thr, low_thr);
+	}
+
+	/* Check which of the high_thr and low_thr got set */
+	list_for_each(thr_list, &sensor->thr_list) {
+		client_info = list_entry(thr_list,
+					struct adc_tm_client_info, list);
+
+		if ((client_info->state_request == ADC_TM_HIGH_THR_ENABLE) ||
+			(client_info->state_request ==
+				ADC_TM_HIGH_LOW_THR_ENABLE))
+			if (high_thr == client_info->high_thr_requested)
+				client_info->high_thr_set = true;
+
+		if ((client_info->state_request == ADC_TM_LOW_THR_ENABLE) ||
+			(client_info->state_request ==
+				ADC_TM_HIGH_LOW_THR_ENABLE))
+			if (low_thr == client_info->low_thr_requested)
+				client_info->low_thr_set = true;
+	}
+
+	ret = adc_tm5_thr_update(sensor, high_thr, low_thr);
+	if (ret < 0)
+		pr_err("setting chan:%d threshold failed\n", btm_chan_idx);
+
+	pr_debug("threshold written is high:%d and low:%d\n",
+							high_thr, low_thr);
+
+	return 0;
+}
+
+void notify_adc_tm_fn(struct work_struct *work)
+{
+	struct adc_tm_client_info *client_info = NULL;
+	struct adc_tm_chip *chip;
+	struct list_head *thr_list;
+	uint32_t btm_chan_num = 0, btm_chan_idx = 0;
+	int ret = 0;
+
+	struct adc_tm_sensor *adc_tm = container_of(work,
+		struct adc_tm_sensor, work);
+
+	chip = adc_tm->chip;
+
+	btm_chan_num = adc_tm->btm_ch;
+	ret = adc_tm5_get_btm_idx(chip, btm_chan_num, &btm_chan_idx);
+	if (ret < 0) {
+		pr_err("Invalid btm channel idx\n");
+		return;
+	}
+
+	mutex_lock(&chip->adc_mutex_lock);
+
+	if (adc_tm->low_thr_triggered) {
+		/* adjust thr, calling manage_thr */
+		list_for_each(thr_list, &adc_tm->thr_list) {
+			client_info = list_entry(thr_list,
+					struct adc_tm_client_info, list);
+			if (client_info->low_thr_set) {
+				client_info->low_thr_set = false;
+				client_info->notify_low_thr = true;
+				if (client_info->state_request ==
+						ADC_TM_HIGH_LOW_THR_ENABLE)
+					client_info->state_request =
+							ADC_TM_HIGH_THR_ENABLE;
+				else
+					client_info->state_request =
+							ADC_TM_LOW_THR_DISABLE;
+			}
+		}
+		adc_tm5_manage_thresholds(adc_tm);
+
+		adc_tm->low_thr_triggered = false;
+	}
+
+	if (adc_tm->high_thr_triggered) {
+		/* adjust thr, calling manage_thr */
+		list_for_each(thr_list, &adc_tm->thr_list) {
+			client_info = list_entry(thr_list,
+					struct adc_tm_client_info, list);
+			if (client_info->high_thr_set) {
+				client_info->high_thr_set = false;
+				client_info->notify_high_thr = true;
+				if (client_info->state_request ==
+						ADC_TM_HIGH_LOW_THR_ENABLE)
+					client_info->state_request =
+							ADC_TM_LOW_THR_ENABLE;
+				else
+					client_info->state_request =
+							ADC_TM_HIGH_THR_DISABLE;
+			}
+		}
+		adc_tm5_manage_thresholds(adc_tm);
+
+		adc_tm->high_thr_triggered = false;
+	}
+	mutex_unlock(&chip->adc_mutex_lock);
+
+	list_for_each_entry(client_info, &adc_tm->thr_list, list) {
+		if (client_info->notify_low_thr) {
+			if (client_info->param->threshold_notification
+								!= NULL) {
+				pr_debug("notify kernel with low state\n");
+				client_info->param->threshold_notification(
+					ADC_TM_LOW_STATE,
+					client_info->param->btm_ctx);
+				client_info->notify_low_thr = false;
+			}
+		}
+
+		if (client_info->notify_high_thr) {
+			if (client_info->param->threshold_notification
+								!= NULL) {
+				pr_debug("notify kernel with high state\n");
+				client_info->param->threshold_notification(
+					ADC_TM_HIGH_STATE,
+					client_info->param->btm_ctx);
+				client_info->notify_high_thr = false;
+			}
+		}
+	}
+}
+
+int32_t adc_tm5_channel_measure(struct adc_tm_chip *chip,
+					struct adc_tm_param *param)
+
+{
+	int ret = 0, i = 0;
+	uint32_t channel, dt_index = 0, btm_chan_idx = 0;
+	bool chan_found = false, high_thr_set = false, low_thr_set = false;
+	struct adc_tm_client_info *client_info = NULL;
+
+	ret = adc_tm_is_valid(chip);
+	if (ret || (param == NULL))
+		return -EINVAL;
+
+	if (param->threshold_notification == NULL) {
+		pr_debug("No notification for high/low temp\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&chip->adc_mutex_lock);
+
+	channel = param->channel;
+
+	while (i < chip->dt_channels) {
+		if (chip->sensor[i].adc_ch == channel) {
+			dt_index = i;
+			chan_found = true;
+			break;
+		}
+		i++;
+	}
+
+	if (!chan_found)  {
+		pr_err("not a valid ADC_TM channel\n");
+		ret = -EINVAL;
+		goto fail_unlock;
+	}
+
+	ret = adc_tm5_get_btm_idx(chip,
+		chip->sensor[dt_index].btm_ch, &btm_chan_idx);
+	if (ret < 0) {
+		pr_err("Invalid btm channel idx with %d\n", ret);
+		goto fail_unlock;
+	}
+
+	/* add channel client to channel list */
+	adc_tm_add_to_list(chip, dt_index, param);
+
+	/* set right thresholds for the sensor */
+	adc_tm5_manage_thresholds(&chip->sensor[dt_index]);
+
+	/* enable low/high irqs */
+	list_for_each_entry(client_info,
+			&chip->sensor[dt_index].thr_list, list) {
+		if (client_info->high_thr_set == true)
+			high_thr_set = true;
+		if (client_info->low_thr_set == true)
+			low_thr_set = true;
+	}
+
+	if (low_thr_set) {
+		/* Enable low threshold's interrupt */
+		pr_debug("low sensor:%x with state:%d\n",
+				dt_index, param->state_request);
+		ret = adc_tm5_reg_update(chip,
+			ADC_TM_Mn_EN(btm_chan_idx),
+			ADC_TM_Mn_LOW_THR_INT_EN, true);
+		if (ret < 0) {
+			pr_err("low thr enable err:%d\n",
+				chip->sensor[dt_index].btm_ch);
+			goto fail_unlock;
+		}
+	}
+
+	if (high_thr_set) {
+		/* Enable high threshold's interrupt */
+		pr_debug("high sensor mask:%x with state:%d\n",
+			dt_index, param->state_request);
+		ret = adc_tm5_reg_update(chip,
+			ADC_TM_Mn_EN(btm_chan_idx),
+			ADC_TM_Mn_HIGH_THR_INT_EN, true);
+		if (ret < 0) {
+			pr_err("high thr enable err:%d\n",
+				chip->sensor[dt_index].btm_ch);
+			goto fail_unlock;
+		}
+	}
+
+	/* configure channel */
+	ret = adc_tm5_configure(&chip->sensor[dt_index], btm_chan_idx);
+	if (ret < 0) {
+		pr_err("Error during adc-tm configure:%d\n", ret);
+		goto fail_unlock;
+	}
+
+	ret = adc_tm5_enable(chip);
+	if (ret < 0)
+		pr_err("Error enabling adc-tm with %d\n", ret);
+
+fail_unlock:
+	mutex_unlock(&chip->adc_mutex_lock);
+	return ret;
+}
+EXPORT_SYMBOL(adc_tm5_channel_measure);
+
+int32_t adc_tm5_disable_chan_meas(struct adc_tm_chip *chip,
+					struct adc_tm_param *param)
+{
+	int ret = 0, i = 0;
+	uint32_t channel, dt_index = 0, btm_chan_idx = 0;
+	unsigned long flags;
+
+	ret = adc_tm_is_valid(chip);
+	if (ret || (param == NULL))
+		return -EINVAL;
+
+	channel = param->channel;
+
+	while (i < chip->dt_channels) {
+		if (chip->sensor[i].adc_ch == channel) {
+			dt_index = i;
+			break;
+		}
+		i++;
+	}
+
+	if (i == chip->dt_channels)  {
+		pr_err("not a valid ADC_TM channel\n");
+		return -EINVAL;
+	}
+
+	ret = adc_tm5_get_btm_idx(chip,
+		chip->sensor[dt_index].btm_ch, &btm_chan_idx);
+	if (ret < 0) {
+		pr_err("Invalid btm channel idx with %d\n", ret);
+		return ret;
+	}
+
+	spin_lock_irqsave(&chip->adc_tm_lock, flags);
+
+	ret = adc_tm5_reg_update(chip, ADC_TM_Mn_EN(btm_chan_idx),
+				ADC_TM_Mn_HIGH_THR_INT_EN, false);
+	if (ret < 0) {
+		pr_err("high thr disable err\n");
+		goto fail;
+	}
+
+	ret = adc_tm5_reg_update(chip, ADC_TM_Mn_EN(btm_chan_idx),
+			ADC_TM_Mn_LOW_THR_INT_EN, false);
+	if (ret < 0) {
+		pr_err("low thr disable err\n");
+		goto fail;
+	}
+
+	ret = adc_tm5_reg_update(chip, ADC_TM_Mn_EN(btm_chan_idx),
+			ADC_TM_Mn_MEAS_EN, false);
+	if (ret < 0)
+		pr_err("multi measurement disable failed\n");
+
+fail:
+	spin_unlock_irqrestore(&chip->adc_tm_lock, flags);
+	return ret;
+}
+EXPORT_SYMBOL(adc_tm5_disable_chan_meas);
 
 static int adc_tm5_set_mode(struct adc_tm_sensor *sensor,
 			      enum thermal_device_mode mode)
@@ -424,7 +863,7 @@ static irqreturn_t adc_tm5_handler(int irq, void *data)
 {
 	struct adc_tm_chip *chip = data;
 	u8 status_low, status_high, ctl;
-	int ret, i = 0;
+	int ret = 0, i = 0;
 	unsigned long flags;
 
 	ret = adc_tm5_read_reg(chip, ADC_TM_STATUS_LOW, &status_low, 1);
@@ -443,12 +882,20 @@ static irqreturn_t adc_tm5_handler(int irq, void *data)
 		bool upper_set = false, lower_set = false;
 		int temp;
 
-		if (IS_ERR(chip->sensor[i].tzd))
+		if (!chip->sensor[i].non_thermal &&
+				IS_ERR(chip->sensor[i].tzd)) {
+			pr_err("thermal device not found\n");
+			i++;
 			continue;
+		}
 
-		ret = adc_tm5_get_temp(&chip->sensor[i], &temp);
-		if (ret < 0)
-			continue;
+		if (!chip->sensor[i].non_thermal) {
+			ret = adc_tm5_get_temp(&chip->sensor[i], &temp);
+			if (ret < 0) {
+				i++;
+				continue;
+			}
+		}
 
 		spin_lock_irqsave(&chip->adc_tm_lock, flags);
 
@@ -469,14 +916,53 @@ fail:
 		status_low >>= 1;
 		status_high >>= 1;
 		spin_unlock_irqrestore(&chip->adc_tm_lock, flags);
-		if (upper_set || lower_set) {
+		if (!(upper_set || lower_set)) {
+			i++;
+			continue;
+		}
+
+		if (!chip->sensor[i].non_thermal) {
 			/*
-			 * Expected behavior is while notifying of_thermal,
-			 * thermal core will call set_trips with new thresholds
-			 * and activate/disable the appropriate trips.
+			 * Expected behavior is while notifying
+			 * of_thermal, thermal core will call set_trips
+			 * with new thresholds and activate/disable
+			 * the appropriate trips.
 			 */
 			pr_debug("notifying of_thermal\n");
 			of_thermal_handle_trip(chip->sensor[i].tzd);
+		} else {
+			if (lower_set) {
+				ret = adc_tm5_reg_update(chip,
+					ADC_TM_Mn_EN(i),
+					ADC_TM_Mn_LOW_THR_INT_EN,
+					false);
+				if (ret < 0) {
+					pr_err("low thr disable failed\n");
+					return IRQ_HANDLED;
+				}
+
+				chip->sensor[i].low_thr_triggered
+				= true;
+
+				queue_work(chip->sensor[i].req_wq,
+						&chip->sensor[i].work);
+			}
+
+			if (upper_set) {
+				ret = adc_tm5_reg_update(chip,
+					ADC_TM_Mn_EN(i),
+					ADC_TM_Mn_HIGH_THR_INT_EN,
+					false);
+				if (ret < 0) {
+					pr_err("high thr disable failed\n");
+					return IRQ_HANDLED;
+				}
+
+				chip->sensor[i].high_thr_triggered = true;
+
+				queue_work(chip->sensor[i].req_wq,
+						&chip->sensor[i].work);
+			}
 		}
 		i++;
 	}
@@ -561,6 +1047,7 @@ static int adc_tm5_init(struct adc_tm_chip *chip, uint32_t dt_chans)
 		pr_err("adc-tm block write failed with %d\n", ret);
 
 	spin_lock_init(&chip->adc_tm_lock);
+	mutex_init(&chip->adc_mutex_lock);
 
 	if (chip->pmic_rev_id) {
 		switch (chip->pmic_rev_id->pmic_subtype)

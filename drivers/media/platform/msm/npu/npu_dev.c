@@ -709,8 +709,11 @@ static void npu_save_bw_registers(struct npu_device *npu_dev)
 {
 	int i;
 
+	if (!npu_dev->bwmon_io.base)
+		return;
+
 	for (i = 0; i < ARRAY_SIZE(npu_saved_bw_registers); i++) {
-		npu_saved_bw_registers[i].val = REGR(npu_dev,
+		npu_saved_bw_registers[i].val = npu_bwmon_reg_read(npu_dev,
 			npu_saved_bw_registers[i].off);
 		npu_saved_bw_registers[i].valid = true;
 	}
@@ -720,9 +723,13 @@ static void npu_restore_bw_registers(struct npu_device *npu_dev)
 {
 	int i;
 
+	if (!npu_dev->bwmon_io.base)
+		return;
+
 	for (i = 0; i < ARRAY_SIZE(npu_saved_bw_registers); i++) {
 		if (npu_saved_bw_registers[i].valid) {
-			REGW(npu_dev, npu_saved_bw_registers[i].off,
+			npu_bwmon_reg_write(npu_dev,
+				npu_saved_bw_registers[i].off,
 				npu_saved_bw_registers[i].val);
 			npu_saved_bw_registers[i].valid = false;
 		}
@@ -1904,22 +1911,58 @@ static int npu_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, npu_dev);
 	res = platform_get_resource_byname(pdev,
-		IORESOURCE_MEM, "npu_base");
+		IORESOURCE_MEM, "core");
 	if (!res) {
-		pr_err("unable to get npu_base resource\n");
+		pr_err("unable to get core resource\n");
 		rc = -ENODEV;
 		goto error_get_dev_num;
 	}
-	npu_dev->npu_io.size = resource_size(res);
-	npu_dev->npu_io.base = devm_ioremap(&pdev->dev, res->start,
-					npu_dev->npu_io.size);
-	if (unlikely(!npu_dev->npu_io.base)) {
-		pr_err("unable to map npu_base\n");
+	npu_dev->core_io.size = resource_size(res);
+	npu_dev->core_io.base = devm_ioremap(&pdev->dev, res->start,
+					npu_dev->core_io.size);
+	if (unlikely(!npu_dev->core_io.base)) {
+		pr_err("unable to map core\n");
 		rc = -ENOMEM;
 		goto error_get_dev_num;
 	}
-	pr_debug("npu_base phy address=0x%x virt=%pK\n",
-		res->start, npu_dev->npu_io.base);
+	pr_debug("core phy address=0x%x virt=%pK\n",
+		res->start, npu_dev->core_io.base);
+
+	res = platform_get_resource_byname(pdev,
+		IORESOURCE_MEM, "tcm");
+	if (!res) {
+		pr_err("unable to get tcm resource\n");
+		rc = -ENODEV;
+		goto error_get_dev_num;
+	}
+	npu_dev->tcm_io.size = resource_size(res);
+	npu_dev->tcm_io.base = devm_ioremap(&pdev->dev, res->start,
+					npu_dev->tcm_io.size);
+	if (unlikely(!npu_dev->tcm_io.base)) {
+		pr_err("unable to map tcm\n");
+		rc = -ENOMEM;
+		goto error_get_dev_num;
+	}
+	pr_debug("core phy address=0x%x virt=%pK\n",
+		res->start, npu_dev->tcm_io.base);
+
+	res = platform_get_resource_byname(pdev,
+		IORESOURCE_MEM, "bwmon");
+	if (!res) {
+		pr_err("unable to get bwmon resource\n");
+		rc = -ENODEV;
+		goto error_get_dev_num;
+	}
+	npu_dev->bwmon_io.size = resource_size(res);
+	npu_dev->bwmon_io.base = devm_ioremap(&pdev->dev, res->start,
+					npu_dev->bwmon_io.size);
+	if (unlikely(!npu_dev->bwmon_io.base)) {
+		pr_err("unable to map bwmon\n");
+		rc = -ENOMEM;
+		goto error_get_dev_num;
+	}
+	pr_debug("bwmon phy address=0x%x virt=%pK\n",
+		res->start, npu_dev->bwmon_io.base);
 
 	res = platform_get_resource_byname(pdev,
 		IORESOURCE_MEM, "qfprom_physical");

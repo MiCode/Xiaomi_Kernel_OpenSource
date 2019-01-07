@@ -236,6 +236,7 @@ struct sde_encoder_virt {
 	struct sde_encoder_phys *cur_master;
 	struct sde_hw_pingpong *hw_pp[MAX_CHANNELS_PER_ENC];
 	struct sde_hw_dsc *hw_dsc[MAX_CHANNELS_PER_ENC];
+	struct sde_hw_pingpong *hw_dsc_pp[MAX_CHANNELS_PER_ENC];
 	enum sde_dsc dirty_dsc_ids[MAX_CHANNELS_PER_ENC];
 
 	bool intfs_swapped;
@@ -1158,37 +1159,25 @@ static void _sde_encoder_dsc_pclk_param_calc(struct msm_display_dsc_info *dsc,
 static int _sde_encoder_dsc_initial_line_calc(struct msm_display_dsc_info *dsc,
 		int enc_ip_width)
 {
-	int ssm_delay, total_pixels, soft_slice_per_enc, fifo_size;
-	int first_line_offset, tmp[3];
+	int ssm_delay, total_pixels, soft_slice_per_enc;
 
 	soft_slice_per_enc = enc_ip_width / dsc->slice_width;
 
 	/*
 	 * minimum number of initial line pixels is a sum of:
-	 * 1. sub-stream multiplexer delay (84 groups for 8bpc,
-	 *    92 for 10 bpc) * 3
+	 * 1. sub-stream multiplexer delay (83 groups for 8bpc,
+	 *    91 for 10 bpc) * 3
 	 * 2. for two soft slice cases, add extra sub-stream multiplexer * 3
 	 * 3. the initial xmit delay
 	 * 4. total pipeline delay through the "lock step" of encoder (47)
 	 * 5. 6 additional pixels as the output of the rate buffer is
 	 *    48 bits wide
 	 */
-	ssm_delay = 3 * ((dsc->bpc < 10) ? 84 : 92);
-	total_pixels = (soft_slice_per_enc * ssm_delay)
-				+ dsc->initial_xmit_delay + 47;
-	fifo_size = ((soft_slice_per_enc == 2) ? 5610 : 11610);
-	first_line_offset =
-		(dsc->first_line_bpg_offset * dsc->pic_width) / (3 * 8);
-
+	ssm_delay = ((dsc->bpc < 10) ? 84 : 92);
+	total_pixels = ssm_delay * 3 + dsc->initial_xmit_delay + 47;
+	if (soft_slice_per_enc > 1)
+		total_pixels += (ssm_delay * 3);
 	dsc->initial_lines = DIV_ROUND_UP(total_pixels, dsc->slice_width);
-
-	tmp[0] = dsc->initial_xmit_delay + first_line_offset;
-	tmp[1] = (2 + (0.75 * soft_slice_per_enc)) * dsc->chunk_size;
-	tmp[2] = (total_pixels % dsc->slice_width) * (dsc->bpp / 8);
-
-	if ((tmp[0] + tmp[1] - tmp[2]) < fifo_size)
-		dsc->initial_lines++;
-
 	return 0;
 }
 
@@ -1216,11 +1205,12 @@ static bool _sde_encoder_dsc_ich_reset_override_needed(bool pu_en,
 
 static void _sde_encoder_dsc_pipe_cfg(struct sde_hw_dsc *hw_dsc,
 		struct sde_hw_pingpong *hw_pp, struct msm_display_dsc_info *dsc,
-		u32 common_mode, bool ich_reset, bool enable)
+		u32 common_mode, bool ich_reset, bool enable,
+		struct sde_hw_pingpong *hw_dsc_pp)
 {
 	if (!enable) {
-		if (hw_pp && hw_pp->ops.disable_dsc)
-			hw_pp->ops.disable_dsc(hw_pp);
+		if (hw_dsc_pp && hw_dsc_pp->ops.disable_dsc)
+			hw_dsc_pp->ops.disable_dsc(hw_dsc_pp);
 
 		if (hw_dsc && hw_dsc->ops.dsc_disable)
 			hw_dsc->ops.dsc_disable(hw_dsc);
@@ -1231,8 +1221,9 @@ static void _sde_encoder_dsc_pipe_cfg(struct sde_hw_dsc *hw_dsc,
 		return;
 	}
 
-	if (!dsc || !hw_dsc || !hw_pp) {
-		SDE_ERROR("invalid params %d %d %d\n", !dsc, !hw_dsc, !hw_pp);
+	if (!dsc || !hw_dsc || !hw_pp || !hw_dsc_pp) {
+		SDE_ERROR("invalid params %d %d %d %d\n", !dsc, !hw_dsc,
+				!hw_pp, !hw_dsc_pp);
 		return;
 	}
 
@@ -1242,14 +1233,14 @@ static void _sde_encoder_dsc_pipe_cfg(struct sde_hw_dsc *hw_dsc,
 	if (hw_dsc->ops.dsc_config_thresh)
 		hw_dsc->ops.dsc_config_thresh(hw_dsc, dsc);
 
-	if (hw_pp->ops.setup_dsc)
-		hw_pp->ops.setup_dsc(hw_pp);
+	if (hw_dsc_pp->ops.setup_dsc)
+		hw_dsc_pp->ops.setup_dsc(hw_dsc_pp);
 
 	if (hw_dsc->ops.bind_pingpong_blk)
 		hw_dsc->ops.bind_pingpong_blk(hw_dsc, true, hw_pp->idx);
 
-	if (hw_pp->ops.enable_dsc)
-		hw_pp->ops.enable_dsc(hw_pp);
+	if (hw_dsc_pp->ops.enable_dsc)
+		hw_dsc_pp->ops.enable_dsc(hw_dsc_pp);
 }
 
 static void _sde_encoder_get_connector_roi(
@@ -1278,6 +1269,7 @@ static int _sde_encoder_dsc_n_lm_1_enc_1_intf(struct sde_encoder_virt *sde_enc)
 	int ich_res, dsc_common_mode = 0;
 
 	struct sde_hw_pingpong *hw_pp = sde_enc->hw_pp[0];
+	struct sde_hw_pingpong *hw_dsc_pp = sde_enc->hw_dsc_pp[0];
 	struct sde_hw_dsc *hw_dsc = sde_enc->hw_dsc[0];
 	struct sde_encoder_phys *enc_master = sde_enc->cur_master;
 	const struct sde_rect *roi = &sde_enc->cur_conn_roi;
@@ -1321,7 +1313,7 @@ static int _sde_encoder_dsc_n_lm_1_enc_1_intf(struct sde_encoder_virt *sde_enc)
 	SDE_EVT32(DRMID(&sde_enc->base), roi->w, roi->h, dsc_common_mode);
 
 	_sde_encoder_dsc_pipe_cfg(hw_dsc, hw_pp, dsc, dsc_common_mode,
-			ich_res, true);
+			ich_res, true, hw_dsc_pp);
 	cfg.dsc[cfg.dsc_count++] = hw_dsc->idx;
 
 	/* setup dsc active configuration in the control path */
@@ -1352,6 +1344,7 @@ static int _sde_encoder_dsc_2_lm_2_enc_2_intf(struct sde_encoder_virt *sde_enc,
 	const struct sde_rect *roi = &sde_enc->cur_conn_roi;
 	struct sde_hw_dsc *hw_dsc[MAX_CHANNELS_PER_ENC];
 	struct sde_hw_pingpong *hw_pp[MAX_CHANNELS_PER_ENC];
+	struct sde_hw_pingpong *hw_dsc_pp[MAX_CHANNELS_PER_ENC];
 	struct msm_display_dsc_info dsc[MAX_CHANNELS_PER_ENC];
 	struct msm_mode_info mode_info;
 	bool half_panel_partial_update;
@@ -1364,8 +1357,9 @@ static int _sde_encoder_dsc_2_lm_2_enc_2_intf(struct sde_encoder_virt *sde_enc,
 	for (i = 0; i < MAX_CHANNELS_PER_ENC; i++) {
 		hw_pp[i] = sde_enc->hw_pp[i];
 		hw_dsc[i] = sde_enc->hw_dsc[i];
+		hw_dsc_pp[i] = sde_enc->hw_dsc_pp[i];
 
-		if (!hw_pp[i] || !hw_dsc[i]) {
+		if (!hw_pp[i] || !hw_dsc[i] || !hw_dsc_pp[i]) {
 			SDE_ERROR_ENC(sde_enc, "invalid params for DSC\n");
 			return -EINVAL;
 		}
@@ -1433,7 +1427,7 @@ static int _sde_encoder_dsc_2_lm_2_enc_2_intf(struct sde_encoder_virt *sde_enc,
 		SDE_EVT32(DRMID(&sde_enc->base), roi->w, roi->h,
 				dsc_common_mode, i, active);
 		_sde_encoder_dsc_pipe_cfg(hw_dsc[i], hw_pp[i], &dsc[i],
-				dsc_common_mode, ich_res, active);
+				dsc_common_mode, ich_res, active, hw_dsc_pp[i]);
 
 		if (active) {
 			if (cfg.dsc_count >= MAX_DSC_PER_CTL_V1) {
@@ -1473,6 +1467,7 @@ static int _sde_encoder_dsc_2_lm_2_enc_1_intf(struct sde_encoder_virt *sde_enc,
 	const struct sde_rect *roi = &sde_enc->cur_conn_roi;
 	struct sde_hw_dsc *hw_dsc[MAX_CHANNELS_PER_ENC];
 	struct sde_hw_pingpong *hw_pp[MAX_CHANNELS_PER_ENC];
+	struct sde_hw_pingpong *hw_dsc_pp[MAX_CHANNELS_PER_ENC];
 	struct msm_display_dsc_info *dsc = NULL;
 	struct msm_mode_info mode_info;
 	bool half_panel_partial_update;
@@ -1485,8 +1480,9 @@ static int _sde_encoder_dsc_2_lm_2_enc_1_intf(struct sde_encoder_virt *sde_enc,
 	for (i = 0; i < MAX_CHANNELS_PER_ENC; i++) {
 		hw_pp[i] = sde_enc->hw_pp[i];
 		hw_dsc[i] = sde_enc->hw_dsc[i];
+		hw_dsc_pp[i] = sde_enc->hw_dsc_pp[i];
 
-		if (!hw_pp[i] || !hw_dsc[i]) {
+		if (!hw_pp[i] || !hw_dsc[i] || !hw_dsc_pp[i]) {
 			SDE_ERROR_ENC(sde_enc, "invalid params for DSC\n");
 			return -EINVAL;
 		}
@@ -1531,7 +1527,7 @@ static int _sde_encoder_dsc_2_lm_2_enc_1_intf(struct sde_encoder_virt *sde_enc,
 			dsc_common_mode, i, params->affected_displays);
 
 	_sde_encoder_dsc_pipe_cfg(hw_dsc[0], hw_pp[0], dsc, dsc_common_mode,
-			ich_res, true);
+			ich_res, true, hw_dsc_pp[0]);
 	cfg.dsc[0] = hw_dsc[0]->idx;
 	cfg.dsc_count++;
 	if (hw_ctl->ops.update_bitmask_dsc)
@@ -1539,7 +1535,7 @@ static int _sde_encoder_dsc_2_lm_2_enc_1_intf(struct sde_encoder_virt *sde_enc,
 
 
 	_sde_encoder_dsc_pipe_cfg(hw_dsc[1], hw_pp[1], dsc, dsc_common_mode,
-			ich_res, !half_panel_partial_update);
+			ich_res, !half_panel_partial_update, hw_dsc_pp[1]);
 	if (!half_panel_partial_update) {
 		cfg.dsc[1] = hw_dsc[1]->idx;
 		cfg.dsc_count++;
@@ -1755,6 +1751,7 @@ static void _sde_encoder_dsc_disable(struct sde_encoder_virt *sde_enc)
 {
 	int i;
 	struct sde_hw_pingpong *hw_pp = NULL;
+	struct sde_hw_pingpong *hw_dsc_pp = NULL;
 	struct sde_hw_dsc *hw_dsc = NULL;
 	struct sde_hw_ctl *hw_ctl = NULL;
 	struct sde_ctl_dsc_cfg cfg;
@@ -1773,8 +1770,10 @@ static void _sde_encoder_dsc_disable(struct sde_encoder_virt *sde_enc)
 	for (i = 0; i < MAX_CHANNELS_PER_ENC; i++) {
 		hw_pp = sde_enc->hw_pp[i];
 		hw_dsc = sde_enc->hw_dsc[i];
+		hw_dsc_pp = sde_enc->hw_dsc_pp[i];
 
-		_sde_encoder_dsc_pipe_cfg(hw_dsc, hw_pp, NULL, 0, 0, 0);
+		_sde_encoder_dsc_pipe_cfg(hw_dsc, hw_pp, NULL,
+						0, 0, 0, hw_dsc_pp);
 
 		if (hw_dsc)
 			sde_enc->dirty_dsc_ids[i] = hw_dsc->idx;
@@ -2669,6 +2668,7 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	struct sde_connector_state *sde_conn_state = NULL;
 	struct sde_connector *sde_conn = NULL;
 	struct sde_rm_hw_iter dsc_iter, pp_iter;
+	struct sde_rm_hw_request request_hw;
 	int i = 0, ret;
 
 	if (!drm_enc) {
@@ -2768,6 +2768,20 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 		if (!sde_rm_get_hw(&sde_kms->rm, &dsc_iter))
 			break;
 		sde_enc->hw_dsc[i] = (struct sde_hw_dsc *) dsc_iter.hw;
+	}
+
+	/* Get PP for DSC configuration */
+	for (i = 0; i < MAX_CHANNELS_PER_ENC; i++) {
+		sde_enc->hw_dsc_pp[i] = NULL;
+		if (!sde_enc->hw_dsc[i])
+			continue;
+
+		request_hw.id = sde_enc->hw_dsc[i]->base.id;
+		request_hw.type = SDE_HW_BLK_PINGPONG;
+		if (!sde_rm_request_hw_blk(&sde_kms->rm, &request_hw))
+			break;
+		sde_enc->hw_dsc_pp[i] =
+			(struct sde_hw_pingpong *) request_hw.hw;
 	}
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
@@ -3104,6 +3118,14 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 		phys->comp_type = comp_info->comp_type;
 		phys->comp_ratio = comp_info->comp_ratio;
 		phys->wide_bus_en = mode_info.wide_bus_en;
+
+		if (phys->comp_type == MSM_DISPLAY_COMPRESSION_DSC) {
+			phys->dsc_extra_pclk_cycle_cnt =
+				comp_info->dsc_info.pclk_per_line;
+			phys->dsc_extra_disp_width =
+				comp_info->dsc_info.extra_width;
+		}
+
 		if (phys != sde_enc->cur_master) {
 			/**
 			 * on DMS request, the encoder will be enabled
@@ -3518,6 +3540,7 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 	unsigned long lock_flags;
 	struct sde_encoder_virt *sde_enc;
 	int pend_ret_fence_cnt;
+	struct sde_connector *c_conn;
 
 	if (!drm_enc || !phys) {
 		SDE_ERROR("invalid argument(s), drm_enc %d, phys_enc %d\n",
@@ -3526,6 +3549,7 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 	}
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
+	c_conn = to_sde_connector(phys->connector);
 
 	if (!phys->hw_pp) {
 		SDE_ERROR("invalid pingpong hw\n");
@@ -3553,6 +3577,15 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 		atomic_inc(&phys->pending_retire_fence_cnt);
 
 	pend_ret_fence_cnt = atomic_read(&phys->pending_retire_fence_cnt);
+
+	/* perform peripheral flush on every frame update for dp dsc */
+	if (phys->hw_intf && phys->hw_intf->cap->type == INTF_DP &&
+			phys->comp_type == MSM_DISPLAY_COMPRESSION_DSC &&
+			phys->comp_ratio && ctl->ops.update_bitmask_periph &&
+			c_conn->ops.update_pps) {
+		c_conn->ops.update_pps(phys->connector, NULL, c_conn->display);
+		ctl->ops.update_bitmask_periph(ctl, phys->hw_intf->idx, 1);
+	}
 
 	if ((extra_flush && extra_flush->pending_flush_mask)
 			&& ctl->ops.update_pending_flush)

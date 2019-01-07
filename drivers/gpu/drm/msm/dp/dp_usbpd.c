@@ -485,6 +485,26 @@ error:
 	return rc;
 }
 
+int dp_usbpd_register(struct dp_hpd *dp_hpd)
+{
+	struct dp_usbpd *dp_usbpd;
+	struct dp_usbpd_private *usbpd;
+	int rc = 0;
+
+	if (!dp_hpd)
+		return -EINVAL;
+
+	dp_usbpd = container_of(dp_hpd, struct dp_usbpd, base);
+
+	usbpd = container_of(dp_usbpd, struct dp_usbpd_private, dp_usbpd);
+
+	rc = usbpd_register_svid(usbpd->pd, &usbpd->svid_handler);
+	if (rc)
+		pr_err("pd registration failed\n");
+
+	return rc;
+}
+
 struct dp_hpd *dp_usbpd_get(struct device *dev, struct dp_hpd_cb *cb)
 {
 	int rc = 0;
@@ -524,17 +544,10 @@ struct dp_hpd *dp_usbpd_get(struct device *dev, struct dp_hpd_cb *cb)
 	usbpd->svid_handler = svid_handler;
 	usbpd->dp_cb = cb;
 
-	rc = usbpd_register_svid(pd, &usbpd->svid_handler);
-	if (rc) {
-		pr_err("pd registration failed\n");
-		rc = -ENODEV;
-		devm_kfree(dev, usbpd);
-		goto error;
-	}
-
 	dp_usbpd = &usbpd->dp_usbpd;
 	dp_usbpd->base.simulate_connect = dp_usbpd_simulate_connect;
 	dp_usbpd->base.simulate_attention = dp_usbpd_simulate_attention;
+	dp_usbpd->base.register_hpd = dp_usbpd_register;
 
 	return &dp_usbpd->base;
 error:

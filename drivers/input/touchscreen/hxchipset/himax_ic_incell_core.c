@@ -1848,7 +1848,7 @@ END_FUNCTION:
 
 static void himax_mcu_esd_ic_reset(void)
 {
-	HX_ESD_RESET_ACTIVATE = 0;
+	HX_ESD_RESET_ACTIVATE = 1;
 #ifdef HX_RST_PIN_FUNC
 	himax_mcu_pin_reset();
 #endif

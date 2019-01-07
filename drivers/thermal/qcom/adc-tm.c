@@ -77,21 +77,24 @@ static int adc_tm_register_tzd(struct adc_tm_chip *adc_tm, int dt_chan_num,
 
 	for (i = 0; i < dt_chan_num; i++) {
 		adc_tm->sensor[i].chip = adc_tm;
-		if (set_trips)
-			tzd = devm_thermal_zone_of_sensor_register(adc_tm->dev,
-				adc_tm->sensor[i].adc_ch, &adc_tm->sensor[i],
-					&adc_tm_ops);
-		else
-			tzd = devm_thermal_zone_of_sensor_register(adc_tm->dev,
-				adc_tm->sensor[i].adc_ch, &adc_tm->sensor[i],
-					&adc_tm_ops_iio);
+		if (!adc_tm->sensor[i].non_thermal) {
+			if (set_trips)
+				tzd = devm_thermal_zone_of_sensor_register(
+					adc_tm->dev, adc_tm->sensor[i].adc_ch,
+					&adc_tm->sensor[i],	&adc_tm_ops);
+			else
+				tzd = devm_thermal_zone_of_sensor_register(
+					adc_tm->dev, adc_tm->sensor[i].adc_ch,
+					&adc_tm->sensor[i], &adc_tm_ops_iio);
 
-		if (IS_ERR(tzd)) {
-			pr_err("Error registering TZ zone:%d for dt_ch:%d\n",
-				PTR_ERR(tzd), adc_tm->sensor[i].adc_ch);
-			continue;
-		}
-		adc_tm->sensor[i].tzd = tzd;
+			if (IS_ERR(tzd)) {
+				pr_err("Error registering TZ zone:%d for dt_ch:%d\n",
+					PTR_ERR(tzd), adc_tm->sensor[i].adc_ch);
+				continue;
+			}
+			adc_tm->sensor[i].tzd = tzd;
+		} else
+			adc_tm->sensor[i].tzd = NULL;
 	}
 
 	return 0;
@@ -126,6 +129,39 @@ static int adc_tm_decimation_from_dt(u32 value, const unsigned int *decimation)
 		if (value == decimation[i])
 			return i;
 	}
+
+	return -EINVAL;
+}
+
+struct adc_tm_chip *get_adc_tm(struct device *dev, const char *name)
+{
+	struct platform_device *pdev;
+	struct adc_tm_chip *chip;
+	struct device_node *node = NULL;
+	char prop_name[MAX_PROP_NAME_LEN];
+
+	snprintf(prop_name, MAX_PROP_NAME_LEN, "qcom,%s-adc_tm", name);
+
+	node = of_parse_phandle(dev->of_node, prop_name, 0);
+	if (node == NULL)
+		return ERR_PTR(-ENODEV);
+
+	list_for_each_entry(chip, &adc_tm_device_list, list) {
+		pdev = to_platform_device(chip->dev);
+		if (pdev->dev.of_node == node)
+			return chip;
+	}
+	return ERR_PTR(-EPROBE_DEFER);
+}
+EXPORT_SYMBOL(get_adc_tm);
+
+int adc_tm_is_valid(struct adc_tm_chip *chip)
+{
+	struct adc_tm_chip *adc_tm_chip = NULL;
+
+	list_for_each_entry(adc_tm_chip, &adc_tm_device_list, list)
+		if (chip == adc_tm_chip)
+			return 0;
 
 	return -EINVAL;
 }
@@ -195,9 +231,11 @@ static int adc_tm_get_dt_data(struct platform_device *pdev,
 	adc_tm->prop.timer3 = ADC_TM_TIMER3;
 
 	for_each_child_of_node(node, child) {
-		int channel_num, i = 0;
+		int channel_num, i = 0, adc_rscale_fn = 0;
 		int calib_type = 0, ret, hw_settle_time = 0;
+		int prescal = 0;
 		struct iio_channel *chan_adc;
+		bool non_thermal = false;
 
 		ret = of_property_read_u32(child, "reg", &channel_num);
 		if (ret) {
@@ -224,12 +262,39 @@ static int adc_tm_get_dt_data(struct platform_device *pdev,
 		else
 			calib_type = ADC_ABS_CAL;
 
+		if (of_property_read_bool(child, "qcom,kernel-client"))
+			non_thermal = true;
+
+		ret = of_property_read_u32(child, "qcom,scale-type",
+							&adc_rscale_fn);
+		if (ret)
+			adc_rscale_fn = SCALE_RSCALE_NONE;
+
+		ret = of_property_read_u32(child, "qcom,prescaling", &prescal);
+		if (ret)
+			prescal = 1;
+
 		/* Individual channel properties */
 		adc_tm->sensor[idx].adc_ch = channel_num;
 		adc_tm->sensor[idx].cal_sel = calib_type;
 		/* Default to 1 second timer select */
 		adc_tm->sensor[idx].timer_select = ADC_TIMER_SEL_2;
 		adc_tm->sensor[idx].hw_settle_time = hw_settle_time;
+		adc_tm->sensor[idx].adc_rscale_fn = adc_rscale_fn;
+		adc_tm->sensor[idx].non_thermal = non_thermal;
+		adc_tm->sensor[idx].prescaling = prescal;
+
+		if (adc_tm->sensor[idx].non_thermal) {
+			adc_tm->sensor[idx].req_wq = alloc_workqueue(
+				"qpnp_adc_notify_wq", WQ_HIGHPRI, 0);
+			if (!adc_tm->sensor[idx].req_wq) {
+				pr_err("Requesting priority wq failed\n");
+				return -ENOMEM;
+			}
+			INIT_WORK(&adc_tm->sensor[idx].work, notify_adc_tm_fn);
+		}
+		INIT_LIST_HEAD(&adc_tm->sensor[idx].thr_list);
+
 		while (i < dt_chan_num) {
 			chan_adc = &chan[i];
 			if (chan_adc->channel->channel == channel_num)
@@ -249,7 +314,7 @@ static int adc_tm_probe(struct platform_device *pdev)
 	struct adc_tm_chip *adc_tm;
 	struct regmap *regmap;
 	struct iio_channel *channels;
-	int ret, dt_chan_num = 0, indio_chan_count = 0;
+	int ret = 0, dt_chan_num = 0, indio_chan_count = 0, i = 0;
 	u32 reg;
 
 	if (!node)
@@ -313,7 +378,7 @@ static int adc_tm_probe(struct platform_device *pdev)
 		ret = adc_tm_register_tzd(adc_tm, dt_chan_num, false);
 		if (ret) {
 			dev_err(dev, "adc-tm failed to register with of thermal\n");
-			return ret;
+			goto fail;
 		}
 		return 0;
 	}
@@ -321,25 +386,32 @@ static int adc_tm_probe(struct platform_device *pdev)
 	ret = adc_tm_init(adc_tm, dt_chan_num);
 	if (ret) {
 		dev_err(dev, "adc-tm init failed\n");
-		return ret;
+		goto fail;
 	}
 
 	ret = adc_tm_register_tzd(adc_tm, dt_chan_num, true);
 	if (ret) {
 		dev_err(dev, "adc-tm failed to register with of thermal\n");
-		return ret;
+		goto fail;
 	}
 
 	ret = adc_tm_register_interrupts(adc_tm);
 	if (ret) {
 		pr_err("adc-tm register interrupts failed:%d\n", ret);
-		return ret;
+		goto fail;
 	}
 
 	list_add_tail(&adc_tm->list, &adc_tm_device_list);
 	platform_set_drvdata(pdev, adc_tm);
-
 	return 0;
+fail:
+	i = 0;
+	while (i < dt_chan_num) {
+		if (adc_tm->sensor[i].req_wq)
+			destroy_workqueue(adc_tm->sensor[i].req_wq);
+		i++;
+	}
+	return ret;
 }
 
 static int adc_tm_remove(struct platform_device *pdev)

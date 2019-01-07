@@ -365,28 +365,37 @@
 				reg = <0>;
 				funnel_modem_out_funnel_in1: endpoint {
 					remote-endpoint =
-					    <&funnel_in1_in_funnel_modem>;
+					<&funnel_in1_in_funnel_modem>;
 				};
 			};
 
 			port@1 {
 				reg = <0>;
-				funnel_modem_in_tpda_modem: endpoint {
+				funnel_modem_in_tpda_modem_0: endpoint {
 					slave-mode;
 					remote-endpoint =
-						<&tpda_modem_out_funnel_modem>;
+					<&tpda_modem_0_out_funnel_modem>;
+				};
+			};
+
+			port@2 {
+				reg = <1>;
+				funnel_modem_in_tpda_modem_1: endpoint {
+					slave-mode;
+					remote-endpoint =
+					<&tpda_modem_1_out_funnel_modem>;
 				};
 			};
 		};
 	};
 
-	tpda_modem: tpda@6831000 {
+	tpda_modem0: tpda@6831000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b969>;
 		reg = <0x6831000 0x1000>;
 		reg-names = "tpda-base";
 
-		coresight-name = "coresight-tpda-modem";
+		coresight-name = "coresight-tpda-modem-0";
 
 		qcom,tpda-atid = <67>;
 		qcom,dsb-elem-size = <0 32>;
@@ -400,24 +409,61 @@
 			#size-cells = <0>;
 			port@0 {
 				reg = <0>;
-				tpda_modem_out_funnel_modem: endpoint {
+				tpda_modem_0_out_funnel_modem: endpoint {
 					remote-endpoint =
-						<&funnel_modem_in_tpda_modem>;
+						<&funnel_modem_in_tpda_modem_0>;
 				};
 			};
 
 			port@1 {
 				reg = <0>;
-				tpda_modem_in_tpdm_modem: endpoint {
+				tpda_modem_0_in_tpdm_modem_0: endpoint {
 					slave-mode;
 					remote-endpoint =
-						<&tpdm_modem_out_tpda_modem>;
+					    <&tpdm_modem_0_out_tpda_modem_0>;
 				};
 			};
 		};
 	};
 
-	tpdm_modem: tpdm@6830000 {
+	tpda_modem1: tpda@6833000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b969>;
+		reg = <0x6833000 0x1000>;
+		reg-names = "tpda-base";
+
+		coresight-name = "coresight-tpda-modem-1";
+
+		qcom,tpda-atid = <98>;
+		qcom,dsb-elem-size = <0 32>;
+		qcom,cmb-elem-size = <0 64>;
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				tpda_modem_1_out_funnel_modem: endpoint {
+					remote-endpoint =
+					<&funnel_modem_in_tpda_modem_1>;
+				};
+			};
+
+			port@1 {
+				reg = <0>;
+				tpda_modem_1_in_tpdm_modem_1: endpoint {
+					slave-mode;
+					remote-endpoint =
+					<&tpdm_modem_1_out_tpda_modem_1>;
+				};
+			};
+		};
+	};
+
+	tpdm_modem0: tpdm@6830000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b968>;
 		reg = <0x6830000 0x1000>;
@@ -429,8 +475,29 @@
 		clock-names = "apb_pclk";
 
 		port {
-			tpdm_modem_out_tpda_modem: endpoint {
-				remote-endpoint = <&tpda_modem_in_tpdm_modem>;
+			tpdm_modem_0_out_tpda_modem_0: endpoint {
+				remote-endpoint =
+				<&tpda_modem_0_in_tpdm_modem_0>;
+			};
+		};
+	};
+
+	tpdm_modem1: tpdm@6834000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b968>;
+		reg = <0x6834000 0x1000>;
+		reg-names = "tpdm-base";
+
+		coresight-name =
+			"coresight-tpdm-u_modem.u_modem_tp.u_tpdm";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+
+		port {
+			tpdm_modem_1_out_tpda_modem_1: endpoint {
+				remote-endpoint =
+				<&tpda_modem_1_in_tpdm_modem_1>;
 			};
 		};
 	};

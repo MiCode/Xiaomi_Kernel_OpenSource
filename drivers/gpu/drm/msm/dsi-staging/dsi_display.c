@@ -388,6 +388,7 @@ static irqreturn_t dsi_display_panel_te_irq_handler(int irq, void *data)
 	if (!display)
 		return IRQ_HANDLED;
 
+	SDE_EVT32(SDE_EVTLOG_FUNC_CASE1);
 	complete_all(&display->esd_te_gate);
 	return IRQ_HANDLED;
 }
@@ -1265,6 +1266,10 @@ static ssize_t debugfs_esd_trigger_check(struct file *file,
 	if (!user_len || !user_buf)
 		return -EINVAL;
 
+	if (!display->panel ||
+		atomic_read(&display->panel->esd_recovery_pending))
+		return user_len;
+
 	buf = kzalloc(user_len, GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
@@ -1620,7 +1625,6 @@ static int dsi_display_is_ulps_req_valid(struct dsi_display *display,
 		bool enable)
 {
 	/* TODO: make checks based on cont. splash */
-	int splash_enabled = false;
 
 	pr_debug("checking ulps req validity\n");
 
@@ -1654,7 +1658,7 @@ static int dsi_display_is_ulps_req_valid(struct dsi_display *display,
 	 * boot animation since it is expected that the clocks would be turned
 	 * right back on.
 	 */
-	if (enable && splash_enabled)
+	if (enable && display->is_cont_splash_enabled)
 		return false;
 
 	return true;
@@ -1689,40 +1693,60 @@ static int dsi_display_set_ulps(struct dsi_display *display, bool enable)
 	}
 
 	m_ctrl = &display->ctrl[display->cmd_master_idx];
-
-	rc = dsi_ctrl_set_ulps(m_ctrl->ctrl, enable);
-	if (rc) {
-		pr_err("Ulps controller state change(%d) failed\n", enable);
-		return rc;
-	}
+	/*
+	 * ULPS entry-exit can be either through the DSI controller or
+	 * the DSI PHY depending on hardware variation. For some chipsets,
+	 * both controller version and phy version ulps entry-exit ops can
+	 * be present. To handle such cases, send ulps request through PHY,
+	 * if ulps request is handled in PHY, then no need to send request
+	 * through controller.
+	 */
 
 	rc = dsi_phy_set_ulps(m_ctrl->phy, &display->config, enable,
-				display->clamp_enabled);
-	if (rc) {
+			display->clamp_enabled);
+
+	if (rc == DSI_PHY_ULPS_ERROR) {
 		pr_err("Ulps PHY state change(%d) failed\n", enable);
-		return rc;
+		return -EINVAL;
 	}
 
-	display_for_each_ctrl(i, display) {
-		ctrl = &display->ctrl[i];
-		if (!ctrl->ctrl || (ctrl == m_ctrl))
-			continue;
+	else if (rc == DSI_PHY_ULPS_HANDLED) {
+		display_for_each_ctrl(i, display) {
+			ctrl = &display->ctrl[i];
+			if (!ctrl->ctrl || (ctrl == m_ctrl))
+				continue;
 
-		rc = dsi_ctrl_set_ulps(ctrl->ctrl, enable);
+			rc = dsi_phy_set_ulps(ctrl->phy, &display->config,
+					enable, display->clamp_enabled);
+			if (rc == DSI_PHY_ULPS_ERROR) {
+				pr_err("Ulps PHY state change(%d) failed\n",
+						enable);
+				return -EINVAL;
+			}
+		}
+	}
+
+	else if (rc == DSI_PHY_ULPS_NOT_HANDLED) {
+		rc = dsi_ctrl_set_ulps(m_ctrl->ctrl, enable);
 		if (rc) {
 			pr_err("Ulps controller state change(%d) failed\n",
-				enable);
+					enable);
 			return rc;
 		}
+		display_for_each_ctrl(i, display) {
+			ctrl = &display->ctrl[i];
+			if (!ctrl->ctrl || (ctrl == m_ctrl))
+				continue;
 
-		rc = dsi_phy_set_ulps(ctrl->phy, &display->config, enable,
-					display->clamp_enabled);
-		if (rc) {
-			pr_err("Ulps PHY state change(%d) failed\n", enable);
-			return rc;
+			rc = dsi_ctrl_set_ulps(ctrl->ctrl, enable);
+			if (rc) {
+				pr_err("Ulps controller state change(%d) failed\n",
+						enable);
+				return rc;
+			}
 		}
-
 	}
+
 	display->ulps_enabled = enable;
 	return 0;
 }
@@ -3870,7 +3894,7 @@ static int dsi_display_get_dfps_timing(struct dsi_display *display,
 		rc = dsi_display_dfps_calc_front_porch(
 				curr_refresh_rate,
 				timing->refresh_rate,
-				DSI_H_TOTAL(timing),
+				DSI_H_TOTAL_DSC(timing),
 				DSI_V_TOTAL(timing),
 				timing->v_front_porch,
 				&adj_mode->timing.v_front_porch);
@@ -3881,7 +3905,7 @@ static int dsi_display_get_dfps_timing(struct dsi_display *display,
 				curr_refresh_rate,
 				timing->refresh_rate,
 				DSI_V_TOTAL(timing),
-				DSI_H_TOTAL(timing),
+				DSI_H_TOTAL_DSC(timing),
 				timing->h_front_porch,
 				&adj_mode->timing.h_front_porch);
 		if (!rc)
@@ -5474,7 +5498,7 @@ int dsi_display_get_modes(struct dsi_display *display,
 					sub_mode, curr_refresh_rate);
 
 				sub_mode->pixel_clk_khz =
-					(DSI_H_TOTAL(&sub_mode->timing) *
+					(DSI_H_TOTAL_DSC(&sub_mode->timing) *
 					DSI_V_TOTAL(&sub_mode->timing) *
 					sub_mode->timing.refresh_rate) / 1000;
 			}
@@ -5659,8 +5683,8 @@ int dsi_display_validate_mode_vrr(struct dsi_display *display,
 			break;
 
 		case DSI_DFPS_IMMEDIATE_HFP:
-			if (abs(DSI_H_TOTAL(&cur_mode.timing) -
-				DSI_H_TOTAL(&adj_mode.timing)) > 5)
+			if (abs(DSI_H_TOTAL_DSC(&cur_mode.timing) -
+				DSI_H_TOTAL_DSC(&adj_mode.timing)) > 5)
 				pr_err("Mismatch hfp fps:%d new:%d given:%d\n",
 				adj_mode.timing.refresh_rate,
 				cur_mode.timing.h_front_porch,

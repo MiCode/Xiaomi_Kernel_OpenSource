@@ -70,7 +70,9 @@ struct flow_info {
 struct qmi_info {
 	int flag;
 	void *wda_client;
+	void *wda_pending;
 	void *dfc_clients[MAX_CLIENT_NUM];
+	void *dfc_pending[MAX_CLIENT_NUM];
 	unsigned long ps_work_active;
 	int ps_enabled;
 };
@@ -105,7 +107,8 @@ qmi_rmnet_get_bearer_map(struct qos_info *qos_info, u8 bearer_id);
 
 unsigned int qmi_rmnet_grant_per(unsigned int grant);
 
-int dfc_qmi_client_init(void *port, int index, struct svc_info *psvc);
+int dfc_qmi_client_init(void *port, int index, struct svc_info *psvc,
+			struct qmi_info *qmi);
 
 void dfc_qmi_client_exit(void *dfc_data);
 
@@ -132,7 +135,8 @@ qmi_rmnet_get_bearer_map(struct qos_info *qos_info, u8 bearer_id)
 }
 
 static inline int
-dfc_qmi_client_init(void *port, int index, struct svc_info *psvc)
+dfc_qmi_client_init(void *port, int index, struct svc_info *psvc,
+		    struct qmi_info *qmi)
 {
 	return -EINVAL;
 }
@@ -159,11 +163,13 @@ dfc_qmi_query_flow(void *dfc_data)
 #endif
 
 #ifdef CONFIG_QCOM_QMI_POWER_COLLAPSE
-int wda_qmi_client_init(void *port, struct svc_info *psvc);
+int
+wda_qmi_client_init(void *port, struct svc_info *psvc, struct qmi_info *qmi);
 void wda_qmi_client_exit(void *wda_data);
 int wda_set_powersave_mode(void *wda_data, u8 enable);
 #else
-static inline int wda_qmi_client_init(void *port, struct svc_info *psvc)
+static inline int
+wda_qmi_client_init(void *port, struct svc_info *psvc, struct qmi_info *qmi)
 {
 	return -EINVAL;
 }

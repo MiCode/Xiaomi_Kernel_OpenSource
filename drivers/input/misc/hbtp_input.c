@@ -1,5 +1,5 @@
 
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -856,7 +856,7 @@ static const struct file_operations hbtp_input_fops = {
 #ifdef CONFIG_OF
 static int hbtp_parse_dt(struct device *dev)
 {
-	int rc, size;
+	int rc, size, en_gpio;
 	struct device_node *np = dev->of_node;
 	struct property *prop;
 	u32 temp_val;
@@ -1019,6 +1019,23 @@ static int hbtp_parse_dt(struct device *dev)
 
 	}
 
+	/*
+	 * "qcom,platform-en-gpio" is optinal.
+	 * But if it is defined in dtsi, should check the GPIO value
+	 * to continue the probe function or not.
+	 */
+	en_gpio = of_get_named_gpio(np, "qcom,platform-en-gpio", 0);
+	if (gpio_is_valid(en_gpio)) {
+		rc = gpio_request(en_gpio, "qcom,platform-en-gpio");
+		if (!rc) {
+			rc = gpio_direction_input(en_gpio);
+			if (!rc && gpio_get_value(en_gpio)) {
+				gpio_free(en_gpio);
+				return -EINVAL;
+			}
+			gpio_free(en_gpio);
+		}
+	}
 	return 0;
 }
 #else
@@ -1319,7 +1336,11 @@ static int hbtp_pdev_probe(struct platform_device *pdev)
 	if (pdev->dev.of_node) {
 		error = hbtp_parse_dt(&pdev->dev);
 		if (error) {
-			pr_err("%s: parse dt failed, rc=%d\n", __func__, error);
+			pr_debug("%s: parse dt failed, rc=%d\n", __func__,
+					error);
+			sysfs_remove_bin_file(sensor_kobject, &vibdata_attr);
+			sysfs_remove_bin_file(sensor_kobject, &capdata_attr);
+			kobject_put(sensor_kobject);
 			return error;
 		}
 	}

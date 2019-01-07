@@ -128,6 +128,15 @@ void convert_to_drm_mode(const struct dp_display_mode *dp_mode,
 				struct drm_display_mode *drm_mode);
 
 /**
+ * dp_connector_update_pps - update pps for given connector
+ * @dp_mode: Point to dp mode
+ * @pps_cmd: PPS packet
+ * @display: Pointer to private display structure
+ */
+int dp_connector_update_pps(struct drm_connector *connector,
+		char *pps_cmd, void *display);
+
+/**
  * dp_mst_drm_bridge_init - initialize mst bridge
  * @display: Pointer to private display structure
  * @encoder: Pointer to encoder for mst bridge mapping

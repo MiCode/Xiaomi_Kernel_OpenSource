@@ -446,7 +446,7 @@ enum MHI_PM_STATE {
 #define MHI_PM_IN_FATAL_STATE(pm_state) (pm_state == MHI_PM_LD_ERR_FATAL_DETECT)
 #define MHI_DB_ACCESS_VALID(pm_state) (pm_state & MHI_PM_M0)
 #define MHI_WAKE_DB_CLEAR_VALID(pm_state) (pm_state & (MHI_PM_M0 | \
-						       MHI_PM_M2))
+						MHI_PM_M2 | MHI_PM_M3_EXIT))
 #define MHI_WAKE_DB_SET_VALID(pm_state) (pm_state & MHI_PM_M2)
 #define MHI_WAKE_DB_FORCE_SET_VALID(pm_state) MHI_WAKE_DB_CLEAR_VALID(pm_state)
 #define MHI_EVENT_ACCESS_INVALID(pm_state) (pm_state == MHI_PM_DISABLE || \
@@ -488,6 +488,13 @@ enum mhi_ch_ee_mask {
 	MHI_CH_EE_PTHRU = BIT(MHI_EE_PTHRU),
 	MHI_CH_EE_WFW = BIT(MHI_EE_WFW),
 	MHI_CH_EE_EDL = BIT(MHI_EE_EDL),
+};
+
+enum mhi_ch_type {
+	MHI_CH_TYPE_INVALID = 0,
+	MHI_CH_TYPE_OUTBOUND = DMA_TO_DEVICE,
+	MHI_CH_TYPE_INBOUND = DMA_FROM_DEVICE,
+	MHI_CH_TYPE_INBOUND_COALESCED = 3,
 };
 
 struct db_cfg {
@@ -583,6 +590,7 @@ struct mhi_chan {
 	struct mhi_ring tre_ring;
 	u32 er_index;
 	u32 intmod;
+	enum mhi_ch_type type;
 	enum dma_data_direction dir;
 	struct db_cfg db_cfg;
 	u32 ee_mask;
@@ -594,6 +602,7 @@ struct mhi_chan {
 	bool offload_ch;
 	bool pre_alloc;
 	bool auto_start;
+	bool wake_capable; /* channel should wake up system */
 	/* functions that generate the transfer ring elements */
 	int (*gen_tre)(struct mhi_controller *, struct mhi_chan *, void *,
 		       void *, size_t, enum MHI_FLAGS);

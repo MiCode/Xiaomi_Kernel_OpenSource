@@ -143,15 +143,6 @@ static void rmnet_map_process_flow_start(struct sk_buff *skb,
 	port->stats.dl_hdr_total_pkts += port->stats.dl_hdr_last_pkts;
 	port->stats.dl_hdr_count++;
 
-	if (unlikely(!(port->stats.dl_hdr_count)))
-		port->stats.dl_hdr_count = 1;
-
-	port->stats.dl_hdr_avg_bytes = port->stats.dl_hdr_total_bytes /
-				       port->stats.dl_hdr_count;
-
-	port->stats.dl_hdr_avg_pkts = port->stats.dl_hdr_total_pkts /
-				      port->stats.dl_hdr_count;
-
 	rmnet_map_dl_hdr_notify(port, dlhdr);
 	if (rmnet_perf) {
 		unsigned int pull_size;

@@ -198,6 +198,8 @@ static void sde_hw_intf_setup_timing_engine(struct sde_hw_intf *ctx,
 	u32 polarity_ctl, den_polarity, hsync_polarity, vsync_polarity;
 	u32 panel_format;
 	u32 intf_cfg, intf_cfg2;
+	u32 display_data_hctl = 0, active_data_hctl = 0;
+	bool dp_intf = false;
 
 	/* read interface_cfg */
 	intf_cfg = SDE_REG_READ(c, INTF_CONFIG);
@@ -211,13 +213,11 @@ static void sde_hw_intf_setup_timing_engine(struct sde_hw_intf *ctx,
 	display_v_end = ((vsync_period - p->v_front_porch) * hsync_period) +
 	p->hsync_skew - 1;
 
-	if (ctx->cap->type == INTF_EDP || ctx->cap->type == INTF_DP) {
-		display_v_start += p->hsync_pulse_width + p->h_back_porch;
-		display_v_end -= p->h_front_porch;
-	}
-
 	hsync_start_x = p->h_back_porch + p->hsync_pulse_width;
 	hsync_end_x = hsync_period - p->h_front_porch - 1;
+
+	if (ctx->cap->type == INTF_EDP || ctx->cap->type == INTF_DP)
+		dp_intf = true;
 
 	if (p->width != p->xres) {
 		active_h_start = hsync_start_x;
@@ -248,6 +248,29 @@ static void sde_hw_intf_setup_timing_engine(struct sde_hw_intf *ctx,
 	hsync_ctl = (hsync_period << 16) | p->hsync_pulse_width;
 	display_hctl = (hsync_end_x << 16) | hsync_start_x;
 
+	if (dp_intf) {
+		active_h_start = hsync_start_x;
+		active_h_end = active_h_start + p->xres - 1;
+		active_v_start = display_v_start;
+		active_v_end = active_v_start + (p->yres * hsync_period) - 1;
+
+		display_v_start += p->hsync_pulse_width + p->h_back_porch;
+
+		active_hctl = (active_h_end << 16) | active_h_start;
+		display_hctl = active_hctl;
+	}
+
+	intf_cfg2 = 0;
+
+	if (dp_intf && p->compression_en) {
+		active_data_hctl = (hsync_start_x + p->extra_dto_cycles) << 16;
+		active_data_hctl += hsync_start_x;
+
+		display_data_hctl = active_data_hctl;
+
+		intf_cfg2 |= BIT(4);
+	}
+
 	den_polarity = 0;
 	if (ctx->cap->type == INTF_HDMI) {
 		hsync_polarity = p->yres >= 720 ? 0 : 1;
@@ -272,7 +295,6 @@ static void sde_hw_intf_setup_timing_engine(struct sde_hw_intf *ctx,
 				(COLOR_8BIT << 4) |
 				(0x21 << 8));
 
-	intf_cfg2 = 0;
 	if (p->wide_bus_en)
 		intf_cfg2 |= BIT(0);
 
@@ -294,6 +316,8 @@ static void sde_hw_intf_setup_timing_engine(struct sde_hw_intf *ctx,
 	SDE_REG_WRITE(c, INTF_CONFIG, intf_cfg);
 	SDE_REG_WRITE(c, INTF_PANEL_FORMAT, panel_format);
 	SDE_REG_WRITE(c, INTF_CONFIG2, intf_cfg2);
+	SDE_REG_WRITE(c, INTF_DISPLAY_DATA_HCTL, display_data_hctl);
+	SDE_REG_WRITE(c, INTF_ACTIVE_DATA_HCTL, active_data_hctl);
 }
 
 static void sde_hw_intf_enable_timing_engine(
