@@ -68,6 +68,7 @@ struct glink_ssr {
 
 	u32 seq_num;
 	struct completion completion;
+	struct work_struct unreg_work;
 };
 
 struct edge_info {
@@ -85,6 +86,20 @@ struct edge_info {
 };
 LIST_HEAD(edge_infos);
 
+static void glink_ssr_ssr_unreg_work(struct work_struct *work)
+{
+	struct glink_ssr *ssr = container_of(work, struct glink_ssr,
+					     unreg_work);
+	struct glink_ssr_nb *nb, *tmp;
+
+	list_for_each_entry_safe(nb, tmp, &ssr->notify_list, list) {
+		subsys_notif_unregister_notifier(nb->ssr_register_handle,
+						 &nb->nb);
+		kfree(nb);
+	}
+	kfree(ssr);
+}
+
 static int glink_ssr_ssr_cb(struct notifier_block *this,
 			    unsigned long code, void *data)
 {
@@ -93,6 +108,9 @@ static int glink_ssr_ssr_cb(struct notifier_block *this,
 	struct device *dev = ssr->dev;
 	struct do_cleanup_msg msg;
 	int ret;
+
+	if (!dev || !ssr->ept)
+		return NOTIFY_DONE;
 
 	if (code == SUBSYS_AFTER_SHUTDOWN) {
 		ssr->seq_num++;
@@ -169,7 +187,7 @@ static void glink_ssr_init_notify(struct glink_ssr *ssr)
 		if (!node)
 			break;
 
-		nb = devm_kzalloc(dev, sizeof(*nb), GFP_KERNEL);
+		nb = kzalloc(sizeof(*nb), GFP_KERNEL);
 		if (!nb)
 			return;
 
@@ -182,6 +200,7 @@ static void glink_ssr_init_notify(struct glink_ssr *ssr)
 		if (ret < 0) {
 			GLINK_ERR(dev, "no qcom,glink-label for %s\n",
 				  nb->ssr_label);
+			kfree(nb);
 			continue;
 		}
 
@@ -193,6 +212,7 @@ static void glink_ssr_init_notify(struct glink_ssr *ssr)
 		if (IS_ERR_OR_NULL(handle)) {
 			GLINK_ERR(dev, "register fail for %s SSR notifier\n",
 				  nb->ssr_label);
+			kfree(nb);
 			continue;
 		}
 
@@ -205,12 +225,13 @@ static int glink_ssr_probe(struct rpmsg_device *rpdev)
 {
 	struct glink_ssr *ssr;
 
-	ssr = devm_kzalloc(&rpdev->dev, sizeof(*ssr), GFP_KERNEL);
+	ssr = kzalloc(sizeof(*ssr), GFP_KERNEL);
 	if (!ssr)
 		return -ENOMEM;
 
 	INIT_LIST_HEAD(&ssr->notify_list);
 	init_completion(&ssr->completion);
+	INIT_WORK(&ssr->unreg_work, glink_ssr_ssr_unreg_work);
 
 	ssr->dev = &rpdev->dev;
 	ssr->ept = rpdev->ept;
@@ -225,14 +246,12 @@ static int glink_ssr_probe(struct rpmsg_device *rpdev)
 static void glink_ssr_remove(struct rpmsg_device *rpdev)
 {
 	struct glink_ssr *ssr = dev_get_drvdata(&rpdev->dev);
-	struct glink_ssr_nb *nb;
 
-	list_for_each_entry(nb, &ssr->notify_list, list) {
-		subsys_notif_unregister_notifier(nb->ssr_register_handle,
-						 &nb->nb);
-	}
-
+	ssr->dev = NULL;
+	ssr->ept = NULL;
 	dev_set_drvdata(&rpdev->dev, NULL);
+
+	schedule_work(&ssr->unreg_work);
 }
 
 static const struct rpmsg_device_id glink_ssr_match[] = {
