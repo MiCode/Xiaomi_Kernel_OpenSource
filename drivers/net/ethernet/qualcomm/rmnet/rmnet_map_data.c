@@ -59,14 +59,14 @@ rmnet_map_ipv4_dl_csum_trailer(struct sk_buff *skb,
 	void *txporthdr;
 	__be16 addend;
 
-	ip4h = (struct iphdr *)(skb->data);
+	ip4h = (struct iphdr *)rmnet_map_data_ptr(skb);
 	if ((ntohs(ip4h->frag_off) & IP_MF) ||
 	    ((ntohs(ip4h->frag_off) & IP_OFFSET) > 0)) {
 		priv->stats.csum_fragmented_pkt++;
 		return -EOPNOTSUPP;
 	}
 
-	txporthdr = skb->data + ip4h->ihl * 4;
+	txporthdr = rmnet_map_data_ptr(skb) + ip4h->ihl * 4;
 
 	csum_field = rmnet_map_get_csum_field(ip4h->protocol, txporthdr);
 
@@ -130,12 +130,12 @@ rmnet_map_ipv6_dl_csum_trailer(struct sk_buff *skb,
 	u16 csum_value, csum_value_final;
 	__be16 ip6_hdr_csum, addend;
 	struct ipv6hdr *ip6h;
-	void *txporthdr;
+	void *txporthdr, *data = rmnet_map_data_ptr(skb);
 	u32 length;
 
-	ip6h = (struct ipv6hdr *)(skb->data);
+	ip6h = data;
 
-	txporthdr = skb->data + sizeof(struct ipv6hdr);
+	txporthdr = data + sizeof(struct ipv6hdr);
 	csum_field = rmnet_map_get_csum_field(ip6h->nexthdr, txporthdr);
 
 	if (!csum_field) {
@@ -146,7 +146,7 @@ rmnet_map_ipv6_dl_csum_trailer(struct sk_buff *skb,
 	csum_value = ~ntohs(csum_trailer->csum_value);
 	ip6_hdr_csum = (__force __be16)
 			~ntohs((__force __be16)ip_compute_csum(ip6h,
-			       (int)(txporthdr - (void *)(skb->data))));
+			       (int)(txporthdr - data)));
 	ip6_payload_csum = csum16_sub((__force __sum16)csum_value,
 				      ip6_hdr_csum);
 
@@ -319,12 +319,13 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 {
 	struct rmnet_map_header *maph;
 	struct sk_buff *skbn;
+	unsigned char *data = rmnet_map_data_ptr(skb);
 	u32 packet_len;
 
 	if (skb->len == 0)
 		return NULL;
 
-	maph = (struct rmnet_map_header *)skb->data;
+	maph = (struct rmnet_map_header *)data;
 	packet_len = ntohs(maph->pkt_len) + sizeof(struct rmnet_map_header);
 
 	if (port->data_format & RMNET_FLAGS_INGRESS_MAP_CKSUMV4)
@@ -337,14 +338,30 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 	if (ntohs(maph->pkt_len) == 0)
 		return NULL;
 
-	skbn = alloc_skb(packet_len + RMNET_MAP_DEAGGR_SPACING, GFP_ATOMIC);
-	if (!skbn)
-		return NULL;
+	if (skb_is_nonlinear(skb)) {
+		skb_frag_t *frag0 = skb_shinfo(skb)->frags;
+		struct page *page = skb_frag_page(frag0);
 
-	skb_reserve(skbn, RMNET_MAP_DEAGGR_HEADROOM);
-	skb_put(skbn, packet_len);
-	memcpy(skbn->data, skb->data, packet_len);
-	skb_pull(skb, packet_len);
+		skbn = alloc_skb(RMNET_MAP_DEAGGR_HEADROOM, GFP_ATOMIC);
+		if (!skbn)
+			return NULL;
+
+		skb_append_pagefrags(skbn, page, frag0->page_offset,
+				     packet_len);
+		skbn->data_len += packet_len;
+		skbn->len += packet_len;
+	} else {
+		skbn = alloc_skb(packet_len + RMNET_MAP_DEAGGR_SPACING,
+				 GFP_ATOMIC);
+		if (!skbn)
+			return NULL;
+
+		skb_reserve(skbn, RMNET_MAP_DEAGGR_HEADROOM);
+		skb_put(skbn, packet_len);
+		memcpy(skbn->data, data, packet_len);
+	}
+
+	pskb_pull(skb, packet_len);
 
 	return skbn;
 }
@@ -365,7 +382,8 @@ int rmnet_map_checksum_downlink_packet(struct sk_buff *skb, u16 len)
 		return -EOPNOTSUPP;
 	}
 
-	csum_trailer = (struct rmnet_map_dl_csum_trailer *)(skb->data + len);
+	csum_trailer = (struct rmnet_map_dl_csum_trailer *)
+		       (rmnet_map_data_ptr(skb) + len);
 
 	if (!csum_trailer->valid) {
 		priv->stats.csum_valid_unset++;
