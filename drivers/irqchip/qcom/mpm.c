@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -609,6 +609,10 @@ static const struct of_device_id mpm_gic_chip_data_table[] = {
 		.compatible = "qcom,mpm-gic-qcs405",
 		.data = mpm_qcs405_gic_chip_data,
 	},
+	{
+		.compatible = "qcom,mpm-gic-trinket",
+		.data = mpm_trinket_gic_chip_data,
+	},
 	{}
 };
 MODULE_DEVICE_TABLE(of, mpm_gic_chip_data_table);
@@ -621,6 +625,10 @@ static const struct of_device_id mpm_gpio_chip_data_table[] = {
 	{
 		.compatible = "qcom,mpm-gpio-qcs405",
 		.data = mpm_qcs405_gpio_chip_data,
+	},
+	{
+		.compatible = "qcom,mpm-gpio-trinket",
+		.data = mpm_trinket_gpio_chip_data,
 	},
 	{}
 };
