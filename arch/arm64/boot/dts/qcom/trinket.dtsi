@@ -1596,6 +1596,52 @@
 		};
 	};
 
+	qcom_seecom: qseecom@46d00000 {
+		compatible = "qcom,qseecom";
+		reg = <0x46d00000 0x2200000>;
+		reg-names = "secapp-region";
+		memory-region = <&qseecom_mem>;
+		qcom,hlos-num-ce-hw-instances = <1>;
+		qcom,hlos-ce-hw-instance = <0>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,disk-encrypt-pipe-pair = <2>;
+		qcom,support-fde;
+		qcom,no-clock-support;
+		qcom,fde-key-size;
+		qcom,appsbl-qseecom-support;
+		qcom,commonlib64-loaded-by-uefi;
+		qcom,qsee-reentrancy-support = <2>;
+	};
+
+	qcom_smcinvoke: smcinvoke@46d00000 {
+		compatible = "qcom,smcinvoke";
+		reg = <0x46d00000 0x2200000>;
+		reg-names = "secapp-region";
+	};
+
+	qcom_rng: qrng@1b53000 {
+		compatible = "qcom,msm-rng";
+		reg = <0x1b53000 0x1000>;
+		qcom,msm-rng-iface-clk;
+		qcom,no-qrng-config;
+		qcom,msm-bus,name = "msm-rng-noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<1 618 0 0>,    /* No vote */
+			<1 618 0 300000>;  /* 75 MHz */
+		clocks = <&clock_gcc GCC_PRNG_AHB_CLK>;
+		clock-names = "iface_clk";
+	};
+
+	qcom_tzlog: tz-log@0c125720 {
+		compatible = "qcom,tz-log";
+		reg = <0x0c125720 0x3000>;
+		qcom,hyplog-enabled;
+		hyplog-address-offset = <0x410>;
+		hyplog-size-offset = <0x414>;
+	};
+
 	spmi_bus: qcom,spmi@1c40000 {
 		compatible = "qcom,spmi-pmic-arb";
 		reg = <0x1c40000 0x1100>,
