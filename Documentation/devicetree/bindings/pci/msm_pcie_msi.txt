@@ -26,9 +26,15 @@
 	Value type: <prop-encoded-array>
 	Definition: Array of tuples which describe interrupt lines for PCIe MSI
 
+-qcom,snps:
+	Usage: optional
+	Value type: <bool>
+	Definition: Set if interrupt controller is Synopsys instead of QGIC
+
 =======
 Example
 =======
+/* QGIC */
 pci_msi: qcom,pci_msi {
 	compatible = "qcom,pci-msi";
 	msi-controller;
@@ -66,4 +72,14 @@ pci_msi: qcom,pci_msi {
 		<GIC_SPI 861 IRQ_TYPE_EDGE_RISING>,
 		<GIC_SPI 862 IRQ_TYPE_EDGE_RISING>,
 		<GIC_SPI 863 IRQ_TYPE_EDGE_RISING>;
+};
+
+/* Synopsys */
+pci_msi: qcom,pci_msi {
+	compatible = "qcom,pci-msi";
+	msi-controller;
+	reg = <0xa0000000 0x0>;
+	interrupt-parent = <&intc>;
+	interrupts = <GIC_SPI 307 IRQ_TYPE_LEVEL_HIGH>;
+	qcom,snps;
 };
