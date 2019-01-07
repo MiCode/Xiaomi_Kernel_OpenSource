@@ -189,6 +189,7 @@
 			compatible = "qcom,pwm-lpg";
 			reg = <0xb300 0x100>;
 			reg-names = "lpg-base";
+			qcom,num-lpg-channels = <1>;
 			#pwm-cells = <2>;
 		};
 	};
