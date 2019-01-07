@@ -340,6 +340,7 @@ static int smb5_chg_config_init(struct smb5 *chip)
 		chg->name = "pmi632_charger";
 		/* PMI632 does not support PD */
 		chg->pd_not_supported = true;
+		chg->lpd_disabled = true;
 		if (pmic_rev_id->rev4 >= 2)
 			chg->uusb_moisture_protection_enabled = true;
 		chg->hw_max_icl_ua =
