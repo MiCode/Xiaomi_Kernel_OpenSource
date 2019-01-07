@@ -26,7 +26,7 @@
 
 #include "mhi.h"
 
-static uint32_t mhi_dev_ring_addr2ofst(struct mhi_dev_ring *ring, uint64_t p)
+static size_t mhi_dev_ring_addr2ofst(struct mhi_dev_ring *ring, uint64_t p)
 {
 	uint64_t rbase;
 
@@ -42,7 +42,7 @@ static uint32_t mhi_dev_ring_num_elems(struct mhi_dev_ring *ring)
 }
 
 int mhi_dev_fetch_ring_elements(struct mhi_dev_ring *ring,
-					uint32_t start, uint32_t end)
+					size_t start, size_t end)
 {
 	struct mhi_addr host_addr;
 	struct mhi_dev *mhi_ctx;
@@ -84,9 +84,9 @@ int mhi_dev_fetch_ring_elements(struct mhi_dev_ring *ring,
 	return 0;
 }
 
-int mhi_dev_cache_ring(struct mhi_dev_ring *ring, uint32_t wr_offset)
+int mhi_dev_cache_ring(struct mhi_dev_ring *ring, size_t wr_offset)
 {
-	uint32_t old_offset = 0;
+	size_t old_offset = 0;
 	struct mhi_dev *mhi_ctx;
 
 	if (WARN_ON(!ring))
@@ -135,7 +135,7 @@ EXPORT_SYMBOL(mhi_dev_cache_ring);
 int mhi_dev_update_wr_offset(struct mhi_dev_ring *ring)
 {
 	uint64_t wr_offset = 0;
-	uint32_t new_wr_offset = 0;
+	size_t new_wr_offset = 0;
 	int32_t rc = 0;
 
 	if (WARN_ON(!ring))
@@ -150,7 +150,7 @@ int mhi_dev_update_wr_offset(struct mhi_dev_ring *ring)
 		}
 		mhi_log(MHI_MSG_VERBOSE,
 			"ring %d wr_offset from db 0x%x\n",
-			ring->id, (uint32_t) wr_offset);
+			ring->id, (size_t) wr_offset);
 		break;
 	case RING_TYPE_ER:
 		rc = mhi_dev_mmio_get_erc_db(ring, &wr_offset);
@@ -167,7 +167,7 @@ int mhi_dev_update_wr_offset(struct mhi_dev_ring *ring)
 		}
 		mhi_log(MHI_MSG_VERBOSE,
 			"ring %d wr_offset from db 0x%x\n",
-			ring->id, (uint32_t) wr_offset);
+			ring->id, (size_t) wr_offset);
 		break;
 	default:
 		mhi_log(MHI_MSG_ERROR, "invalid ring type\n");
@@ -184,7 +184,7 @@ int mhi_dev_update_wr_offset(struct mhi_dev_ring *ring)
 }
 EXPORT_SYMBOL(mhi_dev_update_wr_offset);
 
-int mhi_dev_process_ring_element(struct mhi_dev_ring *ring, uint32_t offset)
+int mhi_dev_process_ring_element(struct mhi_dev_ring *ring, size_t offset)
 {
 	union mhi_dev_ring_element_type *el;
 
@@ -276,7 +276,7 @@ int mhi_dev_add_element(struct mhi_dev_ring *ring,
 				union mhi_dev_ring_element_type *element,
 				struct event_req *ereq, int size)
 {
-	uint32_t old_offset = 0;
+	size_t old_offset = 0;
 	struct mhi_addr host_addr;
 	uint32_t num_elem = 1;
 	uint32_t num_free_elem;
@@ -376,8 +376,8 @@ int mhi_ring_start(struct mhi_dev_ring *ring, union mhi_dev_ring_ctx *ctx,
 							struct mhi_dev *mhi)
 {
 	int rc = 0;
-	uint32_t wr_offset = 0;
-	uint32_t offset = 0;
+	size_t wr_offset = 0;
+	size_t offset = 0;
 
 	if (WARN_ON(!ring || !ctx || !mhi))
 		return -EINVAL;
@@ -403,7 +403,7 @@ int mhi_ring_start(struct mhi_dev_ring *ring, union mhi_dev_ring_ctx *ctx,
 	if (!ring->ring_cache)
 		return -ENOMEM;
 
-	offset = (uint32_t)(ring->ring_ctx->generic.rbase -
+	offset = (size_t)(ring->ring_ctx->generic.rbase -
 					mhi->ctrl_base.host_pa);
 
 	ring->ring_shadow.device_pa = mhi->ctrl_base.device_pa + offset;
@@ -432,9 +432,9 @@ int mhi_ring_start(struct mhi_dev_ring *ring, union mhi_dev_ring_ctx *ctx,
 	}
 
 	mhi_log(MHI_MSG_VERBOSE, "ctx ring_base:0x%x, rp:0x%x, wp:0x%x\n",
-			(uint32_t)ring->ring_ctx->generic.rbase,
-			(uint32_t)ring->ring_ctx->generic.rp,
-			(uint32_t)ring->ring_ctx->generic.wp);
+			(size_t)ring->ring_ctx->generic.rbase,
+			(size_t)ring->ring_ctx->generic.rp,
+			(size_t)ring->ring_ctx->generic.wp);
 	ring->wr_offset = wr_offset;
 
 	return rc;

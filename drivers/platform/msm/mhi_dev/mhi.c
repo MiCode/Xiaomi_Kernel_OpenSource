@@ -922,13 +922,13 @@ int mhi_dev_send_event(struct mhi_dev *mhi, int evnt_ring,
 	if (MHI_USE_DMA(mhi))
 		transfer_addr.host_pa = (mhi->ev_ctx_shadow.host_pa +
 			sizeof(struct mhi_dev_ev_ctx) *
-			evnt_ring) + (uint32_t) &ring->ring_ctx->ev.rp -
-			(uint32_t) ring->ring_ctx;
+			evnt_ring) + (size_t) &ring->ring_ctx->ev.rp -
+			(size_t) ring->ring_ctx;
 	else
 		transfer_addr.device_va = (mhi->ev_ctx_shadow.device_va +
 			sizeof(struct mhi_dev_ev_ctx) *
-			evnt_ring) + (uint32_t) &ring->ring_ctx->ev.rp -
-			(uint32_t) ring->ring_ctx;
+			evnt_ring) + (size_t) &ring->ring_ctx->ev.rp -
+			(size_t) ring->ring_ctx;
 
 	transfer_addr.virt_addr = &ring->ring_ctx_shadow->ev.rp;
 	transfer_addr.size = sizeof(uint64_t);
@@ -1045,13 +1045,13 @@ static int mhi_dev_send_multiple_tr_events(struct mhi_dev *mhi, int evnt_ring,
 	if (MHI_USE_DMA(mhi))
 		transfer_addr.host_pa = (mhi->ev_ctx_shadow.host_pa +
 		sizeof(struct mhi_dev_ev_ctx) *
-		evnt_ring) + (uint32_t)&ring->ring_ctx->ev.rp -
-		(uint32_t)ring->ring_ctx;
+		evnt_ring) + (size_t)&ring->ring_ctx->ev.rp -
+		(size_t)ring->ring_ctx;
 	else
 		transfer_addr.device_va = (mhi->ev_ctx_shadow.device_va +
 		sizeof(struct mhi_dev_ev_ctx) *
-		evnt_ring) + (uint32_t)&ring->ring_ctx->ev.rp -
-		(uint32_t)ring->ring_ctx;
+		evnt_ring) + (size_t)&ring->ring_ctx->ev.rp -
+		(size_t)ring->ring_ctx;
 
 	transfer_addr.virt_addr = &ring->ring_ctx_shadow->ev.rp;
 	transfer_addr.size = sizeof(uint64_t);
@@ -1063,7 +1063,7 @@ static int mhi_dev_send_multiple_tr_events(struct mhi_dev *mhi, int evnt_ring,
 }
 
 static int mhi_dev_send_completion_event(struct mhi_dev_channel *ch,
-			uint32_t rd_ofst, uint32_t len,
+			size_t rd_ofst, uint32_t len,
 			enum mhi_dev_cmd_completion_code code)
 {
 	union mhi_dev_ring_element_type compl_event;
@@ -1143,7 +1143,7 @@ static int mhi_dev_send_cmd_comp_event(struct mhi_dev *mhi,
 			+ (mhi->ring[MHI_RING_CMD_ID].rd_offset *
 			(sizeof(union mhi_dev_ring_element_type)));
 	mhi_log(MHI_MSG_VERBOSE, "evt cmd comp ptr :%d\n",
-			(uint32_t) event.evt_cmd_comp.ptr);
+			(size_t) event.evt_cmd_comp.ptr);
 	event.evt_cmd_comp.type = MHI_DEV_RING_EL_CMD_COMPLETION_EVT;
 	event.evt_cmd_comp.code = code;
 	return mhi_dev_send_event(mhi, 0, &event);
@@ -1703,7 +1703,7 @@ static void mhi_dev_transfer_completion_cb(void *mreq)
 	unsigned long flags;
 	size_t transfer_len;
 	u32 snd_cmpl;
-	uint32_t rd_offset;
+	size_t rd_offset;
 
 	client = req->client;
 	ch = client->channel;
@@ -2402,7 +2402,7 @@ int mhi_dev_read_channel(struct mhi_req *mreq)
 		bytes_read += bytes_to_read;
 		addr_offset = ch->tre_size - ch->tre_bytes_left;
 		read_from_loc = ch->tre_loc + addr_offset;
-		write_to_loc = (uint32_t) mreq->buf +
+		write_to_loc = (size_t) mreq->buf +
 			(mreq->len - usr_buf_remaining);
 		ch->tre_bytes_left -= bytes_to_read;
 		mreq->el = el;
@@ -2566,7 +2566,7 @@ int mhi_dev_write_channel(struct mhi_req *wreq)
 
 		bytes_to_write = min(usr_buf_remaining, tre_len);
 		usr_buf_offset = wreq->len - bytes_to_write;
-		read_from_loc = (uint32_t) wreq->buf + usr_buf_offset;
+		read_from_loc = (size_t) wreq->buf + usr_buf_offset;
 		write_to_loc = el->tre.data_buf_ptr;
 		wreq->rd_offset = ring->rd_offset;
 		wreq->el = el;
