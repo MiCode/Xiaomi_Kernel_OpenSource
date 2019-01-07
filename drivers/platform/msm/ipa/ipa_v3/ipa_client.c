@@ -68,7 +68,8 @@ int ipa3_enable_data_path(u32 clnt_hdl)
 		 * if DPL client is not pulling the data
 		 * on other end from IPA hw.
 		 */
-		if (ep->client == IPA_CLIENT_USB_DPL_CONS)
+		if ((ep->client == IPA_CLIENT_USB_DPL_CONS) ||
+				(ep->client == IPA_CLIENT_MHI_DPL_CONS))
 			holb_cfg.en = IPA_HOLB_TMR_EN;
 		else
 			holb_cfg.en = IPA_HOLB_TMR_DIS;
@@ -1844,9 +1845,7 @@ int ipa3_clear_endpoint_delay(u32 clnt_hdl)
 	/* Set disconnect in progress flag so further flow control events are
 	 * not honored.
 	 */
-	spin_lock(&ipa3_ctx->disconnect_lock);
-	ep->disconnect_in_progress = true;
-	spin_unlock(&ipa3_ctx->disconnect_lock);
+	atomic_set(&ep->disconnect_in_progress, 1);
 
 	/* If flow is disabled at this point, restore the ep state.*/
 	ep_ctrl.ipa_ep_delay = false;

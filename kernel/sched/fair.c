@@ -7350,7 +7350,7 @@ bias_to_waker_cpu(struct task_struct *p, int cpu, struct cpumask *rtg_target)
 	return cpumask_test_cpu(cpu, tsk_cpus_allowed(p)) &&
 	       cpu_active(cpu) && !cpu_isolated(cpu) &&
 	       capacity_orig_of(cpu) >= capacity_orig_of(rtg_target_cpu) &&
-	       task_fits_max(p, cpu);
+	       task_fits_max(p, cpu) && !__cpu_overutilized(cpu, task_util(p));
 }
 
 #define SCHED_SELECT_PREV_CPU_NSEC	2000000
@@ -11166,7 +11166,8 @@ static inline bool vruntime_normalized(struct task_struct *p)
 	 * - A task which has been woken up by try_to_wake_up() and
 	 *   waiting for actually being woken up by sched_ttwu_pending().
 	 */
-	if (!se->sum_exec_runtime || p->state == TASK_WAKING)
+	if (!se->sum_exec_runtime ||
+	    (p->state == TASK_WAKING && p->sched_remote_wakeup))
 		return true;
 
 	return false;

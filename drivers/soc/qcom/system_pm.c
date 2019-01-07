@@ -75,9 +75,10 @@ static int system_sleep_enter(struct cpumask *mask)
 /**
  * system_sleep_exit() - Activities done when exiting system low power modes
  */
-static void system_sleep_exit(void)
+static void system_sleep_exit(bool success)
 {
-	msm_rpmh_master_stats_update();
+	if (success)
+		msm_rpmh_master_stats_update();
 	gic_v3_dist_restore();
 }
 

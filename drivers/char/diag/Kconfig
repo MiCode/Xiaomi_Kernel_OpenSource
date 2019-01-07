@@ -37,7 +37,7 @@ config DIAGFWD_BRIDGE_CODE
 config DIAG_OVER_PCIE
 	bool "Enable Diag traffic to go over PCIE"
 	depends on DIAG_CHAR
-	depends on MSM_MHI
+	depends on MSM_MHI_DEV
 	help
 	  Diag over PCIE enables sending diag traffic over PCIE endpoint when
 	  pcie is available. Diag PCIE channels should be configured

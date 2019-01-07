@@ -28,6 +28,9 @@
 #define mask_enable_clk_B       0x2
 #define mask_ctrl_1_A           0x5
 #define mask_ctrl_1_B           0xA
+#define mask_reset_A            0x1
+#define mask_reset_B            0x7
+#define mask_shutdown_A         0x3
 #define mask_hs_freq_range      0x7F
 #define mask_osc_freq_2         0xFF
 #define mask_osc_freq_3         0xF00
@@ -56,8 +59,6 @@ static struct csiphy_reg_snps_parms_t csiphy_v10_0_0_snps = {
 	{0x58C, 0xFF},   /* mipi_csiphy_irq_mask_ctrl_lane_0 */
 	{0x5C8, 0xFF},   /* mipi_csiphy_irq_mask_ctrl_lane_clk_0 */
 	{0x20, 0x0},     /* mipi_csiphy_rx_sys_7_00 */
-	{0x28, 0x43},    /* mipi_csiphy_rx_sys_9_00 */
-	{0x380, 0x0},    /* mipi_csiphy_rx_startup_ovr_0_00 */
 	{0x384, 0x0},    /* mipi_csiphy_rx_startup_ovr_1_00 */
 	{0x388, 0xCC},   /* mipi_csiphy_rx_startup_ovr_2_00 */
 	{0x38C, 0x1},    /* mipi_csiphy_rx_startup_ovr_3_00 */

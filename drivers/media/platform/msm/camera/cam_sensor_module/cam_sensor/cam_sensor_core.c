@@ -711,15 +711,6 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			goto release_mutex;
 		}
 
-		if (s_ctrl->bridge_intf.link_hdl != -1) {
-			CAM_ERR(CAM_SENSOR,
-				"Device [%d] still active on link 0x%x",
-				s_ctrl->sensor_state,
-				s_ctrl->bridge_intf.link_hdl);
-			rc = -EAGAIN;
-			goto release_mutex;
-		}
-
 		rc = cam_sensor_power_down(s_ctrl);
 		if (rc < 0) {
 			CAM_ERR(CAM_SENSOR, "Sensor Power Down failed");

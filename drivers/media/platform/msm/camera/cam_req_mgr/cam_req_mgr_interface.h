@@ -27,8 +27,6 @@ struct cam_req_mgr_apply_request;
 struct cam_req_mgr_flush_request;
 struct cam_req_mgr_link_evt_data;
 
-#define SKIP_NEXT_FRAME 0x100
-
 /* Request Manager -- camera device driver interface */
 /**
  * @brief: camera kernel drivers to cam req mgr communication

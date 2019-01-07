@@ -44,7 +44,7 @@
 #define MHI_RING_PRIMARY_EVT_ID		1
 #define MHI_1K_SIZE			0x1000
 /* Updated Specification for event start is NER - 2 and end - NER -1 */
-#define MHI_HW_ACC_EVT_RING_START	2
+#define MHI_HW_ACC_EVT_RING_START	3
 #define MHI_HW_ACC_EVT_RING_END		1
 
 #define MHI_HOST_REGION_NUM             2
@@ -495,7 +495,9 @@ static int mhi_hwc_chcmd(struct mhi_dev *mhi, uint chid,
 	case MHI_DEV_RING_EL_START:
 		connect_params.channel_id = chid;
 		connect_params.sys.skip_ep_cfg = true;
-		if ((chid % 2) == 0x0)
+		if (chid == MHI_CLIENT_ADPL_IN)
+			connect_params.sys.client = IPA_CLIENT_MHI_DPL_CONS;
+		else if ((chid % 2) == 0x0)
 			connect_params.sys.client = IPA_CLIENT_MHI_PROD;
 		else
 			connect_params.sys.client = IPA_CLIENT_MHI_CONS;
@@ -1982,6 +1984,8 @@ int mhi_dev_channel_isempty(struct mhi_dev_client *handle)
 	int rc;
 
 	ch = handle->channel;
+	if (!ch)
+		return -EINVAL;
 
 	rc = ch->ring->rd_offset == ch->ring->wr_offset;
 
@@ -2747,11 +2751,7 @@ static int mhi_deinit(struct mhi_dev *mhi)
 			ring->ring_cache_dma_handle);
 	}
 
-	for (i = 0; i < mhi->cfg.channels; i++)
-		mutex_destroy(&mhi->ch[i].ch_lock);
-
 	devm_kfree(&pdev->dev, mhi->mmio_backup);
-	devm_kfree(&pdev->dev, mhi->ch);
 	devm_kfree(&pdev->dev, mhi->ring);
 
 	mhi_dev_sm_exit(mhi);
@@ -2779,14 +2779,20 @@ static int mhi_init(struct mhi_dev *mhi)
 	if (!mhi->ring)
 		return -ENOMEM;
 
-	mhi->ch = devm_kzalloc(&pdev->dev,
+	/*
+	 * mhi_init is also called during device reset, in
+	 * which case channel mem will already be allocated.
+	 */
+	if (!mhi->ch) {
+		mhi->ch = devm_kzalloc(&pdev->dev,
 			(sizeof(struct mhi_dev_channel) *
 			(mhi->cfg.channels)), GFP_KERNEL);
-	if (!mhi->ch)
-		return -ENOMEM;
+		if (!mhi->ch)
+			return -ENOMEM;
 
-	for (i = 0; i < mhi->cfg.channels; i++)
-		mutex_init(&mhi->ch[i].ch_lock);
+		for (i = 0; i < mhi->cfg.channels; i++)
+			mutex_init(&mhi->ch[i].ch_lock);
+	}
 
 	spin_lock_init(&mhi->lock);
 	mhi->mmio_backup = devm_kzalloc(&pdev->dev,

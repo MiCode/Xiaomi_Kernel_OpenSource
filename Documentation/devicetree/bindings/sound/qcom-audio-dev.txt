@@ -1643,6 +1643,16 @@ mclk frequency needs to be configured for internal and external PA.
 		threshold values for different codecs. First parameter is V(voltage)
 		second one is i(current), third one is r (resistance). Depending on the
 		codec set corresponding element in array and set others to 0.
+- qcom,msm-linein-det-swh: This property is used to distinguish linein jack
+	switch type on target typically the switch type will be normally open or
+	normally close, value for this property 0 for normally close and 1 for
+	normally open.
+- qcom,msm-lineout-det-swh: This property is used to distinguish lineout jack
+	switch type on target typically the switch type will be normally open or
+	normally close, value for this property 0 for normally close and 1 for
+	normally open.
+- qcom,linein-det-gpio : GPIO on which linein jack insertion/removal interrupt is received.
+- qcom,lineout-det-gpio : GPIO on which lineout jack insertion/removal interrupt is received.
 
 Example:
 	 sound {
@@ -1703,6 +1713,10 @@ Example:
 				<&wsa881x_213>, <&wsa881x_214>;
 		qcom,wsa-aux-dev-prefix = "SpkrRight", "SpkrLeft",
 					  "SpkrRight", "SpkrLeft";
+		qcom,linein-det-swh = <1>;
+		qcom,lineout-det-swh = <1>;
+		qcom,linein-det-gpio = <&tlmm 124 0>;
+		qcom,lineout-det-gpio = <&tlmm 125 0>;
 	};
 
 * MSM8952 Slimbus ASoC Machine driver

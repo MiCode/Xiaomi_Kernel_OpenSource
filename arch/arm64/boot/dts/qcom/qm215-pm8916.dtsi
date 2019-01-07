@@ -88,7 +88,8 @@
 	};
 
 	qcom,wcnss-wlan@a000000 {
-		/delete-property/ qcom,wcnss-adc_tm;
+		/delete-property/ qcom,has-vsys-adc-channel;
+		qcom,wcnss-adc_tm = <&pm8916_adc_tm>;
 		qcom,pronto-vddmx-supply = <&pm8916_l2_level_ao>;
 		qcom,pronto-vddcx-supply = <&pm8916_s1_level>;
 		qcom,pronto-vddpx-supply = <&pm8916_l7>;
@@ -119,10 +120,6 @@
 		qcom,pronto-vddcx-current = <0>;
 		qcom,pronto-vddpx-current = <0>;
 	};
-
-	/delete-node/ qcom,csid@1b30000;
-	/delete-node/ qcom,csid@1b30400;
-	/delete-node/ qcom,csid@1b30800;
 
 	/* mem_acc */
 	/delete-node/ regulator@01946004;
@@ -305,7 +302,7 @@
 		qcom,decimation = <0>;
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
-		qcom,scale-function = <22>;
+		qcom,scale-function = <26>;
 		qcom,hw-settle-time = <0xb>;
 		qcom,fast-avg-setup = <0>;
 	};
@@ -389,7 +386,7 @@
 	thermal-zones {
 		xo-therm-buf-adc {
 			polling-delay-passive = <0>;
-			polling-delay = <0>;
+			polling-delay = <5000>;
 			thermal-sensors = <&pm8916_vadc 0x3c>;
 			thermal-governor = "user_space";
 
@@ -404,7 +401,7 @@
 
 		xo-therm-adc {
 			polling-delay-passive = <0>;
-			polling-delay = <0>;
+			polling-delay = <5000>;
 			thermal-sensors = <&pm8916_vadc 0x32>;
 			thermal-governor = "user_space";
 
@@ -419,7 +416,7 @@
 
 		pa-therm0-adc {
 			polling-delay-passive = <0>;
-			polling-delay = <0>;
+			polling-delay = <5000>;
 			thermal-sensors = <&pm8916_vadc 0x36>;
 			thermal-governor = "user_space";
 
@@ -434,7 +431,7 @@
 
 		skin-therm-adc {
 			polling-delay-passive = <0>;
-			polling-delay = <0>;
+			polling-delay = <5000>;
 			thermal-sensors = <&pm8916_vadc 0x11>;
 			thermal-governor = "user_space";
 

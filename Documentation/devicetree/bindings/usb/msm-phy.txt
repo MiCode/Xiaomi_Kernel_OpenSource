@@ -189,8 +189,9 @@ Optional properties:
  - qcom,hold-reset: Indicates that hold QUSB PHY into reset state.
  - qcom,phy-clk-scheme: Should be one of "cml" or "cmos" if ref_clk_addr is provided.
  - qcom,major-rev: provide major revision number to differentiate power up sequence. default is 2.0
- - pinctrl-names/pinctrl-0/1: The GPIOs configured as output function. Names represents "active"
-   state when attached in host mode and "suspend" state when detached.
+ - pinctrl-names/pinctrl-0/1: The GPIOs configured as output function. Names represents "active" or
+   "atest_usb13_active" state when attached in host mode and "suspend" or "atest_usb13_suspend"
+   state when detached.
  - qcom,tune2-efuse-correction: The value to be adjusted from fused value for
    improved rise/fall times.
  - qcom,host-chirp-erratum: Indicates host chirp fix is required.

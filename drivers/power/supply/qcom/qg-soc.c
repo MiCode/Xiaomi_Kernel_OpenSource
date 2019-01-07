@@ -53,7 +53,7 @@ int qg_adjust_sys_soc(struct qpnp_qg *chip)
 
 	chip->sys_soc = CAP(QG_MIN_SOC, QG_MAX_SOC, chip->sys_soc);
 
-	if (chip->sys_soc == QG_MIN_SOC) {
+	if (chip->sys_soc < 100) {
 		/* Hold SOC to 1% of VBAT has not dropped below cutoff */
 		rc = qg_get_battery_voltage(chip, &vbat_uv);
 		if (!rc && vbat_uv >= (vcutoff_uv + VBAT_LOW_HYST_UV))

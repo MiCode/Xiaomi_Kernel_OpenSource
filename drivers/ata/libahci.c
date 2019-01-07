@@ -35,6 +35,7 @@
 #include <linux/kernel.h>
 #include <linux/gfp.h>
 #include <linux/module.h>
+#include <linux/nospec.h>
 #include <linux/blkdev.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
@@ -1124,10 +1125,12 @@ static ssize_t ahci_led_store(struct ata_port *ap, const char *buf,
 
 	/* get the slot number from the message */
 	pmp = (state & EM_MSG_LED_PMP_SLOT) >> 8;
-	if (pmp < EM_MAX_SLOTS)
+	if (pmp < EM_MAX_SLOTS) {
+		pmp = array_index_nospec(pmp, EM_MAX_SLOTS);
 		emp = &pp->em_priv[pmp];
-	else
+	} else {
 		return -EINVAL;
+	}
 
 	/* mask off the activity bits if we are in sw_activity
 	 * mode, user should turn off sw_activity before setting
@@ -2129,6 +2132,8 @@ static void ahci_set_aggressive_devslp(struct ata_port *ap, bool sleep)
 		deto = 20;
 	}
 
+	/* Make dito, mdat, deto bits to 0s */
+	devslp &= ~GENMASK_ULL(24, 2);
 	devslp |= ((dito << PORT_DEVSLP_DITO_OFFSET) |
 		   (mdat << PORT_DEVSLP_MDAT_OFFSET) |
 		   (deto << PORT_DEVSLP_DETO_OFFSET) |

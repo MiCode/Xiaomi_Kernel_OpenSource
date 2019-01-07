@@ -237,7 +237,7 @@ static long cam_private_ioctl(struct file *file, void *fh,
 
 		if (copy_from_user(&ses_info,
 			u64_to_user_ptr(k_ioctl->handle),
-			sizeof(struct cam_req_mgr_session_info))) {
+			k_ioctl->size)) {
 			return -EFAULT;
 		}
 
@@ -245,8 +245,7 @@ static long cam_private_ioctl(struct file *file, void *fh,
 		if (!rc)
 			if (copy_to_user(
 				u64_to_user_ptr(k_ioctl->handle),
-				&ses_info,
-				sizeof(struct cam_req_mgr_session_info)))
+				&ses_info, k_ioctl->size))
 				rc = -EFAULT;
 		}
 		break;
@@ -259,7 +258,7 @@ static long cam_private_ioctl(struct file *file, void *fh,
 
 		if (copy_from_user(&ses_info,
 			u64_to_user_ptr(k_ioctl->handle),
-			sizeof(struct cam_req_mgr_session_info))) {
+			k_ioctl->size)) {
 			return -EFAULT;
 		}
 
@@ -275,7 +274,7 @@ static long cam_private_ioctl(struct file *file, void *fh,
 
 		if (copy_from_user(&link_info,
 			u64_to_user_ptr(k_ioctl->handle),
-			sizeof(struct cam_req_mgr_link_info))) {
+			k_ioctl->size)) {
 			return -EFAULT;
 		}
 
@@ -283,8 +282,7 @@ static long cam_private_ioctl(struct file *file, void *fh,
 		if (!rc)
 			if (copy_to_user(
 				u64_to_user_ptr(k_ioctl->handle),
-				&link_info,
-				sizeof(struct cam_req_mgr_link_info)))
+				&link_info, k_ioctl->size))
 				rc = -EFAULT;
 		}
 		break;
@@ -297,7 +295,7 @@ static long cam_private_ioctl(struct file *file, void *fh,
 
 		if (copy_from_user(&unlink_info,
 			u64_to_user_ptr(k_ioctl->handle),
-			sizeof(struct cam_req_mgr_unlink_info))) {
+			k_ioctl->size)) {
 			return -EFAULT;
 		}
 
@@ -313,7 +311,7 @@ static long cam_private_ioctl(struct file *file, void *fh,
 
 		if (copy_from_user(&sched_req,
 			u64_to_user_ptr(k_ioctl->handle),
-			sizeof(struct cam_req_mgr_sched_request))) {
+			k_ioctl->size)) {
 			return -EFAULT;
 		}
 
@@ -329,7 +327,7 @@ static long cam_private_ioctl(struct file *file, void *fh,
 
 		if (copy_from_user(&flush_info,
 			u64_to_user_ptr(k_ioctl->handle),
-			sizeof(struct cam_req_mgr_flush_info))) {
+			k_ioctl->size)) {
 			return -EFAULT;
 		}
 
@@ -345,7 +343,7 @@ static long cam_private_ioctl(struct file *file, void *fh,
 
 		if (copy_from_user(&sync_info,
 			u64_to_user_ptr(k_ioctl->handle),
-			sizeof(struct cam_req_mgr_sync_mode))) {
+			k_ioctl->size)) {
 			return -EFAULT;
 		}
 
@@ -360,7 +358,7 @@ static long cam_private_ioctl(struct file *file, void *fh,
 
 		if (copy_from_user(&cmd,
 			u64_to_user_ptr(k_ioctl->handle),
-			sizeof(struct cam_mem_mgr_alloc_cmd))) {
+			k_ioctl->size)) {
 			rc = -EFAULT;
 			break;
 		}
@@ -369,7 +367,7 @@ static long cam_private_ioctl(struct file *file, void *fh,
 		if (!rc)
 			if (copy_to_user(
 				u64_to_user_ptr(k_ioctl->handle),
-				&cmd, sizeof(struct cam_mem_mgr_alloc_cmd))) {
+				&cmd, k_ioctl->size)) {
 				rc = -EFAULT;
 				break;
 			}
@@ -383,7 +381,7 @@ static long cam_private_ioctl(struct file *file, void *fh,
 
 		if (copy_from_user(&cmd,
 			u64_to_user_ptr(k_ioctl->handle),
-			sizeof(struct cam_mem_mgr_map_cmd))) {
+			k_ioctl->size)) {
 			rc = -EFAULT;
 			break;
 		}
@@ -392,7 +390,7 @@ static long cam_private_ioctl(struct file *file, void *fh,
 		if (!rc)
 			if (copy_to_user(
 				u64_to_user_ptr(k_ioctl->handle),
-				&cmd, sizeof(struct cam_mem_mgr_map_cmd))) {
+				&cmd, k_ioctl->size)) {
 				rc = -EFAULT;
 				break;
 			}
@@ -406,7 +404,7 @@ static long cam_private_ioctl(struct file *file, void *fh,
 
 		if (copy_from_user(&cmd,
 			u64_to_user_ptr(k_ioctl->handle),
-			sizeof(struct cam_mem_mgr_release_cmd))) {
+			k_ioctl->size)) {
 			rc = -EFAULT;
 			break;
 		}
@@ -422,7 +420,7 @@ static long cam_private_ioctl(struct file *file, void *fh,
 
 		if (copy_from_user(&cmd,
 			u64_to_user_ptr(k_ioctl->handle),
-			sizeof(struct cam_mem_cache_ops_cmd))) {
+			k_ioctl->size)) {
 			rc = -EFAULT;
 			break;
 		}
@@ -440,7 +438,7 @@ static long cam_private_ioctl(struct file *file, void *fh,
 
 		if (copy_from_user(&cmd,
 			u64_to_user_ptr(k_ioctl->handle),
-			sizeof(struct cam_req_mgr_link_control))) {
+			k_ioctl->size)) {
 			rc = -EFAULT;
 			break;
 		}

@@ -464,7 +464,6 @@ static void bg_irq_tasklet_hndlr_l(void)
 int bgcom_ahb_read(void *handle, uint32_t ahb_start_addr,
 	uint32_t num_words, void *read_buf)
 {
-	dma_addr_t dma_hndl_tx, dma_hndl_rx;
 	uint32_t txn_len;
 	uint8_t *tx_buf;
 	uint8_t *rx_buf;
@@ -472,7 +471,6 @@ int bgcom_ahb_read(void *handle, uint32_t ahb_start_addr,
 	int ret;
 	uint8_t cmnd = 0;
 	uint32_t ahb_addr = 0;
-	struct spi_device *spi = get_spi_device();
 
 	if (!handle || !read_buf || num_words == 0
 		|| num_words > BG_SPI_MAX_WORDS) {
@@ -495,16 +493,13 @@ int bgcom_ahb_read(void *handle, uint32_t ahb_start_addr,
 	size = num_words*BG_SPI_WORD_SIZE;
 	txn_len = BG_SPI_AHB_READ_CMD_LEN + size;
 
-
-	tx_buf = dma_zalloc_coherent(&spi->dev, txn_len,
-					&dma_hndl_tx, GFP_KERNEL);
+	tx_buf = kzalloc(txn_len, GFP_KERNEL | GFP_ATOMIC);
 	if (!tx_buf)
 		return -ENOMEM;
 
-	rx_buf = dma_zalloc_coherent(&spi->dev, txn_len,
-					&dma_hndl_rx, GFP_KERNEL);
+	rx_buf = kzalloc(txn_len, GFP_KERNEL | GFP_ATOMIC);
 	if (!rx_buf) {
-		dma_free_coherent(&spi->dev, txn_len, tx_buf, dma_hndl_tx);
+		kfree(tx_buf);
 		return -ENOMEM;
 	}
 
@@ -519,8 +514,8 @@ int bgcom_ahb_read(void *handle, uint32_t ahb_start_addr,
 	if (!ret)
 		memcpy(read_buf, rx_buf+BG_SPI_AHB_READ_CMD_LEN, size);
 
-	dma_free_coherent(&spi->dev, txn_len, tx_buf, dma_hndl_tx);
-	dma_free_coherent(&spi->dev, txn_len, rx_buf, dma_hndl_rx);
+	kfree(tx_buf);
+	kfree(rx_buf);
 	return ret;
 }
 EXPORT_SYMBOL(bgcom_ahb_read);
@@ -556,7 +551,6 @@ int bgcom_ahb_write(void *handle, uint32_t ahb_start_addr,
 		pr_err("Failed to resume\n");
 		return -EBUSY;
 	}
-
 
 	mutex_lock(&cma_buffer_lock);
 	size = num_words*BG_SPI_WORD_SIZE;

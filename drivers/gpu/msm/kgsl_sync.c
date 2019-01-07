@@ -438,27 +438,54 @@ static void kgsl_sync_fence_callback(struct fence *fence, struct fence_cb *cb)
 	}
 }
 
-static void kgsl_get_fence_name(struct fence *fence,
-	char *fence_name, int name_len)
+static void kgsl_get_fence_names(struct fence *fence,
+	struct event_fence_info *info_ptr)
 {
-	char *ptr = fence_name;
-	char *last = fence_name + name_len;
+	unsigned int num_fences;
+	struct fence **fences;
+	struct fence_array *array;
+	int i;
 
-	ptr +=  snprintf(ptr, last - ptr, "%s %s",
-			fence->ops->get_driver_name(fence),
-			fence->ops->get_timeline_name(fence));
-
-	if ((ptr + 2) >= last)
+	if (!info_ptr)
 		return;
 
-	if (fence->ops->fence_value_str) {
-		ptr += snprintf(ptr, last - ptr, ": ");
-		fence->ops->fence_value_str(fence, ptr, last - ptr);
+	array = to_fence_array(fence);
+
+	if (array != NULL) {
+		num_fences = array->num_fences;
+		fences = array->fences;
+	} else {
+		num_fences = 1;
+		fences = &fence;
+	}
+
+	info_ptr->fences = kcalloc(num_fences, sizeof(struct fence_info),
+			GFP_ATOMIC);
+	if (info_ptr->fences == NULL)
+		return;
+
+	info_ptr->num_fences = num_fences;
+
+	for (i = 0; i < num_fences; i++) {
+		struct fence *f = fences[i];
+		struct fence_info *fi = &info_ptr->fences[i];
+		int len;
+
+		len =  scnprintf(fi->name, sizeof(fi->name), "%s %s",
+			f->ops->get_driver_name(f),
+			f->ops->get_timeline_name(f));
+
+		if (f->ops->fence_value_str) {
+			len += scnprintf(fi->name + len, sizeof(fi->name) - len,
+				": ");
+			f->ops->fence_value_str(f, fi->name + len,
+				sizeof(fi->name) - len);
+		}
 	}
 }
 
 struct kgsl_sync_fence_cb *kgsl_sync_fence_async_wait(int fd,
-	bool (*func)(void *priv), void *priv, char *fence_name, int name_len)
+	bool (*func)(void *priv), void *priv, struct event_fence_info *info_ptr)
 {
 	struct kgsl_sync_fence_cb *kcb;
 	struct fence *fence;
@@ -479,8 +506,7 @@ struct kgsl_sync_fence_cb *kgsl_sync_fence_async_wait(int fd,
 	kcb->priv = priv;
 	kcb->func = func;
 
-	if (fence_name)
-		kgsl_get_fence_name(fence, fence_name, name_len);
+	kgsl_get_fence_names(fence, info_ptr);
 
 	/* if status then error or signaled */
 	status = fence_add_callback(fence, &kcb->fence_cb,

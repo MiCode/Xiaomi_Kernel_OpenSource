@@ -41,6 +41,9 @@ config VT
 	  If unsure, say Y, or else you won't be able to do much with your new
 	  shiny Linux system :-)
 
+config TTY_FLUSH_LOCAL_ECHO
+	bool
+
 config CONSOLE_TRANSLATIONS
 	depends on VT
 	default y

@@ -768,16 +768,6 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 			rc = -EINVAL;
 			goto release_mutex;
 		}
-
-		if (a_ctrl->bridge_intf.link_hdl != -1) {
-			CAM_ERR(CAM_ACTUATOR,
-				"Device [%d] still active on link 0x%x",
-				a_ctrl->cam_act_state,
-				a_ctrl->bridge_intf.link_hdl);
-			rc = -EAGAIN;
-			goto release_mutex;
-		}
-
 		rc = cam_destroy_device_hdl(a_ctrl->bridge_intf.device_hdl);
 		if (rc < 0)
 			CAM_ERR(CAM_ACTUATOR, "destroying the device hdl");

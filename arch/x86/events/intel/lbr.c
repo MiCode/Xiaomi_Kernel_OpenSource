@@ -342,7 +342,7 @@ static void __intel_pmu_lbr_restore(struct x86_perf_task_context *task_ctx)
 
 	mask = x86_pmu.lbr_nr - 1;
 	tos = task_ctx->tos;
-	for (i = 0; i < tos; i++) {
+	for (i = 0; i < task_ctx->valid_lbrs; i++) {
 		lbr_idx = (tos - i) & mask;
 		wrlbr_from(lbr_idx, task_ctx->lbr_from[i]);
 		wrlbr_to  (lbr_idx, task_ctx->lbr_to[i]);
@@ -350,6 +350,15 @@ static void __intel_pmu_lbr_restore(struct x86_perf_task_context *task_ctx)
 		if (x86_pmu.intel_cap.lbr_format == LBR_FORMAT_INFO)
 			wrmsrl(MSR_LBR_INFO_0 + lbr_idx, task_ctx->lbr_info[i]);
 	}
+
+	for (; i < x86_pmu.lbr_nr; i++) {
+		lbr_idx = (tos - i) & mask;
+		wrlbr_from(lbr_idx, 0);
+		wrlbr_to(lbr_idx, 0);
+		if (x86_pmu.intel_cap.lbr_format == LBR_FORMAT_INFO)
+			wrmsrl(MSR_LBR_INFO_0 + lbr_idx, 0);
+	}
+
 	wrmsrl(x86_pmu.lbr_tos, tos);
 	task_ctx->lbr_stack_state = LBR_NONE;
 }
@@ -357,7 +366,7 @@ static void __intel_pmu_lbr_restore(struct x86_perf_task_context *task_ctx)
 static void __intel_pmu_lbr_save(struct x86_perf_task_context *task_ctx)
 {
 	unsigned lbr_idx, mask;
-	u64 tos;
+	u64 tos, from;
 	int i;
 
 	if (task_ctx->lbr_callstack_users == 0) {
@@ -367,13 +376,17 @@ static void __intel_pmu_lbr_save(struct x86_perf_task_context *task_ctx)
 
 	mask = x86_pmu.lbr_nr - 1;
 	tos = intel_pmu_lbr_tos();
-	for (i = 0; i < tos; i++) {
+	for (i = 0; i < x86_pmu.lbr_nr; i++) {
 		lbr_idx = (tos - i) & mask;
-		task_ctx->lbr_from[i] = rdlbr_from(lbr_idx);
+		from = rdlbr_from(lbr_idx);
+		if (!from)
+			break;
+		task_ctx->lbr_from[i] = from;
 		task_ctx->lbr_to[i]   = rdlbr_to(lbr_idx);
 		if (x86_pmu.intel_cap.lbr_format == LBR_FORMAT_INFO)
 			rdmsrl(MSR_LBR_INFO_0 + lbr_idx, task_ctx->lbr_info[i]);
 	}
+	task_ctx->valid_lbrs = i;
 	task_ctx->tos = tos;
 	task_ctx->lbr_stack_state = LBR_VALID;
 }
@@ -522,7 +535,7 @@ static void intel_pmu_lbr_read_32(struct cpu_hw_events *cpuc)
  */
 static void intel_pmu_lbr_read_64(struct cpu_hw_events *cpuc)
 {
-	bool need_info = false;
+	bool need_info = false, call_stack = false;
 	unsigned long mask = x86_pmu.lbr_nr - 1;
 	int lbr_format = x86_pmu.intel_cap.lbr_format;
 	u64 tos = intel_pmu_lbr_tos();
@@ -533,7 +546,7 @@ static void intel_pmu_lbr_read_64(struct cpu_hw_events *cpuc)
 	if (cpuc->lbr_sel) {
 		need_info = !(cpuc->lbr_sel->config & LBR_NO_INFO);
 		if (cpuc->lbr_sel->config & LBR_CALL_STACK)
-			num = tos;
+			call_stack = true;
 	}
 
 	for (i = 0; i < num; i++) {
@@ -545,6 +558,13 @@ static void intel_pmu_lbr_read_64(struct cpu_hw_events *cpuc)
 
 		from = rdlbr_from(lbr_idx);
 		to   = rdlbr_to(lbr_idx);
+
+		/*
+		 * Read LBR call stack entries
+		 * until invalid entry (0s) is detected.
+		 */
+		if (call_stack && !from)
+			break;
 
 		if (lbr_format == LBR_FORMAT_INFO && need_info) {
 			u64 info;
@@ -1175,4 +1195,8 @@ void intel_pmu_lbr_init_knl(void)
 
 	x86_pmu.lbr_sel_mask = LBR_SEL_MASK;
 	x86_pmu.lbr_sel_map  = snb_lbr_sel_map;
+
+	/* Knights Landing does have MISPREDICT bit */
+	if (x86_pmu.intel_cap.lbr_format == LBR_FORMAT_LIP)
+		x86_pmu.intel_cap.lbr_format = LBR_FORMAT_EIP_FLAGS;
 }

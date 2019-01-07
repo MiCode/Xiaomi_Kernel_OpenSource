@@ -1456,7 +1456,7 @@ static int report_eoc(struct qpnp_bms_chip *chip)
 	if (chip->batt_psy == NULL)
 		chip->batt_psy = power_supply_get_by_name("battery");
 	if (chip->batt_psy) {
-		power_supply_get_property(chip->batt_psy,
+		rc = power_supply_get_property(chip->batt_psy,
 				POWER_SUPPLY_PROP_STATUS, &ret);
 		if (rc) {
 			pr_err("Unable to get battery 'STATUS' rc=%d\n", rc);
@@ -2101,6 +2101,10 @@ static void monitor_soc_work(struct work_struct *work)
 				struct qpnp_bms_chip,
 				monitor_soc_work.work);
 	int rc, new_soc = 0, batt_temp;
+
+	/*skip if its a debug-board */
+	if (is_debug_batt_id(chip))
+		return;
 
 	bms_stay_awake(&chip->vbms_soc_wake_source);
 

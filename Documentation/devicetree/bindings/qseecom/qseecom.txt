@@ -27,6 +27,7 @@ Optional properties:
   - qcom,qsee-reentrancy-support: indicates the qsee reentrancy phase supported by the target
   - qcom,commonlib64-loaded-by-uefi: indicates commonlib64 is loaded by uefi already
   - qcom,fde-key-size: indicates which FDE key size is used in device.
+  - qcom,enable-key-wrap-in-ks: enables wrapping of ICE key with KS key.
 
 Example:
 	qcom,qseecom@fe806000 {
@@ -40,6 +41,7 @@ Example:
 		qcom,hlos-ce-hw-instance = <1 2>;
 		qcom,qsee-ce-hw-instance = <0>;
 		qcom,support-fde;
+		qcom,enable-key-wrap-in-ks;
 		qcom,support-pfe;
 		qcom,msm_bus,name = "qseecom-noc";
 		qcom,msm_bus,num_cases = <4>;
@@ -64,6 +66,7 @@ Example: The following dts setup is the same as the example above.
 		reg = <0x7f00000 0x500000>;
 		reg-names = "secapp-region";
 		qcom,support-fde;
+		qcom,enable-key-wrap-in-ks;
 		qcom,full-disk-encrypt-info = <0 1 2>, <0 2 2>;
 		qcom,support-pfe;
 		qcom,per-file-encrypt-info = <0 1 0>, <0 2 0>;

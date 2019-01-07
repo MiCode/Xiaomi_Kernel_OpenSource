@@ -150,4 +150,6 @@ int dsi_conn_post_kickoff(struct drm_connector *connector);
 void dsi_convert_to_drm_mode(const struct dsi_display_mode *dsi_mode,
 				struct drm_display_mode *drm_mode);
 
+u64 dsi_drm_find_bit_clk_rate(void *display,
+			      const struct drm_display_mode *drm_mode);
 #endif /* _DSI_DRM_H_ */

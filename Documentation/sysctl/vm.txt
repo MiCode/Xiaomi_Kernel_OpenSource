@@ -50,6 +50,7 @@ Currently, these files are in /proc/sys/vm:
 - nr_trim_pages         (only if CONFIG_MMU=n)
 - numa_zonelist_order
 - oom_dump_tasks
+- reap_mem_on_sigkill
 - oom_kill_allocating_task
 - overcommit_kbytes
 - overcommit_memory
@@ -632,6 +633,24 @@ If this is set to non-zero, this information is shown whenever the
 OOM killer actually kills a memory-hogging task.
 
 The default value is 1 (enabled).
+
+==============================================================
+
+reap_mem_on_sigkill
+
+This enables or disables the memory reaping for a SIGKILL received
+process and that the sending process must have the CAP_KILL capabilities.
+
+If this is set to 1, when a process receives SIGKILL from a process
+that has the capability, CAP_KILL, the process is added into the oom_reaper
+queue which can be picked up by the oom_reaper thread to reap the memory of
+that process. This reaps for the process which received SIGKILL through
+either sys_kill from user or kill_pid from kernel.
+
+If this is set to 0, we are not reaping memory of a SIGKILL, sent through
+either sys_kill from user or kill_pid from kernel, received process.
+
+The default value is 0 (disabled).
 
 ==============================================================
 

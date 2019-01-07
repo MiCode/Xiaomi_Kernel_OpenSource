@@ -1771,7 +1771,7 @@ static ssize_t ipa3_read_nat4(struct file *file,
 
 	buff = kzalloc(buff_size, GFP_KERNEL);
 	if (buff == NULL)
-		return 0;
+		return -ENOMEM;
 
 	if (!ipa3_ctx->nat_mem.dev.is_dev_init) {
 		pos += scnprintf(buff + pos, buff_size - pos,
