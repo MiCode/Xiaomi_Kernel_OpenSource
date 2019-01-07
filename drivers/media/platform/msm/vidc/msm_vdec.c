@@ -37,13 +37,15 @@ static const char *const mpeg_video_stream_format[] = {
 
 static const char *const mpeg_vidc_video_alloc_mode_type[] = {
 	"Buffer Allocation Static",
-	"Buffer Allocation Dynamic Buffer"
+	"Buffer Allocation Dynamic Buffer",
+	NULL
 };
 
 static const char *const perf_level[] = {
 	"Nominal",
 	"Performance",
-	"Turbo"
+	"Turbo",
+	NULL
 };
 
 static const char *const vp8_profile_level[] = {
@@ -52,6 +54,7 @@ static const char *const vp8_profile_level[] = {
 	"1.0",
 	"2.0",
 	"3.0",
+	NULL
 };
 
 static const char *const vp9_level[] = {
@@ -68,12 +71,14 @@ static const char *const vp9_level[] = {
 	"5.1",
 	"6.0",
 	"6.1",
+	NULL
 };
 
 static const char *const mpeg2_profile[] = {
 	"Simple",
 	"Main",
 	"High",
+	NULL
 };
 
 static const char *const mpeg2_level[] = {
@@ -81,10 +86,12 @@ static const char *const mpeg2_level[] = {
 	"1",
 	"2",
 	"3",
+	NULL
 };
 static const char *const mpeg_vidc_video_entropy_mode[] = {
 	"CAVLC Entropy Mode",
 	"CABAC Entropy Mode",
+	NULL
 };
 
 static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
@@ -158,23 +165,123 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.id = V4L2_CID_MPEG_VIDEO_H264_PROFILE,
 		.name = "H264 Profile",
 		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE,
 		.maximum = V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_HIGH,
-		.default_value = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE,
-		.menu_skip_mask = 0,
+		.default_value = V4L2_MPEG_VIDEO_H264_PROFILE_HIGH,
+		.menu_skip_mask = ~(
+		(1 << V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE) |
+		(1 << V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE) |
+		(1 << V4L2_MPEG_VIDEO_H264_PROFILE_MAIN) |
+		(1 << V4L2_MPEG_VIDEO_H264_PROFILE_HIGH) |
+		(1 << V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_HIGH)
+		),
 		.flags = V4L2_CTRL_FLAG_VOLATILE,
 		.qmenu = NULL,
+		.step = 1,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDEO_H264_LEVEL,
 		.name = "H264 Level",
 		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDEO_H264_LEVEL_1_0,
 		.maximum = V4L2_MPEG_VIDEO_H264_LEVEL_6_2,
-		.default_value = V4L2_MPEG_VIDEO_H264_LEVEL_1_0,
-		.menu_skip_mask = (
+		.default_value = V4L2_MPEG_VIDEO_H264_LEVEL_5_0,
+		.menu_skip_mask = ~(
+		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_1_0) |
+		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_1B) |
+		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_1_1) |
+		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_1_2) |
+		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_1_3) |
+		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_2_0) |
+		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_2_1) |
+		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_2_2) |
+		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_3_0) |
+		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_3_1) |
+		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_3_2) |
+		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_4_0) |
+		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_4_1) |
+		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_4_2) |
+		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_5_0) |
+		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_5_1) |
+		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_5_2) |
+		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_6_0) |
+		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_6_1) |
+		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_6_2) |
 		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_UNKNOWN)
 		),
 		.flags = V4L2_CTRL_FLAG_VOLATILE,
 		.qmenu = NULL,
+		.step = 1,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_HEVC_PROFILE,
+		.name = "HEVC Profile",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN,
+		.maximum = V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN_10,
+		.default_value = V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN,
+		.menu_skip_mask = ~(
+		(1 << V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN) |
+		(1 << V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN_STILL_PICTURE) |
+		(1 << V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN_10)
+		),
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
+		.qmenu = NULL,
+		.step = 1,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_HEVC_LEVEL,
+		.name = "HEVC Level",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDEO_HEVC_LEVEL_1,
+		.maximum = V4L2_MPEG_VIDEO_HEVC_LEVEL_UNKNOWN,
+		.default_value = V4L2_MPEG_VIDEO_HEVC_LEVEL_5,
+		.menu_skip_mask = ~(
+		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_1) |
+		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_2) |
+		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_2_1) |
+		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_3) |
+		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_3_1) |
+		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_4) |
+		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_4_1) |
+		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_5) |
+		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_5_1) |
+		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_5_2) |
+		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_6) |
+		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_6_1) |
+		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_6_2) |
+		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_UNKNOWN)
+		),
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
+		.qmenu = NULL,
+		.step = 1,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_HEVC_TIER,
+		.name = "HEVC Tier",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDEO_HEVC_TIER_MAIN,
+		.maximum = V4L2_MPEG_VIDEO_HEVC_TIER_HIGH,
+		.default_value = V4L2_MPEG_VIDEO_HEVC_TIER_HIGH,
+		.menu_skip_mask = ~(
+		(1 << V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) |
+		(1 << V4L2_MPEG_VIDEO_HEVC_TIER_HIGH)
+		),
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
+		.qmenu = NULL,
+		.step = 1,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_VP8_PROFILE,
+		.name = "VP8 Profile",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDEO_VP8_PROFILE_0,
+		.maximum = V4L2_MPEG_VIDEO_VP8_PROFILE_0,
+		.default_value = V4L2_MPEG_VIDEO_VP8_PROFILE_0,
+		.menu_skip_mask = ~(1 << V4L2_MPEG_VIDEO_VP8_PROFILE_0),
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
+		.qmenu = NULL,
+		.step = 1,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL,
@@ -182,21 +289,34 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDC_VIDEO_VP8_UNUSED,
 		.maximum = V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_3,
-		.default_value = V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_0,
-		.menu_skip_mask = 0,
+		.default_value = V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_3,
+		.menu_skip_mask = ~(
+		(1 << V4L2_MPEG_VIDC_VIDEO_VP8_UNUSED) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_0) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_1) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_2) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_3)
+		),
 		.qmenu = vp8_profile_level,
 		.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,
+		.step = 1,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDEO_VP9_PROFILE,
 		.name = "VP9 Profile",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDEO_VP9_PROFILE_0,
-		.maximum = V4L2_MPEG_VIDEO_VP9_PROFILE_3,
+		.maximum = V4L2_MPEG_VIDEO_VP9_PROFILE_2,
 		.default_value = V4L2_MPEG_VIDEO_VP9_PROFILE_0,
-		.menu_skip_mask = 0,
+		.menu_skip_mask = ~(
+		(1 << V4L2_MPEG_VIDEO_VP9_PROFILE_0) |
+		(1 << V4L2_MPEG_VIDEO_VP9_PROFILE_1) |
+		(1 << V4L2_MPEG_VIDEO_VP9_PROFILE_2) |
+		(1 << V4L2_MPEG_VIDEO_VP9_PROFILE_3)
+		),
 		.qmenu = NULL,
 		.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,
+		.step = 1,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_VP9_LEVEL,
@@ -205,40 +325,55 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.minimum = V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_UNUSED,
 		.maximum = V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_61,
 		.default_value = V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_61,
-		.menu_skip_mask = 0,
+		.menu_skip_mask = ~(
+		(1 << V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_UNUSED) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_1) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_11) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_2) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_21) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_3) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_31) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_4) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_41) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_5) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_51) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_6) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_61)
+		),
 		.qmenu = vp9_level,
 		.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,
+		.step = 1,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_PROFILE,
 		.name = "MPEG2 Profile",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDC_VIDEO_MPEG2_PROFILE_SIMPLE,
-		.maximum = V4L2_MPEG_VIDC_VIDEO_MPEG2_PROFILE_HIGH,
-		.default_value = V4L2_MPEG_VIDC_VIDEO_MPEG2_PROFILE_SIMPLE,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_MPEG2_PROFILE_MAIN,
+		.default_value = V4L2_MPEG_VIDC_VIDEO_MPEG2_PROFILE_MAIN,
 		.menu_skip_mask = ~(
 		(1 << V4L2_MPEG_VIDC_VIDEO_MPEG2_PROFILE_SIMPLE) |
-		(1 << V4L2_MPEG_VIDC_VIDEO_MPEG2_PROFILE_MAIN) |
-		(1 << V4L2_MPEG_VIDC_VIDEO_MPEG2_PROFILE_HIGH)
+		(1 << V4L2_MPEG_VIDC_VIDEO_MPEG2_PROFILE_MAIN)
 		),
 		.qmenu = mpeg2_profile,
 		.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,
+		.step = 1,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_LEVEL,
 		.name = "MPEG2 Level",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_0,
-		.maximum = V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_3,
-		.default_value = V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_0,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_2,
+		.default_value = V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_2,
 		.menu_skip_mask = ~(
 			(1 << V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_0) |
 			(1 << V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_1) |
-			(1 << V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_2) |
-			(1 << V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_3)
+			(1 << V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_2)
 		),
 		.qmenu = mpeg2_level,
 		.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,
+		.step = 1,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_CONCEAL_COLOR_8BIT,
@@ -821,7 +956,23 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 
 	switch (ctrl->id) {
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
+	case V4L2_CID_MPEG_VIDEO_HEVC_PROFILE:
+	case V4L2_CID_MPEG_VIDEO_VP8_PROFILE:
+	case V4L2_CID_MPEG_VIDEO_VP9_PROFILE:
+	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_PROFILE:
+		inst->profile = msm_comm_v4l2_to_hfi(ctrl->id, ctrl->val);
+		break;
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
+	case V4L2_CID_MPEG_VIDEO_HEVC_LEVEL:
+	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
+	case V4L2_CID_MPEG_VIDC_VIDEO_VP9_LEVEL:
+	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_LEVEL:
+		inst->level = msm_comm_v4l2_to_hfi(ctrl->id, ctrl->val);
+		break;
+	case V4L2_CID_MPEG_VIDEO_HEVC_TIER:
+		inst->level |=
+			(msm_comm_v4l2_to_hfi(ctrl->id, ctrl->val) << 28);
+		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_DECODE_ORDER:
 	case V4L2_CID_MPEG_VIDC_VIDEO_PICTYPE_DEC_MODE:
 	case V4L2_CID_MPEG_VIDC_VIDEO_CONCEAL_COLOR_8BIT:
@@ -1072,8 +1223,6 @@ int msm_vdec_set_profile_level(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
-	struct v4l2_ctrl *profile;
-	struct v4l2_ctrl *level;
 	struct hfi_profile_level profile_level;
 
 	if (!inst || !inst->core) {
@@ -1082,26 +1231,9 @@ int msm_vdec_set_profile_level(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
-	profile = msm_vdec_get_ctrl(inst, V4L2_CID_MPEG_VIDEO_H264_PROFILE);
-	if (!profile) {
-		dprintk(VIDC_ERR,
-			"%s: failed to get profile ctrl\n", __func__);
-		return -EINVAL;
-	}
-	level = msm_vdec_get_ctrl(inst, V4L2_CID_MPEG_VIDEO_H264_LEVEL);
-	if (!level) {
-		dprintk(VIDC_ERR,
-			"%s: failed to get level ctrl\n", __func__);
-		return -EINVAL;
-	}
-	profile_level.profile = profile->val;
-	profile_level.level = level->val;
-	if (profile_level.profile <= 0) {
-		profile_level.profile = HFI_H264_PROFILE_HIGH;
-		dprintk(VIDC_WARN,
-			"Profile %d not supported, falling back to high\n",
-			profile->val);
-	}
+	profile_level.profile = inst->profile;
+	profile_level.level = inst->level;
+
 	dprintk(VIDC_DBG, "%s: %#x %#x\n", __func__,
 		profile_level.profile, profile_level.level);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
@@ -1111,16 +1243,6 @@ int msm_vdec_set_profile_level(struct msm_vidc_inst *inst)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
 	return rc;
-}
-
-int msm_vdec_set_profile(struct msm_vidc_inst *inst)
-{
-	return msm_vdec_set_profile_level(inst);
-}
-
-int msm_vdec_set_level(struct msm_vidc_inst *inst)
-{
-	return msm_vdec_set_profile_level(inst);
 }
 
 int msm_vdec_set_output_order(struct msm_vidc_inst *inst)
@@ -1568,10 +1690,7 @@ int msm_vdec_set_properties(struct msm_vidc_inst *inst)
 		rc = msm_vdec_set_input_buffer_counts(inst);
 		if (rc)
 			goto exit;
-		rc = msm_vdec_set_profile(inst);
-		if (rc)
-			goto exit;
-		rc = msm_vdec_set_level(inst);
+		rc = msm_vdec_set_profile_level(inst);
 		if (rc)
 			goto exit;
 		rc = msm_vdec_set_output_order(inst);

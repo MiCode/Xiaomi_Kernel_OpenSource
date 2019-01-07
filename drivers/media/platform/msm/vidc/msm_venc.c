@@ -59,24 +59,28 @@ static const char *const vp8_profile_level[] = {
 	"1.0",
 	"2.0",
 	"3.0",
+	NULL
 };
 
 static const char *const perf_level[] = {
 	"Nominal",
 	"Performance",
-	"Turbo"
+	"Turbo",
+	NULL
 };
 
 static const char *const mbi_statistics[] = {
 	"Camcorder Default",
 	"Mode 1",
 	"Mode 2",
-	"Mode 3"
+	"Mode 3",
+	NULL
 };
 
 static const char *const timestamp_mode[] = {
 	"Honor",
 	"Ignore",
+	NULL
 };
 
 static const char *const mpeg_video_stream_format[] = {
@@ -271,7 +275,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE,
 		.maximum = V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_HIGH,
-		.default_value = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE,
+		.default_value = V4L2_MPEG_VIDEO_H264_PROFILE_HIGH,
 		.menu_skip_mask = ~(
 		(1 << V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE) |
 		(1 << V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE) |
@@ -279,6 +283,9 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		(1 << V4L2_MPEG_VIDEO_H264_PROFILE_HIGH) |
 		(1 << V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_HIGH)
 		),
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
+		.qmenu = NULL,
+		.step = 1,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDEO_H264_LEVEL,
@@ -310,6 +317,21 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_6_2) |
 		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_UNKNOWN)
 		),
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
+		.qmenu = NULL,
+		.step = 1,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_VP8_PROFILE,
+		.name = "VP8 Profile",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDEO_VP8_PROFILE_0,
+		.maximum = V4L2_MPEG_VIDEO_VP8_PROFILE_0,
+		.default_value = V4L2_MPEG_VIDEO_VP8_PROFILE_0,
+		.menu_skip_mask = ~(1 << V4L2_MPEG_VIDEO_VP8_PROFILE_0),
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
+		.qmenu = NULL,
+		.step = 1,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL,
@@ -317,7 +339,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDC_VIDEO_VP8_UNUSED,
 		.maximum = V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_3,
-		.default_value = V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_0,
+		.default_value = V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_3,
 		.menu_skip_mask = ~(
 		(1 << V4L2_MPEG_VIDC_VIDEO_VP8_UNUSED) |
 		(1 << V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_0) |
@@ -326,6 +348,8 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		(1 << V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_3)
 		),
 		.qmenu = vp8_profile_level,
+		.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,
+		.step = 1,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDEO_HEVC_PROFILE,
@@ -339,6 +363,9 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		(1 << V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN_STILL_PICTURE) |
 		(1 << V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN_10)
 		),
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
+		.qmenu = NULL,
+		.step = 1,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDEO_HEVC_LEVEL,
@@ -364,6 +391,9 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_6_2) |
 		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_UNKNOWN)
 		),
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
+		.qmenu = NULL,
+		.step = 1,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDEO_HEVC_TIER,
@@ -371,11 +401,14 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDEO_HEVC_TIER_MAIN,
 		.maximum = V4L2_MPEG_VIDEO_HEVC_TIER_HIGH,
-		.default_value = V4L2_MPEG_VIDEO_HEVC_TIER_MAIN,
+		.default_value = V4L2_MPEG_VIDEO_HEVC_TIER_HIGH,
 		.menu_skip_mask = ~(
 		(1 << V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) |
 		(1 << V4L2_MPEG_VIDEO_HEVC_TIER_HIGH)
 		),
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
+		.qmenu = NULL,
+		.step = 1,
 	},
 	{
 		.id = V4L2_CID_ROTATE,
@@ -1588,17 +1621,25 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			dprintk(VIDC_ERR,
 				"%s: set rc enable failed.\n", __func__);
 		break;
+	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
+	case V4L2_CID_MPEG_VIDEO_HEVC_PROFILE:
+	case V4L2_CID_MPEG_VIDEO_VP8_PROFILE:
+		inst->profile = msm_comm_v4l2_to_hfi(ctrl->id, ctrl->val);
+		break;
+	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
+	case V4L2_CID_MPEG_VIDEO_HEVC_LEVEL:
+	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
+		inst->level = msm_comm_v4l2_to_hfi(ctrl->id, ctrl->val);
+		break;
+	case V4L2_CID_MPEG_VIDEO_HEVC_TIER:
+		inst->level |=
+			(msm_comm_v4l2_to_hfi(ctrl->id, ctrl->val) << 28);
+		break;
 	case V4L2_CID_MPEG_VIDEO_B_FRAMES:
 	case V4L2_CID_ROTATE:
 	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_LAYER:
 	case V4L2_CID_MPEG_VIDC_VIDEO_LTRCOUNT:
 	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:
-	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
-	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
-	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
-	case V4L2_CID_MPEG_VIDEO_HEVC_PROFILE:
-	case V4L2_CID_MPEG_VIDEO_HEVC_LEVEL:
-	case V4L2_CID_MPEG_VIDEO_HEVC_TIER:
 	case V4L2_CID_HFLIP:
 	case V4L2_CID_VFLIP:
 	case V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_MODE:
@@ -1864,11 +1905,7 @@ int msm_venc_set_profile_level(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
-	struct v4l2_ctrl *profile;
-	struct v4l2_ctrl *level;
-	struct v4l2_ctrl *tier;
 	struct hfi_profile_level profile_level;
-	u32 hfi_tier;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -1876,64 +1913,8 @@ int msm_venc_set_profile_level(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
-	switch (inst->fmts[CAPTURE_PORT].fourcc) {
-	case V4L2_PIX_FMT_H264:
-		profile = msm_venc_get_ctrl(inst,
-				V4L2_CID_MPEG_VIDEO_H264_PROFILE);
-		level = msm_venc_get_ctrl(inst,
-				V4L2_CID_MPEG_VIDEO_H264_LEVEL);
-		if (!profile || !level) {
-			dprintk(VIDC_ERR,
-				"%s: get h264 profile & level failed\n",
-				__func__);
-			return -EINVAL;
-		}
-
-		profile_level.profile =
-			msm_comm_v4l2_to_hfi(profile->id, profile->val);
-		profile_level.level =
-			msm_comm_v4l2_to_hfi(level->id, level->val);
-		break;
-	case V4L2_PIX_FMT_HEVC:
-		profile = msm_venc_get_ctrl(inst,
-				V4L2_CID_MPEG_VIDEO_HEVC_PROFILE);
-		level = msm_venc_get_ctrl(inst,
-				V4L2_CID_MPEG_VIDEO_HEVC_LEVEL);
-		tier = msm_venc_get_ctrl(inst,
-				V4L2_CID_MPEG_VIDEO_HEVC_TIER);
-		if (!profile || !level || !tier) {
-			dprintk(VIDC_ERR,
-				"%s: get hevc profile & level failed\n",
-				__func__);
-			return -EINVAL;
-		}
-
-		profile_level.profile =
-			msm_comm_v4l2_to_hfi(profile->id, profile->val);
-		profile_level.level =
-			msm_comm_v4l2_to_hfi(level->id, level->val);
-		hfi_tier = msm_comm_v4l2_to_hfi(tier->id, tier->val);
-		profile_level.level |= (hfi_tier << 28);
-		break;
-	case V4L2_PIX_FMT_VP8:
-		level = msm_venc_get_ctrl(inst,
-				V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL);
-		if (!level) {
-			dprintk(VIDC_ERR,
-
-				"%s: get vp8 level failed\n", __func__);
-			return -EINVAL;
-		}
-		profile_level.profile =
-			HFI_VP8_PROFILE_MAIN;
-		profile_level.level =
-			msm_comm_v4l2_to_hfi(level->id, level->val);
-		break;
-	default:
-		dprintk(VIDC_ERR, "%s: unknown fourcc %#x\n", __func__,
-			inst->fmts[CAPTURE_PORT].fourcc);
-		return -EINVAL;
-	}
+	profile_level.profile = inst->profile;
+	profile_level.level = inst->level;
 
 	dprintk(VIDC_DBG, "%s: %#x %#x\n", __func__,
 		profile_level.profile, profile_level.level);
