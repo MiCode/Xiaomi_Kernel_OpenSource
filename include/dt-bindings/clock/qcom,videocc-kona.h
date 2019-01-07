@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved. */
 
 #ifndef _DT_BINDINGS_CLK_QCOM_VIDEO_CC_KONA_H
 #define _DT_BINDINGS_CLK_QCOM_VIDEO_CC_KONA_H
@@ -32,5 +32,7 @@
 #define CVP_VIDEO_CC_MVS0C_BCR					2
 #define CVP_VIDEO_CC_MVS1_BCR					3
 #define CVP_VIDEO_CC_MVS1C_BCR					4
+#define VIDEO_CC_MVS0C_CLK_BCR					5
+#define VIDEO_CC_MVS1C_CLK_BCR					6
 
 #endif
