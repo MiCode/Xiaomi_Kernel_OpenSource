@@ -101,3 +101,14 @@ config REGULATOR_COOLING_DEVICE
 	  voltage.
 
 	  If you want this support, you should say Y here.
+
+config QTI_CPU_ISOLATE_COOLING_DEVICE
+	bool "QTI CPU Isolate cooling devices"
+	depends on THERMAL_OF
+	help
+	   This enables the QTI CPU Isolation cooling devices. These cooling
+	   devices will be used by QTI chipset to isolate a CPU from being
+	   scheduled and hence will let the CPU to power collapse. Isolating
+	   a CPU will be used when the CPU frequency mitigation
+	   is not good enough to achieve the necessary cooling.
+
