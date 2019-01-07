@@ -2861,7 +2861,7 @@ static int cam_ife_csid_stop(void *hw_priv,
 		}
 	}
 
-	if (!res_mask)
+	if (res_mask)
 		rc = cam_ife_csid_poll_stop_status(csid_hw, res_mask);
 
 	for (i = 0; i < csid_stop->num_res; i++) {
