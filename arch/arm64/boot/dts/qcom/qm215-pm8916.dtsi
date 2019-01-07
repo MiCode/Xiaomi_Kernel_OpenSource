@@ -88,7 +88,8 @@
 	};
 
 	qcom,wcnss-wlan@a000000 {
-		/delete-property/ qcom,wcnss-adc_tm;
+		/delete-property/ qcom,has-vsys-adc-channel;
+		qcom,wcnss-adc_tm = <&pm8916_adc_tm>;
 		qcom,pronto-vddmx-supply = <&pm8916_l2_level_ao>;
 		qcom,pronto-vddcx-supply = <&pm8916_s1_level>;
 		qcom,pronto-vddpx-supply = <&pm8916_l7>;
