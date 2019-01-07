@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -226,6 +226,7 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_no_labibb>;
 	qcom,panel-sec-supply-entries = <&dsi_panel_pwr_supply_no_labibb>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-sec-bl-pmic-control-type = "bl_ctrl_dcs";
 	qcom,platform-reset-gpio = <&pm6150l_gpios 11 0>;
 	qcom,platform-sec-reset-gpio = <&pm6150l_gpios 11 0>;
 	qcom,platform-en-gpio = <&pm6150l_gpios 4 0>;
@@ -236,6 +237,7 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_no_labibb>;
 	qcom,panel-sec-supply-entries = <&dsi_panel_pwr_supply_no_labibb>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-sec-bl-pmic-control-type = "bl_ctrl_dcs";
 	qcom,platform-reset-gpio = <&pm6150l_gpios 11 0>;
 	qcom,platform-sec-reset-gpio = <&pm6150l_gpios 11 0>;
 	qcom,platform-en-gpio = <&pm6150l_gpios 4 0>;
