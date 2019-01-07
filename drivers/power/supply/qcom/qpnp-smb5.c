@@ -282,7 +282,8 @@ static int smb5_chg_config_init(struct smb5 *chip)
 		break;
 	case PMI632_SUBTYPE:
 		chip->chg.smb_version = PMI632_SUBTYPE;
-		chg->wa_flags |= WEAK_ADAPTER_WA | USBIN_OV_WA;
+		chg->wa_flags |= WEAK_ADAPTER_WA | USBIN_OV_WA |
+					CHG_TERMINATION_WA;
 		if (pmic_rev_id->rev4 >= 2)
 			chg->wa_flags |= MOISTURE_PROTECTION_WA;
 		chg->param = smb5_pmi632_params;
