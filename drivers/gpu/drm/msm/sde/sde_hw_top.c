@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 #include "sde_hwio.h"
@@ -55,6 +55,10 @@
 	((uint32_t)((MS_TICKS_IN_SEC * XO_CLK_RATE)/(MDP_TICK_COUNT * fps)))
 
 #define DCE_SEL                           0x450
+
+#define ROT_SID_RD			  0x20
+#define ROT_SID_WR			  0x24
+#define ROT_SID_ID_VAL			  0x1c
 
 static void sde_hw_setup_split_pipe(struct sde_hw_mdp *mdp,
 		struct split_pipe_cfg *cfg)
@@ -422,6 +426,30 @@ static void sde_hw_intf_audio_select(struct sde_hw_mdp *mdp)
 	c = &mdp->hw;
 
 	SDE_REG_WRITE(c, HDMI_DP_CORE_SELECT, 0x1);
+}
+
+struct sde_hw_sid *sde_hw_sid_init(void __iomem *addr,
+	u32 sid_len, const struct sde_mdss_cfg *m)
+{
+	struct sde_hw_sid *c;
+
+	c = kzalloc(sizeof(*c), GFP_KERNEL);
+	if (!c)
+		return ERR_PTR(-ENOMEM);
+
+	c->hw.base_off = addr;
+	c->hw.blk_off = 0;
+	c->hw.length = sid_len;
+	c->hw.hwversion = m->hwversion;
+	c->hw.log_mask = SDE_DBG_MASK_SID;
+
+	return c;
+}
+
+void sde_hw_sid_rotator_set(struct sde_hw_sid *sid)
+{
+	SDE_REG_WRITE(&sid->hw, ROT_SID_RD, ROT_SID_ID_VAL);
+	SDE_REG_WRITE(&sid->hw, ROT_SID_WR, ROT_SID_ID_VAL);
 }
 
 static void sde_hw_program_cwb_ppb_ctrl(struct sde_hw_mdp *mdp,

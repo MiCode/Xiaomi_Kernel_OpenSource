@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _SDE_HW_MDSS_H
@@ -511,6 +511,7 @@ struct sde_mdss_color {
 #define SDE_DBG_MASK_DS       (1 << 13)
 #define SDE_DBG_MASK_REGDMA   (1 << 14)
 #define SDE_DBG_MASK_UIDLE    (1 << 15)
+#define SDE_DBG_MASK_SID      (1 << 15)
 
 /**
  * struct sde_hw_cp_cfg: hardware dspp/lm feature payload.
