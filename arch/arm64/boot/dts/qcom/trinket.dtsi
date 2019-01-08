@@ -2024,4 +2024,9 @@
 &venus_gdsc {
 	status = "ok";
 };
+
+&qupv3_se4_2uart {
+	status = "ok";
+};
+
 #include "trinket-thermal.dtsi"

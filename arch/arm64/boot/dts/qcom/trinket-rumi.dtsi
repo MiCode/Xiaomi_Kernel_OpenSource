@@ -45,10 +45,6 @@
 	};
 };
 
-&qupv3_se4_2uart {
-	status = "ok";
-};
-
 &usb0 {
 	dwc3@4e00000 {
 		usb-phy = <&usb_emu_phy>, <&usb_nop_phy>;
