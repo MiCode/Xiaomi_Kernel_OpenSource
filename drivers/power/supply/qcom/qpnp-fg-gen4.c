@@ -3242,7 +3242,9 @@ static void status_change_work(struct work_struct *work)
 	if (rc < 0)
 		pr_err("Error in adjusting FCC for ESR, rc=%d\n", rc);
 
-	schedule_delayed_work(&chip->pl_current_en_work, 0);
+	if (is_parallel_charger_available(fg) &&
+		!delayed_work_pending(&chip->pl_current_en_work))
+		schedule_delayed_work(&chip->pl_current_en_work, 0);
 
 	ttf_update(chip->ttf, input_present);
 	fg->prev_charge_status = fg->charge_status;
