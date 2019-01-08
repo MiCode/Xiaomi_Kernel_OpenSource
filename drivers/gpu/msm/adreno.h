@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -219,6 +219,7 @@ enum adreno_gpurev {
 	ADRENO_REV_A512 = 512,
 	ADRENO_REV_A530 = 530,
 	ADRENO_REV_A540 = 540,
+	ADRENO_REV_A610 = 610,
 	ADRENO_REV_A612 = 612,
 	ADRENO_REV_A615 = 615,
 	ADRENO_REV_A616 = 616,
@@ -1298,6 +1299,7 @@ static inline int adreno_is_a6xx(struct adreno_device *adreno_dev)
 			ADRENO_GPUREV(adreno_dev) < 700;
 }
 
+ADRENO_TARGET(a610, ADRENO_REV_A610)
 ADRENO_TARGET(a612, ADRENO_REV_A612)
 ADRENO_TARGET(a618, ADRENO_REV_A618)
 ADRENO_TARGET(a630, ADRENO_REV_A630)
