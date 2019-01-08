@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2010-2012, 2014-2018, The Linux Foundation. All rights
+ * Copyright (c) 2010-2012, 2014-2019, The Linux Foundation. All rights
  */
 
 #define pr_fmt(fmt) "AXI: %s(): " fmt, __func__
@@ -833,7 +833,6 @@ static int __init msm_bus_debugfs_init(void)
 {
 	struct dentry *commit, *shell_client, *rules_dbg;
 	struct msm_bus_fab_list *fablist;
-	struct msm_bus_cldata *cldata = NULL;
 	uint64_t val = 0;
 
 	dir = debugfs_create_dir("msm-bus-dbg", NULL);
@@ -894,28 +893,6 @@ static int __init msm_bus_debugfs_init(void)
 		MSM_BUS_ERR("Failed to alloc rules_buf");
 		goto err;
 	}
-
-	rt_mutex_lock(&msm_bus_dbg_cllist_lock);
-	list_for_each_entry(cldata, &cl_list, list) {
-		if (cldata->pdata) {
-			if (cldata->pdata->name == NULL) {
-				MSM_BUS_DBG("Client name not found\n");
-				continue;
-			}
-			cldata->file = msm_bus_dbg_create(cldata->pdata->name,
-					0444, clients, cldata->clid);
-		} else if (cldata->handle) {
-			if (cldata->handle->name == NULL) {
-				MSM_BUS_DBG("Client doesn't have a name\n");
-				continue;
-			}
-			cldata->file = debugfs_create_file(cldata->handle->name,
-							0444, clients,
-							(void *)cldata->handle,
-							&client_data_fops);
-		}
-	}
-	rt_mutex_unlock(&msm_bus_dbg_cllist_lock);
 
 	if (debugfs_create_file("dump_clients", 0644,
 		clients, NULL, &msm_bus_dbg_dump_clients_fops) == NULL)
