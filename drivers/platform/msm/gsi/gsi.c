@@ -2974,7 +2974,13 @@ int gsi_reset_channel(unsigned long chan_hdl)
 
 	ctx = &gsi_ctx->chan[chan_hdl];
 
-	if (ctx->state != GSI_CHAN_STATE_STOPPED) {
+	/*
+	 * In WDI3 case, if SAP enabled but no client connected,
+	 * GSI will be in allocated state. When SAP disabled,
+	 * gsi_reset_channel will be called and reset is needed.
+	 */
+	if (ctx->state != GSI_CHAN_STATE_STOPPED &&
+		ctx->state != GSI_CHAN_STATE_ALLOCATED) {
 		GSIERR("bad state %d\n", ctx->state);
 		return -GSI_STATUS_UNSUPPORTED_OP;
 	}
