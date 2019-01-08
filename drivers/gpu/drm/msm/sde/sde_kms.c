@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -3098,33 +3098,10 @@ static int _sde_kms_get_splash_data(struct sde_splash_data *data)
 	return ret;
 }
 
-static int sde_kms_hw_init(struct msm_kms *kms)
+static int _sde_kms_hw_init_ioremap(struct sde_kms *sde_kms,
+	struct platform_device *platformdev)
 {
-	struct sde_kms *sde_kms;
-	struct drm_device *dev;
-	struct msm_drm_private *priv;
-	struct sde_rm *rm = NULL;
-	struct platform_device *platformdev;
-	int i, rc = -EINVAL;
-
-	if (!kms) {
-		SDE_ERROR("invalid kms\n");
-		goto end;
-	}
-
-	sde_kms = to_sde_kms(kms);
-	dev = sde_kms->dev;
-	if (!dev || !dev->dev) {
-		SDE_ERROR("invalid device\n");
-		goto end;
-	}
-
-	platformdev = to_platform_device(dev->dev);
-	priv = dev->dev_private;
-	if (!priv) {
-		SDE_ERROR("invalid private data\n");
-		goto end;
-	}
+	int rc = -EINVAL;
 
 	sde_kms->mmio = msm_ioremap(platformdev, "mdp_phys", "mdp_phys");
 	if (IS_ERR(sde_kms->mmio)) {
@@ -3188,26 +3165,16 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 					rc);
 	}
 
-	sde_kms->core_client = sde_power_client_create(&priv->phandle, "core");
-	if (IS_ERR_OR_NULL(sde_kms->core_client)) {
-		rc = PTR_ERR(sde_kms->core_client);
-		if (!sde_kms->core_client)
-			rc = -EINVAL;
-		SDE_ERROR("sde power client create failed: %d\n", rc);
-		sde_kms->core_client = NULL;
-		goto error;
-	}
+error:
+	return rc;
+}
 
-	rc = _sde_kms_get_splash_data(&sde_kms->splash_data);
-	if (rc)
-		SDE_DEBUG("sde splash data fetch failed: %d\n", rc);
-
-	rc = sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
-		true);
-	if (rc) {
-		SDE_ERROR("resource enable failed: %d\n", rc);
-		goto error;
-	}
+static int _sde_kms_hw_init_blocks(struct sde_kms *sde_kms,
+	struct drm_device *dev,
+	struct msm_drm_private *priv)
+{
+	struct sde_rm *rm = NULL;
+	int i, rc = -EINVAL;
 
 	for (i = 0; i < SDE_POWER_HANDLE_DBUS_ID_MAX; i++)
 		sde_power_data_bus_set_quota(&priv->phandle,
@@ -3363,6 +3330,73 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		goto drm_obj_init_err;
 	}
 
+	return 0;
+
+genpd_err:
+drm_obj_init_err:
+	sde_core_perf_destroy(&sde_kms->perf);
+hw_intr_init_err:
+perf_err:
+power_error:
+	return rc;
+}
+
+static int sde_kms_hw_init(struct msm_kms *kms)
+{
+	struct sde_kms *sde_kms;
+	struct drm_device *dev;
+	struct msm_drm_private *priv;
+	struct platform_device *platformdev;
+	int i, rc = -EINVAL;
+
+	if (!kms) {
+		SDE_ERROR("invalid kms\n");
+		goto end;
+	}
+
+	sde_kms = to_sde_kms(kms);
+	dev = sde_kms->dev;
+	if (!dev || !dev->dev) {
+		SDE_ERROR("invalid device\n");
+		goto end;
+	}
+
+	platformdev = to_platform_device(dev->dev);
+	priv = dev->dev_private;
+	if (!priv) {
+		SDE_ERROR("invalid private data\n");
+		goto end;
+	}
+
+	rc = _sde_kms_hw_init_ioremap(sde_kms, platformdev);
+	if (rc)
+		goto error;
+
+	sde_kms->core_client = sde_power_client_create(&priv->phandle, "core");
+	if (IS_ERR_OR_NULL(sde_kms->core_client)) {
+		rc = PTR_ERR(sde_kms->core_client);
+		if (!sde_kms->core_client)
+			rc = -EINVAL;
+		SDE_ERROR("sde power client create failed: %d\n", rc);
+		sde_kms->core_client = NULL;
+		goto error;
+	}
+
+	rc = _sde_kms_get_splash_data(&sde_kms->splash_data);
+	if (rc)
+		SDE_DEBUG("sde splash data fetch failed: %d\n", rc);
+
+	rc = sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
+		true);
+	if (rc) {
+		SDE_ERROR("resource enable failed: %d\n", rc);
+		goto error;
+	}
+
+	rc = _sde_kms_hw_init_blocks(sde_kms, dev, priv);
+	if (rc)
+		goto hw_init_err;
+
 	dev->mode_config.min_width = sde_kms->catalog->min_display_width;
 	dev->mode_config.min_height = sde_kms->catalog->min_display_height;
 	dev->mode_config.max_width = sde_kms->catalog->max_display_width;
@@ -3402,12 +3436,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	}
 	return 0;
 
-genpd_err:
-drm_obj_init_err:
-	sde_core_perf_destroy(&sde_kms->perf);
-hw_intr_init_err:
-perf_err:
-power_error:
+hw_init_err:
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 error:
 	_sde_kms_hw_destroy(sde_kms, platformdev);
