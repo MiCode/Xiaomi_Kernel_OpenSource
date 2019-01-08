@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3220,7 +3220,9 @@ static void status_change_work(struct work_struct *work)
 	if (rc < 0)
 		pr_err("Error in adjusting FCC for ESR, rc=%d\n", rc);
 
-	schedule_delayed_work(&chip->pl_current_en_work, 0);
+	if (is_parallel_charger_available(fg) &&
+		!delayed_work_pending(&chip->pl_current_en_work))
+		schedule_delayed_work(&chip->pl_current_en_work, 0);
 
 	ttf_update(chip->ttf, input_present);
 	fg->prev_charge_status = fg->charge_status;
