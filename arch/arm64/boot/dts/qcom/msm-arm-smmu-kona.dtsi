@@ -21,6 +21,14 @@
 		ranges;
 		qcom,regulator-names = "vdd";
 		vdd-supply = <&gpu_cx_gdsc>;
+
+		clocks = <&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
+			 <&clock_gcc GCC_GPU_SNOC_DVM_GFX_CLK>,
+			 <&clock_gpucc GPU_CC_AHB_CLK>;
+		clock-names = "gcc_gpu_memnoc_gfx",
+			      "gcc_gpu_snoc_dvm_gfx",
+			      "gpu_cc_ahb";
+
 		interrupts =	<GIC_SPI 672 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 673 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 678 IRQ_TYPE_LEVEL_HIGH>,
