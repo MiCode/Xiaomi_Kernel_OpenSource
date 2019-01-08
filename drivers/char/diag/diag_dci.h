@@ -4,7 +4,6 @@
 #ifndef DIAG_DCI_H
 #define DIAG_DCI_H
 
-#define MAX_DCI_CLIENTS		10
 #define DCI_PKT_RSP_CODE	0x93
 #define DCI_DELAYED_RSP_CODE	0x94
 #define DCI_CONTROL_PKT_CODE	0x9A
