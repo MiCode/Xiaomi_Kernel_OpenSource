@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -655,6 +655,15 @@ static int get_bus_node_device_data(
 			}
 			of_node_put(qos_clk_node);
 		}
+
+		node_device->clk[ACTIVE_CTX].clk = of_clk_get_by_name(dev_node,
+							"node_a_clk");
+
+		if (IS_ERR_OR_NULL(node_device->clk[ACTIVE_CTX].clk))
+			dev_dbg(&pdev->dev,
+				 "%s:Failed to get bus clk for bus%d ctx%d",
+				__func__, node_device->node_info->id,
+								ACTIVE_CTX);
 
 		node_device->clk[DUAL_CTX].clk = of_clk_get_by_name(dev_node,
 							"node_clk");
