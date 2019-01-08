@@ -78,6 +78,10 @@
 
 #define BUS_VOTE_19_MHZ 153600000
 
+/* forward prototype */
+static int sde_rotator_update_perf(struct sde_rot_mgr *mgr);
+
+#ifdef CONFIG_QCOM_BUS_SCALING
 static struct msm_bus_vectors rot_reg_bus_vectors[] = {
 	SDE_REG_BUS_VECTOR_ENTRY(0, 0),
 	SDE_REG_BUS_VECTOR_ENTRY(0, BUS_VOTE_19_MHZ),
@@ -90,9 +94,6 @@ static struct msm_bus_scale_pdata rot_reg_bus_scale_table = {
 	.name = "mdss_rot_reg",
 	.active_only = 1,
 };
-
-/* forward prototype */
-static int sde_rotator_update_perf(struct sde_rot_mgr *mgr);
 
 static int sde_rotator_bus_scale_set_quota(struct sde_rot_bus_data_type *bus,
 		u64 quota)
@@ -190,6 +191,18 @@ static int sde_rotator_enable_reg_bus(struct sde_rot_mgr *mgr, u64 quota)
 
 	return ret;
 }
+#else
+static inline int sde_rotator_enable_reg_bus(struct sde_rot_mgr *mgr, u64 quota)
+{
+	return 0;
+}
+
+static inline int sde_rotator_bus_scale_set_quota(
+		struct sde_rot_bus_data_type *bus, u64 quota)
+{
+	return 0;
+}
+#endif
 
 /*
  * Clock rate of all open sessions working a particular hw block
@@ -2730,6 +2743,7 @@ static struct attribute_group sde_rotator_fs_attr_group = {
 	.attrs = sde_rotator_fs_attrs
 };
 
+#ifdef CONFIG_QCOM_BUS_SCALING
 static int sde_rotator_parse_dt_bus(struct sde_rot_mgr *mgr,
 	struct platform_device *dev)
 {
@@ -2772,6 +2786,13 @@ static int sde_rotator_parse_dt_bus(struct sde_rot_mgr *mgr,
 
 	return ret;
 }
+#else
+static inline int sde_rotator_parse_dt_bus(struct sde_rot_mgr *mgr,
+	struct platform_device *dev)
+{
+	return 0;
+}
+#endif
 
 static int sde_rotator_parse_dt(struct sde_rot_mgr *mgr,
 	struct platform_device *dev)
@@ -2876,6 +2897,7 @@ error:
 	return rc;
 }
 
+#ifdef CONFIG_QCOM_BUS_SCALING
 static void sde_rotator_bus_scale_unregister(struct sde_rot_mgr *mgr)
 {
 	SDEROT_DBG("unregister bus_hdl=%x, reg_bus_hdl=%x\n",
@@ -2919,6 +2941,15 @@ static int sde_rotator_bus_scale_register(struct sde_rot_mgr *mgr)
 
 	return 0;
 }
+#else
+static inline void sde_rotator_bus_scale_unregister(struct sde_rot_mgr *mgr)
+{
+}
+static inline int sde_rotator_bus_scale_register(struct sde_rot_mgr *mgr)
+{
+	return 0;
+}
+#endif
 
 static inline int sde_rotator_search_dt_clk(struct platform_device *pdev,
 		struct sde_rot_mgr *mgr, char *clk_name, int clk_idx,
