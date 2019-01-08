@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #include "sched.h"
@@ -21,45 +21,6 @@ static enum sched_boost_policy boost_policy_dt = SCHED_BOOST_NONE;
 static DEFINE_MUTEX(boost_mutex);
 static unsigned int freq_aggr_threshold_backup;
 static int boost_refcount[MAX_NUM_BOOST_TYPE];
-
-static inline void boost_kick(int cpu)
-{
-	struct rq *rq = cpu_rq(cpu);
-
-	if (!test_and_set_bit(BOOST_KICK, &rq->walt_flags))
-		smp_send_reschedule(cpu);
-}
-
-static void boost_kick_cpus(void)
-{
-	int i;
-	struct cpumask kick_mask;
-
-	if (boost_policy != SCHED_BOOST_ON_BIG)
-		return;
-
-	cpumask_andnot(&kick_mask, cpu_online_mask, cpu_isolated_mask);
-
-	for_each_cpu(i, &kick_mask) {
-		if (cpu_capacity(i) != max_capacity)
-			boost_kick(i);
-	}
-}
-
-int got_boost_kick(void)
-{
-	int cpu = smp_processor_id();
-	struct rq *rq = cpu_rq(cpu);
-
-	return test_bit(BOOST_KICK, &rq->walt_flags);
-}
-
-void clear_boost_kick(int cpu)
-{
-	struct rq *rq = cpu_rq(cpu);
-
-	clear_bit(BOOST_KICK, &rq->walt_flags);
-}
 
 /*
  * Scheduler boost type and boost policy might at first seem unrelated,
@@ -126,17 +87,14 @@ static void _sched_set_boost(int type)
 		if (boost_refcount[FULL_THROTTLE_BOOST] == 1) {
 			core_ctl_set_boost(true);
 			restore_cgroup_boost_settings();
-			boost_kick_cpus();
 		}
 		break;
 
 	case CONSERVATIVE_BOOST:
 	    boost_refcount[CONSERVATIVE_BOOST]++;
 		if ((boost_refcount[CONSERVATIVE_BOOST] == 1) &&
-				!boost_refcount[FULL_THROTTLE_BOOST]) {
+				!boost_refcount[FULL_THROTTLE_BOOST])
 			update_cgroup_boost_settings();
-			boost_kick_cpus();
-		}
 		break;
 
 	case RESTRAINED_BOOST:
