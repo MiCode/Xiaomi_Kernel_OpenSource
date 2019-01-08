@@ -537,30 +537,47 @@ static void dp_display_update_mst_state(struct dp_display_private *dp,
 	dp->panel->mst_state = state;
 }
 
-static void dp_display_process_mst_hpd_high(struct dp_display_private *dp)
+static void dp_display_process_mst_hpd_high(struct dp_display_private *dp,
+						bool mst_probe)
 {
 	bool is_mst_receiver;
 	struct dp_mst_hpd_info info;
+	int ret;
 
-	if (dp->parser->has_mst && dp->mst.drm_registered) {
-		DP_MST_DEBUG("mst_hpd_high work\n");
+	if (!dp->parser->has_mst || !dp->mst.drm_registered) {
+		DP_MST_DEBUG("mst not enabled. has_mst:%d, registered:%d\n",
+				dp->parser->has_mst, dp->mst.drm_registered);
+		return;
+	}
 
+	DP_MST_DEBUG("mst_hpd_high work. mst_probe:%d\n", mst_probe);
+
+	if (!dp->mst.mst_active) {
 		is_mst_receiver = dp->panel->read_mst_cap(dp->panel);
 
-		if (is_mst_receiver && !dp->mst.mst_active) {
-
-			/* clear sink mst state */
-			drm_dp_dpcd_writeb(dp->aux->drm_aux, DP_MSTM_CTRL, 0);
-
-			dp_display_update_mst_state(dp, true);
-
-			info.mst_protocol = dp->parser->has_mst_sideband;
-			info.mst_port_cnt = dp->debug->mst_port_cnt;
-			info.edid = dp->debug->get_edid(dp->debug);
-
-			if (dp->mst.cbs.hpd)
-				dp->mst.cbs.hpd(&dp->dp_display, true, &info);
+		if (!is_mst_receiver) {
+			DP_MST_DEBUG("sink doesn't support mst\n");
+			return;
 		}
+
+		/* clear sink mst state */
+		drm_dp_dpcd_writeb(dp->aux->drm_aux, DP_MSTM_CTRL, 0);
+
+		ret = drm_dp_dpcd_writeb(dp->aux->drm_aux, DP_MSTM_CTRL,
+				 DP_MST_EN | DP_UP_REQ_EN | DP_UPSTREAM_IS_SRC);
+		if (ret < 0) {
+			pr_err("sink mst enablement failed\n");
+			return;
+		}
+
+		dp_display_update_mst_state(dp, true);
+	} else if (dp->mst.mst_active && mst_probe) {
+		info.mst_protocol = dp->parser->has_mst_sideband;
+		info.mst_port_cnt = dp->debug->mst_port_cnt;
+		info.edid = dp->debug->get_edid(dp->debug);
+
+		if (dp->mst.cbs.hpd)
+			dp->mst.cbs.hpd(&dp->dp_display, true, &info);
 	}
 
 	DP_MST_DEBUG("mst_hpd_high. mst_active:%d\n", dp->mst.mst_active);
@@ -657,7 +674,7 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 	dp->link->process_request(dp->link);
 	dp->panel->handle_sink_request(dp->panel);
 
-	dp_display_process_mst_hpd_high(dp);
+	dp_display_process_mst_hpd_high(dp, false);
 
 	mutex_lock(&dp->session_lock);
 	rc = dp->ctrl->on(dp->ctrl, dp->mst.mst_active,
@@ -670,6 +687,9 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 	mutex_unlock(&dp->session_lock);
 
 	dp->process_hpd_connect = false;
+
+	dp_display_process_mst_hpd_high(dp, true);
+
 	dp_display_send_hpd_notification(dp);
 end:
 	return rc;
