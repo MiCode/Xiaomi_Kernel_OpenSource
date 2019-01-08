@@ -40,16 +40,19 @@ static CTP_UPGRADE_FUNC PCtpupdateFunc;
 static CTP_READ_VERSION PCtpreadverFunc;
 
 
-static int ctp_upgrade_from_engineermode(void)
-{
-	if (PCtpupdateFunc == NULL) {
+ static int ctp_upgrade_from_engineermode(void)
+ {
+ 	if (PCtpupdateFunc == NULL)
+	{
 		strcpy(ft_ctp_upgrade_status, "Unsupport");
-	} else {
+	}
+	else
+	{
 		printk("ctp_upgrade_from_engineermode call pointer func to upgrade \n");
 		PCtpupdateFunc();
 	}
-	return 0;
-}
+ 	return 0;
+ }
 
 static void ctp_upgrade_workqueue_func(struct work_struct *work)
 {
@@ -61,16 +64,21 @@ static ssize_t ctp_upgrade_proc_write(struct file *file, const char __user *buf,
 {
 	char tmp_data[64] = {0};
 
-	if (copy_from_user(tmp_data, buf, size)) {
-		printk("copy_from_user() fail.\n");
-		return -EFAULT;
-	}
+	if (copy_from_user(tmp_data, buf, size))
+    {
+        printk("copy_from_user() fail.\n");
+        return -EFAULT;
+    }
 
-	if (strncmp(tmp_data, "tp_update_13817059502", strlen("tp_update_13817059502")) == 0) {
+	if (strncmp(tmp_data, "tp_update_13817059502", strlen("tp_update_13817059502")) == 0)
+	{
 		printk("ctp_upgrade_proc_write start upgrade\n");
-		if (PCtpupdateFunc == NULL) {
+		if (PCtpupdateFunc == NULL)
+		{
 			strcpy(ft_ctp_upgrade_status, "Unsupport");
-		} else {
+		}
+		else
+		{
 			strcpy(ft_ctp_upgrade_status, "upgrading");
 			queue_work(ctp_upgrade_workqueue, &ctp_upgrade_work);
 		}
@@ -81,7 +89,7 @@ static ssize_t ctp_upgrade_proc_write(struct file *file, const char __user *buf,
 static ssize_t ctp_upgrade_proc_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 {
 	int cnt = 0;
-	char *page = NULL;
+    char *page = NULL;
 
 	page = kzalloc(256, GFP_KERNEL);
 	cnt = sprintf(page, "%s", ft_ctp_upgrade_status);
@@ -96,12 +104,15 @@ static ssize_t ctp_proc_read(struct file *file, char __user *buf, size_t size, l
 {
 	int cnt = 0;
 	char version[100] = {0};
-	char *page = NULL;
+    char *page = NULL;
 
 	page = kzalloc(64, GFP_KERNEL);
-	if (PCtpreadverFunc == NULL) {
+	if (PCtpreadverFunc == NULL)
+	{
 		cnt = sprintf(page, "%s\n", "Unknown");
-	} else {
+	}
+	else
+	{
 		PCtpreadverFunc(version);
 		cnt = sprintf(page, "%s\n", version);
 	}
@@ -120,7 +131,8 @@ void lct_ctp_upgrade_int(CTP_UPGRADE_FUNC PUpdatefunc, CTP_READ_VERSION PVerfunc
 
 int lct_set_ctp_upgrade_status(char *status)
 {
-	if ((status != NULL) && (strlen(status) < 20)) {
+	if ((status != NULL) && (strlen(status) < 20))
+	{
 		strcpy(ft_ctp_upgrade_status, status);
 	}
 	return 0;
@@ -143,19 +155,46 @@ static int __init ctp_upgrade_init(void)
 	ctp_upgrade_workqueue = create_singlethread_workqueue("ctp_upgrade");
 	INIT_WORK(&ctp_upgrade_work, ctp_upgrade_workqueue_func);
 
+#if 1
 	g_ctp_upgrade_proc = proc_create_data(CTP_UPGRADE_PROC_FILE, 0660, NULL, &ctp_upgrade_proc_fops, NULL);
-	if (IS_ERR_OR_NULL(g_ctp_upgrade_proc)) {
+	if (IS_ERR_OR_NULL(g_ctp_upgrade_proc))
+	{
 		printk("[elan] create_proc_entry 222 failed\n");
-	} else {
+	}
+	else
+	{
 		printk("[elan] create_proc_entry 222 success\n");
 	}
 
 	g_ctp_proc = proc_create_data(CTP_PROC_FILE, 0444, NULL, &ctp_proc_fops, NULL);
-	if (IS_ERR_OR_NULL(g_ctp_proc)) {
+	if (IS_ERR_OR_NULL(g_ctp_proc))
+	{
 		printk("create_proc_entry failed\n");
-	} else {
+	}
+	else
+	{
 		printk("create_proc_entry success\n");
 	}
+#else
+	g_ctp_upgrade_proc = create_proc_entry(CTP_UPGRADE_PROC_FILE, 0660, NULL);
+	if (g_ctp_upgrade_proc == NULL) {
+		printk("[elan] create_proc_entry 222 failed\n");
+	} else {
+		g_ctp_upgrade_proc->read_proc = ctp_upgrade_proc_read;
+		g_ctp_upgrade_proc->write_proc = ctp_upgrade_proc_write;
+
+		printk("[elan] create_proc_entry 222 success\n");
+	}
+
+	g_ctp_proc = create_proc_entry(CTP_PROC_FILE, 0444, NULL);
+	if (g_ctp_proc == NULL) {
+		printk("create_proc_entry failed\n");
+	} else {
+		g_ctp_proc->read_proc = ctp_proc_read;
+		g_ctp_proc->write_proc = NULL;
+		printk("create_proc_entry success\n");
+	}
+#endif
 
 	return 0;
 }

@@ -88,30 +88,6 @@
 		(x)->i_mode = ((x)->i_mode & S_IFMT) | 0775;\
 	} while (0)
 
-/* OVERRIDE_CRED() and REVERT_CRED()
- *	OVERRIDE_CRED()
- *		backup original task->cred
- *		and modifies task->cred->fsuid/fsgid to specified value.
- *	REVERT_CRED()
- *		restore original task->cred->fsuid/fsgid.
- * These two macro should be used in pair, and OVERRIDE_CRED() should be
- * placed at the beginning of a function, right after variable declaration.
- */
-#define OVERRIDE_CRED(sdcardfs_sbi, saved_cred, info)		\
-	do {	\
-		saved_cred = override_fsids(sdcardfs_sbi, info->data);	\
-		if (!saved_cred)	\
-			return -ENOMEM;	\
-	} while (0)
-
-#define OVERRIDE_CRED_PTR(sdcardfs_sbi, saved_cred, info)	\
-	do {	\
-		saved_cred = override_fsids(sdcardfs_sbi, info->data);	\
-		if (!saved_cred)	\
-			return ERR_PTR(-ENOMEM);	\
-	} while (0)
-
-#define REVERT_CRED(saved_cred)	revert_fsids(saved_cred)
 
 /* Android 5.0 support */
 
@@ -656,7 +632,7 @@ static inline bool str_n_case_eq(const char *s1, const char *s2, size_t len)
 
 static inline bool qstr_case_eq(const struct qstr *q1, const struct qstr *q2)
 {
-	return q1->len == q2->len && str_case_eq(q1->name, q2->name);
+	return q1->len == q2->len && str_n_case_eq(q1->name, q2->name, q1->len);
 }
 
 #define QSTR_LITERAL(string) QSTR_INIT(string, sizeof(string)-1)

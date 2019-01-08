@@ -1237,9 +1237,8 @@ static void *def_msm_int_wcd_mbhc_cal(void)
 	 * 360-680 == Button 3
 	 */
 #if 1
-
-	btn_low[0] = 75;
-	btn_high[0] = 75;
+	btn_low[0] = 100;
+	btn_high[0] = 100;
 	btn_low[1] = 200;
 	btn_high[1] = 200;
 	btn_low[2] = 450;
@@ -2640,8 +2639,8 @@ static struct snd_soc_dai_link msm_mi2s_be_dai_links_ti[] = {
 		.stream_name = "Primary MI2S Capture",
 		.cpu_dai_name = "msm-dai-q6-mi2s.0",
 		.platform_name = "msm-pcm-routing",
-		.codec_name = "tas2557.6-004c",
-		.codec_dai_name = "tas2557 ASI1",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
 		.no_pcm = 1,
 		.dpcm_capture = 1,
 		.be_id = MSM_BACKEND_DAI_PRI_MI2S_TX,
@@ -2759,8 +2758,8 @@ static struct snd_soc_dai_link msm_mi2s_be_dai_links_nxp[] = {
 		.stream_name = "Primary MI2S Capture",
 		.cpu_dai_name = "msm-dai-q6-mi2s.0",
 		.platform_name = "msm-pcm-routing",
-		.codec_name = "tfa98xx.6-0034",
-		.codec_dai_name = "tfa98xx-aif",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
 		.no_pcm = 1,
 		.dpcm_capture = 1,
 		.be_id = MSM_BACKEND_DAI_PRI_MI2S_TX,
@@ -2889,11 +2888,11 @@ static struct snd_soc_dai_link msm_mi2s_be_dai_links[] = {
 		.cpu_dai_name = "msm-dai-q6-mi2s.0",
 		.platform_name = "msm-pcm-routing",
 	#ifdef CONFIG_SND_SOC_TAS2557
-		.codec_name = "tas2557.6-004c",
-		.codec_dai_name = "tas2557 ASI1",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
 	#elif defined(CONFIG_SND_SOC_TFA98XX)
-		.codec_name = "tfa98xx.6-0034",
-		.codec_dai_name = "tfa98xx-aif",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
 	#else
 		.codec_name = "msm-stub-codec.1",
 		.codec_dai_name = "msm-stub-tx",
@@ -3284,7 +3283,8 @@ static void msm_int_dt_parse_cap_info(struct platform_device *pdev,
 static void set_smartpa_ti(int btas2557)
 {
 	static char binited;
-	if (0 == binited) {
+	if (0 == binited)
+	{
 		smartpa_ti = btas2557;
 		binited = 1;
 	}
@@ -3322,12 +3322,15 @@ static struct snd_soc_card *msm_int_populate_sndcard_dailinks(
 				  "qcom,mi2s-audio-intf")) {
 
 #if defined(CONFIG_SND_SOC_TAS2557) && defined(CONFIG_SND_SOC_TFA98XX)
-		if (0 == btas2557) {
+		if (0 == btas2557)
+		{
 			memcpy(dailink + len1,
 				   msm_mi2s_be_dai_links_nxp,
 				   sizeof(msm_mi2s_be_dai_links_nxp));
 			len1 += ARRAY_SIZE(msm_mi2s_be_dai_links_nxp);
-		} else {
+		}
+		else
+		{
 			memcpy(dailink + len1,
 				   msm_mi2s_be_dai_links_ti,
 				   sizeof(msm_mi2s_be_dai_links_ti));

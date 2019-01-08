@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,7 +31,10 @@
 #include "dsi-panel-jdi-nt36672-1080p-video.dtsi"
 #include "dsi-panel-shenchao-td4310-1080p-video.dtsi"
 #include "dsi-panel-huaxing-nt36672-1080p-video.dtsi"
-
+#include "dsi-panel-tianma-nt36672a-1080p-video.dtsi"
+#include "dsi-panel-shenchao-nt36672a-1080p-video.dtsi"
+#include "dsi-panel-tianma-ft8719-1080p-video.dtsi"
+#include "dsi-panel-boe-ft8719-1080p-video.dtsi"
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
 		#address-cells = <1>;
@@ -211,6 +215,46 @@
 	qcom,mdss-dsi-max-refresh-rate = <60>;
 };
 
+&dsi_nt36672a_tianma_fhdplus_video {
+        qcom,mdss-dsi-panel-timings-phy-v2 = [26 21 09 0b 06 03 04 a0
+               26 21 09 0b 06 03 04 a0
+               26 21 09 0b 06 03 04 a0
+               26 21 09 0b 06 03 04 a0
+               26 20 0a 0b 06 03 04 a0];
+	qcom,mdss-dsi-min-refresh-rate = <48>;
+        qcom,mdss-dsi-max-refresh-rate = <60>;
+};
+
+&dsi_nt36672a_shenchao_fhdplus_video {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [26 21 09 0b 06 03 04 a0
+               26 21 09 0b 06 03 04 a0
+               26 21 09 0b 06 03 04 a0
+               26 21 09 0b 06 03 04 a0
+               26 20 0a 0b 06 03 04 a0];
+	qcom,mdss-dsi-min-refresh-rate = <48>;
+        qcom,mdss-dsi-max-refresh-rate = <60>;
+
+};
+
+&dsi_ft8719_tianma_fhdplus_video {
+        qcom,mdss-dsi-panel-timings-phy-v2 = [25 1f 09 0a 06 03 04 a0
+                25 1f 09 0a 06 03 04 a0
+                25 1f 09 0a 06 03 04 a0
+                25 1f 09 0a 06 03 04 a0
+                25 1e 08 0a 06 03 04 a0];
+        qcom,mdss-dsi-min-refresh-rate = <48>;
+        qcom,mdss-dsi-max-refresh-rate = <60>;
+};
+
+&dsi_ft8719_boe_fhdplus_video {
+        qcom,mdss-dsi-panel-timings-phy-v2 = [26 21 09 0b 06 03 04 a0
+                26 21 09 0b 06 03 04 a0
+                26 21 09 0b 06 03 04 a0
+                26 21 09 0b 06 03 04 a0
+                26 20 0a 0b 06 03 04 a0];
+        qcom,mdss-dsi-min-refresh-rate = <48>;
+        qcom,mdss-dsi-max-refresh-rate = <60>;
+};
 &dsi_nt36672_jdi_fhd_video {
 	qcom,mdss-dsi-panel-timings-phy-v2 = [25 1f 09 0a 06 03 04 a0
 		25 1f 09 0a 06 03 04 a0

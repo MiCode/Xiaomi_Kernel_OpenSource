@@ -6,6 +6,7 @@
  * Started by Ingo Molnar:
  *
  *  Copyright (C) 2004, 2005, 2006 Red Hat, Inc., Ingo Molnar <mingo@redhat.com>
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *
  * Many thanks to Arjan van de Ven, Thomas Gleixner, Steven Rostedt and
  * David Howells for suggestions and improvements.
@@ -27,6 +28,8 @@
 #include <linux/debug_locks.h>
 #include <linux/osq_lock.h>
 #include <linux/delay.h>
+#include <linux/ktrace.h>
+#include <linux/sched_opt.h>
 
 /*
  * In the DEBUG case we are using the "NULL fastpath" for mutexes,
@@ -58,6 +61,9 @@ __mutex_init(struct mutex *lock, const char *name, struct lock_class_key *key)
 	osq_lock_init(&lock->osq);
 #endif
 
+#ifdef CONFIG_MUTEX_OPT
+	atomic_set(&lock->nr_critical_tsk_blocked, 0);
+#endif
 	debug_mutex_init(lock, name, key);
 }
 
@@ -252,10 +258,21 @@ bool mutex_spin_on_owner(struct mutex *lock, struct task_struct *owner)
 /*
  * Initial check for entering the mutex spinning loop
  */
-static inline int mutex_can_spin_on_owner(struct mutex *lock)
+static inline int mutex_can_spin_on_owner(struct mutex *lock, bool is_critical_task)
 {
 	struct task_struct *owner;
 	int retval = 1;
+
+#ifdef CONFIG_MUTEX_OPT
+	/* if current is not top app and there are some top app threads blocked */
+	if (!is_critical_task && (atomic_read(&lock->nr_critical_tsk_blocked) > 0)) {
+		/*
+		 pr_info("mutex: skip %d(%s), as %d blocked",
+		 	current->pid, current->comm, atomic_read(&lock->nr_critical_tsk_blocked));
+		 */
+		return 0;
+	}
+#endif
 
 	if (need_resched())
 		return 0;
@@ -305,11 +322,12 @@ static inline bool mutex_try_to_acquire(struct mutex *lock)
  * that we need to jump to the slowpath and sleep.
  */
 static bool mutex_optimistic_spin(struct mutex *lock,
-				  struct ww_acquire_ctx *ww_ctx, const bool use_ww_ctx)
+				  struct ww_acquire_ctx *ww_ctx, const bool use_ww_ctx,
+				  bool is_critical_task)
 {
 	struct task_struct *task = current;
 
-	if (!mutex_can_spin_on_owner(lock))
+	if (!mutex_can_spin_on_owner(lock, is_critical_task))
 		goto done;
 
 	/*
@@ -412,7 +430,8 @@ done:
 }
 #else
 static bool mutex_optimistic_spin(struct mutex *lock,
-				  struct ww_acquire_ctx *ww_ctx, const bool use_ww_ctx)
+				  struct ww_acquire_ctx *ww_ctx, const bool use_ww_ctx,
+				  bool is_critical_task)
 {
 	return false;
 }
@@ -522,6 +541,7 @@ __mutex_lock_common(struct mutex *lock, long state, unsigned int subclass,
 	struct mutex_waiter waiter;
 	unsigned long flags;
 	int ret;
+	int is_critical_task = ktrace_sched_is_critical_pid(task->pid);
 
 	if (use_ww_ctx) {
 		struct ww_mutex *ww = container_of(lock, struct ww_mutex, base);
@@ -529,15 +549,33 @@ __mutex_lock_common(struct mutex *lock, long state, unsigned int subclass,
 			return -EALREADY;
 	}
 
+#ifdef CONFIG_MUTEX_OPT
+	if (is_critical_task) {
+		struct task_struct *owner;
+
+		atomic_inc(&lock->nr_critical_tsk_blocked);
+
+		rcu_read_lock();
+		owner = READ_ONCE(lock->owner);
+		if (owner)
+			sched_boost_task_prio("mutex_lock", owner);
+		rcu_read_unlock();
+	}
+#endif
+
 	preempt_disable();
 	mutex_acquire_nest(&lock->dep_map, subclass, 0, nest_lock, ip);
 
-	if (mutex_optimistic_spin(lock, ww_ctx, use_ww_ctx)) {
+	if (mutex_optimistic_spin(lock, ww_ctx, use_ww_ctx, is_critical_task)) {
 		/* got the lock, yay! */
 		preempt_enable();
+#ifdef CONFIG_MUTEX_OPT
+		if (is_critical_task) {
+			atomic_dec(&lock->nr_critical_tsk_blocked);
+		}
+#endif
 		return 0;
 	}
-
 	spin_lock_mutex(&lock->wait_lock, flags);
 
 	/*
@@ -552,6 +590,12 @@ __mutex_lock_common(struct mutex *lock, long state, unsigned int subclass,
 	debug_mutex_add_waiter(lock, &waiter, task_thread_info(task));
 
 	/* add waiting tasks to the end of the waitqueue (FIFO): */
+
+#ifdef CONFIG_MUTEX_OPT
+	if (is_critical_task)
+		list_add(&waiter.list, &lock->wait_list);
+	else
+#endif
 	list_add_tail(&waiter.list, &lock->wait_list);
 	waiter.task = task;
 
@@ -614,6 +658,11 @@ skip_wait:
 
 	spin_unlock_mutex(&lock->wait_lock, flags);
 	preempt_enable();
+
+#ifdef CONFIG_MUTEX_OPT
+	if (is_critical_task)
+		atomic_dec(&lock->nr_critical_tsk_blocked);
+#endif
 	return 0;
 
 err:
@@ -622,6 +671,11 @@ err:
 	debug_mutex_free_waiter(&waiter);
 	mutex_release(&lock->dep_map, 1, ip);
 	preempt_enable();
+
+#ifdef CONFIG_MUTEX_OPT
+	if (is_critical_task)
+		atomic_dec(&lock->nr_critical_tsk_blocked);
+#endif
 	return ret;
 }
 
@@ -746,6 +800,9 @@ __mutex_unlock_common_slowpath(struct mutex *lock, int nested)
 	 */
 	if (__mutex_slowpath_needs_to_unlock())
 		atomic_set(&lock->count, 1);
+#ifdef CONFIG_MUTEX_OPT
+	sched_restore_task_prio("mutex_unlock", current);
+#endif
 
 	spin_lock_mutex(&lock->wait_lock, flags);
 	mutex_release(&lock->dep_map, nested, _RET_IP_);

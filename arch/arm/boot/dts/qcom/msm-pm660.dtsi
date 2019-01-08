@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -171,6 +172,7 @@
 		pm660_coincell: qcom,coincell@2800 {
 			compatible = "qcom,qpnp-coincell";
 			reg = <0x2800 0x100>;
+			qcom,charge-enable = <0>;
 		};
 
 		pm660_rtc: qcom,pm660_rtc {
@@ -280,7 +282,7 @@
 			};
 
 			chan@50 {
-				label = "id3_therm";
+				label = "backlight_therm";
 				reg = <0x50>;
 				qcom,decimation = <2>;
 				qcom,pre-div-channel-scaling = <0>;
@@ -366,7 +368,7 @@
 
 
 			qcom,thermal-mitigation
-					= <2900000 2000000 1500000 1000000 500000>;
+					= <2900000 2400000 1900000 1500000 1000000 500000 100000>;
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
@@ -676,19 +678,24 @@
 			qcom,pmic-misc = <&pm660_misc>;
 			qcom,misc-clk-trim-error-reg = <0xf3>;
 			qcom,actuator-type = "lra";
-			qcom,play-mode = "direct";
-			qcom,vmax-mv = <2784>;
+			qcom,play-mode = "buffer";
+			qcom,vmax-mv = <2204>;
 			qcom,ilim-ma = <800>;
 			qcom,wave-shape = "sine";
-			qcom,wave-play-rate-us = <5100>;
+			qcom,wave-play-rate-us = <4878>;
 			qcom,int-pwm-freq-khz = <253>;
 			qcom,sc-deb-cycles = <8>;
 			qcom,en-brake;
 			qcom,brake-pattern = [02 02 01 00];
+			qcom,wave-samples = [3e 3e 3e 00 00 00 00 00];
+			qcom,wave-samples-two = [3e 3e 3e 3e 00 00 00 00];
+			qcom,wave-samples-three = [3e 3e 3e 3e 3e 00 00 00];
+			qcom,wave-rep-cnt = <1>;
+			qcom,wave-samp-rep-cnt = <1>;
 			qcom,lra-high-z = "opt1";
 			qcom,lra-auto-res-mode = "none";
 			qcom,lra-calibrate-at-eop = <0>;
-			qcom,correct-lra-drive-freq;
+			qcom,lra-hw-auto-resonance;
 		};
 	};
 };

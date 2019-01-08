@@ -136,8 +136,8 @@ struct mmc_ext_csd {
 	u8			device_life_time_est_typ_b;	/* 269 */
 	u8			cmdq_depth;		/* 307 */
 	u8			cmdq_support;		/* 308 */
-	u8			life_time_est_typ_a;    /* 268 */
-	u8			life_time_est_typ_b;    /* 269 */
+	u8                      life_time_est_typ_a;    /* 268 */
+	u8                      life_time_est_typ_b;    /* 269 */
 	u8			barrier_support;	/* 486 */
 	u8			barrier_en;
 
@@ -409,6 +409,11 @@ struct mmc_card {
 	u32			raw_cid[4];	/* raw card CID */
 	u32			raw_csd[4];	/* raw card CSD */
 	u32			raw_scr[2];	/* raw card SCR */
+/* HTH-25611 add by jiatianbao 20180802  begin */
+#ifdef CONFIG_KERNEL_CUSTOM_TULIP
+
+#endif
+/* HTH-25611 add by jiatianbao 20180802  end */
 	struct mmc_cid		cid;		/* card identification */
 	struct mmc_csd		csd;		/* card specific */
 	struct mmc_ext_csd	ext_csd;	/* mmc v4 extended card specific */

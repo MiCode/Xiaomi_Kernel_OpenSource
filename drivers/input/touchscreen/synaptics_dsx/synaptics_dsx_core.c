@@ -56,15 +56,27 @@
 #define TYPE_B_PROTOCOL
 #endif
 
+/*
+#define USE_DATA_SERVER
+*/
+
 #define WAKEUP_GESTURE false
 
 #define NO_0D_WHILE_2D
 #define REPORT_2D_Z
 #define REPORT_2D_W
+/*
+#define REPORT_2D_PRESSURE
+*/
 
 #define F12_DATA_15_WORKAROUND
 
 #define IGNORE_FN_INIT_FAILURE
+/*
+#define FB_READY_RESET
+#define FB_READY_WAIT_MS 100
+#define FB_READY_TIMEOUT_S 30
+*/
 #ifdef SYNA_TDDI
 #define TDDI_LPWG_WAIT_US 10
 #endif
@@ -121,17 +133,20 @@ int synaptics_gesture_switch(struct input_dev *dev, unsigned int type, unsigned 
 {
 
 	unsigned int input ;
-	if (type == EV_SYN && code == SYN_CONFIG) {
-		if (rmi4_data->suspend) {
-			if ((value != WAKEUP_OFF) || synaptics_gesture_func_on) {
+	if (type == EV_SYN && code == SYN_CONFIG)
+	{
+		if (rmi4_data->suspend)
+		{
+			if ((value != WAKEUP_OFF) || synaptics_gesture_func_on)
+			{
 				gesture_delay = true;
 			}
 		}
-		if (value == WAKEUP_OFF) {
+		if (value == WAKEUP_OFF){
 			synaptics_gesture_func_on = false;
 			printk("close double-click resume\n");
 			input = 0;
-		} else if (value == WAKEUP_ON) {
+		}else if (value == WAKEUP_ON) {
 			synaptics_gesture_func_on  = true;
 			printk("open double-click resume\n");
 			input = 1;

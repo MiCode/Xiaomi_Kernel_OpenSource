@@ -1,6 +1,7 @@
 /* Decoder for ASN.1 BER/DER/CER encoded bytestream
  *
  * Copyright (C) 2012 Red Hat, Inc. All Rights Reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  * Written by David Howells (dhowells@redhat.com)
  *
  * This program is free software; you can redistribute it and/or
@@ -283,6 +284,9 @@ next_op:
 				if (unlikely(len > datalen - dp))
 					goto data_overrun_error;
 			}
+		} else {
+			if (unlikely(len > datalen - dp))
+				goto data_overrun_error;
 		}
 
 		if (flags & FLAG_CONS) {

@@ -2,10 +2,10 @@
  *  Sysfs interface for the universal power supply monitor class
  *
  *  Copyright © 2007  David Woodhouse <dwmw2@infradead.org>
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *  Copyright © 2007  Anton Vorontsov <cbou@mail.ru>
  *  Copyright © 2004  Szabolcs Gyurko
  *  Copyright © 2003  Ian Molton <spyro@f2s.com>
- *  Copyright (C) 2018 XiaoMi, Inc.
  *
  *  Modified: 2004, Oct     Szabolcs Gyurko
  *
@@ -89,7 +89,7 @@ static ssize_t power_supply_show_property(struct device *dev,
 	const ptrdiff_t off = attr - power_supply_attrs;
 	union power_supply_propval value;
 
-	if ((off == POWER_SUPPLY_PROP_TYPE) && (strcmp(psy->desc->name, "usb") != 0)) {
+	if ((off == POWER_SUPPLY_PROP_TYPE) && (strcmp(psy->desc->name, "usb") != 0)){
 		value.intval = psy->desc->type;
 	} else {
 		ret = power_supply_get_property(psy, off, &value);
@@ -306,6 +306,8 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(pd_voltage_max),
 	POWER_SUPPLY_ATTR(pd_voltage_min),
 	POWER_SUPPLY_ATTR(sdp_current_max),
+	POWER_SUPPLY_ATTR(fg_reset_clock),
+	POWER_SUPPLY_ATTR(rerun_apsd),
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_ATTR(charge_counter_ext),
 	/* Properties of type `const char *' */

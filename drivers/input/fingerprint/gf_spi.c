@@ -1,7 +1,7 @@
  /*Simple synchronous userspace interface to SPI devices
   *
   * Copyright (C) 2006 SWAPP
-  * Copyright (C) 2018 XiaoMi, Inc.
+ * Copyright (C) 2018 XiaoMi, Inc.
   *     Andrea Paterniani <a.paterniani@swapp-eng.it>
   * Copyright (C) 2007 David Brownell (simplification, cleanup)
   *
@@ -67,7 +67,8 @@ extern int fpsensor;
 #define N_SPI_MINORS		32	/* ... up to 256 */
 
 
-struct gf_key_map key_map[] = {
+struct gf_key_map key_map[] =
+{
 	{  "POWER",  KEY_POWER  },
 	{  "HOME" ,  KEY_HOME   },
 	{  "MENU" ,  KEY_MENU   },
@@ -91,7 +92,7 @@ struct gf_key_map key_map[] = {
 #define GF_DEBUG
 /*#undef  GF_DEBUG*/
 
-#ifdef GF_DEBUG
+#ifdef  GF_DEBUG
 #define gf_dbg(fmt, args...) do { \
 					pr_warn("gf:" fmt, ##args);\
 		} while (0)
@@ -272,7 +273,7 @@ static long gf_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	struct gf_dev *gf_dev = &gf;
 	struct gf_key gf_key = { 0 };
 	int retval = 0;
-		 int i;
+	int i;
 #ifdef AP_CONTROL_CLK
 	unsigned int speed = 0;
 #endif
@@ -290,9 +291,10 @@ static long gf_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		return -EFAULT;
 
 	if (gf_dev->device_available == 0) {
-		if ((cmd == GF_IOC_POWER_ON) || (cmd == GF_IOC_POWER_OFF) || (cmd == GF_IOC_ENABLE_GPIO) || (cmd == GF_IOC_DISABLE_GPIO)) {
+		if ((cmd == GF_IOC_POWER_ON) || (cmd == GF_IOC_POWER_OFF) || (cmd == GF_IOC_ENABLE_GPIO) || (cmd == GF_IOC_DISABLE_GPIO)){
 			pr_info("power cmd\n");
-		} else {
+		}
+		else{
 			pr_info("Sensor is power off currently. \n");
 			return -ENODEV;
 		}
@@ -337,7 +339,7 @@ static long gf_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			break;
 		}
 		for (i = 0; i < ARRAY_SIZE(key_map); i++) {
-			if (key_map[i].val == gf_key.key) {
+			if (key_map[i].val == gf_key.key){
 				input_report_key(gf_dev->input, KEY_ENTER, gf_key.value);
 				input_sync(gf_dev->input);
 				break;
@@ -352,35 +354,35 @@ static long gf_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 	case GF_IOC_CLK_READY:
 #ifdef AP_CONTROL_CLK
-		 gfspi_ioctl_clk_enable(gf_dev);
+		gfspi_ioctl_clk_enable(gf_dev);
 #else
-		 pr_info("Doesn't support control clock.\n");
+		pr_info("Doesn't support control clock.\n");
 #endif
 		break;
 	case GF_IOC_CLK_UNREADY:
 #ifdef AP_CONTROL_CLK
-		 gfspi_ioctl_clk_disable(gf_dev);
+		gfspi_ioctl_clk_disable(gf_dev);
 #else
-		 pr_info("Doesn't support control clock.\n");
+		pr_info("Doesn't support control clock.\n");
 #endif
 		break;
 	case GF_IOC_PM_FBCABCK:
 		__put_user(gf_dev->fb_black, (u8 __user *) arg);
 		break;
 	case GF_IOC_POWER_ON:
-		 if (gf_dev->device_available == 1)
+		if (gf_dev->device_available == 1)
 			pr_info("Sensor has already powered-on.\n");
-		 else
+		else
 			gf_power_on(gf_dev);
-		 gf_dev->device_available = 1;
-		 break;
+		gf_dev->device_available = 1;
+		break;
 	case GF_IOC_POWER_OFF:
-		 if (gf_dev->device_available == 0)
+		if (gf_dev->device_available == 0)
 			pr_info("Sensor has already powered-off.\n");
-		 else
+		else
 			gf_power_off(gf_dev);
-		 gf_dev->device_available = 0;
-		 break;
+		gf_dev->device_available = 0;
+		break;
 		case GF_IOC_ENABLE_GPIO:
 			driver_init_partial(gf_dev);
 			break;
@@ -483,13 +485,13 @@ static int driver_init_partial(struct gf_dev *gf_dev)
 	return 0;
 
 error:
-	if (gpio_is_valid(gf_dev->irq_gpio)) {
+	if (gpio_is_valid(gf_dev->irq_gpio)){
 		gf_disable_irq(gf_dev);
 		free_irq(gf_dev->irq, gf_dev);
 		gpio_free(gf_dev->irq_gpio);
 		pr_info("remove irq_gpio success\n");
 	}
-	if (gpio_is_valid(gf_dev->reset_gpio)) {
+	if (gpio_is_valid(gf_dev->reset_gpio)){
 		gpio_free(gf_dev->reset_gpio);
 		pr_info("remove reset_gpio success\n");
 	}
@@ -522,9 +524,9 @@ static int gf_open(struct inode *inode, struct file *filp)
 #if 1
 			if (gf_dev->users == 1)
 				gf_enable_irq(gf_dev);
-			/*power the sensor*/
+				/*power the sensor*/
 			gf_power_on(gf_dev);
-		    gf_hw_reset(gf_dev, 360);
+			gf_hw_reset(gf_dev, 360);
 			gf_dev->device_available = 1;
 #endif
 		}
@@ -565,9 +567,9 @@ static int gf_release(struct inode *inode, struct file *filp)
 	if (!gf_dev->users) {
 		gf_dbg("disble_irq. irq = %d\n", gf_dev->irq);
 		gf_disable_irq(gf_dev);
-		 /*power off the sensor*/
-		 gf_dev->device_available = 0;
-		 gf_power_off(gf_dev);
+		/*power off the sensor*/
+		gf_dev->device_available = 0;
+		gf_power_off(gf_dev);
 	}
 	mutex_unlock(&device_list_lock);
 	FUNC_EXIT();
@@ -702,7 +704,7 @@ static int gf_probe(struct platform_device *pdev)
 
 		if (regulator_count_voltages(vreg) > 0) {
 			ret = regulator_set_voltage(vreg, 2850000, 2850000);
-			if (ret) {
+			if (ret){
 				dev_err(&gf_dev->spi->dev, "Unable to set voltage on vdd_ana");
 				goto error;
 			}
@@ -783,7 +785,7 @@ static int gf_probe(struct platform_device *pdev)
 		ret = gpio_get_value(gf_dev->irq_gpio);
 		dev_info(&gf_dev->spi->dev, "goodix fp irq gpio (%d) \n" , ret);
 
-		 gf_dev->irq = gf_irq_num(gf_dev);
+		gf_dev->irq = gf_irq_num(gf_dev);
 		ret = request_threaded_irq(gf_dev->irq, NULL, gf_irq,
 					   IRQF_TRIGGER_RISING | IRQF_ONESHOT,
 					   "gf", gf_dev);
@@ -901,9 +903,9 @@ static struct platform_driver gf_driver = {
 static int __init gf_init(void)
 {
 	int status;
-		 printk("goodix init\n");
+	printk("goodix init\n");
 	FUNC_ENTRY();
-	if (fpsensor != 2) {
+	if (fpsensor != 2){
 		pr_err("Macle gf_init failed as fpsensor=%d(2=gx)\n", fpsensor);
 		return -EPERM;
 	}

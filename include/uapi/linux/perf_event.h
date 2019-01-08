@@ -2,6 +2,7 @@
  * Performance events:
  *
  *    Copyright (C) 2008-2009, Thomas Gleixner <tglx@linutronix.de>
+ *    Copyright (C) 2018 XiaoMi, Inc.
  *    Copyright (C) 2008-2011, Red Hat, Inc., Ingo Molnar
  *    Copyright (C) 2008-2011, Red Hat, Inc., Peter Zijlstra
  *
@@ -111,6 +112,7 @@ enum perf_sw_ids {
 	PERF_COUNT_SW_EMULATION_FAULTS		= 8,
 	PERF_COUNT_SW_DUMMY			= 9,
 	PERF_COUNT_SW_BPF_OUTPUT		= 10,
+	PERF_COUNT_SW_SPF			= 11,
 
 	PERF_COUNT_SW_MAX,			/* non-ABI */
 };

@@ -201,9 +201,15 @@ static struct wcd_mbhc_config mbhc_cfg = {
 	.swap_gnd_mic = NULL,
 	.hs_ext_micbias = true,
 	.key_code[0] = KEY_MEDIA,
+#if 0
+	.key_code[1] = KEY_VOICECOMMAND,
+    .key_code[2] = KEY_VOLUMEUP,
+    .key_code[3] = KEY_VOLUMEDOWN,
+#else
 	.key_code[1] = BTN_1,
 	.key_code[2] = BTN_2,
 	.key_code[3] = 0,
+#endif
 	.key_code[4] = 0,
 	.key_code[5] = 0,
 	.key_code[6] = 0,
@@ -2485,9 +2491,6 @@ int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 			__func__, cpu_dai->id);
 		goto done;
 	}
-#if defined(CONFIG_SND_SOC_TAS2557) || defined(CONFIG_SND_I2S_PRIMARY)
-	pri_i2s_gpio_enable(true);
-#endif
 	/*
 	 * Muxtex protection in case the same MI2S
 	 * interface using for both TX and RX  so
@@ -2500,6 +2503,9 @@ int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 			mi2s_clk[index].clk_id = mi2s_ebit_clk[index];
 			fmt = SND_SOC_DAIFMT_CBM_CFM;
 		}
+#if defined(CONFIG_SND_SOC_TAS2557) || defined(CONFIG_SND_I2S_PRIMARY)
+		pri_i2s_gpio_enable(true);
+#endif
 		ret = msm_mi2s_set_sclk(substream, true);
 		if (IS_ERR_VALUE(ret)) {
 			dev_err(rtd->card->dev,
@@ -2559,17 +2565,16 @@ void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 		pr_err("%s:invalid MI2S DAI(%d)\n", __func__, index);
 		return;
 	}
-#if defined(CONFIG_SND_SOC_TAS2557) || defined(CONFIG_SND_I2S_PRIMARY)
-	pri_i2s_gpio_enable(false);
-#endif
 	mutex_lock(&mi2s_intf_conf[index].lock);
 	if (--mi2s_intf_conf[index].ref_cnt == 0) {
 		ret = msm_mi2s_set_sclk(substream, false);
-		if (ret < 0) {
+		if (ret < 0)
 			pr_err("%s:clock disable failed for MI2S (%d); ret=%d\n",
 				__func__, index, ret);
-			mi2s_intf_conf[index].ref_cnt++;
-		}
+
+#if defined(CONFIG_SND_SOC_TAS2557) || defined(CONFIG_SND_I2S_PRIMARY)
+		pri_i2s_gpio_enable(false);
+#endif
 		if (mi2s_intf_conf[index].msm_is_ext_mclk) {
 			mi2s_mclk[index].enable = 0;
 			pr_debug("%s: Disabling mclk, clk_freq_in_hz = %u\n",
@@ -3042,7 +3047,8 @@ static const struct of_device_id sdm660_asoc_machine_of_match[]  = {
 #if defined(CONFIG_SND_SOC_TAS2557) || defined(CONFIG_SND_I2S_PRIMARY)
 	#define PRI_I2S_ACTIVE "pri_i2s_active"
 	#define PRI_I2S_SLEEP "pri_i2s_sleep"
-	struct pri_i2s_gpioset {
+	struct pri_i2s_gpioset
+	{
 		struct pinctrl *pinctrl;
 		struct pinctrl_state *pinctrl_state_active;
 		struct pinctrl_state *pinctrl_state_sleep;
@@ -3078,13 +3084,13 @@ static int pri_i2s_gpio_enable(bool enable)
 	int ret;
 
 	pr_info("%s:enable = %d.\n", __func__, enable);
-	if (enable) {
+	if (enable){
 		ret = pinctrl_select_state(pri_i2s_pininfo.pinctrl, pri_i2s_pininfo.pinctrl_state_active);
 		if (ret) {
 			pr_err("%s:could not set active pinctrl.\n", __func__);
 			return -ENOENT;
 		}
-	} else {
+	}else{
 		ret = pinctrl_select_state(pri_i2s_pininfo.pinctrl, pri_i2s_pininfo.pinctrl_state_sleep);
 		if (ret) {
 			pr_err("%s:could not set sleep pinctrl.\n", __func__);

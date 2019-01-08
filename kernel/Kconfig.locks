@@ -248,3 +248,19 @@ config ARCH_USE_QUEUED_RWLOCKS
 config QUEUED_RWLOCKS
 	def_bool y if ARCH_USE_QUEUED_RWLOCKS
 	depends on SMP
+
+config MUTEX_OPT
+	bool "mutex optimize"
+	select KTRACE
+	select SCHED_OPT
+	default n
+	help
+		mutex opt - boost lock owner priority when critical app blocked
+
+config RWSEM_OPT
+	bool "rwsem optimize"
+	select KTRACE
+	select SCHED_OPT
+	default n
+	help
+		rwsem opt - boost lock owner when critical app blocked

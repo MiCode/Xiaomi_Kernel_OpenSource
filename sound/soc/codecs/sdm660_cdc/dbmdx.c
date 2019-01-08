@@ -1169,14 +1169,14 @@ static int dbmdx_set_mode(struct dbmdx_private *p, int mode)
 
 
 	if (platform_codec != NULL){
-		if (mode == 1) {
-			if (!enable_mic_bias(true))
-				pr_debug("%s, set_platform_mic_bias1, enable\n", __func__);
-		} else if (mode == 6) {
+		if (mode == 1){
+		if (!enable_mic_bias(true))
+	  		pr_debug("%s, set_platform_mic_bias1, enable\n", __func__);
+		}else if (mode == 6){
 		if (!enable_mic_bias(false))
-			pr_debug("%s set_platform_mic_bias1, disable\n", __func__);
-		} else {
-			pr_info("%s set_platform_mic_bias1, no need\n", __func__);
+	   		pr_debug("%s set_platform_mic_bias1, disable\n", __func__);
+		}else{
+	  	        pr_info("%s set_platform_mic_bias1, no need\n", __func__);
 		}
 
 	}

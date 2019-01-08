@@ -142,6 +142,19 @@ static struct jeita_fcc_cfg jeita_fcc_config = {
 		{451,		600,		1200000},
 	},
 };
+#elif defined(CONFIG_KERNEL_CUSTOM_TULIP)
+static struct jeita_fcc_cfg jeita_fcc_config = {
+	.psy_prop	= POWER_SUPPLY_PROP_TEMP,
+	.prop_name	= "BATT_TEMP",
+	.hysteresis	= 0, /* 1degC hysteresis */
+	.fcc_cfg	= {
+		/* TEMP_LOW	TEMP_HIGH	FCC */
+		{0,		50,		400000},
+		{51,		150,		1200000},
+		{151,		450,		2500000},
+		{451,		600,		2000000},
+	},
+};
 #endif
 static struct jeita_fv_cfg jeita_fv_config = {
 	.psy_prop	= POWER_SUPPLY_PROP_TEMP,

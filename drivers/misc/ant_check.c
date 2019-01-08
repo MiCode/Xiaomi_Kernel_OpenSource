@@ -21,7 +21,8 @@
 #define CONFIG_ANT_SYS
 
 
-struct ant_check_info {
+struct ant_check_info
+{
 	struct mutex io_lock;
 	u32 irq_gpio;
 	u32 irq_gpio_flags;
@@ -42,9 +43,9 @@ static irqreturn_t ant_interrupt(int irq, void *data)
 
 	ant_gpio = gpio_get_value_cansleep(ant_info->irq_gpio);
 	pr_err("Macle irq interrupt gpio = %d\n", ant_gpio);
-	if (ant_gpio == ant_info->ant_check_state) {
+	if (ant_gpio == ant_info->ant_check_state){
 		return IRQ_HANDLED;
-	} else {
+	}else{
 		ant_info->ant_check_state = ant_gpio;
 		pr_err("Macle report key s ");
 	}
@@ -52,7 +53,7 @@ static irqreturn_t ant_interrupt(int irq, void *data)
 			input_report_key(ant_info->ipdev, KEY_ANT_CONNECT, 1);
 			input_report_key(ant_info->ipdev, KEY_ANT_CONNECT, 0);
 			input_sync(ant_info->ipdev);
-	} else {
+	}else{
 			input_report_key(ant_info->ipdev, KEY_ANT_UNCONNECT, 1);
 			input_report_key(ant_info->ipdev, KEY_ANT_UNCONNECT, 0);
 			input_sync(ant_info->ipdev);
@@ -75,7 +76,6 @@ static int ant_parse_dt(struct device *dev, struct ant_check_info *pdata)
 	return 0;
 }
 
-
 #ifdef CONFIG_ANT_SYS
 static ssize_t ant_state_show(struct class *class,
 		struct class_attribute *attr, char *buf)
@@ -83,21 +83,52 @@ static ssize_t ant_state_show(struct class *class,
 	int state;
 	if (global_ant_info->ant_check_state) {
 		state = 3;
-	} else {
+	}else{
 		state = 2;
 	}
 	pr_err("Macle ant_state_show state = %d, custome_state=%d\n", global_ant_info->ant_check_state, state);
 	return sprintf(buf, "%d\n", state);
 }
+#if defined(CONFIG_KERNEL_CUSTOM_WAYNE)
+static ssize_t ant_state_store(struct class *class,
+                                 struct class_attribute *attr,
+                                  const char *buf, size_t size)
+{
 
+	int rc = 0;
+	int state = 0;
+	rc = kstrtoint(buf, 10, &state);
+	if (rc) {
+		pr_err("Macle kstrtoint failed. rc=%d\n", rc);
+		return rc;
+	}
+
+	if (state == 0){
+		disable_irq(global_ant_info->irq);
+		printk("property disable ant_irq");
+
+	} else {
+		enable_irq(global_ant_info->irq);
+		printk("property enable ant_irq");
+	}
+
+	return size;
+}
+#endif
+
+#if defined(CONFIG_KERNEL_CUSTOM_WAYNE)
+static struct class_attribute ant_state =
+	__ATTR(ant_state, S_IRUGO, ant_state_show, ant_state_store);
+#else
 static struct class_attribute ant_state =
 	__ATTR(ant_state, S_IRUGO, ant_state_show, NULL);
+#endif
 
-static int ant_register_class_dev(struct ant_check_info *ant_info) {
+static int ant_register_class_dev(struct ant_check_info *ant_info){
 	int err;
 	if (!ant_info->ant_sys_class) {
 		ant_info->ant_sys_class = class_create(THIS_MODULE, "ant_class");
-		if (IS_ERR(ant_info->ant_sys_class)) {
+		if (IS_ERR(ant_info->ant_sys_class)){
 			ant_info->ant_sys_class = NULL;
 			printk(KERN_ERR "could not allocate ant_class\n");
 			return -EPERM;
@@ -105,7 +136,7 @@ static int ant_register_class_dev(struct ant_check_info *ant_info) {
 	}
 
 	err = class_create_file(ant_info->ant_sys_class, &ant_state);
-	if (err < 0) {
+	if (err < 0){
 		class_destroy(ant_info->ant_sys_class);
 		return -EPERM;
 	}
@@ -175,17 +206,27 @@ static int ant_probe(struct platform_device *pdev)
 
 		ant_info->irq = gpio_to_irq(ant_info->irq_gpio);
 		pr_err("Macle irq = %d\n", ant_info->irq);
-
+#if defined(CONFIG_KERNEL_CUSTOM_WAYNE)
+		rc = request_irq(ant_info->irq,
+#else
 		rc = devm_request_threaded_irq(&pdev->dev, ant_info->irq, NULL,
+#endif
 			ant_interrupt,
 			IRQF_TRIGGER_RISING|IRQF_TRIGGER_FALLING|IRQF_ONESHOT, "ant-switch-irq", ant_info);
 		if (rc < 0) {
 			pr_err("ant_probe: request_irq fail rc=%d\n", rc);
 			goto err_irq;
 		}
+#if defined(CONFIG_KERNEL_CUSTOM_WAYNE)
+		printk("D2s disable ant irq\n");
+		disable_irq(ant_info->irq);
+#else
+		printk("E7s enable ant irq\n");
 		device_init_wakeup(&pdev->dev, true);
 		irq_set_irq_wake(ant_info->irq, 1);
-	} else {
+#endif
+
+	}else{
 		pr_err("Macle irq gpio not provided\n");
 		goto free_input_device;
 	}
@@ -193,11 +234,15 @@ static int ant_probe(struct platform_device *pdev)
 #ifdef CONFIG_ANT_SYS
 	ant_register_class_dev(ant_info);
 #endif
-	global_ant_info = ant_info;
-	return 0;
+		global_ant_info = ant_info;
+		return 0;
 err_irq:
+#if defined(CONFIG_KERNEL_CUSTOM_WAYNE)
+	disable_irq(ant_info->irq);
+#else
 	disable_irq_wake(ant_info->irq);
 	device_init_wakeup(&pdev->dev, 0);
+#endif
 	gpio_free(ant_info->irq_gpio);
 
 free_input_device:
@@ -218,8 +263,12 @@ static int ant_remove(struct platform_device *pdev)
 	class_destroy(ant->ant_sys_class);
 #endif
 	pr_err("ant_remove\n");
+#if defined(CONFIG_KERNEL_CUSTOM_WAYNE)
+	disable_irq(ant->irq);
+#else
 	disable_irq_wake(ant->irq);
 	device_init_wakeup(&pdev->dev, 0);
+#endif
 	free_irq(ant->irq, ant->ipdev);
 	gpio_free(ant->irq_gpio);
 	input_unregister_device(ant->ipdev);

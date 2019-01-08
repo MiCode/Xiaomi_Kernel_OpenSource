@@ -2,6 +2,7 @@
  * Definitions for working with the Flattened Device Tree data format
  *
  * Copyright 2009 Benjamin Herrenschmidt, IBM Corp
+ * Copyright (C) 2018 XiaoMi, Inc.
  * benh@kernel.crashing.org
  *
  * This program is free software; you can redistribute it and/or
@@ -47,6 +48,8 @@ extern void *initial_boot_params;
 
 extern char __dtb_start[];
 extern char __dtb_end[];
+
+extern void early_init_dt_setup_pureason_arch(unsigned long pu_reason);
 
 /* For scanning the flat device-tree at boot time */
 extern int of_scan_flat_dt(int (*it)(unsigned long node, const char *uname,

@@ -539,23 +539,24 @@ asmlinkage __visible void __init start_kernel(void)
 	pr_notice("Kernel command line: %s\n", boot_command_line);
 	p = NULL;
 	p = strstr(boot_command_line, "androidboot.fpsensor=fpc");
-	if (p) {
+	if (p){
 		fpsensor = 1;
-	} else {
+	}else{
 		fpsensor = 2;
 	}
 
 	p = NULL;
 	p = strstr(boot_command_line, "androidboot.mode=charger");
-	if (p) {
+	if (p)
+	{
 		is_poweroff_charge = true;
 	}
 
 	p = NULL;
 	p = strstr(boot_command_line, "force_warm_Reset");
-	if (p) {
+	if (p){
 		force_warm_reset = 1;
-	} else {
+	}else{
 		force_warm_reset = 0;
 	}
 

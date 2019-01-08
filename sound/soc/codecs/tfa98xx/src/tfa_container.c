@@ -26,7 +26,7 @@
 #define BIQUAD_COEFF_SIZE       6
 
 /* module globals */
-static uint8_t gslave_address; /* This is used to SET the slave with the --slave option */
+static uint8_t gslave_address = 0; /* This is used to SET the slave with the --slave option */
 
 static int float_to_int(uint32_t x)
 {
@@ -82,8 +82,7 @@ enum tfa_error tfa_load_cnt(void *cnt, int length)
 /*
  * Dump the contents of the file header
  */
-void tfaContShowHeader(nxpTfaHeader_t *hdr)
-{
+void tfaContShowHeader(nxpTfaHeader_t *hdr) {
 	char _id[2];
 
 	pr_debug("File header\n");
@@ -180,8 +179,8 @@ nxpTfaLiveDataList_t *tfaContGetDevLiveDataList(nxpTfaContainer_t *cont, int dev
 		for (idx = 0, hit = 0; idx < dev->length; idx++) {
 			if (dev->list[idx].type == dscLiveData) {
 				if (lifeDataIdx == hit++)
-									    return (nxpTfaLiveDataList_t *)
-									    (dev->list[idx].offset + base);
+					return (nxpTfaLiveDataList_t *)
+				(dev->list[idx].offset + base);
 			}
 		}
 	}
@@ -192,8 +191,7 @@ nxpTfaLiveDataList_t *tfaContGetDevLiveDataList(nxpTfaContainer_t *cont, int dev
 /*
  * Get the max volume step associated with Nth profile for the Nth device
  */
-int tfacont_get_max_vstep(struct tfa_device *tfa, int prof_idx)
-{
+int tfacont_get_max_vstep(struct tfa_device *tfa, int prof_idx) {
 	nxpTfaVolumeStep2File_t *vp;
 	struct nxpTfaVolumeStepMax2File *vp3;
 	int vstep_count = 0;
@@ -313,8 +311,7 @@ static enum Tfa98xx_Error tfaContWriteVstep(struct tfa_device *tfa,  nxpTfaVolum
 		err = Tfa98xx_Error_Bad_Parameter;
 	}
 
-	if (tfa->verbose)
-		pr_debug("vstep[%d][%d]\n", tfa->dev_idx, vstep);
+	if (tfa->verbose) pr_debug("vstep[%d][%d]\n", tfa->dev_idx, vstep);
 
 	return err;
 }
@@ -322,9 +319,9 @@ static enum Tfa98xx_Error tfaContWriteVstep(struct tfa_device *tfa,  nxpTfaVolum
 static struct nxpTfaVolumeStepMessageInfo *
 tfaContGetmsgInfoFromReg(struct nxpTfaVolumeStepRegisterInfo *regInfo)
 {
-	char *p = (char *) regInfo;
+	char *p = (char*) regInfo;
 	p += sizeof(regInfo->NrOfRegisters) + (regInfo->NrOfRegisters * sizeof(uint32_t));
-	return (struct nxpTfaVolumeStepMessageInfo *) p;
+	return (struct nxpTfaVolumeStepMessageInfo*) p;
 }
 
 static int
@@ -336,7 +333,7 @@ tfaContGetmsgLen(struct  nxpTfaVolumeStepMessageInfo *msgInfo)
 static struct nxpTfaVolumeStepMessageInfo *
 tfaContGetNextmsgInfo(struct  nxpTfaVolumeStepMessageInfo *msgInfo)
 {
-	char *p = (char *) msgInfo;
+	char *p = (char*) msgInfo;
 	int msgLen = tfaContGetmsgLen(msgInfo);
 	int type = msgInfo->MessageType;
 
@@ -346,15 +343,15 @@ tfaContGetNextmsgInfo(struct  nxpTfaVolumeStepMessageInfo *msgInfo)
 	else
 		p += msgLen * 3;
 
-	return (struct nxpTfaVolumeStepMessageInfo *) p;
+	return (struct nxpTfaVolumeStepMessageInfo*) p;
 }
 
 static struct  nxpTfaVolumeStepRegisterInfo*
 tfaContGetNextRegFromEndInfo(struct  nxpTfaVolumeStepMessageInfo *msgInfo)
 {
-	char *p = (char *) msgInfo;
+	char *p = (char*) msgInfo;
 	p += sizeof(msgInfo->NrOfMessages);
-	return (struct nxpTfaVolumeStepRegisterInfo *) p;
+	return (struct nxpTfaVolumeStepRegisterInfo*) p;
 
 }
 
@@ -364,7 +361,7 @@ tfaContGetRegForVstep(nxpTfaVolumeStepMax2File_t *vp, int idx)
 	int i, j, nrMessage;
 
 	struct nxpTfaVolumeStepRegisterInfo *regInfo
-		= (struct nxpTfaVolumeStepRegisterInfo *) vp->vstepsBin;
+		= (struct nxpTfaVolumeStepRegisterInfo*) vp->vstepsBin;
 	struct nxpTfaVolumeStepMessageInfo *msgInfo = NULL;
 
 	for (i = 0; i < idx; i++) {
@@ -393,7 +390,7 @@ static enum Tfa98xx_Error tfaContWriteVstepMax2_One(struct tfa_device *tfa, stru
 {
 	enum Tfa98xx_Error err = Tfa98xx_Error_Ok;
 	int len = (tfaContGetmsgLen(new_msg) - 1) * 3;
-	char *buf = (char *)new_msg->ParameterData;
+	char *buf = (char*)new_msg->ParameterData;
 	uint8_t *partial = NULL;
 	uint8_t cmdid[3];
 	int use_partial_coeff = 0;
@@ -467,7 +464,7 @@ static enum Tfa98xx_Error tfaContWriteVstepMax2_One(struct tfa_device *tfa, stru
 			if ((offset == 0xff) ||
 			    (memcmp(n, o, 3 * sizeof(uint8_t)))) {
 				*p++ = offset;
-				change = (uint16_t *) p;
+				change = (uint16_t*) p;
 				*change = 0;
 				p += 2;
 
@@ -504,7 +501,7 @@ static enum Tfa98xx_Error tfaContWriteVstepMax2_One(struct tfa_device *tfa, stru
 
 			/* Signal This will be a partial update */
 			cmdid[2] |= BIT(6);
-			buf = (char *) partial;
+			buf = (char*) partial;
 			len = (int)(trim - partial);
 		} else {
 			pr_debug("Partial too big - use regular update\n");
@@ -637,7 +634,7 @@ enum Tfa98xx_Error tfaContWriteDrcFile(struct tfa_device *tfa, int size, uint8_t
 			if (tfa->verbose) {
 				pr_debug("P-ID for SetMBDrc modified!: ");
 				pr_debug("Command-ID used: 0x%02x%02x%02x \n",
-						 msg[0], msg[1], msg[2]);
+				         msg[0], msg[1], msg[2]);
 			}
 		}
 	}
@@ -884,7 +881,7 @@ int tfa_cont_get_idx(struct tfa_device *tfa)
 enum Tfa98xx_Error tfaRunWriteBitfield(struct tfa_device *tfa,  nxpTfaBitfield_t bf)
 {
 	enum Tfa98xx_Error error;
-		 uint16_t value;
+	uint16_t value;
 	union {
 		uint16_t field;
 		nxpTfaBfEnum_t Enum;
@@ -897,7 +894,7 @@ enum Tfa98xx_Error tfaRunWriteBitfield(struct tfa_device *tfa,  nxpTfaBitfield_t
 		pr_debug("bitfield: %s=0x%x (0x%x[%d..%d]=0x%x)\n", tfaContBfName(bfUni.field, tfa->rev), value,
 			bfUni.Enum.address, bfUni.Enum.pos, bfUni.Enum.pos+bfUni.Enum.len, value);
 #endif
-		 error = tfa_set_bf(tfa, bfUni.field, value);
+	error = tfa_set_bf(tfa, bfUni.field, value);
 
 	return error;
 }
@@ -917,8 +914,7 @@ enum Tfa98xx_Error tfaRunReadBitfield(struct tfa_device *tfa,  nxpTfaBitfield_t 
 	bfUni.field = bf->field;
 
 	error = reg_read(tfa, (unsigned char)(bfUni.Enum.address), &regvalue);
-	if (error)
-		return error;
+	if (error) return error;
 
 	msk = ((1<<(bfUni.Enum.len+1))-1)<<bfUni.Enum.pos;
 
@@ -941,8 +937,7 @@ static enum Tfa98xx_Error tfaRunWriteDspMem(struct tfa_device *tfa, nxpTfaDspMem
 			pr_debug("dsp mem (%d): 0x%02x=0x%04x\n", cfmem->type, cfmem->address, cfmem->words[i]);
 
 		error = mem_write(tfa, cfmem->address++, cfmem->words[i], cfmem->type);
-		if (error)
-			return error;
+		if (error) return error;
 	}
 
 	return error;
@@ -1049,8 +1044,7 @@ static enum Tfa98xx_Error tfaRunWriteRegister(struct tfa_device *tfa, nxpTfaRegp
 		pr_debug("register: 0x%02x=0x%04x (msk=0x%04x)\n", reg->address, reg->value, reg->mask);
 
 	error = reg_read(tfa, reg->address, &value);
-	if (error)
-		return error;
+	if (error) return error;
 
 	value &= ~reg->mask;
 	newvalue = reg->value & reg->mask;
@@ -1078,19 +1072,17 @@ enum Tfa98xx_Error tfaContWriteRegsDev(struct tfa_device *tfa)
 	for (i = 0; i < dev->length; i++) {
 		if (dev->list[i].type == dscPatch ||
 			  dev->list[i].type == dscFile  ||
-			  dev->list[i].type == dscProfile)
-			break;
+			  dev->list[i].type == dscProfile) break;
 
-		if (dev->list[i].type == dscBitfield) {
+		if  (dev->list[i].type == dscBitfield) {
 			bitF = (nxpTfaBitfield_t *)(dev->list[i].offset+(uint8_t *)tfa->cnt);
 			err = tfaRunWriteBitfield(tfa , *bitF);
 		}
-		if (dev->list[i].type == dscRegister) {
+		if  (dev->list[i].type == dscRegister) {
 			err = tfaRunWriteRegister(tfa, (nxpTfaRegpatch_t *)(dev->list[i].offset+(char*)tfa->cnt));
 		}
 
-		if (err)
-			break;
+		if (err) break;
 	}
 
 	return err;
@@ -1122,10 +1114,9 @@ enum Tfa98xx_Error tfaContWriteRegsProf(struct tfa_device *tfa, int prof_idx)
 			err = tfaRunWriteBitfield(tfa , *bitf);
 		}
 		if  (prof->list[i].type == dscRegister) {
-			err = tfaRunWriteRegister(tfa, (nxpTfaRegpatch_t *)(prof->list[i].offset+(char *)tfa->cnt));
+			err = tfaRunWriteRegister(tfa, (nxpTfaRegpatch_t *)(prof->list[i].offset+(char*)tfa->cnt));
 		}
-		if (err)
-			break;
+		if (err) break;
 	}
 	return err;
 }
@@ -1147,12 +1138,10 @@ enum Tfa98xx_Error tfaContWritePatch(struct tfa_device *tfa)
 		if (dev->list[i].type == dscPatch) {
 			file = (nxpTfaFileDsc_t *)(dev->list[i].offset+(uint8_t *)tfa->cnt);
 			patchfile = (nxpTfaPatch_t *)&file->data;
-			if (tfa->verbose)
-				tfaContShowHeader(&patchfile->hdr);
+			if (tfa->verbose) tfaContShowHeader(&patchfile->hdr);
 			size = patchfile->hdr.size - sizeof(nxpTfaPatch_t);
 			err = tfa_dsp_patch(tfa, size, (const unsigned char *) patchfile->data);
-			if (err)
-				return err;
+			if (err) return err;
 		}
 	}
 
@@ -1164,23 +1153,23 @@ enum Tfa98xx_Error tfaContWritePatch(struct tfa_device *tfa)
  */
 static void create_dsp_buffer_msg(struct tfa_device *tfa, nxpTfaMsg_t *msg, char *buffer, int *size)
 {
-		 int i, nr = 0;
+	int i, nr = 0;
 
 	(void)tfa;
 
-		 /* Copy cmdId. Remember that the cmdId is reversed */
-		 buffer[nr++] = msg->cmdId[2];
-		 buffer[nr++] = msg->cmdId[1];
-		 buffer[nr++] = msg->cmdId[0];
+	/* Copy cmdId. Remember that the cmdId is reversed */
+	buffer[nr++] = msg->cmdId[2];
+	buffer[nr++] = msg->cmdId[1];
+	buffer[nr++] = msg->cmdId[0];
 
-		 /* Copy the data to the buffer */
-		 for (i = 0; i < msg->msg_size; i++) {
-				buffer[nr++] = (uint8_t) ((msg->data[i] >> 16) & 0xffff);
-				buffer[nr++] = (uint8_t) ((msg->data[i] >> 8) & 0xff);
-				buffer[nr++] = (uint8_t) (msg->data[i] & 0xff);
-		 }
+	/* Copy the data to the buffer */
+	for (i = 0; i < msg->msg_size; i++) {
+		buffer[nr++] = (uint8_t) ((msg->data[i] >> 16) & 0xffff);
+		buffer[nr++] = (uint8_t) ((msg->data[i] >> 8) & 0xff);
+		buffer[nr++] = (uint8_t) (msg->data[i] & 0xff);
+	}
 
-		 *size = nr;
+	*size = nr;
 }
 
 
@@ -1199,7 +1188,7 @@ enum Tfa98xx_Error tfaContWriteFiles(struct tfa_device *tfa)
 	for (i = 0; i < dev->length; i++) {
 		if (dev->list[i].type == dscFile) {
 			file = (nxpTfaFileDsc_t *)(dev->list[i].offset+(uint8_t *)tfa->cnt);
-			if (tfaContWriteFile(tfa,  file, 0 , TFA_MAX_VSTEP_MSG_MARKER)) {
+			if (tfaContWriteFile(tfa,  file, 0 , TFA_MAX_VSTEP_MSG_MARKER)){
 				return Tfa98xx_Error_Bad_Parameter;
 			}
 		}
@@ -1216,7 +1205,7 @@ enum Tfa98xx_Error tfaContWriteFiles(struct tfa_device *tfa)
 		      dev->list[i].type == dscSetFwkUseCase ||
 		      dev->list[i].type == dscSetVddpConfig) {
 			create_dsp_buffer_msg(tfa, (nxpTfaMsg_t *)
-					 (dev->list[i].offset+(char*)tfa->cnt), buffer, &size);
+			                      (dev->list[i].offset+(char*)tfa->cnt), buffer, &size);
 			if (tfa->verbose) {
 				pr_debug("command: %s=0x%02x%02x%02x \n",
 				tfaContGetCommandString(dev->list[i].type),
@@ -1227,11 +1216,11 @@ enum Tfa98xx_Error tfaContWriteFiles(struct tfa_device *tfa)
 		}
 
 		if  (dev->list[i].type == dscCmd) {
-			size = *(uint16_t *)(dev->list[i].offset+(char *)tfa->cnt);
+			size = *(uint16_t *)(dev->list[i].offset+(char*)tfa->cnt);
 
-			err = dsp_msg(tfa, size, dev->list[i].offset+2+(char *)tfa->cnt);
+			err = dsp_msg(tfa, size, dev->list[i].offset+2+(char*)tfa->cnt);
 			if (tfa->verbose) {
-				const char *cmd_id = dev->list[i].offset+2+(char *)tfa->cnt;
+				const char *cmd_id = dev->list[i].offset+2+(char*)tfa->cnt;
 				pr_debug("Writing cmd=0x%02x%02x%02x \n", (uint8_t)cmd_id[0], (uint8_t)cmd_id[1], (uint8_t)cmd_id[2]);
 			}
 		}
@@ -1270,45 +1259,44 @@ enum Tfa98xx_Error tfaContWriteFilesProf(struct tfa_device *tfa, int prof_idx, i
 	/* process the list and write all files  */
 	for (i = 0; i < prof->length; i++) {
 		switch (prof->list[i].type) {
-		case dscFile:
-			file = (nxpTfaFileDsc_t *)(prof->list[i].offset+(uint8_t *)tfa->cnt);
-			err = tfaContWriteFile(tfa,  file, vstep_idx, TFA_MAX_VSTEP_MSG_MARKER);
-			break;
-		case dscPatch:
-			file = (nxpTfaFileDsc_t *)(prof->list[i].offset+(uint8_t *)tfa->cnt);
-			patchfile = (nxpTfaPatch_t *)&file->data;
-			if (tfa->verbose)
-				tfaContShowHeader(&patchfile->hdr);
-			size = patchfile->hdr.size - sizeof(nxpTfaPatch_t);
-			err = tfa_dsp_patch(tfa,  size, (const unsigned char *) patchfile->data);
-			break;
-		case dscCfMem:
-			err = tfaRunWriteDspMem(tfa, (nxpTfaDspMem_t *)(prof->list[i].offset+(uint8_t *)tfa->cnt));
-			break;
-		case dscSetInputSelect:
-		case dscSetOutputSelect:
-		case dscSetProgramConfig:
-		case dscSetLagW:
-		case dscSetGains:
-		case dscSetvBatFactors:
-		case dscSetSensesCal:
-		case dscSetSensesDelay:
-		case dscSetMBDrc:
-		case dscSetFwkUseCase:
-		case dscSetVddpConfig:
-				create_dsp_buffer_msg(tfa, (nxpTfaMsg_t *)
-						 (prof->list[i].offset+(uint8_t *)tfa->cnt), buffer, &size);
-				if (tfa->verbose) {
-					pr_debug("command: %s=0x%02x%02x%02x \n",
-					tfaContGetCommandString(prof->list[i].type),
-					(unsigned char)buffer[0], (unsigned char)buffer[1], (unsigned char)buffer[2]);
-				}
-
-				err = dsp_msg(tfa, size, buffer);
+			case dscFile:
+				file = (nxpTfaFileDsc_t *)(prof->list[i].offset+(uint8_t *)tfa->cnt);
+				err = tfaContWriteFile(tfa,  file, vstep_idx, TFA_MAX_VSTEP_MSG_MARKER);
 				break;
-		default:
-			/* ignore any other type */
-			break;
+			case dscPatch:
+				file = (nxpTfaFileDsc_t *)(prof->list[i].offset+(uint8_t *)tfa->cnt);
+				patchfile = (nxpTfaPatch_t *)&file->data;
+				if (tfa->verbose) tfaContShowHeader(&patchfile->hdr);
+				size = patchfile->hdr.size - sizeof(nxpTfaPatch_t);
+				err = tfa_dsp_patch(tfa,  size, (const unsigned char *) patchfile->data);
+				break;
+			case dscCfMem:
+				err = tfaRunWriteDspMem(tfa, (nxpTfaDspMem_t *)(prof->list[i].offset+(uint8_t *)tfa->cnt));
+				break;
+			case dscSetInputSelect:
+			case dscSetOutputSelect:
+			case dscSetProgramConfig:
+			case dscSetLagW:
+			case dscSetGains:
+			case dscSetvBatFactors:
+			case dscSetSensesCal:
+			case dscSetSensesDelay:
+			case dscSetMBDrc:
+			case dscSetFwkUseCase:
+			case dscSetVddpConfig:
+					create_dsp_buffer_msg(tfa, (nxpTfaMsg_t *)
+			                     (prof->list[i].offset+(uint8_t *)tfa->cnt), buffer, &size);
+					if (tfa->verbose) {
+						pr_debug("command: %s=0x%02x%02x%02x \n",
+						tfaContGetCommandString(prof->list[i].type),
+						(unsigned char)buffer[0], (unsigned char)buffer[1], (unsigned char)buffer[2]);
+					}
+
+					err = dsp_msg(tfa, size, buffer);
+					break;
+			default:
+				/* ignore any other type */
+				break;
 		}
 	}
 
@@ -1368,26 +1356,26 @@ static enum Tfa98xx_Error tfaContWriteItem(struct tfa_device *tfa, nxpTfaDescPtr
 static unsigned int tfa98xx_sr_from_field(unsigned int field)
 {
 	switch (field) {
-	case 0:
-		return 8000;
-	case 1:
-		return 11025;
-	case 2:
-		return 12000;
-	case 3:
-		return 16000;
-	case 4:
-		return 22050;
-	case 5:
-		return 24000;
-	case 6:
-		return 32000;
-	case 7:
-		return 44100;
-	case 8:
-		return 48000;
-	default:
-		return 0;
+		case 0:
+			return 8000;
+		case 1:
+			return 11025;
+		case 2:
+			return 12000;
+		case 3:
+			return 16000;
+		case 4:
+			return 22050;
+		case 5:
+			return 24000;
+		case 6:
+			return 32000;
+		case 7:
+			return 44100;
+		case 8:
+			return 48000;
+		default:
+			return 0;
 	}
 }
 
@@ -1466,9 +1454,9 @@ unsigned int tfa98xx_get_profile_sr(struct tfa_device *tfa, unsigned int prof_id
 
 	if (tfa->verbose)
 		pr_debug("%s - profile fs: 0x%x = %dHz (%d - %d)\n",
-				 __FUNCTION__, fs_profile,
-				 tfa98xx_sr_from_field(fs_profile),
-				 tfa->dev_idx, prof_idx);
+		         __FUNCTION__, fs_profile,
+		         tfa98xx_sr_from_field(fs_profile),
+		         tfa->dev_idx, prof_idx);
 
 	if (fs_profile != -1)
 		return tfa98xx_sr_from_field(fs_profile);
@@ -1493,8 +1481,8 @@ unsigned int tfa98xx_get_profile_sr(struct tfa_device *tfa, unsigned int prof_id
 
 	if (tfa->verbose)
 		pr_debug("%s - default fs: 0x%x = %dHz (%d - %d)\n",
-				 __FUNCTION__, fs_profile,
-				 tfa98xx_sr_from_field(fs_profile),
+		         __FUNCTION__, fs_profile,
+		         tfa98xx_sr_from_field(fs_profile),
 			tfa->dev_idx, prof_idx);
 
 	if (fs_profile != -1)
@@ -1516,7 +1504,7 @@ static enum Tfa98xx_Error get_sample_rate_info(struct tfa_device *tfa, nxpTfaPro
 	for (i = 0; i < previous_prof->length; i++) {
 		/* Search for the default section */
 		if (i == 0) {
-			while (previous_prof->list[i].type != dscDefault && i < previous_prof->length) {
+			while(previous_prof->list[i].type != dscDefault && i < previous_prof->length) {
 				i++;
 			}
 			i++;
@@ -1613,8 +1601,7 @@ enum Tfa98xx_Error tfaContWriteProfile(struct tfa_device *tfa, int prof_idx, int
 	} else {
 		/* mute */
 		err = tfaRunMute(tfa);
-		if (err)
-			return err;
+		if (err) return err;
 
 		/* Get current sample rate before we start switching */
 		fs_previous_profile = TFA_GET_BF(tfa, AUDFS);
@@ -1629,8 +1616,7 @@ enum Tfa98xx_Error tfaContWriteProfile(struct tfa_device *tfa, int prof_idx, int
 		 */
 		if (((tfa->tfa_family == 2) && (TFA_GET_BF(tfa, MANSTATE) >= 6)) || (tfa->tfa_family != 2)) {
 			err = tfa98xx_powerdown(tfa, 1);
-			if (err)
-				return err;
+			if (err) return err;
 
 			/* Wait until we are in PLL powerdown */
 			do {
@@ -1664,7 +1650,7 @@ enum Tfa98xx_Error tfaContWriteProfile(struct tfa_device *tfa, int prof_idx, int
 	for (i = 0; i < previous_prof->length; i++) {
 		/* Search for the default section */
 		if (i == 0) {
-			while (previous_prof->list[i].type != dscDefault && i < previous_prof->length) {
+			while(previous_prof->list[i].type != dscDefault && i < previous_prof->length) {
 				i++;
 			}
 			i++;
@@ -1689,30 +1675,30 @@ enum Tfa98xx_Error tfaContWriteProfile(struct tfa_device *tfa, int prof_idx, int
 		/* We only want to write the values before the default section when we switch profile */
 		/* process and write all non-file items */
 		switch (prof->list[i].type) {
-		case dscFile:
-		case dscPatch:
-		case dscSetInputSelect:
-		case dscSetOutputSelect:
-		case dscSetProgramConfig:
-		case dscSetLagW:
-		case dscSetGains:
-		case dscSetvBatFactors:
-		case dscSetSensesCal:
-		case dscSetSensesDelay:
-		case dscSetMBDrc:
-		case dscSetFwkUseCase:
-		case dscSetVddpConfig:
-		case dscCmd:
-		case dscFilter:
-		case dscDefault:
-			/* When one of these files are found, we exit */
-			i = prof->length;
-			break;
-		default:
-			err = tfaContWriteItem(tfa, &prof->list[i]);
-			if (err != Tfa98xx_Error_Ok)
-				return Tfa98xx_Error_Bad_Parameter;
-			break;
+			case dscFile:
+			case dscPatch:
+			case dscSetInputSelect:
+			case dscSetOutputSelect:
+			case dscSetProgramConfig:
+			case dscSetLagW:
+			case dscSetGains:
+			case dscSetvBatFactors:
+			case dscSetSensesCal:
+			case dscSetSensesDelay:
+			case dscSetMBDrc:
+			case dscSetFwkUseCase:
+			case dscSetVddpConfig:
+			case dscCmd:
+			case dscFilter:
+			case dscDefault:
+				/* When one of these files are found, we exit */
+				i = prof->length;
+				break;
+			default:
+				err = tfaContWriteItem(tfa, &prof->list[i]);
+				if (err != Tfa98xx_Error_Ok)
+					return Tfa98xx_Error_Bad_Parameter;
+				break;
 		}
 	}
 
@@ -1736,8 +1722,7 @@ enum Tfa98xx_Error tfaContWriteProfile(struct tfa_device *tfa, int prof_idx, int
 
 	/* Check if there are sample rate changes */
 	err = get_sample_rate_info(tfa, prof, previous_prof, fs_previous_profile);
-	if (err)
-		return err;
+	if (err) return err;
 
 
 		/* Write files from previous profile (default section)
@@ -1748,7 +1733,7 @@ enum Tfa98xx_Error tfaContWriteProfile(struct tfa_device *tfa, int prof_idx, int
 			for (i = 0; i < previous_prof->length; i++) {
 				/* Search for the default section */
 				if (i == 0) {
-					while (previous_prof->list[i].type != dscDefault && i < previous_prof->length) {
+					while(previous_prof->list[i].type != dscDefault && i < previous_prof->length) {
 						i++;
 					}
 					i++;
@@ -1786,55 +1771,55 @@ enum Tfa98xx_Error tfaContWriteProfile(struct tfa_device *tfa, int prof_idx, int
 		}
 
 		switch (prof->list[i].type) {
-		case dscFile:
-		case dscPatch:
-			/* For tiberius stereo 1 device does not have a dsp! */
-			if (tfa->ext_dsp != 0) {
-				file = (nxpTfaFileDsc_t *)(prof->list[i].offset+(uint8_t *)tfa->cnt);
-				err = tfaContWriteFile(tfa, file, vstep_idx, TFA_MAX_VSTEP_MSG_MARKER);
-			}
-			break;
-		case dscSetInputSelect:
-		case dscSetOutputSelect:
-		case dscSetProgramConfig:
-		case dscSetLagW:
-		case dscSetGains:
-		case dscSetvBatFactors:
-		case dscSetSensesCal:
-		case dscSetSensesDelay:
-		case dscSetMBDrc:
-		case dscSetFwkUseCase:
-		case dscSetVddpConfig:
-			/* For tiberius stereo 1 device does not have a dsp! */
-			if (tfa->ext_dsp != 0) {
-				create_dsp_buffer_msg(tfa, (nxpTfaMsg_t *)
-					(prof->list[i].offset+(char *)tfa->cnt), buffer, &size);
-				err = dsp_msg(tfa, size, buffer);
+			case dscFile:
+			case dscPatch:
+				/* For tiberius stereo 1 device does not have a dsp! */
+				if (tfa->ext_dsp != 0){
+					file = (nxpTfaFileDsc_t *)(prof->list[i].offset+(uint8_t *)tfa->cnt);
+					err = tfaContWriteFile(tfa, file, vstep_idx, TFA_MAX_VSTEP_MSG_MARKER);
+				}
+				break;
+			case dscSetInputSelect:
+			case dscSetOutputSelect:
+			case dscSetProgramConfig:
+			case dscSetLagW:
+			case dscSetGains:
+			case dscSetvBatFactors:
+			case dscSetSensesCal:
+			case dscSetSensesDelay:
+			case dscSetMBDrc:
+			case dscSetFwkUseCase:
+			case dscSetVddpConfig:
+				/* For tiberius stereo 1 device does not have a dsp! */
+				if (tfa->ext_dsp != 0) {
+					create_dsp_buffer_msg(tfa, (nxpTfaMsg_t *)
+						(prof->list[i].offset+(char*)tfa->cnt), buffer, &size);
+					err = dsp_msg(tfa, size, buffer);
 
-				if (tfa->verbose) {
-					pr_debug("command: %s=0x%02x%02x%02x \n",
-						tfaContGetCommandString(prof->list[i].type),
-					(unsigned char)buffer[0], (unsigned char)buffer[1], (unsigned char)buffer[2]);
+					if (tfa->verbose) {
+						pr_debug("command: %s=0x%02x%02x%02x \n",
+							tfaContGetCommandString(prof->list[i].type),
+						(unsigned char)buffer[0], (unsigned char)buffer[1], (unsigned char)buffer[2]);
+					}
 				}
-			}
-			break;
-		case dscCmd:
-			/* For tiberius stereo 1 device does not have a dsp! */
-			if (tfa->ext_dsp != 0) {
-				size = *(uint16_t *)(prof->list[i].offset+(char *)tfa->cnt);
-				err = dsp_msg(tfa, size, prof->list[i].offset+2+(char *)tfa->cnt);
-				if (tfa->verbose) {
-					const char *cmd_id = prof->list[i].offset+2+(char *)tfa->cnt;
-					pr_debug("Writing cmd=0x%02x%02x%02x \n", (uint8_t)cmd_id[0], (uint8_t)cmd_id[1], (uint8_t)cmd_id[2]);
+				break;
+			case dscCmd:
+				/* For tiberius stereo 1 device does not have a dsp! */
+				if (tfa->ext_dsp != 0) {
+					size = *(uint16_t *)(prof->list[i].offset+(char*)tfa->cnt);
+					err = dsp_msg(tfa, size, prof->list[i].offset+2+(char*)tfa->cnt);
+					if (tfa->verbose) {
+						const char *cmd_id = prof->list[i].offset+2+(char*)tfa->cnt;
+						pr_debug("Writing cmd=0x%02x%02x%02x \n", (uint8_t)cmd_id[0], (uint8_t)cmd_id[1], (uint8_t)cmd_id[2]);
+					}
 				}
-			}
-			break;
-		default:
-			/* This allows us to write bitfield, registers or xmem after files */
-			if (tfaContWriteItem(tfa, &prof->list[i]) != Tfa98xx_Error_Ok) {
-				return Tfa98xx_Error_Bad_Parameter;
-			}
-			break;
+				break;
+			default:
+				/* This allows us to write bitfield, registers or xmem after files */
+				if (tfaContWriteItem(tfa, &prof->list[i]) != Tfa98xx_Error_Ok) {
+					return Tfa98xx_Error_Bad_Parameter;
+				}
+				break;
 		}
 
 		if (err != Tfa98xx_Error_Ok) {
@@ -1898,7 +1883,7 @@ char *tfaContGetString(nxpTfaContainer_t *cnt, nxpTfaDescPtr_t *dsc)
 	if (dsc->type != dscString)
 		return "Undefined string";
 
-	return dsc->offset+(char *)cnt;
+	return dsc->offset+(char*)cnt;
 }
 
 char *tfaContGetCommandString(uint32_t type)
@@ -2041,8 +2026,8 @@ nxpTfaProfileList_t *tfaContGet1stProfList(nxpTfaContainer_t *cont)
 	maxdev = cont->ndev;
 
 	dev = tfaContGetDevList(cont, maxdev - 1);
-		 if (dev == NULL)
-				return NULL;
+	if (dev == NULL)
+		return NULL;
 
 	b = (uint8_t *) dev + sizeof(nxpTfaDeviceList_t) + dev->length * (sizeof(nxpTfaDescPtr_t));
 	prof = (nxpTfaProfileList_t *) b;
@@ -2054,9 +2039,9 @@ nxpTfaProfileList_t *tfaContGet1stProfList(nxpTfaContainer_t *cont)
  */
 nxpTfaLiveDataList_t *tfaContGet1stLiveDataList(nxpTfaContainer_t *cont)
 {
-		 nxpTfaLiveDataList_t *ldata;
-		 nxpTfaProfileList_t *prof;
-		 nxpTfaDeviceList_t *dev;
+	nxpTfaLiveDataList_t *ldata;
+	nxpTfaProfileList_t *prof;
+	nxpTfaDeviceList_t *dev;
 	uint8_t *b = (uint8_t *) cont;
 	int maxdev, maxprof;
 
@@ -2071,7 +2056,7 @@ nxpTfaLiveDataList_t *tfaContGet1stLiveDataList(nxpTfaContainer_t *cont)
 	b = (uint8_t *) dev + sizeof(nxpTfaDeviceList_t) +
 	    dev->length * (sizeof(nxpTfaDescPtr_t));
 
-	while (maxprof != 0) {
+	while(maxprof != 0) {
 
 		prof = (nxpTfaProfileList_t *) b;
 		b += sizeof(nxpTfaProfileList_t) +
@@ -2100,14 +2085,13 @@ nxpTfaDeviceList_t *tfaContDevice(nxpTfaContainer_t *cnt, int dev_idx)
  *  - calculate the total length of the input
  *  - the input profile + its length is the next profile
  */
-nxpTfaProfileList_t *tfaContNextProfile(nxpTfaProfileList_t *prof)
-{
+nxpTfaProfileList_t *tfaContNextProfile(nxpTfaProfileList_t *prof) {
 	uint8_t *this, *next; /* byte pointers for byte pointer arithmetic */
 	nxpTfaProfileList_t *nextprof;
 	int listlength; /* total length of list in bytes */
 
-		 if (prof == NULL)
-				return NULL;
+	if (prof == NULL)
+		return NULL;
 
 	if (prof->ID != TFA_PROFID)
 		return NULL;	/* invalid input */
@@ -2128,10 +2112,9 @@ nxpTfaProfileList_t *tfaContNextProfile(nxpTfaProfileList_t *prof)
 /*
  * return the next livedata
  */
-nxpTfaLiveDataList_t *tfaContNextLiveData(nxpTfaLiveDataList_t *livedata)
-{
+nxpTfaLiveDataList_t *tfaContNextLiveData(nxpTfaLiveDataList_t *livedata) {
 	nxpTfaLiveDataList_t *nextlivedata = (nxpTfaLiveDataList_t *)((char*)livedata + (livedata->length*4) +
-								sizeof(nxpTfaLiveDataList_t)-4);
+	sizeof(nxpTfaLiveDataList_t) -4);
 
 	if (nextlivedata->ID == TFA_LIVEDATAID)
 		return nextlivedata;
@@ -2188,15 +2171,15 @@ static void get_all_features_from_cnt(struct tfa_device *tfa, int *hw_feature_re
 /* wrapper function */
 void get_hw_features_from_cnt(struct tfa_device *tfa, int *hw_feature_register)
 {
-		 int sw_feature_register[2];
-		 get_all_features_from_cnt(tfa, hw_feature_register, sw_feature_register);
+	int sw_feature_register[2];
+	get_all_features_from_cnt(tfa, hw_feature_register, sw_feature_register);
 }
 
 /* wrapper function */
 void get_sw_features_from_cnt(struct tfa_device *tfa, int sw_feature_register[2])
 {
-		 int hw_feature_register;
-		 get_all_features_from_cnt(tfa, &hw_feature_register, sw_feature_register);
+	int hw_feature_register;
+	get_all_features_from_cnt(tfa, &hw_feature_register, sw_feature_register);
 }
 
 enum Tfa98xx_Error tfa98xx_factory_trimmer(struct tfa_device *tfa)
@@ -2237,7 +2220,7 @@ int tfa_tib_dsp_msgmulti(struct tfa_device *tfa, int length, const char *buffer)
 {
 	uint8_t *buf = (uint8_t *)buffer;
 	static uint8_t *blob = NULL, *blobptr; /* TODO: not multi-thread safe */
-	static int total; /* TODO: not multi-thread safe */
+	static int total = 0; /* TODO: not multi-thread safe */
 	int post_len = 0;
 
 	/* checks for 24b_BE or 32_LE */
@@ -2275,7 +2258,8 @@ int tfa_tib_dsp_msgmulti(struct tfa_device *tfa, int length, const char *buffer)
 			blob[1] = 0x80;
 			blob[2] = 0x0;
 			blob[3] = 0x0;
-		} else {
+		}
+		else {
 			blob[0] = 0x0;
 			blob[1] = 0x80;
 			blob[2] = 0x15;
@@ -2302,7 +2286,8 @@ int tfa_tib_dsp_msgmulti(struct tfa_device *tfa, int length, const char *buffer)
 		*blobptr++ = (uint8_t)(((length/len_word_in_bytes) & 0xff00) >> 8); /* msb */
 		*blobptr++ = 0x0;
 		*blobptr++ = 0x0;
-	} else {
+	}
+	else {
 		*blobptr++ = 0x0;
 		*blobptr++ = (uint8_t)(((length/len_word_in_bytes) & 0xff00) >> 8); /* msb */
 		*blobptr++ = (uint8_t)((length/len_word_in_bytes) & 0xff);          /* lsb */

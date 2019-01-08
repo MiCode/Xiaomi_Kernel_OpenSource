@@ -1,4 +1,5 @@
 /* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,117 +51,119 @@
 		qcom,mdss-dsi-t-clk-pre = <0x34>;
 		qcom,mdss-dsi-bl-min-level = <1>;
 		qcom,mdss-dsi-bl-max-level = <4095>;
+		qcom,mdss-brightness-max-level = <4095>;
 		qcom,mdss-dsi-dma-trigger = "trigger_sw";
 		qcom,mdss-dsi-mdp-trigger = "none";
 		qcom,mdss-dsi-on-command = [
-				39 01 00 00 46 00 02 11 00
-				29 01 00 00 00 00 02 B0 04
-				29 01 00 00 00 00 02 D6 01
+			39 01 00 00 46 00 02 11 00
+			29 01 00 00 00 00 02 B0 04
+			29 01 00 00 00 00 02 D6 01
 
-				39 01 00 00 00 00 02 51 ff
-				39 01 00 00 00 00 02 53 24
-				39 01 00 00 00 00 02 55 00
-				39 01 00 00 00 00 02 35 00
-				39 01 00 00 14 00 02 29 00
+			39 01 00 00 00 00 02 51 ff
+			39 01 00 00 00 00 02 53 24
+			39 01 00 00 00 00 02 55 00
+			39 01 00 00 00 00 02 35 00
+			39 01 00 00 14 00 02 29 00
 		];
 		qcom,mdss-dsi-off-command = [
-				05 01 00 00 14 00 02 28 00
-				05 01 00 00 78 00 02 10 00
-		];
+            05 01 00 00 14 00 02 28 00
+		    05 01 00 00 78 00 02 10 00
+        ];
 		qcom,mdss-dsi-ce-on-command = [
-				29 01 00 00 00 00 2C CA 1D FC FC FC 0D EF E5 18 00 18 29 23 15 15 00 FB 0A 0B 0C FF 00 DD FF 00 00 FC 02 01 80 9F 6C 50 97 62 4C 00 B9 87 72 BF 89 70 3D
+			29 01 00 00 00 00 2C CA 1D FC FC FC 0D EF E5 18 00 18 29 23 15 15 00 FB 0A 0B 0C FF 00 DD FF 00 00 FC 02 01 80 9F 6C 50 97 62 4C 00 B9 87 72 BF 89 70 3D
 		];
 		qcom,mdss-dsi-ce-off-command = [
-				29 01 00 00 00 00 2C CA 1C FC FC FC 0D EF E5 18 00 18 29 23 15 15 00 FB 0A 0B 0C FF 00 DD FF 00 00 FC 02 01 80 9F 6C 50 97 62 4C 00 B9 87 72 BF 89 70 80
+			29 01 00 00 00 00 2C CA 1C FC FC FC 0D EF E5 18 00 18 29 23 15 15 00 FB 0A 0B 0C FF 00 DD FF 00 00 FC 02 01 80 9F 6C 50 97 62 4C 00 B9 87 72 BF 89 70 80
 		];
 		qcom,mdss-dsi-srgb-on-command = [
-				29 01 00 00 00 00 2C CA 1D FC D5 9B 12 EC EB DC 00 D9 DE D6 02 FD 03 FC 28 2D 0A 06 F2 22 FF 00 00 FC 17 1D FF 00 FF 00 48 F8 40 FF 00 00 FF 01 3D E4 FF
+            29 01 00 00 00 00 2C CA 1D FC D5 9B 12 EC EB DC 00 D9 DE D6 02 FD 03 FC 28 2D 0A 06 F2 22 FF 00 00 FC 17 1D FF 00 FF 00 48 F8 40 FF 00 00 FF 01 3D E4 FF
 		];
 		qcom,mdss-dsi-srgb-off-command = [
-				29 01 00 00 00 00 2C CA 1C FC D5 9B 12 EC EB DC 00 D9 DE D6 02 FD 03 FC 28 2D 0A 06 F2 22 FF 00 00 FC 17 1D FF 00 FF 00 48 F8 40 FF 00 00 FF 01 3D E4 FF
+            29 01 00 00 00 00 2C CA 1C FC D5 9B 12 EC EB DC 00 D9 DE D6 02 FD 03 FC 28 2D 0A 06 F2 22 FF 00 00 FC 17 1D FF 00 FF 00 48 F8 40 FF 00 00 FF 01 3D E4 FF
 		];
 		qcom,mdss-dsi-cabc-on-command = [
-				15 00 00 00 00 00 02 55 01
-				29 00 00 00 00 00 08 B8 89 51 0d 00 02 00 00
-				29 00 00 00 00 00 1A CE 55 40 4d 6a 75 97 a7 b6 c9 d0 d4 e7 e8 e9 f2 fb ff 04 00 00 04 46 04 69 5a
-				29 01 00 00 00 00 0A F9 64 FF E0 BE 00 8D BF 80 00
+            15 00 00 00 00 00 02 55 01
+            29 00 00 00 00 00 08 B8 89 51 0d 00 02 00 00
+            29 00 00 00 00 00 1A CE 55 40 4d 6a 75 97 a7 b6 c9 d0 d4 e7 e8 e9 f2 fb ff 04 00 00 04 46 04 69 5a
+            29 01 00 00 00 00 0A F9 64 FF E0 BE 00 8D BF 80 00
 		];
 		qcom,mdss-dsi-cabc-off-command = [
-				15 01 00 00 00 00 02 55 00
+			15 01 00 00 00 00 02 55 00
 		];
 		qcom,mdss-dsi-gamma0-command = [
-				29 01 00 00 00 00 14 C8 01 00 f2 f8 fd fc 00 00 f0 f7 fb fc 00 00 ef f6 f9 fc 00
+            29 01 00 00 00 00 14 C8 01 00 f2 f8 fd fc 00 00 f0 f7 fb fc 00 00 ef f6 f9 fc 00
 		];
 		qcom,mdss-dsi-gamma1-command = [
-				29 01 00 00 00 00 14 C8 01 00 F9 02 01 BB 00 00 01 05 03 FC 00 00 FC 03 FF B1 00
+            29 01 00 00 00 00 14 C8 01 00 F9 02 01 BB 00 00 01 05 03 FC 00 00 FC 03 FF B1 00
 		];
 		qcom,mdss-dsi-gamma2-command = [
-				29 01 00 00 00 00 14 C8 01 00 FA 02 01 DD 00 00 01 05 03 FC 00 00 FB 04 FD D5 00
+            29 01 00 00 00 00 14 C8 01 00 FA 02 01 DD 00 00 01 05 03 FC 00 00 FB 04 FD D5 00
 		];
 		qcom,mdss-dsi-gamma3-command = [
+            //29 01 00 00 00 00 14 C8 01 00 F9 02 FF FC 00 00 FE 04 01 D4 00 00 FD 03 FE F7 00
 		];
 		qcom,mdss-dsi-gamma4-command = [
-				29 01 00 00 00 00 14 C8 01 00 F9 02 FF FC 00 00 FF 04 02 AE 00 00 FD 03 FD F9 00
+            29 01 00 00 00 00 14 C8 01 00 F9 02 FF FC 00 00 FF 04 02 AE 00 00 FD 03 FD F9 00
 		];
 		qcom,mdss-dsi-gamma5-command = [
-				29 01 00 00 00 00 14 C8 01 00 F9 02 FF FC 00 00 01 03 01 87 00 00 FD 03 01 83 00
+            29 01 00 00 00 00 14 C8 01 00 F9 02 FF FC 00 00 01 03 01 87 00 00 FD 03 01 83 00
 		];
 		qcom,mdss-dsi-gamma6-command = [
-				29 01 00 00 00 00 14 C8 01 00 F9 02 FF FC 00 00 01 04 02 BB 00 00 FC 03 FF B9 00
+            29 01 00 00 00 00 14 C8 01 00 F9 02 FF FC 00 00 01 04 02 BB 00 00 FC 03 FF B9 00
 		];
 		qcom,mdss-dsi-gamma7-command = [
-				29 01 00 00 00 00 14 C8 01 00 F9 02 FF BF 00 00 01 05 03 FC 00 00 FD 03 FF FA 00
+            29 01 00 00 00 00 14 C8 01 00 F9 02 FF BF 00 00 01 05 03 FC 00 00 FD 03 FF FA 00
 		];
 		qcom,mdss-dsi-gamma8-command = [
-				29 01 00 00 00 00 14 C8 01 00 F9 02 02 78 00 00 01 05 03 FC 00 00 FD 03 FE F9 00
+            29 01 00 00 00 00 14 C8 01 00 F9 02 02 78 00 00 01 05 03 FC 00 00 FD 03 FE F9 00
 		];
 		qcom,mdss-dsi-gamma9-command = [
-				29 01 00 00 00 00 14 C8 01 00 F9 02 FF FC 00 00 01 04 01 C7 00 00 FC 03 01 7A 00
+            29 01 00 00 00 00 14 C8 01 00 F9 02 FF FC 00 00 01 04 01 C7 00 00 FC 03 01 7A 00
 		];
 		qcom,mdss-dsi-gamma10-command = [
-				29 01 00 00 00 00 14 C8 01 00 F9 02 FF FC 00 00 01 03 02 A7 00 00 FC 03 01 7F 00
+            29 01 00 00 00 00 14 C8 01 00 F9 02 FF FC 00 00 01 03 02 A7 00 00 FC 03 01 7F 00
 		];
 		qcom,mdss-dsi-gamma11-command = [
-				29 01 00 00 00 00 14 C8 01 00 F9 02 FF FC 00 00 FF 03 01 67 00 00 FD 03 01 87 00
+            29 01 00 00 00 00 14 C8 01 00 F9 02 FF FC 00 00 FF 03 01 67 00 00 FD 03 01 87 00
 		];
 		qcom,mdss-dsi-gamma12-command = [
-				29 01 00 00 00 00 14 C8 01 00 F9 02 FF FC 00 00 01 02 03 46 00 00 FD 03 02 8B 00
+            29 01 00 00 00 00 14 C8 01 00 F9 02 FF FC 00 00 01 02 03 46 00 00 FD 03 02 8B 00
 		];
 		qcom,mdss-dsi-gamma13-command = [
-				29 01 00 00 00 00 14 C8 01 00 F9 02 01 FA 00 00 01 05 03 FC 00 00 FC 03 FE B1 00
+            29 01 00 00 00 00 14 C8 01 00 F9 02 01 FA 00 00 01 05 03 FC 00 00 FC 03 FE B1 00
 		];
 		qcom,mdss-dsi-gamma14-command = [
-				29 01 00 00 00 00 14 C8 01 00 F9 02 FF FC 00 00 FE 05 01 DD 00 00 FC 03 FE B6 00
+            29 01 00 00 00 00 14 C8 01 00 F9 02 FF FC 00 00 FE 05 01 DD 00 00 FC 03 FE B6 00
 		];
 		qcom,mdss-dsi-gamma15-command = [
-				29 01 00 00 00 00 14 C8 01 00 F9 02 FF FC 00 00 01 03 02 9A 00 00 FC 03 FF BC 00
+            29 01 00 00 00 00 14 C8 01 00 F9 02 FF FC 00 00 01 03 02 9A 00 00 FC 03 FF BC 00
 		];
 		qcom,mdss-dsi-gamma16-command = [
-				29 01 00 00 00 00 14 C8 01 00 F9 02 FF FC 00 00 FF 03 01 78 00 00 FC 03 FE C0 00
+            29 01 00 00 00 00 14 C8 01 00 F9 02 FF FC 00 00 FF 03 01 78 00 00 FC 03 FE C0 00
 		];
 		qcom,mdss-dsi-gamma17-command = [
-				29 01 00 00 00 00 14 C8 01 00 F9 02 02 79 00 00 01 05 03 FC 00 00 FC 03 FF B2 00
+            29 01 00 00 00 00 14 C8 01 00 F9 02 02 79 00 00 01 05 03 FC 00 00 FC 03 FF B2 00
 		];
 		qcom,mdss-dsi-gamma18-command = [
-				29 01 00 00 00 00 14 C8 01 00 F9 02 01 9C 00 00 01 05 03 FC 00 00 FB 04 FD D5 00
+            29 01 00 00 00 00 14 C8 01 00 F9 02 01 9C 00 00 01 05 03 FC 00 00 FB 04 FD D5 00
 		];
 		qcom,mdss-dsi-gamma19-command = [
-				29 01 00 00 00 00 14 C8 01 00 F9 02 01 C0 00 00 01 04 02 DA 00 00 FC 03 FE FC 00
+            29 01 00 00 00 00 14 C8 01 00 F9 02 01 C0 00 00 01 04 02 DA 00 00 FC 03 FE FC 00
 		];
 		qcom,mdss-dsi-gamma20-command = [
-				29 01 00 00 00 00 14 C8 01 00 F9 02 01 C0 00 00 FF 04 01 B5 00 00 FB 03 FE FC 00
+            29 01 00 00 00 00 14 C8 01 00 F9 02 01 C0 00 00 FF 04 01 B5 00 00 FB 03 FE FC 00
 		];
 		qcom,mdss-dsi-gamma21-command = [
-				29 01 00 00 00 00 14 C8 01 00 FA 01 02 37 00 00 01 05 03 FC 00 00 FC 03 FE B3 00
+            29 01 00 00 00 00 14 C8 01 00 FA 01 02 37 00 00 01 05 03 FC 00 00 FC 03 FE B3 00
 		];
 		qcom,mdss-dsi-gamma22-command = [
-				29 01 00 00 00 00 14 C8 01 00 FA 01 02 57 00 00 01 05 03 FC 00 00 FC 03 FE D5 00
+            29 01 00 00 00 00 14 C8 01 00 FA 01 02 57 00 00 01 05 03 FC 00 00 FC 03 FE D5 00
 		];
 		qcom,mdss-dsi-gamma23-command = [
-				29 01 00 00 00 00 14 C8 01 00 F9 02 02 7C 00 00 01 04 02 DC 00 00 FC 03 FE FC 00
+            29 01 00 00 00 00 14 C8 01 00 F9 02 02 7C 00 00 01 04 02 DC 00 00 FC 03 FE FC 00
 		];
 		qcom,mdss-dsi-gamma24-command = [
-				29 01 00 00 00 00 14 C8 01 00 F9 02 02 7E 00 00 01 04 02 B7 00 00 FC 03 FE FC 00
+            29 01 00 00 00 00 14 C8 01 00 F9 02 02 7E 00 00 01 04 02 B7 00 00 FC 03 FE FC 00
 		];
 
 

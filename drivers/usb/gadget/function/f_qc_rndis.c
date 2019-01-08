@@ -2,6 +2,7 @@
  * f_qc_rndis.c -- RNDIS link function driver
  *
  * Copyright (C) 2003-2005,2008 David Brownell
+ * Copyright (C) 2018 XiaoMi, Inc.
  * Copyright (C) 2003-2004 Robert Schwebel, Benedikt Spranger
  * Copyright (C) 2008 Nokia Corporation
  * Copyright (C) 2009 Samsung Electronics
@@ -165,6 +166,9 @@ static struct usb_interface_descriptor rndis_qc_control_intf = {
 	.bInterfaceClass =	USB_CLASS_WIRELESS_CONTROLLER,
 	.bInterfaceSubClass =   0x01,
 	.bInterfaceProtocol =   0x03,
+
+
+
 	/* .iInterface = DYNAMIC */
 };
 
@@ -223,6 +227,9 @@ rndis_qc_iad_descriptor = {
 	.bDescriptorType =	USB_DT_INTERFACE_ASSOCIATION,
 	.bFirstInterface =	0, /* XXX, hardcoded */
 	.bInterfaceCount =	2, /* control + data */
+
+
+
 	.bFunctionClass =	USB_CLASS_WIRELESS_CONTROLLER,
 	.bFunctionSubClass =   0x01,
 	.bFunctionProtocol =   0x03,

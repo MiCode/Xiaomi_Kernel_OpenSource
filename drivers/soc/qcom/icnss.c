@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2285,26 +2286,6 @@ out:
 	return 0;
 }
 
-static int icnss_call_driver_remove(struct icnss_priv *priv)
-{
-	icnss_pr_dbg("Calling driver remove state: 0x%lx\n", priv->state);
-
-	clear_bit(ICNSS_FW_READY, &priv->state);
-
-	if (!test_bit(ICNSS_DRIVER_PROBED, &penv->state))
-		return 0;
-
-	if (!priv->ops || !priv->ops->remove)
-		return 0;
-
-	penv->ops->remove(&priv->pdev->dev);
-
-	clear_bit(ICNSS_DRIVER_PROBED, &priv->state);
-
-	icnss_hw_power_off(penv);
-
-	return 0;
-}
 
 static int icnss_fw_crashed(struct icnss_priv *priv,
 			    struct icnss_event_pd_service_down_data *event_data)
@@ -2341,10 +2322,7 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 		goto out;
 	}
 
-	if (event_data->crashed)
-		icnss_fw_crashed(priv, event_data);
-	else
-		icnss_call_driver_remove(priv);
+	icnss_fw_crashed(priv, event_data);
 
 out:
 	kfree(data);

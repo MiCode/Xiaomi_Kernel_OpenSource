@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014-2015 Hisilicon Limited.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -100,9 +101,9 @@ static void unfill_desc(struct hnae_ring *ring)
 	ring_ptr_move_bw(ring, next_to_use);
 }
 
-int hns_nic_net_xmit_hw(struct net_device *ndev,
-			struct sk_buff *skb,
-			struct hns_nic_ring_data *ring_data)
+netdev_tx_t hns_nic_net_xmit_hw(struct net_device *ndev,
+				struct sk_buff *skb,
+				struct hns_nic_ring_data *ring_data)
 {
 	struct hns_nic_priv *priv = netdev_priv(ndev);
 	struct hnae_ring *ring = ring_data->ring;
@@ -171,6 +172,10 @@ int hns_nic_net_xmit_hw(struct net_device *ndev,
 	/*complete translate all packets*/
 	dev_queue = netdev_get_tx_queue(ndev, skb->queue_mapping);
 	netdev_tx_sent_queue(dev_queue, skb->len);
+
+	netif_trans_update(ndev);
+	ndev->stats.tx_bytes += skb->len;
+	ndev->stats.tx_packets++;
 
 	wmb(); /* commit all data before submit */
 	assert(skb->queue_mapping < priv->ae_handle->q_num);
@@ -1089,17 +1094,10 @@ static netdev_tx_t hns_nic_net_xmit(struct sk_buff *skb,
 				    struct net_device *ndev)
 {
 	struct hns_nic_priv *priv = netdev_priv(ndev);
-	int ret;
 
 	assert(skb->queue_mapping < ndev->ae_handle->q_num);
-	ret = hns_nic_net_xmit_hw(ndev, skb,
-				  &tx_ring_data(priv, skb->queue_mapping));
-	if (ret == NETDEV_TX_OK) {
-		ndev->trans_start = jiffies;
-		ndev->stats.tx_bytes += skb->len;
-		ndev->stats.tx_packets++;
-	}
-	return (netdev_tx_t)ret;
+	return hns_nic_net_xmit_hw(ndev, skb,
+				   &tx_ring_data(priv, skb->queue_mapping));
 }
 
 static int hns_nic_change_mtu(struct net_device *ndev, int new_mtu)

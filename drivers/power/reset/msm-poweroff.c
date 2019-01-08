@@ -73,8 +73,12 @@ static void scm_disable_sdi(void);
 
 static int in_panic;
 static int dload_type = SCM_DLOAD_FULLDUMP;
-#ifdef CONFIG_KERNEL_CUSTOM_WHYRED
+#if defined(CONFIG_KERNEL_CUSTOM_WHYRED)
  int download_mode = 0;
+#elif defined(CONFIG_KERNEL_CUSTOM_WAYNE)
+int download_mode = 0;
+#elif defined(CONFIG_KERNEL_CUSTOM_TULIP)
+int download_mode = 0;
 #else
  int download_mode = 1;
 #endif
@@ -206,8 +210,9 @@ static int dload_set(const char *val, struct kernel_param *kp)
 
 	set_dload_mode(download_mode);
 
-	if (!download_mode)
-		scm_disable_sdi();
+
+	 if (!download_mode)
+             	scm_disable_sdi();
 
 
 	return 0;
@@ -309,14 +314,18 @@ static void msm_restart_prepare(const char *cmd)
 	if (need_warm_reset) {
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
 	} else {
-		if (force_warm_reset) {
+		if (force_warm_reset)
+		{
 			qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
-		} else {
+		}
+		else
+		{
 			qpnp_pon_system_pwr_off(PON_POWER_OFF_HARD_RESET);
 		}
 	}
 	if (in_panic) {
-			   qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
+		qpnp_pon_set_restart_reason(PON_RESTART_REASON_PANIC);
+		qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
        } else if (cmd != NULL) {
 		if (!strncmp(cmd, "bootloader", 10)) {
 			qpnp_pon_set_restart_reason(
@@ -355,8 +364,12 @@ static void msm_restart_prepare(const char *cmd)
 			else
 				pr_info("This command already been disabled");
 		} else {
+			qpnp_pon_set_restart_reason(PON_RESTART_REASON_NORMAL);
 			__raw_writel(0x77665501, restart_reason);
 		}
+	} else {
+		qpnp_pon_set_restart_reason(PON_RESTART_REASON_NORMAL);
+		__raw_writel(0x77665501, restart_reason);
 	}
 
 	flush_cache_all();

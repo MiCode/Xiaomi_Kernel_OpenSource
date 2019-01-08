@@ -33,6 +33,7 @@
 
 #define VSYNC_DELAY msecs_to_jiffies(17)
 extern bool enable_gesture_mode;
+bool tianma_jdi_flag = 0;
 extern bool synaptics_gesture_func_on;
 extern int first_ce_state, first_cabc_state, first_srgb_state, first_gamma_state;
 extern int mdss_first_set_feature(struct mdss_panel_data *pdata, int first_ce_state, int first_cabc_state, int first_srgb_state, int first_gamma_state);
@@ -202,11 +203,25 @@ int mdss_dsi_read_reg(struct mdss_dsi_ctrl_pdata *ctrl, char cmd0, int *val0, in
 
 	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
 	*val0 = rbuf[0];
-		/* policy for nt36672 */
+ #ifdef CONFIG_KERNEL_CUSTOM_TULIP
+	/*policy for e7t tianma nt36672a D0:x D2:y */
+	if (strstr(g_lcd_id, "tianma nt36672a fhdplus video mode dsi panel") != NULL) {
+		*val1 = rbuf[2];
+		printk("henty: %x \n", rbuf[2]);
+	} else{
+	/* policy for e7t ebbg nt36672a D0:x D1:y */
 		if (0 != rbuf[1])
-	    *val1 = rbuf[1];
+			*val1 = rbuf[1];
 		else
-		 *val1 = rbuf[2];
+			*val1 = rbuf[2];
+		}
+#else
+	/* policy for nt36672 */
+	if (0 != rbuf[1])
+		*val1 = rbuf[1];
+	else
+		*val1 = rbuf[2];
+#endif
 	printk("guorui:%x %x %x %x %x %x %x %x\n", rbuf[0], rbuf[1], rbuf[2], rbuf[3], rbuf[4], rbuf[5], rbuf[6], rbuf[7]);
 	return 0;
 }
@@ -549,12 +564,17 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 			gpio_set_value((ctrl_pdata->disp_en_gpio), 0);
 			gpio_free(ctrl_pdata->disp_en_gpio);
 		}
+#ifdef CONFIG_KERNEL_CUSTOM_TULIP
+
+#else
 		if (!(enable_gesture_mode || synaptics_gesture_func_on)) {
 			if (strstr(g_lcd_id, "nt36672") == NULL) {
 				printk("td4310 pull down the rst.\n");
 				gpio_set_value((ctrl_pdata->rst_gpio), 0);
 			}
 		}
+#endif
+
 		gpio_free(ctrl_pdata->rst_gpio);
 		if (gpio_is_valid(ctrl_pdata->lcd_mode_sel_gpio)) {
 			gpio_set_value(ctrl_pdata->lcd_mode_sel_gpio, 0);
@@ -938,18 +958,20 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 	switch (ctrl_pdata->bklt_ctrl) {
 	case BL_WLED:
 		led_trigger_event(bl_led_trigger, bl_level);
-		if (bl_level != 0)
-			if (mdss_first_set_feature(pdata, first_ce_state, first_cabc_state, first_srgb_state, first_gamma_state))
-				pr_err("%s first set feature fail ! \n", __func__);
-			else {
-				first_set_bl = true;
-				first_ce_state = -1;
-				first_cabc_state = -1;
-				first_srgb_state = -1;
-				first_gamma_state = -1;
-			} else {
-				first_set_bl = false;
-			}
+        if (bl_level != 0)
+		{
+              first_set_bl = true;
+	          if (mdss_first_set_feature(pdata, first_ce_state, first_cabc_state, first_srgb_state, first_gamma_state))
+		            pr_err("%s first set feature fail ! \n", __func__);
+	            else{
+	               first_ce_state = -1;
+	               first_cabc_state = -1;
+	               first_srgb_state = -1;
+	               first_gamma_state = -1;
+	            }
+		} else{
+                first_set_bl = false;
+            }
 		break;
 	case BL_PWM:
 		mdss_dsi_panel_bklt_pwm(ctrl_pdata, bl_level);
@@ -1030,16 +1052,16 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 		mdss_dsi_panel_cmds_send(ctrl, on_cmds, CMD_REQ_COMMIT);
 
 	if (ce_state == 14){
-		if (ce_on_cmds->cmd_cnt)
-			mdss_dsi_panel_cmds_send(ctrl, ce_on_cmds, CMD_REQ_COMMIT);
+	   if (ce_on_cmds->cmd_cnt)
+	       mdss_dsi_panel_cmds_send(ctrl, ce_on_cmds, CMD_REQ_COMMIT);
 	}
 	if (11 == srgb_state){
-		if (srgb_on_cmds->cmd_cnt)
-			mdss_dsi_panel_cmds_send(ctrl, srgb_on_cmds, CMD_REQ_COMMIT);
+	   if (srgb_on_cmds->cmd_cnt)
+	       mdss_dsi_panel_cmds_send(ctrl, srgb_on_cmds, CMD_REQ_COMMIT);
 	}
 	if (11 == cabc_state){
 		if (cabc_on_cmds->cmd_cnt)
-			mdss_dsi_panel_cmds_send(ctrl, cabc_on_cmds, CMD_REQ_COMMIT);
+	       mdss_dsi_panel_cmds_send(ctrl, cabc_on_cmds, CMD_REQ_COMMIT);
 	}
 
 	if (pinfo->compression_mode == COMPRESSION_DSC)
@@ -1115,9 +1137,9 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 		if (ctrl->ndx != DSI_CTRL_LEFT)
 			goto end;
 	}
-	if (ESD_TE_status) {
+	if (ESD_TE_status){
 		printk("%s: esd check skip lcd suspend \n", __func__);
-	} else {
+	}else{
 		if (ctrl->off_cmds.cmd_cnt)
 			mdss_dsi_panel_cmds_send(ctrl, &ctrl->off_cmds, CMD_REQ_COMMIT);
 	}
@@ -3146,13 +3168,13 @@ static struct kobject *msm_lcd_name;
 static int msm_lcd_name_create_sysfs(void){
 	int ret;
 	msm_lcd_name = kobject_create_and_add("android_lcd", NULL);
-	if (msm_lcd_name == NULL) {
+	if (msm_lcd_name == NULL){
 		pr_info("msm_lcd_name_create_sysfs_ failed\n");
 		ret = -ENOMEM;
 		return ret;
 	}
-	ret = sysfs_create_file(msm_lcd_name,  &dev_attr_lcd_name.attr);
-	if (ret) {
+	ret = sysfs_create_file(msm_lcd_name, &dev_attr_lcd_name.attr);
+	if (ret){
 		pr_info("%s failed \n", __func__);
 		kobject_del(msm_lcd_name);
 	}
@@ -3185,6 +3207,11 @@ int mdss_dsi_panel_init(struct device_node *node,
 		pr_info("%s: Panel Name = %s\n", __func__, panel_name);
 		strlcpy(&pinfo->panel_name[0], panel_name, MDSS_MAX_PANEL_LEN);
 	}
+	if (strstr(panel_name, "tianma") == NULL){
+		tianma_jdi_flag = 1;
+		}else{
+                tianma_jdi_flag = 0;
+                     }
 	/*add for device name node */
 	strcpy(g_lcd_id, panel_name);
 	rc = mdss_panel_parse_dt(node, ctrl_pdata);

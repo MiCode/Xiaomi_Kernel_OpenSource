@@ -137,8 +137,12 @@ fw-shipped-$(CONFIG_VIDEO_CPIA2) += cpia2/stv0672_vp4.bin
 fw-shipped-$(CONFIG_YAM) += yam/1200.bin yam/9600.bin
 fw-shipped-$(CONFIG_TOUCHSCREEN_SYNAPTICS_DSX_FW_UPDATE) += synaptics/tianma_td4310_miui_whyred.img
 fw-shipped-$(CONFIG_TOUCHSCREEN_NVT) += novatek/nt36672_miui_whyred.bin
+fw-shipped-$(CONFIG_TOUCHSCREEN_NVT) += novatek/hx_nt36672_miui_whyred.bin
 fw-shipped-$(CONFIG_TOUCHSCREEN_NVT_WAYNE) += novatek/tianma_nt36672_miui_wayne.bin
+fw-shipped-$(CONFIG_TOUCHSCREEN_NVT_WAYNE) += novatek/jdi_nt36672_miui_wayne.bin
 fw-shipped-$(CONFIG_TOUCHSCREEN_SYNAPTICS_DSX_FW_UPDATE) += synaptics/shenchao_td4310_miui_whyred.img
+fw-shipped-$(CONFIG_TOUCHSCREEN_NVT_A) += novatek/shenchao_nt36672a_miui_tulip.bin
+fw-shipped-$(CONFIG_TOUCHSCREEN_NVT_A) += novatek/tianma_nt36672a_miui_tulip.bin
 fw-shipped-all := $(fw-shipped-y) $(fw-shipped-m) $(fw-shipped-)
 
 quiet_cmd_ihex  = IHEX    $@

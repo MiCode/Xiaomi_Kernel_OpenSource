@@ -17,14 +17,15 @@ static ssize_t msm_tp_module_id_show(struct device *dev,
 {
 	ssize_t rc = 0;
 
-	char tp_version[60] = {0};
+    char tp_version[60] = {0};
 
-	if ((0 == tp_ver_show) && (0 == strlen(tp_ver_show_str)))
-		strcpy(tp_version, "no tp");
-	else {
-		sprintf(tp_version, "[Vendor]%s,%s\n", (strlen(module_name) ? module_name : "Unknown"),
+    if ((0 == tp_ver_show) && (0 == strlen(tp_ver_show_str)))
+        strcpy(tp_version, "no tp");
+    else
+    {
+        sprintf(tp_version, "[Vendor]%s,%s\n", (strlen(module_name) ? module_name : "Unknown"),
 				(strlen(tp_ver_show_str) ? tp_ver_show_str : "Unknown product"));
-	}
+    }
 
 	sprintf(buf, "%s\n", tp_version);
 	rc = strlen(buf) + 1;
@@ -35,7 +36,7 @@ static ssize_t msm_tp_module_id_show(struct device *dev,
 static DEVICE_ATTR(tp_info, 0444, msm_tp_module_id_show, NULL);
 static int tp_fm_creat_sys_entry(void)
 {
-	int32_t rc = 0;
+    int32_t rc = 0;
 
 	msm_tp_device = kobject_create_and_add("android_tp", NULL);
 	if (msm_tp_device == NULL) {
@@ -54,14 +55,16 @@ static int tp_fm_creat_sys_entry(void)
 
 static ssize_t tp_proc_tp_info_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 {
-	int cnt = 0;
-	char *page = NULL;
+    int cnt = 0;
+    char *page = NULL;
 
 	page = kzalloc(128, GFP_KERNEL);
 
-	if ((0 == strlen(module_name)) && (0 == tp_ver_show) && (0 == strlen(tp_ver_show_str)))
-		cnt = sprintf(page, "no tp\n");
-	else {
+    if ((0 == strlen(module_name)) && (0 == tp_ver_show) && (0 == strlen(tp_ver_show_str)))
+        cnt = sprintf(page, "no tp\n");
+	else
+	{
+
 		cnt = sprintf(page, "[Vendor]%s,%s\n", (strlen(module_name) ? module_name : "Unknown"),
 				(strlen(tp_ver_show_str) ? tp_ver_show_str : "Unknown product"));
 	}
@@ -70,7 +73,7 @@ static ssize_t tp_proc_tp_info_read(struct file *file, char __user *buf, size_t 
 
 
 	kfree(page);
-	return cnt;
+    return cnt;
 }
 
 static const struct file_operations tp_proc_tp_info_fops = {
@@ -79,37 +82,38 @@ static const struct file_operations tp_proc_tp_info_fops = {
 
 static int tp_fm_creat_proc_entry(void)
 {
-	struct proc_dir_entry *proc_entry_tp;
+    struct proc_dir_entry *proc_entry_tp;
 
 	proc_entry_tp = proc_create_data("tp_info", 0444, NULL, &tp_proc_tp_info_fops, NULL);
-	if (IS_ERR_OR_NULL(proc_entry_tp)) {
+	if (IS_ERR_OR_NULL(proc_entry_tp))
+	{
 		pr_err("add /proc/tp_info error \n");
 	}
 
-	return 0;
+    return 0;
 }
 
 int init_tp_fm_info(u16 version_info_num, char *version_info_str, char *name)
 {
-	tp_ver_show = version_info_num;
+    tp_ver_show = version_info_num;
 
-	if (NULL != version_info_str)
-		 strcpy(tp_ver_show_str, version_info_str);
-	if (NULL != name)
-		strcpy(module_name, name);
+    if (NULL != version_info_str)
+        strcpy(tp_ver_show_str, version_info_str);
+    if (NULL != name)
+        strcpy(module_name, name);
 
-	tp_fm_creat_sys_entry();
-	tp_fm_creat_proc_entry();
+    tp_fm_creat_sys_entry();
+    tp_fm_creat_proc_entry();
 
-	return 0;
+    return 0;
 }
 
 void update_tp_fm_info(char *version_info_str)
 {
-	if (NULL != version_info_str) {
+    if (NULL != version_info_str) {
 		memset(tp_ver_show_str, 0, sizeof(tp_ver_show_str));
-		strcpy(tp_ver_show_str, version_info_str);
-	}
+        strcpy(tp_ver_show_str, version_info_str);
+    }
 }
 
 MODULE_DESCRIPTION("GTP Series Driver");

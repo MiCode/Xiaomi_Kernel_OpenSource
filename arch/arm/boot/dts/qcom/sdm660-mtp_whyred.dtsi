@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -129,6 +130,13 @@
 };
 
 &dsi_nt36672_tianma_fhd_video {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_nt36672_huaxing_fhd_video {
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
@@ -295,6 +303,8 @@
 		pinctrl-names = "hall_active","hall_suspend";
 		pinctrl-0 = <&hall_int_active>;
 		pinctrl-1 = <&hall_int_suspend>;
+		//interrupt-parent = <&msm_gpio>;
+		//interrupts = <0 107 3>;
 		vdd-io-supply= <&pm660_l8>;
 		interrupt-names = "hall_irq";
 	        hall,irq-gpio = <&tlmm 75 0x0>;
@@ -314,16 +324,4 @@
 
 &pm660_fg {
 	qcom,battery-data = <&mtp_batterydata>;
-};
-
-&i2c_2 {
-	status = "ok";
-	smb1351-charger@1d {
-		compatible = "qcom,smb1351-charger";
-		reg = <0x1d>;
-		qcom,parallel-charger;
-		qcom,float-voltage-mv = <4400>;
-		qcom,recharge-mv = <100>;
-		qcom,parallel-en-pin-polarity = <1>;
-	};
 };

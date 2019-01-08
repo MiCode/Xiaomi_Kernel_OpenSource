@@ -2,6 +2,7 @@
  * Simple synchronous userspace interface to SPI devices
  *
  * Copyright (C) 2006 SWAPP
+ * Copyright (C) 2018 XiaoMi, Inc.
  *	Andrea Paterniani <a.paterniani@swapp-eng.it>
  * Copyright (C) 2007 David Brownell (simplification, cleanup)
  *
@@ -210,6 +211,12 @@ spidev_write(struct file *filp, const char __user *buf,
 	struct spidev_data	*spidev;
 	ssize_t			status = 0;
 	unsigned long		missing;
+
+	/* chipselect only toggles at start or end of operation */
+/*  liuhongtao removed for buffer kmalloc size
+	if (count > bufsiz)
+		return -EMSGSIZE;
+*/
 
 	spidev = filp->private_data;
 

@@ -24,6 +24,8 @@
 #include <linux/pvclock_gtod.h>
 #include <linux/compiler.h>
 
+#include <linux/misysinfofreader.h>
+
 #include "tick-internal.h"
 #include "ntp_internal.h"
 #include "timekeeping_internal.h"
@@ -1994,6 +1996,8 @@ struct timespec64 get_monotonic_coarse64(void)
 void do_timer(unsigned long ticks)
 {
 	jiffies_64 += ticks;
+
+	update_misysinfo_jiffies();
 	calc_global_load(ticks);
 }
 

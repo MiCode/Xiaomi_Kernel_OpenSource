@@ -33,6 +33,8 @@
 #define BLOCK_64KB_NUM 4
 
 const struct firmware *fw_entry = NULL;
+extern bool tianma_jdi_flag;
+
 
 /*******************************************************
 Description:
@@ -162,7 +164,7 @@ int32_t Resume_PD(void)
 
 
 	retry = 0;
-	while (1) {
+	while(1) {
 		msleep(1);
 		buf[0] = 0x00;
 		buf[1] = 0x00;
@@ -319,7 +321,7 @@ int32_t Init_BootLoader(void)
 
 
 	retry = 0;
-	while (1) {
+	while(1) {
 		msleep(1);
 		buf[0] = 0x00;
 		buf[1] = 0x00;
@@ -911,6 +913,7 @@ int32_t nvt_check_flash_end_flag(void)
 	}
 	msleep(10);
 
+	//Step 4 : Flash Read Command
 	buf[0] = 0x00;
 	buf[1] = 0x03;
 	buf[2] = (NVT_FLASH_END_FLAG_ADDR >> 16) & 0xFF;
@@ -925,6 +928,7 @@ int32_t nvt_check_flash_end_flag(void)
 	}
 	msleep(10);
 
+	// Check 0xAA (Read Command)
 	buf[0] = 0x00;
 	buf[1] = 0x00;
 	ret = CTP_I2C_READ(ts->client, I2C_HW_Address, buf, 2);
@@ -939,6 +943,7 @@ int32_t nvt_check_flash_end_flag(void)
 
 	msleep(10);
 
+	//Step 5 : Read Flash Data
 	buf[0] = 0xFF;
 	buf[1] = (ts->mmap->READ_FLASH_CHECKSUM_ADDR >> 16) & 0xFF;
 	buf[2] = (ts->mmap->READ_FLASH_CHECKSUM_ADDR >> 8) & 0xFF;
@@ -949,6 +954,7 @@ int32_t nvt_check_flash_end_flag(void)
 	}
 	msleep(10);
 
+	// Read Back
 	buf[0] = ts->mmap->READ_FLASH_CHECKSUM_ADDR & 0xFF;
 	ret = CTP_I2C_READ(ts->client, I2C_BLDR_Address, buf, 6);
 	if (ret < 0) {
@@ -981,7 +987,16 @@ void Boot_Update_Firmware(struct work_struct *work)
 	int32_t ret = 0;
 
 	char firmware_name[256] = "";
-	sprintf(firmware_name, BOOT_UPDATE_FIRMWARE_NAME);
+	if (tianma_jdi_flag){
+        sprintf(firmware_name, BOOT_UPDATE_FIRMWARE_NAME_JDI);
+
+	}
+	else{
+        sprintf(firmware_name, BOOT_UPDATE_FIRMWARE_NAME_TIANMA);
+
+	}
+
+
 
 
 	ret = update_firmware_request(firmware_name);

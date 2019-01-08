@@ -1,4 +1,4 @@
-menu "Fingerprint Drivers"
+ menu "Fingerprint Drivers"
 
 config FINGERPRINT_GOODIX
 	tristate "goodix gf5216 fingerprint drvier support"

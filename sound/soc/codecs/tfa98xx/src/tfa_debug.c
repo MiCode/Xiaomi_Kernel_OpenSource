@@ -24,68 +24,69 @@ static char latest_errorstr[64];
 
 const char *tfa98xx_get_error_string(enum Tfa98xx_Error error)
 {
-	const char *pErrStr;
+  const char *pErrStr;
 
-	switch (error) {
-	case Tfa98xx_Error_Ok:
-		pErrStr = "Ok";
-		break;
-	case Tfa98xx_Error_DSP_not_running:
-		pErrStr = "DSP_not_running";
-		break;
-	case Tfa98xx_Error_Bad_Parameter:
-		pErrStr = "Bad_Parameter";
-		break;
-	case Tfa98xx_Error_NotOpen:
-		pErrStr = "NotOpen";
-		break;
-	case Tfa98xx_Error_InUse:
-		pErrStr = "InUse";
-		break;
-	case Tfa98xx_Error_RpcBusy:
-		pErrStr = "RpcBusy";
-		break;
-	case Tfa98xx_Error_RpcModId:
-		pErrStr = "RpcModId";
-		break;
-	case Tfa98xx_Error_RpcParamId:
-		pErrStr = "RpcParamId";
-		break;
-	case Tfa98xx_Error_RpcInvalidCC:
-		pErrStr = "RpcInvalidCC";
-		break;
-	case Tfa98xx_Error_RpcInvalidSeq:
-		pErrStr = "RpcInvalidSeq";
-		break;
-	case Tfa98xx_Error_RpcInvalidParam:
-		pErrStr = "RpcInvalidParam";
-		break;
-	case Tfa98xx_Error_RpcBufferOverflow:
-		pErrStr = "RpcBufferOverflow";
-		break;
-	case Tfa98xx_Error_RpcCalibBusy:
-		pErrStr = "RpcCalibBusy";
-		break;
-	case Tfa98xx_Error_RpcCalibFailed:
-		pErrStr = "RpcCalibFailed";
-		break;
-	case Tfa98xx_Error_Not_Supported:
-		pErrStr = "Not_Supported";
-		break;
-	case Tfa98xx_Error_I2C_Fatal:
-		pErrStr = "I2C_Fatal";
-		break;
-	case Tfa98xx_Error_I2C_NonFatal:
-		pErrStr = "I2C_NonFatal";
-		break;
-	case Tfa98xx_Error_StateTimedOut:
-		pErrStr = "WaitForState_TimedOut";
-		break;
-	default:
-		sprintf(latest_errorstr, "Unspecified error (%d)", (int)error);
-		pErrStr = latest_errorstr;
-	}
-	return pErrStr;
+  switch (error)
+  {
+  case Tfa98xx_Error_Ok:
+    pErrStr = "Ok";
+    break;
+  case Tfa98xx_Error_DSP_not_running:
+    pErrStr = "DSP_not_running";
+    break;
+  case Tfa98xx_Error_Bad_Parameter:
+    pErrStr = "Bad_Parameter";
+    break;
+  case Tfa98xx_Error_NotOpen:
+    pErrStr = "NotOpen";
+    break;
+  case Tfa98xx_Error_InUse:
+    pErrStr = "InUse";
+    break;
+  case Tfa98xx_Error_RpcBusy:
+    pErrStr = "RpcBusy";
+    break;
+  case Tfa98xx_Error_RpcModId:
+    pErrStr = "RpcModId";
+    break;
+  case Tfa98xx_Error_RpcParamId:
+    pErrStr = "RpcParamId";
+    break;
+  case Tfa98xx_Error_RpcInvalidCC:
+    pErrStr = "RpcInvalidCC";
+    break;
+  case Tfa98xx_Error_RpcInvalidSeq:
+    pErrStr = "RpcInvalidSeq";
+    break;
+  case Tfa98xx_Error_RpcInvalidParam:
+    pErrStr = "RpcInvalidParam";
+    break;
+  case Tfa98xx_Error_RpcBufferOverflow:
+    pErrStr = "RpcBufferOverflow";
+    break;
+  case Tfa98xx_Error_RpcCalibBusy:
+    pErrStr = "RpcCalibBusy";
+    break;
+  case Tfa98xx_Error_RpcCalibFailed:
+    pErrStr = "RpcCalibFailed";
+    break;
+  case Tfa98xx_Error_Not_Supported:
+    pErrStr = "Not_Supported";
+    break;
+  case Tfa98xx_Error_I2C_Fatal:
+    pErrStr = "I2C_Fatal";
+    break;
+  case Tfa98xx_Error_I2C_NonFatal:
+    pErrStr = "I2C_NonFatal";
+    break;
+  case Tfa98xx_Error_StateTimedOut:
+	pErrStr = "WaitForState_TimedOut";
+	break;
+  default:
+    sprintf(latest_errorstr, "Unspecified error (%d)", (int)error);
+    pErrStr = latest_errorstr;
+  }
+  return pErrStr;
 }
 /*****************************************************************************/
 /*      bitfield lookups */
@@ -96,15 +97,15 @@ const char *tfa98xx_get_error_string(enum Tfa98xx_Error error)
  * lookup bf in table
  *   return 'unkown' if not found
  */
-static char *tfa_bf2name(tfaBfName_t *table, uint16_t bf)
-{
+static char *tfa_bf2name(tfaBfName_t *table, uint16_t bf) {
 	int n = 0;
 
 	do {
 		if ((table[n].bfEnum & 0xfff0) == (bf & 0xfff0)) {
 			return table[n].bfName;
 		}
-	} while (table[n++].bfEnum != 0xffff);
+	}
+	while(table[n++].bfEnum != 0xffff);
 
 	return table[n-1].bfName; /* last name says unkown */
 }
@@ -112,8 +113,7 @@ static char *tfa_bf2name(tfaBfName_t *table, uint16_t bf)
  * lookup name in table
  *   return 0xffff if not found
  */
-static uint16_t tfa_name2bf(tfaBfName_t *table, const  char *name)
-{
+static uint16_t tfa_name2bf(tfaBfName_t *table, const  char *name) {
 	int n = 0;
 
 	do {
@@ -371,7 +371,7 @@ uint16_t tfaContBfEnumAny(const char *name)
 	bfnum =  tfa_name2bf(Tfa9872DatasheetNames, name);
 	if (bfnum != 0xffff)
 		return bfnum;
-		bfnum =  tfa_name2bf(Tfa9874DatasheetNames, name);
+   	bfnum =  tfa_name2bf(Tfa9874DatasheetNames, name);
 	if (bfnum != 0xffff)
 		return bfnum;
 	bfnum =  tfa_name2bf(Tfa9896DatasheetNames, name);
@@ -402,7 +402,7 @@ uint16_t tfaContBfEnumAny(const char *name)
 	bfnum =  tfa_name2bf(Tfa9872BitNames, name);
 	if (bfnum != 0xffff)
 		return bfnum;
-	bfnum =  tfa_name2bf(Tfa9874BitNames, name);
+    bfnum =  tfa_name2bf(Tfa9874BitNames, name);
 	if (bfnum != 0xffff)
 		return bfnum;
 	bfnum =  tfa_name2bf(Tfa9896BitNames, name);

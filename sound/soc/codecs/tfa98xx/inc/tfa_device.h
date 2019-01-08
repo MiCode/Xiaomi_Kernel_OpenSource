@@ -41,18 +41,18 @@ struct tfa_device;
  * hw/sw feature bit settings in MTP
  */
 enum featureSupport {
-		 supportNotSet,  /**< default means not set yet */
-		 supportNo,      /**< no support */
-		 supportYes      /**< supported */
+	supportNotSet,  /**< default means not set yet */
+	supportNo,      /**< no support */
+	supportYes      /**< supported */
 };
 /*
  * supported Digital Audio Interfaces bitmap
  */
 enum Tfa98xx_DAI {
-				Tfa98xx_DAI_I2S  =  0x01, /**< I2S only */
-				Tfa98xx_DAI_TDM  =  0x02, /**< TDM, I2S */
-				Tfa98xx_DAI_PDM  =  0x04, /**< PDM  */
-		 };
+		Tfa98xx_DAI_I2S  =  0x01, /**< I2S only */
+		Tfa98xx_DAI_TDM  =  0x02, /**< TDM, I2S */
+		Tfa98xx_DAI_PDM  =  0x04, /**< PDM  */
+	};
 
 /*
  * device ops function structure
@@ -89,20 +89,20 @@ struct tfa_device_ops {
  *
  */
 enum tfa_state {
-		 TFA_STATE_UNKNOWN,      /**< unknown or invalid */
-		 TFA_STATE_POWERDOWN,    /**< PLL in powerdown, Algo is up/warm */
-		 TFA_STATE_INIT_HW,      /**< load I2C/PLL hardware setting (~wait2srcsettings) */
-		 TFA_STATE_INIT_CF,      /**< coolflux HW access possible (~initcf) */
-		 TFA_STATE_INIT_FW,      /**< DSP framework active (~patch loaded) */
-		 TFA_STATE_OPERATING,    /**< Amp and Algo running */
-		 TFA_STATE_FAULT,        /**< An alarm or error occurred */
-		 TFA_STATE_RESET,        /**< I2C reset and ACS set */
-		 /* --sticky state modifiers-- */
-		 TFA_STATE_MUTE = 0x10,         /**< Algo & Amp mute */
-		 TFA_STATE_UNMUTE = 0x20,       /**< Algo & Amp unmute */
-		 TFA_STATE_CLOCK_ALWAYS = 0x40, /**< PLL connect to internal oscillator */
-		 TFA_STATE_CLOCK_AUDIO = 0x80,  /**< PLL connect to audio clock (BCK/FS) */
-		 TFA_STATE_LOW_POWER = 0x100,   /**< lowest possible power state */
+	TFA_STATE_UNKNOWN,      /**< unknown or invalid */
+	TFA_STATE_POWERDOWN,    /**< PLL in powerdown, Algo is up/warm */
+	TFA_STATE_INIT_HW,      /**< load I2C/PLL hardware setting (~wait2srcsettings) */
+	TFA_STATE_INIT_CF,      /**< coolflux HW access possible (~initcf) */
+	TFA_STATE_INIT_FW,      /**< DSP framework active (~patch loaded) */
+	TFA_STATE_OPERATING,    /**< Amp and Algo running */
+	TFA_STATE_FAULT,        /**< An alarm or error occurred */
+	TFA_STATE_RESET,        /**< I2C reset and ACS set */
+	/* --sticky state modifiers-- */
+	TFA_STATE_MUTE = 0x10,         /**< Algo & Amp mute */
+	TFA_STATE_UNMUTE = 0x20,       /**< Algo & Amp unmute */
+	TFA_STATE_CLOCK_ALWAYS = 0x40, /**< PLL connect to internal oscillator */
+	TFA_STATE_CLOCK_AUDIO = 0x80,  /**< PLL connect to audio clock (BCK/FS) */
+	TFA_STATE_LOW_POWER = 0x100,   /**< lowest possible power state */
 };
 
 /**

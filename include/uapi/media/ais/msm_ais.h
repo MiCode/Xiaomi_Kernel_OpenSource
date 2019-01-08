@@ -53,7 +53,7 @@
 #define MSM_CAMERA_SUBDEV_IR_CUT       19
 #define MSM_CAMERA_SUBDEV_EXT          20
 
-#define MSM_MAX_CAMERA_SENSORS  5
+#define MSM_MAX_CAMERA_SENSORS  6
 
 /* The below macro is defined to put an upper limit on maximum
  * number of buffer requested per stream. In case of extremely

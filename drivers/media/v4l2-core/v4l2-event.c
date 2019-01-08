@@ -4,6 +4,7 @@
  * V4L2 events.
  *
  * Copyright (C) 2009--2010 Nokia Corporation.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Contact: Sakari Ailus <sakari.ailus@iki.fi>
  *
@@ -29,6 +30,8 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/export.h>
+#include <linux/rtmm.h>
+#include <linux/mm.h>
 
 static unsigned sev_pos(const struct v4l2_subscribed_event *sev, unsigned idx)
 {
@@ -213,13 +216,27 @@ int v4l2_event_subscribe(struct v4l2_fh *fh,
 	unsigned long flags;
 	unsigned i;
 
+#ifdef CONFIG_RTMM
+	unsigned long order;
+	size_t size;
+#endif
 	if (sub->type == V4L2_EVENT_ALL)
 		return -EINVAL;
 
 	if (elems < 1)
 		elems = 1;
 
+#ifdef CONFIG_RTMM
+	size = sizeof(*sev) + sizeof(struct v4l2_kevent) * elems;
+	order = get_order(size);
+	if (order == KMALLOC_POOL_ORDER2) {
+		sev = rtmm_alloc(RTMM_POOL_KMALLOC_ORDER2);
+	} else {
+		sev = kzalloc(sizeof(*sev) + sizeof(struct v4l2_kevent) * elems, GFP_KERNEL);
+	}
+#else
 	sev = kzalloc(sizeof(*sev) + sizeof(struct v4l2_kevent) * elems, GFP_KERNEL);
+#endif
 	if (!sev)
 		return -ENOMEM;
 	for (i = 0; i < elems; i++)

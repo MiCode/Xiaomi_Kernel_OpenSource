@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -788,7 +789,7 @@
 		};
 		sensor_information22: qcom,sensor-information-22 {
 			qcom,sensor-type = "adc";
-			qcom,sensor-name = "id3_therm";
+			qcom,sensor-name = "backlight_therm";
 		};
 	};
 
@@ -2218,7 +2219,7 @@
 			<&clock_rpmcc QSEECOM_CE1_CLK>,
 			<&clock_rpmcc QSEECOM_CE1_CLK>;
 		qcom,ce-opp-freq = <171430000>;
-		qcom,qsee-reentrancy-support = <2>;
+		qcom,qsee-reentrancy-support = <0>;
 	};
 
 	qcom_cedev: qcedev@1de0000{
@@ -2409,12 +2410,12 @@
 		reg-names = "fuse-base";
 	};
 
-	sn_fuse: snfuse@0xA4128 {
-		compatible = "qcom,sn-fuse";
-		reg = <0x786134 0x4>,
-				<0x78607C 0x4>;
-		reg-names = "sn-base","fuse-state";
-	};
+        sn_fuse: snfuse@0xA4128 {
+                 compatible = "qcom,sn-fuse";
+                 reg = <0x786134 0x4>,
+                     <0x78607C 0x4>;
+                 reg-names = "sn-base","fuse-state";
+         };
 
 	jtag_mm0: jtagmm@7840000 {
 		compatible = "qcom,jtagv8-mm";

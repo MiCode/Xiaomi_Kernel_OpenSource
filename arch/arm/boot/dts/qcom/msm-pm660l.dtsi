@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -214,10 +215,11 @@
 				qcom,default-state = "off";
 				linux,name = "red";
 				qcom,start-idx = <0>;
-				qcom,idx-len = <12>;
+				qcom,idx-len = <24>;
 				qcom,duty-pcts =
-					[01 0a 1e 28 3c 50 5a
-					64 46 1e 0a 01];
+					[01 0a 14 1e 28 32 3c 46 50 5a
+					 64 96 c8 fa
+					 96 5a 50 46 3c 32 28 1e 14 0a];
 				qcom,use-blink;
 			};
 

@@ -1,4 +1,5 @@
 /* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +28,10 @@
 #include <linux/of_address.h>
 #include <linux/uaccess.h>
 #include <asm/arch_timer.h>
+
+#ifdef CONFIG_PRINT_RPM_CLK_STATUS
+#include <linux/syscore_ops.h>
+#endif
 
 #define SCLK_HZ 32768
 #define MSM_ARCH_TIMER_FREQ 19200000
@@ -417,6 +422,52 @@ static struct platform_driver msm_system_stats_driver = {
 		.of_match_table = rpm_stats_table,
 	},
 };
+
+#ifdef CONFIG_PRINT_RPM_CLK_STATUS
+static u32 debug_sysstats = 1;
+static void msm_sysstats_resume(void)
+{
+	struct msm_rpm_stats_data rs;
+	struct rpm_master_stats_data ms;
+	int m;
+	int n;
+
+	if (unlikely(!debug_sysstats))
+		return;
+
+	for (m = 0; m < NUM_STATS_RECORD; m++) {
+		char stat_type[5] = {0};
+
+		rpm_stats_copy_data(&rs, m);
+		memcpy(stat_type, &rs.stat_type, sizeof(uint32_t));
+		pr_info("RPM Mode:%s\n", stat_type);
+		pr_info("count:%d\n", rs.count);
+	}
+
+	for (n = 0; n < ss.num_masters; n++) {
+		master_stats_copy_data(&ms, n);
+		pr_info("%s\n", ss.master[n]);
+		pr_info(" Wakeup interrupt:0x%llX\n", ms.wakeup_ind);
+		pr_info(" XO Count:0x%x\n", ms.xo_count);
+		pr_info(" Wakeup Reason:0x%s\n", ms.wakeup_reason ? "Sched" : "Rude");
+		pr_info(" Num Shutdowns:0x%x\n", ms.numshutdowns);
+		pr_info(" Active Cores:0x%x\n", ms.active_cores);
+	}
+}
+
+static struct syscore_ops msm_sysstats_ops = {
+	.suspend	= NULL,
+	.resume		= msm_sysstats_resume,
+};
+
+static int __init msm_sysstats_syscore_init(void)
+{
+	register_syscore_ops(&msm_sysstats_ops);
+
+	return 0;
+}
+device_initcall(msm_sysstats_syscore_init);
+#endif
 
 module_platform_driver(msm_system_stats_driver);
 

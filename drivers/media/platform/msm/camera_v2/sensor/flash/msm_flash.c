@@ -592,6 +592,7 @@ static int32_t msm_flash_prepare(
 				__func__, __LINE__, ret);
 			return ret;
 		}
+
 		flash_ctrl->func_tbl->camera_flash_off(flash_ctrl, NULL);
 
 		flash_ctrl->is_regulator_enabled = 1;

@@ -705,6 +705,7 @@ static int smb1351_fastchg_current_set(struct smb1351_charger *chip,
 		(fastchg_current > SMB1351_CHG_FAST_MAX_MA)) {
 		pr_err("bad pre_fastchg current mA=%d asked to set\n",
 					fastchg_current);
+
 	}
 
 	/*
@@ -1417,6 +1418,7 @@ static enum power_supply_property smb1351_parallel_properties[] = {
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
 	POWER_SUPPLY_PROP_PARALLEL_MODE,
 	POWER_SUPPLY_PROP_INPUT_SUSPEND,
+	POWER_SUPPLY_PROP_MODEL_NAME,
 };
 
 static int smb1351_parallel_set_chg_suspend(struct smb1351_charger *chip,
@@ -1729,6 +1731,9 @@ static int smb1351_parallel_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
 		val->intval = chip->parallel_charger_suspended;
+		break;
+	case POWER_SUPPLY_PROP_MODEL_NAME:
+		val->strval = "smb1351";
 		break;
 	default:
 		return -EINVAL;
@@ -3200,6 +3205,7 @@ static int smb1351_parallel_charger_probe(struct i2c_client *client,
 	chip->parallel_charger = true;
 	chip->parallel_charger_suspended = true;
 
+
 	chip->usb_suspended_status = of_property_read_bool(node,
 					"qcom,charging-disabled");
 	rc = of_property_read_u32(node, "qcom,float-voltage-mv",
@@ -3361,7 +3367,29 @@ static struct i2c_driver smb1351_charger_driver = {
 	.id_table	= smb1351_charger_id,
 };
 
+#if defined(CONFIG_KERNEL_CUSTOM_WHYRED)
+static int __init smb1351_charger_init(void)
+{
+	struct power_supply *pl_psy = power_supply_get_by_name("parallel");
+
+	if (pl_psy) {
+		pr_info("Another parallel driver has been registered\n");
+		return -ENOENT;
+	}
+
+	return i2c_add_driver(&smb1351_charger_driver);
+}
+
+static void __exit smb1351_charger_exit(void)
+{
+	i2c_del_driver(&smb1351_charger_driver);
+}
+
+late_initcall(smb1351_charger_init);
+module_exit(smb1351_charger_exit);
+#else
 module_i2c_driver(smb1351_charger_driver);
+#endif
 
 MODULE_DESCRIPTION("smb1351 Charger");
 MODULE_LICENSE("GPL v2");

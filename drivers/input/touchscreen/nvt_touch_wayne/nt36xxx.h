@@ -16,8 +16,8 @@
  * more details.
  *
  */
-#ifndef	_LINUX_NVT_TOUCH_H
-#define	_LINUX_NVT_TOUCH_H
+#ifndef 	_LINUX_NVT_TOUCH_H
+#define		_LINUX_NVT_TOUCH_H
 
 #include <linux/i2c.h>
 #include <linux/input.h>
@@ -77,7 +77,8 @@ extern const uint16_t touch_key_array[TOUCH_KEY_NUM];
 extern const uint16_t gesture_key_array[];
 #endif
 #define BOOT_UPDATE_FIRMWARE 1
-#define BOOT_UPDATE_FIRMWARE_NAME "novatek/tianma_nt36672_miui_wayne.bin"
+#define BOOT_UPDATE_FIRMWARE_NAME_TIANMA "novatek/tianma_nt36672_miui_wayne.bin"
+#define BOOT_UPDATE_FIRMWARE_NAME_JDI "novatek/jdi_nt36672_miui_wayne.bin"
 
 
 #define NVT_TOUCH_ESD_PROTECT 1
@@ -156,11 +157,11 @@ typedef enum {
 } RST_COMPLETE_STATE;
 
 typedef enum {
-	EVENT_MAP_HOST_CMD                      = 0x50,
-	EVENT_MAP_HANDSHAKING_or_SUB_CMD_BYTE   = 0x51,
-	EVENT_MAP_RESET_COMPLETE                = 0x60,
-	EVENT_MAP_FWINFO                        = 0x78,
-	EVENT_MAP_PROJECTID                     = 0x9A,
+    EVENT_MAP_HOST_CMD                      = 0x50,
+    EVENT_MAP_HANDSHAKING_or_SUB_CMD_BYTE   = 0x51,
+    EVENT_MAP_RESET_COMPLETE                = 0x60,
+    EVENT_MAP_FWINFO                        = 0x78,
+    EVENT_MAP_PROJECTID                     = 0x9A,
 } I2C_EVENT_MAP;
 
 

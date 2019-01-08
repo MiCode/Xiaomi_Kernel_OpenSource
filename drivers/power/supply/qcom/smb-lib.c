@@ -29,7 +29,7 @@
 #include "fg-core.h"
 
 
-#ifdef CONFIG_KERNEL_CUSTOM_WHYRED
+#if (defined(CONFIG_KERNEL_CUSTOM_WHYRED) || defined(CONFIG_KERNEL_CUSTOM_TULIP))
 #define LCT_JEITA_CCC_AUTO_ADJUST  1
 #else
 #define LCT_JEITA_CCC_AUTO_ADJUST  0
@@ -368,26 +368,36 @@ static int smblib_adjust_jeita_cc_config(struct smb_charger *chg, int val_u)
 
 	pr_err("smblib_adjust_jeita_cc_config fcc val_u  = %d\n", val_u);
 
-	rc = smblib_get_charge_param(chg,   &chg->param.jeita_cc_comp,   &current_cc_minus_ua);
+	rc = smblib_get_charge_param(chg,  &chg->param.jeita_cc_comp,  &current_cc_minus_ua);
 	pr_err("lct smblib_adjust_jeita_cc_config jeita cc current_cc_minus_ua = %d\n", current_cc_minus_ua);
 
-	if ((val_u == chg->batt_profile_fcc_ua) && (current_cc_minus_ua != JEITA_CC_COMP_CFG_IN_UEFI * 1000)) {
-		rc = smblib_set_charge_param(chg,  &chg->param.jeita_cc_comp, JEITA_CC_COMP_CFG_IN_UEFI * 1000);
+	if ((val_u == chg->batt_profile_fcc_ua) && (current_cc_minus_ua != JEITA_CC_COMP_CFG_IN_UEFI * 1000))
+	{
+		rc = smblib_set_charge_param(chg, &chg->param.jeita_cc_comp, JEITA_CC_COMP_CFG_IN_UEFI * 1000);
 		pr_err("smblib_adjust_jeita_cc_config jeita cc has changed , write it back , write result = %d\n", rc);
 
-	} else if ((val_u < chg->batt_profile_fcc_ua) && ((chg->batt_profile_fcc_ua - val_u) <= JEITA_CC_COMP_CFG_IN_UEFI * 1000)) {
-		if (current_cc_minus_ua != (JEITA_CC_COMP_CFG_IN_UEFI * 1000 - (chg->batt_profile_fcc_ua - val_u))) {
+	}
+	else if ((val_u < chg->batt_profile_fcc_ua) && ((chg->batt_profile_fcc_ua - val_u) <= JEITA_CC_COMP_CFG_IN_UEFI * 1000))
+	{
+		if (current_cc_minus_ua != (JEITA_CC_COMP_CFG_IN_UEFI * 1000 - (chg->batt_profile_fcc_ua - val_u)))
+		{
 			current_cc_minus_ua = JEITA_CC_COMP_CFG_IN_UEFI * 1000 - (chg->batt_profile_fcc_ua - val_u);
-			rc = smblib_set_charge_param(chg,  &chg->param.jeita_cc_comp, current_cc_minus_ua);
+			rc = smblib_set_charge_param(chg, &chg->param.jeita_cc_comp, current_cc_minus_ua);
 			pr_err("smblib_adjust_jeita_cc_config jeita cc need to decrease to %d, write result = %d\n", current_cc_minus_ua, rc);
-		} else {
+		}
+		else
+		{
 			pr_err("smblib_adjust_jeita_cc_config jeita cc have decreased \n");
 		}
 
-	} else if ((val_u < chg->batt_profile_fcc_ua) && ((chg->batt_profile_fcc_ua - val_u) > JEITA_CC_COMP_CFG_IN_UEFI * 1000)) {
-		rc = smblib_set_charge_param(chg,  &chg->param.jeita_cc_comp, 0);
+	}
+	else if ((val_u < chg->batt_profile_fcc_ua) && ((chg->batt_profile_fcc_ua - val_u) > JEITA_CC_COMP_CFG_IN_UEFI * 1000))
+	{
+		rc = smblib_set_charge_param(chg, &chg->param.jeita_cc_comp, 0);
 		pr_err("smblib_adjust_jeita_cc_config jeita need to set to zero, write result = %d\n", rc);
-	} else {
+	}
+	else
+	{
 		pr_err("smblib_adjust_jeita_cc_config do nothing \n");
 	}
 
@@ -425,13 +435,15 @@ int smblib_set_charge_param(struct smb_charger *chg,
 		return rc;
 	}
 	#if LCT_JEITA_CCC_AUTO_ADJUST
-	if (strcmp(param->name, "fast charge current") == 0) {
+	if (strcmp(param->name, "fast charge current") == 0)
+	{
 		smblib_adjust_jeita_cc_config(chg, val_u);
 	}
 	#endif
 
 	smblib_dbg(chg, PR_REGISTER, "%s = %d (0x%02x)\n",
-		param->name, val_u, val_raw);
+		   param->name, val_u, val_raw);
+
 	return rc;
 }
 
@@ -1231,7 +1243,7 @@ static int smblib_hvdcp_hw_inov_dis_vote_callback(struct votable *votable,
 	struct smb_charger *chg = data;
 	int rc;
 
-	#if (defined (CONFIG_KERNEL_CUSTOM_WAYNE) || defined (CONFIG_KERNEL_CUSTOM_WHYRED))
+	#if (defined(CONFIG_KERNEL_CUSTOM_WAYNE) || defined (CONFIG_KERNEL_CUSTOM_WHYRED) || defined (CONFIG_KERNEL_CUSTOM_TULIP))
 	disable = 0;
 	#endif
 	if (disable) {
@@ -2005,35 +2017,72 @@ int smblib_set_prop_system_temp_level(struct smb_charger *chg,
 		lct_therm_lvl_reserved.intval = val->intval;
 	}
 #if defined(CONFIG_KERNEL_CUSTOM_WHYRED)
-	if ((lct_backlight_off) && (LctIsInCall == 0) && (val->intval > 1)) {
-		return 0;
+	if (hwc_check_india == 1) {
+		if ((lct_backlight_off) && (LctIsInCall == 0) && (val->intval > 2)) {
+		    return 0;
+		}
+	}
+	else {
+		if ((lct_backlight_off) && (LctIsInCall == 0) && (val->intval > 1)) {
+		    return 0;
+		}
+	}
+#elif defined(CONFIG_KERNEL_CUSTOM_TULIP)
+	if (hwc_check_india == 1) {
+		if ((lct_backlight_off) && (LctIsInCall == 0) && (val->intval > 3)) {
+		    return 0;
+		}
+	}
+	else {
+		if ((lct_backlight_off) && (LctIsInCall == 0) && (val->intval > 3)) {
+		    return 0;
+		}
+	}
+#elif defined(CONFIG_KERNEL_CUSTOM_WAYNE)
+	if ((lct_backlight_off) && (LctIsInCall == 0) && (val->intval > 2)) {
+		    return 0;
 	}
 #else
 	if ((lct_backlight_off) && (LctIsInCall == 0) && (val->intval > 0) && (hwc_check_india == 0)) {
-		return 0;
+	    return 0;
 	}
 	if ((lct_backlight_off) && (LctIsInCall == 0) && (val->intval > 1) && (hwc_check_india == 1)) {
-		return 0;
+	    return 0;
 	}
 #endif
-	if ((LctIsInCall == 1) && (val->intval != 3)) {
+
+#if defined(CONFIG_KERNEL_CUSTOM_WHYRED)
+	if ((LctIsInCall == 1) && (val->intval != 4)) {
+	    return 0;
+	}
+#elif defined(CONFIG_KERNEL_CUSTOM_TULIP)
+	if ((LctIsInCall == 1) && (val->intval != 5)) {
 		return 0;
 	}
+#else
+	if ((LctIsInCall == 1) && (val->intval != 3)) {
+	    return 0;
+	}
+#endif
+
 	if (val->intval == chg->system_temp_level)
 		return 0;
 	#endif
 
 	chg->system_temp_level = val->intval;
 	/* disable parallel charge in case of system temp level */
-	if ((lct_backlight_off == 0) && (chg->system_temp_level <= 1)) {
+	if ((lct_backlight_off == 0) && (chg->system_temp_level <= 1))
+	{
 		vote(chg->pl_disable_votable, THERMAL_DAEMON_VOTER, false, 0);
 	}
-#if defined(CONFIG_KERNEL_CUSTOM_WHYRED)
-	else if ((hwc_check_india == 0) && (chg->system_temp_level <= 2)) {
+#if (defined(CONFIG_KERNEL_CUSTOM_WHYRED) || defined (CONFIG_KERNEL_CUSTOM_TULIP))
+	else if (chg->system_temp_level <= 2)
+	{
 		vote(chg->pl_disable_votable, THERMAL_DAEMON_VOTER, false, 0);
 	}
 #endif
-	else {
+	else
+	{
 		vote(chg->pl_disable_votable, THERMAL_DAEMON_VOTER,
 			chg->system_temp_level ? true : false, 0);
 	}
@@ -2139,6 +2188,13 @@ static int smblib_dm_pulse(struct smb_charger *chg)
 	return rc;
 }
 
+#if defined(CONFIG_KERNEL_CUSTOM_WAYNE)
+#define MAX_PLUSE_COUNT_ALLOWED 8
+#elif (defined(CONFIG_KERNEL_CUSTOM_WHYRED) || defined (CONFIG_KERNEL_CUSTOM_TULIP))
+#define MAX_PLUSE_COUNT_ALLOWED 15
+#elif defined(CONFIG_KERNEL_CUSTOM_TULIP)
+#define MAX_PLUSE_COUNT_ALLOWED 15
+#endif
 int smblib_dp_dm(struct smb_charger *chg, int val)
 {
 	int target_icl_ua, rc = 0;
@@ -2146,6 +2202,8 @@ int smblib_dp_dm(struct smb_charger *chg, int val)
 
 	switch (val) {
 	case POWER_SUPPLY_DP_DM_DP_PULSE:
+		if (chg->pulse_cnt >= MAX_PLUSE_COUNT_ALLOWED)
+			return rc;
 		rc = smblib_dp_pulse(chg);
 		if (!rc)
 			chg->pulse_cnt++;
@@ -2626,11 +2684,14 @@ int smblib_get_prop_die_health(struct smb_charger *chg,
 
 #define SDP_CURRENT_UA			500000
 #define CDP_CURRENT_UA			1500000
-#define DCP_CURRENT_UA               2500000
+#define DCP_CURRENT_UA			2000000
+#define HVDCP2_CURRENT_UA		1500000
 #if defined(CONFIG_KERNEL_CUSTOM_WAYNE)
 #define HVDCP_CURRENT_UA		2900000
 #elif defined(CONFIG_KERNEL_CUSTOM_WHYRED)
-#define HVDCP_CURRENT_UA		2500000
+#define HVDCP_CURRENT_UA		2000000
+#elif defined(CONFIG_KERNEL_CUSTOM_TULIP)
+#define HVDCP_CURRENT_UA		2000000
 #endif
 #define TYPEC_DEFAULT_CURRENT_UA	900000
 #define TYPEC_MEDIUM_CURRENT_UA		1500000
@@ -2669,7 +2730,13 @@ int smblib_set_prop_pd_current_max(struct smb_charger *chg,
 
 	return rc;
 }
+
+#if defined(CONFIG_KERNEL_CUSTOM_WHYRED)
+#define FLOAT_CURRENT_UA		500000
+#else
 #define FLOAT_CURRENT_UA		1000000
+#endif
+
 static int smblib_handle_usb_current(struct smb_charger *chg,
 					int usb_current)
 {
@@ -2727,6 +2794,16 @@ int smblib_set_prop_sdp_current_max(struct smb_charger *chg,
 				PD_SUSPEND_SUPPORTED_VOTER, false, 0);
 	}
 	return rc;
+}
+
+int smblib_set_prop_rerun_apsd(struct smb_charger *chg,
+				    const union power_supply_propval *val)
+{
+	if (val->intval == 1) {
+		chg->float_rerun_apsd = true;
+		smblib_rerun_apsd(chg);
+	}
+	return 0;
 }
 
 int smblib_set_prop_boost_current(struct smb_charger *chg,
@@ -3198,9 +3275,16 @@ int smblib_get_charge_current(struct smb_charger *chg,
 
 	typec_source_rd = smblib_get_prop_ufp_mode(chg);
 
-	/* QC 2.0/3.0 adapter */
-	if (apsd_result->bit & (QC_3P0_BIT | QC_2P0_BIT)) {
+	/* QC 3.0 adapter */
+	if (apsd_result->bit & QC_3P0_BIT) {
 		*total_current_ua = HVDCP_CURRENT_UA;
+		return 0;
+	}
+
+	/* QC 2.0 adapter */
+	if (apsd_result->bit & QC_2P0_BIT) {
+		*total_current_ua = HVDCP2_CURRENT_UA;
+		pr_info("QC2.0 set icl to 1.8A\n");
 		return 0;
 	}
 
@@ -3376,6 +3460,9 @@ irqreturn_t smblib_handle_usbin_uv(int irq, void *data)
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
 	struct storm_watch *wdata;
+    const struct apsd_result *apsd = smblib_get_apsd_result(chg);
+	int rc;
+	u8 stat = 0, max_pulses = 0;
 
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
 	if (!chg->irq_info[SWITCH_POWER_OK_IRQ].irq_data)
@@ -3383,6 +3470,46 @@ irqreturn_t smblib_handle_usbin_uv(int irq, void *data)
 
 	wdata = &chg->irq_info[SWITCH_POWER_OK_IRQ].irq_data->storm_data;
 	reset_storm_count(wdata);
+
+	if (!chg->non_compliant_chg_detected &&
+			apsd->pst == POWER_SUPPLY_TYPE_USB_HVDCP) {
+		rc = smblib_read(chg, QC_CHANGE_STATUS_REG, &stat);
+		if (rc < 0)
+			smblib_err(chg,
+				"Couldn't read CHANGE_STATUS_REG rc=%d\n", rc);
+
+		if (stat & QC_5V_BIT)
+			return IRQ_HANDLED;
+
+		rc = smblib_read(chg, HVDCP_PULSE_COUNT_MAX_REG, &max_pulses);
+		if (rc < 0)
+			smblib_err(chg,
+				"Couldn't read QC2 max pulses rc=%d\n", rc);
+
+		chg->non_compliant_chg_detected = true;
+		chg->qc2_max_pulses = (max_pulses &
+				HVDCP_PULSE_COUNT_MAX_QC2_MASK);
+
+		if (stat & QC_12V_BIT) {
+			rc = smblib_masked_write(chg, HVDCP_PULSE_COUNT_MAX_REG,
+					HVDCP_PULSE_COUNT_MAX_QC2_MASK,
+					HVDCP_PULSE_COUNT_MAX_QC2_9V);
+			if (rc < 0)
+				smblib_err(chg, "Couldn't force max pulses to 9V rc=%d\n",
+						rc);
+
+		} else if (stat & QC_9V_BIT) {
+			rc = smblib_masked_write(chg, HVDCP_PULSE_COUNT_MAX_REG,
+					HVDCP_PULSE_COUNT_MAX_QC2_MASK,
+					HVDCP_PULSE_COUNT_MAX_QC2_5V);
+			if (rc < 0)
+				smblib_err(chg, "Couldn't force max pulses to 5V rc=%d\n",
+						rc);
+
+		}
+		smblib_rerun_apsd(chg);
+	}
+
 	return IRQ_HANDLED;
 }
 
@@ -3391,7 +3518,9 @@ static void smblib_micro_usb_plugin(struct smb_charger *chg, bool vbus_rising)
 	if (vbus_rising) {
 		/* use the typec flag even though its not typec */
 		chg->typec_present = 1;
+		smblib_err(chg, "lct micro usb plugin\n");
 	} else {
+		smblib_err(chg, "lct micro usb plugout\n");
 		chg->typec_present = 0;
 		smblib_update_usb_type(chg);
 		extcon_set_cable_state_(chg->extcon, EXTCON_USB, false);
@@ -3731,9 +3860,15 @@ static void smblib_force_legacy_icl(struct smb_charger *chg, int pst)
 		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, false, 0);
 		break;
 	case POWER_SUPPLY_TYPE_USB_CDP:
+		#if defined (CONFIG_KERNEL_CUSTOM_WAYNE)
+		vote(chg->usb_icl_votable, USER_VOTER, false, 0);
+		#endif
 		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 1500000);
 		break;
 	case POWER_SUPPLY_TYPE_USB_DCP:
+		#if defined (CONFIG_KERNEL_CUSTOM_WAYNE)
+		vote(chg->usb_icl_votable, USER_VOTER, false, 0);
+		#endif
 		typec_mode = smblib_get_prop_typec_mode(chg);
 		rp_ua = get_rp_based_dcp_current(chg, typec_mode);
 		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, rp_ua);
@@ -3746,18 +3881,36 @@ static void smblib_force_legacy_icl(struct smb_charger *chg, int pst)
 		 */
 		#if defined (CONFIG_KERNEL_CUSTOM_WHYRED)
 		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 500000);
-		#else
+		#elif defined(CONFIG_KERNEL_CUSTOM_TULIP)
 		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 1000000);
+		#elif defined(CONFIG_KERNEL_CUSTOM_WAYNE)
+		vote(chg->usb_icl_votable, USER_VOTER, false, 0);
+		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 1000000);
+		#else
+		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 500000);
 		#endif
 		smblib_err(chg, "lct battery smblib_force_legacy_icl float charger\n");
 		break;
 	case POWER_SUPPLY_TYPE_USB_HVDCP:
+		#if defined(CONFIG_KERNEL_CUSTOM_TULIP)
+		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 2000000);
+		#elif defined(CONFIG_KERNEL_CUSTOM_WHYRED)
 		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 1500000);
+		#elif defined(CONFIG_KERNEL_CUSTOM_WAYNE)
+		vote(chg->usb_icl_votable, USER_VOTER, true, 1500000);
+		#else
+		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 1500000);
+		#endif
 		smblib_err(chg, "lct battery smblib_force_legacy_icl qc2.0\n");
 		break;
 	case POWER_SUPPLY_TYPE_USB_HVDCP_3:
 		#if defined (CONFIG_KERNEL_CUSTOM_WHYRED)
-		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 2500000);
+		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 2000000);
+		#elif defined(CONFIG_KERNEL_CUSTOM_TULIP)
+		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 2000000);
+		#elif defined(CONFIG_KERNEL_CUSTOM_WAYNE)
+		vote(chg->usb_icl_votable, USER_VOTER, false, 0);
+		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 2900000);
 		#else
 		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 3000000);
 		#endif
@@ -3800,14 +3953,16 @@ static void smblib_notify_usb_host(struct smb_charger *chg, bool enable)
 static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 {
 	const struct apsd_result *apsd_result;
+	union power_supply_propval pval = {0, };
+	int usb_present = 0, rc = 0;
 
 	if (!rising)
 		return;
 
 	apsd_result = smblib_update_usb_type(chg);
 
-	if (!chg->typec_legacy_valid)
-		smblib_force_legacy_icl(chg, apsd_result->pst);
+	if ((!chg->typec_legacy_valid) || (apsd_result->pst == POWER_SUPPLY_TYPE_USB_HVDCP_3))
+	smblib_force_legacy_icl(chg, apsd_result->pst);
 
 	switch (apsd_result->bit) {
 	case SDP_CHARGER_BIT:
@@ -3832,6 +3987,31 @@ static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 		break;
 	}
 
+	if (chg->float_rerun_apsd) {
+		smblib_err(chg, "rerun apsd for float type\n");
+		rc = smblib_get_prop_usb_present(chg, &pval);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't get usb present rc = %d\n", rc);
+			return;
+		}
+		usb_present = pval.intval;
+		if (!usb_present)
+			return;
+		if (apsd_result->bit & QC_2P0_BIT) {
+			pval.intval = 0;
+			smblib_set_prop_pd_active(chg, &pval);
+			chg->float_rerun_apsd = false;
+		} else if (apsd_result->bit & FLOAT_CHARGER_BIT) {
+			#if defined (CONFIG_KERNEL_CUSTOM_WAYNE)
+			vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 1000000);
+			#else
+			vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 500000);
+			#endif
+			chg->float_rerun_apsd = false;
+			smblib_err(chg, "rerun apsd still float\n");
+		}
+	}
+
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: apsd-done rising; %s detected\n",
 		   apsd_result->name);
 }
@@ -3844,7 +4024,8 @@ bool smblib_check_charge_type(struct smb_charger *chg)
 	enum power_supply_type real_charger_type = apsd_result->pst;
 
 	smblib_dbg(chg, PR_REGISTER, "real_charger_type = 0x%02x\n", real_charger_type);
-	if (POWER_SUPPLY_TYPE_USB <= real_charger_type && POWER_SUPPLY_TYPE_USB_PD >= real_charger_type) {
+	if (POWER_SUPPLY_TYPE_USB <= real_charger_type && POWER_SUPPLY_TYPE_USB_PD >= real_charger_type)
+	{
 		ret = true;
 	}
 	return ret;
@@ -3995,6 +4176,7 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 	chg->pd_active = 0;
 	chg->pd_hard_reset = 0;
 	chg->typec_legacy_valid = false;
+	chg->float_rerun_apsd = false;
 
 	/* write back the default FLOAT charger configuration */
 	rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
@@ -4007,6 +4189,17 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 	rc = smblib_masked_write(chg, MISC_CFG_REG, TCC_DEBOUNCE_20MS_BIT, 0);
 	if (rc < 0)
 		smblib_err(chg, "Couldn't set 120mS tCC debounce rc=%d\n", rc);
+
+	/* if non-compliant charger caused UV, restore original max pulses */
+	if (chg->non_compliant_chg_detected) {
+		rc = smblib_masked_write(chg, HVDCP_PULSE_COUNT_MAX_REG,
+				HVDCP_PULSE_COUNT_MAX_QC2_MASK,
+				chg->qc2_max_pulses);
+		if (rc < 0)
+			smblib_err(chg, "Couldn't restore max pulses rc=%d\n",
+					rc);
+		chg->non_compliant_chg_detected = false;
+	}
 
 	/* enable APSD CC trigger for next insertion */
 	rc = smblib_masked_write(chg, TYPE_C_CFG_REG,
@@ -4156,11 +4349,13 @@ static void smblib_handle_typec_cc_state_change(struct smb_charger *chg)
 		chg->typec_present = true;
 		smblib_dbg(chg, PR_MISC, "TypeC %s insertion\n",
 			smblib_typec_mode_name[chg->typec_mode]);
+		smblib_err(chg, "lct TypeC insertion\n");
 		smblib_handle_typec_insertion(chg);
 	} else if (chg->typec_present &&
 				chg->typec_mode == POWER_SUPPLY_TYPEC_NONE) {
 		chg->typec_present = false;
 		smblib_dbg(chg, PR_MISC, "TypeC removal\n");
+		smblib_err(chg, "lct TypeC removal\n");
 		smblib_handle_typec_removal(chg);
 	}
 
@@ -4685,6 +4880,7 @@ static void smblib_pl_enable_work(struct work_struct *work)
 	smblib_dbg(chg, PR_PARALLEL, "timer expired, enabling parallel\n");
 	vote(chg->pl_disable_votable, PL_DELAY_VOTER, false, 0);
 	vote(chg->awake_votable, PL_DELAY_VOTER, false, 0);
+
 }
 
 static void smblib_legacy_detection_work(struct work_struct *work)

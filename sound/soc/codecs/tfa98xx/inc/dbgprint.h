@@ -40,12 +40,12 @@
 
 #   ifdef DEBUG
 #      define _DEBUG(level, fmt, va...) do {\
-				if (unlikely(debug >= (level))) \
-						printk(KERN_INFO PREFIX "%s:%d: "fmt, __func__, __LINE__, ##va); \
-		 } while (0)
+                if (unlikely(debug >= (level))) \
+                        printk(KERN_INFO PREFIX "%s:%d: "fmt, __func__, __LINE__, ##va); \
+        } while (0)
 
 #   else
-#      define _DEBUG(level, fmt, va...) do {} while (0)
+#      define _DEBUG(level, fmt, va...) do {} while(0)
 #   endif
 
 #   define MSG(fmt, va...) printk(KERN_INFO PREFIX "%s:%d: "fmt, __func__, __LINE__, ##va)
@@ -65,7 +65,7 @@
 #   define PRINT_EXIT  DEBUG2("-[%s]\n", __func__)
 
 #   ifdef ASSERT
-#      define assert(cond, action) do { if (unlikely(!(cond))) { DEBUG0("Assert: %s\n", #cond); action; }} while (0)
+#      define assert(cond, action) do { if (unlikely(!(cond))) { DEBUG0("Assert: %s\n", #cond); action; }} while(0)
 #   else
 #      define assert(cond, action) do { } while (0)
 #   endif
@@ -77,7 +77,7 @@
 #   ifdef DEBUG
 #      define _DEBUGMSG(level, fmt, ...)  printf(PREFIX "%s:%d: "fmt, __FUNCTION__, __LINE__, __VA_ARGS__);
 #   else
-#      define _DEBUGMSG(level, fmt, ...) do {} while (0)
+#      define _DEBUGMSG(level, fmt, ...) do {} while(0)
 #   endif
 
 #   define _ERRORMSG(fmt, ...) printf(PREFIX "%s:%s:%d: "fmt, __FILE__, __FUNCTION__, __LINE__, __VA_ARGS__)
@@ -106,7 +106,7 @@
 #      define _DEBUG(level, fmt, va...) TB_TRACE_INF(TbTracePfx2("tfa", TB_FUNC, va))
 
 #   else
-#      define _DEBUG(level, fmt, va...) do {} while (0)
+#      define _DEBUG(level, fmt, va...) do {} while(0)
 #   endif
 
 #   define MSG(fmt, ...) TB_TRACE_INF(TbTracePfx2("tfa", TB_FUNC, __VA_ARGS__))
@@ -141,7 +141,7 @@
 #   ifdef DEBUG
 #      define _DEBUG(level, fmt, va...)  printf(PREFIX "%s:%d: "fmt, __func__, __LINE__, ##va);
 #   else
-#      define _DEBUG(level, fmt, va...) do {} while (0)
+#      define _DEBUG(level, fmt, va...) do {} while(0)
 #   endif
 
 #   define MSG(fmt, va...) printf(PREFIX "%s:%s:%d: "fmt, __FILE__, __func__, __LINE__, ##va)

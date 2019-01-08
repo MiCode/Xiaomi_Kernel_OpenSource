@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -792,7 +793,9 @@ static int find_vchannel_name_index(const char *vchannel_name)
 {
 	int i;
 
-	for (i = 0; i < MAX_NUM_OF_MUX_CHANNEL; i++) {
+
+    for (i = 0; i < rmnet_ipa3_ctx->rmnet_index; i++) {
+
 		if (strcmp(rmnet_ipa3_ctx->mux_channel[i].vchannel_name,
 					vchannel_name) == 0)
 			return i;

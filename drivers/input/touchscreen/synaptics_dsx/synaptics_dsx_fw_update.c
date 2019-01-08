@@ -46,11 +46,11 @@
 #include "../lct_ctp_upgrade.h"
 #include <linux/proc_fs.h>
 
-#define FW_IHEX_NAME "synaptics/tianma_td4310_miui_wayne.bin"
-#define FW_IMAGE_NAME "synaptics/tianma_td4310_miui_wayne.img"
+#define FW_IHEX_NAME "synaptics/tianma_td4310_miui_whyred.bin"
+#define FW_IMAGE_NAME "synaptics/tianma_td4310_miui_whyred.img"
 
-#define FW_IHEX_NAME_SHENCHAO "synaptics/shenchao_td4310_miui_wayne.bin"
-#define FW_IMAGE_NAME_SHENCHAO "synaptics/shenchao_td4310_miui_wayne.img"
+#define FW_IHEX_NAME_SHENCHAO "synaptics/shenchao_td4310_miui_whyred.bin"
+#define FW_IMAGE_NAME_SHENCHAO "synaptics/shenchao_td4310_miui_whyred.img"
 
 #define DO_STARTUP_FW_UPDATE
 
@@ -866,7 +866,8 @@ static int ctp_lockdown_proc_open (struct inode *inode, struct file *file)
 	return single_open(file, ctp_lockdown_proc_show, inode->i_private);
 }
 
-static const struct file_operations ctp_lockdown_proc_fops = {
+static const struct file_operations ctp_lockdown_proc_fops =
+{
 	.open = ctp_lockdown_proc_open,
 	.read = seq_read,
 };
@@ -4495,7 +4496,7 @@ static int fwu_start_reflash(void)
 	pr_notice("%s: Start of reflash process\n", __func__);
 
 	if (fwu->image == NULL) {
-		if ((tp_lockdown_info[0] == '4')&&(tp_lockdown_info[1] == '1')) {
+		if ((tp_lockdown_info[0] == '4') && (tp_lockdown_info[1] == '1')) {
 			retval = secure_memcpy(fwu->image_name, MAX_IMAGE_NAME_LEN,
 					FW_IMAGE_NAME_SHENCHAO, sizeof(FW_IMAGE_NAME_SHENCHAO),
 					sizeof(FW_IMAGE_NAME_SHENCHAO));
@@ -4709,10 +4710,10 @@ exit:
 	printk("config_ver info =%02x\n", config_ver[0]);
 	memset(fw_version, 0, sizeof(fw_version));
 	sprintf(fw_version, "[FW]0x%02x,[IC]td4310", config_ver[0]);
-	if ((tp_lockdown_info[0] == '4')&&(tp_lockdown_info[1] == '1')) {
+	if ((tp_lockdown_info[0] == '4') && (tp_lockdown_info[1] == '1')) {
 		init_tp_fm_info(0, fw_version, "shenchao");
 		tp_flag = 1;
-	} else {
+	}else{
 		init_tp_fm_info(0, fw_version, "tianma");
 	}
 	rmi4_data->stay_awake = false;
@@ -5848,17 +5849,18 @@ static int synaptics_rmi4_fwu_init(struct synaptics_rmi4_data *rmi4_data)
 
 printk("before get_tddi_lockdown_data");
 
-	if (get_tddi_lockdown_data(lockdown, 20) < 0) {
-		printk("read lockdown fail\n");
+	if (get_tddi_lockdown_data(lockdown, 20) < 0){
+	printk("read lockdown fail\n");
 	}
 	printk("lockdown info =%02x, %02x, %02x, %02x, %02x, %02x, %02x, %02x\n", lockdown[4], lockdown[5], lockdown[6], lockdown[7], lockdown[8], lockdown[9], lockdown[10], lockdown[11]);
 
 	sprintf(tp_lockdown_info, "%02x%02x%02x%02x%02x%02x%02x%02x\n", lockdown[4], lockdown[5], lockdown[6], lockdown[7], lockdown[8], lockdown[9], lockdown[10], lockdown[11]);
 
 	ctp_lockdown_status_proc = proc_create(CTP_PROC_LOCKDOWN_FILE, 0644, NULL, &ctp_lockdown_proc_fops);
-	if (ctp_lockdown_status_proc == NULL) {
-		printk("tpd, create_proc_entry ctp_lockdown_status_proc failed\n");
-	}
+		if (ctp_lockdown_status_proc == NULL)
+		{
+			printk("tpd, create_proc_entry ctp_lockdown_status_proc failed\n");
+		}
 
 #ifdef F51_DISCRETE_FORCE
 	fwu_read_flash_status();

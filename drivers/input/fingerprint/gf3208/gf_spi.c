@@ -75,39 +75,20 @@ static DEFINE_MUTEX(device_list_lock);
 static struct wake_lock fp_wakelock;
 static struct gf_dev gf;
 
-#if 0
-static struct gf_key_map maps[] = {
-	{ EV_KEY, GF_KEY_INPUT_HOME },
-	{ EV_KEY, GF_KEY_INPUT_MENU },
-	{ EV_KEY, GF_KEY_INPUT_BACK },
-	{ EV_KEY, GF_KEY_INPUT_POWER },
-#if defined(SUPPORT_NAV_EVENT)
-	{ EV_KEY, GF_NAV_INPUT_UP },
-	{ EV_KEY, GF_NAV_INPUT_DOWN },
-	{ EV_KEY, GF_NAV_INPUT_RIGHT },
-	{ EV_KEY, GF_NAV_INPUT_LEFT },
-	{ EV_KEY, GF_KEY_INPUT_CAMERA },
-	{ EV_KEY, GF_NAV_INPUT_CLICK },
-	{ EV_KEY, GF_NAV_INPUT_DOUBLE_CLICK },
-	{ EV_KEY, GF_NAV_INPUT_LONG_PRESS },
-	{ EV_KEY, GF_NAV_INPUT_HEAVY },
-#endif
-};
-#endif
 struct gf_key_map maps[] = {
-		 { EV_KEY, KEY_HOME },
-		 { EV_KEY, KEY_MENU },
-		 { EV_KEY, KEY_BACK },
-		 { EV_KEY, KEY_POWER },
-		 { EV_KEY, KEY_UP },
-		 { EV_KEY, KEY_DOWN },
-		 { EV_KEY, KEY_RIGHT },
-		 { EV_KEY, KEY_LEFT },
-		 { EV_KEY, KEY_CAMERA },
-		 { EV_KEY, KEY_F9 },
-		 { EV_KEY, KEY_F19 },
-		 { EV_KEY, KEY_ENTER},
-		 { EV_KEY, KEY_KPENTER },
+	{ EV_KEY, KEY_HOME },
+	{ EV_KEY, KEY_MENU },
+	{ EV_KEY, KEY_BACK },
+	{ EV_KEY, KEY_POWER },
+	{ EV_KEY, KEY_UP },
+	{ EV_KEY, KEY_DOWN },
+	{ EV_KEY, KEY_RIGHT },
+	{ EV_KEY, KEY_LEFT },
+	{ EV_KEY, KEY_CAMERA },
+	{ EV_KEY, KEY_F9 },
+	{ EV_KEY, KEY_F19 },
+	{ EV_KEY, KEY_ENTER},
+	{ EV_KEY, KEY_KPENTER },
 
 };
 
@@ -555,7 +536,7 @@ static long gf_compat_ioctl(struct file *filp, unsigned int cmd, unsigned long a
 }
 #endif /*CONFIG_COMPAT*/
 
- static void notification_work(struct work_struct *work)
+static void notification_work(struct work_struct *work)
 {
 	printk("notification_work\n");
 	mdss_prim_panel_fb_unblank(FP_UNLOCK_REJECTION_TIMEOUT);
@@ -730,7 +711,7 @@ static int gf_probe(struct platform_device *pdev)
 	struct regulator *vreg;
 	int ret = 0;
 #endif
-		 printk("Macle11 gf_probe\n");
+	printk("Macle11 gf_probe\n");
 	/* Initialize the driver data */
 	INIT_LIST_HEAD(&gf_dev->device_entry);
 #if defined(USE_SPI_BUS)
@@ -752,6 +733,14 @@ static int gf_probe(struct platform_device *pdev)
 			goto error_hw;
 		}
 
+		/*if (regulator_count_voltages(vreg) > 0) {
+			ret = regulator_set_voltage(vreg, 3300000,3300000);
+			if (ret){
+				dev_err(&gf_dev->spi->dev,"Unable to set voltage on vdd_ana");
+				goto error_hw;
+			}
+		}
+		*/
 		ret = regulator_enable(vreg);
 		if (ret) {
 			dev_err(&gf_dev->spi->dev, "error enabling vdd_ana %d\n", ret);
@@ -762,7 +751,7 @@ static int gf_probe(struct platform_device *pdev)
 		pr_info("Macle Set voltage on vdd_ana for goodix fingerprint");
 
 	msleep(11);
-        #endif
+	#endif
 	/* If we can allocate a minor number, hook up this device.
 	 * Reusing minors is fine so long as udev or mdev is working.
 	 */
@@ -827,6 +816,7 @@ static int gf_probe(struct platform_device *pdev)
 
 	wake_lock_init(&fp_wakelock, WAKE_LOCK_SUSPEND, "fp_wakelock");
 
+	printk("adasdad\n");
 	pr_info("version V%d.%d.%02d\n", VER_MAJOR, VER_MINOR, PATCH_LEVEL);
 
 	return status;

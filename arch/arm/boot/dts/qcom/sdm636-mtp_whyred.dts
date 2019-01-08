@@ -1,4 +1,5 @@
 /* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +15,8 @@
 /dts-v1/;
 
 #include "sdm636_whyred.dtsi"
+#include "sdm660-smb1351-mtp.dtsi"
+#include "sdm660-smb1355-mtp.dtsi"
 #include "sdm636-mtp_whyred.dtsi"
 #include "sdm660-internal-codec.dtsi"
 #include "synaptics-dsx-i2c.dtsi"
@@ -30,41 +33,43 @@
 	qcom,msm-mbhc-moist-cfg = <0>, <0>, <3>;
 };
 &pm660l_l3 {
-	regulator-always-on;
+        regulator-always-on;
 };
 &tlmm {
 	hall_int_active:hall_int_active {
 		mux {
-			pins = "gpio75";
-			function = "gpio";
+		          pins = "gpio75";
+		          function = "gpio";
 		};
 		config{
-			pins = "gpio75";
-			drive-strength = <6>;
-			bias-pull-up;
-		};
-	};
+		          pins = "gpio75";
+	                  drive-strength = <6>;
+	                  bias-pull-up;
+	            };
+        };
 	hall_int_suspend: hall_int_suspend {
 		mux {
-			pins = "gpio75";
-			function = "gpio";
+		          pins = "gpio75";
+		          function = "gpio";
 		};
 		config{
-			pins = "gpio75";
-			drive-strength = <6>;
-			bias-pull-up;
+		          pins = "gpio75";
+		          drive-strength = <6>;
+		          bias-pull-up;
 		};
-	};
+        };
 };
 &soc {
 	hall_switch {
 
-		compatible = "hall-switch,och175";
-		pinctrl-names = "hall_active","hall_suspend";
-		pinctrl-0 = <&hall_int_active>;
-		pinctrl-1 = <&hall_int_suspend>;
-		vdd-io-supply= <&pm660_l8>;
-		interrupt-names = "hall_irq";
-		hall,irq-gpio = <&tlmm 75 0x0>;
+	    compatible = "hall-switch,och175";
+	    pinctrl-names = "hall_active","hall_suspend";
+	    pinctrl-0 = <&hall_int_active>;
+	    pinctrl-1 = <&hall_int_suspend>;
+	    //interrupt-parent = <&msm_gpio>;
+	    //interrupts = <0 107 3>;
+	    vdd-io-supply= <&pm660_l8>;
+	    interrupt-names = "hall_irq";
+	    hall,irq-gpio = <&tlmm 75 0x0>;
 	};
 };

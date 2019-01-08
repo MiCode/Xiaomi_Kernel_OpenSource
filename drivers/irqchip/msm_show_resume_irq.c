@@ -16,7 +16,14 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 
+/*Modify-begin
+**JIRA-id:HMI_L6651_A01-202
+**Author:lijiang@longcheer.com
+**Date:2017-10-26
+**Comment:change msm_show_resume_irq_mask 0 to 1
+*/
 int msm_show_resume_irq_mask = 1;
+/*Modify-end*/
 
 module_param_named(
 	debug_mask, msm_show_resume_irq_mask, int, S_IRUGO | S_IWUSR | S_IWGRP

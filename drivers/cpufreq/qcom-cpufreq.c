@@ -318,13 +318,16 @@ static struct cpufreq_driver msm_cpufreq_driver = {
 	.target		= msm_cpufreq_target,
 	.get		= msm_cpufreq_get_freq,
 	.name		= "msm",
-	.attr		 = msm_freq_attr,
+	.attr		= msm_freq_attr,
 };
 static unsigned long max_freq;
 static int cpumaxfreq_proc_show(struct seq_file *m, void *v)
 {
 	unsigned long freq = 0;
-	freq = (max_freq/10000);
+
+
+
+		freq = (max_freq/10000);
 	seq_printf(m, "%lu.%02lu", freq/100, freq%100);
 	return 0;
 }

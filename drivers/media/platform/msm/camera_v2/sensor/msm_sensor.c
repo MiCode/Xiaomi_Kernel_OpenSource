@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -286,8 +287,9 @@ int msm_sensor_match_vendor_id(struct msm_sensor_ctrl_t *s_ctrl)
 		&vendorid,
 		s_ctrl->sensordata->vendor_id_info->data_type);
 
-	if (s_ctrl->sensordata->vcm_id_info->vcm_id_addr != 0) {
-		msm_camera_cci_i2c_read(
+	if (s_ctrl->sensordata->vcm_id_info->vcm_id_addr != 0)
+	{
+	    msm_camera_cci_i2c_read(
 		sensor_i2c_client,
 		s_ctrl->sensordata->vcm_id_info->vcm_id_addr,
 		&vcmid,
@@ -302,6 +304,8 @@ int msm_sensor_match_vendor_id(struct msm_sensor_ctrl_t *s_ctrl)
 		return rc;
 	}
 	if (s_ctrl->sensordata->vendor_id_info->vendor_id != vendorid) {
+		pr_err("%s:match vendor if failed read vendor id: 0x%x expected id 0x%x:\n",
+			__func__, vendorid, s_ctrl->sensordata->vendor_id_info->vendor_id);
 		rc = -1;
 		return rc;
 	} else {
@@ -351,6 +355,7 @@ int msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 	struct msm_camera_i2c_client *sensor_i2c_client;
 	struct msm_camera_slave_info *slave_info;
 	const char *sensor_name;
+
 
 	if (!s_ctrl) {
 		pr_err("%s:%d failed: %pK\n",
@@ -1514,6 +1519,7 @@ int msm_sensor_check_id(struct msm_sensor_ctrl_t *s_ctrl)
 		rc = s_ctrl->func_tbl->sensor_match_id(s_ctrl);
 	else
 		rc = msm_sensor_match_id(s_ctrl);
+
 	if (rc < 0)
 		pr_err("%s:%d match id failed rc %d\n", __func__, __LINE__, rc);
 	return rc;

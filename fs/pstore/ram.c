@@ -815,10 +815,10 @@ early_param("ramoops_memreserve", ramoops_memreserve);
 
 static int __init msm_register_ramoops_device(void)
 {
-	pr_info("msm_register_ramoops_device \n");
+    pr_info("msm_register_ramoops_device \n");
 	if (platform_device_register(&ramoops_dev))
 		pr_info("Unable to register ramoops platform device\n");
-	return 0;
+    return 0;
 }
 core_initcall(msm_register_ramoops_device);
 

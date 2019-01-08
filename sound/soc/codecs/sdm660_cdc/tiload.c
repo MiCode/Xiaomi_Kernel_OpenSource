@@ -1,6 +1,7 @@
 /*
 ** =============================================================================
 ** Copyright (c) 2016  Texas Instruments Inc.
+** Copyright (C) 2018 XiaoMi, Inc.
 **
 ** This program is free software; you can redistribute it and/or modify it under
 ** the terms of the GNU General Public License as published by the Free Software
@@ -142,6 +143,10 @@ static ssize_t tiload_read(struct file *filp, char __user *buf,
 #ifdef DEBUG
 	dev_info(pTAS2557->dev, "read size = %d, reg_addr= %x , count = %d\n",
 		(int) size, reg_addr, (int) count);
+/*	for (i = 0; i < (int) size; i++) {
+*		dev_dbg(pTAS2557->dev, "rd_data[%d]=%x\n", i, rd_data[i]);
+*	}
+*/
 #endif
 	if (size != count)
 		dev_err(pTAS2557->dev, "read %d registers from the codec\n", (int) size);
@@ -189,6 +194,10 @@ static ssize_t tiload_write(struct file *filp, const char __user *buf,
 	}
 #ifdef DEBUG
 	dev_info(pTAS2557->dev, "write size = %zu\n", count);
+/* for (i = 0; i < (int) count; i++) {
+*		dev_info(pTAS2557->dev, "wr_data[%d]=%x\n", i, wr_data[i]);
+*	}
+*/
 #endif
 	nRegister = wr_data[0];
 	size = count;
@@ -238,6 +247,9 @@ static long tiload_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	struct BPR bpr;
 
 	dev_info(pTAS2557->dev, "%s, cmd=0x%x\n", __func__, cmd);
+/*  if (_IOC_TYPE(cmd) != TILOAD_IOC_MAGIC)
+ *      return -ENOTTY;
+ */
 
 	switch (cmd) {
 	case TILOAD_IOMAGICNUM_GET:

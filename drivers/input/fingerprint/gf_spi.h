@@ -17,7 +17,8 @@ struct gf_key {
 	int value;
 };
 
-struct gf_key_map {
+struct gf_key_map
+{
     char *name;
     unsigned short val;
 };

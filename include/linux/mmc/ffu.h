@@ -3,6 +3,7 @@
  *  ffu.h
  *
  * Copyright (c) 2013 SanDisk Corp.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -45,7 +46,13 @@
 
 int mmc_ffu_download(struct mmc_card *card, struct mmc_command *cmd,
 	u8 *data, int buf_bytes);
+/* HTH-25611 add by jiatianbao 20180802  begin */
+#ifdef CONFIG_KERNEL_CUSTOM_TULIP
+int mmc_ffu_install(struct mmc_card *card, u8 *new_fw_ver);
+#else
 int mmc_ffu_install(struct mmc_card *card, u8 new_fw_ver);
+#endif
+/* HTH-25611 add by jiatianbao 20180802  end */
 int mmc_ffu(struct mmc_card *card);
 
 #endif /* FFU_H_ */

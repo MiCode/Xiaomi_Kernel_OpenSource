@@ -6,6 +6,7 @@
  * files. As such this file MUST only contain comments and defines.
  *
  * Copyright (c) 1999-2002 Vojtech Pavlik
+ * Copyright (C) 2018 XiaoMi, Inc.
  * Copyright (c) 2015 Hans de Goede <hdegoede@redhat.com>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -337,8 +338,8 @@
 #define KEY_MICMUTE		248	/* Mute / unmute the microphone */
 
 /* Code 255 is reserved for special needs of AT keyboard driver */
-#define KEY_ANT_CONNECT		0x292
-#define KEY_ANT_UNCONNECT	0x293
+#define KEY_ANT_CONNECT         0x292
+#define KEY_ANT_UNCONNECT       0x293
 
 #define BTN_MISC		0x100
 #define BTN_0			0x100
@@ -614,8 +615,8 @@
 #define KEY_KBDINPUTASSIST_CANCEL		0x265
 
 
-#define KEY_HALL_OPEN		0x284
-#define KEY_HALL_CLOSE		0x285
+#define KEY_HALL_OPEN           0x284
+#define KEY_HALL_CLOSE          0x285
 
 #define BTN_TRIGGER_HAPPY		0x2c0
 #define BTN_TRIGGER_HAPPY1		0x2c0

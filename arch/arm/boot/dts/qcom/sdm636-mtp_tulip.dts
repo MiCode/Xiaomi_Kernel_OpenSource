@@ -1,0 +1,74 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+/dts-v1/;
+
+#include "sdm636_tulip.dtsi"
+#include "sdm636-mtp_tulip.dtsi"
+#include "sdm660-internal-codec.dtsi"
+#include "focaltech-ft8719-i2c.dtsi"
+#include "SAR-sensor-regulator-tulip.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDM 636 PM660 + PM660L MTP E7T";
+	compatible = "qcom,sdm636-mtp", "qcom,sdm636", "qcom,mtp";
+	qcom,board-id = <0x40008 0>;
+	qcom,pmic-id = <0x0001001b 0x0101011a 0x0 0x0>,
+			<0x0001001b 0x0201011a 0x0 0x0>;
+};
+
+&tavil_snd {
+	qcom,msm-mbhc-moist-cfg = <0>, <0>, <3>;
+};
+&pm660l_l3 {
+        regulator-always-on;
+};
+&tlmm {
+	hall_int_active:hall_int_active {
+		mux {
+		          pins = "gpio75";
+		          function = "gpio";
+		};
+		config{
+		          pins = "gpio75";
+	                  drive-strength = <6>;
+	                  bias-pull-up;
+	            };
+        };
+	hall_int_suspend: hall_int_suspend {
+		mux {
+		          pins = "gpio75";
+		          function = "gpio";
+		};
+		config{
+		          pins = "gpio75";
+		          drive-strength = <6>;
+		          bias-pull-up;
+		};
+        };
+};
+&soc {
+	hall_switch {
+
+	    compatible = "hall-switch,och175";
+	    pinctrl-names = "hall_active","hall_suspend";
+	    pinctrl-0 = <&hall_int_active>;
+	    pinctrl-1 = <&hall_int_suspend>;
+	    //interrupt-parent = <&msm_gpio>;
+	    //interrupts = <0 107 3>;
+	    vdd-io-supply= <&pm660_l8>;
+	    interrupt-names = "hall_irq";
+	    hall,irq-gpio = <&tlmm 75 0x0>;
+	};
+};

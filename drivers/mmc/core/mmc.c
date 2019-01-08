@@ -2,6 +2,7 @@
  *  linux/drivers/mmc/core/mmc.c
  *
  *  Copyright (C) 2003-2004 Russell King, All Rights Reserved.
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *  Copyright (C) 2005-2007 Pierre Ossman, All Rights Reserved.
  *  MMCv4 support Copyright (C) 2006 Philip Langdale, All Rights Reserved.
  *
@@ -1845,10 +1846,25 @@ reinit:
 
 	if (oldcard) {
 		if (memcmp(cid, oldcard->raw_cid, sizeof(cid)) != 0) {
+/* HTH-25611 add by jiatianbao 20180802  begin */
+#if 0 /* #ifdef CONFIG_KERNEL_CUSTOM_TULIP */
+			if (oldcard->cid_ffu_flag) {
+				memcpy(oldcard->raw_cid, cid, sizeof(cid));
+				oldcard->cid_ffu_flag = 0;
+				pr_info("FFU update CID\n");
+			} else{
+				err = -ENOENT;
+				pr_err("%s: %s: CID memcmp failed %d\n",
+					mmc_hostname(host), __func__, err);
+				goto err;
+			}
+#else
 			err = -ENOENT;
 			pr_err("%s: %s: CID memcmp failed %d\n",
 					mmc_hostname(host), __func__, err);
 			goto err;
+#endif
+/* HTH-25611 add by jiatianbao 20180802  end */
 		}
 
 		card = oldcard;

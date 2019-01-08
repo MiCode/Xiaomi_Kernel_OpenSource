@@ -36,15 +36,31 @@
 
 union power_supply_propval lct_therm_lvl_reserved;
 union power_supply_propval lct_therm_level;
+#if defined(CONFIG_KERNEL_CUSTOM_WHYRED)
+union power_supply_propval lct_therm_call_level = {4,};
+union power_supply_propval lct_therm_globe_level = {1,};
+union power_supply_propval lct_therm_india_level = {2,};
+#elif defined(CONFIG_KERNEL_CUSTOM_TULIP)
+union power_supply_propval lct_therm_call_level = {5,};
+union power_supply_propval lct_therm_globe_level = {1,};
+union power_supply_propval lct_therm_india_level = {2,};
+#else
 union power_supply_propval lct_therm_call_level = {3,};
+union power_supply_propval lct_therm_globe_level = {2,};
 union power_supply_propval lct_therm_india_level = {1,};
+#endif
 bool lct_backlight_off;
 int LctIsInCall = 0;
 int LctThermal = 0;
 extern int hwc_check_india;
+extern bool is_poweroff_charge;
 #endif
 
 #define SMB2_DEFAULT_WPWR_UW	8000000
+
+#if defined(CONFIG_KERNEL_CUSTOM_TULIP)
+static bool miui_charging_enabled = true;
+#endif
 
 #ifdef CONFIG_CHARGER_RUNIN
 static int BatteryTestStatus_enable;
@@ -243,6 +259,15 @@ static int smb2_parse_dt(struct smb2 *chip)
 
 	rc = of_property_read_u32(node,
 				"qcom,fcc-max-ua", &chg->batt_profile_fcc_ua);
+#if defined(CONFIG_KERNEL_CUSTOM_TULIP)
+	if (is_poweroff_charge == true)
+	{
+		if (hwc_check_india == 1)
+			chg->batt_profile_fcc_ua = 2200000;
+		else
+			chg->batt_profile_fcc_ua = 2300000;
+	}
+#endif
 	if (rc < 0)
 		chg->batt_profile_fcc_ua = -EINVAL;
 
@@ -289,8 +314,8 @@ static int smb2_parse_dt(struct smb2 *chip)
 	if (rc < 0)
 		chip->dt.wipower_max_uw = -EINVAL;
 
-#if defined(CONFIG_KERNEL_CUSTOM_WHYRED)
-	if (hwc_check_india == 1) {
+#if (defined(CONFIG_KERNEL_CUSTOM_WHYRED) || defined(CONFIG_KERNEL_CUSTOM_TULIP))
+	if (hwc_check_india == 1){
 #endif
 	if (of_find_property(node, "qcom,thermal-mitigation", &byte_len)) {
 		chg->thermal_mitigation = devm_kzalloc(chg->dev, byte_len,
@@ -310,8 +335,9 @@ static int smb2_parse_dt(struct smb2 *chip)
 			return rc;
 		}
 	}
-#if defined(CONFIG_KERNEL_CUSTOM_WHYRED)
-	} else {
+#if (defined(CONFIG_KERNEL_CUSTOM_WHYRED) || defined(CONFIG_KERNEL_CUSTOM_TULIP))
+	}
+	else {
 		if (of_find_property(node, "qcom,thermal-mitigation-china", &byte_len)) {
 			chg->thermal_mitigation = devm_kzalloc(chg->dev, byte_len,
 				GFP_KERNEL);
@@ -395,6 +421,7 @@ static enum power_supply_property smb2_usb_props[] = {
 	POWER_SUPPLY_PROP_PD_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_PD_VOLTAGE_MIN,
 	POWER_SUPPLY_PROP_SDP_CURRENT_MAX,
+	POWER_SUPPLY_PROP_RERUN_APSD,
 };
 
 extern bool is_poweroff_charge;
@@ -441,9 +468,12 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 		rc = smblib_get_prop_input_current_settled(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_TYPE:
-		if ((chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP) || (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP_3)) {
+		if ((chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP) || (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP_3))
+		{
 			val->intval = chg->real_charger_type;
-		} else {
+		}
+		else
+		{
 			val->intval = POWER_SUPPLY_TYPE_USB_PD;
 		}
 		break;
@@ -576,6 +606,9 @@ static int smb2_usb_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_SDP_CURRENT_MAX:
 		rc = smblib_set_prop_sdp_current_max(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_RERUN_APSD:
+		rc = smblib_set_prop_rerun_apsd(chg, val);
 		break;
 	default:
 		pr_err("set prop %d is not supported\n", psp);
@@ -981,7 +1014,13 @@ static enum power_supply_property smb2_batt_props[] = {
 
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 
+	#if defined(CONFIG_KERNEL_CUSTOM_TULIP)
+	POWER_SUPPLY_PROP_CHARGING_ENABLED,
+	#endif
 };
+
+
+
 
 static int smb2_batt_get_prop(struct power_supply *psy,
 		enum power_supply_property psp,
@@ -1054,6 +1093,7 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		rc = smblib_get_prop_batt_current_now(chg, val);
+
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_QNOVO:
 		val->intval = get_client_vote_locked(chg->fcc_votable,
@@ -1081,7 +1121,14 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 		val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_DIE_HEALTH:
+	#if defined(CONFIG_KERNEL_CUSTOM_WHYRED)
+		if (chg->die_health == -EINVAL)
+			rc = smblib_get_prop_die_health(chg, val);
+		else
+			val->intval = chg->die_health;
+	#else
 		rc = smblib_get_prop_die_health(chg, val);
+	#endif
 		break;
 	case POWER_SUPPLY_PROP_DP_DM:
 		val->intval = chg->pulse_cnt;
@@ -1097,6 +1144,11 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
 		rc = smblib_get_prop_batt_charge_counter(chg, val);
 		break;
+	#if defined(CONFIG_KERNEL_CUSTOM_TULIP)
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+		val->intval = miui_charging_enabled;
+		break;
+	#endif
 	default:
 		pr_err("batt power supply prop %d not supported\n", psp);
 		return -EINVAL;
@@ -1191,6 +1243,34 @@ static int smb2_batt_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED:
 		rc = smblib_set_prop_input_current_limited(chg, val);
 		break;
+	#if defined(CONFIG_KERNEL_CUSTOM_WHYRED)
+	case POWER_SUPPLY_PROP_DIE_HEALTH:
+		chg->die_health = val->intval;
+		power_supply_changed(chg->batt_psy);
+		break;
+	#endif
+	#if defined(CONFIG_KERNEL_CUSTOM_TULIP)
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+		miui_charging_enabled = val->intval;
+		if (miui_charging_enabled){
+			rc = smblib_set_dc_suspend(chg, false);
+			if (rc) {
+				pr_err("Couldn't disable charge rc=%d\n", rc);
+			}
+			rc = smblib_set_usb_suspend(chg, false);
+			if (rc)
+				pr_err("Couldn't disable usb charge rc=%d\n", rc);
+		}else{
+			rc = smblib_set_dc_suspend(chg, true);
+			if (rc) {
+				pr_err("Couldn't enable charge rc=%d\n", rc);
+			}
+			rc = smblib_set_usb_suspend(chg, true);
+			if (rc)
+				pr_err("Couldn't enable usb charge rc=%d\n", rc);
+		}
+		break;
+	#endif
 	default:
 		rc = -EINVAL;
 	}
@@ -1211,6 +1291,12 @@ static int smb2_batt_prop_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED:
 	case POWER_SUPPLY_PROP_STEP_CHARGING_ENABLED:
 	case POWER_SUPPLY_PROP_SW_JEITA_ENABLED:
+#if defined(CONFIG_KERNEL_CUSTOM_WHYRED)
+	case POWER_SUPPLY_PROP_DIE_HEALTH:
+#endif
+#if defined(CONFIG_KERNEL_CUSTOM_TULIP)
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+#endif
 		return 1;
 	default:
 		break;
@@ -1514,7 +1600,6 @@ static int smb2_init_hw(struct smb2 *chip)
 	struct smb_charger *chg = &chip->chg;
 	int rc;
 	u8 stat, val;
-
 	if (chip->dt.no_battery)
 		chg->fake_capacity = 50;
 
@@ -1570,7 +1655,13 @@ static int smb2_init_hw(struct smb2 *chip)
 		return rc;
 	}
 
+#if defined(CONFIG_KERNEL_CUSTOM_TULIP)
+	if ((is_poweroff_charge == false) && (stat != 0x01)) {
 		smblib_rerun_apsd_if_required(chg);
+	}
+#else
+		smblib_rerun_apsd_if_required(chg);
+#endif
 
 	/* clear the ICL override if it is set */
 	if (smblib_icl_override(chg, false) < 0) {
@@ -1605,6 +1696,52 @@ static int smb2_init_hw(struct smb2 *chip)
 	vote(chg->hvdcp_enable_votable, MICRO_USB_VOTER,
 			chg->micro_usb_mode, 0);
 
+#if (defined(CONFIG_KERNEL_CUSTOM_WHYRED) || defined(CONFIG_KERNEL_CUSTOM_TULIP))
+
+	/* Operate the QC2.0 in 5V/9V mode i.e. Disable 12V */
+	rc = smblib_masked_write(chg, HVDCP_PULSE_COUNT_MAX_REG,
+			      PULSE_COUNT_QC2P0_12V | PULSE_COUNT_QC2P0_9V,
+			      PULSE_COUNT_QC2P0_9V);
+	if (rc < 0) {
+		dev_err(chg->dev,
+		        "Couldn't configure QC2.0 to 9V rc=%d\n", rc);
+		return rc;
+	}
+	/* Operate the QC3.0 to limit vbus to 8.0v*/
+	rc = smblib_masked_write(chg, HVDCP_PULSE_COUNT_MAX_REG,
+			      PULSE_COUNT_QC3P0_MASK, 0xf);
+	if (rc < 0) {
+		dev_err(chg->dev,
+		        "Couldn't configure QC3.0 to 7.6V rc=%d\n", rc);
+		return rc;
+	}
+
+	/* lct reconfigure allowed voltage for HVDCP */
+	rc = smblib_write(chg, USBIN_ADAPTER_ALLOW_CFG_REG, USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't write to USBIN_ADAPTER_ALLOW_CFG rc=%d\n", rc);
+		return rc;
+	}
+
+#else
+	/* Operate the QC2.0 in 5V/9V mode i.e. Disable 12V */
+	rc = smblib_masked_write(chg, HVDCP_PULSE_COUNT_MAX_REG,
+						PULSE_COUNT_QC2P0_12V | PULSE_COUNT_QC2P0_9V,
+						PULSE_COUNT_QC2P0_9V);
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"Couldn't configure QC2.0 to 9V rc=%d\n", rc);
+		return rc;
+	}
+	/* Operate the QC3.0 to limit vbus to 6.6v*/
+	rc = smblib_masked_write(chg, HVDCP_PULSE_COUNT_MAX_REG,
+					PULSE_COUNT_QC3P0_MASK, 0x8);
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"Couldn't configure QC3.0 to 6.6V rc=%d\n", rc);
+		return rc;
+	}
+#endif
 	/*
 	 * AICL configuration:
 	 * start from min and AICL ADC disable
@@ -2292,7 +2429,7 @@ static ssize_t smb_battery_test_status_store(struct device *dev,
 	if (sscanf(buf, "%u", &input) != 1)
 		retval = -EINVAL;
 	else
-		BatteryTestStatus_enable = input;
+	        BatteryTestStatus_enable = input;
 
 	pr_err("%s:input = %d, BatteryTestStatus_enable = %d\n", __func__, input, BatteryTestStatus_enable);
 
@@ -2304,7 +2441,7 @@ void runin_work(struct smb_charger *chip, union power_supply_propval *value)
 	int rc = 0;
 
 	if (!BatteryTestStatus_enable) {
-		if (!charger_enable) {
+		if (!charger_enable){
 			rc = smblib_set_dc_suspend(chip, false);
 			if (rc) {
 				pr_err("Couldn't enable charge rc=%d\n", rc);
@@ -2320,7 +2457,7 @@ void runin_work(struct smb_charger *chip, union power_supply_propval *value)
 
 	if (value->intval >= 80) {
 		pr_err("smblib_get_prop_batt_capacity >= 80\n");
-		if (charger_enable) {
+		if (charger_enable){
 			rc = smblib_set_dc_suspend(chip, true);
 			if (rc)
 				pr_err("Couldn't enable dc charge rc=%d\n", rc);
@@ -2329,9 +2466,10 @@ void runin_work(struct smb_charger *chip, union power_supply_propval *value)
 				pr_err("Couldn't disenable usb charge rc=%d\n", rc);
 			charger_enable = false;
 		}
-	} else if (value->intval <= 40) {
+	}
+	else if (value->intval <= 40) {
 		pr_err("smblib_get_prop_batt_capacity <= 40\n");
-		if (!charger_enable) {
+		if (!charger_enable){
 			rc = smblib_set_dc_suspend(chip, false);
 			if (rc)
 				pr_err("Couldn't enable dc charge rc=%d\n", rc);
@@ -2364,7 +2502,7 @@ static ssize_t lct_thermal_call_status_store(struct device *dev,
 	if (sscanf(buf, "%u", &input) != 1)
 		retval = -EINVAL;
 	else
-		LctIsInCall = input;
+	        LctIsInCall = input;
 
 	pr_err("IsInCall = %d\n", LctIsInCall);
 
@@ -2381,29 +2519,61 @@ static void thermal_fb_notifier_resume_work(struct work_struct *work)
 
 	LctThermal = 1;
 #if defined(CONFIG_KERNEL_CUSTOM_WHYRED)
-	if ((lct_backlight_off) && (LctIsInCall == 0) /*&& (hwc_check_india == 1)*/) {
-		if (lct_therm_lvl_reserved.intval >= 1)
-			smblib_set_prop_system_temp_level(chg,  &lct_therm_india_level);
-		else
-			smblib_set_prop_system_temp_level(chg,  &lct_therm_level);
-	} else if (LctIsInCall == 1)
-		smblib_set_prop_system_temp_level(chg,  &lct_therm_call_level);
+	if ((lct_backlight_off) && (LctIsInCall == 0))
+	{
+		if (hwc_check_india == 1) {
+			if (lct_therm_lvl_reserved.intval >= 2)
+				smblib_set_prop_system_temp_level(chg, &lct_therm_india_level);
+			else
+				smblib_set_prop_system_temp_level(chg, &lct_therm_lvl_reserved);
+		}
+		else {
+			if (lct_therm_lvl_reserved.intval >= 1)
+				smblib_set_prop_system_temp_level(chg, &lct_therm_globe_level);
+			else
+				smblib_set_prop_system_temp_level(chg, &lct_therm_lvl_reserved);
+		}
+	}
+	else if (LctIsInCall == 1)
+		smblib_set_prop_system_temp_level(chg, &lct_therm_call_level);
 	else
-		smblib_set_prop_system_temp_level(chg,  &lct_therm_lvl_reserved);
+		smblib_set_prop_system_temp_level(chg, &lct_therm_lvl_reserved);
+	LctThermal = 0;
+#elif defined(CONFIG_KERNEL_CUSTOM_TULIP)
+	if (LctIsInCall == 1)
+		smblib_set_prop_system_temp_level(chg, &lct_therm_call_level);
+	else
+		smblib_set_prop_system_temp_level(chg, &lct_therm_lvl_reserved);
+	LctThermal = 0;
+#elif defined(CONFIG_KERNEL_CUSTOM_WAYNE)
+	if ((lct_backlight_off) && (LctIsInCall == 0))
+	{
+		if (lct_therm_lvl_reserved.intval >= 2)
+			smblib_set_prop_system_temp_level(chg, &lct_therm_globe_level);
+		else
+			smblib_set_prop_system_temp_level(chg, &lct_therm_level);
+	}
+	else if (LctIsInCall == 1)
+		smblib_set_prop_system_temp_level(chg, &lct_therm_call_level);
+	else
+		smblib_set_prop_system_temp_level(chg, &lct_therm_lvl_reserved);
 	LctThermal = 0;
 #else
-	if ((lct_backlight_off) && (LctIsInCall == 0) && (hwc_check_india == 0))
-		smblib_set_prop_system_temp_level(chg,  &lct_therm_level);
-	else if ((lct_backlight_off) && (LctIsInCall == 0) && (hwc_check_india == 1)) {
+	 if ((lct_backlight_off) && (LctIsInCall == 0) && (hwc_check_india == 0))
+		 smblib_set_prop_system_temp_level(chg, &lct_therm_level);
+	  else if ((lct_backlight_off) && (LctIsInCall == 0) && (hwc_check_india == 1))
+	{
 		if (lct_therm_lvl_reserved.intval >= 1)
-			smblib_set_prop_system_temp_level(chg,  &lct_therm_india_level);
+			smblib_set_prop_system_temp_level(chg, &lct_therm_india_level);
 		else
-			smblib_set_prop_system_temp_level(chg,  &lct_therm_level);
-	} else if (LctIsInCall == 1)
-		smblib_set_prop_system_temp_level(chg,  &lct_therm_call_level);
+			smblib_set_prop_system_temp_level(chg, &lct_therm_level);
+	}
+	else if (LctIsInCall == 1)
+		smblib_set_prop_system_temp_level(chg, &lct_therm_call_level);
 	else
-		smblib_set_prop_system_temp_level(chg,  &lct_therm_lvl_reserved);
+		smblib_set_prop_system_temp_level(chg, &lct_therm_lvl_reserved);
 	LctThermal = 0;
+
 #endif
 }
 
@@ -2419,7 +2589,8 @@ static int thermal_notifier_callback(struct notifier_block *noti, unsigned long 
 
 			lct_backlight_off = false;
 			schedule_work(&chg->fb_notify_work);
-		} else if (event == FB_EVENT_BLANK && *blank == FB_BLANK_POWERDOWN) {
+		}
+		else if (event == FB_EVENT_BLANK && *blank == FB_BLANK_POWERDOWN) {
 			lct_backlight_off = true;
 			schedule_work(&chg->fb_notify_work);
 		}
@@ -2473,6 +2644,9 @@ static int smb2_probe(struct platform_device *pdev)
 	chg->weak_chg_icl_ua = &__weak_chg_icl_ua;
 	chg->mode = PARALLEL_MASTER;
 	chg->irq_info = smb2_irqs;
+#if defined(CONFIG_KERNEL_CUSTOM_WHYRED)
+	chg->die_health = -EINVAL;
+#endif
 	chg->name = "PMI";
 
 	chg->regmap = dev_get_regmap(chg->dev->parent, NULL);
@@ -2571,10 +2745,10 @@ static int smb2_probe(struct platform_device *pdev)
 	#ifdef CONFIG_CHARGER_RUNIN
 	pr_info("enter sysfs create file\n");
 	for (attr_count = 0; attr_count < ARRAY_SIZE(attrs); attr_count++) {
-		rc = sysfs_create_file(&chg->dev->kobj,
+		    rc = sysfs_create_file(&chg->dev->kobj,
 						&attrs[attr_count].attr);
-		if (rc < 0) {
-			sysfs_remove_file(&chg->dev->kobj,
+			if (rc < 0) {
+		        sysfs_remove_file(&chg->dev->kobj,
 						&attrs[attr_count].attr);
 			}
 		}
@@ -2583,10 +2757,10 @@ static int smb2_probe(struct platform_device *pdev)
 	#ifdef THERMAL_CONFIG_FB
 	pr_info("enter sysfs create file thermal\n");
 	for (attr_count2 = 0; attr_count2 < ARRAY_SIZE(attrs2); attr_count2++) {
-		rc = sysfs_create_file(&chg->dev->kobj,
+		    rc = sysfs_create_file(&chg->dev->kobj,
 						&attrs2[attr_count2].attr);
-		if (rc < 0) {
-			sysfs_remove_file(&chg->dev->kobj,
+			if (rc < 0) {
+		        sysfs_remove_file(&chg->dev->kobj,
 						&attrs2[attr_count2].attr);
 			}
 		}
@@ -2643,8 +2817,8 @@ static int smb2_probe(struct platform_device *pdev)
 	device_init_wakeup(chg->dev, true);
 
 	#ifdef THERMAL_CONFIG_FB
-	lct_therm_lvl_reserved.intval = 0;
-	lct_therm_level.intval = 0;
+ 	lct_therm_lvl_reserved.intval = 0;
+ 	lct_therm_level.intval = 0;
 	lct_backlight_off = false;
 	INIT_WORK(&chg->fb_notify_work, thermal_fb_notifier_resume_work);
 	/* register suspend and resume fucntion*/

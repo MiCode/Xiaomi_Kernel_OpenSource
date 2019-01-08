@@ -2,6 +2,7 @@
  * *  ffu.c
  *
  *  Copyright 2007-2008 Pierre Ossman
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *
  *  Modified by SanDisk Corp., Copyright (c) 2013 SanDisk Corp.
  *
@@ -31,6 +32,12 @@
 #include <linux/workqueue.h>
 #include <linux/reboot.h>
 #include "KMDH6001DA-B422_P02.h"
+/* HTH-25611 add by jiatianbao 20180802  begin */
+#ifdef CONFIG_KERNEL_CUSTOM_TULIP
+#include "hynix_64GB_p03.h"
+#include "hynix_64GB_p04.h"
+#endif
+/* HTH-25611 add by jiatianbao 20180802  end */
 #include "queue.h"
 #include "../core/core.h"
 
@@ -76,7 +83,13 @@ extern int mmc_blk_cmdq_switch(struct mmc_card *card,
 
 #define SAMSUNG_CID_MANFID 0x15
 #define SAMSUNG_CID_PROD_NAME "DH6DAB"
-
+/* HTH-25611 add by jiatianbao 20180802  begin */
+#ifdef CONFIG_KERNEL_CUSTOM_TULIP
+#define HYNIX_CID_MANFID 0x90
+#define HYNIX_64GB_CID_PROD_NAME "hC8aP>"
+#define QUERY_MMC_FWVER_SIZE 64
+#endif
+/* HTH-25611 add by jiatianbao 20180802  end */
 /**
  * struct mmc_ffu_pages - pages allocated by 'alloc_pages()'.
  *  <at> page: first page in the allocation
@@ -112,8 +125,14 @@ struct mmc_ffu_area {
 struct fw_update_info {
 	unsigned int manfid;
 	char prod_name[8];
+/* HTH-25611 add by jiatianbao 20180802  begin */
+#ifdef CONFIG_KERNEL_CUSTOM_TULIP
+	u8 old_fw_ver[8];
+	u8 new_fw_ver[8];
+#else
 	u8 old_fw_ver;
 	u8 new_fw_ver;
+#endif
 	u8 *update_arry;
 	u32 update_arry_size;
 };
@@ -579,7 +598,13 @@ exit:
 
 EXPORT_SYMBOL(mmc_ffu_download);
 
+/* HTH-25611 add by jiatianbao 20180802  begin */
+#ifdef CONFIG_KERNEL_CUSTOM_TULIP
+int mmc_ffu_install(struct mmc_card *card, u8 *new_fw_ver)
+#else
 int mmc_ffu_install(struct mmc_card *card, u8 new_fw_ver)
+#endif
+/* HTH-25611 add by jiatianbao 20180802  endif */
 {
 	u8 ext_csd[CARD_BLOCK_SIZE];
 	int err;
@@ -601,7 +626,12 @@ int mmc_ffu_install(struct mmc_card *card, u8 new_fw_ver)
 		       mmc_hostname(card->host), err);
 		goto exit;
 	}
+/* HTH-25611 add by jiatianbao 20180802  begin */
+#ifdef CONFIG_KERNEL_CUSTOM_TULIP
+	/*update CID  instead of  comparing  when init card after power cycle*/
 
+#endif
+/* HTH-25611 add by jiatianbao 20180802  end */
 	/* check mode operation */
 	if (!FFU_FEATURES(ext_csd[EXT_CSD_FFU_FEATURES])) {
 		/* restart the eMMC */
@@ -671,8 +701,17 @@ int mmc_ffu_install(struct mmc_card *card, u8 new_fw_ver)
 		err = -EINVAL;
 		goto exit;
 	} else {
+/* HTH-25611 add by jiatianbao 20180802  begin */
+#ifdef CONFIG_KERNEL_CUSTOM_TULIP
+		if (!strncmp(&ext_csd[EXT_CSD_FIRMWARE_VERSION], new_fw_ver,
+			     MMC_FIRMWARE_LEN)) {
+			pr_info("install finished ,fw_version has updated to  %d\n",
+				ext_csd[EXT_CSD_FIRMWARE_VERSION]);
+#else
 		if (ext_csd[EXT_CSD_FIRMWARE_VERSION] == new_fw_ver) {
 			pr_info("install finished ,fw_version has updated to  %d\n", (int)new_fw_ver);
+#endif
+/* HTH-25611 add by jiatianbao 20180802  end */
 		} else {
 			pr_info
 			("fw install status is  ok,but the version is not right,the version : %d    %s  %s  %d\n",
@@ -725,23 +764,67 @@ ffu_out:
 }
 
 static struct fw_update_info ffu_table[] = {
+/* HTH-25611 add by jiatianbao 20180802  begin */
+#ifdef CONFIG_KERNEL_CUSTOM_TULIP
+	{SAMSUNG_CID_MANFID, SAMSUNG_CID_PROD_NAME, {1}, {2},
+#else
 	{SAMSUNG_CID_MANFID, SAMSUNG_CID_PROD_NAME, 1, 2,
+#endif
 			eMM_FW, sizeof(eMM_FW)},
+/* HTH-25611 add by jiatianbao 20180802  begin */
+#ifdef CONFIG_KERNEL_CUSTOM_TULIP
+	{HYNIX_CID_MANFID, HYNIX_64GB_CID_PROD_NAME,
+			{48, 48, 48, 50, 0, 0, 0, 0}, {48, 48, 48, 51, 0, 0, 0, 0},
+			hy_emmc_fw_binary_64_p03, sizeof(hy_emmc_fw_binary_64_p03)},
+	{HYNIX_CID_MANFID, HYNIX_64GB_CID_PROD_NAME,
+			{48, 48, 48, 51, 0, 0, 0, 0}, {84, 48, 48, 52, 0, 0, 0, 0},
+			hy_emmc_fw_binary_64_p04, sizeof(hy_emmc_fw_binary_64_p04)},
+#endif
+/* HTH-25611 add by jiatianbao 20180802  end */
 };
 
 int mmc_ffu(struct mmc_card *card)
 {
 	int i;
 	int err = 0;
+/* HTH-25611 add by jiatianbao 20180802  begin */
+#ifdef CONFIG_KERNEL_CUSTOM_TULIP
+	u8 tmp[QUERY_MMC_FWVER_SIZE] = {0};
+	memset(tmp, 0, MMC_FIRMWARE_LEN);
+	if (card->ext_csd.rev < 7) {
+		snprintf(tmp, QUERY_MMC_FWVER_SIZE, "Firware version:0x%x",
+				card->cid.fwrev);
+	} else {
+		snprintf(tmp, QUERY_MMC_FWVER_SIZE, "Firware version:0x%*phN",
+				MMC_FIRMWARE_LEN,
+				card->ext_csd.fwrev);
+	}
+	pr_info("mmc_ffu start,mid:%d,name:%s,%s\n",
+		card->cid.manfid,
+	    card->cid.prod_name, tmp);
+#else
 	pr_info("mmc_ffu start,mid:%d,name:%s,fw_ver:%d\n",
 		card->cid.manfid,
 		card->cid.prod_name, card->ext_csd.fw_version);
+#endif
+/* HTH-25611 add by jiatianbao 20180802  begin */
 	for (i = 0; i < sizeof(ffu_table) / sizeof(ffu_table[0]); i++) {
 
 
 		if (card->cid.manfid == ffu_table[i].manfid &&
 		    !strncmp(card->cid.prod_name, ffu_table[i].prod_name,
 			     strlen(ffu_table[i].prod_name))) {
+/* HTH-25611 add by jiatianbao 20180802  begin */
+#ifdef CONFIG_KERNEL_CUSTOM_TULIP
+			if (!strncmp(card->ext_csd.fwrev, ffu_table[i].old_fw_ver,
+				MMC_FIRMWARE_LEN)) {
+				err = update_fw(card, ffu_table + i);
+			} else if (!strncmp(card->ext_csd.fwrev, ffu_table[i].new_fw_ver,
+					MMC_FIRMWARE_LEN))
+				pr_info
+				    ("the emmc fw_version has updated to %d\n",
+				     card->ext_csd.fw_version);
+#else
 			pr_info("mmc_ffu lilin\n");
 			if (card->ext_csd.fw_version == ffu_table[i].old_fw_ver) {
 				err = update_fw(card, ffu_table + i);
@@ -750,6 +833,8 @@ int mmc_ffu(struct mmc_card *card)
 				pr_info
 				    ("the emmc fw_version has updated to %d\n",
 				     ffu_table[i].new_fw_ver);
+#endif
+/* HTH-25611 add by jiatianbao 20180802  end */
 			else {
 				pr_err("emmc fw_version misstach %d\n",
 				       card->ext_csd.fw_version);

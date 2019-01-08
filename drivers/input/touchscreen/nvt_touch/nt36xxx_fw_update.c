@@ -32,6 +32,7 @@
 #define SIZE_64KB 65536
 #define BLOCK_64KB_NUM 4
 
+extern char g_lcd_id[128];
 const struct firmware *fw_entry = NULL;
 
 /*******************************************************
@@ -985,7 +986,12 @@ void Boot_Update_Firmware(struct work_struct *work)
 	int32_t ret = 0;
 
 	char firmware_name[256] = "";
-	sprintf(firmware_name, BOOT_UPDATE_FIRMWARE_NAME);
+	if (strstr(g_lcd_id, "tianma nt36672") != NULL) {
+		sprintf(firmware_name, BOOT_UPDATE_FIRMWARE_NAME);
+	} else {
+		sprintf(firmware_name, BOOT_UPDATE_FIRMWARE_NAME_TWO);
+	}
+
 
 
 	ret = update_firmware_request(firmware_name);

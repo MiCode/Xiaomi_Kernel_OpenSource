@@ -1,6 +1,6 @@
 /*
  *  Copyright (c) 2000-2001 Vojtech Pavlik
- *  Copyright (C) 2018 XiaoMi, Inc.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *  Copyright (c) 2006-2010 Jiri Kosina
  *
  *  HID to Linux Input mapping
@@ -1069,6 +1069,7 @@ void hidinput_hid_event(struct hid_device *hid, struct hid_field *field, struct 
 		return;
 
 	if (usage->hat_min < usage->hat_max || usage->hat_dir) {
+
 		int hat_dir = usage->hat_dir;
 		if (!hat_dir)
 			hat_dir = (value - usage->hat_min) * 8 / (usage->hat_max - usage->hat_min + 1) + 1;
@@ -1094,6 +1095,7 @@ void hidinput_hid_event(struct hid_device *hid, struct hid_field *field, struct 
 	}
 
 	if (usage->hid == (HID_UP_DIGITIZER | 0x0030) && (*quirks & HID_QUIRK_NOTOUCH)) { /* Pressure */
+
 		int a = field->logical_minimum;
 		int b = field->logical_maximum;
 		input_event(input, EV_KEY, BTN_TOUCH, value > a + ((b - a) >> 3));
@@ -1114,6 +1116,7 @@ void hidinput_hid_event(struct hid_device *hid, struct hid_field *field, struct 
 
 	if ((usage->type == EV_ABS) && (field->flags & HID_MAIN_ITEM_RELATIVE) &&
 			(usage->code == ABS_VOLUME)) {
+
 		int count = abs(value);
 		int direction = value > 0 ? KEY_VOLUMEUP : KEY_VOLUMEDOWN;
 		int i;
@@ -1153,23 +1156,23 @@ void hidinput_hid_event(struct hid_device *hid, struct hid_field *field, struct 
 	 * skip the keycode translation and only forward real events.
 	 */
 	if (!(field->flags & (HID_MAIN_ITEM_RELATIVE |
-			  HID_MAIN_ITEM_BUFFERED_BYTE)) &&
-			  (field->flags & HID_MAIN_ITEM_VARIABLE) &&
-			  usage->usage_index < field->maxusage &&
-			  value == field->value[usage->usage_index])
+	                      HID_MAIN_ITEM_BUFFERED_BYTE)) &&
+			      (field->flags & HID_MAIN_ITEM_VARIABLE) &&
+	    usage->usage_index < field->maxusage &&
+	    value == field->value[usage->usage_index])
 		return;
 
 	/* report the usage code as scancode if the key status has changed */
 	if (usage->type == EV_KEY &&
-		(!test_bit(usage->code, input->key)) == value) {
-		input_event(input, EV_MSC, MSC_SCAN, usage->hid);
-	}
+	    (!test_bit(usage->code, input->key)) == value){
+	  	input_event(input, EV_MSC, MSC_SCAN, usage->hid);
+		}
 
 	input_event(input, usage->type, usage->code, value);
 
 	if ((field->flags & HID_MAIN_ITEM_RELATIVE) &&
-		usage->type == EV_KEY && value) {
-		input_sync(input);
+	    usage->type == EV_KEY && value) {
+	   	input_sync(input);
 		input_event(input, usage->type, usage->code, 0);
 	}
 }

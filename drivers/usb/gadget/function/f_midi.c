@@ -2,6 +2,7 @@
  * f_midi.c -- USB MIDI class function driver
  *
  * Copyright (C) 2006 Thumtronics Pty Ltd.
+ * Copyright (C) 2018 XiaoMi, Inc.
  * Developed for Thumtronics by Grey Innovation
  * Ben Williamson <ben.williamson@greyinnovation.com>
  *
@@ -208,12 +209,6 @@ static inline struct usb_request *midi_alloc_ep_req(struct usb_ep *ep,
 						    unsigned length)
 {
 	return alloc_ep_req(ep, length, length);
-}
-
-static void free_ep_req(struct usb_ep *ep, struct usb_request *req)
-{
-	kfree(req->buf);
-	usb_ep_free_request(ep, req);
 }
 
 static const uint8_t f_midi_cin_length[] = {

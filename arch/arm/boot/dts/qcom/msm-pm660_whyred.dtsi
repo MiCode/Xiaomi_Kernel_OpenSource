@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -280,7 +281,7 @@
 			};
 
                        chan@50 {
-				label = "id3_therm";
+				label = "backlight_therm";
 				reg = <0x50>;
 				qcom,decimation = <2>;
 				qcom,pre-div-channel-scaling = <0>;
@@ -366,9 +367,9 @@
 
 
 			qcom,thermal-mitigation
-					= <2500000 2000000 1000000 800000 500000>;
+					= <2500000 2300000 2000000 1500000 1000000 400000 200000>;
 			qcom,thermal-mitigation-china
-					= <2500000 2300000 2000000 1500000 1000000 400000>;
+					= <2500000 2300000 2000000 1500000 1000000 400000 200000>;
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;

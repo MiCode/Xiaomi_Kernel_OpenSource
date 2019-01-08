@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -750,6 +751,8 @@
 		qcom,hph-en0-gpio = <&tavil_hph_en0>;
 		qcom,hph-en1-gpio = <&tavil_hph_en1>;
 		qcom,msm-mclk-freq = <9600000>;
+		//qcom,usbc-analog-en1_gpio = <&wcd_usbc_analog_en1_gpio>;
+		//qcom,usbc-analog-en2_n_gpio = <&wcd_usbc_analog_en2n_gpio>;
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
 				<&afe>, <&lsm>, <&routing>, <&cpe>, <&compr>,
@@ -825,7 +828,9 @@
 		qcom,msm-mbhc-hphl-swh = <1>;
 		qcom,msm-mbhc-gnd-swh = <1>;
 		qcom,msm-micbias1-ext-cap;
+		//qcom,msm-micbias2-ext-cap;
 		qcom,msm-hs-micbias-type = "external";
+		//qcom,us-euro-gpios = <&us_euro_gpio>;
 		qcom,cdc-pdm-gpios = <&cdc_pdm_gpios>;
 		qcom,cdc-comp-gpios = <&cdc_comp_gpios>;
 		qcom,cdc-dmic-gpios = <&cdc_dmic_gpios>;

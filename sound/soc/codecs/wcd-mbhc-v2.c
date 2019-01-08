@@ -10,6 +10,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#define DEBUG
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/slab.h>
@@ -57,9 +58,13 @@
 #define ANC_DETECT_RETRY_CNT 7
 #define WCD_MBHC_SPL_HS_CNT  1
 
+/* Add for get headset state tsx 10/19 */
 struct switch_dev sdev;
 static int det_extn_cable_en;
-#if defined(CONFIG_KERNEL_CUSTOM_WHYRED) || defined(CONFIG_KERNEL_CUSTOM_WAYNE)
+extern bool hs_record_active;
+
+#if defined(CONFIG_KERNEL_CUSTOM_WHYRED) || defined(CONFIG_KERNEL_CUSTOM_WAYNE) || defined(CONFIG_KERNEL_CUSTOM_TULIP)
+/*Add for selfie stick not work  tangshouxing 9/6*/
 static void wcd_enable_mbhc_supply(struct wcd_mbhc *mbhc,
 			enum wcd_mbhc_plug_type plug_type);
 #endif
@@ -621,6 +626,7 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 	pr_debug("%s: enter insertion %d hph_status %x\n",
 		 __func__, insertion, mbhc->hph_status);
 
+	/* Add for get headset state tsx 10/19 */
 	switch_set_state(&sdev, insertion);
 
 	if (!insertion) {
@@ -895,37 +901,39 @@ static void wcd_mbhc_find_plug_and_report(struct wcd_mbhc *mbhc,
 		 */
 		wcd_mbhc_report_plug(mbhc, 1, SND_JACK_HEADPHONE);
 	} else if (plug_type == MBHC_PLUG_TYPE_GND_MIC_SWAP) {
-		if (mbhc->current_plug == MBHC_PLUG_TYPE_HEADPHONE)
-			wcd_mbhc_report_plug(mbhc, 0,
-					SND_JACK_HEADPHONE);
-		if (mbhc->current_plug == MBHC_PLUG_TYPE_HEADSET)
-			wcd_mbhc_report_plug(mbhc, 0, SND_JACK_HEADSET);
-#if defined(CONFIG_KERNEL_CUSTOM_WHYRED) || defined(CONFIG_KERNEL_CUSTOM_WAYNE)
-		/*
-		* calculate impedance detection
-		* If Zl and Zr > 20k then it is special accessory
-		* otherwise unsupported cable.
-		*/
-		if (mbhc->impedance_detect) {
+			if (mbhc->current_plug == MBHC_PLUG_TYPE_HEADPHONE)
+				wcd_mbhc_report_plug(mbhc, 0,
+						SND_JACK_HEADPHONE);
+			if (mbhc->current_plug == MBHC_PLUG_TYPE_HEADSET)
+				wcd_mbhc_report_plug(mbhc, 0, SND_JACK_HEADSET);
+#if defined(CONFIG_KERNEL_CUSTOM_WHYRED) || defined(CONFIG_KERNEL_CUSTOM_WAYNE) || defined(CONFIG_KERNEL_CUSTOM_TULIP)
+			/*
+			* calculate impedance detection
+			* If Zl and Zr > 20k then it is special accessory
+			* otherwise unsupported cable.
+			*/
+			/*Add for selfie stick not work  tangshouxing 9/6*/
+			if (mbhc->impedance_detect) {
 			mbhc->mbhc_cb->compute_impedance(mbhc,
-					&mbhc->zl, &mbhc->zr);
-			if ((mbhc->zl > 20000) && (mbhc->zr > 20000)) {
+			&mbhc->zl, &mbhc->zr);
+				if ((mbhc->zl > 20000) && (mbhc->zr > 20000)) {
 				pr_debug("%s: special accessory \n", __func__);
-			/* Toggle switch back */
+				/* Toggle switch back */
 				if (mbhc->mbhc_cfg->swap_gnd_mic &&
-					mbhc->mbhc_cfg->swap_gnd_mic(mbhc->codec)) {
-					pr_debug("%s: US_EU gpio present,flip switch again\n"
-							, __func__);
+				mbhc->mbhc_cfg->swap_gnd_mic(mbhc->codec)) {
+				pr_debug("%s: US_EU gpio present,flip switch again\n"
+				, __func__);
 				}
-			/* enable CS/MICBIAS for headset button detection to work */
+				/* enable CS/MICBIAS for headset button detection to work */
 				wcd_enable_mbhc_supply(mbhc, MBHC_PLUG_TYPE_HEADSET);
 				wcd_mbhc_report_plug(mbhc, 1, SND_JACK_HEADSET);
-			} else {
-				wcd_mbhc_report_plug(mbhc, 1, SND_JACK_UNSUPPORTED);
+				}
+				else {
+				 wcd_mbhc_report_plug(mbhc, 1, SND_JACK_UNSUPPORTED);
+				 }
 			}
-		}
 #else
-			wcd_mbhc_report_plug(mbhc, 1, SND_JACK_UNSUPPORTED);
+				wcd_mbhc_report_plug(mbhc, 1, SND_JACK_UNSUPPORTED);
 #endif
 	} else if (plug_type == MBHC_PLUG_TYPE_HEADSET) {
 		if (mbhc->mbhc_cfg->enable_anc_mic_detect)
@@ -942,7 +950,8 @@ static void wcd_mbhc_find_plug_and_report(struct wcd_mbhc *mbhc,
 		wcd_mbhc_report_plug(mbhc, 1, jack_type);
 	} else if (plug_type == MBHC_PLUG_TYPE_HIGH_HPH) {
 		if (mbhc->mbhc_cfg->detect_extn_cable) {
-#if defined(CONFIG_KERNEL_CUSTOM_WHYRED) || defined(CONFIG_KERNEL_CUSTOM_WAYNE)
+#if defined(CONFIG_KERNEL_CUSTOM_WHYRED) || defined(CONFIG_KERNEL_CUSTOM_WAYNE) || defined(CONFIG_KERNEL_CUSTOM_TULIP)
+		 /*Add for selfie stick not work  tangshouxing 9/6*/
 		    if (mbhc->impedance_detect) {
 			mbhc->mbhc_cb->compute_impedance(mbhc,
 			&mbhc->zl, &mbhc->zr);
@@ -950,17 +959,18 @@ static void wcd_mbhc_find_plug_and_report(struct wcd_mbhc *mbhc,
 				pr_debug("tsx_hph_%s: special accessory \n", __func__);
 				/* Toggle switch back */
 				if (mbhc->mbhc_cfg->swap_gnd_mic &&
-						mbhc->mbhc_cfg->swap_gnd_mic(mbhc->codec)) {
-					pr_debug("%s: US_EU gpio present,flip switch again\n"
-							, __func__);
+				mbhc->mbhc_cfg->swap_gnd_mic(mbhc->codec)) {
+				pr_debug("%s: US_EU gpio present,flip switch again\n"
+				, __func__);
 				}
 				/* enable CS/MICBIAS for headset button detection to work */
 				wcd_enable_mbhc_supply(mbhc, MBHC_PLUG_TYPE_HEADSET);
 				wcd_mbhc_report_plug(mbhc, 1, SND_JACK_HEADSET);
-			} else {
+			}
+			else {
 			 wcd_mbhc_report_plug(mbhc, 1, SND_JACK_LINEOUT);
 			}
-		} else {
+		    }else{
 #endif
 			/* High impedance device found. Report as LINEOUT */
 			wcd_mbhc_report_plug(mbhc, 1, SND_JACK_LINEOUT);
@@ -981,7 +991,7 @@ static void wcd_mbhc_find_plug_and_report(struct wcd_mbhc *mbhc,
 						 3);
 			wcd_mbhc_hs_elec_irq(mbhc, WCD_MBHC_ELEC_HS_INS,
 					     true);
-#if defined(CONFIG_KERNEL_CUSTOM_WHYRED) || defined(CONFIG_KERNEL_CUSTOM_WAYNE)
+#if defined(CONFIG_KERNEL_CUSTOM_WHYRED) || defined(CONFIG_KERNEL_CUSTOM_WAYNE) || defined(CONFIG_KERNEL_CUSTOM_TULIP)
 		 }
 #endif
 		} else {
@@ -1113,7 +1123,8 @@ static bool wcd_is_special_headset(struct wcd_mbhc *mbhc)
 					__func__);
 			break;
 		}
-#if defined(CONFIG_KERNEL_CUSTOM_WHYRED) || defined(CONFIG_KERNEL_CUSTOM_WAYNE)
+#if defined(CONFIG_KERNEL_CUSTOM_WHYRED) || defined(CONFIG_KERNEL_CUSTOM_WAYNE) || defined(CONFIG_KERNEL_CUSTOM_TULIP)
+		/*Add for selfie stick not work  tangshouxing 9/6*/
 		if (mbhc->impedance_detect) {
 			mbhc->mbhc_cb->compute_impedance(mbhc,
 			&mbhc->zl, &mbhc->zr);
@@ -1265,7 +1276,9 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	struct wcd_mbhc *mbhc;
 	struct snd_soc_codec *codec;
 	enum wcd_mbhc_plug_type plug_type = MBHC_PLUG_TYPE_INVALID;
+#if 0
 	unsigned long timeout;
+#endif
 	u16 hs_comp_res = 0, hphl_sch = 0, mic_sch = 0, btn_result = 0;
 	bool wrk_complete = false;
 	int pt_gnd_mic_swap_cnt = 0;
@@ -1277,8 +1290,11 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	int rc, spl_hs_count = 0;
 	int cross_conn;
 	int try = 0;
+#if 0
 	int try_check = 0;
-
+#else
+	int iRetryCount;
+#endif
 	pr_debug("%s: enter\n", __func__);
 
 	mbhc = container_of(work, struct wcd_mbhc, correct_plug_swch);
@@ -1307,24 +1323,26 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	WCD_MBHC_REG_READ(WCD_MBHC_BTN_RESULT, btn_result);
 	WCD_MBHC_REG_READ(WCD_MBHC_HS_COMP_RESULT, hs_comp_res);
 
-	if (hs_comp_res != 0){
-		if (mbhc->impedance_detect) {
-			mbhc->mbhc_cb->compute_impedance(mbhc,
-					 &mbhc->zl, &mbhc->zr);
-			pr_debug("%s, mbhc->zl=%d, mbhc->zr=%d\n", __func__, mbhc->zl, mbhc->zr);
+    /* Headset plug in detect slowly when playback music by speaker tsx 17/12/8 */
+#if 0
+    if (hs_comp_res != 0){
+	if (mbhc->impedance_detect) {
+	  mbhc->mbhc_cb->compute_impedance(mbhc,
+	  &mbhc->zl, &mbhc->zr);
+	     pr_debug("%s, mbhc->zl=%d, mbhc->zr=%d\n", __func__, mbhc->zl, mbhc->zr);
 
-			for (try_check=0; try_check < 10; try_check++){
-				msleep(10);
-				WCD_MBHC_REG_READ(WCD_MBHC_HS_COMP_RESULT, hs_comp_res);
-				if (hs_comp_res==0){
-					break;
-				}
-				pr_debug("%s, btn_result=%d, hs_comp_res=%d, rc=%d\n", __func__, btn_result, hs_comp_res, rc);
+			for (try_check = 0; try_check < 10; try_check++){
+			msleep(10);
+			WCD_MBHC_REG_READ(WCD_MBHC_HS_COMP_RESULT, hs_comp_res);
+			if (hs_comp_res==0){
+				break;
 			}
+	        	pr_debug("%s, btn_result=%d, hs_comp_res=%d, rc=%d\n", __func__, btn_result, hs_comp_res, rc);
+		   }
 
-		}
-	}
-
+	   }
+	 }
+#endif
 
 	if (!rc) {
 		pr_debug("%s No btn press interrupt\n", __func__);
@@ -1368,8 +1386,12 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 
 correct_plug_type:
 
+#if 0
 	timeout = jiffies + msecs_to_jiffies(HS_DETECT_PLUG_TIME_MS);
 	while (!time_after(jiffies, timeout)) {
+#else
+	for (iRetryCount = 0; iRetryCount < 5; iRetryCount++) {
+#endif
 		if (mbhc->hs_detect_work_stop) {
 			pr_debug("%s: stop requested: %d\n", __func__,
 					mbhc->hs_detect_work_stop);
@@ -1577,24 +1599,25 @@ report:
 enable_supply:
 	if (mbhc->mbhc_cb->mbhc_micbias_control)
 		wcd_mbhc_update_fsm_source(mbhc, plug_type);
-#if defined(CONFIG_KERNEL_CUSTOM_WHYRED) || defined(CONFIG_KERNEL_CUSTOM_WAYNE)
-	else {
-		if (mbhc->impedance_detect) {
+#if defined(CONFIG_KERNEL_CUSTOM_WHYRED) || defined(CONFIG_KERNEL_CUSTOM_WAYNE) || defined(CONFIG_KERNEL_CUSTOM_TULIP)
+	else{
+	      /*Add for selfie stick not work  tangshouxing 9/6*/
+	      if ((mbhc->impedance_detect) && !hs_record_active) {
 			mbhc->mbhc_cb->compute_impedance(mbhc,
 			&mbhc->zl, &mbhc->zr);
 				if ((mbhc->zl > 20000) && (mbhc->zr > 20000)) {
 					pr_debug("%s:Selfie stick device, need enable btn isrc ctrl", __func__);
 					wcd_enable_mbhc_supply(mbhc, MBHC_PLUG_TYPE_HEADSET);
-				} else {
+				}else{
 			wcd_enable_mbhc_supply(mbhc, plug_type);
 			}
-		} else {
-			wcd_enable_mbhc_supply(mbhc, plug_type);
-		}
+		}else{
+		wcd_enable_mbhc_supply(mbhc, plug_type);
+	       }
 	}
 #else
-	else
-		wcd_enable_mbhc_supply(mbhc, plug_type);
+    else
+       wcd_enable_mbhc_supply(mbhc, plug_type);
 #endif
 exit:
 	if (mbhc->mbhc_cb->mbhc_micbias_control &&
@@ -1996,7 +2019,18 @@ static irqreturn_t wcd_mbhc_hs_rem_irq(int irq, void *data)
 			 * extension cable is still plugged in
 			 * report it as LINEOUT device
 			 */
-			goto report_unplug;
+			if (!(hphl_sch && mic_sch)){
+			/*
+			 * Maybe special headset,not allow report headphone
+			 */
+			pr_debug("%s: Maybe headset plug in, r1=%d, r2=%d\n", __func__, mbhc->zr, mbhc->zl);
+			if ((mbhc->zl < 64) && (mbhc->zr < 64))
+				goto exit;
+					else
+				goto report_unplug;
+			}else
+				goto report_unplug;
+
 		} else {
 			if (!mic_sch) {
 				mic_trigerred++;
@@ -2305,6 +2339,7 @@ static int wcd_mbhc_initialise(struct wcd_mbhc *mbhc)
 	pr_debug("%s: enter\n", __func__);
 	WCD_MBHC_RSC_LOCK(mbhc);
 
+	/* Add for get headset state tsx 10/19 */
 	sdev.name = "h2w";
 	if (switch_dev_register(&sdev) < 0)
 	    pr_err("%s, register headset switch fail\n", __func__);

@@ -231,6 +231,7 @@ struct flash_switch_data {
 	bool				enabled;
 };
 
+
 struct flashlight_node_data {
 	struct platform_device	*pdev;
 	const char				**torch_name;
@@ -1744,7 +1745,7 @@ static int qpnp_flashlight_led_parse_and_register(struct qpnp_flash_led *led,
 		for (i = 0; i < count; ++i) {
 			flashlight_node->torch_name = temp_name;
 			temp_name[i] = kzalloc(sizeof(char) * NAME_SIZE, GFP_KERNEL);
-			rc = of_property_read_string_index(node, "qcom,torch-name", i,  &temp_name[i]);
+			rc = of_property_read_string_index(node, "qcom,torch-name", i, &temp_name[i]);
 			pr_debug("%s torch_name[%d] = %s\n", __func__, i, flashlight_node->torch_name[i]);
 		}
 	} else
@@ -1765,7 +1766,7 @@ static int qpnp_flashlight_led_parse_and_register(struct qpnp_flash_led *led,
 		for (i = 0; i < count; ++i) {
 			flashlight_node->switch_name = temp_name;
 			temp_name[i] = kzalloc(sizeof(char) * NAME_SIZE, GFP_KERNEL);
-			rc = of_property_read_string_index(node, "qcom,switch-name", i,  &temp_name[i]);
+			rc = of_property_read_string_index(node, "qcom,switch-name", i, &temp_name[i]);
 			pr_debug("%s switch_name[%d] = %s\n", __func__, i, flashlight_node->switch_name[i]);
 		}
 	} else
@@ -2350,9 +2351,9 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 		} else if (!strcmp("flash", temp_string) ||
 				!strcmp("torch", temp_string)) {
 			led->num_fnodes++;
-		} else if (!strcmp("flashlight", temp_string)) {
+		} else if (!strcmp("flashlight", temp_string)){
 			led->num_flashlight_nodes++;
-		} else {
+		}else {
 			pr_err("Invalid label for led node\n");
 			return -EINVAL;
 		}

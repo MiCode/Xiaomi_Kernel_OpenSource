@@ -2,6 +2,7 @@
  * kernel/power/suspend.c - Suspend to RAM and standby functionality.
  *
  * Copyright (c) 2003 Patrick Mochel
+ * Copyright (C) 2018 XiaoMi, Inc.
  * Copyright (c) 2003 Open Source Development Lab
  * Copyright (c) 2009 Rafael J. Wysocki <rjw@sisk.pl>, Novell Inc.
  *
@@ -32,7 +33,20 @@
 #include <linux/moduleparam.h>
 #include <linux/wakeup_reason.h>
 
+/* fix sensor ipc wakelock issue by wanghan (case#03671009) begin */
+#if defined(CONFIG_KERNEL_CUSTOM_WAYNE) || defined(CONFIG_KERNEL_CUSTOM_WHYRED)
+#include <linux/gpio.h>
+#endif
+/* fix sensor ipc wakelock issue by wanghan (case#03671009) end */
+
 #include "power.h"
+
+/* fix sensor ipc wakelock issue by wanghan (case#03671009) begin */
+#if defined(CONFIG_KERNEL_CUSTOM_WAYNE) || defined(CONFIG_KERNEL_CUSTOM_WHYRED)
+extern int slst_gpio_base_id;
+#define PROC_AWAKE_ID 12 /* 12th bit */
+#endif
+/* fix sensor ipc wakelock issue by wanghan (case#03671009) end */
 
 const char *pm_labels[] = { "mem", "standby", "freeze", NULL };
 const char *pm_states[PM_SUSPEND_MAX];
@@ -564,7 +578,19 @@ int pm_suspend(suspend_state_t state)
 		return -EINVAL;
 
 	pm_suspend_marker("entry");
+
+#if defined(CONFIG_KERNEL_CUSTOM_WAYNE) || defined(CONFIG_KERNEL_CUSTOM_WHYRED)
+        gpio_set_value(slst_gpio_base_id + PROC_AWAKE_ID, 0);
+        pr_err("%s: PM_SUSPEND_PREPARE smp2p_change_state", __func__);
+#endif
+
 	error = enter_state(state);
+
+#if defined(CONFIG_KERNEL_CUSTOM_WAYNE) || defined(CONFIG_KERNEL_CUSTOM_WHYRED)
+        gpio_set_value(slst_gpio_base_id + PROC_AWAKE_ID, 1);
+        pr_err("%s: PM_POST_SUSPEND smp2p_change_state", __func__);
+#endif
+
 	if (error) {
 		suspend_stats.fail++;
 		dpm_save_failed_errno(error);

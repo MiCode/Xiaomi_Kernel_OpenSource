@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1341,6 +1342,10 @@ static irqreturn_t qpnp_wled_ovp_irq_handler(int irq, void *_wled)
 		return IRQ_HANDLED;
 	}
 
+
+
+
+
 	printk("%s, %d auto_calib_enabled = %d", __FILE__, __LINE__, wled->auto_calib_enabled?1:0);
 	if (fault_sts & QPNP_WLED_OVP_FAULT_BIT) {
 		if (wled->auto_calib_enabled && !wled->auto_calib_done) {
@@ -2200,7 +2205,11 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 	rc = of_property_read_u32(pdev->dev.of_node,
 			"qcom,switch-freq-khz", &temp_val);
 	if (!rc) {
+	#ifdef CONFIG_KERNEL_CUSTOM_TULIP
+		wled->switch_freq_khz = 1600;
+	#else
 		wled->switch_freq_khz = temp_val;
+	#endif
 	} else if (rc != -EINVAL) {
 		dev_err(&pdev->dev, "Unable to read switch freq\n");
 		return rc;
@@ -2303,7 +2312,11 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 	rc = of_property_read_u32(pdev->dev.of_node,
 			"qcom,fs-curr-ua", &temp_val);
 	if (!rc) {
+#ifdef CONFIG_KERNEL_CUSTOM_TULIP
+		wled->fs_curr_ua = 20000;
+#else
 		wled->fs_curr_ua = temp_val;
+#endif
 	} else if (rc != -EINVAL) {
 		dev_err(&pdev->dev, "Unable to read full scale current\n");
 		return rc;

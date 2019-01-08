@@ -1138,28 +1138,41 @@ config TOUCHSCREEN_SYNAPTICS_DSX_FW_UPDATE_EXTRA_SYSFS
 	  If unsure, say N.
 
 config TOUCHSCREEN_NVT
-	tristate "novatek touchscreens"
-	help
-	  Say Y here if you have a nvt touchscreen.
-	  nvt controllers are multi touch controllers which can
-	  report 5 touches at a time.
+       tristate "novatek touchscreens"
+       help
+         Say Y here if you have a nvt touchscreen.
+	 nvt controllers are multi touch controllers which can
+	 report 5 touches at a time.
 
-	  If unsure, say N.
+         If unsure, say N.
 
-	  To compile this driver as a module, choose M here: the
-	  module will be called nvt.
+         To compile this driver as a module, choose M here: the
+         module will be called nvt.
 
 config TOUCHSCREEN_NVT_WAYNE
-	tristate "novatek touchscreens"
-	help
-	  Say Y here if you have a nvt touchscreen.
-	  nvt controllers are multi touch controllers which can
-	  report 5 touches at a time.
+       tristate "novatek touchscreens"
+       help
+         Say Y here if you have a nvt touchscreen.
+	 nvt controllers are multi touch controllers which can
+	 report 5 touches at a time.
 
-	  If unsure, say N.
+         If unsure, say N.
 
-	  To compile this driver as a module, choose M here: the
-	  module will be called nvt.
+         To compile this driver as a module, choose M here: the
+         module will be called nvt.
+
+config TOUCHSCREEN_NVT_A
+       tristate "novatek touchscreens"
+       help
+         Say Y here if you have a nvt touchscreen.
+	 nvt controllers are multi touch controllers which can
+	 report 5 touches at a time.
+
+         If unsure, say N.
+
+         To compile this driver as a module, choose M here: the
+         module will be called nvt.
+source "drivers/input/touchscreen/nvt_touch_a/Kconfig"
 
 config TOUCHSCREEN_ROHM_BU21023
 	tristate "ROHM BU21023/24 Dual touch support resistive touchscreens"
@@ -1247,6 +1260,15 @@ config TOUCHSCREEN_ST
 
 	  If unsure, say N.
 
+config TOUCHSCREEN_FOCAL_FT8719
+        bool "Focaltech Touchscreen"
+		depends on I2C
+		default n
+		help
+		  Say Y here if you have Focaltech touch panel.
+		  If unsure, say N.		  
+source "drivers/input/touchscreen/focal_ft8719/Kconfig"
+	  
 source "drivers/input/touchscreen/st/Kconfig"
 
 endif

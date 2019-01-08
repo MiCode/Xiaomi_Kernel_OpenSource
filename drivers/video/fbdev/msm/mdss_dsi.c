@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -486,13 +486,13 @@ static int mdss_dsi_panel_power_ctrl(struct mdss_panel_data *pdata,
 	case MDSS_PANEL_POWER_ON:
 		if (mdss_dsi_is_panel_on_lp(pdata))
 			ret = mdss_dsi_panel_power_lp(pdata, false);
-		else {
-			if (ESD_TE_status) {
+		else{
+			if (ESD_TE_status){
 				ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 							panel_data);
 
 				ret = mdss_dsi_panel_reset(pdata, 0);
-				if (ret) {
+				if (ret){
 					pr_warn("%s: Panel reset failed. rc=%d\n", __func__, ret);
 					ret = 0;
 				}
@@ -557,6 +557,7 @@ static void mdss_dsi_put_dt_vreg_data(struct device *dev,
 	module_power->num_vreg = 0;
 }
 
+extern char g_lcd_id[128];
 static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 	struct device_node *of_node, struct dss_module_power *mp,
 	enum dsi_pm_type module)
@@ -671,6 +672,23 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 			mp->vreg_config[i].pre_on_sleep = tmp;
 		}
 
+#ifdef CONFIG_KERNEL_CUSTOM_TULIP
+	rc = of_property_read_u32(supply_node,
+			"qcom,supply-pre-off-sleep", &tmp);
+		if (rc) {
+			pr_debug("%s: error reading supply pre sleep value. rc=%d\n",
+				__func__, rc);
+			rc = 0;
+		} else {
+			mp->vreg_config[i].pre_off_sleep = tmp;
+		}
+
+	if (strcmp(g_lcd_id, "tianma ft8719 fhdplus video mode dsi panel") == 0 && strcmp(mp->vreg_config[i].vreg_name, "ibb") == 0)
+	{
+		mp->vreg_config[i].pre_off_sleep = 4;
+		printk("wjx func=%s, line=%d\n", __func__, __LINE__);
+	}
+#else
 		rc = of_property_read_u32(supply_node,
 			"qcom,supply-pre-off-sleep", &tmp);
 		if (rc) {
@@ -680,6 +698,7 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 		} else {
 			mp->vreg_config[i].pre_off_sleep = tmp;
 		}
+#endif
 
 		/* post-sleep */
 		rc = of_property_read_u32(supply_node,
@@ -800,7 +819,7 @@ static ssize_t mdss_dsi_cmd_state_read(struct file *file, char __user *buf,
 	if (blen < 0)
 		return 0;
 
-	if (copy_to_user(buf, buffer, blen))
+	if (copy_to_user(buf, buffer, min(count, (size_t)blen+1)))
 		return -EFAULT;
 
 	*ppos += blen;
@@ -1619,7 +1638,7 @@ end:
 }
 
 extern void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
-		struct dsi_panel_cmds *pcmds, u32 flags);
+		                           struct dsi_panel_cmds *pcmds, u32 flags);
 extern int mdss_dsi_read_reg(struct mdss_dsi_ctrl_pdata *ctrl, char cmd0, int *val0, int *val1);
 
 int mdss_dsi_set_gamma(struct mdss_dsi_ctrl_pdata *ctrl, int val2)
@@ -1633,185 +1652,185 @@ int mdss_dsi_set_gamma(struct mdss_dsi_ctrl_pdata *ctrl, int val2)
 		return -EINVAL;
 	}
 
-	if (val2 == 1) {
+	if (val2 == 1){
 
-	} else if (val2 == 2) {
-		printk("guorui: %s , download default gamma, line %d \n", __func__, __LINE__);
-		if (ctrl->gamma0_cmds.cmd_cnt) {
+	}else if (val2 == 2){
+		printk("guorui: %s ,download default gamma, line %d \n", __func__, __LINE__);
+		if (ctrl->gamma0_cmds.cmd_cnt){
 			mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma0_cmds, CMD_REQ_COMMIT);
-			printk("guorui: %s , gamma0, line %d \n", __func__, __LINE__);
+			printk("guorui: %s ,gamma0, line %d \n", __func__, __LINE__);
 			return 0;
 		}
-	} else {
+	}else{
 		pr_err("%s:val2 not available\n", __func__);
 		return -EINVAL;
 	}
 
-	mdss_dsi_read_reg(ctrl, 0xa1,   &val0,   &val1);
+	mdss_dsi_read_reg(ctrl, 0xa1,  &val0,  &val1);
 
-	if (0 == val0 || 0 == val1) {
-		printk("guorui: %s please check reg 0xa1 , val0:0x%x, val1:0x%x\n", __func__, val0, val1);
+	if (0 == val0 || 0 == val1){
+		printk("guorui: %s please check reg 0xa1 ,val0:0x%x, val1:0x%x\n", __func__, val0, val1);
 		return 0;
 	}
 
-	if (val0 <= 0x8a && val0 >= 0x76) {
-		if (val1 <= 0x85 && val1 >= 0x71) {
-			printk("guorui: %s , no need for gamma balance, line %d \n", __func__, __LINE__);
+	if (val0 <= 0x8a && val0 >= 0x76){
+		if (val1 <= 0x85 && val1 >= 0x71){
+			printk("guorui: %s ,no need for gamma balance, line %d \n", __func__, __LINE__);
 			return 0;
-		} else if (val1 <= 0x6b && val1 >= 0x62) {
-			if (ctrl->gamma1_cmds.cmd_cnt) {
+		}else if (val1 <= 0x6b && val1 >= 0x62){
+			if (ctrl->gamma1_cmds.cmd_cnt){
 				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma1_cmds, CMD_REQ_COMMIT);
-				printk("guorui: %s , gamma1, line %d \n", __func__, __LINE__);
+				printk("guorui: %s ,gamma1, line %d \n", __func__, __LINE__);
 				return 0;
 			}
-		} else if (val1 <= 0x70 && val1 >= 0x6c) {
-			if (ctrl->gamma2_cmds.cmd_cnt) {
+		}else if (val1 <= 0x70 && val1 >= 0x6c){
+			if (ctrl->gamma2_cmds.cmd_cnt){
 				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma2_cmds, CMD_REQ_COMMIT);
-				printk("guorui: %s , gamma2, line %d \n", __func__, __LINE__);
+				printk("guorui: %s ,gamma2, line %d \n", __func__, __LINE__);
 				return 0;
 			}
-		} else if (val1 <= 0x8a && val1 >= 0x86) {
-			if (ctrl->gamma3_cmds.cmd_cnt) {
+		}else if (val1 <= 0x8a && val1 >= 0x86){
+			if (ctrl->gamma3_cmds.cmd_cnt){
 				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma3_cmds, CMD_REQ_COMMIT);
-				printk("guorui: %s , gamma3, line %d \n", __func__, __LINE__);
+				printk("guorui: %s ,gamma3, line %d \n", __func__, __LINE__);
 				return 0;
 			}
-		} else if (val1 <= 0x94 && val1 >= 0x8b) {
-			if (ctrl->gamma4_cmds.cmd_cnt) {
+		}else if (val1 <= 0x94 && val1 >= 0x8b){
+			if (ctrl->gamma4_cmds.cmd_cnt){
 				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma4_cmds, CMD_REQ_COMMIT);
-				printk("guorui: %s , gamma4, line %d \n", __func__, __LINE__);
+				printk("guorui: %s ,gamma4, line %d \n", __func__, __LINE__);
 				return 0;
 			}
 		}
-	} else if (val0 <= 0x70 && val0 >= 0x67) {
-		if (val1 <= 0x6b && val1 >= 0x62) {
-			if (ctrl->gamma9_cmds.cmd_cnt) {
+	}else if (val0 <= 0x70 && val0 >= 0x67){
+		if (val1 <= 0x6b && val1 >= 0x62){
+			if (ctrl->gamma9_cmds.cmd_cnt){
 				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma9_cmds, CMD_REQ_COMMIT);
-				printk("guorui: %s , gamma9, line %d \n", __func__, __LINE__);
+				printk("guorui: %s ,gamma9, line %d \n", __func__, __LINE__);
 				return 0;
 			}
-		} else if (val1 <= 0x70 && val1 >= 0x6c) {
-			if (ctrl->gamma10_cmds.cmd_cnt) {
+		}else if (val1 <= 0x70 && val1 >= 0x6c){
+			if (ctrl->gamma10_cmds.cmd_cnt){
 				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma10_cmds, CMD_REQ_COMMIT);
-				printk("guorui: %s , gamma10, line %d \n", __func__, __LINE__);
+				printk("guorui: %s ,gamma10, line %d \n", __func__, __LINE__);
 				return 0;
 			}
-		} else if (val1 <= 0x8a && val1 >= 0x86) {
-			if (ctrl->gamma11_cmds.cmd_cnt) {
+		}else if (val1 <= 0x8a && val1 >= 0x86){
+			if (ctrl->gamma11_cmds.cmd_cnt){
 				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma11_cmds, CMD_REQ_COMMIT);
-				printk("guorui: %s , gamma11, line %d \n", __func__, __LINE__);
+				printk("guorui: %s ,gamma11, line %d \n", __func__, __LINE__);
 				return 0;
 			}
-		} else if (val1 <= 0x94 && val1 >= 0x8b) {
-			if (ctrl->gamma12_cmds.cmd_cnt) {
+		}else if (val1 <= 0x94 && val1 >= 0x8b){
+			if (ctrl->gamma12_cmds.cmd_cnt){
 				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma12_cmds, CMD_REQ_COMMIT);
-				printk("guorui: %s , gamma12, line %d \n", __func__, __LINE__);
+				printk("guorui: %s ,gamma12, line %d \n", __func__, __LINE__);
 				return 0;
 			}
 		}
-	} else if (val0 <= 0x75 && val0 >= 0x71) {
-		if (val1 <= 0x6b && val1 >= 0x62) {
-			if (ctrl->gamma13_cmds.cmd_cnt) {
+	}else if (val0 <= 0x75 && val0 >= 0x71){
+		if (val1 <= 0x6b && val1 >= 0x62){
+			if (ctrl->gamma13_cmds.cmd_cnt){
 				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma13_cmds, CMD_REQ_COMMIT);
-				printk("guorui: %s , gamma13, line %d \n", __func__, __LINE__);
+				printk("guorui: %s ,gamma13, line %d \n", __func__, __LINE__);
 				return 0;
 			}
-		} else if (val1 <= 0x70 && val1 >= 0x6c) {
-			if (ctrl->gamma14_cmds.cmd_cnt) {
+		}else if (val1 <= 0x70 && val1 >= 0x6c){
+			if (ctrl->gamma14_cmds.cmd_cnt){
 				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma14_cmds, CMD_REQ_COMMIT);
-				printk("guorui: %s , gamma14, line %d \n", __func__, __LINE__);
+				printk("guorui: %s ,gamma14, line %d \n", __func__, __LINE__);
 				return 0;
 			}
-		} else if (val1 <= 0x8a && val1 >= 0x86) {
-			if (ctrl->gamma15_cmds.cmd_cnt) {
+		}else if (val1 <= 0x8a && val1 >= 0x86){
+			if (ctrl->gamma15_cmds.cmd_cnt){
 				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma15_cmds, CMD_REQ_COMMIT);
-				printk("guorui: %s , gamma15, line %d \n", __func__, __LINE__);
+				printk("guorui: %s ,gamma15, line %d \n", __func__, __LINE__);
 				return 0;
 			}
-		} else if (val1 <= 0x94 && val1 >= 0x8b) {
-			if (ctrl->gamma16_cmds.cmd_cnt) {
+		}else if (val1 <= 0x94 && val1 >= 0x8b){
+			if (ctrl->gamma16_cmds.cmd_cnt){
 				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma16_cmds, CMD_REQ_COMMIT);
-				printk("guorui: %s , gamma16, line %d \n", __func__, __LINE__);
+				printk("guorui: %s ,gamma16, line %d \n", __func__, __LINE__);
 				return 0;
 			}
 		}
-	} else if (val0 <= 0x8f && val0 >= 0x8b) {
-		if (val1 <= 0x6b && val1 >= 0x62) {
-			if (ctrl->gamma17_cmds.cmd_cnt) {
+	}else if (val0 <= 0x8f && val0 >= 0x8b){
+		if (val1 <= 0x6b && val1 >= 0x62){
+			if (ctrl->gamma17_cmds.cmd_cnt){
 				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma17_cmds, CMD_REQ_COMMIT);
-				printk("guorui: %s , gamma17, line %d \n", __func__, __LINE__);
+				printk("guorui: %s ,gamma17, line %d \n", __func__, __LINE__);
 				return 0;
 			}
-		} else if (val1 <= 0x70 && val1 >= 0x6c) {
-			if (ctrl->gamma18_cmds.cmd_cnt) {
+		}else if (val1 <= 0x70 && val1 >= 0x6c){
+			if (ctrl->gamma18_cmds.cmd_cnt){
 				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma18_cmds, CMD_REQ_COMMIT);
-				printk("guorui: %s , gamma18, line %d \n", __func__, __LINE__);
+				printk("guorui: %s ,gamma18, line %d \n", __func__, __LINE__);
 				return 0;
 			}
-		} else if (val1 <= 0x8a && val1 >= 0x86) {
-			if (ctrl->gamma19_cmds.cmd_cnt) {
+		}else if (val1 <= 0x8a && val1 >= 0x86){
+			if (ctrl->gamma19_cmds.cmd_cnt){
 				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma19_cmds, CMD_REQ_COMMIT);
-				printk("guorui: %s , gamma19, line %d \n", __func__, __LINE__);
+				printk("guorui: %s ,gamma19, line %d \n", __func__, __LINE__);
 				return 0;
 			}
-		} else if (val1 <= 0x94 && val1 >= 0x8b) {
-			if (ctrl->gamma20_cmds.cmd_cnt) {
+		}else if (val1 <= 0x94 && val1 >= 0x8b){
+			if (ctrl->gamma20_cmds.cmd_cnt){
 				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma20_cmds, CMD_REQ_COMMIT);
-				printk("guorui: %s , gamma20, line %d \n", __func__, __LINE__);
+				printk("guorui: %s ,gamma20, line %d \n", __func__, __LINE__);
 				return 0;
 			}
 		}
-	} else if (val0 <= 0x99 && val0 >= 0x90) {
-		if (val1 <= 0x6b && val1 >= 0x62) {
-			if (ctrl->gamma21_cmds.cmd_cnt) {
+	}else if (val0 <= 0x99 && val0 >= 0x90){
+		if (val1 <= 0x6b && val1 >= 0x62){
+			if (ctrl->gamma21_cmds.cmd_cnt){
 				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma21_cmds, CMD_REQ_COMMIT);
-				printk("guorui: %s , gamma21, line %d \n", __func__, __LINE__);
+				printk("guorui: %s ,gamma21, line %d \n", __func__, __LINE__);
 				return 0;
 			}
-		} else if (val1 <= 0x70 && val1 >= 0x6c) {
-			if (ctrl->gamma22_cmds.cmd_cnt) {
+		}else if (val1 <= 0x70 && val1 >= 0x6c){
+			if (ctrl->gamma22_cmds.cmd_cnt){
 				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma22_cmds, CMD_REQ_COMMIT);
-				printk("guorui: %s , gamma22, line %d \n", __func__, __LINE__);
+				printk("guorui: %s ,gamma22, line %d \n", __func__, __LINE__);
 				return 0;
 			}
-		} else if (val1 <= 0x8a && val1 >= 0x86) {
-			if (ctrl->gamma23_cmds.cmd_cnt) {
+		}else if (val1 <= 0x8a && val1 >= 0x86){
+			if (ctrl->gamma23_cmds.cmd_cnt){
 				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma23_cmds, CMD_REQ_COMMIT);
-				printk("guorui: %s , gamma23, line %d \n", __func__, __LINE__);
+				printk("guorui: %s ,gamma23, line %d \n", __func__, __LINE__);
 				return 0;
 			}
-		} else if (val1 <= 0x94 && val1 >= 0x8b) {
-			if (ctrl->gamma24_cmds.cmd_cnt) {
+		}else if (val1 <= 0x94 && val1 >= 0x8b){
+			if (ctrl->gamma24_cmds.cmd_cnt){
 				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma24_cmds, CMD_REQ_COMMIT);
-				printk("guorui: %s , gamma24, line %d \n", __func__, __LINE__);
+				printk("guorui: %s ,gamma24, line %d \n", __func__, __LINE__);
 				return 0;
 			}
 		}
 	}
 
-	if (val1 <= 0x85 && val1 >= 0x71) {
-		if (val0 <= 0x70 && val0 >= 0x67) {
-			if (ctrl->gamma5_cmds.cmd_cnt) {
+	if (val1 <= 0x85 && val1 >=0x71){
+		if (val0 <= 0x70 && val0 >= 0x67){
+			if (ctrl->gamma5_cmds.cmd_cnt){
 				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma5_cmds, CMD_REQ_COMMIT);
-				printk("guorui: %s , gamma5, line %d \n", __func__, __LINE__);
+				printk("guorui: %s ,gamma5, line %d \n", __func__, __LINE__);
 				return 0;
 			}
-		} else if (val0 <= 0x75 && val0 >= 0x71) {
-			if (ctrl->gamma6_cmds.cmd_cnt) {
+		}else if (val0 <= 0x75 && val0 >= 0x71){
+			if (ctrl->gamma6_cmds.cmd_cnt){
 				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma6_cmds, CMD_REQ_COMMIT);
-				printk("guorui: %s , gamma6, line %d \n", __func__, __LINE__);
+				printk("guorui: %s ,gamma6, line %d \n", __func__, __LINE__);
 				return 0;
 			}
-		} else if (val0 <= 0x8f && val0 >= 0x8b) {
-			if (ctrl->gamma7_cmds.cmd_cnt) {
+		}else if (val0 <= 0x8f && val0 >= 0x8b){
+			if (ctrl->gamma7_cmds.cmd_cnt){
 				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma7_cmds, CMD_REQ_COMMIT);
-				printk("guorui: %s , gamma7, line %d \n", __func__, __LINE__);
+				printk("guorui: %s ,gamma7, line %d \n", __func__, __LINE__);
 				return 0;
 			}
-		} else if (val0 <= 0x99 && val0 >= 0x90) {
-			if (ctrl->gamma8_cmds.cmd_cnt) {
+		}else if (val0 <= 0x99 && val0 >= 0x90){
+			if (ctrl->gamma8_cmds.cmd_cnt){
 				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma8_cmds, CMD_REQ_COMMIT);
-				printk("guorui: %s , gamma8, line %d \n", __func__, __LINE__);
+				printk("guorui: %s ,gamma8, line %d \n", __func__, __LINE__);
 				return 0;
 			}
 		}
@@ -1937,7 +1956,9 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 	}
 
 #ifdef CONFIG_KERNEL_CUSTOM_WHYRED
+	/*add for white point check -start-*/
 
+	/*add for white point check -end-*/
 #endif
 
 	if ((pdata->panel_info.type == MIPI_CMD_PANEL) &&

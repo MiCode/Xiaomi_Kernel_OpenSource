@@ -2,6 +2,7 @@
  * f_sourcesink.c - USB peripheral source/sink configuration driver
  *
  * Copyright (C) 2003-2008 David Brownell
+ * Copyright (C) 2018 XiaoMi, Inc.
  * Copyright (C) 2008 by Nokia Corporation
  *
  * This program is free software; you can redistribute it and/or modify
@@ -301,12 +302,6 @@ static inline struct usb_request *ss_alloc_ep_req(struct usb_ep *ep, int len)
 	struct f_sourcesink		*ss = ep->driver_data;
 
 	return alloc_ep_req(ep, len, ss->buflen);
-}
-
-void free_ep_req(struct usb_ep *ep, struct usb_request *req)
-{
-	kfree(req->buf);
-	usb_ep_free_request(ep, req);
 }
 
 static void disable_ep(struct usb_composite_dev *cdev, struct usb_ep *ep)

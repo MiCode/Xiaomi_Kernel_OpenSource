@@ -1,4 +1,5 @@
 /* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +16,7 @@
 
 #include "sdm636.dtsi"
 #include "sdm636-mtp.dtsi"
+//#include "sdm660-external-codec.dtsi"
 #include "sdm660-internal-codec.dtsi"
 #include "synaptics-dsx-i2c.dtsi"
 
@@ -38,31 +40,31 @@
 };
 
 &pm660l_l3 {
-	regulator-always-on;
+        regulator-always-on;
 };
 &tlmm {
 	hall_int_active:hall_int_active {
 		mux {
-		pins = "gpio76";
-		function = "gpio";
+		          pins = "gpio76";
+		          function = "gpio";
 		};
 		config{
-		pins = "gpio76";
-			drive-strength = <6>;
-			bias-pull-up;
-		};
-	};
+		          pins = "gpio76";
+	                  drive-strength = <6>;
+	                  bias-pull-up;
+	            };
+        };
 	hall_int_suspend: hall_int_suspend {
 		mux {
-		pins = "gpio76";
-		function = "gpio";
+		          pins = "gpio76";
+		          function = "gpio";
 		};
 		config{
-		pins = "gpio76";
-		drive-strength = <6>;
-		bias-pull-up;
+		          pins = "gpio76";
+		          drive-strength = <6>;
+		          bias-pull-up;
 		};
-	};
+        };
 };
 
 &pm660_gpios {
@@ -74,17 +76,26 @@
 		qcom,src-sel = <2>; /* Special Function 1 */
 		qcom,invert = <0>; /* Invert */
 		qcom,master-en = <1>; /* Enable GPIO */
-		status = "ok";
+	        status = "ok";
 	};
 };
 
 &spi_8{
 	status = "ok";
 
+	/*
+	pinctrl-names = "spi_active", "spi_sleep";
+	pinctrl-0 = <&spi_3_active>;
+	pinctrl-1 = <&spi_3_sleep>;*/
+
+
 	dbmd4_spi: dbmd4_interface@0 {
 		compatible = "dspg,dbmd4-spi";
 		reg = <0>;
 		spi-max-frequency = <1000000>;
+
+		//spi-cpol; //CPOL bit set for SPI polarity
+		//spi-cpha; //CPHA bit set for SPI Phase
 
 		read-chunk-size  = <0x2000>;    /* 8192 bytes   */
 		write-chunk-size = <0x20000>;   /* 131072 bytes */
@@ -95,18 +106,20 @@
 &soc {
 	hall_switch {
 
-		compatible = "hall-switch,och175";
-		pinctrl-names = "hall_active","hall_suspend";
-		pinctrl-0 = <&hall_int_active>;
-		pinctrl-1 = <&hall_int_suspend>;
-		vdd-io-supply= <&pm660_l8>;
-		interrupt-names = "hall_irq";
-		hall,irq-gpio = <&tlmm 76 0x0>;
+	    compatible = "hall-switch,och175";
+	    pinctrl-names = "hall_active","hall_suspend";
+	    pinctrl-0 = <&hall_int_active>;
+	    pinctrl-1 = <&hall_int_suspend>;
+	    //interrupt-parent = <&msm_gpio>;
+	    //interrupts = <0 107 3>;
+	    vdd-io-supply= <&pm660_l8>;
+	    interrupt-names = "hall_irq";
+	    hall,irq-gpio = <&tlmm 76 0x0>;
 	};
 
 	dbmdx {
 		compatible = "dspg,dbmdx-codec";
-#if 0
+#if 0//def CUSTOMER_PLATFORM
 		status = "okay";
 		qcom,use-pinctrl;
 		pinctrl-names = "dbmdx_default", "dbmdx_sleep";
@@ -128,24 +141,30 @@
 		feature-va; /* enable VA */
 		va-firmware-name = "dbmd4_va_fw.bin";
 		va-config = <0x80000000
-				0x80000000
-				0x80290020
-				0x80330019
-				0x802210e4
-				0x80158E8E
-				0x801b0020
-				0x80230001
-				0x801A0017
-				0x80103015
-				0x80000000
-				0x80000000
-				0x80000000>;
+			     0x80000000
+			     0x80290020
+			     0x80330019
+			     0x802210e4
+			     0x80158E8E
+			     0x801b0020
+			     0x80230001
+			     0x801A0017
+			     0x80103015
+			     0x80000000
+			     0x80000000
+			     0x80000000>;
 		va-speeds = <0x0000 460800  0 960000
-				0x0000 2000000 0 4800000
-				0x0000 3000000 0 4800000>;
+			     0x0000 2000000 0 4800000
+			     0x0000 3000000 0 4800000>;
 		va-mic-config = <0xf041 0x1044 0x0008>;
 		va-mic-mode = <4>;
+/*
+		digital_mic_digital_gain = <0x14>;
+		analog_mic_analog_gain = <0x3>;
+		analog_mic_digital_gain = <0x14>;
+*/
 		master-clk-rate = <32768>;
+		/* constant-clk-rate = <32768>; */
 		firmware_id = <0xdbd4>;
 		use_gpio_for_wakeup = <1>; /* Use wakeup gpio */
 		wakeup_set_value = <0>;  /* Value to write to wakeup gpio */

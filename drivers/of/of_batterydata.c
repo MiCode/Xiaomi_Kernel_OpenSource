@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -347,6 +348,7 @@ struct device_node *of_batterydata_get_best_profile(
 				break;
 			}
 		} else {
+
 			rc = of_batterydata_read_batt_id_kohm(node,
 							"qcom,batt-id-kohm",
 							&batt_ids);
@@ -367,6 +369,7 @@ struct device_node *of_batterydata_get_best_profile(
 					best_delta = delta;
 					best_id_kohm = batt_ids.kohm[i];
 				}
+
 			}
 		}
 	}

@@ -37,7 +37,7 @@ int gf_parse_dts(struct gf_dev *gf_dev)
 		pr_err("failed to request reset gpio, rc = %d\n", rc);
 		goto err_reset;
 	}
-		 printk("tyt reset_gpio=%d\n", gf_dev->reset_gpio);
+	printk("tyt reset_gpio=%d\n", gf_dev->reset_gpio);
 	gpio_direction_output(gf_dev->reset_gpio, 1);
 
 	gf_dev->irq_gpio = of_get_named_gpio(np, "fp-gpio-irq", 0);
@@ -51,7 +51,7 @@ int gf_parse_dts(struct gf_dev *gf_dev)
 		pr_err("failed to request irq gpio, rc = %d\n", rc);
 		goto err_irq;
 	}
-		 printk("tyt irq_gpio=%d\n", gf_dev->irq_gpio);
+	printk("tyt irq_gpio=%d\n", gf_dev->irq_gpio);
 	gpio_direction_input(gf_dev->irq_gpio);
 
 err_irq:

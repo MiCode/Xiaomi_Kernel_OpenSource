@@ -101,6 +101,8 @@ config ARM64
 	select SYSCTL_EXCEPTION_TRACE
 	select HAVE_CONTEXT_TRACKING
 	select HAVE_ARM_SMCCC
+	select ARCH_HAS_PTE_SPECIAL
+	select ARCH_SUPPORTS_SPECULATIVE_PAGE_FAULT
 	help
 	  ARM 64-bit (AArch64) Linux support.
 
@@ -203,17 +205,35 @@ config ARM64_DMA_USE_IOMMU
 	select ARM_HAS_SG_CHAIN
 	select NEED_SG_DMA_LENGTH
 
+config THERMAL_SWITCH
+    default n
+        bool "Support themral config switch"
+	    help
+	            Support themral config switch.
+
+config PRINT_RPM_CLK_STATUS
+    default n
+        bool "Print rpm status clk to dmesg"
+	    help
+	            Print rpm status clk to dmesg.
+
 config KERNEL_CUSTOM_WHYRED
-	default n
-	bool "Custom for hardware WHYRED_pcb"
-	help
-	  Custom for WHYRED_pcb.
+    default n
+        bool "Custom for hardware WHYRED_pcb"
+	    help
+	            Custom for WHYRED_pcb.
 
 config KERNEL_CUSTOM_WAYNE
-	default n
-	bool "Custom for hardware WAYNE_pcb"
-	help
-	  Custom for WAYNE_pcb.
+    default n
+        bool "Custom for hardware WAYNE_pcb"
+	    help
+	            Custom for WAYNE_pcb.
+
+config KERNEL_CUSTOM_TULIP
+    default n
+        bool "Custom for hardware TULIP_pcb"
+	    help
+	            Custom for TULIP_pcb.
 
 if ARM64_DMA_USE_IOMMU
 
@@ -1174,3 +1194,10 @@ source "arch/arm64/crypto/Kconfig"
 endif
 
 source "lib/Kconfig"
+
+config BOOT_INFO
+        bool "Boot information from bootloader"
+        default y
+        help
+         On embedded linux device, we try to collect more information from
+         bootloader to kernel. eg. powerup reason.

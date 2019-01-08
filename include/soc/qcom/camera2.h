@@ -62,7 +62,8 @@ struct vendor_eeprom{
 	char eeprom_name[128];
 	uint8_t module_id;
 };
-#define CAMERA_VENDOR_EEPROM_COUNT_MAX 8
+
+#define CAMERA_VENDOR_EEPROM_COUNT_MAX 14
 
 #define MAX_SPECIAL_SUPPORT_SIZE 10
 

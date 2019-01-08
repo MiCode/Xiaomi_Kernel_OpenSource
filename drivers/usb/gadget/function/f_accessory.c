@@ -2,6 +2,7 @@
  * Gadget Function Driver for Android USB accessories
  *
  * Copyright (C) 2011 Google, Inc.
+ * Copyright (C) 2018 XiaoMi, Inc.
  * Author: Mike Lockwood <lockwood@android.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -879,6 +880,11 @@ int acc_ctrlrequest(struct usb_composite_dev *cdev,
 	u16	w_length = le16_to_cpu(ctrl->wLength);
 	unsigned long flags;
 
+	if (dev == NULL){
+		value = -EINVAL;
+          	pr_err("acc_dev is NULL\n");
+		goto err;
+	}
 /*
  *	printk(KERN_INFO "acc_ctrlrequest "
  *			"%02x.%02x v%04x i%04x l%u\n",

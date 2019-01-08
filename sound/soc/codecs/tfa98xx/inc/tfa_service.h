@@ -533,7 +533,7 @@ enum Tfa98xx_Error tfa98xx_dsp_write_preset(struct tfa_device *tfa,
 enum Tfa98xx_Error tfa_dsp_cmd_id_write(struct tfa_device *tfa,
 			   unsigned char module_id,
 			   unsigned char param_id, int num_bytes,
-						   const unsigned char data[]);
+			   const unsigned char data[]);
 
 /**
  * wrapper for dsp_msg that writes opcode and reads back the data
@@ -541,7 +541,7 @@ enum Tfa98xx_Error tfa_dsp_cmd_id_write(struct tfa_device *tfa,
 enum Tfa98xx_Error tfa_dsp_cmd_id_write_read(struct tfa_device *tfa,
 			   unsigned char module_id,
 			   unsigned char param_id, int num_bytes,
-						   unsigned char data[]);
+			   unsigned char data[]);
 
 /**
  * wrapper for dsp_msg that adds opcode and 3 bytes required for coefs
@@ -565,7 +565,7 @@ enum Tfa98xx_Error tfa_dsp_cmd_id_MBDrc_dynamics(struct tfa_device *tfa,
  * @param biquad_index: 1-10 of the biquad that needs to be adressed
 */
 enum Tfa98xx_Error Tfa98xx_DspBiquad_Disable(struct tfa_device *tfa,
-					  int biquad_index);
+					                int biquad_index);
 
 /**
  * fill the calibration value as milli ohms in the struct
@@ -696,8 +696,8 @@ enum Tfa98xx_Error tfa98xx_write_data(struct tfa_device *tfa,
 				  const unsigned char data[]);
 
 enum Tfa98xx_Error tfa98xx_write_raw(struct tfa_device *tfa,
-				  int num_bytes,
-				  const unsigned char data[]);
+		  	  	  int num_bytes,
+		  	  	  const unsigned char data[]);
 
 /* support for converting error codes into text */
 const char *tfa98xx_get_error_string(enum Tfa98xx_Error error);
@@ -733,7 +733,7 @@ void tfa98xx_convert_bytes2data(int num_bytes, const unsigned char bytes[],
  * @param bytes output data as unsigned char array
 */
 enum Tfa98xx_Error tfa98xx_dsp_get_memory(struct tfa_device *tfa, int memoryType,
-									    int offset, int length, unsigned char bytes[]);
+			     int offset, int length, unsigned char bytes[]);
 
 /**
  * Write a value to the dsp memory
@@ -744,7 +744,7 @@ enum Tfa98xx_Error tfa98xx_dsp_get_memory(struct tfa_device *tfa, int memoryType
  * @param value the value to write to the dsp
 */
 enum Tfa98xx_Error tfa98xx_dsp_set_memory(struct tfa_device *tfa, int memoryType,
-							int offset, int length, int value);
+			     int offset, int length, int value);
 
 enum Tfa98xx_Error tfa98xx_dsp_write_config(struct tfa_device *tfa, int length, const unsigned char *p_config_bytes);
 enum Tfa98xx_Error tfa98xx_dsp_write_drc(struct tfa_device *tfa, int length, const unsigned char *p_drc_bytes);

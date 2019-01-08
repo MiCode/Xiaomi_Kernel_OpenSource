@@ -2,7 +2,7 @@
  * snd-dbmdx-pcm.c -- DVF99 DBMDX ASoC platform driver
  *
  *  Copyright (C) 2014 DSPG Technologies GmbH
- * Copyright (C) 2018 XiaoMi, Inc.
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *
  *
  * This program is free software; you can redistribute it and/or modify
