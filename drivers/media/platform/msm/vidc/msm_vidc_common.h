@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _MSM_VIDC_COMMON_H_
@@ -142,10 +142,8 @@ struct buf_queue *msm_comm_get_vb2q(
 		struct msm_vidc_inst *inst, enum v4l2_buf_type type);
 int msm_comm_try_state(struct msm_vidc_inst *inst, int state);
 int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst);
-int msm_comm_try_set_prop(struct msm_vidc_inst *inst,
-	enum hal_property ptype, void *pdata);
-int msm_comm_try_get_prop(struct msm_vidc_inst *inst,
-	enum hal_property ptype, union hal_get_property *hprop);
+int msm_comm_try_get_buff_req(struct msm_vidc_inst *inst,
+	union hal_get_property *hprop);
 int msm_comm_set_recon_buffers(struct msm_vidc_inst *inst);
 int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst);
 int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst);
@@ -212,8 +210,8 @@ void msm_comm_cleanup_internal_buffers(struct msm_vidc_inst *inst);
 int msm_vidc_comm_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a);
 bool msm_comm_turbo_session(struct msm_vidc_inst *inst);
 void msm_comm_print_inst_info(struct msm_vidc_inst *inst);
-int msm_comm_v4l2_to_hal(int id, int value);
-int msm_comm_hal_to_v4l2(int id, int value);
+int msm_comm_v4l2_to_hfi(int id, int value);
+int msm_comm_hfi_to_v4l2(int id, int value);
 int msm_comm_get_v4l2_profile(int fourcc, int profile);
 int msm_comm_get_v4l2_level(int fourcc, int level);
 int msm_comm_session_continue(void *instance);
@@ -274,6 +272,8 @@ int msm_comm_release_mark_data(struct msm_vidc_inst *inst);
 int msm_comm_qbuf_decode_batch(struct msm_vidc_inst *inst,
 		struct msm_vidc_buffer *mbuf);
 int msm_comm_num_queued_bufs(struct msm_vidc_inst *inst, u32 type);
+int msm_comm_set_index_extradata(struct msm_vidc_inst *inst,
+		uint32_t extradata_id, uint32_t value);
 int msm_comm_set_extradata(struct msm_vidc_inst *inst, uint32_t extradata_id,
 		uint32_t value);
 #endif

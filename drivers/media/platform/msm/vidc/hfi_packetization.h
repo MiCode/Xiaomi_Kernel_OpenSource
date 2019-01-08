@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 #ifndef __HFI_PACKETIZATION_H__
 #define __HFI_PACKETIZATION_H__
@@ -76,13 +76,10 @@ struct hfi_packetization_ops {
 		struct hal_session *session);
 	int (*session_flush)(struct hfi_cmd_session_flush_packet *pkt,
 		struct hal_session *session, enum hal_flush flush_mode);
-	int (*session_get_property)(
-		struct hfi_cmd_session_get_property_packet *pkt,
-		struct hal_session *session, enum hal_property ptype);
 	int (*session_set_property)(
 		struct hfi_cmd_session_set_property_packet *pkt,
 		struct hal_session *session,
-		enum hal_property ptype, void *pdata);
+		u32 ptype, void *pdata, u32 size);
 	int (*session_sync_process)(
 		struct hfi_cmd_session_sync_process_packet *pkt,
 		struct hal_session *session);

@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 #include <linux/slab.h>
 #include "msm_venc.h"
 #include "msm_vidc_internal.h"
 #include "msm_vidc_common.h"
+#include "vidc_hfi.h"
+#include "vidc_hfi_helper.h"
 #include "vidc_hfi_api.h"
 #include "msm_vidc_debug.h"
 #include "msm_vidc_clocks.h"
@@ -1121,12 +1123,14 @@ static int msm_venc_set_csc(struct msm_vidc_inst *inst,
 {
 	int rc = 0;
 	int count = 0;
-	struct hal_vpe_color_space_conversion vpe_csc;
+	struct hfi_vpe_color_space_conversion vpe_csc;
 	struct msm_vidc_platform_resources *resources;
 	u32 *bias_coeff = NULL;
 	u32 *csc_limit = NULL;
 	u32 *csc_matrix = NULL;
+	struct hfi_device *hdev;
 
+	hdev = inst->core->device;
 	resources = &(inst->core->resources);
 	bias_coeff =
 		resources->csc_coeff_data->vpe_csc_custom_bias_coeff;
@@ -1153,11 +1157,13 @@ static int msm_venc_set_csc(struct msm_vidc_inst *inst,
 			count = count + 1;
 		}
 	}
-	rc = msm_comm_try_set_prop(inst,
-			HAL_PARAM_VPE_COLOR_SPACE_CONVERSION, &vpe_csc);
-	if (rc)
-		dprintk(VIDC_ERR, "Setting VPE coefficients failed\n");
 
+	rc = call_hfi_op(hdev, session_set_property, inst->session,
+		HFI_PROPERTY_PARAM_VPE_COLOR_SPACE_CONVERSION,
+		&vpe_csc, sizeof(vpe_csc));
+	if (rc)
+		dprintk(VIDC_ERR,
+			"%s: set property failed\n", __func__);
 	return rc;
 }
 
@@ -1649,7 +1655,7 @@ int msm_venc_set_frame_size(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
-	struct hal_frame_size frame_sz;
+	struct hfi_frame_size frame_sz;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -1657,26 +1663,26 @@ int msm_venc_set_frame_size(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
-	frame_sz.buffer_type = HAL_BUFFER_INPUT;
+	frame_sz.buffer_type = HFI_BUFFER_INPUT;
 	frame_sz.width = inst->prop.width[OUTPUT_PORT];
 	frame_sz.height = inst->prop.height[OUTPUT_PORT];
 	dprintk(VIDC_DBG, "%s: input %d %d\n", __func__,
 			frame_sz.width, frame_sz.height);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-				HAL_PARAM_FRAME_SIZE, &frame_sz);
+		HFI_PROPERTY_PARAM_FRAME_SIZE, &frame_sz, sizeof(frame_sz));
 	if (rc) {
 		dprintk(VIDC_ERR, "%s: failed to set input frame size %d %d\n",
 			__func__, frame_sz.width, frame_sz.height);
 		return rc;
 	}
 
-	frame_sz.buffer_type = HAL_BUFFER_OUTPUT;
+	frame_sz.buffer_type = HFI_BUFFER_OUTPUT;
 	frame_sz.width = inst->prop.width[CAPTURE_PORT];
 	frame_sz.height = inst->prop.height[CAPTURE_PORT];
 	dprintk(VIDC_DBG, "%s: output %d %d\n", __func__,
 			frame_sz.width, frame_sz.height);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_PARAM_FRAME_SIZE, &frame_sz);
+		HFI_PROPERTY_PARAM_FRAME_SIZE, &frame_sz, sizeof(frame_sz));
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"%s: failed to set output frame size %d %d\n",
@@ -1769,7 +1775,7 @@ int msm_venc_set_secure_mode(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
-	struct hal_enable enable;
+	struct hfi_enable enable;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -1786,7 +1792,7 @@ int msm_venc_set_secure_mode(struct msm_vidc_inst *inst)
 
 	dprintk(VIDC_DBG, "%s: %d\n", __func__, enable);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_PARAM_SECURE, &enable);
+		HFI_PROPERTY_PARAM_SECURE_SESSION, &enable, sizeof(enable));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -1798,7 +1804,7 @@ int msm_venc_set_priority(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
-	struct hal_enable enable;
+	struct hfi_enable enable;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -1815,7 +1821,7 @@ int msm_venc_set_priority(struct msm_vidc_inst *inst)
 
 	dprintk(VIDC_DBG, "%s: %d\n", __func__, enable);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_CONFIG_REALTIME, &enable);
+		HFI_PROPERTY_CONFIG_REALTIME, &enable, sizeof(enable));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -1827,7 +1833,7 @@ int msm_venc_set_operating_rate(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
-	struct hal_operating_rate op_rate;
+	struct hfi_operating_rate op_rate;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -1845,7 +1851,7 @@ int msm_venc_set_operating_rate(struct msm_vidc_inst *inst)
 
 	dprintk(VIDC_DBG, "%s: %d\n", __func__, op_rate.operating_rate >> 16);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_CONFIG_OPERATING_RATE, &op_rate);
+		HFI_PROPERTY_CONFIG_OPERATING_RATE, &op_rate, sizeof(op_rate));
 	if (rc) {
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 		return rc;
@@ -1861,7 +1867,8 @@ int msm_venc_set_profile_level(struct msm_vidc_inst *inst)
 	struct v4l2_ctrl *profile;
 	struct v4l2_ctrl *level;
 	struct v4l2_ctrl *tier;
-	struct hal_profile_level profile_level;
+	struct hfi_profile_level profile_level;
+	u32 hfi_tier;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -1883,9 +1890,9 @@ int msm_venc_set_profile_level(struct msm_vidc_inst *inst)
 		}
 
 		profile_level.profile =
-			msm_comm_v4l2_to_hal(profile->id, profile->val);
+			msm_comm_v4l2_to_hfi(profile->id, profile->val);
 		profile_level.level =
-			msm_comm_v4l2_to_hal(level->id, level->val);
+			msm_comm_v4l2_to_hfi(level->id, level->val);
 		break;
 	case V4L2_PIX_FMT_HEVC:
 		profile = msm_venc_get_ctrl(inst,
@@ -1902,9 +1909,11 @@ int msm_venc_set_profile_level(struct msm_vidc_inst *inst)
 		}
 
 		profile_level.profile =
-			msm_comm_v4l2_to_hal(profile->id, profile->val);
+			msm_comm_v4l2_to_hfi(profile->id, profile->val);
 		profile_level.level =
-			msm_comm_v4l2_to_hal(level->id, level->val);
+			msm_comm_v4l2_to_hfi(level->id, level->val);
+		hfi_tier = msm_comm_v4l2_to_hfi(tier->id, tier->val);
+		profile_level.level |= (hfi_tier << 28);
 		break;
 	case V4L2_PIX_FMT_VP8:
 		level = msm_venc_get_ctrl(inst,
@@ -1916,9 +1925,9 @@ int msm_venc_set_profile_level(struct msm_vidc_inst *inst)
 			return -EINVAL;
 		}
 		profile_level.profile =
-			HAL_VP8_PROFILE_MAIN;
+			HFI_VP8_PROFILE_MAIN;
 		profile_level.level =
-			msm_comm_v4l2_to_hal(level->id, level->val);
+			msm_comm_v4l2_to_hfi(level->id, level->val);
 		break;
 	default:
 		dprintk(VIDC_ERR, "%s: unknown fourcc %#x\n", __func__,
@@ -1929,7 +1938,8 @@ int msm_venc_set_profile_level(struct msm_vidc_inst *inst)
 	dprintk(VIDC_DBG, "%s: %#x %#x\n", __func__,
 		profile_level.profile, profile_level.level);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_PARAM_PROFILE_LEVEL_CURRENT, &profile_level);
+		HFI_PROPERTY_PARAM_PROFILE_LEVEL_CURRENT, &profile_level,
+		sizeof(profile_level));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -1940,7 +1950,7 @@ int msm_venc_set_idr_period(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
-	struct hal_idr_period idr_period;
+	struct hfi_idr_period idr_period;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -1956,7 +1966,8 @@ int msm_venc_set_idr_period(struct msm_vidc_inst *inst)
 
 	dprintk(VIDC_DBG, "%s: %d\n", __func__, idr_period.idr_period);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_CONFIG_VENC_IDR_PERIOD, &idr_period);
+		HFI_PROPERTY_CONFIG_VENC_IDR_PERIOD, &idr_period,
+		sizeof(idr_period));
 	if (rc) {
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 		return rc;
@@ -1970,7 +1981,7 @@ int msm_venc_set_intra_period(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
-	struct hal_intra_period intra_period;
+	struct hfi_intra_period intra_period;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -1995,11 +2006,13 @@ int msm_venc_set_intra_period(struct msm_vidc_inst *inst)
 	dprintk(VIDC_DBG, "%s: %d %d\n", __func__, intra_period.pframes,
 		intra_period.bframes);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_CONFIG_VENC_INTRA_PERIOD, &intra_period);
+		HFI_PROPERTY_CONFIG_VENC_INTRA_PERIOD, &intra_period,
+		sizeof(intra_period));
 	if (rc) {
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 		return rc;
 	}
+
 	return rc;
 }
 
@@ -2008,7 +2021,6 @@ int msm_venc_set_request_keyframe(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
-	struct hal_request_iframe request_iframe;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -2022,11 +2034,10 @@ int msm_venc_set_request_keyframe(struct msm_vidc_inst *inst)
 		dprintk(VIDC_ERR, "%s: get request iframe failed\n", __func__);
 		return -EINVAL;
 	}
-	request_iframe.enable = ctrl->val;
 
-	dprintk(VIDC_DBG, "%s: %d\n", __func__, request_iframe.enable);
+	dprintk(VIDC_DBG, "%s\n", __func__);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_CONFIG_VENC_REQUEST_IFRAME, &request_iframe);
+		HFI_PROPERTY_CONFIG_VENC_REQUEST_SYNC_FRAME, NULL, 0);
 	if (rc) {
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 		return rc;
@@ -2039,7 +2050,7 @@ int msm_venc_set_adaptive_bframes(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
-	struct hal_enable enable;
+	struct hfi_enable enable;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -2051,7 +2062,7 @@ int msm_venc_set_adaptive_bframes(struct msm_vidc_inst *inst)
 
 	dprintk(VIDC_DBG, "%s: %d\n", __func__, enable.enable);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_PARAM_VENC_ADAPTIVE_B, &enable);
+		HFI_PROPERTY_PARAM_VENC_ADAPTIVE_B, &enable, sizeof(enable));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -2064,6 +2075,7 @@ int msm_venc_set_rate_control(struct msm_vidc_inst *inst)
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *hier_layers;
 	struct v4l2_ctrl *hier_type;
+	u32 hfi_rc;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -2086,9 +2098,39 @@ int msm_venc_set_rate_control(struct msm_vidc_inst *inst)
 			return -EINVAL;
 		}
 	}
+	switch (inst->rc_type) {
+	case RATE_CONTROL_OFF:
+		hfi_rc = HFI_RATE_CONTROL_OFF;
+		break;
+	case V4L2_MPEG_VIDEO_BITRATE_MODE_CBR:
+		hfi_rc = HFI_RATE_CONTROL_CBR_CFR;
+		break;
+	case V4L2_MPEG_VIDEO_BITRATE_MODE_VBR:
+		hfi_rc = HFI_RATE_CONTROL_VBR_CFR;
+		break;
+	case V4L2_MPEG_VIDEO_BITRATE_MODE_MBR:
+		hfi_rc = HFI_RATE_CONTROL_MBR_CFR;
+		break;
+	case V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR:
+		hfi_rc = HFI_RATE_CONTROL_CBR_VFR;
+		break;
+	case V4L2_MPEG_VIDEO_BITRATE_MODE_MBR_VFR:
+		hfi_rc = HFI_RATE_CONTROL_MBR_VFR;
+		break;
+	case V4L2_MPEG_VIDEO_BITRATE_MODE_CQ:
+		hfi_rc = HFI_RATE_CONTROL_CQ;
+		break;
+	default:
+		hfi_rc = HFI_RATE_CONTROL_OFF;
+		dprintk(VIDC_ERR,
+			"Invalid Rate control setting: %d Default RCOFF\n",
+			inst->rc_type);
+		break;
+	}
 	dprintk(VIDC_DBG, "%s: %d\n", __func__, inst->rc_type);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_PARAM_VENC_RATE_CONTROL, &inst->rc_type);
+		HFI_PROPERTY_PARAM_VENC_RATE_CONTROL, &hfi_rc,
+		sizeof(u32));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -2100,7 +2142,7 @@ int msm_venc_set_input_timestamp_rc(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
-	struct hal_enable enable;
+	struct hfi_enable enable;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -2123,7 +2165,8 @@ int msm_venc_set_input_timestamp_rc(struct msm_vidc_inst *inst)
 
 	dprintk(VIDC_DBG, "%s: %d\n", __func__, enable.enable);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_PARAM_VENC_DISABLE_RC_TIMESTAMP, &enable);
+		HFI_PROPERTY_PARAM_VENC_DISABLE_RC_TIMESTAMP, &enable,
+		sizeof(enable));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -2135,7 +2178,7 @@ int msm_venc_set_bitrate(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
-	struct hal_bitrate bitrate;
+	struct hfi_bitrate bitrate;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -2152,7 +2195,8 @@ int msm_venc_set_bitrate(struct msm_vidc_inst *inst)
 	bitrate.layer_id = MSM_VIDC_ALL_LAYER_ID;
 	dprintk(VIDC_DBG, "%s: %d\n", __func__, bitrate.bit_rate);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_CONFIG_VENC_TARGET_BITRATE, &bitrate);
+		HFI_PROPERTY_CONFIG_VENC_TARGET_BITRATE, &bitrate,
+		sizeof(bitrate));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -2163,8 +2207,10 @@ int msm_venc_set_frame_qp(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
-	struct v4l2_ctrl *ctrl;
-	struct hal_quantization qp;
+	struct v4l2_ctrl *i_qp;
+	struct v4l2_ctrl *p_qp;
+	struct v4l2_ctrl *b_qp;
+	struct hfi_quantization qp;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -2174,33 +2220,31 @@ int msm_venc_set_frame_qp(struct msm_vidc_inst *inst)
 
 	qp.layer_id = MSM_VIDC_ALL_LAYER_ID;
 
-	ctrl = msm_venc_get_ctrl(inst, V4L2_CID_MPEG_VIDEO_HEVC_I_FRAME_QP);
-	if (!ctrl) {
+	i_qp = msm_venc_get_ctrl(inst, V4L2_CID_MPEG_VIDEO_HEVC_I_FRAME_QP);
+	if (!i_qp) {
 		dprintk(VIDC_ERR, "%s: get qpi failed\n", __func__);
 		return -EINVAL;
 	}
-	qp.qpi = ctrl->val;
 
-	ctrl = msm_venc_get_ctrl(inst, V4L2_CID_MPEG_VIDEO_HEVC_P_FRAME_QP);
-	if (!ctrl) {
+	p_qp = msm_venc_get_ctrl(inst, V4L2_CID_MPEG_VIDEO_HEVC_P_FRAME_QP);
+	if (!p_qp) {
 		dprintk(VIDC_ERR, "%s: get qpp failed\n", __func__);
 		return -EINVAL;
 	}
-	qp.qpp = ctrl->val;
 
-	ctrl = msm_venc_get_ctrl(inst, V4L2_CID_MPEG_VIDEO_HEVC_B_FRAME_QP);
-	if (!ctrl) {
+	b_qp = msm_venc_get_ctrl(inst, V4L2_CID_MPEG_VIDEO_HEVC_B_FRAME_QP);
+	if (!b_qp) {
 		dprintk(VIDC_ERR, "%s: get qpb failed\n", __func__);
 		return -EINVAL;
 	}
-	qp.qpb = ctrl->val;
 
 	/* This should happen based on which controls are set */
+	qp.qp_packed = i_qp->val | p_qp->val << 8 | b_qp->val << 16;
 	qp.enable = QP_ENABLE_I | QP_ENABLE_P | QP_ENABLE_B;
-	dprintk(VIDC_DBG, "%s: layers %#x frames %#x qpi %#x qpp %#x qpb %#x\n",
-		__func__, qp.layer_id, qp.enable, qp.qpi, qp.qpp, qp.qpb);
+	dprintk(VIDC_DBG, "%s: layers %#x frames %#x qp_packed %#x\n",
+		__func__, qp.layer_id, qp.enable, qp.qp_packed);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_CONFIG_VENC_FRAME_QP, &qp);
+		HFI_PROPERTY_CONFIG_VENC_FRAME_QP, &qp, sizeof(qp));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -2212,7 +2256,7 @@ int msm_venc_set_qp_range(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
-	struct hal_quantization_range qp_range;
+	struct hfi_quantization_range qp_range;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -2220,7 +2264,8 @@ int msm_venc_set_qp_range(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
-	qp_range.layer_id = MSM_VIDC_ALL_LAYER_ID;
+	qp_range.min_qp.layer_id = MSM_VIDC_ALL_LAYER_ID;
+	qp_range.max_qp.layer_id = MSM_VIDC_ALL_LAYER_ID;
 
 	ctrl = msm_venc_get_ctrl(inst,
 			V4L2_CID_MPEG_VIDEO_HEVC_MIN_QP);
@@ -2228,7 +2273,7 @@ int msm_venc_set_qp_range(struct msm_vidc_inst *inst)
 		dprintk(VIDC_ERR, "%s: get qpi_min failed\n", __func__);
 		return -EINVAL;
 	}
-	qp_range.qp_min_packed = ctrl->val;
+	qp_range.min_qp.qp_packed = ctrl->val;
 
 	ctrl = msm_venc_get_ctrl(inst,
 			V4L2_CID_MPEG_VIDEO_HEVC_MAX_QP);
@@ -2236,14 +2281,15 @@ int msm_venc_set_qp_range(struct msm_vidc_inst *inst)
 		dprintk(VIDC_ERR, "%s: get qpi_max failed\n", __func__);
 		return -EINVAL;
 	}
-	qp_range.qp_max_packed = ctrl->val;
+	qp_range.max_qp.qp_packed = ctrl->val;
 
 	dprintk(VIDC_DBG,
 			"%s: layers %#x qp_min %#x qp_max %#x\n",
-			__func__, qp_range.layer_id,
-			qp_range.qp_min_packed, qp_range.qp_max_packed);
+			__func__, qp_range.min_qp.layer_id,
+			qp_range.min_qp.qp_packed, qp_range.max_qp.qp_packed);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_PARAM_VENC_SESSION_QP_RANGE, &qp_range);
+		HFI_PROPERTY_PARAM_VENC_SESSION_QP_RANGE, &qp_range,
+		sizeof(qp_range));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -2255,7 +2301,7 @@ int msm_venc_set_frame_quality(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
-	struct hal_heic_frame_quality frame_quality;
+	struct hfi_heic_frame_quality frame_quality;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -2276,7 +2322,8 @@ int msm_venc_set_frame_quality(struct msm_vidc_inst *inst)
 
 	dprintk(VIDC_DBG, "%s: %d\n", __func__, frame_quality.frame_quality);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_CONFIG_HEIC_FRAME_QUALITY, &frame_quality);
+		HFI_PROPERTY_CONFIG_HEIC_FRAME_QUALITY, &frame_quality,
+		sizeof(frame_quality));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -2288,7 +2335,7 @@ int msm_venc_set_grid(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
-	struct hal_heic_grid_enable grid_enable;
+	struct hfi_heic_grid_enable grid_enable;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -2313,7 +2360,8 @@ int msm_venc_set_grid(struct msm_vidc_inst *inst)
 
 	dprintk(VIDC_DBG, "%s: %d\n", __func__, grid_enable.grid_enable);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_CONFIG_HEIC_GRID_ENABLE, &grid_enable);
+		HFI_PROPERTY_CONFIG_HEIC_GRID_ENABLE, &grid_enable,
+		sizeof(grid_enable));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -2325,7 +2373,7 @@ int msm_venc_set_entropy_mode(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
-	struct hal_h264_entropy_control entropy;
+	struct hfi_h264_entropy_control entropy;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -2342,13 +2390,14 @@ int msm_venc_set_entropy_mode(struct msm_vidc_inst *inst)
 		dprintk(VIDC_ERR, "%s: get entropy mode failed\n", __func__);
 		return -EINVAL;
 	}
-	entropy.entropy_mode = msm_comm_v4l2_to_hal(
+	entropy.entropy_mode = msm_comm_v4l2_to_hfi(
 			V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE,
 			ctrl->val);
 
 	dprintk(VIDC_DBG, "%s: %d\n", __func__, entropy.entropy_mode);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_PARAM_VENC_H264_ENTROPY_CONTROL, &entropy);
+		HFI_PROPERTY_PARAM_VENC_H264_ENTROPY_CONTROL, &entropy,
+		sizeof(entropy));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -2359,9 +2408,9 @@ int msm_venc_set_slice_control_mode(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
-	struct v4l2_ctrl *slicemode_ctrl = NULL;
-	struct v4l2_ctrl *slicesize_ctrl = NULL;
-	struct hal_multi_slice_control multi_slice_control;
+	struct v4l2_ctrl *ctrl;
+	struct v4l2_ctrl *ctrl_t;
+	struct hfi_multi_slice_control multi_slice_control;
 	int temp = 0;
 
 	if (!inst || !inst->core) {
@@ -2374,42 +2423,42 @@ int msm_venc_set_slice_control_mode(struct msm_vidc_inst *inst)
 		inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_H264)
 		return 0;
 
-	slicemode_ctrl = msm_venc_get_ctrl(inst,
+	ctrl = msm_venc_get_ctrl(inst,
 			V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE);
-	if (!slicemode_ctrl) {
+	if (!ctrl) {
 		dprintk(VIDC_ERR,
 			"%s: get multi slice mode failed\n", __func__);
 		return -EINVAL;
 	}
-	switch (slicemode_ctrl->val) {
-	case V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_MB:
+
+	multi_slice_control.multi_slice = HFI_MULTI_SLICE_OFF;
+	temp = 0;
+	if (ctrl->val == V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_MB) {
 		temp = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB;
-		break;
-	case V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_BYTES:
+		multi_slice_control.multi_slice = HFI_MULTI_SLICE_BY_MB_COUNT;
+	} else if (ctrl->val == V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_BYTES) {
 		temp = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES;
-		break;
-	case V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE:
-	default:
-		temp = 0;
-		break;
+		multi_slice_control.multi_slice =
+			HFI_MULTI_SLICE_BY_BYTE_COUNT;
 	}
+
+	multi_slice_control.slice_size = 0;
 	if (temp) {
-		slicesize_ctrl = msm_venc_get_ctrl(inst, temp);
-		if (!slicesize_ctrl) {
+		ctrl_t = msm_venc_get_ctrl(inst, temp);
+		if (!ctrl_t) {
 			dprintk(VIDC_ERR,
 				"%s: get slice mode failed\n", __func__);
 			return -EINVAL;
 		}
+		multi_slice_control.slice_size = ctrl_t->val;
 	}
-	multi_slice_control.multi_slice = slicemode_ctrl->val;
-	multi_slice_control.slice_size = temp ? slicesize_ctrl->val : 0;
 
 	dprintk(VIDC_DBG, "%s: %d %d\n", __func__,
 			multi_slice_control.multi_slice,
 			multi_slice_control.slice_size);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_PARAM_VENC_MULTI_SLICE_CONTROL,
-			&multi_slice_control);
+		HFI_PROPERTY_PARAM_VENC_MULTI_SLICE_CONTROL,
+		&multi_slice_control, sizeof(multi_slice_control));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -2421,7 +2470,7 @@ int msm_venc_set_intra_refresh_mode(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
-	struct hal_intra_refresh intra_refresh;
+	struct hfi_intra_refresh intra_refresh;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -2436,10 +2485,12 @@ int msm_venc_set_intra_refresh_mode(struct msm_vidc_inst *inst)
 			"%s: get intra_refresh random failed\n", __func__);
 		return -EINVAL;
 	}
+
+	intra_refresh.mbs = 0;
 	if (ctrl->val) {
 		/* ignore cyclic mode if random mode is set */
-		intra_refresh.mode = HAL_INTRA_REFRESH_RANDOM;
-		intra_refresh.ir_mbs = ctrl->val;
+		intra_refresh.mode = HFI_INTRA_REFRESH_RANDOM;
+		intra_refresh.mbs = ctrl->val;
 	} else {
 		ctrl = msm_venc_get_ctrl(inst,
 			V4L2_CID_MPEG_VIDEO_CYCLIC_INTRA_REFRESH_MB);
@@ -2449,19 +2500,19 @@ int msm_venc_set_intra_refresh_mode(struct msm_vidc_inst *inst)
 				__func__);
 			return -EINVAL;
 		}
-		if (ctrl->val)
-			return 0;
-
-		intra_refresh.mode = HAL_INTRA_REFRESH_CYCLIC;
-		intra_refresh.ir_mbs = ctrl->val;
+		intra_refresh.mode = HFI_INTRA_REFRESH_CYCLIC;
+		intra_refresh.mbs = ctrl->val;
 	}
-	if (!intra_refresh.ir_mbs)
-		return 0;
+	if (!intra_refresh.mbs) {
+		intra_refresh.mode = HFI_INTRA_REFRESH_NONE;
+		intra_refresh.mbs = 0;
+	}
 
 	dprintk(VIDC_DBG, "%s: %d %d\n", __func__,
-			intra_refresh.mode, intra_refresh.ir_mbs);
+			intra_refresh.mode, intra_refresh.mbs);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_PARAM_VENC_INTRA_REFRESH, &intra_refresh);
+		HFI_PROPERTY_PARAM_VENC_INTRA_REFRESH, &intra_refresh,
+		sizeof(intra_refresh));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -2475,7 +2526,7 @@ int msm_venc_set_loop_filter_mode(struct msm_vidc_inst *inst)
 	struct v4l2_ctrl *ctrl;
 	struct v4l2_ctrl *ctrl_a;
 	struct v4l2_ctrl *ctrl_b;
-	struct hal_h264_db_control h264_db_control;
+	struct hfi_h264_db_control h264_db_control;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -2505,7 +2556,7 @@ int msm_venc_set_loop_filter_mode(struct msm_vidc_inst *inst)
 			"%s: get loop filter beta failed\n", __func__);
 		return -EINVAL;
 	}
-	h264_db_control.mode = msm_comm_v4l2_to_hal(
+	h264_db_control.mode = msm_comm_v4l2_to_hfi(
 			V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_MODE,
 			ctrl->val);
 	h264_db_control.slice_alpha_offset = ctrl_a->val;
@@ -2515,7 +2566,8 @@ int msm_venc_set_loop_filter_mode(struct msm_vidc_inst *inst)
 		h264_db_control.mode, h264_db_control.slice_alpha_offset,
 		h264_db_control.slice_beta_offset);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-		HAL_PARAM_VENC_H264_DEBLOCK_CONTROL, &h264_db_control);
+		HFI_PROPERTY_PARAM_VENC_H264_DEBLOCK_CONTROL, &h264_db_control,
+		sizeof(h264_db_control));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -2527,7 +2579,7 @@ int msm_venc_set_sequence_header_mode(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
-	struct hal_enable enable;
+	struct hfi_enable enable;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -2550,7 +2602,8 @@ int msm_venc_set_sequence_header_mode(struct msm_vidc_inst *inst)
 
 	dprintk(VIDC_DBG, "%s: %d\n", __func__, enable.enable);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_PARAM_VENC_SYNC_FRAME_SEQUENCE_HEADER, &enable);
+		HFI_PROPERTY_CONFIG_VENC_SYNC_FRAME_SEQUENCE_HEADER, &enable,
+		sizeof(enable));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -2562,7 +2615,7 @@ int msm_venc_set_au_delimiter_mode(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
-	struct hal_enable enable;
+	struct hfi_enable enable;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -2579,7 +2632,8 @@ int msm_venc_set_au_delimiter_mode(struct msm_vidc_inst *inst)
 
 	dprintk(VIDC_DBG, "%s: %d\n", __func__, enable.enable);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_PARAM_VENC_GENERATE_AUDNAL, &enable);
+		HFI_PROPERTY_PARAM_VENC_GENERATE_AUDNAL, &enable,
+		sizeof(enable));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -2653,7 +2707,8 @@ int msm_venc_set_base_layer_id(struct msm_vidc_inst *inst)
 
 	dprintk(VIDC_DBG, "%s: %d\n", __func__, baselayerid);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_CONFIG_VENC_BASELAYER_PRIORITYID, &baselayerid);
+		HFI_PROPERTY_CONFIG_VENC_BASELAYER_PRIORITYID, &baselayerid,
+		sizeof(baselayerid));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -2666,7 +2721,7 @@ int msm_venc_set_hierp_layers(struct msm_vidc_inst *inst)
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
 	u32 hierp_layers;
-	struct hal_hybrid_hierp hyb_hierp;
+	struct hfi_hybrid_hierp hyb_hierp;
 	bool hyb_hp;
 
 	if (!inst || !inst->core) {
@@ -2703,7 +2758,8 @@ int msm_venc_set_hierp_layers(struct msm_vidc_inst *inst)
 		hyb_hierp.layers = ctrl->val;
 		dprintk(VIDC_DBG, "%s: %d\n", __func__, hyb_hierp.layers);
 		rc = call_hfi_op(hdev, session_set_property, inst->session,
-				HAL_PARAM_VENC_HIER_P_HYBRID_MODE, &hyb_hierp);
+			HFI_PROPERTY_PARAM_VENC_HIER_P_HYBRID_MODE,
+			&hyb_hierp, sizeof(hyb_hierp));
 		if (rc)
 			dprintk(VIDC_ERR,
 				"%s: set property failed\n", __func__);
@@ -2711,8 +2767,8 @@ int msm_venc_set_hierp_layers(struct msm_vidc_inst *inst)
 		hierp_layers = ctrl->val;
 		dprintk(VIDC_DBG, "%s: %d\n", __func__, hierp_layers);
 		rc = call_hfi_op(hdev, session_set_property, inst->session,
-				HAL_CONFIG_VENC_HIER_P_NUM_FRAMES,
-				&hierp_layers);
+			HFI_PROPERTY_CONFIG_VENC_HIER_P_ENH_LAYER,
+			&hierp_layers, sizeof(hierp_layers));
 		if (rc)
 			dprintk(VIDC_ERR,
 				"%s: set property failed\n", __func__);
@@ -2725,7 +2781,7 @@ int msm_venc_set_vpx_error_resilience(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
-	struct hal_enable enable;
+	struct hfi_enable enable;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -2747,7 +2803,8 @@ int msm_venc_set_vpx_error_resilience(struct msm_vidc_inst *inst)
 
 	dprintk(VIDC_DBG, "%s: %d\n", __func__, enable.enable);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_PARAM_VENC_VPX_ERROR_RESILIENCE_MODE, &enable);
+		HFI_PROPERTY_PARAM_VENC_VPX_ERROR_RESILIENCE_MODE, &enable,
+		sizeof(enable));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -2762,7 +2819,7 @@ int msm_venc_set_video_signal_info(struct msm_vidc_inst *inst)
 	struct v4l2_ctrl *ctrl_fr;
 	struct v4l2_ctrl *ctrl_tr;
 	struct v4l2_ctrl *ctrl_mc;
-	struct hal_video_signal_info signal_info;
+	struct hfi_video_signal_metadata signal_info;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -2788,16 +2845,21 @@ int msm_venc_set_video_signal_info(struct msm_vidc_inst *inst)
 	if (ctrl_cs->val == MSM_VIDC_RESERVED_1)
 		return 0;
 
-	signal_info.color_space = ctrl_cs->val;
-	signal_info.full_range = ctrl_fr->val;
-	signal_info.transfer_chars = ctrl_tr->val;
+	signal_info.enable = true;
+	signal_info.video_format = MSM_VIDC_NTSC;
+	signal_info.video_full_range = ctrl_fr->val;
+	signal_info.color_description = 1;
+	signal_info.color_primaries = ctrl_cs->val;
+	signal_info.transfer_characteristics = ctrl_tr->val;
 	signal_info.matrix_coeffs = ctrl_mc->val;
 
 	dprintk(VIDC_DBG, "%s: %d %d %d %d\n", __func__,
-		signal_info.color_space, signal_info.full_range,
-		signal_info.transfer_chars, signal_info.matrix_coeffs);
+		signal_info.color_primaries, signal_info.video_full_range,
+		signal_info.transfer_characteristics,
+		signal_info.matrix_coeffs);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_PARAM_VENC_VIDEO_SIGNAL_INFO, &signal_info);
+		HFI_PROPERTY_PARAM_VENC_VIDEO_SIGNAL_INFO, &signal_info,
+		sizeof(signal_info));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -2854,7 +2916,7 @@ int msm_venc_set_8x8_transform(struct msm_vidc_inst *inst)
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
 	struct v4l2_ctrl *profile;
-	struct hal_enable enable;
+	struct hfi_enable enable;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -2889,7 +2951,8 @@ int msm_venc_set_8x8_transform(struct msm_vidc_inst *inst)
 
 	dprintk(VIDC_DBG, "%s: %d\n", __func__, enable.enable);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_PARAM_VENC_H264_TRANSFORM_8x8, &enable);
+		HFI_PROPERTY_PARAM_VENC_H264_8X8_TRANSFORM, &enable,
+		sizeof(enable));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -2901,7 +2964,7 @@ int msm_venc_set_vui_timing_info(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
-	struct hal_vui_timing_info timing_info;
+	struct hfi_vui_timing_info timing_info;
 	bool cfr;
 
 	if (!inst || !inst->core) {
@@ -2942,7 +3005,8 @@ int msm_venc_set_vui_timing_info(struct msm_vidc_inst *inst)
 	dprintk(VIDC_DBG, "%s: %d %d\n", __func__, timing_info.enable,
 		timing_info.fixed_frame_rate);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_PARAM_VENC_VUI_TIMING_INFO, &timing_info);
+		HFI_PROPERTY_PARAM_VENC_VUI_TIMING_INFO, &timing_info,
+		sizeof(timing_info));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -2953,7 +3017,7 @@ int msm_venc_set_nal_stream_format(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
-	struct hal_nal_stream_format_select stream_format;
+	struct hfi_nal_stream_format_select stream_format;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -2972,11 +3036,29 @@ int msm_venc_set_nal_stream_format(struct msm_vidc_inst *inst)
 		return -EINVAL;
 	}
 	stream_format.nal_stream_format_select = BIT(ctrl->val);
+	switch (ctrl->val) {
+	case V4L2_MPEG_VIDC_VIDEO_NAL_FORMAT_STARTCODES:
+		stream_format.nal_stream_format_select =
+			HFI_NAL_FORMAT_STARTCODES;
+		break;
+	case V4L2_MPEG_VIDC_VIDEO_NAL_FORMAT_FOUR_BYTE_LENGTH:
+		stream_format.nal_stream_format_select =
+			HFI_NAL_FORMAT_FOUR_BYTE_LENGTH;
+		break;
+	default:
+		dprintk(VIDC_ERR,
+			"%s: Invalid stream format setting. Setting default\n",
+			__func__);
+		stream_format.nal_stream_format_select =
+			HFI_NAL_FORMAT_STARTCODES;
+		break;
+	}
 
 	dprintk(VIDC_DBG, "%s: %#x\n", __func__,
 			stream_format.nal_stream_format_select);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_PARAM_NAL_STREAM_FORMAT_SELECT, &stream_format);
+		HFI_PROPERTY_PARAM_NAL_STREAM_FORMAT_SELECT, &stream_format,
+		sizeof(stream_format));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -2988,7 +3070,7 @@ int msm_venc_set_ltr_mode(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
-	struct hal_ltr_mode ltr_mode;
+	struct hfi_ltr_mode ltr;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -3008,13 +3090,13 @@ int msm_venc_set_ltr_mode(struct msm_vidc_inst *inst)
 			__func__, ctrl->val > inst->capability.ltr_count.max);
 		return -EINVAL;
 	}
-	ltr_mode.count =  ctrl->val;
-	ltr_mode.mode = HAL_LTR_MODE_MANUAL;
-	ltr_mode.trust_mode = 1;
+	ltr.ltr_count =  ctrl->val;
+	ltr.ltr_mode = HFI_LTR_MODE_MANUAL;
+	ltr.trust_mode = 1;
 	dprintk(VIDC_DBG, "%s: %d %d\n", __func__,
-			ltr_mode.mode, ltr_mode.count);
+			ltr.ltr_mode, ltr.ltr_count);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_PARAM_VENC_LTRMODE, &ltr_mode);
+		HFI_PROPERTY_PARAM_VENC_LTRMODE, &ltr, sizeof(ltr));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -3026,7 +3108,7 @@ int msm_venc_set_ltr_useframe(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
-	struct hal_ltr_use use_ltr;
+	struct hfi_ltr_use use_ltr;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -3040,11 +3122,12 @@ int msm_venc_set_ltr_useframe(struct msm_vidc_inst *inst)
 		return -EINVAL;
 	}
 	use_ltr.ref_ltr = ctrl->val;
-	use_ltr.use_constraint = false;
+	use_ltr.use_constrnt = false;
 	use_ltr.frames = 0;
 	dprintk(VIDC_DBG, "%s: %d\n", __func__, use_ltr.ref_ltr);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_CONFIG_VENC_USELTRFRAME, &use_ltr);
+		HFI_PROPERTY_CONFIG_VENC_USELTRFRAME, &use_ltr,
+		sizeof(use_ltr));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -3056,7 +3139,7 @@ int msm_venc_set_ltr_markframe(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
-	struct hal_ltr_mark mark_ltr;
+	struct hfi_ltr_mark mark_ltr;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -3073,7 +3156,8 @@ int msm_venc_set_ltr_markframe(struct msm_vidc_inst *inst)
 
 	dprintk(VIDC_DBG, "%s: %d\n", __func__, mark_ltr.mark_frame);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_CONFIG_VENC_MARKLTRFRAME, &mark_ltr);
+		HFI_PROPERTY_CONFIG_VENC_MARKLTRFRAME, &mark_ltr,
+		sizeof(mark_ltr));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -3085,7 +3169,7 @@ int msm_venc_set_dyn_qp(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
-	struct hal_quantization quant;
+	struct hfi_quantization quant;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -3100,16 +3184,14 @@ int msm_venc_set_dyn_qp(struct msm_vidc_inst *inst)
 		return -EINVAL;
 	}
 
-	quant.qpi = ctrl->val;
-	quant.qpp = ctrl->val;
-	quant.qpb = ctrl->val;
+	quant.qp_packed = ctrl->val | ctrl->val << 8 | ctrl->val << 16;
 	quant.enable = QP_ENABLE_I | QP_ENABLE_P | QP_ENABLE_B;
 	quant.layer_id = MSM_VIDC_ALL_LAYER_ID;
 
 	dprintk(VIDC_DBG, "%s: %d\n", __func__,
 			ctrl->val);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_CONFIG_VENC_FRAME_QP, &quant);
+		HFI_PROPERTY_CONFIG_VENC_FRAME_QP, &quant, sizeof(quant));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -3121,7 +3203,7 @@ int msm_venc_set_aspect_ratio(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
-	struct hal_aspect_ratio sar;
+	struct hfi_aspect_ratio sar;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -3152,7 +3234,7 @@ int msm_venc_set_aspect_ratio(struct msm_vidc_inst *inst)
 	dprintk(VIDC_DBG, "%s: %d %d\n", __func__,
 		sar.aspect_width, sar.aspect_height);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_PROPERTY_PARAM_VENC_ASPECT_RATIO, &sar);
+		HFI_PROPERTY_PARAM_VENC_ASPECT_RATIO, &sar, sizeof(sar));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -3164,6 +3246,7 @@ int msm_venc_set_blur_resolution(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
+	struct hfi_frame_size frame_sz;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -3180,8 +3263,12 @@ int msm_venc_set_blur_resolution(struct msm_vidc_inst *inst)
 		return -EINVAL;
 	}
 
+	frame_sz.buffer_type = HFI_BUFFER_INPUT;
+	frame_sz.height = ctrl->val & 0xFFFF;
+	frame_sz.width = (ctrl->val & 0xFFFF0000) >> 16;
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_CONFIG_VENC_BLUR_RESOLUTION, &ctrl->val);
+		HFI_PROPERTY_CONFIG_VENC_BLUR_FRAME_SIZE, &frame_sz,
+		sizeof(frame_sz));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -3199,9 +3286,11 @@ int msm_venc_set_hdr_info(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
+	/* No conversion to HFI needed as both structures are same */
 	dprintk(VIDC_DBG, "%s: setting hdr info\n", __func__);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HAL_PARAM_VENC_HDR10_PQ_SEI, &inst->hdr10_sei_params);
+		HFI_PROPERTY_PARAM_VENC_HDR10_PQ_SEI, &inst->hdr10_sei_params,
+		sizeof(inst->hdr10_sei_params));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
@@ -3222,28 +3311,35 @@ int msm_venc_set_extradata(struct msm_vidc_inst *inst)
 
 	if (ctrl->val == EXTRADATA_NONE) {
 		// Disable all Extradata
-		msm_comm_set_extradata(inst, HAL_EXTRADATA_ASPECT_RATIO, 0x0);
-		msm_comm_set_extradata(inst, HAL_EXTRADATA_LTR_INFO, 0x0);
-		msm_comm_set_extradata(inst, HAL_EXTRADATA_ROI_QP, 0x0);
+		msm_comm_set_index_extradata(inst,
+			MSM_VIDC_EXTRADATA_ASPECT_RATIO, 0x0);
+		msm_comm_set_extradata(inst,
+			HFI_PROPERTY_PARAM_VENC_LTR_INFO, 0x0);
+		msm_comm_set_extradata(inst,
+			HFI_PROPERTY_PARAM_VENC_ROI_QP_EXTRADATA, 0x0);
 		if (inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_HEVC) {
 			msm_comm_set_extradata(inst,
-					HAL_EXTRADATA_HDR10PLUS_METADATA, 0x0);
+			HFI_PROPERTY_PARAM_VENC_HDR10PLUS_METADATA_EXTRADATA,
+			0x0);
 		}
 	}
 
 	if (ctrl->val & EXTRADATA_ADVANCED)
 		// Enable Advanced Extradata - LTR Info
-		msm_comm_set_extradata(inst, HAL_EXTRADATA_LTR_INFO, 0x1);
+		msm_comm_set_extradata(inst,
+			HFI_PROPERTY_PARAM_VENC_LTR_INFO, 0x1);
 
 	if (ctrl->val & EXTRADATA_ENC_INPUT_ROI)
 		// Enable ROIQP Extradata
-		msm_comm_set_extradata(inst, HAL_EXTRADATA_ROI_QP, 0x1);
+		msm_comm_set_extradata(inst,
+			HFI_PROPERTY_PARAM_VENC_ROI_QP_EXTRADATA, 0x1);
 
 	if (ctrl->val & EXTRADATA_ENC_INPUT_HDR10PLUS) {
 		// Enable HDR10+ Extradata
 		if (inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_HEVC) {
 			msm_comm_set_extradata(inst,
-					HAL_EXTRADATA_HDR10PLUS_METADATA, 0x1);
+			HFI_PROPERTY_PARAM_VENC_HDR10PLUS_METADATA_EXTRADATA,
+			0x1);
 		}
 	}
 

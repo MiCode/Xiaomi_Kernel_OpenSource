@@ -1224,7 +1224,7 @@ int msm_vidc_decide_work_route_iris1(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
-	struct hal_video_work_route pdata;
+	struct hfi_video_work_route pdata;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR,
@@ -1286,8 +1286,8 @@ decision_done:
 
 	inst->clk_data.work_route = pdata.video_work_route;
 	rc = call_hfi_op(hdev, session_set_property,
-			(void *)inst->session, HAL_PARAM_VIDEO_WORK_ROUTE,
-			(void *)&pdata);
+			(void *)inst->session, HFI_PROPERTY_PARAM_WORK_ROUTE,
+			(void *)&pdata, sizeof(pdata));
 	if (rc)
 		dprintk(VIDC_WARN,
 			" Failed to configure work route %pK\n", inst);
@@ -1299,7 +1299,7 @@ int msm_vidc_decide_work_route_iris2(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
-	struct hal_video_work_route pdata;
+	struct hfi_video_work_route pdata;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR,
@@ -1351,8 +1351,8 @@ decision_done:
 
 	inst->clk_data.work_route = pdata.video_work_route;
 	rc = call_hfi_op(hdev, session_set_property,
-			(void *)inst->session, HAL_PARAM_VIDEO_WORK_ROUTE,
-			(void *)&pdata);
+			(void *)inst->session, HFI_PROPERTY_PARAM_WORK_ROUTE,
+			(void *)&pdata, sizeof(pdata));
 	if (rc)
 		dprintk(VIDC_WARN,
 			" Failed to configure work route %pK\n", inst);
@@ -1364,8 +1364,8 @@ static int msm_vidc_decide_work_mode_ar50(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
-	struct hal_video_work_mode pdata;
-	struct hal_enable latency;
+	struct hfi_video_work_mode pdata;
+	struct hfi_enable latency;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR,
@@ -1376,26 +1376,26 @@ static int msm_vidc_decide_work_mode_ar50(struct msm_vidc_inst *inst)
 
 	hdev = inst->core->device;
 	if (inst->clk_data.low_latency_mode) {
-		pdata.video_work_mode = VIDC_WORK_MODE_1;
+		pdata.video_work_mode = HFI_WORKMODE_1;
 		goto decision_done;
 	}
 
 	if (inst->session_type == MSM_VIDC_DECODER) {
-		pdata.video_work_mode = VIDC_WORK_MODE_2;
+		pdata.video_work_mode = HFI_WORKMODE_2;
 		switch (inst->fmts[OUTPUT_PORT].fourcc) {
 		case V4L2_PIX_FMT_MPEG2:
-			pdata.video_work_mode = VIDC_WORK_MODE_1;
+			pdata.video_work_mode = HFI_WORKMODE_1;
 			break;
 		case V4L2_PIX_FMT_H264:
 		case V4L2_PIX_FMT_HEVC:
 			if (inst->prop.height[OUTPUT_PORT] *
 				inst->prop.width[OUTPUT_PORT] <=
 					1280 * 720)
-				pdata.video_work_mode = VIDC_WORK_MODE_1;
+				pdata.video_work_mode = HFI_WORKMODE_1;
 			break;
 		}
 	} else if (inst->session_type == MSM_VIDC_ENCODER)
-		pdata.video_work_mode = VIDC_WORK_MODE_1;
+		pdata.video_work_mode = HFI_WORKMODE_1;
 	else {
 		return -EINVAL;
 	}
@@ -1404,8 +1404,8 @@ decision_done:
 
 	inst->clk_data.work_mode = pdata.video_work_mode;
 	rc = call_hfi_op(hdev, session_set_property,
-			(void *)inst->session, HAL_PARAM_VIDEO_WORK_MODE,
-			(void *)&pdata);
+			(void *)inst->session, HFI_PROPERTY_PARAM_WORK_MODE,
+			(void *)&pdata, sizeof(pdata));
 	if (rc)
 		dprintk(VIDC_WARN,
 				" Failed to configure Work Mode %pK\n", inst);
@@ -1413,11 +1413,12 @@ decision_done:
 	/* For WORK_MODE_1, set Low Latency mode by default to HW. */
 
 	if (inst->session_type == MSM_VIDC_ENCODER &&
-			inst->clk_data.work_mode == VIDC_WORK_MODE_1) {
+			inst->clk_data.work_mode == HFI_WORKMODE_1) {
 		latency.enable = true;
 		rc = call_hfi_op(hdev, session_set_property,
-			(void *)inst->session, HAL_PARAM_VENC_LOW_LATENCY,
-			(void *)&latency);
+			(void *)inst->session,
+			HFI_PROPERTY_PARAM_VENC_LOW_LATENCY_MODE,
+			(void *)&latency, sizeof(latency));
 	}
 
 	rc = msm_comm_scale_clocks_and_bus(inst);
@@ -1429,8 +1430,8 @@ int msm_vidc_decide_work_mode_iris1(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
-	struct hal_video_work_mode pdata;
-	struct hal_enable latency;
+	struct hfi_video_work_mode pdata;
+	struct hfi_enable latency;
 	u32 yuv_size = 0;
 
 	if (!inst || !inst->core || !inst->core->device) {
@@ -1443,16 +1444,16 @@ int msm_vidc_decide_work_mode_iris1(struct msm_vidc_inst *inst)
 	hdev = inst->core->device;
 
 	if (inst->clk_data.low_latency_mode) {
-		pdata.video_work_mode = VIDC_WORK_MODE_1;
+		pdata.video_work_mode = HFI_WORKMODE_1;
 		dprintk(VIDC_DBG, "Configured work mode = 1");
 		goto decision_done;
 	}
 
 	if (inst->session_type == MSM_VIDC_DECODER) {
-		pdata.video_work_mode = VIDC_WORK_MODE_2;
+		pdata.video_work_mode = HFI_WORKMODE_2;
 		switch (inst->fmts[OUTPUT_PORT].fourcc) {
 		case V4L2_PIX_FMT_MPEG2:
-			pdata.video_work_mode = VIDC_WORK_MODE_1;
+			pdata.video_work_mode = HFI_WORKMODE_1;
 			break;
 		case V4L2_PIX_FMT_H264:
 		case V4L2_PIX_FMT_HEVC:
@@ -1463,18 +1464,18 @@ int msm_vidc_decide_work_mode_iris1(struct msm_vidc_inst *inst)
 			if ((inst->pic_struct !=
 				 MSM_VIDC_PIC_STRUCT_PROGRESSIVE) ||
 				(yuv_size  <= 1280 * 720))
-				pdata.video_work_mode = VIDC_WORK_MODE_1;
+				pdata.video_work_mode = HFI_WORKMODE_1;
 			break;
 		}
 	} else if (inst->session_type == MSM_VIDC_ENCODER) {
 		u32 codec = inst->fmts[CAPTURE_PORT].fourcc;
 
-		pdata.video_work_mode = VIDC_WORK_MODE_2;
+		pdata.video_work_mode = HFI_WORKMODE_2;
 
 		switch (codec) {
 		case V4L2_PIX_FMT_VP8:
 		case V4L2_PIX_FMT_TME:
-			pdata.video_work_mode = VIDC_WORK_MODE_1;
+			pdata.video_work_mode = HFI_WORKMODE_1;
 			goto decision_done;
 		}
 
@@ -1486,8 +1487,8 @@ decision_done:
 
 	inst->clk_data.work_mode = pdata.video_work_mode;
 	rc = call_hfi_op(hdev, session_set_property,
-			(void *)inst->session, HAL_PARAM_VIDEO_WORK_MODE,
-			(void *)&pdata);
+			(void *)inst->session, HFI_PROPERTY_PARAM_WORK_MODE,
+			(void *)&pdata, sizeof(pdata));
 	if (rc)
 		dprintk(VIDC_WARN,
 			" Failed to configure Work Mode %pK\n", inst);
@@ -1495,11 +1496,12 @@ decision_done:
 	/* For WORK_MODE_1, set Low Latency mode by default to HW. */
 
 	if (inst->session_type == MSM_VIDC_ENCODER &&
-			inst->clk_data.work_mode == VIDC_WORK_MODE_1) {
+			inst->clk_data.work_mode == HFI_WORKMODE_1) {
 		latency.enable = true;
 		rc = call_hfi_op(hdev, session_set_property,
-			(void *)inst->session, HAL_PARAM_VENC_LOW_LATENCY,
-			(void *)&latency);
+			(void *)inst->session,
+			HFI_PROPERTY_PARAM_VENC_LOW_LATENCY_MODE,
+			(void *)&latency, sizeof(latency));
 	}
 
 	return rc;
@@ -1509,8 +1511,8 @@ int msm_vidc_decide_work_mode_iris2(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
-	struct hal_video_work_mode pdata;
-	struct hal_enable latency;
+	struct hfi_video_work_mode pdata;
+	struct hfi_enable latency;
 	u32 num_mbs = 0;
 
 	if (!inst || !inst->core || !inst->core->device) {
@@ -1521,10 +1523,10 @@ int msm_vidc_decide_work_mode_iris2(struct msm_vidc_inst *inst)
 	}
 
 	hdev = inst->core->device;
-	pdata.video_work_mode = VIDC_WORK_MODE_2;
+	pdata.video_work_mode = HFI_WORKMODE_2;
 
 	if (inst->clk_data.low_latency_mode) {
-		pdata.video_work_mode = VIDC_WORK_MODE_1;
+		pdata.video_work_mode = HFI_WORKMODE_1;
 		dprintk(VIDC_DBG, "Configured work mode = 1");
 	} else if (inst->session_type == MSM_VIDC_DECODER) {
 		num_mbs = NUM_MBS_PER_FRAME(
@@ -1533,10 +1535,10 @@ int msm_vidc_decide_work_mode_iris2(struct msm_vidc_inst *inst)
 		if (inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_MPEG2 ||
 			(inst->pic_struct != MSM_VIDC_PIC_STRUCT_PROGRESSIVE) ||
 			(num_mbs < NUM_MBS_PER_FRAME(720, 1280)))
-			pdata.video_work_mode = VIDC_WORK_MODE_1;
+			pdata.video_work_mode = HFI_WORKMODE_1;
 	} else if (inst->session_type == MSM_VIDC_ENCODER) {
 		if (inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_VP8) {
-			pdata.video_work_mode = VIDC_WORK_MODE_1;
+			pdata.video_work_mode = HFI_WORKMODE_1;
 			/* For WORK_MODE_1, set Low Latency mode by default */
 			inst->clk_data.low_latency_mode = true;
 		}
@@ -1546,8 +1548,8 @@ int msm_vidc_decide_work_mode_iris2(struct msm_vidc_inst *inst)
 
 	inst->clk_data.work_mode = pdata.video_work_mode;
 	rc = call_hfi_op(hdev, session_set_property,
-			(void *)inst->session, HAL_PARAM_VIDEO_WORK_MODE,
-			(void *)&pdata);
+			(void *)inst->session, HFI_PROPERTY_PARAM_WORK_MODE,
+			(void *)&pdata, sizeof(pdata));
 	if (rc)
 		dprintk(VIDC_WARN,
 			" Failed to configure Work Mode %pK\n", inst);
@@ -1556,8 +1558,9 @@ int msm_vidc_decide_work_mode_iris2(struct msm_vidc_inst *inst)
 		inst->session_type == MSM_VIDC_ENCODER){
 		latency.enable = true;
 		rc = call_hfi_op(hdev, session_set_property,
-			(void *)inst->session, HAL_PARAM_VENC_LOW_LATENCY,
-			(void *)&latency);
+			(void *)inst->session,
+			HFI_PROPERTY_PARAM_VENC_LOW_LATENCY_MODE,
+			(void *)&latency, sizeof(latency));
 	}
 
 	return rc;
@@ -1570,7 +1573,7 @@ static inline int msm_vidc_power_save_mode_enable(struct msm_vidc_inst *inst,
 	u32 prop_id = 0;
 	void *pdata = NULL;
 	struct hfi_device *hdev = NULL;
-	enum hal_perf_mode venc_mode;
+	u32 hfi_perf_mode;
 
 	hdev = inst->core->device;
 	if (inst->session_type != MSM_VIDC_ENCODER) {
@@ -1589,12 +1592,13 @@ static inline int msm_vidc_power_save_mode_enable(struct msm_vidc_inst *inst,
 	if (inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_CQ)
 		enable = false;
 
-	prop_id = HAL_CONFIG_VENC_PERF_MODE;
-	venc_mode = enable ? HAL_PERF_MODE_POWER_SAVE :
-		HAL_PERF_MODE_POWER_MAX_QUALITY;
-	pdata = &venc_mode;
+	prop_id = HFI_PROPERTY_CONFIG_VENC_PERF_MODE;
+	hfi_perf_mode = enable ? HFI_VENC_PERFMODE_POWER_SAVE :
+		HFI_VENC_PERFMODE_MAX_QUALITY;
+	pdata = &hfi_perf_mode;
 	rc = call_hfi_op(hdev, session_set_property,
-			(void *)inst->session, prop_id, pdata);
+			(void *)inst->session, prop_id, pdata,
+			sizeof(hfi_perf_mode));
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"%s: Failed to set power save mode for inst: %pK\n",
@@ -1670,7 +1674,7 @@ int msm_vidc_decide_core_and_power_mode(struct msm_vidc_inst *inst)
 	struct hfi_device *hdev;
 	struct msm_vidc_core *core;
 	unsigned long max_freq, lp_cycles = 0;
-	struct hal_videocores_usage_info core_info;
+	struct hfi_videocores_usage_type core_info;
 	u32 core0_load = 0, core1_load = 0, core0_lp_load = 0,
 		core1_lp_load = 0;
 	u32 current_inst_load = 0, current_inst_lp_load = 0,
@@ -1739,7 +1743,7 @@ int msm_vidc_decide_core_and_power_mode(struct msm_vidc_inst *inst)
 		inst->capability.max_video_cores.max >= VIDC_CORE_ID_3) {
 		if (current_inst_load / 2 + core0_load <= max_freq &&
 			current_inst_load / 2 + core1_load <= max_freq) {
-			if (inst->clk_data.work_mode == VIDC_WORK_MODE_2) {
+			if (inst->clk_data.work_mode == HFI_WORKMODE_2) {
 				inst->clk_data.core_id = VIDC_CORE_ID_3;
 				msm_vidc_power_save_mode_enable(inst, false);
 				goto decision_done;
@@ -1753,7 +1757,7 @@ int msm_vidc_decide_core_and_power_mode(struct msm_vidc_inst *inst)
 				core0_lp_load <= max_freq &&
 			current_inst_lp_load / 2 +
 				core1_lp_load <= max_freq) {
-			if (inst->clk_data.work_mode == VIDC_WORK_MODE_2) {
+			if (inst->clk_data.work_mode == HFI_WORKMODE_2) {
 				inst->clk_data.core_id = VIDC_CORE_ID_3;
 				msm_vidc_power_save_mode_enable(inst, true);
 				goto decision_done;
@@ -1796,7 +1800,8 @@ decision_done:
 
 	rc = call_hfi_op(hdev, session_set_property,
 			(void *)inst->session,
-			HAL_PARAM_VIDEO_CORES_USAGE, &core_info);
+			HFI_PROPERTY_CONFIG_VIDEOCORES_USAGE, &core_info,
+			sizeof(core_info));
 	if (rc)
 		dprintk(VIDC_WARN,
 				" Failed to configure CORE ID %pK\n", inst);
@@ -1843,7 +1848,7 @@ void msm_print_core_status(struct msm_vidc_core *core, u32 core_id)
 			inst->prop.height[CAPTURE_PORT],
 			inst->prop.fps,
 			inst->session_type == MSM_VIDC_ENCODER ? "ENC" : "DEC",
-			inst->clk_data.work_mode == VIDC_WORK_MODE_1 ?
+			inst->clk_data.work_mode == HFI_WORKMODE_1 ?
 				"WORK_MODE_1" : "WORK_MODE_2",
 			inst->flags & VIDC_LOW_POWER ? "LP" : "HQ",
 			inst->flags & VIDC_REALTIME ? "RealTime" : "NonRTime",

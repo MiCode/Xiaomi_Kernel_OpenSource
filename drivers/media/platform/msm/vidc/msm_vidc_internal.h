@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _MSM_VIDC_INTERNAL_H_
@@ -26,6 +26,7 @@
 #include "msm_vidc.h"
 #include <media/msm_media_info.h>
 #include "vidc_hfi_api.h"
+#include "vidc_hfi_helper.h"
 
 #define MSM_VIDC_DRV_NAME "msm_vidc_driver"
 
@@ -346,7 +347,7 @@ struct clock_data {
 	u32 core_id;
 	u32 dpb_fourcc;
 	u32 opb_fourcc;
-	enum hal_work_mode work_mode;
+	u32 work_mode;
 	bool low_latency_mode;
 	bool turbo_mode;
 	u32 work_route;
