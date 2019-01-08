@@ -433,6 +433,7 @@ static int cam_ois_pkt_parse(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 	struct cam_cmd_buf_desc        *cmd_desc = NULL;
 	uintptr_t                       generic_pkt_addr;
 	size_t                          pkt_len;
+	size_t                          remaining_len_of_buff = 0;
 	struct cam_packet              *csl_packet = NULL;
 	size_t                          len_of_buff = 0;
 	uint32_t                       *offset = NULL, *cmd_buf;
@@ -453,16 +454,39 @@ static int cam_ois_pkt_parse(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 		return rc;
 	}
 
-	if (dev_config.offset > pkt_len) {
+	remaining_len_of_buff = pkt_len;
+	if ((sizeof(struct cam_packet) > pkt_len) ||
+		((size_t)dev_config.offset >= pkt_len -
+		sizeof(struct cam_packet))) {
 		CAM_ERR(CAM_OIS,
-			"offset is out of bound: off: %lld len: %zu",
-			dev_config.offset, pkt_len);
+			"Inval cam_packet strut size: %zu, len_of_buff: %zu",
+			 sizeof(struct cam_packet), pkt_len);
 		rc = -EINVAL;
 		goto rel_pkt;
 	}
 
+	remaining_len_of_buff -= dev_config.offset;
 	csl_packet = (struct cam_packet *)
 		(generic_pkt_addr + (uint32_t)dev_config.offset);
+
+	if (((size_t)(csl_packet->header.size) > remaining_len_of_buff)) {
+		CAM_ERR(CAM_OIS,
+			"Inval pkt_header_size: %zu, len:of_buff: %zu",
+			csl_packet->header.size, remaining_len_of_buff);
+		rc = -EINVAL;
+		goto rel_pkt;
+	}
+
+	remaining_len_of_buff -= sizeof(struct cam_packet);
+
+	if ((sizeof(struct cam_cmd_buf_desc) > remaining_len_of_buff) ||
+		(csl_packet->num_cmd_buf * sizeof(struct cam_cmd_buf_desc) >
+			remaining_len_of_buff)) {
+		CAM_ERR(CAM_OIS, "InVal len: %zu", remaining_len_of_buff);
+		rc = -EINVAL;
+		goto rel_pkt;
+	}
+
 	switch (csl_packet->header.op_code & 0xFFFFFF) {
 	case CAM_OIS_PACKET_OPCODE_INIT:
 		offset = (uint32_t *)&csl_packet->payload;
