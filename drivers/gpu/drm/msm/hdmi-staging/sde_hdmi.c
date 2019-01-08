@@ -2520,6 +2520,30 @@ end:
 	return rc;
 }
 
+int sde_hdmi_set_top_ctl(struct drm_connector *connector,
+			struct drm_display_mode *adj_mode, void *display)
+{
+	int rc = 0;
+	struct sde_hdmi *sde_hdmi = (struct sde_hdmi *)display;
+
+	if (!sde_hdmi) {
+		SDE_ERROR("sde_hdmi is NULL\n");
+		return -EINVAL;
+	}
+
+	if (sde_hdmi->display_topology) {
+		SDE_DEBUG("%s, set display topology %d\n",
+				__func__, sde_hdmi->display_topology);
+
+		msm_property_set_property(sde_connector_get_propinfo(connector),
+			sde_connector_get_property_values(connector->state),
+			CONNECTOR_PROP_TOPOLOGY_CONTROL,
+			sde_hdmi->display_topology);
+	}
+
+	return rc;
+}
+
 int sde_hdmi_connector_post_init(struct drm_connector *connector,
 		void *info,
 		void *display)
@@ -3120,6 +3144,9 @@ static int _sde_hdmi_parse_dt(struct device_node *node,
 {
 	int rc = 0;
 
+	const char *name;
+	u32 top = 0;
+
 	display->name = of_get_property(node, "label", NULL);
 
 	display->display_type = of_get_property(node,
@@ -3129,6 +3156,23 @@ static int _sde_hdmi_parse_dt(struct device_node *node,
 
 	display->non_pluggable = of_property_read_bool(node,
 						"qcom,non-pluggable");
+
+	rc = of_property_read_string(node, "qcom,display-topology-control",
+				&name);
+	if (rc) {
+		SDE_ERROR("unable to get qcom,display-topology-control,rc=%d\n",
+				rc);
+	} else {
+		SDE_DEBUG("%s qcom,display-topology-control = %s\n",
+				__func__, name);
+
+		if (!strcmp(name, "force-mixer"))
+			top = BIT(SDE_RM_TOPCTL_FORCE_MIXER);
+		else if (!strcmp(name, "force-tiling"))
+			top = BIT(SDE_RM_TOPCTL_FORCE_TILING);
+
+		display->display_topology = top;
+	}
 
 	display->skip_ddc = of_property_read_bool(node,
 						"qcom,skip_ddc");
