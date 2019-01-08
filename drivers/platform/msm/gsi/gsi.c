@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2959,7 +2959,13 @@ int gsi_reset_channel(unsigned long chan_hdl)
 
 	ctx = &gsi_ctx->chan[chan_hdl];
 
-	if (ctx->state != GSI_CHAN_STATE_STOPPED) {
+	/*
+	 * In WDI3 case, if SAP enabled but no client connected,
+	 * GSI will be in allocated state. When SAP disabled,
+	 * gsi_reset_channel will be called and reset is needed.
+	 */
+	if (ctx->state != GSI_CHAN_STATE_STOPPED &&
+		ctx->state != GSI_CHAN_STATE_ALLOCATED) {
 		GSIERR("bad state %d\n", ctx->state);
 		return -GSI_STATUS_UNSUPPORTED_OP;
 	}
