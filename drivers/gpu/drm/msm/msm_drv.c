@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -584,59 +584,11 @@ static int msm_power_enable_wrapper(void *handle, void *client, bool enable)
 	return sde_power_resource_enable(handle, client, enable);
 }
 
-static int _msm_drm_init_helper(struct msm_drm_private *priv,
-	struct sched_param param, struct drm_device *ddev,
-	struct device *dev, struct platform_device *pdev,
-	struct msm_kms *kms)
+static int msm_drm_display_thread_create(struct sched_param param,
+	struct msm_drm_private *priv, struct drm_device *ddev,
+	struct device *dev)
 {
 	int i, ret = 0;
-
-	switch (get_mdp_ver(pdev)) {
-	case KMS_MDP4:
-		kms = mdp4_kms_init(ddev);
-		break;
-	case KMS_MDP5:
-		kms = mdp5_kms_init(ddev);
-		break;
-	case KMS_SDE:
-		kms = sde_kms_init(ddev);
-		break;
-	default:
-		kms = ERR_PTR(-ENODEV);
-		break;
-	}
-
-	if (IS_ERR(kms)) {
-		/*
-		 * NOTE: once we have GPU support, having no kms should not
-		 * be considered fatal.. ideally we would still support gpu
-		 * and (for example) use dmabuf/prime to share buffers with
-		 * imx drm driver on iMX5
-		 */
-		priv->kms = NULL;
-		dev_err(dev, "failed to load kms\n");
-		return PTR_ERR(kms);
-		;
-	}
-	priv->kms = kms;
-	pm_runtime_enable(dev);
-
-	/**
-	 * Since kms->funcs->hw_init(kms) might call
-	 * drm_object_property_set_value to initialize some custom
-	 * properties we need to make sure mode_config.funcs are populated
-	 * beforehand to avoid dereferencing an unset value during the
-	 * drm_drv_uses_atomic_modeset check.
-	 */
-	ddev->mode_config.funcs = &mode_config_funcs;
-
-	if (kms) {
-		ret = kms->funcs->hw_init(kms);
-		if (ret) {
-			dev_err(dev, "kms hw init failed: %d\n", ret);
-			return ret;
-		}
-	}
 
 	/**
 	 * this priority was found during empiric testing to have appropriate
@@ -734,6 +686,59 @@ static int _msm_drm_init_helper(struct msm_drm_private *priv,
 	}
 
 	return 0;
+
+}
+static struct msm_kms *_msm_drm_init_helper(struct msm_drm_private *priv,
+	struct drm_device *ddev, struct device *dev,
+	struct platform_device *pdev)
+{
+	int ret;
+	struct msm_kms *kms;
+
+	switch (get_mdp_ver(pdev)) {
+	case KMS_MDP4:
+		kms = mdp4_kms_init(ddev);
+		break;
+	case KMS_MDP5:
+		kms = mdp5_kms_init(ddev);
+		break;
+	case KMS_SDE:
+		kms = sde_kms_init(ddev);
+		break;
+	default:
+		kms = ERR_PTR(-ENODEV);
+		break;
+	}
+
+	if (IS_ERR_OR_NULL(kms)) {
+		/*
+		 * NOTE: once we have GPU support, having no kms should not
+		 * be considered fatal.. ideally we would still support gpu
+		 * and (for example) use dmabuf/prime to share buffers with
+		 * imx drm driver on iMX5
+		 */
+		dev_err(dev, "failed to load kms\n");
+		return kms;
+	}
+	priv->kms = kms;
+	pm_runtime_enable(dev);
+
+	/**
+	 * Since kms->funcs->hw_init(kms) might call
+	 * drm_object_property_set_value to initialize some custom
+	 * properties we need to make sure mode_config.funcs are populated
+	 * beforehand to avoid dereferencing an unset value during the
+	 * drm_drv_uses_atomic_modeset check.
+	 */
+	ddev->mode_config.funcs = &mode_config_funcs;
+
+	ret = (kms)->funcs->hw_init(kms);
+	if (ret) {
+		dev_err(dev, "kms hw init failed: %d\n", ret);
+		return ERR_PTR(ret);
+	}
+
+	return kms;
 }
 
 static int msm_drm_init(struct device *dev, struct drm_driver *drv)
@@ -811,9 +816,15 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	ddev->mode_config.funcs = &mode_config_funcs;
 	ddev->mode_config.helper_private = &mode_config_helper_funcs;
 
-	ret = _msm_drm_init_helper(priv, param, ddev, dev, pdev, kms);
-	if (ret) {
+	kms = _msm_drm_init_helper(priv, ddev, dev, pdev);
+	if (IS_ERR_OR_NULL(kms)) {
 		dev_err(dev, "msm_drm_init_helper failed\n");
+		goto fail;
+	}
+
+	ret = msm_drm_display_thread_create(param, priv, ddev, dev);
+	if (ret) {
+		dev_err(dev, "msm_drm_display_thread_create failed\n");
 		goto fail;
 	}
 
