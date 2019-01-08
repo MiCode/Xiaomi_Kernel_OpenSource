@@ -24,6 +24,7 @@
 #include "msm_vidc_clocks.h"
 #include "msm_cvp.h"
 
+#define MSM_VIDC_QBUF_BATCH_TIMEOUT 300
 #define IS_ALREADY_IN_STATE(__p, __d) (\
 	(__p >= __d)\
 )
@@ -4334,6 +4335,26 @@ err_bad_input:
 	return rc;
 }
 
+void msm_vidc_batch_handler(struct work_struct *work)
+{
+	int rc = 0;
+	struct msm_vidc_inst *inst;
+
+	inst = container_of(work, struct msm_vidc_inst, batch_work);
+	rc = msm_comm_scale_clocks_and_bus(inst);
+	if (rc)
+		dprintk(VIDC_ERR, "%s: scale clocks failed\n", __func__);
+
+	dprintk(VIDC_INFO,
+		"%s: queing batch pending buffers to firmware\n", __func__);
+
+	rc = msm_comm_qbufs_batch(inst, NULL);
+	if (rc) {
+		dprintk(VIDC_ERR, "%s: Failed batch-qbuf to hfi: %d\n",
+			__func__, rc);
+	}
+}
+
 static int msm_comm_qbuf_in_rbr(struct msm_vidc_inst *inst,
 		struct msm_vidc_buffer *mbuf)
 {
@@ -4431,6 +4452,42 @@ int msm_comm_qbufs(struct msm_vidc_inst *inst)
 	return rc;
 }
 
+int msm_comm_qbufs_batch(struct msm_vidc_inst *inst,
+		struct msm_vidc_buffer *mbuf)
+{
+	int rc = 0;
+	struct msm_vidc_buffer *buf;
+
+	mutex_lock(&inst->registeredbufs.lock);
+	list_for_each_entry(buf, &inst->registeredbufs.list, list) {
+		/* Don't queue if buffer is not CAPTURE_MPLANE */
+		if (buf->vvb.vb2_buf.type !=
+			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+			goto loop_end;
+		/* Don't queue if buffer is not a deferred buffer */
+		if (!(buf->flags & MSM_VIDC_FLAG_DEFERRED))
+			goto loop_end;
+		/* Don't queue if RBR event is pending on this buffer */
+		if (buf->flags & MSM_VIDC_FLAG_RBR_PENDING)
+			goto loop_end;
+
+		print_vidc_buffer(VIDC_DBG, "batch-qbuf", inst, buf);
+		rc = msm_comm_qbuf_to_hfi(inst, buf);
+		if (rc) {
+			dprintk(VIDC_ERR, "%s: Failed batch qbuf to hfi: %d\n",
+				__func__, rc);
+			break;
+		}
+loop_end:
+		/* Queue pending buffers till the current buffer only */
+		if (buf == mbuf)
+			break;
+	}
+	mutex_unlock(&inst->registeredbufs.lock);
+
+	return rc;
+}
+
 /*
  * msm_comm_qbuf_decode_batch - count the buffers which are not queued to
  *              firmware yet (count includes rbr pending buffers too) and
@@ -4443,7 +4500,6 @@ int msm_comm_qbuf_decode_batch(struct msm_vidc_inst *inst,
 {
 	int rc = 0;
 	u32 count = 0;
-	struct msm_vidc_buffer *buf;
 
 	if (!inst || !mbuf) {
 		dprintk(VIDC_ERR, "%s: Invalid arguments\n", __func__);
@@ -4466,6 +4522,8 @@ int msm_comm_qbuf_decode_batch(struct msm_vidc_inst *inst,
 	 * due to batching
 	*/
 	if (inst->clk_data.buffer_counter > SKIP_BATCH_WINDOW) {
+		mod_timer(&inst->batch_timer, jiffies +
+			msecs_to_jiffies(MSM_VIDC_QBUF_BATCH_TIMEOUT));
 		count = num_pending_qbufs(inst,
 			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
 		if (count < inst->batch.size) {
@@ -4479,32 +4537,11 @@ int msm_comm_qbuf_decode_batch(struct msm_vidc_inst *inst,
 	if (rc)
 		dprintk(VIDC_ERR, "%s: scale clocks failed\n", __func__);
 
-	mutex_lock(&inst->registeredbufs.lock);
-	list_for_each_entry(buf, &inst->registeredbufs.list, list) {
-		/* Don't queue if buffer is not CAPTURE_MPLANE */
-		if (buf->vvb.vb2_buf.type !=
-			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
-			goto loop_end;
-		/* Don't queue if buffer is not a deferred buffer */
-		if (!(buf->flags & MSM_VIDC_FLAG_DEFERRED))
-			goto loop_end;
-		/* Don't queue if RBR event is pending on this buffer */
-		if (buf->flags & MSM_VIDC_FLAG_RBR_PENDING)
-			goto loop_end;
-
-		print_vidc_buffer(VIDC_DBG, "batch-qbuf", inst, buf);
-		rc = msm_comm_qbuf_to_hfi(inst, buf);
-		if (rc) {
-			dprintk(VIDC_ERR, "%s: Failed qbuf to hfi: %d\n",
-				__func__, rc);
-			break;
-		}
-loop_end:
-		/* Queue pending buffers till the current buffer only */
-		if (buf == mbuf)
-			break;
+	rc = msm_comm_qbufs_batch(inst, mbuf);
+	if (rc) {
+		dprintk(VIDC_ERR, "%s: Failed qbuf to hfi: %d\n",
+			__func__, rc);
 	}
-	mutex_unlock(&inst->registeredbufs.lock);
 
 	return rc;
 }

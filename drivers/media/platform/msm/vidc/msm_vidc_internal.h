@@ -34,6 +34,7 @@
 #include "msm_vidc.h"
 #include <media/msm_media_info.h>
 #include "vidc_hfi_api.h"
+#include <linux/timer.h>
 
 #define MSM_VIDC_DRV_NAME "msm_vidc_driver"
 #define MSM_VIDC_VERSION KERNEL_VERSION(0, 0, 1)
@@ -476,6 +477,8 @@ struct msm_vidc_inst {
 	struct msm_vidc_codec_data *codec_data;
 	struct hal_hdr10_pq_sei hdr10_sei_params;
 	struct batch_mode batch;
+	struct timer_list batch_timer;
+	struct work_struct batch_work;
 };
 
 extern struct msm_vidc_drv *vidc_driver;
