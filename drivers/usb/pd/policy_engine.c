@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/completion.h>
@@ -2181,11 +2181,6 @@ static void handle_state_src_send_capabilities(struct usbpd *pd,
 	ret = pd_send_msg(pd, MSG_SOURCE_CAPABILITIES, default_src_caps,
 			ARRAY_SIZE(default_src_caps), SOP_MSG);
 	if (ret) {
-		if (pd->pd_connected) {
-			usbpd_set_state(pd, PE_SEND_SOFT_RESET);
-			return;
-		}
-
 		/*
 		 * Technically this is PE_SRC_Discovery, but we can
 		 * handle it by setting a timer to come back to the
