@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 &soc {
@@ -101,7 +101,7 @@
 		};
 	};
 
-	qcom,rpm-stats@c300000 {
+	qcom,rpm-stats@c3f0004 {
 		compatible = "qcom,rpm-stats";
 		reg = <0xc300000 0x1000>, <0xc3f0004 0x4>;
 		reg-names = "phys_addr_base", "offset_addr";
