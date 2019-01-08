@@ -3625,12 +3625,6 @@ static int usbpd_dr_set_property(struct dual_role_phy_instance *dual_role,
 				return -EAGAIN;
 			}
 
-			if (pd->current_state == PE_SNK_READY &&
-					!is_sink_tx_ok(pd)) {
-				usbpd_err(&pd->dev, "Rp indicates SinkTxNG\n");
-				return -EAGAIN;
-			}
-
 			mutex_lock(&pd->swap_lock);
 			reinit_completion(&pd->is_ready);
 			pd->send_dr_swap = true;
@@ -3682,12 +3676,6 @@ static int usbpd_dr_set_property(struct dual_role_phy_instance *dual_role,
 			if (pd->current_state != PE_SRC_READY &&
 					pd->current_state != PE_SNK_READY) {
 				usbpd_err(&pd->dev, "power_role swap not allowed: PD not in Ready state\n");
-				return -EAGAIN;
-			}
-
-			if (pd->current_state == PE_SNK_READY &&
-					!is_sink_tx_ok(pd)) {
-				usbpd_err(&pd->dev, "Rp indicates SinkTxNG\n");
 				return -EAGAIN;
 			}
 
@@ -3986,7 +3974,7 @@ static ssize_t select_pdo_store(struct device *dev,
 	mutex_lock(&pd->swap_lock);
 
 	/* Only allowed if we are already in explicit sink contract */
-	if (pd->current_state != PE_SNK_READY || !is_sink_tx_ok(pd)) {
+	if (pd->current_state != PE_SNK_READY) {
 		usbpd_err(&pd->dev, "select_pdo: Cannot select new PDO yet\n");
 		ret = -EBUSY;
 		goto out;
@@ -4138,7 +4126,7 @@ static int trigger_tx_msg(struct usbpd *pd, bool *msg_tx_flag)
 	int ret = 0;
 
 	/* Only allowed if we are already in explicit sink contract */
-	if (pd->current_state != PE_SNK_READY || !is_sink_tx_ok(pd)) {
+	if (pd->current_state != PE_SNK_READY) {
 		usbpd_err(&pd->dev, "%s: Cannot send msg\n", __func__);
 		ret = -EBUSY;
 		goto out;
