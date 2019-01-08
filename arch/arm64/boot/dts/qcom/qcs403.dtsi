@@ -40,8 +40,8 @@
 		qcom,cpulist = <&CPU0 &CPU1>;
 		qcom,target-dev = <&cpu0_cpu_ddr_latfloor>;
 		qcom,core-dev-table =
-			< 1094400 MHZ_TO_MBPS( 297, 4) >,
-			< 1248000 MHZ_TO_MBPS( 597, 4) >,
-			< 1401600 MHZ_TO_MBPS( 710, 4) >;
+			< 1094400 MHZ_TO_MBPS( 297, 8) >,
+			< 1248000 MHZ_TO_MBPS( 597, 8) >,
+			< 1401600 MHZ_TO_MBPS( 710, 8) >;
 	};
 };

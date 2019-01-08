@@ -124,14 +124,26 @@ struct gsi_chan_stats {
 	unsigned long invalid_tre_error;
 	unsigned long poll_ok;
 	unsigned long poll_empty;
+	unsigned long userdata_in_use;
 	struct gsi_chan_dp_stats dp;
+};
+
+/**
+ * struct gsi_user_data - user_data element pointed by the TRE
+ * @valid: valid to be cleaned. if its true that means it is being used.
+ *	false means its free to overwrite
+ * @p: pointer to the user data array element
+ */
+struct gsi_user_data {
+	bool valid;
+	void *p;
 };
 
 struct gsi_chan_ctx {
 	struct gsi_chan_props props;
 	enum gsi_chan_state state;
 	struct gsi_ring_ctx ring;
-	void **user_data;
+	struct gsi_user_data *user_data;
 	struct gsi_evt_ctx *evtr;
 	struct mutex mlock;
 	struct completion compl;

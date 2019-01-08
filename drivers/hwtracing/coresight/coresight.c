@@ -742,20 +742,13 @@ EXPORT_SYMBOL(coresight_disable);
 
 void coresight_abort(void)
 {
-	if (!mutex_trylock(&coresight_mutex)) {
-		pr_err("coresight: abort could not be processed\n");
-		return;
-	}
 	if (!curr_sink)
-		goto out;
+		return;
 
 	if (curr_sink->enable && sink_ops(curr_sink)->abort) {
 		sink_ops(curr_sink)->abort(curr_sink);
 		curr_sink->enable = false;
 	}
-
-out:
-	mutex_unlock(&coresight_mutex);
 }
 EXPORT_SYMBOL(coresight_abort);
 

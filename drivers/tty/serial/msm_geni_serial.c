@@ -2400,6 +2400,8 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	if (ret)
 		goto exit_geni_serial_probe;
 
+	dev_port->serial_rsc.ctrl_dev = &pdev->dev;
+
 	if (of_property_read_u32(pdev->dev.of_node, "qcom,wakeup-byte",
 					&wake_char)) {
 		dev_dbg(&pdev->dev, "No Wakeup byte specified\n");

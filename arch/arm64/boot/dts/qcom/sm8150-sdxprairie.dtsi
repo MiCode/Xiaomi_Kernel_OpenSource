@@ -15,6 +15,12 @@
 	qcom,mdm-link-info = "0306_01.01.00";
 };
 
+&pil_modem {
+	/delete-property/ vdd_mss-supply;
+	/delete-property/ qcom,vdd_mss-uV-uA;
+	qcom,proxy-reg-names = "vdd_cx";
+};
+
 &mhi_1 {
 	esoc-names = "mdm";
 	esoc-0 = <&mdm3>;
@@ -31,5 +37,11 @@
 
 	mhi_chan@105 {
 		status = "disabled";
+	};
+};
+
+&soc {
+	ipa_hw: qcom,ipa@1e00000 {
+		qcom,platform-type = <2>; /* APQ platform */
 	};
 };

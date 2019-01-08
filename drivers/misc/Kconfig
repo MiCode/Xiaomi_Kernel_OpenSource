@@ -553,6 +553,40 @@ config QPNP_MISC
 	  and the driver provides an API to check if this interrupt
 	  is available on the current PMIC chip.
 
+config OKL4_USER_VIRQ
+	tristate "User space accessible OKL4 virtual interrupts"
+	depends on OKL4_GUEST
+	default n
+	help
+	  Say Y here if you want to enable the driver that exposes OKL4
+	  virtual interrupts and virtual interrupt sources which enable
+          inter-VM notifications.
+
+config OKL4_RINGBUF
+	tristate "Test driver for OKL4 inter-cell communication"
+	depends on OKL4_GUEST
+	default n
+	help
+	  Say Y here if you want to test communication between OKL4 guests
+	  using virtual interrupts and shared memory.
+
+config TEST_IRQ_REQUESTER
+	tristate "Receive interrupt notifications in user-space"
+	depends on DEBUG_FS
+	default n
+	help
+	  This module allows interrupts to be registered from user-space by
+	  writing to a debugfs file. If an interrupt registered by this
+	  module triggers then a log message will be displayed. Note: This
+	  driver is intented only for basic testing of interrupts. It not
+	  designed to be a generic solution for providing interrupts to
+	  user-space.
+
+	  This module can be used to test client side vServices vGPIO
+	  interrupt handling.
+
+	  If in doubt, say N.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
@@ -567,6 +601,15 @@ source "drivers/misc/echo/Kconfig"
 source "drivers/misc/cxl/Kconfig"
 source "drivers/misc/fpr_FingerprintCard/Kconfig"
 endmenu
+
+config OKL4_USER_VIPC
+	bool "OKL4 Virtual Platform IPC Driver"
+	depends on OKL4_GUEST
+	default n
+	help
+	  Say Y here if you want to enable the driver which exposes the OKL4
+	  Shared Buffer IPC mechanism for accessing and initializing buffers
+	  and vIRQs associated with IPC between two cells.
 
 config OKL4_LINK_SHBUF
 	    tristate "OKL4 link with shared buffer transport"

@@ -493,3 +493,12 @@ config DEBUGCC_SDXPRAIRIE
 	  Support for the debug clock controller on Qualcomm Technologies, Inc
 	  SDXPRAIRIE devices.
 	  Say Y if you want to support the clock measurement functionality.
+
+config CLOCK_CPU_SDXPRAIRIE
+	bool "CPU SDXPRAIRIE Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the cpu clock controller on SDXPRAIRIE
+	  based devices.
+	  Say Y if you want to support CPU clock scaling using
+	  CPUfreq drivers for dynamic power management.

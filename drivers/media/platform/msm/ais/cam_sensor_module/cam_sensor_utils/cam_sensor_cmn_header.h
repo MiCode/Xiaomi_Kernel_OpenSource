@@ -20,6 +20,7 @@
 #include <linux/timer.h>
 #include <linux/delay.h>
 #include <linux/list.h>
+#include <media/ais_sensor.h>
 #include <media/cam_sensor.h>
 #include <media/cam_req_mgr.h>
 
@@ -320,6 +321,7 @@ struct cam_camera_slave_info {
 	uint16_t sensor_id_reg_addr;
 	uint16_t sensor_id;
 	uint16_t sensor_id_mask;
+	uint8_t  i2c_freq_mode;
 };
 
 struct msm_sensor_init_params {

@@ -178,6 +178,9 @@
 						RPMH_REGULATOR_LEVEL_NOM 0>;
 
 		qcom,no-l0s-supported;
+		qcom,no-l1-supported;
+		qcom,no-l1ss-supported;
+		qcom,no-aux-clk-sync;
 
 		qcom,max-link-speed = <0x2>;
 

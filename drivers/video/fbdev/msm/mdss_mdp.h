@@ -652,6 +652,9 @@ struct mdss_mdp_ctl {
 	/* vsync handler for FRC */
 	struct mdss_mdp_vsync_handler frc_vsync_handler;
 	bool need_vsync_on;
+
+	/* pack alignment for DSI or RGB Panels */
+	bool pack_align_msb;
 };
 
 struct mdss_mdp_mixer {

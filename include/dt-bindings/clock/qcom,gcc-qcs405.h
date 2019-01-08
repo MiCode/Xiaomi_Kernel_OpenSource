@@ -70,7 +70,6 @@
 #define GCC_BLSP2_QUP0_SPI_APPS_CLK			53
 #define GCC_BLSP2_UART0_APPS_CLK			54
 #define GCC_BOOT_ROM_AHB_CLK				55
-#define GCC_DCC_CLK					56
 #define GCC_GENI_IR_H_CLK				57
 #define GCC_ETH_AXI_CLK					58
 #define GCC_ETH_PTP_CLK					59
@@ -154,7 +153,6 @@
 #define GCC_CRYPTO_CLK					137
 #define GCC_MDP_TBU_CLK					138
 #define GCC_QDSS_DAP_CLK				139
-#define GCC_DCC_XO_CLK					140
 
 #define GCC_GENI_IR_BCR					0
 #define GCC_USB_HS_BCR					1

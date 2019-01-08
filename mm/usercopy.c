@@ -139,6 +139,8 @@ static inline const char *check_page_span(const void *ptr, unsigned long n,
 	const void *end = ptr + n - 1;
 	struct page *endpage;
 	bool is_reserved, is_cma;
+	const void * const stack = task_stack_page(current);
+	const void * const stackend = stack + THREAD_SIZE;
 
 	/*
 	 * Sometimes the kernel data regions are not marked Reserved (see
@@ -161,6 +163,10 @@ static inline const char *check_page_span(const void *ptr, unsigned long n,
 	/* Allow kernel bss region (if not marked as Reserved). */
 	if (ptr >= (const void *)__bss_start &&
 	    end <= (const void *)__bss_stop)
+		return NULL;
+
+	/* Allow stack region to span multiple pages */
+	if (ptr >= stack && end <= stackend)
 		return NULL;
 
 	/* Is the object wholly within one base page? */

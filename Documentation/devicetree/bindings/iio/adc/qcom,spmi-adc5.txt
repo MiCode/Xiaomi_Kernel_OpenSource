@@ -125,6 +125,17 @@ Channel node properties:
             Valid values are: 1, 2, 4, 8, 16
             If property is not found, 1 sample will be used.
 
+- qcom,lut-index:
+    Usage: optional
+    Value type: <u32>
+    Definition: Lookup table index (only for bat_therm channels).
+            A bat_therm channel (for 30k, 100k or 400k pull-up resistance)
+            requires a voltage-temperature look-up table which depends on the target.
+            The LUT to be used for a channel is selected from a table of LUTs
+            for that particular channel.
+            If property is not found, a default LUT is used for that channel,
+            corresponding to index 0.
+
 Example:
 
         /* VADC node */

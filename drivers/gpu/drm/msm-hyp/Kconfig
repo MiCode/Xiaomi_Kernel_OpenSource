@@ -6,7 +6,7 @@
 config DRM_MSM_HYP
 	tristate "MSM DRM HYP"
 	depends on DRM
-	depends on MSM_GVM
+	depends on QTI_GVM
 	depends on OF
 	select SYNC_FILE
 	select SW_SYNC

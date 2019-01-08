@@ -266,7 +266,7 @@ static int glink_probe_ssr_cb(struct notifier_block *this,
 {
 	struct edge_info *einfo = container_of(this, struct edge_info, nb);
 
-	GLINK_INFO("received %d for %s", code, einfo->ssr_label);
+	GLINK_INFO("received %lu for %s", code, einfo->ssr_label);
 
 	switch (code) {
 	case SUBSYS_AFTER_POWERUP:

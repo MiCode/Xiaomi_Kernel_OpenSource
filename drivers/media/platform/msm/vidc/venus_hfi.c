@@ -285,11 +285,11 @@ static int __dsp_send_hfi_queue(struct venus_hfi_device *device)
 	}
 
 	if (device->dsp_flags & DSP_INIT) {
-		dprintk(VIDC_DBG, "%s: dsp already inited\n");
+		dprintk(VIDC_DBG, "%s: dsp already inited\n", __func__);
 		return 0;
 	}
 
-	dprintk(VIDC_DBG, "%s: hfi queue %#x size %d\n",
+	dprintk(VIDC_DBG, "%s: hfi queue %#llx size %d\n",
 		__func__, device->dsp_iface_q_table.mem_data.dma_handle,
 		device->dsp_iface_q_table.mem_data.size);
 	rc = fastcvpd_video_send_cmd_hfi_queue(
@@ -1411,18 +1411,19 @@ static int __set_clk_rate(struct venus_hfi_device *device,
 		return rc;
 	}
 
-	device->clk_freq = rate;
-
 	if (device->clk_freq >= threshold_freq && rate < threshold_freq) {
 		rc = cx_ipeak_update(ipeak, false);
 		if (rc) {
 			dprintk(VIDC_ERR,
 				"cx_ipeak_update failed! ipeak %pK\n", ipeak);
+			device->clk_freq = rate;
 			return rc;
 		}
 		dprintk(VIDC_PROF, "cx_ipeak_update: down, clk freq = %lu\n",
 			device->clk_freq);
 	}
+
+	device->clk_freq = rate;
 
 	return rc;
 }
@@ -1719,7 +1720,7 @@ static int __interface_dsp_queues_init(struct venus_hfi_device *dev)
 		goto fail_dma_map;
 	}
 	dprintk(VIDC_DBG,
-		"%s: kvaddr %pK dma_handle %#lx iova %#lx size %d\n",
+		"%s: kvaddr %pK dma_handle %#llx iova %#llx size %ld\n",
 		__func__, kvaddr, dma_handle, iova, q_size);
 
 	memset(mem_data, 0, sizeof(struct msm_smem));
@@ -1998,6 +1999,8 @@ static int __interface_queues_init(struct venus_hfi_device *dev)
 		dev->sfr.align_virtual_addr = mem_addr->align_virtual_addr;
 		dev->sfr.mem_size = ALIGNED_SFR_SIZE;
 		dev->sfr.mem_data = mem_addr->mem_data;
+		vsfr = (struct hfi_sfr_struct *) dev->sfr.align_virtual_addr;
+		vsfr->bufSize = ALIGNED_SFR_SIZE;
 	}
 
 	q_tbl_hdr = (struct hfi_queue_table_header *)
@@ -2057,8 +2060,6 @@ static int __interface_queues_init(struct venus_hfi_device *dev)
 		}
 	}
 
-	vsfr = (struct hfi_sfr_struct *) dev->sfr.align_virtual_addr;
-	vsfr->bufSize = ALIGNED_SFR_SIZE;
 
 	if (dev->res->domain_cvp) {
 		rc = __interface_dsp_queues_init(dev);

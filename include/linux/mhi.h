@@ -346,18 +346,23 @@ struct mhi_result {
 
 /**
  * struct mhi_buf - Describes the buffer
+ * @page: buffer as a page
  * @buf: cpu address for the buffer
  * @phys_addr: physical address of the buffer
  * @dma_addr: iommu address for the buffer
+ * @skb: skb of ip packet
  * @len: # of bytes
  * @name: Buffer label, for offload channel configurations name must be:
  * ECA - Event context array data
  * CCA - Channel context array data
  */
 struct mhi_buf {
+	struct list_head node;
+	struct page *page;
 	void *buf;
 	phys_addr_t phys_addr;
 	dma_addr_t dma_addr;
+	struct sk_buff *skb;
 	size_t len;
 	const char *name; /* ECA, CCA */
 };
@@ -628,6 +633,19 @@ enum mhi_dev_state mhi_get_mhi_state(struct mhi_controller *mhi_cntrl);
  */
 void mhi_set_mhi_state(struct mhi_controller *mhi_cntrl,
 		       enum mhi_dev_state state);
+
+
+/**
+ * mhi_is_active - helper function to determine if MHI in active state
+ * @mhi_dev: client device
+ */
+static inline bool mhi_is_active(struct mhi_device *mhi_dev)
+{
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+
+	return (mhi_cntrl->dev_state >= MHI_STATE_M0 &&
+		mhi_cntrl->dev_state <= MHI_STATE_M3);
+}
 
 #ifndef CONFIG_ARCH_QCOM
 

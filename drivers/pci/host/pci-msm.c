@@ -4379,8 +4379,10 @@ int msm_pcie_enumerate(u32 rc_idx)
 
 			bridge = devm_pci_alloc_host_bridge(&dev->pdev->dev,
 						sizeof(*dev));
-			if (!bridge)
-				return -ENOMEM;
+			if (!bridge) {
+				ret = -ENOMEM;
+				goto out;
+			}
 
 			ret = of_pci_get_host_bridge_resources(
 						dev->pdev->dev.of_node,
@@ -4404,7 +4406,7 @@ int msm_pcie_enumerate(u32 rc_idx)
 			if (IS_ENABLED(CONFIG_PCI_MSM_MSI)) {
 				ret = msm_msi_init(&dev->pdev->dev);
 				if (ret)
-					return ret;
+					goto out;
 			}
 
 			list_splice_init(&res, &bridge->windows);

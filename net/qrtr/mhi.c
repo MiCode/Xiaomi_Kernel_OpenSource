@@ -15,6 +15,7 @@
 #include <linux/mod_devicetable.h>
 #include <linux/mhi.h>
 #include <net/sock.h>
+#include <linux/of.h>
 
 #include "qrtr.h"
 
@@ -130,6 +131,7 @@ static int qcom_mhi_qrtr_probe(struct mhi_device *mhi_dev,
 			       const struct mhi_device_id *id)
 {
 	struct qrtr_mhi_dev *qdev;
+	u32 net_id;
 	int rc;
 
 	qdev = devm_kzalloc(&mhi_dev->dev, sizeof(*qdev), GFP_KERNEL);
@@ -140,10 +142,14 @@ static int qcom_mhi_qrtr_probe(struct mhi_device *mhi_dev,
 	qdev->dev = &mhi_dev->dev;
 	qdev->ep.xmit = qcom_mhi_qrtr_send;
 
+	rc = of_property_read_u32(mhi_dev->dev.of_node, "qcom,net-id", &net_id);
+	if (rc < 0)
+		net_id = QRTR_EP_NET_ID_AUTO;
+
 	INIT_LIST_HEAD(&qdev->ul_pkts);
 	spin_lock_init(&qdev->ul_lock);
 
-	rc = qrtr_endpoint_register(&qdev->ep, QRTR_EP_NID_AUTO);
+	rc = qrtr_endpoint_register(&qdev->ep, net_id);
 	if (rc)
 		return rc;
 

@@ -436,7 +436,7 @@ int venus_boot_init(struct msm_vidc_platform_resources *res,
 	}
 	venus_data->reg_base = ioremap_nocache(res->register_base,
 			(unsigned long)res->register_size);
-	dprintk(VIDC_DBG, "venus reg: base %x size %x\n",
+	dprintk(VIDC_DBG, "venus reg: base %llx size %x\n",
 		 res->register_base, res->register_size);
 	if (!venus_data->reg_base) {
 		dprintk(VIDC_ERR,
@@ -448,7 +448,7 @@ int venus_boot_init(struct msm_vidc_platform_resources *res,
 
 	venus_data->gcc_base = ioremap_nocache(res->gcc_register_base,
 			(unsigned long)res->gcc_register_size);
-	dprintk(VIDC_DBG, "gcc reg: base %x size %x\n",
+	dprintk(VIDC_DBG, "gcc reg: base %llx size %x\n",
 		 res->gcc_register_base, res->gcc_register_size);
 	if (!venus_data->gcc_base) {
 		dprintk(VIDC_ERR,

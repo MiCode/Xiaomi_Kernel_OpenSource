@@ -201,6 +201,12 @@ Charger specific properties:
   Value type: bool
   Definition: Boolean flag which when present enables step-charging.
 
+- qcom,typec-legacy-rp-icl
+  Usage:       optional
+  Value type:  bool
+  Definition:  Boolean property to enable setting ICL based on Rp for
+		Type-C non-compliant legacy cables.
+
 - qcom,wd-bark-time-secs
   Usage:      optional
   Value type: <u32>
@@ -262,6 +268,43 @@ Charger specific properties:
 	Value type: bool
 	Definition: Boolean flag which when present enables mositure protection
 		    feature for uUSB connector type.
+
+- qcom,hvdcp-autonomous-enable
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present enables hardware-controlled
+		operation of HVDCP.
+
+- qcom,usb-pd-disable
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present disables USB-PD operation. Not
+		applicable for PMI632, where PD is not supported.
+
+- qcom,hw-die-temp-mitigation
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present enables h/w based thermal
+		mitigation.
+
+- qcom,hw-connector-mitigation
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present enables h/w based
+		connector temperature mitigation.
+
+- qcom,hw-skin-temp-mitigation
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present enables h/w based skin
+		temperature mitigation.
+
+- qcom,connector-internal-pull-kohm
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies internal pull-up configuration to be applied to
+		connector THERM, only valid values are (0/30/100/400).
+		If not specified 100K is used as default pull-up.
 
 =============================================
 Second Level Nodes - SMB5 Charger Peripherals

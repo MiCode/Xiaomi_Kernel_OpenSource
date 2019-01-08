@@ -656,7 +656,7 @@ struct ipa_hw_hdr_proc_ctx_tlv {
  */
 struct ipa_hw_hdr_proc_ctx_hdr_add {
 	struct ipa_hw_hdr_proc_ctx_tlv tlv;
-	u32 hdr_addr;
+	u64 hdr_addr;
 };
 
 /**

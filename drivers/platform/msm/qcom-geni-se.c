@@ -675,9 +675,9 @@ static int geni_se_rmv_ab_ib(struct geni_se_device *geni_se_dev,
 						geni_se_dev->cur_ab,
 						geni_se_dev->cur_ib);
 	GENI_SE_DBG(geni_se_dev->log_ctx, false, NULL,
-		    "%s: %lu:%lu (%lu:%lu) %d\n", __func__,
-		    geni_se_dev->cur_ab, geni_se_dev->cur_ib,
-		    rsc->ab, rsc->ib, bus_bw_update);
+			"%s: %s: cur_ab_ib(%lu:%lu) req_ab_ib(%lu:%lu) %d\n",
+			__func__, dev_name(rsc->ctrl_dev), geni_se_dev->cur_ab,
+			geni_se_dev->cur_ib, rsc->ab, rsc->ib, bus_bw_update);
 	mutex_unlock(&geni_se_dev->geni_dev_lock);
 	return ret;
 }
@@ -773,9 +773,9 @@ static int geni_se_add_ab_ib(struct geni_se_device *geni_se_dev,
 						geni_se_dev->cur_ab,
 						geni_se_dev->cur_ib);
 	GENI_SE_DBG(geni_se_dev->log_ctx, false, NULL,
-		    "%s: %lu:%lu (%lu:%lu) %d\n", __func__,
-		    geni_se_dev->cur_ab, geni_se_dev->cur_ib,
-		    rsc->ab, rsc->ib, bus_bw_update);
+			"%s: %s: cur_ab_ib(%lu:%lu) req_ab_ib(%lu:%lu) %d\n",
+			__func__, dev_name(rsc->ctrl_dev), geni_se_dev->cur_ab,
+			geni_se_dev->cur_ib, rsc->ab, rsc->ib, bus_bw_update);
 	mutex_unlock(&geni_se_dev->geni_dev_lock);
 	return ret;
 }
@@ -1167,6 +1167,10 @@ static int geni_se_iommu_map_and_attach(struct geni_se_device *geni_se_dev)
 	size_t va_size = GENI_SE_IOMMU_VA_SIZE;
 	int bypass = 1;
 	struct device *cb_dev = geni_se_dev->cb_dev;
+
+	/*Don't proceed if IOMMU node is disabled*/
+	if (!iommu_present(&platform_bus_type))
+		return 0;
 
 	mutex_lock(&geni_se_dev->iommu_lock);
 	if (likely(geni_se_dev->iommu_map)) {

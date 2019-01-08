@@ -578,6 +578,14 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 
 		struct cam_create_dev_hdl bridge_params;
 
+		if (csiphy_dev->csiphy_state == CAM_CSIPHY_START) {
+			CAM_ERR(CAM_CSIPHY,
+				"Not in right state to acquire : %d",
+				csiphy_dev->csiphy_state);
+			rc = -EINVAL;
+			goto release_mutex;
+		}
+
 		rc = copy_from_user(&csiphy_acq_dev,
 			u64_to_user_ptr(cmd->handle),
 			sizeof(csiphy_acq_dev));
@@ -837,6 +845,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 			if (rc < 0) {
 				csiphy_dev->csiphy_info.secure_mode[offset] =
 					CAM_SECURE_MODE_NON_SECURE;
+				cam_cpas_stop(csiphy_dev->cpas_handle);
 				goto release_mutex;
 			}
 		}

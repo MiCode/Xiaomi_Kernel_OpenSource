@@ -542,7 +542,7 @@ void tmc_etr_disable_hw(struct tmc_drvdata *drvdata)
 	CS_LOCK(drvdata->base);
 }
 
-static int tmc_etr_alloc_mem(struct tmc_drvdata *drvdata)
+int tmc_etr_alloc_mem(struct tmc_drvdata *drvdata)
 {
 	int ret;
 
@@ -859,7 +859,7 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 	bool used = false;
 	unsigned long flags;
 	void __iomem *vaddr = NULL;
-	dma_addr_t paddr;
+	dma_addr_t paddr = 0;
 	struct tmc_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
 
 

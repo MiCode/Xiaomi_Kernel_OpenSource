@@ -61,6 +61,7 @@ enum fps_resolution {
 #define LVDS_PANEL		11	/* LVDS */
 #define EDP_PANEL		12	/* LVDS */
 #define SPI_PANEL               13	/* SPI */
+#define RGB_PANEL               14	/* RGB */
 
 #define DSC_PPS_LEN		128
 #define INTF_EVENT_STR(x)	#x
@@ -111,6 +112,7 @@ enum {
 	MDSS_PANEL_INTF_EDP,
 	MDSS_PANEL_INTF_HDMI,
 	MDSS_PANEL_INTF_SPI,
+	MDSS_PANEL_INTF_RGB,
 };
 
 enum {

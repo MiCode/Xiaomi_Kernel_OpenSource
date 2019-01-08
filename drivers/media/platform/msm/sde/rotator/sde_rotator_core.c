@@ -3166,6 +3166,8 @@ int sde_rotator_core_init(struct sde_rot_mgr **pmgr,
 		goto error_hw_init;
 	}
 
+	sde_rotator_pm_qos_add(mdata);
+
 	ret = sde_rotator_init_queue(mgr);
 	if (ret) {
 		SDEROT_ERR("fail to init queue\n");

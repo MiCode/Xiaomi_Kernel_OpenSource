@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,7 @@
 #include <linux/elf.h>
 #include <linux/wait.h>
 #include <linux/cdev.h>
+#include <linux/atomic.h>
 #include <soc/qcom/ramdump.h>
 #include <linux/dma-mapping.h>
 #include <linux/of.h>
@@ -41,14 +42,22 @@ static bool ramdump_devnode_inited;
 #define MAX_STRTBL_SIZE 512
 #define MAX_NAME_LENGTH 16
 
+struct consumer_entry {
+	bool data_ready;
+	struct ramdump_device *rd_dev;
+	struct list_head list;
+};
+
 struct ramdump_device {
 	char name[256];
 
-	unsigned int data_ready;
-	unsigned int consumer_present;
+	unsigned int consumers;
+	atomic_t readers_done;
 	int ramdump_status;
 
 	struct completion ramdump_complete;
+	struct mutex consumer_lock;
+	struct list_head consumer_list;
 	struct cdev cdev;
 	struct device *dev;
 
@@ -65,9 +74,19 @@ static int ramdump_open(struct inode *inode, struct file *filep)
 {
 	struct ramdump_device *rd_dev = container_of(inode->i_cdev,
 					struct ramdump_device, cdev);
-	rd_dev->consumer_present = 1;
+	struct consumer_entry *entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+
+	if (!entry)
+		return -ENOMEM;
+
+	INIT_LIST_HEAD(&entry->list);
+	entry->rd_dev = rd_dev;
+	mutex_lock(&rd_dev->consumer_lock);
+	rd_dev->consumers++;
 	rd_dev->ramdump_status = 0;
-	filep->private_data = rd_dev;
+	list_add_tail(&entry->list, &rd_dev->consumer_list);
+	mutex_unlock(&rd_dev->consumer_lock);
+	filep->private_data = entry;
 	return 0;
 }
 
@@ -76,9 +95,14 @@ static int ramdump_release(struct inode *inode, struct file *filep)
 
 	struct ramdump_device *rd_dev = container_of(inode->i_cdev,
 					struct ramdump_device, cdev);
-	rd_dev->consumer_present = 0;
-	rd_dev->data_ready = 0;
-	complete(&rd_dev->ramdump_complete);
+	struct consumer_entry *entry = filep->private_data;
+
+	mutex_lock(&rd_dev->consumer_lock);
+	rd_dev->consumers--;
+	list_del(&entry->list);
+	mutex_unlock(&rd_dev->consumer_lock);
+	entry->rd_dev = NULL;
+	kfree(entry);
 	return 0;
 }
 
@@ -119,7 +143,8 @@ static unsigned long offset_translate(loff_t user_offset,
 static ssize_t ramdump_read(struct file *filep, char __user *buf, size_t count,
 			loff_t *pos)
 {
-	struct ramdump_device *rd_dev = filep->private_data;
+	struct consumer_entry *entry = filep->private_data;
+	struct ramdump_device *rd_dev = entry->rd_dev;
 	void *device_mem = NULL, *origdevice_mem = NULL, *vaddr = NULL;
 	unsigned long data_left = 0, bytes_before, bytes_after;
 	unsigned long addr = 0;
@@ -128,10 +153,10 @@ static ssize_t ramdump_read(struct file *filep, char __user *buf, size_t count,
 	int ret = 0;
 	loff_t orig_pos = *pos;
 
-	if ((filep->f_flags & O_NONBLOCK) && !rd_dev->data_ready)
+	if ((filep->f_flags & O_NONBLOCK) && !entry->data_ready)
 		return -EAGAIN;
 
-	ret = wait_event_interruptible(rd_dev->dump_wait_q, rd_dev->data_ready);
+	ret = wait_event_interruptible(rd_dev->dump_wait_q, entry->data_ready);
 	if (ret)
 		return ret;
 
@@ -231,19 +256,23 @@ ramdump_done:
 		dma_unremap(rd_dev->dev->parent, origdevice_mem, copy_size);
 
 	kfree(finalbuf);
-	rd_dev->data_ready = 0;
 	*pos = 0;
-	complete(&rd_dev->ramdump_complete);
+	entry->data_ready = false;
+	if (atomic_inc_return(&rd_dev->readers_done) == rd_dev->consumers) {
+		atomic_set(&rd_dev->readers_done, 0);
+		complete(&rd_dev->ramdump_complete);
+	}
 	return ret;
 }
 
 static unsigned int ramdump_poll(struct file *filep,
 					struct poll_table_struct *wait)
 {
-	struct ramdump_device *rd_dev = filep->private_data;
+	struct consumer_entry *entry = filep->private_data;
+	struct ramdump_device *rd_dev = entry->rd_dev;
 	unsigned int mask = 0;
 
-	if (rd_dev->data_ready)
+	if (entry->data_ready)
 		mask |= (POLLIN | POLLRDNORM);
 
 	poll_wait(filep, &rd_dev->dump_wait_q, wait);
@@ -319,6 +348,7 @@ void *create_ramdump_device(const char *dev_name, struct device *parent)
 			"for %s segments only will be dumped.", dev_name);
 	}
 
+	INIT_LIST_HEAD(&rd_dev->consumer_list);
 	init_waitqueue_head(&rd_dev->dump_wait_q);
 
 	rd_dev->dev = device_create(ramdump_class, parent,
@@ -331,6 +361,8 @@ void *create_ramdump_device(const char *dev_name, struct device *parent)
 		goto fail_return_minor;
 	}
 
+	mutex_init(&rd_dev->consumer_lock);
+	atomic_set(&rd_dev->readers_done, 0);
 	cdev_init(&rd_dev->cdev, &ramdump_file_ops);
 
 	ret = cdev_add(&rd_dev->cdev, MKDEV(MAJOR(ramdump_dev), minor), 1);
@@ -343,6 +375,7 @@ void *create_ramdump_device(const char *dev_name, struct device *parent)
 	return (void *)rd_dev;
 
 fail_cdev_add:
+	mutex_destroy(&rd_dev->consumer_lock);
 	device_unregister(rd_dev->dev);
 fail_return_minor:
 	ida_simple_remove(&rd_minor_id, minor);
@@ -372,14 +405,18 @@ static int _do_ramdump(void *handle, struct ramdump_segment *segments,
 {
 	int ret, i;
 	struct ramdump_device *rd_dev = (struct ramdump_device *)handle;
+	struct consumer_entry *entry;
 	Elf32_Phdr *phdr;
 	Elf32_Ehdr *ehdr;
 	unsigned long offset;
 
-	if (!rd_dev->consumer_present) {
+	mutex_lock(&rd_dev->consumer_lock);
+	if (!rd_dev->consumers) {
 		pr_err("Ramdump(%s): No consumers. Aborting..\n", rd_dev->name);
+		mutex_unlock(&rd_dev->consumer_lock);
 		return -EPIPE;
 	}
+	mutex_unlock(&rd_dev->consumer_lock);
 
 	if (rd_dev->complete_ramdump) {
 		for (i = 0; i < nsegments-1; i++)
@@ -422,7 +459,9 @@ static int _do_ramdump(void *handle, struct ramdump_segment *segments,
 		}
 	}
 
-	rd_dev->data_ready = 1;
+	mutex_lock(&rd_dev->consumer_lock);
+	list_for_each_entry(entry, &rd_dev->consumer_list, list)
+		entry->data_ready = true;
 	rd_dev->ramdump_status = -1;
 
 	reinit_completion(&rd_dev->ramdump_complete);
@@ -441,10 +480,13 @@ static int _do_ramdump(void *handle, struct ramdump_segment *segments,
 	} else
 		ret = (rd_dev->ramdump_status == 0) ? 0 : -EPIPE;
 
-	rd_dev->data_ready = 0;
+	list_for_each_entry(entry, &rd_dev->consumer_list, list)
+		entry->data_ready = false;
 	rd_dev->elfcore_size = 0;
+	atomic_set(&rd_dev->readers_done, 0);
 	kfree(rd_dev->elfcore_buf);
 	rd_dev->elfcore_buf = NULL;
+	mutex_unlock(&rd_dev->consumer_lock);
 	return ret;
 
 }
@@ -472,14 +514,18 @@ static int _do_minidump(void *handle, struct ramdump_segment *segments,
 {
 	int ret, i;
 	struct ramdump_device *rd_dev = (struct ramdump_device *)handle;
+	struct consumer_entry *entry;
 	struct elfhdr *ehdr;
 	struct elf_shdr *shdr;
 	unsigned long offset, strtbl_off;
 
-	if (!rd_dev->consumer_present) {
+	mutex_lock(&rd_dev->consumer_lock);
+	if (!rd_dev->consumers) {
 		pr_err("Ramdump(%s): No consumers. Aborting..\n", rd_dev->name);
+		mutex_unlock(&rd_dev->consumer_lock);
 		return -EPIPE;
 	}
+	mutex_unlock(&rd_dev->consumer_lock);
 
 	rd_dev->segments = segments;
 	rd_dev->nsegments = nsegments;
@@ -530,7 +576,9 @@ static int _do_minidump(void *handle, struct ramdump_segment *segments,
 	}
 	ehdr->e_shnum = nsegments + 2;
 
-	rd_dev->data_ready = 1;
+	mutex_lock(&rd_dev->consumer_lock);
+	list_for_each_entry(entry, &rd_dev->consumer_list, list)
+		entry->data_ready = true;
 	rd_dev->ramdump_status = -1;
 
 	reinit_completion(&rd_dev->ramdump_complete);
@@ -550,10 +598,13 @@ static int _do_minidump(void *handle, struct ramdump_segment *segments,
 		ret = (rd_dev->ramdump_status == 0) ? 0 : -EPIPE;
 	}
 
-	rd_dev->data_ready = 0;
+	list_for_each_entry(entry, &rd_dev->consumer_list, list)
+		entry->data_ready = false;
 	rd_dev->elfcore_size = 0;
+	atomic_set(&rd_dev->readers_done, 0);
 	kfree(rd_dev->elfcore_buf);
 	rd_dev->elfcore_buf = NULL;
+	mutex_unlock(&rd_dev->consumer_lock);
 	return ret;
 }
 

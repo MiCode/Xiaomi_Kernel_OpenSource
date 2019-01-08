@@ -29,6 +29,7 @@
 		interrupt-names = "pwr_event_irq", "ss_phy_irq", "hs_phy_irq";
 
 		USB3_GDSC-supply = <&usb30_prim_gdsc>;
+		dpdm-supply = <&qusb_phy0>;
 		clocks = <&clock_gcc  GCC_USB30_PRIM_MASTER_CLK>,
 			<&clock_gcc GCC_SYS_NOC_USB3_PRIM_AXI_CLK>,
 			<&clock_gcc GCC_CFG_NOC_USB3_PRIM_AXI_CLK>,
@@ -138,7 +139,7 @@
 			"tcsr_clamp_dig_n_1p8",
 			"tune2_efuse_addr";
 
-		vdd-supply = <&pm6125_l4>;
+		vdd-supply = <&pm6125_l7>;
 		vdda18-supply = <&pm6125_l10>;
 		vdda33-supply = <&pm6125_l15>;
 		qcom,vdd-voltage-level = <0 925000 970000>;
@@ -170,10 +171,12 @@
 	/* Primary USB port related QMP USB PHY */
 	usb_qmp_phy: ssphy@1615000 {
 		compatible = "qcom,usb-ssphy-qmp-usb3-or-dp";
-		reg = <0x01615000 0x1000>;
-		reg-names = "qmp_phy_base";
+		reg = <0x01615000 0x1000>,
+			<0x03cb244 0x4>;
+		reg-names = "qmp_phy_base",
+			"vls_clamp-reg";
 
-		vdd-supply = <&pm6125_l4>;
+		vdd-supply = <&pm6125_l7>;
 		core-supply = <&pm6125_l10>;
 		qcom,vdd-voltage-level = <0 925000 970000>;
 		qcom,core-voltage-level = <0 1800000 1800000>;

@@ -200,9 +200,25 @@ static int dp_parser_pinctrl(struct dp_parser *parser)
 	pinctrl->pin = devm_pinctrl_get(&parser->pdev->dev);
 
 	if (IS_ERR_OR_NULL(pinctrl->pin)) {
-		rc = PTR_ERR(pinctrl->pin);
-		pr_err("failed to get pinctrl, rc=%d\n", rc);
+		pr_debug("failed to get pinctrl, rc=%d\n", rc);
 		goto error;
+	}
+
+	if (parser->no_aux_switch && parser->lphw_hpd) {
+		pinctrl->state_hpd_tlmm = pinctrl->state_hpd_ctrl = NULL;
+
+		pinctrl->state_hpd_tlmm = pinctrl_lookup_state(pinctrl->pin,
+					"mdss_dp_hpd_tlmm");
+		if (!IS_ERR_OR_NULL(pinctrl->state_hpd_tlmm)) {
+			pinctrl->state_hpd_ctrl = pinctrl_lookup_state(
+				pinctrl->pin, "mdss_dp_hpd_ctrl");
+		}
+
+		if (!pinctrl->state_hpd_tlmm || !pinctrl->state_hpd_ctrl) {
+			pinctrl->state_hpd_tlmm = NULL;
+			pinctrl->state_hpd_ctrl = NULL;
+			pr_debug("tlmm or ctrl pinctrl state does not exist\n");
+		}
 	}
 
 	pinctrl->state_active = pinctrl_lookup_state(pinctrl->pin,
@@ -238,6 +254,8 @@ static int dp_parser_gpio(struct dp_parser *parser)
 
 	if (of_find_property(of_node, "qcom,dp-hpd-gpio", NULL)) {
 		parser->no_aux_switch = true;
+		parser->lphw_hpd = of_find_property(of_node,
+				"qcom,dp-low-power-hw-hpd", NULL);
 		return 0;
 	}
 
@@ -695,13 +713,27 @@ static int dp_parser_mst(struct dp_parser *parser)
 
 static void dp_parser_dsc(struct dp_parser *parser)
 {
+	int rc;
 	struct device *dev = &parser->pdev->dev;
 
 	parser->dsc_feature_enable = of_property_read_bool(dev->of_node,
 			"qcom,dsc-feature-enable");
 
-	pr_debug("dsc parsing successful. dsc:%d\n",
-			parser->dsc_feature_enable);
+	rc = of_property_read_u32(dev->of_node,
+		"qcom,max-dp-dsc-blks", &parser->max_dp_dsc_blks);
+	if (rc || !parser->max_dp_dsc_blks)
+		parser->dsc_feature_enable = false;
+
+	rc = of_property_read_u32(dev->of_node,
+		"qcom,max-dp-dsc-input-width-pixs",
+		&parser->max_dp_dsc_input_width_pixs);
+	if (rc || !parser->max_dp_dsc_input_width_pixs)
+		parser->dsc_feature_enable = false;
+
+	pr_debug("dsc parsing successful. dsc:%d, blks:%d, width:%d\n",
+			parser->dsc_feature_enable,
+			parser->max_dp_dsc_blks,
+			parser->max_dp_dsc_input_width_pixs);
 }
 
 static void dp_parser_fec(struct dp_parser *parser)

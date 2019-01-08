@@ -80,6 +80,16 @@
 
 #define NAPI_WEIGHT 60
 
+/* Bit pattern for SW to identify in middle of PC saving */
+#define PC_SAVE_CONTEXT_SAVE_ENTERED            0xDEAFDEAF
+/* Bit pattern for SW to identify that PC saving completed */
+#define PC_SAVE_CONTEXT_STATUS_SUCCESS          0xFADEFADE
+/* Bit pattern for SW to identify PC restoration is ongoing */
+#define PC_RESTORE_CONTEXT_ENTERED              0xFACEFACE
+/*Bit pattern for SW to identify PC restoration completed */
+#define PC_RESTORE_CONTEXT_STATUS_SUCCESS       0xCAFECAFE
+
+
 #define IPADBG(fmt, args...) \
 	do { \
 		pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
@@ -779,9 +789,8 @@ struct ipa3_ep_context {
 	unsigned long gsi_evt_ring_hdl;
 	struct ipa_gsi_ep_mem_info gsi_mem_info;
 	union __packed gsi_channel_scratch chan_scratch;
-	bool bytes_xfered_valid;
-	u16 bytes_xfered;
-	dma_addr_t phys_base;
+	struct gsi_chan_xfer_notify xfer_notify;
+	bool xfer_notify_valid;
 	struct ipa_ep_cfg cfg;
 	struct ipa_ep_cfg_holb holb;
 	struct ipahal_reg_ep_cfg_status status;
@@ -847,6 +856,13 @@ enum ipa3_sys_pipe_policy {
 	IPA_POLICY_INTR_POLL_MODE,
 };
 
+enum uc_state {
+	IPA_PC_SAVE_CONTEXT_SAVE_ENTERED,
+	IPA_PC_SAVE_CONTEXT_STATUS_SUCCESS,
+	IPA_PC_RESTORE_CONTEXT_ENTERED,
+	IPA_PC_RESTORE_CONTEXT_STATUS_SUCCESS,
+};
+
 struct ipa3_repl_ctx {
 	struct ipa3_rx_pkt_wrapper **cache;
 	atomic_t head_idx;
@@ -889,6 +905,7 @@ struct ipa3_sys_context {
 	struct ipa3_repl_ctx *repl;
 	u32 pkt_sent;
 	struct napi_struct *napi_obj;
+	struct list_head pending_pkts[GSI_VEID_MAX];
 
 	/* ordering is important - mutable fields go above */
 	struct ipa3_ep_context *ep;
@@ -1605,6 +1622,7 @@ struct ipa3_context {
 	bool modem_cfg_emb_pipe_flt;
 	bool ipa_wdi2;
 	bool ipa_wdi2_over_gsi;
+	bool ipa_wdi3_over_gsi;
 	bool ipa_fltrt_not_hashable;
 	bool use_64_bit_dma_mask;
 	/* featurize if memory footprint becomes a concern */
@@ -1672,6 +1690,9 @@ struct ipa3_context {
 	struct mbox_client mbox_client;
 	struct mbox_chan *mbox;
 	atomic_t ipa_clk_vote;
+	int gsi_chk_intset_value;
+	int uc_mailbox17_chk;
+	int uc_mailbox17_mismatch;
 };
 
 struct ipa3_plat_drv_res {
@@ -1694,6 +1715,7 @@ struct ipa3_plat_drv_res {
 	bool modem_cfg_emb_pipe_flt;
 	bool ipa_wdi2;
 	bool ipa_wdi2_over_gsi;
+	bool ipa_wdi3_over_gsi;
 	bool ipa_fltrt_not_hashable;
 	bool use_64_bit_dma_mask;
 	bool use_bw_vote;
@@ -2275,6 +2297,10 @@ int ipa_create_uc_smmu_mapping(int res_idx, bool wlan_smmu_en,
 		phys_addr_t pa, struct sg_table *sgt, size_t len, bool device,
 		unsigned long *iova);
 
+int ipa_create_gsi_smmu_mapping(int res_idx, bool wlan_smmu_en,
+		phys_addr_t pa, struct sg_table *sgt, size_t len, bool device,
+		unsigned long *iova);
+
 /*
  * Tethering bridge (Rmnet / MBIM)
  */
@@ -2512,6 +2538,7 @@ void ipa3_active_clients_unlock(void);
 int ipa3_wdi_init(void);
 int ipa3_write_qmapid_gsi_wdi_pipe(u32 clnt_hdl, u8 qmap_id);
 int ipa3_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id);
+int ipa3_write_qmapid_wdi3_gsi_pipe(u32 clnt_hdl, u8 qmap_id);
 int ipa3_tag_process(struct ipa3_desc *desc, int num_descs,
 		    unsigned long timeout);
 
@@ -2527,6 +2554,7 @@ int ipa3_uc_interface_init(void);
 int ipa3_uc_is_gsi_channel_empty(enum ipa_client_type ipa_client);
 int ipa3_uc_state_check(void);
 int ipa3_uc_loaded_check(void);
+void ipa3_uc_map_cntr_reg_notify(void);
 int ipa3_uc_register_ready_cb(struct notifier_block *nb);
 int ipa3_uc_unregister_ready_cb(struct notifier_block *nb);
 int ipa3_uc_send_cmd(u32 cmd, u32 opcode, u32 expected_status,
@@ -2682,6 +2710,8 @@ int ipa3_ntn_init(void);
 int ipa3_get_ntn_stats(struct Ipa3HwStatsNTNInfoData_t *stats);
 struct dentry *ipa_debugfs_get_root(void);
 bool ipa3_is_msm_device(void);
+void ipa3_read_mailbox_17(enum uc_state state);
+
 struct device *ipa3_get_pdev(void);
 void ipa3_enable_dcd(void);
 void ipa3_disable_prefetch(enum ipa_client_type client);

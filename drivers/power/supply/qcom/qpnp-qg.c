@@ -1869,6 +1869,9 @@ static int qg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SOH:
 		pval->intval = chip->soh;
 		break;
+	case POWER_SUPPLY_PROP_CC_SOC:
+		rc = qg_get_cc_soc(chip, &pval->intval);
+		break;
 	default:
 		pr_debug("Unsupported property %d\n", psp);
 		break;
@@ -1921,6 +1924,7 @@ static enum power_supply_property qg_psy_props[] = {
 	POWER_SUPPLY_PROP_ESR_NOMINAL,
 	POWER_SUPPLY_PROP_SOH,
 	POWER_SUPPLY_PROP_FG_RESET,
+	POWER_SUPPLY_PROP_CC_SOC,
 };
 
 static const struct power_supply_desc qg_psy_desc = {
@@ -3296,6 +3300,7 @@ static int qg_alg_init(struct qpnp_qg *chip)
 #define DEFAULT_CL_MAX_DEC_DECIPERC	20
 #define DEFAULT_CL_MIN_LIM_DECIPERC	500
 #define DEFAULT_CL_MAX_LIM_DECIPERC	100
+#define DEFAULT_CL_DELTA_BATT_SOC	10
 #define DEFAULT_SHUTDOWN_TEMP_DIFF	60	/* 6 degC */
 #define DEFAULT_ESR_QUAL_CURRENT_UA	130000
 #define DEFAULT_ESR_QUAL_VBAT_UV	7000
@@ -3593,6 +3598,14 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 						DEFAULT_CL_MAX_LIM_DECIPERC;
 		else
 			chip->cl->dt.max_cap_limit = temp;
+
+		chip->cl->dt.min_delta_batt_soc = DEFAULT_CL_DELTA_BATT_SOC;
+		/* read from DT property and update, if value exists */
+		of_property_read_u32(node, "qcom,cl-min-delta-batt-soc",
+					&chip->cl->dt.min_delta_batt_soc);
+
+		chip->cl->dt.cl_wt_enable = of_property_read_bool(node,
+							"qcom,cl-wt-enable");
 
 		qg_dbg(chip, QG_DEBUG_PON, "DT: cl_min_start_soc=%d cl_max_start_soc=%d cl_min_temp=%d cl_max_temp=%d\n",
 			chip->cl->dt.min_start_soc, chip->cl->dt.max_start_soc,

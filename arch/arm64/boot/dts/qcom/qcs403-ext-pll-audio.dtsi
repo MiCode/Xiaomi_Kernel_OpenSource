@@ -1,0 +1,29 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "qcs405-wsa-audio-overlay.dtsi"
+
+&soc {
+	clock_audio_ext_pll: ext_pll_clk {
+		compatible = "qcom,audio-ref-clk";
+		qcom,codec-ext-clk-src = <AUDIO_EXTERNAL_PLL>;
+		#clock-cells = <1>;
+	};
+};
+
+&wcd9335 {
+	qcom,cdc-ext-clk-rate = <24576000>;
+	qcom,cdc-mclk-clk-rate = <12288000>;
+	clock-names = "wcd_clk";
+	clocks = <&clock_audio_ext_pll 0>;
+};

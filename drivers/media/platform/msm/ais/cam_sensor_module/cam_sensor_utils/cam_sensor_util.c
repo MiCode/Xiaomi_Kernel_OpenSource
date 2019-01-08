@@ -12,7 +12,7 @@
 
 #include <linux/kernel.h>
 #include "cam_sensor_util.h"
-#include <cam_mem_mgr.h>
+#include "cam_mem_mgr.h"
 #include "cam_res_mgr_api.h"
 
 #define CAM_SENSOR_PINCTRL_STATE_SLEEP "cam_suspend"
@@ -733,6 +733,84 @@ int cam_sensor_util_request_gpio_table(
 		}
 	} else {
 		cam_res_mgr_gpio_free_arry(soc_info->dev, gpio_tbl, size);
+	}
+
+	return rc;
+}
+
+int32_t ais_sensor_update_power_settings(
+	struct ais_sensor_probe_cmd *probe_cmd,
+	struct cam_sensor_power_ctrl_t *pwr_info)
+{
+	int32_t rc = 0, i = 0;
+	struct ais_sensor_power_config *pwr_cfg;
+
+	if (!probe_cmd) {
+		CAM_ERR(CAM_SENSOR, "Invalid Args: probe_cmd %pK",
+			probe_cmd);
+		return -EINVAL;
+	}
+
+	pwr_cfg = &probe_cmd->power_config;
+	if (pwr_cfg->size_up > MAX_POWER_CONFIG ||
+		pwr_cfg->size_down > MAX_POWER_CONFIG) {
+		CAM_ERR(CAM_SENSOR, "Invalid Args: size_up %d size_down %d",
+			pwr_cfg->size_up, pwr_cfg->size_down);
+		return -EINVAL;
+	}
+
+	pwr_info->power_setting_size = pwr_cfg->size_up;
+	pwr_info->power_setting =
+		(struct cam_sensor_power_setting *)
+		kcalloc(pwr_info->power_setting_size,
+			sizeof(struct cam_sensor_power_setting),
+			GFP_KERNEL);
+	if (!pwr_info->power_setting)
+		return -ENOMEM;
+
+	pwr_info->power_down_setting_size = pwr_cfg->size_down;
+	pwr_info->power_down_setting =
+		(struct cam_sensor_power_setting *)
+		kcalloc(pwr_info->power_down_setting_size,
+			sizeof(struct cam_sensor_power_setting),
+			GFP_KERNEL);
+	if (!pwr_info->power_down_setting) {
+		kfree(pwr_info->power_setting);
+		pwr_info->power_setting = NULL;
+		pwr_info->power_setting_size = 0;
+		return -ENOMEM;
+	}
+
+	CAM_DBG(CAM_SENSOR, "power up/down sizes %d/%d",
+			pwr_info->power_setting_size,
+			pwr_info->power_down_setting_size);
+
+	for (i = 0; i < pwr_info->power_setting_size; i++) {
+		pwr_info->power_setting[i].seq_type =
+			pwr_cfg->power_up_setting[i].power_seq_type;
+		pwr_info->power_setting[i].config_val =
+			pwr_cfg->power_up_setting[i].config_val_low;
+		pwr_info->power_setting[i].delay =
+			pwr_cfg->power_up_setting[i].delay;
+		CAM_DBG(CAM_SENSOR, "power up[%d] %d,%d,%d",
+				i,
+				pwr_info->power_setting[i].seq_type,
+				pwr_info->power_setting[i].config_val,
+				pwr_info->power_setting[i].delay);
+	}
+
+	for (i = 0; i < pwr_info->power_down_setting_size; i++) {
+		pwr_info->power_down_setting[i].seq_type =
+			pwr_cfg->power_down_setting[i].power_seq_type;
+		pwr_info->power_down_setting[i].config_val =
+			pwr_cfg->power_down_setting[i].config_val_low;
+		pwr_info->power_down_setting[i].delay =
+			pwr_cfg->power_down_setting[i].delay;
+		CAM_DBG(CAM_SENSOR, "power down[%d] %d,%d,%d",
+				i,
+				pwr_info->power_down_setting[i].seq_type,
+				pwr_info->power_down_setting[i].config_val,
+				pwr_info->power_down_setting[i].delay);
 	}
 
 	return rc;
@@ -1539,7 +1617,8 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 				CAM_ERR(CAM_SENSOR, "Invalid gpio_num_info");
 				goto power_up_failed;
 			}
-			CAM_DBG(CAM_SENSOR, "gpio set val %d",
+			CAM_DBG(CAM_SENSOR, "gpio %d set val %d",
+					power_setting->seq_type,
 				gpio_num_info->gpio_num
 				[power_setting->seq_type]);
 
@@ -1549,7 +1628,7 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 				(int) power_setting->config_val);
 			if (rc < 0) {
 				CAM_ERR(CAM_SENSOR,
-					"Error in handling VREG GPIO");
+					"Error in handling GPIO");
 				goto power_up_failed;
 			}
 			break;

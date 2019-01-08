@@ -99,6 +99,7 @@ static struct mdss_panel_intf pan_types[] = {
 	{"dsi", MDSS_PANEL_INTF_DSI},
 	{"edp", MDSS_PANEL_INTF_EDP},
 	{"hdmi", MDSS_PANEL_INTF_HDMI},
+	{"rgb", MDSS_PANEL_INTF_RGB},
 };
 static char mdss_mdp_panel[MDSS_MAX_PANEL_LEN];
 
@@ -2688,6 +2689,8 @@ int mdss_panel_get_intf_status(u32 disp_num, u32 intf_type)
 				rc = (intf_status & MDSS_MDP_INTF_DSI1_SEL);
 			else
 				rc = 0;
+		} else if (intf_type == MDSS_PANEL_INTF_RGB) {
+			rc = (intf_status & MDSS_MDP_INTF_DSI0_SEL);
 		} else if (intf_type == MDSS_PANEL_INTF_EDP) {
 			intf_status &= MDSS_MDP_INTF_EDP_SEL;
 			rc = (intf_status == MDSS_MDP_INTF_EDP_SEL);
