@@ -25,6 +25,7 @@
 #define MAX_BDF_FILE_NAME		11
 #define DEFAULT_BDF_FILE_NAME		"bdwlan.elf"
 #define BDF_FILE_NAME_PREFIX		"bdwlan.e"
+#define DEFAULT_BIN_BDF_FILE_NAME       "bdwlan.bin"
 
 #ifdef CONFIG_CNSS2_DEBUG
 static unsigned int qmi_timeout = 10000;
@@ -510,6 +511,7 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv)
 	const u8 *temp;
 	unsigned int remaining;
 	int ret = 0;
+	enum cnss_bdf_type bdf_type = CNSS_BDF_ELF;
 
 	cnss_pr_dbg("Sending BDF download message, state: 0x%lx\n",
 		    plat_priv->driver_state);
@@ -520,8 +522,18 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv)
 		goto out;
 	}
 
+	if (plat_priv->device_id == QCN7605_DEVICE_ID ||
+	    plat_priv->device_id == QCN7605_COMPOSITE_DEVICE_ID ||
+	    plat_priv->device_id == QCN7605_STANDALONE_DEVICE_ID)
+		bdf_type = CNSS_BDF_BIN;
+
 	if (plat_priv->board_info.board_id == 0xFF)
-		snprintf(filename, sizeof(filename), DEFAULT_BDF_FILE_NAME);
+		if (bdf_type == CNSS_BDF_BIN)
+			snprintf(filename, sizeof(filename),
+				 DEFAULT_BIN_BDF_FILE_NAME);
+		else
+			snprintf(filename, sizeof(filename),
+				 DEFAULT_BDF_FILE_NAME);
 	else
 		snprintf(filename, sizeof(filename),
 			 BDF_FILE_NAME_PREFIX "%02x",
@@ -566,7 +578,7 @@ bypass_bdf:
 		req->data_valid = 1;
 		req->end_valid = 1;
 		req->bdf_type_valid = 1;
-		req->bdf_type = CNSS_BDF_ELF;
+		req->bdf_type = bdf_type;
 
 		if (remaining > QMI_WLFW_MAX_DATA_SIZE_V01) {
 			req->data_len = QMI_WLFW_MAX_DATA_SIZE_V01;
