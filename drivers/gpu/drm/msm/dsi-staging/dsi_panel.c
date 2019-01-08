@@ -1177,7 +1177,7 @@ static int dsi_panel_parse_dfps_caps(struct dsi_dfps_capabilities *dfps_caps,
 	int rc = 0;
 	bool supported = false;
 	const char *type;
-	u32 val = 0, i;
+	u32 i;
 
 	supported = of_property_read_bool(of_node,
 					"qcom,mdss-dsi-pan-enable-dynamic-fps");
@@ -1237,11 +1237,10 @@ static int dsi_panel_parse_dfps_caps(struct dsi_dfps_capabilities *dfps_caps,
 	dfps_caps->dfps_support = true;
 
 	/* calculate max and min fps */
-	of_property_read_u32(of_node, "qcom,mdss-dsi-panel-framerate", &val);
-	dfps_caps->max_refresh_rate = val;
-	dfps_caps->min_refresh_rate = val;
+	dfps_caps->max_refresh_rate = dfps_caps->dfps_list[0];
+	dfps_caps->min_refresh_rate = dfps_caps->dfps_list[0];
 
-	for (i = 0; i < dfps_caps->dfps_list_len; i++) {
+	for (i = 1; i < dfps_caps->dfps_list_len; i++) {
 		if (dfps_caps->dfps_list[i] < dfps_caps->min_refresh_rate)
 			dfps_caps->min_refresh_rate = dfps_caps->dfps_list[i];
 		else if (dfps_caps->dfps_list[i] > dfps_caps->max_refresh_rate)
