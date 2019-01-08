@@ -105,6 +105,8 @@ mhi channel node properties:
 	1 = accept skb
 	2 = accept scatterlist
 	3 = offload channel, does not accept any transfer type
+	4 = accept pre-mapped buffers
+	5 = rsc channel type, accept pre-mapped buffers
 
 - mhi,doorbell-mode
   Usage: required
