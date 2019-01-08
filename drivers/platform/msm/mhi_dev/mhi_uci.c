@@ -83,6 +83,8 @@ struct chan_attr {
 	void (*tre_notif_cb)(struct mhi_dev_client_cb_reason *reason);
 	/* Write completion - false if not needed */
 	bool wr_cmpl;
+	/* Uevent broadcast of channel state */
+	bool state_bcast;
 
 };
 
@@ -146,7 +148,10 @@ static const struct chan_attr uci_chan_attr_table[] = {
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_OUT,
 		NULL,
-		NULL
+		NULL,
+		NULL,
+		false,
+		true
 	},
 	{
 		MHI_CLIENT_MBIM_IN,
@@ -162,7 +167,10 @@ static const struct chan_attr uci_chan_attr_table[] = {
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_OUT,
 		NULL,
-		NULL
+		NULL,
+		NULL,
+		false,
+		true
 	},
 	{
 		MHI_CLIENT_QMI_IN,
@@ -1142,6 +1150,71 @@ error_memcpy:
 	return rc;
 
 }
+
+void mhi_uci_chan_state_notify_all(struct mhi_dev *mhi,
+		enum mhi_ctrl_info ch_state)
+{
+	unsigned int i;
+	const struct chan_attr *chan_attrib;
+
+	for (i = 0; i < ARRAY_SIZE(uci_chan_attr_table); i++) {
+		chan_attrib = &uci_chan_attr_table[i];
+		if (chan_attrib->state_bcast) {
+			uci_log(UCI_DBG_ERROR, "Calling notify for ch %d\n",
+					chan_attrib->chan_id);
+			mhi_uci_chan_state_notify(mhi, chan_attrib->chan_id,
+					ch_state);
+		}
+	}
+}
+EXPORT_SYMBOL(mhi_uci_chan_state_notify_all);
+
+void mhi_uci_chan_state_notify(struct mhi_dev *mhi,
+		enum mhi_client_channel ch_id, enum mhi_ctrl_info ch_state)
+{
+	struct uci_client *uci_handle;
+	char *buf[2];
+	int rc;
+
+	if (ch_id < 0 || ch_id >= MHI_MAX_SOFTWARE_CHANNELS) {
+		uci_log(UCI_DBG_ERROR, "Invalid chan %d\n", ch_id);
+		return;
+	}
+
+	uci_handle = &uci_ctxt.client_handles[CHAN_TO_CLIENT(ch_id)];
+	if (!uci_handle->in_chan_attr ||
+		!uci_handle->in_chan_attr->state_bcast) {
+		uci_log(UCI_DBG_VERBOSE, "Uevents not enabled for chan %d\n",
+				ch_id);
+		return;
+	}
+
+	if (ch_state == MHI_STATE_CONNECTED) {
+		buf[0] = kasprintf(GFP_KERNEL,
+				"MHI_CHANNEL_STATE_%d=CONNECTED", ch_id);
+		buf[1] = NULL;
+	} else if (ch_state == MHI_STATE_DISCONNECTED) {
+		buf[0] = kasprintf(GFP_KERNEL,
+				"MHI_CHANNEL_STATE_%d=DISCONNECTED", ch_id);
+		buf[1] = NULL;
+	} else {
+		uci_log(UCI_DBG_ERROR, "Unsupported chan state %d\n", ch_state);
+		return;
+	}
+
+	if (!buf[0]) {
+		uci_log(UCI_DBG_ERROR, "kasprintf failed for uevent buf!\n");
+		return;
+	}
+
+	rc = kobject_uevent_env(&mhi->dev->kobj, KOBJ_CHANGE, buf);
+	if (rc)
+		uci_log(UCI_DBG_ERROR,
+				"Sending uevent failed for chan %d\n", ch_id);
+
+	kfree(buf[0]);
+}
+EXPORT_SYMBOL(mhi_uci_chan_state_notify);
 
 void uci_ctrl_update(struct mhi_dev_client_cb_reason *reason)
 {

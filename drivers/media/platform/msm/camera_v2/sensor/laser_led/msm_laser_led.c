@@ -70,18 +70,15 @@ static struct msm_camera_i2c_fn_t msm_sensor_cci_func_tbl = {
 	.i2c_util = msm_sensor_cci_i2c_util,
 	.i2c_poll =  msm_camera_cci_i2c_poll,
 };
-#ifdef CONFIG_COMPAT
+
 static int32_t msm_laser_led_init(
 	struct msm_laser_led_ctrl_t *laser_led_ctrl,
-	struct msm_laser_led_cfg_data_t32 __user *laser_led_data)
-#else
-static int32_t msm_laser_led_init(
-	struct msm_laser_led_ctrl_t *laser_led_ctrl,
-	struct msm_laser_led_cfg_data_t __user *laser_led_data)
-#endif
+	void __user *argp)
 {
 	int32_t rc = -EFAULT;
 	struct msm_camera_cci_client *cci_client = NULL;
+	struct msm_laser_led_cfg_data_t __user *laser_led_data =
+		(struct msm_laser_led_cfg_data_t __user *) argp;
 
 	CDBG("Enter\n");
 
@@ -263,6 +260,53 @@ static int32_t msm_laser_led_control32(
 
 	return rc;
 }
+
+static int32_t msm_laser_led_init32(
+	struct msm_laser_led_ctrl_t *laser_led_ctrl,
+	void __user *argp)
+{
+	int32_t rc = -EFAULT;
+	struct msm_laser_led_cfg_data_t32 __user *laser_led_data =
+		(struct msm_laser_led_cfg_data_t32 __user *) argp;
+	struct msm_camera_cci_client *cci_client = NULL;
+
+	CDBG("Enter\n");
+
+	if (laser_led_ctrl->laser_led_state == MSM_CAMERA_LASER_LED_INIT) {
+		pr_err("Invalid laser_led state = %d\n",
+				laser_led_ctrl->laser_led_state);
+		return 0;
+	}
+
+	rc = laser_led_ctrl->i2c_client.i2c_func_tbl->i2c_util(
+			&laser_led_ctrl->i2c_client, MSM_CCI_INIT);
+	if (rc < 0)
+		pr_err("cci_init failed\n");
+
+	cci_client = laser_led_ctrl->i2c_client.cci_client;
+
+	if (copy_from_user(&(cci_client->sid),
+		&(laser_led_data->i2c_addr),
+		sizeof(uint16_t))) {
+		pr_err("%s:%d failed\n", __func__, __LINE__);
+		return -EFAULT;
+	}
+	cci_client->sid = cci_client->sid >> 1;
+	cci_client->retries = 3;
+	cci_client->id_map = 0;
+
+	if (copy_from_user(&(cci_client->i2c_freq_mode),
+		&(laser_led_data->i2c_freq_mode),
+		sizeof(enum i2c_freq_mode_t))) {
+		pr_err("%s:%d failed\n", __func__, __LINE__);
+		return -EFAULT;
+	}
+
+	laser_led_ctrl->laser_led_state = MSM_CAMERA_LASER_LED_INIT;
+
+	CDBG("Exit\n");
+	return 0;
+}
 #endif
 
 static int32_t msm_laser_led_control(
@@ -381,7 +425,12 @@ static int32_t msm_laser_led_config(struct msm_laser_led_ctrl_t *laser_led_ctrl,
 
 	switch (cfg_type) {
 	case CFG_LASER_LED_INIT:
-		rc = msm_laser_led_init(laser_led_ctrl, laser_led_data);
+#ifdef CONFIG_COMPAT
+		if (is_compat_task())
+			rc = msm_laser_led_init32(laser_led_ctrl, argp);
+		else
+#endif
+			rc = msm_laser_led_init(laser_led_ctrl, argp);
 		break;
 	case CFG_LASER_LED_CONTROL:
 #ifdef CONFIG_COMPAT

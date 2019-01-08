@@ -684,7 +684,7 @@ static void cmdq_log_task_desc_history(struct cmdq_host *cq_host, u64 task,
 
 	cq_host->thist[cq_host->thist_idx].is_dcmd = is_dcmd;
 	memcpy(&cq_host->thist[cq_host->thist_idx++].task,
-		&task, cq_host->task_desc_len);
+		&task, sizeof(task));
 }
 
 static void cmdq_prep_dcmd_desc(struct mmc_host *mmc,
