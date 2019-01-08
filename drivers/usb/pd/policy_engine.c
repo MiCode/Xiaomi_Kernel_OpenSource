@@ -3774,12 +3774,6 @@ static int usbpd_do_swap(struct usbpd *pd, bool dr_swap,
 		return -EAGAIN;
 	}
 
-	if (pd->current_state == PE_SNK_READY &&
-			!is_sink_tx_ok(pd)) {
-		usbpd_err(&pd->dev, "Rp indicates SinkTxNG\n");
-		return -EAGAIN;
-	}
-
 	mutex_lock(&pd->swap_lock);
 	reinit_completion(&pd->is_ready);
 	if (dr_swap)
@@ -4143,7 +4137,7 @@ static ssize_t select_pdo_store(struct device *dev,
 	mutex_lock(&pd->swap_lock);
 
 	/* Only allowed if we are already in explicit sink contract */
-	if (pd->current_state != PE_SNK_READY || !is_sink_tx_ok(pd)) {
+	if (pd->current_state != PE_SNK_READY) {
 		usbpd_err(&pd->dev, "Cannot select new PDO yet\n");
 		ret = -EBUSY;
 		goto out;
@@ -4295,7 +4289,7 @@ static int trigger_tx_msg(struct usbpd *pd, bool *msg_tx_flag)
 	int ret = 0;
 
 	/* Only allowed if we are already in explicit sink contract */
-	if (pd->current_state != PE_SNK_READY || !is_sink_tx_ok(pd)) {
+	if (pd->current_state != PE_SNK_READY) {
 		usbpd_err(&pd->dev, "Cannot send msg\n");
 		ret = -EBUSY;
 		goto out;
