@@ -3848,6 +3848,8 @@ const char *__check_heap_object(const void *ptr, unsigned long n,
 	unsigned long offset;
 	size_t object_size;
 
+	ptr = kasan_reset_tag(ptr);
+
 	/* Find object and usable object size. */
 	s = page->slab_cache;
 	object_size = slab_ksize(s);
