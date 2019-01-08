@@ -89,6 +89,13 @@ void dsi_phy_hw_v2_0_idle_off(struct dsi_phy_hw *phy);
 int dsi_phy_hw_timing_val_v2_0(struct dsi_phy_per_lane_cfgs *timing_cfg,
 		u32 *timing_val, u32 size);
 void dsi_phy_hw_v2_0_clamp_ctrl(struct dsi_phy_hw *phy, bool enable);
+void dsi_phy_hw_v2_0_dyn_refresh_helper(struct dsi_phy_hw *phy, u32 offset);
+void dsi_phy_hw_v2_0_dyn_refresh_config(struct dsi_phy_hw *phy,
+		struct dsi_phy_cfg *cfg, bool is_master);
+void dsi_phy_hw_v2_0_dyn_refresh_pipe_delay(struct dsi_phy_hw *phy,
+		struct dsi_dyn_clk_delay *delay);
+int dsi_phy_hw_v2_0_cache_phy_timings(struct dsi_phy_per_lane_cfgs *timings,
+		u32 *dst, u32 size);
 
 /* Definitions for 10nm PHY hardware driver */
 void dsi_phy_hw_v3_0_regulator_enable(struct dsi_phy_hw *phy,
