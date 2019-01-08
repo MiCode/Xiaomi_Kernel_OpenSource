@@ -194,8 +194,8 @@ static struct msm_vidc_common_data sm6150_common_data[] = {
 		.value = 8160,
 	},
 	{
-		.key = "qcom,max-hq-frames-per-sec",
-		.value = 30,
+		.key = "qcom,max-hq-mbs-per-sec",
+		.value = 244800,  /* 1920 x 1088 @ 30 fps */
 	},
 	{
 		.key = "qcom,max-b-frame-size",
@@ -253,8 +253,8 @@ static struct msm_vidc_common_data trinket_common_data[] = {
 		.value = 8160,
 	},
 	{
-		.key = "qcom,max-hq-frames-per-sec",
-		.value = 30,
+		.key = "qcom,max-hq-mbs-per-sec",
+		.value = 244800,  /* 1920 x 1088 @ 30 fps */
 	},
 	{
 		.key = "qcom,max-b-frame-size",
@@ -317,8 +317,8 @@ static struct msm_vidc_common_data sm8150_common_data[] = {
 		.value = 8160,
 	},
 	{
-		.key = "qcom,max-hq-frames-per-sec",
-		.value = 60,
+		.key = "qcom,max-hq-mbs-per-sec",
+		.value = 244800,  /* 1920 x 1088 @ 30 fps */
 	},
 	{
 		.key = "qcom,max-b-frame-size",
@@ -388,8 +388,8 @@ static struct msm_vidc_common_data sdmmagpie_common_data_v0[] = {
 		.value = 8160,
 	},
 	{
-		.key = "qcom,max-hq-frames-per-sec",
-		.value = 60,
+		.key = "qcom,max-hq-mbs-per-sec",
+		.value = 244800,  /* 1920 x 1088 @ 30 fps */
 	},
 	{
 		.key = "qcom,max-b-frame-size",
@@ -459,8 +459,8 @@ static struct msm_vidc_common_data sdmmagpie_common_data_v1[] = {
 		.value = 8160,
 	},
 	{
-		.key = "qcom,max-hq-frames-per-sec",
-		.value = 60,
+		.key = "qcom,max-hq-mbs-per-sec",
+		.value = 244800,  /* 1920 x 1088 @ 30 fps */
 	},
 	{
 		.key = "qcom,max-b-frame-size",
@@ -534,8 +534,8 @@ static struct msm_vidc_common_data sdm845_common_data[] = {
 		.value = 8160,
 	},
 	{
-		.key = "qcom,max-hq-frames-per-sec",
-		.value = 60,
+		.key = "qcom,max-hq-mbs-per-sec",
+		.value = 244800,  /* 1920 x 1088 @ 30 fps */
 	},
 	{
 		.key = "qcom,max-b-frame-size",
@@ -589,8 +589,8 @@ static struct msm_vidc_common_data sdm670_common_data_v0[] = {
 		.value = 8160,
 	},
 	{
-		.key = "qcom,max-hq-frames-per-sec",
-		.value = 60,
+		.key = "qcom,max-hq-mbs-per-sec",
+		.value = 244800,  /* 1920 x 1088 @ 30 fps */
 	},
 	{
 		.key = "qcom,max-b-frame-size",
@@ -640,8 +640,8 @@ static struct msm_vidc_common_data sdm670_common_data_v1[] = {
 		.value = 8160,
 	},
 	{
-		.key = "qcom,max-hq-frames-per-sec",
-		.value = 60,
+		.key = "qcom,max-hq-mbs-per-sec",
+		.value = 244800,  /* 1920 x 1088 @ 30 fps */
 	},
 	{
 		.key = "qcom,max-b-frame-size",
