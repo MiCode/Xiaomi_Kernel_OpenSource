@@ -632,7 +632,6 @@ void msm_slim_tx_msg_return(struct msm_slim_ctrl *dev, int err)
 	while (!ret) {
 		memset(&iovec, 0, sizeof(iovec));
 		ret = sps_get_iovec(pipe, &iovec);
-slim_validate_iovec:
 		addr = DESC_FULL_ADDR(iovec.flags, iovec.addr);
 		if (ret || addr == 0) {
 			if (ret)
@@ -671,16 +670,12 @@ slim_validate_iovec:
 			SLIM_WARN(dev, "SLIM OUT OF ORDER TX:idx:%d, head:%d",
 				idx, dev->tx_head);
 		dev->tx_head = (dev->tx_head + 1) % MSM_TX_BUFS;
-
-		memset(&iovec, 0, sizeof(iovec));
-		ret = sps_get_iovec(pipe, &iovec);
 		if (dev->wr_comp[idx]) {
 			struct completion *comp = dev->wr_comp[idx];
 
 			dev->wr_comp[idx] = NULL;
 			complete(comp);
 		}
-		goto slim_validate_iovec;
 	}
 }
 

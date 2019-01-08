@@ -328,7 +328,7 @@ static int cam_vfe_camif_reg_dump(
 
 	for (i = 0xE0C; i <= 0xE3C; i += 4) {
 		val = cam_io_r_mb(camif_priv->mem_base + i);
-		CAM_DBG(CAM_ISP, "offset 0x%x val 0x%x", i, val);
+		CAM_INFO(CAM_ISP, "offset 0x%x val 0x%x", i, val);
 	}
 
 	for (wm_idx = 0; wm_idx <= 23; wm_idx++) {
