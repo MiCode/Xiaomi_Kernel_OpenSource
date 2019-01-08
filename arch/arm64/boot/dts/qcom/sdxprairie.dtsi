@@ -590,9 +590,9 @@
 		glink_modem: modem {
 			qcom,remote-pid = <1>;
 			transport = "smem";
-			mboxes = <&apcs_glb 12>;
+			mboxes = <&apcs_glb 15>;
 			mbox-names = "mpss_smem";
-			interrupts = <GIC_SPI 111 IRQ_TYPE_EDGE_RISING>;
+			interrupts = <GIC_SPI 114 IRQ_TYPE_EDGE_RISING>;
 
 			label = "modem";
 			qcom,glink-label = "mpss";
