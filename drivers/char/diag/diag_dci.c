@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2757,10 +2757,11 @@ err:
 
 int diag_dci_init(void)
 {
-	int ret = 0;
+	int ret = 0, i;
 
 	driver->dci_tag = 0;
-	driver->dci_client_id = 0;
+	for (i = 0; i < MAX_DCI_CLIENTS; i++)
+		driver->dci_client_id[i] = 0;
 	driver->num_dci_client = 0;
 	mutex_init(&driver->dci_mutex);
 	mutex_init(&dci_log_mask_mutex);
@@ -2956,8 +2957,8 @@ int diag_dci_register_client(struct diag_dci_reg_tbl_t *reg_entry)
 	mutex_init(&new_entry->write_buf_mutex);
 	new_entry->dci_log_mask =  vzalloc(DCI_LOG_MASK_SIZE);
 	if (!new_entry->dci_log_mask) {
-		pr_err("diag: Unable to create log mask for client, %d",
-							driver->dci_client_id);
+		pr_err("diag: Unable to create log mask for DCI client, tgid: %d\n",
+			current->tgid);
 		goto fail_alloc;
 	}
 	create_dci_log_mask_tbl(new_entry->dci_log_mask, DCI_LOG_MASK_CLEAN);
@@ -3006,17 +3007,24 @@ int diag_dci_register_client(struct diag_dci_reg_tbl_t *reg_entry)
 		proc_buf->buf_curr = proc_buf->buf_primary;
 	}
 
-	list_add_tail(&new_entry->track, &driver->dci_client_list);
-	driver->dci_client_id++;
-	new_entry->client_info.client_id = driver->dci_client_id;
-	reg_entry->client_id = driver->dci_client_id;
+	for (i = 0; i < MAX_DCI_CLIENTS; i++) {
+		if (driver->dci_client_id[i] == 0)
+			break;
+	}
+
+	if (i == MAX_DCI_CLIENTS)
+		goto fail_alloc;
+	driver->dci_client_id[i] = 1;
+	new_entry->client_info.client_id = i+1;
+	reg_entry->client_id = i+1;
 	driver->num_dci_client++;
+	list_add_tail(&new_entry->track, &driver->dci_client_list);
 	if (driver->num_dci_client == 1)
 		diag_update_proc_vote(DIAG_PROC_DCI, VOTE_UP, reg_entry->token);
 	queue_work(driver->diag_real_time_wq, &driver->diag_real_time_work);
 	mutex_unlock(&driver->dci_mutex);
 
-	return driver->dci_client_id;
+	return reg_entry->client_id;
 
 fail_alloc:
 	if (new_entry) {
@@ -3075,7 +3083,11 @@ int diag_dci_deinit_client(struct diag_dci_client_tbl *entry)
 	 */
 	if (!list_empty(&entry->track))
 		list_del(&entry->track);
+
+	if (entry->client_info.client_id > MAX_DCI_CLIENTS)
+		return DIAG_DCI_NO_REG;
 	driver->num_dci_client--;
+	driver->dci_client_id[entry->client_info.client_id - 1] = 0;
 	/*
 	 * Clear the client's log and event masks, update the cumulative
 	 * masks and send the masks to peripherals
