@@ -131,9 +131,12 @@ static int ipc_bridge_open(struct platform_device *pdev)
 static void diag_bridge_delete(struct kref *kref)
 {
 	struct diag_bridge *dev = container_of(kref, struct diag_bridge, kref);
+	struct usb_interface *ifc = dev->ifc;
 	int id = dev->id;
 
 	dev_dbg(&dev->ifc->dev, "%s\n", __func__);
+	usb_set_intfdata(ifc, NULL);
+	usb_put_intf(ifc);
 	usb_put_dev(dev->udev);
 	__dev[id] = 0;
 	kfree(dev);
@@ -307,6 +310,8 @@ int diag_bridge_read(int id, char *data, int size)
 		usb_autopm_put_interface(dev->ifc);
 		goto free_error;
 	}
+
+	usb_autopm_put_interface(dev->ifc);
 
 	if (id == IPC_BRIDGE) {
 		wait_for_completion(&dev->read_done);
@@ -615,7 +620,7 @@ diag_bridge_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	dev->id = devid;
 
 	dev->udev = usb_get_dev(interface_to_usbdev(ifc));
-	dev->ifc = ifc;
+	dev->ifc = usb_get_intf(ifc);
 	kref_init(&dev->kref);
 	mutex_init(&dev->ifc_mutex);
 	mutex_init(&dev->read_mutex);
@@ -705,13 +710,7 @@ static void diag_bridge_disconnect(struct usb_interface *ifc)
 
 	platform_device_unregister(dev->pdev);
 	diag_bridge_debugfs_cleanup();
-	mutex_lock(&dev->ifc_mutex);
-	dev->ifc = NULL;
-	mutex_unlock(&dev->ifc_mutex);
-	usb_set_intfdata(ifc, NULL);
-	mutex_destroy(&dev->write_mutex);
-	mutex_destroy(&dev->read_mutex);
-	mutex_destroy(&dev->ifc_mutex);
+	dev->err = -ENODEV;
 	kref_put(&dev->kref, diag_bridge_delete);
 }
 
