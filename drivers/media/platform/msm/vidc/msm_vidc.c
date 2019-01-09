@@ -317,29 +317,6 @@ int msm_vidc_s_ctrl(void *instance, struct v4l2_control *control)
 }
 EXPORT_SYMBOL(msm_vidc_s_ctrl);
 
-int msm_vidc_g_crop(void *instance, struct v4l2_crop *crop)
-{
-	struct msm_vidc_inst *inst = instance;
-
-	if (!inst || !crop)
-		return -EINVAL;
-
-	if (inst->session_type == MSM_VIDC_ENCODER) {
-		dprintk(VIDC_ERR,
-			"Session = %pK : Encoder Crop is not implemented yet\n",
-				inst);
-		return -EPERM;
-	}
-
-	crop->c.left = inst->prop.crop_info.left;
-	crop->c.top = inst->prop.crop_info.top;
-	crop->c.width = inst->prop.crop_info.width;
-	crop->c.height = inst->prop.crop_info.height;
-
-	return 0;
-}
-EXPORT_SYMBOL(msm_vidc_g_crop);
-
 int msm_vidc_g_ctrl(void *instance, struct v4l2_control *control)
 {
 	struct msm_vidc_inst *inst = instance;
@@ -359,43 +336,6 @@ int msm_vidc_g_ctrl(void *instance, struct v4l2_control *control)
 	return rc;
 }
 EXPORT_SYMBOL(msm_vidc_g_ctrl);
-
-int msm_vidc_g_ext_ctrl(void *instance, struct v4l2_ext_controls *control)
-{
-	struct msm_vidc_inst *inst = instance;
-	struct v4l2_ext_control *ext_control;
-	unsigned int i = 0;
-	int rc = 0;
-
-	if (!inst || !control)
-		return -EINVAL;
-
-	ext_control = control->controls;
-
-	for (i = 0; i < control->count; i++) {
-		switch (ext_control[i].id) {
-		default:
-			dprintk(VIDC_ERR,
-				"This control %x is not supported yet\n",
-					ext_control[i].id);
-			break;
-		}
-	}
-	return rc;
-}
-EXPORT_SYMBOL(msm_vidc_g_ext_ctrl);
-
-int msm_vidc_s_ext_ctrl(void *instance, struct v4l2_ext_controls *control)
-{
-	struct msm_vidc_inst *inst = instance;
-
-	if (!inst || !control)
-		return -EINVAL;
-
-	dprintk(VIDC_ERR, "Extended controls are not supported");
-	return -EINVAL;
-}
-EXPORT_SYMBOL(msm_vidc_s_ext_ctrl);
 
 int msm_vidc_reqbufs(void *instance, struct v4l2_requestbuffers *b)
 {

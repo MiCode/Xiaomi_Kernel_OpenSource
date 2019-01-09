@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -122,22 +122,6 @@ int msm_v4l2_g_ctrl(struct file *file, void *fh,
 	return msm_vidc_g_ctrl((void *)vidc_inst, a);
 }
 
-int msm_v4l2_s_ext_ctrl(struct file *file, void *fh,
-					struct v4l2_ext_controls *a)
-{
-	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
-
-	return msm_vidc_s_ext_ctrl((void *)vidc_inst, a);
-}
-
-int msm_v4l2_g_ext_ctrl(struct file *file, void *fh,
-					struct v4l2_ext_controls *a)
-{
-	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
-
-	return msm_vidc_g_ext_ctrl((void *)vidc_inst, a);
-}
-
 int msm_v4l2_reqbufs(struct file *file, void *fh,
 				struct v4l2_requestbuffers *b)
 {
@@ -222,14 +206,6 @@ static int msm_v4l2_g_parm(struct file *file, void *fh,
 	return 0;
 }
 
-static int msm_v4l2_g_crop(struct file *file, void *fh,
-			struct v4l2_crop *a)
-{
-	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
-
-	return msm_vidc_g_crop(vidc_inst, a);
-}
-
 static int msm_v4l2_enum_framesizes(struct file *file, void *fh,
 				struct v4l2_frmsizeenum *fsize)
 {
@@ -271,15 +247,12 @@ const struct v4l2_ioctl_ops msm_v4l2_ioctl_ops = {
 	.vidioc_s_ctrl = msm_v4l2_s_ctrl,
 	.vidioc_g_ctrl = msm_v4l2_g_ctrl,
 	.vidioc_queryctrl = msm_v4l2_queryctrl,
-	.vidioc_s_ext_ctrls = msm_v4l2_s_ext_ctrl,
-	.vidioc_g_ext_ctrls = msm_v4l2_g_ext_ctrl,
 	.vidioc_subscribe_event = msm_v4l2_subscribe_event,
 	.vidioc_unsubscribe_event = msm_v4l2_unsubscribe_event,
 	.vidioc_decoder_cmd = msm_v4l2_decoder_cmd,
 	.vidioc_encoder_cmd = msm_v4l2_encoder_cmd,
 	.vidioc_s_parm = msm_v4l2_s_parm,
 	.vidioc_g_parm = msm_v4l2_g_parm,
-	.vidioc_g_crop = msm_v4l2_g_crop,
 	.vidioc_enum_framesizes = msm_v4l2_enum_framesizes,
 	.vidioc_default = msm_v4l2_default,
 };
