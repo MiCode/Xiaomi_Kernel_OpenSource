@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -138,6 +138,6 @@ struct ufs_dev_fix {
  * HS-G1 to HS-G2 followed by HS-G2 to HS-G3. Enabling this quirk for such
  * device would apply this 2 steps gear switch workaround.
  */
-#define UFS_DEVICE_QUIRK_HS_G1_TO_HS_G3_SWITCH (1 << 8)
+#define UFS_DEVICE_QUIRK_HS_G1_TO_HS_G3_SWITCH	(1 << 9)
 
 #endif /* UFS_QUIRKS_H_ */
