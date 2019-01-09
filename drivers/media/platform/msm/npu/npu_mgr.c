@@ -543,6 +543,8 @@ static struct npu_network *alloc_network(struct npu_host_ctx *ctx,
 	}
 
 	ctx->network_num++;
+	pr_debug("%s:Active network num %d\n", __func__, ctx->network_num);
+
 	return network;
 }
 
@@ -613,6 +615,8 @@ static void free_network(struct npu_host_ctx *ctx, struct npu_client *client,
 			kfree(network->stats_buf);
 			memset(network, 0, sizeof(struct npu_network));
 			ctx->network_num--;
+			pr_debug("%s:Active network num %d\n", __func__,
+				ctx->network_num);
 		} else {
 			pr_warn("network %d:%d is in use\n", network->id,
 				atomic_read(&network->ref_cnt));
@@ -770,6 +774,13 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 			load_rsp_pkt->header.trans_id);
 
 		/*
+		 * The upper 8 bits in flags is the current active
+		 * network count in fw
+		 */
+		pr_debug("Current active network count in FW is %d\n",
+			load_rsp_pkt->header.flags >> 24);
+
+		/*
 		 * the upper 16 bits in returned network_hdl is
 		 * the network ID
 		 */
@@ -805,6 +816,13 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 		pr_debug("NPU_IPC_MSG_UNLOAD_DONE status: %d, trans_id: %d\n",
 			unload_rsp_pkt->header.status,
 			unload_rsp_pkt->header.trans_id);
+
+		/*
+		 * The upper 8 bits in flags is the current active
+		 * network count in fw
+		 */
+		pr_debug("Current active network count in FW is %d\n",
+			unload_rsp_pkt->header.flags >> 24);
 
 		network = get_network_by_hdl(host_ctx, NULL,
 			unload_rsp_pkt->network_hdl);
