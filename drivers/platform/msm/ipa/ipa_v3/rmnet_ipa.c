@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2571,6 +2571,7 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 		ipa3_proxy_clk_unvote();
 	}
 	atomic_set(&rmnet_ipa3_ctx->is_ssr, 0);
+	ipa3_update_ssr_state(false);
 
 	IPAWANERR("rmnet_ipa completed initialization\n");
 	return 0;
@@ -2806,6 +2807,7 @@ static int ipa3_ssr_notifier_cb(struct notifier_block *this,
 		/* send SSR before-shutdown notification to IPACM */
 		rmnet_ipa_send_ssr_notification(false);
 		atomic_set(&rmnet_ipa3_ctx->is_ssr, 1);
+		ipa3_update_ssr_state(true);
 		ipa3_q6_pre_shutdown_cleanup();
 		if (IPA_NETDEV())
 			netif_stop_queue(IPA_NETDEV());
