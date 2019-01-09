@@ -990,6 +990,11 @@
  *	indicated by %NL80211_ATTR_WIPHY_FREQ and other attributes
  *	determining the width and type.
  *
+ * @NL80211_CMD_UPDATE_OWE_INFO: This interface allows the host driver to
+ *	offload OWE processing to user space. This intends to support
+ *	OWE/Enhanced Open AKM by the host drivers that implemnt SME but rely
+ *	on the user space for the crypotographic/DH IE processing.
+ *
  * @NL80211_CMD_MAX: highest used command number
  * @__NL80211_CMD_AFTER_LAST: internal use
  */
@@ -1210,6 +1215,7 @@ enum nl80211_commands {
 
 	NL80211_CMD_NOTIFY_RADAR,
 
+	NL80211_CMD_UPDATE_OWE_INFO,
 	/* add new commands above here */
 
 	/* used to define NL80211_CMD_MAX below */

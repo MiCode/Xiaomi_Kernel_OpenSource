@@ -2866,6 +2866,43 @@ TRACE_EVENT(cfg80211_stop_iface,
 		  WIPHY_PR_ARG, WDEV_PR_ARG)
 );
 
+TRACE_EVENT(rdev_update_owe_info,
+	    TP_PROTO(struct wiphy *wiphy, struct net_device *netdev,
+		     struct cfg80211_update_owe_info *owe_info),
+	    TP_ARGS(wiphy, netdev, owe_info),
+	    TP_STRUCT__entry(WIPHY_ENTRY
+			     NETDEV_ENTRY
+			     MAC_ENTRY(bssid)
+			     __field(u16, status)
+			     __dynamic_array(u8, ie, owe_info->ie_len)),
+	    TP_fast_assign(WIPHY_ASSIGN;
+			   NETDEV_ASSIGN;
+			   MAC_ASSIGN(bssid, owe_info->bssid);
+			   __entry->status = owe_info->status;
+			   memcpy(__get_dynamic_array(ie),
+				  owe_info->ie, owe_info->ie_len);),
+	    TP_printk(WIPHY_PR_FMT ", " NETDEV_PR_FMT ", peer: " MAC_PR_FMT
+		  " status %d", WIPHY_PR_ARG, NETDEV_PR_ARG, MAC_PR_ARG(bssid),
+		  __entry->status)
+);
+
+TRACE_EVENT(cfg80211_update_owe_info_event,
+	    TP_PROTO(struct wiphy *wiphy, struct net_device *netdev,
+		     struct cfg80211_update_owe_info *owe_info),
+	    TP_ARGS(wiphy, netdev, owe_info),
+	    TP_STRUCT__entry(WIPHY_ENTRY
+			     NETDEV_ENTRY
+			     MAC_ENTRY(bssid)
+			     __dynamic_array(u8, ie, owe_info->ie_len)),
+	    TP_fast_assign(WIPHY_ASSIGN;
+			   NETDEV_ASSIGN;
+			   MAC_ASSIGN(bssid, owe_info->bssid);
+			   memcpy(__get_dynamic_array(ie), owe_info->ie,
+				  owe_info->ie_len);),
+	    TP_printk(WIPHY_PR_FMT ", " NETDEV_PR_FMT ", peer: " MAC_PR_FMT,
+		      WIPHY_PR_ARG, NETDEV_PR_ARG, MAC_PR_ARG(bssid))
+);
+
 #endif /* !__RDEV_OPS_TRACE || TRACE_HEADER_MULTI_READ */
 
 #undef TRACE_INCLUDE_PATH
