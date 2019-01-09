@@ -489,7 +489,7 @@
 		compatible = "qcom,lito-pdc";
 		reg = <0xb220000 0x30000>;
 		qcom,pdc-ranges = <0 480 42>, <42 612 28>, <70 63 1>,
-				  <71 641 15>, <86 522 52>;
+				  <71 640 15>, <86 522 52>;
 		#interrupt-cells = <2>;
 		interrupt-parent = <&intc>;
 		interrupt-controller;
