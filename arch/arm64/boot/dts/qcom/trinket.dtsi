@@ -757,6 +757,28 @@
 		#clock-cells = <1>;
 	};
 
+	icnss: qcom,icnss@C800000 {
+		status = "disabled";
+		compatible = "qcom,icnss";
+		reg = <0xC800000 0x800000>;
+		reg-names = "membase";
+		interrupts = <0 358 0 /* CE0 */ >,
+			     <0 359 0 /* CE1 */ >,
+			     <0 360 0 /* CE2 */ >,
+			     <0 361 0 /* CE3 */ >,
+			     <0 362 0 /* CE4 */ >,
+			     <0 363 0 /* CE5 */ >,
+			     <0 364 0 /* CE6 */ >,
+			     <0 365 0 /* CE7 */ >,
+			     <0 366 0 /* CE8 */ >,
+			     <0 367 0 /* CE9 */ >,
+			     <0 368 0 /* CE10 */ >,
+			     <0 369 0 /* CE11 */ >;
+		qcom,smmu-s1-bypass;
+		qcom,wlan-msa-memory = <0x100000>;
+		qcom,wlan-msa-fixed-region = <&wlan_msa_mem>;
+	};
+
 	arm64-cpu-erp {
 		compatible = "arm,arm64-cpu-erp";
 		interrupts = <0 43 4>,
