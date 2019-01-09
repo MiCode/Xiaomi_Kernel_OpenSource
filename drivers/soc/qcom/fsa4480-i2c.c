@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -242,10 +242,10 @@ int fsa4480_switch_event(struct device_node *node,
 		fsa4480_usbc_update_settings(fsa_priv, switch_control, 0x9F);
 		break;
 	case FSA_USBC_ORIENTATION_CC1:
-		fsa4480_usbc_update_settings(fsa_priv, 0x00, 0xE0);
+		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0xF8);
 		return fsa4480_validate_display_port_settings(fsa_priv);
 	case FSA_USBC_ORIENTATION_CC2:
-		fsa4480_usbc_update_settings(fsa_priv, 0x60, 0xE0);
+		fsa4480_usbc_update_settings(fsa_priv, 0x78, 0xF8);
 		return fsa4480_validate_display_port_settings(fsa_priv);
 	case FSA_USBC_DISPLAYPORT_DISCONNECTED:
 		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
