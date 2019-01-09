@@ -161,6 +161,8 @@ static void dp_ctrl_configure_source_link_params(struct dp_ctrl_private *ctrl,
 	if (enable) {
 		ctrl->catalog->lane_mapping(ctrl->catalog, ctrl->orientation,
 						ctrl->parser->l_map);
+		ctrl->catalog->lane_pnswap(ctrl->catalog,
+						ctrl->parser->l_pnswap);
 		ctrl->catalog->mst_config(ctrl->catalog, ctrl->mst_mode);
 		ctrl->catalog->config_ctrl(ctrl->catalog,
 				ctrl->link->link_params.lane_count);

@@ -151,6 +151,12 @@ static int dp_parser_misc(struct dp_parser *parser)
 			parser->l_map[i] = data[i];
 	}
 
+	data = of_get_property(of_node, "qcom,pn-swap-lane-map", &len);
+	if (data && (len == DP_MAX_PHY_LN)) {
+		for (i = 0; i < len; i++)
+			parser->l_pnswap |= (data[i] & 0x01) << i;
+	}
+
 	rc = of_property_read_u32(of_node,
 		"qcom,max-pclk-frequency-khz", &parser->max_pclk_khz);
 	if (rc)
