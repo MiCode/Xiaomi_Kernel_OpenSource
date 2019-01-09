@@ -530,7 +530,6 @@
 				/* modem tables in IMEM */
 				<0x14688000 0x14688000 0x3000>;
 			qcom,ipa-q6-smem-size = <16384>;
-			dma-coherent;
 		};
 
 		ipa_smmu_wlan: ipa_smmu_wlan {
