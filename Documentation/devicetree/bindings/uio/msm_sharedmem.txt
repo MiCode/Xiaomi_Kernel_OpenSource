@@ -9,10 +9,18 @@ Required properties:
 - reg-names : Indicates various client-names.
 - qcom,client-id : The client id for the QMI clients.
 
+Optional properties:
+- qcom,guard-memory:	If this dtsi property is set, then the shared memory
+			region will be guarded by SZ_4K at the start and at the end.
+			This is needed to overcome the XPU limitation on some MSM HW,
+			so as to make this memory not contiguous with other allocations
+			that may possibly happen from other clients.
+
 Example:
 	qcom,msm_sharedmem@0dc80000 {
 		compatible = "qcom,sharedmem-uio";
 		reg = <0x0dc80000 0x00180000>,
 		reg-names = "rmtfs";
 		qcom,client-id = <0x00000001>;
+		qcom,guard-memory;
 	};
