@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -593,17 +593,16 @@ error:
 static int dsi_panel_wled_register(struct dsi_panel *panel,
 		struct dsi_backlight_config *bl)
 {
-	int rc = 0;
 	struct backlight_device *bd;
 
 	bd = backlight_device_get_by_type(BACKLIGHT_RAW);
 	if (!bd) {
-		pr_err("[%s] fail raw backlight register\n", panel->name);
-		rc = -EINVAL;
+		pr_debug("[%s] backlight device list empty\n", panel->name);
+		return -EPROBE_DEFER;
 	}
 
 	bl->raw_bd = bd;
-	return rc;
+	return 0;
 }
 
 static int dsi_panel_update_backlight(struct dsi_panel *panel,
