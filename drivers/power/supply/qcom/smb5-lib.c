@@ -5879,6 +5879,12 @@ static void smblib_moisture_protection_work(struct work_struct *work)
 	u8 stat;
 
 	/*
+	 * Hold awake votable to prevent pm_relax being called prior to
+	 * completion of this work.
+	 */
+	vote(chg->awake_votable, MOISTURE_VOTER, true, 0);
+
+	/*
 	 * Disable 1% duty cycle on CC_ID pin and enable uUSB factory mode
 	 * detection to track any change on RID, as interrupts are disable.
 	 */
@@ -5942,7 +5948,7 @@ static void smblib_moisture_protection_work(struct work_struct *work)
 	}
 
 out:
-	pm_relax(chg->dev);
+	vote(chg->awake_votable, MOISTURE_VOTER, false, 0);
 }
 
 static enum alarmtimer_restart moisture_protection_alarm_cb(struct alarm *alarm,
