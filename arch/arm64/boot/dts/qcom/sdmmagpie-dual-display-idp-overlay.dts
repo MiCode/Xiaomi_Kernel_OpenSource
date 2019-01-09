@@ -11,16 +11,30 @@
  */
 
 /dts-v1/;
+/plugin/;
 
-#include "sdmmagpie.dtsi"
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/qcom,camcc-sdmmagpie.h>
+
 #include "sdmmagpie-idp.dtsi"
+#include "sdmmagpie-audio-overlay.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDMMAGPIE PM6150 IDP";
+	model = "Dual Display IDP";
 	compatible = "qcom,sdmmagpie-idp", "qcom,sdmmagpie", "qcom,idp";
-	qcom,board-id = <34 0>;
+	qcom,msm-id = <365 0x0>;
+	qcom,board-id = <34 3>;
 };
 
-&dsi_sw43404_amoled_video_display {
+&dsi_sw43404_amoled_fhd_plus_cmd_display {
 	qcom,dsi-display-active;
+};
+
+&dsi_nt35695b_truly_fhd_cmd_sec_display {
+	qcom,dsi-display-active;
+};
+
+&mdss_mdp {
+	qcom,sde-mixer-display-pref = "primary", "none", "none",
+				"none", "none", "none";
 };
