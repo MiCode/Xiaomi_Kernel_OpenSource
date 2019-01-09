@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -451,6 +451,7 @@ static struct {
 	dev_t dev_ctrl, dev_node;
 	struct class *node_class;
 	struct cdev ctrl_dev, node_dev;
+	bool update_vbatt_threshold;
 } *penv = NULL;
 
 static void *wcnss_ipc_log;
@@ -1974,14 +1975,22 @@ static void wcnss_notify_vbat(enum qpnp_tm_state state, void *ctx)
 		wcnss_log(DBG, "low voltage notification triggered\n");
 		penv->vbat_monitor_params.state_request =
 			ADC_TM_HIGH_THR_ENABLE;
-		penv->vbat_monitor_params.high_thr = WCNSS_VBATT_THRESHOLD +
-		WCNSS_VBATT_GUARD;
+		if (penv->update_vbatt_threshold)
+			penv->vbat_monitor_params.high_thr =
+				WCNSS_VBATT_THRESHOLD_V1 + WCNSS_VBATT_GUARD;
+		else
+			penv->vbat_monitor_params.high_thr =
+				WCNSS_VBATT_THRESHOLD + WCNSS_VBATT_GUARD;
 		penv->vbat_monitor_params.low_thr = 0;
 	} else if (state == ADC_TM_HIGH_STATE) {
 		penv->vbat_monitor_params.state_request =
 			ADC_TM_LOW_THR_ENABLE;
-		penv->vbat_monitor_params.low_thr = WCNSS_VBATT_THRESHOLD -
-		WCNSS_VBATT_GUARD;
+		if (penv->update_vbatt_threshold)
+			penv->vbat_monitor_params.low_thr =
+				WCNSS_VBATT_THRESHOLD_V1 - WCNSS_VBATT_GUARD;
+		else
+			penv->vbat_monitor_params.low_thr =
+				WCNSS_VBATT_THRESHOLD - WCNSS_VBATT_GUARD;
 		penv->vbat_monitor_params.high_thr = 0;
 		wcnss_log(DBG, "high voltage notification triggered\n");
 	} else {
@@ -2014,8 +2023,13 @@ static int wcnss_setup_vbat_monitoring(void)
 		wcnss_log(ERR, "not setting up vbatt\n");
 		return rc;
 	}
-	penv->vbat_monitor_params.low_thr = WCNSS_VBATT_THRESHOLD;
-	penv->vbat_monitor_params.high_thr = WCNSS_VBATT_THRESHOLD;
+	if (penv->update_vbatt_threshold) {
+		penv->vbat_monitor_params.low_thr = WCNSS_VBATT_THRESHOLD_V1;
+		penv->vbat_monitor_params.high_thr = WCNSS_VBATT_THRESHOLD_V1;
+	} else {
+		penv->vbat_monitor_params.low_thr = WCNSS_VBATT_THRESHOLD;
+		penv->vbat_monitor_params.high_thr = WCNSS_VBATT_THRESHOLD;
+	}
 	penv->vbat_monitor_params.state_request = ADC_TM_HIGH_LOW_THR_ENABLE;
 
 	if (penv->is_vsys_adc_channel)
@@ -2747,6 +2761,9 @@ wcnss_trigger_config(struct platform_device *pdev)
 	int pil_retry = 0;
 	struct device_node *node = (&pdev->dev)->of_node;
 	int has_pronto_hw = of_property_read_bool(node, "qcom,has-pronto-hw");
+
+	penv->update_vbatt_threshold =
+		of_property_read_bool(node, "qcom,vbatt-threshold");
 
 	is_pronto_vadc = of_property_read_bool(node, "qcom,is-pronto-vadc");
 	is_pronto_v3 = of_property_read_bool(node, "qcom,is-pronto-v3");

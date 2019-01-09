@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -71,6 +71,7 @@ enum wcnss_log_type {
 };
 
 #define WCNSS_VBATT_THRESHOLD           3500000
+#define WCNSS_VBATT_THRESHOLD_V1        3600000
 #define WCNSS_VBATT_GUARD               20000
 #define WCNSS_VBATT_HIGH                3700000
 #define WCNSS_VBATT_LOW                 3300000

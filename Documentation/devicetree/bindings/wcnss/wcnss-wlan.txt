@@ -64,6 +64,7 @@ Power manager related parameter for LDO configuration.
 to use for VBATT feature.
 - qcom,has-a2xb-split-reg: boolean flag to determine A2xb split timeout limit
 register is available or not.
+- qcom,vbatt-threshold: indicates update in vbatt threshold value.
 
 Example:
 
