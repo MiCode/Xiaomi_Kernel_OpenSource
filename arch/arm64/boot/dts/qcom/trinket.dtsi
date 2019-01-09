@@ -483,6 +483,12 @@
 			reg = <0 0x57115000 0 0x2000>;
 		};
 
+		cdsp_sec_mem: cdsp_sec_regions@5f800000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x5f800000 0 0x800000>;
+		};
+
 		qseecom_mem: qseecom_region@5e400000 {
 			compatible = "shared-dma-pool";
 			no-map;
