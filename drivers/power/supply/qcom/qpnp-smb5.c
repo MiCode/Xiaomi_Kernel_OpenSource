@@ -3177,6 +3177,21 @@ static int smb5_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 
+	/* Support reporting polarity and speed via properties */
+	rc = extcon_set_property_capability(chg->extcon,
+			EXTCON_USB, EXTCON_PROP_USB_TYPEC_POLARITY);
+	rc |= extcon_set_property_capability(chg->extcon,
+			EXTCON_USB, EXTCON_PROP_USB_SS);
+	rc |= extcon_set_property_capability(chg->extcon,
+			EXTCON_USB_HOST, EXTCON_PROP_USB_TYPEC_POLARITY);
+	rc |= extcon_set_property_capability(chg->extcon,
+			EXTCON_USB_HOST, EXTCON_PROP_USB_SS);
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"failed to configure extcon capabilities\n");
+		goto cleanup;
+	}
+
 	rc = smb5_init_hw(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize hardware rc=%d\n", rc);
