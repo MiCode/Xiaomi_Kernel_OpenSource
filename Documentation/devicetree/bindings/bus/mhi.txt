@@ -313,6 +313,13 @@ MHI netdev properties
   Definition: mhi net_device should have numbered alias in the alias node,
 	in the form of mhi_netdevN, N = 0, 1..n for each network interface.
 
+- mhi,disable-chain-skb
+  Usage: optional
+  Value type: <bool>
+  Definition: If true, netdev will not chain skbs. Set this flag to true
+	if netdev used as a standalone device. For example, for software IP
+	path, chaining should be disabled.
+
 ========
 Example:
 ========
