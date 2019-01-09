@@ -131,6 +131,15 @@ config MSM_ISPIF_V2
           of any CID of CSID can be routed to of pix
           or raw data interface in VFE.
 
+config MSM_DUAL_ISP_SYNC
+        bool "QTI MSM Image Signal Processing interface support"
+        depends on MSMB_CAMERA
+        ---help---
+          Enable support for Image Signal Processing interface module.
+          This module is used to enable the dual isp sync generator that
+	  does the synchronization of two VFE's. There will be a single
+	  output from the sync generator
+
 config IMX134
 	bool "Sensor IMX134 (BAYER 8M)"
 	depends on MSMB_CAMERA
