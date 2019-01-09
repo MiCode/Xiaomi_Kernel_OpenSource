@@ -2735,6 +2735,7 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 	}
 	atomic_set(&rmnet_ipa3_ctx->is_ssr, 0);
 	atomic_set(&rmnet_ipa3_ctx->ap_suspend, 0);
+	ipa3_update_ssr_state(false);
 
 	IPAWANERR("rmnet_ipa completed initialization\n");
 	return 0;

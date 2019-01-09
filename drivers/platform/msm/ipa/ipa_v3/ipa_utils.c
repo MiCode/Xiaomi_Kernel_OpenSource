@@ -7480,7 +7480,11 @@ void ipa3_suspend_apps_pipes(bool suspend)
 					IPAERR("failed to stop WAN channel\n");
 					ipa_assert();
 				}
-			} else {
+			} else if (!atomic_read(&ipa3_ctx->is_ssr)) {
+				/* If SSR was alreday started not required to
+				 * start WAN channel,Because in SSR will stop
+				 * channel and reset the channel.
+				 */
 				res = gsi_start_channel(ep->gsi_chan_hdl);
 				if (res) {
 					IPAERR("failed to start WAN channel\n");
