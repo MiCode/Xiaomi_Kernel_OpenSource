@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2016, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,5 +43,6 @@ void hdmi_edid_deinit(void *edid_ctrl);
 void *hdmi_edid_init(struct hdmi_edid_init_data *init_data);
 bool hdmi_edid_is_s3d_mode_supported(void *input,
 	u32 video_mode, u32 s3d_mode);
+bool hdmi_edid_is_audio_supported(void *input);
 
 #endif /* __HDMI_EDID_H__ */

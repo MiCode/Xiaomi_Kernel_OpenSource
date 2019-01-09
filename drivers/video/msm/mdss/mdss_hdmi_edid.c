@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -134,6 +134,7 @@ struct hdmi_edid_ctrl {
 	u16 video_latency;
 	u32 present_3d;
 	u32 page_id;
+	bool basic_audio_supp;
 	u8 audio_data_block[MAX_NUMBER_ADB * MAX_AUDIO_DATA_BLOCK_SIZE];
 	int adb_size;
 	u8 spkr_alloc_data_block[MAX_SPKR_ALLOC_DATA_BLOCK_SIZE];
@@ -1193,6 +1194,14 @@ static void hdmi_edid_extract_sink_caps(struct hdmi_edid_ctrl *edid_ctrl,
 		DEV_ERR("%s: invalid input\n", __func__);
 		return;
 	}
+
+	/* Check if sink supports basic audio */
+	if (in_buf[3] & BIT(6))
+		edid_ctrl->basic_audio_supp = true;
+	else
+		edid_ctrl->basic_audio_supp = false;
+	pr_debug("%s: basic audio supported: %s\n", __func__,
+		edid_ctrl->basic_audio_supp ? "true" : "false");
 
 	/* Find HF-VSDB with HF-OUI */
 	do {
@@ -2444,6 +2453,17 @@ void hdmi_edid_set_video_resolution(void *input, u32 resolution, bool reset)
 		edid_ctrl->sink_data.disp_mode_list[0].rgb_support = true;
 	}
 } /* hdmi_edid_set_video_resolution */
+
+bool hdmi_edid_is_audio_supported(void *input)
+{
+	struct hdmi_edid_ctrl *edid_ctrl = (struct hdmi_edid_ctrl *)input;
+
+	/*
+	 * return true if basic audio is supported or if an audio
+	 * data block was successfully parsed.
+	 */
+	return (edid_ctrl->basic_audio_supp || edid_ctrl->adb_size);
+}
 
 void hdmi_edid_deinit(void *input)
 {
