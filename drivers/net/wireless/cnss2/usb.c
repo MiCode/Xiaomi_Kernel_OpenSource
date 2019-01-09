@@ -71,6 +71,25 @@ void cnss_usb_wlan_unregister_driver(struct cnss_usb_wlan_driver *driver_ops)
 }
 EXPORT_SYMBOL(cnss_usb_wlan_unregister_driver);
 
+int cnss_usb_is_device_down(struct device *dev)
+{
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+	struct cnss_usb_data *usb_priv;
+
+	if (!plat_priv) {
+		cnss_pr_err("plat_priv is NULL\n");
+		return -ENODEV;
+	}
+
+	usb_priv = plat_priv->bus_priv;
+	if (!usb_priv) {
+		cnss_pr_err("usb_priv is NULL\n");
+		return -ENODEV;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(cnss_usb_is_device_down);
+
 int cnss_usb_register_driver_hdlr(struct cnss_usb_data *usb_priv,
 				  void *data)
 {
@@ -262,10 +281,6 @@ static void cnss_usb_remove(struct usb_interface *interface)
 	struct cnss_usb_data *usb_priv = plat_priv->bus_priv;
 
 	cnss_pr_dbg("driver state %lu\n", plat_priv->driver_state);
-	if (usb_priv->driver_ops) {
-		cnss_pr_dbg("driver_op remove called for USB\n");
-		usb_priv->driver_ops->remove(usb_priv->usb_intf);
-	}
 	cnss_unregister_ramdump(plat_priv);
 	cnss_unregister_subsys(plat_priv);
 	usb_priv->plat_priv = NULL;
