@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/device.h>
@@ -646,17 +646,13 @@ static int cam_cpas_util_apply_client_axi_vote(
 		mnoc_bw += curr_client->axi_vote.compressed_bw;
 	}
 
-	if ((!soc_private->axi_camnoc_based) && (mnoc_bw < camnoc_bw))
-		mnoc_bw = camnoc_bw;
-
 	axi_port->consolidated_axi_vote.compressed_bw = mnoc_bw;
 	axi_port->consolidated_axi_vote.uncompressed_bw = camnoc_bw;
 
 	CAM_DBG(CAM_CPAS,
-		"axi[(%d, %d),(%d, %d)] : camnoc_bw[%llu], mnoc_bw[%llu]",
+		"axi[(%d, %d)] : mnoc_bw[%llu]",
 		axi_port->mnoc_bus.src, axi_port->mnoc_bus.dst,
-		axi_port->camnoc_bus.src, axi_port->camnoc_bus.dst,
-		camnoc_bw, mnoc_bw);
+		mnoc_bw);
 
 	if (axi_port->ib_bw_voting_needed)
 		rc = cam_cpas_util_vote_bus_client_bw(&axi_port->mnoc_bus,
