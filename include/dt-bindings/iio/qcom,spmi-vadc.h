@@ -1,15 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 and
- * only version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Copyright (c) 2012-2014,2018-2019 The Linux Foundation. All rights reserved.
  */
+
 
 #ifndef _DT_BINDINGS_QCOM_SPMI_VADC_H
 #define _DT_BINDINGS_QCOM_SPMI_VADC_H
@@ -115,5 +108,118 @@
 #define VADC_LR_MUX9_PU1_PU2_AMUX_THM5		0xf8
 #define VADC_LR_MUX10_PU1_PU2_AMUX_USB_ID	0xf9
 #define VADC_LR_MUX3_BUF_PU1_PU2_XO_THERM	0xfc
+
+/* ADC channels for SPMI VADC5*/
+
+#define ADC_REF_GND				0x00
+#define ADC_1P25VREF				0x01
+#define ADC_VREF_VADC				0x02
+#define ADC_VREF_VADC_DIV_3			0x82
+#define ADC_VPH_PWR				0x83
+#define ADC_VBAT_SNS				0x84
+#define ADC_VCOIN				0x85
+#define ADC_DIE_TEMP				0x06
+#define ADC_USB_IN_I				0x07
+#define ADC_USB_IN_V_16				0x08
+#define ADC_CHG_TEMP				0x09
+#define ADC_BAT_THERM				0x0a
+#define ADC_BAT_ID				0x0b
+#define ADC_XO_THERM				0x0c
+#define ADC_AMUX_THM1				0x0d
+#define ADC_AMUX_THM2				0x0e
+#define ADC_AMUX_THM3				0x0f
+#define ADC_AMUX_THM4				0x10
+#define ADC_AMUX_THM5				0x11
+#define ADC_GPIO1				0x12
+#define ADC_GPIO2				0x13
+#define ADC_GPIO3				0x14
+#define ADC_GPIO4				0x15
+#define ADC_GPIO5				0x16
+#define ADC_GPIO6				0x17
+#define ADC_GPIO7				0x18
+#define ADC_SBUx				0x99
+#define ADC_MID_CHG_DIV6			0x1e
+#define ADC_OFF					0xff
+
+/* 30k pull-up1 */
+#define ADC_BAT_THERM_PU1			0x2a
+#define ADC_BAT_ID_PU1				0x2b
+#define ADC_XO_THERM_PU1			0x2c
+#define ADC_AMUX_THM1_PU1			0x2d
+#define ADC_AMUX_THM2_PU1			0x2e
+#define ADC_AMUX_THM3_PU1			0x2f
+#define ADC_AMUX_THM4_PU1			0x30
+#define ADC_AMUX_THM5_PU1			0x31
+#define ADC_GPIO1_PU1				0x32
+#define ADC_GPIO2_PU1				0x33
+#define ADC_GPIO3_PU1				0x34
+#define ADC_GPIO4_PU1				0x35
+#define ADC_GPIO5_PU1				0x36
+#define ADC_GPIO6_PU1				0x37
+#define ADC_GPIO7_PU1				0x38
+#define ADC_SBUx_PU1				0x39
+
+/* 100k pull-up2 */
+#define ADC_BAT_THERM_PU2			0x4a
+#define ADC_BAT_ID_PU2				0x4b
+#define ADC_XO_THERM_PU2			0x4c
+#define ADC_AMUX_THM1_PU2			0x4d
+#define ADC_AMUX_THM2_PU2			0x4e
+#define ADC_AMUX_THM3_PU2			0x4f
+#define ADC_AMUX_THM4_PU2			0x50
+#define ADC_AMUX_THM5_PU2			0x51
+#define ADC_GPIO1_PU2				0x52
+#define ADC_GPIO2_PU2				0x53
+#define ADC_GPIO3_PU2				0x54
+#define ADC_GPIO4_PU2				0x55
+#define ADC_GPIO5_PU2				0x56
+#define ADC_GPIO6_PU2				0x57
+#define ADC_GPIO7_PU2				0x58
+#define ADC_SBUx_PU2				0x59
+
+/* 400k pull-up3 */
+#define ADC_BAT_THERM_PU3			0x6a
+#define ADC_BAT_ID_PU3				0x6b
+#define ADC_XO_THERM_PU3			0x6c
+#define ADC_AMUX_THM1_PU3			0x6d
+#define ADC_AMUX_THM2_PU3			0x6e
+#define ADC_AMUX_THM3_PU3			0x6f
+#define ADC_AMUX_THM4_PU3			0x70
+#define ADC_AMUX_THM5_PU3			0x71
+#define ADC_GPIO1_PU3				0x72
+#define ADC_GPIO2_PU3				0x73
+#define ADC_GPIO3_PU3				0x74
+#define ADC_GPIO4_PU3				0x75
+#define ADC_GPIO5_PU3				0x76
+#define ADC_GPIO6_PU3				0x77
+#define ADC_GPIO7_PU3				0x78
+#define ADC_SBUx_PU3				0x79
+
+/* 1/3 Divider */
+#define ADC_GPIO1_DIV3				0x92
+#define ADC_GPIO2_DIV3				0x93
+#define ADC_GPIO3_DIV3				0x94
+#define ADC_GPIO4_DIV3				0x95
+#define ADC_GPIO5_DIV3				0x96
+#define ADC_GPIO6_DIV3				0x97
+#define ADC_GPIO7_DIV3				0x98
+#define ADC_SBUx_DIV3				0x99
+
+/* Current and combined current/voltage channels */
+#define ADC_INT_EXT_ISENSE			0xa1
+#define ADC_PARALLEL_ISENSE			0xa5
+#define ADC_CUR_REPLICA_VDS			0xa7
+#define ADC_CUR_SENS_BATFET_VDS_OFFSET		0xa9
+#define ADC_CUR_SENS_REPLICA_VDS_OFFSET		0xab
+#define ADC_EXT_SENS_OFFSET			0xad
+
+#define ADC_INT_EXT_ISENSE_VBAT_VDATA		0xb0
+#define ADC_INT_EXT_ISENSE_VBAT_IDATA		0xb1
+#define ADC_EXT_ISENSE_VBAT_VDATA		0xb2
+#define ADC_EXT_ISENSE_VBAT_IDATA		0xb3
+#define ADC_PARALLEL_ISENSE_VBAT_VDATA		0xb4
+#define ADC_PARALLEL_ISENSE_VBAT_IDATA		0xb5
+
+#define ADC_MAX_CHANNEL				0xc0
 
 #endif /* _DT_BINDINGS_QCOM_SPMI_VADC_H */
