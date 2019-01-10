@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -4901,13 +4901,14 @@ static void ipa3_load_ipa_fw(struct work_struct *work)
 
 	IPADBG("Entry\n");
 
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+
 	result = ipa3_attach_to_smmu();
 	if (result) {
 		IPAERR("IPA attach to smmu failed %d\n", result);
+		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 		return;
 	}
-
-	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_EMULATION &&
 	    ((ipa3_ctx->platform_type != IPA_PLAT_TYPE_MDM) ||
