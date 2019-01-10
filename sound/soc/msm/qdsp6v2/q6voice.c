@@ -1,4 +1,4 @@
-/*  Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/*  Copyright (c) 2012-2016, 2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1786,6 +1786,73 @@ static int voice_send_dtmf_rx_detection_cmd(struct voice_data *v,
 	return ret;
 }
 
+static int voc_snd_dtmf_mute_tx_detect_cmd(struct voice_data *v,
+					   uint16_t enable, uint16_t delay_us)
+{
+	int ret = 0;
+	void *apr_cvp;
+	u16 cvp_handle;
+	struct cvp_set_tx_dtmf_mute_detection_cmd cvp_tx_dtmf_mute_detection;
+
+	if (v == NULL) {
+		pr_err("%s: v is NULL\n", __func__);
+		return -EINVAL;
+	}
+	apr_cvp = common.apr_q6_cvp;
+
+	if (!apr_cvp) {
+		pr_err("%s: apr_cvp is NULL.\n", __func__);
+		return -EINVAL;
+	}
+
+	cvp_handle = voice_get_cvp_handle(v);
+
+	/* Set SET_DTMF_MUTE_TX_DETECTION */
+	cvp_tx_dtmf_mute_detection.hdr.hdr_field =
+				APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+					      APR_HDR_LEN(APR_HDR_SIZE),
+					      APR_PKT_VER);
+	cvp_tx_dtmf_mute_detection.hdr.pkt_size =
+				APR_PKT_SIZE(APR_HDR_SIZE,
+				sizeof(cvp_tx_dtmf_mute_detection) -
+					APR_HDR_SIZE);
+	cvp_tx_dtmf_mute_detection.hdr.src_port =
+				voice_get_idx_for_session(v->session_id);
+	cvp_tx_dtmf_mute_detection.hdr.dest_port = cvp_handle;
+	cvp_tx_dtmf_mute_detection.hdr.token = 0;
+	cvp_tx_dtmf_mute_detection.hdr.opcode =
+					VSS_IVOCPROC_CMD_SET_TX_DTMF_MUTE;
+	cvp_tx_dtmf_mute_detection.cvp_dtmf_det.enable = enable;
+	cvp_tx_dtmf_mute_detection.cvp_dtmf_det.delay_us = delay_us;
+
+	v->cvp_state = CMD_STATUS_FAIL;
+	v->async_err = 0;
+
+	ret = apr_send_pkt(apr_cvp, (uint32_t *) &cvp_tx_dtmf_mute_detection);
+	if (ret < 0) {
+		pr_err("%s: Error %d sending SET_DTMF_MUTE_TX_DETECTION\n",
+		       __func__, ret);
+		return -EINVAL;
+	}
+
+	ret = wait_event_timeout(v->cvp_wait,
+				 (v->cvp_state == CMD_STATUS_SUCCESS),
+				 msecs_to_jiffies(TIMEOUT_MS));
+
+	if (!ret) {
+		pr_err("%s: wait_event timeout\n", __func__);
+		return -ETIMEDOUT;
+	}
+	if (v->async_err > 0) {
+		pr_err("%s: DSP returned error[%s]\n", __func__,
+				adsp_err_get_err_str(v->async_err));
+		ret = adsp_err_get_lnx_err_code(v->async_err);
+		return ret;
+	}
+
+	return ret;
+}
+
 static void voice_vote_powerstate_to_bms(struct voice_data *v, bool state)
 {
 
@@ -1822,6 +1889,7 @@ void voc_disable_dtmf_det_on_active_sessions(void)
 			pr_debug("disable dtmf det on ses_id=%d\n",
 				 v->session_id);
 			voice_send_dtmf_rx_detection_cmd(v, 0);
+			voc_snd_dtmf_mute_tx_detect_cmd(v, 0, 0);
 		}
 	}
 }
@@ -1842,6 +1910,31 @@ int voc_enable_dtmf_rx_detection(uint32_t session_id, uint32_t enable)
 	if (is_voc_state_active(v->voc_state))
 		ret = voice_send_dtmf_rx_detection_cmd(v,
 						       v->dtmf_rx_detect_en);
+
+	mutex_unlock(&v->lock);
+
+	return ret;
+}
+
+int voc_enable_dtmf_mute_tx_detection(uint32_t session_id, uint16_t enable,
+				      uint16_t delay_us)
+{
+	struct voice_data *v = voice_get_session(session_id);
+	int ret = 0;
+	uint16_t delay = 0;
+
+	if (v == NULL) {
+		pr_err("%s: invalid session_id 0x%x\n", __func__, session_id);
+		return -EINVAL;
+	}
+	mutex_lock(&v->lock);
+	v->dtmf_mute_tx_detect_en = enable;
+	v->dtmf_mute_tx_detect_delay = delay_us;
+	delay = v->dtmf_mute_tx_detect_delay;
+	if (is_voc_state_active(v->voc_state))
+		ret = voc_snd_dtmf_mute_tx_detect_cmd(v,
+						      v->dtmf_mute_tx_detect_en,
+						      delay);
 
 	mutex_unlock(&v->lock);
 
@@ -3881,6 +3974,9 @@ static int voice_setup_vocproc(struct voice_data *v)
 
 	if (v->dtmf_rx_detect_en)
 		voice_send_dtmf_rx_detection_cmd(v, v->dtmf_rx_detect_en);
+	if (v->dtmf_mute_tx_detect_en)
+		voc_snd_dtmf_mute_tx_detect_cmd(v, v->dtmf_mute_tx_detect_en,
+						v->dtmf_mute_tx_detect_delay);
 
 	if (v->hd_enable)
 		voice_send_hd_cmd(v, v->hd_enable);
@@ -4421,6 +4517,8 @@ static int voice_destroy_vocproc(struct voice_data *v)
 	/* send stop dtmf detecton cmd */
 	if (v->dtmf_rx_detect_en)
 		voice_send_dtmf_rx_detection_cmd(v, 0);
+	if (v->dtmf_mute_tx_detect_en)
+		voc_snd_dtmf_mute_tx_detect_cmd(v, 0, 0);
 
 	/* detach VOCPROC and wait for response from mvm */
 	mvm_d_vocproc_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
@@ -6898,6 +6996,12 @@ static int32_t qdsp_cvp_callback(struct apr_client_data *data, void *priv)
 				v->async_err = ptr[1];
 				wake_up(&v->cvp_wait);
 				break;
+			case VSS_IVOCPROC_CMD_SET_TX_DTMF_MUTE:
+				pr_debug("%s: cmd = 0x%x\n", __func__, ptr[0]);
+				v->cvp_state = CMD_STATUS_SUCCESS;
+				v->async_err = ptr[1];
+				wake_up(&v->cvp_wait);
+				break;
 			default:
 				pr_debug("%s: not match cmd = 0x%x\n",
 					  __func__, ptr[0]);
@@ -8372,6 +8476,8 @@ static int __init voice_init(void)
 		common.voice[i].dev_tx.no_of_channels = 0;
 		common.voice[i].sidetone_gain = 0x512;
 		common.voice[i].dtmf_rx_detect_en = 0;
+		common.voice[i].dtmf_mute_tx_detect_en = 0;
+		common.voice[i].dtmf_mute_tx_detect_delay = 0;
 		common.voice[i].lch_mode = 0;
 		common.voice[i].disable_topology = false;
 
