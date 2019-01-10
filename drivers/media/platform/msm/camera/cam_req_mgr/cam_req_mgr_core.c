@@ -691,6 +691,7 @@ static int __cam_req_mgr_check_sync_for_mslave(
 			CAM_DBG(CAM_CRM,
 				"Req: %lld [master] not ready on link: %x, rc=%d",
 				req_id, link->link_hdl, rc);
+			link->sync_link_sof_skip = true;
 			return rc;
 		}
 
@@ -710,6 +711,7 @@ static int __cam_req_mgr_check_sync_for_mslave(
 				CAM_DBG(CAM_CRM,
 					"Prev Req: %lld [master] not found on link: %x [slave]",
 					sync_req_id, sync_link->link_hdl);
+				link->sync_link_sof_skip = true;
 				return -EINVAL;
 			}
 
@@ -733,6 +735,7 @@ static int __cam_req_mgr_check_sync_for_mslave(
 				CAM_DBG(CAM_CRM,
 					"Req: %lld not ready on [slave] link: %x, rc=%d",
 					sync_req_id, sync_link->link_hdl, rc);
+				link->sync_link_sof_skip = true;
 				return rc;
 			}
 		}
@@ -754,6 +757,7 @@ static int __cam_req_mgr_check_sync_for_mslave(
 			CAM_DBG(CAM_CRM,
 				"Req: %lld [slave] not ready on link: %x, rc=%d",
 				req_id, link->link_hdl, rc);
+			link->sync_link_sof_skip = true;
 			return rc;
 		}
 
@@ -773,6 +777,7 @@ static int __cam_req_mgr_check_sync_for_mslave(
 				CAM_DBG(CAM_CRM,
 					"Next Req: %lld [slave] not found on link: %x [master]",
 					sync_req_id, sync_link->link_hdl);
+				link->sync_link_sof_skip = true;
 				return -EINVAL;
 			}
 
@@ -795,6 +800,7 @@ static int __cam_req_mgr_check_sync_for_mslave(
 				CAM_DBG(CAM_CRM,
 					"Next Req: %lld [slave] not ready on [master] link: %x, rc=%d",
 					sync_req_id, sync_link->link_hdl, rc);
+				link->sync_link_sof_skip = true;
 				return rc;
 			}
 		}
