@@ -24,6 +24,9 @@
 #include <linux/net.h>
 #include <net/regulatory.h>
 
+/* Indicate backport support for external authentication*/
+#define CFG80211_EXTERNAL_AUTH_SUPPORT 1
+
 /**
  * DOC: Introduction
  *
