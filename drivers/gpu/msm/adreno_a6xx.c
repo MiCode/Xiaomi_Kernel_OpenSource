@@ -384,9 +384,6 @@ static const struct kgsl_hwcg_reg a612_hwcg_regs[] = {
 	{A6XX_RBBM_CLOCK_HYST_GPC, 0x04104004},
 	{A6XX_RBBM_CLOCK_HYST_HLSQ, 0x00000000},
 	{A6XX_RBBM_CLOCK_CNTL_UCHE, 0x22222222},
-	{A6XX_RBBM_CLOCK_CNTL2_UCHE, 0x22222222},
-	{A6XX_RBBM_CLOCK_CNTL3_UCHE, 0x22222222},
-	{A6XX_RBBM_CLOCK_CNTL4_UCHE, 0x00222222},
 	{A6XX_RBBM_CLOCK_HYST_UCHE, 0x00000004},
 	{A6XX_RBBM_CLOCK_DELAY_UCHE, 0x00000002},
 	{A6XX_RBBM_ISDB_CNT, 0x00000182},
@@ -1155,6 +1152,7 @@ static void _set_ordinals(struct adreno_device *adreno_dev,
 static int a6xx_send_cp_init(struct adreno_device *adreno_dev,
 			 struct adreno_ringbuffer *rb)
 {
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int *cmds;
 	int ret;
 
@@ -1167,9 +1165,16 @@ static int a6xx_send_cp_init(struct adreno_device *adreno_dev,
 	_set_ordinals(adreno_dev, cmds, 11);
 
 	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
-	if (ret)
+	if (ret) {
 		adreno_spin_idle_debug(adreno_dev,
 				"CP initialization failed to idle\n");
+
+		if (!adreno_is_a3xx(adreno_dev))
+			kgsl_sharedmem_writel(device, &device->scratch,
+					SCRATCH_RPTR_OFFSET(rb->id), 0);
+		rb->wptr = 0;
+		rb->_wptr = 0;
+	}
 
 	return ret;
 }
