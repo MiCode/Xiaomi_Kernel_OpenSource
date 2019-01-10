@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -355,12 +355,21 @@ glink_spi_alloc_channel(struct glink_spi *glink, const char *name)
 static void glink_spi_channel_release(struct kref *ref)
 {
 	struct glink_spi_channel *channel;
+	struct glink_spi_rx_intent *tmp;
+	int iid;
 
 	channel = container_of(ref, struct glink_spi_channel, refcount);
 	CH_INFO(channel, "\n");
 
 	mutex_lock(&channel->intent_lock);
+	idr_for_each_entry(&channel->liids, tmp, iid) {
+		kfree(tmp->data);
+		kfree(tmp);
+	}
 	idr_destroy(&channel->liids);
+
+	idr_for_each_entry(&channel->riids, tmp, iid)
+		kfree(tmp);
 	idr_destroy(&channel->riids);
 	mutex_unlock(&channel->intent_lock);
 
@@ -2409,9 +2418,9 @@ static void glink_spi_remove(struct glink_spi *glink)
 	}
 
 	/* Release any defunct local channels, waiting for close-req */
-	idr_for_each_entry(&glink->lcids, channel, cid) {
+	idr_for_each_entry(&glink->rcids, channel, cid) {
 		kref_put(&channel->refcount, glink_spi_channel_release);
-		idr_remove(&glink->lcids, cid);
+		idr_remove(&glink->rcids, cid);
 	}
 
 	idr_destroy(&glink->lcids);
