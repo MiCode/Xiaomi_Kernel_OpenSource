@@ -1123,6 +1123,8 @@ static int sde_encoder_virt_atomic_check(
 
 	ret = _sde_encoder_atomic_check_reserve(drm_enc, crtc_state,
 			conn_state, sde_enc, sde_kms, sde_conn, sde_conn_state);
+	if (ret)
+		return ret;
 
 	ret = sde_connector_roi_v1_check_roi(conn_state);
 	if (ret) {
@@ -1131,9 +1133,7 @@ static int sde_encoder_virt_atomic_check(
 		return ret;
 	}
 
-	if (!ret)
-		drm_mode_set_crtcinfo(adj_mode, 0);
-
+	drm_mode_set_crtcinfo(adj_mode, 0);
 	SDE_EVT32(DRMID(drm_enc), adj_mode->flags, adj_mode->private_flags);
 
 	return ret;
