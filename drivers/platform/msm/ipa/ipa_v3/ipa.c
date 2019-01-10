@@ -5438,7 +5438,8 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 				ipa3_ctx->ctrl->msm_bus_data_ptr);
 		if (!ipa3_ctx->ipa_bus_hdl) {
 			IPAERR("fail to register with bus mgr!\n");
-			result = -ENODEV;
+			ipa3_ctx->ctrl->msm_bus_data_ptr = NULL;
+			result = -EPROBE_DEFER;
 			goto fail_bus_reg;
 		}
 	}
@@ -6848,6 +6849,10 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 	IPADBG("dev->of_node->name = %s\n", dev->of_node->name);
 
 	if (of_device_is_compatible(dev->of_node, "qcom,ipa-smmu-ap-cb")) {
+		if (ipa3_ctx == NULL) {
+			IPAERR("ipa3_ctx was not initialized\n");
+			return -EPROBE_DEFER;
+		}
 		cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_AP);
 		cb->dev = dev;
 		smmu_info.present[IPA_SMMU_CB_AP] = true;
@@ -6856,6 +6861,10 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 	}
 
 	if (of_device_is_compatible(dev->of_node, "qcom,ipa-smmu-wlan-cb")) {
+		if (ipa3_ctx == NULL) {
+			IPAERR("ipa3_ctx was not initialized\n");
+			return -EPROBE_DEFER;
+		}
 		cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_WLAN);
 		cb->dev = dev;
 		smmu_info.present[IPA_SMMU_CB_WLAN] = true;
@@ -6864,6 +6873,10 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 	}
 
 	if (of_device_is_compatible(dev->of_node, "qcom,ipa-smmu-uc-cb")) {
+		if (ipa3_ctx == NULL) {
+			IPAERR("ipa3_ctx was not initialized\n");
+			return -EPROBE_DEFER;
+		}
 		cb =  ipa3_get_smmu_ctx(IPA_SMMU_CB_UC);
 		cb->dev = dev;
 		smmu_info.present[IPA_SMMU_CB_UC] = true;
