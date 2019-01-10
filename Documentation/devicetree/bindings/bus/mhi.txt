@@ -320,6 +320,12 @@ MHI netdev properties
 	if netdev used as a standalone device. For example, for software IP
 	path, chaining should be disabled.
 
+- mhi,rsc-parent
+  Usage: required for rsc device
+  Value type: <phandle>
+  Definition: RSC channel operate together with IP_HW0 device. If it's a rsc
+	device, assign phandle of parent device (IP_HW0).
+
 ========
 Example:
 ========
@@ -332,4 +338,10 @@ mhi_netdev_0: mhi_rmnet@0 {
 	mhi,chan = "IP_HW0";
 	mhi,interface-name = "rmnet_mhi";
 	mhi,mru = <0x4000>;
+};
+
+mhi_rmnet@1 {
+	mhi,chan = "IP_HW0_RSC";
+	mhi,rsc-parent = <&mhi_netdev_0>;
+	mhi,mru = <0x8000>;
 };
