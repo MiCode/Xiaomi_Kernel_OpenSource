@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1979,6 +1979,9 @@ static int sde_connector_populate_mode_info(struct drm_connector *conn,
 		}
 
 		sde_kms_info_add_keystr(info, "mode_name", mode->name);
+
+		sde_kms_info_add_keyint(info, "bit_clk_rate",
+					mode_info.clk_rate);
 
 		topology_idx = (int)sde_rm_get_topology_name(
 							mode_info.topology);
