@@ -9,6 +9,7 @@
  *	Xinliang Liu <z.liuxinliang@hisilicon.com>
  *	Xinliang Liu <xinliang.liu@linaro.org>
  *	Xinwei Kong <kong.kongxinwei@hisilicon.com>
+ *	Da Lv <lvda3@hisilicon.com>
  */
 
 #include <linux/clk.h>
@@ -25,97 +26,10 @@
 #include <drm/drm_print.h>
 #include <drm/drm_probe_helper.h>
 
-#include "dw_dsi_reg.h"
+#include "../kirin_drm_dsi.h"
+#include "../dw_dsi_reg.h"
 
 #define MAX_TX_ESC_CLK		10
-#define ROUND(x, y)		((x) / (y) + \
-				((x) % (y) * 10 / (y) >= 5 ? 1 : 0))
-#define PHY_REF_CLK_RATE	19200000
-#define PHY_REF_CLK_PERIOD_PS	(1000000000 / (PHY_REF_CLK_RATE / 1000))
-
-#define encoder_to_dsi(encoder) \
-	container_of(encoder, struct dw_dsi, encoder)
-#define host_to_dsi(host) \
-	container_of(host, struct dw_dsi, host)
-
-struct mipi_phy_params {
-	u32 clk_t_lpx;
-	u32 clk_t_hs_prepare;
-	u32 clk_t_hs_zero;
-	u32 clk_t_hs_trial;
-	u32 clk_t_wakeup;
-	u32 data_t_lpx;
-	u32 data_t_hs_prepare;
-	u32 data_t_hs_zero;
-	u32 data_t_hs_trial;
-	u32 data_t_ta_go;
-	u32 data_t_ta_get;
-	u32 data_t_wakeup;
-	u32 hstx_ckg_sel;
-	u32 pll_fbd_div5f;
-	u32 pll_fbd_div1f;
-	u32 pll_fbd_2p;
-	u32 pll_enbwt;
-	u32 pll_fbd_p;
-	u32 pll_fbd_s;
-	u32 pll_pre_div1p;
-	u32 pll_pre_p;
-	u32 pll_vco_750M;
-	u32 pll_lpf_rs;
-	u32 pll_lpf_cs;
-	u32 clklp2hs_time;
-	u32 clkhs2lp_time;
-	u32 lp2hs_time;
-	u32 hs2lp_time;
-	u32 clk_to_data_delay;
-	u32 data_to_clk_delay;
-	u32 lane_byte_clk_kHz;
-	u32 clk_division;
-};
-
-struct dsi_hw_ctx {
-	void __iomem *base;
-	struct clk *pclk;
-};
-
-struct dw_dsi {
-	struct drm_encoder encoder;
-	struct drm_bridge *bridge;
-	struct mipi_dsi_host host;
-	struct drm_display_mode cur_mode;
-	struct dsi_hw_ctx *ctx;
-	struct mipi_phy_params phy;
-
-	u32 lanes;
-	enum mipi_dsi_pixel_format format;
-	unsigned long mode_flags;
-	bool enable;
-};
-
-struct dsi_data {
-	struct dw_dsi dsi;
-	struct dsi_hw_ctx ctx;
-};
-
-struct dsi_phy_range {
-	u32 min_range_kHz;
-	u32 max_range_kHz;
-	u32 pll_vco_750M;
-	u32 hstx_ckg_sel;
-};
-
-static const struct dsi_phy_range dphy_range_info[] = {
-	{   46875,    62500,   1,    7 },
-	{   62500,    93750,   0,    7 },
-	{   93750,   125000,   1,    6 },
-	{  125000,   187500,   0,    6 },
-	{  187500,   250000,   1,    5 },
-	{  250000,   375000,   0,    5 },
-	{  375000,   500000,   1,    4 },
-	{  500000,   750000,   0,    4 },
-	{  750000,  1000000,   1,    0 },
-	{ 1000000,  1500000,   0,    0 }
-};
 
 static u32 dsi_calc_phy_rate(u32 req_kHz, struct mipi_phy_params *phy)
 {
@@ -567,24 +481,7 @@ static void dsi_mipi_init(struct dw_dsi *dsi)
 			 dsi->lanes, mode->clock, phy->lane_byte_clk_kHz);
 }
 
-static void dsi_encoder_disable(struct drm_encoder *encoder)
-{
-	struct dw_dsi *dsi = encoder_to_dsi(encoder);
-	struct dsi_hw_ctx *ctx = dsi->ctx;
-	void __iomem *base = ctx->base;
-
-	if (!dsi->enable)
-		return;
-
-	writel(0, base + PWR_UP);
-	writel(0, base + LPCLK_CTRL);
-	writel(0, base + PHY_RSTZ);
-	clk_disable_unprepare(ctx->pclk);
-
-	dsi->enable = false;
-}
-
-static void dsi_encoder_enable(struct drm_encoder *encoder)
+static void dsi_encoder_enable_sub(struct drm_encoder *encoder)
 {
 	struct dw_dsi *dsi = encoder_to_dsi(encoder);
 	struct dsi_hw_ctx *ctx = dsi->ctx;
@@ -600,8 +497,6 @@ static void dsi_encoder_enable(struct drm_encoder *encoder)
 	}
 
 	dsi_mipi_init(dsi);
-
-	dsi->enable = true;
 }
 
 static enum drm_mode_status dsi_encoder_phy_mode_valid(
@@ -670,60 +565,6 @@ static enum drm_mode_status dsi_encoder_mode_valid(struct drm_encoder *encoder,
 	return MODE_OK;
 }
 
-static void dsi_encoder_mode_set(struct drm_encoder *encoder,
-				 struct drm_display_mode *mode,
-				 struct drm_display_mode *adj_mode)
-{
-	struct dw_dsi *dsi = encoder_to_dsi(encoder);
-
-	drm_mode_copy(&dsi->cur_mode, adj_mode);
-}
-
-static int dsi_encoder_atomic_check(struct drm_encoder *encoder,
-				    struct drm_crtc_state *crtc_state,
-				    struct drm_connector_state *conn_state)
-{
-	/* do nothing */
-	return 0;
-}
-
-static const struct drm_encoder_helper_funcs dw_encoder_helper_funcs = {
-	.atomic_check	= dsi_encoder_atomic_check,
-	.mode_valid	= dsi_encoder_mode_valid,
-	.mode_set	= dsi_encoder_mode_set,
-	.enable		= dsi_encoder_enable,
-	.disable	= dsi_encoder_disable
-};
-
-static const struct drm_encoder_funcs dw_encoder_funcs = {
-	.destroy = drm_encoder_cleanup,
-};
-
-static int dw_drm_encoder_init(struct device *dev,
-			       struct drm_device *drm_dev,
-			       struct drm_encoder *encoder)
-{
-	int ret;
-	u32 crtc_mask = drm_of_find_possible_crtcs(drm_dev, dev->of_node);
-
-	if (!crtc_mask) {
-		DRM_ERROR("failed to find crtc mask\n");
-		return -EINVAL;
-	}
-
-	encoder->possible_crtcs = crtc_mask;
-	ret = drm_encoder_init(drm_dev, encoder, &dw_encoder_funcs,
-			       DRM_MODE_ENCODER_DSI, NULL);
-	if (ret) {
-		DRM_ERROR("failed to init dsi encoder\n");
-		return ret;
-	}
-
-	drm_encoder_helper_add(encoder, &dw_encoder_helper_funcs);
-
-	return 0;
-}
-
 static int dsi_host_attach(struct mipi_dsi_host *host,
 			   struct mipi_dsi_device *mdsi)
 {
@@ -769,54 +610,6 @@ static int dsi_host_init(struct device *dev, struct dw_dsi *dsi)
 	return 0;
 }
 
-static int dsi_bridge_init(struct drm_device *dev, struct dw_dsi *dsi)
-{
-	struct drm_encoder *encoder = &dsi->encoder;
-	struct drm_bridge *bridge = dsi->bridge;
-	int ret;
-
-	/* associate the bridge to dsi encoder */
-	ret = drm_bridge_attach(encoder, bridge, NULL);
-	if (ret) {
-		DRM_ERROR("failed to attach external bridge\n");
-		return ret;
-	}
-
-	return 0;
-}
-
-static int dsi_bind(struct device *dev, struct device *master, void *data)
-{
-	struct dsi_data *ddata = dev_get_drvdata(dev);
-	struct dw_dsi *dsi = &ddata->dsi;
-	struct drm_device *drm_dev = data;
-	int ret;
-
-	ret = dw_drm_encoder_init(dev, drm_dev, &dsi->encoder);
-	if (ret)
-		return ret;
-
-	ret = dsi_host_init(dev, dsi);
-	if (ret)
-		return ret;
-
-	ret = dsi_bridge_init(drm_dev, dsi);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-
-static void dsi_unbind(struct device *dev, struct device *master, void *data)
-{
-	/* do nothing */
-}
-
-static const struct component_ops dsi_ops = {
-	.bind	= dsi_bind,
-	.unbind	= dsi_unbind,
-};
-
 static int dsi_parse_dt(struct platform_device *pdev, struct dw_dsi *dsi)
 {
 	struct dsi_hw_ctx *ctx = dsi->ctx;
@@ -848,54 +641,13 @@ static int dsi_parse_dt(struct platform_device *pdev, struct dw_dsi *dsi)
 	return 0;
 }
 
-static int dsi_probe(struct platform_device *pdev)
-{
-	struct dsi_data *data;
-	struct dw_dsi *dsi;
-	struct dsi_hw_ctx *ctx;
-	int ret;
-
-	data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
-	if (!data) {
-		DRM_ERROR("failed to allocate dsi data.\n");
-		return -ENOMEM;
-	}
-	dsi = &data->dsi;
-	ctx = &data->ctx;
-	dsi->ctx = ctx;
-
-	ret = dsi_parse_dt(pdev, dsi);
-	if (ret)
-		return ret;
-
-	platform_set_drvdata(pdev, data);
-
-	return component_add(&pdev->dev, &dsi_ops);
-}
-
-static int dsi_remove(struct platform_device *pdev)
-{
-	component_del(&pdev->dev, &dsi_ops);
-
-	return 0;
-}
-
-static const struct of_device_id dsi_of_match[] = {
-	{.compatible = "hisilicon,hi6220-dsi"},
-	{ }
+const struct kirin_dsi_ops kirin_dsi_620 = {
+	.version = KIRIN620_DSI,
+	.parse_dt = dsi_parse_dt,
+	.host_init = dsi_host_init,
+	.encoder_enable = dsi_encoder_enable_sub,
+	.encoder_valid = dsi_encoder_mode_valid
 };
-MODULE_DEVICE_TABLE(of, dsi_of_match);
-
-static struct platform_driver dsi_driver = {
-	.probe = dsi_probe,
-	.remove = dsi_remove,
-	.driver = {
-		.name = "dw-dsi",
-		.of_match_table = dsi_of_match,
-	},
-};
-
-module_platform_driver(dsi_driver);
 
 MODULE_AUTHOR("Xinliang Liu <xinliang.liu@linaro.org>");
 MODULE_AUTHOR("Xinliang Liu <z.liuxinliang@hisilicon.com>");
