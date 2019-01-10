@@ -53,6 +53,38 @@ Example:
 		};
 	};
 
+vm-linux:
+-----------------
+
+vm-linux partition specification.
+
+Required properties:
+
+-compatible: "android, vm-linux"
+-dev: block device corresponding to vm-linux partition
+-type: file system type of vm-linux partition
+-mnt_flags: mount flags
+-fsmgr_flags: fsmgr flags
+
+Example:
+
+	firmware: firmware {
+		android {
+			compatible = "android,firmware";
+			fstab {
+				compatible = "android,fstab";
+				vendor {
+					compatible = "android,vm-linux";
+					dev = "/dev/block/platform/soc/1da4000.ufshc/by-name/vm-linux";
+					type = "emmc";
+					mnt_flags = "ro";
+					fsmgr_flags = "wait,slotselect";
+					status = "";
+				};
+			};
+		};
+	};
+
 system:
 -----------------
 
