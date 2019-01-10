@@ -106,7 +106,8 @@ struct dp_display {
 	int (*get_mst_caps)(struct dp_display *dp_display,
 			struct dp_mst_caps *mst_caps);
 	int (*set_stream_info)(struct dp_display *dp_display, void *panel,
-			u32 strm_id, u32 start_slot, u32 num_slots, u32 pbn);
+			u32 strm_id, u32 start_slot, u32 num_slots, u32 pbn,
+			int vcpi);
 	void (*convert_to_dp_mode)(struct dp_display *dp_display, void *panel,
 			const struct drm_display_mode *drm_mode,
 			struct dp_display_mode *dp_mode);

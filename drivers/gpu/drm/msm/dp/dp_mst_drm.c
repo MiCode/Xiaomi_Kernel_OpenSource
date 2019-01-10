@@ -529,7 +529,8 @@ static void _dp_mst_update_timeslots(struct dp_mst_private *mst,
 
 		mst->dp_display->set_stream_info(mst->dp_display,
 				dp_bridge->dp_panel,
-				dp_bridge->id, start_slot, num_slots, pbn);
+				dp_bridge->id, start_slot, num_slots, pbn,
+				dp_bridge->vcpi);
 
 		pr_info("bridge:%d vcpi:%d start_slot:%d num_slots:%d, pbn:%d\n",
 			dp_bridge->id, dp_bridge->vcpi,
@@ -554,7 +555,8 @@ static void _dp_mst_update_single_timeslot(struct dp_mst_private *mst,
 
 		mst->dp_display->set_stream_info(mst->dp_display,
 				mst_bridge->dp_panel,
-				mst_bridge->id, start_slot, num_slots, pbn);
+				mst_bridge->id, start_slot, num_slots, pbn,
+				mst_bridge->vcpi);
 	}
 }
 

@@ -2305,13 +2305,14 @@ static void dp_panel_edid_deregister(struct dp_panel_private *panel)
 
 static int dp_panel_set_stream_info(struct dp_panel *dp_panel,
 		enum dp_stream_id stream_id, u32 ch_start_slot,
-			u32 ch_tot_slots, u32 pbn)
+			u32 ch_tot_slots, u32 pbn, int vcpi)
 {
 	if (!dp_panel || stream_id > DP_STREAM_MAX) {
 		pr_err("invalid input. stream_id: %d\n", stream_id);
 		return -EINVAL;
 	}
 
+	dp_panel->vcpi = vcpi;
 	dp_panel->stream_id = stream_id;
 	dp_panel->channel_start_slot = ch_start_slot;
 	dp_panel->channel_total_slots = ch_tot_slots;
@@ -2376,7 +2377,7 @@ static int dp_panel_deinit_panel_info(struct dp_panel *dp_panel, u32 flags)
 	if (!panel->custom_edid && dp_panel->edid_ctrl->edid)
 		sde_free_edid((void **)&dp_panel->edid_ctrl);
 
-	dp_panel_set_stream_info(dp_panel, DP_STREAM_MAX, 0, 0, 0);
+	dp_panel_set_stream_info(dp_panel, DP_STREAM_MAX, 0, 0, 0, 0);
 	memset(&dp_panel->pinfo, 0, sizeof(dp_panel->pinfo));
 	memset(&hdr->hdr_meta, 0, sizeof(hdr->hdr_meta));
 	panel->panel_on = false;

@@ -1397,7 +1397,7 @@ end:
 
 static int dp_display_set_stream_info(struct dp_display *dp_display,
 			void *panel, u32 strm_id, u32 start_slot,
-			u32 num_slots, u32 pbn)
+			u32 num_slots, u32 pbn, int vcpi)
 {
 	int rc = 0;
 	struct dp_panel *dp_panel;
@@ -1430,7 +1430,7 @@ static int dp_display_set_stream_info(struct dp_display *dp_display,
 	if (panel) {
 		dp_panel = panel;
 		dp_panel->set_stream_info(dp_panel, strm_id, start_slot,
-				num_slots, pbn);
+				num_slots, pbn, vcpi);
 	}
 
 	mutex_unlock(&dp->session_lock);

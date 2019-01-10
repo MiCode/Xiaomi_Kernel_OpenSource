@@ -114,7 +114,7 @@ static void dp_bridge_pre_enable(struct drm_bridge *drm_bridge)
 	}
 
 	/* for SST force stream id, start slot and total slots to 0 */
-	dp->set_stream_info(dp, bridge->dp_panel, 0, 0, 0, 0);
+	dp->set_stream_info(dp, bridge->dp_panel, 0, 0, 0, 0, 0);
 
 	rc = dp->enable(dp, bridge->dp_panel);
 	if (rc) {
