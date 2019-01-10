@@ -15,6 +15,7 @@
 #include <linux/if_vlan.h>
 #include <linux/vmalloc.h>
 #include <linux/interrupt.h>
+#include <linux/cpu.h>
 
 #include "atl_trace.h"
 
@@ -844,6 +845,13 @@ static struct sk_buff *atl_process_rx_frag(struct atl_desc_ring *ring,
 	struct atl_pgref *headref = &rxbuf->head, *dataref = &rxbuf->data;
 	struct device *dev = ring->qvec->dev;
 
+	if (unlikely(wb->rdm_err)) {
+		if (skb && skb != (void *)-1l)
+			dev_kfree_skb_any(skb);
+
+		skb = (void *)-1l;
+	}
+
 	if (!skb) {
 		 /* First buffer of a packet */
 		skb = atl_init_skb(ring, rxbuf, wb);
@@ -1070,17 +1078,16 @@ static int atl_config_interrupts(struct atl_nic *nic)
 	struct atl_hw *hw = &nic->hw;
 	unsigned int flags;
 	int ret;
-	struct irq_affinity iaff = {
-		.pre_vectors = ATL_NUM_NON_RING_IRQS,
-		.post_vectors = 0,
-	};
 
 	if (enable_msi) {
-		flags = PCI_IRQ_MSIX | PCI_IRQ_MSI | PCI_IRQ_AFFINITY;
-		ret = pci_alloc_irq_vectors_affinity(hw->pdev,
+		int nvecs;
+
+		nvecs = min_t(int, nic->requested_nvecs, num_present_cpus());
+		flags = PCI_IRQ_MSIX | PCI_IRQ_MSI;
+		ret = pci_alloc_irq_vectors(hw->pdev,
 			ATL_NUM_NON_RING_IRQS + 1,
-			ATL_NUM_NON_RING_IRQS + nic->requested_nvecs,
-			flags, &iaff);
+			ATL_NUM_NON_RING_IRQS + nvecs,
+			flags);
 
 		/* pci_alloc_irq_vectors() never allocates less
 		 * than min_vectors
@@ -1147,6 +1154,34 @@ void atl_clear_datapath(struct atl_nic *nic)
 	nic->qvecs = NULL;
 }
 
+static void atl_calc_affinities(struct atl_nic *nic)
+{
+	struct pci_dev *pdev = nic->hw.pdev;
+	int i;
+	unsigned int cpu;
+
+	get_online_cpus();
+	cpu = cpumask_first(cpu_online_mask);
+
+	for (i = 0; i < nic->nvecs; i++) {
+		cpumask_t *cpumask = &nic->qvecs[i].affinity_hint;
+		int vector;
+
+		/* If more vectors got allocated (based on
+		 * cpu_present_mask) than cpus currently online,
+		 * spread the remaining vectors among online cpus.
+		 */
+		if (cpu >= nr_cpumask_bits)
+			cpu = cpumask_first(cpu_online_mask);
+
+		cpumask_clear(cpumask);
+		cpumask_set_cpu(cpu, cpumask);
+		cpu = cpumask_next(cpu, cpu_online_mask);
+		vector = pci_irq_vector(pdev, i + ATL_NUM_NON_RING_IRQS);
+	}
+	put_online_cpus();
+}
+
 int atl_setup_datapath(struct atl_nic *nic)
 {
 	int nvecs, i, ret;
@@ -1183,7 +1218,7 @@ int atl_setup_datapath(struct atl_nic *nic)
 		netif_napi_add(nic->ndev, &qvec->napi, atl_poll, 64);
 	}
 
-	atl_compat_calc_affinities(nic);
+	atl_calc_affinities(nic);
 
 	nic->max_mtu = atl_rx_linear ? ATL_MAX_RX_LINEAR_MTU : ATL_MAX_MTU;
 
@@ -1304,6 +1339,13 @@ free:
 	return ret;
 }
 
+static void atl_set_affinity(int vector, struct atl_queue_vec *qvec)
+{
+	cpumask_t *cpumask = qvec ? &qvec->affinity_hint : NULL;
+
+	irq_set_affinity_hint(vector, cpumask);
+}
+
 static int atl_alloc_qvec_intr(struct atl_queue_vec *qvec)
 {
 	struct atl_nic *nic = qvec->nic;
@@ -1323,7 +1365,7 @@ static int atl_alloc_qvec_intr(struct atl_queue_vec *qvec)
 		return ret;
 	}
 
-	atl_compat_set_affinity(vector, qvec);
+	atl_set_affinity(vector, qvec);
 
 	return 0;
 }
@@ -1335,7 +1377,7 @@ static void atl_free_qvec_intr(struct atl_queue_vec *qvec)
 	if (!(qvec->nic->flags & ATL_FL_MULTIPLE_VECTORS))
 		return;
 
-	atl_compat_set_affinity(vector, NULL);
+	atl_set_affinity(vector, NULL);
 	free_irq(vector, &qvec->napi);
 }
 

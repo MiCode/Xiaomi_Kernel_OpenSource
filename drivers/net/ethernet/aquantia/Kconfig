@@ -27,6 +27,8 @@ config AQFWD
 	---help---
 	  This enables the support for forwarding driver for the aQuantia AQtion(tm) Ethernet card.
 
+source "drivers/net/ethernet/aquantia/atlantic-fwd/Kconfig"
+
 config AQFWD_QCOM
 	bool "QTI MSM/MDM target support"
 	depends on AQFWD
