@@ -181,6 +181,7 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 	struct sde_format *format;
 	struct sde_hw_ctl *ctl = mixer->hw_ctl;
 	struct sde_hw_stage_cfg *stage_cfg = &sde_crtc->stage_cfg;
+	struct sde_crtc_state *cstate;
 
 	u32 flush_mask = 0, crtc_split_width;
 	uint32_t lm_idx = LEFT_MIXER, idx;
@@ -194,20 +195,31 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 	drm_atomic_crtc_for_each_plane(plane, crtc) {
 
 		pstate = to_sde_plane_state(plane->state);
+		cstate = to_sde_crtc_state(crtc->state);
 
-		/* always stage plane on either left or right lm */
-		if (plane->state->crtc_x >= crtc_split_width) {
-			lm_idx = RIGHT_MIXER;
-			idx = right_crtc_zpos_cnt[pstate->stage]++;
-		} else {
+		/* shared dual mixer mode will always enable both LM */
+		if (cstate->is_shared &&
+				sde_crtc->num_mixers == CRTC_DUAL_MIXERS) {
 			lm_idx = LEFT_MIXER;
 			idx = left_crtc_zpos_cnt[pstate->stage]++;
-		}
+			lm_right = true;
+		} else {
+			/* always stage plane on either left or right lm */
+			if (plane->state->crtc_x >= crtc_split_width) {
+				lm_idx = RIGHT_MIXER;
+				idx = right_crtc_zpos_cnt[pstate->stage]++;
+			} else {
+				lm_idx = LEFT_MIXER;
+				idx = left_crtc_zpos_cnt[pstate->stage]++;
+			}
 
-		/* stage plane on right LM if it crosses the boundary */
-		lm_right = (lm_idx == LEFT_MIXER) &&
-		   (plane->state->crtc_x + plane->state->crtc_w >
+			/* stage plane on right LM if it crosses the
+			 * boundary.
+			 */
+			lm_right = (lm_idx == LEFT_MIXER) &&
+			   (plane->state->crtc_x + plane->state->crtc_w >
 							crtc_split_width);
+		}
 
 		/*
 		 * program each mixer with two hw pipes in dual mixer mode,
@@ -780,6 +792,24 @@ static void _sde_crtc_setup_mixers(struct drm_crtc *crtc)
 	mutex_unlock(&sde_crtc->crtc_lock);
 }
 
+static void _sde_crtc_setup_is_shared(struct drm_crtc_state *state)
+{
+	struct sde_crtc_state *cstate;
+
+	cstate = to_sde_crtc_state(state);
+
+	cstate->is_shared = false;
+	if (cstate->num_connectors) {
+		struct drm_connector *conn = cstate->connectors[0];
+		struct sde_connector *sde_conn = to_sde_connector(conn);
+
+		if (sde_conn->is_shared) {
+			cstate->is_shared = true;
+			cstate->shared_roi = sde_conn->shared_roi;
+		}
+	}
+}
+
 static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 		struct drm_crtc_state *old_state)
 {
@@ -803,8 +833,10 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 	sde_crtc = to_sde_crtc(crtc);
 	dev = crtc->dev;
 
-	if (!sde_crtc->num_mixers)
+	if (!sde_crtc->num_mixers) {
+		_sde_crtc_setup_is_shared(crtc->state);
 		_sde_crtc_setup_mixers(crtc);
+	}
 
 	/* Reset flush mask from previous commit */
 	for (i = 0; i < ARRAY_SIZE(sde_crtc->mixers); i++) {
@@ -1366,6 +1398,7 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		state->mode_changed = true;
 
 	mixer_width = sde_crtc_mixer_width(sde_crtc, mode);
+	_sde_crtc_setup_is_shared(state);
 
 	 /* get plane state for all drm planes associated with crtc state */
 	drm_atomic_crtc_state_for_each_plane(plane, state) {

@@ -298,6 +298,27 @@ struct sde_encoder_phys_wb {
 };
 
 /**
+ * struct sde_encoder_phys_shd - sub-class of sde_encoder_phys to handle shared
+ *	display
+ * @base:	Baseclass physical encoder structure
+ * @hw_lm:	mixer hw block to overwrite base encoder
+ * @hw_ctl:	ctl hw block to overwrite base encoder
+ * @irq_idx:	IRQ interface lookup index
+ * @irq_cb:	interrupt callback
+ * @num_mixers:	Number of mixers available in base encoder
+ * @num_ctls:	Number of ctls available in base encoder
+ */
+struct sde_encoder_phys_shd {
+	struct sde_encoder_phys base;
+	struct sde_hw_mixer *hw_lm[CRTC_DUAL_MIXERS];
+	struct sde_hw_ctl *hw_ctl[CRTC_DUAL_MIXERS];
+	int irq_idx[INTR_IDX_MAX];
+	struct sde_irq_callback irq_cb[INTR_IDX_MAX];
+	u32 num_mixers;
+	u32 num_ctls;
+};
+
+/**
  * struct sde_enc_phys_init_params - initialization parameters for phys encs
  * @sde_kms:		Pointer to the sde_kms top level
  * @parent:		Pointer to the containing virtual encoder
@@ -344,6 +365,23 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 #else
 static inline
 struct sde_encoder_phys *sde_encoder_phys_wb_init(
+		struct sde_enc_phys_init_params *p)
+{
+	return NULL;
+}
+#endif
+
+/**
+ * sde_encoder_phys_shd_init - Construct a new shared physical encoder
+ * @p:	Pointer to init params structure
+ * Return: Error code or newly allocated encoder
+ */
+#ifdef CONFIG_DRM_SDE_SHD
+struct sde_encoder_phys *sde_encoder_phys_shd_init(
+		struct sde_enc_phys_init_params *p);
+#else
+static inline
+struct sde_encoder_phys *sde_encoder_phys_shd_init(
 		struct sde_enc_phys_init_params *p)
 {
 	return NULL;

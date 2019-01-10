@@ -196,6 +196,8 @@ struct sde_encoder_virt {
 	atomic_t last_underrun_ts;
 	atomic_t underrun_cnt_dwork;
 	struct delayed_work dwork;
+
+	bool is_shared;
 };
 
 #define to_sde_encoder_virt(x) container_of(x, struct sde_encoder_virt, base)
@@ -450,7 +452,7 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
 		if (phys) {
-			if (!sde_enc->hw_pp[i]) {
+			if (!sde_enc->hw_pp[i] && !sde_enc->is_shared) {
 				SDE_ERROR_ENC(sde_enc,
 				    "invalid pingpong block for the encoder\n");
 				return;
@@ -1294,6 +1296,33 @@ static int sde_encoder_virt_add_phys_enc_wb(struct sde_encoder_virt *sde_enc,
 	return 0;
 }
 
+static int sde_encoder_virt_add_phys_enc_shd(struct sde_encoder_virt *sde_enc,
+		struct sde_enc_phys_init_params *params)
+{
+	struct sde_encoder_phys *enc = NULL;
+
+	if (sde_enc->num_phys_encs + 1 >= ARRAY_SIZE(sde_enc->phys_encs)) {
+		SDE_ERROR_ENC(sde_enc, "too many physical encoders %d\n",
+			  sde_enc->num_phys_encs);
+		return -EINVAL;
+	}
+
+	enc = sde_encoder_phys_shd_init(params);
+
+	if (IS_ERR(enc)) {
+		SDE_ERROR_ENC(sde_enc, "failed to init shd enc: %ld\n",
+			PTR_ERR(enc));
+		return PTR_ERR(enc);
+	}
+
+	sde_enc->is_shared = true;
+
+	sde_enc->phys_encs[sde_enc->num_phys_encs] = enc;
+	++sde_enc->num_phys_encs;
+
+	return 0;
+}
+
 static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 				 struct sde_kms *sde_kms,
 				 struct msm_display_info *disp_info,
@@ -1364,7 +1393,10 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 		SDE_DEBUG("h_tile_instance %d = %d, split_role %d\n",
 				i, controller_id, phys_params.split_role);
 
-		if (intf_type == INTF_WB) {
+		if (disp_info->capabilities & MSM_DISPLAY_CAP_SHARED) {
+			phys_params.wb_idx = WB_MAX;
+			phys_params.intf_idx = controller_id + INTF_0;
+		} else if (intf_type == INTF_WB) {
 			phys_params.intf_idx = INTF_MAX;
 			phys_params.wb_idx = sde_encoder_get_wb(
 					sde_kms->catalog,
@@ -1389,7 +1421,10 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 		}
 
 		if (!ret) {
-			if (intf_type == INTF_WB)
+			if (disp_info->capabilities & MSM_DISPLAY_CAP_SHARED) {
+				ret = sde_encoder_virt_add_phys_enc_shd(sde_enc,
+						&phys_params);
+			} else if (intf_type == INTF_WB)
 				ret = sde_encoder_virt_add_phys_enc_wb(sde_enc,
 						&phys_params);
 			else
