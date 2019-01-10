@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 #include <drm/msm_drm_pp.h>
 #include "sde_reg_dma.h"
@@ -347,6 +347,49 @@ int reg_dmav1_init_dspp_op_v4(int feature, enum sde_dspp idx)
 	return rc;
 }
 
+static int reg_dmav1_get_dspp_blk(struct sde_hw_cp_cfg *hw_cfg,
+		enum sde_dspp curr_dspp, u32 *blk)
+{
+	struct sde_hw_dspp *dspp;
+	int rc = 0;
+
+	if (hw_cfg == NULL) {
+		DRM_ERROR("Invalid sde_hw_cp_cfg structure provided\n");
+		return -EINVAL;
+	}
+
+	if (hw_cfg->dspp == NULL) {
+		DRM_ERROR("Invalid sde_hw_dspp structure provided in hw_cfg\n");
+		return -EINVAL;
+	}
+
+	if (blk == NULL) {
+		DRM_ERROR("Invalid payload provided\n");
+		return -EINVAL;
+	}
+
+	/* Treat first dspp as master to simplify setup */
+	dspp = hw_cfg->dspp[0];
+	if (curr_dspp != dspp->idx) {
+		DRM_DEBUG_DRIVER("Slave DSPP instance %d\n", dspp->idx);
+		rc = -EALREADY;
+	} else {
+		for (u32 i = 0 ; i < hw_cfg->num_of_mixers; i++) {
+			dspp = hw_cfg->dspp[i];
+			if (dspp->idx >= DSPP_MAX) {
+				DRM_ERROR("Invalid dspp idx %d", dspp->idx);
+				rc = -EINVAL;
+				break;
+			}
+			*blk |= dspp_mapping[dspp->idx];
+		}
+	}
+
+	if (!rc && !blk)
+		rc = -EINVAL;
+	return rc;
+}
+
 void reg_dmav1_setup_dspp_vlutv18(struct sde_hw_dspp *ctx, void *cfg)
 {
 	struct drm_msm_pa_vlut *payload = NULL;
@@ -357,16 +400,31 @@ void reg_dmav1_setup_dspp_vlutv18(struct sde_hw_dspp *ctx, void *cfg)
 	struct sde_hw_ctl *ctl = NULL;
 	u32 *data = NULL;
 	int i, j, rc = 0;
+	u32 index, blk = 0;
 
 	rc = reg_dma_dspp_check(ctx, cfg, VLUT);
 	if (rc)
 		return;
 
+	rc = reg_dmav1_get_dspp_blk(hw_cfg, ctx->idx, &blk);
+	if (rc == -EINVAL) {
+		DRM_ERROR("unable to determine LUTDMA DSPP blocks\n");
+		return;
+	} else if (rc == -EALREADY) {
+		return;
+	}
+
+
 	ctl = hw_cfg->ctl;
 	if (!hw_cfg->payload) {
+		struct sde_hw_dspp *dspp;
+
 		DRM_DEBUG_DRIVER("Disable vlut feature\n");
-		SDE_REG_WRITE(&ctx->hw,
-		    ctx->cap->sblk->hist.base + PA_LUTV_DSPP_CTRL_OFF, 0);
+		for (index = 0; index < hw_cfg->num_of_mixers; index++) {
+			dspp = hw_cfg->dspp[index];
+			SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->hist.base +
+					PA_LUTV_DSPP_CTRL_OFF, 0);
+		}
 		goto exit;
 	}
 
@@ -379,8 +437,7 @@ void reg_dmav1_setup_dspp_vlutv18(struct sde_hw_dspp *ctx, void *cfg)
 	dma_ops = sde_reg_dma_get_ops();
 	dma_ops->reset_reg_dma_buf(dspp_buf[VLUT][ctx->idx]);
 
-	REG_DMA_INIT_OPS(dma_write_cfg, dspp_mapping[ctx->idx],
-	VLUT, dspp_buf[VLUT][ctx->idx]);
+	REG_DMA_INIT_OPS(dma_write_cfg, blk, VLUT, dspp_buf[VLUT][ctx->idx]);
 
 	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0, 0);
 	rc = dma_ops->setup_payload(&dma_write_cfg);
@@ -438,8 +495,15 @@ void reg_dmav1_setup_dspp_vlutv18(struct sde_hw_dspp *ctx, void *cfg)
 exit:
 	kfree(data);
 	/* update flush bit */
-	if (!rc && ctl && ctl->ops.update_bitmask_dspp_pavlut)
-		ctl->ops.update_bitmask_dspp_pavlut(ctl, ctx->idx, true);
+	if (!rc && ctl && ctl->ops.update_bitmask_dspp_pavlut) {
+		int dspp_idx;
+
+		for (index = 0; index < hw_cfg->num_of_mixers; index++) {
+			dspp_idx = hw_cfg->dspp[index]->idx;
+			ctl->ops.update_bitmask_dspp_pavlut(ctl, dspp_idx,
+				true);
+		}
+	}
 }
 
 static int sde_gamut_get_mode_info(u32 pipe, struct drm_msm_3d_gamut *payload,
@@ -509,12 +573,20 @@ static void dspp_3d_gamutv4_off(struct sde_hw_dspp *ctx, void *cfg)
 	struct sde_hw_reg_dma_ops *dma_ops;
 	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
 	int rc;
+	u32 blk = 0;
+
+	rc = reg_dmav1_get_dspp_blk(hw_cfg, ctx->idx, &blk);
+	if (rc == -EINVAL) {
+		DRM_ERROR("unable to determine LUTDMA DSPP blocks\n");
+		return;
+	} else if (rc == -EALREADY) {
+		return;
+	}
 
 	dma_ops = sde_reg_dma_get_ops();
 	dma_ops->reset_reg_dma_buf(dspp_buf[GAMUT][ctx->idx]);
 
-	REG_DMA_INIT_OPS(dma_write_cfg, dspp_mapping[ctx->idx], GAMUT,
-			dspp_buf[GAMUT][ctx->idx]);
+	REG_DMA_INIT_OPS(dma_write_cfg, blk, GAMUT, dspp_buf[GAMUT][ctx->idx]);
 
 	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0, 0);
 	rc = dma_ops->setup_payload(&dma_write_cfg);
@@ -551,6 +623,7 @@ static void reg_dmav1_setup_dspp_3d_gamutv4_common(struct sde_hw_dspp *ctx,
 	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
 	struct sde_hw_reg_dma_ops *dma_ops;
 	int rc;
+	u32 blk = 0;
 
 	rc = reg_dma_dspp_check(ctx, cfg, GAMUT);
 	if (rc)
@@ -576,11 +649,18 @@ static void reg_dmav1_setup_dspp_3d_gamutv4_common(struct sde_hw_dspp *ctx,
 		return;
 	}
 
+	rc = reg_dmav1_get_dspp_blk(hw_cfg, ctx->idx, &blk);
+	if (rc == -EINVAL) {
+		DRM_ERROR("unable to determine LUTDMA DSPP blocks\n");
+		return;
+	} else if (rc == -EALREADY) {
+		return;
+	}
+
 	dma_ops = sde_reg_dma_get_ops();
 	dma_ops->reset_reg_dma_buf(dspp_buf[GAMUT][ctx->idx]);
 
-	REG_DMA_INIT_OPS(dma_write_cfg, dspp_mapping[ctx->idx], GAMUT,
-			dspp_buf[GAMUT][ctx->idx]);
+	REG_DMA_INIT_OPS(dma_write_cfg, blk, GAMUT, dspp_buf[GAMUT][ctx->idx]);
 
 	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0, 0);
 	rc = dma_ops->setup_payload(&dma_write_cfg);
@@ -669,6 +749,7 @@ void reg_dmav1_setup_dspp_gcv18(struct sde_hw_dspp *ctx, void *cfg)
 	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
 	int rc, i = 0;
 	u32 reg;
+	u32 blk = 0;
 
 	rc = reg_dma_dspp_check(ctx, cfg, GC);
 	if (rc)
@@ -685,13 +766,21 @@ void reg_dmav1_setup_dspp_gcv18(struct sde_hw_dspp *ctx, void *cfg)
 				hw_cfg->len, sizeof(struct drm_msm_pgc_lut));
 		return;
 	}
+
+	rc = reg_dmav1_get_dspp_blk(hw_cfg, ctx->idx, &blk);
+	if (rc == -EINVAL) {
+		DRM_ERROR("unable to determine LUTDMA DSPP blocks\n");
+		return;
+	} else if (rc == -EALREADY) {
+		return;
+	}
+
 	lut_cfg = hw_cfg->payload;
 
 	dma_ops = sde_reg_dma_get_ops();
 	dma_ops->reset_reg_dma_buf(dspp_buf[GC][ctx->idx]);
 
-	REG_DMA_INIT_OPS(dma_write_cfg, dspp_mapping[ctx->idx], GC,
-			dspp_buf[GC][ctx->idx]);
+	REG_DMA_INIT_OPS(dma_write_cfg, blk, GC, dspp_buf[GC][ctx->idx]);
 
 	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0, 0);
 	rc = dma_ops->setup_payload(&dma_write_cfg);
@@ -762,12 +851,20 @@ static void _dspp_igcv31_off(struct sde_hw_dspp *ctx, void *cfg)
 	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
 	int rc;
 	u32 reg;
+	u32 blk = 0;
+
+	rc = reg_dmav1_get_dspp_blk(hw_cfg, ctx->idx, &blk);
+	if (rc == -EINVAL) {
+		DRM_ERROR("unable to determine LUTDMA DSPP blocks\n");
+		return;
+	} else if (rc == -EALREADY) {
+		return;
+	}
 
 	dma_ops = sde_reg_dma_get_ops();
 	dma_ops->reset_reg_dma_buf(dspp_buf[IGC][ctx->idx]);
 
-	REG_DMA_INIT_OPS(dma_write_cfg, dspp_mapping[ctx->idx], IGC,
-		dspp_buf[IGC][ctx->idx]);
+	REG_DMA_INIT_OPS(dma_write_cfg, blk, IGC, dspp_buf[IGC][ctx->idx]);
 
 	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0, 0);
 	rc = dma_ops->setup_payload(&dma_write_cfg);
@@ -804,6 +901,7 @@ void reg_dmav1_setup_dspp_igcv31(struct sde_hw_dspp *ctx, void *cfg)
 	u32 *addr = NULL;
 	u32 offset = 0;
 	u32 reg;
+	u32 index, dspp_sel, blk = 0;
 
 	rc = reg_dma_dspp_check(ctx, cfg, IGC);
 	if (rc)
@@ -821,6 +919,14 @@ void reg_dmav1_setup_dspp_igcv31(struct sde_hw_dspp *ctx, void *cfg)
 		return;
 	}
 
+	rc = reg_dmav1_get_dspp_blk(hw_cfg, ctx->idx, &blk);
+	if (rc == -EINVAL) {
+		DRM_ERROR("unable to determine LUTDMA DSPP blocks\n");
+		return;
+	} else if (rc == -EALREADY) {
+		return;
+	}
+
 	lut_cfg = hw_cfg->payload;
 
 	dma_ops = sde_reg_dma_get_ops();
@@ -835,13 +941,17 @@ void reg_dmav1_setup_dspp_igcv31(struct sde_hw_dspp *ctx, void *cfg)
 		return;
 	}
 
+	dspp_sel = -1;
+	for (index = 0; index < hw_cfg->num_of_mixers; index++)
+		dspp_sel &= IGC_DSPP_SEL_MASK(hw_cfg->dspp[index]->idx - 1);
+
 	for (i = 0; i < IGC_TBL_NUM; i++) {
 		addr = lut_cfg->c0 + (i * ARRAY_SIZE(lut_cfg->c0));
 		offset = IGC_C0_OFF + (i * sizeof(u32));
 
 		for (j = 0; j < IGC_TBL_LEN; j++) {
 			addr[j] &= IGC_DATA_MASK;
-			addr[j] |= IGC_DSPP_SEL_MASK(ctx->idx - 1);
+			addr[j] |= dspp_sel;
 			if (j == 0)
 				addr[j] |= IGC_INDEX_UPDATE;
 		}
@@ -856,8 +966,7 @@ void reg_dmav1_setup_dspp_igcv31(struct sde_hw_dspp *ctx, void *cfg)
 		}
 	}
 
-	REG_DMA_INIT_OPS(dma_write_cfg, dspp_mapping[ctx->idx], IGC,
-		dspp_buf[IGC][ctx->idx]);
+	REG_DMA_INIT_OPS(dma_write_cfg, blk, IGC, dspp_buf[IGC][ctx->idx]);
 
 	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0, 0);
 	rc = dma_ops->setup_payload(&dma_write_cfg);
@@ -903,12 +1012,20 @@ static void _dspp_pccv4_off(struct sde_hw_dspp *ctx, void *cfg)
 	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
 	int rc;
 	u32 reg;
+	u32 blk = 0;
+
+	rc = reg_dmav1_get_dspp_blk(hw_cfg, ctx->idx, &blk);
+	if (rc == -EINVAL) {
+		DRM_ERROR("unable to determine LUTDMA DSPP blocks\n");
+		return;
+	} else if (rc == -EALREADY) {
+		return;
+	}
 
 	dma_ops = sde_reg_dma_get_ops();
 	dma_ops->reset_reg_dma_buf(dspp_buf[PCC][ctx->idx]);
 
-	REG_DMA_INIT_OPS(dma_write_cfg, dspp_mapping[ctx->idx], PCC,
-		dspp_buf[PCC][ctx->idx]);
+	REG_DMA_INIT_OPS(dma_write_cfg, blk, PCC, dspp_buf[PCC][ctx->idx]);
 
 	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0, 0);
 	rc = dma_ops->setup_payload(&dma_write_cfg);
@@ -945,6 +1062,7 @@ void reg_dmav1_setup_dspp_pccv4(struct sde_hw_dspp *ctx, void *cfg)
 	u32 *data = NULL;
 	int rc, i = 0;
 	u32 reg = 0;
+	u32 blk = 0;
 
 	rc = reg_dma_dspp_check(ctx, cfg, PCC);
 	if (rc)
@@ -962,13 +1080,20 @@ void reg_dmav1_setup_dspp_pccv4(struct sde_hw_dspp *ctx, void *cfg)
 		return;
 	}
 
+	rc = reg_dmav1_get_dspp_blk(hw_cfg, ctx->idx, &blk);
+	if (rc == -EINVAL) {
+		DRM_ERROR("unable to determine LUTDMA DSPP blocks\n");
+		return;
+	} else if (rc == -EALREADY) {
+		return;
+	}
+
 	pcc_cfg = hw_cfg->payload;
 
 	dma_ops = sde_reg_dma_get_ops();
 	dma_ops->reset_reg_dma_buf(dspp_buf[PCC][ctx->idx]);
 
-	REG_DMA_INIT_OPS(dma_write_cfg, dspp_mapping[ctx->idx],
-		PCC, dspp_buf[PCC][ctx->idx]);
+	REG_DMA_INIT_OPS(dma_write_cfg, blk, PCC, dspp_buf[PCC][ctx->idx]);
 
 	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0, 0);
 	rc = dma_ops->setup_payload(&dma_write_cfg);
@@ -1055,6 +1180,7 @@ void reg_dmav1_setup_dspp_pa_hsicv17(struct sde_hw_dspp *ctx, void *cfg)
 	struct drm_msm_pa_hsic *hsic_cfg;
 	u32 reg = 0, opcode = 0, local_opcode = 0;
 	int rc;
+	u32 blk = 0;
 
 	opcode = SDE_REG_READ(&ctx->hw, ctx->cap->sblk->hsic.base);
 
@@ -1077,13 +1203,20 @@ void reg_dmav1_setup_dspp_pa_hsicv17(struct sde_hw_dspp *ctx, void *cfg)
 		return;
 	}
 
+	rc = reg_dmav1_get_dspp_blk(hw_cfg, ctx->idx, &blk);
+	if (rc == -EINVAL) {
+		DRM_ERROR("unable to determine LUTDMA DSPP blocks\n");
+		return;
+	} else if (rc == -EALREADY) {
+		return;
+	}
+
 	hsic_cfg = hw_cfg->payload;
 
 	dma_ops = sde_reg_dma_get_ops();
 	dma_ops->reset_reg_dma_buf(dspp_buf[HSIC][ctx->idx]);
 
-	REG_DMA_INIT_OPS(dma_write_cfg, dspp_mapping[ctx->idx],
-		HSIC, dspp_buf[HSIC][ctx->idx]);
+	REG_DMA_INIT_OPS(dma_write_cfg, blk, HSIC, dspp_buf[HSIC][ctx->idx]);
 
 	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0, 0);
 	rc = dma_ops->setup_payload(&dma_write_cfg);
@@ -1151,13 +1284,28 @@ void reg_dmav1_setup_dspp_pa_hsicv17(struct sde_hw_dspp *ctx, void *cfg)
 		return;
 	}
 
-	REG_DMA_SETUP_OPS(dma_write_cfg,
-		ctx->cap->sblk->hsic.base, &local_opcode, sizeof(local_opcode),
-		REG_SINGLE_MODIFY, 0, 0, REG_DMA_PA_MODE_HSIC_MASK);
-	rc = dma_ops->setup_payload(&dma_write_cfg);
-	if (rc) {
-		DRM_ERROR("setting opcode failed ret %d\n", rc);
-		return;
+	for (int i = 0; i < hw_cfg->num_of_mixers; i++) {
+		blk = dspp_mapping[hw_cfg->dspp[i]->idx];
+		REG_DMA_INIT_OPS(dma_write_cfg, blk, HSIC,
+			dspp_buf[HSIC][ctx->idx]);
+
+		REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT,
+			0, 0, 0);
+		rc = dma_ops->setup_payload(&dma_write_cfg);
+		if (rc) {
+			DRM_ERROR("write decode select failed ret %d\n", rc);
+			return;
+		}
+
+		REG_DMA_SETUP_OPS(dma_write_cfg,
+			ctx->cap->sblk->hsic.base, &local_opcode,
+			sizeof(local_opcode), REG_SINGLE_MODIFY, 0, 0,
+			REG_DMA_PA_MODE_HSIC_MASK);
+		rc = dma_ops->setup_payload(&dma_write_cfg);
+		if (rc) {
+			DRM_ERROR("setting opcode failed ret %d\n", rc);
+			return;
+		}
 	}
 
 	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl, dspp_buf[HSIC][ctx->idx],
@@ -1176,6 +1324,7 @@ void reg_dmav1_setup_dspp_sixzonev17(struct sde_hw_dspp *ctx, void *cfg)
 	struct drm_msm_sixzone *sixzone;
 	u32 reg = 0, local_hold = 0;
 	u32 opcode = 0, local_opcode = 0;
+	u32 blk = 0;
 	int rc;
 
 	opcode = SDE_REG_READ(&ctx->hw, ctx->cap->sblk->hsic.base);
@@ -1200,13 +1349,21 @@ void reg_dmav1_setup_dspp_sixzonev17(struct sde_hw_dspp *ctx, void *cfg)
 		return;
 	}
 
+	rc = reg_dmav1_get_dspp_blk(hw_cfg, ctx->idx, &blk);
+	if (rc == -EINVAL) {
+		DRM_ERROR("unable to determine LUTDMA DSPP blocks\n");
+		return;
+	} else if (rc == -EALREADY) {
+		return;
+	}
+
 	sixzone = hw_cfg->payload;
 
 	dma_ops = sde_reg_dma_get_ops();
 	dma_ops->reset_reg_dma_buf(dspp_buf[SIX_ZONE][ctx->idx]);
 
-	REG_DMA_INIT_OPS(dma_write_cfg, dspp_mapping[ctx->idx],
-		SIX_ZONE, dspp_buf[SIX_ZONE][ctx->idx]);
+	REG_DMA_INIT_OPS(dma_write_cfg, blk, SIX_ZONE,
+		dspp_buf[SIX_ZONE][ctx->idx]);
 
 	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0, 0);
 	rc = dma_ops->setup_payload(&dma_write_cfg);
@@ -1270,15 +1427,30 @@ void reg_dmav1_setup_dspp_sixzonev17(struct sde_hw_dspp *ctx, void *cfg)
 		DRM_ERROR("Invalid six zone config 0x%x\n", local_opcode);
 		return;
 	}
-	REG_DMA_SETUP_OPS(dma_write_cfg,
-		ctx->cap->sblk->hsic.base, &local_opcode, sizeof(local_opcode),
-		REG_SINGLE_MODIFY, 0, 0, REG_DMA_PA_MODE_SZONE_MASK);
-	rc = dma_ops->setup_payload(&dma_write_cfg);
-	if (rc) {
-		DRM_ERROR("setting local_opcode failed ret %d\n", rc);
-		return;
-	}
 
+	for (int i = 0; i < hw_cfg->num_of_mixers; i++) {
+		blk = dspp_mapping[hw_cfg->dspp[i]->idx];
+		REG_DMA_INIT_OPS(dma_write_cfg, blk, SIX_ZONE,
+			dspp_buf[SIX_ZONE][ctx->idx]);
+
+		REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT,
+			0, 0, 0);
+		rc = dma_ops->setup_payload(&dma_write_cfg);
+		if (rc) {
+			DRM_ERROR("write decode select failed ret %d\n", rc);
+			return;
+		}
+
+		REG_DMA_SETUP_OPS(dma_write_cfg,
+			ctx->cap->sblk->hsic.base, &local_opcode,
+			sizeof(local_opcode), REG_SINGLE_MODIFY, 0, 0,
+			REG_DMA_PA_MODE_SZONE_MASK);
+		rc = dma_ops->setup_payload(&dma_write_cfg);
+		if (rc) {
+			DRM_ERROR("setting local_opcode failed ret %d\n", rc);
+			return;
+		}
+	}
 	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl,
 		dspp_buf[SIX_ZONE][ctx->idx],
 		REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
@@ -1322,6 +1494,7 @@ static void __setup_dspp_memcol(struct sde_hw_dspp *ctx,
 	u32 addr = 0, idx = 0;
 	u32 hold = 0, hold_shift = 0, mask = 0xFFFF;
 	u32 opcode = 0, opcode_mask = 0xFFFFFFFF;
+	u32 blk = 0;
 
 	switch (type) {
 	case MEMC_SKIN:
@@ -1341,11 +1514,18 @@ static void __setup_dspp_memcol(struct sde_hw_dspp *ctx,
 		return;
 	}
 
+	rc = reg_dmav1_get_dspp_blk(hw_cfg, ctx->idx, &blk);
+	if (rc == -EINVAL) {
+		DRM_ERROR("unable to determine LUTDMA DSPP blocks\n");
+		return;
+	} else if (rc == -EALREADY) {
+		return;
+	}
+
 	dma_ops = sde_reg_dma_get_ops();
 	dma_ops->reset_reg_dma_buf(dspp_buf[type][ctx->idx]);
 
-	REG_DMA_INIT_OPS(dma_write_cfg, dspp_mapping[ctx->idx],
-		type, dspp_buf[type][ctx->idx]);
+	REG_DMA_INIT_OPS(dma_write_cfg, blk, type, dspp_buf[type][ctx->idx]);
 
 	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0, 0);
 	rc = dma_ops->setup_payload(&dma_write_cfg);
@@ -1392,24 +1572,40 @@ static void __setup_dspp_memcol(struct sde_hw_dspp *ctx,
 	hold = ((memcolor->sat_hold & REG_MASK(2)) << hold_shift);
 	hold |= ((memcolor->val_hold & REG_MASK(2)) << (hold_shift + 2));
 	mask &= ~REG_MASK_SHIFT(4, hold_shift);
-	/* write sat_hold and val_hold in PA_PWL_HOLD */
-	REG_DMA_SETUP_OPS(dma_write_cfg, addr, &hold, sizeof(hold),
-		REG_SINGLE_MODIFY, 0, 0, mask);
-	rc = dma_ops->setup_payload(&dma_write_cfg);
-	if (rc) {
-		DRM_ERROR("setting color_adjust_p0 failed ret %d\n", rc);
-		return;
-	}
-
 	opcode |= PA_EN;
 	opcode_mask &= ~(opcode);
-	REG_DMA_SETUP_OPS(dma_write_cfg,
-		ctx->cap->sblk->hsic.base, &opcode, sizeof(opcode),
-		REG_SINGLE_MODIFY, 0, 0, opcode_mask);
-	rc = dma_ops->setup_payload(&dma_write_cfg);
-	if (rc) {
-		DRM_ERROR("setting opcode failed ret %d\n", rc);
-		return;
+
+	/* write sat_hold and val_hold in PA_PWL_HOLD */
+	for (int i = 0; i < hw_cfg->num_of_mixers; i++) {
+		blk = dspp_mapping[hw_cfg->dspp[i]->idx];
+		REG_DMA_INIT_OPS(dma_write_cfg, blk, type,
+			dspp_buf[type][ctx->idx]);
+
+		REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT,
+			0, 0, 0);
+		rc = dma_ops->setup_payload(&dma_write_cfg);
+		if (rc) {
+			DRM_ERROR("write decode select failed ret %d\n", rc);
+			return;
+		}
+
+		REG_DMA_SETUP_OPS(dma_write_cfg, addr, &hold, sizeof(hold),
+			REG_SINGLE_MODIFY, 0, 0, mask);
+		rc = dma_ops->setup_payload(&dma_write_cfg);
+		if (rc) {
+			DRM_ERROR("setting color_adjust_p0 failed ret %d\n",
+				rc);
+			return;
+		}
+
+		REG_DMA_SETUP_OPS(dma_write_cfg,
+			ctx->cap->sblk->hsic.base, &opcode, sizeof(opcode),
+			REG_SINGLE_MODIFY, 0, 0, opcode_mask);
+		rc = dma_ops->setup_payload(&dma_write_cfg);
+		if (rc) {
+			DRM_ERROR("setting opcode failed ret %d\n", rc);
+			return;
+		}
 	}
 
 	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl,
