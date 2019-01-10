@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_SENSOR_CMN_HEADER_
@@ -162,7 +162,8 @@ enum cam_actuator_packet_opcodes {
 };
 
 enum cam_eeprom_packet_opcodes {
-	CAM_EEPROM_PACKET_OPCODE_INIT
+	CAM_EEPROM_PACKET_OPCODE_INIT,
+	CAM_EEPROM_WRITE
 };
 
 enum cam_ois_packet_opcodes {
@@ -222,9 +223,10 @@ enum cam_sensor_i2c_cmd_type {
 };
 
 struct common_header {
-	uint16_t    first_word;
-	uint8_t     third_byte;
+	uint32_t    first_word;
+	uint8_t     fifth_byte;
 	uint8_t     cmd_type;
+	uint16_t    reserved;
 };
 
 struct camera_vreg_t {
@@ -264,14 +266,22 @@ struct cam_sensor_i2c_reg_array {
 
 struct cam_sensor_i2c_reg_setting {
 	struct cam_sensor_i2c_reg_array *reg_setting;
-	unsigned short size;
+	uint32_t size;
 	enum camera_sensor_i2c_type addr_type;
 	enum camera_sensor_i2c_type data_type;
 	unsigned short delay;
 };
 
+struct cam_sensor_i2c_seq_reg {
+	uint32_t reg_addr;
+	uint8_t  *reg_data;
+	uint32_t size;
+	enum camera_sensor_i2c_type addr_type;
+};
+
 struct i2c_settings_list {
 	struct cam_sensor_i2c_reg_setting i2c_settings;
+	struct cam_sensor_i2c_seq_reg seq_settings;
 	enum cam_sensor_i2c_cmd_type op_code;
 	struct list_head list;
 };

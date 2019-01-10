@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include "cam_sensor_spi.h"
@@ -285,6 +285,8 @@ int32_t cam_spi_read_seq(struct camera_io_master *client,
 		return -EINVAL;
 	}
 
+	CAM_DBG(CAM_SENSOR, "Read Seq addr: 0x%x NB:%d",
+		addr, num_bytes);
 	return cam_spi_tx_helper(client,
 		&client->spi_client->cmd_tbl.read_seq, addr, data,
 		addr_type, num_bytes, NULL, NULL);
@@ -294,6 +296,8 @@ int cam_spi_query_id(struct camera_io_master *client,
 	uint32_t addr, enum camera_sensor_i2c_type addr_type,
 	uint8_t *data, uint32_t num_byte)
 {
+	CAM_DBG(CAM_SENSOR, "SPI Queryid : 0x%x, addr: 0x%x",
+		client->spi_client->cmd_tbl.query_id, addr);
 	return cam_spi_tx_helper(client,
 		&client->spi_client->cmd_tbl.query_id,
 		addr, data, addr_type, num_byte, NULL, NULL);

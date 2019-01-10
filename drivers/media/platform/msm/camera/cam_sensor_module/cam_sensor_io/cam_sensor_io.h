@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_SENSOR_IO_H_
@@ -92,6 +92,8 @@ int32_t camera_io_dev_write_continuous(struct camera_io_master *io_master_info,
 	struct cam_sensor_i2c_reg_setting *write_setting,
 	uint8_t cam_sensor_i2c_write_flag);
 
+int32_t camera_io_dev_erase(struct camera_io_master *io_master_info,
+	uint32_t addr, uint32_t size);
 /**
  * @io_master_info: I2C/SPI master information
  * @addr: I2C address

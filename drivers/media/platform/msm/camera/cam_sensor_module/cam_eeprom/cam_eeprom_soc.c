@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/of.h>
@@ -293,6 +293,8 @@ int cam_eeprom_parse_dt(struct cam_eeprom_ctrl_t *e_ctrl)
 		return -EINVAL;
 	}
 
+	e_ctrl->is_multimodule_mode = false;
+
 	rc = cam_soc_util_get_dt_properties(soc_info);
 	if (rc < 0) {
 		CAM_ERR(CAM_EEPROM, "Failed to read DT properties rc : %d", rc);
@@ -300,6 +302,11 @@ int cam_eeprom_parse_dt(struct cam_eeprom_ctrl_t *e_ctrl)
 	}
 
 	of_node = soc_info->dev->of_node;
+
+	if (of_property_read_bool(of_node, "multimodule-support")) {
+		CAM_DBG(CAM_UTIL, "Multi Module is Supported");
+		e_ctrl->is_multimodule_mode = true;
+	}
 
 	rc = of_property_read_string(of_node, "eeprom-name",
 		&soc_private->eeprom_name);
