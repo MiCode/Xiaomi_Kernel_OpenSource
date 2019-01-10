@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,8 +28,8 @@
 				      <0x00000170>, <0x00000180>,
 				      <0x00000190>, <0x00000200>,
 				      <0x00000210>;
-		clock-names = "island_lpass_npa_rsc";
-		clocks = <&lpass_npa_rsc_island 0>;
+		clock-names = "lpass_core_hw_vote";
+		clocks = <&lpass_core_hw_vote 0>;
 		cdc_dmic01_clk_active: dmic01_clk_active {
 			mux {
 				pins = "gpio8";
