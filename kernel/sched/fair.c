@@ -7390,7 +7390,7 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu, int sy
 				bias_to_waker_cpu(p, cpu, rtg_target)) {
 		best_energy_cpu = cpu;
 		fbt_env.fastpath = SYNC_WAKEUP;
-		goto unlock;
+		goto sync_wakeup;
 	}
 
 	rcu_read_lock();
@@ -7471,6 +7471,7 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu, int sy
 unlock:
 	rcu_read_unlock();
 
+sync_wakeup:
 	trace_sched_task_util(p, best_energy_cpu, sync,
 			need_idle, fbt_env.fastpath, placement_boost,
 			rtg_target ? cpumask_first(rtg_target) : -1, start_t);
