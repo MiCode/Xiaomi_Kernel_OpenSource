@@ -218,6 +218,7 @@ struct dsi_ctrl_interrupts {
  * @null_insertion_enabled:  A boolean property to allow dsi controller to
  *                           insert null packet.
  * @modeupdated:	  Boolean to send new roi if mode is updated.
+ * @split_link_supported: Boolean to check if hw supports split link.
  */
 struct dsi_ctrl {
 	struct platform_device *pdev;
@@ -271,6 +272,7 @@ struct dsi_ctrl {
 	bool phy_isolation_enabled;
 	bool null_insertion_enabled;
 	bool modeupdated;
+	bool split_link_supported;
 };
 
 /**

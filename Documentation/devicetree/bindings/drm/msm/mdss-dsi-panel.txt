@@ -371,6 +371,9 @@ Optional properties:
 					resolution restrictions.
 - qcom,dcs-cmd-by-left:			Boolean to indicate that dcs command are sent
 					through the left DSI controller only in a dual-dsi configuration
+- qcom,split-link-enabled:		Boolean to indicate split link support in panel.
+- qcom,sublinks-count:			Number of sublinks present in a split link enabled configuration.
+- qcom,lanes-per-sublink:		Number of lanes present per sublink in a split link enabled configuration.
 - qcom,mdss-dsi-panel-hdr-enabled:      Boolean to indicate HDR support in panel.
 - qcom,mdss-dsi-panel-hdr-color-primaries:
                                         Array of 8 unsigned integers denoting chromaticity of panel.These
@@ -642,6 +645,9 @@ Example:
 		qcom,mdss-dsi-lane-1-state;
 		qcom,mdss-dsi-lane-2-state;
 		qcom,mdss-dsi-lane-3-state;
+		qcom,split-link-enabled;
+		qcom,sublinks-count = <2>;
+		qcom,lanes-per-sublink = <2>;
 		qcom,mdss-dsi-t-clk-post = <0x20>;
 		qcom,mdss-dsi-t-clk-pre = <0x2c>;
 		qcom,mdss-dsi-stream = <0>;
