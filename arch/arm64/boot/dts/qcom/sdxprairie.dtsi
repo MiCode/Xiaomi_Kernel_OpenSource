@@ -1163,6 +1163,69 @@
 
 		status = "disabled";
 	};
+
+	emac_hw: qcom,emac@00020000 {
+		compatible = "qcom,emac-dwc-eqos";
+		qcom,arm-smmu;
+		reg = <0x20000 0x10000>,
+		   <0x36000 0x100>,
+		   <0x3900000 0x300000>;
+		reg-names = "emac-base", "rgmii-base", "tlmm-central-base";
+		interrupts-extended = <&pdc 0 62 4>, <&pdc 0 60 4>,
+		  <&tlmm 90 2>, <&pdc 0 49 4>,
+		  <&pdc 0 50 4>, <&pdc 0 51 4>,
+		  <&pdc 0 52 4>, <&pdc 0 53 4>,
+		  <&pdc 0 54 4>, <&pdc 0 55 4>,
+		  <&pdc 0 56 4>, <&pdc 0 57 4>,
+		  <&pdc 0 290 1>, <&pdc 0 291 1>;
+		interrupt-names = "sbd-intr", "lpi-intr",
+		  "phy-intr", "tx-ch0-intr",
+		  "tx-ch1-intr", "tx-ch2-intr",
+		  "tx-ch3-intr", "tx-ch4-intr",
+		  "rx-ch0-intr", "rx-ch1-intr",
+		  "rx-ch2-intr", "rx-ch3-intr",
+		  "ptp_pps_irq_0", "ptp_pps_irq_1";
+		qcom,msm-bus,name = "emac";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+			<98 512 0 0>, <1 781 0 0>,  /* No vote */
+			<98 512 2500 0>, <1 781 0 40000>,  /* 10Mbps vote */
+			<98 512 25000 0>, <1 781 0 40000>,  /* 100Mbps vote */
+			<98 512 250000 0>, <1 781 0 40000>; /* 1000Mbps vote */
+		qcom,bus-vector-names = "0", "10", "100", "1000";
+		clocks = <&clock_gcc GCC_ETH_AXI_CLK>,
+			<&clock_gcc GCC_ETH_PTP_CLK>,
+			<&clock_gcc GCC_ETH_RGMII_CLK>,
+			<&clock_gcc GCC_ETH_SLAVE_AHB_CLK>;
+		clock-names = "eth_axi_clk",
+			"eth_ptp_clk",
+			"eth_rgmii_clk", "eth_slave_ahb_clk";
+		qcom,phy-intr-redirect = <&tlmm 90 GPIO_ACTIVE_LOW>;
+		qcom,phy-reset = <&tlmm 91 GPIO_ACTIVE_LOW>;
+		qcom,emac-pps0-test-intr = <&tlmm 31 GPIO_ACTIVE_LOW>;
+		vreg_rgmii-supply = <&pmxprairie_vref_rgmii>;
+		vreg_emac_phy-supply =  <&vreg_emac_phy>;
+		vreg_rgmii_io_pads-supply = <&vreg_rgmii_io_pads>;
+		gdsc_emac-supply = <&gdsc_emac>;
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "emac_aop";
+		pinctrl-names = "dev-emac_pin_pps_0",
+			"dev-emac_pin_pps_1";
+		pinctrl-0 = <&emac_pin_pps_0>;
+		pinctrl-1 = <&emac_pin_pps_1>;
+
+		io-macro-info {
+			io-macro-bypass-mode = <0>;
+			io-interface = "rgmii";
+		};
+
+		emac_emb_smmu: emac_emb_smmu {
+			compatible = "qcom,emac-smmu-embedded";
+			iommus = <&apps_smmu 0x1c0 0xf>;
+			qcom,iova-mapping = <0x80000000 0x40000000>;
+		};
+	};
 };
 
 #include "sdxprairie-pm.dtsi"
