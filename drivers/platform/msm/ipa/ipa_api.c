@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/ipa.h>
@@ -119,9 +119,9 @@ const char *ipa_clients_strings[IPA_CLIENT_MAX] = {
 	__stringify(IPA_CLIENT_WLAN1_CONS),
 	__stringify(IPA_CLIENT_A5_WLAN_AMPDU_PROD),
 	__stringify(IPA_CLIENT_WLAN2_CONS),
-	__stringify(RESERVERD_PROD_14),
+	__stringify(RESERVED_PROD_14),
 	__stringify(IPA_CLIENT_WLAN3_CONS),
-	__stringify(RESERVERD_PROD_16),
+	__stringify(RESERVED_PROD_16),
 	__stringify(IPA_CLIENT_WLAN4_CONS),
 	__stringify(IPA_CLIENT_USB_PROD),
 	__stringify(IPA_CLIENT_USB_CONS),
@@ -145,7 +145,7 @@ const char *ipa_clients_strings[IPA_CLIENT_MAX] = {
 	__stringify(IPA_CLIENT_A5_LAN_WAN_CONS),
 	__stringify(IPA_CLIENT_ODU_PROD),
 	__stringify(IPA_CLIENT_ODU_EMB_CONS),
-	__stringify(RESERVERD_PROD_40),
+	__stringify(RESERVED_PROD_40),
 	__stringify(IPA_CLIENT_ODU_TETH_CONS),
 	__stringify(IPA_CLIENT_MHI_PROD),
 	__stringify(IPA_CLIENT_MHI_CONS),
@@ -165,7 +165,7 @@ const char *ipa_clients_strings[IPA_CLIENT_MAX] = {
 	__stringify(IPA_CLIENT_Q6_DECOMP_CONS),
 	__stringify(IPA_CLIENT_Q6_DECOMP2_PROD),
 	__stringify(IPA_CLIENT_Q6_DECOMP2_CONS),
-	__stringify(RESERVERD_PROD_60),
+	__stringify(RESERVED_PROD_60),
 	__stringify(IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS),
 	__stringify(IPA_CLIENT_TEST_PROD),
 	__stringify(IPA_CLIENT_TEST_CONS),
@@ -177,20 +177,22 @@ const char *ipa_clients_strings[IPA_CLIENT_MAX] = {
 	__stringify(IPA_CLIENT_TEST3_CONS),
 	__stringify(IPA_CLIENT_TEST4_PROD),
 	__stringify(IPA_CLIENT_TEST4_CONS),
-	__stringify(RESERVERD_PROD_72),
+	__stringify(RESERVED_PROD_72),
 	__stringify(IPA_CLIENT_DUMMY_CONS),
 	__stringify(IPA_CLIENT_Q6_DL_NLO_DATA_PROD),
 	__stringify(IPA_CLIENT_Q6_UL_NLO_DATA_CONS),
-	__stringify(RESERVERD_PROD_76),
+	__stringify(RESERVED_PROD_76),
 	__stringify(IPA_CLIENT_Q6_UL_NLO_ACK_CONS),
-	__stringify(RESERVERD_PROD_78),
+	__stringify(RESERVED_PROD_78),
 	__stringify(IPA_CLIENT_Q6_QBAP_STATUS_CONS),
-	__stringify(RESERVERD_PROD_80),
+	__stringify(RESERVED_PROD_80),
 	__stringify(IPA_CLIENT_MHI_DPL_CONS),
-	__stringify(RESERVERD_PROD_82),
+	__stringify(RESERVED_PROD_82),
 	__stringify(IPA_CLIENT_ODL_DPL_CONS),
 	__stringify(IPA_CLIENT_Q6_AUDIO_DMA_MHI_PROD),
 	__stringify(IPA_CLIENT_Q6_AUDIO_DMA_MHI_CONS),
+	__stringify(RESERVED_PROD_86),
+	__stringify(IPA_CLIENT_APPS_WAN_COAL_CONS),
 };
 
 /**

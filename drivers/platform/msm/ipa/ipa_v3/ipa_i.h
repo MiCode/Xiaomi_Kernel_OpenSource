@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _IPA3_I_H_
@@ -877,7 +877,7 @@ struct ipa3_sys_context {
 	struct delayed_work replenish_rx_work;
 	struct work_struct repl_work;
 	void (*repl_hdlr)(struct ipa3_sys_context *sys);
-	struct ipa3_repl_ctx repl;
+	struct ipa3_repl_ctx *repl;
 	u32 pkt_sent;
 	struct napi_struct *napi_obj;
 
@@ -2623,7 +2623,6 @@ int ipa3_register_ipa_ready_cb(void (*ipa_ready_cb)(void *), void *user_data);
 const char *ipa_hw_error_str(enum ipa3_hw_errors err_type);
 int ipa_gsi_ch20_wa(void);
 int ipa3_rx_poll(u32 clnt_hdl, int budget);
-void ipa3_recycle_wan_skb(struct sk_buff *skb);
 int ipa3_smmu_map_peer_reg(phys_addr_t phys_addr, bool map,
 	enum ipa_smmu_cb_type cb_type);
 int ipa3_smmu_map_peer_buff(u64 iova, u32 size, bool map, struct sg_table *sgt,

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _IPA_H_
@@ -73,6 +73,7 @@ enum ipa_aggr_type {
 	IPA_TLP     = 2,
 	IPA_RNDIS   = 3,
 	IPA_GENERIC = 4,
+	IPA_COALESCE = 5,
 	IPA_QCMAP   = 6,
 };
 
