@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -415,6 +415,8 @@
 		timing@0{
 			qcom,mdss-dsi-panel-phy-timings = [00 13 05 04 1F 1E 05
 				05 03 02 04 00];
+
+			qcom,mdss-mdp-transfer-time-us = <13000>;
 			qcom,display-topology = <2 2 1>;
 			qcom,default-topology-index = <0>;
 			qcom,partial-update-enabled = "single_roi";
