@@ -2131,6 +2131,11 @@
 		compatible = "qcom,cx-ipeak-v2";
 		reg = <0x3ed000 0xc00c>;
 	};
+
+	ssc_sensors: qcom,msm-ssc-sensors {
+		compatible = "qcom,msm-ssc-sensors";
+		status = "ok";
+	};
 };
 
 #include "pmi632.dtsi"
