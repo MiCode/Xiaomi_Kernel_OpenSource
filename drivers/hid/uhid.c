@@ -144,26 +144,15 @@ static void uhid_hid_stop(struct hid_device *hid)
 static int uhid_hid_open(struct hid_device *hid)
 {
 	struct uhid_device *uhid = hid->driver_data;
-	int retval = 0;
 
-	mutex_lock(&uhid_open_mutex);
-	if (!hid->open++) {
-		retval = uhid_queue_event(uhid, UHID_OPEN);
-		if (retval)
-			hid->open--;
-	}
-	mutex_unlock(&uhid_open_mutex);
-	return retval;
+	return uhid_queue_event(uhid, UHID_OPEN);
 }
 
 static void uhid_hid_close(struct hid_device *hid)
 {
 	struct uhid_device *uhid = hid->driver_data;
 
-	mutex_lock(&uhid_open_mutex);
-	if (!--hid->open)
-		uhid_queue_event(uhid, UHID_CLOSE);
-	mutex_unlock(&uhid_open_mutex);
+	uhid_queue_event(uhid, UHID_CLOSE);
 }
 
 static int uhid_hid_parse(struct hid_device *hid)
