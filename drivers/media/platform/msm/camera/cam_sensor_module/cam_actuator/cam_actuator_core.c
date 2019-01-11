@@ -413,6 +413,7 @@ int32_t cam_actuator_i2c_pkt_parse(struct cam_actuator_ctrl_t *a_ctrl,
 	int32_t  i = 0;
 	uint32_t total_cmd_buf_in_bytes = 0;
 	size_t   len_of_buff = 0;
+	size_t   remaining_len_of_buff = 0;
 	uint32_t *offset = NULL;
 	uint32_t *cmd_buf = NULL;
 	uintptr_t generic_ptr;
@@ -450,18 +451,31 @@ int32_t cam_actuator_i2c_pkt_parse(struct cam_actuator_ctrl_t *a_ctrl,
 		return rc;
 	}
 
-	if (config.offset > len_of_buff) {
+	remaining_len_of_buff = len_of_buff;
+	if ((sizeof(struct cam_packet) > len_of_buff) ||
+		((size_t)config.offset >= len_of_buff -
+		sizeof(struct cam_packet))) {
 		CAM_ERR(CAM_ACTUATOR,
-			"offset is out of bounds: offset: %lld len: %zu",
-			config.offset, len_of_buff);
+			"Inval cam_packet strut size: %zu, len_of_buff: %zu",
+			 sizeof(struct cam_packet), len_of_buff);
 		rc = -EINVAL;
 		goto rel_pkt_buf;
 	}
 
+	remaining_len_of_buff -= config.offset;
 	csl_packet = (struct cam_packet *)
 			(generic_pkt_ptr + (uint32_t)config.offset);
-	CAM_DBG(CAM_ACTUATOR, "Pkt opcode: %d",
-			csl_packet->header.op_code);
+
+	if (((size_t)(csl_packet->header.size) > remaining_len_of_buff)) {
+		CAM_ERR(CAM_ACTUATOR,
+			"Inval pkt_header_size: %zu, len:of_buff: %zu",
+			csl_packet->header.size, remaining_len_of_buff);
+		rc = -EINVAL;
+		goto rel_pkt_buf;
+	}
+
+	remaining_len_of_buff -= sizeof(struct cam_packet);
+	CAM_DBG(CAM_ACTUATOR, "Pkt opcode: %d",	csl_packet->header.op_code);
 
 	if ((csl_packet->header.op_code & 0xFFFFFF) !=
 		CAM_ACTUATOR_PACKET_OPCODE_INIT &&
@@ -470,11 +484,21 @@ int32_t cam_actuator_i2c_pkt_parse(struct cam_actuator_ctrl_t *a_ctrl,
 		CAM_DBG(CAM_ACTUATOR,
 			"reject request %lld, last request to flush %lld",
 			csl_packet->header.request_id, a_ctrl->last_flush_req);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto rel_pkt_buf;
 	}
 
 	if (csl_packet->header.request_id > a_ctrl->last_flush_req)
 		a_ctrl->last_flush_req = 0;
+
+	if ((sizeof(struct cam_cmd_buf_desc) > remaining_len_of_buff) ||
+		(csl_packet->num_cmd_buf * sizeof(struct cam_cmd_buf_desc) >
+			remaining_len_of_buff)) {
+		CAM_ERR(CAM_ACTUATOR,
+			"InVal len: %zu", remaining_len_of_buff);
+		rc = -EINVAL;
+		goto rel_pkt_buf;
+	}
 
 	switch (csl_packet->header.op_code & 0xFFFFFF) {
 	case CAM_ACTUATOR_PACKET_OPCODE_INIT:

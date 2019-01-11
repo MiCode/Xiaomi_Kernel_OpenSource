@@ -94,6 +94,7 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 	struct cam_cmd_buf_desc *cmd_desc = NULL;
 	struct i2c_settings_array *i2c_reg_settings = NULL;
 	size_t len_of_buff = 0;
+	size_t remaining_len_of_buff = 0;
 	uint32_t *offset = NULL;
 	struct cam_config_dev_cmd config;
 	struct i2c_data_settings *i2c_data = NULL;
@@ -115,19 +116,34 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 		&generic_ptr,
 		&len_of_buff);
 	if (rc < 0) {
-		CAM_ERR(CAM_SENSOR, "Failed in getting the buffer: %d", rc);
+		CAM_ERR(CAM_SENSOR, "Failed in getting the packet: %d", rc);
 		return rc;
 	}
 
-	csl_packet = (struct cam_packet *)(generic_ptr +
-		(uint32_t)config.offset);
-	if (config.offset > len_of_buff) {
+	remaining_len_of_buff = len_of_buff;
+	if ((sizeof(struct cam_packet) > len_of_buff) ||
+		((size_t)config.offset >= len_of_buff -
+		sizeof(struct cam_packet))) {
 		CAM_ERR(CAM_SENSOR,
-			"offset is out of bounds: off: %lld len: %zu",
-			 config.offset, len_of_buff);
+			"Inval cam_packet strut size: %zu, len_of_buff: %zu",
+			 sizeof(struct cam_packet), len_of_buff);
 		rc = -EINVAL;
 		goto rel_pkt_buf;
 	}
+
+	remaining_len_of_buff -= config.offset;
+	csl_packet = (struct cam_packet *)(generic_ptr +
+		(uint32_t)config.offset);
+
+	if (((size_t)(csl_packet->header.size) > remaining_len_of_buff)) {
+		CAM_ERR(CAM_SENSOR,
+			"Inval pkt_header_size: %zu, len:of_buff: %zu",
+			csl_packet->header.size, remaining_len_of_buff);
+		rc = -EINVAL;
+		goto rel_pkt_buf;
+	}
+
+	remaining_len_of_buff -= sizeof(struct cam_packet);
 
 	if ((csl_packet->header.op_code & 0xFFFFFF) !=
 		CAM_SENSOR_PACKET_OPCODE_SENSOR_INITIAL_CONFIG &&
@@ -221,6 +237,14 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 	}
 	default:
 		CAM_ERR(CAM_SENSOR, "Invalid Packet Header");
+		rc = -EINVAL;
+		goto rel_pkt_buf;
+	}
+
+	if ((sizeof(struct cam_cmd_buf_desc) > remaining_len_of_buff) ||
+		(csl_packet->num_cmd_buf * sizeof(struct cam_cmd_buf_desc) >
+			remaining_len_of_buff)) {
+		CAM_ERR(CAM_SENSOR, "InVal len: %zu", remaining_len_of_buff);
 		rc = -EINVAL;
 		goto rel_pkt_buf;
 	}
