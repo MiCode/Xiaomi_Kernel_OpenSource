@@ -698,6 +698,8 @@ int ipa3_disconn_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
 		goto exit;
 	}
 
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
+		ipa3_uc_debug_stats_dealloc(IPA_HW_PROTOCOL_WDI3);
 	ipa3_delete_dflt_flt_rules(ipa_ep_idx_rx);
 	memset(ep_rx, 0, sizeof(struct ipa3_ep_context));
 	IPADBG("rx client (ep: %d) disconnected\n", ipa_ep_idx_rx);
@@ -742,7 +744,19 @@ int ipa3_enable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
 		result = -EFAULT;
 		goto exit;
 	}
-
+	/* start uC gsi dbg stats monitor */
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5) {
+		ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI3].ch_id_info[0].ch_id
+			= ep_rx->gsi_chan_hdl;
+		ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI3].ch_id_info[0].dir
+			= DIR_PRODUCER;
+		ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI3].ch_id_info[1].ch_id
+			= ep_tx->gsi_chan_hdl;
+		ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI3].ch_id_info[1].dir
+			= DIR_CONSUMER;
+		ipa3_uc_debug_stats_alloc(
+			ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI3]);
+	}
 	/* enable data path */
 	result = ipa3_enable_data_path(ipa_ep_idx_rx);
 	if (result) {
@@ -837,7 +851,19 @@ int ipa3_disable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
 		result = -EFAULT;
 		goto fail;
 	}
-
+	/* stop uC gsi dbg stats monitor */
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5) {
+		ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI3].ch_id_info[0].ch_id
+			= 0xff;
+		ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI3].ch_id_info[0].dir
+			= DIR_PRODUCER;
+		ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI3].ch_id_info[1].ch_id
+			= 0xff;
+		ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI3].ch_id_info[1].dir
+			= DIR_CONSUMER;
+		ipa3_uc_debug_stats_alloc(
+			ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI3]);
+	}
 	if (disable_force_clear)
 		ipa3_disable_force_clear(ipa_ep_idx_rx);
 
@@ -891,4 +917,52 @@ int ipa3_write_qmapid_wdi3_gsi_pipe(u32 clnt_hdl, u8 qmap_id)
 exit:
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	return result;
+}
+
+/**
+ * ipa3_get_wdi3_gsi_stats() - Query WDI3 gsi stats from uc
+ * @stats:	[inout] stats blob from client populated by driver
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * @note Cannot be called from atomic context
+ *
+ */
+int ipa3_get_wdi3_gsi_stats(struct ipa3_uc_dbg_ring_stats *stats)
+{
+	int i, num_chs;
+
+	if (!ipa3_ctx->wdi3_ctx.dbg_stats.uc_dbg_stats_mmio) {
+		IPAERR("bad NULL parms for wdi3_gsi_stats\n");
+		return -EINVAL;
+	}
+
+	num_chs = ipa3_ctx->wdi3_ctx.dbg_stats.uc_dbg_stats_size
+		/ sizeof(struct IpaHwRingStats_t);
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+	for (i = 0; i < num_chs; i++) {
+		stats->ring[i].ringFull = ioread32(
+			ipa3_ctx->wdi3_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGFULL_OFF);
+		stats->ring[i].ringEmpty = ioread32(
+			ipa3_ctx->wdi3_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGEMPTY_OFF);
+		stats->ring[i].ringUsageHigh = ioread32(
+			ipa3_ctx->wdi3_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGUSAGEHIGH_OFF);
+		stats->ring[i].ringUsageLow = ioread32(
+			ipa3_ctx->wdi3_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGUSAGELOW_OFF);
+		stats->ring[i].RingUtilCount = ioread32(
+			ipa3_ctx->wdi3_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGUTILCOUNT_OFF);
+	}
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+
+	return 0;
 }

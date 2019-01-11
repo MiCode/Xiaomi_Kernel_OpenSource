@@ -6142,7 +6142,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		struct platform_device *ipa_pdev)
 {
 	int result = 0;
-	int i;
+	int i, j;
 	struct ipa3_rt_tbl_set *rset;
 	struct ipa_active_client_logging_info log_info;
 	struct cdev *cdev;
@@ -6163,6 +6163,15 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->master_pdev = ipa_pdev;
 	for (i = 0; i < IPA_SMMU_CB_MAX; i++)
 		ipa3_ctx->s1_bypass_arr[i] = true;
+
+	/* initialize the gsi protocol info for uC debug stats */
+	for (i = 0; i < IPA_HW_PROTOCOL_MAX; i++) {
+		ipa3_ctx->gsi_info[i].protocol = i;
+		/* initialize all to be not started */
+		for (j = 0; j < MAX_CH_STATS_SUPPORTED; j++)
+			ipa3_ctx->gsi_info[i].ch_id_info[j].ch_id =
+				0xFF;
+	}
 
 	ipa3_ctx->ipa_wrapper_base = resource_p->ipa_mem_base;
 	ipa3_ctx->ipa_wrapper_size = resource_p->ipa_mem_size;

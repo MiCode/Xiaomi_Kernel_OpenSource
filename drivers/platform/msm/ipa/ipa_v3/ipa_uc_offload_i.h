@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +25,11 @@
 
 #define IPA_NTN_TX_DIR 1
 #define IPA_NTN_RX_DIR 2
+
+#define MAX_CH_STATS_SUPPORTED 5
+#define DIR_CONSUMER 0
+#define DIR_PRODUCER 1
+
 
 /**
  *  @brief   Enum value determined based on the feature it
@@ -71,6 +76,7 @@ enum ipa3_hw_features {
 * @IPA_HW_PROTOCOL_AQC : protocol related to AQC operation in IPA HW
 * @IPA_HW_PROTOCOL_11ad: protocol related to 11ad operation in IPA HW
 * @IPA_HW_PROTOCOL_WDI : protocol related to WDI operation in IPA HW
+* @IPA_HW_PROTOCOL_WDI3: protocol related to WDI3 operation in IPA HW
 * @IPA_HW_PROTOCOL_ETH : protocol related to ETH operation in IPA HW
 */
 enum ipa4_hw_protocol {
@@ -78,6 +84,7 @@ enum ipa4_hw_protocol {
 	IPA_HW_PROTOCOL_AQC = 0x1,
 	IPA_HW_PROTOCOL_11ad = 0x2,
 	IPA_HW_PROTOCOL_WDI = 0x3,
+	IPA_HW_PROTOCOL_WDI3 = 0x4,
 	IPA_HW_PROTOCOL_ETH = 0x5,
 	IPA_HW_PROTOCOL_MAX
 };
@@ -158,6 +165,7 @@ enum ipa3_hw_errors {
  * @warningCounter : The warnings counter. The counter carries information
  *						regarding non fatal errors in HW
  * @interfaceVersionCommon : The Common interface version as reported by HW
+ * @responseParams_1: offset addr for uC stats
  *
  * The shared memory is used for communication between IPA HW and CPU.
  */
@@ -181,6 +189,7 @@ struct IpaHwSharedMemCommonMapping_t {
 	u16 reserved_23_22;
 	u16 interfaceVersionCommon;
 	u16 reserved_27_26;
+	u32 responseParams_1;
 } __packed;
 
 /**
@@ -426,11 +435,15 @@ struct Ipa3HwStatsNTNInfoData_t {
  * enum ipa_cpu_2_hw_offload_commands -  Values that represent
  * the offload commands from CPU
  * @IPA_CPU_2_HW_CMD_OFFLOAD_CHANNEL_SET_UP : Command to set up
- *				Offload protocol's Tx/Rx Path
+ * Offload protocol's Tx/Rx Path
  * @IPA_CPU_2_HW_CMD_OFFLOAD_TEAR_DOWN : Command to tear down
- *				Offload protocol's Tx/ Rx Path
+ * Offload protocol's Tx/ Rx Path
  * @IPA_CPU_2_HW_CMD_PERIPHERAL_INIT :Command to initialize peripheral
  * @IPA_CPU_2_HW_CMD_PERIPHERAL_DEINIT : Command to deinitialize peripheral
+ * @IPA_CPU_2_HW_CMD_OFFLOAD_STATS_ALLOC: Command to start the
+ * uC stats calculation for a particular protocol
+ * @IPA_CPU_2_HW_CMD_OFFLOAD_STATS_DEALLOC: Command to stop the
+ * uC stats calculation for a particular protocol
  */
 enum ipa_cpu_2_hw_offload_commands {
 	IPA_CPU_2_HW_CMD_OFFLOAD_CHANNEL_SET_UP  =
@@ -441,8 +454,47 @@ enum ipa_cpu_2_hw_offload_commands {
 		FEATURE_ENUM_VAL(IPA_HW_FEATURE_OFFLOAD, 3),
 	IPA_CPU_2_HW_CMD_PERIPHERAL_DEINIT =
 		FEATURE_ENUM_VAL(IPA_HW_FEATURE_OFFLOAD, 4),
+	IPA_CPU_2_HW_CMD_OFFLOAD_STATS_ALLOC =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_OFFLOAD, 5),
+	IPA_CPU_2_HW_CMD_OFFLOAD_STATS_DEALLOC =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_OFFLOAD, 6),
 };
 
+/**
+ * struct IpaOffloadStatschannel_info - channel info for uC
+ * stats
+ * @dir: Director of the channel ID DIR_CONSUMER =0,
+ * DIR_PRODUCER = 1
+ * @ch_id: Channel id of the IPA endpoint for which stats need
+ * to be calculated, 0xFF means invalid channel or disable stats
+ * on already stats enabled channel
+ */
+struct IpaOffloadStatschannel_info {
+	uint8_t dir;
+	uint8_t ch_id;
+} __packed;
+
+/**
+ * struct IpaHwOffloadStatsAllocCmdData_t - protocol info for uC
+ * stats start
+ * @protocol: Enum that indicates the protocol type
+ * @ch_id_info: Channel id of the IPA endpoint for which stats
+ * need to be calculated
+ */
+struct IpaHwOffloadStatsAllocCmdData_t {
+	uint32_t protocol;
+	struct IpaOffloadStatschannel_info
+		ch_id_info[MAX_CH_STATS_SUPPORTED];
+} __packed;
+
+/**
+ * struct IpaHwOffloadStatsDeAllocCmdData_t - protocol info for
+ * uC stats stop
+ * @protocol: Enum that indicates the protocol type
+ */
+struct IpaHwOffloadStatsDeAllocCmdData_t {
+	uint32_t protocol;
+} __packed;
 
 /**
  * enum ipa3_hw_offload_channel_states - Values that represent

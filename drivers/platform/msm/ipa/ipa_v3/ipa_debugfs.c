@@ -1956,6 +1956,136 @@ static ssize_t ipa3_read_ipahal_regs(struct file *file, char __user *ubuf,
 	return 0;
 }
 
+static ssize_t ipa3_read_wdi_gsi_stats(struct file *file,
+		char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct ipa3_uc_dbg_ring_stats stats;
+	int nbytes;
+	int cnt = 0;
+
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+				"This feature only support on IPA4.5+\n");
+		cnt += nbytes;
+		goto done;
+	}
+
+	if (!ipa3_get_wdi_gsi_stats(&stats)) {
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+			"TX ringFull=%u\n"
+			"TX ringEmpty=%u\n"
+			"TX ringUsageHigh=%u\n"
+			"TX ringUsageLow=%u\n"
+			"TX RingUtilCount=%u\n",
+			stats.ring[1].ringFull,
+			stats.ring[1].ringEmpty,
+			stats.ring[1].ringUsageHigh,
+			stats.ring[1].ringUsageLow,
+			stats.ring[1].RingUtilCount);
+		cnt += nbytes;
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+			"RX ringFull=%u\n"
+			"RX ringEmpty=%u\n"
+			"RX ringUsageHigh=%u\n"
+			"RX ringUsageLow=%u\n"
+			"RX RingUtilCount=%u\n",
+			stats.ring[0].ringFull,
+			stats.ring[0].ringEmpty,
+			stats.ring[0].ringUsageHigh,
+			stats.ring[0].ringUsageLow,
+			stats.ring[0].RingUtilCount);
+		cnt += nbytes;
+	} else {
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+				"Fail to read WDI GSI stats\n");
+		cnt += nbytes;
+	}
+done:
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
+}
+
+static ssize_t ipa3_read_wdi3_gsi_stats(struct file *file,
+		char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct ipa3_uc_dbg_ring_stats stats;
+	int nbytes;
+	int cnt = 0;
+
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+				"This feature only support on IPA4.5+\n");
+		cnt += nbytes;
+		goto done;
+	}
+	if (!ipa3_get_wdi3_gsi_stats(&stats)) {
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+			"TX ringFull=%u\n"
+			"TX ringEmpty=%u\n"
+			"TX ringUsageHigh=%u\n"
+			"TX ringUsageLow=%u\n"
+			"TX RingUtilCount=%u\n",
+			stats.ring[1].ringFull,
+			stats.ring[1].ringEmpty,
+			stats.ring[1].ringUsageHigh,
+			stats.ring[1].ringUsageLow,
+			stats.ring[1].RingUtilCount);
+		cnt += nbytes;
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+			"RX ringFull=%u\n"
+			"RX ringEmpty=%u\n"
+			"RX ringUsageHigh=%u\n"
+			"RX ringUsageLow=%u\n"
+			"RX RingUtilCount=%u\n",
+			stats.ring[0].ringFull,
+			stats.ring[0].ringEmpty,
+			stats.ring[0].ringUsageHigh,
+			stats.ring[0].ringUsageLow,
+			stats.ring[0].RingUtilCount);
+		cnt += nbytes;
+	} else {
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+				"Fail to read WDI GSI stats\n");
+		cnt += nbytes;
+	}
+
+done:
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
+}
+
+static ssize_t ipa3_read_11ad_gsi_stats(struct file *file,
+		char __user *ubuf, size_t count, loff_t *ppos)
+{
+	int nbytes;
+	int cnt = 0;
+
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+				"This feature only support on IPA4.5+\n");
+		cnt += nbytes;
+		goto done;
+	}
+	return 0;
+done:
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
+}
+
+static ssize_t ipa3_read_aqc_gsi_stats(struct file *file,
+		char __user *ubuf, size_t count, loff_t *ppos)
+{
+	int nbytes;
+	int cnt = 0;
+
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+				"This feature only support on IPA4.5+\n");
+		cnt += nbytes;
+		goto done;
+	}
+	return 0;
+done:
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
+}
+
 static void ipa_dump_status(struct ipahal_pkt_status *status)
 {
 	IPA_DUMP_STATUS_FIELD(status_opcode);
@@ -2229,6 +2359,22 @@ static const struct ipa3_debugfs_file debugfs_files[] = {
 	}, {
 		"ipa_dump_regs", IPA_READ_ONLY_MODE, NULL, {
 			.read = ipa3_read_ipahal_regs,
+		}
+	}, {
+		"wdi_gsi_stats", IPA_READ_ONLY_MODE, NULL, {
+			.read = ipa3_read_wdi_gsi_stats,
+		}
+	}, {
+		"wdi3_gsi_stats", IPA_READ_ONLY_MODE, NULL, {
+			.read = ipa3_read_wdi3_gsi_stats,
+		}
+	}, {
+		"11ad_gsi_stats", IPA_READ_ONLY_MODE, NULL, {
+			.read = ipa3_read_11ad_gsi_stats,
+		}
+	}, {
+		"aqc_gsi_stats", IPA_READ_ONLY_MODE, NULL, {
+			.read = ipa3_read_aqc_gsi_stats,
 		}
 	}
 };
