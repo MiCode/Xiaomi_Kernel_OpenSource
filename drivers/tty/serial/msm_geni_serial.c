@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/bitmap.h>
@@ -1829,11 +1829,8 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 	unsigned long clk_rate;
 	unsigned long flags;
 
-	if (port->sampling_rate) {
-		geni_write_reg_nolog(0x21, uport->membase, GENI_SER_M_CLK_CFG);
-		geni_write_reg_nolog(0x21, uport->membase, GENI_SER_S_CLK_CFG);
+	if (port->sampling_rate)
 		geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
-	}
 
 	if (!uart_console(uport)) {
 		int ret = msm_geni_serial_power_on(uport);
@@ -2082,7 +2079,6 @@ msm_geni_serial_earlycon_setup(struct earlycon_device *dev,
 		const char *opt)
 {
 	struct uart_port *uport = &dev->port;
-	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
 	int ret = 0;
 	u32 tx_trans_cfg = 0;
 	u32 tx_parity_cfg = 0;
@@ -2129,8 +2125,7 @@ msm_geni_serial_earlycon_setup(struct earlycon_device *dev,
 		goto exit_geni_serial_earlyconsetup;
 	}
 
-	if (port->sampling_rate)
-		clk_div = clk_div*2;
+	clk_div = clk_div*2;
 	s_clk_cfg |= SER_CLK_EN;
 	s_clk_cfg |= (clk_div << CLK_DIV_SHFT);
 
@@ -2140,11 +2135,8 @@ msm_geni_serial_earlycon_setup(struct earlycon_device *dev,
 	 */
 	msm_geni_serial_poll_cancel_tx(uport);
 	msm_geni_serial_abort_rx(uport);
-	if (port->sampling_rate) {
-		geni_write_reg_nolog(0x21, uport->membase, GENI_SER_M_CLK_CFG);
-		geni_write_reg_nolog(0x21, uport->membase, GENI_SER_S_CLK_CFG);
-		geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
-	}
+	geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
+
 	se_get_packing_config(8, 1, false, &cfg0, &cfg1);
 	geni_se_init(uport->membase, (DEF_FIFO_DEPTH_WORDS >> 1),
 					(DEF_FIFO_DEPTH_WORDS - 2));
@@ -2166,9 +2158,8 @@ msm_geni_serial_earlycon_setup(struct earlycon_device *dev,
 	geni_write_reg_nolog(stop_bit, uport->membase, SE_UART_TX_STOP_BIT_LEN);
 	geni_write_reg_nolog(s_clk_cfg, uport->membase, GENI_SER_M_CLK_CFG);
 	geni_write_reg_nolog(s_clk_cfg, uport->membase, GENI_SER_S_CLK_CFG);
+	geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
 
-	if (port->sampling_rate)
-		geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
 	dev->con->write = msm_geni_serial_early_console_write;
 	dev->con->setup = NULL;
 	/*
@@ -2531,11 +2522,9 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 		pm_runtime_enable(&pdev->dev);
 	}
 
-	if (dev_port->sampling_rate) {
-		geni_write_reg_nolog(0x21, uport->membase, GENI_SER_M_CLK_CFG);
-		geni_write_reg_nolog(0x21, uport->membase, GENI_SER_S_CLK_CFG);
+	if (dev_port->sampling_rate)
 		geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
-	}
+
 	dev_info(&pdev->dev, "Serial port%d added.FifoSize %d is_console%d\n",
 				line, uport->fifosize, is_console);
 	device_create_file(uport->dev, &dev_attr_loopback);
