@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 &soc {
@@ -12,6 +12,19 @@
 		#gpio-cells = <2>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
+
+		trigout_a: trigout_a {
+			mux {
+				pins = "gpio2";
+				function = "qdss_cti";
+			};
+
+			config {
+				pins = "gpio2";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
 
 		qupv3_se2_2uart_pins: qupv3_se2_2uart_pins {
 			qupv3_se2_2uart_active: qupv3_se2_2uart_active {
