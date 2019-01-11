@@ -136,7 +136,7 @@
 			clocks = <&clock_rpmcc RPM_SMD_XO_CLK_SRC>;
 			clock-names = "xo";
 			assigned-clocks = <&pm6125_clkdiv 1>;
-			assigned-clock-rates = <19200000>;
+			assigned-clock-rates = <9600000>;
 		};
 
 		pm6125_gpios: pinctrl@c000 {
