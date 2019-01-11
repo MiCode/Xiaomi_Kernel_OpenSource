@@ -525,22 +525,16 @@ bool wil_is_recovery_blocked(struct wil6210_priv *wil)
 	return no_fw_recovery && (wil->recovery_state == fw_recovery_pending);
 }
 
-static void wil_fw_error_worker(struct work_struct *work)
+void wil_fw_recovery(struct wil6210_priv *wil)
 {
-	struct wil6210_priv *wil = container_of(work, struct wil6210_priv,
-						fw_error_worker);
 	struct net_device *ndev = wil->main_ndev;
 	struct wireless_dev *wdev;
 
-	wil_dbg_misc(wil, "fw error worker\n");
+	wil_dbg_misc(wil, "fw recovery\n");
 
-	if (!ndev || !(ndev->flags & IFF_UP)) {
-		wil_info(wil, "No recovery - interface is down\n");
-		return;
-	}
 	wdev = ndev->ieee80211_ptr;
 
-	/* increment @recovery_count if less then WIL6210_FW_RECOVERY_TO
+	/* increment @recovery_count if less than WIL6210_FW_RECOVERY_TO
 	 * passed since last recovery attempt
 	 */
 	if (time_is_after_jiffies(wil->last_fw_recovery +
@@ -598,6 +592,22 @@ static void wil_fw_error_worker(struct work_struct *work)
 
 	mutex_unlock(&wil->mutex);
 	rtnl_unlock();
+}
+
+static void wil_fw_error_worker(struct work_struct *work)
+{
+	struct wil6210_priv *wil = container_of(work, struct wil6210_priv,
+						fw_error_worker);
+	struct net_device *ndev = wil->main_ndev;
+
+	wil_dbg_misc(wil, "fw error worker\n");
+
+	if (!ndev || !(ndev->flags & IFF_UP)) {
+		wil_info(wil, "No recovery - interface is down\n");
+		return;
+	}
+
+	wil_fw_recovery(wil);
 }
 
 static int wil_find_free_ring(struct wil6210_priv *wil)
@@ -712,6 +722,8 @@ int wil_priv_init(struct wil6210_priv *wil)
 
 	INIT_WORK(&wil->wmi_event_worker, wmi_event_worker);
 	INIT_WORK(&wil->fw_error_worker, wil_fw_error_worker);
+	INIT_WORK(&wil->pci_linkdown_recovery_worker,
+		  wil_pci_linkdown_recovery_worker);
 
 	INIT_LIST_HEAD(&wil->pending_wmi_ev);
 	spin_lock_init(&wil->wmi_ev_lock);
@@ -827,6 +839,7 @@ void wil_priv_deinit(struct wil6210_priv *wil)
 
 	wil_set_recovery_state(wil, fw_recovery_idle);
 	cancel_work_sync(&wil->fw_error_worker);
+	cancel_work_sync(&wil->pci_linkdown_recovery_worker);
 	wmi_event_flush(wil);
 	destroy_workqueue(wil->wq_service);
 	destroy_workqueue(wil->wmi_wq);

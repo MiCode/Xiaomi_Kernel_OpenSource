@@ -651,6 +651,7 @@ enum { /* for wil6210_priv.status */
 	wil_status_suspending, /* suspend in progress */
 	wil_status_suspended, /* suspend completed, device is suspended */
 	wil_status_resuming, /* resume in progress */
+	wil_status_pci_linkdown, /* pci linkdown occurred */
 	wil_status_last /* keep last */
 };
 
@@ -1059,6 +1060,8 @@ struct wil6210_priv {
 
 	u32 max_agg_wsize;
 	u32 max_ampdu_size;
+
+	struct work_struct pci_linkdown_recovery_worker;
 };
 
 #define wil_to_wiphy(i) (i->wiphy)
@@ -1349,6 +1352,9 @@ void wil_probe_client_worker(struct work_struct *work);
 void wil_disconnect_worker(struct work_struct *work);
 
 void wil_init_txrx_ops(struct wil6210_priv *wil);
+
+void wil_fw_recovery(struct wil6210_priv *wil);
+void wil_pci_linkdown_recovery_worker(struct work_struct *work);
 
 /* TX API */
 int wil_ring_init_tx(struct wil6210_vif *vif, int cid);

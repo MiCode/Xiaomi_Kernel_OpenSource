@@ -90,6 +90,12 @@ int wil_can_suspend(struct wil6210_priv *wil, bool is_runtime)
 		goto out;
 	}
 
+	if (test_bit(wil_status_pci_linkdown, wil->status)) {
+		wil_dbg_pm(wil, "Delay suspend during pci linkdown\n");
+		rc = -EBUSY;
+		goto out;
+	}
+
 	mutex_lock(&wil->vif_mutex);
 	active_ifaces = wil_has_active_ifaces(wil, true, false);
 	mutex_unlock(&wil->vif_mutex);
