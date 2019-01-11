@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 #include <linux/dma-buf.h>
 #include <linux/dma-mapping.h>
@@ -628,8 +628,8 @@ static int dma_alloc_memory(dma_addr_t *region_phys, void **vaddr, size_t size,
 	*vaddr = dma_alloc_attrs(me->dev, size, region_phys,
 					GFP_KERNEL, dma_attr);
 	if (IS_ERR_OR_NULL(*vaddr)) {
-		pr_err("adsprpc: %s: %s: dma_alloc_attrs failed for size 0x%zx, returned %d\n",
-				current->comm, __func__, size, (int)(*vaddr));
+		pr_err("adsprpc: %s: %s: dma_alloc_attrs failed for size 0x%zx, returned %pK\n",
+				current->comm, __func__, size, (*vaddr));
 		return -ENOMEM;
 	}
 	return 0;
@@ -972,8 +972,8 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 	}
 	if (err) {
 		err = -ENOMEM;
-		pr_err("adsprpc: %s: %s: dma_alloc_attrs failed for size 0x%zx, returned %d\n",
-			current->comm, __func__, size, (int)buf->virt);
+		pr_err("adsprpc: %s: %s: dma_alloc_attrs failed for size 0x%zx, returned %pK\n",
+			current->comm, __func__, size, buf->virt);
 		goto bail;
 	}
 	if (fl->sctx->smmu.cb)
