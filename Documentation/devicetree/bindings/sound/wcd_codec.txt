@@ -540,6 +540,10 @@ Required properties:
  - qcom,tx-swr-gpios: phandle for SWR data and clock GPIOs of TX macro
  - qcom,tx-dmic-sample-rate: Sample rate defined for DMICs connected to TX macro
 
+Optional Properties:
+ - qcom,swr-wakeup-irq: Specifies whether the interrupt line is on GPIO
+			or GQIC
+
 Example:
 
 &bolero {

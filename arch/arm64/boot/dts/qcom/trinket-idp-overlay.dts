@@ -15,6 +15,7 @@
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include "trinket-idp.dtsi"
+#include "trinket-audio-overlay.dtsi"
 
 / {
 	model = "IDP";
