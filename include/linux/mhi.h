@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved. */
 
 #ifndef _MHI_H_
 #define _MHI_H_
@@ -173,6 +173,7 @@ struct mhi_controller {
 	struct device_node *of_node;
 
 	/* mmio base */
+	phys_addr_t base_addr;
 	void __iomem *regs;
 	void __iomem *bhi;
 	void __iomem *bhie;
