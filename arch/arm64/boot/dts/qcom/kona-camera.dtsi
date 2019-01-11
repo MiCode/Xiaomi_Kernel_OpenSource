@@ -615,98 +615,60 @@
 			"bps0", "icp0", "jpeg-dma0", "jpeg-enc0",
 			"fd0";
 		client-axi-port-names =
-			"cam_hf_1", "cam_hf_2", "cam_hf_1", "cam_hf_2",
-			"cam_hf_1", "cam_hf_2", "cam_sf_1", "cam_sf_1",
-			"cam_hf_1", "cam_hf_2", "cam_hf_1", "cam_hf_2",
-			"cam_hf_1", "cam_hf_2", "cam_hf_1",
-			"cam_hf_1", "cam_hf_2", "cam_hf_1", "cam_hf_2",
-			"cam_hf_1", "cam_hf_2", "cam_hf_1", "cam_hf_2",
-			"cam_sf_1", "cam_sf_1", "cam_sf_1", "cam_sf_1",
-			"cam_sf_1",
-			"cam_sf_1", "cam_sf_1", "cam_sf_1", "cam_sf_1",
-			"cam_sf_1";
-		client-bus-camnoc-based;
+			"cam_hf_0", "cam_hf_0", "cam_hf_0", "cam_hf_0",
+			"cam_hf_0", "cam_hf_0", "cam_sf_0", "cam_sf_0",
+			"cam_hf_0", "cam_hf_0", "cam_hf_0", "cam_hf_0",
+			"cam_hf_0", "cam_hf_0", "cam_hf_0",
+			"cam_hf_0", "cam_hf_0", "cam_hf_0", "cam_hf_0",
+			"cam_hf_0", "cam_hf_0", "cam_hf_0", "cam_hf_0",
+			"cam_sf_0", "cam_sf_0", "cam_sf_0", "cam_sf_0",
+			"cam_sf_0",
+			"cam_sf_0", "cam_sf_icp", "cam_sf_0", "cam_sf_0",
+			"cam_sf_0";
 		qcom,axi-port-list {
 			qcom,axi-port1 {
-				qcom,axi-port-name = "cam_hf_1";
+				qcom,axi-port-name = "cam_hf_0";
 				ib-bw-voting-needed;
 				qcom,axi-port-mnoc {
-					qcom,msm-bus,name = "cam_hf_1_mnoc";
+					qcom,msm-bus,name = "cam_hf_0_mnoc";
 					qcom,msm-bus-vector-dyn-vote;
 					qcom,msm-bus,num-cases = <2>;
 					qcom,msm-bus,num-paths = <1>;
 					qcom,msm-bus,vectors-KBps =
-					<MSM_BUS_MASTER_CAMNOC_HF0
+					<MSM_BUS_MASTER_CAMNOC_HF
 					MSM_BUS_SLAVE_EBI_CH0 0 0>,
-					<MSM_BUS_MASTER_CAMNOC_HF0
+					<MSM_BUS_MASTER_CAMNOC_HF
 					MSM_BUS_SLAVE_EBI_CH0 0 0>;
-				};
-
-				qcom,axi-port-camnoc {
-					qcom,msm-bus,name = "cam_hf_1_camnoc";
-					qcom,msm-bus-vector-dyn-vote;
-					qcom,msm-bus,num-cases = <2>;
-					qcom,msm-bus,num-paths = <1>;
-					qcom,msm-bus,vectors-KBps =
-					<MSM_BUS_MASTER_CAMNOC_HF0_UNCOMP
-					MSM_BUS_SLAVE_CAMNOC_UNCOMP 0 0>,
-					<MSM_BUS_MASTER_CAMNOC_HF0_UNCOMP
-					MSM_BUS_SLAVE_CAMNOC_UNCOMP 0 0>;
 				};
 			};
 
 			qcom,axi-port2 {
-				qcom,axi-port-name = "cam_hf_2";
-				ib-bw-voting-needed;
+				qcom,axi-port-name = "cam_sf_0";
 				qcom,axi-port-mnoc {
-					qcom,msm-bus,name = "cam_hf_2_mnoc";
+					qcom,msm-bus,name = "cam_sf_0_mnoc";
 					qcom,msm-bus-vector-dyn-vote;
 					qcom,msm-bus,num-cases = <2>;
 					qcom,msm-bus,num-paths = <1>;
 					qcom,msm-bus,vectors-KBps =
-					<MSM_BUS_MASTER_CAMNOC_HF1
+					<MSM_BUS_MASTER_CAMNOC_SF
 					MSM_BUS_SLAVE_EBI_CH0 0 0>,
-					<MSM_BUS_MASTER_CAMNOC_HF1
+					<MSM_BUS_MASTER_CAMNOC_SF
 					MSM_BUS_SLAVE_EBI_CH0 0 0>;
-				};
-
-				qcom,axi-port-camnoc {
-					qcom,msm-bus,name = "cam_hf_2_camnoc";
-					qcom,msm-bus-vector-dyn-vote;
-					qcom,msm-bus,num-cases = <2>;
-					qcom,msm-bus,num-paths = <1>;
-					qcom,msm-bus,vectors-KBps =
-					<MSM_BUS_MASTER_CAMNOC_HF1_UNCOMP
-					MSM_BUS_SLAVE_CAMNOC_UNCOMP 0 0>,
-					<MSM_BUS_MASTER_CAMNOC_HF1_UNCOMP
-					MSM_BUS_SLAVE_CAMNOC_UNCOMP 0 0>;
 				};
 			};
 
 			qcom,axi-port3 {
-				qcom,axi-port-name = "cam_sf_1";
+				qcom,axi-port-name = "cam_sf_icp";
 				qcom,axi-port-mnoc {
-					qcom,msm-bus,name = "cam_sf_1_mnoc";
+					qcom,msm-bus,name = "cam_sf_icp_mnoc";
 					qcom,msm-bus-vector-dyn-vote;
 					qcom,msm-bus,num-cases = <2>;
 					qcom,msm-bus,num-paths = <1>;
 					qcom,msm-bus,vectors-KBps =
-					<MSM_BUS_MASTER_CAMNOC_SF
+					<MSM_BUS_MASTER_CAMNOC_ICP
 					MSM_BUS_SLAVE_EBI_CH0 0 0>,
-					<MSM_BUS_MASTER_CAMNOC_SF
+					<MSM_BUS_MASTER_CAMNOC_ICP
 					MSM_BUS_SLAVE_EBI_CH0 0 0>;
-				};
-
-				qcom,axi-port-camnoc {
-					qcom,msm-bus,name = "cam_sf_1_camnoc";
-					qcom,msm-bus-vector-dyn-vote;
-					qcom,msm-bus,num-cases = <2>;
-					qcom,msm-bus,num-paths = <1>;
-					qcom,msm-bus,vectors-KBps =
-					<MSM_BUS_MASTER_CAMNOC_SF_UNCOMP
-					MSM_BUS_SLAVE_CAMNOC_UNCOMP 0 0>,
-					<MSM_BUS_MASTER_CAMNOC_SF_UNCOMP
-					MSM_BUS_SLAVE_CAMNOC_UNCOMP 0 0>;
 				};
 			};
 		};
