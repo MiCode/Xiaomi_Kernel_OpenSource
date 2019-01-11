@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -522,6 +522,15 @@ static void ipa3_uc_response_hdlr(enum ipa_irq_type interrupt,
 		       ipa3_ctx->uc_ctx.uc_sram_mmio->responseOp);
 	}
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+}
+
+void ipa3_uc_map_cntr_reg_notify(void)
+{
+	IPAWANDBG("complete the mapping of G_RD_CNTR register\n");
+	ipa3_uc_send_cmd(0,
+		IPA_CPU_2_HW_CMD_DEBUG_GET_INFO,
+		IPA_HW_2_CPU_RESPONSE_CMD_COMPLETED,
+		false, 6*HZ);
 }
 
 static int ipa3_uc_send_cmd_64b_param(u32 cmd_lo, u32 cmd_hi, u32 opcode,
