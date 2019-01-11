@@ -4407,6 +4407,7 @@ static const struct qcom_reset_map gcc_trinket_resets[] = {
 	[GCC_USB_PHY_CFG_AHB2PHY_BCR] = { 0x1d000 },
 	[GCC_USB3PHY_PHY_PRIM_SP0_BCR] = { 0x1b008 },
 	[GCC_USB3_PHY_PRIM_SP0_BCR] = { 0x1b000 },
+	[GCC_CAMSS_MICRO_BCR] = { 0x560ac },
 };
 
 static struct clk_dfs gcc_dfs_clocks[] = {
