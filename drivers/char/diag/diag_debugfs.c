@@ -43,9 +43,7 @@ static struct dentry *diag_dbgfs_dent;
 static int diag_dbgfs_table_index;
 static int diag_dbgfs_mempool_index;
 static int diag_dbgfs_usbinfo_index;
-#ifdef CONFIG_DIAG_OVER_PCIE
 static int diag_dbgfs_pcieinfo_index;
-#endif
 static int diag_dbgfs_socketinfo_index;
 static int diag_dbgfs_rpmsginfo_index;
 static int diag_dbgfs_hsicinfo_index;
@@ -481,7 +479,6 @@ static ssize_t diag_dbgfs_read_usbinfo(struct file *file, char __user *ubuf,
 	return ret;
 }
 
-#ifdef CONFIG_DIAG_OVER_PCIE
 static ssize_t diag_dbgfs_read_pcieinfo(struct file *file, char __user *ubuf,
 				       size_t count, loff_t *ppos)
 {
@@ -541,7 +538,6 @@ static ssize_t diag_dbgfs_read_pcieinfo(struct file *file, char __user *ubuf,
 	kfree(buf);
 	return ret;
 }
-#endif
 
 static ssize_t diag_dbgfs_read_socketinfo(struct file *file, char __user *ubuf,
 					  size_t count, loff_t *ppos)
@@ -1025,11 +1021,9 @@ const struct file_operations diag_dbgfs_usbinfo_ops = {
 	.read = diag_dbgfs_read_usbinfo,
 };
 
-#ifdef CONFIG_DIAG_OVER_PCIE
 const struct file_operations diag_dbgfs_pcieinfo_ops = {
 	.read = diag_dbgfs_read_pcieinfo,
 };
-#endif
 
 const struct file_operations diag_dbgfs_dcistats_ops = {
 	.read = diag_dbgfs_read_dcistats,
@@ -1083,12 +1077,10 @@ int diag_debugfs_init(void)
 	if (!entry)
 		goto err;
 
-#ifdef CONFIG_DIAG_OVER_PCIE
 	entry = debugfs_create_file("pcieinfo", 0444, diag_dbgfs_dent, 0,
 				    &diag_dbgfs_pcieinfo_ops);
 	if (!entry)
 		goto err;
-#endif
 
 	entry = debugfs_create_file("dci_stats", 0444, diag_dbgfs_dent, 0,
 				    &diag_dbgfs_dcistats_ops);
