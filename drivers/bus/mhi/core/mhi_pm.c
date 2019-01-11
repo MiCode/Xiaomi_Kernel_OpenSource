@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -931,24 +931,23 @@ int mhi_pm_suspend(struct mhi_controller *mhi_cntrl)
 				 MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state),
 				 msecs_to_jiffies(mhi_cntrl->timeout_ms));
 
-	read_lock_bh(&mhi_cntrl->pm_lock);
-	mhi_cntrl->wake_put(mhi_cntrl, false);
-	read_unlock_bh(&mhi_cntrl->pm_lock);
-
 	if (!ret || MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state)) {
 		MHI_ERR(
 			"Did not enter M0||M1 state, cur_state:%s pm_state:%s\n",
 			TO_MHI_STATE_STR(mhi_cntrl->dev_state),
 			to_mhi_pm_state_str(mhi_cntrl->pm_state));
-		return -EIO;
+		ret = -EIO;
+		goto error_m0_entry;
 	}
 
 	write_lock_irq(&mhi_cntrl->pm_lock);
 
-	if (atomic_read(&mhi_cntrl->dev_wake)) {
+	/* we're asserting wake so count would be @ least 1 */
+	if (atomic_read(&mhi_cntrl->dev_wake) > 1) {
 		MHI_VERB("Busy, aborting M3\n");
 		write_unlock_irq(&mhi_cntrl->pm_lock);
-		return -EBUSY;
+		ret = -EBUSY;
+		goto error_m0_entry;
 	}
 
 	/* anytime after this, we will resume thru runtime pm framework */
@@ -959,11 +958,14 @@ int mhi_pm_suspend(struct mhi_controller *mhi_cntrl)
 		MHI_ERR("Error setting to pm_state:%s from pm_state:%s\n",
 			to_mhi_pm_state_str(MHI_PM_M3_ENTER),
 			to_mhi_pm_state_str(mhi_cntrl->pm_state));
-		return -EIO;
+
+		ret = -EIO;
+		goto error_m0_entry;
 	}
 
 	/* set dev to M3 and wait for completion */
 	mhi_set_mhi_state(mhi_cntrl, MHI_STATE_M3);
+	mhi_cntrl->wake_put(mhi_cntrl, false);
 	write_unlock_irq(&mhi_cntrl->pm_lock);
 	MHI_LOG("Wait for M3 completion\n");
 
@@ -988,6 +990,13 @@ int mhi_pm_suspend(struct mhi_controller *mhi_cntrl)
 	}
 
 	return 0;
+
+error_m0_entry:
+	read_lock_bh(&mhi_cntrl->pm_lock);
+	mhi_cntrl->wake_put(mhi_cntrl, false);
+	read_unlock_bh(&mhi_cntrl->pm_lock);
+
+	return ret;
 }
 EXPORT_SYMBOL(mhi_pm_suspend);
 
