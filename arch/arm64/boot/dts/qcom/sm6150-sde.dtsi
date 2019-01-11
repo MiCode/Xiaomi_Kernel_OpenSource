@@ -388,6 +388,7 @@
 		clock-names = "byte_clk", "byte_clk_rcg", "byte_intf_clk",
 					"pixel_clk", "pixel_clk_rcg",
 					"esc_clk";
+		qcom,split-link-supported;
 
 		qcom,ctrl-supply-entries {
 			#address-cells = <1>;
