@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,41 +21,17 @@
 
 #define WLFW_SERVICE_INS_ID_V01		1
 #define WLFW_CLIENT_ID			0x4b4e454c
-#define MAX_BDF_FILE_NAME		11
+#define MAX_BDF_FILE_NAME		13
 #define ELF_BDF_FILE_NAME		"bdwlan.elf"
 #define ELF_BDF_FILE_NAME_PREFIX	"bdwlan.e"
 #define BIN_BDF_FILE_NAME		"bdwlan.bin"
 #define BIN_BDF_FILE_NAME_PREFIX	"bdwlan.b"
 #define DUMMY_BDF_FILE_NAME		"bdwlan.dmy"
 
-enum cnss_bdf_type {
-	CNSS_BDF_BIN,
-	CNSS_BDF_ELF,
-	CNSS_BDF_DUMMY = 255,
-};
-
-#ifdef CONFIG_CNSS2_DEBUG
-static unsigned int qmi_timeout = 10000;
-module_param(qmi_timeout, uint, 0600);
-MODULE_PARM_DESC(qmi_timeout, "Timeout for QMI message in milliseconds");
-
-#define QMI_WLFW_TIMEOUT_MS		qmi_timeout
-#else
-#define QMI_WLFW_TIMEOUT_MS		10000
-#endif
+#define QMI_WLFW_TIMEOUT_MS		(plat_priv->ctrl_params.qmi_timeout)
 #define QMI_WLFW_TIMEOUT_JF		msecs_to_jiffies(QMI_WLFW_TIMEOUT_MS)
 
 #define QMI_WLFW_MAX_RECV_BUF_SIZE	SZ_8K
-
-static bool daemon_support = true;
-module_param(daemon_support, bool, 0600);
-MODULE_PARM_DESC(daemon_support, "User space has cnss-daemon support or not");
-
-static unsigned int bdf_type = CNSS_BDF_ELF;
-#ifdef CONFIG_CNSS2_DEBUG
-module_param(bdf_type, uint, 0600);
-MODULE_PARM_DESC(bdf_type, "Type of board data file to be downloaded");
-#endif
 
 static char *cnss_qmi_mode_to_str(enum cnss_driver_mode mode)
 {
@@ -181,7 +157,11 @@ static int cnss_wlfw_host_cap_send_sync(struct cnss_plat_data *plat_priv)
 	}
 
 	req->num_clients_valid = 1;
-	req->num_clients = daemon_support ? 2 : 1;
+	if (test_bit(ENABLE_DAEMON_SUPPORT,
+		     &plat_priv->ctrl_params.quirks))
+		req->num_clients = 2;
+	else
+		req->num_clients = 1;
 	cnss_pr_dbg("Number of clients is %d\n", req->num_clients);
 
 	req->wake_msi = cnss_bus_get_wake_irq(plat_priv);
@@ -449,21 +429,29 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv)
 		return -ENOMEM;
 	}
 
-	switch (bdf_type) {
+	switch (plat_priv->ctrl_params.bdf_type) {
 	case CNSS_BDF_ELF:
 		if (plat_priv->board_info.board_id == 0xFF)
 			snprintf(filename, sizeof(filename), ELF_BDF_FILE_NAME);
-		else
+		else if (plat_priv->board_info.board_id < 0xFF)
 			snprintf(filename, sizeof(filename),
 				 ELF_BDF_FILE_NAME_PREFIX "%02x",
+				 plat_priv->board_info.board_id);
+		else
+			snprintf(filename, sizeof(filename),
+				 ELF_BDF_FILE_NAME_PREFIX "%04x",
 				 plat_priv->board_info.board_id);
 		break;
 	case CNSS_BDF_BIN:
 		if (plat_priv->board_info.board_id == 0xFF)
 			snprintf(filename, sizeof(filename), BIN_BDF_FILE_NAME);
-		else
+		else if (plat_priv->board_info.board_id < 0xFF)
 			snprintf(filename, sizeof(filename),
 				 BIN_BDF_FILE_NAME_PREFIX "%02x",
+				 plat_priv->board_info.board_id);
+		else
+			snprintf(filename, sizeof(filename),
+				 BIN_BDF_FILE_NAME_PREFIX "%04x",
 				 plat_priv->board_info.board_id);
 		break;
 	case CNSS_BDF_DUMMY:
@@ -473,7 +461,8 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv)
 		remaining = MAX_BDF_FILE_NAME;
 		goto bypass_bdf;
 	default:
-		cnss_pr_err("Invalid BDF type: %d\n", bdf_type);
+		cnss_pr_err("Invalid BDF type: %d\n",
+			    plat_priv->ctrl_params.bdf_type);
 		ret = -EINVAL;
 		goto err_req_fw;
 	}
@@ -500,7 +489,7 @@ bypass_bdf:
 		req->data_valid = 1;
 		req->end_valid = 1;
 		req->bdf_type_valid = 1;
-		req->bdf_type = bdf_type;
+		req->bdf_type = plat_priv->ctrl_params.bdf_type;
 
 		if (remaining > QMI_WLFW_MAX_DATA_SIZE_V01) {
 			req->data_len = QMI_WLFW_MAX_DATA_SIZE_V01;
@@ -555,7 +544,7 @@ bypass_bdf:
 	return 0;
 
 err_send:
-	if (bdf_type != CNSS_BDF_DUMMY)
+	if (plat_priv->ctrl_params.bdf_type != CNSS_BDF_DUMMY)
 		release_firmware(fw_entry);
 err_req_fw:
 	CNSS_ASSERT(0);
@@ -1070,7 +1059,7 @@ out:
 	return ret;
 }
 
-unsigned int cnss_get_qmi_timeout(void)
+unsigned int cnss_get_qmi_timeout(struct cnss_plat_data *plat_priv)
 {
 	cnss_pr_dbg("QMI timeout is %u ms\n", QMI_WLFW_TIMEOUT_MS);
 
