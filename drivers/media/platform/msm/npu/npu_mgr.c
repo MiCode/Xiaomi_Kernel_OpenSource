@@ -74,7 +74,8 @@ int fw_init(struct npu_device *npu_dev)
 {
 	uint32_t reg_val;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
-	int ret = 0;
+	int ret = 0, retry_cnt = 3;
+	bool need_retry;
 
 	mutex_lock(&host_ctx->lock);
 	if (host_ctx->fw_state == FW_ENABLED) {
@@ -83,6 +84,8 @@ int fw_init(struct npu_device *npu_dev)
 		return 0;
 	}
 
+retry:
+	need_retry = false;
 	npu_notify_aop(npu_dev, true);
 
 	if (npu_enable_core_power(npu_dev)) {
@@ -139,14 +142,19 @@ int fw_init(struct npu_device *npu_dev)
 	REGW(npu_dev, REG_NPU_HOST_CTRL_STATUS, reg_val);
 
 	/* Initialize the host side IPC */
-	npu_host_ipc_pre_init(npu_dev);
+	ret = npu_host_ipc_pre_init(npu_dev);
+	if (ret) {
+		pr_err("npu_host_ipc_pre_init failed %d\n", ret);
+		goto enable_post_clk_fail;
+	}
 
 	/* Keep reading ctrl status until NPU is ready */
 	pr_debug("waiting for status ready from fw\n");
 
 	if (wait_for_status_ready(npu_dev, REG_NPU_FW_CTRL_STATUS,
-		FW_CTRL_STATUS_MAIN_THREAD_READY_BIT)) {
+		FW_CTRL_STATUS_MAIN_THREAD_READY_VAL)) {
 		ret = -EPERM;
+		need_retry = true;
 		goto wait_fw_ready_fail;
 	}
 
@@ -183,7 +191,13 @@ subsystem_get_fail:
 enable_sys_cache_fail:
 	npu_disable_core_power(npu_dev);
 enable_pw_fail:
+	npu_notify_aop(npu_dev, false);
 	host_ctx->fw_state = FW_DISABLED;
+	if (need_retry && (retry_cnt > 0)) {
+		retry_cnt--;
+		pr_warn("retry fw init %d\n", retry_cnt);
+		goto retry;
+	}
 	mutex_unlock(&host_ctx->lock);
 	return ret;
 }
