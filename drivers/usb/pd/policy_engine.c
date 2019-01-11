@@ -1529,6 +1529,10 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 		return;
 	}
 
+	if (cmd_type != SVDM_CMD_TYPE_INITIATOR &&
+			pd->current_state != PE_SRC_STARTUP_WAIT_FOR_VDM_RESP)
+		start_src_ams(pd, false);
+
 	if (handler && handler->svdm_received) {
 		handler->svdm_received(handler, cmd, cmd_type, vdos, num_vdos);
 
@@ -2300,7 +2304,7 @@ static void enter_state_src_ready(struct usbpd *pd)
 
 	pd->in_explicit_contract = true;
 
-	if (pd->vdm_tx)
+	if (pd->vdm_tx && !pd->sm_queued)
 		kick_sm(pd, 0);
 	else if (pd->current_dr == DR_DFP && pd->vdm_state == VDM_NONE)
 		usbpd_send_svdm(pd, USBPD_SID,
@@ -2361,8 +2365,6 @@ static void handle_state_src_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 		}
 
 		vconn_swap(pd);
-		if (!pd->vdm_tx)
-			start_src_ams(pd, false);
 	} else if (IS_DATA(rx_msg, MSG_VDM)) {
 		handle_vdm_rx(pd, rx_msg);
 	} else if (IS_CTRL(rx_msg, MSG_GET_SOURCE_CAP_EXTENDED)) {
