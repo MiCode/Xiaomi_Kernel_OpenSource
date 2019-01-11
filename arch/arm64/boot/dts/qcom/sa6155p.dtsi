@@ -23,6 +23,14 @@
 	aliases {
 		pci-domain0 = &pcie0; /* PCIe0 domain */
 	};
+
+	qcom,rmnet-ipa {
+		status="disabled";
+	};
+};
+
+&ipa_hw {
+	status="disabled";
 };
 
 /* Delete second instance of pm6155 definitions for APQ version */
