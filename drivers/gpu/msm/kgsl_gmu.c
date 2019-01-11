@@ -466,6 +466,16 @@ static int gmu_memory_probe(struct kgsl_device *device,
 		goto err_ret;
 	}
 
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_ECP)) {
+		/* Allocation to account for future MEM_ALLOC buffers */
+		md = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL, SZ_32K,
+				(IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV));
+		if (IS_ERR(md)) {
+			ret = PTR_ERR(md);
+			goto err_ret;
+		}
+	}
+
 	return 0;
 err_ret:
 	gmu_memory_close(gmu);
