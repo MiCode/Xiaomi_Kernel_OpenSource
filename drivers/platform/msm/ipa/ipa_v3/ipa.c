@@ -6515,6 +6515,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	const u32 *add_map;
 	void *smem_addr;
 	size_t smem_size;
+	u32 ipa_smem_size = 0;
 	int ret;
 	int i;
 	unsigned long iova_p;
@@ -6644,10 +6645,19 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 		}
 	}
 
+	ret = of_property_read_u32(dev->of_node, "qcom,ipa-q6-smem-size",
+					&ipa_smem_size);
+	if (ret) {
+		IPADBG("ipa q6 smem size (default) = %zu\n", IPA_SMEM_SIZE);
+		ipa_smem_size = IPA_SMEM_SIZE;
+	} else {
+		IPADBG("ipa q6 smem size = %zu\n", ipa_smem_size);
+	}
+
 	/* map SMEM memory for IPA table accesses */
 	ret = qcom_smem_alloc(SMEM_MODEM,
 		SMEM_IPA_FILTER_TABLE,
-		IPA_SMEM_SIZE);
+		ipa_smem_size);
 
 	if (ret < 0 && ret != -EEXIST) {
 		IPAERR("unable to allocate smem MODEM entry\n");
@@ -6662,11 +6672,14 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 		cb->valid = false;
 		return -EFAULT;
 	}
+	if (smem_size != ipa_smem_size)
+		IPAERR("unexpected read q6 smem size %zu %zu\n",
+			smem_size, ipa_smem_size);
 
 	iova = qcom_smem_virt_to_phys(smem_addr);
 	pa = iova;
 
-	IPA_SMMU_ROUND_TO_PAGE(iova, pa, IPA_SMEM_SIZE,
+	IPA_SMMU_ROUND_TO_PAGE(iova, pa, ipa_smem_size,
 				iova_p, pa_p, size_p);
 			IPADBG("mapping 0x%lx to 0x%pa size %d\n",
 				iova_p, &pa_p, size_p);
