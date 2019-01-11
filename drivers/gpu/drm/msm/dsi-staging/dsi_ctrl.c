@@ -837,6 +837,7 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 	u64 h_period, v_period, bit_rate, pclk_rate, bit_rate_per_lane,
 	    byte_clk_rate;
 	struct dsi_host_common_cfg *host_cfg = &config->common_config;
+	struct dsi_split_link_config *split_link = &host_cfg->split_link;
 	struct dsi_mode_info *timing = &config->video_timing;
 
 	/* Get bits per pxl in desitnation format */
@@ -850,6 +851,9 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 		num_of_lanes++;
 	if (host_cfg->data_lanes & DSI_DATA_LANE_3)
 		num_of_lanes++;
+
+	if (split_link->split_link_enabled)
+		num_of_lanes = split_link->lanes_per_sublink;
 
 	if (config->bit_clk_rate_hz_override == 0) {
 		h_period = DSI_H_TOTAL_DSC(timing);
@@ -1716,6 +1720,9 @@ static int dsi_ctrl_dts_parse(struct dsi_ctrl *dsi_ctrl,
 
 	dsi_ctrl->null_insertion_enabled = of_property_read_bool(of_node,
 					"qcom,null-insertion-enabled");
+
+	dsi_ctrl->split_link_supported = of_property_read_bool(of_node,
+					"qcom,split-link-supported");
 
 	return 0;
 }

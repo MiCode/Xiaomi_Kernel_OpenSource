@@ -46,11 +46,13 @@ enum dsi_phy_version {
  * enum dsi_phy_hw_features - features supported by DSI PHY hardware
  * @DSI_PHY_DPHY:        Supports DPHY
  * @DSI_PHY_CPHY:        Supports CPHY
+ * @DSI_PHY_SPLIT_LINK:  Supports Split Link
  * @DSI_PHY_MAX_FEATURES:
  */
 enum dsi_phy_hw_features {
 	DSI_PHY_DPHY,
 	DSI_PHY_CPHY,
+	DSI_PHY_SPLIT_LINK,
 	DSI_PHY_MAX_FEATURES
 };
 
