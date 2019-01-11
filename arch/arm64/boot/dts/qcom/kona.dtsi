@@ -252,7 +252,7 @@
 			reg-names = "freq-domain0", "freq-domain1",
 				"freq-domain2";
 
-			clocks = <&clock_xo>, <&clock_gcc GPLL0>;
+			clocks = <&clock_rpmh RPMH_CXO_CLK>, <&clock_gcc GPLL0>;
 			clock-names = "xo", "cpu_clk";
 
 			#freq-domain-cells = <2>;
@@ -734,26 +734,20 @@
 		interrupt-controller;
 	};
 
-	clock_xo: bi_tcxo {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <19200000>;
-		clock-output-names = "bi_tcxo";
-	};
-
 	clocks {
+		xo_board: xo-board {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <38400000>;
+			clock-output-names = "xo_board";
+		};
+
 		sleep_clk: sleep-clk {
 			compatible = "fixed-clock";
 			clock-frequency = <32000>;
 			clock-output-names = "chip_sleep_clk";
 			#clock-cells = <1>;
 		};
-	};
-
-	clock_rpmh: qcom,rpmhclk {
-		compatible = "qcom,dummycc";
-		clock-output-names = "rpmh_clocks";
-		#clock-cells = <1>;
 	};
 
 	clock_aop: qcom,aopclk {
@@ -839,7 +833,7 @@
 		qcom,camcc = <&clock_camcc>;
 		qcom,gpucc = <&clock_gpucc>;
 		clock-names = "xo_clk_src";
-		clocks = <&clock_xo>;
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		#clock-cells = <1>;
 	};
 
@@ -1270,6 +1264,11 @@
 
 		system_pm {
 			compatible = "qcom,system-pm";
+		};
+
+		clock_rpmh: qcom,rpmhclk {
+			compatible = "qcom,kona-rpmh-clk";
+			#clock-cells = <1>;
 		};
 	};
 
