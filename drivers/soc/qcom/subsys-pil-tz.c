@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -953,11 +953,13 @@ static void clear_pbl_done(struct pil_tz_data *d)
 	uint32_t err_value;
 
 	err_value =  __raw_readl(d->err_status);
-	pr_debug("PBL_DONE received from %s!\n", d->subsys_desc.name);
+
 	if (err_value) {
 		uint32_t rmb_err_spare0;
 		uint32_t rmb_err_spare1;
 		uint32_t rmb_err_spare2;
+
+		pr_debug("PBL_DONE received from %s!\n", d->subsys_desc.name);
 
 		rmb_err_spare2 =  __raw_readl(d->err_status_spare);
 		rmb_err_spare1 =  __raw_readl(d->err_status_spare-4);
@@ -971,6 +973,9 @@ static void clear_pbl_done(struct pil_tz_data *d)
 			rmb_err_spare1);
 		pr_err("PBL error status spare2 register: 0x%08x\n",
 			rmb_err_spare2);
+	} else {
+		pr_info("PBL_DONE - 1st phase loading [%s] completed ok\n",
+			d->subsys_desc.name);
 	}
 	__raw_writel(BIT(d->bits_arr[PBL_DONE]), d->irq_clear);
 }
@@ -979,6 +984,10 @@ static void clear_err_ready(struct pil_tz_data *d)
 {
 	pr_debug("Subsystem error services up received from %s\n",
 							d->subsys_desc.name);
+
+	pr_info("SW_INIT_DONE - 2nd phase loading [%s] completed ok\n",
+		d->subsys_desc.name);
+
 	__raw_writel(BIT(d->bits_arr[ERR_READY]), d->irq_clear);
 	complete_err_ready(d->subsys);
 }
