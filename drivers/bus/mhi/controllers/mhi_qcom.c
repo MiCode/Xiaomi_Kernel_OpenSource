@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.*/
 
 #include <asm/arch_timer.h>
 #include <linux/debugfs.h>
@@ -607,7 +607,8 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 	mhi_cntrl->fw_image = firmware_info->fw_image;
 	mhi_cntrl->edl_image = firmware_info->edl_image;
 
-	sysfs_create_group(&mhi_cntrl->mhi_dev->dev.kobj, &mhi_qcom_group);
+	if (sysfs_create_group(&mhi_cntrl->mhi_dev->dev.kobj, &mhi_qcom_group))
+		MHI_ERR("Error while creating the sysfs group\n");
 
 	return mhi_cntrl;
 
