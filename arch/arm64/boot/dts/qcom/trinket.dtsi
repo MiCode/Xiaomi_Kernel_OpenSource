@@ -2123,6 +2123,11 @@
 		qcom,firmware-name = "venus";
 		memory-region = <&pil_video_mem>;
 	};
+
+	cx_ipeak_lm: cx_ipeak@3ed000 {
+		compatible = "qcom,cx-ipeak-v2";
+		reg = <0x3ed000 0xc00c>;
+	};
 };
 
 #include "pmi632.dtsi"
