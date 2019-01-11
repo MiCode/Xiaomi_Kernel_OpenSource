@@ -712,6 +712,137 @@
 			};
 		};
 
+		wcd9xxx_intr {
+			wcd_intr_default: wcd_intr_default{
+				mux {
+					pins = "gpio118";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio118";
+					drive-strength = <2>; /* 2 mA */
+					bias-pull-down; /* pull down */
+					input-enable;
+				};
+			};
+		};
+
+		tasha_cdc_reset_active: lpi_cdc_reset_active {
+			mux {
+				pins = "gpio120";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio120";
+				drive-strength = <16>;
+				output-high;
+			};
+		};
+
+		tasha_cdc_reset_sleep: lpi_cdc_reset_sleep {
+			mux {
+				pins = "gpio120";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio120";
+				drive-strength = <16>;
+				bias-disable;
+				output-low;
+			};
+		};
+
+		/* Tasha WSA speaker reset pins */
+		tasha_spkr_1_sd_n {
+			tasha_spkr_1_sd_n_sleep: tasha_spkr_1_sd_n_sleep {
+				mux {
+					pins = "gpio20";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio20";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;
+					input-enable;
+				};
+			};
+
+			tasha_spkr_1_sd_n_active: tasha_spkr_1_sd_n_active {
+				mux {
+					pins = "gpio20";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio20";
+					drive-strength = <16>;   /* 16 mA */
+					bias-disable;
+					output-high;
+				};
+			};
+		};
+
+		tasha_spkr_2_sd_n {
+			tasha_spkr_2_sd_n_sleep: tasha_spkr_2_sd_n_sleep {
+				mux {
+					pins = "gpio21";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio21";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;
+					input-enable;
+				};
+			};
+
+			tasha_spkr_2_sd_n_active: tasha_spkr_2_sd_n_active {
+				mux {
+					pins = "gpio21";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio21";
+					drive-strength = <16>;   /* 16 mA */
+					bias-disable;
+					output-high;
+				};
+			};
+		};
+
+		audio_ref_clk_active: audio_ref_clk_active {
+			mux {
+				pins = "gpio112";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio112";
+				drive-strength = <8>;
+				bias-disable;
+				output-low;
+			};
+		};
+
+		audio_ref_clk_sleep: audio_ref_clk_sleep {
+			mux {
+				pins = "gpio112";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio112";
+				drive-strength = <2>;
+				bias-disable;
+				bias-pull-down;
+			};
+		};
+
 		wcd937x_reset_active: wcd937x_reset_active {
 			mux {
 				pins = "gpio120";
@@ -1158,6 +1289,19 @@
 				drive-strength = <8>;
 				output-high; /* active low reset */
 			};
+		};
+	};
+};
+
+&pm6125_gpios {
+	tasha_mclk {
+		tasha_mclk_default: tasha_mclk_default{
+			pins = "gpio1";
+			function = "func1";
+			qcom,drive-strength = <2>;
+			power-source = <0>;
+			bias-disable;
+			output-low;
 		};
 	};
 };
