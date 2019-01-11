@@ -1468,7 +1468,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 		pd->in_explicit_contract = true;
 
-		if (pd->vdm_tx)
+		if (pd->vdm_tx && !pd->sm_queued)
 			kick_sm(pd, 0);
 		else if (pd->current_dr == DR_DFP && pd->vdm_state == VDM_NONE)
 			usbpd_send_svdm(pd, USBPD_SID,
@@ -1858,6 +1858,10 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 				SVDM_HDR_VER(vdm_hdr));
 		return;
 	}
+
+	if (cmd_type != SVDM_CMD_TYPE_INITIATOR &&
+			pd->current_state != PE_SRC_STARTUP_WAIT_FOR_VDM_RESP)
+		start_src_ams(pd, false);
 
 	if (handler && handler->svdm_received) {
 		handler->svdm_received(handler, cmd, cmd_type, vdos, num_vdos);
@@ -2714,8 +2718,6 @@ static void usbpd_sm(struct work_struct *w)
 			vconn_swap(pd);
 		} else if (IS_DATA(rx_msg, MSG_VDM)) {
 			handle_vdm_rx(pd, rx_msg);
-			if (!pd->vdm_tx)
-				start_src_ams(pd, false);
 		} else if (IS_CTRL(rx_msg, MSG_GET_SOURCE_CAP_EXTENDED)) {
 			handle_get_src_cap_extended(pd);
 		} else if (IS_EXT(rx_msg, MSG_GET_BATTERY_CAP)) {
