@@ -249,7 +249,7 @@ static void store_acc_gyro_boot_sample(struct st_asm330lhh_sensor *sensor,
 static int st_asm330lhh_read_fifo(struct st_asm330lhh_hw *hw)
 {
 	u8 iio_buf[ALIGN(ST_ASM330LHH_SAMPLE_SIZE, sizeof(s64)) + sizeof(s64)];
-	u8 buf[6 * ST_ASM330LHH_FIFO_SAMPLE_SIZE], tag, *ptr;
+	u8 buf[30 * ST_ASM330LHH_FIFO_SAMPLE_SIZE], tag, *ptr;
 	s64 ts_delta_hw_ts = 0, ts_irq;
 	s64 ts_delta_offs;
 	int i, err, read_len, word_len, fifo_len;
