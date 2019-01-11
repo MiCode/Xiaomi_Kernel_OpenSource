@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014-2017 Qualcomm Atheros, Inc.
+ * Copyright (c) 2019, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -27,6 +28,10 @@ enum wil_platform_event {
 	WIL_PLATFORM_EVT_POST_SUSPEND = 4,
 };
 
+enum wil_platform_notif {
+	WIL_PLATFORM_NOTIF_PCI_LINKDOWN = 0,
+};
+
 enum wil_platform_features {
 	WIL_PLATFORM_FEATURE_FW_EXT_CLK_CONTROL = 0,
 	WIL_PLATFORM_FEATURE_TRIPLE_MSI = 1,
@@ -52,6 +57,7 @@ struct wil_platform_ops {
 	int (*notify)(void *handle, enum wil_platform_event evt);
 	int (*get_capa)(void *handle);
 	void (*set_features)(void *handle, int features);
+	int (*pci_linkdown_recovery)(void *handle);
 };
 
 /**
@@ -63,10 +69,13 @@ struct wil_platform_ops {
  * @fw_recovery: start a firmware recovery process. Called as
  *      part of a crash recovery process which may include other
  *      related platform subsystems.
+ * @notify: get notifications from the Platform driver, such as
+ *      pci linkdown
  */
 struct wil_platform_rops {
 	int (*ramdump)(void *wil_handle, void *buf, uint32_t size);
 	int (*fw_recovery)(void *wil_handle);
+	int (*notify)(void *wil_handle, enum wil_platform_notif notif);
 };
 
 /**
