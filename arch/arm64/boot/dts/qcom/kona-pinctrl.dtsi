@@ -1667,7 +1667,7 @@
 			};
 
 			config {
-				pins = "gpio27";
+				pins = "gpio153";
 				drive-strength = <2>;
 				pull-down;
 				input-enable;
@@ -1722,6 +1722,60 @@
 
 			config {
 				pins = "gpio155";
+				drive-strength = <2>;
+				pull-down;
+				input-enable;
+			};
+		};
+
+		cdc_dmic45_clk_active: dmic45_clk_active {
+			mux {
+				pins = "gpio158";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio158";
+				drive-strength = <8>;
+				output-high;
+			};
+		};
+
+		cdc_dmic45_clk_sleep: dmic45_clk_sleep {
+			mux {
+				pins = "gpio158";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio158";
+				drive-strength = <2>;
+				bias-disable;
+				output-low;
+			};
+		};
+
+		cdc_dmic45_data_active: dmic45_data_active {
+			mux {
+				pins = "gpio159";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio159";
+				drive-strength = <8>;
+				input-enable;
+			};
+		};
+
+		cdc_dmic45_data_sleep: dmic45_data_sleep {
+			mux {
+				pins = "gpio159";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio159";
 				drive-strength = <2>;
 				pull-down;
 				input-enable;
