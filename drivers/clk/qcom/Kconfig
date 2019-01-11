@@ -538,3 +538,11 @@ config SM_DISPCC_TRINKET
 	  TRINKET devices.
 	  Say Y if you want to support display devices and functionality such as
 	  splash screen.
+
+config SM_DEBUGCC_TRINKET
+	tristate "TRINKET Debug Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  TRINKET devices.
+	  Say Y if you want to support the clock measurement functionality.
