@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
  */
 #include <linux/err.h>
 #include <linux/seq_file.h>
@@ -407,6 +407,9 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 			continue;
 		case ICNSS_DEL_SERVER:
 			seq_puts(s, "DEL SERVER");
+			continue;
+		case ICNSS_COLD_BOOT_CAL:
+			seq_puts(s, "COLD BOOT CALIBRATION");
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);

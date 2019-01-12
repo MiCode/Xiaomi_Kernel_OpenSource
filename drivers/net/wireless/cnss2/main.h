@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
 
 #ifndef _CNSS_MAIN_H
 #define _CNSS_MAIN_H
@@ -89,6 +89,7 @@ struct cnss_pinctrl_info {
 	struct pinctrl_state *bootstrap_active;
 	struct pinctrl_state *wlan_en_active;
 	struct pinctrl_state *wlan_en_sleep;
+	int bt_en_gpio;
 };
 
 #if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART)
@@ -255,8 +256,10 @@ enum cnss_driver_event_type {
 	CNSS_DRIVER_EVENT_POWER_DOWN,
 	CNSS_DRIVER_EVENT_IDLE_RESTART,
 	CNSS_DRIVER_EVENT_IDLE_SHUTDOWN,
+	CNSS_DRIVER_EVENT_IMS_WFC_CALL_IND,
+	CNSS_DRIVER_EVENT_WLFW_TWT_CFG_IND,
 	CNSS_DRIVER_EVENT_QDSS_TRACE_REQ_MEM,
-	CNSS_DRIVER_EVENT_QDSS_TRACE_SAVE,
+	CNSS_DRIVER_EVENT_FW_MEM_FILE_SAVE,
 	CNSS_DRIVER_EVENT_QDSS_TRACE_FREE,
 	CNSS_DRIVER_EVENT_MAX,
 };
@@ -281,6 +284,8 @@ enum cnss_driver_state {
 	CNSS_IN_REBOOT,
 	CNSS_COLD_BOOT_CAL_DONE,
 	CNSS_IN_PANIC,
+	CNSS_QMI_DEL_SERVER,
+	CNSS_QMI_DMS_CONNECTED = 20,
 };
 
 struct cnss_recovery_data {
@@ -319,6 +324,7 @@ enum cnss_debug_quirks {
 	DISABLE_DRV,
 	DISABLE_IO_COHERENCY,
 	IGNORE_PCI_LINK_FAILURE,
+	DISABLE_TIME_SYNC,
 };
 
 enum cnss_bdf_type {
@@ -375,6 +381,19 @@ enum cnss_ce_index {
 	CNSS_CE_COMMON,
 };
 
+struct cnss_dms_data {
+	u32 mac_valid;
+	u8 mac[QMI_WLFW_MAC_ADDR_SIZE_V01];
+};
+
+enum cnss_timeout_type {
+	CNSS_TIMEOUT_QMI,
+	CNSS_TIMEOUT_POWER_UP,
+	CNSS_TIMEOUT_IDLE_RESTART,
+	CNSS_TIMEOUT_CALIBRATION,
+	CNSS_TIMEOUT_WLAN_WATCHDOG,
+};
+
 struct cnss_plat_data {
 	struct platform_device *plat_dev;
 	void *bus_priv;
@@ -408,6 +427,7 @@ struct cnss_plat_data {
 	struct workqueue_struct *event_wq;
 	struct work_struct recovery_work;
 	struct qmi_handle qmi_wlfw;
+	struct qmi_handle qmi_dms;
 	struct wlfw_rf_chip_info chip_info;
 	struct wlfw_rf_board_info board_info;
 	struct wlfw_soc_info soc_info;
@@ -437,6 +457,7 @@ struct cnss_plat_data {
 	u8 powered_on;
 	u8 use_fw_path_with_prefix;
 	char firmware_name[MAX_FIRMWARE_NAME_LEN];
+	char fw_fallback_name[MAX_FIRMWARE_NAME_LEN];
 	struct completion rddm_complete;
 	struct completion recovery_complete;
 	struct cnss_control_params ctrl_params;
@@ -457,6 +478,7 @@ struct cnss_plat_data {
 	struct cnss_tcs_info tcs_info;
 	bool fw_pcie_gen_switch;
 	u8 pcie_gen_speed;
+	struct cnss_dms_data dms;
 };
 
 #ifdef CONFIG_ARCH_QCOM
@@ -518,5 +540,7 @@ int cnss_minidump_remove_region(struct cnss_plat_data *plat_priv,
 				void *va, phys_addr_t pa, size_t size);
 int cnss_enable_int_pow_amp_vreg(struct cnss_plat_data *plat_priv);
 int cnss_get_tcs_info(struct cnss_plat_data *plat_priv);
+unsigned int cnss_get_timeout(struct cnss_plat_data *plat_priv,
+			      enum cnss_timeout_type);
 
 #endif /* _CNSS_MAIN_H */
