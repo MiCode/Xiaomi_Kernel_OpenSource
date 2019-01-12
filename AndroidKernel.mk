@@ -1,6 +1,10 @@
 #Android makefile to build kernel as a part of Android Build
 PERL		= perl
 
+ifneq ($(wildcard prebuilts/build-tools/$(HOST_PREBUILT_TAG)/bin/make),)
+  MAKE := prebuilts/build-tools/$(HOST_PREBUILT_TAG)/bin/make
+endif
+
 KERNEL_TARGET := $(strip $(INSTALLED_KERNEL_TARGET))
 ifeq ($(KERNEL_TARGET),)
 INSTALLED_KERNEL_TARGET := $(PRODUCT_OUT)/kernel
