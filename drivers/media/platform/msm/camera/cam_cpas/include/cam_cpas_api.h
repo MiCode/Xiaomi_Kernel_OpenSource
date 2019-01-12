@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_CPAS_API_H_
@@ -41,6 +41,7 @@ enum cam_cpas_hw_version {
 	CAM_CPAS_TITAN_175_V100 = 0x175100,
 	CAM_CPAS_TITAN_175_V101 = 0x175101,
 	CAM_CPAS_TITAN_175_V120 = 0x175120,
+	CAM_CPAS_TITAN_480_V100 = 0x480100,
 	CAM_CPAS_TITAN_MAX
 };
 

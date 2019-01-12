@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_CPASTOP_HW_H_
@@ -70,6 +70,10 @@ enum cam_camnoc_hw_irq_type {
  * @CAM_CAMNOC_CDM: Indicates CDM HW connection to camnoc
  * @CAM_CAMNOC_IFE02: Indicates IFE0, IFE2 HW connection to camnoc
  * @CAM_CAMNOC_IFE13: Indicates IFE1, IFE3 HW connection to camnoc
+ * @CAM_CAMNOC_IFE_LINEAR: Indicates linear data from all IFEs to cammnoc
+ * @CAM_CAMNOC_IFE_UBWC_STATS: Indicates ubwc+stats from all IFEs to cammnoc
+ * @CAM_CAMNOC_IFE_RDI_WR: Indicates RDI write data from all IFEs to cammnoc
+ * @CAM_CAMNOC_IFE_RDI_RD: Indicates RDI read data from all IFEs to cammnoc
  * @CAM_CAMNOC_IFE0123_RDI_WRITE: RDI write only for all IFEx
  * @CAM_CAMNOC_IFE0_NRDI_WRITE: IFE0 non-RDI write
  * @CAM_CAMNOC_IFE01_RDI_READ: IFE0/1 RDI READ
@@ -80,6 +84,10 @@ enum cam_camnoc_hw_irq_type {
  *         connection to camnoc
  * @CAM_CAMNOC_IPE_VID_DISP_WRITE: Indicates IPE's VID/DISP Wrire HW
  *         connection to camnoc
+ * @CAM_CAMNOC_IPE0_RD: Indicates IPE's Read0 HW connection to camnoc
+ * @CAM_CAMNOC_IPE1_BPS_RD: Indicates IPE's Read1 + BPS Read HW connection
+ *         to camnoc
+ * @CAM_CAMNOC_IPE_BPS_WR: Indicates IPE+BPS Write HW connection to camnoc
  * @CAM_CAMNOC_JPEG: Indicates JPEG HW connection to camnoc
  * @CAM_CAMNOC_FD: Indicates FD HW connection to camnoc
  * @CAM_CAMNOC_ICP: Indicates ICP HW connection to camnoc
@@ -88,6 +96,10 @@ enum cam_camnoc_port_type {
 	CAM_CAMNOC_CDM,
 	CAM_CAMNOC_IFE02,
 	CAM_CAMNOC_IFE13,
+	CAM_CAMNOC_IFE_LINEAR,
+	CAM_CAMNOC_IFE_UBWC_STATS,
+	CAM_CAMNOC_IFE_RDI_WR,
+	CAM_CAMNOC_IFE_RDI_RD,
 	CAM_CAMNOC_IFE0123_RDI_WRITE,
 	CAM_CAMNOC_IFE0_NRDI_WRITE,
 	CAM_CAMNOC_IFE01_RDI_READ,
@@ -95,6 +107,9 @@ enum cam_camnoc_port_type {
 	CAM_CAMNOC_IPE_BPS_LRME_READ,
 	CAM_CAMNOC_IPE_BPS_LRME_WRITE,
 	CAM_CAMNOC_IPE_VID_DISP_WRITE,
+	CAM_CAMNOC_IPE0_RD,
+	CAM_CAMNOC_IPE1_BPS_RD,
+	CAM_CAMNOC_IPE_BPS_WR,
 	CAM_CAMNOC_JPEG,
 	CAM_CAMNOC_FD,
 	CAM_CAMNOC_ICP,
