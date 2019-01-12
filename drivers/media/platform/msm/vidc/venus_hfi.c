@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2094,6 +2094,30 @@ static int __sys_set_debug(struct venus_hfi_device *device, u32 debug)
 	return 0;
 }
 
+static int __sys_set_ubwc_config(void *device)
+{
+	int rc = 0;
+	struct venus_hfi_device *dev = device;
+	u8 packet[VIDC_IFACEQ_VAR_SMALL_PKT_SIZE] = {0};
+	struct hfi_cmd_sys_set_property_packet *pkt =
+		(struct hfi_cmd_sys_set_property_packet *) &packet;
+
+	if (!dev->res->ubwc_config)
+		return rc;
+
+	rc = call_hfi_pkt_op(dev, sys_ubwc_config, pkt, dev->res->ubwc_config);
+	if (rc) {
+		dprintk(VIDC_WARN,
+			"UBWC Config setting to FW failed\n");
+		return -ENOTEMPTY;
+	}
+
+	if (__iface_cmdq_write(dev, pkt))
+		return -ENOTEMPTY;
+
+	return 0;
+}
+
 static int __sys_set_coverage(struct venus_hfi_device *device, u32 mode)
 {
 	u8 packet[VIDC_IFACEQ_VAR_SMALL_PKT_SIZE];
@@ -2214,6 +2238,12 @@ static int venus_hfi_core_init(void *device)
 		dprintk(VIDC_WARN, "Failed to send image version pkt to f/w\n");
 
 	__sys_set_debug(device, msm_vidc_fw_debug);
+
+	rc = __sys_set_ubwc_config(device);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to set ubwc config\n");
+		goto err_core_init;
+	}
 
 	__enable_subcaches(device);
 	__set_subcaches(device);
@@ -3693,7 +3723,6 @@ static void venus_hfi_core_work_handler(struct work_struct *work)
 	u32 intr_status;
 
 	mutex_lock(&device->lock);
-
 
 	if (!__core_in_valid_state(device)) {
 		dprintk(VIDC_DBG, "%s - Core not in init state\n", __func__);
