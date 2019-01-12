@@ -3626,11 +3626,6 @@ static int cnss_pci_enable_msi(struct cnss_pci_data *pci_priv)
 	}
 
 	pci_priv->msi_ep_base_data = msi_desc->msg.data;
-	if (!pci_priv->msi_ep_base_data) {
-		cnss_pr_err("Got 0 MSI base data!\n");
-		CNSS_ASSERT(0);
-	}
-
 	cnss_pr_dbg("MSI base data is %d\n", pci_priv->msi_ep_base_data);
 
 	return 0;
