@@ -88,3 +88,7 @@
 		voice_mhi_voting;
 	};
 };
+
+&wil6210 {
+	status = "disabled";
+};
