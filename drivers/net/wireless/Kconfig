@@ -121,6 +121,27 @@ config VIRT_WIFI
 	  This option adds support for ethernet connections to appear as if they
 	  are wifi connections through a special rtnetlink device.
 
+config WCNSS_MEM_PRE_ALLOC
+       tristate "WCNSS pre-alloc memory support"
+       help
+         Pre-allocate memory for the WLAN driver module.
+	 This feature enable cld wlan driver to use pre allocated memory
+	 for it's internal usage and release it to back to pre allocated pool.
+	 This memory is allocated at the cold boot time.
+
+config CLD_LL_CORE
+	tristate "QTI core WLAN driver for QCA6174 chipset"
+	select NL80211_TESTMODE
+	select WEXT_CORE
+	select WEXT_PRIV
+	select WEXT_SPY
+	select WIRELESS_EXT
+	help
+	  This section contains the necessary modules needed to enable the
+	  core WLAN driver for QTI QCA6174 chipset.
+	  Select Y to compile the driver in order to have WLAN functionality
+	  support.
+
 source "drivers/net/wireless/cnss2/Kconfig"
 source "drivers/net/wireless/cnss_utils/Kconfig"
 
