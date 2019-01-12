@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-2.0
+# SPDX-License-Identifier: GPL-2.0-only
 obj-$(CONFIG_DIAG_CHAR) := diagchar.o
 obj-$(CONFIG_DIAGFWD_BRIDGE_CODE) += diagfwd_bridge.o
 obj-$(CONFIG_USB_QCOM_DIAG_BRIDGE) += diagfwd_hsic.o
