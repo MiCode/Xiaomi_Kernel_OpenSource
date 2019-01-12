@@ -43,7 +43,6 @@
 #include <asm/system_misc.h>
 #include <asm/pgtable.h>
 #include <asm/tlbflush.h>
-#include <asm/kryo-arm64-edac.h>
 #include <asm/traps.h>
 #include <soc/qcom/scm.h>
 
@@ -639,7 +638,6 @@ static int do_alignment_fault(unsigned long addr, unsigned int esr,
 
 static int do_bad(unsigned long addr, unsigned int esr, struct pt_regs *regs)
 {
-	kryo_poll_cache_errors(NULL);
 	return 1; /* "fault" */
 }
 
