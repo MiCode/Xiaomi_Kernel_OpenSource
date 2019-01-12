@@ -3487,11 +3487,13 @@ struct hal_buffer_requirements *get_buff_req_buffer(
 	return NULL;
 }
 
-static int convert_color_fmt(int v4l2_fmt)
+u32 msm_comm_convert_color_fmt(u32 v4l2_fmt)
 {
 	switch (v4l2_fmt) {
 	case V4L2_PIX_FMT_NV12:
 		return COLOR_FMT_NV12;
+	case V4L2_PIX_FMT_NV12_512:
+		return COLOR_FMT_NV12_512;
 	case V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010_VENUS:
 		return COLOR_FMT_P010;
 	case V4L2_PIX_FMT_NV12_UBWC:
@@ -3499,6 +3501,9 @@ static int convert_color_fmt(int v4l2_fmt)
 	case V4L2_PIX_FMT_NV12_TP10_UBWC:
 		return COLOR_FMT_NV12_BPP10_UBWC;
 	default:
+		dprintk(VIDC_WARN,
+			"Invalid v4l2 color fmt FMT : %x, Set default(NV12)",
+			v4l2_fmt);
 		return COLOR_FMT_NV12;
 	}
 }
@@ -3573,7 +3578,7 @@ static int set_dpb_only_buffers(struct msm_vidc_inst *inst,
 
 	/* For DPB buffers, Always use FW count */
 	num_buffers = output_buf->buffer_count_min;
-	hfi_fmt = convert_color_fmt(inst->clk_data.dpb_fourcc);
+	hfi_fmt = msm_comm_convert_color_fmt(inst->clk_data.dpb_fourcc);
 	buffer_size = VENUS_BUFFER_SIZE(hfi_fmt,
 			inst->prop.width[CAPTURE_PORT],
 			inst->prop.height[CAPTURE_PORT]);
@@ -5797,41 +5802,6 @@ int msm_comm_session_continue(void *instance)
 sess_continue_fail:
 	mutex_unlock(&inst->lock);
 	return rc;
-}
-
-u32 get_frame_size_nv12(int plane, u32 height, u32 width)
-{
-	return VENUS_BUFFER_SIZE(COLOR_FMT_NV12, width, height);
-}
-
-u32 get_frame_size_nv12_ubwc(int plane, u32 height, u32 width)
-{
-	return VENUS_BUFFER_SIZE(COLOR_FMT_NV12_UBWC, width, height);
-}
-
-u32 get_frame_size_rgba(int plane, u32 height, u32 width)
-{
-	return VENUS_BUFFER_SIZE(COLOR_FMT_RGBA8888, width, height);
-}
-
-u32 get_frame_size_nv21(int plane, u32 height, u32 width)
-{
-	return VENUS_BUFFER_SIZE(COLOR_FMT_NV21, width, height);
-}
-
-u32 get_frame_size_tp10_ubwc(int plane, u32 height, u32 width)
-{
-	return VENUS_BUFFER_SIZE(COLOR_FMT_NV12_BPP10_UBWC, width, height);
-}
-
-u32 get_frame_size_p010(int plane, u32 height, u32 width)
-{
-	return VENUS_BUFFER_SIZE(COLOR_FMT_P010, width, height);
-}
-
-u32 get_frame_size_nv12_512(int plane, u32 height, u32 width)
-{
-	return VENUS_BUFFER_SIZE(COLOR_FMT_NV12_512, width, height);
 }
 
 void print_vidc_buffer(u32 tag, const char *str, struct msm_vidc_inst *inst,

@@ -16,6 +16,7 @@
 
 #define MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS MIN_NUM_OUTPUT_BUFFERS
 #define MIN_NUM_THUMBNAIL_MODE_CAPTURE_BUFFERS MIN_NUM_CAPTURE_BUFFERS
+#define MIN_NUM_THUMBNAIL_MODE_CAPTURE_BUFFERS_VP9 8
 #define MIN_NUM_DEC_OUTPUT_BUFFERS 4
 #define MIN_NUM_DEC_CAPTURE_BUFFERS 4
 /* Y=16(0-9bits), Cb(10-19bits)=Cr(20-29bits)=128, black by default */
@@ -474,67 +475,59 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 
 #define NUM_CTRLS ARRAY_SIZE(msm_vdec_ctrls)
 
-static u32 get_frame_size_compressed_full_yuv(int plane,
-					u32 max_mbs_per_frame, u32 size_per_mb)
+static u32 get_dec_input_frame_size(struct msm_vidc_inst *inst)
 {
-	u32 frame_size;
+	u32 frame_size, num_mbs;
+	u32 div_factor = 1;
+	u32 base_res_mbs = MAX_4K_MBPF;
+	u32 width = inst->prop.width[OUTPUT_PORT];
+	u32 height = inst->prop.height[OUTPUT_PORT];
 
-	if (max_mbs_per_frame > MAX_4K_MBPF)
-		frame_size = (max_mbs_per_frame * size_per_mb * 3 / 2) / 4;
-	else
-		frame_size = (max_mbs_per_frame * size_per_mb * 3 / 2);
+	/*
+	 * Decoder input size calculation:
+	 * If clip is 8k buffer size is calculated for 8k : 8k mbs/4
+	 * For 8k cases we expect width/height to be set always.
+	 * In all other cases size is calculated for 4k:
+	 * 4k mbs for VP8/VP9 and 4k/2 for remaining codecs
+	 */
+	num_mbs = ((width + 15) >> 4) * ((height + 15) >> 4);
+	if (num_mbs > MAX_4K_MBPF) {
+		div_factor = 4;
+		base_res_mbs = inst->capability.mbs_per_frame.max;
+	} else {
+		base_res_mbs = MAX_4K_MBPF;
+		if (inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_VP9)
+			div_factor = 1;
+		else
+			div_factor = 2;
+	}
 
-	/* multiply by 10/8 (1.25) to get size for 10 bit case */
-	frame_size = frame_size + (frame_size >> 2);
+	frame_size = base_res_mbs * 3 / 2 / div_factor;
+	 /* multiply by 10/8 (1.25) to get size for 10 bit case */
+	if ((inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_VP9) ||
+		(inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_HEVC))
+		frame_size = frame_size + (frame_size >> 2);
 
-	return frame_size;
-}
-
-static u32 get_frame_size_compressed(int plane,
-					u32 max_mbs_per_frame, u32 size_per_mb)
-{
-	u32 frame_size;
-
-	if (max_mbs_per_frame > MAX_4K_MBPF)
-		frame_size = (max_mbs_per_frame * size_per_mb * 3 / 2) / 4;
-	else
-		frame_size = (max_mbs_per_frame * size_per_mb * 3/2)/2;
-
-	/* multiply by 10/8 (1.25) to get size for 10 bit case */
-	frame_size = frame_size + (frame_size >> 2);
-
-	return frame_size;
-}
-
-static u32 get_frame_size(struct msm_vidc_inst *inst,
-					const struct msm_vidc_format *fmt,
-					int fmt_type, int plane)
-{
-	u32 frame_size = 0;
-
-	if (fmt_type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		frame_size = fmt->get_frame_size(plane,
-					inst->capability.mbs_per_frame.max,
-					MB_SIZE_IN_PIXEL);
-		if (inst->buffer_size_limit &&
-			(inst->buffer_size_limit < frame_size)) {
-			frame_size = inst->buffer_size_limit;
-			dprintk(VIDC_DBG, "input buffer size limited to %d\n",
-				frame_size);
-		} else {
-			dprintk(VIDC_DBG, "set input buffer size to %d\n",
-				frame_size);
-		}
-	} else if (fmt_type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-		frame_size = fmt->get_frame_size(plane,
-					inst->capability.height.max,
-					inst->capability.width.max);
-		dprintk(VIDC_DBG, "set output buffer size to %d\n",
+	if (inst->buffer_size_limit &&
+		(inst->buffer_size_limit < frame_size)) {
+		frame_size = inst->buffer_size_limit;
+		dprintk(VIDC_DBG, "input buffer size limited to %d\n",
 			frame_size);
 	} else {
-		dprintk(VIDC_WARN, "Wrong format type\n");
+		dprintk(VIDC_DBG, "set input buffer size to %d\n",
+			frame_size);
 	}
-	return frame_size;
+
+	return ALIGN(frame_size, SZ_4K);
+}
+
+static u32 get_dec_output_frame_size(struct msm_vidc_inst *inst)
+{
+	u32 hfi_fmt;
+
+	hfi_fmt = msm_comm_convert_color_fmt(inst->fmts[CAPTURE_PORT].fourcc);
+	return VENUS_BUFFER_SIZE(hfi_fmt, inst->prop.width[CAPTURE_PORT],
+			inst->prop.height[CAPTURE_PORT]);
 }
 
 struct msm_vidc_format vdec_formats[] = {
@@ -542,35 +535,30 @@ struct msm_vidc_format vdec_formats[] = {
 		.name = "YCbCr Semiplanar 4:2:0",
 		.description = "Y/CbCr 4:2:0",
 		.fourcc = V4L2_PIX_FMT_NV12,
-		.get_frame_size = get_frame_size_nv12,
 		.type = CAPTURE_PORT,
 	},
 	{
 		.name = "YCbCr Semiplanar 4:2:0 10bit",
 		.description = "Y/CbCr 4:2:0 10bit",
 		.fourcc = V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010_VENUS,
-		.get_frame_size = get_frame_size_p010,
 		.type = CAPTURE_PORT,
 	},
 	{
 		.name = "UBWC YCbCr Semiplanar 4:2:0",
 		.description = "UBWC Y/CbCr 4:2:0",
 		.fourcc = V4L2_PIX_FMT_NV12_UBWC,
-		.get_frame_size = get_frame_size_nv12_ubwc,
 		.type = CAPTURE_PORT,
 	},
 	{
 		.name = "UBWC YCbCr Semiplanar 4:2:0 10bit",
 		.description = "UBWC Y/CbCr 4:2:0 10bit",
 		.fourcc = V4L2_PIX_FMT_NV12_TP10_UBWC,
-		.get_frame_size = get_frame_size_tp10_ubwc,
 		.type = CAPTURE_PORT,
 	},
 	{
 		.name = "Mpeg2",
 		.description = "Mpeg2 compressed format",
 		.fourcc = V4L2_PIX_FMT_MPEG2,
-		.get_frame_size = get_frame_size_compressed,
 		.type = OUTPUT_PORT,
 		.defer_outputs = false,
 		.input_min_count = 4,
@@ -580,7 +568,6 @@ struct msm_vidc_format vdec_formats[] = {
 		.name = "H264",
 		.description = "H264 compressed format",
 		.fourcc = V4L2_PIX_FMT_H264,
-		.get_frame_size = get_frame_size_compressed,
 		.type = OUTPUT_PORT,
 		.defer_outputs = false,
 		.input_min_count = 4,
@@ -590,7 +577,6 @@ struct msm_vidc_format vdec_formats[] = {
 		.name = "HEVC",
 		.description = "HEVC compressed format",
 		.fourcc = V4L2_PIX_FMT_HEVC,
-		.get_frame_size = get_frame_size_compressed,
 		.type = OUTPUT_PORT,
 		.defer_outputs = false,
 		.input_min_count = 4,
@@ -600,7 +586,6 @@ struct msm_vidc_format vdec_formats[] = {
 		.name = "VP8",
 		.description = "VP8 compressed format",
 		.fourcc = V4L2_PIX_FMT_VP8,
-		.get_frame_size = get_frame_size_compressed_full_yuv,
 		.type = OUTPUT_PORT,
 		.defer_outputs = false,
 		.input_min_count = 4,
@@ -610,7 +595,6 @@ struct msm_vidc_format vdec_formats[] = {
 		.name = "VP9",
 		.description = "VP9 compressed format",
 		.fourcc = V4L2_PIX_FMT_VP9,
-		.get_frame_size = get_frame_size_compressed_full_yuv,
 		.type = OUTPUT_PORT,
 		.defer_outputs = true,
 		.input_min_count = 4,
@@ -734,8 +718,7 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		}
 
 		f->fmt.pix_mp.plane_fmt[0].sizeimage =
-			inst->fmts[fmt->type].get_frame_size(0,
-			f->fmt.pix_mp.height, f->fmt.pix_mp.width);
+			get_dec_output_frame_size(inst);
 
 		extra_idx = EXTRADATA_IDX(inst->bufq[fmt->type].num_planes);
 		if (extra_idx && extra_idx < VIDEO_MAX_PLANES) {
@@ -804,8 +787,7 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			goto err_invalid_fmt;
 		}
 
-		max_input_size = get_frame_size(
-			inst, &inst->fmts[fmt->type], f->type, 0);
+		max_input_size = get_dec_input_frame_size(inst);
 		if (f->fmt.pix_mp.plane_fmt[0].sizeimage > max_input_size ||
 			!f->fmt.pix_mp.plane_fmt[0].sizeimage) {
 			f->fmt.pix_mp.plane_fmt[0].sizeimage = max_input_size;
@@ -999,13 +981,22 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		if (!bufreq)
 			return -EINVAL;
 
-		bufreq->buffer_count_min =
-			MIN_NUM_THUMBNAIL_MODE_CAPTURE_BUFFERS;
-		bufreq->buffer_count_min_host =
-			MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
-		bufreq->buffer_count_actual =
-			MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
-
+		/* VP9 super frame requires multiple frames decoding */
+		if (inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_VP9) {
+			bufreq->buffer_count_min =
+				MIN_NUM_THUMBNAIL_MODE_CAPTURE_BUFFERS_VP9;
+			bufreq->buffer_count_min_host =
+				MIN_NUM_THUMBNAIL_MODE_CAPTURE_BUFFERS_VP9;
+			bufreq->buffer_count_actual =
+				MIN_NUM_THUMBNAIL_MODE_CAPTURE_BUFFERS_VP9;
+		} else {
+			bufreq->buffer_count_min =
+				MIN_NUM_THUMBNAIL_MODE_CAPTURE_BUFFERS;
+			bufreq->buffer_count_min_host =
+				MIN_NUM_THUMBNAIL_MODE_CAPTURE_BUFFERS;
+			bufreq->buffer_count_actual =
+				MIN_NUM_THUMBNAIL_MODE_CAPTURE_BUFFERS;
+		}
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_SECURE:
 		inst->flags &= ~VIDC_SECURE;
