@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,6 +47,10 @@ static struct ion_heap_desc ion_heap_meta[] = {
 	{
 		.id	= ION_CP_MM_HEAP_ID,
 		.name	= ION_MM_HEAP_NAME,
+	},
+	{
+		.id	= ION_USER_CONTIG_HEAP_ID,
+		.name	= ION_USER_CONTIG_HEAP_NAME,
 	},
 	{
 		.id	= ION_QSECOM_HEAP_ID,
