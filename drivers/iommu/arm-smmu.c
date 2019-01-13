@@ -4328,7 +4328,7 @@ static int arm_smmu_init_bus_scaling(struct arm_smmu_power_resources *pwr)
 	pwr->bus_client = msm_bus_scale_register_client(pwr->bus_dt_data);
 	if (!pwr->bus_client) {
 		dev_err(dev, "Bus client registration failed\n");
-		return -EINVAL;
+		return -EPROBE_DEFER;
 	}
 
 	return 0;
