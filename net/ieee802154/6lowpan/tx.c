@@ -55,6 +55,9 @@ int lowpan_header_create(struct sk_buff *skb, struct net_device *ldev,
 	const u8 *daddr = _daddr;
 	struct lowpan_addr_info *info;
 
+	if (!daddr)
+		return -EINVAL;
+
 	/* TODO:
 	 * if this package isn't ipv6 one, where should it be routed?
 	 */
