@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include "kona-pmic-overlay.dtsi"
 #include "msm-audio-lpass.dtsi"
 
 &arch_timer {
-	clock-frequency = <1000000>;
+	clock-frequency = <500000>;
 };
 
 &memtimer {
-	clock-frequency = <1000000>;
+	clock-frequency = <500000>;
 };
 
 &ufsphy_mem {
