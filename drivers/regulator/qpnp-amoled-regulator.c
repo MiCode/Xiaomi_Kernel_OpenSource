@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -208,7 +208,7 @@ static int qpnp_ab_ibb_regulator_get_voltage(struct regulator_dev *rdev)
 	return 0;
 }
 
-#define AB_VREG_OK_POLL_TRIES		25
+#define AB_VREG_OK_POLL_TRIES		50
 static int qpnp_ab_poll_vreg_ok(struct qpnp_amoled *chip, bool status)
 {
 	u32 i = AB_VREG_OK_POLL_TRIES, poll_us = 2000;
@@ -238,11 +238,39 @@ static int qpnp_ab_poll_vreg_ok(struct qpnp_amoled *chip, bool status)
 	return -ETIMEDOUT;
 }
 
+static int qpnp_ibb_aod_config(struct qpnp_amoled *chip, bool aod)
+{
+	int rc;
+	u8 ps_ctl, smart_ps_ctl, nlimit_dac;
+
+	pr_debug("aod: %d\n", aod);
+	if (aod) {
+		ps_ctl = 0x82;
+		smart_ps_ctl = 0;
+		nlimit_dac = 0;
+	} else {
+		ps_ctl = 0x02;
+		smart_ps_ctl = 0x80;
+		nlimit_dac = 0x3;
+	}
+
+	rc = qpnp_amoled_write(chip, IBB_SMART_PS_CTL(chip), &smart_ps_ctl, 1);
+	if (rc < 0)
+		return rc;
+
+	rc = qpnp_amoled_write(chip, IBB_NLIMIT_DAC(chip), &nlimit_dac, 1);
+	if (rc < 0)
+		return rc;
+
+	rc = qpnp_amoled_write(chip, IBB_PS_CTL(chip), &ps_ctl, 1);
+	return rc;
+}
+
 static void qpnp_amoled_aod_work(struct work_struct *work)
 {
 	struct qpnp_amoled *chip = container_of(work, struct qpnp_amoled,
 					aod_work);
-	u8 ps_ctl, smart_ps_ctl, nlimit_dac, val;
+	u8 val = 0;
 	unsigned int mode;
 	int rc;
 
@@ -252,6 +280,10 @@ static void qpnp_amoled_aod_work(struct work_struct *work)
 
 	pr_debug("mode: %d\n", mode);
 	if (mode == REGULATOR_MODE_NORMAL) {
+		rc = qpnp_ibb_aod_config(chip, true);
+		if (rc < 0)
+			goto error;
+
 		/* poll for VREG_OK high */
 		rc = qpnp_ab_poll_vreg_ok(chip, true);
 		if (rc < 0)
@@ -265,39 +297,22 @@ static void qpnp_amoled_aod_work(struct work_struct *work)
 
 		usleep_range(10000, 10001);
 
-		ps_ctl = 0x02;
-		smart_ps_ctl = 0x80;
-		nlimit_dac = 0x3;
-		val = 0;
+		rc = qpnp_ibb_aod_config(chip, false);
+		if (rc < 0)
+			goto error;
 	} else if (mode == REGULATOR_MODE_IDLE) {
 		/* poll for VREG_OK low */
 		rc = qpnp_ab_poll_vreg_ok(chip, false);
 		if (rc < 0)
 			goto error;
 
-		ps_ctl = 0x84;
-		smart_ps_ctl = 0;
-		nlimit_dac = 0;
 		val = 0xF1;
 	} else if (mode == REGULATOR_MODE_STANDBY) {
 		/* Restore the normal configuration without any delay */
-		ps_ctl = 0x02;
-		smart_ps_ctl = 0x80;
-		nlimit_dac = 0x3;
-		val = 0;
+		rc = qpnp_ibb_aod_config(chip, false);
+		if (rc < 0)
+			goto error;
 	}
-
-	rc = qpnp_amoled_write(chip, IBB_SMART_PS_CTL(chip), &smart_ps_ctl, 1);
-	if (rc < 0)
-		goto error;
-
-	rc = qpnp_amoled_write(chip, IBB_NLIMIT_DAC(chip), &nlimit_dac, 1);
-	if (rc < 0)
-		goto error;
-
-	rc = qpnp_amoled_write(chip, IBB_PS_CTL(chip), &ps_ctl, 1);
-	if (rc < 0)
-		goto error;
 
 	rc = qpnp_amoled_write(chip, AB_LDO_SW_DBG_CTL(chip), &val, 1);
 error:
