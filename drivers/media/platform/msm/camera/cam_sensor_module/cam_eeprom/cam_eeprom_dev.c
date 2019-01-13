@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include "cam_eeprom_dev.h"
@@ -65,6 +65,9 @@ int32_t cam_eeprom_update_i2c_info(struct cam_eeprom_ctrl_t *e_ctrl,
 	} else if (e_ctrl->io_master_info.master_type == I2C_MASTER) {
 		e_ctrl->io_master_info.client->addr = i2c_info->slave_addr;
 		CAM_DBG(CAM_EEPROM, "Slave addr: 0x%x", i2c_info->slave_addr);
+	} else if (e_ctrl->io_master_info.master_type == SPI_MASTER) {
+		CAM_ERR(CAM_EEPROM, "Slave addr: 0x%x Freq Mode: %d",
+		i2c_info->slave_addr, i2c_info->i2c_freq_mode);
 	}
 	return 0;
 }
@@ -178,6 +181,7 @@ static int cam_eeprom_i2c_driver_probe(struct i2c_client *client,
 
 	mutex_init(&(e_ctrl->eeprom_mutex));
 
+	INIT_LIST_HEAD(&(e_ctrl->wr_settings.list_head));
 	soc_info = &e_ctrl->soc_info;
 	soc_info->dev = &client->dev;
 	soc_info->dev_name = client->name;
@@ -303,7 +307,7 @@ static int cam_eeprom_spi_setup(struct spi_device *spi)
 	e_ctrl->io_master_info.spi_client = spi_client;
 	e_ctrl->io_master_info.master_type = SPI_MASTER;
 	spi_client->spi_master = spi;
-
+	INIT_LIST_HEAD(&(e_ctrl->wr_settings.list_head));
 	power_info = &eb_info->power_info;
 	power_info->dev = &spi->dev;
 
@@ -314,6 +318,7 @@ static int cam_eeprom_spi_setup(struct spi_device *spi)
 	/* Initialize mutex */
 	mutex_init(&(e_ctrl->eeprom_mutex));
 
+	e_ctrl->bridge_intf.device_hdl = -1;
 	rc = cam_eeprom_parse_dt(e_ctrl);
 	if (rc) {
 		CAM_ERR(CAM_EEPROM, "failed: spi soc init rc %d", rc);
@@ -330,7 +335,6 @@ static int cam_eeprom_spi_setup(struct spi_device *spi)
 	if (rc)
 		goto board_free;
 
-	e_ctrl->bridge_intf.device_hdl = -1;
 	e_ctrl->bridge_intf.ops.get_dev_info = NULL;
 	e_ctrl->bridge_intf.ops.link_setup = NULL;
 	e_ctrl->bridge_intf.ops.apply_req = NULL;
@@ -454,6 +458,7 @@ static int32_t cam_eeprom_platform_driver_probe(
 		goto free_soc;
 	}
 
+	INIT_LIST_HEAD(&(e_ctrl->wr_settings.list_head));
 	rc = cam_eeprom_init_subdev(e_ctrl);
 	if (rc)
 		goto free_soc;

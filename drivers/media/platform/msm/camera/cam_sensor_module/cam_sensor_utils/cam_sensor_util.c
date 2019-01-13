@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -146,7 +146,7 @@ int32_t cam_sensor_handle_poll(
 int32_t cam_sensor_handle_random_write(
 	struct cam_cmd_i2c_random_wr *cam_cmd_i2c_random_wr,
 	struct i2c_settings_array *i2c_reg_settings,
-	uint16_t *cmd_length_in_bytes, int32_t *offset,
+	uint32_t *cmd_length_in_bytes, int32_t *offset,
 	struct list_head **list)
 {
 	struct i2c_settings_list  *i2c_list;
@@ -186,7 +186,7 @@ int32_t cam_sensor_handle_random_write(
 static int32_t cam_sensor_handle_continuous_write(
 	struct cam_cmd_i2c_continuous_wr *cam_cmd_i2c_continuous_wr,
 	struct i2c_settings_array *i2c_reg_settings,
-	uint16_t *cmd_length_in_bytes, int32_t *offset,
+	uint32_t *cmd_length_in_bytes, int32_t *offset,
 	struct list_head **list)
 {
 	struct i2c_settings_list *i2c_list;
@@ -322,10 +322,10 @@ int cam_sensor_i2c_command_parser(
 
 		while (byte_cnt < cmd_desc[i].length) {
 			cmm_hdr = (struct common_header *)cmd_buf;
-			generic_op_code = cmm_hdr->third_byte;
+			generic_op_code = cmm_hdr->fifth_byte;
 			switch (cmm_hdr->cmd_type) {
 			case CAMERA_SENSOR_CMD_TYPE_I2C_RNDM_WR: {
-				uint16_t cmd_length_in_bytes   = 0;
+				uint32_t cmd_length_in_bytes   = 0;
 				struct cam_cmd_i2c_random_wr
 					*cam_cmd_i2c_random_wr =
 					(struct cam_cmd_i2c_random_wr *)cmd_buf;
@@ -346,7 +346,7 @@ int cam_sensor_i2c_command_parser(
 				break;
 			}
 			case CAMERA_SENSOR_CMD_TYPE_I2C_CONT_WR: {
-				uint16_t cmd_length_in_bytes   = 0;
+				uint32_t cmd_length_in_bytes   = 0;
 				struct cam_cmd_i2c_continuous_wr
 				*cam_cmd_i2c_continuous_wr =
 				(struct cam_cmd_i2c_continuous_wr *)

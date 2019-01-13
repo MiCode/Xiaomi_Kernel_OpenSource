@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include "cam_sensor_io.h"
@@ -31,6 +31,36 @@ int32_t camera_io_dev_poll(struct camera_io_master *io_master_info,
 			io_master_info->master_type);
 		return -EINVAL;
 	}
+}
+
+int32_t camera_io_dev_erase(struct camera_io_master *io_master_info,
+	uint32_t addr, uint32_t size)
+{
+	int rc = 0;
+
+	if (!io_master_info) {
+		CAM_ERR(CAM_SENSOR, "Invalid Args");
+		return -EINVAL;
+	}
+
+	if (size == 0)
+		return rc;
+
+	if (io_master_info->master_type == SPI_MASTER) {
+		CAM_DBG(CAM_SENSOR, "Calling SPI Erase");
+		return cam_spi_erase(io_master_info, addr,
+			CAMERA_SENSOR_I2C_TYPE_WORD, size);
+	} else if (io_master_info->master_type == I2C_MASTER ||
+		io_master_info->master_type == CCI_MASTER) {
+		CAM_ERR(CAM_SENSOR, "Erase not supported on master :%d",
+			io_master_info->master_type);
+		rc = -EINVAL;
+	} else {
+		CAM_ERR(CAM_SENSOR, "Invalid Comm. Master:%d",
+			io_master_info->master_type);
+		rc = -EINVAL;
+	}
+	return rc;
 }
 
 int32_t camera_io_dev_read(struct camera_io_master *io_master_info,
@@ -73,6 +103,9 @@ int32_t camera_io_dev_read_seq(struct camera_io_master *io_master_info,
 			addr, data, addr_type, num_bytes);
 	} else if (io_master_info->master_type == SPI_MASTER) {
 		return cam_spi_read_seq(io_master_info,
+			addr, data, addr_type, num_bytes);
+	} else if (io_master_info->master_type == SPI_MASTER) {
+		return cam_spi_write_seq(io_master_info,
 			addr, data, addr_type, num_bytes);
 	} else {
 		CAM_ERR(CAM_SENSOR, "Invalid Comm. Master:%d",

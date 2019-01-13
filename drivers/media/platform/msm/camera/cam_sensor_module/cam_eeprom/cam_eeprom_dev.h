@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 #ifndef _CAM_EEPROM_DEV_H_
 #define _CAM_EEPROM_DEV_H_
 
 #include <linux/i2c.h>
+#include <linux/kernel.h>
+#include <linux/list.h>
 #include <linux/gpio.h>
 #include <media/v4l2-event.h>
 #include <media/v4l2-subdev.h>
@@ -19,6 +21,7 @@
 #include <cam_req_mgr_interface.h>
 #include <cam_mem_mgr.h>
 #include <cam_subdev.h>
+#include <media/cam_sensor.h>
 #include "cam_soc_util.h"
 
 #define DEFINE_MSM_MUTEX(mutexname) \
@@ -142,22 +145,30 @@ struct cam_eeprom_intf_params {
 	struct cam_req_mgr_crm_cb *crm_cb;
 };
 
+struct eebin_info {
+	uint32_t start_address;
+	uint32_t size;
+	uint32_t is_valid;
+};
+
 /**
- * struct cam_cmd_conditional_wait - Conditional wait command
- * @pdev            :   platform device
- * @spi             :   spi device
- * @eeprom_mutex    :   eeprom mutex
- * @soc_info        :   eeprom soc related info
- * @io_master_info  :   Information about the communication master
- * @gpio_num_info   :   gpio info
- * @cci_i2c_master  :   I2C structure
- * @v4l2_dev_str    :   V4L2 device structure
- * @bridge_intf     :   bridge interface params
- * @cam_eeprom_state:   eeprom_device_state
- * @userspace_probe :   flag indicates userspace or kernel probe
- * @cal_data        :   Calibration data
- * @device_name     :   Device name
- *
+ * struct cam_eeprom_ctrl_t - EEPROM control structure
+ * @pdev                :   platform device
+ * @spi                 :   spi device
+ * @eeprom_mutex        :   eeprom mutex
+ * @soc_info            :   eeprom soc related info
+ * @io_master_info      :   Information about the communication master
+ * @gpio_num_info       :   gpio info
+ * @cci_i2c_master      :   I2C structure
+ * @v4l2_dev_str        :   V4L2 device structure
+ * @bridge_intf         :   bridge interface params
+ * @cam_eeprom_state    :   eeprom_device_state
+ * @userspace_probe     :   flag indicates userspace or kernel probe
+ * @cal_data            :   Calibration data
+ * @device_name         :   Device name
+ * @is_multimodule_mode :   To identify multimodule node
+ * @wr_settings         :   I2C write settings
+ * @eebin_info          :   EEBIN address, size info
  */
 struct cam_eeprom_ctrl_t {
 	struct platform_device *pdev;
@@ -175,6 +186,9 @@ struct cam_eeprom_ctrl_t {
 	bool userspace_probe;
 	struct cam_eeprom_memory_block_t cal_data;
 	char device_name[20];
+	uint16_t is_multimodule_mode;
+	struct i2c_settings_array wr_settings;
+	struct eebin_info eebin_info;
 };
 
 int32_t cam_eeprom_update_i2c_info(struct cam_eeprom_ctrl_t *e_ctrl,
