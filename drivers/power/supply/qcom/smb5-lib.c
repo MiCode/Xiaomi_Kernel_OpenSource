@@ -1,4 +1,4 @@
-/* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -773,7 +773,9 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	struct storm_watch *wdata;
 
 	cancel_delayed_work_sync(&chg->pl_enable_work);
-	alarm_cancel(&chg->chg_termination_alarm);
+
+	if (chg->wa_flags & CHG_TERMINATION_WA)
+		alarm_cancel(&chg->chg_termination_alarm);
 
 	if (chg->wa_flags & BOOST_BACK_WA) {
 		data = chg->irq_info[SWITCHER_POWER_OK_IRQ].irq_data;
@@ -3522,7 +3524,9 @@ static void typec_src_removal(struct smb_charger *chg)
 	}
 
 	cancel_delayed_work_sync(&chg->pl_enable_work);
-	alarm_cancel(&chg->chg_termination_alarm);
+
+	if (chg->wa_flags & CHG_TERMINATION_WA)
+		alarm_cancel(&chg->chg_termination_alarm);
 
 	/* reset input current limit voters */
 	vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true,
@@ -4531,11 +4535,13 @@ int smblib_deinit(struct smb_charger *chg)
 			alarm_cancel(&chg->moisture_protection_alarm);
 			cancel_work_sync(&chg->moisture_protection_work);
 		}
-		alarm_cancel(&chg->chg_termination_alarm);
+		if (chg->wa_flags & CHG_TERMINATION_WA) {
+			alarm_cancel(&chg->chg_termination_alarm);
+			cancel_work_sync(&chg->chg_termination_work);
+		}
 		cancel_work_sync(&chg->bms_update_work);
 		cancel_work_sync(&chg->jeita_update_work);
 		cancel_work_sync(&chg->pl_update_work);
-		cancel_work_sync(&chg->chg_termination_work);
 		cancel_delayed_work_sync(&chg->clear_hdc_work);
 		cancel_delayed_work_sync(&chg->icl_change_work);
 		cancel_delayed_work_sync(&chg->pl_enable_work);
