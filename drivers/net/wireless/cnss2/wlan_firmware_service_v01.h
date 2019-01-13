@@ -600,9 +600,11 @@ struct wlfw_host_cap_req_msg_v01 {
 	u32 mem_bucket;
 	u8 mem_cfg_mode_valid;
 	u8 mem_cfg_mode;
+	u8 cal_duration_valid;
+	u16 cal_duration;
 };
 
-#define WLFW_HOST_CAP_REQ_MSG_V01_MAX_MSG_LEN 189
+#define WLFW_HOST_CAP_REQ_MSG_V01_MAX_MSG_LEN 194
 extern struct elem_info wlfw_host_cap_req_msg_v01_ei[];
 
 struct wlfw_host_cap_resp_msg_v01 {
