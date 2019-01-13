@@ -611,6 +611,9 @@ int start_idle_thread(void *stack, jmp_buf *switch_buf)
 	}
 	longjmp(*switch_buf, 1);
 
+	/* unreachable */
+	printk(UM_KERN_ERR "impossible long jump!");
+	fatal_sigsegv();
 	return 0;
 }
 
