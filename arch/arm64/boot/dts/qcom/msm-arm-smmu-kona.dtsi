@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
@@ -21,16 +21,16 @@
 		ranges;
 		qcom,regulator-names = "vdd";
 		vdd-supply = <&gpu_cx_gdsc>;
-		interrupts =	<GIC_SPI 673 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 674 IRQ_TYPE_LEVEL_HIGH>,
+		interrupts =	<GIC_SPI 672 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 673 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 678 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 679 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 680 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 681 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 682 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 683 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 684 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 685 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 686 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 687 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 688 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 689 IRQ_TYPE_LEVEL_HIGH>;
+				<GIC_SPI 685 IRQ_TYPE_LEVEL_HIGH>;
 
 		gfx_0_tbu: gfx_0_tbu@3dc5000 {
 			compatible = "qcom,qsmmuv500-tbu";
@@ -143,11 +143,10 @@
 				<GIC_SPI 407 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 408 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 409 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 412 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 418 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 419 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 420 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 421 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 422 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 423 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 424 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 425 IRQ_TYPE_LEVEL_HIGH>,
@@ -158,7 +157,8 @@
 				<GIC_SPI 694 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 695 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 696 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 697 IRQ_TYPE_LEVEL_HIGH>;
+				<GIC_SPI 697 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 707 IRQ_TYPE_LEVEL_HIGH>;
 
 		anoc_1_tbu: anoc_1_tbu@15185000 {
 			compatible = "qcom,qsmmuv500-tbu";
