@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_VFE_HW_INTF_H_
@@ -65,6 +65,12 @@ enum cam_vfe_bus_irq_regs {
 	CAM_IFE_IRQ_BUS_DUAL_COMP_ERR           = 5,
 	CAM_IFE_IRQ_BUS_DUAL_COMP_OWRT          = 6,
 	CAM_IFE_BUS_IRQ_REGISTERS_MAX,
+};
+
+enum cam_vfe_bus_ver3_irq_regs {
+	CAM_IFE_IRQ_BUS_VER3_REG_STATUS0             = 0,
+	CAM_IFE_IRQ_BUS_VER3_REG_STATUS1             = 1,
+	CAM_IFE_IRQ_BUS_VER3_REG_MAX,
 };
 
 enum cam_vfe_reset_type {
@@ -257,8 +263,11 @@ struct cam_vfe_bus_irq_evt_payload {
 	struct list_head            list;
 	uint32_t                    core_index;
 	uint32_t                    debug_status_0;
+	uint32_t                    ccif_violation_status;
+	uint32_t                    overflow_status;
+	uint32_t                    image_size_violation_status;
 	uint32_t                    evt_id;
-	uint32_t                    irq_reg_val[CAM_IFE_BUS_IRQ_REGISTERS_MAX];
+	uint32_t                    irq_reg_val[CAM_IFE_IRQ_BUS_VER3_REG_MAX];
 	uint32_t                    error_type;
 	struct cam_isp_timestamp    ts;
 	void                       *ctx;
