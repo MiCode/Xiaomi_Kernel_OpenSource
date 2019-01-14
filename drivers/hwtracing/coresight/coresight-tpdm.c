@@ -911,6 +911,9 @@ static ssize_t reset_store(struct device *dev,
 	if (drvdata->bc != NULL)
 		memset(drvdata->bc, 0, sizeof(struct bc_dataset));
 
+	if (drvdata->tc != NULL)
+		memset(drvdata->tc, 0, sizeof(struct tc_dataset));
+
 	if (drvdata->dsb != NULL)
 		memset(drvdata->dsb, 0, sizeof(struct dsb_dataset));
 
