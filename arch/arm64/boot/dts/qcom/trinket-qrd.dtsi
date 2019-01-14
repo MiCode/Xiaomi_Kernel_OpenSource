@@ -172,3 +172,7 @@
 
 	status = "ok";
 };
+
+&usb0 {
+	extcon = <&pmi632_charger>;
+};
