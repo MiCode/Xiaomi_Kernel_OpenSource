@@ -309,3 +309,9 @@ config ARM_QCOM_CPUFREQ_HW
 	 in this engine exposes a programming interface to the OS.
 	 The driver implements the cpufreq interface for this HW engine.
 	 Say Y if you want to support CPUFreq HW.
+
+config CPU_FREQ_MSM
+	bool "MSM CPUFreq support"
+	depends on CPU_FREQ
+	help
+	  This enables the CPUFreq driver for Qualcomm Technologies, Inc. CPUs.

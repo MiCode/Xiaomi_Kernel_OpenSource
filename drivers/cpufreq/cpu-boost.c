@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2015,2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015,2017,2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "cpu-boost: " fmt
@@ -225,8 +225,8 @@ static void do_input_boost(struct work_struct *work)
 	update_policy_online();
 
 	/* Enable scheduler boost to migrate tasks to big cluster */
-	if (sched_boost_on_input) {
-		ret = sched_set_boost(1);
+	if (sched_boost_on_input > 0) {
+		ret = sched_set_boost(sched_boost_on_input);
 		if (ret)
 			pr_err("cpu-boost: sched boost enable failed\n");
 		else
