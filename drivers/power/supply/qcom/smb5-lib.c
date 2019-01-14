@@ -4114,17 +4114,9 @@ static int smblib_soft_jeita_arb_wa(struct smb_charger *chg)
 	if (!chg->jeita_arb_flag && !soft_jeita)
 		return 0;
 
-	if (!chg->cp_disable_votable)
-		chg->cp_disable_votable = find_votable("CP_DISABLE");
-
 	/* Entering soft JEITA from normal state */
 	if (!chg->jeita_arb_flag && soft_jeita) {
 		vote(chg->chg_disable_votable, JEITA_ARB_VOTER, true, 0);
-		/* Disable parallel charging */
-		if (chg->pl_disable_votable)
-			vote(chg->pl_disable_votable, JEITA_ARB_VOTER, true, 0);
-		if (chg->cp_disable_votable)
-			vote(chg->cp_disable_votable, JEITA_ARB_VOTER, true, 0);
 
 		rc = smblib_charge_inhibit_en(chg, true);
 		if (rc < 0)
@@ -4170,12 +4162,6 @@ static int smblib_soft_jeita_arb_wa(struct smb_charger *chg)
 
 		vote(chg->fcc_votable, JEITA_ARB_VOTER, false, 0);
 		vote(chg->fv_votable, JEITA_ARB_VOTER, false, 0);
-		if (chg->pl_disable_votable)
-			vote(chg->pl_disable_votable, JEITA_ARB_VOTER, false,
-				0);
-		if (chg->cp_disable_votable)
-			vote(chg->cp_disable_votable, JEITA_ARB_VOTER, false,
-				0);
 		vote(chg->chg_disable_votable, JEITA_ARB_VOTER, false, 0);
 		chg->jeita_arb_flag = false;
 	}
