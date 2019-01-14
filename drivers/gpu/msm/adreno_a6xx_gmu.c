@@ -314,6 +314,14 @@ static void a6xx_gmu_power_config(struct kgsl_device *device)
 static int a6xx_gmu_start(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	u32 val = 0x00000100;
+	u32 mask = 0x000001FF;
+
+	/* Check for 0xBABEFACE on legacy targets */
+	if (!ADRENO_FEATURE(ADRENO_DEVICE(device), ADRENO_COOP_RESET)) {
+		val = 0xBABEFACE;
+		mask = 0xFFFFFFFF;
+	}
 
 	kgsl_regwrite(device, A6XX_GMU_CX_GMU_WFI_CONFIG, 0x0);
 
@@ -321,9 +329,7 @@ static int a6xx_gmu_start(struct kgsl_device *device)
 	gmu_core_regwrite(device, A6XX_GMU_CM3_SYSRESET, 0);
 	if (timed_poll_check(device,
 			A6XX_GMU_CM3_FW_INIT_RESULT,
-			0xBABEFACE,
-			GMU_START_TIMEOUT,
-			0xFFFFFFFF)) {
+			val, GMU_START_TIMEOUT, mask)) {
 		dev_err(&gmu->pdev->dev, "GMU doesn't boot\n");
 		return -ETIMEDOUT;
 	}

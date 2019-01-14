@@ -124,6 +124,8 @@
 #define ADRENO_ACD BIT(17)
 /* ECP enabled GMU */
 #define ADRENO_ECP BIT(18)
+/* Cooperative reset enabled GMU */
+#define ADRENO_COOP_RESET BIT(19)
 
 /*
  * Adreno GPU quirks - control bits for various workarounds
