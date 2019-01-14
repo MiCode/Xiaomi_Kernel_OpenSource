@@ -1984,8 +1984,8 @@ static int cam_vfe_bus_ver3_init_vfe_out_resource(uint32_t  index,
 	vfe_out = &ver3_bus_priv->vfe_out[vfe_out_type];
 	if (vfe_out->res_state != CAM_ISP_RESOURCE_STATE_UNAVAILABLE ||
 		vfe_out->res_priv) {
-		CAM_ERR(CAM_ISP,
-			"vfe_out_type %d has already been initialized");
+		CAM_ERR(CAM_ISP, "vfe_out_type %d has already been initialized",
+			vfe_out_type);
 		return -EFAULT;
 	}
 
