@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -976,22 +976,22 @@ static const char * const gpio_groups[] = {
 	"gpio64", "gpio65", "gpio66", "gpio67", "gpio68", "gpio69", "gpio70",
 	"gpio71", "gpio72", "gpio73", "gpio74", "gpio75", "gpio76", "gpio77",
 	"gpio78", "gpio79", "gpio80", "gpio81", "gpio82", "gpio83", "gpio84",
-	"gpio85", "gpio86", "gpio87", "gpio87", "gpio88", "gpio88", "gpio89",
-	"gpio89", "gpio90", "gpio91", "gpio92", "gpio93", "gpio94", "gpio95",
-	"gpio96", "gpio97", "gpio98", "gpio99", "gpio100", "gpio101",
-	"gpio102", "gpio103", "gpio104", "gpio105", "gpio106", "gpio107",
-	"gpio108", "gpio109", "gpio110", "gpio111", "gpio112", "gpio113",
-	"gpio114", "gpio115", "gpio116", "gpio117", "gpio118", "gpio119",
-	"gpio120", "gpio121", "gpio122", "gpio123", "gpio124", "gpio125",
-	"gpio126", "gpio127", "gpio128", "gpio129", "gpio130", "gpio131",
-	"gpio132", "gpio133", "gpio134", "gpio135", "gpio136", "gpio137",
-	"gpio138", "gpio139", "gpio140", "gpio141", "gpio142", "gpio143",
-	"gpio144", "gpio145", "gpio146", "gpio147", "gpio148", "gpio149",
-	"gpio150", "gpio151", "gpio152", "gpio153", "gpio154", "gpio155",
-	"gpio156", "gpio157", "gpio158", "gpio159", "gpio160", "gpio161",
-	"gpio162", "gpio163", "gpio164", "gpio165", "gpio166", "gpio167",
-	"gpio168", "gpio169", "gpio170", "gpio171", "gpio172", "gpio173",
-	"gpio174", "gpio175", "gpio176", "gpio177", "gpio178", "gpio179",
+	"gpio85", "gpio86", "gpio87", "gpio88", "gpio89", "gpio90", "gpio91",
+	"gpio92", "gpio93", "gpio94", "gpio95", "gpio96", "gpio97", "gpio98",
+	"gpio99", "gpio100", "gpio101", "gpio102", "gpio103", "gpio104",
+	"gpio105", "gpio106", "gpio107", "gpio108", "gpio109", "gpio110",
+	"gpio111", "gpio112", "gpio113", "gpio114", "gpio115", "gpio116",
+	"gpio117", "gpio118", "gpio119", "gpio120", "gpio121", "gpio122",
+	"gpio123", "gpio124", "gpio125", "gpio126", "gpio127", "gpio128",
+	"gpio129", "gpio130", "gpio131", "gpio132", "gpio133", "gpio134",
+	"gpio135", "gpio136", "gpio137", "gpio138", "gpio139", "gpio140",
+	"gpio141", "gpio142", "gpio143", "gpio144", "gpio145", "gpio146",
+	"gpio147", "gpio148", "gpio149", "gpio150", "gpio151", "gpio152",
+	"gpio153", "gpio154", "gpio155", "gpio156", "gpio157", "gpio158",
+	"gpio159", "gpio160", "gpio161", "gpio162", "gpio163", "gpio164",
+	"gpio165", "gpio166", "gpio167", "gpio168", "gpio169", "gpio170",
+	"gpio171", "gpio172", "gpio173", "gpio174", "gpio175", "gpio176",
+	"gpio177", "gpio178", "gpio179",
 };
 static const char * const qdss_cti_groups[] = {
 	"gpio0", "gpio2", "gpio2", "gpio44", "gpio45", "gpio46", "gpio92",
