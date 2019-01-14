@@ -4727,6 +4727,8 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 	else
 		chip->cl->dt.max_cap_limit = temp;
 
+	of_property_read_u32(node, "qcom,cl-skew", &chip->cl->dt.skew_decipct);
+
 	fg_gen4_parse_batt_temp_dt(chip);
 
 	chip->dt.hold_soc_while_full = of_property_read_bool(node,
