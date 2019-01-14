@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -153,6 +153,9 @@
 #define GCC_CRYPTO_CLK					137
 #define GCC_MDP_TBU_CLK					138
 #define GCC_QDSS_DAP_CLK				139
+#define GCC_BIAS_PLL_MISC_RESET_CLK			142
+#define GCC_BIAS_PLL_AHB_CLK				143
+#define GCC_BIAS_PLL_AON_CLK				144
 
 #define GCC_GENI_IR_BCR					0
 #define GCC_USB_HS_BCR					1
@@ -168,5 +171,6 @@
 #define GCC_PCIE_0_LINK_DOWN_BCR			11
 #define GCC_PCIEPHY_0_PHY_BCR				12
 #define GCC_EMAC_BCR					13
+#define GCC_BIAS_PLL_BCR				14
 
 #endif
