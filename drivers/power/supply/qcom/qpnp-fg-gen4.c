@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -4627,6 +4627,8 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 		chip->cl->dt.max_cap_limit = DEFAULT_CL_MAX_LIM_DECIPERC;
 	else
 		chip->cl->dt.max_cap_limit = temp;
+
+	of_property_read_u32(node, "qcom,cl-skew", &chip->cl->dt.skew_decipct);
 
 	rc = of_property_read_u32(node, "qcom,fg-batt-temp-hot", &temp);
 	if (rc < 0)
