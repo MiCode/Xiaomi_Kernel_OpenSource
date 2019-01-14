@@ -2073,8 +2073,10 @@ static inline unsigned long cpu_util_cum(int cpu, int delta)
 	return (delta >= capacity) ? capacity : delta;
 }
 
-
 #ifdef CONFIG_SCHED_WALT
+extern unsigned long boosted_cpu_util(int cpu, unsigned long other_util,
+				      struct sched_walt_cpu_load *walt_load);
+
 u64 freq_policy_load(struct rq *rq);
 
 extern u64 walt_load_reported_window;
@@ -2557,9 +2559,9 @@ static inline void cpufreq_update_util(struct rq *rq, unsigned int flags)
 #endif
 
 	data = rcu_dereference_sched(*per_cpu_ptr(&cpufreq_update_util_data,
-						  cpu_of(rq)));
+					cpu_of(rq)));
 	if (data)
-		data->func(data, rq_clock(rq), flags);
+		data->func(data, sched_ktime_clock(), flags);
 }
 #else
 static inline void cpufreq_update_util(struct rq *rq, unsigned int flags) {}

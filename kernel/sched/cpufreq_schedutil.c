@@ -123,6 +123,15 @@ static bool sugov_should_update_freq(struct sugov_policy *sg_policy, u64 time)
 	return delta_ns >= sg_policy->min_rate_limit_ns;
 }
 
+static inline bool use_pelt(void)
+{
+#ifdef CONFIG_SCHED_WALT
+	return (!sysctl_sched_use_walt_cpu_util || walt_disabled);
+#else
+	return true;
+#endif
+}
+
 static bool sugov_up_down_rate_limit(struct sugov_policy *sg_policy, u64 time,
 				     unsigned int next_freq)
 {
@@ -160,6 +169,7 @@ static void sugov_fast_switch(struct sugov_policy *sg_policy, u64 time,
 			      unsigned int next_freq)
 {
 	struct cpufreq_policy *policy = sg_policy->policy;
+	unsigned int cpu;
 
 	if (!sugov_update_next_freq(sg_policy, time, next_freq))
 		return;
@@ -169,7 +179,8 @@ static void sugov_fast_switch(struct sugov_policy *sg_policy, u64 time,
 		return;
 
 	policy->cur = next_freq;
-	trace_cpu_frequency(next_freq, smp_processor_id());
+	for_each_cpu(cpu, policy->cpus)
+		trace_cpu_frequency(next_freq, smp_processor_id());
 }
 
 static void sugov_deferred_update(struct sugov_policy *sg_policy, u64 time,
@@ -178,7 +189,8 @@ static void sugov_deferred_update(struct sugov_policy *sg_policy, u64 time,
 	if (!sugov_update_next_freq(sg_policy, time, next_freq))
 		return;
 
-	sg_policy->work_in_progress = true;
+	if (use_pelt())
+		sg_policy->work_in_progress = true;
 	irq_work_queue(&sg_policy->irq_work);
 }
 
@@ -335,7 +347,7 @@ static unsigned long sugov_get_util(struct sugov_cpu *sg_cpu)
 	sg_cpu->max = max;
 	sg_cpu->bw_dl = cpu_bw_dl(rq);
 
-	return cpu_util_freq(sg_cpu->cpu, &sg_cpu->walt_load);
+	return boosted_cpu_util(sg_cpu->cpu, 0, &sg_cpu->walt_load);
 #else
 	unsigned long util = boosted_cpu_util(sg_cpu->cpu, cpu_util_rt(rq));
 
@@ -606,13 +618,14 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 		sg_policy->hispeed_util = hs_util;
 	}
 
+	sugov_iowait_apply(sg_cpu, time, &util, &max);
+	sugov_calc_avg_cap(sg_policy, sg_cpu->walt_load.ws,
+			   sg_policy->policy->cur);
+
 	trace_sugov_util_update(sg_cpu->cpu, sg_cpu->util,
 				sg_policy->avg_cap, max, sg_cpu->walt_load.nl,
 				sg_cpu->walt_load.pl, flags);
 
-	sugov_iowait_apply(sg_cpu, time, &util, &max);
-	sugov_calc_avg_cap(sg_policy, sg_cpu->walt_load.ws,
-			   sg_policy->policy->cur);
 	sugov_walt_adjust(sg_cpu, &util, &max);
 	next_f = get_next_freq(sg_policy, util, max);
 	/*
@@ -753,7 +766,8 @@ static void sugov_work(struct kthread_work *work)
 	 */
 	raw_spin_lock_irqsave(&sg_policy->update_lock, flags);
 	freq = sg_policy->next_freq;
-	sg_policy->work_in_progress = false;
+	if (use_pelt())
+		sg_policy->work_in_progress = false;
 	sugov_track_cycles(sg_policy, sg_policy->policy->cur,
 			   ktime_get_ns());
 	raw_spin_unlock_irqrestore(&sg_policy->update_lock, flags);
