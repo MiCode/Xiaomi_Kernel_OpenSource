@@ -794,10 +794,12 @@
 	};
 
 	icnss: qcom,icnss@C800000 {
-		status = "disabled";
 		compatible = "qcom,icnss";
-		reg = <0xC800000 0x800000>;
-		reg-names = "membase";
+		reg = <0xC800000 0x800000>,
+		      <0xa0000000 0x10000000>,
+		      <0xb0000000 0x10000>;
+		reg-names = "membase", "smmu_iova_base", "smmu_iova_ipa";
+		iommus = <&apps_smmu 0x80 0x1>;
 		interrupts = <0 358 0 /* CE0 */ >,
 			     <0 359 0 /* CE1 */ >,
 			     <0 360 0 /* CE2 */ >,
@@ -813,6 +815,18 @@
 		qcom,smmu-s1-bypass;
 		qcom,wlan-msa-memory = <0x100000>;
 		qcom,wlan-msa-fixed-region = <&wlan_msa_mem>;
+		vdd-cx-mx-supply = <&L8A>;
+		vdd-1.8-xo-supply = <&L16A>;
+		vdd-1.3-rfa-supply = <&L17A>;
+		vdd-3.3-ch0-supply = <&L23A>;
+		qcom,vdd-cx-mx-config = <640000 640000>;
+		qcom,smp2p_map_wlan_1_in {
+			interrupts-extended = <&smp2p_wlan_1_in 0 0>,
+					      <&smp2p_wlan_1_in 1 0>;
+			interrupt-names = "qcom,smp2p-force-fatal-error",
+					  "qcom,smp2p-early-crash-ind";
+		};
+
 	};
 
 	arm64-cpu-erp {
@@ -1722,6 +1736,13 @@
 			interrupt-controller;
 			#interrupt-cells = <2>;
 		};
+
+		smp2p_wlan_1_in: qcom,smp2p-wlan-1-in {
+			qcom,entry-name = "wlan";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+
 	};
 
 	qcom,smp2p-adsp {
