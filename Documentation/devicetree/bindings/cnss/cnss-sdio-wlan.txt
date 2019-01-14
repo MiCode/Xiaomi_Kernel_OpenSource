@@ -31,6 +31,12 @@ Optional properties:
   - qcom,msm-bus,vectors-KBps: bus scale vector table.
   - qcom,skip-wlan-en-toggle: Boolean property to be enabled for platforms where
                            wlan_en toggling is not supported.
+  - vdd-wlan-xtal-min: Minimum required voltage in uV for VDD_XTAL regulator.
+			   Minimum required voltage is 1620000.
+			   If not set, a typical 1800000 will be set.
+  - vdd-wlan-xtal-max: Maximum acceptable voltage in uV for VDD_XTAL regulator.
+			   Maximum acceptable voltage is 3465000.
+			   If not set, a typical 1800000 will be set.
 Example:
 	qcom,cnss-sdio {
 		compatible = "qcom,cnss_sdio";
