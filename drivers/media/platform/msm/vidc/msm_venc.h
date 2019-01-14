@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 #ifndef _MSM_VENC_H_
 #define _MSM_VENC_H_
@@ -18,8 +18,6 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst,
 		struct v4l2_format *f);
 int msm_venc_s_ctrl(struct msm_vidc_inst *inst,
 		struct v4l2_ctrl *ctrl);
-int msm_venc_s_parm(struct msm_vidc_inst *inst,
-		struct v4l2_streamparm *a);
 int msm_venc_set_properties(struct msm_vidc_inst *inst);
 int msm_venc_set_extradata(struct msm_vidc_inst *inst);
 int msm_venc_set_frame_rate(struct msm_vidc_inst *inst);

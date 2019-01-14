@@ -207,7 +207,6 @@ int msm_comm_ctrl_init(struct msm_vidc_inst *inst,
 		const struct v4l2_ctrl_ops *ctrl_ops);
 int msm_comm_ctrl_deinit(struct msm_vidc_inst *inst);
 void msm_comm_cleanup_internal_buffers(struct msm_vidc_inst *inst);
-int msm_vidc_comm_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a);
 bool msm_comm_turbo_session(struct msm_vidc_inst *inst);
 void msm_comm_print_inst_info(struct msm_vidc_inst *inst);
 int msm_comm_v4l2_to_hfi(int id, int value);

@@ -104,11 +104,11 @@ static int msm_vidc_get_fps(struct msm_vidc_inst *inst)
 {
 	int fps;
 
-	if ((inst->clk_data.operating_rate >> 16) > inst->prop.fps)
+	if (inst->clk_data.operating_rate > inst->clk_data.frame_rate)
 		fps = (inst->clk_data.operating_rate >> 16) ?
 			(inst->clk_data.operating_rate >> 16) : 1;
 	else
-		fps = inst->prop.fps;
+		fps = inst->clk_data.frame_rate >> 16;
 
 	return fps;
 }
@@ -298,10 +298,11 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 		if (inst->session_type == MSM_VIDC_ENCODER) {
 			vote_data[i].bitrate = inst->clk_data.bitrate;
 			/* scale bitrate if operating rate is larger than fps */
-			if (vote_data[i].fps > inst->prop.fps
-				&& inst->prop.fps) {
+			if (vote_data[i].fps > (inst->clk_data.frame_rate >> 16)
+				&& (inst->clk_data.frame_rate >> 16)) {
 				vote_data[i].bitrate = vote_data[i].bitrate /
-				inst->prop.fps * vote_data[i].fps;
+				(inst->clk_data.frame_rate >> 16) *
+				vote_data[i].fps;
 			}
 		}
 
@@ -658,9 +659,10 @@ static unsigned long msm_vidc_calc_freq_iris1(struct msm_vidc_inst *inst,
 
 		/* bitrate is based on fps, scale it using operating rate */
 		operating_rate = inst->clk_data.operating_rate >> 16;
-		if (operating_rate > inst->prop.fps && inst->prop.fps) {
+		if (operating_rate > (inst->clk_data.frame_rate >> 16) &&
+			(inst->clk_data.frame_rate >> 16)) {
 			vsp_factor_num *= operating_rate;
-			vsp_factor_den *= inst->prop.fps;
+			vsp_factor_den *= inst->clk_data.frame_rate >> 16;
 		}
 		vsp_cycles += ((u64)inst->clk_data.bitrate * vsp_factor_num) /
 				vsp_factor_den;
@@ -750,9 +752,10 @@ static unsigned long msm_vidc_calc_freq_iris2(struct msm_vidc_inst *inst,
 
 		/* bitrate is based on fps, scale it using operating rate */
 		operating_rate = inst->clk_data.operating_rate >> 16;
-		if (operating_rate > inst->prop.fps && inst->prop.fps) {
+		if (operating_rate > (inst->clk_data.frame_rate >> 16) &&
+			(inst->clk_data.frame_rate >> 16)) {
 			vsp_factor_num *= operating_rate;
-			vsp_factor_den *= inst->prop.fps;
+			vsp_factor_den *= inst->clk_data.frame_rate >> 16;
 		}
 		vsp_cycles += ((u64)inst->clk_data.bitrate * vsp_factor_num) /
 				vsp_factor_den;
@@ -1266,7 +1269,7 @@ int msm_vidc_decide_work_route_iris1(struct msm_vidc_inst *inst)
 				V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE);
 		output_height = inst->prop.height[CAPTURE_PORT];
 		output_width = inst->prop.width[CAPTURE_PORT];
-		fps = inst->prop.fps;
+		fps = inst->clk_data.frame_rate >> 16;
 		mbps = NUM_MBS_PER_SEC(output_height, output_width, fps);
 		if (slice_mode ==
 			V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_BYTES ||
@@ -1331,7 +1334,7 @@ int msm_vidc_decide_work_route_iris2(struct msm_vidc_inst *inst)
 				V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE);
 		output_height = inst->prop.height[CAPTURE_PORT];
 		output_width = inst->prop.width[CAPTURE_PORT];
-		fps = inst->prop.fps;
+		fps = inst->clk_data.frame_rate >> 16;
 		mbps = NUM_MBS_PER_SEC(output_height, output_width, fps);
 		cbr_plus = ((rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR &&
 			mbps > CBR_MB_LIMIT) ||
@@ -1846,7 +1849,7 @@ void msm_print_core_status(struct msm_vidc_core *core, u32 core_id)
 			inst->prop.height[OUTPUT_PORT],
 			inst->prop.width[CAPTURE_PORT],
 			inst->prop.height[CAPTURE_PORT],
-			inst->prop.fps,
+			inst->clk_data.frame_rate >> 16,
 			inst->session_type == MSM_VIDC_ENCODER ? "ENC" : "DEC",
 			inst->clk_data.work_mode == HFI_WORKMODE_1 ?
 				"WORK_MODE_1" : "WORK_MODE_2",

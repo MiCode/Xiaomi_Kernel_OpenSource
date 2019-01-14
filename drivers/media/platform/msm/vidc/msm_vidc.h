@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _MSM_VIDC_H_
@@ -113,7 +113,6 @@ int msm_vidc_s_ext_ctrl(void *instance, struct v4l2_ext_controls *a);
 int msm_vidc_g_ext_ctrl(void *instance, struct v4l2_ext_controls *a);
 int msm_vidc_g_ctrl(void *instance, struct v4l2_control *a);
 int msm_vidc_reqbufs(void *instance, struct v4l2_requestbuffers *b);
-int msm_vidc_s_parm(void *instance, struct v4l2_streamparm *a);
 int msm_vidc_release_buffer(void *instance, int buffer_type,
 		unsigned int buffer_index);
 int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b);

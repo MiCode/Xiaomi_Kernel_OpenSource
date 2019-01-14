@@ -363,24 +363,6 @@ int msm_vidc_reqbufs(void *instance, struct v4l2_requestbuffers *b)
 }
 EXPORT_SYMBOL(msm_vidc_reqbufs);
 
-int msm_vidc_s_parm(void *instance, struct v4l2_streamparm *a)
-{
-	struct msm_vidc_inst *inst = instance;
-
-	if (!inst || !a) {
-		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
-		return -EINVAL;
-	}
-
-	if (is_decode_session(inst))
-		return msm_vdec_s_parm(inst, a);
-	else if (is_encode_session(inst))
-		return msm_venc_s_parm(inst, a);
-
-	return 0;
-}
-EXPORT_SYMBOL(msm_vidc_s_parm);
-
 static bool valid_v4l2_buffer(struct v4l2_buffer *b,
 		struct msm_vidc_inst *inst)
 {
@@ -846,7 +828,7 @@ int msm_vidc_set_internal_config(struct msm_vidc_inst *inst)
 
 	output_height = inst->prop.height[CAPTURE_PORT];
 	output_width = inst->prop.width[CAPTURE_PORT];
-	fps = inst->prop.fps;
+	fps = inst->clk_data.frame_rate >> 16;
 	mbps = NUM_MBS_PER_SEC(output_height, output_width, fps);
 	if ((rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR ||
 		 rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR) &&

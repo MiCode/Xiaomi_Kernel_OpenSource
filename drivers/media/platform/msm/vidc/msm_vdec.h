@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 #ifndef _MSM_VDEC_H_
 #define _MSM_VDEC_H_
@@ -20,7 +20,5 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst,
 		struct v4l2_ctrl *ctrl);
 int msm_vdec_g_ctrl(struct msm_vidc_inst *inst,
 		struct v4l2_ctrl *ctrl);
-int msm_vdec_s_parm(struct msm_vidc_inst *inst,
-		struct v4l2_streamparm *a);
 int msm_vdec_set_properties(struct msm_vidc_inst *inst);
 #endif
