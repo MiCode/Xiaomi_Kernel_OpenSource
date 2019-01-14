@@ -39,6 +39,7 @@ const char *buf, size_t count)					\
 struct cpu_sync {
 	int cpu;
 	unsigned int input_boost_min;
+	unsigned int input_boost_freq;
 };
 
 static DEFINE_PER_CPU(struct cpu_sync, sync_info);
@@ -46,19 +47,89 @@ static struct workqueue_struct *cpu_boost_wq;
 
 static struct work_struct input_boost_work;
 
-static unsigned int input_boost_freq;
-show_one(input_boost_freq);
-store_one(input_boost_freq);
-cpu_boost_attr_rw(input_boost_freq);
+static bool input_boost_enabled;
 
 static unsigned int input_boost_ms = 40;
 show_one(input_boost_ms);
 store_one(input_boost_ms);
 cpu_boost_attr_rw(input_boost_ms);
 
+static unsigned int sched_boost_on_input;
+show_one(sched_boost_on_input);
+store_one(sched_boost_on_input);
+cpu_boost_attr_rw(sched_boost_on_input);
+
+static bool sched_boost_active;
+
 static struct delayed_work input_boost_rem;
 static u64 last_input_time;
 #define MIN_INPUT_INTERVAL (150 * USEC_PER_MSEC)
+
+static ssize_t store_input_boost_freq(struct kobject *kobj,
+				      struct kobj_attribute *attr,
+				      const char *buf, size_t count)
+{
+	int i, ntokens = 0;
+	unsigned int val, cpu;
+	const char *cp = buf;
+	bool enabled = false;
+
+	while ((cp = strpbrk(cp + 1, " :")))
+		ntokens++;
+
+	/* single number: apply to all CPUs */
+	if (!ntokens) {
+		if (sscanf(buf, "%u\n", &val) != 1)
+			return -EINVAL;
+		for_each_possible_cpu(i)
+			per_cpu(sync_info, i).input_boost_freq = val;
+		goto check_enable;
+	}
+
+	/* CPU:value pair */
+	if (!(ntokens % 2))
+		return -EINVAL;
+
+	cp = buf;
+	for (i = 0; i < ntokens; i += 2) {
+		if (sscanf(cp, "%u:%u", &cpu, &val) != 2)
+			return -EINVAL;
+		if (cpu >= num_possible_cpus())
+			return -EINVAL;
+
+		per_cpu(sync_info, cpu).input_boost_freq = val;
+		cp = strnchr(cp, PAGE_SIZE - (cp - buf), ' ');
+		cp++;
+	}
+
+check_enable:
+	for_each_possible_cpu(i) {
+		if (per_cpu(sync_info, i).input_boost_freq) {
+			enabled = true;
+			break;
+		}
+	}
+	input_boost_enabled = enabled;
+
+	return count;
+}
+
+static ssize_t show_input_boost_freq(struct kobject *kobj,
+				     struct kobj_attribute *attr, char *buf)
+{
+	int cnt = 0, cpu;
+	struct cpu_sync *s;
+
+	for_each_possible_cpu(cpu) {
+		s = &per_cpu(sync_info, cpu);
+		cnt += snprintf(buf + cnt, PAGE_SIZE - cnt,
+				"%d:%u ", cpu, s->input_boost_freq);
+	}
+	cnt += snprintf(buf + cnt, PAGE_SIZE - cnt, "\n");
+	return cnt;
+}
+
+cpu_boost_attr_rw(input_boost_freq);
 
 /*
  * The CPUFREQ_ADJUST notifier is used to override the current policy min to
@@ -111,7 +182,7 @@ static void update_policy_online(void)
 
 static void do_input_boost_rem(struct work_struct *work)
 {
-	unsigned int i;
+	unsigned int i, ret;
 	struct cpu_sync *i_sync_info;
 
 	/* Reset the input_boost_min for all CPUs in the system */
@@ -123,24 +194,44 @@ static void do_input_boost_rem(struct work_struct *work)
 
 	/* Update policies for all online CPUs */
 	update_policy_online();
+
+	if (sched_boost_active) {
+		ret = sched_set_boost(0);
+		if (ret)
+			pr_err("cpu-boost: sched boost disable failed\n");
+		sched_boost_active = false;
+	}
 }
 
 static void do_input_boost(struct work_struct *work)
 {
-	unsigned int i;
+	unsigned int i, ret;
 	struct cpu_sync *i_sync_info;
 
 	cancel_delayed_work_sync(&input_boost_rem);
+	if (sched_boost_active) {
+		sched_set_boost(0);
+		sched_boost_active = false;
+	}
 
 	/* Set the input_boost_min for all CPUs in the system */
 	pr_debug("Setting input boost min for all CPUs\n");
 	for_each_possible_cpu(i) {
 		i_sync_info = &per_cpu(sync_info, i);
-		i_sync_info->input_boost_min = input_boost_freq;
+		i_sync_info->input_boost_min = i_sync_info->input_boost_freq;
 	}
 
 	/* Update policies for all online CPUs */
 	update_policy_online();
+
+	/* Enable scheduler boost to migrate tasks to big cluster */
+	if (sched_boost_on_input) {
+		ret = sched_set_boost(1);
+		if (ret)
+			pr_err("cpu-boost: sched boost enable failed\n");
+		else
+			sched_boost_active = true;
+	}
 
 	queue_delayed_work(cpu_boost_wq, &input_boost_rem,
 					msecs_to_jiffies(input_boost_ms));
@@ -151,7 +242,7 @@ static void cpuboost_input_event(struct input_handle *handle,
 {
 	u64 now;
 
-	if (!input_boost_freq)
+	if (!input_boost_enabled)
 		return;
 
 	now = ktime_to_us(ktime_get());
@@ -267,6 +358,11 @@ static int cpu_boost_init(void)
 	ret = sysfs_create_file(cpu_boost_kobj, &input_boost_freq_attr.attr);
 	if (ret)
 		pr_err("Failed to create input_boost_freq node: %d\n", ret);
+
+	ret = sysfs_create_file(cpu_boost_kobj,
+				&sched_boost_on_input_attr.attr);
+	if (ret)
+		pr_err("Failed to create sched_boost_on_input node: %d\n", ret);
 
 	ret = input_register_handler(&cpuboost_input_handler);
 	return 0;
