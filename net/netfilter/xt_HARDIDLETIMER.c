@@ -236,6 +236,9 @@ static int hardidletimer_tg_checkentry(const struct xt_tgchk_param *par)
 	struct hardidletimer_tg_info *info = par->targinfo;
 	int ret;
 	ktime_t tout;
+	struct timespec ktimespec;
+
+	memset(&ktimespec, 0, sizeof(struct timespec));
 
 	pr_debug("checkentry targinfo %s\n", info->label);
 
@@ -256,14 +259,15 @@ static int hardidletimer_tg_checkentry(const struct xt_tgchk_param *par)
 	info->timer = __hardidletimer_tg_find_by_label(info->label);
 	if (info->timer) {
 		info->timer->refcnt++;
-		if (!info->timer->active) {
-			schedule_work(&info->timer->work);
-			pr_debug("Starting Checkentry timer\n");
-		}
+		/* calculate remaining expiry time */
+		tout = alarm_expires_remaining(&info->timer->alarm);
+		ktimespec = ktime_to_timespec(tout);
 
-		info->timer->active = true;
-		tout = ktime_set(info->timeout, 0);
-		alarm_start_relative(&info->timer->alarm, tout);
+		if (ktimespec.tv_sec > 0) {
+			pr_debug("time_expiry_remaining %ld\n",
+				 ktimespec.tv_sec);
+			alarm_start_relative(&info->timer->alarm, tout);
+		}
 
 		pr_debug("increased refcnt of timer %s to %u\n",
 			 info->label, info->timer->refcnt);
