@@ -314,7 +314,7 @@
 
 		removed_mem: removed_region@80b00000 {
 			no-map;
-			reg = <0x0 0x80b00000 0x0 0xc00000>;
+			reg = <0x0 0x80b00000 0x0 0x1300000>;
 		};
 
 		qtee_apps_mem: qtee_apps_region@81e00000 {
@@ -343,13 +343,13 @@
 		pil_ipa_gsi_mem: pil_ipa_gsi_region@86610000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x86610000 0x0 0x5000>;
+			reg = <0x0 0x86610000 0x0 0xa000>;
 		};
 
-		pil_gpu_mem: pil_gpu_region@86615000 {
+		pil_gpu_mem: pil_gpu_region@8661a000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x86615000 0x0 0x2000>;
+			reg = <0x0 0x8661a000 0x0 0x2000>;
 		};
 
 		pil_npu_mem: pil_npu_region@86700000 {
