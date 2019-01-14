@@ -97,6 +97,7 @@
 #define VBATT_LOW_OFFSET		1
 #define SYS_CONFIG_WORD			60
 #define SYS_CONFIG_OFFSET		0
+#define SYS_CONFIG2_OFFSET		1
 #define PROFILE_LOAD_WORD		65
 #define PROFILE_LOAD_OFFSET		0
 #define RSLOW_COEFF_DISCHG_WORD		78
@@ -186,6 +187,7 @@ struct fg_dt_props {
 	bool	rapid_soc_dec_en;
 	bool	five_pin_battery;
 	bool	multi_profile_load;
+	bool	esr_calib_dischg;
 	int	cutoff_volt_mv;
 	int	empty_volt_mv;
 	int	cutoff_curr_ma;
@@ -4061,6 +4063,104 @@ static int fg_alg_init(struct fg_gen4_chip *chip)
 	return 0;
 }
 
+static int fg_gen4_esr_calib_config(struct fg_gen4_chip *chip)
+{
+	struct fg_dev *fg = &chip->fg;
+	u8 buf[2], val, mask;
+	int rc;
+
+	if (chip->esr_fast_calib) {
+		rc = fg_gen4_esr_fast_calib_config(chip, true);
+		if (rc < 0)
+			return rc;
+	} else {
+		if (chip->dt.esr_timer_chg_slow[TIMER_RETRY] >= 0 &&
+			chip->dt.esr_timer_chg_slow[TIMER_MAX] >= 0) {
+			rc = fg_set_esr_timer(fg,
+				chip->dt.esr_timer_chg_slow[TIMER_RETRY],
+				chip->dt.esr_timer_chg_slow[TIMER_MAX], true,
+				FG_IMA_DEFAULT);
+			if (rc < 0) {
+				pr_err("Error in setting ESR charge timer, rc=%d\n",
+					rc);
+				return rc;
+			}
+		}
+
+		if (chip->dt.esr_timer_dischg_slow[TIMER_RETRY] >= 0 &&
+			chip->dt.esr_timer_dischg_slow[TIMER_MAX] >= 0) {
+			rc = fg_set_esr_timer(fg,
+				chip->dt.esr_timer_dischg_slow[TIMER_RETRY],
+				chip->dt.esr_timer_dischg_slow[TIMER_MAX],
+				false, FG_IMA_DEFAULT);
+			if (rc < 0) {
+				pr_err("Error in setting ESR discharge timer, rc=%d\n",
+					rc);
+				return rc;
+			}
+		}
+
+		if (chip->dt.esr_calib_dischg) {
+			/* Allow ESR calibration only during discharging */
+			val = BIT(6) | BIT(7);
+			mask = BIT(1) | BIT(6) | BIT(7);
+			rc = fg_sram_masked_write(fg, SYS_CONFIG_WORD,
+					SYS_CONFIG_OFFSET, mask, val,
+					FG_IMA_DEFAULT);
+			if (rc < 0) {
+				pr_err("Error in writing SYS_CONFIG_WORD, rc=%d\n",
+					rc);
+				return rc;
+			}
+
+			/* Disable ESR charging timer */
+			val = 0;
+			mask = BIT(0);
+			rc = fg_sram_masked_write(fg, SYS_CONFIG_WORD,
+					SYS_CONFIG2_OFFSET, mask, val,
+					FG_IMA_DEFAULT);
+			if (rc < 0) {
+				pr_err("Error in writing SYS_CONFIG2_OFFSET, rc=%d\n",
+					rc);
+				return rc;
+			}
+		} else {
+			/*
+			 * Disable ESR discharging timer and ESR pulsing during
+			 * discharging when ESR fast calibration is disabled.
+			 */
+			val = 0;
+			mask = BIT(6) | BIT(7);
+			rc = fg_sram_masked_write(fg, SYS_CONFIG_WORD,
+					SYS_CONFIG_OFFSET, mask, val,
+					FG_IMA_DEFAULT);
+			if (rc < 0) {
+				pr_err("Error in writing SYS_CONFIG_WORD, rc=%d\n",
+					rc);
+				return rc;
+			}
+		}
+	}
+
+	/*
+	 * Delta ESR interrupt threshold should be configured as specified if
+	 * ESR fast calibration is disabled. Else, set it to max (4000 mOhms).
+	 */
+	fg_encode(fg->sp, FG_SRAM_DELTA_ESR_THR,
+		chip->esr_fast_calib ? 4000000 : chip->dt.delta_esr_thr_uohms,
+		buf);
+	rc = fg_sram_write(fg,
+			fg->sp[FG_SRAM_DELTA_ESR_THR].addr_word,
+			fg->sp[FG_SRAM_DELTA_ESR_THR].addr_byte, buf,
+			fg->sp[FG_SRAM_DELTA_ESR_THR].len, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing DELTA_ESR_THR, rc=%d\n", rc);
+		return rc;
+	}
+
+	return rc;
+}
+
 #define BATT_TEMP_HYST_MASK	GENMASK(3, 0)
 #define BATT_TEMP_DELTA_MASK	GENMASK(7, 4)
 #define BATT_TEMP_DELTA_SHIFT	4
@@ -4138,7 +4238,7 @@ static int fg_gen4_hw_init(struct fg_gen4_chip *chip)
 {
 	struct fg_dev *fg = &chip->fg;
 	int rc;
-	u8 buf[4], val, mask;
+	u8 buf[4], val;
 
 	rc = fg_read(fg, ADC_RR_INT_RT_STS(fg), &val, 1);
 	if (rc < 0) {
@@ -4319,66 +4419,9 @@ static int fg_gen4_hw_init(struct fg_gen4_chip *chip)
 		}
 	}
 
-	if (chip->esr_fast_calib) {
-		rc = fg_gen4_esr_fast_calib_config(chip, true);
-		if (rc < 0)
-			return rc;
-	} else {
-		if (chip->dt.esr_timer_chg_slow[TIMER_RETRY] >= 0 &&
-			chip->dt.esr_timer_chg_slow[TIMER_MAX] >= 0) {
-			rc = fg_set_esr_timer(fg,
-				chip->dt.esr_timer_chg_slow[TIMER_RETRY],
-				chip->dt.esr_timer_chg_slow[TIMER_MAX], true,
-				FG_IMA_DEFAULT);
-			if (rc < 0) {
-				pr_err("Error in setting ESR charge timer, rc=%d\n",
-					rc);
-				return rc;
-			}
-		}
-
-		if (chip->dt.esr_timer_dischg_slow[TIMER_RETRY] >= 0 &&
-			chip->dt.esr_timer_dischg_slow[TIMER_MAX] >= 0) {
-			rc = fg_set_esr_timer(fg,
-				chip->dt.esr_timer_dischg_slow[TIMER_RETRY],
-				chip->dt.esr_timer_dischg_slow[TIMER_MAX],
-				false, FG_IMA_DEFAULT);
-			if (rc < 0) {
-				pr_err("Error in setting ESR discharge timer, rc=%d\n",
-					rc);
-				return rc;
-			}
-		}
-
-		/*
-		 * Disable ESR discharging timer and ESR pulsing during
-		 * discharging when ESR fast calibration is disabled.
-		 */
-		val = 0;
-		mask = BIT(6) | BIT(7);
-		rc = fg_sram_masked_write(fg, SYS_CONFIG_WORD,
-				SYS_CONFIG_OFFSET, mask, val, FG_IMA_DEFAULT);
-		if (rc < 0) {
-			pr_err("Error in writing SYS_CONFIG_WORD, rc=%d\n", rc);
-			return rc;
-		}
-	}
-
-	/*
-	 * Delta ESR interrupt threshold should be configured as specified if
-	 * ESR fast calibration is disabled. Else, set it to max (4000 mOhms).
-	 */
-	fg_encode(fg->sp, FG_SRAM_DELTA_ESR_THR,
-		chip->esr_fast_calib ? 4000000 : chip->dt.delta_esr_thr_uohms,
-		buf);
-	rc = fg_sram_write(fg,
-			fg->sp[FG_SRAM_DELTA_ESR_THR].addr_word,
-			fg->sp[FG_SRAM_DELTA_ESR_THR].addr_byte, buf,
-			fg->sp[FG_SRAM_DELTA_ESR_THR].len, FG_IMA_DEFAULT);
-	if (rc < 0) {
-		pr_err("Error in writing DELTA_ESR_THR, rc=%d\n", rc);
+	rc = fg_gen4_esr_calib_config(chip);
+	if (rc < 0)
 		return rc;
-	}
 
 	rc = restore_cycle_count(chip->counter);
 	if (rc < 0) {
@@ -4524,6 +4567,15 @@ static int fg_parse_esr_cal_params(struct fg_dev *fg)
 	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
 	struct device_node *node = fg->dev->of_node;
 	int rc, i, temp;
+
+	if (chip->dt.esr_timer_dischg_slow[TIMER_RETRY] >= 0 &&
+			chip->dt.esr_timer_dischg_slow[TIMER_MAX] >= 0) {
+		/* ESR calibration only during discharging */
+		chip->dt.esr_calib_dischg = of_property_read_bool(node,
+						"qcom,fg-esr-calib-dischg");
+		if (chip->dt.esr_calib_dischg)
+			return 0;
+	}
 
 	if (!of_find_property(node, "qcom,fg-esr-cal-soc-thresh", NULL) ||
 		!of_find_property(node, "qcom,fg-esr-cal-temp-thresh", NULL))
