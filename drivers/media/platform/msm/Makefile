@@ -9,3 +9,4 @@ obj-$(CONFIG_SPECTRA_CAMERA) += camera/
 obj-$(CONFIG_MSM_CVP_V4L2) += cvp/
 obj-$(CONFIG_MSM_VIDC_V4L2) += vidc/
 obj-$(CONFIG_MSM_NPU) += npu/
+obj-$(CONFIG_MSM_GLOBAL_SYNX) += synx/

@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+menuconfig MSM_GLOBAL_SYNX
+	bool "Qualcomm Technologies, Inc. Global Synchronization Framework"
+	depends on ARCH_QCOM
+	help
+	  Say Y here to enable global synchronization framework for
+	  Qualcomm Technologies, Inc. chipsets.
+	  Enabling this adds support for global synchronization across
+	  heterogeneous cores.
+
