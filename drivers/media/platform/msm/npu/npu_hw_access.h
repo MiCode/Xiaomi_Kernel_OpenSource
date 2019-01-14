@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -77,10 +77,6 @@ void *npu_ipc_addr(void);
 void npu_interrupt_ack(struct npu_device *npu_dev, uint32_t intr_num);
 int32_t npu_interrupt_raise_m0(struct npu_device *npu_dev);
 int32_t npu_interrupt_raise_dsp(struct npu_device *npu_dev);
-
-struct workqueue_struct *npu_create_wq(struct npu_host_ctx *host_ctx,
-	const char *name, wq_hdlr_fn hdlr, struct work_struct *irq_work);
-void npu_destroy_wq(struct workqueue_struct *wq);
 
 uint8_t npu_hw_clk_gating_enabled(void);
 uint8_t npu_hw_log_enabled(void);

@@ -68,6 +68,12 @@ static ssize_t npu_show_perf_mode_override(struct device *dev,
 static ssize_t npu_store_perf_mode_override(struct device *dev,
 					  struct device_attribute *attr,
 					  const char *buf, size_t count);
+static ssize_t npu_show_fw_unload_delay_ms(struct device *dev,
+					 struct device_attribute *attr,
+					 char *buf);
+static ssize_t npu_store_fw_unload_delay_ms(struct device *dev,
+					  struct device_attribute *attr,
+					  const char *buf, size_t count);
 static ssize_t npu_show_fw_state(struct device *dev,
 					 struct device_attribute *attr,
 					 char *buf);
@@ -172,6 +178,8 @@ static DEVICE_ATTR(caps, 0444, npu_show_capabilities, NULL);
 static DEVICE_ATTR(pwr, 0644, npu_show_pwr_state, npu_store_pwr_state);
 static DEVICE_ATTR(perf_mode_override, 0644,
 	npu_show_perf_mode_override, npu_store_perf_mode_override);
+static DEVICE_ATTR(fw_unload_delay_ms, 0644,
+	npu_show_fw_unload_delay_ms, npu_store_fw_unload_delay_ms);
 static DEVICE_ATTR(fw_state, 0644, npu_show_fw_state, npu_store_fw_state);
 
 static struct attribute *npu_fs_attrs[] = {
@@ -179,6 +187,7 @@ static struct attribute *npu_fs_attrs[] = {
 	&dev_attr_pwr.attr,
 	&dev_attr_perf_mode_override.attr,
 	&dev_attr_fw_state.attr,
+	&dev_attr_fw_unload_delay_ms.attr,
 	NULL
 };
 
@@ -311,6 +320,40 @@ static ssize_t npu_store_perf_mode_override(struct device *dev,
 	npu_dev->pwrctrl.perf_mode_override = val;
 	pr_info("setting uc_pwrlevel_override to %d\n", val);
 	npu_set_power_level(npu_dev, true);
+
+	return count;
+}
+
+/* -------------------------------------------------------------------------
+ * SysFS - Delayed FW unload
+ * -------------------------------------------------------------------------
+ */
+static ssize_t npu_show_fw_unload_delay_ms(struct device *dev,
+					 struct device_attribute *attr,
+					 char *buf)
+{
+	struct npu_device *npu_dev = dev_get_drvdata(dev);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n",
+		npu_dev->host_ctx.fw_unload_delay_ms);
+}
+
+static ssize_t npu_store_fw_unload_delay_ms(struct device *dev,
+					  struct device_attribute *attr,
+					  const char *buf, size_t count)
+{
+	struct npu_device *npu_dev = dev_get_drvdata(dev);
+	uint32_t val;
+	int rc;
+
+	rc = kstrtou32(buf, 10, &val);
+	if (rc) {
+		pr_err("Invalid input for fw unload delay setting\n");
+		return -EINVAL;
+	}
+
+	npu_dev->host_ctx.fw_unload_delay_ms = val;
+	pr_debug("setting fw_unload_delay_ms to %d\n", val);
 
 	return count;
 }
