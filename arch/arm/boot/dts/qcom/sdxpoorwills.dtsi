@@ -1315,6 +1315,8 @@
 		pinctrl-1 = <&cnss_sdio_sleep>;
 		qcom,is-antenna-shared;
 		status = "disabled";
+		vdd-wlan-xtal-min = <1704000>;
+		vdd-wlan-xtal-max = <1704000>;
 	};
 };
 
