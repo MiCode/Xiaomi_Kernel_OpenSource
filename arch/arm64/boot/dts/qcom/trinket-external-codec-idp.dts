@@ -14,6 +14,8 @@
 
 #include "trinket.dtsi"
 #include "trinket-idp.dtsi"
+#include "trinket-tasha-codec-audio-overlay.dtsi"
+#include "trinket-tasha-codec.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. Trinket Ext Audio Codec IDP";

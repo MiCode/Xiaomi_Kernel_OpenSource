@@ -10,7 +10,6 @@
  * GNU General Public License for more details.
  */
 #include "trinket-audio-overlay.dtsi"
-#include "trinket-wcd.dtsi"
 
 &bolero {
 	status = "disabled";

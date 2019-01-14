@@ -10,27 +10,23 @@
  * GNU General Public License for more details.
  */
 
-#include "trinket-tasha-codec-audio-overlay.dtsi"
-
-&pm6125_div_clk {
-	status = "okay";
-};
+#include <dt-bindings/sound/audio-codec-port-types.h>
+#include "trinket-wcd.dtsi"
 
 &sm6150_snd {
 	qcom,model = "trinket-tashalite-snd-card";
 	qcom,tasha_codec = <1>;
 	asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 		<&loopback>, <&compress>, <&hostless>,
-		<&afe>, <&lsm>, <&routing>, <&cpe>, <&compr>,
-		<&pcm_noirq>, <&cpe3>;
+		<&afe>, <&lsm>, <&routing>, <&compr>,
+		<&pcm_noirq>;
 	asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
 		"msm-pcm-dsp.2", "msm-voip-dsp",
 		"msm-pcm-voice", "msm-pcm-loopback",
 		"msm-compress-dsp", "msm-pcm-hostless",
 		"msm-pcm-afe", "msm-lsm-client",
-		"msm-pcm-routing", "msm-cpe-lsm",
-		"msm-compr-dsp", "msm-pcm-dsp-noirq",
-		"msm-cpe-lsm.3";
+		"msm-pcm-routing",
+		"msm-compr-dsp", "msm-pcm-dsp-noirq";
 	asoc-cpu = <&dai_mi2s0>, <&dai_mi2s1>,
 		<&dai_mi2s2>, <&dai_mi2s3>, <&dai_mi2s4>,
 		<&dai_pri_auxpcm>, <&dai_sec_auxpcm>,
@@ -66,6 +62,16 @@
 		"msm-dai-q6-dev.16396",
 		"msm-dai-q6-dev.16398", "msm-dai-q6-dev.16399",
 		"msm-dai-q6-dev.16400", "msm-dai-q6-dev.16401",
+		"msm-dai-q6-dev.224", "msm-dai-q6-dev.225",
+		"msm-dai-q6-dev.241", "msm-dai-q6-dev.240",
+		"msm-dai-q6-dev.32771", "msm-dai-q6-dev.32772",
+		"msm-dai-q6-dev.32773", "msm-dai-q6-dev.32770",
+		"msm-dai-q6-dev.28672", "msm-dai-q6-dev.28673",
+		"msm-dai-q6-tdm.36864", "msm-dai-q6-tdm.36865",
+		"msm-dai-q6-tdm.36880", "msm-dai-q6-tdm.36881",
+		"msm-dai-q6-tdm.36896", "msm-dai-q6-tdm.36897",
+		"msm-dai-q6-tdm.36912", "msm-dai-q6-tdm.36913",
+		"msm-dai-q6-tdm.36928", "msm-dai-q6-tdm.36929";
 	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
 	qcom,audio-routing =
 		"AIF4 VI", "MCLK",
@@ -108,17 +114,7 @@
 		"SpkrLeft", "SpkrRight";
 };
 
-&soc {
-	wsa_spkr_en2: wsa_spkr_en2_pinctrl {
-		compatible = "qcom,msm-cdc-pinctrl";
-		pinctrl-names = "aud_active", "aud_sleep";
-		pinctrl-0 = <&spkr_2_sd_n_active>;
-		pinctrl-1 = <&spkr_2_sd_n_sleep>;
-	};
-};
-
 &slim_aud {
-	status = "okay";
 	tasha_codec {
 		swr3: swr_master {
 			compatible = "qcom,swr-mstr";
