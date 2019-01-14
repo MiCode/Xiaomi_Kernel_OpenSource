@@ -2967,6 +2967,8 @@ static inline int sde_rotator_search_dt_clk(struct platform_device *pdev,
 	if (IS_ERR(tmp)) {
 		if (mandatory)
 			SDEROT_ERR("unable to get clk: %s\n", clk_name);
+		else
+			tmp = NULL;
 		rc = PTR_ERR(tmp);
 	}
 
