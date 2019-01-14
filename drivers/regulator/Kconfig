@@ -1057,6 +1057,15 @@ config REGULATOR_WM8994
 	  This driver provides support for the voltage regulators on the
 	  WM8994 CODEC.
 
+config REGULATOR_RPMH
+	tristate "Qualcomm Technologies, Inc. Legacy RPMh regulator driver"
+	depends on QCOM_RPMH
+	help
+	  This driver supports control of PMIC regulators via the RPMh hardware
+	  block found on Qualcomm Technologies Inc. SoCs.  RPMh regulator
+	  control allows for voting on regulator state between multiple
+	  processors within the SoC.
+
 config REGULATOR_STUB
 	tristate "Stub Regulator"
 	help
