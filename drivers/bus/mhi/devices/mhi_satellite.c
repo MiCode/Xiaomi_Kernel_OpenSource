@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2019, The Linux Foundation. All rights reserved.*/
 
+#include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/dma-direction.h>
 #include <linux/dma-mapping.h>
@@ -17,6 +18,8 @@
 #include <linux/mhi.h>
 
 #define MHI_SAT_DRIVER_NAME "mhi_satellite"
+
+static bool mhi_sat_defer_init = true; /* set by default */
 
 /* logging macros */
 #define IPC_LOG_PAGES (10)
@@ -282,6 +285,9 @@ struct mhi_sat_driver {
 
 	struct mhi_sat_subsys *subsys; /* pointer to subsystem array */
 	unsigned int num_subsys;
+
+	struct dentry *dentry; /* debugfs directory */
+	bool deferred_init_done; /* flag for deferred init protection */
 };
 
 static struct mhi_sat_driver mhi_sat_driver;
@@ -1041,6 +1047,44 @@ static struct mhi_driver mhi_sat_dev_driver = {
 	},
 };
 
+int mhi_sat_trigger_init(void *data, u64 val)
+{
+	struct mhi_sat_subsys *subsys;
+	int i, ret;
+
+	if (mhi_sat_driver.deferred_init_done)
+		return -EIO;
+
+	ret = register_rpmsg_driver(&mhi_sat_rpmsg_driver);
+	if (ret)
+		goto error_sat_trigger_init;
+
+	ret = mhi_driver_register(&mhi_sat_dev_driver);
+	if (ret)
+		goto error_sat_trigger_register;
+
+	mhi_sat_driver.deferred_init_done = true;
+
+	return 0;
+
+error_sat_trigger_register:
+	unregister_rpmsg_driver(&mhi_sat_rpmsg_driver);
+
+error_sat_trigger_init:
+	subsys = mhi_sat_driver.subsys;
+	for (i = 0; i < mhi_sat_driver.num_subsys; i++, subsys++) {
+		ipc_log_context_destroy(subsys->ipc_log);
+		mutex_destroy(&subsys->cntrl_mutex);
+	}
+	kfree(mhi_sat_driver.subsys);
+	mhi_sat_driver.subsys = NULL;
+
+	return ret;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(mhi_sat_debugfs_fops, NULL,
+			mhi_sat_trigger_init, "%llu\n");
+
 static int mhi_sat_init(void)
 {
 	struct mhi_sat_subsys *subsys;
@@ -1064,6 +1108,20 @@ static int mhi_sat_init(void)
 		INIT_LIST_HEAD(&subsys->cntrl_list);
 		scnprintf(log, sizeof(log), "mhi_sat_%s", subsys->name);
 		subsys->ipc_log = ipc_log_context_create(IPC_LOG_PAGES, log, 0);
+	}
+
+	/* create debugfs entry if defer_init is enabled */
+	if (mhi_sat_defer_init) {
+		mhi_sat_driver.dentry = debugfs_create_dir("mhi_sat", NULL);
+		if (IS_ERR_OR_NULL(mhi_sat_driver.dentry)) {
+			ret = -ENODEV;
+			goto error_sat_init;
+		}
+
+		debugfs_create_file("debug", 0444, mhi_sat_driver.dentry, NULL,
+				    &mhi_sat_debugfs_fops);
+
+		return 0;
 	}
 
 	ret = register_rpmsg_driver(&mhi_sat_rpmsg_driver);
