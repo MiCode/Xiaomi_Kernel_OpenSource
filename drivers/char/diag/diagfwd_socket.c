@@ -514,8 +514,8 @@ static void __socket_close_channel(struct diag_socket_info *info)
 	sock_release(info->hdl);
 	info->hdl = NULL;
 	mutex_unlock(&info->socket_info_mutex);
-	cancel_work_sync(&info->read_work);
 	wake_up_interruptible(&info->read_wait_q);
+	cancel_work_sync(&info->read_work);
 
 	spin_lock_irqsave(&info->lock, flags);
 	info->data_ready = 0;
