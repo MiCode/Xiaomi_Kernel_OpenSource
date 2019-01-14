@@ -420,3 +420,20 @@ int qg_get_battery_voltage(struct qpnp_qg *chip, int *vbat_uv)
 
 	return rc;
 }
+
+int qg_get_vbat_avg(struct qpnp_qg *chip, int *vbat_uv)
+{
+	int rc = 0;
+	u64 last_vbat = 0;
+
+	rc = qg_read(chip, chip->qg_base + QG_S2_NORMAL_AVG_V_DATA0_REG,
+				(u8 *)&last_vbat, 2);
+	if (rc < 0) {
+		pr_err("Failed to read S2_NORMAL_AVG_V reg, rc=%d\n", rc);
+		return rc;
+	}
+
+	*vbat_uv = V_RAW_TO_UV(last_vbat);
+
+	return 0;
+}
