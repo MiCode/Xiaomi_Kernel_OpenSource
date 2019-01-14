@@ -127,6 +127,16 @@ config ARM_QCOM_DEVFREQ_FW
 	  various governors could be used to scale the frequency of these
 	  devices.
 
+config DEVFREQ_SIMPLE_DEV
+	tristate "Device driver for simple clock device with no status info"
+	select DEVFREQ_GOV_PERFORMANCE
+	select DEVFREQ_GOV_POWERSAVE
+	select DEVFREQ_GOV_USERSPACE
+	select DEVFREQ_GOV_CPUFREQ
+	help
+	  Device driver for simple devices that control their frequency using
+	  clock APIs and don't have any form of status reporting.
+
 source "drivers/devfreq/event/Kconfig"
 
 endif # PM_DEVFREQ
