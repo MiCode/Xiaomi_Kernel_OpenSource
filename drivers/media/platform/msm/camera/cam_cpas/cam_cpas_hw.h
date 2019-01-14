@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_CPAS_HW_H_
@@ -10,7 +10,7 @@
 #include "cam_cpas_hw_intf.h"
 #include "cam_common_util.h"
 
-#define CAM_CPAS_MAX_CLIENTS 30
+#define CAM_CPAS_MAX_CLIENTS 40
 #define CAM_CPAS_INFLIGHT_WORKS 5
 
 #define CAM_CPAS_AXI_MIN_MNOC_AB_BW   (2048 * 1024)

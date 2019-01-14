@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/device.h>
@@ -66,7 +66,13 @@ int cam_cpas_get_custom_dt_info(struct platform_device *pdev,
 		CAM_ERR(CAM_CPAS, "no client-names found");
 		count = 0;
 		return -EINVAL;
+	} else if (count > CAM_CPAS_MAX_CLIENTS) {
+		CAM_ERR(CAM_CPAS, "Number of clients %d greater than max %d",
+			count, CAM_CPAS_MAX_CLIENTS);
+		count = 0;
+		return -EINVAL;
 	}
+
 	soc_private->num_clients = count;
 	CAM_DBG(CAM_CPAS,
 		"arch-compat=%s, client_id_based = %d, num_clients=%d",
