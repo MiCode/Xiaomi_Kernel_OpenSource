@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -376,25 +376,6 @@ void npu_mem_unmap(struct npu_client *client, int buf_hdl,  uint64_t addr)
 	pr_debug("unmapped mem addr:0x%llx size:0x%x\n", ion_buf->iova,
 		ion_buf->size);
 	npu_free_npu_ion_buffer(client, buf_hdl);
-}
-
-/* -------------------------------------------------------------------------
- * Functions - Work Queue
- * -------------------------------------------------------------------------
- */
-void npu_destroy_wq(struct workqueue_struct *wq)
-{
-	destroy_workqueue(wq);
-}
-
-struct workqueue_struct *npu_create_wq(struct npu_host_ctx *host_ctx,
-	const char *name, wq_hdlr_fn hdlr, struct work_struct *irq_work)
-{
-	struct workqueue_struct *wq = create_workqueue(name);
-
-	INIT_WORK(irq_work, hdlr);
-
-	return wq;
 }
 
 /* -------------------------------------------------------------------------
