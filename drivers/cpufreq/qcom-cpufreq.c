@@ -4,7 +4,7 @@
  * MSM architecture cpufreq driver
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2007-2017,2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2019, The Linux Foundation. All rights reserved.
  * Author: Mike A. Chan <mikechan@google.com>
  *
  */
@@ -19,10 +19,13 @@
 #include <linux/err.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/cpu_cooling.h>
 #include <trace/events/power.h>
 
 static DEFINE_MUTEX(l2bw_lock);
 
+static struct thermal_cooling_device *cdev[NR_CPUS];
 static struct clk *cpu_clk[NR_CPUS];
 static struct clk *l2_clk;
 static DEFINE_PER_CPU(struct cpufreq_frequency_table *, freq_table);
@@ -55,8 +58,11 @@ static int set_cpu_freq(struct cpufreq_policy *policy, unsigned int new_freq,
 	rate = clk_round_rate(cpu_clk[policy->cpu], rate);
 	ret = clk_set_rate(cpu_clk[policy->cpu], rate);
 	cpufreq_freq_transition_end(policy, &freqs, ret);
-	if (!ret)
+	if (!ret) {
+		arch_set_freq_scale(policy->related_cpus, new_freq,
+				    policy->cpuinfo.max_freq);
 		trace_cpu_frequency_switch_end(policy->cpu);
+	}
 
 	return ret;
 }
@@ -170,6 +176,7 @@ static int msm_cpufreq_init(struct cpufreq_policy *policy)
 	pr_debug("cpufreq: cpu%d init at %d switching to %d\n",
 			policy->cpu, cur_freq, table[index].frequency);
 	policy->cur = table[index].frequency;
+	policy->dvfs_possible_from_any_cpu = true;
 
 	return 0;
 }
@@ -295,6 +302,41 @@ static struct freq_attr *msm_freq_attr[] = {
 	NULL,
 };
 
+static void msm_cpufreq_ready(struct cpufreq_policy *policy)
+{
+	struct device_node *np, *lmh_node;
+	unsigned int cpu = policy->cpu;
+
+	if (cdev[cpu])
+		return;
+
+	np = of_cpu_device_node_get(cpu);
+	if (WARN_ON(!np))
+		return;
+
+	/*
+	 * For now, just loading the cooling device;
+	 * thermal DT code takes care of matching them.
+	 */
+	if (of_find_property(np, "#cooling-cells", NULL)) {
+		lmh_node = of_parse_phandle(np, "qcom,lmh-dcvs", 0);
+		if (lmh_node) {
+			of_node_put(lmh_node);
+			goto ready_exit;
+		}
+
+		cdev[cpu] = of_cpufreq_cooling_register(policy);
+		if (IS_ERR(cdev[cpu])) {
+			pr_err("running cpufreq for CPU%d without cooling dev: %ld\n",
+			       cpu, PTR_ERR(cdev[cpu]));
+			cdev[cpu] = NULL;
+		}
+	}
+
+ready_exit:
+	of_node_put(np);
+}
+
 static struct cpufreq_driver msm_cpufreq_driver = {
 	/* lps calculations are handled here. */
 	.flags		= CPUFREQ_STICKY | CPUFREQ_CONST_LOOPS |
@@ -306,6 +348,7 @@ static struct cpufreq_driver msm_cpufreq_driver = {
 	.get		= msm_cpufreq_get_freq,
 	.name		= "msm",
 	.attr		= msm_freq_attr,
+	.ready		= msm_cpufreq_ready,
 };
 
 static struct cpufreq_frequency_table *cpufreq_parse_dt(struct device *dev,
@@ -398,7 +441,7 @@ static int msm_cpufreq_probe(struct platform_device *pdev)
 	if (!IS_ERR(ftbl)) {
 		for_each_possible_cpu(cpu)
 			per_cpu(freq_table, cpu) = ftbl;
-		return 0;
+		goto out_register;
 	}
 
 	/*
@@ -438,6 +481,7 @@ static int msm_cpufreq_probe(struct platform_device *pdev)
 		per_cpu(freq_table, cpu) = ftbl;
 	}
 
+out_register:
 	ret = register_pm_notifier(&msm_cpufreq_pm_notifier);
 	if (ret)
 		return ret;
