@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -495,7 +495,7 @@ int cam_vfe_top_reserve(void *device_priv,
 			}
 
 			if (acquire_args->res_id ==
-				CAM_ISP_HW_VFE_IN_CAMIF_LITE) {
+				CAM_ISP_HW_VFE_IN_PDLIB) {
 				rc = cam_vfe_camif_lite_ver2_acquire_resource(
 					&top_priv->mux_rsrc[i],
 					args);
@@ -617,7 +617,7 @@ int cam_vfe_top_stop(void *device_priv,
 	hw_info = (struct cam_hw_info  *)mux_res->hw_intf->hw_priv;
 
 	if ((mux_res->res_id == CAM_ISP_HW_VFE_IN_CAMIF) ||
-		(mux_res->res_id == CAM_ISP_HW_VFE_IN_CAMIF_LITE) ||
+		(mux_res->res_id == CAM_ISP_HW_VFE_IN_PDLIB) ||
 		(mux_res->res_id == CAM_ISP_HW_VFE_IN_RD) ||
 		((mux_res->res_id >= CAM_ISP_HW_VFE_IN_RDI0) &&
 		(mux_res->res_id <= CAM_ISP_HW_VFE_IN_RDI3))) {
@@ -766,7 +766,7 @@ int cam_vfe_top_ver2_init(
 		} else if (ver2_hw_info->mux_type[i] ==
 			CAM_VFE_CAMIF_LITE_VER_2_0) {
 			top_priv->mux_rsrc[i].res_id =
-				CAM_ISP_HW_VFE_IN_CAMIF_LITE;
+				CAM_ISP_HW_VFE_IN_PDLIB;
 			if (soc_private->cpas_version ==
 				CAM_CPAS_TITAN_175_V120)
 				top_priv->cpashdl_type[i] =
