@@ -26,7 +26,7 @@ int cnss_bus_load_m3(struct cnss_plat_data *plat_priv);
 int cnss_bus_alloc_fw_mem(struct cnss_plat_data *plat_priv);
 u32 cnss_bus_get_wake_irq(struct cnss_plat_data *plat_priv);
 int cnss_bus_force_fw_assert_hdlr(struct cnss_plat_data *plat_priv);
-void cnss_bus_fw_boot_timeout_hdlr(unsigned long data);
+void cnss_bus_fw_boot_timeout_hdlr(struct timer_list *t);
 void cnss_bus_collect_dump_info(struct cnss_plat_data *plat_priv,
 				bool in_panic);
 int cnss_bus_call_driver_probe(struct cnss_plat_data *plat_priv);

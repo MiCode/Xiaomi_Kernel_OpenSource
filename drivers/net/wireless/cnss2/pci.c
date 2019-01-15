@@ -801,9 +801,9 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 
 	dev = &pci_priv->pci_dev->dev;
 
-	mapping = arm_iommu_create_mapping(dev->bus,
-					   pci_priv->smmu_iova_start,
-					   pci_priv->smmu_iova_len);
+	mapping = __depr_arm_iommu_create_mapping(dev->bus,
+						  pci_priv->smmu_iova_start,
+						  pci_priv->smmu_iova_len);
 	if (IS_ERR(mapping)) {
 		ret = PTR_ERR(mapping);
 		cnss_pr_err("Failed to create SMMU mapping, err = %d\n", ret);
@@ -859,7 +859,7 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 		}
 	}
 
-	ret = arm_iommu_attach_device(dev, mapping);
+	ret = __depr_arm_iommu_attach_device(dev, mapping);
 	if (ret) {
 		pr_err("Failed to attach SMMU device, err = %d\n", ret);
 		goto release_mapping;
@@ -869,15 +869,15 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 
 	return ret;
 release_mapping:
-	arm_iommu_release_mapping(mapping);
+	__depr_arm_iommu_release_mapping(mapping);
 out:
 	return ret;
 }
 
 static void cnss_pci_deinit_smmu(struct cnss_pci_data *pci_priv)
 {
-	arm_iommu_detach_device(&pci_priv->pci_dev->dev);
-	arm_iommu_release_mapping(pci_priv->smmu_mapping);
+	__depr_arm_iommu_detach_device(&pci_priv->pci_dev->dev);
+	__depr_arm_iommu_release_mapping(pci_priv->smmu_mapping);
 
 	pci_priv->smmu_mapping = NULL;
 }
