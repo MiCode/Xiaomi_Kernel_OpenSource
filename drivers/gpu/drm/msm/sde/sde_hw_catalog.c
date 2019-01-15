@@ -1137,6 +1137,12 @@ static void _sde_sspp_setup_vig(struct sde_mdss_cfg *sde_cfg,
 			sde_cfg->true_inline_dwnscale_nrt;
 		sblk->in_rot_maxheight =
 			MAX_PRE_ROT_HEIGHT_INLINE_ROT_DEFAULT;
+		sblk->in_rot_prefill_fudge_lines =
+			sde_cfg->true_inline_prefill_fudge_lines;
+		sblk->in_rot_prefill_lines_nv12 =
+			sde_cfg->true_inline_prefill_lines_nv12;
+		sblk->in_rot_prefill_lines =
+			sde_cfg->true_inline_prefill_lines;
 	}
 
 	if (sde_cfg->sc_cfg.has_sys_cache) {
@@ -3807,6 +3813,9 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 			MAX_DOWNSCALE_RATIO_INLINE_ROT_RT_DEFAULT;
 		sde_cfg->true_inline_dwnscale_nrt =
 			MAX_DOWNSCALE_RATIO_INLINE_ROT_NRT_DEFAULT;
+		sde_cfg->true_inline_prefill_fudge_lines = 2;
+		sde_cfg->true_inline_prefill_lines_nv12 = 32;
+		sde_cfg->true_inline_prefill_lines = 48;
 		sde_cfg->uidle_cfg.uidle_rev = SDE_UIDLE_VERSION_1_0_0;
 	} else {
 		SDE_ERROR("unsupported chipset id:%X\n", hw_rev);

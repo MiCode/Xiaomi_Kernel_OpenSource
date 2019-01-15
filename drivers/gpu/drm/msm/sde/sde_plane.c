@@ -3532,6 +3532,12 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 			psde->pipe_sblk->in_rot_maxdwnscale_nrt);
 		sde_kms_info_add_keyint(info, "true_inline_max_height",
 			psde->pipe_sblk->in_rot_maxheight);
+		sde_kms_info_add_keyint(info, "true_inline_prefill_fudge_lines",
+			psde->pipe_sblk->in_rot_prefill_fudge_lines);
+		sde_kms_info_add_keyint(info, "true_inline_prefill_lines_nv12",
+			psde->pipe_sblk->in_rot_prefill_lines_nv12);
+		sde_kms_info_add_keyint(info, "true_inline_prefill_lines",
+			psde->pipe_sblk->in_rot_prefill_lines);
 
 		inline_rot_fmt_list = psde->pipe_sblk->in_rot_format_list;
 
