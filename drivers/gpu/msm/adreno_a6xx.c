@@ -1797,6 +1797,75 @@ static struct adreno_irq a6xx_irq = {
 	.mask = A6XX_INT_MASK,
 };
 
+static bool adreno_is_qdss_dbg_register(struct kgsl_device *device,
+		unsigned int offsetwords)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	return adreno_dev->qdss_gfx_virt &&
+		(offsetwords >= (adreno_dev->qdss_gfx_base >> 2)) &&
+		(offsetwords < (adreno_dev->qdss_gfx_base +
+				adreno_dev->qdss_gfx_len) >> 2);
+}
+
+
+static void adreno_qdss_gfx_dbg_regread(struct kgsl_device *device,
+	unsigned int offsetwords, unsigned int *value)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	unsigned int qdss_gfx_offset;
+
+	if (!adreno_is_qdss_dbg_register(device, offsetwords))
+		return;
+
+	qdss_gfx_offset = (offsetwords << 2) - adreno_dev->qdss_gfx_base;
+	*value = __raw_readl(adreno_dev->qdss_gfx_virt + qdss_gfx_offset);
+
+	/*
+	 * ensure this read finishes before the next one.
+	 * i.e. act like normal readl()
+	 */
+	rmb();
+}
+
+static void adreno_qdss_gfx_dbg_regwrite(struct kgsl_device *device,
+	unsigned int offsetwords, unsigned int value)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	unsigned int qdss_gfx_offset;
+
+	if (!adreno_is_qdss_dbg_register(device, offsetwords))
+		return;
+
+	qdss_gfx_offset = (offsetwords << 2) - adreno_dev->qdss_gfx_base;
+	trace_kgsl_regwrite(device, offsetwords, value);
+
+	/*
+	 * ensure previous writes post before this one,
+	 * i.e. act like normal writel()
+	 */
+	wmb();
+	__raw_writel(value, adreno_dev->qdss_gfx_virt + qdss_gfx_offset);
+}
+
+static void adreno_gx_regread(struct kgsl_device *device,
+	unsigned int offsetwords, unsigned int *value)
+{
+	if (adreno_is_qdss_dbg_register(device, offsetwords))
+		adreno_qdss_gfx_dbg_regread(device, offsetwords, value);
+	else
+		kgsl_regread(device, offsetwords, value);
+}
+
+static void adreno_gx_regwrite(struct kgsl_device *device,
+	unsigned int offsetwords, unsigned int value)
+{
+	if (adreno_is_qdss_dbg_register(device, offsetwords))
+		adreno_qdss_gfx_dbg_regwrite(device, offsetwords, value);
+	else
+		kgsl_regwrite(device, offsetwords, value);
+}
+
 static struct adreno_coresight_register a6xx_coresight_regs[] = {
 	{ A6XX_DBGC_CFG_DBGBUS_SEL_A },
 	{ A6XX_DBGC_CFG_DBGBUS_SEL_B },
@@ -1850,6 +1919,28 @@ static struct adreno_coresight_register a6xx_coresight_regs[] = {
 	{ A6XX_DBGC_PERF_ATB_DRAIN_CMD },
 	{ A6XX_DBGC_ECO_CNTL },
 	{ A6XX_DBGC_AHB_DBG_CNTL },
+	{ A6XX_SP0_ISDB_ISDB_EN },
+	{ A6XX_SP0_ISDB_ISDB_SAC_CFG },
+	{ A6XX_SP0_ISDB_ISDB_SAC_ADDR_0 },
+	{ A6XX_SP0_ISDB_ISDB_SAC_ADDR_1 },
+	{ A6XX_SP0_ISDB_ISDB_SAC_MASK_0 },
+	{ A6XX_SP0_ISDB_ISDB_SAC_MASK_1 },
+	{ A6XX_SP0_ISDB_ISDB_SHADER_ID_CFG },
+	{ A6XX_SP0_ISDB_ISDB_WAVE_ID_CFG },
+	{ A6XX_HLSQ_ISDB_ISDB_HLSQ_ISDB_CL_WGID_CTRL },
+	{ A6XX_HLSQ_ISDB_ISDB_HLSQ_ISDB_CL_WGID_X },
+	{ A6XX_HLSQ_ISDB_ISDB_HLSQ_ISDB_CL_WGID_Y },
+	{ A6XX_HLSQ_ISDB_ISDB_HLSQ_ISDB_CL_WGID_Z },
+	{ A6XX_SP0_ISDB_ISDB_BRKPT_CFG },
+	{ A6XX_SP1_ISDB_ISDB_EN },
+	{ A6XX_SP1_ISDB_ISDB_SAC_CFG },
+	{ A6XX_SP1_ISDB_ISDB_SAC_ADDR_0 },
+	{ A6XX_SP1_ISDB_ISDB_SAC_ADDR_1 },
+	{ A6XX_SP1_ISDB_ISDB_SAC_MASK_0 },
+	{ A6XX_SP1_ISDB_ISDB_SAC_MASK_1 },
+	{ A6XX_SP1_ISDB_ISDB_SHADER_ID_CFG },
+	{ A6XX_SP1_ISDB_ISDB_WAVE_ID_CFG },
+	{ A6XX_SP1_ISDB_ISDB_BRKPT_CFG },
 };
 
 static struct adreno_coresight_register a6xx_coresight_regs_cx[] = {
@@ -1961,6 +2052,46 @@ static ADRENO_CORESIGHT_ATTR(perf_atb_trig_intf_sel_1,
 static ADRENO_CORESIGHT_ATTR(perf_atb_drain_cmd, &a6xx_coresight_regs[49]);
 static ADRENO_CORESIGHT_ATTR(eco_cntl, &a6xx_coresight_regs[50]);
 static ADRENO_CORESIGHT_ATTR(ahb_dbg_cntl, &a6xx_coresight_regs[51]);
+static ADRENO_CORESIGHT_ATTR(sp0_isdb_isdb_en, &a6xx_coresight_regs[52]);
+static ADRENO_CORESIGHT_ATTR(sp0_isdb_isdb_sac_cfg, &a6xx_coresight_regs[53]);
+static ADRENO_CORESIGHT_ATTR(sp0_isdb_isdb_sac_addr_0,
+				&a6xx_coresight_regs[54]);
+static ADRENO_CORESIGHT_ATTR(sp0_isdb_isdb_sac_addr_1,
+				&a6xx_coresight_regs[55]);
+static ADRENO_CORESIGHT_ATTR(sp0_isdb_isdb_sac_mask_0,
+				&a6xx_coresight_regs[56]);
+static ADRENO_CORESIGHT_ATTR(sp0_isdb_isdb_sac_mask_1,
+				&a6xx_coresight_regs[57]);
+static ADRENO_CORESIGHT_ATTR(sp0_isdb_isdb_shader_id_cfg,
+				&a6xx_coresight_regs[58]);
+static ADRENO_CORESIGHT_ATTR(sp0_isdb_isdb_wave_id_cfg,
+				&a6xx_coresight_regs[59]);
+static ADRENO_CORESIGHT_ATTR(hlsq_isdb_isdb_hlsq_isdb_cl_wgid_ctrl,
+				&a6xx_coresight_regs[60]);
+static ADRENO_CORESIGHT_ATTR(hlsq_isdb_isdb_hlsq_isdb_cl_wgid_x,
+				&a6xx_coresight_regs[61]);
+static ADRENO_CORESIGHT_ATTR(hlsq_isdb_isdb_hlsq_isdb_cl_wgid_y,
+				&a6xx_coresight_regs[62]);
+static ADRENO_CORESIGHT_ATTR(hlsq_isdb_isdb_hlsq_isdb_cl_wgid_z,
+				&a6xx_coresight_regs[63]);
+static ADRENO_CORESIGHT_ATTR(sp0_isdb_isdb_brkpt_cfg, &a6xx_coresight_regs[64]);
+static ADRENO_CORESIGHT_ATTR(sp1_isdb_isdb_en, &a6xx_coresight_regs[65]);
+static ADRENO_CORESIGHT_ATTR(sp1_isdb_isdb_sac_cfg, &a6xx_coresight_regs[66]);
+static ADRENO_CORESIGHT_ATTR(sp1_isdb_isdb_sac_addr_0,
+				&a6xx_coresight_regs[67]);
+static ADRENO_CORESIGHT_ATTR(sp1_isdb_isdb_sac_addr_1,
+				&a6xx_coresight_regs[68]);
+static ADRENO_CORESIGHT_ATTR(sp1_isdb_isdb_sac_mask_0,
+				&a6xx_coresight_regs[69]);
+static ADRENO_CORESIGHT_ATTR(sp1_isdb_isdb_sac_mask_1,
+				&a6xx_coresight_regs[70]);
+static ADRENO_CORESIGHT_ATTR(sp1_isdb_isdb_shader_id_cfg,
+				&a6xx_coresight_regs[71]);
+static ADRENO_CORESIGHT_ATTR(sp1_isdb_isdb_wave_id_cfg,
+				&a6xx_coresight_regs[72]);
+static ADRENO_CORESIGHT_ATTR(sp1_isdb_isdb_brkpt_cfg,
+				&a6xx_coresight_regs[73]);
+
 
 /*CX debug registers*/
 static ADRENO_CORESIGHT_ATTR(cx_cfg_dbgbus_sel_a,
@@ -2121,6 +2252,28 @@ static struct attribute *a6xx_coresight_attrs[] = {
 	&coresight_attr_perf_atb_drain_cmd.attr.attr,
 	&coresight_attr_eco_cntl.attr.attr,
 	&coresight_attr_ahb_dbg_cntl.attr.attr,
+	&coresight_attr_sp0_isdb_isdb_en.attr.attr,
+	&coresight_attr_sp0_isdb_isdb_sac_cfg.attr.attr,
+	&coresight_attr_sp0_isdb_isdb_sac_addr_0.attr.attr,
+	&coresight_attr_sp0_isdb_isdb_sac_addr_1.attr.attr,
+	&coresight_attr_sp0_isdb_isdb_sac_mask_0.attr.attr,
+	&coresight_attr_sp0_isdb_isdb_sac_mask_1.attr.attr,
+	&coresight_attr_sp0_isdb_isdb_shader_id_cfg.attr.attr,
+	&coresight_attr_sp0_isdb_isdb_wave_id_cfg.attr.attr,
+	&coresight_attr_hlsq_isdb_isdb_hlsq_isdb_cl_wgid_ctrl.attr.attr,
+	&coresight_attr_hlsq_isdb_isdb_hlsq_isdb_cl_wgid_x.attr.attr,
+	&coresight_attr_hlsq_isdb_isdb_hlsq_isdb_cl_wgid_y.attr.attr,
+	&coresight_attr_hlsq_isdb_isdb_hlsq_isdb_cl_wgid_z.attr.attr,
+	&coresight_attr_sp0_isdb_isdb_brkpt_cfg.attr.attr,
+	&coresight_attr_sp1_isdb_isdb_en.attr.attr,
+	&coresight_attr_sp1_isdb_isdb_sac_cfg.attr.attr,
+	&coresight_attr_sp1_isdb_isdb_sac_addr_0.attr.attr,
+	&coresight_attr_sp1_isdb_isdb_sac_addr_1.attr.attr,
+	&coresight_attr_sp1_isdb_isdb_sac_mask_0.attr.attr,
+	&coresight_attr_sp1_isdb_isdb_sac_mask_1.attr.attr,
+	&coresight_attr_sp1_isdb_isdb_shader_id_cfg.attr.attr,
+	&coresight_attr_sp1_isdb_isdb_wave_id_cfg.attr.attr,
+	&coresight_attr_sp1_isdb_isdb_brkpt_cfg.attr.attr,
 	NULL,
 };
 
@@ -2203,12 +2356,16 @@ static struct adreno_coresight a6xx_coresight = {
 	.registers = a6xx_coresight_regs,
 	.count = ARRAY_SIZE(a6xx_coresight_regs),
 	.groups = a6xx_coresight_groups,
+	.read = adreno_gx_regread,
+	.write = adreno_gx_regwrite,
 };
 
 static struct adreno_coresight a6xx_coresight_cx = {
 	.registers = a6xx_coresight_regs_cx,
 	.count = ARRAY_SIZE(a6xx_coresight_regs_cx),
 	.groups = a6xx_coresight_groups_cx,
+	.read = adreno_cx_dbgc_regread,
+	.write = adreno_cx_dbgc_regwrite,
 };
 
 static struct adreno_perfcount_register a6xx_perfcounters_cp[] = {
