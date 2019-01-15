@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1611,7 +1611,8 @@ static unsigned int spcom_device_poll(struct file *filp,
 			pr_debug("ch [%s] poll CH_CONNECT signaled.\n", name);
 		}
 		mutex_lock(&ch->lock);
-		done = completion_done(&ch->connect);
+		done = (ch->rpdev != NULL);
+		pr_debug("ch [%s] reported done=%d\n", name, done);
 		mutex_unlock(&ch->lock);
 		break;
 	default:
