@@ -917,7 +917,6 @@ error_start:
 
 static const struct mhi_device_id mhi_netdev_match_table[] = {
 	{ .chan = "IP_HW0" },
-	{ .chan = "IP_HW_ADPL" },
 	{ .chan = "IP_HW0_RSC" },
 	{},
 };
