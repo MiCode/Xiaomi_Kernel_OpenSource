@@ -1059,6 +1059,7 @@
 
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
 		qcom,vdd_cx-uV-uA = <RPM_SMD_REGULATOR_LEVEL_TURBO 100000>;
+		qcom,mas-crypto = <&mas_crypto_c0>;
 		qcom,proxy-reg-names = "vdd_cx";
 
 		qcom,firmware-name = "modem";
@@ -1179,6 +1180,7 @@
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
 		qcom,proxy-reg-names = "vdd_cx";
 		qcom,vdd_cx-uV-uA = <RPM_SMD_REGULATOR_LEVEL_TURBO 100000>;
+		qcom,mas-crypto = <&mas_crypto_c0>;
 
 		clocks = <&clock_rpmcc CXO_SMD_PIL_LPASS_CLK>;
 		clock-names = "xo";
@@ -1218,6 +1220,7 @@
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
 		qcom,proxy-reg-names = "vdd_cx";
 		qcom,vdd_cx-uV-uA = <RPM_SMD_REGULATOR_LEVEL_TURBO 100000>;
+		qcom,mas-crypto = <&mas_crypto_c0>;
 
 		clocks = <&clock_rpmcc CXO_SMD_PIL_CDSP_CLK>;
 		clock-names = "xo";
@@ -2137,6 +2140,7 @@
 
 		vdd-supply = <&venus_gdsc>;
 		qcom,proxy-reg-names = "vdd";
+		qcom,mas-crypto = <&mas_crypto_c0>;
 
 		clocks = <&clock_videocc VIDEO_CC_VENUS_CTL_CORE_CLK>,
 			<&clock_videocc VIDEO_CC_VENUS_AHB_CLK>,
