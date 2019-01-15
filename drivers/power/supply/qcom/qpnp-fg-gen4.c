@@ -3594,6 +3594,9 @@ static int fg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGE_NOW_RAW:
 		rc = fg_gen4_get_charge_raw(chip, &pval->intval);
 		break;
+	case POWER_SUPPLY_PROP_CHARGE_NOW:
+		pval->intval = chip->cl->init_cap_uah;
+		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
 		rc = fg_gen4_get_learned_capacity(chip, &temp);
 		if (!rc)
@@ -3787,6 +3790,7 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
 	POWER_SUPPLY_PROP_CHARGE_NOW_RAW,
+	POWER_SUPPLY_PROP_CHARGE_NOW,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_SHADOW,
