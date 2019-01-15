@@ -2012,14 +2012,14 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 	} else if ((!chip->charge_done || chip->msoc <= recharge_soc)
 				&& chip->charge_full) {
 
-		bool usb_present = is_usb_present(chip);
+		bool input_present = is_input_present(chip);
 
 		/*
 		 * force a recharge only if SOC <= recharge SOC and
 		 * we have not started charging.
 		 */
 		if ((chip->wa_flags & QG_RECHARGE_SOC_WA) &&
-			usb_present && chip->msoc <= recharge_soc &&
+			input_present && chip->msoc <= recharge_soc &&
 			chip->charge_status != POWER_SUPPLY_STATUS_CHARGING) {
 			/* Force recharge */
 			prop.intval = 0;
@@ -2037,10 +2037,10 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 
 		/*
 		 * If SOC has indeed dropped below recharge-SOC or
-		 * the USB is removed, if linearize-soc is set scale
+		 * the input is removed, if linearize-soc is set scale
 		 * msoc from 100% for better UX.
 		 */
-		if (chip->msoc < recharge_soc || !usb_present) {
+		if (chip->msoc < recharge_soc || !input_present) {
 			if (chip->dt.linearize_soc) {
 				get_rtc_time(&chip->last_maint_soc_update_time);
 				chip->maint_soc = FULL_SOC;
@@ -2051,9 +2051,9 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 					chip->msoc, recharge_soc);
 		} else {
 			/* continue with charge_full state */
-			qg_dbg(chip, QG_DEBUG_STATUS, "msoc=%d recharge_soc=%d charge_full=%d usb_present=%d\n",
+			qg_dbg(chip, QG_DEBUG_STATUS, "msoc=%d recharge_soc=%d charge_full=%d input_present=%d\n",
 					chip->msoc, recharge_soc,
-					chip->charge_full, usb_present);
+					chip->charge_full, input_present);
 		}
 	}
 out:
@@ -2091,18 +2091,21 @@ static int qg_parallel_status_update(struct qpnp_qg *chip)
 	return 0;
 }
 
-static int qg_usb_status_update(struct qpnp_qg *chip)
+static int qg_input_status_update(struct qpnp_qg *chip)
 {
 	bool usb_present = is_usb_present(chip);
+	bool dc_present = is_dc_present(chip);
 
-	if (chip->usb_present != usb_present) {
+	if ((chip->usb_present != usb_present) ||
+		(chip->dc_present != dc_present)) {
 		qg_dbg(chip, QG_DEBUG_STATUS,
-			"USB status changed Present=%d\n",
-							usb_present);
+			"Input status changed usb_present=%d dc_present=%d\n",
+						usb_present, dc_present);
 		qg_scale_soc(chip, false);
 	}
 
 	chip->usb_present = usb_present;
+	chip->dc_present = dc_present;
 
 	return 0;
 }
@@ -2216,6 +2219,7 @@ static void qg_status_change_work(struct work_struct *work)
 			struct qpnp_qg, qg_status_change_work);
 	union power_supply_propval prop = {0, };
 	int rc = 0, batt_temp = 0, batt_soc_32b = 0;
+	bool input_present = false;
 
 	if (!is_batt_available(chip)) {
 		pr_debug("batt-psy not available\n");
@@ -2254,14 +2258,17 @@ static void qg_status_change_work(struct work_struct *work)
 	if (rc < 0)
 		pr_err("Failed to update parallel-status, rc=%d\n", rc);
 
-	rc = qg_usb_status_update(chip);
+	rc = qg_input_status_update(chip);
 	if (rc < 0)
-		pr_err("Failed to update usb status, rc=%d\n", rc);
+		pr_err("Failed to update input status, rc=%d\n", rc);
+
+	/* get input status */
+	input_present = is_input_present(chip);
 
 	cycle_count_update(chip->counter,
 			DIV_ROUND_CLOSEST(chip->msoc * 255, 100),
 			chip->charge_status, chip->charge_done,
-			chip->usb_present);
+			input_present);
 
 	if (!chip->dt.cl_disable) {
 		rc = qg_get_battery_temp(chip, &batt_temp);
@@ -2273,14 +2280,14 @@ static void qg_status_change_work(struct work_struct *work)
 					QG_SOC_FULL);
 			cap_learning_update(chip->cl, batt_temp, batt_soc_32b,
 				chip->charge_status, chip->charge_done,
-				chip->usb_present, false);
+				input_present, false);
 		}
 	}
 	rc = qg_charge_full_update(chip);
 	if (rc < 0)
 		pr_err("Failed in charge_full_update, rc=%d\n", rc);
 
-	ttf_update(chip->ttf, chip->usb_present);
+	ttf_update(chip->ttf, input_present);
 out:
 	pm_relax(chip->dev);
 }
@@ -2299,7 +2306,8 @@ static int qg_notifier_cb(struct notifier_block *nb,
 
 	if ((strcmp(psy->desc->name, "battery") == 0)
 		|| (strcmp(psy->desc->name, "parallel") == 0)
-		|| (strcmp(psy->desc->name, "usb") == 0)) {
+		|| (strcmp(psy->desc->name, "usb") == 0)
+		|| (strcmp(psy->desc->name, "dc") == 0)) {
 		/*
 		 * We cannot vote for awake votable here as that takes
 		 * a mutex lock and this is executed in an atomic context.
@@ -4108,8 +4116,9 @@ static int qpnp_qg_remove(struct platform_device *pdev)
 static void qpnp_qg_shutdown(struct platform_device *pdev)
 {
 	struct qpnp_qg *chip = platform_get_drvdata(pdev);
+	bool input_present = is_input_present(chip);
 
-	if (!is_usb_present(chip) || !chip->profile_loaded)
+	if (!input_present || !chip->profile_loaded)
 		return;
 	/*
 	 * Charging status doesn't matter when the device shuts down and we
@@ -4118,7 +4127,7 @@ static void qpnp_qg_shutdown(struct platform_device *pdev)
 	cycle_count_update(chip->counter,
 			DIV_ROUND_CLOSEST(chip->msoc * 255, 100),
 			POWER_SUPPLY_STATUS_NOT_CHARGING,
-			true, chip->usb_present);
+			true, input_present);
 }
 
 static const struct of_device_id match_table[] = {
