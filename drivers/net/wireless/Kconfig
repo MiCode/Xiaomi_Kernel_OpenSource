@@ -144,5 +144,6 @@ config CLD_LL_CORE
 
 source "drivers/net/wireless/cnss2/Kconfig"
 source "drivers/net/wireless/cnss_utils/Kconfig"
+source "drivers/net/wireless/cnss_genl/Kconfig"
 
 endif # WLAN
