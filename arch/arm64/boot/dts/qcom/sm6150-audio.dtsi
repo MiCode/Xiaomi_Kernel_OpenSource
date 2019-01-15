@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,6 +12,7 @@
  */
 
 #include "msm-audio-lpass.dtsi"
+#include "dt-bindings/clock/qcom,audio-ext-clk.h"
 
 &msm_audio_ion {
 	iommus = <&apps_smmu 0x1721 0x0>;
@@ -26,6 +27,12 @@
 		reg-names = "avtimer_lsb_addr", "avtimer_msb_addr";
 		qcom,clk-div = <192>;
 		qcom,clk-mult = <10>;
+	};
+
+	lpass_core_hw_vote: lpass_core_hw_vote {
+		compatible = "qcom,audio-ref-clk";
+		qcom,codec-ext-clk-src = <AUDIO_LPASS_CORE_HW_VOTE>;
+		#clock-cells = <1>;
 	};
 };
 

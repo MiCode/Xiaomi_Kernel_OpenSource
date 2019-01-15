@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,7 +23,7 @@
 #define AUDIO_LPASS_MCLK_5	6
 #define AUDIO_LPASS_MCLK_6	7
 #define AUDIO_LPASS_MCLK_7	8
-#define AUDIO_LPASS_NPA_RSC_ISLAND	9
+#define AUDIO_LPASS_CORE_HW_VOTE	9
 #define AUDIO_EXTERNAL_PLL	10
 
 #endif
