@@ -13,6 +13,7 @@
 #include <dt-bindings/gpio/gpio.h>
 
 #include "trinket-thermal-overlay.dtsi"
+#include "trinket-sde-display.dtsi"
 
 &qupv3_se1_i2c {
 	status = "ok";
@@ -178,4 +179,23 @@
 	qcom,vddp-ref-clk-max-microamp = <100>;
 
 	status = "ok";
+};
+
+&dsi_td4330_truly_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-reset-gpio = <&tlmm 90 0>;
+	qcom,platform-bklight-en-gpio = <&pmi632_gpios 6 0>;
+};
+
+&dsi_td4330_truly_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-te-gpio = <&tlmm 89 0>;
+	qcom,platform-reset-gpio = <&tlmm 90 0>;
+	qcom,platform-bklight-en-gpio = <&pmi632_gpios 6 0>;
 };
