@@ -536,7 +536,7 @@
 			<0xac42000 0x8000>;
 		reg-cam-base = <0x40000 0x42000>;
 		interrupt-names = "cpas_camnoc";
-		interrupts = <0 459 0>;
+		interrupts = <GIC_SPI 459 IRQ_TYPE_EDGE_RISING>;
 		camnoc-axi-min-ib-bw = <3000000000>;
 		regulator-names = "camss-vdd";
 		camss-vdd-supply = <&titan_top_gdsc>;
