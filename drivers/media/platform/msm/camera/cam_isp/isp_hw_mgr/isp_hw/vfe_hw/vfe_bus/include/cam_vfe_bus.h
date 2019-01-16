@@ -14,7 +14,7 @@
 #define CAM_VFE_BUS_VER_2_0             0x2000
 #define CAM_VFE_BUS_VER_3_0             0x3000
 
-#define CAM_VFE_BUS_RD_VER_4_0          0x4000
+#define CAM_VFE_BUS_RD_VER_1_0          0x1000
 
 #define CAM_VFE_ADD_REG_VAL_PAIR(buf_array, index, offset, val)    \
 	do {                                               \

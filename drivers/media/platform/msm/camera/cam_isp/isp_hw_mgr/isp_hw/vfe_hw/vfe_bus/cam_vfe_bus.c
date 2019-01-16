@@ -32,18 +32,26 @@ int cam_vfe_bus_init(uint32_t          bus_version,
 				bus_hw_info, vfe_irq_controller, vfe_bus);
 			break;
 		default:
-			CAM_ERR(CAM_ISP, "Unsupported Bus Version %x",
+			CAM_ERR(CAM_ISP, "Unsupported Bus WR Version 0x%x",
 				bus_version);
 			break;
 		}
 		break;
 	case BUS_TYPE_RD:
-		/* Call vfe bus rd init function */
-		rc = cam_vfe_bus_rd_ver1_init(soc_info, hw_intf,
-			bus_hw_info, vfe_irq_controller, vfe_bus);
+		switch (bus_version) {
+		case CAM_VFE_BUS_RD_VER_1_0:
+			/* Call vfe bus rd init function */
+			rc = cam_vfe_bus_rd_ver1_init(soc_info, hw_intf,
+				bus_hw_info, vfe_irq_controller, vfe_bus);
+			break;
+		default:
+			CAM_ERR(CAM_ISP, "Unsupported Bus RD Version 0x%x",
+				bus_version);
+			break;
+		}
 		break;
 	default:
-		CAM_ERR(CAM_ISP, "Unsupported Bus type %x", bus_type);
+		CAM_ERR(CAM_ISP, "Unsupported Bus type %d", bus_type);
 		break;
 	}
 

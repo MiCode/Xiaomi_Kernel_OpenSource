@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_VFE_BUS_R_VER1_H_
@@ -50,21 +50,13 @@ struct cam_vfe_bus_rd_ver1_reg_offset_common {
  * @Brief:        Register offsets for BUS Clients
  */
 struct cam_vfe_bus_rd_ver1_reg_offset_bus_client {
-	uint32_t status0;
-	uint32_t status1;
 	uint32_t cfg;
-	uint32_t header_addr;
-	uint32_t header_cfg;
 	uint32_t image_addr;
-	uint32_t image_addr_offset;
-	uint32_t buffer_width_cfg;
-	uint32_t buffer_height_cfg;
-	uint32_t unpacker_cfg;
-	uint32_t stride;
-	void    *ubwc_regs;
-	uint32_t burst_limit;
-	uint32_t latency_buf_allocation;
 	uint32_t buf_size;
+	uint32_t stride;
+	uint32_t unpacker_cfg;
+	uint32_t latency_buf_allocation;
+	uint32_t burst_limit;
 };
 
 /*
