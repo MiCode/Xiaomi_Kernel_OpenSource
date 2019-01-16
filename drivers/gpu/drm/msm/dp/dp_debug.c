@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1948,6 +1948,14 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 	if (IS_ERR_OR_NULL(file)) {
 		rc = PTR_ERR(file);
 		pr_err("[%s] debugfs widebus failed, rc=%d\n",
+		       DEBUG_NAME, rc);
+	}
+
+	file = debugfs_create_u32("max_lclk_khz", 0644, dir,
+			&debug->parser->max_lclk_khz);
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs max_lclk_khz failed, rc=%d\n",
 		       DEBUG_NAME, rc);
 	}
 
