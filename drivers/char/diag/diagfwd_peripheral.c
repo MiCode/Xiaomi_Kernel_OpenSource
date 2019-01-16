@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 #include <linux/slab.h>
 #include <linux/err.h>
@@ -746,8 +746,10 @@ static void diagfwd_cntl_read_done(struct diagfwd_info *fwd_info,
 	 */
 	diag_ws_on_copy_fail(DIAG_WS_MUX);
 	/* Reset the buffer in_busy value after processing the data */
-	if (fwd_info->buf_1)
+	if (fwd_info->buf_1) {
 		atomic_set(&fwd_info->buf_1->in_busy, 0);
+		fwd_info->buffer_status[BUF_1_INDEX] = 0;
+	}
 
 	diagfwd_queue_read(fwd_info);
 	diagfwd_queue_read(&peripheral_info[TYPE_DATA][fwd_info->peripheral]);
@@ -772,8 +774,10 @@ static void diagfwd_dci_read_done(struct diagfwd_info *fwd_info,
 
 	diag_dci_process_peripheral_data(fwd_info, (void *)buf, len);
 	/* Reset the buffer in_busy value after processing the data */
-	if (fwd_info->buf_1)
+	if (fwd_info->buf_1) {
 		atomic_set(&fwd_info->buf_1->in_busy, 0);
+		fwd_info->buffer_status[BUF_1_INDEX] = 0;
+	}
 
 	diagfwd_queue_read(fwd_info);
 }
@@ -785,15 +789,22 @@ static void diagfwd_reset_buffers(struct diagfwd_info *fwd_info,
 		return;
 
 	if (!driver->feature[fwd_info->peripheral].encode_hdlc) {
-		if (fwd_info->buf_1 && fwd_info->buf_1->data == buf)
+		if (fwd_info->buf_1 && fwd_info->buf_1->data == buf) {
 			atomic_set(&fwd_info->buf_1->in_busy, 0);
-		else if (fwd_info->buf_2 && fwd_info->buf_2->data == buf)
+			fwd_info->buffer_status[BUF_1_INDEX] = 0;
+		} else if (fwd_info->buf_2 && fwd_info->buf_2->data == buf) {
 			atomic_set(&fwd_info->buf_2->in_busy, 0);
+			fwd_info->buffer_status[BUF_2_INDEX] = 0;
+		}
 	} else {
-		if (fwd_info->buf_1 && fwd_info->buf_1->data_raw == buf)
+		if (fwd_info->buf_1 && fwd_info->buf_1->data_raw == buf) {
 			atomic_set(&fwd_info->buf_1->in_busy, 0);
-		else if (fwd_info->buf_2 && fwd_info->buf_2->data_raw == buf)
+			fwd_info->buffer_status[BUF_1_INDEX] = 0;
+		} else if (fwd_info->buf_2 &&
+			fwd_info->buf_2->data_raw == buf) {
 			atomic_set(&fwd_info->buf_2->in_busy, 0);
+			fwd_info->buffer_status[BUF_2_INDEX] = 0;
+		}
 	}
 	if (fwd_info->buf_1 && !atomic_read(&(fwd_info->buf_1->in_busy))) {
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
@@ -1181,12 +1192,14 @@ static void __diag_fwd_open(struct diagfwd_info *fwd_info)
 	if (driver->logging_mode != DIAG_USB_MODE) {
 		if (fwd_info->buf_1) {
 			atomic_set(&fwd_info->buf_1->in_busy, 0);
+			fwd_info->buffer_status[BUF_1_INDEX] = 0;
 			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 			"Buffer 1 for core PD is marked free, p: %d, t: %d\n",
 			fwd_info->peripheral, fwd_info->type);
 		}
 		if (fwd_info->buf_2) {
 			atomic_set(&fwd_info->buf_2->in_busy, 0);
+			fwd_info->buffer_status[BUF_2_INDEX] = 0;
 			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 			"Buffer 2 for core PD is marked free, p: %d, t: %d\n",
 			fwd_info->peripheral, fwd_info->type);
@@ -1302,12 +1315,14 @@ int diagfwd_channel_close(struct diagfwd_info *fwd_info)
 
 	if (fwd_info->buf_1 && fwd_info->buf_1->data) {
 		atomic_set(&fwd_info->buf_1->in_busy, 0);
+		fwd_info->buffer_status[BUF_1_INDEX] = 0;
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 		"Buffer 1 for core PD is marked free, p: %d, t: %d\n",
 			fwd_info->peripheral, fwd_info->type);
 	}
 	if (fwd_info->buf_2 && fwd_info->buf_2->data) {
 		atomic_set(&fwd_info->buf_2->in_busy, 0);
+		fwd_info->buffer_status[BUF_2_INDEX] = 0;
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 		"Buffer 2 for core PD is marked free, p: %d, t: %d\n",
 				fwd_info->peripheral, fwd_info->type);
@@ -1381,6 +1396,7 @@ void diagfwd_write_done(uint8_t peripheral, uint8_t type, int buf_num)
 		 */
 		if (!upd_valid_len) {
 			atomic_set(&fwd_info->buf_1->in_busy, 0);
+			fwd_info->buffer_status[BUF_1_INDEX] = 0;
 			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 			"Buffer 1 for core PD is marked free, p: %d, t: %d, buf_num: %d\n",
 				fwd_info->peripheral, fwd_info->type, buf_num);
@@ -1406,6 +1422,7 @@ void diagfwd_write_done(uint8_t peripheral, uint8_t type, int buf_num)
 		 */
 		if (!upd_valid_len) {
 			atomic_set(&fwd_info->buf_2->in_busy, 0);
+			fwd_info->buffer_status[BUF_2_INDEX] = 0;
 			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 			"Buffer 2 for core PD is marked free, p: %d, t: %d, buf_num: %d\n",
 				fwd_info->peripheral, fwd_info->type, buf_num);
@@ -1440,6 +1457,7 @@ void diagfwd_write_done(uint8_t peripheral, uint8_t type, int buf_num)
 		 */
 		if (!upd_valid_len && !fwd_info->cpd_len_1) {
 			atomic_set(&fwd_info->buf_1->in_busy, 0);
+			fwd_info->buffer_status[BUF_1_INDEX] = 0;
 			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 				"Buffer 1 for core PD is marked free, p: %d, t: %d, buf_num: %d\n",
 				fwd_info->peripheral, fwd_info->type, buf_num);
@@ -1474,6 +1492,7 @@ void diagfwd_write_done(uint8_t peripheral, uint8_t type, int buf_num)
 		 */
 		if (!upd_valid_len && !fwd_info->cpd_len_2) {
 			atomic_set(&fwd_info->buf_2->in_busy, 0);
+			fwd_info->buffer_status[BUF_2_INDEX] = 0;
 			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 			"Buffer 2 for core PD is marked free, p: %d, t: %d, buf_num: %d\n",
 			fwd_info->peripheral, fwd_info->type, buf_num);

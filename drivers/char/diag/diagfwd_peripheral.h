@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef DIAGFWD_PERIPHERAL_H
@@ -70,6 +70,7 @@ struct diagfwd_info {
 	int cpd_len_1;
 	int cpd_len_2;
 	int upd_len[MAX_PERIPHERAL_UPD][2];
+	int buffer_status[NUM_CHANNEL_BUFFERS];
 	atomic_t opened;
 	unsigned long read_bytes;
 	unsigned long write_bytes;
