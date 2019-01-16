@@ -302,6 +302,8 @@ Optional properties:
 - qcom,sde-reg-dma-version:	Version of the reg dma hardware block.
 - qcom,sde-reg-dma-trigger-off: Offset of the lut dma trigger reg from "mdp_phys"
 				defined in reg property.
+- qcom,sde-reg-dma-broadcast-disabled: Boolean property to indicate if broadcast
+				functionality in the register dma hardware block should be used.
 - qcom,sde-dram-channels:	This represents the number of channels in the
 				Bus memory controller.
 - qcom,sde-num-nrt-paths:	Integer property represents the number of non-realtime
