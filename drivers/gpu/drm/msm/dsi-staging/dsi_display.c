@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -5384,6 +5384,9 @@ int dsi_display_drm_ext_bridge_init(struct dsi_display *display,
 
 		/* return if ext bridge is already initialized */
 		if (ext_bridge_info->bridge)
+			return 0;
+
+		if (!display->panel->host_config.ext_bridge_mode)
 			return 0;
 
 		ext_bridge = of_drm_find_bridge(ext_bridge_info->node_of);
