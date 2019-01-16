@@ -1226,6 +1226,7 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 	debug_in.connector = &dp->dp_display.base_connector;
 	debug_in.catalog = dp->catalog;
 	debug_in.parser = dp->parser;
+	debug_in.ctrl = dp->ctrl;
 
 	dp->debug = dp_debug_get(&debug_in);
 	if (IS_ERR(dp->debug)) {

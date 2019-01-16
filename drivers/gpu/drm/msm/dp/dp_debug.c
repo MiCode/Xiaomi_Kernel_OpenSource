@@ -11,7 +11,6 @@
 #include "dp_power.h"
 #include "dp_catalog.h"
 #include "dp_aux.h"
-#include "dp_ctrl.h"
 #include "dp_debug.h"
 #include "drm_connector.h"
 #include "sde_connector.h"
@@ -41,6 +40,7 @@ struct dp_debug_private {
 	struct device *dev;
 	struct dp_debug dp_debug;
 	struct dp_parser *parser;
+	struct dp_ctrl *ctrl;
 };
 
 static int dp_debug_get_edid_buf(struct dp_debug_private *debug)
@@ -1444,6 +1444,9 @@ static void dp_debug_set_sim_mode(struct dp_debug_private *debug, bool sim)
 		debug->aux->set_sim_mode(debug->aux, true,
 			debug->edid, debug->dpcd);
 	} else {
+		debug->aux->abort(debug->aux);
+		debug->ctrl->abort(debug->ctrl);
+
 		debug->aux->set_sim_mode(debug->aux, false, NULL, NULL);
 		debug->dp_debug.sim_mode = false;
 
@@ -1989,7 +1992,8 @@ struct dp_debug *dp_debug_get(struct dp_debug_in *in)
 	struct dp_debug_private *debug;
 	struct dp_debug *dp_debug;
 
-	if (!in->dev || !in->panel || !in->hpd || !in->link || !in->catalog) {
+	if (!in->dev || !in->panel || !in->hpd || !in->link ||
+	    !in->catalog || !in->ctrl) {
 		pr_err("invalid input\n");
 		rc = -EINVAL;
 		goto error;
@@ -2010,6 +2014,7 @@ struct dp_debug *dp_debug_get(struct dp_debug_in *in)
 	debug->connector = in->connector;
 	debug->catalog = in->catalog;
 	debug->parser = in->parser;
+	debug->ctrl = in->ctrl;
 
 	dp_debug = &debug->dp_debug;
 	dp_debug->vdisplay = 0;
