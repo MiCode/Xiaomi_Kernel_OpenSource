@@ -1,0 +1,5 @@
+config MTK_FMRADIO
+  bool CONFIG_MTK_FMRADIO
+  default n
+  help
+    CONFIG_MTK_FMRADIO

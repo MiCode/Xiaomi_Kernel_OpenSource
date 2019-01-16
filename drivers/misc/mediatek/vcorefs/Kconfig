@@ -1,0 +1,5 @@
+config MTK_VCOREFS
+	bool "MTK Vcore DVFS support"
+	default n
+	help
+	  Say Y here to enable MTK Vcore DVFS support

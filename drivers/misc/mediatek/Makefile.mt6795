@@ -1,0 +1,169 @@
+ifeq ($(CONFIG_ARM64), y)
+# For arm64
+ifneq ($(CONFIG_MTK_GIC),y)
+obj-y   += irq/
+endif
+
+obj-$(CONFIG_MTK_SYSTRACKER)   += systracker/
+
+obj-$(CONFIG_MTK_LASTPC)	    += lastpc/
+obj-$(CONFIG_MTK_NFC) += nfc/
+obj-$(CONFIG_ZRAM)	+= mlog/
+
+obj-y	+= lcm/
+obj-y	+= mach/
+
+obj-y	+= aee/
+obj-y	+= ram_console/
+obj-y	+= sched/
+obj-y	+= videocodec/
+
+obj-y	+= boot/
+obj-y	+= boot_reason/
+obj-y	+= chip/
+obj-y	+= devinfo/
+obj-y	+= devapc/
+obj-y	+= eint/
+obj-y	+= gpio/
+obj-y	+= pmic_wrap/
+obj-y	+= selinux_warning/
+obj-$(CONFIG_MTK_AEE_MRDUMP)   += mrdump/
+obj-y	+= kernel/
+
+obj-y	+= xlog/
+obj-y   += atf_log/
+obj-y	+= mmp/
+obj-y	+= m4u/
+obj-y	+= flashlight/src/
+obj-y	+= lens/
+obj-$(CONFIG_CW2015_SUPPORT) += battery_fual/
+obj-y	+= jpeg/
+
+obj-y	+= imgsensor/src/
+ifeq ($(wildcard $(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/$(ARCH_MTK_PROJECT)/cam_cal),)
+obj-$(CONFIG_MTK_CAM_CAL)	+= cam_cal/src/
+endif
+obj-y += mtprof/
+obj-y	+= spm/
+
+obj-y   += cmdq/
+obj-$(CONFIG_MTK_CIRQ) += cirq/
+obj-y   += watchpoint/
+
+obj-y   += fmradio/
+obj-y   += gps/
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include
+obj-$(CONFIG_MTK_COMBO)	+= connectivity/
+obj-$(CONFIG_MTK_CONN_MD)   += conn_md/
+obj-y   += mach/
+
+obj-y	+=  ccci_util/
+obj-$(CONFIG_MTK_ECCCI_DRIVER) +=  eccci/
+
+obj-y   += aee/
+obj-y   += sched/
+
+obj-y   += boot/
+obj-y   += boot_reason/
+obj-y   += chip/
+obj-y   += devinfo/
+
+obj-y   += cqdma/
+obj-y   += eint/
+obj-$(CONFIG_TRUSTONIC_TEE_SUPPORT) += gud/
+obj-$(CONFIG_TRUSTONIC_TEE_SUPPORT) += secmem/
+obj-$(CONFIG_MTK_MJC_DRIVER)   += mjc/
+
+
+obj-y   += uart/
+obj-$(CONFIG_MTK_MMC)   += mmc-host/
+
+obj-y   += m4u/
+
+obj-y   += mmp/
+obj-y   += cmdq/
+ifeq ($(CONFIG_MTK_SENSOR_SUPPORT),y)
+obj-$(CONFIG_MTK_HWMON) += hwmon/
+obj-$(CONFIG_CUSTOM_KERNEL_ALSPS) += alsps/
+obj-$(CONFIG_CUSTOM_KERNEL_ACCELEROMETER) += accelerometer/
+obj-$(CONFIG_CUSTOM_KERNEL_GYROSCOPE) += gyroscope/
+obj-$(CONFIG_CUSTOM_KERNEL_MAGNETOMETER) += magnetometer/
+obj-$(CONFIG_CUSTOM_KERNEL_BAROMETER) += barometer/
+endif
+
+obj-$(CONFIG_MTK_XHCI)   +=  xhci/
+
+
+
+obj-y   += dispsys/
+obj-y   += sync/
+obj-y   += videox/
+obj-y   += mtprof/
+obj-y   += rtc/
+obj-y   += xlog/
+
+obj-y   += keypad/
+obj-y	  += wdk/
+obj-y	  += wdt/
+#backlight
+obj-y   += leds/
+obj-y   += vibrator/
+obj-y   += power/
+obj-$(CONFIG_MTK_POWER_GS)   += power_gs/
+
+obj-y   += accdet/
+
+ifeq ($(CONFIG_MTK_HDMI_SUPPORT),y)
+obj-y   += hdmi/
+obj-y   += ext_disp/
+endif
+
+obj-$(CONFIG_MTK_HIBERNATION) += hibcore/
+
+obj-$(CONFIG_MTK_WFD_SUPPORT)  += uibc/
+obj-$(CONFIG_LEDS_LM3643)	+= leds-Lm3643/
+
+obj-y   += i2c/
+obj-y   += pwm/
+obj-y   += auxadc/
+obj-$(CONFIG_FPC_1021)	+= FPC_1021/
+
+
+obj-y   += spi/
+obj-y   += thermal/
+obj-$(CONFIG_MTK_MMC)   += partition/
+
+obj-$(CONFIG_MTK_SYSENV) += sysenv/
+
+obj-$(CONFIG_FINGERPRINT_GOODIX_GF516M) += fingerprint/
+obj-$(CONFIG_FPC_1022)	+= FPC_1022/
+
+obj-y	+= smi/
+# USB need to after gpio
+obj-$(CONFIG_USB_MTK_HDRC)      += usb20/
+obj-$(CONFIG_USB_MU3D_DRV)      += mu3d/
+obj-$(CONFIG_USB_MU3D_DRV)      += mu3phy/
+obj-$(CONFIG_FPC_IRQ)	+= fpc_irq/
+obj-$(CONFIG_MTK_TEST_XHCI)   +=  xhci_test/
+
+obj-$(CONFIG_MTK_USBFSH)  += usb11/
+
+obj-$(CONFIG_MTK_VCOREFS)	+= vcorefs/
+obj-y	+= freqhopping/
+
+# MT_STOREAGE_LOGGER
+obj-$(CONFIG_MTK_MT_LOGGER) += mt_logger/
+
+obj-y	+= gpu/
+obj-y   += emi_mpu/
+obj-y   += emi_bwl/
+obj-$(CONFIG_MD32_SUPPORT)   += md32/
+
+obj-y   += masp/
+
+# MTK PASR SW flow
+obj-$(CONFIG_MTKPASR)	+= mtkpasr/
+
+endif		# end of CONFIG_ARM64
+
+

@@ -1,0 +1,129 @@
+
+MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+ARCH_MTK_PROJECT := $(subst ",,$(CONFIG_ARCH_MTK_PROJECT))
+
+MTK_CUSTOM_PATH  := $(srctree)/drivers/misc/mediatek
+
+ifneq ($(CONFIG_ARM64), y)
+# For arm32, mach folder
+MTK_PLATFORM_PATH_ROOT := $(srctree)/arch/arm/mach-$(MTK_PLATFORM)
+MTK_PROJECT_PATH_ROOT := $(srctree)/arch/arm/mach-$(MTK_PLATFORM)/$(ARCH_MTK_PROJECT)
+	ifneq ($(filter y,$(CONFIG_ARCH_MT6752) $(CONFIG_ARCH_MT6732) $(CONFIG_ARCH_MT6595) $(CONFIG_ARCH_MT6795) $(CONFIG_ARCH_MT6735) $(CONFIG_ARCH_MT6735M) $(CONFIG_ARCH_MT6753)),)
+	# For armv8 32bit
+	MTK_PLATFORM_PATH_ROOT := $(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)
+	MTK_PROJECT_PATH_ROOT := $(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/$(ARCH_MTK_PROJECT)
+	endif
+else
+# For arm64, no mach-xxx folder
+MTK_PLATFORM_PATH_ROOT := $(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)
+MTK_PROJECT_PATH_ROOT := $(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/$(ARCH_MTK_PROJECT)
+endif
+
+ccflags-y += -I$(MTK_PLATFORM_PATH_ROOT)/include \
+             -I$(MTK_PLATFORM_PATH_ROOT)/include/mach \
+             -I$(MTK_PROJECT_PATH_ROOT)/accdet \
+             -I$(MTK_PROJECT_PATH_ROOT)/core \
+             -I$(MTK_PROJECT_PATH_ROOT)/camera/camera \
+             -I$(MTK_PROJECT_PATH_ROOT)/common \
+             -I$(MTK_PROJECT_PATH_ROOT)/dct/dct \
+             -I$(MTK_PROJECT_PATH_ROOT)/hdmi \
+             -I$(MTK_PROJECT_PATH_ROOT)/imgsensor/inc \
+             -I$(MTK_PROJECT_PATH_ROOT)/keypad \
+             -I$(MTK_PROJECT_PATH_ROOT)/leds/mt65xx \
+             -I$(MTK_PROJECT_PATH_ROOT)/power \
+             -I$(MTK_PROJECT_PATH_ROOT)/rtc \
+             -I$(MTK_PROJECT_PATH_ROOT)/sound/inc \
+             -I$(MTK_PROJECT_PATH_ROOT)/touchpanel/ft5406_82 \
+             -I$(MTK_PROJECT_PATH_ROOT)/vibrator \
+	     -I$(DRVGEN_OUT)/inc \
+             -I$(MTK_PROJECT_PATH_ROOT)/multibridge/mt8193/inc 
+
+ccflags-y += -I$(MTK_CUSTOM_PATH)/accdet/$(MTK_PLATFORM) \
+             -I$(MTK_CUSTOM_PATH)/accelerometer/inc \
+             -I$(MTK_CUSTOM_PATH)/alsps/inc \
+             -I$(MTK_CUSTOM_PATH)/hdmi/inc \
+             -I$(MTK_CUSTOM_PATH)/barometer/inc \
+             -I$(MTK_CUSTOM_PATH)/auxadc/$(MTK_PLATFORM) \
+             -I$(MTK_CUSTOM_PATH)/cam_cal/inc \
+             -I$(MTK_CUSTOM_PATH)/camera/$(MTK_PLATFORM) \
+             -I$(MTK_CUSTOM_PATH)/cmdq/$(MTK_PLATFORM) \
+             -I$(MTK_CUSTOM_PATH)/devinfo/$(MTK_PLATFORM) \
+             -I$(MTK_CUSTOM_PATH)/dispsys/$(MTK_PLATFORM) \
+             -I$(MTK_CUSTOM_PATH)/dual_ccci/$(MTK_PLATFORM)/include \
+             -I$(MTK_CUSTOM_PATH)/dual_ccci/include \
+             -I$(MTK_CUSTOM_PATH)/flashlight/inc \
+             -I$(MTK_CUSTOM_PATH)/gyroscope/inc \
+             -I$(MTK_CUSTOM_PATH)/step_counter \
+             -I$(MTK_CUSTOM_PATH)/pedometer \
+             -I$(MTK_CUSTOM_PATH)/activity_sensor \
+             -I$(MTK_CUSTOM_PATH)/in_pocket_sensor \
+             -I$(MTK_CUSTOM_PATH)/face_down_sensor \
+             -I$(MTK_CUSTOM_PATH)/pick_up_sensor \
+             -I$(MTK_CUSTOM_PATH)/shake_sensor \
+             -I$(MTK_CUSTOM_PATH)/heart_rate_sensor \
+             -I$(MTK_CUSTOM_PATH)/tilt_detector_sensor \
+             -I$(MTK_CUSTOM_PATH)/wake_gesture_sensor \
+             -I$(MTK_CUSTOM_PATH)/glance_gesture_sensor \
+             -I$(MTK_CUSTOM_PATH)/i2c/$(MTK_PLATFORM) \
+             -I$(MTK_CUSTOM_PATH)/imgsensor/inc \
+             -I$(MTK_CUSTOM_PATH)/eeprom/inc \
+             -I$(MTK_CUSTOM_PATH)/leds/$(MTK_PLATFORM) \
+             -I$(MTK_CUSTOM_PATH)/lens/inc \
+             -I$(MTK_CUSTOM_PATH)/magnetometer/inc \
+             -I$(MTK_CUSTOM_PATH)/met/platform/$(MTK_PLATFORM) \
+             -I$(MTK_CUSTOM_PATH)/met/$(MTK_PLATFORM) \
+             -I$(MTK_CUSTOM_PATH)/sensorHub/inc \
+             -I$(MTK_CUSTOM_PATH)/smi/$(MTK_PLATFORM) \
+             -I$(MTK_CUSTOM_PATH)/ssw/inc \
+             -I$(MTK_CUSTOM_PATH)/sync \
+             -I$(MTK_CUSTOM_PATH)/uart/$(MTK_PLATFORM) \
+             -I$(MTK_CUSTOM_PATH)/vibrator/$(MTK_PLATFORM) \
+             -I$(MTK_CUSTOM_PATH)/video/$(MTK_PLATFORM) \
+             -I$(MTK_CUSTOM_PATH)/video \
+             -I$(MTK_CUSTOM_PATH)/wdk \
+             -I$(MTK_CUSTOM_PATH)/mjc/$(MTK_PLATFORM) \
+             -I$(MTK_CUSTOM_PATH)/lcm \
+             -I$(MTK_CUSTOM_PATH)/lcm/inc
+
+ifeq ($(CONFIG_ARCH_MT6592),y)
+  ccflags-y += -I$(MTK_CUSTOM_PATH)/lens/mt6592/inc
+else
+	ifeq ($(CONFIG_ARCH_MT6582),y)
+	    ccflags-y += -I$(MTK_CUSTOM_PATH)/lens/mt6582/inc
+	else 
+	    ifeq ($(CONFIG_ARCH_MT6752),y)
+	        ccflags-y += -I$(MTK_CUSTOM_PATH)/lens/mt6752/inc
+	        ccflags-y += -I$(MTK_CUSTOM_PATH)/lens/mt6752/lc898122af
+	    else 
+	        ccflags-y += -I$(MTK_CUSTOM_PATH)/lens/mt6795/inc
+	    endif   
+	endif
+endif
+
+ccflags-y += -I$(MTK_CUSTOM_PATH)/laser/stmvl6180/inc
+
+CUSTOM_KERNEL_FLAGS := $(addprefix -D, $(shell echo \
+             $(CONFIG_CUSTOM_KERNEL_FLASHLIGHT) \
+             $(CONFIG_CUSTOM_KERNEL_LCM) \
+             $(CONFIG_CUSTOM_KERNEL_IMGSENSOR) | tr a-z A-Z))
+ccflags-y += $(CUSTOM_KERNEL_FLAGS)
+
+# Add for ptgen
+ccflags-y += -I$(objtree)/PTGEN/inc
+
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/ptgen/$(MTK_PLATFORM)
+
+# Add for Sensor Hub
+ifeq ($(CONFIG_CUSTOM_KERNEL_SENSORHUB),"SCP_shf SCP_sensorHub")
+ccflags-y += -DCUSTOM_KERNEL_SENSORHUB
+endif
+
+ifeq ($(CONFIG_ARCH_MT6735),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)/mt6735/
+endif
+ifeq ($(CONFIG_ARCH_MT6735M),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)/mt6735m/
+endif
+ifeq ($(CONFIG_ARCH_MT6753),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)/mt6753/
+endif

@@ -1,0 +1,65 @@
+# ==========================================================================
+# Installing modules
+# ==========================================================================
+
+PHONY := __modinst
+__modinst:
+
+include scripts/Kbuild.include
+
+__modules := $(sort $(shell grep -h '\.ko$$' /dev/null $(wildcard $(MODVERDIR)/*.mod)))
+modules := $(patsubst %.o,%.ko,$(wildcard $(__modules:.ko=.o)))
+
+#PHONY += $(modules)
+__modinst:
+	@:
+
+
+#$(info modules = $(modules))
+INSTALL_MOD_DIR ?= extra
+list_modules_symbol_install :=
+list_modules_install :=
+
+ifdef KBUILD_EXTMOD
+#$(error Unexpect condition KBUILD_EXTMOD = $(KBUILD_EXTMOD))
+AMODLIB := $(INSTALL_MOD_DIR)/lib/modules
+AMODSYMLIB := $(INSTALL_MOD_DIR)/../symbols/system/lib/modules
+$(foreach ko,$(modules),\
+  $(eval src0 := $(ko)) \
+  $(eval des1 := $(AMODSYMLIB)/$(subst $(patsubst %/,%,$(KBUILD_EXTMOD)),,$(dir $(ko)))/$(notdir $(ko))) \
+  $(eval des2 := $(AMODLIB)/$(subst $(patsubst %/,%,$(KBUILD_EXTMOD)),,$(dir $(ko)))/$(notdir $(ko))) \
+  $(eval $(des1) $(des2): $(src0)) \
+  $(eval list_modules_symbol_install += $(des1)) \
+  $(eval list_modules_install += $(des2)) \
+)
+else
+AMODLIB := $(INSTALL_MOD_PATH)/lib/modules
+AMODSYMLIB := $(INSTALL_MOD_PATH)/../symbols/system/lib/modules
+$(foreach ko,$(modules),\
+  $(eval src0 := $(ko)) \
+  $(eval des1 := $(AMODSYMLIB)/$(notdir $(ko))) \
+  $(eval des2 := $(AMODLIB)/$(notdir $(ko))) \
+  $(eval $(des1) $(des2): $(src0)) \
+  $(eval list_modules_symbol_install += $(des1)) \
+  $(eval list_modules_install += $(des2)) \
+)
+endif
+
+#$(info list_modules_symbol_install = $(list_modules_symbol_install))
+#$(info list_modules_install = $(list_modules_install))
+$(list_modules_install):
+	@echo INSTALL $@
+	@mkdir -p $(dir $@)
+	@cp $< $@
+	@$(mod_strip_cmd) $@
+
+$(list_modules_symbol_install):
+	@echo COPY $@
+	@mkdir -p $(dir $@)
+	@cp $< $@
+
+__modinst: $(list_modules_install) $(list_modules_symbol_install)
+# Declare the contents of the .PHONY variable as phony.  We keep that
+# information in a variable se we can use it in if_changed and friends.
+
+.PHONY: $(PHONY)

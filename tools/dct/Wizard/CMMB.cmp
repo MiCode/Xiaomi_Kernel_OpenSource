@@ -1,0 +1,31 @@
+[MODULE_INFO]
+INFO_NUM = 1
+
+[INFO_0_NAME]
+INFO_NAME = Power Source Select
+[INFO_0_CONTENT]
+Ext_LDO
+Int_LDO
+
+[GPIO_PROTECT]
+;                   Pull_en Pull_sel Def_dir In Out Inv Out_High
+;                   dis:0   low:0    out:1 
+
+
+
+[TYPE0]
+INFO_0 = Ext_LDO
+[GPIO_NAME0]
+GPIO_CMMB_EINT_PIN
+GPIO_CMMB_LDO_EN_PIN
+GPIO_CMMB_RST_PIN
+[EINT_NAME0]
+CMMB 
+
+[TYPE1]
+INFO_0 = Int_LDO
+[GPIO_NAME1]
+GPIO_CMMB_EINT_PIN
+GPIO_CMMB_RST_PIN
+[EINT_NAME1]
+CMMB 

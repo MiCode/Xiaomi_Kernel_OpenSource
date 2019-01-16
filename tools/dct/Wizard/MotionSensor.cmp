@@ -1,0 +1,156 @@
+[MODULE_INFO]
+INFO_NUM = 2
+
+[INFO_0_NAME]
+INFO_NAME = Motion Chip  Type
+[INFO_0_CONTENT]
+6601
+6611
+
+[INFO_1_NAME]
+INFO_NAME = Motion 26MHz_Clock_Source
+[INFO_1_CONTENT]
+Co_Clock with RF:AD6548
+BT Soc:MT6236
+
+[GPIO_PROTECT]
+;                   Pull_en Pull_sel Def_dir In Out Inv Out_High
+;                   dis:0   low:0    out:1 
+PROTECT_0 = gpio_bt_power_pin    0       0        1       0  1   0   0
+PROTECT_1 = gpio_bt_32k_pin      0       0        1       0  1   0   0
+PROTECT_2 = gpio_bt_utxd3_pin    0       0        1       0  1   0   0
+PROTECT_3 = gpio_bt_urxd3_pin    1       1        0       1  1   0   0
+PROTECT_4 = gpio_bt_pcmclk_pin   0       0        1       0  1   0   0
+PROTECT_5 = gpio_bt_pcmsync_pin  0       0        1       0  1   0   0
+PROTECT_6 = gpio_bt_pcmin_pin    1       0        0       1  1   0   0
+PROTECT_7 = gpio_bt_pcmout_pin   0       0        1       0  1   0   0
+PROTECT_8 = gpio_bt_reset_pin    0       0        1       0  1   0   0
+PROTECT_9 = gpio_bt_co_clock_pin 1       0        1       0  1   0   0
+
+;non co-clock
+;6601 ,6611 only support non co-clock
+[TYPE0]
+INFO_0 = 6601
+INFO_1 = Dedicate Clock source
+[GPIO_NAME0]
+gpio_bt_power_pin 
+gpio_bt_32k_pin     
+gpio_bt_utxd3_pin    
+gpio_bt_urxd3_pin   
+gpio_bt_pcmclk_pin  
+gpio_bt_pcmsync_pin 
+gpio_bt_pcmin_pin   
+gpio_bt_pcmout_pin   
+gpio_bt_reset_pin
+[EINT_NAME0]
+BT_CO_CLOCK_EINT_NO 
+
+;6612 6616 co-clock with MT6253 MT6268
+[TYPE1]
+INFO_0 = 6611
+INFO_1 = Dedicate Clock source
+[GPIO_NAME1]
+gpio_bt_power_pin 
+gpio_bt_32k_pin     
+gpio_bt_utxd3_pin    
+gpio_bt_urxd3_pin   
+gpio_bt_pcmclk_pin  
+gpio_bt_pcmsync_pin 
+gpio_bt_pcmin_pin   
+gpio_bt_pcmout_pin   
+gpio_bt_reset_pin
+[EINT_NAME1]
+BT_CO_CLOCK_EINT_NO 
+
+;6612 6616 
+[TYPE2]
+INFO_0 = 6612 
+INFO_1 = MT6253,MT6268
+[GPIO_NAME2]
+GPIO_BT_POWREN_PIN  
+GPIO_BT_RESET_PIN	
+GPIO_BT_EINT_PIN	
+GPIO_BT_CLK_PIN  
+;gpio_bt_power_pin 
+;gpio_bt_32k_pin     
+;gpio_bt_utxd3_pin    
+;gpio_bt_urxd3_pin   
+;gpio_bt_pcmclk_pin  
+;gpio_bt_pcmsync_pin 
+;gpio_bt_pcmin_pin   
+;gpio_bt_pcmout_pin   
+;gpio_bt_reset_pin
+;gpio_bt_co_clock_pin
+[EINT_NAME2]
+BT_CO_CLOCK_EINT_NO  
+
+;6612 6616 
+[TYPE3]
+INFO_0 = 6616
+INFO_1  = MT6253,MT6268 
+[GPIO_NAME3]
+GPIO_BT_POWREN_PIN  
+GPIO_BT_RESET_PIN	
+GPIO_BT_EINT_PIN	
+GPIO_BT_CLK_PIN  
+;gpio_bt_power_pin 
+;gpio_bt_32k_pin     
+;gpio_bt_utxd3_pin    
+;gpio_bt_urxd3_pin   
+;gpio_bt_pcmclk_pin  
+;gpio_bt_pcmsync_pin 
+;gpio_bt_pcmin_pin   
+;gpio_bt_pcmout_pin   
+;gpio_bt_reset_pin
+;gpio_bt_co_clock_pin
+[EINT_NAME3]
+BT_CO_CLOCK_EINT_NO 
+
+[TYPE4]
+INFO_0 = 6612
+INFO_1 = Co_Clock with RF:AD6548
+[GPIO_NAME4] 
+gpio_bt_power_pin 
+gpio_bt_32k_pin     
+gpio_bt_utxd3_pin    
+gpio_bt_urxd3_pin   
+gpio_bt_pcmclk_pin  
+gpio_bt_pcmsync_pin 
+gpio_bt_pcmin_pin   
+gpio_bt_pcmout_pin   
+gpio_bt_reset_pin
+gpio_bt_co_clock_pin
+[EINT_NAME4]
+BT_CO_CLOCK_EINT_NO 
+
+[TYPE5]
+INFO_0 = 6616
+INFO_1 = Co_Clock with RF:AD6548
+[GPIO_NAME5] 
+gpio_bt_power_pin 
+gpio_bt_32k_pin     
+gpio_bt_utxd3_pin    
+gpio_bt_urxd3_pin   
+gpio_bt_pcmclk_pin  
+gpio_bt_pcmsync_pin 
+gpio_bt_pcmin_pin   
+gpio_bt_pcmout_pin   
+gpio_bt_reset_pin
+gpio_bt_co_clock_pin
+[EINT_NAME5]
+BT_CO_CLOCK_EINT_NO 
+
+;MT6236
+;no gpio and eint pin setting
+[TYPE6]
+INFO_0 = MT6236
+INFO_1 = Dedicate Clock source
+[GPIO_NAME6] 
+;no gpio and eint pin setting
+[EINT_NAME6]
+BT_CO_CLOCK_EINT_NO 
+
+
+
+
+

@@ -1,0 +1,5 @@
+config MTK_SOUND
+    bool "MTK_SOUND"
+    default y
+    help
+        If you say Y, enable MTK_SPUND_I2C_DRIVER.

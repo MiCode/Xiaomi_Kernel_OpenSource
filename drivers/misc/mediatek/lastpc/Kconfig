@@ -1,0 +1,5 @@
+config MTK_LASTPC
+  bool CONFIG_MTK_LASTPC
+  default n
+  help
+    CONFIG_MTK_LASTPC

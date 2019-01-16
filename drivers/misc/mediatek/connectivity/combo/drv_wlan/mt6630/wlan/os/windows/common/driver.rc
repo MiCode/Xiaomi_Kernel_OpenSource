@@ -1,0 +1,81 @@
+/*
+** $Id: //Department/DaVinci/BRANCHES/MT6620_WIFI_DRIVER_V2_3/os/windows/common/driver.rc#1 $
+*/
+
+/*! \file   driver.rc
+    \brief  driver resource definition file
+
+*/
+
+
+
+/*
+** $Log: driver.rc $
+** 
+** 10 25 2012 cp.wu
+** [BORA00002227] [MT6630 Wi-Fi][Driver] Update for Makefile and HIFSYS modifications
+** update for windows build system
+** a) remove MT6620/MT5931/MT6628 related part
+** b) add for MT6630 build
+** 
+** 09 17 2012 cm.chang
+** [BORA00002149] [MT6630 Wi-Fi] Initial software development
+** Duplicate source from MT6620 v2.3 driver branch
+** (Davinci label: MT6620_WIFI_Driver_V2_3_120913_1942_As_MT6630_Base)
+ *
+ * 08 15 2011 cp.wu
+ * [WCXRP00000851] [MT6628 Wi-Fi][Driver] Add HIFSYS related definition to driver source tree
+ * for building MT6628 Win32 driver environment
+ *
+ * 10 07 2010 cp.wu
+ * [WCXRP00000083] [MT5931][Driver][FW] Add necessary logic for MT5931 first connection
+ * [WINDDK] build system changes for MT5931
+ *
+ * 07 08 2010 cp.wu
+ * 
+ * [WPD00003833] [MT6620 and MT5931] Driver migration - move to new repository.
+ *
+ * 06 06 2010 kevin.huang
+ * [WPD00003832][MT6620 5931] Create driver base 
+ * [MT6620 5931] Create driver base
+**  \main\maintrunk.MT6620WiFiDriver_Prj\1 2009-03-04 17:31:08 GMT mtk01426
+**
+*/
+
+
+#include <windows.h>
+#include <ntverp.h>
+
+#include "version.h"
+#if defined(MT6630)
+    #include "m6630def.h"
+#endif
+
+#define VER_FILETYPE                VFT_DRV
+#define VER_FILESUBTYPE             VFT2_DRV_NETWORK
+#define VER_FILEDESCRIPTION_STR     NIC_DRIVER_FILE_DESCRIPTION
+#define VER_INTERNALNAME_STR        NIC_DRIVER_INTERNAL_NAME
+#define VER_ORIGINALFILENAME_STR    NIC_DRIVER_ORIGINAL_FILE_NAME
+
+#define VER_FILEVERSION             NIC_DRIVER_VERSION
+#define VER_FILEVERSION_STR         NIC_DRIVER_VERSION_STRING
+
+#undef VER_PRODUCTVERSION
+#define VER_PRODUCTVERSION          VER_FILEVERSION
+
+#undef VER_PRODUCTVERSION_STR
+#define VER_PRODUCTVERSION_STR      VER_FILEVERSION_STR
+
+#define VER_LEGALCOPYRIGHT_STR      "2007, " NIC_VENDOR " All Rights Reserved."
+#ifdef VER_COMPANYNAME_STR
+#undef VER_COMPANYNAME_STR
+#define VER_COMPANYNAME_STR         NIC_VENDOR
+#endif
+
+#undef VER_PRODUCTNAME_STR
+#define VER_PRODUCTNAME_STR         NIC_DRIVER_NAME
+
+#include "common.ver"
+
+//NdisMofResource         MOFDATA     mtk_wmi.bmf
+

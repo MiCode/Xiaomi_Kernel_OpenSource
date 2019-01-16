@@ -1,0 +1,35 @@
+[HKEY_LOCAL_MACHINE\Drivers\SDCARD\ClientDrivers\Custom\MANF-037A-CARDID-5921-FUNC-1]
+    "Dll"="MT6620SD.dll"
+    "Prefix"="NDL"
+    "Instance0"="MT6620SD:MT6620SD1"
+
+[HKEY_LOCAL_MACHINE\Comm\MT6620SD]
+    "DisplayName"="MediaTek MT6620 SDIO WLAN ADAPTER"
+    ;"Group"="NDIS"
+    "ImagePath"="MT6620SD.dll"
+
+[HKEY_LOCAL_MACHINE\Comm\MT6620SD\Linkage]
+    "Route"=multi_sz:"MT6620SD1"
+
+[HKEY_LOCAL_MACHINE\Comm\MT6620SD1]
+    "DisplayName"="MediaTek MT6620 SDIO WLAN ADAPTER"
+    "Group"="NDIS"
+    "ImagePath"="MT6620SD.dll"
+    "Wireless"=dword:00000001
+
+[HKEY_LOCAL_MACHINE\Comm\MT6620SD1\Parms]
+    "BusNumber"=dword:00000000
+    "BusType"=dword:00000000
+    "SDBlockSize"=dword:00000208
+    "PowerMode"=dword:00000002
+    "Domain"="21333"
+
+[HKEY_LOCAL_MACHINE\Comm\MT6620SD1\Parms\TcpIp]
+    "EnableDHCP"=dword:1
+    "Subnetmask"="0.0.0.0"
+    "IpAddress"="0.0.0.0"
+    "UseZeroBroadcast"=dword:0
+    "DefaultGateway"="0.0.0.0"
+
+[HKEY_LOCAL_MACHINE\Software\Drivers\WLAN]
+    "AdapterName"="MT6620SD1"

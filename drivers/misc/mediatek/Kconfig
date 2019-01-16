@@ -1,0 +1,443 @@
+menuconfig MEDIATEK_SOLUTION
+	bool "MediaTek Properitary Configuration"
+	help
+	  Check this to enable MediaTek properity configuration.
+
+if MEDIATEK_SOLUTION
+
+config MTK_PLATFORM
+	string "MTK platform name"
+
+config ARCH_MTK_PROJECT
+	string "MTK project name"
+
+config MTK_INTERNAL
+	bool "Enable MTK internal debug feature"
+	help
+	  Identify if codebase is built with MTK internal debug
+	  (Don't modify this feature option setting.)
+
+source "drivers/misc/mediatek/cirq/Kconfig"
+
+source "drivers/misc/mediatek/systracker/Kconfig"
+
+source "drivers/misc/mediatek/l2c_share/Kconfig"
+
+config HAVE_AEE_FEATURE
+	bool "HAVE_AEE_FEATURE"
+	help
+	  AEE (Android Exception Engine) that designed by  Mediatek is an
+	  exception catching and debugging information generation mechanism.
+	  It can collect and dump information to filesystem
+	  (/sdcard/mtklog/aee_exp)  when fatel occur(E.g. kernel
+	  panic/android system server crash and ..) 
+
+config HAVE_XLOG_FEATURE
+	bool "HAVE_XLOG_FEATURE"
+	help
+	  It decide whether the system has XLOG mechanism. XLOG is a log
+	  filter mechanism which can filter the logs by tag before they are
+	  written to log buffer
+
+config FPGA_EARLY_PORTING
+	bool "FPGA_EARLY_PORTING"
+	help
+	  Used for FPGA early porting to separate code segments between FPGA
+	  platform and non-FPGA platform
+
+config MTK_EMMC_SUPPORT
+	bool "MTK_EMMC_SUPPORT"
+	help
+	  eMMC feature enable/disable
+
+config MTK_NEW_COMBO_EMMC_SUPPORT
+	bool "MTK_NEW_COMBO_EMMC_SUPPORT"
+	help
+	  Add option for new combo-emmc
+
+config MTK_GPT_SCHEME_SUPPORT
+	bool "MTK_GPT_SCHEME_SUPPORT"
+	depends on EFI_PARTITION
+	help
+	  MTK Support for GUID Partition Table
+
+config MTK_SHARED_SDCARD
+	bool "MTK_SHARED_SDCARD"
+	help
+	  sdcard will be a folder of /data
+
+config MTK_MULTI_STORAGE_SUPPORT
+	bool "MTK_MULTI_STORAGE_SUPPORT"
+	help
+	  Support more than 1 SD. Some write app can save to one of the
+	  storages. Ex: Camera,recorder,browser,BT,ATV,CMMB.  Mount service
+	  can mount multi-storage. And Media scanner will scan all storages.
+
+config MTK_MORE_PID_LOGGER_COUNT
+	bool "MTK_MORE_PID_LOGGER_COUNT"
+	help
+	  increase PID_LOGGER_COUNT for debug
+
+config MTK_MULTI_PARTITION_MOUNT_ONLY_SUPPORT
+	bool "MTK_MULTI_PARTITION_MOUNT_ONLY_SUPPORT"
+	help
+	  Enable/disable USB OTG to mount multi-partition USB disk
+
+config MTK_SECURITY_SW_SUPPORT
+	bool "Enable MTK SECURITY SW Support"
+	default n
+	help
+	  If yes, All security function in preloader/LK/kernel/android will 
+	  be built into software images
+
+config HAVE_MTK_IN_HOUSE_TEE_SUPPORT
+	def_bool n
+
+config MTK_IN_HOUSE_TEE_SUPPORT
+	bool "Enable MTK In House TEE Support"
+	depends on HAVE_MTK_IN_HOUSE_TEE_SUPPORT
+	default n
+	help
+	  This enable MTK TEE support.
+
+config HAVE_TRUSTONIC_TEE_SUPPORT
+	bool "Enable MTK TRUSTONIC TEE Solution"
+	default n
+	
+#
+# TRUSTONIC TEE configuration
+#
+config TRUSTONIC_TEE_SUPPORT
+	bool "Enable Trustonic TEE Support"
+	depends on HAVE_TRUSTONIC_TEE_SUPPORT
+	default n
+	---help---
+	  Enable Trustonic TEE Support   
+
+#
+# MobiCore configuration
+#
+config MOBICORE_DRIVER
+	tristate "MobiCore Driver"
+	depends on TRUSTONIC_TEE_SUPPORT
+	default n
+	---help---
+	  Enable Linux Kernel MobiCore Support
+
+config MOBICORE_DEBUG
+	bool "MobiCore Module debug mode"
+	depends on MOBICORE_DRIVER
+	default n
+	---help---
+	  Enable Debug mode in the MobiCore Driver.
+	  It enables printing information about mobicore operations
+
+config MOBICORE_VERBOSE
+	bool "MobiCore Module verbose debug mode"
+	depends on MOBICORE_DEBUG
+	default n
+	---help---
+	  Enable Verbose Debug mode in the MobiCore Driver.
+	  It enables printing extra information about mobicore operations
+	  Beware: this is only useful for debuging deep in the driver because
+	  it prints too much logs
+
+config MOBICORE_API
+	tristate "Linux MobiCore API"
+	depends on MOBICORE_DRIVER
+	default n
+	---help---
+	  Enable Linux Kernel MobiCore API	  
+
+config MTK_SEC_VIDEO_PATH_SUPPORT
+	bool "Enable MTK Secure Video Path Support"
+	depends on (MTK_IN_HOUSE_TEE_SUPPORT) || (TRUSTONIC_TEE_SUPPORT)
+	default n
+	help
+	  This enable MTK Secure Video Path Support. (depending on MTK In-House TEE Support or Trustonic TEE Support)
+
+config MTK_THERMAL_STATUS_COLLECTION
+	bool "MTK Thermal Status Information Collection"
+	default n
+
+
+config MD32_SUPPORT
+	bool "Specifiy If Platform Support MD32"
+	default n
+
+config MTK_MEMCFG
+	bool "Support enhanced memory configurations"
+	default n
+	help
+
+config MTK_DT_SUPPORT
+	bool "MTK_DT_SUPPORT"
+	default n
+
+config EVDO_DT_SUPPORT
+	bool "EVDO_DT_SUPPORT"
+	default n
+	help
+	  To support GSM+CDMA dual talk feature
+
+config EVDO_DT_VIA_SUPPORT
+	tristate "EVDO_DT_VIA_SUPPORT"
+	default n
+	help
+	  To support GSM+VIA_CDMA dual talk feature
+
+config MTK_TELEPHONY_BOOTUP_MODE_SLOT1
+    int "MTK_TELEPHONY_BOOTUP_MODE_SLOT1"
+    depends on EVDO_DT_SUPPORT
+    default 0
+    help 
+      EVDO devcie telephony slot1 boot up mode
+
+config MTK_TELEPHONY_BOOTUP_MODE_SLOT2
+    int "MTK_TELEPHONY_BOOTUP_MODE_SLOT2"
+    depends on EVDO_DT_SUPPORT
+    default 1
+    help 
+      EVDO devcie telephony slot2 boot up mode
+
+config MTK_SMARTBOOK_SUPPORT
+	bool "MTK_SMARTBOOK_SUPPORT"
+	help
+	  Smartbook feature enables phone to connect with a smartbook
+	  device. A smartbook device is something like a notebook, it has
+	  screen, keyboard, touchpad, speaker, dual usb port, led light, yet
+	  it doesn't have a internal storage, ram or CPU. Once smartbook-
+	  feature-enabled phone is connected to a smartbook, all content on
+	  phone screen is shown on smartbook screen, and user can operate
+	  the phone via smartbook's keyboard, touchpad or plugged usb mouse.
+
+config MTK_SENSOR_SUPPORT
+	bool "MTK_SENSOR_SUPPORT"
+	help
+	  sensor config to sensor port sensor feature in project
+
+config MTK_AUTO_DETECT_ACCELEROMETER
+	bool "MTK_AUTO_DETECT_ACCELEROMETER"
+	depends on MTK_SENSOR_SUPPORT
+	help
+	  one load to support different accelerometer sensor
+
+config MTK_AUTO_DETECT_MAGNETOMETER
+	bool "MTK_AUTO_DETECT_MAGNETOMETER"
+	help
+	  one load to support different magnetometer sensor
+
+config MTK_AUTO_DETECT_ALSPS
+	bool "MTK_AUTO_DETECT_ALSPS"
+	help
+	  This feature Option is used for projects which using more than one
+	  ALSPS sensors, more than one ALSPS drivers can be builded in to
+	  project and be auto detected by setting this option to yes 
+
+# Custom
+config CUSTOM_KERNEL_ACCELEROMETER
+	bool "CUSTOM_KERNEL_ACCELEROMETER"
+	help
+	  accelerometer sensor to detect accelerometer from x y z axis.
+
+config CUSTOM_KERNEL_GYROSCOPE
+	bool "CUSTOM_KERNEL_GYROSCOPE"
+	help
+	  gyroscope driver
+
+config CUSTOM_KERNEL_ALSPS
+	bool "CUSTOM_KERNEL_ALSPS"
+	help
+	  ALSPS sensor driverto detect ambint light and the object is close
+	  or far awary from device
+
+config CUSTOM_SEC_AUTH_SUPPORT
+	bool "CUSTOM_SEC_AUTH_SUPPORT"
+	help
+	  Support customer to implement and apply their own RSA security
+	  functions
+
+config CUSTOM_KERNEL_MAGNETOMETER
+	bool "CUSTOM_KERNEL_MAGNETOMETER"
+	help
+	  compass driver to detect compass raw data and report orientatino
+	  data 
+      
+config CUSTOM_KERNEL_BAROMETER
+	bool "CUSTOM_KERNEL_BAROMETER"
+	help
+	  To detect barometer raw data
+
+config MTK_SENSOR_HUB_SUPPORT
+	bool "MTK_SENSOR_HUB_SUPPORT"
+	help
+	  To enable MTK sensor hub
+	  
+config CUSTOM_KERNEL_SENSORHUB
+	string "CUSTOM_KERNEL_SENSORHUB"
+	help
+	  Kernel space sensor hub driver. Define project used all sensor hub
+	  sensors. The value is combination of sensor hub driver(get data...etc)
+	  and sensor hub framework driver(transmit shf info)
+
+config CUSTOM_KERNEL_STEP_COUNTER
+	string "CUSTOM_KERNEL_STEP_COUNTER"
+	help
+	  Kernel space step counter driver. 
+
+config CUSTOM_KERNEL_SIGNIFICANT_MOTION_SENSOR
+	string "CUSTOM_KERNEL_SIGNIFICANT_MOTION_SENSOR"
+	help
+	  Kernel space sigificant motion sensor driver. 
+
+config CUSTOM_KERNEL_ACTIVITY_SENSOR
+	string "CUSTOM_KERNEL_ACTIVITY_SENSOR"
+	help
+	  Kernel space activity sensor driver. 
+
+config CUSTOM_KERNEL_PICK_UP_SENSOR
+	string "CUSTOM_KERNEL_PICK_UP_SENSOR"
+	help
+	  Kernel space pick up sensor driver. 
+
+config CUSTOM_KERNEL_SHAKE_SENSOR
+	string "CUSTOM_KERNEL_SHAKE_SENSOR"
+	help
+	  Kernel space shake sensor driver. 
+
+config CUSTOM_KERNEL_FACE_DOWN_SENSOR
+	string "CUSTOM_KERNEL_FACE_DOWN_SENSOR"
+	help
+	  Kernel space face down sensor driver. 
+
+config CUSTOM_KERNEL_IN_POCKET_SENSOR
+	string "CUSTOM_KERNEL_IN_POCKET_SENSOR"
+	help
+	  Kernel space in pocket detection sensor driver. 
+
+config CUSTOM_KERNEL_PEDOMETER
+	string "CUSTOM_KERNEL_PEDOMETER"
+	help
+	  Kernel space pedometer sensor driver. 
+
+config CUSTOM_KERNEL_HEART_RATE_SENSOR
+	string "CUSTOM_KERNEL_HEART_RATE_SENSOR"
+	help
+	  Kernel space heart rate sensor driver. 
+
+config CUSTOM_KERNEL_TILT_DETECTOR_SENSOR
+	string "CUSTOM_KERNEL_TILT_DETECTOR_SENSOR"
+	help
+	  Kernel space tilt detector sensor driver. 
+
+config CUSTOM_KERNEL_WAKE_GESTURE_SENSOR
+	string "CUSTOM_KERNEL_WAKE_GESTURE_SENSOR"
+	help
+	  Kernel space wake up gesture sensor driver. 
+
+config CUSTOM_KERNEL_GLANCE_GESTURE_SENSOR
+	string "CUSTOM_KERNEL_GLANCE_GESTURE_SENSOR"
+	help
+	  Kernel space glance(touch wake up) gesture sensor driver. 
+
+config CUSTOM_KERNEL_IMGSENSOR
+	string "CUSTOM_KERNEL_IMGSENSOR"
+	help
+	  Kernel space image sensor driver. Define  project used all image
+	  sensors .The value is combination of CUSTOM_KERNEL_MAIN_IMGSENSOR,
+	  CUSTOM_KERNEL_MAIN_BACKUP_IMGSENSOR, CUSTOM_KERNEL_SUB_IMGSENSOR,
+	  and CUSTOM_KERNEL_SUB_BACKUP_IMGSENSOR
+
+config CUSTOM_KERNEL_CAM_CAL_DRV
+	string "CUSTOM_KERNEL_CAM_CAL_DRV"
+	help
+	  Kernel space camera calibration driver. Define  project used cam_cal
+	  driver .
+config CUSTOM_KERNEL_LCM
+	string "CUSTOM_KERNEL_LCM"
+	help
+	  To choose kernel LCM driver name
+
+config CUSTOM_KERNEL_FLASHLIGHT
+	string "CUSTOM_KERNEL_FLASHLIGHT"
+	help
+	  Kernel space cameara flashlight driver. You can use this driver
+	  choose cameara flashlight type.
+config CUSTOM_KERNEL_EXTMD
+	string "CUSTOM_KERNEL_EXTMD"
+	default ""
+	help
+	  Config external md type.
+
+config CUSTOM_KERNEL_SSW
+	string "CUSTOM_KERNEL_SSW"
+	help
+	  To choose kernel sim switch driver
+	  ssw_single: internal switcher for MT6572,MT6582,MT6592
+	  ssw_generic: internal switcher for MT6589
+	  ssw_generic_v2: internal switcher for K2 phone
+	  fxla2203: phase-out
+	  combo_fxla2203: external switcher for MT6582+EVDO, MT6592+EVDO
+	  combo_fxla2203_v2: 2 2X2 external switcher for ROME DSDA
+	  combo_fxla2203_v3: 1 2X2 external switcher for X2 DSDA
+
+config MTK_FORCE_CLUSTER1
+	bool "MTK_FORCE_CLUSTER1"
+	help
+	  This option is used to forcing system to run on CPU cluster 1,
+	  e.g. big cores on BIG.LITTLE system. MTK_FORCE_CLUSTER1 = "yes"
+	  means enable this feature and "no" disable.
+
+config MTK_MMPROFILE_SUPPORT
+	bool "MTK_MMPROFILE_SUPPORT"
+	help
+	  Multimedia profiling mechanism 
+
+config MTK_HIBERNATION
+	bool "MTK Hibernation support (IPOH)"
+	depends on TOI
+	default y
+	---help---
+	  MTK Hibernation is the improved hibernation
+	  in kernel for IPOH.
+
+config CUSTOM_KERNEL_CHARGEPUMP
+	bool "CUSTOM_KERNEL_CHARGEPUMP"
+	default n
+
+config MTK_TC1_FEATURE
+	bool "MTK_TC1_FEATURE"
+	default n
+
+source "drivers/misc/mediatek/Kconfig.kernel"
+source "drivers/misc/mediatek/Kconfig.drivers"
+source "drivers/misc/mediatek/smartpa/Kconfig"
+
+
+source "drivers/misc/mediatek/lastpc/Kconfig"
+source "drivers/misc/mediatek/fmradio/Kconfig"
+source "drivers/misc/mediatek/hwmon/Kconfig"
+source "drivers/misc/mediatek/cmdq/Kconfig"
+source "drivers/misc/mediatek/videox/Kconfig"
+source "drivers/misc/mediatek/mt_logger/Kconfig"
+source "drivers/misc/mediatek/conn_md/Kconfig"
+source "drivers/misc/mediatek/lens/Kconfig"
+source "drivers/misc/mediatek/imgsensor/Kconfig"
+source "drivers/misc/mediatek/cam_cal/Kconfig"
+source "drivers/misc/mediatek/flashlight/Kconfig"
+source "drivers/misc/mediatek/dum-char/Kconfig"
+source "drivers/misc/mediatek/sysenv/Kconfig"
+source "drivers/misc/mediatek/smi/Kconfig"
+source "drivers/misc/mediatek/btcvsd/Kconfig"
+source "drivers/misc/mediatek/sound/Kconfig"
+source "drivers/misc/mediatek/power_gs/Kconfig"
+source "drivers/misc/mediatek/video/Kconfig"
+source "drivers/misc/mediatek/mrdump/Kconfig"
+source "drivers/misc/mediatek/wmt_ccci/Kconfig"
+source "drivers/misc/mediatek/vcorefs/Kconfig"
+source "drivers/misc/mediatek/emi_mpu/Kconfig"
+source "drivers/misc/mediatek/emi_bwl/Kconfig"
+source "drivers/misc/mediatek/dbg_dump/Kconfig"
+source "drivers/misc/mediatek/laser/Kconfig"
+
+endif

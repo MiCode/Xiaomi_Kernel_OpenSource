@@ -1,0 +1,80 @@
+[Version]
+
+Signature = "$Windows NT$"
+Provider = "MediaTek"
+CESignature = "$Windows CE$"
+
+[CEStrings]
+
+AppName = "MT6620 SDIO WLAN Driver"
+InstallDir = %CE1%\%AppName%
+
+[Strings]
+
+path0 = Comm\MT6620SD
+path1 = Comm\MT6620SD\Linkage
+path2 = Comm\MT6620SD1
+path3 = Comm\MT6620SD1\Parms
+path4 = Comm\MT6620SD1\Parms\TcpIp
+path5 = Comm\Tcpip\Linkage
+path6 = Software\Drivers\WLAN
+path8= Drivers\SDCARD\ClientDrivers\Custom\MANF-037A-CARDID-5921-FUNC-1
+
+[DefaultInstall]
+
+CopyFiles = ExeFiles, DllFiles
+CEShortcuts = Shortcuts.All
+AddReg = RegSettings.All
+
+[CEDevice]
+ProcessorType=0
+VersionMin=0.0
+VersionMax=0.0
+BuildMin=0
+BuildMax=0xE0000000
+
+[SourceDisksNames]
+
+1=,"Driver files",,
+
+[SourceDisksFiles]
+
+MT6620SD.dll = 1
+
+[DestinationDirs]
+
+ExeFiles = 0,%InstallDir%
+DllFiles = 0,%CE2%
+Shortcuts.All = 0,%CE3%
+DefaultDestDir = 0,%InstallDir%
+
+[ExeFiles]
+
+[DllFiles]
+
+"MT5921SD.dll"
+
+[RegSettings.All]
+
+HKLM, %path0%, "DisplayName",      0x00000000, "MediaTek MT6620 SDIO WLAN ADAPTER"
+HKLM, %path0%, "ImagePath",        0x00000000, MT6620SD.dll
+HKLM, %path1%, "Route",            0x00010000, MT6620SD1
+HKLM, %path2%, "DisplayName",      0x00000000, "MediaTek MT6620 SDIO WLAN ADAPTER"
+HKLM, %path2%, "Group",            0x00000000, NDIS
+HKLM, %path2%, "ImagePath",        0x00000000, MT6620SD.dll
+HKLM, %path2%, "Wireless",         0x00010001, 1
+HKLM, %path3%, "BusNumber",        0x00010001, 0
+HKLM, %path3%, "BusType",          0x00010001, 0
+HKLM, %path3%, "PowerMode",        0x00010001, 2
+HKLM, %path3%, "SDBlockSize",      0x00010001, 520
+HKLM, %path3%, "Domain",           0x00000000, 21333
+HKLM, %path4%, "EnableDHCP",       0x00010001, 1
+HKLM, %path4%, "DefaultGateway",   0x00000000, 0.0.0.0
+HKLM, %path4%, "UseZeroBroadcast", 0x00010001, 0
+HKLM, %path4%, "IpAddress",        0x00000000, 0.0.0.0
+HKLM, %path4%, "Subnetmask",       0x00000000, 0.0.0.0
+HKLM, %path6%, "AdapterName",      0x00000000, MT6620SD1
+HKLM, %path8%, "Dll",              0x00000000, MT6620SD.dll
+HKLM, %path8%, "Prefix",           0x00000000, NDL
+HKLM, %path8%, "Instance0",        0x00000000, MT6620SD:MT6620SD1
+HKLM, %path8%, "Instance1",        0x00000000, MT6620SD:MT6620SD2

@@ -1,0 +1,169 @@
+// Standard lint options in MTK
+
+// MTK Log Format
+// -hsb_3                          // formatting options required for MicroVision IDE
+// -format="*** LINT: %(%f(%l) %)%t %n: %m"
+// -width(0,10)                    // Don't break lines
+
+// MTK requirements
+-t4                             /* TAB=4 */
+-A							    /* strict ANSI */
+// -w2                             /* Show Error and Warning only */
+
+// MTK Coding Standards
+-append(537,[MTK Rule 2.1.3])       // Repeated include file
+
++e725                               // Expected positive indentation from ...
+-append(525,[MTK Rule 2.2.3])       // Negative indentation from ...
+-append(539,[MTK Rule 2.2.3])       // Did not expect positive indentation from ...
+-append(725,[MTK Rule 2.2.3])
+
++e960                               // Violates MISRA Required Rule
++e961                               // Violates MISRA Advisory Rule
+-append(960(42),[MTK Rule 2.2.6])   // Comma operator used outside of 'for'
+
++e721                               // Suspicious use of ';'
++e722                               // Suspicious use of ';'
+-append(721,[MTK Rule 2.2.8])
+-append(722,[MTK Rule 2.2.8])
+-append(960(59),[MTK Rule 2.2.8])   // Left brace expected for if, else, for, do and while
+
++e783                               // Line does not end with new-line
+-append(783,[MTK Rule 2.2.11])
+
+
+// 5.1.1 Always declare an explicit function return type
+-fvr                            /* varying return mode not allowed */
++e745                               // Function has no explicit type
+-append(745,[MTK Rule 5.1.1])
+
+// 5.1.2 Always provide formal parameter names in function declaraions
++e718                               // Symbol undeclared
++e936                               // Old-style function definition
++e937                               // Old-style function declaration
++e938                               // Parameter not explicitly declared
++e957                               // Function defined without a prototype in scope
+-append(628,[MTK Rule 5.1.2])       // No argument information provided for function
+-append(718,[MTK Rule 5.1.2])
+-append(936,[MTK Rule 5.1.2])
+-append(937,[MTK Rule 5.1.2])
+-append(938,[MTK Rule 5.1.2])
+-append(957,[MTK Rule 5.1.2])
+
+-append(18,[MTK Rule 5.1.5])    /* symbol redeclared */
+-append(516,[MTK Rule 5.1.5])       // Symbol has arg. type conflict
+-append(532,[MTK Rule 5.1.5])       // Return mode of function inconsistent with ...
+-append(578,[MTK Rule 5.1.5])       // Declaration of symbol x hides symbol (location)
+-append(580,[MTK Rule 5.1.5])       // Redeclaration of function causes loss of prototype
+-append(652,[MTK Rule 5.1.5])       // #define of symbol declared previously at ...
+
+-append(674,[MTK Rule 5.1.6])       // Returning address of auto variable
+
++e970                               // Use of modifier or type outside of a typedef
++e971                               // Use of 'char' without 'signed' or 'unsigned'
+-append(970,[MTK Rule 5.2.1])
+-append(971,[MTK Rule 5.2.1])
+
++e834                               // Operator 'x' followed by operator 'y' is confusing.
+                                    // Use parentheses
+-append(834,[MTK Rule 6.1.1])
+
++e731                               // Boolean argument to equal/not euqal
+-append(506,[MTK Rule 6.1.3])       // Constant value Boolean
+-append(731,[MTK Rule 6.1.3])
+
++e773                               // Expression-like macro not parenthesized
+-append(773,[MTK Rule 6.1.4])
+
++e744                               // Switch has no default
+-append(744,[MTK Rule 6.2.2])
+-append(960(60),[MTK Rule 6.2.2])   // No 'else' at end of 'is else if' chain
+-append(961(60),[MTK Rule 6.2.2])
+
++e801                               // Use of goto is deprecated
+-append(801,[MTK Rule 6.2.3])
+
+-append(960(58),[MTK Rule 6.2.4])   // 'break' used outside of a 'switch'
+
+// 6.2.5 Avoid variables used before being explicity initialized
++e727                               // Static or global variable not explicitly initialized
++e728
++e729
++e771                           /* Symbol conceivably not initialized */
++e772
+-append(530,[MTK Rule 6.2.5])       // Local vairable not initialized
+-append(603,[MTK Rule 6.2.5])
+-append(644,[MTK Rule 6.2.5])       // Variable may not been initialized
+-append(645,[MTK Rule 6.2.5])
+-append(727,[MTK Rule 6.2.5])
+-append(728,[MTK Rule 6.2.5])
+-append(729,[MTK Rule 6.2.5])
+-append(771,[MTK Rule 6.2.5])
+-append(772,[MTK Rule 6.2.5])
+
++e794                               // Conceivable use of null pointer
+-append(413,[MTK Rule 7.1.1])       // Likely use of null pointer
+-append(613,[MTK Rule 7.1.1])       // Possible use of null pointer
+-append(794,[MTK Rule 7.1.1])
+
+-append(415,[MTK Rule 8.2.3])       // Access of out-of-bounds pointer
+
+-append(564,[MTK Rule 8.2.5])       // Variable depends on order of evaluation
+-append(961(47),[MTK Rule 8.2.5])   // Dependence placed on C's operator precedence
+
++e713                               // Loss of precision without casting
++e732                               // Loss of sign without casting
++e737                               // Loss of sign in promotion
++e912                               // Implicit binary conversion
+-append(570,[MTK Rule 8.2.6])       // Loss of sign
+-append(713,[MTK Rule 8.2.6])
+-append(732,[MTK Rule 8.2.6])
+-append(737,[MTK Rule 8.2.6])
+-append(912,[MTK Rule 8.2.6])
+
++e701                               // Shift left of signed quantity
++e702                               // Shift right of signed quantity
+-append(701,[MTK Rule 8.2.7])
+-append(702,[MTK Rule 8.2.7])
+
++e712                               // Loss of precision
++e747                               // Significant prototype coercion
++e912                               // Implicit binary conversion
++e917                               // Prototype coercion
++e918                               // Prototype coercion of pointers
++e920                               // Cast from Type to void
+-append(712,[MTK Rule 8.3.1])
+-append(747,[MTK Rule 8.3.1])
+-append(912,[MTK Rule 8.3.1])
+-append(917,[MTK Rule 8.3.1])
+-append(918,[MTK Rule 8.3.1])
+-append(920,[MTK Rule 8.3.1])
+
++e740                               // Unusual pointer cast (incompatible indirect types)
+-append(740,[MTK Rule 8.3.2])
+
++e793                               // ANSI limit of 'xxx' exceeded
++e950                               // Non-ANSI reserved word or constrcut
+-append(793,[MTK Rule 10.1.1])
+-append(950,[MTK Rule 10.1.1])
+
+
+// Check MISRA's rules
+.\lnt\au-misra.lnt
+
+// Message suppression (un-used errors or warnings)
+-e14                                // Symbol previously defined
+
+// JL Added Message suppression (un-used errors or warnings)
+-e714                               // Symbol not referenced
+-e716                               // while (1) ...
+-e734                               // Loss of precision
+-e746                               // Call to function not made in the presence of a prototype
+-e749 -e?75? -e?76?                 // Constructs not reference
+-e778                               // Constant expression evaluates to 0
+-e827                               // Loop not reachable
+-esym( 960, 33, 68 )                // Side effect on right hand side of logical operator
+                                    // Function not declared in file scope
+-esym( 961, 18, 55 )                // Constant requires numerical suffix
+                                    // Non-case lable
+

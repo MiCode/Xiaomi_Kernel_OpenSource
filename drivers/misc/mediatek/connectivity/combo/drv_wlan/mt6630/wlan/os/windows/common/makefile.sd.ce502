@@ -1,0 +1,2930 @@
+!if 0
+Copyright (c) Microsoft Corporation.  All rights reserved.
+!endif
+!if 0
+Use of this source code is subject to the terms of the Microsoft end-user
+license agreement (EULA) under which you licensed this SOFTWARE PRODUCT.
+If you did not accept the terms of the EULA, you are not authorized to use
+this source code. For a copy of the EULA, please see the LICENSE.RTF on your
+install media.
+!endif
+!IF 0
+
+
+Module Name:
+
+    makefile.def
+
+Abstract:
+
+    This is the standard makefile for the components of the WINCE project.
+    It includes the following files:
+
+     .\sources.      - developer supplies this file.  It defines required and
+                 optional macros that control the compiler and linker.
+
+     $(_OBJDIR)\_objects.mac  - built by BUILD.EXE from .\sources.
+
+Targets:
+
+    all       - Builds all targets in this make file
+
+    clean     - Erase all targets that can be produced by this make
+          file, ignoring errors.  Also rebuilds the depend target.
+
+!ENDIF
+
+##<?xml version='1.0' standalone='yes' ?>
+##<!DOCTYPE MakefileXml [
+##<!ELEMENT MakefileXml ( Variable* ) >
+##<!ELEMENT Variable ( VariableName, FriendlyName, Settings) >
+##<!ATTLIST Variable PlatformBuilderSettingsPage ( None | General | Cpp | Managed | Link | Resources ) #REQUIRED>
+##<!ATTLIST Variable SettingsPageItemNumber CDATA #REQUIRED>
+##<!ELEMENT VariableName ( #PCDATA ) >
+##<!ELEMENT FriendlyName ( #PCDATA ) >
+##<!ELEMENT Settings ( Setting, Setting* ) >
+##<!ELEMENT Setting ( SettingValue, FriendlyName ) >
+##<!ELEMENT SettingValue ( #PCDATA ) >
+##<!ATTLIST SettingValue Default CDATA #IMPLIED>
+##]>
+##<MakefileXml>
+
+#   In addition to regular compiles, makefile.def is used to generate
+#   executables and dll's during sysgen.  Some variables are preset
+#   when makefile.def is loaded in this case.  It's useful to know
+#   these variables for debugging and general tracking.
+!IFDEF TARGETTYPE
+!  MESSAGE makefile.def: Invoked with predefined settings:
+!  MESSAGE TARGETNAME: $(TARGETNAME)
+!  MESSAGE TARGETTYPE: $(TARGETTYPE)
+!  MESSAGE RELEASETYPE: $(RELEASETYPE)
+!  MESSAGE TARGETLIBS: $(TARGETLIBS)
+!  MESSAGE SOURCELIBS: $(SOURCELIBS)
+
+!  IFDEF DEFFILE
+!    MESSAGE DEFFILE: $(DEFFILE)
+!  ENDIF
+
+!  IFDEF EXEENTRY
+!    MESSAGE EXEENTRY: $(EXEENTRY)
+!  ENDIF
+
+!  IFDEF DLLENTRY
+!    MESSAGE DLLENTRY: $(DLLENTRY)
+!  ENDIF
+
+!ENDIF
+
+
+#
+# Set up the path to the .NET System Assemblies
+# DOTNET_CHECKEDIN is set in wincepriv.bat if it exists
+#
+!IF "$(DOTNET_CHECKEDIN)" != ""
+DOTNETFRAMEWORK_ROOT=$(_WINCEROOT)\sdk\bin\i386\DotNet
+!ELSE
+DOTNETFRAMEWORK_ROOT=$(SYSTEMROOT)\Microsoft.NET\Framework
+!ENDIF
+
+##<Variable PlatformBuilderSettingsPage="Managed" SettingsPageItemNumber="0">
+##<VariableName>URT_VER</VariableName>
+##<FriendlyName>Universal Run Time Version</FriendlyName>
+##<Description>Sets the Universal Run time for .NET applications to compile against.</Description>
+##<Settings>
+##<Setting>
+##<SettingValue Default="Y">1.1</SettingValue>
+##<FriendlyName>No</FriendlyName>
+##</Setting>
+
+#
+# Include the default sources file.
+#
+!MESSAGE makefile.def: Including $(_MAKEENVROOT)\Sources.default
+!INCLUDE $(_MAKEENVROOT)\Sources.default
+
+#
+# Pick a copy command to use
+#
+!IF "$(BUILDREL_USE_COPY)"=="1"
+#use real copy command
+__COPYCMD=copy
+!ELSE
+# use copylink instead
+__COPYCMD=copylink /S:a /D:f /E:a /R:n
+!ENDIF
+
+#   Miscellaneous defaults go here for now.
+OPTIMIZE_FAVOR=SPACE
+EXCEPTION_CPP=NONE
+EXCEPTION_EXTERN_C=THROW
+
+STACK_CHECK_C_CMD_LINE=/GS
+
+# Disable language conformance to work around bugs in code
+NO_WCHAR_T=1
+CONFORMING_FORSCOPE=
+BAD_POINTER_TO_MEMBER_SYNTAX=1
+SUPPORT_DEFAULT_INT=1
+DEPRECATE_UNSAFE_CRT=
+
+#
+# Include the developer supplied file that defines the TARGETNAME,
+# TARGETTYPE and SOURCES macros.
+#
+
+# Local variable which gets set to the tree being built currently
+WINCETREE=$(_CURSLMTREE)
+
+!IF "$(BUILDROOT)"==""
+!  ERROR BUILDROOT must be defined
+!ENDIF
+!MESSAGE makefile.def: BUILDROOT is $(BUILDROOT)
+
+!IF EXIST($(BUILDROOT)\sources.cmn)
+!  MESSAGE makefile.def: Including $(BUILDROOT)\sources.cmn
+!  INCLUDE $(BUILDROOT)\sources.cmn
+!ENDIF
+
+# Figure out the appropriate directory for public common. Do this before
+# including the sources file so they can be used in there. Note there are
+# OS & non-OS projects. OS projects are those that have WINCETREE explicitly
+# set in sources.cmn and where public\WINCETREE\cesysgen\makefile exists,
+#
+# There are 4 cases:
+# (1) OS projects during sysgen (2) OS projects during compile
+# (3) WINCEPROJ projects (4) Other projects.
+
+!if "$(_IN_CESYSGEN)" != ""
+# OS projects during SYSGEN (which get unsysgened input libs & build into projectroot\cesysgen)
+!  IFNDEF _COMMONPUBROOT
+!    MESSAGE 0 Please add _COMMONPUBROOT and __PROJROOT to your tree's cesysgen\sources file.
+!  ENDIF
+_COMMONPUBROOT=$(_PUBLICROOT)\common
+__PROJROOT = $(_PROJECTROOT)\cesysgen
+!else if ("$(WINCETREE)" == "winceos") || EXIST($(_PUBLICROOT)\$(WINCETREE)\cesysgen\makefile)
+# OS projects during compile (which always get the full unfiltered headers & build into their own public tree)
+!  IFNDEF _COMMONPUBROOT
+!    MESSAGE 1 Please add _COMMONPUBROOT and __PROJROOT to your $(BUILDROOT)\sources.cmn file.
+!  ENDIF
+_COMMONPUBROOT=$(_PUBLICROOT)\common
+__PROJROOT = $(_PUBLICROOT)\$(WINCEPROJ)
+!else if "$(WINCEPROJ)" != ""
+# WINCEPROJ projects (which want sysgened headers & libs, but want to build into their *own* public trees)
+!  IFNDEF _COMMONPUBROOT
+!    MESSAGE 2 Please add _COMMONPUBROOT and __PROJROOT to your $(BUILDROOT)\sources.cmn file.
+!  ENDIF
+_COMMONPUBROOT=$(_PROJECTROOT)\cesysgen
+__PROJROOT = $(_PUBLICROOT)\$(WINCEPROJ)
+!else
+# regular user projects (which get sysgened headers & libs & build into the final project public tree)
+!  IFNDEF _COMMONPUBROOT
+!    MESSAGE 3 Please add _COMMONPUBROOT and __PROJROOT to your $(BUILDROOT)\sources.cmn file.
+!  ENDIF
+_COMMONPUBROOT=$(_PROJECTROOT)\cesysgen
+__PROJROOT = $(_PROJECTROOT)
+!endif
+
+# Construct the CPU's qualified instruction set architecture name (e.g., ARMV4)
+TGTCPUISANAME=$(_TGTCPUFAMILY)$(_TGTCPUISA)
+
+#   Make sure these don't get redefined
+_COMMONPUBROOT_ORIGINAL=$(_COMMONPUBROOT)
+__PROJROOT_ORIGINAL=$(__PROJROOT)
+
+
+!MESSAGE makefile.def: Including .\sources.
+!INCLUDE .\sources.
+
+!MESSAGE makefile.def: Including $(_MAKEENVROOT)\Sources.$(_TGTOS)
+!INCLUDE $(_MAKEENVROOT)\Sources.$(_TGTOS)
+
+RESGEN=$(RESGEN_PATH)\$(RESGEN)
+
+!IF EXIST($(_PROJECTROOT)\oak\misc\makefile.inc)
+!  MESSAGE makefile.def: Including $(_PROJECTROOT)\oak\misc\makefile.inc
+!  INCLUDE $(_PROJECTROOT)\oak\misc\makefile.inc
+!ENDIF
+
+##<Variable PlatformBuilderSettingsPage="None" SettingsPageItemNumber="0">
+##<VariableName>WINCEDEBUG</VariableName>
+##<FriendlyName>Debug Setting</FriendlyName>
+##<Description>Indicates if build is debug or retail.</Description>
+##<Settings>
+##<Setting>
+##<SettingValue>debug</SettingValue>
+##<FriendlyName>Debug</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>retail</SettingValue>
+##<FriendlyName>Retail</FriendlyName>
+##</Setting>
+##</Settings>
+##</Variable>
+# validate WINCEDEBUG since it's used for paths
+!IF (("$(WINCEDEBUG)" != "retail") && ("$(WINCEDEBUG)" != "debug"))
+!  ERROR You must set WINCEDEBUG to retail or debug
+!ENDIF
+
+!IF (("$(WINCEDEBUG)" == "debug") || ("$(COMPILE_DEBUG)" == "1"))
+WINCEDEBUG_COMPILE=debug
+!ELSE
+WINCEDEBUG_COMPILE=retail
+!ENDIF
+
+!IF "$(WINCEDEBUG_COMPILE)" == "debug"
+CSC_DEBUG_CMD_LINE=/debug+ /debug:full
+CSC_DEBUG_DEFINE_CMD_LINE=/define:DEBUG
+!ELSE
+CSC_DEBUG_CMD_LINE=/debug+ /debug:full
+CSC_OPTIMIZE_CMD_LINE=/optimize+
+!ENDIF
+
+##<Variable PlatformBuilderSettingsPage="General" SettingsPageItemNumber="0">
+##<VariableName>TARGETNAME</VariableName>
+##<FriendlyName>Target Name</FriendlyName>
+##<Description>Specifies the file name of the executable or library files being built.</Description>
+##</Variable>
+!IFNDEF TARGETNAME
+!  ERROR Your .\sources. file must define the TARGETNAME= macro
+!ENDIF
+!MESSAGE Directory: $(MAKEDIR)
+!MESSAGE TARGETNAME: $(TARGETNAME)
+
+##<Variable PlatformBuilderSettingsPage="General" SettingsPageItemNumber="1">
+##<VariableName>TARGETTYPE</VariableName>
+##<FriendlyName>Target Type</FriendlyName>
+##<Description>Specifies the type of file you want to build.</Description>
+##<Settings>
+##<Setting>
+##<SettingValue>LIBRARY</SettingValue>
+##<FriendlyName>Static Library</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>DYNLINK</SettingValue>
+##<FriendlyName>Dynamic-Link Library</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>PROGRAM</SettingValue>
+##<FriendlyName>Executable Application</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>MANAGED_EXE</SettingValue>
+##<FriendlyName>Managed Executable</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>MANAGED_DLL</SettingValue>
+##<FriendlyName>Managed Dynamic Link Library (DLL)</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>MANAGED_WINEXE</SettingValue>
+##<FriendlyName>Managed Windows Executable</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>MANAGED_MODULE</SettingValue>
+##<FriendlyName>Managed Module</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>NOTARGET</SettingValue>
+##<FriendlyName>Null Project</FriendlyName>
+##</Setting>
+
+##</Settings>
+##</Variable>
+!IFNDEF TARGETTYPE
+!  ERROR Your .\sources. file must define the TARGETTYPE= macro
+!ENDIF
+
+!IFNDEF SOURCES
+!  ERROR Your .\sources. file must define the SOURCES= macro
+!ENDIF
+
+
+#   Make sure they didn't try to redefine anything important.
+!IF "$(_COMMONPUBROOT)" != "$(_COMMONPUBROOT_ORIGINAL)"
+!  ERROR Cannot redefine _COMMONPUBROOT
+!ENDIF
+
+!IF "$(__PROJROOT)" != "$(__PROJROOT_ORIGINAL)"
+!  ERROR Cannot redefine __PROJROOT
+!ENDIF
+
+
+#!ERROR Paths are commonpubroot=$(_COMMONPUBROOT) and projroot=$(__PROJROOT)
+
+#
+# Set up the release directories.
+#
+_SRCDIR = $(_TGTCPUFAMILY)
+
+
+##<Variable PlatformBuilderSettingsPage="General" SettingsPageItemNumber="0">
+##<VariableName>RELEASETYPE</VariableName>
+##<FriendlyName>Release Type</FriendlyName>
+##<Description>Specifies the final location of binaries and libraries after they are built.</Description>
+##<Settings>
+##<Setting>
+##<SettingValue Default="Y"></SettingValue>
+##<FriendlyName>Default</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>SDK</SettingValue>
+##<FriendlyName>SDK</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>OAK</SettingValue>
+##<FriendlyName>OAK</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>DDK</SettingValue>
+##<FriendlyName>DDK</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>MANAGED</SettingValue>
+##<FriendlyName>Managed</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>MANAGEDSDK</SettingValue>
+##<FriendlyName>Managed SDK</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>PLATFORM</SettingValue>
+##<FriendlyName>Platform</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>LOCAL</SettingValue>
+##<FriendlyName>Local</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>CETK</SettingValue>
+##<FriendlyName>CETK</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>CUSTOM</SettingValue>
+##<FriendlyName>Custom</FriendlyName>
+##</Setting>
+##</Settings>
+##</Variable>
+
+!IFNDEF RELEASETYPE
+!  MESSAGE RELEASETYPE is not defined.  Using DEFAULT.
+RELEASETYPE=DEFAULT
+!ELSEIF "$(RELEASETYPE)" == "SDK"
+!ELSEIF "$(RELEASETYPE)" == "OAK"
+!ELSEIF "$(RELEASETYPE)" == "DDK"
+!ELSEIF "$(RELEASETYPE)" == "MANAGED"
+!ELSEIF "$(RELEASETYPE)" == "MANAGEDSDK"
+!ELSEIF "$(RELEASETYPE)" == "PLATFORM"
+!ELSEIF "$(RELEASETYPE)" == "LOCAL"
+!ELSEIF "$(RELEASETYPE)" == "CETK"
+!ELSEIF "$(RELEASETYPE)" == "CUSTOM"
+!ELSE
+!  MESSAGE RELEASETYPE "$(RELEASETYPE)" is not defined.  Using DEFAULT.
+RELEASETYPE=DEFAULT
+!ENDIF
+
+
+!MESSAGE makefile.def: Including $(_MAKEENVROOT)\sources.ReleaseType_$(RELEASETYPE)
+!INCLUDE $(_MAKEENVROOT)\sources.ReleaseType_$(RELEASETYPE)
+
+
+#
+# Include the list of object files (defined as the OBJECTS macro) that was
+# built by BUILD program, using the SOURCES= macro defined in the sources.
+# file.  Use macro substitution to build the supported target objects.
+#
+
+!IFNDEF NOINCLUDEOBJMAC
+!  INCLUDE $(_OBJDIR)\_objects.mac
+!ENDIF
+
+!IF "$(_TGTOS)"=="CE"
+!  IFNDEF LINKER_SUBSYSTEM
+LINKER_SUBSYSTEM=-subsystem:windowsce,5.02
+!  ENDIF
+!ENDIF
+
+!IFDEF RCADDNULL
+RCFLAGS=-n
+!ELSE
+RCFLAGS=
+!ENDIF
+
+!IF "$(_TGTCPUFAMILY)" == "x86" || "$(_TGTCPUFAMILY)" == "SH"
+CDECLDECORATION=_
+!ELSE
+CDECLDECORATION=
+!ENDIF
+
+!IFDEF DLLENTRY
+DLLENTRYOPTION=-entry:$(DLLENTRY)
+! IF "$(DLLENTRY)"=="_DllMainCRTStartup"
+# Override DllMain in corelibc if one is provided by the module
+DLLENTRYOPTION=-include:$(CDECLDECORATION)DllMain $(DLLENTRYOPTION)
+! ENDIF
+!ELSE
+# Default DLLENTRY for CE is broken.  Provide a correct default entry
+!  IF "$(_TGTOS)"=="CE"
+DLLENTRYOPTION=-include:$(CDECLDECORATION)DllMain -entry:_DllMainCRTStartup
+!  ELSE
+DLLENTRYOPTION=
+!  ENDIF
+!ENDIF
+
+##<Variable PlatformBuilderSettingsPage="Cpp" SettingsPageItemNumber="0">
+##<VariableName>EXEENTRY</VariableName>
+##<FriendlyName>Executable Entry Point</FriendlyName>
+##<Description>Specifies the initial entry point for executable files. By default, the initial entry point is WinMainCRTStartup.</Description>
+##</Variable>
+
+##<Variable PlatformBuilderSettingsPage="Cpp" SettingsPageItemNumber="0">
+##<VariableName>DLLENTRY</VariableName>
+##<FriendlyName>DLL Entry Point</FriendlyName>
+##<Description>Specifies the initial entry point for dynamic-link library (.dll) files. By default, the initial entry point is _DllMainCRTStartup.</Description>
+##</Variable>
+
+!IFDEF EXEENTRY
+EXEENTRYOPTION=-entry:$(EXEENTRY)
+!ELSE
+# Default EXEENTRY for CE is broken.  Provide a correct default entry
+!  IF "$(_TGTOS)"=="CE"
+EXEENTRYOPTION=-entry:WinMainCRTStartup
+!  ELSE
+EXEENTRYOPTION=
+!  ENDIF
+!ENDIF
+
+!IFDEF NODLLENTRY
+DLLENTRYOPTION=-NOENTRY
+!ENDIF
+
+TARGETOBJFILES=$(OBJECTS)
+
+##<Variable PlatformBuilderSettingsPage="Link" SettingsPageItemNumber="0">
+##<VariableName>FIXED_BASE_ADDRESS</VariableName>
+##<FriendlyName>Fixed Base Address</FriendlyName>
+##<Description>Specifies a fixed base address in memory for a file, which is sent to the linker. By default, this setting is not enabled for DLLs and is enabled for other project types.</Description>
+##<Settings>
+##<Setting>
+##<SettingValue Default="Y"></SettingValue>
+##<FriendlyName>Default</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>0</SettingValue>
+##<FriendlyName>No</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>1</SettingValue>
+##<FriendlyName>Yes</FriendlyName>
+##</Setting>
+##</Settings>
+##</Variable>
+!IF "$(FIXED_BASE_ADDRESS)"=="1"
+FIXED_BASE_LINK_CMD_LINE=-FIXED
+!ELSE IF "$(FIXED_BASE_ADDRESS)"=="0"
+FIXED_BASE_LINK_CMD_LINE=-FIXED:NO
+!ELSE IF "$(FIXED_BASE_ADDRESS)"!=""
+!   ERROR Unknown FIXED_BASE_ADDRESS setting: $(FIXED_BASE_ADDRESS)
+!ENDIF
+
+!IF ("$(TARGETTYPE)" == "LIBRARY") || ("$(TARGETTYPE)" == "DYNLINK") || ("$(TARGETTYPE)" == "EXPLIB")
+TARGETLIBFILES=$(_RELEASELIBDIR)\$(TARGETNAME).lib
+!ENDIF
+
+MANAGED_EXE_TARGET_DIRECTORY=$(_RELEASEDIR)
+MANAGED_WINEXE_TARGET_DIRECTORY=$(_RELEASEDIR)
+MANAGED_DLL_TARGET_DIRECTORY=$(_RELEASEDIR)
+MANAGED_MODULE_TARGET_DIRECTORY=$(_RELEASEDIR)
+
+
+!IF "$(TARGETTYPE)"=="MANAGED_EXE"
+MANAGED_TARGET_DIRECTORY=$(MANAGED_EXE_TARGET_DIRECTORY)
+MANAGED_TARGET_EXTENSION=exe
+MANAGED_TARGET=$(MANAGED_TARGET_DIRECTORY)\$(TARGETNAME).$(MANAGED_TARGET_EXTENSION)
+MANAGED_TARGET_TYPE_CMD_LINE=/target:exe
+!ENDIF
+
+!IF "$(TARGETTYPE)"=="MANAGED_WINEXE"
+MANAGED_TARGET_DIRECTORY=$(MANAGED_WINEXE_TARGET_DIRECTORY)
+MANAGED_TARGET_EXTENSION=exe
+MANAGED_TARGET=$(MANAGED_TARGET_DIRECTORY)\$(TARGETNAME).$(MANAGED_TARGET_EXTENSION)
+MANAGED_TARGET_TYPE_CMD_LINE=/target:winexe
+!ENDIF
+
+
+!IF "$(TARGETTYPE)"=="MANAGED_DLL"
+MANAGED_TARGET_DIRECTORY=$(MANAGED_DLL_TARGET_DIRECTORY)
+MANAGED_TARGET_EXTENSION=dll
+MANAGED_TARGET=$(MANAGED_TARGET_DIRECTORY)\$(TARGETNAME).$(MANAGED_TARGET_EXTENSION)
+MANAGED_TARGET_TYPE_CMD_LINE=/target:library
+!ENDIF
+
+!IF "$(TARGETTYPE)"=="MANAGED_MODULE"
+MANAGED_TARGET_DIRECTORY=$(MANAGED_MODULE_TARGET_DIRECTORY)
+MANAGED_TARGET_EXTENSION=netmodule
+MANAGED_TARGET=$(MANAGED_TARGET_DIRECTORY)\$(TARGETNAME).$(MANAGED_TARGET_EXTENSION)
+MANAGED_TARGET_TYPE_CMD_LINE=/target:module
+!ENDIF
+
+MANAGED_TARGET_PDB=$(MANAGED_TARGET_DIRECTORY)\$(TARGETNAME).pdb
+
+
+TARGETEXEFILES=
+!IF "$(NOLINK)" == ""
+!  IF "$(TARGETTYPE)" == "DYNLINK"
+TARGETEXEFILES=$(_RELEASEDIR)\$(TARGETNAME).dll
+!  ELSE
+!    IF "$(TARGETTYPE)" == "PROGRAM"
+TARGETEXEFILES=$(_RELEASEDIR)\$(TARGETNAME).exe
+!    ENDIF
+!  ENDIF
+!ENDIF
+
+!IF "$(STACK_CHECK_DISABLE)" == "1"
+STACK_CHECK_C_CMD_LINE=
+!ENDIF
+
+#
+# Standard inference rules for C files that produce object files.
+#
+.SUFFIXES: .cxx .cpp .c .asm .s .src .rc .obj .ire .res .h .odl .tlb .i .cs
+
+!IFDEF PASS0ONLY
+# Clear the suffixes list so we can ensure only pass zero stuff will be built
+.SUFFIXES:
+!ENDIF
+
+!IFNDEF NOPASS0
+# Pass Zero Inference Rules: IDL files (MIDL) and MC files
+.SUFFIXES: .idl .mc .odl .tdl .asn .thk
+
+!ENDIF  # IFNDEF NOPASS0
+
+!IFDEF USE_OLE_MC
+MESSAGE_COMPILER=mc -o
+!ELSE
+MESSAGE_COMPILER=mc
+!ENDIF
+
+##<Variable PlatformBuilderSettingsPage="Cpp" SettingsPageItemNumber="0">
+##<VariableName>PRECOMPILED_OPTION</VariableName>
+##<FriendlyName>Precompiled Header Options</FriendlyName>
+##<Description>Specifies the command-line options for the compiler when compiling precompiled header files. Overrides all other settings.</Description>
+##</Variable>
+
+##<Variable PlatformBuilderSettingsPage="Cpp" SettingsPageItemNumber="0">
+##<VariableName>PRECOMPILED_INCLUDE</VariableName>
+##<FriendlyName>Precompiled Header Source File Name</FriendlyName>
+##<Description>Specifies a file name for the precompiled header source file.</Description>
+##</Variable>
+
+##<Variable PlatformBuilderSettingsPage="Cpp" SettingsPageItemNumber="0">
+##<VariableName>PRECOMPILED_PCH</VariableName>
+##<FriendlyName>Precompiled Header File Name</FriendlyName>
+##<Description>Specifies the name of the precompiled header file that is created, using the .pch file extension.</Description>
+##</Variable>
+
+##<Variable PlatformBuilderSettingsPage="Cpp" SettingsPageItemNumber="0">
+##<VariableName>PRECOMPILED_OBJ</VariableName>
+##<FriendlyName>Precompiled Header Object File Name</FriendlyName>
+##<Description>Specifies a file name for the precompiled header object file that is created, using the .obj file extension.</Description>
+##</Variable>
+
+##<Variable PlatformBuilderSettingsPage="Cpp" SettingsPageItemNumber="0">
+##<VariableName>PRECOMPILED_CXX</VariableName>
+##<FriendlyName>Precompiled files</FriendlyName>
+##<Description>Treat precompiled files as C++. By default, PRECOMPILED_INCLUDE files that end in .c and .h are treated as C files and are used only when compiling files with a .c extension. PRECOMPILED_INCLUDE files with a .cpp, .hpp, .cxx or .hxx extension are treated as C++ files and are used only when compiling C++ files. If set, PRECOMPILED_CXX forces the precompiled files to be treated as C++ files regardless of the extension of the PRECOMPILED_INCLUDE file name. Default is based on the extension of the PRECOMPILED_INCLUDE file name.</Description>
+##<Settings>
+##<Setting>
+##<SettingValue Default="Y"></SettingValue>
+##<FriendlyName>No</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>1</SettingValue>
+##<FriendlyName>Yes</FriendlyName>
+##</Setting>
+##</Settings>
+##</Variable>
+
+!IF "$(PRECOMPILED_OPTION)" == ""
+!  IF "$(PRECOMPILED_INCLUDE)" != ""
+!    IF "$(PRECOMPILED_INCLUDE)" != "$(PRECOMPILED_INCLUDE:.hxx=)"
+PRECOMPILED_CXX=1
+!    ENDIF
+!    IF "$(PRECOMPILED_INCLUDE)" != "$(PRECOMPILED_INCLUDE:.cxx=)"
+PRECOMPILED_CXX=1
+!    ENDIF
+!    IF "$(PRECOMPILED_INCLUDE)" != "$(PRECOMPILED_INCLUDE:.cpp=)"
+PRECOMPILED_CXX=1
+!    ENDIF
+!    IF "$(PRECOMPILED_PCH)" == ""
+PRECOMPILED_PCH=$(PRECOMPILED_INCLUDE:.hxx=.pch)
+PRECOMPILED_PCH=$(PRECOMPILED_PCH:.h=.pch)
+PRECOMPILED_PCH=$(PRECOMPILED_PCH:.cxx=.pch)
+PRECOMPILED_PCH=$(PRECOMPILED_PCH:.cpp=.pch)
+PRECOMPILED_PCH=$(PRECOMPILED_PCH:.c=.pch)
+PRECOMPILED_PCH=$(PRECOMPILED_PCH:..\=)
+!    ENDIF
+!    IF "$(PRECOMPILED_OBJ)" == ""
+PRECOMPILED_OBJ=$(PRECOMPILED_PCH:.pch=.obj)
+!    ENDIF
+!  ENDIF
+!ENDIF
+
+
+PRECOMPILED_C_ONLY_CMD_LINE=
+PRECOMPILED_CPP_ONLY_CMD_LINE=
+
+!IF "$(PRECOMPILED_OPTION)" == ""
+!  IF "$(PRECOMPILED_INCLUDE)" != ""
+!    IF "$(PRECOMPILED_PCH)" != ""
+HEADERFILE=/Fp$(MAKEDIR)\$(_OBJDIR)\$(PRECOMPILED_PCH)
+!    ENDIF
+!    IF "$(PRECOMPILED_OBJ)" != ""
+PRECOMPILED_HEADEROBJNAME=$(_OBJDIR)\$(PRECOMPILED_OBJ)
+HEADEROBJ=/Fo$(MAKEDIR)\$(PRECOMPILED_HEADEROBJNAME)
+!    ENDIF
+!    IF "$(PRECOMPILED_CXX)" == ""
+PRECOMPILED_C_ONLY_CMD_LINE=/Yu$(PRECOMPILED_INCLUDE:..\=) $(HEADERFILE)
+!    ELSE
+PRECOMPILED_CPP_ONLY_CMD_LINE=/Yu$(PRECOMPILED_INCLUDE:..\=) $(HEADERFILE)
+!    ENDIF
+PRECOMPILED_TARGET=$(MAKEDIR)\$(_OBJDIR)\$(PRECOMPILED_PCH)
+!  ELSE
+!    IF "$(PRECOMPILED_INCLUDE)" != ""
+!      IF "$(PRECOMPILED_CXX)" == ""
+PRECOMPILED_C_ONLY_CMD_LINE=/Yu$(PRECOMPILED_INCLUDE)
+!      ELSE
+PRECOMPILED_CPP_ONLY_CMD_LINE=/Yu$(PRECOMPILED_INCLUDE)
+!      ENDIF
+!    ENDIF
+!  ENDIF
+!ELSE
+!  IF "$(PRECOMPILED_CXX)" == ""
+PRECOMPILED_C_ONLY_CMD_LINE=$(PRECOMPILED_OPTION)
+!  ELSE
+PRECOMPILED_CPP_ONLY_CMD_LINE=$(PRECOMPILED_OPTION)
+!  ENDIF
+PRECOMPILED_TARGET=$(PRECOMPILED_TARGET)
+!  IF "$(PRECOMPILED_TARGET)" != ""
+HEADERFILE=/Fp$(PRECOMPILED_TARGET)
+!  ENDIF
+!  IF "$(PRECOMPILED_OBJ)" != ""
+PRECOMPILED_HEADEROBJNAME=$(PRECOMPILED_OBJ)
+HEADEROBJ=/Fo$(PRECOMPILED_HEADEROBJNAME)
+!  ENDIF
+!ENDIF
+
+!IF ("$(PRECOMPILED_CXX)" == "") && ("$(USECXX_FLAG)" == "")
+PRECOMPILED_GENERATE_CMD_LINE=/Tc
+!ELSE
+PRECOMPILED_GENERATE_CMD_LINE=/Tp
+!ENDIF
+
+!IF "$(NTNOPCH)" != ""
+PRECOMPILED_C_ONLY_CMD_LINE=
+PRECOMPILED_CPP_ONLY_CMD_LINE=
+!ENDIF
+
+# make sure we include the precompiled object if we have one
+TARGETOBJFILES=$(TARGETOBJFILES) $(PRECOMPILED_HEADEROBJNAME)
+
+#
+# Standard list of targets: all, clean and loc.  all is the default target.
+#
+
+
+!IF "$(SKIPBUILD)" != ""
+
+#empty all: target to not build anything for the current subdir
+all:
+
+
+!ELSE IFDEF PASS0ONLY
+all: \
+    WinceTargetFile0 \
+    Pass0Objects
+    -@echo $(BUILDMSG)
+!ELSE
+all: \
+    WinceTargetFile0 \
+!  IFNDEF NOPASS0
+    Pass0Objects \
+!  ENDIF
+    PrecompiledTarget \
+    PrecompiledHeaderObjName \
+!  IFNDEF MANAGED_TARGET
+    TargetObjFiles \
+!  ENDIF
+    TargetLibFiles \
+    TargetExeFiles \
+!  IFDEF MANAGED_TARGET
+    ManagedTarget \
+!  ENDIF
+    WinceTargetFiles
+    -@echo $(BUILDMSG)
+!ENDIF  # PASS0ONLY
+
+
+WinceTargetFile0:   $(WINCETARGETFILE0)
+
+Pass0Objects:       $(PASS0_OBJECTS)
+
+PrecompiledTarget:  $(PRECOMPILED_TARGET)
+
+PrecompiledHeaderObjName:      $(PRECOMPILED_HEADEROBJNAME)
+
+TargetObjFiles:     $(TARGETOBJFILES)
+
+TargetLibFiles:     $(TARGETLIBFILES)
+
+TargetExeFiles:     $(TARGETEXEFILES)
+
+ManagedTarget:      $(MANAGED_TARGET)
+
+WinceTargetFiles:   $(WINCETARGETFILES)
+
+
+null:
+
+dummy:
+    -@echo .
+
+expunge: cleantgt
+     delnode /q obj
+    -@echo $(BUILDMSG)
+
+clean: cleantgt cleanobj
+    -@echo $(BUILDMSG)
+
+cleanobj:
+     -@del /q $(_OBJDIR)\*.obj
+     -@del /q $(_OBJDIR)\*.cod
+
+cleantgt:
+!IF "$(TARGETTYPE)" == "DYNLINK"
+     -@del $(_RELEASELIBDIR)\$(TARGETNAME).lib
+     -@del $(_RELEASELIBDIR)\$(TARGETNAME).exp
+     -@del $(_RELEASEDIR)\$(TARGETNAME).map
+     -@del $(_RELEASEDIR)\$(TARGETNAME).dll
+!ELSEIF "$(TARGETTYPE)" == "PROGRAM"
+     -@del $(_RELEASEDIR)\$(TARGETNAME).map
+     -@del $(_RELEASEDIR)\$(TARGETNAME).exe
+!ELSEIF "$(TARGETTYPE)" == "LIBRARY"
+     -@del $(_RELEASELIBDIR)\$(TARGETNAME).lib
+!ELSEIF "$(TARGETTYPE)" == "EXPLIB"
+     -@del $(_RELEASELIBDIR)\$(TARGETNAME).lib
+     -@del $(_RELEASELIBDIR)\$(TARGETNAME).exp
+!ENDIF
+
+#
+# Added for internationalization
+#
+!IF "$(IRC_DEPENDENT)" != "0" && "$(IRC_DEPENDENT)" != ""
+!  IF "$(LOCALE)" != "0411"
+$(_CPUINDPATH)\$(TARGETNAME).ire : resource\0409\internl.irc
+    echo > $(_CPUINDPATH)\$(TARGETNAME).ire
+!  ELSE
+
+$(_CPUINDPATH)\$(TARGETNAME).ire : resource\0411\internl.irc
+    echo > $(_CPUINDPATH)\$(TARGETNAME).ire
+!  ENDIF
+!ENDIF
+
+#
+# Figure out the include path
+#
+
+##<Variable PlatformBuilderSettingsPage="General" SettingsPageItemNumber="0">
+##<VariableName>_TGTOS</VariableName>
+##<FriendlyName>Target OS</FriendlyName>
+##<Description>Specifies the target OS for the run-time image.</Description>
+##<Settings>
+##<Setting>
+##<SettingValue Default="Y">CE</SettingValue>
+##<FriendlyName>Windows CE</FriendlyName>
+##</Setting>
+##</Settings>
+##</Variable>
+# Get default sdk library and include path
+!IF "$(_TGTOS)" == "NTANSI" || "$(_TGTOS)" == "NT"
+!  IF "$(USE_VC_MFC)" == "1"
+INCLUDEPATH=$(_SDKROOT)\NT\inc;$(_SDKROOT)\VC\inc;$(_SDKROOT)\vc\atlmfc\include
+LIBPATH=$(_SDKROOT)\NT\lib;$(_SDKROOT)\VC\lib;$(_SDKROOT)\vc\atlmfc\lib\x86
+!  ELSE
+INCLUDEPATH=$(_SDKROOT)\NT\inc;$(_SDKROOT)\VC\inc;$(_SDKROOT)\MFC\include
+LIBPATH=$(_SDKROOT)\NT\lib;$(_SDKROOT)\VC\lib;$(_SDKROOT)\MFC\lib
+!  ENDIF
+# Add MFC if required
+!  IF "$(USE_MFC_HEADERS)"=="1"
+CDEFINES=$(CDEFINES) -D_AFXDLL
+!    IF "$(TARGETTYPE)"=="DYNLINK"
+CDEFINES=$(CDEFINES) -D_USRDLL
+!    ENDIF
+!  ENDIF
+!ELSE
+INCLUDEPATH=$(_SDKROOT)\$(_TGTOS)\inc
+LIBPATH=$(_SDKROOT)\$(_TGTOS)\lib
+!ENDIF
+
+# Add ATL 3.0 if user asked for it
+!IF "$(WINCEATL30)" == "1"
+INCLUDEPATH=$(_WINCEROOT)\others\atl\include;$(INCLUDEPATH)
+!ENDIF
+
+# Add MFC if user asked for it
+!IF "$(WINCEMFC)" == "1"
+INCLUDEPATH=$(_WINCEROOT)\others\mfc\include;$(INCLUDEPATH)
+!ENDIF
+
+# Add in any specific additions in the sources file
+!IF "$(EXT_INCLUDES)" != ""
+EXT_INCLUDES = $(EXT_INCLUDES: =)
+INCLUDEPATH=$(EXT_INCLUDES);$(INCLUDEPATH)
+!ENDIF
+
+# Add in the dependent tree based includes from sources.gen
+!IF "$(_TGTOS)"=="CE"
+!  IF "$(WINCEOEM)" == "1"
+!    IF "$(_OEMINCPATH)" != ""
+INCLUDEPATH=$(_OEMINCPATH);$(INCLUDEPATH)
+!    ENDIF
+!  ELSE
+!    IF "$(_ISVINCPATH)" != ""
+INCLUDEPATH=$(_ISVINCPATH);$(INCLUDEPATH)
+!    ENDIF
+!  ENDIF
+!ENDIF
+
+
+##<Variable PlatformBuilderSettingsPage="Cpp" SettingsPageItemNumber="0">
+##<VariableName>CDEFINES</VariableName>
+##<FriendlyName>Additional Macro Definitions</FriendlyName>
+##<Description>Specifies additional macro definitions to add to C/C++ compiler commands by using the compiler syntax for specifying macro definitions from a command-line prompt.</Description>
+##</Variable>
+
+##<Variable PlatformBuilderSettingsPage="Cpp" SettingsPageItemNumber="0">
+##<VariableName>INCLUDES</VariableName>
+##<FriendlyName>Include Directories</FriendlyName>
+##<Description>Specifies additional directories that contain header files by listing directory names that do not contain spaces, separated by semicolons. Do not include a trailing semicolon.</Description>
+##</Variable>
+
+# Add in any specific additions in the sources file
+!IF "$(INCLUDES)" != ""
+INCLUDES = $(INCLUDES: =)
+INCLUDEPATH=$(INCLUDES);$(INCLUDEPATH)
+!ENDIF
+
+INCLUDEPATH=$(INCLUDEPATH:;;=;)
+
+##<Variable PlatformBuilderSettingsPage="Cpp" SettingsPageItemNumber="0">
+##<VariableName>OPTIMIZE_FAVOR</VariableName>
+##<FriendlyName>Optimization Preference</FriendlyName>
+##<Description>Specifies whether code is optimized for faster performance or smaller size.</Description>
+##<Settings>
+##<Setting>
+##<SettingValue>SPEED</SettingValue>
+##<FriendlyName>Speed</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue Default="Y">SPACE</SettingValue>
+##<FriendlyName>Size</FriendlyName>
+##</Setting>
+
+##</Settings>
+##</Variable>
+!IF "$(OPTIMIZE_FAVOR)"=="SPEED"
+OPTIMIZE_FAVOR_FLAG=-Ot
+!ELSE IF "$(OPTIMIZE_FAVOR)"=="SPACE"
+OPTIMIZE_FAVOR_FLAG=-Os
+!ELSE
+!  ERROR Unknown OPTIMIZE_FAVOR setting: $(OPTIMIZE_FAVOR)
+!ENDIF
+
+##<Variable PlatformBuilderSettingsPage="Cpp" SettingsPageItemNumber="0">
+##<VariableName>EXCEPTION_CPP</VariableName>
+##<FriendlyName>Exception Handling</FriendlyName>
+##<Description>Specifies whether to use C++ structured exception handling (SEH) and how to handle C exceptions.</Description>
+##<Settings>
+##<Setting>
+##<SettingValue Default="Y">NONE</SettingValue>
+##<FriendlyName>Not enabled</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>NO_SEH_NO_C_THROW</SettingValue>
+##<FriendlyName>Enabled, without SEH or C exception handling</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>ENABLE_WITH_SEH</SettingValue>
+##<FriendlyName>Enabled, with SEH</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>ENABLE_WITHOUT_SEH</SettingValue>
+##<FriendlyName>Enabled, without SEH</FriendlyName>
+##</Setting>
+##</Settings>
+##</Variable>
+
+!IF "$(EXCEPTION_CPP)" == "NO_SEH_NO_C_THROW"
+EXCEPTION_CPP=ENABLE_WITHOUT_SEH
+EXCEPTION_EXTERN_C=NO_THROW
+!ENDIF
+
+
+!IF "$(EXCEPTION_CPP)" == "NONE"
+#   Default setting
+!ELSE IF "$(EXCEPTION_CPP)" == "ENABLE_WITH_SEH"
+EXCEPTION_CPP_CMD_LINE=/EHa
+!ELSE IF "$(EXCEPTION_CPP)" == "ENABLE_WITHOUT_SEH"
+EXCEPTION_CPP_CMD_LINE=/EHs
+!ELSE
+!  ERROR Invalid EXCEPTION_CPP setting: $(EXCEPTION_CPP)
+!ENDIF
+
+##<Variable PlatformBuilderSettingsPage="Cpp" SettingsPageItemNumber="0">
+##<VariableName>EXCEPTION_EXTERN_C</VariableName>
+##<FriendlyName>External C Exceptions</FriendlyName>
+##<Description>Specifies the exception settings for external C code.</Description>
+##<Settings>
+##<Setting>
+##<SettingValue Default="Y">THROW</SettingValue>
+##<FriendlyName>Enabled</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>NO_THROW</SettingValue>
+##<FriendlyName>Not enabled</FriendlyName>
+##</Setting>
+##</Settings>
+##</Variable>
+!IF "$(EXCEPTION_EXTERN_C)" == "THROW"
+#   Default setting
+!ELSE IF "$(EXCEPTION_EXTERN_C)" == "NO_THROW"
+EXCEPTION_EXTERN_C_CMD_LINE=/EHc
+!ELSE
+!  ERROR Invalid EXCEPTION_EXTERN_C setting: $(EXCEPTION_EXTERN_C)
+!ENDIF
+
+
+
+
+
+!IF ("$(WINCEDEBUG_COMPILE)" == "retail")
+!  IFDEF DISABLE_OPTIMIZER
+CDEBUG_FLAGS=-Od
+!  ELSE
+CDEBUG_DEFINES=
+CDEBUG_FLAGS=-Ox $(OPTIMIZE_FAVOR_FLAG)
+!  ENDIF
+!ELSE
+CDEBUG_DEFINES=-DDEBUG=1
+!  IF "$(_TGTOS)" == "NT" || "$(_TGTOS)" == "NTANSI"
+CDEBUG_DEFINES=$(CDEBUG_DEFINES) -D_DEBUG=1
+!  ENDIF
+CDEBUG_FLAGS=-Od
+!ENDIF
+
+##<Variable PlatformBuilderSettingsPage="Cpp" SettingsPageItemNumber="0">
+##<VariableName>SECURITY_CHECKS</VariableName>
+##<FriendlyName>Security Checks</FriendlyName>
+##<Description>Specifies that the -gs compiler flag is turned on and enables stack security checks.</Description>
+##<Settings>
+##<Setting>
+##<SettingValue Default="Y"></SettingValue>
+##<FriendlyName>No</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>1</SettingValue>
+##<FriendlyName>Yes</FriendlyName>
+##</Setting>
+##</Settings>
+##</Variable>
+!IF ("$(SECURITY_CHECKS)" != "")
+!  IF ("$(NO_SECURITY_CHECKS)" == "")
+CDEBUG_FLAGS=$(CDEBUG_FLAGS) -GS
+!  ENDIF
+!ENDIF
+
+!IF ("$(WINCELTCG)" != "" && "$(NOLTCG)" == "")
+CDEBUG_FLAGS=$(CDEBUG_FLAGS) -GL
+!ENDIF
+
+##<Variable PlatformBuilderSettingsPage="General" SettingsPageItemNumber="0">
+##<VariableName>WINCE_LMEM_DEBUG</VariableName>
+##<FriendlyName>Local Memory Debugging</FriendlyName>
+##<Description>Specifies whether to enable memory allocation debugging for heap memory.</Description>
+##<Settings>
+##<Setting>
+##<SettingValue Default="Y"></SettingValue>
+##<FriendlyName>No</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>1</SettingValue>
+##<FriendlyName>Yes</FriendlyName>
+##</Setting>
+##</Settings>
+##</Variable>
+!IF "$(WINCE_LMEM_DEBUG)" != ""
+CDEBUG_DEFINES=$(CDEBUG_DEFINES) -DLMEM_DEBUG=1
+!ENDIF
+
+##<Variable PlatformBuilderSettingsPage="General" SettingsPageItemNumber="0">
+##<VariableName>TARGET_PDB_NAME</VariableName>
+##<FriendlyName>Target .pdb Name</FriendlyName>
+##<Description>Specifies the path, file name, and file type of the target program database (.pdb) file. By default, .pdb files are placed in the release directory.</Description>
+##</Variable>
+!IF "$(TARGET_PDB_NAME)" == ""
+!  IF "$(TARGETTYPE)" == "LIBRARY"
+TARGET_PDB_NAME = $(_RELEASELIBDIR)\$(TARGETNAME).pdb
+!  ELSE
+TARGET_PDB_NAME = $(_RELEASEDIR)\$(TARGETNAME).pdb
+!  ENDIF
+!ENDIF
+
+# Pass name of PDB file to both compiler and linker
+CDEBUG_FLAGS=$(CDEBUG_FLAGS) -GF -Zi -Fd$(TARGET_PDB_NAME)
+
+##<Variable PlatformBuilderSettingsPage="Cpp" SettingsPageItemNumber="0">
+##<VariableName>RESOURCEONLYDLL</VariableName>
+##<FriendlyName>DLL Contains Resources Only</FriendlyName>
+##<Description>Specifies that a dynamic-link library (.dll) file contains only resources, which reduces the file size by removing debugging information that is not needed.</Description>
+##<Settings>
+##<Setting>
+##<SettingValue Default="Y"></SettingValue>
+##<FriendlyName>No</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>1</SettingValue>
+##<FriendlyName>Yes</FriendlyName>
+##</Setting>
+##</Settings>
+##</Variable>
+
+!IF "$(RESOURCEONLYDLL)" == "1"
+DEBUG_LINK_CMD_LINE=
+!ELSEIF "$(WINCEPROFILE)" == "1"
+DEBUG_LINK_CMD_LINE=-debug -debugtype:both -incremental:no
+CDEBUG_DEFINES=$(CDEBUG_DEFINES) -DWINCEPROFILE
+!ELSE
+DEBUG_LINK_CMD_LINE=-debug -debugtype:cv -incremental:no
+!ENDIF
+
+!IF "$(TGTCPUISANAME)"=="ARMV4"
+LINKER_DEBUG=$(LINKER_DEBUG) /ARMPADCODE
+!ENDIF
+
+!IF "$(WINCEMEMTRACK)" == "1"
+CDEFINES=$(CDEFINES) -DMEMTRACKING=1
+!ENDIF
+
+##<Variable PlatformBuilderSettingsPage="General" SettingsPageItemNumber="0">
+##<VariableName>WINCESHIP</VariableName>
+##<FriendlyName>Ship Build</FriendlyName>
+##<Description>Specifies whether to remove debug messages and provide limited support for debugging. To enable a ship build, the environment variable WINCEDEBUG must also be set to RETAIL.</Description>
+##<Settings>
+##<Setting>
+##<SettingValue Default="Y"></SettingValue>
+##<FriendlyName>No</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>1</SettingValue>
+##<FriendlyName>Yes</FriendlyName>
+##</Setting>
+##</Settings>
+##</Variable>
+!IF "$(WINCESHIP)" != ""
+CDEBUG_DEFINES=$(CDEBUG_DEFINES) -DSHIP_BUILD
+!ENDIF
+
+!IF "$(WINCE_OVERRIDE_CFLAGS)" != ""
+CDEBUG_FLAGS=$(WINCE_OVERRIDE_CFLAGS)
+!ENDIF
+
+!IF "$(WINCE_LINKER_DEBUG)" != ""
+LINKER_DEBUG=$(WINCE_LINKER_DEBUG)
+!ENDIF
+
+##<Variable PlatformBuilderSettingsPage="General" SettingsPageItemNumber="0">
+##<VariableName>EXEBASE</VariableName>
+##<FriendlyName>Executable Base Address</FriendlyName>
+##<Description>Specifies the base address in memory for an executable (.exe) file, which is sent to the linker.</Description>
+##</Variable>
+!IFNDEF EXEBASE
+!  IF "$(_TGTOS)"=="CE"
+EXEBASE=0x00010000
+!  ELSE
+EXEBASE=0x01000000
+!  ENDIF
+!ENDIF
+
+
+##<Variable PlatformBuilderSettingsPage="Cpp" SettingsPageItemNumber="0">
+##<VariableName>CPPBROWSE</VariableName>
+##<FriendlyName>Generate Browse Information</FriendlyName>
+##<Description>Specifies whether browse information is generated. This enables you to view definitions and references to identifiers in the selected project.</Description>
+##<Settings>
+##<Setting>
+##<SettingValue Default="Y"></SettingValue>
+##<FriendlyName>No</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>1</SettingValue>
+##<FriendlyName>Yes</FriendlyName>
+##</Setting>
+##</Settings>
+##</Variable>
+
+!IFDEF CPPBROWSE
+#!IFNDEF NO_AUTOMATIC_BSC
+!  message Build Browse Files
+CDEBUG_FLAGS=$(CDEBUG_FLAGS) /FR$(TEMP)\$(@B).sbr
+#!ENDIF
+!ENDIF
+
+!IF "$(WINCE_ELIM_DEAD_CODE)" == "1" || "$(WINCEDEBUG_COMPILE)" == "retail"
+CONLY_FLAGS=$(CONLY_FLAGS) /Gy
+LINKER_DEBUG=$(LINKER_DEBUG) /opt:ref
+!ENDIF
+
+!IF "$(WINCE_VERBOSE_LINK)" == "1"
+LINKER_DEBUG=$(LINKER_DEBUG) /verbose
+!ENDIF
+
+TGTCPUDEFINES=-D$(_TGTCPUFAMILY)
+!IF "$(TGTCPUISANAME)" != "$(_TGTCPUFAMILY)"
+TGTCPUDEFINES = $(TGTCPUDEFINES) -D$(TGTCPUISANAME)
+!ENDIF
+!IF "$(_TGTCPU)" != "$(TGTCPUISANAME)"
+TGTCPUDEFINES=$(TGTCPUDEFINES) -D$(_TGTCPU)
+!ENDIF
+
+# MIPS16 is also a MIPSII
+!IF "$(_TGTCPU)" == "MIPS16"
+TGTCPUDEFINES=$(TGTCPUDEFINES) -DMIPSII
+!ENDIF
+
+!IF "$(_TGTCPUFAMILY)" == "x86"
+TGTCPUDEFINES=$(TGTCPUDEFINES) -D_X86_
+
+!ELSEIF "$(_TGTCPUFAMILY)" == "SH"
+TGTCPUDEFINES=$(TGTCPUDEFINES) -D_SHX_ -DSHx
+
+!ELSEIF "$(_TGTCPUFAMILY)" == "ARM"
+TGTCPUDEFINES=$(TGTCPUDEFINES) -D_ARM_
+!  IF "$(TGTCPUISANAME)"=="ARMV4T"
+TGTCPUDEFINES=$(TGTCPUDEFINES) -D_THUMB_
+!  ENDIF
+
+!ELSEIF "$(_TGTCPUFAMILY)"=="MIPS"
+TGTCPUDEFINES=$(TGTCPUDEFINES) -D_MIPS_ -DR4000
+
+!  IF "$(_TGTCPUOPTIONS)" == "_FP"
+MIPS_HAS_FPU=1
+!  ENDIF
+
+!  IFDEF MIPS_HAS_FPU
+CDEFINES=$(CDEFINES) $(CFPUDEFINES)
+ADEFINES=$(ADEFINES) $(AFPUDEFINES)
+!  ENDIF
+
+!ENDIF              # _TGTCPUFAMILY == MIPS
+
+#collect all the defines together
+CDEFINES=-DWIN32 -DSTRICT $(TGTCPUDEFINES) $(CDEBUG_DEFINES) $(CDEFINES)
+!IF "$(WINCEOEM)"=="1"
+CDEFINES=-DWINCEOEM -DWINCEINTERNAL $(CDEFINES)
+!ENDIF
+!IF "$(WINCE_BUILD_ALL_SOURCES_AS_CPP)"=="1"
+!MESSAGE WINCE_BUILD_ALL_SOURCES_AS_CPP should only be used to help convert files to C++.
+!MESSAGE Once converted, files should be renamed to .cpp and the WINCE_BUILD_ALL_SOURCES_AS_CPP
+!MESSAGE setting should be removed.
+CDEFINES=-TP $(CDEFINES)
+!ENDIF
+!IF "$(TARGETTHREADMODEL)" == "MT"
+CDEFINES=-D_MT $(CDEFINES)
+!ELSEIF "$(TARGETTHREADMODEL)" == "MD"
+CDEFINES=-D_MT -D_DLL $(CDEFINES)
+!ENDIF
+!IF "$(WINCEEMULATION)"=="1"
+CDEFINES=-D_WIN32_WCE_EMULATION $(CDEFINES)
+!ENDIF
+!IF "$(_TGTOS)" == "NTANSI"
+CDEFINES=-DUNDER_NT $(CDEFINES)
+!ELSEIF "$(_TGTOS)" == "NT"
+CDEFINES=-DUNDER_NT $(CDEFINES)
+!ELSEIF "$(_TGTOS)" == "CE"
+CDEFINES=-DUNDER_CE=502 -D_WIN32_WCE=502 $(CDEFINES)
+!ENDIF
+!IF "$(NOT_UNICODE)" != "1" && "$(_TGTOS)" != "NTANSI"
+CDEFINES=-DUNICODE -D_UNICODE $(CDEFINES)
+!ENDIF
+!IF "$(DEPRECATE_UNSAFE_CRT)" != "1"
+CDEFINES=-D_CRT_SECURE_NO_DEPRECATE $(CDEFINES)
+!ENDIF
+
+#collect all include paths together
+!IF "$(INCLUDEPATH)" == ""  ||  "$(INCLUDEPATH)" == " "
+CINCLUDES=-I$(_TGTCPUFAMILY)\ -I.
+!ELSE
+CINCLUDES=-I$(_TGTCPUFAMILY)\ -I. -I$(INCLUDEPATH:;= -I)
+!ENDIF
+
+
+# -- Added for WINCE-INTERNATIONAL
+#
+# set some flags for INTERNATIONAL module
+!IF "$(LOCALE)" != ""
+#
+# For LOCALE specific flag. Default code page is 437
+#
+!  IF "$(LOCALE)" == "0411"
+CODEPAGE=932
+!  ELSE
+CODEPAGE=1252
+!  ENDIF
+#
+# set CFLAGS,CINLUDE and RDEFINES for INTERNATIONAL module
+#
+CDEFINES=$(CDEFINES) -DINTERNATIONAL -DL$(LOCALE) -DINTLMSG_CODEPAGE=$(CODEPAGE)
+CINCLUDES=$(CINCLUDES) -I.\Resource\$(LOCALE)
+RDEFINES=$(RDEFINES) -DINTERNATIONAL -DL$(LOCALE) -l 409 -c $(CODEPAGE)
+!ENDIF
+#
+# End WINCE-INTERNATIONAL stuff
+#
+
+##<Variable PlatformBuilderSettingsPage="General" SettingsPageItemNumber="0">
+##<VariableName>WARNLEVEL</VariableName>
+##<FriendlyName>Warning Level</FriendlyName>
+##<Description>Determines the level of warnings that the compiler displays.</Description>
+##<Settings>
+##<Setting>
+##<SettingValue>0</SettingValue>
+##<FriendlyName>None</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>1</SettingValue>
+##<FriendlyName>Level 1</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>2</SettingValue>
+##<FriendlyName>Level 2</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue Default="Y">3</SettingValue>
+##<FriendlyName>Level 3</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>4</SettingValue>
+##<FriendlyName>Level 4</FriendlyName>
+##</Setting>
+##</Settings>
+##</Variable>
+
+!IF "$(WARNLEVEL)" == "0"
+WARNLEVEL_CMD_LINE=-w
+!ELSEIF "$(WARNLEVEL)" != ""
+WARNLEVEL_CMD_LINE=-W$(WARNLEVEL)
+!ELSE
+WARNLEVEL_CMD_LINE=-W3
+!ENDIF
+
+##<Variable PlatformBuilderSettingsPage="General" SettingsPageItemNumber="0">
+##<VariableName>WARNISERROR</VariableName>
+##<FriendlyName>Warnings as Errors</FriendlyName>
+##<Description>Specifies that the compiler treats warnings as errors.</Description>
+##<Settings>
+##<Setting>
+##<SettingValue Default="Y"></SettingValue>
+##<FriendlyName>No</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>1</SettingValue>
+##<FriendlyName>Yes</FriendlyName>
+##</Setting>
+##</Settings>
+##</Variable>
+
+##<Variable PlatformBuilderSettingsPage="General" SettingsPageItemNumber="0">
+##<VariableName>WINCECOD</VariableName>
+##<FriendlyName>Generate Code File</FriendlyName>
+##<Description>Uses the compiler to generate a code (.cod) file.</Description>
+##<Settings>
+##<Setting>
+##<SettingValue Default="Y"></SettingValue>
+##<FriendlyName>No</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>1</SettingValue>
+##<FriendlyName>Yes</FriendlyName>
+##</Setting>
+##</Settings>
+##</Variable>
+
+# Disable language conformance to work around bugs in code (see above for defaults)
+
+CBUG_FLAGS=
+
+!IF "$(NO_WCHAR_T)" == "1"
+CBUG_FLAGS=$(CBUG_FLAGS) -Zc:wchar_t-
+!ENDIF
+
+!IF "$(CONFORMING_FORSCOPE)" != "1"
+CBUG_FLAGS=$(CBUG_FLAGS) -Zc:forScope-
+!ENDIF
+
+!IF "$(BAD_POINTER_TO_MEMBER_SYNTAX)" == "1"
+CBUG_FLAGS=$(CBUG_FLAGS) -wd4867
+!ENDIF
+
+!IF "$(SUPPORT_DEFAULT_INT)" == "1"
+CBUG_FLAGS=$(CBUG_FLAGS) -wd4430
+!ENDIF
+
+!IF "$(_TGTOS)" == "CE"
+# These overrides are only the desktop SDK
+CBUG_FLAGS=
+!ENDIF
+
+# set CFLAGS
+CFLAGS=-c $(CINCLUDES) $(CDEBUG_FLAGS) $(CDEFINES)
+
+!IF "$(WINCECOD)" != ""
+CFLAGS=$(CFLAGS) -FAsc -Fa$(@R).cod
+!ENDIF
+!IF "$(WARNISERROR)"=="1"
+# Turn off WX when running prefast, it throws some warnings.
+!  IF "$(PREFAST_ADD_PATH)" == ""
+CFLAGS=$(CFLAGS) -WX
+!  ENDIF
+!ENDIF
+
+# setup host compiler
+HOSTCOMPILER=cl
+
+#resource compiler stuff
+!IF "$(_TGTOS)" == "CE"
+RDEFINES=$(_TGTCPUDEFINES) -DUNDER_CE=502 $(RDEFINES)
+!  IF "$(WINCEDEBUG_COMPILE)"=="debug"
+RDEFINES=$(RDEFINES) -DDEBUG
+!  ENDIF
+!  IF "$(WINCEOEM)"=="1"
+RDEFINES=-DWINCEINTERNAL $(RDEFINES)
+!  ENDIF
+!ELSE
+RDEFINES=$(_TGTCPUDEFINES) -DUNDER_NT $(RDEFINES)
+!ENDIF
+RCOMPILER=rc -r $(CINCLUDES) $(RDEFINES)
+
+#midl compiler stuff
+MIDLCOMPILER=midl -nologo
+MKTYPLIBFLAGS=/win32 /mktyplib203
+
+
+# preprocessing is always done on the host
+DEFPREPROCESS=$(HOSTCOMPILER) -EP $(CDEFINES) $(CINCLUDES)
+
+!IF "$(_TGTOS)" == "NT" || "$(_TGTOS)" == "NTANSI"
+!  IF "$(TARGETTYPE)" == "PROGRAM"
+!    IF "$(TARGETTHREADMODEL)" == "MT"
+!      IF ("$(WINCEDEBUG_COMPILE)" == "retail")
+STARTLIB=libcmt.lib
+STCPPLIB=libcpmt.lib
+!      ELSE
+STARTLIB=libcmtd.lib
+STCPPLIB=libcpmtd.lib
+!      ENDIF
+!    ELSEIF "$(TARGETTHREADMODEL)" == "MD"
+!      IF ("$(WINCEDEBUG_COMPILE)" == "retail")
+STARTLIB=msvcrt.lib
+STCPPLIB=msvcprt.lib
+!      ELSE
+STARTLIB=msvcrtd.lib
+STCPPLIB=msvcprtd.lib
+!      ENDIF
+!    ELSE
+!      IF ("$(WINCEDEBUG_COMPILE)" == "retail")
+STARTLIB=libcmt.lib
+STCPPLIB=libcpmt.lib
+!      ELSE
+STARTLIB=libcmtd.lib
+STCPPLIB=libcpmtd.lib
+!      ENDIF
+!    ENDIF
+!  ELSE
+!    IF "$(TARGETTHREADMODEL)" == "MT"
+!      IF ("$(WINCEDEBUG_COMPILE)" == "retail")
+STARTLIB=libcmt.lib
+STCPPLIB=libcpmt.lib
+!      ELSE
+STARTLIB=libcmtd.lib
+STCPPLIB=libcpmtd.lib
+!      ENDIF
+!    ELSE
+!      IF ("$(WINCEDEBUG_COMPILE)" == "retail")
+STARTLIB=msvcrt.lib
+STCPPLIB=msvcprt.lib
+!      ELSE
+STARTLIB=msvcrtd.lib
+STCPPLIB=msvcprtd.lib
+!      ENDIF
+!    ENDIF
+!  ENDIF
+
+##<Variable PlatformBuilderSettingsPage="Link" SettingsPageItemNumber="0">
+##<VariableName>TARGETLIBS</VariableName>
+##<FriendlyName>Additional Libraries</FriendlyName>
+##<Description>Specifies additional libraries to link to your target executable, DLL, or static library.</Description>
+##</Variable>
+
+TARGETLIBS=$(TARGETLIBS) \
+    $(_SDKROOT)\VC\lib\$(_TGTCPUFAMILY)\$(STARTLIB) \
+    $(_SDKROOT)\VC\lib\$(_TGTCPUFAMILY)\$(STCPPLIB) \
+    $(_SDKROOT)\VC\lib\$(_TGTCPUFAMILY)\oldnames.lib \
+    $(_SDKROOT)\NT\lib\$(_TGTCPUFAMILY)\kernel32.lib \
+    $(_SDKROOT)\NT\lib\$(_TGTCPUFAMILY)\advapi32.lib \
+    $(_SDKROOT)\NT\lib\$(_TGTCPUFAMILY)\gdi32.lib \
+    $(_SDKROOT)\NT\lib\$(_TGTCPUFAMILY)\user32.lib \
+    $(_SDKROOT)\NT\lib\$(_TGTCPUFAMILY)\winmm.lib
+!ELSE
+!  IFNDEF NOLIBC
+TARGETLIBS=$(TARGETLIBS) $(_COMMONSDKROOT)\lib\$(_CPUINDPATH)\corelibc.lib
+!  ENDIF
+!ENDIF
+
+!IF "$(TGTCPUISANAME)"=="SH4"
+MACHINEOPTION=-machine:SH4
+!ELSEIF "$(_TGTCPUFAMILY)"=="SH"
+!  IF "$(ENABLEDSP)"=="1" || "$(_TGTCPUOPTIONS)"=="_DSP"
+MACHINEOPTION=-machine:SH3DSP
+!  ELSE
+MACHINEOPTION=-machine:SH3
+!  ENDIF
+!ELSEIF "$(TGTCPUISANAME)" == "MIPSII"
+MACHINEOPTION=-machine:MIPS
+!ELSEIF "$(TGTCPUISANAME)" == "MIPS16"
+MACHINEOPTION=-machine:MIPS16
+!ELSEIF "$(TGTCPUISANAME)" == "MIPSIV"
+MACHINEOPTION=-machine:MIPSFPU
+!ELSEIF "$(TGTCPUISANAME)" == "ARMV4T" || "$(TGTCPUISANAME)" == "ARMV4I"
+MACHINEOPTION=-machine:thumb
+!ELSE
+MACHINEOPTION=-machine:$(_TGTCPUFAMILY)
+!ENDIF
+
+# Setup CeCAP
+!IF "$(WINCECALLCAP)"!="" && "$(WINCEFASTCAP)"!=""
+!  ERROR Error: WINCECALLCAP and WINCEFASTCAP are both defined.  Please choose one.
+!ENDIF
+
+!IF "$(WINCECALLCAP)"!=""
+!  IF "$(_TGTCPUFAMILY)"=="x86"
+CFLAGS=$(CFLAGS) /Gh
+!  ELSE
+CFLAGS=$(CFLAGS) /callcap
+!  ENDIF
+!ENDIF
+
+!IF "$(WINCEFASTCAP)"!=""
+!  IF "$(_TGTCPUFAMILY)"=="x86"
+!    ERROR Error: WINCEFASTCAP is currently not supported on x86.  Please choose WINCECALLCAP.
+!  ELSE
+CFLAGS=$(CFLAGS) /fastcap
+!  ENDIF
+!ENDIF
+
+!IF "$(WINCECALLCAP)"!="" || "$(WINCEFASTCAP)"!=""
+TARGETLIBS=$(TARGETLIBS) $(_COMMONOAKROOT)\lib\$(_TGTCPU)\$(WINCEDEBUG)\cecap.lib
+!ENDIF
+
+#
+# Now for special CPU dependent defines
+#
+!IF "$(_TGTCPUFAMILY)"=="x86"
+CCOMPILER=cl -nologo
+CXXCOMPILER=$(CCOMPILER)
+ASSEMBLER=ml -nologo
+CVTRES=cvtres -machine:iX86
+AFLAGS=-c -coff -Cx $(ADEFINES) $(CINCLUDES) -Zm
+!  IF "$(WINCECOD)" != ""
+AFLAGS=$(AFLAGS) -Sn -Fl$(@R).lst
+!  ENDIF
+
+!ELSEIF "$(_TGTCPUFAMILY)"=="SH"
+CCOMPILER=cl -nologo
+CXXCOMPILER=$(CCOMPILER)
+ASSEMBLER=shasm
+CFLAGS=$(CFLAGS) -DSH3_CACHE=1
+ALIGNMENT=4096
+!  IF "$(TGTCPUISANAME)"=="SH4"
+AFLAGS=$(ADEFINES) -Qsh4r5
+CFLAGS=$(CFLAGS) -Qsh4r5
+CVTRES=cvtres -machine:sh4
+!  ELSE
+AFLAGS=$(ADEFINES) -Qsh3 -Qdsp
+CVTRES=cvtres -machine:sh3
+!    IF "$(ENABLEDSP)"=="1" || "$(_TGTCPUOPTIONS)"=="_DSP"
+CFLAGS=$(CFLAGS) -Qdsp
+!    ENDIF
+!  ENDIF
+!  IF "$(WINCEPROFILE)" == "1"
+ADEFINES=$(ADEFINES) -DPROFILE=1
+!  ELSE
+ADEFINES=$(ADEFINES) -DPROFILE=0
+!  ENDIF
+!  IFDEF WINCECOD
+AFLAGS=$(AFLAGS) -LIST=$(@R).lst
+!  ENDIF
+
+!ELSEIF "$(_TGTCPUFAMILY)"=="MIPS"
+
+ASSEMBLER=mipsasm
+CCOMPILER=cl -nologo
+ALIGNMENT=4096
+!  IF "$(TGTCPU)"=="MIPSII"
+CFLAGS=$(CFLAGS) -QMmips2 -D_M_MRX000=4000 -QMFPE
+!  ELSEIF "$(_TGTCPU)"=="MIPSII_FP"
+CFLAGS=$(CFLAGS) -QMmips2 -D_M_MRX000=4000 -QMFPE-
+!  ELSEIF "$(_TGTCPU)"=="MIPS16"
+CFLAGS=$(CFLAGS) -DMIPS16SUPPORT
+LDEFINES=-merge:.text16=.text $(LDEFINES)
+!    IF "$(NOMIPS16CODE)"=="1"
+CONLY_FLAGS=-QMmips2 -D_M_MRX000=4000 -DNOMIPS16CODE
+!    ELSE
+CONLY_FLAGS=-ase16
+!    ENDIF
+ADEFINES=-QMmips2 -D_M_MRX000=4000 $(ADEFINES)
+!  ELSEIF "$(_TGTCPU)" == "MIPSIV"
+CFLAGS=$(CFLAGS) -D_MIPS64 -QMmips4 -QMn32 -QMFPE
+CCOMPILER=cl -nologo
+ASSEMBLER=mipsasm -QMmips4
+!  ELSEIF "$(_TGTCPU)" == "MIPSIV_FP"
+CFLAGS=$(CFLAGS) -D_MIPS64 -QMmips4 -QMn32 -QMFPE-
+CCOMPILER=cl -nologo
+ASSEMBLER=mipsasm -QMmips4
+!  ENDIF
+CXXCOMPILER=$(CCOMPILER)
+!  IF "$(_TGTCPU)" == "MIPSIV_FP"
+CVTRES=cvtres -machine:mipsfpu
+!  ELSE
+CVTRES=cvtres -machine:mips
+!  ENDIF
+AFLAGS=$(CFLAGS) $(ADEFINES)
+
+!ELSEIF "$(_TGTCPUFAMILY)"=="ARM"
+
+CCOMPILER=cl -nologo
+CXXCOMPILER=$(CCOMPILER)
+ASSEMBLER=armasm -coff
+CVTRES=cvtres -machine:arm
+
+!  IF "$(NOMIPS16CODE)"=="1"
+CFLAGS=$(CFLAGS) -QRimplicit-import-
+!  ENDIF
+
+!  IF "$(WINCEPROFILE)" == "1"
+ADEFINES=$(ADEFINES) -pd "PROFILE SETA 1"
+!  ENDIF
+
+!  IF ("$(WINCEDEBUG_COMPILE)" == "debug")
+AFLAGS=$(AFLAGS) -pd "DEBUG SETA 1"
+!  ENDIF
+
+!  IFDEF WINCECOD
+AFLAGS=$(AFLAGS) -list $(@R).lst -wi 150 -l 0
+!  ENDIF
+
+AFLAGS=$(AFLAGS) -cr $(ADEFINES) -i $(INCLUDEPATH:;=,) -i arm
+LDEFINES=-merge:.astart=.text $(LDEFINES)
+ALIGNMENT=4096
+
+!  IF "$(TGTCPUISANAME)"=="ARMV4T"
+!    IFNDEF BUILDASARM
+CCOMPILER=cl -nologo -QRthumb
+!    ENDIF
+CVTRES=cvtres -machine:thumb
+_SRCDIR=ARM
+
+ARM_ARCH_C_CMD_LINE=-QRarch4T
+ARM_ARCH_ASSEMBLER_CMD_LINE=-arch 4t
+THUMB_C_CMD_LINE=-DTHUMBSUPPORT
+THUMB_ASSEMBLER_CMD_LINE=-pd "Thumbing SETL {TRUE}"
+INTERWORK_C_CMD_LINE=-QRinterwork-return
+INTERWORK_ASSEMBLER_CMD_LINE=-pd "Interworking SETL {TRUE}"
+
+!  ELSEIF "$(TGTCPUISANAME)"=="ARMV4I"
+ARM_ARCH_C_CMD_LINE=-QRarch4T
+ARM_ARCH_ASSEMBLER_CMD_LINE=-arch 4t
+INTERWORK_C_CMD_LINE=-QRinterwork-return
+INTERWORK_ASSEMBLER_CMD_LINE=-pd "Interworking SETL {TRUE}"
+THUMB_C_CMD_LINE=-DTHUMBSUPPORT
+THUMB_ASSEMBLER_CMD_LINE=-pd "Thumbing SETL {FALSE}"
+
+!  ELSEIF "$(TGTCPUISANAME)"=="ARMV4"
+ARM_ARCH_ASSEMBLER_CMD_LINE=-arch 4
+THUMB_ASSEMBLER_CMD_LINE=-pd "Thumbing SETL {FALSE}"
+INTERWORK_ASSEMBLER_CMD_LINE=-pd "Interworking SETL {FALSE}"
+!  ENDIF
+
+##<Variable PlatformBuilderSettingsPage="Cpp" SettingsPageItemNumber="0">
+##<VariableName>ARM_COMPILE_XSCALE</VariableName>
+##<FriendlyName>Compile for XScale</FriendlyName>
+##<Description>Sets the command-line switch for the compiler to target XScale processors.</Description>
+##<Settings>
+##<Setting>
+##<SettingValue Default="Y"></SettingValue>
+##<FriendlyName>No</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>1</SettingValue>
+##<FriendlyName>Yes</FriendlyName>
+##</Setting>
+##</Settings>
+##</Variable>
+!  IF "$(ARM_COMPILE_XSCALE)"=="1"
+ARM_ARCH_C_CMD_LINE=
+ARM_XSCALE_C_CMD_LINE=-QRxscale
+ARM_ARCH_ASSEMBLER_CMD_LINE=
+ARM_XSCALE_ASSEMBLER_CMD_LINE=-cpu XSCALE
+!  ENDIF
+
+!ENDIF
+
+!IF "$(OACR)"=="Yes"
+!  IF "$(TGTCPUISANAME)"=="ARMV4T"
+!    IFNDEF BUILDASARM
+CCOMPILER=oacrcl -nologo -QRthumb
+!    ENDIF
+!  ELSE
+CCOMPILER=oacrcl -nologo
+!  ENDIF
+!ENDIF
+
+# Warn user about potential license violation building private sources
+!IF !DEFINED(SKIPBUILD) && !DEFINED(PASS0ONLY) && EXIST($(_SDKROOT)\bin\i386\SrcCheck.exe)
+!  IF [$(_SDKROOT)\bin\i386\SrcCheck -nodlg] == 1
+CFLAGS=$(CFLAGS) -FI$(_COMMONOAKROOT)\inc\PrivateBuild.h
+!  ENDIF
+!ENDIF
+
+# tweak prefast for non-x86 builds
+!IF "$(UNDER_PREFAST)"=="1"
+!  IF "$(_TGTCPUFAMILY)"!="x86"
+# need to add a few defines for the prefast intercepter
+!    IF "$(_TGTCPUFAMILY)"=="ARM"
+CDEFINES=$(CDEFINES) -D_M_ARM
+!    ELSEIF "$(_TGTCPUFAMILY)"=="MIPS"
+CDEFINES=$(CDEFINES) -D_M_MRX000
+!    ELSEIF "$(_TGTCPUFAMILY)"=="SH"
+CDEFINES=$(CDEFINES) -D_M_SH=4
+!    ENDIF
+
+# use prefastpriv.h to add or remove defines
+CDEFINES=$(CDEFINES) -FI$(PREFAST_ROOT)prefastpriv.h
+CCOMPILER=$(PREFAST_ROOT)scripts\interceptcl\cl386.exe
+
+!  ENDIF
+!ENDIF  # end UNDER_PREFAST
+
+# allow users to map test source to an alternate directory
+# but force TEST_ROOT to be defined
+!IF "$(TEST_ROOT)"==""
+TEST_ROOT=$(_PRIVATEROOT)\test
+!ENDIF
+
+
+LINKER=link /LARGEADDRESSAWARE
+LIBRARIAN=link -lib
+
+!IF ("$(WINCELTCG)" != "" && "$(NOLTCG)" == "")
+LINKER=$(LINKER) /LTCG
+LIBRARIAN=$(LIBRARIAN) /LTCG
+!ENDIF
+
+!IF "$(_TGTOS)" == "CE"
+CVTRES=$(CVTRES) /WINDOWSCE
+!ENDIF
+
+!IFDEF ALIGNMENT
+LDEFINES=$(LDEFINES) -align:$(ALIGNMENT)
+!ENDIF
+
+LDEFINES=$(LDEFINES) -ignore:4001,4070,4078,4086,4089,4096,4099,4108,4229
+!IFNDEF NORDATAMERGE
+LDEFINES=-MERGE:.rdata=.text $(LDEFINES)
+!ENDIF
+!IF "$(_TGTOS)" == "CE"
+!  IFNDEF LDEFSTACK
+LDEFSTACK=/STACK:65536,4096
+!  ENDIF
+!ENDIF
+
+!IFDEF LDEFSTACK
+LDEFINES=$(LDEFINES) $(LDEFSTACK)
+!ENDIF
+
+
+##<Variable PlatformBuilderSettingsPage="General" SettingsPageItemNumber="0">
+##<VariableName>DEFFILE</VariableName>
+##<FriendlyName>.def File</FriendlyName>
+##<Description>Specifies a name for the module-definition (.def) file that overrides the default path, file name, and file name extension.</Description>
+##</Variable>
+!IFNDEF DEFFILE
+DEFFILE=$(TARGETNAME).def
+!ENDIF
+
+##<Variable PlatformBuilderSettingsPage="General" SettingsPageItemNumber="0">
+##<VariableName>TARGETDEFNAME</VariableName>
+##<FriendlyName>Target .def Name</FriendlyName>
+##<Description>Specifies the file name used when a module-definition (.def) file is preprocessed and then placed in the release directory.</Description>
+##</Variable>
+!IFNDEF TARGETDEFNAME
+TARGETDEFNAME=$(TARGETNAME)
+!ENDIF
+
+
+
+!IFDEF PREPROCESSDEFFILE
+!  IF "$(_TGTOS)"=="CE"
+DEFPREPROCINC=-FI$(_COMMONOAKROOT)\inc\deffile.inc
+!  ELSE
+DEFPREPROCINC=
+!  ENDIF
+!ENDIF
+
+# Force code-coverage enabled debug information for x86 only.
+!  IF "$(_TGTCPUFAMILY)"=="x86"
+WINCECOVER=1
+!  ENDIF
+
+!IF "$(WINCECOVER)" == "1"
+!  IF "$(_TGTCPUFAMILY)"!="x86"
+!    ERROR You cannot define WINCECOVER on non x86 builds
+!  ENDIF
+CFLAGS=$(CFLAGS) -Zi
+AFLAGS=$(AFLAGS) -Zi
+LDEFINES=$(LDEFINES) -debug -debugtype:cv,fixup -incremental:no
+!ENDIF
+
+
+#
+# All the implicit rules
+#
+
+!IFDEF MANAGED_TARGET
+
+#
+#Set up the Path to the Managed Compilers.
+#
+MANAGED_CSC_DIR_DESKTOP=$(DOTNETFRAMEWORK_ROOT)\$(MANAGED_FRAMEWORK_VERSION_DESKTOP)
+MANAGED_CSC_DIR_CE=$(DOTNETFRAMEWORK_ROOT)\$(MANAGED_FRAMEWORK_VERSION_DESKTOP)
+
+#
+# Delay Sign
+#
+!IF "$(MANAGED_DELAYSIGN)" == "1"
+!    IF "$(LAB_SIGN_ENVIRONMENT)" == "1"
+!      MESSAGE This file should be signed at http:\\codesign. Talk to your lab.
+MANAGED_DELAYSIGN_COMMAND=@echo Not signing $(MANAGED_TARGET)
+!    ELSE
+MANAGED_DELAYSIGN_COMMAND=$(SN) -R $(MANAGED_TARGET) $(DEV_SN_KEYPAIR)
+!    ENDIF
+!ELSE
+MANAGED_DELAYSIGN=
+!ENDIF
+
+!IF "$(_TGTOS)" == "CE"
+CSC_UNDER_OS_DEFINE_CMD_LINE=/define:UNDER_WINDOWS_CE
+!ELSE IF ((( "$(_TGTOS)" == "NT" ) || ( "$(_TGTOS)" == "NTANSI" ))&&("$(MANAGED_VB)"!="1"))
+CSC_UNDER_OS_DEFINE_CMD_LINE=/define:UNDER_WINDOWS_NT
+!ENDIF
+
+##<Variable PlatformBuilderSettingsPage="Managed" SettingsPageItemNumber="0">
+##<VariableName>BUILD_GENERATE_DOC</VariableName>
+##<FriendlyName>Generate Documentation</FriendlyName>
+##<Description>Specifies whether comments embedded in source code files are extracted to an XML file created in the same directory.</Description>
+##<Settings>
+##<Setting>
+##<SettingValue Default="Y"></SettingValue>
+##<FriendlyName>No</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>1</SettingValue>
+##<FriendlyName>Yes</FriendlyName>
+##</Setting>
+##</Settings>
+##</Variable>
+!  IF ("$(BUILD_GENERATE_DOC)"=="1")
+!    IF ("$(MANAGED_VB)" != "")
+!      IF (("$(URT_VER)"=="1.1" ) || ("$(URT_VER)"=="1.0" ))
+!        ERROR Doc creation is only supported in .NET 2.0 or greater
+!      ELSE
+DOC_CMD_LINE=/doc+ /doc:$(MANAGED_TARGET_DIRECTORY)\$(TARGETNAME).xml
+!      ENDIF
+!    ELSE
+DOC_CMD_LINE=/doc:$(MANAGED_TARGET_DIRECTORY)\$(TARGETNAME).xml
+!    ENDIF
+!  ENDIF
+
+
+##<Variable PlatformBuilderSettingsPage="Managed" SettingsPageItemNumber="0">
+##<VariableName>UNSAFE_CODE</VariableName>
+##<FriendlyName>Compile Unsafe Code</FriendlyName>
+##<Description>Specifies whether to compile source code containing operations that use pointers.</Description>
+##<Settings>
+##<Setting>
+##<SettingValue Default="Y"></SettingValue>
+##<FriendlyName>No</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>ALLOWED</SettingValue>
+##<FriendlyName>Yes</FriendlyName>
+##</Setting>
+##</Settings>
+##</Variable>
+!  IF   "$(UNSAFE_CODE)"==""
+#   OK if not set.  Default is not to allow unsafe code.
+!  ELSEIF   "$(UNSAFE_CODE)"=="ALLOWED"
+UNSAFE_CMD_LINE=/unsafe+
+!  ELSE
+!    ERROR Invalid UNSAFE_CODE setting: $(UNSAFE_CODE)
+!  ENDIF
+
+##<Variable PlatformBuilderSettingsPage="Managed" SettingsPageItemNumber="0">
+##<VariableName>KEYFILE</VariableName>
+##<FriendlyName>Sign Assembly with this Key File</FriendlyName>
+##<Description>This Command signs the managed assembly after it is built. Only valid for .NET 2.0 and higher.</Description>
+##<Settings>
+##<Setting>
+##<SettingValue Default="Y"></SettingValue>
+##<FriendlyName>""</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>1</SettingValue>
+##</Setting>
+##</Settings>
+##</Variable>
+!IF "$(KEYFILE)"!=""
+!  IF (("$(URT_VER)"=="1.1" ) || ("$(URT_VER)"=="1.0" ))
+!  ERROR the KEYFILE may not be set unless the .net version is a least 2.0.
+!  ELSE
+!MESSAGE URTVERSION = $(URT_VER)
+KEYFILE_CMD_LINE=/keyfile:$(KEYFILE)
+!  ENDIF
+!ENDIF
+
+##<Variable PlatformBuilderSettingsPage="Managed" SettingsPageItemNumber="0">
+##<VariableName>WARNASERROR</VariableName>
+##<FriendlyName>Treat all warnings as errors</FriendlyName>
+##<Description>This flag tells the compiler to treat all of the warnings emited as errors.  Only valid for .NET 2.0 and higher.</Description>
+##<Settings>
+##<Setting>
+##<SettingValue Default="Y"></SettingValue>
+##<FriendlyName>""</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>1</SettingValue>
+##</Setting>
+##</Settings>
+##</Variable>
+!IF "$(WARNASERROR)"!=""
+!  IF (("$(URT_VER)"=="1.1" ) || ("$(URT_VER)"=="1.0" ))
+!   ERROR the WARNASERROR may not be set unless the .net version is a least 2.0.
+!  ELSE
+WARNASERROR_CMD_LINE=/warnaserror+:$(WARNASERROR)
+!  ENDIF
+!ENDIF
+
+##<Variable PlatformBuilderSettingsPage="Managed" SettingsPageItemNumber="0">
+##<VariableName>WARNLEVEL</VariableName>
+##<FriendlyName>Warning Level.</FriendlyName>
+##<Description>This flag sets the warning level for the compiler. Does not work with VB code.</Description>
+##<Settings>
+##<Setting>
+##<SettingValue Default="Y"></SettingValue>
+##<FriendlyName>3</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>0-4</SettingValue>
+##</Setting>
+##</Settings>
+##</Variable>
+!IF "$(WARNLEVEL)"!=""
+!   IF  ("$(MANAGED_VB)"=="")
+MANAGED_WARNLEVEL_CMD_LINE=/warn:$(WARNLEVEL)
+!   ELSE
+!     ERROR Warning level specification not valid with vb code.
+!   ENDIF
+!ELSE
+!IF ("$(MANAGED_VB)"=="")
+MANAGED_WARNLEVEL_CMD_LINE=/warn:3
+!ENDIF
+!ENDIF
+
+##<Variable PlatformBuilderSettingsPage="Managed" SettingsPageItemNumber="0">
+##<VariableName>NOWARN</VariableName>
+##<FriendlyName>Ignore Warnings</FriendlyName>
+##<Description>Tells the compiler to ignore the warnings listed.</Description>
+##<Settings>
+##<Setting>
+##<SettingValue Default="Y"></SettingValue>
+##<FriendlyName>""</FriendlyName>
+##</Setting>
+##</Settings>
+##</Variable>
+!IF "$(NOWARN)"!=""
+NOWARN_CMD_LINE=/nowarn:$(NOWARN)
+!ENDIF
+
+##<Variable PlatformBuilderSettingsPage="Managed" SettingsPageItemNumber="0">
+##<VariableName>OVERFLOWCHECK</VariableName>
+##<FriendlyName>Overflow Check</FriendlyName>
+##<Description>This flag turns on the overflow checking in your compiled code. This is only valid for C sharp code.</Description>
+##<Settings>
+##<Setting>
+##<SettingValue Default="Y"></SettingValue>
+##<FriendlyName>""</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>1</SettingValue>
+##</Setting>
+##</Settings>
+##</Variable>
+!IF (("$(OVERFLOWCHECK)"!="")&&("$(MANAGED_CS)"==""))
+!  ERROR  the overflow checked flag is only valid for C sharp commands.
+!  ELSE
+!  IF "$(OVERFLOWCHECK)"!=""
+OVERFLOWCHECKED_CMD_LINE=/checked+
+!  ELSE
+!    IF "$(MANAGED_CS)"!=""
+OVERFLOWCHECKED_CMD_LINE=/checked-
+!    ENDIF
+!  ENDIF
+!ENDIF
+
+##<Variable PlatformBuilderSettingsPage="Managed" SettingsPageItemNumber="0">
+##<VariableName>REMOVEINTCHECKS</VariableName>
+##<FriendlyName>Remove Integer Checks</FriendlyName>
+##<Description>This flag turns on the integer checking in your code. This is only valid for VB code.</Description>
+##<Settings>
+##<Setting>
+##<SettingValue Default="Y"></SettingValue>
+##<FriendlyName>""</FriendlyName>
+##</Setting>
+##<Setting>
+##<SettingValue>1</SettingValue>
+##</Setting>
+##</Settings>
+##</Variable>
+!IF (("$(REMOVEINTCHECKS)"!="")&&("$(MANAGED_VB)"==""))
+!  ERROR the remove int checks flag is only valid for VB commands.
+!  ELSE
+!  IF "$(REMOVEINTCHECKS)"!=""
+REMOVEINTCHECKS_CMD_LINE=/removeintchecks+
+!  ELSE
+!    IF "$(MANAGED_VB)"!=""
+REMOVEINTCHECKS_CMD_LINE=/removeintchecks-
+!    ENDIF
+!  ENDIF
+!ENDIF
+
+##<Variable PlatformBuilderSettingsPage="Managed" SettingsPageItemNumber="0">
+##<VariableName>MANAGED_REFERENCES</VariableName>
+##<FriendlyName>Managed References</FriendlyName>
+##<Description>Specifies additional references that contain managed code by listing reference file names, separated by semicolons. Do not include a trailing semicolon.</Description>
+##</Variable>
+!  IFDEF MANAGED_REFERENCES
+#   Add semi-colon to the front; Get rid of double semi-colons; convert semi-colons to command line arg.
+MANAGED_REFERENCES_CMD_LINE=;$(MANAGED_REFERENCES)
+MANAGED_REFERENCES_CMD_LINE=$(MANAGED_REFERENCES_CMD_LINE:;;=;)
+MANAGED_REFERENCES_CMD_LINE=$(MANAGED_REFERENCES_CMD_LINE:;= /r:)
+!  ENDIF
+
+##<Variable PlatformBuilderSettingsPage="Managed" SettingsPageItemNumber="0">
+##<VariableName>MANAGED_ADDMODULES</VariableName>
+##<FriendlyName>Managed Add Modules</FriendlyName>
+##<Description>Specifies additional modules that contain managed code by listing module names, separated by semicolons. Do not include a trailing semicolon.</Description>
+##</Variable>
+!  IFDEF MANAGED_ADDMODULES
+#   Add semi-colon to the front; Get rid of double semi-colons; convert semi-colons to command line arg.
+MANAGED_ADDMODULES_CMD_LINE=;$(MANAGED_ADDMODULES)
+MANAGED_ADDMODULES_CMD_LINE=$(MANAGED_ADDMODULES_CMD_LINE:;;=;)
+MANAGED_ADDMODULES_CMD_LINE=$(MANAGED_ADDMODULES_CMD_LINE:;= /addmodule:)
+!  ENDIF
+
+##<Variable PlatformBuilderSettingsPage="Managed" SettingsPageItemNumber="0">
+##<VariableName>MANAGED_LINKRESOURCES</VariableName>
+##<FriendlyName>Managed Link Resources</FriendlyName>
+##<Description>Specifies additional link resources that contain managed code by listing file names, separated by semicolons. Do not include a trailing semicolon.</Description>
+##</Variable>
+!  IFDEF MANAGED_LINKRESOURCES
+#   Add semi-colon to the front; Get rid of double semi-colons; convert semi-colons to command line arg.
+MANAGED_LINKRESOURCES_CMD_LINE=;$(MANAGED_LINKRESOURCES)
+MANAGED_LINKRESOURCES_CMD_LINE=$(MANAGED_LINKRESOURCES_CMD_LINE:;;=;)
+MANAGED_LINKRESOURCES_CMD_LINE=$(MANAGED_LINKRESOURCES_CMD_LINE:;= /linkresource:)
+!  ENDIF
+
+##<Variable PlatformBuilderSettingsPage="Managed" SettingsPageItemNumber="0">
+##<VariableName>MANAGED_RESOURCES</VariableName>
+##<FriendlyName>Managed Resources</FriendlyName>
+##<Description>Specifies additional resources that contain managed code by listing resource file names, separated by semicolons. Do not include a trailing semicolon.</Description>
+##</Variable>
+!  IFDEF MANAGED_RESOURCES
+#   Add semi-colon to the front; Get rid of double semi-colons; convert semi-colons to command line arg.
+MANAGED_RESOURCES_CMD_LINE=;$(MANAGED_RESOURCES)
+MANAGED_RESOURCES_CMD_LINE=$(MANAGED_RESOURCES_CMD_LINE:;;=;)
+MANAGED_RESOURCES_CMD_LINE=$(MANAGED_RESOURCES_CMD_LINE:;= /resource:)
+!  ENDIF
+
+##<Variable PlatformBuilderSettingsPage="Managed" SettingsPageItemNumber="0">
+##<VariableName>MANAGED_WIN32ICONS</VariableName>
+##<FriendlyName>Managed Win32 Icons</FriendlyName>
+##<Description>Specifies additional Win32 icon files by listing file names, separated by semicolons. Do not include a trailing semicolon.</Description>
+##</Variable>
+!  IFDEF MANAGED_WIN32ICONS
+#   Add semi-colon to the front; Get rid of double semi-colons; convert semi-colons to command line arg.
+MANAGED_WIN32ICONS_CMD_LINE=;$(MANAGED_WIN32ICONS)
+MANAGED_WIN32ICONS_CMD_LINE=$(MANAGED_WIN32ICONS_CMD_LINE:;;=;)
+MANAGED_WIN32ICONS_CMD_LINE=$(MANAGED_WIN32ICONS_CMD_LINE:;= /win32icon:)
+!  ENDIF
+
+##<Variable PlatformBuilderSettingsPage="Managed" SettingsPageItemNumber="0">
+##<VariableName>MANAGED_WIN32RESOURCES</VariableName>
+##<FriendlyName>Managed Win32 Resources</FriendlyName>
+##<Description>Specifies additional Win32 resources by listing file names, separated by semicolons. Do not include a trailing semicolon.</Description>
+##</Variable>
+!  IFDEF MANAGED_WIN32RESOURCES
+#   Add semi-colon to the front; Get rid of double semi-colons; convert semi-colons to command line arg.
+MANAGED_WIN32RESOURCES_CMD_LINE=;$(MANAGED_WIN32RESOURCES)
+MANAGED_WIN32RESOURCES_CMD_LINE=$(MANAGED_WIN32RESOURCES_CMD_LINE:;;=;)
+MANAGED_WIN32RESOURCES_CMD_LINE=$(MANAGED_WIN32RESOURCES_CMD_LINE:;= /win32res:)
+!  ENDIF
+
+!  IFDEF CSC_DEFINES
+#   Add semi-colon to the front; Get rid of double semi-colons; convert semi-colons to command line arg.
+CSC_DEFINES_CMD_LINE=;$(CSC_DEFINES)
+CSC_DEFINES_CMD_LINE=$(CSC_DEFINES_CMD_LINE:;;=;)
+CSC_DEFINES_CMD_LINE=$(CSC_DEFINES_CMD_LINE:;= /define:)
+!  ENDIF
+
+
+!IF "$(USE_OS_ASSEMBLY_VERSION)"!=""
+MANAGED_OS_VERSION_CMD_LINE=$(_WINCEROOT)\public\common\sdk\inc\OsAssemblyVersion.cs
+!ENDIF
+
+!IF ("$(MANAGED_CS)"!="")
+NOSTDLIB=/nostdlib+
+!ENDIF
+
+!IF ("$(MANAGED_CS)"!="")
+NOCONFIG=/noconfig
+!ENDIF
+
+$(MANAGED_TARGET):  $(SOURCES) .\sources
+    @echo BUILD_MARKER:CSC_COMPILE_START Csharp Compile $(MANAGED_TARGET)
+    @echo Compiler:                            $(CSC)
+    @echo URT_VER (Run Time Version):          $(URT_VER)
+    @echo /nostdlib+                           $(NOSTDLIB)
+    @echo /noconfig                            $(NOCONFIG)
+    @echo CSC_DEBUG_CMD_LINE:                  $(CSC_DEBUG_CMD_LINE)
+    @echo CSC_DEBUG_DEFINE_CMD_LINE:           $(CSC_DEBUG_DEFINE_CMD_LINE)
+    @echo CSC_UNDER_OS_DEFINE_CMD_LINE:        $(CSC_UNDER_OS_DEFINE_CMD_LINE)
+	@echo CSC_OPTIMIZE_CMD_LINE:               $(CSC_OPTIMIZE_CMD_LINE)
+	@echo TARGETDOTNETCF:                      $(TARGETDOTNETCF)
+    @echo UNSAFE_CMD_LINE:                     $(UNSAFE_CMD_LINE)
+    @echo DOC_CMD_LINE:                        $(DOC_CMD_LINE)
+    @echo KEYFILE_CMD_LINE:                    $(KEYFILE_CMD_LINE)
+    @echo OVERFLOWCHECKED_CMD_LINE:            $(OVERFLOWCHECKED_CMD_LINE)
+    @echo REMOVEINTCHECKS_CMD_LINE:            $(REMOVEINTCHECKS_CMD_LINE)
+    @echo WARNASERROR_CMD_LINE:                $(WARNASERROR_CMD_LINE)
+    @echo MANAGED_WARNLEVEL_CMD_LINE:          $(MANAGED_WARNLEVEL_CMD_LINE)
+    @echo MANAGED_TARGET_TYPE_CMD_LINE:        $(MANAGED_TARGET_TYPE_CMD_LINE)
+    @echo CSC_DEFINES_CMD_LINE:                $(CSC_DEFINES_CMD_LINE)
+    @echo MANAGED_REFERENCES_CMD_LINE:         $(MANAGED_REFERENCES_CMD_LINE)
+    @echo MANAGED_ADDMODULES_CMD_LINE:         $(MANAGED_ADDMODULES_CMD_LINE)
+    @echo MANAGED_LINKRESOURCES_CMD_LINE:      $(MANAGED_LINKRESOURCES_CMD_LINE)
+    @echo MANAGED_RESOURCES_CMD_LINE:          $(MANAGED_RESOURCES_CMD_LINE)
+    @echo MANAGED_WIN32ICONS_CMD_LINE:         $(MANAGED_WIN32ICONS_CMD_LINE)
+    @echo MANAGED_WIN32RESOURCES_CMD_LINE:     $(MANAGED_WIN32RESOURCES_CMD_LINE)
+    @echo RESGEN:                              $(RESGEN)
+    @echo MANAGED_RESX_RESOURCES_CMD_LINE:     $(MANAGED_RESX_RESOURCES_CMD_LINE)
+    @echo MANAGED_RESX_LINKRESOURCES_CMD_LINE: $(MANAGED_RESX_LINKRESOURCES_CMD_LINE)
+	@echo MANAGED_OS_VERSION_CMD_LINE:         $(MANAGED_OS_VERSION_CMD_LINE)
+    @echo /out:$(MANAGED_TARGET) $(SOURCES)
+    $(CSC) $(NOCONFIG) @<<
+$(NOSTDLIB)
+$(CSC_DEBUG_CMD_LINE)
+$(CSC_DEBUG_DEFINE_CMD_LINE)
+$(CSC_UNDER_OS_DEFINE_CMD_LINE)
+$(CSC_OPTIMIZE_CMD_LINE)
+$(TARGETDOTNETCF)
+$(UNSAFE_CMD_LINE)
+$(DOC_CMD_LINE)
+$(KEYFILE_CMD_LINE)
+$(OVERFLOWCHECKED_CMD_LINE)
+$(REMOVEINTCHECKS_CMD_LINE)
+$(MANAGED_WARNLEVEL_CMD_LINE)
+$(MANAGED_TARGET_TYPE_CMD_LINE)
+$(CSC_DEFINES_CMD_LINE)
+$(MANAGED_REFERENCES_CMD_LINE)
+$(MANAGED_ADDMODULES_CMD_LINE)
+$(MANAGED_LINKRESOURCES_CMD_LINE)
+$(MANAGED_RESOURCES_CMD_LINE)
+$(MANAGED_WIN32ICONS_CMD_LINE)
+$(MANAGED_WIN32RESOURCES_CMD_LINE)
+$(MANAGED_RESX_RESOURCES_CMD_LINE)
+$(MANAGED_RESX_LINKRESOURCES_CMD_LINE)
+/out:$(MANAGED_TARGET) $(SOURCES) $(MANAGED_OS_VERSION_CMD_LINE)
+<<NOKEEP
+!  IF "TARGETTYPE" != "MANAGED_MODULE"
+!  IF "$(BUILD_FIXSIG)" == "1"
+    fixts   $(MANAGED_TARGET)
+!  ENDIF
+!  IF "TARGETTYPE" != "MANAGED_MODULE"
+!    IF "$(_TGTOS)" == "CE"
+#    Sign the assembly with a strong name if required.
+     $(MANAGED_DELAYSIGN_COMMAND)
+!    ENDIF
+!  ENDIF
+!    IF "$(BUILD_SIGN)" == "1"
+    signbin $(MANAGED_TARGET)
+!    ENDIF
+!  ENDIF
+!  IF "$(WINCEREL)" == "1"
+      -$(__COPYCMD) $(MANAGED_TARGET) $(_FLATRELEASEDIR)
+      -$(__COPYCMD) $(MANAGED_TARGET_PDB) $(_FLATRELEASEDIR)
+!  ENDIF
+    @echo BUILD_MARKER:CSC_COMPILE_END
+
+!ENDIF
+
+
+.SUFFIXES: .resx
+
+{}.resx{$(RESX_RESOURCE_TARGET_PATH)\}.resources:
+    @echo BUILD_MARKER:RESGEN_START Resgen $< $@ $(RESX_RESOURCE_TARGET_PATH)\$(TARGETNAME).$(@B).resources
+    $(RESGEN) $< $@
+    copy $@ $(RESX_RESOURCE_TARGET_PATH)\$(TARGETNAME).$(@B).resources
+    @echo BUILD_MARKER:RESGEN_END
+
+{..\}.resx{$(RESX_RESOURCE_TARGET_PATH)\}.resources:
+    @echo BUILD_MARKER:RESGEN_START Resgen $< $@ $(RESX_RESOURCE_TARGET_PATH)\$(TARGETNAME).$(@B).resources
+    $(RESGEN) $< $@
+    copy $@ $(RESX_RESOURCE_TARGET_PATH)\$(TARGETNAME).$(@B).resources
+    @echo BUILD_MARKER:RESGEN_END
+
+Resx_Targets: $(MANAGED_RESX_RESOURCES_NMAKE_TARGETS) $(MANAGED_RESX_LINKRESOURCES_NMAKE_TARGETS)
+
+
+# Build export libraries
+ExpLib : $(TARGETLIBS)
+
+#   Build up the c/c++ command line
+C_COMMAND_LINE_OPTIONS=$(CFLAGS) $(CBUG_FLAGS)
+C_COMMAND_LINE_OPTIONS=$(C_COMMAND_LINE_OPTIONS) $(WARNLEVEL_CMD_LINE)
+C_COMMAND_LINE_OPTIONS=$(C_COMMAND_LINE_OPTIONS) $(EXCEPTION_CPP_CMD_LINE) $(EXCEPTION_EXTERN_C_CMD_LINE)
+C_COMMAND_LINE_OPTIONS=$(C_COMMAND_LINE_OPTIONS) $(ARM_ARCH_C_CMD_LINE)
+C_COMMAND_LINE_OPTIONS=$(C_COMMAND_LINE_OPTIONS) $(THUMB_C_CMD_LINE)
+C_COMMAND_LINE_OPTIONS=$(C_COMMAND_LINE_OPTIONS) $(INTERWORK_C_CMD_LINE)
+C_COMMAND_LINE_OPTIONS=$(C_COMMAND_LINE_OPTIONS) $(ARM_XSCALE_C_CMD_LINE)
+C_COMMAND_LINE_OPTIONS=$(C_COMMAND_LINE_OPTIONS) $(STACK_CHECK_C_CMD_LINE)
+
+
+ECHO_CXX_MSG=$(CXXCOMPILER) $(CONLY_FLAGS) -Fo$@ $(C_COMMAND_LINE_OPTIONS) $(MAKEDIR)\$<
+ECHO_C_MSG=$(CCOMPILER) $(CONLY_FLAGS) -Fo$@ $(C_COMMAND_LINE_OPTIONS) $(MAKEDIR)\$<
+
+
+# make sure the compiler knows about the precompiled header
+CCOMPILER=$(CCOMPILER) $(PRECOMPILED_C_ONLY_CMD_LINE)
+CXXCOMPILER=$(CXXCOMPILER) $(PRECOMPILED_CPP_ONLY_CMD_LINE)
+
+ECHO_PRECOMPILED_MSG=$(CCOMPILER) $(PRECOMPILED_GENERATE_CMD_LINE) $(CONLY_FLAGS) $(CFLAGS) $(C_COMMAND_LINE_OPTIONS) /Yl$(TARGETNAME) /Yc$(?F) $(HEADERFILE) $(HEADEROBJ)
+
+!IF "$(PRECOMPILED_INCLUDE)" != ""
+$(PRECOMPILED_TARGET) $(PRECOMPILED_HEADEROBJNAME): $(PRECOMPILED_INCLUDE)
+    @echo BUILD_MARKER:PRECOMPILE_HEADER_START Create precompiled header $(PRECOMPILED_INCLUDE) $(PRECOMPILED_HEADEROBJNAME) $(PRECOMPILED_TARGET)
+    @type <<
+$(ECHO_PRECOMPILED_MSG)
+<<NOKEEP
+    @$(CCOMPILER) @<<$(CONLY_FLAGS) $(PRECOMPILED_GENERATE_CMD_LINE)  <<
+$(CFLAGS: =
+) $(C_COMMAND_LINE_OPTIONS) /Yl$(TARGETNAME) /Yc$(?F) $(HEADERFILE) $(HEADEROBJ)
+<<NOKEEP
+#include "$(?F)"
+<<NOKEEP
+    @echo BUILD_MARKER:PRECOMPILE_HEADER_END
+!ENDIF
+
+
+
+
+
+{}.cxx{$(_OBJDIR)\}.obj:
+    @echo BUILD_MARKER:CPP_COMPILE_START Compiling $<
+    @type <<
+$(ECHO_CXX_MSG)
+<<NOKEEP
+    @$(CXXCOMPILER) @<< $(CONLY_FLAGS) -Fo$@
+$(C_COMMAND_LINE_OPTIONS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+    @echo BUILD_MARKER:CPP_COMPILE_END
+
+
+{$(_SRCDIR)\}.cxx{$(_OBJDIR)\}.obj:
+    @echo BUILD_MARKER:CPP_COMPILE_START Compiling $<
+    @type <<
+$(ECHO_CXX_MSG)
+<<NOKEEP
+    @$(CXXCOMPILER) @<< $(CONLY_FLAGS) -Fo$@
+$(C_COMMAND_LINE_OPTIONS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+    @echo BUILD_MARKER:CPP_COMPILE_END
+
+
+{..\}.cxx{$(_OBJDIR)\}.obj:
+    @echo BUILD_MARKER:CPP_COMPILE_START Compiling $<
+    @type <<
+$(ECHO_CXX_MSG)
+<<NOKEEP
+    @$(CXXCOMPILER) @<< $(CONLY_FLAGS) -Fo$@
+$(C_COMMAND_LINE_OPTIONS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+    @echo BUILD_MARKER:CPP_COMPILE_END
+
+
+{..\$(_SRCDIR)\}.cxx{$(_OBJDIR)\}.obj:
+    @echo BUILD_MARKER:CPP_COMPILE_START Compiling $<
+    @type <<
+$(ECHO_CXX_MSG)
+<<NOKEEP
+    @$(CXXCOMPILER) @<< $(CONLY_FLAGS) -Fo$@
+$(C_COMMAND_LINE_OPTIONS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+    @echo BUILD_MARKER:CPP_COMPILE_END
+
+
+{}.cpp{$(_OBJDIR)\}.obj:
+    @echo BUILD_MARKER:CPP_COMPILE_START Compiling $<
+    @type <<
+$(ECHO_CXX_MSG)
+<<NOKEEP
+    @$(CXXCOMPILER) @<< $(CONLY_FLAGS) -Fo$@
+$(C_COMMAND_LINE_OPTIONS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+    @echo BUILD_MARKER:CPP_COMPILE_END
+
+
+{$(_SRCDIR)\}.cpp{$(_OBJDIR)\}.obj:
+    @echo BUILD_MARKER:CPP_COMPILE_START Compiling $<
+    @type <<
+$(ECHO_CXX_MSG)
+<<NOKEEP
+    @$(CXXCOMPILER) @<< $(CONLY_FLAGS) -Fo$@
+$(C_COMMAND_LINE_OPTIONS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+    @echo BUILD_MARKER:CPP_COMPILE_END
+
+
+{..\}.cpp{$(_OBJDIR)\}.obj:
+    @echo BUILD_MARKER:CPP_COMPILE_START Compiling $<
+    @type <<
+$(ECHO_CXX_MSG)
+<<NOKEEP
+    @$(CXXCOMPILER) @<< $(CONLY_FLAGS) -Fo$@
+$(C_COMMAND_LINE_OPTIONS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+    @echo BUILD_MARKER:CPP_COMPILE_END
+
+
+{..\$(_SRCDIR)\}.cpp{$(_OBJDIR)\}.obj:
+    @echo BUILD_MARKER:CPP_COMPILE_START Compiling $<
+    @type <<
+$(ECHO_CXX_MSG)
+<<NOKEEP
+    @$(CXXCOMPILER) @<< $(CONLY_FLAGS) -Fo$@
+$(C_COMMAND_LINE_OPTIONS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+    @echo BUILD_MARKER:CPP_COMPILE_END
+
+
+{}.c{$(_OBJDIR)\}.obj:
+    @echo BUILD_MARKER:C_COMPILE_START Compiling $<
+    @type <<
+$(ECHO_C_MSG)
+<<NOKEEP
+    @$(CCOMPILER) @<< $(CONLY_FLAGS) -Fo$@
+$(C_COMMAND_LINE_OPTIONS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+    @echo BUILD_MARKER:C_COMPILE_END
+
+
+{$(_SRCDIR)\}.c{$(_OBJDIR)\}.obj:
+    @echo BUILD_MARKER:C_COMPILE_START Compiling $<
+    @type <<
+$(ECHO_C_MSG)
+<<NOKEEP
+    @$(CCOMPILER) @<< $(CONLY_FLAGS) -Fo$@
+$(C_COMMAND_LINE_OPTIONS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+    @echo BUILD_MARKER:C_COMPILE_END
+
+
+{..\}.c{$(_OBJDIR)\}.obj:
+    @echo BUILD_MARKER:C_COMPILE_START Compiling $<
+    @type <<
+$(ECHO_C_MSG)
+<<NOKEEP
+    @$(CCOMPILER) @<< $(CONLY_FLAGS) -Fo$@ $(MAKEDIR)\$<
+$(C_COMMAND_LINE_OPTIONS: =
+)
+<<NOKEEP
+    @echo BUILD_MARKER:C_COMPILE_END
+
+
+{..\$(_SRCDIR)\}.c{$(_OBJDIR)\}.obj:
+    @echo BUILD_MARKER:C_COMPILE_START Compiling $<
+    @type <<
+$(ECHO_C_MSG)
+<<NOKEEP
+    @$(CCOMPILER) @<< $(CONLY_FLAGS) -Fo$@ $(MAKEDIR)\$<
+$(C_COMMAND_LINE_OPTIONS: =
+)
+<<NOKEEP
+    @echo BUILD_MARKER:C_COMPILE_END
+
+
+.cxx.i:
+    @type <<
+$(ECHO_CXX_MSG)
+<<NOKEEP
+    @$(CXXCOMPILER) @<< $(CONLY_FLAGS) -P -Fo$@
+$(C_COMMAND_LINE_OPTIONS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+
+.cpp.i:
+    @type <<
+$(ECHO_CXX_MSG)
+<<NOKEEP
+    @$(CXXCOMPILER) @<< $(CONLY_FLAGS) -P -Fo$@
+$(C_COMMAND_LINE_OPTIONS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+
+.c.i:
+    @type <<
+$(ECHO_C_MSG)
+<<NOKEEP
+    @$(CCOMPILER) @<< $(CONLY_FLAGS) -P -Fo$@
+$(C_COMMAND_LINE_OPTIONS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+
+
+{}.odl.tlb:
+    @echo BUILD_MARKER:MIDL_COMPILE_START Midl Compiling $<
+    $(MIDLCOMPILER) \
+    -Zp8 \
+     $(CINCLUDES) \
+     /tlb $@ \
+     /h $(PASS0_HEADERDIR)\$(<:.odl=.h) \
+     $(MKTYPLIBFLAGS) \
+    -cpp_cmd $(HOSTCOMPILER) \
+    $(CDEFINES) \
+     $(MIDL_MKTYPLIB_FLAGS) \
+     $(MAKEDIR)\$<
+    @echo BUILD_MARKER:MIDL_COMPILE_END
+
+{$(_TGTCPUFAMILY)\}.odl.tlb:
+    @echo BUILD_MARKER:MIDL_COMPILE_START Midl Compiling $<
+    $(MIDLCOMPILER) \
+    -Zp8 \
+     $(CINCLUDES) \
+     /tlb $@ \
+     /h $(PASS0_HEADERDIR)\$(<:.odl=.h) \
+     $(MKTYPLIBFLAGS) \
+    -cpp_cmd $(HOSTCOMPILER) \
+    $(CDEFINES) \
+     $(MIDL_MKTYPLIB_FLAGS) \
+     $(MAKEDIR)\$<
+    @echo BUILD_MARKER:MIDL_COMPILE_END
+
+{..\}.odl.tlb:
+    @echo BUILD_MARKER:MIDL_COMPILE_START Midl Compiling $<
+    $(MIDLCOMPILER) \
+    -Zp8 \
+    $(CINCLUDES) \
+    /tlb $@ \
+    /h $(PASS0_HEADERDIR)\$(<:.odl=.h) \
+    $(MKTYPLIBFLAGS) \
+    -cpp_cmd $(HOSTCOMPILER) \
+    $(CDEFINES) \
+    $(MIDL_MKTYPLIB_FLAGS) \
+    $(MAKEDIR)\$<
+    @echo BUILD_MARKER:MIDL_COMPILE_END
+
+{..\$(_TGTCPUFAMILY)\}.odl.tlb:
+    @echo BUILD_MARKER:MIDL_COMPILE_START Midl Compiling $<
+    $(MIDLCOMPILER) \
+    -Zp8 \
+    $(CINCLUDES) \
+    /tlb $@ \
+    /h $(PASS0_HEADERDIR)\$(<:.odl=.h) \
+    $(MKTYPLIBFLAGS) \
+    -cpp_cmd $(HOSTCOMPILER) \
+    $(CDEFINES) \
+    $(MIDL_MKTYPLIB_FLAGS) \
+    $(MAKEDIR)\$<
+    @echo BUILD_MARKER:MIDL_COMPILE_END
+
+!IFNDEF NO_PASS0_RULES
+
+{}.idl{$(PASS0_HEADERDIR)}.h:
+    @echo BUILD_MARKER:MIDL_COMPILE_START Midl Compiling $<
+    $(MIDLCOMPILER) \
+    -Zp8 \
+    $(CINCLUDES) \
+    -char unsigned \
+    -ms_ext -c_ext \
+    -proxy $(PASS0_SOURCEDIR)\$(<:.idl=_p.c) \
+    -dlldata $(PASS0_SOURCEDIR)\dlldata.c \
+    -iid $(MIDL_UUIDDIR)\$(<:.idl=_i.c) \
+!IFNDEF MIDL_HEADER
+    -header $@ \
+!ELSE
+    -header $(MIDL_HEADER) \
+!ENDIF
+    -cpp_cmd $(HOSTCOMPILER) \
+    $(CDEFINES) \
+    $(MIDL_FLAGS) \
+    $(MIDL_OPTIMIZATION) \
+    $<
+    @echo BUILD_MARKER:MIDL_COMPILE_END
+
+{..\}.idl{$(PASS0_HEADERDIR)}.h:
+    @echo BUILD_MARKER:MIDL_COMPILE_START Midl Compiling $<
+    $(MIDLCOMPILER) \
+    -Zp8 \
+    $(CINCLUDES) \
+    -char unsigned \
+    -ms_ext -c_ext \
+    -proxy $(PASS0_SOURCEDIR)\$(<F:.idl=_p.c) \
+    -dlldata $(PASS0_SOURCEDIR)\dlldata.c \
+    -iid $(MIDL_UUIDDIR)\$(<F:.idl=_i.c) \
+!IFNDEF MIDL_HEADER
+    -header $@ \
+!ELSE
+    -header $(MIDL_HEADER) \
+!ENDIF
+    -cpp_cmd $(HOSTCOMPILER) \
+    $(CDEFINES) \
+    $(MIDL_FLAGS) \
+    $(MIDL_OPTIMIZATION) \
+    $<
+    @echo BUILD_MARKER:MIDL_COMPILE_END
+
+!  IFDEF PASS0_SOURCEDIR
+MC_SOURCEDIR=$(PASS0_SOURCEDIR)
+!  ELSE
+MC_SOURCEDIR=$(PASS0_CLIENTDIR)
+!  ENDIF
+
+{..\}.mc{$(PASS0_HEADERDIR)}.h:
+    @echo BUILD_MARKER:MESSAGE_COMPILE_START Message Compiling $<
+    $(MESSAGE_COMPILER) -h $(PASS0_HEADERDIR) -r $(MC_SOURCEDIR) $(MC_FLAGS) $<
+    @echo BUILD_MARKER:MESSAGE_COMPILE_END
+
+.mc{$(PASS0_HEADERDIR)}.h:
+    @echo BUILD_MARKER:MESSAGE_COMPILE_START Message Compiling $<
+    $(MESSAGE_COMPILER) -h $(PASS0_HEADERDIR) -r $(MC_SOURCEDIR) $(MC_FLAGS) $<
+    @echo BUILD_MARKER:MESSAGE_COMPILE_END
+
+
+!ENDIF
+
+
+ASSEMBLER_CMD_LINE=$(AFLAGS)
+ASSEMBLER_CMD_LINE=$(ASSEMBLER_CMD_LINE) $(ARM_ARCH_ASSEMBLER_CMD_LINE)
+ASSEMBLER_CMD_LINE=$(ASSEMBLER_CMD_LINE) $(THUMB_ASSEMBLER_CMD_LINE)
+ASSEMBLER_CMD_LINE=$(ASSEMBLER_CMD_LINE) $(INTERWORK_ASSEMBLER_CMD_LINE)
+ASSEMBLER_CMD_LINE=$(ASSEMBLER_CMD_LINE) $(ARM_XSCALE_ASSEMBLER_CMD_LINE)
+
+
+!IF "$(_TGTCPUFAMILY)"=="MIPS"
+{}.s{$(_OBJDIR)\}.obj:
+    @echo BUILD_MARKER:ASSEMBLER_MIPS_START Assembling $<
+    $(ASSEMBLER) $(MAKEDIR)\$< -Fo$@ $(ASSEMBLER_CMD_LINE)
+    @echo BUILD_MARKER:ASSEMBLER_MIPS_END
+
+{$(_SRCDIR)\}.s{$(_OBJDIR)\}.obj:
+    @echo BUILD_MARKER:ASSEMBLER_MIPS_START Assembling $<
+    $(ASSEMBLER) -Fo$@ $(ASSEMBLER_CMD_LINE) $(MAKEDIR)\$<
+    @echo BUILD_MARKER:ASSEMBLER_MIPS_END
+
+{..\}.s{$(_OBJDIR)\}.obj:
+    @echo BUILD_MARKER:ASSEMBLER_MIPS_START Assembling $<
+    $(ASSEMBLER) $(MAKEDIR)\$< -Fo$@ $(ASSEMBLER_CMD_LINE)
+    @echo BUILD_MARKER:ASSEMBLER_MIPS_END
+
+{..\$(_SRCDIR)\}.s{$(_OBJDIR)\}.obj:
+    @echo BUILD_MARKER:ASSEMBLER_MIPS_START Assembling $<
+    $(ASSEMBLER) -Fo$@ $(ASSEMBLER_CMD_LINE) $(MAKEDIR)\$<
+    @echo BUILD_MARKER:ASSEMBLER_MIPS_END
+
+!ELSEIF "$(_TGTCPUFAMILY)"=="x86"
+{}.asm{$(_OBJDIR)\}.obj:
+    @echo BUILD_MARKER:ASSEMBLER_X86_START Assembling $<
+    $(ASSEMBLER) -Fo$@ $(ASSEMBLER_CMD_LINE) $(MAKEDIR)\$<
+    @echo BUILD_MARKER:ASSEMBLER_X86_END
+
+{$(_SRCDIR)\}.asm{$(_OBJDIR)\}.obj:
+    @echo BUILD_MARKER:ASSEMBLER_X86_START Assembling $<
+    $(ASSEMBLER) -Fo$@ $(ASSEMBLER_CMD_LINE) $(MAKEDIR)\$<
+    @echo BUILD_MARKER:ASSEMBLER_X86_END
+
+{..\}.asm{$(_OBJDIR)\}.obj:
+    @echo BUILD_MARKER:ASSEMBLER_X86_START Assembling $<
+    $(ASSEMBLER) -Fo$@ $(ASSEMBLER_CMD_LINE) $(MAKEDIR)\$<
+    @echo BUILD_MARKER:ASSEMBLER_X86_END
+
+{..\$(_SRCDIR)\}.asm{$(_OBJDIR)\}.obj:
+    @echo BUILD_MARKER:ASSEMBLER_X86_START Assembling $<
+    $(ASSEMBLER) -Fo$@ $(ASSEMBLER_CMD_LINE) $(MAKEDIR)\$<
+    @echo BUILD_MARKER:ASSEMBLER_X86_END
+
+!ELSEIF "$(_TGTCPUFAMILY)"=="SH"
+{}.src{$(_OBJDIR)\}.obj:
+    @echo BUILD_MARKER:ASSEMBLER_SH_START Assembling $<
+    @set INCLUDE=$(INCLUDEPATH);shx;sh
+    $(ASSEMBLER) -Fo$@ $(ASSEMBLER_CMD_LINE) $(MAKEDIR)\$<
+    @echo BUILD_MARKER:ASSEMBLER_SH_END
+
+{$(_SRCDIR)\}.src{$(_OBJDIR)\}.obj:
+    @echo BUILD_MARKER:ASSEMBLER_SH_START Assembling $<
+    @set INCLUDE=$(INCLUDEPATH);shx;sh
+    $(ASSEMBLER) -Fo$@ $(ASSEMBLER_CMD_LINE) $(MAKEDIR)\$<
+    @echo BUILD_MARKER:ASSEMBLER_SH_END
+
+{..\}.src{$(_OBJDIR)\}.obj:
+    @echo BUILD_MARKER:ASSEMBLER_SH_START Assembling $<
+    @set INCLUDE=$(INCLUDEPATH);shx;sh
+    $(ASSEMBLER) -Fo$@ $(ASSEMBLER_CMD_LINE) $(MAKEDIR)\$<
+    @echo BUILD_MARKER:ASSEMBLER_SH_END
+
+{..\$(_SRCDIR)\}.src{$(_OBJDIR)\}.obj:
+    @echo BUILD_MARKER:ASSEMBLER_SH_START Assembling $<
+    @set INCLUDE=$(INCLUDEPATH);shx;sh
+    $(ASSEMBLER) -Fo$@ $(ASSEMBLER_CMD_LINE) $(MAKEDIR)\$<
+    @echo BUILD_MARKER:ASSEMBLER_SH_END
+
+!ELSEIF ("$(_TGTCPUFAMILY)"=="ARM") || ("$(_TGTCPUFAMILY)"=="THUMB")
+{}.s{$(_OBJDIR)\}.obj:
+    @echo BUILD_MARKER:ASSEMBLER_ARM_START Assembling $<
+    $(ASSEMBLER) $(ASSEMBLER_CMD_LINE) $(MAKEDIR)\$< $@
+    @echo BUILD_MARKER:ASSEMBLER_ARM_END
+
+{$(_SRCDIR)\}.s{$(_OBJDIR)\}.obj:
+    @echo BUILD_MARKER:ASSEMBLER_ARM_START Assembling $<
+    $(ASSEMBLER) $(ASSEMBLER_CMD_LINE) $(MAKEDIR)\$< $@
+    @echo BUILD_MARKER:ASSEMBLER_ARM_END
+
+{..\}.s{$(_OBJDIR)\}.obj:
+    @echo BUILD_MARKER:ASSEMBLER_ARM_START Assembling $<
+    $(ASSEMBLER) $(ASSEMBLER_CMD_LINE) $(MAKEDIR)\$< $@
+    @echo BUILD_MARKER:ASSEMBLER_ARM_END
+
+{..\$(_SRCDIR)\}.s{$(_OBJDIR)\}.obj:
+    @echo BUILD_MARKER:ASSEMBLER_ARM_START Assembling $<
+    $(ASSEMBLER) $(ASSEMBLER_CMD_LINE) $(MAKEDIR)\$< $@
+    @echo BUILD_MARKER:ASSEMBLER_ARM_END
+
+!ENDIF
+
+!IF ("$(IRC_DEPENDENT)" != "0" && "$(IRC_DEPENDENT)" != "") || ("$(SPECIAL_IRC_DEPENDENT)" != "0" && "$(SPECIAL_IRC_DEPENDENT)" != "")
+#
+# Added for internationalization
+#
+{}.rc{$(_OBJDIR)\}.ire:
+    echo > $(_OBJDIR)\$(@R).ire
+
+{..\}.rc{$(_OBJDIR)\}.ire:
+    echo > $(_OBJDIR)\$(@R).ire
+
+{$(_OBJDIR)\}.ire{$(_OBJDIR)\}.res:
+    @echo BUILD_MARKER:RESOURCE_COMPILE_START Resource Compiling $<
+    $(RCOMPILER) $(RCFLAGS) -fo$(@R).tmp $(<B).rc
+    $(CVTRES) $(@R).tmp -readonly -out:$@
+    @-erase $(@R).tmp
+    @echo BUILD_MARKER:RESOURCE_COMPILE_END
+
+.res.rbj:
+    $(CVTRES) $< -readonly -out:$@
+
+!ELSE
+
+.res.rbj:
+    $(CVTRES) $< -readonly -out:$@
+
+{}.rc{$(_OBJDIR)\}.res:
+    @echo BUILD_MARKER:RESOURCE_COMPILE_START Resource Compiling $<
+    $(RCOMPILER) $(RCFLAGS) -fo$@ $(MAKEDIR)\$<
+    @echo BUILD_MARKER:RESOURCE_COMPILE_END
+
+{..\}.rc{$(_OBJDIR)\}.res:
+    @echo BUILD_MARKER:RESOURCE_COMPILE_START Resource Compiling $<
+    $(RCOMPILER) $(RCFLAGS) -fo$@ $(MAKEDIR)\$<
+    @echo BUILD_MARKER:RESOURCE_COMPILE_END
+
+!ENDIF
+
+
+!IFNDEF MANAGED_TARGET
+#
+# And explicit rules for the targets
+# the -map line here used to be conditional on WINCEMAP but now
+# we always want to generate map files since they are useful, and in particular romimage
+# reads them for some (nk*) to find some symbols
+#
+# -savebaserelocations will only generate a .REL file in the case where a
+# .RELOC section is also being emitted into the PE (when /FIXED:NO is set)
+#
+$(_RELEASEDIR)\$(TARGETNAME).exe: $(TARGETOBJFILES) $(TARGETLIBS) $(SOURCELIBS)
+    set LIB=$(LIBPATH)
+! IF "$(LINK_INCLUDES)" != ""
+    set INCLUDE=$(LINK_INCLUDES)
+! ENDIF
+    @echo BUILD_MARKER:LINK_EXE_START Linking $@
+    $(LINKER) -out:$(_RELEASEDIR)\$(TARGETNAME).exe $(MACHINEOPTION) @<<
+-nodefaultlib
+$(EXEENTRYOPTION)
+-pdb:$(TARGET_PDB_NAME)
+-pdbaltpath:$(TARGETNAME).pdb
+$(LINKER_DEBUG)
+$(DEBUG_LINK_CMD_LINE)
+-map:$(_RELEASEDIR)\$(TARGETNAME).map
+!  IF "$(_TGTOS)"=="CE"
+-savebaserelocations:$(_RELEASEDIR)\$(TARGETNAME).rel
+!  ENDIF
+$(LDEFINES)
+$(LINKER_SUBSYSTEM)
+$(FIXED_BASE_LINK_CMD_LINE)
+-base:$(EXEBASE)
+$(TARGETOBJFILES)
+$(TARGETLIBS)
+$(SOURCELIBS)
+<<NOKEEP
+    @echo BUILD_MARKER:LINK_EXE_END
+!  IF "$(BUILD_FIXSIG)" == "1"
+    fixts   $(_RELEASEDIR)\$(TARGETNAME).exe
+!  ENDIF
+!  IF "$(BUILD_SIGN)" == "1"
+    signbin $(_RELEASEDIR)\$(TARGETNAME).exe
+!  ENDIF
+!ENDIF
+!IF "$(WINCEREL)" == "1"
+      -$(__COPYCMD) $(_RELEASEDIR)\$(TARGETNAME).exe $(_FLATRELEASEDIR)\$(TARGETNAME).exe
+      -$(__COPYCMD) $(_RELEASEDIR)\$(TARGETNAME).map $(_FLATRELEASEDIR)\$(TARGETNAME).map
+      -$(__COPYCMD) $(TARGET_PDB_NAME) $(_FLATRELEASEDIR)
+      -if exist $(_RELEASEDIR)\$(TARGETNAME).rel $(__COPYCMD) $(_RELEASEDIR)\$(TARGETNAME).rel $(_FLATRELEASEDIR)\$(TARGETNAME).rel
+!ENDIF
+
+!IFDEF CPPBROWSE
+!  IFNDEF NO_AUTOMATIC_BSC
+    bscmake  /n /o $(_RELEASEDIR)\$(TARGETNAME).bsc $(TEMP)\*.sbr
+!  ENDIF
+!ENDIF
+
+!IF "$(NOEXPORTS)" != "1"
+EXPORTFILE=$(_RELEASELIBDIR)\$(TARGETNAME).exp
+DEFFILEFLAG=-def:$(DEFFILE)
+!ELSE
+EXPORTFILE=
+DEFFILEFLAG=
+!ENDIF
+
+!IFNDEF MANAGED_TARGET
+# the -map line here used to be conditional on WINCEMAP but now
+# we always want to generate map files since they are useful, and in particular romimage
+# reads them for some (nk*) to find some symbols
+!  IF "$(DEFFILE)" == "NO_DEF_FILE"
+$(_RELEASEDIR)\$(TARGETNAME).dll: $(TARGETOBJFILES) $(TARGETLIBS) $(SOURCELIBS)
+    set LIB=$(LIBPATH)
+! IF "$(LINK_INCLUDES)" != ""
+    set INCLUDE=$(LINK_INCLUDES)
+! ENDIF
+    @echo BUILD_MARKER:LINK_DLL_START Linking $@
+    $(LINKER) -out:$(_RELEASEDIR)\$(TARGETNAME).dll -dll $(MACHINEOPTION) @<<
+-nodefaultlib
+$(DLLENTRYOPTION)
+-pdb:$(TARGET_PDB_NAME)
+-pdbaltpath:$(TARGETNAME).pdb
+$(LINKER_DEBUG)
+$(DEBUG_LINK_CMD_LINE)
+-map:$(_RELEASEDIR)\$(TARGETNAME).map
+!    IF "$(_TGTOS)"=="CE"
+-savebaserelocations:$(_RELEASEDIR)\$(TARGETNAME).rel
+!    ENDIF
+!    IF "$(DLLENTRYOPTION)"=="-entry:_DllMainCRTStartup"
+!      IF "$(_TGTCPUFAMILY)" == "x86" || "$(_TGTCPUFAMILY)" == "SH"
+-include:_DllMain
+!      ELSE
+-include:DllMain
+!      ENDIF
+!    ENDIF
+$(LDEFINES)
+$(LINKER_SUBSYSTEM)
+/base:$(DLLBASE)
+$(TARGETOBJFILES)
+$(SOURCELIBS)
+$(TARGETLIBS)
+<<NOKEEP
+    @echo BUILD_MARKER:LINK_DLL_END
+!  ELSE
+$(_RELEASEDIR)\$(TARGETNAME).dll: $(TARGETOBJFILES) $(TARGETLIBS) $(_RELEASELIBDIR)\$(TARGETNAME).lib $(EXPORTFILE) $(SOURCELIBS)
+    set LIB=$(LIBPATH)
+! IF "$(LINK_INCLUDES)" != ""
+    set INCLUDE=$(LINK_INCLUDES)
+! ENDIF
+    @echo BUILD_MARKER:LINK_DLL_START Linking $@
+    $(LINKER) -out:$(_RELEASEDIR)\$(TARGETNAME).dll -dll $(MACHINEOPTION) @<<
+-nodefaultlib
+$(DLLENTRYOPTION)
+-pdb:$(TARGET_PDB_NAME)
+-pdbaltpath:$(TARGETNAME).pdb
+$(LINKER_DEBUG)
+$(DEBUG_LINK_CMD_LINE)
+-map:$(_RELEASEDIR)\$(TARGETNAME).map
+!    IF "$(_TGTOS)"=="CE"
+-savebaserelocations:$(_RELEASEDIR)\$(TARGETNAME).rel
+!    ENDIF
+!    IF "$(DLLENTRYOPTION)"=="-entry:_DllMainCRTStartup"
+!      IF "$(_TGTCPUFAMILY)" == "x86" || "$(_TGTCPUFAMILY)" == "SH"
+-include:_DllMain
+!      ELSE
+-include:DllMain
+!      ENDIF
+!    ENDIF
+$(LDEFINES)
+$(LINKER_SUBSYSTEM)
+/base:$(DLLBASE)
+$(TARGETOBJFILES)
+$(SOURCELIBS)
+$(TARGETLIBS)
+$(EXPORTFILE)
+<<NOKEEP
+    @echo BUILD_MARKER:LINK_DLL_END
+!  ENDIF
+!  IF "$(BUILD_FIXSIG)" == "1"
+    fixts   $(_RELEASEDIR)\$(TARGETNAME).dll
+!  ENDIF
+!  IF "$(BUILD_SIGN)" == "1"
+    signbin $(_RELEASEDIR)\$(TARGETNAME).dll
+!  ENDIF
+!  IF "$(CPL)"=="1"
+    copy $(_RELEASEDIR)\$(TARGETNAME).dll $(_RELEASEDIR)\$(TARGETNAME).cpl
+    @del $(_RELEASEDIR)\$(TARGETNAME).dll
+!  ELSEIF "$(MUI)"=="1"
+    copy $(_RELEASEDIR)\$(TARGETNAME).dll $(_RELEASEDIR)\$(TARGETNAME).mui
+    @del $(_RELEASEDIR)\$(TARGETNAME).dll
+!  ENDIF
+!  IF "$(WINCEREL)"=="1"
+    -$(__COPYCMD) $(_RELEASEDIR)\$(TARGETNAME).map $(_FLATRELEASEDIR)\$(TARGETNAME).map
+    -$(__COPYCMD) $(TARGET_PDB_NAME) $(_FLATRELEASEDIR)
+    -if exist $(_RELEASEDIR)\$(TARGETNAME).rel $(__COPYCMD) $(_RELEASEDIR)\$(TARGETNAME).rel $(_FLATRELEASEDIR)\$(TARGETNAME).rel
+!    IF "$(CPL)"=="1"
+    -$(__COPYCMD) $(_RELEASEDIR)\$(TARGETNAME).cpl $(_FLATRELEASEDIR)\$(TARGETNAME).cpl
+!    ELSEIF "$(MUI)"=="1"
+    -$(__COPYCMD) $(_RELEASEDIR)\$(TARGETNAME).mui $(_FLATRELEASEDIR)\$(TARGETNAME).mui
+!    ELSE
+    -$(__COPYCMD) $(_RELEASEDIR)\$(TARGETNAME).dll $(_FLATRELEASEDIR)\$(TARGETNAME).dll
+!    ENDIF
+!  ENDIF
+!ENDIF
+
+!IF "$(TARGETTYPE)" == "LIBRARY"
+$(_RELEASELIBDIR)\$(TARGETNAME).lib: $(TARGETOBJFILES) $(SOURCELIBS)
+    @echo BUILD_MARKER:LINK_STATIC_LIBRARY_START Linking $@
+    $(LIBRARIAN) -out:$(_RELEASELIBDIR)\$(TARGETNAME).lib $(MACHINEOPTION) @<<
+-ignore:4001
+$(LIBDEFINES)
+-nologo
+-nodefaultlib
+$(LINKER_SUBSYSTEM)
+$(TARGETOBJFILES)
+$(SOURCELIBS)
+<<NOKEEP
+!  IF "$(SOURCEPDBS)" != ""
+     -@for %%a in ($(SOURCEPDBS)) do @copy %%a $(_RELEASELIBDIR)
+!  ENDIF
+!  IF "$(SOURCELIBS)" != ""
+!    IF "$(NOCOPYSOURCELIBPDB)" == "" || "$(WINCECOVER)" != ""
+     -@for %%a in ($(SOURCELIBS:.lib=.pdb)) do @copy %%a $(_RELEASELIBDIR)
+!    ENDIF
+!  ENDIF
+    @echo BUILD_MARKER:LINK_STATIC_LIBRARY_END
+!ENDIF
+
+
+!IF ("$(TARGETTYPE)" == "DYNLINK") || ("$(TARGETTYPE)" == "EXPLIB")
+!  IFDEF PREPROCESSDEFFILE
+$(_RELEASELIBDIR)\$(TARGETNAME).lib $(EXPORTFILE): $(_RELEASELIBDIR)\$(TARGETDEFNAME).def $(TARGETOBJFILES) $(SOURCELIBS)
+    @echo BUILD_MARKER:LINK_DLL_START Linking $@
+    $(LIBRARIAN) -out:$(_RELEASELIBDIR)\$(TARGETNAME).lib -def:$(_RELEASELIBDIR)\$(TARGETDEFNAME).def $(MACHINEOPTION) @<<
+-nodefaultlib
+-ignore:4001
+$(LIBDEFINES)
+$(LINKER_SUBSYSTEM)
+$(TARGETOBJFILES)
+$(SOURCELIBS) ..\ce\hif\sdio\obj\$(_TGTCPU)\$(WINCEDEBUG)\ndisload.obj
+<<NOKEEP
+    @echo BUILD_MARKER:LINK_DLL_END
+!  ELSE
+$(_RELEASELIBDIR)\$(TARGETNAME).lib $(EXPORTFILE): $(DEFFILE) $(TARGETOBJFILES) $(SOURCELIBS)
+    @echo BUILD_MARKER:LINK_DLL_START Linking $@
+    $(LIBRARIAN) -out:$(_RELEASELIBDIR)\$(TARGETNAME).lib $(DEFFILEFLAG) $(MACHINEOPTION) @<<
+-nodefaultlib
+-ignore:4001
+$(LIBDEFINES)
+$(LINKER_SUBSYSTEM)
+$(TARGETOBJFILES)
+$(SOURCELIBS)
+<<NOKEEP
+    @echo BUILD_MARKER:LINK_DLL_END
+
+!  ENDIF
+
+!  IFDEF CPPBROWSE
+!    IFNDEF NO_AUTOMATIC_BSC
+    bscmake  /n /o $(_RELEASEDIR)\$(TARGETNAME).bsc $(TEMP)\*.sbr
+!    ENDIF
+!  ENDIF
+!ENDIF
+
+!IFDEF PREPROCESSDEFFILE
+$(_RELEASELIBDIR)\$(TARGETDEFNAME).def: $(_OBJDIR)\$(TARGETDEFNAME).def
+    @echo BUILD_MARKER:PREPROCESSDEFFILE_START
+    $(DEFPREPROCESS) $(DEFPREPROCINC) -Tc$(DEFFILE) > $@
+    @echo BUILD_MARKER:PREPROCESSDEFFILE_END
+
+$(_OBJDIR)\$(TARGETDEFNAME).def: $(DEFFILE)
+    @echo BUILD_MARKER:PREPROCESSDEFFILE_START
+    $(DEFPREPROCESS) $(DEFPREPROCINC) -Tc$(DEFFILE) > $@
+    @echo BUILD_MARKER:PREPROCESSDEFFILE_END
+!ELSE IFDEF _IN_CESYSGEN
+$(_RELEASELIBDIR)\$(TARGETDEFNAME).def:
+    copy $(DEFFILE) $@
+!ELSE
+$(_RELEASELIBDIR)\$(TARGETDEFNAME).def: $(DEFFILE)
+    copy $(DEFFILE) $@
+!ENDIF
+
+!IFDEF COPYRES
+!  IF "$(TARGETRESNAME)" == ""
+!    IF "$(RESFILE)" == ""
+$(_RELEASELIBDIR)\$(TARGETNAME).res: $(_OBJDIR)\$(TARGETNAME).res
+    copy $? $@
+!    ELSE
+$(_RELEASELIBDIR)\$(TARGETNAME).res: $(_OBJDIR)\$(RESFILE)
+    copy $? $@
+!    ENDIF
+!  ELSE
+!    IF "$(RESFILE)" == ""
+$(_RELEASELIBDIR)\$(TARGETRESNAME).res: $(_OBJDIR)\$(TARGETNAME).res
+    copy $? $@
+!    ELSE
+$(_RELEASELIBDIR)\$(TARGETRESNAME).res: $(_OBJDIR)\$(RESFILE)
+    copy $? $@
+!    ENDIF
+!  ENDIF
+!ENDIF
+
+!IF EXIST(.\makefile.inc)
+!  IFDEF WINCETARGETFILES
+!    INCLUDE .\makefile.inc
+!  ELSE IFDEF WINCETARGETFILE0
+!    INCLUDE .\makefile.inc
+!  ELSE IF "$(SPECIAL_IRC_DEPENDENT)" != "0" && "$(SPECIAL_IRC_DEPENDENT)" != ""
+#
+# Added for internationalization
+#
+!    INCLUDE .\makefile.inc
+!  ENDIF
+!ENDIF
+
+
+
+
+!IF EXIST($(_PROJECTROOT)\oak\misc\makefilepost.inc)
+!  INCLUDE $(_PROJECTROOT)\oak\misc\makefilepost.inc
+!ENDIF
+
+##</MakefileXml>
+

@@ -1,0 +1,606 @@
+config SUSPEND
+	bool "Suspend to RAM and standby"
+	depends on ARCH_SUSPEND_POSSIBLE
+	default y
+	---help---
+	  Allow the system to enter sleep states in which main memory is
+	  powered and thus its contents are preserved, such as the
+	  suspend-to-RAM state (e.g. the ACPI S3 state).
+
+config SUSPEND_FREEZER
+	bool "Enable freezer for suspend to RAM/standby" \
+		if ARCH_WANTS_FREEZER_CONTROL || BROKEN
+	depends on SUSPEND
+	default y
+	help
+	  This allows you to turn off the freezer for suspend. If this is
+	  done, no tasks are frozen for suspend to RAM/standby.
+
+	  Turning OFF this setting is NOT recommended! If in doubt, say Y.
+
+config HAS_WAKELOCK
+	bool
+	default y
+
+config HAS_EARLYSUSPEND
+	bool
+	default y
+
+config HAS_SBSUSPEND
+	bool
+	depends on HAS_EARLYSUSPEND
+	default y
+
+config WAKELOCK
+	bool
+	default y
+
+config EARLYSUSPEND
+	bool "Early suspend"
+	depends on WAKELOCK
+	default y
+	select HAS_EARLYSUSPEND
+	---help---
+	  Call early suspend handlers when the user requested sleep state
+	  changes.
+
+config FB_EARLYSUSPEND
+	bool "FB Early suspend"
+	depends on EARLYSUSPEND
+	default y
+	select HAS_EARLYSUSPEND
+	---help---
+	  Call early suspend handlers when the user requested sleep state
+	  changes.
+
+config HIBERNATE_CALLBACKS
+	bool
+
+config HIBERNATION
+	bool "Hibernation (aka 'suspend to disk')"
+	depends on SWAP && ARCH_HIBERNATION_POSSIBLE
+	select HIBERNATE_CALLBACKS
+	select LZO_COMPRESS
+	select LZO_DECOMPRESS
+	select CRC32
+	---help---
+	  Enable the suspend to disk (STD) functionality, which is usually
+	  called "hibernation" in user interfaces.  STD checkpoints the
+	  system and powers it off; and restores that checkpoint on reboot.
+
+	  You can suspend your machine with 'echo disk > /sys/power/state'
+	  after placing resume=/dev/swappartition on the kernel command line
+	  in your bootloader's configuration file.
+
+	  Alternatively, you can use the additional userland tools available
+	  from <http://suspend.sf.net>.
+
+	  In principle it does not require ACPI or APM, although for example
+	  ACPI will be used for the final steps when it is available.  One
+	  of the reasons to use software suspend is that the firmware hooks
+	  for suspend states like suspend-to-RAM (STR) often don't work very
+	  well with Linux.
+
+	  It creates an image which is saved in your active swap. Upon the next
+	  boot, pass the 'resume=/dev/swappartition' argument to the kernel to
+	  have it detect the saved image, restore memory state from it, and
+	  continue to run as before. If you do not want the previous state to
+	  be reloaded, then use the 'noresume' kernel command line argument.
+	  Note, however, that fsck will be run on your filesystems and you will
+	  need to run mkswap against the swap partition used for the suspend.
+
+	  It also works with swap files to a limited extent (for details see
+	  <file:Documentation/power/swsusp-and-swap-files.txt>).
+
+	  Right now you may boot without resuming and resume later but in the
+	  meantime you cannot use the swap partition(s)/file(s) involved in
+	  suspending.  Also in this case you must not use the filesystems
+	  that were mounted before the suspend.  In particular, you MUST NOT
+	  MOUNT any journaled filesystems mounted before the suspend or they
+	  will get corrupted in a nasty way.
+
+	  For more information take a look at <file:Documentation/power/swsusp.txt>.
+
+config ARCH_SAVE_PAGE_KEYS
+	bool
+
+config PM_STD_PARTITION
+	string "Default resume partition"
+	depends on HIBERNATION
+	default ""
+	---help---
+	  The default resume partition is the partition that the suspend-
+	  to-disk implementation will look for a suspended disk image. 
+
+	  The partition specified here will be different for almost every user. 
+	  It should be a valid swap partition (at least for now) that is turned
+	  on before suspending. 
+
+	  The partition specified can be overridden by specifying:
+
+		resume=/dev/<other device> 
+
+	  which will set the resume partition to the device specified. 
+
+	  Note there is currently not a way to specify which device to save the
+	  suspended image to. It will simply pick the first available swap 
+	  device.
+
+menuconfig TOI_CORE
+	tristate "Enhanced Hibernation (TuxOnIce)"
+	depends on HIBERNATION
+	default y
+	---help---
+	  TuxOnIce is the 'new and improved' suspend support.
+
+	  See the TuxOnIce home page (tuxonice.net)
+	  for FAQs, HOWTOs and other documentation.
+
+	comment "Image Storage (you need at least one allocator)"
+		depends on TOI_CORE
+
+	config TOI_FILE
+		tristate "File Allocator"
+		depends on TOI_CORE
+		default y
+		---help---
+		  This option enables support for storing an image in a
+		  simple file. You might want this if your swap is
+		  sometimes full enough that you don't have enough spare
+		  space to store an image.
+
+	config TOI_SWAP
+		tristate "Swap Allocator"
+		depends on TOI_CORE && SWAP
+		default y
+		---help---
+		  This option enables support for storing an image in your
+		  swap space.
+
+	comment "General Options"
+		depends on TOI_CORE
+
+	config TOI_INCREMENTAL
+		tristate "Incremental Image Support"
+		depends on TOI_CORE && CRYPTO && BROKEN
+		select CRYPTO_SHA1
+		default y
+		---help---
+		  This option adds initial support for using hashing algorithms
+		  (a quick, internal implementation of Fletcher16 and SHA1 via
+		  cryptoapi) to discover the number of pages which are
+		  unchanged since the image was last written. It is hoped that
+		  this will be an initial step toward implementing storing just
+		  the differences between consecutive images, which will
+		  increase the amount of storage needed for the image, but also
+		  increase the speed at which writing an image occurs and
+		  reduce the wear and tear on drives.
+
+	comment "No increemntal image support available without Cryptoapi support."
+		depends on TOI_CORE && !CRYPTO
+
+	config TOI_PRUNE
+		tristate "Image pruning support"
+		depends on TOI_CORE && CRYPTO && BROKEN
+		default y
+		---help---
+		  This option adds support for using cryptoapi hashing
+		  algorithms to identify pages with the same content. We
+		  then write a much smaller pointer to the first copy of
+		  the data instead of a complete (perhaps compressed)
+                  additional copy.
+
+		  You probably want this, so say Y here.
+
+	comment "No image pruning support available without Cryptoapi support."
+		depends on TOI_CORE && !CRYPTO
+
+	config TOI_CRYPTO
+		tristate "Compression support"
+		depends on TOI_CORE && CRYPTO
+		default y
+		---help---
+		  This option adds support for using cryptoapi compression
+		  algorithms. Compression is particularly useful as it can
+		  more than double your suspend and resume speed (depending
+		  upon how well your image compresses).
+
+		  You probably want this, so say Y here.
+
+	comment "No compression support available without Cryptoapi support."
+		depends on TOI_CORE && !CRYPTO
+
+	config TOI_USERUI
+		tristate "Userspace User Interface support"
+		depends on TOI_CORE && NET && (VT || SERIAL_CONSOLE)
+		default y
+		---help---
+		  This option enabled support for a userspace based user interface
+		  to TuxOnIce, which allows you to have a nice display while suspending
+		  and resuming, and also enables features such as pressing escape to
+		  cancel a cycle or interactive debugging.
+
+	config TOI_USERUI_DEFAULT_PATH
+		string "Default userui program location"
+		default "/usr/local/sbin/tuxoniceui_text"
+		depends on TOI_USERUI
+		---help---
+		  This entry allows you to specify a default path to the userui binary.
+
+	config TOI_DEFAULT_IMAGE_SIZE_LIMIT
+		int "Default image size limit"
+		range -2 65536 
+		default "-2"
+		depends on TOI_CORE
+		---help---
+		  This entry allows you to specify a default image size limit. It can
+		  be overridden at run-time using /sys/power/tuxonice/image_size_limit.
+
+	config TOI_KEEP_IMAGE
+		bool "Allow Keep Image Mode"
+		depends on TOI_CORE
+		---help---
+		  This option allows you to keep and image and reuse it. It is intended
+		  __ONLY__ for use with systems where all filesystems are mounted read-
+		  only (kiosks, for example). To use it, compile this option in and boot
+		  normally. Set the KEEP_IMAGE flag in /sys/power/tuxonice and suspend.
+		  When you resume, the image will not be removed. You will be unable to turn
+		  off swap partitions (assuming you are using the swap allocator), but future
+		  suspends simply do a power-down. The image can be updated using the
+		  kernel command line parameter suspend_act= to turn off the keep image
+		  bit. Keep image mode is a little less user friendly on purpose - it
+		  should not be used without thought!
+
+	config TOI_REPLACE_SWSUSP
+		bool "Replace swsusp by default"
+		default y
+		depends on TOI_CORE
+		---help---
+		  TuxOnIce can replace swsusp. This option makes that the default state,
+		  requiring you to echo 0 > /sys/power/tuxonice/replace_swsusp if you want
+		  to use the vanilla kernel functionality. Note that your initrd/ramfs will
+		  need to do this before trying to resume, too.
+		  With overriding swsusp enabled, echoing disk  to /sys/power/state will
+		  start a TuxOnIce cycle. If resume= doesn't specify an allocator and both
+		  the swap and file allocators are compiled in, the swap allocator will be
+		  used by default.
+
+	config TOI_IGNORE_LATE_INITCALL
+		bool "Wait for initrd/ramfs to run, by default"
+		default n
+		depends on TOI_CORE
+		---help---
+		  When booting, TuxOnIce can check for an image and start to resume prior
+		  to any initrd/ramfs running (via a late initcall).
+
+		  If you don't have an initrd/ramfs, this is what you want to happen -
+		  otherwise you won't be able to safely resume. You should set this option
+		  to 'No'.
+
+		  If, however, you want your initrd/ramfs to run anyway before resuming,
+		  you need to tell TuxOnIce to ignore that earlier opportunity to resume.
+		  This can be done either by using this compile time option, or by
+		  overriding this option with the boot-time parameter toi_initramfs_resume_only=1.
+
+		  Note that if TuxOnIce can't resume at the earlier opportunity, the
+		  value of this option won't matter - the initramfs/initrd (if any) will
+		  run anyway.
+
+	menuconfig TOI_CLUSTER
+		tristate "Cluster support"
+		default n
+		depends on TOI_CORE && NET && BROKEN
+		---help---
+		  Support for linking multiple machines in a cluster so that they suspend
+		  and resume together.
+
+	config TOI_DEFAULT_CLUSTER_INTERFACE
+		string "Default cluster interface"
+		depends on TOI_CLUSTER
+		---help---
+		  The default interface on which to communicate with other nodes in
+		  the cluster.
+
+		  If no value is set here, cluster support will be disabled by default.
+
+	config TOI_DEFAULT_CLUSTER_KEY
+		string "Default cluster key"
+		default "Default"
+		depends on TOI_CLUSTER
+		---help---
+		  The default key used by this node. All nodes in the same cluster
+		  have the same key. Multiple clusters may coexist on the same lan
+		  by using different values for this key.
+
+	config TOI_CLUSTER_IMAGE_TIMEOUT
+		int "Timeout when checking for image"
+		default 15
+		depends on TOI_CLUSTER
+		---help---
+		  Timeout (seconds) before continuing to boot when waiting to see
+		  whether other nodes might have an image. Set to -1 to wait
+		  indefinitely. In WAIT_UNTIL_NODES is non zero, we might continue
+		  booting sooner than this timeout.
+
+	config TOI_CLUSTER_WAIT_UNTIL_NODES
+		int "Nodes without image before continuing"
+		default 0
+		depends on TOI_CLUSTER
+		---help---
+		  When booting and no image is found, we wait to see if other nodes
+		  have an image before continuing to boot. This value lets us
+		  continue after seeing a certain number of nodes without an image,
+		  instead of continuing to wait for the timeout. Set to 0 to only
+		  use the timeout.
+
+	config TOI_DEFAULT_CLUSTER_PRE_HIBERNATE
+		string "Default pre-hibernate script"
+		depends on TOI_CLUSTER
+		---help---
+		  The default script to be called when starting to hibernate.
+
+	config TOI_DEFAULT_CLUSTER_POST_HIBERNATE
+		string "Default post-hibernate script"
+		depends on TOI_CLUSTER
+		---help---
+		  The default script to be called after resuming from hibernation.
+
+	config TOI_DEFAULT_WAIT
+		int "Default waiting time for emergency boot messages"
+		default "25"
+		range -1 32768
+		depends on TOI_CORE
+		help
+		  TuxOnIce can display warnings very early in the process of resuming,
+		  if (for example) it appears that you have booted a kernel that doesn't
+		  match an image on disk. It can then give you the opportunity to either
+		  continue booting that kernel, or reboot the machine. This option can be
+		  used to control how long to wait in such circumstances. -1 means wait
+		  forever. 0 means don't wait at all (do the default action, which will
+		  generally be to continue booting and remove the image). Values of 1 or
+		  more indicate a number of seconds (up to 255) to wait before doing the
+		  default.
+
+	config  TOI_DEFAULT_EXTRA_PAGES_ALLOWANCE
+		int "Default extra pages allowance"
+		default "2000"
+		range 500 32768
+		depends on TOI_CORE
+		help
+		  This value controls the default for the allowance TuxOnIce makes for
+		  drivers to allocate extra memory during the atomic copy. The default
+		  value of 2000 will be okay in most cases. If you are using
+		  DRI, the easiest way to find what value to use is to try to hibernate
+		  and look at how many pages were actually needed in the sysfs entry
+		  /sys/power/tuxonice/debug_info (first number on the last line), adding
+		  a little extra because the value is not always the same.
+
+	config TOI_CHECKSUM
+		bool "Checksum pageset2"
+		default n
+		depends on TOI_CORE
+		select CRYPTO
+		select CRYPTO_ALGAPI
+		select CRYPTO_MD4
+		---help---
+		  Adds support for checksumming pageset2 pages, to ensure you really get an
+		  atomic copy. Since some filesystems (XFS especially) change metadata even
+		  when there's no other activity, we need this to check for pages that have
+		  been changed while we were saving the page cache. If your debugging output
+		  always says no pages were resaved, you may be able to safely disable this
+		  option.
+
+config TOI
+	bool
+	depends on TOI_CORE!=n
+	default y
+
+config TOI_EXPORTS
+	bool
+	depends on TOI_SWAP=m || TOI_FILE=m || \
+		TOI_CRYPTO=m || TOI_CLUSTER=m || \
+		TOI_USERUI=m || TOI_CORE=m
+	default y
+
+config TOI_ZRAM_SUPPORT
+	def_bool y
+	depends on TOI && ZRAM!=n
+
+config TOI_FIXUP
+        def_bool y
+        depends on TOI
+
+config TOI_ENHANCE
+        def_bool y
+        depends on TOI
+
+config PM_SLEEP
+	def_bool y
+	depends on SUSPEND || HIBERNATE_CALLBACKS
+
+config PM_SLEEP_SMP
+	def_bool y
+	depends on SMP
+	depends on ARCH_SUSPEND_POSSIBLE || ARCH_HIBERNATION_POSSIBLE
+	depends on PM_SLEEP
+	select HOTPLUG
+	select HOTPLUG_CPU
+
+config PM_AUTOSLEEP
+	bool "Opportunistic sleep"
+	depends on PM_SLEEP
+	default n
+	---help---
+	Allow the kernel to trigger a system transition into a global sleep
+	state automatically whenever there are no active wakeup sources.
+
+config PM_WAKELOCKS
+	bool "User space wakeup sources interface"
+	depends on PM_SLEEP
+	default n
+	---help---
+	Allow user space to create, activate and deactivate wakeup source
+	objects with the help of a sysfs-based interface.
+
+config PM_WAKELOCKS_LIMIT
+	int "Maximum number of user space wakeup sources (0 = no limit)"
+	range 0 100000
+	default 100
+	depends on PM_WAKELOCKS
+
+config PM_WAKELOCKS_GC
+	bool "Garbage collector for user space wakeup sources"
+	depends on PM_WAKELOCKS
+	default y
+
+config PM_RUNTIME
+	bool "Run-time PM core functionality"
+	depends on !IA64_HP_SIM
+	---help---
+	  Enable functionality allowing I/O devices to be put into energy-saving
+	  (low power) states at run time (or autosuspended) after a specified
+	  period of inactivity and woken up in response to a hardware-generated
+	  wake-up event or a driver's request.
+
+	  Hardware support is generally required for this functionality to work
+	  and the bus type drivers of the buses the devices are on are
+	  responsible for the actual handling of the autosuspend requests and
+	  wake-up events.
+
+config PM
+	def_bool y
+	depends on PM_SLEEP || PM_RUNTIME
+
+config PM_DEBUG
+	bool "Power Management Debug Support"
+	depends on PM
+	---help---
+	This option enables various debugging support in the Power Management
+	code. This is helpful when debugging and reporting PM bugs, like
+	suspend support.
+
+config PM_ADVANCED_DEBUG
+	bool "Extra PM attributes in sysfs for low-level debugging/testing"
+	depends on PM_DEBUG
+	---help---
+	Add extra sysfs attributes allowing one to access some Power Management
+	fields of device objects from user space.  If you are not a kernel
+	developer interested in debugging/testing Power Management, say "no".
+
+config PM_TEST_SUSPEND
+	bool "Test suspend/resume and wakealarm during bootup"
+	depends on SUSPEND && PM_DEBUG && RTC_CLASS=y
+	---help---
+	This option will let you suspend your machine during bootup, and
+	make it wake up a few seconds later using an RTC wakeup alarm.
+	Enable this with a kernel parameter like "test_suspend=mem".
+
+	You probably want to have your system's RTC driver statically
+	linked, ensuring that it's available when this test runs.
+
+config PM_SLEEP_DEBUG
+	def_bool y
+	depends on PM_DEBUG && PM_SLEEP
+
+config PM_TRACE
+	bool
+	help
+	  This enables code to save the last PM event point across
+	  reboot. The architecture needs to support this, x86 for
+	  example does by saving things in the RTC, see below.
+
+	  The architecture specific code must provide the extern
+	  functions from <linux/resume-trace.h> as well as the
+	  <asm/resume-trace.h> header with a TRACE_RESUME() macro.
+
+	  The way the information is presented is architecture-
+	  dependent, x86 will print the information during a
+	  late_initcall.
+
+config PM_TRACE_RTC
+	bool "Suspend/resume event tracing"
+	depends on PM_SLEEP_DEBUG
+	depends on X86
+	select PM_TRACE
+	---help---
+	This enables some cheesy code to save the last PM event point in the
+	RTC across reboots, so that you can debug a machine that just hangs
+	during suspend (or more commonly, during resume).
+
+	To use this debugging feature you should attempt to suspend the
+	machine, reboot it and then run
+
+		dmesg -s 1000000 | grep 'hash matches'
+
+	CAUTION: this option will cause your machine's real-time clock to be
+	set to an invalid time after a resume.
+
+config APM_EMULATION
+	tristate "Advanced Power Management Emulation"
+	depends on PM && SYS_SUPPORTS_APM_EMULATION
+	help
+	  APM is a BIOS specification for saving power using several different
+	  techniques. This is mostly useful for battery powered laptops with
+	  APM compliant BIOSes. If you say Y here, the system time will be
+	  reset after a RESUME operation, the /proc/apm device will provide
+	  battery status information, and user-space programs will receive
+	  notification of APM "events" (e.g. battery status change).
+
+	  In order to use APM, you will need supporting software. For location
+	  and more information, read <file:Documentation/power/apm-acpi.txt>
+	  and the Battery Powered Linux mini-HOWTO, available from
+	  <http://www.tldp.org/docs.html#howto>.
+
+	  This driver does not spin down disk drives (see the hdparm(8)
+	  manpage ("man 8 hdparm") for that), and it doesn't turn off
+	  VESA-compliant "green" monitors.
+
+	  Generally, if you don't have a battery in your machine, there isn't
+	  much point in using this driver and you should say N. If you get
+	  random kernel OOPSes or reboots that don't seem to be related to
+	  anything, try disabling/enabling this option (or disabling/enabling
+	  APM in your BIOS).
+
+config ARCH_HAS_OPP
+	bool
+
+config PM_OPP
+	bool "Operating Performance Point (OPP) Layer library"
+	depends on ARCH_HAS_OPP
+	---help---
+	  SOCs have a standard set of tuples consisting of frequency and
+	  voltage pairs that the device will support per voltage domain. This
+	  is called Operating Performance Point or OPP. The actual definitions
+	  of OPP varies over silicon within the same family of devices.
+
+	  OPP layer organizes the data internally using device pointers
+	  representing individual voltage domains and provides SOC
+	  implementations a ready to use framework to manage OPPs.
+	  For more information, read <file:Documentation/power/opp.txt>
+
+config PM_CLK
+	def_bool y
+	depends on PM && HAVE_CLK
+
+config PM_GENERIC_DOMAINS
+	bool
+	depends on PM
+
+config PM_GENERIC_DOMAINS_SLEEP
+	def_bool y
+	depends on PM_SLEEP && PM_GENERIC_DOMAINS
+
+config PM_GENERIC_DOMAINS_RUNTIME
+	def_bool y
+	depends on PM_RUNTIME && PM_GENERIC_DOMAINS
+
+config CPU_PM
+	bool
+	depends on SUSPEND || CPU_IDLE
+
+config SUSPEND_TIME
+	bool "Log time spent in suspend"
+	---help---
+	  Prints the time spent in suspend in the kernel log, and
+	  keeps statistics on the time spent in suspend in
+	  /sys/kernel/debug/suspend_time

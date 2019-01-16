@@ -1,0 +1,5 @@
+config MTK_SMI
+  bool CONFIG_MTK_SMI
+  default n
+  help
+    CONFIG_MTK_SMI

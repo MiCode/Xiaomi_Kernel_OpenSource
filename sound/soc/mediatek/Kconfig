@@ -1,0 +1,25 @@
+config MT_SND_SOC_V1
+	bool "MT_SND_SOC_V1"
+    default n
+    help
+        If you say Y, enable MT_SND_SOC_V1_driver.
+config MT_SND_SOC_V2
+    bool "MT_SND_SOC_V2"
+	default n
+	help
+        If you say Y, enable MT_SND_SOC_V2_driver.
+config MT_SND_SOC_V3
+    bool "MT_SND_SOC_V3"
+	default n
+	help
+        If you say Y, enable MT_SND_SOC_V3_driver.				
+config MTK_SPEAKER
+	bool "MTK_SPEAKER"
+	default n
+	help
+	  If you say Y, enable MTK_SPEAKER_AMP
+config MTK_NXP_TFA9890
+    bool "MTK_NXP_TFA9890"
+	default n
+	help
+        If you say Y, enable MTK_NXP_TFA9890 driver.

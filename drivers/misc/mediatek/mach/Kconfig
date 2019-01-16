@@ -1,0 +1,48 @@
+
+menu "MTK Board Support Package"
+
+choice
+	bool "MTK Board"
+
+config MTK_EVB_BOARD
+	bool "MTK EVB BOARD"
+	depends on (ARCH_MT6595 || ARCH_MT6795 || ARCH_MT6752 || ARCH_MT6735 || ARCH_MT6735M || ARCH_MT6753)
+	select ARM_L1_CACHE_SHIFT_6 if (!ARM64)
+	help
+	  Select if you are using an EVB board.
+
+config MTK_FPGA
+	bool "MTK FPGA"
+	depends on (ARCH_MT6595 || ARCH_MT6795 || ARCH_MT6752 || ARCH_MT6735 || ARCH_MT6735M || ARCH_MT6753)
+	select ARM_L1_CACHE_SHIFT_6 if (!ARM64)
+	help
+	  Select if you are using the FPGA board.
+
+endchoice
+
+config FPGA_CA7
+	bool "FPGA CA7"
+	depends on MTK_FPGA
+	default n
+	help
+	  Select if you are using the CA7 FPGA board.
+
+config MTK_PSCI
+	bool "MT6752 PSCI boot method"
+	depends on (ARCH_MT6735 || ARCH_MT6795 || ARCH_MT6752)
+	default n
+	help
+	  Select if you want to enable PSCI boot method on MTK platform.
+
+config MAX_DRAM_SIZE_SUPPORT
+	hex "The maximum size of the DRAM can be supported in the kernel"
+	default 0x10000000
+	depends on (ARCH_MT6595 || ARCH_MT6795 || ARCH_MT6752 || ARCH_MT6735 || ARCH_MT6735M || ARCH_MT6753)
+	help
+	  Define the maximum size of the kernel can be supported.
+	  It will modify the memory size if it size is smaller than
+	  the memory size passed by the boot loader to the MAX_DRAM_SIZE_SUPPORT.
+	  Notice that the maximum DRAM size is including the memory size
+	  reserved for the modem and the PMEM.
+
+endmenu

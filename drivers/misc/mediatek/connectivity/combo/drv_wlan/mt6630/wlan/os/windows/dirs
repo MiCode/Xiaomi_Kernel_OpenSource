@@ -1,0 +1,4 @@
+OPTIONAL_DIRS= \
+    ce ddk common
+     
+

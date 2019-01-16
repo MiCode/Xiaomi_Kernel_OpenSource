@@ -1,0 +1,87 @@
+// Please note -- this is the set of error/warning suppression options
+//                for MT6620 driver.
+
+// Microsoft C/C++, Versions 4.0 - 12.0(VC6)
+-cmsc
+
+//===========================================================================
+// Define include path of MT6620 headers
+// Currently we'll use windows' gl_os.h
+//
+-i".\include"
+-i".\include\nic"
+-i".\os"
+-i".\os\windows\include"
+-i".\os\windows\ce\hif\sdio\include"
+
+//===========================================================================
+// NOTE(Kevin): we need to define following compiling flags to avoid 
+// Warning 553: Undefined preprocessor variable.
+//
+-dDBG=1
+-dMT6620
+
+//===========================================================================
+// Integer-model-for-Enum flag (default OFF).
+// Warning 641: Converting enum 'ENUM_INT_EVENT_T' to int
+// for (u4IntIdx = 0; u4IntIdx < INT_EVENT_NUM; u4IntIdx++)
++fie
+
+//===========================================================================
+// dump.c
+// Warning 661: Possible access of out-of-bounds pointer
+// Warning 662: Possible creation of out-of-bounds pointer
+-efunc(613,dumpMemory8)
+-efunc(661,dumpMemory8)
+-efunc(662,dumpMemory8)
+-efunc(613,dumpMemory32)
+-efunc(661,dumpMemory32)
+-efunc(662,dumpMemory32)
+
+
+//Warning 507: Size incompatibility - (UINT_8)NULL
+-emacro(507,NULL)
+
+// debug.h
+//Warning 506: Constant value Boolean
+-emacro(506,DBGLOG)
+-emacro(774,DBGLOG)
+
+// ASSERT(0)
+-emacro(506,ASSERT)
+-emacro(774,ASSERT)
+
+// Ignore WARN 621 Likeness between Symbols - identifier clash
+-e621
+
+// Ignore INFO 793 ANSI limit of 1024 'macros in module' exceeded
+// Ignore INFO 793 ANSI limit of 6 'external identifiers
+-e793
+
+// Ignore NOTE 950 Non-ANSI reserved word or construct: '//'
+-e950
+
+-emacro(534, HAL_MCR_RD)
+-emacro(534, HAL_MCR_WR)
+-emacro(534, HAL_PORT_RD)
+-emacro(534, HAL_PORT_WR)
+
+//Ignore fgIsTransition not used warning, actuall used at macro
+-e550
+
+//Kevin: Ignore Warning 534: Ignoring return value of function
+-e534
+
+//Kevin: Ignore Warning 526: Symbol 'kal*()' not defined
+-e526
+
+//Kevin: Ignore Warning 506: Constant value Boolean [MTK Rule 6.1.3]
+// MTK Rule 6.1.3 metion that we shouldn't write code like that - if (fgXxx == TRUE)
+// However Warning 506 cannot check that, it only can check while(0), while(1), if (1) ... cases
+-e506
+
+//Kevin: Ignore Warning 613, the null pointer should be check by every handler.
+-efunc(613, wlanSetInformation, wlanQueryInformation)
+
+-efunc(415,wlanoidQueryCapability)
+-efunc(416,wlanoidQueryCapability)

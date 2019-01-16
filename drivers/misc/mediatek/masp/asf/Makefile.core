@@ -1,0 +1,35 @@
+#######################################
+# Sepcify source files
+#######################################
+core_obj += asf/core/alg_aes_export.o
+core_obj += asf/core/alg_aes_legacy.o
+core_obj += asf/core/alg_aes_so.o
+core_obj += asf/core/alg_sha1.o
+core_obj += asf/core/sec_aes.o
+core_obj += asf/core/sec_hdr.o
+core_obj += asf/core/sec_dev_util.o
+core_obj += asf/core/sec_mtd_util.o
+core_obj += asf/core/sec_usif_util.o
+core_obj += asf/core/sec_cfg_crypto.o
+core_obj += asf/core/sec_cfg_ver.o
+core_obj += asf/core/sec_signfmt_core.o
+core_obj += asf/core/sec_signfmt_util.o
+core_obj += asf/core/sec_signfmt_v2.o
+core_obj += asf/core/sec_signfmt_v3.o
+core_obj += asf/core/sec_signfmt_v4.o
+core_obj += asf/core/sec_cipherfmt_core.o
+core_obj += asf/core/sec_key_util.o
+core_obj += asf/core/sec_ops.o
+core_obj += asf/core/sec_boot_lib.o
+core_obj += asf/core/sec_secro.o
+core_obj += asf/core/sec_usbdl.o
+core_obj += asf/core/sec_dev.o
+core_obj += asf/core/sec_ccci.o
+core_obj += asf/core/sec_mtd.o
+core_obj += asf/core/sec_usif.o
+core_obj += asf/core/sec_fsutil_inter.o
+core_obj += asf/core/sec_boot_core.o
+core_obj += asf/core/sec_mod_core.o
+
+# HEADER FILE
+EXTRA_CFLAGS += -I$(src)/asf/asf_inc

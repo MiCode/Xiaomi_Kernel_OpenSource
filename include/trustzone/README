@@ -1,0 +1,11 @@
+1. If you header files, related to MTEE, are shared between Linux Kernel and User Space
+   those header files should be put in the folders and synced below.
+   1-1. alps/device/mediatek/mt8127/kernel-headers/trustzone/kree
+   1-2. alps/kernel-3.10/include/trustzone/kree
+
+2. If your header files should be shared between MTEE and Linux Kernel, 
+   those header files should be put in the folders both below.
+   2-1. alps/kernel-3.10/include/trustzone/tz_cross
+   2-2. alps/vendor/mediatek/proprietary/trustzone/mtk/include/tz_cross
+
+3. It is noted that head files in Linux Kernel should not include MTK License Disclaimer

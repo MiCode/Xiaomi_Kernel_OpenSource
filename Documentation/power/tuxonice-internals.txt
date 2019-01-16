@@ -1,0 +1,477 @@
+		   TuxOnIce 3.0 Internal Documentation.
+			Updated to 26 March 2009
+
+1.  Introduction.
+
+    TuxOnIce 3.0 is an addition to the Linux Kernel, designed to
+    allow the user to quickly shutdown and quickly boot a computer, without
+    needing to close documents or programs. It is equivalent to the
+    hibernate facility in some laptops. This implementation, however,
+    requires no special BIOS or hardware support.
+
+    The code in these files is based upon the original implementation
+    prepared by Gabor Kuti and additional work by Pavel Machek and a
+    host of others. This code has been substantially reworked by Nigel
+    Cunningham, again with the help and testing of many others, not the
+    least of whom is Michael Frank. At its heart, however, the operation is
+    essentially the same as Gabor's version.
+
+2.  Overview of operation.
+
+    The basic sequence of operations is as follows:
+
+	a. Quiesce all other activity.
+	b. Ensure enough memory and storage space are available, and attempt
+	   to free memory/storage if necessary.
+	c. Allocate the required memory and storage space.
+	d. Write the image.
+	e. Power down.
+
+    There are a number of complicating factors which mean that things are
+    not as simple as the above would imply, however...
+
+    o The activity of each process must be stopped at a point where it will
+    not be holding locks necessary for saving the image, or unexpectedly
+    restart operations due to something like a timeout and thereby make
+    our image inconsistent.
+
+    o It is desirous that we sync outstanding I/O to disk before calculating
+    image statistics. This reduces corruption if one should suspend but
+    then not resume, and also makes later parts of the operation safer (see
+    below).
+
+    o We need to get as close as we can to an atomic copy of the data.
+    Inconsistencies in the image will result in inconsistent memory contents at
+    resume time, and thus in instability of the system and/or file system
+    corruption. This would appear to imply a maximum image size of one half of
+    the amount of RAM, but we have a solution... (again, below).
+
+    o In 2.6, we choose to play nicely with the other suspend-to-disk
+    implementations.
+
+3.  Detailed description of internals.
+
+    a. Quiescing activity.
+
+    Safely quiescing the system is achieved using three separate but related
+    aspects.
+
+    First, we note that the vast majority of processes don't need to run during
+    suspend. They can be 'frozen'. We therefore implement a refrigerator
+    routine, which processes enter and in which they remain until the cycle is
+    complete. Processes enter the refrigerator via try_to_freeze() invocations
+    at appropriate places.  A process cannot be frozen in any old place. It
+    must not be holding locks that will be needed for writing the image or
+    freezing other processes. For this reason, userspace processes generally
+    enter the refrigerator via the signal handling code, and kernel threads at
+    the place in their event loops where they drop locks and yield to other
+    processes or sleep.
+
+    The task of freezing processes is complicated by the fact that there can be
+    interdependencies between processes. Freezing process A before process B may
+    mean that process B cannot be frozen, because it stops at waiting for
+    process A rather than in the refrigerator. This issue is seen where
+    userspace waits on freezeable kernel threads or fuse filesystem threads. To
+    address this issue, we implement the following algorithm for quiescing
+    activity:
+
+	- Freeze filesystems (including fuse - userspace programs starting
+		new requests are immediately frozen; programs already running
+		requests complete their work before being frozen in the next
+		step)
+	- Freeze userspace
+	- Thaw filesystems (this is safe now that userspace is frozen and no
+		fuse requests are outstanding).
+	- Invoke sys_sync (noop on fuse).
+	- Freeze filesystems
+	- Freeze kernel threads
+
+    If we need to free memory, we thaw kernel threads and filesystems, but not
+    userspace. We can then free caches without worrying about deadlocks due to
+    swap files being on frozen filesystems or such like.
+
+    b. Ensure enough memory & storage are available.
+
+    We have a number of constraints to meet in order to be able to successfully
+    suspend and resume.
+
+    First, the image will be written in two parts, described below. One of these
+    parts needs to have an atomic copy made, which of course implies a maximum
+    size of one half of the amount of system memory. The other part ('pageset')
+    is not atomically copied, and can therefore be as large or small as desired.
+
+    Second, we have constraints on the amount of storage available. In these
+    calculations, we may also consider any compression that will be done. The
+    cryptoapi module allows the user to configure an expected compression ratio.
+
+    Third, the user can specify an arbitrary limit on the image size, in
+    megabytes. This limit is treated as a soft limit, so that we don't fail the
+    attempt to suspend if we cannot meet this constraint.
+
+    c. Allocate the required memory and storage space.
+
+    Having done the initial freeze, we determine whether the above constraints
+    are met, and seek to allocate the metadata for the image. If the constraints
+    are not met, or we fail to allocate the required space for the metadata, we
+    seek to free the amount of memory that we calculate is needed and try again.
+    We allow up to four iterations of this loop before aborting the cycle. If we
+    do fail, it should only be because of a bug in TuxOnIce's calculations.
+
+    These steps are merged together in the prepare_image function, found in
+    prepare_image.c. The functions are merged because of the cyclical nature
+    of the problem of calculating how much memory and storage is needed. Since
+    the data structures containing the information about the image must
+    themselves take memory and use storage, the amount of memory and storage
+    required changes as we prepare the image. Since the changes are not large,
+    only one or two iterations will be required to achieve a solution.
+
+    The recursive nature of the algorithm is miminised by keeping user space
+    frozen while preparing the image, and by the fact that our records of which
+    pages are to be saved and which pageset they are saved in use bitmaps (so
+    that changes in number or fragmentation of the pages to be saved don't
+    feedback via changes in the amount of memory needed for metadata). The
+    recursiveness is thus limited to any extra slab pages allocated to store the
+    extents that record storage used, and the effects of seeking to free memory.
+
+    d. Write the image.
+
+    We previously mentioned the need to create an atomic copy of the data, and
+    the half-of-memory limitation that is implied in this. This limitation is
+    circumvented by dividing the memory to be saved into two parts, called
+    pagesets.
+
+    Pageset2 contains most of the page cache - the pages on the active and
+    inactive LRU lists that aren't needed or modified while TuxOnIce is
+    running, so they can be safely written without an atomic copy. They are
+    therefore saved first and reloaded last. While saving these pages,
+    TuxOnIce carefully ensures that the work of writing the pages doesn't make
+    the image inconsistent. With the support for Kernel (Video) Mode Setting
+    going into the kernel at the time of writing, we need to check for pages
+    on the LRU that are used by KMS, and exclude them from pageset2. They are
+    atomically copied as part of pageset 1.
+
+    Once pageset2 has been saved, we prepare to do the atomic copy of remaining
+    memory. As part of the preparation, we power down drivers, thereby providing
+    them with the opportunity to have their state recorded in the image. The
+    amount of memory allocated by drivers for this is usually negligible, but if
+    DRI is in use, video drivers may require significants amounts. Ideally we
+    would be able to query drivers while preparing the image as to the amount of
+    memory they will need. Unfortunately no such mechanism exists at the time of
+    writing. For this reason, TuxOnIce allows the user to set an
+    'extra_pages_allowance', which is used to seek to ensure sufficient memory
+    is available for drivers at this point. TuxOnIce also lets the user set this
+    value to 0. In this case, a test driver suspend is done while preparing the
+    image, and the difference (plus a margin) used instead. TuxOnIce will also
+    automatically restart the hibernation process (twice at most) if it finds
+    that the extra pages allowance is not sufficient. It will then use what was
+    actually needed (plus a margin, again). Failure to hibernate should thus
+    be an extremely rare occurence.
+
+    Having suspended the drivers, we save the CPU context before making an
+    atomic copy of pageset1, resuming the drivers and saving the atomic copy.
+    After saving the two pagesets, we just need to save our metadata before
+    powering down.
+
+    As we mentioned earlier, the contents of pageset2 pages aren't needed once
+    they've been saved. We therefore use them as the destination of our atomic
+    copy. In the unlikely event that pageset1 is larger, extra pages are
+    allocated while the image is being prepared. This is normally only a real
+    possibility when the system has just been booted and the page cache is
+    small.
+
+    This is where we need to be careful about syncing, however. Pageset2 will
+    probably contain filesystem meta data. If this is overwritten with pageset1
+    and then a sync occurs, the filesystem will be corrupted - at least until
+    resume time and another sync of the restored data. Since there is a
+    possibility that the user might not resume or (may it never be!) that
+    TuxOnIce might oops, we do our utmost to avoid syncing filesystems after
+    copying pageset1.
+
+    e. Power down.
+
+    Powering down uses standard kernel routines. TuxOnIce supports powering down
+    using the ACPI S3, S4 and S5 methods or the kernel's non-ACPI power-off.
+    Supporting suspend to ram (S3) as a power off option might sound strange,
+    but it allows the user to quickly get their system up and running again if
+    the battery doesn't run out (we just need to re-read the overwritten pages)
+    and if the battery does run out (or the user removes power), they can still
+    resume.
+
+4.  Data Structures.
+
+    TuxOnIce uses three main structures to store its metadata and configuration
+    information:
+
+    a) Pageflags bitmaps.
+
+    TuxOnIce records which pages will be in pageset1, pageset2, the destination
+    of the atomic copy and the source of the atomically restored image using
+    bitmaps. The code used is that written for swsusp, with small improvements
+    to match TuxOnIce's requirements.
+
+    The pageset1 bitmap is thus easily stored in the image header for use at
+    resume time.
+
+    As mentioned above, using bitmaps also means that the amount of memory and
+    storage required for recording the above information is constant. This
+    greatly simplifies the work of preparing the image. In earlier versions of
+    TuxOnIce, extents were used to record which pages would be stored. In that
+    case, however, eating memory could result in greater fragmentation of the
+    lists of pages, which in turn required more memory to store the extents and
+    more storage in the image header. These could in turn require further
+    freeing of memory, and another iteration. All of this complexity is removed
+    by having bitmaps.
+
+    Bitmaps also make a lot of sense because TuxOnIce only ever iterates
+    through the lists. There is therefore no cost to not being able to find the
+    nth page in order 0 time. We only need to worry about the cost of finding
+    the n+1th page, given the location of the nth page. Bitwise optimisations
+    help here.
+
+    b) Extents for block data.
+
+    TuxOnIce supports writing the image to multiple block devices. In the case
+    of swap, multiple partitions and/or files may be in use, and we happily use
+    them all (with the exception of compcache pages, which we allocate but do
+    not use). This use of multiple block devices is accomplished as follows:
+
+    Whatever the actual source of the allocated storage, the destination of the
+    image can be viewed in terms of one or more block devices, and on each
+    device, a list of sectors. To simplify matters, we only use contiguous,
+    PAGE_SIZE aligned sectors, like the swap code does.
+
+    Since sector numbers on each bdev may well not start at 0, it makes much
+    more sense to use extents here. Contiguous ranges of pages can thus be
+    represented in the extents by contiguous values.
+
+    Variations in block size are taken account of in transforming this data
+    into the parameters for bio submission.
+
+    We can thus implement a layer of abstraction wherein the core of TuxOnIce
+    doesn't have to worry about which device we're currently writing to or
+    where in the device we are. It simply requests that the next page in the
+    pageset or header be written, leaving the details to this lower layer.
+    The lower layer remembers where in the sequence of devices and blocks each
+    pageset starts. The header always starts at the beginning of the allocated
+    storage.
+
+    So extents are:
+
+    struct extent {
+      unsigned long minimum, maximum;
+      struct extent *next;
+    }
+
+    These are combined into chains of extents for a device:
+
+    struct extent_chain {
+      int size; /* size of the extent ie sum (max-min+1) */
+      int allocs, frees;
+      char *name;
+      struct extent *first, *last_touched;
+    };
+
+    For each bdev, we need to store a little more info:
+
+    struct suspend_bdev_info {
+       struct block_device *bdev;
+       dev_t dev_t;
+       int bmap_shift;
+       int blocks_per_page;
+    };
+
+    The dev_t is used to identify the device in the stored image. As a result,
+    we expect devices at resume time to have the same major and minor numbers
+    as they had while suspending.  This is primarily a concern where the user
+    utilises LVM for storage, as they will need to dmsetup their partitions in
+    such a way as to maintain this consistency at resume time.
+
+    bmap_shift and blocks_per_page apply the effects of variations in blocks
+    per page settings for the filesystem and underlying bdev. For most
+    filesystems, these are the same, but for xfs, they can have independant
+    values.
+
+    Combining these two structures together, we have everything we need to
+    record what devices and what blocks on each device are being used to
+    store the image, and to submit i/o using bio_submit.
+
+    The last elements in the picture are a means of recording how the storage
+    is being used.
+
+    We do this first and foremost by implementing a layer of abstraction on
+    top of the devices and extent chains which allows us to view however many
+    devices there might be as one long storage tape, with a single 'head' that
+    tracks a 'current position' on the tape:
+
+    struct extent_iterate_state {
+      struct extent_chain *chains;
+      int num_chains;
+      int current_chain;
+      struct extent *current_extent;
+      unsigned long current_offset;
+    };
+
+    That is, *chains points to an array of size num_chains of extent chains.
+    For the filewriter, this is always a single chain. For the swapwriter, the
+    array is of size MAX_SWAPFILES.
+
+    current_chain, current_extent and current_offset thus point to the current
+    index in the chains array (and into a matching array of struct
+    suspend_bdev_info), the current extent in that chain (to optimise access),
+    and the current value in the offset.
+
+    The image is divided into three parts:
+    - The header
+    - Pageset 1
+    - Pageset 2
+
+    The header always starts at the first device and first block. We know its
+    size before we begin to save the image because we carefully account for
+    everything that will be stored in it.
+
+    The second pageset (LRU) is stored first. It begins on the next page after
+    the end of the header.
+
+    The first pageset is stored second. It's start location is only known once
+    pageset2 has been saved, since pageset2 may be compressed as it is written.
+    This location is thus recorded at the end of saving pageset2. It is page
+    aligned also.
+
+    Since this information is needed at resume time, and the location of extents
+    in memory will differ at resume time, this needs to be stored in a portable
+    way:
+
+    struct extent_iterate_saved_state {
+        int chain_num;
+        int extent_num;
+        unsigned long offset;
+    };
+
+    We can thus implement a layer of abstraction wherein the core of TuxOnIce
+    doesn't have to worry about which device we're currently writing to or
+    where in the device we are. It simply requests that the next page in the
+    pageset or header be written, leaving the details to this layer, and
+    invokes the routines to remember and restore the position, without having
+    to worry about the details of how the data is arranged on disk or such like.
+
+    c) Modules
+
+    One aim in designing TuxOnIce was to make it flexible. We wanted to allow
+    for the implementation of different methods of transforming a page to be
+    written to disk and different methods of getting the pages stored.
+
+    In early versions (the betas and perhaps Suspend1), compression support was
+    inlined in the image writing code, and the data structures and code for
+    managing swap were intertwined with the rest of the code. A number of people
+    had expressed interest in implementing image encryption, and alternative
+    methods of storing the image.
+
+    In order to achieve this, TuxOnIce was given a modular design.
+
+    A module is a single file which encapsulates the functionality needed
+    to transform a pageset of data (encryption or compression, for example),
+    or to write the pageset to a device. The former type of module is called
+    a 'page-transformer', the later a 'writer'.
+
+    Modules are linked together in pipeline fashion. There may be zero or more
+    page transformers in a pipeline, and there is always exactly one writer.
+    The pipeline follows this pattern:
+
+		---------------------------------
+		|          TuxOnIce Core        |
+		---------------------------------
+				|
+				|
+		---------------------------------
+		|	Page transformer 1	|
+		---------------------------------
+				|
+				|
+		---------------------------------
+		|	Page transformer 2	|
+		---------------------------------
+				|
+				|
+		---------------------------------
+		|            Writer		|
+		---------------------------------
+
+    During the writing of an image, the core code feeds pages one at a time
+    to the first module. This module performs whatever transformations it
+    implements on the incoming data, completely consuming the incoming data and
+    feeding output in a similar manner to the next module.
+
+    All routines are SMP safe, and the final result of the transformations is
+    written with an index (provided by the core) and size of the output by the
+    writer. As a result, we can have multithreaded I/O without needing to
+    worry about the sequence in which pages are written (or read).
+
+    During reading, the pipeline works in the reverse direction. The core code
+    calls the first module with the address of a buffer which should be filled.
+    (Note that the buffer size is always PAGE_SIZE at this time). This module
+    will in turn request data from the next module and so on down until the
+    writer is made to read from the stored image.
+
+    Part of definition of the structure of a module thus looks like this:
+
+        int (*rw_init) (int rw, int stream_number);
+        int (*rw_cleanup) (int rw);
+        int (*write_chunk) (struct page *buffer_page);
+        int (*read_chunk) (struct page *buffer_page, int sync);
+
+    It should be noted that the _cleanup routine may be called before the
+    full stream of data has been read or written. While writing the image,
+    the user may (depending upon settings) choose to abort suspending, and
+    if we are in the midst of writing the last portion of the image, a portion
+    of the second pageset may be reread. This may also happen if an error
+    occurs and we seek to abort the process of writing the image.
+
+    The modular design is also useful in a number of other ways. It provides
+    a means where by we can add support for:
+
+    - providing overall initialisation and cleanup routines;
+    - serialising configuration information in the image header;
+    - providing debugging information to the user;
+    - determining memory and image storage requirements;
+    - dis/enabling components at run-time;
+    - configuring the module (see below);
+
+    ...and routines for writers specific to their work:
+    - Parsing a resume= location;
+    - Determining whether an image exists;
+    - Marking a resume as having been attempted;
+    - Invalidating an image;
+
+    Since some parts of the core - the user interface and storage manager
+    support - have use for some of these functions, they are registered as
+    'miscellaneous' modules as well.
+
+    d) Sysfs data structures.
+
+    This brings us naturally to support for configuring TuxOnIce. We desired to
+    provide a way to make TuxOnIce as flexible and configurable as possible.
+    The user shouldn't have to reboot just because they want to now hibernate to
+    a file instead of a partition, for example.
+
+    To accomplish this, TuxOnIce implements a very generic means whereby the
+    core and modules can register new sysfs entries. All TuxOnIce entries use
+    a single _store and _show routine, both of which are found in
+    tuxonice_sysfs.c in the kernel/power directory. These routines handle the
+    most common operations - getting and setting the values of bits, integers,
+    longs, unsigned longs and strings in one place, and allow overrides for
+    customised get and set options as well as side-effect routines for all
+    reads and writes.
+
+    When combined with some simple macros, a new sysfs entry can then be defined
+    in just a couple of lines:
+
+        SYSFS_INT("progress_granularity", SYSFS_RW, &progress_granularity, 1,
+                        2048, 0, NULL),
+
+    This defines a sysfs entry named "progress_granularity" which is rw and
+    allows the user to access an integer stored at &progress_granularity, giving
+    it a value between 1 and 2048 inclusive.
+
+    Sysfs entries are registered under /sys/power/tuxonice, and entries for
+    modules are located in a subdirectory named after the module.
+

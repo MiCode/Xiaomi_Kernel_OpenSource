@@ -1,0 +1,25 @@
+[MODULE_INFO]
+INFO_NUM = 1
+
+[INFO_0_NAME]
+INFO_NAME = mATV 
+[INFO_0_CONTENT]
+Enable
+Disable
+
+[GPIO_PROTECT]
+;                   Pull_en Pull_sel Def_dir In Out Inv Out_High
+;                   dis:0   low:0    out:1 
+
+[TYPE0]
+INFO_0 = Enable
+[GPIO_NAME0]
+GPIO_MATV_PWR_ENABLE
+GPIO_MATV_N_RST
+[EINT_NAME0]
+
+[TYPE1]
+INFO_0 = Disable
+[GPIO_NAME1]
+
+[EINT_NAME1]

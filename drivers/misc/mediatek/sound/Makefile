@@ -1,0 +1,7 @@
+
+obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
+
+ifeq ($(CONFIG_MTK_AUDIO_EXTCODEC_SUPPORT), y)
+ccflags-y += -DCONFIG_MTK_AUDIO_EXTCODEC_SUPPORT
+endif
+

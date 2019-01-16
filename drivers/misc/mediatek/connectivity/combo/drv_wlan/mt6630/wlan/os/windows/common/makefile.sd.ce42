@@ -1,0 +1,2033 @@
+!if 0
+Copyright (c) Microsoft Corporation.  All rights reserved.
+!endif
+!if 0
+Use of this source code is subject to the terms of the Microsoft end-user
+license agreement (EULA) under which you licensed this SOFTWARE PRODUCT.
+If you did not accept the terms of the EULA, you are not authorized to use
+this source code. For a copy of the EULA, please see the LICENSE.RTF on your
+install media.
+!endif
+!IF 0
+
+
+Module Name:
+
+    makefile.def
+
+Abstract:
+
+    This is the standard makefile for the components of the WINCE project.
+    It includes the following files:
+
+     .\sources.      - developer supplies this file.  It defines required and
+                 optional macros that control the compiler and linker.
+
+     $(_OBJDIR)\_objects.mac  - built by BUILD.EXE from .\sources.
+
+Targets:
+
+    all       - Builds all targets in this make file
+
+    clean     - Erase all targets that can be produced by this make
+          file, ignoring errors.  Also rebuilds the depend target.
+
+!ENDIF
+
+#
+# Pick a copy command to use
+#
+!IF "$(BUILDREL_USE_COPY)"=="1"
+#use real copy command
+__COPYCMD=copy
+!ELSE
+# use copylink instead
+__COPYCMD=copylink /S:a /D:f /E:a /R:n
+!ENDIF
+
+
+
+#
+# Include the developer supplied file that defines the TARGETNAME,
+# TARGETTYPE and SOURCES macros.
+#
+
+# Local variable which gets set to the tree being built currently
+WINCETREE=$(_CURSLMTREE)
+
+!IF "$(BUILDROOT)"==""
+!ERROR BUILDROOT must be defined
+!ENDIF
+!MESSAGE makefile.def: BUILDROOT is $(BUILDROOT)
+
+!IF EXIST($(BUILDROOT)\sources.cmn)
+!MESSAGE makefile.def: including $(BUILDROOT)\sources.cmn
+!INCLUDE $(BUILDROOT)\sources.cmn
+!ENDIF
+
+# Figure out the appropriate directory for public common. Do this before
+# including the sources file so they can be used in there. Note there are
+# OS & non-OS projects. OS projects are those that have WINCETREE explicitly
+# set in sources.cmn and where public\WINCETREE\cesysgen\makefile exists,
+#
+# There are 4 cases:
+# (1) OS projects during sysgen (2) OS projects during compile
+# (3) WINCEPROJ projects (4) Other projects.
+
+!if "$(_IN_CESYSGEN)" != ""
+# OS projects during SYSGEN (which get unsysgened input libs & build into projectroot\cesysgen)
+_COMMONPUBROOT=$(_PUBLICROOT)\common
+__PROJROOT = $(_PROJECTROOT)\cesysgen
+!else if ("$(WINCETREE)" == "winceos") || EXIST($(_PUBLICROOT)\$(WINCETREE)\cesysgen\makefile)
+# OS projects during compile (which always get the full unfiltered headers & build into their own public tree)
+_COMMONPUBROOT=$(_PUBLICROOT)\common
+__PROJROOT = $(_PUBLICROOT)\$(WINCEPROJ)
+!else if "$(WINCEPROJ)" != ""
+# WINCEPROJ projects (which want sysgened headers & libs, but want to build into their *own* public trees)
+_COMMONPUBROOT=$(_PROJECTROOT)\cesysgen
+__PROJROOT = $(_PUBLICROOT)\$(WINCEPROJ)
+!else
+# regular user projects (which get sysgened headers & libs & build into the final project public tree)
+_COMMONPUBROOT=$(_PROJECTROOT)\cesysgen
+__PROJROOT = $(_PROJECTROOT)
+!endif
+
+# Construct the CPU's qualified instruction set architecture name (e.g., ARMV4)
+TGTCPUISANAME=$(_TGTCPUFAMILY)$(_TGTCPUISA)
+
+# Build all binaries into cpu dependent dirs for simplicity
+_CPUINDPATH=$(_TGTCPU)\$(WINCEDEBUG)
+_CPUDEPPATH=$(_TGTCPU)\$(WINCEDEBUG)
+
+# Use these to get sysgened (or not sysgened) headers and libs as described above
+_COMMONSDKROOT=$(_COMMONPUBROOT)\sdk
+_COMMONOAKROOT=$(_COMMONPUBROOT)\oak
+_COMMONDDKROOT=$(_COMMONPUBROOT)\ddk
+
+# Use these to explicitly get sysgened headers and libs
+_SYSGENSDKROOT=$(_PROJECTROOT)\cesysgen\sdk
+_SYSGENOAKROOT=$(_PROJECTROOT)\cesysgen\oak
+_SYSGENDDKROOT=$(_PROJECTROOT)\cesysgen\ddk
+
+!INCLUDE .\sources.
+
+!IF EXIST($(_PROJECTROOT)\oak\misc\makefile.inc)
+!MESSAGE makefile.def: including $(_PROJECTROOT)\oak\misc\makefile.inc
+!INCLUDE $(_PROJECTROOT)\oak\misc\makefile.inc
+!ENDIF
+
+!IFNDEF TARGETNAME
+!ERROR Your .\sources. file must define the TARGETNAME= macro
+!ENDIF
+
+!IFNDEF TARGETTYPE
+!ERROR Your .\sources. file must define the TARGETTYPE= macro
+!ENDIF
+
+# TARGETTHREADMODEL should be ST for single-threaded, MT for multi-threaded
+!IFNDEF TARGETTHREADMODEL
+TARGETTHREADMODEL=ST
+!ENDIF
+
+!IFNDEF SOURCES
+!ERROR Your .\sources. file must define the SOURCES= macro
+!ENDIF
+
+# Recalculate the appropriate directory for public common. We are redoing
+# this in case they tried to override something in their sources file.
+# (See detailed notes above)
+
+!if "$(_IN_CESYSGEN)" != ""
+# OS projects during SYSGEN (which get unsysgened input libs & build into projectroot\cesysgen)
+_COMMONPUBROOT=$(_PUBLICROOT)\common
+__PROJROOT = $(_PROJECTROOT)\cesysgen
+!else if ("$(WINCETREE)" == "winceos") || EXIST($(_PUBLICROOT)\$(WINCETREE)\cesysgen\makefile)
+# OS projects during compile (which always get the full unfiltered headers & build into their own public tree)
+_COMMONPUBROOT=$(_PUBLICROOT)\common
+__PROJROOT = $(_PUBLICROOT)\$(WINCEPROJ)
+!else if "$(WINCEPROJ)" != ""
+# WINCEPROJ projects (which want sysgened headers & libs, but want to build into their *own* public trees)
+_COMMONPUBROOT=$(_PROJECTROOT)\cesysgen
+__PROJROOT = $(_PUBLICROOT)\$(WINCEPROJ)
+!else
+# regular user projects (which get sysgened headers & libs & build into the final project public tree)
+_COMMONPUBROOT=$(_PROJECTROOT)\cesysgen
+__PROJROOT = $(_PROJECTROOT)
+!endif
+
+#!ERROR Paths are commonpubroot=$(_COMMONPUBROOT) and projroot=$(__PROJROOT)
+
+# Include generated source variables
+!IF !EXIST($(BUILDROOT)\sources.gen)
+!IF [call srcgen $(BUILDROOT) $(WINCETREE) $(_COMMONPUBROOT)]
+!ENDIF
+!ENDIF
+!INCLUDE $(BUILDROOT)\sources.gen
+
+!IFNDEF _ISVINCPATH
+!ERROR Sources.gen did not include an ISV include path
+!ENDIF
+
+# validate WINCEDEBUG since it's used for paths
+!IF (("$(WINCEDEBUG)" != "retail") && ("$(WINCEDEBUG)" != "debug"))
+!ERROR You must set WINCEDEBUG to retail or debug
+!ENDIF
+
+#
+# Set up the release directories.
+#
+_SRCDIR = $(_TGTCPUFAMILY)
+
+!IF "$(WINCECPU)" == ""
+__CPUDIR = $(_CPUINDPATH)
+!ELSE
+__CPUDIR = $(_CPUDEPPATH)
+!ENDIF
+_OBJDIR = obj\$(__CPUDIR)
+
+!IF "$(RELEASETYPE)" == "SDK"
+_RELEASEDIR=$(__PROJROOT)\oak\target\$(__CPUDIR)
+_RELEASELIBDIR=$(__PROJROOT)\sdk\lib\$(__CPUDIR)
+!ELSEIF "$(RELEASETYPE)" == "DDK"
+_RELEASEDIR=$(__PROJROOT)\oak\target\$(__CPUDIR)
+_RELEASELIBDIR=$(__PROJROOT)\ddk\lib\$(__CPUDIR)
+!ELSEIF "$(RELEASETYPE)" == "PLATFORM"
+_RELEASEDIR=$(_TARGETPLATROOT)\target\$(__CPUDIR)
+_RELEASELIBDIR=$(_TARGETPLATROOT)\lib\$(__CPUDIR)
+!ELSEIF "$(RELEASETYPE)" == "LOCAL"
+_RELEASEDIR=$(_OBJDIR)
+_RELEASELIBDIR=$(_OBJDIR)
+!ELSEIF "$(RELEASETYPE)" == "CUSTOM"
+_RELEASEDIR=$(TARGETPATH)
+_RELEASELIBDIR=$(TARGETPATH)
+!ELSE
+_RELEASEDIR=$(__PROJROOT)\oak\target\$(__CPUDIR)
+_RELEASELIBDIR=$(__PROJROOT)\oak\lib\$(__CPUDIR)
+!ENDIF
+
+
+#
+# Include the list of object files (defined as the OBJECTS macro) that was
+# built by BUILD program, using the SOURCES= macro defined in the sources.
+# file.  Use macro substitution to build the supported target objects.
+#
+
+!IFNDEF NOINCLUDEOBJMAC
+!INCLUDE $(_OBJDIR)\_objects.mac
+!ENDIF
+
+!IF "$(_TGTOS)"=="CE"
+!IFNDEF LINKER_SUBSYSTEM
+LINKER_SUBSYSTEM=-subsystem:windowsce,4.20
+!ENDIF
+!ENDIF
+
+!IFDEF RCADDNULL
+RCFLAGS=-n
+!ELSE
+RCFLAGS=
+!ENDIF
+
+!IFDEF DLLENTRY
+DLLENTRYOPTION=-entry:$(DLLENTRY)
+!ELSE
+# Default DLLENTRY for CE is broken.  Provide a correct default entry
+!IF "$(_TGTOS)"=="CE"
+DLLENTRYOPTION=-entry:_DllMainCRTStartup
+!ELSE
+DLLENTRYOPTION=
+!ENDIF
+!ENDIF
+
+!IFDEF EXEENTRY
+EXEENTRYOPTION=-entry:$(EXEENTRY)
+!ELSE
+# Default EXEENTRY for CE is broken.  Provide a correct default entry
+!IF "$(_TGTOS)"=="CE"
+EXEENTRYOPTION=-entry:WinMainCRTStartup
+!ELSE
+EXEENTRYOPTION=
+!ENDIF
+!ENDIF
+
+!IFDEF NODLLENTRY
+DLLENTRYOPTION=-NOENTRY
+!ENDIF
+
+
+#
+# If BUILDMSG is not defined, the define it as the empty string to make
+# the conditionals easier to write.
+#
+
+!IFNDEF BUILDMSG
+BUILDMSG=
+!ENDIF
+
+!IF "$(_TGTCPUFAMILY)"=="x86"
+TARGETOBJFILES=$(x86_OBJECTS)
+!ELSEIF "$(_TGTCPUFAMILY)"=="MIPS"
+TARGETOBJFILES=$(MIPS_OBJECTS)
+!ELSEIF "$(_TGTCPUFAMILY)"=="SH"
+TARGETOBJFILES=$(SH_OBJECTS)
+!ELSEIF "$(_TGTCPUFAMILY)"=="ARM"
+TARGETOBJFILES=$(ARM_OBJECTS)
+!ENDIF
+
+!IF DEFINED(LINT_TYPE)
+
+!IF "$(LINT_TYPE)" == "all"
+!ELSEIF "$(LINT_TYPE)" == "lob"
+!ELSEIF "$(LINT_TYPE)" == "ind"
+!ELSE
+!ERROR LINT_TYPE must be all | lob | ind
+!ENDIF
+
+!IF !DEFINED(LINT_PATH)
+!ERROR LINT_PATH not set
+!ENDIF
+
+!IF !DEFINED(LINT_APP)
+!ERROR LINT_APP not set
+!ENDIF
+
+!IF !DEFINED(LINT_OUTPUT)
+LINT_OUTPUT=$(TARGETNAME)
+!ENDIF
+
+!IF !DEFINED(LINT_EXT)
+LINT_EXT=Lint
+!ENDIF
+
+!IF "$(LINT_TYPE)" == "all"
+LINT_TARGETLOBFILES=$(_OBJDIR)\$(LINT_OUTPUT).$(LINT_EXT)
+!ELSE
+# Don't use TARGETOBJFILES because that'll pull in the precompiled
+# header object file which will cause an error because there's
+# no inference rule that matches
+
+!IF "$(_TGTCPUFAMILY)"=="x86"
+LINT_TARGETLOBFILES=$(x86_OBJECTS:.obj=.lob)
+!ELSEIF "$(_TGTCPUFAMILY)"=="MIPS"
+LINT_TARGETLOBFILES=$(MIPS_OBJECTS:.obj=.lob)
+!ELSEIF "$(_TGTCPUFAMILY)"=="SH"
+LINT_TARGETLOBFILES=$(SH_OBJECTS:.obj=.lob)
+!ELSEIF "$(_TGTCPUFAMILY)"=="ARM"
+LINT_TARGETLOBFILES=$(ARM_OBJECTS:.obj=.lob)
+!ENDIF
+!ENDIF
+!ELSE
+LINT_TARGETLOBFILES=
+!ENDIF
+
+
+!IF ("$(TARGETTYPE)" == "LIBRARY") || ("$(TARGETTYPE)" == "DYNLINK")
+TARGETLIBFILES=$(_RELEASELIBDIR)\$(TARGETNAME).lib
+!ENDIF
+
+TARGETEXEFILES=
+!IF "$(NOLINK)" == ""
+!    IF "$(TARGETTYPE)" == "DYNLINK"
+TARGETEXEFILES=$(_RELEASEDIR)\$(TARGETNAME).dll
+!    ELSE
+!        IF "$(TARGETTYPE)" == "PROGRAM"
+TARGETEXEFILES=$(_RELEASEDIR)\$(TARGETNAME).exe
+!        ENDIF
+!    ENDIF
+!ENDIF
+
+#
+# Standard inference rules for C files that produce object files.
+#
+.SUFFIXES: .cxx .cpp .c .asm .s .src .rc .obj .ire .res .h .odl .tlb .i
+
+!IFDEF PASS0ONLY
+# Clear the suffixes list so we can ensure only pass zero stuff will be built
+.SUFFIXES:
+!ENDIF
+
+!IFNDEF NOPASS0
+# Pass Zero Inference Rules: IDL files (MIDL) and MC files
+.SUFFIXES: .idl .mc .odl .tdl .asn .thk
+
+!IF "$(_TGTCPUFAMILY)"=="x86"
+PASS0_OBJECTS=$(PASS0_x86_OBJECTS)
+!ELSEIF "$(_TGTCPUFAMILY)"=="MIPS"
+PASS0_OBJECTS=$(PASS0_MIPS_OBJECTS)
+!ELSEIF "$(_TGTCPUFAMILY)"=="SH"
+PASS0_OBJECTS=$(PASS0_SH_OBJECTS)
+!ELSEIF "$(_TGTCPUFAMILY)"=="ARM"
+PASS0_OBJECTS=$(PASS0_ARM_OBJECTS)
+!ENDIF
+
+!ENDIF  # IFNDEF NOPASS0
+
+!IFDEF USE_OLE_MC
+MC = mc -o
+!ELSE
+MC = mc
+!ENDIF
+
+!IF "$(PRECOMPILED_OPTION)" == ""
+! IF "$(PRECOMPILED_INCLUDE)" != ""
+!  IF "$(PRECOMPILED_INCLUDE)" != "$(PRECOMPILED_INCLUDE:.hxx=)"
+PRECOMPILED_CXX=1
+!  ENDIF
+!  IF "$(PRECOMPILED_INCLUDE)" != "$(PRECOMPILED_INCLUDE:.cxx=)"
+PRECOMPILED_CXX=1
+!  ENDIF
+!  IF "$(PRECOMPILED_INCLUDE)" != "$(PRECOMPILED_INCLUDE:.cpp=)"
+PRECOMPILED_CXX=1
+!  ENDIF
+!  IF "$(PRECOMPILED_PCH)" == ""
+PRECOMPILED_PCH=$(PRECOMPILED_INCLUDE:.hxx=.pch)
+PRECOMPILED_PCH=$(PRECOMPILED_PCH:.h=.pch)
+PRECOMPILED_PCH=$(PRECOMPILED_PCH:.cxx=.pch)
+PRECOMPILED_PCH=$(PRECOMPILED_PCH:.cpp=.pch)
+PRECOMPILED_PCH=$(PRECOMPILED_PCH:.c=.pch)
+PRECOMPILED_PCH=$(PRECOMPILED_PCH:..\=)
+!  ENDIF
+!  IF "$(PRECOMPILED_OBJ)" == ""
+PRECOMPILED_OBJ=$(PRECOMPILED_PCH:.pch=.obj)
+!  ENDIF
+! ENDIF
+!ENDIF
+
+!IF "$(PRECOMPILED_OPTION)" == ""
+! IF "$(PRECOMPILED_INCLUDE)" != ""
+!  IF "$(PRECOMPILED_PCH)" != ""
+HEADERFILE=/Fp$(_OBJDIR)\$(PRECOMPILED_PCH)
+!  ENDIF
+!  IF "$(PRECOMPILED_OBJ)" != ""
+HEADEROBJNAME=$(_OBJDIR)\$(PRECOMPILED_OBJ)
+HEADEROBJ=/Fo$(MAKEDIR)\$(HEADEROBJNAME)
+!  ENDIF
+!  IF "$(PRECOMPILED_CXX)" == ""
+PRECOMPILED=/Yu$(PRECOMPILED_INCLUDE:..\=) $(HEADERFILE)
+PRECOMPILED_CXX=
+!  ELSE
+PRECOMPILED=
+PRECOMPILED_CXX=/Yu$(PRECOMPILED_INCLUDE:..\=) $(HEADERFILE)
+!  ENDIF
+PRECOMPILED_TARGET=$(_OBJDIR)\$(PRECOMPILED_PCH)
+! ELSE
+!  IF "$(PRECOMPILED_INCLUDE)" != ""
+!   IF "$(PRECOMPILED_CXX)" == ""
+PRECOMPILED=/Yu$(PRECOMPILED_INCLUDE)
+PRECOMPILED_CXX=
+!   ELSE
+PRECOMPILED=
+PRECOMPILED_CXX=/Yu$(PRECOMPILED_INCLUDE)
+!   ENDIF
+!  ENDIF
+! ENDIF
+!ELSE
+! IF "$(PRECOMPILED_CXX)" == ""
+PRECOMPILED=$(PRECOMPILED_OPTION)
+PRECOMPILED_CXX=
+! ELSE
+PRECOMPILED=
+PRECOMPILED_CXX=$(PRECOMPILED_OPTION)
+! ENDIF
+PRECOMPILED_TARGET=$(PRECOMPILED_TARGET)
+! IF "$(PRECOMPILED_TARGET)" != ""
+HEADERFILE=/Fp$(PRECOMPILED_TARGET)
+! ENDIF
+! IF "$(PRECOMPILED_OBJ)" != ""
+HEADEROBJNAME=$(PRECOMPILED_OBJ)
+HEADEROBJ=/Fo$(HEADEROBJNAME)
+! ENDIF
+!ENDIF
+
+!IF ("$(PRECOMPILED_CXX)" == "") && ("$(USECXX_FLAG)" == "")
+PRECOMPILED_FLAG=$(PRECOMPILED_FLAG) /Tc
+!ELSE
+PRECOMPILED_FLAG=$(PRECOMPILED_FLAG) /Tp
+!ENDIF
+
+!IF "$(NTNOPCH)" != ""
+PRECOMPILED=
+PRECOMPILED_CXX=
+!ENDIF
+
+# make sure we include the precompiled object if we have one
+TARGETOBJFILES=$(TARGETOBJFILES) $(HEADEROBJNAME)
+
+#
+# Standard list of targets: all, clean and loc.  all is the default target.
+#
+
+!IF "$(SKIPBUILD)" != ""
+
+#empty all: target to not build anything for the current subdir
+all:
+
+
+!ELSE IFNDEF PASS0ONLY
+
+all: \
+!IFNDEF NOINCLUDEOBJMAC
+    $(_OBJDIR)\_objects.mac \
+!ENDIF
+    $(WINCETARGETFILE0)  \
+    $(PASS0_OBJECTS) \
+    $(PRECOMPILED_TARGET) \
+    $(HEADEROBJNAME) \
+    $(TARGETOBJFILES) \
+!IF DEFINED(LINT_TYPE) && ( "$(LINT_TYPE)" == "lob" )
+    $(LINT_TARGETLOBFILES) \
+!ENDIF
+    $(TARGETLIBFILES) \
+!IF DEFINED(LINT_TYPE) && ( "$(LINT_TYPE)" != "lob" )
+    $(LINT_TARGETLOBFILES) \
+!ENDIF
+    $(TARGETEXEFILES) \
+    $(WINCETARGETFILES)
+!IF "$(BUILDMSG)" != ""
+    -@echo $(BUILDMSG)
+!ENDIF
+
+!ELSE   # PASS0ONLY
+
+all: \
+    $(WINCETARGETFILE0)  \
+    $(PASS0_OBJECTS)
+!IF "$(BUILDMSG)" != ""
+    -@echo $(BUILDMSG)
+!ENDIF
+
+!ENDIF  # PASS0ONLY
+
+
+!IFNDEF PASS0_HEADERDIR
+PASS0_HEADERDIR=.
+!ENDIF
+
+! IFNDEF PASS0_SOURCEDIR
+PASS0_SOURCEDIR=.
+! ENDIF
+
+! IFNDEF MIDL_UUIDDIR
+MIDL_UUIDDIR=$(PASS0_SOURCEDIR)
+! ENDIF
+
+!IFNDEF MIDL_OPTIMIZATION
+MIDL_OPTIMIZATION=-Oicf
+!ENDIF
+
+dummy:
+    -@echo .
+
+expunge: cleantgt
+     delnode /q obj
+!IF "$(BUILDMSG)" != ""
+    -@echo $(BUILDMSG)
+!ENDIF
+
+clean: cleantgt cleanobj
+!IF "$(BUILDMSG)" != ""
+    -@echo $(BUILDMSG)
+!ENDIF
+
+cleanobj:
+     -@del /q $(_OBJDIR)\*.obj
+     -@del /q $(_OBJDIR)\*.cod
+!IFDEF LINT_TYPE
+     -@del /q $(_OBJDIR)\*.lob
+     -@del /q $(_OBJDIR)\$(LINT_OUTPUT).$(LINT_EXT)
+!ENDIF
+
+cleantgt:
+!IF "$(TARGETTYPE)" == "DYNLINK"
+     -@del $(_RELEASELIBDIR)\$(TARGETNAME).lib
+     -@del $(_RELEASELIBDIR)\$(TARGETNAME).exp
+     -@del $(_RELEASEDIR)\$(TARGETNAME).map
+     -@del $(_RELEASEDIR)\$(TARGETNAME).dll
+!ELSEIF "$(TARGETTYPE)" == "PROGRAM"
+     -@del $(_RELEASEDIR)\$(TARGETNAME).map
+     -@del $(_RELEASEDIR)\$(TARGETNAME).exe
+!ELSEIF "$(TARGETTYPE)" == "LIBRARY"
+     -@del $(_RELEASELIBDIR)\$(TARGETNAME).lib
+!ENDIF
+
+#
+# Added for internationalization
+#
+!IF "$(IRC_DEPENDENT)" != "0" && "$(IRC_DEPENDENT)" != ""
+!IF "$(LOCALE)" != "0411"
+$(_CPUINDPATH)\$(TARGETNAME).ire : resource\0409\internl.irc
+    echo > $(_CPUINDPATH)\$(TARGETNAME).ire
+!ELSE
+
+$(_CPUINDPATH)\$(TARGETNAME).ire : resource\0411\internl.irc
+    echo > $(_CPUINDPATH)\$(TARGETNAME).ire
+!ENDIF
+!ENDIF
+
+#
+# Figure out the include path
+#
+
+# Get default sdk library and include path
+!IF "$(_TGTOS)" == "NTANSI" || "$(_TGTOS)" == "NT"
+INCLUDEPATH=$(_SDKROOT)\NT\inc;$(_SDKROOT)\MFC\include
+LIBPATH=$(_SDKROOT)\NT\lib;$(_SDKROOT)\MFC\lib
+!ELSE
+INCLUDEPATH=$(_SDKROOT)\$(_TGTOS)\inc
+LIBPATH=$(_SDKROOT)\$(_TGTOS)\lib
+!ENDIF
+
+# Add atl if the user asked for it (defaults to ATL 2.1)
+!IF "$(WINCEATL)" == "1"
+INCLUDEPATH=$(_SDKROOT)\atl\inc;$(INCLUDEPATH)
+!ENDIF
+
+# Add ATL 3.0 if user asked for it
+!IF "$(WINCEATL30)" == "1"
+INCLUDEPATH=$(_WINCEROOT)\others\atl\include;$(INCLUDEPATH)
+!ENDIF
+
+# Add MFC if user asked for it
+!IF "$(WINCEMFC)" == "1"
+INCLUDEPATH=$(_WINCEROOT)\others\mfc\include;$(INCLUDEPATH)
+!ENDIF
+
+# Add in any specific additions in the sources file
+!IF "$(EXT_INCLUDES)" != ""
+EXT_INCLUDES = $(EXT_INCLUDES: =)
+INCLUDEPATH=$(EXT_INCLUDES);$(INCLUDEPATH)
+!ENDIF
+
+# Add in the dependent tree based includes from sources.gen
+!IF "$(_TGTOS)"=="CE"
+!IF "$(WINCEOEM)" == "1"
+INCLUDEPATH=$(_OEMINCPATH);$(INCLUDEPATH)
+!ELSE
+INCLUDEPATH=$(_ISVINCPATH);$(INCLUDEPATH)
+!ENDIF
+!ENDIF
+
+# Add in any specific additions in the sources file
+!IF "$(INCLUDES)" != ""
+INCLUDES = $(INCLUDES: =)
+INCLUDEPATH=$(INCLUDES);$(INCLUDEPATH)
+!ENDIF
+
+INCLUDEPATH=$(INCLUDEPATH:;;=;)
+
+!IF ("$(WINCEDEBUG)" == "retail")
+!IFDEF DISABLE_OPTIMIZER
+CDEBUG_FLAGS=-Od
+!ELSE
+CDEBUG_DEFINES=
+CDEBUG_FLAGS=-Oxs
+!ENDIF
+!ELSE
+CDEBUG_DEFINES=-DDEBUG=1
+!IF "$(_TGTOS)" == "NT" || "$(_TGTOS)" == "NTANSI"
+CDEBUG_DEFINES=$(CDEBUG_DEFINES) -D_DEBUG=1
+!ENDIF
+CDEBUG_FLAGS=-Od
+!ENDIF
+
+!IF "$(WINCE_LMEM_DEBUG)" != ""
+CDEBUG_DEFINES=$(CDEBUG_DEFINES) -DLMEM_DEBUG=1
+!ENDIF
+
+!IF "$(TARGET_PDB_NAME)" == ""
+!IF "$(TARGETTYPE)" == "LIBRARY"
+TARGET_PDB_NAME = $(_RELEASELIBDIR)\$(TARGETNAME).pdb
+!ELSE
+TARGET_PDB_NAME = $(_RELEASEDIR)\$(TARGETNAME).pdb
+!ENDIF
+!ENDIF
+
+# Pass name of PDB file to both compiler and linker
+CDEBUG_FLAGS=$(CDEBUG_FLAGS) -GF -Zi -Fd$(TARGET_PDB_NAME)
+
+!IF "$(WINCEPROFILE)" == "1"
+LINKER_DEBUG=-debug -debugtype:both -incremental:no
+CDEBUG_DEFINES=$(CDEBUG_DEFINES) -DWINCEPROFILE
+!ELSE
+LINKER_DEBUG=-debug -debugtype:cv -incremental:no
+!ENDIF
+
+!IF "$(TGTCPUISANAME)"=="ARMV4"
+LINKER_DEBUG=$(LINKER_DEBUG) /ARMPADCODE
+!ENDIF
+
+!IF "$(WINCEMEMTRACK)" == "1"
+CDEFINES=$(CDEFINES) -DMEMTRACKING=1
+!ENDIF
+
+!IF "$(WINCESHIP)" != ""
+CDEBUG_DEFINES=$(CDEBUG_DEFINES) -DSHIP_BUILD
+!ENDIF
+
+!IF "$(WINCE_OVERRIDE_CFLAGS)" != ""
+CDEBUG_FLAGS=$(WINCE_OVERRIDE_CFLAGS)
+!ENDIF
+
+!IF "$(WINCE_LINKER_DEBUG)" != ""
+LINKER_DEBUG=$(WINCE_LINKER_DEBUG)
+!ENDIF
+
+!IFNDEF EXEBASE
+!IF "$(_TGTOS)"=="CE"
+EXEBASE=0x00010000
+!ELSE
+EXEBASE=0x01000000
+!ENDIF
+!ENDIF
+
+!IFNDEF DLLBASE
+DLLBASE=0x10000000
+!ENDIF
+
+!IFDEF CPPBROWSE
+#!IFNDEF NO_AUTOMATIC_BSC
+!message Build Browse Files
+CDEBUG_FLAGS=$(CDEBUG_FLAGS) /FR$(TEMP)\$(@B).sbr
+#!ENDIF
+!ENDIF
+
+!IF "$(WINCE_ELIM_DEAD_CODE)" == "1" || "$(WINCEDEBUG)" == "retail"
+CONLY_FLAGS=$(CONLY_FLAGS) /Gy
+LINKER_DEBUG=$(LINKER_DEBUG) /opt:ref
+!ENDIF
+
+!IF "$(WINCE_VERBOSE_LINK)" == "1"
+LINKER_DEBUG=$(LINKER_DEBUG) /verbose
+!ENDIF
+
+TGTCPUDEFINES=-D$(_TGTCPUFAMILY)
+!IF "$(TGTCPUISANAME)" != "$(_TGTCPUFAMILY)"
+TGTCPUDEFINES = $(TGTCPUDEFINES) -D$(TGTCPUISANAME)
+!ENDIF
+!IF "$(_TGTCPU)" != "$(TGTCPUISANAME)"
+TGTCPUDEFINES=$(TGTCPUDEFINES) -D$(_TGTCPU)
+!ENDIF
+
+# MIPS16 is also a MIPSII
+!IF "$(_TGTCPU)" == "MIPS16"
+TGTCPUDEFINES=$(TGTCPUDEFINES) -DMIPSII
+!ENDIF
+
+!IF "$(_TGTCPUFAMILY)" == "x86"
+TGTCPUDEFINES=$(TGTCPUDEFINES) -D_X86_
+
+!ELSEIF "$(_TGTCPUFAMILY)" == "SH"
+TGTCPUDEFINES=$(TGTCPUDEFINES) -D_SHX_ -DSHx
+
+!ELSEIF "$(_TGTCPUFAMILY)" == "ARM"
+TGTCPUDEFINES=$(TGTCPUDEFINES) -D_ARM_
+!IF "$(TGTCPUISANAME)"=="ARMV4T"
+TGTCPUDEFINES=$(TGTCPUDEFINES) -D_THUMB_
+!ENDIF
+
+!ELSEIF "$(_TGTCPUFAMILY)"=="MIPS"
+TGTCPUDEFINES=$(TGTCPUDEFINES) -D_MIPS_ -DR4000
+
+!IF "$(_TGTCPUOPTIONS)" == "_FP"
+MIPS_HAS_FPU=1
+!ENDIF
+
+!IFDEF MIPS_HAS_FPU
+CDEFINES=$(CDEFINES) $(CFPUDEFINES)
+ADEFINES=$(ADEFINES) $(AFPUDEFINES)
+!ENDIF
+
+!ENDIF				# _TGTCPUFAMILY == MIPS
+
+#collect all the defines together
+CDEFINES=-DWIN32 -DSTRICT $(TGTCPUDEFINES) $(CDEBUG_DEFINES) $(CDEFINES)
+!IF "$(WINCEOEM)"=="1"
+CDEFINES=-DWINCEOEM -DWINCEINTERNAL $(CDEFINES)
+!ENDIF
+!IF "$(TARGETTHREADMODEL)" == "MT"
+CDEFINES=-D_MT $(CDEFINES)
+!ENDIF
+!IF "$(WINCEEMULATION)"=="1"
+CDEFINES=-D_WIN32_WCE_EMULATION $(CDEFINES)
+!ENDIF
+!IF "$(_TGTOS)" == "NTANSI"
+CDEFINES=-DUNDER_NT $(CDEFINES)
+!ELSEIF "$(_TGTOS)" == "NT"
+CDEFINES=-DUNDER_NT $(CDEFINES)
+!ELSEIF "$(_TGTOS)" == "CE"
+CDEFINES=-DUNDER_CE -D_WIN32_WCE=420 $(CDEFINES)
+!ENDIF
+!IF "$(NOT_UNICODE)" != "1" && "$(_TGTOS)" != "NTANSI"
+CDEFINES=-DUNICODE -D_UNICODE $(CDEFINES)
+!ENDIF
+
+#collect all include paths together
+!IF "$(INCLUDEPATH)" == ""  ||  "$(INCLUDEPATH)" == " "
+CINCLUDES=-I$(_TGTCPUFAMILY)\ -I.
+!ELSE
+CINCLUDES=-I$(_TGTCPUFAMILY)\ -I. -I$(INCLUDEPATH:;= -I)
+!ENDIF
+
+!IFDEF LINT_TYPE
+LINT_INCLUDES=$(CINCLUDES:-I=-i)
+!ENDIF
+
+
+# -- Added for WINCE-INTERNATIONAL
+#
+# set some flags for INTERNATIONAL module
+!IF "$(LOCALE)" != ""
+#
+# For keyboard module.
+#
+!IF "$(LOCALE)" == "0411"
+!IF "$(_TGTKEYBOARD)" == "JAPAN"
+CDEFINES=$(CDEFINES) -DKEYBD_JAPAN
+RDEFINES=$(RDEFINES) -DKEYBD_JAPAN
+!ELSEIF "$(_TGTKEYBOARD)" == "NONE"
+CDEFINES=$(CDEFINES) -DKEYBD_NONE
+RDEFINES=$(RDEFINES) -DKEYBD_NONE
+!ENDIF
+!ENDIF
+#
+# For LOCALE specific flag. Default code page is 437
+#
+!IF "$(LOCALE)" == "0411"
+CODEPAGE=932
+!ELSE
+CODEPAGE=1252
+!ENDIF
+#
+# set CFLAGS,CINLUDE and RDEFINES for INTERNATIONAL module
+#
+CDEFINES=$(CDEFINES) -DINTERNATIONAL -DL$(LOCALE) -DINTLMSG_CODEPAGE=$(CODEPAGE)
+CINCLUDES=$(CINCLUDES) -I.\Resource\$(LOCALE)
+RDEFINES=$(RDEFINES) -DINTERNATIONAL -DL$(LOCALE) -l 409 -c $(CODEPAGE)
+!ENDIF
+#
+# End WINCE-INTERNATIONAL stuff
+#
+
+
+# set CFLAGS
+!IF "$(WARNLEVEL)" != ""
+CFLAGS=-W$(WARNLEVEL) -c $(CINCLUDES) $(CDEBUG_FLAGS) $(CDEFINES)
+!ELSE
+CFLAGS=-W3 -c $(CINCLUDES) $(CDEBUG_FLAGS) $(CDEFINES)
+!ENDIF
+!IF "$(WINCECOD)" != ""
+CFLAGS=$(CFLAGS) -FAsc -Fa$(@R).cod
+!ENDIF
+!IF "$(WARNISERROR)"=="1"
+# Turn off WX when running prefast, it throws some warnings.
+!IF "$(PREFAST_ADD_PATH)" == ""
+CFLAGS=$(CFLAGS) -WX
+!ENDIF
+!ENDIF
+
+# setup host compiler
+!IF "$(_HOSTCPUTYPE)"=="i386"
+!IF "$(_TGTCPUFAMILY)"=="SH"
+HOSTCOMPILER=clsh
+!ELSEIF "$(_TGTCPUFAMILY)"=="MIPS"
+HOSTCOMPILER=clmips
+!ELSEIF "$(_TGTCPUFAMILY)"=="ARM"
+!IF "$(TGTCPUISANAME)"!="ARMV4T"
+HOSTCOMPILER=clarm
+!ELSE
+HOSTCOMPILER=clthumb
+!ENDIF
+!ELSE
+HOSTCOMPILER=cl386
+!ENDIF
+!ELSEIF "$(_HOSTCPUTYPE)"=="mips"
+HOSTCOMPILER=clmips
+!ENDIF
+
+#resource compiler stuff
+!IF "$(_TGTOS)" == "CE"
+RDEFINES=$(_TGTCPUDEFINES) -DUNDER_CE $(RDEFINES)
+!IF "$(WINCEDEBUG)"=="debug"
+RDEFINES=$(RDEFINES) -DDEBUG
+!ENDIF
+!IF "$(WINCEOEM)"=="1"
+RDEFINES=-DWINCEINTERNAL $(RDEFINES)
+!ENDIF
+!ELSE
+RDEFINES=$(_TGTCPUDEFINES) -DUNDER_NT $(RDEFINES)
+!ENDIF
+RCOMPILER=rc -r $(CINCLUDES) $(RDEFINES)
+
+#midl compiler stuff
+MIDLCOMPILER=midl -nologo
+MKTYPLIBFLAGS=/win32 /mktyplib203
+
+# preprocessing is always done on the host
+DEFPREPROCESS=$(HOSTCOMPILER) -EP $(CDEFINES) $(CINCLUDES)
+
+!IF "$(_TGTOS)" == "NT" || "$(_TGTOS)" == "NTANSI"
+!IF "$(TARGETTYPE)" == "PROGRAM"
+!IF "$(TARGETTHREADMODEL)" != "MT"
+!IF ("$(WINCEDEBUG)" == "retail")
+STARTLIB=libc.lib
+!ELSE
+STARTLIB=libcd.lib
+!ENDIF
+!ELSE
+!IF ("$(WINCEDEBUG)" == "retail")
+STARTLIB=libcmt.lib
+!ELSE
+STARTLIB=libcmtd.lib
+!ENDIF
+!ENDIF
+!ELSE
+!IF ("$(WINCEDEBUG)" == "retail")
+STARTLIB=msvcrt.lib
+!ELSE
+STARTLIB=msvcrtd.lib
+!ENDIF
+!ENDIF
+TARGETLIBS=$(TARGETLIBS) \
+    $(_SDKROOT)\NT\lib\$(_TGTCPUFAMILY)\$(STARTLIB) \
+    $(_SDKROOT)\NT\lib\$(_TGTCPUFAMILY)\oldnames.lib \
+    $(_SDKROOT)\NT\lib\$(_TGTCPUFAMILY)\kernel32.lib \
+    $(_SDKROOT)\NT\lib\$(_TGTCPUFAMILY)\advapi32.lib \
+    $(_SDKROOT)\NT\lib\$(_TGTCPUFAMILY)\gdi32.lib \
+    $(_SDKROOT)\NT\lib\$(_TGTCPUFAMILY)\user32.lib \
+    $(_SDKROOT)\NT\lib\$(_TGTCPUFAMILY)\winmm.lib
+!ELSE
+!IFNDEF NOLIBC
+TARGETLIBS=$(TARGETLIBS) $(_COMMONSDKROOT)\lib\$(_CPUINDPATH)\corelibc.lib
+!ENDIF
+!ENDIF
+
+!IF "$(TGTCPUISANAME)"=="SH4"
+MACHINEOPTION=-machine:SH4
+!ELSEIF "$(_TGTCPUFAMILY)"=="SH"
+!IF "$(ENABLEDSP)"=="1" || "$(_TGTCPUOPTIONS)"=="_DSP"
+MACHINEOPTION=-machine:SH3DSP
+!ELSE
+MACHINEOPTION=-machine:SH3
+!ENDIF
+!ELSEIF "$(TGTCPUISANAME)" == "MIPSII"
+MACHINEOPTION=-machine:MIPS
+!ELSEIF "$(TGTCPUISANAME)" == "MIPS16"
+MACHINEOPTION=-machine:MIPS16
+!ELSEIF "$(TGTCPUISANAME)" == "MIPSIV"
+MACHINEOPTION=-machine:MIPSFPU
+!ELSEIF "$(TGTCPUISANAME)" == "ARMV4T" || "$(TGTCPUISANAME)" == "ARMV4I"
+MACHINEOPTION=-machine:thumb
+!ELSE
+MACHINEOPTION=-machine:$(_TGTCPUFAMILY)
+!ENDIF
+
+# Setup CeCAP
+!IF "$(WINCECALLCAP)"!="" && "$(WINCEFASTCAP)"!=""
+!ERROR Error: WINCECALLCAP and WINCEFASTCAP are both defined.  Please choose one.
+!ENDIF
+
+!IF "$(WINCECALLCAP)"!=""
+!IF "$(_TGTCPUFAMILY)"=="x86"
+CFLAGS=$(CFLAGS) /Gh
+!ELSE
+CFLAGS=$(CFLAGS) /callcap
+!ENDIF
+!ENDIF
+
+!IF "$(WINCEFASTCAP)"!=""
+!IF "$(_TGTCPUFAMILY)"=="x86"
+!ERROR Error: WINCEFASTCAP is currently not supported on x86.  Please choose WINCECALLCAP.
+!ELSE
+CFLAGS=$(CFLAGS) /fastcap
+!ENDIF
+!ENDIF
+
+!IF "$(WINCECALLCAP)"!="" || "$(WINCEFASTCAP)"!=""
+TARGETLIBS=$(TARGETLIBS) $(_COMMONOAKROOT)\lib\$(_TGTCPU)\$(WINCEDEBUG)\cecap.lib
+!ENDIF
+
+#
+# Now for special CPU dependent defines
+#
+!IF "$(_TGTCPUFAMILY)"=="x86"
+CCOMPILER=cl386 -nologo
+CXXCOMPILER=$(CCOMPILER)
+ASSEMBLER=ml -nologo
+CVTRES=cvtres -machine:iX86
+CFLAGS=$(CFLAGS) /QIfdiv-
+AFLAGS=-c -coff -Cx $(ADEFINES) $(CINCLUDES) -Zm
+!IF "$(WINCECOD)" != ""
+AFLAGS=$(AFLAGS) -Sn -Fl$(@R).lst
+!ENDIF
+
+!ELSEIF "$(_TGTCPUFAMILY)"=="SH"
+CCOMPILER=clsh -nologo
+CXXCOMPILER=$(CCOMPILER)
+ASSEMBLER=shasm
+CFLAGS=$(CFLAGS) -DSH3_CACHE=1
+ALIGNMENT=4096
+!IF "$(TGTCPUISANAME)"=="SH4"
+AFLAGS=$(ADEFINES) -Qsh4r5
+CFLAGS=$(CFLAGS) -Qsh4r5
+CVTRES=cvtres -machine:sh4
+!ELSE
+AFLAGS=$(ADEFINES) -Qsh3 -Qdsp
+CVTRES=cvtres -machine:sh3
+!IF "$(ENABLEDSP)"=="1" || "$(_TGTCPUOPTIONS)"=="_DSP"
+CFLAGS=$(CFLAGS) -Qdsp
+!ENDIF
+!ENDIF
+!IF "$(WINCEPROFILE)" == "1"
+ADEFINES=$(ADEFINES) -DPROFILE=1
+!ELSE
+ADEFINES=$(ADEFINES) -DPROFILE=0
+!ENDIF
+!IFDEF WINCECOD
+AFLAGS=$(AFLAGS) -LIST=$(@R).lst
+!ENDIF
+
+!ELSEIF "$(_TGTCPUFAMILY)"=="MIPS"
+
+ASSEMBLER=mipsasm
+CCOMPILER=clmips -nologo
+ALIGNMENT=4096
+!IF "$(TGTCPU)"=="MIPSII"
+CFLAGS=$(CFLAGS) -QMmips2 -D_M_MRX000=4000 -QMFPE
+!ELSEIF "$(_TGTCPU)"=="MIPSII_FP"
+CFLAGS=$(CFLAGS) -QMmips2 -D_M_MRX000=4000 -QMFPE-
+!ELSEIF "$(_TGTCPU)"=="MIPS16"
+CFLAGS=$(CFLAGS) -DMIPS16SUPPORT
+LDEFINES=-merge:.text16=.text $(LDEFINES)
+!IF "$(NOMIPS16CODE)"=="1"
+CONLY_FLAGS=-QMmips2 -D_M_MRX000=4000 -DNOMIPS16CODE
+!ELSE
+CONLY_FLAGS=-ase16
+!ENDIF
+ADEFINES=-QMmips2 -D_M_MRX000=4000 $(ADEFINES)
+!ELSEIF "$(_TGTCPU)" == "MIPSIV"
+CFLAGS=$(CFLAGS) -D_MIPS64 -QMmips4 -QMn32 -QMFPE
+CCOMPILER=clmips -nologo
+ASSEMBLER=mipsasm -QMmips4
+!ELSEIF "$(_TGTCPU)" == "MIPSIV_FP"
+CFLAGS=$(CFLAGS) -D_MIPS64 -QMmips4 -QMn32 -QMFPE-
+CCOMPILER=clmips -nologo
+ASSEMBLER=mipsasm -QMmips4
+!ENDIF
+CXXCOMPILER=$(CCOMPILER)
+!IF "$(_TGTCPU)" == "MIPSIV_FP"
+CVTRES=cvtres -machine:mipsfpu
+!ELSE
+CVTRES=cvtres -machine:mips
+!ENDIF
+AFLAGS=$(CFLAGS) $(ADEFINES)
+
+!ELSEIF "$(_TGTCPUFAMILY)"=="ARM"
+!IF "$(TGTCPUISANAME)"!="ARMV4T"
+CCOMPILER=clarm -nologo
+CXXCOMPILER=$(CCOMPILER)
+ASSEMBLER=armasm -coff
+CVTRES=cvtres -machine:arm
+
+!IF "$(NOMIPS16CODE)"=="1"
+CFLAGS=$(CFLAGS) -QRimplicit-import-
+!ENDIF
+
+!IF "$(TGTCPUISANAME)"=="ARMV4I"
+CFLAGS=$(CFLAGS) -QRarch4T -QRinterwork-return
+CDEFINES=$(CDEFINES) -DTHUMBSUPPORT
+ADEFINES=$(ADEFINES) -pd "Thumbing SETL {FALSE}" -pd "Interworking SETL {TRUE}"
+AFLAGS=-arch 4t
+!ELSEIF "$(TGTCPUISANAME)"=="ARMV4"
+ADEFINES=$(ADEFINES) -pd "Thumbing SETL {FALSE}" -pd "Interworking SETL {FALSE}"
+AFLAGS=-arch 4
+!ENDIF
+
+!IF "$(WINCEPROFILE)" == "1"
+ADEFINES=$(ADEFINES) -pd "PROFILE SETA 1"
+!ENDIF
+AFLAGS=$(AFLAGS) -cr $(ADEFINES) -i $(INCLUDEPATH:;=,) -i arm
+!IFDEF WINCECOD
+AFLAGS=$(AFLAGS) -list $(@R).lst -wi 150 -l 0
+!ENDIF
+!IF ("$(WINCEDEBUG)" == "debug")
+AFLAGS=$(AFLAGS) -pd "DEBUG SETA 1"
+!ENDIF
+LDEFINES=-merge:.astart=.text $(LDEFINES)
+ALIGNMENT=4096
+
+!ELSEIF "$(TGTCPUISANAME)"=="ARMV4T"
+!IFDEF BUILDASARM
+CCOMPILER=clarm -nologo
+!ELSE
+CCOMPILER=clthumb -nologo
+!ENDIF
+CXXCOMPILER=$(CCOMPILER)
+ASSEMBLER=armasm -coff
+_SRCDIR=ARM
+CVTRES=cvtres -machine:thumb
+
+!IF "$(NOMIPS16CODE)"=="1"
+CFLAGS=$(CFLAGS) -QRimplicit-import-
+!ENDIF
+
+CFLAGS=$(CFLAGS) -QRarch4T -QRinterwork-return
+CDEFINES=$(CDEFINES) -DTHUMBSUPPORT
+ADEFINES=$(ADEFINES) -pd "Thumbing SETL {TRUE}" -pd "Interworking SETL {TRUE}"
+!IF "$(WINCEPROFILE)" == "1"
+ADEFINES=$(ADEFINES) -pd "PROFILE SETA 1"
+!ENDIF
+AFLAGS=-cr $(ADEFINES) -i $(INCLUDEPATH:;=,) -i arm -arch 4t
+!IFDEF WINCECOD
+AFLAGS=$(AFLAGS) -list $(@R).lst -wi 150 -l 0
+!ENDIF
+!IF ("$(WINCEDEBUG)" == "debug")
+AFLAGS=$(AFLAGS) -pd "DEBUG SETA 1"
+!ENDIF
+LDEFINES=-merge:.astart=.text $(LDEFINES)
+ALIGNMENT=4096
+
+!ENDIF
+!ENDIF
+
+
+# Warn user about potential license violation building private sources
+!IF !DEFINED(SKIPBUILD) && !DEFINED(PASS0ONLY) && EXIST($(_SDKROOT)\bin\i386\SrcCheck.exe)
+!IF [$(_SDKROOT)\bin\i386\SrcCheck -nodlg] == 1
+CFLAGS=$(CFLAGS) -FI$(_COMMONOAKROOT)\inc\PrivateBuild.h
+!ENDIF
+!ENDIF
+
+
+LINKER=link /LARGEADDRESSAWARE
+LIBRARIAN=link -lib
+
+!IF "$(_TGTOS)" == "CE"
+CVTRES=$(CVTRES) /WINDOWSCE
+!ENDIF
+
+!IFDEF ALIGNMENT
+LDEFINES=$(LDEFINES) -align:$(ALIGNMENT)
+!ENDIF
+
+LDEFINES=$(LDEFINES) -ignore:4001,4070,4078,4086,4089,4096,4099,4108
+!IFNDEF NORDATAMERGE
+LDEFINES=-MERGE:.rdata=.text $(LDEFINES)
+!ENDIF
+!IF "$(_TGTOS)" == "CE"
+!IFNDEF LDEFSTACK
+LDEFSTACK=/STACK:65536,4096
+!ENDIF
+!ENDIF
+
+!IFDEF LDEFSTACK
+LDEFINES=$(LDEFINES) $(LDEFSTACK)
+!ENDIF
+
+!IFNDEF DEFFILE
+DEFFILE=$(TARGETNAME).def
+!ENDIF
+
+!IFNDEF TARGETDEFNAME
+TARGETDEFNAME=$(TARGETNAME)
+!ENDIF
+
+!IFDEF PREPROCESSDEFFILE
+!IF "$(_TGTOS)"=="CE"
+DEFPREPROCINC=-FI$(_COMMONOAKROOT)\inc\deffile.inc
+!ELSE
+DEFPREPROCINC=
+!ENDIF
+!ENDIF
+
+!IF "$(WINCECOVER)" == "1"
+CFLAGS=$(CFLAGS) -Zi
+AFLAGS=$(AFLAGS) -Zi
+LDEFINES=$(LDEFINES) -debug:full -debugtype:cv,fixup -dbgimplib -incremental:no
+!ENDIF
+
+# make sure the compiler knows about the precompiled header
+CCOMPILER = $(CCOMPILER) $(PRECOMPILED)
+CXXCOMPILER = $(CXXCOMPILER) $(PRECOMPILED_CXX)
+
+ECHO_PRECOMPILED_MSG=$(CCOMPILER) $(PRECOMPILE_FLAG) \
+     $(CFLAGS) /Yl$(TARGETNAME) /Yc$(?F) $(HEADERFILE) $(HEADEROBJ)
+
+!IF "$(PRECOMPILED_INCLUDE)" != ""
+$(PRECOMPILED_TARGET) $(HEADEROBJNAME): $(PRECOMPILED_INCLUDE)
+    @type <<
+$(ECHO_PRECOMPILED_MSG)
+<<NOKEEP
+    @$(CCOMPILER) @<< $(CONLY_FLAGS) $(PRECOMPILED_FLAG)<<
+$(CFLAGS: =
+) /Yl$(TARGETNAME) /Yc$(?F) $(HEADERFILE) $(HEADEROBJ)
+<<NOKEEP
+#include "$(?F)"
+<<NOKEEP
+!ENDIF
+
+ECHO_CXX_MSG=$(CXXCOMPILER) $(CONLY_FLAGS) -Fo$@ $(CFLAGS) $(MAKEDIR)\$<
+ECHO_C_MSG=$(CCOMPILER) $(CONLY_FLAGS) -Fo$@ $(CFLAGS) $(MAKEDIR)\$<
+
+######################################################################
+#
+# LINT
+#
+#	Required environment variables:
+#		LINT_TYPE=all | lob | ind
+#           all - processes all $(SOURCES) files at once
+#           lob - processes $(SOURCES) individually and then consolidates
+#           ind - processes $(SOURCES) individually
+#		LINT_PATH=path to PC-lint directory
+#		LINT_APP=name of PC-lint executable (default=lint-nt)
+#
+#
+# Other env. vars:
+# LINT_EXT=extension of output files (default=Lint)
+# LINT_OUTPUT=base name of lint output file (default=$(TARGETNAME))
+# LINT_OPTS=options passed to PC-lint (default=+v -zero)
+# LINT_COPY2SRC=1 to copy lint output file to sources file directory
+#
+#
+#
+# LINT_PRECOMPPATH=paths that were used for precompiled header.
+#                  - some components generate a pch in
+#                    a separate step and use the pch amongst several
+#                    subdirs. This env. var. lets one specify the
+#                    include paths used for the pch.
+#
+######################################################################
+!IFDEF LINT_TYPE
+# Convert CDEFINES which may contain /DSYMBOL1, -DSYMBOL2 to
+# -dSYMBOL1 and -dSYMBOL2 which PC-Lint wants
+LINT_DEFS=$(CDEFINES:-D=-d)
+LINT_DEFINES=$(LINT_DEFS:/D=-d)
+
+!IF !DEFINED(LINT_OPTS)
+LINT_OPTS=+v -zero
+!ENDIF
+
+!IF "$(LINT_TYPE)" == "all"
+LINT_ALL_CMD=$(LINT_APP) $(LINT_OPTS) $(LINT_INCLUDES) $(LINT_DEFINES) -i$(LINT_PATH)\ Wince.lnt -os($(_OBJDIR)\$(LINT_OUTPUT).$(LINT_EXT))
+LINT_ALL_CMD_MSG=$(LINT_ALL_CMD) $(SOURCES)
+!ELSEIF "$(LINT_TYPE)" == "lob"
+LINT_CMD=$(LINT_APP) -u $(LINT_OPTS) $(LINT_INCLUDES) $(LINT_DEFINES) -i$(LINT_PATH)\ Wince.lnt +os($(_OBJDIR)\$(LINT_OUTPUT).$(LINT_EXT)) -oo($@)
+LINT_CMD_MSG=$(LINT_CMD) $<
+
+LINT_CMD2=$(LINT_APP) $(LINT_OPTS) -i$(LINT_PATH)\ Wince.lnt +os($(_OBJDIR)\$(LINT_OUTPUT).$(LINT_EXT))
+LINT_CMD2_MSG=$(LINT_CMD2)
+
+!ELSE
+LINT_CMD=$(LINT_APP) $(LINT_OPTS) $(LINT_INCLUDES) $(LINT_DEFINES) -i$(LINT_PATH)\ Wince.lnt +os($(_OBJDIR)\$(LINT_OUTPUT).$(LINT_EXT))
+LINT_CMD_MSG=$(LINT_CMD) $<
+!ENDIF
+!ENDIF
+
+
+#
+# All the implicit rules
+#
+{}.cxx{$(_OBJDIR)\}.obj:
+    @type <<
+$(ECHO_CXX_MSG)
+<<NOKEEP
+    @$(CXXCOMPILER) @<< $(CONLY_FLAGS) -Fo$@
+$(CFLAGS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+!IF "$(_XREF_GEN_DATA)" != ""
+    XrefCppfile $(_TGTCPU) $(WINCEDEBUG) $(MAKEDIR)\$< @<< -DXREF_CPP_FILE $(CONLY_FLAGS) -Fo$@
+$(CFLAGS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+!ENDIF
+
+
+
+{$(_SRCDIR)\}.cxx{$(_OBJDIR)\}.obj:
+    @type <<
+$(ECHO_CXX_MSG)
+<<NOKEEP
+    @$(CXXCOMPILER) @<< $(CONLY_FLAGS) -Fo$@
+$(CFLAGS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+!IF "$(_XREF_GEN_DATA)" != ""
+    XrefCppfile $(_TGTCPU) $(WINCEDEBUG) $(MAKEDIR)\$< @<< -DXREF_CPP_FILE $(CONLY_FLAGS) -Fo$@
+$(CFLAGS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+!ENDIF
+
+{..\}.cxx{$(_OBJDIR)\}.obj:
+    @type <<
+$(ECHO_CXX_MSG)
+<<NOKEEP
+    @$(CXXCOMPILER) @<< $(CONLY_FLAGS) -Fo$@
+$(CFLAGS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+!IF "$(_XREF_GEN_DATA)" != ""
+    XrefCppfile $(_TGTCPU) $(WINCEDEBUG) $(MAKEDIR)\$< @<< -DXREF_CPP_FILE $(CONLY_FLAGS) -Fo$@
+$(CFLAGS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+!ENDIF
+
+{..\$(_SRCDIR)\}.cxx{$(_OBJDIR)\}.obj:
+    @type <<
+$(ECHO_CXX_MSG)
+<<NOKEEP
+    @$(CXXCOMPILER) @<< $(CONLY_FLAGS) -Fo$@
+$(CFLAGS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+!IF "$(_XREF_GEN_DATA)" != ""
+    XrefCppfile $(_TGTCPU) $(WINCEDEBUG) $(MAKEDIR)\$< @<< -DXREF_CPP_FILE $(CONLY_FLAGS) -Fo$@
+$(CFLAGS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+!ENDIF
+
+{}.cpp{$(_OBJDIR)\}.obj:
+    @type <<
+$(ECHO_CXX_MSG)
+<<NOKEEP
+    @$(CXXCOMPILER) @<< $(CONLY_FLAGS) -Fo$@
+$(CFLAGS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+!IF "$(_XREF_GEN_DATA)" != ""
+    XrefCppfile $(_TGTCPU) $(WINCEDEBUG) $(MAKEDIR)\$< @<< -DXREF_CPP_FILE $(CONLY_FLAGS) -Fo$@
+$(CFLAGS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+!ENDIF
+
+
+{$(_SRCDIR)\}.cpp{$(_OBJDIR)\}.obj:
+    @type <<
+$(ECHO_CXX_MSG)
+<<NOKEEP
+    @$(CXXCOMPILER) @<< $(CONLY_FLAGS) -Fo$@
+$(CFLAGS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+!IF "$(_XREF_GEN_DATA)" != ""
+    XrefCppfile $(_TGTCPU) $(WINCEDEBUG) $(MAKEDIR)\$< @<< -DXREF_CPP_FILE $(CONLY_FLAGS) -Fo$@
+$(CFLAGS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+!ENDIF
+
+{..\}.cpp{$(_OBJDIR)\}.obj:
+    @type <<
+$(ECHO_CXX_MSG)
+<<NOKEEP
+    @$(CXXCOMPILER) @<< $(CONLY_FLAGS) -Fo$@
+$(CFLAGS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+!IF "$(_XREF_GEN_DATA)" != ""
+    XrefCppfile $(_TGTCPU) $(WINCEDEBUG) $(MAKEDIR)\$< @<< -DXREF_CPP_FILE $(CONLY_FLAGS) -Fo$@
+$(CFLAGS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+!ENDIF
+
+{..\$(_SRCDIR)\}.cpp{$(_OBJDIR)\}.obj:
+    @type <<
+$(ECHO_CXX_MSG)
+<<NOKEEP
+    @$(CXXCOMPILER) @<< $(CONLY_FLAGS) -Fo$@
+$(CFLAGS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+!IF "$(_XREF_GEN_DATA)" != ""
+    XrefCppfile $(_TGTCPU) $(WINCEDEBUG) $(MAKEDIR)\$< @<< -DXREF_CPP_FILE $(CONLY_FLAGS) -Fo$@
+$(CFLAGS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+!ENDIF
+
+{}.c{$(_OBJDIR)\}.obj:
+    @type <<
+$(ECHO_C_MSG)
+<<NOKEEP
+    @$(CCOMPILER) @<< $(CONLY_FLAGS) -Fo$@
+$(CFLAGS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+!IF "$(_XREF_GEN_DATA)" != ""
+    XrefCppfile $(_TGTCPU) $(WINCEDEBUG) $(MAKEDIR)\$< @<< -DXREF_CPP_FILE $(CONLY_FLAGS) -Fo$@
+$(CFLAGS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+!ENDIF
+
+{$(_SRCDIR)\}.c{$(_OBJDIR)\}.obj:
+    @type <<
+$(ECHO_C_MSG)
+<<NOKEEP
+    @$(CCOMPILER) @<< $(CONLY_FLAGS) -Fo$@
+$(CFLAGS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+!IF "$(_XREF_GEN_DATA)" != ""
+    XrefCppfile $(_TGTCPU) $(WINCEDEBUG) $(MAKEDIR)\$< @<< -DXREF_CPP_FILE $(CONLY_FLAGS) -Fo$@
+$(CFLAGS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+!ENDIF
+
+{..\}.c{$(_OBJDIR)\}.obj:
+    @type <<
+$(ECHO_C_MSG)
+<<NOKEEP
+    @$(CCOMPILER) @<< $(CONLY_FLAGS) -Fo$@ $(MAKEDIR)\$<
+$(CFLAGS: =
+)
+<<NOKEEP
+!IF "$(_XREF_GEN_DATA)" != ""
+    XrefCppfile $(_TGTCPU) $(WINCEDEBUG) $(MAKEDIR)\$< @<< -DXREF_CPP_FILE $(CONLY_FLAGS) -Fo$@
+$(CFLAGS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+!ENDIF
+
+{..\$(_SRCDIR)\}.c{$(_OBJDIR)\}.obj:
+    @type <<
+$(ECHO_C_MSG)
+<<NOKEEP
+    @$(CCOMPILER) @<< $(CONLY_FLAGS) -Fo$@ $(MAKEDIR)\$<
+$(CFLAGS: =
+)
+<<NOKEEP
+!IF "$(_XREF_GEN_DATA)" != ""
+    XrefCppfile $(_TGTCPU) $(WINCEDEBUG) $(MAKEDIR)\$< @<< -DXREF_CPP_FILE $(CONLY_FLAGS) -Fo$@
+$(CFLAGS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+!ENDIF
+
+
+#
+# LINT dependency rules start
+#
+
+!IF DEFINED(LINT_TYPE) && ( "$(LINT_TYPE)" != "all" )
+
+{}.cxx{$(_OBJDIR)\}.lob:
+!IF "$(LINT_TYPE)" != "lob"
+    @echo done >$@
+!ENDIF
+    @type <<
+$(LINT_CMD) $<
+<<NOKEEP
+    @$(LINT_CMD) $<
+
+{$(_SRCDIR)\}.cxx{$(_OBJDIR)\}.lob:
+!IF "$(LINT_TYPE)" != "lob"
+    @echo done >$@
+!ENDIF
+    @type <<
+$(LINT_CMD) $<
+<<NOKEEP
+    @$(LINT_CMD) $<
+
+{..\}.cxx{$(_OBJDIR)\}.lob:
+!IF "$(LINT_TYPE)" != "lob"
+    @echo done >$@
+!ENDIF
+    @type <<
+$(LINT_CMD) $<
+<<NOKEEP
+    @$(LINT_CMD) $<
+
+{..\$(_SRCDIR)\}.cxx{$(_OBJDIR)\}.lob:
+!IF "$(LINT_TYPE)" != "lob"
+    @echo done >$@
+!ENDIF
+    @type <<
+$(LINT_CMD) $<
+<<NOKEEP
+    @$(LINT_CMD) $<
+
+{}.cpp{$(_OBJDIR)\}.lob:
+!IF "$(LINT_TYPE)" != "lob"
+    @echo done >$@
+!ENDIF
+    @type <<
+$(LINT_CMD) $<
+<<NOKEEP
+    @$(LINT_CMD) $<
+
+{$(_SRCDIR)\}.cpp{$(_OBJDIR)\}.lob:
+!IF "$(LINT_TYPE)" != "lob"
+    @echo done >$@
+!ENDIF
+    @type <<
+$(LINT_CMD) $<
+<<NOKEEP
+    @$(LINT_CMD) $<
+
+{..\}.cpp{$(_OBJDIR)\}.lob:
+!IF "$(LINT_TYPE)" != "lob"
+    @echo done >$@
+!ENDIF
+    @type <<
+$(LINT_CMD) $<
+<<NOKEEP
+    @$(LINT_CMD) $<
+
+{..\$(_SRCDIR)\}.cpp{$(_OBJDIR)\}.lob:
+!IF "$(LINT_TYPE)" != "lob"
+    @echo done >$@
+!ENDIF
+    @type <<
+$(LINT_CMD) $<
+<<NOKEEP
+    @$(LINT_CMD) $<
+
+{}.c{$(_OBJDIR)\}.lob:
+!IF "$(LINT_TYPE)" != "lob"
+    @echo done >$@
+!ENDIF
+    @type <<
+$(LINT_CMD) $<
+<<NOKEEP
+    @$(LINT_CMD) $<
+
+{$(_SRCDIR)\}.c{$(_OBJDIR)\}.lob:
+!IF "$(LINT_TYPE)" != "lob"
+    @echo done >$@
+!ENDIF
+    @type <<
+$(LINT_CMD) $<
+<<NOKEEP
+    @$(LINT_CMD) $<
+
+{..\}.c{$(_OBJDIR)\}.lob:
+!IF "$(LINT_TYPE)" != "lob"
+    @echo done >$@
+!ENDIF
+    @type <<
+$(LINT_CMD) $<
+<<NOKEEP
+    @$(LINT_CMD) $<
+
+{..\$(_SRCDIR)\}.c{$(_OBJDIR)\}.lob:
+!IF "$(LINT_TYPE)" != "lob"
+    @echo done >$@
+!ENDIF
+    @type <<
+$(LINT_CMD) $<
+<<NOKEEP
+    @$(LINT_CMD) $<
+
+!ENDIF
+
+#
+# LINT dependency rules end
+#
+
+
+
+.cxx.i:
+    @type <<
+$(ECHO_CXX_MSG)
+<<NOKEEP
+    @$(CXXCOMPILER) @<< $(CONLY_FLAGS) -P -Fo$@
+$(CFLAGS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+
+.cpp.i:
+    @type <<
+$(ECHO_CXX_MSG)
+<<NOKEEP
+    @$(CXXCOMPILER) @<< $(CONLY_FLAGS) -P -Fo$@
+$(CFLAGS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+
+.c.i:
+    @type <<
+$(ECHO_C_MSG)
+<<NOKEEP
+    @$(CCOMPILER) @<< $(CONLY_FLAGS) -P -Fo$@
+$(CFLAGS: =
+) $(MAKEDIR)\$<
+<<NOKEEP
+
+
+{}.odl.tlb:
+    $(MIDLCOMPILER) \
+    -Zp8 \
+     $(CINCLUDES) \
+     /tlb $@ \
+     /h $(PASS0_HEADERDIR)\$(<:.odl=.h) \
+     $(MKTYPLIBFLAGS) \
+    -cpp_cmd $(HOSTCOMPILER) \
+    $(CDEFINES) \
+     $(MIDL_MKTYPLIB_FLAGS) \
+     $(MAKEDIR)\$<
+
+{$(_TGTCPUFAMILY)\}.odl.tlb:
+    $(MIDLCOMPILER) \
+    -Zp8 \
+     $(CINCLUDES) \
+     /tlb $@ \
+     /h $(PASS0_HEADERDIR)\$(<:.odl=.h) \
+     $(MKTYPLIBFLAGS) \
+    -cpp_cmd $(HOSTCOMPILER) \
+    $(CDEFINES) \
+     $(MIDL_MKTYPLIB_FLAGS) \
+     $(MAKEDIR)\$<
+
+{..\}.odl.tlb:
+    $(MIDLCOMPILER) \
+    -Zp8 \
+     $(CINCLUDES) \
+     /tlb $@ \
+     /h $(PASS0_HEADERDIR)\$(<:.odl=.h) \
+     $(MKTYPLIBFLAGS) \
+    -cpp_cmd $(HOSTCOMPILER) \
+    $(CDEFINES) \
+     $(MIDL_MKTYPLIB_FLAGS) \
+     $(MAKEDIR)\$<
+
+{..\$(_TGTCPUFAMILY)\}.odl.tlb:
+    $(MIDLCOMPILER) \
+    -Zp8 \
+     $(CINCLUDES) \
+     /tlb $@ \
+     /h $(PASS0_HEADERDIR)\$(<:.odl=.h) \
+     $(MKTYPLIBFLAGS) \
+    -cpp_cmd $(HOSTCOMPILER) \
+    $(CDEFINES) \
+     $(MIDL_MKTYPLIB_FLAGS) \
+     $(MAKEDIR)\$<
+
+! IFNDEF NO_PASS0_RULES
+
+{}.idl{$(PASS0_HEADERDIR)}.h:
+    $(MIDLCOMPILER) \
+    -Zp8 \
+    $(CINCLUDES) \
+    -char unsigned \
+    -ms_ext -c_ext \
+    -proxy $(PASS0_SOURCEDIR)\$(<:.idl=_p.c) \
+    -dlldata $(PASS0_SOURCEDIR)\dlldata.c \
+    -iid $(MIDL_UUIDDIR)\$(<:.idl=_i.c) \
+    -header $@ \
+    -cpp_cmd $(HOSTCOMPILER) \
+    $(CDEFINES) \
+    $(MIDL_FLAGS) \
+    $(MIDL_OPTIMIZATION) \
+    $<
+
+{..\}.idl{$(PASS0_HEADERDIR)}.h:
+    $(MIDLCOMPILER) \
+    -Zp8 \
+    $(CINCLUDES) \
+    -char unsigned \
+    -ms_ext -c_ext \
+    -proxy $(PASS0_SOURCEDIR)\$(<F:.idl=_p.c) \
+    -dlldata $(PASS0_SOURCEDIR)\dlldata.c \
+    -iid $(MIDL_UUIDDIR)\$(<F:.idl=_i.c) \
+    -header $@ \
+    -cpp_cmd $(HOSTCOMPILER) \
+    $(CDEFINES) \
+    $(MIDL_FLAGS) \
+    $(MIDL_OPTIMIZATION) \
+    $<
+
+! IFDEF PASS0_SOURCEDIR
+MC_SOURCEDIR=$(PASS0_SOURCEDIR)
+! ELSE
+MC_SOURCEDIR=$(PASS0_CLIENTDIR)
+! ENDIF
+
+{..\}.mc{$(PASS0_HEADERDIR)}.h:
+    $(MC) -h $(PASS0_HEADERDIR) -r $(MC_SOURCEDIR) $(MC_FLAGS) $<
+
+.mc{$(PASS0_HEADERDIR)}.h:
+    $(MC) -h $(PASS0_HEADERDIR) -r $(MC_SOURCEDIR) $(MC_FLAGS) $<
+
+
+! ENDIF
+
+!IF "$(_TGTCPUFAMILY)"=="MIPS"
+{}.s{$(_OBJDIR)\}.obj:
+    $(ASSEMBLER) $(MAKEDIR)\$< -Fo$@ $(AFLAGS)
+
+{$(_SRCDIR)\}.s{$(_OBJDIR)\}.obj:
+    $(ASSEMBLER) -Fo$@ $(AFLAGS) $(MAKEDIR)\$<
+
+{..\}.s{$(_OBJDIR)\}.obj:
+    $(ASSEMBLER) $(MAKEDIR)\$< -Fo$@ $(AFLAGS)
+
+{..\$(_SRCDIR)\}.s{$(_OBJDIR)\}.obj:
+    $(ASSEMBLER) -Fo$@ $(AFLAGS) $(MAKEDIR)\$<
+
+!ELSEIF "$(_TGTCPUFAMILY)"=="x86"
+{}.asm{$(_OBJDIR)\}.obj:
+    $(ASSEMBLER) -Fo$@ $(AFLAGS) $(MAKEDIR)\$<
+
+{$(_SRCDIR)\}.asm{$(_OBJDIR)\}.obj:
+    $(ASSEMBLER) -Fo$@ $(AFLAGS) $(MAKEDIR)\$<
+
+{..\}.asm{$(_OBJDIR)\}.obj:
+    $(ASSEMBLER) -Fo$@ $(AFLAGS) $(MAKEDIR)\$<
+
+{..\$(_SRCDIR)\}.asm{$(_OBJDIR)\}.obj:
+    $(ASSEMBLER) -Fo$@ $(AFLAGS) $(MAKEDIR)\$<
+
+!ELSEIF "$(_TGTCPUFAMILY)"=="SH"
+{}.src{$(_OBJDIR)\}.obj:
+    @set INCLUDE=$(INCLUDEPATH);shx;sh
+    $(ASSEMBLER) -Fo$@ $(AFLAGS) $(MAKEDIR)\$<
+
+{$(_SRCDIR)\}.src{$(_OBJDIR)\}.obj:
+    @set INCLUDE=$(INCLUDEPATH);shx;sh
+    $(ASSEMBLER) -Fo$@ $(AFLAGS) $(MAKEDIR)\$<
+
+{..\}.src{$(_OBJDIR)\}.obj:
+    @set INCLUDE=$(INCLUDEPATH);shx;sh
+    $(ASSEMBLER) -Fo$@ $(AFLAGS) $(MAKEDIR)\$<
+
+{..\$(_SRCDIR)\}.src{$(_OBJDIR)\}.obj:
+    @set INCLUDE=$(INCLUDEPATH);shx;sh
+    $(ASSEMBLER) -Fo$@ $(AFLAGS) $(MAKEDIR)\$<
+
+!ELSEIF ("$(_TGTCPUFAMILY)"=="ARM") || ("$(_TGTCPUFAMILY)"=="THUMB")
+{}.s{$(_OBJDIR)\}.obj:
+    $(ASSEMBLER) $(AFLAGS) $(MAKEDIR)\$< $@
+
+{$(_SRCDIR)\}.s{$(_OBJDIR)\}.obj:
+    $(ASSEMBLER) $(AFLAGS) $(MAKEDIR)\$< $@
+
+{..\}.s{$(_OBJDIR)\}.obj:
+    $(ASSEMBLER) $(AFLAGS) $(MAKEDIR)\$< $@
+
+{..\$(_SRCDIR)\}.s{$(_OBJDIR)\}.obj:
+    $(ASSEMBLER) $(AFLAGS) $(MAKEDIR)\$< $@
+
+!ENDIF
+
+!IF ("$(IRC_DEPENDENT)" != "0" && "$(IRC_DEPENDENT)" != "") || ("$(SPECIAL_IRC_DEPENDENT)" != "0" && "$(SPECIAL_IRC_DEPENDENT)" != "")
+#
+# Added for internationalization
+#
+{}.rc{$(_OBJDIR)\}.ire:
+    echo > $(_OBJDIR)\$(@R).ire
+
+{..\}.rc{$(_OBJDIR)\}.ire:
+    echo > $(_OBJDIR)\$(@R).ire
+
+{$(_OBJDIR)\}.ire{$(_OBJDIR)\}.res:
+    $(RCOMPILER) $(RCFLAGS) -fo$(@R).tmp $(<B).rc
+    $(CVTRES) $(@R).tmp -readonly -out:$@
+    @-erase $(@R).tmp
+
+.res.rbj:
+    $(CVTRES) $< -readonly -out:$@
+
+!ELSE
+
+.res.rbj:
+    $(CVTRES) $< -readonly -out:$@
+
+{}.rc{$(_OBJDIR)\}.res:
+    $(RCOMPILER) $(RCFLAGS) -fo$@ $(MAKEDIR)\$<
+
+{..\}.rc{$(_OBJDIR)\}.res:
+    $(RCOMPILER) $(RCFLAGS) -fo$@ $(MAKEDIR)\$<
+
+!ENDIF
+
+#
+# And explicit rules for the targets
+# the -map line here used to be conditional on WINCEMAP but now
+# we always want to generate map files since they are useful, and in particular romimage
+# reads them for some (nk*) to find some symbols
+#
+# -savebaserelocations will only generate a .REL file in the case where a
+# .RELOC section is also being emitted into the PE (when /FIXED:NO is set)
+#
+$(_RELEASEDIR)\$(TARGETNAME).exe: $(TARGETOBJFILES) $(TARGETLIBS)
+    set LIB=$(LIBPATH)
+    $(LINKER) -out:$(_RELEASEDIR)\$(TARGETNAME).exe $(MACHINEOPTION) @<<
+-nodefaultlib
+$(EXEENTRYOPTION)
+$(LINKER_DEBUG) -pdb:$(TARGET_PDB_NAME)
+-map:$(_RELEASEDIR)\$(TARGETNAME).map
+!IF "$(_TGTOS)"=="CE"
+-savebaserelocations:$(_RELEASEDIR)\$(TARGETNAME).rel
+!ENDIF
+$(LDEFINES)
+$(LINKER_SUBSYSTEM)
+-base:$(EXEBASE)
+$(TARGETOBJFILES)
+$(TARGETLIBS)
+<<NOKEEP
+!IF "$(BUILD_SIGN)" == "1"
+    signbin $(_RELEASEDIR)\$(TARGETNAME).exe
+!ENDIF
+
+!IF DEFINED(LINT_TYPE)
+!IF "$(LINT_TYPE)" == "lob"
+	@type <<
+$(LINT_CMD2_MSG) $(_OBJDIR)\*.lob
+<<NOKEEP
+	@echo $(LINT_CMD2)
+	@$(LINT_CMD2) $(_OBJDIR)\*.lob
+!ENDIF
+!IFDEF LINT_COPY2SRC
+	copy $(_OBJDIR)\$(LINT_OUTPUT).$(LINT_EXT) .
+!ENDIF
+!ENDIF
+
+
+!IF "$(WINCEREL)" == "1"
+      -$(__COPYCMD) $(_RELEASEDIR)\$(TARGETNAME).exe $(_FLATRELEASEDIR)\$(TARGETNAME).exe
+      -$(__COPYCMD) $(_RELEASEDIR)\$(TARGETNAME).map $(_FLATRELEASEDIR)\$(TARGETNAME).map
+      -$(__COPYCMD) $(TARGET_PDB_NAME) $(_FLATRELEASEDIR)
+      -if exist $(_RELEASEDIR)\$(TARGETNAME).rel $(__COPYCMD) $(_RELEASEDIR)\$(TARGETNAME).rel $(_FLATRELEASEDIR)\$(TARGETNAME).rel
+!ENDIF
+!IFDEF CPPBROWSE
+!IFNDEF NO_AUTOMATIC_BSC
+    bscmake  /n /o $(_RELEASEDIR)\$(TARGETNAME).bsc $(TEMP)\*.sbr
+!ENDIF
+!ENDIF
+
+!IF "$(NOEXPORTS)" != "1"
+EXPORTFILE=$(_RELEASELIBDIR)\$(TARGETNAME).exp
+DEFFILEFLAG=-def:$(DEFFILE)
+!ELSE
+EXPORTFILE=
+DEFFILEFLAG=
+!ENDIF
+
+# the -map line here used to be conditional on WINCEMAP but now
+# we always want to generate map files since they are useful, and in particular romimage
+# reads them for some (nk*) to find some symbols
+!IF "$(DEFFILE)" == "NO_DEF_FILE"
+$(_RELEASEDIR)\$(TARGETNAME).dll: $(TARGETOBJFILES) $(TARGETLIBS) $(SOURCELIBS)
+    set LIB=$(LIBPATH)
+    $(LINKER) -out:$(_RELEASEDIR)\$(TARGETNAME).dll -dll $(MACHINEOPTION) @<<
+-nodefaultlib
+$(DLLENTRYOPTION)
+$(LINKER_DEBUG) -pdb:$(TARGET_PDB_NAME)
+-map:$(_RELEASEDIR)\$(TARGETNAME).map
+!IF "$(_TGTOS)"=="CE"
+-savebaserelocations:$(_RELEASEDIR)\$(TARGETNAME).rel
+!ENDIF
+$(LDEFINES)
+$(LINKER_SUBSYSTEM)
+/base:$(DLLBASE)
+$(TARGETOBJFILES)
+$(SOURCELIBS)
+$(TARGETLIBS)
+<<NOKEEP
+!ELSE
+$(_RELEASEDIR)\$(TARGETNAME).dll: $(TARGETOBJFILES) $(TARGETLIBS) $(_RELEASELIBDIR)\$(TARGETNAME).lib $(EXPORTFILE) $(SOURCELIBS)
+    set LIB=$(LIBPATH)
+    $(LINKER) -out:$(_RELEASEDIR)\$(TARGETNAME).dll -dll $(MACHINEOPTION) @<<
+-nodefaultlib
+$(DLLENTRYOPTION)
+$(LINKER_DEBUG) -pdb:$(TARGET_PDB_NAME)
+-map:$(_RELEASEDIR)\$(TARGETNAME).map
+!IF "$(_TGTOS)"=="CE"
+-savebaserelocations:$(_RELEASEDIR)\$(TARGETNAME).rel
+!ENDIF
+$(LDEFINES)
+$(LINKER_SUBSYSTEM)
+/base:$(DLLBASE)
+$(TARGETOBJFILES)
+$(SOURCELIBS)
+$(TARGETLIBS)
+$(EXPORTFILE)
+<<NOKEEP
+!ENDIF
+!IF "$(BUILD_SIGN)" == "1"
+    signbin $(_RELEASEDIR)\$(TARGETNAME).dll
+!ENDIF
+
+!IF "$(CPL)"=="1"
+    copy $(_RELEASEDIR)\$(TARGETNAME).dll $(_RELEASEDIR)\$(TARGETNAME).cpl
+    @del $(_RELEASEDIR)\$(TARGETNAME).dll
+!ELSEIF "$(MUI)"=="1"
+    copy $(_RELEASEDIR)\$(TARGETNAME).dll $(_RELEASEDIR)\$(TARGETNAME).mui
+    @del $(_RELEASEDIR)\$(TARGETNAME).dll
+!ENDIF
+!IF "$(WINCEREL)" == "1"
+        -$(__COPYCMD) $(_RELEASEDIR)\$(TARGETNAME).map $(_FLATRELEASEDIR)\$(TARGETNAME).map
+        -$(__COPYCMD) $(TARGET_PDB_NAME) $(_FLATRELEASEDIR)
+        -if exist $(_RELEASEDIR)\$(TARGETNAME).rel $(__COPYCMD) $(_RELEASEDIR)\$(TARGETNAME).rel $(_FLATRELEASEDIR)\$(TARGETNAME).rel
+!IF "$(CPL)"=="1"
+    -$(__COPYCMD) $(_RELEASEDIR)\$(TARGETNAME).cpl $(_FLATRELEASEDIR)\$(TARGETNAME).cpl
+!ELSEIF "$(MUI)"=="1"
+    -$(__COPYCMD) $(_RELEASEDIR)\$(TARGETNAME).mui $(_FLATRELEASEDIR)\$(TARGETNAME).mui
+!ELSE
+    -$(__COPYCMD) $(_RELEASEDIR)\$(TARGETNAME).dll $(_FLATRELEASEDIR)\$(TARGETNAME).dll
+!ENDIF
+!ENDIF
+
+!IF "$(TARGETTYPE)" == "LIBRARY"
+$(_RELEASELIBDIR)\$(TARGETNAME).lib: $(TARGETOBJFILES) $(SOURCELIBS)
+    $(LIBRARIAN) -ignore:4001 -out:$(_RELEASELIBDIR)\$(TARGETNAME).lib $(MACHINEOPTION) @<<
+$(LIBDEFINES)
+-nologo
+-nodefaultlib
+$(LINKER_SUBSYSTEM)
+$(TARGETOBJFILES)
+$(SOURCELIBS)
+<<NOKEEP
+!IF "$(SOURCEPDBS)" != ""
+     -@for %%a in ($(SOURCEPDBS)) do @copy %%a $(_RELEASELIBDIR)
+!ENDIF
+!IF "$(SOURCELIBS)" != ""
+!IF "$(NOCOPYSOURCELIBPDB)" == ""
+     -@for %%a in ($(SOURCELIBS:.lib=.pdb)) do @copy %%a $(_RELEASELIBDIR)
+!ENDIF
+!ENDIF
+
+!IF DEFINED(LINT_TYPE)
+!IF "$(LINT_TYPE)" == "lob"
+	@type <<
+$(LINT_CMD2_MSG) $(_OBJDIR)\*.lob
+<<NOKEEP
+	@$(LINT_CMD2) $(_OBJDIR)\*.lob
+!ENDIF
+!IFDEF LINT_COPY2SRC
+	copy $(_OBJDIR)\$(LINT_OUTPUT).$(LINT_EXT) .
+!ENDIF
+!ENDIF
+
+!ENDIF
+!if "$(_XREF_GEN_DATA)" != ""
+    XrefSourcesFile $(_TGTCPU) $(WINCEDEBUG)
+    XrefSlib $(_TGTCPU) $(WINCEDEBUG) $(TARGETNAME) $(_RELEASELIBDIR)\$(TARGETNAME).lib $(TARGETOBJFILES) $(SOURCELIBS)
+!endif
+
+!IF "$(TARGETTYPE)" == "DYNLINK"
+!IFDEF PREPROCESSDEFFILE
+$(_RELEASELIBDIR)\$(TARGETNAME).lib $(EXPORTFILE): $(_RELEASELIBDIR)\$(TARGETDEFNAME).def $(TARGETOBJFILES) $(SOURCELIBS)
+    $(LIBRARIAN) -nodefaultlib -ignore:4001 -out:$(_RELEASELIBDIR)\$(TARGETNAME).lib \
+    -def:$(_RELEASELIBDIR)\$(TARGETDEFNAME).def $(MACHINEOPTION) @<<
+$(LIBDEFINES)
+$(LINKER_SUBSYSTEM)
+$(TARGETOBJFILES)
+$(SOURCELIBS) ..\ce\hif\sdio\obj\$(_TGTCPU)\$(WINCEDEBUG)\ndisload.obj
+<<NOKEEP
+!if "$(_XREF_GEN_DATA)" != ""
+    XrefDefFile $(_OBJDIR)\$(TARGETNAME).def
+!endif
+!ELSE
+$(_RELEASELIBDIR)\$(TARGETNAME).lib $(EXPORTFILE): $(DEFFILE) $(TARGETOBJFILES) $(SOURCELIBS)
+    $(LIBRARIAN) -nodefaultlib -ignore:4001 -out:$(_RELEASELIBDIR)\$(TARGETNAME).lib \
+     $(DEFFILEFLAG) $(MACHINEOPTION) @<<
+$(LIBDEFINES)
+$(LINKER_SUBSYSTEM)
+$(TARGETOBJFILES)
+$(SOURCELIBS)
+<<NOKEEP
+!if "$(_XREF_GEN_DATA)" != ""
+    XrefDefFile $(DEFFILE)
+!endif
+
+!IFDEF LINT_TYPE
+!IF "$(LINT_TYPE)" == "lob"
+	@type <<
+$(LINT_CMD2_MSG) $(_OBJDIR)\*.lob
+<<NOKEEP
+	@$(LINT_CMD2) $(_OBJDIR)\*.lob
+!ENDIF
+!IFDEF LINT_COPY2SRC
+	copy $(_OBJDIR)\$(LINT_OUTPUT).$(LINT_EXT) .
+!ENDIF
+!ENDIF
+
+!ENDIF
+
+!IFDEF CPPBROWSE
+!IFNDEF NO_AUTOMATIC_BSC
+    bscmake  /n /o $(_RELEASEDIR)\$(TARGETNAME).bsc $(TEMP)\*.sbr
+!ENDIF
+!ENDIF
+!ENDIF
+
+!IFDEF PREPROCESSDEFFILE
+$(_RELEASELIBDIR)\$(TARGETDEFNAME).def: $(_OBJDIR)\$(TARGETDEFNAME).def
+    $(DEFPREPROCESS) $(DEFPREPROCINC) -Tc$(DEFFILE) > $@
+$(_OBJDIR)\$(TARGETDEFNAME).def: $(DEFFILE)
+    $(DEFPREPROCESS) $(DEFPREPROCINC) -Tc$(DEFFILE) > $@
+!if "$(_XREF_GEN_DATA)" != ""
+    XrefDefFile $@
+!endif
+!ELSE
+$(_RELEASELIBDIR)\$(TARGETDEFNAME).def:
+    copy $(DEFFILE) $@ > nul
+!if "$(_XREF_GEN_DATA)" != ""
+    XrefDefFile $@
+!endif
+!ENDIF
+
+!IFDEF COPYRES
+!IF "$(TARGETRESNAME)" == ""
+!IF "$(RESFILE)" == ""
+$(_RELEASELIBDIR)\$(TARGETNAME).res: $(_OBJDIR)\$(TARGETNAME).res
+    copy $? $@
+!ELSE
+$(_RELEASELIBDIR)\$(TARGETNAME).res: $(_OBJDIR)\$(RESFILE)
+    copy $? $@
+!ENDIF
+!ELSE
+!IF "$(RESFILE)" == ""
+$(_RELEASELIBDIR)\$(TARGETRESNAME).res: $(_OBJDIR)\$(TARGETNAME).res
+    copy $? $@
+!ELSE
+$(_RELEASELIBDIR)\$(TARGETRESNAME).res: $(_OBJDIR)\$(RESFILE)
+    copy $? $@
+!ENDIF
+!ENDIF
+!ENDIF
+
+!IF DEFINED(LINT_TYPE) && ( "$(LINT_TYPE)" == "all" )
+$(_OBJDIR)\$(LINT_OUTPUT).$(LINT_EXT): $(TARGETOBJFILES)
+	@type <<
+$(LINT_ALL_CMD) $(SOURCES)
+<<NOKEEP
+	@$(LINT_ALL_CMD) $(SOURCES)
+!IFDEF LINT_COPY2SRC
+	copy $(_OBJDIR)\$(LINT_OUTPUT).$(LINT_EXT) .
+!ENDIF
+!ENDIF
+
+
+!IFDEF WINCETARGETFILES
+!IF EXIST(.\makefile.inc)
+!INCLUDE .\makefile.inc
+!ENDIF
+!ELSE
+!IFDEF WINCETARGETFILE0
+!IF EXIST(.\makefile.inc)
+!INCLUDE .\makefile.inc
+!ENDIF
+!ELSE
+#
+# Added for internationalization
+#
+!IF "$(SPECIAL_IRC_DEPENDENT)" != "0" && "$(SPECIAL_IRC_DEPENDENT)" != ""
+!IF EXIST(.\makefile.inc)
+!INCLUDE .\makefile.inc
+!ENDIF
+!ENDIF
+!ENDIF
+!ENDIF
+
+!IF EXIST($(_PROJECTROOT)\oak\misc\makefilepost.inc)
+!INCLUDE $(_PROJECTROOT)\oak\misc\makefilepost.inc
+!ENDIF
+

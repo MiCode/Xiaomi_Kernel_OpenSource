@@ -1,0 +1,10 @@
+LOCAL_SRC_FILES += \
+  kd_flashlightlist.c \
+  strobe_main_sid2_part1.c \
+  strobe_main_sid2_part2.c \
+  strobe_sub_sid2_part1.c \
+  strobe_sub_sid2_part2.c \
+  sub_strobe.c \
+  strobe_main_sid1_part2.c \
+  strobe_part_id.c \
+  strobe_sub_sid1_part2.c \

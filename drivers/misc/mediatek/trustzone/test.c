@@ -1,0 +1,166 @@
+
+#include <linux/module.h>
+#include <linux/types.h>
+#include <linux/slab.h>
+#include <linux/kthread.h>
+#include <linux/freezer.h>
+#include "trustzone/tz_cross/trustzone.h"
+#include "trustzone/tz_cross/ta_test.h"
+#include "trustzone/tz_cross/ta_mem.h"
+#include "trustzone/kree/system.h"
+#include "trustzone/kree/mem.h"
+#include "kree_int.h"
+
+
+uint32_t TEECK_Test_Add(KREE_SESSION_HANDLE session, uint32_t a, uint32_t b)
+{
+    MTEEC_PARAM param[4];
+    uint32_t paramTypes;
+    TZ_RESULT ret;
+
+    param[0].value.a = a;
+    param[1].value.a = b;
+    paramTypes = TZ_ParamTypes3(TZPT_VALUE_INPUT, TZPT_VALUE_INPUT, 
+                                TZPT_VALUE_OUTPUT);
+
+    ret = KREE_TeeServiceCall(session, TZCMD_TEST_ADD,
+                              paramTypes, param);
+    if (ret != TZ_RESULT_SUCCESS)
+    {
+        printk("ServiceCall error %d\n", ret);
+        param[2].value.a = 0;
+    }
+
+    return param[2].value.a;    
+}
+
+
+void tz_test(void)
+{
+    TZ_RESULT ret;
+    KREE_SESSION_HANDLE test_session;
+    KREE_SESSION_HANDLE mem_session;
+    KREE_SECUREMEM_HANDLE mem_handle;
+    KREE_SHAREDMEM_HANDLE shm_handle;
+    KREE_SHAREDMEM_PARAM shm_param;
+    uint32_t result;
+    struct timespec start, end;
+    long long ns;
+    int i;
+    MTEEC_PARAM param[4];
+    uint32_t *ptr;
+    int size;
+
+    ret = KREE_CreateSession(TZ_TA_TEST_UUID, &test_session);
+    if (ret != TZ_RESULT_SUCCESS)
+    {
+        printk("CreateSession error %d\n", ret);
+        return;
+    }
+
+    result = TEECK_Test_Add(test_session, 10, 20);
+    printk("tz_test TZCMD_TEST_ADD %d\n", result);
+
+    /// Time test.
+    getnstimeofday(&start);
+    for (i=0; i<100; i++)
+    {
+        result = TEECK_Test_Add(test_session, 10, 20);
+    }
+    getnstimeofday(&end);
+    ns = ((long long)end.tv_sec - start.tv_sec)*1000000000 + 
+          (end.tv_nsec - start.tv_nsec);
+    printk("100 times TEST_ADD %lld ns\n", ns);
+
+    ret = KREE_CreateSession(TZ_TA_MEM_UUID, &mem_session);
+    if (ret != TZ_RESULT_SUCCESS)
+    {
+        printk("Create memory session error %d\n", ret);
+        return;
+    }
+
+    printk ("test A\n");    
+    size = 4*1024;
+    ptr = (uint32_t *)kmalloc(size, GFP_KERNEL);
+
+ 
+    shm_param.buffer = ptr;
+    shm_param.size = size;
+    ret = KREE_RegisterSharedmem(mem_session, &shm_handle, &shm_param);
+    if (ret != TZ_RESULT_SUCCESS)
+    {
+        printk("KREE_RegisterSharedmem Error: %s\n", TZ_GetErrorString(ret));
+        return;
+    }
+    printk ("shm handle = 0x%x\n", shm_handle);
+    
+    for (i=0; i<4*1024/4; i++)
+        ptr[i] = i;  
+ 
+    param[0].memref.handle = (uint32_t) shm_handle;
+    param[0].memref.offset = 0;
+    param[0].memref.size = 4*1024;
+    param[1].value.a = (4*1024) / 4;
+    ret = KREE_TeeServiceCall(test_session, TZCMD_TEST_ADD_MEM,
+            TZ_ParamTypes3(TZPT_MEMREF_INPUT, TZPT_VALUE_INPUT, TZPT_VALUE_OUTPUT), param); 
+    if (ret != TZ_RESULT_SUCCESS)
+    {
+        printk("TZCMD_TEST_ADD_MEM error %d\n", ret);
+        return;
+    }                  
+    printk ("KREE ADD MEM result = 0x%x\n", param[2].value.a);         
+
+    ret = KREE_AllocSecuremem (mem_session, &mem_handle, 0, 1024);
+    if (ret != TZ_RESULT_SUCCESS)
+    {
+        printk("Secure memory allocate error %d\n", ret);
+        return;
+    }
+    
+    param[0].value.a = (uint32_t) mem_handle;
+    ret = KREE_TeeServiceCall(test_session, TZCMD_TEST_DO_A,
+            TZ_ParamTypes3(TZPT_VALUE_INPUT, TZPT_VALUE_OUTPUT, TZPT_VALUE_OUTPUT), param);    
+    printk ("Do A = 0x%x, 0x%x (%d)\n", param[1].value.a, param[2].value.a, ret);
+
+    ret = KREE_ReferenceSecuremem (mem_session, mem_handle);
+    if (ret != TZ_RESULT_SUCCESS)
+    {
+        printk("KREE_ReferenceSecuremem Error: %d\n", ret);
+    } 
+
+    param[0].value.a = (uint32_t) mem_handle;
+    ret = KREE_TeeServiceCall(test_session, TZCMD_TEST_DO_B,
+            TZ_ParamTypes3(TZPT_VALUE_INPUT, TZPT_VALUE_OUTPUT, TZPT_VALUE_OUTPUT), param);
+    printk ("Do B = 0x%x, 0x%x (%d)\n", param[1].value.a, param[2].value.a, ret);
+
+    // Free/Unreference secure memory
+    ret = KREE_UnreferenceSecuremem (mem_session, mem_handle);
+    if (ret != TZ_RESULT_SUCCESS)
+    {
+        printk("KREE_UnReferenceSecureMem Error 1: %d\n", ret);
+    } 
+    
+    ret = KREE_UnreferenceSecuremem (mem_session, mem_handle);
+    if (ret != TZ_RESULT_SUCCESS)
+    {
+        printk("KREE_UnReferenceSecureMem Error 2: %d\n", ret);
+    } 
+
+    ret = KREE_UnregisterSharedmem(mem_session, shm_handle);        
+    if (ret != TZ_RESULT_SUCCESS)
+    {
+        printk("KREE_UnregisterSharedmem Error: %s\n", TZ_GetErrorString(ret));
+        return;
+    }
+
+    ret = KREE_CloseSession(test_session);
+    if (ret != TZ_RESULT_SUCCESS)
+        printk("CloseSession error %d\n", ret);    
+
+    ret = KREE_CloseSession(mem_session);
+    if (ret != TZ_RESULT_SUCCESS)
+        printk("Close memory session error %d\n", ret);
+
+    printk ("KREE test done!!!!\n");
+}
+

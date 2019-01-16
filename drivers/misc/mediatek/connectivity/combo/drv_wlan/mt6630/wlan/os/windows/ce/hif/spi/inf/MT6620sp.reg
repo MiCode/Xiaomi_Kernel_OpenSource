@@ -1,0 +1,29 @@
+[HKEY_LOCAL_MACHINE\Comm\MT6620SP]
+    "DisplayName"="MediaTek MT6620 WLAN ADAPTER"
+    "Group"="NDIS"
+    "ImagePath"="MT6620SP.dll"
+
+[HKEY_LOCAL_MACHINE\Comm\MT6620SP\Linkage]
+    "Route"=multi_sz:"MT6620SP1"
+
+[HKEY_LOCAL_MACHINE\Comm\MT6620SP1]
+    "DisplayName"="MediaTek MT6620 WLAN ADAPTER"
+    "Group"="NDIS"
+    "ImagePath"="MT6620SP.dll"
+    "Wireless"=dword:00000001
+
+[HKEY_LOCAL_MACHINE\Comm\MT6620SP1\Parms]
+    "BusNumber"=dword:00000000
+    "BusType"=dword:00000000
+    "PowerMode"=dword:00000002
+    "Domain"="21333"
+
+[HKEY_LOCAL_MACHINE\Comm\MT6620SP1\Parms\TcpIp]
+    "EnableDHCP"=dword:1
+    "Subnetmask"="0.0.0.0"
+    "IpAddress"="0.0.0.0"
+    "UseZeroBroadcast"=dword:0
+    "DefaultGateway"="0.0.0.0"
+
+[HKEY_LOCAL_MACHINE\Software\Drivers\WLAN]
+    "AdapterName"="MT6620SP1"

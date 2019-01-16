@@ -1,0 +1,13 @@
+[UEM]
+MAX_NETNAME_TEXT = 16
+
+[uem_drv.c_HEADER]
+#ifdef __CUST_NEW__
+#include "kal_release.h"
+#include "gpio_drv.h"
+#include "custom_em.h"
+#include "custom_equipment.h"
+
+
+[uem_drv.c_TAILER]
+#endif /* __CUST_NEW__ */

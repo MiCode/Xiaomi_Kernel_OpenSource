@@ -1,0 +1,29 @@
+[MODULE_INFO]
+INFO_NUM = 1
+
+[INFO_0_NAME]
+INFO_NAME = FM Chip Select
+[INFO_0_CONTENT]
+AR1000
+MT6616
+
+[INFO_0_PROPERTY]
+MULTIPLE_CHECK = NO
+
+[GPIO_PROTECT]
+;                   Pull_en Pull_sel Def_dir In Out Inv Out_High
+;                   dis:0   low:0    out:1 
+
+[TYPE0]
+INFO_0 = AR1000
+[GPIO_NAME0]
+GPIO_FM_CLK_PIN
+[EINT_NAME0]
+
+
+[TYPE1]
+INFO_0 = MT6616
+[GPIO_NAME1]
+GPIO_FM_RDS_PIN
+[EINT_NAME1]
+FM_RDS

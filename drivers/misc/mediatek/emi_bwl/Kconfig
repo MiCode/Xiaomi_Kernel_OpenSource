@@ -1,0 +1,5 @@
+config MTK_EMI_BWL
+  bool CONFIG_MTK_EMI_BWL
+  default y
+  help
+    CONFIG_MTK_EMI_BWL

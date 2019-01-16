@@ -1,0 +1,97 @@
+/*
+ * Mediatek's MT6795 SoC device tree source
+ *
+ * Copyright (c) 2013 MediaTek Co., Ltd.
+ *              http://www.mediatek.com
+ *
+ */
+
+/dts-v1/;
+
+/include/ "mt6795.dtsi"
+/include/ "cust_eint.dtsi"
+/ {
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x000>;
+			enable-method = "mt-boot";
+			cpu-release-addr = <0x0 0x40000200>;
+			clock-frequency = <2000000000>;
+		};
+
+		cpu1: cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x001>;
+			enable-method = "mt-boot";
+			cpu-release-addr = <0x0 0x40000200>;
+			clock-frequency = <2000000000>;
+		};
+
+		cpu2: cpu@2 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x002>;
+			enable-method = "mt-boot";
+			cpu-release-addr = <0x0 0x40000200>;
+			clock-frequency = <2000000000>;
+		};
+
+		cpu3: cpu@3 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x003>;
+			enable-method = "mt-boot";
+			cpu-release-addr = <0x0 0x40000200>;
+			clock-frequency = <2000000000>;
+		};
+
+		cpu4: cpu@4 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x100>;
+			enable-method = "mt-boot";
+			cpu-release-addr = <0x0 0x40000200>;
+			clock-frequency = <2000000000>;
+		};
+
+		cpu5: cpu@5 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x101>;
+			enable-method = "mt-boot";
+			cpu-release-addr = <0x0 0x40000200>;
+			clock-frequency = <2000000000>;
+		};
+
+		cpu6: cpu@6 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x102>;
+			enable-method = "mt-boot";
+			cpu-release-addr = <0x0 0x40000200>;
+			clock-frequency = <2000000000>;
+		};
+
+		cpu7: cpu@7 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x103>;
+			enable-method = "mt-boot";
+			cpu-release-addr = <0x0 0x40000200>;
+			clock-frequency = <2000000000>;
+
+		};
+
+	};
+
+	memory@00000000 {
+		device_type = "memory";
+		reg = <0 0x40000000 0 0x1E800000>;
+	};
+
+};

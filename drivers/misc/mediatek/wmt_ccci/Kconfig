@@ -1,0 +1,5 @@
+config MTK_WMT_CCCI
+  bool CONFIG_MTK_WMT_CCCI
+  default n
+  help
+    CONFIG_MTK_WMT_CCCI

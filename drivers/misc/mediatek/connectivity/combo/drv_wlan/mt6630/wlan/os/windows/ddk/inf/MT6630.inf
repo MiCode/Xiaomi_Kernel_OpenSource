@@ -1,0 +1,1151 @@
+; MT6630sd.inf
+;
+; /****************************************************************************
+; ** Copyright (C) 2005-2007 MediaTek Incorporation. All Roghts Reserved.    **
+; **                                                                         **
+; ** MediaTek MT6630 SDIO Wireless LAN Card NDIS Miniport Driver             **
+; ** Installation File                                                       **
+; ****************************************************************************/
+
+[version]
+Signature           = "$Chicago$"
+Class               = Net
+ClassGUID           = {4d36e972-e325-11ce-bfc1-08002be10318}
+Provider            = %V_MEDIATEK%
+Compatible          = 1
+CatalogFile.NT      = MT6630sd.cat
+CatalogFile.NTia64  = MT6630sdi.cat
+CatalogFile.NTamd64 = MT6630sda.cat
+DriverVer           = 11/02/2011,2.0.1.2
+
+[Manufacturer]
+%V_MEDIATEK% = MEDIATEK, NTia64, NTamd64
+
+[ControlFlags]
+ExcludeFromSelect = *		; Don't display Plug & Play capable devices in the Add Hardware UI
+
+[MEDIATEK]
+%MT6630.DeviceDesc% = MT6630.ndi, SD\VID_037A&PID_6630&FN_1     ; MediaTek SDIO Wireless LAN Card
+
+;
+; MEDIATEK MT6630 Wireless LAN Card
+;
+; Windows NT specific entry
+[MT6630.ndi.NT]
+Characteristics = 0x84
+BusType         = 15;
+AddReg          = MT6630.common.reg, MT6630WinNT.reg
+DelReg          = MT6630.common.DelReg
+CopyFiles       = MT6630WinNT.CopyFiles
+
+[MT6630.ndi.NT.Services]
+AddService = MT6630, 2, MT6630WinNT.Service, common.EventLog
+
+; Windows NT specific entry on IA-64 platform
+[MT6630ia64Install.NTia64]
+Characteristics = 0x84
+BusType         = 15;
+AddReg          = MT6630.common.reg, MT5901WinNT.reg
+DelReg          = MT6630.common.DelReg
+CopyFiles       = MT6630WinNTia64.CopyFiles
+
+[MT6630ia64Install.NTia64.Services]
+AddService = MT6630, 2, MT6630WinNTia64.Service, common.EventLog
+
+; Windows NT specific entry on AMD64 (x64) platform
+[MT6630x64Install.NTamd64]
+Characteristics = 0x84
+BusType         = 15;
+AddReg          = MT6630.common.reg, MT5901WinNT.reg
+DelReg          = MT6630.common.DelReg
+CopyFiles       = MT6630WinNTamd64.CopyFiles
+
+[MT6630x64Install.NTamd64.Services]
+AddService = MT6630, 2, MT6630WinNTamd64.Service, common.EventLog
+
+;-----------------------------------------------------------------------------
+; common registry section
+;
+[MT6630.common.reg]
+HKR, Ndi\params\NetworkAddress,     ParamDesc,  0, %NetworkAddress%
+HKR, Ndi\params\NetworkAddress,     Type,       0, "edit"
+HKR, Ndi\params\NetworkAddress,     Default,    0, ""
+HKR, Ndi\params\NetworkAddress,     Optional,   0, "1"
+HKR, Ndi\params\NetworkAddress,     LimitText,  0, "12"
+HKR, Ndi\params\NetworkAddress,     UpperCase,  0, "1"
+
+HKR, Ndi\params\Rate,               ParamDesc,  0, %Rate%
+HKR, Ndi\params\Rate,               Type,       0, "enum"
+HKR, Ndi\params\Rate,               Default,    0, "0"
+HKR, Ndi\params\Rate\enum,          "0",        0, %RateAutomatic%
+HKR, Ndi\params\Rate\enum,          "1",        0, %Rate1M%
+HKR, Ndi\params\Rate\enum,          "2",        0, %Rate2M%
+HKR, Ndi\params\Rate\enum,          "3",        0, %Rate5_5M%
+HKR, Ndi\params\Rate\enum,          "4",        0, %Rate11M%
+HKR, Ndi\params\Rate\enum,          "5",        0, %Rate6M%
+HKR, Ndi\params\Rate\enum,          "6",        0, %Rate9M%
+HKR, Ndi\params\Rate\enum,          "7",        0, %Rate12M%
+HKR, Ndi\params\Rate\enum,          "8",        0, %Rate18M%
+HKR, Ndi\params\Rate\enum,          "9",        0, %Rate24M%
+HKR, Ndi\params\Rate\enum,          "10",       0, %Rate36M%
+HKR, Ndi\params\Rate\enum,          "11",       0, %Rate48M%
+HKR, Ndi\params\Rate\enum,          "12",       0, %Rate54M%
+HKR, Ndi\params\Rate\enum,          "13",       0, %Rate20MCS0800%
+HKR, Ndi\params\Rate\enum,          "14",       0, %Rate20MCS1800%
+HKR, Ndi\params\Rate\enum,          "15",       0, %Rate20MCS2800%
+HKR, Ndi\params\Rate\enum,          "16",       0, %Rate20MCS3800%
+HKR, Ndi\params\Rate\enum,          "17",       0, %Rate20MCS4800%
+HKR, Ndi\params\Rate\enum,          "18",       0, %Rate20MCS5800%
+HKR, Ndi\params\Rate\enum,          "19",       0, %Rate20MCS6800%
+HKR, Ndi\params\Rate\enum,          "20",       0, %Rate20MCS7800%
+HKR, Ndi\params\Rate\enum,          "21",       0, %Rate20MCS0400%
+HKR, Ndi\params\Rate\enum,          "22",       0, %Rate20MCS1400%
+HKR, Ndi\params\Rate\enum,          "23",       0, %Rate20MCS2400%
+HKR, Ndi\params\Rate\enum,          "24",       0, %Rate20MCS3400%
+HKR, Ndi\params\Rate\enum,          "25",       0, %Rate20MCS4400%
+HKR, Ndi\params\Rate\enum,          "26",       0, %Rate20MCS5400%
+HKR, Ndi\params\Rate\enum,          "27",       0, %Rate20MCS6400%
+HKR, Ndi\params\Rate\enum,          "28",       0, %Rate20MCS7400%
+HKR, Ndi\params\Rate\enum,          "29",       0, %Rate40MCS0800%
+HKR, Ndi\params\Rate\enum,          "30",       0, %Rate40MCS1800%
+HKR, Ndi\params\Rate\enum,          "31",       0, %Rate40MCS2800%
+HKR, Ndi\params\Rate\enum,          "32",       0, %Rate40MCS3800%
+HKR, Ndi\params\Rate\enum,          "33",       0, %Rate40MCS4800%
+HKR, Ndi\params\Rate\enum,          "34",       0, %Rate40MCS5800%
+HKR, Ndi\params\Rate\enum,          "35",       0, %Rate40MCS6800%
+HKR, Ndi\params\Rate\enum,          "36",       0, %Rate40MCS7800%
+HKR, Ndi\params\Rate\enum,          "37",       0, %Rate40MCS32800%
+HKR, Ndi\params\Rate\enum,          "38",       0, %Rate40MCS0400%
+HKR, Ndi\params\Rate\enum,          "39",       0, %Rate40MCS1400%
+HKR, Ndi\params\Rate\enum,          "40",       0, %Rate40MCS2400%
+HKR, Ndi\params\Rate\enum,          "41",       0, %Rate40MCS3400%
+HKR, Ndi\params\Rate\enum,          "42",       0, %Rate40MCS4400%
+HKR, Ndi\params\Rate\enum,          "43",       0, %Rate40MCS5400%
+HKR, Ndi\params\Rate\enum,          "44",       0, %Rate40MCS6400%
+HKR, Ndi\params\Rate\enum,          "45",       0, %Rate40MCS7400%
+HKR, Ndi\params\Rate\enum,          "46",       0, %Rate40MCS32400%
+
+HKR, Ndi\params\AdHocMode,          ParamDesc,  0, %AdHocMode%
+HKR, Ndi\params\AdHocMode,          Type,       0, "enum"
+HKR, Ndi\params\AdHocMode,          Default,    0, "0"
+HKR, Ndi\params\AdHocMode\enum,     "0",        0, %AdHocMode11b%
+HKR, Ndi\params\AdHocMode\enum,     "1",        0, %AdHocModeMixed%
+HKR, Ndi\params\AdHocMode\enum,     "2",        0, %AdHocMode11g%
+
+HKR, Ndi\params\StartFreq,          ParamDesc,  0, %StartFreq%
+HKR, Ndi\params\StartFreq,          Type,       0, "enum"
+HKR, Ndi\params\StartFreq,          Default,    0, "2462000"
+HKR, Ndi\params\StartFreq\enum,     "2412000",  0, %Channel241%
+HKR, Ndi\params\StartFreq\enum,     "2417000",  0, %Channel242%
+HKR, Ndi\params\StartFreq\enum,     "2422000",  0, %Channel243%
+HKR, Ndi\params\StartFreq\enum,     "2427000",  0, %Channel244%
+HKR, Ndi\params\StartFreq\enum,     "2432000",  0, %Channel245%
+HKR, Ndi\params\StartFreq\enum,     "2437000",  0, %Channel246%
+HKR, Ndi\params\StartFreq\enum,     "2442000",  0, %Channel247%
+HKR, Ndi\params\StartFreq\enum,     "2447000",  0, %Channel248%
+HKR, Ndi\params\StartFreq\enum,     "2452000",  0, %Channel249%
+HKR, Ndi\params\StartFreq\enum,     "2457000",  0, %Channel2410%
+HKR, Ndi\params\StartFreq\enum,     "2462000",  0, %Channel2411%
+HKR, Ndi\params\StartFreq\enum,     "2467000",  0, %Channel2412%
+HKR, Ndi\params\StartFreq\enum,     "2472000",  0, %Channel2413%
+HKR, Ndi\params\StartFreq\enum,     "2484000",  0, %Channel2414%
+
+HKR, Ndi\params\RddDfs,          ParamDesc,  0, %RddDfs%
+HKR, Ndi\params\RddDfs,          Type,       0, "enum"
+HKR, Ndi\params\RddDfs,          Default,    0, "0"
+HKR, Ndi\params\RddDfs\enum,     "0",  			0, %RddDfsDisable%
+HKR, Ndi\params\RddDfs\enum,     "1",  			0, %RddDfsEnable%
+HKR, Ndi\params\RddDfs\enum,     "2",        0, %RddDfsEnableAll5G%
+HKR, Ndi\params\RddDfs\enum,     "3",  	     0, %RddDfsEnableAll24G%
+
+HKR, Ndi\params\RddTestMode,          ParamDesc,  0, %RddTestMode%
+HKR, Ndi\params\RddTestMode,          Type,       0, "enum"
+HKR, Ndi\params\RddTestMode,          Default,    0, "0"
+HKR, Ndi\params\RddTestMode\enum,     "0",  			0, %RddTestModeDisable%
+HKR, Ndi\params\RddTestMode\enum,     "1",  			0, %RddTestModeIsm%
+HKR, Ndi\params\RddTestMode\enum,     "2",  			0, %RddTestModeIsmDebug%
+
+HKR, Ndi\params\RddShutFreq,          		ParamDesc,  0, %RddShutFreq%
+HKR, Ndi\params\RddShutFreq,          		Type,       0, "enum"
+HKR, Ndi\params\RddShutFreq,          		Default,    0, "0"
+HKR, Ndi\params\RddShutFreq\enum,     		"0",  			0, %RddShutFreqDisable%
+HKR, Ndi\params\RddShutFreq\enum,     		"1",  			0, %RddShutFreqEnable%
+
+HKR, Ndi\params\RddStartFreq,          ParamDesc,  0, %RddStartFreq%
+HKR, Ndi\params\RddStartFreq,          Type,       0, "enum"
+HKR, Ndi\params\RddStartFreq,          Default,    0, "5600000"
+HKR, Ndi\params\RddStartFreq\enum,     "2412000",  0, %RddStartChannel241%
+HKR, Ndi\params\RddStartFreq\enum,     "2417000",  0, %RddStartChannel242%
+HKR, Ndi\params\RddStartFreq\enum,     "2422000",  0, %RddStartChannel243%
+HKR, Ndi\params\RddStartFreq\enum,     "2427000",  0, %RddStartChannel244%
+HKR, Ndi\params\RddStartFreq\enum,     "2432000",  0, %RddStartChannel245%
+HKR, Ndi\params\RddStartFreq\enum,     "2437000",  0, %RddStartChannel246%
+HKR, Ndi\params\RddStartFreq\enum,     "2442000",  0, %RddStartChannel247%
+HKR, Ndi\params\RddStartFreq\enum,     "2447000",  0, %RddStartChannel248%
+HKR, Ndi\params\RddStartFreq\enum,     "2452000",  0, %RddStartChannel249%
+HKR, Ndi\params\RddStartFreq\enum,     "2457000",  0, %RddStartChannel2410%
+HKR, Ndi\params\RddStartFreq\enum,     "2462000",  0, %RddStartChannel2411%
+HKR, Ndi\params\RddStartFreq\enum,     "2467000",  0, %RddStartChannel2412%
+HKR, Ndi\params\RddStartFreq\enum,     "2472000",  0, %RddStartChannel2413%
+HKR, Ndi\params\RddStartFreq\enum,     "2484000",  0, %RddStartChannel2414%
+HKR, Ndi\params\RddStartFreq\enum,     "4915000",  0, %RddStartChannel50183%
+HKR, Ndi\params\RddStartFreq\enum,     "4920000",  0, %RddStartChannel50184%
+HKR, Ndi\params\RddStartFreq\enum,     "4925000",  0, %RddStartChannel50185%
+HKR, Ndi\params\RddStartFreq\enum,     "4930000",  0, %RddStartChannel50186%
+HKR, Ndi\params\RddStartFreq\enum,     "4935000",  0, %RddStartChannel50187%
+HKR, Ndi\params\RddStartFreq\enum,     "4940000",  0, %RddStartChannel50188%
+HKR, Ndi\params\RddStartFreq\enum,     "4945000",  0, %RddStartChannel50189%
+HKR, Ndi\params\RddStartFreq\enum,     "4960000",  0, %RddStartChannel50192%
+HKR, Ndi\params\RddStartFreq\enum,     "4980000",  0, %RddStartChannel50196%
+HKR, Ndi\params\RddStartFreq\enum,     "5170000",  0, %RddStartChannel5034%
+HKR, Ndi\params\RddStartFreq\enum,     "5180000",  0, %RddStartChannel5036%
+HKR, Ndi\params\RddStartFreq\enum,     "5190000",  0, %RddStartChannel5038%
+HKR, Ndi\params\RddStartFreq\enum,     "5200000",  0, %RddStartChannel5040%
+HKR, Ndi\params\RddStartFreq\enum,     "5210000",  0, %RddStartChannel5042%
+HKR, Ndi\params\RddStartFreq\enum,     "5220000",  0, %RddStartChannel5044%
+HKR, Ndi\params\RddStartFreq\enum,     "5230000",  0, %RddStartChannel5046%
+HKR, Ndi\params\RddStartFreq\enum,     "5240000",  0, %RddStartChannel5048%
+HKR, Ndi\params\RddStartFreq\enum,     "5250000",  0, %RddStartChannel5050%
+HKR, Ndi\params\RddStartFreq\enum,     "5260000",  0, %RddStartChannel5052%
+HKR, Ndi\params\RddStartFreq\enum,     "5270000",  0, %RddStartChannel5054%
+HKR, Ndi\params\RddStartFreq\enum,     "5280000",  0, %RddStartChannel5056%
+HKR, Ndi\params\RddStartFreq\enum,     "5290000",  0, %RddStartChannel5058%
+HKR, Ndi\params\RddStartFreq\enum,     "5300000",  0, %RddStartChannel5060%
+HKR, Ndi\params\RddStartFreq\enum,     "5320000",  0, %RddStartChannel5064%
+HKR, Ndi\params\RddStartFreq\enum,     "5500000",  0, %RddStartChannel50100%
+HKR, Ndi\params\RddStartFreq\enum,     "5520000",  0, %RddStartChannel50104%
+HKR, Ndi\params\RddStartFreq\enum,     "5540000",  0, %RddStartChannel50108%
+HKR, Ndi\params\RddStartFreq\enum,     "5560000",  0, %RddStartChannel50112%
+HKR, Ndi\params\RddStartFreq\enum,     "5580000",  0, %RddStartChannel50116%
+HKR, Ndi\params\RddStartFreq\enum,     "5600000",  0, %RddStartChannel50120%
+HKR, Ndi\params\RddStartFreq\enum,     "5620000",  0, %RddStartChannel50124%
+HKR, Ndi\params\RddStartFreq\enum,     "5640000",  0, %RddStartChannel50128%
+HKR, Ndi\params\RddStartFreq\enum,     "5660000",  0, %RddStartChannel50132%
+HKR, Ndi\params\RddStartFreq\enum,     "5680000",  0, %RddStartChannel50136%
+HKR, Ndi\params\RddStartFreq\enum,     "5700000",  0, %RddStartChannel50140%
+HKR, Ndi\params\RddStartFreq\enum,     "5745000",  0, %RddStartChannel50149%
+HKR, Ndi\params\RddStartFreq\enum,     "5765000",  0, %RddStartChannel50153%
+HKR, Ndi\params\RddStartFreq\enum,     "5785000",  0, %RddStartChannel50157%
+HKR, Ndi\params\RddStartFreq\enum,     "5805000",  0, %RddStartChannel50161%
+HKR, Ndi\params\RddStartFreq\enum,     "5825000",  0, %RddStartChannel50165%
+
+HKR, Ndi\params\RddStopFreq,          ParamDesc,  0, %RddStopFreq%
+HKR, Ndi\params\RddStopFreq,          Type,       0, "enum"
+HKR, Ndi\params\RddStopFreq,          Default,    0, "5180000"
+HKR, Ndi\params\RddStopFreq\enum,     "2412000",  0, %RddStopChannel241%
+HKR, Ndi\params\RddStopFreq\enum,     "2417000",  0, %RddStopChannel242%
+HKR, Ndi\params\RddStopFreq\enum,     "2422000",  0, %RddStopChannel243%
+HKR, Ndi\params\RddStopFreq\enum,     "2427000",  0, %RddStopChannel244%
+HKR, Ndi\params\RddStopFreq\enum,     "2432000",  0, %RddStopChannel245%
+HKR, Ndi\params\RddStopFreq\enum,     "2437000",  0, %RddStopChannel246%
+HKR, Ndi\params\RddStopFreq\enum,     "2442000",  0, %RddStopChannel247%
+HKR, Ndi\params\RddStopFreq\enum,     "2447000",  0, %RddStopChannel248%
+HKR, Ndi\params\RddStopFreq\enum,     "2452000",  0, %RddStopChannel249%
+HKR, Ndi\params\RddStopFreq\enum,     "2457000",  0, %RddStopChannel2410%
+HKR, Ndi\params\RddStopFreq\enum,     "2462000",  0, %RddStopChannel2411%
+HKR, Ndi\params\RddStopFreq\enum,     "2467000",  0, %RddStopChannel2412%
+HKR, Ndi\params\RddStopFreq\enum,     "2472000",  0, %RddStopChannel2413%
+HKR, Ndi\params\RddStopFreq\enum,     "4915000",  0, %RddStopChannel50183%
+HKR, Ndi\params\RddStopFreq\enum,     "4920000",  0, %RddStopChannel50184%
+HKR, Ndi\params\RddStopFreq\enum,     "4925000",  0, %RddStopChannel50185%
+HKR, Ndi\params\RddStopFreq\enum,     "4930000",  0, %RddStopChannel50186%
+HKR, Ndi\params\RddStopFreq\enum,     "4935000",  0, %RddStopChannel50187%
+HKR, Ndi\params\RddStopFreq\enum,     "4940000",  0, %RddStopChannel50188%
+HKR, Ndi\params\RddStopFreq\enum,     "4945000",  0, %RddStopChannel50189%
+HKR, Ndi\params\RddStopFreq\enum,     "4960000",  0, %RddStopChannel50192%
+HKR, Ndi\params\RddStopFreq\enum,     "4980000",  0, %RddStopChannel50196%
+HKR, Ndi\params\RddStopFreq\enum,     "5170000",  0, %RddStopChannel5034%
+HKR, Ndi\params\RddStopFreq\enum,     "5180000",  0, %RddStopChannel5036%
+HKR, Ndi\params\RddStopFreq\enum,     "5190000",  0, %RddStopChannel5038%
+HKR, Ndi\params\RddStopFreq\enum,     "5200000",  0, %RddStopChannel5040%
+HKR, Ndi\params\RddStopFreq\enum,     "5210000",  0, %RddStopChannel5042%
+HKR, Ndi\params\RddStopFreq\enum,     "5220000",  0, %RddStopChannel5044%
+HKR, Ndi\params\RddStopFreq\enum,     "5230000",  0, %RddStopChannel5046%
+HKR, Ndi\params\RddStopFreq\enum,     "5240000",  0, %RddStopChannel5048%
+HKR, Ndi\params\RddStopFreq\enum,     "5250000",  0, %RddStopChannel5050%
+HKR, Ndi\params\RddStopFreq\enum,     "5260000",  0, %RddStopChannel5052%
+HKR, Ndi\params\RddStopFreq\enum,     "5270000",  0, %RddStopChannel5054%
+HKR, Ndi\params\RddStopFreq\enum,     "5280000",  0, %RddStopChannel5056%
+HKR, Ndi\params\RddStopFreq\enum,     "5290000",  0, %RddStopChannel5058%
+HKR, Ndi\params\RddStopFreq\enum,     "5300000",  0, %RddStopChannel5060%
+HKR, Ndi\params\RddStopFreq\enum,     "5320000",  0, %RddStopChannel5064%
+HKR, Ndi\params\RddStopFreq\enum,     "5500000",  0, %RddStopChannel50100%
+HKR, Ndi\params\RddStopFreq\enum,     "5520000",  0, %RddStopChannel50104%
+HKR, Ndi\params\RddStopFreq\enum,     "5540000",  0, %RddStopChannel50108%
+HKR, Ndi\params\RddStopFreq\enum,     "5560000",  0, %RddStopChannel50112%
+HKR, Ndi\params\RddStopFreq\enum,     "5580000",  0, %RddStopChannel50116%
+HKR, Ndi\params\RddStopFreq\enum,     "5600000",  0, %RddStopChannel50120%
+HKR, Ndi\params\RddStopFreq\enum,     "5620000",  0, %RddStopChannel50124%
+HKR, Ndi\params\RddStopFreq\enum,     "5640000",  0, %RddStopChannel50128%
+HKR, Ndi\params\RddStopFreq\enum,     "5660000",  0, %RddStopChannel50132%
+HKR, Ndi\params\RddStopFreq\enum,     "5680000",  0, %RddStopChannel50136%
+HKR, Ndi\params\RddStopFreq\enum,     "5700000",  0, %RddStopChannel50140%
+HKR, Ndi\params\RddStopFreq\enum,     "5745000",  0, %RddStopChannel50149%
+HKR, Ndi\params\RddStopFreq\enum,     "5765000",  0, %RddStopChannel50153%
+HKR, Ndi\params\RddStopFreq\enum,     "5785000",  0, %RddStopChannel50157%
+HKR, Ndi\params\RddStopFreq\enum,     "5805000",  0, %RddStopChannel50161%
+HKR, Ndi\params\RddStopFreq\enum,     "5825000",  0, %RddStopChannel50165%
+
+HKR, Ndi\params\RtsThreshold,       ParamDesc,  0, %RTSThreshold%
+HKR, Ndi\params\RtsThreshold,       Type,       0, "int"
+HKR, Ndi\params\RtsThreshold,       Default,    0, "2347"
+HKR, Ndi\params\RtsThreshold,       Min,        0, "0"
+HKR, Ndi\params\RtsThreshold,       Max,        0, "00002347"
+HKR, Ndi\params\RtsThreshold,       Step,       0, "1"
+HKR, Ndi\params\RtsThreshold,       Base,       0, "10"
+
+HKR, Ndi\params\FragThreshold,      ParamDesc,  0, %FragmentationThreshold%
+HKR, Ndi\params\FragThreshold,      Type,       0, "int"
+HKR, Ndi\params\FragThreshold,      Default,    0, "2346"
+HKR, Ndi\params\FragThreshold,      Min,        0, "256"
+HKR, Ndi\params\FragThreshold,      Max,        0, "00002346"
+HKR, Ndi\params\FragThreshold,      Step,       0, "1"
+HKR, Ndi\params\FragThreshold,      Base,       0, "10"
+
+HKR, Ndi\params\PowerMode,          ParamDesc,  0, %PowerMode%
+HKR, Ndi\params\PowerMode,          Type,       0, "enum"
+HKR, Ndi\params\PowerMode,          Default,    0, "2"
+HKR, Ndi\params\PowerMode\enum,     "0",        0, %PowerModeCAM%
+HKR, Ndi\params\PowerMode\enum,     "1",        0, %PowerModeMAX_PSP%
+HKR, Ndi\params\PowerMode\enum,     "2",        0, %PowerModeFast_PSP%
+
+HKR, Ndi\params\WMM_UAPSD_TEST,       ParamDesc,  0, %WMMUAPSDTEST%
+HKR, Ndi\params\WMM_UAPSD_TEST,       Type,       0, "int"
+HKR, Ndi\params\WMM_UAPSD_TEST,       Default,    0, "0"
+HKR, Ndi\params\WMM_UAPSD_TEST,       Min,        0, "0"
+HKR, Ndi\params\WMM_UAPSD_TEST,       Max,        0, "1"
+HKR, Ndi\params\WMM_UAPSD_TEST,       Step,       0, "1"
+HKR, Ndi\params\WMM_UAPSD_TEST,       Base,       0, "10"
+
+HKR, Ndi\params\WMM_ENABLE,          ParamDesc,  0, %WMM_ENABLE%
+HKR, Ndi\params\WMM_ENABLE,          Type,       0, "enum"
+HKR, Ndi\params\WMM_ENABLE,          Default,    0, "1"
+HKR, Ndi\params\WMM_ENABLE\enum,     "0",        0, %_FALSE_%
+HKR, Ndi\params\WMM_ENABLE\enum,     "1",        0, %_TRUE_%
+
+HKR, Ndi\params\ArpFilterEn,         ParamDesc,  0, %ArpFilterEn%
+HKR, Ndi\params\ArpFilterEn,         Type,       0, "enum"
+HKR, Ndi\params\ArpFilterEn,         Default,    0, "1"
+HKR, Ndi\params\ArpFilterEn\enum,    "0",        0, %_FALSE_%
+HKR, Ndi\params\ArpFilterEn\enum,    "1",        0, %_TRUE_%
+
+HKR, Ndi\params\BTCR0,               ParamDesc,  0, %BTCR0%
+HKR, Ndi\params\BTCR0,               Type,       0, "dword"
+HKR, Ndi\params\BTCR0,               Default,    0, "00000000"
+HKR, Ndi\params\BTCR0,               Min,        0, "00000000"
+HKR, Ndi\params\BTCR0,               Max,        0, "ffffffff"
+HKR, Ndi\params\BTCR0,               Step,       0, "1"
+HKR, Ndi\params\BTCR0,               Base,       0, "16"
+
+HKR, Ndi\params\BTCR1,               ParamDesc,  0, %BTCR1%
+HKR, Ndi\params\BTCR1,               Type,       0, "dword"
+HKR, Ndi\params\BTCR1,               Default,    0, "00000000"
+HKR, Ndi\params\BTCR1,               Min,        0, "00000000"
+HKR, Ndi\params\BTCR1,               Max,        0, "ffffffff"
+HKR, Ndi\params\BTCR1,               Step,       0, "1"
+HKR, Ndi\params\BTCR1,               Base,       0, "16"
+
+HKR, Ndi\params\BTCR2,               ParamDesc,  0, %BTCR2%
+HKR, Ndi\params\BTCR2,               Type,       0, "dword"
+HKR, Ndi\params\BTCR2,               Default,    0, "00000000"
+HKR, Ndi\params\BTCR2,               Min,        0, "00000000"
+HKR, Ndi\params\BTCR2,               Max,        0, "ffffffff"
+HKR, Ndi\params\BTCR2,               Step,       0, "1"
+HKR, Ndi\params\BTCR2,               Base,       0, "16"
+
+HKR, Ndi\params\BTCR3,               ParamDesc,  0, %BTCR3%
+HKR, Ndi\params\BTCR3,               Type,       0, "dword"
+HKR, Ndi\params\BTCR3,               Default,    0, "00000000"
+HKR, Ndi\params\BTCR3,               Min,        0, "00000000"
+HKR, Ndi\params\BTCR3,               Max,        0, "ffffffff"
+HKR, Ndi\params\BTCR3,               Step,       0, "1"
+HKR, Ndi\params\BTCR3,               Base,       0, "16"
+
+HKR, Ndi\params\SCOBTCR0,            ParamDesc,  0, %SCOBTCR0%
+HKR, Ndi\params\SCOBTCR0,            Type,       0, "dword"
+HKR, Ndi\params\SCOBTCR0,            Default,    0, "82040041"
+HKR, Ndi\params\SCOBTCR0,            Min,        0, "00000000"
+HKR, Ndi\params\SCOBTCR0,            Max,        0, "ffffffff"
+HKR, Ndi\params\SCOBTCR0,            Step,       0, "1"
+HKR, Ndi\params\SCOBTCR0,            Base,       0, "16"
+
+HKR, Ndi\params\SCOBTCR1,            ParamDesc,  0, %SCOBTCR1%
+HKR, Ndi\params\SCOBTCR1,            Type,       0, "dword"
+HKR, Ndi\params\SCOBTCR1,            Default,    0, "19040E00"
+HKR, Ndi\params\SCOBTCR1,            Min,        0, "00000000"
+HKR, Ndi\params\SCOBTCR1,            Max,        0, "ffffffff"
+HKR, Ndi\params\SCOBTCR1,            Step,       0, "1"
+HKR, Ndi\params\SCOBTCR1,            Base,       0, "16"
+
+HKR, Ndi\params\SCOBTCR2,            ParamDesc,  0, %SCOBTCR2%
+HKR, Ndi\params\SCOBTCR2,            Type,       0, "dword"
+HKR, Ndi\params\SCOBTCR2,            Default,    0, "00000000"
+HKR, Ndi\params\SCOBTCR2,            Min,        0, "00000000"
+HKR, Ndi\params\SCOBTCR2,            Max,        0, "ffffffff"
+HKR, Ndi\params\SCOBTCR2,            Step,       0, "1"
+HKR, Ndi\params\SCOBTCR2,            Base,       0, "16"
+
+HKR, Ndi\params\SCOBTCR3,            ParamDesc,  0, %SCOBTCR3%
+HKR, Ndi\params\SCOBTCR3,            Type,       0, "dword"
+HKR, Ndi\params\SCOBTCR3,            Default,    0, "00000000"
+HKR, Ndi\params\SCOBTCR3,            Min,        0, "00000000"
+HKR, Ndi\params\SCOBTCR3,            Max,        0, "ffffffff"
+HKR, Ndi\params\SCOBTCR3,            Step,       0, "1"
+HKR, Ndi\params\SCOBTCR3,            Base,       0, "16"
+
+HKR, Ndi\params\ACLBTCR0,            ParamDesc,  0, %ACLBTCR0%
+HKR, Ndi\params\ACLBTCR0,            Type,       0, "dword"
+HKR, Ndi\params\ACLBTCR0,            Default,    0, "8200C041"
+HKR, Ndi\params\ACLBTCR0,            Min,        0, "00000000"
+HKR, Ndi\params\ACLBTCR0,            Max,        0, "ffffffff"
+HKR, Ndi\params\ACLBTCR0,            Step,       0, "1"
+HKR, Ndi\params\ACLBTCR0,            Base,       0, "16"
+
+HKR, Ndi\params\ACLBTCR1,            ParamDesc,  0, %ACLBTCR1%
+HKR, Ndi\params\ACLBTCR1,            Type,       0, "dword"
+HKR, Ndi\params\ACLBTCR1,            Default,    0, "19040E00"
+HKR, Ndi\params\ACLBTCR1,            Min,        0, "00000000"
+HKR, Ndi\params\ACLBTCR1,            Max,        0, "ffffffff"
+HKR, Ndi\params\ACLBTCR1,            Step,       0, "1"
+HKR, Ndi\params\ACLBTCR1,            Base,       0, "16"
+
+HKR, Ndi\params\ACLBTCR2,            ParamDesc,  0, %ACLBTCR2%
+HKR, Ndi\params\ACLBTCR2,            Type,       0, "dword"
+HKR, Ndi\params\ACLBTCR2,            Default,    0, "00000000"
+HKR, Ndi\params\ACLBTCR2,            Min,        0, "00000000"
+HKR, Ndi\params\ACLBTCR2,            Max,        0, "ffffffff"
+HKR, Ndi\params\ACLBTCR2,            Step,       0, "1"
+HKR, Ndi\params\ACLBTCR2,            Base,       0, "16"
+
+HKR, Ndi\params\ACLBTCR3,            ParamDesc,  0, %ACLBTCR3%
+HKR, Ndi\params\ACLBTCR3,            Type,       0, "dword"
+HKR, Ndi\params\ACLBTCR3,            Default,    0, "00000000"
+HKR, Ndi\params\ACLBTCR3,            Min,        0, "00000000"
+HKR, Ndi\params\ACLBTCR3,            Max,        0, "ffffffff"
+HKR, Ndi\params\ACLBTCR3,            Step,       0, "1"
+HKR, Ndi\params\ACLBTCR3,            Base,       0, "16"
+
+HKR, Ndi\params\MIXBTCR0,            ParamDesc,  0, %MIXBTCR0%
+HKR, Ndi\params\MIXBTCR0,            Type,       0, "dword"
+HKR, Ndi\params\MIXBTCR0,            Default,    0, "82040041"
+HKR, Ndi\params\MIXBTCR0,            Min,        0, "00000000"
+HKR, Ndi\params\MIXBTCR0,            Max,        0, "ffffffff"
+HKR, Ndi\params\MIXBTCR0,            Step,       0, "1"
+HKR, Ndi\params\MIXBTCR0,            Base,       0, "16"
+
+HKR, Ndi\params\MIXBTCR1,            ParamDesc,  0, %MIXBTCR1%
+HKR, Ndi\params\MIXBTCR1,            Type,       0, "dword"
+HKR, Ndi\params\MIXBTCR1,            Default,    0, "19040E00"
+HKR, Ndi\params\MIXBTCR1,            Min,        0, "00000000"
+HKR, Ndi\params\MIXBTCR1,            Max,        0, "ffffffff"
+HKR, Ndi\params\MIXBTCR1,            Step,       0, "1"
+HKR, Ndi\params\MIXBTCR1,            Base,       0, "16"
+
+HKR, Ndi\params\MIXBTCR2,            ParamDesc,  0, %MIXBTCR2%
+HKR, Ndi\params\MIXBTCR2,            Type,       0, "dword"
+HKR, Ndi\params\MIXBTCR2,            Default,    0, "00000000"
+HKR, Ndi\params\MIXBTCR2,            Min,        0, "00000000"
+HKR, Ndi\params\MIXBTCR2,            Max,        0, "ffffffff"
+HKR, Ndi\params\MIXBTCR2,            Step,       0, "1"
+HKR, Ndi\params\MIXBTCR2,            Base,       0, "16"
+
+HKR, Ndi\params\MIXBTCR3,            ParamDesc,  0, %MIXBTCR3%
+HKR, Ndi\params\MIXBTCR3,            Type,       0, "dword"
+HKR, Ndi\params\MIXBTCR3,            Default,    0, "00000000"
+HKR, Ndi\params\MIXBTCR3,            Min,        0, "00000000"
+HKR, Ndi\params\MIXBTCR3,            Max,        0, "ffffffff"
+HKR, Ndi\params\MIXBTCR3,            Step,       0, "1"
+HKR, Ndi\params\MIXBTCR3,            Base,       0, "16"
+
+HKR, Ndi\params\BTSingleAnt,         ParamDesc,  0, %BTSingleAnt%
+HKR, Ndi\params\BTSingleAnt,         Type,       0, "enum"
+HKR, Ndi\params\BTSingleAnt,         Default,    0, "1"
+HKR, Ndi\params\BTSingleAnt\enum,    "0",        0, %_FALSE_%
+HKR, Ndi\params\BTSingleAnt\enum,    "1",        0, %_TRUE_%
+
+HKR, Ndi\params\PTAEnabled,          ParamDesc,  0, %PTAEnabled%
+HKR, Ndi\params\PTAEnabled,          Type,       0, "enum"
+HKR, Ndi\params\PTAEnabled,          Default,    0, "0"
+HKR, Ndi\params\PTAEnabled\enum,     "0",        0, %_FALSE_%
+HKR, Ndi\params\PTAEnabled\enum,     "1",        0, %_TRUE_%
+
+HKR, Ndi\params\BTProfile,           ParamDesc,  0, %BTProfile%
+HKR, Ndi\params\BTProfile,           Type,       0, "int"
+HKR, Ndi\params\BTProfile,           Default,    0, "0"
+HKR, Ndi\params\BTProfile,           Min,        0, "0"
+HKR, Ndi\params\BTProfile,           Max,        0, "00000004"
+HKR, Ndi\params\BTProfile,           Step,       0, "1"
+HKR, Ndi\params\BTProfile,           Base,       0, "10"
+
+HKR, Ndi\params\FwImgFilename,       ParamDesc,  0, %FirmwareFile%
+HKR, Ndi\params\FwImgFilename,       Type,       0, "edit"
+HKR, Ndi\params\FwImgFilename,       Default,    0, "WIFI_RAM_CODE_MT6630"
+HKR, Ndi\params\FwImgFilename,       Optional,   0, "0"
+HKR, Ndi\params\FwImgFilename,       LimitText,  0, "64"
+HKR, Ndi\params\FwImgFilename,       UpperCase,  0, "1"
+
+HKR, Ndi\params\DisableOnlineScan,      ParamDesc,  0, %DisableOnlineScan%
+HKR, Ndi\params\DisableOnlineScan,      Type,       0, "enum"
+HKR, Ndi\params\DisableOnlineScan,      Default,    0, "0"
+HKR, Ndi\params\DisableOnlineScan\enum, "0",        0, %_FALSE_%
+HKR, Ndi\params\DisableOnlineScan\enum, "1",        0, %_TRUE_%
+
+HKR, Ndi\params\DisableBcnLostDetection,      ParamDesc,  0, %DisableBcnLostDetection%
+HKR, Ndi\params\DisableBcnLostDetection,      Type,       0, "enum"
+HKR, Ndi\params\DisableBcnLostDetection,      Default,    0, "0"
+HKR, Ndi\params\DisableBcnLostDetection\enum, "0",        0, %_FALSE_%
+HKR, Ndi\params\DisableBcnLostDetection\enum, "1",        0, %_TRUE_%
+
+HKR, Ndi\params\Enable5GBand,       ParamDesc,  0, %Enable5GBand%
+HKR, Ndi\params\Enable5GBand,       Type,       0, "enum"
+HKR, Ndi\params\Enable5GBand,       Default,    0, "1"
+HKR, Ndi\params\Enable5GBand\enum,  "0",        0, %_FALSE_%
+HKR, Ndi\params\Enable5GBand\enum,  "1",        0, %_TRUE_%
+
+
+HKR, Ndi\params\ArSysParam0,               ParamDesc,  0, %ArSysParam0%
+HKR, Ndi\params\ArSysParam0,               Type,       0, "dword"
+HKR, Ndi\params\ArSysParam0,               Default,    0, "00000000"
+HKR, Ndi\params\ArSysParam0,               Min,        0, "00000000"
+HKR, Ndi\params\ArSysParam0,               Max,        0, "ffffffff"
+HKR, Ndi\params\ArSysParam0,               Step,       0, "1"
+HKR, Ndi\params\ArSysParam0,               Base,       0, "16"
+
+HKR, Ndi\params\ArSysParam1,               ParamDesc,  0, %ArSysParam1%
+HKR, Ndi\params\ArSysParam1,               Type,       0, "dword"
+HKR, Ndi\params\ArSysParam1,               Default,    0, "00000000"
+HKR, Ndi\params\ArSysParam1,               Min,        0, "00000000"
+HKR, Ndi\params\ArSysParam1,               Max,        0, "ffffffff"
+HKR, Ndi\params\ArSysParam1,               Step,       0, "1"
+HKR, Ndi\params\ArSysParam1,               Base,       0, "16"
+
+
+HKR, Ndi\params\ArSysParam2,               ParamDesc,  0, %ArSysParam2%
+HKR, Ndi\params\ArSysParam2,               Type,       0, "dword"
+HKR, Ndi\params\ArSysParam2,               Default,    0, "00000000"
+HKR, Ndi\params\ArSysParam2,               Min,        0, "00000000"
+HKR, Ndi\params\ArSysParam2,               Max,        0, "ffffffff"
+HKR, Ndi\params\ArSysParam2,               Step,       0, "1"
+HKR, Ndi\params\ArSysParam2,               Base,       0, "16"
+
+
+HKR, Ndi\params\ArSysParam3,               ParamDesc,  0, %ArSysParam3%
+HKR, Ndi\params\ArSysParam3,               Type,       0, "dword"
+HKR, Ndi\params\ArSysParam3,               Default,    0, "00000000"
+HKR, Ndi\params\ArSysParam3,               Min,        0, "00000000"
+HKR, Ndi\params\ArSysParam3,               Max,        0, "ffffffff"
+HKR, Ndi\params\ArSysParam3,               Step,       0, "1"
+HKR, Ndi\params\ArSysParam3,               Base,       0, "16"
+
+HKR, Ndi\params\EnableRoaming,             ParamDesc,  0, %EnableRoaming%
+HKR, Ndi\params\EnableRoaming,             Type,       0, "enum"
+HKR, Ndi\params\EnableRoaming,             Default,    0, "1"
+HKR, Ndi\params\EnableRoaming\enum,        "0",        0, %_FALSE_%
+HKR, Ndi\params\EnableRoaming\enum,        "1",        0, %_TRUE_%
+
+HKR, Ndi\params\TxPwrValid,                 ParamDesc,  0, %TXPWR_CONTROL%
+HKR, Ndi\params\TxPwrValid,                 Type,       0, "enum"
+HKR, Ndi\params\TxPwrValid,                 Default,    0, "0"
+HKR, Ndi\params\TxPwrValid\enum,            "0",        0, %_FALSE_%
+HKR, Ndi\params\TxPwrValid\enum,            "1",        0, %_TRUE_%
+
+HKR, Ndi\params\TxPwr2G4CCK,                ParamDesc,  0, %TXPWR_2G4_CCK%
+HKR, Ndi\params\TxPwr2G4CCK,                Type,       0, "int"
+HKR, Ndi\params\TxPwr2G4CCK,                Default,    0, "0"
+HKR, Ndi\params\TxPwr2G4CCK,                Min,        0, "0"
+HKR, Ndi\params\TxPwr2G4CCK,                Max,        0, "255"
+HKR, Ndi\params\TxPwr2G4CCK,                Step,       0, "1"
+HKR, Ndi\params\TxPwr2G4CCK,                Base,       0, "10"
+
+HKR, Ndi\params\TxPwr2G4OfdmBpsk,           ParamDesc,  0, %TXPWR_2G4_OFDM_BPSK%
+HKR, Ndi\params\TxPwr2G4OfdmBpsk,           Type,       0, "int"
+HKR, Ndi\params\TxPwr2G4OfdmBpsk,           Default,    0, "0"
+HKR, Ndi\params\TxPwr2G4OfdmBpsk,           Min,        0, "0"
+HKR, Ndi\params\TxPwr2G4OfdmBpsk,           Max,        0, "255"
+HKR, Ndi\params\TxPwr2G4OfdmBpsk,           Step,       0, "1"
+HKR, Ndi\params\TxPwr2G4OfdmBpsk,           Base,       0, "10"
+
+HKR, Ndi\params\TxPwr2G4OfdmQpsk,           ParamDesc,  0, %TXPWR_2G4_OFDM_QPSK%
+HKR, Ndi\params\TxPwr2G4OfdmQpsk,           Type,       0, "int"
+HKR, Ndi\params\TxPwr2G4OfdmQpsk,           Default,    0, "0"
+HKR, Ndi\params\TxPwr2G4OfdmQpsk,           Min,        0, "0"
+HKR, Ndi\params\TxPwr2G4OfdmQpsk,           Max,        0, "255"
+HKR, Ndi\params\TxPwr2G4OfdmQpsk,           Step,       0, "1"
+HKR, Ndi\params\TxPwr2G4OfdmQpsk,           Base,       0, "10"
+
+HKR, Ndi\params\TxPwr2G4Ofdm16Qam,          ParamDesc,  0, %TXPWR_2G4_OFDM_16QAM%
+HKR, Ndi\params\TxPwr2G4Ofdm16Qam,          Type,       0, "int"
+HKR, Ndi\params\TxPwr2G4Ofdm16Qam,          Default,    0, "0"
+HKR, Ndi\params\TxPwr2G4Ofdm16Qam,          Min,        0, "0"
+HKR, Ndi\params\TxPwr2G4Ofdm16Qam,          Max,        0, "255"
+HKR, Ndi\params\TxPwr2G4Ofdm16Qam,          Step,       0, "1"
+HKR, Ndi\params\TxPwr2G4Ofdm16Qam,          Base,       0, "10"
+
+HKR, Ndi\params\TxPwr2G4Ofdm48M,            ParamDesc,  0, %TXPWR_2G4_OFDM_48M%
+HKR, Ndi\params\TxPwr2G4Ofdm48M,            Type,       0, "int"
+HKR, Ndi\params\TxPwr2G4Ofdm48M,            Default,    0, "0"
+HKR, Ndi\params\TxPwr2G4Ofdm48M,            Min,        0, "0"
+HKR, Ndi\params\TxPwr2G4Ofdm48M,            Max,        0, "255"
+HKR, Ndi\params\TxPwr2G4Ofdm48M,            Step,       0, "1"
+HKR, Ndi\params\TxPwr2G4Ofdm48M,            Base,       0, "10"
+
+HKR, Ndi\params\TxPwr2G4Ofdm54M,            ParamDesc,  0, %TXPWR_2G4_OFDM_54M%
+HKR, Ndi\params\TxPwr2G4Ofdm54M,            Type,       0, "int"
+HKR, Ndi\params\TxPwr2G4Ofdm54M,            Default,    0, "0"
+HKR, Ndi\params\TxPwr2G4Ofdm54M,            Min,        0, "0"
+HKR, Ndi\params\TxPwr2G4Ofdm54M,            Max,        0, "255"
+HKR, Ndi\params\TxPwr2G4Ofdm54M,            Step,       0, "1"
+HKR, Ndi\params\TxPwr2G4Ofdm54M,            Base,       0, "10"
+
+HKR, Ndi\params\TxPwr2G4HT20Bpsk,           ParamDesc,  0, %TXPWR_2G4_HT20_BPSK%
+HKR, Ndi\params\TxPwr2G4HT20Bpsk,           Type,       0, "int"
+HKR, Ndi\params\TxPwr2G4HT20Bpsk,           Default,    0, "0"
+HKR, Ndi\params\TxPwr2G4HT20Bpsk,           Min,        0, "0"
+HKR, Ndi\params\TxPwr2G4HT20Bpsk,           Max,        0, "255"
+HKR, Ndi\params\TxPwr2G4HT20Bpsk,           Step,       0, "1"
+HKR, Ndi\params\TxPwr2G4HT20Bpsk,           Base,       0, "10"
+
+HKR, Ndi\params\TxPwr2G4HT20Qpsk,           ParamDesc,  0, %TXPWR_2G4_HT20_QPSK%
+HKR, Ndi\params\TxPwr2G4HT20Qpsk,           Type,       0, "int"
+HKR, Ndi\params\TxPwr2G4HT20Qpsk,           Default,    0, "0"
+HKR, Ndi\params\TxPwr2G4HT20Qpsk,           Min,        0, "0"
+HKR, Ndi\params\TxPwr2G4HT20Qpsk,           Max,        0, "255"
+HKR, Ndi\params\TxPwr2G4HT20Qpsk,           Step,       0, "1"
+HKR, Ndi\params\TxPwr2G4HT20Qpsk,           Base,       0, "10"
+
+HKR, Ndi\params\TxPwr2G4HT2016Qam,          ParamDesc,  0, %TXPWR_2G4_HT20_16QAM%
+HKR, Ndi\params\TxPwr2G4HT2016Qam,          Type,       0, "int"
+HKR, Ndi\params\TxPwr2G4HT2016Qam,          Default,    0, "0"
+HKR, Ndi\params\TxPwr2G4HT2016Qam,          Min,        0, "0"
+HKR, Ndi\params\TxPwr2G4HT2016Qam,          Max,        0, "255"
+HKR, Ndi\params\TxPwr2G4HT2016Qam,          Step,       0, "1"
+HKR, Ndi\params\TxPwr2G4HT2016Qam,          Base,       0, "10"
+
+HKR, Ndi\params\TxPwr2G4HT20MCS5,           ParamDesc,  0, %TXPWR_2G4_HT20_MCS5%
+HKR, Ndi\params\TxPwr2G4HT20MCS5,           Type,       0, "int"
+HKR, Ndi\params\TxPwr2G4HT20MCS5,           Default,    0, "0"
+HKR, Ndi\params\TxPwr2G4HT20MCS5,           Min,        0, "0"
+HKR, Ndi\params\TxPwr2G4HT20MCS5,           Max,        0, "255"
+HKR, Ndi\params\TxPwr2G4HT20MCS5,           Step,       0, "1"
+HKR, Ndi\params\TxPwr2G4HT20MCS5,           Base,       0, "10"
+
+HKR, Ndi\params\TxPwr2G4HT20MCS6,           ParamDesc,  0, %TXPWR_2G4_HT20_MCS6%
+HKR, Ndi\params\TxPwr2G4HT20MCS6,           Type,       0, "int"
+HKR, Ndi\params\TxPwr2G4HT20MCS6,           Default,    0, "0"
+HKR, Ndi\params\TxPwr2G4HT20MCS6,           Min,        0, "0"
+HKR, Ndi\params\TxPwr2G4HT20MCS6,           Max,        0, "255"
+HKR, Ndi\params\TxPwr2G4HT20MCS6,           Step,       0, "1"
+HKR, Ndi\params\TxPwr2G4HT20MCS6,           Base,       0, "10"
+
+HKR, Ndi\params\TxPwr2G4HT20MCS7,           ParamDesc,  0, %TXPWR_2G4_HT20_MCS7%
+HKR, Ndi\params\TxPwr2G4HT20MCS7,           Type,       0, "int"
+HKR, Ndi\params\TxPwr2G4HT20MCS7,           Default,    0, "0"
+HKR, Ndi\params\TxPwr2G4HT20MCS7,           Min,        0, "0"
+HKR, Ndi\params\TxPwr2G4HT20MCS7,           Max,        0, "255"
+HKR, Ndi\params\TxPwr2G4HT20MCS7,           Step,       0, "1"
+HKR, Ndi\params\TxPwr2G4HT20MCS7,           Base,       0, "10"
+
+HKR, Ndi\params\TxPwr2G4HT40Bpsk,           ParamDesc,  0, %TXPWR_2G4_HT40_BPSK%
+HKR, Ndi\params\TxPwr2G4HT40Bpsk,           Type,       0, "int"
+HKR, Ndi\params\TxPwr2G4HT40Bpsk,           Default,    0, "0"
+HKR, Ndi\params\TxPwr2G4HT40Bpsk,           Min,        0, "0"
+HKR, Ndi\params\TxPwr2G4HT40Bpsk,           Max,        0, "255"
+HKR, Ndi\params\TxPwr2G4HT40Bpsk,           Step,       0, "1"
+HKR, Ndi\params\TxPwr2G4HT40Bpsk,           Base,       0, "10"
+
+HKR, Ndi\params\TxPwr2G4HT40Qpsk,           ParamDesc,  0, %TXPWR_2G4_HT40_QPSK%
+HKR, Ndi\params\TxPwr2G4HT40Qpsk,           Type,       0, "int"
+HKR, Ndi\params\TxPwr2G4HT40Qpsk,           Default,    0, "0"
+HKR, Ndi\params\TxPwr2G4HT40Qpsk,           Min,        0, "0"
+HKR, Ndi\params\TxPwr2G4HT40Qpsk,           Max,        0, "255"
+HKR, Ndi\params\TxPwr2G4HT40Qpsk,           Step,       0, "1"
+HKR, Ndi\params\TxPwr2G4HT40Qpsk,           Base,       0, "10"
+
+HKR, Ndi\params\TxPwr2G4HT4016Qam,          ParamDesc,  0, %TXPWR_2G4_HT40_16QAM%
+HKR, Ndi\params\TxPwr2G4HT4016Qam,          Type,       0, "int"
+HKR, Ndi\params\TxPwr2G4HT4016Qam,          Default,    0, "0"
+HKR, Ndi\params\TxPwr2G4HT4016Qam,          Min,        0, "0"
+HKR, Ndi\params\TxPwr2G4HT4016Qam,          Max,        0, "255"
+HKR, Ndi\params\TxPwr2G4HT4016Qam,          Step,       0, "1"
+HKR, Ndi\params\TxPwr2G4HT4016Qam,          Base,       0, "10"
+
+HKR, Ndi\params\TxPwr2G4HT40MCS5,           ParamDesc,  0, %TXPWR_2G4_HT40_MCS5%
+HKR, Ndi\params\TxPwr2G4HT40MCS5,           Type,       0, "int"
+HKR, Ndi\params\TxPwr2G4HT40MCS5,           Default,    0, "0"
+HKR, Ndi\params\TxPwr2G4HT40MCS5,           Min,        0, "0"
+HKR, Ndi\params\TxPwr2G4HT40MCS5,           Max,        0, "255"
+HKR, Ndi\params\TxPwr2G4HT40MCS5,           Step,       0, "1"
+HKR, Ndi\params\TxPwr2G4HT40MCS5,           Base,       0, "10"
+
+HKR, Ndi\params\TxPwr2G4HT40MCS6,           ParamDesc,  0, %TXPWR_2G4_HT40_MCS6%
+HKR, Ndi\params\TxPwr2G4HT40MCS6,           Type,       0, "int"
+HKR, Ndi\params\TxPwr2G4HT40MCS6,           Default,    0, "0"
+HKR, Ndi\params\TxPwr2G4HT40MCS6,           Min,        0, "0"
+HKR, Ndi\params\TxPwr2G4HT40MCS6,           Max,        0, "255"
+HKR, Ndi\params\TxPwr2G4HT40MCS6,           Step,       0, "1"
+HKR, Ndi\params\TxPwr2G4HT40MCS6,           Base,       0, "10"
+
+HKR, Ndi\params\TxPwr2G4HT40MCS7,           ParamDesc,  0, %TXPWR_2G4_HT40_MCS7%
+HKR, Ndi\params\TxPwr2G4HT40MCS7,           Type,       0, "int"
+HKR, Ndi\params\TxPwr2G4HT40MCS7,           Default,    0, "0"
+HKR, Ndi\params\TxPwr2G4HT40MCS7,           Min,        0, "0"
+HKR, Ndi\params\TxPwr2G4HT40MCS7,           Max,        0, "255"
+HKR, Ndi\params\TxPwr2G4HT40MCS7,           Step,       0, "1"
+HKR, Ndi\params\TxPwr2G4HT40MCS7,           Base,       0, "10"
+
+
+HKR, Ndi\params\BandEdge2G4PwrUsed,         ParamDesc,  0, %TXPWR_BANDEDGE_CONTROL%
+HKR, Ndi\params\BandEdge2G4PwrUsed,         Type,       0, "enum"
+HKR, Ndi\params\BandEdge2G4PwrUsed,         Default,    0, "0"
+HKR, Ndi\params\BandEdge2G4PwrUsed\enum,    "0",        0, %_FALSE_%
+HKR, Ndi\params\BandEdge2G4PwrUsed\enum,    "1",        0, %_TRUE_%
+
+
+HKR, Ndi\params\BandEdgeMaxPwrCCK,          ParamDesc,  0, %TXPWR_MAX_BANDEDGE_CCK%
+HKR, Ndi\params\BandEdgeMaxPwrCCK,          Type,       0, "int"
+HKR, Ndi\params\BandEdgeMaxPwrCCK,          Default,    0, "0"
+HKR, Ndi\params\BandEdgeMaxPwrCCK,          Min,        0, "0"
+HKR, Ndi\params\BandEdgeMaxPwrCCK,          Max,        0, "255"
+HKR, Ndi\params\BandEdgeMaxPwrCCK,          Step,       0, "1"
+HKR, Ndi\params\BandEdgeMaxPwrCCK,          Base,       0, "10"
+
+HKR, Ndi\params\BandEdgeMaxPwrOFDM20,       ParamDesc,  0, %TXPWR_MAX_BANDEDGE_OFDM20%
+HKR, Ndi\params\BandEdgeMaxPwrOFDM20,       Type,       0, "int"
+HKR, Ndi\params\BandEdgeMaxPwrOFDM20,       Default,    0, "0"
+HKR, Ndi\params\BandEdgeMaxPwrOFDM20,       Min,        0, "0"
+HKR, Ndi\params\BandEdgeMaxPwrOFDM20,       Max,        0, "255"
+HKR, Ndi\params\BandEdgeMaxPwrOFDM20,       Step,       0, "1"
+HKR, Ndi\params\BandEdgeMaxPwrOFDM20,       Base,       0, "10"
+
+HKR, Ndi\params\BandEdgeMaxPwrOFDM40,       ParamDesc,  0, %TXPWR_MAX_BANDEDGE_OFDM40%
+HKR, Ndi\params\BandEdgeMaxPwrOFDM40,       Type,       0, "int"
+HKR, Ndi\params\BandEdgeMaxPwrOFDM40,       Default,    0, "0"
+HKR, Ndi\params\BandEdgeMaxPwrOFDM40,       Min,        0, "0"
+HKR, Ndi\params\BandEdgeMaxPwrOFDM40,       Max,        0, "255"
+HKR, Ndi\params\BandEdgeMaxPwrOFDM40,       Step,       0, "1"
+HKR, Ndi\params\BandEdgeMaxPwrOFDM40,       Base,       0, "10"
+
+
+[MT6630.common.DelReg]
+HKR,,NumRfb
+HKR, Ndi\params\NumRfb
+
+HKR,,NumTfcb
+HKR, Ndi\params\NumTfcb
+
+HKR, Ndi\params\Rate\enum,          15
+
+HKR, Ndi\params\BssType\enum,       130
+
+HKR,,BasicRateSet
+HKR, Ndi\params\BasicRateSet
+
+HKR,,ScanType
+HKR, Ndi\params\ScanType
+
+HKR, Ndi\params\AuthMode
+
+;-----------------------------------------------------------------------------
+; MT6630 NT specific
+;
+[MT6630WinNT.reg]
+HKR, Ndi,               Service,            0, "MT6630"
+HKR, Ndi\Interfaces,    UpperRange,         0, "ndis5"
+HKR, Ndi\Interfaces,    LowerRange,         0, "ethernet"
+
+;-----------------------------------------------------------------------------
+; MT6630 service sections
+;
+[MT6630WinNT.Service]
+DisplayName     = %MT6630.Service.DispName%
+ServiceType     = 1
+StartType       = 3
+ErrorControl    = 1
+ServiceBinary   = %12%\MT6630sd.sys
+LoadOrderGroup  = NDIS
+
+[MT6630WinNTia64.Service]
+DisplayName     = %MT6630.Service.DispName%
+ServiceType     = 1
+StartType       = 3
+ErrorControl    = 1
+ServiceBinary   = %12%\MT6630sdi.sys
+LoadOrderGroup  = NDIS
+
+[MT6630WinNTamd64.Service]
+DisplayName     = %MT6630.Service.DispName%
+ServiceType     = 1
+StartType       = 3
+ErrorControl    = 1
+ServiceBinary   = %12%\MT6630sda.sys
+LoadOrderGroup  = NDIS
+
+;-----------------------------------------------------------------------------
+; common event log section
+;
+[common.EventLog]
+AddReg = common.AddEventLog.reg
+
+[common.AddEventLog.reg]
+HKR, , EventMessageFile, 0x00020000, "%%SystemRoot%%\System32\netevent.dll"
+HKR, , TypesSupported,   0x00010001, 7
+
+;-----------------------------------------------------------------------------
+; CopyFiles sections
+;
+[MT6630WinNT.CopyFiles]
+MT6630sd.sys,,,2
+WIFI_RAM_CODE_MT6630,,,2
+
+[MT6630WinNTia64.CopyFiles]
+MT6630sdi.sys,,,2
+WIFI_RAM_CODE_MT6630,,,2
+
+[MT6630WinNTamd64.CopyFiles]
+MT6630sda.sys,,,2
+WIFI_RAM_CODE_MT6630,,,2
+
+;-----------------------------------------------------------------------------
+; source
+;
+[SourceDisksNames]
+1 = %MT6630.SourceDiskName%,,,
+
+[SourceDisksFiles]
+MT6630sd.sys = 1,,
+MT6630sdi.sys = 1,,
+MT6630sda.sys = 1,,
+
+;-----------------------------------------------------------------------------
+; target
+;
+[DestinationDirs]
+MT6630WinNT.CopyFiles      = 12
+MT6630WinNTia64.CopyFiles  = 12
+MT6630WinNTamd64.CopyFiles = 12
+DefaultDestDir             = 11
+
+;-----------------------------------------------------------------------------
+; strings section
+;
+[Strings]
+V_MEDIATEK                  = "MediaTek"
+
+NetworkAddress              = "Network Address"
+
+_FALSE_                     = "FALSE"
+_TRUE_                      = "TRUE"
+
+DeviceType                  = "Device Type"
+DeviceSTA                   = "Wireless Station (STA)"
+DeviceAP                    = "Access Point (AP)"
+
+Rate                        = "Transmission Rate"
+Rate1M                      = "1   Mbps"
+Rate2M                      = "2   Mbps"
+Rate5_5M                    = "5.5 Mbps"
+Rate11M                     = "11  Mbps"
+Rate6M                      = "6   Mbps"
+Rate9M                      = "9   Mbps"
+Rate12M                     = "12  Mbps"
+Rate18M                     = "18  Mbps"
+Rate24M                     = "24  Mbps"
+Rate36M                     = "36  Mbps"
+Rate48M                     = "48  Mbps"
+Rate54M                     = "54  Mbps"
+Rate20MCS0800               = "MCS0 (20M/800ns)"
+Rate20MCS1800               = "MCS1 (20M/800ns)"
+Rate20MCS2800               = "MCS2 (20M/800ns)"
+Rate20MCS3800               = "MCS3 (20M/800ns)"
+Rate20MCS4800               = "MCS4 (20M/800ns)"
+Rate20MCS5800               = "MCS5 (20M/800ns)"
+Rate20MCS6800               = "MCS6 (20M/800ns)"
+Rate20MCS7800               = "MCS7 (20M/800ns)"
+Rate20MCS0400               = "MCS0 (20M/400ns)"
+Rate20MCS1400               = "MCS1 (20M/400ns)"
+Rate20MCS2400               = "MCS2 (20M/400ns)"
+Rate20MCS3400               = "MCS3 (20M/400ns)"
+Rate20MCS4400               = "MCS4 (20M/400ns)"
+Rate20MCS5400               = "MCS5 (20M/400ns)"
+Rate20MCS6400               = "MCS6 (20M/400ns)"
+Rate20MCS7400               = "MCS7 (20M/400ns)"
+Rate40MCS0800               = "MCS0 (40M/800ns)"
+Rate40MCS1800               = "MCS1 (40M/800ns)"
+Rate40MCS2800               = "MCS2 (40M/800ns)"
+Rate40MCS3800               = "MCS3 (40M/800ns)"
+Rate40MCS4800               = "MCS4 (40M/800ns)"
+Rate40MCS5800               = "MCS5 (40M/800ns)"
+Rate40MCS6800               = "MCS6 (40M/800ns)"
+Rate40MCS7800               = "MCS7 (40M/800ns)"
+Rate40MCS32800              = "MCS32 (800ns)"
+Rate40MCS0400               = "MCS0 (40M/400ns)"
+Rate40MCS1400               = "MCS1 (40M/400ns)"
+Rate40MCS2400               = "MCS2 (40M/400ns)"
+Rate40MCS3400               = "MCS3 (40M/400ns)"
+Rate40MCS4400               = "MCS4 (40M/400ns)"
+Rate40MCS5400               = "MCS5 (40M/400ns)"
+Rate40MCS6400               = "MCS6 (40M/400ns)"
+Rate40MCS7400               = "MCS7 (40M/400ns)"
+Rate40MCS32400              = "MCS32 (400ns)"
+
+
+RateAutomatic               = "Automatic (All)"
+
+SSID                        = "SSID"
+
+BSSType                     = "STA Network Type"
+ESS                         = "Infrastructure"
+IBSS                        = "Ad Hoc (IBSS)"
+
+AdHocMode                   = "Ad Hoc Operational Mode"
+AdHocMode11b                = "Wi-Fi Mode (11b-only)"
+AdHocModeMixed              = "Mixed Mode (11b/g)"
+AdHocMode11g                = "11g-only Mode"
+
+ApMode                      = "AP Operational Mode"
+ApMode11b                   = "11b Mode"
+ApModeMixed                 = "Mixed 11b/g Mode"
+ApMode11g                   = "11g Mode"
+
+Channel                     = "Channel to Start Ad Hoc/AP"
+StartFreq                   = "Default Operating Frequency"
+Channel241                  = "Channel 1 (2412000 kHz)"
+Channel242                  = "Channel 2 (2417000 kHz)"
+Channel243                  = "Channel 3 (2422000 kHz)"
+Channel244                  = "Channel 4 (2427000 kHz)"
+Channel245                  = "Channel 5 (2432000 kHz)"
+Channel246                  = "Channel 6 (2437000 kHz)"
+Channel247                  = "Channel 7 (2442000 kHz)"
+Channel248                  = "Channel 8 (2447000 kHz)"
+Channel249                  = "Channel 9 (2452000 kHz)"
+Channel2410                 = "Channel 10 (2457000 kHz)"
+Channel2411                 = "Channel 11 (2462000 kHz)"
+Channel2412                 = "Channel 12 (2467000 kHz)"
+Channel2413                 = "Channel 13 (2472000 kHz)"
+Channel2414                 = "Channel 14 (2484000 kHz)"
+
+RddDfsSetting               = "DFS Detection "
+RddDfs                      = "DFS Detection "
+RddDfsDisable               = "Disable "
+RddDfsEnable                = "Enable DFS band "
+RddDfsEnableAll5G           = "Enable All 5GHz band "
+RddDfsEnableAll24G          = "Enable All 2.4GHz band "
+
+RddTestModeSetting          = "DFS Detection Info "
+RddTestMode                 = "DFS Detection Info "
+RddTestModeDisable          = "Disable "
+RddTestModeIsm              = "Detection Only "
+RddTestModeIsmDebug         = "Debug Mode "
+
+RddShutFreqSetting          = "DFS Channel Shut"
+RddShutFreq                 = "DFS Channel Shut"
+RddShutFreqDisable          = "Disable "
+RddShutFreqEnable           = "Enable "
+
+RddStartFreqSetting         = "DFS Detection Channel"
+RddStartFreq                = "DFS Detection Channel"
+RddStartChannel241          = "Channel 1 (2412000 kHz)"
+RddStartChannel242          = "Channel 2 (2417000 kHz)"
+RddStartChannel243          = "Channel 3 (2422000 kHz)"
+RddStartChannel244          = "Channel 4 (2427000 kHz)"
+RddStartChannel245          = "Channel 5 (2432000 kHz)"
+RddStartChannel246          = "Channel 6 (2437000 kHz)"
+RddStartChannel247          = "Channel 7 (2442000 kHz)"
+RddStartChannel248          = "Channel 8 (2447000 kHz)"
+RddStartChannel249          = "Channel 9 (2452000 kHz)"
+RddStartChannel2410         = "Channel 10 (2457000 kHz)"
+RddStartChannel2411         = "Channel 11 (2462000 kHz)"
+RddStartChannel2412         = "Channel 12 (2467000 kHz)"
+RddStartChannel2413         = "Channel 13 (2472000 kHz)"
+RddStartChannel2414         = "Channel 14 (2484000 kHz)"
+RddStartChannel50183        = "Channel 183 (4915000 kHz)"
+RddStartChannel50184        = "Channel 184 (4920000 kHz)"
+RddStartChannel50185        = "Channel 185 (4925000 kHz)"
+RddStartChannel50186        = "Channel 186 (4930000 kHz)"
+RddStartChannel50187        = "Channel 187 (4935000 kHz)"
+RddStartChannel50188        = "Channel 188 (4940000 kHz)"
+RddStartChannel50189        = "Channel 189 (4945000 kHz)"
+RddStartChannel50192        = "Channel 192 (4960000 kHz)"
+RddStartChannel50196        = "Channel 196 (4980000 kHz)"
+RddStartChannel5034         = "Channel 34 (5170000 kHz)"
+RddStartChannel5036         = "Channel 36 (5180000 kHz)"
+RddStartChannel5038         = "Channel 38 (5190000 kHz)"
+RddStartChannel5040         = "Channel 40 (5200000 kHz)"
+RddStartChannel5042         = "Channel 42 (5210000 kHz)"
+RddStartChannel5044         = "Channel 44 (5220000 kHz)"
+RddStartChannel5046         = "Channel 46 (5230000 kHz)"
+RddStartChannel5048         = "Channel 48 (5240000 kHz)"
+RddStartChannel5050         = "Channel 50 (5250000 kHz)"
+RddStartChannel5052         = "Channel 52 (5260000 kHz)"
+RddStartChannel5054         = "Channel 54 (5270000 kHz)"
+RddStartChannel5056         = "Channel 56 (5280000 kHz)"
+RddStartChannel5058         = "Channel 58 (5290000 kHz)"
+RddStartChannel5060         = "Channel 60 (5300000 kHz)"
+RddStartChannel5064         = "Channel 64 (5320000 kHz)"
+RddStartChannel50100        = "Channel 100 (5500000 kHz)"
+RddStartChannel50104        = "Channel 104 (5520000 kHz)"
+RddStartChannel50108        = "Channel 108 (5540000 kHz)"
+RddStartChannel50112        = "Channel 112 (5560000 kHz)"
+RddStartChannel50116        = "Channel 116 (5580000 kHz)"
+RddStartChannel50120        = "Channel 120 (5600000 kHz)"
+RddStartChannel50124        = "Channel 124 (5620000 kHz)"
+RddStartChannel50128        = "Channel 128 (5640000 kHz)"
+RddStartChannel50132        = "Channel 132 (5660000 kHz)"
+RddStartChannel50136        = "Channel 136 (5680000 kHz)"
+RddStartChannel50140        = "Channel 140 (5700000 kHz)"
+RddStartChannel50149        = "Channel 149 (5745000 kHz)"
+RddStartChannel50153        = "Channel 153 (5765000 kHz)"
+RddStartChannel50157        = "Channel 157 (5785000 kHz)"
+RddStartChannel50161        = "Channel 161 (5805000 kHz)"
+RddStartChannel50165        = "Channel 165 (5825000 kHz)"
+
+RddStopFreqSetting          = "DFS Jump Channel"
+RddStopFreq                 = "DFS Jump Channel"
+RddStopChannel241           = "Channel 1 (2412000 kHz)"
+RddStopChannel242           = "Channel 2 (2417000 kHz)"
+RddStopChannel243           = "Channel 3 (2422000 kHz)"
+RddStopChannel244           = "Channel 4 (2427000 kHz)"
+RddStopChannel245           = "Channel 5 (2432000 kHz)"
+RddStopChannel246           = "Channel 6 (2437000 kHz)"
+RddStopChannel247           = "Channel 7 (2442000 kHz)"
+RddStopChannel248           = "Channel 8 (2447000 kHz)"
+RddStopChannel249           = "Channel 9 (2452000 kHz)"
+RddStopChannel2410          = "Channel 10 (2457000 kHz)"
+RddStopChannel2411          = "Channel 11 (2462000 kHz)"
+RddStopChannel2412          = "Channel 12 (2467000 kHz)"
+RddStopChannel2413          = "Channel 13 (2472000 kHz)"
+RddStopChannel2414          = "Channel 14 (2484000 kHz)"
+RddStopChannel50183         = "Channel 183 (4915000 kHz)"
+RddStopChannel50184         = "Channel 184 (4920000 kHz)"
+RddStopChannel50185         = "Channel 185 (4925000 kHz)"
+RddStopChannel50186         = "Channel 186 (4930000 kHz)"
+RddStopChannel50187         = "Channel 187 (4935000 kHz)"
+RddStopChannel50188         = "Channel 188 (4940000 kHz)"
+RddStopChannel50189         = "Channel 189 (4945000 kHz)"
+RddStopChannel50192         = "Channel 192 (4960000 kHz)"
+RddStopChannel50196         = "Channel 196 (4980000 kHz)"
+RddStopChannel5034          = "Channel 34 (5170000 kHz)"
+RddStopChannel5036          = "Channel 36 (5180000 kHz)"
+RddStopChannel5038          = "Channel 38 (5190000 kHz)"
+RddStopChannel5040          = "Channel 40 (5200000 kHz)"
+RddStopChannel5042          = "Channel 42 (5210000 kHz)"
+RddStopChannel5044          = "Channel 44 (5220000 kHz)"
+RddStopChannel5046          = "Channel 46 (5230000 kHz)"
+RddStopChannel5048          = "Channel 48 (5240000 kHz)"
+RddStopChannel5050          = "Channel 50 (5250000 kHz)"
+RddStopChannel5052          = "Channel 52 (5260000 kHz)"
+RddStopChannel5054          = "Channel 54 (5270000 kHz)"
+RddStopChannel5056          = "Channel 56 (5280000 kHz)"
+RddStopChannel5058          = "Channel 58 (5290000 kHz)"
+RddStopChannel5060          = "Channel 60 (5300000 kHz)"
+RddStopChannel5064          = "Channel 64 (5320000 kHz)"
+RddStopChannel50100         = "Channel 100 (5500000 kHz)"
+RddStopChannel50104         = "Channel 104 (5520000 kHz)"
+RddStopChannel50108         = "Channel 108 (5540000 kHz)"
+RddStopChannel50112         = "Channel 112 (5560000 kHz)"
+RddStopChannel50116         = "Channel 116 (5580000 kHz)"
+RddStopChannel50120         = "Channel 120 (5600000 kHz)"
+RddStopChannel50124         = "Channel 124 (5620000 kHz)"
+RddStopChannel50128         = "Channel 128 (5640000 kHz)"
+RddStopChannel50132         = "Channel 132 (5660000 kHz)"
+RddStopChannel50136         = "Channel 136 (5680000 kHz)"
+RddStopChannel50140         = "Channel 140 (5700000 kHz)"
+RddStopChannel50149         = "Channel 149 (5745000 kHz)"
+RddStopChannel50153         = "Channel 153 (5765000 kHz)"
+RddStopChannel50157         = "Channel 157 (5785000 kHz)"
+RddStopChannel50161         = "Channel 161 (5805000 kHz)"
+RddStopChannel50165         = "Channel 165 (5825000 kHz)"
+
+BasicRates                  = "Basic Rates to Start Ad Hoc/AP"
+DefaultBasicRates           = "Default"
+AllBasicRates               = "All"
+
+RTSThreshold                = "RTS Threshold"
+
+FragmentationThreshold      = "Fragmentation Threshold"
+
+PowerMode                   = "Power Save Mode"
+PowerModeCAM                = "Max Performance"
+PowerModeMAX_PSP            = "Max Power-Saving"
+PowerModeFast_PSP           = "Fast Power-Saving"
+
+WMMUAPSDTEST                = "WMM UAPSD Setting"
+
+WMM_ENABLE                  = "Enable WMM(QoS)"
+
+ArpFilterEn                 = "ARP filter Enabled"
+
+BTCR0                       = "PTA BTCR0"
+BTCR1                       = "PTA BTCR1"
+BTCR2                       = "PTA BTCR2"
+BTCR3                       = "PTA BTCR3"
+
+SCOBTCR0                    = "PTA SCOBTCR0"
+SCOBTCR1                    = "PTA SCOBTCR1"
+SCOBTCR2                    = "PTA SCOBTCR2"
+SCOBTCR3                    = "PTA SCOBTCR3"
+
+ACLBTCR0                    = "PTA ACLBTCR0"
+ACLBTCR1                    = "PTA ACLBTCR1"
+ACLBTCR2                    = "PTA ACLBTCR2"
+ACLBTCR3                    = "PTA ACLBTCR3"
+
+MIXBTCR0                    = "PTA MIXBTCR0"
+MIXBTCR1                    = "PTA MIXBTCR1"
+MIXBTCR2                    = "PTA MIXBTCR2"
+MIXBTCR3                    = "PTA MIXBTCR3"
+
+BTSingleAnt                 = "Single Antenna"
+PTAEnabled                  = "PTA Enabled"
+BTProfile                   = "Bluetooth Profile"
+
+FirmwareFile                = "Firmware File"
+FirmwareFileE6              = "Firmware File for E6"
+
+DisableOnlineScan           = "Disable Online Scan"
+Enable5GBand                = "Enable 5GHz Band"
+
+ArSysParam0                 = "Auto rate system param 0"
+ArSysParam1                 = "Auto rate system param 1"
+ArSysParam2                 = "Auto rate system param 2"
+ArSysParam3                 = "Auto rate system param 3"
+
+DisableRoaming               = "Disable Roaming"
+
+TXPWR_CONTROL               = "Enable TX Power Control"
+TXPWR_2G4_CCK               = "TX Power - 5M/11M of 2.4GHz band"
+TXPWR_2G4_OFDM_BPSK         = "TX Power - OFDM BPSK of 2.4GHz band"
+TXPWR_2G4_OFDM_QPSK         = "TX Power - OFDM QPSK of 2.4GHz band"
+TXPWR_2G4_OFDM_16QAM        = "TX Power - OFDM 16QAM of 2.4GHz band"
+TXPWR_2G4_OFDM_48M          = "TX Power - OFDM 48M of 2.4GHz band"
+TXPWR_2G4_OFDM_54M          = "TX Power - OFDM 54M of 2.4GHz band"
+TXPWR_2G4_HT20_BPSK         = "TX Power - HT20 BPSK of 2.4GHz band"
+TXPWR_2G4_HT20_QPSK         = "TX Power - HT20 QPSK of 2.4GHz band"
+TXPWR_2G4_HT20_16QAM        = "TX Power - HT20 16QAM of 2.4GHz band"
+TXPWR_2G4_HT20_MCS5         = "TX Power - HT20 MCS5 of 2.4GHz band"
+TXPWR_2G4_HT20_MCS6         = "TX Power - HT20 MCS6 of 2.4GHz band"
+TXPWR_2G4_HT20_MCS7         = "TX Power - HT20 MCS7 of 2.4GHz band"
+TXPWR_2G4_HT40_BPSK         = "TX Power - HT40 BPSK of 2.4GHz band"
+TXPWR_2G4_HT40_QPSK         = "TX Power - HT40 QPSK of 2.4GHz band"
+TXPWR_2G4_HT40_16QAM        = "TX Power - HT40 16QAM of 2.4GHz band"
+TXPWR_2G4_HT40_MCS5         = "TX Power - HT40 MCS5 of 2.4GHz band"
+TXPWR_2G4_HT40_MCS6         = "TX Power - HT40 MCS6 of 2.4GHz band"
+TXPWR_2G4_HT40_MCS7         = "TX Power - HT40 MCS7 of 2.4GHz band"
+
+TXPWR_BANDEDGE_CONTROL      = "Enable TX Power Band Edge Control"
+TXPWR_MAX_BANDEDGE_CCK      = "Band Edge TX Power - CCK"
+TXPWR_MAX_BANDEDGE_OFDM20   = "Band Edge TX Power - OFDM 20MHz"
+TXPWR_MAX_BANDEDGE_OFDM40   = "Band Edge TX Power - OFDM 40MHz"
+
+
+
+MEDIATEK.DeviceDesc         = "MediaTek MT6630 SDIO Wireless LAN Card"
+
+MT6630.DeviceDesc           = "MediaTek MT6630 SDIO Wireless LAN Card"
+
+
+MT6630.Service.DispName     = "MediaTek MT6630 SDIO Wireless LAN Card Driver"
+
+MT6630.SourceDiskName       = "MediaTek MT6630 SDIO Wireless LAN Driver Disk"
+
+

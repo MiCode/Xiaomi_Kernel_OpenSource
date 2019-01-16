@@ -1,0 +1,84 @@
+// Please note -- this is a representative set of error suppression
+//                options.  Please adjust to suit your own policies
+//                See  manual (chapter LIVING WITH LINT)
+//                for further details.
+
+//===========================================================================
+// Library control
+//
+
+-wlib(0)                    // Inhibit all library messages except syntactic
+                            // errors.
+
++libclass(angle,ansi)       // Treat all headers specified with angle brackets
+                            // and standard ANSI headers as library files
+
++libh(nucleus.h,*x_os.h)    // Ignore nucleus.h and x_os.h
+
+//===========================================================================
+// General attributes
+//
+
+-epn                        // Inhibit messages that pointer types differ
+                            // nominally.
+
++fll                        // Enable type 'long long'
+
++fdi                        // Search #include files in the directory of
+                            // source file, rather than in current directory.
+
++fpn                        // All pointer parameters are assumed to be
+                            // possibly NULL.
+
++fem                        // Early modifiers (__packed, etc.)
+
+-d__arm						// Define __arm
+
+-d__FUNCTION__="function"   // Non-standard preprocessor macro
+
+//===========================================================================
+// General message inhibitions
+//
+
+-e537                       // Repeated include file
+-e730                       // Boolean argument to function
+-e788                       // enum constant not used within defaulted switch
+
+//===========================================================================
+// Specific function inhibitions
+//
+
+// Ignoring return value of function
+-esym(534, Printf, SPrintf)
+-esym(534, x_memcpy, x_memcmp, x_memmove, x_memset)
+
+// Function takes printf-like format
+-printf(1, Printf)
+-printf(2, SPrintf)
+
+// ASSERT specific
++dASSERT=__assert       // lock in the define of ASSERT to be the builtin function
+-esym(1055,__assert)    // the built-in is undeclared
+-esym(526,__assert)     // and not defined either.
+-esym(516,__assert)     // arguments may vary.
+-esym(534,__assert)     // the return value is ignored
+-esym(628,__assert)     // and no argument information given
+-esym(746,__assert)     // and no formal prototype provided
+-esym(718,__assert)     // Symbol undeclared
+		            // otherwise __assert() is an 'ideal' assert function.
+
+//===========================================================================
+// Special keyword ignorance
+
+// Add reserved word: __irq
++rw(__irq, __packed)
+-rw(__align)
+
+// Ignore __global_reg(x), used in nucleus.h
+-rw_asgn(__global_reg, _to_eol)
+
+// Ignore __align(x), used in global variable declaration alignment
+-rw_asgn(__align, _to_brackets)
+
+// Ignore embedded inline assembly functions
+-rw_asgn(__asm, _to_brackets)

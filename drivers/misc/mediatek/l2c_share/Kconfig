@@ -1,0 +1,4 @@
+config MTK_L2C_SHARE
+        bool "Enable MTK L2 cache share ram feature"
+        help
+          Share CPU L2 cache as a general purpose internal SRAM.

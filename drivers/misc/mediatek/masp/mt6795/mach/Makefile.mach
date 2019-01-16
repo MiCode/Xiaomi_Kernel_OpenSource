@@ -1,0 +1,20 @@
+#######################################
+# Sepcify source files
+#######################################
+ifneq ($(CONFIG_ARM64), y)
+mach_obj += $(MTK_PLATFORM)/mach/arm/sec_lib.o
+mach_obj += $(MTK_PLATFORM)/mach/arm/sec_uid.o
+mach_obj += $(MTK_PLATFORM)/mach/arm/hacc_lib.o
+mach_obj += $(MTK_PLATFORM)/mach/arm/hacc_export.o
+mach_obj += $(MTK_PLATFORM)/mach/arm/hacc_hk.o
+mach_obj += $(MTK_PLATFORM)/mach/arm/hacc_sk.o
+else
+mach_obj += $(MTK_PLATFORM)/mach/arm64/sec_lib.o
+mach_obj += $(MTK_PLATFORM)/mach/arm64/sec_uid.o
+mach_obj += $(MTK_PLATFORM)/mach/arm64/hacc_lib.o
+mach_obj += $(MTK_PLATFORM)/mach/arm64/hacc_export.o
+mach_obj += $(MTK_PLATFORM)/mach/arm64/hacc_hk.o
+mach_obj += $(MTK_PLATFORM)/mach/arm64/hacc_sk.o
+endif
+
+EXTRA_CFLAGS += -I$(src)/asf/asf_inc

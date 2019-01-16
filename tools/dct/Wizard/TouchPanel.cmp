@@ -1,0 +1,33 @@
+[MODULE_INFO]
+INFO_NUM = 1
+
+[INFO_0_NAME]
+INFO_NAME = Touch Panel Type
+[INFO_0_CONTENT]
+R-touch
+C-touch
+
+[GPIO_PROTECT]
+;                               Pull_en Pull_sel Def_dir In Out Inv Out_High
+;                               dis:0   low:0    out:1 
+
+[TYPE0]
+INFO_0 = R-touch
+[GPIO_NAME0]
+
+[EINT_NAME0]
+
+
+[TYPE1]
+INFO_0 = C-touch
+[GPIO_NAME1]
+GPIO_CTP_EINT_PIN
+GPIO_CTP_EN_PIN
+GPIO_CTP_RST_PIN
+[EINT_NAME1]
+TOUCH_PANEL
+
+
+
+
+

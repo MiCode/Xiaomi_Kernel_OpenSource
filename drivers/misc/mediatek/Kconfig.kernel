@@ -1,0 +1,371 @@
+# TODO naming refine
+menu "Kernel Configurations"
+
+menu "MTK Cluster MultiProcessor Scheduler"
+config MTK_SCHED_CMP
+        bool "Enable CMP scheduler"
+        depends on SMP && SCHED_MC
+        default n
+        help
+          CMP Scheduler Enhancement for MTK SoC.
+          Attempts to introspectively select tasks to optimize
+          energy and performance.
+          say no if not sure.
+
+config MTK_SCHED_CMP_TGS
+        bool "Enable thread group scheduling"
+        depends on MTK_SCHED_CMP
+        default n
+
+config MTK_SCHED_CMP_TGS_WAKEUP
+        bool "Enable thread group scheduling"
+        depends on MTK_SCHED_CMP_TGS
+        default n
+
+config MTK_SCHED_CMP_PACK_SMALL_TASK
+        bool "Packing small task"
+        depends on MTK_SCHED_CMP && MTK_SCHED_CMP_TGS
+        default n
+
+config MTK_SCHED_CMP_LAZY_BALANCE
+        bool "Enable CMP lazy balance"
+        depends on MTK_SCHED_CMP_PACK_SMALL_TASK
+        default n
+
+config MTK_SCHED_CMP_POWER_AWARE_CONTROLLER
+	bool "(EXPERIMENTAL) Power-aware Scheduler for MP Controller"
+	depends on MTK_SCHED_CMP_PACK_SMALL_TASK && MTK_SCHED_CMP_LAZY_BALANCE
+	help
+		Power-aware scheduler for MP controller and status interface
+endmenu
+
+menu "Tracer Related"
+config MTK_SCHED_TRACERS
+	bool "MTK Sched Tracers"
+	depends on TRACING
+	select CONTEXT_SWITCH_TRACER
+	default n
+	help
+	   Trace context swicth, set_scheduler, Interrupt Handler
+
+config MTK_FTRACE_DEFAULT_ENABLE
+    bool "enable MTK events by default"
+    depends on MTK_SCHED_TRACERS
+    default n
+    help
+        update ring buffer and enable MTK events by default
+
+config MTK_KERNEL_MARKER
+	bool "MTK Kernel Marker API"
+	depends on TRACING && KALLSYMS
+	default n
+	help
+	  Mark the user-defined points, such as systrace events in
+	  user space, to visualize via systrace html files
+
+config FUNCTION_DURATION_TRACER
+	bool "Kernel Function Duration Tracer"
+	depends on FUNCTION_GRAPH_TRACER
+	help
+	  Enable the kernel to record function durations, with
+	  filtering.  Can also be used in early startup.
+	  See Documentation/trace/func-duration.txt
+
+config MT65XX_TRACER
+	bool "MT65XX Tracer"
+	select CONTEXT_SWITCH_TRACER
+	select GENERIC_TRACER
+	default n
+
+config GENERIC_TRACER
+	bool "Scheduler Switch Tracer"
+
+menu "MET"
+
+config MTK_MET
+	tristate "MET core driver"
+	default n
+	help
+	  The core module of MTK MET profiling tool
+
+config MTK_MET_PLF
+	tristate "MET platform-related driver"
+	depends on MTK_MET
+	default n
+	help
+	  The platform module of MTK MET profiling tool
+
+endmenu
+
+endmenu
+
+menu "MTPROF tools"
+
+config MTK_MUTATION
+	bool "Support some MTK debug/profiling patches"
+	default y
+
+config MTPROF_CPUTIME
+	bool "thread cputime profiling"
+	depends on SCHEDSTATS
+
+endmenu
+
+config MTPROF_IRQ_DURATION
+	bool "mt IRQ/ISR profiling"
+
+config MTK_AEE_FEATURE
+	tristate "Enable Android Exception Enhancement"
+	default n
+	select FIQ_GLUE if !TRUSTONIC_TEE_SUPPORT && !ARM_PSCI
+	---help---
+	  Enable Android Exception Enhancement
+
+config MTK_AEE_AED
+	tristate "Enable AEE Kernel Exception Report Daemon"
+	default y
+
+config MTK_AEE_IPANIC
+	tristate "Enable AEE Kernel Panic Dump"
+	default y
+
+config MTK_AEE_POWERKEY_HANG_DETECT
+    bool "powerkey monitor"
+    default n
+
+config MTK_AEE_MRDUMP
+	tristate "Enable AEE RAMDUMP support"
+	default y
+
+config ANDROID_VMEM
+	tristate "Virutally continuous memory allocator"
+	default y
+
+config CPUTIME_SUPPORT
+	bool "cputime profiling support for functions"
+	default n
+
+config CPUTIME_STATS
+	tristate "cputime profiling module for functions"
+	select CPUTIME_SUPPORT
+	default n
+	
+config MTK_RAM_CONSOLE
+	bool "mt ram console" 
+
+config MTK_RAM_CONSOLE_USING_SRAM
+	bool "Using SRAM as ram console storage"
+	depends on MTK_RAM_CONSOLE
+
+config MTK_RAM_CONSOLE_USING_DRAM
+	bool "Using DRAM as ram console storage"
+	depends on MTK_RAM_CONSOLE
+
+config MTK_RAM_CONSOLE_SIZE
+	hex "MTK RAM console  address"
+	default 0
+	depends on MTK_RAM_CONSOLE
+
+config MTK_RAM_CONSOLE_ADDR
+	hex "MTK RAM console buffer size"
+	default 0
+	depends on MTK_RAM_CONSOLE   
+
+config MTK_RAM_CONSOLE_DRAM_SIZE
+	hex "MTK RAM console dram address"
+	default 0
+	depends on MTK_RAM_CONSOLE
+
+config MTK_RAM_CONSOLE_DRAM_ADDR
+	hex "MTK RAM console dram size"
+	default 0
+	depends on MTK_RAM_CONSOLE   
+
+config PREEMPT_MONITOR
+	bool "mt preempt monitor"
+	default n
+
+config ISR_MONITOR
+	bool "mt ISR monitor"
+	default n
+
+config MT_SCHED_MONITOR
+	bool "mt scheduler monitor"
+	default n
+
+config MT_CHRDEV_REG
+	bool "mt char driver number table"
+	default n
+
+config MT_LOCK_DEBUG
+	bool "Record lock table and detect some possible deadlock"
+	default n
+
+config MT_DEBUG_MUTEXES
+	bool "show mutex owner info"
+	depends on DEBUG_MUTEXES 
+	default n
+
+config PRINTK_PROCESS_INFO 
+	bool "Prefix pid/process_name to each kernel log"
+	default n
+	
+config MT_PRINTK_UART_CONSOLE
+	bool "MTK printk UART controller"
+	default n
+
+config MT_ENG_BUILD
+	bool "flag for MTK eng/usr build verification"
+	default n
+
+config RAMDISK_OFFSET
+	hex "Uboot allocate memory offset for RAMDISK"
+	default 0xF00000
+	help
+	Used to check decompressed kernel overwrite ramdisk.
+	(DO NOT MODIFY IT YOURSELF.)
+
+config EARLY_LINUX_PORTING
+	bool "Support For Linux Early Porting"
+	default n
+	help
+
+config MTK_MCI
+	bool "Support For Memory coherence"
+	default n
+	help
+
+config MTK_ETM
+	bool "Support For Embedded Trace Macrocell"
+	default y
+	help
+
+config MTK_MEMCFG
+	bool "Support enhanced memory configurations"
+	default n
+	help
+
+menu "MT load balance and schedule enhancement"
+config MT_SCHED
+	bool "Enhance CPU affinity in hotplug"	
+ 	depends on HOTPLUG
+
+config MT_LOAD_BALANCE_ENHANCEMENT
+	bool "mt load balance enhancement"
+	depends on  SMP
+
+config MT_LOAD_BALANCE_PROFILER
+	bool "mt load balance profiler"
+	depends on SCHEDSTATS && SMP
+
+config MT_SCHED_NOTICE
+	bool "mt scheduling log, output important log into FTRACE, ftrace event: sched_log, default ENABLE"
+
+config MT_SCHED_INFO
+	bool "mt scheduling log, output detail flow info info FTRACE, ftrace event: sched_log"
+	depends on MT_SCHED_NOTICE
+
+config MT_SCHED_DEBUG
+	bool "mt scheduling log, also output the scheduling log into Kernel log"
+	depends on MT_SCHED_NOTICE
+
+config MTK_COMPAT
+	bool "fast mode switching"
+	depends on COMPAT
+	default n
+
+endmenu
+
+config MTK_CIRQ
+	bool "Support For System CIRQ"
+	default n
+	help
+
+config MTK_CPU_TOPOLOGY
+        bool "MTK cpu topology infrastructure"
+        depends on ARM_CPU_TOPOLOGY && OF
+        default y
+        help
+          Say N if you want to build up another wheel
+
+config MTK_HIBERNATION
+	bool "Support MTK hibernation"
+	depends on HIBERNATION && PM_WAKELOCKS
+	default y
+	help
+
+config MT_PRIO_TRACER
+	bool "Record priority changes"
+	default n
+	help
+	  Export device node under debugfs/prio_tracer
+
+config MTK_WQ_DEBUG
+	bool "mtk workqueue debug"
+	default n
+
+config MTK_SCHED_RQAVG_US
+	bool "Enable runqueue staticsic calculation used in user space operation"
+	depends on SMP
+	default n
+	help
+	  TLP estimation for user space CPUfreq governors
+
+config MTK_SCHED_RQAVG_KS
+	bool "Enable runqueue staticsic calculation used in kernel space operation"
+	depends on SMP
+	default n
+	help
+	  TLP estimation for kernel space CPUfreq governors, e.g., hotplug
+
+config MTK_STORAGE_PID_LOGGER
+	bool "support MTK storage pid logger"
+	default y
+endmenu
+
+menu "MTK Large Memory mode support"
+config MTK_LM_MODE
+	bool "MTK Large Memory mode"
+	select ARM_LPAE
+	select ARCH_PHYS_ADDR_T_64BIT
+	select ARCH_DMA_ADDR_T_64BIT
+	help
+	  Large Memory mode support for supporting more than 4GB DRAM access
+endmenu
+
+config MTK_TABLET_HARDWARE
+	bool "MTK tablet machine name"
+	default n
+	help
+	  MTM tablet machine name 
+
+config GATOR_DRIVER
+	tristate "DS-5 profiling tool kernel driver"
+	default n
+	depends on PROFILING
+	depends on HIGH_RES_TIMERS
+	depends on LOCAL_TIMERS || !(ARM && SMP)
+	depends on PERF_EVENTS
+	depends on HW_PERF_EVENTS || !(ARM || ARM64)
+	select TRACING
+	help
+	  kernel driver of DS-5 profiling tool
+
+config MTK_IPV6_TETHER_NDP_MODE
+	bool "MTK_IPV6_TETHER_NDP_MODE"
+	help
+	  is NDP mode or RADVD mode during IPv6 tethering yes: enable NDP
+	  mode during IPv6 tethering no: disable enable NDP mode during IPv6
+	  tethering
+
+config MTK_EMMC_SUPPORT_OTP
+	tristate "MediaTek eMMC Card OTP support"
+	depends on MTK_EMMC_SUPPORT
+	help
+	  support ont time program on EMMC
+
+config MTK_TETHERINGIPV6_SUPPORT
+	bool "MTK_TETHERINGIPV6_SUPPORT"
+	help
+	  support tethering over ipv6
+

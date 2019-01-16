@@ -1,0 +1,4 @@
+config MTK_SYSTRACKER
+        bool "Enable MTK System Tracker Debugger"
+        help
+          SYSTRACKER is a hardware debugger to record timeout transaction and trigger SLV_ERR or interrupt to notify CPU.

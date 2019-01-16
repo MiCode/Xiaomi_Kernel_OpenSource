@@ -1,0 +1,46 @@
+/* MTK PASR body */
+alps/mediatek/kernel/drivers/mtkpasr/
+
+/* Memblock: MEMBLOCK_ALLOC_NOPASR */
+alps/kernel-3.10/arch/arm/mm/init.c
+
+/* Helpler functions & flows for MTKPASR mobility: MTKPASR, mtkpasr */
+alps/kernel-3.10/mm/page_alloc.c
+
+/* Implementation of flush pages: MTKPASR, mtkpasr */
+alps/kernel-3.10/mm/vmscan.c
+
+/* Page Mobility related: CONFIG_MTKPASR */
+alps/kernel-3.10/mm/vmstat.c
+
+/* Memory compaction: mtkpasr */
+alps/kernel-3.10/mm/compaction.c
+
+/* Page IO: mtkpasr */
+alps/kernel-3.10/mm/page_io.c
+
+/* ZRAM: MTKPASR, mtkpasr */
+alps/kernel-3.10/drivers/staging/zram/zram_drv.c
+
+/* LMK: MTKPASR */
+alps/kernel-3.10/drivers/staging/android/lowmemorykiller.c
+
+/* Mlog: MTKPASR, mtkpasr */
+alps/mediatek/kernel/drivers/mlog/mlog_logger.c
+
+/* HW flow */
+alps/mediatek/platform/mt6595/kernel/core/mt_sleep.c   (CONFIG_MTKPASR, slp_pars_dpd)
+alps/mediatek/platform/mt6595/kernel/drivers/dramc/mt_dramc.c (enter_pasr_dpd_config, exit_pasr_dpd_config)
+alps/mediatek/platform/mt6595/kernel/core/emi_mpu.c   (acquire_dram_setting)
+alps/mediatek/platform/mt6595/kernel/drivers/spm/*       (PASR, SPM FW)
+alps/md32/md32/platform/mt6595/spm.c                             (PASR, DPD)
+
+/* Kernel Configuration */
+alps/mediatek/platform/mt6595/kernel/Kconfig/Drivers
+alps/mediatek/config/mt6595/autoconfig/kconfig/platform
+
+/* Header files */
+alps/kernel-3.10/include/linux/gfp.h (__GFP_NOMTKPASR)
+alps/kernel-3.10/include/linux/mmzone.h (CONFIG_MTKPASR)
+alps/kernel-3.10/include/linux/sched.h (PF_MTKPASR)
+alps/kernel-3.10/include/linux/memblock.h (MEMBLOCK_ALLOC_NOPASR)

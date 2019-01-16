@@ -1,0 +1,34 @@
+config MTKPASR
+	bool "MTK proprietary PASR mechanism"
+	depends on SYSFS && ZSMALLOC && ARM && HIGHMEM
+	select LZO_COMPRESS
+	select LZO_DECOMPRESS
+	default n
+	help
+	  Mediatek PASR mechanism
+
+config MTKPASR_RDIRECT
+	bool "Bank scanning direction"
+	depends on MTKPASR
+	default y
+	help
+	  Scanning direction of MTKPASR
+
+config MTKPASR_MAFL
+	bool "Mark it As Free by removing page blocks from buddy allocator to its List"
+	depends on MTKPASR
+	default y
+	help
+	  Enhance the PASR performance on collecting free banks
+
+config MTKPASR_ALLEXTCOMP
+	bool "No ZRAM/SWAP"
+	depends on MTKPASR
+	default n
+
+config MTKPASR_DEBUG
+	bool "MTK proprietary PASR debug support"
+	depends on MTKPASR
+	default n
+	help
+	  This option adds additional debugging code to MTK PASR
