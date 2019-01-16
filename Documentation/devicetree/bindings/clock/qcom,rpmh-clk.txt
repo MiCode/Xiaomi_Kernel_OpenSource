@@ -6,7 +6,9 @@ some Qualcomm Technologies Inc. SoCs. It accepts clock requests from
 other hardware subsystems via RSC to control clocks.
 
 Required properties :
-- compatible : shall contain "qcom,sdm845-rpmh-clk"
+- compatible : Shall contain one of the following:
+		"qcom,kona-rpmh-clk",
+		"qcom,sdm845-rpmh-clk"
 
 - #clock-cells : must contain 1
 
@@ -17,6 +19,13 @@ Example :
 	&apps_rsc {
 		rpmhcc: clock-controller {
 			compatible = "qcom,sdm845-rpmh-clk";
+			#clock-cells = <1>;
+		};
+	};
+
+	&apps_rsc {
+		rpmhcc: clock-controller {
+			compatible = "qcom,kona-rpmh-clk";
 			#clock-cells = <1>;
 		};
 	};
