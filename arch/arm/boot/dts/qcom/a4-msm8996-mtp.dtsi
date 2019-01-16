@@ -24,6 +24,17 @@
         status = "ok";
         qcom,wave-play-rate-us = <5000>;
         qcom,vmax-mv = <2830>;
+        qcom,brake-pattern-count = <8>;
+        qcom,disable_force_back_emf_delay;
+        qcom,vmax-overbrake-mv = <3016>;
+        qcom,brake-pattern-arry = [03 00 00 00
+	 03 02 01 00
+	 03 03 02 00
+	 03 02 02 02
+	 03 03 03 01
+	 03 03 03 02
+	 03 03 03 03
+	 03 03 03 03];
 };
 
 &soc {

@@ -4,45 +4,45 @@ qcom,b7_atl_3840mah {
 	qcom,batt-id-kohm = <68>;
 	qcom,battery-beta = <3435>;
 	qcom,battery-type = "b7_atl";
-	qcom,chg-rslow-comp-c1 = <3335618>;
-	qcom,chg-rslow-comp-c2 = <4971651>;
-	qcom,chg-rs-to-rslow = <1218506>;
-	qcom,chg-rslow-comp-thr = <0xA9>;
-	qcom,cool-bat-decidegc = <150>;
-	qcom,checksum = <0x03C6>;
-	qcom,gui-version = "PMI8996GUI - 1.1.0.0";
+	qcom,chg-rslow-comp-c1 = <3242434>;
+	qcom,chg-rslow-comp-c2 = <4155869>;
+	qcom,chg-rs-to-rslow = <1143884>;
+	qcom,chg-rslow-comp-thr = <0x9C>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,checksum = <0x90D0>;
+	qcom,gui-version = "PMI8996GUI - 1.1.0.4";
 	qcom,fg-profile-data = [
-			EE 83 67 7D
-			95 81 23 7C
-			58 83 2E 64
-			17 82 E3 8C
-			19 82 96 9A
-			EB BD 4C CB
-			5B 0E 09 88
-			23 7E 04 82
-			7A 7C 56 83
-			11 68 BD 7B
-			2E 8C 4C 82
-			C9 99 23 BD
-			2E CA 5A 0D
-			E2 0E EA 59
-			14 70 0E FD
-			89 3C 2D 46
-			72 42 00 00
-			31 4C 75 18
-			0B 48 00 00
+			F4 83 30 7D
+			24 81 F8 76
+			3D 83 62 72
+			19 7E 2F 7B
+			E6 81 C5 9B
+			25 BF 7A D0
+			82 11 F9 83
+			43 7D 65 81
+			DD 77 2D 83
+			5F 7A 64 8C
+			C8 88 1F 82
+			A5 9B 2C C4
+			52 D2 69 0E
+			B7 0E F9 59
+			14 70 15 FD
+			00 36 FB 3F
+			E9 39 00 00
+			82 4D EF 38
+			35 48 00 00
 			00 00 00 00
 			00 00 00 00
-			3F 71 4A 70
-			44 66 85 88
-			48 76 93 6B
-			A4 5E E7 7B
-			2E 74 4E 68
-			57 4F 9C A2
-			23 88 62 E3
-			64 A0 71 0C
+			09 71 1B 6B
+			A0 85 2B 73
+			B6 77 46 71
+			F6 58 44 7B
+			E8 6E F9 63
+			64 6D E6 A0
+			2D 45 63 53
+			65 A0 71 0C
 			28 00 FF 36
 			F0 11 30 03
 			00 00 00 0C
-			];
+	];
 };

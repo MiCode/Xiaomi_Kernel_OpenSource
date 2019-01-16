@@ -261,7 +261,7 @@ static int __kprobes do_page_fault(unsigned long addr, unsigned int esr,
 			die("Attempting to execute userspace memory", regs, esr);
 
 		if (!search_exception_tables(regs->pc))
-			panic("Accessing user space memory outside uaccess.h routines");
+			die("Accessing user space memory outside uaccess.h routines", regs, esr);
 	}
 
 	/*

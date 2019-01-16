@@ -23,7 +23,7 @@
 	qcom,msm-id = <305 0x10000>;
 
 	chosen {
-		bootargs = "sched_enable_hmp=1 sched_enable_power_aware=1 app_setting.use_32bit_app_setting_pro=1";
+		bootargs = "sched_enable_hmp=1 sched_enable_power_aware=1 app_setting.use_32bit_app_setting_pro=1 kpti=1";
 	};
 };
 

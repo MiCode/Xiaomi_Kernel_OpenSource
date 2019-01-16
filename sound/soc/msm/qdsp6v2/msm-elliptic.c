@@ -322,7 +322,7 @@ int32_t ultrasound_open(int32_t port_id, uint32_t *param_id,
 			ret = length;
 			pr_debug("[ELUS]: ret size = %d", ret);
 		} else {
-			pr_err("[ELUS]: %s get_calib_data failed : %d",
+			pr_err("[ELUS]: %s get_calib_data failed : %d\n",
 			       __func__, ret);
 			ret = 0;
 		}

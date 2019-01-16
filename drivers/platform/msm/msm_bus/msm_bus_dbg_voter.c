@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is Mree software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +27,7 @@ struct msm_bus_floor_client_type {
 };
 
 static struct class *bus_floor_class;
+static DEFINE_RT_MUTEX(msm_bus_floor_vote_lock);
 #define MAX_VOTER_NAME	(50)
 #define DEFAULT_NODE_WIDTH	(8)
 #define DBG_NAME(s)	(strnstr(s, "-", 7) + 1)
@@ -64,18 +65,22 @@ static ssize_t bus_floor_active_only_store(struct device *dev,
 {
 	struct msm_bus_floor_client_type *cl;
 
+	rt_mutex_lock(&msm_bus_floor_vote_lock);
 	cl = dev_get_drvdata(dev);
 
 	if (!cl) {
 		pr_err("%s: Can't find cl", __func__);
+		rt_mutex_unlock(&msm_bus_floor_vote_lock);
 		return 0;
 	}
 
 	if (sscanf(buf, "%d", &cl->active_only) != 1) {
 		pr_err("%s:return error", __func__);
+		rt_mutex_unlock(&msm_bus_floor_vote_lock);
 		return -EINVAL;
 	}
 
+	rt_mutex_unlock(&msm_bus_floor_vote_lock);
 	return n;
 }
 
@@ -100,20 +105,24 @@ static ssize_t bus_floor_vote_store(struct device *dev,
 	struct msm_bus_floor_client_type *cl;
 	int ret = 0;
 
+	rt_mutex_lock(&msm_bus_floor_vote_lock);
 	cl = dev_get_drvdata(dev);
 
 	if (!cl) {
 		pr_err("%s: Can't find cl", __func__);
+		rt_mutex_unlock(&msm_bus_floor_vote_lock);
 		return 0;
 	}
 
 	if (sscanf(buf, "%llu", &cl->cur_vote_hz) != 1) {
 		pr_err("%s:return error", __func__);
+		rt_mutex_unlock(&msm_bus_floor_vote_lock);
 		return -EINVAL;
 	}
 
 	ret = msm_bus_floor_vote_context(dev_name(dev), cl->cur_vote_hz,
 					cl->active_only);
+	rt_mutex_unlock(&msm_bus_floor_vote_lock);
 	return n;
 }
 
@@ -126,15 +135,18 @@ static ssize_t bus_floor_vote_store_api(struct device *dev,
 	char name[10];
 	u64 vote_khz = 0;
 
+	rt_mutex_lock(&msm_bus_floor_vote_lock);
 	cl = dev_get_drvdata(dev);
 
 	if (!cl) {
 		pr_err("%s: Can't find cl", __func__);
+		rt_mutex_unlock(&msm_bus_floor_vote_lock);
 		return 0;
 	}
 
 	if (sscanf(buf, "%9s %llu", name, &vote_khz) != 2) {
 		pr_err("%s:return error", __func__);
+		rt_mutex_unlock(&msm_bus_floor_vote_lock);
 		return -EINVAL;
 	}
 
@@ -142,6 +154,7 @@ static ssize_t bus_floor_vote_store_api(struct device *dev,
 			__func__, name, vote_khz);
 
 	ret = msm_bus_floor_vote(name, vote_khz);
+	rt_mutex_unlock(&msm_bus_floor_vote_lock);
 	return n;
 }
 

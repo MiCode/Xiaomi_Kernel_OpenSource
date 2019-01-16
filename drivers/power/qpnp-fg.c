@@ -5622,7 +5622,8 @@ static void fg_external_power_changed(struct power_supply *psy)
 {
 	struct fg_chip *chip = container_of(psy, struct fg_chip, bms_psy);
 	bool input_present = is_input_present(chip);
-
+	if(!input_present)
+			soc_work_fn(&chip->soc_work.work);
 	if (input_present ^ chip->rslow_comp.active &&
 			chip->rslow_comp.chg_rs_to_rslow > 0 &&
 			chip->rslow_comp.chg_rslow_comp_c1 > 0 &&
@@ -8255,6 +8256,7 @@ static int fg_common_hw_init(struct fg_chip *chip)
 	int rc;
 	int resume_soc_raw;
 	u8 val;
+	u8 buf[2];
 
 	update_iterm(chip);
 	update_cutoff_voltage(chip);
@@ -8398,6 +8400,23 @@ static int fg_common_hw_init(struct fg_chip *chip)
 		pr_err("failed to write to 0x4B3 rc=%d\n", rc);
 		return rc;
 	}
+
+	/*
+	 * At the end of this function set cut off SOC Ki coefficient from 32 to 96,
+	 * 0x408 offset 0 and 1 to 0xAA00
+	 */
+	buf[0] = 0x00;
+	buf[1] = 0xAA;
+	rc = fg_mem_write(chip, buf, 0x408, 2, 0, 1);
+	if (rc < 0)
+		pr_err("Error in configuring Sram cut off soc thread, rc=%d\n", rc);
+
+	/* Modify cut off current to 200mA. */
+	buf[0] = 0x1F;
+	buf[1] = 0x5;
+	rc = fg_mem_write(chip, buf, 0x410, 2, 0, 1);
+	if (rc < 0)
+		pr_err("Error in configuring Sram cut off current thread, rc=%d\n", rc);
 
 	return 0;
 }
@@ -8856,7 +8875,8 @@ static int fg_detect_pmic_type(struct fg_chip *chip)
 				pmic_rev_id->pmic_subtype);
 		return -EINVAL;
 	}
-
+	if (PMI8996 == pmic_rev_id->pmic_subtype)
+		fg_reset_on_lockup = 1;
 	return 0;
 }
 

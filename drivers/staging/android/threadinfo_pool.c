@@ -137,10 +137,12 @@ void threadinfo_pool_free_pages(void *addr)
 static int mp_thread(void *data)
 {
 	struct sched_param param = { .sched_priority = 0 };
-	sched_setscheduler(_pool.tsk, SCHED_NORMAL, &param);
+	sched_setscheduler(current, SCHED_NORMAL, &param);
 
 	while (true) {
-		wait_event_freezable(_pool.waitqueue, __mp_is_not_full() && time_after64(get_jiffies_64(), _pool.freeze_time));
+		wait_event_freezable(_pool.waitqueue, __mp_is_not_full() &&
+			time_after64(get_jiffies_64(), _pool.freeze_time));
+
 		while (__mp_is_not_full()) {
 			struct page *page = mp_alloc_pages_ti();
 			if (!page) {

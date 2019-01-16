@@ -65,6 +65,8 @@ static DEFINE_MUTEX(thermal_governor_lock);
 
 static struct thermal_governor *def_governor;
 
+static atomic_t temp_state = ATOMIC_INIT(0);
+
 static struct thermal_governor *__find_governor(const char *name)
 {
 	struct thermal_governor *pos;
@@ -1838,6 +1840,8 @@ static struct class thermal_class = {
 	.dev_release = thermal_release,
 };
 
+static struct device thermal_message_dev;
+
 /**
  * __thermal_cooling_device_register() - register a new thermal cooling device
  * @np:		a pointer to a device tree node.
@@ -2596,6 +2600,52 @@ static void thermal_unregister_governors(void)
 	thermal_gov_power_allocator_unregister();
 }
 
+static ssize_t
+thermal_temp_state_show(struct device *dev,
+				      struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", atomic_read(&temp_state));
+}
+
+static ssize_t
+thermal_temp_state_store(struct device *dev,
+				      struct device_attribute *attr, const char *buf, size_t len)
+{
+	int val = -1;
+
+	val = simple_strtol(buf, NULL, 10);
+
+	atomic_set(&temp_state, val);
+
+	return len;
+}
+
+static DEVICE_ATTR(temp_state, 0664,
+		   thermal_temp_state_show, thermal_temp_state_store);
+
+static int create_thermal_message_node(void)
+{
+	int ret = 0;
+
+	thermal_message_dev.class = &thermal_class;
+
+	dev_set_name(&thermal_message_dev, "thermal_message");
+	ret = device_register(&thermal_message_dev);
+	if (!ret) {
+		ret = sysfs_create_file(&thermal_message_dev.kobj, &dev_attr_temp_state.attr);
+		if (ret < 0)
+			pr_warn("Thermal: create temp state node failed\n");
+	}
+
+	return ret;
+}
+
+static void destroy_thermal_message_node(void)
+{
+	sysfs_remove_file(&thermal_message_dev.kobj, &dev_attr_temp_state.attr);
+	device_unregister(&thermal_message_dev);
+}
+
 static int __init thermal_init(void)
 {
 	int result;
@@ -2615,6 +2665,11 @@ static int __init thermal_init(void)
 	result = of_parse_thermal_zones();
 	if (result)
 		goto exit_netlink;
+
+	result = create_thermal_message_node();
+	if (result)
+		pr_warn("Thermal: create thermal message node failed, return %d\n",
+				result);
 
 	return 0;
 
@@ -2637,6 +2692,7 @@ static void __exit thermal_exit(void)
 {
 	of_thermal_destroy_zones();
 	genetlink_exit();
+	destroy_thermal_message_node();
 	class_unregister(&thermal_class);
 	thermal_unregister_governors();
 	idr_destroy(&thermal_tz_idr);

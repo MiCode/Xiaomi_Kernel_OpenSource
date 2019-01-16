@@ -1404,7 +1404,7 @@ static enum d_walk_ret umount_check(void *_data, struct dentry *dentry)
 		       dentry->d_lockref.count,
 		       dentry->d_sb->s_type->name,
 		       dentry->d_sb->s_id);
-	WARN_ON(1);
+	WARN_RATELIMIT(1, "Dentry still in use.\n");
 	return D_WALK_CONTINUE;
 }
 

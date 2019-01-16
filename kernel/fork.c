@@ -154,23 +154,24 @@ void __weak arch_release_thread_info(struct thread_info *ti)
 static struct thread_info *alloc_thread_info_node(struct task_struct *tsk,
 						  int node)
 {
-#ifdef CONFIG_THREADINFO_POOL
-	struct page *page = threadinfo_pool_alloc_pages();
-#else
-	struct page *page = alloc_kmem_pages_node(node, THREADINFO_GFP,
-						  THREAD_SIZE_ORDER);
-#endif
+	struct page *page;
+
+	if (IS_ENABLED(CONFIG_THREADINFO_POOL) && !in_interrupt())
+		page = threadinfo_pool_alloc_pages();
+	else
+		page = alloc_kmem_pages_node(node, THREADINFO_GFP,
+						THREAD_SIZE_ORDER);
 	return page ? page_address(page) : NULL;
 }
 
 static inline void free_thread_info(struct thread_info *ti)
 {
-#ifdef CONFIG_THREADINFO_POOL
-	threadinfo_pool_free_pages(ti);
-#else
-	kasan_alloc_pages(virt_to_page(ti), THREAD_SIZE_ORDER);
-	free_kmem_pages((unsigned long)ti, THREAD_SIZE_ORDER);
-#endif
+	if(IS_ENABLED(CONFIG_THREADINFO_POOL) && !in_interrupt())
+		threadinfo_pool_free_pages(ti);
+	else {
+		kasan_alloc_pages(virt_to_page(ti), THREAD_SIZE_ORDER);
+		free_kmem_pages((unsigned long)ti, THREAD_SIZE_ORDER);
+	}
 }
 # else
 static struct kmem_cache *thread_info_cache;

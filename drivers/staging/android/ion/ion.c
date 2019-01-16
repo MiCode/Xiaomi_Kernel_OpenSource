@@ -414,7 +414,7 @@ static struct ion_handle* ion_handle_get_check_overflow(struct ion_handle *handl
 
 static int ion_handle_put_nolock(struct ion_handle *handle)
 {
-	int ret;
+	int ret = 0;
 
 	ret = kref_put(&handle->ref, ion_handle_destroy);
 

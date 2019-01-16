@@ -222,6 +222,7 @@ enum log_flags {
 
 struct printk_log {
 	u64 ts_nsec;		/* timestamp in nanoseconds */
+	u32  cpu;
 	u16 len;		/* length of entire record */
 	u16 text_len;		/* length of text buffer */
 	u16 dict_len;		/* length of dictionary buffer */
@@ -269,7 +270,7 @@ static enum log_flags console_prev;
 static u64 clear_seq;
 static u32 clear_idx;
 
-#define PREFIX_MAX		32
+#define PREFIX_MAX		64
 #define LOG_LINE_MAX		(1024 - PREFIX_MAX)
 
 /* record buffer */
@@ -425,7 +426,7 @@ static u32 truncate_msg(u16 *text_len, u16 *trunc_msg_len,
 static int log_store(int facility, int level,
 		     enum log_flags flags, u64 ts_nsec,
 		     const char *dict, u16 dict_len,
-		     const char *text, u16 text_len)
+		     const char *text, u16 text_len, u32 cpu)
 {
 	struct printk_log *msg;
 	u32 size, pad_len;
@@ -467,6 +468,7 @@ static int log_store(int facility, int level,
 	msg->facility = facility;
 	msg->level = level & 7;
 	msg->flags = flags & 0x1f;
+	msg->cpu = cpu;
 	LOG_MAGIC(msg);
 	if (ts_nsec > 0)
 		msg->ts_nsec = ts_nsec;
@@ -591,6 +593,7 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
 	struct devkmsg_user *user = file->private_data;
 	struct printk_log *msg;
 	u64 ts_usec;
+	u32 cpu;
 	size_t i;
 	char cont = '-';
 	size_t len;
@@ -630,7 +633,7 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
 	msg = log_from_idx(user->idx);
 	ts_usec = msg->ts_nsec;
 	do_div(ts_usec, 1000);
-
+	cpu = msg->cpu;
 	/*
 	 * If we couldn't merge continuation line fragments during the print,
 	 * export the stored flags to allow an optional external merge of the
@@ -645,9 +648,9 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
 		 ((user->prev & LOG_CONT) && !(msg->flags & LOG_PREFIX)))
 		cont = '+';
 
-	len = sprintf(user->buf, "%u,%llu,%llu,%c;",
+	len = sprintf(user->buf, "%u,%llu,%llu,%d,%c;",
 		      (msg->facility << 3) | msg->level,
-		      user->seq, ts_usec, cont);
+		      user->seq, ts_usec, cpu, cont);
 	user->prev = msg->flags;
 
 	/* escape non-printable characters */
@@ -839,6 +842,7 @@ void log_buf_kexec_setup(void)
 	 */
 	VMCOREINFO_STRUCT_SIZE(printk_log);
 	VMCOREINFO_OFFSET(printk_log, ts_nsec);
+	VMCOREINFO_OFFSET(printk_log, cpu);
 	VMCOREINFO_OFFSET(printk_log, len);
 	VMCOREINFO_OFFSET(printk_log, text_len);
 	VMCOREINFO_OFFSET(printk_log, dict_len);
@@ -1534,6 +1538,7 @@ static struct cont {
 	size_t cons;			/* bytes written to console */
 	struct task_struct *owner;	/* task of first print*/
 	u64 ts_nsec;			/* time of first print */
+	u32 cpu;                         /* cpu of first print*/
 	u8 level;			/* log level of first message */
 	u8 facility;			/* log facility of first message */
 	enum log_flags flags;		/* prefix, newline flags */
@@ -1554,7 +1559,7 @@ static void cont_flush(enum log_flags flags)
 		 * line. LOG_NOCONS suppresses a duplicated output.
 		 */
 		log_store(cont.facility, cont.level, flags | LOG_NOCONS,
-			  cont.ts_nsec, NULL, 0, cont.buf, cont.len);
+			  cont.ts_nsec, NULL, 0, cont.buf, cont.len, cont.cpu);
 		cont.flags = flags;
 		cont.flushed = true;
 	} else {
@@ -1563,7 +1568,7 @@ static void cont_flush(enum log_flags flags)
 		 * just submit it to the store and free the buffer.
 		 */
 		log_store(cont.facility, cont.level, flags, 0,
-			  NULL, 0, cont.buf, cont.len);
+			  NULL, 0, cont.buf, cont.len, cont.cpu);
 		cont.len = 0;
 	}
 }
@@ -1583,6 +1588,7 @@ static bool cont_add(int facility, int level, const char *text, size_t len)
 		cont.facility = facility;
 		cont.level = level;
 		cont.owner = current;
+		cont.cpu = smp_processor_id();
 		cont.ts_nsec = local_clock();
 		cont.flags = 0;
 		cont.cons = 0;
@@ -1685,7 +1691,7 @@ asmlinkage int vprintk_emit(int facility, int level,
 		/* emit KERN_CRIT message */
 		printed_len += log_store(0, 2, LOG_PREFIX|LOG_NEWLINE, 0,
 					 NULL, 0, recursion_msg,
-					 strlen(recursion_msg));
+					 strlen(recursion_msg), smp_processor_id());
 	}
 
 	/*
@@ -1747,7 +1753,7 @@ asmlinkage int vprintk_emit(int facility, int level,
 		else
 			printed_len += log_store(facility, level,
 						 lflags | LOG_CONT, 0,
-						 dict, dictlen, text, text_len);
+						 dict, dictlen, text, text_len, smp_processor_id());
 	} else {
 		bool stored = false;
 
@@ -1770,7 +1776,7 @@ asmlinkage int vprintk_emit(int facility, int level,
 			printed_len += text_len;
 		else
 			printed_len += log_store(facility, level, lflags, 0,
-						 dict, dictlen, text, text_len);
+						 dict, dictlen, text, text_len, smp_processor_id());
 	}
 
 	logbuf_cpu = UINT_MAX;

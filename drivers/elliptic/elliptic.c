@@ -4,6 +4,7 @@
  *
  */
 
+#include <linux/slab.h>
 #include<linux/module.h>
 #include<linux/kernel.h>
 #include<linux/version.h>
@@ -91,15 +92,30 @@ static int device_open(struct inode *inode, struct file *filp)
  *
  * @return Number of bytes read.
  */
-static ssize_t device_read(struct file *fp, char *buff, size_t length,
+static ssize_t device_read(struct file *fp, char __user *buff, size_t length,
 	loff_t *ppos)
 {
 	int bytes_read = 0;
+	char *kbuff = NULL;
+	if ((buff == NULL) || (length == 0)) {
+		pr_err("elliptic : %s user buff is NULL OR length is 0\n",__func__);
+		return 0;
+	}
 
+	kbuff = kzalloc(length, GFP_KERNEL);
+	if (kbuff == NULL) {
+		pr_err("elliptic : %s kzalloc fail\n",__func__);
+		return 0;
+	}
 	bytes_read =
-		elliptic_data_io(ELLIPTIC_ULTRASOUND_GET_PARAMS, ELLIPTIC_PORT_ID, buff,
+		elliptic_data_io(ELLIPTIC_ULTRASOUND_GET_PARAMS, ELLIPTIC_PORT_ID, kbuff,
 		length);
-
+	if (copy_to_user(buff,  kbuff, length)) {
+		pr_err("elliptic : %s copy_to_user error\n", __func__);
+		kfree(kbuff);
+		return 0;
+	}
+	kfree(kbuff);
 	return bytes_read;
 }
 

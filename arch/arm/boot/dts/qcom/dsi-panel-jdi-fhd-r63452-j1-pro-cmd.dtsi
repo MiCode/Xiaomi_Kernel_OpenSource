@@ -73,8 +73,12 @@
 				29 00 00 00 00 00 02 b0 03
 				05 01 00 00 02 00 02 28 00
 				05 01 00 00 78 00 02 10 00];
+		qcom,mdss-dsi-displayoff-command = [05 01 00 00 20 00 02 28 00];
+		qcom,mdss-dsi-displayon-command = [05 01 00 00 20 00 02 29 00];
 		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
 		qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
+		qcom,mdss-dsi-displayoff-command-state = "dsi_hs_mode";
+		qcom,mdss-dsi-displayon-command-state = "dsi_hs_mode";
 		qcom,mdss-dsi-h-sync-pulse = <0>;
 		qcom,mdss-dsi-traffic-mode = "burst_mode";
 		qcom,mdss-dsi-bllp-eof-power-mode;

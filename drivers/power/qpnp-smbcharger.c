@@ -1199,11 +1199,6 @@ static int get_prop_batt_capacity(struct smbchg_chip *chip)
 		capacity = DEFAULT_BATT_CAPACITY;
 	}
 
-	if (is_usb_present(chip)
-			&& (POWER_SUPPLY_STATUS_FULL == get_prop_batt_status(chip))
-			&& get_prop_batt_voltage_now(chip) > 4300000)
-		capacity = 100;
-
 	return capacity;
 }
 
@@ -5298,7 +5293,10 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 	}
 
 	smbchg_detect_parallel_charger(chip);
-
+	if (chip->screen_on) {
+		chip->screen_icl_status = true;
+		smbchg_restricted_charging(chip, true);
+	}
 	if (chip->parallel.avail && chip->aicl_done_irq
 			&& !chip->enable_aicl_wake) {
 		rc = enable_irq_wake(chip->aicl_done_irq);
@@ -9264,7 +9262,7 @@ static int smbchg_suspend(struct device *dev)
 	cancel_delayed_work(&chip->screen_on_work);
 
 	smbchg_restricted_charging(chip, false);
-
+	chip->checking_in_progress = false;
 	return 0;
 }
 
