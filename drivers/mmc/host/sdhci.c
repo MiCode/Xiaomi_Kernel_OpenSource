@@ -2789,9 +2789,15 @@ int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	}
 
 	if (host->ops->platform_execute_tuning) {
+		/*
+		 * Make sure re-tuning won't get triggered for the CRC errors
+		 * occurred while executing tuning
+		 */
+		mmc_retune_disable(mmc);
 		err = host->ops->platform_execute_tuning(host, opcode);
-			goto out;
-		}
+		mmc_retune_enable(mmc);
+		goto out;
+	}
 
 	host->mmc->retune_period = tuning_count;
 
