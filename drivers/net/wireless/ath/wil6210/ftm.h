@@ -401,6 +401,7 @@ enum qca_events_index {
 	QCA_EVENT_FTM_MEAS_RESULT_INDEX,
 	QCA_EVENT_FTM_SESSION_DONE_INDEX,
 	QCA_EVENT_AOA_MEAS_RESULT_INDEX,
+	QCA_EVENT_UNSPEC_INDEX,
 };
 
 /* measurement parameters. Specified for each peer as part
