@@ -347,6 +347,7 @@ int mhi_dev_add_element(struct mhi_dev_ring *ring,
 		/* No wrap-around case */
 		host_addr.virt_addr = element;
 		host_addr.size = size;
+		host_addr.phy_addr = 0;
 		mhi_ctx->write_to_host(ring->mhi_dev, &host_addr,
 			ereq, MHI_DEV_DMA_ASYNC);
 	} else {
@@ -365,6 +366,7 @@ int mhi_dev_add_element(struct mhi_dev_ring *ring,
 		host_addr.virt_addr = element + (ring->ring_size - old_offset);
 		host_addr.size = ring->rd_offset *
 			sizeof(union mhi_dev_ring_element_type);
+		host_addr.phy_addr = 0;
 		mhi_ctx->write_to_host(ring->mhi_dev, &host_addr,
 			ereq, MHI_DEV_DMA_ASYNC);
 	}

@@ -176,14 +176,29 @@ void mhi_dev_write_to_host_ipa(struct mhi_dev *mhi, struct mhi_addr *transfer,
 		(uint64_t) mhi->cache_dma_handle, host_addr_pa,
 		(int) transfer->size);
 	if (tr_type == MHI_DEV_DMA_ASYNC) {
-		dma = dma_map_single(&mhi->pdev->dev,
+		/*
+		 * Event read pointer memory is dma_alloc_coherent memory
+		 * don't need to dma_map. Assigns the physical address in
+		 * phy_addr.
+		 */
+		if (transfer->phy_addr)
+			dma = transfer->phy_addr;
+		else
+			dma = dma_map_single(&mhi->pdev->dev,
 				transfer->virt_addr, transfer->size,
 				DMA_TO_DEVICE);
 		if (ereq->event_type == SEND_EVENT_BUFFER) {
 			ereq->dma = dma;
 			ereq->dma_len = transfer->size;
 		} else if (ereq->event_type == SEND_EVENT_RD_OFFSET) {
-			ereq->event_rd_dma = dma;
+			/*
+			 * Event read pointer memory is dma_alloc_coherent
+			 * memory. Don't need to dma_unmap.
+			 */
+			if (transfer->phy_addr)
+				ereq->event_rd_dma = 0;
+			else
+				ereq->event_rd_dma = dma;
 		}
 		rc = ipa_dma_async_memcpy(host_addr_pa, (uint64_t) dma,
 				(int)transfer->size,
@@ -379,19 +394,35 @@ void mhi_dev_write_to_host_edma(struct mhi_dev *mhi, struct mhi_addr *transfer,
 		mhi->cache_dma_handle, host_addr_pa,
 		(int) transfer->size);
 	if (tr_type == MHI_DEV_DMA_ASYNC) {
-		dma = dma_map_single(&mhi->pdev->dev,
+		/*
+		 * Event read pointer memory is dma_alloc_coherent memory
+		 * don't need to dma_map. Assigns the physical address in
+		 * phy_addr.
+		 */
+		if (transfer->phy_addr) {
+			dma = transfer->phy_addr;
+		} else {
+			dma = dma_map_single(&mhi->pdev->dev,
 				transfer->virt_addr, transfer->size,
 				DMA_TO_DEVICE);
-		if (dma_mapping_error(&mhi->pdev->dev, dma)) {
-			pr_err("%s():dma mapping failed\n", __func__);
-			return;
+			if (dma_mapping_error(&mhi->pdev->dev, dma)) {
+				pr_err("%s(): dma mapping failed\n", __func__);
+				return;
+			}
 		}
 
 		if (ereq->event_type == SEND_EVENT_BUFFER) {
 			ereq->dma = dma;
 			ereq->dma_len = transfer->size;
 		} else {
-			ereq->event_rd_dma = dma;
+			/*
+			 * Event read pointer memory is dma_alloc_coherent
+			 * memory. Don't need to dma_unmap.
+			 */
+			if (transfer->phy_addr)
+				ereq->event_rd_dma = 0;
+			else
+				ereq->event_rd_dma = dma;
 		}
 
 		descriptor = dmaengine_prep_dma_memcpy(
@@ -932,6 +963,7 @@ int mhi_dev_send_event(struct mhi_dev *mhi, int evnt_ring,
 
 	transfer_addr.virt_addr = &ring->ring_ctx_shadow->ev.rp;
 	transfer_addr.size = sizeof(uint64_t);
+	transfer_addr.phy_addr = 0;
 
 	mhi_ctx->write_to_host(mhi, &transfer_addr, NULL, MHI_DEV_DMA_SYNC);
 	/*
@@ -984,7 +1016,8 @@ static void mhi_dev_event_rd_offset_completion_cb(void *req)
 	struct mhi_dev *mhi = ch->ring->mhi_dev;
 	unsigned long flags;
 
-	dma_unmap_single(&mhi_ctx->pdev->dev, ereq->event_rd_dma,
+	if (ereq->event_rd_dma)
+		dma_unmap_single(&mhi_ctx->pdev->dev, ereq->event_rd_dma,
 			sizeof(uint64_t), DMA_TO_DEVICE);
 	ctx = (union mhi_dev_ring_ctx *)&mhi->ev_ctx_cache[ereq->event_ring];
 	rc = ep_pcie_trigger_msi(mhi_ctx->phandle, ctx->ev.msivec);
@@ -1042,16 +1075,25 @@ static int mhi_dev_send_multiple_tr_events(struct mhi_dev *mhi, int evnt_ring,
 	mhi_log(MHI_MSG_VERBOSE, "ev.rp = %llx for %lld\n",
 		ring->ring_ctx_shadow->ev.rp, evnt_ring_idx);
 
-	if (MHI_USE_DMA(mhi))
+	if (MHI_USE_DMA(mhi)) {
 		transfer_addr.host_pa = (mhi->ev_ctx_shadow.host_pa +
 		sizeof(struct mhi_dev_ev_ctx) *
 		evnt_ring) + (size_t)&ring->ring_ctx->ev.rp -
 		(size_t)ring->ring_ctx;
-	else
+		/*
+		 * As ev_ctx_cache memory is dma_alloc_coherent, dma_map_single
+		 * should not be called. Pass physical address to write to host.
+		 */
+		transfer_addr.phy_addr = (mhi->ev_ctx_cache_dma_handle +
+			sizeof(struct mhi_dev_ev_ctx) * evnt_ring) +
+			(size_t)&ring->ring_ctx->ev.rp -
+			(size_t)ring->ring_ctx;
+	} else {
 		transfer_addr.device_va = (mhi->ev_ctx_shadow.device_va +
 		sizeof(struct mhi_dev_ev_ctx) *
 		evnt_ring) + (size_t)&ring->ring_ctx->ev.rp -
 		(size_t)ring->ring_ctx;
+	}
 
 	transfer_addr.virt_addr = &ring->ring_ctx_shadow->ev.rp;
 	transfer_addr.size = sizeof(uint64_t);
