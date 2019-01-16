@@ -22,7 +22,7 @@ mailbox interface, which again requires client-id and signal-id.
 - compatible:
   Usage: required
   Value type: <string>
-  Definition: Must be "qcom,kona-ipcc"
+  Definition: Must be "qcom,ipcc"
 
 - reg:
   Usage: required
@@ -55,7 +55,7 @@ Example
 	#include <dt-bindings/soc/qcom,ipcc.h>
 
 	ipcc_mproc: qcom,ipcc@408000 {
-		compatible = "qcom,kona-ipcc";
+		compatible = "qcom,ipcc";
 		reg = <0x408000 0x1000>;
 		interrupts = <GIC_SPI 229 IRQ_TYPE_LEVEL_HIGH>,
 		interrupt-controller;
