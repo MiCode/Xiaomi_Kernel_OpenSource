@@ -8,7 +8,7 @@
 
 #include "cam_isp_hw.h"
 
-#define CAM_VFE_HW_NUM_MAX                       4
+#define CAM_VFE_HW_NUM_MAX            7
 
 #define VFE_CORE_BASE_IDX             0
 /*
