@@ -9668,7 +9668,6 @@ out:
 		hba->curr_dev_pwr_mode,
 		hba->uic_link_state);
 	return ret;
-
 }
 EXPORT_SYMBOL(ufshcd_runtime_suspend);
 
@@ -10442,7 +10441,7 @@ static int ufshcd_devfreq_target(struct device *dev,
 {
 	int ret = 0;
 	struct ufs_hba *hba = dev_get_drvdata(dev);
-	unsigned long irq_flags;
+	unsigned long irq_flags = 0;
 	ktime_t start;
 	bool scale_up, sched_clk_scaling_suspend_work = false;
 
