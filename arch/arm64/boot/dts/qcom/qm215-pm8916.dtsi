@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -473,6 +473,102 @@
 					temperature = <145000>;
 					hysteresis = <0>;
 					type = "passive";
+				};
+			};
+		};
+
+		xo-therm-step {
+			polling-delay-passive = <1000>;
+			polling-delay = <5000>;
+			thermal-sensors = <&pm8916_vadc 0x32>;
+			thermal-governor = "step_wise";
+
+			trips {
+				qm215_batt_trip0: qm215-batt-trip0 {
+					temperature = <41000>;
+					hysteresis = <2000>;
+					type = "passive";
+				};
+				qm215_modem_trip0: qm215-modem-trip0 {
+					temperature = <44000>;
+					hysteresis = <4000>;
+					type = "passive";
+				};
+				qm215_batt_trip1: qm215-batt-trip1 {
+					temperature = <45000>;
+					hysteresis = <4000>;
+					type = "passive";
+				};
+				qm215_modem_trip1: qm215-modem-trip1 {
+					temperature = <46000>;
+					hysteresis = <2000>;
+					type = "passive";
+				};
+				qm215_cpu_trip: qm215-cpu-trip {
+					temperature = <48000>;
+					hysteresis = <0>;
+					type = "passive";
+				};
+				qm215_gpu_trip: qm215-gpu-trip {
+					temperature = <50000>;
+					hysteresis = <0>;
+					type = "passive";
+				};
+				qm215_modem_trip2: qm215-modem-trip2 {
+					temperature = <60000>;
+					hysteresis = <5000>;
+					type = "passive";
+				};
+			};
+
+			cooling-maps {
+				skin_cpu0 {
+					trip = <&qm215_cpu_trip>;
+					/* throttle from fmax to 1094400KHz */
+					cooling-device = <&CPU0 THERMAL_NO_LIMIT
+							(THERMAL_MAX_LIMIT-2)>;
+				};
+				skin_cpu1 {
+					trip = <&qm215_cpu_trip>;
+					cooling-device = <&CPU1 THERMAL_NO_LIMIT
+							(THERMAL_MAX_LIMIT-2)>;
+				};
+				skin_cpu2 {
+					trip = <&qm215_cpu_trip>;
+					cooling-device = <&CPU2 THERMAL_NO_LIMIT
+							(THERMAL_MAX_LIMIT-2)>;
+				};
+				skin_cpu3 {
+					trip = <&qm215_cpu_trip>;
+					cooling-device = <&CPU3 THERMAL_NO_LIMIT
+							(THERMAL_MAX_LIMIT-2)>;
+				};
+				skin_gpu {
+					trip = <&qm215_gpu_trip>;
+					/* throttle from fmax to 400000000Hz */
+					cooling-device = <&msm_gpu
+							THERMAL_NO_LIMIT
+							(THERMAL_MAX_LIMIT-1)>;
+				};
+				modem_lvl1 {
+					trip = <&qm215_modem_trip0>;
+					cooling-device = <&modem_pa 1 1>;
+				};
+				modem_lvl2 {
+					trip = <&qm215_modem_trip1>;
+					cooling-device = <&modem_pa 2 2>;
+				};
+				modem_lvl3 {
+					trip = <&qm215_modem_trip2>;
+					cooling-device = <&modem_pa 3 3>;
+				};
+				battery_lvl1 {
+					trip = <&qm215_batt_trip0>;
+					cooling-device = <&pm8916_chg 1 1>;
+				};
+				battery_lvl2 {
+					trip = <&qm215_batt_trip1>;
+					cooling-device = <&pm8916_chg 2 2>;
 				};
 			};
 		};
