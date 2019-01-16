@@ -363,7 +363,7 @@
 
 		removed_mem: removed_region@80b00000 {
 			no-map;
-			reg = <0x0 0x80b00000 0x0 0xc00000>;
+			reg = <0x0 0x80b00000 0x0 0x1300000>;
 		};
 
 		qtee_apps_mem: qtee_apps_region@81e00000 {
