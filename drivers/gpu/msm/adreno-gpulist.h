@@ -331,6 +331,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gpmu_minor = 0x003,
 		.gpmu_tsens = 0x000C000D,
 		.max_power = 5448,
+		.prim_fifo_threshold = 0x0018000,
 	},
 	{
 		.gpurev = ADRENO_REV_A630,
@@ -352,6 +353,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gpmu_minor = 0x003,
 		.gpmu_tsens = 0x000C000D,
 		.max_power = 5448,
+		.prim_fifo_threshold = 0x0018000,
 	},
 	{
 		.gpurev = ADRENO_REV_A615,
@@ -371,6 +373,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gpmufw_name = "a630_gmu.bin",
 		.gpmu_major = 0x1,
 		.gpmu_minor = 0x003,
+		.prim_fifo_threshold = 0x0018000,
 	},
 	{
 		.gpurev = ADRENO_REV_A618,
@@ -390,6 +393,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gpmufw_name = "a630_gmu.bin",
 		.gpmu_major = 0x1,
 		.gpmu_minor = 0x007,
+		.prim_fifo_threshold = 0x0018000,
 	},
 	{
 		.gpurev = ADRENO_REV_A640,
@@ -412,6 +416,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gpmu_tsens = 0x000C000D,
 		.max_power = 5448,
 		.va_padding = SZ_64K,
+		.prim_fifo_threshold = 0x00200000,
 	},
 	{
 		.gpurev = ADRENO_REV_A640,
@@ -433,6 +438,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gpmu_minor = 0x000,
 		.gpmu_tsens = 0x000C000D,
 		.max_power = 5448,
+		.prim_fifo_threshold = 0x00200000,
 	},
 	{
 		.gpurev = ADRENO_REV_A650,
@@ -452,6 +458,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gpmu_minor = 0x000,
 		.gpmu_tsens = 0x000C000D,
 		.max_power = 5448,
+		.prim_fifo_threshold = 0x00300000,
 	},
 	{
 		.gpurev = ADRENO_REV_A680,
@@ -471,6 +478,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gpmu_minor = 0x000,
 		.gpmu_tsens = 0x000C000D,
 		.max_power = 5448,
+		.prim_fifo_threshold = 0x00400000,
 	},
 	{
 		.gpurev = ADRENO_REV_A612,
@@ -488,6 +496,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.num_protected_regs = 0x20,
 		.busy_mask = 0xFFFFFFFE,
 		.gpmufw_name = "a612_rgmu.bin",
+		.prim_fifo_threshold = 0x00080000,
 	},
 	{
 		.gpurev = ADRENO_REV_A616,
@@ -507,5 +516,6 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gpmufw_name = "a630_gmu.bin",
 		.gpmu_major = 0x1,
 		.gpmu_minor = 0x003,
+		.prim_fifo_threshold = 0x0018000,
 	},
 };

@@ -418,6 +418,7 @@ struct adreno_gpu_core {
 	unsigned int gpmu_tsens;
 	unsigned int max_power;
 	uint64_t va_padding;
+	unsigned int prim_fifo_threshold;
 };
 
 

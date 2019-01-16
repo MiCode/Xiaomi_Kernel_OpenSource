@@ -23,6 +23,8 @@
 #include "kgsl_trace.h"
 
 #define MIN_HBB		13
+#define HBB_LOWER_MASK	0x3
+#define HBB_UPPER_SHIFT	0x2
 
 static const struct adreno_vbif_data a630_vbif[] = {
 	{A6XX_VBIF_GATE_OFF_WRREQ_EN, 0x00000009},
@@ -832,8 +834,10 @@ static void a6xx_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 static void a6xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	unsigned int bit, mal, mode, glbl_inv;
+	unsigned int bit, lower_bit, mal, mode, glbl_inv, upper_bit;
+	unsigned int uavflagprd_inv;
 	unsigned int amsbc = 0;
+	unsigned int rgb565_predicator = 0;
 	static bool patch_reglist;
 
 	/* runtime adjust callbacks based on feature sets */
@@ -899,14 +903,8 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	}
 
 	/* Setting the primFifo thresholds values */
-	if (adreno_is_a640(adreno_dev))
-		kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL, (0x400 << 11));
-	else if (adreno_is_a680(adreno_dev))
-		kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL, (0x800 << 11));
-	else if (adreno_is_a612(adreno_dev))
-		kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL, (0x100 << 11));
-	else
-		kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL, (0x300 << 11));
+	kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL,
+			adreno_dev->gpucore->prim_fifo_threshold);
 
 	/* Set the AHB default slave response to "ERROR" */
 	kgsl_regwrite(device, A6XX_CP_AHB_CNTL, 0x1);
@@ -944,29 +942,42 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		mode = 0;
 		amsbc = 1; /* Only valid for A640 and A680 */
 		break;
+	case KGSL_UBWC_4_0:
+		rgb565_predicator = 1;
+		amsbc = 1;
+		break;
 	default:
 		break;
 	}
 
-	if (bit >= 13 && bit <= 16)
-		bit = (bit - 13) & 0x03;
-	else
-		bit = 0;
+	if (bit >= 13 && bit <= 17) {
+		bit = bit - MIN_HBB;
+		lower_bit = bit & HBB_LOWER_MASK;
+		upper_bit = (bit >> HBB_UPPER_SHIFT) & 1;
+	} else {
+		lower_bit = 0;
+		upper_bit = 0;
+	}
 
 	mal = (mal == 64) ? 1 : 0;
 
 	/* (1 << 29)globalInvFlushFilterDis bit needs to be set for A630 V1 */
 	glbl_inv = (adreno_is_a630v1(adreno_dev)) ? 1 : 0;
+	uavflagprd_inv = (adreno_is_a650(adreno_dev)) ? 2 : 0;
 
-	kgsl_regwrite(device, A6XX_RB_NC_MODE_CNTL, (amsbc << 4) | (mal << 3) |
-							(bit << 1) | mode);
-	kgsl_regwrite(device, A6XX_TPL1_NC_MODE_CNTL, (mal << 3) |
-							(bit << 1) | mode);
-	kgsl_regwrite(device, A6XX_SP_NC_MODE_CNTL, (mal << 3) | (bit << 1) |
-								mode);
+	kgsl_regwrite(device, A6XX_RB_NC_MODE_CNTL, (rgb565_predicator << 11)|
+				(upper_bit << 10) | (amsbc << 4) | (mal << 3) |
+				(lower_bit << 1) | mode);
+
+	kgsl_regwrite(device, A6XX_TPL1_NC_MODE_CNTL, (upper_bit << 4) |
+				(mal << 3) | (lower_bit << 1) | mode);
+
+	kgsl_regwrite(device, A6XX_SP_NC_MODE_CNTL, (upper_bit << 10) |
+				(mal << 3) | (uavflagprd_inv << 4) |
+				(lower_bit << 1) | mode);
 
 	kgsl_regwrite(device, A6XX_UCHE_MODE_CNTL, (glbl_inv << 29) |
-						(mal << 23) | (bit << 21));
+				(mal << 23) | (lower_bit << 21));
 
 	/* Set hang detection threshold to 0x3FFFFF * 16 cycles */
 	kgsl_regwrite(device, A6XX_RBBM_INTERFACE_HANG_INT_CNTL,
