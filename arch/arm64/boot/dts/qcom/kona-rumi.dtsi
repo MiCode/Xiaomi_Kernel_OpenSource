@@ -46,6 +46,32 @@
 	status = "ok";
 };
 
+&ufsphy_card {
+	compatible = "qcom,ufs-phy-qrbtc-sdm845";
+
+	vdda-phy-supply = <&pm8150_l5>; /* 0.88v */
+	vdda-pll-supply = <&pm8150_l9>; /* 1.2v */
+	vdda-phy-max-microamp = <87100>;
+	vdda-pll-max-microamp = <18300>;
+
+	status = "ok";
+};
+
+&ufshc_card {
+	vdd-hba-supply = <&ufs_card_gdsc>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm8150a_l9>;
+	vcc-voltage-level = <2950000 2960000>;
+	vccq2-supply = <&pm8150_s4>;
+	vcc-max-microamp = <500000>;
+	vccq2-max-microamp = <400000>;
+
+	qcom,vddp-ref-clk-supply = <&pm8150_l6>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+
+	status = "ok";
+};
+
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
