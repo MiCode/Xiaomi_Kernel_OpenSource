@@ -596,8 +596,14 @@ DEFINE_EVENT(sched_cpu_load, sched_cpu_load_lb,
 
 TRACE_EVENT(sched_load_to_gov,
 
-	TP_PROTO(struct rq *rq, u64 aggr_grp_load, u32 tt_load, u64 freq_aggr_thresh, u64 load, int policy, int big_task_rotation),
-	TP_ARGS(rq, aggr_grp_load, tt_load, freq_aggr_thresh, load, policy, big_task_rotation),
+	TP_PROTO(struct rq *rq, u64 aggr_grp_load, u32 tt_load,
+		u64 freq_aggr_thresh, u64 load, int policy,
+		int big_task_rotation,
+		unsigned int sysctl_sched_little_cluster_coloc_fmin_khz,
+		u64 coloc_boost_load),
+	TP_ARGS(rq, aggr_grp_load, tt_load, freq_aggr_thresh, load, policy,
+		big_task_rotation, sysctl_sched_little_cluster_coloc_fmin_khz,
+		coloc_boost_load),
 
 	TP_STRUCT__entry(
 		__field(	int,	cpu			)
@@ -613,6 +619,9 @@ TRACE_EVENT(sched_load_to_gov,
 		__field(	u64,	pl			)
 		__field(	u64,    load			)
 		__field(	int,    big_task_rotation	)
+		__field(unsigned int,
+				sysctl_sched_little_cluster_coloc_fmin_khz)
+		__field(	u64,	coloc_boost_load	)
 	),
 
 	TP_fast_assign(
@@ -629,14 +638,19 @@ TRACE_EVENT(sched_load_to_gov,
 		__entry->pl		= rq->walt_stats.pred_demands_sum;
 		__entry->load		= load;
 		__entry->big_task_rotation = big_task_rotation;
+		__entry->sysctl_sched_little_cluster_coloc_fmin_khz =
+				sysctl_sched_little_cluster_coloc_fmin_khz;
+		__entry->coloc_boost_load = coloc_boost_load;
 	),
 
-	TP_printk("cpu=%d policy=%d ed_task_pid=%d aggr_grp_load=%llu freq_aggr_thresh=%llu tt_load=%llu rq_ps=%llu grp_rq_ps=%llu nt_ps=%llu grp_nt_ps=%llu pl=%llu load=%llu big_task_rotation=%d",
+	TP_printk("cpu=%d policy=%d ed_task_pid=%d aggr_grp_load=%llu freq_aggr_thresh=%llu tt_load=%llu rq_ps=%llu grp_rq_ps=%llu nt_ps=%llu grp_nt_ps=%llu pl=%llu load=%llu big_task_rotation=%d sysctl_sched_little_cluster_coloc_fmin_khz=%u coloc_boost_load=%llu",
 		__entry->cpu, __entry->policy, __entry->ed_task_pid,
 		__entry->aggr_grp_load, __entry->freq_aggr_thresh,
 		__entry->tt_load, __entry->rq_ps, __entry->grp_rq_ps,
 		__entry->nt_ps, __entry->grp_nt_ps, __entry->pl, __entry->load,
-		__entry->big_task_rotation)
+		__entry->big_task_rotation,
+		__entry->sysctl_sched_little_cluster_coloc_fmin_khz,
+		__entry->coloc_boost_load)
 );
 #endif
 
