@@ -55,6 +55,7 @@ Optional properties:
 - no-sdio: controller is limited to send sdio cmd during initialization
 - no-sd: controller is limited to send sd cmd during initialization
 - no-mmc: controller is limited to send mmc cmd during initialization
+- extcon: phandle to external connector (Refer Documentation/devicetree/bindings/extcon/extcon-gpio.txt for more details).
 - fixed-emmc-driver-type: for non-removable eMMC, enforce this driver type.
   The value <n> is the driver type as specified in the eMMC specification
   (table 206 in spec version 5.1).
