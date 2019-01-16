@@ -11,7 +11,7 @@ Properties:
 - compatible:
 	Usage: required
 	Value type: <string>
-	Definition: must be "qcom,kona-llcc"
+	Definition: must be "qcom,kona-llcc" or "qcom,lito-llcc"
 
 - reg:
 	Usage: required
