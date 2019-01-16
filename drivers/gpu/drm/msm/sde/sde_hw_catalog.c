@@ -396,6 +396,7 @@ enum {
 	REG_DMA_OFF,
 	REG_DMA_VERSION,
 	REG_DMA_TRIGGER_OFF,
+	REG_DMA_BROADCAST_DISABLED,
 	REG_DMA_PROP_MAX
 };
 
@@ -718,6 +719,8 @@ static struct sde_prop_type reg_dma_prop[REG_DMA_PROP_MAX] = {
 	[REG_DMA_TRIGGER_OFF] = {REG_DMA_TRIGGER_OFF,
 		"qcom,sde-reg-dma-trigger-off", false,
 		PROP_TYPE_U32},
+	[REG_DMA_BROADCAST_DISABLED] = {REG_DMA_BROADCAST_DISABLED,
+		"qcom,sde-reg-dma-broadcast-disabled", false, PROP_TYPE_BOOL},
 };
 
 static struct sde_prop_type merge_3d_prop[] = {
@@ -3146,10 +3149,15 @@ static int sde_parse_reg_dma_dt(struct device_node *np,
 
 	sde_cfg->reg_dma_count = 0;
 	for (i = 0; i < REG_DMA_PROP_MAX; i++) {
-		rc = of_property_read_u32(np, reg_dma_prop[i].prop_name,
-				&val);
-		if (rc)
-			break;
+		if (reg_dma_prop[i].type == PROP_TYPE_BOOL) {
+			val = of_property_read_bool(np,
+					reg_dma_prop[i].prop_name);
+		} else {
+			rc = of_property_read_u32(np, reg_dma_prop[i].prop_name,
+					&val);
+			if (rc)
+				break;
+		}
 		switch (i) {
 		case REG_DMA_OFF:
 			sde_cfg->dma_cfg.base = val;
@@ -3159,6 +3167,9 @@ static int sde_parse_reg_dma_dt(struct device_node *np,
 			break;
 		case REG_DMA_TRIGGER_OFF:
 			sde_cfg->dma_cfg.trigger_sel_off = val;
+			break;
+		case REG_DMA_BROADCAST_DISABLED:
+			sde_cfg->dma_cfg.broadcast_disabled = val;
 			break;
 		default:
 			break;

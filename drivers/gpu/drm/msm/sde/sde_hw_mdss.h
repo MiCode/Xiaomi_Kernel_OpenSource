@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _SDE_HW_MDSS_H
@@ -523,6 +523,8 @@ struct sde_mdss_color {
  * @displayv: height of the display.
  * @displayh: width of the display.
  * @dspp[DSPP_MAX]: array of hw_dspp pointers associated with crtc.
+ * @broadcast_disabled: flag indicating if broadcast should be avoided when
+ *			using LUTDMA
  */
 struct sde_hw_cp_cfg {
 	void *payload;
@@ -534,6 +536,7 @@ struct sde_hw_cp_cfg {
 	u32 displayv;
 	u32 displayh;
 	struct sde_hw_dspp *dspp[DSPP_MAX];
+	bool broadcast_disabled;
 };
 
 /**
