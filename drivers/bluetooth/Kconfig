@@ -413,4 +413,12 @@ config BT_HCIRSI
 	  Say Y here to compile support for HCI over Redpine into the
 	  kernel or say M to compile as a module.
 
+config MSM_BT_POWER
+	bool "MSM Bluetooth Power Control"
+	depends on ARCH_QCOM && RFKILL
+	help
+	  MSM Bluetooth Power control driver.
+	  This provides a parameter to switch on/off power from PMIC
+	  to Bluetooth device. This will control LDOs/Clock/GPIOs to
+	  control Bluetooth Chipset based on power on/off sequence.
 endmenu
