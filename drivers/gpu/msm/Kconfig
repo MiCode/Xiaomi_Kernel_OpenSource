@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-2.0
+# SPDX-License-Identifier: GPL-2.0-only
 config QCOM_KGSL
 	tristate "Qualcomm Technologies, Inc. 3D Graphics driver"
 	depends on ARCH_QCOM

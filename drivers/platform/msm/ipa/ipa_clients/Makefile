@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-2.0
+# SPDX-License-Identifier: GPL-2.0-only
 
 obj-$(CONFIG_IPA3) += ipa_usb.o odu_bridge.o ipa_mhi_client.o ipa_uc_offload.o ipa_wdi3.o ipa_gsb.o
 obj-$(CONFIG_IPA) += odu_bridge.o ipa_mhi_client.o ipa_uc_offload.o ipa_wdi3.o
