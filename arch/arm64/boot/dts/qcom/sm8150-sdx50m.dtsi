@@ -571,3 +571,9 @@
 		 no-map;
 	};
 };
+
+&usb1 {
+	dwc3@a800000 {
+		snps,bus-suspend-enable;
+	};
+};
