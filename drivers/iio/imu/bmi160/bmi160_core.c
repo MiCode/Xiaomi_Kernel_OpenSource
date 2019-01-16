@@ -1113,7 +1113,6 @@ static int bmi160_report_accel_data(struct iio_dev *indio_dev,
 	int header, struct bmi160_accel_t acc, u64 t)
 {
 	u8 buf_16[IIO_AORGBUFFER] = {0};
-	struct iio_buffer *ring = indio_dev->buffer;
 	memcpy(buf_16, &acc, sizeof(acc));
 	memcpy(buf_16+8, &t, sizeof(t));
 #ifdef BMI160_DEBUG
@@ -1122,8 +1121,10 @@ static int bmi160_report_accel_data(struct iio_dev *indio_dev,
 			ACC_FIFO_HEAD, acc.x, acc.y, acc.z,
 			t);
 #endif
+
 	store_acc_boot_sample(acc.x, acc.y, acc.z);
-	ring->access->store_to(indio_dev->buffer, buf_16);
+	iio_push_to_buffers(indio_dev, buf_16);
+
 	return 0;
 }
 
@@ -1131,7 +1132,6 @@ static int bmi160_report_gyro_data(struct iio_dev *indio_dev,
 	int header, struct bmi160_gyro_t gyro, u64 t)
 {
 	u8 buf_16[IIO_AORGBUFFER] = {0};
-	struct iio_buffer *ring = indio_dev->buffer;
 	memcpy(buf_16, &gyro, sizeof(gyro));
 	memcpy(buf_16+8, &t, sizeof(t));
 #ifdef BMI160_DEBUG
@@ -1140,9 +1140,10 @@ static int bmi160_report_gyro_data(struct iio_dev *indio_dev,
 			GYRO_FIFO_HEAD, gyro.x, gyro.y, gyro.z,
 			t);
 #endif
-	/*iio_push_to_buffers(indio_dev, buf_16);*/
+
 	store_gyro_boot_sample(gyro.x, gyro.y, gyro.z);
-	ring->access->store_to(indio_dev->buffer, buf_16);
+	iio_push_to_buffers(indio_dev, buf_16);
+
 	return 0;
 }
 
