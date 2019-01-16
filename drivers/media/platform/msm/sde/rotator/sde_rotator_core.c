@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"%s:%d: " fmt, __func__, __LINE__
@@ -3116,12 +3116,14 @@ int sde_rotator_core_init(struct sde_rot_mgr **pmgr,
 		IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version,
 			SDE_MDP_HW_REV_410) ||
 		IS_SDE_MAJOR_SAME(mdata->mdss_version,
-			SDE_MDP_HW_REV_500)) {
+			SDE_MDP_HW_REV_500) ||
+		IS_SDE_MAJOR_SAME(mdata->mdss_version,
+			SDE_MDP_HW_REV_600)) {
 		mgr->ops_hw_init = sde_rotator_r3_init;
 		mgr->min_rot_clk = ROT_MIN_ROT_CLK;
 
 		if (!IS_SDE_MAJOR_SAME(mdata->mdss_version,
-					SDE_MDP_HW_REV_500) &&
+					SDE_MDP_HW_REV_600) &&
 				!sde_rotator_get_clk(mgr,
 					SDE_ROTATOR_CLK_MDSS_AXI)) {
 			SDEROT_ERR("unable to get mdss_axi_clk\n");

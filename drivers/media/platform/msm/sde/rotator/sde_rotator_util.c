@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012, 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, 2015-2019, The Linux Foundation. All rights reserved.
  */
 #define pr_fmt(fmt)	"%s: " fmt, __func__
 
@@ -1211,8 +1211,6 @@ static const struct dma_buf_ops sde_rot_dmabuf_ops = {
 	.map_dma_buf	= sde_rot_dmabuf_map_tiny,
 	.unmap_dma_buf	= sde_rot_dmabuf_unmap,
 	.release	= sde_rot_dmabuf_release,
-	.map_atomic	= sde_rot_dmabuf_no_map,
-	.unmap_atomic	= sde_rot_dmabuf_no_unmap,
 	.map		= sde_rot_dmabuf_no_map,
 	.unmap		= sde_rot_dmabuf_no_unmap,
 	.mmap		= sde_rot_dmabuf_no_mmap,

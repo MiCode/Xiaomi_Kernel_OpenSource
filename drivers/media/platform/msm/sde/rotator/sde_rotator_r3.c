@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"%s:%d: " fmt, __func__, __LINE__
@@ -1302,6 +1302,35 @@ static void sde_hw_rotator_setup_qos_lut_rd(struct sde_hw_rotator_context *ctx)
 	sde_hw_rotator_put_regdma_segment(ctx, wrptr);
 }
 
+static void sde_hw_rotator_setup_fetchengine_helper(
+		struct sde_hw_rot_sspp_cfg *cfg,
+		struct sde_rot_data_type *mdata,
+		struct sde_hw_rotator_context *ctx, char __iomem *wrptr,
+		u32 flags, u32 *width, u32 *height)
+{
+	int i;
+
+	/*
+	 * initialize start control trigger selection first
+	 */
+	if (test_bit(SDE_CAPS_SBUF_1, mdata->sde_caps_map)) {
+		if (ctx->sbuf_mode)
+			SDE_REGDMA_WRITE(wrptr, ROTTOP_START_CTRL,
+					ctx->start_ctrl);
+		else
+			SDE_REGDMA_WRITE(wrptr, ROTTOP_START_CTRL, 0);
+	}
+
+	/* source image setup */
+	if ((flags & SDE_ROT_FLAG_DEINTERLACE)
+			&& !(flags & SDE_ROT_FLAG_SOURCE_ROTATED_90)) {
+		for (i = 0; i < cfg->src_plane.num_planes; i++)
+			cfg->src_plane.ystride[i] *= 2;
+		*width *= 2;
+		*height /= 2;
+	}
+}
+
 /*
  * sde_hw_rotator_setup_fetchengine - setup fetch engine
  * @ctx: Pointer to rotator context
@@ -1344,25 +1373,8 @@ static void sde_hw_rotator_setup_fetchengine(struct sde_hw_rotator_context *ctx,
 
 	wrptr = sde_hw_rotator_get_regdma_segment(ctx);
 
-	/*
-	 * initialize start control trigger selection first
-	 */
-	if (test_bit(SDE_CAPS_SBUF_1, mdata->sde_caps_map)) {
-		if (ctx->sbuf_mode)
-			SDE_REGDMA_WRITE(wrptr, ROTTOP_START_CTRL,
-					ctx->start_ctrl);
-		else
-			SDE_REGDMA_WRITE(wrptr, ROTTOP_START_CTRL, 0);
-	}
-
-	/* source image setup */
-	if ((flags & SDE_ROT_FLAG_DEINTERLACE)
-			&& !(flags & SDE_ROT_FLAG_SOURCE_ROTATED_90)) {
-		for (i = 0; i < cfg->src_plane.num_planes; i++)
-			cfg->src_plane.ystride[i] *= 2;
-		width *= 2;
-		height /= 2;
-	}
+	sde_hw_rotator_setup_fetchengine_helper(cfg, mdata, ctx, wrptr,
+							flags, &width, &height);
 
 	/*
 	 * REGDMA BLK write from SRC_SIZE to OP_MODE, total 15 registers
@@ -3069,7 +3081,31 @@ static int sde_rotator_hw_rev_init(struct sde_hw_rotator *rot)
 	SDE_ROTREG_WRITE(rot->mdss_base, REGDMA_TIMESTAMP_REG, 0);
 
 	/* features exposed via mdss h/w version */
-	if (IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version, SDE_MDP_HW_REV_500)) {
+	if (IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version, SDE_MDP_HW_REV_600)) {
+		SDEROT_DBG("Supporting sys cache inline rotation\n");
+		set_bit(SDE_CAPS_SBUF_1,  mdata->sde_caps_map);
+		set_bit(SDE_CAPS_PARTIALWR,  mdata->sde_caps_map);
+		set_bit(SDE_CAPS_HW_TIMESTAMP, mdata->sde_caps_map);
+		rot->inpixfmts[SDE_ROTATOR_MODE_OFFLINE] =
+				sde_hw_rotator_v4_inpixfmts;
+		rot->num_inpixfmt[SDE_ROTATOR_MODE_OFFLINE] =
+				ARRAY_SIZE(sde_hw_rotator_v4_inpixfmts);
+		rot->outpixfmts[SDE_ROTATOR_MODE_OFFLINE] =
+				sde_hw_rotator_v4_outpixfmts;
+		rot->num_outpixfmt[SDE_ROTATOR_MODE_OFFLINE] =
+				ARRAY_SIZE(sde_hw_rotator_v4_outpixfmts);
+		rot->inpixfmts[SDE_ROTATOR_MODE_SBUF] =
+				sde_hw_rotator_v4_inpixfmts_sbuf;
+		rot->num_inpixfmt[SDE_ROTATOR_MODE_SBUF] =
+				ARRAY_SIZE(sde_hw_rotator_v4_inpixfmts_sbuf);
+		rot->outpixfmts[SDE_ROTATOR_MODE_SBUF] =
+				sde_hw_rotator_v4_outpixfmts_sbuf;
+		rot->num_outpixfmt[SDE_ROTATOR_MODE_SBUF] =
+				ARRAY_SIZE(sde_hw_rotator_v4_outpixfmts_sbuf);
+		rot->downscale_caps =
+			"LINEAR/1.5/2/4/8/16/32/64 TILE/1.5/2/4 TP10/1.5/2";
+	} else if (IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version,
+		SDE_MDP_HW_REV_500)) {
 		SDEROT_DBG("Supporting sys cache inline rotation\n");
 		set_bit(SDE_CAPS_SBUF_1,  mdata->sde_caps_map);
 		set_bit(SDE_CAPS_UBWC_3,  mdata->sde_caps_map);
