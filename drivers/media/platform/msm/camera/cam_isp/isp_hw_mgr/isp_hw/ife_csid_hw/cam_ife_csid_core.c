@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/iopoll.h>
@@ -303,7 +303,7 @@ static int cam_ife_csid_cid_get(struct cam_ife_csid_hw *csid_hw,
 	*res = NULL;
 
 	/* Return already reserved CID if the VC/DT matches */
-	for (i = 0; i < CAM_IFE_CSID_CID_RES_MAX; i++) {
+	for (i = 0; i < CAM_IFE_CSID_CID_MAX; i++) {
 		if (csid_hw->cid_res[i].res_state >=
 			CAM_ISP_RESOURCE_STATE_RESERVED) {
 			cid_data = (struct cam_ife_csid_cid_data *)
@@ -319,7 +319,7 @@ static int cam_ife_csid_cid_get(struct cam_ife_csid_hw *csid_hw,
 		}
 	}
 
-	for (i = 0; i < CAM_IFE_CSID_CID_RES_MAX; i++) {
+	for (i = 0; i < CAM_IFE_CSID_CID_MAX; i++) {
 		if (csid_hw->cid_res[i].res_state ==
 			CAM_ISP_RESOURCE_STATE_AVAILABLE) {
 			cid_data = (struct cam_ife_csid_cid_data *)
@@ -3310,7 +3310,7 @@ int cam_ife_csid_hw_probe_init(struct cam_hw_intf  *csid_hw_intf,
 	struct cam_hw_info                   *csid_hw_info;
 	struct cam_ife_csid_hw               *ife_csid_hw = NULL;
 
-	if (csid_idx >= CAM_IFE_CSID_HW_RES_MAX) {
+	if (csid_idx >= CAM_IFE_CSID_HW_NUM_MAX) {
 		CAM_ERR(CAM_ISP, "Invalid csid index:%d", csid_idx);
 		return rc;
 	}
@@ -3441,7 +3441,7 @@ err:
 			i++)
 			kfree(ife_csid_hw->rdi_res[i].res_priv);
 
-		for (i = 0; i < CAM_IFE_CSID_CID_RES_MAX; i++)
+		for (i = 0; i < CAM_IFE_CSID_CID_MAX; i++)
 			kfree(ife_csid_hw->cid_res[i].res_priv);
 
 	}
@@ -3468,7 +3468,7 @@ int cam_ife_csid_hw_deinit(struct cam_ife_csid_hw *ife_csid_hw)
 		i++) {
 		kfree(ife_csid_hw->rdi_res[i].res_priv);
 	}
-	for (i = 0; i < CAM_IFE_CSID_CID_RES_MAX; i++)
+	for (i = 0; i < CAM_IFE_CSID_CID_MAX; i++)
 		kfree(ife_csid_hw->cid_res[i].res_priv);
 
 	cam_ife_csid_deinit_soc_resources(&ife_csid_hw->hw_info->soc_info);

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_IFE_CSID_HW_H_
@@ -9,10 +9,6 @@
 #include "cam_hw.h"
 #include "cam_ife_csid_hw_intf.h"
 #include "cam_ife_csid_soc.h"
-
-#define CAM_IFE_CSID_HW_RES_MAX      4
-#define CAM_IFE_CSID_CID_RES_MAX     4
-#define CAM_IFE_CSID_RDI_MAX         4
 
 #define CSID_CSI2_RX_INFO_PHY_DL0_EOT_CAPTURED    BIT(0)
 #define CSID_CSI2_RX_INFO_PHY_DL1_EOT_CAPTURED    BIT(1)
@@ -476,7 +472,7 @@ struct cam_ife_csid_hw {
 	struct cam_isp_resource_node     ipp_res;
 	struct cam_isp_resource_node     ppp_res;
 	struct cam_isp_resource_node     rdi_res[CAM_IFE_CSID_RDI_MAX];
-	struct cam_isp_resource_node     cid_res[CAM_IFE_CSID_CID_RES_MAX];
+	struct cam_isp_resource_node     cid_res[CAM_IFE_CSID_CID_MAX];
 	struct completion                csid_top_complete;
 	struct completion                csid_csi2_complete;
 	struct completion                csid_ipp_complete;

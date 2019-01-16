@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_CSID_HW_INTF_H_
@@ -10,7 +10,8 @@
 #include "cam_hw_intf.h"
 
 /* MAX IFE CSID instance */
-#define CAM_IFE_CSID_HW_NUM_MAX                        4
+#define CAM_IFE_CSID_HW_NUM_MAX                        7
+#define CAM_IFE_CSID_RDI_MAX                           4
 
 /**
  * enum cam_ife_pix_path_res_id - Specify the csid patch
