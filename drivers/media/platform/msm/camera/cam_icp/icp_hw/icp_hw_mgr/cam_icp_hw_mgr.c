@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3692,6 +3692,9 @@ static int cam_icp_mgr_prepare_hw_update(void *hw_mgr_priv,
 	}
 
 	packet = prepare_args->packet;
+
+	if (cam_packet_util_validate_packet(packet, prepare_args->remain_len))
+		return -EINVAL;
 
 	rc = cam_icp_mgr_pkt_validation(packet);
 	if (rc) {

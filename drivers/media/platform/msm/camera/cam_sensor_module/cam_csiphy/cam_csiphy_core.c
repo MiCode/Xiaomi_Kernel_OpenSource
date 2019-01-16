@@ -15,6 +15,8 @@
 #include "cam_csiphy_dev.h"
 #include "cam_csiphy_soc.h"
 #include "cam_common_util.h"
+#include "cam_packet_util.h"
+
 
 #include <soc/qcom/scm.h>
 #include <cam_mem_mgr.h>
@@ -168,6 +170,7 @@ int32_t cam_cmd_buf_parser(struct csiphy_device *csiphy_dev,
 	uint32_t                *cmd_buf = NULL;
 	struct cam_csiphy_info  *cam_cmd_csiphy_info = NULL;
 	size_t                  len;
+	size_t                  remain_len;
 
 	if (!cfg_dev || !csiphy_dev) {
 		CAM_ERR(CAM_CSIPHY, "Invalid Args");
@@ -181,15 +184,24 @@ int32_t cam_cmd_buf_parser(struct csiphy_device *csiphy_dev,
 		return rc;
 	}
 
-	if (cfg_dev->offset > len) {
+	remain_len = len;
+	if ((sizeof(struct cam_packet) > len) ||
+		((size_t)cfg_dev->offset >= len - sizeof(struct cam_packet))) {
 		CAM_ERR(CAM_CSIPHY,
 			"offset is out of bounds: offset: %lld len: %zu",
 			cfg_dev->offset, len);
 		return -EINVAL;
 	}
 
+	remain_len -= (size_t)cfg_dev->offset;
 	csl_packet = (struct cam_packet *)
 		(generic_ptr + (uint32_t)cfg_dev->offset);
+
+	if (cam_packet_util_validate_packet(csl_packet,
+		remain_len)) {
+		CAM_ERR(CAM_CSIPHY, "Invalid packet params");
+		return -EINVAL;
+	}
 
 	cmd_desc = (struct cam_cmd_buf_desc *)
 		((uint32_t *)&csl_packet->payload +
@@ -201,6 +213,13 @@ int32_t cam_cmd_buf_parser(struct csiphy_device *csiphy_dev,
 		CAM_ERR(CAM_CSIPHY,
 			"Failed to get cmd buf Mem address : %d", rc);
 		return rc;
+	}
+
+	if ((len < sizeof(struct cam_csiphy_info)) ||
+		(cmd_desc->offset > (len - sizeof(struct cam_csiphy_info)))) {
+		CAM_ERR(CAM_CSIPHY,
+			"Not enough buffer provided for cam_cisphy_info");
+		return -EINVAL;
 	}
 
 	cmd_buf = (uint32_t *)generic_ptr;
