@@ -426,6 +426,7 @@ Optional properties:
 - qcom,sde-secure-sid-mask:	Array of secure SID masks used during
 				secure-camera/secure-display usecases.
 - #power-domain-cells:		Number of cells in a power-domain specifier and should contain 0.
+- #list-cells:			Number of mdp cells, must be 1.
 - qcom,sde-mixer-display-pref:  A string array indicating the preferred display type
 				for the mixer block. Possible values:
 				"primary" - preferred for primary display
