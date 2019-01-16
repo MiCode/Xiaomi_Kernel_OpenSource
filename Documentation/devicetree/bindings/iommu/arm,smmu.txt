@@ -229,6 +229,11 @@ conditions.
 		Support creating mappings in the page-table before Stage 1 translation is
 		enabled.
 
+- qcom,iommu-dma-addr-pool:
+		Optional, tuple of <address size>.
+		Defaults to <0, SZ_4G> if not present.
+		Indicates the range of addresses that the dma layer will use.
+
 ** Examples:
 
         /* SMMU with stream matching or stream indexing */
