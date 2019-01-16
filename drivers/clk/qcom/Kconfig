@@ -337,3 +337,13 @@ config MSM_DEBUGCC_KONA
 	  Support for the debug clock controller on Qualcomm Technologies, Inc
 	  KONA devices.
 	  Say Y if you want to support the clock measurement functionality.
+
+config MSM_NPUCC_KONA
+	tristate "KONA NPU Clock Controller"
+	depends on COMMON_CLK_QCOM
+	select MSM_GCC_KONA
+	help
+	  Support for the NPU clock controller on Qualcomm Technologies, Inc.
+	  KONA devices.
+	  Say Y if you want to enable use of the Network Processing Unit in
+	  order to speed up certain types of calculations.
