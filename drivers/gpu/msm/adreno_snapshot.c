@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -839,9 +839,6 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 
 	snapshot_frozen_objsize = 0;
 
-	setup_fault_process(device, snapshot,
-			context ? context->proc_priv : NULL);
-
 	/* Add GPU specific sections - registers mainly, but other stuff too */
 	if (gpudev->snapshot)
 		gpudev->snapshot(adreno_dev, snapshot);
@@ -850,6 +847,9 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	if (GMU_DEV_OP_VALID(gmu_dev_ops, gx_is_on) &&
 			!gmu_dev_ops->gx_is_on(adreno_dev))
 		return;
+
+	setup_fault_process(device, snapshot,
+			context ? context->proc_priv : NULL);
 
 	adreno_readreg64(adreno_dev, ADRENO_REG_CP_IB1_BASE,
 			ADRENO_REG_CP_IB1_BASE_HI, &snapshot->ib1base);
