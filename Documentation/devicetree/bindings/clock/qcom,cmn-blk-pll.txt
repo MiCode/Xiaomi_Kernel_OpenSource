@@ -1,0 +1,26 @@
+Qualcomm Technologies, Inc. Common Block PLL Controller Binding
+---------------------------------------------------------------
+
+Required properties :
+- compatible : shall contain only the following:
+			"qcom,cmn_blk_pll"
+
+- reg : shall contain base register location and size.
+- reg-names : "cmn_blk".
+- clock-names : Shall contain "misc_reset", "ahb_clk", "aon_clk".
+- clocks : phandle + clock reference to misc_reset, ahb and aon clock.
+- #clock-cells : shall contain 1.
+
+Example :
+	clock_cmn_blk_pll@2f780 {
+		compatible = "qcom,cmn_blk_pll";
+		reg = <0x2f780 0x4>;
+		reg-names = "cmn_blk";
+		clocks = <&clock_gcc GCC_BIAS_PLL_MISC_RESET_CLK>,
+			<&clock_gcc GCC_BIAS_PLL_AHB_CLK>,
+			<&clock_gcc GCC_BIAS_PLL_AON_CLK>;
+		clock-names = "misc_reset_clk", "ahb_clk", "aon_clk";
+		resets = <&clock_gcc GCC_BIAS_PLL_BCR>;
+		reset-names = "cmn_blk_pll_reset";
+		#clock-cells = <1>;
+	};

@@ -546,3 +546,11 @@ config SM_DEBUGCC_TRINKET
 	  Support for the debug clock controller on Qualcomm Technologies, Inc
 	  TRINKET devices.
 	  Say Y if you want to support the clock measurement functionality.
+
+config QCS_CMN_BLK_PLL
+	tristate "QCS405 CMN BLK PLL"
+	select MDM_GCC_QCS405
+	help
+	 Support for the CMN BLK PLL on Qualcomm Technologies, Inc QCS405
+	 devices.
+	 Say Y if you want to support the Common Block PLL.
