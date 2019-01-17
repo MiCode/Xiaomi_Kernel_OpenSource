@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2014, 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, 2018, 2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "devfreq-icc: " fmt
@@ -57,33 +57,15 @@ static int set_bw(struct device *dev, u32 new_ib, u32 new_ab)
 	return ret;
 }
 
-static void find_freq(struct devfreq_dev_profile *p, unsigned long *freq,
-			u32 flags)
-{
-	int i;
-	unsigned long atmost, atleast, f;
-
-	atmost = p->freq_table[0];
-	atleast = p->freq_table[p->max_state-1];
-	for (i = 0; i < p->max_state; i++) {
-		f = p->freq_table[i];
-		if (f <= *freq)
-			atmost = max(f, atmost);
-		if (f >= *freq)
-			atleast = min(f, atleast);
-	}
-
-	if (flags & DEVFREQ_FLAG_LEAST_UPPER_BOUND)
-		*freq = atmost;
-	else
-		*freq = atleast;
-}
-
 static int icc_target(struct device *dev, unsigned long *freq, u32 flags)
 {
 	struct dev_data *d = dev_get_drvdata(dev);
+	struct dev_pm_opp *opp;
 
-	find_freq(&d->dp, freq, flags);
+	opp = devfreq_recommended_opp(dev, freq, flags);
+	if (!IS_ERR(opp))
+		dev_pm_opp_put(opp);
+
 	return set_bw(dev, *freq, d->gov_ab);
 }
 
@@ -96,7 +78,6 @@ static int icc_get_dev_status(struct device *dev,
 	return 0;
 }
 
-#define PROP_TBL	"qcom,bw-tbl"
 #define PROP_ACTIVE	"qcom,active-only"
 #define ACTIVE_ONLY_TAG	0x3
 
@@ -104,9 +85,8 @@ int devfreq_add_icc(struct device *dev)
 {
 	struct dev_data *d;
 	struct devfreq_dev_profile *p;
-	u32 *data;
 	const char *gov_name;
-	int ret, len, i;
+	int ret;
 
 	d = devm_kzalloc(dev, sizeof(*d), GFP_KERNEL);
 	if (!d)
@@ -118,27 +98,9 @@ int devfreq_add_icc(struct device *dev)
 	p->target = icc_target;
 	p->get_dev_status = icc_get_dev_status;
 
-	if (of_find_property(dev->of_node, PROP_TBL, &len)) {
-		len /= sizeof(*data);
-		data = devm_kzalloc(dev, len * sizeof(*data), GFP_KERNEL);
-		if (!data)
-			return -ENOMEM;
-
-		p->freq_table = devm_kzalloc(dev,
-					     len * sizeof(*p->freq_table),
-					     GFP_KERNEL);
-		if (!p->freq_table)
-			return -ENOMEM;
-
-		ret = of_property_read_u32_array(dev->of_node, PROP_TBL,
-						 data, len);
-		if (ret < 0)
-			return ret;
-
-		for (i = 0; i < len; i++)
-			p->freq_table[i] = data[i];
-		p->max_state = len;
-	}
+	ret = dev_pm_opp_of_add_table(dev);
+	if (ret < 0)
+		dev_err(dev, "Couldn't parse OPP table:%d\n", ret);
 
 	d->icc_path = of_icc_get(dev, NULL);
 	if (IS_ERR(d->icc_path)) {
