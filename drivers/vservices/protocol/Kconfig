@@ -1,0 +1,11 @@
+#
+# vServices protocol drivers configuration
+#
+
+if VSERVICES_SERVER || VSERVICES_CLIENT
+
+menu "Protocol drivers"
+
+endmenu
+
+endif # VSERVICES_SERVER || VSERVICES_CLIENT

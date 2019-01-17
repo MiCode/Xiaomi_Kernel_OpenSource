@@ -63,3 +63,5 @@ ifdef CONFIG_COMPAT
 endif
 obj-$(CONFIG_ADI)		+= adi.o
 obj-$(CONFIG_DIAG_CHAR)		+= diag/
+obj-$(CONFIG_OKL4_PIPE)		+= okl4_pipe.o
+CFLAGS_okl4_pipe.o			+= -Werror
