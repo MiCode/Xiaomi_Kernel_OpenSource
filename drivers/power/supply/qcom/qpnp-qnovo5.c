@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/device.h>
@@ -13,6 +13,7 @@
 #include <linux/of_irq.h>
 #include <linux/pmic-voter.h>
 #include <linux/delay.h>
+#include <linux/pinctrl/consumer.h>
 
 #define QNOVO_PE_CTRL			0x45
 #define QNOVO_PTRAIN_EN_BIT		BIT(7)
@@ -108,6 +109,9 @@ struct qnovo {
 	struct class		qnovo_class;
 	struct power_supply	*batt_psy;
 	struct power_supply	*usb_psy;
+	struct pinctrl		*pinctrl;
+	struct pinctrl_state	*pinctrl_state1;
+	struct pinctrl_state	*pinctrl_state2;
 	struct notifier_block	nb;
 	struct votable		*disable_votable;
 	struct votable		*pt_dis_votable;
@@ -295,6 +299,30 @@ static int qnovo5_parse_dt(struct qnovo *chip)
 	if (rc < 0) {
 		pr_err("Couldn't read base rc = %d\n", rc);
 		return rc;
+	}
+
+	chip->pinctrl = devm_pinctrl_get(chip->dev);
+	if (IS_ERR(chip->pinctrl)) {
+		pr_err("Couldn't get pinctrl rc=%d\n", PTR_ERR(chip->pinctrl));
+		chip->pinctrl = NULL;
+	}
+
+	if (chip->pinctrl) {
+		chip->pinctrl_state1 = pinctrl_lookup_state(chip->pinctrl,
+						"q_state1");
+		if (IS_ERR(chip->pinctrl_state1)) {
+			rc = PTR_ERR(chip->pinctrl_state1);
+			pr_err("Couldn't get pinctrl state1 rc=%d\n", rc);
+			return rc;
+		}
+
+		chip->pinctrl_state2 = pinctrl_lookup_state(chip->pinctrl,
+						"q_state2");
+		if (IS_ERR(chip->pinctrl_state2)) {
+			rc = PTR_ERR(chip->pinctrl_state2);
+			pr_err("Couldn't get pinctrl state2 rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	return 0;
@@ -1113,6 +1141,17 @@ static void status_change_work(struct work_struct *work)
 		cancel_delayed_work_sync(&chip->usb_debounce_work);
 		vote(chip->awake_votable, USB_READY_VOTER, false, 0);
 		vote(chip->chg_ready_votable, USB_READY_VOTER, false, 0);
+		if (chip->pinctrl) {
+			rc = pinctrl_select_state(chip->pinctrl,
+					chip->pinctrl_state1);
+			if (rc < 0)
+				pr_err("Couldn't select state 1 rc=%d\n", rc);
+
+			rc = pinctrl_select_state(chip->pinctrl,
+					chip->pinctrl_state2);
+			if (rc < 0)
+				pr_err("Couldn't select state 2 rc=%d\n", rc);
+		}
 	} else if (!chip->usb_present && usb_present) {
 		/* insertion */
 		chip->usb_present = 1;
