@@ -149,6 +149,7 @@ static int qcom_llcc_pmu_probe(struct platform_device *pdev)
 		.start		= qcom_llcc_event_start,
 		.stop		= qcom_llcc_event_stop,
 		.read		= qcom_llcc_event_read,
+		.events_across_hotplug	= 1,
 	};
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "lagg-base");
