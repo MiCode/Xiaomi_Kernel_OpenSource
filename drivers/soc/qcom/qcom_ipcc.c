@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -384,7 +384,7 @@ static int qcom_ipcc_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id qcom_ipcc_of_match[] = {
-	{ .compatible = "qcom,kona-ipcc"},
+	{ .compatible = "qcom,ipcc"},
 	{}
 };
 MODULE_DEVICE_TABLE(of, qcom_ipcc_of_match);
