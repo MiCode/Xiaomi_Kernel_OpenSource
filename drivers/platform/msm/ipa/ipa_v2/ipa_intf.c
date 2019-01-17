@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -735,6 +735,12 @@ ssize_t ipa_read(struct file *filp, char __user *buf, size_t count,
 			IPADBG("msg=%pK\n", msg);
 			locked = 0;
 			mutex_unlock(&ipa_ctx->msg_lock);
+			if (count < sizeof(struct ipa_msg_meta)) {
+				kfree(msg);
+				msg = NULL;
+				ret = -EFAULT;
+				break;
+			}
 			if (copy_to_user(buf, &msg->meta,
 					  sizeof(struct ipa_msg_meta))) {
 				kfree(msg);
@@ -745,8 +751,15 @@ ssize_t ipa_read(struct file *filp, char __user *buf, size_t count,
 			buf += sizeof(struct ipa_msg_meta);
 			count -= sizeof(struct ipa_msg_meta);
 			if (msg->buff) {
-				if (copy_to_user(buf, msg->buff,
-						  msg->meta.msg_len)) {
+				if (count >= msg->meta.msg_len) {
+					if (copy_to_user(buf, msg->buff,
+							  msg->meta.msg_len)) {
+						kfree(msg);
+						msg = NULL;
+						ret = -EFAULT;
+						break;
+					}
+				} else {
 					kfree(msg);
 					msg = NULL;
 					ret = -EFAULT;
