@@ -261,9 +261,12 @@ TRACE_EVENT(sched_migrate_task,
  * Tracepoint for load balancing:
  */
 #ifdef CONFIG_SMP
-#if NR_CPUS > 32
-#error "Unsupported NR_CPUS for lb tracepoint."
-#endif
+#if NR_CPUS > BITS_PER_LONG
+#define trace_sched_load_balance_sg_stats(...)
+#define trace_sched_load_balance_stats(...)
+#define trace_sched_load_balance(...)
+#define trace_sched_load_balance_nohz_kick(...)
+#else
 TRACE_EVENT(sched_load_balance,
 
 	TP_PROTO(int cpu, enum cpu_idle_type idle, int balance,
@@ -436,7 +439,8 @@ TRACE_EVENT(sched_load_balance_stats,
 		__entry->lavg_load, __entry->llpt, __entry->sds_avg,
 		__entry->imbalance)
 );
-#endif
+#endif /* NR_CPUS > BITS_PER_LONG */
+#endif /* CONFIG_SMP */
 
 DECLARE_EVENT_CLASS(sched_process_template,
 
