@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -398,8 +398,6 @@ void sde_hw_reset_ubwc(struct sde_hw_mdp *mdp, struct sde_mdss_cfg *m)
 
 		if (IS_UBWC_30_SUPPORTED(m->ubwc_version))
 			reg |= BIT(10);
-		if (IS_UBWC_10_SUPPORTED(m->ubwc_version))
-			reg |= BIT(8);
 
 		SDE_REG_WRITE(&c, UBWC_STATIC, reg);
 	} else {
