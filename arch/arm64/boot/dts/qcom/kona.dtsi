@@ -21,6 +21,10 @@
 #include <dt-bindings/soc/qcom,rpmh-rsc.h>
 #include <dt-bindings/gpio/gpio.h>
 
+#define MHZ_TO_MBPS(mhz, w) ((mhz * 1000000 * w) / (1024 * 1024))
+#define BW_OPP_ENTRY(mhz, w) opp-mhz {opp-hz = /bits/ 64 <MHZ_TO_MBPS(mhz, w)>;}
+
+
 / {
 	model = "Qualcomm Technologies, Inc. kona";
 	compatible = "qcom,kona";
@@ -795,6 +799,48 @@
 		qcom,cpu4-l3 {
 			compatible = "qcom,devfreq-fw-voter";
 		};
+	};
+
+	llcc_bw_opp_table: llcc-bw-opp-table {
+		compatible = "operating-points-v2";
+		BW_OPP_ENTRY(  150, 16); /*  2288 MB/s */
+		BW_OPP_ENTRY(  300, 16); /*  4577 MB/s */
+		BW_OPP_ENTRY(  466, 16); /*  7110 MB/s */
+		BW_OPP_ENTRY(  600, 16); /*  9155 MB/s */
+		BW_OPP_ENTRY(  806, 16); /* 12298 MB/s */
+		BW_OPP_ENTRY(  933, 16); /* 14236 MB/s */
+		BW_OPP_ENTRY( 1000, 16); /* 15258 MB/s */
+	};
+
+	ddr_bw_opp_table: ddr-bw-opp-table {
+		compatible = "operating-points-v2";
+		BW_OPP_ENTRY(  200, 4); /*   762 MB/s */
+		BW_OPP_ENTRY(  300, 4); /*  1144 MB/s */
+		BW_OPP_ENTRY(  451, 4); /*  1720 MB/s */
+		BW_OPP_ENTRY(  547, 4); /*  2086 MB/s */
+		BW_OPP_ENTRY(  681, 4); /*  2597 MB/s */
+		BW_OPP_ENTRY(  768, 4); /*  2929 MB/s */
+		BW_OPP_ENTRY( 1017, 4); /*  3879 MB/s */
+		BW_OPP_ENTRY( 1353, 4); /*  5161 MB/s */
+		BW_OPP_ENTRY( 1555, 4); /*  5931 MB/s */
+		BW_OPP_ENTRY( 2092, 4); /*  7980 MB/s */
+		BW_OPP_ENTRY( 2736, 4); /* 10437 MB/s */
+	};
+
+	suspendable_ddr_bw_opp_table: suspendable-ddr-bw-opp-table {
+		compatible = "operating-points-v2";
+		BW_OPP_ENTRY(    0, 4); /*     0 MB/s */
+		BW_OPP_ENTRY(  200, 4); /*   762 MB/s */
+		BW_OPP_ENTRY(  300, 4); /*  1144 MB/s */
+		BW_OPP_ENTRY(  451, 4); /*  1720 MB/s */
+		BW_OPP_ENTRY(  547, 4); /*  2086 MB/s */
+		BW_OPP_ENTRY(  681, 4); /*  2597 MB/s */
+		BW_OPP_ENTRY(  768, 4); /*  2929 MB/s */
+		BW_OPP_ENTRY( 1017, 4); /*  3879 MB/s */
+		BW_OPP_ENTRY( 1353, 4); /*  5161 MB/s */
+		BW_OPP_ENTRY( 1555, 4); /*  5931 MB/s */
+		BW_OPP_ENTRY( 2092, 4); /*  7980 MB/s */
+		BW_OPP_ENTRY( 2736, 4); /* 10437 MB/s */
 	};
 
 	qcom,msm-imem@146bf000 {
