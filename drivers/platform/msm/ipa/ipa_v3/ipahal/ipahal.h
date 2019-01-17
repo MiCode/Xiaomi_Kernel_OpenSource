@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _IPAHAL_H_
@@ -634,7 +634,7 @@ void ipahal_cp_hdr_to_hw_buff(void *base, u32 offset, u8 *hdr, u32 hdr_len);
 int ipahal_cp_proc_ctx_to_hw_buff(enum ipa_hdr_proc_type type,
 		void *base, u32 offset, u32 hdr_len,
 		bool is_hdr_proc_ctx, dma_addr_t phys_base,
-		u32 hdr_base_addr,
+		u64 hdr_base_addr,
 		struct ipa_hdr_offset_entry *offset_entry,
 		struct ipa_l2tp_hdr_proc_ctx_params l2tp_params);
 
