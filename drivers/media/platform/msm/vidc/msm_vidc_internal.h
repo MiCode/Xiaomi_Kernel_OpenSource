@@ -39,7 +39,9 @@
 #define DEFAULT_WIDTH 1920
 #define MIN_SUPPORTED_WIDTH 32
 #define MIN_SUPPORTED_HEIGHT 32
-#define DEFAULT_FPS 15
+#define DEFAULT_FPS 30
+#define MINIMUM_FPS 1
+#define MAXIMUM_FPS 960
 #define MIN_NUM_OUTPUT_BUFFERS 1
 #define MIN_NUM_CAPTURE_BUFFERS 1
 #define MAX_NUM_OUTPUT_BUFFERS VIDEO_MAX_FRAME // same as VB2_MAX_FRAME
@@ -350,6 +352,7 @@ struct clock_data {
 	bool turbo_mode;
 	u32 work_route;
 	u32 dcvs_flags;
+	u32 frame_rate;
 };
 
 struct profile_data {

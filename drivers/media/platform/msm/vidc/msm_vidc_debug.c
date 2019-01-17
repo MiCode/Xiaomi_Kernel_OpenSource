@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #define CREATE_TRACE_POINTS
@@ -331,7 +331,8 @@ static ssize_t inst_info_read(struct file *file, char __user *buf,
 		inst->prop.height[CAPTURE_PORT]);
 	cur += write_str(cur, end - cur, "width: %d\n",
 		inst->prop.width[CAPTURE_PORT]);
-	cur += write_str(cur, end - cur, "fps: %d\n", inst->prop.fps);
+	cur += write_str(cur, end - cur, "fps: %d\n",
+			inst->clk_data.frame_rate >> 16);
 	cur += write_str(cur, end - cur, "state: %d\n", inst->state);
 	cur += write_str(cur, end - cur, "secure: %d\n",
 		!!(inst->flags & VIDC_SECURE));

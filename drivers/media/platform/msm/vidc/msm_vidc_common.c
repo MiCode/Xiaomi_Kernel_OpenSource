@@ -678,11 +678,11 @@ static int msm_comm_get_mbs_per_sec(struct msm_vidc_inst *inst)
 	capture_port_mbs = NUM_MBS_PER_FRAME(inst->prop.width[CAPTURE_PORT],
 		inst->prop.height[CAPTURE_PORT]);
 
-	if ((inst->clk_data.operating_rate >> 16) > inst->prop.fps)
+	if (inst->clk_data.operating_rate > inst->clk_data.frame_rate)
 		fps = (inst->clk_data.operating_rate >> 16) ?
 			inst->clk_data.operating_rate >> 16 : 1;
 	else
-		fps = inst->prop.fps;
+		fps = inst->clk_data.frame_rate >> 16;
 
 	return max(output_port_mbs, capture_port_mbs) * fps;
 }
@@ -725,11 +725,12 @@ int msm_comm_get_inst_load(struct msm_vidc_inst *inst,
 
 	if (!is_realtime_session(inst) &&
 		(quirks & LOAD_CALC_IGNORE_NON_REALTIME_LOAD)) {
-		if (!inst->prop.fps) {
+		if (!(inst->clk_data.frame_rate >> 16)) {
 			dprintk(VIDC_INFO, "instance:%pK fps = 0\n", inst);
 			load = 0;
 		} else {
-			load = msm_comm_get_mbs_per_sec(inst) / inst->prop.fps;
+			load = msm_comm_get_mbs_per_sec(inst) /
+				(inst->clk_data.frame_rate >> 16);
 		}
 	}
 
@@ -1393,7 +1394,7 @@ static void handle_session_init_done(enum hal_command_response cmd, void *data)
 
 	if (!response) {
 		dprintk(VIDC_ERR,
-				"Failed to get valid response for session init\n");
+			"Failed to get valid response for session init\n");
 		return;
 	}
 
@@ -3178,7 +3179,7 @@ static void msm_vidc_print_running_insts(struct msm_vidc_core *core)
 			if (temp->clk_data.operating_rate)
 				op_rate = temp->clk_data.operating_rate >> 16;
 			else
-				op_rate = temp->prop.fps;
+				op_rate = temp->clk_data.frame_rate >> 16;
 
 			dprintk(VIDC_ERR, "%4d|%4d|%4d|%4d|%4d|%4s\n",
 					temp->session_type,
@@ -3186,7 +3187,8 @@ static void msm_vidc_print_running_insts(struct msm_vidc_core *core)
 						temp->prop.width[OUTPUT_PORT]),
 					max(temp->prop.height[CAPTURE_PORT],
 						temp->prop.height[OUTPUT_PORT]),
-					temp->prop.fps, op_rate, properties);
+					temp->clk_data.frame_rate >> 16,
+					op_rate, properties);
 		}
 	}
 	mutex_unlock(&core->lock);
@@ -5610,85 +5612,6 @@ int msm_comm_set_color_format(struct msm_vidc_inst *inst,
 	return rc;
 }
 
-int msm_vidc_comm_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
-{
-	u32 property_id = 0;
-	u64 us_per_frame = 0;
-	void *pdata;
-	int rc = 0;
-	unsigned int fps = 0;
-	struct hfi_frame_rate frame_rate;
-	struct hfi_device *hdev;
-
-	if (!inst || !inst->core || !inst->core->device || !a) {
-		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
-		return -EINVAL;
-	}
-
-	hdev = inst->core->device;
-	property_id = HFI_PROPERTY_CONFIG_FRAME_RATE;
-
-	if (a->parm.output.timeperframe.denominator) {
-		switch (a->type) {
-		case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
-		case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
-			us_per_frame = a->parm.output.timeperframe.numerator *
-				(u64)USEC_PER_SEC;
-			do_div(us_per_frame,
-				a->parm.output.timeperframe.denominator);
-			break;
-		default:
-			dprintk(VIDC_ERR,
-					"Scale clocks : Unknown buffer type %d\n",
-					a->type);
-			break;
-		}
-	}
-
-	if (!us_per_frame) {
-		dprintk(VIDC_ERR,
-				"Failed to scale clocks : time between frames is 0\n");
-		rc = -EINVAL;
-		goto exit;
-	}
-
-	fps = us_per_frame > USEC_PER_SEC ?
-		0 : USEC_PER_SEC / (u32)us_per_frame;
-
-	if (fps % 15 == 14 || fps % 24 == 23)
-		fps = fps + 1;
-	else if ((fps > 1) && (fps % 24 == 1 || fps % 15 == 1))
-		fps = fps - 1;
-
-	if (fps < inst->capability.frame_rate.min ||
-			fps > inst->capability.frame_rate.max) {
-		dprintk(VIDC_ERR,
-			"FPS is out of limits : fps = %d Min = %d, Max = %d\n",
-			fps, inst->capability.frame_rate.min,
-			inst->capability.frame_rate.max);
-		rc = -EINVAL;
-		goto exit;
-	}
-
-	dprintk(VIDC_PROF, "reported fps changed for %pK: %d->%d\n",
-			inst, inst->prop.fps, fps);
-	inst->prop.fps = fps;
-	if (inst->session_type == MSM_VIDC_ENCODER &&
-		get_hal_codec(inst->fmts[CAPTURE_PORT].fourcc) !=
-			HAL_VIDEO_CODEC_TME) {
-		frame_rate.frame_rate = inst->prop.fps * BIT(16);
-		frame_rate.buffer_type = HFI_BUFFER_OUTPUT;
-		pdata = &frame_rate;
-		rc = call_hfi_op(hdev, session_set_property,
-			inst->session, property_id, pdata, sizeof(frame_rate));
-		if (rc)
-			dprintk(VIDC_WARN,
-				"Failed to set frame rate %d\n", rc);
-	}
-exit:
-	return rc;
-}
-
 void msm_comm_print_inst_info(struct msm_vidc_inst *inst)
 {
 	struct msm_vidc_buffer *mbuf;
@@ -5712,7 +5635,7 @@ void msm_comm_print_inst_info(struct msm_vidc_inst *inst)
 			is_secure ? "Secure" : "Non-Secure",
 			inst->fmts[port].name,
 			inst->prop.height[port], inst->prop.width[port],
-			inst->prop.fps, inst->prop.bitrate,
+			inst->clk_data.frame_rate >> 16, inst->prop.bitrate,
 			!inst->bit_depth ? "8" : "10");
 
 	dprintk(VIDC_ERR,

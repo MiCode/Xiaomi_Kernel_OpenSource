@@ -22,8 +22,6 @@
 /* Y=16(0-9bits), Cb(10-19bits)=Cr(20-29bits)=128, black by default */
 #define DEFAULT_VIDEO_CONCEAL_COLOR_BLACK 0x8020010
 #define MB_SIZE_IN_PIXEL (16 * 16)
-#define DEFAULT_OPERATING_RATE 30
-#define OPERATING_FRAME_RATE_STEP (1 << 16)
 #define MAX_VP9D_INST_COUNT 6
 #define MAX_4K_MBPF 38736 /* (4096 * 2304 / 256) */
 
@@ -445,6 +443,17 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,
 	},
 	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_FRAME_RATE,
+		.name = "Frame Rate",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = (MINIMUM_FPS << 16),
+		.maximum = (MAXIMUM_FPS << 16),
+		.default_value = (DEFAULT_FPS << 16),
+		.step = 1,
+		.menu_skip_mask = 0,
+		.qmenu = NULL,
+	},
+	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_PRIORITY,
 		.name = "Session Priority",
 		.type = V4L2_CTRL_TYPE_BOOLEAN,
@@ -457,10 +466,12 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE,
 		.name = "Set Decoder Operating rate",
 		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = 0,
+		.minimum = (MINIMUM_FPS << 16),
 		.maximum = INT_MAX,
-		.default_value =  (DEFAULT_OPERATING_RATE << 16),
+		.default_value =  (DEFAULT_FPS << 16),
 		.step = 1,
+		.menu_skip_mask = 0,
+		.qmenu = NULL,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_MODE,
@@ -865,8 +876,8 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 		VENUS_EXTRADATA_SIZE(
 			inst->prop.height[CAPTURE_PORT],
 			inst->prop.width[CAPTURE_PORT]);
-	inst->prop.fps = DEFAULT_FPS;
-	inst->clk_data.operating_rate = 0;
+	inst->clk_data.frame_rate = (DEFAULT_FPS << 16);
+	inst->clk_data.operating_rate = (DEFAULT_FPS << 16);
 	if (core->resources.decode_batching)
 		inst->batch.size = MAX_DEC_BATCH_SIZE;
 
@@ -1002,6 +1013,9 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		inst->flags &= ~VIDC_SECURE;
 		if (ctrl->val)
 			inst->flags |= VIDC_SECURE;
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_FRAME_RATE:
+		inst->clk_data.frame_rate = ctrl->val;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA:
 		inst->bufq[CAPTURE_PORT].num_planes = 1;
@@ -1727,11 +1741,6 @@ exit:
 		dprintk(VIDC_DBG, "%s: set properties successful\n", __func__);
 
 	return rc;
-}
-
-int msm_vdec_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
-{
-	return msm_vidc_comm_s_parm(inst, a);
 }
 
 int msm_vdec_ctrl_init(struct msm_vidc_inst *inst,

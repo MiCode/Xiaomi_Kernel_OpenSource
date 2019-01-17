@@ -16,9 +16,6 @@
 #define MAX_BIT_RATE 1200000000
 #define DEFAULT_BIT_RATE 64000
 #define BIT_RATE_STEP 1
-#define DEFAULT_FRAME_RATE 15
-#define DEFAULT_OPERATING_RATE DEFAULT_FRAME_RATE
-#define OPERATING_FRAME_RATE_STEP (1 << 16)
 #define MAX_SLICE_BYTE_SIZE ((MAX_BIT_RATE)>>3)
 #define MIN_SLICE_BYTE_SIZE 512
 #define NUM_MBS_720P (((1280 + 15) >> 4) * ((720 + 15) >> 4))
@@ -101,7 +98,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.minimum = 0,
 		.maximum = INT_MAX,
-		.default_value = 2*DEFAULT_FRAME_RATE-1,
+		.default_value = 2*DEFAULT_FPS-1,
 		.step = 1,
 		.menu_skip_mask = 0,
 		.qmenu = NULL,
@@ -244,6 +241,17 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.minimum = 0,
 		.maximum = 512,
 		.default_value = 0,
+		.step = 1,
+		.menu_skip_mask = 0,
+		.qmenu = NULL,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_FRAME_RATE,
+		.name = "Frame Rate",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = (MINIMUM_FPS << 16),
+		.maximum = (MAXIMUM_FPS << 16),
+		.default_value = (DEFAULT_FPS << 16),
 		.step = 1,
 		.menu_skip_mask = 0,
 		.qmenu = NULL,
@@ -783,10 +791,12 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE,
 		.name = "Set Encoder Operating rate",
 		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = 0,
+		.minimum = (MINIMUM_FPS << 16),
 		.maximum = INT_MAX,
-		.default_value = (DEFAULT_OPERATING_RATE << 16),
+		.default_value = (DEFAULT_FPS << 16),
 		.step = 1,
+		.menu_skip_mask = 0,
+		.qmenu = NULL,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_VPE_CSC,
@@ -1143,12 +1153,12 @@ int msm_venc_inst_init(struct msm_vidc_inst *inst)
 	inst->capability.secure_output2_threshold.max = 0;
 	inst->buffer_mode_set[OUTPUT_PORT] = HAL_BUFFER_MODE_DYNAMIC;
 	inst->buffer_mode_set[CAPTURE_PORT] = HAL_BUFFER_MODE_STATIC;
-	inst->prop.fps = DEFAULT_FPS;
+	inst->clk_data.frame_rate = (DEFAULT_FPS << 16);
 	inst->capability.pixelprocess_capabilities = 0;
 	/* To start with, both ports are 1 plane each */
 	inst->bufq[OUTPUT_PORT].num_planes = 1;
 	inst->bufq[CAPTURE_PORT].num_planes = 1;
-	inst->clk_data.operating_rate = 0;
+	inst->clk_data.operating_rate = (DEFAULT_FPS << 16);
 
 	inst->buff_req.buffer[1].buffer_type = HAL_BUFFER_INPUT;
 	inst->buff_req.buffer[1].buffer_count_min_host =
@@ -1521,6 +1531,16 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 					"%s: set bitrate failed\n", __func__);
 		}
 		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_FRAME_RATE:
+		inst->clk_data.frame_rate = ctrl->val;
+		if (inst->state == MSM_VIDC_START_DONE) {
+			rc = msm_venc_set_frame_rate(inst);
+			if (rc)
+				dprintk(VIDC_ERR,
+					"%s: set frame rate failed\n",
+					__func__);
+		}
+		break;
 	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES:
 	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE:
 	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB:
@@ -1803,6 +1823,32 @@ int msm_venc_set_frame_size(struct msm_vidc_inst *inst)
 			__func__, frame_sz.width, frame_sz.height);
 		return rc;
 	}
+
+	return rc;
+}
+
+int msm_venc_set_frame_rate(struct msm_vidc_inst *inst)
+{
+	int rc = 0;
+	struct hfi_device *hdev;
+	struct hfi_frame_rate frame_rate;
+
+	if (!inst || !inst->core) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+	hdev = inst->core->device;
+
+	frame_rate.buffer_type = HFI_BUFFER_OUTPUT;
+	frame_rate.frame_rate = inst->clk_data.frame_rate;
+
+	dprintk(VIDC_DBG, "%s: %#x\n", __func__, frame_rate.frame_rate);
+
+	rc = call_hfi_op(hdev, session_set_property,
+		inst->session, HFI_PROPERTY_CONFIG_FRAME_RATE,
+		&frame_rate, sizeof(frame_rate));
+	if (rc)
+		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
 	return rc;
 }
@@ -3407,6 +3453,9 @@ int msm_venc_set_properties(struct msm_vidc_inst *inst)
 	rc = msm_venc_set_frame_size(inst);
 	if (rc)
 		goto exit;
+	rc = msm_venc_set_frame_rate(inst);
+	if (rc)
+		goto exit;
 	rc = msm_venc_set_color_format(inst);
 	if (rc)
 		goto exit;
@@ -3526,40 +3575,4 @@ exit:
 		dprintk(VIDC_DBG, "%s: set properties successful\n", __func__);
 
 	return rc;
-}
-
-int msm_venc_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
-{
-	int fps = 0;
-	u64 us_per_frame = 0;
-
-	if (!inst || !a) {
-		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
-		return -EINVAL;
-	}
-
-	if (a->parm.output.timeperframe.denominator) {
-		switch (a->type) {
-		case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
-		case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
-			us_per_frame = a->parm.output.timeperframe.numerator *
-				(u64)USEC_PER_SEC;
-			do_div(us_per_frame,
-				a->parm.output.timeperframe.denominator);
-			break;
-		default:
-			dprintk(VIDC_ERR, "%s: unknown parm type %d\n",
-					__func__, a->type);
-			break;
-		}
-	}
-	if (!us_per_frame) {
-		dprintk(VIDC_ERR, "%s: time between frames is 0\n", __func__);
-		return -EINVAL;
-	}
-	fps = us_per_frame > USEC_PER_SEC ?
-		0 : USEC_PER_SEC / (u32)us_per_frame;
-
-	inst->prop.fps = fps;
-	return 0;
 }
