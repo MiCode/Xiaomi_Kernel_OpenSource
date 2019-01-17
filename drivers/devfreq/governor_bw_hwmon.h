@@ -42,6 +42,8 @@ struct bw_hwmon {
 	int			(*resume_hwmon)(struct bw_hwmon *hw);
 	unsigned long		(*set_thres)(struct bw_hwmon *hw,
 					unsigned long bytes);
+	unsigned long		(*set_hw_events)(struct bw_hwmon *hw,
+					unsigned int sample_ms);
 	unsigned long		(*get_bytes_and_clear)(struct bw_hwmon *hw);
 	int			(*set_throttle_adj)(struct bw_hwmon *hw,
 					uint adj);
@@ -49,6 +51,10 @@ struct bw_hwmon {
 	struct device		*dev;
 	struct device_node	*of_node;
 	struct devfreq_governor	*gov;
+	unsigned long		up_wake_mbps;
+	unsigned long		undo_over_req_mbps;
+	unsigned long		down_wake_mbps;
+	unsigned int		down_cnt;
 	struct devfreq		*df;
 };
 
