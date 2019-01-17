@@ -2376,15 +2376,6 @@
 		qcom,hw-settle-time = <200>;
 		qcom,pre-scaling = <1 1>;
 	};
-
-	rf_pa1_therm {
-		reg = <ADC_GPIO4_PU2>;
-		label = "rf_pa1_therm";
-		qcom,ratiometric;
-		qcom,hw-settle-time = <200>;
-		qcom,pre-scaling = <1 1>;
-	};
-
 };
 
 &pm6125_gpios {
@@ -2431,8 +2422,7 @@
 &pm6125_adc_tm {
 	io-channels = <&pm6125_vadc ADC_AMUX_THM1_PU2>,
 			<&pm6125_vadc ADC_AMUX_THM2_PU2>,
-			<&pm6125_vadc ADC_XO_THERM_PU2>,
-			<&pm6125_vadc ADC_GPIO4_PU2>;
+			<&pm6125_vadc ADC_XO_THERM_PU2>;
 
 	/* Channel nodes */
 	rf_pa0_therm {
@@ -2449,12 +2439,6 @@
 
 	xo_therm {
 		reg = <ADC_XO_THERM_PU2>;
-		qcom,ratiometric;
-		qcom,hw-settle-time = <200>;
-	};
-
-	rf_pa1_therm {
-		reg = <ADC_GPIO4_PU2>;
 		qcom,ratiometric;
 		qcom,hw-settle-time = <200>;
 	};
