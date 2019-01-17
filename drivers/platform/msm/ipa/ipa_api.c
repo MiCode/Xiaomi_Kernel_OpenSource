@@ -207,6 +207,8 @@ const char *ipa_clients_strings[IPA_CLIENT_MAX] = {
 	__stringify(IPA_CLIENT_MHI_PRIME_TETH_PROD),
 	__stringify(IPA_CLIENT_MHI_PRIME_TETH_CONS),
 	__stringify(IPA_CLIENT_MHI_PRIME_DPL_PROD),
+	__stringify(IPA_CLIENT_AQC_ETHERNET_PROD),
+	__stringify(IPA_CLIENT_AQC_ETHERNET_CONS),
 };
 
 /**
