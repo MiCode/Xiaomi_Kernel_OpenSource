@@ -15,6 +15,8 @@
 #include <linux/debugfs.h>
 #include <linux/memblock.h>
 #include <soc/qcom/early_domain.h>
+#include <linux/suspend.h>
+
 #include "msm_drv.h"
 #include "msm_mmu.h"
 #include "sde_kms.h"
@@ -759,7 +761,6 @@ bool sde_splash_get_lk_complete_status(struct msm_kms *kms)
 	intr = sde_kms->hw_intr;
 
 	if (sde_kms->splash_info.handoff &&
-		!sde_kms->splash_info.display_splash_enabled &&
 		!_sde_splash_lk_check()) {
 		SDE_DEBUG("LK totally exits\n");
 		return true;
@@ -948,12 +949,20 @@ int sde_splash_lk_stop_splash(struct msm_kms *kms,
 	mutex_lock(&sde_splash_lock);
 	if (_sde_splash_validate_commit(sde_kms, state) &&
 			sinfo->display_splash_enabled) {
-		if (_sde_splash_lk_check())
+		if (_sde_splash_lk_check()) {
 			_sde_splash_notify_lk_stop_splash();
+			error = _sde_splash_clear_mixer_blendstage(kms, state);
+		}
 
-		sinfo->display_splash_enabled = false;
-
-		error = _sde_splash_clear_mixer_blendstage(kms, state);
+		if (get_hibernation_status() == true) {
+			sinfo->display_splash_enabled = false;
+		} else {
+			/* preserve the display_splash_enabled state for
+			 * case when system is restoring from hibernation
+			 * image and splash is enabled.
+			 */
+			sinfo->display_splash_enabled = true;
+		}
 	}
 	mutex_unlock(&sde_splash_lock);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -2134,10 +2134,150 @@ static int msm_pm_resume(struct device *dev)
 
 	return 0;
 }
+
+static int msm_pm_freeze(struct device *dev)
+{
+	struct drm_device *ddev;
+	struct drm_crtc *crtc;
+	struct drm_modeset_acquire_ctx *ctx;
+	struct drm_atomic_state *state;
+	struct msm_drm_private *priv;
+	struct msm_kms *kms;
+	int early_display = 0;
+	int ret = 0;
+
+	if (!dev)
+		return -EINVAL;
+
+	ddev = dev_get_drvdata(dev);
+	if (!ddev || !ddev->dev_private)
+		return -EINVAL;
+
+	priv = ddev->dev_private;
+
+	kms = priv->kms;
+	if (kms && kms->funcs && kms->funcs->early_display_status)
+		early_display = kms->funcs->early_display_status(kms);
+
+	SDE_EVT32(0);
+
+	if (early_display) {
+		/* acquire modeset lock(s) */
+		drm_modeset_lock_all(ddev);
+		ctx = ddev->mode_config.acquire_ctx;
+
+		/* save current state for restore */
+		if (priv->suspend_state)
+			drm_atomic_state_free(priv->suspend_state);
+
+		priv->suspend_state =
+			drm_atomic_helper_duplicate_state(ddev, ctx);
+
+		if (IS_ERR_OR_NULL(priv->suspend_state)) {
+			DRM_ERROR("failed to back up suspend state\n");
+			priv->suspend_state = NULL;
+			goto unlock;
+		}
+
+		/* create atomic null state to idle CRTCs */
+		state = drm_atomic_state_alloc(ddev);
+		if (IS_ERR_OR_NULL(state)) {
+			DRM_ERROR("failed to allocate null atomic state\n");
+			goto unlock;
+		}
+
+		state->acquire_ctx = ctx;
+
+		/* commit the null state */
+		ret = drm_atomic_commit(state);
+		if (ret < 0) {
+			DRM_ERROR("failed to commit null state, %d\n", ret);
+			drm_atomic_state_free(state);
+		}
+
+		drm_for_each_crtc(crtc, ddev)
+			drm_crtc_vblank_off(crtc);
+
+unlock:
+		drm_modeset_unlock_all(ddev);
+	} else {
+		ret = msm_pm_suspend(dev);
+		if (ret)
+			return ret;
+	}
+	return 0;
+}
+
+static int msm_pm_restore(struct device *dev)
+{
+	struct drm_device *ddev;
+	struct drm_crtc *crtc;
+	struct msm_drm_private *priv;
+	struct msm_kms *kms;
+	int early_display = 0;
+	int ret;
+
+	if (!dev)
+		return -EINVAL;
+
+	ddev = dev_get_drvdata(dev);
+	if (!ddev || !ddev->dev_private)
+		return -EINVAL;
+
+	priv = ddev->dev_private;
+
+	kms = priv->kms;
+	if (kms && kms->funcs && kms->funcs->early_display_status)
+		early_display = kms->funcs->early_display_status(kms);
+
+
+	SDE_EVT32(priv->suspend_state != NULL);
+
+	if (early_display) {
+		drm_mode_config_reset(ddev);
+
+		drm_modeset_lock_all(ddev);
+
+		drm_for_each_crtc(crtc, ddev)
+			drm_crtc_vblank_on(crtc);
+
+		if (priv->suspend_state) {
+			priv->suspend_state->acquire_ctx =
+				ddev->mode_config.acquire_ctx;
+
+			ret = drm_atomic_commit(priv->suspend_state);
+			if (ret < 0) {
+				DRM_ERROR("failed to restore state, %d\n", ret);
+				drm_atomic_state_free(priv->suspend_state);
+			}
+
+			priv->suspend_state = NULL;
+		}
+
+		drm_modeset_unlock_all(ddev);
+	} else {
+		ret = msm_pm_resume(dev);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+static int msm_pm_thaw(struct device *dev)
+{
+	msm_pm_restore(dev);
+
+	return 0;
+}
 #endif
 
 static const struct dev_pm_ops msm_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(msm_pm_suspend, msm_pm_resume)
+	.suspend = msm_pm_suspend,
+	.resume = msm_pm_resume,
+	.freeze = msm_pm_freeze,
+	.restore = msm_pm_restore,
+	.thaw = msm_pm_thaw,
 };
 
 static int msm_drm_bind(struct device *dev)
