@@ -1085,30 +1085,38 @@ void arm_iommu_put_dma_cookie(struct iommu_domain *domain)
 }
 
 /*
- * Checks for "dma-ranges" property in the node pointed to by qcom,iommu-group.
- * Refer to devicetree/booting-without-of.txt for the property definition
- * Default if property not found:
- * dma_addr = 0, dma_size = 1 << 32
+ * Checks for "qcom,iommu-dma-addr-pool" property.
+ * If not present, leaves dma_addr and dma_size unmodified.
  */
 static void arm_iommu_get_dma_window(struct device *dev, u64 *dma_addr,
 					u64 *dma_size)
 {
 	struct device_node *np;
-	u64 addr, phys, size;
-	int ret;
+	int naddr, nsize, len;
+	const __be32 *ranges;
 
 	if (!dev->of_node)
 		return;
 
 	np = of_parse_phandle(dev->of_node, "qcom,iommu-group", 0);
 	if (!np)
+		np = dev->of_node;
+
+	ranges = of_get_property(np, "qcom,iommu-dma-addr-pool", &len);
+	if (!ranges)
 		return;
 
-	ret = of_dma_get_range(np, &addr, &phys, &size);
-	if (!ret) {
-		*dma_addr = addr;
-		*dma_size = size;
+	len /= sizeof(u32);
+	naddr = of_n_addr_cells(np);
+	nsize = of_n_size_cells(np);
+	if (len < naddr + nsize) {
+		dev_err(dev, "Invalid length for qcom,iommu-dma-addr-pool, expected %d cells\n",
+			naddr + nsize);
+		return;
 	}
+
+	*dma_addr = of_read_number(ranges, naddr);
+	*dma_size = of_read_number(ranges + naddr, nsize);
 }
 
 static void arm_iommu_setup_dma_ops(struct device *dev, u64 dma_base, u64 size)
