@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1278,7 +1278,8 @@ static int gmu_aop_mailbox_init(struct kgsl_device *device,
 		return PTR_ERR(mailbox->channel);
 	}
 
-	set_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
+	if (adreno_dev->speed_bin)
+		set_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
 	return 0;
 }
 
