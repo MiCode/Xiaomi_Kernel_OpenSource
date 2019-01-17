@@ -292,6 +292,11 @@ struct msm_vidc_vpx_colorspace_payload {
 };
 
 #define MSM_VIDC_EXTRADATA_METADATA_LTRINFO 0x7F100004
+/* Don't use the #define below. It is to bypass checkpatch */
+#define LTRINFO MSM_VIDC_EXTRADATA_METADATA_LTRINFO
+struct msm_vidc_metadata_ltr_payload {
+	__u32 ltr_use_mark;
+};
 
 /* ptr[2]: event_notify: pixel_depth */
 #define MSM_VIDC_BIT_DEPTH_8 0

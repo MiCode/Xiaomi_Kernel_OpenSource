@@ -21,7 +21,9 @@
 #define OPERATING_FRAME_RATE_STEP (1 << 16)
 #define MAX_SLICE_BYTE_SIZE ((MAX_BIT_RATE)>>3)
 #define MIN_SLICE_BYTE_SIZE 512
-#define MAX_SLICE_MB_SIZE ((4096 * 2304) >> 8)
+#define NUM_MBS_720P (((1280 + 15) >> 4) * ((720 + 15) >> 4))
+#define NUM_MBS_4k (((4096 + 15) >> 4) * ((2304 + 15) >> 4))
+#define MAX_SLICE_MB_SIZE NUM_MBS_4k
 #define QP_ENABLE_I 0x1
 #define QP_ENABLE_P 0x2
 #define QP_ENABLE_B 0x4
@@ -923,11 +925,99 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 
 #define NUM_CTRLS ARRAY_SIZE(msm_venc_ctrls)
 
-static u32 get_frame_size_compressed(int plane, u32 height, u32 width)
+static u32 get_enc_input_frame_size(struct msm_vidc_inst *inst)
 {
-	int sz = ALIGN(height, 32) * ALIGN(width, 32) * 3 / 2;
+	u32 hfi_fmt;
 
-	return ALIGN(sz, SZ_4K);
+	hfi_fmt = msm_comm_convert_color_fmt(inst->fmts[OUTPUT_PORT].fourcc);
+	return VENUS_BUFFER_SIZE(hfi_fmt, inst->prop.width[OUTPUT_PORT],
+			inst->prop.height[OUTPUT_PORT]);
+}
+
+static u32 get_enc_output_frame_size(struct msm_vidc_inst *inst)
+{
+	u32 frame_size;
+	u32 mbs_per_frame;
+	u32 width, height;
+
+	/*
+	 * Encoder output size calculation:
+	 * For resolution < 720p : YUVsize * 4
+	 * For resolution > 720p & <= 4K : YUVsize / 2
+	 * For resolution > 4k : YUVsize / 4
+	 */
+	width = inst->prop.width[CAPTURE_PORT];
+	height = inst->prop.height[CAPTURE_PORT];
+	mbs_per_frame = ((width + 15) >> 4) * ((height + 15) >> 4);
+	frame_size = (width * height * 3) >> 1;
+	if (mbs_per_frame < NUM_MBS_720P)
+		frame_size = frame_size << 2;
+	else if (mbs_per_frame <= NUM_MBS_4k)
+		frame_size = frame_size >> 1;
+	else
+		frame_size = frame_size >> 2;
+
+	if ((inst->rc_type == RATE_CONTROL_OFF) ||
+		(inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_CQ))
+		frame_size = frame_size << 1;
+
+	return ALIGN(frame_size, SZ_4K);
+}
+
+static inline u32 ROI_EXTRADATA_SIZE(
+	u32 width, u32 height, u32 lcu_size) {
+	u32 lcu_width = 0;
+	u32 lcu_height = 0;
+	u32 n_shift = 0;
+
+	while (lcu_size && !(lcu_size & 0x1)) {
+		n_shift++;
+		lcu_size = lcu_size >> 1;
+	}
+	lcu_width = (width + (lcu_size - 1)) >> n_shift;
+	lcu_height = (height + (lcu_size - 1)) >> n_shift;
+
+	return (((lcu_width + 7) >> 3) << 3) * lcu_height * 2;
+}
+
+static u32 get_enc_input_extra_size(struct msm_vidc_inst *inst, u32 extra_types)
+{
+	u32 size = 0;
+	u32 width = inst->prop.width[OUTPUT_PORT];
+	u32 height = inst->prop.height[OUTPUT_PORT];
+
+	if (extra_types & EXTRADATA_ENC_INPUT_ROI) {
+		u32 lcu_size = 16;
+
+		if (inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_HEVC)
+			lcu_size = 32;
+
+		size += ROI_EXTRADATA_SIZE(width, height, lcu_size);
+	}
+
+	if (extra_types & EXTRADATA_ENC_INPUT_HDR10PLUS)
+		size += sizeof(struct hfi_hdr10_pq_sei);
+
+	/* Add size for extradata none */
+	if (size)
+		size += sizeof(struct msm_vidc_extradata_header);
+
+	return ALIGN(size, SZ_4K);
+}
+
+static u32 get_enc_output_extra_size(struct msm_vidc_inst *inst,
+	u32 extra_types)
+{
+	u32 size = 0;
+
+	if (extra_types & EXTRADATA_ADVANCED)
+		size += sizeof(struct msm_vidc_metadata_ltr_payload);
+
+	/* Add size for extradata none */
+	if (size)
+		size += sizeof(struct msm_vidc_extradata_header);
+
+	return ALIGN(size, SZ_4K);
 }
 
 static struct msm_vidc_format venc_formats[] = {
@@ -935,21 +1025,18 @@ static struct msm_vidc_format venc_formats[] = {
 		.name = "YCbCr Semiplanar 4:2:0",
 		.description = "Y/CbCr 4:2:0",
 		.fourcc = V4L2_PIX_FMT_NV12,
-		.get_frame_size = get_frame_size_nv12,
 		.type = OUTPUT_PORT,
 	},
 	{
 		.name = "UBWC YCbCr Semiplanar 4:2:0",
 		.description = "UBWC Y/CbCr 4:2:0",
 		.fourcc = V4L2_PIX_FMT_NV12_UBWC,
-		.get_frame_size = get_frame_size_nv12_ubwc,
 		.type = OUTPUT_PORT,
 	},
 	{
 		.name = "H264",
 		.description = "H264 compressed format",
 		.fourcc = V4L2_PIX_FMT_H264,
-		.get_frame_size = get_frame_size_compressed,
 		.type = CAPTURE_PORT,
 		.input_min_count = 4,
 		.output_min_count = 4,
@@ -958,7 +1045,6 @@ static struct msm_vidc_format venc_formats[] = {
 		.name = "VP8",
 		.description = "VP8 compressed format",
 		.fourcc = V4L2_PIX_FMT_VP8,
-		.get_frame_size = get_frame_size_compressed,
 		.type = CAPTURE_PORT,
 		.input_min_count = 4,
 		.output_min_count = 4,
@@ -967,7 +1053,6 @@ static struct msm_vidc_format venc_formats[] = {
 		.name = "HEVC",
 		.description = "HEVC compressed format",
 		.fourcc = V4L2_PIX_FMT_HEVC,
-		.get_frame_size = get_frame_size_compressed,
 		.type = CAPTURE_PORT,
 		.input_min_count = 4,
 		.output_min_count = 4,
@@ -976,21 +1061,18 @@ static struct msm_vidc_format venc_formats[] = {
 		.name = "YCrCb Semiplanar 4:2:0",
 		.description = "Y/CrCb 4:2:0",
 		.fourcc = V4L2_PIX_FMT_NV21,
-		.get_frame_size = get_frame_size_nv21,
 		.type = OUTPUT_PORT,
 	},
 	{
 		.name = "TP10 UBWC 4:2:0",
 		.description = "TP10 UBWC 4:2:0",
 		.fourcc = V4L2_PIX_FMT_NV12_TP10_UBWC,
-		.get_frame_size = get_frame_size_tp10_ubwc,
 		.type = OUTPUT_PORT,
 	},
 	{
 		.name = "TME",
 		.description = "TME MBI format",
 		.fourcc = V4L2_PIX_FMT_TME,
-		.get_frame_size = get_frame_size_compressed,
 		.type = CAPTURE_PORT,
 		.input_min_count = 4,
 		.output_min_count = 4,
@@ -999,14 +1081,12 @@ static struct msm_vidc_format venc_formats[] = {
 		.name = "YCbCr Semiplanar 4:2:0 10bit",
 		.description = "Y/CbCr 4:2:0 10bit",
 		.fourcc = V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010_VENUS,
-		.get_frame_size = get_frame_size_p010,
 		.type = OUTPUT_PORT,
 	},
 	{
 		.name = "YCbCr Semiplanar 4:2:0 512 aligned",
 		.description = "Y/CbCr 4:2:0 512 aligned",
 		.fourcc = V4L2_PIX_FMT_NV12_512,
-		.get_frame_size = get_frame_size_nv12_512,
 		.type = OUTPUT_PORT,
 	},
 };
@@ -1248,8 +1328,7 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		 * it is already updated when extradata control is set
 		 */
 		inst->bufq[fmt->type].plane_sizes[0] =
-			inst->fmts[fmt->type].get_frame_size(0,
-			f->fmt.pix_mp.height, f->fmt.pix_mp.width);
+			get_enc_output_frame_size(inst);
 
 		f->fmt.pix_mp.num_planes = inst->bufq[fmt->type].num_planes;
 		for (i = 0; i < inst->bufq[fmt->type].num_planes; i++) {
@@ -1286,8 +1365,7 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		 * it is already updated when extradata control is set
 		 */
 		inst->bufq[fmt->type].plane_sizes[0] =
-			inst->fmts[fmt->type].get_frame_size(0,
-			f->fmt.pix_mp.height, f->fmt.pix_mp.width);
+			get_enc_input_frame_size(inst);
 		f->fmt.pix_mp.num_planes = inst->bufq[fmt->type].num_planes;
 		for (i = 0; i < inst->bufq[fmt->type].num_planes; i++) {
 			f->fmt.pix_mp.plane_fmt[i].sizeimage =
@@ -1571,22 +1649,10 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		inst->bufq[OUTPUT_PORT].num_planes = 1;
 		inst->bufq[CAPTURE_PORT].num_planes = 1;
 
-		if (ctrl->val & EXTRADATA_ADVANCED)
-			inst->bufq[CAPTURE_PORT].num_planes = 2;
-
 		if ((ctrl->val & EXTRADATA_ENC_INPUT_ROI) ||
-			(ctrl->val & EXTRADATA_ENC_INPUT_HDR10PLUS))
+			(ctrl->val & EXTRADATA_ENC_INPUT_HDR10PLUS)) {
 			inst->bufq[OUTPUT_PORT].num_planes = 2;
 
-		/* Needs internal calculation of extradata */
-		rc = msm_comm_try_get_bufreqs(inst);
-		if (rc) {
-			dprintk(VIDC_ERR,
-				"Failed to get buffer requirements: %d\n", rc);
-			break;
-		}
-
-		if (inst->bufq[OUTPUT_PORT].num_planes == 2) {
 			buff_req_buffer = get_buff_req_buffer(inst,
 						HAL_BUFFER_EXTRADATA_INPUT);
 			if (!buff_req_buffer) {
@@ -1596,11 +1662,16 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 				break;
 			}
 
+			buff_req_buffer->buffer_size =
+				get_enc_input_extra_size(inst,
+					ctrl->val);
 			inst->bufq[OUTPUT_PORT].plane_sizes[1] =
 					buff_req_buffer->buffer_size;
 		}
 
-		if (inst->bufq[CAPTURE_PORT].num_planes == 2) {
+		if (ctrl->val & EXTRADATA_ADVANCED) {
+			inst->bufq[CAPTURE_PORT].num_planes = 2;
+
 			buff_req_buffer = get_buff_req_buffer(inst,
 						HAL_BUFFER_EXTRADATA_OUTPUT);
 			if (!buff_req_buffer) {
@@ -1610,6 +1681,8 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 				break;
 			}
 
+			buff_req_buffer->buffer_size =
+				get_enc_output_extra_size(inst, ctrl->val);
 			inst->bufq[CAPTURE_PORT].plane_sizes[1] =
 					buff_req_buffer->buffer_size;
 		}

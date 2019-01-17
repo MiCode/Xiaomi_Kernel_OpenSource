@@ -1631,15 +1631,6 @@ static int try_get_ctrl_for_instance(struct msm_vidc_inst *inst,
 			return -EINVAL;
 		}
 
-		if (inst->session_type == MSM_VIDC_DECODER &&
-			!(inst->flags & VIDC_THUMBNAIL) &&
-			inst->fmts[OUTPUT_PORT].fourcc ==
-				V4L2_PIX_FMT_VP9 &&
-			bufreq->buffer_count_min_host <
-				MIN_NUM_OUTPUT_BUFFERS_VP9)
-			bufreq->buffer_count_min_host =
-				MIN_NUM_OUTPUT_BUFFERS_VP9;
-
 		ctrl->val = bufreq->buffer_count_min_host;
 		dprintk(VIDC_DBG, "g_min: %x : hal_buffer %d min buffers %d\n",
 			hash32_ptr(inst->session), HAL_BUFFER_INPUT, ctrl->val);

@@ -41,7 +41,6 @@
 #define MIN_SUPPORTED_HEIGHT 32
 #define DEFAULT_FPS 15
 #define MIN_NUM_OUTPUT_BUFFERS 1
-#define MIN_NUM_OUTPUT_BUFFERS_VP9 6
 #define MIN_NUM_CAPTURE_BUFFERS 1
 #define MAX_NUM_OUTPUT_BUFFERS VIDEO_MAX_FRAME // same as VB2_MAX_FRAME
 #define MAX_NUM_CAPTURE_BUFFERS VIDEO_MAX_FRAME // same as VB2_MAX_FRAME
@@ -244,7 +243,6 @@ struct msm_vidc_format {
 	u8 description[32];
 	u32 fourcc;
 	int type;
-	u32 (*get_frame_size)(int plane, u32 height, u32 width);
 	bool defer_outputs;
 	u32 input_min_count;
 	u32 output_min_count;
