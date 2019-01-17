@@ -573,9 +573,16 @@
 				type = "passive";
 			};
 		};
+		cooling-maps {
+			gpu_cdev {
+				trip = <&gpu_step_trip>;
+				cooling-device = <&msm_gpu THERMAL_NO_LIMIT
+							THERMAL_NO_LIMIT>;
+			};
+		};
 	};
 
-	octa-cpu-max-step {
+	hepta-cpu-max-step {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
@@ -588,13 +595,69 @@
 		};
 	};
 
-	cpu-0-0-step {
+	cpuss-0-step {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
-		thermal-sensors = <&tsens0 9>;
+		thermal-sensors = <&tsens0 6>;
 		trips {
-			cpu0_config: cpu0-config {
+			cpu5_7_config: cpu-5-7-config {
+				temperature = <110000>;
+				hysteresis = <10000>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			cpu5_cdev {
+				trip = <&cpu5_7_config>;
+				cooling-device =
+					<&CPU5 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			cpu7_cdev {
+				trip = <&cpu5_7_config>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	cpuss-1-step {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&tsens0 7>;
+		trips {
+			cpu4_6_config: cpu-4-6-config {
+				temperature = <110000>;
+				hysteresis = <10000>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			cpu4_cdev {
+				trip = <&cpu4_6_config>;
+				cooling-device =
+					<&CPU4 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			cpu6_cdev {
+				trip = <&cpu4_6_config>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	cpuss-2-step {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&tsens0 8>;
+		trips {
+			silv_cpus_config: silv-cpus-config {
 				temperature = <110000>;
 				hysteresis = <10000>;
 				type = "passive";
@@ -602,73 +665,25 @@
 		};
 		cooling-maps {
 			cpu0_cdev {
-				trip = <&cpu0_config>;
+				trip = <&silv_cpus_config>;
 				cooling-device =
 					<&CPU0 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
 			};
-		};
-	};
-
-	cpu-0-1-step {
-		polling-delay-passive = <0>;
-		polling-delay = <0>;
-		thermal-governor = "step_wise";
-		thermal-sensors = <&tsens0 10>;
-		trips {
-			cpu1_config: cpu1-config {
-				temperature = <110000>;
-				hysteresis = <10000>;
-				type = "passive";
-			};
-		};
-		cooling-maps {
 			cpu1_cdev {
-				trip = <&cpu1_config>;
+				trip = <&silv_cpus_config>;
 				cooling-device =
 					<&CPU1 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
 			};
-		};
-	};
-
-	cpu-0-2-step {
-		polling-delay-passive = <0>;
-		polling-delay = <0>;
-		thermal-governor = "step_wise";
-		thermal-sensors = <&tsens0 11>;
-		trips {
-			cpu2_config: cpu2-config {
-				temperature = <110000>;
-				hysteresis = <10000>;
-				type = "passive";
-			};
-		};
-		cooling-maps {
 			cpu2_cdev {
-				trip = <&cpu2_config>;
+				trip = <&silv_cpus_config>;
 				cooling-device =
 					<&CPU2 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
 			};
-		};
-	};
-
-	cpu-0-3-step {
-		polling-delay-passive = <0>;
-		polling-delay = <0>;
-		thermal-governor = "step_wise";
-		thermal-sensors = <&tsens0 12>;
-		trips {
-			cpu3_config: cpu3-config {
-				temperature = <110000>;
-				hysteresis = <10000>;
-				type = "passive";
-			};
-		};
-		cooling-maps {
 			cpu3_cdev {
-				trip = <&cpu3_config>;
+				trip = <&silv_cpus_config>;
 				cooling-device =
 					<&CPU3 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
@@ -680,7 +695,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
-		thermal-sensors = <&tsens0 6>;
+		thermal-sensors = <&tsens0 9>;
 		trips {
 			cpu4_config: cpu4-config {
 				temperature = <110000>;
@@ -702,7 +717,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
-		thermal-sensors = <&tsens0 7>;
+		thermal-sensors = <&tsens0 10>;
 		trips {
 			cpu5_config: cpu5-config {
 				temperature = <110000>;
@@ -724,7 +739,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
-		thermal-sensors = <&tsens0 8>;
+		thermal-sensors = <&tsens0 11>;
 		trips {
 			cpu6_config: cpu6-config {
 				temperature = <110000>;
@@ -746,7 +761,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
-		thermal-sensors = <&tsens0 4>;
+		thermal-sensors = <&tsens0 12>;
 		trips {
 			cpu7_config: cpu7-config {
 				temperature = <110000>;
@@ -1076,7 +1091,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "low_limits_floor";
-		thermal-sensors = <&tsens0 5>;
+		thermal-sensors = <&tsens0 4>;
 		tracks-low;
 		trips {
 			video_trip: video-trip {
@@ -1153,7 +1168,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "low_limits_floor";
-		thermal-sensors = <&tsens0 6>;
+		thermal-sensors = <&tsens0 9>;
 		tracks-low;
 		trips {
 			cpu4_lowf_trip: cpu4-lowf-trip {
@@ -1226,11 +1241,11 @@
 		};
 	};
 
-	cpu-0-0-lowf {
+	cpuss-2-lowf {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "low_limits_floor";
-		thermal-sensors = <&tsens0 9>;
+		thermal-sensors = <&tsens0 8>;
 		tracks-low;
 		trips {
 			cpu0_lowf_trip: cpu0-lowf-trip {
@@ -1461,7 +1476,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "low_limits_floor";
-		thermal-sensors = <&tsens0 5>;
+		thermal-sensors = <&tsens0 15>;
 		tracks-low;
 		trips {
 			gpu_trip: gpu-trip {
