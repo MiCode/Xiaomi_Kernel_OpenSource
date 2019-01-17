@@ -1820,6 +1820,7 @@ static struct clk_branch gcc_pcie_0_mstr_axi_clk = {
 };
 
 static struct clk_branch gcc_pcie_0_pipe_clk = {
+	.halt_reg = 0x6b020,
 	.halt_check = BRANCH_HALT_SKIP,
 	.clkr = {
 		.enable_reg = 0x5200c,
