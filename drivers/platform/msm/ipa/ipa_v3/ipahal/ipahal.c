@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1204,7 +1204,7 @@ static void ipahal_cp_hdr_to_hw_buff_v3(void *const base, u32 offset,
 static int ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
 		void *const base, u32 offset,
 		u32 hdr_len, bool is_hdr_proc_ctx,
-		dma_addr_t phys_base, u32 hdr_base_addr,
+		dma_addr_t phys_base, u64 hdr_base_addr,
 		struct ipa_hdr_offset_entry *offset_entry,
 		struct ipa_l2tp_hdr_proc_ctx_params l2tp_params)
 {
@@ -1218,7 +1218,7 @@ static int ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
 		ctx->hdr_add.tlv.value = hdr_len;
 		ctx->hdr_add.hdr_addr = is_hdr_proc_ctx ? phys_base :
 			hdr_base_addr + offset_entry->offset;
-		IPAHAL_DBG("header address 0x%x\n",
+		IPAHAL_DBG("header address 0x%llx\n",
 			ctx->hdr_add.hdr_addr);
 		ctx->end.type = IPA_PROC_CTX_TLV_TYPE_END;
 		ctx->end.length = 0;
@@ -1233,7 +1233,7 @@ static int ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
 		ctx->hdr_add.tlv.value = hdr_len;
 		ctx->hdr_add.hdr_addr = is_hdr_proc_ctx ? phys_base :
 			hdr_base_addr + offset_entry->offset;
-		IPAHAL_DBG("header address 0x%x\n",
+		IPAHAL_DBG("header address 0x%llx\n",
 			ctx->hdr_add.hdr_addr);
 		ctx->l2tp_params.tlv.type = IPA_PROC_CTX_TLV_TYPE_PROC_CMD;
 		ctx->l2tp_params.tlv.length = 1;
@@ -1260,7 +1260,7 @@ static int ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
 		ctx->hdr_add.tlv.value = hdr_len;
 		ctx->hdr_add.hdr_addr = is_hdr_proc_ctx ? phys_base :
 			hdr_base_addr + offset_entry->offset;
-		IPAHAL_DBG("header address 0x%x length %d\n",
+		IPAHAL_DBG("header address 0x%llx length %d\n",
 			ctx->hdr_add.hdr_addr, ctx->hdr_add.tlv.value);
 		ctx->l2tp_params.tlv.type = IPA_PROC_CTX_TLV_TYPE_PROC_CMD;
 		ctx->l2tp_params.tlv.length = 1;
@@ -1296,7 +1296,7 @@ static int ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
 		ctx->hdr_add.tlv.value = hdr_len;
 		ctx->hdr_add.hdr_addr = is_hdr_proc_ctx ? phys_base :
 			hdr_base_addr + offset_entry->offset;
-		IPAHAL_DBG("header address 0x%x\n",
+		IPAHAL_DBG("header address 0x%llx\n",
 			ctx->hdr_add.hdr_addr);
 		ctx->cmd.type = IPA_PROC_CTX_TLV_TYPE_PROC_CMD;
 		ctx->cmd.length = 0;
@@ -1353,7 +1353,7 @@ struct ipahal_hdr_funcs {
 	int (*ipahal_cp_proc_ctx_to_hw_buff)(enum ipa_hdr_proc_type type,
 			void *const base, u32 offset, u32 hdr_len,
 			bool is_hdr_proc_ctx, dma_addr_t phys_base,
-			u32 hdr_base_addr,
+			u64 hdr_base_addr,
 			struct ipa_hdr_offset_entry *offset_entry,
 			struct ipa_l2tp_hdr_proc_ctx_params l2tp_params);
 
@@ -1425,11 +1425,11 @@ void ipahal_cp_hdr_to_hw_buff(void *base, u32 offset, u8 *const hdr,
 int ipahal_cp_proc_ctx_to_hw_buff(enum ipa_hdr_proc_type type,
 		void *const base, u32 offset, u32 hdr_len,
 		bool is_hdr_proc_ctx, dma_addr_t phys_base,
-		u32 hdr_base_addr, struct ipa_hdr_offset_entry *offset_entry,
+		u64 hdr_base_addr, struct ipa_hdr_offset_entry *offset_entry,
 		struct ipa_l2tp_hdr_proc_ctx_params l2tp_params)
 {
 	IPAHAL_DBG(
-		"type %d, base %pK, offset %d, hdr_len %d, is_hdr_proc_ctx %d, hdr_base_addr %d, offset_entry %pK\n"
+		"type %d, base %pK, offset %d, hdr_len %d, is_hdr_proc_ctx %d, hdr_base_addr %llu, offset_entry %pK\n"
 			, type, base, offset, hdr_len, is_hdr_proc_ctx,
 			hdr_base_addr, offset_entry);
 
@@ -1439,7 +1439,7 @@ int ipahal_cp_proc_ctx_to_hw_buff(enum ipa_hdr_proc_type type,
 		(!is_hdr_proc_ctx && !offset_entry) ||
 		(!is_hdr_proc_ctx && !hdr_base_addr)) {
 		IPAHAL_ERR(
-			"invalid input: hdr_len:%u phys_base:%pad hdr_base_addr:%u is_hdr_proc_ctx:%d offset_entry:%pK\n"
+			"invalid input: hdr_len:%u phys_base:%pad hdr_base_addr:%llu is_hdr_proc_ctx:%d offset_entry:%pK\n"
 			, hdr_len, &phys_base, hdr_base_addr
 			, is_hdr_proc_ctx, offset_entry);
 		return -EINVAL;
