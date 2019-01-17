@@ -41,6 +41,7 @@ struct dp_debug_private {
 	struct dp_debug dp_debug;
 	struct dp_parser *parser;
 	struct dp_ctrl *ctrl;
+	struct mutex lock;
 };
 
 static int dp_debug_get_edid_buf(struct dp_debug_private *debug)
@@ -89,6 +90,8 @@ static ssize_t dp_debug_write_edid(struct file *file,
 
 	if (!debug)
 		return -ENODEV;
+
+	mutex_lock(&debug->lock);
 
 	if (*ppos)
 		goto bail;
@@ -161,6 +164,7 @@ bail:
 	 */
 	pr_info("[%s]\n", edid ? "SET" : "CLEAR");
 
+	mutex_unlock(&debug->lock);
 	return rc;
 }
 
@@ -179,6 +183,8 @@ static ssize_t dp_debug_write_dpcd(struct file *file,
 
 	if (!debug)
 		return -ENODEV;
+
+	mutex_lock(&debug->lock);
 
 	if (*ppos)
 		goto bail;
@@ -260,6 +266,7 @@ bail:
 	} else
 		debug->aux->dpcd_updated(debug->aux);
 
+	mutex_unlock(&debug->lock);
 	return rc;
 }
 
@@ -1439,6 +1446,7 @@ static void dp_debug_set_sim_mode(struct dp_debug_private *debug, bool sim)
 
 		if (dp_debug_get_dpcd_buf(debug)) {
 			devm_kfree(debug->dev, debug->edid);
+			debug->edid = NULL;
 			return;
 		}
 
@@ -1487,6 +1495,8 @@ static ssize_t dp_debug_write_sim(struct file *file,
 	if (*ppos)
 		return 0;
 
+	mutex_lock(&debug->lock);
+
 	/* Leave room for termination char */
 	len = min_t(size_t, count, SZ_8 - 1);
 	if (copy_from_user(buf, user_buff, len))
@@ -1499,6 +1509,7 @@ static ssize_t dp_debug_write_sim(struct file *file,
 
 	dp_debug_set_sim_mode(debug, sim);
 end:
+	mutex_unlock(&debug->lock);
 	return len;
 }
 
@@ -1985,7 +1996,9 @@ static void dp_debug_abort(struct dp_debug *dp_debug)
 
 	debug = container_of(dp_debug, struct dp_debug_private, dp_debug);
 
+	mutex_lock(&debug->lock);
 	dp_debug_set_sim_mode(debug, false);
+	mutex_unlock(&debug->lock);
 }
 
 struct dp_debug *dp_debug_get(struct dp_debug_in *in)
@@ -2022,6 +2035,8 @@ struct dp_debug *dp_debug_get(struct dp_debug_in *in)
 	dp_debug->vdisplay = 0;
 	dp_debug->hdisplay = 0;
 	dp_debug->vrefresh = 0;
+
+	mutex_init(&debug->lock);
 
 	rc = dp_debug_init(dp_debug);
 	if (rc) {
@@ -2073,6 +2088,8 @@ void dp_debug_put(struct dp_debug *dp_debug)
 	debug = container_of(dp_debug, struct dp_debug_private, dp_debug);
 
 	dp_debug_deinit(dp_debug);
+
+	mutex_destroy(&debug->lock);
 
 	if (debug->edid)
 		devm_kfree(debug->dev, debug->edid);
