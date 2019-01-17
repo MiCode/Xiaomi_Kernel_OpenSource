@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,7 @@
 #include "msm8996-pm8994.dtsi"
 #include "msm8996-agave-adp.dtsi"
 #include "msm8996pro-auto.dtsi"
+#include "msm8996-auto.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. APQ 8096pro V1.1 AUTO ADP LITE";

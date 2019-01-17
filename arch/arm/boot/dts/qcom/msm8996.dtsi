@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -181,7 +181,7 @@
 			compatible = "android,firmware";
 			fstab {
 				compatible = "android,fstab";
-				vendor {
+				vendor: vendor {
 					compatible = "android,vendor";
 					dev = "/dev/block/platform/soc/7464900.sdhci/by-name/vendor";
 					type = "ext4";

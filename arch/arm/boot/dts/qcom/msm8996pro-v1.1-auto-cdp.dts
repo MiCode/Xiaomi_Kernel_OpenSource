@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,7 @@
 #include "msm8996-pm8994.dtsi"
 #include "msm8996-auto-cdp.dtsi"
 #include "msm8996pro-auto.dtsi"
+#include "msm8996-auto.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8996pro v1.1 AUTO CDP";
