@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -503,6 +503,11 @@ int ipa3_disconn_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
 	ep_rx = &ipa3_ctx->ep[ipa_ep_idx_rx];
 
 	/* tear down tx pipe */
+	result = ipa3_reset_gsi_channel(ipa_ep_idx_tx);
+	if (result != GSI_STATUS_SUCCESS) {
+		IPAERR("failed to reset gsi channel: %d.\n", result);
+		return result;
+	}
 	result = gsi_reset_evt_ring(ep_tx->gsi_evt_ring_hdl);
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("failed to reset evt ring: %d.\n", result);
@@ -518,6 +523,11 @@ int ipa3_disconn_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
 	IPADBG("tx client (ep: %d) disconnected\n", ipa_ep_idx_tx);
 
 	/* tear down rx pipe */
+	result = ipa3_reset_gsi_channel(ipa_ep_idx_rx);
+	if (result != GSI_STATUS_SUCCESS) {
+		IPAERR("failed to reset gsi channel: %d.\n", result);
+		return result;
+	}
 	result = gsi_reset_evt_ring(ep_rx->gsi_evt_ring_hdl);
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("failed to reset evt ring: %d.\n", result);
@@ -660,21 +670,6 @@ int ipa3_disable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
 	result = ipa3_stop_gsi_channel(ipa_ep_idx_tx);
 	if (result) {
 		IPAERR("failed to stop gsi tx channel\n");
-		result = -EFAULT;
-		goto fail;
-	}
-
-	/* reset gsi rx channel */
-	result = ipa3_reset_gsi_channel(ipa_ep_idx_rx);
-	if (result != GSI_STATUS_SUCCESS) {
-		IPAERR("failed to reset gsi channel: %d.\n", result);
-		result = -EFAULT;
-		goto fail;
-	}
-	/* reset gsi tx channel */
-	result = ipa3_reset_gsi_channel(ipa_ep_idx_tx);
-	if (result != GSI_STATUS_SUCCESS) {
-		IPAERR("failed to reset gsi channel: %d.\n", result);
 		result = -EFAULT;
 		goto fail;
 	}
