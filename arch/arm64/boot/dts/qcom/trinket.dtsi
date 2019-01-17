@@ -1906,6 +1906,24 @@
 			<&apps_smmu 0x01B4 0x0011>;
 	};
 
+	bluetooth: bt_wcn3990 {
+		compatible = "qca,wcn3990";
+		qca,bt-vdd-io-supply = <&pm6125_l9>;
+		qca,bt-vdd-core-supply = <&pm6125_l17>;
+		qca,bt-vdd-pa-supply = <&pm6125_l23>;
+		qca,bt-vdd-xtal-supply = <&pm6125_l16>;
+
+		qca,bt-vdd-io-voltage-level = <1700000 1900000>; /* IO */
+		qca,bt-vdd-core-voltage-level = <1245000 1350000>; /* RFA */
+		qca,bt-vdd-pa-voltage-level =  <3200000 3400000>;  /*chain0 */
+		qca,bt-vdd-xtal-voltage-level = <1700000 1900000>; /* XO */
+
+		qca,bt-vdd-io-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-core-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-pa-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-xtal-current-level = <1>; /* LPM/PFM */
+	};
+
 	slim_aud: slim@a2c0000 {
 		cell-index = <1>;
 		compatible = "qcom,slim-ngd";
@@ -1936,12 +1954,20 @@
 		reg-names = "slimbus_physical", "slimbus_bam_physical";
 		interrupts = <0 403 0>, <0 404 0>;
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
-		status = "disabled";
+		status = "ok";
 		qcom,iommu-s1-bypass;
 
 		iommu_slim_qca_ctrl_cb: qcom,iommu_slim_ctrl_cb {
 			compatible = "qcom,iommu-slim-ctrl-cb";
 			iommus = <&apps_smmu 0x73 0x0>;
+		};
+
+		/* Slimbus Slave DT for WCN3990 */
+		btfmslim_codec: wcn3990 {
+			compatible = "qcom,btfmslim_slave";
+			elemental-addr = [00 01 20 02 17 02];
+			qcom,btfm-slim-ifd = "btfmslim_slave_ifd";
+			qcom,btfm-slim-ifd-elemental-addr = [00 00 20 02 17 02];
 		};
 	};
 
@@ -2575,6 +2601,10 @@
 };
 
 &qupv3_se4_2uart {
+	status = "ok";
+};
+
+&qupv3_se9_4uart {
 	status = "ok";
 };
 
