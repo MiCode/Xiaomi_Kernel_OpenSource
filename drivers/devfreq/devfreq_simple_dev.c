@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, 2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "devfreq-simple-dev: " fmt
@@ -147,12 +147,23 @@ static int devfreq_clock_probe(struct platform_device *pdev)
 	if (of_property_read_string(dev->of_node, "governor", &gov_name))
 		gov_name = "performance";
 
+	if (of_property_read_bool(dev->of_node, "qcom,prepare-clk")) {
+		ret = clk_prepare(d->clk);
+		if (ret)
+			return ret;
+	}
 
 	d->df = devfreq_add_device(dev, p, gov_name, NULL);
-	if (IS_ERR(d->df))
-		return PTR_ERR_OR_ZERO(d->df);
+	if (IS_ERR(d->df)) {
+		ret = PTR_ERR_OR_ZERO(d->df);
+		goto add_err;
+	}
 
 	return 0;
+add_err:
+	if (of_property_read_bool(dev->of_node, "qcom,prepare-clk"))
+		clk_unprepare(d->clk);
+	return ret;
 }
 
 static int devfreq_clock_remove(struct platform_device *pdev)
