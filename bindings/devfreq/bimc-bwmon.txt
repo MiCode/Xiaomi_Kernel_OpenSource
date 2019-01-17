@@ -5,8 +5,8 @@ can be used to measure the bandwidth of read/write traffic from the BIMC
 master ports. For example, the CPU subsystem sits on one BIMC master port.
 
 Required properties:
-- compatible:		Must be "qcom,bimc-bwmon", "qcom,bimc-bwmon2" or
-			"qcom,bimc-bwmon3"
+- compatible:		Must be "qcom,bimc-bwmon", "qcom,bimc-bwmon2"
+			"qcom,bimc-bwmon3" or "qcom,bimc-bwmon4"
 - reg:			Pairs of physical base addresses and region sizes of
 			memory mapped registers.
 - reg-names:		Names of the bases for the above registers. Expected
@@ -14,7 +14,8 @@ Required properties:
 - interrupts:		Lists the threshold IRQ.
 - qcom,mport:		The hardware master port that this device can monitor
 - qcom,target-dev:	The DT device that corresponds to this master port
-
+- qcom,hw-timer-hz:	Hardware sampling rate in Hz. This field must be
+			specified for "qcom,bimc-bwmon4"
 Example:
 	qcom,cpu-bwmon {
 		compatible = "qcom,bimc-bwmon";
@@ -23,4 +24,5 @@ Example:
 		interrupts = <0 183 1>;
 		qcom,mport = <0>;
 		qcom,target-dev = <&cpubw>;
+		qcom,hw-timer-hz = <19200000>;
 	};
