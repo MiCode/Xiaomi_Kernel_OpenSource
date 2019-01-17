@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017, 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, 2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/of.h>
@@ -49,6 +49,7 @@ static int qcom_llcc_event_init(struct perf_event *event)
 
 	if (config == LLCC_RD_EV) {
 		event->hw.config_base = event->attr.config;
+		event->readable_on_cpus = CPU_MASK_ALL;
 		return 0;
 	} else
 		return -ENOENT;
