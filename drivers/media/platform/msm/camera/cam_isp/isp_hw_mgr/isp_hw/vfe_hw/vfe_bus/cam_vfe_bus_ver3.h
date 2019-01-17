@@ -92,8 +92,8 @@ struct cam_vfe_bus_ver3_reg_offset_common {
 	uint32_t ccif_violation_status;
 	uint32_t overflow_status;
 	uint32_t image_size_violation_status;
-	uint32_t debug_status_cfg;
-	uint32_t debug_status_0;
+	uint32_t debug_status_top_cfg;
+	uint32_t debug_status_top;
 	uint32_t test_bus_ctrl;
 	struct cam_irq_controller_reg_info irq_reg_info;
 };
@@ -128,6 +128,7 @@ struct cam_vfe_bus_ver3_reg_offset_bus_client {
 	uint32_t frame_header_addr;
 	uint32_t frame_header_incr;
 	uint32_t frame_header_cfg;
+	uint32_t line_done_cfg;
 	uint32_t irq_subsample_period;
 	uint32_t irq_subsample_pattern;
 	uint32_t framedrop_period;
@@ -142,7 +143,6 @@ struct cam_vfe_bus_ver3_reg_offset_bus_client {
 	uint32_t debug_status_cfg;
 	uint32_t debug_status_0;
 	uint32_t debug_status_1;
-	uint32_t source_group;
 	uint32_t comp_group;
 };
 

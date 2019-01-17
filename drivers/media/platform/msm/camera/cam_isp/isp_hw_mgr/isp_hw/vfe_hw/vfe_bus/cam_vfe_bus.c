@@ -36,6 +36,7 @@ int cam_vfe_bus_init(uint32_t          bus_version,
 				bus_version);
 			break;
 		}
+		break;
 	case BUS_TYPE_RD:
 		/* Call vfe bus rd init function */
 		rc = cam_vfe_bus_rd_ver1_init(soc_info, hw_intf,
