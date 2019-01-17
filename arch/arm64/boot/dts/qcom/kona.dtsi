@@ -1945,7 +1945,7 @@
 		compatible = "qcom,pil-tz-generic";
 		reg = <0xabb0000 0x2000>;
 		status = "ok";
-		qcom,pas-id = <25>;
+		qcom,pas-id = <26>;
 		qcom,firmware-name = "cvpss";
 
 		memory-region = <&pil_cvp_mem>;
