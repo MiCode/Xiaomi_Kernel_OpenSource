@@ -442,6 +442,21 @@
 		status = "ok";
 	};
 
+	qcom,llcc@9200000 {
+		compatible = "qcom,llcc-core", "syscon", "simple-mfd";
+		reg = <0x9200000 0x50000>;
+		reg-names = "llcc_base";
+		qcom,llcc-banks-off = <0x0>;
+		qcom,llcc-broadcast-off = <0x0>;
+
+		llcc: qcom,sdxprairie-llcc {
+			compatible = "qcom,sdxprairie-llcc";
+			#cache-cells = <1>;
+			max-slices = <32>;
+			cap-based-alloc-and-pwr-collapse;
+		};
+	};
+
 	qcom,msm_gsi {
 		compatible = "qcom,msm_gsi";
 	};
