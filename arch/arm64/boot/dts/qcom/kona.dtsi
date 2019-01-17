@@ -654,6 +654,20 @@
 		cap-based-alloc-and-pwr-collapse;
 	};
 
+	wdog: qcom,wdt@17c10000 {
+		compatible = "qcom,msm-watchdog";
+		reg = <0x17c10000 0x1000>;
+		reg-names = "wdt-base";
+		interrupts = <0 0 IRQ_TYPE_LEVEL_HIGH>,
+				 <0 1 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,bark-time = <11000>;
+		qcom,pet-time = <9360>;
+		qcom,wakeup-enable;
+		qcom,scandump-sizes = <0x10100 0x10100 0x10100 0x10100
+		0x18100 0x18100 0x18100 0x18100>;
+		status = "disabled";
+	};
+
 	arch_timer: timer {
 		compatible = "arm,armv8-timer";
 		interrupts = <GIC_PPI 13 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>,
