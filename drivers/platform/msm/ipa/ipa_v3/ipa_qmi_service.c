@@ -77,6 +77,8 @@ static void ipa3_handle_indication_req(struct qmi_handle *qmi_handle,
 	memset(&resp, 0, sizeof(struct ipa_indication_reg_resp_msg_v01));
 	resp.resp.result = IPA_QMI_RESULT_SUCCESS_V01;
 
+	IPAWANDBG("qmi_snd_rsp: result %d, err %d\n",
+		resp.resp.result, resp.resp.error);
 	rc = qmi_send_response(qmi_handle, sq, txn,
 		QMI_IPA_INDICATION_REGISTER_RESP_V01,
 		QMI_IPA_INDICATION_REGISTER_RESP_MAX_MSG_LEN_V01,
@@ -162,6 +164,8 @@ static void ipa3_handle_install_filter_rule_req(struct qmi_handle *qmi_handle,
 			rule_req->filter_spec_ex_list[i].rule_id;
 	}
 
+	IPAWANDBG("qmi_snd_rsp: result %d, err %d\n",
+		resp.resp.result, resp.resp.error);
 	rc = qmi_send_response(qmi_handle, sq, txn,
 		QMI_IPA_INSTALL_FILTER_RULE_RESP_V01,
 		QMI_IPA_INSTALL_FILTER_RULE_RESP_MAX_MSG_LEN_V01,
@@ -187,6 +191,8 @@ static void ipa3_handle_filter_installed_notify_req(
 	IPAWANDBG("Received filter_install_notify Request\n");
 	resp.resp.result = IPA_QMI_RESULT_SUCCESS_V01;
 
+	IPAWANDBG("qmi_snd_rsp: result %d, err %d\n",
+		resp.resp.result, resp.resp.error);
 	rc = qmi_send_response(qmi_handle, sq, txn,
 		QMI_IPA_FILTER_INSTALLED_NOTIF_RESP_V01,
 		QMI_IPA_FILTER_INSTALLED_NOTIF_RESP_MAX_MSG_LEN_V01,
@@ -216,6 +222,9 @@ static void handle_ipa_config_req(struct qmi_handle *qmi_handle,
 		IPAERR("ipa3_mhi_handle_ipa_config_req failed %d\n", rc);
 		resp.resp.result = IPA_QMI_RESULT_FAILURE_V01;
 	}
+
+	IPAWANDBG("qmi_snd_rsp: result %d, err %d\n",
+		resp.resp.result, resp.resp.error);
 	rc = qmi_send_response(qmi_handle, sq, txn,
 		QMI_IPA_CONFIG_RESP_V01,
 		QMI_IPA_CONFIG_RESP_MAX_MSG_LEN_V01,
@@ -251,6 +260,8 @@ static void ipa3_handle_modem_init_cmplt_req(struct qmi_handle *qmi_handle,
 	memset(&resp, 0, sizeof(resp));
 	resp.resp.result = IPA_QMI_RESULT_SUCCESS_V01;
 
+	IPAWANDBG("qmi_snd_rsp: result %d, err %d\n",
+		resp.resp.result, resp.resp.error);
 	rc = qmi_send_response(qmi_handle, sq, txn,
 		QMI_IPA_INIT_MODEM_DRIVER_CMPLT_RESP_V01,
 		QMI_IPA_INIT_MODEM_DRIVER_CMPLT_RESP_MAX_MSG_LEN_V01,
@@ -270,14 +281,21 @@ static void ipa3_handle_mhi_alloc_channel_req(struct qmi_handle *qmi_handle,
 	const void *decoded_msg)
 {
 	struct ipa_mhi_alloc_channel_req_msg_v01 *ch_alloc_req;
-	struct ipa_mhi_alloc_channel_resp_msg_v01 *resp;
+	struct ipa_mhi_alloc_channel_resp_msg_v01 *resp = NULL;
 	int rc;
 
 	IPAWANDBG("Received QMI_IPA_MHI_ALLOC_CHANNEL_REQ_V01\n");
 	ch_alloc_req = (struct ipa_mhi_alloc_channel_req_msg_v01 *)decoded_msg;
 
 	resp = imp_handle_allocate_channel_req(ch_alloc_req);
+	if (!resp) {
+		IPAWANERR("imp handle allocate channel req fails");
+		return;
+	}
 
+	IPAWANDBG("qmi_snd_rsp: result %d, err %d, arr_vald: %d, arr_len %d\n",
+		resp->resp.result, resp->resp.error, resp->alloc_resp_arr_valid,
+		resp->alloc_resp_arr_len);
 	rc = qmi_send_response(qmi_handle, sq, txn,
 		QMI_IPA_MHI_ALLOC_CHANNEL_RESP_V01,
 		IPA_MHI_ALLOC_CHANNEL_RESP_MSG_V01_MAX_MSG_LEN,
@@ -296,14 +314,21 @@ static void ipa3_handle_mhi_vote_req(struct qmi_handle *qmi_handle,
 	const void *decoded_msg)
 {
 	struct ipa_mhi_clk_vote_req_msg_v01 *vote_req;
-	struct ipa_mhi_clk_vote_resp_msg_v01 *resp;
+	struct ipa_mhi_clk_vote_resp_msg_v01 *resp = NULL;
 	int rc;
 
 	vote_req = (struct ipa_mhi_clk_vote_req_msg_v01 *)decoded_msg;
 	IPAWANDBG("Received QMI_IPA_MHI_CLK_VOTE_REQ_V01(%d)\n",
 		vote_req->mhi_vote);
 	resp = imp_handle_vote_req(vote_req->mhi_vote);
+	if (!resp) {
+		IPAWANERR("imp handle allocate channel req fails");
+		return;
+	}
 	IPAWANDBG("start sending QMI_IPA_MHI_CLK_VOTE_RESP_V01\n");
+
+	IPAWANDBG("qmi_snd_rsp: result %d, err %d\n",
+		resp->resp.result, resp->resp.error);
 	rc = qmi_send_response(qmi_handle, sq, txn,
 		QMI_IPA_MHI_CLK_VOTE_RESP_V01,
 		IPA_MHI_CLK_VOTE_RESP_MSG_V01_MAX_MSG_LEN,
