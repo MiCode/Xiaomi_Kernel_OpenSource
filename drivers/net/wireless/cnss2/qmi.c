@@ -651,7 +651,7 @@ int cnss_wlfw_wlan_mode_send_sync(struct cnss_plat_data *plat_priv,
 		return -ENOMEM;
 	}
 
-	req->mode = mode;
+	req->mode = (enum wlfw_driver_mode_enum_v01)mode;
 	req->hw_debug_valid = 1;
 	req->hw_debug = 0;
 

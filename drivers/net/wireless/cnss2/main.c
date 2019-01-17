@@ -1569,8 +1569,8 @@ static int cnss_misc_init(struct cnss_plat_data *plat_priv)
 {
 	int ret;
 
-	setup_timer(&plat_priv->fw_boot_timer, cnss_bus_fw_boot_timeout_hdlr,
-		    (unsigned long)plat_priv);
+	timer_setup(&plat_priv->fw_boot_timer,
+		    cnss_bus_fw_boot_timeout_hdlr, 0);
 
 	register_pm_notifier(&cnss_pm_notifier);
 
@@ -1609,7 +1609,7 @@ static const struct platform_device_id cnss_platform_id_table[] = {
 	{ .name = "qca6174", .driver_data = QCA6174_DEVICE_ID, },
 	{ .name = "qca6290", .driver_data = QCA6290_DEVICE_ID, },
 	{ .name = "qca6390", .driver_data = QCA6390_DEVICE_ID, },
-	NULL,
+	{ },
 };
 
 static const struct of_device_id cnss_of_match_table[] = {
