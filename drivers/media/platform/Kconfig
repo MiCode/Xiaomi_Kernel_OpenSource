@@ -531,6 +531,8 @@ if DVB_PLATFORM_DRIVERS
 source "drivers/media/platform/sti/c8sectpfe/Kconfig"
 endif #DVB_PLATFORM_DRIVERS
 
+source "drivers/media/platform/msm/Kconfig"
+
 menuconfig CEC_PLATFORM_DRIVERS
 	bool "CEC platform devices"
 	depends on MEDIA_CEC_SUPPORT
