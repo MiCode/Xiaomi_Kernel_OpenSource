@@ -16,6 +16,8 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 #include "trinket-idp.dtsi"
+#include "trinket-tasha-codec-audio-overlay.dtsi"
+#include "trinket-tasha-codec.dtsi"
 
 / {
 	model = "Ext Audio Codec IDP";

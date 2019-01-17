@@ -138,3 +138,12 @@
 		fsa4480-i2c-handle = <&fsa4480>;
 	};
 };
+
+&slim_aud {
+	status = "disabled";
+	dai_slim: msm_dai_slim {
+		status = "disabled";
+		compatible = "qcom,msm-dai-slim";
+		elemental-addr = [ff ff ff fe 17 02];
+	};
+};
