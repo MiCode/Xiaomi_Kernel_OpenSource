@@ -33,6 +33,7 @@
 #include <vservices/session.h>
 #include <vservices/service.h>
 #include <vservices/ioctl.h>
+#include <linux/sched/signal.h>
 #include "session.h"
 
 #define VSERVICES_DEVICE_MAX (VS_MAX_SERVICES * VS_MAX_SESSIONS)
