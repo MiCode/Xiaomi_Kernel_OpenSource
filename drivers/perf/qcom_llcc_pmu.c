@@ -18,21 +18,18 @@ struct llcc_pmu {
 	struct pmu pmu;
 	struct hlist_node node;
 	void __iomem *lagg_base;
-	void __iomem *beac_base;
 	struct perf_event event;
 };
 
 #define MON_CFG(m) ((m)->lagg_base + 0x200)
 #define MON_CNT(m, cpu) ((m)->lagg_base + 0x220 + 0x4 * cpu)
-#define BEAC_ENABLE(m) ((m)->beac_base + 0x100)
-#define BEAC_SCALE(m) ((m)->beac_base + 0x110)
 #define to_llcc_pmu(ptr) (container_of(ptr, struct llcc_pmu, pmu))
 
 #define LLCC_RD_EV 0x1000
 #define ENABLE 0x01
 #define CLEAR 0x10
 #define DISABLE 0x00
-#define SCALING_FACTOR 0x4
+#define SCALING_FACTOR 0x3
 #define NUM_COUNTERS NR_CPUS
 #define VALUE_MASK 0xFFFFFF
 
@@ -106,10 +103,8 @@ static int qcom_llcc_event_add(struct perf_event *event, int flags)
 	struct llcc_pmu *llccpmu = to_llcc_pmu(event->pmu);
 
 	raw_spin_lock(&users_lock);
-	if (!users) {
+	if (!users)
 		writel_relaxed(ENABLE, MON_CFG(llccpmu));
-		writel_relaxed(ENABLE, BEAC_ENABLE(llccpmu));
-	}
 	users++;
 	raw_spin_unlock(&users_lock);
 
@@ -130,10 +125,8 @@ static void qcom_llcc_event_del(struct perf_event *event, int flags)
 
 	raw_spin_lock(&users_lock);
 	users--;
-	if (!users) {
+	if (!users)
 		writel_relaxed(DISABLE, MON_CFG(llccpmu));
-		writel_relaxed(DISABLE, BEAC_ENABLE(llccpmu));
-	}
 	raw_spin_unlock(&users_lock);
 }
 
@@ -165,16 +158,6 @@ static int qcom_llcc_pmu_probe(struct platform_device *pdev)
 			&res->start);
 		return PTR_ERR(llccpmu->lagg_base);
 	}
-
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "beac-base");
-	llccpmu->beac_base = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(llccpmu->beac_base)) {
-		dev_err(&pdev->dev, "Can't map PMU beac base @%pa\n",
-			&res->start);
-		return PTR_ERR(llccpmu->beac_base);
-	}
-
-	writel_relaxed(SCALING_FACTOR, BEAC_SCALE(llccpmu));
 
 	raw_spin_lock_init(&counter_lock);
 	raw_spin_lock_init(&users_lock);
