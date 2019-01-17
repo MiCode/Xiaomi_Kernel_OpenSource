@@ -643,6 +643,46 @@ static int devfreq_bw_hwmon_get_freq(struct devfreq *df,
 	return 0;
 }
 
+static ssize_t throttle_adj_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct devfreq *df = to_devfreq(dev);
+	struct hwmon_node *node = df->data;
+	int ret;
+	unsigned int val;
+
+	if (!node->hw->set_throttle_adj)
+		return -EPERM;
+
+	ret = kstrtouint(buf, 10, &val);
+	if (ret < 0)
+		return ret;
+
+	ret = node->hw->set_throttle_adj(node->hw, val);
+
+	if (!ret)
+		return count;
+	else
+		return ret;
+}
+
+static ssize_t throttle_adj_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct devfreq *df = to_devfreq(dev);
+	struct hwmon_node *node = df->data;
+	unsigned int val;
+
+	if (!node->hw->get_throttle_adj)
+		val = 0;
+	else
+		val = node->hw->get_throttle_adj(node->hw);
+
+	return snprintf(buf, PAGE_SIZE, "%u\n", val);
+}
+
+static DEVICE_ATTR_RW(throttle_adj);
+
 show_attr(guard_band_mbps);
 store_attr(guard_band_mbps, 0U, 2000U);
 static DEVICE_ATTR_RW(guard_band_mbps);
@@ -701,6 +741,7 @@ static struct attribute *dev_attr[] = {
 	&dev_attr_hyst_length.attr,
 	&dev_attr_idle_mbps.attr,
 	&dev_attr_mbps_zones.attr,
+	&dev_attr_throttle_adj.attr,
 	NULL,
 };
 
