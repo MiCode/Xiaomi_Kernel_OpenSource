@@ -169,6 +169,7 @@ static struct platform_driver devfreq_icc_driver = {
 	.driver = {
 		.name = "devfreq-icc",
 		.of_match_table = devfreq_icc_match_table,
+		.suppress_bind_attrs = true,
 	},
 };
 
