@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2015, 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, 2017, 2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "devfreq-simple-dev: " fmt
@@ -26,6 +26,7 @@ struct dev_data {
 	struct clk *clk;
 	struct devfreq *df;
 	struct devfreq_dev_profile profile;
+	bool freq_in_khz;
 };
 
 static void find_freq(struct devfreq_dev_profile *p, unsigned long *freq,
@@ -57,7 +58,7 @@ static int dev_target(struct device *dev, unsigned long *freq, u32 flags)
 
 	find_freq(&d->profile, freq, flags);
 
-	rfreq = clk_round_rate(d->clk, *freq * 1000);
+	rfreq = clk_round_rate(d->clk, d->freq_in_khz ? *freq * 1000 : *freq);
 	if (IS_ERR_VALUE(rfreq)) {
 		dev_err(dev, "devfreq: Cannot find matching frequency for %lu\n",
 			*freq);
@@ -75,39 +76,30 @@ static int dev_get_cur_freq(struct device *dev, unsigned long *freq)
 	f = clk_get_rate(d->clk);
 	if (IS_ERR_VALUE(f))
 		return f;
-	*freq = f / 1000;
+	*freq = d->freq_in_khz ? f / 1000 : f;
 	return 0;
 }
 
 #define PROP_TBL "freq-tbl-khz"
-static int devfreq_clock_probe(struct platform_device *pdev)
+static int parse_freq_table(struct device *dev, struct dev_data *d)
 {
-	struct device *dev = &pdev->dev;
-	struct dev_data *d;
-	struct devfreq_dev_profile *p;
-	u32 *data, poll;
-	const char *gov_name;
+	struct devfreq_dev_profile *p = &d->profile;
 	int ret, len, i, j;
+	u32 *data;
 	unsigned long f;
 
-	d = devm_kzalloc(dev, sizeof(*d), GFP_KERNEL);
-	if (!d)
-		return -ENOMEM;
-	platform_set_drvdata(pdev, d);
+	if (!of_find_property(dev->of_node, PROP_TBL, &len)) {
+		if (dev_pm_opp_get_opp_count(dev) <= 0)
+			return -EPROBE_DEFER;
+		return 0;
+	}
 
-	d->clk = devm_clk_get(dev, "devfreq_clk");
-	if (IS_ERR(d->clk))
-		return PTR_ERR(d->clk);
-
-	if (!of_find_property(dev->of_node, PROP_TBL, &len))
-		return -EINVAL;
-
+	d->freq_in_khz = true;
 	len /= sizeof(*data);
 	data = devm_kzalloc(dev, len * sizeof(*data), GFP_KERNEL);
 	if (!data)
 		return -ENOMEM;
 
-	p = &d->profile;
 	p->freq_table = devm_kzalloc(dev, len * sizeof(*p->freq_table),
 				     GFP_KERNEL);
 	if (!p->freq_table)
@@ -134,6 +126,32 @@ static int devfreq_clock_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	return 0;
+}
+
+static int devfreq_clock_probe(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct dev_data *d;
+	struct devfreq_dev_profile *p;
+	u32 poll;
+	const char *gov_name;
+	int ret;
+
+	d = devm_kzalloc(dev, sizeof(*d), GFP_KERNEL);
+	if (!d)
+		return -ENOMEM;
+	platform_set_drvdata(pdev, d);
+
+	d->clk = devm_clk_get(dev, "devfreq_clk");
+	if (IS_ERR(d->clk))
+		return PTR_ERR(d->clk);
+
+	ret = parse_freq_table(dev, d);
+	if (ret)
+		return ret;
+
+	p = &d->profile;
 	p->target = dev_target;
 	p->get_cur_freq = dev_get_cur_freq;
 	ret = dev_get_cur_freq(dev, &p->initial_freq);
