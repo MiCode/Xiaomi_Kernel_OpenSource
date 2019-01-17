@@ -1233,6 +1233,15 @@
 			};
 
 			port@3 {
+				reg = <2>;
+				tpda_apss_in_tpdm_actpm: endpoint {
+					slave-mode;
+					remote-endpoint =
+					       <&tpdm_actpm_out_tpda_apss>;
+				};
+			};
+
+			port@4 {
 				reg = <3>;
 				tpda_apss_in_tpdm_apss: endpoint {
 					slave-mode;
@@ -1281,10 +1290,29 @@
 		};
 	};
 
-	tpdm_apss: tpdm@7860000 {
+	tpdm_actpm: tpdm@7860000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x000bb968>;
 		reg = <0x7860000 0x1000>;
+		reg-names = "tpdm-base";
+
+		coresight-name = "coresight-tpdm-actpm";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+
+		port {
+			tpdm_actpm_out_tpda_apss: endpoint {
+				remote-endpoint =
+					<&tpda_apss_in_tpdm_actpm>;
+			};
+		};
+	};
+
+	tpdm_apss: tpdm@7861000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb968>;
+		reg = <0x7861000 0x1000>;
 		reg-names = "tpdm-base";
 
 		coresight-name = "coresight-tpdm-apss";
