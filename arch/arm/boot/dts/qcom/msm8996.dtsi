@@ -186,15 +186,7 @@
 					dev = "/dev/block/platform/soc/7464900.sdhci/by-name/vendor";
 					type = "ext4";
 					mnt_flags = "ro,barrier=1,discard";
-					fsmgr_flags = "wait";
-					status = "ok";
-				};
-				system {
-					compatible = "android,system";
-					dev = "/dev/block/platform/soc/7464900.sdhci/by-name/system";
-					type = "ext4";
-					mnt_flags = "ro,barrier=1,discard";
-					fsmgr_flags = "wait";
+					fsmgr_flags = "wait,verify";
 					status = "ok";
 				};
 			};
@@ -215,7 +207,7 @@
 		peripheral_mem: peripheral_region@8ea00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x8ea00000 0 0x2b00000>;
+			reg = <0 0x8ea00000 0 0x2d00000>;
 		};
 
 		adsp_mem: adsp_region {
@@ -259,7 +251,7 @@
 		};
 
 		cont_splash_mem_hdmi: cont_splash_mem_hdmi@bdd00000 {
-			reg = <0 0xbdd00000 0 0x23ff000>;
+			reg = <0 0xb1c00000 0 0x23ff000>;
 			label = "cont_splash_mem_hdmi";
 		};
 	};
