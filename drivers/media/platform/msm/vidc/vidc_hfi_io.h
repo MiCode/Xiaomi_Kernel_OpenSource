@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __VIDC_HFI_IO_H__
@@ -110,7 +110,17 @@
 
 #define VIDC_WRAPPER_CPU_CLOCK_CONFIG	(VIDC_WRAPPER_BASE_OFFS + 0x2000)
 #define VIDC_WRAPPER_CPU_CGC_DIS	(VIDC_WRAPPER_BASE_OFFS + 0x2010)
-#define VIDC_WRAPPER_CPU_STATUS (VIDC_WRAPPER_BASE_OFFS + 0x2014)
+#define VIDC_WRAPPER_CPU_STATUS	(VIDC_WRAPPER_BASE_OFFS + 0x2014)
+
+/*
+ * --------------------------------------------------------------------------
+ * MODULE: vidc_tz_wrapper
+ * --------------------------------------------------------------------------
+ */
+#define VIDC_WRAPPER_TZ_BASE_OFFS	0x000C0000
+#define VIDC_WRAPPER_TZ_CPU_CLOCK_CONFIG	(VIDC_WRAPPER_TZ_BASE_OFFS)
+#define VIDC_WRAPPER_TZ_CPU_STATUS	(VIDC_WRAPPER_TZ_BASE_OFFS + 0x10)
+
 #define VIDC_VENUS_VBIF_CLK_ON		(VIDC_VBIF_BASE_OFFS + 0x4)
 #define VENUS_VBIF_AXI_HALT_CTRL0   (VIDC_VBIF_BASE_OFFS + 0x208)
 #define VENUS_VBIF_AXI_HALT_CTRL1   (VIDC_VBIF_BASE_OFFS + 0x20C)

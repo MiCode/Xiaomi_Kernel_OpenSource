@@ -3241,7 +3241,7 @@ static int __power_collapse(struct venus_hfi_device *device, bool force)
 		VIDC_CTRL_STATUS_PC_READY;
 	if (!pc_ready) {
 		wfi_status = __read_register(device,
-				VIDC_WRAPPER_CPU_STATUS);
+				VIDC_WRAPPER_TZ_CPU_STATUS);
 		idle_status = __read_register(device,
 				VIDC_CTRL_STATUS);
 		if (!(wfi_status & BIT(0))) {
@@ -3265,7 +3265,7 @@ static int __power_collapse(struct venus_hfi_device *device, bool force)
 
 		while (count < max_tries) {
 			wfi_status = __read_register(device,
-					VIDC_WRAPPER_CPU_STATUS);
+					VIDC_WRAPPER_TZ_CPU_STATUS);
 			pc_ready = __read_register(device,
 					VIDC_CTRL_STATUS);
 			if ((wfi_status & BIT(0)) && (pc_ready &
