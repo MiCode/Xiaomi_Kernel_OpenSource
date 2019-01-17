@@ -270,6 +270,7 @@
 
 	rpm-regulator-ldoa15 {
 		status = "okay";
+		pm6125_l15-parent-supply = <&pm6125_l10>;
 		L15A: pm6125_l15: regulator-l15 {
 			regulator-min-microvolt = <2928000>;
 			regulator-max-microvolt = <3232000>;
