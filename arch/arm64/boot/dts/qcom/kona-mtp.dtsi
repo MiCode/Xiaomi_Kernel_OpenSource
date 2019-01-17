@@ -15,3 +15,14 @@
 &pm8150a_amoled {
 	status = "ok";
 };
+
+&vendor {
+	bluetooth: bt_qca6390 {
+		compatible = "qca,qca6390";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_en_active>;
+		qca,bt-reset-gpio = <&tlmm 21 0>; /* BT_EN */
+		qca,bt-vdd-ldo-supply = <&pm8150_s6>;
+		qca,bt-vdd-ldo-voltage-level = <950000 950000>;
+	};
+};
