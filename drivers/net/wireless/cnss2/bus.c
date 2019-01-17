@@ -25,6 +25,8 @@ enum cnss_dev_bus_type cnss_get_dev_bus_type(struct device *dev)
 
 	if (memcmp(dev->bus->name, "pci", 3) == 0)
 		return CNSS_BUS_PCI;
+	else if (memcmp(dev->bus->name, "usb", 3) == 0)
+		return CNSS_BUS_USB;
 	else
 		return CNSS_BUS_NONE;
 }
@@ -72,6 +74,8 @@ void *cnss_bus_dev_to_bus_priv(struct device *dev)
 	switch (cnss_get_dev_bus_type(dev)) {
 	case CNSS_BUS_PCI:
 		return cnss_get_pci_priv(to_pci_dev(dev));
+	case CNSS_BUS_USB:
+		return cnss_get_usb_priv(to_usb_interface(dev));
 	default:
 		return NULL;
 	}
