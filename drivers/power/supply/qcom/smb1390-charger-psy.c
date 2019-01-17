@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,6 +12,7 @@
 
 #define pr_fmt(fmt) "SMB1390: %s: " fmt, __func__
 
+#include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
@@ -91,6 +92,16 @@
 #define SRC_VOTER		"SRC_VOTER"
 #define SWITCHER_TOGGLE_VOTER	"SWITCHER_TOGGLE_VOTER"
 
+#define smb1390_dbg(chip, reason, fmt, ...)				\
+	do {								\
+		if (chip->debug_mask & (reason))			\
+			pr_info("SMB1390: %s: " fmt, __func__,		\
+				##__VA_ARGS__);				\
+		else							\
+			pr_debug("SMB1390: %s: " fmt, __func__,		\
+				##__VA_ARGS__);				\
+	} while (0)
+
 enum {
 	SWITCHER_OFF_WINDOW_IRQ = 0,
 	SWITCHER_OFF_FAULT_IRQ,
@@ -108,6 +119,14 @@ enum {
 	SMB_PIN_EN,
 };
 
+enum print_reason {
+	PR_INTERRUPT		= BIT(0),
+	PR_REGISTER		= BIT(1),
+	PR_INFO			= BIT(2),
+	PR_EXT_DEPENDENCY	= BIT(3),
+	PR_MISC			= BIT(4),
+};
+
 struct smb1390_iio {
 	struct iio_channel	*die_temp_chan;
 };
@@ -117,6 +136,7 @@ struct smb1390 {
 	struct regmap		*regmap;
 	struct notifier_block	nb;
 	struct wakeup_source	*cp_ws;
+	struct dentry		*dfs_root;
 
 	/* work structs */
 	struct work_struct	status_change_work;
@@ -147,6 +167,7 @@ struct smb1390 {
 	bool			switcher_enabled;
 	int			die_temp;
 	bool			suspended;
+	u32			debug_mask;
 };
 
 struct smb_irq {
@@ -173,7 +194,8 @@ static int smb1390_masked_write(struct smb1390 *chip, int reg, int mask,
 {
 	int rc;
 
-	pr_debug("Writing 0x%02x to 0x%04x with mask 0x%02x\n", val, reg, mask);
+	smb1390_dbg(chip, PR_REGISTER, "Writing 0x%02x to 0x%04x with mask 0x%02x\n",
+			val, reg, mask);
 	rc = regmap_update_bits(chip->regmap, reg, mask, val);
 	if (rc < 0)
 		pr_err("Couldn't write 0x%02x to 0x%04x with mask 0x%02x\n",
@@ -187,7 +209,7 @@ static bool is_psy_voter_available(struct smb1390 *chip)
 	if (!chip->batt_psy) {
 		chip->batt_psy = power_supply_get_by_name("battery");
 		if (!chip->batt_psy) {
-			pr_debug("Couldn't find battery psy\n");
+			smb1390_dbg(chip, PR_EXT_DEPENDENCY, "Couldn't find battery psy\n");
 			return false;
 		}
 	}
@@ -195,7 +217,7 @@ static bool is_psy_voter_available(struct smb1390 *chip)
 	if (!chip->usb_psy) {
 		chip->usb_psy = power_supply_get_by_name("usb");
 		if (!chip->usb_psy) {
-			pr_debug("Couldn't find usb psy\n");
+			smb1390_dbg(chip, PR_EXT_DEPENDENCY, "Couldn't find usb psy\n");
 			return false;
 		}
 	}
@@ -203,7 +225,7 @@ static bool is_psy_voter_available(struct smb1390 *chip)
 	if (!chip->dc_psy) {
 		chip->dc_psy = power_supply_get_by_name("dc");
 		if (!chip->dc_psy) {
-			pr_debug("Couldn't find dc psy\n");
+			smb1390_dbg(chip, PR_EXT_DEPENDENCY, "Couldn't find dc psy\n");
 			return false;
 		}
 	}
@@ -211,7 +233,7 @@ static bool is_psy_voter_available(struct smb1390 *chip)
 	if (!chip->fcc_votable) {
 		chip->fcc_votable = find_votable("FCC");
 		if (!chip->fcc_votable) {
-			pr_debug("Couldn't find FCC votable\n");
+			smb1390_dbg(chip, PR_EXT_DEPENDENCY, "Couldn't find FCC votable\n");
 			return false;
 		}
 	}
@@ -219,13 +241,13 @@ static bool is_psy_voter_available(struct smb1390 *chip)
 	if (!chip->fv_votable) {
 		chip->fv_votable = find_votable("FV");
 		if (!chip->fv_votable) {
-			pr_debug("Couldn't find FV votable\n");
+			smb1390_dbg(chip, PR_EXT_DEPENDENCY, "Couldn't find FV votable\n");
 			return false;
 		}
 	}
 
 	if (!chip->disable_votable) {
-		pr_debug("Couldn't find CP DISABLE votable\n");
+		smb1390_dbg(chip, PR_MISC, "Couldn't find CP DISABLE votable\n");
 		return false;
 	}
 
@@ -261,7 +283,8 @@ static int smb1390_get_cp_en_status(struct smb1390 *chip, int id, bool *enable)
 		*enable = !!(status & EN_PIN_OUT2_BIT);
 		break;
 	default:
-		pr_debug("cp_en status %d is not supported", id);
+		smb1390_dbg(chip, PR_MISC, "cp_en status %d is not supported",
+				id);
 		rc = -EINVAL;
 		break;
 	}
@@ -277,7 +300,8 @@ static irqreturn_t default_irq_handler(int irq, void *data)
 
 	for (i = 0; i < NUM_IRQS; ++i) {
 		if (irq == chip->irqs[i]) {
-			pr_debug("%s IRQ triggered\n", smb_irqs[i].name);
+			smb1390_dbg(chip, PR_INTERRUPT, "%s IRQ triggered\n",
+				smb_irqs[i].name);
 			chip->irq_status |= 1 << i;
 		}
 	}
@@ -478,10 +502,11 @@ static int smb1390_ilim_vote_cb(struct votable *votable, void *data,
 
 	/* ILIM less than 1A is not accurate; disable charging */
 	if (ilim_uA < 1000000) {
-		pr_debug("ILIM %duA is too low to allow charging\n", ilim_uA);
+		smb1390_dbg(chip, PR_INFO, "ILIM %duA is too low to allow charging\n",
+			ilim_uA);
 		vote(chip->disable_votable, ILIM_VOTER, true, 0);
 	} else {
-		pr_debug("ILIM set to %duA\n", ilim_uA);
+		smb1390_dbg(chip, PR_INFO, "ILIM set to %duA\n", ilim_uA);
 		vote(chip->disable_votable, ILIM_VOTER, false, 0);
 	}
 
@@ -628,7 +653,7 @@ static void smb1390_taper_work(struct work_struct *work)
 
 		if (get_effective_result(chip->fv_votable) >
 						chip->taper_entry_fv) {
-			pr_debug("Float voltage increased. Exiting taper\n");
+			smb1390_dbg(chip, PR_INFO, "Float voltage increased. Exiting taper\n");
 			goto out;
 		} else {
 			chip->taper_entry_fv =
@@ -638,7 +663,8 @@ static void smb1390_taper_work(struct work_struct *work)
 		if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER) {
 			fcc_uA = get_effective_result(chip->fcc_votable)
 								- 100000;
-			pr_debug("taper work reducing FCC to %duA\n", fcc_uA);
+			smb1390_dbg(chip, PR_INFO, "taper work reducing FCC to %duA\n",
+				fcc_uA);
 			vote(chip->fcc_votable, CP_VOTER, true, fcc_uA);
 
 			if (fcc_uA < 2000000) {
@@ -647,13 +673,13 @@ static void smb1390_taper_work(struct work_struct *work)
 				goto out;
 			}
 		} else {
-			pr_debug("In fast charging. Wait for next taper\n");
+			smb1390_dbg(chip, PR_INFO, "In fast charging. Wait for next taper\n");
 		}
 
 		msleep(500);
 	}
 out:
-	pr_debug("taper work exit\n");
+	smb1390_dbg(chip, PR_INFO, "taper work exit\n");
 	vote(chip->fcc_votable, CP_VOTER, false, 0);
 	chip->taper_work_running = false;
 }
@@ -740,7 +766,7 @@ static int smb1390_get_prop(struct power_supply *psy,
 					+ 500000;
 		break;
 	default:
-		pr_debug("charge pump power supply get prop %d not supported\n",
+		smb1390_dbg(chip, PR_MISC, "charge pump power supply get prop %d not supported\n",
 			prop);
 		return -EINVAL;
 	}
@@ -767,7 +793,7 @@ static int smb1390_set_prop(struct power_supply *psy,
 		chip->irq_status = val->intval;
 		break;
 	default:
-		pr_debug("charge pump power supply set prop %d not supported\n",
+		smb1390_dbg(chip, PR_MISC, "charge pump power supply set prop %d not supported\n",
 			prop);
 		return -EINVAL;
 	}
@@ -976,6 +1002,31 @@ static int smb1390_request_interrupts(struct smb1390 *chip)
 	return rc;
 }
 
+#ifdef CONFIG_DEBUG_FS
+static void smb1390_create_debugfs(struct smb1390 *chip)
+{
+	struct dentry *entry;
+
+	chip->dfs_root = debugfs_create_dir("smb1390_charger_psy", NULL);
+	if (IS_ERR_OR_NULL(chip->dfs_root)) {
+		pr_err("Failed to create debugfs directory, rc=%ld\n",
+					(long)chip->dfs_root);
+		return;
+	}
+
+	entry = debugfs_create_u32("debug_mask", 0600, chip->dfs_root,
+			&chip->debug_mask);
+	if (IS_ERR_OR_NULL(entry)) {
+		pr_err("Failed to create debug_mask, rc=%ld\n", (long)entry);
+		debugfs_remove_recursive(chip->dfs_root);
+	}
+}
+#else
+static void smb1390_create_debugfs(struct smb1390 *chip)
+{
+}
+#endif
+
 static int smb1390_probe(struct platform_device *pdev)
 {
 	struct smb1390 *chip;
@@ -1040,6 +1091,8 @@ static int smb1390_probe(struct platform_device *pdev)
 		pr_err("Couldn't request interrupts rc=%d\n", rc);
 		goto out_notifier;
 	}
+
+	smb1390_create_debugfs(chip);
 
 	pr_info("smb1390 probed successfully");
 	return 0;
