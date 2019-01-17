@@ -149,6 +149,9 @@ struct devfreq {
 	struct list_head node;
 
 	struct mutex lock;
+#ifdef CONFIG_QCOM_DEVFREQ_ICC
+	struct mutex event_lock;
+#endif
 	struct device dev;
 	struct devfreq_dev_profile *profile;
 	const struct devfreq_governor *governor;
@@ -184,6 +187,31 @@ struct devfreq_freqs {
 	unsigned long old;
 	unsigned long new;
 };
+
+static inline void event_mutex_init(struct devfreq *devfreq)
+{
+#ifdef CONFIG_QCOM_DEVFREQ_ICC
+	mutex_init(&devfreq->event_lock);
+#endif
+}
+static inline void event_mutex_destroy(struct devfreq *devfreq)
+{
+#ifdef CONFIG_QCOM_DEVFREQ_ICC
+	mutex_destroy(&devfreq->event_lock);
+#endif
+}
+static inline void event_mutex_lock(struct devfreq *devfreq)
+{
+#ifdef CONFIG_QCOM_DEVFREQ_ICC
+	mutex_lock(&devfreq->event_lock);
+#endif
+}
+static inline void event_mutex_unlock(struct devfreq *devfreq)
+{
+#ifdef CONFIG_QCOM_DEVFREQ_ICC
+	mutex_unlock(&devfreq->event_lock);
+#endif
+}
 
 #if defined(CONFIG_PM_DEVFREQ)
 extern struct devfreq *devfreq_add_device(struct device *dev,
