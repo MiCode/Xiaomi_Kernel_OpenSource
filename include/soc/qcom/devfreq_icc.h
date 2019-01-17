@@ -11,12 +11,22 @@
 #ifdef CONFIG_QCOM_DEVFREQ_ICC
 int devfreq_add_icc(struct device *dev);
 int devfreq_remove_icc(struct device *dev);
+int devfreq_suspend_icc(struct device *dev);
+int devfreq_resume_icc(struct device *dev);
 #else
 static inline int devfreq_add_icc(struct device *dev)
 {
 	return 0;
 }
 static inline int devfreq_remove_icc(struct device *dev)
+{
+	return 0;
+}
+static inline int devfreq_suspend_icc(struct device *dev)
+{
+	return 0;
+}
+static inline int devfreq_resume_icc(struct device *dev)
 {
 	return 0;
 }

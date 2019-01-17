@@ -163,11 +163,6 @@ int devfreq_add_icc(struct device *dev)
 	return 0;
 }
 
-static int devfreq_icc_probe(struct platform_device *pdev)
-{
-	return devfreq_add_icc(&pdev->dev);
-}
-
 int devfreq_remove_icc(struct device *dev)
 {
 	struct dev_data *d = dev_get_drvdata(dev);
@@ -175,6 +170,25 @@ int devfreq_remove_icc(struct device *dev)
 	icc_put(d->icc_path);
 	devfreq_remove_device(d->df);
 	return 0;
+}
+
+int devfreq_suspend_icc(struct device *dev)
+{
+	struct dev_data *d = dev_get_drvdata(dev);
+
+	return devfreq_suspend_device(d->df);
+}
+
+int devfreq_resume_icc(struct device *dev)
+{
+	struct dev_data *d = dev_get_drvdata(dev);
+
+	return devfreq_resume_device(d->df);
+}
+
+static int devfreq_icc_probe(struct platform_device *pdev)
+{
+	return devfreq_add_icc(&pdev->dev);
 }
 
 static int devfreq_icc_remove(struct platform_device *pdev)
