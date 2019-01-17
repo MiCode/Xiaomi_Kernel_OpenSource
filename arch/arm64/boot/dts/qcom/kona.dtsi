@@ -921,9 +921,13 @@
 		#reset-cells = <1>;
 	};
 
-	clock_npucc: qcom,npucc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "npucc_clocks";
+	clock_npucc: qcom,npucc@9980000 {
+		compatible = "qcom,npucc-kona", "syscon";
+		reg = <0x9980000 0x10000>,
+			<0x9800000 0x10000>,
+			<0x9810000 0x10000>;
+		reg-names = "cc", "qdsp6ss", "qdsp6ss_pll";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -986,6 +990,7 @@
 		qcom,dispcc = <&clock_dispcc>;
 		qcom,camcc = <&clock_camcc>;
 		qcom,gpucc = <&clock_gpucc>;
+		qcom,npucc = <&clock_npucc>;
 		clock-names = "xo_clk_src";
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		#clock-cells = <1>;
