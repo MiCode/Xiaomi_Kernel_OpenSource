@@ -415,7 +415,7 @@ config QCOM_EUD
 
 config QCOM_MINIDUMP
 	bool "QCOM Minidump Support"
-	depends on QCOM_SMEM && QCOM_DLOAD_MODE
+	depends on QCOM_SMEM && POWER_RESET_QCOM
 	help
 	  This enables minidump feature. It allows various clients to
 	  register to dump their state at system bad state (panic/WDT,etc.,).

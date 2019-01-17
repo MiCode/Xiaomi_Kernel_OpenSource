@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -41,6 +41,13 @@
 #define SCM_DLOAD_MINIDUMP		0X20
 #define SCM_DLOAD_BOTHDUMPS	(SCM_DLOAD_MINIDUMP | SCM_DLOAD_FULLDUMP)
 
+#define DL_MODE_PROP "qcom,msm-imem-download_mode"
+#define EDL_MODE_PROP "qcom,msm-imem-emergency_download_mode"
+#define IMEM_DL_TYPE_PROP "qcom,msm-imem-dload-type"
+
+#define KASLR_OFFSET_PROP "qcom,msm-imem-kaslr_offset"
+#define KASLR_OFFSET_BIT_MASK	0x00000000FFFFFFFF
+
 static int restart_mode;
 static void *restart_reason, *dload_type_addr;
 static bool scm_pmic_arbiter_disable_supported;
@@ -58,26 +65,15 @@ static void scm_disable_sdi(void);
 static int download_mode = 1;
 static struct kobject dload_kobj;
 
-#ifdef CONFIG_QCOM_DLOAD_MODE
-#define EDL_MODE_PROP "qcom,msm-imem-emergency_download_mode"
-#define DL_MODE_PROP "qcom,msm-imem-download_mode"
-#ifdef CONFIG_RANDOMIZE_BASE
-#define KASLR_OFFSET_PROP "qcom,msm-imem-kaslr_offset"
-#endif
-
 static int in_panic;
 static int dload_type = SCM_DLOAD_FULLDUMP;
 static void *dload_mode_addr;
 static bool dload_mode_enabled;
 static void *emergency_dload_mode_addr;
-#ifdef CONFIG_RANDOMIZE_BASE
-static void *kaslr_imem_addr;
-#endif
 static bool scm_dload_supported;
 
 static bool force_warm_reboot;
 
-static int dload_set(const char *val, const struct kernel_param *kp);
 /* interface for exporting attributes */
 struct reset_attribute {
 	struct attribute        attr;
@@ -92,8 +88,49 @@ struct reset_attribute {
 	static struct reset_attribute reset_attr_##_name = \
 			__ATTR(_name, _mode, _show, _store)
 
+/* sysfs related globals */
+static ssize_t show_emmc_dload(struct kobject *kobj, struct attribute *attr,
+			       char *buf);
+static size_t store_emmc_dload(struct kobject *kobj, struct attribute *attr,
+			       const char *buf, size_t count);
+RESET_ATTR(emmc_dload, 0644, show_emmc_dload, store_emmc_dload);
+
+#ifdef CONFIG_QCOM_MINIDUMP
+static ssize_t show_dload_mode(struct kobject *kobj, struct attribute *attr,
+			       char *buf);
+static size_t store_dload_mode(struct kobject *kobj, struct attribute *attr,
+			       const char *buf, size_t count);
+RESET_ATTR(dload_mode, 0644, show_dload_mode, store_dload_mode);
+#endif /* CONFIG_QCOM_MINIDUMP */
+
+static struct attribute *reset_attrs[] = {
+	&reset_attr_emmc_dload.attr,
+#ifdef CONFIG_QCOM_MINIDUMP
+	&reset_attr_dload_mode.attr,
+#endif
+	NULL
+};
+
+static struct attribute_group reset_attr_group = {
+	.attrs = reset_attrs,
+};
+
+static int dload_set(const char *val, const struct kernel_param *kp);
 module_param_call(download_mode, dload_set, param_get_int,
 			&download_mode, 0644);
+
+static ssize_t attr_show(struct kobject *kobj, struct attribute *attr,
+			       char *buf);
+static ssize_t attr_store(struct kobject *kobj, struct attribute *attr,
+			       const char *buf, size_t count);
+static const struct sysfs_ops reset_sysfs_ops = {
+	.show	= attr_show,
+	.store	= attr_store,
+};
+
+static struct kobj_type reset_ktype = {
+	.sysfs_ops	= &reset_sysfs_ops,
+};
 
 static int panic_prep_restart(struct notifier_block *this,
 			      unsigned long event, void *ptr)
@@ -197,22 +234,193 @@ static int dload_set(const char *val, const struct kernel_param *kp)
 
 	return 0;
 }
+
+static void free_dload_mode_mem(void)
+{
+	iounmap(emergency_dload_mode_addr);
+	iounmap(dload_mode_addr);
+}
+
+static void *map_prop_mem(const char *propname)
+{
+	struct device_node *np = of_find_compatible_node(NULL, NULL, propname);
+	void *addr;
+
+	if (!np) {
+		pr_err("Unable to find DT property: %s\n", propname);
+		return NULL;
+	}
+
+	addr = of_iomap(np, 0);
+	if (!addr)
+		pr_err("Unable to map memory for DT property: %s\n", propname);
+
+	return addr;
+}
+
+#ifdef CONFIG_RANDOMIZE_BASE
+static void *kaslr_imem_addr;
+static void store_kaslr_offset(void)
+{
+	kaslr_imem_addr = map_prop_mem(KASLR_OFFSET_PROP);
+
+	if (kaslr_imem_addr) {
+		__raw_writel(0xdead4ead, kaslr_imem_addr);
+		__raw_writel(KASLR_OFFSET_BIT_MASK &
+		(kimage_vaddr - KIMAGE_VADDR), kaslr_imem_addr + 4);
+		__raw_writel(KASLR_OFFSET_BIT_MASK &
+			((kimage_vaddr - KIMAGE_VADDR) >> 32),
+			kaslr_imem_addr + 8);
+		iounmap(kaslr_imem_addr);
+	}
+}
 #else
-static void set_dload_mode(int on)
+static void store_kaslr_offset(void)
 {
-	return;
+}
+#endif /* CONFIG_RANDOMIZE_BASE */
+
+static void setup_dload_mode_support(void)
+{
+	int ret;
+
+	if (scm_is_call_available(SCM_SVC_BOOT, SCM_DLOAD_CMD) > 0)
+		scm_dload_supported = true;
+
+	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);
+
+	dload_mode_addr = map_prop_mem(DL_MODE_PROP);
+
+	emergency_dload_mode_addr = map_prop_mem(EDL_MODE_PROP);
+
+	store_kaslr_offset();
+
+	dload_type_addr = map_prop_mem(IMEM_DL_TYPE_PROP);
+	if (!dload_type_addr)
+		return;
+
+	ret = kobject_init_and_add(&dload_kobj, &reset_ktype,
+			kernel_kobj, "%s", "dload");
+	if (ret) {
+		pr_err("%s:Error in creation kobject_add\n", __func__);
+		kobject_put(&dload_kobj);
+		return;
+	}
+
+	ret = sysfs_create_group(&dload_kobj, &reset_attr_group);
+	if (ret) {
+		pr_err("%s:Error in creation sysfs_create_group\n", __func__);
+		kobject_del(&dload_kobj);
+	}
 }
 
-static void enable_emergency_dload_mode(void)
+static ssize_t attr_show(struct kobject *kobj, struct attribute *attr,
+				char *buf)
 {
-	pr_err("dload mode is not enabled on target\n");
+	struct reset_attribute *reset_attr = to_reset_attr(attr);
+	ssize_t ret = -EIO;
+
+	if (reset_attr->show)
+		ret = reset_attr->show(kobj, attr, buf);
+
+	return ret;
 }
 
-static bool get_dload_mode(void)
+static ssize_t attr_store(struct kobject *kobj, struct attribute *attr,
+				const char *buf, size_t count)
 {
-	return false;
+	struct reset_attribute *reset_attr = to_reset_attr(attr);
+	ssize_t ret = -EIO;
+
+	if (reset_attr->store)
+		ret = reset_attr->store(kobj, attr, buf, count);
+
+	return ret;
 }
-#endif
+
+static ssize_t show_emmc_dload(struct kobject *kobj, struct attribute *attr,
+				char *buf)
+{
+	uint32_t read_val, show_val;
+
+	if (!dload_type_addr)
+		return -ENODEV;
+
+	read_val = __raw_readl(dload_type_addr);
+	if (read_val == EMMC_DLOAD_TYPE)
+		show_val = 1;
+	else
+		show_val = 0;
+
+	return snprintf(buf, sizeof(show_val), "%u\n", show_val);
+}
+
+static size_t store_emmc_dload(struct kobject *kobj, struct attribute *attr,
+				const char *buf, size_t count)
+{
+	uint32_t enabled;
+	int ret;
+
+	if (!dload_type_addr)
+		return -ENODEV;
+
+	ret = kstrtouint(buf, 0, &enabled);
+	if (ret < 0)
+		return ret;
+
+	if (!((enabled == 0) || (enabled == 1)))
+		return -EINVAL;
+
+	if (enabled == 1)
+		__raw_writel(EMMC_DLOAD_TYPE, dload_type_addr);
+	else
+		__raw_writel(0, dload_type_addr);
+
+	return count;
+}
+
+#ifdef CONFIG_QCOM_MINIDUMP
+static DEFINE_MUTEX(tcsr_lock);
+
+static ssize_t show_dload_mode(struct kobject *kobj, struct attribute *attr,
+				char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "DLOAD dump type: %s\n",
+		(dload_type == SCM_DLOAD_BOTHDUMPS) ? "both" :
+		((dload_type == SCM_DLOAD_MINIDUMP) ? "mini" : "full"));
+}
+
+static size_t store_dload_mode(struct kobject *kobj, struct attribute *attr,
+				const char *buf, size_t count)
+{
+	if (sysfs_streq(buf, "full")) {
+		dload_type = SCM_DLOAD_FULLDUMP;
+	} else if (sysfs_streq(buf, "mini")) {
+		if (!msm_minidump_enabled()) {
+			pr_err("Minidump is not enabled\n");
+			return -ENODEV;
+		}
+		dload_type = SCM_DLOAD_MINIDUMP;
+	} else if (sysfs_streq(buf, "both")) {
+		if (!msm_minidump_enabled()) {
+			pr_err("Minidump not enabled, setting fulldump only\n");
+			dload_type = SCM_DLOAD_FULLDUMP;
+			return count;
+		}
+		dload_type = SCM_DLOAD_BOTHDUMPS;
+	} else {
+		pr_err("Invalid Dump setup request..\n");
+		pr_err("Supported dumps:'full', 'mini', or 'both'\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&tcsr_lock);
+	/*Overwrite TCSR reg*/
+	set_dload_mode(dload_type);
+	mutex_unlock(&tcsr_lock);
+	return count;
+}
+#endif /* CONFIG_QCOM_MINIDUMP */
 
 static void scm_disable_sdi(void)
 {
@@ -259,7 +467,6 @@ static void halt_spmi_pmic_arbiter(void)
 static void msm_restart_prepare(const char *cmd)
 {
 	bool need_warm_reset = false;
-#ifdef CONFIG_QCOM_DLOAD_MODE
 	/* Write download mode flags if we're panic'ing
 	 * Write download mode flags if restart_mode says so
 	 * Kill download mode if master-kill switch is set
@@ -267,7 +474,6 @@ static void msm_restart_prepare(const char *cmd)
 
 	set_dload_mode(download_mode &&
 			(in_panic || restart_mode == RESTART_DLOAD));
-#endif
 
 	if (qpnp_pon_check_hard_reset_stored()) {
 		/* Set warm reset as true when device is in dload mode */
@@ -368,15 +574,12 @@ static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 
 	msm_restart_prepare(cmd);
 
-#ifdef CONFIG_QCOM_DLOAD_MODE
 	/*
 	 * Trigger a watchdog bite here and if this fails,
 	 * device will take the usual restart path.
 	 */
-
 	if (WDOG_BITE_ON_PANIC && in_panic)
 		msm_trigger_wdog_bite();
-#endif
 
 	scm_disable_sdi();
 	halt_spmi_pmic_arbiter();
@@ -400,137 +603,6 @@ static void do_msm_poweroff(void)
 	pr_err("Powering off has failed\n");
 }
 
-static ssize_t attr_show(struct kobject *kobj, struct attribute *attr,
-				char *buf)
-{
-	struct reset_attribute *reset_attr = to_reset_attr(attr);
-	ssize_t ret = -EIO;
-
-	if (reset_attr->show)
-		ret = reset_attr->show(kobj, attr, buf);
-
-	return ret;
-}
-
-static ssize_t attr_store(struct kobject *kobj, struct attribute *attr,
-				const char *buf, size_t count)
-{
-	struct reset_attribute *reset_attr = to_reset_attr(attr);
-	ssize_t ret = -EIO;
-
-	if (reset_attr->store)
-		ret = reset_attr->store(kobj, attr, buf, count);
-
-	return ret;
-}
-
-static const struct sysfs_ops reset_sysfs_ops = {
-	.show	= attr_show,
-	.store	= attr_store,
-};
-
-static struct kobj_type reset_ktype = {
-	.sysfs_ops	= &reset_sysfs_ops,
-};
-
-static ssize_t show_emmc_dload(struct kobject *kobj, struct attribute *attr,
-				char *buf)
-{
-	uint32_t read_val, show_val;
-
-	if (!dload_type_addr)
-		return -ENODEV;
-
-	read_val = __raw_readl(dload_type_addr);
-	if (read_val == EMMC_DLOAD_TYPE)
-		show_val = 1;
-	else
-		show_val = 0;
-
-	return snprintf(buf, sizeof(show_val), "%u\n", show_val);
-}
-
-static size_t store_emmc_dload(struct kobject *kobj, struct attribute *attr,
-				const char *buf, size_t count)
-{
-	uint32_t enabled;
-	int ret;
-
-	if (!dload_type_addr)
-		return -ENODEV;
-
-	ret = kstrtouint(buf, 0, &enabled);
-	if (ret < 0)
-		return ret;
-
-	if (!((enabled == 0) || (enabled == 1)))
-		return -EINVAL;
-
-	if (enabled == 1)
-		__raw_writel(EMMC_DLOAD_TYPE, dload_type_addr);
-	else
-		__raw_writel(0, dload_type_addr);
-
-	return count;
-}
-
-#ifdef CONFIG_QCOM_MINIDUMP
-static DEFINE_MUTEX(tcsr_lock);
-
-static ssize_t show_dload_mode(struct kobject *kobj, struct attribute *attr,
-				char *buf)
-{
-	return scnprintf(buf, PAGE_SIZE, "DLOAD dump type: %s\n",
-		(dload_type == SCM_DLOAD_BOTHDUMPS) ? "both" :
-		((dload_type == SCM_DLOAD_MINIDUMP) ? "mini" : "full"));
-}
-
-static size_t store_dload_mode(struct kobject *kobj, struct attribute *attr,
-				const char *buf, size_t count)
-{
-	if (sysfs_streq(buf, "full")) {
-		dload_type = SCM_DLOAD_FULLDUMP;
-	} else if (sysfs_streq(buf, "mini")) {
-		if (!msm_minidump_enabled()) {
-			pr_err("Minidump is not enabled\n");
-			return -ENODEV;
-		}
-		dload_type = SCM_DLOAD_MINIDUMP;
-	} else if (sysfs_streq(buf, "both")) {
-		if (!msm_minidump_enabled()) {
-			pr_err("Minidump not enabled, setting fulldump only\n");
-			dload_type = SCM_DLOAD_FULLDUMP;
-			return count;
-		}
-		dload_type = SCM_DLOAD_BOTHDUMPS;
-	} else{
-		pr_err("Invalid Dump setup request..\n");
-		pr_err("Supported dumps:'full', 'mini', or 'both'\n");
-		return -EINVAL;
-	}
-
-	mutex_lock(&tcsr_lock);
-	/*Overwrite TCSR reg*/
-	set_dload_mode(dload_type);
-	mutex_unlock(&tcsr_lock);
-	return count;
-}
-RESET_ATTR(dload_mode, 0644, show_dload_mode, store_dload_mode);
-#endif
-RESET_ATTR(emmc_dload, 0644, show_emmc_dload, store_emmc_dload);
-
-static struct attribute *reset_attrs[] = {
-	&reset_attr_emmc_dload.attr,
-#ifdef CONFIG_QCOM_MINIDUMP
-	&reset_attr_dload_mode.attr,
-#endif
-	NULL
-};
-
-static struct attribute_group reset_attr_group = {
-	.attrs = reset_attrs,
-};
-
 static int msm_restart_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -538,78 +610,8 @@ static int msm_restart_probe(struct platform_device *pdev)
 	struct device_node *np;
 	int ret = 0;
 
-#ifdef CONFIG_QCOM_DLOAD_MODE
-	if (scm_is_call_available(SCM_SVC_BOOT, SCM_DLOAD_CMD) > 0)
-		scm_dload_supported = true;
+	setup_dload_mode_support();
 
-	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);
-	np = of_find_compatible_node(NULL, NULL, DL_MODE_PROP);
-	if (!np) {
-		pr_err("unable to find DT imem DLOAD mode node\n");
-	} else {
-		dload_mode_addr = of_iomap(np, 0);
-		if (!dload_mode_addr)
-			pr_err("unable to map imem DLOAD offset\n");
-	}
-
-	np = of_find_compatible_node(NULL, NULL, EDL_MODE_PROP);
-	if (!np) {
-		pr_err("unable to find DT imem EDLOAD mode node\n");
-	} else {
-		emergency_dload_mode_addr = of_iomap(np, 0);
-		if (!emergency_dload_mode_addr)
-			pr_err("unable to map imem EDLOAD mode offset\n");
-	}
-
-#ifdef CONFIG_RANDOMIZE_BASE
-#define KASLR_OFFSET_BIT_MASK	0x00000000FFFFFFFF
-	np = of_find_compatible_node(NULL, NULL, KASLR_OFFSET_PROP);
-	if (!np) {
-		pr_err("unable to find DT imem KASLR_OFFSET node\n");
-	} else {
-		kaslr_imem_addr = of_iomap(np, 0);
-		if (!kaslr_imem_addr)
-			pr_err("unable to map imem KASLR offset\n");
-	}
-
-	if (kaslr_imem_addr) {
-		__raw_writel(0xdead4ead, kaslr_imem_addr);
-		__raw_writel(KASLR_OFFSET_BIT_MASK &
-		(kimage_vaddr - KIMAGE_VADDR), kaslr_imem_addr + 4);
-		__raw_writel(KASLR_OFFSET_BIT_MASK &
-			((kimage_vaddr - KIMAGE_VADDR) >> 32),
-			kaslr_imem_addr + 8);
-		iounmap(kaslr_imem_addr);
-	}
-#endif
-	np = of_find_compatible_node(NULL, NULL,
-				"qcom,msm-imem-dload-type");
-	if (!np) {
-		pr_err("unable to find DT imem dload-type node\n");
-		goto skip_sysfs_create;
-	} else {
-		dload_type_addr = of_iomap(np, 0);
-		if (!dload_type_addr) {
-			pr_err("unable to map imem dload-type offset\n");
-			goto skip_sysfs_create;
-		}
-	}
-
-	ret = kobject_init_and_add(&dload_kobj, &reset_ktype,
-			kernel_kobj, "%s", "dload");
-	if (ret) {
-		pr_err("%s:Error in creation kobject_add\n", __func__);
-		kobject_put(&dload_kobj);
-		goto skip_sysfs_create;
-	}
-
-	ret = sysfs_create_group(&dload_kobj, &reset_attr_group);
-	if (ret) {
-		pr_err("%s:Error in creation sysfs_create_group\n", __func__);
-		kobject_del(&dload_kobj);
-	}
-skip_sysfs_create:
-#endif
 	np = of_find_compatible_node(NULL, NULL,
 				"qcom,msm-imem-restart_reason");
 	if (!np) {
@@ -652,10 +654,7 @@ skip_sysfs_create:
 	return 0;
 
 err_restart_reason:
-#ifdef CONFIG_QCOM_DLOAD_MODE
-	iounmap(emergency_dload_mode_addr);
-	iounmap(dload_mode_addr);
-#endif
+	free_dload_mode_mem();
 	return ret;
 }
 
