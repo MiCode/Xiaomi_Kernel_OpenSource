@@ -2018,6 +2018,7 @@
 		qcom,pil-generic-irq-handler;
 		status = "ok";
 
+		qcom,signal-aop;
 		qcom,complete-ramdump;
 
 		qcom,pas-id = <14>;
@@ -2026,6 +2027,7 @@
 		memory-region = <&pil_spss_mem>;
 		qcom,spss-scsr-bits = <24 25>;
 
+		mboxes = <&qmp_aop 0>;
 		mbox-names = "spss-pil";
 	};
 
