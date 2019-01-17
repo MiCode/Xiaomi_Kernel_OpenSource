@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_VFE_TOP_H_
@@ -11,6 +11,7 @@
 
 #define CAM_VFE_TOP_VER_1_0 0x100000
 #define CAM_VFE_TOP_VER_2_0 0x200000
+#define CAM_VFE_TOP_VER_3_0 0x300000
 
 #define CAM_VFE_CAMIF_VER_1_0 0x10
 #define CAM_VFE_CAMIF_VER_2_0 0x20

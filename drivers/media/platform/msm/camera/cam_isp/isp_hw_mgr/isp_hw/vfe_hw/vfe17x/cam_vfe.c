@@ -9,6 +9,7 @@
 #include "cam_vfe175_130.h"
 #include "cam_vfe480.h"
 #include "cam_vfe_lite17x.h"
+#include "cam_vfe_lite48x.h"
 #include "cam_vfe_hw_intf.h"
 #include "cam_vfe_core.h"
 #include "cam_vfe_dev.h"
@@ -38,6 +39,10 @@ static const struct of_device_id cam_vfe_dt_match[] = {
 		.compatible = "qcom,vfe-lite175",
 		.data = &cam_vfe_lite17x_hw_info,
 	},
+	{
+		.compatible = "qcom,vfe-lite480",
+		.data = &cam_vfe_lite48x_hw_info,
+	},
 	{}
 };
 MODULE_DEVICE_TABLE(of, cam_vfe_dt_match);
@@ -46,7 +51,7 @@ static struct platform_driver cam_vfe_driver = {
 	.probe = cam_vfe_probe,
 	.remove = cam_vfe_remove,
 	.driver = {
-		.name = "cam_vfe17x",
+		.name = "cam_vfe",
 		.owner = THIS_MODULE,
 		.of_match_table = cam_vfe_dt_match,
 		.suppress_bind_attrs = true,
@@ -65,5 +70,5 @@ static void __exit cam_vfe_exit_module(void)
 
 module_init(cam_vfe_init_module);
 module_exit(cam_vfe_exit_module);
-MODULE_DESCRIPTION("CAM VFE17X driver");
+MODULE_DESCRIPTION("CAM VFE driver");
 MODULE_LICENSE("GPL v2");

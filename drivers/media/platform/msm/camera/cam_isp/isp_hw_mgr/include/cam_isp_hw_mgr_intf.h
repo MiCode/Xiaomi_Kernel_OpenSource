@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_ISP_HW_MGR_INTF_H_
@@ -13,7 +13,7 @@
 #include "cam_hw_mgr_intf.h"
 
 /* MAX IFE instance */
-#define CAM_IFE_HW_NUM_MAX   4
+#define CAM_IFE_HW_NUM_MAX   7
 #define CAM_IFE_RDI_NUM_MAX  4
 
 /**
