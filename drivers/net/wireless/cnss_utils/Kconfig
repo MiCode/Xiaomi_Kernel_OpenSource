@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config CNSS_UTILS
+	bool "CNSS utilities support"
+	help
+	  Add CNSS utilities support for the WLAN driver module.
+	  This feature enable wlan driver to use CNSS utilities APIs to set
+	  and get wlan related information.

@@ -3,6 +3,7 @@
 config CNSS2
 	tristate "CNSS2 Platform Driver for Wi-Fi Module"
 	depends on !CNSS && PCI_MSM
+	select CNSS_UTILS
 	help
 	  This module adds the support for Connectivity Subsystem (CNSS) used
 	  for PCIe based Wi-Fi devices with QCA6174/QCA6290 chipsets.
