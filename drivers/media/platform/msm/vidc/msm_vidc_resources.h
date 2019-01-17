@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __MSM_VIDC_RESOURCES_H__
@@ -100,6 +100,7 @@ struct bus_info {
 	struct devfreq *devfreq;
 	struct msm_bus_client_handle *client;
 	bool is_prfm_gov_used;
+	bool has_freq_table;
 };
 
 struct bus_set {

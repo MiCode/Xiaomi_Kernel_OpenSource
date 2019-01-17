@@ -3994,6 +3994,13 @@ static int __init_bus(struct venus_hfi_device *device)
 				dev_name(bus->dev));
 		dev_set_drvdata(bus->dev, device);
 
+		if (bus->has_freq_table) {
+			rc = dev_pm_opp_of_add_table(bus->dev);
+			if (rc)
+				dprintk(VIDC_ERR, "Failed to add %s OPP table",
+						bus->name);
+		}
+
 		bus->client = msm_bus_scale_register(bus->master, bus->slave,
 				bus->name, false);
 		if (IS_ERR_OR_NULL(bus->client)) {

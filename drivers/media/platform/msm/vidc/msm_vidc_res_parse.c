@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <asm/dma-iommu.h>
@@ -431,6 +431,11 @@ static int msm_vidc_populate_bus(struct device *dev,
 
 	if (!strcmp(bus->governor, PERF_GOV))
 		bus->is_prfm_gov_used = true;
+
+	if (of_find_property(dev->of_node, "operating-points-v2", NULL))
+		bus->has_freq_table = true;
+	else
+		bus->has_freq_table = false;
 
 	rc = of_property_read_u32_array(dev->of_node, "qcom,bus-range-kbps",
 			range, ARRAY_SIZE(range));
