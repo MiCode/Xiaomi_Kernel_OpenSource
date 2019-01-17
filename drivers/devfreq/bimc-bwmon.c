@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2016, 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, 2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "bimc-bwmon: " fmt
@@ -57,7 +57,7 @@ struct bwmon {
 	void __iomem		*base;
 	void __iomem		*global_base;
 	unsigned int		mport;
-	unsigned int		irq;
+	int			irq;
 	const struct bwmon_spec	*spec;
 	struct device		*dev;
 	struct bw_hwmon		hw;
