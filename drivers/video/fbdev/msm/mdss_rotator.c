@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1051,11 +1051,13 @@ static int mdss_rotator_calc_perf(struct mdss_rot_perf *perf)
 	if (!config->input.width ||
 		(0xffffffff/config->input.width < config->input.height))
 		return -EINVAL;
+
+	perf->clk_rate = config->input.width * config->input.height;
+
 	if (!perf->clk_rate ||
 		(0xffffffff/perf->clk_rate < config->frame_rate))
 		return -EINVAL;
 
-	perf->clk_rate = config->input.width * config->input.height;
 	perf->clk_rate *= config->frame_rate;
 	/* rotator processes 4 pixels per clock */
 	perf->clk_rate /= 4;

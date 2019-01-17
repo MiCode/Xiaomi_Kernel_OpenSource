@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1020,8 +1020,8 @@ static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 	if (ctl->mdata->default_ot_wr_limit ||
 			ctl->mdata->default_ot_rd_limit)
 		mdss_mdp_set_ot_limit_wb(ctx, true);
-
-	mdss_mdp_set_qos_wb(ctl, ctx);
+	if (ctl->mdata->mdp_rev >= MDSS_MDP_HW_REV_300)
+		mdss_mdp_set_qos_wb(ctl, ctx);
 
 	wb_args = (struct mdss_mdp_writeback_arg *) arg;
 	if (!wb_args)

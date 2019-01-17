@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -6067,10 +6067,11 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	    !bitmap_empty(mdata->bwc_enable_map, MAX_DRV_SUP_PIPES))
 		mdss_mdp_bwcpanic_ctrl(mdata, true);
 
-	ret = mdss_mdp_cwb_setup(ctl);
-	if (ret)
-		pr_warn("concurrent setup failed ctl=%d\n", ctl->num);
-
+	if (mdata->mdp_rev >= MDSS_MDP_HW_REV_300) {
+		ret = mdss_mdp_cwb_setup(ctl);
+		if (ret)
+			pr_warn("concurrent setup failed ctl=%d\n", ctl->num);
+	}
 	ctl_flush_bits |= ctl->flush_bits;
 
 	ATRACE_BEGIN("flush_kickoff");
