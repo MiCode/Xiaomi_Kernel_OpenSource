@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, 2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -800,6 +800,7 @@ int rmnet_set_egress_data_format(struct net_device *dev,
 				 u16 agg_count)
 {
 	struct rmnet_phys_ep_config *config;
+	unsigned long flags;
 
 	ASSERT_RTNL();
 
@@ -815,8 +816,11 @@ int rmnet_set_egress_data_format(struct net_device *dev,
 		return RMNET_CONFIG_UNKNOWN_ERROR;
 
 	config->egress_data_format = egress_data_format;
+
+	spin_lock_irqsave(&config->agg_lock, flags);
 	config->egress_agg_size = agg_size;
 	config->egress_agg_count = agg_count;
+	spin_unlock_irqrestore(&config->agg_lock, flags);
 
 	return RMNET_CONFIG_OK;
 }
