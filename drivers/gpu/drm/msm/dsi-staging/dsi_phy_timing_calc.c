@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -638,11 +638,14 @@ error:
  * @mode:     Mode information for which timing has to be calculated.
  * @config:   DSI host configuration for this mode.
  * @timing:   Timing parameters for each lane which will be returned.
+ * @use_mode_bit_clk: Boolean to indicate whether reacalculate dsi
+ *		bit clk or use the existing bit clk(for dynamic clk case).
  */
 int dsi_phy_hw_calculate_timing_params(struct dsi_phy_hw *phy,
-					    struct dsi_mode_info *mode,
-					    struct dsi_host_common_cfg *host,
-					   struct dsi_phy_per_lane_cfgs *timing)
+				       struct dsi_mode_info *mode,
+				       struct dsi_host_common_cfg *host,
+				       struct dsi_phy_per_lane_cfgs *timing,
+				       bool use_mode_bit_clk)
 {
 	/* constants */
 	u32 const esc_clk_mhz = 192; /* TODO: esc clock is hardcoded */
@@ -685,7 +688,10 @@ int dsi_phy_hw_calculate_timing_params(struct dsi_phy_hw *phy,
 		num_of_lanes++;
 
 
-	x = mult_frac(v_total * h_total, inter_num, num_of_lanes);
+	if (use_mode_bit_clk)
+		x = mode->clk_rate_hz;
+	else
+		x = mult_frac(v_total * h_total, inter_num, num_of_lanes);
 	y = rounddown(x, 1);
 
 	clk_params.bitclk_mbps = rounddown(DIV_ROUND_UP_ULL(y, 1000000), 1);
