@@ -3255,19 +3255,6 @@ static inline void walt_map_freq_to_load(void) { }
 static inline void walt_update_min_max_capacity(void) { }
 #endif	/* CONFIG_SCHED_WALT */
 
-#if defined(CONFIG_ENERGY_MODEL) && defined(CONFIG_CPU_FREQ_GOV_SCHEDUTIL)
-static inline bool energy_aware(void)
-{
-	return sysctl_sched_energy_aware;
-}
-#else
-static inline bool energy_aware(void)
-{
-	return 0;
-}
-#endif
-
-
 struct sched_avg_stats {
 	int nr;
 	int nr_misfit;
