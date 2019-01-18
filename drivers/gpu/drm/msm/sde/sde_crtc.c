@@ -3657,6 +3657,9 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 			sde_encoder_virt_restore(encoder);
 		}
 
+		/* restore UIDLE */
+		sde_core_perf_crtc_update_uidle(crtc, true);
+
 		spin_lock_irqsave(&sde_crtc->spin_lock, flags);
 		list_for_each_entry(node, &sde_crtc->user_event_list, list) {
 			ret = 0;
