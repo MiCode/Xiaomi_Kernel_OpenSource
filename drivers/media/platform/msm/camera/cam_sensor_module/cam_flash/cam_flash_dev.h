@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_FLASH_DEV_H_
@@ -173,6 +173,7 @@ struct cam_flash_func_tbl {
  * @flash_trigger       : Flash trigger ptr
  * @torch_trigger       : Torch trigger ptr
  * @cci_i2c_master      : I2C structure
+ * @cci_device_num      : cci parent cell index
  * @io_master_info      : Information about the communication master
  * @i2c_data            : I2C register settings
  * @last_flush_req      : last request to flush
@@ -199,6 +200,7 @@ struct cam_flash_ctrl {
 	struct led_trigger           *torch_trigger[CAM_FLASH_MAX_LED_TRIGGERS];
 /* I2C related setting */
 	enum   cci_i2c_master_t             cci_i2c_master;
+	enum   cci_device_num               cci_num;
 	struct camera_io_master             io_master_info;
 	struct i2c_data_settings            i2c_data;
 	uint32_t                            last_flush_req;
