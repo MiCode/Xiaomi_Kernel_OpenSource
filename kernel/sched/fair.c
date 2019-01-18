@@ -5808,15 +5808,6 @@ static void record_wakee(struct task_struct *p)
 }
 
 /*
- * Externally visible function. Let's keep the one above
- * so that the check is inlined/optimized in the sched paths.
- */
-bool sched_is_energy_aware(void)
-{
-	return energy_aware();
-}
-
-/*
  * Detect M:N waker/wakee relationships via a switching-frequency heuristic.
  *
  * A waker of many should wake a different task than the one last awakened
@@ -7516,7 +7507,7 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 	int want_affine = 0;
 	int sync = (wake_flags & WF_SYNC) && !(current->flags & PF_EXITING);
 
-	if (energy_aware()) {
+	if (static_branch_unlikely(&sched_energy_present)) {
 		rcu_read_lock();
 		new_cpu = find_energy_efficient_cpu(p, prev_cpu, sync);
 		rcu_read_unlock();
@@ -10719,7 +10710,7 @@ static inline int find_new_ilb(void)
 	rcu_read_unlock();
 
 	if (sd && (ilb >= nr_cpu_ids || !idle_cpu(ilb))) {
-		if (!energy_aware() ||
+		if (!static_branch_unlikely(&sched_energy_present) ||
 				(capacity_orig_of(cpu) ==
 				cpu_rq(cpu)->rd->max_cpu_capacity.val ||
 				cpu_overutilized(cpu))) {
