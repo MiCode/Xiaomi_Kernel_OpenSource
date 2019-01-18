@@ -781,6 +781,11 @@ int clk_trion_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 {
 	int ret = 0;
 
+	if (!config) {
+		pr_err("PLL configuration missing.\n");
+		return -EINVAL;
+	}
+
 	if (pll->inited)
 		return ret;
 
@@ -867,7 +872,7 @@ static int clk_trion_pll_enable(struct clk_hw *hw)
 {
 	int ret;
 	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
-	u32 val, off = pll->offset;
+	u32 val, off = pll->offset, l_val, cal_val;
 
 	ret = regmap_read(pll->clkr.regmap, off + PLL_MODE, &val);
 	if (ret)
@@ -881,6 +886,19 @@ static int clk_trion_pll_enable(struct clk_hw *hw)
 		return wait_for_pll_enable_active(pll);
 	}
 
+	ret = regmap_read(pll->clkr.regmap, pll->offset + PLL_L_VAL, &l_val);
+	if (ret)
+		return ret;
+
+	ret = regmap_read(pll->clkr.regmap, pll->offset + TRION_PLL_CAL_L_VAL,
+				&cal_val);
+	if (ret)
+		return ret;
+
+	/* PLL has lost it's L or CAL value, needs reconfiguration */
+	if (!l_val || !cal_val)
+		pll->inited = false;
+
 	if (unlikely(!pll->inited)) {
 		ret = clk_trion_pll_configure(pll, pll->clkr.regmap,
 						pll->config);
@@ -888,6 +906,7 @@ static int clk_trion_pll_enable(struct clk_hw *hw)
 			pr_err("Failed to configure %s\n", clk_hw_get_name(hw));
 			return ret;
 		}
+		pr_warn("PLL configuration lost, reconfiguration of PLL done.\n");
 	}
 
 	/* Set operation mode to RUN */
@@ -1083,6 +1102,11 @@ int clk_regera_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 	u32 mode_regval;
 	int ret = 0;
 
+	if (!config) {
+		pr_err("PLL configuration missing.\n");
+		return -EINVAL;
+	}
+
 	if (pll->inited)
 		return ret;
 
@@ -1145,7 +1169,7 @@ static int clk_regera_pll_enable(struct clk_hw *hw)
 {
 	int ret;
 	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
-	u32 val, off = pll->offset;
+	u32 val, off = pll->offset, l_val;
 
 	ret = regmap_read(pll->clkr.regmap, off + PLL_MODE, &val);
 	if (ret)
@@ -1159,6 +1183,14 @@ static int clk_regera_pll_enable(struct clk_hw *hw)
 		return wait_for_pll_enable_active(pll);
 	}
 
+	ret = regmap_read(pll->clkr.regmap, off + PLL_L_VAL, &l_val);
+	if (ret)
+		return ret;
+
+	/* PLL has lost it's L value, needs reconfiguration */
+	if (!l_val)
+		pll->inited = false;
+
 	if (unlikely(!pll->inited)) {
 		ret = clk_regera_pll_configure(pll, pll->clkr.regmap,
 						pll->config);
@@ -1166,6 +1198,7 @@ static int clk_regera_pll_enable(struct clk_hw *hw)
 			pr_err("Failed to configure %s\n", clk_hw_get_name(hw));
 			return ret;
 		}
+		pr_warn("PLL configuration lost, reconfiguration of PLL done.\n");
 	}
 
 	/* Get the PLL out of bypass mode */
