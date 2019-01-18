@@ -27,7 +27,7 @@ int msm_venc_set_idr_period(struct msm_vidc_inst *inst);
 int msm_venc_set_intra_period(struct msm_vidc_inst *inst);
 int msm_venc_set_ltr_useframe(struct msm_vidc_inst *inst);
 int msm_venc_set_ltr_markframe(struct msm_vidc_inst *inst);
-int msm_venc_set_dyn_qp(struct msm_vidc_inst *inst);
+int msm_venc_set_dyn_qp(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl);
 int msm_venc_set_request_keyframe(struct msm_vidc_inst *inst);
 int msm_venc_set_intra_refresh_mode(struct msm_vidc_inst *inst);
 #endif
