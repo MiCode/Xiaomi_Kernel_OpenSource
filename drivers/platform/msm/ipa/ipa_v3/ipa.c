@@ -5069,7 +5069,6 @@ static void ipa3_load_ipa_fw(struct work_struct *work)
 		if (result) {
 			IPAERR("IPA uC loading process has failed result=%d\n",
 				result);
-			ipa3_proxy_clk_unvote();
 			return;
 		}
 		IPADBG("IPA uC PIL loading succeeded\n");
