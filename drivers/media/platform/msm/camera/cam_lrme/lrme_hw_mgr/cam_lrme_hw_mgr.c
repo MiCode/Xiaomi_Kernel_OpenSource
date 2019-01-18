@@ -83,7 +83,8 @@ static int cam_lrme_mgr_util_get_device(struct cam_lrme_hw_mgr *hw_mgr,
 	return 0;
 }
 
-static int cam_lrme_mgr_util_packet_validate(struct cam_packet *packet)
+static int cam_lrme_mgr_util_packet_validate(struct cam_packet *packet,
+	size_t remain_len)
 {
 	struct cam_cmd_buf_desc *cmd_desc = NULL;
 	int i, rc;
@@ -105,7 +106,7 @@ static int cam_lrme_mgr_util_packet_validate(struct cam_packet *packet)
 		packet->patch_offset, packet->num_patches,
 		packet->kmd_cmd_buf_offset, packet->kmd_cmd_buf_index);
 
-	if (cam_packet_util_validate_packet(packet)) {
+	if (cam_packet_util_validate_packet(packet, remain_len)) {
 		CAM_ERR(CAM_LRME, "invalid packet:%d %d %d %d %d",
 			packet->kmd_cmd_buf_index,
 			packet->num_cmd_buf, packet->cmd_buf_offset,
@@ -184,6 +185,12 @@ static int cam_lrme_mgr_util_prepare_io_buffer(int32_t iommu_hdl,
 				CAM_ERR(CAM_LRME, "Cannot get io buf for %d %d",
 					plane, rc);
 				return -ENOMEM;
+			}
+
+			if ((size_t)io_cfg[i].offsets[plane] >= size) {
+				CAM_ERR(CAM_LRME, "Invalid plane offset: %zu",
+					(size_t)io_cfg[i].offsets[plane]);
+				return -EINVAL;
 			}
 
 			io_addr[plane] += io_cfg[i].offsets[plane];
@@ -841,7 +848,7 @@ static int cam_lrme_mgr_hw_prepare_update(void *hw_mgr_priv,
 		goto error;
 	}
 
-	rc = cam_lrme_mgr_util_packet_validate(args->packet);
+	rc = cam_lrme_mgr_util_packet_validate(args->packet, args->remain_len);
 	if (rc) {
 		CAM_ERR(CAM_LRME, "Error in packet validation %d", rc);
 		goto error;
