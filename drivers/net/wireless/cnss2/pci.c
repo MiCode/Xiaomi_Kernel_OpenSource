@@ -1128,6 +1128,8 @@ static int cnss_pci_runtime_suspend(struct device *dev)
 	if (driver_ops && driver_ops->runtime_ops &&
 	    driver_ops->runtime_ops->runtime_suspend)
 		ret = driver_ops->runtime_ops->runtime_suspend(pci_dev);
+	else
+		ret = cnss_auto_suspend(dev);
 
 	cnss_pr_info("Runtime suspend status: %d\n", ret);
 
@@ -1155,6 +1157,8 @@ static int cnss_pci_runtime_resume(struct device *dev)
 	if (driver_ops && driver_ops->runtime_ops &&
 	    driver_ops->runtime_ops->runtime_resume)
 		ret = driver_ops->runtime_ops->runtime_resume(pci_dev);
+	else
+		ret = cnss_auto_resume(dev);
 
 	cnss_pr_info("Runtime resume status: %d\n", ret);
 
