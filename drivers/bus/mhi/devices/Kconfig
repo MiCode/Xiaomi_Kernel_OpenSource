@@ -20,4 +20,16 @@ config MHI_UCI
 	  write, ioctl, and close operations are supported by this driver.
 	  Please check mhi_uci_match_table for all supported channels that
 	  are exposed to userspace.
+
+config MHI_SATELLITE
+       tristate "MHI SATELLITE"
+       depends on MHI_BUS
+       help
+	  MHI proxy satellite device driver enables NON-HLOS MHI satellite
+	  drivers to communicate with device over PCIe link without host
+	  involvement. Host facilitates propagation of events from device
+	  to NON-HLOS MHI satellite drivers, channel states, and power
+	  management over IPC communication. It helps in HLOS power
+	  savings.
+
 endmenu
