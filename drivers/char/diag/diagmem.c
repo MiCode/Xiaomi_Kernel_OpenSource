@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2008-2014, 2016-2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2014, 2016-2019 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/init.h>
@@ -212,7 +212,7 @@ void diagmem_free(struct diagchar_dev *driver, void *buf, int pool_type)
 			break;
 		}
 		spin_lock_irqsave(&mempool->lock, flags);
-		if (mempool->count > 0) {
+		if (mempool->count > 0 && buf) {
 			mempool_free(buf, mempool->pool);
 			atomic_add(-1, (atomic_t *)&mempool->count);
 		} else {
