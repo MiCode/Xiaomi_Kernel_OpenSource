@@ -38,7 +38,6 @@
 #define FW_ASSERT_TIMEOUT		5000
 #define CNSS_EVENT_PENDING		2989
 
-#define CNSS_QUIRKS_DEFAULT		BIT(ENABLE_DAEMON_SUPPORT)
 #ifdef CONFIG_CNSS_EMULATION
 #define CNSS_MHI_TIMEOUT_DEFAULT	90000
 #else
@@ -1608,7 +1607,10 @@ static void cnss_misc_deinit(struct cnss_plat_data *plat_priv)
 
 static void cnss_init_control_params(struct cnss_plat_data *plat_priv)
 {
-	plat_priv->ctrl_params.quirks = CNSS_QUIRKS_DEFAULT;
+	if (of_property_read_bool(plat_priv->plat_dev->dev.of_node,
+				  "cnss-daemon-support"))
+		plat_priv->ctrl_params.quirks |= BIT(ENABLE_DAEMON_SUPPORT);
+
 	plat_priv->ctrl_params.mhi_timeout = CNSS_MHI_TIMEOUT_DEFAULT;
 	plat_priv->ctrl_params.qmi_timeout = CNSS_QMI_TIMEOUT_DEFAULT;
 	plat_priv->ctrl_params.bdf_type = CNSS_BDF_TYPE_DEFAULT;

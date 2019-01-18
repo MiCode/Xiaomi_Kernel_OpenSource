@@ -60,7 +60,9 @@ Optional properties:
                                WLAN_EN pin is a gpio or fixed regulator.
   - qcom,mhi: phandle to indicate the device which needs MHI support.
   - qcom,cap-tsf-gpio: WLAN_TSF_CAPTURED GPIO signal specified by the chip
-                       specifications, should be drived depending on products
+                       specifications, should be drived depending on products.
+  - cnss-daemon-support: Boolean property to decide whether cnss_daemon
+                         userspace QMI client is supported.
 
 Example:
 
