@@ -252,9 +252,11 @@ enum ipa_ver {
 	IPA_4_0,
 	IPA_4_0_MHI,
 	IPA_4_1,
+	IPA_4_1_APQ,
 	IPA_4_2,
 	IPA_4_5,
 	IPA_4_5_MHI,
+	IPA_4_5_APQ,
 	IPA_VER_MAX,
 };
 
@@ -1222,7 +1224,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			true, IPA_v3_5_GROUP_UL_DL, false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 16, 3, 8, 8, IPA_EE_UC } },
+			{ 16, 11, 8, 8, IPA_EE_UC } },
 	[IPA_3_5_1][IPA_CLIENT_WLAN2_CONS]          =  {
 			true, IPA_v3_5_GROUP_UL_DL, false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
@@ -1669,6 +1671,12 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_REP_SEQ_TYPE_2PKT_PROC_PASS_NO_DEC_UCP_DMAP,
 			QMB_MASTER_SELECT_DDR,
 			{ 6, 2, 8, 16, IPA_EE_UC } },
+	[IPA_4_1][IPA_CLIENT_WLAN2_PROD]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_REP_SEQ_TYPE_2PKT_PROC_PASS_NO_DEC_UCP_DMAP,
+			QMB_MASTER_SELECT_DDR,
+			{ 7, 9, 8, 16, IPA_EE_AP } },
 	[IPA_4_1][IPA_CLIENT_USB_PROD]            = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			true,
@@ -1761,7 +1769,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 20, 13, 9, 9, IPA_EE_AP } },
+			{ 17, 1, 8, 13, IPA_EE_AP } },
 	[IPA_4_1][IPA_CLIENT_WLAN3_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
@@ -1856,6 +1864,115 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			{ 21, 14, 9, 9, IPA_EE_AP } },
 	/* Dummy consumer (pipe 31) is used in L2TP rt rule */
 	[IPA_4_1][IPA_CLIENT_DUMMY_CONS]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 31, 31, 8, 8, IPA_EE_AP } },
+
+	/* IPA_4_1 APQ */
+	[IPA_4_1_APQ][IPA_CLIENT_WLAN1_PROD]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_REP_SEQ_TYPE_2PKT_PROC_PASS_NO_DEC_UCP_DMAP,
+			QMB_MASTER_SELECT_DDR,
+			{ 6, 2, 8, 16, IPA_EE_UC } },
+	[IPA_4_1_APQ][IPA_CLIENT_USB_PROD]            = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_REP_SEQ_TYPE_2PKT_PROC_PASS_NO_DEC_UCP_DMAP,
+			QMB_MASTER_SELECT_DDR,
+			{ 0, 8, 8, 16, IPA_EE_AP } },
+	[IPA_4_1_APQ][IPA_CLIENT_APPS_LAN_PROD]   = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_DDR,
+			{ 8, 10, 8, 16, IPA_EE_AP } },
+	[IPA_4_1_APQ][IPA_CLIENT_APPS_CMD_PROD]	  = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY,
+			QMB_MASTER_SELECT_DDR,
+			{ 5, 4, 20, 24, IPA_EE_AP } },
+	/* Only for test purpose */
+	[IPA_4_1_APQ][IPA_CLIENT_TEST_PROD]           = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_DDR,
+			{0, 8, 8, 16, IPA_EE_AP } },
+	[IPA_4_1_APQ][IPA_CLIENT_TEST1_PROD]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_DDR,
+			{ 0, 8, 8, 16, IPA_EE_AP } },
+	[IPA_4_1_APQ][IPA_CLIENT_TEST2_PROD]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_DDR,
+			{ 6, 2, 8, 16, IPA_EE_AP } },
+
+	[IPA_4_1_APQ][IPA_CLIENT_WLAN1_CONS]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 18, 3, 9, 9, IPA_EE_UC } },
+	[IPA_4_1_APQ][IPA_CLIENT_USB_CONS]            = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 19, 12, 9, 9, IPA_EE_AP } },
+	[IPA_4_1_APQ][IPA_CLIENT_USB_DPL_CONS]        = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 15, 7, 5, 5, IPA_EE_AP } },
+	[IPA_4_1_APQ][IPA_CLIENT_APPS_LAN_CONS]       = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 10, 5, 9, 9, IPA_EE_AP } },
+	[IPA_4_1_APQ][IPA_CLIENT_ODL_DPL_CONS]        = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 12, 2, 9, 9, IPA_EE_AP } },
+	/* Only for test purpose */
+	/* MBIM aggregation test pipes should have the same QMB as USB_CONS */
+	[IPA_4_1_APQ][IPA_CLIENT_TEST_CONS]           = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 19, 12, 9, 9, IPA_EE_AP } },
+	[IPA_4_1_APQ][IPA_CLIENT_TEST1_CONS]           = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 19, 12, 9, 9, IPA_EE_AP } },
+	[IPA_4_1_APQ][IPA_CLIENT_TEST2_CONS]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 18, 3, 9, 9, IPA_EE_AP } },
+	[IPA_4_1_APQ][IPA_CLIENT_TEST3_CONS]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 15, 7, 5, 5, IPA_EE_AP } },
+	/* Dummy consumer (pipe 31) is used in L2TP rt rule */
+	[IPA_4_1_APQ][IPA_CLIENT_DUMMY_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
@@ -3046,10 +3163,6 @@ static u8 ipa3_get_hw_type_index(void)
 		break;
 	case IPA_HW_v3_5:
 		hw_type_index = IPA_3_5;
-		/*
-		 *this flag is initialized only after fw load trigger from
-		 * user space (ipa3_write)
-		 */
 		if (ipa3_ctx->ipa_config_is_mhi)
 			hw_type_index = IPA_3_5_MHI;
 		break;
@@ -3058,15 +3171,13 @@ static u8 ipa3_get_hw_type_index(void)
 		break;
 	case IPA_HW_v4_0:
 		hw_type_index = IPA_4_0;
-		/*
-		 *this flag is initialized only after fw load trigger from
-		 * user space (ipa3_write)
-		 */
 		if (ipa3_ctx->ipa_config_is_mhi)
 			hw_type_index = IPA_4_0_MHI;
 		break;
 	case IPA_HW_v4_1:
 		hw_type_index = IPA_4_1;
+		if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ)
+			hw_type_index = IPA_4_1_APQ;
 		break;
 	case IPA_HW_v4_2:
 		hw_type_index = IPA_4_2;
@@ -3075,6 +3186,8 @@ static u8 ipa3_get_hw_type_index(void)
 		hw_type_index = IPA_4_5;
 		if (ipa3_ctx->ipa_config_is_mhi)
 			hw_type_index = IPA_4_5_MHI;
+		if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ)
+			hw_type_index = IPA_4_5_APQ;
 		break;
 	default:
 		IPAERR("Incorrect IPA version %d\n", ipa3_ctx->ipa_hw_type);
@@ -4850,9 +4963,15 @@ int ipa3_write_qmap_id(struct ipa_ioc_write_qmapid *param_in)
 	    param_in->client == IPA_CLIENT_ODU_PROD ||
 	    param_in->client == IPA_CLIENT_ETHERNET_PROD) {
 		result = ipa3_cfg_ep_metadata(ipa_ep_idx, &meta);
-	} else if (param_in->client == IPA_CLIENT_WLAN1_PROD) {
+	} else if (param_in->client == IPA_CLIENT_WLAN1_PROD ||
+			   param_in->client == IPA_CLIENT_WLAN2_PROD) {
 		ipa3_ctx->ep[ipa_ep_idx].cfg.meta = meta;
-		result = ipa3_write_qmapid_wdi_pipe(ipa_ep_idx, meta.qmap_id);
+		if (param_in->client == IPA_CLIENT_WLAN2_PROD)
+			result = ipa3_write_qmapid_wdi3_gsi_pipe(
+				ipa_ep_idx, meta.qmap_id);
+		else
+			result = ipa3_write_qmapid_wdi_pipe(
+				ipa_ep_idx, meta.qmap_id);
 		if (result)
 			IPAERR_RL("qmap_id %d write failed on ep=%d\n",
 					meta.qmap_id, ipa_ep_idx);
@@ -6197,6 +6316,13 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_get_smmu_params = ipa3_get_smmu_params;
 	api_ctrl->ipa_is_vlan_mode = ipa3_is_vlan_mode;
 	api_ctrl->ipa_pm_is_used = ipa3_pm_is_used;
+	api_ctrl->ipa_wigig_uc_init = ipa3_wigig_uc_init;
+	api_ctrl->ipa_conn_wigig_rx_pipe_i = ipa3_conn_wigig_rx_pipe_i;
+	api_ctrl->ipa_conn_wigig_client_i = ipa3_conn_wigig_client_i;
+	api_ctrl->ipa_disconn_wigig_pipe_i = ipa3_disconn_wigig_pipe_i;
+	api_ctrl->ipa_wigig_uc_msi_init = ipa3_wigig_uc_msi_init;
+	api_ctrl->ipa_enable_wigig_pipe_i = ipa3_enable_wigig_pipe_i;
+	api_ctrl->ipa_disable_wigig_pipe_i = ipa3_disable_wigig_pipe_i;
 
 	return 0;
 }
@@ -7390,7 +7516,7 @@ int emulator_load_fws(
 	 */
 	if (phdr->p_memsz > gsi_ram_size) {
 		IPAERR(
-		    "Invalid GSI FW img size memsz=%d gsi_ram_size=%u\n",
+		    "Invalid GSI FW img size memsz=%d gsi_ram_size=%lu\n",
 		    phdr->p_memsz, gsi_ram_size);
 		return -EINVAL;
 	}
@@ -7433,6 +7559,54 @@ bool ipa3_is_msm_device(void)
 	}
 
 	return false;
+}
+
+void ipa3_read_mailbox_17(enum uc_state state)
+{
+	u32 val = 0;
+
+	ipa3_ctx->gsi_chk_intset_value = gsi_chk_intset_value();
+
+	val = ipahal_read_reg_mn(IPA_UC_MAILBOX_m_n,
+			0,
+			17);
+		IPAERR_RL("GSI INTSET %d\n mailbox-17: 0x%x\n",
+			ipa3_ctx->gsi_chk_intset_value,
+			val);
+	switch (state)	{
+	case IPA_PC_SAVE_CONTEXT_SAVE_ENTERED:
+		if (val != PC_SAVE_CONTEXT_SAVE_ENTERED) {
+			IPAERR_RL("expected 0x%x, value: 0x%x\n",
+				PC_SAVE_CONTEXT_SAVE_ENTERED,
+				val);
+		}
+		break;
+	case IPA_PC_SAVE_CONTEXT_STATUS_SUCCESS:
+		if (val != PC_SAVE_CONTEXT_STATUS_SUCCESS) {
+			IPAERR_RL("expected 0x%x, value: 0x%x\n",
+				PC_SAVE_CONTEXT_STATUS_SUCCESS,
+				val);
+		}
+		break;
+	case IPA_PC_RESTORE_CONTEXT_ENTERED:
+		if (val != PC_RESTORE_CONTEXT_ENTERED) {
+			IPAERR_RL("expected 0x%x, value: 0x%x\n",
+				PC_RESTORE_CONTEXT_ENTERED,
+				val);
+		}
+		break;
+	case IPA_PC_RESTORE_CONTEXT_STATUS_SUCCESS:
+			ipa3_ctx->uc_mailbox17_chk++;
+		if (val != PC_RESTORE_CONTEXT_STATUS_SUCCESS) {
+			ipa3_ctx->uc_mailbox17_mismatch++;
+			IPAERR_RL("expected 0x%x, value: 0x%x\n",
+				PC_RESTORE_CONTEXT_STATUS_SUCCESS,
+				val);
+		}
+		break;
+	default:
+		break;
+	}
 }
 
 /**

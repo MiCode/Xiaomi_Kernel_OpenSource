@@ -2713,14 +2713,14 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 		0x00000060, 0, 0, 0, 1},
 	[IPA_HW_v4_0][IPA_ENDP_INIT_CTRL_n] = {
 		ipareg_construct_endp_init_ctrl_n_v4_0, ipareg_parse_dummy,
-		0x00000800, 0x70, 0, 23, 1},
+		0x00000800, 0x70, 0, 22, 1},
 	[IPA_HW_v4_0][IPA_ENDP_INIT_HDR_EXT_n] = {
 		ipareg_construct_endp_init_hdr_ext_n, ipareg_parse_dummy,
-		0x00000814, 0x70, 0, 23, 1},
+		0x00000814, 0x70, 0, 22, 1},
 	[IPA_HW_v4_0][IPA_ENDP_INIT_AGGR_n] = {
 		ipareg_construct_endp_init_aggr_n,
 		ipareg_parse_endp_init_aggr_n,
-		0x00000824, 0x70, 0, 23, 1},
+		0x00000824, 0x70, 0, 22, 1},
 	[IPA_HW_v4_0][IPA_TX_CFG] = {
 		ipareg_construct_tx_cfg_v4_0, ipareg_parse_tx_cfg_v4_0,
 		0x000001FC, 0, 0, 0, 0},
@@ -2744,58 +2744,58 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 		0x0000014c, 0, 0, 0, 0},
 	[IPA_HW_v4_0][IPA_ENDP_INIT_HDR_n] = {
 		ipareg_construct_endp_init_hdr_n, ipareg_parse_dummy,
-		0x00000810, 0x70, 0, 23, 1},
+		0x00000810, 0x70, 0, 22, 1},
 	[IPA_HW_v4_0][IPA_ENDP_INIT_ROUTE_n] = {
 		ipareg_construct_endp_init_route_n, ipareg_parse_dummy,
 		-1, 0, 0, 0, 0},
 	[IPA_HW_v4_0][IPA_ENDP_INIT_MODE_n] = {
 		ipareg_construct_endp_init_mode_n, ipareg_parse_dummy,
-		0x00000820, 0x70, 0, 10, 1},
+		0x00000820, 0x70, 0, 9, 1},
 	[IPA_HW_v4_0][IPA_ENDP_INIT_NAT_n] = {
 		ipareg_construct_endp_init_nat_n, ipareg_parse_dummy,
-		0x0000080C, 0x70, 0, 10, 1},
+		0x0000080C, 0x70, 0, 9, 1},
 	[IPA_HW_v4_0][IPA_ENDP_STATUS_n] = {
 		ipareg_construct_endp_status_n_v4_0, ipareg_parse_dummy,
-		0x00000840, 0x70, 0, 23, 1},
+		0x00000840, 0x70, 0, 22, 1},
 	[IPA_HW_v4_0][IPA_ENDP_FILTER_ROUTER_HSH_CFG_n] = {
 		ipareg_construct_hash_cfg_n, ipareg_parse_hash_cfg_n,
-		0x0000085C, 0x70, 0, 32, 1},
+		0x0000085C, 0x70, 0, 31, 1},
 	[IPA_HW_v4_0][IPA_ENDP_INIT_CONN_TRACK_n] = {
 		ipareg_construct_endp_init_conn_track_n,
 		ipareg_parse_dummy,
-		0x00000850, 0x70, 0, 10, 1},
+		0x00000850, 0x70, 0, 9, 1},
 	[IPA_HW_v4_0][IPA_ENDP_INIT_CTRL_SCND_n] = {
 		ipareg_construct_endp_init_ctrl_scnd_n, ipareg_parse_dummy,
-		0x00000804, 0x70, 0, 23, 1},
+		0x00000804, 0x70, 0, 22, 1},
 	[IPA_HW_v4_0][IPA_ENDP_INIT_HOL_BLOCK_EN_n] = {
 		ipareg_construct_endp_init_hol_block_en_n,
 		ipareg_parse_dummy,
-		0x0000082c, 0x70, 10, 23, 1},
+		0x0000082c, 0x70, 10, 22, 1},
 	[IPA_HW_v4_0][IPA_ENDP_INIT_HOL_BLOCK_TIMER_n] = {
 		ipareg_construct_endp_init_hol_block_timer_n,
 		ipareg_parse_dummy,
-		0x00000830, 0x70, 10, 23, 1},
+		0x00000830, 0x70, 10, 22, 1},
 	[IPA_HW_v4_0][IPA_ENDP_INIT_DEAGGR_n] = {
 		ipareg_construct_endp_init_deaggr_n,
 		ipareg_parse_dummy,
-		0x00000834, 0x70, 0, 10, 1},
+		0x00000834, 0x70, 0, 9, 1},
 	[IPA_HW_v4_0][IPA_ENDP_INIT_SEQ_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
-		0x0000083C, 0x70, 0, 10, 1},
+		0x0000083C, 0x70, 0, 9, 1},
 	[IPA_HW_v4_0][IPA_ENDP_INIT_CFG_n] = {
 		ipareg_construct_endp_init_cfg_n, ipareg_parse_dummy,
-		0x00000808, 0x70, 0, 23, 1},
+		0x00000808, 0x70, 0, 22, 1},
 	[IPA_HW_v4_0][IPA_IRQ_EE_UC_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x0000301c, 0x1000, 0, 0, 1},
 	[IPA_HW_v4_0][IPA_ENDP_INIT_HDR_METADATA_MASK_n] = {
 		ipareg_construct_endp_init_hdr_metadata_mask_n,
 		ipareg_parse_dummy,
-		0x00000818, 0x70, 10, 23, 1},
+		0x00000818, 0x70, 10, 22, 1},
 	[IPA_HW_v4_0][IPA_ENDP_INIT_HDR_METADATA_n] = {
 		ipareg_construct_endp_init_hdr_metadata_n,
 		ipareg_parse_dummy,
-		0x0000081c, 0x70, 0, 10, 1},
+		0x0000081c, 0x70, 0, 9, 1},
 	[IPA_HW_v4_0][IPA_CLKON_CFG] = {
 		ipareg_construct_clkon_cfg, ipareg_parse_clkon_cfg,
 		0x00000044, 0, 0, 0, 0},
@@ -2918,17 +2918,17 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 		0x00003044, 0x1000, 0, 0, 1},
 	[IPA_HW_v4_0][IPA_ENDP_INIT_CTRL_STATUS_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
-		0x00000864, 0x70, 0, 23, 1},
+		0x00000864, 0x70, 0, 22, 1},
 	[IPA_HW_v4_0][IPA_ENDP_INIT_PROD_CFG_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
-		0x00000CC8, 0x70, 10, 23, 1},
+		0x00000CC8, 0x70, 10, 22, 1},
 	[IPA_HW_v4_0][IPA_ENDP_INIT_RSRC_GRP_n] = {
 		ipareg_construct_endp_init_rsrc_grp_n_v3_5,
 		ipareg_parse_dummy,
-		0x00000838, 0x70, 0, 23, 1},
+		0x00000838, 0x70, 0, 22, 1},
 	[IPA_HW_v4_0][IPA_ENDP_YELLOW_RED_MARKER_CFG_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
-		0x00000CC0, 0x70, 10, 23, 1},
+		0x00000CC0, 0x70, 10, 22, 1},
 
 	/* IPA4.2 */
 	[IPA_HW_v4_2][IPA_IDLE_INDICATION_CFG] = {
@@ -2937,7 +2937,7 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v4_2][IPA_ENDP_INIT_HOL_BLOCK_TIMER_n] = {
 		ipareg_construct_endp_init_hol_block_timer_n_v4_2,
 		ipareg_parse_dummy,
-		0x00000830, 0x70, 8, 17, 1},
+		0x00000830, 0x70, 8, 16, 1},
 	[IPA_HW_v4_2][IPA_ENDP_FILTER_ROUTER_HSH_CFG_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		-1, 0, 0, 0, 0},
@@ -3013,10 +3013,10 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 		0x000000E0, 0, 0, 0, 1},
 	[IPA_HW_v4_5][IPA_ENDP_YELLOW_RED_MARKER_CFG_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
-		0x00000860, 0x70, 13, 31, 1},
+		0x00000860, 0x70, 13, 30, 1},
 	[IPA_HW_v4_5][IPA_ENDP_INIT_MODE_n] = {
 		ipareg_construct_endp_init_mode_n_v4_5, ipareg_parse_dummy,
-		0x00000820, 0x70, 0, 13, 1},
+		0x00000820, 0x70, 0, 12, 1},
 	[IPA_HW_v4_5][IPA_TX_CFG] = {
 		ipareg_construct_tx_cfg_v4_5, ipareg_parse_tx_cfg_v4_5,
 		0x000001FC, 0, 0, 0, 0},
@@ -3036,43 +3036,43 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 		0x000000250, 0, 0, 0, 1},
 	[IPA_HW_v4_5][IPA_ENDP_INIT_SEQ_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
-		0x0000083C, 0x70, 0, 13, 1},
+		0x0000083C, 0x70, 0, 12, 1},
 	[IPA_HW_v4_5][IPA_ENDP_INIT_CFG_n] = {
 		ipareg_construct_endp_init_cfg_n, ipareg_parse_dummy,
-		0x00000808, 0x70, 0, 31, 1},
+		0x00000808, 0x70, 0, 30, 1},
 	[IPA_HW_v4_5][IPA_ENDP_INIT_DEAGGR_n] = {
 		ipareg_construct_endp_init_deaggr_n,
 		ipareg_parse_dummy,
-		0x00000834, 0x70, 0, 13, 1},
+		0x00000834, 0x70, 0, 12, 1},
 	[IPA_HW_v4_5][IPA_ENDP_INIT_CTRL_n] = {
 		ipareg_construct_endp_init_ctrl_n_v4_0, ipareg_parse_dummy,
-		0x00000800, 0x70, 0, 31, 1},
+		0x00000800, 0x70, 0, 30, 1},
 	[IPA_HW_v4_5][IPA_ENDP_INIT_CTRL_SCND_n] = {
 		ipareg_construct_endp_init_ctrl_scnd_n, ipareg_parse_dummy,
-		0x00000804, 0x70, 0, 31, 1},
+		0x00000804, 0x70, 0, 30, 1},
 	[IPA_HW_v4_5][IPA_ENDP_INIT_CTRL_STATUS_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
-		0x00000864, 0x70, 0, 31, 1},
+		0x00000864, 0x70, 0, 30, 1},
 	[IPA_HW_v4_5][IPA_ENDP_INIT_PROD_CFG_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
-		0x00000CC8, 0x70, 13, 31, 1},
+		0x00000CC8, 0x70, 13, 30, 1},
 	[IPA_HW_v4_5][IPA_ENDP_FILTER_ROUTER_HSH_CFG_n] = {
 		ipareg_construct_hash_cfg_n, ipareg_parse_hash_cfg_n,
-		0x0000085C, 0x70, 0, 32, 1},
+		0x0000085C, 0x70, 0, 31, 1},
 	[IPA_HW_v4_5][IPA_ENDP_STATUS_n] = {
 		ipareg_construct_endp_status_n_v4_5, ipareg_parse_dummy,
-		0x00000840, 0x70, 0, 31, 1},
+		0x00000840, 0x70, 0, 30, 1},
 	[IPA_HW_v4_5][IPA_ENDP_INIT_NAT_n] = {
 		ipareg_construct_endp_init_nat_n, ipareg_parse_dummy,
-		0x0000080C, 0x70, 0, 13, 1},
+		0x0000080C, 0x70, 0, 12, 1},
 	[IPA_HW_v4_5][IPA_ENDP_INIT_CONN_TRACK_n] = {
 		ipareg_construct_endp_init_conn_track_n,
 		ipareg_parse_dummy,
-		0x00000850, 0x70, 0, 13, 1},
+		0x00000850, 0x70, 0, 12, 1},
 	[IPA_HW_v4_5][IPA_ENDP_INIT_RSRC_GRP_n] = {
 		ipareg_construct_endp_init_rsrc_grp_n_v4_5,
 		ipareg_parse_dummy,
-		0x00000838, 0x70, 0, 31, 1},
+		0x00000838, 0x70, 0, 30, 1},
 	[IPA_HW_v4_5][IPA_STAT_FILTER_IPV4_START_ID] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		-1, 0, 0, 0, 0},
@@ -3115,32 +3115,32 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v4_5][IPA_ENDP_INIT_HOL_BLOCK_EN_n] = {
 		ipareg_construct_endp_init_hol_block_en_n,
 		ipareg_parse_dummy,
-		0x0000082c, 0x70, 13, 31, 1},
+		0x0000082c, 0x70, 13, 30, 1},
 	[IPA_HW_v4_5][IPA_ENDP_INIT_HOL_BLOCK_TIMER_n] = {
 		ipareg_construct_endp_init_hol_block_timer_n_v4_5,
 		ipareg_parse_dummy,
-		0x00000830, 0x70, 13, 31, 1},
+		0x00000830, 0x70, 13, 30, 1},
 	[IPA_HW_v4_5][IPA_ENDP_INIT_AGGR_n] = {
 		ipareg_construct_endp_init_aggr_n_v4_5,
 		ipareg_parse_endp_init_aggr_n_v4_5,
-		0x00000824, 0x70, 0, 31, 1},
+		0x00000824, 0x70, 0, 30, 1},
 	[IPA_HW_v4_5][IPA_SW_AREA_RAM_DIRECT_ACCESS_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x000010000, 0x4, 0, 0, 0},
 	[IPA_HW_v4_5][IPA_ENDP_INIT_HDR_n] = {
 		ipareg_construct_endp_init_hdr_n_v4_5, ipareg_parse_dummy,
-		0x00000810, 0x70, 0, 31, 1},
+		0x00000810, 0x70, 0, 30, 1},
 	[IPA_HW_v4_5][IPA_ENDP_INIT_HDR_EXT_n] = {
 		ipareg_construct_endp_init_hdr_ext_n_v4_5, ipareg_parse_dummy,
-		0x00000814, 0x70, 0, 31, 1},
+		0x00000814, 0x70, 0, 30, 1},
 	[IPA_HW_v4_5][IPA_ENDP_INIT_HDR_METADATA_n] = {
 		ipareg_construct_endp_init_hdr_metadata_n,
 		ipareg_parse_dummy,
-		0x0000081c, 0x70, 0, 13, 1},
+		0x0000081c, 0x70, 0, 12, 1},
 	[IPA_HW_v4_5][IPA_ENDP_INIT_HDR_METADATA_MASK_n] = {
 		ipareg_construct_endp_init_hdr_metadata_mask_n,
 		ipareg_parse_dummy,
-		0x00000818, 0x70, 13, 31, 1},
+		0x00000818, 0x70, 13, 30, 1},
 	[IPA_HW_v4_5][IPA_UC_MAILBOX_m_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x00082000, 0x4, 0, 0, 0},
@@ -3192,17 +3192,17 @@ void ipahal_print_all_regs(bool print_to_dmesg)
 				IPAHAL_DBG_REG_IPC_ONLY("%s=0x%x\n",
 					ipahal_reg_name_str(i),
 					ipahal_read_reg_n(i, j));
-		}
-
-		for (; j < reg->n_end; j++) {
-			if (print_to_dmesg)
-				IPAHAL_DBG_REG("%s_%u=0x%x\n",
-					ipahal_reg_name_str(i),
-					j, ipahal_read_reg_n(i, j));
-			else
-				IPAHAL_DBG_REG_IPC_ONLY("%s_%u=0x%x\n",
-					ipahal_reg_name_str(i),
-					j, ipahal_read_reg_n(i, j));
+		} else {
+			for (; j <= reg->n_end; j++) {
+				if (print_to_dmesg)
+					IPAHAL_DBG_REG("%s_%u=0x%x\n",
+						ipahal_reg_name_str(i),
+						j, ipahal_read_reg_n(i, j));
+				else
+					IPAHAL_DBG_REG_IPC_ONLY("%s_%u=0x%x\n",
+						ipahal_reg_name_str(i),
+						j, ipahal_read_reg_n(i, j));
+			}
 		}
 	}
 }
@@ -3498,7 +3498,7 @@ void ipahal_get_aggr_force_close_valmask(int ep_idx,
 	struct ipahal_reg_valmask *valmask)
 {
 	u32 shft;
-	u32 bmsk;
+	u32 bmsk = 0;
 
 	if (!valmask) {
 		IPAHAL_ERR("Input error\n");

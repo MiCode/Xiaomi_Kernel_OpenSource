@@ -3728,7 +3728,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (of_property_read_bool(node, "extcon")) {
 		ret = dwc3_msm_extcon_register(mdwc);
 		if (ret)
-			goto put_dwc3;
+			goto err_get_extcon;
 
 		/*
 		 * dpdm regulator will be turned on to perform apsd
@@ -3775,17 +3775,21 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	return 0;
 
+err_get_extcon:
+	if (mdwc->iommu_map)
+		arm_iommu_attach_device(mdwc->dev, mdwc->iommu_map);
+
 put_dwc3:
 	platform_device_put(mdwc->dwc3);
 	if (mdwc->bus_perf_client)
 		msm_bus_scale_unregister_client(mdwc->bus_perf_client);
 
 uninit_iommu:
+	of_platform_depopulate(&pdev->dev);
 	if (mdwc->iommu_map) {
 		arm_iommu_detach_device(mdwc->dev);
 		arm_iommu_release_mapping(mdwc->iommu_map);
 	}
-	of_platform_depopulate(&pdev->dev);
 err:
 	destroy_workqueue(mdwc->sm_usb_wq);
 	destroy_workqueue(mdwc->dwc3_wq);
@@ -4309,6 +4313,14 @@ static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned int mA)
 
 	psy_type = get_psy_type(mdwc);
 	if (psy_type == POWER_SUPPLY_TYPE_USB_FLOAT) {
+		/*
+		 * Do not notify charger driver for any current and
+		 * bail out if suspend happened with float cable
+		 * connected
+		 */
+		if (mA == 2)
+			return 0;
+
 		if (!mA)
 			pval.intval = -ETIMEDOUT;
 		else
@@ -4319,11 +4331,11 @@ static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned int mA)
 	if (mdwc->max_power == mA || psy_type != POWER_SUPPLY_TYPE_USB)
 		return 0;
 
-	dev_info(mdwc->dev, "Avail curr from USB = %u\n", mA);
 	/* Set max current limit in uA */
 	pval.intval = 1000 * mA;
 
 set_prop:
+	dev_info(mdwc->dev, "Avail curr from USB = %u\n", mA);
 	ret = power_supply_set_property(mdwc->usb_psy,
 				POWER_SUPPLY_PROP_SDP_CURRENT_MAX, &pval);
 	if (ret) {

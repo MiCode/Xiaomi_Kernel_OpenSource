@@ -72,8 +72,9 @@ First Level Node - FG Gen4 device
 	Value type: <u32>
 	Definition: Percentage of SOC increase upon which the delta monotonic &
 		    battery SOC interrupts will be triggered. If this property
-		    is not specified, then the default value will be 1.
-		    Possible values are in the range of 0 to 12.
+		    is not specified, then the default value will be 5 (0.5 %).
+		    Unit is in deci-percentage. Possible values are in the range
+		    of 1 to 124.
 
 - qcom,fg-esr-timer-chg-fast
 	Usage:      optional
@@ -188,6 +189,13 @@ First Level Node - FG Gen4 device
 	Value type: <u32>
 	Definition: Battery temperature hysteresis threshold. Possible values
 		    are: 0, 1, 2 and 3. Unit is in Kelvin or Celsius.
+
+- qcom,fg-batt-therm-freq
+	Usage:      optional
+	Value type: <u32>
+	Definition: Battery thermistor interval in seconds. Possible values
+		    are from 1-255. If not specified, then the default value
+		    configured is 8.
 
 - qcom,fg-force-load-profile
 	Usage:      optional

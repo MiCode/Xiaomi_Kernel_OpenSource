@@ -187,6 +187,11 @@ Third Level Node - CAM AXI Port properties
   Value type: <string>
   Definition: Name of the AXI Port.
 
+- ib-bw-voting-needed
+  Usage: optional
+  Value type: <bool>
+  Definition: Determines if this port votes for ib bw dynamically.
+
 ===================================================================
 Fourth Level Node - CAM AXI Bus properties
 ===================================================================

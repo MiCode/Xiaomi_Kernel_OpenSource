@@ -182,15 +182,11 @@
 };
 
 &usb0 {
-	dwc3@a600000 {
-		usb-phy = <&usb2_phy0>, <&usb_nop_phy>;
-		maximum-speed = "high-speed";
-	};
+	qcom,host-poweroff-in-pm-suspend;
 };
 
 &usb1 {
 	status = "ok";
-	dwc3@a800000 {
-		dr_mode = "host";
-	};
+	qcom,default-mode-host;
+	qcom,host-poweroff-in-pm-suspend;
 };

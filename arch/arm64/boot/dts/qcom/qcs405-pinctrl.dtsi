@@ -1012,6 +1012,15 @@
 			};
 		};
 
+		usb2_ssrd_det_default: usb2_ssrd_det_default {
+			config {
+				pins = "gpio27";
+				drive-strength = <2>;
+				bias-pull-down;
+				input-enable;
+			};
+		};
+
 		pri_mi2s_mclk {
 			pri_mi2s_mclk_sleep: pri_mi2s_mclk_sleep {
 				mux {

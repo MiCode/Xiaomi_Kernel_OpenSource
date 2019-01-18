@@ -24,8 +24,10 @@
 #define FASTCVPD_VIDEO_SUSPEND 1
 #define FASTCVPD_VIDEO_RESUME 2
 #define FASTCVPD_VIDEO_SHUTDOWN 3
-#define STATUS_OK 0
-#define STATUS_SSR 1
+#define STATUS_INIT 0
+#define STATUS_DEINIT 1
+#define STATUS_OK 2
+#define STATUS_SSR 3
 
 struct fastcvpd_cmd_msg {
 	uint32_t cmd_msg_type;
@@ -304,6 +306,8 @@ static int __init fastcvpd_device_init(void)
 
 	init_completion(&work);
 	mutex_init(&me->smd_mutex);
+	me->video_shutdown = STATUS_INIT;
+	me->cdsp_state = STATUS_INIT;
 	err = register_rpmsg_driver(&fastcvpd_rpmsg_client);
 	if (err) {
 		pr_err("%s : register_rpmsg_driver failed with err %d\n",
@@ -314,6 +318,8 @@ static int __init fastcvpd_device_init(void)
 	return 0;
 
 register_bail:
+	me->video_shutdown = STATUS_DEINIT;
+	me->cdsp_state = STATUS_DEINIT;
 	return err;
 }
 
@@ -321,6 +327,8 @@ static void __exit fastcvpd_device_exit(void)
 {
 	struct fastcvpd_apps *me = &gfa_cv;
 
+	me->video_shutdown = STATUS_DEINIT;
+	me->cdsp_state = STATUS_DEINIT;
 	mutex_destroy(&me->smd_mutex);
 	if (me->rpmsg_register == 1)
 		unregister_rpmsg_driver(&fastcvpd_rpmsg_client);

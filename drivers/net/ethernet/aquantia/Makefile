@@ -3,3 +3,4 @@
 #
 
 obj-$(CONFIG_AQTION) += atlantic/
+obj-$(CONFIG_AQFWD)  += atlantic-fwd/

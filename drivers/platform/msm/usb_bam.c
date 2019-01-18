@@ -295,7 +295,7 @@ static int usb_bam_alloc_buffer(struct usb_bam_pipe_connect *pipe_connect)
 	struct device *dev = &ctx->usb_bam_pdev->dev;
 	struct sg_table data_sgt, desc_sgt;
 	dma_addr_t data_iova, desc_iova;
-	u32 data_fifo_size;
+	u32 data_fifo_size = 0;
 
 	pr_debug("%s: data_fifo size:%x desc_fifo_size:%x\n",
 				__func__, pipe_connect->data_fifo_size,

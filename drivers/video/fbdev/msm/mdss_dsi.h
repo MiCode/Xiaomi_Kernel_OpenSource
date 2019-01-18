@@ -681,6 +681,11 @@ void mdss_dsi_set_reg(struct mdss_dsi_ctrl_pdata *ctrl, int off,
 	u32 mask, u32 val);
 int mdss_dsi_phy_pll_reset_status(struct mdss_dsi_ctrl_pdata *ctrl);
 int mdss_dsi_panel_power_ctrl(struct mdss_panel_data *pdata, int power_state);
+int mdss_dsi_get_dt_vreg_data(struct device *dev,
+	struct device_node *of_node, struct dss_module_power *mp,
+	enum dsi_pm_type module);
+void mdss_dsi_put_dt_vreg_data(struct device *dev,
+		struct dss_module_power *module_power);
 
 static inline const char *__mdss_dsi_pm_name(enum dsi_pm_type module)
 {

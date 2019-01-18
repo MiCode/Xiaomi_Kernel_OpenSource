@@ -374,6 +374,7 @@ struct fastrpc_file {
 	int pd;
 	char *spdname;
 	int file_close;
+	int dsp_process_init;
 	struct fastrpc_apps *apps;
 	struct hlist_head perf;
 	struct dentry *debugfs_file;
@@ -638,8 +639,8 @@ static int dma_alloc_memory(dma_addr_t *region_phys, void **vaddr, size_t size,
 	*vaddr = dma_alloc_attrs(me->dev, size, region_phys,
 					GFP_KERNEL, dma_attr);
 	if (IS_ERR_OR_NULL(*vaddr)) {
-		pr_err("adsprpc: %s: %s: dma_alloc_attrs failed for size 0x%zx, returned %d\n",
-				current->comm, __func__, size, (int)(*vaddr));
+		pr_err("adsprpc: %s: %s: dma_alloc_attrs failed for size 0x%zx, returned %ld\n",
+				current->comm, __func__, size, PTR_ERR(*vaddr));
 		return -ENOMEM;
 	}
 	return 0;
@@ -988,8 +989,8 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 	}
 	if (err) {
 		err = -ENOMEM;
-		pr_err("adsprpc: %s: %s: dma_alloc_attrs failed for size 0x%zx, returned %d\n",
-			current->comm, __func__, size, (int)buf->virt);
+		pr_err("adsprpc: %s: %s: dma_alloc_attrs failed for size 0x%zx, returned %ld\n",
+			current->comm, __func__, size, PTR_ERR(buf->virt));
 		goto bail;
 	}
 	if (fl->sctx->smmu.cb && fl->cid != SDSP_DOMAIN_ID)
@@ -2183,7 +2184,9 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 			goto bail;
 	} else {
 		err = -ENOTTY;
+		goto bail;
 	}
+	fl->dsp_process_init = 1;
 bail:
 	kfree(proc_name);
 	if (err && (init->flags == FASTRPC_INIT_CREATE_STATIC))
@@ -2223,6 +2226,9 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	VERIFY(err, fl->apps->channel[fl->cid].rpdev != NULL);
 	if (err)
 		goto bail;
+	VERIFY(err, fl->apps->channel[fl->cid].issubsystemup == 1);
+	if (err)
+		goto bail;
 	tgid = fl->tgid;
 	ra[0].buf.pv = (void *)&tgid;
 	ra[0].buf.len = sizeof(tgid);
@@ -2234,7 +2240,7 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	ioctl.crc = NULL;
 	VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
 		FASTRPC_MODE_PARALLEL, 1, &ioctl)));
-	if (err)
+	if (err && fl->dsp_process_init)
 		pr_err("adsprpc: %s: releasing DSP process failed for %s, returned 0x%x",
 					__func__, current->comm, err);
 bail:
@@ -3239,6 +3245,7 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 		fl->debugfs_file = debugfs_file;
 	memset(&fl->perf, 0, sizeof(fl->perf));
 	fl->qos_request = 0;
+	fl->dsp_process_init = 0;
 	filp->private_data = fl;
 	mutex_init(&fl->internal_map_mutex);
 	mutex_init(&fl->map_mutex);

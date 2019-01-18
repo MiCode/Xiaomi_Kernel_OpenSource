@@ -151,6 +151,13 @@
 
 	iommu-map = <0x0 &apps_smmu 0x1e00 0x1>,
 		<0x100 &apps_smmu 0x1e7f 0x1>;
+
+	qcom,msm-bus,name = "pcie1";
+	qcom,msm-bus,num-cases = <2>;
+	qcom,msm-bus,num-paths = <1>;
+	qcom,msm-bus,vectors-KBps =
+		<100 512 0 0>,
+		<100 512 4500000 0>;
 };
 
 &soc {

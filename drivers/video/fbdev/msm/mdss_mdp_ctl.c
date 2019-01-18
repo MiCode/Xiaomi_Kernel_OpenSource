@@ -2485,6 +2485,7 @@ int mdss_mdp_ctl_free(struct mdss_mdp_ctl *ctl)
 	ctl->ref_cnt--;
 	ctl->intf_num = MDSS_MDP_NO_INTF;
 	ctl->intf_type = MDSS_MDP_NO_INTF;
+	ctl->pack_align_msb = false;
 	ctl->is_secure = false;
 	ctl->power_state = MDSS_PANEL_POWER_OFF;
 	ctl->mixer_left = NULL;
@@ -3711,14 +3712,23 @@ int mdss_mdp_ctl_reconfig(struct mdss_mdp_ctl *ctl,
 	case MIPI_VIDEO_PANEL:
 		ctl->is_video_mode = true;
 		ctl->intf_type = MDSS_INTF_DSI;
+		ctl->pack_align_msb = true;
 		ctl->opmode = MDSS_MDP_CTL_OP_VIDEO_MODE;
 		ctl->ops.start_fnc = mdss_mdp_video_start;
 		break;
 	case MIPI_CMD_PANEL:
 		ctl->is_video_mode = false;
 		ctl->intf_type = MDSS_INTF_DSI;
+		ctl->pack_align_msb = true;
 		ctl->opmode = MDSS_MDP_CTL_OP_CMD_MODE;
 		ctl->ops.start_fnc = mdss_mdp_cmd_start;
+		break;
+	case RGB_PANEL:
+		ctl->is_video_mode = true;
+		ctl->intf_type = MDSS_INTF_DSI;
+		ctl->pack_align_msb = false;
+		ctl->opmode = MDSS_MDP_CTL_OP_VIDEO_MODE;
+		ctl->ops.start_fnc = mdss_mdp_video_start;
 		break;
 	}
 
@@ -3835,6 +3845,7 @@ struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 			ctl->intf_num = mdp5_data->mixer_swap ? MDSS_MDP_INTF1 :
 				MDSS_MDP_INTF2;
 		ctl->intf_type = MDSS_INTF_DSI;
+		ctl->pack_align_msb = true;
 		ctl->opmode = MDSS_MDP_CTL_OP_VIDEO_MODE;
 		ctl->ops.start_fnc = mdss_mdp_video_start;
 		break;
@@ -3846,6 +3857,7 @@ struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 			ctl->intf_num = mdp5_data->mixer_swap ? MDSS_MDP_INTF1 :
 				MDSS_MDP_INTF2;
 		ctl->intf_type = MDSS_INTF_DSI;
+		ctl->pack_align_msb = true;
 		ctl->opmode = MDSS_MDP_CTL_OP_CMD_MODE;
 		ctl->ops.start_fnc = mdss_mdp_cmd_start;
 		INIT_WORK(&ctl->cpu_pm_work, __cpu_pm_work_handler);
@@ -3861,6 +3873,19 @@ struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 		ctl->intf_num = MDSS_MDP_NO_INTF;
 		ctl->ops.start_fnc = mdss_mdp_writeback_start;
 		break;
+	case RGB_PANEL:
+		ctl->is_video_mode = true;
+		if (pdata->panel_info.pdest == DISPLAY_1)
+			ctl->intf_num = mdp5_data->mixer_swap ? MDSS_MDP_INTF2 :
+				MDSS_MDP_INTF1;
+		else
+			ctl->intf_num = mdp5_data->mixer_swap ? MDSS_MDP_INTF1 :
+				MDSS_MDP_INTF2;
+		ctl->intf_type = MDSS_INTF_DSI;
+		ctl->pack_align_msb = false;
+		ctl->opmode = MDSS_MDP_CTL_OP_VIDEO_MODE;
+		ctl->ops.start_fnc = mdss_mdp_video_start;
+		break;
 	default:
 		pr_err("unsupported panel type (%d)\n", pdata->panel_info.type);
 		ret = -EINVAL;
@@ -3874,7 +3899,15 @@ struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 	} else {
 		switch (pdata->panel_info.bpp) {
 		case 18:
-			if (ctl->intf_type == MDSS_INTF_DSI)
+			/*
+			 * Both DSI and RGB Panels share same MDSS_INTF_DSI
+			 * interface type. In case of 18 bpp, DSI Panels need
+			 * pack alignment and RGB Panels doesn't need pack
+			 * alignment. Enable pack alignment based on ctl's
+			 * pack_align_msb support.
+			 */
+			if (ctl->intf_type == MDSS_INTF_DSI &&
+				ctl->pack_align_msb)
 				ctl->dst_format = MDSS_MDP_PANEL_FORMAT_RGB666 |
 					MDSS_MDP_PANEL_FORMAT_PACK_ALIGN_MSB;
 			else

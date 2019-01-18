@@ -107,6 +107,9 @@ its hardware characteristcs.
 	* cpu: the cpu phandle this ETM/PTM is affined to. When omitted the
 	  source is considered to belong to CPU0.
 
+	* qcom,tupwr-disable: For ETM, don't keep trace unit powered across power
+	  collapse.
+
 * Optional property for TMC:
 
 	* arm,buffer-size: size of contiguous buffer space for TMC ETR
@@ -153,6 +156,9 @@ its hardware characteristcs.
 	* qcom,tpdm-clks: List of additional clocks required.
 
 	* qcom,tpdm-regs: List of regulators required.
+
+	* qcom,hw-enable-check: Check if the tpdm need to be probed as some tpdms
+	  are not enabled in secure device.
 
 * Required property for Remote ETMs:
 

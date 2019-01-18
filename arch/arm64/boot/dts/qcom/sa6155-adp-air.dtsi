@@ -1,0 +1,209 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/clock/qcom,gcc-sm6150.h>
+
+
+&qupv3_se6_spi {
+	status = "ok";
+	can-controller@0 {
+		compatible = "qcom,nxp,mpc5746c";
+		reg = <0>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <40 0>;
+		spi-max-frequency = <5000000>;
+		qcom,clk-freq-mhz = <40000000>;
+		qcom,max-can-channels = <1>;
+		qcom,bits-per-word = <8>;
+		qcom,support-can-fd;
+	};
+};
+
+&soc {
+	qcom,lpass@62400000 {
+		status = "ok";
+	};
+
+	audio_apr: qcom,msm-audio-apr {
+		status = "ok";
+	};
+
+	qcom,glink {
+		modem {
+			status = "disabled";
+		};
+	};
+	emac_hw: qcom,emac@20000 {
+		compatible = "qcom,emac-dwc-eqos";
+		qcom,arm-smmu;
+		reg = <0x20000 0x10000>,
+			<0x36000 0x100>;
+		reg-names = "emac-base", "rgmii-base";
+		dma-bit-mask = <32>;
+		emac-core-version = <7>;
+		interrupts-extended = <&pdc 0 660 4>, <&pdc 0 661 4>,
+			<&tlmm 121 2>, <&pdc 0 651 4>,
+			<&pdc 0 652 4>, <&pdc 0 653 4>,
+			<&pdc 0 654 4>, <&pdc 0 655 4>,
+			<&pdc 0 656 4>, <&pdc 0 657 4>,
+			<&pdc 0 658 4>, <&pdc 0 659 4>,
+			<&pdc 0 668 4>, <&pdc 0 669 4>;
+		interrupt-names = "sbd-intr", "lpi-intr",
+			"phy-intr", "tx-ch0-intr",
+			"tx-ch1-intr", "tx-ch2-intr",
+			"tx-ch3-intr", "tx-ch4-intr",
+			"rx-ch0-intr", "rx-ch1-intr",
+			"rx-ch2-intr", "rx-ch3-intr",
+			"ptp_pps_irq_0","ptp_pps_irq_1";
+		qcom,msm-bus,name = "emac";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+			<98 512 0 0>, <1 781 0 0>,  /* No vote */
+			<98 512 1250 0>, <1 781 0 40000>,  /* 10Mbps vote */
+			<98 512 12500 0>, <1 781 0 40000>,  /* 100Mbps vote */
+			<98 512 125000 0>, <1 781 0 40000>; /* 1000Mbps vote */
+		qcom,bus-vector-names = "0", "10", "100", "1000";
+		clocks = <&clock_gcc GCC_EMAC_AXI_CLK>,
+				<&clock_gcc GCC_EMAC_PTP_CLK>,
+				<&clock_gcc GCC_EMAC_RGMII_CLK>,
+				<&clock_gcc GCC_EMAC_SLV_AHB_CLK>;
+		clock-names = "eth_axi_clk", "eth_ptp_clk",
+				"eth_rgmii_clk", "eth_slave_ahb_clk";
+		qcom,phy-reset = <&tlmm 104 GPIO_ACTIVE_HIGH>;
+		qcom,phy-intr-redirect = <&tlmm 121 GPIO_ACTIVE_LOW>;
+		gdsc_emac-supply = <&emac_gdsc>;
+		pinctrl-names = "dev-emac-mdc", "dev-emac-mdio",
+		"dev-emac-rgmii_txd0_state", "dev-emac-rgmii_txd1_state",
+		"dev-emac-rgmii_txd2_state", "dev-emac-rgmii_txd3_state",
+		"dev-emac-rgmii_txc_state",  "dev-emac-rgmii_tx_ctl_state",
+		"dev-emac-rgmii_rxd0_state", "dev-emac-rgmii_rxd1_state",
+		"dev-emac-rgmii_rxd2_state", "dev-emac-rgmii_rxd3_state",
+		"dev-emac-rgmii_rxc_state", "dev-emac-rgmii_rx_ctl_state",
+		"dev-emac-phy_intr", "dev-emac-phy_reset_state",
+		"dev-emac_pin_pps_0";
+
+		pinctrl-0 = <&emac_mdc>;
+		pinctrl-1 = <&emac_mdio>;
+		pinctrl-2 = <&emac_rgmii_txd0>;
+		pinctrl-3 = <&emac_rgmii_txd1>;
+		pinctrl-4 = <&emac_rgmii_txd2>;
+		pinctrl-5 = <&emac_rgmii_txd3>;
+		pinctrl-6 = <&emac_rgmii_txc>;
+		pinctrl-7 = <&emac_rgmii_tx_ctl>;
+		pinctrl-8 = <&emac_rgmii_rxd0>;
+		pinctrl-9 = <&emac_rgmii_rxd1>;
+		pinctrl-10 = <&emac_rgmii_rxd2>;
+		pinctrl-11 = <&emac_rgmii_rxd3>;
+		pinctrl-12 = <&emac_rgmii_rxc>;
+		pinctrl-13 = <&emac_rgmii_rx_ctl>;
+		pinctrl-14 = <&emac_phy_intr>;
+		pinctrl-15 = <&emac_phy_reset_state>;
+		pinctrl-16 = <&emac_pin_pps_0>;
+
+		io-macro-info {
+			io-macro-bypass-mode = <0>;
+			io-interface = "rgmii";
+		};
+		emac_emb_smmu: emac_emb_smmu {
+			compatible = "qcom,emac-smmu-embedded";
+			iommus = <&apps_smmu 0x1C0 0x0>;
+			qcom,iova-mapping = <0x80000000 0x40000000>;
+		};
+	};
+
+	bluetooth_ext: bt_qca6174 {
+		status = "ok";
+	};
+};
+
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qmp-v3-660";
+
+	vdda-phy-supply = <&pm6155_1_l5>; /* 0.9v */
+	vdda-pll-supply = <&pm6155_1_l12>;
+	vdda-phy-max-microamp = <30000>;
+	vdda-pll-max-microamp = <12000>;
+
+	status = "ok";
+};
+
+&ufshc_mem {
+	vdd-hba-supply = <&ufs_phy_gdsc>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm6155_1_l17>;
+	vcc-voltage-level = <2950000 2960000>;
+	vccq2-supply = <&pm6155_1_s4>;
+	vcc-max-microamp = <800000>;
+	vccq2-max-microamp = <600000>;
+
+	qcom,vddp-ref-clk-supply = <&pm6155_1_l11>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+	qcom,vddp-ref-clk-min-uV = <1232000>;
+	qcom,vddp-ref-clk-max-uV = <1260000>;
+
+	status = "ok";
+};
+
+&sdhc_1 {
+	vdd-supply = <&pm6155_1_l17>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <0 570000>;
+
+	vdd-io-supply = <&pm6155_1_s4>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <0 325000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on &sdc1_rclk_on>;
+	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off &sdc1_rclk_off>;
+
+	status = "ok";
+};
+
+&sdhc_2 {
+	vdd-supply = <&pm6155_1_l10>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <0 800000>;
+
+	vdd-io-supply = <&pm6155_1_l2>;
+	qcom,vdd-io-voltage-level = <1800000 3100000>;
+	qcom,vdd-io-current-level = <0 22000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off &sdc2_cd_off>;
+
+	cd-gpios = <&tlmm 99 1>;
+
+	status = "ok";
+};
+
+&usb0 {
+	qcom,host-poweroff-in-pm-suspend;
+};
+
+&usb1 {
+	status = "ok";
+	qcom,default-mode-host;
+	qcom,host-poweroff-in-pm-suspend;
+};
+
+&qupv3_se0_2uart {
+	status = "ok";
+};
+
+&qupv3_se7_4uart {
+	status = "ok";
+};

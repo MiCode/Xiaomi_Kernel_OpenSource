@@ -557,10 +557,12 @@ enum trinket_functions {
 	msm_mux_COPY_PHASE,
 	msm_mux_usb_phy,
 	msm_mux_atest_char,
+	msm_mux_unused1,
+	msm_mux_qua_mi2s,
 	msm_mux_mss_lte,
 	msm_mux_swr_tx,
 	msm_mux_aud_sb,
-	msm_mux_qua_mi2s,
+	msm_mux_unused2,
 	msm_mux_swr_rx,
 	msm_mux_edp_hot,
 	msm_mux_audio_ref,
@@ -755,7 +757,7 @@ static const char * const phase_flag10_groups[] = {
 	"gpio30",
 };
 static const char * const cam_mclk_groups[] = {
-	"gpio34", "gpio35", "gpio36",
+	"gpio34", "gpio35", "gpio36", "gpio44",
 };
 static const char * const atest_tsens_groups[] = {
 	"gpio34",
@@ -1049,8 +1051,14 @@ static const char * const usb_phy_groups[] = {
 static const char * const atest_char_groups[] = {
 	"gpio102",
 };
+static const char * const unused1_groups[] = {
+	"gpio104",
+};
+static const char * const qua_mi2s_groups[] = {
+	"gpio104", "gpio106", "gpio107", "gpio108", "gpio110", "gpio111",
+};
 static const char * const mss_lte_groups[] = {
-	"gpio104", "gpio105",
+	"gpio105", "gpio109",
 };
 static const char * const swr_tx_groups[] = {
 	"gpio106", "gpio107", "gpio108", "gpio109",
@@ -1058,8 +1066,8 @@ static const char * const swr_tx_groups[] = {
 static const char * const aud_sb_groups[] = {
 	"gpio106", "gpio107", "gpio108", "gpio109",
 };
-static const char * const qua_mi2s_groups[] = {
-	"gpio106", "gpio107", "gpio108", "gpio109", "gpio110", "gpio111",
+static const char * const unused2_groups[] = {
+	"gpio109",
 };
 static const char * const swr_rx_groups[] = {
 	"gpio110", "gpio111", "gpio112",
@@ -1271,10 +1279,12 @@ static const struct msm_function trinket_functions[] = {
 	FUNCTION(COPY_PHASE),
 	FUNCTION(usb_phy),
 	FUNCTION(atest_char),
+	FUNCTION(unused1),
+	FUNCTION(qua_mi2s),
 	FUNCTION(mss_lte),
 	FUNCTION(swr_tx),
 	FUNCTION(aud_sb),
-	FUNCTION(qua_mi2s),
+	FUNCTION(unused2),
 	FUNCTION(swr_rx),
 	FUNCTION(edp_hot),
 	FUNCTION(audio_ref),
@@ -1376,7 +1386,7 @@ static const struct msm_pingroup trinket_groups[] = {
 	[43] = PINGROUP(43, EAST, cci_timer1, NA, gcc_gp2, NA, qdss_gpio2, NA,
 			NA, NA, NA),
 	[44] = PINGROUP(44, SOUTH, cci_async, cci_timer4, NA, gcc_gp2, NA,
-			qdss_gpio12, NA, NA, NA),
+			qdss_gpio12, cam_mclk, NA, NA),
 	[45] = PINGROUP(45, SOUTH, cci_timer0, NA, gcc_gp1, qdss_gpio13, NA,
 			NA, NA, NA, NA),
 	[46] = PINGROUP(46, SOUTH, cci_timer3, NA, gcc_gp1, NA, qdss_gpio14,
@@ -1477,7 +1487,8 @@ static const struct msm_pingroup trinket_groups[] = {
 	[102] = PINGROUP(102, SOUTH, usb_phy, NA, qdss_gpio, atest_char, NA,
 			 NA, NA, NA, NA),
 	[103] = PINGROUP(103, SOUTH, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[104] = PINGROUP(104, EAST, mss_lte, NA, NA, NA, NA, NA, NA, NA, NA),
+	[104] = PINGROUP(104, EAST, unused1, NA, qua_mi2s, NA, NA, NA, NA, NA,
+			 NA),
 	[105] = PINGROUP(105, EAST, mss_lte, NA, NA, NA, NA, NA, NA, NA, NA),
 	[106] = PINGROUP(106, EAST, swr_tx, aud_sb, qua_mi2s, NA, qdss_cti, NA,
 			 NA, NA, NA),
@@ -1485,8 +1496,8 @@ static const struct msm_pingroup trinket_groups[] = {
 			 NA, NA, NA),
 	[108] = PINGROUP(108, EAST, swr_tx, aud_sb, qua_mi2s, NA, NA, NA, NA,
 			 NA, NA),
-	[109] = PINGROUP(109, EAST, swr_tx, aud_sb, qua_mi2s, NA, NA, NA, NA,
-			 NA, NA),
+	[109] = PINGROUP(109, EAST, swr_tx, aud_sb, unused2, NA, mss_lte, NA,
+			 NA, NA, NA),
 	[110] = PINGROUP(110, EAST, swr_rx, qua_mi2s, NA, qdss_cti, NA, NA, NA,
 			 NA, NA),
 	[111] = PINGROUP(111, EAST, swr_rx, qua_mi2s, edp_hot, NA, qdss_cti,

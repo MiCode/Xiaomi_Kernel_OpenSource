@@ -556,7 +556,7 @@ static int qti_can_query_firmware_version(struct qti_can *priv_data)
 	mutex_unlock(&priv_data->spi_lock);
 
 	if (ret == 0) {
-		LOGDI("waiting for completion with timeout of %d jiffies",
+		LOGDI("waiting for completion with timeout of %lu jiffies",
 		      msecs_to_jiffies(QUERY_FIRMWARE_TIMEOUT_MS));
 		wait_for_completion_interruptible_timeout(
 				&priv_data->response_completion,

@@ -542,6 +542,7 @@
 			 <&clock_rpmcc RPM_QDSS_A_CLK>;
 		clock-names = "apb_pclk", "core_a_clk";
 
+		qcom,hw-enable-check;
 		qcom,msr-fix-req;
 
 		port {

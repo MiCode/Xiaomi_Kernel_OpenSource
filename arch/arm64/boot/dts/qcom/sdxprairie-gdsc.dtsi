@@ -27,7 +27,7 @@
 		status = "disabled";
 	};
 
-	gdsc_pcie: qcom,qgdsc@137004 {
+	gdsc_pcie: qcom,gdsc@137004 {
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_pcie";
 		reg = <0x137004 0x4>;

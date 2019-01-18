@@ -80,6 +80,16 @@
 
 #define NAPI_WEIGHT 60
 
+/* Bit pattern for SW to identify in middle of PC saving */
+#define PC_SAVE_CONTEXT_SAVE_ENTERED            0xDEAFDEAF
+/* Bit pattern for SW to identify that PC saving completed */
+#define PC_SAVE_CONTEXT_STATUS_SUCCESS          0xFADEFADE
+/* Bit pattern for SW to identify PC restoration is ongoing */
+#define PC_RESTORE_CONTEXT_ENTERED              0xFACEFACE
+/*Bit pattern for SW to identify PC restoration completed */
+#define PC_RESTORE_CONTEXT_STATUS_SUCCESS       0xCAFECAFE
+
+
 #define IPADBG(fmt, args...) \
 	do { \
 		pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
@@ -253,6 +263,8 @@ enum {
 
 #define IPA_AGGR_STR_IN_BYTES(str) \
 	(strnlen((str), IPA_AGGR_MAX_STR_LENGTH - 1) + 1)
+
+#define IPA_ADJUST_AGGR_BYTE_HARD_LIMIT(X) (X/1000)
 
 #define IPA_TRANSPORT_PROD_TIMEOUT_MSEC 100
 
@@ -777,9 +789,8 @@ struct ipa3_ep_context {
 	unsigned long gsi_evt_ring_hdl;
 	struct ipa_gsi_ep_mem_info gsi_mem_info;
 	union __packed gsi_channel_scratch chan_scratch;
-	bool bytes_xfered_valid;
-	u16 bytes_xfered;
-	dma_addr_t phys_base;
+	struct gsi_chan_xfer_notify xfer_notify;
+	bool xfer_notify_valid;
 	struct ipa_ep_cfg cfg;
 	struct ipa_ep_cfg_holb holb;
 	struct ipahal_reg_ep_cfg_status status;
@@ -845,6 +856,13 @@ enum ipa3_sys_pipe_policy {
 	IPA_POLICY_INTR_POLL_MODE,
 };
 
+enum uc_state {
+	IPA_PC_SAVE_CONTEXT_SAVE_ENTERED,
+	IPA_PC_SAVE_CONTEXT_STATUS_SUCCESS,
+	IPA_PC_RESTORE_CONTEXT_ENTERED,
+	IPA_PC_RESTORE_CONTEXT_STATUS_SUCCESS,
+};
+
 struct ipa3_repl_ctx {
 	struct ipa3_rx_pkt_wrapper **cache;
 	atomic_t head_idx;
@@ -887,6 +905,7 @@ struct ipa3_sys_context {
 	struct ipa3_repl_ctx *repl;
 	u32 pkt_sent;
 	struct napi_struct *napi_obj;
+	struct list_head pending_pkts[GSI_VEID_MAX];
 
 	/* ordering is important - mutable fields go above */
 	struct ipa3_ep_context *ep;
@@ -1016,20 +1035,6 @@ struct ipa3_rx_pkt_wrapper {
 };
 
 /**
- * struct ipa_pdn_entry - IPA PDN config table entry
- * @public_ip: the PDN's public ip
- * @src_metadata: the PDN's metadata to be replaced for source NAT
- * @dst_metadata: the PDN's metadata to be replaced for destination NAT
- * @resrvd: reserved field
- */
-struct ipa_pdn_entry {
-	u32 public_ip;
-	u32 src_metadata;
-	u32 dst_metadata;
-	u32 resrvd;
-};
-
-/**
  * struct ipa3_nat_ipv6ct_tmp_mem - NAT/IPv6CT temporary memory
  *
  * In case NAT/IPv6CT table are destroyed the HW is provided with the
@@ -1134,6 +1139,18 @@ enum ipa3_hw_mode {
 	IPA_HW_MODE_VIRTUAL   = 1,
 	IPA_HW_MODE_PCIE      = 2,
 	IPA_HW_MODE_EMULATION = 3,
+};
+
+/*
+ * enum ipa3_platform_type - Platform type
+ * @IPA_PLAT_TYPE_MDM: MDM platform (usually 32bit single core CPU platform)
+ * @IPA_PLAT_TYPE_MSM: MSM SOC platform (usually 64bit multi-core platform)
+ * @IPA_PLAT_TYPE_APQ: Similar to MSM but without modem
+ */
+enum ipa3_platform_type {
+	IPA_PLAT_TYPE_MDM	= 0,
+	IPA_PLAT_TYPE_MSM	= 1,
+	IPA_PLAT_TYPE_APQ	= 2,
 };
 
 enum ipa3_config_this_ep {
@@ -1284,6 +1301,18 @@ struct ipa3_uc_wdi_ctx {
 #ifdef IPA_WAN_MSG_IPv6_ADDR_GW_LEN
 	ipa_wdi_meter_notifier_cb stats_notify;
 #endif
+};
+
+/**
+* struct ipa3_uc_wigig_ctx
+* @priv: wigig driver private data
+* @uc_ready_cb: wigig driver uc ready callback
+* @int_notify: wigig driver misc interrupt callback
+*/
+struct ipa3_uc_wigig_ctx {
+	void *priv;
+	ipa_uc_ready_cb uc_ready_cb;
+	ipa_wigig_misc_int_cb misc_notify_cb;
 };
 
 /**
@@ -1499,6 +1528,7 @@ struct ipa3_char_device_context {
  * @wcstats: wlan common buffer stats
  * @uc_ctx: uC interface context
  * @uc_wdi_ctx: WDI specific fields for uC interface
+ * @uc_wigig_ctx: WIGIG specific fields for uC interface
  * @ipa_num_pipes: The number of pipes used by IPA HW
  * @skip_uc_pipe_reset: Indicates whether pipe reset via uC needs to be avoided
  * @ipa_client_apps_wan_cons_agg_gro: RMNET_IOCTL_INGRESS_FORMAT_AGG_DATA
@@ -1586,11 +1616,13 @@ struct ipa3_context {
 	wait_queue_head_t msg_waitq;
 	enum ipa_hw_type ipa_hw_type;
 	enum ipa3_hw_mode ipa3_hw_mode;
+	enum ipa3_platform_type platform_type;
 	bool ipa_config_is_mhi;
 	bool use_ipa_teth_bridge;
 	bool modem_cfg_emb_pipe_flt;
 	bool ipa_wdi2;
 	bool ipa_wdi2_over_gsi;
+	bool ipa_wdi3_over_gsi;
 	bool ipa_fltrt_not_hashable;
 	bool use_64_bit_dma_mask;
 	/* featurize if memory footprint becomes a concern */
@@ -1621,6 +1653,7 @@ struct ipa3_context {
 
 	struct ipa3_uc_wdi_ctx uc_wdi_ctx;
 	struct ipa3_uc_ntn_ctx uc_ntn_ctx;
+	struct ipa3_uc_wigig_ctx uc_wigig_ctx;
 	u32 wan_rx_ring_size;
 	u32 lan_rx_ring_size;
 	bool skip_uc_pipe_reset;
@@ -1657,6 +1690,9 @@ struct ipa3_context {
 	struct mbox_client mbox_client;
 	struct mbox_chan *mbox;
 	atomic_t ipa_clk_vote;
+	int gsi_chk_intset_value;
+	int uc_mailbox17_chk;
+	int uc_mailbox17_mismatch;
 };
 
 struct ipa3_plat_drv_res {
@@ -1674,10 +1710,12 @@ struct ipa3_plat_drv_res {
 	u32 ipa_pipe_mem_size;
 	enum ipa_hw_type ipa_hw_type;
 	enum ipa3_hw_mode ipa3_hw_mode;
+	enum ipa3_platform_type platform_type;
 	u32 ee;
 	bool modem_cfg_emb_pipe_flt;
 	bool ipa_wdi2;
 	bool ipa_wdi2_over_gsi;
+	bool ipa_wdi3_over_gsi;
 	bool ipa_fltrt_not_hashable;
 	bool use_64_bit_dma_mask;
 	bool use_bw_vote;
@@ -2218,6 +2256,26 @@ int ipa3_disconn_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
 int ipa3_enable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
 int ipa3_disable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
 
+int ipa3_conn_wigig_rx_pipe_i(void *in,
+	struct ipa_wigig_conn_out_params *out);
+
+int ipa3_conn_wigig_client_i(void *in, struct ipa_wigig_conn_out_params *out);
+
+int ipa3_wigig_uc_msi_init(bool init,
+	phys_addr_t periph_baddr_pa,
+	phys_addr_t pseudo_cause_pa,
+	phys_addr_t int_gen_tx_pa,
+	phys_addr_t int_gen_rx_pa,
+	phys_addr_t dma_ep_misc_pa);
+
+int ipa3_disconn_wigig_pipe_i(enum ipa_client_type client,
+	struct ipa_wigig_pipe_setup_info_smmu *pipe_smmu,
+	void *dbuff);
+
+int ipa3_enable_wigig_pipe_i(enum ipa_client_type client);
+
+int ipa3_disable_wigig_pipe_i(enum ipa_client_type client);
+
 /*
  * To retrieve doorbell physical address of
  * wlan pipes
@@ -2236,6 +2294,10 @@ int ipa3_uc_reg_rdyCB(struct ipa_wdi_uc_ready_params *param);
 int ipa3_uc_dereg_rdyCB(void);
 
 int ipa_create_uc_smmu_mapping(int res_idx, bool wlan_smmu_en,
+		phys_addr_t pa, struct sg_table *sgt, size_t len, bool device,
+		unsigned long *iova);
+
+int ipa_create_gsi_smmu_mapping(int res_idx, bool wlan_smmu_en,
 		phys_addr_t pa, struct sg_table *sgt, size_t len, bool device,
 		unsigned long *iova);
 
@@ -2476,6 +2538,7 @@ void ipa3_active_clients_unlock(void);
 int ipa3_wdi_init(void);
 int ipa3_write_qmapid_gsi_wdi_pipe(u32 clnt_hdl, u8 qmap_id);
 int ipa3_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id);
+int ipa3_write_qmapid_wdi3_gsi_pipe(u32 clnt_hdl, u8 qmap_id);
 int ipa3_tag_process(struct ipa3_desc *desc, int num_descs,
 		    unsigned long timeout);
 
@@ -2491,6 +2554,7 @@ int ipa3_uc_interface_init(void);
 int ipa3_uc_is_gsi_channel_empty(enum ipa_client_type ipa_client);
 int ipa3_uc_state_check(void);
 int ipa3_uc_loaded_check(void);
+void ipa3_uc_map_cntr_reg_notify(void);
 int ipa3_uc_register_ready_cb(struct notifier_block *nb);
 int ipa3_uc_unregister_ready_cb(struct notifier_block *nb);
 int ipa3_uc_send_cmd(u32 cmd, u32 opcode, u32 expected_status,
@@ -2523,6 +2587,12 @@ int ipa3_uc_send_remote_ipa_info(u32 remote_addr, uint32_t mbox_n);
 void ipa3_tag_destroy_imm(void *user1, int user2);
 const struct ipa_gsi_ep_config *ipa3_get_gsi_ep_info
 	(enum ipa_client_type client);
+
+int ipa3_wigig_init_i(void);
+int ipa3_wigig_uc_init(
+	struct ipa_wdi_uc_ready_params *inout,
+	ipa_wigig_misc_int_cb int_notify,
+	phys_addr_t *uc_db_pa);
 
 /* Hardware stats */
 
@@ -2640,6 +2710,8 @@ int ipa3_ntn_init(void);
 int ipa3_get_ntn_stats(struct Ipa3HwStatsNTNInfoData_t *stats);
 struct dentry *ipa_debugfs_get_root(void);
 bool ipa3_is_msm_device(void);
+void ipa3_read_mailbox_17(enum uc_state state);
+
 struct device *ipa3_get_pdev(void);
 void ipa3_enable_dcd(void);
 void ipa3_disable_prefetch(enum ipa_client_type client);

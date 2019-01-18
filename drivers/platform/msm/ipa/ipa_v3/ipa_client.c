@@ -825,6 +825,11 @@ int ipa3_enable_force_clear(u32 request_id, bool throttle_source,
 	struct ipa_enable_force_clear_datapath_req_msg_v01 req;
 	int result;
 
+	if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ) {
+		IPADBG("APQ platform - ignore force clear\n");
+		return 0;
+	}
+
 	memset(&req, 0, sizeof(req));
 	req.request_id = request_id;
 	req.source_pipe_bitmask = source_pipe_bitmask;
@@ -846,6 +851,11 @@ int ipa3_disable_force_clear(u32 request_id)
 {
 	struct ipa_disable_force_clear_datapath_req_msg_v01 req;
 	int result;
+
+	if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ) {
+		IPADBG("APQ platform - ignore force clear\n");
+		return 0;
+	}
 
 	memset(&req, 0, sizeof(req));
 	req.request_id = request_id;

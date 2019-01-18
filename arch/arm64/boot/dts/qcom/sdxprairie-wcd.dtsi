@@ -1,0 +1,80 @@
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&i2c_3 {
+	tavil_codec {
+		wcd: wcd_pinctrl@5 {
+			compatible = "qcom,wcd-pinctrl";
+			qcom,num-gpios = <5>;
+			gpio-controller;
+			#gpio-cells = <2>;
+
+			spkr_1_wcd_en_active: spkr_1_wcd_en_active {
+				mux {
+					pins = "gpio2";
+				};
+
+				config {
+					pins = "gpio2";
+					output-high;
+				};
+			};
+
+			spkr_1_wcd_en_sleep: spkr_1_wcd_en_sleep {
+				mux {
+					pins = "gpio2";
+				};
+
+				config {
+					pins = "gpio2";
+					input-enable;
+				};
+			};
+
+			spkr_2_wcd_en_active: spkr_2_sd_n_active {
+				mux {
+					pins = "gpio3";
+				};
+
+				config {
+					pins = "gpio3";
+					output-high;
+				};
+			};
+
+			spkr_2_wcd_en_sleep: spkr_2_sd_n_sleep {
+				mux {
+					pins = "gpio3";
+				};
+
+				config {
+					pins = "gpio3";
+					input-enable;
+				};
+			};
+		};
+
+		wsa_spkr_wcd_sd1: msm_cdc_pinctrll {
+		      compatible = "qcom,msm-cdc-pinctrl";
+		      pinctrl-names = "aud_active", "aud_sleep";
+		      pinctrl-0 = <&spkr_1_wcd_en_active>;
+		      pinctrl-1 = <&spkr_1_wcd_en_sleep>;
+		};
+
+		wsa_spkr_wcd_sd2: msm_cdc_pinctrlr {
+		      compatible = "qcom,msm-cdc-pinctrl";
+		      pinctrl-names = "aud_active", "aud_sleep";
+		      pinctrl-0 = <&spkr_2_wcd_en_active>;
+		      pinctrl-1 = <&spkr_2_wcd_en_sleep>;
+		};
+	};
+};

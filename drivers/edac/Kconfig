@@ -532,6 +532,46 @@ config EDAC_XGENE
 	  Support for error detection and correction on the
 	  APM X-Gene family of SOCs.
 
+config EDAC_CORTEX_ARM64
+	depends on ARM64
+	bool "ARM Cortex A CPUs L1/L2 Caches"
+	help
+	  Support for error detection and correction on the
+	  ARM Cortex A53 and A57 CPUs. For debugging issues having to do with
+	  stability and overall system health, you should probably say 'Y'
+	  here.
+
+config EDAC_CORTEX_ARM64_PANIC_ON_CE
+	depends on EDAC_CORTEX_ARM64
+	bool "Panic on correctable errors"
+	help
+	  Forcibly cause a kernel panic if an correctable error (CE) is
+	  detected, even though the error is (by definition) correctable and
+	  would otherwise result in no adverse system effects. This can reduce
+	  debugging times on hardware which may be operating at voltages or
+	  frequencies outside normal specification.
+
+	  For production builds, you should definitely say 'N' here.
+
+config EDAC_CORTEX_ARM64_DBE_IRQ_ONLY
+	depends on EDAC_CORTEX_ARM64
+	bool "Only check for parity errors when an irq is generated"
+	help
+	  In ARM64, parity errors will cause an interrupt
+	  to be triggered but may also cause a data abort to
+	  occur. Only check for EDAC errors for the interrupt.
+	  If unsure, say no.
+
+config EDAC_CORTEX_ARM64_PANIC_ON_UE
+	depends on EDAC_CORTEX_ARM64
+	bool "Panic on uncorrectable errors"
+	help
+	  Forcibly cause a kernel panic if an uncorrectable error (UE) is
+	  detected. This can reduce debugging times on hardware which may be
+	  operating at voltages or frequencies outside normal specification.
+
+	  For production builds, you should probably say 'N' here.
+
 config EDAC_QCOM_LLCC
 	depends on QCOM_LLCC
 	tristate "QCOM LLCC Caches"

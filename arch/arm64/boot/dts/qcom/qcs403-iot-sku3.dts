@@ -74,6 +74,12 @@
 			spi-max-frequency = <50000000>;
 		};
 	};
+
+	gpio_keys {
+		vol_mute {
+			gpios = <&tlmm 19 GPIO_ACTIVE_LOW>;
+		};
+	};
 };
 
 &thermal_zones {
@@ -90,4 +96,42 @@
 
 &qnand_1 {
 	status = "ok";
+};
+
+&soc {
+	usb2_extcon: usb2_extcon {
+		compatible = "linux,extcon-usb-gpio";
+		vbus-gpio = <&tlmm 27 GPIO_ACTIVE_HIGH>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb2_ssrd_det_default>;
+	};
+};
+
+&usb2s {
+	extcon = <&usb2_extcon>;
+};
+
+&tlmm {
+	evb_tlmm_gpio_key{
+		tlmm_gpio_key_active: tlmm_gpio_key_active {
+			mux {
+				pins = "gpio19","gpio52","gpio54","gpio115";
+			};
+
+			config {
+				pins = "gpio19","gpio52","gpio54","gpio115";
+			};
+		};
+
+		tlmm_gpio_key_suspend: tlmm_gpio_key_suspend {
+			mux {
+				pins = "gpio19","gpio52","gpio54","gpio115";
+			};
+
+			config {
+				pins = "gpio19","gpio52","gpio54","gpio115";
+			};
+		};
+	};
 };

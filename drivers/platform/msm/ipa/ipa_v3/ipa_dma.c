@@ -1096,11 +1096,9 @@ void ipa3_dma_async_memcpy_notify_cb(void *priv
 	struct ipa3_dma_xfer_wrapper *xfer_descr_expected;
 	struct ipa3_sys_context *sys;
 	unsigned long flags;
-	struct ipa_mem_buffer *mem_info;
 
 	IPADMA_FUNC_ENTRY();
 
-	mem_info = (struct ipa_mem_buffer *)data;
 	ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS);
 	if (ep_idx < 0) {
 		IPADMA_ERR("IPA Client mapping failed\n");

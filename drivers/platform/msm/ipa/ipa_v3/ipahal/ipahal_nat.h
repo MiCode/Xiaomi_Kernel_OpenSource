@@ -27,6 +27,18 @@ enum ipahal_nat_type {
 	IPA_NAT_MAX
 };
 
+/**
+ * struct ipahal_nat_pdn_entry - IPA PDN config table entry
+ * @public_ip: the PDN's public ip
+ * @src_metadata: the PDN's metadata to be replaced for source NAT
+ * @dst_metadata: the PDN's metadata to be replaced for destination NAT
+ */
+struct ipahal_nat_pdn_entry {
+	u32 public_ip;
+	u32 src_metadata;
+	u32 dst_metadata;
+};
+
 /* NAT Function APIs */
 
 /*
@@ -75,5 +87,24 @@ int ipahal_nat_is_entry_valid(enum ipahal_nat_type nat_type, void *entry,
  */
 int ipahal_nat_stringify_entry(enum ipahal_nat_type nat_type, void *entry,
 	char *buff, size_t buff_size);
+
+/*
+ * ipahal_nat_construct_entry() - Create NAT entry using the given fields
+ * @nat_type: [in] The type of the NAT entry
+ * @fields: [in] The fields need to be written in the entry
+ * @address: [in] The address of the memory need to be written
+ */
+int ipahal_nat_construct_entry(enum ipahal_nat_type nat_type,
+	void const *fields,
+	void *address);
+
+/*
+ * ipahal_nat_parse_entry() - Parse NAT entry to the given fields structure
+ * @nat_type: [in] The type of the NAT entry
+ * @fields: [in] The fields need to be parsed from the entry
+ * @address: [in] The address of the memory need to be parsed
+ */
+int ipahal_nat_parse_entry(enum ipahal_nat_type nat_type, void *fields,
+	const void *address);
 
 #endif /* _IPAHAL_NAT_H_ */

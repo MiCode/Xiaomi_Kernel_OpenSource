@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,50 +18,9 @@
 #include "mdss_dsi_clk.h"
 #include "mdss_dsi.h"
 #include "mdss_debug.h"
+#include "mdss_rgb.h"
 
-#define MAX_CLIENT_NAME_LEN 20
-struct dsi_core_clks {
-	struct mdss_dsi_core_clk_info clks;
-	u32 current_clk_state;
-};
-
-struct dsi_link_clks {
-	struct mdss_dsi_link_hs_clk_info hs_clks;
-	struct mdss_dsi_link_lp_clk_info lp_clks;
-	u32 current_clk_state;
-};
-
-struct mdss_dsi_clk_mngr {
-	char name[DSI_CLK_NAME_LEN];
-	struct dsi_core_clks core_clks;
-	struct dsi_link_clks link_clks;
-
-	struct reg_bus_client *reg_bus_clt;
-
-	pre_clockoff_cb pre_clkoff_cb;
-	post_clockoff_cb post_clkoff_cb;
-	post_clockon_cb post_clkon_cb;
-	pre_clockon_cb pre_clkon_cb;
-
-	struct list_head client_list;
-	struct mutex clk_mutex;
-
-	void *priv_data;
-};
-
-struct mdss_dsi_clk_client_info {
-	char name[MAX_CLIENT_NAME_LEN];
-	u32 core_refcount;
-	u32 link_refcount;
-	u32 core_clk_state;
-	u32 link_clk_state;
-
-	struct list_head list;
-
-	struct mdss_dsi_clk_mngr *mngr;
-};
-
-static int dsi_core_clk_start(struct dsi_core_clks *c_clks)
+int dsi_core_clk_start(struct dsi_core_clks *c_clks)
 {
 	int rc = 0;
 	struct mdss_dsi_clk_mngr *mngr;
@@ -248,7 +207,7 @@ static int dsi_link_hs_clk_disable(
 }
 
 
-static int dsi_link_hs_clk_start(
+int dsi_link_hs_clk_start(
 	struct mdss_dsi_link_hs_clk_info *link_hs_clks,
 	enum mdss_dsi_link_clk_op_type op_type)
 {
@@ -291,7 +250,7 @@ error:
 	return rc;
 }
 
-static int dsi_link_lp_clk_start(
+int dsi_link_lp_clk_start(
 	struct mdss_dsi_link_lp_clk_info *link_lp_clks)
 {
 	int rc = 0;
@@ -377,6 +336,10 @@ static int dsi_update_clk_state(struct dsi_core_clks *c_clks, u32 c_state,
 {
 	int rc = 0;
 	struct mdss_dsi_clk_mngr *mngr;
+	struct mdss_rgb_data *sdata;
+	struct dss_vreg *vreg;
+	unsigned int num;
+	int i = 0;
 	bool l_c_on = false;
 
 	if (c_clks) {
@@ -392,6 +355,8 @@ static int dsi_update_clk_state(struct dsi_core_clks *c_clks, u32 c_state,
 	if (!mngr)
 		return -EINVAL;
 
+	sdata = mngr->priv_data;
+
 	pr_debug("%s: c_state = %d, l_state = %d\n", mngr ? mngr->name : "NA",
 		 c_clks ? c_state : -1, l_clks ? l_state : -1);
 	/*
@@ -401,12 +366,37 @@ static int dsi_update_clk_state(struct dsi_core_clks *c_clks, u32 c_state,
 	 */
 	if (c_clks && (c_state == MDSS_DSI_CLK_ON)) {
 		if (c_clks->current_clk_state == MDSS_DSI_CLK_OFF) {
-			rc = mngr->pre_clkon_cb(mngr->priv_data,
-				MDSS_DSI_CORE_CLK, MDSS_DSI_LINK_NONE,
-				MDSS_DSI_CLK_ON);
-			if (rc) {
-				pr_err("failed to turn on MDP FS rc= %d\n", rc);
-				goto error;
+			if (mngr->pre_clkon_cb == NULL) {
+				if (!sdata) {
+					pr_debug("invalid rgb data\n");
+					goto error;
+				}
+
+				for (i = DSI_CORE_PM; i < DSI_MAX_PM; i++) {
+					vreg = sdata->power_data[i].vreg_config;
+					num = sdata->power_data[i].num_vreg;
+					rc = msm_dss_enable_vreg(vreg, num, 1);
+					if (rc) {
+						pr_err("%s: failed to enable vregs for %s\n",
+							__func__,
+							__mdss_dsi_pm_name(i));
+						goto error;
+					} else {
+						pr_debug("%s: enabled vregs for %s\n",
+							__func__,
+							__mdss_dsi_pm_name(i));
+						sdata->core_power = true;
+					}
+				}
+			} else {
+				rc = mngr->pre_clkon_cb(mngr->priv_data,
+					MDSS_DSI_CORE_CLK, MDSS_DSI_LINK_NONE,
+					MDSS_DSI_CLK_ON);
+				if (rc) {
+					pr_err("failed to turn on MDP FS rc= %d\n",
+							rc);
+					goto error;
+				}
 			}
 		}
 		rc = dsi_core_clk_start(c_clks);

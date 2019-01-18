@@ -28,6 +28,12 @@ config QRTR_MHI
 	  Say Y here to support MHI based ipcrouter channels.  MHI is the
 	  transport used for external modem connections for IPC Router.
 
+config QRTR_USB
+	tristate "USB IPC Router channels"
+	depends on USB || (COMPILE_TEST && USB=n)
+	---help---
+	  Say Y here to support USB based ipcrouter channels.
+
 config QRTR_FIFO
 	tristate "FIFO IPC Router channels"
 	---help---

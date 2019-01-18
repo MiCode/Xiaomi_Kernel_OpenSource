@@ -616,7 +616,10 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 	mhi_cntrl->fw_image = firmware_info->fw_image;
 	mhi_cntrl->edl_image = firmware_info->edl_image;
 
-	sysfs_create_group(&mhi_cntrl->mhi_dev->dev.kobj, &mhi_qcom_group);
+	ret = sysfs_create_group(&mhi_cntrl->mhi_dev->dev.kobj,
+				 &mhi_qcom_group);
+	if (ret)
+		goto error_register;
 
 	return mhi_cntrl;
 

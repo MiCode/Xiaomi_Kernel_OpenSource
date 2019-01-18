@@ -166,6 +166,83 @@ static const struct vadc_map_pt adcmap_batt_therm_100k[] = {
 };
 
 /*
+ * Voltage to temperature table for 100k pull up for bat_therm with
+ * MLP356477.
+ */
+static const struct vadc_map_pt adcmap_batt_therm_100k_6125[] = {
+	{1770,	-400},
+	{1757,	-380},
+	{1743,	-360},
+	{1727,	-340},
+	{1710,	-320},
+	{1691,	-300},
+	{1671,	-280},
+	{1650,	-260},
+	{1627,	-240},
+	{1602,	-220},
+	{1576,	-200},
+	{1548,	-180},
+	{1519,	-160},
+	{1488,	-140},
+	{1456,	-120},
+	{1423,	-100},
+	{1388,	-80},
+	{1353,	-60},
+	{1316,	-40},
+	{1278,	-20},
+	{1240,	0},
+	{1201,	20},
+	{1162,	40},
+	{1122,	60},
+	{1082,	80},
+	{1042,	100},
+	{1003,	120},
+	{964,	140},
+	{925,	160},
+	{887,	180},
+	{849,	200},
+	{812,	220},
+	{777,	240},
+	{742,	260},
+	{708,	280},
+	{675,	300},
+	{643,	320},
+	{613,	340},
+	{583,	360},
+	{555,	380},
+	{528,	400},
+	{502,	420},
+	{477,	440},
+	{453,	460},
+	{430,	480},
+	{409,	500},
+	{388,	520},
+	{369,	540},
+	{350,	560},
+	{333,	580},
+	{316,	600},
+	{300,	620},
+	{285,	640},
+	{271,	660},
+	{257,	680},
+	{245,	700},
+	{233,	720},
+	{221,	740},
+	{210,	760},
+	{200,	780},
+	{190,	800},
+	{181,	820},
+	{173,	840},
+	{164,	860},
+	{157,	880},
+	{149,	900},
+	{142,	920},
+	{136,	940},
+	{129,	960},
+	{124,	980},
+};
+
+/*
  * Voltage to temperature table for 30k pull up for bat_therm with
  * Alium.
  */
@@ -243,6 +320,83 @@ static const struct vadc_map_pt adcmap_batt_therm_30k[] = {
 };
 
 /*
+ * Voltage to temperature table for 30k pull up for bat_therm with
+ * MLP356477.
+ */
+static const struct vadc_map_pt adcmap_batt_therm_30k_6125[] = {
+	{1842,	-400},
+	{1838,	-380},
+	{1833,	-360},
+	{1828,	-340},
+	{1822,	-320},
+	{1816,	-300},
+	{1809,	-280},
+	{1801,	-260},
+	{1793,	-240},
+	{1784,	-220},
+	{1774,	-200},
+	{1763,	-180},
+	{1752,	-160},
+	{1739,	-140},
+	{1726,	-120},
+	{1712,	-100},
+	{1697,	-80},
+	{1680,	-60},
+	{1663,	-40},
+	{1645,	-20},
+	{1625,	0},
+	{1605,	20},
+	{1583,	40},
+	{1561,	60},
+	{1537,	80},
+	{1513,	100},
+	{1487,	120},
+	{1461,	140},
+	{1433,	160},
+	{1405,	180},
+	{1376,	200},
+	{1347,	220},
+	{1316,	240},
+	{1286,	260},
+	{1254,	280},
+	{1223,	300},
+	{1191,	320},
+	{1159,	340},
+	{1126,	360},
+	{1094,	380},
+	{1062,	400},
+	{1029,	420},
+	{997,	440},
+	{966,	460},
+	{934,	480},
+	{903,	500},
+	{873,	520},
+	{843,	540},
+	{813,	560},
+	{784,	580},
+	{756,	600},
+	{728,	620},
+	{702,	640},
+	{675,	660},
+	{650,	680},
+	{625,	700},
+	{601,	720},
+	{578,	740},
+	{556,	760},
+	{534,	780},
+	{513,	800},
+	{493,	820},
+	{474,	840},
+	{455,	860},
+	{437,	880},
+	{420,	900},
+	{403,	920},
+	{387,	940},
+	{372,	960},
+	{357,	980},
+};
+
+/*
  * Voltage to temperature table for 400k pull up for bat_therm with
  * Alium.
  */
@@ -317,6 +471,103 @@ static const struct vadc_map_pt adcmap_batt_therm_400k[] = {
 	{32,	940},
 	{30,	960},
 	{28,	980}
+};
+
+/*
+ * Voltage to temperature table for 400k pull up for bat_therm with
+ * MLP356477.
+ */
+static const struct vadc_map_pt adcmap_batt_therm_400k_6125[] = {
+	{1516,	-400},
+	{1478,	-380},
+	{1438,	-360},
+	{1396,	-340},
+	{1353,	-320},
+	{1307,	-300},
+	{1261,	-280},
+	{1213,	-260},
+	{1164,	-240},
+	{1115,	-220},
+	{1066,	-200},
+	{1017,	-180},
+	{968,	-160},
+	{920,	-140},
+	{872,	-120},
+	{826,	-100},
+	{781,	-80},
+	{737,	-60},
+	{694,	-40},
+	{654,	-20},
+	{615,	0},
+	{578,	20},
+	{542,	40},
+	{509,	60},
+	{477,	80},
+	{447,	100},
+	{419,	120},
+	{392,	140},
+	{367,	160},
+	{343,	180},
+	{321,	200},
+	{301,	220},
+	{282,	240},
+	{264,	260},
+	{247,	280},
+	{231,	300},
+	{216,	320},
+	{203,	340},
+	{190,	360},
+	{178,	380},
+	{167,	400},
+	{157,	420},
+	{147,	440},
+	{138,	460},
+	{130,	480},
+	{122,	500},
+	{115,	520},
+	{108,	540},
+	{102,	560},
+	{96,	580},
+	{90,	600},
+	{85,	620},
+	{80,	640},
+	{76,	660},
+	{72,	680},
+	{68,	700},
+	{64,	720},
+	{61,	740},
+	{57,	760},
+	{54,	780},
+	{52,	800},
+	{49,	820},
+	{46,	840},
+	{44,	860},
+	{42,	880},
+	{40,	900},
+	{38,	920},
+	{36,	940},
+	{34,	960},
+	{32,	980},
+};
+
+struct lut_table {
+	const struct vadc_map_pt *table;
+	u32 tablesize;
+};
+
+static const struct lut_table lut_table_30[] = {
+	{adcmap_batt_therm_30k,	ARRAY_SIZE(adcmap_batt_therm_30k)},
+	{adcmap_batt_therm_30k_6125, ARRAY_SIZE(adcmap_batt_therm_30k_6125)},
+};
+
+static const struct lut_table lut_table_100[] = {
+	{adcmap_batt_therm_100k, ARRAY_SIZE(adcmap_batt_therm_100k)},
+	{adcmap_batt_therm_100k_6125, ARRAY_SIZE(adcmap_batt_therm_100k_6125)},
+};
+
+static const struct lut_table lut_table_400[] = {
+	{adcmap_batt_therm_400k, ARRAY_SIZE(adcmap_batt_therm_400k)},
+	{adcmap_batt_therm_400k_6125, ARRAY_SIZE(adcmap_batt_therm_400k_6125)},
 };
 
 static int qcom_vadc_map_voltage_temp(const struct vadc_map_pt *pts,
@@ -512,11 +763,18 @@ static int qcom_vadc_scale_hw_calib_therm(
 static int qcom_vadc_scale_hw_calib_batt_therm_100(
 				const struct vadc_prescale_ratio *prescale,
 				const struct adc_data *data,
+				unsigned int lut_index,
 				u16 adc_code, int *result_mdec)
 {
 	s64 voltage = 0, result = 0, adc_vdd_ref_mv = 1875;
 	int ret;
+	u32 size;
+	const struct vadc_map_pt *lut;
 
+	if (lut_index >= ARRAY_SIZE(lut_table_100)) {
+		pr_err("LUT index out of range\n");
+		return -EINVAL;
+	}
 	if (adc_code > VADC5_MAX_CODE)
 		adc_code = 0;
 
@@ -524,9 +782,12 @@ static int qcom_vadc_scale_hw_calib_batt_therm_100(
 	voltage = (s64) adc_code * adc_vdd_ref_mv * 1000;
 	voltage = div64_s64(voltage, (data->full_scale_code_volt
 								* 1000));
-	ret = qcom_vadc_map_voltage_temp(adcmap_batt_therm_100k,
-				 ARRAY_SIZE(adcmap_batt_therm_100k),
-				 voltage, &result);
+
+	lut = lut_table_100[lut_index].table;
+	size = lut_table_100[lut_index].tablesize;
+
+	ret = qcom_vadc_map_voltage_temp(lut, size, voltage, &result);
+
 	if (ret)
 		return ret;
 
@@ -538,11 +799,18 @@ static int qcom_vadc_scale_hw_calib_batt_therm_100(
 static int qcom_vadc_scale_hw_calib_batt_therm_30(
 				const struct vadc_prescale_ratio *prescale,
 				const struct adc_data *data,
+				unsigned int lut_index,
 				u16 adc_code, int *result_mdec)
 {
 	s64 voltage = 0, result = 0, adc_vdd_ref_mv = 1875;
 	int ret;
+	u32 size;
+	const struct vadc_map_pt *lut;
 
+	if (lut_index >= ARRAY_SIZE(lut_table_30)) {
+		pr_err("LUT index out of range\n");
+		return -EINVAL;
+	}
 	if (adc_code > VADC5_MAX_CODE)
 		adc_code = 0;
 
@@ -550,9 +818,12 @@ static int qcom_vadc_scale_hw_calib_batt_therm_30(
 	voltage = (s64) adc_code * adc_vdd_ref_mv * 1000;
 	voltage = div64_s64(voltage, (data->full_scale_code_volt
 								* 1000));
-	ret = qcom_vadc_map_voltage_temp(adcmap_batt_therm_30k,
-				 ARRAY_SIZE(adcmap_batt_therm_30k),
-				 voltage, &result);
+
+	lut = lut_table_30[lut_index].table;
+	size = lut_table_30[lut_index].tablesize;
+
+	ret = qcom_vadc_map_voltage_temp(lut, size, voltage, &result);
+
 	if (ret)
 		return ret;
 
@@ -564,11 +835,18 @@ static int qcom_vadc_scale_hw_calib_batt_therm_30(
 static int qcom_vadc_scale_hw_calib_batt_therm_400(
 				const struct vadc_prescale_ratio *prescale,
 				const struct adc_data *data,
+				unsigned int lut_index,
 				u16 adc_code, int *result_mdec)
 {
 	s64 voltage = 0, result = 0, adc_vdd_ref_mv = 1875;
 	int ret;
+	u32 size;
+	const struct vadc_map_pt *lut;
 
+	if (lut_index >= ARRAY_SIZE(lut_table_400)) {
+		pr_err("LUT index out of range\n");
+		return -EINVAL;
+	}
 	if (adc_code > VADC5_MAX_CODE)
 		adc_code = 0;
 
@@ -576,9 +854,12 @@ static int qcom_vadc_scale_hw_calib_batt_therm_400(
 	voltage = (s64) adc_code * adc_vdd_ref_mv * 1000;
 	voltage = div64_s64(voltage, (data->full_scale_code_volt
 								* 1000));
-	ret = qcom_vadc_map_voltage_temp(adcmap_batt_therm_400k,
-				 ARRAY_SIZE(adcmap_batt_therm_400k),
-				 voltage, &result);
+
+	lut = lut_table_400[lut_index].table;
+	size = lut_table_400[lut_index].tablesize;
+
+	ret = qcom_vadc_map_voltage_temp(lut, size, voltage, &result);
+
 	if (ret)
 		return ret;
 
@@ -730,7 +1011,7 @@ EXPORT_SYMBOL(qcom_vadc_scale);
 
 int qcom_vadc_hw_scale(enum vadc_scale_fn_type scaletype,
 		    const struct vadc_prescale_ratio *prescale,
-		    const struct adc_data *data,
+		    const struct adc_data *data, unsigned int lut_index,
 		    u16 adc_code, int *result)
 {
 	switch (scaletype) {
@@ -743,13 +1024,13 @@ int qcom_vadc_hw_scale(enum vadc_scale_fn_type scaletype,
 						adc_code, result);
 	case SCALE_HW_CALIB_BATT_THERM_100K:
 		return qcom_vadc_scale_hw_calib_batt_therm_100(prescale,
-						data, adc_code, result);
+					data, lut_index, adc_code, result);
 	case SCALE_HW_CALIB_BATT_THERM_30K:
 		return qcom_vadc_scale_hw_calib_batt_therm_30(prescale,
-						data, adc_code, result);
+					data, lut_index, adc_code, result);
 	case SCALE_HW_CALIB_BATT_THERM_400K:
 		return qcom_vadc_scale_hw_calib_batt_therm_400(prescale,
-						data, adc_code, result);
+					data, lut_index, adc_code, result);
 	case SCALE_HW_CALIB_PMIC_THERM:
 		return qcom_vadc_scale_hw_calib_die_temp(prescale, data,
 						adc_code, result);

@@ -247,6 +247,7 @@
 #define GCC_USB30_PRIM_BCR					26
 #define GCC_USB30_SEC_BCR					27
 #define GCC_USB_PHY_CFG_AHB2PHY_BCR				28
+#define GCC_VIDEO_AXIC_CLK_BCR					29
 
 /* Dummy clocks for rate measurement */
 #define MEASURE_ONLY_SNOC_CLK					0

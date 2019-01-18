@@ -406,6 +406,7 @@ enum gsi_chan_use_db_eng {
  *	             callback for RE3 using GSI_CHAN_EVT_EOT
  *
  * @err_cb:          error notification callback
+ * @cleanup_cb;	     cleanup rx-pkt/skb callback
  * @chan_user_data:  cookie used for notifications
  *
  * All the callbacks are in interrupt context
@@ -428,6 +429,7 @@ struct gsi_chan_props {
 	uint8_t empty_lvl_threshold;
 	void (*xfer_cb)(struct gsi_chan_xfer_notify *notify);
 	void (*err_cb)(struct gsi_chan_err_notify *notify);
+	void (*cleanup_cb)(void *chan_user_data, void *xfer_user_data);
 	void *chan_user_data;
 };
 
@@ -713,7 +715,7 @@ struct __packed gsi_wdi_channel_scratch {
 * @status_ring_hwtail_address_msb: High 32 bits of status ring hwtail address.
 * @data_buffers_base_address_lsb: Low 32 bits of the data buffers address.
 * @data_buffers_base_address_msb: High 32 bits of the data buffers address.
-* @fixed_data_buffer_size: the fixed buffer size (> MTU).
+* @fixed_data_buffer_size_pow_2: the fixed buffer size power of 2 (> MTU).
 * @resv1: reserved bits.
 */
 struct __packed gsi_11ad_rx_channel_scratch {
@@ -721,7 +723,7 @@ struct __packed gsi_11ad_rx_channel_scratch {
 	uint32_t status_ring_hwtail_address_msb;
 	uint32_t data_buffers_base_address_lsb;
 	uint32_t data_buffers_base_address_msb:8;
-	uint32_t fixed_data_buffer_size:16;
+	uint32_t fixed_data_buffer_size_pow_2:16;
 	uint32_t resv1:8;
 };
 
@@ -735,7 +737,7 @@ struct __packed gsi_11ad_rx_channel_scratch {
  *	updating descriptor ring 11ad HWTAIL pointer moderation.
  * @resv1: reserved bits.
  * @resv2: reserved bit.
- * @fixed_data_buffer_size: the fixed buffer size (> MTU).
+ * @fixed_data_buffer_size_pow_2: the fixed buffer size power of 2 (> MTU).
  * @resv3: reserved bits.
  */
 struct __packed gsi_11ad_tx_channel_scratch {
@@ -744,8 +746,38 @@ struct __packed gsi_11ad_tx_channel_scratch {
 	uint32_t update_status_hwtail_mod_threshold:8;
 	uint32_t resv1:24;
 	uint32_t resv2:8;
-	uint32_t fixed_data_buffer_size:16;
+	uint32_t fixed_data_buffer_size_pow_2:16;
 	uint32_t resv3:8;
+};
+
+/**
+ * gsi_wdi3_channel_scratch - WDI protocol 3 SW config area of
+ * channel scratch
+ *
+ * @wifi_rx_ri_addr_low: Low 32 bits of Transfer ring Read Index address.
+ * @wifi_rx_ri_addr_high: High 32 bits of Transfer ring Read Index address.
+ * @update_ri_moderation_threshold: Threshold N for Transfer ring Read Index
+ *                                  N is the number of packets that IPA will
+ *                                  process before Wifi transfer ring Ri will
+ *                                  be updated.
+ * @resv: reserved bits.
+ * @rx_pkt_offset: Rx only, Since Rx header length is not fixed,
+ *                  WLAN host will pass this information to IPA.
+ * @endp_metadata_reg_offset: Rx only, the offset of
+ *                 IPA_ENDP_INIT_HDR_METADATA_n of the
+ *                 corresponding endpoint in 4B words from IPA
+ *                 base address.
+ * @qmap_id: Rx only, used for setting metadata register in IPA. Read only field
+ *           for MCS. Write for SW.
+ */
+struct __packed gsi_wdi3_channel_scratch {
+	uint32_t wifi_rp_address_low;
+	uint32_t wifi_rp_address_high;
+	uint32_t update_rp_moderation_threshold : 5;
+	uint32_t reserved : 11;
+	uint32_t rx_pkt_offset : 16;
+	uint32_t endp_metadata_reg_offset : 16;
+	uint32_t qmap_id : 16;
 };
 
 /**
@@ -759,6 +791,7 @@ union __packed gsi_channel_scratch {
 	struct __packed gsi_wdi_channel_scratch wdi;
 	struct __packed gsi_11ad_rx_channel_scratch rx_11ad;
 	struct __packed gsi_11ad_tx_channel_scratch tx_11ad;
+	struct __packed gsi_wdi3_channel_scratch wdi3;
 	struct __packed {
 		uint32_t word1;
 		uint32_t word2;
@@ -838,6 +871,22 @@ struct __packed gsi_11ad_evt_scratch {
 };
 
 /**
+ * gsi_wdi3_evt_scratch - wdi3 protocol SW config area of
+ * event scratch
+ * @update_ri_moderation_threshold: Threshold N for Transfer ring Read Index
+ *                                  N is the number of packets that IPA will
+ *                                  process before Wifi transfer ring Ri will
+ *                                  be updated.
+ * @reserved1: reserve bit.
+ * @reserved2: reserve bit.
+ */
+struct __packed gsi_wdi3_evt_scratch {
+	uint32_t update_rp_moderation_config : 8;
+	uint32_t reserved1 : 24;
+	uint32_t reserved2;
+};
+
+/**
  * gsi_evt_scratch - event scratch SW config area
  *
  */
@@ -845,7 +894,8 @@ union __packed gsi_evt_scratch {
 	struct __packed gsi_mhi_evt_scratch mhi;
 	struct __packed gsi_xdci_evt_scratch xdci;
 	struct __packed gsi_wdi_evt_scratch wdi;
-	struct __packed gsi_11ad_evt_scratch ad11;
+	struct __packed gsi_11ad_evt_scratch w11ad;
+	struct __packed gsi_wdi3_evt_scratch wdi3;
 	struct __packed {
 		uint32_t word1;
 		uint32_t word2;
@@ -1404,6 +1454,24 @@ void gsi_get_inst_ram_offset_and_size(unsigned long *base_offset,
 int gsi_halt_channel_ee(unsigned int chan_idx, unsigned int ee, int *code);
 
 /**
+ * gsi_wdi3_write_evt_ring_db - write event ring doorbell address
+ *
+ * @chan_hdl: gsi channel handle
+ * @Return gsi_status
+ */
+void gsi_wdi3_write_evt_ring_db(unsigned long chan_hdl, uint32_t db_addr_low,
+	uint32_t db_addr_high);
+
+
+/**
+ * gsi_wdi3_dump_register - dump wdi3 related gsi registers
+ *
+ * @chan_hdl: gsi channel handle
+ */
+void gsi_wdi3_dump_register(unsigned long chan_hdl);
+
+
+/**
  * gsi_map_base - Peripheral should call this function to configure
  * access to the GSI registers.
 
@@ -1446,6 +1514,9 @@ int gsi_map_virtual_ch_to_per_ep(u32 ee, u32 chan_num, u32 per_ep_index);
  * @Return gsi_status
  */
 int gsi_alloc_channel_ee(unsigned int chan_idx, unsigned int ee, int *code);
+
+
+int gsi_chk_intset_value(void);
 
 /*
  * Here is a typical sequence of calls
@@ -1705,9 +1776,25 @@ static inline int gsi_map_virtual_ch_to_per_ep(
 }
 
 static inline int gsi_alloc_channel_ee(unsigned int chan_idx, unsigned int ee,
-	 int *code)
+	int *code)
 {
 	return -GSI_STATUS_UNSUPPORTED_OP;
+}
+
+
+static inline int gsi_chk_intset_value(void)
+{
+	return -GSI_STATUS_UNSUPPORTED_OP;
+}
+
+static inline void gsi_wdi3_write_evt_ring_db(
+	unsigned long chan_hdl, uint32_t db_addr_low,
+	uint32_t db_addr_high)
+{
+}
+
+static inline void gsi_wdi3_dump_register(unsigned long chan_hdl)
+{
 }
 
 #endif

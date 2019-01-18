@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -151,6 +151,8 @@ int cnss_suspend_pci_link(struct cnss_pci_data *pci_priv)
 		goto out;
 	}
 
+	pci_clear_master(pci_priv->pci_dev);
+
 	ret = cnss_set_pci_config_space(pci_priv, SAVE_PCI_CONFIG_SPACE);
 	if (ret)
 		goto out;
@@ -200,15 +202,15 @@ int cnss_resume_pci_link(struct cnss_pci_data *pci_priv)
 		}
 	}
 
-	ret = cnss_set_pci_config_space(pci_priv, RESTORE_PCI_CONFIG_SPACE);
-	if (ret)
-		goto out;
-
 	ret = pci_enable_device(pci_priv->pci_dev);
 	if (ret) {
 		cnss_pr_err("Failed to enable PCI device, err = %d\n", ret);
 		goto out;
 	}
+
+	ret = cnss_set_pci_config_space(pci_priv, RESTORE_PCI_CONFIG_SPACE);
+	if (ret)
+		goto out;
 
 	pci_set_master(pci_priv->pci_dev);
 
@@ -347,7 +349,8 @@ int cnss_pci_call_driver_remove(struct cnss_pci_data *pci_priv)
 	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state) &&
 	    test_bit(CNSS_DRIVER_PROBED, &plat_priv->driver_state)) {
 		pci_priv->driver_ops->shutdown(pci_priv->pci_dev);
-	} else if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) {
+	} else if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state) &&
+		   test_bit(CNSS_DRIVER_PROBED, &plat_priv->driver_state)) {
 		pci_priv->driver_ops->remove(pci_priv->pci_dev);
 		clear_bit(CNSS_DRIVER_PROBED, &plat_priv->driver_state);
 	}
@@ -1008,7 +1011,7 @@ static int cnss_pci_suspend(struct device *dev)
 		}
 	}
 
-	if (pci_priv->pci_link_state == PCI_LINK_UP) {
+	if (pci_priv->pci_link_state == PCI_LINK_UP && !pci_priv->disable_pc) {
 		ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_SUSPEND);
 		if (ret) {
 			if (driver_ops && driver_ops->resume)
@@ -1017,6 +1020,7 @@ static int cnss_pci_suspend(struct device *dev)
 			goto out;
 		}
 
+		pci_clear_master(pci_dev);
 		cnss_set_pci_config_space(pci_priv,
 					  SAVE_PCI_CONFIG_SPACE);
 		pci_disable_device(pci_dev);
@@ -1048,7 +1052,7 @@ static int cnss_pci_resume(struct device *dev)
 	if (pci_priv->pci_link_down_ind)
 		goto out;
 
-	if (pci_priv->pci_link_state == PCI_LINK_UP) {
+	if (pci_priv->pci_link_state == PCI_LINK_UP && !pci_priv->disable_pc) {
 		ret = pci_enable_device(pci_dev);
 		if (ret)
 			cnss_pr_err("Failed to enable PCI device, err = %d\n",
@@ -1090,11 +1094,6 @@ static int cnss_pci_suspend_noirq(struct device *dev)
 	if (driver_ops && driver_ops->suspend_noirq)
 		ret = driver_ops->suspend_noirq(pci_dev);
 
-	ret = cnss_set_pci_link(pci_priv, PCI_LINK_DOWN);
-	if (ret)
-		goto out;
-	pci_priv->pci_link_state = PCI_LINK_DOWN;
-
 out:
 	return ret;
 }
@@ -1108,11 +1107,6 @@ static int cnss_pci_resume_noirq(struct device *dev)
 
 	if (!pci_priv)
 		goto out;
-
-	ret = cnss_set_pci_link(pci_priv, PCI_LINK_UP);
-	if (ret)
-		goto out;
-	pci_priv->pci_link_state = PCI_LINK_UP;
 
 	driver_ops = pci_priv->driver_ops;
 	if (driver_ops && driver_ops->resume_noirq &&
@@ -1189,11 +1183,23 @@ static int cnss_pci_runtime_idle(struct device *dev)
 int cnss_wlan_pm_control(struct device *dev, bool vote)
 {
 	struct pci_dev *pci_dev = to_pci_dev(dev);
+	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
+	int ret = 0;
 
-	return msm_pcie_pm_control(vote ? MSM_PCIE_DISABLE_PC :
-				   MSM_PCIE_ENABLE_PC,
-				   pci_dev->bus->number, pci_dev,
-				   NULL, PM_OPTIONS_DEFAULT);
+	if (!pci_priv)
+		return -ENODEV;
+
+	ret = msm_pcie_pm_control(vote ? MSM_PCIE_DISABLE_PC :
+				  MSM_PCIE_ENABLE_PC,
+				  pci_dev->bus->number, pci_dev,
+				  NULL, PM_OPTIONS_DEFAULT);
+	if (ret)
+		return ret;
+
+	pci_priv->disable_pc = vote;
+	cnss_pr_dbg("%s PCIe power collapse\n", vote ? "disable" : "enable");
+
+	return 0;
 }
 EXPORT_SYMBOL(cnss_wlan_pm_control);
 
@@ -1271,6 +1277,7 @@ int cnss_auto_suspend(struct device *dev)
 			goto out;
 		}
 
+		pci_clear_master(pci_dev);
 		cnss_set_pci_config_space(pci_priv, SAVE_PCI_CONFIG_SPACE);
 		pci_disable_device(pci_dev);
 

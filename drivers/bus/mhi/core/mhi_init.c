@@ -932,11 +932,22 @@ static int of_parse_ch_cfg(struct mhi_controller *mhi_cntrl,
 		mhi_chan->chan = chan;
 
 		ret = of_property_read_u32(child, "mhi,num-elements",
-					   (u32 *)&mhi_chan->buf_ring.elements);
-		if (!ret && !mhi_chan->buf_ring.elements)
+					   (u32 *)&mhi_chan->tre_ring.elements);
+		if (!ret && !mhi_chan->tre_ring.elements)
 			goto error_chan_cfg;
 
-		mhi_chan->tre_ring.elements = mhi_chan->buf_ring.elements;
+		/*
+		 * For some channels, local ring len should be bigger than
+		 * transfer ring len due to internal logical channels in device.
+		 * So host can queue much more buffers than transfer ring len.
+		 * Example, RSC channels should have a larger local channel
+		 * than transfer ring length.
+		 */
+		ret = of_property_read_u32(child, "mhi,local-elements",
+					   (u32 *)&mhi_chan->buf_ring.elements);
+		if (ret)
+			mhi_chan->buf_ring.elements =
+				mhi_chan->tre_ring.elements;
 
 		ret = of_property_read_u32(child, "mhi,event-ring",
 					   &mhi_chan->er_index);
@@ -983,6 +994,10 @@ static int of_parse_ch_cfg(struct mhi_controller *mhi_cntrl,
 			break;
 		case MHI_XFER_NOP:
 			mhi_chan->queue_xfer = mhi_queue_nop;
+			break;
+		case MHI_XFER_DMA:
+		case MHI_XFER_RSC_DMA:
+			mhi_chan->queue_xfer = mhi_queue_dma;
 			break;
 		default:
 			goto error_chan_cfg;

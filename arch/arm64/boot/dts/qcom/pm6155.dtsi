@@ -46,7 +46,7 @@
 
 			qcom,pon_1 {
 				qcom,pon-type = <PON_POWER_ON_TYPE_KPDPWR>;
-				qcom,pull-up;
+				qcom,pull-up = <1>;
 				linux,code = <KEY_POWER>;
 			};
 

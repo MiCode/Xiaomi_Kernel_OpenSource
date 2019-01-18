@@ -657,12 +657,6 @@ void msm_slim_tx_msg_return(struct msm_slim_ctrl *dev, int err)
 		}
 		idx = (int) ((addr - mem->phys_base)
 			/ SLIM_MSGQ_BUF_LEN);
-		if (dev->wr_comp[idx]) {
-			struct completion *comp = dev->wr_comp[idx];
-
-			dev->wr_comp[idx] = NULL;
-			complete(comp);
-		}
 		if (err) {
 			int i;
 			u32 *addr = (u32 *)mem->base +
@@ -676,6 +670,12 @@ void msm_slim_tx_msg_return(struct msm_slim_ctrl *dev, int err)
 			SLIM_WARN(dev, "SLIM OUT OF ORDER TX:idx:%d, head:%d",
 				idx, dev->tx_head);
 		dev->tx_head = (dev->tx_head + 1) % MSM_TX_BUFS;
+		if (dev->wr_comp[idx]) {
+			struct completion *comp = dev->wr_comp[idx];
+
+			dev->wr_comp[idx] = NULL;
+			complete(comp);
+		}
 	}
 }
 

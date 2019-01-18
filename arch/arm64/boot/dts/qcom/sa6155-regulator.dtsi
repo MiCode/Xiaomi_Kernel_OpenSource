@@ -519,5 +519,10 @@
 		enable-active-high;
 		gpio = <&pm6155_1_gpios 6 0>;
 	};
+
+	vreg_wlan: vreg_wlan {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "vreg_wlan";
+	};
 };
 
