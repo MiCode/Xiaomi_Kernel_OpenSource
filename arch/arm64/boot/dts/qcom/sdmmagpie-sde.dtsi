@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -503,8 +503,9 @@
 		compatible = "qcom,dsi-phy-v3.0";
 		label = "dsi-phy-0";
 		cell-index = <0>;
-		reg = <0xae94400 0x7c0>;
-		reg-names = "dsi_phy";
+		reg = <0xae94400 0x7c0>,
+		    <0xae94200 0x100>;
+		reg-names = "dsi_phy", "dyn_refresh_base";
 		vdda-0p9-supply = <&pm6150_l4>;
 		qcom,platform-strength-ctrl = [55 03
 						55 03
@@ -535,8 +536,9 @@
 		compatible = "qcom,dsi-phy-v3.0";
 		label = "dsi-phy-1";
 		cell-index = <1>;
-		reg = <0xae96400 0x7c0>;
-		reg-names = "dsi_phy";
+		reg = <0xae96400 0x7c0>,
+		    <0xae96200 0x100>;
+		reg-names = "dsi_phy", "dyn_refresh_base";
 		vdda-0p9-supply = <&pm6150_l4>;
 		qcom,platform-strength-ctrl = [55 03
 						55 03
