@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright  (c) 2018 , The Linux Foundation. All rights reserved.
+ * Copyright  (c) 2018-2019 , The Linux Foundation. All rights reserved.
  */
 
 #include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
@@ -212,7 +212,7 @@
 		regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
 	};
 
-	S7C: pm8150a_s7: regulator-pm8150a-s7 {
+	VDD_MSS_LEVEL: S7C: pm8150a_s7: regulator-pm8150a-s7 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm8150a_s7";
 		regulator-min-microvolt = <1128000>;
