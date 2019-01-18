@@ -414,7 +414,7 @@ int32_t cam_actuator_i2c_pkt_parse(struct cam_actuator_ctrl_t *a_ctrl,
 	size_t   len_of_buff = 0;
 	uint32_t *offset = NULL;
 	uint32_t *cmd_buf = NULL;
-	uint64_t generic_ptr;
+	uint64_t generic_ptr = 0;
 	struct common_header      *cmm_hdr = NULL;
 	struct cam_control        *ioctl_ctrl = NULL;
 	struct cam_packet         *csl_packet = NULL;

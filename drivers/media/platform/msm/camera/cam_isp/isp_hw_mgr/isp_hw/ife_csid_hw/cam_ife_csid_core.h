@@ -290,6 +290,7 @@ struct cam_ife_csid_common_reg_offset {
 	uint32_t num_rdis;
 	uint32_t num_pix;
 	uint32_t num_ppp;
+	uint32_t csid_reg_rst_stb;
 	uint32_t csid_rst_stb;
 	uint32_t csid_rst_stb_sw_all;
 	uint32_t path_rst_stb_all;

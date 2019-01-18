@@ -380,7 +380,7 @@ static int ipa3_nat_ipv6ct_allocate_mem(struct ipa3_nat_ipv6ct_common_mem *dev,
 
 	if (dev->is_mem_allocated) {
 		IPAERR("Memory already allocated\n");
-		result = 0;
+		result = -EPERM;
 		goto bail;
 	}
 

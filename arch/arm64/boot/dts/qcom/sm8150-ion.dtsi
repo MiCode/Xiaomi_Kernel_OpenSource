@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,12 @@
 		qcom,ion-heap@22 { /* ADSP HEAP */
 			reg = <22>;
 			memory-region = <&adsp_mem>;
+			qcom,ion-heap-type = "DMA";
+		};
+
+		qcom,ion-heap@26 { /* USER CONTIG HEAP */
+			reg = <26>;
+			memory-region = <&user_contig_mem>;
 			qcom,ion-heap-type = "DMA";
 		};
 

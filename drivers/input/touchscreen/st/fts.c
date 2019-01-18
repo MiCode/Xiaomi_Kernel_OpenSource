@@ -3,7 +3,7 @@
  *
  * FTS Capacitive touch screen controller (FingerTipS)
  *
- * Copyright (C) 2016-2018, STMicroelectronics Limited.
+ * Copyright (C) 2016-2019, STMicroelectronics Limited.
  * Authors: AMG(Analog Mems Group)
  *
  *		marco.cali@st.com
@@ -134,6 +134,7 @@ static int fts_init_afterProbe(struct fts_ts_info *info);
 static int fts_mode_handler(struct fts_ts_info *info, int force);
 static int fts_command(struct fts_ts_info *info, unsigned char cmd);
 static int fts_chip_initialization(struct fts_ts_info *info);
+static int fts_enable_reg(struct fts_ts_info *info, bool enable);
 
 active_tp_setup(st);
 
@@ -3304,6 +3305,7 @@ static void fts_fw_update_auto(struct work_struct *work)
 	info = container_of(fwu_work, struct fts_ts_info, fwu_work);
 	logError(0, "%s Fw Auto Update is starting...\n", tag);
 
+	__pm_stay_awake(&info->wakeup_source);
 	/* check CRC status */
 	ret = cx_crc_check();
 	if (ret > OK && ftsInfo.u16_fwVer == 0x0000) {
@@ -4021,6 +4023,11 @@ static void fts_resume_work(struct work_struct *work)
 
 	__pm_wakeup_event(&info->wakeup_source, HZ);
 
+	if (fts_enable_reg(info, true) < 0) {
+		logError(1, "%s %s: ERROR Failed to enable regulators\n",
+			tag, __func__);
+	}
+
 	if (info->ts_pinctrl) {
 		/*
 		 * Pinctrl handle is optional. If pinctrl handle is found
@@ -4083,6 +4090,8 @@ static void fts_suspend_work(struct work_struct *work)
 				__func__, PINCTRL_STATE_SUSPEND);
 		}
 	}
+
+	fts_enable_reg(info, false);
 }
 
 

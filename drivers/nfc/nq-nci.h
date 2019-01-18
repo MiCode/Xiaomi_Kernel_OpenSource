@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,6 +48,8 @@ enum nfcc_chip_variant {
 	NFCC_NQ_220			= 0x58,	/**< NFCC NQ220 */
 	NFCC_NQ_310			= 0x40,	/**< NFCC NQ310 */
 	NFCC_NQ_330			= 0x51,	/**< NFCC NQ330 */
+	NFCC_SN100_A			= 0xa3,	/**< NFCC SN100_A */
+	NFCC_SN100_B			= 0xa4,	/**< NFCC SN100_B */
 	NFCC_PN66T			= 0x18,	/**< NFCC PN66T */
 	NFCC_NOT_SUPPORTED	        = 0xFF	/**< NFCC is not supported */
 };

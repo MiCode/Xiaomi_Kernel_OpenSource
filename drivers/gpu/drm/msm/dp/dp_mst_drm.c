@@ -698,6 +698,9 @@ static void dp_mst_bridge_pre_enable(struct drm_bridge *drm_bridge)
 	bridge->old_connector = NULL;
 	bridge->old_dp_panel = NULL;
 
+	bridge->old_connector = NULL;
+	bridge->old_dp_panel = NULL;
+
 	if (!bridge->connector) {
 		pr_err("Invalid connector\n");
 		return;

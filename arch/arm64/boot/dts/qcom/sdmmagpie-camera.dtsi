@@ -1134,6 +1134,7 @@
 				 * (READ and PIX ports)
 				 */
 				qcom,axi-port-name = "cam_hf_0";
+				ib-bw-voting-needed;
 				qcom,axi-port-mnoc {
 					qcom,msm-bus,name = "cam_hf_0_mnoc";
 					qcom,msm-bus-vector-dyn-vote;
@@ -1160,6 +1161,7 @@
 			qcom,axi-port2 {
 				/* this port is for rdi only WR*/
 				qcom,axi-port-name = "cam_hf_1";
+				ib-bw-voting-needed;
 				qcom,axi-port-mnoc {
 					qcom,msm-bus,name = "cam_hf_1_mnoc";
 					qcom,msm-bus-vector-dyn-vote;

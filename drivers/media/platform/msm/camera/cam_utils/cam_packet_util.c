@@ -134,7 +134,7 @@ int cam_packet_util_process_patches(struct cam_packet *packet,
 {
 	struct cam_patch_desc *patch_desc = NULL;
 	dma_addr_t iova_addr;
-	uintptr_t  cpu_addr;
+	uintptr_t  cpu_addr = 0;
 	uint32_t   temp;
 	uint32_t  *dst_cpu_addr;
 	uint32_t  *src_buf_iova_addr;
@@ -166,7 +166,7 @@ int cam_packet_util_process_patches(struct cam_packet *packet,
 
 		rc = cam_mem_get_cpu_buf(patch_desc[i].dst_buf_hdl,
 			&cpu_addr, &dst_buf_len);
-		if (rc < 0) {
+		if (rc < 0 || !cpu_addr || (dst_buf_len == 0)) {
 			CAM_ERR(CAM_UTIL, "unable to get dst buf address");
 			return rc;
 		}
@@ -199,7 +199,7 @@ int cam_packet_util_process_generic_cmd_buffer(
 	cam_packet_generic_blob_handler blob_handler_cb, void *user_data)
 {
 	int       rc;
-	uintptr_t  cpu_addr;
+	uintptr_t  cpu_addr = 0;
 	size_t    buf_size;
 	uint32_t *blob_ptr;
 	uint32_t  blob_type, blob_size, blob_block_size, len_read;
