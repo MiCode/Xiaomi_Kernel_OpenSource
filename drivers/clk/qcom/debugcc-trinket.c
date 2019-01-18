@@ -215,6 +215,7 @@ static const char *const debug_mux_parent_names[] = {
 	"gpu_cc_gx_cxo_clk",
 	"gpu_cc_gx_gfx3d_clk",
 	"gpu_cc_sleep_clk",
+	"measure_only_mccc_clk",
 	"video_cc_apb_clk",
 	"video_cc_at_clk",
 	"video_cc_sleep_clk",
@@ -231,6 +232,7 @@ static struct clk_debug_mux gcc_debug_mux = {
 	.debug_offset = 0x62000,
 	.post_div_offset = 0x30000,
 	.cbcr_offset = 0x30004,
+	.period_offset = 0x20,
 	.src_sel_mask = 0x3FF,
 	.src_sel_shift = 0,
 	.post_div_mask = 0xF,
@@ -600,6 +602,8 @@ static struct clk_debug_mux gcc_debug_mux = {
 			0xB, 0xFF, 0, 0x3, 0, 2, 0x1568, 0x10FC, 0x1100 },
 		{ "gpu_cc_sleep_clk", 0xDD, 1, GPU_CC,
 			0x16, 0xFF, 0, 0x3, 0, 2, 0x1568, 0x10FC, 0x1100 },
+		{ "measure_only_mccc_clk", 0x97, 1, MC_CC,
+			0x97, 0x3FF, 0, 0xF, 0, 1, 0x62000, 0x30000, 0x30004 },
 		{ "video_cc_apb_clk", 0x42, 1, VIDEO_CC,
 			0x8, 0x3F, 0, 0x7, 0, 5, 0xA4C, 0xA30, 0xA38 },
 		{ "video_cc_at_clk", 0x42, 1, VIDEO_CC,
@@ -684,6 +688,10 @@ static int clk_debug_trinket_probe(struct platform_device *pdev)
 		return ret;
 
 	ret = map_debug_bases(pdev, "qcom,dispcc", DISP_CC);
+	if (ret)
+		return ret;
+
+	ret = map_debug_bases(pdev, "qcom,mccc", MC_CC);
 	if (ret)
 		return ret;
 

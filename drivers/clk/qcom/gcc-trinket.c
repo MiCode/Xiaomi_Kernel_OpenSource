@@ -4184,12 +4184,22 @@ static struct clk_branch gcc_wcss_vs_clk = {
 	},
 };
 
+/* Measure-only clock for ddrss_gcc_debug_clk. */
+static struct clk_dummy measure_only_mccc_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_mccc_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
 struct clk_hw *gcc_trinket_hws[] = {
 	[GPLL0_OUT_AUX2] = &gpll0_out_aux2.hw,
 	[GPLL0_OUT_MAIN] = &gpll0_out_main.hw,
 	[GPLL6_OUT_MAIN] = &gpll6_out_main.hw,
 	[GPLL8_OUT_MAIN] = &gpll8_out_main.hw,
 	[GPLL9_OUT_MAIN] = &gpll9_out_main.hw,
+	[MEASURE_ONLY_MMCC_CLK] = &measure_only_mccc_clk.hw,
 };
 
 static struct clk_regmap *gcc_trinket_clocks[] = {
