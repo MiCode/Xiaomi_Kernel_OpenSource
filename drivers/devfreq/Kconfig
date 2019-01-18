@@ -73,6 +73,15 @@ config DEVFREQ_GOV_PASSIVE
 	  through sysfs entries. The passive governor recommends that
 	  devfreq device uses the OPP table to get the frequency/voltage.
 
+config DEVFREQ_GOV_QCOM_CACHE_HWMON
+	tristate "HW monitor based governor for cache frequency"
+	help
+	  HW monitor based governor for cache frequency scaling. This
+	  governor sets the cache frequency by using PM counters to monitor the
+	  CPU's use of cache. Since this governor uses some of the PM counters
+	  it can conflict with existing profiling tools. This governor is
+	  unlikely to be useful for other devices.
+
 comment "DEVFREQ Drivers"
 
 config ARM_EXYNOS_BUS_DEVFREQ
