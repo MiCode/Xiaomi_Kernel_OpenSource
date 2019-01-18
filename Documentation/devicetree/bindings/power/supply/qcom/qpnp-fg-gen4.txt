@@ -72,8 +72,9 @@ First Level Node - FG Gen4 device
 	Value type: <u32>
 	Definition: Percentage of SOC increase upon which the delta monotonic &
 		    battery SOC interrupts will be triggered. If this property
-		    is not specified, then the default value will be 1.
-		    Possible values are in the range of 0 to 12.
+		    is not specified, then the default value will be 5 (0.5 %).
+		    Unit is in deci-percentage. Possible values are in the range
+		    of 1 to 124.
 
 - qcom,fg-esr-timer-chg-fast
 	Usage:      optional
