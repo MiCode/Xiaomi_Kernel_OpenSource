@@ -1409,9 +1409,11 @@ static struct device_attribute format_attr_##_name = __ATTR_RO(_name)
 #ifdef CONFIG_PERF_EVENTS
 int perf_event_init_cpu(unsigned int cpu);
 int perf_event_exit_cpu(unsigned int cpu);
+int perf_event_start_swevents(unsigned int cpu);
 #else
 #define perf_event_init_cpu	NULL
 #define perf_event_exit_cpu	NULL
+#define perf_event_start_swevents NULL
 #endif
 
 #endif /* _LINUX_PERF_EVENT_H */
