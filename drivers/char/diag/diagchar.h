@@ -598,6 +598,7 @@ struct diagchar_dev {
 	unsigned int poolsize_hdlc;
 	unsigned int poolsize_dci;
 	unsigned int poolsize_user;
+	spinlock_t diagmem_lock;
 	/* Buffers for masks */
 	struct mutex diag_cntl_mutex;
 	/* Members for Sending response */
