@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,7 +18,6 @@
 #include <linux/device.h>
 #include <linux/printk.h>
 #include <linux/ratelimit.h>
-#include <linux/debugfs.h>
 #include <linux/io.h>
 #include <linux/bitops.h>
 #include <linux/delay.h>
@@ -98,7 +98,7 @@ enum {
 #define SPK_PMD 2
 #define SPK_PMU 3
 
-#define MICBIAS_DEFAULT_VAL 1800000
+#define MICBIAS_DEFAULT_VAL 2200000
 #define MICBIAS_MIN_VAL 1600000
 #define MICBIAS_STEP_SIZE 50000
 
@@ -455,7 +455,17 @@ void msm8x16_wcd_spk_ext_pa_cb(
 	pr_debug("%s: Enter\n", __func__);
 	msm8x16_wcd->codec_spk_ext_pa_cb = codec_spk_ext_pa;
 }
+#ifdef CONFIG_XIAOMI_D2
+void msm8x16_wcd_hd_ext_pa_cb(
+		int (*codec_hd_ext_pa)(struct snd_soc_codec *codec,
+			int enable), struct snd_soc_codec *codec)
+{
+	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
 
+	pr_debug("%s: Enter\n", __func__);
+	msm8x16_wcd->codec_hd_ext_pa_cb = codec_hd_ext_pa;
+}
+#endif
 void msm8x16_wcd_hph_comp_cb(
 	int (*codec_hph_comp_gpio)(bool enable), struct snd_soc_codec *codec)
 {
@@ -4927,7 +4937,31 @@ static int msm8x16_wcd_codec_enable_lo_pa(struct snd_soc_dapm_widget *w,
 
 	return 0;
 }
+#ifdef CONFIG_XIAOMI_D2
+static int msm8x16_wcd_codec_enable_spk_ext_pa(struct snd_soc_dapm_widget *w,
+		struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
 
+	dev_dbg(codec->dev, "%s: %s event = %d\n", __func__, w->name, event);
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMU:
+		dev_dbg(w->codec->dev,
+			"%s: enable external speaker PA\n", __func__);
+		if (msm8x16_wcd->codec_hd_ext_pa_cb)
+			msm8x16_wcd->codec_hd_ext_pa_cb(codec, 1);
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		dev_dbg(w->codec->dev,
+			"%s: enable external speaker PA\n", __func__);
+		if (msm8x16_wcd->codec_hd_ext_pa_cb)
+			msm8x16_wcd->codec_hd_ext_pa_cb(codec, 0);
+		break;
+	}
+	return 0;
+}
+#else
 static int msm8x16_wcd_codec_enable_spk_ext_pa(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
@@ -4952,6 +4986,7 @@ static int msm8x16_wcd_codec_enable_spk_ext_pa(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+#endif
 static int msm8x16_wcd_codec_enable_ear_pa(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {

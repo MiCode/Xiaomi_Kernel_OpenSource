@@ -1,6 +1,7 @@
 /* bnx2x.h: Broadcom Everest network driver.
  *
  * Copyright (c) 2007-2013 Broadcom Corporation
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,7 +23,7 @@
 
 #include <linux/ptp_clock_kernel.h>
 #include <linux/net_tstamp.h>
-#include <linux/clocksource.h>
+#include <linux/timecounter.h>
 
 /* compilation time flags */
 

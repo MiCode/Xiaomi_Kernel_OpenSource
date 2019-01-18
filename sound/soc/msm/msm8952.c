@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -9,7 +10,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
@@ -48,6 +48,10 @@
 #define QUIN_MI2S_ID	(1 << 4)
 
 #define DEFAULT_MCLK_RATE 9600000
+#ifdef CONFIG_XIAOMI_D2
+int ext_pa_gpio = 0;
+int ext_pa_status = 0;
+#endif
 
 #define WCD_MBHC_DEF_RLOADS 5
 #define MAX_WSA_CODEC_NAME_LENGTH 80
@@ -89,14 +93,22 @@ static int msm8952_wsa_switch_event(struct snd_soc_dapm_widget *w,
 static struct wcd_mbhc_config mbhc_cfg = {
 	.read_fw_bin = false,
 	.calibration = NULL,
-	.detect_extn_cable = true,
+
+	.detect_extn_cable = false,
+
 	.mono_stero_detection = false,
 	.swap_gnd_mic = NULL,
 	.hs_ext_micbias = false,
+	/*
 	.key_code[0] = KEY_MEDIA,
 	.key_code[1] = KEY_VOICECOMMAND,
 	.key_code[2] = KEY_VOLUMEUP,
 	.key_code[3] = KEY_VOLUMEDOWN,
+	*/
+	.key_code[0] = KEY_MEDIA,
+	.key_code[1] = BTN_1,
+	.key_code[2] = BTN_2,
+	.key_code[3] = 0,
 	.key_code[4] = 0,
 	.key_code[5] = 0,
 	.key_code[6] = 0,
@@ -257,9 +269,38 @@ int is_ext_spk_gpio_support(struct platform_device *pdev,
 			return -EINVAL;
 		}
 	}
+#ifdef CONFIG_XIAOMI_D2
+	gpio_direction_output(pdata->spk_ext_pa_gpio, 0);
+#endif
 	return 0;
 }
 
+#ifdef CONFIG_XIAOMI_D2
+int is_ext_hd_gpio_support(struct platform_device *pdev,
+			struct msm8916_asoc_mach_data *pdata)
+{
+	const char *hd_ext_pa = "qcom,msm-hd-ext-pa";
+
+	pr_debug("%s:Enter\n", __func__);
+
+	pdata->hd_ext_pa_gpio = of_get_named_gpio(pdev->dev.of_node,
+				hd_ext_pa, 0);
+
+	if (pdata->hd_ext_pa_gpio < 0) {
+		dev_dbg(&pdev->dev,
+			"%s: missing %s in dt node\n", __func__, hd_ext_pa);
+	} else {
+		if (!gpio_is_valid(pdata->hd_ext_pa_gpio)) {
+			pr_err("%s: Invalid external headset gpio: %d",
+				__func__, pdata->hd_ext_pa_gpio);
+			return -EINVAL;
+		}
+	}
+	ext_pa_gpio=pdata->hd_ext_pa_gpio;
+	gpio_direction_output(pdata->hd_ext_pa_gpio, 0);
+	return 0;
+}
+#endif
 static int enable_spk_ext_pa(struct snd_soc_codec *codec, int enable)
 {
 	struct snd_soc_card *card = codec->component.card;
@@ -294,7 +335,27 @@ static int enable_spk_ext_pa(struct snd_soc_codec *codec, int enable)
 	}
 	return 0;
 }
-
+#ifdef CONFIG_XIAOMI_D2
+static int enable_hd_ext_pa(struct snd_soc_codec *codec, int enable)
+{
+	struct snd_soc_card *card = codec->component.card;
+	struct msm8916_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	printk("[zoro] %s -> %s\n",__func__,enable ? "enable":"false");
+	if (!gpio_is_valid(pdata->hd_ext_pa_gpio)) {
+		pr_err("%s: Invalid gpio: %d\n", __func__,
+			pdata->hd_ext_pa_gpio);
+		return false;
+	}
+	ext_pa_status = enable;
+	pr_debug("%s: %s external headset PA\n", __func__,
+		enable ? "Enable" : "Disable");
+	gpio_set_value_cansleep(pdata->hd_ext_pa_gpio, enable);
+    if(!enable){
+		msleep(200);
+	}
+	return 0;
+}
+#endif
 /* Validate whether US EU switch is present or not */
 int is_us_eu_switch_gpio_support(struct platform_device *pdev,
 		struct msm8916_asoc_mach_data *pdata)
@@ -1545,7 +1606,7 @@ static void *def_msm8952_wcd_mbhc_cal(void)
 		return NULL;
 
 #define S(X, Y) ((WCD_MBHC_CAL_PLUG_TYPE_PTR(msm8952_wcd_cal)->X) = (Y))
-	S(v_hs_max, 1500);
+	S(v_hs_max, 1600);
 #undef S
 #define S(X, Y) ((WCD_MBHC_CAL_BTN_DET_PTR(msm8952_wcd_cal)->X) = (Y))
 	S(num_btn, WCD_MBHC_DEF_BUTTONS);
@@ -1568,16 +1629,29 @@ static void *def_msm8952_wcd_mbhc_cal(void)
 	 * 210-290 == Button 2
 	 * 360-680 == Button 3
 	 */
-	btn_low[0] = 75;
-	btn_high[0] = 75;
-	btn_low[1] = 150;
-	btn_high[1] = 150;
-	btn_low[2] = 225;
-	btn_high[2] = 225;
-	btn_low[3] = 450;
-	btn_high[3] = 450;
-	btn_low[4] = 500;
-	btn_high[4] = 500;
+	#if defined(CONFIG_MBHC_UART)
+	btn_low[0] = 177;
+	btn_high[0] = 277;
+	btn_low[1] = 206;
+	btn_high[1] = 437;
+	btn_low[2] = 243;
+	btn_high[2] = 612;
+	btn_low[3] = 243;
+	btn_high[3] = 612;
+	btn_low[4] = 243;
+	btn_high[4] = 612;
+	#else
+	btn_low[0] = 91;
+	btn_high[0] = 91;
+	btn_low[1] = 259;
+	btn_high[1] = 259;
+	btn_low[2] = 488;
+	btn_high[2] = 488;
+	btn_low[3] = 488;
+	btn_high[3] = 488;
+	btn_low[4] = 488;
+	btn_high[4] = 488;
+	#endif
 
 	return msm8952_wcd_cal;
 }
@@ -1617,6 +1691,9 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_sync(dapm);
 
 	msm8x16_wcd_spk_ext_pa_cb(enable_spk_ext_pa, codec);
+#ifdef CONFIG_XIAOMI_D2
+	msm8x16_wcd_hd_ext_pa_cb(enable_hd_ext_pa, codec);
+#endif
 	msm8x16_wcd_hph_comp_cb(config_hph_compander_gpio, codec);
 
 	mbhc_cfg.calibration = def_msm8952_wcd_mbhc_cal();
@@ -2363,6 +2440,40 @@ static struct snd_soc_dai_link msm8952_dai[] = {
 		.ignore_pmdown_time = 1,
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA29,
 	},
+#if (defined CONFIG_SND_SOC_MAX98927) || (defined CONFIG_SND_SOC_TAS2557)
+	{/* hw:x,43 */
+		.name = "Quinary MI2S TX_Hostless",
+		.stream_name = "Quinary MI2S_TX Hostless Capture",
+		.cpu_dai_name = "QUIN_MI2S_TX_HOSTLESS",
+		.platform_name = "msm-pcm-hostless",
+		.dynamic = 1,
+		.dpcm_capture = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
+	{ /* hw:x,44 */
+		.name = "Quinary MI2S_RX Hostless",
+		.stream_name = "Quinary MI2S_RX Hostless",
+		.cpu_dai_name = "QUIN_MI2S_RX_HOSTLESS",
+		.platform_name	= "msm-pcm-hostless",
+		.dynamic = 1,
+		.dpcm_playback = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		 /* this dailink has playback support */
+		.ignore_pmdown_time = 1,
+		/* This dainlink has MI2S support */
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
+#endif
 	/* Backend I2S DAI Links */
 	{
 		.name = LPASS_BE_PRI_MI2S_RX,
@@ -2610,7 +2721,38 @@ static struct snd_soc_dai_link msm8952_dai[] = {
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
 		.ignore_suspend = 1,
 	},
+#if defined(CONFIG_SND_SOC_MAX98927)
+	{
+		.name = LPASS_BE_QUIN_MI2S_TX,
+		.stream_name = "Quinary MI2S Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.5",
+		.platform_name = "msm-pcm-routing",
+		.codec_dai_name = "max98927-aif1",
+		.codec_name = "max98927",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.be_id = MSM_BACKEND_DAI_QUINARY_MI2S_TX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ops = &msm8952_quin_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+#elif defined (CONFIG_SND_SOC_TAS2557)
+    {
+		.name = LPASS_BE_QUIN_MI2S_TX,
+		.stream_name = "Quinary MI2S Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.5",
+		.platform_name = "msm-pcm-routing",
+		.codec_dai_name = "tas2557 ASI1",
+		.codec_name = "tas2557.2-004c",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.be_id = MSM_BACKEND_DAI_QUINARY_MI2S_TX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ops = &msm8952_quin_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
 
+#else
 	{
 		.name = LPASS_BE_QUIN_MI2S_TX,
 		.stream_name = "Quinary MI2S Capture",
@@ -2625,6 +2767,7 @@ static struct snd_soc_dai_link msm8952_dai[] = {
 		.ops = &msm8952_quin_mi2s_be_ops,
 		.ignore_suspend = 1,
 	},
+#endif
 };
 static struct snd_soc_dai_link msm8952_hdmi_dba_dai_link[] = {
 	{
@@ -2643,7 +2786,43 @@ static struct snd_soc_dai_link msm8952_hdmi_dba_dai_link[] = {
 		.ignore_suspend = 1,
 	},
 };
-
+#if defined(CONFIG_SND_SOC_MAX98927)
+static struct snd_soc_dai_link msm8952_quin_dai_link[] = {
+	{
+		.name = LPASS_BE_QUIN_MI2S_RX,
+		.stream_name = "Quinary MI2S Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.5",
+		.platform_name = "msm-pcm-routing",
+		.codec_dai_name = "max98927-aif1",
+		.codec_name = "max98927",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_QUINARY_MI2S_RX,
+		.be_hw_params_fixup = msm_mi2s_rx_be_hw_params_fixup,
+		.ops = &msm8952_quin_mi2s_be_ops,
+		.ignore_pmdown_time = 1, /* dai link has playback support */
+		.ignore_suspend = 1,
+	},
+};
+#elif defined (CONFIG_SND_SOC_TAS2557)
+static struct snd_soc_dai_link msm8952_quin_dai_link[] = {
+	{
+		.name = LPASS_BE_QUIN_MI2S_RX,
+		.stream_name = "Quinary MI2S Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.5",
+		.platform_name = "msm-pcm-routing",
+		.codec_dai_name = "tas2557 ASI1",
+		.codec_name = "tas2557.2-004c",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_QUINARY_MI2S_RX,
+		.be_hw_params_fixup = msm_mi2s_rx_be_hw_params_fixup,
+		.ops = &msm8952_quin_mi2s_be_ops,
+		.ignore_pmdown_time = 1, /* dai link has playback support */
+		.ignore_suspend = 1,
+	},
+};
+#else
 static struct snd_soc_dai_link msm8952_quin_dai_link[] = {
 	{
 		.name = LPASS_BE_QUIN_MI2S_RX,
@@ -2661,6 +2840,7 @@ static struct snd_soc_dai_link msm8952_quin_dai_link[] = {
 		.ignore_suspend = 1,
 	},
 };
+#endif
 
 static struct snd_soc_dai_link msm8952_split_a2dp_dai_link[] = {
 	{
@@ -3208,6 +3388,12 @@ parse_mclk_freq:
 		pr_err("%s:  doesn't support external speaker pa\n",
 				__func__);
 
+#ifdef CONFIG_XIAOMI_D2
+	ret = is_ext_hd_gpio_support(pdev, pdata);
+	if (ret < 0)
+		pr_err("%s:  doesn't support external headset pa\n",
+				__func__);
+#endif
 	ret = of_property_read_string(pdev->dev.of_node,
 		hs_micbias_type, &type);
 	if (ret) {

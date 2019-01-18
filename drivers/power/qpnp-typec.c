@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -869,6 +870,10 @@ static int qpnp_typec_dr_get_property(struct dual_role_phy_instance *dual_role,
 	return 0;
 }
 
+#ifdef CONFIG_PROJECT_TIFFANY
+unsigned int typec_mode_val;
+unsigned int cc_orientation_val;
+#endif
 static int qpnp_typec_probe(struct spmi_device *spmi)
 {
 	int rc;
@@ -948,6 +953,11 @@ static int qpnp_typec_probe(struct spmi_device *spmi)
 			chip->dr_inst->drv_data = chip;
 		}
 	}
+
+#ifdef CONFIG_PROJECT_TIFFANY
+	typec_mode_val = chip->typec_state;
+	cc_orientation_val = chip->cc_line_state;
+#endif
 
 	/* All irqs */
 	rc = qpnp_typec_request_irqs(chip);

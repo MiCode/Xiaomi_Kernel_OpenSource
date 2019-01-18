@@ -2,6 +2,7 @@
  * TI Common Platform Time Sync
  *
  * Copyright (C) 2012 Richard Cochran <richardcochran@gmail.com>
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,6 +28,7 @@
 #include <linux/list.h>
 #include <linux/ptp_clock_kernel.h>
 #include <linux/skbuff.h>
+#include <linux/timecounter.h>
 
 struct cpsw_cpts {
 	u32 idver;                /* Identification and version */

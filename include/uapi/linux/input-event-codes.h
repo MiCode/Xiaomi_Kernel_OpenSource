@@ -6,6 +6,7 @@
  * files. As such this file MUST only contain comments and defines.
  *
  * Copyright (c) 1999-2002 Vojtech Pavlik
+ * Copyright (C) 2019 XiaoMi, Inc.
  * Copyright (c) 2015 Hans de Goede <hdegoede@redhat.com>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -273,7 +274,10 @@
 #define KEY_F22			192
 #define KEY_F23			193
 #define KEY_F24			194
-
+#define KEY_GESTURE_NAV_UP		195
+#define KEY_GESTURE_NAV_DOWN	196
+#define KEY_GESTURE_NAV_LEFT	197
+#define KEY_GESTURE_NAV_RIGHT	198
 #define KEY_PLAYCD		200
 #define KEY_PAUSECD		201
 #define KEY_PROG3		202

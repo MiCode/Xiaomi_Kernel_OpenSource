@@ -2,6 +2,7 @@
  * Completely Fair Scheduling (CFS) Class (SCHED_NORMAL/SCHED_BATCH)
  *
  *  Copyright (C) 2007 Red Hat, Inc., Ingo Molnar <mingo@redhat.com>
+ *  Copyright (C) 2019 XiaoMi, Inc.
  *
  *  Interactivity improvements by Mike Galbraith
  *  (C) 2007 Mike Galbraith <efault@gmx.de>
@@ -4814,6 +4815,14 @@ enqueue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)
 
 	update_stats_enqueue(cfs_rq, se, !!(flags & ENQUEUE_MIGRATING));
 	check_spread(cfs_rq, se);
+
+#ifdef CONFIG_FAIR_GROUP_SCHED
+	/*
+	* Update depth before it can be picked as next sched entity.
+	*/
+	se->depth = se->parent ? se->parent->depth + 1 : 0;
+#endif
+
 	if (se != cfs_rq->curr)
 		__enqueue_entity(cfs_rq, se);
 	se->on_rq = 1;

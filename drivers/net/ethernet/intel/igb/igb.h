@@ -1,5 +1,6 @@
 /* Intel(R) Gigabit Ethernet Linux driver
  * Copyright(c) 2007-2014 Intel Corporation.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -29,7 +30,7 @@
 #include "e1000_mac.h"
 #include "e1000_82575.h"
 
-#include <linux/clocksource.h>
+#include <linux/timecounter.h>
 #include <linux/net_tstamp.h>
 #include <linux/ptp_clock_kernel.h>
 #include <linux/bitops.h>

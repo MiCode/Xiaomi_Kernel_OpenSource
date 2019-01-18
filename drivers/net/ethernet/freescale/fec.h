@@ -5,6 +5,7 @@
  *		   processors.
  *
  *	(C) Copyright 2000-2005, Greg Ungerer (gerg@snapgear.com)
+ *	Copyright (C) 2019 XiaoMi, Inc.
  *	(C) Copyright 2000-2001, Lineo (www.lineo.com)
  */
 
@@ -16,6 +17,7 @@
 #include <linux/clocksource.h>
 #include <linux/net_tstamp.h>
 #include <linux/ptp_clock_kernel.h>
+#include <linux/timecounter.h>
 
 #if defined(CONFIG_M523x) || defined(CONFIG_M527x) || defined(CONFIG_M528x) || \
     defined(CONFIG_M520x) || defined(CONFIG_M532x) || \

@@ -7,6 +7,7 @@
  * License 1: GPLv2
  *
  * Copyright (c) 2014 Advanced Micro Devices, Inc.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This file is free software; you may copy, redistribute and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -124,7 +125,7 @@
 #include <linux/if_vlan.h>
 #include <linux/bitops.h>
 #include <linux/ptp_clock_kernel.h>
-#include <linux/clocksource.h>
+#include <linux/timecounter.h>
 #include <linux/net_tstamp.h>
 #include <net/dcbnl.h>
 

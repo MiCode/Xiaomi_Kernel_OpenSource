@@ -44,6 +44,16 @@ config ANDROID_BINDER_DEVICES
 	  created. Each binder device has its own context manager, and is
 	  therefore logically separated from the other devices.
 
+config ANDROID_BINDER_IPC_SELFTEST
+        bool "Android Binder IPC Driver Selftest"
+        depends on ANDROID_BINDER_IPC
+        ---help---
+          This feature allows binder selftest to run.
+
+          Binder selftest checks the allocation and free of binder buffers
+          exhaustively with combinations of various buffer sizes and
+          alignments.
+
 config ASHMEM
 	bool "Enable the Anonymous Shared Memory Subsystem"
 	default n
@@ -137,6 +147,12 @@ config ONESHOT_SYNC_USER
 	depends on SYNC
 	help
 	  Provide a userspace API for creating oneshot sync objects.
+
+config ANDROID_WHETSTONE
+    bool "Android Whetstone"
+    default N
+    ---help---
+        report to whetstone the memory state when reach target limit value.
 
 source "drivers/staging/android/ion/Kconfig"
 

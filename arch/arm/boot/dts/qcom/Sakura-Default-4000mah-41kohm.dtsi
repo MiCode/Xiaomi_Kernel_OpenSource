@@ -1,0 +1,49 @@
+
+qcom,3299637_huaqin_bn47atl_4000mah_averaged_masterslave_7thMay2018 {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <4000>;
+	qcom,batt-id-kohm = <200>;
+	qcom,battery-beta = <3380>;
+	qcom,battery-type = "Default";
+	qcom,chg-rslow-comp-c1 = <3424410>;
+	qcom,chg-rslow-comp-c2 = <5067152>;
+	qcom,chg-rs-to-rslow = <892701>;
+	qcom,chg-rslow-comp-thr = <0xA9>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,checksum = <0x4D97>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.16";
+	qcom,fg-profile-data = [
+			F8 83 55 7D
+			40 81 2A 77
+			3E 83 7E 72
+			66 7E 82 7B
+			EB 81 EC 9B
+			81 BF D8 D0
+			81 10 ED 83
+			C7 7C FE 80
+			07 77 30 83
+			2D 7A 47 8C
+			B5 88 22 82
+			9F 9B 2A C4
+			4F D2 67 0E
+			63 0F B8 59
+			14 70 EE FC
+			BD 44 7F 44
+			FA 43 00 00
+			20 4C C8 38
+			3F 39 00 00
+			00 00 00 00
+			00 00 00 00
+			1A 70 1F 6A
+			55 70 84 8B
+			42 77 E0 70
+			7D 6D 92 78
+			A5 6F 68 68
+			90 3E 05 A1
+			2C C8 62 91
+			64 A0 71 0C
+			28 00 FF 36
+			F0 11 30 03
+			00 00 00 0C
+	];
+};

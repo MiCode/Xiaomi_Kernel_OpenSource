@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2006, 2007 Cisco Systems, Inc.  All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -42,7 +43,7 @@
 
 #include <linux/atomic.h>
 
-#include <linux/clocksource.h>
+#include <linux/timecounter.h>
 
 #define MAX_MSIX_P_PORT		17
 #define MAX_MSIX		64

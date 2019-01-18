@@ -2,6 +2,7 @@
  *  Sysfs interface for the universal power supply monitor class
  *
  *  Copyright © 2007  David Woodhouse <dwmw2@infradead.org>
+ *  Copyright (C) 2019 XiaoMi, Inc.
  *  Copyright © 2007  Anton Vorontsov <cbou@mail.ru>
  *  Copyright © 2004  Szabolcs Gyurko
  *  Copyright © 2003  Ian Molton <spyro@f2s.com>
@@ -79,6 +80,12 @@ static ssize_t power_supply_show_property(struct device *dev,
 		"Source attached (medium current)",
 		"Source attached (high current)",
 		"Non compliant",
+		#if defined CONFIG_PROJECT_VINCE || defined CONFIG_PROJECT_TIFFANY
+		"none",
+		"none","none","none",
+		"none","none","none",
+		"none","sink","source",
+		#endif
 	};
 	static const char * const typec_pr_text[] = {
 		"none", "dual power role", "sink", "source"

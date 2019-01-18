@@ -2,6 +2,7 @@
  * Based on arch/arm/include/asm/processor.h
  *
  * Copyright (C) 1995-1999 Russell King
+ * Copyright (C) 2019 XiaoMi, Inc.
  * Copyright (C) 2012 ARM Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -31,6 +32,7 @@
 
 #include <asm/fpsimd.h>
 #include <asm/hw_breakpoint.h>
+#include <asm/pgtable-hwdef.h>
 #include <asm/ptrace.h>
 #include <asm/types.h>
 

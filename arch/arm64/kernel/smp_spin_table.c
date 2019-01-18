@@ -2,6 +2,7 @@
  * Spin Table SMP initialisation
  *
  * Copyright (C) 2013 ARM Ltd.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -25,6 +26,7 @@
 #include <asm/cacheflush.h>
 #include <asm/cpu_ops.h>
 #include <asm/cputype.h>
+#include <asm/io.h>
 #include <asm/smp_plat.h>
 
 static phys_addr_t cpu_release_addr[NR_CPUS];

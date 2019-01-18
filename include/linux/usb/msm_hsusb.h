@@ -1,6 +1,7 @@
 /* include/linux/usb/msm_hsusb.h
  *
  * Copyright (C) 2008 Google, Inc.
+ * Copyright (C) 2019 XiaoMi, Inc.
  * Author: Brian Swetland <swetland@google.com>
  * Copyright (c) 2009-2018, The Linux Foundation. All rights reserved.
  *
@@ -677,6 +678,7 @@ static inline void msm_usb_irq_disable(bool disable)
 }
 #endif
 
+int qusb_phy_run_dcd(struct usb_phy *phy);
 /* CONFIG_PM_RUNTIME */
 #ifdef CONFIG_PM_RUNTIME
 static inline int get_pm_runtime_counter(struct device *dev)
