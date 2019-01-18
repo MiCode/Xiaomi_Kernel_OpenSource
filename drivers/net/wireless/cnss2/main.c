@@ -976,6 +976,11 @@ void cnss_schedule_recovery(struct device *dev,
 
 	cnss_bus_update_status(plat_priv, CNSS_FW_DOWN);
 
+	if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) {
+		cnss_pr_dbg("Driver unload is in progress, ignore schedule recovery\n");
+		return;
+	}
+
 	if (in_interrupt() || irqs_disabled())
 		gfp = GFP_ATOMIC;
 

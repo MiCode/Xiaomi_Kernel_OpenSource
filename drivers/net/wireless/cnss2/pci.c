@@ -363,6 +363,18 @@ int cnss_pci_update_status(struct cnss_pci_data *pci_priv,
 	return 0;
 }
 
+#ifdef CONFIG_CNSS2_DEBUG
+static void cnss_pci_collect_dump(struct cnss_pci_data *pci_priv)
+{
+	cnss_pci_collect_dump_info(pci_priv, false);
+	CNSS_ASSERT(0);
+}
+#else
+static void cnss_pci_collect_dump(struct cnss_pci_data *pci_priv)
+{
+}
+#endif
+
 static int cnss_qca6174_powerup(struct cnss_pci_data *pci_priv)
 {
 	int ret = 0;
@@ -520,6 +532,12 @@ static int cnss_qca6290_shutdown(struct cnss_pci_data *pci_priv)
 				   CNSS_BUS_WIDTH_NONE);
 	cnss_pci_set_monitor_wake_intr(pci_priv, false);
 	cnss_pci_set_auto_suspended(pci_priv, 0);
+
+	if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state) &&
+	    test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state)) {
+		del_timer(&pci_priv->dev_rddm_timer);
+		cnss_pci_collect_dump(pci_priv);
+	}
 
 	cnss_pci_stop_mhi(pci_priv);
 
@@ -2064,11 +2082,6 @@ static void cnss_mhi_notify_status(struct mhi_controller *mhi_ctrl, void *priv,
 
 	cnss_pr_dbg("MHI status cb is called with reason %s(%d)\n",
 		    cnss_mhi_notify_status_to_str(reason), reason);
-
-	if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) {
-		cnss_pr_dbg("Driver unload is in progress, ignore device error\n");
-		return;
-	}
 
 	switch (reason) {
 	case MHI_CB_IDLE:
