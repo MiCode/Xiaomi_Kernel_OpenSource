@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012, 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, 2015-2019, The Linux Foundation. All rights reserved.
  */
 #define pr_fmt(fmt)	"%s: " fmt, __func__
 
@@ -746,6 +746,8 @@ static void sde_mdp_destroy_dt_misc(struct platform_device *pdev,
 #define BUS_VOTE_40_MHZ 320000000
 #define BUS_VOTE_80_MHZ 640000000
 
+#ifdef CONFIG_QCOM_BUS_SCALING
+
 static struct msm_bus_vectors mdp_reg_bus_vectors[] = {
 	MDP_REG_BUS_VECTOR_ENTRY(0, 0),
 	MDP_REG_BUS_VECTOR_ENTRY(0, BUS_VOTE_19_MHZ),
@@ -786,6 +788,12 @@ static int sde_mdp_bus_scale_register(struct sde_rot_data_type *mdata)
 
 	return 0;
 }
+#else
+static inline int sde_mdp_bus_scale_register(struct sde_rot_data_type *mdata)
+{
+	return 0;
+}
+#endif
 
 static void sde_mdp_bus_scale_unregister(struct sde_rot_data_type *mdata)
 {

@@ -128,6 +128,7 @@ enum sde_rot_type {
  * @SDE_CAPS_PARTIALWR: partial write override
  * @SDE_CAPS_HW_TIMESTAMP: rotator has hw timestamp support
  * @SDE_CAPS_UBWC_3: universal bandwidth compression version 3
+ * @SDE_CAPS_UBWC_4: universal bandwidth compression version 4
  */
 enum sde_caps_settings {
 	SDE_CAPS_R1_WB,
@@ -139,6 +140,7 @@ enum sde_caps_settings {
 	SDE_CAPS_PARTIALWR,
 	SDE_CAPS_HW_TIMESTAMP,
 	SDE_CAPS_UBWC_3,
+	SDE_CAPS_UBWC_4,
 	SDE_CAPS_MAX,
 };
 

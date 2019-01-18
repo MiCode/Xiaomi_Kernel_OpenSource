@@ -78,6 +78,10 @@
 
 #define BUS_VOTE_19_MHZ 153600000
 
+/* forward prototype */
+static int sde_rotator_update_perf(struct sde_rot_mgr *mgr);
+
+#ifdef CONFIG_QCOM_BUS_SCALING
 static struct msm_bus_vectors rot_reg_bus_vectors[] = {
 	SDE_REG_BUS_VECTOR_ENTRY(0, 0),
 	SDE_REG_BUS_VECTOR_ENTRY(0, BUS_VOTE_19_MHZ),
@@ -90,9 +94,6 @@ static struct msm_bus_scale_pdata rot_reg_bus_scale_table = {
 	.name = "mdss_rot_reg",
 	.active_only = 1,
 };
-
-/* forward prototype */
-static int sde_rotator_update_perf(struct sde_rot_mgr *mgr);
 
 static int sde_rotator_bus_scale_set_quota(struct sde_rot_bus_data_type *bus,
 		u64 quota)
@@ -190,6 +191,18 @@ static int sde_rotator_enable_reg_bus(struct sde_rot_mgr *mgr, u64 quota)
 
 	return ret;
 }
+#else
+static inline int sde_rotator_enable_reg_bus(struct sde_rot_mgr *mgr, u64 quota)
+{
+	return 0;
+}
+
+static inline int sde_rotator_bus_scale_set_quota(
+		struct sde_rot_bus_data_type *bus, u64 quota)
+{
+	return 0;
+}
+#endif
 
 /*
  * Clock rate of all open sessions working a particular hw block
@@ -1508,6 +1521,7 @@ static void sde_rotator_commit_handler(struct kthread_work *work)
 	struct sde_rot_hw_resource *hw;
 	struct sde_rot_mgr *mgr;
 	struct sched_param param = { .sched_priority = 5 };
+	struct sde_rot_trace_entry rot_trace;
 	int ret;
 
 	entry = container_of(work, struct sde_rot_entry, commit_work);
@@ -1556,17 +1570,26 @@ static void sde_rotator_commit_handler(struct kthread_work *work)
 	if (entry->item.ts)
 		entry->item.ts[SDE_ROTATOR_TS_COMMIT] = ktime_get();
 
+	/* Set values to pass to trace */
+	rot_trace.wb_idx = entry->item.wb_idx;
+	rot_trace.flags = entry->item.flags;
+	rot_trace.input_format = entry->item.input.format;
+	rot_trace.input_width = entry->item.input.width;
+	rot_trace.input_height = entry->item.input.height;
+	rot_trace.src_x = entry->item.src_rect.x;
+	rot_trace.src_y = entry->item.src_rect.y;
+	rot_trace.src_w = entry->item.src_rect.w;
+	rot_trace.src_h = entry->item.src_rect.h;
+	rot_trace.output_format = entry->item.output.format;
+	rot_trace.output_width = entry->item.output.width;
+	rot_trace.output_height = entry->item.output.height;
+	rot_trace.dst_x = entry->item.dst_rect.x;
+	rot_trace.dst_y = entry->item.dst_rect.y;
+	rot_trace.dst_w = entry->item.dst_rect.w;
+	rot_trace.dst_h = entry->item.dst_rect.h;
+
 	trace_rot_entry_commit(
-		entry->item.session_id, entry->item.sequence_id,
-		entry->item.wb_idx, entry->item.flags,
-		entry->item.input.format,
-		entry->item.input.width, entry->item.input.height,
-		entry->item.src_rect.x, entry->item.src_rect.y,
-		entry->item.src_rect.w, entry->item.src_rect.h,
-		entry->item.output.format,
-		entry->item.output.width, entry->item.output.height,
-		entry->item.dst_rect.x, entry->item.dst_rect.y,
-		entry->item.dst_rect.w, entry->item.dst_rect.h);
+		entry->item.session_id, entry->item.sequence_id, &rot_trace);
 
 	ATRACE_INT("sde_smmu_ctrl", 0);
 	ret = sde_smmu_ctrl(1);
@@ -1652,6 +1675,7 @@ static void sde_rotator_done_handler(struct kthread_work *work)
 	struct sde_rot_entry_container *request;
 	struct sde_rot_hw_resource *hw;
 	struct sde_rot_mgr *mgr;
+	struct sde_rot_trace_entry rot_trace;
 	int ret;
 
 	entry = container_of(work, struct sde_rot_entry, done_work);
@@ -1686,17 +1710,26 @@ static void sde_rotator_done_handler(struct kthread_work *work)
 	if (entry->item.ts)
 		entry->item.ts[SDE_ROTATOR_TS_DONE] = ktime_get();
 
-	trace_rot_entry_done(
-		entry->item.session_id, entry->item.sequence_id,
-		entry->item.wb_idx, entry->item.flags,
-		entry->item.input.format,
-		entry->item.input.width, entry->item.input.height,
-		entry->item.src_rect.x, entry->item.src_rect.y,
-		entry->item.src_rect.w, entry->item.src_rect.h,
-		entry->item.output.format,
-		entry->item.output.width, entry->item.output.height,
-		entry->item.dst_rect.x, entry->item.dst_rect.y,
-		entry->item.dst_rect.w, entry->item.dst_rect.h);
+	/* Set values to pass to trace */
+	rot_trace.wb_idx = entry->item.wb_idx;
+	rot_trace.flags = entry->item.flags;
+	rot_trace.input_format = entry->item.input.format;
+	rot_trace.input_width = entry->item.input.width;
+	rot_trace.input_height = entry->item.input.height;
+	rot_trace.src_x = entry->item.src_rect.x;
+	rot_trace.src_y = entry->item.src_rect.y;
+	rot_trace.src_w = entry->item.src_rect.w;
+	rot_trace.src_h = entry->item.src_rect.h;
+	rot_trace.output_format = entry->item.output.format;
+	rot_trace.output_width = entry->item.output.width;
+	rot_trace.output_height = entry->item.output.height;
+	rot_trace.dst_x = entry->item.dst_rect.x;
+	rot_trace.dst_y = entry->item.dst_rect.y;
+	rot_trace.dst_w = entry->item.dst_rect.w;
+	rot_trace.dst_h = entry->item.dst_rect.h;
+
+	trace_rot_entry_done(entry->item.session_id, entry->item.sequence_id,
+			&rot_trace);
 
 	sde_rot_mgr_lock(mgr);
 	sde_rotator_put_hw_resource(entry->commitq, entry, entry->commitq->hw);
@@ -2710,6 +2743,7 @@ static struct attribute_group sde_rotator_fs_attr_group = {
 	.attrs = sde_rotator_fs_attrs
 };
 
+#ifdef CONFIG_QCOM_BUS_SCALING
 static int sde_rotator_parse_dt_bus(struct sde_rot_mgr *mgr,
 	struct platform_device *dev)
 {
@@ -2752,6 +2786,13 @@ static int sde_rotator_parse_dt_bus(struct sde_rot_mgr *mgr,
 
 	return ret;
 }
+#else
+static inline int sde_rotator_parse_dt_bus(struct sde_rot_mgr *mgr,
+	struct platform_device *dev)
+{
+	return 0;
+}
+#endif
 
 static int sde_rotator_parse_dt(struct sde_rot_mgr *mgr,
 	struct platform_device *dev)
@@ -2856,6 +2897,7 @@ error:
 	return rc;
 }
 
+#ifdef CONFIG_QCOM_BUS_SCALING
 static void sde_rotator_bus_scale_unregister(struct sde_rot_mgr *mgr)
 {
 	SDEROT_DBG("unregister bus_hdl=%x, reg_bus_hdl=%x\n",
@@ -2899,6 +2941,15 @@ static int sde_rotator_bus_scale_register(struct sde_rot_mgr *mgr)
 
 	return 0;
 }
+#else
+static inline void sde_rotator_bus_scale_unregister(struct sde_rot_mgr *mgr)
+{
+}
+static inline int sde_rotator_bus_scale_register(struct sde_rot_mgr *mgr)
+{
+	return 0;
+}
+#endif
 
 static inline int sde_rotator_search_dt_clk(struct platform_device *pdev,
 		struct sde_rot_mgr *mgr, char *clk_name, int clk_idx,
@@ -2916,6 +2967,8 @@ static inline int sde_rotator_search_dt_clk(struct platform_device *pdev,
 	if (IS_ERR(tmp)) {
 		if (mandatory)
 			SDEROT_ERR("unable to get clk: %s\n", clk_name);
+		else
+			tmp = NULL;
 		rc = PTR_ERR(tmp);
 	}
 
