@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,14 @@
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&cdc_reset_active>;
 		pinctrl-1 = <&cdc_reset_sleep>;
+	};
+
+	lineout_booster_gpio: msm_cdc_pinctrl@113 {
+		compatible = "qcom,msm-cdc-pinctrl";
+		qcom,lo-booster-gpio = <&tlmm 113 0>;
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&lineout_booster_active>;
+		pinctrl-1 = <&lineout_booster_sleep>;
 	};
 };
 
@@ -95,4 +103,8 @@
 					   "cdc-vdd-tx-h",
 					   "cdc-vdd-rx-h";
 	};
+};
+
+&qcs405_snd {
+	qcom,lineout-booster-gpio = <&lineout_booster_gpio>;
 };

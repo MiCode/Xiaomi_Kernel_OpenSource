@@ -2198,6 +2198,35 @@
 				};
 			};
 		};
+
+		lineout_booster_ctrl {
+			lineout_booster_sleep: lineout_booster_sleep {
+				mux {
+					pins = "gpio113";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio113";
+					drive-strength = <2>;
+					bias-disable;
+					output-low;
+				};
+			};
+
+			lineout_booster_active:lineout_booster_active {
+				mux {
+					pins = "gpio113";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio113";
+					drive-strength = <16>;
+					bias-pull-down;
+					output-high;
+				};
+			};
+		};
+
 		emac {
 			emac_mdc: emac_mdc {
 				mux {
