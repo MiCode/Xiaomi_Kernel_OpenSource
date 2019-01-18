@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -103,8 +103,7 @@ enum {
 	SDE_HW_UBWC_VER_20 = SDE_HW_UBWC_VER(0x200),
 	SDE_HW_UBWC_VER_30 = SDE_HW_UBWC_VER(0x300),
 };
-#define IS_UBWC_10_SUPPORTED(rev) \
-		IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_UBWC_VER_10)
+
 #define IS_UBWC_20_SUPPORTED(rev) \
 		IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_UBWC_VER_20)
 #define IS_UBWC_30_SUPPORTED(rev) \
