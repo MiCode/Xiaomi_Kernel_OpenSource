@@ -3210,6 +3210,7 @@ static int __power_collapse(struct venus_hfi_device *device, bool force)
 {
 	int rc = 0;
 	u32 wfi_status = 0, idle_status = 0, pc_ready = 0;
+	u32 ctrl_status = 0;
 	u32 flags = 0;
 	int count = 0;
 	const int max_tries = 10;
@@ -3224,10 +3225,8 @@ static int __power_collapse(struct venus_hfi_device *device, bool force)
 		goto exit;
 	}
 
-	rc = __core_in_valid_state(device);
-	if (!rc) {
-		dprintk(VIDC_WARN,
-				"Core is in bad state, Skipping power collapse\n");
+	if (!__core_in_valid_state(device)) {
+		dprintk(VIDC_WARN, "%s - Core not in init state\n", __func__);
 		return -EINVAL;
 	}
 
@@ -3237,39 +3236,34 @@ static int __power_collapse(struct venus_hfi_device *device, bool force)
 	else if (rc)
 		goto skip_power_off;
 
-	pc_ready = __read_register(device, VIDC_CTRL_STATUS) &
-		VIDC_CTRL_STATUS_PC_READY;
+	ctrl_status = __read_register(device, VIDC_CTRL_STATUS);
+	pc_ready = ctrl_status & VIDC_CTRL_STATUS_PC_READY;
+	idle_status = ctrl_status & BIT(30);
+
 	if (!pc_ready) {
-		wfi_status = __read_register(device,
-				VIDC_WRAPPER_TZ_CPU_STATUS);
-		idle_status = __read_register(device,
-				VIDC_CTRL_STATUS);
-		if (!(wfi_status & BIT(0))) {
+		wfi_status = BIT(0) &
+				__read_register(device,
+					VIDC_WRAPPER_TZ_CPU_STATUS);
+		if (!wfi_status) {
 			dprintk(VIDC_WARN,
-				"Skipping PC as wfi_status (%#x) bit not set\n",
-				wfi_status);
-			goto skip_power_off;
-		}
-		if (!(idle_status & BIT(30))) {
-			dprintk(VIDC_WARN,
-				"Skipping PC as idle_status (%#x) bit not set\n",
-				idle_status);
+				"Skipping PC, wfi_status not set.\n");
 			goto skip_power_off;
 		}
 
 		rc = __prepare_pc(device);
 		if (rc) {
-			dprintk(VIDC_WARN, "Failed PC %d\n", rc);
+			dprintk(VIDC_WARN, "Failed __prepare_pc %d\n", rc);
 			goto skip_power_off;
 		}
 
 		while (count < max_tries) {
-			wfi_status = __read_register(device,
+			wfi_status = BIT(0) &
+					__read_register(device,
 					VIDC_WRAPPER_TZ_CPU_STATUS);
-			pc_ready = __read_register(device,
+			ctrl_status = __read_register(device,
 					VIDC_CTRL_STATUS);
-			if ((wfi_status & BIT(0)) && (pc_ready &
-				VIDC_CTRL_STATUS_PC_READY))
+			if (wfi_status &&
+				(ctrl_status & VIDC_CTRL_STATUS_PC_READY))
 				break;
 			usleep_range(150, 250);
 			count++;
@@ -3277,8 +3271,7 @@ static int __power_collapse(struct venus_hfi_device *device, bool force)
 
 		if (count == max_tries) {
 			dprintk(VIDC_ERR,
-					"Skip PC. Core is not in right state (%#x, %#x)\n",
-					wfi_status, pc_ready);
+				"Skip PC. Core is not in right state.\n");
 			goto skip_power_off;
 		}
 	}
@@ -3293,8 +3286,8 @@ exit:
 	return rc;
 
 skip_power_off:
-	dprintk(VIDC_WARN, "Skip PC(%#x, %#x, %#x)\n",
-		wfi_status, idle_status, pc_ready);
+	dprintk(VIDC_WARN, "Skip PC, wfi=%#x, idle=%#x, pcr=%#x, ctrl=%#x)\n",
+		wfi_status, idle_status, pc_ready, ctrl_status);
 
 	return -EAGAIN;
 }
