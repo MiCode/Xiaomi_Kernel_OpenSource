@@ -1346,6 +1346,81 @@
 				output-high; /* active low reset */
 			};
 		};
+
+		pmx_ts_int_active {
+			ts_int_active: ts_int_active {
+				mux {
+					pins = "gpio88";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio88";
+					drive-strength = <8>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		pmx_ts_int_suspend {
+			ts_int_suspend: ts_int_suspend {
+				mux {
+					pins = "gpio88";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio88";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
+
+		pmx_ts_reset_active {
+			ts_reset_active: ts_reset_active {
+				mux {
+					pins = "gpio87";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio87";
+					drive-strength = <8>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		pmx_ts_reset_suspend {
+			ts_reset_suspend: ts_reset_suspend {
+				mux {
+					pins = "gpio87";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio87";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
+
+		pmx_ts_release {
+			ts_release: ts_release {
+				mux {
+					pins = "gpio88", "gpio87";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio88", "gpio87";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
 	};
 };
 
