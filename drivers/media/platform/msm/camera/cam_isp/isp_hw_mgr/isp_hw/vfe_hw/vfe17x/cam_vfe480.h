@@ -980,11 +980,61 @@ static struct cam_vfe_bus_ver3_hw_info vfe480_bus_hw_info = {
 	},
 };
 
+static struct cam_irq_register_set vfe480_bus_rd_irq_reg[1] = {
+	{
+		.mask_reg_offset   = 0x0000A810,
+		.clear_reg_offset  = 0x0000A814,
+		.status_reg_offset = 0x0000A81C,
+	},
+};
+
+static struct cam_vfe_bus_rd_ver1_hw_info vfe480_bus_rd_hw_info = {
+	.common_reg = {
+		.hw_version                   = 0x0000A800,
+		.hw_capability                = 0x0000A804,
+		.sw_reset                     = 0x0000A808,
+		.cgc_ovd                      = 0x0000A80C,
+		.pwr_iso_cfg                  = 0x0000A834,
+		.input_if_cmd                 = 0x0000A820,
+		.test_bus_ctrl                = 0x0000A848,
+		.irq_reg_info = {
+			.num_registers        = 1,
+			.irq_reg_set          = vfe480_bus_rd_irq_reg,
+			.global_clear_offset  = 0x0000A818,
+			.global_clear_bitmask = 0x00000001,
+		},
+	},
+	.num_client = 1,
+	.bus_client_reg = {
+		/* BUS Client 0 */
+		{
+			.cfg                      = 0x0000A850,
+			.image_addr               = 0x0000A858,
+			.buf_size                 = 0x0000A85C,
+			.stride                   = 0x0000A860,
+			.unpacker_cfg             = 0x0000A864,
+			.latency_buf_allocation   = 0x0000A878,
+			.burst_limit              = 0x0000A880,
+		},
+	},
+	.num_bus_rd_resc = 1,
+	.vfe_bus_rd_hw_info = {
+		{
+			.vfe_bus_rd_type = CAM_VFE_BUS_RD_VER1_VFE_BUSRD_RDI0,
+			.max_width     = -1,
+			.max_height    = -1,
+		},
+	},
+};
+
 struct cam_vfe_hw_info cam_vfe480_hw_info = {
 	.irq_reg_info                  = &vfe175_top_irq_reg_info,
 
 	.bus_version                   = CAM_VFE_BUS_VER_3_0,
 	.bus_hw_info                   = &vfe480_bus_hw_info,
+
+	.bus_rd_version                = CAM_VFE_BUS_RD_VER_1_0,
+	.bus_rd_hw_info                = &vfe480_bus_rd_hw_info,
 
 	.top_version                   = CAM_VFE_TOP_VER_2_0,
 	.top_hw_info                   = &vfe175_top_hw_info,

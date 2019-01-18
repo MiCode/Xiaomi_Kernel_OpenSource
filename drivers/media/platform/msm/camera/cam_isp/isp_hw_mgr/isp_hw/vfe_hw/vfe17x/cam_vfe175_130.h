@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_VFE175_130_H_
@@ -354,12 +354,11 @@ static struct cam_vfe_bus_rd_ver1_hw_info vfe175_130_bus_rd_hw_info = {
 		{
 			.cfg                      = 0x00005050,
 			.image_addr               = 0x00005058,
-			.buffer_width_cfg         = 0x0000505C,
-			.unpacker_cfg             = 0x00005064,
+			.buf_size                 = 0x0000505C,
 			.stride                   = 0x00005060,
-			.burst_limit              = 0x00005080,
+			.unpacker_cfg             = 0x00005064,
 			.latency_buf_allocation   = 0x00005078,
-			.ubwc_regs                = NULL,
+			.burst_limit              = 0x00005080,
 		},
 	},
 	.num_bus_rd_resc = 1,
@@ -1093,7 +1092,7 @@ struct cam_vfe_hw_info cam_vfe175_130_hw_info = {
 	.bus_version                   = CAM_VFE_BUS_VER_2_0,
 	.bus_hw_info                   = &vfe175_130_bus_hw_info,
 
-	.bus_rd_version                = CAM_VFE_BUS_VER_2_0,
+	.bus_rd_version                = CAM_VFE_BUS_RD_VER_1_0,
 	.bus_rd_hw_info                = &vfe175_130_bus_rd_hw_info,
 
 	.top_version                   = CAM_VFE_TOP_VER_2_0,

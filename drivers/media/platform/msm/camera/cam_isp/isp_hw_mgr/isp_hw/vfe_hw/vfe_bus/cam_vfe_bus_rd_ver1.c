@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/ratelimit.h>
@@ -318,7 +318,7 @@ static int cam_vfe_bus_start_rm(struct cam_isp_resource_node *rm_res)
 	CAM_DBG(CAM_ISP, "min_vbi: 0x%x", rm_data->min_vbi);
 
 	/* Write All the values*/
-	offset = rm_data->hw_regs->buffer_width_cfg;
+	offset = rm_data->hw_regs->buf_size;
 	buf_size = ((rm_data->width)&(0x0000FFFF)) |
 		((rm_data->height<<16)&(0xFFFF0000));
 	cam_io_w_mb(buf_size, common_data->mem_base + offset);
@@ -809,8 +809,7 @@ static int cam_vfe_bus_rd_update_rm(void *priv, void *cmd_args,
 		CAM_DBG(CAM_ISP, "size offset 0x%x buf_size 0x%x",
 			rm_data->hw_regs->buf_size, buf_size);
 		CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
-			rm_data->hw_regs->buffer_width_cfg,
-			buf_size);
+			rm_data->hw_regs->buf_size, buf_size);
 		CAM_DBG(CAM_ISP, "RM %d image size 0x%x",
 			rm_data->index, reg_val_pair[j-1]);
 
