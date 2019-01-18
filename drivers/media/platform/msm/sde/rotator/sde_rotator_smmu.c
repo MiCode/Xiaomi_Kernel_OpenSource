@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"%s: " fmt, __func__
@@ -225,8 +225,8 @@ int sde_smmu_attach(struct sde_rot_data_type *mdata)
 				sde_smmu_is_valid_domain_condition(mdata,
 						i,
 						true)) {
-				rc = arm_iommu_attach_device(sde_smmu->dev,
-						sde_smmu->mmu_mapping);
+				rc = __depr_arm_iommu_attach_device(
+					sde_smmu->dev, sde_smmu->mmu_mapping);
 				if (rc) {
 					SDEROT_ERR(
 						"iommu attach device failed for domain[%d] with err:%d\n",
@@ -250,7 +250,7 @@ err:
 	for (i--; i >= 0; i--) {
 		sde_smmu = sde_smmu_get_cb(i);
 		if (sde_smmu && sde_smmu->dev) {
-			arm_iommu_detach_device(sde_smmu->dev);
+			__depr_arm_iommu_detach_device(sde_smmu->dev);
 			sde_smmu_enable_power(sde_smmu, false);
 			sde_smmu->domain_attached = false;
 		}
@@ -278,7 +278,7 @@ int sde_smmu_detach(struct sde_rot_data_type *mdata)
 			if (sde_smmu->domain_attached &&
 				sde_smmu_is_valid_domain_condition(mdata,
 					i, false)) {
-				arm_iommu_detach_device(sde_smmu->dev);
+				__depr_arm_iommu_detach_device(sde_smmu->dev);
 				SDEROT_DBG("iommu domain[%i] detached\n", i);
 				sde_smmu->domain_attached = false;
 				}
@@ -611,7 +611,7 @@ int sde_smmu_probe(struct platform_device *pdev)
 		smmu_domain.size = SZ_4G - SZ_128K;
 	}
 
-	sde_smmu->mmu_mapping = arm_iommu_create_mapping(
+	sde_smmu->mmu_mapping = __depr_arm_iommu_create_mapping(
 		&platform_bus_type, smmu_domain.start, smmu_domain.size);
 	if (IS_ERR(sde_smmu->mmu_mapping)) {
 		SDEROT_ERR("iommu create mapping failed for domain[%d]\n",
@@ -658,7 +658,7 @@ int sde_smmu_probe(struct platform_device *pdev)
 	return 0;
 
 release_mapping:
-	arm_iommu_release_mapping(sde_smmu->mmu_mapping);
+	__depr_arm_iommu_release_mapping(sde_smmu->mmu_mapping);
 	sde_smmu->mmu_mapping = NULL;
 disable_power:
 	sde_smmu_enable_power(sde_smmu, false);
@@ -688,7 +688,7 @@ int sde_smmu_remove(struct platform_device *pdev)
 			continue;
 
 		sde_smmu->dev = NULL;
-		arm_iommu_release_mapping(sde_smmu->mmu_mapping);
+		__depr_arm_iommu_release_mapping(sde_smmu->mmu_mapping);
 		sde_smmu->mmu_mapping = NULL;
 		sde_smmu_enable_power(sde_smmu, false);
 		sde_reg_bus_vote_client_destroy(sde_smmu->reg_bus_clt);
