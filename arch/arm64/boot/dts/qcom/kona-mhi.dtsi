@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 &pcie2_rp {
@@ -307,6 +307,86 @@
 				mhi,ee = <0x4>;
 			};
 
+			mhi_chan@50 {
+				reg = <50>;
+				label = "ADSP_0";
+				mhi,event-ring = <4>;
+				mhi,chan-dir = <0>;
+				mhi,data-type = <3>;
+				mhi,ee = <0x4>;
+				mhi,offload-chan;
+			};
+
+			mhi_chan@51 {
+				reg = <51>;
+				label = "ADSP_1";
+				mhi,event-ring = <4>;
+				mhi,chan-dir = <0>;
+				mhi,data-type = <3>;
+				mhi,ee = <0x4>;
+				mhi,offload-chan;
+			};
+
+			mhi_chan@52 {
+				reg = <52>;
+				label = "SLPI_0";
+				mhi,event-ring = <4>;
+				mhi,chan-dir = <0>;
+				mhi,data-type = <3>;
+				mhi,ee = <0x4>;
+				mhi,offload-chan;
+			};
+
+			mhi_chan@53 {
+				reg = <53>;
+				label = "SLPI_1";
+				mhi,event-ring = <4>;
+				mhi,chan-dir = <0>;
+				mhi,data-type = <3>;
+				mhi,ee = <0x4>;
+				mhi,offload-chan;
+			};
+
+			mhi_chan@70 {
+				reg = <70>;
+				label = "ADSP_2";
+				mhi,event-ring = <5>;
+				mhi,chan-dir = <0>;
+				mhi,data-type = <3>;
+				mhi,ee = <0x4>;
+				mhi,offload-chan;
+			};
+
+			mhi_chan@71 {
+				reg = <71>;
+				label = "ADSP_3";
+				mhi,event-ring = <5>;
+				mhi,chan-dir = <0>;
+				mhi,data-type = <3>;
+				mhi,ee = <0x4>;
+				mhi,offload-chan;
+			};
+
+			mhi_chan@72 {
+				reg = <72>;
+				label = "SLPI_2";
+				mhi,event-ring = <5>;
+				mhi,chan-dir = <0>;
+				mhi,data-type = <3>;
+				mhi,ee = <0x4>;
+				mhi,offload-chan;
+			};
+
+			mhi_chan@73 {
+				reg = <73>;
+				label = "SLPI_3";
+				mhi,event-ring = <5>;
+				mhi,chan-dir = <0>;
+				mhi,data-type = <3>;
+				mhi,ee = <0x4>;
+				mhi,offload-chan;
+			};
+
 			mhi_chan@100 {
 				reg = <100>;
 				label = "IP_HW0";
@@ -377,6 +457,8 @@
 				mhi,priority = <1>;
 				mhi,brstmode = <3>;
 				mhi,hw-ev;
+				mhi,client-manage;
+				mhi,offload;
 			};
 
 			mhi_event@5 {
@@ -388,6 +470,7 @@
 				mhi,brstmode = <3>;
 				mhi,hw-ev;
 				mhi,client-manage;
+				mhi,offload;
 			};
 		};
 
@@ -412,6 +495,18 @@
 			mhi_qrtr {
 				mhi,chan = "IPCR";
 				qcom,net-id = <3>;
+			};
+
+			mhi_subsys_adsp_0: mhi_dev@2 {
+				reg = <0x2>;
+				mhi,chan = "ADSP_0";
+				mhi,num-devices = <4>;
+			};
+
+			mhi_subsys_slpi_0: mhi_dev@3 {
+				reg = <0x3>;
+				mhi,chan = "SLPI_0";
+				mhi,num-devices = <4>;
 			};
 		};
 	};
