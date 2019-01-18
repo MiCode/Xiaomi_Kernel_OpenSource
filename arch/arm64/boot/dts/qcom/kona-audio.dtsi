@@ -42,6 +42,12 @@
 			};
 		};
 	};
+
+	voice_mhi_audio: qcom,voice-mhi-audio {
+		compatible = "qcom,voice-mhi-audio";
+		memory-region = <&mailbox_mem>;
+		voice_mhi_voting;
+	};
 };
 
 &q6core {
