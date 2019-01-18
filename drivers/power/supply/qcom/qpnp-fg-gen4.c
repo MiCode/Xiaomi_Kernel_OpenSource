@@ -3548,7 +3548,7 @@ static int fg_psy_get_property(struct power_supply *psy,
 {
 	struct fg_gen4_chip *chip = power_supply_get_drvdata(psy);
 	struct fg_dev *fg = &chip->fg;
-	int rc = 0;
+	int rc = 0, val;
 	int64_t temp;
 
 	switch (psp) {
@@ -3557,6 +3557,15 @@ static int fg_psy_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY_RAW:
 		rc = fg_get_msoc_raw(fg, &pval->intval);
+		break;
+	case POWER_SUPPLY_PROP_CC_SOC:
+		rc = fg_get_sram_prop(&chip->fg, FG_SRAM_CC_SOC, &val);
+		if (rc < 0) {
+			pr_err("Error in getting CC_SOC, rc=%d\n", rc);
+			return rc;
+		}
+		/* Show it in centi-percentage */
+		pval->intval = div_s64((int64_t)val * 10000,  CC_SOC_30BIT);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		if (fg->battery_missing)
@@ -3778,6 +3787,7 @@ static int fg_property_is_writeable(struct power_supply *psy,
 static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_CAPACITY_RAW,
+	POWER_SUPPLY_PROP_CC_SOC,
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_VOLTAGE_OCV,
