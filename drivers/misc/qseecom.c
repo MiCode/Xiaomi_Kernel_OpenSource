@@ -1,7 +1,7 @@
 /*
  * QTI Secure Execution Environment Communicator (QSEECOM) driver
  *
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -323,6 +323,7 @@ struct qseecom_client_handle {
 struct qseecom_listener_handle {
 	u32               id;
 	bool              unregister_pending;
+	bool              release_called;
 };
 
 static struct qseecom_control qseecom;
@@ -1329,6 +1330,9 @@ static void __qseecom_processing_pending_lsnr_unregister(void)
 		if (entry && entry->data) {
 			pr_debug("process pending unregister %d\n",
 					entry->data->listener.id);
+			/* don't process if qseecom_release is not called*/
+			if (!entry->data->listener.release_called)
+				break;
 			ptr_svc = __qseecom_find_svc(
 						entry->data->listener.id);
 			if (ptr_svc) {
@@ -2179,8 +2183,10 @@ err_resp:
 				ret = -EINVAL;
 				goto exit;
 			}
+			mutex_unlock(&listener_access_lock);
 			ret = __qseecom_process_reentrancy_blocked_on_listener(
 					resp, NULL, data);
+			mutex_lock(&listener_access_lock);
 			if (ret) {
 				pr_err("failed to process App(%d) %s blocked on listener %d\n",
 					data->client.app_id,
@@ -7767,6 +7773,7 @@ static int qseecom_release(struct inode *inode, struct file *file)
 			free_private_data = false;
 			mutex_lock(&listener_access_lock);
 			ret = qseecom_unregister_listener(data);
+			data->listener.release_called = true;
 			mutex_unlock(&listener_access_lock);
 			break;
 		case QSEECOM_CLIENT_APP:
