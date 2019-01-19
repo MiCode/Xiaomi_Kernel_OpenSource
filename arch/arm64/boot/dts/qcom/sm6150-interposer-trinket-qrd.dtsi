@@ -167,3 +167,16 @@
 	};
 };
 
+&pmi632_vadc {
+	bat_therm {
+		qcom,lut-index = <0>;
+	};
+
+	bat_therm_30k {
+		qcom,lut-index = <0>;
+	};
+
+	bat_therm_400k {
+		qcom,lut-index = <0>;
+	};
+};
