@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, 2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -77,5 +77,4 @@ int diag_mux_close_all(void);
 int diag_mux_switch_logging(int *new_mode, int *peripheral_mask);
 int diag_pcie_register_ops(int proc, int ctx, struct diag_mux_ops *ops);
 int diag_usb_register_ops(int proc, int ctx, struct diag_mux_ops *ops);
-int diag_mux_register_ops(int proc, int ctx, struct diag_mux_ops *ops);
 #endif
