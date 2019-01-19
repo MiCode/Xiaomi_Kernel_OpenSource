@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, The Linux Foundation.All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation.All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -409,13 +409,14 @@ int dsi_display_validate_mode(struct dsi_display *display,
 			      u32 flags);
 
 /**
- * dsi_display_validate_mode_vrr() - validates mode if variable refresh case
+ * dsi_display_validate_mode_change() - validates mode if variable refresh case
+ *				or dynamic clk change case
  * @display:             Handle to display.
  * @mode:                Mode to be validated..
  *
  * Return: 0 if  error code.
  */
-int dsi_display_validate_mode_vrr(struct dsi_display *display,
+int dsi_display_validate_mode_change(struct dsi_display *display,
 			struct dsi_display_mode *cur_dsi_mode,
 			struct dsi_display_mode *mode);
 

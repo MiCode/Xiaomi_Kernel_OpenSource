@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -837,6 +837,7 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 	u64 h_period, v_period, bit_rate, pclk_rate, bit_rate_per_lane,
 	    byte_clk_rate;
 	struct dsi_host_common_cfg *host_cfg = &config->common_config;
+	struct dsi_split_link_config *split_link = &host_cfg->split_link;
 	struct dsi_mode_info *timing = &config->video_timing;
 
 	/* Get bits per pxl in desitnation format */
@@ -850,6 +851,9 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 		num_of_lanes++;
 	if (host_cfg->data_lanes & DSI_DATA_LANE_3)
 		num_of_lanes++;
+
+	if (split_link->split_link_enabled)
+		num_of_lanes = split_link->lanes_per_sublink;
 
 	if (config->bit_clk_rate_hz_override == 0) {
 		h_period = DSI_H_TOTAL_DSC(timing);
@@ -1716,6 +1720,9 @@ static int dsi_ctrl_dts_parse(struct dsi_ctrl *dsi_ctrl,
 
 	dsi_ctrl->null_insertion_enabled = of_property_read_bool(of_node,
 					"qcom,null-insertion-enabled");
+
+	dsi_ctrl->split_link_supported = of_property_read_bool(of_node,
+					"qcom,split-link-supported");
 
 	return 0;
 }
@@ -2873,7 +2880,12 @@ int dsi_ctrl_update_host_config(struct dsi_ctrl *ctrl,
 		goto error;
 	}
 
-	if (!(flags & (DSI_MODE_FLAG_SEAMLESS | DSI_MODE_FLAG_VRR))) {
+	if (!(flags & (DSI_MODE_FLAG_SEAMLESS | DSI_MODE_FLAG_VRR |
+		       DSI_MODE_FLAG_DYN_CLK))) {
+		/*
+		 * for dynamic clk switch case link frequence would
+		 * be updated dsi_display_dynamic_clk_switch().
+		 */
 		rc = dsi_ctrl_update_link_freqs(ctrl, config, clk_handle);
 		if (rc) {
 			pr_err("[%s] failed to update link frequencies, rc=%d\n",
@@ -3586,6 +3598,27 @@ void dsi_ctrl_irq_update(struct dsi_ctrl *dsi_ctrl, bool enable)
 					DSI_SINT_ERROR);
 
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
+}
+
+/**
+ * dsi_ctrl_wait4dynamic_refresh_done() - Poll for dynamci refresh
+ *				done interrupt.
+ * @dsi_ctrl:              DSI controller handle.
+ */
+int dsi_ctrl_wait4dynamic_refresh_done(struct dsi_ctrl *ctrl)
+{
+	int rc = 0;
+
+	if (!ctrl)
+		return 0;
+
+	mutex_lock(&ctrl->ctrl_lock);
+
+	if (ctrl->hw.ops.wait4dynamic_refresh_done)
+		rc = ctrl->hw.ops.wait4dynamic_refresh_done(&ctrl->hw);
+
+	mutex_unlock(&ctrl->ctrl_lock);
+	return rc;
 }
 
 /**

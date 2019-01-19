@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -318,4 +318,18 @@ int dsi_clk_set_byte_clk_rate(void *client, u64 byte_clk, u32 index);
  */
 int dsi_clk_update_parent(struct dsi_clk_link_set *parent,
 			  struct dsi_clk_link_set *child);
+
+/**
+ * dsi_clk_prepare_enable() - prepare and enable dsi src clocks
+ * @clk:       list of src clocks.
+ *
+ * @return:	Zero on success and err no on failure
+ */
+int dsi_clk_prepare_enable(struct dsi_clk_link_set *clk);
+
+/**
+ * dsi_clk_disable_unprepare() - disable and unprepare dsi src clocks
+ * @clk:       list of src clocks.
+ */
+void dsi_clk_disable_unprepare(struct dsi_clk_link_set *clk);
 #endif /* _DSI_CLK_H_ */

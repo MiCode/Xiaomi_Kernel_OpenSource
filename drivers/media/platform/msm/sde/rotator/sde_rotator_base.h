@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,6 +48,7 @@
 #define SDE_MDP_HW_REV_500	SDE_MDP_REV(5, 0, 0)	/* sm8150 v1.0 */
 #define SDE_MDP_HW_REV_520	SDE_MDP_REV(5, 2, 0)	/* sdmmagpie v1.0 */
 #define SDE_MDP_HW_REV_530	SDE_MDP_REV(5, 3, 0)	/* sm6150 v1.0 */
+#define SDE_MDP_HW_REV_540	SDE_MDP_REV(5, 4, 0)	/* sdmtrinket v1.0 */
 
 #define SDE_MDP_VBIF_4_LEVEL_REMAPPER	4
 #define SDE_MDP_VBIF_8_LEVEL_REMAPPER	8
@@ -76,11 +77,13 @@ struct sde_mdp_set_ot_params {
  * @xin_id: xin port number of vbif
  * @reg_off_mdp_clk_ctrl: reg offset for vbif clock control
  * @bit_off_mdp_clk_ctrl: bit offset for vbif clock control
+ * @xin_timeout: bit position indicates timeout on corresponding xin id
  */
 struct sde_mdp_vbif_halt_params {
 	u32 xin_id;
 	u32 reg_off_mdp_clk_ctrl;
 	u32 bit_off_mdp_clk_ctrl;
+	u32 xin_timeout;
 };
 
 enum sde_bus_vote_type {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1639,8 +1639,8 @@ skip_dpcd_read:
 	panel->minor = link_info->revision & 0x0f;
 	pr_debug("version: %d.%d\n", panel->major, panel->minor);
 
-	link_info->rate =
-		drm_dp_bw_code_to_link_rate(dp_panel->dpcd[DP_MAX_LINK_RATE]);
+	link_info->rate = min_t(unsigned long, panel->parser->max_lclk_khz,
+		drm_dp_bw_code_to_link_rate(dp_panel->dpcd[DP_MAX_LINK_RATE]));
 	pr_debug("link_rate=%d\n", link_info->rate);
 
 	link_info->num_lanes = dp_panel->dpcd[DP_MAX_LANE_COUNT] &
@@ -2287,13 +2287,14 @@ static void dp_panel_edid_deregister(struct dp_panel_private *panel)
 
 static int dp_panel_set_stream_info(struct dp_panel *dp_panel,
 		enum dp_stream_id stream_id, u32 ch_start_slot,
-			u32 ch_tot_slots, u32 pbn)
+			u32 ch_tot_slots, u32 pbn, int vcpi)
 {
 	if (!dp_panel || stream_id > DP_STREAM_MAX) {
 		pr_err("invalid input. stream_id: %d\n", stream_id);
 		return -EINVAL;
 	}
 
+	dp_panel->vcpi = vcpi;
 	dp_panel->stream_id = stream_id;
 	dp_panel->channel_start_slot = ch_start_slot;
 	dp_panel->channel_total_slots = ch_tot_slots;
@@ -2358,7 +2359,7 @@ static int dp_panel_deinit_panel_info(struct dp_panel *dp_panel, u32 flags)
 	if (!panel->custom_edid && dp_panel->edid_ctrl->edid)
 		sde_free_edid((void **)&dp_panel->edid_ctrl);
 
-	dp_panel_set_stream_info(dp_panel, DP_STREAM_MAX, 0, 0, 0);
+	dp_panel_set_stream_info(dp_panel, DP_STREAM_MAX, 0, 0, 0, 0);
 	memset(&dp_panel->pinfo, 0, sizeof(dp_panel->pinfo));
 	memset(&hdr->hdr_meta, 0, sizeof(hdr->hdr_meta));
 	panel->panel_on = false;

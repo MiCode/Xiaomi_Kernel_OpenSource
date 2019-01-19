@@ -22,6 +22,7 @@
 #include <linux/sched/debug.h>
 #include <linux/sched/task_stack.h>
 #include <linux/stacktrace.h>
+#include <linux/kasan.h>
 
 #include <asm/irq.h>
 #include <asm/stack_pointer.h>
@@ -53,8 +54,10 @@ int notrace unwind_frame(struct task_struct *tsk, struct stackframe *frame)
 	if (!on_accessible_stack(tsk, fp))
 		return -EINVAL;
 
+	kasan_disable_current();
 	frame->fp = READ_ONCE_NOCHECK(*(unsigned long *)(fp));
 	frame->pc = READ_ONCE_NOCHECK(*(unsigned long *)(fp + 8));
+	kasan_enable_current();
 
 #ifdef CONFIG_FUNCTION_GRAPH_TRACER
 	if (tsk->ret_stack &&

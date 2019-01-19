@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -242,7 +242,8 @@ static void _setup_vbif_ops(const struct sde_mdss_cfg *m,
 	if (test_bit(SDE_VBIF_QOS_REMAP, &cap))
 		ops->set_qos_remap = sde_hw_set_qos_remap;
 	if (IS_SM8150_TARGET(m->hwversion) || IS_SM6150_TARGET(m->hwversion) ||
-			IS_SDMMAGPIE_TARGET(m->hwversion))
+			IS_SDMMAGPIE_TARGET(m->hwversion) ||
+			IS_SDMTRINKET_TARGET(m->hwversion))
 		ops->set_mem_type = sde_hw_set_mem_type_v1;
 	else
 		ops->set_mem_type = sde_hw_set_mem_type;

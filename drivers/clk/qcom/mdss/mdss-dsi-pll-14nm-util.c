@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,13 +41,13 @@ static int mdss_pll_read_stored_trim_codes(
 		goto end_read;
 	}
 
-	for (i = 0; i < dsi_pll_res->dfps->panel_dfps.frame_rate_cnt; i++) {
+	for (i = 0; i < dsi_pll_res->dfps->vco_rate_cnt; i++) {
 		struct dfps_codes_info *codes_info =
 			&dsi_pll_res->dfps->codes_dfps[i];
 
-		pr_debug("valid=%d frame_rate=%d, vco_rate=%d, code %d %d\n",
-			codes_info->is_valid, codes_info->frame_rate,
-			codes_info->clk_rate, codes_info->pll_codes.pll_codes_1,
+		pr_debug("valid=%d, vco_rate=%d, code %d %d\n",
+			codes_info->is_valid, codes_info->clk_rate,
+			codes_info->pll_codes.pll_codes_1,
 			codes_info->pll_codes.pll_codes_2);
 
 		if (vco_clk_rate != codes_info->clk_rate &&
@@ -430,8 +430,8 @@ static void mdss_dsi_pll_14nm_input_init(struct mdss_pll_resources *pll,
 	pdb->in.pll_ip_trim = 4;	/* 4, reg: 0x0404 */
 	pdb->in.pll_cpcset_cur = 1;	/* 1, reg: 0x04f0, bit 0 - 2 */
 	pdb->in.pll_cpmset_cur = 1;	/* 1, reg: 0x04f0, bit 3 - 5 */
-	pdb->in.pll_icpmset = 4;	/* 4, reg: 0x04fc, bit 3 - 5 */
-	pdb->in.pll_icpcset = 4;	/* 4, reg: 0x04fc, bit 0 - 2 */
+	pdb->in.pll_icpmset = 7;	/* 4, reg: 0x04fc, bit 3 - 5 */
+	pdb->in.pll_icpcset = 7;	/* 4, reg: 0x04fc, bit 0 - 2 */
 	pdb->in.pll_icpmset_p = 0;	/* 0, reg: 0x04f4, bit 0 - 2 */
 	pdb->in.pll_icpmset_m = 0;	/* 0, reg: 0x04f4, bit 3 - 5 */
 	pdb->in.pll_icpcset_p = 0;	/* 0, reg: 0x04f8, bit 0 - 2 */
@@ -953,7 +953,13 @@ static void shadow_pll_dynamic_refresh_14nm(struct mdss_pll_resources *pll,
 							struct dsi_pll_db *pdb)
 {
 	struct dsi_pll_output *pout = &pdb->out;
+	u32 data = 0;
 
+	data = (pout->pll_n1div | (pout->pll_n2div << 4));
+	MDSS_DYN_PLL_REG_W(pll->dyn_pll_base,
+		DSI_DYNAMIC_REFRESH_PLL_CTRL19,
+		DSIPHY_CMN_CLK_CFG0, DSIPHY_CMN_CLK_CFG1,
+		data, 1);
 	MDSS_DYN_PLL_REG_W(pll->dyn_pll_base,
 		DSI_DYNAMIC_REFRESH_PLL_CTRL20,
 		DSIPHY_CMN_CTRL_0, DSIPHY_PLL_SYSCLK_EN_RESET,
