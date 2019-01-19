@@ -7,11 +7,11 @@
 #include "msm-audio-lpass.dtsi"
 
 &arch_timer {
-	clock-frequency = <1000000>;
+	clock-frequency = <500000>;
 };
 
 &memtimer {
-	clock-frequency = <1000000>;
+	clock-frequency = <500000>;
 };
 
 &ufsphy_mem {
