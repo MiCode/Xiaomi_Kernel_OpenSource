@@ -1617,7 +1617,7 @@ static int try_get_ctrl_for_instance(struct msm_vidc_inst *inst,
 		dprintk(VIDC_DBG, "g_min: %x : hal_buffer %d min buffers %d\n",
 			hash32_ptr(inst->session), HAL_BUFFER_INPUT, ctrl->val);
 		break;
-	case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_FORMAT:
+	case V4L2_CID_MPEG_VIDEO_HEVC_SIZE_OF_LENGTH_FIELD:
 		ctrl->val =
 		inst->capability.nal_stream_format.nal_stream_format_supported;
 		break;

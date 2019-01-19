@@ -919,15 +919,15 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.step = 1,
 	},
 	{
-		.id = V4L2_CID_MPEG_VIDC_VIDEO_STREAM_FORMAT,
+		.id = V4L2_CID_MPEG_VIDEO_HEVC_SIZE_OF_LENGTH_FIELD,
 		.name = "NAL Format",
 		.type = V4L2_CTRL_TYPE_MENU,
-		.minimum = V4L2_MPEG_VIDC_VIDEO_NAL_FORMAT_STARTCODES,
-		.maximum = V4L2_MPEG_VIDC_VIDEO_NAL_FORMAT_FOUR_BYTE_LENGTH,
-		.default_value = V4L2_MPEG_VIDC_VIDEO_NAL_FORMAT_STARTCODES,
+		.minimum = V4L2_MPEG_VIDEO_HEVC_SIZE_0,
+		.maximum = V4L2_MPEG_VIDEO_HEVC_SIZE_4,
+		.default_value = V4L2_MPEG_VIDEO_HEVC_SIZE_0,
 		.menu_skip_mask = ~(
-		(1 << V4L2_MPEG_VIDC_VIDEO_NAL_FORMAT_STARTCODES) |
-		(1 << V4L2_MPEG_VIDC_VIDEO_NAL_FORMAT_FOUR_BYTE_LENGTH)
+		(1 << V4L2_MPEG_VIDEO_HEVC_SIZE_0) |
+		(1 << V4L2_MPEG_VIDEO_HEVC_SIZE_4)
 		),
 		.qmenu = mpeg_video_stream_format,
 	},
@@ -1767,7 +1767,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_VPE_CSC_CUSTOM_MATRIX:
 	case V4L2_CID_MPEG_VIDEO_H264_8X8_TRANSFORM:
 	case V4L2_CID_MPEG_VIDC_VIDEO_VUI_TIMING_INFO:
-	case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_FORMAT:
+	case V4L2_CID_MPEG_VIDEO_HEVC_SIZE_OF_LENGTH_FIELD:
 	case V4L2_CID_MPEG_VIDEO_H264_VUI_EXT_SAR_WIDTH:
 	case V4L2_CID_MPEG_VIDEO_H264_VUI_EXT_SAR_HEIGHT:
 	case V4L2_CID_MPEG_VIDC_VIDEO_BLUR_DIMENSIONS:
@@ -3112,6 +3112,7 @@ int msm_venc_set_vui_timing_info(struct msm_vidc_inst *inst)
 
 	return rc;
 }
+
 int msm_venc_set_nal_stream_format(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
@@ -3129,7 +3130,8 @@ int msm_venc_set_nal_stream_format(struct msm_vidc_inst *inst)
 		inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_HEVC)
 		return 0;
 
-	ctrl = msm_venc_get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_STREAM_FORMAT);
+	ctrl = msm_venc_get_ctrl(inst,
+			V4L2_CID_MPEG_VIDEO_HEVC_SIZE_OF_LENGTH_FIELD);
 	if (!ctrl) {
 		dprintk(VIDC_ERR,
 			"%s: get nal stream format failed\n", __func__);
@@ -3137,11 +3139,11 @@ int msm_venc_set_nal_stream_format(struct msm_vidc_inst *inst)
 	}
 	stream_format.nal_stream_format_select = BIT(ctrl->val);
 	switch (ctrl->val) {
-	case V4L2_MPEG_VIDC_VIDEO_NAL_FORMAT_STARTCODES:
+	case V4L2_MPEG_VIDEO_HEVC_SIZE_0:
 		stream_format.nal_stream_format_select =
 			HFI_NAL_FORMAT_STARTCODES;
 		break;
-	case V4L2_MPEG_VIDC_VIDEO_NAL_FORMAT_FOUR_BYTE_LENGTH:
+	case V4L2_MPEG_VIDEO_HEVC_SIZE_4:
 		stream_format.nal_stream_format_select =
 			HFI_NAL_FORMAT_FOUR_BYTE_LENGTH;
 		break;
