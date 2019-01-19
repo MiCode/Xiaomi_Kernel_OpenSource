@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -158,6 +158,12 @@ static int dp_parser_misc(struct dp_parser *parser)
 	if (data && (len == DP_MAX_PHY_LN)) {
 		for (i = 0; i < len; i++)
 			parser->l_map[i] = data[i];
+	}
+
+	data = of_get_property(of_node, "qcom,pn-swap-lane-map", &len);
+	if (data && (len == DP_MAX_PHY_LN)) {
+		for (i = 0; i < len; i++)
+			parser->l_pnswap |= (data[i] & 0x01) << i;
 	}
 
 	rc = of_property_read_u32(of_node,

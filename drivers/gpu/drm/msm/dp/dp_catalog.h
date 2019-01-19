@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -102,6 +102,7 @@ struct dp_catalog_ctrl {
 	void (*config_ctrl)(struct dp_catalog_ctrl *ctrl, u8 ln_cnt);
 	void (*lane_mapping)(struct dp_catalog_ctrl *ctrl, bool flipped,
 				char *lane_map);
+	void (*lane_pnswap)(struct dp_catalog_ctrl *ctrl, u8 ln_pnswap);
 	void (*mainlink_ctrl)(struct dp_catalog_ctrl *ctrl, bool enable);
 	void (*set_pattern)(struct dp_catalog_ctrl *ctrl, u32 pattern);
 	void (*reset)(struct dp_catalog_ctrl *ctrl);
