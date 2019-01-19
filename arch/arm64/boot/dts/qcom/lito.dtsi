@@ -793,6 +793,12 @@
 		};
 	};
 
+	qcom,ghd {
+		compatible = "qcom,gladiator-hang-detect-v3";
+		qcom,threshold-arr = <0x17e0041c>;
+		qcom,config-reg = <0x17e00434>;
+	};
+
 	clocks {
 		xo_board: xo-board {
 			compatible = "fixed-clock";
