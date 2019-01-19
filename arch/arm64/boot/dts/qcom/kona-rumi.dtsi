@@ -4,6 +4,7 @@
  */
 #include <dt-bindings/gpio/gpio.h>
 #include "kona-pmic-overlay.dtsi"
+#include "kona-sde-display.dtsi"
 #include "msm-audio-lpass.dtsi"
 
 &arch_timer {
