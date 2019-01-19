@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -330,6 +330,52 @@ static int nqx_standby_write(struct nqx_dev *nqx_dev,
 }
 
 /*
+ * Power management of the SN100 eSE
+ * eSE and NFCC both are powered using VEN gpio in SN100,
+ * VEN HIGH - eSE and NFCC both are powered on
+ * VEN LOW - eSE and NFCC both are power down
+ */
+static int sn100_ese_pwr(struct nqx_dev *nqx_dev, unsigned long int arg)
+{
+	int r = -1;
+
+	if (arg == 0) {
+		/**
+		 * Let's store the NFC VEN pin state
+		 * will check stored value in case of eSE power off request,
+		 * to find out if NFC MW also sent request to set VEN HIGH
+		 * VEN state will remain HIGH if NFC is enabled otherwise
+		 * it will be set as LOW
+		 */
+		nqx_dev->nfc_ven_enabled =
+			gpio_get_value(nqx_dev->en_gpio);
+		if (!nqx_dev->nfc_ven_enabled) {
+			dev_dbg(&nqx_dev->client->dev, "eSE HAL service setting en_gpio HIGH\n");
+			gpio_set_value(nqx_dev->en_gpio, 1);
+			/* hardware dependent delay */
+			usleep_range(1000, 1100);
+		} else {
+			dev_dbg(&nqx_dev->client->dev, "en_gpio already HIGH\n");
+		}
+		r = 0;
+	} else if (arg == 1) {
+		if (!nqx_dev->nfc_ven_enabled) {
+			dev_dbg(&nqx_dev->client->dev, "NFC not enabled, disabling en_gpio\n");
+			gpio_set_value(nqx_dev->en_gpio, 0);
+			/* hardware dependent delay */
+			usleep_range(1000, 1100);
+		} else {
+			dev_dbg(&nqx_dev->client->dev, "keep en_gpio high as NFC is enabled\n");
+		}
+		r = 0;
+	} else if (arg == 3) {
+		// eSE power state
+		r = gpio_get_value(nqx_dev->en_gpio);
+	}
+	return r;
+}
+
+/*
  * Power management of the eSE
  * NFC & eSE ON : NFC_EN high and eSE_pwr_req high.
  * NFC OFF & eSE ON : NFC_EN high and eSE_pwr_req high.
@@ -501,6 +547,7 @@ int nfc_ioctl_power_states(struct file *filp, unsigned long arg)
 			gpio_set_value(nqx_dev->en_gpio, 0);
 			usleep_range(10000, 10100);
 		}
+
 		if (nqx_dev->pdata->clk_pin_voting) {
 			r = nqx_clock_deselect(nqx_dev);
 			if (r < 0)
@@ -516,8 +563,14 @@ int nfc_ioctl_power_states(struct file *filp, unsigned long arg)
 			gpio_set_value(nqx_dev->firm_gpio, 0);
 			usleep_range(10000, 10100);
 		}
-		gpio_set_value(nqx_dev->en_gpio, 1);
-		usleep_range(10000, 10100);
+
+		if (gpio_get_value(nqx_dev->en_gpio)) {
+			dev_dbg(&nqx_dev->client->dev, "VEN gpio already high\n");
+		} else {
+			gpio_set_value(nqx_dev->en_gpio, 1);
+			usleep_range(10000, 10100);
+		}
+
 		if (nqx_dev->pdata->clk_pin_voting) {
 			r = nqx_clock_select(nqx_dev);
 			if (r < 0)
@@ -646,16 +699,28 @@ static long nfc_ioctl(struct file *pfile, unsigned int cmd,
 			unsigned long arg)
 {
 	int r = 0;
+	struct nqx_dev *nqx_dev = pfile->private_data;
+
+	if (!nqx_dev)
+		return -ENODEV;
 
 	switch (cmd) {
 	case NFC_SET_PWR:
 		r = nfc_ioctl_power_states(pfile, arg);
 		break;
 	case ESE_SET_PWR:
-		r = nqx_ese_pwr(pfile->private_data, arg);
+		if ((nqx_dev->nqx_info.info.chip_type == NFCC_SN100_A) ||
+			(nqx_dev->nqx_info.info.chip_type == NFCC_SN100_B))
+			r = sn100_ese_pwr(nqx_dev, arg);
+		else
+			r = nqx_ese_pwr(nqx_dev, arg);
 		break;
 	case ESE_GET_PWR:
-		r = nqx_ese_pwr(pfile->private_data, 3);
+		if ((nqx_dev->nqx_info.info.chip_type == NFCC_SN100_A) ||
+			(nqx_dev->nqx_info.info.chip_type == NFCC_SN100_B))
+			r = sn100_ese_pwr(nqx_dev, 3);
+		else
+			r = nqx_ese_pwr(nqx_dev, 3);
 		break;
 	case SET_RX_BLOCK:
 		break;

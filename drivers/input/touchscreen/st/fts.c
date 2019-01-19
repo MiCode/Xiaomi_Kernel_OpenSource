@@ -3,7 +3,7 @@
  *
  * FTS Capacitive touch screen controller (FingerTipS)
  *
- * Copyright (C) 2016-2018, STMicroelectronics Limited.
+ * Copyright (C) 2016-2019, STMicroelectronics Limited.
  * Authors: AMG(Analog Mems Group)
  *
  *		marco.cali@st.com
@@ -3305,6 +3305,7 @@ static void fts_fw_update_auto(struct work_struct *work)
 	info = container_of(fwu_work, struct fts_ts_info, fwu_work);
 	logError(0, "%s Fw Auto Update is starting...\n", tag);
 
+	__pm_stay_awake(&info->wakeup_source);
 	/* check CRC status */
 	ret = cx_crc_check();
 	if (ret > OK && ftsInfo.u16_fwVer == 0x0000) {

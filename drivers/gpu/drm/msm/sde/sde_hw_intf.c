@@ -15,7 +15,6 @@
 #include "sde_hw_catalog.h"
 #include "sde_hw_intf.h"
 #include "sde_dbg.h"
-#include "sde_kms.h"
 
 #define INTF_TIMING_ENGINE_EN           0x000
 #define INTF_CONFIG                     0x004
@@ -52,6 +51,7 @@
 #define   INTF_DEFLICKER_STRNG_COEFF    0x0F4
 #define   INTF_DEFLICKER_WEAK_COEFF     0x0F8
 
+#define   INTF_REG_SPLIT_LINK           0x080
 #define   INTF_DSI_CMD_MODE_TRIGGER_EN  0x084
 #define   INTF_PANEL_FORMAT             0x090
 #define   INTF_TPG_ENABLE               0x100
@@ -301,6 +301,9 @@ static void sde_hw_intf_setup_timing_engine(struct sde_hw_intf *ctx,
 	if (p->wide_bus_en)
 		intf_cfg2 |= BIT(0);
 
+	if (ctx->cfg.split_link_en)
+		SDE_REG_WRITE(c, INTF_REG_SPLIT_LINK, 0x3);
+
 	SDE_REG_WRITE(c, INTF_HSYNC_CTL, hsync_ctl);
 	SDE_REG_WRITE(c, INTF_VSYNC_PERIOD_F0, vsync_period * hsync_period);
 	SDE_REG_WRITE(c, INTF_VSYNC_PULSE_WIDTH_F0,
@@ -395,6 +398,9 @@ static void sde_hw_intf_bind_pingpong_blk(
 		mux_cfg |= (pp - PINGPONG_0) & 0x7;
 	else
 		mux_cfg |= 0xf;
+
+	if (intf->cfg.split_link_en)
+		mux_cfg = 0x60000;
 
 	SDE_REG_WRITE(c, INTF_MUX, mux_cfg);
 }

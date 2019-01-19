@@ -1078,6 +1078,44 @@ static int dsi_panel_parse_misc_host_config(struct dsi_host_common_cfg *host,
 	return 0;
 }
 
+static void dsi_panel_parse_split_link_config(struct dsi_host_common_cfg *host,
+					struct dsi_parser_utils *utils,
+					const char *name)
+{
+	int rc = 0;
+	u32 val = 0;
+	bool supported = false;
+	struct dsi_split_link_config *split_link = &host->split_link;
+
+	supported = utils->read_bool(utils->data, "qcom,split-link-enabled");
+
+	if (!supported) {
+		pr_debug("[%s] Split link is not supported\n", name);
+		split_link->split_link_enabled = false;
+		return;
+	}
+
+	rc = utils->read_u32(utils->data, "qcom,sublinks-count", &val);
+	if (rc || val < 1) {
+		pr_debug("[%s] Using default sublinks count\n", name);
+		split_link->num_sublinks = 2;
+	} else {
+		split_link->num_sublinks = val;
+	}
+
+	rc = utils->read_u32(utils->data, "qcom,lanes-per-sublink", &val);
+	if (rc || val < 1) {
+		pr_debug("[%s] Using default lanes per sublink\n", name);
+		split_link->lanes_per_sublink = 2;
+	} else {
+		split_link->lanes_per_sublink = val;
+	}
+
+	pr_debug("[%s] Split link is supported %d-%d\n", name,
+		split_link->num_sublinks, split_link->lanes_per_sublink);
+	split_link->split_link_enabled = true;
+}
+
 static int dsi_panel_parse_host_config(struct dsi_panel *panel)
 {
 	int rc = 0;
@@ -1122,6 +1160,9 @@ static int dsi_panel_parse_host_config(struct dsi_panel *panel)
 		       panel->name, rc);
 		goto error;
 	}
+
+	dsi_panel_parse_split_link_config(&panel->host_config, utils,
+						panel->name);
 
 error:
 	return rc;
@@ -1269,9 +1310,6 @@ static int dsi_panel_parse_video_host_config(struct dsi_video_engine_cfg *cfg,
 
 	cfg->bllp_lp11_en = utils->read_bool(utils->data,
 					"qcom,mdss-dsi-bllp-power-mode");
-
-	cfg->force_clk_lane_hs = of_property_read_bool(utils->data,
-					"qcom,mdss-dsi-force-clock-lane-hs");
 
 	traffic_mode = utils->get_property(utils->data,
 				       "qcom,mdss-dsi-traffic-mode",

@@ -404,6 +404,18 @@ struct dsi_mode_info {
 };
 
 /**
+ * struct dsi_split_link_config - Split Link Configuration
+ * @split_link_enabled:  Split Link Enabled.
+ * @num_sublinks:     Number of sublinks.
+ * @lanes_per_sublink:   Number of lanes per sublink.
+ */
+struct dsi_split_link_config {
+	bool split_link_enabled;
+	u32 num_sublinks;
+	u32 lanes_per_sublink;
+};
+
+/**
  * struct dsi_host_common_cfg - Host configuration common to video and cmd mode
  * @dst_format:          Destination pixel format.
  * @data_lanes:          Physical data lanes to be enabled.
@@ -428,6 +440,7 @@ struct dsi_mode_info {
  *                       true.
  * @ext_bridge_mode:     External bridge is connected.
  * @force_hs_clk_lane:   Send continuous clock to the panel.
+ * @dsi_split_link_config:  Split Link Configuration.
  */
 struct dsi_host_common_cfg {
 	enum dsi_pixel_format dst_format;
@@ -448,6 +461,7 @@ struct dsi_host_common_cfg {
 	bool append_tx_eot;
 	bool ext_bridge_mode;
 	bool force_hs_clk_lane;
+	struct dsi_split_link_config split_link;
 };
 
 /**
@@ -475,7 +489,6 @@ struct dsi_video_engine_cfg {
 	bool hsa_lp11_en;
 	bool eof_bllp_lp11_en;
 	bool bllp_lp11_en;
-	bool force_clk_lane_hs;
 	enum dsi_video_traffic_mode traffic_mode;
 	u32 vc_id;
 	u32 dma_sched_line;

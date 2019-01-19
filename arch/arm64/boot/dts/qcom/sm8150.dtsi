@@ -576,7 +576,7 @@
 			compatible = "android,firmware";
 			vbmeta {
 				compatible = "android,vbmeta";
-				parts = "vbmeta,boot,system,vendor,dtbo";
+				parts = "vbmeta,boot,system,vendor,dtbo,vm-linux";
 			};
 			fstab {
 				compatible = "android,fstab";
@@ -587,6 +587,14 @@
 					mnt_flags = "ro,barrier=1,discard";
 					fsmgr_flags = "wait,slotselect,avb";
 					status = "ok";
+				};
+				vm-linux {
+					compatible = "android,vm-linux";
+					dev = "/dev/block/platform/soc/8804000.sdhci/by-name/vm-linux";
+					type = "emmc";
+					mnt_flags = "ro";
+					fsmgr_flags = "wait,slotselect";
+					status = "";
 				};
 			};
 		};

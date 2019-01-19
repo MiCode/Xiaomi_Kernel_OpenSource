@@ -374,6 +374,7 @@ struct fastrpc_file {
 	int pd;
 	char *spdname;
 	int file_close;
+	int dsp_process_init;
 	struct fastrpc_apps *apps;
 	struct hlist_head perf;
 	struct dentry *debugfs_file;
@@ -577,7 +578,9 @@ static void fastrpc_mmap_add(struct fastrpc_mmap *map)
 				map->flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
 		struct fastrpc_apps *me = &gfa;
 
+		spin_lock(&me->hlock);
 		hlist_add_head(&map->hn, &me->maps);
+		spin_unlock(&me->hlock);
 	} else {
 		struct fastrpc_file *fl = map->fl;
 
@@ -597,6 +600,7 @@ static int fastrpc_mmap_find(struct fastrpc_file *fl, int fd,
 		return -EOVERFLOW;
 	if (mflags == ADSP_MMAP_HEAP_ADDR ||
 				 mflags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
+		spin_lock(&me->hlock);
 		hlist_for_each_entry_safe(map, n, &me->maps, hn) {
 			if (va >= map->va &&
 				va + len <= map->va + map->len &&
@@ -607,6 +611,7 @@ static int fastrpc_mmap_find(struct fastrpc_file *fl, int fd,
 				break;
 			}
 		}
+		spin_unlock(&me->hlock);
 	} else {
 		hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
 			if (va >= map->va &&
@@ -652,6 +657,7 @@ static int fastrpc_mmap_remove(struct fastrpc_file *fl, uintptr_t va,
 	struct hlist_node *n;
 	struct fastrpc_apps *me = &gfa;
 
+	spin_lock(&me->hlock);
 	hlist_for_each_entry_safe(map, n, &me->maps, hn) {
 		if (map->raddr == va &&
 			map->raddr + map->len == va + len &&
@@ -661,6 +667,7 @@ static int fastrpc_mmap_remove(struct fastrpc_file *fl, uintptr_t va,
 			break;
 		}
 	}
+	spin_unlock(&me->hlock);
 	if (match) {
 		*ppmap = match;
 		return 0;
@@ -2183,7 +2190,9 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 			goto bail;
 	} else {
 		err = -ENOTTY;
+		goto bail;
 	}
+	fl->dsp_process_init = 1;
 bail:
 	kfree(proc_name);
 	if (err && (init->flags == FASTRPC_INIT_CREATE_STATIC))
@@ -2223,6 +2232,9 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	VERIFY(err, fl->apps->channel[fl->cid].rpdev != NULL);
 	if (err)
 		goto bail;
+	VERIFY(err, fl->apps->channel[fl->cid].issubsystemup == 1);
+	if (err)
+		goto bail;
 	tgid = fl->tgid;
 	ra[0].buf.pv = (void *)&tgid;
 	ra[0].buf.len = sizeof(tgid);
@@ -2234,7 +2246,7 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	ioctl.crc = NULL;
 	VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
 		FASTRPC_MODE_PARALLEL, 1, &ioctl)));
-	if (err)
+	if (err && fl->dsp_process_init)
 		pr_err("adsprpc: %s: releasing DSP process failed for %s, returned 0x%x",
 					__func__, current->comm, err);
 bail:
@@ -3239,6 +3251,7 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 		fl->debugfs_file = debugfs_file;
 	memset(&fl->perf, 0, sizeof(fl->perf));
 	fl->qos_request = 0;
+	fl->dsp_process_init = 0;
 	filp->private_data = fl;
 	mutex_init(&fl->internal_map_mutex);
 	mutex_init(&fl->map_mutex);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -455,11 +455,13 @@ static int adc_pre_configure_usb_in_read(struct adc_chip *adc)
 	return adc_write(adc, ADC_USR_CONV_REQ, &data, 1);
 }
 
+#define ADC5_MULTI_TRANSFER	5
+
 static int adc_configure(struct adc_chip *adc,
 			struct adc_channel_prop *prop)
 {
 	int ret;
-	u8 buf[5];
+	u8 buf[ADC5_MULTI_TRANSFER];
 	u8 conv_req = 0;
 	bool channel_check = false;
 
@@ -468,7 +470,7 @@ static int adc_configure(struct adc_chip *adc,
 			channel_check = true;
 
 	/* Read registers 0x42 through 0x46 */
-	ret = adc_read(adc, ADC_USR_DIG_PARAM, buf, 6);
+	ret = adc_read(adc, ADC_USR_DIG_PARAM, buf, ADC5_MULTI_TRANSFER);
 	if (ret < 0)
 		return ret;
 
@@ -495,7 +497,7 @@ static int adc_configure(struct adc_chip *adc,
 	if (!adc->poll_eoc)
 		reinit_completion(&adc->complete);
 
-	ret = adc_write(adc, ADC_USR_DIG_PARAM, buf, 5);
+	ret = adc_write(adc, ADC_USR_DIG_PARAM, buf, ADC5_MULTI_TRANSFER);
 	if (ret)
 		return ret;
 
