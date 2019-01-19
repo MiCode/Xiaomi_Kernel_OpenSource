@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <asm/dma-iommu.h>
@@ -1533,7 +1533,7 @@ static int __init geni_se_driver_init(void)
 {
 	return platform_driver_register(&geni_se_driver);
 }
-subsys_initcall(geni_se_driver_init);
+arch_initcall(geni_se_driver_init);
 
 static void __exit geni_se_driver_exit(void)
 {
