@@ -17,8 +17,6 @@
 #include <linux/pci.h>
 #include <linux/msi.h>
 
-struct atl_queue_vec;
-
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
 
 /* introduced in commit 686fef928bba6be13cabe639f154af7d72b63120 */
@@ -48,25 +46,6 @@ static inline void timer_setup(struct timer_list *timer,
 #define ETHTOOL_LINK_MODE_2500baseT_Full_BIT 47
 #define ETHTOOL_LINK_MODE_5000baseT_Full_BIT 48
 
-/* from commit 20e407e195b29a4f5a18d713a61f54a75f992bd5 */
-struct irq_affinity {
-	int	pre_vectors;
-	int	post_vectors;
-};
-
-#define ATL_COMPAT_PCI_ALLOC_IRQ_VECTORS_AFFINITY
-struct atl_nic;
-int atl_compat_pci_alloc_irq_vectors_affinity(struct pci_dev *dev,
-	unsigned int min_vecs, unsigned int max_vecs, unsigned int flags,
-	const struct irq_affinity *affd);
-static inline int pci_alloc_irq_vectors_affinity(struct pci_dev *dev,
-	unsigned int min_vecs, unsigned int max_vecs, unsigned int flags,
-	const struct irq_affinity *affd)
-{
-	return atl_compat_pci_alloc_irq_vectors_affinity(dev, min_vecs,
-		max_vecs, flags, affd);
-}
-
 #else  /* 4.10.0 */
 
 #define ATL_HAVE_MINMAX_MTU
@@ -83,7 +62,16 @@ pci_request_mem_regions(struct pci_dev *pdev, const char *name)
 			    pci_select_bars(pdev, IORESOURCE_MEM), name);
 }
 
-#define ATL_COMPAT_PCI_IRQ_VECTOR
+#define ATL_COMPAT_PCI_ALLOC_IRQ_VECTORS
+int atl_compat_pci_alloc_irq_vectors(struct pci_dev *dev,
+	unsigned int min_vecs, unsigned int max_vecs, unsigned int flags);
+static inline int pci_alloc_irq_vectors(struct pci_dev *dev,
+	unsigned int min_vecs, unsigned int max_vecs, unsigned int flags)
+{
+	return atl_compat_pci_alloc_irq_vectors(dev, min_vecs,
+		max_vecs, flags);
+}
+
 int atl_compat_pci_irq_vector(struct pci_dev *dev, unsigned int nr);
 static inline int pci_irq_vector(struct pci_dev *dev, unsigned int nr)
 {
@@ -96,19 +84,10 @@ static inline void pci_free_irq_vectors(struct pci_dev *dev)
 	pci_disable_msi(dev);
 }
 
-static inline int
-pci_alloc_irq_vectors(struct pci_dev *dev, unsigned int min_vecs,
-		      unsigned int max_vecs, unsigned int flags)
-{
-	return pci_alloc_irq_vectors_affinity(dev, min_vecs, max_vecs, flags,
-					      NULL);
-}
-
 /* from commit 4fe0d154880bb6eb833cbe84fa6f385f400f0b9c */
 #define PCI_IRQ_LEGACY		(1 << 0) /* allow legacy interrupts */
 #define PCI_IRQ_MSI		(1 << 1) /* allow MSI interrupts */
 #define PCI_IRQ_MSIX		(1 << 2) /* allow MSI-X interrupts */
-#define PCI_IRQ_AFFINITY	(1 << 3) /* auto-assign affinity */
 
 #endif /* 4.8.0 */
 
@@ -163,15 +142,5 @@ static inline void page_ref_inc(struct page *page)
 #define ATL_HAVE_IPV6_NTUPLE
 
 #endif	/* 4.6.0 */
-
-#ifdef ATL_COMPAT_PCI_ALLOC_IRQ_VECTORS_AFFINITY
-void atl_compat_set_affinity(int vector, struct atl_queue_vec *qvec);
-void atl_compat_calc_affinities(struct atl_nic *nic);
-#else  /* ATL_COMPAT_PCI_ALLOC_IRQ_VECTORS_AFFINITY */
-static inline void atl_compat_set_affinity(int vector, struct atl_queue_vec *qvec)
-{}
-static inline void atl_compat_calc_affinities(struct atl_nic *nic)
-{}
-#endif	/* ATL_COMPAT_PCI_ALLOC_IRQ_VECTORS_AFFINITY */
 
 #endif
