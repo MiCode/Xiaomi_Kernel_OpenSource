@@ -32,3 +32,23 @@
 		#size-cells = <0>;
 	};
 };
+
+&pm8150b_charger {
+	smb5_vconn: qcom,smb5-vconn {
+		regulator-name = "smb5-vconn";
+	};
+
+	smb5_vbus: qcom,smb5-vbus {
+		regulator-name = "smb5-vbus";
+	};
+};
+
+&pm8150b_pdphy {
+	vdd-pdphy-supply = <&pm8150_l2>;
+	vbus-supply = <&smb5_vbus>;
+	vconn-supply = <&smb5_vconn>;
+};
+
+&usb0 {
+	extcon = <&pm8150b_pdphy>;
+};
