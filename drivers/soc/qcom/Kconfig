@@ -456,6 +456,14 @@ config MSM_CORE_HANG_DETECT
 	  for hang. By using sysfs entries core hang detection can be
 	  enabled or disabled dynamically.
 
+config MSM_GLADIATOR_HANG_DETECT
+	tristate "MSM Gladiator Hang Detection Support"
+	help
+	  This enables the gladiator hang detection module.
+	  If the configured threshold is reached, it causes SoC reset on
+	  gladiator hang detection and collects the context for the
+	  gladiator hang.
+
 config QCOM_FSA4480_I2C
 	bool "Fairchild FSA4480 chip with I2C"
 	select REGMAP_I2C
