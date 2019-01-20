@@ -764,6 +764,13 @@
 			clock-output-names = "chip_sleep_clk";
 			#clock-cells = <1>;
 		};
+
+		xo_board {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <19200000>;
+			clock-output-names = "xo_board";
+		};
 	};
 
 	clock_rpmcc: qcom,rpmcc {
