@@ -32,7 +32,7 @@
 #include "q6voice.h"
 
 #define SHARED_MEM_BUF 2
-#define VOIP_MAX_Q_LEN 10
+#define VOIP_MAX_Q_LEN 6
 #define VOIP_MAX_VOC_PKT_SIZE 4096
 #define VOIP_MIN_VOC_PKT_SIZE 320
 
