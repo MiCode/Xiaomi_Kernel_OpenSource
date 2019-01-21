@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -79,6 +79,9 @@
 #define QPNP_PON_PS_HOLD_RST_CTL2(pon)		((pon)->base + 0x5B)
 #define QPNP_PON_WD_RST_S2_CTL(pon)		((pon)->base + 0x56)
 #define QPNP_PON_WD_RST_S2_CTL2(pon)		((pon)->base + 0x57)
+#define QPNP_PON_SW_RST_S2_CTL(pon)		((pon)->base + 0x62)
+#define QPNP_PON_SW_RST_S2_CTL2(pon)		((pon)->base + 0x63)
+#define QPNP_PON_SW_RST_GO(pon)			((pon)->base + 0x64)
 #define QPNP_PON_S3_SRC(pon)			((pon)->base + 0x74)
 #define QPNP_PON_S3_DBC_CTL(pon)		((pon)->base + 0x75)
 #define QPNP_PON_SMPL_CTL(pon)			((pon)->base + 0x7F)
@@ -88,6 +91,7 @@
 #define QPNP_PON_SEC_ACCESS(pon)		((pon)->base + 0xD0)
 
 #define QPNP_PON_SEC_UNLOCK			0xA5
+#define QPNP_PON_SW_RST_GO_VAL			0xA5
 
 #define QPNP_PON_WARM_RESET_TFT			BIT(4)
 
@@ -229,6 +233,7 @@ module_param_named(
 );
 
 static struct qpnp_pon *sys_reset_dev;
+static struct qpnp_pon *modem_reset_dev;
 static DEFINE_SPINLOCK(spon_list_slock);
 static LIST_HEAD(spon_dev_list);
 
@@ -304,6 +309,17 @@ qpnp_pon_masked_write(struct qpnp_pon *pon, u16 addr, u8 mask, u8 val)
 	int rc;
 
 	rc = regmap_update_bits(pon->regmap, addr, mask, val);
+	if (rc)
+		dev_err(pon->dev, "Register write failed, addr=0x%04X, rc=%d\n",
+			addr, rc);
+	return rc;
+}
+
+static int qpnp_pon_write(struct qpnp_pon *pon, u16 addr, u8 val)
+{
+	int rc;
+
+	rc = regmap_write(pon->regmap, addr, val);
 	if (rc)
 		dev_err(pon->dev, "Register write failed, addr=0x%04X, rc=%d\n",
 			addr, rc);
@@ -684,6 +700,53 @@ out:
 	return rc;
 }
 EXPORT_SYMBOL(qpnp_pon_system_pwr_off);
+
+/**
+ * qpnp_pon_modem_pwr_off() - shutdown or reset the modem PMIC
+ * @type: Determines the type of power off to perform - shutdown, reset, etc
+ *
+ * This function causes the immediate shutdown or reset of the primary PMIC
+ * for an attached modem chip.
+ *
+ * Return: 0 for success or < 0 for errors
+ */
+int qpnp_pon_modem_pwr_off(enum pon_power_off_type type)
+{
+	struct qpnp_pon *pon = modem_reset_dev;
+	int rc;
+
+	if (!modem_reset_dev)
+		return -ENODEV;
+
+	rc = qpnp_pon_write(pon, QPNP_PON_SW_RST_S2_CTL2(pon), 0);
+	if (rc)
+		return rc;
+
+	/* Wait for at least 10 sleep clock cycles. */
+	udelay(500);
+
+	rc = qpnp_pon_write(pon, QPNP_PON_SW_RST_S2_CTL(pon), type);
+	if (rc)
+		return rc;
+
+	rc = qpnp_pon_write(pon, QPNP_PON_SW_RST_S2_CTL2(pon),
+				QPNP_PON_RESET_EN);
+	if (rc)
+		return rc;
+
+	/* Wait for at least 10 sleep clock cycles. */
+	udelay(500);
+
+	rc = qpnp_pon_write(pon, QPNP_PON_SW_RST_GO(pon),
+				QPNP_PON_SW_RST_GO_VAL);
+	if (rc)
+		return rc;
+
+	dev_dbg(pon->dev, "modem sw power off type = 0x%02X\n", type);
+
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_pon_modem_pwr_off);
 
 static int _qpnp_pon_is_warm_reset(struct qpnp_pon *pon)
 {
@@ -2190,7 +2253,7 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 	struct qpnp_pon *pon;
 	unsigned long flags;
 	u32 base, delay;
-	bool sys_reset;
+	bool sys_reset, modem_reset;
 	int rc;
 
 	pon = devm_kzalloc(dev, sizeof(*pon), GFP_KERNEL);
@@ -2214,6 +2277,15 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 	sys_reset = of_property_read_bool(dev->of_node, "qcom,system-reset");
 	if (sys_reset && sys_reset_dev) {
 		dev_err(dev, "qcom,system-reset property must only be specified for one PMIC PON device in the system\n");
+		return -EINVAL;
+	}
+
+	modem_reset = of_property_read_bool(dev->of_node, "qcom,modem-reset");
+	if (modem_reset && modem_reset_dev) {
+		dev_err(dev, "qcom,modem-reset property must only be specified for one PMIC PON device in the system\n");
+		return -EINVAL;
+	} else if (modem_reset && sys_reset) {
+		dev_err(dev, "qcom,modem-reset and qcom,system-reset properties cannot be supported together for one PMIC PON device\n");
 		return -EINVAL;
 	}
 
@@ -2276,6 +2348,9 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 		if (sys_reset) {
 			dev_err(dev, "qcom,system-reset property shouldn't be used along with qcom,secondary-pon-reset property\n");
 			return -EINVAL;
+		} else if (modem_reset) {
+			dev_err(dev, "qcom,modem-reset property shouldn't be used along with qcom,secondary-pon-reset property\n");
+			return -EINVAL;
 		}
 		spin_lock_irqsave(&spon_list_slock, flags);
 		list_add(&pon->list, &spon_dev_list);
@@ -2297,6 +2372,8 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 
 	if (sys_reset)
 		sys_reset_dev = pon;
+	if (modem_reset)
+		modem_reset_dev = pon;
 
 	qpnp_pon_debugfs_init(pon);
 

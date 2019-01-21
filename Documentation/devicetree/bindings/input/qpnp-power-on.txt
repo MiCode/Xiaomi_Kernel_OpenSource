@@ -39,6 +39,12 @@ Optional properties:
 				can be used to reset the system. This property
 				can only be used by one device on the system. It
 				is an error to include it more than once.
+- qcom,modem-reset:		Boolean which specifies that this PON peripheral
+				can be used to reset the attached modem chip.
+				This property can only be used by one PON device
+				on the system. qcom,modem-reset and
+				qcom,system-reset cannot be specified for the
+				same PON device.
 - qcom,s3-debounce:		The debounce delay for stage 3 reset trigger in
 				secs. The values range from 0 to 128.
 - qcom,s3-src:			The source for stage 3 reset. It can be one of
@@ -62,7 +68,7 @@ Optional properties:
 				for system reset through qcom,system-reset
 				property.
 				This should not be defined along with the
-				qcom,system-reset property.
+				qcom,system-reset or qcom,modem-reset property.
 - qcom,store-hard-reset-reason:	Boolean property which if set will store the
 				hardware reset reason to SOFT_RB_SPARE register
 				of the core PMIC PON peripheral.
