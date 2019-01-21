@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3268,24 +3268,27 @@ static int cam_vfe_bus_init_hw(void *hw_priv,
 		NULL,
 		NULL);
 
-	if (bus_priv->irq_handle <= 0) {
+	if ((int)bus_priv->irq_handle <= 0) {
 		CAM_ERR(CAM_ISP, "Failed to subscribe BUS IRQ");
 		return -EFAULT;
 	}
 
-	bus_priv->error_irq_handle = cam_irq_controller_subscribe_irq(
-		bus_priv->common_data.bus_irq_controller,
-		CAM_IRQ_PRIORITY_0,
-		bus_error_irq_mask,
-		bus_priv,
-		cam_vfe_bus_error_irq_top_half,
-		cam_vfe_bus_err_bottom_half,
-		bus_priv->tasklet_info,
-		&tasklet_bh_api);
+	if (bus_priv->tasklet_info != NULL) {
+		bus_priv->error_irq_handle = cam_irq_controller_subscribe_irq(
+			bus_priv->common_data.bus_irq_controller,
+			CAM_IRQ_PRIORITY_0,
+			bus_error_irq_mask,
+			bus_priv,
+			cam_vfe_bus_error_irq_top_half,
+			cam_vfe_bus_err_bottom_half,
+			bus_priv->tasklet_info,
+			&tasklet_bh_api);
 
-	if (bus_priv->irq_handle <= 0) {
-		CAM_ERR(CAM_ISP, "Failed to subscribe BUS IRQ");
-		return -EFAULT;
+		if ((int)bus_priv->error_irq_handle <= 0) {
+			CAM_ERR(CAM_ISP, "Failed to subscribe BUS error IRQ %d",
+				bus_priv->error_irq_handle);
+			return -EFAULT;
+		}
 	}
 
 	/*Set Debug Registers*/
