@@ -72,6 +72,13 @@ Optional properties:
 			to AOP through qmp mailbox driver.
 
 - qcom,mas-crypto: phandle to the bus master of crypto core.
+- qcom,minidump-id: ID that is used to index into the global minidump table of
+			contents to access a subsystem's minidump table of
+			contents.
+- qcom,aux-minidump-ids: List of IDs that index into the global minidump table
+			of contents to access the table of contents for
+			additional minidump entries that should be collected
+			along with the subsystem's minidump.
 
 Example:
 	qcom,venus@fdce0000 {
