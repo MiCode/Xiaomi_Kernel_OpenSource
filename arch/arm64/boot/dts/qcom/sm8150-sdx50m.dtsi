@@ -338,6 +338,7 @@
 			qcom,instance-id = <100>;
 			qcom,qmi-sensor-names = "pa",
 						"pa_1",
+						"pa_2",
 						"qfe_pa0",
 						"qfe_wtr0",
 						"modem_tsens",
@@ -413,7 +414,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "user_space";
-		thermal-sensors = <&qmi_sensor 103>;
+		thermal-sensors = <&qmi_sensor 104>;
 		trips {
 			active-config0 {
 				temperature = <125000>;
@@ -427,7 +428,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "user_space";
-		thermal-sensors = <&qmi_sensor 104>;
+		thermal-sensors = <&qmi_sensor 105>;
 		trips {
 			active-config0 {
 				temperature = <125000>;
@@ -441,7 +442,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "user_space";
-		thermal-sensors = <&qmi_sensor 105>;
+		thermal-sensors = <&qmi_sensor 106>;
 		trips {
 			active-config0 {
 				temperature = <125000>;
@@ -455,7 +456,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "user_space";
-		thermal-sensors = <&qmi_sensor 106>;
+		thermal-sensors = <&qmi_sensor 107>;
 		trips {
 			active-config0 {
 				temperature = <125000>;
@@ -469,7 +470,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "user_space";
-		thermal-sensors = <&qmi_sensor 107>;
+		thermal-sensors = <&qmi_sensor 108>;
 		trips {
 			active-config0 {
 				temperature = <125000>;
@@ -483,7 +484,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "user_space";
-		thermal-sensors = <&qmi_sensor 108>;
+		thermal-sensors = <&qmi_sensor 109>;
 		trips {
 			active-config0 {
 				temperature = <125000>;
@@ -497,7 +498,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "user_space";
-		thermal-sensors = <&qmi_sensor 109>;
+		thermal-sensors = <&qmi_sensor 110>;
 		trips {
 			active-config0 {
 				temperature = <125000>;
@@ -511,7 +512,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "user_space";
-		thermal-sensors = <&qmi_sensor 110>;
+		thermal-sensors = <&qmi_sensor 111>;
 		trips {
 			active-config0 {
 				temperature = <125000>;
@@ -525,7 +526,21 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "user_space";
-		thermal-sensors = <&qmi_sensor 111>;
+		thermal-sensors = <&qmi_sensor 112>;
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem1-pa2-usr {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&qmi_sensor 102>;
 		trips {
 			active-config0 {
 				temperature = <125000>;
