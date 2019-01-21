@@ -934,7 +934,7 @@ endif # CGROUPS
 
 config SCHED_CORE_CTL
 	bool "QTI Core Control"
-	depends on SMP
+	depends on SMP && SCHED_WALT
 	help
 	  This options enables the core control functionality in
 	  the scheduler. Core control automatically offline and
