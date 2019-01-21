@@ -2047,6 +2047,8 @@
 
 		qcom,devfreq,freq-table = <50000000 200000000>;
 
+		qcom,scaling-lower-bus-speed-mode = "DDR52";
+
 		clocks = <&clock_gcc GCC_SDCC1_AHB_CLK>,
 			<&clock_gcc GCC_SDCC1_APPS_CLK>,
 			<&clock_gcc GCC_SDCC1_ICE_CORE_CLK>;
