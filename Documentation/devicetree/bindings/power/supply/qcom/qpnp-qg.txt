@@ -308,6 +308,11 @@ First Level Node - QGAUGE device
 	Definition: Boolean property to support external-rsense based
 		    configuration.
 
+- qcom,qg-vbms-mode
+	Usage:      optional
+	Value type: <bool>
+	Definition: Boolean property to run QG in Voltage-only mode of QG.
+
 - qcom,shutdown-temp-diff
 	Usage:      optional
 	Value type: <u32>
