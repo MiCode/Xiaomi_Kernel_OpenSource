@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/of.h>
@@ -100,6 +100,7 @@ static int32_t cam_sensor_driver_get_dt_data(struct cam_sensor_ctrl_t *s_ctrl)
 	int i = 0;
 	struct cam_sensor_board_info *sensordata = NULL;
 	struct device_node *of_node = s_ctrl->of_node;
+	struct device_node *of_parent = NULL;
 	struct cam_hw_soc_info *soc_info = &s_ctrl->soc_info;
 
 	s_ctrl->sensordata = kzalloc(sizeof(*sensordata), GFP_KERNEL);
@@ -177,15 +178,13 @@ static int32_t cam_sensor_driver_get_dt_data(struct cam_sensor_ctrl_t *s_ctrl)
 			rc = 0;
 		}
 
-		rc = of_property_read_u32(of_node, "cci-device",
-			&s_ctrl->cci_num);
-		CAM_DBG(CAM_SENSOR, "cci-device %d, rc %d",
-			s_ctrl->cci_num, rc);
-		if (rc < 0) {
+		of_parent = of_get_parent(of_node);
+		if (of_property_read_u32(of_parent, "cell-index",
+				&s_ctrl->cci_num) < 0)
 			/* Set default master 0 */
 			s_ctrl->cci_num = CCI_DEVICE_0;
-			rc = 0;
-		}
+
+		CAM_DBG(CAM_SENSOR, "cci-index %d", s_ctrl->cci_num);
 	}
 
 	if (of_property_read_u32(of_node, "sensor-position-pitch",

@@ -284,6 +284,7 @@ int cam_eeprom_parse_dt(struct cam_eeprom_ctrl_t *e_ctrl)
 	int                             i, rc = 0;
 	struct cam_hw_soc_info         *soc_info = &e_ctrl->soc_info;
 	struct device_node             *of_node = NULL;
+	struct device_node             *of_parent = NULL;
 	struct cam_eeprom_soc_private  *soc_private =
 		(struct cam_eeprom_soc_private *)e_ctrl->soc_info.soc_private;
 	uint32_t                        temp;
@@ -324,16 +325,14 @@ int cam_eeprom_parse_dt(struct cam_eeprom_ctrl_t *e_ctrl)
 			return rc;
 		}
 
-		rc = of_property_read_u32(of_node, "cci-device",
-			&e_ctrl->cci_num);
-		CAM_DBG(CAM_ACTUATOR, "cci-device %d, rc %d",
-			e_ctrl->cci_num, rc);
-		if (rc < 0) {
+		of_parent = of_get_parent(of_node);
+		if (of_property_read_u32(of_parent, "cell-index",
+				&e_ctrl->cci_num) < 0)
 			/* Set default master 0 */
 			e_ctrl->cci_num = CCI_DEVICE_0;
-			rc = 0;
-		}
+
 		e_ctrl->io_master_info.cci_client->cci_device = e_ctrl->cci_num;
+		CAM_DBG(CAM_EEPROM, "cci-index %d", e_ctrl->cci_num, rc);
 	}
 
 	if (e_ctrl->io_master_info.master_type == SPI_MASTER) {
