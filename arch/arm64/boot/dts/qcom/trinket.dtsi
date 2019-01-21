@@ -2374,6 +2374,7 @@
 #include "trinket-regulator.dtsi"
 #include "trinket-gdsc.dtsi"
 #include "trinket-usb.dtsi"
+#include "trinket-camera.dtsi"
 #include "msm-arm-smmu-trinket.dtsi"
 #include "trinket-qupv3.dtsi"
 #include "trinket-coresight.dtsi"

@@ -14,6 +14,7 @@
 /plugin/;
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/qcom,gcc-trinket.h>
 #include "trinket-idp.dtsi"
 #include "trinket-audio-overlay.dtsi"
 
