@@ -30,6 +30,10 @@
 	qcom,msm-id = <357 0x10000>, <368 0x10000>;
 	interrupt-parent = <&pdc>;
 
+	aliases {
+		pci-domain0 = &pcie0; /* PCIe0 domain */
+	};
+
 	reserved-memory {
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -919,6 +923,7 @@
 #include "sdxprairie-usb.dtsi"
 #include "sdxprairie-blsp.dtsi"
 #include "sdxprairie-audio.dtsi"
+#include "sdxprairie-pcie.dtsi"
 
 &gdsc_usb30 {
 	status = "ok";
