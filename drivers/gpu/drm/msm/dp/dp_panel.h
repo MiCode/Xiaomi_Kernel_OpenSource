@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _DP_PANEL_H_
@@ -13,6 +13,20 @@
 #include "dp_usbpd.h"
 #include "sde_edid_parser.h"
 #include "sde_connector.h"
+#include "msm_drv.h"
+
+#define DP_RECEIVER_DSC_CAP_SIZE    15
+#define DP_RECEIVER_FEC_STATUS_SIZE 3
+
+/*
+ * A source initiated power down flag is set
+ * when the DP is powered off while physical
+ * DP cable is still connected i.e. without
+ * HPD or not initiated by sink like HPD_IRQ.
+ * This can happen if framework reboots or
+ * device suspends.
+ */
+#define DP_PANEL_SRC_INITIATED_POWER_DOWN BIT(0)
 
 enum dp_lane_count {
 	DP_LANE_COUNT_1	= 1,
@@ -37,11 +51,16 @@ struct dp_panel_info {
 	u32 refresh_rate;
 	u32 pixel_clk_khz;
 	u32 bpp;
+	bool widebus_en;
+	struct msm_compression_info comp_info;
+	s64 dsc_overhead_fp;
 };
 
 struct dp_display_mode {
 	struct dp_panel_info timing;
 	u32 capabilities;
+	s64 fec_overhead_fp;
+	s64 dsc_overhead_fp;
 };
 
 struct dp_panel;
@@ -53,14 +72,26 @@ struct dp_panel_in {
 	struct dp_catalog_panel *catalog;
 	struct drm_connector *connector;
 	struct dp_panel *base_panel;
+	struct dp_parser *parser;
+};
+
+struct dp_dsc_caps {
+	bool dsc_capable;
+	u8 version;
+	bool block_pred_en;
 };
 
 struct dp_audio;
+
+#define DP_PANEL_CAPS_DSC	BIT(0)
 
 struct dp_panel {
 	/* dpcd raw data */
 	u8 dpcd[DP_RECEIVER_CAP_SIZE + 1];
 	u8 ds_ports[DP_MAX_DOWNSTREAM_PORTS];
+	u8 dsc_dpcd[DP_RECEIVER_DSC_CAP_SIZE + 1];
+	u8 fec_dpcd;
+	u8 fec_sts_dpcd[DP_RECEIVER_FEC_STATUS_SIZE + 1];
 
 	struct drm_dp_link link_info;
 	struct sde_edid_ctrl *edid_ctrl;
@@ -83,14 +114,25 @@ struct dp_panel {
 	u32 channel_total_slots;
 	u32 pbn;
 
+	u32 tot_dsc_blks_in_use;
 	/* DRM connector assosiated with this panel */
 	struct drm_connector *connector;
 
 	struct dp_audio *audio;
 	bool audio_supported;
 
+	struct dp_dsc_caps sink_dsc_caps;
+	bool dsc_feature_enable;
+	bool fec_feature_enable;
+	bool dsc_en;
+	bool fec_en;
+	bool widebus_en;
+	bool mst_state;
+
+	s64 fec_overhead_fp;
+
 	int (*init)(struct dp_panel *dp_panel);
-	int (*deinit)(struct dp_panel *dp_panel);
+	int (*deinit)(struct dp_panel *dp_panel, u32 flags);
 	int (*hw_cfg)(struct dp_panel *dp_panel, bool enable);
 	int (*read_sink_caps)(struct dp_panel *dp_panel,
 		struct drm_connector *connector, bool multi_func);
@@ -118,6 +160,36 @@ struct dp_panel {
 	void (*convert_to_dp_mode)(struct dp_panel *dp_panel,
 		const struct drm_display_mode *drm_mode,
 		struct dp_display_mode *dp_mode);
+	void (*update_pps)(struct dp_panel *dp_panel, char *pps_cmd);
+};
+
+struct dp_tu_calc_input {
+	u64 lclk;        /* 162, 270, 540 and 810 */
+	u64 pclk_khz;    /* in KHz */
+	u64 hactive;     /* active h-width */
+	u64 hporch;      /* bp + fp + pulse */
+	int nlanes;      /* no.of.lanes */
+	int bpp;         /* bits */
+	int pixel_enc;   /* 444, 420, 422 */
+	int dsc_en;     /* dsc on/off */
+	int async_en;   /* async mode */
+	int fec_en;     /* fec */
+	int compress_ratio; /* 2:1 = 200, 3:1 = 300, 3.75:1 = 375 */
+	int num_of_dsc_slices; /* number of slices per line */
+};
+
+struct dp_vc_tu_mapping_table {
+	u32 vic;
+	u8 lanes;
+	u8 lrate; /* DP_LINK_RATE -> 162(6), 270(10), 540(20), 810 (30) */
+	u8 bpp;
+	u32 valid_boundary_link;
+	u32 delay_start_link;
+	bool boundary_moderation_en;
+	u32 valid_lower_boundary_link;
+	u32 upper_boundary_count;
+	u32 lower_boundary_count;
+	u32 tu_size_minus1;
 };
 
 /**
@@ -149,4 +221,6 @@ static inline bool is_lane_count_valid(u32 lane_count)
 
 struct dp_panel *dp_panel_get(struct dp_panel_in *in);
 void dp_panel_put(struct dp_panel *dp_panel);
+void dp_panel_calc_tu_test(struct dp_tu_calc_input *in,
+		struct dp_vc_tu_mapping_table *tu_table);
 #endif /* _DP_PANEL_H_ */

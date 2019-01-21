@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __LINUX_USB_USBPD_H
@@ -9,6 +9,7 @@
 #include <linux/list.h>
 
 struct usbpd;
+struct device;
 
 /* Standard IDs */
 #define USBPD_SID			0xff00

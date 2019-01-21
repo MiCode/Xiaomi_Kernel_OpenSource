@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"[drm-dp] %s: " fmt, __func__
@@ -49,20 +49,26 @@ struct dp_aux_private {
 static void dp_aux_hex_dump(struct drm_dp_aux *drm_aux,
 		struct drm_dp_aux_msg *msg)
 {
-	DEFINE_DYNAMIC_DEBUG_METADATA(ddm, "dp aux tracker");
+	char prefix[64];
+	int i, linelen, remaining = msg->size;
+	const int rowsize = 16;
+	u8 linebuf[64];
+	struct dp_aux_private *aux = container_of(drm_aux,
+		struct dp_aux_private, drm_aux);
 
-	if (unlikely(ddm.flags & _DPRINTK_FLAGS_PRINT)) {
-		u8 buf[SZ_64];
-		struct dp_aux_private *aux = container_of(drm_aux,
-			struct dp_aux_private, drm_aux);
+	snprintf(prefix, sizeof(prefix), "%s %s %4xh(%2zu): ",
+		aux->native ? "NAT" : "I2C",
+		aux->read ? "RD" : "WR",
+		msg->address, msg->size);
 
-		snprintf(buf, SZ_64, "[drm-dp] %5s %5s %5xh(%2zu): ",
-			aux->native ? "NATIVE" : "I2C",
-			aux->read ? "READ" : "WRITE",
-			msg->address, msg->size);
+	for (i = 0; i < msg->size; i += rowsize) {
+		linelen = min(remaining, rowsize);
+		remaining -= rowsize;
 
-		print_hex_dump(KERN_DEBUG, buf, DUMP_PREFIX_NONE,
-			8, 1, msg->buffer, msg->size, false);
+		hex_dump_to_buffer(msg->buffer + i, linelen, rowsize, 1,
+			linebuf, sizeof(linebuf), false);
+
+		pr_debug("%s%s\n", prefix, linebuf);
 	}
 }
 #else
@@ -483,30 +489,44 @@ static ssize_t dp_aux_transfer_debug(struct drm_dp_aux *drm_aux,
 		goto end;
 	}
 
-	if ((msg->address + msg->size) > SZ_16K) {
-		pr_err("invalid dpcd access: addr=0x%x, size=0x%x\n",
-				msg->address + msg->size);
+	if ((msg->address + msg->size) > SZ_4K) {
+		pr_debug("invalid dpcd access: addr=0x%x, size=0x%lx\n",
+				msg->address, msg->size);
 		goto address_error;
 	}
 
 	if (aux->native) {
+		aux->dp_aux.reg = msg->address;
+		aux->dp_aux.read = aux->read;
+		aux->dp_aux.size = msg->size;
+
+		reinit_completion(&aux->comp);
+
 		if (aux->read) {
-			aux->dp_aux.reg = msg->address;
-
-			reinit_completion(&aux->comp);
 			timeout = wait_for_completion_timeout(&aux->comp, HZ);
-			if (!timeout)
+			if (!timeout) {
 				pr_err("aux timeout for 0x%x\n", msg->address);
-
-			aux->dp_aux.reg = 0xFFFF;
+				atomic_set(&aux->aborted, 1);
+				ret = -ETIMEDOUT;
+				goto end;
+			}
 
 			memcpy(msg->buffer, aux->dpcd + msg->address,
 				msg->size);
-			aux->aux_error_num = DP_AUX_ERR_NONE;
 		} else {
 			memcpy(aux->dpcd + msg->address, msg->buffer,
 				msg->size);
+
+			timeout = wait_for_completion_timeout(&aux->comp, HZ);
+			if (!timeout) {
+				pr_err("aux timeout for 0x%x\n", msg->address);
+				atomic_set(&aux->aborted, 1);
+				ret = -ETIMEDOUT;
+				goto end;
+			}
 		}
+
+		aux->aux_error_num = DP_AUX_ERR_NONE;
 	} else {
 		if (aux->read && msg->address == 0x50) {
 			memcpy(msg->buffer,
@@ -536,6 +556,10 @@ address_error:
 	memset(msg->buffer, 0, msg->size);
 	ret = msg->size;
 end:
+	aux->dp_aux.reg = 0xFFFF;
+	aux->dp_aux.read = true;
+	aux->dp_aux.size = 0;
+
 	mutex_unlock(&aux->mutex);
 	return ret;
 }
@@ -720,10 +744,12 @@ static void dp_aux_set_sim_mode(struct dp_aux *dp_aux, bool en,
 	aux->edid = edid;
 	aux->dpcd = dpcd;
 
-	if (en)
+	if (en) {
+		atomic_set(&aux->aborted, 0);
 		aux->drm_aux.transfer = dp_aux_transfer_debug;
-	else
+	} else {
 		aux->drm_aux.transfer = dp_aux_transfer;
+	}
 
 	mutex_unlock(&aux->mutex);
 }
@@ -782,7 +808,9 @@ struct dp_aux *dp_aux_get(struct device *dev, struct dp_catalog_aux *catalog,
 	struct dp_aux *dp_aux;
 
 	if (!catalog || !parser ||
-			(!parser->no_aux_switch && !aux_switch)) {
+			(!parser->no_aux_switch &&
+				!aux_switch &&
+				!parser->gpio_aux_switch)) {
 		pr_err("invalid input\n");
 		rc = -ENODEV;
 		goto error;

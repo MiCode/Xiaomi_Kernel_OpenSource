@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _DP_CATALOG_H_
@@ -90,7 +90,7 @@ struct dp_catalog_ctrl {
 	u32 isr5;
 
 	void (*state_ctrl)(struct dp_catalog_ctrl *ctrl, u32 state);
-	void (*config_ctrl)(struct dp_catalog_ctrl *ctrl);
+	void (*config_ctrl)(struct dp_catalog_ctrl *ctrl, u8 ln_cnt);
 	void (*lane_mapping)(struct dp_catalog_ctrl *ctrl, bool flipped,
 				char *lane_map);
 	void (*mainlink_ctrl)(struct dp_catalog_ctrl *ctrl, bool enable);
@@ -99,7 +99,6 @@ struct dp_catalog_ctrl {
 	void (*usb_reset)(struct dp_catalog_ctrl *ctrl, bool flip);
 	bool (*mainlink_ready)(struct dp_catalog_ctrl *ctrl);
 	void (*enable_irq)(struct dp_catalog_ctrl *ctrl, bool enable);
-	void (*hpd_config)(struct dp_catalog_ctrl *ctrl, bool enable);
 	void (*phy_reset)(struct dp_catalog_ctrl *ctrl);
 	void (*phy_lane_cfg)(struct dp_catalog_ctrl *ctrl, bool flipped,
 				u8 lane_cnt);
@@ -119,6 +118,13 @@ struct dp_catalog_ctrl {
 			u32 y_frac_enum);
 	void (*channel_dealloc)(struct dp_catalog_ctrl *ctrl,
 			u32 ch, u32 ch_start_timeslot, u32 tot_ch_cnt);
+	void (*fec_config)(struct dp_catalog_ctrl *ctrl, bool enable);
+	void (*mainlink_levels)(struct dp_catalog_ctrl *ctrl, u8 lane_cnt);
+};
+
+struct dp_catalog_hpd {
+	void (*config_hpd)(struct dp_catalog_hpd *hpd, bool en);
+	u32 (*get_interrupt)(struct dp_catalog_hpd *hpd);
 };
 
 #define HEADER_BYTE_2_BIT	 0
@@ -157,7 +163,26 @@ struct dp_catalog_audio {
 	void (*config_sdp)(struct dp_catalog_audio *audio);
 	void (*set_header)(struct dp_catalog_audio *audio);
 	void (*get_header)(struct dp_catalog_audio *audio);
-	void (*safe_to_exit_level)(struct dp_catalog_audio *audio);
+};
+
+struct dp_dsc_cfg_data {
+	bool dsc_en;
+	char pps[128];
+	u32 pps_len;
+	u32 pps_word[32];
+	u32 pps_word_len;
+	u8 parity[32];
+	u8 parity_len;
+	u32 parity_word[8];
+	u32 parity_word_len;
+	u32 slice_per_pkt;
+	u32 bytes_per_pkt;
+	u32 eol_byte_num;
+	u32 be_in_lane;
+	u32 dto_en;
+	u32 dto_n;
+	u32 dto_d;
+	u32 dto_count;
 };
 
 struct dp_catalog_panel {
@@ -188,6 +213,9 @@ struct dp_catalog_panel {
 
 	enum dp_stream_id stream_id;
 
+	bool widebus_en;
+	struct dp_dsc_cfg_data dsc;
+
 	int (*timing_cfg)(struct dp_catalog_panel *panel);
 	void (*config_hdr)(struct dp_catalog_panel *panel, bool en);
 	void (*tpg_config)(struct dp_catalog_panel *panel, bool enable);
@@ -198,6 +226,8 @@ struct dp_catalog_panel {
 	void (*update_transfer_unit)(struct dp_catalog_panel *panel);
 	void (*config_ctrl)(struct dp_catalog_panel *panel, u32 cfg);
 	void (*config_dto)(struct dp_catalog_panel *panel, bool ack);
+	void (*dsc_cfg)(struct dp_catalog_panel *panel);
+	void (*pps_flush)(struct dp_catalog_panel *panel);
 };
 
 struct dp_catalog;
@@ -214,6 +244,7 @@ struct dp_catalog {
 	struct dp_catalog_audio audio;
 	struct dp_catalog_panel panel;
 	struct dp_catalog_priv priv;
+	struct dp_catalog_hpd hpd;
 
 	void (*set_exe_mode)(struct dp_catalog *dp_catalog, char *mode);
 	int (*get_reg_dump)(struct dp_catalog *dp_catalog,
@@ -270,7 +301,7 @@ static inline u8 dp_header_get_parity(u32 data)
 	u8 iData = 0;
 	u8 i = 0;
 	u8 parity_byte;
-	u8 num_byte = (data & 0xFF00) > 0 ? 8 : 2;
+	u8 num_byte = (data > 0xFF) ? 8 : 2;
 
 	for (i = 0; i < num_byte; i++) {
 		iData = (data >> i*4) & 0xF;

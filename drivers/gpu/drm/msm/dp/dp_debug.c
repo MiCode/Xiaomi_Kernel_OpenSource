@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"[drm-dp] %s: " fmt, __func__
@@ -65,13 +65,13 @@ static int dp_debug_get_dpcd_buf(struct dp_debug_private *debug)
 	int rc = 0;
 
 	if (!debug->dpcd) {
-		debug->dpcd = devm_kzalloc(debug->dev, SZ_16K, GFP_KERNEL);
+		debug->dpcd = devm_kzalloc(debug->dev, SZ_4K, GFP_KERNEL);
 		if (!debug->dpcd) {
 			rc = -ENOMEM;
 			goto end;
 		}
 
-		debug->dpcd_size = SZ_16K;
+		debug->dpcd_size = SZ_4K;
 	}
 end:
 	return rc;
@@ -152,9 +152,14 @@ static ssize_t dp_debug_write_edid(struct file *file,
 	edid = debug->edid;
 bail:
 	kfree(buf);
+	debug->panel->set_edid(debug->panel, edid);
 
-	if (!debug->dp_debug.sim_mode)
-		debug->panel->set_edid(debug->panel, edid);
+	/*
+	 * print edid status as this code is executed
+	 * only while running in debug mode which is manually
+	 * triggered by a tester or a script.
+	 */
+	pr_info("[%s]\n", edid ? "SET" : "CLEAR");
 
 	return rc;
 }
@@ -169,7 +174,8 @@ static ssize_t dp_debug_write_dpcd(struct file *file,
 	size_t size = 0, dpcd_buf_index = 0;
 	ssize_t rc = count;
 	char offset_ch[5];
-	u32 offset;
+	u32 offset, data_len;
+	const u32 dp_receiver_cap_size = 16;
 
 	if (!debug)
 		return -ENODEV;
@@ -178,6 +184,9 @@ static ssize_t dp_debug_write_dpcd(struct file *file,
 		goto bail;
 
 	size = min_t(size_t, count, SZ_2K);
+
+	if (size <= char_to_nib)
+		goto bail;
 
 	buf = kzalloc(size, GFP_KERNEL);
 	if (ZERO_OR_NULL_PTR(buf)) {
@@ -208,6 +217,7 @@ static ssize_t dp_debug_write_dpcd(struct file *file,
 	size -= 4;
 
 	dpcd_size = size / char_to_nib;
+	data_len = dpcd_size;
 	buf_t = buf + 4;
 
 	dpcd_buf_index = offset;
@@ -233,10 +243,22 @@ static ssize_t dp_debug_write_dpcd(struct file *file,
 	dpcd = debug->dpcd;
 bail:
 	kfree(buf);
-	if (debug->dp_debug.sim_mode)
-		debug->aux->dpcd_updated(debug->aux);
-	else
+
+	/*
+	 * Reset panel's dpcd in case of any failure. Also, set the
+	 * panel's dpcd only if a full dpcd is provided with offset as 0.
+	 */
+	if (!dpcd || (!offset && (data_len == dp_receiver_cap_size))) {
 		debug->panel->set_dpcd(debug->panel, dpcd);
+
+		/*
+		 * print dpcd status as this code is executed
+		 * only while running in debug mode which is manually
+		 * triggered by a tester or a script.
+		 */
+		pr_info("[%s]\n", dpcd ? "SET" : "CLEAR");
+	} else
+		debug->aux->dpcd_updated(debug->aux);
 
 	return rc;
 }
@@ -245,21 +267,41 @@ static ssize_t dp_debug_read_dpcd(struct file *file,
 		char __user *user_buff, size_t count, loff_t *ppos)
 {
 	struct dp_debug_private *debug = file->private_data;
-	char buf[SZ_8];
+	char *buf;
+	int const buf_size = SZ_4K;
+	u32 offset = 0;
 	u32 len = 0;
 
-	if (!debug)
+	if (!debug || !debug->aux || !debug->dpcd)
 		return -ENODEV;
 
 	if (*ppos)
 		return 0;
 
-	len += snprintf(buf, SZ_8, "0x%x\n", debug->aux->reg);
+	buf = kzalloc(buf_size, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
 
-	if (copy_to_user(user_buff, buf, len))
-		return -EFAULT;
+	len += snprintf(buf, buf_size, "0x%x", debug->aux->reg);
 
-	*ppos += len;
+	if (!debug->aux->read) {
+		while (1) {
+			if (debug->aux->reg + offset >= buf_size ||
+			    offset >= debug->aux->size)
+				break;
+
+			len += snprintf(buf + len, buf_size - len, "0x%x",
+				debug->dpcd[debug->aux->reg + offset++]);
+		}
+
+		if (debug->dp_debug.sim_mode && debug->aux->dpcd_updated)
+			debug->aux->dpcd_updated(debug->aux);
+	}
+
+	if (!copy_to_user(user_buff, buf, len))
+		*ppos += len;
+
+	kfree(buf);
 	return len;
 }
 
@@ -343,7 +385,7 @@ static ssize_t dp_debug_write_edid_modes_mst(struct file *file,
 {
 	struct dp_debug_private *debug = file->private_data;
 	struct dp_mst_connector *mst_connector;
-	char buf[SZ_32];
+	char buf[SZ_512];
 	char *read_buf;
 	size_t len = 0;
 
@@ -357,7 +399,7 @@ static ssize_t dp_debug_write_edid_modes_mst(struct file *file,
 	if (*ppos)
 		goto end;
 
-	len = min_t(size_t, count, SZ_32 - 1);
+	len = min_t(size_t, count, SZ_512 - 1);
 	if (copy_from_user(buf, user_buff, len))
 		goto end;
 
@@ -399,8 +441,10 @@ static ssize_t dp_debug_write_mst_con_id(struct file *file,
 	struct dp_mst_connector *mst_connector;
 	char buf[SZ_32];
 	size_t len = 0;
-	int con_id = 0;
+	int con_id = 0, status;
 	bool in_list = false;
+	const int dp_en = BIT(3), hpd_high = BIT(7), hpd_irq = BIT(8);
+	int vdo = dp_en | hpd_high | hpd_irq;
 
 	if (!debug)
 		return -ENODEV;
@@ -415,8 +459,10 @@ static ssize_t dp_debug_write_mst_con_id(struct file *file,
 
 	buf[len] = '\0';
 
-	if (kstrtoint(buf, 10, &con_id) != 0)
-		goto clear;
+	if (sscanf(buf, "%d %d", &con_id, &status) != 2) {
+		len = 0;
+		goto end;
+	}
 
 	if (!con_id)
 		goto clear;
@@ -428,6 +474,7 @@ static ssize_t dp_debug_write_mst_con_id(struct file *file,
 		if (mst_connector->con_id == con_id) {
 			in_list = true;
 			debug->mst_con_id = con_id;
+			mst_connector->state = status;
 			break;
 		}
 	}
@@ -435,6 +482,10 @@ static ssize_t dp_debug_write_mst_con_id(struct file *file,
 
 	if (!in_list)
 		pr_err("invalid connector id %u\n", con_id);
+	else if (status != connector_status_unknown) {
+		debug->dp_debug.mst_hpd_sim = true;
+		debug->hpd->simulate_attention(debug->hpd, vdo);
+	}
 
 	goto end;
 clear:
@@ -476,6 +527,21 @@ static ssize_t dp_debug_bw_code_write(struct file *file,
 	pr_debug("max_bw_code: %d\n", max_bw_code);
 
 	return len;
+}
+
+static ssize_t dp_debug_mst_mode_read(struct file *file,
+	char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	char buf[64];
+	ssize_t len;
+
+	len = scnprintf(buf, sizeof(buf),
+			"mst_mode = %d, mst_state = %d\n",
+			debug->parser->has_mst,
+			debug->panel->mst_state);
+
+	return simple_read_from_buffer(user_buff, count, ppos, buf, len);
 }
 
 static ssize_t dp_debug_mst_mode_write(struct file *file,
@@ -579,26 +645,62 @@ static ssize_t dp_debug_mst_sideband_mode_write(struct file *file,
 	struct dp_debug_private *debug = file->private_data;
 	char buf[SZ_8];
 	size_t len = 0;
-	u32 mst_sideband_mode = 0;
+	int mst_sideband_mode = 0;
+	u32 mst_port_cnt = 0;
 
 	if (!debug)
+		return -ENODEV;
+
+	/* Leave room for termination char */
+	len = min_t(size_t, count, SZ_8 - 1);
+	if (copy_from_user(buf, user_buff, len))
+		return -EFAULT;
+
+	buf[len] = '\0';
+
+	if (sscanf(buf, "%d %u", &mst_sideband_mode, &mst_port_cnt) != 2) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	if (mst_port_cnt > DP_MST_SIM_MAX_PORTS) {
+		pr_err("port cnt:%d exceeding max:%d\n", mst_port_cnt,
+				DP_MST_SIM_MAX_PORTS);
+		return -EINVAL;
+	}
+
+	debug->parser->has_mst_sideband = mst_sideband_mode ? true : false;
+	debug->dp_debug.mst_port_cnt = mst_port_cnt;
+	pr_debug("mst_sideband_mode: %d port_cnt:%d\n",
+			mst_sideband_mode, mst_port_cnt);
+	return count;
+}
+
+static ssize_t dp_debug_widebus_mode_write(struct file *file,
+		const char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	char buf[SZ_8];
+	size_t len = 0;
+	u32 widebus_mode = 0;
+
+	if (!debug || !debug->parser)
 		return -ENODEV;
 
 	if (*ppos)
 		return 0;
 
-	/* Leave room for termination char */
 	len = min_t(size_t, count, SZ_8 - 1);
 	if (copy_from_user(buf, user_buff, len))
-		return 0;
+		return -EFAULT;
 
 	buf[len] = '\0';
 
-	if (kstrtoint(buf, 10, &mst_sideband_mode) != 0)
-		return 0;
+	if (kstrtoint(buf, 10, &widebus_mode) != 0)
+		return -EINVAL;
 
-	debug->parser->has_mst_sideband = mst_sideband_mode ? true : false;
-	pr_debug("mst_enable: %d\n", mst_sideband_mode);
+	debug->parser->has_widebus = widebus_mode ? true : false;
+	pr_debug("widebus_enable: %d\n", widebus_mode);
 
 	return len;
 }
@@ -968,9 +1070,10 @@ static ssize_t dp_debug_read_mst_conn_info(struct file *file,
 			continue;
 		}
 
-		ret = snprintf(buf + len, max_size,
-				"conn name:%s, conn id:%d\n", connector->name,
-				connector->base.id);
+		ret = scnprintf(buf + len, max_size,
+				"conn name:%s, conn id:%d state:%d\n",
+				connector->name, connector->base.id,
+				connector->status);
 		if (dp_debug_check_buffer_overflow(ret, &max_size, &len))
 			break;
 	}
@@ -1326,6 +1429,45 @@ error:
 	return rc;
 }
 
+static void dp_debug_set_sim_mode(struct dp_debug_private *debug, bool sim)
+{
+	if (sim) {
+		if (dp_debug_get_edid_buf(debug))
+			return;
+
+		if (dp_debug_get_dpcd_buf(debug)) {
+			devm_kfree(debug->dev, debug->edid);
+			return;
+		}
+
+		debug->dp_debug.sim_mode = true;
+		debug->aux->set_sim_mode(debug->aux, true,
+			debug->edid, debug->dpcd);
+	} else {
+		debug->aux->set_sim_mode(debug->aux, false, NULL, NULL);
+		debug->dp_debug.sim_mode = false;
+
+		debug->panel->set_edid(debug->panel, 0);
+		if (debug->edid) {
+			devm_kfree(debug->dev, debug->edid);
+			debug->edid = NULL;
+		}
+
+		debug->panel->set_dpcd(debug->panel, 0);
+		if (debug->dpcd) {
+			devm_kfree(debug->dev, debug->dpcd);
+			debug->dpcd = NULL;
+		}
+	}
+
+	/*
+	 * print simulation status as this code is executed
+	 * only while running in debug mode which is manually
+	 * triggered by a tester or a script.
+	 */
+	pr_info("%s\n", sim ? "[ON]" : "[OFF]");
+}
+
 static ssize_t dp_debug_write_sim(struct file *file,
 		const char __user *user_buff, size_t count, loff_t *ppos)
 {
@@ -1350,34 +1492,8 @@ static ssize_t dp_debug_write_sim(struct file *file,
 	if (kstrtoint(buf, 10, &sim) != 0)
 		goto end;
 
-	if (sim) {
-		if (dp_debug_get_edid_buf(debug))
-			goto end;
-
-		if (dp_debug_get_dpcd_buf(debug))
-			goto error;
-
-		debug->dp_debug.sim_mode = true;
-		debug->aux->set_sim_mode(debug->aux, true,
-			debug->edid, debug->dpcd);
-	} else {
-		debug->aux->set_sim_mode(debug->aux, false, NULL, NULL);
-		debug->dp_debug.sim_mode = false;
-
-		if (debug->edid) {
-			devm_kfree(debug->dev, debug->edid);
-			debug->edid = NULL;
-		}
-
-		if (debug->dpcd) {
-			devm_kfree(debug->dev, debug->dpcd);
-			debug->dpcd = NULL;
-		}
-	}
+	dp_debug_set_sim_mode(debug, sim);
 end:
-	return len;
-error:
-	devm_kfree(debug->dev, debug->edid);
 	return len;
 }
 
@@ -1565,6 +1681,7 @@ static const struct file_operations dump_fops = {
 static const struct file_operations mst_mode_fops = {
 	.open = simple_open,
 	.write = dp_debug_mst_mode_write,
+	.read = dp_debug_mst_mode_read,
 };
 
 static const struct file_operations mst_sideband_mode_fops = {
@@ -1582,6 +1699,11 @@ static const struct file_operations hdcp_fops = {
 	.open = simple_open,
 	.write = dp_debug_write_hdcp,
 	.read = dp_debug_read_hdcp,
+};
+
+static const struct file_operations widebus_mode_fops = {
+	.open = simple_open,
+	.write = dp_debug_widebus_mode_write,
 };
 
 static int dp_debug_init(struct dp_debug *dp_debug)
@@ -1795,6 +1917,30 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 		goto error_remove_dir;
 	}
 
+	file = debugfs_create_bool("dsc_feature_enable", 0644, dir,
+			&debug->parser->dsc_feature_enable);
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs dsc_feature failed, rc=%d\n",
+		       DEBUG_NAME, rc);
+	}
+
+	file = debugfs_create_bool("fec_feature_enable", 0644, dir,
+			&debug->parser->fec_feature_enable);
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs fec_feature_enable failed, rc=%d\n",
+		       DEBUG_NAME, rc);
+	}
+
+	file = debugfs_create_file("widebus_mode", 0644, dir,
+			debug, &widebus_mode_fops);
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs widebus failed, rc=%d\n",
+		       DEBUG_NAME, rc);
+	}
+
 	return 0;
 
 error_remove_dir:
@@ -1815,6 +1961,18 @@ u8 *dp_debug_get_edid(struct dp_debug *dp_debug)
 	debug = container_of(dp_debug, struct dp_debug_private, dp_debug);
 
 	return debug->edid;
+}
+
+static void dp_debug_abort(struct dp_debug *dp_debug)
+{
+	struct dp_debug_private *debug;
+
+	if (!dp_debug)
+		return;
+
+	debug = container_of(dp_debug, struct dp_debug_private, dp_debug);
+
+	dp_debug_set_sim_mode(debug, false);
 }
 
 struct dp_debug *dp_debug_get(struct dp_debug_in *in)
@@ -1857,6 +2015,7 @@ struct dp_debug *dp_debug_get(struct dp_debug_in *in)
 	}
 
 	dp_debug->get_edid = dp_debug_get_edid;
+	dp_debug->abort = dp_debug_abort;
 
 	INIT_LIST_HEAD(&dp_debug->dp_mst_connector_list.list);
 
@@ -1867,6 +2026,8 @@ struct dp_debug *dp_debug_get(struct dp_debug_in *in)
 	dp_debug->dp_mst_connector_list.con_id = -1;
 	dp_debug->dp_mst_connector_list.conn = NULL;
 	dp_debug->dp_mst_connector_list.debug_en = false;
+
+	dp_debug->max_pclk_khz = debug->parser->max_pclk_khz;
 
 	return dp_debug;
 error:

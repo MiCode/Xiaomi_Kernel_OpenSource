@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"[drm-dp] %s: " fmt, __func__
@@ -337,32 +337,6 @@ static void dp_audio_setup_acr(struct dp_audio_private *audio)
 	catalog->config_acr(catalog);
 }
 
-static void dp_audio_safe_to_exit_level(struct dp_audio_private *audio)
-{
-	struct dp_catalog_audio *catalog = audio->catalog;
-	u32 safe_to_exit_level = 0;
-
-	switch (audio->dp_audio.lane_count) {
-	case 1:
-		safe_to_exit_level = 14;
-		break;
-	case 2:
-		safe_to_exit_level = 8;
-		break;
-	case 4:
-		safe_to_exit_level = 5;
-		break;
-	default:
-		pr_debug("setting the default safe_to_exit_level = %u\n",
-				safe_to_exit_level);
-		safe_to_exit_level = 14;
-		break;
-	}
-
-	catalog->data = safe_to_exit_level;
-	catalog->safe_to_exit_level(catalog);
-}
-
 static void dp_audio_enable(struct dp_audio_private *audio, bool enable)
 {
 	struct dp_catalog_audio *catalog = audio->catalog;
@@ -423,7 +397,6 @@ static int dp_audio_info_setup(struct platform_device *pdev,
 
 	dp_audio_setup_sdp(audio);
 	dp_audio_setup_acr(audio);
-	dp_audio_safe_to_exit_level(audio);
 	dp_audio_enable(audio, true);
 
 	mutex_unlock(&audio->ops_lock);
@@ -673,10 +646,8 @@ static int dp_audio_notify(struct dp_audio_private *audio, u32 state)
 	reinit_completion(&audio->hpd_comp);
 	rc = ext->intf_ops.audio_notify(audio->ext_pdev,
 			&ext->codec, state);
-	if (rc) {
-		pr_err("failed to notify audio. state=%d err=%d\n", state, rc);
+	if (rc)
 		goto end;
-	}
 
 	if (atomic_read(&audio->acked))
 		goto end;
@@ -734,6 +705,8 @@ static int dp_audio_on(struct dp_audio *dp_audio)
 		return -EINVAL;
 	}
 
+	dp_audio_register_ext_disp(audio);
+
 	ext = &audio->ext_audio_data;
 
 	audio->session_on = true;
@@ -780,6 +753,8 @@ end:
 
 	audio->session_on = false;
 	audio->engine_on  = false;
+
+	dp_audio_deregister_ext_disp(audio);
 
 	return rc;
 }
@@ -854,8 +829,6 @@ struct dp_audio *dp_audio_get(struct platform_device *pdev,
 
 	catalog->init(catalog);
 
-	dp_audio_register_ext_disp(audio);
-
 	return dp_audio;
 
 error_notify_workqueue:
@@ -872,8 +845,6 @@ void dp_audio_put(struct dp_audio *dp_audio)
 		return;
 
 	audio = container_of(dp_audio, struct dp_audio_private, dp_audio);
-
-	dp_audio_deregister_ext_disp(audio);
 
 	mutex_destroy(&audio->ops_lock);
 

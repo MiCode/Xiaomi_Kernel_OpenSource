@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"[drm-dp] %s: " fmt, __func__
@@ -121,11 +121,12 @@ static void dp_gpio_hpd_work(struct work_struct *work)
 	struct delayed_work *dw = to_delayed_work(work);
 	struct dp_gpio_hpd_private *gpio_hpd = container_of(dw,
 		struct dp_gpio_hpd_private, work);
+	int ret;
 
 	if (gpio_hpd->hpd) {
 		devm_free_irq(gpio_hpd->dev,
 			gpio_hpd->irq, gpio_hpd);
-		devm_request_threaded_irq(gpio_hpd->dev,
+		ret = devm_request_threaded_irq(gpio_hpd->dev,
 			gpio_hpd->irq, NULL,
 			dp_gpio_isr,
 			IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
@@ -134,13 +135,16 @@ static void dp_gpio_hpd_work(struct work_struct *work)
 	} else {
 		devm_free_irq(gpio_hpd->dev,
 				gpio_hpd->irq, gpio_hpd);
-		devm_request_threaded_irq(gpio_hpd->dev,
+		ret = devm_request_threaded_irq(gpio_hpd->dev,
 			gpio_hpd->irq, NULL,
 			dp_gpio_isr,
 			IRQF_TRIGGER_RISING | IRQF_ONESHOT,
 			"dp-gpio-intp", gpio_hpd);
 		dp_gpio_hpd_connect(gpio_hpd, false);
 	}
+
+	if (ret < 0)
+		pr_err("Cannot claim IRQ dp-gpio-intp\n");
 }
 
 static int dp_gpio_hpd_simulate_connect(struct dp_hpd *dp_hpd, bool hpd)
@@ -179,13 +183,42 @@ error:
 	return rc;
 }
 
+int dp_gpio_hpd_register(struct dp_hpd *dp_hpd)
+{
+	struct dp_gpio_hpd_private *gpio_hpd;
+	int edge;
+	int rc = 0;
+
+	if (!dp_hpd)
+		return -EINVAL;
+
+	gpio_hpd = container_of(dp_hpd, struct dp_gpio_hpd_private, base);
+
+	gpio_hpd->hpd = gpio_get_value_cansleep(gpio_hpd->gpio_cfg.gpio);
+
+	edge = gpio_hpd->hpd ? IRQF_TRIGGER_FALLING : IRQF_TRIGGER_RISING;
+	rc = devm_request_threaded_irq(gpio_hpd->dev, gpio_hpd->irq, NULL,
+		dp_gpio_isr,
+		edge | IRQF_ONESHOT,
+		"dp-gpio-intp", gpio_hpd);
+	if (rc) {
+		pr_err("Failed to request INTP threaded IRQ: %d\n", rc);
+		return rc;
+	}
+
+	if (gpio_hpd->hpd)
+		queue_delayed_work(system_wq, &gpio_hpd->work, 0);
+
+	return rc;
+}
+
 struct dp_hpd *dp_gpio_hpd_get(struct device *dev,
 	struct dp_hpd_cb *cb)
 {
 	int rc = 0;
 	const char *hpd_gpio_name = "qcom,dp-hpd-gpio";
 	struct dp_gpio_hpd_private *gpio_hpd;
-	int edge;
+	struct dp_pinctrl pinctrl = {0};
 
 	if (!dev || !cb) {
 		pr_err("invalid device\n");
@@ -197,6 +230,20 @@ struct dp_hpd *dp_gpio_hpd_get(struct device *dev,
 	if (!gpio_hpd) {
 		rc = -ENOMEM;
 		goto error;
+	}
+
+	pinctrl.pin = devm_pinctrl_get(dev);
+	if (!IS_ERR_OR_NULL(pinctrl.pin)) {
+		pinctrl.state_hpd_active = pinctrl_lookup_state(pinctrl.pin,
+						"mdss_dp_hpd_active");
+		if (!IS_ERR_OR_NULL(pinctrl.state_hpd_active)) {
+			rc = pinctrl_select_state(pinctrl.pin,
+					pinctrl.state_hpd_active);
+			if (rc) {
+				pr_err("failed to set hpd active state\n");
+				goto gpio_error;
+			}
+		}
 	}
 
 	gpio_hpd->gpio_cfg.gpio = of_get_named_gpio(dev->of_node,
@@ -222,29 +269,14 @@ struct dp_hpd *dp_gpio_hpd_get(struct device *dev,
 	gpio_hpd->dev = dev;
 	gpio_hpd->cb = cb;
 	gpio_hpd->irq = gpio_to_irq(gpio_hpd->gpio_cfg.gpio);
-	gpio_hpd->hpd = gpio_get_value_cansleep(gpio_hpd->gpio_cfg.gpio);
-	edge = gpio_hpd->hpd ? IRQF_TRIGGER_FALLING : IRQF_TRIGGER_RISING;
 	INIT_DELAYED_WORK(&gpio_hpd->work, dp_gpio_hpd_work);
-
-	rc = devm_request_threaded_irq(dev, gpio_hpd->irq, NULL,
-			dp_gpio_isr,
-			edge | IRQF_ONESHOT,
-			"dp-gpio-intp", gpio_hpd);
-	if (rc) {
-		pr_err("Failed to request INTP threaded IRQ: %d\n", rc);
-		goto gpio_irq_error;
-	}
 
 	gpio_hpd->base.simulate_connect = dp_gpio_hpd_simulate_connect;
 	gpio_hpd->base.simulate_attention = dp_gpio_hpd_simulate_attention;
-
-	if (gpio_hpd->hpd)
-		queue_delayed_work(system_wq, &gpio_hpd->work, 0);
+	gpio_hpd->base.register_hpd = dp_gpio_hpd_register;
 
 	return &gpio_hpd->base;
 
-gpio_irq_error:
-	devm_gpio_free(dev, gpio_hpd->gpio_cfg.gpio);
 gpio_error:
 	devm_kfree(dev, gpio_hpd);
 error:

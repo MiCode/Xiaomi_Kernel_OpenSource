@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"[drm-dp]: %s: " fmt, __func__
@@ -363,13 +363,21 @@ int dp_connector_get_mode_info(struct drm_connector *connector,
 	const u32 single_intf = 1;
 	const u32 no_enc = 0;
 	struct msm_display_topology *topology;
+	struct sde_connector *sde_conn;
+	struct dp_panel *dp_panel;
+	struct dp_display_mode dp_mode;
+	struct dp_display *dp_disp = display;
 
-	if (!drm_mode || !mode_info || !max_mixer_width) {
+	if (!drm_mode || !mode_info || !max_mixer_width || !connector ||
+			!display) {
 		pr_err("invalid params\n");
 		return -EINVAL;
 	}
 
 	memset(mode_info, 0, sizeof(*mode_info));
+
+	sde_conn = to_sde_connector(connector);
+	dp_panel = sde_conn->drv_panel;
 
 	topology = &mode_info->topology;
 	topology->num_lm = (max_mixer_width <= drm_mode->hdisplay) ?
@@ -379,6 +387,18 @@ int dp_connector_get_mode_info(struct drm_connector *connector,
 
 	mode_info->frame_rate = drm_mode->vrefresh;
 	mode_info->vtotal = drm_mode->vtotal;
+
+	mode_info->wide_bus_en = dp_panel->widebus_en;
+
+	dp_disp->convert_to_dp_mode(dp_disp, dp_panel, drm_mode, &dp_mode);
+
+	if (dp_mode.timing.comp_info.comp_ratio) {
+		memcpy(&mode_info->comp_info,
+			&dp_mode.timing.comp_info,
+			sizeof(mode_info->comp_info));
+
+		topology->num_enc = topology->num_lm;
+	}
 
 	return 0;
 }
@@ -579,4 +599,25 @@ enum drm_mode_status dp_connector_mode_valid(struct drm_connector *connector,
 	mode->vrefresh = drm_mode_vrefresh(mode);
 
 	return dp_disp->validate_mode(dp_disp, sde_conn->drv_panel, mode);
+}
+
+int dp_connector_update_pps(struct drm_connector *connector,
+		char *pps_cmd, void *display)
+{
+	struct dp_display *dp_disp;
+	struct sde_connector *sde_conn;
+
+	if (!display || !connector) {
+		pr_err("invalid params\n");
+		return -EINVAL;
+	}
+
+	sde_conn = to_sde_connector(connector);
+	if (!sde_conn->drv_panel) {
+		pr_err("invalid dp panel\n");
+		return MODE_ERROR;
+	}
+
+	dp_disp = display;
+	return dp_disp->update_pps(dp_disp, connector, pps_cmd);
 }

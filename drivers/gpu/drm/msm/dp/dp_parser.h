@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _DP_PARSER_H_
@@ -86,6 +86,8 @@ struct dp_pinctrl {
 	struct pinctrl *pin;
 	struct pinctrl_state *state_active;
 	struct pinctrl_state *state_hpd_active;
+	struct pinctrl_state *state_hpd_tlmm;
+	struct pinctrl_state *state_hpd_ctrl;
 	struct pinctrl_state *state_suspend;
 };
 
@@ -180,6 +182,15 @@ static inline char *dp_phy_aux_config_type_to_string(u32 cfg_type)
  * @pinctrl: pin-control related data
  * @disp_data: controller's display related data
  * @hw_cfg: DP HW specific settings
+ * @has_mst: MST feature enable status
+ * @has_mst_sideband: MST sideband feature enable status
+ * @no_aux_switch: presence AUX switch status
+ * @gpio_aux_switch: presence GPIO AUX switch status
+ * @dsc_feature_enable: DSC feature enable status
+ * @fec_feature_enable: FEC feature enable status
+ * @max_dp_dsc_blks: maximum DSC blks for DP interface
+ * @max_dp_dsc_input_width_pixs: Maximum input width for DSC block
+ * @has_widebus: widebus (2PPC) feature eanble status
  * @parse: function to be called by client to parse device tree.
  * @get_io: function to be called by client to get io data.
  * @get_io_buf: function to be called by client to get io buffers.
@@ -200,6 +211,13 @@ struct dp_parser {
 	bool has_mst;
 	bool has_mst_sideband;
 	bool no_aux_switch;
+	bool dsc_feature_enable;
+	bool fec_feature_enable;
+	bool has_widebus;
+	bool gpio_aux_switch;
+	u32 max_dp_dsc_blks;
+	u32 max_dp_dsc_input_width_pixs;
+	bool lphw_hpd;
 
 	int (*parse)(struct dp_parser *parser);
 	struct dp_io_data *(*get_io)(struct dp_parser *parser, char *name);

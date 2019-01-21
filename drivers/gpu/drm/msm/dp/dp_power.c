@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"[drm-dp] %s: " fmt, __func__
@@ -115,7 +115,24 @@ static int dp_power_pinctrl_set(struct dp_power_private *power, bool active)
 	parser = power->parser;
 
 	if (IS_ERR_OR_NULL(parser->pinctrl.pin))
-		return PTR_ERR(parser->pinctrl.pin);
+		return 0;
+
+	if (parser->no_aux_switch && parser->lphw_hpd) {
+		pin_state = active ? parser->pinctrl.state_hpd_ctrl
+				: parser->pinctrl.state_hpd_tlmm;
+		if (!IS_ERR_OR_NULL(pin_state)) {
+			rc = pinctrl_select_state(parser->pinctrl.pin,
+				pin_state);
+			if (rc) {
+				pr_err("cannot direct hpd line to %s\n",
+					active ? "ctrl" : "tlmm");
+				return rc;
+			}
+		}
+	}
+
+	if (parser->no_aux_switch)
+		return 0;
 
 	pin_state = active ? parser->pinctrl.state_active
 				: parser->pinctrl.state_suspend;
@@ -321,12 +338,15 @@ static int dp_power_clk_enable(struct dp_power *dp_power,
 	else if (pm_type == DP_LINK_PM)
 		power->link_clks_on = enable;
 
-	pr_debug("%s clocks for %s\n",
-			enable ? "enable" : "disable",
-			dp_parser_pm_name(pm_type));
-	pr_debug("link_clks:%s core_clks:%s strm0_clks:%s strm1_clks:%s\n",
-		power->link_clks_on ? "on" : "off",
+	/*
+	 * This log is printed only when user connects or disconnects
+	 * a DP cable. As this is a user-action and not a frequent
+	 * usecase, it is not going to flood the kernel logs. Also,
+	 * helpful in debugging the NOC issues.
+	 */
+	pr_info("core:%s link:%s strm0:%s strm1:%s\n",
 		power->core_clks_on ? "on" : "off",
+		power->link_clks_on ? "on" : "off",
 		power->strm0_clks_on ? "on" : "off",
 		power->strm1_clks_on ? "on" : "off");
 error:
