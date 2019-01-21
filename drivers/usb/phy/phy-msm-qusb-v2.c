@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -580,8 +580,7 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 
 	if (suspend) {
 		/* Bus suspend case */
-		if (qphy->cable_connected ||
-			(qphy->phy.flags & PHY_HOST_MODE)) {
+		if (qphy->cable_connected) {
 			/* Disable all interrupts */
 			writel_relaxed(0x00,
 				qphy->base + qphy->phy_reg[INTR_CTRL]);
@@ -632,8 +631,7 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 		qphy->suspended = true;
 	} else {
 		/* Bus resume case */
-		if (qphy->cable_connected ||
-			(qphy->phy.flags & PHY_HOST_MODE)) {
+		if (qphy->cable_connected) {
 			qusb_phy_enable_clocks(qphy, true);
 			/* Clear all interrupts on resume */
 			writel_relaxed(0x00,
