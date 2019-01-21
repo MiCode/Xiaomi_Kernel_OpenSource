@@ -212,4 +212,32 @@ config IPA_EMULATION
 	help
 	  This option is used only when building the X86 version of
 	  the IPA/GSI driver. Never set this when building for ARM.
+
+config IPA3_REGDUMP
+	bool "Dump or collect IPA/GSI register values on Linux crash"
+	depends on IPA3
+	help
+	  This option is to be used when the saving of IPA/GSI
+	  register state is desired upon system crash.
+
+choice
+	prompt "Platform whose registers are to be dumped/collected"
+	depends on IPA3_REGDUMP
+
+config IPA3_REGDUMP_SM8150
+	bool "The sm8150 platform"
+	depends on IPA3_REGDUMP
+	depends on ARCH_SM8150
+	help
+	  The sm8150 platform's registers will be dumped/collected.
+
+endchoice
+
+config IPA3_REGDUMP_NUM_EXTRA_ENDP_REGS
+	int "The number of extra endp registers for remaining pipes"
+	depends on IPA3_REGDUMP
+	default 0
+	help
+	  If the platform has extra endpoint registers for remaining
+	  pipes, please express how many here.
 endmenu
