@@ -992,6 +992,29 @@ static void clear_err_ready(struct pil_tz_data *d)
 	complete_err_ready(d->subsys);
 }
 
+static void clear_sw_init_done_error(struct pil_tz_data *d, int err)
+{
+	uint32_t rmb_err_spare0;
+	uint32_t rmb_err_spare1;
+	uint32_t rmb_err_spare2;
+
+	pr_info("SW_INIT_DONE - ERROR [%s] [0x%x].\n",
+		d->subsys_desc.name, err);
+
+	rmb_err_spare2 =  __raw_readl(d->err_status_spare);
+	rmb_err_spare1 =  __raw_readl(d->err_status_spare-4);
+	rmb_err_spare0 =  __raw_readl(d->err_status_spare-8);
+
+	pr_err("spare0 register: 0x%08x\n", rmb_err_spare0);
+	pr_err("spare1 register: 0x%08x\n", rmb_err_spare1);
+	pr_err("spare2 register: 0x%08x\n", rmb_err_spare2);
+
+	/* Clear the interrupt source */
+	__raw_writel(BIT(d->bits_arr[ERR_READY]), d->irq_clear);
+}
+
+
+
 static void clear_wdog(struct pil_tz_data *d)
 {
 	/* Check crash status to know if device is restarting*/
@@ -1012,12 +1035,14 @@ static irqreturn_t subsys_generic_handler(int irq, void *dev_id)
 	err_value =  __raw_readl(d->err_status_spare);
 	status_val = __raw_readl(d->irq_status);
 
-	if ((status_val & BIT(d->bits_arr[ERR_READY])) && !err_value)
-		clear_err_ready(d);
-
-	if ((status_val & BIT(d->bits_arr[ERR_READY])) &&
-					err_value == 0x44554d50)
-		clear_wdog(d);
+	if (status_val & BIT(d->bits_arr[ERR_READY])) {
+		if (!err_value)
+			clear_err_ready(d);
+		else if (err_value == 0x44554d50)
+			clear_wdog(d);
+		else
+			clear_sw_init_done_error(d, err_value);
+	}
 
 	if (status_val & BIT(d->bits_arr[PBL_DONE]))
 		clear_pbl_done(d);
