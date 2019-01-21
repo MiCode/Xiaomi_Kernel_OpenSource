@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_VFE175_H_
@@ -289,6 +289,8 @@ static struct cam_vfe_bus_ver2_hw_info vfe175_bus_hw_info = {
 		.addr_sync_cfg                = 0x0000207C,
 		.addr_sync_frame_hdr          = 0x00002080,
 		.addr_sync_no_sync            = 0x00002084,
+		.debug_status_cfg             = 0x0000226C,
+		.debug_status_0               = 0x00002270,
 	},
 	.num_client = 24,
 	.bus_client_reg = {

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_HW_MGR_INTF_H_
@@ -146,6 +146,7 @@ struct cam_hw_mgr_dump_pf_data {
  * struct cam_hw_prepare_update_args - Payload for prepare command
  *
  * @packet:                CSL packet from user mode driver
+ * @remain_len             Remaining length of CPU buffer after config offset
  * @ctxt_to_hw_map:        HW context from the acquire
  * @max_hw_update_entries: Maximum hardware update entries supported
  * @hw_update_entries:     Actual hardware update configuration (returned)
@@ -162,6 +163,7 @@ struct cam_hw_mgr_dump_pf_data {
  */
 struct cam_hw_prepare_update_args {
 	struct cam_packet              *packet;
+	size_t                          remain_len;
 	void                           *ctxt_to_hw_map;
 	uint32_t                        max_hw_update_entries;
 	struct cam_hw_update_entry     *hw_update_entries;
