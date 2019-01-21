@@ -644,6 +644,8 @@ config MSM_JTAGV8
 	  memory penalty.
 endmenu
 
+source "drivers/soc/qcom/memshare/Kconfig"
+
 config QMP_DEBUGFS_CLIENT
 	bool "Debugfs Client to communicate with AOP using QMP protocol"
 	depends on DEBUG_FS
