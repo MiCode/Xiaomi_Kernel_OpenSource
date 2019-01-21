@@ -1503,7 +1503,7 @@ static int __iface_cmdq_write(struct venus_hfi_device *device, void *pkt)
 		/* Consumer of cmdq prefers that we raise an interrupt */
 		rc = 0;
 		__write_register(device, VIDC_CPU_IC_SOFTINT,
-				VIDC_CPU_IC_SOFTINT_H2A_SHFT);
+				1 << VIDC_CPU_IC_SOFTINT_H2A_SHFT);
 	}
 
 	return rc;
@@ -1539,7 +1539,7 @@ static int __iface_msgq_read(struct venus_hfi_device *device, void *pkt)
 		__hal_sim_modify_msg_packet((u8 *)pkt, device);
 		if (tx_req_is_set)
 			__write_register(device, VIDC_CPU_IC_SOFTINT,
-				VIDC_CPU_IC_SOFTINT_H2A_SHFT);
+					1 << VIDC_CPU_IC_SOFTINT_H2A_SHFT);
 		rc = 0;
 	} else
 		rc = -ENODATA;
@@ -1571,7 +1571,7 @@ static int __iface_dbgq_read(struct venus_hfi_device *device, void *pkt)
 	if (!__read_queue(q_info, (u8 *)pkt, &tx_req_is_set)) {
 		if (tx_req_is_set)
 			__write_register(device, VIDC_CPU_IC_SOFTINT,
-				VIDC_CPU_IC_SOFTINT_H2A_SHFT);
+					1 << VIDC_CPU_IC_SOFTINT_H2A_SHFT);
 		rc = 0;
 	} else
 		rc = -ENODATA;
@@ -2268,7 +2268,6 @@ static void __core_clear_interrupt(struct venus_hfi_device *device)
 	}
 
 	__write_register(device, VIDC_CPU_CS_A2HSOFTINTCLR, 1);
-	__write_register(device, VIDC_WRAPPER_INTR_CLEAR, intr_status);
 }
 
 static int venus_hfi_core_ping(void *device)
@@ -3430,7 +3429,7 @@ static int __response_handler(struct venus_hfi_device *device)
 		return 0;
 	}
 
-	if (device->intr_status & VIDC_WRAPPER_INTR_CLEAR_A2HWD_BMSK) {
+	if (device->intr_status & VIDC_WRAPPER_INTR_STATUS_A2HWD_BMSK) {
 		struct hfi_sfr_struct *vsfr = (struct hfi_sfr_struct *)
 			device->sfr.align_virtual_addr;
 		struct msm_vidc_cb_info info = {
