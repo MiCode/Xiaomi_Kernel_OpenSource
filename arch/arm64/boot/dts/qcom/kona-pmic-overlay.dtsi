@@ -1,7 +1,34 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved. */
 
 #include "pm8150.dtsi"
 #include "pm8150b.dtsi"
 #include "pm8150l.dtsi"
 #include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
+
+&spmi_bus {
+	#address-cells = <2>;
+	#size-cells = <0>;
+	interrupt-controller;
+	#interrupt-cells = <4>;
+
+	qcom,pmxprairie@8 {
+		compatible = "qcom,spmi-pmic";
+		reg = <0x8 SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		qcom,power-on@800 {
+			compatible = "qcom,qpnp-power-on";
+			reg = <0x800 0x100>;
+			qcom,modem-reset;
+		};
+	};
+
+	qcom,pmxprairie@9 {
+		compatible ="qcom,spmi-pmic";
+		reg = <0x9 SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+	};
+};
