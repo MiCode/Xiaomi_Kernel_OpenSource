@@ -4805,7 +4805,9 @@ static void sde_crtc_enable(struct drm_crtc *crtc,
 
 	/* return early if crtc is already enabled */
 	if (sde_crtc->enabled) {
-		if (msm_is_mode_seamless_dms(&crtc->state->adjusted_mode))
+		if (msm_is_mode_seamless_dms(&crtc->state->adjusted_mode) ||
+		msm_is_mode_seamless_dyn_clk(&crtc->state->adjusted_mode))
+
 			SDE_DEBUG("%s extra crtc enable expected during DMS\n",
 					sde_crtc->name);
 		else
