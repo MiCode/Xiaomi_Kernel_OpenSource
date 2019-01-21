@@ -78,6 +78,7 @@ int cam_ipe_init_hw(void *device_priv,
 	cpas_vote.ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	cpas_vote.ahb_vote.vote.level = CAM_SVS_VOTE;
 	cpas_vote.axi_vote.compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
+	cpas_vote.axi_vote.compressed_bw_ab = CAM_CPAS_DEFAULT_AXI_BW;
 	cpas_vote.axi_vote.uncompressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
 
 	rc = cam_cpas_start(core_info->cpas_handle,

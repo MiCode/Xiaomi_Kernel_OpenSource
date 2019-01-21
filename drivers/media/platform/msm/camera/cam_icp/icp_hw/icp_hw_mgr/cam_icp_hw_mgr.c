@@ -109,6 +109,7 @@ static void cam_icp_hw_mgr_reset_clk_info(struct cam_icp_hw_mgr *hw_mgr)
 		hw_mgr->clk_info[i].over_clked = 0;
 		hw_mgr->clk_info[i].uncompressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
 		hw_mgr->clk_info[i].compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
+		hw_mgr->clk_info[i].compressed_bw_ab = CAM_CPAS_DEFAULT_AXI_BW;
 	}
 	hw_mgr->icp_default_clk = ICP_CLK_SVS_HZ;
 }
@@ -245,6 +246,7 @@ static int cam_icp_ctx_clk_info_init(struct cam_icp_hw_ctx_data *ctx_data)
 	ctx_data->clk_info.base_clk = 0;
 	ctx_data->clk_info.uncompressed_bw = 0;
 	ctx_data->clk_info.compressed_bw = 0;
+	ctx_data->clk_info.compressed_bw_ab = 0;
 	cam_icp_supported_clk_rates(&icp_hw_mgr, ctx_data);
 
 	return 0;
@@ -403,10 +405,11 @@ static int32_t cam_icp_ctx_timer(void *priv, void *data)
 	}
 
 	CAM_DBG(CAM_ICP,
-		"E :ctx_id = %d ubw = %lld cbw = %lld curr_fc = %u bc = %u",
+		"E :ctx_id %d, ubw %lld, cbw %lld, cbw_a %ld, curr_fc %u, bc %u",
 		ctx_data->ctx_id,
 		ctx_data->clk_info.uncompressed_bw,
 		ctx_data->clk_info.compressed_bw,
+		ctx_data->clk_info.compressed_bw_ab,
 		ctx_data->clk_info.curr_fc, ctx_data->clk_info.base_clk);
 
 	ipe0_dev_intf = hw_mgr->ipe0_dev_intf;
@@ -436,9 +439,11 @@ static int32_t cam_icp_ctx_timer(void *priv, void *data)
 	}
 
 	clk_info->compressed_bw -= ctx_data->clk_info.compressed_bw;
+	clk_info->compressed_bw_ab -= ctx_data->clk_info.compressed_bw_ab;
 	clk_info->uncompressed_bw -= ctx_data->clk_info.uncompressed_bw;
 	ctx_data->clk_info.uncompressed_bw = 0;
 	ctx_data->clk_info.compressed_bw = 0;
+	ctx_data->clk_info.compressed_bw_ab = 0;
 	ctx_data->clk_info.curr_fc = 0;
 	ctx_data->clk_info.base_clk = 0;
 
@@ -446,16 +451,18 @@ static int32_t cam_icp_ctx_timer(void *priv, void *data)
 	clk_update.ahb_vote.vote.freq = 0;
 	clk_update.ahb_vote_valid = false;
 	clk_update.axi_vote.compressed_bw = clk_info->compressed_bw;
+	clk_update.axi_vote.compressed_bw_ab = clk_info->compressed_bw;
 	clk_update.axi_vote.uncompressed_bw = clk_info->uncompressed_bw;
 	clk_update.axi_vote_valid = true;
 	dev_intf->hw_ops.process_cmd(dev_intf->hw_priv, id,
 		&clk_update, sizeof(clk_update));
 
 	CAM_DBG(CAM_ICP,
-		"X :ctx_id = %d ubw = %lld cbw = %lld curr_fc = %u bc = %u",
+		"X :ctx_id %d, ubw %lld cbw %lld abw_a %lld, curr_fc %u, bc %u",
 		ctx_data->ctx_id,
 		ctx_data->clk_info.uncompressed_bw,
 		ctx_data->clk_info.compressed_bw,
+		ctx_data->clk_info.compressed_bw_ab,
 		ctx_data->clk_info.curr_fc, ctx_data->clk_info.base_clk);
 
 	mutex_unlock(&ctx_data->ctx_mutex);
@@ -523,6 +530,7 @@ static int cam_icp_clk_info_init(struct cam_icp_hw_mgr *hw_mgr,
 		hw_mgr->clk_info[i].over_clked = 0;
 		hw_mgr->clk_info[i].uncompressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
 		hw_mgr->clk_info[i].compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
+		hw_mgr->clk_info[i].compressed_bw_ab = CAM_CPAS_DEFAULT_AXI_BW;
 		hw_mgr->clk_info[i].hw_type = i;
 		hw_mgr->clk_info[i].watch_dog_reset_counter = 0;
 	}
@@ -812,6 +820,7 @@ static bool cam_icp_debug_clk_update(struct cam_icp_clk_info *hw_mgr_clk_info)
 		hw_mgr_clk_info->curr_clk = icp_hw_mgr.icp_debug_clk;
 		hw_mgr_clk_info->uncompressed_bw = icp_hw_mgr.icp_debug_clk;
 		hw_mgr_clk_info->compressed_bw = icp_hw_mgr.icp_debug_clk;
+		hw_mgr_clk_info->compressed_bw_ab = icp_hw_mgr.icp_debug_clk;
 		CAM_DBG(CAM_ICP, "bc = %d cc = %d",
 			hw_mgr_clk_info->base_clk, hw_mgr_clk_info->curr_clk);
 		return true;
@@ -827,6 +836,7 @@ static bool cam_icp_default_clk_update(struct cam_icp_clk_info *hw_mgr_clk_info)
 		hw_mgr_clk_info->curr_clk = icp_hw_mgr.icp_default_clk;
 		hw_mgr_clk_info->uncompressed_bw = icp_hw_mgr.icp_default_clk;
 		hw_mgr_clk_info->compressed_bw = icp_hw_mgr.icp_default_clk;
+		hw_mgr_clk_info->compressed_bw_ab = icp_hw_mgr.icp_default_clk;
 		CAM_DBG(CAM_ICP, "bc = %d cc = %d",
 			hw_mgr_clk_info->base_clk, hw_mgr_clk_info->curr_clk);
 		return true;
@@ -864,8 +874,10 @@ static bool cam_icp_update_bw(struct cam_icp_hw_mgr *hw_mgr,
 
 	ctx_data->clk_info.uncompressed_bw = clk_info->uncompressed_bw;
 	ctx_data->clk_info.compressed_bw = clk_info->compressed_bw;
+	ctx_data->clk_info.compressed_bw_ab = clk_info->compressed_bw;
 	hw_mgr_clk_info->uncompressed_bw = 0;
 	hw_mgr_clk_info->compressed_bw = 0;
+	hw_mgr_clk_info->compressed_bw_ab = 0;
 	for (i = 0; i < CAM_ICP_CTX_MAX; i++) {
 		ctx = &hw_mgr->ctx_data[i];
 		if (ctx->state == CAM_ICP_CTX_STATE_ACQUIRED &&
@@ -877,9 +889,12 @@ static bool cam_icp_update_bw(struct cam_icp_hw_mgr *hw_mgr,
 				ctx->clk_info.uncompressed_bw;
 			hw_mgr_clk_info->compressed_bw +=
 				ctx->clk_info.compressed_bw;
-			CAM_DBG(CAM_ICP, "ubw = %lld, cbw = %lld",
+			hw_mgr_clk_info->compressed_bw_ab +=
+				ctx->clk_info.compressed_bw_ab;
+			CAM_DBG(CAM_ICP, "ubw = %lld, cbw = %lld cbw_ab",
 				hw_mgr_clk_info->uncompressed_bw,
-				hw_mgr_clk_info->compressed_bw);
+				hw_mgr_clk_info->compressed_bw,
+				hw_mgr_clk_info->compressed_bw_ab);
 		}
 	}
 
@@ -960,9 +975,10 @@ static bool cam_icp_check_bw_update(struct cam_icp_hw_mgr *hw_mgr,
 	rc = cam_icp_update_bw(hw_mgr, ctx_data, hw_mgr_clk_info,
 		clk_info, busy);
 
-	CAM_DBG(CAM_ICP, "ubw = %lld, cbw = %lld, update_bw = %d",
+	CAM_DBG(CAM_ICP, "ubw %lld, cbw %lld, cbw_a %lld, update_bw %d",
 		hw_mgr_clk_info->uncompressed_bw,
-		hw_mgr_clk_info->compressed_bw, rc);
+		hw_mgr_clk_info->compressed_bw,
+		hw_mgr_clk_info->compressed_bw_ab, rc);
 
 	return rc;
 }
@@ -1050,6 +1066,7 @@ static int cam_icp_update_cpas_vote(struct cam_icp_hw_mgr *hw_mgr,
 	clk_update.ahb_vote.vote.freq = 0;
 	clk_update.ahb_vote_valid = false;
 	clk_update.axi_vote.compressed_bw = clk_info->compressed_bw;
+	clk_update.axi_vote.compressed_bw_ab = clk_info->compressed_bw;
 	clk_update.axi_vote.uncompressed_bw = clk_info->uncompressed_bw;
 	clk_update.axi_vote_valid = true;
 	dev_intf->hw_ops.process_cmd(dev_intf->hw_priv, id,
@@ -1063,8 +1080,10 @@ static int cam_icp_update_cpas_vote(struct cam_icp_hw_mgr *hw_mgr,
 	 * anyway.
 	 */
 
-	CAM_DBG(CAM_ICP, "compress_bw %llu uncompress_bw %llu dev_type %d",
-		clk_info->compressed_bw, clk_info->uncompressed_bw,
+	CAM_DBG(CAM_ICP,
+		"comp_bw %llu comp_bw_ab %lld uncomp_bw %llu dev_type %d",
+		clk_info->compressed_bw, clk_info->compressed_bw_ab,
+		clk_info->uncompressed_bw,
 		ctx_data->icp_dev_acquire_info->dev_type);
 
 	return 0;
