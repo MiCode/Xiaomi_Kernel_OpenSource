@@ -904,6 +904,7 @@ int cam_flash_i2c_pkt_parser(struct cam_flash_ctrl *fctrl, void *arg)
 	uint32_t *offset = NULL;
 	uint32_t frm_offset = 0;
 	size_t len_of_buffer;
+	size_t remaining_len_of_buff;
 	struct cam_flash_init *flash_init = NULL;
 	struct common_header  *cmn_hdr = NULL;
 	struct cam_control *ioctl_ctrl = NULL;
@@ -931,19 +932,29 @@ int cam_flash_i2c_pkt_parser(struct cam_flash_ctrl *fctrl, void *arg)
 	rc = cam_mem_get_cpu_buf(config.packet_handle,
 		&generic_ptr, &len_of_buffer);
 	if (rc) {
-		CAM_ERR(CAM_FLASH, "Failed in getting the buffer : %d", rc);
+		CAM_ERR(CAM_FLASH, "Failed in getting the packet : %d", rc);
 		return rc;
 	}
-
-	if (config.offset > len_of_buffer) {
+	remaining_len_of_buff = len_of_buffer;
+	if ((sizeof(struct cam_packet) > len_of_buffer) ||
+		((size_t)config.offset >= len_of_buffer -
+		sizeof(struct cam_packet))) {
 		CAM_ERR(CAM_FLASH,
-			"offset is out of bounds: offset: %lld len: %zu",
-			config.offset, len_of_buffer);
+			"Inval cam_packet strut size: %zu, len_of_buff: %zu",
+			 sizeof(struct cam_packet), len_of_buffer);
 		return -EINVAL;
 	}
 
+	remaining_len_of_buff -= config.offset;
 	/* Add offset to the flash csl header */
 	csl_packet = (struct cam_packet *)(generic_ptr + config.offset);
+
+	if (((size_t)(csl_packet->header.size) > remaining_len_of_buff)) {
+		CAM_ERR(CAM_FLASH,
+			"Inval pkt_header_size: %zu, len:of_buff: %zu",
+			csl_packet->header.size, remaining_len_of_buff);
+		return -EINVAL;
+	}
 
 	if ((csl_packet->header.op_code & 0xFFFFFF) !=
 		CAM_FLASH_PACKET_OPCODE_INIT &&
@@ -957,6 +968,14 @@ int cam_flash_i2c_pkt_parser(struct cam_flash_ctrl *fctrl, void *arg)
 
 	if (csl_packet->header.request_id > fctrl->last_flush_req)
 		fctrl->last_flush_req = 0;
+
+	remaining_len_of_buff -= sizeof(struct cam_packet);
+	if ((sizeof(struct cam_cmd_buf_desc) > remaining_len_of_buff) ||
+		(csl_packet->num_cmd_buf * sizeof(struct cam_cmd_buf_desc) >
+			remaining_len_of_buff)) {
+		CAM_ERR(CAM_FLASH, "InVal len: %zu", remaining_len_of_buff);
+		return -EINVAL;
+	}
 
 	switch (csl_packet->header.op_code & 0xFFFFFF) {
 	case CAM_FLASH_PACKET_OPCODE_INIT: {
@@ -1224,6 +1243,7 @@ int cam_flash_pmic_pkt_parser(struct cam_flash_ctrl *fctrl, void *arg)
 	uint32_t *offset = NULL;
 	uint32_t frm_offset = 0;
 	size_t len_of_buffer;
+	size_t remaining_len_of_buff;
 	struct cam_control *ioctl_ctrl = NULL;
 	struct cam_packet *csl_packet = NULL;
 	struct cam_cmd_buf_desc *cmd_desc = NULL;
@@ -1259,21 +1279,32 @@ int cam_flash_pmic_pkt_parser(struct cam_flash_ctrl *fctrl, void *arg)
 	rc = cam_mem_get_cpu_buf(config.packet_handle,
 		&generic_ptr, &len_of_buffer);
 	if (rc) {
-		CAM_ERR(CAM_FLASH, "Failed in getting the buffer : %d", rc);
+		CAM_ERR(CAM_FLASH, "Failed in getting the packet: %d", rc);
 		return rc;
 	}
 
-	if (config.offset > len_of_buffer) {
+	remaining_len_of_buff = len_of_buffer;
+	if ((sizeof(struct cam_packet) > len_of_buffer) ||
+		((size_t)config.offset >= len_of_buffer -
+		sizeof(struct cam_packet))) {
 		CAM_ERR(CAM_FLASH,
-			"offset is out of bounds: offset: %lld len: %zu",
-			config.offset, len_of_buffer);
+			"Inval cam_packet strut size: %zu, len_of_buff: %zu",
+			 sizeof(struct cam_packet), len_of_buffer);
 		rc = -EINVAL;
 		goto rel_pkt_buf;
 	}
 
+	remaining_len_of_buff -= config.offset;
 	/* Add offset to the flash csl header */
-	csl_packet =
-		(struct cam_packet *)(generic_ptr + (uint32_t)config.offset);
+	csl_packet = (struct cam_packet *)(generic_ptr + config.offset);
+
+	if (((size_t)(csl_packet->header.size) > remaining_len_of_buff)) {
+		CAM_ERR(CAM_FLASH,
+			"Inval pkt_header_size: %zu, len:of_buff: %zu",
+			csl_packet->header.size, remaining_len_of_buff);
+		rc = -EINVAL;
+		goto rel_pkt_buf;
+	}
 
 	if ((csl_packet->header.op_code & 0xFFFFFF) !=
 		CAM_FLASH_PACKET_OPCODE_INIT &&
@@ -1288,6 +1319,16 @@ int cam_flash_pmic_pkt_parser(struct cam_flash_ctrl *fctrl, void *arg)
 
 	if (csl_packet->header.request_id > fctrl->last_flush_req)
 		fctrl->last_flush_req = 0;
+
+	remaining_len_of_buff -= sizeof(struct cam_packet);
+
+	if ((sizeof(struct cam_cmd_buf_desc) > remaining_len_of_buff) ||
+		(csl_packet->num_cmd_buf * sizeof(struct cam_cmd_buf_desc) >
+			remaining_len_of_buff)) {
+		CAM_ERR(CAM_FLASH, "InVal len: %zu", remaining_len_of_buff);
+		rc = -EINVAL;
+		goto rel_pkt_buf;
+	}
 
 	switch (csl_packet->header.op_code & 0xFFFFFF) {
 	case CAM_FLASH_PACKET_OPCODE_INIT: {
