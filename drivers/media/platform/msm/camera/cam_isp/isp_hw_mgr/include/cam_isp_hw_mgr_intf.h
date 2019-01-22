@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -186,11 +186,13 @@ struct cam_isp_hw_eof_event_data {
  * @timestamp:             Timestamp for the error event
  * @recovery_enabled:      Identifies if the context needs to recover & reapply
  *                         this request
+ * @enable_reg_dump:       enable register dump
  */
 struct cam_isp_hw_error_event_data {
 	uint32_t             error_type;
 	uint64_t             timestamp;
 	bool                 recovery_enabled;
+	bool                 enable_reg_dump;
 };
 
 /* enum cam_isp_hw_mgr_command - Hardware manager command type */
