@@ -41,6 +41,11 @@ Optional properties:
                            QCA6696 on auto platform.
   - vdd-wlan-core-supply: phandle to the 1.3V CORE regulator for QCA6174
   - vdd-wlan-sp2t-supply: phandle to the 2.7V SP2T regulator for QCA6174
+  - <supply-name>-supply: phandle to the regulator device tree node.
+                          optional "supply-name" is "vdd-wlan-rfa"
+  - qcom,<supply>-config: Specifies voltage levels for supply. Should specified
+                          in pairs (min, max), units uV.  There can be optional
+                          load in uA and Regulator settle delay in us
   - qcom,smmu-s1-enable: Boolean property to decide whether to enable SMMU
                          S1 stage or not
   - qcom,wlan-smmu-iova-address: I/O virtual address range as <start length>
