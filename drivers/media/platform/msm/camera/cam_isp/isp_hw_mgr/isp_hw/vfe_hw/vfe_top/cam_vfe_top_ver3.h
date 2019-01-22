@@ -6,6 +6,8 @@
 #ifndef _CAM_VFE_TOP_VER3_H_
 #define _CAM_VFE_TOP_VER3_H_
 
+#include "cam_vfe_camif_ver3.h"
+#include "cam_vfe_camif_lite_ver3.h"
 #include "cam_vfe_camif_ver2.h"
 #include "cam_vfe_camif_lite_ver2.h"
 #include "cam_vfe_rdi.h"
@@ -40,9 +42,12 @@ struct cam_vfe_top_ver3_reg_offset_common {
 
 struct cam_vfe_top_ver3_hw_info {
 	struct cam_vfe_top_ver3_reg_offset_common  *common_reg;
-	struct cam_vfe_camif_ver2_hw_info           camif_hw_info;
-	struct cam_vfe_camif_lite_ver2_hw_info      camif_lite_hw_info;
-	struct cam_vfe_rdi_ver2_hw_info             rdi_hw_info;
+	struct cam_vfe_camif_ver3_hw_info           camif_hw_info;
+	struct cam_vfe_camif_lite_ver3_hw_info      pdlib_hw_info;
+	struct cam_vfe_camif_lite_ver3_hw_info
+		*rdi_hw_info[CAM_VFE_RDI_VER2_MAX];
+	struct cam_vfe_camif_lite_ver3_hw_info      lcr_hw_info;
+	struct cam_vfe_fe_ver1_hw_info              fe_hw_info;
 	uint32_t mux_type[CAM_VFE_TOP_VER3_MUX_MAX];
 };
 
