@@ -1342,9 +1342,9 @@ static int npu_load_network_v2(struct npu_client *client,
 		return -EFAULT;
 	}
 
-	if (req.patch_info_num > MSM_NPU_MAX_PATCH_LAYER_NUM) {
+	if (req.patch_info_num > NPU_MAX_PATCH_NUM) {
 		pr_err("Invalid patch info num %d[max:%d]\n",
-			req.patch_info_num, MSM_NPU_MAX_PATCH_LAYER_NUM);
+			req.patch_info_num, NPU_MAX_PATCH_NUM);
 		return -EINVAL;
 	}
 
@@ -1467,9 +1467,9 @@ static int npu_exec_network_v2(struct npu_client *client,
 		return -EFAULT;
 	}
 
-	if (req.patch_buf_info_num > MSM_NPU_MAX_PATCH_LAYER_NUM) {
+	if (req.patch_buf_info_num > NPU_MAX_PATCH_NUM) {
 		pr_err("Invalid patch buf info num %d[max:%d]\n",
-			req.patch_buf_info_num, MSM_NPU_MAX_PATCH_LAYER_NUM);
+			req.patch_buf_info_num, NPU_MAX_PATCH_NUM);
 		return -EINVAL;
 	}
 
