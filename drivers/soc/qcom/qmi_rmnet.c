@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -559,7 +559,7 @@ void qmi_rmnet_qmi_exit(void *qmi_pt, void *port)
 		data = qmi->wda_pending;
 
 	if (data) {
-		wda_qmi_client_exit(qmi->wda_client);
+		wda_qmi_client_exit(data);
 		qmi->wda_client = NULL;
 		qmi->wda_pending = NULL;
 	}
