@@ -2652,6 +2652,12 @@
 		qcom,wlan-rc-num = <0>;
 		qcom,wlan-ramdump-dynamic = <0x400000>;
 
+		vdd-wlan-aon-supply = <&pm8150_s6>;
+		vdd-wlan-dig-supply = <&pm8009_s2>;
+		vdd-wlan-io-supply = <&pm8150_s4>;
+		vdd-wlan-rfa1-supply = <&pm8150_s5>;
+		vdd-wlan-rfa2-supply = <&pm8150a_s8>;
+
 		mhi,max-channels = <30>;
 		mhi,timeout = <10000>;
 
