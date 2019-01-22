@@ -1827,7 +1827,7 @@ static int _sde_encoder_rsc_client_update_vsync_wait(
 	struct drm_encoder *drm_enc, struct sde_encoder_virt *sde_enc,
 	int wait_vblank_crtc_id)
 {
-	int wait_refcount = 0, ret;
+	int wait_refcount = 0, ret = 0;
 	int pipe = -1;
 	int wait_count = 0;
 	struct drm_crtc *primary_crtc;
