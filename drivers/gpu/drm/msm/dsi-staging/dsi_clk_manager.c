@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -113,8 +113,9 @@ int dsi_clk_set_link_frequencies(void *client, struct link_clk_freq freq,
 
 /**
  * dsi_clk_set_pixel_clk_rate() - set frequency for pixel clock
- * @clks:      DSI link clock information.
- * @pixel_clk: Pixel clock rate in KHz.
+ * @clks:	DSI link clock information.
+ * @pixel_clk:	Pixel clock rate in KHz.
+ * @index:	Index of the DSI controller.
  *
  * return: error code in case of failure or 0 for success.
  */
@@ -136,9 +137,9 @@ int dsi_clk_set_pixel_clk_rate(void *client, u64 pixel_clk, u32 index)
 
 /**
  * dsi_clk_set_byte_clk_rate() - set frequency for byte clock
- * @client:       DSI clock client pointer.
- * @byte_clk: Pixel clock rate in Hz.
- * @index:      Index of the DSI controller.
+ * @client:	DSI clock client pointer.
+ * @byte_clk:	Byte clock rate in Hz.
+ * @index:	Index of the DSI controller.
  * return: error code in case of failure or 0 for success.
  */
 int dsi_clk_set_byte_clk_rate(void *client, u64 byte_clk, u32 index)
@@ -146,6 +147,7 @@ int dsi_clk_set_byte_clk_rate(void *client, u64 byte_clk, u32 index)
 	int rc = 0;
 	struct dsi_clk_client_info *c = client;
 	struct dsi_clk_mngr *mngr;
+	u64 byte_intf_rate;
 
 	mngr = c->mngr;
 	rc = clk_set_rate(mngr->link_clks[index].hs_clks.byte_clk, byte_clk);
@@ -154,8 +156,16 @@ int dsi_clk_set_byte_clk_rate(void *client, u64 byte_clk, u32 index)
 	else
 		mngr->link_clks[index].freq.byte_clk_rate = byte_clk;
 
-	return rc;
+	if (mngr->link_clks[index].hs_clks.byte_intf_clk) {
+		byte_intf_rate = mngr->link_clks[index].freq.byte_clk_rate / 2;
+		rc = clk_set_rate(mngr->link_clks[index].hs_clks.byte_intf_clk,
+				  byte_intf_rate);
+		if (rc)
+			pr_err("failed to set clk rate for byte intf clk=%d\n",
+			       rc);
+	}
 
+	return rc;
 }
 
 /**
@@ -181,6 +191,41 @@ int dsi_clk_update_parent(struct dsi_clk_link_set *parent,
 	}
 error:
 	return rc;
+}
+
+/**
+ * dsi_clk_prepare_enable() - prepare and enable dsi src clocks
+ * @clk:       list of src clocks.
+ *
+ * @return:	Zero on success and err no on failure.
+ */
+int dsi_clk_prepare_enable(struct dsi_clk_link_set *clk)
+{
+	int rc;
+
+	rc = clk_prepare_enable(clk->byte_clk);
+	if (rc) {
+		pr_err("failed to enable byte src clk %d\n", rc);
+		return rc;
+	}
+
+	rc = clk_prepare_enable(clk->pixel_clk);
+	if (rc) {
+		pr_err("failed to enable pixel src clk %d\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
+
+/**
+ * dsi_clk_disable_unprepare() - disable and unprepare dsi src clocks
+ * @clk:       list of src clocks.
+ */
+void dsi_clk_disable_unprepare(struct dsi_clk_link_set *clk)
+{
+	clk_disable_unprepare(clk->pixel_clk);
+	clk_disable_unprepare(clk->byte_clk);
 }
 
 int dsi_core_clk_start(struct dsi_core_clks *c_clks)

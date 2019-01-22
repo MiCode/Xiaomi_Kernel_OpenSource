@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -145,6 +145,7 @@ void sde_mdp_halt_vbif_xin(struct sde_mdp_vbif_halt_params *params)
 	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
 	u32 reg_val;
 	bool forced_on;
+	int rc = 0;
 
 	if (!mdata || !params || !params->reg_off_mdp_clk_ctrl) {
 		SDEROT_ERR("null input parameter\n");
@@ -166,7 +167,9 @@ void sde_mdp_halt_vbif_xin(struct sde_mdp_vbif_halt_params *params)
 		reg_val | BIT(params->xin_id));
 
 	/* this is a polling operation */
-	sde_mdp_wait_for_xin_halt(params->xin_id);
+	rc = sde_mdp_wait_for_xin_halt(params->xin_id);
+	if (rc == -ETIMEDOUT)
+		params->xin_timeout = BIT(params->xin_id);
 
 	reg_val = SDE_VBIF_READ(mdata, MMSS_VBIF_XIN_HALT_CTRL0);
 	SDE_VBIF_WRITE(mdata, MMSS_VBIF_XIN_HALT_CTRL0,
@@ -819,6 +822,13 @@ int sde_rotator_base_init(struct sde_rot_data_type **pmdata,
 {
 	int rc;
 	struct sde_rot_data_type *mdata;
+
+
+	/* if probe deferral happened, return early*/
+	if (sde_rot_res) {
+		SDEROT_ERR("Rotator data already initialized, skip init\n");
+		return 0;
+	}
 
 	mdata = devm_kzalloc(&pdev->dev, sizeof(*mdata), GFP_KERNEL);
 	if (mdata == NULL)
