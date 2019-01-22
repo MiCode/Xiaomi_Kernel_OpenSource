@@ -3,6 +3,7 @@
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
+#include "kona-lpi.dtsi"
 #include "msm-audio-lpass.dtsi"
 
 &msm_audio_ion {
