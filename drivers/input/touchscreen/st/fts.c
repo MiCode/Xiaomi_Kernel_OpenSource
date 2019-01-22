@@ -3,7 +3,7 @@
  *
  * FTS Capacitive touch screen controller (FingerTipS)
  *
- * Copyright (C) 2016-2019, STMicroelectronics Limited.
+ * Copyright (C) 2016-2018, STMicroelectronics Limited.
  * Authors: AMG(Analog Mems Group)
  *
  *		marco.cali@st.com
