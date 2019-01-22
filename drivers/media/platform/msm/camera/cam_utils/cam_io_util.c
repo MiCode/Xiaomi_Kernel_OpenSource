@@ -43,6 +43,32 @@ int cam_io_w_mb(uint32_t data, void __iomem *addr)
 	return 0;
 }
 
+int cam_io_w_vfe_mb(uint32_t data, void __iomem *addr)
+{
+	if (!addr)
+		return -EINVAL;
+
+	CAM_DBG(CAM_UTIL, "0x%pK %08x", addr, data);
+	writel_relaxed(data, addr);
+	/* Ensure previous writes are done */
+	wmb();
+
+	return 0;
+}
+
+int cam_io_w_csid_mb(uint32_t data, void __iomem *addr)
+{
+	if (!addr)
+		return -EINVAL;
+
+	CAM_DBG(CAM_UTIL, "0x%pK %08x", addr, data);
+	writel_relaxed(data, addr);
+	/* Ensure previous writes are done */
+	wmb();
+
+	return 0;
+}
+
 uint32_t cam_io_r(void __iomem *addr)
 {
 	uint32_t data;

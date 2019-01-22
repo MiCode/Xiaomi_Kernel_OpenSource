@@ -41,6 +41,8 @@ int cam_io_w(uint32_t data, void __iomem *addr);
  * @return:             Success or Failure
  */
 int cam_io_w_mb(uint32_t data, void __iomem *addr);
+int cam_io_w_csid_mb(uint32_t data, void __iomem *addr);
+int cam_io_w_vfe_mb(uint32_t data, void __iomem *addr);
 
 /**
  * cam_io_r()

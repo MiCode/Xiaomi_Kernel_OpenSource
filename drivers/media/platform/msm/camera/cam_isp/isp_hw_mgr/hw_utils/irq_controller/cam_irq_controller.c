@@ -698,7 +698,7 @@ irqreturn_t cam_irq_controller_handle_irq(int irq_num, void *priv)
 		controller->irq_status_arr[i] = cam_io_r_mb(
 			controller->mem_base +
 			controller->irq_register_arr[i].status_reg_offset);
-		cam_io_w_mb(controller->irq_status_arr[i],
+		cam_io_w_vfe_mb(controller->irq_status_arr[i],
 			controller->mem_base +
 			controller->irq_register_arr[i].clear_reg_offset);
 		CAM_DBG(CAM_IRQ_CTRL, "Read irq status%d (0x%x) = 0x%x", i,
@@ -717,7 +717,7 @@ irqreturn_t cam_irq_controller_handle_irq(int irq_num, void *priv)
 	CAM_DBG(CAM_IRQ_CTRL, "Status Registers read Successful");
 
 	if (controller->global_clear_offset)
-		cam_io_w_mb(controller->global_clear_bitmask,
+		cam_io_w_vfe_mb(controller->global_clear_bitmask,
 			controller->mem_base + controller->global_clear_offset);
 
 	CAM_DBG(CAM_IRQ_CTRL, "Status Clear done");
