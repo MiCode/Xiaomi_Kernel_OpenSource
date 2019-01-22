@@ -26,7 +26,7 @@
 		#size-cells = <1>;
 		ranges;
 
-		interrupts = <0 302 0>, <0 422 0>, <0 254 0>;
+		interrupts = <0 302 0>, <0 422 0>, <0 260 0>;
 		interrupt-names = "pwr_event_irq", "ss_phy_irq", "hs_phy_irq";
 
 		USB3_GDSC-supply = <&usb30_prim_gdsc>;
