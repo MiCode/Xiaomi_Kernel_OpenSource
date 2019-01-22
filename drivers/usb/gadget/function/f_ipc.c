@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -266,6 +266,8 @@ retry_write:
 		return -EINVAL;
 	}
 
+	reinit_completion(&ipc_dev->write_done);
+
 	if (usb_ep_queue(in, req, GFP_KERNEL)) {
 		wait_event_interruptible(ipc_dev->state_wq, ipc_dev->online ||
 				ipc_dev->current_state == IPC_DISCONNECTED);
@@ -332,6 +334,8 @@ retry_read:
 		ipc_dev->pending_reads--;
 		return -EINVAL;
 	}
+
+	reinit_completion(&ipc_dev->read_done);
 
 	if (usb_ep_queue(out, req, GFP_KERNEL)) {
 		wait_event_interruptible(ipc_dev->state_wq, ipc_dev->online ||
