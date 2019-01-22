@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,16 @@
 #include <linux/list.h>
 #include <uapi/media/cam_isp.h>
 #include "cam_hw_mgr_intf.h"
+
+/*
+ * bit position in resource bitmap
+ */
+#define CAM_IFE_REG_UPD_CMD_PIX_BIT     0
+#define CAM_IFE_REG_UPD_CMD_RDI0_BIT    1
+#define CAM_IFE_REG_UPD_CMD_RDI1_BIT    2
+#define CAM_IFE_REG_UPD_CMD_RDI2_BIT    3
+#define CAM_IFE_REG_UPD_CMD_RDI3_BIT    4
+#define CAM_IFE_REG_UPD_CMD_DUAL_PD_BIT 5
 
 /* MAX IFE instance */
 #define CAM_IFE_HW_NUM_MAX   4
