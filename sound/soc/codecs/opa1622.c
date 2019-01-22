@@ -199,8 +199,8 @@ static int opa1622_probe(struct snd_soc_codec *codec)
 	}
 
 	snd_soc_dapm_ignore_suspend(&codec->dapm, "OPA IN1");
-	snd_soc_dapm_ignore_suspend(&codec->dapm, "OPA IN1");
-	snd_soc_dapm_ignore_suspend(&codec->dapm, "OPA OUT2");
+	snd_soc_dapm_ignore_suspend(&codec->dapm, "OPA IN2");
+	snd_soc_dapm_ignore_suspend(&codec->dapm, "OPA OUT1");
 	snd_soc_dapm_ignore_suspend(&codec->dapm, "OPA OUT2");
 
 	opa1622->codec = codec;
