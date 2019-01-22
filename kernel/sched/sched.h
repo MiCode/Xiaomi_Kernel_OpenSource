@@ -2073,10 +2073,12 @@ static inline unsigned long cpu_util_cum(int cpu, int delta)
 	return (delta >= capacity) ? capacity : delta;
 }
 
-#ifdef CONFIG_SCHED_WALT
+#ifdef CONFIG_SCHED_TUNE
 extern unsigned long boosted_cpu_util(int cpu, unsigned long other_util,
 				      struct sched_walt_cpu_load *walt_load);
+#endif
 
+#ifdef CONFIG_SCHED_WALT
 u64 freq_policy_load(struct rq *rq);
 
 extern u64 walt_load_reported_window;
