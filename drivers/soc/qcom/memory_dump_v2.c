@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, 2019, The Linux Foundation. All rights reserved.
  */
 
 #include <asm/cacheflush.h>
@@ -11,6 +11,7 @@
 #include <linux/err.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <soc/qcom/minidump.h>
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/scm.h>
 #include <linux/of_device.h>
@@ -83,6 +84,33 @@ static struct msm_dump_table *msm_dump_get_table(enum msm_dump_table_ids id)
 	return table;
 }
 
+static int msm_dump_data_add_minidump(struct msm_dump_entry *entry)
+{
+	struct msm_dump_data *data;
+	struct md_region md_entry;
+
+	data = (struct msm_dump_data *)(phys_to_virt(entry->addr));
+
+	if (!data->addr || !data->len)
+		return -EINVAL;
+
+	if (!strcmp(data->name, "")) {
+		pr_debug("Entry name is NULL, Use ID %d for minidump\n",
+			entry->id);
+		snprintf(md_entry.name, sizeof(md_entry.name), "KMDT0x%X",
+			entry->id);
+	} else {
+		strlcpy(md_entry.name, data->name, sizeof(md_entry.name));
+	}
+
+	md_entry.phys_addr = data->addr;
+	md_entry.virt_addr = (uintptr_t)phys_to_virt(data->addr);
+	md_entry.size = data->len;
+	md_entry.id = entry->id;
+
+	return msm_minidump_add_region(&md_entry);
+}
+
 int msm_dump_data_register(enum msm_dump_table_ids id,
 			   struct msm_dump_entry *entry)
 {
@@ -103,6 +131,9 @@ int msm_dump_data_register(enum msm_dump_table_ids id,
 	table->num_entries++;
 
 	dmac_flush_range(table, (void *)table + sizeof(struct msm_dump_table));
+	if (msm_dump_data_add_minidump(entry))
+		pr_err("Failed to add entry in Minidump table\n");
+
 	return 0;
 }
 EXPORT_SYMBOL(msm_dump_data_register);
@@ -240,6 +271,8 @@ static int mem_dump_probe(struct platform_device *pdev)
 		dump_data->addr = dump_addr;
 		dump_data->len = size;
 		dump_entry.id = id;
+		strlcpy(dump_data->name, child_node->name,
+					sizeof(dump_data->name));
 		dump_entry.addr = virt_to_phys(dump_data);
 		ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
 		if (ret) {
