@@ -120,21 +120,6 @@ $(KERNEL_USR): $(KERNEL_HEADERS_INSTALL)
 $(TARGET_PREBUILT_INT_KERNEL): $(KERNEL_USR)
 endif
 
-KERNEL_EXTLINK_FILES := $(TARGET_KERNEL_SOURCE)/drivers/staging/rtmm \
-                        $(TARGET_KERNEL_SOURCE)/include/linux/rtmm.h \
-			$(TARGET_KERNEL_SOURCE)/drivers/staging/ktrace \
-			$(TARGET_KERNEL_SOURCE)/include/linux/ktrace.h
-
-link_ext:
-	echo "Creating kernel symbol link to miui/kernel."
-	rm -rf $(KERNEL_EXTLINK_FILES)
-	ln -s $(abspath miui/kernel/memory/rtmm) $(TARGET_KERNEL_SOURCE)/drivers/staging/rtmm
-	ln -s $(abspath miui/kernel/trace/ktrace) $(TARGET_KERNEL_SOURCE)/drivers/staging/ktrace
-	ln -s $(abspath miui/kernel/memory/rtmm/include/linux/rtmm.h) $(TARGET_KERNEL_SOURCE)/include/linux/rtmm.h
-	ln -s $(abspath miui/kernel/trace/ktrace/include/linux/ktrace.h) $(TARGET_KERNEL_SOURCE)/include/linux/ktrace.h
-
-.PHONY:link_ext
-
 $(KERNEL_OUT):
 	mkdir -p $(KERNEL_OUT)
 
@@ -145,7 +130,7 @@ $(KERNEL_CONFIG): $(KERNEL_OUT)
 			echo $(KERNEL_CONFIG_OVERRIDE) >> $(KERNEL_OUT)/.config; \
 			$(MAKE) -C $(TARGET_KERNEL_SOURCE) O=$(BUILD_ROOT_LOC)$(KERNEL_OUT) ARCH=$(KERNEL_ARCH) CROSS_COMPILE=$(KERNEL_CROSS_COMPILE) oldconfig; fi
 
-$(TARGET_PREBUILT_INT_KERNEL): link_ext $(KERNEL_OUT) $(KERNEL_HEADERS_INSTALL)
+$(TARGET_PREBUILT_INT_KERNEL): $(KERNEL_OUT) $(KERNEL_HEADERS_INSTALL)
 	$(hide) echo "Building kernel..."
 	$(hide) rm -rf $(KERNEL_OUT)/arch/$(KERNEL_ARCH)/boot/dts
 	$(MAKE) -C $(TARGET_KERNEL_SOURCE) O=$(BUILD_ROOT_LOC)$(KERNEL_OUT) ARCH=$(KERNEL_ARCH) CROSS_COMPILE=$(KERNEL_CROSS_COMPILE) $(KERNEL_CFLAGS)
