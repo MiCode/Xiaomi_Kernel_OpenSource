@@ -569,10 +569,7 @@ clk_alpha_pll_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 		}
 	}
 
-	ctl >>= PLL_POST_DIV_SHIFT;
-	ctl &= PLL_POST_DIV_MASK;
-
-	return alpha_pll_calc_rate(pll, prate, l, a) >> fls(ctl);
+	return alpha_pll_calc_rate(pll, prate, l, a);
 }
 
 static int clk_alpha_pll_dynamic_update(struct clk_alpha_pll *pll)
@@ -660,6 +657,7 @@ static int clk_alpha_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 			     a & ALPHA_16BIT_MASK);
 	} else {
 		a <<= (ALPHA_REG_BITWIDTH - ALPHA_BITWIDTH);
+		regmap_write(pll->clkr.regmap, off + PLL_ALPHA_VAL, a);
 		regmap_write(pll->clkr.regmap, off + PLL_ALPHA_VAL_U, a >> 32);
 	}
 
