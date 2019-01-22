@@ -210,6 +210,7 @@ struct smb_dt_props {
 	int			auto_recharge_soc;
 	int			auto_recharge_vbat_mv;
 	int			wd_bark_time;
+	int			wd_snarl_time_cfg;
 	int			batt_profile_fcc_ua;
 	int			batt_profile_fv_uv;
 	int			term_current_src;
@@ -447,6 +448,11 @@ static int smb5_parse_dt_misc(struct smb5 *chip, struct device_node *node)
 					&chip->dt.wd_bark_time);
 	if (rc < 0 || chip->dt.wd_bark_time < MIN_WD_BARK_TIME)
 		chip->dt.wd_bark_time = DEFAULT_WD_BARK_TIME;
+
+	rc = of_property_read_u32(node, "qcom,wd-snarl-time-config",
+					&chip->dt.wd_snarl_time_cfg);
+	if (rc < 0)
+		chip->dt.wd_snarl_time_cfg = -EINVAL;
 
 	chip->dt.no_battery = of_property_read_bool(node,
 						"qcom,batteryless-platform");
@@ -2454,9 +2460,17 @@ static int smb5_init_hw(struct smb5 *chip)
 	val = (ilog2(chip->dt.wd_bark_time / 16) << BARK_WDOG_TIMEOUT_SHIFT)
 			& BARK_WDOG_TIMEOUT_MASK;
 	val |= (BITE_WDOG_TIMEOUT_8S | BITE_WDOG_DISABLE_CHARGING_CFG_BIT);
+
+	if (chip->dt.wd_snarl_time_cfg == -EINVAL)
+		val |= SNARL_WDOG_TMOUT_8S;
+	else
+		val |= (chip->dt.wd_snarl_time_cfg << SNARL_WDOG_TIMEOUT_SHIFT)
+			& SNARL_WDOG_TIMEOUT_MASK;
+
 	rc = smblib_masked_write(chg, SNARL_BARK_BITE_WD_CFG_REG,
 			BITE_WDOG_DISABLE_CHARGING_CFG_BIT |
-			BARK_WDOG_TIMEOUT_MASK | BITE_WDOG_TIMEOUT_MASK,
+			SNARL_WDOG_TIMEOUT_MASK | BARK_WDOG_TIMEOUT_MASK |
+			BITE_WDOG_TIMEOUT_MASK,
 			val);
 	if (rc < 0) {
 		pr_err("Couldn't configue WD config rc=%d\n", rc);
@@ -2960,13 +2974,14 @@ static int smb5_request_interrupts(struct smb5 *chip)
 		chg->usb_icl_change_irq_enabled = true;
 
 	/*
-	 * WDOG_SNARL_IRQ is required for SW Thermal Regulation WA only. In
-	 * case the WA is not required, disable the WDOG_SNARL_IRQ to prevent
-	 * interrupt storm.
+	 * WDOG_SNARL_IRQ is required for SW Thermal Regulation WA. In case
+	 * the WA is not required and neither is the snarl timer configuration
+	 * defined, disable the WDOG_SNARL_IRQ to prevent interrupt storm.
 	 */
 
-	if (chg->irq_info[WDOG_SNARL_IRQ].irq && !(chg->wa_flags &
-						SW_THERM_REGULATION_WA)) {
+	if (chg->irq_info[WDOG_SNARL_IRQ].irq && (!(chg->wa_flags &
+				SW_THERM_REGULATION_WA) &&
+				chip->dt.wd_snarl_time_cfg == -EINVAL)) {
 		disable_irq_wake(chg->irq_info[WDOG_SNARL_IRQ].irq);
 		disable_irq_nosync(chg->irq_info[WDOG_SNARL_IRQ].irq);
 	}
