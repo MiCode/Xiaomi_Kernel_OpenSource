@@ -1761,6 +1761,9 @@ static int sde_crtc_atomic_set_property(struct drm_crtc *crtc,
 			_sde_crtc_set_input_fence_timeout(cstate);
 			break;
 		case CRTC_PROP_OUTPUT_FENCE:
+			if (!val)
+				goto exit;
+
 			ret = _sde_crtc_get_output_fence(crtc,
 						state, &fence_fd);
 			if (ret) {

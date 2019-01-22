@@ -474,6 +474,9 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 		}
 		break;
 	case CONNECTOR_PROP_RETIRE_FENCE:
+		if (!val)
+			goto end;
+
 		rc = sde_fence_create(&c_conn->retire_fence, &fence_fd, 0);
 		if (rc) {
 			SDE_ERROR("fence create failed rc:%d\n", rc);
