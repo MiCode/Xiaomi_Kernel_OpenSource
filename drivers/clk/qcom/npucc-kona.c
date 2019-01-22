@@ -1086,10 +1086,10 @@ static const struct qcom_reset_map npu_cc_kona_resets[] = {
 	[NPU_CC_CAL_HM0_BCR] = { 0x10f0 },
 	[NPU_CC_CAL_HM1_BCR] = { 0x1130 },
 	[NPU_CC_CORE_BCR] = { 0x1000 },
-	[NPU_CC_DPM_TEMP_CLK_ARES] = { 0x10c4, BIT(2) },
+	[NPU_CC_DPM_TEMP_CLK_ARES] = { 0x10c4, 2 },
 	[NPU_CC_DSP_BCR] = { 0x1200 },
-	[NPU_CC_LLM_CURR_CLK_ARES] = { 0x10d4, BIT(2) },
-	[NPU_CC_LLM_TEMP_CLK_ARES] = { 0x10c8, BIT(2) },
+	[NPU_CC_LLM_CURR_CLK_ARES] = { 0x10d4, 2 },
+	[NPU_CC_LLM_TEMP_CLK_ARES] = { 0x10c8, 2 },
 };
 
 static const struct regmap_config npu_cc_kona_regmap_config = {
