@@ -16,7 +16,17 @@
 
 #define EDAC_LLCC                       "qcom_llcc"
 
+#ifdef CONFIG_EDAC_QCOM_LLCC_PANIC_ON_CE
+#define LLCC_ERP_PANIC_ON_CE            1
+#else
+#define LLCC_ERP_PANIC_ON_CE            0
+#endif
+
+#ifdef CONFIG_EDAC_QCOM_LLCC_PANIC_ON_UE
 #define LLCC_ERP_PANIC_ON_UE            1
+#else
+#define LLCC_ERP_PANIC_ON_UE            0
+#endif
 
 #define TRP_SYN_REG_CNT                 6
 #define DRP_SYN_REG_CNT                 8
@@ -75,6 +85,9 @@
 #define TRP0_INTERRUPT_ENABLE           0x1
 #define DRP0_INTERRUPT_ENABLE           BIT(6)
 #define SB_DB_DRP_INTERRUPT_ENABLE      0x3
+
+static int poll_msec = 5000;
+module_param(poll_msec, int, 0444);
 
 enum {
 	LLCC_DRAM_CE = 0,
@@ -336,6 +349,11 @@ llcc_ecc_irq_handler(int irq, void *edev_ctl)
 	return irq_rc;
 }
 
+static void qcom_llcc_poll_cache_errors(struct edac_device_ctl_info *edev_ctl)
+{
+	llcc_ecc_irq_handler(0, edev_ctl);
+}
+
 static int qcom_llcc_edac_probe(struct platform_device *pdev)
 {
 	struct llcc_drv_data *llcc_driv_data = pdev->dev.platform_data;
@@ -362,24 +380,29 @@ static int qcom_llcc_edac_probe(struct platform_device *pdev)
 	edev_ctl->dev_name = dev_name(dev);
 	edev_ctl->ctl_name = "llcc";
 	edev_ctl->panic_on_ue = LLCC_ERP_PANIC_ON_UE;
+	edev_ctl->panic_on_ce = LLCC_ERP_PANIC_ON_CE;
 	edev_ctl->pvt_info = llcc_driv_data;
+
+	/* Request for ecc irq */
+	ecc_irq = llcc_driv_data->ecc_irq;
+	if (ecc_irq < 0) {
+		dev_info(dev, "No ECC IRQ; defaulting to polling mode\n");
+		edev_ctl->poll_msec = poll_msec;
+		edev_ctl->edac_check = qcom_llcc_poll_cache_errors;
+		edev_ctl->defer_work = 1;
+	} else {
+		rc = devm_request_irq(dev, ecc_irq, llcc_ecc_irq_handler,
+			      IRQF_SHARED | IRQF_ONESHOT | IRQF_TRIGGER_HIGH,
+			      "llcc_ecc", edev_ctl);
+		if (rc)
+			goto out_dev;
+	}
 
 	rc = edac_device_add_device(edev_ctl);
 	if (rc)
 		goto out_mem;
 
 	platform_set_drvdata(pdev, edev_ctl);
-
-	/* Request for ecc irq */
-	ecc_irq = llcc_driv_data->ecc_irq;
-	if (ecc_irq < 0) {
-		rc = -ENODEV;
-		goto out_dev;
-	}
-	rc = devm_request_irq(dev, ecc_irq, llcc_ecc_irq_handler,
-			      IRQF_TRIGGER_HIGH, "llcc_ecc", edev_ctl);
-	if (rc)
-		goto out_dev;
 
 	return rc;
 
