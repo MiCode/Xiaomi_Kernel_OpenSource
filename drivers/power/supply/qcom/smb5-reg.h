@@ -318,6 +318,12 @@ enum {
 
 #define DCIN_CMD_IL_REG				(DCIN_BASE + 0x40)
 #define DCIN_SUSPEND_BIT			BIT(0)
+#define DCIN_EN_OVERRIDE_BIT			BIT(1)
+#define DCIN_EN_MASK				GENMASK(2, 1)
+
+#define DCIN_CMD_PON_REG			(DCIN_BASE + 0x45)
+#define DCIN_PON_BIT				BIT(0)
+#define MID_CHG_BIT					BIT(1)
 
 #define DCIN_LOAD_CFG_REG			(DCIN_BASE + 0x65)
 #define INPUT_MISS_POLL_EN_BIT			BIT(5)
