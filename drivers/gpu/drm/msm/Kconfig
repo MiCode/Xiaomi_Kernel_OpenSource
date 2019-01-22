@@ -210,15 +210,6 @@ config DRM_SDE_WB
 	  the output image is written back to memory in the format
 	  selected by the connector's mode and property settings.
 
-config DRM_SDE_EVTLOG_DEBUG
-	bool "Enable event logging in MSM DRM"
-	depends on DRM_MSM
-	help
-	  The SDE DRM debugging provides support to enable display debugging
-	  features to: dump SDE registers during driver errors, panic
-	  driver during fatal errors and enable some display-driver logging
-	  into an internal buffer (this avoids logging overhead).
-
 config DRM_SDE_RSC
 	bool "Enable sde resource state coordinator(rsc) driver"
 	depends on DRM_MSM && DRM_MSM_SDE
