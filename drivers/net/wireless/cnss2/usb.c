@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -297,14 +297,11 @@ static int cnss_usb_suspend(struct usb_interface *interface, pm_message_t state)
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(NULL);
 
 	usb_priv = plat_priv->bus_priv;
-	if (!usb_priv->driver_ops) {
-		cnss_pr_err("driver_ops is NULL\n");
-		ret = -EINVAL;
-		goto out;
-	}
-	ret = usb_priv->driver_ops->suspend(usb_priv->usb_intf,
-						  state);
-out:
+	if (usb_priv->driver_ops)
+		ret = usb_priv->driver_ops->suspend(usb_priv->usb_intf, state);
+	else
+		cnss_pr_dbg("driver_ops is NULL\n");
+
 	return ret;
 }
 
@@ -315,14 +312,11 @@ static int cnss_usb_resume(struct usb_interface *interface)
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(NULL);
 
 	usb_priv = plat_priv->bus_priv;
-	if (!usb_priv->driver_ops) {
-		cnss_pr_err("driver_ops is NULL\n");
-		ret = -EINVAL;
-		goto out;
-	}
-	ret = usb_priv->driver_ops->resume(usb_priv->usb_intf);
+	if (usb_priv->driver_ops)
+		ret = usb_priv->driver_ops->resume(usb_priv->usb_intf);
+	else
+		cnss_pr_dbg("driver_ops is NULL\n");
 
-out:
 	return ret;
 }
 
