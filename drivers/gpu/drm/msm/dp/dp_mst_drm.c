@@ -171,10 +171,13 @@ static void dp_mst_sim_add_port(struct dp_mst_private *mst,
 			mutex_lock(&mstb->mgr->lock);
 			list_del(&port->next);
 			mutex_unlock(&mstb->mgr->lock);
-			return;
+			goto put_port;
 		}
 		(*mstb->mgr->cbs->register_connector)(port->connector);
 	}
+
+put_port:
+	kref_put(&port->kref, NULL);
 }
 
 static void dp_mst_sim_link_probe_work(struct work_struct *work)
