@@ -25,6 +25,8 @@ Optional properties:
 - vcc-supply            : phandle to VCC supply regulator node
 - vcc-voltage-level     : specifies voltage levels for VCC supply.
                           Should be specified in pairs (min, max), units uV.
+- vcc-low-voltage-sup	: If specified, treats min voltage from vcc-voltage-level as
+			  low voltage level different from max voltage.
 - vccq-supply           : phandle to VCCQ supply regulator node
 - vccq2-supply          : phandle to VCCQ2 supply regulator node
 - vccq2-voltage-level   : specifies voltage levels for VCCQ2 supply.
@@ -76,6 +78,7 @@ Optional properties:
 			  Defaults to 26 MHz if not specified.
 - extcon:       phandle to external connector (Refer Documentation/devicetree/bindings/extcon/extcon-gpio.txt for more details).
 - non-removable		: defines if the connected ufs device is not removable
+- force-g4		: forces UFS Host PHY to be initialized in HS-G4
 
 
 Note: If above properties are not defined it can be assumed that the supply
@@ -92,6 +95,7 @@ Example:
 		vdd-hba-fixed-regulator;
 		vcc-supply = <&xxx_reg1>;
 		vcc-supply-1p8;
+		vcc-low-voltage-sup;
 		vccq-supply = <&xxx_reg2>;
 		vccq2-supply = <&xxx_reg3>;
 		vcc-max-microamp = 500000;
@@ -108,6 +112,7 @@ Example:
 		rpm-level = <3>;
 		spm-level = <5>;
 		dev-ref-clk-freq = <0>; /* reference clock freq: 19.2 MHz */
+		force-g4;
 	};
 
 ==== MSM UFS platform driver properties =====
