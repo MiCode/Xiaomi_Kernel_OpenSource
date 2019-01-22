@@ -193,10 +193,10 @@
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cci0_active &cci1_active>;
 		pinctrl-1 = <&cci0_suspend &cci1_suspend>;
-		gpios = <&tlmm 17 0>,
-			<&tlmm 18 0>,
-			<&tlmm 19 0>,
-			<&tlmm 20 0>;
+		gpios = <&tlmm 101 0>,
+			<&tlmm 102 0>,
+			<&tlmm 103 0>,
+			<&tlmm 104 0>;
 		gpio-req-tbl-num = <0 1 2 3>;
 		gpio-req-tbl-flags = <1 1 1 1>;
 		gpio-req-tbl-label = "CCI_I2C_DATA0",
@@ -286,10 +286,10 @@
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cci2_active &cci3_active>;
 		pinctrl-1 = <&cci2_suspend &cci3_suspend>;
-		gpios = <&tlmm 31 0>,
-			<&tlmm 32 0>,
-			<&tlmm 33 0>,
-			<&tlmm 34 0>;
+		gpios = <&tlmm 105 0>,
+			<&tlmm 106 0>,
+			<&tlmm 107 0>,
+			<&tlmm 108 0>;
 		gpio-req-tbl-num = <0 1 2 3>;
 		gpio-req-tbl-flags = <1 1 1 1>;
 		gpio-req-tbl-label = "CCI_I2C_DATA2",
