@@ -132,5 +132,15 @@
 				"msm-dai-cdc-dma-dev.45115",
 				"msm-dai-cdc-dma-dev.45116",
 				"msm-dai-cdc-dma-dev.45118";
+		fsa4480-i2c-handle = <&fsa4480>;
 	};
 };
+
+&qupv3_se15_i2c {
+	status = "ok";
+	fsa4480: fsa4480@43 {
+		compatible = "qcom,fsa4480-i2c";
+		reg = <0x43>;
+	};
+};
+

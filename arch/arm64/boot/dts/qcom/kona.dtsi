@@ -2720,12 +2720,12 @@
 #include "kona-sde.dtsi"
 #include "kona-sde-pll.dtsi"
 #include "kona-sde-display.dtsi"
-#include "kona-audio.dtsi"
 
 #include "kona-pm.dtsi"
 
 #include "kona-camera.dtsi"
 #include "kona-qupv3.dtsi"
+#include "kona-audio.dtsi"
 #include "kona-thermal.dtsi"
 #include "kona-vidc.dtsi"
 #include "kona-cvp.dtsi"
