@@ -59,6 +59,7 @@ static int wil_ioc_memio_dword(struct wil6210_priv *wil, void __user *data)
 	struct wil_memio io;
 	void __iomem *a;
 	bool need_copy = false;
+	int rc;
 
 	if (copy_from_user(&io, data, sizeof(io)))
 		return -EFAULT;
@@ -72,6 +73,11 @@ static int wil_ioc_memio_dword(struct wil6210_priv *wil, void __user *data)
 			io.op);
 		return -EINVAL;
 	}
+
+	rc = wil_mem_access_lock(wil);
+	if (rc)
+		return rc;
+
 	/* operation */
 	switch (io.op & WIL_MMIO_OP_MASK) {
 	case WIL_MMIO_READ:
@@ -86,8 +92,11 @@ static int wil_ioc_memio_dword(struct wil6210_priv *wil, void __user *data)
 #endif
 	default:
 		wil_err(wil, "Unsupported operation, op = 0x%08x\n", io.op);
+		wil_mem_access_unlock(wil);
 		return -EINVAL;
 	}
+
+	wil_mem_access_unlock(wil);
 
 	if (need_copy) {
 		wil_dbg_ioctl(wil,
@@ -134,6 +143,12 @@ static int wil_ioc_memio_block(struct wil6210_priv *wil, void __user *data)
 	if (!block)
 		return -ENOMEM;
 
+	rc = wil_mem_access_lock(wil);
+	if (rc) {
+		kfree(block);
+		return rc;
+	}
+
 	/* operation */
 	switch (io.op & WIL_MMIO_OP_MASK) {
 	case WIL_MMIO_READ:
@@ -142,7 +157,7 @@ static int wil_ioc_memio_block(struct wil6210_priv *wil, void __user *data)
 		if (copy_to_user((void __user *)(uintptr_t)io.block,
 				 block, io.size)) {
 			rc = -EFAULT;
-			goto out_free;
+			goto out_unlock;
 		}
 		break;
 #if defined(CONFIG_WIL6210_WRITE_IOCTL)
@@ -150,7 +165,7 @@ static int wil_ioc_memio_block(struct wil6210_priv *wil, void __user *data)
 		if (copy_from_user(block, (void __user *)(uintptr_t)io.block,
 				   io.size)) {
 			rc = -EFAULT;
-			goto out_free;
+			goto out_unlock;
 		}
 		wil_memcpy_toio_32(a, block, io.size);
 		wmb(); /* make sure write propagated to HW */
@@ -163,7 +178,8 @@ static int wil_ioc_memio_block(struct wil6210_priv *wil, void __user *data)
 		break;
 	}
 
-out_free:
+out_unlock:
+	wil_mem_access_unlock(wil);
 	kfree(block);
 	return rc;
 }
