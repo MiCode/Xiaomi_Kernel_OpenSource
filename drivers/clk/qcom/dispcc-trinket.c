@@ -94,7 +94,7 @@ static const struct parent_map disp_cc_parent_map_3[] = {
 static const char * const disp_cc_parent_names_3[] = {
 	"bi_tcxo",
 	"disp_cc_pll0_out_main",
-	"gpll0_out_main",
+	"gcc_disp_gpll0_div_clk_src",
 	"core_bi_pll_test_se",
 };
 
@@ -106,7 +106,7 @@ static const struct parent_map disp_cc_parent_map_4[] = {
 
 static const char * const disp_cc_parent_names_4[] = {
 	"bi_tcxo",
-	"gpll0_out_main",
+	"gcc_disp_gpll0_div_clk_src",
 	"core_bi_pll_test_se",
 };
 
