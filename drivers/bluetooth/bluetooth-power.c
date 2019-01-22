@@ -26,7 +26,7 @@
 #include <net/cnss.h>
 #endif
 
-#ifdef CONFIG_BTFM_SLIM
+#if defined CONFIG_BT_SLIM_QCA6390 || defined CONFIG_BTFM_SLIM_WCN3990
 #include "btfm_slim.h"
 #endif
 #include <linux/fs.h>
@@ -686,8 +686,8 @@ static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	int ret = 0, pwr_cntrl = 0;
 
 	switch (cmd) {
-#ifdef CONFIG_BTFM_SLIM
 	case BT_CMD_SLIM_TEST:
+#if defined CONFIG_BT_SLIM_QCA6390 || defined CONFIG_BTFM_SLIM_WCN3990
 		if (!bt_power_pdata->slim_dev) {
 			BT_PWR_ERR("slim_dev is null\n");
 			return -EINVAL;
@@ -695,8 +695,8 @@ static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		ret = btfm_slim_hw_init(
 			bt_power_pdata->slim_dev->platform_data
 		);
-		break;
 #endif
+		break;
 	case BT_CMD_PWR_CTRL:
 		pwr_cntrl = (int)arg;
 		BT_PWR_ERR("BT_CMD_PWR_CTRL pwr_cntrl:%d", pwr_cntrl);
