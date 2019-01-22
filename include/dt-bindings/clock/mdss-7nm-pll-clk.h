@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
-#ifndef __MDSS_10NM_PLL_CLK_H
-#define __MDSS_10NM_PLL_CLK_H
+#ifndef __MDSS_7NM_PLL_CLK_H
+#define __MDSS_7NM_PLL_CLK_H
 
 /* DSI PLL clocks */
 #define VCO_CLK_0		0
