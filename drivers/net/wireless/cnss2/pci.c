@@ -41,6 +41,7 @@
 #define WAKE_MSI_NAME			"WAKE"
 
 #define FW_ASSERT_TIMEOUT		5000
+#define DEV_RDDM_TIMEOUT		5000
 
 #ifdef CONFIG_CNSS_EMULATION
 #define EMULATION_HW			1
@@ -1998,6 +1999,35 @@ void cnss_pci_clear_dump_info(struct cnss_pci_data *pci_priv)
 	plat_priv->ramdump_info_v2.dump_data_valid = false;
 }
 
+static char *cnss_mhi_notify_status_to_str(enum MHI_CB status)
+{
+	switch (status) {
+	case MHI_CB_IDLE:
+		return "IDLE";
+	case MHI_CB_EE_RDDM:
+		return "RDDM";
+	case MHI_CB_SYS_ERROR:
+		return "SYS_ERROR";
+	case MHI_CB_FATAL_ERROR:
+		return "FATAL_ERROR";
+	default:
+		return "UNKNOWN";
+	}
+};
+
+static void cnss_dev_rddm_timeout_hdlr(struct timer_list *t)
+{
+	struct cnss_pci_data *pci_priv =
+		from_timer(pci_priv, t, dev_rddm_timer);
+
+	if (!pci_priv)
+		return;
+
+	cnss_pr_err("Timeout waiting for RDDM notification\n");
+
+	cnss_schedule_recovery(&pci_priv->pci_dev->dev, CNSS_REASON_TIMEOUT);
+}
+
 static int cnss_mhi_link_status(struct mhi_controller *mhi_ctrl, void *priv)
 {
 	struct cnss_pci_data *pci_priv = priv;
@@ -2032,7 +2062,8 @@ static void cnss_mhi_notify_status(struct mhi_controller *mhi_ctrl, void *priv,
 
 	plat_priv = pci_priv->plat_priv;
 
-	cnss_pr_dbg("MHI status cb is called with reason %d\n", reason);
+	cnss_pr_dbg("MHI status cb is called with reason %s(%d)\n",
+		    cnss_mhi_notify_status_to_str(reason), reason);
 
 	if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) {
 		cnss_pr_dbg("Driver unload is in progress, ignore device error\n");
@@ -2040,16 +2071,29 @@ static void cnss_mhi_notify_status(struct mhi_controller *mhi_ctrl, void *priv,
 	}
 
 	switch (reason) {
+	case MHI_CB_IDLE:
+		return;
+	case MHI_CB_FATAL_ERROR:
+		set_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state);
+		del_timer(&plat_priv->fw_boot_timer);
+		cnss_pci_update_status(pci_priv, CNSS_FW_DOWN);
+		cnss_reason = CNSS_REASON_DEFAULT;
+		break;
+	case MHI_CB_SYS_ERROR:
+		set_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state);
+		del_timer(&plat_priv->fw_boot_timer);
+		mod_timer(&pci_priv->dev_rddm_timer,
+			  jiffies + msecs_to_jiffies(DEV_RDDM_TIMEOUT));
+		cnss_pci_update_status(pci_priv, CNSS_FW_DOWN);
+		return;
 	case MHI_CB_EE_RDDM:
+		del_timer(&pci_priv->dev_rddm_timer);
 		cnss_reason = CNSS_REASON_RDDM;
 		break;
 	default:
 		cnss_pr_err("Unsupported MHI status cb reason: %d\n", reason);
 		return;
 	}
-
-	set_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state);
-	del_timer(&plat_priv->fw_boot_timer);
 
 	cnss_schedule_recovery(&pci_priv->pci_dev->dev, cnss_reason);
 }
@@ -2464,6 +2508,9 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 		break;
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
+		timer_setup(&pci_priv->dev_rddm_timer,
+			    cnss_dev_rddm_timeout_hdlr, 0);
+
 		ret = cnss_pci_enable_msi(pci_priv);
 		if (ret)
 			goto disable_bus;
@@ -2520,6 +2567,7 @@ static void cnss_pci_remove(struct pci_dev *pci_dev)
 	case QCA6390_DEVICE_ID:
 		cnss_pci_unregister_mhi(pci_priv);
 		cnss_pci_disable_msi(pci_priv);
+		del_timer(&pci_priv->dev_rddm_timer);
 		break;
 	default:
 		break;

@@ -62,6 +62,7 @@ struct cnss_pci_data {
 	u32 msi_ep_base_data;
 	struct mhi_controller *mhi_ctrl;
 	unsigned long mhi_state;
+	struct timer_list dev_rddm_timer;
 	u8 disable_pc;
 };
 
