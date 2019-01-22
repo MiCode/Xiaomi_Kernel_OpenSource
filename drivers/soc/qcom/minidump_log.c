@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -13,6 +13,7 @@
 #include <asm/sections.h>
 #include <linux/mm.h>
 #include <linux/sched/task.h>
+#include <linux/vmalloc.h>
 
 static void __init register_log_buf(void)
 {
