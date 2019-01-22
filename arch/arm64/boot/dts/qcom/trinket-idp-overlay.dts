@@ -25,6 +25,6 @@
 	qcom,board-id = <34 0>;
 };
 
-&dsi_td4330_truly_vid_display {
+&dsi_td4330_truly_cmd_display {
 	qcom,dsi-display-active;
 };
