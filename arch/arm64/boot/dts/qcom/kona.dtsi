@@ -602,7 +602,8 @@
 		reg = <0x3ac0000 0x2c000>,
 			<0x3a84000 0x2c000>;
 		reg-names = "slimbus_physical", "slimbus_bam_physical";
-		interrupts = <0 163 0>, <0 164 0>;
+		interrupts = <GIC_SPI 163 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 164 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
 		qcom,apps-ch-pipes = <0x700000>;
 		qcom,ea-pc = <0x2d0>;
@@ -2550,10 +2551,19 @@
 		compatible = "qcom,gpi-dma";
 		reg = <0x900000 0x70000>;
 		reg-names = "gpi-top";
-		interrupts = <0 244 0>, <0 245 0>, <0 246 0>, <0 247 0>,
-			     <0 248 0>, <0 249 0>, <0 250 0>, <0 251 0>,
-			     <0 252 0>, <0 253 0>, <0 254 0>, <0 255 0>,
-			     <0 256 0>;
+		interrupts = <GIC_SPI 244 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 245 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 246 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 247 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 248 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 249 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 250 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 251 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 252 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 253 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 254 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 255 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 256 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,max-num-gpii = <13>;
 		qcom,gpii-mask = <0x7ff>;
 		qcom,ev-factor = <2>;
@@ -2568,9 +2578,16 @@
 		compatible = "qcom,gpi-dma";
 		reg = <0xa00000 0x70000>;
 		reg-names = "gpi-top";
-		interrupts = <0 279 0>, <0 280 0>, <0 281 0>, <0 282 0>,
-			     <0 283 0>, <0 284 0>, <0 293 0>, <0 294 0>,
-			     <0 295 0>, <0 296 0>;
+		interrupts = <GIC_SPI 279 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 280 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 281 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 282 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 283 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 284 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 293 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 294 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 295 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 296 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,max-num-gpii = <10>;
 		qcom,gpii-mask = <0x3f>;
 		qcom,ev-factor = <2>;
@@ -2585,9 +2602,16 @@
 		compatible = "qcom,gpi-dma";
 		reg = <0x800000 0x70000>;
 		reg-names = "gpi-top";
-		interrupts = <0 588 0>, <0 589 0>, <0 590 0>, <0 591 0>,
-			     <0 592 0>, <0 593 0>, <0 594 0>, <0 595 0>,
-			     <0 596 0>, <0 597 0>;
+		interrupts = <GIC_SPI 588 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 589 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 590 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 591 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 592 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 593 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 594 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 595 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 596 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 597 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,max-num-gpii = <10>;
 		qcom,gpii-mask = <0x3f>;
 		qcom,ev-factor = <2>;
