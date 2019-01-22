@@ -899,9 +899,9 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 			int destVMperm[2] = {PERM_READ | PERM_WRITE,
 					PERM_READ | PERM_WRITE | PERM_EXEC};
 
-			VERIFY(err, !hyp_assign_phys(map->phys,
+			err = hyp_assign_phys(map->phys,
 					buf_page_size(map->size),
-					srcVM, 1, destVM, destVMperm, 2));
+					srcVM, 1, destVM, destVMperm, 2);
 			if (err)
 				goto bail;
 		}
@@ -985,8 +985,8 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 		int destVMperm[2] = {PERM_READ | PERM_WRITE,
 					PERM_READ | PERM_WRITE | PERM_EXEC};
 
-		VERIFY(err, !hyp_assign_phys(buf->phys, buf_page_size(size),
-			srcVM, 1, destVM, destVMperm, 2));
+		err = hyp_assign_phys(buf->phys, buf_page_size(size),
+			srcVM, 1, destVM, destVMperm, 2);
 		if (err)
 			goto bail;
 	}
@@ -1922,7 +1922,7 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	return err;
 }
 
-static int fastrpc_get_adsp_session(char *name, int *session)
+static int fastrpc_get_spd_session(char *name, int *session)
 {
 	struct fastrpc_apps *me = &gfa;
 	int err = 0, i;
@@ -1947,7 +1947,7 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl);
 static int fastrpc_init_process(struct fastrpc_file *fl,
 				struct fastrpc_ioctl_init_attrs *uproc)
 {
-	int err = 0;
+	int err = 0, rh_hyp_done = 0;
 	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_ioctl_invoke_crc ioctl;
 	struct fastrpc_ioctl_init *init = &uproc->init;
@@ -2121,18 +2121,17 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 			phys = mem->phys;
 			size = mem->size;
 			if (me->channel[fl->cid].rhvm.vmid) {
-				VERIFY(err, !hyp_assign_phys(phys,
+				err = hyp_assign_phys(phys,
 					(uint64_t)size, hlosvm, 1,
 					me->channel[fl->cid].rhvm.vmid,
 					me->channel[fl->cid].rhvm.vmperm,
-					me->channel[fl->cid].rhvm.vmcount));
+					me->channel[fl->cid].rhvm.vmcount);
 				if (err) {
-					pr_err("ADSPRPC: hyp_assign_phys fail err %d\n",
-								 err);
-					pr_err("map->phys 0x%llx, map->size %d\n",
-							 phys, (int)size);
+					pr_err("adsprpc: %s: rh hyp assign failed with %d for phys 0x%llx, size %zd\n",
+						__func__, err, phys, size);
 					goto bail;
 				}
+				rh_hyp_done = 1;
 			}
 			me->staticpd_flags = 1;
 		}
@@ -2171,7 +2170,7 @@ bail:
 		me->staticpd_flags = 0;
 	if (mem && err) {
 		if (mem->flags == ADSP_MMAP_REMOTE_HEAP_ADDR
-			&& me->channel[fl->cid].rhvm.vmid)
+			&& me->channel[fl->cid].rhvm.vmid && rh_hyp_done)
 			hyp_assign_phys(mem->phys, (uint64_t)mem->size,
 					me->channel[fl->cid].rhvm.vmid,
 					me->channel[fl->cid].rhvm.vmcount,
@@ -2275,10 +2274,10 @@ static int fastrpc_mmap_on_dsp(struct fastrpc_file *fl, uint32_t flags,
 			TZ_PIL_PROTECT_MEM_SUBSYS_ID), &desc);
 	} else if (flags == ADSP_MMAP_REMOTE_HEAP_ADDR
 				&& me->channel[fl->cid].rhvm.vmid) {
-		VERIFY(err, !hyp_assign_phys(phys, (uint64_t)size,
+		err = hyp_assign_phys(phys, (uint64_t)size,
 				hlosvm, 1, me->channel[fl->cid].rhvm.vmid,
 				me->channel[fl->cid].rhvm.vmperm,
-				me->channel[fl->cid].rhvm.vmcount));
+				me->channel[fl->cid].rhvm.vmcount);
 		if (err)
 			goto bail;
 	}
@@ -2333,11 +2332,11 @@ static int fastrpc_munmap_on_dsp_rh(struct fastrpc_file *fl, uint64_t phys,
 			TZ_PIL_CLEAR_PROTECT_MEM_SUBSYS_ID), &desc);
 	} else if (flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
 		if (me->channel[fl->cid].rhvm.vmid) {
-			VERIFY(err, !hyp_assign_phys(phys,
+			err = hyp_assign_phys(phys,
 					(uint64_t)size,
 					me->channel[fl->cid].rhvm.vmid,
 					me->channel[fl->cid].rhvm.vmcount,
-					destVM, destVMperm, 1));
+					destVM, destVMperm, 1);
 			if (err)
 				goto bail;
 		}
@@ -2407,8 +2406,8 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl)
 		spin_unlock(&me->hlock);
 
 		if (match) {
-			VERIFY(err, !fastrpc_munmap_on_dsp_rh(fl, match->phys,
-						match->size, match->flags));
+			err = fastrpc_munmap_on_dsp_rh(fl, match->phys,
+						match->size, match->flags);
 			if (err)
 				goto bail;
 			if (me->channel[0].ramdumpenabled) {
@@ -2422,7 +2421,8 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl)
 					 me->channel[0].remoteheap_ramdump_dev,
 					 ramdump_segments_rh, 1);
 					if (ret < 0)
-						pr_err("adsprpc: unable to dump heap\n");
+						pr_err("adsprpc: %s: unable to dump heap (err %d)\n",
+							__func__, ret);
 					kfree(ramdump_segments_rh);
 				}
 			}
@@ -2440,14 +2440,16 @@ static int fastrpc_mmap_remove_pdr(struct fastrpc_file *fl)
 	struct fastrpc_apps *me = &gfa;
 	int session = 0, err = 0;
 
-	VERIFY(err, !fastrpc_get_adsp_session(
-			AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME, &session));
+	err = fastrpc_get_spd_session(AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME,
+			&session);
 	if (err)
 		goto bail;
 	if (me->channel[fl->cid].spd[session].pdrcount !=
 		me->channel[fl->cid].spd[session].prevpdrcount) {
-		if (fastrpc_mmap_remove_ssr(fl))
-			pr_err("ADSPRPC: SSR: Failed to unmap remote heap\n");
+		err = fastrpc_mmap_remove_ssr(fl);
+		if (err)
+			pr_err("adsprpc: %s: SSR: failed to unmap remote heap (err %d)\n",
+					__func__, err);
 		me->channel[fl->cid].spd[session].prevpdrcount =
 				me->channel[fl->cid].spd[session].pdrcount;
 	}
@@ -3544,8 +3546,8 @@ static int fastrpc_pdr_notifier_cb(struct notifier_block *pdrnb,
 		spd->pdrcount++;
 		spd->ispdup = 0;
 		mutex_unlock(&me->channel[spd->cid].smd_mutex);
-		pr_info("ADSPRPC: Audio PDR notifier %d %s\n",
-					MAJOR(me->dev_no), spd->spdname);
+		pr_info("adsprpc: %s called for %s (dev %d)\n",
+				__func__, spd->spdname, MAJOR(me->dev_no));
 		if (!strcmp(spd->spdname,
 				AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME))
 			me->staticpd_flags = 0;
@@ -3571,7 +3573,8 @@ static int fastrpc_get_service_location_notify(struct notifier_block *nb,
 
 	spd = container_of(nb, struct fastrpc_static_pd, get_service_nb);
 	if (opcode == LOCATOR_DOWN) {
-		pr_err("ADSPRPC: Audio PD restart notifier locator down\n");
+		pr_err("adsprpc: %s: PD restart notifier locator down\n",
+				__func__);
 		return NOTIFY_DONE;
 	}
 	for (i = 0; i < pdr->total_domains; i++) {
@@ -3595,17 +3598,18 @@ pdr_register:
 			pdr->domain_list[i].instance_id,
 			&spd->pdrnb, &curr_state);
 	} else {
-		pr_err("ADSPRPC: %s is already registered\n", spd->spdname);
+		pr_err("adsprpc: %s is already registered\n", spd->spdname);
 	}
 
 	if (IS_ERR(spd->pdrhandle))
-		pr_err("ADSPRPC: Unable to register notifier\n");
+		pr_err("adsprpc: Unable to register notifier\n");
 
 	if (curr_state == SERVREG_NOTIF_SERVICE_STATE_UP_V01) {
-		pr_info("ADSPRPC: %s is up\n", spd->spdname);
+		pr_info("adsprpc: %s: %s is up\n", __func__, spd->spdname);
 		spd->ispdup = 1;
 	} else if (curr_state == SERVREG_NOTIF_SERVICE_STATE_UNINIT_V01) {
-		pr_info("ADSPRPC: %s is uninitialzed\n", spd->spdname);
+		pr_info("adsprpc: %s: %s is uninitialzed\n",
+			__func__, spd->spdname);
 	}
 	return NOTIFY_DONE;
 }
@@ -3728,9 +3732,10 @@ static void init_secure_vmid_list(struct device *dev, char *prop_name,
 		err = of_property_read_u32_index(dev->of_node, prop_name, i,
 								&rhvmlist[i]);
 		rhvmpermlist[i] = PERM_READ | PERM_WRITE | PERM_EXEC;
-		pr_info("adsprpc: Secure VMID = %d\n", rhvmlist[i]);
+		pr_info("adsprpc: %s: secure VMID = %d\n",
+			__func__, rhvmlist[i]);
 		if (err) {
-			pr_err("adsprpc: Failed to read VMID\n");
+			pr_err("adsprpc: %s: failed to read VMID\n", __func__);
 			goto bail;
 		}
 	}
@@ -3832,8 +3837,8 @@ static int fastrpc_probe(struct platform_device *pdev)
 				PERM_READ | PERM_WRITE | PERM_EXEC,
 				};
 
-			VERIFY(err, !hyp_assign_phys(range.addr, range.size,
-					srcVM, 1, destVM, destVMperm, 4));
+			err = hyp_assign_phys(range.addr, range.size,
+					srcVM, 1, destVM, destVMperm, 4);
 			if (err)
 				goto bail;
 			me->range.addr = range.addr;
@@ -3847,7 +3852,7 @@ static int fastrpc_probe(struct platform_device *pdev)
 					"qcom,fastrpc-adsp-audio-pdr")) {
 		int session;
 
-		VERIFY(err, !fastrpc_get_adsp_session(
+		VERIFY(err, !fastrpc_get_spd_session(
 			AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME, &session));
 		if (err)
 			goto spdbail;
@@ -3858,14 +3863,14 @@ static int fastrpc_probe(struct platform_device *pdev)
 				AUDIO_PDR_ADSP_SERVICE_NAME,
 				&me->channel[0].spd[session].get_service_nb);
 		if (ret)
-			pr_err("ADSPRPC: Get service location failed: %d\n",
-								ret);
+			pr_err("adsprpc: %s: getting ADSP service location failed with %d\n",
+					__func__, ret);
 	}
 	if (of_property_read_bool(dev->of_node,
 					"qcom,fastrpc-adsp-sensors-pdr")) {
 		int session;
 
-		VERIFY(err, !fastrpc_get_adsp_session(
+		VERIFY(err, !fastrpc_get_spd_session(
 			SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME, &session));
 		if (err)
 			goto spdbail;
@@ -3876,8 +3881,8 @@ static int fastrpc_probe(struct platform_device *pdev)
 				SENSORS_PDR_ADSP_SERVICE_NAME,
 				&me->channel[0].spd[session].get_service_nb);
 		if (ret)
-			pr_err("ADSPRPC: Get service location failed: %d\n",
-								ret);
+			pr_err("adsprpc: %s: getting sensors service location failed with %d\n",
+					__func__, ret);
 	}
 spdbail:
 	err = 0;
