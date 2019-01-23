@@ -39,21 +39,11 @@
 #include <vservices/session.h>
 #include <vservices/wait.h>
 
-/*
- * BLK_DEF_MAX_SECTORS was replaced with the hard-coded number 1024 in 3.19,
- * and restored in 4.3
- */
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0)) && \
-        (LINUX_VERSION_CODE < KERNEL_VERSION(4, 3, 0))
-#define BLK_DEF_MAX_SECTORS 1024
-#endif
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
 #define bio_sector(bio) (bio)->bi_iter.bi_sector
 #define bio_size(bio) (bio)->bi_iter.bi_size
-#else
-#define bio_sector(bio) (bio)->bi_sector
-#define bio_size(bio) (bio)->bi_size
+
+#if !defined(bio_flags)
+#define bio_flags(bio) bio->bi_opf
 #endif
 
 #define CLIENT_BLKDEV_NAME		"vblock"
@@ -171,27 +161,15 @@ static void vs_block_device_put(struct vs_block_device *blkdev)
 	kref_put(&blkdev->kref, vs_block_device_kfree);
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
 static void
-#else
-static int
-#endif
 vs_block_client_blkdev_release(struct gendisk *disk, fmode_t mode)
 {
 	struct vs_block_device *blkdev = disk->private_data;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
 	if (WARN_ON(!blkdev))
 		return;
-#else
-	if (WARN_ON(!blkdev))
-		return -ENXIO;
-#endif
 
 	vs_block_device_put(blkdev);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
-	return 0;
-#endif
 }
 
 static int vs_block_client_blkdev_open(struct block_device *bdev, fmode_t mode)
@@ -255,19 +233,16 @@ static int vs_block_client_blkdev_getgeo(struct block_device *bdev,
 static int vs_block_client_check_sector_size(struct block_client *client,
 		struct bio *bio)
 {
-	unsigned int expected_bytes;
-
 	if (unlikely(!bio_sectors(bio))) {
 		dev_err(&client->service->dev, "zero-length bio\n");
 		return -EIO;
 	}
 
-	expected_bytes = bio_sectors(bio) * client->client.sector_size;
-	if (unlikely(bio_size(bio) != expected_bytes)) {
+	if (unlikely(bio_size(bio) % client->client.sector_size)) {
 		dev_err(&client->service->dev,
 				"bio has %zd bytes, which is unexpected "
-				"for %d sectors of %zd bytes each\n",
-				(size_t)bio_size(bio), bio_sectors(bio),
+				"for sector_size of %zd bytes\n",
+				(size_t)bio_size(bio),
 				(size_t)client->client.sector_size);
 		return -EIO;
 	}
@@ -291,12 +266,8 @@ static int block_client_send_write_req(struct block_client *client,
 	struct bio_vec *bvec;
 	int err;
 	bool flush, nodelay, commit;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
 	struct bvec_iter iter;
 	struct bio_vec bvec_local;
-#else
-	int i;
-#endif
 
 	err = vs_block_client_check_sector_size(client, bio);
 	if (err < 0)
@@ -326,12 +297,8 @@ static int block_client_send_write_req(struct block_client *client,
 
 	vs_pbuf_resize(&pbuf, 0);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
 	bvec = &bvec_local;
 	bio_for_each_segment(bvec_local, bio, iter)
-#else
-	bio_for_each_segment(bvec, bio, i)
-#endif
 	{
 		unsigned long flags;
 		void *buf = bvec_kmap_irq(bvec, &flags);
@@ -353,15 +320,10 @@ static int block_client_send_write_req(struct block_client *client,
 		err = -EIO;
 		goto fail_free_write;
 	}
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,8,0)
+
 	flush = (bio_flags(bio) & REQ_PREFLUSH);
 	commit = (bio_flags(bio) & REQ_FUA);
 	nodelay = (bio_flags(bio) & REQ_SYNC);
-#else
-	flush = (bio->bi_rw & REQ_FLUSH);
-	commit = (bio->bi_rw & REQ_FUA);
-	nodelay = (bio->bi_rw & REQ_SYNC);
-#endif
 	err = vs_client_block_io_req_write(state, bio, bio_sector(bio),
 			bio_sectors(bio), nodelay, flush, commit, pbuf, mbuf);
 
@@ -389,13 +351,8 @@ static int block_client_send_read_req(struct block_client *client,
 	err = vs_block_client_check_sector_size(client, bio);
 	if (err < 0)
 		return err;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,8,0)
 	flush = (bio_flags(bio) & REQ_PREFLUSH);
 	nodelay = (bio_flags(bio) & REQ_SYNC);
-#else
-	flush = (bio->bi_rw & REQ_FLUSH);
-	nodelay = (bio->bi_rw & REQ_SYNC);
-#endif
 	do {
 		/* Wait until it's possible to send a read request */
 		err = vs_wait_state_nointr(state,
@@ -416,15 +373,10 @@ static int block_client_send_read_req(struct block_client *client,
 	return err;
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0)
 static blk_qc_t
-#else
-static void
-#endif
 vs_block_client_make_request(struct request_queue *q, struct bio *bio)
 {
-	struct block_device *bdev = bio->bi_bdev;
-	struct vs_block_device *blkdev = bdev->bd_disk->private_data;
+	struct vs_block_device *blkdev = bio->bi_disk->private_data;
 	struct block_client *client;
 	int err = 0;
 
@@ -434,9 +386,7 @@ vs_block_client_make_request(struct request_queue *q, struct bio *bio)
 		goto fail_get_client;
 	}
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
-	blk_queue_split(q, &bio, q->bio_split);
-#endif
+	blk_queue_split(q, &bio);
 
 	if (!vs_state_lock_safe(&client->client)) {
 		err = -ENODEV;
@@ -462,18 +412,13 @@ fail_check_client:
 fail_lock_client:
 	vs_block_client_put(client);
 fail_get_client:
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
+
 	if (err < 0) {
-		bio->bi_error = err;
+		bio->bi_status = err;
 		bio_endio(bio);
 	}
-#else
-	if (err < 0)
-		bio_endio(bio, err);
-#endif
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0)
+
 	return BLK_QC_T_NONE;
-#endif
 }
 
 static int vs_block_client_get_blkdev_id(struct block_client *client)
@@ -550,6 +495,10 @@ static int vs_block_client_disk_add(struct block_client *client)
 			client->client.segment_size /
 			client->client.sector_size);
 	blk_queue_max_hw_sectors(blkdev->queue, max_hw_sectors);
+	blk_queue_logical_block_size(blkdev->queue,
+		client->client.sector_size);
+	blk_queue_physical_block_size(blkdev->queue,
+		client->client.sector_size);
 
 	blkdev->disk = alloc_disk(PERDEV_MINORS);
 	if (!blkdev->disk) {
@@ -566,9 +515,6 @@ static int vs_block_client_disk_add(struct block_client *client)
 	blkdev->disk->major = block_client_major;
 	blkdev->disk->first_minor = blkdev->id * PERDEV_MINORS;
 	blkdev->disk->fops         = &block_client_ops;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,7,0)
-	blkdev->disk->driverfs_dev = &client->service->dev;
-#endif
 	blkdev->disk->private_data = blkdev;
 	blkdev->disk->queue        = blkdev->queue;
 	blkdev->disk->flags       |= GENHD_FL_EXT_DEVT;
@@ -585,7 +531,8 @@ static int vs_block_client_disk_add(struct block_client *client)
 	 */
 	snprintf(blkdev->disk->disk_name, sizeof(blkdev->disk->disk_name),
 			"%s%d", CLIENT_BLKDEV_NAME, blkdev->id);
-	set_capacity(blkdev->disk, client->client.device_sectors);
+	set_capacity(blkdev->disk, client->client.device_sectors *
+		(client->client.sector_size >> 9));
 
 	/*
 	 * We need to hold a reference on blkdev across add_disk(), to make
@@ -603,11 +550,7 @@ static int vs_block_client_disk_add(struct block_client *client)
 	client->blkdev = blkdev;
 	vs_service_state_unlock(client->service);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,7,0)
 	device_add_disk(&client->service->dev, blkdev->disk);
-#else
-	add_disk(blkdev->disk);
-#endif
 	dev_dbg(&client->service->dev, "added block disk '%s'\n",
 			blkdev->disk->disk_name);
 
@@ -752,7 +695,8 @@ static void vs_block_client_opened(struct vs_client_block_state *state)
 	struct block_client *client = state_to_block_client(state);
 
 #if !defined(CONFIG_LBDAF) && !defined(CONFIG_64BIT)
-	if (state->device_sectors >> (sizeof(sector_t) * 8)) {
+	if ((state->device_sectors * (state->sector_size >> 9))
+			>> (sizeof(sector_t) * 8)) {
 		dev_err(&client->service->dev,
 				"Client doesn't support full capacity large block devices\n");
 		vs_client_block_close(state);
@@ -778,19 +722,11 @@ static int vs_block_client_ack_read(struct vs_client_block_state *state,
 	struct bio_vec *bvec;
 	int err = 0;
 	size_t bytes_read = 0;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
 	struct bio_vec bvec_local;
 	struct bvec_iter iter;
-#else
-	int i;
-#endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
 	bvec = &bvec_local;
 	bio_for_each_segment(bvec_local, bio, iter)
-#else
-	bio_for_each_segment(bvec, bio, i)
-#endif
 	{
 		unsigned long flags;
 		void *buf;
@@ -811,13 +747,8 @@ static int vs_block_client_ack_read(struct vs_client_block_state *state,
 
 	vs_client_block_io_free_ack_read(state, &pbuf, mbuf);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
-	if (err < 0)
-		bio->bi_error = err;
+	bio->bi_status = err;
 	bio_endio(bio);
-#else
-	bio_endio(bio, err);
-#endif
 
 	return 0;
 }
@@ -874,11 +805,8 @@ static int vs_block_client_ack_write(struct vs_client_block_state *state,
 	if (WARN_ON(!bio))
 		return -EPROTO;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
+	bio->bi_status = 0;
 	bio_endio(bio);
-#else
-	bio_endio(bio, 0);
-#endif
 
 	wake_up(&state->service->quota_wq);
 
@@ -893,12 +821,8 @@ static int vs_block_client_nack_io(struct vs_client_block_state *state,
 	if (WARN_ON(!bio))
 		return -EPROTO;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
-	bio->bi_error = block_client_vs_to_linux_error(err);
+	bio->bi_status = block_client_vs_to_linux_error(err);
 	bio_endio(bio);
-#else
-	bio_endio(bio, block_client_vs_to_linux_error(err));
-#endif
 
 	wake_up(&state->service->quota_wq);
 
