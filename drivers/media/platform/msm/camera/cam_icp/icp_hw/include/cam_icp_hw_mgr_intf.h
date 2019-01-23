@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef CAM_ICP_HW_MGR_INTF_H
@@ -16,7 +16,7 @@
 
 #define CAM_ICP_A5_BW_BYTES_VOTE 40000000
 
-#define CAM_ICP_CTX_MAX          36
+#define CAM_ICP_CTX_MAX          54
 
 #define CPAS_IPE1_BIT            0x2000
 
