@@ -115,24 +115,6 @@ struct cpufreq_cooling_device {
 static DEFINE_MUTEX(cooling_list_lock);
 static LIST_HEAD(cpufreq_cdev_list);
 
-static struct cpumask cpus_in_max_cooling_level;
-static BLOCKING_NOTIFIER_HEAD(cpu_max_cooling_level_notifer);
-
-void cpu_cooling_max_level_notifier_register(struct notifier_block *n)
-{
-	blocking_notifier_chain_register(&cpu_max_cooling_level_notifer, n);
-}
-
-void cpu_cooling_max_level_notifier_unregister(struct notifier_block *n)
-{
-	blocking_notifier_chain_unregister(&cpu_max_cooling_level_notifer, n);
-}
-
-const struct cpumask *cpu_cooling_get_max_level_cpumask(void)
-{
-	return &cpus_in_max_cooling_level;
-}
-
 /* Below code defines functions to be used for cpufreq as cooling device */
 
 /**
