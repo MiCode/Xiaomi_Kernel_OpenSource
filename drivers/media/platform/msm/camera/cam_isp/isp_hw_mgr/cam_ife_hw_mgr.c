@@ -4529,22 +4529,24 @@ static int cam_ife_hw_mgr_handle_reg_update_in_bus(
 
 		hw_res_left = isp_ife_out_res->hw_res[0];
 		if (hw_res_left && (evt_payload->core_index ==
-			hw_res_left->hw_intf->hw_idx))
+			hw_res_left->hw_intf->hw_idx)) {
 			rup_status = hw_res_left->bottom_half_handler(
 				hw_res_left, evt_payload);
+
+			if (rup_status == 0)
+				break;
+		}
 	}
 
-	CAM_DBG(CAM_ISP, "Exit rup_status = %d", rup_status);
-
 	if (!rup_status) {
-		CAM_DBG(CAM_ISP, "Exit rup_status = %d", rup_status);
-
-	if (!atomic_read(&ife_hwr_mgr_ctx->overflow_pending))
-		ife_hwr_irq_rup_cb(
-			ife_hwr_mgr_ctx->common.cb_priv,
+		if (!atomic_read(&ife_hwr_mgr_ctx->overflow_pending))
+			ife_hwr_irq_rup_cb(
+				ife_hwr_mgr_ctx->common.cb_priv,
 				CAM_ISP_HW_EVENT_REG_UPDATE,
 				&rup_event_data);
 	}
+
+	CAM_DBG(CAM_ISP, "Exit rup_status = %d", rup_status);
 
 	return 0;
 }
