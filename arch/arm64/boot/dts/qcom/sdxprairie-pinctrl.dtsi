@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1326,6 +1326,35 @@
 					pins = "gpio53";
 					drive-strength = <2>;
 					bias-pull-up;
+				};
+			};
+		};
+
+		cnss_pins {
+			cnss_wlan_en_active: cnss_wlan_en_active {
+				mux {
+					pins = "gpio52";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio52";
+					drive-strength = <16>;
+					output-high;
+					bias-pull-up;
+				};
+			};
+			cnss_wlan_en_sleep: cnss_wlan_en_sleep {
+				mux {
+					pins = "gpio52";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio52";
+					drive-strength = <2>;
+					output-low;
+					bias-pull-down;
 				};
 			};
 		};
