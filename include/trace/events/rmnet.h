@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #undef TRACE_SYSTEM
@@ -62,7 +62,7 @@ TRACE_EVENT(rmnet_low,
 		__entry->ptr2 = ptr2;
 	),
 
-	TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%lu ul2:%lu p1:0x%pK p2:0x%pK",
+	TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%llu ul2:%llu p1:0x%pK p2:0x%pK",
 		  __entry->func, __entry->evt,
 		  __entry->uint1, __entry->uint2,
 		  __entry->ulong1, __entry->ulong2,
@@ -98,7 +98,7 @@ TRACE_EVENT(rmnet_high,
 		__entry->ptr2 = ptr2;
 	),
 
-	TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%lu ul2:%lu p1:0x%pK p2:0x%pK",
+	TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%llu ul2:%llu p1:0x%pK p2:0x%pK",
 		  __entry->func, __entry->evt,
 		  __entry->uint1, __entry->uint2,
 		  __entry->ulong1, __entry->ulong2,
@@ -134,7 +134,7 @@ TRACE_EVENT(rmnet_err,
 		__entry->ptr2 = ptr2;
 	),
 
-	TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%lu ul2:%lu p1:0x%pK p2:0x%pK",
+	TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%llu ul2:%llu p1:0x%pK p2:0x%pK",
 		  __entry->func, __entry->evt,
 		  __entry->uint1, __entry->uint2,
 		  __entry->ulong1, __entry->ulong2,
@@ -173,7 +173,7 @@ TRACE_EVENT(rmnet_perf_low,
 		__entry->ptr2 = ptr2;
 	),
 
-	TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%lu ul2:%lu p1:0x%pK p2:0x%pK",
+	TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%llu ul2:%llu p1:0x%pK p2:0x%pK",
 		  __entry->func, __entry->evt,
 		  __entry->uint1, __entry->uint2,
 		  __entry->ulong1, __entry->ulong2,
@@ -209,7 +209,7 @@ TRACE_EVENT(rmnet_perf_high,
 		__entry->ptr2 = ptr2;
 	),
 
-	TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%lu ul2:%lu p1:0x%pK p2:0x%pK",
+	TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%llu ul2:%llu p1:0x%pK p2:0x%pK",
 		  __entry->func, __entry->evt,
 		  __entry->uint1, __entry->uint2,
 		  __entry->ulong1, __entry->ulong2,
@@ -245,7 +245,7 @@ TRACE_EVENT(rmnet_perf_err,
 		__entry->ptr2 = ptr2;
 	),
 
-	TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%lu ul2:%lu p1:0x%pK p2:0x%pK",
+	TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%llu ul2:%llu p1:0x%pK p2:0x%pK",
 		  __entry->func, __entry->evt,
 		  __entry->uint1, __entry->uint2,
 		  __entry->ulong1, __entry->ulong2,
@@ -284,7 +284,7 @@ TRACE_EVENT(rmnet_shs_low,
 		__entry->ptr2 = ptr2;
 	),
 
-	TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%lu ul2:%lu p1:0x%pK p2:0x%pK",
+	TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%llu ul2:%llu p1:0x%pK p2:0x%pK",
 		  __entry->func, __entry->evt,
 		  __entry->uint1, __entry->uint2,
 		  __entry->ulong1, __entry->ulong2,
@@ -320,7 +320,7 @@ TRACE_EVENT(rmnet_shs_high,
 		__entry->ptr2 = ptr2;
 	),
 
-	TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%lu ul2:%lu p1:0x%pK p2:0x%pK",
+	TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%llu ul2:%llu p1:0x%pK p2:0x%pK",
 		  __entry->func, __entry->evt,
 		  __entry->uint1, __entry->uint2,
 		  __entry->ulong1, __entry->ulong2,
@@ -356,7 +356,7 @@ TRACE_EVENT(rmnet_shs_err,
 		__entry->ptr2 = ptr2;
 	),
 
-	TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%lu ul2:%lu p1:0x%pK p2:0x%pK",
+	TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%llu ul2:%llu p1:0x%pK p2:0x%pK",
 		  __entry->func, __entry->evt,
 		  __entry->uint1, __entry->uint2,
 		  __entry->ulong1, __entry->ulong2,
@@ -392,7 +392,7 @@ TRACE_EVENT(rmnet_shs_wq_low,
 		__entry->ptr2 = ptr2;
 	),
 
-	TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%lu ul2:%lu p1:0x%pK p2:0x%pK",
+	TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%llu ul2:%llu p1:0x%pK p2:0x%pK",
 		  __entry->func, __entry->evt,
 		  __entry->uint1, __entry->uint2,
 		  __entry->ulong1, __entry->ulong2,
@@ -428,7 +428,7 @@ TRACE_EVENT(rmnet_shs_wq_high,
 		__entry->ptr2 = ptr2;
 	),
 
-	TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%lu ul2:%lu p1:0x%pK p2:0x%pK",
+	TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%llu ul2:%llu p1:0x%pK p2:0x%pK",
 		  __entry->func, __entry->evt,
 		  __entry->uint1, __entry->uint2,
 		  __entry->ulong1, __entry->ulong2,
@@ -464,7 +464,7 @@ TRACE_EVENT(rmnet_shs_wq_err,
 		__entry->ptr2 = ptr2;
 	),
 
-	TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%lu ul2:%lu p1:0x%pK p2:0x%pK",
+	TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%llu ul2:%llu p1:0x%pK p2:0x%pK",
 		  __entry->func, __entry->evt,
 		  __entry->uint1, __entry->uint2,
 		  __entry->ulong1, __entry->ulong2,
