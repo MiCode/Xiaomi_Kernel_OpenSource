@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -404,7 +404,7 @@ static const char * const _size_to_string(unsigned long size)
 	case SZ_1M * 32:
 		return "32M";
 	}
-	return "unknown size, please add to %s function", __func__;
+	return "unknown size, please add to _size_to_string function";
 }
 
 static int nr_iters_set(void *data, u64 val)
