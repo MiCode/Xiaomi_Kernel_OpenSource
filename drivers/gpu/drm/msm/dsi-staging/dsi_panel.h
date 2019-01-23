@@ -111,10 +111,9 @@ struct dsi_backlight_config {
 
 	int en_gpio;
 	/* PWM params */
-	bool pwm_pmi_control;
-	u32 pwm_pmic_bank;
+	struct pwm_device *pwm_bl;
+	bool pwm_enabled;
 	u32 pwm_period_usecs;
-	int pwm_gpio;
 
 	/* WLED params */
 	struct led_trigger *wled;
