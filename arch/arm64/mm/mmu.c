@@ -1165,7 +1165,7 @@ int __meminit vmemmap_populate(unsigned long start, unsigned long end, int node,
 			p = vmemmap_alloc_block_buf(PMD_SIZE, node);
 			if (!p) {
 #ifdef CONFIG_MEMORY_HOTPLUG
-				vmemmap_free(start, end);
+				vmemmap_free(start, end, altmap);
 #endif
 				ret = -ENOMEM;
 				break;

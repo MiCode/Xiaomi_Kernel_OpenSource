@@ -498,12 +498,12 @@ static ssize_t allocated_bytes_show(struct device *dev,
 }
 #endif
 
-static DEVICE_ATTR_RO(phys_index, 0444, phys_index_show, NULL);
+static DEVICE_ATTR(phys_index, 0444, phys_index_show, NULL);
 static DEVICE_ATTR(state, 0644, show_mem_state, store_mem_state);
 static DEVICE_ATTR(phys_device, 0444, show_phys_device, NULL);
 static DEVICE_ATTR(removable, 0444, show_mem_removable, NULL);
 #ifdef CONFIG_MEMORY_HOTPLUG
-static DEVICE_ATTR_RO(allocated_bytes, 0444, allocated_bytes_show, NULL);
+static DEVICE_ATTR(allocated_bytes, 0444, allocated_bytes_show, NULL);
 #endif
 
 /*
