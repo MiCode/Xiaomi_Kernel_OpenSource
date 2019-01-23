@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3813,8 +3813,8 @@ static int cam_icp_mgr_update_hfi_frame_process(
 		hfi_cmd = (struct hfi_cmd_ipebps_async *)
 		&ctx_data->hfi_frame_process.frame_info[index].hfi_cfg_io_cmd;
 		rc = cam_icp_mgr_process_cfg_io_cmd(ctx_data, hfi_cmd,
-		packet->header.request_id,
-		ctx_data->hfi_frame_process.frame_info[index].io_config);
+		     packet->header.request_id,
+		     ctx_data->hfi_frame_process.frame_info[index].io_config);
 	}
 	*idx = index;
 
