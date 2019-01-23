@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -270,7 +270,7 @@ static void kryo_parse_l1_l2_cache_error(u64 errxstatus, u64 errxmisc,
 			break;
 		default:
 			edac_printk(KERN_CRIT, EDAC_CPU,
-				"silver cpu:%d unknown error location:%u\n",
+				"silver cpu:%d unknown error location:%llu\n",
 				cpu, KRYO_ERRXMISC_LVL(errxmisc));
 		}
 		break;
@@ -286,7 +286,7 @@ static void kryo_parse_l1_l2_cache_error(u64 errxstatus, u64 errxmisc,
 			break;
 		default:
 			edac_printk(KERN_CRIT, EDAC_CPU,
-				"gold cpu:%d unknown error location:%u\n",
+				"gold cpu:%d unknown error location:%llu\n",
 				cpu, KRYO_ERRXMISC_LVL_GOLD(errxmisc));
 		}
 		break;
