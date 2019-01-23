@@ -6948,8 +6948,14 @@ int ipa3_get_smmu_params(struct ipa_smmu_in_params *in,
 
 	switch (in->smmu_client) {
 	case IPA_SMMU_WLAN_CLIENT:
-		is_smmu_enable = !(ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC] |
-			ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_WLAN]);
+		if (ipa3_ctx->ipa_wdi3_over_gsi)
+			is_smmu_enable =
+				!(ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP] |
+				ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_WLAN]);
+		else
+			is_smmu_enable =
+				!(ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC] |
+				ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_WLAN]);
 		break;
 	default:
 		is_smmu_enable = false;
