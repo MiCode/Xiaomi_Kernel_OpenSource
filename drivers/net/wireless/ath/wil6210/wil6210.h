@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2012-2017 Qualcomm Atheros, Inc.
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -660,7 +660,6 @@ enum { /* for wil6210_priv.status */
 	wil_status_suspending, /* suspend in progress */
 	wil_status_suspended, /* suspend completed, device is suspended */
 	wil_status_resuming, /* resume in progress */
-	wil_status_collecting_dumps, /* crashdump collection in progress */
 	wil_status_last /* keep last */
 };
 
@@ -996,6 +995,8 @@ struct wil6210_priv {
 	struct wil_txrx_ops txrx_ops;
 
 	struct mutex mutex; /* for wil6210_priv access in wil_{up|down} */
+	/* for synchronizing device memory access while reset or suspend */
+	struct rw_semaphore mem_lock;
 	/* statistics */
 	atomic_t isr_count_rx, isr_count_tx;
 	/* debugfs */
@@ -1199,6 +1200,8 @@ void wil_memcpy_fromio_32(void *dst, const volatile void __iomem *src,
 			  size_t count);
 void wil_memcpy_toio_32(volatile void __iomem *dst, const void *src,
 			size_t count);
+int wil_mem_access_lock(struct wil6210_priv *wil);
+void wil_mem_access_unlock(struct wil6210_priv *wil);
 
 struct wil6210_vif *
 wil_vif_alloc(struct wil6210_priv *wil, const char *name,
