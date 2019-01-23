@@ -10,14 +10,8 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
+#include "trinket-audio-overlay.dtsi"
 
-#include "trinket.dtsi"
-#include "trinket-idp.dtsi"
-#include "trinket-usbc-idp.dtsi"
-
-/ {
-	model = "Qualcomm Technologies, Inc. Trinket USBC Audio IDP";
-	compatible = "qcom,trinket-idp", "qcom,trinket", "qcom,idp";
-	qcom,board-id = <34 2>;
+&sm6150_snd {
+	qcom,msm-mbhc-usbc-audio-supported = <1>;
 };
