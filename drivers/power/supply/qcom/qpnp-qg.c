@@ -2944,6 +2944,8 @@ done_fifo:
 
 static int qg_post_init(struct qpnp_qg *chip)
 {
+	u8 status = 0;
+
 	/* disable all IRQs if profile is not loaded */
 	if (!chip->profile_loaded) {
 		vote(chip->vbatt_irq_disable_votable,
@@ -2957,6 +2959,9 @@ static int qg_post_init(struct qpnp_qg *chip)
 	/* restore ESR data */
 	if (!chip->dt.esr_disable)
 		qg_retrieve_esr_params(chip);
+
+	/* read STATUS2 register to clear its last state */
+	qg_read(chip, chip->qg_base + QG_STATUS2_REG, &status, 1);
 
 	return 0;
 }
@@ -3459,6 +3464,9 @@ static int process_suspend(struct qpnp_qg *chip)
 
 	chip->suspend_data = false;
 
+	/* read STATUS2 register to clear its last state */
+	qg_read(chip, chip->qg_base + QG_STATUS2_REG, &status, 1);
+
 	/* ignore any suspend processing if we are charging */
 	if (chip->charge_status == POWER_SUPPLY_STATUS_CHARGING) {
 		qg_dbg(chip, QG_DEBUG_PM, "Charging @ suspend - ignore processing\n");
@@ -3507,9 +3515,6 @@ static int process_suspend(struct qpnp_qg *chip)
 
 		chip->suspend_data = true;
 	}
-
-	/* read STATUS2 register to clear its last state */
-	qg_read(chip, chip->qg_base + QG_STATUS2_REG, &status, 1);
 
 	qg_dbg(chip, QG_DEBUG_PM, "FIFO rt_length=%d sleep_fifo_length=%d default_s2_count=%d suspend_data=%d\n",
 			fifo_rt_length, sleep_fifo_length,
