@@ -517,7 +517,8 @@ int mdss_smmu_fault_handler(struct iommu_domain *domain, struct device *dev,
 	} else {
 		pr_err("mdss_smmu: iova:0x%lx flags:0x%x\n",
 			iova, flags);
-		MDSS_XLOG_TOUT_HANDLER("mdp");
+		MDSS_XLOG_TOUT_HANDLER("mdp", "vbif", "dsi0_ctrl",
+				"dsi0_phy");
 	}
 end:
 	return -ENODEV;
