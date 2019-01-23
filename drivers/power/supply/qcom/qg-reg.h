@@ -121,6 +121,7 @@
 #define QG_SDAM_MAX_OFFSET			0xA4
 
 /* Below offset is used by PBS */
+#define QG_SDAM_SEQ_OFFSET			0xBB /* 1-byte 0xBB */
 #define QG_SDAM_PON_OCV_OFFSET			0xBC /* 2-byte 0xBC-0xBD */
 
 #endif

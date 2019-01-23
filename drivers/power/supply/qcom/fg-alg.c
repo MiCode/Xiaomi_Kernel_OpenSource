@@ -1055,9 +1055,19 @@ static void ttf_work(struct work_struct *work)
 	struct ttf *ttf = container_of(work,
 				struct ttf, ttf_work.work);
 	int rc, ibatt_now, vbatt_now, ttf_now, charge_status;
+	int valid = 0;
 	ktime_t ktime_now;
 
 	mutex_lock(&ttf->lock);
+	rc = ttf->get_ttf_param(ttf->data, TTF_VALID, &valid);
+	if (rc < 0) {
+		pr_err("failed to get ttf_valid rc=%d\n", rc);
+		goto end_work;
+	}
+
+	if (!valid)
+		goto end_work;
+
 	rc =  ttf->get_ttf_param(ttf->data, TTF_CHG_STATUS, &charge_status);
 	if (rc < 0) {
 		pr_err("failed to get charge_status rc=%d\n", rc);
@@ -1198,7 +1208,16 @@ int ttf_get_time_to_empty(struct ttf *ttf, int *val)
  */
 void ttf_update(struct ttf *ttf, bool input_present)
 {
-	int delay_ms;
+	int delay_ms, rc, valid = 0;
+
+	rc = ttf->get_ttf_param(ttf->data, TTF_VALID, &valid);
+	if (rc < 0) {
+		pr_err("failed to get ttf_valid rc=%d\n", rc);
+		return;
+	}
+
+	if (!valid)
+		return;
 
 	if (ttf->input_present == input_present)
 		return;
