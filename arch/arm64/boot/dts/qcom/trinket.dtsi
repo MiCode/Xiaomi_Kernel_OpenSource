@@ -2405,13 +2405,13 @@
 			io-channels = <&pm6125_vadc ADC_GPIO1_PU2>,
 					<&pm6125_vadc ADC_GPIO3_PU2>;
 
-			emmc_ufs_therm {
+			camera_flash_therm {
 				reg = <ADC_GPIO1_PU2>;
 				qcom,ratiometric;
 				qcom,hw-settle-time = <200>;
 			};
 
-			camera_flash_therm {
+			emmc_ufs_therm {
 				reg = <ADC_GPIO3_PU2>;
 				qcom,ratiometric;
 				qcom,hw-settle-time = <200>;
