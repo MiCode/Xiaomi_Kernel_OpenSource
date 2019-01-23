@@ -201,6 +201,14 @@ static void dsi_catalog_phy_2_0_init(struct dsi_phy_hw *phy)
 		dsi_phy_hw_calculate_timing_params;
 	phy->ops.phy_timing_val = dsi_phy_hw_timing_val_v2_0;
 	phy->ops.clamp_ctrl = dsi_phy_hw_v2_0_clamp_ctrl;
+	phy->ops.dyn_refresh_ops.dyn_refresh_config =
+		dsi_phy_hw_v2_0_dyn_refresh_config;
+	phy->ops.dyn_refresh_ops.dyn_refresh_pipe_delay =
+		dsi_phy_hw_v2_0_dyn_refresh_pipe_delay;
+	phy->ops.dyn_refresh_ops.dyn_refresh_helper =
+		dsi_phy_hw_v2_0_dyn_refresh_helper;
+	phy->ops.dyn_refresh_ops.cache_phy_timings =
+		dsi_phy_hw_v2_0_cache_phy_timings;
 }
 
 /**
