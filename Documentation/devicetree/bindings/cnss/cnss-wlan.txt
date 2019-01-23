@@ -70,6 +70,10 @@ Optional properties:
                    'qcom,converged-dt' being present.
   - wlan_vregs: String array to decide which vregs are required, is required
                 when 'qcom,converged-dt' being present.
+  - <supply-name>-supply: phandle to the regulator device tree node.
+                          optional "supply-name" is "vdd-wlan-rfa".
+  - qcom,<supply-name>-info: Specifies configuration for supply. Should be
+                             specified in <min_uV max_uV load_uA delay_us>.
 
 List of chip specific sub nodes:
   - chip_cfg@X: represent chip specific configurations
