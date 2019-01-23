@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"[sde_rsc:%s:%d]: " fmt, __func__, __LINE__
@@ -1024,7 +1024,9 @@ int sde_rsc_client_trigger_vote(struct sde_rsc_client *caller_client,
 		rpmh_flush(rsc->rpmh_dev);
 	}
 
-	if (rsc->hw_ops.bwi_status && rsc->current_state == SDE_RSC_CMD_STATE)
+	if (rsc->hw_ops.bwi_status &&
+	    (rsc->current_state == SDE_RSC_CMD_STATE ||
+	     rsc->current_state == SDE_RSC_VID_STATE))
 		rsc->hw_ops.bwi_status(rsc, bw_increase);
 	else if (rsc->hw_ops.tcs_use_ok)
 		rsc->hw_ops.tcs_use_ok(rsc);
