@@ -13,20 +13,32 @@
 #include <dt-bindings/sound/audio-codec-port-types.h>
 #include "trinket-wcd.dtsi"
 
+&soc {
+	cpe: qcom,msm-cpe-lsm {
+		compatible = "qcom,msm-cpe-lsm";
+	};
+
+	cpe3: qcom,msm-cpe-lsm@3 {
+		compatible = "qcom,msm-cpe-lsm";
+		qcom,msm-cpe-lsm-id = <3>;
+	};
+};
+
 &sm6150_snd {
 	qcom,model = "trinket-tashalite-snd-card";
 	qcom,tasha_codec = <1>;
 	asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 		<&loopback>, <&compress>, <&hostless>,
 		<&afe>, <&lsm>, <&routing>, <&compr>,
-		<&pcm_noirq>;
+		<&pcm_noirq>, <&cpe>, <&cpe3>;
 	asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
 		"msm-pcm-dsp.2", "msm-voip-dsp",
 		"msm-pcm-voice", "msm-pcm-loopback",
 		"msm-compress-dsp", "msm-pcm-hostless",
 		"msm-pcm-afe", "msm-lsm-client",
 		"msm-pcm-routing",
-		"msm-compr-dsp", "msm-pcm-dsp-noirq";
+		"msm-compr-dsp", "msm-pcm-dsp-noirq",
+		"msm-cpe-lsm", "msm-cpe-lsm.3";
 	asoc-cpu = <&dai_mi2s0>, <&dai_mi2s1>,
 		<&dai_mi2s2>, <&dai_mi2s3>, <&dai_mi2s4>,
 		<&dai_pri_auxpcm>, <&dai_sec_auxpcm>,
@@ -108,10 +120,12 @@
 	asoc-codec = <&stub_codec>;
 	asoc-codec-names = "msm-stub-codec.1";
 	qcom,wsa-max-devs = <2>;
-	qcom,wsa-devs = <&wsa881x_00211>, <&wsa881x_00212>,
-		<&wsa881x_00213>, <&wsa881x_00214>;
+	qcom,wsa-devs = <&wsa881x_70211>, <&wsa881x_70212>,
+		<&wsa881x_70213>, <&wsa881x_70214>;
 	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
 		"SpkrLeft", "SpkrRight";
+	qcom,msm_audio_ssr_devs = <&audio_apr>, <&wcd9335>,
+				<&q6core>;
 };
 
 &slim_aud {
@@ -127,25 +141,25 @@
 				<6 SPKR_R_BOOST 0x3>, <7 SPKR_L_VI 0x3>,
 				<8 SPKR_R_VI 0x3>;
 			qcom,swr_master_id = <1>;
-			wsa881x_00211: wsa881x@20170211 {
+			wsa881x_70211: wsa881x@70211 {
 				compatible = "qcom,wsa881x";
 				reg = <0x00 0x20170211>;
 				qcom,spkr-sd-n-node = <&wsa_spk_wcd_sd1>;
 			};
 
-			wsa881x_00212: wsa881x@20170212 {
+			wsa881x_70212: wsa881x@70212 {
 				compatible = "qcom,wsa881x";
 				reg = <0x00 0x20170212>;
 				qcom,spkr-sd-n-node = <&wsa_spk_wcd_sd2>;
 			};
 
-			wsa881x_00213: wsa881x@21170213 {
+			wsa881x_70213: wsa881x@70213 {
 				compatible = "qcom,wsa881x";
 				reg = <0x00 0x21170213>;
 				qcom,spkr-sd-n-node = <&wsa_spk_wcd_sd1>;
 			};
 
-			wsa881x_00214: wsa881x@21170214 {
+			wsa881x_70214: wsa881x@70214 {
 				compatible = "qcom,wsa881x";
 				reg = <0x00 0x21170214>;
 				qcom,spkr-sd-n-node = <&wsa_spk_wcd_sd2>;
