@@ -2786,3 +2786,4 @@
 #include "kona-thermal.dtsi"
 #include "kona-vidc.dtsi"
 #include "kona-cvp.dtsi"
+#include "kona-npu.dtsi"
