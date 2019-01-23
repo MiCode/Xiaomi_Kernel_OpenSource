@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -362,6 +362,9 @@ static struct msm_soc_info cpu_of_id[] = {
 
 	/* sa6155P ID */
 	[377] = {MSM_CPU_SA6155P, "SA6155P"},
+
+	/* sa4155P ID */
+	[380] = {MSM_CPU_SA4155P, "SA4155P"},
 
 	/* sa6155 ID */
 	[384] = {MSM_CPU_SA6155, "SA6155"},
@@ -1276,6 +1279,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_sa6155p()) {
 		dummy_socinfo.id = 377;
 		strlcpy(dummy_socinfo.build_id, "sa6155p - ",
+		sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_sa4155p()) {
+		dummy_socinfo.id = 380;
+		strlcpy(dummy_socinfo.build_id, "sa4155p - ",
 		sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_sa6155()) {
 		dummy_socinfo.id = 384;
