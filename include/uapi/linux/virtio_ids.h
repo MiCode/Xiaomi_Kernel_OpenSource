@@ -42,4 +42,7 @@
 #define VIRTIO_ID_GPU          16 /* virtio GPU */
 #define VIRTIO_ID_INPUT        18 /* virtio input */
 
+/* QCOM Private virtio device IDs */
+#define VIRTIO_ID_I2C	       21 /* virtio i2c */
+
 #endif /* _LINUX_VIRTIO_IDS_H */
