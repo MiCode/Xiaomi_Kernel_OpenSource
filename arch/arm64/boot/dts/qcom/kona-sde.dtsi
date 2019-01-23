@@ -267,6 +267,12 @@
 
 		qcom,sde-dram-channels = <2>;
 
+		vdd-supply = <&mdss_core_gdsc>;
+		clocks = <&clock_dispcc DISP_CC_MDSS_RSCC_VSYNC_CLK>,
+			<&clock_dispcc DISP_CC_MDSS_NON_GDSC_AHB_CLK>,
+			<&clock_dispcc DISP_CC_MDSS_RSCC_AHB_CLK>;
+		clock-names = "vsync_clk", "gdsc_clk", "iface_clk";
+
 		/* data and reg bus scale settings */
 		qcom,sde-data-bus {
 			qcom,msm-bus,name = "disp_rsc_mnoc";
