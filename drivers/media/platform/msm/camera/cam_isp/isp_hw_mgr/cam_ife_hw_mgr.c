@@ -2360,8 +2360,9 @@ static int cam_ife_mgr_config_hw(void *hw_mgr_priv,
 			}
 	}
 
-	CAM_DBG(CAM_ISP, "Enter ctx id:%d req_id:%lld num_hw_upd_entries %d",
-		ctx->ctx_index, cfg->request_id, cfg->num_hw_update_entries);
+	CAM_DBG(CAM_ISP,
+		"Enter ctx id:%d num_hw_upd_entries %d request id: %llu",
+		ctx->ctx_index, cfg->num_hw_update_entries, cfg->request_id);
 
 	if (cfg->num_hw_update_entries > 0) {
 		cdm_cmd = ctx->cdm_cmd;
@@ -2408,7 +2409,7 @@ static int cam_ife_mgr_config_hw(void *hw_mgr_priv,
 	} else {
 		CAM_ERR(CAM_ISP, "No commands to config");
 	}
-	CAM_DBG(CAM_ISP, "Exit");
+	CAM_DBG(CAM_ISP, "Exit: Config Done: %llu",  cfg->request_id);
 
 	return rc;
 }
@@ -2588,23 +2589,6 @@ static int cam_ife_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 
 	CAM_DBG(CAM_ISP, "Halting CSIDs");
 
-	CAM_DBG(CAM_ISP, "Going to stop IFE Mux");
-
-	/* IFE mux in resources */
-	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_src, list) {
-		cam_ife_hw_mgr_stop_hw_res(hw_mgr_res);
-	}
-
-	/* IFE bus rd resources */
-	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_in_rd, list) {
-		cam_ife_hw_mgr_stop_hw_res(hw_mgr_res);
-	}
-
-	CAM_DBG(CAM_ISP, "Going to stop IFE Out");
-
-	/* IFE out resources */
-	for (i = 0; i < CAM_IFE_HW_OUT_RES_MAX; i++)
-		cam_ife_hw_mgr_stop_hw_res(&ctx->res_list_ife_out[i]);
 	/* get master base index first */
 	for (i = 0; i < ctx->num_base; i++) {
 		if (ctx->base[i].split_id == CAM_ISP_HW_SPLIT_LEFT) {
@@ -2612,15 +2596,6 @@ static int cam_ife_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 			break;
 		}
 	}
-
-	CAM_DBG(CAM_ISP, "Going to stop IFE Mux");
-
-	/* IFE mux in resources */
-	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_src, list) {
-		cam_ife_hw_mgr_stop_hw_res(hw_mgr_res);
-	}
-
-	cam_tasklet_stop(ctx->common.tasklet_info);
 
 	/*
 	 * If Context does not have PIX resources and has only RDI resource
@@ -2660,6 +2635,26 @@ static int cam_ife_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 		cam_ife_mgr_csid_stop_hw(ctx, &ctx->res_list_ife_cid,
 			ctx->base[i].idx, csid_halt_type);
 	}
+
+	CAM_DBG(CAM_ISP, "Going to stop IFE Out");
+
+	/* IFE out resources */
+	for (i = 0; i < CAM_IFE_HW_OUT_RES_MAX; i++)
+		cam_ife_hw_mgr_stop_hw_res(&ctx->res_list_ife_out[i]);
+
+	/* IFE bus rd resources */
+	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_in_rd, list) {
+		cam_ife_hw_mgr_stop_hw_res(hw_mgr_res);
+	}
+
+	CAM_DBG(CAM_ISP, "Going to stop IFE Mux");
+
+	/* IFE mux in resources */
+	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_src, list) {
+		cam_ife_hw_mgr_stop_hw_res(hw_mgr_res);
+	}
+
+	cam_tasklet_stop(ctx->common.tasklet_info);
 
 	cam_ife_mgr_pause_hw(ctx);
 
@@ -2982,7 +2977,6 @@ safe_disable:
 
 deinit_hw:
 	cam_ife_hw_mgr_deinit_hw(ctx);
-	ctx->init_done = false;
 
 tasklet_stop:
 	cam_tasklet_stop(ctx->common.tasklet_info);
@@ -3636,7 +3630,8 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 	ctx = (struct cam_ife_hw_mgr_ctx *) prepare->ctxt_to_hw_map;
 	hw_mgr = (struct cam_ife_hw_mgr *)hw_mgr_priv;
 
-	rc = cam_packet_util_validate_packet(prepare->packet);
+	rc = cam_packet_util_validate_packet(prepare->packet,
+		prepare->remain_len);
 	if (rc)
 		return rc;
 
@@ -3827,7 +3822,8 @@ static void cam_ife_mgr_print_io_bufs(struct cam_packet *packet,
 			if (!io_cfg[i].mem_handle[j])
 				break;
 
-			if (GET_FD_FROM_HANDLE(io_cfg[i].mem_handle[j]) ==
+			if (pf_buf_info &&
+				GET_FD_FROM_HANDLE(io_cfg[i].mem_handle[j]) ==
 				GET_FD_FROM_HANDLE(pf_buf_info)) {
 				CAM_INFO(CAM_ISP,
 					"Found PF at port: 0x%x mem 0x%x fd: 0x%x",
