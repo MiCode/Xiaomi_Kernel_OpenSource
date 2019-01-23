@@ -909,13 +909,13 @@ static int mhi_sat_dev_probe(struct mhi_device *mhi_dev,
 			return -ENOMEM;
 
 		/*
-		 * num_devices will be read from device tree node. Set it to
+		 * max_devices will be read from device tree node. Set it to
 		 * -1 before it is populated to avoid false positive when
 		 * RPMSG probe schedules connect worker but no device has
 		 * probed in which case num_devices and max_devices are both
 		 * zero.
 		 */
-		sat_cntrl->num_devices = -1;
+		sat_cntrl->max_devices = -1;
 		sat_cntrl->dev_id = dev_id;
 		sat_cntrl->er_base = mhi_dev->dl_event_id;
 		sat_cntrl->mhi_cntrl = mhi_dev->mhi_cntrl;
@@ -940,12 +940,12 @@ static int mhi_sat_dev_probe(struct mhi_device *mhi_dev,
 		MHI_SAT_LOG("Controller allocated for 0x%x\n", dev_id);
 	}
 
-	/* set number of devices for subsystem from device tree */
+	/* set maximum devices for subsystem from device tree */
 	if (of_node) {
-		ret = of_property_read_u32(of_node, "mhi,num-devices",
-					   &sat_cntrl->num_devices);
+		ret = of_property_read_u32(of_node, "mhi,max-devices",
+					   &sat_cntrl->max_devices);
 		if (ret) {
-			MHI_SAT_ERR("Could not find num-devices in DT node\n");
+			MHI_SAT_ERR("Could not find max-devices in DT node\n");
 			return -EINVAL;
 		}
 	}
