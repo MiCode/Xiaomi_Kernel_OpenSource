@@ -2844,6 +2844,9 @@ add_detailed_modes(struct drm_connector *connector, struct edid *edid,
 #define VIDEO_BLOCK     0x02
 #define VENDOR_BLOCK    0x03
 #define SPEAKER_BLOCK	0x04
+#define VENDOR_SPECIFIC_VIDEO_DATA_BLOCK 0x01
+#define VSVDB_HDR10_PLUS_IEEE_CODE 0x90848b
+#define VSVDB_HDR10_PLUS_APP_VER_MASK 0x3
 #define HDR_STATIC_METADATA_EXTENDED_DATA_BLOCK 0x06
 #define USE_EXTENDED_TAG 0x07
 #define EXT_VIDEO_CAPABILITY_BLOCK 0x00
@@ -3875,6 +3878,28 @@ drm_extract_vcdb_info(struct drm_connector *connector, const u8 *db)
 			  (int) connector->ce_scan_info);
 }
 
+static void
+drm_parse_vsvdb_hdr_plus(struct drm_connector *connector, const u8 *db)
+{
+	connector->hdr_plus_app_ver = db[5] & VSVDB_HDR10_PLUS_APP_VER_MASK;
+}
+
+static void
+drm_extract_vsvdb_info(struct drm_connector *connector, const u8 *db)
+{
+	u8 db_len = cea_db_payload_len(db);
+	u32 ieee_code = 0;
+
+	if (db_len < 5)
+		return;
+
+	/* Bytes 2-4: IEEE 24-bit code, LSB first */
+	ieee_code = db[2] | (db[3] << 8) | (db[4] << 16);
+	DRM_DEBUG_KMS("found VSVDB with IEEE code 0x%x\n", ieee_code);
+	if (ieee_code == VSVDB_HDR10_PLUS_IEEE_CODE)
+		drm_parse_vsvdb_hdr_plus(connector, db);
+}
+
 static bool drm_edid_is_luminance_value_present(
 u32 block_length, enum luminance_value value)
 {
@@ -3955,6 +3980,9 @@ drm_hdmi_extract_extended_blk_info(struct drm_connector *connector,
 				switch (db[1]) {
 				case VIDEO_CAPABILITY_EXTENDED_DATA_BLOCK:
 					drm_extract_vcdb_info(connector, db);
+					break;
+				case VENDOR_SPECIFIC_VIDEO_DATA_BLOCK:
+					drm_extract_vsvdb_info(connector, db);
 					break;
 				case HDR_STATIC_METADATA_EXTENDED_DATA_BLOCK:
 					drm_extract_hdr_db(connector, db);
