@@ -941,6 +941,26 @@ static bool sde_crtc_mode_fixup(struct drm_crtc *crtc,
 	return true;
 }
 
+static int _sde_crtc_get_ctlstart_timeout(struct drm_crtc *crtc)
+{
+	struct drm_encoder *encoder;
+	int rc = 0;
+
+	if (!crtc || !crtc->dev)
+		return 0;
+
+	list_for_each_entry(encoder,
+			&crtc->dev->mode_config.encoder_list, head) {
+		if (encoder->crtc != crtc)
+			continue;
+
+		if (sde_encoder_get_intf_mode(encoder) == INTF_MODE_CMD)
+			rc += sde_encoder_get_ctlstart_timeout_state(encoder);
+	}
+
+	return rc;
+}
+
 static void _sde_crtc_setup_blend_cfg(struct sde_crtc_mixer *mixer,
 	struct sde_plane_state *pstate, struct sde_format *format)
 {
@@ -3709,7 +3729,13 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 	if (unlikely(!sde_crtc->num_mixers))
 		goto end;
 
-	_sde_crtc_blend_setup(crtc, old_state, true);
+	if (_sde_crtc_get_ctlstart_timeout(crtc)) {
+		_sde_crtc_blend_setup(crtc, old_state, false);
+		SDE_ERROR("border fill only commit after ctlstart timeout\n");
+	} else {
+		_sde_crtc_blend_setup(crtc, old_state, true);
+	}
+
 	_sde_crtc_dest_scaler_setup(crtc);
 
 	/* cancel the idle notify delayed work */
