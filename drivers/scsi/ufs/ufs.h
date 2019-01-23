@@ -480,6 +480,8 @@ struct ufs_vreg {
 	bool unused;
 	int min_uV;
 	int max_uV;
+	bool low_voltage_sup;
+	bool low_voltage_active;
 	int min_uA;
 	int max_uA;
 };

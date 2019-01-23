@@ -25,6 +25,8 @@ Optional properties:
 - vcc-supply            : phandle to VCC supply regulator node
 - vcc-voltage-level     : specifies voltage levels for VCC supply.
                           Should be specified in pairs (min, max), units uV.
+- vcc-low-voltage-sup	: If specified, treats min voltage from vcc-voltage-level as
+			  low voltage level different from max voltage.
 - vccq-supply           : phandle to VCCQ supply regulator node
 - vccq2-supply          : phandle to VCCQ2 supply regulator node
 - vccq2-voltage-level   : specifies voltage levels for VCCQ2 supply.
@@ -93,6 +95,7 @@ Example:
 		vdd-hba-fixed-regulator;
 		vcc-supply = <&xxx_reg1>;
 		vcc-supply-1p8;
+		vcc-low-voltage-sup;
 		vccq-supply = <&xxx_reg2>;
 		vccq2-supply = <&xxx_reg3>;
 		vcc-max-microamp = 500000;
