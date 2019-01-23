@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/err.h>
@@ -102,7 +102,7 @@ static int devfreq_qcom_populate_opp(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	u32 data, src, mult, i;
-	unsigned long freq, prev_freq;
+	unsigned long freq, prev_freq = 0;
 	struct resource *res;
 	void __iomem *ftbl_base;
 
