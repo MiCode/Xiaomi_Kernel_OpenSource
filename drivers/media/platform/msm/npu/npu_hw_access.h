@@ -16,7 +16,7 @@
  * Defines
  * -------------------------------------------------------------------------
  */
-#define IPC_MEM_OFFSET_FROM_SSTCM 0x00010000
+#define IPC_MEM_OFFSET_FROM_SSTCM 0x00018000
 #define SYS_CACHE_SCID 23
 
 #define QFPROM_FMAX_REG_OFFSET 0x000001C8
@@ -51,6 +51,11 @@ typedef void (*wq_hdlr_fn) (struct work_struct *work);
  */
 uint32_t npu_core_reg_read(struct npu_device *npu_dev, uint32_t off);
 void npu_core_reg_write(struct npu_device *npu_dev, uint32_t off, uint32_t val);
+uint32_t npu_qdsp_reg_read(struct npu_device *npu_dev, uint32_t off);
+void npu_qdsp_reg_write(struct npu_device *npu_dev, uint32_t off, uint32_t val);
+uint32_t npu_apss_shared_reg_read(struct npu_device *npu_dev, uint32_t off);
+void npu_apss_shared_reg_write(struct npu_device *npu_dev, uint32_t off,
+	uint32_t val);
 uint32_t npu_bwmon_reg_read(struct npu_device *npu_dev, uint32_t off);
 void npu_bwmon_reg_write(struct npu_device *npu_dev, uint32_t off,
 	uint32_t val);

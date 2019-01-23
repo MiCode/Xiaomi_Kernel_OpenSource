@@ -37,6 +37,37 @@ void npu_core_reg_write(struct npu_device *npu_dev, uint32_t off, uint32_t val)
 	__iowmb();
 }
 
+uint32_t npu_qdsp_reg_read(struct npu_device *npu_dev, uint32_t off)
+{
+	uint32_t ret = 0;
+
+	ret = readl_relaxed(npu_dev->qdsp_io.base + off);
+	__iormb();
+	return ret;
+}
+
+void npu_qdsp_reg_write(struct npu_device *npu_dev, uint32_t off, uint32_t val)
+{
+	writel_relaxed(val, npu_dev->qdsp_io.base + off);
+	__iowmb();
+}
+
+uint32_t npu_apss_shared_reg_read(struct npu_device *npu_dev, uint32_t off)
+{
+	uint32_t ret = 0;
+
+	ret = readl_relaxed(npu_dev->apss_shared_io.base + off);
+	__iormb();
+	return ret;
+}
+
+void npu_apss_shared_reg_write(struct npu_device *npu_dev, uint32_t off,
+	uint32_t val)
+{
+	writel_relaxed(val, npu_dev->apss_shared_io.base + off);
+	__iowmb();
+}
+
 uint32_t npu_bwmon_reg_read(struct npu_device *npu_dev, uint32_t off)
 {
 	uint32_t ret = 0;
@@ -78,6 +109,7 @@ void npu_mem_write(struct npu_device *npu_dev, void *dst, void *src,
 	uint32_t i = 0;
 	uint32_t num = 0;
 
+	pr_debug("write dst_off %x size %x\n", dst_off, size);
 	num = size/4;
 	for (i = 0; i < num; i++) {
 		writel_relaxed(src_ptr32[i], npu_dev->tcm_io.base + dst_off);
@@ -103,6 +135,8 @@ int32_t npu_mem_read(struct npu_device *npu_dev, void *src, void *dst,
 	uint8_t *out8 = 0;
 	uint32_t i = 0;
 	uint32_t num = 0;
+
+	pr_debug("read src_off %x size %x\n", src_off, size);
 
 	num = size/4;
 	for (i = 0; i < num; i++) {
@@ -132,44 +166,17 @@ void *npu_ipc_addr(void)
  */
 void npu_interrupt_ack(struct npu_device *npu_dev, uint32_t intr_num)
 {
-	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
-	uint32_t wdg_irq_sts = 0, error_irq_sts = 0;
-
-	/* Clear irq state */
-	REGW(npu_dev, NPU_MASTERn_IPC_IRQ_OUT(0), 0x0);
-
-	wdg_irq_sts = REGR(npu_dev, NPU_MASTERn_WDOG_IRQ_STATUS(0));
-	if (wdg_irq_sts != 0) {
-		pr_err("wdg irq %x\n", wdg_irq_sts);
-		host_ctx->wdg_irq_sts |= wdg_irq_sts;
-		host_ctx->fw_error = true;
-	}
-
-	error_irq_sts = REGR(npu_dev, NPU_MASTERn_ERROR_IRQ_STATUS(0));
-	error_irq_sts &= REGR(npu_dev, NPU_MASTERn_ERROR_IRQ_ENABLE(0));
-	if (error_irq_sts != 0) {
-		REGW(npu_dev, NPU_MASTERn_ERROR_IRQ_CLEAR(0), error_irq_sts);
-		pr_err("error irq %x\n", error_irq_sts);
-		host_ctx->err_irq_sts |= error_irq_sts;
-		host_ctx->fw_error = true;
-	}
 }
 
 int32_t npu_interrupt_raise_m0(struct npu_device *npu_dev)
 {
-	/* Bit 4 is setting IRQ_SOURCE_SELECT to local
-	 * and we're triggering a pulse to NPU_MASTER0_IPC_IN_IRQ0
-	 */
-	npu_core_reg_write(npu_dev, NPU_MASTERn_IPC_IRQ_IN_CTRL(0), 0x1
-		<< NPU_MASTER0_IPC_IRQ_IN_CTRL__IRQ_SOURCE_SELECT___S | 0x1);
+	npu_apss_shared_reg_write(npu_dev, APSS_SHARED_IPC_INTERRUPT_1, 0x40);
 
 	return 0;
 }
 
 int32_t npu_interrupt_raise_dsp(struct npu_device *npu_dev)
 {
-	npu_core_reg_write(npu_dev, NPU_MASTERn_IPC_IRQ_OUT_CTRL(1), 0x8);
-
 	return 0;
 }
 
@@ -194,7 +201,7 @@ static struct npu_ion_buf *npu_alloc_npu_ion_buffer(struct npu_client
 
 	if (ret_val) {
 		/* mapped already, treat as invalid request */
-		pr_err("ion buf %x has been mapped\n");
+		pr_err("ion buf has been mapped\n");
 		ret_val = NULL;
 	} else {
 		ret_val = kzalloc(sizeof(*ret_val), GFP_KERNEL);
@@ -302,6 +309,7 @@ int npu_mem_map(struct npu_client *client, int buf_hdl, uint32_t size,
 	*addr = ion_buf->iova;
 	pr_debug("mapped mem addr:0x%llx size:0x%x\n", ion_buf->iova,
 		ion_buf->size);
+	pr_debug("physical address 0x%llx\n", sg_phys(ion_buf->table->sgl));
 map_end:
 	if (ret)
 		npu_mem_unmap(client, buf_hdl, 0);
@@ -354,7 +362,7 @@ void npu_mem_unmap(struct npu_client *client, int buf_hdl,  uint64_t addr)
 	}
 
 	if (ion_buf->iova != addr)
-		pr_warn("unmap address %lu doesn't match %lu\n", addr,
+		pr_warn("unmap address %llu doesn't match %llu\n", addr,
 			ion_buf->iova);
 
 	if (ion_buf->table)

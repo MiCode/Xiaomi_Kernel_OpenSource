@@ -37,7 +37,7 @@
 #define ROW_BYTES 16
 #define GROUP_BYTES 4
 
-#define NUM_MAX_CLK_NUM			24
+#define NUM_MAX_CLK_NUM			48
 #define NPU_MAX_REGULATOR_NUM	2
 #define NPU_MAX_DT_NAME_LEN	    21
 #define NPU_MAX_PWRLEVELS		8
@@ -188,6 +188,7 @@ struct npu_irq {
 
 struct npu_io_data {
 	size_t size;
+	phys_addr_t phy_addr;
 	void __iomem *base;
 };
 
@@ -203,6 +204,8 @@ struct npu_device {
 
 	struct npu_io_data core_io;
 	struct npu_io_data tcm_io;
+	struct npu_io_data qdsp_io;
+	struct npu_io_data apss_shared_io;
 	struct npu_io_data bwmon_io;
 	struct npu_io_data qfprom_io;
 
