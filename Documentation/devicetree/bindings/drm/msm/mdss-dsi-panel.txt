@@ -179,12 +179,7 @@ Optional properties:
                                           "bl_ctrl_dcs" = Backlight controlled by DCS commands.
                                           "bl_ctrl_external" = Backlight controlled by externally
                                           other: Unknown backlight control. (default)
-- qcom,mdss-dsi-bl-pwm-pmi:		Boolean to indicate that PWM control is through second pmic chip.
-- qcom,mdss-dsi-bl-pmic-bank-select:	LPG channel for backlight.
-					Required if backlight pmic control type is PWM
-- qcom,mdss-dsi-bl-pmic-pwm-frequency:	PWM period in microseconds.
-					Required if backlight pmic control type is PWM
-- qcom,mdss-dsi-pwm-gpio:		PMIC gpio binding to backlight.
+- qcom,bl-pmic-pwm-period-usecs:	PWM period in microseconds.
 					Required if backlight pmic control type is PWM
 - qcom,mdss-dsi-bl-min-level:		Specifies the min backlight level supported by the panel.
 					0 = default value.
@@ -671,9 +666,7 @@ Example:
 		qcom,mdss-dsi-pan-enable-dynamic-fps;
 		qcom,mdss-dsi-pan-fps-update = "dfps_suspend_resume_mode";
 		qcom,dsi-supported-dfps-list = <48 55 60>;
-		qcom,mdss-dsi-bl-pmic-bank-select = <0>;
-		qcom,mdss-dsi-bl-pmic-pwm-frequency = <0>;
-		qcom,mdss-dsi-pwm-gpio = <&pm8941_mpps 5 0>;
+		qcom,bl-pmic-pwm-period-usecs = <0>;
 		qcom,5v-boost-gpio = <&pm8994_gpios 14 0>;
 		qcom,mdss-pan-physical-width-dimension = <60>;
 		qcom,mdss-pan-physical-height-dimension = <140>;

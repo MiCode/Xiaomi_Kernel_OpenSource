@@ -17,6 +17,7 @@
 #include <linux/slab.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
+#include <linux/pwm.h>
 #include <video/mipi_display.h>
 
 #include "dsi_panel.h"
@@ -625,6 +626,57 @@ static int dsi_panel_update_backlight(struct dsi_panel *panel,
 	return rc;
 }
 
+static int dsi_panel_update_pwm_backlight(struct dsi_panel *panel,
+	u32 bl_lvl)
+{
+	int rc = 0;
+	u32 duty = 0;
+	u32 period_ns = 0;
+	struct dsi_backlight_config *bl;
+
+	if (!panel) {
+		pr_err("Invalid Params\n");
+		return -EINVAL;
+	}
+
+	bl = &panel->bl_config;
+	if (!bl->pwm_bl) {
+		pr_err("pwm device not found\n");
+		return -EINVAL;
+	}
+
+	period_ns = bl->pwm_period_usecs * NSEC_PER_USEC;
+	duty = bl_lvl * period_ns;
+	duty /= bl->bl_max_level;
+
+	rc = pwm_config(bl->pwm_bl, duty, period_ns);
+	if (rc) {
+		pr_err("[%s] failed to change pwm config, rc=\n", panel->name,
+			rc);
+		goto error;
+	}
+
+	if (bl_lvl == 0 && bl->pwm_enabled) {
+		pwm_disable(bl->pwm_bl);
+		bl->pwm_enabled = false;
+		return 0;
+	}
+
+	if (!bl->pwm_enabled) {
+		rc = pwm_enable(bl->pwm_bl);
+		if (rc) {
+			pr_err("[%s] failed to enable pwm, rc=\n", panel->name,
+				rc);
+			goto error;
+		}
+
+		bl->pwm_enabled = true;
+	}
+
+error:
+	return rc;
+}
+
 int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 {
 	int rc = 0;
@@ -642,6 +694,9 @@ int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 		rc = dsi_panel_update_backlight(panel, bl_lvl);
 		break;
 	case DSI_BACKLIGHT_EXTERNAL:
+		break;
+	case DSI_BACKLIGHT_PWM:
+		rc = dsi_panel_update_pwm_backlight(panel, bl_lvl);
 		break;
 	default:
 		pr_err("Backlight type(%d) not supported\n", bl->type);
@@ -667,6 +722,7 @@ static u32 dsi_panel_get_brightness(struct dsi_backlight_config *bl)
 		break;
 	case DSI_BACKLIGHT_DCS:
 	case DSI_BACKLIGHT_EXTERNAL:
+	case DSI_BACKLIGHT_PWM:
 	default:
 		/*
 		 * Ideally, we should read the backlight level from the
@@ -686,6 +742,22 @@ void dsi_panel_bl_handoff(struct dsi_panel *panel)
 	bl->bl_level = dsi_panel_get_brightness(bl);
 }
 
+static int dsi_panel_pwm_register(struct dsi_panel *panel)
+{
+	int rc = 0;
+	struct dsi_backlight_config *bl = &panel->bl_config;
+
+	bl->pwm_bl = devm_of_pwm_get(panel->parent, panel->panel_of_node, NULL);
+	if (IS_ERR_OR_NULL(bl->pwm_bl)) {
+		rc = PTR_ERR(bl->pwm_bl);
+		pr_err("[%s] failed to request pwm, rc=%d\n", panel->name,
+			rc);
+		return rc;
+	}
+
+	return 0;
+}
+
 static int dsi_panel_bl_register(struct dsi_panel *panel)
 {
 	int rc = 0;
@@ -702,6 +774,9 @@ static int dsi_panel_bl_register(struct dsi_panel *panel)
 		break;
 	case DSI_BACKLIGHT_EXTERNAL:
 		break;
+	case DSI_BACKLIGHT_PWM:
+		rc = dsi_panel_pwm_register(panel);
+		break;
 	default:
 		pr_err("Backlight type(%d) not supported\n", bl->type);
 		rc = -ENOTSUPP;
@@ -710,6 +785,13 @@ static int dsi_panel_bl_register(struct dsi_panel *panel)
 
 error:
 	return rc;
+}
+
+static void dsi_panel_pwm_unregister(struct dsi_panel *panel)
+{
+	struct dsi_backlight_config *bl = &panel->bl_config;
+
+	devm_pwm_put(panel->parent, bl->pwm_bl);
 }
 
 static int dsi_panel_bl_unregister(struct dsi_panel *panel)
@@ -726,6 +808,9 @@ static int dsi_panel_bl_unregister(struct dsi_panel *panel)
 	case DSI_BACKLIGHT_DCS:
 		break;
 	case DSI_BACKLIGHT_EXTERNAL:
+		break;
+	case DSI_BACKLIGHT_PWM:
+		dsi_panel_pwm_unregister(panel);
 		break;
 	default:
 		pr_err("Backlight type(%d) not supported\n", bl->type);
@@ -2042,33 +2127,13 @@ static int dsi_panel_parse_bl_pwm_config(struct dsi_panel *panel)
 	struct dsi_backlight_config *config = &panel->bl_config;
 	struct dsi_parser_utils *utils = &panel->utils;
 
-	rc = utils->read_u32(utils->data, "qcom,dsi-bl-pmic-bank-select",
+	rc = utils->read_u32(utils->data, "qcom,bl-pmic-pwm-period-usecs",
 				  &val);
 	if (rc) {
-		pr_err("bl-pmic-bank-select is not defined, rc=%d\n", rc);
-		goto error;
-	}
-	config->pwm_pmic_bank = val;
-
-	rc = utils->read_u32(utils->data, "qcom,dsi-bl-pmic-pwm-frequency",
-				  &val);
-	if (rc) {
-		pr_err("bl-pmic-bank-select is not defined, rc=%d\n", rc);
+		pr_err("bl-pmic-pwm-period-usecs is not defined, rc=%d\n", rc);
 		goto error;
 	}
 	config->pwm_period_usecs = val;
-
-	config->pwm_pmi_control = utils->read_bool(utils->data,
-						"qcom,mdss-dsi-bl-pwm-pmi");
-
-	config->pwm_gpio = utils->get_named_gpio(utils->data,
-					     "qcom,mdss-dsi-pwm-gpio",
-					     0);
-	if (!gpio_is_valid(config->pwm_gpio)) {
-		pr_err("pwm gpio is invalid\n");
-		rc = -EINVAL;
-		goto error;
-	}
 
 error:
 	return rc;
