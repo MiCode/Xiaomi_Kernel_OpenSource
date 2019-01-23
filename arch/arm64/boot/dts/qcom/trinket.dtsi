@@ -1903,8 +1903,8 @@
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
-				<125 512 0 0>,
-				<125 512 393600 393600>;
+				<55 512 0 0>,
+				<55 512 393600 393600>;
 		qcom,smmu-s1-enable;
 		qcom,no-clock-support;
 		iommus = <&apps_smmu 0x01A6 0x0011>,
@@ -1927,8 +1927,8 @@
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
-			<125 512 0 0>,
-			<125 512 393600 393600>;
+			<55 512 0 0>,
+			<55 512 393600 393600>;
 		qcom,use-sw-aes-cbc-ecb-ctr-algo;
 		qcom,use-sw-aes-xts-algo;
 		qcom,use-sw-aes-ccm-algo;
