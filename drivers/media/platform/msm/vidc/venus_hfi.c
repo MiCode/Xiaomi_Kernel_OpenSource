@@ -3197,9 +3197,9 @@ static int __power_collapse(struct venus_hfi_device *device, bool force)
 		wfi_status = BIT(0) &
 				__read_register(device,
 					VIDC_WRAPPER_TZ_CPU_STATUS);
-		if (!wfi_status) {
+		if (!wfi_status || !idle_status) {
 			dprintk(VIDC_WARN,
-				"Skipping PC, wfi_status not set.\n");
+				"Skipping PC, wfi or idle status not set.\n");
 			goto skip_power_off;
 		}
 
