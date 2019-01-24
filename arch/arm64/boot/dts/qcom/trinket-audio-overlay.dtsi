@@ -184,7 +184,6 @@
 	qcom,model = "trinket-idp-snd-card";
 	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
 	qcom,ext-disp-audio-rx = <0>;
-	qcom,wcn-btfm = <0>;
 	qcom,audio-routing =
 		"AMIC2", "MIC BIAS2",
 		"MIC BIAS2", "Analog Mic2",
