@@ -94,7 +94,7 @@
 
 		qcom,dsi-ctrl-num = <0>;
 		qcom,dsi-phy-num = <0>;
-		qcom,dsi-select-clocks = "src_byte_clk0", "src_pixel_clk0";
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
 
 		qcom,dsi-panel = <&dsi_td4330_truly_video>;
 	};
@@ -105,7 +105,7 @@
 
 		qcom,dsi-ctrl-num = <0>;
 		qcom,dsi-phy-num = <0>;
-		qcom,dsi-select-clocks = "src_byte_clk0", "src_pixel_clk0";
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
 
 		qcom,dsi-panel = <&dsi_td4330_truly_cmd>;
 	};
@@ -118,7 +118,7 @@
 
 		clocks = <&mdss_dsi0_pll BYTE0_MUX_CLK>,
 			 <&mdss_dsi0_pll PIX0_MUX_CLK>;
-		clock-names = "src_byte_clk0", "src_pixel_clk0";
+		clock-names = "mux_byte_clk0", "mux_pixel_clk0";
 		pinctrl-names = "panel_active", "panel_suspend";
 		pinctrl-0 = <&sde_dsi_active &sde_te_active>;
 		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
@@ -177,8 +177,7 @@
 &dsi_td4330_truly_video {
 	qcom,mdss-dsi-t-clk-post = <0x0e>;
 	qcom,mdss-dsi-t-clk-pre = <0x36>;
-	qcom,mdss-dsi-min-refresh-rate = <48>;
-	qcom,mdss-dsi-max-refresh-rate = <60>;
+	qcom,dsi-supported-dfps-list = <60 55 48>;
 	qcom,mdss-dsi-pan-enable-dynamic-fps;
 	qcom,mdss-dsi-pan-fps-update =
 		"dfps_immediate_porch_mode_vfp";
