@@ -93,7 +93,7 @@ static struct dp_pll_vco_clk dp_vco_clk = {
 };
 
 static struct clk_fixed_factor dp_phy_pll_link_clk = {
-	.div = 5,
+	.div = 10,
 	.mult = 1,
 
 	.hw.init = &(struct clk_init_data){
@@ -284,6 +284,7 @@ static int dp_vco_pll_init_db_14nm(struct dp_pll_db *pdb,
 		pdb->lock_cmp2_mode0 = 0x21;
 		pdb->lock_cmp3_mode0 = 0x00;
 		pdb->phy_vco_div = 0x1;
+		pdb->lane_mode_1 = 0xc6;
 		break;
 	case DP_VCO_HSCLK_RATE_2700MHZDIV1000:
 		pdb->hsclk_sel = 0x24;
@@ -295,6 +296,7 @@ static int dp_vco_pll_init_db_14nm(struct dp_pll_db *pdb,
 		pdb->lock_cmp2_mode0 = 0x38;
 		pdb->lock_cmp3_mode0 = 0x00;
 		pdb->phy_vco_div = 0x1;
+		pdb->lane_mode_1 = 0xc4;
 		break;
 	case DP_VCO_HSCLK_RATE_5400MHZDIV1000:
 		pdb->hsclk_sel = 0x20;
@@ -306,6 +308,7 @@ static int dp_vco_pll_init_db_14nm(struct dp_pll_db *pdb,
 		pdb->lock_cmp2_mode0 = 0x70;
 		pdb->lock_cmp3_mode0 = 0x00;
 		pdb->phy_vco_div = 0x2;
+		pdb->lane_mode_1 = 0xc4;
 		break;
 	default:
 		return -EINVAL;
@@ -326,17 +329,7 @@ int dp_config_vco_rate_14nm(struct dp_pll_vco_clk *vco,
 		return res;
 	}
 
-	if (pdb->lane_cnt != 4) {
-		if (pdb->orientation == ORIENTATION_CC2)
-			MDSS_PLL_REG_W(dp_res->phy_base,
-				DP_PHY_PD_CTL, 0x2d);
-		else
-			MDSS_PLL_REG_W(dp_res->phy_base,
-				DP_PHY_PD_CTL, 0x35);
-	} else {
-		MDSS_PLL_REG_W(dp_res->phy_base,
-			DP_PHY_PD_CTL, 0x3d);
-	}
+	MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_PD_CTL, 0x3d);
 
 	/* Make sure the PHY register writes are done */
 	wmb();
@@ -411,9 +404,9 @@ int dp_config_vco_rate_14nm(struct dp_pll_vco_clk *vco,
 	wmb(); /* make sure write happens */
 
 	if (pdb->orientation == ORIENTATION_CC2)
-		MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_MODE, 0xc8);
+		MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_MODE, 0xc9);
 	else
-		MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_MODE, 0xd8);
+		MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_MODE, 0xd9);
 	wmb(); /* make sure write happens */
 
 	/* TX Lane configuration */
@@ -538,10 +531,8 @@ static bool dp_14nm_phy_rdy_status(struct mdss_pll_resources *dp_res)
 static int dp_pll_enable_14nm(struct clk_hw *hw)
 {
 	int rc = 0;
-	u32 bias_en, drvr_en;
 	struct dp_pll_vco_clk *vco = to_dp_vco_hw(hw);
 	struct mdss_pll_resources *dp_res = vco->priv;
-	struct dp_pll_db *pdb = (struct dp_pll_db *)dp_res->priv;
 
 	MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_CFG, 0x01);
 	MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_CFG, 0x05);
@@ -572,36 +563,14 @@ static int dp_pll_enable_14nm(struct clk_hw *hw)
 
 	pr_debug("PLL is locked\n");
 
-	if (pdb->lane_cnt == 1) {
-		bias_en = 0x3e;
-		drvr_en = 0x13;
-	} else {
-		bias_en = 0x3f;
-		drvr_en = 0x10;
-	}
-
-	if (pdb->lane_cnt != 4) {
-		if (pdb->orientation == ORIENTATION_CC1) {
-			MDSS_PLL_REG_W(dp_res->phy_base,
-			QSERDES_TX1_OFFSET + TXn_TRANSCEIVER_BIAS_EN, bias_en);
-			MDSS_PLL_REG_W(dp_res->phy_base,
-			QSERDES_TX1_OFFSET + TXn_HIGHZ_DRVR_EN, drvr_en);
-		} else {
-			MDSS_PLL_REG_W(dp_res->phy_base,
-			QSERDES_TX0_OFFSET + TXn_TRANSCEIVER_BIAS_EN, bias_en);
-			MDSS_PLL_REG_W(dp_res->phy_base,
-			QSERDES_TX0_OFFSET + TXn_HIGHZ_DRVR_EN, drvr_en);
-		}
-	} else {
-		MDSS_PLL_REG_W(dp_res->phy_base,
-			QSERDES_TX0_OFFSET + TXn_TRANSCEIVER_BIAS_EN, bias_en);
-		MDSS_PLL_REG_W(dp_res->phy_base,
-			QSERDES_TX0_OFFSET + TXn_HIGHZ_DRVR_EN, drvr_en);
-		MDSS_PLL_REG_W(dp_res->phy_base,
-			QSERDES_TX1_OFFSET + TXn_TRANSCEIVER_BIAS_EN, bias_en);
-		MDSS_PLL_REG_W(dp_res->phy_base,
-			QSERDES_TX1_OFFSET + TXn_HIGHZ_DRVR_EN, drvr_en);
-	}
+	MDSS_PLL_REG_W(dp_res->phy_base,
+		QSERDES_TX0_OFFSET + TXn_TRANSCEIVER_BIAS_EN, 0x3f);
+	MDSS_PLL_REG_W(dp_res->phy_base,
+		QSERDES_TX0_OFFSET + TXn_HIGHZ_DRVR_EN, 0x10);
+	MDSS_PLL_REG_W(dp_res->phy_base,
+		QSERDES_TX1_OFFSET + TXn_TRANSCEIVER_BIAS_EN, 0x3f);
+	MDSS_PLL_REG_W(dp_res->phy_base,
+		QSERDES_TX1_OFFSET + TXn_HIGHZ_DRVR_EN, 0x10);
 
 	MDSS_PLL_REG_W(dp_res->phy_base,
 		QSERDES_TX0_OFFSET + TXn_TX_POL_INV, 0x0a);
@@ -730,7 +699,7 @@ unsigned long dp_vco_recalc_rate_14nm(struct clk_hw *hw,
 {
 	struct dp_pll_vco_clk *vco = to_dp_vco_hw(hw);
 	int rc;
-	u32 div, hsclk_div, link2xclk_div = 0;
+	u32 div, hsclk_div;
 	u64 vco_rate;
 	struct mdss_pll_resources *dp_res = vco->priv;
 
@@ -757,28 +726,12 @@ unsigned long dp_vco_recalc_rate_14nm(struct clk_hw *hw,
 		hsclk_div = 5;
 	}
 
-	div = MDSS_PLL_REG_R(dp_res->phy_base, DP_PHY_MODE);
-
-	if (div & 0xd8)
-		pr_err("DP PAR Rate not correct\n");
-
-	if ((div & 0x3) == 1)
-		link2xclk_div = 10;
-	else if ((div & 0x3) == 0)
-		link2xclk_div = 5;
-	else
-		pr_err("unsupported div. Phy_mode: %d\n", div);
-
-	if (link2xclk_div == 10) {
+	if (hsclk_div == 5)
+		vco_rate = DP_VCO_HSCLK_RATE_1620MHZDIV1000;
+	else if (hsclk_div == 3)
 		vco_rate = DP_VCO_HSCLK_RATE_2700MHZDIV1000;
-	} else {
-		if (hsclk_div == 5)
-			vco_rate = DP_VCO_HSCLK_RATE_1620MHZDIV1000;
-		else if (hsclk_div == 3)
-			vco_rate = DP_VCO_HSCLK_RATE_2700MHZDIV1000;
-		else
-			vco_rate = DP_VCO_HSCLK_RATE_5400MHZDIV1000;
-	}
+	else
+		vco_rate = DP_VCO_HSCLK_RATE_5400MHZDIV1000;
 
 	pr_debug("returning vco rate = %lu\n", (unsigned long)vco_rate);
 

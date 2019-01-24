@@ -8,7 +8,7 @@ obj-$(CONFIG_QCOM_MDSS_PLL) += mdss-dsi-pll-28lpm.o
 obj-$(CONFIG_QCOM_MDSS_PLL) += mdss-dsi-pll-28nm-util.o
 obj-$(CONFIG_QCOM_MDSS_PLL) += mdss-dsi-pll-14nm.o
 obj-$(CONFIG_QCOM_MDSS_PLL) += mdss-dsi-pll-14nm-util.o
-
+obj-$(CONFIG_QCOM_MDSS_PLL) += mdss-hdmi-pll-28lpm.o
 obj-$(CONFIG_QCOM_MDSS_DP_PLL) += mdss-dp-pll-7nm.o \
 	mdss-dp-pll-7nm-util.o \
 	mdss-dp-pll-10nm.o \

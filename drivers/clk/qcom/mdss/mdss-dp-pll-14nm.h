@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __MDSS_DP_PLL_14NM_H
@@ -168,6 +168,9 @@ struct dp_pll_db {
 
 	/* PHY vco divider */
 	u32 phy_vco_div;
+
+	/* TX settings */
+	u32 lane_mode_1;
 };
 
 int dp_vco_set_rate_14nm(struct clk_hw *hw, unsigned long rate,
