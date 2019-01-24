@@ -113,6 +113,18 @@ In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltag
 	- qcom,wakeup-on-idle: if configured, the mmcqd thread will call
 	  set_wake_up_idle(), thereby voting for it to be called on idle CPUs.
 
+	- qcom,late-sdhci-msm: if configured, the sdhci probe will be called in
+	  late_init() call context and probe will be delayed.
+
+	- qcom,tsens-id: temperature sensor id which is closest to SDC host controller.
+
+	- qcom,disable_scaling_threshold_temp: temperature value at which scaling is
+	  disabled if the temperature falls below this temperature.
+
+	- qcom,enable_scaling_threshold_temp: temperature value at which scaling is
+	  enabled, when the scaling is disabled, if temperature rises above this
+	  temperature.
+
 Example:
 
 	aliases {

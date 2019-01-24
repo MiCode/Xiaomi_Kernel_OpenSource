@@ -185,6 +185,9 @@ struct mmc_host_ops {
 	int	(*notify_load)(struct mmc_host *, enum mmc_load);
 	void	(*notify_halt)(struct mmc_host *mmc, bool halt);
 	void	(*force_err_irq)(struct mmc_host *host, u64 errmask);
+	int	(*check_temp)(struct mmc_host *host);
+	int	(*reg_temp_callback)(struct mmc_host *host);
+	int	(*dereg_temp_callback)(struct mmc_host *host);
 };
 
 struct mmc_card;
