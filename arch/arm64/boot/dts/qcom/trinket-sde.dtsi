@@ -236,18 +236,19 @@
 			qcom,msm-bus,num-cases = <4>;
 			qcom,msm-bus,num-paths = <1>;
 			qcom,msm-bus,vectors-KBps =
-				<1 590 0 0>,
-				<1 590 0 76800>,
-				<1 590 0 150000>,
-				<1 590 0 300000>;
+				<1 700 0 0>,
+				<1 700 0 76800>,
+				<1 700 0 150000>,
+				<1 700 0 300000>;
 		};
 	};
 
 	mdss_rotator: qcom,mdss_rotator@5e00000 {
 		compatible = "qcom,sde_rotator";
-		reg = <0x5e00000 0xac000>;
-		reg-names = "mdp_phys";
-		status = "disabled";
+		reg = <0x5e00000 0xac000>,
+		      <0x5eb0000 0x2008>;
+		reg-names = "mdp_phys",
+			    "rot_vbif_phys";
 
 		#list-cells = <1>;
 
@@ -295,8 +296,8 @@
 			qcom,msm-bus,num-cases = <2>;
 			qcom,msm-bus,num-paths = <1>;
 			qcom,msm-bus,vectors-KBps =
-				<1 590 0 0>,
-				<1 590 0 76800>;
+				<1 700 0 0>,
+				<1 700 0 76800>;
 		};
 
 		smmu_rot_unsec: qcom,smmu_rot_unsec_cb {
