@@ -1998,6 +1998,25 @@ void cnss_pci_fw_boot_timeout_hdlr(struct cnss_pci_data *pci_priv)
 			       CNSS_REASON_TIMEOUT);
 }
 
+static int cnss_pci_smmu_fault_handler(struct iommu_domain *domain,
+				       struct device *dev, unsigned long iova,
+				       int flags, void *handler_token)
+{
+	struct cnss_pci_data *pci_priv = handler_token;
+
+	cnss_pr_err("SMMU fault happened with IOVA 0x%lx\n", iova);
+
+	if (!pci_priv) {
+		cnss_pr_err("pci_priv is NULL\n");
+		return -ENODEV;
+	}
+
+	cnss_force_fw_assert(&pci_priv->pci_dev->dev);
+
+	/* IOMMU driver requires non-zero return value to print debug info. */
+	return -EINVAL;
+}
+
 static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 {
 	struct pci_dev *pci_dev = pci_priv->pci_dev;
@@ -2021,6 +2040,8 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 	if (!ret && !strcmp("fastmap", iommu_dma_type)) {
 		cnss_pr_dbg("Enabling SMMU S1 stage\n");
 		pci_priv->smmu_s1_enable = true;
+		iommu_set_fault_handler(pci_priv->iommu_domain,
+					cnss_pci_smmu_fault_handler, pci_priv);
 	}
 
 	ret = of_property_read_u32_array(of_node,  "qcom,iommu-dma-addr-pool",
