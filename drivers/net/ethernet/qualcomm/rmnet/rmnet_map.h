@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved. */
 
 #ifndef _RMNET_MAP_H_
 #define _RMNET_MAP_H_
@@ -133,6 +133,20 @@ struct rmnet_map_dl_ind {
 
 #define RMNET_MAP_NO_PAD_BYTES        0
 #define RMNET_MAP_ADD_PAD_BYTES       1
+
+static inline unsigned char *rmnet_map_data_ptr(struct sk_buff *skb)
+{
+	return skb->data;
+}
+
+static inline struct rmnet_map_control_command *
+rmnet_map_get_cmd_start(struct sk_buff *skb)
+{
+	unsigned char *data = rmnet_map_data_ptr(skb);
+
+	data += sizeof(struct rmnet_map_header);
+	return (struct rmnet_map_control_command *)data;
+}
 
 struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 				      struct rmnet_port *port);

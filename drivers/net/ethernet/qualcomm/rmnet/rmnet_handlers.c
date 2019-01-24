@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * RMNET Data ingress/egress handler
  *
@@ -45,13 +45,15 @@ EXPORT_TRACEPOINT_SYMBOL(rmnet_err);
 
 static int rmnet_check_skb_can_gro(struct sk_buff *skb)
 {
+	unsigned char *data = rmnet_map_data_ptr(skb);
+
 	switch (skb->protocol) {
 	case htons(ETH_P_IP):
-		if (ip_hdr(skb)->protocol == IPPROTO_TCP)
+		if (((struct iphdr *)data)->protocol == IPPROTO_TCP)
 			return 0;
 		break;
 	case htons(ETH_P_IPV6):
-		if (ipv6_hdr(skb)->nexthdr == IPPROTO_TCP)
+		if (((struct ipv6hdr *)data)->nexthdr == IPPROTO_TCP)
 			return 0;
 		/* Fall through */
 	}
@@ -61,7 +63,7 @@ static int rmnet_check_skb_can_gro(struct sk_buff *skb)
 
 void rmnet_set_skb_proto(struct sk_buff *skb)
 {
-	switch (skb->data[0] & 0xF0) {
+	switch (rmnet_map_data_ptr(skb)[0] & 0xF0) {
 	case RMNET_IP_VERSION_4:
 		skb->protocol = htons(ETH_P_IP);
 		break;
@@ -129,11 +131,13 @@ static void
 __rmnet_map_ingress_handler(struct sk_buff *skb,
 			    struct rmnet_port *port)
 {
+	struct rmnet_map_header *qmap;
 	struct rmnet_endpoint *ep;
 	u16 len, pad;
 	u8 mux_id;
 
-	if (RMNET_MAP_GET_CD_BIT(skb)) {
+	qmap = (struct rmnet_map_header *)rmnet_map_data_ptr(skb);
+	if (qmap->cd_bit) {
 		if (port->data_format & RMNET_INGRESS_FORMAT_DL_MARKER) {
 			if (!rmnet_map_flow_command(skb, port, false))
 				return;
@@ -145,9 +149,9 @@ __rmnet_map_ingress_handler(struct sk_buff *skb,
 		goto free_skb;
 	}
 
-	mux_id = RMNET_MAP_GET_MUX_ID(skb);
-	pad = RMNET_MAP_GET_PAD(skb);
-	len = RMNET_MAP_GET_LENGTH(skb) - pad;
+	mux_id = qmap->mux_id;
+	pad = qmap->pad_len;
+	len = ntohs(qmap->pkt_len) - pad;
 
 	if (mux_id >= RMNET_MAX_LOGICAL_EP)
 		goto free_skb;
