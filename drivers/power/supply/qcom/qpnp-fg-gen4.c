@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"FG: %s: " fmt, __func__
@@ -1027,7 +1027,7 @@ static int fg_gen4_store_count(void *data, u16 *buf, int id, int length)
 	rc = fg_sram_write(&chip->fg, CYCLE_COUNT_WORD + id, CYCLE_COUNT_OFFSET,
 			(u8 *)buf, length, FG_IMA_DEFAULT);
 	if (rc < 0)
-		pr_err("failed to write bucket %d rc=%d\n", rc);
+		pr_err("failed to write bucket %d rc=%d\n", id, rc);
 
 	return rc;
 }
