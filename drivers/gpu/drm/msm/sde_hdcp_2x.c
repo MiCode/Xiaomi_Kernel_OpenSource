@@ -64,6 +64,10 @@ struct sde_hdcp_2x_ctrl {
 	atomic_t hdcp_off;
 	enum sde_hdcp_2x_device_type device_type;
 	u8 min_enc_level;
+	struct list_head stream_handles;
+	u8 stream_count;
+	struct stream_info *streams;
+	u8 num_streams;
 
 	struct task_struct *thread;
 	struct completion response_completion;
@@ -315,6 +319,8 @@ static void sde_hdcp_2x_force_encryption(void *data, bool enable)
 
 static void sde_hdcp_2x_clean(struct sde_hdcp_2x_ctrl *hdcp)
 {
+	struct list_head *element;
+	struct sde_hdcp_stream *stream_entry;
 	struct hdcp_transport_wakeup_data cdata = {HDCP_TRANSPORT_CMD_INVALID};
 
 	hdcp->authenticated = false;
@@ -322,10 +328,20 @@ static void sde_hdcp_2x_clean(struct sde_hdcp_2x_ctrl *hdcp)
 	cdata.context = hdcp->client_data;
 	cdata.cmd = HDCP_TRANSPORT_CMD_STATUS_FAILED;
 
-	if (!atomic_read(&hdcp->hdcp_off))
-		sde_hdcp_2x_wakeup_client(hdcp, &cdata);
+	while (!list_empty(&hdcp->stream_handles)) {
+		element = hdcp->stream_handles.next;
+		list_del(element);
 
-	atomic_set(&hdcp->hdcp_off, 1);
+		stream_entry = list_entry(element, struct sde_hdcp_stream,
+			list);
+		hdcp2_close_stream(hdcp->hdcp2_ctx,
+			stream_entry->stream_handle);
+		kzfree(stream_entry);
+		hdcp->stream_count--;
+	}
+
+	if (!atomic_xchg(&hdcp->hdcp_off, 1))
+		sde_hdcp_2x_wakeup_client(hdcp, &cdata);
 
 	hdcp2_app_comm(hdcp->hdcp2_ctx, HDCP2_CMD_STOP, &hdcp->app_data);
 }
@@ -546,7 +562,8 @@ static void sde_hdcp_2x_msg_recvd(struct sde_hdcp_2x_ctrl *hdcp)
 		goto exit;
 	}
 
-	if (hdcp->device_type == HDCP_TXMTR_DP) {
+	if (hdcp->device_type == HDCP_TXMTR_DP ||
+			hdcp->device_type == HDCP_TXMTR_DP_MST) {
 		msg[0] = hdcp->last_msg;
 		message_id_bytes = 1;
 	}
@@ -632,6 +649,147 @@ exit:
 		sde_hdcp_2x_clean(hdcp);
 }
 
+static struct list_head *sde_hdcp_2x_stream_present(
+		struct sde_hdcp_2x_ctrl *hdcp, u8 stream_id, u8 virtual_channel)
+{
+	struct sde_hdcp_stream *stream_entry;
+	struct list_head *entry;
+	bool present = false;
+
+	list_for_each(entry, &hdcp->stream_handles) {
+		stream_entry = list_entry(entry,
+			struct sde_hdcp_stream, list);
+		if (stream_entry->virtual_channel == virtual_channel &&
+				stream_entry->stream_id == stream_id) {
+			present = true;
+			break;
+		}
+	}
+
+	if (!present)
+		entry = NULL;
+	return entry;
+}
+
+static void sde_hdcp_2x_open_stream(struct sde_hdcp_2x_ctrl *hdcp)
+{
+	int rc;
+	size_t iterations, i;
+	u8 stream_id;
+	u8 virtual_channel;
+	u32 stream_handle = 0;
+	bool query_streams = false;
+
+	if (!hdcp->streams) {
+		pr_err("Array of streams to register is NULL\n");
+		return;
+	}
+
+	iterations = min(hdcp->num_streams, (u8)(MAX_STREAM_COUNT));
+
+	for (i  = 0; i < iterations; i++) {
+		if (hdcp->stream_count == MAX_STREAM_COUNT) {
+			pr_debug("Registered the maximum amount of streams\n");
+			break;
+		}
+
+		stream_id = hdcp->streams[i].stream_id;
+		virtual_channel = hdcp->streams[i].virtual_channel;
+
+		pr_debug("Opening stream %d, virtual channel %d\n",
+			stream_id, virtual_channel);
+
+		if (sde_hdcp_2x_stream_present(hdcp, stream_id,
+				virtual_channel)) {
+			pr_debug("Stream %d, virtual channel %d already open\n",
+				stream_id, virtual_channel);
+			continue;
+		}
+
+		rc = hdcp2_open_stream(hdcp->hdcp2_ctx, virtual_channel,
+				stream_id, &stream_handle);
+		if (rc) {
+			pr_err("Unable to open stream %d, virtual channel %d\n",
+				stream_id, virtual_channel);
+		} else {
+			struct sde_hdcp_stream *stream =
+				kzalloc(sizeof(struct sde_hdcp_stream),
+					GFP_KERNEL);
+			if (!stream)
+				break;
+
+			INIT_LIST_HEAD(&stream->list);
+			stream->stream_handle = stream_handle;
+			stream->stream_id = stream_id;
+			stream->virtual_channel = virtual_channel;
+
+			list_add(&stream->list, &hdcp->stream_handles);
+			hdcp->stream_count++;
+
+			query_streams = true;
+		}
+	}
+
+	if (query_streams && hdcp->authenticated)
+		sde_hdcp_2x_query_stream(hdcp);
+}
+
+static void sde_hdcp_2x_close_stream(struct sde_hdcp_2x_ctrl *hdcp)
+{
+	int rc;
+	size_t iterations, i;
+	u8 stream_id;
+	u8 virtual_channel;
+	struct list_head *entry;
+	struct sde_hdcp_stream *stream_entry;
+	bool query_streams = false;
+
+	if (!hdcp->streams) {
+		pr_err("Array of streams to register is NULL\n");
+		return;
+	}
+
+	iterations = min(hdcp->num_streams, (u8)(MAX_STREAM_COUNT));
+
+	for (i = 0; i < iterations; i++) {
+		if (hdcp->stream_count == 0) {
+			pr_debug("No streams are currently registered\n");
+			return;
+		}
+
+		stream_id = hdcp->streams[i].stream_id;
+		virtual_channel = hdcp->streams[i].virtual_channel;
+
+		pr_debug("Closing stream %d, virtual channel %d\n",
+			stream_id, virtual_channel);
+
+		entry = sde_hdcp_2x_stream_present(hdcp, stream_id,
+			virtual_channel);
+
+		if (!entry) {
+			pr_err("Unable to find stream %d, virtual channel %d\n"
+				, stream_id, virtual_channel);
+			continue;
+		}
+
+		stream_entry = list_entry(entry, struct sde_hdcp_stream,
+			list);
+
+		rc = hdcp2_close_stream(hdcp->hdcp2_ctx,
+			stream_entry->stream_handle);
+		if (rc)
+			pr_err("Unable to close stream %d, virtual channel %d\n"
+				, stream_id, virtual_channel);
+		hdcp->stream_count--;
+		list_del(entry);
+		kzfree(stream_entry);
+		query_streams = true;
+	}
+
+	if (query_streams && hdcp->authenticated)
+		sde_hdcp_2x_query_stream(hdcp);
+}
+
 /** sde_hdcp_2x_wakeup() - wakeup the module to execute a requested command
  * @data: data required for executing corresponding command.
  *
@@ -655,6 +813,8 @@ static int sde_hdcp_2x_wakeup(struct sde_hdcp_2x_wakeup_data *data)
 	hdcp->timeout_left = data->timeout;
 	hdcp->total_message_length = data->total_message_length;
 	hdcp->min_enc_level = data->min_enc_level;
+	hdcp->streams = data->streams;
+	hdcp->num_streams = data->num_streams;
 
 	if (!completion_done(&hdcp->response_completion))
 		complete_all(&hdcp->response_completion);
@@ -743,6 +903,12 @@ static int sde_hdcp_2x_main(void *data)
 			}
 			sde_hdcp_2x_query_stream(hdcp);
 			break;
+		case HDCP_2X_CMD_OPEN_STREAMS:
+			sde_hdcp_2x_open_stream(hdcp);
+			break;
+		case HDCP_2X_CMD_CLOSE_STREAMS:
+			sde_hdcp_2x_close_stream(hdcp);
+			break;
 		default:
 			break;
 		}
@@ -787,6 +953,7 @@ int sde_hdcp_2x_register(struct sde_hdcp_2x_register_data *data)
 		goto unlock;
 	}
 
+	INIT_LIST_HEAD(&hdcp->stream_handles);
 	hdcp->client_data = data->client_data;
 	hdcp->client_ops = data->client_ops;
 
