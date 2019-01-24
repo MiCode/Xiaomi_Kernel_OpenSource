@@ -3790,7 +3790,7 @@ static int dsi_display_update_dsi_bitrate(struct dsi_display *display,
 
 	display->config.bit_clk_rate_hz = bit_clk_rate;
 
-	for (i = 0; i < display->ctrl_count; i++) {
+	display_for_each_ctrl(i, display) {
 		struct dsi_display_ctrl *dsi_disp_ctrl = &display->ctrl[i];
 		struct dsi_ctrl *ctrl = dsi_disp_ctrl->ctrl;
 		u32 num_of_lanes = 0, bpp;
@@ -3918,8 +3918,7 @@ static int _dsi_display_dyn_update_clks(struct dsi_display *display,
 		goto exit;
 	}
 
-	for (i = 0; (i < display->ctrl_count) &&
-	     (i < MAX_DSI_CTRLS_PER_DISPLAY); i++) {
+	display_for_each_ctrl(i, display) {
 		ctrl = &display->ctrl[i];
 		if (!ctrl->ctrl)
 			continue;
@@ -3937,8 +3936,7 @@ static int _dsi_display_dyn_update_clks(struct dsi_display *display,
 		}
 	}
 
-	for (i = 0; (i < display->ctrl_count) &&
-	     (i < MAX_DSI_CTRLS_PER_DISPLAY); i++) {
+	display_for_each_ctrl(i, display) {
 		ctrl = &display->ctrl[i];
 		if (ctrl == m_ctrl)
 			continue;
@@ -3947,8 +3945,7 @@ static int _dsi_display_dyn_update_clks(struct dsi_display *display,
 	dsi_phy_dynamic_refresh_trigger(m_ctrl->phy, true);
 
 	/* wait for dynamic refresh done */
-	for (i = 0; (i < display->ctrl_count) &&
-	     (i < MAX_DSI_CTRLS_PER_DISPLAY); i++) {
+	display_for_each_ctrl(i, display) {
 		ctrl = &display->ctrl[i];
 		rc = dsi_ctrl_wait4dynamic_refresh_done(ctrl->ctrl);
 		if (rc) {
@@ -3960,8 +3957,7 @@ static int _dsi_display_dyn_update_clks(struct dsi_display *display,
 		}
 	}
 
-	for (i = 0; (i < display->ctrl_count) &&
-	     (i < MAX_DSI_CTRLS_PER_DISPLAY); i++) {
+	display_for_each_ctrl(i, display) {
 		ctrl = &display->ctrl[i];
 		dsi_phy_dynamic_refresh_clear(ctrl->phy);
 	}
@@ -3976,8 +3972,7 @@ static int _dsi_display_dyn_update_clks(struct dsi_display *display,
 	return rc;
 
 recover_pix_clk:
-	for (i = 0; (i < display->ctrl_count) &&
-	     (i < MAX_DSI_CTRLS_PER_DISPLAY); i++) {
+	display_for_each_ctrl(i, display) {
 		ctrl = &display->ctrl[i];
 		if (!ctrl->ctrl)
 			continue;
@@ -3986,8 +3981,7 @@ recover_pix_clk:
 	}
 
 recover_byte_clk:
-	for (i = 0; (i < display->ctrl_count) &&
-	     (i < MAX_DSI_CTRLS_PER_DISPLAY); i++) {
+	display_for_each_ctrl(i, display) {
 		ctrl = &display->ctrl[i];
 		if (!ctrl->ctrl)
 			continue;
@@ -4021,7 +4015,7 @@ static int dsi_display_dynamic_clk_switch(struct dsi_display *display,
 	dsi_display_mask_ctrl_error_interrupts(display, mask, true);
 
 	/* update the phy timings based on new mode */
-	for (i = 0; i < display->ctrl_count; i++) {
+	display_for_each_ctrl(i, display) {
 		ctrl = &display->ctrl[i];
 		dsi_phy_update_phy_timings(ctrl->phy, &display->config);
 	}
@@ -4041,7 +4035,7 @@ static int dsi_display_dynamic_clk_switch(struct dsi_display *display,
 	_dsi_display_calc_pipe_delay(display, &delay, mode);
 
 	/* configure dynamic refresh ctrl registers */
-	for (i = 0; i < display->ctrl_count; i++) {
+	display_for_each_ctrl(i, display) {
 		ctrl = &display->ctrl[i];
 		if (!ctrl->phy)
 			continue;
@@ -5471,7 +5465,7 @@ static struct dsi_display_ext_bridge *dsi_display_ext_get_bridge(
 		sde_conn = to_sde_connector(conn_iter);
 		if (sde_conn->encoder == bridge->encoder) {
 			display = sde_conn->display;
-			for (i = 0; i < display->ctrl_count; i++) {
+			display_for_each_ctrl(i, display) {
 				if (display->ext_bridge[i].bridge == bridge)
 					return &display->ext_bridge[i];
 			}
@@ -6919,7 +6913,7 @@ static int dsi_display_qsync(struct dsi_display *display, bool enable)
 
 	mutex_lock(&display->display_lock);
 
-	for (i = 0; i < display->ctrl_count; i++) {
+	display_for_each_ctrl(i, display) {
 
 		if (enable) {
 			/* send the commands to enable qsync */
