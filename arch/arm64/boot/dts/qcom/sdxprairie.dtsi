@@ -687,6 +687,12 @@
 		#mbox-cells = <1>;
 	};
 
+	aop-msg-client {
+		compatible = "qcom,debugfs-qmp-client";
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "aop";
+	};
+
 	apps_rsc: mailbox@17840000 {
 		compatible = "qcom,tcs-drv";
 		label = "apps_rsc";
