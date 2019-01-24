@@ -691,6 +691,9 @@ struct sdhci_ops {
 					 unsigned int max_dtr, int host_drv,
 					 int card_drv, int *drv_type);
 	int	(*notify_load)(struct sdhci_host *host, enum mmc_load state);
+	int     (*check_temp)(struct sdhci_host *host);
+	int     (*reg_temp_callback)(struct sdhci_host *host);
+	int     (*dereg_temp_callback)(struct sdhci_host *host);
 	void	(*reset_workaround)(struct sdhci_host *host, u32 enable);
 	void	(*init)(struct sdhci_host *host);
 	void	(*pre_req)(struct sdhci_host *host, struct mmc_request *req);

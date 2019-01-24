@@ -40,6 +40,8 @@
 #include <linux/pm_runtime.h>
 #include <trace/events/mmc.h>
 #include <soc/qcom/boot_stats.h>
+#include <linux/msm_thermal.h>
+#include <linux/msm_tsens.h>
 
 #include "sdhci-msm.h"
 #include "sdhci-msm-ice.h"
@@ -168,6 +170,8 @@
 #define NUM_TUNING_PHASES		16
 #define MAX_DRV_TYPES_SUPPORTED_HS200	4
 #define MSM_AUTOSUSPEND_DELAY_MS 100
+
+#define CENTI_DEGREE_TO_DEGREE 10
 
 struct sdhci_msm_offset {
 	u32 CORE_MCI_DATA_CNT;
@@ -3534,6 +3538,151 @@ int sdhci_msm_notify_load(struct sdhci_host *host, enum mmc_load state)
 	return 0;
 }
 
+static void sdhci_msm_tsens_threshold_notify(
+			struct therm_threshold *tsens_cb_data)
+{
+	struct threshold_info *info = tsens_cb_data->parent;
+	struct sdhci_msm_host *msm_host = container_of(info,
+			struct sdhci_msm_host, tsens_threshold_config);
+	int ret = 0;
+
+	pr_debug("%s: Triggered tsens-notification type=%d zone_id =%d\n",
+		mmc_hostname(msm_host->mmc), tsens_cb_data->trip_triggered,
+		tsens_cb_data->sensor_id);
+
+	switch (tsens_cb_data->trip_triggered) {
+	case THERMAL_TRIP_CONFIGURABLE_HI:
+		atomic_set(&msm_host->clk_scaling_disable, 0);
+		break;
+	case THERMAL_TRIP_CONFIGURABLE_LOW:
+		atomic_set(&msm_host->clk_scaling_disable, 1);
+		break;
+	default:
+		pr_err("%s: trip type %d not supported\n",
+			mmc_hostname(msm_host->mmc),
+			tsens_cb_data->trip_triggered);
+		break;
+	}
+
+	ret = sensor_mgr_set_threshold(tsens_cb_data->sensor_id,
+						tsens_cb_data->threshold);
+	if (ret < 0)
+		pr_err("%s: failed to set threshold temp, ret==%d\n",
+					__func__, ret);
+}
+
+static int sdhci_msm_check_tsens(struct sdhci_msm_host *msm_host)
+{
+	int ret = 0;
+	int temp = 0;
+	bool disable;
+	struct tsens_device tsens_dev;
+
+	if (tsens_is_ready() > 0) {
+		tsens_dev.sensor_num = msm_host->tsens_id;
+		ret = tsens_get_temp(&tsens_dev, &temp);
+		if (ret < 0) {
+			pr_err("%s: failed to read tsens, ret = %d\n",
+				mmc_hostname(msm_host->mmc), ret);
+			return ret;
+		}
+		/* convert centidegree to degree*/
+		temp /= CENTI_DEGREE_TO_DEGREE;
+		disable = temp <= msm_host->disable_scaling_threshold_temp;
+		if (disable)
+			atomic_set(&msm_host->clk_scaling_disable, 1);
+	}
+	return ret;
+}
+
+static int sdhci_msm_register_cb(struct sdhci_msm_host *msm_host)
+{
+	int ret;
+
+	ret = sdhci_msm_check_tsens(msm_host);
+	if (ret) {
+		pr_err("%s: unable to check tsens\n",
+				mmc_hostname(msm_host->mmc));
+		return ret;
+	}
+
+	ret  = sensor_mgr_init_threshold(&msm_host->tsens_threshold_config,
+				msm_host->tsens_id,
+				msm_host->enable_scaling_threshold_temp,/*high*/
+				msm_host->disable_scaling_threshold_temp,/*low*/
+				sdhci_msm_tsens_threshold_notify);
+	if (ret) {
+		pr_err("%s: failed to register cb for tsens, ret = %d\n",
+					mmc_hostname(msm_host->mmc), ret);
+		return ret;
+	}
+
+	ret = sensor_mgr_convert_id_and_set_threshold(
+				&msm_host->tsens_threshold_config);
+	if (ret) {
+		pr_err("%s: failed to set tsens threshold, ret = %d\n",
+					mmc_hostname(msm_host->mmc), ret);
+		return ret;
+	}
+	return ret;
+}
+
+static int sdhci_msm_tsens_pltfm_init(struct sdhci_msm_host *msm_host)
+{
+	int ret = 0;
+	struct device *dev = &msm_host->pdev->dev;
+	struct device_node *np = dev->of_node;
+
+	of_property_read_u32(np, "qcom,tsens-id", &msm_host->tsens_id);
+	of_property_read_s32(np, "qcom,disable_scaling_threshold_temp",
+				&msm_host->disable_scaling_threshold_temp);
+	of_property_read_s32(np, "qcom,enable_scaling_threshold_temp",
+				&msm_host->enable_scaling_threshold_temp);
+
+	if (msm_host->tsens_id)
+		msm_host->temp_control_scaling = true;
+	else
+		msm_host->temp_control_scaling = false;
+
+	atomic_set(&msm_host->clk_scaling_disable, 0);
+	return ret;
+}
+
+static int sdhci_msm_dereg_temp_callback(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+
+	if (msm_host->temp_control_scaling)
+		sensor_mgr_remove_threshold(
+			&msm_host->tsens_threshold_config);
+	return 0;
+}
+
+static int sdhci_msm_reg_temp_callback(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	int ret = 0;
+
+	if (msm_host->temp_control_scaling) {
+		ret = sdhci_msm_register_cb(msm_host);
+		if (ret)
+			pr_err("%s: failed register temp monitoring call back, ret = %d\n",
+				mmc_hostname(msm_host->mmc), ret);
+	}
+	return ret;
+}
+
+static int sdhci_msm_check_temp(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+
+	return atomic_read(&msm_host->clk_scaling_disable);
+}
+
+
 void sdhci_msm_reset_workaround(struct sdhci_host *host, u32 enable)
 {
 	u32 vendor_func2;
@@ -4080,6 +4229,9 @@ static struct sdhci_ops sdhci_msm_ops = {
 	.clear_set_dumpregs = sdhci_msm_clear_set_dumpregs,
 	.enhanced_strobe_mask = sdhci_msm_enhanced_strobe_mask,
 	.notify_load = sdhci_msm_notify_load,
+	.check_temp = sdhci_msm_check_temp,
+	.reg_temp_callback = sdhci_msm_reg_temp_callback,
+	.dereg_temp_callback = sdhci_msm_dereg_temp_callback,
 	.reset_workaround = sdhci_msm_reset_workaround,
 	.init = sdhci_msm_init,
 	.pre_req = sdhci_msm_pre_req,
@@ -4650,6 +4802,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 				MMC_CAP2_PACKED_WR_CONTROL);
 	}
 
+	sdhci_msm_tsens_pltfm_init(msm_host);
 	init_completion(&msm_host->pwr_irq_completion);
 
 	if (gpio_is_valid(msm_host->pdata->status_gpio)) {
@@ -5072,6 +5225,31 @@ static struct platform_driver sdhci_msm_driver = {
 };
 
 module_platform_driver(sdhci_msm_driver);
+
+static const struct of_device_id late_sdhci_msm_dt_match[] = {
+	{.compatible = "qcom,late-sdhci-msm"},
+	{.compatible = "qcom,sdhci-msm-v5"},
+	{},
+};
+MODULE_DEVICE_TABLE(of, late_sdhci_msm_dt_match);
+
+static struct platform_driver late_sdhci_msm_driver = {
+	.probe          = sdhci_msm_probe,
+	.remove         = sdhci_msm_remove,
+	.driver         = {
+		.name   = "late_sdhci_msm",
+		.owner  = THIS_MODULE,
+		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
+		.of_match_table = late_sdhci_msm_dt_match,
+		.pm     = SDHCI_MSM_PMOPS,
+	},
+};
+
+static int __init late_sdhci_msm_init_driver(void)
+{
+	return platform_driver_register(&late_sdhci_msm_driver);
+}
+late_initcall(late_sdhci_msm_init_driver);
 
 MODULE_DESCRIPTION("Qualcomm Technologies, Inc. Secure Digital Host Controller Interface driver");
 MODULE_LICENSE("GPL v2");
