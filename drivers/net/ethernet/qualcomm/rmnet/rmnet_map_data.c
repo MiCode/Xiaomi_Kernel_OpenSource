@@ -330,14 +330,30 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 	if (ntohs(maph->pkt_len) == 0)
 		return NULL;
 
-	skbn = alloc_skb(packet_len + RMNET_MAP_DEAGGR_SPACING, GFP_ATOMIC);
-	if (!skbn)
-		return NULL;
+	if (skb_is_nonlinear(skb)) {
+		skb_frag_t *frag0 = skb_shinfo(skb)->frags;
+		struct page *page = skb_frag_page(frag0);
 
-	skb_reserve(skbn, RMNET_MAP_DEAGGR_HEADROOM);
-	skb_put(skbn, packet_len);
-	memcpy(skbn->data, data, packet_len);
-	skb_pull(skb, packet_len);
+		skbn = alloc_skb(RMNET_MAP_DEAGGR_HEADROOM, GFP_ATOMIC);
+		if (!skbn)
+			return NULL;
+
+		skb_append_pagefrags(skbn, page, frag0->page_offset,
+				     packet_len);
+		skbn->data_len += packet_len;
+		skbn->len += packet_len;
+	} else {
+		skbn = alloc_skb(packet_len + RMNET_MAP_DEAGGR_SPACING,
+				 GFP_ATOMIC);
+		if (!skbn)
+			return NULL;
+
+		skb_reserve(skbn, RMNET_MAP_DEAGGR_HEADROOM);
+		skb_put(skbn, packet_len);
+		memcpy(skbn->data, data, packet_len);
+	}
+
+	pskb_pull(skb, packet_len);
 
 	return skbn;
 }

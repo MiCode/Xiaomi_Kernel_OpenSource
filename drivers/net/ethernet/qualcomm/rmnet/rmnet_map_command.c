@@ -74,8 +74,8 @@ static void rmnet_map_send_ack(struct sk_buff *skb,
 	struct net_device *dev = skb->dev;
 
 	if (port->data_format & RMNET_FLAGS_INGRESS_MAP_CKSUMV4)
-		skb_trim(skb,
-			 skb->len - sizeof(struct rmnet_map_dl_csum_trailer));
+		pskb_trim(skb,
+			  skb->len - sizeof(struct rmnet_map_dl_csum_trailer));
 
 	skb->protocol = htons(ETH_P_MAP);
 
@@ -124,7 +124,7 @@ static void rmnet_map_process_flow_start(struct sk_buff *skb,
 	if (skb->len < RMNET_DL_IND_HDR_SIZE)
 		return;
 
-	skb_pull(skb, RMNET_MAP_CMD_SIZE);
+	pskb_pull(skb, RMNET_MAP_CMD_SIZE);
 
 	dlhdr = (struct rmnet_map_dl_ind_hdr *)rmnet_map_data_ptr(skb);
 
@@ -152,7 +152,7 @@ static void rmnet_map_process_flow_start(struct sk_buff *skb,
 		pull_size = sizeof(struct rmnet_map_dl_ind_hdr);
 		if (port->data_format & RMNET_FLAGS_INGRESS_MAP_CKSUMV4)
 			pull_size += sizeof(struct rmnet_map_dl_csum_trailer);
-		skb_pull(skb, pull_size);
+		pskb_pull(skb, pull_size);
 	}
 }
 
@@ -165,7 +165,7 @@ static void rmnet_map_process_flow_end(struct sk_buff *skb,
 	if (skb->len < RMNET_DL_IND_TRL_SIZE)
 		return;
 
-	skb_pull(skb, RMNET_MAP_CMD_SIZE);
+	pskb_pull(skb, RMNET_MAP_CMD_SIZE);
 
 	dltrl = (struct rmnet_map_dl_ind_trl *)rmnet_map_data_ptr(skb);
 
@@ -179,7 +179,7 @@ static void rmnet_map_process_flow_end(struct sk_buff *skb,
 		pull_size = sizeof(struct rmnet_map_dl_ind_trl);
 		if (port->data_format & RMNET_FLAGS_INGRESS_MAP_CKSUMV4)
 			pull_size += sizeof(struct rmnet_map_dl_csum_trailer);
-		skb_pull(skb, pull_size);
+		pskb_pull(skb, pull_size);
 	}
 }
 

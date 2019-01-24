@@ -163,7 +163,7 @@ __rmnet_map_ingress_handler(struct sk_buff *skb,
 	skb->dev = ep->egress_dev;
 
 	/* Subtract MAP header */
-	skb_pull(skb, sizeof(struct rmnet_map_header));
+	pskb_pull(skb, sizeof(struct rmnet_map_header));
 	rmnet_set_skb_proto(skb);
 
 	if (port->data_format & RMNET_FLAGS_INGRESS_MAP_CKSUMV4) {
@@ -176,7 +176,7 @@ __rmnet_map_ingress_handler(struct sk_buff *skb,
 		qmi_rmnet_work_maybe_restart(port);
 #endif
 
-	skb_trim(skb, len);
+	pskb_trim(skb, len);
 	rmnet_deliver_skb(skb, port);
 	return;
 

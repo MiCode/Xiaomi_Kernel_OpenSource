@@ -136,6 +136,10 @@ struct rmnet_map_dl_ind {
 
 static inline unsigned char *rmnet_map_data_ptr(struct sk_buff *skb)
 {
+	/* Nonlinear packets we receive are entirely within frag 0 */
+	if (skb_is_nonlinear(skb) && skb->len == skb->data_len)
+		return skb_frag_address(skb_shinfo(skb)->frags);
+
 	return skb->data;
 }
 
