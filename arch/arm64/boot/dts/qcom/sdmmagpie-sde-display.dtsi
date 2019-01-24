@@ -507,8 +507,7 @@
 &dsi_rm69298_truly_amoled_video {
 	qcom,mdss-dsi-t-clk-post = <0x0D>;
 	qcom,mdss-dsi-t-clk-pre = <0x30>;
-	qcom,mdss-dsi-min-refresh-rate = <53>;
-	qcom,mdss-dsi-max-refresh-rate = <60>;
+	qcom,dsi-supported-dfps-list = <60 57 53>;
 	qcom,mdss-dsi-pan-enable-dynamic-fps;
 	qcom,mdss-dsi-pan-fps-update =
 		"dfps_immediate_porch_mode_vfp";

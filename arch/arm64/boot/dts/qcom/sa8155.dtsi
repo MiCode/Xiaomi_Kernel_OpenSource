@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -522,7 +522,7 @@
 
 		qcom,dsi-ctrl-num = <0>;
 		qcom,dsi-phy-num = <0>;
-		qcom,dsi-select-clocks = "src_byte_clk0", "src_pixel_clk0";
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
 
 		qcom,dsi-panel = <&dsi_ext_bridge_1080p>;
 	};
@@ -534,7 +534,7 @@
 
 		qcom,dsi-ctrl-num = <1>;
 		qcom,dsi-phy-num = <1>;
-		qcom,dsi-select-clocks = "src_byte_clk1", "src_pixel_clk1";
+		qcom,dsi-select-clocks = "mux_byte_clk1", "mux_pixel_clk1";
 
 		qcom,dsi-panel = <&dsi_ext_bridge_1080p>;
 	};
@@ -550,8 +550,8 @@
 			 <&mdss_dsi0_pll PCLK_MUX_0_CLK>,
 			 <&mdss_dsi1_pll BYTECLK_MUX_1_CLK>,
 			 <&mdss_dsi1_pll PCLK_MUX_1_CLK>;
-		clock-names = "src_byte_clk0", "src_pixel_clk0",
-			      "src_byte_clk1", "src_pixel_clk1";
+		clock-names = "mux_byte_clk0", "mux_pixel_clk0",
+			      "mux_byte_clk1", "mux_pixel_clk1";
 
 		qcom,dsi-display-list =
 			<&dsi_anx_7625_1>;
@@ -580,8 +580,8 @@
 			 <&mdss_dsi0_pll PCLK_MUX_0_CLK>,
 			 <&mdss_dsi1_pll BYTECLK_MUX_1_CLK>,
 			 <&mdss_dsi1_pll PCLK_MUX_1_CLK>;
-		clock-names = "src_byte_clk0", "src_pixel_clk0",
-			      "src_byte_clk1", "src_pixel_clk1";
+		clock-names = "mux_byte_clk0", "mux_pixel_clk0",
+			      "mux_byte_clk1", "mux_pixel_clk1";
 
 		qcom,dsi-display-list =
 			<&dsi_anx_7625_2>;
