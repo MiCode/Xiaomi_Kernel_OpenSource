@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"dsi-ctrl:[%s] " fmt, __func__
@@ -32,6 +32,9 @@
 #define TO_ON_OFF(x) ((x) ? "ON" : "OFF")
 
 #define CEIL(x, y)              (((x) + ((y)-1)) / (y))
+
+#define TICKS_IN_MICRO_SECOND    1000000
+
 /**
  * enum dsi_ctrl_driver_ops - controller driver ops
  */
@@ -412,9 +415,9 @@ bool dsi_ctrl_validate_host_state(struct dsi_ctrl *dsi_ctrl)
 	}
 
 	if (!state->host_initialized)
-		return true;
+		return false;
 
-	return false;
+	return true;
 }
 
 static void dsi_ctrl_update_state(struct dsi_ctrl *dsi_ctrl,
@@ -822,7 +825,7 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 {
 	int rc = 0;
 	u32 num_of_lanes = 0;
-	u32 bpp;
+	u32 bpp, refresh_rate = TICKS_IN_MICRO_SECOND;
 	u64 h_period, v_period, bit_rate, pclk_rate, bit_rate_per_lane,
 	    byte_clk_rate;
 	struct dsi_host_common_cfg *host_cfg = &config->common_config;
@@ -840,12 +843,18 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 	if (host_cfg->data_lanes & DSI_DATA_LANE_3)
 		num_of_lanes++;
 
-	if (config->bit_clk_rate_hz == 0) {
+	if (config->bit_clk_rate_hz_override == 0) {
 		h_period = DSI_H_TOTAL_DSC(timing);
 		v_period = DSI_V_TOTAL(timing);
-		bit_rate = h_period * v_period * timing->refresh_rate * bpp;
+
+		if (config->panel_mode == DSI_OP_CMD_MODE)
+			do_div(refresh_rate, timing->mdp_transfer_time_us);
+		else
+			refresh_rate = timing->refresh_rate;
+
+		bit_rate = h_period * v_period * refresh_rate * bpp;
 	} else {
-		bit_rate = config->bit_clk_rate_hz * num_of_lanes;
+		bit_rate = config->bit_clk_rate_hz_override * num_of_lanes;
 	}
 
 	bit_rate_per_lane = bit_rate;
@@ -862,6 +871,7 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 	dsi_ctrl->clk_freq.byte_clk_rate = byte_clk_rate;
 	dsi_ctrl->clk_freq.pix_clk_rate = pclk_rate;
 	dsi_ctrl->clk_freq.esc_clk_rate = config->esc_clk_rate_hz;
+	config->bit_clk_rate_hz = dsi_ctrl->clk_freq.byte_clk_rate * 8;
 
 	rc = dsi_clk_set_link_frequencies(clk_handle, dsi_ctrl->clk_freq,
 					dsi_ctrl->cell_index);
@@ -1186,6 +1196,11 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 	}
 
 kickoff:
+	/* check if custom dma scheduling line needed */
+	if ((dsi_ctrl->host_config.panel_mode == DSI_OP_VIDEO_MODE) &&
+		(flags & DSI_CTRL_CMD_CUSTOM_DMA_SCHED))
+		line_no = dsi_ctrl->host_config.u.video_engine.dma_sched_line;
+
 	timing = &(dsi_ctrl->host_config.video_timing);
 	if (timing)
 		line_no += timing->v_back_porch + timing->v_sync_width +

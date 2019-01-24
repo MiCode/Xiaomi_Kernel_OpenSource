@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _DSI_PHY_HW_H_
@@ -85,6 +85,7 @@ struct dsi_phy_per_lane_cfgs {
  * @pll_source:       PLL source.
  * @lane_map:         DSI logical to PHY lane mapping.
  * @force_clk_lane_hs:Boolean whether to force clock lane in HS mode.
+ * @bit_clk_rate_hz: DSI bit clk rate in HZ.
  */
 struct dsi_phy_cfg {
 	struct dsi_phy_per_lane_cfgs lanecfg;
@@ -95,6 +96,7 @@ struct dsi_phy_cfg {
 	enum dsi_phy_pll_source pll_source;
 	struct dsi_lane_map lane_map;
 	bool force_clk_lane_hs;
+	unsigned long bit_clk_rate_hz;
 };
 
 struct dsi_phy_hw;
@@ -269,6 +271,7 @@ struct dsi_phy_hw_ops {
  * @length:                Length of the DSI PHY register base map.
  * @index:                 Instance ID of the controller.
  * @version:               DSI PHY version.
+ * @phy_clamp_base:        Base address of phy clamp register map.
  * @feature_map:           Features supported by DSI PHY.
  * @ops:                   Function pointer to PHY operations.
  */
@@ -278,6 +281,7 @@ struct dsi_phy_hw {
 	u32 index;
 
 	enum dsi_phy_version version;
+	void __iomem *phy_clamp_base;
 
 	DECLARE_BITMAP(feature_map, DSI_PHY_MAX_FEATURES);
 	struct dsi_phy_hw_ops ops;

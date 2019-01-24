@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _DSI_PHY_H_
@@ -41,6 +41,17 @@ enum phy_engine_state {
 	DSI_PHY_ENGINE_MAX,
 };
 
+/**
+ * enum phy_ulps_return_type - define set_ulps return type for dsi phy.
+ * @DSI_PHY_ULPS_HANDLED:      ulps is handled in phy.
+ * @DSI_PHY_ULPS_NOT_HANDLED:  ulps is not handled in phy.
+ * @DSI_PHY_ULPS_ERROR:        ulps request failed in phy.
+ */
+enum phy_ulps_return_type {
+	DSI_PHY_ULPS_HANDLED = 0,
+	DSI_PHY_ULPS_NOT_HANDLED,
+	DSI_PHY_ULPS_ERROR,
+};
 
 /**
  * struct msm_dsi_phy - DSI PHY object
