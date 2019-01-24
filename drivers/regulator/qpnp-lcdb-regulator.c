@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"LCDB: %s: " fmt, __func__
@@ -537,23 +537,9 @@ static int qpnp_lcdb_ttw_enter(struct qpnp_lcdb *lcdb)
 		lcdb->settings_saved = true;
 	}
 
-	val = HWEN_RDY_BIT;
-	rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_ENABLE_CTL1_REG,
-			     &val, 1);
-	if (rc < 0) {
-		pr_err("Failed to hw_enable lcdb rc= %d\n", rc);
-		return rc;
-	}
-
 	val = (BST_SS_TIME_OVERRIDE_1MS << BST_SS_TIME_OVERRIDE_SHIFT) |
 	      (DIS_BST_PRECHG_SHORT_ALARM << BST_PRECHG_SHORT_ALARM_SHIFT);
 	rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_BST_SS_CTL_REG, &val, 1);
-	if (rc < 0)
-		return rc;
-
-	val = 0;
-	rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_LDO_SOFT_START_CTL_REG,
-			     &val, 1);
 	if (rc < 0)
 		return rc;
 
@@ -563,20 +549,8 @@ static int qpnp_lcdb_ttw_enter(struct qpnp_lcdb *lcdb)
 	if (rc < 0)
 		return rc;
 
-	val = BOOST_DIS_PULLDOWN_BIT | BOOST_PD_STRENGTH_BIT;
-	rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_BST_PD_CTL_REG,
-			     &val, 1);
-	if (rc < 0)
-		return rc;
-
-	val = LDO_DIS_PULLDOWN_BIT | LDO_PD_STRENGTH_BIT;
-	rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_LDO_PD_CTL_REG,
-							&val, 1);
-	if (rc < 0)
-		return rc;
-
-	val = NCP_DIS_PULLDOWN_BIT | NCP_PD_STRENGTH_BIT;
-	rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_NCP_PD_CTL_REG,
+	val = 0;
+	rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_LDO_SOFT_START_CTL_REG,
 			     &val, 1);
 	if (rc < 0)
 		return rc;
@@ -589,6 +563,30 @@ static int qpnp_lcdb_ttw_enter(struct qpnp_lcdb *lcdb)
 
 	val = 0;
 	rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_BST_VREG_OK_CTL_REG,
+			     &val, 1);
+	if (rc < 0)
+		return rc;
+
+	val = BOOST_DIS_PULLDOWN_BIT;
+	rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_BST_PD_CTL_REG,
+			     &val, 1);
+	if (rc < 0)
+		return rc;
+
+	val = LDO_DIS_PULLDOWN_BIT;
+	rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_LDO_PD_CTL_REG,
+							&val, 1);
+	if (rc < 0)
+		return rc;
+
+	val = NCP_DIS_PULLDOWN_BIT;
+	rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_NCP_PD_CTL_REG,
+			     &val, 1);
+	if (rc < 0)
+		return rc;
+
+	val = HWEN_RDY_BIT;
+	rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_ENABLE_CTL1_REG,
 			     &val, 1);
 
 	return rc;
