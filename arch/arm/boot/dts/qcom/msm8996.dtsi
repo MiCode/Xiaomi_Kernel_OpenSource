@@ -257,6 +257,7 @@
 	};
 };
 
+#include "msm8996-pinctrl.dtsi"
 #include "msm8996-ion.dtsi"
 #include "msm8996-mdss.dtsi"
 #include "msm8996-mdss-pll.dtsi"
@@ -317,7 +318,7 @@
 		qcom,clock-source-override;
 	};
 
-	intc: interrupt-controller@09bc0000 {
+	intc: interrupt-controller@9bc0000 {
 		compatible = "arm,gic-v3";
 		reg = <0x9bc0000 0x10000>,       /* GICD */
 		      <0x9c00000 0x100000>;      /* GICR * 4 */
@@ -331,7 +332,7 @@
 
 		interrupts = <1 9 4>;
 
-		gic-its@09BE0000 {
+		gic-its@9be0000 {
 			compatible = "arm,gic-v3-its";
 			msi-contoller;
 			reg = <0x9be0000 0x20000>;
@@ -360,7 +361,7 @@
 		qcom,pipe-attr-ee;
 	};
 
-	uartblsp2dm1: serial@075b0000 {
+	uartblsp2dm1: serial@75b0000 {
 		compatible = "qcom,msm-uartdm-v1.4", "qcom,msm-uartdm";
 		reg = <0x75b0000 0x1000>;
 		interrupts = <GIC_SPI 114 IRQ_TYPE_LEVEL_HIGH>;
@@ -369,7 +370,7 @@
 		clock-names = "core", "iface";
 	};
 
-	uartblsp1dm1: serial@07570000 {
+	uartblsp1dm1: serial@7570000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0x7570000 0x1000>;
 		interrupts = <0 108 0>;
@@ -405,7 +406,7 @@
 	};
 
 
-	dma_blsp1: qcom,sps-dma@0x7544000{ /* BLSP1 */
+	dma_blsp1: qcom,sps-dma@7544000{ /* BLSP1 */
 		#dma-cells = <4>;
 		compatible = "qcom,sps-dma";
 		reg = <0x7544000 0x2b000>;
@@ -413,7 +414,7 @@
 		qcom,summing-threshold = <0x10>;
 	};
 
-	dma_blsp2: qcom,sps-dma@0x7584000{ /* BLSP2 */
+	dma_blsp2: qcom,sps-dma@7584000{ /* BLSP2 */
 		#dma-cells = <4>;
 		compatible = "qcom,sps-dma";
 		reg = <0x7584000 0x2b000>;
@@ -496,7 +497,7 @@
 		pinctrl-2 = <&i2c_8_bitbang>;
 	};
 
-	blsp1_uart2: uart@07570000 { /* BLSP1 UART2 */
+	blsp1_uart2: uart@7570000 { /* BLSP1 UART2 */
 		compatible = "qcom,msm-hsuart-v14";
 		reg = <0x07570000 0x1000>,
 		    <0x7544000 0x2b000>;
@@ -921,7 +922,7 @@
 		pinctrl-1 = <&spkr_i2s_clk_active>;
 	};
 
-	tspp: msm_tspp@075e7000 {
+	tspp: msm_tspp@75e7000 {
 		compatible = "qcom,msm_tspp";
 		reg = <0x075e7000 0x1000>, /* MSM_TSIF0_PHYS */
 		      <0x075e8000 0x1000>, /* MSM_TSIF1_PHYS */
@@ -1097,7 +1098,7 @@
 		status = "disabled";
 	};
 
-	sdhc_2: sdhci@74A4900 {
+	sdhc_2: sdhci@74a4900 {
 		compatible = "qcom,sdhci-msm";
 		reg = <0x74A4900 0x314>, <0x74A4000 0x800>;
 		reg-names = "hc_mem", "core_mem";
@@ -1302,7 +1303,7 @@
 		status = "disabled";
 	};
 
-	pcie0: qcom,pcie@00600000 {
+	pcie0: qcom,pcie@600000 {
 		compatible = "qcom,pci-msm";
 		cell-index = <0>;
 
@@ -1458,7 +1459,7 @@
 					 <0>, <0>, <0>, <0>, <0>, <0>, <0>;
 	};
 
-	pcie1: qcom,pcie@00608000 {
+	pcie1: qcom,pcie@608000 {
 		compatible = "qcom,pci-msm";
 		cell-index = <1>;
 
@@ -1610,7 +1611,7 @@
 					 <0>, <0>, <0>, <0>, <0>, <0>, <0>;
 	};
 
-	pcie2: qcom,pcie@00610000 {
+	pcie2: qcom,pcie@610000 {
 		compatible = "qcom,pci-msm";
 		cell-index = <2>;
 
@@ -2552,7 +2553,7 @@
 		qcom,ipa-advertise-sg-support;
 	};
 
-	pcie_ep: qcom,pcie-ep@00600000 {
+	pcie_ep: qcom,pcie-ep@600000 {
 		compatible = "qcom,pcie-ep";
 
 		reg = <0x0c001000 0x1000>,
@@ -4258,7 +4259,7 @@
 				  "l2_irq_err_0", "l2_irq_err_1", "l3_irq";
 	};
 
-	qcom,m4m_erp64@9A40000 {
+	qcom,m4m_erp64@9a40000 {
 		compatible = "qcom,m4m_erp";
 		reg = <0x9A40000 0x40000>;
 		interrupts = <0 22 0>;
@@ -4270,7 +4271,7 @@
 		interrupts = <0 23 4>;
 	};
 
-	timer@09840000 {
+	timer@9840000 {
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
@@ -4278,7 +4279,7 @@
 		reg = <0x09840000 0x1000>;
 		clock-frequency = <19200000>;
 
-		frame@09850000 {
+		frame@9850000 {
 			frame-number = <0>;
 			interrupts = <0 31 0x4>,
 				     <0 30 0x4>;
@@ -4286,42 +4287,42 @@
 			      <0x09860000 0x1000>;
 		};
 
-		frame@09870000 {
+		frame@9870000 {
 			frame-number = <1>;
 			interrupts = <0 32 0x4>;
 			reg = <0x09870000 0x1000>;
 			status = "disabled";
 		};
 
-		frame@09880000 {
+		frame@9880000 {
 			frame-number = <2>;
 			interrupts = <0 33 0x4>;
 			reg = <0x09880000 0x1000>;
 			status = "disabled";
 		};
 
-		frame@09890000 {
+		frame@9890000 {
 			frame-number = <3>;
 			interrupts = <0 34 0x4>;
 			reg = <0x09890000 0x1000>;
 			status = "disabled";
 		};
 
-		frame@098a0000 {
+		frame@98a0000 {
 			frame-number = <4>;
 			interrupts = <0 35 0x4>;
 			reg = <0x098a0000 0x1000>;
 			status = "disabled";
 		};
 
-		frame@098b0000 {
+		frame@98b0000 {
 			frame-number = <5>;
 			interrupts = <0 36 0x4>;
 			reg = <0x098b0000 0x1000>;
 			status = "disabled";
 		};
 
-		frame@098c0000 {
+		frame@98c0000 {
 			frame-number = <6>;
 			interrupts = <0 37 0x4>;
 			reg = <0x098c0000 0x1000>;

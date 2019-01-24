@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,7 +14,7 @@
 #include <dt-bindings/msm/pm.h>
 
 &soc {
-	qcom,spm@9A10000 {
+	qcom,spm@9a10000 {
 		compatible = "qcom,spm-v2";
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -525,13 +525,13 @@
 			<69  145>;
 	};
 
-	rpm_msg_ram: memory@0x200000 {
+	rpm_msg_ram: memory@200000 {
 		compatible = "qcom,rpm-msg-ram";
 		reg = <0x200000 0x1000>,
 			<0x290000 0x1000>;
 	};
 
-	rpm_code_ram: rpm-memory@0x68000 {
+	rpm_code_ram: rpm-memory@68000 {
 		compatible = "qcom,rpm-code-ram";
 		reg = <0x68000 0x5000>;
 	};

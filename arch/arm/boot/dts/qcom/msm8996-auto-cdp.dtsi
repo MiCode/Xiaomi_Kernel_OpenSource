@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -833,7 +833,7 @@
 		};
 	};
 
-	pinctrl@01010000 {
+	pinctrl@1010000 {
 		pcie2 {
 			pcie2_perst_default: pcie2_perst_default {
 				mux {

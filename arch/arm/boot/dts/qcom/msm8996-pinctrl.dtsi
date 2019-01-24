@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,7 +11,7 @@
  */
 
 &soc {
-	tlmm: pinctrl@01010000 {
+	tlmm: pinctrl@1010000 {
 		compatible = "qcom,msm8996-pinctrl";
 		reg = <0x01010000 0x300000>;
 		interrupts = <0 208 0>;
