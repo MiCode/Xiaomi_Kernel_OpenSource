@@ -6,10 +6,146 @@
 
 #ifndef _CAM_VFE480_H_
 #define _CAM_VFE480_H_
-
+#include "cam_vfe_camif_ver3.h"
+#include "cam_vfe_camif_ver2.h"
+#include "cam_vfe_camif_lite_ver2.h"
+#include "cam_vfe_top_ver2.h"
+#include "cam_vfe_top_ver3.h"
+#include "cam_vfe_core.h"
 #include "cam_vfe_bus_ver3.h"
 #include "cam_irq_controller.h"
 #include "cam_vfe175.h"
+
+static struct cam_irq_register_set vfe480_top_irq_reg_set[3] = {
+	{
+		.mask_reg_offset   = 0x0000003C,
+		.clear_reg_offset  = 0x00000048,
+		.status_reg_offset = 0x00000054,
+	},
+	{
+		.mask_reg_offset   = 0x00000040,
+		.clear_reg_offset  = 0x0000004C,
+		.status_reg_offset = 0x00000058,
+	},
+		{
+		.mask_reg_offset   = 0x00000044,
+		.clear_reg_offset  = 0x00000050,
+		.status_reg_offset = 0x0000005C,
+	},
+};
+
+static struct cam_irq_controller_reg_info vfe480_top_irq_reg_info = {
+	.num_registers = 3,
+	.irq_reg_set = vfe480_top_irq_reg_set,
+	.global_clear_offset  = 0x00000038,
+	.global_clear_bitmask = 0x00000001,
+};
+
+static struct cam_vfe_camif_ver3_pp_clc_reg vfe480_camif_reg = {
+	.hw_version                  = 0x00002600,
+	.hw_status                   = 0x00002604,
+	.module_cfg                  = 0x00002660,
+	.pdaf_raw_crop_width_cfg     = 0x00002668,
+	.pdaf_raw_crop_height_cfg    = 0x0000266C,
+	.line_skip_pattern           = 0x00002670,
+	.pixel_skip_pattern          = 0x00002674,
+	.period_cfg                  = 0x00002678,
+	.irq_subsample_pattern       = 0x0000267C,
+	.epoch_irq_cfg               = 0x00002680,
+	.debug_1                     = 0x000027F0,
+	.debug_0                     = 0x000027F4,
+	.test_bus_ctrl               = 0x000027F8,
+	.spare                       = 0x000027FC,
+	.reg_update_cmd              = 0x00000034,
+};
+
+static struct cam_vfe_camif_ver3_reg_data vfe_480_camif_reg_data = {
+	.pp_extern_reg_update_shift      = 4,
+	.lcr_extern_reg_update_shift     = 16,
+	.dual_pd_extern_reg_update_shift = 17,
+	.extern_reg_update_mask          = 1,
+	.pixel_pattern_shift             = 24,
+	.pixel_pattern_mask              = 0x7,
+	.dsp_mode_shift                  = 24,
+	.dsp_mode_mask                   = 0x1,
+	.dsp_en_shift                    = 23,
+	.dsp_en_mask                     = 0x1,
+	.reg_update_cmd_data             = 0x41,
+	.epoch_line_cfg                  = 0x00000014,
+	.sof_irq_mask                    = 0x00000001,
+	.epoch0_irq_mask                 = 0x00000004,
+	.epoch1_irq_mask                 = 0x00000008,
+	.reg_update_irq_mask             = 0x00000001,
+	.eof_irq_mask                    = 0x00000002,
+	.error_irq_mask0                 = 0x0003FC00,
+	.error_irq_mask2                 = 0xEFFF7E80,
+	.enable_diagnostic_hw            = 0x1,
+	.pp_camif_cfg_en_shift           = 0,
+	.pp_camif_cfg_ife_out_en_shift   = 8,
+};
+
+static struct cam_vfe_top_ver3_reg_offset_common vfe480_top_common_reg = {
+	.hw_version               = 0x00000000,
+	.titan_version            = 0x00000004,
+	.hw_capability            = 0x00000008,
+	.lens_feature             = 0x0000000C,
+	.stats_feature            = 0x00000010,
+	.color_feature            = 0x00000014,
+	.zoom_feature             = 0x00000018,
+	.global_reset_cmd         = 0x0000001C,
+	.core_cfg_0               = 0x0000002C,
+	.core_cfg_1               = 0x00000030,
+	.reg_update_cmd           = 0x00000034,
+	.violation_status         = 0x00000074,
+	.core_cgc_ovd_0           = 0x00000020,
+	.core_cgc_ovd_1           = 0x00000094,
+	.ahb_cgc_ovd              = 0x00000024,
+	.noc_cgc_ovd              = 0x00000028,
+	.trigger_cdm_events       = 0x00000090,
+	.sbi_frame_idx            = 0x00000110,
+	.dsp_status               = 0x0000007C,
+	.diag_config              = 0x00000064,
+	.diag_sensor_status_0     = 0x00000068,
+	.diag_sensor_status_1     = 0x00000098,
+};
+
+static struct cam_vfe_rdi_ver2_reg vfe480_rdi_reg = {
+	.reg_update_cmd           = 0x000004AC,
+};
+
+static struct cam_vfe_rdi_reg_data  vfe_480_rdi_0_data = {
+	.reg_update_cmd_data      = 0x2,
+	.sof_irq_mask             = 0x8000000,
+	.reg_update_irq_mask      = 0x20,
+};
+
+static struct cam_vfe_rdi_reg_data  vfe_480_rdi_1_data = {
+	.reg_update_cmd_data      = 0x4,
+	.sof_irq_mask             = 0x10000000,
+	.reg_update_irq_mask      = 0x40,
+};
+
+static struct cam_vfe_rdi_reg_data  vfe_480_rdi_2_data = {
+	.reg_update_cmd_data      = 0x8,
+	.sof_irq_mask             = 0x20000000,
+	.reg_update_irq_mask      = 0x80,
+};
+
+static struct cam_vfe_top_ver3_hw_info vfe480_top_hw_info = {
+	.common_reg = &vfe480_top_common_reg,
+	.camif_hw_info = {
+		.common_reg     = &vfe480_top_common_reg,
+		.camif_reg      = &vfe480_camif_reg,
+		.reg_data       = &vfe_480_camif_reg_data,
+		},
+	.mux_type = {
+		CAM_VFE_CAMIF_VER_3_0,
+		CAM_VFE_RDI_VER_1_0,
+		CAM_VFE_RDI_VER_1_0,
+		CAM_VFE_RDI_VER_1_0,
+		CAM_VFE_CAMIF_LITE_VER_2_0,
+	},
+};
 
 static struct cam_irq_register_set vfe480_bus_irq_reg[2] = {
 		{
@@ -1028,7 +1164,7 @@ static struct cam_vfe_bus_rd_ver1_hw_info vfe480_bus_rd_hw_info = {
 };
 
 struct cam_vfe_hw_info cam_vfe480_hw_info = {
-	.irq_reg_info                  = &vfe175_top_irq_reg_info,
+	.irq_reg_info                  = &vfe480_top_irq_reg_info,
 
 	.bus_version                   = CAM_VFE_BUS_VER_3_0,
 	.bus_hw_info                   = &vfe480_bus_hw_info,
@@ -1036,15 +1172,14 @@ struct cam_vfe_hw_info cam_vfe480_hw_info = {
 	.bus_rd_version                = CAM_VFE_BUS_RD_VER_1_0,
 	.bus_rd_hw_info                = &vfe480_bus_rd_hw_info,
 
-	.top_version                   = CAM_VFE_TOP_VER_2_0,
-	.top_hw_info                   = &vfe175_top_hw_info,
+	.top_version                   = CAM_VFE_TOP_VER_3_0,
+	.top_hw_info                   = &vfe480_top_hw_info,
 
-	.camif_version                 = CAM_VFE_CAMIF_VER_2_0,
-	.camif_reg                     = &vfe175_camif_reg,
+	.camif_version                 = CAM_VFE_CAMIF_VER_3_0,
+	.camif_reg                     = &vfe480_camif_reg,
 
 	.camif_lite_version            = CAM_VFE_CAMIF_LITE_VER_2_0,
 	.camif_lite_reg                = &vfe175_camif_lite_reg,
-
 };
 
 #endif /* _CAM_VFE480_H_ */

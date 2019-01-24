@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include "cam_vfe_top.h"
 #include "cam_vfe_top_ver2.h"
+#include "cam_vfe_top_ver3.h"
 #include "cam_debug_util.h"
 
 int cam_vfe_top_init(uint32_t          top_version,
@@ -18,6 +19,10 @@ int cam_vfe_top_init(uint32_t          top_version,
 	switch (top_version) {
 	case CAM_VFE_TOP_VER_2_0:
 		rc = cam_vfe_top_ver2_init(soc_info, hw_intf, top_hw_info,
+			vfe_top);
+		break;
+	case CAM_VFE_TOP_VER_3_0:
+		rc = cam_vfe_top_ver3_init(soc_info, hw_intf, top_hw_info,
 			vfe_top);
 		break;
 	default:
@@ -36,6 +41,9 @@ int cam_vfe_top_deinit(uint32_t        top_version,
 	switch (top_version) {
 	case CAM_VFE_TOP_VER_2_0:
 		rc = cam_vfe_top_ver2_deinit(vfe_top);
+		break;
+	case CAM_VFE_TOP_VER_3_0:
+		rc = cam_vfe_top_ver3_deinit(vfe_top);
 		break;
 	default:
 		CAM_ERR(CAM_ISP, "Error! Unsupported Version %x", top_version);

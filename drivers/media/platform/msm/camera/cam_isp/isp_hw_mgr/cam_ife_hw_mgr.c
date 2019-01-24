@@ -4236,8 +4236,8 @@ static int cam_ife_hw_mgr_get_err_type(
 	void                              *handler_priv,
 	void                              *payload)
 {
-	struct cam_isp_resource_node         *hw_res_l = NULL;
-	struct cam_isp_resource_node         *hw_res_r = NULL;
+	struct cam_isp_resource_node         *hw_res_left = NULL;
+	struct cam_isp_resource_node         *hw_res_right = NULL;
 	struct cam_ife_hw_mgr_ctx            *ife_hwr_mgr_ctx;
 	struct cam_vfe_top_irq_evt_payload   *evt_payload;
 	struct cam_ife_hw_mgr_res            *isp_ife_camif_res = NULL;
@@ -4263,40 +4263,41 @@ static int cam_ife_hw_mgr_get_err_type(
 			(isp_ife_camif_res->res_id != CAM_ISP_HW_VFE_IN_CAMIF))
 			continue;
 
-		hw_res_l = isp_ife_camif_res->hw_res[CAM_ISP_HW_SPLIT_LEFT];
-		hw_res_r = isp_ife_camif_res->hw_res[CAM_ISP_HW_SPLIT_RIGHT];
+		hw_res_left = isp_ife_camif_res->hw_res[CAM_ISP_HW_SPLIT_LEFT];
+		hw_res_right =
+			isp_ife_camif_res->hw_res[CAM_ISP_HW_SPLIT_RIGHT];
 
-		CAM_DBG(CAM_ISP, "is_dual_vfe ? = %d\n",
+		CAM_DBG(CAM_ISP, "is_dual_vfe ? = %d",
 			isp_ife_camif_res->is_dual_vfe);
 
 		/* ERROR check for Left VFE */
-		if (!hw_res_l) {
+		if (!hw_res_left) {
 			CAM_DBG(CAM_ISP, "VFE(L) Device is NULL");
 			break;
 		}
 
 		CAM_DBG(CAM_ISP, "core id= %d, HW id %d", core_idx,
-			hw_res_l->hw_intf->hw_idx);
+			hw_res_left->hw_intf->hw_idx);
 
-		if (core_idx == hw_res_l->hw_intf->hw_idx) {
-			status = hw_res_l->bottom_half_handler(
-				hw_res_l, evt_payload);
+		if (core_idx == hw_res_left->hw_intf->hw_idx) {
+			status = hw_res_left->bottom_half_handler(
+				hw_res_left, evt_payload);
 		}
 
 		if (status)
 			break;
 
 		/* ERROR check for Right  VFE */
-		if (!hw_res_r) {
+		if (!hw_res_right) {
 			CAM_DBG(CAM_ISP, "VFE(R) Device is NULL");
 			continue;
 		}
 		CAM_DBG(CAM_ISP, "core id= %d, HW id %d", core_idx,
-			hw_res_r->hw_intf->hw_idx);
+			hw_res_right->hw_intf->hw_idx);
 
-		if (core_idx == hw_res_r->hw_intf->hw_idx) {
-			status = hw_res_r->bottom_half_handler(
-				hw_res_r, evt_payload);
+		if (core_idx == hw_res_right->hw_intf->hw_idx) {
+			status = hw_res_right->bottom_half_handler(
+				hw_res_right, evt_payload);
 		}
 
 		if (status)
@@ -4492,6 +4493,62 @@ static int cam_ife_hw_mgr_handle_reg_update(
 	return 0;
 }
 
+static int cam_ife_hw_mgr_handle_reg_update_in_bus(
+	void                              *handler_priv,
+	void                              *payload)
+{
+	struct cam_ife_hw_mgr_ctx               *ife_hwr_mgr_ctx;
+	struct cam_vfe_bus_irq_evt_payload      *evt_payload;
+	cam_hw_event_cb_func                     ife_hwr_irq_rup_cb;
+	struct cam_isp_hw_reg_update_event_data  rup_event_data;
+	uint32_t                                 core_idx;
+	struct cam_ife_hw_mgr_res               *isp_ife_out_res;
+	struct cam_isp_resource_node            *hw_res_left;
+	uint32_t                                 rup_status = -EINVAL;
+	int                                      i = 0;
+
+	CAM_DBG(CAM_ISP, "Enter");
+
+	ife_hwr_mgr_ctx = handler_priv;
+	evt_payload = payload;
+
+	if (!handler_priv || !payload) {
+		CAM_ERR(CAM_ISP, "Invalid Parameter");
+		return -EPERM;
+	}
+
+	core_idx = evt_payload->core_index;
+	ife_hwr_irq_rup_cb =
+		ife_hwr_mgr_ctx->common.event_cb[CAM_ISP_HW_EVENT_REG_UPDATE];
+
+	evt_payload->evt_id = CAM_ISP_HW_EVENT_REG_UPDATE;
+	for (i = 0; i < CAM_IFE_HW_OUT_RES_MAX; i++) {
+		isp_ife_out_res = &ife_hwr_mgr_ctx->res_list_ife_out[i];
+		if (isp_ife_out_res->res_type == CAM_IFE_HW_MGR_RES_UNINIT)
+			continue;
+
+		hw_res_left = isp_ife_out_res->hw_res[0];
+		if (hw_res_left && (evt_payload->core_index ==
+			hw_res_left->hw_intf->hw_idx))
+			rup_status = hw_res_left->bottom_half_handler(
+				hw_res_left, evt_payload);
+	}
+
+	CAM_DBG(CAM_ISP, "Exit rup_status = %d", rup_status);
+
+	if (!rup_status) {
+		CAM_DBG(CAM_ISP, "Exit rup_status = %d", rup_status);
+
+	if (!atomic_read(&ife_hwr_mgr_ctx->overflow_pending))
+		ife_hwr_irq_rup_cb(
+			ife_hwr_mgr_ctx->common.cb_priv,
+				CAM_ISP_HW_EVENT_REG_UPDATE,
+				&rup_event_data);
+	}
+
+	return 0;
+}
+
 static int cam_ife_hw_mgr_check_irq_for_dual_vfe(
 	struct cam_ife_hw_mgr_ctx   *ife_hw_mgr_ctx,
 	uint32_t                     core_idx0,
@@ -4548,8 +4605,8 @@ static int cam_ife_hw_mgr_handle_epoch_for_camif_hw_res(
 	void                              *payload)
 {
 	int32_t rc = -EINVAL;
-	struct cam_isp_resource_node         *hw_res_l;
-	struct cam_isp_resource_node         *hw_res_r;
+	struct cam_isp_resource_node         *hw_res_left;
+	struct cam_isp_resource_node         *hw_res_right;
 	struct cam_ife_hw_mgr_ctx            *ife_hwr_mgr_ctx;
 	struct cam_vfe_top_irq_evt_payload   *evt_payload;
 	struct cam_ife_hw_mgr_res            *isp_ife_camif_res = NULL;
@@ -4578,21 +4635,21 @@ static int cam_ife_hw_mgr_handle_epoch_for_camif_hw_res(
 			continue;
 		}
 
-		hw_res_l = isp_ife_camif_res->hw_res[0];
-		hw_res_r = isp_ife_camif_res->hw_res[1];
+		hw_res_left = isp_ife_camif_res->hw_res[0];
+		hw_res_right = isp_ife_camif_res->hw_res[1];
 
 		switch (isp_ife_camif_res->is_dual_vfe) {
 		/* Handling Single VFE Scenario */
 		case 0:
 			/* EPOCH check for Left side VFE */
-			if (!hw_res_l) {
+			if (!hw_res_left) {
 				CAM_ERR(CAM_ISP, "Left Device is NULL");
 				break;
 			}
 
-			if (core_idx == hw_res_l->hw_intf->hw_idx) {
-				epoch_status = hw_res_l->bottom_half_handler(
-					hw_res_l, evt_payload);
+			if (core_idx == hw_res_left->hw_intf->hw_idx) {
+				epoch_status = hw_res_left->bottom_half_handler(
+					hw_res_left, evt_payload);
 				if (atomic_read(
 					&ife_hwr_mgr_ctx->overflow_pending))
 					break;
@@ -4609,13 +4666,13 @@ static int cam_ife_hw_mgr_handle_epoch_for_camif_hw_res(
 		case 1:
 			/* SOF check for Left side VFE (Master)*/
 
-			if ((!hw_res_l) || (!hw_res_r)) {
+			if ((!hw_res_left) || (!hw_res_right)) {
 				CAM_ERR(CAM_ISP, "Dual VFE Device is NULL");
 				break;
 			}
-			if (core_idx == hw_res_l->hw_intf->hw_idx) {
-				epoch_status = hw_res_l->bottom_half_handler(
-					hw_res_l, evt_payload);
+			if (core_idx == hw_res_left->hw_intf->hw_idx) {
+				epoch_status = hw_res_left->bottom_half_handler(
+					hw_res_left, evt_payload);
 
 				if (!epoch_status)
 					ife_hwr_mgr_ctx->epoch_cnt[core_idx]++;
@@ -4624,9 +4681,10 @@ static int cam_ife_hw_mgr_handle_epoch_for_camif_hw_res(
 			}
 
 			/* SOF check for Right side VFE */
-			if (core_idx == hw_res_r->hw_intf->hw_idx) {
-				epoch_status = hw_res_r->bottom_half_handler(
-					hw_res_r, evt_payload);
+			if (core_idx == hw_res_right->hw_intf->hw_idx) {
+				epoch_status =
+					hw_res_right->bottom_half_handler(
+					hw_res_right, evt_payload);
 
 				if (!epoch_status)
 					ife_hwr_mgr_ctx->epoch_cnt[core_idx]++;
@@ -4634,8 +4692,8 @@ static int cam_ife_hw_mgr_handle_epoch_for_camif_hw_res(
 					break;
 			}
 
-			core_index0 = hw_res_l->hw_intf->hw_idx;
-			core_index1 = hw_res_r->hw_intf->hw_idx;
+			core_index0 = hw_res_left->hw_intf->hw_idx;
+			core_index1 = hw_res_right->hw_intf->hw_idx;
 
 			rc = cam_ife_hw_mgr_check_irq_for_dual_vfe(
 					ife_hwr_mgr_ctx,
@@ -4671,8 +4729,8 @@ static int cam_ife_hw_mgr_process_camif_sof(
 	struct cam_ife_hw_mgr_ctx            *ife_hwr_mgr_ctx,
 	struct cam_vfe_top_irq_evt_payload   *evt_payload)
 {
-	struct cam_isp_resource_node         *hw_res_l = NULL;
-	struct cam_isp_resource_node         *hw_res_r = NULL;
+	struct cam_isp_resource_node         *hw_res_left = NULL;
+	struct cam_isp_resource_node         *hw_res_right = NULL;
 	int32_t rc = -EINVAL;
 	uint32_t  core_idx;
 	uint32_t  sof_status = 0;
@@ -4681,8 +4739,8 @@ static int cam_ife_hw_mgr_process_camif_sof(
 
 	CAM_DBG(CAM_ISP, "Enter");
 	core_idx = evt_payload->core_index;
-	hw_res_l = isp_ife_camif_res->hw_res[0];
-	hw_res_r = isp_ife_camif_res->hw_res[1];
+	hw_res_left = isp_ife_camif_res->hw_res[0];
+	hw_res_right = isp_ife_camif_res->hw_res[1];
 	CAM_DBG(CAM_ISP, "is_dual_vfe ? = %d",
 		isp_ife_camif_res->is_dual_vfe);
 
@@ -4690,16 +4748,16 @@ static int cam_ife_hw_mgr_process_camif_sof(
 	/* Handling Single VFE Scenario */
 	case 0:
 		/* SOF check for Left side VFE */
-		if (!hw_res_l) {
+		if (!hw_res_left) {
 			CAM_ERR(CAM_ISP, "VFE Device is NULL");
 			break;
 		}
 		CAM_DBG(CAM_ISP, "curr_core_idx = %d,core idx hw = %d",
-			core_idx, hw_res_l->hw_intf->hw_idx);
+			core_idx, hw_res_left->hw_intf->hw_idx);
 
-		if (core_idx == hw_res_l->hw_intf->hw_idx) {
-			sof_status = hw_res_l->bottom_half_handler(hw_res_l,
-				evt_payload);
+		if (core_idx == hw_res_left->hw_intf->hw_idx) {
+			sof_status = hw_res_left->bottom_half_handler(
+				hw_res_left, evt_payload);
 			if (atomic_read(&ife_hwr_mgr_ctx->overflow_pending))
 				break;
 			if (!sof_status)
@@ -4712,17 +4770,17 @@ static int cam_ife_hw_mgr_process_camif_sof(
 	case 1:
 		/* SOF check for Left side VFE */
 
-		if (!hw_res_l) {
+		if (!hw_res_left) {
 			CAM_ERR(CAM_ISP, "VFE Device is NULL");
 			break;
 		}
 		CAM_DBG(CAM_ISP, "curr_core_idx = %d, res hw idx= %d",
 				 core_idx,
-				hw_res_l->hw_intf->hw_idx);
+				hw_res_left->hw_intf->hw_idx);
 
-		if (core_idx == hw_res_l->hw_intf->hw_idx) {
-			sof_status = hw_res_l->bottom_half_handler(
-				hw_res_l, evt_payload);
+		if (core_idx == hw_res_left->hw_intf->hw_idx) {
+			sof_status = hw_res_left->bottom_half_handler(
+				hw_res_left, evt_payload);
 			if (!sof_status)
 				ife_hwr_mgr_ctx->sof_cnt[core_idx]++;
 			else
@@ -4730,24 +4788,24 @@ static int cam_ife_hw_mgr_process_camif_sof(
 		}
 
 		/* SOF check for Right side VFE */
-		if (!hw_res_r) {
+		if (!hw_res_right) {
 			CAM_ERR(CAM_ISP, "VFE Device is NULL");
 			break;
 		}
 		CAM_DBG(CAM_ISP, "curr_core_idx = %d, ews hw idx= %d",
 				 core_idx,
-				hw_res_r->hw_intf->hw_idx);
-		if (core_idx == hw_res_r->hw_intf->hw_idx) {
-			sof_status = hw_res_r->bottom_half_handler(hw_res_r,
-				evt_payload);
+				hw_res_right->hw_intf->hw_idx);
+		if (core_idx == hw_res_right->hw_intf->hw_idx) {
+			sof_status = hw_res_right->bottom_half_handler(
+				hw_res_right, evt_payload);
 			if (!sof_status)
 				ife_hwr_mgr_ctx->sof_cnt[core_idx]++;
 			else
 				break;
 		}
 
-		core_index0 = hw_res_l->hw_intf->hw_idx;
-		core_index1 = hw_res_r->hw_intf->hw_idx;
+		core_index0 = hw_res_left->hw_intf->hw_idx;
+		core_index1 = hw_res_right->hw_intf->hw_idx;
 
 		if (atomic_read(&ife_hwr_mgr_ctx->overflow_pending))
 			break;
@@ -4867,8 +4925,8 @@ static int cam_ife_hw_mgr_handle_eof_for_camif_hw_res(
 	void                              *payload)
 {
 	int32_t rc = -EINVAL;
-	struct cam_isp_resource_node         *hw_res_l = NULL;
-	struct cam_isp_resource_node         *hw_res_r = NULL;
+	struct cam_isp_resource_node         *hw_res_left = NULL;
+	struct cam_isp_resource_node         *hw_res_right = NULL;
 	struct cam_ife_hw_mgr_ctx            *ife_hwr_mgr_ctx;
 	struct cam_vfe_top_irq_evt_payload   *evt_payload;
 	struct cam_ife_hw_mgr_res            *isp_ife_camif_res = NULL;
@@ -4901,8 +4959,8 @@ static int cam_ife_hw_mgr_handle_eof_for_camif_hw_res(
 			(isp_ife_camif_res->res_id != CAM_ISP_HW_VFE_IN_CAMIF))
 			continue;
 
-		hw_res_l = isp_ife_camif_res->hw_res[0];
-		hw_res_r = isp_ife_camif_res->hw_res[1];
+		hw_res_left = isp_ife_camif_res->hw_res[0];
+		hw_res_right = isp_ife_camif_res->hw_res[1];
 
 		CAM_DBG(CAM_ISP, "is_dual_vfe ? = %d",
 				isp_ife_camif_res->is_dual_vfe);
@@ -4910,17 +4968,17 @@ static int cam_ife_hw_mgr_handle_eof_for_camif_hw_res(
 		/* Handling Single VFE Scenario */
 		case 0:
 			/* EOF check for Left side VFE */
-			if (!hw_res_l) {
+			if (!hw_res_left) {
 				pr_err("%s: VFE Device is NULL\n",
 					__func__);
 				break;
 			}
 			CAM_DBG(CAM_ISP, "curr_core_idx = %d, core idx hw = %d",
-					core_idx, hw_res_l->hw_intf->hw_idx);
+					core_idx, hw_res_left->hw_intf->hw_idx);
 
-			if (core_idx == hw_res_l->hw_intf->hw_idx) {
-				eof_status = hw_res_l->bottom_half_handler(
-					hw_res_l, evt_payload);
+			if (core_idx == hw_res_left->hw_intf->hw_idx) {
+				eof_status = hw_res_left->bottom_half_handler(
+					hw_res_left, evt_payload);
 				if (atomic_read(
 					&ife_hwr_mgr_ctx->overflow_pending))
 					break;
@@ -4934,13 +4992,13 @@ static int cam_ife_hw_mgr_handle_eof_for_camif_hw_res(
 			break;
 		/* Handling dual VFE Scenario */
 		case 1:
-			if ((!hw_res_l) || (!hw_res_r)) {
+			if ((!hw_res_left) || (!hw_res_right)) {
 				CAM_ERR(CAM_ISP, "Dual VFE Device is NULL");
 				break;
 			}
-			if (core_idx == hw_res_l->hw_intf->hw_idx) {
-				eof_status = hw_res_l->bottom_half_handler(
-					hw_res_l, evt_payload);
+			if (core_idx == hw_res_left->hw_intf->hw_idx) {
+				eof_status = hw_res_left->bottom_half_handler(
+					hw_res_left, evt_payload);
 
 				if (!eof_status)
 					ife_hwr_mgr_ctx->eof_cnt[core_idx]++;
@@ -4949,9 +5007,9 @@ static int cam_ife_hw_mgr_handle_eof_for_camif_hw_res(
 			}
 
 			/* EOF check for Right side VFE */
-			if (core_idx == hw_res_r->hw_intf->hw_idx) {
-				eof_status = hw_res_r->bottom_half_handler(
-					hw_res_r, evt_payload);
+			if (core_idx == hw_res_right->hw_intf->hw_idx) {
+				eof_status = hw_res_right->bottom_half_handler(
+					hw_res_right, evt_payload);
 
 				if (!eof_status)
 					ife_hwr_mgr_ctx->eof_cnt[core_idx]++;
@@ -4959,8 +5017,8 @@ static int cam_ife_hw_mgr_handle_eof_for_camif_hw_res(
 					break;
 			}
 
-			core_index0 = hw_res_l->hw_intf->hw_idx;
-			core_index1 = hw_res_r->hw_intf->hw_idx;
+			core_index0 = hw_res_left->hw_intf->hw_idx;
+			core_index1 = hw_res_right->hw_intf->hw_idx;
 
 			rc = cam_ife_hw_mgr_check_irq_for_dual_vfe(
 					ife_hwr_mgr_ctx,
@@ -4999,7 +5057,7 @@ static int cam_ife_hw_mgr_handle_buf_done_for_hw_res(
 	int32_t                              i;
 	int32_t                              rc = 0;
 	cam_hw_event_cb_func                 ife_hwr_irq_wm_done_cb;
-	struct cam_isp_resource_node        *hw_res_l = NULL;
+	struct cam_isp_resource_node        *hw_res_left = NULL;
 	struct cam_ife_hw_mgr_ctx           *ife_hwr_mgr_ctx = NULL;
 	struct cam_vfe_bus_irq_evt_payload  *evt_payload = payload;
 	struct cam_ife_hw_mgr_res           *isp_ife_out_res = NULL;
@@ -5023,7 +5081,7 @@ static int cam_ife_hw_mgr_handle_buf_done_for_hw_res(
 		if (isp_ife_out_res->res_type == CAM_IFE_HW_MGR_RES_UNINIT)
 			continue;
 
-		hw_res_l = isp_ife_out_res->hw_res[0];
+		hw_res_left = isp_ife_out_res->hw_res[0];
 
 		/*
 		 * DUAL VFE: Index 0 is always a master. In case of composite
@@ -5032,10 +5090,10 @@ static int cam_ife_hw_mgr_handle_buf_done_for_hw_res(
 		 * Index zero is valid
 		 */
 
-		if (hw_res_l && (evt_payload->core_index ==
-			hw_res_l->hw_intf->hw_idx))
-			buf_done_status = hw_res_l->bottom_half_handler(
-				hw_res_l, evt_payload);
+		if (hw_res_left && (evt_payload->core_index ==
+			hw_res_left->hw_intf->hw_idx))
+			buf_done_status = hw_res_left->bottom_half_handler(
+				hw_res_left, evt_payload);
 		else
 			continue;
 
@@ -5166,9 +5224,10 @@ int cam_ife_mgr_do_tasklet(void *handler_priv, void *evt_payload_priv)
 	CAM_DBG(CAM_ISP, "addr of evt_payload = %pK core_index:%d",
 		(void *)evt_payload,
 		evt_payload->core_index);
-	CAM_DBG(CAM_ISP, "irq_status_0: = %x", evt_payload->irq_reg_val[0]);
-	CAM_DBG(CAM_ISP, "irq_status_1: = %x", evt_payload->irq_reg_val[1]);
-	CAM_DBG(CAM_ISP, "Violation register: = %x",
+	CAM_DBG(CAM_ISP,
+		"irq_status_0 = 0x%x, irq_status_1 = 0x%x, irq_status_2 = 0x%x ",
+		evt_payload->irq_reg_val[0],
+		evt_payload->irq_reg_val[1],
 		evt_payload->irq_reg_val[2]);
 
 	/*
@@ -5195,10 +5254,12 @@ int cam_ife_mgr_do_tasklet(void *handler_priv, void *evt_payload_priv)
 	cam_ife_hw_mgr_handle_sof(ife_hwr_mgr_ctx,
 		evt_payload_priv);
 
-	CAM_DBG(CAM_ISP, "Calling RUP");
-	/* REG UPDATE */
-	cam_ife_hw_mgr_handle_reg_update(ife_hwr_mgr_ctx,
+	if (evt_payload->hw_version != CAM_CPAS_TITAN_480_V100) {
+		CAM_DBG(CAM_ISP, "Calling RUP");
+		/* REG UPDATE */
+		cam_ife_hw_mgr_handle_reg_update(ife_hwr_mgr_ctx,
 		evt_payload_priv);
+	}
 
 	CAM_DBG(CAM_ISP, "Calling EPOCH");
 	/* EPOCH IRQ */
@@ -5208,6 +5269,41 @@ int cam_ife_mgr_do_tasklet(void *handler_priv, void *evt_payload_priv)
 put_payload:
 	cam_vfe_put_evt_payload(evt_payload->core_info, &evt_payload);
 	return IRQ_HANDLED;
+}
+
+
+int cam_ife_mgr_do_tasklet_reg_update(
+	void *handler_priv, void *evt_payload_priv)
+{
+	struct cam_ife_hw_mgr_ctx            *ife_hwr_mgr_ctx = handler_priv;
+	struct cam_vfe_bus_irq_evt_payload   *evt_payload;
+	int                                   rc = -EINVAL;
+
+	evt_payload = evt_payload_priv;
+
+	if (!evt_payload_priv || !handler_priv) {
+		CAM_ERR(CAM_ISP, "Invalid handle:%pK or event payload:%pK",
+			handler_priv, evt_payload_priv);
+		return rc;
+	}
+	ife_hwr_mgr_ctx = (struct cam_ife_hw_mgr_ctx *)handler_priv;
+
+	CAM_DBG(CAM_ISP, "addr of evt_payload = %pK core_index:%d",
+		(void *)evt_payload,
+		evt_payload->core_index);
+	CAM_DBG(CAM_ISP,
+		"bus_irq_status_0: = 0x%x, bus_irq_status_1: = 0x%x, calling RUP",
+		evt_payload->irq_reg_val[0],
+		evt_payload->irq_reg_val[1]);
+	/* REG UPDATE */
+	rc = cam_ife_hw_mgr_handle_reg_update_in_bus(ife_hwr_mgr_ctx,
+		evt_payload_priv);
+
+	if (rc)
+		CAM_ERR(CAM_ISP,
+			"Encountered Error, rc = %d", rc);
+
+	return rc;
 }
 
 static int cam_ife_hw_mgr_sort_dev_with_caps(
