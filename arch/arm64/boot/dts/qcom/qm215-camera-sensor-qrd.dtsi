@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -97,6 +97,21 @@
 		qcom,clock-rates = <19200000 0>;
 	};
 
+	flash0: qcom,camera-flash {
+		cell-index = <0>;
+		compatible = "qcom,qm215-gpio-flash";
+		qcom,flash-type = <2>;
+		gpios = <&tlmm 34 0>,
+			<&tlmm 33 0>;
+		qcom,gpio-req-tbl-num = <0 1>;
+		qcom,gpio-req-tbl-flags = <1 0>;
+		qcom,gpio-flash-en = <0>;
+		qcom,gpio-flash-now = <1>;
+		qcom,gpio-req-tbl-label = "CAM_FLASH",
+				"CAM_TORCH";
+		status = "ok";
+	};
+
 	qcom,camera@0 {
 		cell-index = <0>;
 		compatible = "qcom,camera";
@@ -104,6 +119,7 @@
 		qcom,csiphy-sd-index = <0>;
 		qcom,csid-sd-index = <0>;
 		qcom,mount-angle = <90>;
+		qcom,led-flash-src = <&flash0>;
 		qcom,actuator-src = <&actuator0>;
 		qcom,eeprom-src = <&eeprom0>;
 		cam_vana-supply = <&pm8916_l16>;
