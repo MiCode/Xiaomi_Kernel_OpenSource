@@ -34,6 +34,8 @@
  * @HDCP_2X_CMD_QUERY_STREAM_TYPE: start content stream processing
  * @HDCP_2X_CMD_LINK_FAILED:       link failure notification
  * @HDCP_2X_CMD_MIN_ENC_LEVEL:     trigger minimum encryption level change
+ * @HDCP_2X_CMD_OPEN_STREAMS:       open a virtual channel
+ * @HDCP_2X_CMD_CLOSE_STREAMS:      close a virtual channel
  */
 enum sde_hdcp_2x_wakeup_cmd {
 	HDCP_2X_CMD_INVALID,
@@ -49,6 +51,8 @@ enum sde_hdcp_2x_wakeup_cmd {
 	HDCP_2X_CMD_QUERY_STREAM_TYPE,
 	HDCP_2X_CMD_LINK_FAILED,
 	HDCP_2X_CMD_MIN_ENC_LEVEL,
+	HDCP_2X_CMD_OPEN_STREAMS,
+	HDCP_2X_CMD_CLOSE_STREAMS,
 };
 
 /**
@@ -79,11 +83,13 @@ enum sde_hdcp_2x_device_type {
 
 /**
  * struct sde_hdcp_2x_lib_wakeup_data - command and data send to HDCP driver
- * @cmd:       command type
- * @context:   void pointer to the HDCP driver instance
- * @buf:       message received from the sink
- * @buf_len:   length of message received from the sink
- * @timeout:   time out value for timed transactions
+ * @cmd:                       command type
+ * @context:                   void pointer to the HDCP driver instance
+ * @buf:                       message received from the sink
+ * @buf_len:                   length of message received from the sink
+ * @timeout:                   time out value for timed transactions
+ * @streams:                   list indicating which streams need adjustment
+ * @num_streams:               number of entries in streams
  */
 struct sde_hdcp_2x_wakeup_data {
 	enum sde_hdcp_2x_wakeup_cmd cmd;
@@ -91,6 +97,8 @@ struct sde_hdcp_2x_wakeup_data {
 	uint32_t total_message_length;
 	uint32_t timeout;
 	u8 min_enc_level;
+	struct stream_info *streams;
+	u8 num_streams;
 };
 
 /**
@@ -159,6 +167,10 @@ static inline const char *sde_hdcp_2x_cmd_to_str(
 		return TO_STR(HDCP_2X_CMD_MSG_RECV_TIMEOUT);
 	case HDCP_2X_CMD_QUERY_STREAM_TYPE:
 		return TO_STR(HDCP_2X_CMD_QUERY_STREAM_TYPE);
+	case HDCP_2X_CMD_OPEN_STREAMS:
+		return TO_STR(HDCP_2X_CMD_OPEN_STREAMS);
+	case HDCP_2X_CMD_CLOSE_STREAMS:
+		return TO_STR(HDCP_2X_CMD_CLOSE_STREAMS);
 	default:
 		return "UNKNOWN";
 	}
