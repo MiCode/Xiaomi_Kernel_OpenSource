@@ -1492,7 +1492,7 @@ static void sde_hw_rotator_setup_fetchengine(struct sde_hw_rotator_context *ctx,
 			((rot->highest_bank & 0x3) << 18));
 
 	if (test_bit(SDE_CAPS_UBWC_2, mdata->sde_caps_map))
-		SDE_REGDMA_WRITE(wrptr, ROT_SSPP_UBWC_STATIC_CTRL, BIT(31) |
+		SDE_REGDMA_WRITE(wrptr, ROT_SSPP_UBWC_STATIC_CTRL,
 				((ctx->rot->ubwc_malsize & 0x3) << 8) |
 				((ctx->rot->highest_bank & 0x3) << 4) |
 				((ctx->rot->ubwc_swizzle & 0x1) << 0));
@@ -2048,6 +2048,8 @@ static u32 sde_hw_rotator_wait_done_regdma(
 {
 	struct sde_hw_rotator *rot = ctx->rot;
 	int rc = 0;
+	bool timeout = false;
+	bool pending;
 	bool abort;
 	u32 status;
 	u32 last_isr;
@@ -2055,7 +2057,8 @@ static u32 sde_hw_rotator_wait_done_regdma(
 	u32 int_id;
 	u32 swts;
 	u32 sts = 0;
-	u32 ubwcerr = 0;
+	u32 ubwcerr;
+	u32 hwts[ROT_QUEUE_MAX];
 	unsigned long flags;
 
 	if (rot->irq_num >= 0) {
@@ -2079,23 +2082,18 @@ static u32 sde_hw_rotator_wait_done_regdma(
 				status, int_id, last_ts);
 
 		if (rc == 0 || (status & REGDMA_INT_ERR_MASK) || abort) {
-			bool pending;
-
+			timeout = true;
 			pending = rot->ops.get_pending_ts(rot, ctx, &swts);
-			SDEROT_ERR(
-				"Timeout wait for regdma interrupt status, ts:0x%X/0x%X, pending:%d, abort:%d\n",
-				ctx->timestamp, swts, pending, abort);
 
-			if (status & REGDMA_WATCHDOG_INT)
-				SDEROT_ERR("REGDMA watchdog interrupt\n");
-			else if (status & REGDMA_INVALID_DESCRIPTOR)
-				SDEROT_ERR("REGDMA invalid descriptor\n");
-			else if (status & REGDMA_INCOMPLETE_CMD)
-				SDEROT_ERR("REGDMA incomplete command\n");
-			else if (status & REGDMA_INVALID_CMD)
-				SDEROT_ERR("REGDMA invalid command\n");
-
-			_sde_hw_rotator_dump_status(rot, &ubwcerr);
+			/* cache ubwcerr and hw timestamps while locked */
+			ubwcerr = SDE_ROTREG_READ(rot->mdss_base,
+					ROT_SSPP_UBWC_ERROR_STATUS);
+			hwts[ROT_QUEUE_HIGH_PRIORITY] =
+					__sde_hw_rotator_get_timestamp(rot,
+					ROT_QUEUE_HIGH_PRIORITY);
+			hwts[ROT_QUEUE_LOW_PRIORITY] =
+					__sde_hw_rotator_get_timestamp(rot,
+					ROT_QUEUE_LOW_PRIORITY);
 
 			if (ubwcerr || abort) {
 				/*
@@ -2124,6 +2122,28 @@ static u32 sde_hw_rotator_wait_done_regdma(
 		}
 
 		spin_unlock_irqrestore(&rot->rotisr_lock, flags);
+
+		/* dump rot status after releasing lock if timeout occurred */
+		if (timeout) {
+			SDEROT_ERR(
+				"TIMEOUT, ts:0x%X/0x%X, pending:%d, abort:%d\n",
+				ctx->timestamp, swts, pending, abort);
+			SDEROT_ERR(
+				"Cached: HW ts0/ts1 = %x/%x, ubwcerr = %x\n",
+				hwts[ROT_QUEUE_HIGH_PRIORITY],
+				hwts[ROT_QUEUE_LOW_PRIORITY], ubwcerr);
+
+			if (status & REGDMA_WATCHDOG_INT)
+				SDEROT_ERR("REGDMA watchdog interrupt\n");
+			else if (status & REGDMA_INVALID_DESCRIPTOR)
+				SDEROT_ERR("REGDMA invalid descriptor\n");
+			else if (status & REGDMA_INCOMPLETE_CMD)
+				SDEROT_ERR("REGDMA incomplete command\n");
+			else if (status & REGDMA_INVALID_CMD)
+				SDEROT_ERR("REGDMA invalid command\n");
+
+			_sde_hw_rotator_dump_status(rot, &ubwcerr);
+		}
 	} else {
 		int cnt = 200;
 		bool pending;
@@ -3132,7 +3152,9 @@ static int sde_rotator_hw_rev_init(struct sde_hw_rotator *rot)
 		rot->downscale_caps =
 			"LINEAR/1.5/2/4/8/16/32/64 TILE/1.5/2/4 TP10/1.5/2";
 	} else if (IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version,
-				SDE_MDP_HW_REV_530)) {
+				SDE_MDP_HW_REV_530) ||
+				IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version,
+					SDE_MDP_HW_REV_520)) {
 		SDEROT_DBG("Supporting sys cache inline rotation\n");
 		set_bit(SDE_CAPS_SBUF_1,  mdata->sde_caps_map);
 		set_bit(SDE_CAPS_UBWC_2,  mdata->sde_caps_map);
@@ -3534,6 +3556,8 @@ static ssize_t sde_hw_rotator_show_caps(struct sde_rot_mgr *mgr,
 
 	if (hw_data->downscale_caps)
 		SPRINT("downscale_ratios=%s\n", hw_data->downscale_caps);
+
+	SPRINT("max_line_width=%d\n", sde_rotator_get_maxlinewidth(mgr));
 
 #undef SPRINT
 	return cnt;
