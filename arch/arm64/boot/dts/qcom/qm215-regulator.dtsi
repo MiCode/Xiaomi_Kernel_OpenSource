@@ -64,7 +64,6 @@
 		pm8916_s3: regulator-s3 {
 			regulator-min-microvolt = <1000000>;
 			regulator-max-microvolt = <1448000>;
-			qcom,init-voltage = <1000000>;
 			status = "okay";
 		};
 	};
@@ -93,9 +92,8 @@
 	rpm-regulator-ldoa2 {
 		status = "okay";
 		pm8916_l2: regulator-l2 {
-			regulator-min-microvolt = <944000>;
+			regulator-min-microvolt = <500000>;
 			regulator-max-microvolt = <1088000>;
-			qcom,init-voltage = <944000>;
 			status = "okay";
 		};
 
@@ -551,5 +549,10 @@
 		qcom,cpr-voltage-scaling-factor-max = <0 2000 2000>;
 		qcom,cpr-scaled-init-voltage-as-ceiling;
 		qcom,cpr-fuse-revision = <69 39 3 0>;
+		qcom,cpr-quotient-adjustment =
+				<50      40     50>;
+		qcom,cpr-init-voltage-adjustment =
+				<30000   5000   10000>;
+		qcom,cpr-enable;
 	};
 };

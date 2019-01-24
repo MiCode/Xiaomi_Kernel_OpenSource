@@ -882,6 +882,7 @@ static void identify_cpu_without_cpuid(struct cpuinfo_x86 *c)
 			}
 		}
 #endif
+	c->x86_cache_bits = c->x86_phys_bits;
 }
 
 static const __initconst struct x86_cpu_id cpu_no_speculation[] = {
@@ -957,6 +958,9 @@ static void __init cpu_set_bug_bits(struct cpuinfo_x86 *c)
 
 	setup_force_cpu_bug(X86_BUG_SPECTRE_V1);
 	setup_force_cpu_bug(X86_BUG_SPECTRE_V2);
+
+	if (ia32_cap & ARCH_CAP_IBRS_ALL)
+		setup_force_cpu_cap(X86_FEATURE_IBRS_ENHANCED);
 
 	if (x86_match_cpu(cpu_no_meltdown))
 		return;

@@ -396,10 +396,13 @@ static int of_thermal_set_mode(struct thermal_zone_device *tz,
 
 	mutex_lock(&tz->lock);
 
-	if (mode == THERMAL_DEVICE_ENABLED)
+	if (mode == THERMAL_DEVICE_ENABLED) {
 		tz->polling_delay = data->polling_delay;
-	else
+		tz->passive_delay = data->passive_delay;
+	} else {
 		tz->polling_delay = 0;
+		tz->passive_delay = 0;
+	}
 
 	mutex_unlock(&tz->lock);
 
@@ -575,12 +578,8 @@ int of_thermal_aggregate_trip(struct thermal_zone_device *tz,
 }
 EXPORT_SYMBOL(of_thermal_aggregate_trip);
 
-/*
- * of_thermal_handle_trip - Handle thermal trip from sensors
- *
- * @tz: pointer to the primary thermal zone.
- */
-void of_thermal_handle_trip(struct thermal_zone_device *tz)
+static void handle_thermal_trip(struct thermal_zone_device *tz,
+		bool temp_valid, int trip_temp)
 {
 	struct thermal_zone_device *zone;
 	struct __thermal_zone *data = tz->devdata;
@@ -591,8 +590,37 @@ void of_thermal_handle_trip(struct thermal_zone_device *tz)
 		zone = data->tzd;
 		if (data->mode == THERMAL_DEVICE_DISABLED)
 			continue;
-		thermal_zone_device_update(zone, THERMAL_EVENT_UNSPECIFIED);
+		if (!temp_valid) {
+			thermal_zone_device_update(zone,
+				THERMAL_EVENT_UNSPECIFIED);
+		} else {
+			thermal_zone_device_update_temp(zone,
+				THERMAL_EVENT_UNSPECIFIED, trip_temp);
+		}
 	}
+}
+
+/*
+ * of_thermal_handle_trip_temp - Handle thermal trip from sensors
+ *
+ * @tz: pointer to the primary thermal zone.
+ * @trip_temp: The temperature
+ */
+void of_thermal_handle_trip_temp(struct thermal_zone_device *tz,
+		int trip_temp)
+{
+	return handle_thermal_trip(tz, true, trip_temp);
+}
+EXPORT_SYMBOL(of_thermal_handle_trip_temp);
+
+/*
+ * of_thermal_handle_trip - Handle thermal trip from sensors
+ *
+ * @tz: pointer to the primary thermal zone.
+ */
+void of_thermal_handle_trip(struct thermal_zone_device *tz)
+{
+	return handle_thermal_trip(tz, false, 0);
 }
 EXPORT_SYMBOL(of_thermal_handle_trip);
 

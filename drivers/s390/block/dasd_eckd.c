@@ -1834,6 +1834,9 @@ static void dasd_eckd_uncheck_device(struct dasd_device *device)
 	struct dasd_eckd_private *private = device->private;
 	int i;
 
+	if (!private)
+		return;
+
 	dasd_alias_disconnect_device_from_lcu(device);
 	private->ned = NULL;
 	private->sneq = NULL;
@@ -2085,8 +2088,11 @@ static int dasd_eckd_basic_to_ready(struct dasd_device *device)
 
 static int dasd_eckd_online_to_ready(struct dasd_device *device)
 {
-	cancel_work_sync(&device->reload_device);
-	cancel_work_sync(&device->kick_validate);
+	if (cancel_work_sync(&device->reload_device))
+		dasd_put_device(device);
+	if (cancel_work_sync(&device->kick_validate))
+		dasd_put_device(device);
+
 	return 0;
 };
 

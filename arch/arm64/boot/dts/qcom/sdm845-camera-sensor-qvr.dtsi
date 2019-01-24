@@ -591,7 +591,7 @@
 		sensor-position-yaw = <0>;
 		cam_vio-supply = <&pm8998_lvs1>;
 		cam_vana-supply = <&pmi8998_bob>;
-		cam_vdig-supply = <&pm8998_s3>;
+		cam_vdig-supply = <&camera_eyetracking_force>;
 		cam_clk-supply = <&titan_top_gdsc>;
 		regulator-names = "cam_vio", "cam_vana", "cam_vdig",
 					"cam_clk";

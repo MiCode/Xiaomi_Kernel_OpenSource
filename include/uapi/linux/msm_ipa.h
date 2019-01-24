@@ -182,6 +182,7 @@
  * maximal number of NAT PDNs in the PDN config table
  */
 #define IPA_MAX_PDN_NUM 5
+#define IPA_ADPL_MHI_OVER_PCIE
 
 /**
  * enum ipa_client_type - names for the various IPA "clients"
@@ -301,10 +302,16 @@ enum ipa_client_type {
 	IPA_CLIENT_TEST4_PROD			= 70,
 	IPA_CLIENT_TEST4_CONS			= 71,
 
-	/* RESERVERD PROD				= 72, */
-	IPA_CLIENT_DUMMY_CONS			= 73
+	/* RESERVERD PROD		            = 72, */
+	IPA_CLIENT_DUMMY_CONS                      = 73,
+
+	/* RESERVERD PROD                            = 74, */
+	IPA_CLIENT_MHI_DPL_CONS                 = 75,
+	/* RESERVED PROD                             76, */
+	IPA_CLIENT_DUMMY_CONS1			= 77
 };
 
+#define IPA_CLIENT_DUMMY_CONS IPA_CLIENT_DUMMY_CONS1
 #define IPA_CLIENT_MAX (IPA_CLIENT_DUMMY_CONS + 1)
 
 #define IPA_CLIENT_IS_APPS_CONS(client) \
@@ -371,11 +378,14 @@ enum ipa_client_type {
 	(client) == IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD)
 
 #define IPA_CLIENT_IS_MHI_CONS(client) \
-	((client) == IPA_CLIENT_MHI_CONS)
+	((client) == IPA_CLIENT_MHI_CONS || \
+	(client) == IPA_CLIENT_MHI_DPL_CONS)
+
 
 #define IPA_CLIENT_IS_MHI(client) \
 	((client) == IPA_CLIENT_MHI_CONS || \
-	(client) == IPA_CLIENT_MHI_PROD)
+	(client) == IPA_CLIENT_MHI_PROD || \
+	(client) == IPA_CLIENT_MHI_DPL_CONS)
 
 #define IPA_CLIENT_IS_TEST_PROD(client) \
 	((client) == IPA_CLIENT_TEST_PROD || \

@@ -3648,11 +3648,6 @@ static void cam_icp_mgr_print_io_bufs(struct cam_packet *packet,
 				CAM_ERR(CAM_UTIL, "get src buf address fail");
 				continue;
 			}
-			if (iova_addr >> 32) {
-				CAM_ERR(CAM_ICP, "Invalid mapped address");
-				rc = -EINVAL;
-				continue;
-			}
 
 			CAM_INFO(CAM_ICP,
 				"pln %d w %d h %d size %d addr 0x%x offset 0x%x memh %x",

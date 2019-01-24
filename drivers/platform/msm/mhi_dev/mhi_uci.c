@@ -1,4 +1,4 @@
-/* Copyright (c) 2015,2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015,2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,6 +37,7 @@
 #define MAX_UCI_WR_REQ			10
 #define MAX_NR_TRBS_PER_CHAN		9
 #define MHI_QTI_IFACE_ID		4
+#define MHI_ADPL_IFACE_ID		5
 #define DEVICE_NAME			"mhi"
 #define MAX_DEVICE_NAME_SIZE		80
 
@@ -82,6 +83,8 @@ struct chan_attr {
 	void (*tre_notif_cb)(struct mhi_dev_client_cb_reason *reason);
 	/* Write completion - false if not needed */
 	bool wr_cmpl;
+	/* Uevent broadcast of channel state */
+	bool state_bcast;
 
 };
 
@@ -145,7 +148,10 @@ static const struct chan_attr uci_chan_attr_table[] = {
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_OUT,
 		NULL,
-		NULL
+		NULL,
+		NULL,
+		false,
+		true
 	},
 	{
 		MHI_CLIENT_MBIM_IN,
@@ -161,7 +167,10 @@ static const struct chan_attr uci_chan_attr_table[] = {
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_OUT,
 		NULL,
-		NULL
+		NULL,
+		NULL,
+		false,
+		true
 	},
 	{
 		MHI_CLIENT_QMI_IN,
@@ -1142,6 +1151,71 @@ error_memcpy:
 
 }
 
+void mhi_uci_chan_state_notify_all(struct mhi_dev *mhi,
+		enum mhi_ctrl_info ch_state)
+{
+	unsigned int i;
+	const struct chan_attr *chan_attrib;
+
+	for (i = 0; i < ARRAY_SIZE(uci_chan_attr_table); i++) {
+		chan_attrib = &uci_chan_attr_table[i];
+		if (chan_attrib->state_bcast) {
+			uci_log(UCI_DBG_ERROR, "Calling notify for ch %d\n",
+					chan_attrib->chan_id);
+			mhi_uci_chan_state_notify(mhi, chan_attrib->chan_id,
+					ch_state);
+		}
+	}
+}
+EXPORT_SYMBOL(mhi_uci_chan_state_notify_all);
+
+void mhi_uci_chan_state_notify(struct mhi_dev *mhi,
+		enum mhi_client_channel ch_id, enum mhi_ctrl_info ch_state)
+{
+	struct uci_client *uci_handle;
+	char *buf[2];
+	int rc;
+
+	if (ch_id < 0 || ch_id >= MHI_MAX_SOFTWARE_CHANNELS) {
+		uci_log(UCI_DBG_ERROR, "Invalid chan %d\n", ch_id);
+		return;
+	}
+
+	uci_handle = &uci_ctxt.client_handles[CHAN_TO_CLIENT(ch_id)];
+	if (!uci_handle->in_chan_attr ||
+		!uci_handle->in_chan_attr->state_bcast) {
+		uci_log(UCI_DBG_VERBOSE, "Uevents not enabled for chan %d\n",
+				ch_id);
+		return;
+	}
+
+	if (ch_state == MHI_STATE_CONNECTED) {
+		buf[0] = kasprintf(GFP_KERNEL,
+				"MHI_CHANNEL_STATE_%d=CONNECTED", ch_id);
+		buf[1] = NULL;
+	} else if (ch_state == MHI_STATE_DISCONNECTED) {
+		buf[0] = kasprintf(GFP_KERNEL,
+				"MHI_CHANNEL_STATE_%d=DISCONNECTED", ch_id);
+		buf[1] = NULL;
+	} else {
+		uci_log(UCI_DBG_ERROR, "Unsupported chan state %d\n", ch_state);
+		return;
+	}
+
+	if (!buf[0]) {
+		uci_log(UCI_DBG_ERROR, "kasprintf failed for uevent buf!\n");
+		return;
+	}
+
+	rc = kobject_uevent_env(&mhi->dev->kobj, KOBJ_CHANGE, buf);
+	if (rc)
+		uci_log(UCI_DBG_ERROR,
+				"Sending uevent failed for chan %d\n", ch_id);
+
+	kfree(buf[0]);
+}
+EXPORT_SYMBOL(mhi_uci_chan_state_notify);
+
 void uci_ctrl_update(struct mhi_dev_client_cb_reason *reason)
 {
 	struct uci_ctrl *uci_ctrl_handle = NULL;
@@ -1367,6 +1441,28 @@ static long mhi_uci_client_ioctl(struct file *file, unsigned int cmd,
 		if (rc)
 			return rc;
 		rc = mhi_uci_ctrl_set_tiocm(uci_handle, tiocm);
+	} else if (cmd == MHI_UCI_DPL_EP_LOOKUP) {
+		uci_log(UCI_DBG_DBG, "DPL EP_LOOKUP for client:%d\n",
+			uci_handle->client_index);
+		epinfo.ph_ep_info.ep_type = DATA_EP_TYPE_PCIE;
+		epinfo.ph_ep_info.peripheral_iface_id = MHI_ADPL_IFACE_ID;
+		epinfo.ipa_ep_pair.prod_pipe_num =
+			ipa_get_ep_mapping(IPA_CLIENT_MHI_DPL_CONS);
+		/* For DPL set cons pipe to -1 to indicate it is unused */
+		epinfo.ipa_ep_pair.cons_pipe_num = -1;
+
+		uci_log(UCI_DBG_DBG, "client:%d ep_type:%d intf:%d\n",
+			uci_handle->client_index,
+			epinfo.ph_ep_info.ep_type,
+			epinfo.ph_ep_info.peripheral_iface_id);
+
+		uci_log(UCI_DBG_DBG, "DPL ipa_prod_idx:%d\n",
+			epinfo.ipa_ep_pair.prod_pipe_num);
+
+		rc = copy_to_user((void __user *)arg, &epinfo,
+			sizeof(epinfo));
+		if (rc)
+			uci_log(UCI_DBG_ERROR, "copying to user space failed");
 	} else {
 		uci_log(UCI_DBG_ERROR, "wrong parameter:%d\n", cmd);
 		rc = -EINVAL;
@@ -1498,6 +1594,26 @@ static void mhi_uci_at_ctrl_client_cb(struct mhi_dev_client_cb_data *cb_data)
 		uci_ctxt.at_ctrl_wq =
 			create_singlethread_workqueue("mhi_at_ctrl_wq");
 		INIT_WORK(&uci_ctxt.at_ctrl_work, mhi_uci_at_ctrl_read);
+	} else if (cb_data->ctrl_info == MHI_STATE_DISCONNECTED) {
+		if (uci_ctxt.at_ctrl_wq == NULL) {
+			uci_log(UCI_DBG_VERBOSE,
+				"Disconnect already processed for at ctrl channels\n");
+			return;
+		}
+		destroy_workqueue(uci_ctxt.at_ctrl_wq);
+		uci_ctxt.at_ctrl_wq = NULL;
+		if (!(client->f_flags & O_SYNC))
+			kfree(client->wreqs);
+		rc = mhi_dev_close_channel(client->out_handle);
+		if (rc)
+			uci_log(UCI_DBG_INFO,
+			"Failed to close channel %d ret %d\n",
+			client->out_chan, rc);
+		rc = mhi_dev_close_channel(client->in_handle);
+		if (rc)
+			uci_log(UCI_DBG_INFO,
+			"Failed to close channel %d ret %d\n",
+			client->in_chan, rc);
 	}
 }
 

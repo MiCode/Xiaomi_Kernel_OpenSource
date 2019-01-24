@@ -314,7 +314,6 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
 			This facility can be used to prevent such uncontrolled
 			GPE floodings.
 			Format: <int>
-			Support masking of GPEs numbered from 0x00 to 0x7f.
 
 	acpi_no_auto_serialize	[HW,ACPI]
 			Disable auto-serialization of AML methods
@@ -1099,12 +1098,6 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
 
 	nopku		[X86] Disable Memory Protection Keys CPU feature found
 			in some Intel CPUs.
-
-	eagerfpu=	[X86]
-			on	enable eager fpu restore
-			off	disable eager fpu restore
-			auto	selects the default scheme, which automatically
-				enables eagerfpu restore for xsaveopt.
 
 	module.async_probe [KNL]
 			Enable asynchronous probe on this module.
@@ -3995,6 +3988,14 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
 			may poison objects when not in use. Also tracks the
 			last alloc / free. For more information see
 			Documentation/vm/slub.txt.
+
+	slub_memcg_sysfs=       [MM, SLUB]
+			Determines whether to enable sysfs directories for
+			memory cgroup sub-caches. 1 to enable, 0 to disable.
+			The default is determined by CONFIG_SLUB_MEMCG_SYSFS_ON.
+			Enabling this can lead to a very high number of debug
+			directories and files being created under
+			/sys/kernel/slub.
 
 	slub_max_order= [MM, SLUB]
 			Determines the maximum allowed order for slabs.

@@ -2428,15 +2428,11 @@ static int
 iommu_init_mapping(struct device *dev, struct dma_iommu_mapping *mapping)
 {
 	unsigned int bitmap_size = BITS_TO_LONGS(mapping->bits) * sizeof(long);
-	u64 size = mapping->bits << PAGE_SHIFT;
 	int extensions = 1;
 	int err = -ENOMEM;
 
 	if (!bitmap_size)
 		return -EINVAL;
-
-	WARN(!IS_ALIGNED(size, SZ_128M),
-			"size is not aligned to 128M, alignment enforced");
 
 	if (bitmap_size > PAGE_SIZE) {
 		extensions = bitmap_size / PAGE_SIZE;

@@ -3054,4 +3054,6 @@
 
 #define PCI_VENDOR_ID_OCZ		0x1b85
 
+#define PCI_VENDOR_ID_NCUBE		0x10ff
+
 #endif /* _LINUX_PCI_IDS_H */

@@ -1666,8 +1666,11 @@ static int bnxt_poll_work(struct bnxt *bp, struct bnxt_napi *bnapi, int budget)
 		if (TX_CMP_TYPE(txcmp) == CMP_TYPE_TX_L2_CMP) {
 			tx_pkts++;
 			/* return full budget so NAPI will complete. */
-			if (unlikely(tx_pkts > bp->tx_wake_thresh))
+			if (unlikely(tx_pkts > bp->tx_wake_thresh)) {
 				rx_pkts = budget;
+				raw_cons = NEXT_RAW_CMP(raw_cons);
+				break;
+			}
 		} else if ((TX_CMP_TYPE(txcmp) & 0x30) == 0x10) {
 			rc = bnxt_rx_pkt(bp, bnapi, &raw_cons, &agg_event);
 			if (likely(rc >= 0))
@@ -1685,7 +1688,7 @@ static int bnxt_poll_work(struct bnxt *bp, struct bnxt_napi *bnapi, int budget)
 		}
 		raw_cons = NEXT_RAW_CMP(raw_cons);
 
-		if (rx_pkts == budget)
+		if (rx_pkts && rx_pkts == budget)
 			break;
 	}
 
@@ -1797,8 +1800,12 @@ static int bnxt_poll(struct napi_struct *napi, int budget)
 	while (1) {
 		work_done += bnxt_poll_work(bp, bnapi, budget - work_done);
 
-		if (work_done >= budget)
+		if (work_done >= budget) {
+			if (!budget)
+				BNXT_CP_DB_REARM(cpr->cp_doorbell,
+						 cpr->cp_raw_cons);
 			break;
+		}
 
 		if (!bnxt_has_work(bp, cpr)) {
 			napi_complete(napi);
@@ -5560,7 +5567,7 @@ static int __bnxt_open_nic(struct bnxt *bp, bool irq_re_init, bool link_re_init)
 		rc = bnxt_request_irq(bp);
 		if (rc) {
 			netdev_err(bp->dev, "bnxt_request_irq err: %x\n", rc);
-			goto open_err;
+			goto open_err_irq;
 		}
 	}
 
@@ -5573,7 +5580,9 @@ static int __bnxt_open_nic(struct bnxt *bp, bool irq_re_init, bool link_re_init)
 	}
 
 	if (link_re_init) {
+		mutex_lock(&bp->link_lock);
 		rc = bnxt_update_phy_setting(bp);
+		mutex_unlock(&bp->link_lock);
 		if (rc)
 			netdev_warn(bp->dev, "failed to update phy settings\n");
 	}
@@ -5593,6 +5602,8 @@ static int __bnxt_open_nic(struct bnxt *bp, bool irq_re_init, bool link_re_init)
 
 open_err:
 	bnxt_disable_napi(bp);
+
+open_err_irq:
 	bnxt_del_napi(bp);
 
 open_err_free_mem:
@@ -6221,30 +6232,28 @@ static void bnxt_sp_task(struct work_struct *work)
 	if (test_and_clear_bit(BNXT_PERIODIC_STATS_SP_EVENT, &bp->sp_event))
 		bnxt_hwrm_port_qstats(bp);
 
-	/* These functions below will clear BNXT_STATE_IN_SP_TASK.  They
-	 * must be the last functions to be called before exiting.
-	 */
 	if (test_and_clear_bit(BNXT_LINK_CHNG_SP_EVENT, &bp->sp_event)) {
-		int rc = 0;
+		int rc;
 
+		mutex_lock(&bp->link_lock);
 		if (test_and_clear_bit(BNXT_LINK_SPEED_CHNG_SP_EVENT,
 				       &bp->sp_event))
 			bnxt_hwrm_phy_qcaps(bp);
 
-		bnxt_rtnl_lock_sp(bp);
-		if (test_bit(BNXT_STATE_OPEN, &bp->state))
-			rc = bnxt_update_link(bp, true);
-		bnxt_rtnl_unlock_sp(bp);
+		rc = bnxt_update_link(bp, true);
+		mutex_unlock(&bp->link_lock);
 		if (rc)
 			netdev_err(bp->dev, "SP task can't update link (rc: %x)\n",
 				   rc);
 	}
 	if (test_and_clear_bit(BNXT_HWRM_PORT_MODULE_SP_EVENT, &bp->sp_event)) {
-		bnxt_rtnl_lock_sp(bp);
-		if (test_bit(BNXT_STATE_OPEN, &bp->state))
-			bnxt_get_port_module_status(bp);
-		bnxt_rtnl_unlock_sp(bp);
+		mutex_lock(&bp->link_lock);
+		bnxt_get_port_module_status(bp);
+		mutex_unlock(&bp->link_lock);
 	}
+	/* These functions below will clear BNXT_STATE_IN_SP_TASK.  They
+	 * must be the last functions to be called before exiting.
+	 */
 	if (test_and_clear_bit(BNXT_RESET_TASK_SP_EVENT, &bp->sp_event))
 		bnxt_reset(bp, false);
 
@@ -6779,6 +6788,7 @@ static int bnxt_probe_phy(struct bnxt *bp)
 			   rc);
 		return rc;
 	}
+	mutex_init(&bp->link_lock);
 
 	rc = bnxt_update_link(bp, false);
 	if (rc) {
@@ -6862,11 +6872,11 @@ int bnxt_get_max_rings(struct bnxt *bp, int *max_rx, int *max_tx, bool shared)
 	int rx, tx, cp;
 
 	_bnxt_get_max_rings(bp, &rx, &tx, &cp);
+	*max_rx = rx;
+	*max_tx = tx;
 	if (!rx || !tx || !cp)
 		return -ENOMEM;
 
-	*max_rx = rx;
-	*max_tx = tx;
 	return bnxt_trim_rings(bp, max_rx, max_tx, cp, shared);
 }
 

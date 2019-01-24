@@ -1,0 +1,7 @@
+#
+# vServices drivers configuration
+#
+
+menu "Client and Server drivers"
+
+endmenu

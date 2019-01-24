@@ -259,7 +259,7 @@ int mhi_dev_mmio_disable_erdb_a7(struct mhi_dev *dev, uint32_t erdb_id)
 EXPORT_SYMBOL(mhi_dev_mmio_disable_erdb_a7);
 
 int mhi_dev_mmio_get_mhi_state(struct mhi_dev *dev, enum mhi_dev_state *state,
-						bool *mhi_reset)
+						u32 *mhi_reset)
 {
 	uint32_t reg_value = 0;
 	int rc = 0;
@@ -279,9 +279,12 @@ int mhi_dev_mmio_get_mhi_state(struct mhi_dev *dev, enum mhi_dev_state *state,
 		return rc;
 
 	if (reg_value & MHICTRL_RESET_MASK)
-		*mhi_reset = true;
+		*mhi_reset = 1;
+	else
+		*mhi_reset = 0;
 
-	pr_debug("MHICTRL is 0x%x\n", reg_value);
+	mhi_log(MHI_MSG_VERBOSE, "MHICTRL is 0x%x, reset:%d\n",
+			reg_value, *mhi_reset);
 
 	return 0;
 }

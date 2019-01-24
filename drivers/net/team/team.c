@@ -989,8 +989,6 @@ static void team_port_disable(struct team *team,
 	team->en_port_count--;
 	team_queue_override_port_del(team, port);
 	team_adjust_ops(team);
-	team_notify_peers(team);
-	team_mcast_rejoin(team);
 	team_lower_state_changed(port);
 }
 
@@ -1169,6 +1167,11 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
 		netdev_err(dev, "Device %s is already a port "
 				"of a team device\n", portname);
 		return -EBUSY;
+	}
+
+	if (dev == port_dev) {
+		netdev_err(dev, "Cannot enslave team device to itself\n");
+		return -EINVAL;
 	}
 
 	if (port_dev->features & NETIF_F_VLAN_CHALLENGED &&

@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1456,7 +1456,7 @@ static int report_eoc(struct qpnp_bms_chip *chip)
 	if (chip->batt_psy == NULL)
 		chip->batt_psy = power_supply_get_by_name("battery");
 	if (chip->batt_psy) {
-		power_supply_get_property(chip->batt_psy,
+		rc = power_supply_get_property(chip->batt_psy,
 				POWER_SUPPLY_PROP_STATUS, &ret);
 		if (rc) {
 			pr_err("Unable to get battery 'STATUS' rc=%d\n", rc);
@@ -1863,6 +1863,10 @@ static int setup_vbat_monitoring(struct qpnp_bms_chip *chip)
 {
 	int rc;
 
+	if (is_debug_batt_id(chip)) {
+		pr_debug("skip configuring vbat monitoring for debug_board\n");
+		return 0;
+	}
 	chip->vbat_monitor_params.low_thr =
 					chip->dt.cfg_low_voltage_threshold;
 	chip->vbat_monitor_params.high_thr =
@@ -2101,6 +2105,10 @@ static void monitor_soc_work(struct work_struct *work)
 				struct qpnp_bms_chip,
 				monitor_soc_work.work);
 	int rc, new_soc = 0, batt_temp;
+
+	/*skip if its a debug-board */
+	if (is_debug_batt_id(chip))
+		return;
 
 	bms_stay_awake(&chip->vbms_soc_wake_source);
 

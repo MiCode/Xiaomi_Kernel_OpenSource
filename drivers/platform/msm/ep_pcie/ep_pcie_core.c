@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -91,6 +91,7 @@ static const struct ep_pcie_res_info_t ep_pcie_res_info[EP_PCIE_MAX_RES] = {
 	{"dm_core",	NULL, NULL},
 	{"elbi",	NULL, NULL},
 	{"iatu",	NULL, NULL},
+	{"tcsr_pcie_perst_en",	NULL, NULL},
 };
 
 static const struct ep_pcie_irq_info_t ep_pcie_irq_info[EP_PCIE_MAX_IRQ] = {
@@ -527,6 +528,8 @@ static void ep_pcie_bar_init(struct ep_pcie_dev_t *dev)
 
 static void ep_pcie_config_mmio(struct ep_pcie_dev_t *dev)
 {
+	u32 mhi_status;
+
 	EP_PCIE_DBG(dev,
 		"Initial version of MMIO is:0x%x\n",
 		readl_relaxed(dev->mmio + PCIE20_MHIVER));
@@ -535,6 +538,14 @@ static void ep_pcie_config_mmio(struct ep_pcie_dev_t *dev)
 		EP_PCIE_DBG(dev,
 			"PCIe V%d: MMIO already initialized, return\n",
 				dev->rev);
+		return;
+	}
+
+	mhi_status = readl_relaxed(dev->mmio + PCIE20_MHISTATUS);
+	if (mhi_status & BIT(2)) {
+		EP_PCIE_DBG(dev,
+			"MHISYS error is set:%d, proceed to MHI\n",
+			mhi_status);
 		return;
 	}
 
@@ -1219,6 +1230,7 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 	dev->dm_core = dev->res[EP_PCIE_RES_DM_CORE].base;
 	dev->elbi = dev->res[EP_PCIE_RES_ELBI].base;
 	dev->iatu = dev->res[EP_PCIE_RES_IATU].base;
+	dev->tcsr_perst_en = dev->res[EP_PCIE_RES_TCSR_PERST].base;
 
 out:
 	kfree(clkfreq);
@@ -1247,6 +1259,11 @@ static void ep_pcie_enumeration_complete(struct ep_pcie_dev_t *dev)
 
 	spin_lock_irqsave(&dev->isr_lock, irqsave_flags);
 
+	if (dev->enumerated) {
+		EP_PCIE_DBG(dev, "PCIe V%d: Enumeration already done\n",
+				dev->rev);
+		goto done;
+	}
 	dev->enumerated = true;
 	dev->link_status = EP_PCIE_LINK_ENABLED;
 
@@ -1280,6 +1297,7 @@ static void ep_pcie_enumeration_complete(struct ep_pcie_dev_t *dev)
 			"PCIe V%d: do not notify client about linkup.\n",
 			dev->rev);
 
+done:
 	spin_unlock_irqrestore(&dev->isr_lock, irqsave_flags);
 }
 
@@ -1342,42 +1360,60 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 		}
 
 		dev->power_on = true;
+
+		 EP_PCIE_DBG(dev,
+			 "TCSR PERST_EN value before configure:0x%x\n",
+			 readl_relaxed(dev->tcsr_perst_en + 0x258));
+
+		 /*
+		  * Delatch PERST_EN with TCSR to avoid device reset
+		  * during host reboot case.
+		  */
+		 writel_relaxed(0, dev->tcsr_perst_en + 0x258);
+
+		 EP_PCIE_DBG(dev,
+			 "TCSR PERST_EN value after configure:0x%x\n",
+			 readl_relaxed(dev->tcsr_perst_en));
+
+		 /* check link status during initial bootup */
+		if (!dev->enumerated) {
+			val = readl_relaxed(dev->parf + PCIE20_PARF_PM_STTS);
+			val = val & PARF_XMLH_LINK_UP;
+			EP_PCIE_DBG(dev, "PCIe V%d: Link status is 0x%x.\n",
+					dev->rev, val);
+			if (val) {
+				EP_PCIE_INFO(dev,
+					"PCIe V%d: link initialized by bootloader for LE PCIe endpoint; skip link training in HLOS.\n",
+					dev->rev);
+				ep_pcie_core_init(dev, true);
+				dev->link_status = EP_PCIE_LINK_UP;
+				dev->l23_ready = false;
+				goto checkbme;
+			} else {
+				ltssm_en = readl_relaxed(dev->parf
+					+ PCIE20_PARF_LTSSM) & BIT(8);
+
+				if (ltssm_en) {
+					EP_PCIE_ERR(dev,
+						"PCIe V%d: link is not up when LTSSM has already enabled by bootloader.\n",
+						dev->rev);
+					ret = EP_PCIE_ERROR;
+					goto link_fail;
+				} else {
+					EP_PCIE_DBG(dev,
+						"PCIe V%d: Proceed with regular link training.\n",
+						dev->rev);
+				}
+			}
+		}
+
+		ret = ep_pcie_reset_init(dev);
+		if (ret)
+			goto link_fail;
 	}
 
 	if (!(opt & EP_PCIE_OPT_ENUM))
 		goto out;
-
-	/* check link status during initial bootup */
-	if (!dev->enumerated) {
-		val = readl_relaxed(dev->parf + PCIE20_PARF_PM_STTS);
-		val = val & PARF_XMLH_LINK_UP;
-		EP_PCIE_DBG(dev, "PCIe V%d: Link status is 0x%x.\n", dev->rev,
-				val);
-		if (val) {
-			EP_PCIE_INFO(dev,
-				"PCIe V%d: link initialized by bootloader for LE PCIe endpoint; skip link training in HLOS.\n",
-				dev->rev);
-			ep_pcie_core_init(dev, true);
-			dev->link_status = EP_PCIE_LINK_UP;
-			dev->l23_ready = false;
-			goto checkbme;
-		} else {
-			ltssm_en = readl_relaxed(dev->parf
-					+ PCIE20_PARF_LTSSM) & BIT(8);
-
-			if (ltssm_en) {
-				EP_PCIE_ERR(dev,
-					"PCIe V%d: link is not up when LTSSM has already enabled by bootloader.\n",
-					dev->rev);
-				ret = EP_PCIE_ERROR;
-				goto link_fail;
-			} else {
-				EP_PCIE_DBG(dev,
-					"PCIe V%d: Proceed with regular link training.\n",
-					dev->rev);
-			}
-		}
-	}
 
 	if (opt & EP_PCIE_OPT_AST_WAKE) {
 		/* assert PCIe WAKE# */
@@ -1430,9 +1466,6 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 		}
 	}
 
-	ret = ep_pcie_reset_init(dev);
-	if (ret)
-		goto link_fail;
 	/* init PCIe PHY */
 	ep_pcie_phy_init(dev);
 

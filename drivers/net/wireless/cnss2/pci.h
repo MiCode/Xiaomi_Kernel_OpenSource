@@ -31,6 +31,7 @@ enum cnss_mhi_state {
 	CNSS_MHI_RESUME,
 	CNSS_MHI_TRIGGER_RDDM,
 	CNSS_MHI_RDDM,
+	CNSS_MHI_RDDM_DONE,
 };
 
 struct cnss_msi_user {

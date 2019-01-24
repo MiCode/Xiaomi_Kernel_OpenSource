@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,8 +46,9 @@
 
 #define WLAN_VREG_IO_MAX	1800000
 #define WLAN_VREG_IO_MIN	1800000
-#define WLAN_VREG_XTAL_MAX	1800000
-#define WLAN_VREG_XTAL_MIN	1800000
+#define WLAN_VREG_XTAL_MAX	3465000
+#define WLAN_VREG_XTAL_MIN	1620000
+#define WLAN_VREG_XTAL_TYP	1800000
 #define POWER_ON_DELAY		4
 
 /* Values for Dynamic Ramdump Collection*/
@@ -1244,6 +1245,8 @@ static int cnss_sdio_configure_regulator(void)
 {
 	int error;
 	struct device *dev = &cnss_pdata->pdev->dev;
+	u32 vdd_xtal_min;
+	u32 vdd_xtal_max;
 
 	if (of_get_property(
 		cnss_pdata->pdev->dev.of_node,
@@ -1283,9 +1286,32 @@ static int cnss_sdio_configure_regulator(void)
 			goto err_vdd_xtal_regulator;
 		}
 
+		if (!of_property_read_u32(cnss_pdata->pdev->dev.of_node,
+					  WLAN_VREG_XTAL_NAME "-min",
+					  &vdd_xtal_min)) {
+			if (vdd_xtal_min < WLAN_VREG_XTAL_MIN ||
+			    vdd_xtal_min > WLAN_VREG_XTAL_MAX)
+				vdd_xtal_min = WLAN_VREG_XTAL_TYP;
+		} else {
+			vdd_xtal_min = WLAN_VREG_XTAL_TYP;
+		}
+
+		if (!of_property_read_u32(cnss_pdata->pdev->dev.of_node,
+					  WLAN_VREG_XTAL_NAME "-max",
+					  &vdd_xtal_max)) {
+			if (vdd_xtal_max < WLAN_VREG_XTAL_MIN ||
+			    vdd_xtal_max > WLAN_VREG_XTAL_MAX)
+				vdd_xtal_max = WLAN_VREG_XTAL_TYP;
+		} else {
+			vdd_xtal_max = WLAN_VREG_XTAL_TYP;
+		}
+
+		if (vdd_xtal_min > vdd_xtal_max)
+			vdd_xtal_min = vdd_xtal_max;
+
 		error = regulator_set_voltage(
 			cnss_pdata->regulator.wlan_xtal,
-			WLAN_VREG_XTAL_MIN, WLAN_VREG_XTAL_MAX);
+			vdd_xtal_min, vdd_xtal_max);
 		if (error) {
 			dev_err(dev, "VDD-XTAL set failed error=%d\n", error);
 			goto err_vdd_xtal_regulator;

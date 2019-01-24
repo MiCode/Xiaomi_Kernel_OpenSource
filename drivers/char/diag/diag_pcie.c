@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,7 +33,7 @@ struct diag_pcie_info diag_pcie[NUM_DIAG_PCIE_DEV] = {
 	{
 		.id = DIAG_PCIE_LOCAL,
 		.name = DIAG_LEGACY,
-		.enabled = 0,
+		.enabled = {0},
 		.mempool = POOL_TYPE_MUX_APPS,
 		.ops = NULL,
 		.wq = NULL,
@@ -85,6 +85,7 @@ void diag_pcie_read_work_fn(struct work_struct *work)
 	ureq.mode = IPA_DMA_SYNC;
 	ureq.buf = pcie_info->in_chan_attr.read_buffer;
 	ureq.len = pcie_info->in_chan_attr.read_buffer_size;
+	ureq.transfer_len = 0;
 	bytes_avail = mhi_dev_read_channel(&ureq);
 	if (bytes_avail < 0)
 		return;
@@ -171,6 +172,8 @@ void diag_pcie_write_complete_cb(void *req)
 		diag_ws_on_copy_complete(DIAG_WS_MUX);
 		spin_unlock_irqrestore(&ch->write_lock, flags);
 		diagmem_free(driver, req, ch->mempool);
+		kfree(ctxt);
+		ctxt = NULL;
 		return;
 	}
 	DIAG_LOG(DIAG_DEBUG_MUX, "full write_done, ctxt: %pK\n",
@@ -281,19 +284,19 @@ static int diag_pcie_write_ext(struct diag_pcie_info *pcie_info,
 		bytes_to_write = mhi_dev_write_channel(req);
 		diag_ws_on_copy(DIAG_WS_MUX);
 		if (bytes_to_write != write_len) {
-			pr_err_ratelimited("diag: In %s, error writing to pcie channel %s, err: %d\n",
+			pr_err_ratelimited("diag: In %s, error writing to pcie channel %s, err: %d, write_len: %d\n",
 					   __func__, pcie_info->name,
-					bytes_to_write);
+					bytes_to_write, write_len);
 			DIAG_LOG(DIAG_DEBUG_MUX,
-				 "ERR! unable to write to pcie, err: %d\n",
-				bytes_to_write);
+				 "ERR! unable to write to pcie, err: %d, write_len: %d\n",
+				bytes_to_write, write_len);
 			diag_ws_on_copy_fail(DIAG_WS_MUX);
 			spin_lock_irqsave(&pcie_info->write_lock, flags);
 			diag_pcie_buf_tbl_remove(pcie_info, buf);
 			kfree(req->context);
 			diagmem_free(driver, req, pcie_info->mempool);
 			spin_unlock_irqrestore(&pcie_info->write_lock, flags);
-			return bytes_to_write;
+			return -EINVAL;
 		}
 		offset += write_len;
 		bytes_remaining -= write_len;
@@ -317,7 +320,7 @@ int diag_pcie_write(int id, unsigned char *buf, int len, int ctxt)
 	pcie_info = &diag_pcie[id];
 
 	if (len > pcie_info->out_chan_attr.max_pkt_size) {
-		DIAG_LOG(DIAG_DEBUG_MUX, "len: %d, max_size: %d\n",
+		DIAG_LOG(DIAG_DEBUG_MUX, "len: %d, max_size: %zu\n",
 			 len, pcie_info->out_chan_attr.max_pkt_size);
 		return diag_pcie_write_ext(pcie_info, buf, len, ctxt);
 	}
@@ -365,17 +368,18 @@ int diag_pcie_write(int id, unsigned char *buf, int len, int ctxt)
 	bytes_to_write = mhi_dev_write_channel(req);
 	diag_ws_on_copy(DIAG_WS_MUX);
 	if (bytes_to_write != len) {
-		pr_err_ratelimited("diag: In %s, error writing to pcie channel %s, err: %d\n",
-				   __func__, pcie_info->name, bytes_to_write);
+		pr_err_ratelimited("diag: In %s, error writing to pcie channel %s, err: %d len: %d\n",
+			__func__, pcie_info->name, bytes_to_write, len);
 		diag_ws_on_copy_fail(DIAG_WS_MUX);
 		DIAG_LOG(DIAG_DEBUG_MUX,
-			 "ERR! unable to write to pcie, err: %d\n",
-			bytes_to_write);
+			 "ERR! unable to write to pcie, err: %d len: %d\n",
+			bytes_to_write, len);
 		spin_lock_irqsave(&pcie_info->write_lock, flags);
 		diag_pcie_buf_tbl_remove(pcie_info, buf);
 		spin_unlock_irqrestore(&pcie_info->write_lock, flags);
 		kfree(req->context);
 		diagmem_free(driver, req, pcie_info->mempool);
+		return -EINVAL;
 	}
 	DIAG_LOG(DIAG_DEBUG_MUX, "wrote packet to pcie chan:%d, len:%d",
 		pcie_info->out_chan, len);
@@ -475,10 +479,6 @@ static int diag_register_pcie_channels(struct diag_pcie_info *pcie_info)
 
 static void diag_pcie_connect(struct diag_pcie_info *ch)
 {
-	int err = 0;
-	int num_write = 0;
-	int num_read = 1; /* Only one read buffer for any pcie channel */
-
 	if (!ch || !atomic_read(&ch->enabled))
 		return;
 

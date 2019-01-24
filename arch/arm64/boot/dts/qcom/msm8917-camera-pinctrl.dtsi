@@ -160,6 +160,33 @@ cam_sensor_rear_vdig_sleep: cam_sensor_rear_vdig_sleep {
 	};
 };
 
+cam_sensor_rear_vdig_qm215: cam_sensor_rear_vdig_qm215 {
+	/* VDIG */
+	mux {
+		pins = "gpio25";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio25";
+		output-high;
+		drive-strength = <2>; /* 2 MA */
+	};
+};
+
+cam_sensor_rear_vdig_sleep_qm215: cam_sensor_rear_vdig_sleep_qm215 {
+	/* VDIG */
+	mux {
+		pins = "gpio25";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio25";
+		output-low;
+		drive-strength = <2>; /* 2 MA */
+	};
+};
 cam_sensor_mclk1_default: cam_sensor_mclk1_default {
 	/* MCLK1 */
 	mux {

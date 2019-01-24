@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1732,6 +1732,36 @@
 			};
 		};
 
+		gpio_jack_det_line_in {
+			jack_det_linein_default: jack_det_linein_default {
+				mux {
+					pins = "gpio124";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio124";
+					bias-pull-up; /* pull up */
+					input-enable;
+				};
+			};
+		};
+
+		gpio_jack_det_line_out {
+			jack_det_lineout_default: jack_det_lineout_default {
+				mux {
+					pins = "gpio125";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio125";
+					bias-pull-up; /* pull up */
+					input-enable;
+				};
+			};
+		};
+
 		flash_led3_front {
 			flash_led3_front_en: flash_led3_front_en {
 				mux {
@@ -2266,6 +2296,38 @@
 
 			config {
 				pins = "gpio15";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_ir_led_on: cam_sensor_ir_led_on {
+			/*IR_LED*/
+			mux {
+				pins = "gpio22", "gpio141", "gpio142",
+						"gpio107", "gpio110";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio22", "gpio141", "gpio142",
+						"gpio107", "gpio110";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_ir_led_off: cam_sensor_ir_led_off {
+			/*IR_LED*/
+			mux {
+				pins = "gpio22", "gpio141", "gpio142",
+						"gpio107", "gpio110";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio22", "gpio141", "gpio142",
+						"gpio107", "gpio110";
 				bias-pull-down; /* PULL DOWN */
 				drive-strength = <2>; /* 2 MA */
 			};

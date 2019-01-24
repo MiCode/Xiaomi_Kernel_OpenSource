@@ -3289,7 +3289,7 @@ static int sdhci_get_data_err(struct sdhci_host *host, u32 intmask)
 	} else if (intmask & (SDHCI_INT_DATA_END_BIT | SDHCI_INT_DATA_CRC)) {
 		host->mmc->err_stats[MMC_ERR_DAT_CRC]++;
 		return -EILSEQ;
-	} else if (intmask & MMC_ERR_ADMA) {
+	} else if (intmask & SDHCI_INT_ADMA_ERROR) {
 		host->mmc->err_stats[MMC_ERR_ADMA]++;
 		return -EIO;
 	}
@@ -4305,14 +4305,21 @@ int sdhci_setup_host(struct sdhci_host *host)
 	    !(mmc->caps2 & MMC_CAP2_NONHOTPLUG) && !host->mmc->extcon)
 		mmc->caps |= MMC_CAP_NEEDS_POLL;
 
-	/* If vqmmc regulator and no 1.8V signalling, then there's no UHS */
 	if (!IS_ERR(mmc->supply.vqmmc)) {
 		ret = regulator_enable(mmc->supply.vqmmc);
+
+		/* If vqmmc provides no 1.8V signalling, then there's no UHS */
 		if (!regulator_is_supported_voltage(mmc->supply.vqmmc, 1700000,
 						    1950000))
 			host->caps1 &= ~(SDHCI_SUPPORT_SDR104 |
 					 SDHCI_SUPPORT_SDR50 |
 					 SDHCI_SUPPORT_DDR50);
+
+		/* In eMMC case vqmmc might be a fixed 1.8V regulator */
+		if (!regulator_is_supported_voltage(mmc->supply.vqmmc, 2700000,
+						    3600000))
+			host->flags &= ~SDHCI_SIGNALING_330;
+
 		if (ret) {
 			pr_warn("%s: Failed to enable vqmmc regulator: %d\n",
 				mmc_hostname(mmc), ret);

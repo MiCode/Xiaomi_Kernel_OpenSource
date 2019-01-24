@@ -266,7 +266,7 @@ struct pmu {
 	int				capabilities;
 
 	int * __percpu			pmu_disable_count;
-	struct perf_cpu_context * __percpu pmu_cpu_context;
+	struct perf_cpu_context __percpu *pmu_cpu_context;
 	atomic_t			exclusive_cnt; /* < 0: cpu; > 0: tsk */
 	int				task_ctx_nr;
 	int				hrtimer_interval_ms;
@@ -497,6 +497,7 @@ struct perf_addr_filters_head {
  * enum perf_event_active_state - the states of a event
  */
 enum perf_event_active_state {
+	PERF_EVENT_STATE_DORMANT	= -6,
 	PERF_EVENT_STATE_DEAD		= -5,
 	PERF_EVENT_STATE_ZOMBIE		= -4,
 	PERF_EVENT_STATE_EXIT		= -3,
@@ -722,6 +723,13 @@ struct perf_event {
 	/* Is this event shared with other events */
 	bool					shared;
 	struct list_head		zombie_entry;
+
+	/*
+	 * Entry into the list that holds the events whose CPUs
+	 * are offline. These events will be installed once the
+	 * CPU wakes up and will be removed from the list after that
+	 */
+	struct list_head		dormant_event_entry;
 #endif /* CONFIG_PERF_EVENTS */
 };
 
@@ -1401,9 +1409,11 @@ static struct device_attribute format_attr_##_name = __ATTR_RO(_name)
 #ifdef CONFIG_PERF_EVENTS
 int perf_event_init_cpu(unsigned int cpu);
 int perf_event_exit_cpu(unsigned int cpu);
+int perf_event_start_swevents(unsigned int cpu);
 #else
 #define perf_event_init_cpu	NULL
 #define perf_event_exit_cpu	NULL
+#define perf_event_start_swevents NULL
 #endif
 
 #endif /* _LINUX_PERF_EVENT_H */

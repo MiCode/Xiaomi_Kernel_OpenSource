@@ -4,7 +4,8 @@ Required properties:
   - compatible: should be "qcom,pcie-ep".
   - reg: should contain PCIe register maps.
   - reg-names: indicates various resources passed to driver by name.
-		Should be "msi", "dm_core", "elbi", "parf", "phy", "mmio".
+		Should be "msi", "dm_core", "elbi", "parf", "phy", "mmio",
+		"tcsr_pcie_perst_en".
 		These correspond to different modules within the PCIe domain.
   - #address-cells: Should provide a value of 0.
   - interrupt-parent: Should be the PCIe device node itself here.
@@ -77,8 +78,11 @@ Example:
 			<0xbffff000 0x1000>,
 			<0xfc520000 0x2000>,
 			<0xfc526000 0x1000>,
-			<0xfc527000 0x1000>;
-		reg-names = "msi", "dm_core", "elbi", "parf", "phy", "mmio";
+			<0xfc527000 0x1000>,
+			<0x01fcb000 0x1000>;
+
+		reg-names = "msi", "dm_core", "elbi", "parf", "phy", "mmio",
+				"tcsr_pcie_perst";
 
 		#address-cells = <0>;
 		interrupt-parent = <&pcie_ep>;

@@ -1444,20 +1444,6 @@ config CRYPTO_SERPENT_AVX2_X86_64
 	  See also:
 	  <http://www.cl.cam.ac.uk/~rja14/serpent.html>
 
-config CRYPTO_SPECK
-	tristate "Speck cipher algorithm"
-	select CRYPTO_ALGAPI
-	help
-	  Speck is a lightweight block cipher that is tuned for optimal
-	  performance in software (rather than hardware).
-
-	  Speck may not be as secure as AES, and should only be used on systems
-	  where AES is not fast enough.
-
-	  See also: <https://eprint.iacr.org/2013/404.pdf>
-
-	  If unsure, say N.
-
 config CRYPTO_TEA
 	tristate "TEA, XTEA and XETA cipher algorithms"
 	select CRYPTO_ALGAPI
@@ -1621,6 +1607,15 @@ config CRYPTO_LZ4HC
 	select LZ4_DECOMPRESS
 	help
 	  This is the LZ4 high compression mode algorithm.
+
+config CRYPTO_ZSTD
+	tristate "Zstd compression algorithm"
+	select CRYPTO_ALGAPI
+	select CRYPTO_ACOMP2
+	select ZSTD_COMPRESS
+	select ZSTD_DECOMPRESS
+	help
+	  This is the zstd algorithm.
 
 comment "Random Number Generation"
 

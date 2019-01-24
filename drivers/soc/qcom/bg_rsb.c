@@ -35,8 +35,8 @@
 #define BGRSB_MSG_SIZE 0x08
 #define TIMEOUT_MS 2000
 
-#define BGRSB_LDO15_VTG_MIN_UV 3300000
-#define BGRSB_LDO15_VTG_MAX_UV 3300000
+#define BGRSB_LDO15_VTG_MIN_UV 3000000
+#define BGRSB_LDO15_VTG_MAX_UV 3000000
 
 #define BGRSB_LDO11_VTG_MIN_UV 1800000
 #define BGRSB_LDO11_VTG_MAX_UV 1800000
@@ -135,6 +135,8 @@ struct bgrsb_priv {
 
 	bool calibration_needed;
 	bool is_calibrd;
+
+	bool is_cnfgrd;
 };
 
 static void *bgrsb_drv;
@@ -415,6 +417,7 @@ static void bgrsb_bgdown_work(struct work_struct *work)
 			pr_err("Failed to unvote LDO-11 on BG down\n");
 	}
 
+	dev->is_cnfgrd = false;
 	pr_info("RSB current state is : %d\n", dev->bgrsb_current_state);
 
 	if (dev->bgrsb_current_state == BGRSB_STATE_INIT) {
@@ -452,6 +455,9 @@ static void bgrsb_glink_bgdown_work(struct work_struct *work)
 		else
 			pr_err("Failed to unvote LDO-11 on BG Glink down\n");
 	}
+
+	dev->is_cnfgrd = false;
+
 	if (dev->handle)
 		glink_close(dev->handle);
 	dev->handle = NULL;
@@ -562,6 +568,8 @@ static void bgrsb_bgup_work(struct work_struct *work)
 				dev->bgrsb_current_state = BGRSB_STATE_INIT;
 			return;
 		}
+
+		dev->is_cnfgrd = true;
 		dev->bgrsb_current_state = BGRSB_STATE_RSB_CONFIGURED;
 		pr_debug("RSB Cofigured\n");
 	}
@@ -592,6 +600,7 @@ static void bgrsb_glink_bgup_work(struct work_struct *work)
 				dev->bgrsb_current_state = BGRSB_STATE_INIT;
 			return;
 		}
+		dev->is_cnfgrd = true;
 		dev->bgrsb_current_state = BGRSB_STATE_RSB_CONFIGURED;
 		pr_debug("Glink RSB Cofigured\n");
 	}
@@ -715,6 +724,11 @@ static void bgrsb_calibration(struct work_struct *work)
 			container_of(work, struct bgrsb_priv,
 							rsb_calibration_work);
 
+	if (!dev->is_cnfgrd) {
+		pr_err("RSB is not configured\n");
+		return;
+	}
+
 	req.cmd_id = 0x03;
 	req.data = dev->calbrtion_cpi;
 
@@ -743,6 +757,11 @@ static void bgrsb_buttn_configration(struct work_struct *work)
 	struct bgrsb_priv *dev =
 			container_of(work, struct bgrsb_priv,
 							bttn_configr_work);
+
+	if (!dev->is_cnfgrd) {
+		pr_err("RSB is not configured\n");
+		return;
+	}
 
 	req.cmd_id = 0x05;
 	req.data = dev->bttn_configs;
@@ -993,7 +1012,8 @@ static int bg_rsb_resume(struct device *pldev)
 		goto ret_success;
 
 	if (dev->bgrsb_current_state == BGRSB_STATE_INIT) {
-		if (bgrsb_ldo_work(dev, BGRSB_ENABLE_LDO11) == 0) {
+		if (dev->is_cnfgrd &&
+			bgrsb_ldo_work(dev, BGRSB_ENABLE_LDO11) == 0) {
 			dev->bgrsb_current_state = BGRSB_STATE_RSB_CONFIGURED;
 			pr_debug("RSB Cofigured\n");
 			goto ret_success;

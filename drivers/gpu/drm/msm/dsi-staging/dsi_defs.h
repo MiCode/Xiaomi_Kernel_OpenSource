@@ -79,6 +79,7 @@ enum dsi_op_mode {
  * @DSI_MODE_FLAG_DMS: Seamless transition is dynamic mode switch
  * @DSI_MODE_FLAG_VRR: Seamless transition is DynamicFPS.
  *                     New timing values are sent from DAL.
+ * @DSI_MODE_FLAG_DYN_CLK: Seamless transition is dynamic clock change
  */
 enum dsi_mode_flags {
 	DSI_MODE_FLAG_SEAMLESS			= BIT(0),
@@ -86,6 +87,7 @@ enum dsi_mode_flags {
 	DSI_MODE_FLAG_VBLANK_PRE_MODESET	= BIT(2),
 	DSI_MODE_FLAG_DMS			= BIT(3),
 	DSI_MODE_FLAG_VRR			= BIT(4),
+	DSI_MODE_FLAG_DYN_CLK			= BIT(5),
 };
 
 /**
@@ -595,12 +597,50 @@ struct dsi_event_cb_info {
  * @DSI_FIFO_OVERFLOW:     DSI FIFO Overflow error
  * @DSI_FIFO_UNDERFLOW:    DSI FIFO Underflow error
  * @DSI_LP_Rx_TIMEOUT:     DSI LP/RX Timeout error
+ * @DSI_PLL_UNLOCK_ERR:	   DSI PLL unlock error
  */
 enum dsi_error_status {
 	DSI_FIFO_OVERFLOW = 1,
 	DSI_FIFO_UNDERFLOW,
 	DSI_LP_Rx_TIMEOUT,
+	DSI_PLL_UNLOCK_ERR,
 	DSI_ERR_INTR_ALL,
 };
 
+/* structure containing the delays required for dynamic clk */
+struct dsi_dyn_clk_delay {
+	u32 pipe_delay;
+	u32 pipe_delay2;
+	u32 pll_delay;
+};
+
+/* dynamic refresh control bits */
+enum dsi_dyn_clk_control_bits {
+	DYN_REFRESH_INTF_SEL = 1,
+	DYN_REFRESH_SYNC_MODE,
+	DYN_REFRESH_SW_TRIGGER,
+	DYN_REFRESH_SWI_CTRL,
+};
+
+/* convert dsi pixel format into bits per pixel */
+static inline int dsi_pixel_format_to_bpp(enum dsi_pixel_format fmt)
+{
+	switch (fmt) {
+	case DSI_PIXEL_FORMAT_RGB888:
+	case DSI_PIXEL_FORMAT_MAX:
+		return 24;
+	case DSI_PIXEL_FORMAT_RGB666:
+	case DSI_PIXEL_FORMAT_RGB666_LOOSE:
+		return 18;
+	case DSI_PIXEL_FORMAT_RGB565:
+		return 16;
+	case DSI_PIXEL_FORMAT_RGB111:
+		return 3;
+	case DSI_PIXEL_FORMAT_RGB332:
+		return 8;
+	case DSI_PIXEL_FORMAT_RGB444:
+		return 12;
+	}
+	return 24;
+}
 #endif /* _DSI_DEFS_H_ */

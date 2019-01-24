@@ -11,6 +11,7 @@ Required properties:
     - "qcom,csiphy-v3.1.1"
     - "qcom,csiphy-v3.2"
     - "qcom,csiphy-v3.4.2"
+    - "qcom,csiphy-v3.4.2.1"
     - "qcom,csiphy-v3.5"
     - "qcom,csiphy-v5.0"
     - "qcom,csiphy-v5.01"

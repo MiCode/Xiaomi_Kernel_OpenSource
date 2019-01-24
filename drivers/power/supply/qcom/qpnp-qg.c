@@ -1,4 +1,4 @@
-/* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1061,10 +1061,6 @@ static void process_udata_work(struct work_struct *work)
 			pr_err("Failed to update SDAM params, rc=%d\n", rc);
 	}
 
-	if (chip->udata.param[QG_CHARGE_COUNTER].valid)
-		chip->charge_counter_uah =
-			chip->udata.param[QG_CHARGE_COUNTER].data;
-
 	if (chip->udata.param[QG_ESR].valid)
 		chip->esr_last = chip->udata.param[QG_ESR].data;
 
@@ -1545,6 +1541,26 @@ static int qg_get_battery_capacity(struct qpnp_qg *chip, int *soc)
 	return 0;
 }
 
+static int qg_get_charge_counter(struct qpnp_qg *chip, int *charge_counter)
+{
+	int rc, cc_soc = 0;
+	int64_t temp = 0;
+
+	rc = qg_get_learned_capacity(chip, &temp);
+	if (rc < 0 || !temp)
+		rc = qg_get_nominal_capacity((int *)&temp, 250, true);
+
+	if (rc < 0) {
+		pr_err("Failed to get FCC for charge-counter rc=%d\n", rc);
+		return rc;
+	}
+
+	cc_soc = CAP(0, 100, DIV_ROUND_CLOSEST(chip->cc_soc, 100));
+	*charge_counter = div_s64(temp * cc_soc, 100);
+
+	return 0;
+}
+
 static int qg_get_ttf_param(void *data, enum ttf_param param, int *val)
 {
 	union power_supply_propval prop = {0, };
@@ -1732,7 +1748,7 @@ static int qg_psy_get_property(struct power_supply *psy,
 		pval->intval = chip->bp.qg_profile_version;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
-		pval->intval = chip->charge_counter_uah;
+		rc = qg_get_charge_counter(chip, &pval->intval);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
 		if (!chip->dt.cl_disable && chip->dt.cl_feedback_on)
@@ -1771,6 +1787,9 @@ static int qg_psy_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_SOH:
 		pval->intval = chip->soh;
+		break;
+	case POWER_SUPPLY_PROP_CC_SOC:
+		rc = qg_get_cc_soc(chip, &pval->intval);
 		break;
 	default:
 		pr_debug("Unsupported property %d\n", psp);
@@ -1822,6 +1841,7 @@ static enum power_supply_property qg_psy_props[] = {
 	POWER_SUPPLY_PROP_ESR_ACTUAL,
 	POWER_SUPPLY_PROP_ESR_NOMINAL,
 	POWER_SUPPLY_PROP_SOH,
+	POWER_SUPPLY_PROP_CC_SOC,
 };
 
 static const struct power_supply_desc qg_psy_desc = {
@@ -2651,6 +2671,7 @@ use_pon_ocv:
 			pr_err("Failed to lookup FULL_SOC@PON rc=%d\n", rc);
 			goto done;
 		}
+		full_soc = CAP(0, 99, full_soc);
 
 		rc = lookup_soc_ocv(&cutoff_soc,
 				chip->dt.vbatt_cutoff_mv * 1000,
@@ -2668,7 +2689,7 @@ use_pon_ocv:
 
 		qg_dbg(chip, QG_DEBUG_PON, "v_float=%d v_cutoff=%d FULL_SOC=%d CUTOFF_SOC=%d PON_SYS_SOC=%d pon_soc=%d\n",
 			chip->bp.float_volt_uv, chip->dt.vbatt_cutoff_mv * 1000,
-			full_soc, cutoff_soc, pon_soc, soc);
+			full_soc, cutoff_soc, soc, pon_soc);
 	}
 done:
 	if (rc < 0) {

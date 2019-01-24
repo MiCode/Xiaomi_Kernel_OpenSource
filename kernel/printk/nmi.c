@@ -260,12 +260,12 @@ void __init printk_nmi_init(void)
 	printk_nmi_flush();
 }
 
-void printk_nmi_enter(void)
+void notrace printk_nmi_enter(void)
 {
 	this_cpu_write(printk_func, vprintk_nmi);
 }
 
-void printk_nmi_exit(void)
+void notrace printk_nmi_exit(void)
 {
 	this_cpu_write(printk_func, vprintk_default);
 }

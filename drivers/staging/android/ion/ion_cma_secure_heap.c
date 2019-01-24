@@ -3,7 +3,7 @@
  *
  * Copyright (C) Linaro 2012
  * Author: <benjamin.gaignard@linaro.org> for ST-Ericsson.
- * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -346,8 +346,8 @@ static void ion_secure_cma_free_chunk(struct ion_cma_secure_heap *sheap,
 	kfree(chunk);
 }
 
-static void __ion_secure_cma_shrink_pool(struct ion_cma_secure_heap *sheap,
-					 int max_nr)
+static unsigned long
+__ion_secure_cma_shrink_pool(struct ion_cma_secure_heap *sheap, int max_nr)
 {
 	struct list_head *entry, *_n;
 	unsigned long drained_size = 0, skipped_size = 0;
@@ -371,6 +371,7 @@ static void __ion_secure_cma_shrink_pool(struct ion_cma_secure_heap *sheap,
 	}
 
 	trace_ion_secure_cma_shrink_pool_end(drained_size, skipped_size);
+	return drained_size;
 }
 
 int ion_secure_cma_drain_pool(struct ion_heap *heap, void *unused)
@@ -388,6 +389,7 @@ int ion_secure_cma_drain_pool(struct ion_heap *heap, void *unused)
 static unsigned long ion_secure_cma_shrinker(struct shrinker *shrinker,
 					     struct shrink_control *sc)
 {
+	unsigned long freed;
 	struct ion_cma_secure_heap *sheap = container_of(shrinker,
 					struct ion_cma_secure_heap, shrinker);
 	int nr_to_scan = sc->nr_to_scan;
@@ -400,11 +402,11 @@ static unsigned long ion_secure_cma_shrinker(struct shrinker *shrinker,
 	if (!mutex_trylock(&sheap->chunk_lock))
 		return -EAGAIN;
 
-	__ion_secure_cma_shrink_pool(sheap, nr_to_scan);
+	freed = __ion_secure_cma_shrink_pool(sheap, nr_to_scan);
 
 	mutex_unlock(&sheap->chunk_lock);
 
-	return atomic_read(&sheap->total_pool_size);
+	return freed;
 }
 
 static unsigned long ion_secure_cma_shrinker_count(struct shrinker *shrinker,
@@ -558,10 +560,11 @@ static struct ion_secure_cma_buffer_info *__ion_secure_cma_allocate_non_contig(
 	struct ion_secure_cma_buffer_info *info;
 	int ret;
 	unsigned long alloc_size = len;
-	struct ion_secure_cma_non_contig_info *nc_info, *temp;
+	struct ion_secure_cma_non_contig_info *nc_info;
 	unsigned long ncelems = 0;
 	struct scatterlist *sg;
 	unsigned long total_allocated = 0;
+	unsigned long total_added_to_pool = 0;
 
 	dev_dbg(sheap->dev, "Request buffer allocation len %ld\n", len);
 
@@ -599,6 +602,7 @@ retry:
 				kfree(nc_info);
 				continue;
 			}
+			total_added_to_pool += alloc_size;
 			ret = ion_secure_cma_alloc_from_pool(sheap,
 							     &nc_info->phys,
 							     alloc_size);
@@ -648,12 +652,13 @@ retry:
 err2:
 	mutex_unlock(&sheap->alloc_lock);
 err1:
-	list_for_each_entry_safe(nc_info, temp, &info->non_contig_list,
-				 entry) {
-		list_del(&nc_info->entry);
-		kfree(nc_info);
-	}
+	__ion_secure_cma_free_non_contig(sheap, info);
 	kfree(info->table);
+	/*
+	 * There may be a concurrent case that entering this function
+	 * although remaining heap not enough
+	 */
+	__ion_secure_cma_shrink_pool(sheap, total_added_to_pool);
 err:
 	kfree(info);
 	return ION_CMA_ALLOCATE_FAILED;
@@ -667,6 +672,8 @@ static int ion_secure_cma_allocate(struct ion_heap *heap,
 	unsigned long secure_allocation = flags & ION_FLAG_SECURE;
 	struct ion_secure_cma_buffer_info *buf = NULL;
 	unsigned long allow_non_contig = flags & ION_FLAG_ALLOW_NON_CONTIG;
+	struct ion_cma_secure_heap *sheap =
+			container_of(heap, struct ion_cma_secure_heap, heap);
 
 	if (!secure_allocation &&
 	    !ion_heap_allow_secure_allocation(heap->type)) {
@@ -690,6 +697,9 @@ static int ion_secure_cma_allocate(struct ion_heap *heap,
 	if (!allow_non_contig)
 		buf = __ion_secure_cma_allocate(heap, buffer, len, align,
 						flags);
+	else if (len > (sheap->heap_size - atomic_read(&sheap->
+			total_allocated) - atomic_read(&sheap->total_leaked)))
+		return -ENOMEM;
 	else
 		buf = __ion_secure_cma_allocate_non_contig(heap, buffer, len,
 							   align, flags);

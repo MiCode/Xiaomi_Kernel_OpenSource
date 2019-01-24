@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -257,9 +257,9 @@
 		qcom,cpulist = <&CPU0>;
 		qcom,target-dev = <&cpubw>;
 		qcom,core-dev-table =
-				<  153600 MHZ_TO_MBPS(200, 2) >,
-				<  576000 MHZ_TO_MBPS(691, 2) >,
-				< 1497600 MHZ_TO_MBPS(1383, 2)>;
+				<  153600 MHZ_TO_MBPS( 200, 4) >,
+				<  576000 MHZ_TO_MBPS( 691, 4) >,
+				< 1497600 MHZ_TO_MBPS(1383, 4)>;
 	};
 
 	clock_gcc: qcom,gcc@100000 {
@@ -363,9 +363,10 @@
 			<0x40001000 0x1000>,
 			<0x01c00000 0x2000>,
 			<0x01c02000 0x1000>,
-			<0x01c04000 0x1000>;
+			<0x01c04000 0x1000>,
+			<0x01fcb000 0x1000>;
 		reg-names = "msi", "dm_core", "elbi", "iatu", "parf",
-				"phy", "mmio";
+				"phy", "mmio", "tcsr_pcie_perst_en";
 
 		#address-cells = <0>;
 		interrupt-parent = <&pcie_ep>;
@@ -619,7 +620,7 @@
 		clock-frequency = <32768>;
 	};
 
-	restart@c264000 {
+	restart_pshold: restart@c264000 {
 		compatible = "qcom,pshold";
 		reg = <0x0c264000 0x4>,
 			<0x01fd3000 0x4>;
@@ -936,7 +937,7 @@
 		qcom,ipa-hw-mode = <0>;
 		qcom,ee = <0>;
 		qcom,use-ipa-tethering-bridge;
-		qcom,mhi-event-ring-id-limits = <9 10>; /* start and end */
+		qcom,mhi-event-ring-id-limits = <9 11>; /* start and end */
 		qcom,modem-cfg-emb-pipe-flt;
 		qcom,use-ipa-pm;
 		qcom,wlan-ce-db-over-pcie;
@@ -1306,6 +1307,7 @@
 		compatible = "qcom,cnss_sdio";
 		subsys-name = "AR6320_SDIO";
 		vdd-wlan-supply = <&vreg_wlan>;
+		vdd-wlan-xtal-supply = <&pmxpoorwills_l5>;
 		vdd-wlan-io-supply = <&pmxpoorwills_l6>;
 		qcom,wlan-ramdump-dynamic = <0x200000>;
 		pinctrl-names = "active", "sleep";
@@ -1313,6 +1315,8 @@
 		pinctrl-1 = <&cnss_sdio_sleep>;
 		qcom,is-antenna-shared;
 		status = "disabled";
+		vdd-wlan-xtal-min = <1704000>;
+		vdd-wlan-xtal-max = <1704000>;
 	};
 };
 

@@ -31,3 +31,7 @@
 &mhi_device {
 	status = "okay";
 };
+
+&restart_pshold {
+	qcom,force-warm-reboot;
+};

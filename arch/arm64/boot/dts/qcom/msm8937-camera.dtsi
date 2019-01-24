@@ -24,7 +24,7 @@
 	qcom,csiphy@1b34000 {
 		status = "ok";
 		cell-index = <0>;
-		compatible = "qcom,csiphy-v10.00", "qcom,csiphy";
+		compatible = "qcom,csiphy-v3.4.2", "qcom,csiphy";
 		reg = <0x1b34000 0x1000>,
 			<0x1b00030 0x4>;
 		reg-names = "csiphy", "csiphy_clk_mux";
@@ -45,7 +45,7 @@
 	qcom,csiphy@1b35000 {
 		status = "ok";
 		cell-index = <1>;
-		compatible = "qcom,csiphy-v10.00", "qcom,csiphy";
+		compatible = "qcom,csiphy-v3.4.2", "qcom,csiphy";
 		reg = <0x1b35000 0x1000>,
 			<0x1b00038 0x4>;
 		reg-names = "csiphy", "csiphy_clk_mux";

@@ -179,6 +179,9 @@ config USB_F_EEM
 config USB_F_SUBSET
 	tristate
 
+config USB_RNDIS
+	tristate
+
 config USB_F_RNDIS
 	tristate
 
@@ -240,6 +243,9 @@ config USB_F_GSI
 	tristate
 
 config USB_F_QDSS
+	tristate
+
+config USB_F_IPC
 	tristate
 
 # this first set of drivers all depend on bulk-capable hardware.
@@ -324,6 +330,7 @@ config USB_CONFIGFS_QCRNDIS
 	depends on RNDIS_IPA
 	depends on NET
 	select USB_U_ETHER
+	select USB_RNDIS
 	select USB_F_QCRNDIS
 
 config USB_CONFIGFS_RNDIS
@@ -331,6 +338,7 @@ config USB_CONFIGFS_RNDIS
 	depends on USB_CONFIGFS
 	depends on NET
 	select USB_U_ETHER
+	select USB_RNDIS
 	select USB_F_RNDIS
 	help
 	   Microsoft Windows XP bundles the "Remote NDIS" (RNDIS) protocol,
@@ -569,6 +577,7 @@ config USB_CONFIGFS_F_GSI
 	bool "USB GSI function"
 	select USB_F_GSI
 	select USB_U_ETHER
+	select USB_RNDIS
 	depends on USB_CONFIGFS
 	help
 	  Generic function driver to support h/w acceleration to IPA over GSI.
@@ -579,6 +588,17 @@ config USB_CONFIGFS_F_QDSS
 	depends on USB_CONFIGFS
 	help
           USB QDSS function driver to get hwtracing related data over USB.
+
+config USB_CONFIGFS_F_IPC
+	bool "USB IPC function"
+	select USB_F_IPC
+	depends on USB_CONFIGFS && !USB_QCOM_IPC_BRIDGE
+	help
+	  IPC function driver enables support for IPC messages port over USB.
+	  This driver and the host mode ipc_bridge driver are mutually exclusive
+	  and the IPC router USB transport layer can interface with only one on
+	  a given platform. Hence, enable this config only if host driver is not
+	  being compiled.
 
 choice
 	tristate "USB Gadget Drivers"

@@ -116,8 +116,7 @@ int cam_ife_csid_deinit_soc_resources(
 	return rc;
 }
 
-int cam_ife_csid_enable_soc_resources(
-	struct cam_hw_soc_info *soc_info, uint32_t clk_lvl)
+int cam_ife_csid_enable_soc_resources(struct cam_hw_soc_info *soc_info)
 {
 	int rc = 0;
 	struct cam_csid_soc_private       *soc_private;
@@ -142,7 +141,7 @@ int cam_ife_csid_enable_soc_resources(
 	}
 
 	rc = cam_soc_util_enable_platform_resource(soc_info, true,
-		clk_lvl, true);
+		CAM_SVS_VOTE, true);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "enable platform failed");
 		goto stop_cpas;
@@ -236,18 +235,3 @@ int cam_ife_csid_disable_ife_force_clock_on(struct cam_hw_soc_info *soc_info,
 	return rc;
 }
 
-uint32_t cam_ife_csid_get_vote_level(struct cam_hw_soc_info *soc_info,
-	uint64_t clock_rate)
-{
-	int i = 0;
-
-	if (!clock_rate)
-		return CAM_SVS_VOTE;
-
-	for (i = 0; i < CAM_MAX_VOTE; i++) {
-		if (soc_info->clk_rate[i][soc_info->num_clk - 1] >= clock_rate)
-			return i;
-	}
-
-	return CAM_TURBO_VOTE;
-}

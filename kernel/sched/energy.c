@@ -301,6 +301,8 @@ static int sched_energy_probe(struct platform_device *pdev)
 		walt_sched_energy_populated_callback();
 	}
 
+	walt_map_freq_to_load();
+
 	dev_info(&pdev->dev, "Sched-energy-costs capacity updated\n");
 	return 0;
 

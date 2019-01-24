@@ -551,8 +551,7 @@ static void cleanup_irq(struct spmi_pmic_arb *pa, u16 apid, int id)
 static void periph_interrupt(struct spmi_pmic_arb *pa, u16 apid)
 {
 	unsigned int irq;
-	u32 status;
-	int id;
+	u32 status, id;
 	u8 sid = (pa->apid_data[apid].ppid >> 8) & 0xF;
 	u8 per = pa->apid_data[apid].ppid & 0xFF;
 
