@@ -338,6 +338,7 @@
 			qcom,instance-id = <100>;
 			qcom,qmi-sensor-names = "pa",
 						"pa_1",
+						"pa_2",
 						"qfe_pa0",
 						"qfe_wtr0",
 						"modem_tsens",
@@ -409,35 +410,7 @@
 		};
 	};
 
-	modem1-qfe-pa-usr {
-		polling-delay-passive = <0>;
-		polling-delay = <0>;
-		thermal-governor = "user_space";
-		thermal-sensors = <&qmi_sensor 102>;
-		trips {
-			active-config0 {
-				temperature = <125000>;
-				hysteresis = <1000>;
-				type = "passive";
-			};
-		};
-	};
-
 	modem1-qfe-wtr-usr {
-		polling-delay-passive = <0>;
-		polling-delay = <0>;
-		thermal-governor = "user_space";
-		thermal-sensors = <&qmi_sensor 103>;
-		trips {
-			active-config0 {
-				temperature = <125000>;
-				hysteresis = <1000>;
-				type = "passive";
-			};
-		};
-	};
-
-	modem1-modem-usr {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "user_space";
@@ -451,7 +424,7 @@
 		};
 	};
 
-	modem1-mmw0-usr {
+	modem1-modem-usr {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "user_space";
@@ -465,7 +438,7 @@
 		};
 	};
 
-	modem1-mmw1-usr {
+	modem1-mmw0-usr {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "user_space";
@@ -479,7 +452,7 @@
 		};
 	};
 
-	modem1-mmw2-usr {
+	modem1-mmw1-usr {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "user_space";
@@ -493,7 +466,7 @@
 		};
 	};
 
-	modem1-mmw3-usr {
+	modem1-mmw2-usr {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "user_space";
@@ -507,7 +480,7 @@
 		};
 	};
 
-	modem1-skin-usr {
+	modem1-mmw3-usr {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "user_space";
@@ -521,7 +494,7 @@
 		};
 	};
 
-	modem1-pa-mdm-usr {
+	modem1-skin-usr {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "user_space";
@@ -535,11 +508,39 @@
 		};
 	};
 
-	modem1-pa-wtr-usr {
+	modem1-pa-mdm-usr {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "user_space";
 		thermal-sensors = <&qmi_sensor 111>;
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem1-pa-wtr-usr {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&qmi_sensor 112>;
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem1-pa2-usr {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&qmi_sensor 102>;
 		trips {
 			active-config0 {
 				temperature = <125000>;
