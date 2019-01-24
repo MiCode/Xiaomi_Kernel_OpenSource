@@ -35,6 +35,7 @@
 #include "msm_isp44.h"
 #include "msm_isp40.h"
 #include "msm_isp32.h"
+#include "msm_cam_cx_ipeak.h"
 
 static struct msm_sd_req_vb2_q vfe_vb2_ops;
 static struct msm_isp_buf_mgr vfe_buf_mgr;
@@ -675,6 +676,11 @@ int vfe_hw_probe(struct platform_device *pdev)
 			"qcom,vfe-cx-ipeak", NULL)) {
 			vfe_dev->vfe_cx_ipeak = cx_ipeak_register(
 				pdev->dev.of_node, "qcom,vfe-cx-ipeak");
+			if (vfe_dev->vfe_cx_ipeak)
+				cam_cx_ipeak_register_cx_ipeak(
+				vfe_dev->vfe_cx_ipeak, &vfe_dev->cx_ipeak_bit);
+			pr_debug("%s: register cx_ipeak received bit %d\n",
+				__func__, vfe_dev->cx_ipeak_bit);
 		}
 	} else {
 		vfe_dev->hw_info = (struct msm_vfe_hardware_info *)
