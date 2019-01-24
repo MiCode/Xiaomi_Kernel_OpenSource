@@ -748,6 +748,51 @@ error:
 	return false;
 }
 
+static int dp_hdcp2p2_change_streams(struct dp_hdcp2p2_ctrl *ctrl,
+		struct sde_hdcp_2x_wakeup_data *cdata)
+{
+	if (!ctrl || cdata->num_streams == 0 || !cdata->streams) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	if (!ctrl->lib_ctx) {
+		pr_err("HDCP library needs to be acquired\n");
+		return -EINVAL;
+	}
+
+	if (!ctrl->lib) {
+		pr_err("invalid lib ops data\n");
+		return -EINVAL;
+	}
+
+	cdata->context = ctrl->lib_ctx;
+	return ctrl->lib->wakeup(cdata);
+}
+
+
+static int dp_hdcp2p2_register_streams(void *input, u8 num_streams,
+			struct stream_info *streams)
+{
+	struct dp_hdcp2p2_ctrl *ctrl = input;
+	struct sde_hdcp_2x_wakeup_data cdata = {HDCP_2X_CMD_OPEN_STREAMS};
+
+	cdata.streams = streams;
+	cdata.num_streams = num_streams;
+	return dp_hdcp2p2_change_streams(ctrl, &cdata);
+}
+
+static int dp_hdcp2p2_deregister_streams(void *input, u8 num_streams,
+			struct stream_info *streams)
+{
+	struct dp_hdcp2p2_ctrl *ctrl = input;
+	struct sde_hdcp_2x_wakeup_data cdata = {HDCP_2X_CMD_CLOSE_STREAMS};
+
+	cdata.streams = streams;
+	cdata.num_streams = num_streams;
+	return dp_hdcp2p2_change_streams(ctrl, &cdata);
+}
+
 void sde_dp_hdcp2p2_deinit(void *input)
 {
 	struct dp_hdcp2p2_ctrl *ctrl = (struct dp_hdcp2p2_ctrl *)input;
@@ -844,6 +889,8 @@ void *sde_dp_hdcp2p2_init(struct sde_hdcp_init_data *init_data)
 		.on = dp_hdcp2p2_on,
 		.off = dp_hdcp2p2_off,
 		.cp_irq = dp_hdcp2p2_cp_irq,
+		.register_streams = dp_hdcp2p2_register_streams,
+		.deregister_streams = dp_hdcp2p2_deregister_streams,
 	};
 
 	static struct hdcp_transport_ops client_ops = {
