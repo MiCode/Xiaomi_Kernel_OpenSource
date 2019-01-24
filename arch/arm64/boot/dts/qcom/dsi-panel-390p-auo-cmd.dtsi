@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -94,7 +94,7 @@
 		qcom,mdss-dsi-dma-trigger = "trigger_sw";
 		qcom,mdss-dsi-mdp-trigger = "none";
 		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
-		qcom,mdss-dsi-reset-sequence = <1 20>, <0 20>, <1 20>;
+		qcom,mdss-dsi-reset-sequence = <1 2>, <0 10>, <1 10>;
 		/* clk = totlaH * totalV * bpp* 66fps */
 		qcom,mdss-dsi-panel-clockrate = <276705792>;
 		qcom,esd-check-enabled;
