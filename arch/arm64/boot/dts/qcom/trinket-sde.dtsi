@@ -366,7 +366,7 @@
 		reg = <0x5e94400 0x588>,
 			<0x5e01400 0x100>;
 		reg-names = "dsi_phy", "phy_clamp_base";
-		vdda-0p9-supply = <&L4A>;
+		vdda-0p9-supply = <&VDD_MX_LEVEL>;
 		qcom,platform-strength-ctrl = [ff 06
 						ff 06
 						ff 06
@@ -378,15 +378,18 @@
 						00 00 10 0f
 						00 00 10 8f];
 		qcom,platform-regulator-settings = [1d 1d 1d 1d 1d];
+		qcom,panel-allow-phy-poweroff;
 		qcom,phy-supply-entries {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			qcom,phy-supply-entry@0 {
 				reg = <0>;
 				qcom,supply-name = "vdda-0p9";
-				qcom,supply-min-voltage = <880000>;
-				qcom,supply-max-voltage = <975000>;
-				qcom,supply-enable-load = <36000>;
+				qcom,supply-min-voltage =
+					<RPM_SMD_REGULATOR_LEVEL_NOM>;
+				qcom,supply-max-voltage =
+					<RPM_SMD_REGULATOR_LEVEL_NOM>;
+				qcom,supply-enable-load = <0>;
 				qcom,supply-disable-load = <0>;
 			};
 		};
