@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _SDE_HW_SSPP_H
@@ -569,6 +569,15 @@ struct sde_hw_sspp_ops {
 	void (*setup_secure_address)(struct sde_hw_pipe *ctx,
 			enum sde_sspp_multirect_index index,
 		bool enable);
+
+	/**
+	 * set_src_split_order - setup source split order priority
+	 * @ctx: Pointer to pipe context
+	 * @index: rectangle index in multirect
+	 * @enable: enable src split order
+	 */
+	void (*set_src_split_order)(struct sde_hw_pipe *ctx,
+			enum sde_sspp_multirect_index index, bool enable);
 
 	/**
 	 * setup_inverse_pma - enable/disable alpha unmultiply unit (PMA)

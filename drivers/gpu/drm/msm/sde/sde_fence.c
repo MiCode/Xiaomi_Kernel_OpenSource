@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
@@ -206,6 +206,7 @@ static int _sde_fence_create_fd(void *fence_ctx, uint32_t val)
 						sde_fence->ctx->name, val);
 	dma_fence_init(&sde_fence->base, &sde_fence_ops, &ctx->lock,
 		ctx->context, val);
+	kref_get(&ctx->kref);
 
 	/* create fd */
 	fd = get_unused_fd_flags(0);
@@ -228,7 +229,6 @@ static int _sde_fence_create_fd(void *fence_ctx, uint32_t val)
 
 	fd_install(fd, sync_file->file);
 	sde_fence->fd = fd;
-	kref_get(&ctx->kref);
 
 	spin_lock(&ctx->list_lock);
 	list_add_tail(&sde_fence->fence_list, &ctx->fence_list_head);

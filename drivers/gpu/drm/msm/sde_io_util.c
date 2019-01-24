@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2015, 2017-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, 2017-2019 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -206,11 +206,31 @@ vreg_get_fail:
 } /* msm_dss_config_vreg */
 EXPORT_SYMBOL(msm_dss_config_vreg);
 
+static bool msm_dss_is_hw_controlled(struct dss_vreg in_vreg)
+{
+	u32 mode = 0;
+	char const *regulator_gdsc = "gdsc";
+
+	/*
+	 * For gdsc-regulator devices only, REGULATOR_MODE_FAST specifies that
+	 * the GDSC is in HW controlled mode.
+	 */
+	mode = regulator_get_mode(in_vreg.vreg);
+	if (!strcmp(regulator_gdsc, in_vreg.vreg_name) &&
+			mode == REGULATOR_MODE_FAST) {
+		DEV_DBG("%pS->%s: %s is HW controlled\n",
+				__builtin_return_address(0), __func__,
+				in_vreg.vreg_name);
+		return true;
+	}
+
+	return false;
+}
+
 int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 {
 	int i = 0, rc = 0;
 	bool need_sleep;
-	int reg_mode;
 
 	if (enable) {
 		for (i = 0; i < num_vreg; i++) {
@@ -221,17 +241,9 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 					in_vreg[i].vreg_name, rc);
 				goto vreg_set_opt_mode_fail;
 			}
-			reg_mode = regulator_get_mode(in_vreg[i].vreg);
-			if (reg_mode == REGULATOR_MODE_FAST) {
-				DEV_DBG("%pS->%s: %s operation not allowed\n",
-					__builtin_return_address(0), __func__,
-					in_vreg[i].vreg_name);
-				/*
-				 * This regulator is controlled by Hw cannot be
-				 * controlled by Sw vote
-				 */
+			if (msm_dss_is_hw_controlled(in_vreg[i]))
 				continue;
-			}
+
 			need_sleep = !regulator_is_enabled(in_vreg[i].vreg);
 			if (in_vreg[i].pre_on_sleep && need_sleep)
 				usleep_range(in_vreg[i].pre_on_sleep * 1000,
@@ -257,17 +269,9 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 		}
 	} else {
 		for (i = num_vreg-1; i >= 0; i--) {
-			reg_mode = regulator_get_mode(in_vreg[i].vreg);
-			if (reg_mode == REGULATOR_MODE_FAST) {
-				DEV_DBG("%pS->%s: %s operation not allowed\n",
-					__builtin_return_address(0), __func__,
-					in_vreg[i].vreg_name);
-				/*
-				 * This regulator is controlled by Hw cannot be
-				 * controlled by Sw vote
-				 */
+			if (msm_dss_is_hw_controlled(in_vreg[i]))
 				continue;
-			}
+
 			if (in_vreg[i].pre_off_sleep)
 				usleep_range(in_vreg[i].pre_off_sleep * 1000,
 					(in_vreg[i].pre_off_sleep * 1000) + 10);
@@ -381,27 +385,41 @@ error:
 } /* msm_dss_get_clk */
 EXPORT_SYMBOL(msm_dss_get_clk);
 
+int msm_dss_single_clk_set_rate(struct dss_clk *clk)
+{
+	int rc = 0;
+
+	if (!clk) {
+		DEV_ERR("invalid clk struct\n");
+		return -EINVAL;
+	}
+
+	DEV_DBG("%pS->%s: set_rate '%s'\n",
+			__builtin_return_address(0), __func__,
+			clk->clk_name);
+
+	if (clk->type != DSS_CLK_AHB) {
+		rc = clk_set_rate(clk->clk, clk->rate);
+		if (rc)
+			DEV_ERR("%pS->%s: %s failed. rc=%d\n",
+					__builtin_return_address(0),
+					__func__,
+					clk->clk_name, rc);
+	}
+
+	return rc;
+} /* msm_dss_single_clk_set_rate */
+EXPORT_SYMBOL(msm_dss_single_clk_set_rate);
+
 int msm_dss_clk_set_rate(struct dss_clk *clk_arry, int num_clk)
 {
 	int i, rc = 0;
 
 	for (i = 0; i < num_clk; i++) {
 		if (clk_arry[i].clk) {
-			if (clk_arry[i].type != DSS_CLK_AHB) {
-				DEV_DBG("%pS->%s: '%s' rate %ld\n",
-					__builtin_return_address(0), __func__,
-					clk_arry[i].clk_name,
-					clk_arry[i].rate);
-				rc = clk_set_rate(clk_arry[i].clk,
-					clk_arry[i].rate);
-				if (rc) {
-					DEV_ERR("%pS->%s: %s failed. rc=%d\n",
-						__builtin_return_address(0),
-						__func__,
-						clk_arry[i].clk_name, rc);
-					break;
-				}
-			}
+			rc = msm_dss_single_clk_set_rate(&clk_arry[i]);
+			if (rc)
+				break;
 		} else {
 			DEV_ERR("%pS->%s: '%s' is not available\n",
 				__builtin_return_address(0), __func__,

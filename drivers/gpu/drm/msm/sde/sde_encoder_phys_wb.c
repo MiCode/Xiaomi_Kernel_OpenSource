@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
@@ -635,6 +635,7 @@ static int _sde_enc_phys_wb_validate_cwb(struct sde_encoder_phys *phys_enc,
 {
 	struct sde_crtc_state *cstate = to_sde_crtc_state(crtc_state);
 	struct sde_rect wb_roi = {0,};
+	struct sde_rect pu_roi = {0,};
 	int data_pt;
 	int ds_outw = 0;
 	int ds_outh = 0;
@@ -673,12 +674,11 @@ static int _sde_enc_phys_wb_validate_cwb(struct sde_encoder_phys *phys_enc,
 	}
 
 	/* validate conn roi against pu rect */
-	if (!sde_kms_rect_is_null(&cstate->crtc_roi)) {
-		if (wb_roi.w != cstate->crtc_roi.w ||
-				wb_roi.h != cstate->crtc_roi.h) {
+	if (cstate->user_roi_list.num_rects) {
+		sde_kms_rect_merge_rectangles(&cstate->user_roi_list, &pu_roi);
+		if (wb_roi.w != pu_roi.w || wb_roi.h != pu_roi.h) {
 			SDE_ERROR("invalid wb roi with pu [%dx%d vs %dx%d]\n",
-					wb_roi.w, wb_roi.h, cstate->crtc_roi.w,
-					 cstate->crtc_roi.h);
+					wb_roi.w, wb_roi.h, pu_roi.w, pu_roi.h);
 			ret = -EINVAL;
 			goto exit;
 		}
@@ -865,7 +865,7 @@ static void _sde_encoder_phys_wb_update_cwb_flush(
 	dspp_out = (cwb_capture_mode == CAPTURE_DSPP_OUT);
 	need_merge = (crtc->num_mixers > 1) ? true : false;
 
-	if (src_pp_idx > LM_0 ||  ((cwb_idx + crtc->num_mixers) > CWB_MAX)) {
+	if (src_pp_idx > CWB_0 ||  ((cwb_idx + crtc->num_mixers) > CWB_MAX)) {
 		SDE_ERROR("invalid hw config for CWB\n");
 		return;
 	}
@@ -1553,12 +1553,20 @@ static void sde_encoder_phys_wb_disable(struct sde_encoder_phys *phys_enc)
 	if (phys_enc->hw_ctl->ops.clear_pending_flush)
 		phys_enc->hw_ctl->ops.clear_pending_flush(phys_enc->hw_ctl);
 
-	sde_encoder_helper_phys_disable(phys_enc, wb_enc);
+	/*
+	 * New CTL reset sequence from 5.0 MDP onwards.
+	 * If has_3d_merge_reset is not set, legacy reset
+	 * sequence is executed.
+	 */
+	if (hw_wb->catalog->has_3d_merge_reset) {
+		sde_encoder_helper_phys_disable(phys_enc, wb_enc);
+		goto exit;
+	}
+
+	if (sde_encoder_helper_reset_mixers(phys_enc, wb_enc->fb_disable))
+		goto exit;
 
 	phys_enc->enable_state = SDE_ENC_DISABLING;
-
-	if (hw_wb->catalog->has_3d_merge_reset)
-		goto exit;
 
 	sde_encoder_phys_wb_prepare_for_kickoff(phys_enc, NULL);
 	sde_encoder_phys_wb_irq_ctrl(phys_enc, true);

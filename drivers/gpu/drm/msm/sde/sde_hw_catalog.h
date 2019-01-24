@@ -47,6 +47,7 @@
 #define SDE_HW_VER_500	SDE_HW_VER(5, 0, 0) /* sm8150 v1.0 */
 #define SDE_HW_VER_501	SDE_HW_VER(5, 0, 1) /* sm8150 v2.0 */
 #define SDE_HW_VER_510	SDE_HW_VER(5, 1, 0) /* sdmshrike v1.0 */
+#define SDE_HW_VER_520	SDE_HW_VER(5, 2, 0) /* sdmmagpie v1.0 */
 #define SDE_HW_VER_530	SDE_HW_VER(5, 3, 0) /* sm6150 v1.0 */
 #define SDE_HW_VER_600	SDE_HW_VER(6, 0, 0) /* kona */
 
@@ -56,6 +57,7 @@
 #define IS_SDM670_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_410)
 #define IS_SM8150_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_500)
 #define IS_SDMSHRIKE_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_510)
+#define IS_SDMMAGPIE_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_520)
 #define IS_SM6150_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_530)
 #define IS_KONA_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_600)
 
@@ -1359,7 +1361,7 @@ static inline bool sde_hw_sspp_multirect_enabled(const struct sde_sspp_cfg *cfg)
 			 test_bit(SDE_SSPP_SMART_DMA_V2p5, &cfg->features);
 }
 
-static inline sde_hw_intf_te_supported(const struct sde_mdss_cfg *sde_cfg)
+static inline bool sde_hw_intf_te_supported(const struct sde_mdss_cfg *sde_cfg)
 {
 	return test_bit(SDE_INTF_TE, &(sde_cfg->intf[0].features));
 }

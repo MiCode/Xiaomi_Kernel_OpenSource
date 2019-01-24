@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2009-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
@@ -3526,8 +3526,9 @@ void sde_dbg_ctrl(const char *name, ...)
 		if (!strcmp(blk_name, "panic_underrun") &&
 				sde_dbg_base.debugfs_ctrl &
 				DBG_CTRL_PANIC_UNDERRUN) {
-			pr_debug("panic underrun\n");
-			panic("underrun");
+			pr_err("panic underrun\n");
+			SDE_DBG_DUMP_WQ("all", "dbg_bus", "vbif_dbg_bus",
+					"panic");
 		}
 
 		if (!strcmp(blk_name, "reset_hw_panic") &&
@@ -4430,7 +4431,8 @@ void sde_dbg_init_dbg_buses(u32 hwversion)
 	memset(&dbg->dbgbus_sde, 0, sizeof(dbg->dbgbus_sde));
 	memset(&dbg->dbgbus_vbif_rt, 0, sizeof(dbg->dbgbus_vbif_rt));
 
-	if (IS_SM8150_TARGET(hwversion) || IS_SM6150_TARGET(hwversion)) {
+	if (IS_SM8150_TARGET(hwversion) || IS_SM6150_TARGET(hwversion) ||
+				IS_SDMMAGPIE_TARGET(hwversion)) {
 		dbg->dbgbus_sde.entries = dbg_bus_sde_sm8150;
 		dbg->dbgbus_sde.cmn.entries_size =
 				ARRAY_SIZE(dbg_bus_sde_sm8150);

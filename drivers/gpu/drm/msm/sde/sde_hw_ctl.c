@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -1032,17 +1032,19 @@ static int sde_hw_ctl_reset_post_disable(struct sde_hw_ctl *ctx,
 		}
 	}
 
-	/* disable and flush merge3d_blk */
-	merge_3d_flush = BIT(merge_3d_idx - MERGE_3D_0);
-	merge_3d_active &= ~BIT(merge_3d_idx - MERGE_3D_0);
-
+	if (merge_3d_idx) {
+		/* disable and flush merge3d_blk */
+		merge_3d_flush = BIT(merge_3d_idx - MERGE_3D_0);
+		merge_3d_active &= ~BIT(merge_3d_idx - MERGE_3D_0);
+		ctx->flush.pending_merge_3d_flush_mask = merge_3d_flush;
+		SDE_REG_WRITE(c, CTL_MERGE_3D_ACTIVE, merge_3d_active);
+	}
 	sde_hw_ctl_clear_all_blendstages(ctx);
 
-	ctx->flush.pending_merge_3d_flush_mask = merge_3d_flush;
 	ctx->flush.pending_intf_flush_mask = intf_flush;
 	ctx->flush.pending_wb_flush_mask = wb_flush;
 
-	SDE_REG_WRITE(c, CTL_MERGE_3D_ACTIVE, merge_3d_active);
+
 	SDE_REG_WRITE(c, CTL_INTF_ACTIVE, intf_active);
 	SDE_REG_WRITE(c, CTL_WB_ACTIVE, wb_active);
 

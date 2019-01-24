@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
@@ -122,7 +122,6 @@ static void _sde_encoder_phys_cmd_update_flush_mask(
 {
 	struct sde_encoder_phys_cmd *cmd_enc;
 	struct sde_hw_ctl *ctl;
-	bool merge_3d_enable = false;
 
 	if (!phys_enc || !phys_enc->hw_intf || !phys_enc->hw_pp)
 		return;
@@ -140,16 +139,11 @@ static void _sde_encoder_phys_cmd_update_flush_mask(
 		return;
 	}
 
-	if (sde_encoder_helper_get_3d_blend_mode(phys_enc) != BLEND_3D_NONE)
-		merge_3d_enable = true;
-
 	ctl->ops.update_bitmask_intf(ctl, phys_enc->intf_idx, 1);
 
-
-	if (test_bit(SDE_CTL_ACTIVE_CFG, &ctl->caps->features) &&
-			phys_enc->hw_pp->merge_3d)
+	if (ctl->ops.update_bitmask_merge3d && phys_enc->hw_pp->merge_3d)
 		ctl->ops.update_bitmask_merge3d(ctl,
-			phys_enc->hw_pp->merge_3d->idx, merge_3d_enable);
+			phys_enc->hw_pp->merge_3d->idx, 1);
 
 	SDE_DEBUG_CMDENC(cmd_enc, "update pending flush ctl %d intf_idx %x\n",
 			ctl->idx - CTL_0, phys_enc->intf_idx);
@@ -908,8 +902,7 @@ static int _get_tearcheck_threshold(struct sde_encoder_phys *phys_enc,
 		return 0;
 
 	mode = &phys_enc->cached_mode;
-	qsync_mode = sde_connector_get_property(
-			conn->state, CONNECTOR_PROP_QSYNC_MODE);
+	qsync_mode = sde_connector_get_qsync_mode(conn);
 
 	if (mode && (qsync_mode == SDE_RM_QSYNC_CONTINUOUS_MODE)) {
 		u32 qsync_min_fps = 0;
@@ -1369,7 +1362,7 @@ static int sde_encoder_phys_cmd_prepare_for_kickoff(
 		}
 	}
 
-	if (sde_connector_qsync_updated(phys_enc->connector)) {
+	if (sde_connector_is_qsync_updated(phys_enc->connector)) {
 		tc_cfg.sync_threshold_start =
 			_get_tearcheck_threshold(phys_enc,
 				&extra_frame_trigger_time);
@@ -1429,6 +1422,25 @@ static int _sde_encoder_phys_cmd_wait_for_ctl_start(
 					"ctl start interrupt wait failed\n");
 		else
 			ret = 0;
+
+		if (sde_encoder_phys_cmd_is_master(phys_enc)) {
+			/*
+			 * Signaling the retire fence at ctl start timeout
+			 * to allow the next commit and avoid device freeze.
+			 * As ctl start timeout can occurs due to no read ptr,
+			 * updating pending_rd_ptr_cnt here may not cover all
+			 * cases. Hence signaling the retire fence.
+			 */
+			if (atomic_add_unless(
+			 &phys_enc->pending_retire_fence_cnt, -1, 0))
+				phys_enc->parent_ops.handle_frame_done(
+				 phys_enc->parent,
+				 phys_enc,
+				 SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE);
+			atomic_add_unless(
+				&phys_enc->pending_ctlstart_cnt, -1, 0);
+		}
+
 	}
 
 	return ret;
