@@ -1179,8 +1179,8 @@ static int __tzbsp_set_video_state(enum tzbsp_video_state state)
 	dprintk(CVP_DBG, "Set state %d, resp %d\n", state, tzbsp_rsp);
 	if (tzbsp_rsp) {
 		dprintk(CVP_ERR,
-				"Failed to set video core state to suspend: %d\n",
-				tzbsp_rsp);
+			"Failed to set video core state to suspend: %d\n",
+			tzbsp_rsp);
 		return -EINVAL;
 	}
 
@@ -1190,7 +1190,7 @@ static int __tzbsp_set_video_state(enum tzbsp_video_state state)
 static inline int __boot_firmware(struct venus_hfi_device *device)
 {
 	int rc = 0;
-	u32 ctrl_init_val = 0, ctrl_status = 0, count = 0, max_tries = 10;
+	u32 ctrl_init_val = 0, ctrl_status = 0, count = 0, max_tries = 1000;
 
 	ctrl_init_val = BIT(0);
 	__write_register(device, CVP_CTRL_INIT, ctrl_init_val);
@@ -1206,7 +1206,11 @@ static inline int __boot_firmware(struct venus_hfi_device *device)
 		usleep_range(50, 100);
 		count++;
 	}
-	dprintk(CVP_DBG, "Run to end of firmware boot\n");
+
+	if (ctrl_status != 0x1)
+		dprintk(CVP_DBG, "Failed to boot FW status: %x\n",
+			ctrl_status);
+
 	return 0;
 }
 
