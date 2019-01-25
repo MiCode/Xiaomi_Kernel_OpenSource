@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -284,7 +284,7 @@
 		};
 	};
 
-	pm6125-ibat-lvl0 {
+	pmi632-ibat-lvl0 {
 		cooling-maps {
 			ibat_cpu0 {
 				trip = <&pmi632_ibat_lvl0>;
@@ -337,7 +337,7 @@
 		};
 	};
 
-	pm6125-ibat-lvl1 {
+	pmi632-ibat-lvl1 {
 		cooling-maps {
 			ibat_cpu0 {
 				trip = <&pmi632_ibat_lvl1>;
@@ -442,4 +442,8 @@
 			};
 		};
 	};
+};
+
+&mdss_mdp {
+	#cooling-cells = <2>;
 };
