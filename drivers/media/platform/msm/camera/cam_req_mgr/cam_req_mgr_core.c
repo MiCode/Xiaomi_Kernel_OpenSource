@@ -499,8 +499,6 @@ static int __cam_req_mgr_send_req(struct cam_req_mgr_core_link *link,
 				continue;
 			}
 
-			trace_cam_req_mgr_apply_request(link, &apply_req, dev);
-
 			apply_req.trigger_point = trigger;
 			CAM_DBG(CAM_REQ,
 				"SEND: link_hdl: %x pd %d req_id %lld",
@@ -513,6 +511,7 @@ static int __cam_req_mgr_send_req(struct cam_req_mgr_core_link *link,
 				if (pd == link->max_delay)
 					link->open_req_cnt--;
 			}
+			trace_cam_req_mgr_apply_request(link, &apply_req, dev);
 		}
 	}
 	if (rc < 0) {
