@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -55,6 +55,12 @@ struct sde_splash_info {
 
 	/* to indicate LK is totally exited */
 	bool lk_is_exited;
+
+	/* flag of early display status */
+	bool early_display_enabled;
+
+	/* flag of early RVC status */
+	bool early_camera_enabled;
 
 	/* memory node used for display buffer */
 	uint32_t splash_mem_num;
@@ -140,8 +146,9 @@ int sde_splash_parse_memory_dt(struct drm_device *dev);
  *
  * Parse reserved plane information from DT for early RVC case.
  */
-int sde_splash_parse_reserved_plane_dt(struct sde_splash_info *splash_info,
-					struct sde_mdss_cfg *cfg);
+int sde_splash_parse_reserved_plane_dt(struct drm_device *dev,
+				struct sde_splash_info *splash_info,
+				struct sde_mdss_cfg *cfg);
 
 /*
  * sde_splash_query_plane_is_reserved

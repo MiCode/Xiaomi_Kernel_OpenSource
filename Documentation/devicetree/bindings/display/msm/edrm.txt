@@ -1,0 +1,57 @@
+Qualcomm Technologies, Inc. EDRM KMS
+
+EDRM KMS implements Linux DRM/KMS APIs to drive early user interface to
+different panel interfaces. EDRM driver provides early service to display
+subsystem which manage a subset data paths to specific panel interfaces.
+EDRM is expected to provide display service to fill in the gap between
+bootloader and main application UI.  Only early application is expected to
+use EDRM.  EDRM will be terminated when main application UI is ready.
+
+Required properties
+- compatible: Must be "qcom,msm-kms-edrm"
+
+Assigned Display Subnodes:
+- qcom,edrm-assigned-display:	List of display that eDRM can use.
+
+Subnode properties:
+- qcom,edrm-display-id@x:	a node that contains the display information
+
+- qcom,label:	The string that indicate the label of the display.  The
+			label should match with the label used in sde_display.
+			For example, SDE display dtsi may defined:
+				dsi_adv_7533_2: qcom,dsi-display@8 {...}
+
+			If eDRM wants to use that display, it should set the
+			label as:
+				qcom,label = "dsi_adv_7533_1";
+
+- qcom,intf-type:  a string that indicate the interface type.  Right now
+				it can be "dsi" or "hdmi"
+
+- qcom,assigned_plane :	List of plane that assigned for this display.
+				There must be at least one plane in this field.
+				The plane that is in this field must also be
+				defined in qcom,sde-reserved-plane under sde_kms
+				For example, SDE may contains the following
+				reserved plane:
+				&sde_kms {
+					qcom,sde-reserved-plane {
+					reserved_plane1: qcom,sde-reserved-plane@1 {
+					reg = <0x1>;
+					qcom,plane-name = "rgb3";
+					lm-stage = <5>;
+				}
+				Then assigned_plane field can reference to the
+				reserved plane like:
+				qcom,assigned_plane = <&reserved_plane1>;
+
+Example:
+	msm_kms_edrm: qcom,msm_kms_edrm@900000 {
+		qcom,edrm-assigned-display {
+			qcom,edrm-display-id@0 {
+				qcom,label = "dsi_adv_7533_1";
+				qcom,intf-type = "dsi";
+				qcom,assigned_plane = <&reserved_plane1>;
+			}
+		}
+	}

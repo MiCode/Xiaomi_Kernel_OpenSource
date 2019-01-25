@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -359,12 +359,12 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 	struct drm_device *dev = sde_kms->dev;
 	struct msm_drm_private *priv = dev->dev_private;
 
+	sde_power_resource_enable(&priv->phandle,
+			sde_kms->core_client, true);
+
 	if (sde_kms->splash_info.handoff &&
 		sde_kms->splash_info.display_splash_enabled)
 		sde_splash_lk_stop_splash(kms, state);
-
-	sde_power_resource_enable(&priv->phandle,
-			sde_kms->core_client, true);
 
 	shd_display_prepare_commit(sde_kms, state);
 }
@@ -1508,7 +1508,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 			goto power_error;
 		}
 
-		rc = sde_splash_parse_reserved_plane_dt(sinfo,
+		rc = sde_splash_parse_reserved_plane_dt(dev, sinfo,
 							sde_kms->catalog);
 		if (rc)
 			SDE_ERROR("parse reserved plane dt failed: %d\n", rc);
