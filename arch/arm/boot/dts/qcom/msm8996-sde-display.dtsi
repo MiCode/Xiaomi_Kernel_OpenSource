@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -259,7 +259,7 @@
 			<&clock_mmss clk_ext_pclk0_clk_src>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
 
-		qcom,dsi-panel = <&dsi_adv7533_720p>;
+		qcom,dsi-panel = <&dsi_adv7533_1080p>;
 		vddio-supply = <&pm8994_l14>;
 		qcom,bridge-index = <0>;
 	};
@@ -275,7 +275,7 @@
 			<&clock_mmss clk_ext_pclk1_clk_src>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
 
-		qcom,dsi-panel = <&dsi_adv7533_720p>;
+		qcom,dsi-panel = <&dsi_adv7533_1080p>;
 		vddio-supply = <&pm8994_l14>;
 		qcom,bridge-index = <1>;
 	};

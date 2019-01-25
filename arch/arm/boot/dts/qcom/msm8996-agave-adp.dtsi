@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1643,11 +1643,27 @@
 	};
 };
 
-/ {
+&sde_kms {
 	qcom,sde-reserved-plane {
-		qcom,sde-plane-id@0 {
+		reserved_plane0: qcom,sde-reserved-plane@0 {
 			reg = <0x0>;
 			qcom,plane-name = "vig0";
+			lm-stage = <4>;
+		};
+		reserved_plane1: qcom,sde-reserved-plane@1 {
+			reg = <0x1>;
+			qcom,plane-name = "vig3";
+			lm-stage = <5>;
+		};
+	};
+};
+
+&msm_kms_edrm {
+	qcom,edrm-assigned-display {
+		qcom,edrm-display-id@0 {
+			qcom,label = "dsi_adv_7533_1";
+			qcom,intf-type = "dsi";
+			qcom,assigned_plane = <&reserved_plane1>;
 		};
 	};
 };
