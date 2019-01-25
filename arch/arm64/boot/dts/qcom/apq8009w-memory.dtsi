@@ -1,0 +1,35 @@
+/*
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&external_image_mem {
+	reg = <0x0 0x87b00000 0x0 0x0500000>;
+};
+
+&modem_adsp_mem {
+	reg = <0x0 0x88000000 0x0 0x02100000>;
+};
+
+&peripheral_mem {
+	reg = <0x0 0x8a100000 0x0 0x0600000>;
+};
+
+&reserved_mem {
+	linux,cma {
+		compatible = "shared-dma-pool";
+		alloc-ranges = <0 0x00000000 0 0xa0000000>;
+		reusable;
+		alignment = <0 0x400000>;
+		size = <0 0x1000000>;
+		linux,cma-default;
+	};
+};

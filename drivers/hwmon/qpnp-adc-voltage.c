@@ -34,6 +34,7 @@
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
 #include <linux/thermal.h>
+#include <linux/qpnp/qpnp-revid.h>
 
 /* QPNP VADC register definition */
 #define QPNP_VADC_REVISION1				0x0
@@ -203,6 +204,7 @@ struct qpnp_vadc_chip {
 	struct power_supply		*vadc_chg_vote;
 	bool				vadc_hc;
 	int				vadc_debug_count;
+	struct pmic_revid_data		*pmic_rev_id;
 	struct sensor_device_attribute	sens_attr[0];
 };
 
@@ -466,6 +468,44 @@ static void qpnp_vadc_hc_update_adc_dig_param(struct qpnp_vadc_chip *vadc,
 	pr_debug("VADC_DIG_PARAM value:0x%x\n", *data);
 }
 
+static int qpnp_vadc_channel_check(struct qpnp_vadc_chip *vadc, u8 buf)
+{
+	int rc = 0;
+	u8 chno = 0;
+
+	rc = qpnp_vadc_read_reg(vadc,
+		QPNP_VADC_HC1_ADC_CH_SEL_CTL, &chno, 1);
+	if (rc < 0) {
+		pr_err("Channel reread failed\n");
+		return rc;
+	}
+
+	if (buf != chno) {
+		pr_debug("channel write fails once: written:0x%x actual:0x%x\n",
+			chno, buf);
+
+		rc = qpnp_vadc_write_reg(vadc,
+			QPNP_VADC_HC1_ADC_CH_SEL_CTL, &buf, 1);
+		if (rc < 0) {
+			pr_err("qpnp adc register configure failed\n");
+			return rc;
+		}
+
+		rc = qpnp_vadc_read_reg(vadc,
+			QPNP_VADC_HC1_ADC_CH_SEL_CTL, &chno, 1);
+		if (rc < 0) {
+			pr_err("qpnp adc configure read failed\n");
+			return rc;
+		}
+
+		if (chno != buf) {
+			pr_err("Write fails twice: written: 0x%x\n", chno);
+			return -EINVAL;
+		}
+	}
+	return 0;
+}
+
 static int qpnp_vadc_hc_pre_configure_usb_in(struct qpnp_vadc_chip *vadc,
 						int dt_index)
 {
@@ -473,6 +513,11 @@ static int qpnp_vadc_hc_pre_configure_usb_in(struct qpnp_vadc_chip *vadc,
 	u8 buf;
 	u8 dig_param = 0;
 	struct qpnp_adc_amux_properties conv;
+	bool channel_check = false;
+
+	if (vadc->pmic_rev_id)
+		if (vadc->pmic_rev_id->pmic_subtype == PMI632_SUBTYPE)
+			channel_check = true;
 
 	/* Setup dig params for USB_IN_V */
 	conv.decimation = DECIMATION_TYPE2;
@@ -496,6 +541,12 @@ static int qpnp_vadc_hc_pre_configure_usb_in(struct qpnp_vadc_chip *vadc,
 	rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_HC1_ADC_CH_SEL_CTL, &buf, 1);
 	if (rc < 0)
 		return rc;
+
+	if (channel_check) {
+		rc = qpnp_vadc_channel_check(vadc, buf);
+		if (rc)
+			return rc;
+	}
 
 	buf = QPNP_VADC_HC1_ADC_EN;
 	rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_HC1_EN_CTL1, &buf, 1);
@@ -521,6 +572,12 @@ static int qpnp_vadc_hc_pre_configure_usb_in(struct qpnp_vadc_chip *vadc,
 	if (rc < 0)
 		return rc;
 
+	if (channel_check) {
+		rc = qpnp_vadc_channel_check(vadc, buf);
+		if (rc)
+			return rc;
+	}
+
 	/* Wait for GND read to complete */
 	rc = qpnp_vadc_wait_for_eoc(vadc);
 	if (rc < 0)
@@ -542,10 +599,16 @@ static int qpnp_vadc_hc_configure(struct qpnp_vadc_chip *vadc,
 				struct qpnp_adc_amux_properties *amux_prop)
 {
 	int rc = 0;
-	u8 buf[6];
+	u8 buf[5];
+	u8 conv_req = 0;
+	bool channel_check = false;
+
+	if (vadc->pmic_rev_id)
+		if (vadc->pmic_rev_id->pmic_subtype == PMI632_SUBTYPE)
+			channel_check = true;
 
 	/* Read registers 0x42 through 0x46 */
-	rc = qpnp_vadc_read_reg(vadc, QPNP_VADC_HC1_ADC_DIG_PARAM, buf, 6);
+	rc = qpnp_vadc_read_reg(vadc, QPNP_VADC_HC1_ADC_DIG_PARAM, buf, 5);
 	if (rc < 0) {
 		pr_err("qpnp adc configure block read failed\n");
 		return rc;
@@ -569,7 +632,7 @@ static int qpnp_vadc_hc_configure(struct qpnp_vadc_chip *vadc,
 	buf[4] |= QPNP_VADC_HC1_ADC_EN;
 
 	/* Select CONV request */
-	buf[5] |= QPNP_VADC_HC1_CONV_REQ_START;
+	conv_req = QPNP_VADC_HC1_CONV_REQ_START;
 
 	if (!vadc->vadc_poll_eoc)
 		reinit_completion(&vadc->adc->adc_rslt_completion);
@@ -578,7 +641,20 @@ static int qpnp_vadc_hc_configure(struct qpnp_vadc_chip *vadc,
 		buf[0], buf[1], buf[2], buf[3]);
 
 	/* Block register write from 0x42 through 0x46 */
-	rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_HC1_ADC_DIG_PARAM, buf, 6);
+	rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_HC1_ADC_DIG_PARAM, buf, 5);
+	if (rc < 0) {
+		pr_err("qpnp adc block register configure failed\n");
+		return rc;
+	}
+
+	if (channel_check) {
+		rc = qpnp_vadc_channel_check(vadc, buf[2]);
+		if (rc)
+			return rc;
+	}
+
+	rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_HC1_CONV_REQ,
+						&conv_req, 1);
 	if (rc < 0) {
 		pr_err("qpnp adc block register configure failed\n");
 		return rc;
@@ -2712,7 +2788,7 @@ static int qpnp_vadc_probe(struct platform_device *pdev)
 	struct qpnp_vadc_chip *vadc;
 	struct qpnp_adc_drv *adc_qpnp;
 	struct qpnp_vadc_thermal_data *adc_thermal;
-	struct device_node *node = pdev->dev.of_node;
+	struct device_node *node = pdev->dev.of_node, *revid_dev_node;
 	struct device_node *child;
 	const struct of_device_id *id;
 	int rc, count_adc_channel_list = 0, i = 0;
@@ -2764,6 +2840,16 @@ static int qpnp_vadc_probe(struct platform_device *pdev)
 	if (!adc_thermal) {
 		dev_err(&pdev->dev, "Unable to allocate memory\n");
 		return -ENOMEM;
+	}
+
+	revid_dev_node = of_parse_phandle(node, "qcom,pmic-revid", 0);
+	if (revid_dev_node) {
+		vadc->pmic_rev_id = get_revid_data(revid_dev_node);
+		if (IS_ERR(vadc->pmic_rev_id)) {
+			pr_err("Unable to get revid\n");
+			vadc->pmic_rev_id = NULL;
+		}
+		of_node_put(revid_dev_node);
 	}
 
 	vadc->vadc_therm_chan = adc_thermal;

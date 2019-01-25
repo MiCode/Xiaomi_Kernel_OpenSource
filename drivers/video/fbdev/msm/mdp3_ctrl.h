@@ -36,6 +36,9 @@ struct mdp3_buffer_queue {
 	int pop_idx;
 };
 
+/* struct mdp3_session_data is MDP3 fb private data */
+#define mfd_to_mdp3_data(mfd)	(mfd->mdp.private1)
+
 struct mdp3_session_data {
 	struct mutex lock;
 	int status;
@@ -93,5 +96,6 @@ int mdp3_ctrl_get_pack_pattern(u32 imgType);
 int mdp3_ctrl_reset(struct msm_fb_data_type *mfd);
 int mdp3_get_ion_client(struct msm_fb_data_type *mfd);
 void mdp3_flush_dma_done(struct mdp3_session_data *mdp3_session);
+void mdp3_vsync_retire_signal(struct msm_fb_data_type *mfd, int val);
 
 #endif /* MDP3_CTRL_H */

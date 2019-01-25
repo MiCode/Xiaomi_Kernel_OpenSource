@@ -55,6 +55,16 @@
 			DEV_NAME " %s:%d " fmt, ## args); \
 	} while (0)
 
+#define IPAWANERR_RL(fmt, args...) \
+	do { \
+		pr_err_ratelimited_ipa(DEV_NAME " %s:%d " fmt, __func__,\
+			__LINE__, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf(), \
+			DEV_NAME " %s:%d " fmt, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			DEV_NAME " %s:%d " fmt, ## args); \
+	} while (0)
+
 #define IPAWANINFO(fmt, args...) \
 	do { \
 		pr_info(DEV_NAME " %s:%d " fmt, __func__, __LINE__, ## args); \

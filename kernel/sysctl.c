@@ -127,8 +127,9 @@ static int __maybe_unused three = 3;
 static int __maybe_unused four = 4;
 static unsigned long one_ul = 1;
 static int one_hundred = 100;
-#ifdef CONFIG_PERF_EVENTS
-static int one_thousand = 1000;
+static int __maybe_unused one_thousand = 1000;
+#ifdef CONFIG_SCHED_WALT
+static int two_million = 2000000;
 #endif
 #ifdef CONFIG_PRINTK
 static int ten_thousand = 10000;
@@ -356,6 +357,24 @@ static struct ctl_table kern_table[] = {
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec,
+	},
+	{
+		.procname	= "sched_min_task_util_for_boost_colocation",
+		.data		= &sysctl_sched_min_task_util_for_boost_colocation,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= &zero,
+		.extra2		= &one_thousand,
+	},
+	{
+		.procname	= "sched_little_cluster_coloc_fmin_khz",
+		.data		= &sysctl_sched_little_cluster_coloc_fmin_khz,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= sched_little_cluster_coloc_fmin_khz_handler,
+		.extra1		= &zero,
+		.extra2		= &two_million,
 	},
 #endif
 	{

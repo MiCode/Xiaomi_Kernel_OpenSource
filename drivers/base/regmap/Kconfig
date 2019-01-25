@@ -52,3 +52,11 @@ config REGMAP_ALLOW_WRITE_DEBUGFS
 	  Say 'y' here to allow the regmap debugfs write. Regmap debugfs write
 	  could be risky when accessing some essential hardwares, so it is not
 	  recommended to enable this option on any production device.
+
+config REGMAP_SND_DIGCDC
+    depends on SND_SOC
+    bool "For regmap on DIGCDC"
+    select REGMAP_MMIO
+    default n
+    help
+      Say 'y' here to enable regmap_mmio for digital codec.
