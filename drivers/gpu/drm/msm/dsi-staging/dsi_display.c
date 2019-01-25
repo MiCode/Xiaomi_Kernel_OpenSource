@@ -2966,7 +2966,10 @@ static int dsi_display_clocks_init(struct dsi_display *display)
 				goto error;
 			}
 
-			if (dyn_clk_caps->dyn_clk_support) {
+			if (dyn_clk_caps->dyn_clk_support &&
+				(display->panel->panel_mode ==
+					 DSI_OP_VIDEO_MODE)) {
+
 				if (dsi_display_check_prefix(src_byte,
 							clk_name))
 					src->byte_clk = NULL;
@@ -3997,7 +4000,7 @@ exit:
 	return rc;
 }
 
-static int dsi_display_dynamic_clk_switch(struct dsi_display *display,
+static int dsi_display_dynamic_clk_switch_vid(struct dsi_display *display,
 					  struct dsi_display_mode *mode)
 {
 	int rc = 0, mask, i;
@@ -4062,6 +4065,39 @@ exit:
 					      mode->priv_info->phy_timing_len);
 
 	dsi_panel_release_panel_lock(display->panel);
+
+	return rc;
+}
+
+static int dsi_display_dynamic_clk_configure_cmd(struct dsi_display *display,
+		int clk_rate)
+{
+	int rc = 0;
+
+	if (clk_rate <= 0) {
+		pr_err("%s: bitrate should be greater than 0\n", __func__);
+		return -EINVAL;
+	}
+
+	if (clk_rate == display->cached_clk_rate) {
+		pr_info("%s: ignore duplicated DSI clk setting\n", __func__);
+		return rc;
+	}
+
+	display->cached_clk_rate = clk_rate;
+
+	rc = dsi_display_update_dsi_bitrate(display, clk_rate);
+	if (!rc) {
+		pr_info("%s: bit clk is ready to be configured to '%d'\n",
+				__func__, clk_rate);
+		atomic_set(&display->clkrate_change_pending, 1);
+	} else {
+		pr_err("%s: Failed to prepare to configure '%d'. rc = %d\n",
+				__func__, clk_rate, rc);
+		/* Caching clock failed, so don't go on doing so. */
+		atomic_set(&display->clkrate_change_pending, 0);
+		display->cached_clk_rate = 0;
+	}
 
 	return rc;
 }
@@ -4299,7 +4335,7 @@ static int dsi_display_set_mode_sub(struct dsi_display *display,
 				    struct dsi_display_mode *mode,
 				    u32 flags)
 {
-	int rc = 0;
+	int rc = 0, clk_rate = 0;
 	int i;
 	struct dsi_display_ctrl *ctrl;
 	struct dsi_display_mode_priv_info *priv_info;
@@ -4332,15 +4368,25 @@ static int dsi_display_set_mode_sub(struct dsi_display *display,
 			goto error;
 		}
 	} else if (mode->dsi_mode_flags & DSI_MODE_FLAG_DYN_CLK) {
-		rc = dsi_display_dynamic_clk_switch(display, mode);
-		if (rc)
-			pr_err("dynamic clk change failed %d\n", rc);
-		/*
-		 * skip rest of the opearations since
-		 * dsi_display_dynamic_clk_switch() already takes
-		 * care of them.
-		 */
-		return rc;
+		if (display->panel->panel_mode == DSI_OP_VIDEO_MODE) {
+			rc = dsi_display_dynamic_clk_switch_vid(display, mode);
+			if (rc)
+				pr_err("dynamic clk change failed %d\n", rc);
+			/*
+			 * skip rest of the opearations since
+			 * dsi_display_dynamic_clk_switch_vid() already takes
+			 * care of them.
+			 */
+			return rc;
+		} else if (display->panel->panel_mode == DSI_OP_CMD_MODE) {
+			clk_rate = mode->timing.clk_rate_hz;
+			rc = dsi_display_dynamic_clk_configure_cmd(display,
+					clk_rate);
+			if (rc) {
+				pr_err("Failed to configure dynamic clk\n");
+				return rc;
+			}
+		}
 	}
 
 	display_for_each_ctrl(i, display) {
@@ -4656,7 +4702,7 @@ static ssize_t sysfs_dynamic_dsi_clk_read(struct device *dev,
 static ssize_t sysfs_dynamic_dsi_clk_write(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
-	int rc = 0;
+	int rc = count;
 	int clk_rate;
 	struct dsi_display *display;
 
@@ -4677,44 +4723,19 @@ static ssize_t sysfs_dynamic_dsi_clk_write(struct device *dev,
 		return -ENOTSUPP;
 	}
 
-	if (clk_rate <= 0) {
-		pr_err("%s: bitrate should be greater than 0\n", __func__);
-		return -EINVAL;
-	}
-
-	if (clk_rate == display->cached_clk_rate) {
-		pr_info("%s: ignore duplicated DSI clk setting\n", __func__);
-		return count;
-	}
-
 	pr_info("%s: bitrate param value: '%d'\n", __func__, clk_rate);
 
 	mutex_lock(&display->display_lock);
-
 	mutex_lock(&dsi_display_clk_mutex);
-	display->cached_clk_rate = clk_rate;
-	rc = dsi_display_update_dsi_bitrate(display, clk_rate);
-	if (!rc) {
-		pr_info("%s: bit clk is ready to be configured to '%d'\n",
-			__func__, clk_rate);
-	} else {
-		pr_err("%s: Failed to prepare to configure '%d'. rc = %d\n",
-			__func__, clk_rate, rc);
-		/*Caching clock failed, so don't go on doing so.*/
-		atomic_set(&display->clkrate_change_pending, 0);
-		display->cached_clk_rate = 0;
 
-		mutex_unlock(&dsi_display_clk_mutex);
-		mutex_unlock(&display->display_lock);
-
-		return rc;
-	}
-	atomic_set(&display->clkrate_change_pending, 1);
+	rc = dsi_display_dynamic_clk_configure_cmd(display, clk_rate);
+	if (rc)
+		pr_err("Failed to configure dynamic clk\n");
 
 	mutex_unlock(&dsi_display_clk_mutex);
 	mutex_unlock(&display->display_lock);
 
-	return count;
+	return rc;
 
 }
 
