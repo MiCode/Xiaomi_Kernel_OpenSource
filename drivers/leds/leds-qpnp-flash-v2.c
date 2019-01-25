@@ -2118,7 +2118,7 @@ static int qpnp_flash_led_parse_thermal_config_dt(struct qpnp_flash_led *led,
 		return rc;
 	}
 
-	return rc;
+	return 0;
 }
 
 static int qpnp_flash_led_parse_vph_droop_config_dt(struct qpnp_flash_led *led,
@@ -2174,7 +2174,7 @@ static int qpnp_flash_led_parse_vph_droop_config_dt(struct qpnp_flash_led *led,
 	}
 
 	led->pdata->vph_droop_hysteresis <<= FLASH_LED_VPH_DROOP_HYST_SHIFT;
-	return rc;
+	return 0;
 }
 
 static int qpnp_flash_led_parse_iclamp_config_dt(struct qpnp_flash_led *led,
@@ -2215,7 +2215,7 @@ static int qpnp_flash_led_parse_iclamp_config_dt(struct qpnp_flash_led *led,
 		return rc;
 	}
 
-	return rc;
+	return 0;
 }
 
 static int qpnp_flash_led_parse_lmh_config_dt(struct qpnp_flash_led *led,
@@ -2267,7 +2267,7 @@ static int qpnp_flash_led_parse_lmh_config_dt(struct qpnp_flash_led *led,
 		return -EINVAL;
 	}
 
-	return rc;
+	return 0;
 }
 
 static int qpnp_flash_led_parse_common_dt(struct qpnp_flash_led *led,
@@ -2522,7 +2522,8 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 
 	rc = qpnp_flash_led_parse_common_dt(led, node);
 	if (rc < 0) {
-		pr_err("Failed to parse common flash LED device tree\n");
+		pr_err("Failed to parse common flash LED device tree rc=%d\n",
+			rc);
 		return rc;
 	}
 
