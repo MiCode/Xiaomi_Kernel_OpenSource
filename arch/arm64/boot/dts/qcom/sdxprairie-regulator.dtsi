@@ -11,6 +11,7 @@
  */
 
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
+#include <dt-bindings/gpio/gpio.h>
 
 &soc {
 	/* RPMh regulators */
@@ -450,5 +451,26 @@
 			regulator-name = "pmxprairie_vref_rgmii";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 		};
+	};
+
+	vreg_vddpx_2: vddpx2-gpio-regulator {
+		compatible = "regulator-gpio";
+		regulator-name = "vddpx_2";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <2850000>;
+		enable-gpio = <&tlmm 98 GPIO_ACTIVE_HIGH>;
+		gpios = <&tlmm 100 GPIO_ACTIVE_HIGH>;
+		states = <1800000 0>,
+			 <2850000 1>;
+		startup-delay-us = <200000>;
+		enable-active-high;
+	};
+
+	vreg_sd_vdd: sd-vdd-fixed-regulator {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "sd_vdd";
+		regulator-min-microvolt = <2950000>;
+		regulator-max-microvolt = <2950000>;
+		parent-supply = <&vreg_vddpx_2>;
 	};
 };
