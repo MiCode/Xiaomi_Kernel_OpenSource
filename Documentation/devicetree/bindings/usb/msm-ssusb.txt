@@ -84,6 +84,8 @@ Optional properties :
 - qcom,host-poweroff-in-pm-suspend: If present, allow PM suspend to happen
 	irrespective of runtimePM state of host and power collapse the core.
 	This also leads to reset-resume of connected devices on PM resume.
+- qcom,default-mode-none: If present, do not start any mode on probe for an OTG
+	capable DWC3 which does not have extcon handle.
 - qcom,default-mode-host: If present, start host mode on probe for an OTG
 	capable DWC3 which does not have extcon handle.
 
