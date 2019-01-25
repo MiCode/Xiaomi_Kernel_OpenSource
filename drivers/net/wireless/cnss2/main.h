@@ -166,6 +166,7 @@ enum cnss_driver_state {
 	CNSS_FW_BOOT_RECOVERY,
 	CNSS_DEV_ERR_NOTIFY,
 	CNSS_DRIVER_DEBUG,
+	CNSS_COEX_CONNECTED,
 };
 
 struct cnss_recovery_data {
@@ -281,6 +282,7 @@ struct cnss_plat_data {
 	struct cnss_control_params ctrl_params;
 	u64 antenna;
 	u64 grant;
+	struct qmi_handle coex_qmi;
 };
 
 struct cnss_plat_data *cnss_get_plat_priv(struct platform_device *plat_dev);

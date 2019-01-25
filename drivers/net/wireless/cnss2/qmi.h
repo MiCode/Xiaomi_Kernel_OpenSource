@@ -10,6 +10,7 @@ struct cnss_plat_data;
 
 #ifdef CONFIG_CNSS2_QMI
 #include "wlan_firmware_service_v01.h"
+#include "coexistence_service_v01.h"
 
 struct cnss_qmi_event_server_arrive_data {
 	unsigned int node;
@@ -40,6 +41,11 @@ int cnss_wlfw_ini_send_sync(struct cnss_plat_data *plat_priv,
 			    u8 fw_log_mode);
 int cnss_wlfw_antenna_switch_send_sync(struct cnss_plat_data *plat_priv);
 int cnss_wlfw_antenna_grant_send_sync(struct cnss_plat_data *plat_priv);
+int cnss_register_coex_service(struct cnss_plat_data *plat_priv);
+void cnss_unregister_coex_service(struct cnss_plat_data *plat_priv);
+int coex_antenna_switch_to_wlan_send_sync_msg(struct cnss_plat_data *plat_priv);
+int coex_antenna_switch_to_mdm_send_sync_msg(struct cnss_plat_data *plat_priv);
+
 #else
 #define QMI_WLFW_TIMEOUT_MS		10000
 
@@ -136,6 +142,27 @@ int cnss_wlfw_antenna_switch_send_sync(struct cnss_plat_data *plat_priv)
 
 static inline
 int cnss_wlfw_antenna_grant_send_sync(struct cnss_plat_data *plat_priv)
+{
+	return 0;
+}
+
+static inline
+int cnss_register_coex_service(struct cnss_plat_data *plat_priv)
+{
+	return 0;
+}
+
+static inline
+void cnss_unregister_coex_service(struct cnss_plat_data *plat_priv) {}
+
+static inline
+int coex_antenna_switch_to_wlan_send_sync_msg(struct cnss_plat_data *plat_priv)
+{
+	return 0;
+}
+
+static inline
+int coex_antenna_switch_to_mdm_send_sync_msg(struct cnss_plat_data *plat_priv)
 {
 	return 0;
 }
