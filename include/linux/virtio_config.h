@@ -70,7 +70,7 @@ struct virtio_config_ops {
 	int (*find_vqs)(struct virtio_device *, unsigned nvqs,
 			struct virtqueue *vqs[],
 			vq_callback_t *callbacks[],
-			const char *names[]);
+			const char * const names[]);
 	void (*del_vqs)(struct virtio_device *);
 	u64 (*get_features)(struct virtio_device *vdev);
 	int (*finalize_features)(struct virtio_device *vdev);
@@ -147,6 +147,19 @@ static inline bool virtio_has_feature(const struct virtio_device *vdev,
 		virtio_check_driver_offered_feature(vdev, fbit);
 
 	return __virtio_test_bit(vdev, fbit);
+}
+
+/**
+ * virtio_has_iommu_quirk - determine whether this device has the iommu quirk
+ * @vdev: the device
+ */
+static inline bool virtio_has_iommu_quirk(const struct virtio_device *vdev)
+{
+	/*
+	 * Note the reverse polarity of the quirk feature (compared to most
+	 * other features), this is for compatibility with legacy systems.
+	 */
+	return !virtio_has_feature(vdev, VIRTIO_F_IOMMU_PLATFORM);
 }
 
 static inline

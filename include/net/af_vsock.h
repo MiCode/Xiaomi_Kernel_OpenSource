@@ -64,6 +64,8 @@ struct vsock_sock {
 	bool rejected;
 	struct delayed_work connect_work;
 	struct delayed_work pending_work;
+	struct delayed_work close_work;
+	bool close_work_scheduled;
 	u32 peer_shutdown;
 	bool sent_request;
 	bool ignore_connecting_rst;
@@ -97,6 +99,9 @@ struct vsock_transport {
 	int (*init)(struct vsock_sock *, struct vsock_sock *);
 	void (*destruct)(struct vsock_sock *);
 	void (*release)(struct vsock_sock *);
+
+	/* Cancel all pending packets sent on vsock. */
+	int (*cancel_pkt)(struct vsock_sock *vsk);
 
 	/* Connections. */
 	int (*connect)(struct vsock_sock *);
@@ -165,6 +170,9 @@ static inline int vsock_core_init(const struct vsock_transport *t)
 }
 void vsock_core_exit(void);
 
+/* The transport may downcast this to access transport-specific functions */
+const struct vsock_transport *vsock_core_get_transport(void);
+
 /**** UTILS ****/
 
 void vsock_release_pending(struct sock *pending);
@@ -177,6 +185,7 @@ void vsock_remove_connected(struct vsock_sock *vsk);
 struct sock *vsock_find_bound_socket(struct sockaddr_vm *addr);
 struct sock *vsock_find_connected_socket(struct sockaddr_vm *src,
 					 struct sockaddr_vm *dst);
+void vsock_remove_sock(struct vsock_sock *vsk);
 void vsock_for_each_connected_socket(void (*fn)(struct sock *sk));
 
 #endif /* __AF_VSOCK_H__ */
