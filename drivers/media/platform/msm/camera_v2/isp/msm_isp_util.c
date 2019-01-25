@@ -1524,7 +1524,7 @@ int msm_isp_proc_cmd(struct vfe_device *vfe_dev, void *arg)
 			goto copy_cmd_failed;
 		}
 	} else {
-		pr_err("%s: Passed cmd_len as 0\n", __func__);
+		pr_debug("%s: Passed cmd_len as 0\n", __func__);
 	}
 	for (i = 0; i < proc_cmd->num_cfg; i++)
 		rc = msm_isp_send_hw_cmd(vfe_dev, &reg_cfg_cmd[i],
