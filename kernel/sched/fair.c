@@ -7981,7 +7981,7 @@ static inline int wake_to_idle(struct task_struct *p)
 #ifdef CONFIG_SCHED_WALT
 static inline bool is_task_util_above_min_thresh(struct task_struct *p)
 {
-	unsigned int threshold = (sysctl_sched_boost == CONSERVATIVE_BOOST) ?
+	unsigned int threshold = (sched_boost() == CONSERVATIVE_BOOST) ?
 			sysctl_sched_min_task_util_for_boost :
 			sysctl_sched_min_task_util_for_colocation;
 
