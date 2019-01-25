@@ -47,7 +47,11 @@ Required properties:
  - qcom,va-vdd-micb-voltage： mic bias supply's voltage level min and max in mV
  - qcom,va-vdd-micb-current： mic bias supply's max current in mA
  - qcom,va-dmic-sample-rate： Sample rate defined for DMIC connected to VA macro
+
+Optional properties:
  - qcom,va-clk-mux-select： VA macro MCLK MUX selection
+ - qcom,va-island-mode-muxsel： VA macro island mode MUX selection
+		This property is required if qcom,va-clk-mux-select is provided
 
 Example:
 
@@ -62,6 +66,7 @@ Example:
 		qcom,va-vdd-micb-current = <11200>;
 		qcom,va-dmic-sample-rate = <4800000>;
 		qcom,va-clk-mux-select = <1>;
+		qcom,va-island-mode-muxsel = <0x033A0000>;
 	};
 };
 
