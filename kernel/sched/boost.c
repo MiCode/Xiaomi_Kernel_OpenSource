@@ -16,8 +16,10 @@
  * boost is responsible for disabling it as well.
  */
 
-unsigned int sysctl_sched_boost;
-static enum sched_boost_policy boost_policy;
+unsigned int sysctl_sched_boost; /* To/from userspace */
+unsigned int sched_boost_type; /* currently activated sched boost */
+enum sched_boost_policy boost_policy;
+
 static enum sched_boost_policy boost_policy_dt = SCHED_BOOST_NONE;
 static DEFINE_MUTEX(boost_mutex);
 static int boost_refcount[MAX_NUM_BOOST_TYPE];
@@ -51,11 +53,6 @@ static void set_boost_policy(int type)
 	}
 
 	boost_policy = SCHED_BOOST_ON_ALL;
-}
-
-enum sched_boost_policy sched_boost_policy(void)
-{
-	return boost_policy;
 }
 
 static bool verify_boost_params(int type)
@@ -152,8 +149,10 @@ static void _sched_set_boost(int type)
 	else
 		type = NO_BOOST;
 
-	set_boost_policy(type);
+	sched_boost_type = type;
 	sysctl_sched_boost = type;
+
+	set_boost_policy(type);
 	trace_sched_set_boost(type);
 }
 
@@ -209,9 +208,4 @@ int sched_boost_handler(struct ctl_table *table, int write,
 done:
 	mutex_unlock(&boost_mutex);
 	return ret;
-}
-
-int sched_boost(void)
-{
-	return sysctl_sched_boost;
 }
