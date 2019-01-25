@@ -358,7 +358,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		(1 << V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_3)
 		),
 		.qmenu = vp8_profile_level,
-		.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
 		.step = 1,
 	},
 	{
