@@ -9,6 +9,7 @@
 #include <linux/device.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
+#include <linux/qpnp/qpnp-revid.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
@@ -130,6 +131,7 @@ struct smb1390 {
 	struct notifier_block	nb;
 	struct wakeup_source	*cp_ws;
 	struct dentry		*dfs_root;
+	struct pmic_revid_data	*pmic_rev_id;
 
 	/* work structs */
 	struct work_struct	status_change_work;
@@ -687,6 +689,7 @@ static enum power_supply_property smb1390_charge_pump_props[] = {
 	POWER_SUPPLY_PROP_CP_TOGGLE_SWITCHER,
 	POWER_SUPPLY_PROP_CP_IRQ_STATUS,
 	POWER_SUPPLY_PROP_CP_ILIM,
+	POWER_SUPPLY_PROP_CHIP_VERSION,
 };
 
 static int smb1390_get_prop(struct power_supply *psy,
@@ -757,6 +760,9 @@ static int smb1390_get_prop(struct power_supply *psy,
 		if (!rc)
 			val->intval = ((status & CFG_ILIM_MASK) * 100000)
 					+ 500000;
+		break;
+	case POWER_SUPPLY_PROP_CHIP_VERSION:
+		val->intval = chip->pmic_rev_id->rev4;
 		break;
 	default:
 		smb1390_dbg(chip, PR_MISC, "charge pump power supply get prop %d not supported\n",
@@ -1023,7 +1029,27 @@ static void smb1390_create_debugfs(struct smb1390 *chip)
 static int smb1390_probe(struct platform_device *pdev)
 {
 	struct smb1390 *chip;
+	struct device_node *revid_dev_node;
+	struct pmic_revid_data *pmic_rev_id;
 	int rc;
+
+	revid_dev_node = of_parse_phandle(pdev->dev.of_node,
+					  "qcom,pmic-revid", 0);
+	if (!revid_dev_node) {
+		pr_err("Missing qcom,pmic-revid property\n");
+		return -EINVAL;
+	}
+
+	pmic_rev_id = get_revid_data(revid_dev_node);
+	of_node_put(revid_dev_node);
+	if (IS_ERR_OR_NULL(pmic_rev_id)) {
+		/*
+		 * the revid peripheral must be registered, any failure
+		 * here only indicates that the rev-id module has not
+		 * probed yet.
+		 */
+		return -EPROBE_DEFER;
+	}
 
 	chip = devm_kzalloc(&pdev->dev, sizeof(*chip), GFP_KERNEL);
 	if (!chip)
@@ -1033,6 +1059,7 @@ static int smb1390_probe(struct platform_device *pdev)
 	spin_lock_init(&chip->status_change_lock);
 	mutex_init(&chip->die_chan_lock);
 	chip->die_temp = -ENODATA;
+	chip->pmic_rev_id = pmic_rev_id;
 	platform_set_drvdata(pdev, chip);
 
 	chip->regmap = dev_get_regmap(chip->dev->parent, NULL);
@@ -1087,8 +1114,8 @@ static int smb1390_probe(struct platform_device *pdev)
 
 	smb1390_create_debugfs(chip);
 
-	pr_debug("smb1390 probed successfully\n");
-
+	pr_debug("smb1390 probed successfully chip_version=%d\n",
+			chip->pmic_rev_id->rev4);
 	return 0;
 
 out_notifier:
