@@ -100,6 +100,12 @@
 	};
 };
 
+&glink_modem {
+	qcom,modem_qrtr {
+		qcom,net-id = <2>;
+	};
+};
+
 &soc {
 	ipa_hw: qcom,ipa@1e00000 {
 		qcom,platform-type = <2>; /* APQ platform */
