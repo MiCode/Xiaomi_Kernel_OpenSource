@@ -14,6 +14,7 @@
 #include <linux/msm_adreno_devfreq.h>
 #include <asm/cacheflush.h>
 #include <soc/qcom/scm.h>
+#include <soc/qcom/qtee_shmbridge.h>
 #include "governor.h"
 
 static DEFINE_SPINLOCK(tz_lock);
@@ -229,14 +230,25 @@ static int tz_init_ca(struct devfreq_msm_adreno_tz_data *priv)
 	struct scm_desc desc = {0};
 	u8 *tz_buf;
 	int ret;
+	struct qtee_shm shm;
 
 	/* Set data for TZ */
 	tz_ca_data[0] = priv->bin.ctxt_aware_target_pwrlevel;
 	tz_ca_data[1] = priv->bin.ctxt_aware_busy_penalty;
 
-	tz_buf = kzalloc(PAGE_ALIGN(sizeof(tz_ca_data)), GFP_KERNEL);
-	if (!tz_buf)
-		return -ENOMEM;
+	if (!qtee_shmbridge_is_enabled()) {
+		tz_buf = kzalloc(PAGE_ALIGN(sizeof(tz_ca_data)), GFP_KERNEL);
+		if (!tz_buf)
+			return -ENOMEM;
+		desc.args[0] = virt_to_phys(tz_buf);
+	} else {
+		ret = qtee_shmbridge_allocate_shm(
+				PAGE_ALIGN(sizeof(tz_ca_data)), &shm);
+		if (ret)
+			return -ENOMEM;
+		tz_buf = shm.vaddr;
+		desc.args[0] = shm.paddr;
+	}
 
 	memcpy(tz_buf, tz_ca_data, sizeof(tz_ca_data));
 	/* Ensure memcpy completes execution */
@@ -244,15 +256,16 @@ static int tz_init_ca(struct devfreq_msm_adreno_tz_data *priv)
 	dmac_flush_range(tz_buf,
 		tz_buf + PAGE_ALIGN(sizeof(tz_ca_data)));
 
-	desc.args[0] = virt_to_phys(tz_buf);
 	desc.args[1] = sizeof(tz_ca_data);
 	desc.arginfo = SCM_ARGS(2, SCM_RW, SCM_VAL);
 
 	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_DCVS,
 			TZ_V2_INIT_CA_ID_64),
 			&desc);
-
-	kzfree(tz_buf);
+	if (!qtee_shmbridge_is_enabled())
+		kzfree(tz_buf);
+	else
+		qtee_shmbridge_free_shm(&shm);
 
 	return ret;
 }
@@ -268,16 +281,28 @@ static int tz_init(struct devfreq_msm_adreno_tz_data *priv,
 			scm_is_call_available(SCM_SVC_DCVS, TZ_RESET_ID_64)) {
 		struct scm_desc desc = {0};
 		u8 *tz_buf;
+		struct qtee_shm shm;
 
-		tz_buf = kzalloc(PAGE_ALIGN(size_pwrlevels), GFP_KERNEL);
-		if (!tz_buf)
-			return -ENOMEM;
+		if (!qtee_shmbridge_is_enabled()) {
+			tz_buf = kzalloc(PAGE_ALIGN(size_pwrlevels),
+						GFP_KERNEL);
+			if (!tz_buf)
+				return -ENOMEM;
+			desc.args[0] = virt_to_phys(tz_buf);
+		} else {
+			ret = qtee_shmbridge_allocate_shm(
+					PAGE_ALIGN(size_pwrlevels), &shm);
+			if (ret)
+				return -ENOMEM;
+			tz_buf = shm.vaddr;
+			desc.args[0] = shm.paddr;
+		}
+
 		memcpy(tz_buf, tz_pwrlevels, size_pwrlevels);
 		/* Ensure memcpy completes execution */
 		mb();
 		dmac_flush_range(tz_buf, tz_buf + PAGE_ALIGN(size_pwrlevels));
 
-		desc.args[0] = virt_to_phys(tz_buf);
 		desc.args[1] = size_pwrlevels;
 		desc.arginfo = SCM_ARGS(2, SCM_RW, SCM_VAL);
 
@@ -286,7 +311,10 @@ static int tz_init(struct devfreq_msm_adreno_tz_data *priv,
 		*version = desc.ret[0];
 		if (!ret)
 			priv->is_64 = true;
-		kzfree(tz_buf);
+		if (!qtee_shmbridge_is_enabled())
+			kzfree(tz_buf);
+		else
+			qtee_shmbridge_free_shm(&shm);
 	} else
 		ret = -EINVAL;
 
