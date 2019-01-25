@@ -289,6 +289,27 @@ static int bluetooth_power(int on)
 				goto vdd_ldo_fail;
 			}
 		}
+		if (bt_power_pdata->bt_vdd_dig) {
+			rc = bt_configure_vreg(bt_power_pdata->bt_vdd_dig);
+			if (rc < 0) {
+				BT_PWR_ERR("bt_power vdddig config failed");
+				goto vdd_dig_fail;
+			}
+		}
+		if (bt_power_pdata->bt_vdd_rfa1) {
+			rc = bt_configure_vreg(bt_power_pdata->bt_vdd_rfa1);
+			if (rc < 0) {
+				BT_PWR_ERR("bt_power vddrfa1 config failed");
+				goto vdd_rfa1_fail;
+			}
+		}
+		if (bt_power_pdata->bt_vdd_rfa2) {
+			rc = bt_configure_vreg(bt_power_pdata->bt_vdd_rfa2);
+			if (rc < 0) {
+				BT_PWR_ERR("bt_power vddrfa1 config failed");
+				goto vdd_rfa2_fail;
+			}
+		}
 		if (bt_power_pdata->bt_chip_pwd) {
 			rc = bt_configure_vreg(bt_power_pdata->bt_chip_pwd);
 			if (rc < 0) {
@@ -325,6 +346,15 @@ clk_fail:
 		if (bt_power_pdata->bt_chip_pwd)
 			bt_vreg_disable(bt_power_pdata->bt_chip_pwd);
 chip_pwd_fail:
+		if (bt_power_pdata->bt_vdd_rfa2)
+			bt_vreg_disable(bt_power_pdata->bt_vdd_rfa2);
+vdd_rfa2_fail:
+		if (bt_power_pdata->bt_vdd_rfa1)
+			bt_vreg_disable(bt_power_pdata->bt_vdd_rfa1);
+vdd_rfa1_fail:
+		if (bt_power_pdata->bt_vdd_dig)
+			bt_vreg_disable(bt_power_pdata->bt_vdd_dig);
+vdd_dig_fail:
 		if (bt_power_pdata->bt_vdd_ldo)
 			bt_vreg_disable(bt_power_pdata->bt_vdd_ldo);
 vdd_ldo_fail:
@@ -595,6 +625,21 @@ static int bt_power_populate_dt_pinfo(struct platform_device *pdev)
 		if (rc < 0)
 			BT_PWR_ERR("bt-chip-pwd not provided in device tree");
 
+		rc = bt_dt_parse_vreg_info(&pdev->dev,
+					&bt_power_pdata->bt_vdd_dig,
+					"qca,bt-vdd-dig");
+		if (rc < 0)
+			BT_PWR_ERR("bt-vdd-dig not provided in device tree");
+		rc = bt_dt_parse_vreg_info(&pdev->dev,
+					&bt_power_pdata->bt_vdd_rfa1,
+					"qca,bt-vdd-rfa1");
+		if (rc < 0)
+			BT_PWR_ERR("bt-vdd-rfa1 not provided in device tree");
+		rc = bt_dt_parse_vreg_info(&pdev->dev,
+					&bt_power_pdata->bt_vdd_rfa2,
+					"qca,bt-vdd-rfa2");
+		if (rc < 0)
+			BT_PWR_ERR("bt-vdd-rfa2 not provided in device tree");
 		rc = bt_dt_parse_clk_info(&pdev->dev,
 					&bt_power_pdata->bt_chip_clk);
 		if (rc < 0)
