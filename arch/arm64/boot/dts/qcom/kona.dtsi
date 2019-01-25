@@ -978,6 +978,7 @@
 		qcom,support-shutdown;
 		qcom,pil-force-shutdown;
 		qcom,esoc-skip-restart-for-mdm-crash;
+		qcom,esoc-spmi-soft-reset;
 		pinctrl-names = "default", "mdm_active", "mdm_suspend";
 		pinctrl-0 = <&ap2mdm_pon_reset_default>;
 		pinctrl-1 = <&ap2mdm_active &mdm2ap_active>;

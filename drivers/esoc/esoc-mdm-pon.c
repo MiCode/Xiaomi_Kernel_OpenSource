@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2015, 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include "esoc-mdm.h"
+#include <linux/input/qpnp-power-on.h>
 
 /* This function can be called from atomic context. */
 static int mdm9x55_toggle_soft_reset(struct mdm_ctrl *mdm, bool atomic)
@@ -73,8 +74,22 @@ static int sdx50m_toggle_soft_reset(struct mdm_ctrl *mdm, bool atomic)
 /* This function can be called from atomic context. */
 static int sdx55m_toggle_soft_reset(struct mdm_ctrl *mdm, bool atomic)
 {
+	struct device_node *node = mdm->dev->of_node;
+	int rc;
 	int soft_reset_direction_assert = 0,
 	    soft_reset_direction_de_assert = 1;
+
+	if (of_property_read_bool(node, "qcom,esoc-spmi-soft-reset")) {
+		esoc_mdm_log("Doing a Warm reset using SPMI\n");
+		rc = qpnp_pon_modem_pwr_off(PON_POWER_OFF_WARM_RESET);
+		if (rc) {
+			dev_err(mdm->dev, "SPMI warm reset failed\n");
+			esoc_mdm_log("SPMI warm reset failed\n");
+			return rc;
+		}
+		esoc_mdm_log("Warm reset done using SPMI\n");
+		return 0;
+	}
 
 	if (mdm->soft_reset_inverted) {
 		soft_reset_direction_assert = 1;
