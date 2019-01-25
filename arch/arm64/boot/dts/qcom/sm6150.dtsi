@@ -596,7 +596,7 @@
 		cdsp_sec_mem: cdsp_sec_regions@0x9f800000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x9f800000 0x0 0xc00000>;
+			reg = <0x0 0x9f800000 0x0 0x1e00000>;
 		};
 
 		adsp_mem: adsp_region {
