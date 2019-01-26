@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -607,12 +607,19 @@ bool sde_hdmi_tx_is_encryption_set(struct sde_hdmi *hdmi_ctrl)
 
 	hdmi = hdmi_ctrl->ctrl.ctrl;
 
-	reg_val = hdmi_read(hdmi, HDMI_HDCP_CTRL2);
-	if ((reg_val & BIT(0)) && (reg_val & BIT(1)))
-		goto end;
+	/* Check if encryption was enabled */
+	if (hdmi_ctrl->hdmi_tx_major_version <= HDMI_TX_VERSION_3) {
+		reg_val = hdmi_read(hdmi, HDMI_HDCP_CTRL2);
+		if ((reg_val & BIT(0)) && (reg_val & BIT(1)))
+			goto end;
 
-	if (hdmi_read(hdmi, HDMI_CTRL) & BIT(2))
-		goto end;
+		if (hdmi_read(hdmi, HDMI_CTRL) & BIT(2))
+			goto end;
+	} else {
+		reg_val = hdmi_read(hdmi, HDMI_HDCP_STATUS);
+		if (reg_val)
+			goto end;
+	}
 
 	return false;
 

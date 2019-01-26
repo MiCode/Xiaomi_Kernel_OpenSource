@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -601,10 +601,16 @@ static void sde_hdmi_tx_set_avmute(void *ptr)
 		return;
 	}
 
-	pr_err("setting avmute to true\n");
-
 	hdmi = hdmi_ctrl->ctrl.ctrl;
-	sde_hdmi_config_avmute(hdmi, true);
+
+	/*
+	 * When we try to continuously re-auth there
+	 * is no need to enforce avmute for clear
+	 * content. Hence check the current encryption level
+	 * before enforcing avmute on authentication failure
+	 */
+	if (sde_hdmi_tx_is_encryption_set(hdmi_ctrl))
+		sde_hdmi_config_avmute(hdmi, true);
 }
 
 void sde_hdmi_hdcp_off(struct sde_hdmi *hdmi_ctrl)
