@@ -47,7 +47,8 @@ static enum bus_id str_to_busid(const char *name)
 		return BUS_HSIC;
 	if (!strncasecmp("msm_ehci_host.0", name, BUSNAME_LEN))
 		return BUS_USB;
-	if (!strncasecmp("xhci-hcd.0.auto", name, BUSNAME_LEN))
+	if (!strncasecmp("xhci-hcd.0.auto", name, BUSNAME_LEN) ||
+	    !strncasecmp("xhci-hcd.1.auto", name, BUSNAME_LEN))
 		return BUS_USB;
 
 	return BUS_UNDEF;
