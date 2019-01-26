@@ -154,6 +154,7 @@ static void early_domain_work(struct work_struct *work)
 		msleep(delay);
 		delay = (delay > max_delay ? max_delay : delay + 20);
 	}
+	early_domain_enabled = false;
 	free_reserved_lk_mem(core_data->lk_pool_paddr, core_data->lk_pool_size);
 	free_reserved_lk_mem(core_data->early_domain_shm,
 				core_data->early_domain_shm_size);
@@ -176,10 +177,11 @@ static int early_domain_cpu_notifier(struct notifier_block *self,
 	cpu = (long)hcpu;
 	switch (action & ~CPU_TASKS_FROZEN) {
 	case CPU_UP_PREPARE:
-		if (cpumask_test_cpu(cpu, &core_data->cpumask))
+		if (cpumask_test_cpu(cpu, &core_data->cpumask)) {
 			pr_err("Early domain services are running on cpu%d\n"
 				, cpu);
 			break;
+		}
 	default:
 		notifier = NOTIFY_OK;
 		break;
@@ -195,7 +197,7 @@ static int init_early_domain_data(struct early_domain_core *core_data)
 
 	cpumask_clear(&core_data->cpumask);
 	cpumask = (unsigned long)core_data->pdata->cpumask;
-	for_each_set_bit(cpu, &cpumask, sizeof(cpumask_t))
+	for_each_set_bit(cpu, &cpumask, sizeof(cpumask))
 		cpumask_set_cpu(cpu, &core_data->cpumask);
 
 	memset(&core_data->ed_qos_request, 0,
@@ -325,6 +327,7 @@ static int early_domain_remove(struct platform_device *pdev)
 	pm_qos_remove_request(&core_data->ed_qos_request);
 	__pm_relax(&core_data->ed_wake_lock);
 	unregister_cpu_notifier(&core_data->ed_notifier);
+	early_domain_enabled = false;
 	kfree(core_data);
 	return 0;
 }
