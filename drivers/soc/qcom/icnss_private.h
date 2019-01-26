@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -156,6 +156,7 @@ enum icnss_driver_state {
 	ICNSS_DRIVER_UNLOADING,
 	ICNSS_REJUVENATE,
 	ICNSS_MODE_ON,
+	ICNSS_DRIVER_LOADING,
 };
 
 struct ce_irq_list {
@@ -354,6 +355,7 @@ struct icnss_priv {
 	bool is_hyp_disabled;
 	uint32_t fw_error_fatal_irq;
 	uint32_t fw_early_crash_irq;
+	struct completion driver_probed;
 	char function_name[WLFW_FUNCTION_NAME_LEN + 1];
 };
 
