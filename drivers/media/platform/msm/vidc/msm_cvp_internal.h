@@ -1,10 +1,10 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  */
 
-#ifndef _MSM_VIDC_CVP_H_
-#define _MSM_VIDC_CVP_H_
+#ifndef _MSM_CVP_INTERNAL_H_
+#define _MSM_CVP_INTERNAL_H_
 
 #include "msm_vidc_internal.h"
 #include "msm_vidc_common.h"
