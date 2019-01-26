@@ -277,6 +277,7 @@ struct cnss_plat_data {
 	u8 powered_on;
 	char firmware_name[13];
 	struct completion rddm_complete;
+	struct completion recovery_complete;
 	struct cnss_control_params ctrl_params;
 };
 
