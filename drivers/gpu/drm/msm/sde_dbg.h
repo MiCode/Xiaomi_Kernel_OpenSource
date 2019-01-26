@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,6 +47,12 @@ enum sde_dbg_evtlog_flag {
 enum sde_dbg_dump_flag {
 	SDE_DBG_DUMP_IN_LOG = BIT(0),
 	SDE_DBG_DUMP_IN_MEM = BIT(1),
+};
+
+enum sde_dbg_dump_context {
+	SDE_DBG_DUMP_PROC_CTX,
+	SDE_DBG_DUMP_IRQ_CTX,
+	SDE_DBG_DUMP_CLK_ENABLED_CTX,
 };
 
 #ifdef CONFIG_DRM_SDE_EVTLOG_DEBUG
@@ -137,8 +143,8 @@ extern struct sde_dbg_evtlog *sde_dbg_base_evtlog;
  *		Including the special name "panic" will trigger a panic after
  *		the dumping work has completed.
  */
-#define SDE_DBG_DUMP(...) sde_dbg_dump(false, __func__, ##__VA_ARGS__, \
-		SDE_DBG_DUMP_DATA_LIMITER)
+#define SDE_DBG_DUMP(...) sde_dbg_dump(SDE_DBG_DUMP_PROC_CTX, __func__, \
+		##__VA_ARGS__, SDE_DBG_DUMP_DATA_LIMITER)
 
 /**
  * SDE_DBG_DUMP_WQ - trigger dumping of all sde_dbg facilities, queuing the work
@@ -148,8 +154,19 @@ extern struct sde_dbg_evtlog *sde_dbg_base_evtlog;
  *		Including the special name "panic" will trigger a panic after
  *		the dumping work has completed.
  */
-#define SDE_DBG_DUMP_WQ(...) sde_dbg_dump(true, __func__, ##__VA_ARGS__, \
-		SDE_DBG_DUMP_DATA_LIMITER)
+#define SDE_DBG_DUMP_WQ(...) sde_dbg_dump(SDE_DBG_DUMP_IRQ_CTX, __func__, \
+		##__VA_ARGS__, SDE_DBG_DUMP_DATA_LIMITER)
+
+/**
+ * SDE_DBG_DUMP_CLK_EN - trigger dumping of all sde_dbg facilities, without clk
+ * @va_args:	list of named register dump ranges and regions to dump, as
+ *		registered previously through sde_dbg_reg_register_base and
+ *		sde_dbg_reg_register_dump_range.
+ *		Including the special name "panic" will trigger a panic after
+ *		the dumping work has completed.
+ */
+#define SDE_DBG_DUMP_CLK_EN(...) sde_dbg_dump(SDE_DBG_DUMP_CLK_ENABLED_CTX, \
+		__func__, ##__VA_ARGS__, SDE_DBG_DUMP_DATA_LIMITER)
 
 /**
  * SDE_DBG_EVT_CTRL - trigger a different driver events
@@ -254,7 +271,7 @@ void sde_dbg_destroy(void);
  *		the dumping work has completed.
  * Returns:	none
  */
-void sde_dbg_dump(bool queue_work, const char *name, ...);
+void sde_dbg_dump(enum sde_dbg_dump_context mode, const char *name, ...);
 
 /**
  * sde_dbg_ctrl - trigger specific actions for the driver with debugging
@@ -401,7 +418,8 @@ static inline void sde_dbg_destroy(void)
 {
 }
 
-static inline void sde_dbg_dump(bool queue_work, const char *name, ...)
+static inline void sde_dbg_dump(enum sde_dbg_dump_context,
+	const char *name, ...)
 {
 }
 
