@@ -585,11 +585,6 @@ static void cnss_qca6290_crash_shutdown(struct cnss_pci_data *pci_priv)
 		return;
 	}
 
-	if (test_bit(CNSS_MHI_RDDM_DONE, &plat_priv->driver_state)) {
-		cnss_pr_dbg("RDDM already collected, return\n");
-		return;
-	}
-
 	cnss_pci_collect_dump_info(pci_priv, true);
 }
 
@@ -1975,6 +1970,11 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 	struct image_info *fw_image, *rddm_image;
 	struct cnss_fw_mem *fw_mem = plat_priv->fw_mem;
 	int ret, i;
+
+	if (test_bit(CNSS_MHI_RDDM_DONE, &pci_priv->mhi_state)) {
+		cnss_pr_dbg("RAM dump is already collected, skip\n");
+		return;
+	}
 
 	cnss_pci_dump_registers(pci_priv);
 
