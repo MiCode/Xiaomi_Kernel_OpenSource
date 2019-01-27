@@ -497,6 +497,35 @@ int ipa3_wdi_init(void)
 	return 0;
 }
 
+static int ipa_create_ap_smmu_mapping_pa(phys_addr_t pa, size_t len,
+		bool device, unsigned long *iova)
+{
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_AP);
+	unsigned long va = roundup(cb->next_addr, PAGE_SIZE);
+	int prot = IOMMU_READ | IOMMU_WRITE;
+	size_t true_len = roundup(len + pa - rounddown(pa, PAGE_SIZE),
+			PAGE_SIZE);
+	int ret;
+
+	if (!cb->valid) {
+		IPAERR("No SMMU CB setup\n");
+		return -EINVAL;
+	}
+
+	ret = ipa3_iommu_map(cb->mapping->domain, va, rounddown(pa, PAGE_SIZE),
+			true_len,
+			device ? (prot | IOMMU_MMIO) : prot);
+	if (ret) {
+		IPAERR("iommu map failed for pa=%pa len=%zu\n", &pa, true_len);
+		return -EINVAL;
+	}
+
+	ipa3_ctx->wdi_map_cnt++;
+	cb->next_addr = va + true_len;
+	*iova = va + pa - rounddown(pa, PAGE_SIZE);
+	return 0;
+}
+
 static int ipa_create_uc_smmu_mapping_pa(phys_addr_t pa, size_t len,
 		bool device, unsigned long *iova)
 {
@@ -525,6 +554,56 @@ static int ipa_create_uc_smmu_mapping_pa(phys_addr_t pa, size_t len,
 	*iova = va + pa - rounddown(pa, PAGE_SIZE);
 	return 0;
 }
+
+static int ipa_create_ap_smmu_mapping_sgt(struct sg_table *sgt,
+		unsigned long *iova)
+{
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_AP);
+	unsigned long va = roundup(cb->next_addr, PAGE_SIZE);
+	int prot = IOMMU_READ | IOMMU_WRITE;
+	int ret, i;
+	struct scatterlist *sg;
+	unsigned long start_iova = va;
+	phys_addr_t phys;
+	size_t len;
+	int count = 0;
+
+	if (!cb->valid) {
+		IPAERR("No SMMU CB setup\n");
+		return -EINVAL;
+	}
+	if (!sgt) {
+		IPAERR("Bad parameters, scatter / gather list is NULL\n");
+		return -EINVAL;
+	}
+
+	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
+		/* directly get sg_tbl PA from wlan-driver */
+		phys = sg->dma_address;
+		len = PAGE_ALIGN(sg->offset + sg->length);
+
+		ret = ipa3_iommu_map(cb->mapping->domain, va, phys, len, prot);
+		if (ret) {
+			IPAERR("iommu map failed for pa=%pa len=%zu\n",
+					&phys, len);
+			goto bad_mapping;
+		}
+		va += len;
+		ipa3_ctx->wdi_map_cnt++;
+		count++;
+	}
+	cb->next_addr = va;
+	*iova = start_iova;
+
+	return 0;
+
+bad_mapping:
+	for_each_sg(sgt->sgl, sg, count, i)
+		iommu_unmap(cb->mapping->domain, sg_dma_address(sg),
+				sg_dma_len(sg));
+	return -EINVAL;
+}
+
 
 static int ipa_create_uc_smmu_mapping_sgt(struct sg_table *sgt,
 		unsigned long *iova)
@@ -574,6 +653,39 @@ bad_mapping:
 		iommu_unmap(cb->mapping->domain, sg_dma_address(sg),
 				sg_dma_len(sg));
 	return -EINVAL;
+}
+
+static void ipa_release_ap_smmu_mappings(enum ipa_client_type client)
+{
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_AP);
+	int i, j, start, end;
+
+	if (IPA_CLIENT_IS_CONS(client)) {
+		start = IPA_WDI_TX_RING_RES;
+		end = IPA_WDI_CE_DB_RES;
+	} else {
+		start = IPA_WDI_RX_RING_RES;
+		if (ipa3_ctx->ipa_wdi2)
+			end = IPA_WDI_RX_COMP_RING_WP_RES;
+		else
+			end = IPA_WDI_RX_RING_RP_RES;
+	}
+
+	for (i = start; i <= end; i++) {
+		if (wdi_res[i].valid) {
+			for (j = 0; j < wdi_res[i].nents; j++) {
+				iommu_unmap(cb->mapping->domain,
+					wdi_res[i].res[j].iova,
+					wdi_res[i].res[j].size);
+				ipa3_ctx->wdi_map_cnt--;
+			}
+			kfree(wdi_res[i].res);
+			wdi_res[i].valid = false;
+		}
+	}
+
+	if (ipa3_ctx->wdi_map_cnt == 0)
+		cb->next_addr = cb->va_end;
 }
 
 static void ipa_release_uc_smmu_mappings(enum ipa_client_type client)
@@ -751,9 +863,11 @@ int ipa_create_gsi_smmu_mapping(int res_idx, bool wlan_smmu_en,
 
 	/* no SMMU on WLAN but SMMU on IPA */
 	if (!wlan_smmu_en && !ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP]) {
-		if (ipa3_smmu_map_peer_buff(*iova, pa, len,
-						sgt, IPA_SMMU_CB_WLAN)) {
-			IPAERR("Fail to create mapping res %d\n", res_idx);
+		if (ipa_create_ap_smmu_mapping_pa(pa, len,
+				(res_idx == IPA_WDI_CE_DB_RES) ? true : false,
+					iova)) {
+			IPAERR("Fail to create mapping res %d\n",
+					res_idx);
 			return -EFAULT;
 		}
 		ipa_save_uc_smmu_mapping_pa(res_idx, pa, *iova, len);
@@ -765,10 +879,12 @@ int ipa_create_gsi_smmu_mapping(int res_idx, bool wlan_smmu_en,
 		case IPA_WDI_RX_RING_RP_RES:
 		case IPA_WDI_RX_COMP_RING_WP_RES:
 		case IPA_WDI_CE_DB_RES:
-			if (ipa3_smmu_map_peer_buff(*iova, pa, len, sgt,
-							IPA_SMMU_CB_WLAN)) {
+		case IPA_WDI_TX_DB_RES:
+			if (ipa_create_ap_smmu_mapping_pa(pa, len,
+				(res_idx == IPA_WDI_CE_DB_RES) ? true : false,
+						iova)) {
 				IPAERR("Fail to create mapping res %d\n",
-					res_idx);
+						res_idx);
 				return -EFAULT;
 			}
 			ipa_save_uc_smmu_mapping_pa(res_idx, pa, *iova, len);
@@ -777,10 +893,9 @@ int ipa_create_gsi_smmu_mapping(int res_idx, bool wlan_smmu_en,
 		case IPA_WDI_RX_COMP_RING_RES:
 		case IPA_WDI_TX_RING_RES:
 		case IPA_WDI_CE_RING_RES:
-			if (ipa3_smmu_map_peer_reg(pa, true,
-							IPA_SMMU_CB_WLAN)) {
+			if (ipa_create_ap_smmu_mapping_sgt(sgt, iova)) {
 				IPAERR("Fail to create mapping res %d\n",
-					res_idx);
+						res_idx);
 				return -EFAULT;
 			}
 			ipa_save_uc_smmu_mapping_sgt(res_idx, sgt, *iova);
@@ -1304,7 +1419,7 @@ fail_alloc_evt_ring:
 ipa_cfg_ep_fail:
 	memset(&ipa3_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa3_ep_context));
 gsi_timeout:
-	ipa_release_uc_smmu_mappings(in->sys.client);
+	ipa_release_ap_smmu_mappings(in->sys.client);
 	IPA_ACTIVE_CLIENTS_DEC_EP(in->sys.client);
 fail:
 	return result;
@@ -1864,7 +1979,7 @@ int ipa3_disconnect_gsi_wdi_pipe(u32 clnt_hdl)
 				result);
 		goto fail_dealloc_channel;
 	}
-	ipa_release_uc_smmu_mappings(clnt_hdl);
+	ipa_release_ap_smmu_mappings(clnt_hdl);
 
 	/* for AP+STA stats update */
 	if (ipa3_ctx->uc_wdi_ctx.stats_notify)
