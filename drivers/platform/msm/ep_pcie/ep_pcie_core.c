@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1360,7 +1360,22 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 		}
 
 		dev->power_on = true;
-		/* check link status during initial bootup */
+
+		 EP_PCIE_DBG(dev,
+			 "TCSR PERST_EN value before configure:0x%x\n",
+			 readl_relaxed(dev->tcsr_perst_en + 0x258));
+
+		 /*
+		  * Delatch PERST_EN with TCSR to avoid device reset
+		  * during host reboot case.
+		  */
+		 writel_relaxed(0, dev->tcsr_perst_en + 0x258);
+
+		 EP_PCIE_DBG(dev,
+			 "TCSR PERST_EN value after configure:0x%x\n",
+			 readl_relaxed(dev->tcsr_perst_en));
+
+		 /* check link status during initial bootup */
 		if (!dev->enumerated) {
 			val = readl_relaxed(dev->parf + PCIE20_PARF_PM_STTS);
 			val = val & PARF_XMLH_LINK_UP;
@@ -1399,20 +1414,6 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 
 	if (!(opt & EP_PCIE_OPT_ENUM))
 		goto out;
-
-	EP_PCIE_DBG(dev,
-		"TCSR PERST_EN value before configure:0x%x\n",
-		readl_relaxed(dev->tcsr_perst_en + 0x258));
-
-	/*
-	 * Delatch PERST_EN with TCSR to avoid device reset
-	 * during host reboot case.
-	 */
-	writel_relaxed(0, dev->tcsr_perst_en + 0x258);
-
-	EP_PCIE_DBG(dev,
-		"TCSR PERST_EN value after configure:0x%x\n",
-		readl_relaxed(dev->tcsr_perst_en));
 
 	if (opt & EP_PCIE_OPT_AST_WAKE) {
 		/* assert PCIe WAKE# */

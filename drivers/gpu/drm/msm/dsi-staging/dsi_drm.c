@@ -206,7 +206,8 @@ static void dsi_bridge_enable(struct drm_bridge *bridge)
 	}
 
 	if (c_bridge->dsi_mode.dsi_mode_flags &
-			(DSI_MODE_FLAG_SEAMLESS | DSI_MODE_FLAG_VRR)) {
+			(DSI_MODE_FLAG_SEAMLESS | DSI_MODE_FLAG_VRR |
+			 DSI_MODE_FLAG_DYN_CLK)) {
 		pr_debug("[%d] seamless enable\n", c_bridge->id);
 		return;
 	}

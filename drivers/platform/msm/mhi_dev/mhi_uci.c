@@ -1,4 +1,4 @@
-/* Copyright (c) 2015,2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015,2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1594,6 +1594,26 @@ static void mhi_uci_at_ctrl_client_cb(struct mhi_dev_client_cb_data *cb_data)
 		uci_ctxt.at_ctrl_wq =
 			create_singlethread_workqueue("mhi_at_ctrl_wq");
 		INIT_WORK(&uci_ctxt.at_ctrl_work, mhi_uci_at_ctrl_read);
+	} else if (cb_data->ctrl_info == MHI_STATE_DISCONNECTED) {
+		if (uci_ctxt.at_ctrl_wq == NULL) {
+			uci_log(UCI_DBG_VERBOSE,
+				"Disconnect already processed for at ctrl channels\n");
+			return;
+		}
+		destroy_workqueue(uci_ctxt.at_ctrl_wq);
+		uci_ctxt.at_ctrl_wq = NULL;
+		if (!(client->f_flags & O_SYNC))
+			kfree(client->wreqs);
+		rc = mhi_dev_close_channel(client->out_handle);
+		if (rc)
+			uci_log(UCI_DBG_INFO,
+			"Failed to close channel %d ret %d\n",
+			client->out_chan, rc);
+		rc = mhi_dev_close_channel(client->in_handle);
+		if (rc)
+			uci_log(UCI_DBG_INFO,
+			"Failed to close channel %d ret %d\n",
+			client->in_chan, rc);
 	}
 }
 

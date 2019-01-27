@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,6 +36,7 @@
 #define CAM_OIS        (1 << 20)
 #define CAM_RES        (1 << 21)
 #define CAM_MEM        (1 << 22)
+#define CAM_IR_LED     (1 << 23)
 
 /* CAM_IRQ_CTRL: For events in irq controller */
 #define CAM_IRQ_CTRL   (1 << 23)

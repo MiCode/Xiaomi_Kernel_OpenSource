@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1327,8 +1327,11 @@ static void mhi_update_state_info_all(enum mhi_ctrl_info info)
 	struct mhi_dev_client_cb_reason reason;
 
 	mhi_ctx->ctrl_info = info;
-	for (i = 0; i < MHI_MAX_CHANNELS; ++i)
+	for (i = 0; i < MHI_MAX_CHANNELS; ++i) {
 		channel_state_info[i].ctrl_info = info;
+		/* Notify kernel clients */
+		mhi_dev_trigger_cb(i);
+	}
 
 	/* For legacy reasons for QTI client */
 	reason.reason = MHI_DEV_CTRL_UPDATE;

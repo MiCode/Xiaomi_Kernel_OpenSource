@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, 2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, 2018-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +38,7 @@ static int is_power_on;
 
 #define PRONTO_IRIS_REG_READ_OFFSET       0x1134
 #define PRONTO_IRIS_REG_CHIP_ID           0x04
+#define PRONTO_IRIS_REG_CHIP_ID_MASK      0xffff
 /* IRIS card chip ID's */
 #define WCN3660       0x0200
 #define WCN3660A      0x0300
@@ -46,6 +47,7 @@ static int is_power_on;
 #define WCN3620A      0x5112
 #define WCN3610       0x9101
 #define WCN3610V1     0x9110
+#define WCN3615       0x8110
 
 #define WCNSS_PMU_CFG_IRIS_XO_CFG          BIT(3)
 #define WCNSS_PMU_CFG_IRIS_XO_EN           BIT(4)
@@ -107,7 +109,8 @@ struct host_driver {
 enum {
 	IRIS_3660, /* also 3660A and 3680 */
 	IRIS_3620,
-	IRIS_3610
+	IRIS_3610,
+	IRIS_3615
 };
 
 int xo_auto_detect(u32 reg)
@@ -124,6 +127,9 @@ int xo_auto_detect(u32 reg)
 	case IRIS_3610:
 		return WCNSS_XO_19MHZ;
 
+	case IRIS_3615:
+		return WCNSS_XO_19MHZ;
+
 	default:
 		return WCNSS_XO_INVALID;
 	}
@@ -132,13 +138,13 @@ int xo_auto_detect(u32 reg)
 int wcnss_get_iris_name(char *iris_name)
 {
 	struct wcnss_wlan_config *cfg = NULL;
-	int iris_id;
+	u32  iris_id;
 
 	cfg = wcnss_get_wlan_config();
 
 	if (cfg) {
 		iris_id = cfg->iris_id;
-		iris_id = iris_id >> 16;
+		iris_id = PRONTO_IRIS_REG_CHIP_ID_MASK & (iris_id >> 16);
 	} else {
 		return 1;
 	}
@@ -165,6 +171,9 @@ int wcnss_get_iris_name(char *iris_name)
 	case WCN3610V1:
 		memcpy(iris_name, "WCN3610V1", sizeof("WCN3610V1"));
 		break;
+	case WCN3615:
+		memcpy(iris_name, "WCN3615", sizeof("WCN3615"));
+		break;
 	default:
 		return 1;
 	}
@@ -175,9 +184,9 @@ EXPORT_SYMBOL(wcnss_get_iris_name);
 
 int validate_iris_chip_id(u32 reg)
 {
-	int iris_id;
+	u32 iris_id;
 
-	iris_id = reg >> 16;
+	iris_id = PRONTO_IRIS_REG_CHIP_ID_MASK & (reg >> 16);
 
 	switch (iris_id) {
 	case WCN3660:
@@ -187,6 +196,7 @@ int validate_iris_chip_id(u32 reg)
 	case WCN3620A:
 	case WCN3610:
 	case WCN3610V1:
+	case WCN3615:
 		return 0;
 	default:
 		return 1;

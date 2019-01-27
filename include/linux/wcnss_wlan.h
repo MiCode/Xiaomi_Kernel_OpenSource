@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,7 +42,7 @@ struct wcnss_wlan_config {
 	int	is_pronto_vadc;
 	int	is_pronto_v3;
 	void __iomem	*msm_wcnss_base;
-	int	iris_id;
+	unsigned int iris_id;
 	int	vbatt;
 	struct vregs_level pronto_vlevel[PRONTO_REGULATORS];
 	struct vregs_level iris_vlevel[IRIS_REGULATORS];

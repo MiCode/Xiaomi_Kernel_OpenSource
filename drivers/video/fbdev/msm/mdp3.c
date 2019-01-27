@@ -1354,6 +1354,8 @@ int mdp3_put_img(struct mdp3_img_data *data, int client)
 			pr_err("invalid ion client\n");
 			return -ENOMEM;
 		}
+		MDSS_XLOG(data->srcp_dma_buf, data->addr, data->len, client,
+				data->mapped, data->skip_detach);
 		if (data->mapped) {
 			if (client == MDP3_CLIENT_PPP ||
 						client == MDP3_CLIENT_DMA_P)
@@ -1519,6 +1521,13 @@ done:
 	} else {
 		mdp3_put_img(data, client);
 		return -EINVAL;
+	}
+	if (img->flags & MDP_MEMORY_ID_TYPE_FB) {
+		MDSS_XLOG(img->memory_id, data->addr, data->len, fb_num);
+	} else if (iclient) {
+		MDSS_XLOG(img->memory_id, data->srcp_dma_buf, data->addr,
+				data->len, client, data->mapped,
+				data->skip_detach);
 	}
 	return ret;
 
@@ -1987,6 +1996,7 @@ static int mdp3_debug_init(struct platform_device *pdev)
 
 	mdata->debug_inf.debug_enable_clock = mdp3_debug_enable_clock;
 	mdata->mdp_rev = mdp3_res->mdp_rev;
+	mdata->pdev = pdev;
 
 	rc = mdss_debugfs_init(mdata);
 	if (rc)

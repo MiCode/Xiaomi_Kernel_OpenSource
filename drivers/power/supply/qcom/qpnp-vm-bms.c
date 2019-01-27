@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1863,6 +1863,10 @@ static int setup_vbat_monitoring(struct qpnp_bms_chip *chip)
 {
 	int rc;
 
+	if (is_debug_batt_id(chip)) {
+		pr_debug("skip configuring vbat monitoring for debug_board\n");
+		return 0;
+	}
 	chip->vbat_monitor_params.low_thr =
 					chip->dt.cfg_low_voltage_threshold;
 	chip->vbat_monitor_params.high_thr =

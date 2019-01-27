@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -85,6 +85,7 @@ void diag_pcie_read_work_fn(struct work_struct *work)
 	ureq.mode = IPA_DMA_SYNC;
 	ureq.buf = pcie_info->in_chan_attr.read_buffer;
 	ureq.len = pcie_info->in_chan_attr.read_buffer_size;
+	ureq.transfer_len = 0;
 	bytes_avail = mhi_dev_read_channel(&ureq);
 	if (bytes_avail < 0)
 		return;
@@ -319,7 +320,7 @@ int diag_pcie_write(int id, unsigned char *buf, int len, int ctxt)
 	pcie_info = &diag_pcie[id];
 
 	if (len > pcie_info->out_chan_attr.max_pkt_size) {
-		DIAG_LOG(DIAG_DEBUG_MUX, "len: %d, max_size: %d\n",
+		DIAG_LOG(DIAG_DEBUG_MUX, "len: %d, max_size: %zu\n",
 			 len, pcie_info->out_chan_attr.max_pkt_size);
 		return diag_pcie_write_ext(pcie_info, buf, len, ctxt);
 	}
