@@ -11,3 +11,56 @@
  */
 
 #include "qm215-qrd.dtsi"
+
+&pm8916_chg{
+	qcom,use-external-charger;
+};
+
+&pm8916_bms{
+	qcom,disable-bms;
+};
+
+&tlmm {
+		/* SMB interrupt pin */
+		smb_int_pin {
+			smb_int_default: smb_int_default {
+				mux {
+					pins = "gpio13";
+					function ="gpio";
+				};
+				config {
+					pins = "gpio13";
+					bias-pull-up;           /* PULL UP*/
+					input-enable;
+				};
+			};
+		};
+};
+
+&i2c_2 {
+	status ="ok";
+	smb1360_otg_supply: smb1360-chg-fg@14 {
+		compatible = "qcom,smb1360-chg-fg";
+		reg = <0x14>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <13 8>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&smb_int_default>;
+		qcom,empty-soc-disabled;
+		qcom,chg-inhibit-disabled;
+		qcom,float-voltage-mv = <4400>;
+		qcom,iterm-ma = <100>;
+		qcom,recharge-thresh-mv = <100>;
+		qcom,thermal-mitigation = <1500 700 600 0>;
+		regulator-name = "smb1360_otg_vreg";
+		qcom,fg-batt-capacity-mah = <2800>;
+		qcom,fg-cutoff-voltage-mv = <3400>;
+		qcom,fg-iterm-ma = <130>;
+		qcom,fg-delta-soc = <1>;
+		status= "okay";
+	};
+};
+
+&usb_otg {
+	extcon = <&smb1360_otg_supply>;
+};
