@@ -2225,9 +2225,17 @@ static int dsi_panel_parse_bl_config(struct dsi_panel *panel)
 					      "qcom,platform-bklight-en-gpio",
 					      0);
 	if (!gpio_is_valid(panel->bl_config.en_gpio)) {
-		pr_debug("[%s] failed get bklt gpio, rc=%d\n", panel->name, rc);
-		rc = 0;
-		goto error;
+		if (panel->bl_config.en_gpio == -EPROBE_DEFER) {
+			pr_debug("[%s] failed to get bklt gpio, rc=%d\n",
+						panel->name, rc);
+			rc = -EPROBE_DEFER;
+			goto error;
+		} else {
+			pr_debug("[%s] failed to get bklt gpio, rc=%d\n",
+						panel->name, rc);
+			rc = 0;
+			goto error;
+		}
 	}
 
 error:
@@ -3169,8 +3177,10 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 		pr_err("failed to parse power config, rc=%d\n", rc);
 
 	rc = dsi_panel_parse_bl_config(panel);
-	if (rc)
+	if (rc) {
 		pr_err("failed to parse backlight config, rc=%d\n", rc);
+		goto error;
+	}
 
 
 	rc = dsi_panel_parse_misc_features(panel);
