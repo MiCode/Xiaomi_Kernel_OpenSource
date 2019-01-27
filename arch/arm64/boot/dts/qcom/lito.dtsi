@@ -806,19 +806,28 @@
 	clocks {
 		xo_board: xo-board {
 			compatible = "fixed-clock";
-			#clock-cells = <0>;
 			clock-frequency = <38400000>;
 			clock-output-names = "xo_board";
+			#clock-cells = <0>;
 		};
 
 		sleep_clk: sleep-clk {
 			compatible = "fixed-clock";
-			#clock-cells = <0>;
+			clock-output-names = "chip_sleep_clk";
 			clock-frequency = <32764>;
+			#clock-cells = <0>;
 		};
 	};
 
 	cxo: bi_tcxo {
+		compatible = "fixed-factor-clock";
+		clocks = <&xo_board>;
+		clock-mult = <1>;
+		clock-div = <2>;
+		#clock-cells = <0>;
+	};
+
+	cxo_a: bi_tcxo_ao {
 		compatible = "fixed-factor-clock";
 		clocks = <&xo_board>;
 		clock-mult = <1>;
@@ -839,8 +848,11 @@
 	};
 
 	gcc: qcom,gcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gcc_clocks";
+		compatible = "qcom,gcc-lito", "syscon";
+		reg = <0x100000 0x1f0000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		vdd_cx_ao-supply = <&VDD_CX_LEVEL_AO>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};

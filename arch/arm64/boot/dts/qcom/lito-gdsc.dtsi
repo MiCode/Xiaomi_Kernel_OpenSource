@@ -1,24 +1,24 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 &soc {
 	/* GCC GDSCs */
 	ufs_phy_gdsc: qcom,gdsc@177004 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0x177004 0x4>;
 		regulator-name = "ufs_phy_gdsc";
 	};
 
 	usb30_prim_gdsc: qcom,gdsc@10f004 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0x10f004 0x4>;
 		regulator-name = "usb30_prim_gdsc";
 	};
 
 	hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc: qcom,gdsc@17d050 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0x17d050 0x4>;
 		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc";
 		qcom,no-status-check-on-disable;
@@ -26,7 +26,7 @@
 	};
 
 	hlos1_vote_mmnoc_mmu_tbu_hf1_gdsc: qcom,gdsc@17d058 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0x17d058 0x4>;
 		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_hf1_gdsc";
 		qcom,no-status-check-on-disable;
@@ -34,7 +34,7 @@
 	};
 
 	hlos1_vote_mmnoc_mmu_tbu_sf0_gdsc: qcom,gdsc@17d054 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0x17d054 0x4>;
 		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_sf0_gdsc";
 		qcom,no-status-check-on-disable;
