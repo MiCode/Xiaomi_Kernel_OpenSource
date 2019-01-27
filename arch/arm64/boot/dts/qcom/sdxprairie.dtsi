@@ -1040,6 +1040,7 @@
 #include "sdxprairie-audio.dtsi"
 #include "sdxprairie-pcie.dtsi"
 #include "sdxprairie-coresight.dtsi"
+#include "sdxprairie-aqc.dtsi"
 
 &gdsc_usb30 {
 	status = "ok";

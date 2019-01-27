@@ -1,0 +1,26 @@
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&pcie0_rp {
+	aqc_x4: aquantia,aqc107@pcie0_rp {
+		reg = <0 0 0 0 0>;
+
+		compatible = "aquantia,aqc-107";
+
+		qcom,smmu;
+		qcom,smmu-iova-base = /bits/ 64 <0x0>;
+		qcom,smmu-iova-size = /bits/ 64 <0x80000000>;
+
+		qcom,smmu-attr-s1-bypass;
+	};
+};
+
