@@ -44,6 +44,8 @@
 #define DSI_CLOCK_BITRATE_RADIX 10
 #define MAX_TE_SOURCE_ID  2
 
+DEFINE_MUTEX(dsi_display_clk_mutex);
+
 static char dsi_display_primary[MAX_CMDLINE_PARAM_LEN];
 static char dsi_display_secondary[MAX_CMDLINE_PARAM_LEN];
 static struct dsi_display_boot_param boot_displays[MAX_DSI_ACTIVE_DISPLAY] = {
@@ -2964,7 +2966,10 @@ static int dsi_display_clocks_init(struct dsi_display *display)
 				goto error;
 			}
 
-			if (dyn_clk_caps->dyn_clk_support) {
+			if (dyn_clk_caps->dyn_clk_support &&
+				(display->panel->panel_mode ==
+					 DSI_OP_VIDEO_MODE)) {
+
 				if (dsi_display_check_prefix(src_byte,
 							clk_name))
 					src->byte_clk = NULL;
@@ -3790,7 +3795,7 @@ static int dsi_display_update_dsi_bitrate(struct dsi_display *display,
 
 	display->config.bit_clk_rate_hz = bit_clk_rate;
 
-	for (i = 0; i < display->ctrl_count; i++) {
+	display_for_each_ctrl(i, display) {
 		struct dsi_display_ctrl *dsi_disp_ctrl = &display->ctrl[i];
 		struct dsi_ctrl *ctrl = dsi_disp_ctrl->ctrl;
 		u32 num_of_lanes = 0, bpp;
@@ -3918,8 +3923,7 @@ static int _dsi_display_dyn_update_clks(struct dsi_display *display,
 		goto exit;
 	}
 
-	for (i = 0; (i < display->ctrl_count) &&
-	     (i < MAX_DSI_CTRLS_PER_DISPLAY); i++) {
+	display_for_each_ctrl(i, display) {
 		ctrl = &display->ctrl[i];
 		if (!ctrl->ctrl)
 			continue;
@@ -3937,8 +3941,7 @@ static int _dsi_display_dyn_update_clks(struct dsi_display *display,
 		}
 	}
 
-	for (i = 0; (i < display->ctrl_count) &&
-	     (i < MAX_DSI_CTRLS_PER_DISPLAY); i++) {
+	display_for_each_ctrl(i, display) {
 		ctrl = &display->ctrl[i];
 		if (ctrl == m_ctrl)
 			continue;
@@ -3947,8 +3950,7 @@ static int _dsi_display_dyn_update_clks(struct dsi_display *display,
 	dsi_phy_dynamic_refresh_trigger(m_ctrl->phy, true);
 
 	/* wait for dynamic refresh done */
-	for (i = 0; (i < display->ctrl_count) &&
-	     (i < MAX_DSI_CTRLS_PER_DISPLAY); i++) {
+	display_for_each_ctrl(i, display) {
 		ctrl = &display->ctrl[i];
 		rc = dsi_ctrl_wait4dynamic_refresh_done(ctrl->ctrl);
 		if (rc) {
@@ -3960,8 +3962,7 @@ static int _dsi_display_dyn_update_clks(struct dsi_display *display,
 		}
 	}
 
-	for (i = 0; (i < display->ctrl_count) &&
-	     (i < MAX_DSI_CTRLS_PER_DISPLAY); i++) {
+	display_for_each_ctrl(i, display) {
 		ctrl = &display->ctrl[i];
 		dsi_phy_dynamic_refresh_clear(ctrl->phy);
 	}
@@ -3976,8 +3977,7 @@ static int _dsi_display_dyn_update_clks(struct dsi_display *display,
 	return rc;
 
 recover_pix_clk:
-	for (i = 0; (i < display->ctrl_count) &&
-	     (i < MAX_DSI_CTRLS_PER_DISPLAY); i++) {
+	display_for_each_ctrl(i, display) {
 		ctrl = &display->ctrl[i];
 		if (!ctrl->ctrl)
 			continue;
@@ -3986,8 +3986,7 @@ recover_pix_clk:
 	}
 
 recover_byte_clk:
-	for (i = 0; (i < display->ctrl_count) &&
-	     (i < MAX_DSI_CTRLS_PER_DISPLAY); i++) {
+	display_for_each_ctrl(i, display) {
 		ctrl = &display->ctrl[i];
 		if (!ctrl->ctrl)
 			continue;
@@ -4001,7 +4000,7 @@ exit:
 	return rc;
 }
 
-static int dsi_display_dynamic_clk_switch(struct dsi_display *display,
+static int dsi_display_dynamic_clk_switch_vid(struct dsi_display *display,
 					  struct dsi_display_mode *mode)
 {
 	int rc = 0, mask, i;
@@ -4021,7 +4020,7 @@ static int dsi_display_dynamic_clk_switch(struct dsi_display *display,
 	dsi_display_mask_ctrl_error_interrupts(display, mask, true);
 
 	/* update the phy timings based on new mode */
-	for (i = 0; i < display->ctrl_count; i++) {
+	display_for_each_ctrl(i, display) {
 		ctrl = &display->ctrl[i];
 		dsi_phy_update_phy_timings(ctrl->phy, &display->config);
 	}
@@ -4041,7 +4040,7 @@ static int dsi_display_dynamic_clk_switch(struct dsi_display *display,
 	_dsi_display_calc_pipe_delay(display, &delay, mode);
 
 	/* configure dynamic refresh ctrl registers */
-	for (i = 0; i < display->ctrl_count; i++) {
+	display_for_each_ctrl(i, display) {
 		ctrl = &display->ctrl[i];
 		if (!ctrl->phy)
 			continue;
@@ -4066,6 +4065,39 @@ exit:
 					      mode->priv_info->phy_timing_len);
 
 	dsi_panel_release_panel_lock(display->panel);
+
+	return rc;
+}
+
+static int dsi_display_dynamic_clk_configure_cmd(struct dsi_display *display,
+		int clk_rate)
+{
+	int rc = 0;
+
+	if (clk_rate <= 0) {
+		pr_err("%s: bitrate should be greater than 0\n", __func__);
+		return -EINVAL;
+	}
+
+	if (clk_rate == display->cached_clk_rate) {
+		pr_info("%s: ignore duplicated DSI clk setting\n", __func__);
+		return rc;
+	}
+
+	display->cached_clk_rate = clk_rate;
+
+	rc = dsi_display_update_dsi_bitrate(display, clk_rate);
+	if (!rc) {
+		pr_info("%s: bit clk is ready to be configured to '%d'\n",
+				__func__, clk_rate);
+		atomic_set(&display->clkrate_change_pending, 1);
+	} else {
+		pr_err("%s: Failed to prepare to configure '%d'. rc = %d\n",
+				__func__, clk_rate, rc);
+		/* Caching clock failed, so don't go on doing so. */
+		atomic_set(&display->clkrate_change_pending, 0);
+		display->cached_clk_rate = 0;
+	}
 
 	return rc;
 }
@@ -4303,7 +4335,7 @@ static int dsi_display_set_mode_sub(struct dsi_display *display,
 				    struct dsi_display_mode *mode,
 				    u32 flags)
 {
-	int rc = 0;
+	int rc = 0, clk_rate = 0;
 	int i;
 	struct dsi_display_ctrl *ctrl;
 	struct dsi_display_mode_priv_info *priv_info;
@@ -4336,15 +4368,25 @@ static int dsi_display_set_mode_sub(struct dsi_display *display,
 			goto error;
 		}
 	} else if (mode->dsi_mode_flags & DSI_MODE_FLAG_DYN_CLK) {
-		rc = dsi_display_dynamic_clk_switch(display, mode);
-		if (rc)
-			pr_err("dynamic clk change failed %d\n", rc);
-		/*
-		 * skip rest of the opearations since
-		 * dsi_display_dynamic_clk_switch() already takes
-		 * care of them.
-		 */
-		return rc;
+		if (display->panel->panel_mode == DSI_OP_VIDEO_MODE) {
+			rc = dsi_display_dynamic_clk_switch_vid(display, mode);
+			if (rc)
+				pr_err("dynamic clk change failed %d\n", rc);
+			/*
+			 * skip rest of the opearations since
+			 * dsi_display_dynamic_clk_switch_vid() already takes
+			 * care of them.
+			 */
+			return rc;
+		} else if (display->panel->panel_mode == DSI_OP_CMD_MODE) {
+			clk_rate = mode->timing.clk_rate_hz;
+			rc = dsi_display_dynamic_clk_configure_cmd(display,
+					clk_rate);
+			if (rc) {
+				pr_err("Failed to configure dynamic clk\n");
+				return rc;
+			}
+		}
 	}
 
 	display_for_each_ctrl(i, display) {
@@ -4570,6 +4612,43 @@ int dsi_display_splash_res_cleanup(struct  dsi_display *display)
 	return rc;
 }
 
+static int dsi_display_link_clk_force_update_ctrl(void *handle)
+{
+	int rc = 0;
+
+	if (!handle) {
+		pr_err("%s: Invalid arg\n", __func__);
+		return -EINVAL;
+	}
+
+	mutex_lock(&dsi_display_clk_mutex);
+
+	rc = dsi_display_link_clk_force_update(handle);
+
+	mutex_unlock(&dsi_display_clk_mutex);
+
+	return rc;
+}
+
+int dsi_display_clk_ctrl(void *handle,
+	enum dsi_clk_type clk_type, enum dsi_clk_state clk_state)
+{
+	int rc = 0;
+
+	if (!handle) {
+		pr_err("%s: Invalid arg\n", __func__);
+		return -EINVAL;
+	}
+
+	mutex_lock(&dsi_display_clk_mutex);
+	rc = dsi_clk_req_state(handle, clk_type, clk_state);
+	if (rc)
+		pr_err("%s: failed set clk state, rc = %d\n", __func__, rc);
+	mutex_unlock(&dsi_display_clk_mutex);
+
+	return rc;
+}
+
 static int dsi_display_force_update_dsi_clk(struct dsi_display *display)
 {
 	int rc = 0;
@@ -4623,7 +4702,7 @@ static ssize_t sysfs_dynamic_dsi_clk_read(struct device *dev,
 static ssize_t sysfs_dynamic_dsi_clk_write(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
-	int rc = 0;
+	int rc = count;
 	int clk_rate;
 	struct dsi_display *display;
 
@@ -4644,41 +4723,19 @@ static ssize_t sysfs_dynamic_dsi_clk_write(struct device *dev,
 		return -ENOTSUPP;
 	}
 
-	if (clk_rate <= 0) {
-		pr_err("%s: bitrate should be greater than 0\n", __func__);
-		return -EINVAL;
-	}
-
-	if (clk_rate == display->cached_clk_rate) {
-		pr_info("%s: ignore duplicated DSI clk setting\n", __func__);
-		return count;
-	}
-
 	pr_info("%s: bitrate param value: '%d'\n", __func__, clk_rate);
 
 	mutex_lock(&display->display_lock);
+	mutex_lock(&dsi_display_clk_mutex);
 
-	display->cached_clk_rate = clk_rate;
-	rc = dsi_display_update_dsi_bitrate(display, clk_rate);
-	if (!rc) {
-		pr_info("%s: bit clk is ready to be configured to '%d'\n",
-			__func__, clk_rate);
-	} else {
-		pr_err("%s: Failed to prepare to configure '%d'. rc = %d\n",
-			__func__, clk_rate, rc);
-		/*Caching clock failed, so don't go on doing so.*/
-		atomic_set(&display->clkrate_change_pending, 0);
-		display->cached_clk_rate = 0;
+	rc = dsi_display_dynamic_clk_configure_cmd(display, clk_rate);
+	if (rc)
+		pr_err("Failed to configure dynamic clk\n");
 
-		mutex_unlock(&display->display_lock);
-
-		return rc;
-	}
-	atomic_set(&display->clkrate_change_pending, 1);
-
+	mutex_unlock(&dsi_display_clk_mutex);
 	mutex_unlock(&display->display_lock);
 
-	return count;
+	return rc;
 
 }
 
@@ -5471,7 +5528,7 @@ static struct dsi_display_ext_bridge *dsi_display_ext_get_bridge(
 		sde_conn = to_sde_connector(conn_iter);
 		if (sde_conn->encoder == bridge->encoder) {
 			display = sde_conn->display;
-			for (i = 0; i < display->ctrl_count; i++) {
+			display_for_each_ctrl(i, display) {
 				if (display->ext_bridge[i].bridge == bridge)
 					return &display->ext_bridge[i];
 			}
@@ -6922,7 +6979,7 @@ static int dsi_display_qsync(struct dsi_display *display, bool enable)
 
 	mutex_lock(&display->display_lock);
 
-	for (i = 0; i < display->ctrl_count; i++) {
+	display_for_each_ctrl(i, display) {
 
 		if (enable) {
 			/* send the commands to enable qsync */
