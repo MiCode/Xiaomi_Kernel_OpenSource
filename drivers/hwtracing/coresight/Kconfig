@@ -197,6 +197,7 @@ config CORESIGHT_REMOTE_ETM
 config CORESIGHT_REMOTE_ETM_DEFAULT_ENABLE
 	int "default enable ETM for Remote processor based on instance id"
 	depends on CORESIGHT_REMOTE_ETM
+	default 0
 	help
 	  Support for enabling separated Remote processor ETM tracing. Depends
 	  on if instance id bit is set.

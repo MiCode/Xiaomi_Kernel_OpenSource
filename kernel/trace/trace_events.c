@@ -3397,7 +3397,7 @@ function_test_events_call(unsigned long ip, unsigned long parent_ip,
 	entry->parent_ip		= parent_ip;
 
 	event_trigger_unlock_commit(&event_trace_file, buffer, event,
-				    entry, flags, pc);
+				    entry, flags, pc, 0);
  out:
 	atomic_dec(&per_cpu(ftrace_test_event_disable, cpu));
 	preempt_enable_notrace();
