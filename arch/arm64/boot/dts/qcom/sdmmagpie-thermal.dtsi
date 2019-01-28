@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1687,38 +1687,63 @@
 		thermal-governor = "step_wise";
 		thermal-sensors = <&pm6150_adc_tm ADC_AMUX_THM4_PU2>;
 		trips {
-			modem_trip0: modem-trip0 {
-				temperature = <46000>;
+			batt_trip0: batt-trip0 {
+				temperature = <43000>;
 				hysteresis = <4000>;
 				type = "passive";
 			};
-			gold_trip: gold-trip {
-				temperature = <46000>;
-				hysteresis = <0>;
-				type = "passive";
-			};
-			skin_gpu_trip: skin-gpu-trip {
-				temperature = <48000>;
-				hysteresis = <4000>;
-				type = "passive";
-			};
-			modem_trip1: modem-trip1 {
-				temperature = <48000>;
+			batt_trip1: batt-trip1 {
+				temperature = <45000>;
 				hysteresis = <2000>;
 				type = "passive";
 			};
-			modem_trip2: modem-trip2 {
+			batt_trip2: batt-trip2 {
+				temperature = <47000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+			modem_trip0: modem-trip0 {
+				temperature = <48000>;
+				hysteresis = <4000>;
+				type = "passive";
+			};
+			batt_trip3: batt-trip3 {
+				temperature = <49000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+			modem_trip1_hvx_trip: modem-trip1-hvx-trip {
 				temperature = <50000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+			gold_trip: gold-trip {
+				temperature = <50000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			batt_trip4: batt-trip4 {
+				temperature = <51000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+			skin_gpu_trip: skin-gpu-trip {
+				temperature = <52000>;
+				hysteresis = <4000>;
+				type = "passive";
+			};
+			modem_trip2: modem-trip2 {
+				temperature = <52000>;
 				hysteresis = <2000>;
 				type = "passive";
 			};
 			silver_trip: silver-trip {
-				temperature = <50000>;
+				temperature = <54000>;
 				hysteresis = <0>;
 				type = "passive";
 			};
 			modem_trip3: modem-trip3 {
-				temperature = <54000>;
+				temperature = <58000>;
 				hysteresis = <4000>;
 				type = "passive";
 			};
@@ -1772,11 +1797,11 @@
 			skin_gpu {
 				trip = <&skin_gpu_trip>;
 				/* throttle from fmax to 650000000 Hz */
-				cooling-device = <&msm_gpu THERMAL_NO_LIMIT
+				cooling-device = <&msm_gpu (THERMAL_MAX_LIMIT-5)
 						(THERMAL_MAX_LIMIT-5)>;
 			};
 			modem_lvl1 {
-				trip = <&modem_trip1>;
+				trip = <&modem_trip1_hvx_trip>;
 				cooling-device = <&modem_pa 1 1>;
 			};
 			modem_lvl2 {
@@ -1794,6 +1819,30 @@
 			modem_proc_lvl3 {
 				trip = <&modem_trip3>;
 				cooling-device = <&modem_proc 3 3>;
+			};
+			cdsp_cdev1 {
+				trip = <&modem_trip1_hvx_trip>;
+				cooling-device = <&msm_cdsp_rm 4 4>;
+			};
+			battery_lvl0 {
+				trip = <&batt_trip0>;
+				cooling-device = <&pm6150_charger 1 1>;
+			};
+			battery_lvl1 {
+				trip = <&batt_trip1>;
+				cooling-device = <&pm6150_charger 2 2>;
+			};
+			battery_lvl2 {
+				trip = <&batt_trip2>;
+				cooling-device = <&pm6150_charger 4 4>;
+			};
+			battery_lvl3 {
+				trip = <&batt_trip3>;
+				cooling-device = <&pm6150_charger 5 5>;
+			};
+			battery_lvl4 {
+				trip = <&batt_trip4>;
+				cooling-device = <&pm6150_charger 6 6>;
 			};
 		};
 	};
