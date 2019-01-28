@@ -537,13 +537,15 @@
 		qcom,enable-load = <0>;
 		qcom,disable-load = <0>;
 
+		qcom,msm_ext_disp = <&msm_ext_disp>;
 		clocks = <&clock_mmss clk_mdss_mdp_vote_clk>,
 			 <&clock_mmss clk_mdss_ahb_clk>,
 			 <&clock_mmss clk_mdss_hdmi_clk>,
 			 <&clock_mmss clk_mdss_hdmi_ahb_clk>,
 			 <&clock_mmss clk_mdss_extpclk_clk>;
-		clock-names = "mdp_core_clk", "iface_clk",
-				"core_clk", "alt_iface_clk", "extp_clk";
+		clock-names = "hpd_mdp_core_clk", "hpd_iface_clk",
+				"hpd_core_clk", "hpd_alt_iface_clk",
+				"core_extp_clk";
 
 		qcom,hdmi-tx-hpd = <&pm8994_mpps 4 0>;
 		qcom,mdss-fb-map = <&mdss_fb2>;
