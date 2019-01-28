@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -217,8 +217,11 @@ static struct clk_fixed_factor crc_div_pll1_out_aux2 = {
 
 static const struct freq_tbl ftbl_gpu_cc_gx_gfx3d_clk_src[] = {
 	F(290000000, P_CRC_DIV_PLL1_OUT_AUX2, 1, 0, 0),
+	F(350000000, P_CRC_DIV_PLL1_OUT_AUX2, 1, 0, 0),
 	F(435000000, P_CRC_DIV_PLL1_OUT_AUX2, 1, 0, 0),
+	F(500000000, P_CRC_DIV_PLL0_OUT_AUX2, 1, 0, 0),
 	F(550000000, P_CRC_DIV_PLL0_OUT_AUX2, 1, 0, 0),
+	F(650000000, P_CRC_DIV_PLL0_OUT_AUX2, 1, 0, 0),
 	F(700000000, P_CRC_DIV_PLL0_OUT_AUX2, 1, 0, 0),
 	F(745000000, P_CRC_DIV_PLL0_OUT_AUX2, 1, 0, 0),
 	F(845000000, P_CRC_DIV_PLL0_OUT_AUX2, 1, 0, 0),
