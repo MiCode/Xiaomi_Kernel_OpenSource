@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015, 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015, 2017-2019, The Linux Foundation. All rights reserved.
  */
 #include <linux/atomic.h>
 #include <linux/device.h>
@@ -262,7 +262,7 @@ static ssize_t last_esoc_req_show(struct device_driver *drv, char *buf)
 {
 	unsigned int i;
 	unsigned long flags;
-	size_t count;
+	size_t count = 0;
 
 	spin_lock_irqsave(&req_lock, flags);
 	for (i = 0; i < ARRAY_SIZE(req_to_str); i++) {
