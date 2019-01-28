@@ -22,6 +22,7 @@ Properties:
 		"qcom,mpm-gic-msm8953",
 		"qcom,mpm-gic-msm8937",
 		"qcom,mpm-gic-qcs405"
+		"qcom,mpm-gic-trinket"
 
 - interrupts:
 	Usage: required
@@ -79,6 +80,7 @@ properties:
 		"qcom,mpm-gpio-msm8953",
 		"qcom,mpm-gpio-msm8937",
 		"qcom,mpm-gpio-qcs405"
+		"qcom,mpm-gpio-trinket",
 
 - interrupt-parent:
 	Usage: required

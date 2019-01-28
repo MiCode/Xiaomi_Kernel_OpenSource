@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -388,6 +388,38 @@
 				pwms = <&pm6150l_lpg 2 1000000>;
 				led-sources = <2>;
 				linux,default-trigger = "timer";
+			};
+		};
+
+		pm6150a_amoled: qcom,amoled {
+			compatible = "qcom,qpnp-amoled-regulator";
+			status = "disabled";
+
+			oledb_vreg: oledb@e000 {
+				reg = <0xe000 0x100>;
+				reg-names = "oledb_base";
+				regulator-name = "oledb";
+				regulator-min-microvolt = <4925000>;
+				regulator-max-microvolt = <8100000>;
+				qcom,swire-control;
+			};
+
+			ab_vreg: ab@de00 {
+				reg = <0xde00 0x100>;
+				reg-names = "ab_base";
+				regulator-name = "ab";
+				regulator-min-microvolt = <4600000>;
+				regulator-max-microvolt = <6100000>;
+				qcom,swire-control;
+			};
+
+			ibb_vreg: ibb@dc00 {
+				reg = <0xdc00 0x100>;
+				reg-names = "ibb_base";
+				regulator-name = "ibb";
+				regulator-min-microvolt = <800000>;
+				regulator-max-microvolt = <5400000>;
+				qcom,swire-control;
 			};
 		};
 	};

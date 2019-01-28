@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,25 +11,36 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _DT_BINDINGS_CLK_QCOM_GPU_CC_TRINKET_H
-#define _DT_BINDINGS_CLK_QCOM_GPU_CC_TRINKET_H
+#ifndef _DT_BINDINGS_CLK_QCOM_DISP_CC_TRINKET_H
+#define _DT_BINDINGS_CLK_QCOM_DISP_CC_TRINKET_H
 
-/* GPUCC clock registers */
-#define GPU_CC_PLL0_OUT_AUX2			0
-#define GPU_CC_PLL1_OUT_AUX2			1
-#define GPU_CC_CRC_AHB_CLK			2
-#define GPU_CC_CX_APB_CLK			3
-#define GPU_CC_CX_GFX3D_CLK			4
-#define GPU_CC_CX_GFX3D_SLV_CLK			5
-#define GPU_CC_CX_GMU_CLK			6
-#define GPU_CC_CX_SNOC_DVM_CLK			7
-#define GPU_CC_CXO_AON_CLK			8
-#define GPU_CC_CXO_CLK				9
-#define GPU_CC_GMU_CLK_SRC			10
-#define GPU_CC_SLEEP_CLK			11
-#define GPU_CC_GX_CXO_CLK			12
-#define GPU_CC_GX_GFX3D_CLK			13
-#define GPU_CC_GX_GFX3D_CLK_SRC			14
-#define GPU_CC_AHB_CLK				15
+#define DISP_CC_PLL0_OUT_MAIN					0
+#define DISP_CC_MDSS_AHB_CLK					1
+#define DISP_CC_MDSS_AHB_CLK_SRC				2
+#define DISP_CC_MDSS_BYTE0_CLK					3
+#define DISP_CC_MDSS_BYTE0_CLK_SRC				4
+#define DISP_CC_MDSS_BYTE0_INTF_CLK				5
+#define DISP_CC_MDSS_DP_AUX_CLK					6
+#define DISP_CC_MDSS_DP_AUX_CLK_SRC				7
+#define DISP_CC_MDSS_DP_CRYPTO_CLK				8
+#define DISP_CC_MDSS_DP_CRYPTO_CLK_SRC				9
+#define DISP_CC_MDSS_DP_LINK_CLK				10
+#define DISP_CC_MDSS_DP_LINK_CLK_SRC				11
+#define DISP_CC_MDSS_DP_LINK_INTF_CLK				12
+#define DISP_CC_MDSS_DP_PIXEL_CLK				13
+#define DISP_CC_MDSS_DP_PIXEL_CLK_SRC				14
+#define DISP_CC_MDSS_ESC0_CLK					15
+#define DISP_CC_MDSS_ESC0_CLK_SRC				16
+#define DISP_CC_MDSS_MDP_CLK					17
+#define DISP_CC_MDSS_MDP_CLK_SRC				18
+#define DISP_CC_MDSS_MDP_LUT_CLK				19
+#define DISP_CC_MDSS_NON_GDSC_AHB_CLK				20
+#define DISP_CC_MDSS_PCLK0_CLK					21
+#define DISP_CC_MDSS_PCLK0_CLK_SRC				22
+#define DISP_CC_MDSS_ROT_CLK					23
+#define DISP_CC_MDSS_ROT_CLK_SRC				24
+#define DISP_CC_MDSS_VSYNC_CLK					25
+#define DISP_CC_MDSS_VSYNC_CLK_SRC				26
+#define DISP_CC_XO_CLK						27
 
 #endif

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2156,7 +2156,7 @@ irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 	ping_pong_status =
 		vfe_dev->hw_info->vfe_ops.axi_ops.get_pingpong_status(vfe_dev);
 
-	hw_info = &vfe_dev->hw_info;
+	hw_info = vfe_dev->hw_info;
 	/* Get the dual IRQ status in dual mode*/
 	if (vfe_dev->dual_vfe_sync_mode)
 		hw_info->vfe_ops.irq_ops.read_and_clear_dual_irq_status(

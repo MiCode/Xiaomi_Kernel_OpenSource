@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,9 +54,7 @@
 		mhi0 = &mhi_0;
 		mhi1 = &mhi_1;
 		mhi_netdev0 = &mhi_netdev_0;
-		mhi_netdev1 = &mhi_netdev_1;
 		mhi_netdev2 = &mhi_netdev_2;
-		mhi_netdev3 = &mhi_netdev_3;
 	};
 
 	aliases {
@@ -725,6 +723,14 @@
 			reusable;
 			alignment = <0x0 0x400000>;
 			size = <0x0 0x400000>;
+		};
+
+		user_contig_mem: user_contig_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x1000000>;
 		};
 
 		qseecom_ta_mem: qseecom_ta_region {
@@ -1653,6 +1659,8 @@
 		memory-region = <&pil_modem_mem>;
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,sysmon-id = <0>;
+		qcom,minidump-id = <3>;
+		qcom,aux-minidump-ids = <4>;
 		qcom,ssctl-instance-id = <0x12>;
 		qcom,pas-id = <4>;
 		qcom,smem-id = <421>;
@@ -3337,7 +3345,7 @@
 				 <DCC_WRITE 0x06a0e01c 0x0013b6a0 1>,
 				 <DCC_WRITE 0x06a0e01c 0x00f1e000 1>,
 				 <DCC_WRITE 0x06a0e008 0x00000007 1>,
-				 <DCC_READ 0x906e7e00 124 0>,
+				 <DCC_READ 0x09067e00 124 0>,
 				 <DCC_WRITE 0x090c80f8 0x00000001 1>,
 				 <DCC_READ 0x091800c8 1 0>,
 				 <DCC_READ 0x09180740 1 0>,

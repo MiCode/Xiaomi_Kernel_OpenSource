@@ -144,6 +144,24 @@ struct rmnet_map_dl_ind {
 #define RMNET_MAP_NO_PAD_BYTES        0
 #define RMNET_MAP_ADD_PAD_BYTES       1
 
+static inline unsigned char *rmnet_map_data_ptr(struct sk_buff *skb)
+{
+	/* Nonlinear packets we receive are entirely within frag 0 */
+	if (skb_is_nonlinear(skb) && skb->len == skb->data_len)
+		return skb_frag_address(skb_shinfo(skb)->frags);
+
+	return skb->data;
+}
+
+static inline struct rmnet_map_control_command *
+rmnet_map_get_cmd_start(struct sk_buff *skb)
+{
+	unsigned char *data = rmnet_map_data_ptr(skb);
+
+	data += sizeof(struct rmnet_map_header);
+	return (struct rmnet_map_control_command *)data;
+}
+
 struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 				      struct rmnet_port *port);
 struct rmnet_map_header *rmnet_map_add_map_header(struct sk_buff *skb,

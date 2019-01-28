@@ -47,8 +47,7 @@ enum cam_smmu_region_id {
 	CAM_SMMU_REGION_SCRATCH,
 	CAM_SMMU_REGION_IO,
 	CAM_SMMU_REGION_SECHEAP,
-	CAM_SMMU_REGION_QDSS,
-	CAM_SMMU_REGION_INVALID
+	CAM_SMMU_REGION_QDSS
 };
 
 /**
@@ -318,7 +317,7 @@ int cam_smmu_unmap_stage2_iova(int handle, int ion_fd);
  */
 int cam_smmu_alloc_firmware(int32_t smmu_hdl,
 	dma_addr_t *iova,
-	uint64_t *kvaddr,
+	uintptr_t *kvaddr,
 	size_t *len);
 
 /**

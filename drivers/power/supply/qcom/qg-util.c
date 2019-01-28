@@ -1,4 +1,4 @@
-/* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -275,6 +275,18 @@ static bool is_usb_available(struct qpnp_qg *chip)
 	return true;
 }
 
+static bool is_dc_available(struct qpnp_qg *chip)
+{
+	if (chip->dc_psy)
+		return true;
+
+	chip->dc_psy = power_supply_get_by_name("dc");
+	if (!chip->dc_psy)
+		return false;
+
+	return true;
+}
+
 bool is_usb_present(struct qpnp_qg *chip)
 {
 	union power_supply_propval pval = {0, };
@@ -284,6 +296,22 @@ bool is_usb_present(struct qpnp_qg *chip)
 			POWER_SUPPLY_PROP_PRESENT, &pval);
 
 	return pval.intval ? true : false;
+}
+
+bool is_dc_present(struct qpnp_qg *chip)
+{
+	union power_supply_propval pval = {0, };
+
+	if (is_dc_available(chip))
+		power_supply_get_property(chip->dc_psy,
+			POWER_SUPPLY_PROP_PRESENT, &pval);
+
+	return pval.intval ? true : false;
+}
+
+bool is_input_present(struct qpnp_qg *chip)
+{
+	return is_usb_present(chip) || is_dc_present(chip);
 }
 
 static bool is_parallel_available(struct qpnp_qg *chip)

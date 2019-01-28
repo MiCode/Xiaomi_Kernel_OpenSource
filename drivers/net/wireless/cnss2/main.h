@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -205,6 +205,24 @@ enum cnss_debug_quirks {
 	SKIP_DEVICE_BOOT,
 	USE_CORE_ONLY_FW,
 	SKIP_RECOVERY,
+	QMI_BYPASS,
+	ENABLE_WALTEST,
+	ENABLE_PCI_LINK_DOWN_PANIC,
+	FBC_BYPASS,
+	ENABLE_DAEMON_SUPPORT,
+};
+
+enum cnss_bdf_type {
+	CNSS_BDF_BIN,
+	CNSS_BDF_ELF,
+	CNSS_BDF_DUMMY = 255,
+};
+
+struct cnss_control_params {
+	unsigned long quirks;
+	unsigned int mhi_timeout;
+	unsigned int qmi_timeout;
+	unsigned int bdf_type;
 };
 
 struct cnss_plat_data {
@@ -252,11 +270,10 @@ struct cnss_plat_data {
 	bool powered_on;
 	char firmware_name[13];
 	struct completion rddm_complete;
+	struct cnss_control_params ctrl_params;
 };
 
 struct cnss_plat_data *cnss_get_plat_priv(struct platform_device *plat_dev);
-bool *cnss_get_qmi_bypass(void);
-unsigned long *cnss_get_debug_quirks(void);
 int cnss_driver_event_post(struct cnss_plat_data *plat_priv,
 			   enum cnss_driver_event_type type,
 			   u32 flags, void *data);

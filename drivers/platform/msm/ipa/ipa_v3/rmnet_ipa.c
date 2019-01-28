@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1105,6 +1105,13 @@ static int ipa3_wwan_xmit(struct sk_buff *skb, struct net_device *dev)
 	int ret = 0;
 	bool qmap_check;
 	struct ipa3_wwan_private *wwan_ptr = netdev_priv(dev);
+
+	if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ) {
+		IPAWANERR_RL("IPA embedded data on APQ platform\n");
+		dev_kfree_skb_any(skb);
+		dev->stats.tx_dropped++;
+		return NETDEV_TX_OK;
+	}
 
 	if (skb->protocol != htons(ETH_P_MAP)) {
 		IPAWANDBG_LOW
@@ -2811,6 +2818,11 @@ static int ipa3_lcl_mdm_ssr_notifier_cb(struct notifier_block *this,
 	if (!ipa3_rmnet_ctx.ipa_rmnet_ssr)
 		return NOTIFY_DONE;
 
+	if (!ipa3_ctx) {
+		IPAWANERR_RL("ipa3_ctx was not initialized\n");
+		return NOTIFY_DONE;
+	}
+
 	if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ) {
 		IPAWANERR("Local modem SSR event=%lu on APQ platform\n",
 			code);
@@ -4325,6 +4337,10 @@ static int __init ipa3_wwan_init(void)
 	struct ipa_tether_device_info *teth_ptr = NULL;
 	void *ssr_hdl;
 
+	if (!ipa3_ctx) {
+		IPAWANERR_RL("ipa3_ctx was not initialized\n");
+		return -EINVAL;
+	}
 	rmnet_ipa3_ctx = kzalloc(sizeof(*rmnet_ipa3_ctx), GFP_KERNEL);
 
 	if (!rmnet_ipa3_ctx)

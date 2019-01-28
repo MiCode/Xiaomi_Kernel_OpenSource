@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,7 +27,7 @@ struct cnss_qmi_event_server_arrive_data {
 
 int cnss_qmi_init(struct cnss_plat_data *plat_priv);
 void cnss_qmi_deinit(struct cnss_plat_data *plat_priv);
-unsigned int cnss_get_qmi_timeout(void);
+unsigned int cnss_get_qmi_timeout(struct cnss_plat_data *plat_priv);
 int cnss_wlfw_server_arrive(struct cnss_plat_data *plat_priv, void *data);
 int cnss_wlfw_server_exit(struct cnss_plat_data *plat_priv);
 int cnss_wlfw_respond_mem_send_sync(struct cnss_plat_data *plat_priv);
@@ -59,7 +59,8 @@ static inline void cnss_qmi_deinit(struct cnss_plat_data *plat_priv)
 {
 }
 
-static inline unsigned int cnss_get_qmi_timeout(void)
+static inline
+unsigned int cnss_get_qmi_timeout(struct cnss_plat_data *plat_priv)
 {
 	return QMI_WLFW_TIMEOUT_MS;
 }

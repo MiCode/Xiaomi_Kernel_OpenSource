@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -329,6 +329,13 @@ static const unsigned int a6xx_pre_crashdumper_registers[] = {
 	0x210, 0x213,
 	/* CP: CP_STATUS_1 */
 	0x825, 0x825,
+};
+
+static const unsigned int a6xx_gmu_wrapper_registers[] = {
+	/* GMU CX */
+	0x1F840, 0x1F840, 0x1F844, 0x1F845, 0x1F887, 0x1F889,
+	/* GMU AO*/
+	0x23B0C, 0x23B0E, 0x23B15, 0x23B15,
 };
 
 enum a6xx_debugbus_id {
@@ -1535,6 +1542,11 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	/* Return if the GX is off */
 	if (!gx_on)
 		return;
+
+	if (adreno_is_a610(adreno_dev))
+		adreno_snapshot_registers(device, snapshot,
+			a6xx_gmu_wrapper_registers,
+			ARRAY_SIZE(a6xx_gmu_wrapper_registers) / 2);
 
 	/* Dump the registers which get affected by crash dumper trigger */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,

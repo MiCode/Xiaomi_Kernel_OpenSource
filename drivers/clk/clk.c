@@ -65,7 +65,9 @@ struct clk_core {
 	unsigned long		rate;
 	unsigned long		req_rate;
 	unsigned long		new_rate;
+	unsigned long		old_rate;
 	struct clk_core		*new_parent;
+	struct clk_core		*old_parent;
 	struct clk_core		*new_child;
 	unsigned long		flags;
 	bool			orphan;
@@ -1793,7 +1795,7 @@ static int clk_change_rate(struct clk_core *core)
 	struct clk_core *parent = NULL;
 	int rc = 0;
 
-	old_rate = core->rate;
+	core->old_rate = old_rate = core->rate;
 
 	if (core->new_parent) {
 		parent = core->new_parent;
@@ -1802,6 +1804,8 @@ static int clk_change_rate(struct clk_core *core)
 		parent = core->parent;
 		best_parent_rate = core->parent->rate;
 	}
+
+	core->old_parent = core->parent;
 
 	if (core->flags & CLK_SET_RATE_UNGATE) {
 		unsigned long flags;
@@ -1814,15 +1818,9 @@ static int clk_change_rate(struct clk_core *core)
 
 	trace_clk_set_rate(core, core->new_rate);
 
-	/* Enforce vdd requirements for new frequency. */
-	if (core->prepare_count) {
-		rc = clk_vote_rate_vdd(core, core->new_rate);
-		if (rc)
-			goto out;
-	}
-
 	if (core->new_parent && core->new_parent != core->parent) {
 		old_parent = __clk_set_parent_before(core, core->new_parent);
+		core->old_parent = old_parent;
 		trace_clk_set_parent(core, core->new_parent);
 
 		if (core->ops->set_rate_and_parent) {
@@ -1849,10 +1847,6 @@ static int clk_change_rate(struct clk_core *core)
 	}
 
 	trace_clk_set_rate_complete(core, core->new_rate);
-
-	/* Release vdd requirements for old frequency. */
-	if (core->prepare_count)
-		clk_unvote_rate_vdd(core, old_rate);
 
 	core->rate = clk_recalc(core, best_parent_rate);
 
@@ -1894,14 +1888,78 @@ static int clk_change_rate(struct clk_core *core)
 	return rc;
 
 err_set_rate:
-	if (core->prepare_count)
-		clk_unvote_rate_vdd(core, core->new_rate);
-out:
 	trace_clk_set_rate_complete(core, core->new_rate);
 
 	return rc;
 }
 
+static int vote_vdd_up(struct clk_core *core)
+{
+	struct clk_core *parent = NULL;
+	int ret, cur_level, next_level;
+
+	/* sanity */
+	if (IS_ERR_OR_NULL(core))
+		return 0;
+
+	if (core->vdd_class) {
+		cur_level = clk_find_vdd_level(core, core->rate);
+		next_level = clk_find_vdd_level(core, core->new_rate);
+		if (cur_level == next_level)
+			return 0;
+	}
+
+	/* save parent rate, if it exists */
+	if (core->new_parent)
+		parent = core->new_parent;
+	else if (core->parent)
+		parent = core->parent;
+
+	if (core->prepare_count && core->new_rate) {
+		ret = clk_vote_rate_vdd(core, core->new_rate);
+		if (ret)
+			return ret;
+	}
+
+	vote_vdd_up(parent);
+
+	return 0;
+}
+
+static int vote_vdd_down(struct clk_core *core)
+{
+	struct clk_core *parent;
+	unsigned long rate;
+	int cur_level, old_level;
+
+	/* sanity */
+	if (IS_ERR_OR_NULL(core))
+		return 0;
+
+	rate = core->old_rate;
+
+	/* New rate set was a failure */
+	if (DIV_ROUND_CLOSEST(core->rate, 1000) !=
+		DIV_ROUND_CLOSEST(core->new_rate, 1000))
+		rate = core->new_rate;
+
+	if (core->vdd_class) {
+		cur_level = clk_find_vdd_level(core, core->rate);
+		old_level = clk_find_vdd_level(core, core->old_rate);
+		if ((cur_level == old_level)
+			|| !core->vdd_class->level_votes[old_level])
+			return 0;
+	}
+
+	parent = core->old_parent;
+
+	if (core->prepare_count && rate)
+		clk_unvote_rate_vdd(core, rate);
+
+	vote_vdd_down(parent);
+
+	return 0;
+}
 static int clk_core_set_rate_nolock(struct clk_core *core,
 				    unsigned long req_rate)
 {
@@ -1933,16 +1991,26 @@ static int clk_core_set_rate_nolock(struct clk_core *core,
 		return -EBUSY;
 	}
 
+	/* Enforce the VDD for new frequency */
+	ret = vote_vdd_up(core);
+	if (ret)
+		return ret;
+
 	/* change the rates */
 	ret = clk_change_rate(top);
 	if (ret) {
 		pr_err("%s: failed to set %s clock to run at %lu\n", __func__,
 				top->name, req_rate);
 		clk_propagate_rate_change(top, ABORT_RATE_CHANGE);
+		/* Release vdd requirements for new frequency. */
+		vote_vdd_down(core);
 		return ret;
 	}
 
 	core->req_rate = req_rate;
+
+	/* Release vdd requirements for old frequency. */
+	vote_vdd_down(core);
 
 	return ret;
 }

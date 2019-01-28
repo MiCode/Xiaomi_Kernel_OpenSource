@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -285,7 +285,7 @@ static int __ion_system_secure_heap_resize(struct ion_heap *heap, void *ptr,
 		spin_unlock_irqrestore(&secure_heap->work_lock, flags);
 		goto out_free;
 	}
-	list_splice_init(&items, &secure_heap->prefetch_list);
+	list_splice_tail_init(&items, &secure_heap->prefetch_list);
 	queue_delayed_work(system_unbound_wq, &secure_heap->prefetch_work,
 			   shrink ?  msecs_to_jiffies(SHRINK_DELAY) : 0);
 	spin_unlock_irqrestore(&secure_heap->work_lock, flags);

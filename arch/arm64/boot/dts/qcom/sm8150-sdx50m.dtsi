@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,6 +48,26 @@
 		mhi_chan@101 {
 			status = "disabled";
 		};
+
+		mhi_chan@102 {
+			status = "disabled";
+		};
+
+		mhi_chan@103 {
+			status = "disabled";
+		};
+
+		mhi_chan@104 {
+			mhi,offload-chan;
+		};
+
+		mhi_chan@107 {
+			status = "disabled";
+		};
+
+		mhi_chan@108 {
+			status = "disabled";
+		};
 	};
 
 	mhi_events {
@@ -73,6 +93,30 @@
 			mhi,hw-ev;
 			mhi,client-manage;
 			mhi,offload;
+		};
+
+		mhi_events@6 {
+			status = "disabled";
+		};
+
+		mhi_events@7 {
+			status = "disabled";
+		};
+
+		mhi_events@8 {
+			status = "disabled";
+		};
+
+		mhi_events@9 {
+			status = "disabled";
+		};
+
+		mhi_events@10 {
+			status = "disabled";
+		};
+
+		mhi_events@11 {
+			status = "disabled";
 		};
 	};
 };
@@ -98,6 +142,22 @@
 		mhi_chan@101 {
 			status = "disabled";
 		};
+
+		mhi_chan@102 {
+			status = "disabled";
+		};
+
+		mhi_chan@103 {
+			status = "disabled";
+		};
+
+		mhi_chan@107 {
+			status = "disabled";
+		};
+
+		mhi_chan@108 {
+			status = "disabled";
+		};
 	};
 
 	mhi_events {
@@ -123,6 +183,30 @@
 			mhi,hw-ev;
 			mhi,client-manage;
 			mhi,offload;
+		};
+
+		mhi_events@6 {
+			status = "disabled";
+		};
+
+		mhi_events@7 {
+			status = "disabled";
+		};
+
+		mhi_events@8 {
+			status = "disabled";
+		};
+
+		mhi_events@9 {
+			status = "disabled";
+		};
+
+		mhi_events@10 {
+			status = "disabled";
+		};
+
+		mhi_events@11 {
+			status = "disabled";
 		};
 	};
 };
@@ -485,5 +569,11 @@
 		 alignment = <0x0 0x400000>;
 		 size = <0x0 0x01000000>;
 		 no-map;
+	};
+};
+
+&usb1 {
+	dwc3@a800000 {
+		snps,bus-suspend-enable;
 	};
 };

@@ -388,7 +388,11 @@ int cam_vfe_top_get_hw_caps(void *device_priv,
 int cam_vfe_top_init_hw(void *device_priv,
 	void *init_hw_args, uint32_t arg_size)
 {
-	return -EPERM;
+	struct cam_vfe_top_ver2_priv   *top_priv = device_priv;
+
+	top_priv->hw_clk_rate = 0;
+
+	return 0;
 }
 
 int cam_vfe_top_reset(void *device_priv,
@@ -597,27 +601,6 @@ int cam_vfe_top_stop(void *device_priv,
 					CAM_VFE_BW_CONTROL_EXCLUDE;
 				break;
 			}
-		}
-
-		if (hw_info->hw_state == CAM_HW_STATE_POWER_UP) {
-			rc = cam_vfe_top_set_hw_clk_rate(top_priv);
-			if (rc) {
-				CAM_ERR(CAM_ISP,
-					"set_hw_clk_rate failed, rc=%d", rc);
-				return rc;
-			}
-
-		top_priv->hw_clk_rate = 0;
-
-			rc = cam_vfe_top_set_axi_bw_vote(top_priv, true);
-			if (rc) {
-				CAM_ERR(CAM_ISP,
-					"set_axi_bw_vote failed, rc=%d", rc);
-				return rc;
-			}
-		} else {
-			CAM_ERR(CAM_ISP, "VFE HW not powered up");
-			rc = -EPERM;
 		}
 	}
 

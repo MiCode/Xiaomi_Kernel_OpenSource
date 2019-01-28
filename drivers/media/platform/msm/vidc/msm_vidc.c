@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1608,31 +1608,6 @@ int msm_vidc_private(void *vidc_inst, unsigned int cmd,
 	return rc;
 }
 EXPORT_SYMBOL(msm_vidc_private);
-
-static bool msm_vidc_check_for_inst_overload(struct msm_vidc_core *core)
-{
-	u32 instance_count = 0;
-	u32 secure_instance_count = 0;
-	struct msm_vidc_inst *inst = NULL;
-	bool overload = false;
-
-	mutex_lock(&core->lock);
-	list_for_each_entry(inst, &core->instances, list) {
-		instance_count++;
-		/* This flag is not updated yet for the current instance */
-		if (inst->flags & VIDC_SECURE)
-			secure_instance_count++;
-	}
-	mutex_unlock(&core->lock);
-
-	/* Instance count includes current instance as well. */
-
-	if ((instance_count > core->resources.max_inst_count) ||
-		(secure_instance_count > core->resources.max_secure_inst_count))
-		overload = true;
-	return overload;
-}
-
 static int msm_vidc_try_set_ctrl(void *instance, struct v4l2_ctrl *ctrl)
 {
 	struct msm_vidc_inst *inst = instance;
@@ -1933,7 +1908,7 @@ void *msm_vidc_open(int core_id, int session_type)
 	}
 
 	msm_dcvs_try_enable(inst);
-	if (msm_vidc_check_for_inst_overload(core)) {
+	if (msm_comm_check_for_inst_overload(core)) {
 		dprintk(VIDC_ERR,
 			"Instance count reached Max limit, rejecting session");
 		goto fail_init;

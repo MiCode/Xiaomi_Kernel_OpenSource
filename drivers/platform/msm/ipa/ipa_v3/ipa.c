@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -4901,7 +4901,7 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 
 	ipa3_register_panic_hdlr();
 
-	ipa3_debugfs_init();
+	ipa3_debugfs_post_init();
 
 	mutex_lock(&ipa3_ctx->lock);
 	ipa3_ctx->ipa_initialization_complete = true;
@@ -5025,13 +5025,14 @@ static void ipa3_load_ipa_fw(struct work_struct *work)
 
 	IPADBG("Entry\n");
 
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+
 	result = ipa3_attach_to_smmu();
 	if (result) {
 		IPAERR("IPA attach to smmu failed %d\n", result);
+		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 		return;
 	}
-
-	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_EMULATION &&
 	    ((ipa3_ctx->platform_type != IPA_PLAT_TYPE_MDM) ||
@@ -5068,7 +5069,6 @@ static void ipa3_load_ipa_fw(struct work_struct *work)
 		if (result) {
 			IPAERR("IPA uC loading process has failed result=%d\n",
 				result);
-			ipa3_proxy_clk_unvote();
 			return;
 		}
 		IPADBG("IPA uC PIL loading succeeded\n");
@@ -5647,6 +5647,8 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		result = -ENODEV;
 		goto fail_device_create;
 	}
+
+	ipa3_debugfs_pre_init();
 
 	/* Create a wakeup source. */
 	wakeup_source_init(&ipa3_ctx->w_lock, "IPA_WS");
@@ -6514,6 +6516,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	const u32 *add_map;
 	void *smem_addr;
 	size_t smem_size;
+	u32 ipa_smem_size = 0;
 	int ret;
 	int i;
 	unsigned long iova_p;
@@ -6643,10 +6646,19 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 		}
 	}
 
+	ret = of_property_read_u32(dev->of_node, "qcom,ipa-q6-smem-size",
+					&ipa_smem_size);
+	if (ret) {
+		IPADBG("ipa q6 smem size (default) = %zu\n", IPA_SMEM_SIZE);
+		ipa_smem_size = IPA_SMEM_SIZE;
+	} else {
+		IPADBG("ipa q6 smem size = %zu\n", ipa_smem_size);
+	}
+
 	/* map SMEM memory for IPA table accesses */
 	ret = qcom_smem_alloc(SMEM_MODEM,
 		SMEM_IPA_FILTER_TABLE,
-		IPA_SMEM_SIZE);
+		ipa_smem_size);
 
 	if (ret < 0 && ret != -EEXIST) {
 		IPAERR("unable to allocate smem MODEM entry\n");
@@ -6661,11 +6673,14 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 		cb->valid = false;
 		return -EFAULT;
 	}
+	if (smem_size != ipa_smem_size)
+		IPAERR("unexpected read q6 smem size %zu %zu\n",
+			smem_size, ipa_smem_size);
 
 	iova = qcom_smem_virt_to_phys(smem_addr);
 	pa = iova;
 
-	IPA_SMMU_ROUND_TO_PAGE(iova, pa, IPA_SMEM_SIZE,
+	IPA_SMMU_ROUND_TO_PAGE(iova, pa, ipa_smem_size,
 				iova_p, pa_p, size_p);
 			IPADBG("mapping 0x%lx to 0x%pa size %d\n",
 				iova_p, &pa_p, size_p);

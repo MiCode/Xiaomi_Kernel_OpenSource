@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2272,16 +2272,24 @@ static const struct ipa3_debugfs_file debugfs_files[] = {
 	}
 };
 
-void ipa3_debugfs_init(void)
+void ipa3_debugfs_pre_init(void)
+{
+	dent = debugfs_create_dir("ipa", 0);
+	if (IS_ERR_OR_NULL(dent)) {
+		IPAERR("fail to create folder in debug_fs.\n");
+		dent = NULL;
+	}
+}
+
+void ipa3_debugfs_post_init(void)
 {
 	const size_t debugfs_files_num =
 		sizeof(debugfs_files) / sizeof(struct ipa3_debugfs_file);
 	size_t i;
 	struct dentry *file;
 
-	dent = debugfs_create_dir("ipa", 0);
-	if (IS_ERR(dent)) {
-		IPAERR("fail to create folder in debug_fs.\n");
+	if (IS_ERR_OR_NULL(dent)) {
+		IPAERR("debugs root not created\n");
 		return;
 	}
 
@@ -2358,7 +2366,7 @@ fail:
 
 void ipa3_debugfs_remove(void)
 {
-	if (IS_ERR(dent)) {
+	if (dent == NULL) {
 		IPAERR("Debugfs:folder was not created.\n");
 		return;
 	}
@@ -2376,6 +2384,7 @@ struct dentry *ipa_debugfs_get_root(void)
 EXPORT_SYMBOL(ipa_debugfs_get_root);
 
 #else /* !CONFIG_DEBUG_FS */
-void ipa3_debugfs_init(void) {}
+void ipa3_debugfs_pre_init(void) {}
+void ipa3_debugfs_post_init(void) {}
 void ipa3_debugfs_remove(void) {}
 #endif

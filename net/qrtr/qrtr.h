@@ -9,6 +9,8 @@ struct sk_buff;
 /* endpoint node id auto assignment */
 #define QRTR_EP_NID_AUTO (-1)
 
+#define QRTR_DEL_PROC_MAGIC	0xe111
+
 /**
  * struct qrtr_endpoint - endpoint handle
  * @xmit: Callback for outgoing packets

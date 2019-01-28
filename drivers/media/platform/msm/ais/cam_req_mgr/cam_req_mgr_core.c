@@ -24,6 +24,32 @@
 #include "cam_req_mgr_dev.h"
 
 static struct cam_req_mgr_core_device *g_crm_core_dev;
+static struct cam_req_mgr_core_link g_links[MAXIMUM_LINKS_PER_SESSION];
+
+void cam_req_mgr_core_link_reset(struct cam_req_mgr_core_link *link)
+{
+	link->link_hdl = 0;
+	link->num_devs = 0;
+	link->max_delay = CAM_PIPELINE_DELAY_0;
+	link->workq = NULL;
+	link->pd_mask = 0;
+	link->l_dev = NULL;
+	link->req.in_q = NULL;
+	link->req.l_tbl = NULL;
+	link->req.num_tbl = 0;
+	link->watchdog = NULL;
+	link->state = CAM_CRM_LINK_STATE_AVAILABLE;
+	link->parent = NULL;
+	link->subscribe_event = 0;
+	link->trigger_mask = 0;
+	link->sync_link = 0;
+	link->sof_counter = 0;
+	link->sync_self_ref = 0;
+	link->frame_skip_flag = false;
+	link->sync_link_sof_skip = false;
+	link->open_req_cnt = 0;
+	link->last_flush_id = 0;
+}
 
 void cam_req_mgr_handle_core_shutdown(void)
 {
@@ -403,9 +429,52 @@ static int __cam_req_mgr_send_req(struct cam_req_mgr_core_link *link,
 	struct cam_req_mgr_connected_device *dev = NULL;
 	struct cam_req_mgr_apply_request     apply_req;
 	struct cam_req_mgr_link_evt_data     evt_data;
+	struct cam_req_mgr_tbl_slot          *slot = NULL;
 
 	apply_req.link_hdl = link->link_hdl;
 	apply_req.report_if_bubble = 0;
+
+	for (i = 0; i < link->num_devs; i++) {
+		dev = &link->l_dev[i];
+		if (!dev)
+			continue;
+		pd = dev->dev_info.p_delay;
+		if (pd >= CAM_PIPELINE_DELAY_MAX) {
+			CAM_WARN(CAM_CRM, "pd %d greater than max",
+				pd);
+			continue;
+		}
+
+		idx = link->req.apply_data[pd].idx;
+		slot = &dev->pd_tbl->slot[idx];
+		/*
+		 * Just let flash go for this request and other
+		 * device get restricted
+		 */
+
+		if ((slot->skip_next_frame != true) ||
+			(slot->dev_hdl != dev->dev_hdl))
+			continue;
+
+		if (!(dev->dev_info.trigger & trigger))
+			continue;
+
+		apply_req.dev_hdl = dev->dev_hdl;
+		apply_req.request_id =
+			link->req.apply_data[pd].req_id;
+		apply_req.trigger_point = trigger;
+		if (dev->ops && dev->ops->apply_req) {
+			rc = dev->ops->apply_req(&apply_req);
+			if (rc)
+				return rc;
+			CAM_DBG(CAM_REQ,
+				"SEND: link_hdl: %x pd: %d req_id %lld",
+				link->link_hdl, pd, apply_req.request_id);
+			slot->skip_next_frame = false;
+			slot->is_applied = true;
+			return -EAGAIN;
+		}
+	}
 
 	for (i = 0; i < link->num_devs; i++) {
 		dev = &link->l_dev[i];
@@ -430,8 +499,15 @@ static int __cam_req_mgr_send_req(struct cam_req_mgr_core_link *link,
 			apply_req.request_id =
 				link->req.apply_data[pd].req_id;
 			idx = link->req.apply_data[pd].idx;
+			slot = &dev->pd_tbl->slot[idx];
 			apply_req.report_if_bubble =
 				in_q->slot[idx].recover;
+
+			if ((slot->dev_hdl == dev->dev_hdl) &&
+				(slot->is_applied == true)) {
+				slot->is_applied = false;
+				continue;
+			}
 
 			trace_cam_req_mgr_apply_request(link, &apply_req, dev);
 
@@ -1289,18 +1365,22 @@ static struct cam_req_mgr_core_link *__cam_req_mgr_reserve_link(
 		return NULL;
 	}
 
-	if (session->num_links >= MAX_LINKS_PER_SESSION) {
+	if (session->num_links >= MAXIMUM_LINKS_PER_SESSION) {
 		CAM_ERR(CAM_CRM, "Reached max links %d per session limit %d",
-			session->num_links, MAX_LINKS_PER_SESSION);
+			session->num_links, MAXIMUM_LINKS_PER_SESSION);
 		return NULL;
 	}
+	for (i = 0; i < MAXIMUM_LINKS_PER_SESSION; i++) {
+		if (!atomic_cmpxchg(&g_links[i].is_used, 0, 1)) {
+			link = &g_links[i];
+			CAM_DBG(CAM_CRM, "alloc link index %d", i);
+			cam_req_mgr_core_link_reset(link);
+			break;
+		}
+	}
+	if (i == MAXIMUM_LINKS_PER_SESSION)
+		return NULL;
 
-	link = (struct cam_req_mgr_core_link *)
-		kzalloc(sizeof(struct cam_req_mgr_core_link), GFP_KERNEL);
-	if (!link) {
-		CAM_ERR(CAM_CRM, "failed to create link, no mem");
-		return NULL;
-	}
 	in_q = (struct cam_req_mgr_req_queue *)
 		kzalloc(sizeof(struct cam_req_mgr_req_queue), GFP_KERNEL);
 	if (!in_q) {
@@ -1308,8 +1388,6 @@ static struct cam_req_mgr_core_link *__cam_req_mgr_reserve_link(
 		kfree(link);
 		return NULL;
 	}
-	mutex_init(&link->lock);
-	spin_lock_init(&link->link_state_spin_lock);
 
 	mutex_lock(&link->lock);
 	link->state = CAM_CRM_LINK_STATE_AVAILABLE;
@@ -1326,7 +1404,7 @@ static struct cam_req_mgr_core_link *__cam_req_mgr_reserve_link(
 
 	mutex_lock(&session->lock);
 	/*  Loop through and find a free index */
-	for (i = 0; i < MAX_LINKS_PER_SESSION; i++) {
+	for (i = 0; i < MAXIMUM_LINKS_PER_SESSION; i++) {
 		if (!session->links[i]) {
 			CAM_DBG(CAM_CRM,
 				"Free link index %d found, num_links=%d",
@@ -1336,7 +1414,7 @@ static struct cam_req_mgr_core_link *__cam_req_mgr_reserve_link(
 		}
 	}
 
-	if (i == MAX_LINKS_PER_SESSION) {
+	if (i == MAXIMUM_LINKS_PER_SESSION) {
 		CAM_ERR(CAM_CRM, "Free link index not found");
 		goto error;
 	}
@@ -1364,9 +1442,12 @@ error:
  */
 static void __cam_req_mgr_free_link(struct cam_req_mgr_core_link *link)
 {
+	ptrdiff_t i;
 	kfree(link->req.in_q);
 	link->req.in_q = NULL;
-	kfree(link);
+	i = link - g_links;
+	CAM_DBG(CAM_CRM, "free link index %d", i);
+	atomic_set(&g_links[i].is_used, 0);
 }
 
 /**
@@ -1397,7 +1478,7 @@ static void __cam_req_mgr_unreserve_link(
 		return;
 	}
 
-	for (i = 0; i < MAX_LINKS_PER_SESSION; i++) {
+	for (i = 0; i < MAXIMUM_LINKS_PER_SESSION; i++) {
 		if (session->links[i] == link)
 			session->links[i] = NULL;
 	}
@@ -1409,7 +1490,7 @@ static void __cam_req_mgr_unreserve_link(
 		 * of only having 2 links in a given session
 		 */
 		session->sync_mode = CAM_REQ_MGR_SYNC_MODE_NO_SYNC;
-		for (i = 0; i < MAX_LINKS_PER_SESSION; i++) {
+		for (i = 0; i < MAXIMUM_LINKS_PER_SESSION; i++) {
 			if (session->links[i])
 				session->links[i]->sync_link = NULL;
 		}
@@ -1494,6 +1575,9 @@ int cam_req_mgr_process_flush_req(void *priv, void *data)
 
 	mutex_lock(&link->req.lock);
 	if (flush_info->flush_type == CAM_REQ_MGR_FLUSH_TYPE_ALL) {
+		link->last_flush_id = flush_info->req_id;
+		CAM_INFO(CAM_CRM, "Last request id to flush is %lld",
+			flush_info->req_id);
 		for (i = 0; i < in_q->num_slots; i++) {
 			slot = &in_q->slot[i];
 			slot->req_id = -1;
@@ -1658,10 +1742,15 @@ int cam_req_mgr_process_add_req(void *priv, void *data)
 	}
 
 	slot = &tbl->slot[idx];
-	if (add_req->skip_before_applying > slot->inject_delay) {
-		slot->inject_delay = add_req->skip_before_applying;
-		CAM_DBG(CAM_CRM, "Req_id %llu injecting delay %u",
-			add_req->req_id, add_req->skip_before_applying);
+	slot->is_applied = false;
+	if ((add_req->skip_before_applying & 0xFF) > slot->inject_delay) {
+		slot->inject_delay = (add_req->skip_before_applying & 0xFF);
+		slot->dev_hdl = add_req->dev_hdl;
+		if (add_req->skip_before_applying & SKIP_NEXT_FRAME)
+			slot->skip_next_frame = true;
+		CAM_DBG(CAM_CRM, "Req_id %llu injecting delay %llu",
+			add_req->req_id,
+			(add_req->skip_before_applying & 0xFF));
 	}
 
 	if (slot->state != CRM_REQ_STATE_PENDING &&
@@ -2312,7 +2401,8 @@ static int __cam_req_mgr_unlink(struct cam_req_mgr_core_link *link)
 	if (rc < 0) {
 		CAM_ERR(CAM_CRM, "error destroying link hdl %x rc %d",
 			link->link_hdl, rc);
-	}
+	} else
+		link->link_hdl = -1;
 
 	mutex_unlock(&link->lock);
 	return rc;
@@ -2345,7 +2435,7 @@ int cam_req_mgr_destroy_session(
 			ses_info->session_hdl,
 			cam_session->num_links);
 
-		for (i = 0; i < MAX_LINKS_PER_SESSION; i++) {
+		for (i = 0; i < MAXIMUM_LINKS_PER_SESSION; i++) {
 			link = cam_session->links[i];
 
 			if (!link)
@@ -2422,6 +2512,7 @@ int cam_req_mgr_link(struct cam_req_mgr_link_info *link_info)
 		goto link_hdl_fail;
 	}
 	link_info->link_hdl = link->link_hdl;
+	link->last_flush_id = 0;
 
 	/* Allocate memory to hold data of all linked devs */
 	rc = __cam_req_mgr_create_subdevs(&link->l_dev,
@@ -2468,7 +2559,7 @@ setup_failed:
 	__cam_req_mgr_destroy_subdev(link->l_dev);
 create_subdev_failed:
 	cam_destroy_device_hdl(link->link_hdl);
-	link_info->link_hdl = 0;
+	link_info->link_hdl = -1;
 link_hdl_fail:
 	mutex_unlock(&link->lock);
 	__cam_req_mgr_unreserve_link(cam_session, link);
@@ -2547,6 +2638,17 @@ int cam_req_mgr_schedule_request(
 		goto end;
 	}
 
+	if (sched_req->req_id <= link->last_flush_id) {
+		CAM_INFO(CAM_CRM,
+			"request %d is flushed, last_flush_id to flush %lld",
+			sched_req->req_id, link->last_flush_id);
+		rc = -EINVAL;
+		goto end;
+	}
+
+	if (sched_req->req_id > link->last_flush_id)
+		link->last_flush_id = 0;
+
 	CAM_DBG(CAM_CRM, "link 0x%x req %lld, sync_mode %d",
 		sched_req->link_hdl, sched_req->req_id, sched_req->sync_mode);
 
@@ -2585,7 +2687,8 @@ int cam_req_mgr_sync_config(
 	}
 
 	if ((sync_info->num_links < 0) ||
-		(sync_info->num_links > MAX_LINKS_PER_SESSION)) {
+		(sync_info->num_links >
+		MAX_LINKS_PER_SESSION)) {
 		CAM_ERR(CAM_CRM, "Invalid num links %d", sync_info->num_links);
 		return -EINVAL;
 	}
@@ -2734,6 +2837,13 @@ int cam_req_mgr_link_control(struct cam_req_mgr_link_control *control)
 		goto end;
 	}
 
+	if (control->num_links > MAX_LINKS_PER_SESSION) {
+		CAM_ERR(CAM_CRM, "Invalid number of links %d",
+			control->num_links);
+		rc = -EINVAL;
+		goto end;
+	}
+
 	mutex_lock(&g_crm_core_dev->crm_lock);
 	for (i = 0; i < control->num_links; i++) {
 		link = (struct cam_req_mgr_core_link *)
@@ -2796,6 +2906,7 @@ end:
 
 int cam_req_mgr_core_device_init(void)
 {
+	int i;
 	CAM_DBG(CAM_CRM, "Enter g_crm_core_dev %pK", g_crm_core_dev);
 
 	if (g_crm_core_dev) {
@@ -2812,6 +2923,12 @@ int cam_req_mgr_core_device_init(void)
 	mutex_init(&g_crm_core_dev->crm_lock);
 	cam_req_mgr_debug_register(g_crm_core_dev);
 
+	for (i = 0; i < MAXIMUM_LINKS_PER_SESSION; i++) {
+		mutex_init(&g_links[i].lock);
+		spin_lock_init(&g_links[i].link_state_spin_lock);
+		atomic_set(&g_links[i].is_used, 0);
+		cam_req_mgr_core_link_reset(&g_links[i]);
+	}
 	return 0;
 }
 

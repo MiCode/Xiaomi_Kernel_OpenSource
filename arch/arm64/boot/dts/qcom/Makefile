@@ -122,7 +122,9 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sa6155-adp-star-overlay.dtbo \
 		sa6155p-adp-star-overlay.dtbo \
 		sa6155-adp-air-overlay.dtbo \
-		sa6155p-adp-air-overlay.dtbo
+		sa6155p-adp-air-overlay.dtbo \
+		sa6155p-v2-adp-star-overlay.dtbo \
+		sa6155p-v2-adp-air-overlay.dtbo
 
 sm6150-rumi-overlay.dtbo-base := sm6150.dtb
 sm6150-qrd-overlay.dtbo-base := sm6150.dtb
@@ -135,8 +137,10 @@ sm6150-usbc-minidp-idp-overlay.dtbo-base := sm6150.dtb
 sm6150-cmd-mode-display-idp-overlay.dtbo-base := sm6150.dtb
 sa6155-adp-star-overlay.dtbo-base := sa6155.dtb
 sa6155p-adp-star-overlay.dtbo-base := sa6155p.dtb
+sa6155p-v2-adp-star-overlay.dtbo-base := sa6155p.dtb
 sa6155-adp-air-overlay.dtbo-base := sa6155.dtb
 sa6155p-adp-air-overlay.dtbo-base := sa6155p.dtb
+sa6155p-v2-adp-air-overlay.dtbo-base := sa6155p.dtb
 else
 dtb-$(CONFIG_ARCH_SM6150)	+= sm6150-rumi.dtb \
 	sm6150-qrd.dtb \
@@ -150,7 +154,9 @@ dtb-$(CONFIG_ARCH_SM6150)	+= sm6150-rumi.dtb \
 	sa6155-adp-star.dtb \
 	sa6155p-adp-star.dtb \
 	sa6155-adp-air.dtb \
-	sa6155p-adp-air.dtb
+	sa6155p-adp-air.dtb \
+	sa6155p-v2-adp-star.dtb \
+	sa6155p-v2-adp-air.dtb
 
 endif
 
@@ -191,22 +197,32 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 	dtbo-$(CONFIG_ARCH_TRINKET) += \
 		trinket-rumi-overlay.dtbo \
 		trinket-idp-overlay.dtbo \
-		trinket-qrd-overlay.dtbo
+		trinket-qrd-overlay.dtbo \
+		trinket-external-codec-idp-overlay.dtbo \
+		trinket-usbc-external-codec-idp-overlay.dtbo \
+		trinket-usbc-idp-overlay.dtbo
 
 trinket-rumi-overlay.dtbo-base := trinket.dtb
 trinket-idp-overlay.dtbo-base := trinket.dtb
 trinket-qrd-overlay.dtbo-base := trinket.dtb
+trinket-external-codec-idp-overlay.dtbo-base := trinket.dtb
+trinket-usbc-external-codec-idp-overlay.dtbo-base := trinket.dtb
+trinket-usbc-idp-overlay.dtbo-base := trinket.dtb
 else
 dtb-$(CONFIG_ARCH_TRINKET)	+= trinket-rumi.dtb \
 	trinket-idp.dtb \
-	trinket-qrd.dtb
+	trinket-qrd.dtb \
+	trinket-external-codec-idp.dtb \
+	trinket-usbc-external-codec-idp.dtb \
+	trinket-usbc-idp.dtb
 endif
 
 dtb-$(CONFIG_ARCH_SDXPRAIRIE) += sdxprairie-rumi.dtb \
 	sdxprairie-cdp.dtb \
 	sdxprairie-mtp.dtb \
 	sdxprairie-cdp-256.dtb \
-	sdxprairie-mtp-256.dtb
+	sdxprairie-mtp-256.dtb \
+	sdxprairie-mtp-aqc.dtb
 
 ifeq ($(CONFIG_ARM64),y)
 always		:= $(dtb-y)

@@ -102,6 +102,16 @@ config QCOM_SDMMAGPIE_LLCC
 	  data required to configure LLCC so that clients can start using the
 	  LLCC slices.
 
+config QCOM_SDXPRAIRIE_LLCC
+	tristate "Qualcomm Technologies, Inc. SDXPRAIRIE LLCC driver"
+	depends on QCOM_LLCC
+	help
+	  This configuration option enables LLCC driver specific to SDXPRAIRIE.
+	  Say 'Y' here to enable the LLCC driver for SDXPRAIRIE which provides
+	  data required to configure LLCC so that clients can start using the
+	  LLCC slices.
+
+
 config QCOM_LLCC_AMON
 	tristate "Qualcomm Technologies, Inc. LLCC Activity Monitor(AMON) driver"
 	depends on QCOM_LLCC
@@ -421,6 +431,16 @@ config MSM_BOOT_STATS
 	  This figures are reported in mpm sleep clock cycles and have a
 	  resolution of 31 bits as 1 bit is used as an overflow check.
 
+config MSM_BOOT_TIME_MARKER
+        bool "Use MSM boot time marker reporting"
+        depends on MSM_BOOT_STATS
+        help
+         Use this to mark msm boot kpi for measurement.
+         An instrumentation for boot time measurement.
+         To create an entry, call "place_marker" function.
+         At userspace, write marker name to "/sys/kernel/debug/bootkpi/kpi_values"
+         If unsure, say N
+
 config MSM_CORE_HANG_DETECT
        tristate "MSM Core Hang Detection Support"
        help
@@ -701,6 +721,15 @@ config MSM_EVENT_TIMER
 	  that need to be monitored by the PM. The enables the PM code to
 	  monitor events that require the core to be awake and ready to
 	  handle the event.
+
+config MSM_AVTIMER
+	tristate "Avtimer Driver"
+	default n
+	help
+	  This driver gets the Q6 out of power collapsed state
+	  and exposes ioctl control to read avtimer tick.
+	  Enables camera to use for VT call to get avtimer
+	  timestamp.
 
 config MSM_PM
 	depends on PM

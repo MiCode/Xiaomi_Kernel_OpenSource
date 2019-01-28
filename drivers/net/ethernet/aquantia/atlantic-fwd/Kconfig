@@ -1,0 +1,44 @@
+#
+# Aquantia atlantic-forwarding driver config
+#
+
+if AQFWD
+
+config ATLFWD_FWD
+       bool "Enable forwarding-engine API"
+       default n
+       ---help---
+
+         Say Y to enable the forwarding-engine API
+
+config ATLFWD_FWD_RXBUF
+       int
+       prompt "Rx buffer space for forwarding engine's rings" if ATLFWD_FWD
+       range 0 320
+       default 160 if ATLFWD_FWD
+       default 0
+       ---help---
+
+         Amount of Rx buffer to reserve for the forwarding-engine
+         rings. This sets the default value of the fwd_rx_buf_reserve
+         module option.
+
+	 Value in kiB, 0 to 320, defaults to 160 if forwarding-engine
+	 API enabled, 0 otherwise.
+
+config ATLFWD_FWD_TXBUF
+       int
+       prompt "Tx buffer space for forwarding engine's rings" if ATLFWD_FWD
+       range 0 160
+       default 80 if ATLFWD_FWD
+       default 0
+       ---help---
+
+         Amount of Tx buffer to reserve for the forwarding-engine
+         rings. This sets the default value of the fwd_tx_buf_reserve
+         module option.
+
+	 Value in kiB, 0 to 320, defaults to 80 if forwarding-engine
+	 API enabled, 0 otherwise.
+
+endif

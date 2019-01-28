@@ -15,10 +15,15 @@
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include "trinket-idp.dtsi"
+#include "trinket-audio-overlay.dtsi"
 
 / {
 	model = "IDP";
 	compatible = "qcom,trinket-idp", "qcom,trinket", "qcom,idp";
 	qcom,msm-id = <394 0x10000>;
 	qcom,board-id = <34 0>;
+};
+
+&dsi_td4330_truly_vid_display {
+	qcom,dsi-display-active;
 };

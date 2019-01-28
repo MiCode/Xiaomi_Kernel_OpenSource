@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,6 +46,8 @@ struct hfi_packetization_ops {
 	int (*sys_image_version)(struct hfi_cmd_sys_get_property_packet *pkt);
 	int (*ssr_cmd)(enum hal_ssr_trigger_type type,
 		struct hfi_cmd_sys_test_ssr_packet *pkt);
+	int (*sys_ubwc_config)(struct hfi_cmd_sys_set_property_packet *pkt,
+			struct msm_vidc_ubwc_config *config);
 	int (*session_init)(
 		struct hfi_cmd_sys_session_init_packet *pkt,
 		struct hal_session *session,

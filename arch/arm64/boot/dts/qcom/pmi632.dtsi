@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -194,8 +194,6 @@
 			#cooling-cells = <2>;
 
 			qcom,pmic-revid = <&pmi632_revid>;
-			/* TODO Add dpdm supply once USB node is added */
-			qcom,auto-recharge-soc = <98>;
 			io-channels = <&pmi632_vadc ADC_USB_IN_V_16>,
 				      <&pmi632_vadc ADC_USB_IN_I>,
 				      <&pmi632_vadc ADC_CHG_TEMP>,
@@ -204,16 +202,6 @@
 					   "usb_in_current",
 					   "chg_temp",
 					   "die_temp";
-			qcom,flash-disable-soc = <10>;
-			qcom,sw-jeita-enable;
-			qcom,step-charging-enable;
-			qcom,hw-die-temp-mitigation;
-			qcom,hw-connector-mitigation;
-			qcom,connector-internal-pull-kohm = <100>;
-
-			qcom,thermal-mitigation
-				= <3000000 2500000 2000000 1500000
-					1000000 500000>;
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
@@ -367,9 +355,6 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
-			qcom,qg-iterm-ma = <100>;
-			qcom,hold-soc-while-full;
-			qcom,linearize-soc;
 			qcom,pmic-revid = <&pmi632_revid>;
 			io-channels = <&pmi632_vadc ADC_BAT_THERM_PU2>,
 				      <&pmi632_vadc ADC_BAT_ID_PU2>;

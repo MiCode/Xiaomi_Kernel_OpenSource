@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -221,12 +221,32 @@
 		};
 	};
 
+	qcom,mpm2-sleep-counter@c221000 {
+		compatible = "qcom,mpm2-sleep-counter";
+		reg = <0xc221000 0x1000>;
+		clock-frequency = <32768>;
+	};
+
 	restart@c264000 {
 		compatible = "qcom,pshold";
 		reg = <0xc264000 0x4>,
 		      <0x1fd3000 0x4>;
 		reg-names = "pshold-base", "tcsr-boot-misc-detect";
-		qcom,force-warm-reboot;
+	};
+
+	qcom,wdt@17817000 {
+		compatible = "qcom,msm-watchdog";
+		reg = <0x17817000 0x1000>;
+		reg-names = "wdt-base";
+		interrupts = <1 3 0>, <1 2 0>;
+		qcom,bark-time = <11000>;
+		qcom,pet-time = <10000>;
+		qcom,wakeup-enable;
+	};
+
+	qcom,msm-rtb {
+		compatible = "qcom,msm-rtb";
+		qcom,rtb-size = <0x100000>;
 	};
 
 	keepalive_opp_table: keepalive-opp-table {
@@ -249,6 +269,15 @@
 		compatible = "qcom,devbw";
 		governor = "powersave";
 		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		status = "ok";
+		operating-points-v2 = <&keepalive_opp_table>;
+	};
+
+	ipa_keepalive: qcom,ipa_keepalive {
+		compatible = "qcom,devbw";
+		governor = "powersave";
+		qcom,src-dst-ports = <143 777>;
 		qcom,active-only;
 		status = "ok";
 		operating-points-v2 = <&keepalive_opp_table>;
@@ -413,6 +442,21 @@
 		status = "ok";
 	};
 
+	qcom,llcc@9200000 {
+		compatible = "qcom,llcc-core", "syscon", "simple-mfd";
+		reg = <0x9200000 0x50000>;
+		reg-names = "llcc_base";
+		qcom,llcc-banks-off = <0x0>;
+		qcom,llcc-broadcast-off = <0x0>;
+
+		llcc: qcom,sdxprairie-llcc {
+			compatible = "qcom,sdxprairie-llcc";
+			#cache-cells = <1>;
+			max-slices = <32>;
+			cap-based-alloc-and-pwr-collapse;
+		};
+	};
+
 	qcom,msm_gsi {
 		compatible = "qcom,msm_gsi";
 	};
@@ -510,7 +554,6 @@
 				/* modem tables in IMEM */
 				<0x14688000 0x14688000 0x3000>;
 			qcom,ipa-q6-smem-size = <16384>;
-			dma-coherent;
 		};
 
 		ipa_smmu_wlan: ipa_smmu_wlan {
@@ -570,9 +613,9 @@
 		glink_modem: modem {
 			qcom,remote-pid = <1>;
 			transport = "smem";
-			mboxes = <&apcs_glb 12>;
+			mboxes = <&apcs_glb 15>;
 			mbox-names = "mpss_smem";
-			interrupts = <GIC_SPI 111 IRQ_TYPE_EDGE_RISING>;
+			interrupts = <GIC_SPI 114 IRQ_TYPE_EDGE_RISING>;
 
 			label = "modem";
 			qcom,glink-label = "mpss";
@@ -625,7 +668,7 @@
 		reg = <0xc310000 0x1000>, <0x17811008 0x4>;
 		reg-names = "msgram", "irq-reg-base";
 		qcom,irq-mask = <0x1>;
-		interrupts = <GIC_SPI 147 IRQ_TYPE_EDGE_RISING>;
+		interrupts = <GIC_SPI 221 IRQ_TYPE_EDGE_RISING>;
 
 		label = "aop";
 		qcom,early-boot;
@@ -660,7 +703,7 @@
 	qcom,smp2p-modem@1799000c {
 		compatible = "qcom,smp2p";
 		qcom,smem = <435>, <428>;
-		interrupts = <GIC_SPI 112 IRQ_TYPE_EDGE_RISING>;
+		interrupts = <GIC_SPI 113 IRQ_TYPE_EDGE_RISING>;
 		mboxes = <&apcs_glb 14>;
 		qcom,local-pid = <0>;
 		qcom,remote-pid = <1>;

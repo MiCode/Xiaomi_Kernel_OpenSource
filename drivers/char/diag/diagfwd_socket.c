@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -502,7 +502,7 @@ static void __socket_close_channel(struct diag_socket_info *info)
 {
 	unsigned long flags;
 
-	if (!info || !info->hdl)
+	if (!info)
 		return;
 
 	memset(&info->remote_addr, 0, sizeof(info->remote_addr));
@@ -513,12 +513,11 @@ static void __socket_close_channel(struct diag_socket_info *info)
 	if (info->port_type == PORT_TYPE_SERVER)
 		return;
 
-	write_lock_bh(&info->hdl->sk->sk_callback_lock);
-	info->hdl->sk->sk_user_data = NULL;
-	info->hdl->sk->sk_data_ready = NULL;
-	info->hdl->sk->sk_error_report = NULL;
-	write_unlock_bh(&info->hdl->sk->sk_callback_lock);
 	mutex_lock(&info->socket_info_mutex);
+	if (!info->hdl) {
+		mutex_unlock(&info->socket_info_mutex);
+		return;
+	}
 	sock_release(info->hdl);
 	info->hdl = NULL;
 	mutex_unlock(&info->socket_info_mutex);
@@ -577,10 +576,16 @@ static void socket_read_work_fn(struct work_struct *work)
 						     struct diag_socket_info,
 						     read_work);
 
-	if (!info || !info->hdl)
+	if (!info)
 		return;
 
+	mutex_lock(&info->socket_info_mutex);
+	if (!info->hdl || !info->hdl->sk) {
+		mutex_unlock(&info->socket_info_mutex);
+		return;
+	}
 	err = sock_error(info->hdl->sk);
+	mutex_unlock(&info->socket_info_mutex);
 	if (unlikely(err == -ENETRESET)) {
 		socket_close_channel(info);
 		if (info->port_type == PORT_TYPE_SERVER)
@@ -722,28 +727,24 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 		read_msg.msg_name = &src_addr;
 		read_msg.msg_namelen = sizeof(src_addr);
 
-		if (info->port_type != PORT_TYPE_SERVER) {
-			mutex_lock(&info->socket_info_mutex);
-			if (!info->hdl) {
-				DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
-				"%s closing read thread\n",
-					info->name);
-				mutex_unlock(&info->socket_info_mutex);
-				goto fail;
-			}
+		mutex_lock(&info->socket_info_mutex);
+		if (!info->hdl) {
+			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+			"%s closing read thread\n",
+				info->name);
+			mutex_unlock(&info->socket_info_mutex);
+			goto fail;
 		}
 		err = kernel_sock_ioctl(info->hdl, TIOCINQ,
 					(unsigned long)&pkt_len);
 		if (err || pkt_len < 0) {
-			if (info->port_type != PORT_TYPE_SERVER)
-				mutex_unlock(&info->socket_info_mutex);
+			mutex_unlock(&info->socket_info_mutex);
 			break;
 		}
 
 		if (pkt_len > bytes_remaining) {
 			buf_full = 1;
-			if (info->port_type != PORT_TYPE_SERVER)
-				mutex_unlock(&info->socket_info_mutex);
+			mutex_unlock(&info->socket_info_mutex);
 			break;
 		}
 
@@ -753,8 +754,7 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 
 		read_len = kernel_recvmsg(info->hdl, &read_msg, &iov, 1,
 					  pkt_len, MSG_DONTWAIT);
-		if (info->port_type != PORT_TYPE_SERVER)
-			mutex_unlock(&info->socket_info_mutex);
+		mutex_unlock(&info->socket_info_mutex);
 		if (unlikely(read_len == -ENETRESET)) {
 			mutex_lock(channel_mutex);
 			diagfwd_channel_read_done(info->fwd_ctxt, buf, 0);
@@ -862,16 +862,13 @@ static int diag_socket_write(void *ctxt, unsigned char *buf, int len)
 	write_msg.msg_name = &info->remote_addr;
 	write_msg.msg_namelen = sizeof(info->remote_addr);
 	write_msg.msg_flags |= MSG_DONTWAIT;
-	if (info->port_type != PORT_TYPE_SERVER) {
-		mutex_lock(&info->socket_info_mutex);
-		if (!info->hdl) {
-			mutex_unlock(&info->socket_info_mutex);
-			return -ENODEV;
-		}
+	mutex_lock(&info->socket_info_mutex);
+	if (!info->hdl) {
+		mutex_unlock(&info->socket_info_mutex);
+		return -ENODEV;
 	}
 	write_len = kernel_sendmsg(info->hdl, &write_msg, &iov, 1, len);
-	if (info->port_type != PORT_TYPE_SERVER)
-		mutex_unlock(&info->socket_info_mutex);
+	mutex_unlock(&info->socket_info_mutex);
 	if (write_len < 0) {
 		err = write_len;
 		/*
@@ -969,8 +966,7 @@ static void __diag_socket_init(struct diag_socket_info *info)
 		break;
 	}
 
-	if (info->port_type == PORT_TYPE_CLIENT)
-		mutex_init(&info->socket_info_mutex);
+	mutex_init(&info->socket_info_mutex);
 	info->svc_id = DIAG_SVC_ID;
 	info->ins_id = ins_base + ins_offset;
 	info->inited = 1;
@@ -1128,8 +1124,7 @@ static void __diag_socket_exit(struct diag_socket_info *info)
 	if (info->hdl)
 		sock_release(info->hdl);
 	info->hdl = NULL;
-	if (info->port_type == PORT_TYPE_CLIENT)
-		mutex_destroy(&info->socket_info_mutex);
+	mutex_destroy(&info->socket_info_mutex);
 	if (info->wq)
 		destroy_workqueue(info->wq);
 }

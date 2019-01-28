@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -478,6 +478,7 @@ int npu_enable_core_power(struct npu_device *npu_dev)
 	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
 	int ret = 0;
 
+	mutex_lock(&npu_dev->dev_lock);
 	if (!pwr->pwr_vote_num) {
 		ret = npu_enable_regulators(npu_dev);
 		if (ret)
@@ -492,6 +493,7 @@ int npu_enable_core_power(struct npu_device *npu_dev)
 		npu_resume_devbw(npu_dev);
 	}
 	pwr->pwr_vote_num++;
+	mutex_unlock(&npu_dev->dev_lock);
 
 	return ret;
 }
@@ -501,8 +503,12 @@ void npu_disable_core_power(struct npu_device *npu_dev)
 	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
 	struct npu_thermalctrl *thermalctrl = &npu_dev->thermalctrl;
 
-	if (!pwr->pwr_vote_num)
+	mutex_lock(&npu_dev->dev_lock);
+	if (!pwr->pwr_vote_num) {
+		mutex_unlock(&npu_dev->dev_lock);
 		return;
+	}
+
 	pwr->pwr_vote_num--;
 	if (!pwr->pwr_vote_num) {
 		npu_suspend_devbw(npu_dev);
@@ -514,6 +520,7 @@ void npu_disable_core_power(struct npu_device *npu_dev)
 		pr_debug("setting back to power level=%d\n",
 			pwr->active_pwrlevel);
 	}
+	mutex_unlock(&npu_dev->dev_lock);
 }
 
 static int npu_enable_core_clocks(struct npu_device *npu_dev)

@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,8 +31,12 @@
 	qupv3_0: qcom,qupv3_0_geni_se@4ac0000 {
 		compatible = "qcom,qupv3-geni-se";
 		reg = <0x04ac0000 0x2000>;
-		qcom,bus-mas-id = <MSM_BUS_MASTER_QUP_0>;
-		qcom,bus-slv-id = <MSM_BUS_SLAVE_EBI_CH0>;
+
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-bus-ids =
+			<MSM_BUS_MASTER_QUP_CORE_0 MSM_BUS_SLAVE_QUP_CORE_0>,
+			<MSM_BUS_MASTER_QUP_0 MSM_BUS_SLAVE_EBI_CH0>;
+
 		qcom,iommu-s1-bypass;
 
 		iommu_qupv3_0_geni_se_cb: qcom,iommu_qupv3_0_geni_se_cb {
@@ -227,8 +231,11 @@
 	qupv3_1: qcom,qupv3_1_geni_se@4cc0000 {
 		compatible = "qcom,qupv3-geni-se";
 		reg = <0x04cc0000 0x2000>;
-		qcom,bus-mas-id = <MSM_BUS_MASTER_QUP_1>;
-		qcom,bus-slv-id = <MSM_BUS_SLAVE_EBI_CH0>;
+
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-bus-ids =
+			<MSM_BUS_MASTER_QUP_CORE_1 MSM_BUS_SLAVE_QUP_CORE_1>,
+			<MSM_BUS_MASTER_QUP_1 MSM_BUS_SLAVE_EBI_CH0>;
 
 		qcom,iommu-s1-bypass;
 		iommu_qupv3_1_geni_se_cb: qcom,iommu_qupv3_1_geni_se_cb {

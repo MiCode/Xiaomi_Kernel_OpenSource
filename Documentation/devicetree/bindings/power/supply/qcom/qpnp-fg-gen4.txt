@@ -29,6 +29,8 @@ First Level Node - FG Gen4 device
 	Definition: Should specify the phandle of PMIC revid module. This is
 		    used to identify the PMIC subtype.
 
+- #thermal-sensor-cells: Should be 0. See thermal.txt for the description.
+
 - qcom,fg-cutoff-voltage
 	Usage:      optional
 	Value type: <u32>
@@ -152,6 +154,14 @@ First Level Node - FG Gen4 device
 		    This factor will be used when ESR correction delta is
 		    applied after the calculation. Default value is 2.
 
+- qcom,fg-esr-calib-dischg:
+	Usage:      optional
+	Value type: <empty>
+	Definition: Enables ESR calibration only during discharging. This
+		    should be specified only when ESR fast calibration is not
+		    required. Also, ESR discharging timers should be specified
+		    for the proper functionality.
+
 - qcom,fg-esr-pulse-thresh-ma
 	Usage:      optional
 	Value type: <u32>
@@ -266,6 +276,12 @@ First Level Node - FG Gen4 device
 	Definition: A boolean property to enable weighted capacity learning
 		    based on change in battery SOC during a charging cycle.
 		    If this is specified "qcom,cl-start-capacity" is not used.
+
+- qcom,cl-skew
+	Usage:      optional
+	Value type: <u32>
+	Definition: Skew in decipercentage which when specified will be applied
+		    to the final learned capacity.
 
 - qcom,hold-soc-while-full
 	Usage:      optional
@@ -395,6 +411,14 @@ First Level Node - FG Gen4 device
 		    five pin battery is used. Based on this, time to full
 		    calculations would use the Rbatt calculated properly.
 
+- qcom,multi-profile-load
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property that when specified indicates that
+		    multiple profile loading needs to be enabled. This requires
+		    multiple battery profiles to be specified for a battery for
+		    proper functionality.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by FG Gen4 driver
 ==========================================================
@@ -423,6 +447,7 @@ pm8150b_fg: qpnp,fg {
 	#address-cells = <1>;
 	#size-cells = <1>;
 	qcom,pmic-revid = <&pm8150b_revid>;
+	#thermal-cells = <0>;
 	status = "okay";
 
 	qcom,fg-batt-soc@4000 {
@@ -486,4 +511,33 @@ pm8150b_fg: qpnp,fg {
 				  "dma-grant",
 	};
 
+};
+
+======================================
+Example for thermal zone configuration
+======================================
+
+thermal_zones {
+	pm8150b_fg {
+		polling-delay-passive = <200>;
+		polling-delay = <200>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&pm8150b_fg>;
+
+		pm8150b_fg_trip1: pm8150b-fg-trip1 {
+			temperature = <40000>;
+			hysteresis = <0>;
+			type = "passive";
+		};
+		pm8150b_fg_trip2: pm8150b-fg-trip2 {
+			temperature = <45000>;
+			hysteresis = <0>;
+			type = "passive";
+		};
+		pm8150b_fg_trip3: pm8150b-fg-trip3 {
+			temperature = <55000>;
+			hysteresis = <0>;
+			type = "passive";
+		};
+	};
 };

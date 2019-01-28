@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1797,12 +1797,6 @@ static void ipareg_construct_endp_init_aggr_n_v4_5(enum ipahal_reg_name reg,
 		IPA_ENDP_INIT_AGGR_n_AGGR_SW_EOF_ACTIVE_SHFT_V4_5,
 		IPA_ENDP_INIT_AGGR_n_AGGR_SW_EOF_ACTIVE_BMSK_V4_5);
 
-	/* At IPAv3 hard_byte_limit is not supported */
-	if (ep_aggr->aggr_hard_byte_limit_en) {
-		IPAHAL_ERR("hard byte limit aggr is not supported\n");
-		WARN_ON(1);
-	}
-	ep_aggr->aggr_hard_byte_limit_en = 0;
 	IPA_SETFIELD_IN_REG(*val, ep_aggr->aggr_hard_byte_limit_en,
 		IPA_ENDP_INIT_AGGR_n_AGGR_HARD_BYTE_LIMIT_ENABLE_SHFT_V4_5,
 		IPA_ENDP_INIT_AGGR_n_AGGR_HARD_BYTE_LIMIT_ENABLE_BMSK_V4_5);

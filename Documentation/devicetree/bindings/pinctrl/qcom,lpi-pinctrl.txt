@@ -37,6 +37,16 @@ Following properties are for LPI GPIO controller device main node.
 		    The first cell will be used to define gpio number and the
 		    second denotes the flags for this gpio.
 
+- clock-names:
+	Usage: optional
+	Value type: <string>
+	Definition: Must be "lpass_core_hw_vote"
+
+- clocks:
+	Usage: optional
+	Value type: <prop-encoded-array>
+	Definition: Gives external clock source if present.
+
 Please refer to ../gpio/gpio.txt for general description of GPIO bindings.
 
 Please refer to pinctrl-bindings.txt in this directory for details of the
