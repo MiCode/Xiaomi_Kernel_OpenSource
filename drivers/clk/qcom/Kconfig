@@ -366,3 +366,12 @@ config SM_VIDEOCC_LITO
 	  LITO devices.
 	  Say Y if you want to support video devices and functionality such as
 	  video encode/decode.
+
+config SM_CAMCC_LITO
+	tristate "LITO Camera Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc.
+	  LITO devices.
+	  Say Y if you want to support camera devices and functionality such as
+	  capturing pictures.

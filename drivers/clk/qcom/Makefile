@@ -52,6 +52,7 @@ obj-$(CONFIG_QCOM_CLK_SMD_RPM) += clk-smd-rpm.o
 obj-$(CONFIG_SDM_DISPCC_845) += dispcc-sdm845.o
 obj-$(CONFIG_SDM_GCC_845) += gcc-sdm845.o
 obj-$(CONFIG_SDM_VIDEOCC_845) += videocc-sdm845.o
+obj-$(CONFIG_SM_CAMCC_LITO) += camcc-lito.o
 obj-$(CONFIG_SM_GCC_LITO) += gcc-lito.o
 obj-$(CONFIG_SM_VIDEOCC_LITO) += videocc-lito.o
 obj-$(CONFIG_SPMI_PMIC_CLKDIV) += clk-spmi-pmic-div.o
