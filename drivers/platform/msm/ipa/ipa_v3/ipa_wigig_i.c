@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,7 @@
 #include <linux/ipa_wigig.h>
 
 #define IPA_WIGIG_DESC_RING_EL_SIZE	32
+#define IPA_WIGIG_STATUS_RING_EL_SIZE	16
 
 #define GSI_STOP_MAX_RETRY_CNT 10
 
@@ -25,6 +26,9 @@
 #define IPA_WIGIG_LSB_MASK 0x00000000FFFFFFFF
 #define IPA_WIGIG_MSB(num) ((u32)((num & IPA_WIGIG_MSB_MASK) >> 32))
 #define IPA_WIGIG_LSB(num) ((u32)(num & IPA_WIGIG_LSB_MASK))
+/* extract PCIE addresses [0:39] relevant msb */
+#define IPA_WIGIG_8_MSB_MASK 0xFF00000000
+#define IPA_WIGIG_8_MSB(num) ((u32)((num & IPA_WIGIG_8_MSB_MASK) >> 32))
 #define W11AD_RX 0
 #define W11AD_TX 1
 #define W11AD_TO_GSI_DB_m 1
@@ -94,11 +98,10 @@ int ipa3_wigig_uc_init(
 	if (result) {
 		inout->is_uC_ready = false;
 		ipa3_ctx->uc_wigig_ctx.uc_ready_cb = inout->notify;
-		ipa3_ctx->uc_wigig_ctx.priv = inout->priv;
 	} else {
 		inout->is_uC_ready = true;
 	}
-
+	ipa3_ctx->uc_wigig_ctx.priv = inout->priv;
 	ipa3_ctx->uc_wigig_ctx.misc_notify_cb = int_notify;
 
 	*uc_db_pa = ipa3_ctx->ipa_wrapper_base +
@@ -400,6 +403,8 @@ static int ipa3_wigig_config_gsi(bool Rx,
 	struct ipa_wigig_tx_pipe_data_buffer_info *tx_dbuff;
 	struct ipa_wigig_tx_pipe_data_buffer_info_smmu *tx_dbuff_smmu;
 
+	IPADBG("%s, %s\n", Rx ? "Rx" : "Tx", smmu_en ? "smmu en" : "smmu dis");
+
 	/* alloc event ring */
 	memset(&evt_props, 0, sizeof(evt_props));
 	evt_props.intf = GSI_EVT_CHTYPE_11AD_EV;
@@ -463,7 +468,7 @@ static int ipa3_wigig_config_gsi(bool Rx,
 		channel_props.dir = GSI_CHAN_DIR_FROM_GSI;
 
 	channel_props.re_size = GSI_CHAN_RE_SIZE_16B;
-	channel_props.prot - GSI_CHAN_PROT_11AD;
+	channel_props.prot = GSI_CHAN_PROT_11AD;
 	channel_props.ch_id = ep_gsi->ipa_gsi_chan_num;
 	channel_props.evt_ring_hdl = ep->gsi_evt_ring_hdl;
 	channel_props.xfer_cb = NULL;
@@ -521,8 +526,21 @@ static int ipa3_wigig_config_gsi(bool Rx,
 			gsi_scratch.rx_11ad.fixed_data_buffer_size_pow_2 =
 				ilog2(rx_dbuff->data_buffer_size);
 		}
-		IPADBG("fixed_data_buffer_size_pow_2 %d\n",
+		IPADBG("rx scratch: status_ring_hwtail_address_lsb 0x%X\n",
+			gsi_scratch.rx_11ad.status_ring_hwtail_address_lsb);
+		IPADBG("rx scratch: status_ring_hwtail_address_msb 0x%X\n",
+			gsi_scratch.rx_11ad.status_ring_hwtail_address_msb);
+		IPADBG("rx scratch: data_buffers_base_address_lsb 0x%X\n",
+			gsi_scratch.rx_11ad.data_buffers_base_address_lsb);
+		IPADBG("rx scratch: data_buffers_base_address_msb 0x%X\n",
+			gsi_scratch.rx_11ad.data_buffers_base_address_msb);
+		IPADBG("rx scratch: fixed_data_buffer_size_pow_2 %d\n",
 			gsi_scratch.rx_11ad.fixed_data_buffer_size_pow_2);
+		IPADBG("rx scratch 0x[%X][%X][%X][%X]\n",
+			gsi_scratch.data.word1,
+			gsi_scratch.data.word2,
+			gsi_scratch.data.word3,
+			gsi_scratch.data.word4);
 	} else {
 		if (smmu_en) {
 			tx_dbuff_smmu =
@@ -535,12 +553,19 @@ static int ipa3_wigig_config_gsi(bool Rx,
 			gsi_scratch.tx_11ad.status_ring_hwtail_address_lsb =
 				IPA_WIGIG_LSB(
 					pipe_smmu->status_ring_HWTAIL_pa);
-			gsi_scratch.tx_11ad.status_ring_hwtail_address_msb =
-				IPA_WIGIG_MSB(
-					pipe_smmu->status_ring_HWTAIL_pa);
+			gsi_scratch.tx_11ad.status_ring_hwhead_address_lsb =
+				IPA_WIGIG_LSB(
+					pipe_smmu->status_ring_HWHEAD_pa);
+			gsi_scratch.tx_11ad.status_ring_hwhead_hwtail_8_msb =
+				IPA_WIGIG_8_MSB(
+					pipe_smmu->status_ring_HWHEAD_pa);
 
 			gsi_scratch.tx_11ad.fixed_data_buffer_size_pow_2 =
 				ilog2(tx_dbuff_smmu->data_buffer_size);
+
+			gsi_scratch.tx_11ad.status_ring_num_elem =
+				pipe_smmu->status_ring_size /
+				IPA_WIGIG_STATUS_RING_EL_SIZE;
 		} else {
 			tx_dbuff =
 			(struct ipa_wigig_tx_pipe_data_buffer_info *)buff;
@@ -551,15 +576,35 @@ static int ipa3_wigig_config_gsi(bool Rx,
 			gsi_scratch.tx_11ad.status_ring_hwtail_address_lsb =
 				IPA_WIGIG_LSB(
 					pipe->status_ring_HWTAIL_pa);
-			gsi_scratch.tx_11ad.status_ring_hwtail_address_msb =
-				IPA_WIGIG_MSB(
-					pipe->status_ring_HWTAIL_pa);
+			gsi_scratch.tx_11ad.status_ring_hwhead_address_lsb =
+				IPA_WIGIG_LSB(
+					pipe->status_ring_HWHEAD_pa);
+			gsi_scratch.tx_11ad.status_ring_hwhead_hwtail_8_msb =
+				IPA_WIGIG_8_MSB(pipe->status_ring_HWHEAD_pa);
+
+			gsi_scratch.tx_11ad.status_ring_num_elem =
+				pipe->status_ring_size /
+				IPA_WIGIG_STATUS_RING_EL_SIZE;
 
 			gsi_scratch.tx_11ad.fixed_data_buffer_size_pow_2 =
 				ilog2(tx_dbuff->data_buffer_size);
 		}
-		IPADBG("fixed_data_buffer_size_pow_2 %d\n",
+		gsi_scratch.tx_11ad.update_status_hwtail_mod_threshold = 1;
+		IPADBG("tx scratch: status_ring_hwtail_address_lsb 0x%X\n",
+			gsi_scratch.tx_11ad.status_ring_hwtail_address_lsb);
+		IPADBG("tx scratch: status_ring_hwhead_address_lsb 0x%X\n",
+			gsi_scratch.tx_11ad.status_ring_hwhead_address_lsb);
+		IPADBG("tx scratch: status_ring_hwhead_hwtail_8_msb 0x%X\n",
+			gsi_scratch.tx_11ad.status_ring_hwhead_hwtail_8_msb);
+		IPADBG("tx scratch:status_ring_num_elem %d\n",
+			gsi_scratch.tx_11ad.status_ring_num_elem);
+		IPADBG("tx scratch:fixed_data_buffer_size_pow_2 %d\n",
 			gsi_scratch.tx_11ad.fixed_data_buffer_size_pow_2);
+		IPADBG("tx scratch 0x[%X][%X][%X][%X]\n",
+			gsi_scratch.data.word1,
+			gsi_scratch.data.word2,
+			gsi_scratch.data.word3,
+			gsi_scratch.data.word4);
 	}
 
 	IPADBG("ch_id: %d\n", channel_props.ch_id);
@@ -573,9 +618,12 @@ static int ipa3_wigig_config_gsi(bool Rx,
 	gsi_res = gsi_alloc_channel(&channel_props,
 		ipa3_ctx->gsi_dev_hdl,
 		&ep->gsi_chan_hdl);
-	if (gsi_res != GSI_STATUS_SUCCESS)
+	if (gsi_res != GSI_STATUS_SUCCESS) {
+		IPAERR("gsi_alloc_channel failed %d\n", gsi_res);
 		goto fail_alloc_channel;
+	}
 
+	IPADBG("Writing Channel scratch\n");
 	ep->gsi_mem_info.chan_ring_len = channel_props.ring_len;
 	ep->gsi_mem_info.chan_ring_base_addr = channel_props.ring_base_addr;
 	ep->gsi_mem_info.chan_ring_base_vaddr =
@@ -589,6 +637,9 @@ static int ipa3_wigig_config_gsi(bool Rx,
 		goto fail_write_channel_scratch;
 	}
 
+	IPADBG("exit\n");
+
+	return 0;
 fail_write_channel_scratch:
 	gsi_dealloc_channel(ep->gsi_chan_hdl);
 fail_alloc_channel:
@@ -740,18 +791,28 @@ int ipa3_conn_wigig_rx_pipe_i(void *in, struct ipa_wigig_conn_out_params *out)
 		ep->client_notify = input_smmu->notify;
 		ep->priv = input_smmu->priv;
 
+		IPADBG(
+		"desc_ring_base %lld desc_ring_size %d status_ring_base %lld status_ring_size %d",
+		(unsigned long long)input_smmu->pipe_smmu.desc_ring_base_iova,
+		input_smmu->pipe_smmu.desc_ring_size,
+		(unsigned long long)input_smmu->pipe_smmu.status_ring_base_iova,
+		input_smmu->pipe_smmu.status_ring_size);
+		IPADBG("data_buffer_base_iova %lld data_buffer_size %d",
+			(unsigned long long)dbuff_smmu->data_buffer_base_iova,
+			input_smmu->dbuff_smmu.data_buffer_size);
+
 		if (IPA_WIGIG_MSB(
 			dbuff_smmu->data_buffer_base_iova) &
 			0xFFFFFF00) {
 			IPAERR(
-				"data_buffers_base_address_msb is over the 8 bit limit (0xpa)\n"
-				, &dbuff_smmu->data_buffer_base_iova);
+			"data_buffers_base_address_msb is over the 8 bit limit (%lld)\n",
+			(unsigned long long)dbuff_smmu->data_buffer_base_iova);
 			IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 			return -EFAULT;
 		}
 		if (dbuff_smmu->data_buffer_size >> 16) {
 			IPAERR(
-				"data_buffer_size is over the 16 bit limit (0x%X)\n"
+				"data_buffer_size is over the 16 bit limit (%d)\n"
 				, dbuff_smmu->data_buffer_size);
 			IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 			return -EFAULT;
@@ -760,6 +821,16 @@ int ipa3_conn_wigig_rx_pipe_i(void *in, struct ipa_wigig_conn_out_params *out)
 		input = (struct ipa_wigig_conn_rx_in_params *)in;
 		ep->client_notify = input->notify;
 		ep->priv = input->priv;
+
+		IPADBG(
+			"desc_ring_base_pa %pa desc_ring_size %d status_ring_base_pa %pa status_ring_size %d",
+			&input->pipe.desc_ring_base_pa,
+			input->pipe.desc_ring_size,
+			&input->pipe.status_ring_base_pa,
+			input->pipe.status_ring_size);
+		IPADBG("data_buffer_base_pa %pa data_buffer_size %d",
+			&input->dbuff.data_buffer_base_pa,
+			input->dbuff.data_buffer_size);
 
 		if (
 		IPA_WIGIG_MSB(input->dbuff.data_buffer_base_pa) & 0xFFFFFF00) {
@@ -790,7 +861,7 @@ int ipa3_conn_wigig_rx_pipe_i(void *in, struct ipa_wigig_conn_out_params *out)
 	ep_cfg.mode.mode = IPA_BASIC;
 
 
-	if (ipa3_cfg_ep(ipa_ep_idx, &ep->cfg)) {
+	if (ipa3_cfg_ep(ipa_ep_idx, &ep_cfg)) {
 		IPAERR("fail to setup rx pipe cfg\n");
 		result = -EFAULT;
 		goto fail;
@@ -818,13 +889,6 @@ int ipa3_conn_wigig_rx_pipe_i(void *in, struct ipa_wigig_conn_out_params *out)
 			input->pipe.status_ring_HWHEAD_pa;
 	}
 
-	result = ipa3_wigig_config_uc(
-		true, true, 0,
-		ep_gsi->ipa_gsi_chan_num,
-		status_ring_HWHEAD_pa);
-		if (result)
-			goto fail_uc_config;
-
 	result = ipa3_wigig_config_gsi(true,
 		is_smmu_enabled,
 		pipe_info,
@@ -832,6 +896,13 @@ int ipa3_conn_wigig_rx_pipe_i(void *in, struct ipa_wigig_conn_out_params *out)
 		ep_gsi, ep);
 	if (result)
 		goto fail_gsi;
+
+	result = ipa3_wigig_config_uc(
+		true, true, 0,
+		ep_gsi->ipa_gsi_chan_num,
+		status_ring_HWHEAD_pa);
+	if (result)
+		goto fail_uc_config;
 
 	ipa3_install_dflt_flt_rules(ipa_ep_idx);
 
@@ -845,12 +916,10 @@ int ipa3_conn_wigig_rx_pipe_i(void *in, struct ipa_wigig_conn_out_params *out)
 
 	return 0;
 
-fail_gsi:
-	ipa3_wigig_config_uc(
-		false, true, 0,
-		ep_gsi->ipa_gsi_chan_num,
-		status_ring_HWHEAD_pa);
 fail_uc_config:
+	/* Release channel and evt*/
+	ipa3_release_gsi_channel(ipa_ep_idx);
+fail_gsi:
 	if (input_smmu)
 		ipa3_wigig_smmu_map_channel(true, &input_smmu->pipe_smmu,
 			&input_smmu->dbuff_smmu, false);
@@ -881,11 +950,21 @@ int ipa3_conn_wigig_client_i(void *in, struct ipa_wigig_conn_out_params *out)
 	is_smmu_enabled = !ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_WLAN];
 	if (is_smmu_enabled) {
 		input_smmu = (struct ipa_wigig_conn_tx_in_params_smmu *)in;
+
+		IPADBG(
+		"desc_ring_base %lld desc_ring_size %d status_ring_base %lld status_ring_size %d",
+		(unsigned long long)input_smmu->pipe_smmu.desc_ring_base_iova,
+		input_smmu->pipe_smmu.desc_ring_size,
+		(unsigned long long)input_smmu->pipe_smmu.status_ring_base_iova,
+		input_smmu->pipe_smmu.status_ring_size);
+		IPADBG("num buffers %d, data buffer size %d\n",
+			input_smmu->dbuff_smmu.num_buffers,
+			input_smmu->dbuff_smmu.data_buffer_size);
+
 		if (ipa3_wigig_tx_bit_to_ep(input_smmu->int_gen_tx_bit_num,
 			&tx_client)) {
 			return -EINVAL;
 		}
-		wifi_ch = input_smmu->int_gen_tx_bit_num;
 		if (input_smmu->dbuff_smmu.data_buffer_size >> 16) {
 			IPAERR(
 				"data_buffer_size is over the 16 bit limit (0x%X)\n"
@@ -893,16 +972,37 @@ int ipa3_conn_wigig_client_i(void *in, struct ipa_wigig_conn_out_params *out)
 			return -EFAULT;
 		}
 
+		if (IPA_WIGIG_8_MSB(
+			input_smmu->pipe_smmu.status_ring_HWHEAD_pa)
+			!= IPA_WIGIG_8_MSB(
+				input_smmu->pipe_smmu.status_ring_HWTAIL_pa)) {
+			IPAERR(
+				"status ring HWHEAD and HWTAIL differ in 8 MSbs head 0x%X tail 0x%X\n"
+			, input_smmu->pipe_smmu.status_ring_HWHEAD_pa,
+			input_smmu->pipe_smmu.status_ring_HWTAIL_pa);
+			return -EFAULT;
+		}
+
+		wifi_ch = input_smmu->int_gen_tx_bit_num;
+
 		/* convert to kBytes */
 		aggr_byte_limit = IPA_ADJUST_AGGR_BYTE_HARD_LIMIT(
 			input_smmu->dbuff_smmu.data_buffer_size);
 	} else {
 		input = (struct ipa_wigig_conn_tx_in_params *)in;
+
+		IPADBG(
+			"desc_ring_base_pa %pa desc_ring_size %d status_ring_base_pa %pa status_ring_size %d",
+			&input->pipe.desc_ring_base_pa,
+			input->pipe.desc_ring_size,
+			&input->pipe.status_ring_base_pa,
+			input->pipe.status_ring_size);
+		IPADBG("data_buffer_size %d", input->dbuff.data_buffer_size);
+
 		if (ipa3_wigig_tx_bit_to_ep(input->int_gen_tx_bit_num,
 			&tx_client)) {
 			return -EINVAL;
 		}
-		wifi_ch = input->int_gen_tx_bit_num;
 
 		if (input->dbuff.data_buffer_size >> 16) {
 			IPAERR(
@@ -910,6 +1010,19 @@ int ipa3_conn_wigig_client_i(void *in, struct ipa_wigig_conn_out_params *out)
 				, input->dbuff.data_buffer_size);
 			return -EFAULT;
 		}
+
+		if (IPA_WIGIG_8_MSB(
+			input->pipe.status_ring_HWHEAD_pa)
+			!= IPA_WIGIG_8_MSB(
+				input->pipe.status_ring_HWTAIL_pa)) {
+			IPAERR(
+				"status ring HWHEAD and HWTAIL differ in 8 MSbs head 0x%X tail 0x%X\n"
+				, input->pipe.status_ring_HWHEAD_pa,
+				input->pipe.status_ring_HWTAIL_pa);
+			return -EFAULT;
+		}
+
+		wifi_ch = input->int_gen_tx_bit_num;
 
 		/* convert to kBytes */
 		aggr_byte_limit = IPA_ADJUST_AGGR_BYTE_HARD_LIMIT(
@@ -1006,13 +1119,6 @@ int ipa3_conn_wigig_client_i(void *in, struct ipa_wigig_conn_out_params *out)
 			input->pipe.desc_ring_HWHEAD_pa;
 	}
 
-	result = ipa3_wigig_config_uc(
-		true, false, wifi_ch,
-		ep_gsi->ipa_gsi_chan_num,
-		desc_ring_HWHEAD_pa);
-	if (result)
-		goto fail_uc_config;
-
 	result = ipa3_wigig_config_gsi(false,
 		is_smmu_enabled,
 		pipe_info,
@@ -1020,6 +1126,13 @@ int ipa3_conn_wigig_client_i(void *in, struct ipa_wigig_conn_out_params *out)
 		ep_gsi, ep);
 	if (result)
 		goto fail_gsi;
+
+	result = ipa3_wigig_config_uc(
+		true, false, wifi_ch,
+		ep_gsi->ipa_gsi_chan_num,
+		desc_ring_HWHEAD_pa);
+	if (result)
+		goto fail_uc_config;
 
 	out->client = tx_client;
 	ep->gsi_offload_state |= IPA_WIGIG_CONNECTED;
@@ -1030,12 +1143,10 @@ int ipa3_conn_wigig_client_i(void *in, struct ipa_wigig_conn_out_params *out)
 		ipa_ep_idx);
 	return 0;
 
-fail_gsi:
-	ipa3_wigig_config_uc(
-		false, false, wifi_ch,
-		ep_gsi->ipa_gsi_chan_num,
-		desc_ring_HWHEAD_pa);
 fail_uc_config:
+	/* Release channel and evt*/
+	ipa3_release_gsi_channel(ipa_ep_idx);
+fail_gsi:
 	if (input_smmu)
 		ipa3_wigig_smmu_map_channel(false, &input_smmu->pipe_smmu,
 			&input_smmu->dbuff_smmu, false);
@@ -1159,7 +1270,13 @@ int ipa3_wigig_uc_msi_init(bool init,
 	enum ipa_cpu_2_hw_offload_commands command;
 	bool map = false;
 
-	IPADBG("\n");
+	IPADBG("params: %s, %pa, %pa, %pa, %pa, %pa\n",
+		init ? "init" : "deInit",
+		&periph_baddr_pa,
+		&pseudo_cause_pa,
+		&int_gen_tx_pa,
+		&int_gen_rx_pa,
+		&dma_ep_misc_pa);
 
 	/* first make sure registers are SMMU mapped if necessary*/
 	if ((!ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC])) {
@@ -1344,6 +1461,7 @@ int ipa3_enable_wigig_pipe_i(enum ipa_client_type client)
 		goto fail_ring_evt;
 	}
 
+	IPADBG("start channel\n");
 	res = gsi_start_channel(ep->gsi_chan_hdl);
 	if (res != GSI_STATUS_SUCCESS) {
 		IPAERR("gsi_start_channel failed %d\n", res);
@@ -1360,6 +1478,8 @@ int ipa3_enable_wigig_pipe_i(enum ipa_client_type client)
 			ep->gsi_mem_info.chan_ring_len -
 			IPA_WIGIG_DESC_RING_EL_SIZE;
 
+		IPADBG("ring ch doorbell (0x%llX) TX %d\n", val,
+			ep->gsi_chan_hdl);
 		res = gsi_ring_ch_ring_db(ep->gsi_chan_hdl, val);
 		if (res) {
 			IPAERR(

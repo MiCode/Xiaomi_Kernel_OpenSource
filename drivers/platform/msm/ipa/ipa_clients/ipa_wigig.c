@@ -1,4 +1,4 @@
-/* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -103,6 +103,14 @@ int ipa_wigig_init(struct ipa_wigig_init_in_params *in,
 	ipa_wigig_ctx->dma_ep_misc_pa = in->dma_ep_misc_pa;
 	ipa_wigig_ctx->periph_baddr_pa = in->periph_baddr_pa;
 
+	IPA_WIGIG_DBG(
+		"periph_baddr_pa 0x%pa pseudo_cause_pa 0x%pa, int_gen_tx_pa 0x%pa, int_gen_rx_pa 0x%pa, dma_ep_misc_pa 0x%pa"
+		, &ipa_wigig_ctx->periph_baddr_pa,
+		&ipa_wigig_ctx->pseudo_cause_pa,
+		&ipa_wigig_ctx->int_gen_tx_pa,
+		&ipa_wigig_ctx->int_gen_rx_pa,
+		&ipa_wigig_ctx->dma_ep_misc_pa);
+
 	inout.notify = in->notify;
 	inout.priv = in->priv;
 	if (ipa_wigig_uc_init(&inout, in->int_notify, &out->uc_db_pa)) {
@@ -110,6 +118,8 @@ int ipa_wigig_init(struct ipa_wigig_init_in_params *in,
 		ipa_wigig_ctx = NULL;
 		return -EFAULT;
 	}
+
+	IPA_WIGIG_DBG("uc_db_pa 0x%pa\n", &out->uc_db_pa);
 
 	out->is_uc_ready = inout.is_uC_ready;
 
@@ -156,7 +166,7 @@ bool ipa_wigig_is_smmu_enabled(void)
 
 	ipa_get_smmu_params(&in, &out);
 
-	IPA_WIGIG_DBG("exit\n");
+	IPA_WIGIG_DBG("exit (%d)\n", out.smmu_enable);
 
 	return out.smmu_enable;
 }
@@ -175,6 +185,11 @@ static int ipa_wigig_commit_partial_hdr(
 		IPA_WIGIG_ERR("Invalid input\n");
 		return -EINVAL;
 	}
+
+	IPA_WIGIG_DBG("dst_mac_addr_offset %d hdr_len %d hdr_type %d\n",
+		hdr_info->dst_mac_addr_offset,
+		hdr_info->hdr_len,
+		hdr_info->hdr_type);
 
 	hdr->commit = 1;
 	hdr->num_hdrs = 2;
@@ -264,8 +279,11 @@ int ipa_wigig_reg_intf(
 		return -EPERM;
 	}
 
-	IPA_WIGIG_DBG("register interface for netdev %s\n",
-		in->netdev_name);
+	IPA_WIGIG_DBG(
+		"register interface for netdev %s, MAC 0x[%X][%X][%X][%X][%X][%X]\n"
+		, in->netdev_name,
+		in->netdev_mac[0], in->netdev_mac[1], in->netdev_mac[2],
+		in->netdev_mac[3], in->netdev_mac[4], in->netdev_mac[5]);
 
 	mutex_lock(&ipa_wigig_ctx->lock);
 	list_for_each_entry(entry, &ipa_wigig_ctx->head_intf_list, link)
@@ -396,12 +414,12 @@ int ipa_wigig_dereg_intf(const char *netdev_name)
 	struct ipa_wigig_intf_info *entry;
 	struct ipa_wigig_intf_info *next;
 
-	IPA_WIGIG_DBG("\n");
-
 	if (!netdev_name) {
 		IPA_WIGIG_ERR("no netdev name\n");
 		return -EINVAL;
 	}
+
+	IPA_WIGIG_DBG("netdev %s\n", netdev_name);
 
 	if (!ipa_wigig_ctx) {
 		IPA_WIGIG_ERR("wigig ctx is not initialized\n");
@@ -1232,6 +1250,7 @@ int ipa_wigig_disconn_pipe(enum ipa_client_type client)
 
 	/* RX will be disconnected last, deinit uC msi config */
 	if (client == IPA_CLIENT_WIGIG_PROD) {
+		IPA_WIGIG_DBG("Rx pipe disconnected, deIniting uc\n");
 		ret = ipa_wigig_uc_msi_init(false,
 			ipa_wigig_ctx->periph_baddr_pa,
 			ipa_wigig_ctx->pseudo_cause_pa,
@@ -1240,6 +1259,12 @@ int ipa_wigig_disconn_pipe(enum ipa_client_type client)
 			ipa_wigig_ctx->dma_ep_misc_pa);
 		if (ret) {
 			IPA_WIGIG_ERR("failed unmapping msi regs\n");
+			WARN_ON(1);
+		}
+
+		ret = ipa_pm_deregister(ipa_wigig_ctx->ipa_pm_hdl);
+		if (ret) {
+			IPA_WIGIG_ERR("failed dereg pm\n");
 			WARN_ON(1);
 		}
 	}
