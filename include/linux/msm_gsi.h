@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -732,22 +732,25 @@ struct __packed gsi_11ad_rx_channel_scratch {
  * TX channel scratch
  *
  * @status_ring_hwtail_address_lsb: Low 32 bits of status ring hwtail address.
- * @status_ring_hwtail_address_msb: High 32 bits of status ring hwtail address.
+ * @status_ring_hwhead_address_lsb: Low 32 bits of status ring hwhead address.
+ * @status_ring_hwhead_hwtail_8_msb: higher 8 msbs of status ring
+ *	hwhead\hwtail addresses (should be identical).
  * @update_status_hwtail_mod_threshold: The threshold in (32B) elements for
  *	updating descriptor ring 11ad HWTAIL pointer moderation.
+ * @status_ring_num_elem - the number of elements in the status ring.
  * @resv1: reserved bits.
- * @resv2: reserved bit.
  * @fixed_data_buffer_size_pow_2: the fixed buffer size power of 2 (> MTU).
- * @resv3: reserved bits.
+ * @resv2: reserved bits.
  */
 struct __packed gsi_11ad_tx_channel_scratch {
 	uint32_t status_ring_hwtail_address_lsb;
-	uint32_t status_ring_hwtail_address_msb;
+	uint32_t status_ring_hwhead_address_lsb;
+	uint32_t status_ring_hwhead_hwtail_8_msb:8;
 	uint32_t update_status_hwtail_mod_threshold:8;
-	uint32_t resv1:24;
-	uint32_t resv2:8;
+	uint32_t status_ring_num_elem:16;
+	uint32_t resv1:8;
 	uint32_t fixed_data_buffer_size_pow_2:16;
-	uint32_t resv3:8;
+	uint32_t resv2:8;
 };
 
 /**
