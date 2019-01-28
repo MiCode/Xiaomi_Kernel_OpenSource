@@ -33,7 +33,7 @@ config DRM_MSM_SDE
 
 config DRM_MSM_DP
 	bool "Enable Display Port"
-	depends on DRM_MSM_SDE
+	depends on DRM_MSM_SDE && USB_PD
 	default n
 	help
 	  This option enables compilation of Display Port

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -876,6 +876,12 @@ static inline void __init msm_edp_register(void)
 }
 static inline void __exit msm_edp_unregister(void)
 {
+}
+
+static inline int msm_edp_modeset_init(struct msm_edp *edp,
+		struct drm_device *dev, struct drm_encoder *encoder)
+{
+	return -EINVAL;
 }
 #endif
 
