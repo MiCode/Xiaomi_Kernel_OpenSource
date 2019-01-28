@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -454,6 +454,12 @@ struct ipa_api_controller {
 	int (*ipa_enable_wigig_pipe_i)(enum ipa_client_type client);
 
 	int (*ipa_disable_wigig_pipe_i)(enum ipa_client_type client);
+
+	void (*ipa_register_client_callback)(
+		int (*client_cb)(bool is_lock),
+		bool (*teth_port_state)(void), u32 ipa_ep_idx);
+
+	void (*ipa_deregister_client_callback)(u32 ipa_ep_idx);
 };
 
 #ifdef CONFIG_IPA3

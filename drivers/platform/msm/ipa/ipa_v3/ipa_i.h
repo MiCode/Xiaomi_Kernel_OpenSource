@@ -2588,6 +2588,7 @@ int ipa3_tag_process(struct ipa3_desc *desc, int num_descs,
 void ipa3_q6_pre_shutdown_cleanup(void);
 void ipa3_q6_post_shutdown_cleanup(void);
 void ipa3_update_ssr_state(bool is_ssr);
+void ipa3_q6_pre_powerup_cleanup(void);
 int ipa3_init_q6_smem(void);
 
 int ipa3_mhi_handle_ipa_config_req(struct ipa_config_req_msg_v01 *config_req);
