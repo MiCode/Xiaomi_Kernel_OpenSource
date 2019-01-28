@@ -1686,6 +1686,8 @@ int rtc6226_vidioc_g_ctrl(struct file *file, void *priv,
 	case V4L2_CID_PRIVATE_RTC6226_RDSGROUP_PROC:
 		break;
 	case V4L2_CID_PRIVATE_RTC6226_SIGNAL_TH:
+	/* intentional fallthrough */
+	case V4L2_CID_PRIVATE_RTC6226_RSSI_TH:
 		ctrl->value = radio->rssi_th;
 		break;
 	default:
