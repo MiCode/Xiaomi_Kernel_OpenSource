@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -1229,7 +1229,7 @@ static void uaudio_qmi_bye_cb(struct qmi_handle *handle, unsigned int node)
 {
 	struct uaudio_qmi_svc *svc = uaudio_svc;
 
-	uaudio_dbg("node:\n", node);
+	uaudio_dbg("client node:%x\n", node);
 	if (svc->uaudio_svc_hdl != handle) {
 		uaudio_err("handle mismatch\n");
 		return;
