@@ -542,7 +542,7 @@ struct cpu_cycle_counter_cb {
 
 #define MAX_NUM_CGROUP_COLOC_ID	20
 
-extern DEFINE_PER_CPU_READ_MOSTLY(int, sched_load_boost);
+DECLARE_PER_CPU_READ_MOSTLY(int, sched_load_boost);
 
 #ifdef CONFIG_SCHED_WALT
 extern void sched_exit(struct task_struct *p);
