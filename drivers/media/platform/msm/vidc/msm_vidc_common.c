@@ -1611,7 +1611,6 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 	 * ptr[10] = level
 	 */
 
-	inst->entropy_mode = event_notify->entropy_mode;
 	inst->profile = event_notify->profile;
 	inst->level = event_notify->level;
 	inst->prop.crop_info.left =

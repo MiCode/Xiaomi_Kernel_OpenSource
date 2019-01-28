@@ -1587,9 +1587,6 @@ static int try_get_ctrl_for_instance(struct msm_vidc_inst *inst,
 			inst->level);
 		break;
 
-	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:
-		ctrl->val = inst->entropy_mode;
-		break;
 
 	case V4L2_CID_MIN_BUFFERS_FOR_CAPTURE:
 		bufreq = get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
@@ -1746,7 +1743,6 @@ void *msm_vidc_open(int core_id, int session_type)
 	inst->colour_space = MSM_VIDC_BT601_6_525;
 	inst->profile = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE;
 	inst->level = V4L2_MPEG_VIDEO_H264_LEVEL_UNKNOWN;
-	inst->entropy_mode = V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CAVLC;
 	inst->smem_ops = &msm_vidc_smem_ops;
 	inst->rc_type = RATE_CONTROL_OFF;
 	inst->dpb_extra_binfo = NULL;

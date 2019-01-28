@@ -87,11 +87,6 @@ static const char *const mpeg2_level[] = {
 	"3",
 	NULL
 };
-static const char *const mpeg_vidc_video_entropy_mode[] = {
-	"CAVLC Entropy Mode",
-	"CABAC Entropy Mode",
-	NULL
-};
 
 static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 	{
@@ -426,21 +421,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.menu_skip_mask = 0,
 		.qmenu = NULL,
 		.flags = V4L2_CTRL_FLAG_VOLATILE,
-	},
-	{
-		.id = V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE,
-		.name = "Entropy Mode",
-		.type = V4L2_CTRL_TYPE_MENU,
-		.minimum = V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CAVLC,
-		.maximum = V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CABAC,
-		.default_value = V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CAVLC,
-		.step = 0,
-		.menu_skip_mask = ~(
-		(1 << V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CAVLC) |
-		(1 << V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CABAC)
-		),
-		.qmenu = mpeg_vidc_video_entropy_mode,
-		.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_FRAME_RATE,

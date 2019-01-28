@@ -2481,8 +2481,7 @@ int msm_venc_set_entropy_mode(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
-	if (inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_H264 &&
-		inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_HEVC)
+	if (inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_H264)
 		return 0;
 
 	ctrl = msm_venc_get_ctrl(inst, V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE);
@@ -2493,6 +2492,7 @@ int msm_venc_set_entropy_mode(struct msm_vidc_inst *inst)
 	entropy.entropy_mode = msm_comm_v4l2_to_hfi(
 			V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE,
 			ctrl->val);
+	entropy.cabac_model = HFI_H264_CABAC_MODEL_2;
 
 	dprintk(VIDC_DBG, "%s: %d\n", __func__, entropy.entropy_mode);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
