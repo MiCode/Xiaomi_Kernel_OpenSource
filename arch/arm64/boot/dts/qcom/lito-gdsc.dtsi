@@ -43,37 +43,37 @@
 
 	/* CAM_CC GDSCs */
 	bps_gdsc: qcom,gdsc@ad07004 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0xad07004 0x4>;
 		regulator-name = "bps_gdsc";
 	};
 
 	ipe_0_gdsc: qcom,gdsc@ad08004 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0xad08004 0x4>;
 		regulator-name = "ipe_0_gdsc";
 	};
 
 	ipe_1_gdsc: qcom,gdsc@ad09004 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0xad09004 0x4>;
 		regulator-name = "ipe_1_gdsc";
 	};
 
 	ife_0_gdsc: qcom,gdsc@ad0a004 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0xad0a004 0x4>;
 		regulator-name = "ife_0_gdsc";
 	};
 
 	ife_1_gdsc: qcom,gdsc@ad0b004 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0xad0b004 0x4>;
 		regulator-name = "ife_1_gdsc";
 	};
 
 	titan_top_gdsc: qcom,gdsc@ad0c1c4 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0xad0c1c4 0x4>;
 		regulator-name = "titan_top_gdsc";
 	};
@@ -129,19 +129,19 @@
 
 	/* VIDEO_CC GDSCs */
 	mvsc_gdsc: qcom,gdsc@ab00814 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0xab00814 0x4>;
 		regulator-name = "mvsc_gdsc";
 	};
 
 	mvs0_gdsc: qcom,gdsc@ab00874 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0xab00874 0x4>;
 		regulator-name = "mvs0_gdsc";
 	};
 
 	mvs1_gdsc: qcom,gdsc@ab008b4 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0xab008b4 0x4>;
 		regulator-name = "mvs1_gdsc";
 	};
