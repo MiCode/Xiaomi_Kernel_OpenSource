@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/edac.h>
@@ -36,7 +36,7 @@
 #define LLCC_LB_CNT_SHIFT               28
 
 /* Single & double bit syndrome register offsets */
-#define TRP_ECC_SB_ERR_SYN0             0x0002304c
+#define TRP_ECC_SB_ERR_SYN0             0x0002034c
 #define TRP_ECC_DB_ERR_SYN0             0x00020370
 #define DRP_ECC_SB_ERR_SYN0             0x0004204c
 #define DRP_ECC_DB_ERR_SYN0             0x00042070
