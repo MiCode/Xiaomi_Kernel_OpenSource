@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/device.h>
@@ -4952,7 +4952,7 @@ int smblib_set_prop_pr_swap_in_progress(struct smb_charger *chg,
 				const union power_supply_propval *val)
 {
 	int rc;
-	u8 stat, orientation;
+	u8 stat = 0, orientation;
 
 	chg->pr_swap_in_progress = val->intval;
 
