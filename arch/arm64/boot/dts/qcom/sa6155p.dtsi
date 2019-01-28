@@ -347,6 +347,26 @@
 	vdd_mx-supply = <&VDD_CX_LEVEL>;
 };
 
+&thermal_zones {
+	lmh-dcvs-00 {
+		trips {
+			active-config {
+				temperature = <105000>;
+				hysteresis = <40000>;
+			};
+		};
+	};
+
+	lmh-dcvs-01 {
+		trips {
+			active-config {
+				temperature = <105000>;
+				hysteresis = <40000>;
+			};
+		};
+	};
+};
+
 /* Audio device tree */
 #include "sa6155-audio.dtsi"
 #include "sa6155-pcie.dtsi"
