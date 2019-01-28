@@ -44,6 +44,11 @@ static uint32_t bus_error_irq_mask[2] = {
 	0x00000000,
 };
 
+static uint32_t rup_irq_mask[2] = {
+	0x0000003F,
+	0x00000000,
+};
+
 enum cam_vfe_bus_ver3_packer_format {
 	PACKER_FMT_VER3_PLAIN_128,
 	PACKER_FMT_VER3_PLAIN_8,
@@ -169,6 +174,7 @@ struct cam_vfe_bus_ver3_priv {
 
 	uint32_t                            irq_handle;
 	uint32_t                            error_irq_handle;
+	uint32_t                            rup_irq_handle;
 	void                               *tasklet_info;
 };
 
@@ -221,7 +227,7 @@ static int cam_vfe_bus_ver3_put_evt_payload(void     *core_info,
 	status_reg1 = ife_irq_regs[CAM_IFE_IRQ_BUS_VER3_REG_STATUS1];
 
 	if (status_reg0 || status_reg1) {
-		CAM_DBG(CAM_ISP, "status0 0x%x status1 0x%x status2 0x%x",
+		CAM_DBG(CAM_ISP, "status0 0x%x status1 0x%x",
 			status_reg0, status_reg1);
 		return 0;
 	}
@@ -822,6 +828,76 @@ static enum cam_vfe_bus_ver3_packer_format
 	default:
 		return PACKER_FMT_VER3_MAX;
 	}
+}
+
+static int cam_vfe_bus_ver3_handle_rup_top_half(uint32_t evt_id,
+	struct cam_irq_th_payload *th_payload)
+{
+	int32_t                                     rc;
+	int                                         i;
+	struct cam_vfe_bus_ver3_priv               *bus_priv;
+	struct cam_vfe_bus_irq_evt_payload         *evt_payload;
+
+	bus_priv = th_payload->handler_priv;
+	if (!bus_priv) {
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "No resource");
+		return -ENODEV;
+	}
+
+	CAM_DBG(CAM_ISP, "bus_IRQ status_0 = 0x%x, bus_IRQ status_1 = 0x%x",
+		th_payload->evt_status_arr[0],
+		th_payload->evt_status_arr[1]);
+
+	rc  = cam_vfe_bus_ver3_get_evt_payload(&bus_priv->common_data,
+		&evt_payload);
+	if (rc) {
+		CAM_ERR_RATE_LIMIT(CAM_ISP,
+			"No tasklet_cmd is free in queue");
+		CAM_ERR_RATE_LIMIT(CAM_ISP,
+			"IRQ status_0 = 0x%x status_1 = 0x%x",
+			th_payload->evt_status_arr[0],
+			th_payload->evt_status_arr[1]);
+
+		return rc;
+	}
+
+	evt_payload->core_index = bus_priv->common_data.core_index;
+	evt_payload->evt_id  = evt_id;
+	evt_payload->ctx = &bus_priv->common_data;
+	for (i = 0; i < th_payload->num_registers; i++)
+		evt_payload->irq_reg_val[i] = th_payload->evt_status_arr[i];
+	th_payload->evt_payload_priv = evt_payload;
+
+	return rc;
+}
+
+static int cam_vfe_bus_ver3_handle_rup_bottom_half(void *handler_priv,
+	void *evt_payload_priv)
+{
+	int                                   ret = CAM_VFE_IRQ_STATUS_ERR;
+	struct cam_vfe_bus_irq_evt_payload   *payload;
+	uint32_t                              irq_status0;
+
+	if (!handler_priv || !evt_payload_priv) {
+		CAM_ERR(CAM_ISP, "Invalid params");
+		return ret;
+	}
+
+	payload = evt_payload_priv;
+	irq_status0 = payload->irq_reg_val[CAM_IFE_IRQ_BUS_VER3_REG_STATUS0];
+
+	if (irq_status0 & 0x01) {
+		CAM_DBG(CAM_ISP, "Received REG_UPDATE_ACK");
+		ret = CAM_VFE_IRQ_STATUS_SUCCESS;
+	}
+	CAM_DBG(CAM_ISP,
+		"event ID:%d, bus_irq_status_0 = 0x%x returning status = %d",
+		payload->evt_id, irq_status0, ret);
+
+	if (ret == CAM_VFE_IRQ_STATUS_SUCCESS)
+		cam_vfe_bus_ver3_put_evt_payload(payload->ctx, &payload);
+
+	return ret;
 }
 
 static int cam_vfe_bus_ver3_acquire_wm(
@@ -1952,7 +2028,13 @@ static int cam_vfe_bus_ver3_handle_vfe_out_done_bottom_half(
 	int rc = -EINVAL;
 	struct cam_isp_resource_node         *vfe_out = handler_priv;
 	struct cam_vfe_bus_ver3_vfe_out_data *rsrc_data = vfe_out->res_priv;
+	struct cam_vfe_bus_irq_evt_payload   *evt_payload = evt_payload_priv;
 
+	if (evt_payload->evt_id == CAM_ISP_HW_EVENT_REG_UPDATE) {
+		rc = cam_vfe_bus_ver3_handle_rup_bottom_half(
+			handler_priv, evt_payload_priv);
+		return rc;
+	}
 	/* We only handle composite buf done */
 	if (rsrc_data->comp_grp) {
 		rc = rsrc_data->comp_grp->bottom_half_handler(
@@ -2781,6 +2863,23 @@ static int cam_vfe_bus_ver3_init_hw(void *hw_priv,
 
 		if (bus_priv->error_irq_handle <= 0) {
 			CAM_ERR(CAM_ISP, "Failed to subscribe BUS Error IRQ");
+			return -EFAULT;
+		}
+	}
+
+	if (bus_priv->tasklet_info != NULL) {
+		bus_priv->rup_irq_handle = cam_irq_controller_subscribe_irq(
+			bus_priv->common_data.bus_irq_controller,
+			CAM_IRQ_PRIORITY_0,
+			rup_irq_mask,
+			bus_priv,
+			cam_vfe_bus_ver3_handle_rup_top_half,
+			cam_ife_mgr_do_tasklet_reg_update,
+			bus_priv->tasklet_info,
+			&tasklet_bh_api);
+
+		if (bus_priv->rup_irq_handle <= 0) {
+			CAM_ERR(CAM_ISP, "Failed to subscribe RUP IRQ");
 			return -EFAULT;
 		}
 	}

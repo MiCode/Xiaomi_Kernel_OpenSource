@@ -52,7 +52,8 @@ enum cam_vfe_hw_irq_status {
 enum cam_vfe_hw_irq_regs {
 	CAM_IFE_IRQ_CAMIF_REG_STATUS0           = 0,
 	CAM_IFE_IRQ_CAMIF_REG_STATUS1           = 1,
-	CAM_IFE_IRQ_VIOLATION_STATUS            = 2,
+	CAM_IFE_IRQ_CAMIF_REG_STATUS2           = 2,
+	CAM_IFE_IRQ_VIOLATION_STATUS            = 3,
 	CAM_IFE_IRQ_REGISTERS_MAX,
 };
 
@@ -232,6 +233,7 @@ struct cam_vfe_bw_control_args {
  *                           handled
  * @error_type:              Identify different errors
  * @ts:                      Timestamp
+ * @hw_version:              CPAS hw version
  */
 struct cam_vfe_top_irq_evt_payload {
 	struct list_head           list;
@@ -241,6 +243,7 @@ struct cam_vfe_top_irq_evt_payload {
 	uint32_t                   irq_reg_val[CAM_IFE_IRQ_REGISTERS_MAX];
 	uint32_t                   error_type;
 	struct cam_isp_timestamp   ts;
+	uint32_t                   hw_version;
 };
 
 /*
@@ -285,12 +288,14 @@ struct cam_vfe_bus_irq_evt_payload {
  * @mem_base:                Mapped base address of the register space
  * @reset_complete:          Completion structure to be signaled if Reset IRQ
  *                           is Set
+ * @hw_version:              CPAS hw version
  */
 struct cam_vfe_irq_handler_priv {
 	uint32_t                     core_index;
 	void                        *core_info;
 	void __iomem                *mem_base;
 	struct completion           *reset_complete;
+	uint32_t                     hw_version;
 };
 
 /*

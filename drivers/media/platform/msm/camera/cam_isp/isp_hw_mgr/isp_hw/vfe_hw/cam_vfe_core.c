@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -16,16 +16,19 @@
 #include "cam_vfe_top.h"
 #include "cam_ife_hw_mgr.h"
 #include "cam_debug_util.h"
+#include "cam_cpas_api.h"
 
 static const char drv_name[] = "vfe";
 static uint32_t irq_reg_offset[CAM_IFE_IRQ_REGISTERS_MAX] = {
-	0x0000006C,
-	0x00000070,
-	0x0000007C,
+	0x00000054,
+	0x00000058,
+	0x0000005C,
+	0x00000074,
 };
 
 static uint32_t camif_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
-	0x00000017,
+	0x00000000,
+	0x00000007,
 	0x00000000,
 };
 
@@ -35,12 +38,14 @@ static uint32_t camif_fe_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
 };
 
 static uint32_t camif_irq_err_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
-	0x0003FC00,
-	0xEFFF7EBC,
+	0xFBE00200,
+	0x00000000,
+	0x303FFF80,
 };
 
 static uint32_t rdi_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
-	0x780001e0,
+	0x38E00000,
+	0xFFF00000,
 	0x00000000,
 };
 
@@ -126,21 +131,34 @@ int cam_vfe_reset_irq_top_half(uint32_t    evt_id,
 	handler_priv = th_payload->handler_priv;
 
 	CAM_DBG(CAM_ISP, "Enter");
-	CAM_DBG(CAM_ISP, "IRQ status_0 = 0x%x", th_payload->evt_status_arr[0]);
 
-	if (th_payload->evt_status_arr[0] & (1<<31)) {
-		/*
-		 * Clear All IRQs to avoid spurious IRQs immediately
-		 * after Reset Done.
-		 */
-		cam_io_w(0xFFFFFFFF, handler_priv->mem_base + 0x64);
-		cam_io_w(0xFFFFFFFF, handler_priv->mem_base + 0x68);
-		cam_io_w(0x1, handler_priv->mem_base + 0x58);
-		CAM_DBG(CAM_ISP, "Calling Complete for RESET CMD");
-		complete(handler_priv->reset_complete);
+	/*
+	 * Clear All IRQs to avoid spurious IRQs immediately
+	 * after Reset Done.
+	 */
 
-
-		rc = 0;
+	switch (handler_priv->hw_version) {
+	case CAM_CPAS_TITAN_480_V100:
+		if (th_payload->evt_status_arr[0] & 0x1) {
+			cam_io_w(0xFFFFFFFF, handler_priv->mem_base + 0x48);
+			cam_io_w(0xFFFFFFFF, handler_priv->mem_base + 0x4C);
+			cam_io_w(0xFFFFFFFF, handler_priv->mem_base + 0x50);
+			cam_io_w(0x1, handler_priv->mem_base + 0x38);
+			CAM_DBG(CAM_ISP, "Calling Complete for RESET CMD");
+			complete(handler_priv->reset_complete);
+			rc = 0;
+		}
+		break;
+	default:
+		if (th_payload->evt_status_arr[0] & (1<<31)) {
+			cam_io_w(0xFFFFFFFF, handler_priv->mem_base + 0x64);
+			cam_io_w(0xFFFFFFFF, handler_priv->mem_base + 0x68);
+			cam_io_w(0x00000001, handler_priv->mem_base + 0x58);
+			CAM_DBG(CAM_ISP, "Calling Complete for RESET CMD");
+			complete(handler_priv->reset_complete);
+			rc = 0;
+		}
+		break;
 	}
 
 	CAM_DBG(CAM_ISP, "Exit");
@@ -378,9 +396,9 @@ int cam_vfe_deinit_hw(void *hw_priv, void *deinit_hw_args, uint32_t arg_size)
 
 int cam_vfe_reset(void *hw_priv, void *reset_core_args, uint32_t arg_size)
 {
-	struct cam_hw_info                *vfe_hw  = hw_priv;
-	struct cam_hw_soc_info            *soc_info = NULL;
-	struct cam_vfe_hw_core_info       *core_info = NULL;
+	struct cam_hw_info *vfe_hw  = hw_priv;
+	struct cam_hw_soc_info *soc_info = NULL;
+	struct cam_vfe_hw_core_info *core_info = NULL;
 	int rc;
 
 	CAM_DBG(CAM_ISP, "Enter");
@@ -396,6 +414,7 @@ int cam_vfe_reset(void *hw_priv, void *reset_core_args, uint32_t arg_size)
 	core_info->irq_payload.core_index = soc_info->index;
 	core_info->irq_payload.mem_base =
 		vfe_hw->soc_info.reg_map[VFE_CORE_BASE_IDX].mem_base;
+	core_info->irq_payload.hw_version = soc_info->hw_version;
 	core_info->irq_payload.core_info = core_info;
 	core_info->irq_payload.reset_complete = &vfe_hw->hw_complete;
 
@@ -450,8 +469,10 @@ static int cam_vfe_irq_top_half(uint32_t    evt_id,
 
 	handler_priv = th_payload->handler_priv;
 
-	CAM_DBG(CAM_ISP, "IRQ status_0 = %x", th_payload->evt_status_arr[0]);
-	CAM_DBG(CAM_ISP, "IRQ status_1 = %x", th_payload->evt_status_arr[1]);
+	for (i = 0; i < th_payload->num_registers; i++)
+		CAM_DBG(CAM_ISP, "IRQ status_%d = 0x%x",
+		i, th_payload->evt_status_arr[i]);
+
 
 	rc  = cam_vfe_get_evt_payload(handler_priv->core_info, &evt_payload);
 	if (rc) {
@@ -469,15 +490,16 @@ static int cam_vfe_irq_top_half(uint32_t    evt_id,
 	evt_payload->core_index = handler_priv->core_index;
 	evt_payload->core_info  = handler_priv->core_info;
 	evt_payload->evt_id  = evt_id;
+	evt_payload->hw_version = handler_priv->hw_version;
 
 	for (i = 0; i < th_payload->num_registers; i++)
 		evt_payload->irq_reg_val[i] = th_payload->evt_status_arr[i];
 
-	for (; i < CAM_IFE_IRQ_REGISTERS_MAX; i++) {
-		evt_payload->irq_reg_val[i] = cam_io_r(handler_priv->mem_base +
-			irq_reg_offset[i]);
-	}
-	CAM_DBG(CAM_ISP, "Violation status = %x", evt_payload->irq_reg_val[2]);
+	evt_payload->irq_reg_val[i] = cam_io_r(handler_priv->mem_base +
+		irq_reg_offset[i]);
+
+	CAM_DBG(CAM_ISP,
+		"Violation status = 0x%x", evt_payload->irq_reg_val[i]);
 
 	th_payload->evt_payload_priv = evt_payload;
 
@@ -572,7 +594,8 @@ int cam_vfe_start(void *hw_priv, void *start_args, uint32_t arg_size)
 	struct cam_vfe_hw_core_info       *core_info = NULL;
 	struct cam_hw_info                *vfe_hw  = hw_priv;
 	struct cam_isp_resource_node      *isp_res;
-	int rc = 0;
+	struct cam_hw_soc_info            *soc_info = NULL;
+	int                                rc = 0;
 
 	if (!hw_priv || !start_args ||
 		(arg_size != sizeof(struct cam_isp_resource_node))) {
@@ -580,9 +603,11 @@ int cam_vfe_start(void *hw_priv, void *start_args, uint32_t arg_size)
 		return -EINVAL;
 	}
 
+	soc_info = &vfe_hw->soc_info;
 	core_info = (struct cam_vfe_hw_core_info *)vfe_hw->core_info;
 	isp_res = (struct cam_isp_resource_node  *)start_args;
 	core_info->tasklet_info = isp_res->tasklet_info;
+	core_info->irq_payload.hw_version = soc_info->hw_version;
 
 	mutex_lock(&vfe_hw->hw_mutex);
 	if (isp_res->res_type == CAM_ISP_RESOURCE_VFE_IN) {
@@ -823,7 +848,8 @@ int cam_vfe_core_init(struct cam_vfe_hw_core_info  *core_info,
 		CAM_SOC_GET_REG_MAP_START(soc_info, VFE_CORE_BASE_IDX),
 		vfe_hw_info->irq_reg_info, &core_info->vfe_irq_controller);
 	if (rc) {
-		CAM_ERR(CAM_ISP, "Error! cam_irq_controller_init failed");
+		CAM_ERR(CAM_ISP,
+			"Error, cam_irq_controller_init failed rc = %d", rc);
 		return rc;
 	}
 
@@ -831,7 +857,7 @@ int cam_vfe_core_init(struct cam_vfe_hw_core_info  *core_info,
 		soc_info, hw_intf, vfe_hw_info->top_hw_info,
 		&core_info->vfe_top);
 	if (rc) {
-		CAM_ERR(CAM_ISP, "Error! cam_vfe_top_init failed");
+		CAM_ERR(CAM_ISP, "Error, cam_vfe_top_init failed rc = %d", rc);
 		goto deinit_controller;
 	}
 
@@ -840,7 +866,7 @@ int cam_vfe_core_init(struct cam_vfe_hw_core_info  *core_info,
 		vfe_hw_info->bus_hw_info, core_info->vfe_irq_controller,
 		&core_info->vfe_bus);
 	if (rc) {
-		CAM_ERR(CAM_ISP, "Error! cam_vfe_bus_init failed");
+		CAM_ERR(CAM_ISP, "Error, cam_vfe_bus_init failed rc = %d", rc);
 		goto deinit_top;
 	}
 
@@ -850,7 +876,7 @@ int cam_vfe_core_init(struct cam_vfe_hw_core_info  *core_info,
 			soc_info, hw_intf, vfe_hw_info->bus_rd_hw_info,
 			core_info->vfe_irq_controller, &core_info->vfe_rd_bus);
 		if (rc) {
-			CAM_ERR(CAM_ISP, "Error! RD cam_vfe_bus_init failed");
+			CAM_WARN(CAM_ISP, "Error, RD cam_vfe_bus_init failed");
 			rc = 0;
 		}
 		CAM_DBG(CAM_ISP, "vfe_bus_rd %pK hw_idx %d",

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_IFE_HW_MGR_H_
@@ -231,5 +231,17 @@ int cam_ife_mgr_do_tasklet_buf_done(void *handler_priv, void *evt_payload_priv);
  *
  */
 int cam_ife_mgr_do_tasklet(void *handler_priv, void *evt_payload_priv);
+
+/**
+ * cam_ife_mgr_do_tasklet_reg_update()
+ *
+ * @brief:              Tasklet handle function for reg update
+ *
+ * @handler_priv:       Tasklet information handle
+ * @evt_payload_priv:   Event payload for the handler funciton
+ *
+ */
+int cam_ife_mgr_do_tasklet_reg_update(void *handler_priv,
+	void *evt_payload_priv);
 
 #endif /* _CAM_IFE_HW_MGR_H_ */
