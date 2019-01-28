@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
@@ -24,6 +24,7 @@
 #include "sde_core_perf.h"
 
 #define SDE_PERF_MODE_STRING_SIZE	128
+#define SDE_PERF_THRESHOLD_HIGH_MIN     12800000
 
 static DEFINE_MUTEX(sde_core_perf_lock);
 
@@ -977,6 +978,62 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 
 #ifdef CONFIG_DEBUG_FS
 
+static ssize_t _sde_core_perf_threshold_high_write(struct file *file,
+		    const char __user *user_buf, size_t count, loff_t *ppos)
+{
+	struct sde_core_perf *perf = file->private_data;
+	u32 threshold_high = 0;
+	char buf[10];
+
+	if (!perf)
+		return -ENODEV;
+
+	if (count >= sizeof(buf))
+		return -EFAULT;
+
+	if (copy_from_user(buf, user_buf, count))
+		return -EFAULT;
+
+	buf[count] = 0;	/* end of string */
+
+	if (kstrtouint(buf, 0, &threshold_high))
+		return -EFAULT;
+
+	if (threshold_high < SDE_PERF_THRESHOLD_HIGH_MIN)
+		threshold_high = SDE_PERF_THRESHOLD_HIGH_MIN;
+
+	perf->catalog->perf.max_bw_high = threshold_high;
+
+	return count;
+}
+
+static ssize_t _sde_core_perf_threshold_high_read(struct file *file,
+			char __user *buff, size_t count, loff_t *ppos)
+{
+	struct sde_core_perf *perf = file->private_data;
+	int len = 0;
+	char buf[20] = {'\0'};
+
+	if (!perf)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;	/* the end */
+
+	len = snprintf(buf, sizeof(buf),
+			"%d\n", perf->catalog->perf.max_bw_high);
+
+	if (len < 0 || len >= sizeof(buf))
+		return 0;
+
+	if ((count < sizeof(buf)) || copy_to_user(buff, buf, len))
+		return -EFAULT;
+
+	*ppos += len;   /* increase offset */
+
+	return len;
+}
+
 static ssize_t _sde_core_perf_mode_write(struct file *file,
 		    const char __user *user_buf, size_t count, loff_t *ppos)
 {
@@ -1050,6 +1107,12 @@ static ssize_t _sde_core_perf_mode_read(struct file *file,
 	return len;
 }
 
+static const struct file_operations sde_core_perf_threshold_high_fops = {
+	.open = simple_open,
+	.read = _sde_core_perf_threshold_high_read,
+	.write = _sde_core_perf_threshold_high_write,
+};
+
 static const struct file_operations sde_core_perf_mode_fops = {
 	.open = simple_open,
 	.read = _sde_core_perf_mode_read,
@@ -1089,8 +1152,8 @@ int sde_core_perf_debugfs_init(struct sde_core_perf *perf,
 			&perf->core_clk_rate);
 	debugfs_create_u32("threshold_low", 0600, perf->debugfs_root,
 			(u32 *)&catalog->perf.max_bw_low);
-	debugfs_create_u32("threshold_high", 0600, perf->debugfs_root,
-			(u32 *)&catalog->perf.max_bw_high);
+	debugfs_create_file("threshold_high", 0600, perf->debugfs_root,
+			(u32 *)perf, &sde_core_perf_threshold_high_fops);
 	debugfs_create_u32("min_core_ib", 0600, perf->debugfs_root,
 			(u32 *)&catalog->perf.min_core_ib);
 	debugfs_create_u32("min_llcc_ib", 0600, perf->debugfs_root,
