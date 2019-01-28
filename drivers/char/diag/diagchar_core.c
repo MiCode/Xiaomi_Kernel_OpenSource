@@ -972,7 +972,7 @@ static int diag_send_raw_data_remote(int proc, void *buf, int len,
 	int err = 0;
 	int max_len = 0;
 	uint8_t retry_count = 0;
-	uint8_t max_retries = 3;
+	uint8_t max_retries = 50;
 	uint16_t payload = 0;
 	struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
 	struct diag_hdlc_dest_type enc = { NULL, NULL, 0 };
@@ -3205,7 +3205,7 @@ fail:
 static int diag_user_process_userspace_data(const char __user *buf, int len)
 {
 	int err = 0;
-	int max_retries = 3;
+	int max_retries = 50;
 	int retry_count = 0;
 	int remote_proc = 0;
 	int token_offset = 0;
