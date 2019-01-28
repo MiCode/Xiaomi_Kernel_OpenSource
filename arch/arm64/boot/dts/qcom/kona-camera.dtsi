@@ -703,7 +703,8 @@
 			<&clock_camcc CAM_CC_CPAS_AHB_CLK>;
 		clock-rates = <0 0>;
 		clock-cntl-level = "svs";
-		cdm-client-names = "ife2", "ife3", "ife4", "ife5", "ife6";
+		cdm-client-names = "ife0", "ife1","ife2", "ife3", "ife4",
+			"ife5", "ife6";
 		status = "ok";
 	};
 
@@ -725,7 +726,7 @@
 		clock-rates = <0 0>;
 		clock-cntl-level = "svs";
 		cdm-client-names = "ife0";
-		status = "ok";
+		status = "disabled";
 	};
 
 	qcom,cpas-cdm2@acc3200 {
@@ -746,7 +747,7 @@
 		clock-rates = <0 0>;
 		clock-cntl-level = "svs";
 		cdm-client-names = "ife1";
-		status = "ok";
+		status = "disabled";
 	};
 
 	qcom,cam-isp {
