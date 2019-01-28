@@ -995,7 +995,7 @@ static int cam_mem_util_unmap(int32_t idx,
 				CAM_ERR(CAM_MEM,
 					"Failed, dmabuf=%pK, kmdvaddr=%pK",
 					tbl.bufq[idx].dma_buf,
-					tbl.bufq[idx].kmdvaddr);
+					(void *) tbl.bufq[idx].kmdvaddr);
 		}
 	}
 
