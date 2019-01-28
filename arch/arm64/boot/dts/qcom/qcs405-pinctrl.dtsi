@@ -2193,7 +2193,7 @@
 				config {
 					pins = "gpio46";
 					drive-strength = <16>;
-					bias-pull-down;
+					bias-disable;
 					output-high;
 				};
 			};
