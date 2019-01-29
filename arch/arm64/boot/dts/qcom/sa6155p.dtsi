@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -227,7 +227,7 @@
 
 		qcom,dsi-ctrl-num = <0>;
 		qcom,dsi-phy-num = <0>;
-		qcom,dsi-select-clocks = "src_byte_clk0", "src_pixel_clk0";
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
 
 		qcom,dsi-panel = <&dsi_ext_bridge_1080p>;
 	};
@@ -241,7 +241,7 @@
 
 		clocks = <&mdss_dsi0_pll BYTE0_MUX_CLK>,
 			 <&mdss_dsi0_pll PIX0_MUX_CLK>;
-		clock-names = "src_byte_clk0", "src_pixel_clk0";
+		clock-names = "mux_byte_clk0", "mux_pixel_clk0";
 
 
 		qcom,dsi-display-list =
