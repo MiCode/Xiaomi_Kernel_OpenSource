@@ -182,6 +182,7 @@
 };
 
 &usb0 {
+	qcom,default-mode-none;
 	qcom,host-poweroff-in-pm-suspend;
 };
 
