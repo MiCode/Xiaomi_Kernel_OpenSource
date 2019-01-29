@@ -19,6 +19,7 @@
 
 enum chip_id {
 	MT6323_CID_CODE = 0x23,
+	MT6358_CID_CODE = 0x5800,
 	MT6391_CID_CODE = 0x91,
 	MT6397_CID_CODE = 0x97,
 };
@@ -72,8 +73,10 @@ struct mt6397_chip {
 	u16 int_con[2];
 	u16 int_status[2];
 	u16 chip_id;
+	void *irq_data;
 };
 
+int mt6358_irq_init(struct mt6397_chip *chip);
 int mt6397_irq_init(struct mt6397_chip *mt6397);
 
 #endif /* __MFD_MT6397_CORE_H__ */
