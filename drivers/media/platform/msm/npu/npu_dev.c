@@ -59,8 +59,6 @@ static ssize_t perf_mode_override_show(struct device *dev,
 static ssize_t perf_mode_override_store(struct device *dev,
 					  struct device_attribute *attr,
 					  const char *buf, size_t count);
-static void npu_suspend_devbw(struct npu_device *npu_dev);
-static void npu_resume_devbw(struct npu_device *npu_dev);
 static bool npu_is_post_clock(const char *clk_name);
 static bool npu_is_exclude_rate_clock(const char *clk_name);
 static int npu_get_max_state(struct thermal_cooling_device *cdev,
@@ -126,20 +124,21 @@ static const char * const npu_exclude_rate_clocks[] = {
 	"npu_cpc_timer_clk",
 	"qtimer_core_clk",
 	"bwmon_clk",
-	"bto_core_clk"
-};
-
-static struct npu_reg npu_saved_bw_registers[] = {
-	{ BWMON2_SAMPLING_WINDOW, 0, false },
-	{ BWMON2_BYTE_COUNT_THRESHOLD_HIGH, 0, false },
-	{ BWMON2_BYTE_COUNT_THRESHOLD_MEDIUM, 0, false },
-	{ BWMON2_BYTE_COUNT_THRESHOLD_LOW, 0, false },
-	{ BWMON2_ZONE_ACTIONS, 0, false },
-	{ BWMON2_ZONE_COUNT_THRESHOLD, 0, false },
+	"bto_core_clk",
+	"llm_xo_clk",
+	"dpm_xo_clk",
+	"rsc_xo_clk",
+	"dsp_bwmon_clk",
+	"dl_dpm_clk",
+	"dpm_temp_clk",
+	"dsp_bwmon_ahb_clk",
+	"cal_hm0_perf_cnt_clk",
+	"cal_hm1_perf_cnt_clk",
+	"dsp_ahbs_clk"
 };
 
 static const struct npu_irq npu_irq_info[NPU_MAX_IRQ] = {
-	{"ipc_irq", 0, IRQF_TRIGGER_HIGH},
+	{"ipc_irq", 0, IRQF_TRIGGER_RISING | IRQF_ONESHOT},
 	{"error_irq", 0, IRQF_TRIGGER_RISING | IRQF_ONESHOT},
 	{"wdg_bite_irq", 0, IRQF_TRIGGER_RISING | IRQF_ONESHOT},
 };
@@ -314,7 +313,6 @@ int npu_enable_core_power(struct npu_device *npu_dev)
 			pwr->pwr_vote_num = 0;
 			return ret;
 		}
-		npu_resume_devbw(npu_dev);
 	}
 	pwr->pwr_vote_num++;
 
@@ -330,7 +328,6 @@ void npu_disable_core_power(struct npu_device *npu_dev)
 		return;
 	pwr->pwr_vote_num--;
 	if (!pwr->pwr_vote_num) {
-		npu_suspend_devbw(npu_dev);
 		npu_disable_core_clocks(npu_dev);
 		npu_disable_regulators(npu_dev);
 		pwr->active_pwrlevel = thermalctrl->pwr_level;
@@ -490,61 +487,6 @@ int npu_set_uc_power_level(struct npu_device *npu_dev,
 
 	pwr->uc_pwrlevel = uc_pwrlevel_to_set;
 	return npu_set_power_level(npu_dev, true);
-}
-
-/* -------------------------------------------------------------------------
- * Bandwidth Related
- * -------------------------------------------------------------------------
- */
-static void npu_save_bw_registers(struct npu_device *npu_dev)
-{
-	int i;
-
-	if (!npu_dev->bwmon_io.base)
-		return;
-
-	for (i = 0; i < ARRAY_SIZE(npu_saved_bw_registers); i++) {
-		npu_saved_bw_registers[i].val = npu_bwmon_reg_read(npu_dev,
-			npu_saved_bw_registers[i].off);
-		npu_saved_bw_registers[i].valid = true;
-	}
-}
-
-static void npu_restore_bw_registers(struct npu_device *npu_dev)
-{
-	int i;
-
-	if (!npu_dev->bwmon_io.base)
-		return;
-
-	for (i = 0; i < ARRAY_SIZE(npu_saved_bw_registers); i++) {
-		if (npu_saved_bw_registers[i].valid) {
-			npu_bwmon_reg_write(npu_dev,
-				npu_saved_bw_registers[i].off,
-				npu_saved_bw_registers[i].val);
-			npu_saved_bw_registers[i].valid = false;
-		}
-	}
-}
-
-static void npu_suspend_devbw(struct npu_device *npu_dev)
-{
-	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
-
-	if (pwr->bwmon_enabled && pwr->devbw) {
-		pwr->bwmon_enabled = 0;
-		npu_save_bw_registers(npu_dev);
-	}
-}
-
-static void npu_resume_devbw(struct npu_device *npu_dev)
-{
-	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
-
-	if (!pwr->bwmon_enabled && pwr->devbw) {
-		pwr->bwmon_enabled = 1;
-		npu_restore_bw_registers(npu_dev);
-	}
 }
 
 /* -------------------------------------------------------------------------
@@ -761,13 +703,6 @@ int npu_enable_irq(struct npu_device *npu_dev)
 {
 	int i;
 
-	/* clear pending irq state */
-	REGW(npu_dev, NPU_MASTERn_IPC_IRQ_OUT(0), 0x0);
-	REGW(npu_dev, NPU_MASTERn_ERROR_IRQ_CLEAR(0), NPU_ERROR_IRQ_MASK);
-	REGW(npu_dev, NPU_MASTERn_ERROR_IRQ_ENABLE(0), NPU_ERROR_IRQ_MASK);
-	REGW(npu_dev, NPU_MASTERn_ERROR_IRQ_OWNER(0), NPU_ERROR_IRQ_MASK);
-	REGW(npu_dev, NPU_MASTERn_WDOG_IRQ_OWNER(0), NPU_WDOG_IRQ_MASK);
-
 	for (i = 0; i < NPU_MAX_IRQ; i++) {
 		if (npu_dev->irq[i].irq != 0) {
 			enable_irq(npu_dev->irq[i].irq);
@@ -788,11 +723,6 @@ void npu_disable_irq(struct npu_device *npu_dev)
 			pr_debug("disable irq %d\n", npu_dev->irq[i].irq);
 		}
 	}
-
-	REGW(npu_dev, NPU_MASTERn_ERROR_IRQ_ENABLE(0), 0);
-	/* clear pending irq state */
-	REGW(npu_dev, NPU_MASTERn_IPC_IRQ_OUT(0), 0x0);
-	REGW(npu_dev, NPU_MASTERn_ERROR_IRQ_CLEAR(0), NPU_ERROR_IRQ_MASK);
 }
 
 /* -------------------------------------------------------------------------
@@ -1656,6 +1586,7 @@ static int npu_probe(struct platform_device *pdev)
 		goto error_get_dev_num;
 	}
 	npu_dev->core_io.size = resource_size(res);
+	npu_dev->core_io.phy_addr = res->start;
 	npu_dev->core_io.base = devm_ioremap(&pdev->dev, res->start,
 					npu_dev->core_io.size);
 	if (unlikely(!npu_dev->core_io.base)) {
@@ -1663,7 +1594,7 @@ static int npu_probe(struct platform_device *pdev)
 		rc = -ENOMEM;
 		goto error_get_dev_num;
 	}
-	pr_debug("core phy address=0x%x virt=%pK\n",
+	pr_debug("core phy address=0x%llx virt=%pK\n",
 		res->start, npu_dev->core_io.base);
 
 	res = platform_get_resource_byname(pdev,
@@ -1674,6 +1605,7 @@ static int npu_probe(struct platform_device *pdev)
 		goto error_get_dev_num;
 	}
 	npu_dev->tcm_io.size = resource_size(res);
+	npu_dev->tcm_io.phy_addr = res->start;
 	npu_dev->tcm_io.base = devm_ioremap(&pdev->dev, res->start,
 					npu_dev->tcm_io.size);
 	if (unlikely(!npu_dev->tcm_io.base)) {
@@ -1681,8 +1613,46 @@ static int npu_probe(struct platform_device *pdev)
 		rc = -ENOMEM;
 		goto error_get_dev_num;
 	}
-	pr_debug("core phy address=0x%x virt=%pK\n",
+	pr_debug("tcm phy address=0x%llx virt=%pK\n",
 		res->start, npu_dev->tcm_io.base);
+
+	res = platform_get_resource_byname(pdev,
+		IORESOURCE_MEM, "qdsp");
+	if (!res) {
+		pr_err("unable to get qdsp resource\n");
+		rc = -ENODEV;
+		goto error_get_dev_num;
+	}
+	npu_dev->qdsp_io.size = resource_size(res);
+	npu_dev->qdsp_io.phy_addr = res->start;
+	npu_dev->qdsp_io.base = devm_ioremap(&pdev->dev, res->start,
+					npu_dev->qdsp_io.size);
+	if (unlikely(!npu_dev->qdsp_io.base)) {
+		pr_err("unable to map qdsp\n");
+		rc = -ENOMEM;
+		goto error_get_dev_num;
+	}
+	pr_debug("qdsp phy address=0x%x virt=%pK\n",
+		res->start, npu_dev->qdsp_io.base);
+
+	res = platform_get_resource_byname(pdev,
+		IORESOURCE_MEM, "apss_shared");
+	if (!res) {
+		pr_err("unable to get apss_shared resource\n");
+		rc = -ENODEV;
+		goto error_get_dev_num;
+	}
+	npu_dev->apss_shared_io.size = resource_size(res);
+	npu_dev->apss_shared_io.phy_addr = res->start;
+	npu_dev->apss_shared_io.base = devm_ioremap(&pdev->dev, res->start,
+					npu_dev->apss_shared_io.size);
+	if (unlikely(!npu_dev->apss_shared_io.base)) {
+		pr_err("unable to map apss_shared\n");
+		rc = -ENOMEM;
+		goto error_get_dev_num;
+	}
+	pr_debug("apss_shared phy address=0x%x virt=%pK\n",
+		res->start, npu_dev->apss_shared_io.base);
 
 	res = platform_get_resource_byname(pdev,
 		IORESOURCE_MEM, "bwmon");
@@ -1690,6 +1660,7 @@ static int npu_probe(struct platform_device *pdev)
 		pr_info("unable to get bwmon resource\n");
 	} else {
 		npu_dev->bwmon_io.size = resource_size(res);
+		npu_dev->bwmon_io.phy_addr = res->start;
 		npu_dev->bwmon_io.base = devm_ioremap(&pdev->dev, res->start,
 						npu_dev->bwmon_io.size);
 		if (unlikely(!npu_dev->bwmon_io.base)) {
@@ -1697,7 +1668,7 @@ static int npu_probe(struct platform_device *pdev)
 			rc = -ENOMEM;
 			goto error_get_dev_num;
 		}
-		pr_debug("bwmon phy address=0x%x virt=%pK\n",
+		pr_debug("bwmon phy address=0x%llx virt=%pK\n",
 			res->start, npu_dev->bwmon_io.base);
 	}
 
@@ -1707,6 +1678,7 @@ static int npu_probe(struct platform_device *pdev)
 		pr_info("unable to get qfprom_physical resource\n");
 	} else {
 		npu_dev->qfprom_io.size = resource_size(res);
+		npu_dev->qfprom_io.phy_addr = res->start;
 		npu_dev->qfprom_io.base = devm_ioremap(&pdev->dev, res->start,
 					npu_dev->qfprom_io.size);
 		if (unlikely(!npu_dev->qfprom_io.base)) {
@@ -1714,7 +1686,7 @@ static int npu_probe(struct platform_device *pdev)
 			rc = -ENOMEM;
 			goto error_get_dev_num;
 		}
-		pr_debug("qfprom_physical phy address=0x%x virt=%pK\n",
+		pr_debug("qfprom_physical phy address=0x%llx virt=%pK\n",
 			res->start, npu_dev->qfprom_io.base);
 	}
 

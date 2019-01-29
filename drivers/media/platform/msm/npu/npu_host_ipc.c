@@ -136,7 +136,8 @@ static int npu_host_ipc_init_hfi(struct npu_device *npu_dev)
 	kfree(q_tbl_addr);
 	/* Write in the NPU's address for where IPC starts */
 	REGW(npu_dev, (uint32_t)REG_NPU_HOST_CTRL_VALUE,
-		(uint32_t)IPC_MEM_OFFSET_FROM_SSTCM);
+		(uint32_t)(npu_dev->tcm_io.phy_addr +
+		IPC_MEM_OFFSET_FROM_SSTCM));
 	/* Set value bit */
 	reg_val = REGR(npu_dev, (uint32_t)REG_NPU_HOST_CTRL_STATUS);
 	REGW(npu_dev, (uint32_t)REG_NPU_HOST_CTRL_STATUS, reg_val |

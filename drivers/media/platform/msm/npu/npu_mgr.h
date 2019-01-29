@@ -85,6 +85,7 @@ struct npu_host_ctx {
 	uint32_t err_irq_sts;
 	uint32_t wdg_irq_sts;
 	bool fw_error;
+	bool cancel_work;
 };
 
 struct npu_device;
