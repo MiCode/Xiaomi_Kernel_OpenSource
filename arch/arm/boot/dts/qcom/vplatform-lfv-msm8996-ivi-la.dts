@@ -271,6 +271,7 @@
 
 &usb2s {
 	status = "okay";
+	qcom,no-wakeup-src-in-hostmode;
 };
 
 &qusb_phy1 {
