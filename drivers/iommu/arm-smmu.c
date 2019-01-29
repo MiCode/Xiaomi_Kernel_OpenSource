@@ -2516,24 +2516,6 @@ static void arm_smmu_prealloc_memory(struct arm_smmu_domain *smmu_domain,
 	}
 }
 
-static void arm_smmu_prealloc_memory_sg(struct arm_smmu_domain *smmu_domain,
-					struct scatterlist *sgl, int nents,
-					struct list_head *pool)
-{
-	int i;
-	size_t size = 0;
-	struct scatterlist *sg;
-
-	if ((smmu_domain->attributes & (1 << DOMAIN_ATTR_ATOMIC)) ||
-			arm_smmu_has_secure_vmid(smmu_domain))
-		return;
-
-	for_each_sg(sgl, sg, nents, i)
-		size += sg->length;
-
-	arm_smmu_prealloc_memory(smmu_domain, size, pool);
-}
-
 static void arm_smmu_release_prealloc_memory(
 		struct arm_smmu_domain *smmu_domain, struct list_head *list)
 {
@@ -2782,19 +2764,29 @@ static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 	if (arm_smmu_is_slave_side_secure(smmu_domain))
 		return msm_secure_smmu_map(domain, iova, paddr, size, prot);
 
-	arm_smmu_prealloc_memory(smmu_domain, size, &nonsecure_pool);
 	arm_smmu_secure_domain_lock(smmu_domain);
-
 	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
-	list_splice_init(&nonsecure_pool, &smmu_domain->nonsecure_pool);
 	ret = ops->map(ops, iova, paddr, size, prot);
-	list_splice_init(&smmu_domain->nonsecure_pool, &nonsecure_pool);
 	spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
+
+	/* if the map call failed due to insufficient memory,
+	 * then retry again with preallocated memory to see
+	 * if the map call succeeds.
+	 */
+	if (ret == -ENOMEM) {
+		arm_smmu_prealloc_memory(smmu_domain, size, &nonsecure_pool);
+		spin_lock_irqsave(&smmu_domain->cb_lock, flags);
+		list_splice_init(&nonsecure_pool, &smmu_domain->nonsecure_pool);
+		ret = ops->map(ops, iova, paddr, size, prot);
+		list_splice_init(&smmu_domain->nonsecure_pool, &nonsecure_pool);
+		spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
+		arm_smmu_release_prealloc_memory(smmu_domain, &nonsecure_pool);
+
+	}
 
 	arm_smmu_assign_table(smmu_domain);
 	arm_smmu_secure_domain_unlock(smmu_domain);
 
-	arm_smmu_release_prealloc_memory(smmu_domain, &nonsecure_pool);
 	return ret;
 }
 
@@ -2880,7 +2872,7 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 	if (arm_smmu_is_slave_side_secure(smmu_domain))
 		return msm_secure_smmu_map_sg(domain, iova, sg, nents, prot);
 
-	arm_smmu_prealloc_memory_sg(smmu_domain, sg, nents, &nonsecure_pool);
+
 	arm_smmu_secure_domain_lock(smmu_domain);
 
 	__saved_iova_start = iova;
@@ -2899,11 +2891,25 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 		}
 
 		spin_lock_irqsave(&smmu_domain->cb_lock, flags);
-		list_splice_init(&nonsecure_pool, &smmu_domain->nonsecure_pool);
 		ret = ops->map_sg(ops, iova, sg_start, idx_end - idx_start,
 				  prot, &size);
-		list_splice_init(&smmu_domain->nonsecure_pool, &nonsecure_pool);
 		spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
+
+
+		if (ret == -ENOMEM) {
+			arm_smmu_prealloc_memory(smmu_domain,
+						 batch_size, &nonsecure_pool);
+			spin_lock_irqsave(&smmu_domain->cb_lock, flags);
+			list_splice_init(&nonsecure_pool,
+					 &smmu_domain->nonsecure_pool);
+			ret = ops->map_sg(ops, iova, sg_start,
+					  idx_end - idx_start, prot, &size);
+			list_splice_init(&smmu_domain->nonsecure_pool,
+					 &nonsecure_pool);
+			spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
+			arm_smmu_release_prealloc_memory(smmu_domain,
+							 &nonsecure_pool);
+		}
 
 		/* Returns 0 on error */
 		if (!ret) {
@@ -2924,7 +2930,6 @@ out:
 		iova = __saved_iova_start;
 	}
 	arm_smmu_secure_domain_unlock(smmu_domain);
-	arm_smmu_release_prealloc_memory(smmu_domain, &nonsecure_pool);
 	return iova - __saved_iova_start;
 }
 
