@@ -15,14 +15,14 @@
 		interrupts = <GIC_SPI 234 IRQ_TYPE_LEVEL_HIGH>;
 
 		/* Supply */
-		cvp-supply = <&mvs1_gdsc>;
+		cvp-supply = <&mvs1c_gdsc>;
 
 		/* Clocks */
 		clock-names =  "gcc_video_axi0",
 			"gcc_video_axi1", "cvp_clk";
 		clocks = <&clock_gcc GCC_VIDEO_AXI0_CLK>,
 			<&clock_gcc GCC_VIDEO_AXI1_CLK>,
-			<&clock_videocc VIDEO_CC_MVS1_CLK>;
+			<&clock_videocc VIDEO_CC_MVS1C_CLK>;
 		qcom,proxy-clock-names = "gcc_video_axi0", "gcc_video_axi1",
 			"cvp_clk";
 
