@@ -457,6 +457,7 @@ struct usbpd {
 	struct mutex		svid_handler_lock;
 	struct list_head	svid_handlers;
 	ktime_t			svdm_start_time;
+	bool			vdm_in_suspend;
 
 	struct list_head	instance;
 
@@ -659,15 +660,21 @@ static struct usbpd_svid_handler *find_svid_handler(struct usbpd *pd, u16 svid)
 {
 	struct usbpd_svid_handler *handler;
 
-	mutex_lock(&pd->svid_handler_lock);
+	/* in_interrupt() == true when handling VDM RX during suspend */
+	if (!in_interrupt())
+		mutex_lock(&pd->svid_handler_lock);
+
 	list_for_each_entry(handler, &pd->svid_handlers, entry) {
 		if (svid == handler->svid) {
-			mutex_unlock(&pd->svid_handler_lock);
+			if (!in_interrupt())
+				mutex_unlock(&pd->svid_handler_lock);
 			return handler;
 		}
 	}
 
-	mutex_unlock(&pd->svid_handler_lock);
+	if (!in_interrupt())
+		mutex_unlock(&pd->svid_handler_lock);
+
 	return NULL;
 }
 
@@ -1074,6 +1081,8 @@ queue_rx:
 	return rx_msg;	/* queue it for usbpd_sm */
 }
 
+static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg);
+
 static void phy_msg_received(struct usbpd *pd, enum pd_sop_type sop,
 		u8 *buf, size_t len)
 {
@@ -1144,6 +1153,13 @@ static void phy_msg_received(struct usbpd *pd, enum pd_sop_type sop,
 		rx_msg = pd_ext_msg_received(pd, header, buf, len, sop);
 		if (!rx_msg)
 			return;
+	}
+
+	if (pd->vdm_in_suspend && msg_type == MSG_VDM) {
+		usbpd_dbg(&pd->dev, "Skip wq and handle VDM directly\n");
+		handle_vdm_rx(pd, rx_msg);
+		kfree(rx_msg);
+		return;
 	}
 
 	spin_lock_irqsave(&pd->rx_lock, flags);
@@ -1324,6 +1340,7 @@ int usbpd_send_vdm(struct usbpd *pd, u32 vdm_hdr, const u32 *vdos, int num_vdos)
 
 	/* VDM will get sent in PE_SRC/SNK_READY state handling */
 	pd->vdm_tx = vdm_tx;
+	pd->vdm_in_suspend = false;
 
 	/* slight delay before queuing to prioritize handling of incoming VDM */
 	if (pd->in_explicit_contract)
@@ -1345,6 +1362,14 @@ int usbpd_send_svdm(struct usbpd *pd, u16 svid, u8 cmd,
 	return usbpd_send_vdm(pd, svdm_hdr, vdos, num_vdos);
 }
 EXPORT_SYMBOL(usbpd_send_svdm);
+
+void usbpd_vdm_in_suspend(struct usbpd *pd, bool in_suspend)
+{
+	usbpd_dbg(&pd->dev, "VDM in_suspend:%d\n", in_suspend);
+
+	pd->vdm_in_suspend = in_suspend;
+}
+EXPORT_SYMBOL(usbpd_vdm_in_suspend);
 
 static void handle_vdm_resp_ack(struct usbpd *pd, u32 *vdos, u8 num_vdos,
 	u16 vdm_hdr)
@@ -1689,6 +1714,7 @@ static void reset_vdm_state(struct usbpd *pd)
 	kfree(pd->vdm_tx);
 	pd->vdm_tx = NULL;
 	pd->ss_lane_svid = 0x0;
+	pd->vdm_in_suspend = false;
 }
 
 static void handle_get_src_cap_extended(struct usbpd *pd)
