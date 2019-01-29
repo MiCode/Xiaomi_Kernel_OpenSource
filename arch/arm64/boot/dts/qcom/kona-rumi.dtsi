@@ -85,10 +85,6 @@
 				     0x10060 0x3c
 				     0x0 0x4>;
 	};
-
-	usb_nop_phy: usb_nop_phy {
-		compatible = "usb-nop-xceiv";
-	};
 };
 
 &usb0 {
