@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "SMB1390: %s: " fmt, __func__
@@ -771,7 +771,7 @@ static int smb1390_parse_dt(struct smb1390 *chip)
 			rc = PTR_ERR(chip->iio.die_temp_chan);
 			if (rc != -EPROBE_DEFER)
 				dev_err(chip->dev,
-					"cp_die_temp channel unavailable %ld\n",
+					"cp_die_temp channel unavailable %d\n",
 					rc);
 			chip->iio.die_temp_chan = NULL;
 			return rc;
