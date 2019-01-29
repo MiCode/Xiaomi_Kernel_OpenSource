@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -889,6 +889,15 @@
 			};
 
 			port@9 {
+				reg = <13>;
+				tpda_in_tpdm_west: endpoint {
+					slave-mode;
+					remote-endpoint =
+						<&tpdm_west_out_tpda>;
+				};
+			};
+
+			port@10 {
 				reg = <14>;
 				tpda_in_tpdm_pimem: endpoint {
 					slave-mode;
@@ -896,7 +905,6 @@
 						<&tpdm_pimem_out_tpda>;
 				};
 			};
-
 
 		};
 	};
@@ -915,6 +923,24 @@
 		port{
 			tpdm_vsense_out_tpda: endpoint {
 				remote-endpoint = <&tpda_in_tpdm_vsense>;
+			};
+		};
+	};
+
+	tpdm_west: tpdm@8a58000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b968>;
+		reg = <0x8a58000 0x1000>;
+		reg-names = "tpdm-base";
+
+		coresight-name = "coresight-tpdm-west";
+
+		clocks = <&clock_rpmcc RPM_SMD_QDSS_CLK>;
+		clock-names = "apb_pclk";
+
+		port{
+			tpdm_west_out_tpda: endpoint {
+				remote-endpoint = <&tpda_in_tpdm_west>;
 			};
 		};
 	};
