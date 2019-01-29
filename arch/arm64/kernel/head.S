@@ -32,6 +32,7 @@
 #include <asm/cputype.h>
 #include <asm/elf.h>
 #include <asm/kernel-pgtable.h>
+#include <asm/kvm_arm.h>
 #include <asm/memory.h>
 #include <asm/pgtable-hwdef.h>
 #include <asm/pgtable.h>
@@ -503,7 +504,7 @@ CPU_LE(	bic	x0, x0, #(3 << 24)	)	// Clear the EE and E0E bits for EL1
 	ret
 
 	/* Hyp configuration. */
-2:	mov	x0, #(1 << 31)			// 64-bit EL1
+2:	mov_q	x0, HCR_HOST_NVHE_FLAGS
 	msr	hcr_el2, x0
 
 	/* Generic timers. */

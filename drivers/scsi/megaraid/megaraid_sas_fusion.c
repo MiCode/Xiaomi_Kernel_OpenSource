@@ -1758,7 +1758,7 @@ static void megasas_build_ld_nonrw_fusion(struct megasas_instance *instance,
 		device_id < instance->fw_supported_vd_count)) {
 
 		ld = MR_TargetIdToLdGet(device_id, local_map_ptr);
-		if (ld >= instance->fw_supported_vd_count)
+		if (ld >= instance->fw_supported_vd_count - 1)
 			fp_possible = 0;
 
 		raid = MR_LdRaidGet(ld, local_map_ptr);
