@@ -904,6 +904,43 @@ static inline void get_esr_meas_current(int curr_ma, u8 *val)
 	*val <<= ESR_PULL_DOWN_IVAL_SHIFT;
 }
 
+static int fg_gen4_get_power(struct fg_gen4_chip *chip, int *val, bool average)
+{
+	struct fg_dev *fg = &chip->fg;
+	int rc, v_min, v_pred, esr_uohms, rslow_uohms;
+	s64 power;
+
+	rc = fg_get_sram_prop(fg, FG_SRAM_VOLTAGE_PRED, &v_pred);
+	if (rc < 0)
+		return rc;
+
+	v_min = chip->dt.cutoff_volt_mv * 1000;
+	power = (s64)v_min * (v_pred - v_min);
+
+	rc = fg_get_sram_prop(fg, FG_SRAM_ESR, &esr_uohms);
+	if (rc < 0) {
+		pr_err("failed to get ESR, rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = fg_get_sram_prop(fg, FG_SRAM_RSLOW, &rslow_uohms);
+	if (rc < 0) {
+		pr_err("failed to get Rslow, rc=%d\n", rc);
+		return rc;
+	}
+
+	if (average)
+		power = div_s64(power, esr_uohms + rslow_uohms);
+	else
+		power = div_s64(power, esr_uohms);
+
+	pr_debug("V_min: %d V_pred: %d ESR: %d Rslow: %d power: %lld\n", v_min,
+		v_pred, esr_uohms, rslow_uohms, power);
+
+	*val = power;
+	return 0;
+}
+
 /* ALG callback functions below */
 
 static int fg_gen4_get_ttf_param(void *data, enum ttf_param param, int *val)
@@ -3698,6 +3735,12 @@ static int fg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_BATT_AGE_LEVEL:
 		pval->intval = chip->batt_age_level;
 		break;
+	case POWER_SUPPLY_PROP_POWER_NOW:
+		rc = fg_gen4_get_power(chip, &pval->intval, false);
+		break;
+	case POWER_SUPPLY_PROP_POWER_AVG:
+		rc = fg_gen4_get_power(chip, &pval->intval, true);
+		break;
 	default:
 		pr_err("unsupported property %d\n", psp);
 		rc = -EINVAL;
@@ -3845,6 +3888,8 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_CC_STEP,
 	POWER_SUPPLY_PROP_CC_STEP_SEL,
 	POWER_SUPPLY_PROP_BATT_AGE_LEVEL,
+	POWER_SUPPLY_PROP_POWER_NOW,
+	POWER_SUPPLY_PROP_POWER_AVG,
 };
 
 static const struct power_supply_desc fg_psy_desc = {
