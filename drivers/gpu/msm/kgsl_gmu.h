@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_GMU_H
 #define __KGSL_GMU_H
@@ -13,6 +13,12 @@
 #define MAX_GMUFW_SIZE	0x8000	/* in bytes */
 
 #define BWMEM_SIZE	(12 + (4 * NUM_BW_LEVELS))	/*in bytes*/
+
+#define GMU_VER_MAJOR(ver) (((ver) >> 28) & 0xF)
+#define GMU_VER_MINOR(ver) (((ver) >> 16) & 0xFFF)
+#define GMU_VER_STEP(ver) ((ver) & 0xFFFF)
+#define GMU_VERSION(major, minor) \
+	((((major) & 0xF) << 28) | (((minor) & 0xFFF) << 16))
 
 #define GMU_INT_WDOG_BITE		BIT(0)
 #define GMU_INT_RSCC_COMP		BIT(1)
@@ -57,6 +63,16 @@ struct gmu_block_header {
 	uint32_t value;
 };
 
+/* GMU Block types */
+#define GMU_BLK_TYPE_DATA 0
+#define GMU_BLK_TYPE_PREALLOC_REQ 1
+#define GMU_BLK_TYPE_CORE_VER 2
+#define GMU_BLK_TYPE_CORE_DEV_VER 3
+#define GMU_BLK_TYPE_PWR_VER 4
+#define GMU_BLK_TYPE_PWR_DEV_VER 5
+#define GMU_BLK_TYPE_HFI_VER 6
+#define GMU_BLK_TYPE_PREALLOC_PERSIST_REQ 7
+
 /* For GMU Logs*/
 #define LOGMEM_SIZE  SZ_4K
 
@@ -80,6 +96,7 @@ enum gmu_mem_type {
  * @physaddr: Physical address of the memory object
  * @size: Size of the memory object
  * @mem_type: memory type for this memory
+ * @ctx_idx: GMU IOMMU context idx
  */
 struct gmu_memdesc {
 	void *hostptr;
@@ -87,6 +104,7 @@ struct gmu_memdesc {
 	phys_addr_t physaddr;
 	uint64_t size;
 	enum gmu_mem_type mem_type;
+	uint32_t ctx_idx;
 };
 
 struct gmu_bw_votes {
@@ -118,7 +136,7 @@ struct kgsl_mailbox {
 
 /**
  * struct gmu_device - GMU device structure
- * @ver: GMU FW version, read from GMU
+ * @ver: GMU Version information
  * @reg_phys: GMU CSR physical address
  * @reg_len: GMU CSR range
  * @gmu_interrupt_num: GMU interrupt number
@@ -152,7 +170,13 @@ struct kgsl_mailbox {
  * @mailbox: Messages to AOP for ACD enable/disable go through this
  */
 struct gmu_device {
-	unsigned int ver;
+	struct {
+		u32 core;
+		u32 core_dev;
+		u32 pwr;
+		u32 pwr_dev;
+		u32 hfi;
+	} ver;
 	struct platform_device *pdev;
 	unsigned long reg_phys;
 	unsigned int reg_len;

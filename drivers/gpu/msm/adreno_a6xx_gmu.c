@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/firmware.h>
@@ -554,12 +554,6 @@ static int a6xx_gmu_oob_set(struct kgsl_device *device,
 		set = BIT(30 - req * 2);
 		check = BIT(31 - req);
 
-		if ((gmu->hfi.version & 0x1F) == 0) {
-			/* LEGACY for intermediate oobs */
-			set = BIT(req + 16);
-			check = BIT(req + 16);
-		}
-
 		if (req >= 6) {
 			dev_err(&gmu->pdev->dev,
 					"OOB_set(0x%x) invalid\n", set);
@@ -610,9 +604,6 @@ static inline void a6xx_gmu_oob_clear(struct kgsl_device *device,
 					"OOB_clear(0x%x) invalid\n", clear);
 			return;
 		}
-		/* LEGACY for intermediate oobs */
-		if ((gmu->hfi.version & 0x1F) == 0)
-			clear = BIT(req + 24);
 	} else
 		clear = BIT(req + 24);
 
@@ -1046,6 +1037,10 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 			return ret;
 	}
 
+	/* Read the HFI and Power version from registers */
+	gmu_core_regread(device, A6XX_GMU_HFI_VERSION_INFO, &gmu->ver.hfi);
+	gmu_core_regread(device, A6XX_GMU_GENERAL_0, &gmu->ver.pwr);
+
 	ret = a6xx_gmu_hfi_start(device);
 	if (ret)
 		return ret;
@@ -1064,7 +1059,8 @@ static int a6xx_gmu_load_firmware(struct kgsl_device *device)
 	const struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	const struct adreno_gpu_core *gpucore = adreno_dev->gpucore;
-	int ret =  -EINVAL;
+	struct gmu_block_header *blk;
+	int ret, offset = 0;
 
 	/* there is no GMU */
 	if (!gmu_core_isenabled(device))
@@ -1079,11 +1075,67 @@ static int a6xx_gmu_load_firmware(struct kgsl_device *device)
 
 	ret = request_firmware(&gmu->fw_image, gpucore->gpmufw_name,
 			device->dev);
-	if (ret || gmu->fw_image == NULL)
+	if (ret) {
 		dev_err(device->dev, "request_firmware (%s) failed: %d\n",
 				gpucore->gpmufw_name, ret);
+		return ret;
+	}
 
-	return ret;
+	/*
+	 * Zero payload fw blocks contain meta data and are
+	 * guaranteed to precede fw load data. Parse the
+	 * meta data blocks.
+	 */
+	while (offset < gmu->fw_image->size) {
+		blk = (struct gmu_block_header *)&gmu->fw_image->data[offset];
+
+		if (offset + sizeof(*blk) > gmu->fw_image->size) {
+			dev_err(&gmu->pdev->dev, "Invalid FW Block\n");
+			return -EINVAL;
+		}
+
+		/* Done with zero length blocks so return */
+		if (blk->size)
+			break;
+
+		offset += sizeof(*blk);
+
+		switch (blk->type) {
+		case GMU_BLK_TYPE_CORE_VER:
+			gmu->ver.core = blk->value;
+			dev_dbg(&gmu->pdev->dev,
+					"CORE VER: 0x%8.8x\n", blk->value);
+			break;
+		case GMU_BLK_TYPE_CORE_DEV_VER:
+			gmu->ver.core_dev = blk->value;
+			dev_dbg(&gmu->pdev->dev,
+					"CORE DEV VER: 0x%8.8x\n", blk->value);
+			break;
+		case GMU_BLK_TYPE_PWR_VER:
+			gmu->ver.pwr = blk->value;
+			dev_dbg(&gmu->pdev->dev,
+					"PWR VER: 0x%8.8x\n", blk->value);
+			break;
+		case GMU_BLK_TYPE_PWR_DEV_VER:
+			gmu->ver.pwr_dev = blk->value;
+			dev_dbg(&gmu->pdev->dev,
+					"PWR DEV VER: 0x%8.8x\n", blk->value);
+			break;
+		case GMU_BLK_TYPE_HFI_VER:
+			gmu->ver.hfi = blk->value;
+			dev_dbg(&gmu->pdev->dev,
+					"HFI VER: 0x%8.8x\n", blk->value);
+			break;
+		/* Skip preallocation requests for now */
+		case GMU_BLK_TYPE_PREALLOC_REQ:
+		case GMU_BLK_TYPE_PREALLOC_PERSIST_REQ:
+
+		default:
+			break;
+		}
+	}
+
+	return 0;
 }
 
 #define A6XX_STATE_OF_CHILD             (BIT(4) | BIT(5))
