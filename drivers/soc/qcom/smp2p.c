@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2015, Sony Mobile Communications AB.
- * Copyright (c) 2012-2013, 2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, 2018-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -211,7 +211,8 @@ static void qcom_smp2p_do_ssr_ack(struct qcom_smp2p *smp2p)
 	u32 ack;
 	u32 val;
 
-	smp2p->ssr_ack = ack = !smp2p->ssr_ack;
+	ack = !smp2p->ssr_ack;
+	smp2p->ssr_ack = ack;
 	ack = ack << SMP2P_FLAGS_RESTART_ACK_BIT;
 
 	val = out->flags & ~BIT(SMP2P_FLAGS_RESTART_ACK_BIT);
@@ -278,7 +279,7 @@ static void qcom_smp2p_notify_in(struct qcom_smp2p *smp2p)
 		if (!status)
 			continue;
 
-		SMP2P_INFO("%d: %s: status:%0x val:%0x\n",
+		SMP2P_INFO("%d: %s: status:%0lx val:%0x\n",
 			   smp2p->remote_pid, entry->name, status, val);
 
 		for_each_set_bit(i, &status, 32) {
