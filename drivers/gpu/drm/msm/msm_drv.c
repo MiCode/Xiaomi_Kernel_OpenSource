@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -47,6 +47,7 @@
 #include "msm_gpu.h"
 #include "msm_kms.h"
 #include "sde_wb.h"
+#include "sde_dbg.h"
 
 /*
  * MSM driver version:
@@ -823,6 +824,8 @@ static int msm_open(struct drm_device *dev, struct drm_file *file)
 	if (!ctx)
 		return -ENOMEM;
 
+	mutex_init(&ctx->power_lock);
+
 	file->driver_priv = ctx;
 
 	if (dev && dev->dev_private) {
@@ -858,6 +861,14 @@ static void msm_postclose(struct drm_device *dev, struct drm_file *file)
 	if (ctx == priv->lastctx)
 		priv->lastctx = NULL;
 	mutex_unlock(&dev->struct_mutex);
+
+	mutex_lock(&ctx->power_lock);
+	if (ctx->enable_refcnt) {
+		SDE_EVT32(ctx->enable_refcnt);
+		sde_power_resource_enable(&priv->phandle,
+				priv->pclient, false);
+	}
+	mutex_unlock(&ctx->power_lock);
 
 	kfree(ctx);
 }
@@ -1573,6 +1584,62 @@ int msm_ioctl_rmfb2(struct drm_device *dev, void *data,
 }
 EXPORT_SYMBOL(msm_ioctl_rmfb2);
 
+/**
+ * msm_ioctl_power_ctrl - enable/disable power vote on MDSS Hw
+ * @dev: drm device for the ioctl
+ * @data: data pointer for the ioctl
+ * @file_priv: drm file for the ioctl call
+ *
+ */
+int msm_ioctl_power_ctrl(struct drm_device *dev, void *data,
+			struct drm_file *file_priv)
+{
+	struct msm_file_private *ctx = file_priv->driver_priv;
+	struct msm_drm_private *priv;
+	struct drm_msm_power_ctrl *power_ctrl = data;
+	bool vote_req = false;
+	int old_cnt;
+	int rc = 0;
+
+	if (unlikely(!power_ctrl)) {
+		DRM_ERROR("invalid ioctl data\n");
+		return -EINVAL;
+	}
+
+	priv = dev->dev_private;
+
+	mutex_lock(&ctx->power_lock);
+
+	old_cnt = ctx->enable_refcnt;
+	if (power_ctrl->enable) {
+		if (!ctx->enable_refcnt)
+			vote_req = true;
+		ctx->enable_refcnt++;
+	} else if (ctx->enable_refcnt) {
+		ctx->enable_refcnt--;
+		if (!ctx->enable_refcnt)
+			vote_req = true;
+	} else {
+		pr_err("ignoring, unbalanced disable\n");
+	}
+
+	if (vote_req) {
+		rc = sde_power_resource_enable(&priv->phandle,
+				priv->pclient, power_ctrl->enable);
+
+		if (rc)
+			ctx->enable_refcnt = old_cnt;
+	}
+
+	pr_debug("pid %d enable %d, refcnt %d, vote_req %d\n",
+			current->pid, power_ctrl->enable, ctx->enable_refcnt,
+			vote_req);
+	SDE_EVT32(current->pid, power_ctrl->enable, ctx->enable_refcnt,
+			vote_req);
+	mutex_unlock(&ctx->power_lock);
+	return rc;
+}
+
 static const struct drm_ioctl_desc msm_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MSM_GET_PARAM,    msm_ioctl_get_param,    DRM_AUTH|DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(MSM_GEM_NEW,      msm_ioctl_gem_new,      DRM_AUTH|DRM_RENDER_ALLOW),
@@ -1589,6 +1656,8 @@ static const struct drm_ioctl_desc msm_ioctls[] = {
 			  DRM_UNLOCKED|DRM_CONTROL_ALLOW),
 	DRM_IOCTL_DEF_DRV(MSM_RMFB2, msm_ioctl_rmfb2,
 			  DRM_CONTROL_ALLOW|DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MSM_POWER_CTRL, msm_ioctl_power_ctrl,
+			DRM_RENDER_ALLOW),
 };
 
 static const struct vm_operations_struct vm_ops = {
