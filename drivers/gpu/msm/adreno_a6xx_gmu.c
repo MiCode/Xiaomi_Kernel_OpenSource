@@ -12,6 +12,7 @@
 #include "kgsl_gmu_core.h"
 #include "kgsl_gmu.h"
 #include "kgsl_trace.h"
+#include "kgsl_snapshot.h"
 
 #include "adreno.h"
 #include "a6xx_reg.h"
@@ -28,9 +29,14 @@ static const unsigned int a6xx_gmu_gx_registers[] = {
 	0x1A900, 0x1A92B, 0x1A940, 0x1A940,
 };
 
+static const unsigned int a6xx_gmu_tcm_registers[] = {
+	/* ITCM */
+	0x1B400, 0x1C3FF,
+	/* DTCM */
+	0x1C400, 0x1D3FF,
+};
+
 static const unsigned int a6xx_gmu_registers[] = {
-	/* GMU TCM */
-	0x1B400, 0x1C3FF, 0x1C400, 0x1D3FF,
 	/* GMU CX */
 	0x1F400, 0x1F407, 0x1F410, 0x1F412, 0x1F500, 0x1F500, 0x1F507, 0x1F50A,
 	0x1F800, 0x1F804, 0x1F807, 0x1F808, 0x1F80B, 0x1F80C, 0x1F80F, 0x1F81C,
@@ -497,7 +503,7 @@ static int load_gmu_fw(struct kgsl_device *device)
 		if (blk->size == 0)
 			continue;
 
-		md = gmu_get_memdesc(blk->addr, blk->size);
+		md = gmu_get_memdesc(gmu, blk->addr, blk->size);
 		if (md == NULL) {
 			dev_err(&gmu->pdev->dev,
 					"No backing memory for 0x%8.8X\n",
@@ -1126,16 +1132,20 @@ static int a6xx_gmu_load_firmware(struct kgsl_device *device)
 			dev_dbg(&gmu->pdev->dev,
 					"HFI VER: 0x%8.8x\n", blk->value);
 			break;
-		/* Skip preallocation requests for now */
 		case GMU_BLK_TYPE_PREALLOC_REQ:
 		case GMU_BLK_TYPE_PREALLOC_PERSIST_REQ:
+			ret = gmu_prealloc_req(device, blk);
+			if (ret)
+				return ret;
+			break;
 
 		default:
 			break;
 		}
 	}
 
-	return 0;
+	 /* Request any other cache ranges that might be required */
+	return gmu_cache_finalize(device);
 }
 
 #define A6XX_STATE_OF_CHILD             (BIT(4) | BIT(5))
@@ -1480,27 +1490,113 @@ struct gmu_mem_type_desc {
 static size_t a6xx_snapshot_gmu_mem(struct kgsl_device *device,
 		u8 *buf, size_t remain, void *priv)
 {
-	struct kgsl_snapshot_gmu *header = (struct kgsl_snapshot_gmu *)buf;
+	struct kgsl_snapshot_gmu_mem *mem_hdr =
+		(struct kgsl_snapshot_gmu_mem *)buf;
+	unsigned int *data = (unsigned int *)
+		(buf + sizeof(*mem_hdr));
 	struct gmu_mem_type_desc *desc = priv;
-	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
 
 	if (priv == NULL)
 		return 0;
 
-	if (remain < desc->memdesc->size + sizeof(*header)) {
+	if (remain < desc->memdesc->size + sizeof(*mem_hdr)) {
 		dev_err(device->dev,
 			"snapshot: Not enough memory for the gmu section %d\n",
 			desc->type);
 		return 0;
 	}
 
-	header->type = desc->type;
-	header->size = desc->memdesc->size;
+	mem_hdr->type = desc->type;
+	mem_hdr->hostaddr = (uintptr_t)desc->memdesc->hostptr;
+	mem_hdr->gmuaddr = desc->memdesc->gmuaddr;
+	mem_hdr->gpuaddr = 0;
 
 	/* Just copy the ringbuffer, there are no active IBs */
 	memcpy(data, desc->memdesc->hostptr, desc->memdesc->size);
 
-	return desc->memdesc->size + sizeof(*header);
+	return desc->memdesc->size + sizeof(*mem_hdr);
+}
+
+struct kgsl_snapshot_gmu_version {
+	uint32_t type;
+	uint32_t value;
+};
+
+static size_t a6xx_snapshot_gmu_version(struct kgsl_device *device,
+		u8 *buf, size_t remain, void *priv)
+{
+	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
+	uint32_t *data = (uint32_t *) (buf + sizeof(*header));
+	struct kgsl_snapshot_gmu_version *ver = priv;
+
+	if (remain < DEBUG_SECTION_SZ(1)) {
+		SNAPSHOT_ERR_NOMEM(device, "GMU Version");
+		return 0;
+	}
+
+	header->type = ver->type;
+	header->size = sizeof(uint32_t);
+
+	*data = ver->value;
+
+	return DEBUG_SECTION_SZ(1);
+}
+
+static void a6xx_gmu_snapshot_versions(struct kgsl_device *device,
+		struct kgsl_snapshot *snapshot)
+{
+	int i;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	struct kgsl_snapshot_gmu_version gmu_vers[] = {
+		{ .type = SNAPSHOT_DEBUG_GMU_CORE_VERSION,
+			.value = gmu->ver.core, },
+		{ .type = SNAPSHOT_DEBUG_GMU_CORE_DEV_VERSION,
+			.value = gmu->ver.core_dev, },
+		{ .type = SNAPSHOT_DEBUG_GMU_PWR_VERSION,
+			.value = gmu->ver.pwr, },
+		{ .type = SNAPSHOT_DEBUG_GMU_PWR_DEV_VERSION,
+			.value = gmu->ver.pwr_dev, },
+		{ .type = SNAPSHOT_DEBUG_GMU_HFI_VERSION,
+			.value = gmu->ver.hfi, },
+	};
+
+	for (i = 0; i < ARRAY_SIZE(gmu_vers); i++)
+		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_DEBUG,
+				snapshot, a6xx_snapshot_gmu_version,
+				&gmu_vers[i]);
+}
+
+struct a6xx_tcm_data {
+	enum gmu_mem_type type;
+	u32 start;
+	u32 last;
+};
+
+static size_t a6xx_snapshot_gmu_tcm(struct kgsl_device *device,
+		u8 *buf, size_t remain, void *priv)
+{
+	struct kgsl_snapshot_gmu_mem *mem_hdr =
+		(struct kgsl_snapshot_gmu_mem *)buf;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*mem_hdr));
+	unsigned int i, bytes;
+	struct a6xx_tcm_data *tcm = priv;
+
+	bytes = (tcm->last - tcm->start + 1) << 2;
+
+	if (remain < bytes + sizeof(*mem_hdr)) {
+		SNAPSHOT_ERR_NOMEM(device, "GMU Memory");
+		return 0;
+	}
+
+	mem_hdr->type = SNAPSHOT_GMU_MEM_BIN_BLOCK;
+	mem_hdr->hostaddr = 0;
+	mem_hdr->gmuaddr = gmu_get_memtype_base(tcm->type);
+	mem_hdr->gpuaddr = 0;
+
+	for (i = tcm->start; i <= tcm->last; i++)
+		kgsl_regread(device, i, data++);
+
+	return bytes + sizeof(*mem_hdr);
 }
 
 /*
@@ -1516,20 +1612,48 @@ static void a6xx_gmu_snapshot(struct kgsl_device *device,
 {
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct gmu_mem_type_desc desc[] = {
-		{gmu->hfi_mem, SNAPSHOT_GMU_HFIMEM},
-		{gmu->gmu_log, SNAPSHOT_GMU_LOG},
-		{gmu->dump_mem, SNAPSHOT_GMU_DUMPMEM} };
+		{gmu->hfi_mem, SNAPSHOT_GMU_MEM_HFI},
+		{gmu->gmu_log, SNAPSHOT_GMU_MEM_LOG},
+		{gmu->dump_mem, SNAPSHOT_GMU_MEM_DEBUG},
+	};
 	unsigned int val, i;
 
 	if (!gmu_core_isenabled(device))
 		return;
 
+	a6xx_gmu_snapshot_versions(device, snapshot);
+
 	for (i = 0; i < ARRAY_SIZE(desc); i++) {
 		if (desc[i].memdesc)
 			kgsl_snapshot_add_section(device,
-					KGSL_SNAPSHOT_SECTION_GMU,
+					KGSL_SNAPSHOT_SECTION_GMU_MEMORY,
 					snapshot, a6xx_snapshot_gmu_mem,
 					&desc[i]);
+	}
+
+	if (adreno_is_a640(adreno_dev) || adreno_is_a650(adreno_dev) ||
+			adreno_is_a680(adreno_dev)) {
+		struct a6xx_tcm_data tcm = {
+			.type = GMU_ITCM,
+			.start = a6xx_gmu_tcm_registers[0],
+			.last = a6xx_gmu_tcm_registers[1],
+		};
+
+		kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_GMU_MEMORY,
+				snapshot, a6xx_snapshot_gmu_tcm, &tcm);
+
+		tcm.type = GMU_DTCM;
+		tcm.start = a6xx_gmu_tcm_registers[2],
+		tcm.last = a6xx_gmu_tcm_registers[3],
+
+		kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_GMU_MEMORY,
+				snapshot, a6xx_snapshot_gmu_tcm, &tcm);
+	} else {
+		adreno_snapshot_registers(device, snapshot,
+				a6xx_gmu_tcm_registers,
+				ARRAY_SIZE(a6xx_gmu_tcm_registers) / 2);
 	}
 
 	adreno_snapshot_registers(device, snapshot, a6xx_gmu_registers,

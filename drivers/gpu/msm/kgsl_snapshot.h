@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _KGSL_SNAPSHOT_H_
@@ -52,6 +52,7 @@ struct kgsl_snapshot_section_header {
 #define KGSL_SNAPSHOT_SECTION_SHADER       0x1201
 #define KGSL_SNAPSHOT_SECTION_MVC          0x1501
 #define KGSL_SNAPSHOT_SECTION_GMU          0x1601
+#define KGSL_SNAPSHOT_SECTION_GMU_MEMORY   0x1701
 
 #define KGSL_SNAPSHOT_SECTION_END          0xFFFF
 
@@ -176,17 +177,20 @@ struct kgsl_snapshot_ib_v2 {
 	__u64 size;    /* Size of the IB */
 } __packed;
 
-#define SNAPSHOT_GMU_OTHER	0
-#define SNAPSHOT_GMU_HFIMEM	1
-#define SNAPSHOT_GMU_LOG	2
-#define SNAPSHOT_GMU_BWMEM	3
-#define SNAPSHOT_GMU_DUMPMEM	4
-#define SNAPSHOT_GMU_DCACHE	5
+/* GMU memory ID's */
+#define SNAPSHOT_GMU_MEM_UNKNOWN	0x00
+#define SNAPSHOT_GMU_MEM_HFI		0x01
+#define SNAPSHOT_GMU_MEM_LOG		0x02
+#define SNAPSHOT_GMU_MEM_BWTABLE	0x03
+#define SNAPSHOT_GMU_MEM_DEBUG		0x04
+#define SNAPSHOT_GMU_MEM_BIN_BLOCK	0x05
 
-/* Indirect buffer sub-section header */
-struct kgsl_snapshot_gmu {
-	int type;    /* Type of data to dump */
-	int size;    /* Size in bytes to dump */
+/* GMU memory section data */
+struct kgsl_snapshot_gmu_mem {
+	int type;
+	uint64_t hostaddr;
+	uint64_t gmuaddr;
+	uint64_t gpuaddr;
 } __packed;
 
 /* Register sub-section header */
@@ -231,6 +235,13 @@ struct kgsl_snapshot_istore {
 #define SNAPSHOT_DEBUG_SHADER_MEMORY 11
 #define SNAPSHOT_DEBUG_CP_MERCIU 12
 #define SNAPSHOT_DEBUG_SQE_VERSION 14
+
+/* GMU Version information */
+#define SNAPSHOT_DEBUG_GMU_CORE_VERSION 15
+#define SNAPSHOT_DEBUG_GMU_CORE_DEV_VERSION 16
+#define SNAPSHOT_DEBUG_GMU_PWR_VERSION 17
+#define SNAPSHOT_DEBUG_GMU_PWR_DEV_VERSION 18
+#define SNAPSHOT_DEBUG_GMU_HFI_VERSION 19
 
 struct kgsl_snapshot_debug {
 	int type;    /* Type identifier for the attached tata */
