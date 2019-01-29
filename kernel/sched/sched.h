@@ -2829,7 +2829,6 @@ static inline int same_freq_domain(int src_cpu, int dst_cpu)
 	return cpumask_test_cpu(dst_cpu, &rq->freq_domain_cpumask);
 }
 
-#define	BOOST_KICK	0
 #define	CPU_RESERVED	1
 
 extern int sched_boost(void);
@@ -2909,8 +2908,6 @@ extern unsigned long thermal_cap(int cpu);
 
 extern void clear_walt_request(int cpu);
 
-extern int got_boost_kick(void);
-extern void clear_boost_kick(int cpu);
 extern enum sched_boost_policy sched_boost_policy(void);
 extern void sched_boost_parse_dt(void);
 extern void clear_ed_task(struct task_struct *p, struct rq *rq);
@@ -3075,13 +3072,6 @@ static inline int is_reserved(int cpu)
 {
 	return 0;
 }
-
-static inline int got_boost_kick(void)
-{
-	return 0;
-}
-
-static inline void clear_boost_kick(int cpu) { }
 
 static inline enum sched_boost_policy sched_boost_policy(void)
 {
