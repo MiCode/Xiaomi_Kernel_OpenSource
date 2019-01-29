@@ -145,6 +145,7 @@ endif
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 	dtbo-$(CONFIG_ARCH_SDMMAGPIE) += \
 		sdmmagpie-idp-overlay.dtbo \
+		sdmmagpie-atp-overlay.dtbo \
 		sdmmagpie-rumi-overlay.dtbo \
 		sdmmagpie-qrd-overlay.dtbo \
 		sdmmagpiep-idp-overlay.dtbo \
@@ -154,6 +155,7 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sdmmagpie-dual-display-idp-overlay.dtbo
 
 sdmmagpie-idp-overlay.dtbo-base := sdmmagpie.dtb
+sdmmagpie-atp-overlay.dtbo-base := sdmmagpie.dtb
 sdmmagpie-rumi-overlay.dtbo-base := sdmmagpie.dtb
 sdmmagpie-qrd-overlay.dtbo-base := sdmmagpie.dtb
 sdmmagpiep-idp-overlay.dtbo-base := sdmmagpiep.dtb
@@ -164,6 +166,7 @@ sdmmagpie-dual-display-idp-overlay.dtbo-base := sdmmagpie.dtb
 else
 dtb-$(CONFIG_ARCH_SDMMAGPIE)	+= sdmmagpie-rumi.dtb \
 	sdmmagpie-idp.dtb \
+	sdmmagpie-atp.dtb \
 	sdmmagpie-qrd.dtb \
 	sdmmagpiep-idp.dtb \
 	sdmmagpiep-qrd.dtb \
