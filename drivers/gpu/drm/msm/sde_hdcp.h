@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -74,6 +74,8 @@ struct sde_hdcp_ops {
 	bool (*feature_supported)(void *input);
 	void (*force_encryption)(void *input, bool enable);
 	bool (*sink_support)(void *input);
+	int (*set_mode)(void *input, bool mst_enabled);
+	int (*on)(void *input);
 	void (*off)(void *hdcp_ctrl);
 };
 
