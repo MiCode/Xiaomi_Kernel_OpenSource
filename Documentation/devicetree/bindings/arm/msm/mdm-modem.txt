@@ -124,6 +124,8 @@ Optional driver parameters:
 		management boot options. The default value is 203 milliseconds.
 - qcom,esoc-skip-restart-for-mdm-crash: Boolean. If set, the esoc framework would skip the warm
 		reboot phase during the momem crash.
+- qcom,esoc-spmi-soft-reset: Boolean. If set, esoc framework will use qpnp apis to reset the
+		external modem chip instead of toggling gpios.
 
 Example:
 	mdm0: qcom,mdm0 {
