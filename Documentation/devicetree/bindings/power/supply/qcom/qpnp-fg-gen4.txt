@@ -269,6 +269,12 @@ First Level Node - FG Gen4 device
 		    based on change in battery SOC during a charging cycle.
 		    If this is specified "qcom,cl-start-capacity" is not used.
 
+- qcom,cl-skew
+	Usage:      optional
+	Value type: <u32>
+	Definition: Skew in decipercentage which when specified will be applied
+		    to the final learned capacity.
+
 - qcom,hold-soc-while-full
 	Usage:      optional
 	Value type: <empty>
