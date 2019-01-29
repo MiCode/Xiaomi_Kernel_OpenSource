@@ -4448,69 +4448,83 @@ loop_end:
 
 int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst)
 {
-	int rc = 0, i = 0;
+	int rc = -EINVAL, i = 0;
 	union hal_get_property hprop;
 
 	memset(&hprop, 0x0, sizeof(hprop));
+	/*
+	 * First check if we can calculate bufffer sizes.
+	 * If we can calculate then we do it within the driver.
+	 * If we cannot then we get buffer requirements from firmware.
+	 */
+	if (inst->buffer_size_calculators) {
+		rc = inst->buffer_size_calculators(inst);
+		if (rc)
+			dprintk(VIDC_ERR,
+			"Failed calculating internal buffer sizes: %d", rc);
+	}
 
-	rc = msm_comm_try_get_buff_req(inst, &hprop);
+	/*
+	 * Fallback to get buffreq from firmware if internal calculation
+	 * is not done or if it fails
+	 */
 	if (rc) {
-		dprintk(VIDC_ERR, "Failed getting buffer requirements: %d", rc);
-		return rc;
-	}
-
-	dprintk(VIDC_DBG, "Buffer requirements from HW:\n");
-	dprintk(VIDC_DBG, "%15s %8s %8s %8s %8s\n",
-		"buffer type", "count", "mincount_host", "mincount_fw", "size");
-	for (i = 0; i < HAL_BUFFER_MAX; i++) {
-		struct hal_buffer_requirements req = hprop.buf_req.buffer[i];
-		struct hal_buffer_requirements *curr_req;
-
-		/*
-		 * For decoder we can ignore the buffer counts that firmware
-		 * sends for inp/out buffers.
-		 * FW buffer counts for these are used only in reconfig
-		 */
-		curr_req = get_buff_req_buffer(inst, req.buffer_type);
-		if (!curr_req)
-			return -EINVAL;
-
-		if (req.buffer_type == HAL_BUFFER_INPUT ||
-			req.buffer_type == HAL_BUFFER_OUTPUT ||
-			req.buffer_type == HAL_BUFFER_OUTPUT2 ||
-			req.buffer_type == HAL_BUFFER_EXTRADATA_INPUT ||
-			req.buffer_type == HAL_BUFFER_EXTRADATA_OUTPUT ||
-			req.buffer_type == HAL_BUFFER_EXTRADATA_OUTPUT2) {
-			curr_req->buffer_size = req.buffer_size;
-			curr_req->buffer_region_size = req.buffer_region_size;
-			curr_req->contiguous = req.contiguous;
-			curr_req->buffer_alignment = req.buffer_alignment;
-		} else {
-			memcpy(curr_req, &req,
-				sizeof(struct hal_buffer_requirements));
+		rc = msm_comm_try_get_buff_req(inst, &hprop);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"Failed getting buffer requirements: %d", rc);
+			return rc;
 		}
 
-		if (req.buffer_type != HAL_BUFFER_NONE) {
-			dprintk(VIDC_DBG, "%15s %8d %8d %8d %8d\n",
-				get_buffer_name(req.buffer_type),
-				req.buffer_count_actual,
-				req.buffer_count_min_host,
-				req.buffer_count_min, req.buffer_size);
+		for (i = 0; i < HAL_BUFFER_MAX; i++) {
+			struct hal_buffer_requirements req;
+			struct hal_buffer_requirements *curr_req;
+
+			req = hprop.buf_req.buffer[i];
+			/*
+			 * For decoder we can ignore the buffer counts that
+			 * firmware sends for inp/out buffers.
+			 * FW buffer counts for these are used only in reconfig
+			 */
+			curr_req = get_buff_req_buffer(inst, req.buffer_type);
+			if (!curr_req)
+				return -EINVAL;
+
+			if (req.buffer_type == HAL_BUFFER_INPUT ||
+				req.buffer_type == HAL_BUFFER_OUTPUT ||
+				req.buffer_type == HAL_BUFFER_OUTPUT2 ||
+				req.buffer_type == HAL_BUFFER_EXTRADATA_INPUT ||
+				req.buffer_type ==
+					HAL_BUFFER_EXTRADATA_OUTPUT ||
+				req.buffer_type ==
+					HAL_BUFFER_EXTRADATA_OUTPUT2) {
+				curr_req->buffer_size = req.buffer_size;
+				curr_req->buffer_region_size =
+					req.buffer_region_size;
+				curr_req->contiguous = req.contiguous;
+				curr_req->buffer_alignment =
+					req.buffer_alignment;
+			} else {
+				memcpy(curr_req, &req,
+					sizeof(struct hal_buffer_requirements));
+			}
 		}
 	}
 
-	dprintk(VIDC_DBG, "Buffer requirements driver adjusted:\n");
+	dprintk(VIDC_DBG, "Buffer requirements :\n");
 	dprintk(VIDC_DBG, "%15s %8s %8s %8s %8s\n",
-		"buffer type", "count", "mincount_host", "mincount_fw", "size");
+		"buffer type", "count", "mincount_host", "mincount_fw", "size",
+		"alignment");
 	for (i = 0; i < HAL_BUFFER_MAX; i++) {
 		struct hal_buffer_requirements req = inst->buff_req.buffer[i];
 
 		if (req.buffer_type != HAL_BUFFER_NONE) {
-			dprintk(VIDC_DBG, "%15s %8d %8d %8d %8d\n",
+			dprintk(VIDC_DBG, "%15s %8d %8d %8d %8d %8d\n",
 				get_buffer_name(req.buffer_type),
 				req.buffer_count_actual,
 				req.buffer_count_min_host,
-				req.buffer_count_min, req.buffer_size);
+				req.buffer_count_min, req.buffer_size,
+				req.buffer_alignment);
 		}
 	}
 	return rc;
