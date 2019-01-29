@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -219,7 +219,6 @@ static int cam_eeprom_i2c_driver_probe(struct i2c_client *client,
 	e_ctrl->bridge_intf.ops.get_dev_info = NULL;
 	e_ctrl->bridge_intf.ops.link_setup = NULL;
 	e_ctrl->bridge_intf.ops.apply_req = NULL;
-	v4l2_set_subdevdata(&e_ctrl->v4l2_dev_str.sd, e_ctrl);
 	e_ctrl->cam_eeprom_state = CAM_EEPROM_INIT;
 
 	return rc;
@@ -257,13 +256,17 @@ static int cam_eeprom_i2c_driver_remove(struct i2c_client *client)
 		return -EINVAL;
 	}
 
+	CAM_INFO(CAM_EEPROM, "i2c driver remove invoked");
 	soc_info = &e_ctrl->soc_info;
 	for (i = 0; i < soc_info->num_clk; i++)
 		devm_clk_put(soc_info->dev, soc_info->clk[i]);
 
+	mutex_lock(&(e_ctrl->eeprom_mutex));
+	cam_eeprom_shutdown(e_ctrl);
+	mutex_unlock(&(e_ctrl->eeprom_mutex));
 	mutex_destroy(&(e_ctrl->eeprom_mutex));
+	cam_unregister_subdev(&(e_ctrl->v4l2_dev_str));
 	kfree(soc_private);
-	kfree(e_ctrl->io_master_info.cci_client);
 	v4l2_set_subdevdata(&e_ctrl->v4l2_dev_str.sd, NULL);
 	kfree(e_ctrl);
 
@@ -388,14 +391,21 @@ static int cam_eeprom_spi_driver_remove(struct spi_device *sdev)
 	for (i = 0; i < soc_info->num_clk; i++)
 		devm_clk_put(soc_info->dev, soc_info->clk[i]);
 
+	mutex_lock(&(e_ctrl->eeprom_mutex));
+	cam_eeprom_shutdown(e_ctrl);
+	mutex_unlock(&(e_ctrl->eeprom_mutex));
+	mutex_destroy(&(e_ctrl->eeprom_mutex));
+	cam_unregister_subdev(&(e_ctrl->v4l2_dev_str));
 	kfree(e_ctrl->io_master_info.spi_client);
+	e_ctrl->io_master_info.spi_client = NULL;
 	soc_private =
 		(struct cam_eeprom_soc_private *)e_ctrl->soc_info.soc_private;
 	if (soc_private) {
 		kfree(soc_private->power_info.gpio_num_info);
+		soc_private->power_info.gpio_num_info = NULL;
 		kfree(soc_private);
+		soc_private = NULL;
 	}
-	mutex_destroy(&(e_ctrl->eeprom_mutex));
 	v4l2_set_subdevdata(&e_ctrl->v4l2_dev_str.sd, NULL);
 	kfree(e_ctrl);
 
@@ -459,10 +469,7 @@ static int32_t cam_eeprom_platform_driver_probe(
 	e_ctrl->bridge_intf.ops.get_dev_info = NULL;
 	e_ctrl->bridge_intf.ops.link_setup = NULL;
 	e_ctrl->bridge_intf.ops.apply_req = NULL;
-
 	platform_set_drvdata(pdev, e_ctrl);
-	v4l2_set_subdevdata(&e_ctrl->v4l2_dev_str.sd, e_ctrl);
-
 	e_ctrl->cam_eeprom_state = CAM_EEPROM_INIT;
 
 	return rc;
@@ -472,6 +479,7 @@ free_cci_client:
 	kfree(e_ctrl->io_master_info.cci_client);
 free_e_ctrl:
 	kfree(e_ctrl);
+
 	return rc;
 }
 
@@ -487,17 +495,23 @@ static int cam_eeprom_platform_driver_remove(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	CAM_INFO(CAM_EEPROM, "Platform driver remove invoked");
 	soc_info = &e_ctrl->soc_info;
 
 	for (i = 0; i < soc_info->num_clk; i++)
 		devm_clk_put(soc_info->dev, soc_info->clk[i]);
 
+	mutex_lock(&(e_ctrl->eeprom_mutex));
+	cam_eeprom_shutdown(e_ctrl);
+	mutex_unlock(&(e_ctrl->eeprom_mutex));
 	mutex_destroy(&(e_ctrl->eeprom_mutex));
+	cam_unregister_subdev(&(e_ctrl->v4l2_dev_str));
 	kfree(soc_info->soc_private);
 	kfree(e_ctrl->io_master_info.cci_client);
 	platform_set_drvdata(pdev, NULL);
 	v4l2_set_subdevdata(&e_ctrl->v4l2_dev_str.sd, NULL);
 	kfree(e_ctrl);
+
 	return 0;
 }
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1620,6 +1620,14 @@ static int cam_ife_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 
 	/* acquire HW resources */
 	for (i = 0; i < acquire_hw_info->num_inputs; i++) {
+
+		if (in_port->num_out_res > CAM_IFE_HW_OUT_RES_MAX) {
+			CAM_ERR(CAM_ISP, "too many output res %d",
+				in_port->num_out_res);
+			rc = -EINVAL;
+			goto free_res;
+		}
+
 		in_port_length = sizeof(struct cam_isp_in_port_info) +
 			(in_port->num_out_res - 1) *
 			sizeof(struct cam_isp_out_port_info);
@@ -3131,6 +3139,7 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 			CAM_ERR(CAM_ISP, "Clock Update Failed");
 	}
 		break;
+
 	default:
 		CAM_WARN(CAM_ISP, "Invalid blob type %d", blob_type);
 		break;
@@ -3166,7 +3175,8 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 	ctx = (struct cam_ife_hw_mgr_ctx *) prepare->ctxt_to_hw_map;
 	hw_mgr = (struct cam_ife_hw_mgr *)hw_mgr_priv;
 
-	rc = cam_packet_util_validate_packet(prepare->packet);
+	rc = cam_packet_util_validate_packet(prepare->packet,
+		prepare->remain_len);
 	if (rc)
 		return rc;
 
@@ -3434,12 +3444,6 @@ static int cam_ife_mgr_cmd(void *hw_mgr_priv, void *cmd_args)
 			hw_cmd_args->u.internal_args;
 
 		switch (isp_hw_cmd_args->cmd_type) {
-		case CAM_ISP_HW_MGR_CMD_IS_RDI_ONLY_CONTEXT:
-			if (ctx->is_rdi_only_context)
-				isp_hw_cmd_args->u.is_rdi_only_context = 1;
-			else
-				isp_hw_cmd_args->u.is_rdi_only_context = 0;
-			break;
 		case CAM_ISP_HW_MGR_CMD_PAUSE_HW:
 			cam_ife_mgr_pause_hw(ctx);
 			break;
@@ -3449,6 +3453,14 @@ static int cam_ife_mgr_cmd(void *hw_mgr_priv, void *cmd_args)
 		case CAM_ISP_HW_MGR_CMD_SOF_DEBUG:
 			cam_ife_mgr_sof_irq_debug(ctx,
 				isp_hw_cmd_args->u.sof_irq_enable);
+			break;
+		case CAM_ISP_HW_MGR_CMD_CTX_TYPE:
+			if (ctx->is_fe_enable)
+				isp_hw_cmd_args->u.ctx_type = CAM_ISP_CTX_FS2;
+			else if (ctx->is_rdi_only_context)
+				isp_hw_cmd_args->u.ctx_type = CAM_ISP_CTX_RDI;
+			else
+				isp_hw_cmd_args->u.ctx_type = CAM_ISP_CTX_PIX;
 			break;
 		default:
 			CAM_ERR(CAM_ISP, "Invalid HW mgr command:0x%x",
@@ -3861,16 +3873,17 @@ static int  cam_ife_hw_mgr_handle_camif_error(
 	error_status = cam_ife_hw_mgr_get_err_type(ife_hwr_mgr_ctx,
 		evt_payload);
 
-	if (atomic_read(&ife_hwr_mgr_ctx->overflow_pending))
-		return error_status;
+	if (atomic_read(&ife_hwr_mgr_ctx->overflow_pending)) {
+		rc = error_status;
+		goto end;
+	}
 
 	switch (error_status) {
 	case CAM_ISP_HW_ERROR_OVERFLOW:
 	case CAM_ISP_HW_ERROR_P2I_ERROR:
 	case CAM_ISP_HW_ERROR_VIOLATION:
 		CAM_ERR(CAM_ISP, "Enter: error_type (%d)", error_status);
-		rc = -EFAULT;
-
+		rc = error_status;
 		if (g_ife_hw_mgr.debug_cfg.enable_recovery)
 			error_event_data.recovery_enabled = true;
 
@@ -3897,6 +3910,7 @@ static int  cam_ife_hw_mgr_handle_camif_error(
 		break;
 	}
 
+end:
 	return rc;
 }
 
@@ -3999,7 +4013,8 @@ static int cam_ife_hw_mgr_handle_reg_update(
 				rup_status = hw_res->bottom_half_handler(
 					hw_res, evt_payload);
 
-			if (!ife_hwr_mgr_ctx->is_rdi_only_context)
+			if (ife_hwr_mgr_ctx->is_rdi_only_context == 0 &&
+				ife_hwr_mgr_ctx->is_fe_enable == false)
 				continue;
 
 			if (atomic_read(&ife_hwr_mgr_ctx->overflow_pending))
@@ -4341,7 +4356,8 @@ static int cam_ife_hw_mgr_handle_sof(
 				hw_res, evt_payload);
 
 			/* check if it is rdi only context */
-			if (ife_hw_mgr_ctx->is_rdi_only_context) {
+			if (ife_hw_mgr_ctx->is_fe_enable ||
+				ife_hw_mgr_ctx->is_rdi_only_context) {
 				if (!sof_status && !sof_sent) {
 					cam_ife_mgr_cmd_get_sof_timestamp(
 						ife_hw_mgr_ctx,
@@ -4352,7 +4368,7 @@ static int cam_ife_hw_mgr_handle_sof(
 						ife_hw_mgr_ctx->common.cb_priv,
 						CAM_ISP_HW_EVENT_SOF,
 						&sof_done_event_data);
-					CAM_DBG(CAM_ISP, "sof_status = %d",
+					CAM_DBG(CAM_ISP, "RDI sof_status = %d",
 						sof_status);
 
 					sof_sent = true;

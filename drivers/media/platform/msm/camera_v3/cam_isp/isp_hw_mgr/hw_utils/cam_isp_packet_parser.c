@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -105,7 +105,7 @@ static int cam_isp_update_dual_config(
 	struct cam_isp_hw_dual_isp_update_args      dual_isp_update_args;
 	uint32_t                                    outport_id;
 	uint32_t                                    ports_plane_idx;
-	size_t                                      len = 0;
+	size_t                                      len = 0, remain_len = 0;
 	uint32_t                                   *cpu_addr;
 	uint32_t                                    i, j;
 
@@ -117,9 +117,22 @@ static int cam_isp_update_dual_config(
 	if (rc)
 		return rc;
 
+	if ((len < sizeof(struct cam_isp_dual_config)) ||
+		(cmd_desc->offset >=
+		(len - sizeof(struct cam_isp_dual_config)))) {
+		CAM_ERR(CAM_UTIL, "not enough buffer provided");
+		return -EINVAL;
+	}
+	remain_len = len - cmd_desc->offset;
 	cpu_addr += (cmd_desc->offset / 4);
 	dual_config = (struct cam_isp_dual_config *)cpu_addr;
 
+	if ((dual_config->num_ports *
+		sizeof(struct cam_isp_dual_stripe_config)) >
+		(remain_len - offsetof(struct cam_isp_dual_config, stripes))) {
+		CAM_ERR(CAM_UTIL, "not enough buffer for all the dual configs");
+		return -EINVAL;
+	}
 	for (i = 0; i < dual_config->num_ports; i++) {
 
 		if (i >= CAM_ISP_IFE_OUT_RES_MAX) {
