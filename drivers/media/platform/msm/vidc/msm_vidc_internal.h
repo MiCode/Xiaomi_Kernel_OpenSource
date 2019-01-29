@@ -469,7 +469,6 @@ struct msm_vidc_inst {
 	u32 colour_space;
 	u32 profile;
 	u32 level;
-	u32 entropy_mode;
 	u32 grid_enable;
 	u32 frame_quality;
 	u32 rc_type;
