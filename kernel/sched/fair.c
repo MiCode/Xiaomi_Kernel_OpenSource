@@ -3863,11 +3863,11 @@ struct find_best_target_env {
 static bool is_packing_eligible(struct task_struct *p, int target_cpu,
 				struct find_best_target_env *fbt_env,
 				unsigned int target_cpus_count,
-				int best_idle_cstate)
+				int best_idle_cstate, bool boosted)
 {
 	unsigned long tutil, estimated_capacity;
 
-	if (task_placement_boost_enabled(p) || fbt_env->need_idle)
+	if (task_placement_boost_enabled(p) || fbt_env->need_idle || boosted)
 		return false;
 
 	if (best_idle_cstate == -1)
@@ -6652,8 +6652,12 @@ static int get_start_cpu(struct task_struct *p, bool boosted,
 	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
 	int start_cpu = -1;
 
-	if (boosted)
+	if (boosted) {
+		if (rd->mid_cap_orig_cpu != -1 &&
+		    task_fits_max(p, rd->mid_cap_orig_cpu))
+			return rd->mid_cap_orig_cpu;
 		return rd->max_cap_orig_cpu;
+	}
 
 	/* A task always fits on its rtg_target */
 	if (rtg_target) {
@@ -7026,7 +7030,7 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 		 * next cluster if they are higher in capacity. If we are
 		 * not in any kind of boost, we break.
 		 */
-		if (!prefer_idle &&
+		if (!prefer_idle && !boosted &&
 			(target_cpu != -1 || best_idle_cpu != -1) &&
 			(fbt_env->placement_boost == SCHED_BOOST_NONE ||
 			!is_full_throttle_boost() ||
@@ -7037,9 +7041,12 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 		/*
 		 * if we are in prefer_idle and have found an idle cpu,
 		 * break from searching more groups based on the stune.boost and
-		 * group cpu capacity.
+		 * group cpu capacity. For !prefer_idle && boosted case, don't
+		 * iterate lower capacity CPUs unless the task can't be
+		 * accommodated in the higher capacity CPUs.
 		 */
-		if (prefer_idle && best_idle_cpu != -1) {
+		if ((prefer_idle && best_idle_cpu != -1) ||
+		    (boosted && (best_idle_cpu != -1 || target_cpu != -1))) {
 			if (boosted) {
 				if (!next_group_higher_cap)
 					break;
@@ -7052,7 +7059,7 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 	} while (sg = sg->next, sg != start_sd->groups);
 
 	if (best_idle_cpu != -1 && !is_packing_eligible(p, target_cpu, fbt_env,
-				active_cpus_count, shallowest_idle_cstate)) {
+			active_cpus_count, shallowest_idle_cstate, boosted)) {
 		target_cpu = best_idle_cpu;
 		best_idle_cpu = -1;
 	}
@@ -7368,6 +7375,7 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu, int sy
 	int placement_boost = task_boost_policy(p);
 	u64 start_t = 0;
 	int delta = 0;
+	int boosted = (schedtune_task_boost(p) > 0);
 
 	fbt_env.fastpath = 0;
 
@@ -7435,7 +7443,7 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu, int sy
 						 p->state == TASK_WAKING)
 		delta = task_util(p);
 #endif
-	if (task_placement_boost_enabled(p) || need_idle ||
+	if (task_placement_boost_enabled(p) || need_idle || boosted ||
 	    (rtg_target && (!cpumask_test_cpu(prev_cpu, rtg_target) ||
 	    cpumask_test_cpu(cpu, rtg_target))) ||
 	    __cpu_overutilized(prev_cpu, delta) ||
@@ -7465,7 +7473,8 @@ unlock:
 sync_wakeup:
 	trace_sched_task_util(p, best_energy_cpu, sync,
 			need_idle, fbt_env.fastpath, placement_boost,
-			rtg_target ? cpumask_first(rtg_target) : -1, start_t);
+			rtg_target ? cpumask_first(rtg_target) : -1, start_t,
+			boosted);
 
 	/*
 	 * Pick the best CPU if prev_cpu cannot be used, or if it saves at
