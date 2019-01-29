@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -80,6 +80,7 @@ struct sde_hdcp_2x_ctrl {
 
 	struct kthread_worker worker;
 	struct kthread_work wk_init;
+	struct kthread_work wk_start_auth;
 	struct kthread_work wk_msg_sent;
 	struct kthread_work wk_msg_recvd;
 	struct kthread_work wk_timeout;
@@ -384,10 +385,8 @@ static void sde_hdcp_2x_clean(struct sde_hdcp_2x_ctrl *hdcp)
 	cdata.context = hdcp->client_data;
 	cdata.cmd = HDCP_TRANSPORT_CMD_STATUS_FAILED;
 
-	if (!atomic_read(&hdcp->hdcp_off))
+	if (!atomic_xchg(&hdcp->hdcp_off, 1))
 		sde_hdcp_2x_wakeup_client(hdcp, &cdata);
-
-	atomic_set(&hdcp->hdcp_off, 1);
 
 	hdcp2_app_comm(hdcp->hdcp2_ctx, HDCP2_CMD_STOP, &hdcp->app_data);
 }
@@ -569,11 +568,6 @@ static void sde_hdcp_2x_msg_sent_work(struct kthread_work *work)
 	struct sde_hdcp_2x_ctrl *hdcp =
 		container_of(work, struct sde_hdcp_2x_ctrl, wk_msg_sent);
 
-	if (hdcp->wakeup_cmd != HDCP_2X_CMD_MSG_SEND_SUCCESS) {
-		pr_err("invalid wakeup command %d\n", hdcp->wakeup_cmd);
-		return;
-	}
-
 	sde_hdcp_2x_msg_sent(hdcp);
 }
 
@@ -581,19 +575,9 @@ static void sde_hdcp_2x_init(struct sde_hdcp_2x_ctrl *hdcp)
 {
 	int rc = 0;
 
-	if (hdcp->wakeup_cmd != HDCP_2X_CMD_START) {
-		pr_err("invalid wakeup command %d\n", hdcp->wakeup_cmd);
-		return;
-	}
-
 	rc = hdcp2_app_comm(hdcp->hdcp2_ctx, HDCP2_CMD_START, &hdcp->app_data);
 	if (rc)
 		goto exit;
-
-	pr_debug("message received from TZ: %s\n",
-		 sde_hdcp_2x_message_name(hdcp->app_data.response.data[0]));
-
-	sde_hdcp_2x_send_message(hdcp);
 
 	return;
 exit:
@@ -607,6 +591,35 @@ static void sde_hdcp_2x_init_work(struct kthread_work *work)
 
 	sde_hdcp_2x_init(hdcp);
 }
+
+static void sde_hdcp_2x_start_auth(struct sde_hdcp_2x_ctrl *hdcp)
+{
+	int rc = 0;
+
+	rc = hdcp2_app_comm(hdcp->hdcp2_ctx, HDCP2_CMD_START_AUTH,
+		&hdcp->app_data);
+	if (rc)
+		goto exit;
+
+	pr_debug("message received from TZ: %s\n",
+		 sde_hdcp_2x_message_name(hdcp->app_data.response.data[0]));
+
+	sde_hdcp_2x_send_message(hdcp);
+
+	return;
+exit:
+	HDCP_2X_EXECUTE(clean);
+}
+
+
+static void sde_hdcp_2x_start_auth_work(struct kthread_work *work)
+{
+	struct sde_hdcp_2x_ctrl *hdcp =
+		container_of(work, struct sde_hdcp_2x_ctrl, wk_start_auth);
+
+	sde_hdcp_2x_start_auth(hdcp);
+}
+
 
 static void sde_hdcp_2x_timeout(struct sde_hdcp_2x_ctrl *hdcp)
 {
@@ -837,6 +850,9 @@ static int sde_hdcp_2x_wakeup(struct sde_hdcp_2x_wakeup_data *data)
 
 		HDCP_2X_EXECUTE(init);
 		break;
+	case HDCP_2X_CMD_START_AUTH:
+		HDCP_2X_EXECUTE(start_auth);
+		break;
 	case HDCP_2X_CMD_STOP:
 		atomic_set(&hdcp->hdcp_off, 1);
 		HDCP_2X_EXECUTE(clean);
@@ -914,17 +930,15 @@ int sde_hdcp_2x_register(struct sde_hdcp_2x_register_data *data)
 
 	hdcp->client_data = data->client_data;
 	hdcp->client_ops = data->client_ops;
-	hdcp->device_type = data->device_type;
 
-	hdcp->hdcp2_ctx = hdcp2_init(hdcp->device_type);
-
-	atomic_set(&hdcp->hdcp_off, 0);
+	atomic_set(&hdcp->hdcp_off, 1);
 
 	mutex_init(&hdcp->wakeup_mutex);
 
 	kthread_init_worker(&hdcp->worker);
 
 	kthread_init_work(&hdcp->wk_init,      sde_hdcp_2x_init_work);
+	kthread_init_work(&hdcp->wk_start_auth, sde_hdcp_2x_start_auth_work);
 	kthread_init_work(&hdcp->wk_msg_sent,  sde_hdcp_2x_msg_sent_work);
 	kthread_init_work(&hdcp->wk_msg_recvd, sde_hdcp_2x_msg_recvd_work);
 	kthread_init_work(&hdcp->wk_timeout,   sde_hdcp_2x_timeout_work);
@@ -957,6 +971,41 @@ unlock:
 	return rc;
 }
 
+int sde_hdcp_2x_enable(void *data, enum sde_hdcp_2x_device_type device_type)
+{
+	int rc =  0;
+	struct sde_hdcp_2x_ctrl *hdcp = data;
+
+	if (!hdcp)
+		return  -EINVAL;
+
+	if (hdcp->hdcp2_ctx) {
+		pr_debug("HDCP library context already acquired\n");
+		return 0;
+	}
+
+	hdcp->device_type = device_type;
+	hdcp->hdcp2_ctx = hdcp2_init(hdcp->device_type);
+	if (!hdcp->hdcp2_ctx) {
+		pr_err("Unable to acquire HDCP library handle\n");
+		return -ENOMEM;
+	}
+
+	return rc;
+}
+
+void sde_hdcp_2x_disable(void *data)
+{
+	struct sde_hdcp_2x_ctrl *hdcp = data;
+
+	if (!hdcp->hdcp2_ctx)
+		return;
+
+	kthread_flush_worker(&hdcp->worker);
+	hdcp2_deinit(hdcp->hdcp2_ctx);
+	hdcp->hdcp2_ctx = NULL;
+}
+
 void sde_hdcp_2x_deregister(void *data)
 {
 	struct sde_hdcp_2x_ctrl *hdcp = data;
@@ -964,8 +1013,8 @@ void sde_hdcp_2x_deregister(void *data)
 	if (!hdcp)
 		return;
 
+	sde_hdcp_2x_disable(data);
 	kthread_stop(hdcp->thread);
 	mutex_destroy(&hdcp->wakeup_mutex);
-	hdcp2_deinit(hdcp->hdcp2_ctx);
 	kzfree(hdcp);
 }

@@ -241,10 +241,15 @@ static void dp_display_check_source_hdcp_caps(struct dp_display_private *dp)
 		struct sde_hdcp_ops *ops = dev->ops;
 		void *fd = dev->fd;
 
-		if (!fd || !ops || (dp->hdcp.source_cap & dev->ver))
+		if (!fd || !ops)
 			continue;
 
-		if (ops->feature_supported(fd))
+		if (ops->set_mode && ops->set_mode(fd, dp->mst.mst_active))
+			continue;
+
+		if (!(dp->hdcp.source_cap & dev->ver) &&
+				ops->feature_supported &&
+				ops->feature_supported(fd))
 			dp->hdcp.source_cap |= dev->ver;
 	}
 
@@ -273,6 +278,11 @@ static void dp_display_hdcp_cb_work(struct work_struct *work)
 		dp_display_update_hdcp_info(dp);
 
 		if (dp_display_is_hdcp_enabled(dp)) {
+			if (dp->hdcp.ops && dp->hdcp.ops->on &&
+					dp->hdcp.ops->on(dp->hdcp.data)) {
+				dp_display_update_hdcp_status(dp, true);
+				return;
+			}
 			status->hdcp_state = HDCP_STATE_AUTHENTICATING;
 		} else {
 			dp_display_update_hdcp_status(dp, true);
@@ -304,6 +314,11 @@ static void dp_display_hdcp_cb_work(struct work_struct *work)
 		break;
 	case HDCP_STATE_AUTH_FAIL:
 		if (dp_display_is_ready(dp) && dp->power_on) {
+			if (ops && ops->on && ops->on(data)) {
+				dp_display_update_hdcp_status(dp, true);
+				return;
+			}
+			status->hdcp_state = HDCP_STATE_AUTHENTICATING;
 			if (ops && ops->reauthenticate) {
 				rc = ops->reauthenticate(data);
 				if (rc)
@@ -722,14 +737,22 @@ static int dp_display_process_hpd_low(struct dp_display_private *dp)
 {
 	int rc = 0, idx;
 	struct dp_panel *dp_panel;
+	struct dp_link_hdcp_status *status;
 
 	mutex_lock(&dp->session_lock);
 
+	status = &dp->link->hdcp_status;
 	dp->is_connected = false;
 	dp->process_hpd_connect = false;
 
-	if (dp_display_is_hdcp_enabled(dp) && dp->hdcp.ops->off)
-		dp->hdcp.ops->off(dp->hdcp.data);
+	if (dp_display_is_hdcp_enabled(dp) &&
+			status->hdcp_state != HDCP_STATE_INACTIVE) {
+		cancel_delayed_work_sync(&dp->hdcp_cb_work);
+		if (dp->hdcp.ops->off)
+			dp->hdcp.ops->off(dp->hdcp.data);
+
+		dp_display_update_hdcp_status(dp, true);
+	}
 
 	for (idx = DP_STREAM_0; idx < DP_STREAM_MAX; idx++) {
 		if (!dp->active_panels[idx])
@@ -823,8 +846,10 @@ static void dp_display_clean(struct dp_display_private *dp)
 {
 	int idx;
 	struct dp_panel *dp_panel;
+	struct dp_link_hdcp_status *status = &dp->link->hdcp_status;
 
-	if (dp_display_is_hdcp_enabled(dp)) {
+	if (dp_display_is_hdcp_enabled(dp) &&
+			status->hdcp_state != HDCP_STATE_INACTIVE) {
 		cancel_delayed_work_sync(&dp->hdcp_cb_work);
 		if (dp->hdcp.ops->off)
 			dp->hdcp.ops->off(dp->hdcp.data);
@@ -1573,6 +1598,7 @@ static int dp_display_pre_disable(struct dp_display *dp_display, void *panel)
 {
 	struct dp_display_private *dp;
 	struct dp_panel *dp_panel = panel;
+	struct dp_link_hdcp_status *status;
 	int rc = 0;
 
 	if (!dp_display || !panel) {
@@ -1584,12 +1610,15 @@ static int dp_display_pre_disable(struct dp_display *dp_display, void *panel)
 
 	mutex_lock(&dp->session_lock);
 
+	status = &dp->link->hdcp_status;
+
 	if (!dp->power_on) {
 		pr_debug("stream already powered off, return\n");
 		goto end;
 	}
 
-	if (dp_display_is_hdcp_enabled(dp)) {
+	if (dp_display_is_hdcp_enabled(dp) &&
+			status->hdcp_state != HDCP_STATE_INACTIVE) {
 		cancel_delayed_work_sync(&dp->hdcp_cb_work);
 		if (dp->hdcp.ops->off)
 			dp->hdcp.ops->off(dp->hdcp.data);
