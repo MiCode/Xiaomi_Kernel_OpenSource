@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.*/
 
 #define pr_fmt(fmt) "clk: %s: " fmt, __func__
 
@@ -22,6 +22,7 @@
 #include "clk-pll.h"
 #include "clk-rcg.h"
 #include "clk-regmap.h"
+#include "clk-regmap-divider.h"
 #include "common.h"
 #include "reset.h"
 #include "vdd-level.h"
@@ -434,6 +435,18 @@ static struct clk_alpha_pll_postdiv cam_cc_pll4_out_even = {
 		.num_parents = 1,
 		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_alpha_pll_postdiv_lucid_ops,
+	},
+};
+
+static struct clk_regmap_div cam_cc_sbi_div_clk_src = {
+	.reg = 0x9010,
+	.shift = 0,
+	.width = 3,
+	.clkr.hw.init = &(struct clk_init_data) {
+		.name = "cam_cc_sbi_div_clk_src",
+		.parent_names = (const char *[]){ "cam_cc_ife_0_clk_src" },
+		.num_parents = 1,
+		.ops = &clk_regmap_div_ro_ops,
 	},
 };
 
@@ -1179,6 +1192,7 @@ static struct clk_rcg2 cam_cc_slow_ahb_clk_src = {
 	.hid_width = 5,
 	.parent_map = cam_cc_parent_map_0,
 	.freq_tbl = ftbl_cam_cc_slow_ahb_clk_src,
+	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "cam_cc_slow_ahb_clk_src",
 		.parent_names = cam_cc_parent_names_0,
@@ -1358,7 +1372,7 @@ static struct clk_branch cam_cc_cci_1_clk = {
 
 static struct clk_branch cam_cc_core_ahb_clk = {
 	.halt_reg = 0xc150,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
 		.enable_reg = 0xc150,
 		.enable_mask = BIT(0),
@@ -2301,7 +2315,7 @@ static struct clk_branch cam_cc_sbi_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "cam_cc_sbi_clk",
 			.parent_names = (const char *[]){
-				"cam_cc_ife_0_clk_src",
+				"cam_cc_sbi_div_clk_src",
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
@@ -2505,6 +2519,7 @@ static struct clk_regmap *cam_cc_kona_clocks[] = {
 	[CAM_CC_SBI_CPHY_RX_CLK] = &cam_cc_sbi_cphy_rx_clk.clkr,
 	[CAM_CC_SBI_CSID_CLK] = &cam_cc_sbi_csid_clk.clkr,
 	[CAM_CC_SBI_CSID_CLK_SRC] = &cam_cc_sbi_csid_clk_src.clkr,
+	[CAM_CC_SBI_DIV_CLK_SRC] = &cam_cc_sbi_div_clk_src.clkr,
 	[CAM_CC_SBI_IFE_0_CLK] = &cam_cc_sbi_ife_0_clk.clkr,
 	[CAM_CC_SBI_IFE_1_CLK] = &cam_cc_sbi_ife_1_clk.clkr,
 	[CAM_CC_SLEEP_CLK] = &cam_cc_sleep_clk.clkr,

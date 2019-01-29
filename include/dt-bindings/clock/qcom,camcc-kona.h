@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved. */
 
 #ifndef _DT_BINDINGS_CLK_QCOM_CAM_CC_KONA_H
 #define _DT_BINDINGS_CLK_QCOM_CAM_CC_KONA_H
 
+/* CAM_CC clocks */
 #define CAM_CC_BPS_AHB_CLK					0
 #define CAM_CC_BPS_AREG_CLK					1
 #define CAM_CC_BPS_AXI_CLK					2
@@ -108,20 +109,15 @@
 #define CAM_CC_SBI_CPHY_RX_CLK					101
 #define CAM_CC_SBI_CSID_CLK					102
 #define CAM_CC_SBI_CSID_CLK_SRC					103
-#define CAM_CC_SBI_IFE_0_CLK					104
-#define CAM_CC_SBI_IFE_1_CLK					105
-#define CAM_CC_SLEEP_CLK					106
-#define CAM_CC_SLEEP_CLK_SRC					107
-#define CAM_CC_SLOW_AHB_CLK_SRC					108
-#define CAM_CC_XO_CLK_SRC					109
+#define CAM_CC_SBI_DIV_CLK_SRC					104
+#define CAM_CC_SBI_IFE_0_CLK					105
+#define CAM_CC_SBI_IFE_1_CLK					106
+#define CAM_CC_SLEEP_CLK					107
+#define CAM_CC_SLEEP_CLK_SRC					108
+#define CAM_CC_SLOW_AHB_CLK_SRC					109
+#define CAM_CC_XO_CLK_SRC					110
 
-#define BPS_GDSC						0
-#define IFE_0_GDSC						1
-#define IFE_1_GDSC						2
-#define IPE_0_GDSC						3
-#define SBI_GDSC						4
-#define TITAN_TOP_GDSC						5
-
+/* CAM_CC resets */
 #define CAM_CC_BPS_BCR						0
 #define CAM_CC_ICP_BCR						1
 #define CAM_CC_IFE_0_BCR					2

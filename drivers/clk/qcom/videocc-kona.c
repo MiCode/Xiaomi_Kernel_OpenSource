@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
- */
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.*/
 
 #define pr_fmt(fmt) "clk: %s: " fmt, __func__
 
@@ -24,11 +22,10 @@
 #include "clk-pll.h"
 #include "clk-rcg.h"
 #include "clk-regmap.h"
+#include "clk-regmap-divider.h"
 #include "common.h"
 #include "reset.h"
 #include "vdd-level.h"
-
-#define F(f, s, h, m, n) { (f), (s), (2 * (h) - 1), (m), (n) }
 
 static DEFINE_VDD_REGULATORS(vdd_mm, VDD_NUM, 1, vdd_corner);
 static DEFINE_VDD_REGULATORS(vdd_mx, VDD_NUM, 1, vdd_corner);
@@ -154,6 +151,54 @@ static struct clk_alpha_pll video_pll1 = {
 				[VDD_LOW_L1] = 1600000000,
 				[VDD_NOMINAL] = 2000000000},
 		},
+	},
+};
+
+static struct clk_regmap_div video_cc_mvs0_div_clk_src = {
+	.reg = 0xd54,
+	.shift = 0,
+	.width = 2,
+	.clkr.hw.init = &(struct clk_init_data) {
+		.name = "video_cc_mvs0_div_clk_src",
+		.parent_names = (const char *[]){ "video_cc_mvs0_clk_src" },
+		.num_parents = 1,
+		.ops = &clk_regmap_div_ro_ops,
+	},
+};
+
+static struct clk_regmap_div video_cc_mvs0c_div2_div_clk_src = {
+	.reg = 0xc54,
+	.shift = 0,
+	.width = 2,
+	.clkr.hw.init = &(struct clk_init_data) {
+		.name = "video_cc_mvs0c_div2_div_clk_src",
+		.parent_names = (const char *[]){ "video_cc_mvs0_clk_src" },
+		.num_parents = 1,
+		.ops = &clk_regmap_div_ro_ops,
+	},
+};
+
+static struct clk_regmap_div video_cc_mvs1_div_clk_src = {
+	.reg = 0xdd4,
+	.shift = 0,
+	.width = 2,
+	.clkr.hw.init = &(struct clk_init_data) {
+		.name = "video_cc_mvs1_div_clk_src",
+		.parent_names = (const char *[]){ "video_cc_mvs1_clk_src" },
+		.num_parents = 1,
+		.ops = &clk_regmap_div_ro_ops,
+	},
+};
+
+static struct clk_regmap_div video_cc_mvs1c_div2_div_clk_src = {
+	.reg = 0xcf4,
+	.shift = 0,
+	.width = 2,
+	.clkr.hw.init = &(struct clk_init_data) {
+		.name = "video_cc_mvs1c_div2_div_clk_src",
+		.parent_names = (const char *[]){ "video_cc_mvs1_clk_src" },
+		.num_parents = 1,
+		.ops = &clk_regmap_div_ro_ops,
 	},
 };
 
@@ -304,19 +349,6 @@ static struct clk_branch video_cc_ahb_clk = {
 	},
 };
 
-static struct clk_branch video_cc_debug_clk = {
-	.halt_reg = 0xebc,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0xebc,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "video_cc_debug_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch video_cc_mvs0_clk = {
 	.halt_reg = 0xd34,
 	.halt_check = BRANCH_HALT_VOTED,
@@ -326,7 +358,7 @@ static struct clk_branch video_cc_mvs0_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "video_cc_mvs0_clk",
 			.parent_names = (const char *[]){
-				"video_cc_mvs0_clk_src",
+				"video_cc_mvs0_div_clk_src",
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
@@ -344,7 +376,7 @@ static struct clk_branch video_cc_mvs0c_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "video_cc_mvs0c_clk",
 			.parent_names = (const char *[]){
-				"video_cc_mvs0_clk_src",
+				"video_cc_mvs0c_div2_div_clk_src",
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
@@ -362,7 +394,7 @@ static struct clk_branch video_cc_mvs1_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "video_cc_mvs1_clk",
 			.parent_names = (const char *[]){
-				"video_cc_mvs1_clk_src",
+				"video_cc_mvs1_div_clk_src",
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
@@ -380,7 +412,7 @@ static struct clk_branch video_cc_mvs1_div2_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "video_cc_mvs1_div2_clk",
 			.parent_names = (const char *[]){
-				"video_cc_mvs1_clk_src",
+				"video_cc_mvs1c_div2_div_clk_src",
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
@@ -398,23 +430,10 @@ static struct clk_branch video_cc_mvs1c_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "video_cc_mvs1c_clk",
 			.parent_names = (const char *[]){
-				"video_cc_mvs1_clk_src",
+				"video_cc_mvs1c_div2_div_clk_src",
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch video_cc_pll_test_clk = {
-	.halt_reg = 0xec8,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0xec8,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "video_cc_pll_test_clk",
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -459,15 +478,19 @@ static struct clk_branch video_cc_xo_clk = {
 static struct clk_regmap *video_cc_kona_clocks[] = {
 	[VIDEO_CC_AHB_CLK] = &video_cc_ahb_clk.clkr,
 	[VIDEO_CC_AHB_CLK_SRC] = &video_cc_ahb_clk_src.clkr,
-	[VIDEO_CC_DEBUG_CLK] = &video_cc_debug_clk.clkr,
 	[VIDEO_CC_MVS0_CLK] = &video_cc_mvs0_clk.clkr,
 	[VIDEO_CC_MVS0_CLK_SRC] = &video_cc_mvs0_clk_src.clkr,
+	[VIDEO_CC_MVS0_DIV_CLK_SRC] = &video_cc_mvs0_div_clk_src.clkr,
 	[VIDEO_CC_MVS0C_CLK] = &video_cc_mvs0c_clk.clkr,
+	[VIDEO_CC_MVS0C_DIV2_DIV_CLK_SRC] =
+		&video_cc_mvs0c_div2_div_clk_src.clkr,
 	[VIDEO_CC_MVS1_CLK] = &video_cc_mvs1_clk.clkr,
 	[VIDEO_CC_MVS1_CLK_SRC] = &video_cc_mvs1_clk_src.clkr,
 	[VIDEO_CC_MVS1_DIV2_CLK] = &video_cc_mvs1_div2_clk.clkr,
+	[VIDEO_CC_MVS1_DIV_CLK_SRC] = &video_cc_mvs1_div_clk_src.clkr,
 	[VIDEO_CC_MVS1C_CLK] = &video_cc_mvs1c_clk.clkr,
-	[VIDEO_CC_PLL_TEST_CLK] = &video_cc_pll_test_clk.clkr,
+	[VIDEO_CC_MVS1C_DIV2_DIV_CLK_SRC] =
+		&video_cc_mvs1c_div2_div_clk_src.clkr,
 	[VIDEO_CC_SLEEP_CLK] = &video_cc_sleep_clk.clkr,
 	[VIDEO_CC_SLEEP_CLK_SRC] = &video_cc_sleep_clk_src.clkr,
 	[VIDEO_CC_XO_CLK] = &video_cc_xo_clk.clkr,
@@ -479,19 +502,19 @@ static struct clk_regmap *video_cc_kona_clocks[] = {
 static const struct qcom_reset_map video_cc_kona_resets[] = {
 	[CVP_VIDEO_CC_INTERFACE_BCR] = { 0xe54 },
 	[CVP_VIDEO_CC_MVS0_BCR] = { 0xd14 },
+	[VIDEO_CC_MVS0C_CLK_ARES] = { 0xc34, 2 },
 	[CVP_VIDEO_CC_MVS0C_BCR] = { 0xbf4 },
 	[CVP_VIDEO_CC_MVS1_BCR] = { 0xd94 },
+	[VIDEO_CC_MVS1C_CLK_ARES] = { 0xcd4, 2 },
 	[CVP_VIDEO_CC_MVS1C_BCR] = { 0xc94 },
-	[VIDEO_CC_MVS0C_CLK_BCR] = { 0xc34, 2},
-	[VIDEO_CC_MVS1C_CLK_BCR] = { 0xcd4, 2},
 };
 
 static const struct regmap_config video_cc_kona_regmap_config = {
-	.reg_bits	= 32,
-	.reg_stride	= 4,
-	.val_bits	= 32,
-	.max_register	= 0xf4c,
-	.fast_io	= true,
+	.reg_bits = 32,
+	.reg_stride = 4,
+	.val_bits = 32,
+	.max_register = 0xf4c,
+	.fast_io = true,
 };
 
 static const struct qcom_cc_desc video_cc_kona_desc = {
