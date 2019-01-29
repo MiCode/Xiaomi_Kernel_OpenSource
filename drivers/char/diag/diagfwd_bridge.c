@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -84,19 +84,6 @@ static int diagfwd_bridge_mux_disconnect(int id, int mode)
 	if (id < 0 || id >= NUM_REMOTE_DEV)
 		return -EINVAL;
 
-	if ((mode == DIAG_USB_MODE &&
-		driver->logging_mode == DIAG_MEMORY_DEVICE_MODE) ||
-		(mode == DIAG_MEMORY_DEVICE_MODE &&
-		driver->logging_mode == DIAG_USB_MODE)) {
-		/*
-		 * Don't close the MHI channels when usb is disconnected
-		 * and a process is running in memory device mode.
-		 */
-		return 0;
-	}
-
-	if (bridge_info[id].dev_ops && bridge_info[id].dev_ops->close)
-		bridge_info[id].dev_ops->close(bridge_info[id].ctxt);
 	return 0;
 }
 

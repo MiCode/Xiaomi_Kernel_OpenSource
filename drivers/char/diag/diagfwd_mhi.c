@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -216,6 +216,8 @@ static int __mhi_close(struct diag_mhi_info *mhi_info, int close_flag)
 	atomic_set(&(mhi_info->read_ch.opened), 0);
 	atomic_set(&(mhi_info->write_ch.opened), 0);
 
+	cancel_work_sync(&mhi_info->read_work);
+	cancel_work_sync(&mhi_info->read_done_work);
 	flush_workqueue(mhi_info->mhi_wq);
 
 	if (close_flag == CLOSE_CHANNELS)
