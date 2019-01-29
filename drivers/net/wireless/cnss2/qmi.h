@@ -38,6 +38,8 @@ int cnss_wlfw_athdiag_write_send_sync(struct cnss_plat_data *plat_priv,
 				      u32 data_len, u8 *data);
 int cnss_wlfw_ini_send_sync(struct cnss_plat_data *plat_priv,
 			    u8 fw_log_mode);
+int cnss_wlfw_antenna_switch_send_sync(struct cnss_plat_data *plat_priv);
+int cnss_wlfw_antenna_grant_send_sync(struct cnss_plat_data *plat_priv);
 #else
 #define QMI_WLFW_TIMEOUT_MS		10000
 
@@ -122,6 +124,18 @@ int cnss_wlfw_athdiag_write_send_sync(struct cnss_plat_data *plat_priv,
 static inline
 int cnss_wlfw_ini_send_sync(struct cnss_plat_data *plat_priv,
 			    u8 fw_log_mode)
+{
+	return 0;
+}
+
+static inline
+int cnss_wlfw_antenna_switch_send_sync(struct cnss_plat_data *plat_priv)
+{
+	return 0;
+}
+
+static inline
+int cnss_wlfw_antenna_grant_send_sync(struct cnss_plat_data *plat_priv)
 {
 	return 0;
 }

@@ -279,6 +279,8 @@ struct cnss_plat_data {
 	struct completion rddm_complete;
 	struct completion recovery_complete;
 	struct cnss_control_params ctrl_params;
+	u64 antenna;
+	u64 grant;
 };
 
 struct cnss_plat_data *cnss_get_plat_priv(struct platform_device *plat_dev);
