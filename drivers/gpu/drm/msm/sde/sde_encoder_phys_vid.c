@@ -1108,26 +1108,6 @@ static void sde_encoder_phys_vid_irq_control(struct sde_encoder_phys *phys_enc,
 	}
 }
 
-static void sde_encoder_phys_vid_setup_misr(struct sde_encoder_phys *phys_enc,
-						bool enable, u32 frame_count)
-{
-	if (!phys_enc)
-		return;
-
-	if (phys_enc->hw_intf && phys_enc->hw_intf->ops.setup_misr)
-		phys_enc->hw_intf->ops.setup_misr(phys_enc->hw_intf,
-							enable, frame_count);
-}
-
-static u32 sde_encoder_phys_vid_collect_misr(struct sde_encoder_phys *phys_enc)
-{
-	if (!phys_enc)
-		return 0;
-
-	return phys_enc->hw_intf && phys_enc->hw_intf->ops.collect_misr ?
-		phys_enc->hw_intf->ops.collect_misr(phys_enc->hw_intf) : 0;
-}
-
 static int sde_encoder_phys_vid_get_line_count(
 		struct sde_encoder_phys *phys_enc)
 {
@@ -1228,8 +1208,8 @@ static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
 	ops->prepare_for_kickoff = sde_encoder_phys_vid_prepare_for_kickoff;
 	ops->handle_post_kickoff = sde_encoder_phys_vid_handle_post_kickoff;
 	ops->needs_single_flush = sde_encoder_phys_needs_single_flush;
-	ops->setup_misr = sde_encoder_phys_vid_setup_misr;
-	ops->collect_misr = sde_encoder_phys_vid_collect_misr;
+	ops->setup_misr = sde_encoder_helper_setup_misr;
+	ops->collect_misr = sde_encoder_helper_collect_misr;
 	ops->trigger_flush = sde_encoder_helper_trigger_flush;
 	ops->hw_reset = sde_encoder_helper_hw_reset;
 	ops->get_line_count = sde_encoder_phys_vid_get_line_count;

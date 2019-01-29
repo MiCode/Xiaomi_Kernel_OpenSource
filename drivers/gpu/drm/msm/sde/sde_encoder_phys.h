@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019 The Linux Foundation. All rights reserved.
  */
 
 #ifndef __SDE_ENCODER_PHYS_H__
@@ -169,7 +169,8 @@ struct sde_encoder_phys_ops {
 
 	void (*setup_misr)(struct sde_encoder_phys *phys_encs,
 				bool enable, u32 frame_count);
-	u32 (*collect_misr)(struct sde_encoder_phys *phys_enc);
+	int (*collect_misr)(struct sde_encoder_phys *phys_enc, bool nonblock,
+			u32 *misr_value);
 	void (*hw_reset)(struct sde_encoder_phys *phys_enc);
 	void (*irq_control)(struct sde_encoder_phys *phys, bool enable);
 	void (*update_split_role)(struct sde_encoder_phys *phys_enc,
@@ -701,5 +702,22 @@ static inline bool sde_encoder_phys_needs_single_flush(
  */
 void sde_encoder_helper_phys_disable(struct sde_encoder_phys *phys_enc,
 		struct sde_encoder_phys_wb *wb_enc);
+
+/**
+ * sde_encoder_helper_setup_misr - helper function to setup misr
+ * @enable: enable/disable flag
+ * @frame_count: frame count for misr
+ */
+void sde_encoder_helper_setup_misr(struct sde_encoder_phys *phys_enc,
+		bool enable, u32 frame_count);
+
+/**
+ * sde_encoder_helper_collect_misr - helper function to collect misr
+ * @nonblock:  blocking/non-blocking flag
+ * @misr_value:  pointer to misr value
+ * @Return: zero on success
+ */
+int sde_encoder_helper_collect_misr(struct sde_encoder_phys *phys_enc,
+		bool nonblock, u32 *misr_value);
 
 #endif /* __sde_encoder_phys_H__ */
