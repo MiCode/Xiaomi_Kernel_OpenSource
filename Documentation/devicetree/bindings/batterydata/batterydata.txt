@@ -125,7 +125,8 @@ Profile data node optional properties:
 - qcom,jeita-hard-thresholds: A tuple entry to specify ADC code for battery's hard JEITA
 				threshold.
 				<HARD_COLD_ADC_CODE, HARD_HOT_ADC_CODE>.
-
+- qcom,batt-age-level:  Battery age level. This is used only when multiple
+			profile loading is supported.
 Profile data node required subnodes:
 - qcom,fcc-temp-lut : An 1-dimensional lookup table node that encodes
 			temperature to fcc lookup. The units for this lookup
