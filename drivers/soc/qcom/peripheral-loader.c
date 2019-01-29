@@ -414,6 +414,33 @@ setup_fail:
 }
 
 /**
+ * print_aux_minidump_tocs() - Print the ToC for an auxiliary minidump entry
+ * @desc: PIL descriptor for the subsystem for which minidump is collected
+ *
+ * Prints out the table of contents(ToC) for all of the auxiliary
+ * minidump entries for a subsystem.
+ */
+static void print_aux_minidump_tocs(struct pil_desc *desc)
+{
+	int i;
+	struct md_ss_toc *toc;
+
+	for (i = 0; i < desc->num_aux_minidump_ids; i++) {
+		toc = desc->aux_minidump[i];
+		pr_debug("Minidump : md_aux_toc->toc_init 0x%x\n",
+			 (unsigned int)toc->md_ss_toc_init);
+		pr_debug("Minidump : md_aux_toc->enable_status 0x%x\n",
+			 (unsigned int)toc->md_ss_enable_status);
+		pr_debug("Minidump : md_aux_toc->encryption_status 0x%x\n",
+			 (unsigned int)toc->encryption_status);
+		pr_debug("Minidump : md_aux_toc->ss_region_count 0x%x\n",
+			 (unsigned int)toc->ss_region_count);
+		pr_debug("Minidump : md_aux_toc->smem_regions_baseptr 0x%x\n",
+			 (unsigned int)toc->md_ss_smem_regions_baseptr);
+	}
+}
+
+/**
  * pil_do_ramdump() - Ramdump an image
  * @desc: descriptor from pil_desc_init()
  * @ramdump_dev: ramdump device returned from create_ramdump_device()
@@ -441,6 +468,9 @@ int pil_do_ramdump(struct pil_desc *desc,
 		pr_debug("Minidump : md_ss_toc->md_ss_smem_regions_baseptr is 0x%x\n",
 			(unsigned int)
 			desc->minidump_ss->md_ss_smem_regions_baseptr);
+
+		print_aux_minidump_tocs(desc);
+
 		/**
 		 * Collect minidump if SS ToC is valid and segment table
 		 * is initialized in memory and encryption status is set.
