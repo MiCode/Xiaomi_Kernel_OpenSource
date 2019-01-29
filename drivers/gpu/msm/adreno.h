@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2008-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
  */
 #ifndef __ADRENO_H
 #define __ADRENO_H
@@ -122,6 +122,8 @@
  * for droop mitigation
  */
 #define ADRENO_ACD BIT(17)
+/* ECP enabled GMU */
+#define ADRENO_ECP BIT(18)
 
 /*
  * Adreno GPU quirks - control bits for various workarounds

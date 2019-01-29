@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include "kgsl_device.h"
@@ -734,9 +734,12 @@ int hfi_start(struct kgsl_device *device,
 	 * send H2F_MSG_CORE_FW_START and features for A640 devices
 	 */
 	if (HFI_VER_MAJOR(&gmu->hfi) >= 2) {
-		result = hfi_send_feature_ctrl(gmu, HFI_FEATURE_ECP, 0, 0);
-		if (result)
-			return result;
+		if (ADRENO_FEATURE(adreno_dev, ADRENO_ECP)) {
+			result = hfi_send_feature_ctrl(gmu,
+					HFI_FEATURE_ECP, 1, 0);
+			if (result)
+				return result;
+		}
 
 		result = hfi_send_acd_feature_ctrl(gmu, adreno_dev);
 		if (result)
