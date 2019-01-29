@@ -154,6 +154,14 @@ First Level Node - FG Gen4 device
 		    This factor will be used when ESR correction delta is
 		    applied after the calculation. Default value is 2.
 
+- qcom,fg-esr-calib-dischg:
+	Usage:      optional
+	Value type: <empty>
+	Definition: Enables ESR calibration only during discharging. This
+		    should be specified only when ESR fast calibration is not
+		    required. Also, ESR discharging timers should be specified
+		    for the proper functionality.
+
 - qcom,fg-esr-pulse-thresh-ma
 	Usage:      optional
 	Value type: <u32>
