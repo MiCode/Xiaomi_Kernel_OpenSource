@@ -2961,7 +2961,8 @@ static void _sde_plane_update_format_and_rects(struct sde_plane *psde,
 		src_flags |= SDE_SSPP_FLIP_LR;
 	if (pstate->rotation & DRM_MODE_REFLECT_Y)
 		src_flags |= SDE_SSPP_FLIP_UD;
-
+	if (pstate->rotation & DRM_MODE_ROTATE_90)
+		src_flags |= SDE_SSPP_ROT_90;
 
 	/* update format */
 	psde->pipe_hw->ops.setup_format(psde->pipe_hw, fmt,
