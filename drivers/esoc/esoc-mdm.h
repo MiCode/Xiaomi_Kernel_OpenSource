@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2014-2015, 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __ESOC_MDM_H__
@@ -123,27 +123,39 @@ void mdm_wait_for_status_low(struct mdm_ctrl *mdm, bool atomic);
 
 static inline int mdm_toggle_soft_reset(struct mdm_ctrl *mdm, bool atomic)
 {
-	return mdm->pon_ops->soft_reset(mdm, atomic);
+	if (mdm->pon_ops->soft_reset)
+		return mdm->pon_ops->soft_reset(mdm, atomic);
+	return -ENOENT;
 }
 static inline int mdm_do_first_power_on(struct mdm_ctrl *mdm)
 {
-	return mdm->pon_ops->pon(mdm);
+	if (mdm->pon_ops->pon)
+		return mdm->pon_ops->pon(mdm);
+	return -ENOENT;
 }
 static inline int mdm_power_down(struct mdm_ctrl *mdm)
 {
-	return mdm->pon_ops->poff_force(mdm);
+	if (mdm->pon_ops->poff_force)
+		return mdm->pon_ops->poff_force(mdm);
+	return -ENOENT;
 }
 static inline void mdm_cold_reset(struct mdm_ctrl *mdm)
 {
-	mdm->pon_ops->cold_reset(mdm);
+	if (mdm->pon_ops->cold_reset)
+		mdm->pon_ops->cold_reset(mdm);
+	return;
 }
 static inline int mdm_pon_dt_init(struct mdm_ctrl *mdm)
 {
-	return mdm->pon_ops->dt_init(mdm);
+	if (mdm->pon_ops->dt_init)
+		return mdm->pon_ops->dt_init(mdm);
+	return -ENOENT;
 }
 static inline int mdm_pon_setup(struct mdm_ctrl *mdm)
 {
-	return mdm->pon_ops->setup(mdm);
+	if (mdm->pon_ops->setup)
+		return mdm->pon_ops->setup(mdm);
+	return -ENOENT;
 }
 
 extern struct mdm_pon_ops mdm9x55_pon_ops;
