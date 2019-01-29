@@ -403,6 +403,14 @@ First Level Node - FG Gen4 device
 		    five pin battery is used. Based on this, time to full
 		    calculations would use the Rbatt calculated properly.
 
+- qcom,multi-profile-load
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property that when specified indicates that
+		    multiple profile loading needs to be enabled. This requires
+		    multiple battery profiles to be specified for a battery for
+		    proper functionality.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by FG Gen4 driver
 ==========================================================
