@@ -527,7 +527,8 @@ static int mmc_decode_ext_csd(struct mmc_card *card, u8 *ext_csd)
 			card->cid.year += 16;
 
 		/* check whether the eMMC card supports BKOPS */
-		if (ext_csd[EXT_CSD_BKOPS_SUPPORT] & 0x1) {
+		if (!mmc_card_broken_hpi(card) &&
+		    ext_csd[EXT_CSD_BKOPS_SUPPORT] & 0x1) {
 			card->ext_csd.bkops = 1;
 			card->ext_csd.man_bkops_en =
 					(ext_csd[EXT_CSD_BKOPS_EN] &
@@ -1771,7 +1772,8 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	 * sudden power failure tests. Let's extend the timeout to a minimum of
 	 * DEFAULT_CACHE_EN_TIMEOUT_MS and do it for all cards.
 	 */
-	if (card->ext_csd.cache_size > 0) {
+	if (!mmc_card_broken_hpi(card) &&
+	    card->ext_csd.cache_size > 0) {
 		unsigned int timeout_ms = MIN_CACHE_EN_TIMEOUT_MS;
 
 		timeout_ms = max(card->ext_csd.generic_cmd6_time, timeout_ms);
