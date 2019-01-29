@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -1601,7 +1601,7 @@ int ipa_mhi_connect_pipe(struct ipa_mhi_connect_params *in, u32 *clnt_hdl)
 		res = ipa_mhi_read_write_host(IPA_MHI_DMA_TO_HOST,
 			&channel->state, channel->channel_context_addr +
 				offsetof(struct ipa_mhi_ch_ctx, chstate),
-				sizeof(channel->state));
+				sizeof(((struct ipa_mhi_ch_ctx *)0)->chstate));
 		if (res) {
 			IPA_MHI_ERR("ipa_mhi_read_write_host failed\n");
 			return res;
