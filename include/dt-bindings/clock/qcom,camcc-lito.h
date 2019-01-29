@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved. */
 
 #ifndef _DT_BINDINGS_CLK_QCOM_CAM_CC_LITO_H
 #define _DT_BINDINGS_CLK_QCOM_CAM_CC_LITO_H
@@ -79,19 +79,23 @@
 #define CAM_CC_MCLK2_CLK_SRC					72
 #define CAM_CC_MCLK3_CLK					73
 #define CAM_CC_MCLK3_CLK_SRC					74
-#define CAM_CC_BPS_AHB_CLK					75
-#define CAM_CC_BPS_AREG_CLK					76
-#define CAM_CC_BPS_AXI_CLK					77
-#define CAM_CC_BPS_CLK						78
-#define CAM_CC_BPS_CLK_SRC					79
-#define CAM_CC_CAMNOC_AXI_CLK					80
-#define CAM_CC_CAMNOC_AXI_CLK_SRC				81
-#define CAM_CC_CAMNOC_DCD_XO_CLK				82
-#define CAM_CC_CCI_0_CLK					83
-#define CAM_CC_CCI_0_CLK_SRC					84
-#define CAM_CC_CCI_1_CLK					85
-#define CAM_CC_CCI_1_CLK_SRC					86
-#define CAM_CC_SLOW_AHB_CLK_SRC					87
-#define CAM_CC_XO_CLK_SRC					88
+#define CAM_CC_MCLK4_CLK					75
+#define CAM_CC_MCLK4_CLK_SRC					76
+#define CAM_CC_BPS_AHB_CLK					77
+#define CAM_CC_BPS_AREG_CLK					78
+#define CAM_CC_BPS_AXI_CLK					79
+#define CAM_CC_BPS_CLK						80
+#define CAM_CC_BPS_CLK_SRC					81
+#define CAM_CC_CAMNOC_AXI_CLK					82
+#define CAM_CC_CAMNOC_AXI_CLK_SRC				83
+#define CAM_CC_CAMNOC_DCD_XO_CLK				84
+#define CAM_CC_CCI_0_CLK					85
+#define CAM_CC_CCI_0_CLK_SRC					86
+#define CAM_CC_CCI_1_CLK					87
+#define CAM_CC_CCI_1_CLK_SRC					88
+#define CAM_CC_SLEEP_CLK					89
+#define CAM_CC_SLEEP_CLK_SRC					90
+#define CAM_CC_SLOW_AHB_CLK_SRC					91
+#define CAM_CC_XO_CLK_SRC					92
 
 #endif
