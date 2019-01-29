@@ -407,8 +407,7 @@ int cvp_create_pkt_cmd_sys_ping(struct hfi_cmd_sys_ping_packet *pkt)
 
 inline int cvp_create_pkt_cmd_sys_session_init(
 		struct hfi_cmd_sys_session_init_packet *pkt,
-		struct hal_session *session,
-		u32 session_domain, u32 session_codec)
+		struct hal_session *session)
 {
 	int rc = 0;
 
@@ -418,10 +417,11 @@ inline int cvp_create_pkt_cmd_sys_session_init(
 	pkt->size = sizeof(struct hfi_cmd_sys_session_init_packet);
 	pkt->packet_type = HFI_CMD_SYS_SESSION_INIT;
 	pkt->session_id = hash32_ptr(session);
-	pkt->session_domain = cvp_get_hfi_domain(session_domain);
-	pkt->session_codec = cvp_get_hfi_codec(session_codec);
-	if (!pkt->session_codec)
-		return -EINVAL;
+	pkt->session_kmask = 0xFFFFFFFF;
+	pkt->session_type = HFI_SESSION_CV;
+	pkt->session_prio = 0;
+	pkt->is_secure = 0;
+	pkt->dsp_ac_mask = 0;
 
 	return rc;
 }

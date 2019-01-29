@@ -933,12 +933,22 @@ struct hfi_cmd_sys_get_property_packet {
 	u32 rg_property_data[1];
 };
 
+enum HFI_SESSION_TYPE {
+	HFI_SESSION_CV = 1,
+	HFI_SESSION_LRME,
+	HFI_SESSION_ODT,
+	HFI_SESSION_FD
+};
+
 struct hfi_cmd_sys_session_init_packet {
 	u32 size;
 	u32 packet_type;
 	u32 session_id;
-	u32 session_domain;
-	u32 session_codec;
+	u32 session_type;
+	u32 session_kmask;
+	u32 session_prio;
+	u32 is_secure;
+	u32 dsp_ac_mask;
 };
 
 struct hfi_cmd_sys_session_end_packet {

@@ -205,8 +205,11 @@ int msm_cvp_comm_vote_bus(struct msm_cvp_core *core)
 		dprintk(CVP_ERR, "%s Invalid args: %pK\n", __func__, core);
 		return -EINVAL;
 	}
-	hdev = core->device;
 
+	if (!core->resources.bus_devfreq_on)
+		return 0;
+
+	hdev = core->device;
 	vote_data = kzalloc(sizeof(struct cvp_bus_vote_data) *
 			MAX_SUPPORTED_INSTANCES, GFP_ATOMIC);
 	if (!vote_data) {
@@ -817,6 +820,9 @@ int msm_cvp_comm_scale_clocks(struct msm_cvp_inst *inst)
 			__func__, inst);
 		return -EINVAL;
 	}
+
+	if (!inst->core->resources.bus_devfreq_on)
+		return 0;
 
 	mutex_lock(&inst->registeredbufs.lock);
 	list_for_each_entry_safe(temp, next, &inst->registeredbufs.list, list) {
