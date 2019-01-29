@@ -477,19 +477,26 @@ static void sde_hdcp_2x_msg_sent(struct sde_hdcp_2x_ctrl *hdcp)
 static void sde_hdcp_2x_init(struct sde_hdcp_2x_ctrl *hdcp)
 {
 	int rc;
-
 	rc = hdcp2_app_comm(hdcp->hdcp2_ctx, HDCP2_CMD_START, &hdcp->app_data);
 	if (rc)
-		goto exit;
+		sde_hdcp_2x_clean(hdcp);
+}
 
-	pr_debug("[tz]: %s\n", sde_hdcp_2x_message_name(
-		hdcp->app_data.response.data[0]));
+static void sde_hdcp_2x_start_auth(struct sde_hdcp_2x_ctrl *hdcp)
+{
+	int rc;
+
+	rc = hdcp2_app_comm(hdcp->hdcp2_ctx, HDCP2_CMD_START_AUTH,
+		&hdcp->app_data);
+	if (rc) {
+		sde_hdcp_2x_clean(hdcp);
+		return;
+	}
+
+	pr_debug("message received from TZ: %s\n",
+		 sde_hdcp_2x_message_name(hdcp->app_data.response.data[0]));
 
 	sde_hdcp_2x_send_message(hdcp);
-
-	return;
-exit:
-	sde_hdcp_2x_clean(hdcp);
 }
 
 static void sde_hdcp_2x_timeout(struct sde_hdcp_2x_ctrl *hdcp)
@@ -709,6 +716,9 @@ static int sde_hdcp_2x_main(void *data)
 		case HDCP_2X_CMD_STOP:
 			sde_hdcp_2x_clean(hdcp);
 			break;
+		case HDCP_2X_CMD_START_AUTH:
+			sde_hdcp_2x_start_auth(hdcp);
+			break;
 		case HDCP_2X_CMD_MSG_SEND_SUCCESS:
 			sde_hdcp_2x_msg_sent(hdcp);
 			break;
@@ -779,14 +789,11 @@ int sde_hdcp_2x_register(struct sde_hdcp_2x_register_data *data)
 
 	hdcp->client_data = data->client_data;
 	hdcp->client_ops = data->client_ops;
-	hdcp->device_type = data->device_type;
-
-	hdcp->hdcp2_ctx = hdcp2_init(hdcp->device_type);
 
 	INIT_KFIFO(hdcp->cmd_q);
 
 	init_waitqueue_head(&hdcp->wait_q);
-	atomic_set(&hdcp->hdcp_off, 0);
+	atomic_set(&hdcp->hdcp_off, 1);
 
 	init_completion(&hdcp->response_completion);
 
@@ -811,6 +818,40 @@ unlock:
 	return rc;
 }
 
+int sde_hdcp_2x_enable(void *data, enum sde_hdcp_2x_device_type device_type)
+{
+	int rc =  0;
+	struct sde_hdcp_2x_ctrl *hdcp = data;
+
+	if (!hdcp)
+		return  -EINVAL;
+
+	if (hdcp->hdcp2_ctx) {
+		pr_debug("HDCP library context already acquired\n");
+		return 0;
+	}
+
+	hdcp->device_type = device_type;
+	hdcp->hdcp2_ctx = hdcp2_init(hdcp->device_type);
+	if (!hdcp->hdcp2_ctx) {
+		pr_err("Unable to acquire HDCP library handle\n");
+		return -ENOMEM;
+	}
+
+	return rc;
+}
+
+void sde_hdcp_2x_disable(void *data)
+{
+	struct sde_hdcp_2x_ctrl *hdcp = data;
+
+	if (!hdcp->hdcp2_ctx)
+		return;
+
+	hdcp2_deinit(hdcp->hdcp2_ctx);
+	hdcp->hdcp2_ctx = NULL;
+}
+
 void sde_hdcp_2x_deregister(void *data)
 {
 	struct sde_hdcp_2x_ctrl *hdcp = data;
@@ -818,7 +859,7 @@ void sde_hdcp_2x_deregister(void *data)
 	if (!hdcp)
 		return;
 
+	sde_hdcp_2x_disable(data);
 	kthread_stop(hdcp->thread);
-	hdcp2_deinit(hdcp->hdcp2_ctx);
 	kzfree(hdcp);
 }

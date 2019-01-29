@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012, 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, 2014-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __SDE_HDCP_H__
@@ -67,6 +67,8 @@ struct sde_hdcp_ops {
 	bool (*feature_supported)(void *input);
 	void (*force_encryption)(void *input, bool enable);
 	bool (*sink_support)(void *input);
+	int (*set_mode)(void *input, bool mst_enabled);
+	int (*on)(void *input);
 	void (*off)(void *hdcp_ctrl);
 };
 
