@@ -272,6 +272,8 @@ static const u8 wled5_brt_wid_sel_reg[MOD_MAX] = {
 	[MOD_B] = WLED5_SINK_MOD_B_BR_WID_SEL_REG,
 };
 
+static int wled_flash_setup(struct wled *wled);
+
 static inline bool is_wled4(struct wled *wled)
 {
 	if (*wled->version == WLED_PMI8998 || *wled->version == WLED_PM660L)
@@ -827,6 +829,15 @@ static int wled_auto_calibrate(struct wled *wled)
 		goto failed_calib;
 	}
 
+	if (is_wled5(wled)) {
+		/* Update the flash sink configuration as well */
+		rc = regmap_update_bits(wled->regmap,
+				wled->sink_addr + WLED5_SINK_FLASH_SINK_EN_REG,
+				WLED_SINK_CURR_SINK_MASK, sink_config);
+		if (rc < 0)
+			return rc;
+	}
+
 	/* MODULATOR_EN setting for valid sinks */
 	if (is_wled4(wled)) {
 		for (i = 0; (string_cfg >> i) != 0; i++) {
@@ -1058,6 +1069,11 @@ static int wled5_setup(struct wled *wled)
 	u16 addr;
 	u32 val;
 	u8 string_cfg = wled->cfg.string_cfg;
+
+	rc = wled_flash_setup(wled);
+	if (rc < 0)
+		dev_err(&wled->pdev->dev, "failed to setup WLED flash/torch rc:%d\n",
+			rc);
 
 	rc = regmap_update_bits(wled->regmap,
 			wled->ctrl_addr + WLED_CTRL_OVP,
@@ -1993,10 +2009,6 @@ static int wled_flash_setup(struct wled *wled)
 	int rc, i;
 	u8 val;
 
-	/* Not supported */
-	if (is_wled4(wled))
-		return 0;
-
 	/* Set FLASH_VREF_ADIM_HDIM to maximum */
 	rc = regmap_write(wled->regmap,
 			wled->ctrl_addr + WLED5_CTRL_FLASH_HDRM_REG, 0xF);
@@ -2352,11 +2364,6 @@ static int wled_probe(struct platform_device *pdev)
 			rc);
 		return rc;
 	}
-
-	rc = wled_flash_setup(wled);
-	if (rc < 0)
-		dev_err(&pdev->dev, "failed to setup WLED flash/torch rc:%d\n",
-			rc);
 
 	return rc;
 }
