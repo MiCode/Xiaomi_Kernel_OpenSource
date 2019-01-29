@@ -431,6 +431,12 @@ static struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
 	return container_of(dom, struct arm_smmu_domain, domain);
 }
 
+static struct arm_smmu_domain*
+cb_cfg_to_smmu_domain(struct arm_smmu_cfg *cfg)
+{
+	return container_of(cfg, struct arm_smmu_domain, cfg);
+}
+
 static void parse_driver_options(struct arm_smmu_device *smmu)
 {
 	int i = 0;
@@ -1554,6 +1560,7 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 	bool stage1;
 	struct arm_smmu_cb *cb = &smmu->cbs[idx];
 	struct arm_smmu_cfg *cfg = cb->cfg;
+	struct arm_smmu_domain *smmu_domain = NULL;
 	void __iomem *cb_base, *gr1_base;
 
 	cb_base = ARM_SMMU_CB(smmu, idx);
@@ -1627,8 +1634,24 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 	/* SCTLR */
 	reg = SCTLR_CFCFG | SCTLR_CFIE | SCTLR_CFRE | SCTLR_AFE | SCTLR_TRE;
 
-	/* Ensure bypass transactions are Non-shareable */
-	reg |= SCTLR_SHCFG_NSH << SCTLR_SHCFG_SHIFT;
+	/*
+	 * Ensure bypass transactions are Non-shareable only for clients
+	 * who are not io-coherent.
+	 */
+	smmu_domain = cb_cfg_to_smmu_domain(cfg);
+
+	/*
+	 * Override cacheability, shareability, r/w allocation for
+	 * clients who are io-coherent
+	 */
+	if (of_dma_is_coherent(smmu_domain->dev->of_node)) {
+
+		reg |= SCTLR_RACFG_RA << SCTLR_RACFG_SHIFT;
+		reg |= SCTLR_WACFG_WA << SCTLR_WACFG_SHIFT;
+		reg |= SCTLR_MTCFG;
+		reg |= SCTLR_MEM_ATTR_OISH_WB_CACHE << SCTLR_MEM_ATTR_SHIFT;
+	} else
+		reg |= SCTLR_SHCFG_NSH << SCTLR_SHCFG_SHIFT;
 
 	if (attributes & (1 << DOMAIN_ATTR_CB_STALL_DISABLE)) {
 		reg &= ~SCTLR_CFCFG;
@@ -1901,7 +1924,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		arm_smmu_init_context_bank(smmu_domain,
 						&smmu_domain->pgtbl_cfg);
 		arm_smmu_write_context_bank(smmu, cfg->cbndx,
-						smmu_domain->attributes);
+					    smmu_domain->attributes);
 
 		arm_smmu_arch_init_context_bank(smmu_domain, dev);
 
