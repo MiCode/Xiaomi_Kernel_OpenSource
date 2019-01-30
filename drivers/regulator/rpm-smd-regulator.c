@@ -921,11 +921,14 @@ static unsigned int rpm_vreg_get_mode(struct regulator_dev *rdev)
 		? REGULATOR_MODE_NORMAL : REGULATOR_MODE_IDLE;
 }
 
+#define RPM_REGULATOR_MODE_PMIC5_LDO_LPM	4
+#define RPM_REGULATOR_MODE_PMIC5_LDO_HPM	7
 static unsigned int rpm_vreg_get_optimum_mode(struct regulator_dev *rdev,
 			int input_uV, int output_uV, int load_uA)
 {
 	struct rpm_regulator *reg = rdev_get_drvdata(rdev);
 	u32 load_mA;
+	u32 mode;
 
 	load_uA += reg->system_load;
 
@@ -937,8 +940,18 @@ static unsigned int rpm_vreg_get_optimum_mode(struct regulator_dev *rdev,
 	RPM_VREG_SET_PARAM(reg, CURRENT, load_mA);
 	rpm_vreg_unlock(reg->rpm_vreg);
 
-	return (load_uA >= reg->rpm_vreg->hpm_min_load)
+	mode = (load_uA >= reg->rpm_vreg->hpm_min_load)
 		? REGULATOR_MODE_NORMAL : REGULATOR_MODE_IDLE;
+
+	if (mode == REGULATOR_MODE_NORMAL)
+		RPM_VREG_SET_PARAM(reg, MODE_LDO,
+				   RPM_REGULATOR_MODE_PMIC5_LDO_HPM);
+
+	if (mode == REGULATOR_MODE_IDLE)
+		RPM_VREG_SET_PARAM(reg, MODE_LDO,
+				   RPM_REGULATOR_MODE_PMIC5_LDO_LPM);
+
+	return mode;
 }
 
 static int rpm_vreg_set_bob_mode(struct regulator_dev *rdev, unsigned int mode)
