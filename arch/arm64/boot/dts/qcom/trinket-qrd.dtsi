@@ -256,6 +256,8 @@
 
 	qcom,vddp-ref-clk-supply = <&pm6125_l18>;
 	qcom,vddp-ref-clk-max-microamp = <100>;
+	qcom,vddp-ref-clk-min-uV = <1200000>;
+	qcom,vddp-ref-clk-max-uV = <1232000>;
 
 	status = "ok";
 };
