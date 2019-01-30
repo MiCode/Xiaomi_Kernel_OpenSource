@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -352,7 +352,7 @@ static int ipa3_check_qmi_response(int rc,
 	    ipa3_rmnet_ctx.ipa_rmnet_ssr) {
 		IPAWANERR(
 		"Got bad response %d from request id %d (error %d)\n",
-		req_id, result, error);
+		result, req_id, error);
 		return result;
 	}
 	IPAWANDBG_LOW("Received %s successfully\n", resp_type);
