@@ -53,6 +53,7 @@ Optional Properties:
     1, 2 or 3.
   - qcom,pcie-active-config: boolean type; active configuration of PCIe
     addressing.
+  - qcom,pcie-edma: boolean type; edma usage for PCIe.
   - qcom,pcie-aggregated-irq: boolean type; interrupts are aggregated.
   - qcom,pcie-mhi-a7-irq: boolean type; MHI a7 has separate irq.
   - qcom,pcie-perst-enum: Link enumeration will be triggered by PERST
