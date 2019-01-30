@@ -77,6 +77,7 @@
 		qcom,cdc-slim-ifd-elemental-addr = [00 00 a0 01 17 02];
 		qcom,cdc-dmic-sample-rate = <4800000>;
 		qcom,cdc-mad-dmic-rate = <600000>;
+		qcom,vote-dynamic-supply-on-demand = <1>;
 
 		cdc-vdd-buck-supply = <&pms405_s4>;
 		qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
@@ -96,12 +97,14 @@
 
 		cdc-vdd-px-supply = <&pms405_l6>;
 		qcom,cdc-vdd-px-voltage = <1800000 1800000>;
-		qcom,cdc-vdd-px-current = <10000>;
+		qcom,cdc-vdd-px-current = <9000>;
 
 		qcom,cdc-static-supplies = "cdc-vdd-buck",
 					   "cdc-buck-sido",
-					   "cdc-vdd-tx-h",
-					   "cdc-vdd-rx-h";
+					   "cdc-vdd-px";
+
+		qcom,cdc-on-demand-supplies = "cdc-vdd-tx-h",
+					      "cdc-vdd-rx-h";
 	};
 };
 
