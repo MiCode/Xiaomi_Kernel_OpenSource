@@ -4240,6 +4240,20 @@
                          qcom,glinkpkt-ch-name = "glink_pkt_lloop_CLNT";
                          qcom,glinkpkt-dev-name = "glink_pkt_loopback";
                  };
+
+		qcom,glinkpkt-apr-apps2 {
+			qcom,glinkpkt-transport = "smem";
+			qcom,glinkpkt-edge = "adsp";
+			qcom,glinkpkt-ch-name = "apr_apps2";
+			qcom,glinkpkt-dev-name = "apr_apps2";
+		};
+
+		qcom,glinkpkt-data40-cntl {
+			qcom,glinkpkt-transport = "smem";
+			qcom,glinkpkt-edge = "mpss";
+			qcom,glinkpkt-ch-name = "DATA40_CNTL";
+			qcom,glinkpkt-dev-name = "smdcntl8";
+		};
          };
 
 	qcom,cache_erp64@6500000 {
