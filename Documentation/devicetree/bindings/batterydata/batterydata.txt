@@ -120,13 +120,28 @@ Profile data node optional properties:
 			The threshold values in range should be in ascending
 			and shouldn't overlap. It support 8 ranges at max.
 - qcom,jeita-soft-thresholds: A tuple entry to specify ADC code for battery's soft JEITA
-				threshold.
-				<SOFT_COLD_ADC_CODE, SOFT_HOT_ADC_CODE>.
+			threshold. <SOFT_COLD_ADC_CODE, SOFT_HOT_ADC_CODE>.
 - qcom,jeita-hard-thresholds: A tuple entry to specify ADC code for battery's hard JEITA
-				threshold.
-				<HARD_COLD_ADC_CODE, HARD_HOT_ADC_CODE>.
+			threshold. <HARD_COLD_ADC_CODE, HARD_HOT_ADC_CODE>.
+- qcom,jeita-soft-hys-thresholds: A tuple entry to specify ADC code for battery's soft JEITA
+			threshold with hysteresis adjustment.
+			<SOFT_COLD_ADC_CODE, SOFT_HOT_ADC_CODE>.
+			These "hysteresis" values should be specified if
+			"qcom,jeita-soft-thresholds" are specified. Without which SW JEITA
+			compensation won't function properly.
+- qcom,jeita-soft-fcc-ua: A tuple entry to specify the values of Fast
+			charging current (in uA) that needs to be applied during
+			soft JEITA conditions (cool/warm).
+			Element 0 - FCC value for soft cool.
+			Element 1 - FCC value for soft warm.
+- qcom,jeita-soft-fv-uv: A tuple entry to specify the values of Float
+			voltage (in uV) that needs to be applied during soft
+			JEITA conditions (cool/warm).
+			Element 0 - FV value for soft cool.
+			Element 1 - FV value for soft warm.
 - qcom,batt-age-level:  Battery age level. This is used only when multiple
 			profile loading is supported.
+
 Profile data node required subnodes:
 - qcom,fcc-temp-lut : An 1-dimensional lookup table node that encodes
 			temperature to fcc lookup. The units for this lookup
