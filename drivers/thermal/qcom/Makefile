@@ -9,3 +9,4 @@ obj-$(CONFIG_QTI_QMI_COOLING_DEVICE) += thermal_mitigation_device_service_v01.o 
 obj-$(CONFIG_QTI_THERMAL_LIMITS_DCVS) += msm_lmh_dcvs.o lmh_dbg.o
 obj-$(CONFIG_QTI_AOP_REG_COOLING_DEVICE) += regulator_aop_cdev.o
 obj-$(CONFIG_REGULATOR_COOLING_DEVICE) += regulator_cdev.o
+obj-$(CONFIG_QTI_CPU_ISOLATE_COOLING_DEVICE) += cpu_isolate.o
