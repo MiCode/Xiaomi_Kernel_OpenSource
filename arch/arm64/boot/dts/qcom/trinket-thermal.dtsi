@@ -781,43 +781,43 @@
 		cooling-maps {
 			cpu0_cdev {
 				trip = <&aoss0_trip>;
-				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu1_cdev {
 				trip = <&aoss0_trip>;
-				cooling-device = <&CPU1 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU1 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu2_cdev {
 				trip = <&aoss0_trip>;
-				cooling-device = <&CPU2 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU2 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu3_cdev {
 				trip = <&aoss0_trip>;
-				cooling-device = <&CPU3 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU3 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu4_cdev {
 				trip = <&aoss0_trip>;
-				cooling-device = <&CPU4 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU4 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu5_cdev {
 				trip = <&aoss0_trip>;
-				cooling-device = <&CPU5 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU5 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu6_cdev {
 				trip = <&aoss0_trip>;
-				cooling-device = <&CPU6 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU6 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu7_cdev {
 				trip = <&aoss0_trip>;
-				cooling-device = <&CPU7 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU7 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cx_vdd_cdev {
 				trip = <&aoss0_trip>;
@@ -858,43 +858,43 @@
 		cooling-maps {
 			cpu0_cdev {
 				trip = <&cdsp_trip>;
-				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu1_cdev {
 				trip = <&cdsp_trip>;
-				cooling-device = <&CPU1 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU1 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu2_cdev {
 				trip = <&cdsp_trip>;
-				cooling-device = <&CPU2 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU2 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu3_cdev {
 				trip = <&cdsp_trip>;
-				cooling-device = <&CPU3 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU3 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu4_cdev {
 				trip = <&cdsp_trip>;
-				cooling-device = <&CPU4 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU4 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu5_cdev {
 				trip = <&cdsp_trip>;
-				cooling-device = <&CPU5 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU5 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu6_cdev {
 				trip = <&cdsp_trip>;
-				cooling-device = <&CPU6 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU6 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu7_cdev {
 				trip = <&cdsp_trip>;
-				cooling-device = <&CPU7 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU7 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cx_vdd_cdev {
 				trip = <&cdsp_trip>;
@@ -935,43 +935,43 @@
 		cooling-maps {
 			cpu0_cdev {
 				trip = <&wlan_trip>;
-				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu1_cdev {
 				trip = <&wlan_trip>;
-				cooling-device = <&CPU1 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU1 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu2_cdev {
 				trip = <&wlan_trip>;
-				cooling-device = <&CPU2 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU2 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu3_cdev {
 				trip = <&wlan_trip>;
-				cooling-device = <&CPU3 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU3 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu4_cdev {
 				trip = <&wlan_trip>;
-				cooling-device = <&CPU4 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU4 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu5_cdev {
 				trip = <&wlan_trip>;
-				cooling-device = <&CPU5 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU5 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu6_cdev {
 				trip = <&wlan_trip>;
-				cooling-device = <&CPU6 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU6 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu7_cdev {
 				trip = <&wlan_trip>;
-				cooling-device = <&CPU7 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU7 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cx_vdd_cdev {
 				trip = <&wlan_trip>;
@@ -1012,43 +1012,43 @@
 		cooling-maps {
 			cpu0_cdev {
 				trip = <&camera_trip>;
-				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu1_cdev {
 				trip = <&camera_trip>;
-				cooling-device = <&CPU1 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU1 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu2_cdev {
 				trip = <&camera_trip>;
-				cooling-device = <&CPU2 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU2 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu3_cdev {
 				trip = <&camera_trip>;
-				cooling-device = <&CPU3 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU3 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu4_cdev {
 				trip = <&camera_trip>;
-				cooling-device = <&CPU4 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU4 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu5_cdev {
 				trip = <&camera_trip>;
-				cooling-device = <&CPU5 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU5 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu6_cdev {
 				trip = <&camera_trip>;
-				cooling-device = <&CPU6 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU6 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu7_cdev {
 				trip = <&camera_trip>;
-				cooling-device = <&CPU7 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU7 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cx_vdd_cdev {
 				trip = <&camera_trip>;
@@ -1089,43 +1089,43 @@
 		cooling-maps {
 			cpu0_cdev {
 				trip = <&video_trip>;
-				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu1_cdev {
 				trip = <&video_trip>;
-				cooling-device = <&CPU1 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU1 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu2_cdev {
 				trip = <&video_trip>;
-				cooling-device = <&CPU2 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU2 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu3_cdev {
 				trip = <&video_trip>;
-				cooling-device = <&CPU3 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU3 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu4_cdev {
 				trip = <&video_trip>;
-				cooling-device = <&CPU4 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU4 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu5_cdev {
 				trip = <&video_trip>;
-				cooling-device = <&CPU5 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU5 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu6_cdev {
 				trip = <&video_trip>;
-				cooling-device = <&CPU6 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU6 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu7_cdev {
 				trip = <&video_trip>;
-				cooling-device = <&CPU7 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU7 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cx_vdd_cdev {
 				trip = <&video_trip>;
@@ -1166,43 +1166,43 @@
 		cooling-maps {
 			cpu0_cdev {
 				trip = <&cpu4_lowf_trip>;
-				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu1_cdev {
 				trip = <&cpu4_lowf_trip>;
-				cooling-device = <&CPU1 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU1 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu2_cdev {
 				trip = <&cpu4_lowf_trip>;
-				cooling-device = <&CPU2 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU2 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu3_cdev {
 				trip = <&cpu4_lowf_trip>;
-				cooling-device = <&CPU3 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU3 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu4_cdev {
 				trip = <&cpu4_lowf_trip>;
-				cooling-device = <&CPU4 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU4 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu5_cdev {
 				trip = <&cpu4_lowf_trip>;
-				cooling-device = <&CPU5 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU5 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu6_cdev {
 				trip = <&cpu4_lowf_trip>;
-				cooling-device = <&CPU6 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU6 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu7_cdev {
 				trip = <&cpu4_lowf_trip>;
-				cooling-device = <&CPU7 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU7 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cx_vdd_cdev {
 				trip = <&cpu4_lowf_trip>;
@@ -1243,43 +1243,43 @@
 		cooling-maps {
 			cpu0_cdev {
 				trip = <&cpu0_lowf_trip>;
-				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu1_cdev {
 				trip = <&cpu0_lowf_trip>;
-				cooling-device = <&CPU1 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU1 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu2_cdev {
 				trip = <&cpu0_lowf_trip>;
-				cooling-device = <&CPU2 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU2 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu3_cdev {
 				trip = <&cpu0_lowf_trip>;
-				cooling-device = <&CPU3 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU3 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu4_cdev {
 				trip = <&cpu0_lowf_trip>;
-				cooling-device = <&CPU4 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU4 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu5_cdev {
 				trip = <&cpu0_lowf_trip>;
-				cooling-device = <&CPU5 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU5 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu6_cdev {
 				trip = <&cpu0_lowf_trip>;
-				cooling-device = <&CPU6 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU6 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu7_cdev {
 				trip = <&cpu0_lowf_trip>;
-				cooling-device = <&CPU7 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU7 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cx_vdd_cdev {
 				trip = <&cpu0_lowf_trip>;
@@ -1320,43 +1320,43 @@
 		cooling-maps {
 			cpu0_cdev {
 				trip = <&mdm_core_trip>;
-				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu1_cdev {
 				trip = <&mdm_core_trip>;
-				cooling-device = <&CPU1 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU1 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu2_cdev {
 				trip = <&mdm_core_trip>;
-				cooling-device = <&CPU2 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU2 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu3_cdev {
 				trip = <&mdm_core_trip>;
-				cooling-device = <&CPU3 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU3 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu4_cdev {
 				trip = <&mdm_core_trip>;
-				cooling-device = <&CPU4 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU4 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu5_cdev {
 				trip = <&mdm_core_trip>;
-				cooling-device = <&CPU5 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU5 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu6_cdev {
 				trip = <&mdm_core_trip>;
-				cooling-device = <&CPU6 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU6 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu7_cdev {
 				trip = <&mdm_core_trip>;
-				cooling-device = <&CPU7 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU7 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cx_vdd_cdev {
 				trip = <&mdm_core_trip>;
@@ -1397,43 +1397,43 @@
 		cooling-maps {
 			cpu0_cdev {
 				trip = <&display_trip>;
-				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu1_cdev {
 				trip = <&display_trip>;
-				cooling-device = <&CPU1 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU1 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu2_cdev {
 				trip = <&display_trip>;
-				cooling-device = <&CPU2 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU2 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu3_cdev {
 				trip = <&display_trip>;
-				cooling-device = <&CPU3 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU3 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu4_cdev {
 				trip = <&display_trip>;
-				cooling-device = <&CPU4 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU4 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu5_cdev {
 				trip = <&display_trip>;
-				cooling-device = <&CPU5 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU5 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu6_cdev {
 				trip = <&display_trip>;
-				cooling-device = <&CPU6 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU6 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu7_cdev {
 				trip = <&display_trip>;
-				cooling-device = <&CPU7 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU7 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cx_vdd_cdev {
 				trip = <&display_trip>;
@@ -1474,43 +1474,43 @@
 		cooling-maps {
 			cpu0_cdev {
 				trip = <&gpu_trip>;
-				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu1_cdev {
 				trip = <&gpu_trip>;
-				cooling-device = <&CPU1 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU1 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu2_cdev {
 				trip = <&gpu_trip>;
-				cooling-device = <&CPU2 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU2 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu3_cdev {
 				trip = <&gpu_trip>;
-				cooling-device = <&CPU3 (THERMAL_MAX_LIMIT-6)
-							(THERMAL_MAX_LIMIT-6)>;
+				cooling-device = <&CPU3 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu4_cdev {
 				trip = <&gpu_trip>;
-				cooling-device = <&CPU4 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU4 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu5_cdev {
 				trip = <&gpu_trip>;
-				cooling-device = <&CPU5 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU5 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu6_cdev {
 				trip = <&gpu_trip>;
-				cooling-device = <&CPU6 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU6 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cpu7_cdev {
 				trip = <&gpu_trip>;
-				cooling-device = <&CPU7 (THERMAL_MAX_LIMIT-8)
-							(THERMAL_MAX_LIMIT-8)>;
+				cooling-device = <&CPU7 (THERMAL_MAX_LIMIT-5)
+							(THERMAL_MAX_LIMIT-5)>;
 			};
 			cx_vdd_cdev {
 				trip = <&gpu_trip>;
