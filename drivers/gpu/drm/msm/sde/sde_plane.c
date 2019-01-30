@@ -2457,13 +2457,14 @@ static int _sde_atomic_check_decimation_scaler(struct drm_plane_state *state,
 	}
 
 	/* check max scaler capability */
-	else if (((src_deci_w * max_upscale) < dst->w) ||
-		((src_deci_h * max_upscale) < dst->h) ||
-		((dst->w * max_downscale) < src_deci_w) ||
-		((dst->h * max_downscale) < src_deci_h)) {
+	else if (((scaler_src_w * max_upscale) < dst->w) ||
+		((scaler_src_h * max_upscale) < dst->h) ||
+		((dst->w * max_downscale) < scaler_src_w) ||
+		((dst->h * max_downscale) < scaler_src_h)) {
 		SDE_ERROR_PLANE(psde,
-			"too much scaling requested %ux%u->%ux%u\n",
-			src_deci_w, src_deci_h, dst->w, dst->h);
+			"too much scaling requested %ux%u->%ux%u rot:%d\n",
+			scaler_src_w, scaler_src_h, dst->w, dst->h,
+			inline_rotation);
 		ret = -E2BIG;
 	} else if (_sde_plane_validate_scaler_v2(psde, pstate, fmt,
 				width, height,
