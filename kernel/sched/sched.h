@@ -3004,7 +3004,7 @@ static inline bool rt_boost_on_big(void)
 
 static inline bool is_full_throttle_boost(void)
 {
-	return sched_boost() == FULL_THROTTLE_BOOST ? true : false;
+	return sched_boost() == FULL_THROTTLE_BOOST;
 }
 
 extern int preferred_cluster(struct sched_cluster *cluster,
