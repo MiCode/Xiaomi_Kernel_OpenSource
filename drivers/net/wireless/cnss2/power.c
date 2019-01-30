@@ -18,7 +18,7 @@ static struct cnss_vreg_info cnss_vreg_info[] = {
 	{NULL, "vdd-wlan-ctrl1", 0, 0, 0, 0},
 	{NULL, "vdd-wlan-ctrl2", 0, 0, 0, 0},
 	{NULL, "vdd-wlan-sp2t", 2700000, 2700000, 0, 0},
-	{NULL, "wlan-ant-switch", 2700000, 2700000, 20000, 0},
+	{NULL, "wlan-ant-switch", 1800000, 1800000, 0, 0},
 	{NULL, "wlan-soc-swreg", 1200000, 1200000, 0, 0},
 	{NULL, "vdd-wlan-aon", 950000, 950000, 0, 0},
 	{NULL, "vdd-wlan-dig", 950000, 952000, 0, 0},
