@@ -17,6 +17,7 @@
 #include <linux/etherdevice.h>
 #include <linux/msm-bus.h>
 #include <linux/pm_qos.h>
+#include <linux/of.h>
 #include <net/cnss2.h>
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/subsystem_restart.h>
@@ -33,13 +34,14 @@
 #define CNSS_EVENT_SYNC_UNINTERRUPTIBLE (CNSS_EVENT_SYNC | \
 				CNSS_EVENT_UNINTERRUPTIBLE)
 
+#define CNSS_FW_PATH_MAX_LEN 32
+
 enum cnss_dev_bus_type {
 	CNSS_BUS_NONE = -1,
 	CNSS_BUS_PCI,
 };
 
-struct cnss_vreg_info {
-	struct regulator *reg;
+struct cnss_vreg_cfg {
 	const char *name;
 	u32 min_uv;
 	u32 max_uv;
@@ -47,11 +49,19 @@ struct cnss_vreg_info {
 	u32 delay_us;
 };
 
+struct cnss_vreg_info {
+	struct list_head list;
+	struct regulator *reg;
+	struct cnss_vreg_cfg cfg;
+	u32 enabled;
+};
+
 struct cnss_pinctrl_info {
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *bootstrap_active;
 	struct pinctrl_state *wlan_en_active;
 	struct pinctrl_state *wlan_en_sleep;
+	u32 activated;
 };
 
 struct cnss_subsys_info {
@@ -229,7 +239,7 @@ struct cnss_plat_data {
 	struct platform_device *plat_dev;
 	void *bus_priv;
 	enum cnss_dev_bus_type bus_type;
-	struct cnss_vreg_info *vreg_info;
+	struct list_head vreg_list;
 	struct cnss_pinctrl_info pinctrl_info;
 	struct cnss_subsys_info subsys_info;
 	struct cnss_ramdump_info ramdump_info;
@@ -267,10 +277,11 @@ struct cnss_plat_data {
 	u32 diag_reg_read_len;
 	u8 *diag_reg_read_buf;
 	bool cal_done;
-	bool powered_on;
-	char firmware_name[13];
+	char firmware_name[CNSS_FW_PATH_MAX_LEN];
 	struct completion rddm_complete;
 	struct cnss_control_params ctrl_params;
+	u32 is_converged_dt;
+	struct device_node *dev_node;
 };
 
 struct cnss_plat_data *cnss_get_plat_priv(struct platform_device *plat_dev);
@@ -279,6 +290,8 @@ int cnss_driver_event_post(struct cnss_plat_data *plat_priv,
 			   u32 flags, void *data);
 int cnss_get_vreg(struct cnss_plat_data *plat_priv);
 int cnss_get_pinctrl(struct cnss_plat_data *plat_priv);
+void cnss_put_vreg(struct cnss_plat_data *plat_priv);
+void cnss_put_pinctrl(struct cnss_plat_data *plat_priv);
 int cnss_power_on_device(struct cnss_plat_data *plat_priv);
 void cnss_power_off_device(struct cnss_plat_data *plat_priv);
 int cnss_register_subsys(struct cnss_plat_data *plat_priv);
@@ -286,5 +299,7 @@ void cnss_unregister_subsys(struct cnss_plat_data *plat_priv);
 int cnss_register_ramdump(struct cnss_plat_data *plat_priv);
 void cnss_unregister_ramdump(struct cnss_plat_data *plat_priv);
 void cnss_set_pin_connect_status(struct cnss_plat_data *plat_priv);
+const char *cnss_get_fw_path(struct cnss_plat_data *plat_priv);
+int cnss_dev_specific_power_on(struct cnss_plat_data *plat_priv);
 
 #endif /* _CNSS_MAIN_H */

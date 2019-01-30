@@ -14,7 +14,7 @@
 #include <linux/irq.h>
 #include <linux/module.h>
 #include <linux/msi.h>
-#include <linux/of.h>
+#include <linux/of_address.h>
 #include <linux/pm_runtime.h>
 #include <linux/memblock.h>
 #include <linux/completion.h>
@@ -43,7 +43,6 @@
 #define MHI_NODE_NAME			"qcom,mhi"
 #define MHI_MSI_NAME			"MHI"
 
-#define MAX_M3_FILE_NAME_LENGTH		13
 #define DEFAULT_M3_FILE_NAME		"m3.bin"
 #define DEFAULT_FW_FILE_NAME		"amss.bin"
 
@@ -1495,12 +1494,14 @@ int cnss_pci_load_m3(struct cnss_pci_data *pci_priv)
 {
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
 	struct cnss_fw_mem *m3_mem = &plat_priv->m3_mem;
-	char filename[MAX_M3_FILE_NAME_LENGTH];
+	char filename[CNSS_FW_PATH_MAX_LEN];
 	const struct firmware *fw_entry;
 	int ret = 0;
 
 	if (!m3_mem->va && !m3_mem->size) {
-		snprintf(filename, sizeof(filename), DEFAULT_M3_FILE_NAME);
+		snprintf(filename, sizeof(filename),
+			 "%s" DEFAULT_M3_FILE_NAME,
+			 cnss_get_fw_path(plat_priv));
 
 		ret = request_firmware(&fw_entry, filename,
 				       &pci_priv->pci_dev->dev);
@@ -2165,7 +2166,7 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 
 	mhi_ctrl->priv_data = pci_priv;
 	mhi_ctrl->dev = &pci_dev->dev;
-	mhi_ctrl->of_node = (&plat_priv->plat_dev->dev)->of_node;
+	mhi_ctrl->of_node = plat_priv->dev_node;
 	mhi_ctrl->dev_id = pci_priv->device_id;
 	mhi_ctrl->domain = pci_domain_nr(pci_dev->bus);
 	mhi_ctrl->bus = pci_dev->bus->number;
@@ -2436,13 +2437,143 @@ void cnss_pci_stop_mhi(struct cnss_pci_data *pci_priv)
 	cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_DEINIT);
 }
 
+static int cnss_pci_get_dev_cfg_node(struct cnss_plat_data *plat_priv)
+{
+	struct device_node *child;
+	u32 id, i;
+	int id_n, ret;
+
+	if (!plat_priv->is_converged_dt) {
+		plat_priv->dev_node = plat_priv->plat_dev->dev.of_node;
+		return 0;
+	}
+
+	if (!plat_priv->device_id) {
+		cnss_pr_err("Invalid device id\n");
+		return -EINVAL;
+	}
+
+	for_each_available_child_of_node(plat_priv->plat_dev->dev.of_node,
+					 child) {
+		if (strcmp(child->name, "chip_cfg"))
+			continue;
+
+		id_n = of_property_count_u32_elems(child, "supported-ids");
+		if (id_n <= 0) {
+			cnss_pr_err("Device id is NOT set\n");
+			return -EINVAL;
+		}
+
+		for (i = 0; i < id_n; i++) {
+			ret = of_property_read_u32_index(child,
+							 "supported-ids",
+							 i, &id);
+			if (ret) {
+				cnss_pr_err("Failed to read supported ids\n");
+				return -EINVAL;
+			}
+
+			if (id == plat_priv->device_id) {
+				plat_priv->dev_node = child;
+				cnss_pr_dbg("got node[%s@%d] for device[0x%x]\n",
+					    child->name, i, id);
+				return 0;
+			}
+		}
+	}
+
+	return -EINVAL;
+}
+
+/* For converged dt, property 'reg' is declared in sub node,
+ * won't be parsed during probe.
+ */
+static int cnss_pci_get_smmu_cfg(struct cnss_plat_data *plat_priv)
+{
+	struct resource res_tmp;
+	struct cnss_pci_data *pci_priv;
+	struct resource *res;
+	int index;
+	int ret;
+	struct device_node *dev_node;
+
+	dev_node = (plat_priv->dev_node ?
+		    plat_priv->dev_node : plat_priv->plat_dev->dev.of_node);
+
+	if (plat_priv->is_converged_dt) {
+		index = of_property_match_string(dev_node, "reg-names",
+						 "smmu_iova_base");
+		if (index < 0) {
+			ret = -ENODATA;
+			goto out;
+		}
+		ret = of_address_to_resource(dev_node, index, &res_tmp);
+		if (ret)
+			goto out;
+
+		res = &res_tmp;
+	} else {
+		res = platform_get_resource_byname(plat_priv->plat_dev,
+						   IORESOURCE_MEM,
+						   "smmu_iova_base");
+		if (!res) {
+			ret = -ENODATA;
+			goto out;
+		}
+	}
+
+	pci_priv = plat_priv->bus_priv;
+	if (of_property_read_bool(dev_node, "qcom,smmu-s1-enable"))
+		pci_priv->smmu_s1_enable = true;
+
+	pci_priv->smmu_iova_start = res->start;
+	pci_priv->smmu_iova_len = resource_size(res);
+	cnss_pr_dbg("smmu_iova_start: %pa, smmu_iova_len: %zu\n",
+		    &pci_priv->smmu_iova_start,
+		    pci_priv->smmu_iova_len);
+
+	if (plat_priv->is_converged_dt) {
+		index = of_property_match_string(dev_node, "reg-names",
+						 "smmu_iova_ipa");
+		if (index < 0) {
+			ret = -ENODATA;
+			goto out;
+		}
+
+		ret = of_address_to_resource(dev_node, index, &res_tmp);
+		if (ret)
+			goto out;
+
+		res = &res_tmp;
+	} else {
+		res = platform_get_resource_byname(plat_priv->plat_dev,
+						   IORESOURCE_MEM,
+						   "smmu_iova_ipa");
+		if (!res) {
+			ret = -ENODATA;
+			goto out;
+		}
+	}
+
+	pci_priv->smmu_iova_ipa_start = res->start;
+	pci_priv->smmu_iova_ipa_len = resource_size(res);
+	cnss_pr_dbg("%s - smmu_iova_ipa_start: %pa, smmu_iova_ipa_len: %zu\n",
+		    (plat_priv->is_converged_dt ?
+		    "converged dt" : "single dt"),
+		    &pci_priv->smmu_iova_ipa_start,
+		    pci_priv->smmu_iova_ipa_len);
+	return 0;
+
+out:
+	return ret;
+}
+
 static int cnss_pci_probe(struct pci_dev *pci_dev,
 			  const struct pci_device_id *id)
 {
 	int ret = 0;
 	struct cnss_pci_data *pci_priv;
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(NULL);
-	struct resource *res;
 
 	cnss_pr_dbg("PCI is probing, vendor ID: 0x%x, device ID: 0x%x\n",
 		    id->vendor, pci_dev->device);
@@ -2462,8 +2593,19 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 	cnss_set_pci_priv(pci_dev, pci_priv);
 	plat_priv->device_id = pci_dev->device;
 	plat_priv->bus_priv = pci_priv;
+
 	snprintf(plat_priv->firmware_name, sizeof(plat_priv->firmware_name),
-		 DEFAULT_FW_FILE_NAME);
+		 "%s" DEFAULT_FW_FILE_NAME, cnss_get_fw_path(plat_priv));
+
+	ret = cnss_pci_get_dev_cfg_node(plat_priv);
+	if (ret) {
+		cnss_pr_err("Failed to get device cfg node, err = %d\n", ret);
+		goto reset_ctx;
+	}
+
+	ret = cnss_dev_specific_power_on(plat_priv);
+	if (ret)
+		goto reset_ctx;
 
 	ret = cnss_register_subsys(plat_priv);
 	if (ret)
@@ -2473,30 +2615,8 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 	if (ret)
 		goto unregister_subsys;
 
-	res = platform_get_resource_byname(plat_priv->plat_dev, IORESOURCE_MEM,
-					   "smmu_iova_base");
-	if (res) {
-		if (of_property_read_bool(plat_priv->plat_dev->dev.of_node,
-					  "qcom,smmu-s1-enable"))
-			pci_priv->smmu_s1_enable = true;
-
-		pci_priv->smmu_iova_start = res->start;
-		pci_priv->smmu_iova_len = resource_size(res);
-		cnss_pr_dbg("smmu_iova_start: %pa, smmu_iova_len: %zu\n",
-			    &pci_priv->smmu_iova_start,
-			    pci_priv->smmu_iova_len);
-
-		res = platform_get_resource_byname(plat_priv->plat_dev,
-						   IORESOURCE_MEM,
-						   "smmu_iova_ipa");
-		if (res) {
-			pci_priv->smmu_iova_ipa_start = res->start;
-			pci_priv->smmu_iova_ipa_len = resource_size(res);
-			cnss_pr_dbg("smmu_iova_ipa_start: %pa, smmu_iova_ipa_len: %zu\n",
-				    &pci_priv->smmu_iova_ipa_start,
-				    pci_priv->smmu_iova_ipa_len);
-		}
-
+	ret = cnss_pci_get_smmu_cfg(plat_priv);
+	if (!ret) {
 		ret = cnss_pci_init_smmu(pci_priv);
 		if (ret) {
 			cnss_pr_err("Failed to init SMMU, err = %d\n", ret);
@@ -2658,7 +2778,16 @@ int cnss_pci_init(struct cnss_plat_data *plat_priv)
 		goto out;
 	}
 
+	if (!plat_priv->bus_priv) {
+		cnss_pr_err("Failed to probe pci driver\n");
+		ret = -ENODEV;
+		goto deinit;
+	}
+
 	return 0;
+
+deinit:
+	pci_unregister_driver(&cnss_pci_driver);
 out:
 	return ret;
 }
