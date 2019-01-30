@@ -3094,6 +3094,7 @@
 		vdd-wlan-io-supply = <&pm8150_s4>;
 		vdd-wlan-rfa1-supply = <&pm8150_s5>;
 		vdd-wlan-rfa2-supply = <&pm8150a_s8>;
+		wlan-ant-switch-supply = <&pm8150a_l5>;
 
 		mhi,max-channels = <30>;
 		mhi,timeout = <10000>;
