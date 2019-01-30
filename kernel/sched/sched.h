@@ -2996,6 +2996,17 @@ static inline int sched_boost(void)
 	return sched_boost_type;
 }
 
+static inline bool rt_boost_on_big(void)
+{
+	return sched_boost() == FULL_THROTTLE_BOOST ?
+			(sched_boost_policy() == SCHED_BOOST_ON_BIG) : false;
+}
+
+static inline bool is_full_throttle_boost(void)
+{
+	return sched_boost() == FULL_THROTTLE_BOOST ? true : false;
+}
+
 extern int preferred_cluster(struct sched_cluster *cluster,
 						struct task_struct *p);
 extern struct sched_cluster *rq_cluster(struct rq *rq);
@@ -3140,6 +3151,16 @@ static inline void check_for_migration(struct rq *rq, struct task_struct *p) { }
 static inline int sched_boost(void)
 {
 	return 0;
+}
+
+static inline bool rt_boost_on_big(void)
+{
+	return false;
+}
+
+static inline bool is_full_throttle_boost(void)
+{
+	return false;
 }
 
 static inline enum sched_boost_policy task_boost_policy(struct task_struct *p)
