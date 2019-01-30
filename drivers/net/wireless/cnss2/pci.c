@@ -817,13 +817,25 @@ int cnss_pci_unregister_driver_hdlr(struct cnss_pci_data *pci_priv)
 	return 0;
 }
 
+static int cnss_pci_smmu_fault_handler(struct iommu_domain *domain,
+				       struct device *dev, unsigned long iova,
+				       int flags, void *handler_token)
+{
+	cnss_pr_err("SMMU fault happened with IOVA 0x%lx\n", iova);
+
+	cnss_force_fw_assert(dev);
+
+	/* IOMMU driver requires non-zero return value to print debug info. */
+	return -EINVAL;
+}
+
 static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 {
 	int ret = 0;
 	struct device *dev;
 	struct dma_iommu_mapping *mapping;
 	int atomic_ctx = 1, s1_bypass = 1, fast = 1, cb_stall_disable = 1,
-		no_cfre = 1;
+		no_cfre = 1, non_fatal_faults = 1;
 
 	cnss_pr_dbg("Initializing SMMU\n");
 
@@ -845,8 +857,8 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 					    DOMAIN_ATTR_ATOMIC,
 					    &atomic_ctx);
 		if (ret) {
-			pr_err("Failed to set SMMU atomic_ctx attribute, err = %d\n",
-			       ret);
+			cnss_pr_err("Failed to set SMMU atomic_ctx attribute, err = %d\n",
+				    ret);
 			goto release_mapping;
 		}
 
@@ -854,8 +866,8 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 					    DOMAIN_ATTR_FAST,
 					    &fast);
 		if (ret) {
-			pr_err("Failed to set SMMU fast attribute, err = %d\n",
-			       ret);
+			cnss_pr_err("Failed to set SMMU fast attribute, err = %d\n",
+				    ret);
 			goto release_mapping;
 		}
 
@@ -863,8 +875,8 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 					    DOMAIN_ATTR_CB_STALL_DISABLE,
 					    &cb_stall_disable);
 		if (ret) {
-			pr_err("Failed to set SMMU cb_stall_disable attribute, err = %d\n",
-			       ret);
+			cnss_pr_err("Failed to set SMMU cb_stall_disable attribute, err = %d\n",
+				    ret);
 			goto release_mapping;
 		}
 
@@ -872,24 +884,36 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 					    DOMAIN_ATTR_NO_CFRE,
 					    &no_cfre);
 		if (ret) {
-			pr_err("Failed to set SMMU no_cfre attribute, err = %d\n",
-			       ret);
+			cnss_pr_err("Failed to set SMMU no_cfre attribute, err = %d\n",
+				    ret);
 			goto release_mapping;
 		}
+
+		ret = iommu_domain_set_attr(mapping->domain,
+					    DOMAIN_ATTR_NON_FATAL_FAULTS,
+					    &non_fatal_faults);
+		if (ret) {
+			cnss_pr_err("Failed to set SMMU non_fatal_faults attribute, err = %d\n",
+				    ret);
+			goto release_mapping;
+		}
+
+		iommu_set_fault_handler(mapping->domain,
+					cnss_pci_smmu_fault_handler, pci_priv);
 	} else {
 		ret = iommu_domain_set_attr(mapping->domain,
 					    DOMAIN_ATTR_S1_BYPASS,
 					    &s1_bypass);
 		if (ret) {
-			pr_err("Failed to set SMMU s1_bypass attribute, err = %d\n",
-			       ret);
+			cnss_pr_err("Failed to set SMMU s1_bypass attribute, err = %d\n",
+				    ret);
 			goto release_mapping;
 		}
 	}
 
 	ret = arm_iommu_attach_device(dev, mapping);
 	if (ret) {
-		pr_err("Failed to attach SMMU device, err = %d\n", ret);
+		cnss_pr_err("Failed to attach SMMU device, err = %d\n", ret);
 		goto release_mapping;
 	}
 
