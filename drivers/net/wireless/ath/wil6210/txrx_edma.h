@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016,2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016,2018-2019, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -425,6 +425,12 @@ static inline int wil_rx_status_get_eop(void *msg) /* EoP = End of Packet */
 {
 	return WIL_GET_BITS(((struct wil_rx_status_compressed *)msg)->d0,
 			    30, 30);
+}
+
+static inline void wil_rx_status_reset_buff_id(struct wil_status_ring *s)
+{
+	((struct wil_rx_status_compressed *)
+		(s->va + (s->elem_size * s->swhead)))->buff_id = 0;
 }
 
 static inline __le16 wil_rx_status_get_buff_id(void *msg)
