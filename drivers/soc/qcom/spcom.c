@@ -151,6 +151,8 @@ struct spcom_channel {
 	struct mutex lock;
 	uint32_t txn_id;           /* incrementing nonce per client request */
 	bool is_server;            /* for txn_id and response_timeout_msec  */
+	bool comm_role_undefined;  /* is true on channel creation, before   */
+				   /* first tx/rx on channel                */
 	uint32_t response_timeout_msec; /* for client only */
 
 	/* char dev */
@@ -320,6 +322,7 @@ static int spcom_init_channel(struct spcom_channel *ch, const char *name)
 	ch->pid = 0;
 	ch->rpmsg_abort = false;
 	ch->rpmsg_rx_buf = NULL;
+	ch->comm_role_undefined = true;
 
 	return 0;
 }
@@ -381,7 +384,9 @@ static int spcom_rx(struct spcom_channel *ch,
 
 		mutex_lock(&ch->lock);
 		if (timeout_msec && timeleft == 0) {
-			pr_err("rx_done timeout expired %d ms\n", timeout_msec);
+			ch->txn_id++; /* to drop expired rx packet later */
+			pr_err("rx_done timeout expired %d ms, set txn_id=%d\n",
+			       timeout_msec, ch->txn_id);
 			ret = -ETIMEDOUT;
 			goto exit_err;
 		} else if (ch->rpmsg_abort) {
@@ -395,16 +400,16 @@ static int spcom_rx(struct spcom_channel *ch,
 				ret = -ERESTARTSYS;
 			goto exit_err;
 		} else if (ch->actual_rx_size) {
-			pr_debug("actual_rx_size is [%zu]\n",
-				 ch->actual_rx_size);
+			pr_debug("actual_rx_size is [%zu], txn_id %d\n",
+				 ch->actual_rx_size, ch->txn_id);
 		} else {
 			pr_err("actual_rx_size is zero.\n");
 			ret = -EFAULT;
 			goto exit_err;
 		}
 	} else {
-		pr_debug("pending data size [%zu], requested size [%u]\n",
-			 ch->actual_rx_size, size);
+		pr_debug("pending data size [%zu], requested size [%zu], ch->txn_id %d\n",
+			 ch->actual_rx_size, size, ch->txn_id);
 	}
 	if (!ch->rpmsg_rx_buf) {
 		pr_err("invalid rpmsg_rx_buf.\n");
@@ -624,12 +629,17 @@ static int spcom_handle_send_command(struct spcom_channel *ch,
 	hdr = tx_buf;
 
 	mutex_lock(&ch->lock);
-	/* Header */
-	hdr->txn_id = ch->txn_id;
+	if (ch->comm_role_undefined) {
+		pr_debug("ch [%s] send first -> it is client\n", ch->name);
+		ch->comm_role_undefined = false;
+		ch->is_server = false;
+	}
+
 	if (!ch->is_server) {
 		ch->txn_id++;   /* client sets the request txn_id */
 		ch->response_timeout_msec = timeout_msec;
 	}
+	hdr->txn_id = ch->txn_id;
 
 	/* user buf */
 	memcpy(hdr->buf, buf, buf_size);
@@ -818,12 +828,16 @@ static int spcom_handle_send_modified_command(struct spcom_channel *ch,
 	hdr = tx_buf;
 
 	mutex_lock(&ch->lock);
-	/* Header */
-	hdr->txn_id = ch->txn_id;
+	if (ch->comm_role_undefined) {
+		pr_debug("ch [%s] send first -> it is client\n", ch->name);
+		ch->comm_role_undefined = false;
+		ch->is_server = false;
+	}
 	if (!ch->is_server) {
 		ch->txn_id++;   /* client sets the request txn_id */
 		ch->response_timeout_msec = timeout_msec;
 	}
+	hdr->txn_id = ch->txn_id;
 
 	/* user buf */
 	memcpy(hdr->buf, buf, buf_size);
@@ -1308,7 +1322,6 @@ static int spcom_device_open(struct inode *inode, struct file *filp)
 
 	ch->is_busy = true;
 	ch->pid = pid;
-	ch->txn_id = INITIAL_TXN_ID;
 	mutex_unlock(&ch->lock);
 
 	filp->private_data = ch;
@@ -1363,7 +1376,13 @@ static int spcom_device_release(struct inode *inode, struct file *filp)
 
 	ch->is_busy = false;
 	ch->pid = 0;
-	ch->txn_id = INITIAL_TXN_ID; /* use non-zero nonce for debug */
+	if (ch->rpmsg_rx_buf) {
+		pr_debug("ch [%s] discarting unconsumed rx packet actual_rx_size=%d\n",
+		       name, ch->actual_rx_size);
+		kfree(ch->rpmsg_rx_buf);
+		ch->rpmsg_rx_buf = NULL;
+	}
+	ch->actual_rx_size = 0;
 	mutex_unlock(&ch->lock);
 	filp->private_data = NULL;
 
@@ -1844,6 +1863,7 @@ static void spcom_signal_rx_done(struct work_struct *ignored)
 {
 	struct spcom_channel *ch;
 	struct rx_buff_list *rx_item;
+	struct spcom_msg_hdr *hdr;
 	unsigned long flags;
 
 	spin_lock_irqsave(&spcom_dev->rx_lock, flags);
@@ -1860,7 +1880,17 @@ static void spcom_signal_rx_done(struct work_struct *ignored)
 			continue;
 		}
 		ch = rx_item->ch;
+		hdr = (struct spcom_msg_hdr *)rx_item->rpmsg_rx_buf;
 		mutex_lock(&ch->lock);
+
+		if (ch->comm_role_undefined) {
+			ch->comm_role_undefined = false;
+			ch->is_server = true;
+			ch->txn_id = hdr->txn_id;
+			pr_debug("ch [%s] first packet txn_id=%d, it is server\n",
+				 ch->name, ch->txn_id);
+		}
+
 		if (ch->rpmsg_abort) {
 			if (ch->rpmsg_rx_buf) {
 				pr_debug("ch [%s] rx aborted free %d bytes\n",
@@ -1873,6 +1903,13 @@ static void spcom_signal_rx_done(struct work_struct *ignored)
 		if (ch->rpmsg_rx_buf) {
 			pr_err("ch [%s] previous buffer not consumed %lu bytes\n",
 			       ch->name, ch->actual_rx_size);
+			kfree(ch->rpmsg_rx_buf);
+			ch->rpmsg_rx_buf = NULL;
+			ch->actual_rx_size = 0;
+		}
+		if (!ch->is_server && (hdr->txn_id != ch->txn_id)) {
+			pr_err("ch [%s] rx dropped txn_id %d, ch->txn_id %d\n",
+				ch->name, hdr->txn_id, ch->txn_id);
 			goto rx_aborted;
 		}
 		ch->rpmsg_rx_buf = rx_item->rpmsg_rx_buf;
@@ -1959,6 +1996,7 @@ static int spcom_rpdev_probe(struct rpmsg_device *rpdev)
 	mutex_lock(&ch->lock);
 	ch->rpdev = rpdev;
 	ch->rpmsg_abort = false;
+	ch->txn_id = INITIAL_TXN_ID;
 	complete_all(&ch->connect);
 	mutex_unlock(&ch->lock);
 
@@ -2005,6 +2043,7 @@ static void spcom_rpdev_remove(struct rpmsg_device *rpdev)
 
 	ch->rpdev = NULL;
 	ch->rpmsg_abort = true;
+	ch->txn_id = 0;
 	complete_all(&ch->rx_done);
 	mutex_unlock(&ch->lock);
 
