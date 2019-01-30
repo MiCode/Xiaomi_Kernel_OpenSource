@@ -3309,7 +3309,11 @@ static int do_proc_douintvec_capacity_conv(bool *negp, unsigned long *lvalp,
 					   int *valp, int write, void *data)
 {
 	if (write) {
-		if (*negp || *lvalp == 0)
+		/*
+		 * The sched_upmigrate/sched_downmigrate tunables are
+		 * accepted in percentage. Limit them to 100.
+		 */
+		if (*negp || *lvalp == 0 || *lvalp > 100)
 			return -EINVAL;
 		*valp = SCHED_FIXEDPOINT_SCALE * 100 / *lvalp;
 	} else {
