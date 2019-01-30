@@ -241,6 +241,7 @@ source "net/l3mdev/Kconfig"
 source "net/qrtr/Kconfig"
 source "net/ncsi/Kconfig"
 source "net/rmnet_data/Kconfig"
+source "net/rmnet_usb/Kconfig"
 
 config RPS
 	bool
