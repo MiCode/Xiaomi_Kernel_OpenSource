@@ -729,15 +729,15 @@ static int geni_se_rmv_ab_ib(struct geni_se_device *geni_se_dev,
 			geni_se_dev->cur_ib;
 	}
 
-	if (bus_bw_update && geni_se_dev->num_paths != 2) {
+	if (bus_bw_update && geni_se_dev->num_paths != 2)
 		ret = msm_bus_scale_update_bw(geni_se_dev->bus_bw,
 						geni_se_dev->cur_ab,
 						geni_se_dev->cur_ib);
-		GENI_SE_DBG(geni_se_dev->log_ctx, false, NULL,
-			"%s: %s: cur_ab_ib(%lu:%lu) req_ab_ib(%lu:%lu) %d\n",
-			__func__, dev_name(rsc->ctrl_dev), geni_se_dev->cur_ab,
-			geni_se_dev->cur_ib, rsc->ab, rsc->ib, bus_bw_update);
-	}
+	GENI_SE_DBG(geni_se_dev->log_ctx, false, NULL,
+		"%s: %s: cur_ab_ib(%lu:%lu) req_ab_ib(%lu:%lu) %d\n",
+		__func__, dev_name(rsc->ctrl_dev), geni_se_dev->cur_ab,
+		geni_se_dev->cur_ib, rsc->ab, rsc->ib, bus_bw_update);
+
 
 	if (geni_se_dev->num_paths == 2) {
 		if (unlikely(list_empty(&rsc->ab_list_noc) ||
@@ -765,6 +765,11 @@ static int geni_se_rmv_ab_ib(struct geni_se_device *geni_se_dev,
 		if (bus_bw_update_noc || bus_bw_update)
 			ret = msm_bus_scale_client_update_request
 						(geni_se_dev->bus_bw_noc, 1);
+		GENI_SE_DBG(geni_se_dev->log_ctx, false, NULL,
+			"%s: %s: cur_ab_ib_noc(%lu:%lu) req_ab_ib_noc(%lu:%lu) %d\n",
+			__func__, dev_name(rsc->ctrl_dev),
+			geni_se_dev->cur_ab_noc, geni_se_dev->cur_ib_noc,
+			rsc->ab_noc, rsc->ib_noc, bus_bw_update_noc);
 	}
 	mutex_unlock(&geni_se_dev->geni_dev_lock);
 	return ret;
@@ -871,15 +876,16 @@ static int geni_se_add_ab_ib(struct geni_se_device *geni_se_dev,
 			geni_se_dev->cur_ib;
 	}
 
-	if (bus_bw_update && geni_se_dev->num_paths != 2) {
+	if (bus_bw_update && geni_se_dev->num_paths != 2)
 		ret = msm_bus_scale_update_bw(geni_se_dev->bus_bw,
 						geni_se_dev->cur_ab,
 						geni_se_dev->cur_ib);
-		GENI_SE_DBG(geni_se_dev->log_ctx, false, NULL,
-			"%s: %lu:%lu (%lu:%lu) %d\n", __func__,
-			geni_se_dev->cur_ab, geni_se_dev->cur_ib,
-			rsc->ab, rsc->ib, bus_bw_update);
-	}
+	GENI_SE_DBG(geni_se_dev->log_ctx, false, NULL,
+		"%s: %s: cur_ab_ib(%lu:%lu) req_ab_ib(%lu:%lu) %d\n",
+		__func__, dev_name(rsc->ctrl_dev),
+		geni_se_dev->cur_ab, geni_se_dev->cur_ib,
+		rsc->ab, rsc->ib, bus_bw_update);
+
 
 	if (geni_se_dev->num_paths == 2) {
 
@@ -907,6 +913,11 @@ static int geni_se_add_ab_ib(struct geni_se_device *geni_se_dev,
 		if (bus_bw_update_noc || bus_bw_update)
 			ret = msm_bus_scale_client_update_request
 						(geni_se_dev->bus_bw_noc, 1);
+		GENI_SE_DBG(geni_se_dev->log_ctx, false, NULL,
+			"%s: %s: cur_ab_ib_noc(%lu:%lu) req_ab_ib_noc(%lu:%lu) %d\n",
+			__func__, dev_name(rsc->ctrl_dev),
+			geni_se_dev->cur_ab_noc, geni_se_dev->cur_ib_noc,
+			rsc->ab_noc, rsc->ib_noc, bus_bw_update_noc);
 	}
 	mutex_unlock(&geni_se_dev->geni_dev_lock);
 	return ret;
