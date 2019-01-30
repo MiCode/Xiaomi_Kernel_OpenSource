@@ -483,16 +483,6 @@ config QCOM_WATCHDOG_V2
 	  deadlocks. It does not run during the bootup process, so it will
 	  not catch any early lockups.
 
-config QCOM_RPMH
-	bool "Qualcomm Technologies, Inc. RPM-Hardened (RPMH) Communication"
-	depends on ARCH_QCOM && ARM64 && OF || COMPILE_TEST
-	help
-	  Support for communication with the hardened-RPM blocks in
-	  Qualcomm Technologies Inc (QTI) SoCs. RPMH communication uses an
-	  internal bus to transmit state requests for shared resources. A set
-	  of hardware components aggregate requests for these resources and
-	  help apply the aggregated state on the resource.
-
 config QCOM_BUS_SCALING
 	bool "Bus scaling driver"
 	help
