@@ -462,6 +462,7 @@ struct msm_vidc_inst {
 	enum buffer_mode_type buffer_mode_set[MAX_PORT_NUM];
 	enum multi_stream stream_output_mode;
 	struct v4l2_ctrl **ctrls;
+	u32 num_ctrls;
 	int bit_depth;
 	struct kref kref;
 	bool in_flush;

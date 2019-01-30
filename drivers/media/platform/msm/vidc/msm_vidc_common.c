@@ -597,6 +597,7 @@ int msm_comm_ctrl_init(struct msm_vidc_inst *inst,
 		ctrl->flags |= drv_ctrls[idx].flags;
 		inst->ctrls[idx] = ctrl;
 	}
+	inst->num_ctrls = num_ctrls;
 
 	/* Construct a super cluster of all controls */
 	inst->cluster = get_super_cluster(inst, num_ctrls);

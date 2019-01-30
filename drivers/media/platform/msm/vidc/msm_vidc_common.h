@@ -19,6 +19,7 @@
 #define HEIC_GRID_DIMENSION 512
 #define CBR_MB_LIMIT                           (((1280+15)/16)*((720+15)/16)*30)
 #define CBR_VFR_MB_LIMIT                       (((640+15)/16)*((480+15)/16)*30)
+#define V4L2_CID_MPEG_VIDEO_UNKNOWN 0xFFFF
 
 struct vb2_buf_entry {
 	struct list_head list;
@@ -52,32 +53,18 @@ static inline bool is_low_power_session(struct msm_vidc_inst *inst)
 	return !!(inst->flags & VIDC_LOW_POWER);
 }
 
-static struct v4l2_ctrl *get_ctrl_from_cluster(int id,
-	struct v4l2_ctrl **cluster, int ncontrols)
+static inline struct v4l2_ctrl *get_ctrl(struct msm_vidc_inst *inst,
+	u32 id)
 {
-	int c;
+	int i;
 
-	for (c = 0; c < ncontrols; ++c)
-		if (cluster[c]->id == id)
-			return cluster[c];
-	return NULL;
-}
-
-static inline struct v4l2_ctrl *try_get_ctrl(int __ctrl_id,
-	struct v4l2_ctrl *ctrl)
-{
-	struct v4l2_ctrl *__temp;
-		__temp = get_ctrl_from_cluster(
-			__ctrl_id,
-			ctrl->cluster, ctrl->ncontrols);
-		if (!__temp) {
-			dprintk(VIDC_ERR, "Can't find %s (%x) in cluster\n",
-				__ctrl_id, __ctrl_id);
-			/* Clusters are hardcoded, if we can't find */
-			/* something, then things are massively screwed up */
-			MSM_VIDC_ERROR(1);
-		}
-	return __temp;
+	for (i = 0; i < inst->num_ctrls; i++) {
+		if (inst->ctrls[i]->id == id)
+			return inst->ctrls[i];
+	}
+	dprintk(VIDC_ERR, "%s: control id (%#x) not found\n", __func__, id);
+	MSM_VIDC_ERROR(true);
+	return inst->ctrls[0];
 }
 
 static inline bool is_realtime_session(struct msm_vidc_inst *inst)
