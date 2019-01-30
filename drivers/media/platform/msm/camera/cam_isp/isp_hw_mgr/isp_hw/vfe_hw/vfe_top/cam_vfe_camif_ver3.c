@@ -732,6 +732,262 @@ static int cam_vfe_camif_ver3_process_cmd(
 	return rc;
 }
 
+static void cam_vfe_camif_ver3_print_status(uint32_t val,
+	uint32_t violation_status, int ret)
+{
+	uint32_t violation_mask = 0x3F;
+	uint32_t module_id;
+
+	if (ret == CAM_VFE_IRQ_STATUS_OVERFLOW) {
+		if (val & 0x0200)
+			CAM_INFO(CAM_ISP, "DSP OVERFLOW");
+
+		if (val & 0x2000000)
+			CAM_INFO(CAM_ISP, "PIXEL PIPE FRAME DROP");
+
+		if (val & 0x80000000)
+			CAM_INFO(CAM_ISP, "PIXEL PIPE OVERFLOW");
+	}
+
+	if (ret == CAM_VFE_IRQ_STATUS_VIOLATION) {
+
+		if (val & 0x080)
+			CAM_INFO(CAM_ISP, "DSP IFE PROTOCOL VIOLATION");
+
+		if (val & 0x0100)
+			CAM_INFO(CAM_ISP, "IFE DSP TX PROTOCOL VIOLATION");
+
+		if (val & 0x0200)
+			CAM_INFO(CAM_ISP, "DSP IFE RX PROTOCOL VIOLATION");
+
+		if (val & 0x0400)
+			CAM_INFO(CAM_ISP, "PP PREPROCESS VIOLATION");
+
+		if (val & 0x0800)
+			CAM_INFO(CAM_ISP, "PP CAMIF VIOLATION");
+
+		if (val & 0x01000)
+			CAM_INFO(CAM_ISP, "PP VIOLATION");
+
+		if (val & 0x0100000)
+			CAM_INFO(CAM_ISP,
+				"DSP_TX_VIOLATION:overflow on DSP interface TX path FIFO");
+
+		if (val & 0x0200000)
+			CAM_INFO(CAM_ISP,
+			"DSP_RX_VIOLATION:overflow on DSP interface RX path FIFO");
+
+		if (val & 0x10000000)
+			CAM_INFO(CAM_ISP, "DSP ERROR VIOLATION");
+
+		if (val & 0x20000000)
+			CAM_INFO(CAM_ISP,
+				"DIAG VIOLATION: HBI is less than the minimum required HBI");
+	}
+
+	if (violation_mask & violation_status) {
+		CAM_INFO(CAM_ISP, "PP VIOLATION, module = %d",
+			violation_mask & violation_status);
+		module_id = violation_mask & violation_status;
+		switch (module_id) {
+		case 0:
+			CAM_INFO(CAM_ISP, "Demux");
+			break;
+		case 1:
+			CAM_INFO(CAM_ISP,
+				"CHROMA_UP");
+			break;
+		case 2:
+			CAM_INFO(CAM_ISP,
+				"PEDESTAL");
+			break;
+		case 3:
+			CAM_INFO(CAM_ISP,
+				"LINEARIZATION");
+			break;
+		case 4:
+			CAM_INFO(CAM_ISP,
+				"BPC_PDPC");
+			break;
+		case 5:
+			CAM_INFO(CAM_ISP,
+				"HDR_BINCORRECT");
+			break;
+		case 6:
+			CAM_INFO(CAM_ISP, "ABF");
+			break;
+		case 7:
+			CAM_INFO(CAM_ISP, "LSC");
+			break;
+		case 8:
+			CAM_INFO(CAM_ISP, "DEMOSAIC");
+			break;
+		case 9:
+			CAM_INFO(CAM_ISP,
+				"COLOR_CORRECT");
+			break;
+		case 10:
+			CAM_INFO(CAM_ISP, "GTM");
+			break;
+		case 11:
+			CAM_INFO(CAM_ISP, "GLUT");
+			break;
+		case 12:
+			CAM_INFO(CAM_ISP,
+				"COLOR_XFORM");
+			break;
+		case 13:
+			CAM_INFO(CAM_ISP,
+				"CROP_RND_CLAMP_PIXEL_RAW_OUT");
+			break;
+		case 14:
+			CAM_INFO(CAM_ISP,
+				"DOWNSCALE_MN_Y_FD_OUT");
+			break;
+		case 15:
+			CAM_INFO(CAM_ISP,
+				"DOWNSCALE_MN_C_FD_OUT");
+			break;
+		case 16:
+			CAM_INFO(CAM_ISP,
+				"CROP_RND_CLAMP_POST_DOWNSCALE_MN_Y_FD_OUT");
+			break;
+		case 17:
+			CAM_INFO(CAM_ISP,
+				"CROP_RND_CLAMP_POST_DOWNSCALE_MN_C_FD_OUT");
+			break;
+		case 18:
+			CAM_INFO(CAM_ISP,
+				"DOWNSCALE_MN_Y_DISP_OUT");
+			break;
+		case 19:
+			CAM_INFO(CAM_ISP,
+				"DOWNSCALE_MN_C_DISP_OUT");
+			break;
+		case 20:
+			CAM_INFO(CAM_ISP,
+				"module: CROP_RND_CLAMP_POST_DOWNSCALE_MN_Y_DISP_OUT");
+			break;
+		case 21:
+			CAM_INFO(CAM_ISP,
+				"CROP_RND_CLAMP_POST_DOWNSCALE_MN_C_DISP_OUT");
+			break;
+		case 22:
+			CAM_INFO(CAM_ISP,
+				"DOWNSCALE_4TO1_Y_DISP_DS4_OUT");
+			break;
+		case 23:
+			CAM_INFO(CAM_ISP,
+				"DOWNSCALE_4TO1_C_DISP_DS4_OUT");
+			break;
+		case 24:
+			CAM_INFO(CAM_ISP,
+				"CROP_RND_CLAMP_POST_DOWNSCALE_4TO1_Y_DISP_DS4_OUT");
+			break;
+		case 25:
+			CAM_INFO(CAM_ISP,
+				"CROP_RND_CLAMP_POST_DOWNSCALE_4TO1_C_DISP_DS4_OUT");
+			break;
+		case 26:
+			CAM_INFO(CAM_ISP,
+				"DOWNSCALE_4TO1_Y_DISP_DS16_OUT");
+			break;
+		case 27:
+			CAM_INFO(CAM_ISP,
+				"DOWNSCALE_4TO1_C_DISP_DS16_OUT");
+			break;
+		case 28:
+			CAM_INFO(CAM_ISP,
+				"CROP_RND_CLAMP_POST_DOWNSCALE_4TO1_Y_DISP_DS16_OUT");
+			break;
+		case 29:
+			CAM_INFO(CAM_ISP,
+				"CROP_RND_CLAMP_POST_DOWNSCALE_4TO1_C_DISP_DS16_OUT");
+			break;
+		case 30:
+			CAM_INFO(CAM_ISP,
+				"DOWNSCALE_MN_Y_VID_OUT");
+			break;
+		case 31:
+			CAM_INFO(CAM_ISP,
+				"DOWNSCALE_MN_C_VID_OUT");
+			break;
+		case 32:
+			CAM_INFO(CAM_ISP,
+				"CROP_RND_CLAMP_POST_DOWNSCALE_MN_Y_VID_OUT");
+			break;
+		case 33:
+			CAM_INFO(CAM_ISP,
+				"CROP_RND_CLAMP_POST_DOWNSCALE_MN_C_VID_OUT");
+			break;
+		case 34:
+			CAM_INFO(CAM_ISP, "DSX_Y_VID_OUT");
+			break;
+		case 35:
+			CAM_INFO(CAM_ISP, "DSX_C_VID_OUT");
+			break;
+		case 36:
+			CAM_INFO(CAM_ISP,
+				"CROP_RND_CLAMP_POST_DSX_Y_VID_OUT");
+			break;
+		case 37:
+			CAM_INFO(CAM_ISP,
+				"CROP_RND_CLAMP_POST_DSX_C_VID_OUT");
+			break;
+		case 38:
+			CAM_INFO(CAM_ISP,
+				"DOWNSCALE_4TO1_Y_VID_DS16_OUT");
+			break;
+		case 39:
+			CAM_INFO(CAM_ISP,
+				"DOWNSCALE_4TO1_C_VID_DS16_OUT");
+			break;
+		case 40:
+			CAM_INFO(CAM_ISP,
+				"CROP_RND_CLAMP_POST_DOWNSCALE_4TO1_Y_VID_DS16_OUT");
+			break;
+		case 41:
+			CAM_INFO(CAM_ISP,
+				"CROP_RND_CLAMP_POST_DOWNSCALE_4TO1_C_VID_DS16_OUT");
+			break;
+		case 42:
+			CAM_INFO(CAM_ISP, "BLS");
+			break;
+		case 43:
+			CAM_INFO(CAM_ISP, "STATS_TINTLESS_BG");
+			break;
+		case 44:
+			CAM_INFO(CAM_ISP, "STATS_HDR_BHIST");
+			break;
+		case 45:
+			CAM_INFO(CAM_ISP, "STATS_HDR_BE");
+			break;
+		case 46:
+			CAM_INFO(CAM_ISP, "STATS_AWB_BG");
+			break;
+		case 47:
+			CAM_INFO(CAM_ISP, "STATS_BHIST");
+			break;
+		case 48:
+			CAM_INFO(CAM_ISP, "STATS_BAF");
+			break;
+		case 49:
+			CAM_INFO(CAM_ISP, "STATS_RS");
+			break;
+		case 50:
+			CAM_INFO(CAM_ISP, "STATS_CS");
+			break;
+		case 51:
+			CAM_INFO(CAM_ISP, "STATS_IHIST");
+			break;
+		default:
+			CAM_ERR(CAM_ISP,
+				"Invalid Module ID:%d", module_id);
+			break;
+		}
+	}
+}
+
 static int cam_vfe_camif_ver3_handle_irq_top_half(uint32_t evt_id,
 	struct cam_irq_th_payload *th_payload)
 {
@@ -773,15 +1029,14 @@ static int cam_vfe_camif_ver3_handle_irq_top_half(uint32_t evt_id,
 static int cam_vfe_camif_ver3_handle_irq_bottom_half(void *handler_priv,
 	void *evt_payload_priv)
 {
-	int                                   ret = CAM_VFE_IRQ_STATUS_ERR;
-	struct cam_isp_resource_node         *camif_node;
-	struct cam_vfe_mux_camif_ver3_data   *camif_priv;
-	struct cam_vfe_top_irq_evt_payload   *payload;
-	struct cam_isp_hw_event_info          evt_info;
-	uint32_t                              irq_status0;
-	uint32_t                              irq_status1;
-	uint32_t                              irq_status2;
-	uint32_t                              val;
+	int ret = CAM_VFE_IRQ_STATUS_ERR;
+	struct cam_isp_resource_node *camif_node;
+	struct cam_vfe_mux_camif_ver3_data *camif_priv;
+	struct cam_vfe_top_irq_evt_payload *payload;
+	struct cam_isp_hw_event_info evt_info;
+	uint32_t irq_status[CAM_IFE_IRQ_REGISTERS_MAX];
+	uint32_t val;
+	int i = 0;
 
 	if (!handler_priv || !evt_payload_priv) {
 		CAM_ERR(CAM_ISP,
@@ -793,15 +1048,15 @@ static int cam_vfe_camif_ver3_handle_irq_bottom_half(void *handler_priv,
 	camif_node = handler_priv;
 	camif_priv = camif_node->res_priv;
 	payload = evt_payload_priv;
-	irq_status0 = payload->irq_reg_val[CAM_IFE_IRQ_CAMIF_REG_STATUS0];
-	irq_status1 = payload->irq_reg_val[CAM_IFE_IRQ_CAMIF_REG_STATUS1];
-	irq_status2 = payload->irq_reg_val[CAM_IFE_IRQ_CAMIF_REG_STATUS2];
+	for (i = 0; i < CAM_IFE_IRQ_REGISTERS_MAX; i++)
+		irq_status[i] = payload->irq_reg_val[i];
 
 	evt_info.hw_idx   = camif_node->hw_intf->hw_idx;
 	evt_info.res_id   = camif_node->res_id;
 	evt_info.res_type = camif_node->res_type;
 
-	if (irq_status1 & camif_priv->reg_data->sof_irq_mask) {
+	if (irq_status[CAM_IFE_IRQ_CAMIF_REG_STATUS1]
+		& camif_priv->reg_data->sof_irq_mask) {
 		if ((camif_priv->enable_sof_irq_debug) &&
 			(camif_priv->irq_debug_cnt <=
 			CAM_VFE_CAMIF_IRQ_SOF_DEBUG_CNT_MAX)) {
@@ -824,7 +1079,8 @@ static int cam_vfe_camif_ver3_handle_irq_bottom_half(void *handler_priv,
 		ret = CAM_VFE_IRQ_STATUS_SUCCESS;
 	}
 
-	if (irq_status1 & camif_priv->reg_data->epoch0_irq_mask) {
+	if (irq_status[CAM_IFE_IRQ_CAMIF_REG_STATUS1]
+		& camif_priv->reg_data->epoch0_irq_mask) {
 		CAM_DBG(CAM_ISP, "Received EPOCH");
 
 		if (camif_priv->event_cb)
@@ -834,7 +1090,8 @@ static int cam_vfe_camif_ver3_handle_irq_bottom_half(void *handler_priv,
 		ret = CAM_VFE_IRQ_STATUS_SUCCESS;
 	}
 
-	if (irq_status1 & camif_priv->reg_data->eof_irq_mask) {
+	if (irq_status[CAM_IFE_IRQ_CAMIF_REG_STATUS1]
+		& camif_priv->reg_data->eof_irq_mask) {
 		CAM_DBG(CAM_ISP, "Received EOF");
 
 		if (camif_priv->event_cb)
@@ -844,29 +1101,104 @@ static int cam_vfe_camif_ver3_handle_irq_bottom_half(void *handler_priv,
 		ret = CAM_VFE_IRQ_STATUS_SUCCESS;
 	}
 
-	if (irq_status0 & camif_priv->reg_data->error_irq_mask0) {
-		CAM_ERR(CAM_ISP, "Received VFE Overflow ERROR\n");
-
-		evt_info.err_type = CAM_VFE_IRQ_STATUS_OVERFLOW;
+	if (irq_status[CAM_IFE_IRQ_CAMIF_REG_STATUS0]
+		& camif_priv->reg_data->error_irq_mask0) {
+		CAM_ERR(CAM_ISP, "VFE Overflow");
 
 		if (camif_priv->event_cb)
 			camif_priv->event_cb(camif_priv->priv,
 				CAM_ISP_HW_EVENT_ERROR, (void *)&evt_info);
 
+		val = cam_io_r(camif_priv->mem_base +
+			camif_priv->common_reg->bus_overflow_status);
+
+		if (val) {
+
+			if (val & 0x01)
+				CAM_INFO(CAM_ISP, "VID Y 1:1 bus overflow");
+
+			if (val & 0x02)
+				CAM_INFO(CAM_ISP, "VID C 1:1 bus overflow");
+
+			if (val & 0x04)
+				CAM_INFO(CAM_ISP, "VID YC 4:1 bus overflow");
+
+			if (val & 0x08)
+				CAM_INFO(CAM_ISP, "VID YC 16:1 bus overflow");
+
+			if (val & 0x010)
+				CAM_INFO(CAM_ISP, "DISP Y 1:1 bus overflow");
+
+			if (val & 0x020)
+				CAM_INFO(CAM_ISP, "DISP C 1:1 bus overflow");
+
+			if (val & 0x040)
+				CAM_INFO(CAM_ISP, "DISP YC 4:1 bus overflow");
+
+			if (val & 0x080)
+				CAM_INFO(CAM_ISP, "DISP YC 16:1 bus overflow");
+
+			if (val & 0x0100)
+				CAM_INFO(CAM_ISP, "FD Y bus overflow");
+
+			if (val & 0x0200)
+				CAM_INFO(CAM_ISP, "FD C bus overflow");
+
+			if (val & 0x0400)
+				CAM_INFO(CAM_ISP,
+				"PIXEL RAW DUMP bus overflow");
+
+			if (val & 0x01000)
+				CAM_INFO(CAM_ISP, "STATS HDR BE bus overflow");
+
+			if (val & 0x02000)
+				CAM_INFO(CAM_ISP,
+				"STATS HDR BHIST bus overflow");
+
+			if (val & 0x04000)
+				CAM_INFO(CAM_ISP,
+				"STATS TINTLESS BG bus overflow");
+
+			if (val & 0x08000)
+				CAM_INFO(CAM_ISP, "STATS AWB BG bus overflow");
+
+			if (val & 0x010000)
+				CAM_INFO(CAM_ISP, "STATS BHIST bus overflow");
+
+			if (val & 0x020000)
+				CAM_INFO(CAM_ISP, "STATS RS bus overflow");
+
+			if (val & 0x040000)
+				CAM_INFO(CAM_ISP, "STATS CS bus overflow");
+
+			if (val & 0x080000)
+				CAM_INFO(CAM_ISP, "STATS IHIST bus overflow");
+
+			if (val & 0x0100000)
+				CAM_INFO(CAM_ISP, "STATS BAF bus overflow");
+
+			if (val & 0x0200000)
+				CAM_INFO(CAM_ISP, "PDAF bus overflow");
+		}
+
 		ret = CAM_VFE_IRQ_STATUS_OVERFLOW;
+		cam_vfe_camif_ver3_print_status(
+			irq_status[CAM_IFE_IRQ_CAMIF_REG_STATUS0],
+			irq_status[CAM_IFE_IRQ_VIOLATION_STATUS], ret);
 		cam_vfe_camif_ver3_reg_dump(camif_node->res_priv);
 	}
 
-	if (irq_status2 & camif_priv->reg_data->error_irq_mask2) {
-		CAM_ERR(CAM_ISP, "Received CAMIF Violation ERROR\n");
-
-		evt_info.err_type = CAM_VFE_IRQ_STATUS_VIOLATION;
+	if (irq_status[CAM_IFE_IRQ_CAMIF_REG_STATUS2]) {
+		CAM_ERR(CAM_ISP, "VFE Violation");
 
 		if (camif_priv->event_cb)
 			camif_priv->event_cb(camif_priv->priv,
 				CAM_ISP_HW_EVENT_ERROR, (void *)&evt_info);
 
 		ret = CAM_VFE_IRQ_STATUS_VIOLATION;
+		cam_vfe_camif_ver3_print_status(
+			irq_status[CAM_IFE_IRQ_CAMIF_REG_STATUS2],
+			irq_status[CAM_IFE_IRQ_VIOLATION_STATUS], ret);
 		cam_vfe_camif_ver3_reg_dump(camif_node->res_priv);
 	}
 

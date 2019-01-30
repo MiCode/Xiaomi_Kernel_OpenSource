@@ -408,6 +408,115 @@ static int cam_vfe_camif_lite_process_cmd(
 	return rc;
 }
 
+static void cam_vfe_camif_lite_print_status(uint32_t val,
+	uint32_t violation_status, int ret, bool is_ife_lite)
+{
+	uint32_t violation_mask = 0x3F00;
+
+	if (is_ife_lite) {
+
+		if (ret == CAM_VFE_IRQ_STATUS_OVERFLOW) {
+			if (val & 0x100)
+				CAM_INFO(CAM_ISP, "RDI3 FRAME DROP");
+
+			if (val & 0x80)
+				CAM_INFO(CAM_ISP, "RDI2 FRAME DROP");
+
+			if (val & 0x40)
+				CAM_INFO(CAM_ISP, "RDI1 FRAME DROP");
+
+			if (val & 0x20)
+				CAM_INFO(CAM_ISP, "RDI0 FRAME DROP");
+
+			if (val & 0x8)
+				CAM_INFO(CAM_ISP, "RDI3 OVERFLOW");
+
+			if (val & 0x4)
+				CAM_INFO(CAM_ISP, "RDI2 OVERFLOW");
+
+			if (val & 0x2)
+				CAM_INFO(CAM_ISP, "RDI1 OVERFLOW");
+
+			if (val & 0x1)
+				CAM_INFO(CAM_ISP, "RDI0 OVERFLOW");
+		}
+
+		if (ret == CAM_VFE_IRQ_STATUS_VIOLATION) {
+
+			if (val & 0x800)
+				CAM_INFO(CAM_ISP, "RDI3 CAMIF VIOLATION");
+
+			if (val & 0x400)
+				CAM_INFO(CAM_ISP, "RDI2 CAMIF VIOLATION");
+
+			if (val & 0x200)
+				CAM_INFO(CAM_ISP, "RDI1 CAMIF VIOLATION");
+
+			if (val & 0x100)
+				CAM_INFO(CAM_ISP, "RDI0 CAMIF VIOLATION");
+		}
+	} else {
+
+		if (ret == CAM_VFE_IRQ_STATUS_OVERFLOW) {
+			if (val & 0x200000)
+				CAM_INFO(CAM_ISP, "RDI2 FRAME DROP");
+
+			if (val & 0x400000)
+				CAM_INFO(CAM_ISP, "RDI1 FRAME DROP");
+
+			if (val & 0x800000)
+				CAM_INFO(CAM_ISP, "RDI0 FRAME DROP");
+
+			if (val & 0x1000000)
+				CAM_INFO(CAM_ISP, "PD PIPE FRAME DROP");
+
+			if (val & 0x8000000)
+				CAM_INFO(CAM_ISP, "RDI2 OVERFLOW");
+
+			if (val & 0x10000000)
+				CAM_INFO(CAM_ISP, "RDI1 OVERFLOW");
+
+			if (val & 0x20000000)
+				CAM_INFO(CAM_ISP, "RDI0 OVERFLOW");
+
+			if (val & 0x40000000)
+				CAM_INFO(CAM_ISP, "PD PIPE OVERFLOW");
+		}
+
+		if (ret == CAM_VFE_IRQ_STATUS_VIOLATION) {
+			if (val & 0x02000)
+				CAM_INFO(CAM_ISP, "PD CAMIF VIOLATION");
+
+			if (val & 0x04000)
+				CAM_INFO(CAM_ISP, "PD VIOLATION");
+
+			if (val & 0x08000)
+				CAM_INFO(CAM_ISP, "LCR CAMIF VIOLATION");
+
+			if (val & 0x010000)
+				CAM_INFO(CAM_ISP, "LCR VIOLATION");
+
+			if (val & 0x020000)
+				CAM_INFO(CAM_ISP, "RDI0 CAMIF VIOLATION");
+
+			if (val & 0x040000)
+				CAM_INFO(CAM_ISP, "RDI1 CAMIF VIOLATION");
+
+			if (val & 0x080000)
+				CAM_INFO(CAM_ISP, "RDI2 CAMIF VIOLATION");
+		}
+
+		if (violation_mask & violation_status)
+			CAM_INFO(CAM_ISP, "LCR VIOLATION, module = %d",
+				violation_mask & violation_status);
+
+		violation_mask = 0x0F0000;
+		if (violation_mask & violation_status)
+			CAM_INFO(CAM_ISP, "PD Violation, module = %d",
+				violation_mask & violation_status);
+	}
+}
+
 static int cam_vfe_camif_lite_handle_irq_top_half(uint32_t evt_id,
 	struct cam_irq_th_payload *th_payload)
 {
@@ -450,14 +559,15 @@ static int cam_vfe_camif_lite_handle_irq_bottom_half(
 	void                                    *handler_priv,
 	void                                    *evt_payload_priv)
 {
-	int                                      ret = CAM_VFE_IRQ_STATUS_MAX;
-	struct cam_isp_resource_node            *camif_lite_node;
-	struct cam_vfe_mux_camif_lite_data      *camif_lite_priv;
-	struct cam_vfe_top_irq_evt_payload      *payload;
-	struct cam_isp_hw_event_info             evt_info;
-	uint32_t                                 irq_status0;
-	uint32_t                                 irq_status1;
-	uint32_t                                 irq_status2;
+	int ret = CAM_VFE_IRQ_STATUS_MAX;
+	struct cam_isp_resource_node *camif_lite_node;
+	struct cam_vfe_mux_camif_lite_data *camif_lite_priv;
+	struct cam_vfe_top_irq_evt_payload *payload;
+	struct cam_isp_hw_event_info evt_info;
+	uint32_t irq_status[CAM_IFE_IRQ_REGISTERS_MAX];
+	int i = 0;
+	bool is_ife_lite = true;
+	uint32_t val = 0;
 
 	if (!handler_priv || !evt_payload_priv) {
 		CAM_ERR(CAM_ISP, "Invalid params");
@@ -468,9 +578,8 @@ static int cam_vfe_camif_lite_handle_irq_bottom_half(
 	camif_lite_priv = camif_lite_node->res_priv;
 	payload         = evt_payload_priv;
 
-	irq_status0     = payload->irq_reg_val[CAM_IFE_IRQ_CAMIF_REG_STATUS0];
-	irq_status1     = payload->irq_reg_val[CAM_IFE_IRQ_CAMIF_REG_STATUS1];
-	irq_status2     = payload->irq_reg_val[CAM_IFE_IRQ_CAMIF_REG_STATUS2];
+	for (i = 0; i < CAM_IFE_IRQ_REGISTERS_MAX; i++)
+		irq_status[i] = payload->irq_reg_val[i];
 
 	evt_info.hw_idx   = camif_lite_node->hw_intf->hw_idx;
 	evt_info.res_id   = camif_lite_node->res_id;
@@ -478,9 +587,16 @@ static int cam_vfe_camif_lite_handle_irq_bottom_half(
 
 	CAM_DBG(CAM_ISP,
 		"irq_status_0 = 0x%x, irq_status_1 = 0x%x, irq_status_2 = 0x%x",
-		irq_status0, irq_status1, irq_status2);
+		irq_status[CAM_IFE_IRQ_CAMIF_REG_STATUS0],
+		irq_status[CAM_IFE_IRQ_CAMIF_REG_STATUS1],
+		irq_status[CAM_IFE_IRQ_CAMIF_REG_STATUS2]);
 
-	if (irq_status1 & camif_lite_priv->reg_data->sof_irq_mask) {
+	if (strnstr(camif_lite_priv->soc_info->compatible, "lite",
+		strlen(camif_lite_priv->soc_info->compatible)) == NULL)
+		is_ife_lite = false;
+
+	if (irq_status[CAM_IFE_IRQ_CAMIF_REG_STATUS1]
+		& camif_lite_priv->reg_data->sof_irq_mask) {
 		CAM_DBG(CAM_ISP, "Received SOF");
 		ret = CAM_VFE_IRQ_STATUS_SUCCESS;
 
@@ -489,7 +605,8 @@ static int cam_vfe_camif_lite_handle_irq_bottom_half(
 				CAM_ISP_HW_EVENT_SOF, (void *)&evt_info);
 	}
 
-	if (irq_status1 & camif_lite_priv->reg_data->epoch0_irq_mask) {
+	if (irq_status[CAM_IFE_IRQ_CAMIF_REG_STATUS1]
+		& camif_lite_priv->reg_data->epoch0_irq_mask) {
 		CAM_DBG(CAM_ISP, "Received EPOCH");
 		ret = CAM_VFE_IRQ_STATUS_SUCCESS;
 
@@ -498,7 +615,8 @@ static int cam_vfe_camif_lite_handle_irq_bottom_half(
 				CAM_ISP_HW_EVENT_EPOCH, (void *)&evt_info);
 	}
 
-	if (irq_status1 & camif_lite_priv->reg_data->eof_irq_mask) {
+	if (irq_status[CAM_IFE_IRQ_CAMIF_REG_STATUS1]
+		& camif_lite_priv->reg_data->eof_irq_mask) {
 		CAM_DBG(CAM_ISP, "Received EOF\n");
 		ret = CAM_VFE_IRQ_STATUS_SUCCESS;
 
@@ -507,7 +625,8 @@ static int cam_vfe_camif_lite_handle_irq_bottom_half(
 				CAM_ISP_HW_EVENT_EOF, (void *)&evt_info);
 	}
 
-	if (irq_status0 & camif_lite_priv->reg_data->error_irq_mask0) {
+	if (irq_status[CAM_IFE_IRQ_CAMIF_REG_STATUS0]
+		& camif_lite_priv->reg_data->error_irq_mask0) {
 		CAM_DBG(CAM_ISP, "Received VFE Overflow ERROR\n");
 
 		evt_info.err_type = CAM_VFE_IRQ_STATUS_OVERFLOW;
@@ -516,10 +635,54 @@ static int cam_vfe_camif_lite_handle_irq_bottom_half(
 			camif_lite_priv->event_cb(camif_lite_priv->priv,
 				CAM_ISP_HW_EVENT_ERROR, (void *)&evt_info);
 
+		val = cam_io_r(camif_lite_priv->mem_base +
+			camif_lite_priv->common_reg->bus_overflow_status);
+
+		if (is_ife_lite && val) {
+
+			if (val & 0x01)
+				CAM_INFO(CAM_ISP,
+					"RDI0 bus overflow");
+
+			if (val & 0x02)
+				CAM_INFO(CAM_ISP,
+					"RDI1 bus overflow");
+
+			if (val & 0x04)
+				CAM_INFO(CAM_ISP,
+					"RDI2 bus overflow");
+
+			if (val & 0x08)
+				CAM_INFO(CAM_ISP,
+					"RDI3 bus overflow");
+		}
+
+		if (!is_ife_lite && val) {
+
+			if (val & 0x0800)
+				CAM_INFO(CAM_ISP, "CAMIF PD bus overflow");
+
+			if (val & 0x0400000)
+				CAM_INFO(CAM_ISP, "LCR bus overflow");
+
+			if (val & 0x0800000)
+				CAM_INFO(CAM_ISP, "RDI0 bus overflow");
+
+			if (val & 0x01000000)
+				CAM_INFO(CAM_ISP, "RDI1 bus overflow");
+
+			if (val & 0x02000000)
+				CAM_INFO(CAM_ISP, "RDI2 bus overflow");
+		}
+
 		ret = CAM_VFE_IRQ_STATUS_OVERFLOW;
+		cam_vfe_camif_lite_print_status(
+			irq_status[CAM_IFE_IRQ_CAMIF_REG_STATUS0],
+			irq_status[CAM_IFE_IRQ_VIOLATION_STATUS], ret,
+			is_ife_lite);
 	}
 
-	if (irq_status2 & camif_lite_priv->reg_data->error_irq_mask2) {
+	if (irq_status[CAM_IFE_IRQ_CAMIF_REG_STATUS2]) {
 		CAM_DBG(CAM_ISP, "Received CAMIF Lite Violation ERROR\n");
 
 		evt_info.err_type = CAM_VFE_IRQ_STATUS_VIOLATION;
@@ -529,6 +692,10 @@ static int cam_vfe_camif_lite_handle_irq_bottom_half(
 				CAM_ISP_HW_EVENT_ERROR, (void *)&evt_info);
 
 		ret = CAM_VFE_IRQ_STATUS_VIOLATION;
+		cam_vfe_camif_lite_print_status(
+			irq_status[CAM_IFE_IRQ_CAMIF_REG_STATUS2],
+			irq_status[CAM_IFE_IRQ_VIOLATION_STATUS], ret,
+			is_ife_lite);
 	}
 
 	cam_vfe_camif_lite_put_evt_payload(camif_lite_priv, &payload);
