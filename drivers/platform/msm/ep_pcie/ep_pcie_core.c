@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,6 +52,7 @@ struct ep_pcie_dev_t ep_pcie_dev = {0};
 static struct ep_pcie_vreg_info_t ep_pcie_vreg_info[EP_PCIE_MAX_VREG] = {
 	{NULL, "vreg-1.8", 1800000, 1800000, 14000, true},
 	{NULL, "vreg-0.9", 1000000, 1000000, 40000, true},
+	{NULL, "vreg-cx", 0, 0, 0, false}
 };
 
 static struct ep_pcie_gpio_info_t ep_pcie_gpio_info[EP_PCIE_MAX_GPIO] = {
@@ -63,24 +64,24 @@ static struct ep_pcie_gpio_info_t ep_pcie_gpio_info[EP_PCIE_MAX_GPIO] = {
 
 static struct ep_pcie_clk_info_t
 	ep_pcie_clk_info[EP_PCIE_MAX_CLK] = {
-	{NULL, "pcie_0_cfg_ahb_clk", 0, true},
-	{NULL, "pcie_0_mstr_axi_clk", 0, true},
-	{NULL, "pcie_0_slv_axi_clk", 0, true},
-	{NULL, "pcie_0_aux_clk", 1000000, true},
-	{NULL, "pcie_0_ldo", 0, true},
-	{NULL, "pcie_0_sleep_clk", 0, false},
-	{NULL, "pcie_0_slv_q2a_axi_clk", 0, false},
+	{NULL, "pcie_cfg_ahb_clk", 0, true},
+	{NULL, "pcie_mstr_axi_clk", 0, true},
+	{NULL, "pcie_slv_axi_clk", 0, true},
+	{NULL, "pcie_aux_clk", 1000000, true},
+	{NULL, "pcie_ldo", 0, true},
+	{NULL, "pcie_sleep_clk", 0, false},
+	{NULL, "pcie_slv_q2a_axi_clk", 0, false},
 };
 
 static struct ep_pcie_clk_info_t
 	ep_pcie_pipe_clk_info[EP_PCIE_MAX_PIPE_CLK] = {
-	{NULL, "pcie_0_pipe_clk", 62500000, true},
+	{NULL, "pcie_pipe_clk", 62500000, true},
 };
 
 static struct ep_pcie_reset_info_t
 	ep_pcie_reset_info[EP_PCIE_MAX_RESET] = {
-	{NULL, "pcie_0_core_reset", false},
-	{NULL, "pcie_0_phy_reset", false},
+	{NULL, "pcie_core_reset", false},
+	{NULL, "pcie_phy_reset", false},
 };
 
 static const struct ep_pcie_res_info_t ep_pcie_res_info[EP_PCIE_MAX_RES] = {
@@ -1280,15 +1281,6 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 			goto clk_fail;
 		}
 
-		/* enable pipe clock */
-		ret = ep_pcie_pipe_clk_init(dev);
-		if (ret) {
-			EP_PCIE_ERR(dev,
-				"PCIe V%d: failed to enable pipe clock\n",
-				dev->rev);
-			goto pipe_clk_fail;
-		}
-
 		dev->power_on = true;
 	}
 
@@ -1381,7 +1373,16 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 	/* init PCIe PHY */
 	ep_pcie_phy_init(dev);
 
-	EP_PCIE_DBG(dev, "PCIe V%d: waiting for phy ready\n", dev->rev);
+	/* enable pipe clock */
+	ret = ep_pcie_pipe_clk_init(dev);
+	if (ret) {
+		EP_PCIE_ERR(dev,
+			"PCIe V%d: failed to enable pipe clock\n",
+			dev->rev);
+		goto pipe_clk_fail;
+	}
+
+	EP_PCIE_DBG(dev, "PCIe V%d: waiting for phy ready...\n", dev->rev);
 	retries = 0;
 	do {
 		if (ep_pcie_phy_is_ready(dev))
@@ -1966,7 +1967,6 @@ int32_t ep_pcie_irq_init(struct ep_pcie_dev_t *dev)
 			EP_PCIE_ERR(dev,
 				"PCIe V%d: Unable to enable wake for Global interrupt\n",
 				dev->rev);
-			return ret;
 		}
 
 		EP_PCIE_DBG(dev,
