@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -479,6 +479,7 @@ static void ipa3_uc_response_hdlr(enum ipa_irq_type interrupt,
 
 		if (ipa3_ctx->uc_ctx.uc_loaded) {
 			IPADBG("uC resp op INIT_COMPLETED is unexpected\n");
+			IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 			return;
 		}
 
