@@ -3737,6 +3737,7 @@ static struct clk_branch gcc_sys_noc_compute_sf_axi_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_sys_noc_compute_sf_axi_clk",
+			.flags = CLK_IS_CRITICAL,
 			.ops = &clk_branch2_ops,
 		},
 	},
