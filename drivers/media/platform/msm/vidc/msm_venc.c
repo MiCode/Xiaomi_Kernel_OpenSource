@@ -1748,7 +1748,8 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			((ctrl->val >> 16) & 0xff) < b_qp->minimum ||
 			(ctrl->val & 0xff) >= i_qp->maximum ||
 			((ctrl->val >> 8) & 0xff) >= p_qp->maximum ||
-			((ctrl->val >> 16) & 0xff) >= b_qp->maximum) {
+			(inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_VP8 &&
+			((ctrl->val >> 16) & 0xff) >= b_qp->maximum)) {
 			dprintk(VIDC_ERR, "Invalid QP %#x\n", ctrl->val);
 			return -EINVAL;
 		}
@@ -2415,6 +2416,11 @@ int msm_venc_set_frame_qp(struct msm_vidc_inst *inst)
 			b_qp->val < b_qp->minimum)
 			b_qp->val = i_qp->val;
 	}
+
+	/* B frame QP is not supported for VP8. */
+	if (inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_VP8)
+		qp.enable &= (!QP_ENABLE_B);
+
 	qp.qp_packed = i_qp->val | p_qp->val << 8 | b_qp->val << 16;
 
 	dprintk(VIDC_DBG, "%s: layers %#x frames %#x qp_packed %#x\n",
