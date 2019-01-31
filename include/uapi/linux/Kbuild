@@ -12,6 +12,8 @@ ifeq ($(wildcard $(srctree)/arch/$(SRCARCH)/include/uapi/asm/kvm_para.h),)
 no-export-headers += kvm_para.h
 endif
 
+header-y += nfc/
+
 ifneq ($(VSERVICES_SUPPORT), "")
 include include/linux/Kbuild.vservices
 endif
