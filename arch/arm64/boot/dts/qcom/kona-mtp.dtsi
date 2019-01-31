@@ -68,6 +68,11 @@
 		qca,bt-vdd-rfa1-voltage-level = <1900000 1900000>;
 		qca,bt-vdd-rfa2-voltage-level = <1350000 1350000>;
 	};
+
+	kona_mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "fg-gen4-batterydata-alium-3600mah.dtsi"
+	};
 };
 
 &pm8150b_vadc {
@@ -134,6 +139,7 @@
 			   "sbux_res",
 			   "vph_voltage",
 			   "chg_temp";
+	qcom,battery-data = <&kona_mtp_batterydata>;
 	qcom,step-charging-enable;
 	qcom,sw-jeita-enable;
 	qcom,wd-bark-time-secs = <16>;
@@ -142,6 +148,7 @@
 
 &pm8150b_fg {
 	status = "ok";
+	qcom,battery-data = <&kona_mtp_batterydata>;
 	qcom,hold-soc-while-full;
 	qcom,linearize-soc;
 	qcom,five-pin-battery;

@@ -7,6 +7,13 @@
 #include "kona-sde-display.dtsi"
 #include "kona-audio-overlay.dtsi"
 
+&vendor {
+	kona_qrd_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "fg-gen4-batterydata-mlp466274-3650mah.dtsi"
+	};
+};
+
 &qupv3_se12_2uart {
 	status = "okay";
 };
@@ -155,6 +162,7 @@
 			   "sbux_res",
 			   "vph_voltage",
 			   "chg_temp";
+	qcom,battery-data = <&kona_qrd_batterydata>;
 	qcom,sw-jeita-enable;
 	qcom,wd-bark-time-secs = <16>;
 	qcom,suspend-input-on-debug-batt;
@@ -162,6 +170,7 @@
 
 &pm8150b_fg {
 	status = "ok";
+	qcom,battery-data = <&kona_qrd_batterydata>;
 	qcom,hold-soc-while-full;
 	qcom,linearize-soc;
 	qcom,five-pin-battery;
