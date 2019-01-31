@@ -335,8 +335,9 @@
 
 	clock_debugcc: qcom,cc-debug {
 		compatible = "qcom,debugcc-sdxprairie";
-		qcom,cc-count = <1>;
+		qcom,cc-count = <2>;
 		qcom,gcc = <&clock_gcc>;
+		qcom,cpucc = <&cpucc_debug>;
 		clock-names = "xo_clk_src";
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		#clock-cells = <1>;
@@ -359,6 +360,11 @@
 			< 1094400000 RPMH_REGULATOR_LEVEL_NOM>,
 			< 1497600000 RPMH_REGULATOR_LEVEL_TURBO>;
 		#clock-cells = <1>;
+	};
+
+	cpucc_debug: syscon@1781101c {
+		compatible = "syscon";
+		reg = <0x1781101c 0x4>;
 	};
 
 	spmi_bus: qcom,spmi@c440000 {
