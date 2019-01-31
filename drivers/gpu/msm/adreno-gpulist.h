@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  */
 
 #define ANY_ID (~0)
@@ -332,6 +332,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gpmu_tsens = 0x000C000D,
 		.max_power = 5448,
 		.prim_fifo_threshold = 0x0018000,
+		.pdc_address_offset = 0x00030080,
 	},
 	{
 		.gpurev = ADRENO_REV_A630,
@@ -354,6 +355,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gpmu_tsens = 0x000C000D,
 		.max_power = 5448,
 		.prim_fifo_threshold = 0x0018000,
+		.pdc_address_offset = 0x00030080,
 	},
 	{
 		.gpurev = ADRENO_REV_A615,
@@ -374,6 +376,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gpmu_major = 0x1,
 		.gpmu_minor = 0x003,
 		.prim_fifo_threshold = 0x0018000,
+		.pdc_address_offset = 0x00030080,
 	},
 	{
 		.gpurev = ADRENO_REV_A618,
@@ -394,6 +397,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gpmu_major = 0x1,
 		.gpmu_minor = 0x007,
 		.prim_fifo_threshold = 0x0018000,
+		.pdc_address_offset = 0x00030090,
 	},
 	{
 		.gpurev = ADRENO_REV_A640,
@@ -417,6 +421,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.max_power = 5448,
 		.va_padding = SZ_64K,
 		.prim_fifo_threshold = 0x00200000,
+		.pdc_address_offset = 0x00030090,
 	},
 	{
 		.gpurev = ADRENO_REV_A640,
@@ -439,6 +444,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gpmu_tsens = 0x000C000D,
 		.max_power = 5448,
 		.prim_fifo_threshold = 0x00200000,
+		.pdc_address_offset = 0x00030090,
 	},
 	{
 		.gpurev = ADRENO_REV_A650,
@@ -459,6 +465,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gpmu_tsens = 0x000C000D,
 		.max_power = 5448,
 		.prim_fifo_threshold = 0x00300000,
+		.pdc_address_offset = 0x000300A0,
 	},
 	{
 		.gpurev = ADRENO_REV_A680,
@@ -479,6 +486,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gpmu_tsens = 0x000C000D,
 		.max_power = 5448,
 		.prim_fifo_threshold = 0x00400000,
+		.pdc_address_offset = 0x00030090,
 	},
 	{
 		.gpurev = ADRENO_REV_A612,
@@ -497,6 +505,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.busy_mask = 0xFFFFFFFE,
 		.gpmufw_name = "a612_rgmu.bin",
 		.prim_fifo_threshold = 0x00080000,
+		.pdc_address_offset = 0x00030080,
 	},
 	{
 		.gpurev = ADRENO_REV_A616,
@@ -517,5 +526,6 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gpmu_major = 0x1,
 		.gpmu_minor = 0x003,
 		.prim_fifo_threshold = 0x0018000,
+		.pdc_address_offset = 0x00030080,
 	},
 };

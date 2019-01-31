@@ -423,6 +423,7 @@ struct adreno_gpu_core {
 	unsigned int max_power;
 	uint64_t va_padding;
 	unsigned int prim_fifo_threshold;
+	unsigned int pdc_address_offset;
 };
 
 
