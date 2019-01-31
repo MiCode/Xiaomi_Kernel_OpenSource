@@ -369,7 +369,9 @@
 #define CLK_MM_DSI2_DIGITAL		60
 #define CLK_MM_DSI3			61
 #define CLK_MM_DSI3_DIGITAL		62
-#define CLK_MM_NR_CLK			63
+#define CLK_MM_DISP_PWM2_MM		63
+#define CLK_MM_DISP_PWM2_26M		64
+#define CLK_MM_NR_CLK			65
 
 /* IMGSYS */
 
