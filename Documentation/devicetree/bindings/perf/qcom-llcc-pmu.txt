@@ -8,7 +8,7 @@ Only one event is supported:
 The follow section describes the LLCC PMU DT node binding.
 
 Required properties:
-- compatible		: Shall be "qcom,qcom-llcc-pmu"
+- compatible		: Shall be "qcom,llcc-pmu-ver1" or "qcom,llcc-pmu-ver2"
 - reg			: There shall be one resource, a pair of the form
 			  < base_address total_size > representing the DDR_LAGG
 			  region.
