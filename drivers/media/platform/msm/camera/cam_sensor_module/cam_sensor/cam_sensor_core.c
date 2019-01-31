@@ -143,7 +143,7 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 		csl_packet->header.request_id <= s_ctrl->last_flush_req
 		&& s_ctrl->last_flush_req != 0) {
 		CAM_ERR(CAM_SENSOR,
-			"reject request %lld, last request to flush %lld",
+			"reject request %lld, last request to flush %u",
 			csl_packet->header.request_id, s_ctrl->last_flush_req);
 		rc = -EINVAL;
 		goto rel_pkt_buf;
@@ -254,7 +254,7 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 
 rel_pkt_buf:
 	if (cam_mem_put_cpu_buf(config.packet_handle))
-		CAM_WARN(CAM_SENSOR, "Failed in put the buffer: 0x%x",
+		CAM_WARN(CAM_SENSOR, "Failed in put the buffer: 0x%llx",
 			config.packet_handle);
 
 	return rc;
@@ -515,7 +515,7 @@ int32_t cam_handle_mem_ptr(uint64_t handle, struct cam_sensor_ctrl_t *s_ctrl)
 	}
 
 	if (cam_mem_put_cpu_buf(handle))
-		CAM_WARN(CAM_SENSOR, "Failed to put the command Buffer: 0x%x",
+		CAM_WARN(CAM_SENSOR, "Failed to put the command Buffer: 0x%llx",
 			handle);
 
 	return rc;
@@ -526,7 +526,7 @@ rel_cmd_buf:
 			cmd_desc[i].mem_handle);
 rel_pkt_buf:
 	if (cam_mem_put_cpu_buf(handle))
-		CAM_WARN(CAM_SENSOR, "Failed to put the command Buffer: 0x%x",
+		CAM_WARN(CAM_SENSOR, "Failed to put the command Buffer: 0x%llx",
 			handle);
 
 	return rc;

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -327,7 +327,7 @@ static int cam_vfe_camif_reg_dump(
 	for (wm_idx = 0; wm_idx <= 23; wm_idx++) {
 		offset = 0x2214 + 0x100 * wm_idx;
 		CAM_INFO(CAM_ISP,
-			"BUS_WM%u offset 0x%x val 0x%x offset 0x%x val 0x%x",
+			"BUS_WM%u offset 0x%x val 0x%x offset 0x%x val 0x%x offset 0x%x val 0x%x offset 0x%x val 0x%x",
 			wm_idx, offset,
 			cam_io_r_mb(camif_priv->mem_base + offset),
 			offset + 4, cam_io_r_mb(camif_priv->mem_base +
