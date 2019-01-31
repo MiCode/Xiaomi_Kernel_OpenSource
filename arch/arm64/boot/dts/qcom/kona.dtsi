@@ -938,9 +938,9 @@
 		BW_OPP_ENTRY( 2736, 4); /* 10437 MB/s */
 	};
 
-	llcc_pmu: llcc-pmu@9090000 {
-		compatible = "qcom,qcom-llcc-pmu";
-		reg = <0x09090000 0x300>;
+	llcc_pmu: llcc-pmu@9095000 {
+		compatible = "qcom,llcc-pmu-ver2";
+		reg = <0x09095000 0x300>;
 		reg-names = "lagg-base";
 	};
 
