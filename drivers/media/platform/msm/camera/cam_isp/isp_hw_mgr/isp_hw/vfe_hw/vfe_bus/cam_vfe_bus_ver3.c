@@ -968,7 +968,7 @@ rdi_config:
 			rsrc_data->height = 0;
 			rsrc_data->stride = CAM_VFE_RDI_BUS_DEFAULT_STRIDE;
 			rsrc_data->pack_fmt = 0x0;
-			rsrc_data->en_cfg = 0x3;
+			rsrc_data->en_cfg = (0x1 << 16) | 0x1;
 			break;
 		case CAM_FORMAT_PLAIN8:
 			rsrc_data->en_cfg = 0x1;
@@ -985,7 +985,7 @@ rdi_config:
 			rsrc_data->height = 0;
 			rsrc_data->stride = CAM_VFE_RDI_BUS_DEFAULT_STRIDE;
 			rsrc_data->pack_fmt = 0x0;
-			rsrc_data->en_cfg = 0x3;
+			rsrc_data->en_cfg = (0x1 << 16) | 0x1;
 			break;
 		case CAM_FORMAT_PLAIN64:
 			rsrc_data->en_cfg = 0x1;
@@ -1083,18 +1083,24 @@ rdi_config:
 			return -EINVAL;
 		}
 		rsrc_data->en_cfg = 0x1;
-	} else if (rsrc_data->index > 11 && rsrc_data->index < 21) {
-		/* WM 12-20 stats */
+	} else if (rsrc_data->index == 20) {
+		/* WM 20 stats BAF */
 		rsrc_data->width = 0;
 		rsrc_data->height = 0;
 		rsrc_data->stride = 1;
-		rsrc_data->en_cfg = 0x3;
+		rsrc_data->en_cfg = (0x2 << 16) | 0x1;
+	} else if (rsrc_data->index > 11 && rsrc_data->index < 20) {
+		/* WM 12-19 stats */
+		rsrc_data->width = 0;
+		rsrc_data->height = 0;
+		rsrc_data->stride = 1;
+		rsrc_data->en_cfg = (0x1 << 16) | 0x1;
 	} else if (rsrc_data->index == 11 || rsrc_data->index == 21) {
 		/* WM 21/11 PDAF/2PD */
 		rsrc_data->width = 0;
 		rsrc_data->height = 0;
 		rsrc_data->stride = 1;
-		rsrc_data->en_cfg = 0x3;
+		rsrc_data->en_cfg = (0x1 << 16) | 0x1;
 		if (vfe_out_res_id == CAM_VFE_BUS_VER3_VFE_OUT_PDAF)
 			/* LSB aligned */
 			rsrc_data->pack_fmt |= 0x10;
@@ -1111,7 +1117,7 @@ rdi_config:
 			rsrc_data->width = 0;
 			rsrc_data->height = 0;
 			rsrc_data->stride = 1;
-			rsrc_data->en_cfg = 0x3;
+			rsrc_data->en_cfg = (0x1 << 16) | 0x1;
 			/* LSB aligned */
 			rsrc_data->pack_fmt |= 0x10;
 			break;
@@ -2885,7 +2891,8 @@ static int cam_vfe_bus_ver3_init_hw(void *hw_priv,
 	}
 
 	// no clock gating at bus input
-	cam_io_w_mb(0xFFFFF, bus_priv->common_data.mem_base +
+	CAM_INFO(CAM_ISP, "Overriding clock gating at bus input");
+	cam_io_w_mb(0x3FFFFFF, bus_priv->common_data.mem_base +
 		bus_priv->common_data.common_reg->cgc_ovd);
 
 	// BUS_WR_TEST_BUS_CTRL
