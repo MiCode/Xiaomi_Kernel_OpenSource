@@ -31,6 +31,8 @@
 	model = "Qualcomm Technologies, Inc. TRINKET";
 	compatible = "qcom,trinket";
 	qcom,msm-id = <394 0x10000>;
+	qcom,msm-name = "trinket";
+	qcom,pmic-name = "pm6125 + pmi632";
 	interrupt-parent = <&wakegic>;
 
 	aliases {
