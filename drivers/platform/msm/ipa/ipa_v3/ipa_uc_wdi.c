@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #include "ipa_i.h"
@@ -733,7 +733,7 @@ int ipa_create_uc_smmu_mapping(int res_idx, bool wlan_smmu_en,
 	return 0;
 }
 
-static int ipa_create_gsi_smmu_mapping(int res_idx, bool wlan_smmu_en,
+int ipa_create_gsi_smmu_mapping(int res_idx, bool wlan_smmu_en,
 		phys_addr_t pa, struct sg_table *sgt, size_t len, bool device,
 		unsigned long *iova)
 {
@@ -2011,7 +2011,7 @@ int ipa3_disable_gsi_wdi_pipe(u32 clnt_hdl)
 	 */
 	if (IPA_CLIENT_IS_PROD(ep->client)) {
 		IPADBG("Stopping PROD channel - hdl=%d clnt=%d\n",
-				clnt_hdl, ep->client);
+			clnt_hdl, ep->client);
 		/* remove delay on wlan-prod pipe*/
 		memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
 		ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);

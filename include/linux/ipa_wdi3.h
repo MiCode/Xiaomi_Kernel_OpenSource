@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018 - 2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _IPA_WDI3_H_
@@ -47,10 +47,12 @@ struct ipa_wdi_init_in_params {
  * @is_uC_ready: is uC ready. No API should be called until uC
     is ready.
  * @is_smmu_enable: is smmu enabled
+ * @is_over_gsi: is wdi over GSI or uC
  */
 struct ipa_wdi_init_out_params {
 	bool is_uC_ready;
 	bool is_smmu_enabled;
+	bool is_over_gsi;
 };
 
 /**
