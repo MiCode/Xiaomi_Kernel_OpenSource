@@ -40,8 +40,7 @@ struct hfi_packetization_ops {
 		struct hfi_cmd_sys_test_ssr_packet *pkt);
 	int (*session_init)(
 		struct hfi_cmd_sys_session_init_packet *pkt,
-		struct hal_session *session,
-		u32 session_domain, u32 session_codec);
+		struct hal_session *session);
 	int (*session_cmd)(struct cvp_hal_session_cmd_pkt *pkt,
 		int pkt_type, struct hal_session *session);
 	int (*session_set_buffers)(

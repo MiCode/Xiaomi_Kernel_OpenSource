@@ -164,6 +164,10 @@ static struct msm_cvp_common_data sm8250_common_data[] = {
 		.key = "qcom,fw-cycles",
 		.value = 760000,
 	},
+	{
+		.key = "qcom,use-devfreq-scale-bus",
+		.value = 0,
+	},
 };
 
 

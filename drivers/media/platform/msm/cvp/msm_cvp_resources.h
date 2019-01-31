@@ -192,6 +192,7 @@ struct msm_cvp_platform_resources {
 	struct msm_cvp_mem_cdsp mem_cdsp;
 	uint32_t vpu_ver;
 	uint32_t fw_cycles;
+	uint32_t bus_devfreq_on;
 };
 
 static inline bool is_iommu_present(struct msm_cvp_platform_resources *res)

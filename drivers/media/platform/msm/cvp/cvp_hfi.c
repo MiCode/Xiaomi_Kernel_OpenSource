@@ -2430,8 +2430,7 @@ static int venus_hfi_session_init(void *device, void *session_id,
 
 	__set_default_sys_properties(device);
 
-	if (call_hfi_pkt_op(dev, session_init, &pkt,
-			s, session_type, codec_type)) {
+	if (call_hfi_pkt_op(dev, session_init, &pkt, s)) {
 		dprintk(CVP_ERR, "session_init: failed to create packet\n");
 		goto err_session_init_fail;
 	}
@@ -4308,8 +4307,6 @@ static int __load_fw(struct venus_hfi_device *device)
 		goto fail_venus_power_on;
 	}
 
-	/*FIXME: proceed if TZ CVP PIL works */
-	return 0;
 	if ((!device->res->use_non_secure_pil && !device->res->firmware_base)
 			|| device->res->use_non_secure_pil) {
 		if (!device->resources.fw.cookie)
@@ -4365,7 +4362,7 @@ static void __unload_fw(struct venus_hfi_device *device)
 	device->resources.fw.cookie = NULL;
 	__deinit_resources(device);
 
-	dprintk(CVP_PROF, "Firmware unloaded successfully\n");
+	dprintk(CVP_DBG, "Firmware unloaded successfully\n");
 }
 
 static int venus_hfi_get_fw_info(void *dev, struct hal_fw_info *fw_info)

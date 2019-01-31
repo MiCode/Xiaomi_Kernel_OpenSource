@@ -763,6 +763,8 @@ int cvp_read_platform_resources_from_drv_data(
 			"qcom,dcvs");
 	res->fw_cycles = find_key_value(platform_data,
 			"qcom,fw-cycles");
+	res->bus_devfreq_on = find_key_value(platform_data,
+			"qcom,use-devfreq-scale-bus");
 
 	res->csc_coeff_data = &platform_data->csc_data;
 
