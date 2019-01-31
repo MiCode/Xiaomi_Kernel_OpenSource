@@ -92,6 +92,16 @@ memory allocation over a PCIe bridge
 				over pcie bus or not.
 - qcom,ipa-wdi2_over_gsi: Boolean context flag to indicate WDI2 offload over GSI
 				supported or not.
+- qcom,register-collection-on-crash: Boolean that controls IPA/GSI register
+				collection upon system crash (i.e. SSR).
+- qcom,testbus-collection-on-crash: Boolean that controls testbus register
+				collection upon system crash.
+- qcom,non-tn-collection-on-crash: Boolean to control a certain subset of IPA/GSI
+				register collection relative to an SSR.  Accessing
+				these registers can cause stalling, hence this
+				control.
+- qcom,entire-ipa-block-size: Complete size of the ipa block in which all
+				registers, collected upon crash, reside.
 
 Optional properties:
 -qcom,ipa-pipe-mem: Specifies the base physical address and the
