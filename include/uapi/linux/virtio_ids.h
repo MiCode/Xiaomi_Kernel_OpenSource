@@ -41,6 +41,7 @@
 #define VIRTIO_ID_CAIF	       12 /* Virtio caif */
 #define VIRTIO_ID_GPU          16 /* virtio GPU */
 #define VIRTIO_ID_INPUT        18 /* virtio input */
+#define VIRTIO_ID_VSOCK        19 /* virtio vsock transport */
 
 /* QCOM Private virtio device IDs */
 #define VIRTIO_ID_I2C	       21 /* virtio i2c */

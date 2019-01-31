@@ -1184,7 +1184,7 @@ again:
 		struct map_lookup *map;
 		int i;
 
-		map = (struct map_lookup *)em->bdev;
+		map = em->map_lookup;
 		for (i = 0; i < map->num_stripes; i++) {
 			u64 end;
 
@@ -2757,7 +2757,7 @@ int btrfs_remove_chunk(struct btrfs_trans_handle *trans,
 			free_extent_map(em);
 		return -EINVAL;
 	}
-	map = (struct map_lookup *)em->bdev;
+	map = em->map_lookup;
 	lock_chunks(root->fs_info->chunk_root);
 	check_system_chunk(trans, extent_root, map->type);
 	unlock_chunks(root->fs_info->chunk_root);
@@ -4540,7 +4540,7 @@ static int __btrfs_alloc_chunk(struct btrfs_trans_handle *trans,
 
 	if (type & BTRFS_BLOCK_GROUP_DATA) {
 		max_stripe_size = 1024 * 1024 * 1024;
-		max_chunk_size = 10 * max_stripe_size;
+		max_chunk_size = BTRFS_MAX_DATA_CHUNK_SIZE;
 		if (!devs_max)
 			devs_max = BTRFS_MAX_DEVS(info->chunk_root);
 	} else if (type & BTRFS_BLOCK_GROUP_METADATA) {
@@ -4731,7 +4731,7 @@ static int __btrfs_alloc_chunk(struct btrfs_trans_handle *trans,
 		goto error;
 	}
 	set_bit(EXTENT_FLAG_FS_MAPPING, &em->flags);
-	em->bdev = (struct block_device *)map;
+	em->map_lookup = map;
 	em->start = start;
 	em->len = num_bytes;
 	em->block_start = 0;
@@ -4826,7 +4826,7 @@ int btrfs_finish_chunk_alloc(struct btrfs_trans_handle *trans,
 		return -EINVAL;
 	}
 
-	map = (struct map_lookup *)em->bdev;
+	map = em->map_lookup;
 	item_size = btrfs_chunk_item_size(map->num_stripes);
 	stripe_size = em->orig_block_len;
 
@@ -4968,7 +4968,7 @@ int btrfs_chunk_readonly(struct btrfs_root *root, u64 chunk_offset)
 	if (!em)
 		return 1;
 
-	map = (struct map_lookup *)em->bdev;
+	map = em->map_lookup;
 	for (i = 0; i < map->num_stripes; i++) {
 		if (map->stripes[i].dev->missing) {
 			miss_ndevs++;
@@ -5048,7 +5048,7 @@ int btrfs_num_copies(struct btrfs_fs_info *fs_info, u64 logical, u64 len)
 		return 1;
 	}
 
-	map = (struct map_lookup *)em->bdev;
+	map = em->map_lookup;
 	if (map->type & (BTRFS_BLOCK_GROUP_DUP | BTRFS_BLOCK_GROUP_RAID1))
 		ret = map->num_stripes;
 	else if (map->type & BTRFS_BLOCK_GROUP_RAID10)
@@ -5091,7 +5091,7 @@ unsigned long btrfs_full_stripe_len(struct btrfs_root *root,
 	BUG_ON(!em);
 
 	BUG_ON(em->start > logical || em->start + em->len < logical);
-	map = (struct map_lookup *)em->bdev;
+	map = em->map_lookup;
 	if (map->type & BTRFS_BLOCK_GROUP_RAID56_MASK)
 		len = map->stripe_len * nr_data_stripes(map);
 	free_extent_map(em);
@@ -5112,7 +5112,7 @@ int btrfs_is_parity_mirror(struct btrfs_mapping_tree *map_tree,
 	BUG_ON(!em);
 
 	BUG_ON(em->start > logical || em->start + em->len < logical);
-	map = (struct map_lookup *)em->bdev;
+	map = em->map_lookup;
 	if (map->type & BTRFS_BLOCK_GROUP_RAID56_MASK)
 		ret = 1;
 	free_extent_map(em);
@@ -5271,7 +5271,7 @@ static int __btrfs_map_block(struct btrfs_fs_info *fs_info, int rw,
 		return -EINVAL;
 	}
 
-	map = (struct map_lookup *)em->bdev;
+	map = em->map_lookup;
 	offset = logical - em->start;
 
 	stripe_len = map->stripe_len;
@@ -5813,7 +5813,7 @@ int btrfs_rmap_block(struct btrfs_mapping_tree *map_tree,
 		free_extent_map(em);
 		return -EIO;
 	}
-	map = (struct map_lookup *)em->bdev;
+	map = em->map_lookup;
 
 	length = em->len;
 	rmap_len = map->stripe_len;
@@ -6208,6 +6208,101 @@ struct btrfs_device *btrfs_alloc_device(struct btrfs_fs_info *fs_info,
 	return dev;
 }
 
+/* Return -EIO if any error, otherwise return 0. */
+static int btrfs_check_chunk_valid(struct btrfs_root *root,
+				   struct extent_buffer *leaf,
+				   struct btrfs_chunk *chunk, u64 logical)
+{
+	u64 length;
+	u64 stripe_len;
+	u16 num_stripes;
+	u16 sub_stripes;
+	u64 type;
+	u64 features;
+	bool mixed = false;
+
+	length = btrfs_chunk_length(leaf, chunk);
+	stripe_len = btrfs_chunk_stripe_len(leaf, chunk);
+	num_stripes = btrfs_chunk_num_stripes(leaf, chunk);
+	sub_stripes = btrfs_chunk_sub_stripes(leaf, chunk);
+	type = btrfs_chunk_type(leaf, chunk);
+
+	if (!num_stripes) {
+		btrfs_err(root->fs_info, "invalid chunk num_stripes: %u",
+			  num_stripes);
+		return -EIO;
+	}
+	if (!IS_ALIGNED(logical, root->sectorsize)) {
+		btrfs_err(root->fs_info,
+			  "invalid chunk logical %llu", logical);
+		return -EIO;
+	}
+	if (btrfs_chunk_sector_size(leaf, chunk) != root->sectorsize) {
+		btrfs_err(root->fs_info, "invalid chunk sectorsize %u",
+			  btrfs_chunk_sector_size(leaf, chunk));
+		return -EIO;
+	}
+	if (!length || !IS_ALIGNED(length, root->sectorsize)) {
+		btrfs_err(root->fs_info,
+			"invalid chunk length %llu", length);
+		return -EIO;
+	}
+	if (!is_power_of_2(stripe_len)) {
+		btrfs_err(root->fs_info, "invalid chunk stripe length: %llu",
+			  stripe_len);
+		return -EIO;
+	}
+	if (~(BTRFS_BLOCK_GROUP_TYPE_MASK | BTRFS_BLOCK_GROUP_PROFILE_MASK) &
+	    type) {
+		btrfs_err(root->fs_info, "unrecognized chunk type: %llu",
+			  ~(BTRFS_BLOCK_GROUP_TYPE_MASK |
+			    BTRFS_BLOCK_GROUP_PROFILE_MASK) &
+			  btrfs_chunk_type(leaf, chunk));
+		return -EIO;
+	}
+
+	if ((type & BTRFS_BLOCK_GROUP_TYPE_MASK) == 0) {
+		btrfs_err(root->fs_info, "missing chunk type flag: 0x%llx", type);
+		return -EIO;
+	}
+
+	if ((type & BTRFS_BLOCK_GROUP_SYSTEM) &&
+	    (type & (BTRFS_BLOCK_GROUP_METADATA | BTRFS_BLOCK_GROUP_DATA))) {
+		btrfs_err(root->fs_info,
+			"system chunk with data or metadata type: 0x%llx", type);
+		return -EIO;
+	}
+
+	features = btrfs_super_incompat_flags(root->fs_info->super_copy);
+	if (features & BTRFS_FEATURE_INCOMPAT_MIXED_GROUPS)
+		mixed = true;
+
+	if (!mixed) {
+		if ((type & BTRFS_BLOCK_GROUP_METADATA) &&
+		    (type & BTRFS_BLOCK_GROUP_DATA)) {
+			btrfs_err(root->fs_info,
+			"mixed chunk type in non-mixed mode: 0x%llx", type);
+			return -EIO;
+		}
+	}
+
+	if ((type & BTRFS_BLOCK_GROUP_RAID10 && sub_stripes != 2) ||
+	    (type & BTRFS_BLOCK_GROUP_RAID1 && num_stripes < 1) ||
+	    (type & BTRFS_BLOCK_GROUP_RAID5 && num_stripes < 2) ||
+	    (type & BTRFS_BLOCK_GROUP_RAID6 && num_stripes < 3) ||
+	    (type & BTRFS_BLOCK_GROUP_DUP && num_stripes > 2) ||
+	    ((type & BTRFS_BLOCK_GROUP_PROFILE_MASK) == 0 &&
+	     num_stripes != 1)) {
+		btrfs_err(root->fs_info,
+			"invalid num_stripes:sub_stripes %u:%u for profile %llu",
+			num_stripes, sub_stripes,
+			type & BTRFS_BLOCK_GROUP_PROFILE_MASK);
+		return -EIO;
+	}
+
+	return 0;
+}
+
 static int read_one_chunk(struct btrfs_root *root, struct btrfs_key *key,
 			  struct extent_buffer *leaf,
 			  struct btrfs_chunk *chunk)
@@ -6217,6 +6312,7 @@ static int read_one_chunk(struct btrfs_root *root, struct btrfs_key *key,
 	struct extent_map *em;
 	u64 logical;
 	u64 length;
+	u64 stripe_len;
 	u64 devid;
 	u8 uuid[BTRFS_UUID_SIZE];
 	int num_stripes;
@@ -6225,6 +6321,12 @@ static int read_one_chunk(struct btrfs_root *root, struct btrfs_key *key,
 
 	logical = key->offset;
 	length = btrfs_chunk_length(leaf, chunk);
+	stripe_len = btrfs_chunk_stripe_len(leaf, chunk);
+	num_stripes = btrfs_chunk_num_stripes(leaf, chunk);
+
+	ret = btrfs_check_chunk_valid(root, leaf, chunk, logical);
+	if (ret)
+		return ret;
 
 	read_lock(&map_tree->map_tree.lock);
 	em = lookup_extent_mapping(&map_tree->map_tree, logical, 1);
@@ -6241,7 +6343,6 @@ static int read_one_chunk(struct btrfs_root *root, struct btrfs_key *key,
 	em = alloc_extent_map();
 	if (!em)
 		return -ENOMEM;
-	num_stripes = btrfs_chunk_num_stripes(leaf, chunk);
 	map = kmalloc(map_lookup_size(num_stripes), GFP_NOFS);
 	if (!map) {
 		free_extent_map(em);
@@ -6249,7 +6350,7 @@ static int read_one_chunk(struct btrfs_root *root, struct btrfs_key *key,
 	}
 
 	set_bit(EXTENT_FLAG_FS_MAPPING, &em->flags);
-	em->bdev = (struct block_device *)map;
+	em->map_lookup = map;
 	em->start = logical;
 	em->len = length;
 	em->orig_start = 0;
@@ -6473,6 +6574,7 @@ int btrfs_read_sys_array(struct btrfs_root *root)
 	u32 array_size;
 	u32 len = 0;
 	u32 cur_offset;
+	u64 type;
 	struct btrfs_key key;
 
 	ASSERT(BTRFS_SUPER_INFO_SIZE <= root->nodesize);
@@ -6535,6 +6637,15 @@ int btrfs_read_sys_array(struct btrfs_root *root)
 				printk(KERN_ERR
 	    "BTRFS: invalid number of stripes %u in sys_array at offset %u\n",
 					num_stripes, cur_offset);
+				ret = -EIO;
+				break;
+			}
+
+			type = btrfs_chunk_type(sb, chunk);
+			if ((type & BTRFS_BLOCK_GROUP_SYSTEM) == 0) {
+				btrfs_err(root->fs_info,
+			    "invalid chunk type %llu in sys_array at offset %u",
+					type, cur_offset);
 				ret = -EIO;
 				break;
 			}
@@ -6948,7 +7059,7 @@ void btrfs_update_commit_device_bytes_used(struct btrfs_root *root,
 	/* In order to kick the device replace finish process */
 	lock_chunks(root);
 	list_for_each_entry(em, &transaction->pending_chunks, list) {
-		map = (struct map_lookup *)em->bdev;
+		map = em->map_lookup;
 
 		for (i = 0; i < map->num_stripes; i++) {
 			dev = map->stripes[i].dev;
