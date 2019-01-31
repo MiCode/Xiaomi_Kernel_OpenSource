@@ -173,7 +173,15 @@ Optional properties:
 					"bl_ctrl_pwm" = Backlight controlled by PWM gpio.
 					"bl_ctrl_wled" = Backlight controlled by WLED.
 					"bl_ctrl_dcs" = Backlight controlled by DCS commands.
+					"bl_ctrl_external" = Backlight controlled by externally
 					other: Unknown backlight control. (default)
+- qcom,mdss-dsi-sec-bl-pmic-control-type: A string that specifies the implementation of backlight
+					  control for secondary panel.
+					  "bl_ctrl_pwm" = Backlight controlled by PWM gpio.
+                                          "bl_ctrl_wled" = Backlight controlled by WLED.
+                                          "bl_ctrl_dcs" = Backlight controlled by DCS commands.
+                                          "bl_ctrl_external" = Backlight controlled by externally
+                                          other: Unknown backlight control. (default)
 - qcom,mdss-dsi-bl-pwm-pmi:		Boolean to indicate that PWM control is through second pmic chip.
 - qcom,mdss-dsi-bl-pmic-bank-select:	LPG channel for backlight.
 					Required if backlight pmic control type is PWM
@@ -187,6 +195,9 @@ Optional properties:
 					255 = default value.
 - qcom,mdss-brightness-max-level:	Specifies the max brightness level supported.
 					255 = default value.
+- qcom,bl-update-flag:			A string that specifies controls for backlight update of the panel.
+					"delay_until_first_frame" = Delay backlight update of the panel
+					until the first frame is received from the HW.
 - qcom,mdss-dsi-interleave-mode:	Specifies interleave mode.
 					0 = default value.
 - qcom,mdss-dsi-panel-type:		Specifies the panel operating mode.
@@ -529,6 +540,8 @@ Optional properties:
 					display. The first set is indexed by the
 					value 0.
 - qcom,mdss-dsi-ext-bridge-mode:	External bridge chip is connected instead of panel.
+- qcom,mdss-dsi-dma-schedule-line:	An integer value indicates the line number after vertical active
+					region, at which command DMA needs to be triggered.
 
 Required properties for sub-nodes:	None
 Optional properties:
@@ -604,6 +617,7 @@ Example:
 		qcom,mdss-dsi-bl-min-level = <1>;
 		qcom,mdss-dsi-bl-max-level = < 15>;
 		qcom,mdss-brightness-max-level = <255>;
+		qcom,bl-update-flag = "delay_until_first_frame";
 		qcom,mdss-dsi-interleave-mode = <0>;
 		qcom,mdss-dsi-panel-type = "dsi_video_mode";
 		qcom,mdss-dsi-te-check-enable;
@@ -634,8 +648,6 @@ Example:
 		qcom,mdss-dsi-mdp-trigger = <0>;
 		qcom,mdss-dsi-dma-trigger = <0>;
 		qcom,mdss-dsi-panel-framerate = <60>;
-		qcom,mdss-dsi-panel-clockrate = <424000000>;
-		qcom,mdss-mdp-transfer-time-us = <12500>;
 		qcom,mdss-dsi-panel-timings = [7d 25 1d 00 37 33
 					22 27 1e 03 04 00];
                 qcom,mdss-dsi-panel-timings-8996 = [23 20 06 09 05 03 04 a0
@@ -713,6 +725,8 @@ Example:
 				qcom,mdss-dsi-v-front-porch = <728>;
 				qcom,mdss-dsi-v-pulse-width = <4>;
 				qcom,mdss-dsi-panel-framerate = <60>;
+				qcom,mdss-dsi-panel-clockrate = <424000000>;
+				qcom,mdss-mdp-transfer-time-us = <12500>;
 				qcom,mdss-dsi-panel-timings = [E6 38 26 00 68 6E 2A 3C 2C 03 04 00];
 				qcom,mdss-dsi-t-clk-post = <0x02>;
 				qcom,mdss-dsi-t-clk-pre = <0x2a>;
@@ -786,5 +800,6 @@ Example:
 		qcom,display-topology = <1 1 1>,
 			                <2 2 1>;
 		qcom,default-topology-index = <0>;
+		qcom,mdss-dsi-dma-schedule-line = <5>;
 	};
 };
