@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"[drm-dp] %s: " fmt, __func__
@@ -1858,6 +1858,7 @@ static int dp_display_init_aux_switch(struct dp_display_private *dp)
 			phandle, 0);
 	if (!dp->aux_switch_node) {
 		pr_warn("cannot parse %s handle\n", phandle);
+		rc = -ENODEV;
 		goto end;
 	}
 
