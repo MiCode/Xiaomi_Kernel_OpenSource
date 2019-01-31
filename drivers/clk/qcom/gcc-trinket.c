@@ -1396,6 +1396,7 @@ static struct clk_rcg2 gcc_sdcc1_apps_clk_src = {
 		.ops = &clk_rcg2_ops,
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
+		.flags = CLK_SET_RATE_UNGATE,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER] = 100000000,
 			[VDD_NOMINAL] = 384000000},
