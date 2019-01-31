@@ -310,6 +310,11 @@ Main node
 	Value type: <u32>
 	Definition: Offset from PCIe PHY base to check if PCIe PHY status
 
+- qcom,phy-status-bit:
+	Usage: required
+	Value type: <u32>
+	Definition: BIT to check PCIe PHY status
+
 - qcom,phy-power-down-offset:
 	Usage: required
 	Value type: <u32>
@@ -468,6 +473,7 @@ Example
 
 		qcom,pcie-phy-ver = <0x2101>; /* v2 version 1.01 */
 		qcom,phy-status-offset = <0x814>;
+		qcom,phy-status-bit = <6>;
 		qcom,phy-power-down-offset = <0x840>;
 		qcom,phy-sequence = <0x0840 0x03 0x0
 				0x0094 0x08 0x0
