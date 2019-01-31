@@ -4,6 +4,7 @@
  */
 
 #include "kona-pmic-overlay.dtsi"
+#include "kona-sde-display.dtsi"
 #include "kona-audio-overlay.dtsi"
 
 &qupv3_se12_2uart {

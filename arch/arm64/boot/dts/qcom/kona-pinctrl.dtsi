@@ -395,6 +395,33 @@
 			};
 		};
 
+		/* add pins for DisplayPort */
+		sde_dp_usbplug_cc_active: sde_dp_usbplug_cc_active {
+			mux {
+				pins = "gpio65";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio65";
+				bias-disable;
+				drive-strength = <16>;
+			};
+		};
+
+		sde_dp_usbplug_cc_suspend: sde_dp_usbplug_cc_suspend {
+			mux {
+				pins = "gpio65";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio65";
+				bias-pull-down;
+				drive-strength = <2>;
+			};
+		};
+
 		ap2mdm {
 			ap2mdm_active: ap2mdm_active {
 				mux {
