@@ -81,8 +81,8 @@ static int _load_gmu_rpmh_ucode(struct kgsl_device *device)
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct resource *res_pdc, *res_cfg, *res_seq;
-	void __iomem *cfg = NULL, *seq = NULL;
-	unsigned int cfg_offset, seq_offset;
+	void __iomem *cfg = NULL, *seq = NULL, *rscc;
+	unsigned int cfg_offset, seq_offset, rscc_offset;
 
 	/* Offsets from the base PDC (if no PDC subsections in the DTSI) */
 	if (adreno_is_a640v2(adreno_dev)) {
@@ -93,6 +93,10 @@ static int _load_gmu_rpmh_ucode(struct kgsl_device *device)
 		seq_offset = 0x280000;
 	}
 
+	if (adreno_is_a650(adreno_dev))
+		rscc = adreno_dev->rscc_virt;
+	else
+		rscc = device->gmu_core.reg_virt + 0x23000;
 	/*
 	 * Older A6x platforms specified PDC registers in the DT using a
 	 * single base pointer that encompassed the entire PDC range. Current
@@ -111,7 +115,6 @@ static int _load_gmu_rpmh_ucode(struct kgsl_device *device)
 			"kgsl_gmu_pdc_cfg");
 	res_seq = platform_get_resource_byname(gmu->pdev, IORESOURCE_MEM,
 			"kgsl_gmu_pdc_seq");
-
 	/*
 	 * Map the starting address for pdc_cfg programming. If the pdc_cfg
 	 * resource is not available use an offset from the base PDC resource.
@@ -142,37 +145,33 @@ static int _load_gmu_rpmh_ucode(struct kgsl_device *device)
 	}
 
 	/* Disable SDE clock gating */
-	gmu_core_regwrite(device, A6XX_GPU_RSCC_RSC_STATUS0_DRV0, BIT(24));
+	_regwrite(rscc, A6XX_GPU_RSCC_RSC_STATUS0_DRV0, BIT(24));
 
 	/* Setup RSC PDC handshake for sleep and wakeup */
-	gmu_core_regwrite(device, A6XX_RSCC_PDC_SLAVE_ID_DRV0, 1);
-	gmu_core_regwrite(device, A6XX_RSCC_HIDDEN_TCS_CMD0_DATA, 0);
-	gmu_core_regwrite(device, A6XX_RSCC_HIDDEN_TCS_CMD0_ADDR, 0);
-	gmu_core_regwrite(device,
-			A6XX_RSCC_HIDDEN_TCS_CMD0_DATA + RSC_CMD_OFFSET, 0);
-	gmu_core_regwrite(device,
-			A6XX_RSCC_HIDDEN_TCS_CMD0_ADDR + RSC_CMD_OFFSET, 0);
-	gmu_core_regwrite(device,
-			A6XX_RSCC_HIDDEN_TCS_CMD0_DATA + RSC_CMD_OFFSET * 2,
+	_regwrite(rscc, A6XX_RSCC_PDC_SLAVE_ID_DRV0, 1);
+	_regwrite(rscc, A6XX_RSCC_HIDDEN_TCS_CMD0_DATA, 0);
+	_regwrite(rscc, A6XX_RSCC_HIDDEN_TCS_CMD0_ADDR, 0);
+	_regwrite(rscc, A6XX_RSCC_HIDDEN_TCS_CMD0_DATA + RSC_CMD_OFFSET, 0);
+	_regwrite(rscc, A6XX_RSCC_HIDDEN_TCS_CMD0_ADDR + RSC_CMD_OFFSET, 0);
+	_regwrite(rscc, A6XX_RSCC_HIDDEN_TCS_CMD0_DATA + RSC_CMD_OFFSET * 2,
 			0x80000000);
-	gmu_core_regwrite(device,
-			A6XX_RSCC_HIDDEN_TCS_CMD0_ADDR + RSC_CMD_OFFSET * 2,
+	_regwrite(rscc, A6XX_RSCC_HIDDEN_TCS_CMD0_ADDR + RSC_CMD_OFFSET * 2,
 			0);
-	gmu_core_regwrite(device, A6XX_RSCC_OVERRIDE_START_ADDR, 0);
-	gmu_core_regwrite(device, A6XX_RSCC_PDC_SEQ_START_ADDR, 0x4520);
-	gmu_core_regwrite(device, A6XX_RSCC_PDC_MATCH_VALUE_LO, 0x4510);
-	gmu_core_regwrite(device, A6XX_RSCC_PDC_MATCH_VALUE_HI, 0x4514);
+	_regwrite(rscc, A6XX_RSCC_OVERRIDE_START_ADDR, 0);
+	_regwrite(rscc, A6XX_RSCC_PDC_SEQ_START_ADDR, 0x4520);
+	_regwrite(rscc, A6XX_RSCC_PDC_MATCH_VALUE_LO, 0x4510);
+	_regwrite(rscc, A6XX_RSCC_PDC_MATCH_VALUE_HI, 0x4514);
 
 	/* Enable timestamp event for v1 only */
 	if (adreno_is_a630v1(adreno_dev))
-		gmu_core_regwrite(device, A6XX_RSCC_TIMESTAMP_UNIT1_EN_DRV0, 1);
+		_regwrite(rscc, A6XX_RSCC_TIMESTAMP_UNIT1_EN_DRV0, 1);
 
 	/* Load RSC sequencer uCode for sleep and wakeup */
-	gmu_core_regwrite(device, A6XX_RSCC_SEQ_MEM_0_DRV0, 0xA7A506A0);
-	gmu_core_regwrite(device, A6XX_RSCC_SEQ_MEM_0_DRV0 + 1, 0xA1E6A6E7);
-	gmu_core_regwrite(device, A6XX_RSCC_SEQ_MEM_0_DRV0 + 2, 0xA2E081E1);
-	gmu_core_regwrite(device, A6XX_RSCC_SEQ_MEM_0_DRV0 + 3, 0xE9A982E2);
-	gmu_core_regwrite(device, A6XX_RSCC_SEQ_MEM_0_DRV0 + 4, 0x0020E8A8);
+	_regwrite(rscc, A6XX_RSCC_SEQ_MEM_0_DRV0, 0xA7A506A0);
+	_regwrite(rscc, A6XX_RSCC_SEQ_MEM_0_DRV0 + 1, 0xA1E6A6E7);
+	_regwrite(rscc, A6XX_RSCC_SEQ_MEM_0_DRV0 + 2, 0xA2E081E1);
+	_regwrite(rscc, A6XX_RSCC_SEQ_MEM_0_DRV0 + 3, 0xE9A982E2);
+	_regwrite(rscc, A6XX_RSCC_SEQ_MEM_0_DRV0 + 4, 0x0020E8A8);
 
 	/* Load PDC sequencer uCode for power up and power down sequence */
 	_regwrite(seq, PDC_GPU_SEQ_MEM_0, 0xFEBEA1E1);
@@ -389,7 +388,7 @@ static int a6xx_rpmh_power_on_gpu(struct kgsl_device *device)
 		return -EINVAL;
 	}
 
-	if (timed_poll_check(device,
+	if (timed_poll_check_rscc(device,
 			A6XX_RSCC_SEQ_BUSY_DRV0,
 			0,
 			GPU_START_TIMEOUT,
@@ -425,20 +424,21 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 
 	/* RSC sleep sequence is different on v1 */
 	if (adreno_is_a630v1(adreno_dev))
-		gmu_core_regwrite(device, A6XX_RSCC_TIMESTAMP_UNIT1_EN_DRV0, 1);
+		gmu_core_regwrite(device, A6XX_RSCC_TIMESTAMP_UNIT1_EN_DRV0 +
+						RSCC_OFFSET_LEGACY, 1);
 
 	gmu_core_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, 1);
 	/* Make sure the request completes before continuing */
 	wmb();
 
 	if (adreno_is_a630v1(adreno_dev))
-		ret = timed_poll_check(device,
+		ret = timed_poll_check_rscc(device,
 				A6XX_RSCC_TIMESTAMP_UNIT1_OUTPUT_DRV0,
 				BIT(0),
 				GPU_START_TIMEOUT,
 				BIT(0));
 	else
-		ret = timed_poll_check(device,
+		ret = timed_poll_check_rscc(device,
 				A6XX_GPU_RSCC_RSC_STATUS0_DRV0,
 				BIT(16),
 				GPU_START_TIMEOUT,
@@ -452,11 +452,11 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 	/* Read to clear the timestamp valid signal. Don't care what we read. */
 	if (adreno_is_a630v1(adreno_dev)) {
 		gmu_core_regread(device,
-				A6XX_RSCC_TIMESTAMP_UNIT0_TIMESTAMP_L_DRV0,
-				&ret);
+				A6XX_RSCC_TIMESTAMP_UNIT0_TIMESTAMP_L_DRV0 +
+					RSCC_OFFSET_LEGACY, &ret);
 		gmu_core_regread(device,
-				A6XX_RSCC_TIMESTAMP_UNIT0_TIMESTAMP_H_DRV0,
-				&ret);
+				A6XX_RSCC_TIMESTAMP_UNIT0_TIMESTAMP_H_DRV0 +
+					RSCC_OFFSET_LEGACY, &ret);
 	}
 
 	gmu_core_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, 0);
@@ -700,14 +700,14 @@ static int a6xx_complete_rpmh_votes(struct kgsl_device *device)
 	if (!gmu_core_isenabled(device))
 		return ret;
 
-	ret |= timed_poll_check(device, A6XX_RSCC_TCS0_DRV0_STATUS, BIT(0),
-			GPU_RESET_TIMEOUT, BIT(0));
-	ret |= timed_poll_check(device, A6XX_RSCC_TCS1_DRV0_STATUS, BIT(0),
-			GPU_RESET_TIMEOUT, BIT(0));
-	ret |= timed_poll_check(device, A6XX_RSCC_TCS2_DRV0_STATUS, BIT(0),
-			GPU_RESET_TIMEOUT, BIT(0));
-	ret |= timed_poll_check(device, A6XX_RSCC_TCS3_DRV0_STATUS, BIT(0),
-			GPU_RESET_TIMEOUT, BIT(0));
+	ret |= timed_poll_check_rscc(device, A6XX_RSCC_TCS0_DRV0_STATUS,
+			BIT(0), GPU_RESET_TIMEOUT, BIT(0));
+	ret |= timed_poll_check_rscc(device, A6XX_RSCC_TCS1_DRV0_STATUS,
+			BIT(0), GPU_RESET_TIMEOUT, BIT(0));
+	ret |= timed_poll_check_rscc(device, A6XX_RSCC_TCS2_DRV0_STATUS,
+			BIT(0), GPU_RESET_TIMEOUT, BIT(0));
+	ret |= timed_poll_check_rscc(device, A6XX_RSCC_TCS3_DRV0_STATUS,
+			BIT(0), GPU_RESET_TIMEOUT, BIT(0));
 
 	return ret;
 }

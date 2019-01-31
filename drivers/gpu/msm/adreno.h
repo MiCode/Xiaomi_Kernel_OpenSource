@@ -441,6 +441,9 @@ enum gpu_coresight_sources {
  * @gmem_size: GMEM size
  * @cx_misc_len: Length of the CX MISC register block
  * @cx_misc_virt: Pointer where the CX MISC block is mapped
+ * @rscc_base: Base physical address of the RSCC
+ * @rscc_len: Length of the RSCC register block
+ * @rscc_virt: Pointer where RSCC block is mapped
  * @gpucore: Pointer to the adreno_gpu_core structure
  * @pfp_fw: Buffer which holds the pfp ucode
  * @pfp_fw_size: Size of pfp ucode buffer
@@ -523,6 +526,9 @@ struct adreno_device {
 	void __iomem *cx_dbgc_virt;
 	unsigned int cx_misc_len;
 	void __iomem *cx_misc_virt;
+	unsigned long rscc_base;
+	unsigned int rscc_len;
+	void __iomem *rscc_virt;
 	const struct adreno_gpu_core *gpucore;
 	struct adreno_firmware fw[2];
 	size_t gpmu_cmds_size;
@@ -1182,6 +1188,8 @@ void adreno_cx_misc_regwrite(struct adreno_device *adreno_dev,
 void adreno_cx_misc_regrmw(struct adreno_device *adreno_dev,
 		unsigned int offsetwords,
 		unsigned int mask, unsigned int bits);
+void adreno_rscc_regread(struct adreno_device *adreno_dev,
+		unsigned int offsetwords, unsigned int *value);
 
 
 #define ADRENO_TARGET(_name, _id) \
