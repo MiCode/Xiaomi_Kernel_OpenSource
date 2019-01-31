@@ -27,6 +27,24 @@ static atomic_t in_suspend;
 static struct cpumask cpus_pending_online;
 static struct cpumask cpus_isolated_by_thermal;
 
+static struct cpumask cpus_in_max_cooling_level;
+static BLOCKING_NOTIFIER_HEAD(cpu_max_cooling_level_notifer);
+
+void cpu_cooling_max_level_notifier_register(struct notifier_block *n)
+{
+	blocking_notifier_chain_register(&cpu_max_cooling_level_notifer, n);
+}
+
+void cpu_cooling_max_level_notifier_unregister(struct notifier_block *n)
+{
+	blocking_notifier_chain_unregister(&cpu_max_cooling_level_notifer, n);
+}
+
+const struct cpumask *cpu_cooling_get_max_level_cpumask(void)
+{
+	return &cpus_in_max_cooling_level;
+}
+
 static int cpu_isolate_pm_notify(struct notifier_block *nb,
 				unsigned long mode, void *_unused)
 {
@@ -168,6 +186,9 @@ static int cpu_isolate_set_cur_state(struct thermal_cooling_device *cdev,
 				cpumask_clear_cpu(cpu,
 					&cpus_isolated_by_thermal);
 		}
+		cpumask_set_cpu(cpu, &cpus_in_max_cooling_level);
+		blocking_notifier_call_chain(&cpu_max_cooling_level_notifer,
+						1, (void *)(long)cpu);
 	} else {
 		if (cpumask_test_and_clear_cpu(cpu, &cpus_pending_online)) {
 			cpu_dev = get_cpu_device(cpu);
@@ -180,6 +201,9 @@ static int cpu_isolate_set_cur_state(struct thermal_cooling_device *cdev,
 			&cpus_isolated_by_thermal)) {
 			sched_unisolate_cpu(cpu);
 		}
+		cpumask_clear_cpu(cpu, &cpus_in_max_cooling_level);
+		blocking_notifier_call_chain(&cpu_max_cooling_level_notifer,
+						0, (void *)(long)cpu);
 	}
 	mutex_unlock(&cpu_isolate_lock);
 
@@ -294,6 +318,7 @@ static int cpu_isolate_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return ret;
 	register_pm_notifier(&cpu_isolate_pm_nb);
+	cpumask_clear(&cpus_in_max_cooling_level);
 	ret = 0;
 
 	return ret;
