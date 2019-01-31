@@ -1018,15 +1018,11 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		inst->clk_data.frame_rate = ctrl->val;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA:
-		inst->bufq[CAPTURE_PORT].num_planes = 1;
-		inst->bufq[CAPTURE_PORT].plane_sizes[1] = 0;
-		if (ctrl->val != EXTRADATA_NONE) {
-			inst->bufq[CAPTURE_PORT].num_planes = 2;
-			inst->bufq[CAPTURE_PORT].plane_sizes[1] =
-				VENUS_EXTRADATA_SIZE(
-					inst->prop.height[CAPTURE_PORT],
-					inst->prop.width[CAPTURE_PORT]);
-		}
+		/*
+		 * nothing to do here as inst->bufq[CAPTURE_PORT].num_planes
+		 * and inst->bufq[CAPTURE_PORT].plane_sizes[1] are already
+		 * initialized to proper values
+		 */
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_BUFFER_SIZE_LIMIT:
 		inst->buffer_size_limit = ctrl->val;
@@ -1577,6 +1573,7 @@ int msm_vdec_set_extradata(struct msm_vidc_inst *inst)
 {
 	uint32_t display_info = HFI_PROPERTY_PARAM_VUI_DISPLAY_INFO_EXTRADATA;
 	struct v4l2_ctrl *ctrl;
+	u32 value = 0x0;
 
 	ctrl = msm_vdec_get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA);
 	if (!ctrl) {
@@ -1600,85 +1597,41 @@ int msm_vdec_set_extradata(struct msm_vidc_inst *inst)
 		break;
 	}
 
-	if (ctrl->val == EXTRADATA_NONE) {
-		// Disable all Extradata
-		msm_comm_set_index_extradata(inst,
-			MSM_VIDC_EXTRADATA_OUTPUT_CROP, 0x0);
+	/* Enable Default Extradata */
+	msm_comm_set_index_extradata(inst,
+		MSM_VIDC_EXTRADATA_OUTPUT_CROP, 0x1);
+	msm_comm_set_extradata(inst,
+		HFI_PROPERTY_PARAM_VDEC_INTERLACE_VIDEO_EXTRADATA, 0x1);
+	msm_comm_set_extradata(inst, display_info, 0x1);
+	msm_comm_set_extradata(inst,
+		HFI_PROPERTY_PARAM_VDEC_NUM_CONCEALED_MB, 0x1);
+	if (inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_HEVC) {
 		msm_comm_set_extradata(inst,
-			HFI_PROPERTY_PARAM_VDEC_INTERLACE_VIDEO_EXTRADATA, 0x0);
-		msm_comm_set_extradata(inst, display_info, 0x0);
-		msm_comm_set_extradata(inst,
-			HFI_PROPERTY_PARAM_VDEC_UBWC_CR_STAT_INFO_EXTRADATA,
-			0x0);
-		msm_comm_set_extradata(inst,
-			HFI_PROPERTY_PARAM_VDEC_NUM_CONCEALED_MB, 0x0);
-		if (inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_HEVC) {
-			msm_comm_set_extradata(inst,
-			HFI_PROPERTY_PARAM_VDEC_MASTER_DISP_COL_SEI_EXTRADATA,
-			0x0);
-			msm_comm_set_extradata(inst,
-			HFI_PROPERTY_PARAM_VDEC_CLL_SEI_EXTRADATA,
-			0x0);
-		}
-		msm_comm_set_extradata(inst,
-			HFI_PROPERTY_PARAM_VDEC_STREAM_USERDATA_EXTRADATA,
-			0x0);
-		msm_comm_set_extradata(inst,
-			HFI_PROPERTY_PARAM_VDEC_TIMESTAMP_EXTRADATA, 0x0);
-		msm_comm_set_extradata(inst,
-			HFI_PROPERTY_PARAM_S3D_FRAME_PACKING_EXTRADATA, 0x0);
-		msm_comm_set_extradata(inst,
-			HFI_PROPERTY_PARAM_VDEC_FRAME_RATE_EXTRADATA, 0x0);
-		msm_comm_set_extradata(inst,
-			HFI_PROPERTY_PARAM_VDEC_PANSCAN_WNDW_EXTRADATA, 0x0);
-		msm_comm_set_extradata(inst,
-			HFI_PROPERTY_PARAM_VDEC_RECOVERY_POINT_SEI_EXTRADATA,
-			0x0);
-		msm_comm_set_index_extradata(inst,
-			MSM_VIDC_EXTRADATA_ASPECT_RATIO, 0x0);
-		msm_comm_set_extradata(inst,
-			HFI_PROPERTY_PARAM_VDEC_FRAME_QP_EXTRADATA, 0x0);
-	}
-	if (ctrl->val & EXTRADATA_DEFAULT) {
-		// Enable Default Extradata
-		msm_comm_set_index_extradata(inst,
-			MSM_VIDC_EXTRADATA_OUTPUT_CROP, 0x1);
-		msm_comm_set_extradata(inst,
-			HFI_PROPERTY_PARAM_VDEC_INTERLACE_VIDEO_EXTRADATA,
-			0x1);
-		msm_comm_set_extradata(inst, display_info, 0x1);
-		msm_comm_set_extradata(inst,
-			HFI_PROPERTY_PARAM_VDEC_NUM_CONCEALED_MB, 0x1);
-		if (inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_HEVC) {
-			msm_comm_set_extradata(inst,
 			HFI_PROPERTY_PARAM_VDEC_MASTER_DISP_COL_SEI_EXTRADATA,
 			0x1);
-			msm_comm_set_extradata(inst,
-			HFI_PROPERTY_PARAM_VDEC_CLL_SEI_EXTRADATA,
-			0x1);
-		}
+		msm_comm_set_extradata(inst,
+			HFI_PROPERTY_PARAM_VDEC_CLL_SEI_EXTRADATA, 0x1);
 	}
-	if (ctrl->val & EXTRADATA_ADVANCED) {
-		// Enable Advanced Extradata
-		msm_comm_set_extradata(inst,
-			HFI_PROPERTY_PARAM_VDEC_STREAM_USERDATA_EXTRADATA,
-			0x1);
-		msm_comm_set_extradata(inst,
-			HFI_PROPERTY_PARAM_VDEC_TIMESTAMP_EXTRADATA, 0x1);
-		msm_comm_set_extradata(inst,
-			HFI_PROPERTY_PARAM_S3D_FRAME_PACKING_EXTRADATA, 0x1);
-		msm_comm_set_extradata(inst,
-			HFI_PROPERTY_PARAM_VDEC_FRAME_RATE_EXTRADATA, 0x1);
-		msm_comm_set_extradata(inst,
-			HFI_PROPERTY_PARAM_VDEC_PANSCAN_WNDW_EXTRADATA, 0x1);
-		msm_comm_set_extradata(inst,
-			HFI_PROPERTY_PARAM_VDEC_RECOVERY_POINT_SEI_EXTRADATA,
-			0x1);
-		msm_comm_set_index_extradata(inst,
-			MSM_VIDC_EXTRADATA_ASPECT_RATIO, 0x1);
-		msm_comm_set_extradata(inst,
-			HFI_PROPERTY_PARAM_VDEC_FRAME_QP_EXTRADATA, 0x1);
-	}
+
+	/* Enable / Disable Advanced Extradata */
+	if (ctrl->val == EXTRADATA_ADVANCED)
+		value = 0x1;
+	msm_comm_set_extradata(inst,
+		HFI_PROPERTY_PARAM_VDEC_STREAM_USERDATA_EXTRADATA, value);
+	msm_comm_set_extradata(inst,
+		HFI_PROPERTY_PARAM_VDEC_TIMESTAMP_EXTRADATA, value);
+	msm_comm_set_extradata(inst,
+		HFI_PROPERTY_PARAM_S3D_FRAME_PACKING_EXTRADATA, value);
+	msm_comm_set_extradata(inst,
+		HFI_PROPERTY_PARAM_VDEC_FRAME_RATE_EXTRADATA, value);
+	msm_comm_set_extradata(inst,
+		HFI_PROPERTY_PARAM_VDEC_PANSCAN_WNDW_EXTRADATA, value);
+	msm_comm_set_extradata(inst,
+		HFI_PROPERTY_PARAM_VDEC_RECOVERY_POINT_SEI_EXTRADATA, value);
+	msm_comm_set_index_extradata(inst,
+		MSM_VIDC_EXTRADATA_ASPECT_RATIO, value);
+	msm_comm_set_extradata(inst,
+		HFI_PROPERTY_PARAM_VDEC_FRAME_QP_EXTRADATA, value);
 
 	return 0;
 }
