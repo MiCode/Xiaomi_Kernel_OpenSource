@@ -232,6 +232,11 @@ bool msm_comm_compare_device_plane(struct msm_vidc_buffer *mbuf,
 		u32 type, u32 *planes, u32 i);
 bool msm_comm_compare_device_planes(struct msm_vidc_buffer *mbuf,
 		u32 type, u32 *planes);
+void msm_comm_store_tags(struct msm_vidc_inst *inst,
+		struct vidc_tag_data *tag_data);
+void msm_comm_fetch_tags(struct msm_vidc_inst *inst,
+		struct vidc_tag_data *tag_data);
+void msm_comm_free_buffer_tags(struct msm_vidc_inst *inst);
 int msm_comm_qbuf_cache_operations(struct msm_vidc_inst *inst,
 		struct msm_vidc_buffer *mbuf);
 int msm_comm_dqbuf_cache_operations(struct msm_vidc_inst *inst,
