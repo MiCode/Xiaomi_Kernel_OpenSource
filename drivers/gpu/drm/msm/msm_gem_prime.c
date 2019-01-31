@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -18,9 +18,12 @@
 
 #include "msm_drv.h"
 #include "msm_gem.h"
+#include "msm_mmu.h"
+#include "msm_kms.h"
 
 #include <linux/dma-buf.h>
 #include <linux/ion.h>
+#include <linux/msm_ion.h>
 
 struct sg_table *msm_gem_prime_get_sg_table(struct drm_gem_object *obj)
 {
@@ -87,12 +90,18 @@ struct drm_gem_object *msm_gem_prime_import(struct drm_device *dev,
 	struct dma_buf_attachment *attach;
 	struct sg_table *sgt = NULL;
 	struct drm_gem_object *obj;
-	struct device *attach_dev;
+	struct device *attach_dev = NULL;
 	unsigned long flags = 0;
+	struct msm_drm_private *priv;
+	struct msm_kms *kms;
 	int ret;
+	u32 domain;
 
-	if (!dma_buf)
+	if (!dma_buf || !dev->dev_private)
 		return ERR_PTR(-EINVAL);
+
+	priv = dev->dev_private;
+	kms = priv->kms;
 
 	if (dma_buf->priv && !dma_buf->ops->begin_cpu_access) {
 		obj = dma_buf->priv;
@@ -111,25 +120,37 @@ struct drm_gem_object *msm_gem_prime_import(struct drm_device *dev,
 		return ERR_PTR(-EINVAL);
 	}
 
-	attach_dev = dev->dev;
+	get_dma_buf(dma_buf);
+
+	ret = dma_buf_get_flags(dma_buf, &flags);
+	if (ret) {
+		DRM_ERROR("dma_buf_get_flags failure, err=%d\n", ret);
+		goto fail_put;
+	}
+
+	domain = (flags & ION_FLAG_SECURE) ? MSM_SMMU_DOMAIN_SECURE :
+						MSM_SMMU_DOMAIN_UNSECURE;
+	if (kms && kms->funcs->get_address_space_device)
+		attach_dev = kms->funcs->get_address_space_device(
+							kms, domain);
+	if (!attach_dev) {
+		DRM_ERROR("aspace device not found for domain:%d\n", domain);
+		ret = -EINVAL;
+		goto fail_put;
+	}
+
 	attach = dma_buf_attach(dma_buf, attach_dev);
 	if (IS_ERR(attach)) {
 		DRM_ERROR("dma_buf_attach failure, err=%ld\n", PTR_ERR(attach));
 		return ERR_CAST(attach);
 	}
 
-	get_dma_buf(dma_buf);
-
 	/*
 	 * For cached buffers where CPU access is required, dma_map_attachment
 	 * must be called now to allow user-space to perform cpu sync begin/end
 	 * otherwise do delayed mapping during the commit.
 	 */
-	ret = dma_buf_get_flags(dma_buf, &flags);
-	if (ret) {
-		DRM_ERROR("dma_buf_get_flags failure, err=%d\n", ret);
-		goto fail_put;
-	} else if (flags & ION_FLAG_CACHED) {
+	if (flags & ION_FLAG_CACHED) {
 		attach->dma_map_attrs |= DMA_ATTR_DELAYED_UNMAP;
 		sgt = dma_buf_map_attachment(
 				attach, DMA_BIDIRECTIONAL);

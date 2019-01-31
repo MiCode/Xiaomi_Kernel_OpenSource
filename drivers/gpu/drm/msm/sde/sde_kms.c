@@ -2329,6 +2329,16 @@ _sde_kms_get_address_space(struct msm_kms *kms,
 		sde_kms->aspace[domain] : NULL;
 }
 
+static struct device *_sde_kms_get_address_space_device(struct msm_kms *kms,
+		unsigned int domain)
+{
+	struct msm_gem_address_space *aspace =
+		_sde_kms_get_address_space(kms, domain);
+
+	return (aspace && aspace->domain_attached) ?
+			msm_gem_get_aspace_device(aspace) : NULL;
+}
+
 static void _sde_kms_post_open(struct msm_kms *kms, struct drm_file *file)
 {
 	struct drm_device *dev = NULL;
@@ -2821,6 +2831,7 @@ static const struct msm_kms_funcs kms_funcs = {
 	.cont_splash_config = sde_kms_cont_splash_config,
 	.register_events = _sde_kms_register_events,
 	.get_address_space = _sde_kms_get_address_space,
+	.get_address_space_device = _sde_kms_get_address_space_device,
 	.postopen = _sde_kms_post_open,
 	.check_for_splash = sde_kms_check_for_splash,
 };
@@ -2833,19 +2844,13 @@ static inline void _sde_kms_core_hw_rev_init(struct sde_kms *sde_kms)
 
 static int _sde_kms_mmu_destroy(struct sde_kms *sde_kms)
 {
-	struct msm_mmu *mmu;
 	int i;
 
 	for (i = ARRAY_SIZE(sde_kms->aspace) - 1; i >= 0; i--) {
 		if (!sde_kms->aspace[i])
 			continue;
 
-		mmu = sde_kms->aspace[i]->mmu;
-
-		mmu->funcs->detach(mmu, (const char **)iommu_ports,
-				ARRAY_SIZE(iommu_ports));
 		msm_gem_address_space_put(sde_kms->aspace[i]);
-
 		sde_kms->aspace[i] = NULL;
 	}
 
@@ -2856,7 +2861,7 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 {
 	struct msm_mmu *mmu;
 	int i, ret;
-	int early_map = 1;
+	int early_map = 0;
 
 	for (i = 0; i < MSM_SMMU_DOMAIN_MAX; i++) {
 		struct msm_gem_address_space *aspace;
@@ -2869,41 +2874,15 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 			continue;
 		}
 
-		/*
-		 * Before attaching SMMU, we need to honor continuous splash
-		 * use case where hardware tries to fetch buffer from physical
-		 * address. To facilitate this requirement we need to have a
-		 * one to one mapping on SMMU until we have our first frame.
-		 */
-		if (i == MSM_SMMU_DOMAIN_UNSECURE) {
-			ret = mmu->funcs->set_attribute(mmu,
-				DOMAIN_ATTR_EARLY_MAP,
-				&early_map);
-			if (ret) {
-				SDE_ERROR("failed to set map att: %d\n", ret);
-				goto fail;
-			}
-		}
-
 		aspace = msm_gem_smmu_address_space_create(sde_kms->dev,
 			mmu, "sde");
 		if (IS_ERR(aspace)) {
 			ret = PTR_ERR(aspace);
-			mmu->funcs->destroy(mmu);
 			goto fail;
 		}
 
 		sde_kms->aspace[i] = aspace;
-
-		ret = mmu->funcs->attach(mmu, (const char **)iommu_ports,
-				ARRAY_SIZE(iommu_ports));
-		if (ret) {
-			SDE_ERROR("failed to attach iommu %d: %d\n", i, ret);
-			msm_gem_address_space_put(aspace);
-			goto fail;
-		}
 		aspace->domain_attached = true;
-		early_map = 0;
 
 		/* Mapping splash memory block */
 		if ((i == MSM_SMMU_DOMAIN_UNSECURE) &&
@@ -2916,18 +2895,20 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 		}
 
 		/*
-		 * Turning off early map after generating one to one
-		 * mapping for splash address space.
+		 * disable early-map which would have been enabled during
+		 * bootup by smmu through the device-tree hint for cont-spash
 		 */
 		ret = mmu->funcs->set_attribute(mmu, DOMAIN_ATTR_EARLY_MAP,
-			&early_map);
+				 &early_map);
 		if (ret) {
-			SDE_ERROR("failed to set map att ret:%d\n", ret);
+			SDE_ERROR("failed to set_att ret:%d, early_map:%d\n",
+					ret, early_map);
 			goto early_map_fail;
 		}
 	}
 
 	return 0;
+
 early_map_fail:
 	_sde_kms_unmap_all_splash_regions(sde_kms);
 fail:

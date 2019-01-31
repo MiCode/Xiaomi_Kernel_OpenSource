@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -79,6 +79,7 @@ static struct page **get_pages_vram(struct drm_gem_object *obj, int npages)
 static struct page **get_pages(struct drm_gem_object *obj)
 {
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
+	struct device *aspace_dev;
 
 	if (obj->import_attach)
 		return msm_obj->pages;
@@ -114,9 +115,11 @@ static struct page **get_pages(struct drm_gem_object *obj)
 		 * Make sure to flush the CPU cache for newly allocated memory
 		 * so we don't get ourselves into trouble with a dirty cache
 		 */
-		if (msm_obj->flags & (MSM_BO_WC|MSM_BO_UNCACHED))
-			dma_sync_sg_for_device(dev->dev, msm_obj->sgt->sgl,
+		if (msm_obj->flags & (MSM_BO_WC|MSM_BO_UNCACHED)) {
+			aspace_dev = msm_gem_get_aspace_device(msm_obj->aspace);
+			dma_sync_sg_for_device(aspace_dev, msm_obj->sgt->sgl,
 				msm_obj->sgt->nents, DMA_BIDIRECTIONAL);
+		}
 	}
 
 	return msm_obj->pages;
@@ -136,6 +139,7 @@ static void put_pages_vram(struct drm_gem_object *obj)
 
 static void put_pages(struct drm_gem_object *obj)
 {
+	struct device *aspace_dev;
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
 
 	if (msm_obj->pages) {
@@ -144,10 +148,13 @@ static void put_pages(struct drm_gem_object *obj)
 			 * pages are clean because display controller,
 			 * GPU, etc. are not coherent:
 			 */
-			if (msm_obj->flags & (MSM_BO_WC|MSM_BO_UNCACHED))
-				dma_unmap_sg(obj->dev->dev, msm_obj->sgt->sgl,
+			if (msm_obj->flags & (MSM_BO_WC|MSM_BO_UNCACHED)) {
+				aspace_dev =
+				    msm_gem_get_aspace_device(msm_obj->aspace);
+				dma_unmap_sg(aspace_dev, msm_obj->sgt->sgl,
 					     msm_obj->sgt->nents,
 					     DMA_BIDIRECTIONAL);
+			}
 
 			sg_free_table(msm_obj->sgt);
 			kfree(msm_obj->sgt);
@@ -187,6 +194,7 @@ void msm_gem_put_pages(struct drm_gem_object *obj)
 void msm_gem_sync(struct drm_gem_object *obj)
 {
 	struct msm_gem_object *msm_obj;
+	struct device *aspace_dev;
 
 	if (!obj)
 		return;
@@ -197,7 +205,8 @@ void msm_gem_sync(struct drm_gem_object *obj)
 	 * dma_sync_sg_for_device synchronises a single contiguous or
 	 * scatter/gather mapping for the CPU and device.
 	 */
-	dma_sync_sg_for_device(obj->dev->dev, msm_obj->sgt->sgl,
+	aspace_dev = msm_gem_get_aspace_device(msm_obj->aspace);
+	dma_sync_sg_for_device(aspace_dev, msm_obj->sgt->sgl,
 		       msm_obj->sgt->nents, DMA_BIDIRECTIONAL);
 }
 
@@ -427,44 +436,9 @@ int msm_gem_get_iova(struct drm_gem_object *obj,
 
 	if (!vma) {
 		struct page **pages;
-		struct device *dev;
-		struct dma_buf *dmabuf;
-		bool reattach = false;
-
-		/*
-		 * both secure/non-secure domains are attached with the default
-		 * devive (non-sec) with dma_buf_attach during
-		 * msm_gem_prime_import. detach and attach the correct device
-		 * to the dma_buf based on the aspace domain.
-		 */
-		dev = msm_gem_get_aspace_device(aspace);
-		if (dev && obj->import_attach &&
-				(dev != obj->import_attach->dev)) {
-			dmabuf = obj->import_attach->dmabuf;
-
-			DRM_DEBUG("detach nsec-dev:%pK attach sec-dev:%pK\n",
-					 obj->import_attach->dev, dev);
-			SDE_EVT32(obj->import_attach->dev, dev, msm_obj->sgt);
-
-
-			if (msm_obj->sgt)
-				dma_buf_unmap_attachment(obj->import_attach,
-							msm_obj->sgt,
-							DMA_BIDIRECTIONAL);
-			dma_buf_detach(dmabuf, obj->import_attach);
-
-			obj->import_attach = dma_buf_attach(dmabuf, dev);
-			if (IS_ERR(obj->import_attach)) {
-				DRM_ERROR("dma_buf_attach failure, err=%ld\n",
-						PTR_ERR(obj->import_attach));
-				goto unlock;
-			}
-			reattach = true;
-		}
 
 		/* perform delayed import for buffers without existing sgt */
-		if (((msm_obj->flags & MSM_BO_EXTBUF) && !(msm_obj->sgt))
-				|| reattach) {
+		if (((msm_obj->flags & MSM_BO_EXTBUF) && !(msm_obj->sgt))) {
 			ret = msm_gem_delayed_import(obj);
 			if (ret) {
 				DRM_ERROR("delayed dma-buf import failed %d\n",
