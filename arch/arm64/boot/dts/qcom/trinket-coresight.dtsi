@@ -750,10 +750,10 @@
 
 			port@2 {
 				reg = <4>;
-				funnel_qatb_in_funnel_monaq: endpoint {
+				funnel_qatb_in_funnel_monaq_1: endpoint {
 					slave-mode;
 					remote-endpoint =
-					    <&funnel_monaq_out_funnel_qatb>;
+					    <&funnel_monaq_1_out_funnel_qatb>;
 				};
 			};
 
@@ -827,10 +827,10 @@
 
 			port@2 {
 				reg = <3>;
-				tpda_in_funnel_monaq_1: endpoint {
+				tpda_in_funnel_monaq: endpoint {
 					slave-mode;
 					remote-endpoint =
-						<&funnel_monaq_1_out_tpda>;
+						<&funnel_monaq_out_tpda>;
 				};
 			};
 
@@ -1039,18 +1039,18 @@
 
 			port@0 {
 				reg = <0>;
-				funnel_monaq_1_out_tpda: endpoint {
+				funnel_monaq_1_out_funnel_qatb: endpoint {
 					remote-endpoint =
-					<&tpda_in_funnel_monaq_1>;
+					<&funnel_qatb_in_funnel_monaq_1>;
 				};
 			};
 
 			port@1 {
-				reg = <0>;
-				funnel_monaq_1_in_tpdm_monaq: endpoint {
+				reg = <6>;
+				funnel_monaq_1_in_modem_etm0: endpoint {
 					slave-mode;
 					remote-endpoint =
-					    <&tpdm_monaq_out_funnel_monaq_1>;
+					<&modem_etm0_out_funnel_monaq_1>;
 				};
 			};
 
@@ -1077,9 +1077,9 @@
 		clock-names = "apb_pclk";
 
 		port {
-			tpdm_monaq_out_funnel_monaq_1: endpoint {
+			tpdm_monaq_out_funnel_monaq: endpoint {
 				remote-endpoint =
-				<&funnel_monaq_1_in_tpdm_monaq>;
+				<&funnel_monaq_in_tpdm_monaq>;
 			};
 		};
 	};
@@ -1173,7 +1173,7 @@
 
 		coresight-name = "coresight-tpda-modem-1";
 
-		qcom,tpda-atid = <67>;
+		qcom,tpda-atid = <98>;
 		qcom,dsb-elem-size = <0 32>;
 		qcom,cmb-elem-size = <0 64>;
 
@@ -1258,18 +1258,18 @@
 
 			port@0 {
 				reg = <0>;
-				funnel_monaq_out_funnel_qatb: endpoint {
+				funnel_monaq_out_tpda: endpoint {
 					remote-endpoint =
-					    <&funnel_qatb_in_funnel_monaq>;
+					    <&tpda_in_funnel_monaq>;
 				};
 			};
 
 			port@1 {
-				reg = <6>;
-				funnel_monaq_in_modem_etm0: endpoint {
+				reg = <0>;
+				funnel_monaq_in_tpdm_monaq: endpoint {
 					slave-mode;
 					remote-endpoint =
-					<&modem_etm0_out_funnel_monaq>;
+					<&tpdm_monaq_out_funnel_monaq>;
 				};
 			};
 		};
@@ -1503,9 +1503,9 @@
 		qcom,inst-id = <2>;
 
 		port {
-			modem_etm0_out_funnel_monaq: endpoint {
+			modem_etm0_out_funnel_monaq_1: endpoint {
 				remote-endpoint =
-					<&funnel_monaq_in_modem_etm0>;
+					<&funnel_monaq_1_in_modem_etm0>;
 			};
 		};
 	};
