@@ -127,11 +127,6 @@ struct hfi_queue_table_header {
  * @queue_size: size of the queue
  * @msg_size: size of the message if each message has fixed size.
  *	Otherwise, 0 means variable size of message in the queue.
- * @drop_cnt: count of dropped messages
- * @rx_wm: receiver watermark
- * @tx_wm: sender watermark
- * @rx_req: receiver request
- * @tx_req: sender request
  * @read_index: read index of the queue
  * @write_index: write index of the queue
  */
@@ -141,11 +136,11 @@ struct hfi_queue_header {
 	uint32_t type;
 	uint32_t queue_size;
 	uint32_t msg_size;
-	uint32_t drop_cnt;
-	uint32_t rx_wm;
-	uint32_t tx_wm;
-	uint32_t rx_req;
-	uint32_t tx_req;
+	uint32_t unused0;
+	uint32_t unused1;
+	uint32_t unused2;
+	uint32_t unused3;
+	uint32_t unused4;
 	uint32_t read_index;
 	uint32_t write_index;
 };

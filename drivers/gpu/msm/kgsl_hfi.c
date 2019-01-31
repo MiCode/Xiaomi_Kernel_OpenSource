@@ -50,11 +50,8 @@ static int hfi_queue_read(struct gmu_device *gmu, uint32_t queue_idx,
 	if (hdr->status == HFI_QUEUE_STATUS_DISABLED)
 		return -EINVAL;
 
-	if (hdr->read_index == hdr->write_index) {
-		hdr->rx_req = 1;
-		result = -ENODATA;
-		goto done;
-	}
+	if (hdr->read_index == hdr->write_index)
+		return -ENODATA;
 
 	/* Clear the output data before populating */
 	memset(output, 0, max_size);
@@ -133,7 +130,6 @@ static int hfi_queue_write(struct gmu_device *gmu, uint32_t queue_idx,
 			"Insufficient bufsize %d for msg id=%d of size %d\n",
 			empty_space, id, size);
 
-		hdr->drop_cnt++;
 		mutex_unlock(&hfi->cmdq_mutex);
 		return -ENOSPC;
 	}
@@ -213,21 +209,15 @@ void hfi_init(struct gmu_device *gmu)
 	tbl->qtbl_hdr.num_q = HFI_QUEUE_MAX;
 	tbl->qtbl_hdr.num_active_q = HFI_QUEUE_MAX;
 
-	/* Fill I dividual Queue Headers */
+	memset(&tbl->qhdr[0], 0, sizeof(tbl->qhdr));
+
+	/* Fill Individual Queue Headers */
 	for (i = 0; i < HFI_QUEUE_MAX; i++) {
 		hdr = &tbl->qhdr[i];
 		hdr->start_addr = GMU_QUEUE_START_ADDR(mem_addr, i);
 		hdr->type = QUEUE_HDR_TYPE(queue[i].idx, queue[i].pri, 0,  0);
 		hdr->status = queue[i].status;
 		hdr->queue_size = HFI_QUEUE_SIZE >> 2; /* convert to dwords */
-		hdr->msg_size = 0;
-		hdr->drop_cnt = 0;
-		hdr->rx_wm = 0x1;
-		hdr->tx_wm = 0x1;
-		hdr->rx_req = 0x1;
-		hdr->tx_req = 0x0;
-		hdr->read_index = 0x0;
-		hdr->write_index = 0x0;
 	}
 
 	mutex_init(&hfi->cmdq_mutex);
