@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -505,21 +505,6 @@
 			qcom,bcms = <&bcm_ce0>, <&bcm_pn5>;
 			qcom,ap-owned;
 			qcom,prio = <0>;
-		};
-
-		mas_qxm_mss_nav_ce: mas-qxm-mss-nav-ce {
-			cell-id = <MSM_BUS_MASTER_MSS_NAV>;
-			label = "mas-qxm-mss-nav-ce";
-			qcom,buswidth = <8>;
-			qcom,agg-ports = <1>;
-			qcom,qport = <0>;
-			qcom,connections = <&slv_qns_snoc_memnoc
-				&slv_qxs_imem &slv_xs_qdss_stm>;
-			qcom,bus-dev = <&fab_system_noc>;
-			qcom,bcms = <&bcm_sn8>;
-			qcom,ap-owned;
-			qcom,prio = <0>;
-			qcom,forwarding;
 		};
 
 		mas_xm_emac: mas-xm-emac {
