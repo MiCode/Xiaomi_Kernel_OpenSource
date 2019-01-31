@@ -204,8 +204,19 @@ ld-option = $(call try-run, $(LD) $(LDFLAGS) $(1) -v,$(1),$(2))
 ar-option = $(call try-run, $(AR) rc$(1) "$$TMP",$(1),$(2))
 
 # ld-name
-# Expands to either bfd or gold
-ld-name = $(shell $(LD) -v 2>&1 | grep -q "GNU gold" && echo gold || echo bfd)
+# Expands to either bfd, gold, or lld
+ifneq (,$(LD))
+	__ld-name = $(shell $(LD) -v 2>&1)
+endif
+ifneq (,$(findstring GNU gold,$(__ld-name)))
+	ld-name = gold
+else
+	ifneq (,$(findstring LLD,$(__ld-name)))
+		ld-name = lld
+	else
+		ld-name = bfd
+	endif
+endif
 
 # ld-version
 # Note this is mainly for HJ Lu's 3 number binutil versions
