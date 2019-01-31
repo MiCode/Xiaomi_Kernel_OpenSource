@@ -3,6 +3,7 @@
 
 #include <dt-bindings/spmi/spmi.h>
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/iio/qcom,spmi-vadc.h>
 
 &spmi_bus {
 	#address-cells = <2>;
@@ -331,6 +332,71 @@
 						  "dma-grant",
 						  "mem-attn";
 			};
+		};
+
+		pm8150b_vadc: vadc@3100 {
+			compatible = "qcom,spmi-adc5";
+			reg = <0x3100 0x100>, <0x3700 0x100>;
+			reg-names = "adc5-usr-base", "adc5-cal-base";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <0x2 0x31 0x0 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "eoc-int-en-set";
+			qcom,adc-vdd-reference = <1875>;
+			#io-channel-cells = <1>;
+			io-channel-ranges;
+
+			/* Channel node */
+			ref_gnd@0 {
+				reg = <ADC_REF_GND>;
+				label = "ref_gnd";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			vref_1p25@1 {
+				reg = <ADC_1P25VREF>;
+				label = "vref_1p25";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			die_temp@2 {
+				reg = <ADC_DIE_TEMP>;
+				label = "die_temp";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			chg_temp@9 {
+				reg = <ADC_CHG_TEMP>;
+				label = "chg_temp";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			smb1390_therm@e {
+				reg = <ADC_AMUX_THM2>;
+				label = "smb1390_therm";
+				qcom,hw-settle-time = <200>;
+				qcom,pre-scaling = <1 1>;
+			};
+
+			smb1355_therm@4e {
+				reg = <ADC_AMUX_THM2_PU2>;
+				label = "smb1355_therm";
+				qcom,ratiometric;
+				qcom,hw-settle-time = <200>;
+				qcom,pre-scaling = <1 1>;
+			};
+		};
+
+		pm8150b_adc_tm: adc_tm@3500 {
+			compatible = "qcom,adc-tm5";
+			reg = <0x3500 0x100>;
+			interrupts = <0x2 0x35 0x0 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "thr-int-en";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			#thermal-sensor-cells = <1>;
+			io-channels = <&pm8150b_vadc ADC_AMUX_THM1_PU2>;
+			qcom,pmic-revid = <&pm8150b_revid>;
 		};
 	};
 
