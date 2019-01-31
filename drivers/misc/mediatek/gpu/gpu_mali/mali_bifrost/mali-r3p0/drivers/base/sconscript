@@ -1,0 +1,36 @@
+#
+# (C) COPYRIGHT 2010-2014, 2016 ARM Limited. All rights reserved.
+#
+# This program is free software and is provided to you under the terms of the
+# GNU General Public License version 2 as published by the Free Software
+# Foundation, and any use by you of this program is subject to the terms
+# of such GNU licence.
+#
+# A copy of the licence is included with the program, and can also be obtained
+# from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+# Boston, MA  02110-1301, USA.
+#
+#
+
+
+Import( 'env' )
+
+if Glob('bus_logger/sconscript'):
+	if env['buslog'] == '1':
+		SConscript('bus_logger/sconscript')
+
+if Glob('mali_fpga_sysctl/sconscript'):
+	SConscript('mali_fpga_sysctl/sconscript')
+
+if Glob('dma_buf_lock/sconscript'):
+	SConscript('dma_buf_lock/sconscript')
+
+if Glob('kds/sconscript'):
+	SConscript('kds/sconscript')
+
+if Glob('ump/sconscript'):
+	SConscript('ump/sconscript')
+
+if Glob('dma_buf_test_exporter/sconscript'):
+	SConscript('dma_buf_test_exporter/sconscript')
+

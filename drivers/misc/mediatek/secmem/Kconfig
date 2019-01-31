@@ -1,0 +1,12 @@
+#
+# Secure Memory configuration
+#
+config MTK_SVP_DISABLE_SODI
+	tristate "Disable SODI while SVP playback"
+	depends on TRUSTONIC_TEE_SUPPORT
+	default n
+	help
+	  System will enter screen on device idle (SODI) while secure
+	  video playback (SVP) playback in some specific project/platform,
+	  and this will cause video playback hang issues. (depending on
+	  Trustonic TEE Support or Microtrust TEE Support or other 3rd-party TEE)

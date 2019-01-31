@@ -1,0 +1,49 @@
+#
+# (C) COPYRIGHT 2010-2013, 2016 ARM Limited. All rights reserved.
+#
+# This program is free software and is provided to you under the terms of the
+# GNU General Public License version 2 as published by the Free Software
+# Foundation, and any use by you of this program is subject to the terms
+# of such GNU licence.
+#
+# A copy of the licence is included with the program, and can also be obtained
+# from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+# Boston, MA  02110-1301, USA.
+#
+#
+
+
+
+import os
+Import('env')
+
+# Clone the environment so changes don't affect other build files
+env_ion = env.Clone()
+
+if env_ion['ump_ion'] != '1':
+	Return()
+
+# Source files required for UMP.
+ion_src = [Glob('#kernel/drivers/base/ump/src/imports/ion/*.c')]
+
+# Note: cleaning via the Linux kernel build system does not yet work
+if env_ion.GetOption('clean') :
+	makeAction=Action("cd ${SOURCE.dir} && make clean", '$MAKECOMSTR')
+else:
+	makeAction=Action("cd ${SOURCE.dir} && make PLATFORM=${platform} && cp ump_ion_import.ko $STATIC_LIB_PATH/ump_ion_import.ko", '$MAKECOMSTR')
+# The target is ump_import_ion.ko, built from the source in ion_src, via the action makeAction
+# ump_import_ion.ko will be copied to $STATIC_LIB_PATH after being built by the standard Linux
+# kernel build system, after which it can be installed to the directory specified if
+# "libs_install" is set; this is done by LibTarget.
+cmd = env_ion.Command('$STATIC_LIB_PATH/ump_ion_import.ko', ion_src, [makeAction])
+
+# Until we fathom out how the invoke the Linux build system to clean, we can use Clean
+# to remove generated files.
+
+patterns = ['*.mod.c', '*.o', '*.ko', '*.a', '.*.cmd', 'modules.order', '.tmp_versions', 'Module.symvers']
+
+for p in patterns:
+	Clean(cmd, Glob('#kernel/drivers/base/ump/src/imports/ion/%s' % p))
+
+env_ion.Depends('$STATIC_LIB_PATH/ump_ion_import.ko', '$STATIC_LIB_PATH/ump.ko')
+env_ion.KernelObjTarget('ump', cmd)

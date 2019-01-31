@@ -1,0 +1,254 @@
+/*
+ * Copyright (c) 2017 MediaTek Inc.
+ * Author: TakMan Ma <takman.ma@mediatek.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "mt2712.dtsi"
+
+/ {
+	compatible = "mediatek,mt2712e";
+
+	cluster0_opp: opp_table0 {
+		compatible = "operating-points-v2";
+		opp-shared;
+		opp00 {
+			opp-hz = /bits/ 64 <598000000>;
+			opp-microvolt = <1300000>;
+		};
+		opp01 {
+			opp-hz = /bits/ 64 <702000000>;
+			opp-microvolt = <1300000>;
+		};
+		opp02 {
+			opp-hz = /bits/ 64 <793000000>;
+			opp-microvolt = <1300000>;
+		};
+	};
+
+	cluster1_opp: opp_table1 {
+		compatible = "operating-points-v2";
+		opp-shared;
+		opp00 {
+			opp-hz = /bits/ 64 <598000000>;
+			opp-microvolt = <1300000>;
+		};
+		opp01 {
+			opp-hz = /bits/ 64 <702000000>;
+			opp-microvolt = <1300000>;
+		};
+		opp02 {
+			opp-hz = /bits/ 64 <793000000>;
+			opp-microvolt = <1300000>;
+		};
+		opp03 {
+			opp-hz = /bits/ 64 <897000000>;
+			opp-microvolt = <1300000>;
+		};
+		opp04 {
+			opp-hz = /bits/ 64 <1001000000>;
+			opp-microvolt = <1300000>;
+		};
+	};
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu-map {
+			cluster0 {
+				core0 {
+					cpu = <&cpu0>;
+				};
+				core1 {
+					cpu = <&cpu1>;
+				};
+			};
+
+			cluster1 {
+				core0 {
+					cpu = <&cpu2>;
+				};
+			};
+		};
+
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a35";
+			reg = <0x000>;
+			enable-method = "psci";
+			cpu-idle-states = <&CPU_SLEEP_0 &CLUSTER_SLEEP_0>;
+			clocks = <&mcucfg CLK_MCU_MP0_SEL>,
+				 <&topckgen CLK_TOP_F_MP0_PLL1>;
+			clock-names = "cpu", "intermediate";
+			operating-points-v2 = <&cluster0_opp>;
+			#cooling-cells = <2>;
+			cooling-min-level = <0>;
+			cooling-max-level = <6>;
+			dynamic-power-coefficient = <222>;
+			sched-energy-costs = <&MT2712E_CPU_COST_0
+					      &MT2712E_CLUSTER_COST_0>;
+		};
+
+		cpu1: cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a35";
+			reg = <0x001>;
+			enable-method = "psci";
+			cpu-idle-states = <&CPU_SLEEP_0 &CLUSTER_SLEEP_0>;
+			clocks = <&mcucfg CLK_MCU_MP0_SEL>,
+				 <&topckgen CLK_TOP_F_MP0_PLL1>;
+			clock-names = "cpu", "intermediate";
+			operating-points-v2 = <&cluster0_opp>;
+			#cooling-cells = <2>;
+			cooling-min-level = <0>;
+			cooling-max-level = <6>;
+			dynamic-power-coefficient = <222>;
+			sched-energy-costs = <&MT2712E_CPU_COST_0
+					      &MT2712E_CLUSTER_COST_0>;
+		};
+
+		cpu2: cpu@200 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a72";
+			reg = <0x200>;
+			enable-method = "psci";
+			cpu-idle-states = <&CPU_SLEEP_0 &CLUSTER_SLEEP_0>;
+			clocks = <&mcucfg CLK_MCU_MP2_SEL>,
+				 <&topckgen CLK_TOP_F_BIG_PLL1>;
+			clock-names = "cpu", "intermediate";
+			operating-points-v2 = <&cluster1_opp>;
+			#cooling-cells = <2>;
+			cooling-min-level = <0>;
+			cooling-max-level = <8>;
+			dynamic-power-coefficient = <475>;
+			sched-energy-costs = <&MT2712E_CPU_COST_1
+					      &MT2712E_CLUSTER_COST_1>;
+		};
+
+		/include/ "mt2712-sched-energy.dtsi"
+
+		idle-states {
+			entry-method = "arm,psci";
+
+			CPU_SLEEP_0: cpu-sleep-0 {
+				compatible = "arm,idle-state";
+				local-timer-stop;
+				entry-latency-us = <100>;
+				exit-latency-us = <80>;
+				min-residency-us = <2000>;
+				arm,psci-suspend-param = <0x0010000>;
+			};
+
+			CLUSTER_SLEEP_0: cluster-sleep-0 {
+				compatible = "arm,idle-state";
+				local-timer-stop;
+				entry-latency-us = <350>;
+				exit-latency-us = <80>;
+				min-residency-us = <3000>;
+				arm,psci-suspend-param = <0x1010000>;
+			};
+		};
+	};
+
+	thermal-zones {
+		cpu_thermal: cpu_thermal {
+			polling-delay-passive = <1000>; /* milliseconds */
+			polling-delay = <1000>; /* milliseconds */
+
+			thermal-sensors = <&thermal>;
+			sustainable-power = <1500>; /* milliwatts */
+
+			trips {
+				threshold: trip-point@0 {
+					temperature = <68000>;
+					hysteresis = <2000>;
+					type = "passive";
+				};
+
+				target: trip-point@1 {
+					temperature = <85000>;
+					hysteresis = <2000>;
+					type = "passive";
+				};
+
+				cpu_crit: cpu_crit@0 {
+					temperature = <115000>;
+					hysteresis = <2000>;
+					type = "critical";
+				};
+			};
+
+			cooling-maps {
+				map@0 {
+					trip = <&target>;
+					cooling-device = <&cpu0 0 0>;
+					contribution = <3072>;
+				};
+				map@1 {
+					trip = <&target>;
+					cooling-device = <&cpu2 0 0>;
+					contribution = <1024>;
+				};
+				map@2 {
+					trip = <&target>;
+					cooling-device = <&gpu 0 0>;
+					contribution = <2048>;
+				};
+			};
+		};
+	};
+
+	soc {
+		gpu: mali@13040000 {
+			compatible = "arm,mali-midgard";
+			reg = <0 0x13040000 0 0x4000>, <0 0x13000000 0 0x20>;
+			interrupts = <GIC_SPI 225 IRQ_TYPE_LEVEL_LOW>,
+					<GIC_SPI 226 IRQ_TYPE_LEVEL_LOW>,
+					<GIC_SPI 227 IRQ_TYPE_LEVEL_LOW>;
+			interrupt-names = "GPU", "MMU", "JOB";
+			clocks = <&topckgen CLK_TOP_MFG_SEL>,
+				 <&topckgen CLK_TOP_MMPLL>,
+				 <&mfgcfg CLK_MFG_BG3D>;
+			clock-names = "mfg_sel", "mfg_pll", "mfg_bg3d";
+			power-domains = <&scpsys MT2712_POWER_DOMAIN_MFG>;
+			mp=<2>;
+
+			#cooling-cells = <2>;
+			#cooling-min-level = <0>;
+			#cooling-max-level = <5>;
+
+			operating-points = <
+				520000 1000000
+				494000 1000000
+				455000 1000000
+				396500 1000000
+				299000 1000000
+				253500 1000000
+			>;
+
+			power_model {
+				compatible = "arm,mali-simple-power-model";
+				thermal-zone = "cpu_thermal";
+			};
+		};
+	};
+
+	pmu {
+		compatible = "arm,armv8-pmuv3";
+		interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_SPI 9 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_SPI 297 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-affinity = <&{/cpus/cpu@0}>,
+				     <&{/cpus/cpu@1}>,
+				     <&{/cpus/cpu@200}>;
+	};
+};

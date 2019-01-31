@@ -1,0 +1,27 @@
+#
+# (C) COPYRIGHT 2012, 2014 ARM Limited. All rights reserved.
+#
+# This program is free software and is provided to you under the terms of the
+# GNU General Public License version 2 as published by the Free Software
+# Foundation, and any use by you of this program is subject to the terms
+# of such GNU licence.
+#
+# A copy of the licence is included with the program, and can also be obtained
+# from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+# Boston, MA  02110-1301, USA.
+#
+#
+
+
+import os
+import re
+Import('env')
+
+linux_config_file = os.path.normpath(os.environ['KDIR']) + '/.config'
+search_term = '^[\ ]*CONFIG_DMA_SHARED_BUFFER_USES_KDS[\ ]*=[\ ]*y'
+for line in open(linux_config_file, 'r'):
+	if re.search(search_term, line):
+		SConscript( 'src/sconscript' )
+		if Glob('tests/sconscript'):
+			SConscript( 'tests/sconscript' )
+		break

@@ -1,0 +1,76 @@
+$(info mali MTK evironment)
+
+MTK_TOP = $(srctree)/drivers/misc/mediatek/
+
+#build support for a ARM Mali Midgard GPU
+CONFIG_MALI_MIDGARD := y
+
+#use mtk platform
+CONFIG_MALI_PLATFORM_THIRDPARTY := y
+CONFIG_MALI_PLATFORM_THIRDPARTY_NAME := $(CONFIG_MTK_PLATFORM)
+
+CONFIG_MALI_PLATFORM_FAKE := y
+
+CONFIG_MALI_DEBUG := y
+
+ccflags-y += -DCONFIG_MALI_PLATFORM_FAKE
+ccflags-y += -DCONFIG_MALI_MIDGARD_DVFS
+
+#Add include path for kernel 3.10
+ccflags-y += -I-I$(srctree)/include
+
+#Add include path for linux sync.h
+ccflags-y += -I$(srctree)/drivers/staging/android
+
+#include clock manager for clock use
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/mach/$(CONFIG_MTK_PLATFORM)/include
+#new path
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/$(CONFIG_MTK_PLATFORM)
+
+#include path for pmic
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/power/$(CONFIG_MTK_PLATFORM)
+
+#include path for dram
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(CONFIG_MTK_PLATFORM)
+
+ccflags-y += -DCONFIG_DEBUG_FS
+ccflags-y += -DCONFIG_PROC_FS
+ccflags-y += -DENABLE_MTK_MEMINFO
+
+#Add include path for mtk dvfs
+ccflags-y += \
+	-I$(srctree)/include/ \
+    -I$(MTK_TOP)/include/ \
+    -I$(MTK_TOP)/include/mt-plat \
+    -I$(MTK_TOP)/include/mt-plat/$(subst ",,$(CONFIG_MTK_PLATFORM))/include \
+    -I$(MTK_TOP)/base/power/$(subst ",,$(CONFIG_MTK_PLATFORM))/ \
+    -I$(MTK_TOP)/base/power/include/
+
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/gpu/ged/include
+
+#include path for AEE
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
+
+ifneq ($(CONFIG_FPGA_EARLY_PORTING), y)
+ifeq ($(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT),y)
+ccflags-y += -DENABLE_COMMON_DVFS
+endif
+else
+$(info $[MALI]CONFIG_FPGA_EARLY_PORTING is [${CONFIG_FPGA_EARLY_PORTING}])
+endif
+
+VER := $(if $(filter eng,$(TARGET_BUILD_VARIANT)),eng,user)
+
+ifeq ($(VER),eng)
+ccflags-y += -DCONFIG_MALI_DEBUG
+else
+ccflags-y += -UCONFIG_MALI_DEBUG
+endif
+
+#ccflags-y += -DCONFIG_HAVE_CLK
+
+ifeq ($(CONFIG_MTK_PLATFORM), "mt6797")
+ccflags-y += -DMTK_MT6797_DEBUG
+endif
+
+ccflags-y += -DMTK_MALI_USE_GED_LOG

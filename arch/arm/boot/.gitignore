@@ -1,0 +1,7 @@
+Image
+zImage
+xipImage
+bootpImage
+uImage
+*.dtb
+zImage-dtb

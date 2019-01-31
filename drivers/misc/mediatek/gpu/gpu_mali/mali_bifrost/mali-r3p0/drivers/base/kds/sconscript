@@ -1,0 +1,42 @@
+#
+# (C) COPYRIGHT 2010-2016 ARM Limited. All rights reserved.
+#
+# This program is free software and is provided to you under the terms of the
+# GNU General Public License version 2 as published by the Free Software
+# Foundation, and any use by you of this program is subject to the terms
+# of such GNU licence.
+#
+# A copy of the licence is included with the program, and can also be obtained
+# from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+# Boston, MA  02110-1301, USA.
+#
+#
+
+
+Import('env')
+
+#Android uses sync_pt to accomplish KDS functionality.
+#Midgard KDS is not used by Android
+if env['os'] == 'android':
+    Return()
+
+if Glob('tests/sconscript'):
+    SConscript('tests/sconscript')
+
+# If KDS is built into the kernel already we skip building the module ourselves
+build_kds = not env.KernelConfigEnabled("CONFIG_KDS")
+
+# Build KDS module
+if build_kds:
+    kds_mod = env.BuildKernelModule('$STATIC_LIB_PATH/kds.ko', ['kds.c'],
+                                    make_args = ['kds'])
+    env.KernelObjTarget('kds', kds_mod)
+
+# Build KDS test module
+if int(env['unit']) == 1:
+    kds_test_mod = env.BuildKernelModule('$STATIC_LIB_PATH/kds_test.ko',
+                                         ['kds_test.c'],
+                                         make_args = ['kds_test'])
+    env.KernelObjTarget('kds', kds_test_mod)
+    if build_kds:
+        env.Depends(kds_test_mod, kds_mod)

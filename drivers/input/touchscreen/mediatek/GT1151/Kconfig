@@ -1,0 +1,322 @@
+#
+# Touchscreen driver configuration
+#
+if TOUCHSCREEN_MTK_GT1151
+
+config GTP_FIRMWARE_GOODIX
+	string "GTP_FIRMWARE_GOODIX"
+	default "firmware1"
+
+config GTP_CONFIG_GOODIX
+	string "GTP_CONFIG_GOODIX"
+	default "config1"
+
+config GTP_INCELL_PANEL
+	bool "GTP_INCELL_PANEL"
+	default n
+	help
+	Say Y here if you have touch panel GTP_INCELL_PANEL.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+	
+config GTP_DRIVER_SEND_CFG
+	bool "GTP_DRIVER_SEND_CFG"
+	default n
+	help
+	Say Y here if you have touch panel GTP_DRIVER_SEND_CFG.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_CUSTOM_CFG
+	bool "GTP_CUSTOM_CFG"
+	default n
+	help
+	Say Y here if you have touch panel GTP_CUSTOM_CFG.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_CHANGE_X2Y
+	bool "GTP_CHANGE_X2Y"
+	default n
+	help
+	Say Y here if you have touch panel GTP_CHANGE_X2Y.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_WARP_X_ON
+	bool "GTP_WARP_X_ON"
+	default n
+	help
+	Say Y here if you have touch panel GTP_WARP_X_ON.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_WARP_Y_ON
+	bool "GTP_WARP_Y_ON"
+	default n
+	help
+	Say Y here if you have touch panel GTP_WARP_Y_ON.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_GESTURE_WAKEUP
+	bool "GTP_GESTURE_WAKEUP"
+	default y
+	help
+	Say Y here if you have touch panel GTP_GESTURE_WAKEUP.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_HOTKNOT
+	bool "GTP_HOTKNOT"
+	default n
+	help
+	Say Y here if you have touch panel GTP_HOTKNOT.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config HOTKNOT_TYPE
+	bool "HOTKNOT_TYPE"
+	default n
+	help
+	Say Y here if you have touch panel HOTKNOT_TYPE.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config HOTKNOT_BLOCK_RW
+	bool "HOTKNOT_BLOCK_RW"
+	default n
+	help
+	Say Y here if you have touch panel HOTKNOT_BLOCK_RW.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_FW_UPDATE_VERIFY
+	bool "GTP_FW_UPDATE_VERIFY"
+	default n
+	help
+	Say Y here if you have touch panel GTP_FW_UPDATE_VERIFY.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_HAVE_TOUCH_KEY
+	bool "GTP_HAVE_TOUCH_KEY"
+	default n
+	help
+	Say Y here if you have touch panel GTP_HAVE_TOUCH_KEY.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+	
+config TPD_HAVE_BUTTON
+	bool "TPD_HAVE_BUTTON"
+	default n
+	help
+	Say Y here if you have touch panel TPD_HAVE_BUTTON.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+	
+config GTP_PROXIMITY
+	bool "GTP_PROXIMITY"
+	default n
+	help
+	Say Y here if you have touch panel GTP_PROXIMITY.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_WITH_STYLUS
+	bool "GTP_WITH_STYLUS"
+	default n
+	help
+	Say Y here if you have touch panel GTP_WITH_STYLUS.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_HAVE_STYLUS_KEY
+	bool "GTP_HAVE_STYLUS_KEY"
+	default n
+	help
+	Say Y here if you have touch panel GTP_HAVE_STYLUS_KEY.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_AUTO_UPDATE
+	bool "GTP_AUTO_UPDATE"
+	default y
+	help
+	Say Y here if you have touch panel GTP_AUTO_UPDATE.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_HEADER_FW_UPDATE
+	bool "GTP_HEADER_FW_UPDATE"
+	default n
+	help
+	Say Y here if you have touch panel GTP_HEADER_FW_UPDATE.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_REQUEST_FW_UPDATE
+	bool "GTP_REQUEST_FW_UPDATE"
+	default y
+	help
+	Say Y here if you have touch panel GTP_REQUEST_FW_UPDATE.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_CREATE_WR_NODE
+	bool "GTP_CREATE_WR_NODE"
+	default n
+	help
+	Say Y here if you have touch panel GTP_CREATE_WR_NODE.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_ESD_PROTECT
+	bool "GTP_ESD_PROTECT"
+	default n
+	help
+	Say Y here if you have touch panel GTP_ESD_PROTECT.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_CHARGER_SWITCH
+	bool "GTP_CHARGER_SWITCH"
+	default n
+	help
+	Say Y here if you have touch panel GTP_CHARGER_SWITCH.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_DEBUG_ARRAY_ON
+	bool "GTP_DEBUG_ARRAY_ON"
+	default n
+	help
+	Say Y here if you have touch panel GTP_DEBUG_ARRAY_ON.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_DEBUG_FUNC_ON
+	bool "GTP_DEBUG_FUNC_ON"
+	default n
+	help
+	Say Y here if you have touch panel GTP_DEBUG_FUNC_ON.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_POWER_CTRL_SLEEP
+	bool "GTP_POWER_CTRL_SLEEP"
+	default n
+	help
+	Say Y here if you have touch panel GTP_POWER_CTRL_SLEEP.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+	
+config GTP_ICS_SLOT_REPORT
+	bool "GTP_ICS_SLOT_REPORT"
+	default n
+	help
+	Say Y here if you have touch panel GTP_ICS_SLOT_REPORT.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.	
+
+config GTP_SMART_COVER
+	bool "GTP_SMART_COVER"
+	default n
+	help
+	Say Y here if you have touch panel GTP_SMART_COVER.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_DEBUG_ON
+	bool "GTP_DEBUG_ON"
+	default n
+	help
+	Say Y here if you have touch panel GTP_DEBUG_ON.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+	
+endif

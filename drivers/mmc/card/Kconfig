@@ -1,0 +1,104 @@
+#
+# MMC/SD card drivers
+#
+
+comment "MMC/SD/SDIO Card Drivers"
+
+config MMC_BLOCK
+	tristate "MMC block device driver"
+	depends on BLOCK
+	default y
+	help
+	  Say Y here to enable the MMC block device driver support.
+	  This provides a block device driver, which you can use to
+	  mount the filesystem. Almost everyone wishing MMC support
+	  should say Y or M here.
+
+config MMC_BLOCK_MINORS
+	int "Number of minors per block device"
+	depends on MMC_BLOCK
+	range 4 256
+	default 8
+	help
+	  Number of minors per block device. One is needed for every
+	  partition on the disk (plus one for the whole disk).
+
+	  Number of total MMC minors available is 256, so your number
+	  of supported block devices will be limited to 256 divided
+	  by this number.
+
+	  Default is 8 to be backwards compatible with previous
+	  hardwired device numbering.
+
+	  If unsure, say 8 here.
+
+config MMC_BLOCK_BOUNCE
+	bool "Use bounce buffer for simple hosts"
+	depends on MMC_BLOCK
+	default y
+	help
+	  SD/MMC is a high latency protocol where it is crucial to
+	  send large requests in order to get high performance. Many
+	  controllers, however, are restricted to continuous memory
+	  (i.e. they can't do scatter-gather), something the kernel
+	  rarely can provide.
+
+	  Say Y here to help these restricted hosts by bouncing
+	  requests back and forth from a large buffer. You will get
+	  a big performance gain at the cost of up to 64 KiB of
+	  physical memory.
+
+	  If unsure, say Y here.
+
+config SDIO_UART
+	tristate "SDIO UART/GPS class support"
+	depends on TTY
+	help
+	  SDIO function driver for SDIO cards that implements the UART
+	  class, as well as the GPS class which appears like a UART.
+
+config MMC_TEST
+	tristate "MMC host test driver"
+	help
+	  Development driver that performs a series of reads and writes
+	  to a memory card in order to expose certain well known bugs
+	  in host controllers. The tests are executed by writing to the
+	  "test" file in debugfs under each card. Note that whatever is
+	  on your card will be overwritten by these tests.
+
+	  This driver is only of interest to those developing or
+	  testing a host driver. Most people should say N here.
+
+config MMC_BLOCK_IO_LOG
+	bool "Block IO log"
+	depends on MMC_BLOCK
+	depends on MTK_BLOCK_TAG
+	default y
+	help
+	  The BLOCK TAG trace provides I/O logs for performance analysis and
+	  application access pattern study. The BLOCK TAG trace summarizes the
+	  I/O of each process every 1 second, and saves to ring buffer. The log
+	  can be displayed by "cat /sys/kernel/debug/blockio".
+
+	  The trace is default enabled on user and eng builts, say N here to
+	  disable it.
+
+config MMC_SIMULATE_MAX_SPEED
+	bool "Turn on maximum speed control per block device"
+	depends on MMC_BLOCK
+	help
+	  Say Y here to enable MMC device speed limiting. Used to test and
+	  simulate the behavior of the system when confronted with a slow MMC.
+
+	  Enables max_read_speed, max_write_speed and cache_size attributes to
+	  control the write or read maximum KB/second speed behaviors.
+
+	  If unsure, say N here.
+
+config MMC_FFU
+	bool "FFU SUPPORT"
+	depends on MMC != n
+	help
+	  This is an option to run firmware update on eMMC 5.0.
+	  Field firmware updates (FFU) enables features enhancment
+	  in the field.

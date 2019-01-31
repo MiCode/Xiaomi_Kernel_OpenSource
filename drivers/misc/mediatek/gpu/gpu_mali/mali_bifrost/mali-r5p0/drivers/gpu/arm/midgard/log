@@ -1,0 +1,121 @@
+============================================
+PLATFORM_VERSION_CODENAME=REL
+PLATFORM_VERSION=7.1.1
+TARGET_PRODUCT=full_k63v1_64_vdo
+TARGET_BUILD_VARIANT=userdebug
+TARGET_BUILD_TYPE=release
+TARGET_BUILD_APPS=
+TARGET_ARCH=arm64
+TARGET_ARCH_VARIANT=armv8-a
+TARGET_CPU_VARIANT=cortex-a53
+TARGET_2ND_ARCH=arm
+TARGET_2ND_ARCH_VARIANT=armv7-a-neon
+TARGET_2ND_CPU_VARIANT=cortex-a53
+HOST_ARCH=x86_64
+HOST_2ND_ARCH=x86
+HOST_OS=linux
+HOST_OS_EXTRA=Linux-3.16.0-30-generic-x86_64-with-Ubuntu-14.04-trusty
+HOST_CROSS_OS=windows
+HOST_CROSS_ARCH=x86
+HOST_CROSS_2ND_ARCH=x86_64
+HOST_BUILD_TYPE=release
+BUILD_ID=N6F26Q
+OUT_DIR=out
+============================================
+PRODUCT_COPY_FILES frameworks/base/data/sounds/effects/ogg/camera_click.ogg:system/media/audio/ui/camera_click.ogg ignored.
+No private recovery resources for TARGET_DEVICE k63v1_64
+DUMP_RELEASE_INFO start
+1492488706
+1492488706
+DUMP_RELEASE_INFO end
+MTK vendor module check - start
+MTK vendor module check - end
+make: Entering directory `/codebase/mtksfs01_node9_lif1/git_yu_dash_fu_dot_kao_alps_alps00114376'
+make: Nothing to be done for `all_modules'.
+make -C kernel-4.4 O=/codebase/mtksfs01_node9_lif1/git_yu_dash_fu_dot_kao_alps_alps00114376/out/target/product/k63v1_64_vdo/obj/KERNEL_OBJ ARCH=arm64 CROSS_COMPILE=/codebase/mtksfs01_node9_lif1/git_yu_dash_fu_dot_kao_alps_alps00114376/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/aarch64-linux-android- ROOTDIR=/codebase/mtksfs01_node9_lif1/git_yu_dash_fu_dot_kao_alps_alps00114376 
+make[1]: Entering directory `/codebase/mtksfs01_node9_lif1/git_yu_dash_fu_dot_kao_alps_alps00114376/kernel-4.4'
+make[2]: Entering directory `/codebase/mtksfs01_node9_lif1/git_yu_dash_fu_dot_kao_alps_alps00114376/out_k63v1_64_vdo_userdebug/target/product/k63v1_64_vdo/obj/KERNEL_OBJ'
+  CHK     include/config/kernel.release
+  GEN     ./Makefile
+  CHK     include/generated/uapi/linux/version.h
+  Using /codebase/mtksfs01_node9_lif1/git_yu_dash_fu_dot_kao_alps_alps00114376/kernel-4.4 as source for kernel
+  CHK     include/generated/utsrelease.h
+  CHK     include/generated/timeconst.h
+  CHK     include/generated/bounds.h
+  CHK     include/generated/asm-offsets.h
+  CALL    /codebase/mtksfs01_node9_lif1/git_yu_dash_fu_dot_kao_alps_alps00114376/kernel-4.4/scripts/checksyscalls.sh
+  CHK     include/generated/compile.h
+FDVT: Drv use 3.5 folder
+/codebase/mtksfs01_node9_lif1/git_yu_dash_fu_dot_kao_alps_alps00114376/kernel-4.4
+/codebase/mtksfs01_node9_lif1/git_yu_dash_fu_dot_kao_alps_alps00114376/kernel-4.4/drivers/misc/mediatek/ccu/src/1.0/Makefile:20: CCU_INC=/codebase/mtksfs01_node9_lif1/git_yu_dash_fu_dot_kao_alps_alps00114376/kernel-4.4/drivers/misc/mediatek/ccu/src/mt6763/ccu_ext_interface
+CONFIG_MACH_MT6763: y
+*MTK_GPU_VERSION 1 = mali
+*MTK_GPU_VERSION 2 = bifrost
+*MTK_GPU_VERSION 3 = r3p0
+imgsensor drv by platform imx338_mipi_raw imx258_mipi_raw ov8858_mipi_raw
+imgsensor drv by project 
+mali MTK evironment, building r5p0-00rel0 DDK
+mtk-Kbuild CONFIG_MALI_PLATFORM_THIRDPARTY := y
+mtk-Kbuild CONFIG_MALI_PLATFORM_THIRDPARTY_NAME := "mt6763"
+mali MTK evironment, building r5p0-00rel0 DDK
+mtk-Kbuild CONFIG_MALI_PLATFORM_THIRDPARTY := y
+mtk-Kbuild CONFIG_MALI_PLATFORM_THIRDPARTY_NAME := "mt6763"
+mali MTK evironment, building r5p0-00rel0 DDK
+mtk-Kbuild CONFIG_MALI_PLATFORM_THIRDPARTY := y
+mtk-Kbuild CONFIG_MALI_PLATFORM_THIRDPARTY_NAME := "mt6763"
+=============================
+Start to build MET for mt6763
+MET_TOP=
+mmsys_srctree=/codebase/mtksfs01_node9_lif1/git_yu_dash_fu_dot_kao_alps_alps00114376/kernel-4.4
+  LD      drivers/misc/mediatek/sspm/built-in.o
+  CC      drivers/misc/mediatek/gpu/gpu_mali/mali_bifrost/mali-r5p0/drivers/gpu/arm/midgard/platform/mtk_platform_common/mtk_platform_common.o
+  CC      drivers/misc/mediatek/gpu/gpu_mali/mali_bifrost/mali-r5p0/drivers/gpu/arm/midgard/mali_kbase_core_linux.o
+  CC      drivers/misc/mediatek/gpu/gpu_mali/mali_bifrost/mali-r5p0/drivers/gpu/arm/midgard/backend/gpu/mali_kbase_device_hw.o
+  CC      drivers/misc/mediatek/gpu/gpu_mali/mali_bifrost/mali-r5p0/drivers/gpu/arm/midgard/backend/gpu/mali_kbase_gpu.o
+  CC      drivers/misc/mediatek/gpu/gpu_mali/mali_bifrost/mali-r5p0/drivers/gpu/arm/midgard/backend/gpu/mali_kbase_gpuprops_backend.o
+  CC      drivers/misc/mediatek/gpu/gpu_mali/mali_bifrost/mali-r5p0/drivers/gpu/arm/midgard/backend/gpu/mali_kbase_instr_backend.o
+  CC      drivers/misc/mediatek/gpu/gpu_mali/mali_bifrost/mali-r5p0/drivers/gpu/arm/midgard/backend/gpu/mali_kbase_jm_hw.o
+  CC      drivers/misc/mediatek/gpu/gpu_mali/mali_bifrost/mali-r5p0/drivers/gpu/arm/midgard/backend/gpu/mali_kbase_jm_rb.o
+  CC      drivers/misc/mediatek/gpu/gpu_mali/mali_bifrost/mali-r5p0/drivers/gpu/arm/midgard/backend/gpu/mali_kbase_js_affinity.o
+  CC      drivers/misc/mediatek/gpu/gpu_mali/mali_bifrost/mali-r5p0/drivers/gpu/arm/midgard/backend/gpu/mali_kbase_js_backend.o
+  CC      drivers/misc/mediatek/gpu/gpu_mali/mali_bifrost/mali-r5p0/drivers/gpu/arm/midgard/backend/gpu/mali_kbase_pm_backend.o
+  CC      drivers/misc/mediatek/gpu/gpu_mali/mali_bifrost/mali-r5p0/drivers/gpu/arm/midgard/backend/gpu/mali_kbase_pm_driver.o
+  CC      drivers/misc/mediatek/gpu/gpu_mali/mali_bifrost/mali-r5p0/drivers/gpu/arm/midgard/backend/gpu/mali_kbase_pm_metrics.o
+  CC      drivers/misc/mediatek/gpu/gpu_mali/mali_bifrost/mali-r5p0/drivers/gpu/arm/midgard/backend/gpu/mali_kbase_pm_ca.o
+  CC      drivers/misc/mediatek/gpu/gpu_mali/mali_bifrost/mali-r5p0/drivers/gpu/arm/midgard/backend/gpu/mali_kbase_pm_policy.o
+  CC      drivers/misc/mediatek/gpu/gpu_mali/mali_bifrost/mali-r5p0/drivers/gpu/arm/midgard/backend/gpu/mali_kbase_time.o
+  LD      drivers/misc/mediatek/gpu/gpu_mali/mali_bifrost/mali-r5p0/drivers/gpu/arm/midgard/mali_kbase.o
+  LD      drivers/misc/mediatek/gpu/gpu_mali/mali_bifrost/mali-r5p0/drivers/gpu/arm/midgard/built-in.o
+  LD      drivers/misc/mediatek/gpu/gpu_mali/mali_bifrost/built-in.o
+  LD      drivers/misc/mediatek/gpu/gpu_mali/built-in.o
+  LD      drivers/misc/mediatek/gpu/built-in.o
+  LD      drivers/misc/mediatek/built-in.o
+  LD      drivers/misc/built-in.o
+  LD      drivers/built-in.o
+  LINK    vmlinux
+  LD      vmlinux.o
+  MODPOST vmlinux.o
+WARNING: modpost: Found 12 section mismatch(es).
+To see full details build your kernel with:
+'make CONFIG_DEBUG_SECTION_MISMATCH=y'
+  GEN     .version
+  CHK     include/generated/compile.h
+  UPD     include/generated/compile.h
+  CC      init/version.o
+  LD      init/built-in.o
+  KSYM    .tmp_kallsyms1.o
+  KSYM    .tmp_kallsyms2.o
+  LD      vmlinux
+  SORTEX  vmlinux
+  SYSMAP  System.map
+  OBJCOPY arch/arm64/boot/Image
+  GZIP    arch/arm64/boot/Image.gz
+  CAT     arch/arm64/boot/Image.gz-dtb
+make[2]: Leaving directory `/codebase/mtksfs01_node9_lif1/git_yu_dash_fu_dot_kao_alps_alps00114376/out_k63v1_64_vdo_userdebug/target/product/k63v1_64_vdo/obj/KERNEL_OBJ'
+make[1]: Leaving directory `/codebase/mtksfs01_node9_lif1/git_yu_dash_fu_dot_kao_alps_alps00114376/kernel-4.4'
+Target boot image: out/target/product/k63v1_64_vdo/boot.img
+out/host/linux-x86/bin/boot_signer /boot out/target/product/k63v1_64_vdo/boot.img build/target/product/security/verity.pk8 build/target/product/security/verity.x509.pem out/target/product/k63v1_64_vdo/boot.img
+make: Leaving directory `/codebase/mtksfs01_node9_lif1/git_yu_dash_fu_dot_kao_alps_alps00114376'
+
+[0;32m#### make completed successfully (01:19 (mm:ss)) ####[00m
+

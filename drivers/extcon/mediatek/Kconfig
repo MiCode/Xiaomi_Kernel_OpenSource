@@ -1,0 +1,18 @@
+config USB_MTK_EXTCON
+	bool "MediaTek USB EXTCON Support"
+	default n
+	---help---
+	  Enable Mediatek USB extcon class support.
+	  It integrates the USB Dual role information.
+	  and can notify information to register user.
+	  If unsure, say N.
+
+config USB_MTK_IDDIG
+	bool "MediaTek OTG IDDIG Support"
+	default n
+	---help---
+	  Enable Mediatek USB Host OTG detection mechanism
+	  IDDIG - OTG micro-B cable attachment detection.
+	  Say Y here if your system support OTG IDDIG detection.
+	  If unsure, say N.
+

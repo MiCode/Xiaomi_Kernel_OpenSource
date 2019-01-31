@@ -1,0 +1,7 @@
+config MTK_THERMAL_PA_VIA_ATCMD
+	bool "Thermal switch for query modem RF temp"
+	help
+	  Internal switch for thermal management
+	  to query modem RF temperature
+	  via AT command.
+	  (RIL sockets)

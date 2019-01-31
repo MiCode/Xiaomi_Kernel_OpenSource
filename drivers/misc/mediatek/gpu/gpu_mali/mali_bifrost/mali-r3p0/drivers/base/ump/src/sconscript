@@ -1,0 +1,46 @@
+#
+# (C) COPYRIGHT 2010-2016 ARM Limited. All rights reserved.
+#
+# This program is free software and is provided to you under the terms of the
+# GNU General Public License version 2 as published by the Free Software
+# Foundation, and any use by you of this program is subject to the terms
+# of such GNU licence.
+#
+# A copy of the licence is included with the program, and can also be obtained
+# from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+# Boston, MA  02110-1301, USA.
+#
+#
+
+
+Import('env')
+
+# Clone the environment so changes don't affect other build files
+env_ump = env.Clone()
+
+# Source files required for UMP.
+ump_src = [
+    Glob('common/*.c'),
+    Glob('imports/*/*.c'),
+    Glob('linux/*.c'),
+]
+
+make_args = env_ump.kernel_get_config_defines(ret_list = True) + [
+    'PLATFORM=%s' % env_ump['platform'],
+    'MALI_UNIT_TEST=%s' % env_ump['unit'],
+]
+
+mod = env_ump.BuildKernelModule('$STATIC_LIB_PATH/ump.ko', ump_src,
+                                make_args = make_args)
+env_ump.KernelObjTarget('ump', mod)
+
+# Add a dependency on kds.ko only when the build is not Android
+# Android uses sync_pt instead of Midgard KDS to achieve KDS functionality
+# Only necessary when KDS is not built into the kernel.
+#
+if env_ump['os'] != 'android':
+    if not env_ump.KernelConfigEnabled('CONFIG_KDS'):
+        env_ump.Depends(mod, '$STATIC_LIB_PATH/kds.ko')
+
+SConscript( 'imports/sconscript' )
+

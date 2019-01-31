@@ -1,0 +1,39 @@
+This is a introduction for flashlight chip LM3644
+
+[Scope]
+- Two channel for two LEDs
+- Two silicon revision
+	* LM3644
+	* LM3644TT (Douple torch current and flash timeout)
+
+
+[Hardware Interface]
+- I2C
+	* For general control
+	* Slave address 0x63
+
+- GPIO
+	* For enable/disable chip
+
+
+[Limit]
+- Channel couple:
+	* Torch/Strobe
+
+- Channel decouple:
+	* Enable/Disable
+	* Brightness level
+
+- Torch Mode
+	* Step current: 1.4 mA (2.8 mA for LM3644TT)
+	* Min currnet: 0.977 mA (1.954 mA for LM3644TT)
+	* Max current: 179 mA (360 mA for LM3644TT)
+
+- Strobe Mode
+	* Step current: 11.725 mA
+	* Min currnet: 10.9 mA
+	* Max current: 1500 mA
+	* Max current for two channel: 1500 mA
+	* Min protected timeout: 10 ms (40 ms for LM3644TT)
+	* Max protected timeout: 400 ms (1600 ms for LM3644TT)
+

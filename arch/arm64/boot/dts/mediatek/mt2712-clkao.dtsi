@@ -1,0 +1,252 @@
+&clkao {
+	status = "disabled";
+
+	bring-up {
+		compatible = "mediatek,clk-bring-up";
+		clocks =
+			<&apmixedsys CLK_APMIXED_MAINPLL>,
+			<&apmixedsys CLK_APMIXED_UNIVPLL>,
+			<&apmixedsys CLK_APMIXED_VCODECPLL>,
+			<&apmixedsys CLK_APMIXED_VENCPLL>,
+			<&apmixedsys CLK_APMIXED_APLL1>,
+			<&apmixedsys CLK_APMIXED_APLL2>,
+			<&apmixedsys CLK_APMIXED_LVDSPLL>,
+			<&apmixedsys CLK_APMIXED_LVDSPLL2>,
+			<&apmixedsys CLK_APMIXED_MSDCPLL>,
+			<&apmixedsys CLK_APMIXED_MSDCPLL2>,
+			<&apmixedsys CLK_APMIXED_TVDPLL>,
+			<&apmixedsys CLK_APMIXED_MMPLL>,
+			<&apmixedsys CLK_APMIXED_ARMCA35PLL>,
+			<&apmixedsys CLK_APMIXED_ARMCA72PLL>,
+			<&apmixedsys CLK_APMIXED_ETHERPLL>,
+			<&apmixedsys CLK_APMIXED_CVBSPLL>,
+			<&apmixedsys CLK_APMIXED_REF2USB_TX>,
+			<&bdpsys CLK_BDP_BRIDGE_B>,
+			<&bdpsys CLK_BDP_BRIDGE_DRAM>,
+			<&bdpsys CLK_BDP_LARB_DRAM>,
+			<&bdpsys CLK_BDP_WR_CHANNEL_VDI_PXL>,
+			<&bdpsys CLK_BDP_WR_CHANNEL_VDI_DRAM>,
+			<&bdpsys CLK_BDP_WR_CHANNEL_VDI_B>,
+			<&bdpsys CLK_BDP_MT_B>,
+			<&bdpsys CLK_BDP_DISPFMT_27M>,
+			<&bdpsys CLK_BDP_DISPFMT_27M_VDOUT>,
+			<&bdpsys CLK_BDP_DISPFMT_27_74_74>,
+			<&bdpsys CLK_BDP_DISPFMT_2FS>,
+			<&bdpsys CLK_BDP_DISPFMT_2FS_2FS74_148>,
+			<&bdpsys CLK_BDP_DISPFMT_B>,
+			<&bdpsys CLK_BDP_VDO_DRAM>,
+			<&bdpsys CLK_BDP_VDO_2FS>,
+			<&bdpsys CLK_BDP_VDO_B>,
+			<&bdpsys CLK_BDP_WR_CHANNEL_DI_PXL>,
+			<&bdpsys CLK_BDP_WR_CHANNEL_DI_DRAM>,
+			<&bdpsys CLK_BDP_WR_CHANNEL_DI_B>,
+			<&bdpsys CLK_BDP_NR_AGENT>,
+			<&bdpsys CLK_BDP_NR_DRAM>,
+			<&bdpsys CLK_BDP_NR_B>,
+			<&bdpsys CLK_BDP_BRIDGE_RT_B>,
+			<&bdpsys CLK_BDP_BRIDGE_RT_DRAM>,
+			<&bdpsys CLK_BDP_LARB_RT_DRAM>,
+			<&bdpsys CLK_BDP_TVD_TDC>,
+			<&bdpsys CLK_BDP_TVD_54>,
+			<&bdpsys CLK_BDP_TVD_CBUS>,
+			<&infracfg CLK_INFRA_DBGCLK>,
+			<&infracfg CLK_INFRA_GCE>,
+			<&infracfg CLK_INFRA_M4U>,
+			<&infracfg CLK_INFRA_KP>,
+			<&infracfg CLK_INFRA_AO_SPI0>,
+			<&infracfg CLK_INFRA_AO_SPI1>,
+			<&infracfg CLK_INFRA_AO_UART5>,
+			<&imgsys CLK_IMG_SMI_LARB2>,
+			<&imgsys CLK_IMG_SENINF_SCAM_EN>,
+			<&imgsys CLK_IMG_SENINF_CAM_EN>,
+			<&imgsys CLK_IMG_CAM_SV_EN>,
+			<&imgsys CLK_IMG_CAM_SV1_EN>,
+			<&imgsys CLK_IMG_CAM_SV2_EN>,
+			<&jpgdecsys CLK_JPGDEC_JPGDEC1>,
+			<&jpgdecsys CLK_JPGDEC_JPGDEC>,
+			<&mfgcfg CLK_MFG_BG3D>,
+			<&mmsys CLK_MM_SMI_COMMON>,
+			<&mmsys CLK_MM_SMI_LARB0>,
+			<&mmsys CLK_MM_CAM_MDP>,
+			<&mmsys CLK_MM_MDP_RDMA0>,
+			<&mmsys CLK_MM_MDP_RDMA1>,
+			<&mmsys CLK_MM_MDP_RSZ0>,
+			<&mmsys CLK_MM_MDP_RSZ1>,
+			<&mmsys CLK_MM_MDP_RSZ2>,
+			<&mmsys CLK_MM_MDP_TDSHP0>,
+			<&mmsys CLK_MM_MDP_TDSHP1>,
+			<&mmsys CLK_MM_MDP_CROP>,
+			<&mmsys CLK_MM_MDP_WDMA>,
+			<&mmsys CLK_MM_MDP_WROT0>,
+			<&mmsys CLK_MM_MDP_WROT1>,
+			<&mmsys CLK_MM_FAKE_ENG>,
+			<&mmsys CLK_MM_MUTEX_32K>,
+			<&mmsys CLK_MM_DISP_OVL0>,
+			<&mmsys CLK_MM_DISP_OVL1>,
+			<&mmsys CLK_MM_DISP_RDMA0>,
+			<&mmsys CLK_MM_DISP_RDMA1>,
+			<&mmsys CLK_MM_DISP_RDMA2>,
+			<&mmsys CLK_MM_DISP_WDMA0>,
+			<&mmsys CLK_MM_DISP_WDMA1>,
+			<&mmsys CLK_MM_DISP_COLOR0>,
+			<&mmsys CLK_MM_DISP_COLOR1>,
+			<&mmsys CLK_MM_DISP_AAL>,
+			<&mmsys CLK_MM_DISP_GAMMA>,
+			<&mmsys CLK_MM_DISP_UFOE>,
+			<&mmsys CLK_MM_DISP_SPLIT0>,
+			<&mmsys CLK_MM_DISP_OD>,
+			<&mmsys CLK_MM_DISP_PWM0_MM>,
+			<&mmsys CLK_MM_DISP_PWM0_26M>,
+			<&mmsys CLK_MM_DISP_PWM1_MM>,
+			<&mmsys CLK_MM_DISP_PWM1_26M>,
+			<&mmsys CLK_MM_DSI0_ENGINE>,
+			<&mmsys CLK_MM_DSI0_DIGITAL>,
+			<&mmsys CLK_MM_DSI1_ENGINE>,
+			<&mmsys CLK_MM_DSI1_DIGITAL>,
+			<&mmsys CLK_MM_DPI_PIXEL>,
+			<&mmsys CLK_MM_DPI_ENGINE>,
+			<&mmsys CLK_MM_DPI1_PIXEL>,
+			<&mmsys CLK_MM_DPI1_ENGINE>,
+			<&mmsys CLK_MM_LVDS_PIXEL>,
+			<&mmsys CLK_MM_LVDS_CTS>,
+			<&mmsys CLK_MM_SMI_LARB4>,
+			<&mmsys CLK_MM_SMI_COMMON1>,
+			<&mmsys CLK_MM_SMI_LARB5>,
+			<&mmsys CLK_MM_MDP_RDMA2>,
+			<&mmsys CLK_MM_MDP_TDSHP2>,
+			<&mmsys CLK_MM_DISP_OVL2>,
+			<&mmsys CLK_MM_DISP_WDMA2>,
+			<&mmsys CLK_MM_DISP_COLOR2>,
+			<&mmsys CLK_MM_DISP_AAL1>,
+			<&mmsys CLK_MM_DISP_OD1>,
+			<&mmsys CLK_MM_LVDS1_PIXEL>,
+			<&mmsys CLK_MM_LVDS1_CTS>,
+			<&mmsys CLK_MM_SMI_LARB7>,
+			<&mmsys CLK_MM_MDP_RDMA3>,
+			<&mmsys CLK_MM_MDP_WROT2>,
+			<&mmsys CLK_MM_DSI2>,
+			<&mmsys CLK_MM_DSI2_DIGITAL>,
+			<&mmsys CLK_MM_DSI3>,
+			<&mmsys CLK_MM_DSI3_DIGITAL>,
+			<&pericfg CLK_PERI_NFI>,
+			<&pericfg CLK_PERI_THERM>,
+			<&pericfg CLK_PERI_PWM0>,
+			<&pericfg CLK_PERI_PWM1>,
+			<&pericfg CLK_PERI_PWM2>,
+			<&pericfg CLK_PERI_PWM3>,
+			<&pericfg CLK_PERI_PWM4>,
+			<&pericfg CLK_PERI_PWM5>,
+			<&pericfg CLK_PERI_PWM6>,
+			<&pericfg CLK_PERI_PWM7>,
+			<&pericfg CLK_PERI_PWM>,
+			<&pericfg CLK_PERI_AP_DMA>,
+			<&pericfg CLK_PERI_MSDC30_0>,
+			<&pericfg CLK_PERI_MSDC30_1>,
+			<&pericfg CLK_PERI_MSDC30_2>,
+			<&pericfg CLK_PERI_MSDC30_3>,
+			<&pericfg CLK_PERI_UART0>,
+			<&pericfg CLK_PERI_UART1>,
+			<&pericfg CLK_PERI_UART2>,
+			<&pericfg CLK_PERI_UART3>,
+			<&pericfg CLK_PERI_I2C0>,
+			<&pericfg CLK_PERI_I2C1>,
+			<&pericfg CLK_PERI_I2C2>,
+			<&pericfg CLK_PERI_I2C3>,
+			<&pericfg CLK_PERI_I2C4>,
+			<&pericfg CLK_PERI_AUXADC>,
+			<&pericfg CLK_PERI_SPI0>,
+			<&pericfg CLK_PERI_SPI>,
+			<&pericfg CLK_PERI_I2C5>,
+			<&pericfg CLK_PERI_SPI2>,
+			<&pericfg CLK_PERI_SPI3>,
+			<&pericfg CLK_PERI_SPI5>,
+			<&pericfg CLK_PERI_UART4>,
+			<&pericfg CLK_PERI_SFLASH>,
+			<&pericfg CLK_PERI_GMAC>,
+			<&pericfg CLK_PERI_PCIE0>,
+			<&pericfg CLK_PERI_PCIE1>,
+			<&pericfg CLK_PERI_GMAC_PCLK>,
+			<&pericfg CLK_PERI_MSDC50_0_EN>,
+			<&pericfg CLK_PERI_MSDC30_1_EN>,
+			<&pericfg CLK_PERI_MSDC30_2_EN>,
+			<&pericfg CLK_PERI_MSDC30_3_EN>,
+			<&pericfg CLK_PERI_MSDC50_0_HCLK_EN>,
+			<&pericfg CLK_PERI_MSDC50_3_HCLK_EN>,
+			<&topckgen CLK_TOP_APLL_DIV_PDN0>,
+			<&topckgen CLK_TOP_APLL_DIV_PDN1>,
+			<&topckgen CLK_TOP_APLL_DIV_PDN2>,
+			<&topckgen CLK_TOP_APLL_DIV_PDN3>,
+			<&topckgen CLK_TOP_APLL_DIV_PDN4>,
+			<&topckgen CLK_TOP_APLL_DIV_PDN5>,
+			<&topckgen CLK_TOP_APLL_DIV_PDN6>,
+			<&topckgen CLK_TOP_APLL_DIV_PDN7>,
+			<&vdecsys CLK_VDEC_CKEN>,
+			<&vdecsys CLK_VDEC_LARB1_CKEN>,
+			<&vdecsys CLK_VDEC_IMGRZ_CKEN>,
+			<&vencsys CLK_VENC_SMI_COMMON_CON>,
+			<&vencsys CLK_VENC_VENC>,
+			<&vencsys CLK_VENC_SMI_LARB6>,
+			<&topckgen CLK_TOP_USB30_SEL>;
+
+		clock-names =
+			"0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
+			"10", "11", "12", "13", "14", "15", "16", "17", "18", "19",
+			"20", "21", "22", "23", "24", "25", "26", "27", "28", "29",
+			"30", "31", "32", "33", "34", "35", "36", "37", "38", "39",
+			"40", "41", "42", "43", "44", "45", "46", "47", "48", "49",
+			"50", "51", "52", "53", "54", "55", "56", "57", "58", "59",
+			"60", "61", "62", "63", "64", "65", "66", "67", "68", "69",
+			"70", "71", "72", "73", "74", "75", "76", "77", "78", "79",
+			"80", "81", "82", "83", "84", "85", "86", "87", "88", "89",
+			"90", "91", "92", "93", "94", "95", "96", "97", "98", "99",
+			"100", "101", "102", "103", "104", "105", "106", "107", "108", "109",
+			"110", "111", "112", "113", "114", "115", "116", "117", "118", "119",
+			"120", "121", "122", "123", "124", "125", "126", "127", "128", "129",
+			"130", "131", "132", "133", "134", "135", "136", "137", "138", "139",
+			"140", "141", "142", "143", "144", "145", "146", "147", "148", "149",
+			"150", "151", "152", "153", "154", "155", "156", "157", "158", "159",
+			"160", "161", "162", "163", "164", "165", "166", "167", "168", "169",
+			"170", "171", "172", "173", "174", "175", "176", "177", "178", "179",
+			"180", "181", "182";
+	};
+
+	bring-up-pd-mm {
+		compatible = "mediatek,scpsys-bring-up";
+		power-domains = <&scpsys MT2712_POWER_DOMAIN_MM>;
+	};
+
+	bring-up-pd-vdec {
+		compatible = "mediatek,scpsys-bring-up";
+		power-domains = <&scpsys MT2712_POWER_DOMAIN_VDEC>;
+	};
+
+	bring-up-pd-venc {
+		compatible = "mediatek,scpsys-bring-up";
+		power-domains = <&scpsys MT2712_POWER_DOMAIN_VENC>;
+	};
+
+	bring-up-pd-isp {
+		compatible = "mediatek,scpsys-bring-up";
+		power-domains = <&scpsys MT2712_POWER_DOMAIN_ISP>;
+	};
+
+	bring-up-pd-audio {
+		compatible = "mediatek,scpsys-bring-up";
+		power-domains = <&scpsys MT2712_POWER_DOMAIN_AUDIO>;
+	};
+
+	bring-up-pd-usb {
+		compatible = "mediatek,scpsys-bring-up";
+		power-domains = <&scpsys MT2712_POWER_DOMAIN_USB>;
+	};
+
+	bring-up-pd-usb2 {
+		compatible = "mediatek,scpsys-bring-up";
+		power-domains = <&scpsys MT2712_POWER_DOMAIN_USB2>;
+	};
+
+	bring-up-pd-mfg {
+		compatible = "mediatek,scpsys-bring-up";
+		power-domains = <&scpsys MT2712_POWER_DOMAIN_MFG>;
+	};
+};

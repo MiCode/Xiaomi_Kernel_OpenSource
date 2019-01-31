@@ -1,0 +1,71 @@
+#
+# (C) COPYRIGHT 2010-2014 ARM Limited. All rights reserved.
+#
+# This program is free software and is provided to you under the terms of the
+# GNU General Public License version 2 as published by the Free Software
+# Foundation, and any use by you of this program is subject to the terms
+# of such GNU licence.
+#
+# A copy of the licence is included with the program, and can also be obtained
+# from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+# Boston, MA  02110-1301, USA.
+#
+#
+
+
+
+import os
+import re
+Import('env')
+
+#Android uses sync_pt to accomplish KDS functionality.
+#Midgard KDS is not used by Android
+if env['os'] == 'android':
+	Return()
+
+# If KDS is built into the kernel already we skip building the module ourselves
+linux_config_file = os.path.normpath(os.environ['KDIR']) + '/.config'
+search_term = '^[\ ]*CONFIG_KDS[\ ]*=[\ ]*y'
+build_kds = 1
+for line in open(linux_config_file, 'r'):
+	if re.search(search_term, line):
+		# KDS in kernel. Do not build KDS kernel module but
+		# still allow for building kds_test module.
+		build_kds = 0
+
+if env['v'] != '1':
+	env['MAKECOMSTR'] = '[MAKE] ${SOURCE.dir}'
+
+src = [Glob('#kernel/drivers/base/kds/*.c'), Glob('#kernel/include/linux/*.h'), Glob('#kernel/drivers/base/kds/K*')]
+
+env.Append( CPPPATH = '#kernel/include' )
+
+if Glob('tests/sconscript'):
+	SConscript( 'tests/sconscript' )
+
+if env.GetOption('clean') :
+	# Clean KDS module
+	if build_kds:
+		env.Execute(Action("make clean", '[CLEAN] kds'))
+		cmd = env.Command('$STATIC_LIB_PATH/kds.ko', src, [])
+		env.ProgTarget('kds', cmd)
+
+	# Clean KDS test module
+	if (int(env['unit']) == 1):
+		cmdTest = env.Command('$STATIC_LIB_PATH/kds_test.ko', src, [])
+		env.ProgTarget('kds', cmdTest)
+else:
+	# Build KDS module
+	if build_kds:
+		makeAction=Action("cd ${SOURCE.dir} && make kds && cp kds.ko $STATIC_LIB_PATH/", '$MAKECOMSTR')
+		cmd = env.Command('$STATIC_LIB_PATH/kds.ko', src, [makeAction])
+		env.ProgTarget('kds', cmd)
+
+	# Build KDS test module
+	if int(env['unit']) == 1:
+		makeActionTest=Action("cd ${SOURCE.dir} && make kds_test && cp kds_test.ko $STATIC_LIB_PATH/", '$MAKECOMSTR')
+		cmdTest = env.Command('$STATIC_LIB_PATH/kds_test.ko', src, [makeActionTest])
+		env.ProgTarget('kds', cmdTest)
+		if build_kds:
+			Depends(cmdTest, cmd)
+

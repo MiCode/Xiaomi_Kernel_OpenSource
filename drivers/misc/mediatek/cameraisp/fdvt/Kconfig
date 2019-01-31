@@ -1,0 +1,10 @@
+config MTK_CAMERA_ISP_FD_SUPPORT
+        bool "[FD] Face Detection"
+        default n
+        depends on MTK_CAMERA_ISP
+        help
+          Face Detection.
+          Enable to detect faces on images.
+          Disable if it is not supported or
+          not wanted.
+

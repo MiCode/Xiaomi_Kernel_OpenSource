@@ -1,0 +1,29 @@
+# Serial Port Driver
+menuconfig MTK_SERIAL
+	tristate "MediaTek Serial Port Support"
+	select SERIAL_CORE
+	---help---
+	  This selects MediaTek(R) internal UART driver.
+	  If you want to use MediaTek(R) internal UART driver, say Y or M here.
+	  If unsure, say N.
+
+config MTK_SERIAL_CONSOLE
+	bool "MediaTek Console on Serial Port Support"
+	depends on MTK_SERIAL=y
+	select SERIAL_CORE_CONSOLE
+	default y
+	---help---
+	  Say Y here if you wish to use MT6516 internal UART as the system
+	  console.
+	  You should alter the default console setting by kernel
+	  command line option "console=ttyMT0" or "console=ttyMT1".
+
+config MTK_SERIAL_MODEM_TEST
+	bool "Support modem test"
+	depends on MTK_SERIAL=y
+	default n
+	---help---
+	  Say Y here is you want to enable modem test.
+	  After enabling this option, UART4 will be switched to modem side.
+	  Hence, the command line parameter should be also modified.
+	  This is for test purpose only.

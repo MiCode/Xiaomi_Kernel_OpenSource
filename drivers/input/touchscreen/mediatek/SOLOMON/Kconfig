@@ -1,0 +1,12 @@
+#
+# Touchscreen driver configuration
+#
+config TOUCHSCREEN_MTK_SOLOMON
+    bool "SOLOMON for Mediatek"
+    depends on I2C
+    default n
+    help
+      Say Y here if you have Focaltech touch panel.
+      If unsure, say N.
+      
+    

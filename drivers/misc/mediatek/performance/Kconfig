@@ -1,0 +1,9 @@
+config MTK_PERFMGR_TOUCH_BOOST
+	tristate "touch boost in performance manager"
+	default n
+	help
+	  MTK_PERFMGR_TOUCH_BOOST is the kernel config of touch boost
+	  feature designed by MTK, which is a performance improving
+	  feature for user experience. When the device receives touch
+	  event, it will raise system resources(CPU frequency / CPU cores)
+	  for better user experience.

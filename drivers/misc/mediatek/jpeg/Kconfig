@@ -1,0 +1,8 @@
+config MTK_JPEG
+	bool "determine whether to enable JPEG driver or not"
+	default n
+	help
+	  This option enables mtk jpeg driver,
+	  if yes, it means this platform supports mtk jpeg encoder or decoder HW,
+	  if no, it means this platform supports only SW jpeg encoder and decoder.
+	  The option default disabled.

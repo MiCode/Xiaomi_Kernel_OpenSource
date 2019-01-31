@@ -1,0 +1,9 @@
+config MTK_VOW_SUPPORT
+	bool "MediaTek VOW support"
+	default n
+	help
+	  For VOW kernel driver config. This voice wakeup
+	  kernel driver cooperate with SCP VOW driver to
+	  wakeup phone by doing voice recognition. Using
+	  IPI interface to communicate with SCP side and
+	  be controlled by sound trigger HAL.

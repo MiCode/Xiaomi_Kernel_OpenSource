@@ -1,0 +1,9 @@
+config MTK_CAMERA_ISP_TSF_SUPPORT
+        bool "[TSF] Table Smooth Function Support"
+        default n
+        depends on MTK_CAMERA_ISP
+        help
+          Table Smooth Function.
+          Enable to compensate lens
+          shading.
+          Disable if it is ot supported or not wanted.
