@@ -26,7 +26,8 @@ enum cam_isp_hw_vfe_in_mux {
 	CAM_ISP_HW_VFE_IN_RDI1        = 4,
 	CAM_ISP_HW_VFE_IN_RDI2        = 5,
 	CAM_ISP_HW_VFE_IN_RDI3        = 6,
-	CAM_ISP_HW_VFE_IN_CAMIF_LITE  = 7,
+	CAM_ISP_HW_VFE_IN_PDLIB       = 7,
+	CAM_ISP_HW_VFE_IN_LCR         = 8,
 	CAM_ISP_HW_VFE_IN_MAX,
 };
 

@@ -8,9 +8,6 @@
 
 #include "cam_vfe_camif_ver3.h"
 #include "cam_vfe_camif_lite_ver3.h"
-#include "cam_vfe_camif_ver2.h"
-#include "cam_vfe_camif_lite_ver2.h"
-#include "cam_vfe_rdi.h"
 #include "cam_vfe_fe_ver1.h"
 
 #define CAM_VFE_TOP_VER3_MUX_MAX     6

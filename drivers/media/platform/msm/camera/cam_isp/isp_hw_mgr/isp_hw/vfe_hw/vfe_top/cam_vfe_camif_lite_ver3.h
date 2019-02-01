@@ -9,6 +9,8 @@
 #include "cam_isp_hw.h"
 #include "cam_vfe_top.h"
 
+#define CAM_VFE_RDI_VER2_MAX 4
+
 struct cam_vfe_camif_lite_ver3_reg {
 	uint32_t     lite_hw_version;
 	uint32_t     lite_hw_status;

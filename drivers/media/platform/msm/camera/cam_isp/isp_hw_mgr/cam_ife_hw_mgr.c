@@ -945,8 +945,9 @@ static int cam_ife_hw_mgr_acquire_res_ife_out(
 
 		switch (ife_src_res->res_id) {
 		case CAM_ISP_HW_VFE_IN_CAMIF:
-		case CAM_ISP_HW_VFE_IN_CAMIF_LITE:
+		case CAM_ISP_HW_VFE_IN_PDLIB:
 		case CAM_ISP_HW_VFE_IN_RD:
+		case CAM_ISP_HW_VFE_IN_LCR:
 			rc = cam_ife_hw_mgr_acquire_res_ife_out_pixel(ife_ctx,
 				ife_src_res, in_port);
 			break;
@@ -1143,7 +1144,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_src(
 			break;
 		case CAM_IFE_PIX_PATH_RES_PPP:
 			vfe_acquire.vfe_in.res_id =
-				CAM_ISP_HW_VFE_IN_CAMIF_LITE;
+				CAM_ISP_HW_VFE_IN_PDLIB;
 			vfe_acquire.vfe_in.sync_mode = CAM_ISP_HW_SYNC_NONE;
 
 			break;
@@ -2245,8 +2246,8 @@ static int cam_isp_blob_bw_update(
 					camif_r_bw_updated = true;
 				}
 			else if ((hw_mgr_res->res_id >= CAM_ISP_HW_VFE_IN_RDI0)
-						&& (hw_mgr_res->res_id <=
-						CAM_ISP_HW_VFE_IN_RDI3)) {
+					&& (hw_mgr_res->res_id <=
+					CAM_ISP_HW_VFE_IN_RDI3)) {
 				uint32_t idx = hw_mgr_res->res_id -
 						CAM_ISP_HW_VFE_IN_RDI0;
 				if (idx >= bw_config->num_rdi)
@@ -2257,7 +2258,7 @@ static int cam_isp_blob_bw_update(
 				ext_bw_bps =
 					bw_config->rdi_vote[idx].ext_bw_bps;
 			} else if (hw_mgr_res->res_id ==
-				CAM_ISP_HW_VFE_IN_CAMIF_LITE) {
+				CAM_ISP_HW_VFE_IN_PDLIB) {
 				if (i == CAM_ISP_HW_SPLIT_LEFT) {
 					if (camif_l_bw_updated)
 						continue;
@@ -2279,13 +2280,14 @@ static int cam_isp_blob_bw_update(
 
 					camif_r_bw_updated = true;
 				}
-			} else
+			} else {
 				if (hw_mgr_res->hw_res[i]) {
 					CAM_ERR(CAM_ISP, "Invalid res_id %u",
 						hw_mgr_res->res_id);
 					rc = -EINVAL;
 					return rc;
 				}
+			}
 
 			hw_intf = hw_mgr_res->hw_res[i]->hw_intf;
 			if (hw_intf && hw_intf->hw_ops.process_cmd) {
@@ -3431,7 +3433,7 @@ static int cam_isp_blob_clock_update(
 					camif_r_clk_updated = true;
 				}
 			} else if (hw_mgr_res->res_id ==
-				CAM_ISP_HW_VFE_IN_CAMIF_LITE) {
+				CAM_ISP_HW_VFE_IN_PDLIB) {
 				if (i == CAM_ISP_HW_SPLIT_LEFT) {
 					if (camif_l_clk_updated)
 						continue;
@@ -4409,7 +4411,7 @@ static int cam_ife_hw_mgr_handle_reg_update(
 		CAM_DBG(CAM_ISP, "resource id = %d, curr_core_idx = %d",
 			 ife_src_res->res_id, core_idx);
 		switch (ife_src_res->res_id) {
-		case CAM_ISP_HW_VFE_IN_CAMIF_LITE:
+		case CAM_ISP_HW_VFE_IN_PDLIB:
 			break;
 		case CAM_ISP_HW_VFE_IN_CAMIF:
 		case CAM_ISP_HW_VFE_IN_RD:
@@ -4910,7 +4912,7 @@ static int cam_ife_hw_mgr_handle_sof(
 				sof_sent = true;
 			}
 			break;
-		case CAM_ISP_HW_VFE_IN_CAMIF_LITE:
+		case CAM_ISP_HW_VFE_IN_PDLIB:
 			break;
 		default:
 			CAM_ERR(CAM_ISP, "Invalid resource id :%d",

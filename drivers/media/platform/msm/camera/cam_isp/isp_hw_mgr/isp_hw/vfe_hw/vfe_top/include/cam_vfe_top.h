@@ -22,6 +22,9 @@
 #define CAM_VFE_RDI_VER_1_0    0x1000
 #define CAM_VFE_IN_RD_VER_1_0  0x2000
 
+#define CAM_VFE_LCR_VER_1_0 0x100
+#define CAM_VFE_PDLIB_VER_1_0 0x10000
+
 struct cam_vfe_top {
 	void                   *top_priv;
 	struct cam_hw_ops       hw_ops;

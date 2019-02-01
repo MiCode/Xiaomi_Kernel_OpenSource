@@ -480,6 +480,8 @@ int cam_vfe_top_ver3_reserve(void *device_priv,
 	args = (struct cam_vfe_acquire_args *)reserve_args;
 	acquire_args = &args->vfe_in;
 
+	CAM_INFO(CAM_ISP, "res id %d", acquire_args->res_id);
+
 
 	for (i = 0; i < CAM_VFE_TOP_VER3_MUX_MAX; i++) {
 		if (top_priv->mux_rsrc[i].res_id ==  acquire_args->res_id &&
@@ -494,9 +496,9 @@ int cam_vfe_top_ver3_reserve(void *device_priv,
 					break;
 			}
 
-			if (acquire_args->res_id ==
-				CAM_ISP_HW_VFE_IN_CAMIF_LITE) {
-				rc = cam_vfe_camif_lite_ver2_acquire_resource(
+			if (acquire_args->res_id >= CAM_ISP_HW_VFE_IN_RDI0 &&
+				acquire_args->res_id < CAM_ISP_HW_VFE_IN_MAX) {
+				rc = cam_vfe_camif_lite_ver3_acquire_resource(
 					&top_priv->mux_rsrc[i],
 					args);
 				if (rc)
@@ -616,11 +618,7 @@ int cam_vfe_top_ver3_stop(void *device_priv,
 	mux_res = (struct cam_isp_resource_node *)stop_args;
 	hw_info = (struct cam_hw_info  *)mux_res->hw_intf->hw_priv;
 
-	if ((mux_res->res_id == CAM_ISP_HW_VFE_IN_CAMIF) ||
-		(mux_res->res_id == CAM_ISP_HW_VFE_IN_CAMIF_LITE) ||
-		(mux_res->res_id == CAM_ISP_HW_VFE_IN_RD) ||
-		((mux_res->res_id >= CAM_ISP_HW_VFE_IN_RDI0) &&
-		(mux_res->res_id <= CAM_ISP_HW_VFE_IN_RDI3))) {
+	if (mux_res->res_id < CAM_ISP_HW_VFE_IN_MAX) {
 		rc = mux_res->stop(mux_res);
 	} else {
 		CAM_ERR(CAM_ISP, "Invalid res id:%d", mux_res->res_id);
@@ -752,12 +750,12 @@ int cam_vfe_top_ver3_init(
 		top_priv->req_axi_vote[i].compressed_bw = 0;
 		top_priv->req_axi_vote[i].uncompressed_bw = 0;
 		top_priv->axi_vote_control[i] = CAM_VFE_BW_CONTROL_EXCLUDE;
-
+		/* use cpas camif handle for now */
+		top_priv->cpashdl_type[i] = CAM_CPAS_HANDLE_CAMIF;
 
 		if (ver3_hw_info->mux_type[i] == CAM_VFE_CAMIF_VER_3_0) {
 			top_priv->mux_rsrc[i].res_id =
 				CAM_ISP_HW_VFE_IN_CAMIF;
-			top_priv->cpashdl_type[i] = CAM_CPAS_HANDLE_CAMIF;
 
 			rc = cam_vfe_camif_ver3_init(hw_intf, soc_info,
 				&ver3_hw_info->camif_hw_info,
@@ -765,20 +763,13 @@ int cam_vfe_top_ver3_init(
 			if (rc)
 				goto deinit_resources;
 		} else if (ver3_hw_info->mux_type[i] ==
-			CAM_VFE_RDI_VER_1_0) {
-			/* set the RDI resource id */
+			CAM_VFE_PDLIB_VER_1_0) {
+			/* set the PDLIB resource id */
 			top_priv->mux_rsrc[i].res_id =
-				CAM_ISP_HW_VFE_IN_RDI0 + j++;
-			if (soc_private->cpas_version ==
-				CAM_CPAS_TITAN_175_V120)
-				top_priv->cpashdl_type[i] =
-					CAM_CPAS_HANDLE_RAW;
-			else
-				top_priv->cpashdl_type[i] =
-					CAM_CPAS_HANDLE_CAMIF;
+				CAM_ISP_HW_VFE_IN_PDLIB;
 
-			rc = cam_vfe_rdi_ver2_init(hw_intf, soc_info,
-				&ver3_hw_info->rdi_hw_info,
+			rc = cam_vfe_camif_lite_ver3_init(hw_intf, soc_info,
+				&ver3_hw_info->pdlib_hw_info,
 				&top_priv->mux_rsrc[i]);
 			if (rc)
 				goto deinit_resources;
@@ -790,6 +781,28 @@ int cam_vfe_top_ver3_init(
 
 			rc = cam_vfe_fe_ver1_init(hw_intf, soc_info,
 				&ver3_hw_info->fe_hw_info,
+				&top_priv->mux_rsrc[i]);
+			if (rc)
+				goto deinit_resources;
+		} else if (ver3_hw_info->mux_type[i] ==
+			CAM_VFE_RDI_VER_1_0) {
+			/* set the RDI resource id */
+			top_priv->mux_rsrc[i].res_id =
+				CAM_ISP_HW_VFE_IN_RDI0 + j;
+
+			rc = cam_vfe_camif_lite_ver3_init(hw_intf, soc_info,
+				ver3_hw_info->rdi_hw_info[j++],
+				&top_priv->mux_rsrc[i]);
+			if (rc)
+				goto deinit_resources;
+		} else if (ver3_hw_info->mux_type[i] ==
+			CAM_VFE_LCR_VER_1_0) {
+			/* set the LCR resource id */
+			top_priv->mux_rsrc[i].res_id =
+				CAM_ISP_HW_VFE_IN_LCR;
+
+			rc = cam_vfe_camif_lite_ver3_init(hw_intf, soc_info,
+				&ver3_hw_info->lcr_hw_info,
 				&top_priv->mux_rsrc[i]);
 			if (rc)
 				goto deinit_resources;
@@ -822,20 +835,15 @@ deinit_resources:
 		if (ver3_hw_info->mux_type[i] == CAM_VFE_CAMIF_VER_3_0) {
 			if (cam_vfe_camif_ver3_deinit(&top_priv->mux_rsrc[i]))
 				CAM_ERR(CAM_ISP, "Camif Deinit failed");
-		} else if (ver3_hw_info->mux_type[i] ==
-			CAM_VFE_CAMIF_LITE_VER_2_0) {
-			if (cam_vfe_camif_lite_ver2_deinit(
-				&top_priv->mux_rsrc[i]))
-				CAM_ERR(CAM_ISP, "Camif lite deinit failed");
-		} else if (ver3_hw_info->mux_type[i] ==
-			CAM_ISP_HW_VFE_IN_RDI0) {
-			if (cam_vfe_rdi_ver2_init(hw_intf, soc_info,
-				&ver3_hw_info->rdi_hw_info,
-				&top_priv->mux_rsrc[i]))
-				CAM_ERR(CAM_ISP, "RDI deinit failed");
+		} else if (ver3_hw_info->mux_type[i] == CAM_VFE_IN_RD_VER_1_0) {
+			if (cam_vfe_fe_ver1_deinit(&top_priv->mux_rsrc[i]))
+				CAM_ERR(CAM_ISP, "Camif fe Deinit failed");
 		} else {
-			if (cam_vfe_rdi_ver2_deinit(&top_priv->mux_rsrc[i]))
-				CAM_ERR(CAM_ISP, "RDI Deinit failed");
+			if (cam_vfe_camif_lite_ver3_deinit(
+				&top_priv->mux_rsrc[i]))
+				CAM_ERR(CAM_ISP,
+					"Camif lite res id %d Deinit failed",
+					top_priv->mux_rsrc[i].res_id);
 		}
 		top_priv->mux_rsrc[i].res_state =
 			CAM_ISP_RESOURCE_STATE_UNAVAILABLE;
@@ -882,23 +890,18 @@ int cam_vfe_top_ver3_deinit(struct cam_vfe_top  **vfe_top_ptr)
 				CAM_ERR(CAM_ISP, "Camif deinit failed rc=%d",
 					rc);
 		} else if (top_priv->mux_rsrc[i].res_type ==
-			CAM_VFE_CAMIF_LITE_VER_2_0) {
-			rc = cam_vfe_camif_lite_ver2_deinit(
-				&top_priv->mux_rsrc[i]);
-			if (rc)
-				CAM_ERR(CAM_ISP,
-					"Camif lite deinit failed rc=%d", rc);
-		} else if (top_priv->mux_rsrc[i].res_type ==
-			CAM_VFE_RDI_VER_1_0) {
-			rc = cam_vfe_rdi_ver2_deinit(&top_priv->mux_rsrc[i]);
-			if (rc)
-				CAM_ERR(CAM_ISP, "RDI deinit failed rc=%d", rc);
-		} else if (top_priv->mux_rsrc[i].res_type ==
 			CAM_VFE_IN_RD_VER_1_0) {
 			rc = cam_vfe_fe_ver1_deinit(&top_priv->mux_rsrc[i]);
 			if (rc)
 				CAM_ERR(CAM_ISP, "Camif deinit failed rc=%d",
 					rc);
+		} else {
+			rc = cam_vfe_camif_lite_ver3_deinit(
+				&top_priv->mux_rsrc[i]);
+			if (rc)
+				CAM_ERR(CAM_ISP,
+					"Camif lite res id %d Deinit failed",
+					top_priv->mux_rsrc[i].res_id);
 		}
 	}
 
