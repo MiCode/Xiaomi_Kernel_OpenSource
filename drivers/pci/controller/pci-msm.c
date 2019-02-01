@@ -259,8 +259,6 @@ enum msm_pcie_res {
 	MSM_PCIE_RES_ELBI,
 	MSM_PCIE_RES_IATU,
 	MSM_PCIE_RES_CONF,
-	MSM_PCIE_RES_IO,
-	MSM_PCIE_RES_BARS,
 	MSM_PCIE_RES_TCSR,
 	MSM_PCIE_RES_RUMI,
 	MSM_PCIE_MAX_RES,
@@ -502,15 +500,11 @@ struct msm_pcie_dev_t {
 	void __iomem *iatu;
 	void __iomem *dm_core;
 	void __iomem *conf;
-	void __iomem *bars;
 	void __iomem *tcsr;
 	void __iomem *rumi;
 
 	uint32_t axi_bar_start;
 	uint32_t axi_bar_end;
-
-	struct resource *dev_mem_res;
-	struct resource *dev_io_res;
 
 	uint32_t wake_n;
 	uint32_t vreg_n;
@@ -820,8 +814,6 @@ static const struct msm_pcie_res_info_t msm_pcie_res_info[MSM_PCIE_MAX_RES] = {
 	{"elbi", NULL, NULL},
 	{"iatu", NULL, NULL},
 	{"conf", NULL, NULL},
-	{"io", NULL, NULL},
-	{"bars", NULL, NULL},
 	{"tcsr", NULL, NULL},
 	{"rumi", NULL, NULL}
 };
@@ -3716,12 +3708,8 @@ static int msm_pcie_get_reg(struct msm_pcie_dev_t *pcie_dev)
 	pcie_dev->iatu = pcie_dev->res[MSM_PCIE_RES_IATU].base;
 	pcie_dev->dm_core = pcie_dev->res[MSM_PCIE_RES_DM_CORE].base;
 	pcie_dev->conf = pcie_dev->res[MSM_PCIE_RES_CONF].base;
-	pcie_dev->bars = pcie_dev->res[MSM_PCIE_RES_BARS].base;
 	pcie_dev->tcsr = pcie_dev->res[MSM_PCIE_RES_TCSR].base;
 	pcie_dev->rumi = pcie_dev->res[MSM_PCIE_RES_RUMI].base;
-	pcie_dev->dev_mem_res = pcie_dev->res[MSM_PCIE_RES_BARS].resource;
-	pcie_dev->dev_io_res = pcie_dev->res[MSM_PCIE_RES_IO].resource;
-	pcie_dev->dev_io_res->flags = IORESOURCE_IO;
 
 	return 0;
 }
@@ -3807,11 +3795,8 @@ static void msm_pcie_release_resources(struct msm_pcie_dev_t *dev)
 	dev->iatu = NULL;
 	dev->dm_core = NULL;
 	dev->conf = NULL;
-	dev->bars = NULL;
 	dev->tcsr = NULL;
 	dev->rumi = NULL;
-	dev->dev_mem_res = NULL;
-	dev->dev_io_res = NULL;
 }
 
 static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
