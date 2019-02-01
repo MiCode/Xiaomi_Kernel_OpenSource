@@ -1,4 +1,4 @@
-/*
+ /*
  * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -119,6 +119,17 @@ struct compat_fastrpc_ioctl_perf {	/* kernel performance data */
 	compat_uptr_t keys;
 };
 
+#define FASTRPC_CONTROL_LATENCY		(1)
+struct compat_fastrpc_ctrl_latency {
+	compat_uint_t enable;	/* latency control enable */
+	compat_uint_t level;	/* level of control */
+};
+
+#define FASTRPC_CONTROL_SMMU		(2)
+struct compat_fastrpc_ctrl_smmu {
+	compat_uint_t sharedcb;
+};
+
 #define FASTRPC_CONTROL_KALLOC		(3)
 struct compat_fastrpc_ctrl_kalloc {
 	compat_uint_t kalloc_support; /* Remote memory allocation from kernel */
@@ -127,6 +138,8 @@ struct compat_fastrpc_ctrl_kalloc {
 struct compat_fastrpc_ioctl_control {
 	compat_uint_t req;
 	union {
+		struct compat_fastrpc_ctrl_latency lp;
+		struct compat_fastrpc_ctrl_smmu smmu;
 		struct compat_fastrpc_ctrl_kalloc kalloc;
 	};
 };
