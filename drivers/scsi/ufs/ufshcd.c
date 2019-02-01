@@ -401,7 +401,6 @@ static struct ufs_dev_fix ufs_fixups[] = {
 	/* UFS cards deviations table */
 	UFS_FIX(UFS_VENDOR_SAMSUNG, UFS_ANY_MODEL,
 		UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM),
-	UFS_FIX(UFS_VENDOR_SAMSUNG, UFS_ANY_MODEL, UFS_DEVICE_NO_VCCQ),
 	UFS_FIX(UFS_VENDOR_SAMSUNG, UFS_ANY_MODEL,
 		UFS_DEVICE_NO_FASTAUTO),
 	UFS_FIX(UFS_VENDOR_SAMSUNG, UFS_ANY_MODEL,
@@ -5471,6 +5470,7 @@ int ufshcd_change_power_mode(struct ufs_hba *hba,
 			     struct ufs_pa_layer_attr *pwr_mode)
 {
 	int ret = 0;
+	u32 peer_rx_hs_adapt_initial_cap;
 
 	/* if already configured to the requested pwr_mode */
 	if (!hba->restore_needed &&
@@ -5519,6 +5519,28 @@ int ufshcd_change_power_mode(struct ufs_hba *hba,
 	    pwr_mode->pwr_tx == FAST_MODE)
 		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_HSSERIES),
 						pwr_mode->hs_rate);
+
+	if (pwr_mode->gear_tx == UFS_HS_G4) {
+		ret = ufshcd_dme_peer_get(hba,
+				UIC_ARG_MIB_SEL(RX_HS_ADAPT_INITIAL_CAPABILITY,
+				UIC_ARG_MPHY_RX_GEN_SEL_INDEX(0)),
+				&peer_rx_hs_adapt_initial_cap);
+		if (ret) {
+			dev_err(hba->dev,
+				"%s: RX_HS_ADAPT_INITIAL_CAP get failed %d\n",
+				__func__, ret);
+			peer_rx_hs_adapt_initial_cap =
+				PA_PEERRXHSADAPTINITIAL_Default;
+		}
+		ret = ufshcd_dme_set(hba, UIC_ARG_MIB(PA_PEERRXHSADAPTINITIAL),
+			peer_rx_hs_adapt_initial_cap);
+		/* INITIAL ADAPT */
+		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TXHSADAPTTYPE),
+			PA_INITIAL_ADAPT);
+	} else {
+		/* NO ADAPT */
+		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TXHSADAPTTYPE), PA_NO_ADAPT);
+	}
 
 	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_PWRMODEUSERDATA0),
 			DL_FC0ProtectionTimeOutVal_Default);

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,8 +41,8 @@
 
 #define UFS_QCOM_LIMIT_NUM_LANES_RX	2
 #define UFS_QCOM_LIMIT_NUM_LANES_TX	2
-#define UFS_QCOM_LIMIT_HSGEAR_RX	UFS_HS_G3
-#define UFS_QCOM_LIMIT_HSGEAR_TX	UFS_HS_G3
+#define UFS_QCOM_LIMIT_HSGEAR_RX	UFS_HS_G4
+#define UFS_QCOM_LIMIT_HSGEAR_TX	UFS_HS_G4
 #define UFS_QCOM_LIMIT_PWMGEAR_RX	UFS_PWM_G4
 #define UFS_QCOM_LIMIT_PWMGEAR_TX	UFS_PWM_G4
 #define UFS_QCOM_LIMIT_RX_PWR_PWM	SLOW_MODE
