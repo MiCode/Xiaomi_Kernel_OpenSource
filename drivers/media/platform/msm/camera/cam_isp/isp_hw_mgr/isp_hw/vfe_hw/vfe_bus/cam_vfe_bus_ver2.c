@@ -123,8 +123,6 @@ struct cam_vfe_bus_ver2_wm_resource_data {
 	void                                *ctx;
 
 	uint32_t             irq_enabled;
-	bool                 init_cfg_done;
-	bool                 hfr_cfg_done;
 
 	uint32_t             offset;
 	uint32_t             width;
@@ -1130,8 +1128,6 @@ static int cam_vfe_bus_release_wm(void   *bus_priv,
 	rsrc_data->ubwc_mode_cfg_0 = 0;
 	rsrc_data->ubwc_mode_cfg_1 = 0;
 	rsrc_data->ubwc_meta_offset = 0;
-	rsrc_data->init_cfg_done = false;
-	rsrc_data->hfr_cfg_done = false;
 	rsrc_data->en_cfg = 0;
 	rsrc_data->is_dual = 0;
 
@@ -1268,8 +1264,6 @@ static int cam_vfe_bus_stop_wm(struct cam_isp_resource_node *wm_res)
 			wm_res->irq_handle);
 
 	wm_res->res_state = CAM_ISP_RESOURCE_STATE_RESERVED;
-	rsrc_data->init_cfg_done = false;
-	rsrc_data->hfr_cfg_done = false;
 
 	return rc;
 }
@@ -2866,8 +2860,7 @@ static int cam_vfe_bus_update_wm(void *priv, void *cmd_args,
 				io_cfg->planes[i].plane_stride,
 				val);
 
-		if ((wm_data->stride != val ||
-			!wm_data->init_cfg_done) && (wm_data->index >= 3)) {
+		if (wm_data->index >= 3) {
 			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
 				wm_data->hw_regs->stride,
 				io_cfg->planes[i].plane_stride);
@@ -2882,11 +2875,9 @@ static int cam_vfe_bus_update_wm(void *priv, void *cmd_args,
 					"No UBWC register to configure.");
 				return -EINVAL;
 			}
-			if (wm_data->ubwc_updated) {
-				wm_data->ubwc_updated = false;
-				cam_vfe_bus_update_ubwc_regs(
-					wm_data, reg_val_pair, i, &j);
-			}
+
+			cam_vfe_bus_update_ubwc_regs(
+				wm_data, reg_val_pair, i, &j);
 
 			/* UBWC meta address */
 			cam_vfe_bus_update_ubwc_meta_addr(
@@ -2946,9 +2937,6 @@ static int cam_vfe_bus_update_wm(void *priv, void *cmd_args,
 			wm_data->hw_regs->cfg,
 			wm_data->en_cfg);
 
-		/* set initial configuration done */
-		if (!wm_data->init_cfg_done)
-			wm_data->init_cfg_done = true;
 	}
 
 	size = vfe_out_data->cdm_util_ops->cdm_required_size_reg_random(j/2);
@@ -3012,52 +3000,36 @@ static int cam_vfe_bus_update_hfr(void *priv, void *cmd_args,
 			return -EINVAL;
 		}
 
-		if ((wm_data->framedrop_pattern !=
-			hfr_cfg->framedrop_pattern) ||
-			!wm_data->hfr_cfg_done) {
-			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
-				wm_data->hw_regs->framedrop_pattern,
-				hfr_cfg->framedrop_pattern);
-			wm_data->framedrop_pattern = hfr_cfg->framedrop_pattern;
-			CAM_DBG(CAM_ISP, "WM %d framedrop pattern 0x%x",
-				wm_data->index, wm_data->framedrop_pattern);
-		}
+		CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+			wm_data->hw_regs->framedrop_pattern,
+			hfr_cfg->framedrop_pattern);
+		wm_data->framedrop_pattern = hfr_cfg->framedrop_pattern;
+		CAM_DBG(CAM_ISP, "WM %d framedrop pattern 0x%x",
+			wm_data->index, wm_data->framedrop_pattern);
 
-		if (wm_data->framedrop_period != hfr_cfg->framedrop_period ||
-			!wm_data->hfr_cfg_done) {
-			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
-				wm_data->hw_regs->framedrop_period,
-				hfr_cfg->framedrop_period);
-			wm_data->framedrop_period = hfr_cfg->framedrop_period;
-			CAM_DBG(CAM_ISP, "WM %d framedrop period 0x%x",
-				wm_data->index, wm_data->framedrop_period);
-		}
+		CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+			wm_data->hw_regs->framedrop_period,
+			hfr_cfg->framedrop_period);
+		wm_data->framedrop_period = hfr_cfg->framedrop_period;
+		CAM_DBG(CAM_ISP, "WM %d framedrop period 0x%x",
+			wm_data->index, wm_data->framedrop_period);
 
-		if (wm_data->irq_subsample_period != hfr_cfg->subsample_period
-			|| !wm_data->hfr_cfg_done) {
-			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
-				wm_data->hw_regs->irq_subsample_period,
-				hfr_cfg->subsample_period);
-			wm_data->irq_subsample_period =
-				hfr_cfg->subsample_period;
-			CAM_DBG(CAM_ISP, "WM %d irq subsample period 0x%x",
-				wm_data->index, wm_data->irq_subsample_period);
-		}
+		CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+			wm_data->hw_regs->irq_subsample_period,
+			hfr_cfg->subsample_period);
+		wm_data->irq_subsample_period =
+			hfr_cfg->subsample_period;
+		CAM_DBG(CAM_ISP, "WM %d irq subsample period 0x%x",
+			wm_data->index, wm_data->irq_subsample_period);
 
-		if (wm_data->irq_subsample_pattern != hfr_cfg->subsample_pattern
-			|| !wm_data->hfr_cfg_done) {
-			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
-				wm_data->hw_regs->irq_subsample_pattern,
-				hfr_cfg->subsample_pattern);
-			wm_data->irq_subsample_pattern =
-				hfr_cfg->subsample_pattern;
-			CAM_DBG(CAM_ISP, "WM %d irq subsample pattern 0x%x",
-				wm_data->index, wm_data->irq_subsample_pattern);
-		}
+		CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+			wm_data->hw_regs->irq_subsample_pattern,
+			hfr_cfg->subsample_pattern);
+		wm_data->irq_subsample_pattern =
+			hfr_cfg->subsample_pattern;
+		CAM_DBG(CAM_ISP, "WM %d irq subsample pattern 0x%x",
+			wm_data->index, wm_data->irq_subsample_pattern);
 
-		/* set initial configuration done */
-		if (!wm_data->hfr_cfg_done)
-			wm_data->hfr_cfg_done = true;
 	}
 
 	size = vfe_out_data->cdm_util_ops->cdm_required_size_reg_random(j/2);
@@ -3126,62 +3098,14 @@ static int cam_vfe_bus_update_ubwc_config(void *cmd_args)
 			goto end;
 		}
 
-		if (wm_data->packer_cfg !=
-			ubwc_plane_cfg->packer_config ||
-			!wm_data->init_cfg_done) {
-			wm_data->packer_cfg = ubwc_plane_cfg->packer_config;
-			wm_data->ubwc_updated = true;
-		}
-
-		if ((!wm_data->is_dual) && ((wm_data->tile_cfg !=
-			ubwc_plane_cfg->tile_config)
-			|| !wm_data->init_cfg_done)) {
-			wm_data->tile_cfg = ubwc_plane_cfg->tile_config;
-			wm_data->ubwc_updated = true;
-		}
-
-		if ((!wm_data->is_dual) && ((wm_data->h_init !=
-			ubwc_plane_cfg->h_init) ||
-			!wm_data->init_cfg_done)) {
-			wm_data->h_init = ubwc_plane_cfg->h_init;
-			wm_data->ubwc_updated = true;
-		}
-
-		if (wm_data->v_init != ubwc_plane_cfg->v_init ||
-			!wm_data->init_cfg_done) {
-			wm_data->v_init = ubwc_plane_cfg->v_init;
-			wm_data->ubwc_updated = true;
-		}
-
-		if (wm_data->ubwc_meta_stride !=
-			ubwc_plane_cfg->meta_stride ||
-			!wm_data->init_cfg_done) {
-			wm_data->ubwc_meta_stride = ubwc_plane_cfg->meta_stride;
-			wm_data->ubwc_updated = true;
-		}
-
-		if (wm_data->ubwc_mode_cfg_0 !=
-			ubwc_plane_cfg->mode_config_0 ||
-			!wm_data->init_cfg_done) {
-			wm_data->ubwc_mode_cfg_0 =
-				ubwc_plane_cfg->mode_config_0;
-			wm_data->ubwc_updated = true;
-		}
-
-		if (wm_data->ubwc_mode_cfg_1 !=
-			ubwc_plane_cfg->mode_config_1 ||
-			!wm_data->init_cfg_done) {
-			wm_data->ubwc_mode_cfg_1 =
-				ubwc_plane_cfg->mode_config_1;
-			wm_data->ubwc_updated = true;
-		}
-
-		if (wm_data->ubwc_meta_offset !=
-			ubwc_plane_cfg->meta_offset ||
-			!wm_data->init_cfg_done) {
-			wm_data->ubwc_meta_offset = ubwc_plane_cfg->meta_offset;
-			wm_data->ubwc_updated = true;
-		}
+		wm_data->packer_cfg = ubwc_plane_cfg->packer_config;
+		wm_data->tile_cfg = ubwc_plane_cfg->tile_config;
+		wm_data->h_init = ubwc_plane_cfg->h_init;
+		wm_data->v_init = ubwc_plane_cfg->v_init;
+		wm_data->ubwc_meta_stride = ubwc_plane_cfg->meta_stride;
+		wm_data->ubwc_mode_cfg_0 = ubwc_plane_cfg->mode_config_0;
+		wm_data->ubwc_mode_cfg_1 = ubwc_plane_cfg->mode_config_1;
+		wm_data->ubwc_meta_offset = ubwc_plane_cfg->meta_offset;
 	}
 
 end:
