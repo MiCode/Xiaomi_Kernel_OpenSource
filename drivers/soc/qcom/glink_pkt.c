@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/platform_device.h>
@@ -259,7 +259,7 @@ int glink_pkt_open(struct inode *inode, struct file *file)
 	refcount_inc(&gpdev->refcount);
 	get_device(dev);
 
-	GLINK_PKT_INFO("begin for %s by %s:%ld ref_cnt[%d]\n",
+	GLINK_PKT_INFO("begin for %s by %s:%d ref_cnt[%d]\n",
 		       gpdev->ch_name, current->comm,
 		       task_pid_nr(current), refcount_read(&gpdev->refcount));
 
@@ -267,13 +267,13 @@ int glink_pkt_open(struct inode *inode, struct file *file)
 	if (ret <= 0) {
 		refcount_dec(&gpdev->refcount);
 		put_device(dev);
-		GLINK_PKT_INFO("timeout for %s by %s:%ld\n", gpdev->ch_name,
+		GLINK_PKT_INFO("timeout for %s by %s:%d\n", gpdev->ch_name,
 			       current->comm, task_pid_nr(current));
 		return -ETIMEDOUT;
 	}
 	file->private_data = gpdev;
 
-	GLINK_PKT_INFO("end for %s by %s:%ld ref_cnt[%d]\n",
+	GLINK_PKT_INFO("end for %s by %s:%d ref_cnt[%d]\n",
 		       gpdev->ch_name, current->comm,
 		       task_pid_nr(current), refcount_read(&gpdev->refcount));
 
@@ -296,7 +296,7 @@ int glink_pkt_release(struct inode *inode, struct file *file)
 	struct sk_buff *skb;
 	unsigned long flags;
 
-	GLINK_PKT_INFO("for %s by %s:%ld ref_cnt[%d]\n",
+	GLINK_PKT_INFO("for %s by %s:%d ref_cnt[%d]\n",
 		       gpdev->ch_name, current->comm,
 		       task_pid_nr(current), refcount_read(&gpdev->refcount));
 
@@ -339,7 +339,7 @@ ssize_t glink_pkt_read(struct file *file, char __user *buf,
 	int use;
 
 	if (!gpdev || refcount_read(&gpdev->refcount) == 1) {
-		GLINK_PKT_ERR("invalid device handle\n", __func__);
+		GLINK_PKT_ERR("invalid device handle\n");
 		return -EINVAL;
 	}
 
@@ -348,7 +348,7 @@ ssize_t glink_pkt_read(struct file *file, char __user *buf,
 		return -ENETRESET;
 	}
 
-	GLINK_PKT_INFO("begin for %s by %s:%ld ref_cnt[%d]\n",
+	GLINK_PKT_INFO("begin for %s by %s:%d ref_cnt[%d]\n",
 		       gpdev->ch_name, current->comm,
 		       task_pid_nr(current), refcount_read(&gpdev->refcount));
 
@@ -384,7 +384,7 @@ ssize_t glink_pkt_read(struct file *file, char __user *buf,
 
 	kfree_skb(skb);
 
-	GLINK_PKT_INFO("end for %s by %s:%ld ret[%d]\n", gpdev->ch_name,
+	GLINK_PKT_INFO("end for %s by %s:%d ret[%d]\n", gpdev->ch_name,
 		       current->comm, task_pid_nr(current), use);
 
 	return use;
@@ -410,7 +410,7 @@ ssize_t glink_pkt_write(struct file *file, const char __user *buf,
 
 	gpdev = file->private_data;
 	if (!gpdev || refcount_read(&gpdev->refcount) == 1) {
-		GLINK_PKT_ERR("invalid device handle\n", __func__);
+		GLINK_PKT_ERR("invalid device handle\n");
 		return -EINVAL;
 	}
 
@@ -460,7 +460,7 @@ static unsigned int glink_pkt_poll(struct file *file, poll_table *wait)
 
 	gpdev = file->private_data;
 	if (!gpdev || refcount_read(&gpdev->refcount) == 1) {
-		GLINK_PKT_ERR("invalid device handle\n", __func__);
+		GLINK_PKT_ERR("invalid device handle\n");
 		return POLLERR;
 	}
 	if (!completion_done(&gpdev->ch_open)) {
@@ -555,7 +555,7 @@ static long glink_pkt_ioctl(struct file *file, unsigned int cmd,
 
 	gpdev = file->private_data;
 	if (!gpdev || refcount_read(&gpdev->refcount) == 1) {
-		GLINK_PKT_ERR("invalid device handle\n", __func__);
+		GLINK_PKT_ERR("invalid device handle\n");
 		return -EINVAL;
 	}
 	if (mutex_lock_interruptible(&gpdev->lock))
@@ -824,8 +824,8 @@ static int glink_pkt_probe(struct platform_device *pdev)
 	}
 	glink_pkt_class = class_create(THIS_MODULE, "glinkpkt");
 	if (IS_ERR(glink_pkt_class)) {
-		GLINK_PKT_ERR("class_create failed ret:%d\n",
-			      PTR_ERR(glink_pkt_class));
+		ret = PTR_ERR(glink_pkt_class);
+		GLINK_PKT_ERR("class_create failed ret:%d\n", ret);
 		goto error_deinit;
 	}
 
@@ -866,7 +866,8 @@ static int __init glink_pkt_init(void)
 
 	ret = platform_driver_register(&glink_pkt_driver);
 	if (ret) {
-		GLINK_PKT_ERR("%s: glink_pkt register failed %d\n", ret);
+		GLINK_PKT_ERR("%s: glink_pkt register failed %d\n",
+			__func__, ret);
 		return ret;
 	}
 	glink_pkt_ilctxt = ipc_log_context_create(GLINK_PKT_IPC_LOG_PAGE_CNT,

@@ -163,7 +163,7 @@ qcom_ipcc_domain_xlate(struct irq_domain *d, struct device_node *node,
 	*out_hwirq = qcom_ipcc_get_packed_id(intspec[0], intspec[1]);
 	*out_type = intspec[2] & IRQ_TYPE_SENSE_MASK;
 
-	dev_dbg(dev, "%s: hwirq: 0x%x\n", __func__, *out_hwirq);
+	dev_dbg(dev, "%s: hwirq: 0x%lx\n", __func__, *out_hwirq);
 
 	return 0;
 }

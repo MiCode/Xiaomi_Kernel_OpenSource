@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/of.h>
@@ -256,7 +256,7 @@ static int glink_probe_ssr_cb(struct notifier_block *this,
 {
 	struct edge_info *einfo = container_of(this, struct edge_info, nb);
 
-	GLINK_INFO("received %d for %s", code, einfo->ssr_label);
+	GLINK_INFO("received %ld for %s\n", code, einfo->ssr_label);
 
 	switch (code) {
 	case SUBSYS_AFTER_POWERUP:
