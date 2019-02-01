@@ -1204,11 +1204,12 @@ static void cpp_release_hardware(struct cpp_device *cpp_dev)
 	if (cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CPP,
 		CAM_AHB_SUSPEND_VOTE) < 0)
 		pr_err("%s: failed to remove vote for AHB\n", __func__);
-	msm_camera_cpp_clk_disable(&cpp_dev->pdev->dev, cpp_dev->clk_info,
+	msm_camera_clk_enable(&cpp_dev->pdev->dev, cpp_dev->clk_info,
 		cpp_dev->cpp_clk, cpp_dev->num_clks, false);
 	msm_camera_regulator_disable(cpp_dev->cpp_vdd, cpp_dev->num_reg, true);
-	if (cpp_dev->stream_cnt > 0) {
-		pr_warn("stream count active\n");
+	if ((cpp_dev->stream_cnt > 0) || (cpp_dev->cpp_open_cnt == 0)) {
+		pr_debug("stream count active %d and close cpp node %d\n",
+			cpp_dev->stream_cnt, cpp_dev->cpp_open_cnt);
 		rc = msm_cpp_update_bandwidth_setting(cpp_dev, 0, 0);
 	}
 	cpp_dev->stream_cnt = 0;
