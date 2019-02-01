@@ -64,6 +64,7 @@ static struct cam_vfe_camif_ver3_reg_data vfe_480_camif_reg_data = {
 	.lcr_extern_reg_update_shift     = 16,
 	.dual_pd_extern_reg_update_shift = 17,
 	.extern_reg_update_mask          = 1,
+	.dual_ife_pix_en_shift           = 3,
 	.pixel_pattern_shift             = 24,
 	.pixel_pattern_mask              = 0x7,
 	.dsp_mode_shift                  = 24,

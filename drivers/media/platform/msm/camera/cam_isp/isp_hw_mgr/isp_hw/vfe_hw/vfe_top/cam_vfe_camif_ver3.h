@@ -37,6 +37,7 @@ struct cam_vfe_camif_ver3_reg_data {
 	uint32_t     lcr_extern_reg_update_shift;
 	uint32_t     dual_pd_extern_reg_update_shift;
 	uint32_t     extern_reg_update_mask;
+	uint32_t     dual_ife_pix_en_shift;
 
 	uint32_t     pixel_pattern_shift;
 	uint32_t     pixel_pattern_mask;
