@@ -477,7 +477,7 @@ static int qpnp_flash_led_strobe_config(struct qpnp_flash_led *led)
 	return rc;
 }
 
-static qpnp_flash_led_thermal_config(struct qpnp_flash_led *led)
+static int qpnp_flash_led_thermal_config(struct qpnp_flash_led *led)
 {
 	int rc;
 	u8 val, mask;
