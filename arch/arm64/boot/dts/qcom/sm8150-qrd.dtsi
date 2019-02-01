@@ -59,6 +59,10 @@
 	qcom,fg-esr-cal-temp-thresh = <10 40>;
 };
 
+&pm8150a_amoled {
+	status = "ok";
+};
+
 &soc {
 	gpio_keys {
 		compatible = "gpio-keys";

@@ -76,13 +76,17 @@ static bool td_on_ring(struct xhci_td *td, struct xhci_ring *ring)
  * handshake done).  There are two failure modes:  "usec" have passed (major
  * hardware flakeout), or the register reads as all-ones (hardware removed).
  */
-int xhci_handshake(void __iomem *ptr, u32 mask, u32 done, int usec)
+int xhci_handshake(struct xhci_hcd *xhci,
+		void __iomem *ptr, u32 mask, u32 done, int usec)
 {
 	u32	result;
 
 	do {
 		result = readl(ptr);
 		if (result == ~(u32)0)		/* card removed */
+			return -ENODEV;
+		/* host removed. Bail out */
+		if (xhci->xhc_state & XHCI_STATE_REMOVING)
 			return -ENODEV;
 		result &= mask;
 		if (result == done)
@@ -126,7 +130,7 @@ int xhci_halt(struct xhci_hcd *xhci)
 	xhci_dbg_trace(xhci, trace_xhci_dbg_init, "// Halt the HC");
 	xhci_quiesce(xhci);
 
-	ret = xhci_handshake(&xhci->op_regs->status,
+	ret = xhci_handshake(xhci, &xhci->op_regs->status,
 			STS_HALT, STS_HALT, XHCI_MAX_HALT_USEC);
 	if (ret) {
 		xhci_warn(xhci, "Host halt failed, %d\n", ret);
@@ -161,7 +165,7 @@ int xhci_start(struct xhci_hcd *xhci)
 	 * Wait for the HCHalted Status bit to be 0 to indicate the host is
 	 * running.
 	 */
-	ret = xhci_handshake(&xhci->op_regs->status,
+	ret = xhci_handshake(xhci, &xhci->op_regs->status,
 			STS_HALT, 0, XHCI_MAX_HALT_USEC);
 	if (ret == -ETIMEDOUT)
 		xhci_err(xhci, "Host took too long to start, "
@@ -216,7 +220,7 @@ int xhci_reset(struct xhci_hcd *xhci)
 	if (xhci->quirks & XHCI_INTEL_HOST)
 		udelay(1000);
 
-	ret = xhci_handshake(&xhci->op_regs->command,
+	ret = xhci_handshake(xhci, &xhci->op_regs->command,
 			CMD_RESET, 0, 10 * 1000 * 1000);
 	if (ret)
 		return ret;
@@ -230,7 +234,7 @@ int xhci_reset(struct xhci_hcd *xhci)
 	 * xHCI cannot write to any doorbells or operational registers other
 	 * than status until the "Controller Not Ready" flag is cleared.
 	 */
-	ret = xhci_handshake(&xhci->op_regs->status,
+	ret = xhci_handshake(xhci, &xhci->op_regs->status,
 			STS_CNR, 0, 10 * 1000 * 1000);
 
 	for (i = 0; i < 2; i++) {
@@ -960,7 +964,7 @@ int xhci_suspend(struct xhci_hcd *xhci, bool do_wakeup)
 	/* Some chips from Fresco Logic need an extraordinary delay */
 	delay *= (xhci->quirks & XHCI_SLOW_SUSPEND) ? 10 : 1;
 
-	if (xhci_handshake(&xhci->op_regs->status,
+	if (xhci_handshake(xhci, &xhci->op_regs->status,
 		      STS_HALT, STS_HALT, delay)) {
 		xhci_warn(xhci, "WARN: xHC CMD_RUN timeout\n");
 		spin_unlock_irq(&xhci->lock);
@@ -975,7 +979,7 @@ int xhci_suspend(struct xhci_hcd *xhci, bool do_wakeup)
 	command = readl(&xhci->op_regs->command);
 	command |= CMD_CSS;
 	writel(command, &xhci->op_regs->command);
-	if (xhci_handshake(&xhci->op_regs->status,
+	if (xhci_handshake(xhci, &xhci->op_regs->status,
 				STS_SAVE, 0, 10 * 1000)) {
 		xhci_warn(xhci, "WARN: xHC save state timeout\n");
 		spin_unlock_irq(&xhci->lock);
@@ -1050,7 +1054,7 @@ int xhci_resume(struct xhci_hcd *xhci, bool hibernated)
 		 * restore so setting the timeout to 100ms. Xhci specification
 		 * doesn't mention any timeout value.
 		 */
-		if (xhci_handshake(&xhci->op_regs->status,
+		if (xhci_handshake(xhci, &xhci->op_regs->status,
 			      STS_RESTORE, 0, 100 * 1000)) {
 			xhci_warn(xhci, "WARN: xHC restore state timeout\n");
 			spin_unlock_irq(&xhci->lock);
@@ -1121,7 +1125,7 @@ int xhci_resume(struct xhci_hcd *xhci, bool hibernated)
 	command = readl(&xhci->op_regs->command);
 	command |= CMD_RUN;
 	writel(command, &xhci->op_regs->command);
-	xhci_handshake(&xhci->op_regs->status, STS_HALT,
+	xhci_handshake(xhci, &xhci->op_regs->status, STS_HALT,
 		  0, 250 * 1000);
 
 	/* step 5: walk topology and initialize portsc,

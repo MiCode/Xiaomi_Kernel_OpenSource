@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -920,6 +920,9 @@ static ssize_t reset_store(struct device *dev,
 
 	if (drvdata->bc != NULL)
 		memset(drvdata->bc, 0, sizeof(struct bc_dataset));
+
+	if (drvdata->tc != NULL)
+		memset(drvdata->tc, 0, sizeof(struct tc_dataset));
 
 	if (drvdata->dsb != NULL)
 		memset(drvdata->dsb, 0, sizeof(struct dsb_dataset));

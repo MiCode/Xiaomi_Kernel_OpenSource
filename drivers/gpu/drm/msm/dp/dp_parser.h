@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -191,6 +191,7 @@ static inline char *dp_phy_aux_config_type_to_string(u32 cfg_type)
  * @mp: gpio, regulator and clock related data
  * @pinctrl: pin-control related data
  * @disp_data: controller's display related data
+ * @l_pnswap: P/N swap status on each lane
  * @max_pclk_khz: maximum pixel clock supported for the platform
  * @max_lclk_khz: maximum link clock supported for the platform
  * @hw_cfg: DP HW specific settings
@@ -217,6 +218,7 @@ struct dp_parser {
 	struct dp_display_data disp_data;
 
 	u8 l_map[4];
+	u8 l_pnswap;
 	struct dp_aux_cfg aux_cfg[AUX_CFG_LEN];
 	u32 max_pclk_khz;
 	u32 max_lclk_khz;

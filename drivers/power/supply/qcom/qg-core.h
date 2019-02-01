@@ -1,4 +1,4 @@
-/* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -106,6 +106,7 @@ struct qpnp_qg {
 	struct qg_user_data	udata;
 	struct power_supply	*batt_psy;
 	struct power_supply	*usb_psy;
+	struct power_supply	*dc_psy;
 	struct power_supply	*parallel_psy;
 	struct qg_esr_data	esr_data[QG_MAX_ESR_COUNT];
 
@@ -120,6 +121,7 @@ struct qpnp_qg {
 	bool			charge_done;
 	bool			parallel_enabled;
 	bool			usb_present;
+	bool			dc_present;
 	bool			charge_full;
 	bool			force_soc;
 	int			charge_status;

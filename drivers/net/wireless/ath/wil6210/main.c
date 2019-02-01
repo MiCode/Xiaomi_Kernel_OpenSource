@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2012-2017 Qualcomm Atheros, Inc.
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -182,6 +182,28 @@ void wil_memcpy_toio_32(volatile void __iomem *dst, const void *src,
 		memcpy(&tmp, s, count);
 		__raw_writel(tmp, d);
 	}
+}
+
+/* Device memory access is prohibited while reset or suspend.
+ * wil_mem_access_lock protects accessing device memory in these cases
+ */
+int wil_mem_access_lock(struct wil6210_priv *wil)
+{
+	if (!down_read_trylock(&wil->mem_lock))
+		return -EBUSY;
+
+	if (test_bit(wil_status_suspending, wil->status) ||
+	    test_bit(wil_status_suspended, wil->status)) {
+		up_read(&wil->mem_lock);
+		return -EBUSY;
+	}
+
+	return 0;
+}
+
+void wil_mem_access_unlock(struct wil6210_priv *wil)
+{
+	up_read(&wil->mem_lock);
 }
 
 static void wil_ring_fini_tx(struct wil6210_priv *wil, int id)
@@ -514,23 +536,16 @@ bool wil_is_recovery_blocked(struct wil6210_priv *wil)
 	return no_fw_recovery && (wil->recovery_state == fw_recovery_pending);
 }
 
-static void wil_fw_error_worker(struct work_struct *work)
+void wil_fw_recovery(struct wil6210_priv *wil)
 {
-	struct wil6210_priv *wil = container_of(work, struct wil6210_priv,
-						fw_error_worker);
 	struct net_device *ndev = wil->main_ndev;
 	struct wireless_dev *wdev;
 
-	wil_dbg_misc(wil, "fw error worker\n");
-
-	if (!ndev || !(ndev->flags & IFF_UP)) {
-		wil_info(wil, "No recovery - interface is down\n");
-		return;
-	}
+	wil_dbg_misc(wil, "fw recovery\n");
 
 	wdev = ndev->ieee80211_ptr;
 
-	/* increment @recovery_count if less then WIL6210_FW_RECOVERY_TO
+	/* increment @recovery_count if less than WIL6210_FW_RECOVERY_TO
 	 * passed since last recovery attempt
 	 */
 	if (time_is_after_jiffies(wil->last_fw_recovery +
@@ -588,6 +603,22 @@ static void wil_fw_error_worker(struct work_struct *work)
 
 	mutex_unlock(&wil->mutex);
 	rtnl_unlock();
+}
+
+static void wil_fw_error_worker(struct work_struct *work)
+{
+	struct wil6210_priv *wil = container_of(work, struct wil6210_priv,
+						fw_error_worker);
+	struct net_device *ndev = wil->main_ndev;
+
+	wil_dbg_misc(wil, "fw error worker\n");
+
+	if (!ndev || !(ndev->flags & IFF_UP)) {
+		wil_info(wil, "No recovery - interface is down\n");
+		return;
+	}
+
+	wil_fw_recovery(wil);
 }
 
 static int wil_find_free_ring(struct wil6210_priv *wil)
@@ -702,11 +733,14 @@ int wil_priv_init(struct wil6210_priv *wil)
 
 	INIT_WORK(&wil->wmi_event_worker, wmi_event_worker);
 	INIT_WORK(&wil->fw_error_worker, wil_fw_error_worker);
+	INIT_WORK(&wil->pci_linkdown_recovery_worker,
+		  wil_pci_linkdown_recovery_worker);
 
 	INIT_LIST_HEAD(&wil->pending_wmi_ev);
 	spin_lock_init(&wil->wmi_ev_lock);
 	spin_lock_init(&wil->net_queue_lock);
 	init_waitqueue_head(&wil->wq);
+	init_rwsem(&wil->mem_lock);
 
 	wil->wmi_wq = create_singlethread_workqueue(WIL_NAME "_wmi");
 	if (!wil->wmi_wq)
@@ -816,6 +850,7 @@ void wil_priv_deinit(struct wil6210_priv *wil)
 
 	wil_set_recovery_state(wil, fw_recovery_idle);
 	cancel_work_sync(&wil->fw_error_worker);
+	cancel_work_sync(&wil->pci_linkdown_recovery_worker);
 	wmi_event_flush(wil);
 	destroy_workqueue(wil->wq_service);
 	destroy_workqueue(wil->wmi_wq);
@@ -1527,11 +1562,6 @@ static void wil_pre_fw_config(struct wil6210_priv *wil)
 	if (wil->hw_version < HW_VER_TALYN_MB) {
 		wil_s(wil, RGF_CAF_ICR + offsetof(struct RGF_ICR, ICR), 0);
 		wil_w(wil, RGF_CAF_ICR + offsetof(struct RGF_ICR, IMV), ~0);
-	} else {
-		wil_s(wil,
-		      RGF_CAF_ICR_TALYN_MB + offsetof(struct RGF_ICR, ICR), 0);
-		wil_w(wil, RGF_CAF_ICR_TALYN_MB +
-		      offsetof(struct RGF_ICR, IMV), ~0);
 	}
 	/* clear PAL_UNIT_ICR (potential D0->D3 leftover)
 	 * In Talyn-MB host cannot access this register due to
@@ -1630,15 +1660,6 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 	}
 
 	set_bit(wil_status_resetting, wil->status);
-	if (test_bit(wil_status_collecting_dumps, wil->status)) {
-		/* Device collects crash dump, cancel the reset.
-		 * following crash dump collection, reset would take place.
-		 */
-		wil_dbg_misc(wil, "reject reset while collecting crash dump\n");
-		rc = -EBUSY;
-		goto out;
-	}
-
 	mutex_lock(&wil->vif_mutex);
 	wil_abort_scan_all_vifs(wil, false);
 	mutex_unlock(&wil->vif_mutex);
@@ -1822,7 +1843,9 @@ int __wil_up(struct wil6210_priv *wil)
 
 	WARN_ON(!mutex_is_locked(&wil->mutex));
 
+	down_write(&wil->mem_lock);
 	rc = wil_reset(wil, true);
+	up_write(&wil->mem_lock);
 	if (rc)
 		return rc;
 
@@ -1894,6 +1917,7 @@ int wil_up(struct wil6210_priv *wil)
 
 int __wil_down(struct wil6210_priv *wil)
 {
+	int rc;
 	WARN_ON(!mutex_is_locked(&wil->mutex));
 
 	set_bit(wil_status_resetting, wil->status);
@@ -1914,7 +1938,11 @@ int __wil_down(struct wil6210_priv *wil)
 	wil_abort_scan_all_vifs(wil, false);
 	mutex_unlock(&wil->vif_mutex);
 
-	return wil_reset(wil, false);
+	down_write(&wil->mem_lock);
+	rc = wil_reset(wil, false);
+	up_write(&wil->mem_lock);
+
+	return rc;
 }
 
 int wil_down(struct wil6210_priv *wil)

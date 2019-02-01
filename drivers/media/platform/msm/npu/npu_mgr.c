@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,6 +40,7 @@
  * -------------------------------------------------------------------------
  */
 static void host_irq_wq(struct work_struct *work);
+static void fw_deinit_wq(struct work_struct *work);
 static void turn_off_fw_logging(struct npu_device *npu_dev);
 static int wait_for_status_ready(struct npu_device *npu_dev,
 	uint32_t status_reg, uint32_t status_bits);
@@ -65,6 +66,9 @@ static int npu_send_misc_cmd(struct npu_device *npu_dev, uint32_t q_idx,
 static int npu_queue_event(struct npu_client *client, struct npu_kevent *evt);
 static int npu_notify_dsp(struct npu_device *npu_dev, bool pwr_up);
 static int npu_notify_aop(struct npu_device *npu_dev, bool on);
+static void npu_destroy_wq(struct npu_host_ctx *host_ctx);
+static struct workqueue_struct *npu_create_wq(struct npu_host_ctx *host_ctx,
+	const char *name);
 
 /* -------------------------------------------------------------------------
  * Function Definitions - Init / Deinit
@@ -74,7 +78,8 @@ int fw_init(struct npu_device *npu_dev)
 {
 	uint32_t reg_val;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
-	int ret = 0;
+	int ret = 0, retry_cnt = 3;
+	bool need_retry;
 
 	mutex_lock(&host_ctx->lock);
 	if (host_ctx->fw_state == FW_ENABLED) {
@@ -83,6 +88,8 @@ int fw_init(struct npu_device *npu_dev)
 		return 0;
 	}
 
+retry:
+	need_retry = false;
 	npu_notify_aop(npu_dev, true);
 
 	if (npu_enable_core_power(npu_dev)) {
@@ -139,14 +146,19 @@ int fw_init(struct npu_device *npu_dev)
 	REGW(npu_dev, REG_NPU_HOST_CTRL_STATUS, reg_val);
 
 	/* Initialize the host side IPC */
-	npu_host_ipc_pre_init(npu_dev);
+	ret = npu_host_ipc_pre_init(npu_dev);
+	if (ret) {
+		pr_err("npu_host_ipc_pre_init failed %d\n", ret);
+		goto enable_post_clk_fail;
+	}
 
 	/* Keep reading ctrl status until NPU is ready */
 	pr_debug("waiting for status ready from fw\n");
 
 	if (wait_for_status_ready(npu_dev, REG_NPU_FW_CTRL_STATUS,
-		FW_CTRL_STATUS_MAIN_THREAD_READY_BIT)) {
+		FW_CTRL_STATUS_MAIN_THREAD_READY_VAL)) {
 		ret = -EPERM;
+		need_retry = true;
 		goto wait_fw_ready_fail;
 	}
 
@@ -183,7 +195,13 @@ subsystem_get_fail:
 enable_sys_cache_fail:
 	npu_disable_core_power(npu_dev);
 enable_pw_fail:
+	npu_notify_aop(npu_dev, false);
 	host_ctx->fw_state = FW_DISABLED;
+	if (need_retry && (retry_cnt > 0)) {
+		retry_cnt--;
+		pr_warn("retry fw init %d\n", retry_cnt);
+		goto retry;
+	}
 	mutex_unlock(&host_ctx->lock);
 	return ret;
 }
@@ -284,8 +302,7 @@ int npu_host_init(struct npu_device *npu_dev)
 	mutex_init(&host_ctx->lock);
 	atomic_set(&host_ctx->ipc_trans_id, 1);
 
-	host_ctx->wq = npu_create_wq(host_ctx, "irq_hdl", host_irq_wq,
-		&host_ctx->irq_work);
+	host_ctx->wq = npu_create_wq(host_ctx, "npu_wq");
 	if (!host_ctx->wq)
 		sts = -EPERM;
 
@@ -296,7 +313,7 @@ void npu_host_deinit(struct npu_device *npu_dev)
 {
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 
-	npu_destroy_wq(host_ctx->wq);
+	npu_destroy_wq(host_ctx);
 	mutex_destroy(&host_ctx->lock);
 }
 
@@ -382,6 +399,40 @@ static void host_irq_wq(struct work_struct *work)
 	host_session_msg_hdlr(npu_dev);
 }
 
+static void fw_deinit_wq(struct work_struct *work)
+{
+	struct npu_host_ctx *host_ctx;
+	struct npu_device *npu_dev;
+
+	pr_debug("%s: deinit fw\n", __func__);
+	host_ctx = container_of(work, struct npu_host_ctx, fw_deinit_work.work);
+	npu_dev = container_of(host_ctx, struct npu_device, host_ctx);
+
+	if (atomic_read(&host_ctx->fw_deinit_work_cnt) == 0)
+		return;
+
+	do {
+		fw_deinit(npu_dev, false, true);
+	} while (!atomic_dec_and_test(&host_ctx->fw_deinit_work_cnt));
+}
+
+static void npu_destroy_wq(struct npu_host_ctx *host_ctx)
+{
+	flush_delayed_work(&host_ctx->fw_deinit_work);
+	destroy_workqueue(host_ctx->wq);
+}
+
+static struct workqueue_struct *npu_create_wq(struct npu_host_ctx *host_ctx,
+	const char *name)
+{
+	struct workqueue_struct *wq = create_workqueue(name);
+
+	INIT_WORK(&host_ctx->irq_work, host_irq_wq);
+	INIT_DELAYED_WORK(&host_ctx->fw_deinit_work, fw_deinit_wq);
+
+	return wq;
+}
+
 static void turn_off_fw_logging(struct npu_device *npu_dev)
 {
 	struct ipc_cmd_log_state_pkt log_packet;
@@ -420,8 +471,8 @@ static int wait_for_status_ready(struct npu_device *npu_dev,
 		msleep(NPU_FW_TIMEOUT_POLL_INTERVAL_MS);
 		wait_cnt += NPU_FW_TIMEOUT_POLL_INTERVAL_MS;
 		if (wait_cnt >= max_wait_ms) {
-			pr_err("timeout wait for status %x in %s\n",
-				status_bits, __func__);
+			pr_err("timeout wait for status %x[%x] in reg %x\n",
+				status_bits, ctrl_sts, status_reg);
 			return -EPERM;
 		}
 	}
@@ -542,6 +593,8 @@ static struct npu_network *alloc_network(struct npu_host_ctx *ctx,
 	}
 
 	ctx->network_num++;
+	pr_debug("%s:Active network num %d\n", __func__, ctx->network_num);
+
 	return network;
 }
 
@@ -612,6 +665,8 @@ static void free_network(struct npu_host_ctx *ctx, struct npu_client *client,
 			kfree(network->stats_buf);
 			memset(network, 0, sizeof(struct npu_network));
 			ctx->network_num--;
+			pr_debug("%s:Active network num %d\n", __func__,
+				ctx->network_num);
 		} else {
 			pr_warn("network %d:%d is in use\n", network->id,
 				atomic_read(&network->ref_cnt));
@@ -769,6 +824,13 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 			load_rsp_pkt->header.trans_id);
 
 		/*
+		 * The upper 8 bits in flags is the current active
+		 * network count in fw
+		 */
+		pr_debug("Current active network count in FW is %d\n",
+			load_rsp_pkt->header.flags >> 24);
+
+		/*
 		 * the upper 16 bits in returned network_hdl is
 		 * the network ID
 		 */
@@ -804,6 +866,13 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 		pr_debug("NPU_IPC_MSG_UNLOAD_DONE status: %d, trans_id: %d\n",
 			unload_rsp_pkt->header.status,
 			unload_rsp_pkt->header.trans_id);
+
+		/*
+		 * The upper 8 bits in flags is the current active
+		 * network count in fw
+		 */
+		pr_debug("Current active network count in FW is %d\n",
+			unload_rsp_pkt->header.flags >> 24);
 
 		network = get_network_by_hdl(host_ctx, NULL,
 			unload_rsp_pkt->network_hdl);
@@ -1400,7 +1469,14 @@ free_network:
 	if (ret)
 		pr_err("network unload failed to set power level\n");
 	mutex_unlock(&host_ctx->lock);
-	fw_deinit(npu_dev, false, true);
+	if (host_ctx->fw_unload_delay_ms) {
+		flush_delayed_work(&host_ctx->fw_deinit_work);
+		atomic_inc(&host_ctx->fw_deinit_work_cnt);
+		queue_delayed_work(host_ctx->wq, &host_ctx->fw_deinit_work,
+			msecs_to_jiffies(host_ctx->fw_unload_delay_ms));
+	} else {
+		fw_deinit(npu_dev, false, true);
+	}
 	return ret;
 }
 

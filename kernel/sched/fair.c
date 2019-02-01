@@ -5786,8 +5786,7 @@ static inline bool
 bias_to_waker_cpu(struct task_struct *p, int cpu, struct cpumask *rtg_target)
 {
 	bool base_test = cpumask_test_cpu(cpu, &p->cpus_allowed) &&
-			cpu_active(cpu) && task_fits_max(p, cpu) &&
-			!__cpu_overutilized(cpu, task_util(p));
+			cpu_active(cpu) && task_fits_max(p, cpu);
 	bool rtg_test = rtg_target && cpumask_test_cpu(cpu, rtg_target);
 
 	return base_test && (!rtg_target || rtg_test);
@@ -7982,7 +7981,7 @@ static inline int wake_to_idle(struct task_struct *p)
 #ifdef CONFIG_SCHED_WALT
 static inline bool is_task_util_above_min_thresh(struct task_struct *p)
 {
-	unsigned int threshold = (sysctl_sched_boost == CONSERVATIVE_BOOST) ?
+	unsigned int threshold = (sched_boost() == CONSERVATIVE_BOOST) ?
 			sysctl_sched_min_task_util_for_boost :
 			sysctl_sched_min_task_util_for_colocation;
 
@@ -9068,7 +9067,8 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 	env->flags &= ~LBF_ALL_PINNED;
 
 	if (energy_aware() && !sd_overutilized(env->sd) &&
-	    env->idle == CPU_NEWLY_IDLE) {
+	    env->idle == CPU_NEWLY_IDLE &&
+	    !task_in_related_thread_group(p)) {
 		long util_cum_dst, util_cum_src;
 		unsigned long demand;
 
@@ -10537,7 +10537,6 @@ static struct sched_group *find_busiest_group(struct lb_env *env)
 
 	if (energy_aware() && !sd_overutilized(env->sd)) {
 		int cpu_local, cpu_busiest;
-		long util_cum;
 		unsigned long capacity_local, capacity_busiest;
 
 		if (env->idle != CPU_NEWLY_IDLE)
@@ -10556,10 +10555,6 @@ static struct sched_group *find_busiest_group(struct lb_env *env)
 			goto out_balanced;
 		} else if (capacity_local == capacity_busiest) {
 			if (cpu_rq(cpu_busiest)->nr_running < 2)
-				goto out_balanced;
-
-			util_cum = cpu_util_cum(cpu_busiest, 0);
-			if (util_cum < cpu_util_cum(cpu_local, 0))
 				goto out_balanced;
 		}
 	}
@@ -12837,9 +12832,6 @@ static void walt_check_for_rotation(struct rq *src_rq)
 	struct walt_rotate_work *wr = NULL;
 
 	if (!walt_rotation_enabled)
-		return;
-
-	if (got_boost_kick())
 		return;
 
 	if (!is_min_capacity_cpu(src_cpu))

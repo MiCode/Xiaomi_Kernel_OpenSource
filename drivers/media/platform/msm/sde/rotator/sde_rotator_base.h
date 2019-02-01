@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -76,11 +76,13 @@ struct sde_mdp_set_ot_params {
  * @xin_id: xin port number of vbif
  * @reg_off_mdp_clk_ctrl: reg offset for vbif clock control
  * @bit_off_mdp_clk_ctrl: bit offset for vbif clock control
+ * @xin_timeout: bit position indicates timeout on corresponding xin id
  */
 struct sde_mdp_vbif_halt_params {
 	u32 xin_id;
 	u32 reg_off_mdp_clk_ctrl;
 	u32 bit_off_mdp_clk_ctrl;
+	u32 xin_timeout;
 };
 
 enum sde_bus_vote_type {
