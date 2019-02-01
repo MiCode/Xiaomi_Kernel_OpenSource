@@ -958,17 +958,6 @@ static void msm_pcie_check_l1ss_support_all(struct msm_pcie_dev_t *dev);
 
 static void msm_pcie_config_link_pm(struct msm_pcie_dev_t *dev, bool enable);
 
-#ifdef CONFIG_ARM
-static void msm_pcie_fixup_irqs(struct msm_pcie_dev_t *dev)
-{
-	pci_fixup_irqs(pci_common_swizzle, of_irq_parse_and_map_pci);
-}
-#else
-static void msm_pcie_fixup_irqs(struct msm_pcie_dev_t *dev)
-{
-}
-#endif
-
 static void msm_pcie_write_reg(void __iomem *base, u32 offset, u32 value)
 {
 	writel_relaxed(value, base + offset);
@@ -4257,7 +4246,6 @@ int msm_pcie_enumerate(u32 rc_idx)
 
 	bus = bridge->bus;
 
-	msm_pcie_fixup_irqs(dev);
 	pci_assign_unassigned_bus_resources(bus);
 	pci_bus_add_devices(bus);
 
