@@ -256,6 +256,7 @@
 			qcom,default-sink-caps = <5000 3000>, /* 5V @ 3A */
 						 <9000 3000>, /* 9V @ 3A */
 						 <12000 2250>; /* 12V @ 2.25A */
+			status = "disabled";
 		};
 
 		pm8150b_fg: qpnp,fg {
