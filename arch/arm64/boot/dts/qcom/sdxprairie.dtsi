@@ -274,15 +274,6 @@
 		operating-points-v2 = <&keepalive_opp_table>;
 	};
 
-	ipa_keepalive: qcom,ipa_keepalive {
-		compatible = "qcom,devbw";
-		governor = "powersave";
-		qcom,src-dst-ports = <143 777>;
-		qcom,active-only;
-		status = "ok";
-		operating-points-v2 = <&keepalive_opp_table>;
-	};
-
 	clock_rpmh: qcom,rpmh {
 		compatible = "qcom,rpmh-clk-sdxprairie";
 		mboxes = <&apps_rsc 0>;
