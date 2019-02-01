@@ -2533,6 +2533,7 @@
 		qcom,smmu-fast-map;
 		qcom,use-ipa-pm;
 		qcom,bandwidth-vote-for-ipa;
+		qcom,ipa-endp-delay-wa;
 		qcom,msm-bus,name = "ipa";
 		qcom,msm-bus,num-cases = <5>;
 		qcom,msm-bus,num-paths = <4>;
