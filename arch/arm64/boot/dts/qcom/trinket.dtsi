@@ -2244,6 +2244,7 @@
 
 	ipa_smmu_ap: ipa_smmu_ap {
 		compatible = "qcom,ipa-smmu-ap-cb";
+		qcom,smmu-s1-bypass;
 		iommus = <&apps_smmu 0x00E0 0x0>;
 		qcom,iova-mapping = <0x10000000 0x30000000>;
 		/* modem tables in IMEM */
