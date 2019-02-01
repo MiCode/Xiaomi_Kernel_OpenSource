@@ -41,6 +41,7 @@ void cam_req_mgr_core_link_reset(struct cam_req_mgr_core_link *link)
 	link->last_flush_id = 0;
 	link->initial_sync_req = -1;
 	link->in_msync_mode = false;
+	link->retry_cnt = 0;
 }
 
 void cam_req_mgr_handle_core_shutdown(void)
@@ -163,6 +164,46 @@ static int __cam_req_mgr_inject_delay(
 			tbl->num_slots);
 		tbl = tbl->next;
 	}
+	return rc;
+}
+
+/**
+ * __cam_req_mgr_notify_error_on_link()
+ *
+ * @brief : Notify userspace on exceeding max retry
+ *          attempts to apply same req
+ * @link  : link on which the req could not be applied
+ *
+ */
+static int __cam_req_mgr_notify_error_on_link(
+	struct cam_req_mgr_core_link    *link)
+{
+	struct cam_req_mgr_core_session *session = NULL;
+	struct cam_req_mgr_message       msg;
+	int rc = 0;
+
+	session = (struct cam_req_mgr_core_session *)link->parent;
+
+	CAM_ERR(CAM_CRM,
+		"Notifying userspace to trigger recovery on link 0x%x for session %d",
+		link->link_hdl, session->session_hdl);
+
+	memset(&msg, 0, sizeof(msg));
+
+	msg.session_hdl = session->session_hdl;
+	msg.u.err_msg.error_type = CAM_REQ_MGR_ERROR_TYPE_RECOVERY;
+	msg.u.err_msg.request_id = 0;
+	msg.u.err_msg.link_hdl   = link->link_hdl;
+
+	rc = cam_req_mgr_notify_message(&msg,
+		V4L_EVENT_CAM_REQ_MGR_ERROR,
+		V4L_EVENT_CAM_REQ_MGR_EVENT);
+
+	if (rc)
+		CAM_ERR(CAM_CRM,
+			"Error in notifying recovery for session %d link 0x%x rc %d",
+			session->session_hdl, link->link_hdl, rc);
+
 	return rc;
 }
 
@@ -1092,7 +1133,20 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 	if (rc < 0) {
 		/* Apply req failed retry at next sof */
 		slot->status = CRM_SLOT_STATUS_REQ_PENDING;
+
+		link->retry_cnt++;
+		if (link->retry_cnt == MAXIMUM_RETRY_ATTEMPTS) {
+			CAM_DBG(CAM_CRM,
+				"Max retry attempts reached on link[0x%x] for req [%lld]",
+				link->link_hdl,
+				in_q->slot[in_q->rd_idx].req_id);
+			__cam_req_mgr_notify_error_on_link(link);
+			link->retry_cnt = 0;
+		}
 	} else {
+		if (link->retry_cnt)
+			link->retry_cnt = 0;
+
 		link->trigger_mask |= trigger;
 
 		CAM_DBG(CAM_CRM, "Applied req[%lld] on link[%x] success",
@@ -1342,7 +1396,7 @@ static int __cam_req_mgr_process_sof_freeze(void *priv, void *data)
 	memset(&msg, 0, sizeof(msg));
 
 	msg.session_hdl = session->session_hdl;
-	msg.u.err_msg.error_type = CAM_REQ_MGR_ERROR_TYPE_DEVICE;
+	msg.u.err_msg.error_type = CAM_REQ_MGR_ERROR_TYPE_RECOVERY;
 	msg.u.err_msg.request_id = 0;
 	msg.u.err_msg.link_hdl   = link->link_hdl;
 
@@ -1586,6 +1640,7 @@ static void __cam_req_mgr_free_link(struct cam_req_mgr_core_link *link)
 	link->req.in_q = NULL;
 	i = link - g_links;
 	CAM_DBG(CAM_CRM, "free link index %d", i);
+	cam_req_mgr_core_link_reset(link);
 	atomic_set(&g_links[i].is_used, 0);
 }
 
