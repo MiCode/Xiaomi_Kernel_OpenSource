@@ -269,6 +269,12 @@ Charger specific properties:
 	Definition: Boolean flag which when present enables mositure protection
 		    feature for uUSB connector type.
 
+- qcom,hvdcp-autonomous-enable
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present enables hardware-controlled
+		operation of HVDCP.
+
 =============================================
 Second Level Nodes - SMB5 Charger Peripherals
 =============================================
