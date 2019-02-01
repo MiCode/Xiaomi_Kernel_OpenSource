@@ -67,7 +67,7 @@
 			iommus =
 				<&apps_smmu 0x2124 0x400>;
 			qcom,iommu-dma = "disabled";
-			buffer-types = <0x241>;
+			buffer-types = <0x741>;
 			virtual-addr-pool = <0x01000000 0x25800000>;
 			qcom,secure-context-bank;
 		};
@@ -79,7 +79,7 @@
 				<&apps_smmu 0x2123 0x400>;
 			qcom,iommu-dma = "disabled";
 			buffer-types = <0x106>;
-			virtual-addr-pool = <0x25800000 0x25800000>;
+			virtual-addr-pool = <0x26800000 0x24800000>;
 			qcom,secure-context-bank;
 		};
 
