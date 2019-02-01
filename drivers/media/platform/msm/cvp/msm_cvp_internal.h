@@ -71,6 +71,8 @@
 	(((c) && (c)->core_ops && (c)->core_ops->op) ? \
 	((c)->core_ops->op(args)) : 0)
 
+#define ARP_BUF_SIZE 0x100000
+
 struct msm_cvp_inst;
 
 enum cvp_ports {

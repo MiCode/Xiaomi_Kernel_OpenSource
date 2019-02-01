@@ -1094,11 +1094,9 @@ void *msm_cvp_open(int core_id, int session_type)
 
 	msm_cvp_comm_scale_clocks_and_bus(inst);
 
-	dprintk(CVP_DBG, "reached creating debugfs\n");
 	inst->debugfs_root =
 		msm_cvp_debugfs_init_inst(inst, core->debugfs_root);
 
-	return inst;
 	if (inst->session_type == MSM_CVP_CORE) {
 		rc = msm_cvp_comm_try_state(inst, MSM_CVP_OPEN_DONE);
 		if (rc) {
@@ -1106,6 +1104,13 @@ void *msm_cvp_open(int core_id, int session_type)
 				"Failed to move video instance to open done state\n");
 			goto fail_init;
 		}
+		rc = cvp_comm_set_persist_buffers(inst);
+		if (rc) {
+			dprintk(CVP_ERR,
+				"Failed to set ARP buffers\n");
+			goto fail_init;
+		}
+
 	}
 
 	return inst;
@@ -1179,7 +1184,7 @@ static void msm_cvp_cleanup_instance(struct msm_cvp_inst *inst)
 		dprintk(CVP_ERR,
 			"Failed to release recon buffers\n");
 
-	if (msm_cvp_comm_release_persist_buffers(inst))
+	if (cvp_comm_release_persist_buffers(inst))
 		dprintk(CVP_ERR,
 			"Failed to release persist buffers\n");
 
@@ -1281,15 +1286,7 @@ int msm_cvp_close(void *instance)
 		return -EINVAL;
 	}
 
-	/*
-	 * Make sure that HW stop working on these buffers that
-	 * we are going to free.
-	 */
-	rc = msm_cvp_comm_try_state(inst, MSM_CVP_RELEASE_RESOURCES_DONE);
-	if (rc)
-		dprintk(CVP_ERR,
-			"Failed to move inst %pK to rel resource done state\n",
-			inst);
+	msm_cvp_cleanup_instance(inst);
 
 	/*
 	 * deinit instance after REL_RES_DONE to ensure hardware
@@ -1298,7 +1295,6 @@ int msm_cvp_close(void *instance)
 	if (inst->session_type == MSM_CVP_CORE)
 		msm_cvp_session_deinit(inst);
 
-	msm_cvp_cleanup_instance(inst);
 
 	rc = msm_cvp_comm_try_state(inst, MSM_CVP_CORE_UNINIT);
 	if (rc) {

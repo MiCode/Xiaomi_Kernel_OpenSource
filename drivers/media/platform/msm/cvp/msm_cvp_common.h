@@ -119,7 +119,6 @@ void msm_cvp_comm_flush_dynamic_buffers(struct msm_cvp_inst *inst);
 int msm_cvp_comm_flush(struct msm_cvp_inst *inst, u32 flags);
 int msm_cvp_comm_release_scratch_buffers(struct msm_cvp_inst *inst,
 					bool check_for_reuse);
-int msm_cvp_comm_release_persist_buffers(struct msm_cvp_inst *inst);
 int msm_cvp_comm_release_recon_buffers(struct msm_cvp_inst *inst);
 void msm_cvp_comm_release_eos_buffers(struct msm_cvp_inst *inst);
 int msm_cvp_comm_release_output_buffers(struct msm_cvp_inst *inst,
@@ -237,4 +236,6 @@ int msm_cvp_comm_qbuf_decode_batch(struct msm_cvp_inst *inst,
 int msm_cvp_comm_num_queued_bufs(struct msm_cvp_inst *inst, u32 type);
 int wait_for_sess_signal_receipt(struct msm_cvp_inst *inst,
 	enum hal_command_response cmd);
+int cvp_comm_set_persist_buffers(struct msm_cvp_inst *inst);
+int cvp_comm_release_persist_buffers(struct msm_cvp_inst *inst);
 #endif
