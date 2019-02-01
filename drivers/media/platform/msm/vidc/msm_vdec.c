@@ -90,6 +90,17 @@ static const char *const mpeg2_level[] = {
 
 static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 	{
+		.id = V4L2_CID_MPEG_VIDEO_UNKNOWN,
+		.name = "Invalid control",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = INT_MAX,
+		.maximum = INT_MAX,
+		.default_value = INT_MAX,
+		.step = 1,
+		.menu_skip_mask = 0,
+		.qmenu = NULL,
+	},
+	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_DECODE_ORDER,
 		.name = "Decode Order",
 		.type = V4L2_CTRL_TYPE_BOOLEAN,
@@ -1052,26 +1063,6 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	return rc;
 }
 
-struct v4l2_ctrl *msm_vdec_get_ctrl(struct msm_vidc_inst *inst, u32 id)
-{
-	int i;
-	struct v4l2_ctrl *ctrl;
-
-	if (!inst) {
-		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
-		return NULL;
-	}
-
-	for (i = 0; i < ARRAY_SIZE(msm_vdec_ctrls); i++) {
-		ctrl = inst->ctrls[i];
-		if (ctrl->id == id)
-			return ctrl;
-	}
-
-	dprintk(VIDC_ERR, "%s: control id (%#x) not found\n", __func__, id);
-	return NULL;
-}
-
 int msm_vdec_set_frame_size(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
@@ -1243,12 +1234,7 @@ int msm_vdec_set_output_order(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
-	ctrl = msm_vdec_get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_DECODE_ORDER);
-	if (!ctrl) {
-		dprintk(VIDC_ERR,
-			"%s: failed to get output_order ctrl\n", __func__);
-		return -EINVAL;
-	}
+	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_DECODE_ORDER);
 	dprintk(VIDC_DBG, "%s: %d\n", __func__, ctrl->val);
 	if (ctrl->val == V4L2_MPEG_MSM_VIDC_ENABLE)
 		output_order = HFI_OUTPUT_ORDER_DECODE;
@@ -1277,13 +1263,7 @@ int msm_vdec_set_picture_type(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
-	ctrl = msm_vdec_get_ctrl(inst,
-			V4L2_CID_MPEG_VIDC_VIDEO_PICTYPE_DEC_MODE);
-	if (!ctrl) {
-		dprintk(VIDC_ERR,
-			"%s: failed to get pcture_type ctrl\n", __func__);
-		return -EINVAL;
-	}
+	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_PICTYPE_DEC_MODE);
 	enable_picture.picture_type = ctrl->val;
 
 	dprintk(VIDC_DBG, "%s: %#x\n", __func__, enable_picture.picture_type);
@@ -1309,13 +1289,7 @@ int msm_vdec_set_sync_frame_mode(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
-	ctrl = msm_vdec_get_ctrl(inst,
-			V4L2_CID_MPEG_VIDC_VIDEO_SYNC_FRAME_DECODE);
-	if (!ctrl) {
-		dprintk(VIDC_ERR,
-			"%s: failed to get sync_frame_mode ctrl\n", __func__);
-		return -EINVAL;
-	}
+	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_SYNC_FRAME_DECODE);
 	hfi_property.enable = (bool)ctrl->val;
 
 	dprintk(VIDC_DBG, "%s: %#x\n", __func__, hfi_property.enable);
@@ -1340,13 +1314,7 @@ int msm_vdec_set_secure_mode(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
-	ctrl = msm_vdec_get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_SECURE);
-	if (!ctrl) {
-		dprintk(VIDC_ERR,
-			"%s: failed to get output_order ctrl\n", __func__);
-		return -EINVAL;
-	}
-
+	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_SECURE);
 	dprintk(VIDC_DBG, "%s: %#x\n", __func__, ctrl->val);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
 		HFI_PROPERTY_PARAM_SECURE_SESSION, &ctrl->val, sizeof(u32));
@@ -1453,12 +1421,7 @@ int msm_vdec_set_priority(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
-	ctrl = msm_vdec_get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_PRIORITY);
-	if (!ctrl) {
-		dprintk(VIDC_ERR,
-			"%s: failed to get output_order ctrl\n", __func__);
-		return -EINVAL;
-	}
+	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_PRIORITY);
 	hfi_property.enable = (bool)ctrl->val;
 
 	dprintk(VIDC_DBG, "%s: %#x\n", __func__, hfi_property.enable);
@@ -1487,13 +1450,7 @@ int msm_vdec_set_operating_rate(struct msm_vidc_inst *inst)
 	if (is_decode_session(inst))
 		return 0;
 
-	ctrl = msm_vdec_get_ctrl(inst,
-			V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE);
-	if (!ctrl) {
-		dprintk(VIDC_ERR,
-			"%s: failed to get output_order ctrl\n", __func__);
-		return -EINVAL;
-	}
+	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE);
 	operating_rate.operating_rate = ctrl->val;
 
 	dprintk(VIDC_DBG, "%s: %#x\n", __func__,
@@ -1521,22 +1478,8 @@ int msm_vdec_set_conceal_color(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
-	ctrl_8b = msm_vdec_get_ctrl(inst,
-			V4L2_CID_MPEG_VIDC_VIDEO_CONCEAL_COLOR_8BIT);
-	if (!ctrl_8b) {
-		dprintk(VIDC_ERR,
-			"%s: failed to get conceal_color_8bit ctrl\n",
-			__func__);
-		return -EINVAL;
-	}
-	ctrl_10b = msm_vdec_get_ctrl(inst,
-			V4L2_CID_MPEG_VIDC_VIDEO_CONCEAL_COLOR_10BIT);
-	if (!ctrl_10b) {
-		dprintk(VIDC_ERR,
-			"%s: failed to get conceal_color_10bit ctrl\n",
-			__func__);
-		return -EINVAL;
-	}
+	ctrl_8b = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_CONCEAL_COLOR_8BIT);
+	ctrl_10b = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_CONCEAL_COLOR_10BIT);
 	conceal_color.conceal_color_8bit = ctrl_8b->val;
 	conceal_color.conceal_color_10bit = ctrl_10b->val;
 
@@ -1558,13 +1501,7 @@ int msm_vdec_set_extradata(struct msm_vidc_inst *inst)
 	uint32_t display_info = HFI_PROPERTY_PARAM_VUI_DISPLAY_INFO_EXTRADATA;
 	struct v4l2_ctrl *ctrl;
 
-	ctrl = msm_vdec_get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA);
-	if (!ctrl) {
-		dprintk(VIDC_ERR,
-			"%s: failed to get output_order ctrl\n", __func__);
-		return -EINVAL;
-	}
-
+	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA);
 	switch (inst->fmts[OUTPUT_PORT].fourcc) {
 	case V4L2_PIX_FMT_H264:
 	case V4L2_PIX_FMT_HEVC:
