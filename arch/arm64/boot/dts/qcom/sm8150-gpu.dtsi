@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -90,7 +90,7 @@
 
 		qcom,ubwc-mode = <3>;
 
-		qcom,snapshot-size = <1048576>; //bytes
+		qcom,snapshot-size = <1310720>; //bytes
 
 		qcom,gpu-qdss-stm = <0x161c0000 0x40000>; // base addr, size
 
