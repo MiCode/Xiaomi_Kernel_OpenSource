@@ -161,6 +161,7 @@ enum sde_intr_enum {
  *                         compression initial revision
  * @SDE_MDP_UBWC_1_5,      Universal Bandwidth compression version 1.5
  * @SDE_MDP_VSYNC_SEL      Vsync selection for command mode panels
+ * @SDE_MDP_DHDR_MEMPOOL   Dynamic HDR Metadata mempool present
  * @SDE_MDP_MAX            Maximum value
 
  */
@@ -171,6 +172,7 @@ enum {
 	SDE_MDP_UBWC_1_0,
 	SDE_MDP_UBWC_1_5,
 	SDE_MDP_VSYNC_SEL,
+	SDE_MDP_DHDR_MEMPOOL,
 	SDE_MDP_MAX
 };
 
@@ -1154,6 +1156,7 @@ struct sde_perf_cfg {
  * @ubwc_bw_calc_version indicate how UBWC BW has to be calculated
  * @has_idle_pc        indicate if idle power collapse feature is supported
  * @has_hdr            HDR feature support
+ * @has_hdr_plus       HDR10+ feature support
  * @dma_formats        Supported formats for dma pipe
  * @cursor_formats     Supported formats for cursor pipe
  * @vig_formats        Supported formats for vig pipe
@@ -1241,6 +1244,7 @@ struct sde_mdss_cfg {
 	u32 sui_supported_blendstage;
 
 	bool has_hdr;
+	bool has_hdr_plus;
 	bool has_cursor;
 	bool has_vig_p010;
 	u32 mdss_count;

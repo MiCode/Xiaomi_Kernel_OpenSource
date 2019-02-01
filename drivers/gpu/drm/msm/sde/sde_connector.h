@@ -17,6 +17,7 @@
 #include "sde_fence.h"
 
 #define SDE_CONNECTOR_NAME_SIZE	16
+#define SDE_CONNECTOR_DHDR_MEMPOOL_MAX_SIZE	SZ_2K
 
 struct sde_connector;
 struct sde_connector_state;
@@ -330,6 +331,12 @@ struct sde_connector_evt {
 	void *usr;
 };
 
+struct sde_connector_dyn_hdr_metadata {
+	u8 dynamic_hdr_payload[SDE_CONNECTOR_DHDR_MEMPOOL_MAX_SIZE];
+	int dynamic_hdr_payload_size;
+	bool dynamic_hdr_update;
+};
+
 /**
  * struct sde_connector - local sde connector structure
  * @base: Base drm connector structure
@@ -372,6 +379,7 @@ struct sde_connector_evt {
  * @qsync_updated: Qsync settings were updated
  * last_cmd_tx_sts: status of the last command transfer
  * @hdr_capable: external hdr support present
+ * @core_clk_rate: MDP core clk rate used for dynamic HDR packet calculation
  */
 struct sde_connector {
 	struct drm_connector base;
@@ -491,6 +499,7 @@ struct sde_connector {
  * @property_blobs: blob properties
  * @mode_info: local copy of msm_mode_info struct
  * @hdr_meta: HDR metadata info passed from userspace
+ * @dyn_hdr_meta: Dynamic HDR metadata payload and state tracking
  * @old_topology_name: topology of previous atomic state. remove this in later
  *	kernel versions which provide drm_atomic_state old_state pointers
  */
@@ -504,6 +513,7 @@ struct sde_connector_state {
 	struct drm_property_blob *property_blobs[CONNECTOR_PROP_BLOBCOUNT];
 	struct msm_mode_info mode_info;
 	struct drm_msm_ext_hdr_metadata hdr_meta;
+	struct sde_connector_dyn_hdr_metadata dyn_hdr_meta;
 	enum sde_rm_topology_name old_topology_name;
 };
 
@@ -696,6 +706,15 @@ int sde_connector_get_dpms(struct drm_connector *connector);
  * It must only be called once per frame update for the given connector.
  */
 void sde_connector_set_qsync_params(struct drm_connector *connector);
+
+/**
+* sde_connector_get_dyn_hdr_meta - returns pointer to connector state's dynamic
+*				   HDR metadata info
+* @connector: pointer to drm connector
+*/
+
+struct sde_connector_dyn_hdr_metadata *sde_connector_get_dyn_hdr_meta(
+		struct drm_connector *connector);
 
 /**
  * sde_connector_trigger_event - indicate that an event has occurred

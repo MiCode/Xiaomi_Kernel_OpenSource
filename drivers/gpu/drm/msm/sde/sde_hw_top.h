@@ -196,6 +196,16 @@ struct sde_hw_mdp_ops {
 	 */
 	void (*set_cwb_ppb_cntl)(struct sde_hw_mdp *mdp,
 			bool dual, bool dspp_out);
+
+	/**
+	 * set_hdr_plus_metadata - program the dynamic hdr metadata
+	 * @mdp:     mdp top context driver
+	 * @payload: pointer to payload data
+	 * @len:     size of the valid data within payload
+	 * @stream_id: stream ID for MST (0 or 1)
+	 */
+	void (*set_hdr_plus_metadata)(struct sde_hw_mdp *mdp,
+			u8 *payload, u32 len, u32 stream_id);
 };
 
 struct sde_hw_mdp {

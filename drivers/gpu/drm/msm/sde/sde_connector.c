@@ -636,6 +636,18 @@ static int _sde_connector_update_dirty_properties(
 	return 0;
 }
 
+struct sde_connector_dyn_hdr_metadata *sde_connector_get_dyn_hdr_meta(
+		struct drm_connector *connector)
+{
+	struct sde_connector_state *c_state;
+
+	if (!connector)
+		return NULL;
+
+	c_state = to_sde_connector_state(connector->state);
+	return &c_state->dyn_hdr_meta;
+}
+
 int sde_connector_pre_kickoff(struct drm_connector *connector)
 {
 	struct sde_connector *c_conn;
@@ -927,6 +939,12 @@ sde_connector_atomic_duplicate_state(struct drm_connector *connector)
 	if (c_state->out_fb)
 		drm_framebuffer_get(c_state->out_fb);
 
+	/* clear dynamic HDR metadata from prev state */
+	if (c_state->dyn_hdr_meta.dynamic_hdr_update) {
+		c_state->dyn_hdr_meta.dynamic_hdr_update = false;
+		c_state->dyn_hdr_meta.dynamic_hdr_payload_size = 0;
+	}
+
 	return &c_state->base;
 }
 
@@ -1069,6 +1087,8 @@ static int _sde_connector_set_ext_hdr_info(
 	int rc = 0;
 	struct drm_connector *connector;
 	struct drm_msm_ext_hdr_metadata *hdr_meta;
+	size_t payload_size = 0;
+	u8 *payload = NULL;
 	int i;
 
 	if (!c_conn || !c_state) {
@@ -1102,6 +1122,37 @@ static int _sde_connector_set_ext_hdr_info(
 
 	hdr_meta = &c_state->hdr_meta;
 
+	/* dynamic metadata support */
+	if (!hdr_meta->hdr_plus_payload_size || !hdr_meta->hdr_plus_payload)
+		goto skip_dhdr;
+
+	if (!connector->hdr_plus_app_ver) {
+		SDE_ERROR_CONN(c_conn, "sink doesn't support dynamic HDR\n");
+		rc = -ENOTSUPP;
+		goto end;
+	}
+
+	payload_size = hdr_meta->hdr_plus_payload_size;
+	if (payload_size > sizeof(c_state->dyn_hdr_meta.dynamic_hdr_payload)) {
+		SDE_ERROR_CONN(c_conn, "payload size exceeds limit\n");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	payload = c_state->dyn_hdr_meta.dynamic_hdr_payload;
+	if (copy_from_user(payload,
+			(void __user *)c_state->hdr_meta.hdr_plus_payload,
+			payload_size)) {
+		SDE_ERROR_CONN(c_conn, "failed to copy dhdr metadata\n");
+		rc = -EFAULT;
+		goto end;
+	}
+
+	c_state->dyn_hdr_meta.dynamic_hdr_update = true;
+
+skip_dhdr:
+	c_state->dyn_hdr_meta.dynamic_hdr_payload_size = payload_size;
+
 	SDE_DEBUG_CONN(c_conn, "hdr_state %d\n", hdr_meta->hdr_state);
 	SDE_DEBUG_CONN(c_conn, "hdr_supported %d\n", hdr_meta->hdr_supported);
 	SDE_DEBUG_CONN(c_conn, "eotf %d\n", hdr_meta->eotf);
@@ -1119,6 +1170,9 @@ static int _sde_connector_set_ext_hdr_info(
 		SDE_DEBUG_CONN(c_conn, "display_primaries_y [%d]\n",
 				   hdr_meta->display_primaries_y[i]);
 	}
+	SDE_DEBUG_CONN(c_conn, "hdr_plus payload%s updated, size %d\n",
+			c_state->dyn_hdr_meta.dynamic_hdr_update ? "" : " NOT",
+			c_state->dyn_hdr_meta.dynamic_hdr_payload_size);
 
 end:
 	return rc;
@@ -1335,6 +1389,7 @@ static void sde_connector_update_hdr_props(struct drm_connector *connector)
 		connector->hdr_max_luminance,
 		connector->hdr_avg_luminance,
 		connector->hdr_min_luminance,
+		connector->hdr_plus_app_ver,
 	};
 
 	msm_property_set_blob(&c_conn->property_info, &c_conn->blob_ext_hdr,
