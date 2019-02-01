@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"[drm-dp] %s: " fmt, __func__
@@ -18,9 +18,9 @@
 #define MAX_PRE_EMP_LEVELS 4
 
 static u8 const vm_pre_emphasis[MAX_VOLTAGE_LEVELS][MAX_PRE_EMP_LEVELS] = {
-	{0x00, 0x0B, 0x14, 0xFF},       /* pe0, 0 db */
-	{0x00, 0x0B, 0x12, 0xFF},       /* pe1, 3.5 db */
-	{0x00, 0x0B, 0xFF, 0xFF},       /* pe2, 6.0 db */
+	{0x00, 0x0E, 0x16, 0xFF},       /* pe0, 0 db */
+	{0x00, 0x0E, 0x16, 0xFF},       /* pe1, 3.5 db */
+	{0x00, 0x0E, 0xFF, 0xFF},       /* pe2, 6.0 db */
 	{0xFF, 0xFF, 0xFF, 0xFF}        /* pe3, 9.5 db */
 };
 
@@ -28,7 +28,7 @@ static u8 const vm_pre_emphasis[MAX_VOLTAGE_LEVELS][MAX_PRE_EMP_LEVELS] = {
 static u8 const vm_voltage_swing[MAX_VOLTAGE_LEVELS][MAX_PRE_EMP_LEVELS] = {
 	{0x07, 0x0F, 0x16, 0xFF}, /* sw0, 0.4v  */
 	{0x11, 0x1E, 0x1F, 0xFF}, /* sw1, 0.6 v */
-	{0x19, 0x1F, 0xFF, 0xFF}, /* sw1, 0.8 v */
+	{0x1A, 0x1F, 0xFF, 0xFF}, /* sw1, 0.8 v */
 	{0xFF, 0xFF, 0xFF, 0xFF}  /* sw1, 1.2 v, optional */
 };
 
@@ -93,6 +93,34 @@ static void dp_catalog_aux_setup_v420(struct dp_catalog_aux *aux,
 			0x1F);
 }
 
+static void dp_catalog_aux_clear_hw_interrupts_v420(struct dp_catalog_aux *aux)
+{
+	struct dp_catalog_private_v420 *catalog;
+	struct dp_io_data *io_data;
+	u32 data = 0;
+
+	if (!aux) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	catalog = dp_catalog_get_priv_v420(aux);
+	io_data = catalog->io->dp_phy;
+
+	data = dp_read(catalog->exe_mode, io_data,
+		DP_PHY_AUX_INTERRUPT_STATUS_V420);
+
+	dp_write(catalog->exe_mode, io_data,
+		DP_PHY_AUX_INTERRUPT_CLEAR_V420, 0x1f);
+	wmb(); /* make sure 0x1f is written before next write */
+	dp_write(catalog->exe_mode, io_data,
+		DP_PHY_AUX_INTERRUPT_CLEAR_V420, 0x9f);
+	wmb(); /* make sure 0x9f is written before next write */
+	dp_write(catalog->exe_mode, io_data,
+		DP_PHY_AUX_INTERRUPT_CLEAR_V420, 0);
+	wmb(); /* make sure register is cleared */
+}
+
 static void dp_catalog_panel_config_msa_v420(struct dp_catalog_panel *panel,
 					u32 rate, u32 stream_rate_khz,
 					bool fixed_nvid)
@@ -136,6 +164,11 @@ static void dp_catalog_panel_config_msa_v420(struct dp_catalog_panel *panel,
 		 * always be within the range of a 32 bit unsigned int.
 		 */
 		mvid = (u32) mvid_calc;
+
+		if (panel->widebus_en) {
+			mvid <<= 1;
+			nvid <<= 1;
+		}
 	} else {
 		io_data = catalog->io->dp_mmss_cc;
 
@@ -152,6 +185,9 @@ static void dp_catalog_panel_config_msa_v420(struct dp_catalog_panel *panel,
 		nvid = (0xFFFF & (~pixel_n)) + (pixel_m & 0xFFFF);
 
 		pr_debug("rate = %d\n", rate);
+
+		if (panel->widebus_en)
+			mvid <<= 1;
 
 		if (link_rate_hbr2 == rate)
 			nvid *= 2;
@@ -295,6 +331,8 @@ int dp_catalog_get_v420(struct device *dev, struct dp_catalog *catalog,
 	catalog->priv.set_exe_mode = dp_catalog_set_exe_mode_v420;
 
 	catalog->aux.setup         = dp_catalog_aux_setup_v420;
+	catalog->aux.clear_hw_interrupts =
+				dp_catalog_aux_clear_hw_interrupts_v420;
 	catalog->panel.config_msa  = dp_catalog_panel_config_msa_v420;
 	catalog->ctrl.phy_lane_cfg = dp_catalog_ctrl_phy_lane_cfg_v420;
 	catalog->ctrl.update_vx_px = dp_catalog_ctrl_update_vx_px_v420;

@@ -12,15 +12,26 @@
 
 #include "dp_panel.h"
 
-struct dp_mst_hdp_info {
+#define DP_MST_SIM_MAX_PORTS	2
+
+enum dp_drv_state {
+	PM_DEFAULT,
+	PM_SUSPEND,
+};
+
+struct dp_mst_hpd_info {
 	bool mst_protocol;
+	bool mst_hpd_sim;
+	u32 mst_port_cnt;
 	u8 *edid;
 };
 
 struct dp_mst_drm_cbs {
 	void (*hpd)(void *display, bool hpd_status,
-			struct dp_mst_hdp_info *info);
-	void (*hpd_irq)(void *display);
+			struct dp_mst_hpd_info *info);
+	void (*hpd_irq)(void *display, struct dp_mst_hpd_info *info);
+	void (*set_drv_state)(void *dp_display,
+			enum dp_drv_state mst_state);
 };
 
 struct dp_mst_drm_install_info {
@@ -45,6 +56,7 @@ struct dp_mst_connector {
 	struct drm_connector *conn;
 	struct mutex lock;
 	struct list_head list;
+	enum drm_connector_status state;
 };
 
 struct dp_display {
@@ -53,6 +65,7 @@ struct dp_display {
 	struct drm_connector *base_connector;
 	void *base_dp_panel;
 	bool is_sst_connected;
+	bool is_mst_supported;
 	u32 max_pclk_khz;
 	void *dp_mst_prv_info;
 
@@ -86,6 +99,9 @@ struct dp_display {
 	int (*mst_connector_update_edid)(struct dp_display *dp_display,
 			struct drm_connector *connector,
 			struct edid *edid);
+	int (*mst_get_connector_info)(struct dp_display *dp_display,
+			struct drm_connector *connector,
+			struct dp_mst_connector *mst_conn);
 	int (*get_mst_caps)(struct dp_display *dp_display,
 			struct dp_mst_caps *mst_caps);
 	int (*set_stream_info)(struct dp_display *dp_display, void *panel,
@@ -93,6 +109,8 @@ struct dp_display {
 	void (*convert_to_dp_mode)(struct dp_display *dp_display, void *panel,
 			const struct drm_display_mode *drm_mode,
 			struct dp_display_mode *dp_mode);
+	int (*update_pps)(struct dp_display *dp_display,
+			struct drm_connector *connector, char *pps_cmd);
 };
 
 #ifdef CONFIG_DRM_MSM_DP
@@ -109,6 +127,11 @@ static inline int dp_display_get_displays(void **displays, int count)
 	return 0;
 }
 static inline int dp_display_get_num_of_streams(void)
+{
+	return 0;
+}
+static inline int dp_connector_update_pps(struct drm_connector *connector,
+		char *pps_cmd, void *display)
 {
 	return 0;
 }

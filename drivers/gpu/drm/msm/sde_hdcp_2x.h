@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __SDE_HDCP_2X_H__
@@ -25,6 +25,7 @@
  * @HDCP_2X_CMD_MSG_RECV_TIMEOUT:  receiving message from sink timed out
  * @HDCP_2X_CMD_QUERY_STREAM_TYPE: start content stream processing
  * @HDCP_2X_CMD_LINK_FAILED:       link failure notification
+ * @HDCP_2X_CMD_MIN_ENC_LEVEL:     trigger minimum encryption level change
  */
 enum sde_hdcp_2x_wakeup_cmd {
 	HDCP_2X_CMD_INVALID,
@@ -38,6 +39,7 @@ enum sde_hdcp_2x_wakeup_cmd {
 	HDCP_2X_CMD_MSG_RECV_TIMEOUT,
 	HDCP_2X_CMD_QUERY_STREAM_TYPE,
 	HDCP_2X_CMD_LINK_FAILED,
+	HDCP_2X_CMD_MIN_ENC_LEVEL,
 };
 
 /**
@@ -78,6 +80,7 @@ struct sde_hdcp_2x_wakeup_data {
 	void *context;
 	uint32_t total_message_length;
 	uint32_t timeout;
+	u8 min_enc_level;
 };
 
 /**

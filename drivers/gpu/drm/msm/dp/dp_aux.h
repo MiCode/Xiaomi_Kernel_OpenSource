@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _DP_AUX_H_
@@ -34,7 +34,10 @@ enum dp_aux_error {
 
 struct dp_aux {
 	u32 reg;
+	u32 size;
 	u32 state;
+
+	bool read;
 
 	struct drm_dp_aux *drm_aux;
 	int (*drm_aux_register)(struct dp_aux *aux);

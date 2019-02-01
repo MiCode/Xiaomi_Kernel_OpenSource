@@ -7,8 +7,9 @@
 #define _DP_USBPD_H_
 
 #include <linux/types.h>
-#include <linux/device.h>
 #include "dp_hpd.h"
+
+struct device;
 
 /**
  * enum dp_usbpd_port - usb/dp port type

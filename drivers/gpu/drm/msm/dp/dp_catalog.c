@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"[drm-dp] %s: " fmt, __func__
@@ -695,7 +695,7 @@ static void dp_catalog_ctrl_state_ctrl(struct dp_catalog_ctrl *ctrl, u32 state)
 	wmb();
 }
 
-static void dp_catalog_ctrl_config_ctrl(struct dp_catalog_ctrl *ctrl)
+static void dp_catalog_ctrl_config_ctrl(struct dp_catalog_ctrl *ctrl, u8 ln_cnt)
 {
 	struct dp_catalog_private *catalog;
 	struct dp_io_data *io_data;
@@ -709,13 +709,16 @@ static void dp_catalog_ctrl_config_ctrl(struct dp_catalog_ctrl *ctrl)
 	catalog = dp_catalog_get_priv(ctrl);
 	io_data = catalog->io.dp_link;
 
+	cfg = dp_read(catalog->exe_mode, io_data, DP_CONFIGURATION_CTRL);
+	cfg &= ~(BIT(4) | BIT(5));
+	cfg |= (ln_cnt - 1) << 4;
+	dp_write(catalog->exe_mode, io_data, DP_CONFIGURATION_CTRL, cfg);
+
 	cfg = dp_read(catalog->exe_mode, io_data, DP_MAINLINK_CTRL);
 	cfg |= 0x02000000;
 	dp_write(catalog->exe_mode, io_data, DP_MAINLINK_CTRL, cfg);
 
 	pr_debug("DP_MAINLINK_CTRL=0x%x\n", cfg);
-
-	dp_write(catalog->exe_mode, io_data, DP_MAINLINK_LEVELS, 0xa08);
 }
 
 static void dp_catalog_panel_config_ctrl(struct dp_catalog_panel *panel,
@@ -766,6 +769,7 @@ static void dp_catalog_panel_config_dto(struct dp_catalog_panel *panel,
 {
 	struct dp_catalog_private *catalog;
 	struct dp_io_data *io_data;
+	u32 dsc_dto;
 
 	if (!panel) {
 		pr_err("invalid input\n");
@@ -792,7 +796,12 @@ static void dp_catalog_panel_config_dto(struct dp_catalog_panel *panel,
 		return;
 	}
 
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_DSC_DTO, ack << 1);
+	dsc_dto = dp_read(catalog->exe_mode, io_data, MMSS_DP_DSC_DTO);
+	if (ack)
+		dsc_dto = BIT(1);
+	else
+		dsc_dto &= ~BIT(1);
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_DSC_DTO, dsc_dto);
 }
 
 static void dp_catalog_ctrl_lane_mapping(struct dp_catalog_ctrl *ctrl,
@@ -927,6 +936,11 @@ static void dp_catalog_panel_config_msa(struct dp_catalog_panel *panel,
 		 * always be within the range of a 32 bit unsigned int.
 		 */
 		mvid = (u32) mvid_calc;
+
+		if (panel->widebus_en) {
+			mvid <<= 1;
+			nvid <<= 1;
+		}
 	} else {
 		io_data = catalog->io.dp_mmss_cc;
 
@@ -943,6 +957,9 @@ static void dp_catalog_panel_config_msa(struct dp_catalog_panel *panel,
 		nvid = (0xFFFF & (~pixel_n)) + (pixel_m & 0xFFFF);
 
 		pr_debug("rate = %d\n", rate);
+
+		if (panel->widebus_en)
+			mvid <<= 1;
 
 		if (link_rate_hbr2 == rate)
 			nvid *= 2;
@@ -1105,6 +1122,107 @@ static void dp_catalog_panel_tpg_cfg(struct dp_catalog_panel *panel,
 	wmb(); /* ensure Timing generator is turned on */
 }
 
+static void dp_catalog_panel_dsc_cfg(struct dp_catalog_panel *panel)
+{
+	struct dp_catalog_private *catalog;
+	struct dp_io_data *io_data;
+	u32 reg, offset;
+	int i;
+
+	if (!panel) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	if (panel->stream_id >= DP_STREAM_MAX) {
+		pr_err("invalid stream_id:%d\n", panel->stream_id);
+		return;
+	}
+
+	catalog = dp_catalog_get_priv(panel);
+
+	if (panel->stream_id == DP_STREAM_0)
+		io_data = catalog->io.dp_p0;
+	else
+		io_data = catalog->io.dp_p1;
+
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_DSC_DTO_COUNT,
+			panel->dsc.dto_count);
+
+	reg = dp_read(catalog->exe_mode, io_data, MMSS_DP_DSC_DTO);
+	if (panel->dsc.dto_en) {
+		reg |= BIT(0);
+		reg |= (panel->dsc.dto_n << 8);
+		reg |= (panel->dsc.dto_d << 16);
+	}
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_DSC_DTO, reg);
+
+	io_data = catalog->io.dp_link;
+
+	if (panel->stream_id == DP_STREAM_0)
+		offset = 0;
+	else
+		offset = DP1_COMPRESSION_MODE_CTRL - DP_COMPRESSION_MODE_CTRL;
+
+	dp_write(catalog->exe_mode, io_data, DP_PPS_HB_0_3 + offset, 0x7F1000);
+	dp_write(catalog->exe_mode, io_data, DP_PPS_PB_0_3 + offset, 0xA22300);
+
+	for (i = 0; i < panel->dsc.parity_word_len; i++)
+		dp_write(catalog->exe_mode, io_data,
+				DP_PPS_PB_4_7 + (i << 2) + offset,
+				panel->dsc.parity_word[i]);
+
+	for (i = 0; i < panel->dsc.pps_word_len; i++)
+		dp_write(catalog->exe_mode, io_data,
+				DP_PPS_PPS_0_3 + (i << 2) + offset,
+				panel->dsc.pps_word[i]);
+
+	reg = 0;
+	if (panel->dsc.dsc_en) {
+		reg = BIT(0);
+		reg |= (panel->dsc.eol_byte_num << 3);
+		reg |= (panel->dsc.slice_per_pkt << 5);
+		reg |= (panel->dsc.bytes_per_pkt << 16);
+		reg |= (panel->dsc.be_in_lane << 10);
+	}
+	dp_write(catalog->exe_mode, io_data,
+			DP_COMPRESSION_MODE_CTRL + offset, reg);
+
+	pr_debug("compression:0x%x for stream:%d\n",
+			reg, panel->stream_id);
+}
+
+static void dp_catalog_panel_pps_flush(struct dp_catalog_panel *panel)
+{
+	struct dp_catalog_private *catalog;
+	struct dp_io_data *io_data;
+	u32 dp_flush, offset;
+
+	if (!panel) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	if (panel->stream_id >= DP_STREAM_MAX) {
+		pr_err("invalid stream_id:%d\n", panel->stream_id);
+		return;
+	}
+
+	catalog = dp_catalog_get_priv(panel);
+	io_data = catalog->io.dp_link;
+
+	if (panel->stream_id == DP_STREAM_0)
+		offset = 0;
+	else
+		offset = MMSS_DP1_FLUSH - MMSS_DP_FLUSH;
+
+	dp_flush = dp_read(catalog->exe_mode, io_data, MMSS_DP_FLUSH + offset);
+	dp_flush |= BIT(0);
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_FLUSH + offset, dp_flush);
+
+	pr_debug("pps flush for stream:%d\n", panel->stream_id);
+}
+
 static void dp_catalog_ctrl_reset(struct dp_catalog_ctrl *ctrl)
 {
 	u32 sw_reset;
@@ -1182,37 +1300,6 @@ static void dp_catalog_ctrl_enable_irq(struct dp_catalog_ctrl *ctrl,
 		dp_write(catalog->exe_mode, io_data, DP_INTR_STATUS, 0x00);
 		dp_write(catalog->exe_mode, io_data, DP_INTR_STATUS2, 0x00);
 		dp_write(catalog->exe_mode, io_data, DP_INTR_STATUS5, 0x00);
-	}
-}
-
-static void dp_catalog_ctrl_hpd_config(struct dp_catalog_ctrl *ctrl, bool en)
-{
-	struct dp_catalog_private *catalog;
-	struct dp_io_data *io_data;
-
-	if (!ctrl) {
-		pr_err("invalid input\n");
-		return;
-	}
-
-	catalog = dp_catalog_get_priv(ctrl);
-	io_data = catalog->io.dp_aux;
-
-	if (en) {
-		u32 reftimer = dp_read(catalog->exe_mode, io_data,
-						DP_DP_HPD_REFTIMER);
-
-		dp_write(catalog->exe_mode, io_data, DP_DP_HPD_INT_ACK, 0xF);
-		dp_write(catalog->exe_mode, io_data, DP_DP_HPD_INT_MASK, 0xF);
-		/* Enabling REFTIMER */
-		reftimer |= BIT(16);
-		dp_write(catalog->exe_mode, io_data, DP_DP_HPD_REFTIMER,
-				reftimer);
-		/* Enable HPD */
-		dp_write(catalog->exe_mode, io_data, DP_DP_HPD_CTRL, 0x1);
-	} else {
-		/*Disable HPD */
-		dp_write(catalog->exe_mode, io_data, DP_DP_HPD_CTRL, 0x0);
 	}
 }
 
@@ -1434,6 +1521,39 @@ static u32 dp_catalog_ctrl_read_phy_pattern(struct dp_catalog_ctrl *ctrl)
 	io_data = catalog->io.dp_link;
 
 	return dp_read(catalog->exe_mode, io_data, DP_MAINLINK_READY);
+}
+
+static void dp_catalog_ctrl_fec_config(struct dp_catalog_ctrl *ctrl,
+		bool enable)
+{
+	struct dp_catalog_private *catalog;
+	struct dp_io_data *io_data = NULL;
+	u32 reg;
+
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	catalog = dp_catalog_get_priv(ctrl);
+	io_data = catalog->io.dp_link;
+
+	reg = dp_read(catalog->exe_mode, io_data, DP_MAINLINK_CTRL);
+
+	/*
+	 * fec_en = BIT(12)
+	 * fec_seq_mode = BIT(22)
+	 * sde_flush = BIT(23) | BIT(24)
+	 * fb_boundary_sel = BIT(25)
+	 */
+	if (enable)
+		reg |= BIT(12) | BIT(22) | BIT(23) | BIT(24) | BIT(25);
+	else
+		reg &= ~BIT(12);
+
+	dp_write(catalog->exe_mode, io_data, DP_MAINLINK_CTRL, reg);
+	/* make sure mainlink configuration is updated with fec sequence */
+	wmb();
 }
 
 static int dp_catalog_reg_dump(struct dp_catalog *dp_catalog,
@@ -1706,12 +1826,52 @@ static void dp_catalog_ctrl_update_rg(struct dp_catalog_ctrl *ctrl, u32 ch,
 	dp_write(catalog->exe_mode, io_data, DP_DP0_RG + reg_off, rg);
 }
 
+static void dp_catalog_ctrl_mainlink_levels(struct dp_catalog_ctrl *ctrl,
+		u8 lane_cnt)
+{
+	struct dp_catalog_private *catalog;
+	struct dp_io_data *io_data;
+	u32 mainlink_levels, safe_to_exit_level = 14;
+
+	catalog = dp_catalog_get_priv(ctrl);
+
+	io_data   = catalog->io.dp_link;
+
+	switch (lane_cnt) {
+	case 1:
+		safe_to_exit_level = 14;
+		break;
+	case 2:
+		safe_to_exit_level = 8;
+		break;
+	case 4:
+		safe_to_exit_level = 5;
+		break;
+	default:
+		pr_debug("setting the default safe_to_exit_level = %u\n",
+				safe_to_exit_level);
+		break;
+	}
+
+	mainlink_levels = dp_read(catalog->exe_mode, io_data,
+					DP_MAINLINK_LEVELS);
+	mainlink_levels &= 0xFE0;
+	mainlink_levels |= safe_to_exit_level;
+
+	pr_debug("mainlink_level = 0x%x, safe_to_exit_level = 0x%x\n",
+			mainlink_levels, safe_to_exit_level);
+
+	dp_write(catalog->exe_mode, io_data, DP_MAINLINK_LEVELS,
+			mainlink_levels);
+}
+
+
 /* panel related catalog functions */
 static int dp_catalog_panel_timing_cfg(struct dp_catalog_panel *panel)
 {
 	struct dp_catalog_private *catalog;
 	struct dp_io_data *io_data;
-	u32 offset = 0;
+	u32 offset = 0, reg;
 
 	if (!panel) {
 		pr_err("invalid input\n");
@@ -1737,8 +1897,83 @@ static int dp_catalog_panel_timing_cfg(struct dp_catalog_panel *panel)
 		DP_HSYNC_VSYNC_WIDTH_POLARITY + offset, panel->width_blanking);
 	dp_write(catalog->exe_mode, io_data, DP_ACTIVE_HOR_VER + offset,
 			panel->dp_active);
+
+	if (panel->stream_id == DP_STREAM_0)
+		io_data = catalog->io.dp_p0;
+	else
+		io_data = catalog->io.dp_p1;
+
+	reg = dp_read(catalog->exe_mode, io_data, MMSS_DP_INTF_CONFIG);
+
+	if (panel->widebus_en)
+		reg |= BIT(4);
+	else
+		reg &= ~BIT(4);
+
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_INTF_CONFIG, reg);
 end:
 	return 0;
+}
+
+static void dp_catalog_hpd_config_hpd(struct dp_catalog_hpd *hpd, bool en)
+{
+	struct dp_catalog_private *catalog;
+	struct dp_io_data *io_data;
+
+	if (!hpd) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	catalog = dp_catalog_get_priv(hpd);
+	io_data = catalog->io.dp_aux;
+
+	if (en) {
+		u32 reftimer = dp_read(catalog->exe_mode, io_data,
+						DP_DP_HPD_REFTIMER);
+
+		/* Arm only the UNPLUG and HPD_IRQ interrupts */
+		dp_write(catalog->exe_mode, io_data, DP_DP_HPD_INT_ACK, 0xF);
+		dp_write(catalog->exe_mode, io_data, DP_DP_HPD_INT_MASK, 0xA);
+
+		/* Enable REFTIMER to count 1ms */
+		reftimer |= BIT(16);
+		dp_write(catalog->exe_mode, io_data, DP_DP_HPD_REFTIMER,
+				reftimer);
+
+		 /* Connect_time is 250us & disconnect_time is 2ms */
+		dp_write(catalog->exe_mode, io_data, DP_DP_HPD_EVENT_TIME_0,
+				0x3E800FA);
+		dp_write(catalog->exe_mode, io_data, DP_DP_HPD_EVENT_TIME_1,
+				0x1F407D0);
+
+		/* Enable HPD */
+		dp_write(catalog->exe_mode, io_data, DP_DP_HPD_CTRL, 0x1);
+
+	} else {
+		/* Disable HPD */
+		dp_write(catalog->exe_mode, io_data, DP_DP_HPD_CTRL, 0x0);
+	}
+}
+
+static u32 dp_catalog_hpd_get_interrupt(struct dp_catalog_hpd *hpd)
+{
+	u32 isr = 0;
+	struct dp_catalog_private *catalog;
+	struct dp_io_data *io_data;
+
+	if (!hpd) {
+		pr_err("invalid input\n");
+		return isr;
+	}
+
+	catalog = dp_catalog_get_priv(hpd);
+
+	io_data = catalog->io.dp_aux;
+	isr = dp_read(catalog->exe_mode, io_data, DP_DP_HPD_INT_STATUS);
+	dp_write(catalog->exe_mode, io_data, DP_DP_HPD_INT_ACK, (isr & 0xf));
+
+	return isr;
 }
 
 static void dp_catalog_audio_init(struct dp_catalog_audio *audio)
@@ -1893,29 +2128,6 @@ static void dp_catalog_audio_config_acr(struct dp_catalog_audio *audio)
 	pr_debug("select = 0x%x, acr_ctrl = 0x%x\n", select, acr_ctrl);
 
 	dp_write(catalog->exe_mode, io_data, MMSS_DP_AUDIO_ACR_CTRL, acr_ctrl);
-}
-
-static void dp_catalog_audio_safe_to_exit_level(struct dp_catalog_audio *audio)
-{
-	struct dp_catalog_private *catalog;
-	struct dp_io_data *io_data;
-	u32 mainlink_levels, safe_to_exit_level;
-
-	catalog = dp_catalog_get_priv(audio);
-
-	io_data   = catalog->io.dp_link;
-	safe_to_exit_level = audio->data;
-
-	mainlink_levels = dp_read(catalog->exe_mode, io_data,
-					DP_MAINLINK_LEVELS);
-	mainlink_levels &= 0xFE0;
-	mainlink_levels |= safe_to_exit_level;
-
-	pr_debug("mainlink_level = 0x%x, safe_to_exit_level = 0x%x\n",
-			mainlink_levels, safe_to_exit_level);
-
-	dp_write(catalog->exe_mode, io_data, DP_MAINLINK_LEVELS,
-			mainlink_levels);
 }
 
 static void dp_catalog_audio_enable(struct dp_catalog_audio *audio)
@@ -2227,7 +2439,6 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_parser *parser)
 		.usb_reset      = dp_catalog_ctrl_usb_reset,
 		.mainlink_ready = dp_catalog_ctrl_mainlink_ready,
 		.enable_irq     = dp_catalog_ctrl_enable_irq,
-		.hpd_config     = dp_catalog_ctrl_hpd_config,
 		.phy_reset      = dp_catalog_ctrl_phy_reset,
 		.phy_lane_cfg   = dp_catalog_ctrl_phy_lane_cfg,
 		.update_vx_px   = dp_catalog_ctrl_update_vx_px,
@@ -2241,6 +2452,12 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_parser *parser)
 		.channel_alloc = dp_catalog_ctrl_channel_alloc,
 		.update_rg = dp_catalog_ctrl_update_rg,
 		.channel_dealloc = dp_catalog_ctrl_channel_dealloc,
+		.fec_config = dp_catalog_ctrl_fec_config,
+		.mainlink_levels = dp_catalog_ctrl_mainlink_levels,
+	};
+	struct dp_catalog_hpd hpd = {
+		.config_hpd	= dp_catalog_hpd_config_hpd,
+		.get_interrupt	= dp_catalog_hpd_get_interrupt,
 	};
 	struct dp_catalog_audio audio = {
 		.init       = dp_catalog_audio_init,
@@ -2249,7 +2466,6 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_parser *parser)
 		.config_sdp = dp_catalog_audio_config_sdp,
 		.set_header = dp_catalog_audio_set_header,
 		.get_header = dp_catalog_audio_get_header,
-		.safe_to_exit_level = dp_catalog_audio_safe_to_exit_level,
 	};
 	struct dp_catalog_panel panel = {
 		.timing_cfg = dp_catalog_panel_timing_cfg,
@@ -2261,6 +2477,8 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_parser *parser)
 		.update_transfer_unit = dp_catalog_panel_update_transfer_unit,
 		.config_ctrl = dp_catalog_panel_config_ctrl,
 		.config_dto = dp_catalog_panel_config_dto,
+		.dsc_cfg = dp_catalog_panel_dsc_cfg,
+		.pps_flush = dp_catalog_panel_pps_flush,
 	};
 
 	if (!dev || !parser) {
@@ -2286,6 +2504,7 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_parser *parser)
 
 	dp_catalog->aux   = aux;
 	dp_catalog->ctrl  = ctrl;
+	dp_catalog->hpd   = hpd;
 	dp_catalog->audio = audio;
 	dp_catalog->panel = panel;
 

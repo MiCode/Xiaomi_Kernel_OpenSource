@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _DP_LINK_H_
@@ -92,6 +92,10 @@ static inline char *dp_link_get_test_name(u32 test_requested)
 		return DP_LINK_ENUM_STR(DP_TEST_LINK_PHY_TEST_PATTERN);
 	case DP_TEST_LINK_AUDIO_PATTERN:
 		return DP_LINK_ENUM_STR(DP_TEST_LINK_AUDIO_PATTERN);
+	case DS_PORT_STATUS_CHANGED:
+		return DP_LINK_ENUM_STR(DS_PORT_STATUS_CHANGED);
+	case DP_LINK_STATUS_UPDATED:
+		return DP_LINK_ENUM_STR(DP_LINK_STATUS_UPDATED);
 	default:
 		return "unknown";
 	}

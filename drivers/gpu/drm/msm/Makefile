@@ -21,6 +21,7 @@ msm_drm-$(CONFIG_DRM_MSM_DP) += dp/dp_usbpd.o \
 	dp/dp_debug.o \
 	dp/dp_hpd.o \
 	dp/dp_gpio_hpd.o \
+	dp/dp_lphw_hpd.o \
 	dp/dp_display.o \
 	dp/dp_drm.o \
 	dp/dp_hdcp2p2.o \
