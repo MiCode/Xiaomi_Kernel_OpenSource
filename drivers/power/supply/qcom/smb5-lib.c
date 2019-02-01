@@ -36,7 +36,7 @@
 #define typec_rp_med_high(chg, typec_mode)			\
 	((typec_mode == POWER_SUPPLY_TYPEC_SOURCE_MEDIUM	\
 	|| typec_mode == POWER_SUPPLY_TYPEC_SOURCE_HIGH)	\
-	&& !chg->typec_legacy)
+	&& (!chg->typec_legacy || chg->typec_legacy_use_rp_icl))
 
 static void update_sw_icl_max(struct smb_charger *chg, int pst);
 
@@ -4038,7 +4038,7 @@ int smblib_get_charge_current(struct smb_charger *chg,
 		return 0;
 	}
 
-	if (non_compliant) {
+	if (non_compliant && !chg->typec_legacy_use_rp_icl) {
 		switch (apsd_result->bit) {
 		case CDP_CHARGER_BIT:
 			current_ua = CDP_CURRENT_UA;
