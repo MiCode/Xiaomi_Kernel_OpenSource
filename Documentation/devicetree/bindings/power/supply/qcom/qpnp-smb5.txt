@@ -280,6 +280,12 @@ Charger specific properties:
   Value type: bool
   Definition: Boolean flag which when present disables USB-PD operation.
 
+- qcom,lpd-disable
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present disables liquid presence
+		detection.
+
 - qcom,hw-die-temp-mitigation
   Usage:      optional
   Value type: bool
