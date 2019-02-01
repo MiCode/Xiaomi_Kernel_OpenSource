@@ -1120,6 +1120,8 @@ static int __arm_smmu_tlb_sync(struct arm_smmu_device *smmu,
 	dev_err_ratelimited(smmu->dev,
 			    "TLB sync timed out -- SMMU may be deadlocked, ack 0x%x\n",
 			    sync_inv_ack);
+	BUG_ON(IS_ENABLED(CONFIG_IOMMU_TLBSYNC_DEBUG));
+
 	return -EINVAL;
 }
 
