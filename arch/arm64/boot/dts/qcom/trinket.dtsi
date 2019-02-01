@@ -824,12 +824,18 @@
 		#clock-cells = <1>;
 	};
 
+	mccc_debug: syscon@447d200 {
+		compatible = "syscon";
+		reg = <0x0447d200 0x100>;
+	};
+
 	clock_debugcc: qcom,cc-debug {
 		compatible = "qcom,debugcc-trinket";
 		qcom,gcc = <&clock_gcc>;
 		qcom,videocc = <&clock_videocc>;
 		qcom,dispcc = <&clock_dispcc>;
 		qcom,gpucc = <&clock_gpucc>;
+		qcom,mccc = <&mccc_debug>;
 		clock-names = "cxo";
 		clocks = <&clock_rpmcc RPM_SMD_XO_CLK_SRC>;
 		#clock-cells = <1>;
