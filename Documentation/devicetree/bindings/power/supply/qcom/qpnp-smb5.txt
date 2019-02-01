@@ -275,6 +275,11 @@ Charger specific properties:
   Definition: Boolean flag which when present enables hardware-controlled
 		operation of HVDCP.
 
+- qcom,usb-pd-disable
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present disables USB-PD operation.
+
 =============================================
 Second Level Nodes - SMB5 Charger Peripherals
 =============================================
