@@ -3694,7 +3694,7 @@ int smblib_get_prop_scope(struct smb_charger *chg,
 	return 0;
 }
 
-int smblib_get_prop_connector_health(struct smb_charger *chg)
+static int smblib_get_typec_connector_temp_status(struct smb_charger *chg)
 {
 	int rc;
 	u8 stat;
@@ -3733,6 +3733,56 @@ int smblib_get_prop_connector_health(struct smb_charger *chg)
 
 	if (stat & CONNECTOR_TEMP_LB_BIT)
 		return POWER_SUPPLY_HEALTH_WARM;
+
+	return POWER_SUPPLY_HEALTH_COOL;
+}
+
+static int smblib_get_skin_temp_status(struct smb_charger *chg)
+{
+	int rc;
+	u8 stat;
+
+	rc = smblib_read(chg, SKIN_TEMP_STATUS_REG, &stat);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read SKIN_TEMP_STATUS_REG, rc=%d\n",
+				rc);
+		return POWER_SUPPLY_HEALTH_UNKNOWN;
+	}
+
+	if (stat & SKIN_TEMP_RST_BIT)
+		return POWER_SUPPLY_HEALTH_OVERHEAT;
+
+	if (stat & SKIN_TEMP_UB_BIT)
+		return POWER_SUPPLY_HEALTH_HOT;
+
+	if (stat & SKIN_TEMP_LB_BIT)
+		return POWER_SUPPLY_HEALTH_WARM;
+
+	return POWER_SUPPLY_HEALTH_COOL;
+}
+
+int smblib_get_prop_connector_health(struct smb_charger *chg)
+{
+	bool dc_present, usb_present;
+	int input_present;
+	int rc;
+
+	rc = smblib_is_input_present(chg, &input_present);
+	if (rc < 0)
+		return POWER_SUPPLY_HEALTH_UNKNOWN;
+
+	dc_present = input_present & INPUT_PRESENT_DC;
+	usb_present = input_present & INPUT_PRESENT_USB;
+
+	if (usb_present)
+		return smblib_get_typec_connector_temp_status(chg);
+
+	/*
+	 * In PM8150B, SKIN channel measures Wireless charger receiver
+	 * temp, used to regulate DC ICL.
+	 */
+	if (chg->smb_version == PM8150B_SUBTYPE && dc_present)
+		return smblib_get_skin_temp_status(chg);
 
 	return POWER_SUPPLY_HEALTH_COOL;
 }
