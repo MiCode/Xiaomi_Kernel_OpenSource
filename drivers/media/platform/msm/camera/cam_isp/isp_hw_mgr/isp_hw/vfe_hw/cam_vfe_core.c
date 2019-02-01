@@ -49,11 +49,6 @@ static uint32_t rdi_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
 	0x00000000,
 };
 
-static uint32_t top_reset_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
-	0x80000000,
-	0x00000000,
-};
-
 static int cam_vfe_get_evt_payload(struct cam_vfe_hw_core_info *core_info,
 	struct cam_vfe_top_irq_evt_payload    **evt_payload)
 {
@@ -399,6 +394,7 @@ int cam_vfe_reset(void *hw_priv, void *reset_core_args, uint32_t arg_size)
 	struct cam_hw_info *vfe_hw  = hw_priv;
 	struct cam_hw_soc_info *soc_info = NULL;
 	struct cam_vfe_hw_core_info *core_info = NULL;
+	uint32_t top_reset_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX];
 	int rc;
 
 	CAM_DBG(CAM_ISP, "Enter");
@@ -417,6 +413,19 @@ int cam_vfe_reset(void *hw_priv, void *reset_core_args, uint32_t arg_size)
 	core_info->irq_payload.hw_version = soc_info->hw_version;
 	core_info->irq_payload.core_info = core_info;
 	core_info->irq_payload.reset_complete = &vfe_hw->hw_complete;
+
+	memset(top_reset_irq_reg_mask, 0, sizeof(top_reset_irq_reg_mask));
+
+	switch (vfe_hw->soc_info.hw_version) {
+	case CAM_CPAS_TITAN_480_V100:
+		top_reset_irq_reg_mask[CAM_IFE_IRQ_CAMIF_REG_STATUS0]
+			= 0x00000001;
+		break;
+	default:
+		top_reset_irq_reg_mask[CAM_IFE_IRQ_CAMIF_REG_STATUS0]
+			= 0x80000000;
+		break;
+	}
 
 	core_info->irq_handle = cam_irq_controller_subscribe_irq(
 		core_info->vfe_irq_controller, CAM_IRQ_PRIORITY_0,

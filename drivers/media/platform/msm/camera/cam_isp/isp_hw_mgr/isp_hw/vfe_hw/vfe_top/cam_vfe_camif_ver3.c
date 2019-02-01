@@ -18,7 +18,7 @@
 #include "cam_cpas_api.h"
 
 #define CAM_VFE_CAMIF_IRQ_SOF_DEBUG_CNT_MAX 2
-#define CAM_VFE_CAMIF_VER3_CORE_CFG_0_DEFAULT 0x2800
+#define CAM_VFE_CAMIF_VER3_CORE_CFG_0_DEFAULT 0x78002800
 
 struct cam_vfe_mux_camif_ver3_data {
 	void __iomem                                *mem_base;
@@ -259,8 +259,11 @@ static int cam_vfe_camif_ver3_resource_start(
 	CAM_DBG(CAM_ISP, "write module_cfg val = 0x%x", val);
 
 	val = cam_io_r_mb(rsrc_data->mem_base +
-		rsrc_data->camif_reg->module_cfg);
+		rsrc_data->common_reg->core_cfg_0);
 
+	/* Programming to default value must be removed once uapis have been
+	 * updated to receive this programming from userspace.
+	 */
 	val |= CAM_VFE_CAMIF_VER3_CORE_CFG_0_DEFAULT;
 
 	/* AF stitching by hw disabled by default
@@ -278,6 +281,10 @@ static int cam_vfe_camif_ver3_resource_start(
 
 	if (rsrc_data->sync_mode == CAM_ISP_HW_SYNC_SLAVE)
 		val |= (1 << rsrc_data->reg_data->pp_extern_reg_update_shift);
+
+	if ((rsrc_data->sync_mode == CAM_ISP_HW_SYNC_SLAVE) ||
+		(rsrc_data->sync_mode == CAM_ISP_HW_SYNC_MASTER))
+		val |= (1 << rsrc_data->reg_data->dual_ife_pix_en_shift);
 
 	cam_io_w_mb(val, rsrc_data->mem_base +
 		rsrc_data->common_reg->core_cfg_0);
