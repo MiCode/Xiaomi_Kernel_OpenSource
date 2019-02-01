@@ -45,8 +45,8 @@
 		cam_vaf-supply = <&L5P>;
 		qcom,cam-vreg-name = "cam_vio", "cam_vana", "cam_vdig",
 				"cam_clk", "cam_vaf";
-		qcom,cam-vreg-min-voltage = <1800000 2800000 1100000 0 2800000>;
-		qcom,cam-vreg-max-voltage = <1800000 2800000 1100000 0 2800000>;
+		qcom,cam-vreg-min-voltage = <1800000 2800000 1104000 0 2800000>;
+		qcom,cam-vreg-max-voltage = <1800000 2800000 1104000 0 2800000>;
 		qcom,cam-vreg-op-mode = <0 80000 105000 0 100000>;
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
@@ -123,8 +123,8 @@
 		cam_vaf-supply = <&L5P>;
 		qcom,cam-vreg-name = "cam_vio", "cam_vana", "cam_vdig",
 				"cam_clk", "cam_vaf";
-		qcom,cam-vreg-min-voltage = <1800000 2800000 1100000 0 2800000>;
-		qcom,cam-vreg-max-voltage = <1800000 2800000 1100000 0 2800000>;
+		qcom,cam-vreg-min-voltage = <1800000 2800000 1104000 0 2800000>;
+		qcom,cam-vreg-max-voltage = <1800000 2800000 1104000 0 2800000>;
 		qcom,cam-vreg-op-mode = <0 80000 105000 0 100000>;
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
