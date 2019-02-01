@@ -466,6 +466,13 @@ static int ufshcd_devfreq_target(struct device *dev,
 static int ufshcd_devfreq_get_dev_status(struct device *dev,
 		struct devfreq_dev_status *stat);
 static void __ufshcd_shutdown_clkscaling(struct ufs_hba *hba);
+static int ufshcd_set_dev_pwr_mode(struct ufs_hba *hba,
+				enum ufs_dev_pwr_mode pwr_mode);
+static int ufshcd_config_vreg(struct device *dev,
+				struct ufs_vreg *vreg, bool on);
+static int ufshcd_enable_vreg(struct device *dev, struct ufs_vreg *vreg);
+static int ufshcd_disable_vreg(struct device *dev, struct ufs_vreg *vreg);
+static bool ufshcd_is_g4_supported(struct ufs_hba *hba);
 
 #if IS_ENABLED(CONFIG_DEVFREQ_GOV_SIMPLE_ONDEMAND)
 static struct devfreq_simple_ondemand_data ufshcd_ondemand_data = {
@@ -8176,6 +8183,41 @@ out:
 	kfree(desc_buf);
 }
 
+static int ufshcd_set_low_vcc_level(struct ufs_hba *hba,
+					struct ufs_dev_desc *dev_desc)
+{
+	int ret;
+	struct ufs_vreg *vreg = hba->vreg_info.vcc;
+
+	/* Check if device supports the low voltage VCC feature */
+	if (dev_desc->wspecversion < 0x300 && !ufshcd_is_g4_supported(hba))
+		return 0;
+
+	/*
+	 * Check if host has support for low VCC voltage?
+	 * In addition, also check if we have already set the low VCC level
+	 * or not?
+	 */
+	if (!vreg->low_voltage_sup || vreg->low_voltage_active)
+		return 0;
+
+	/* Put the device in sleep before lowering VCC level */
+	ret = ufshcd_set_dev_pwr_mode(hba, UFS_SLEEP_PWR_MODE);
+
+	/* Switch off VCC before switching it ON at 2.5v */
+	ret = ufshcd_disable_vreg(hba->dev, vreg);
+	/* add ~2ms delay before renabling VCC at lower voltage */
+	usleep_range(2000, 2100);
+	/* Now turn back VCC ON at low voltage */
+	vreg->low_voltage_active = true;
+	ret = ufshcd_enable_vreg(hba->dev, vreg);
+
+	/* Bring the device in active now */
+	ret = ufshcd_set_dev_pwr_mode(hba, UFS_ACTIVE_PWR_MODE);
+
+	return ret;
+}
+
 /**
  * ufshcd_scsi_add_wlus - Adds required W-LUs
  * @hba: per-adapter instance
@@ -8652,6 +8694,34 @@ static int ufs_read_device_desc_data(struct ufs_hba *hba)
 }
 
 /**
+ * ufshcd_is_g4_supported - check if device supports HS-G4
+ * @hba: per-adapter instance
+ *
+ * Returns True if device supports HS-G4, False otherwise.
+ */
+static bool ufshcd_is_g4_supported(struct ufs_hba *hba)
+{
+	int ret;
+	u32 tx_hsgear = 0;
+
+	/* check device capability */
+	ret = ufshcd_dme_peer_get(hba,
+			UIC_ARG_MIB_SEL(TX_HSGEAR_CAPABILITY,
+			UIC_ARG_MPHY_TX_GEN_SEL_INDEX(0)),
+			&tx_hsgear);
+	if (ret) {
+		dev_err(hba->dev, "%s: Failed getting peer TX_HSGEAR_CAPABILITY. err = %d\n",
+			__func__, ret);
+		return false;
+	}
+
+	if (tx_hsgear == UFS_HS_G4)
+		return true;
+	else
+		return false;
+}
+
+/**
  * ufshcd_probe_hba - probe hba to detect device and initialize
  * @hba: per-adapter instance
  *
@@ -8761,6 +8831,9 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 		/* Add required well known logical units to scsi mid layer */
 		if (ufshcd_scsi_add_wlus(hba))
 			goto out;
+
+		/* lower VCC voltage level */
+		ufshcd_set_low_vcc_level(hba, &card);
 
 		/* Initialize devfreq after UFS device is detected */
 		if (ufshcd_is_clkscaling_supported(hba)) {
@@ -9318,6 +9391,9 @@ static int ufshcd_config_vreg(struct device *dev,
 
 	if (regulator_count_voltages(reg) > 0) {
 		min_uV = on ? vreg->min_uV : 0;
+		if (vreg->low_voltage_sup && !vreg->low_voltage_active)
+			min_uV = vreg->max_uV;
+
 		ret = regulator_set_voltage(reg, min_uV, vreg->max_uV);
 		if (ret) {
 			dev_err(dev, "%s: %s set voltage failed, err=%d\n",
