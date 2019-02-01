@@ -463,6 +463,7 @@ struct smb_charger {
 	int			smb_temp_max;
 	u8			typec_try_mode;
 	enum lpd_stage		lpd_stage;
+	bool			lpd_disabled;
 	enum lpd_reason		lpd_reason;
 	bool			fcc_stepper_enable;
 	int			die_temp;

@@ -4911,6 +4911,9 @@ static bool smblib_src_lpd(struct smb_charger *chg)
 	u8 stat;
 	int rc;
 
+	if (chg->lpd_disabled)
+		return false;
+
 	rc = smblib_read(chg, TYPE_C_SRC_STATUS_REG, &stat);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't read TYPE_C_SRC_STATUS_REG rc=%d\n",
@@ -5153,12 +5156,35 @@ static void smblib_handle_rp_change(struct smb_charger *chg, int typec_mode)
 						chg->typec_mode, typec_mode);
 }
 
+static void smblib_lpd_launch_ra_open_work(struct smb_charger *chg)
+{
+	u8 stat;
+	int rc;
+
+	if (chg->lpd_disabled)
+		return;
+
+	rc = smblib_read(chg, TYPE_C_MISC_STATUS_REG, &stat);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read TYPE_C_MISC_STATUS_REG rc=%d\n",
+			rc);
+		return;
+	}
+
+	if (!(stat & TYPEC_TCCDEBOUNCE_DONE_STATUS_BIT)
+			&& chg->lpd_stage == LPD_STAGE_NONE) {
+		chg->lpd_stage = LPD_STAGE_FLOAT;
+		cancel_delayed_work_sync(&chg->lpd_ra_open_work);
+		vote(chg->awake_votable, LPD_VOTER, true, 0);
+		schedule_delayed_work(&chg->lpd_ra_open_work,
+						msecs_to_jiffies(300));
+	}
+}
+
 irqreturn_t typec_or_rid_detection_change_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
-	u8 stat;
-	int rc;
 
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
 
@@ -5190,21 +5216,7 @@ irqreturn_t typec_or_rid_detection_change_irq_handler(int irq, void *data)
 	if (chg->pr_swap_in_progress || chg->pd_hard_reset)
 		goto out;
 
-	rc = smblib_read(chg, TYPE_C_MISC_STATUS_REG, &stat);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't read TYPE_C_MISC_STATUS_REG rc=%d\n",
-			rc);
-		goto out;
-	}
-
-	if (!(stat & TYPEC_TCCDEBOUNCE_DONE_STATUS_BIT)
-			&& chg->lpd_stage == LPD_STAGE_NONE) {
-		chg->lpd_stage = LPD_STAGE_FLOAT;
-		cancel_delayed_work_sync(&chg->lpd_ra_open_work);
-		vote(chg->awake_votable, LPD_VOTER, true, 0);
-		schedule_delayed_work(&chg->lpd_ra_open_work,
-						msecs_to_jiffies(300));
-	}
+	smblib_lpd_launch_ra_open_work(chg);
 
 	if (chg->usb_psy)
 		power_supply_changed(chg->usb_psy);
@@ -5239,6 +5251,16 @@ irqreturn_t typec_state_change_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static void smblib_lpd_clear_ra_open_work(struct smb_charger *chg)
+{
+	if (chg->lpd_disabled)
+		return;
+
+	cancel_delayed_work_sync(&chg->lpd_detach_work);
+	chg->lpd_stage = LPD_STAGE_FLOAT_CANCEL;
+	cancel_delayed_work_sync(&chg->lpd_ra_open_work);
+	vote(chg->awake_votable, LPD_VOTER, false, 0);
+}
 
 irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 {
@@ -5257,10 +5279,8 @@ irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 	}
 
 	if (stat & TYPEC_ATTACH_DETACH_STATE_BIT) {
-		cancel_delayed_work_sync(&chg->lpd_detach_work);
-		chg->lpd_stage = LPD_STAGE_FLOAT_CANCEL;
-		cancel_delayed_work_sync(&chg->lpd_ra_open_work);
-		vote(chg->awake_votable, LPD_VOTER, false, 0);
+
+		smblib_lpd_clear_ra_open_work(chg);
 
 		rc = smblib_read(chg, TYPE_C_MISC_STATUS_REG, &stat);
 		if (rc < 0) {

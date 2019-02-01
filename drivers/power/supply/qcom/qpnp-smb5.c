@@ -438,6 +438,8 @@ static int smb5_parse_dt_misc(struct smb5 *chip, struct device_node *node)
 	chg->pd_not_supported = of_property_read_bool(node,
 				"qcom,usb-pd-disable");
 
+	chg->lpd_disabled = of_property_read_bool(node, "qcom,lpd-disable");
+
 	rc = of_property_read_u32(node, "qcom,wd-bark-time-secs",
 					&chip->dt.wd_bark_time);
 	if (rc < 0 || chip->dt.wd_bark_time < MIN_WD_BARK_TIME)
@@ -1833,10 +1835,10 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		return rc;
 	}
 
+	val = chg->lpd_disabled ? 0 : TYPEC_WATER_DETECTION_INT_EN_BIT;
 	/* Use simple write to enable only required interrupts */
 	rc = smblib_write(chg, TYPE_C_INTERRUPT_EN_CFG_2_REG,
-				TYPEC_SRC_BATT_HPWR_INT_EN_BIT |
-				TYPEC_WATER_DETECTION_INT_EN_BIT);
+				TYPEC_SRC_BATT_HPWR_INT_EN_BIT | val);
 	if (rc < 0) {
 		dev_err(chg->dev,
 			"Couldn't configure Type-C interrupts rc=%d\n", rc);
@@ -2094,12 +2096,189 @@ static int smb5_init_dc_peripheral(struct smb_charger *chg)
 	return rc;
 }
 
+static int smb5_configure_recharging(struct smb5 *chip)
+{
+	int rc = 0;
+	struct smb_charger *chg = &chip->chg;
+	union power_supply_propval pval;
+	/* Configure VBATT-based or automatic recharging */
+
+	rc = smblib_masked_write(chg, CHGR_CFG2_REG, RECHG_MASK,
+				(chip->dt.auto_recharge_vbat_mv != -EINVAL) ?
+				VBAT_BASED_RECHG_BIT : 0);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't configure VBAT-rechg CHG_CFG2_REG rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	/* program the auto-recharge VBAT threshold */
+	if (chip->dt.auto_recharge_vbat_mv != -EINVAL) {
+		u32 temp = VBAT_TO_VRAW_ADC(chip->dt.auto_recharge_vbat_mv);
+
+		temp = ((temp & 0xFF00) >> 8) | ((temp & 0xFF) << 8);
+		rc = smblib_batch_write(chg,
+			CHGR_ADC_RECHARGE_THRESHOLD_MSB_REG, (u8 *)&temp, 2);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't configure ADC_RECHARGE_THRESHOLD REG rc=%d\n",
+				rc);
+			return rc;
+		}
+		/* Program the sample count for VBAT based recharge to 3 */
+		rc = smblib_masked_write(chg, CHGR_NO_SAMPLE_TERM_RCHG_CFG_REG,
+					NO_OF_SAMPLE_FOR_RCHG,
+					2 << NO_OF_SAMPLE_FOR_RCHG_SHIFT);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't configure CHGR_NO_SAMPLE_FOR_TERM_RCHG_CFG rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	rc = smblib_masked_write(chg, CHGR_CFG2_REG, RECHG_MASK,
+				(chip->dt.auto_recharge_soc != -EINVAL) ?
+				SOC_BASED_RECHG_BIT : VBAT_BASED_RECHG_BIT);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't configure SOC-rechg CHG_CFG2_REG rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	/* program the auto-recharge threshold */
+	if (chip->dt.auto_recharge_soc != -EINVAL) {
+		pval.intval = chip->dt.auto_recharge_soc;
+		rc = smblib_set_prop_rechg_soc_thresh(chg, &pval);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't configure CHG_RCHG_SOC_REG rc=%d\n",
+					rc);
+			return rc;
+		}
+
+		/* Program the sample count for SOC based recharge to 1 */
+		rc = smblib_masked_write(chg, CHGR_NO_SAMPLE_TERM_RCHG_CFG_REG,
+						NO_OF_SAMPLE_FOR_RCHG, 0);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't configure CHGR_NO_SAMPLE_FOR_TERM_RCHG_CFG rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	return 0;
+}
+
+static int smb5_configure_float_charger(struct smb5 *chip)
+{
+	int rc = 0;
+	struct smb_charger *chg = &chip->chg;
+
+	/* configure float charger options */
+	switch (chip->dt.float_option) {
+	case FLOAT_DCP:
+		rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
+				FLOAT_OPTIONS_MASK, 0);
+		break;
+	case FLOAT_SDP:
+		rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
+				FLOAT_OPTIONS_MASK, FORCE_FLOAT_SDP_CFG_BIT);
+		break;
+	case DISABLE_CHARGING:
+		rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
+				FLOAT_OPTIONS_MASK, FLOAT_DIS_CHGING_CFG_BIT);
+		break;
+	case SUSPEND_INPUT:
+		rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
+				FLOAT_OPTIONS_MASK, SUSPEND_FLOAT_CFG_BIT);
+		break;
+	default:
+		rc = 0;
+		break;
+	}
+
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't configure float charger options rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	rc = smblib_read(chg, USBIN_OPTIONS_2_CFG_REG, &chg->float_cfg);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't read float charger options rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	return 0;
+}
+
+static int smb5_init_connector_type(struct smb_charger *chg)
+{
+	int rc, type = 0;
+	u8 val = 0;
+
+	/*
+	 * PMI632 can have the connector type defined by a dedicated register
+	 * PMI632_TYPEC_MICRO_USB_MODE_REG or by a common TYPEC_U_USB_CFG_REG.
+	 */
+	if (chg->smb_version == PMI632_SUBTYPE) {
+		rc = smblib_read(chg, PMI632_TYPEC_MICRO_USB_MODE_REG, &val);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't read USB mode rc=%d\n", rc);
+			return rc;
+		}
+		type = !!(val & MICRO_USB_MODE_ONLY_BIT);
+	}
+
+	/*
+	 * If PMI632_TYPEC_MICRO_USB_MODE_REG is not set and for all non-PMI632
+	 * check the connector type using TYPEC_U_USB_CFG_REG.
+	 */
+	if (!type) {
+		rc = smblib_read(chg, TYPEC_U_USB_CFG_REG, &val);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't read U_USB config rc=%d\n",
+					rc);
+			return rc;
+		}
+
+		type = !!(val & EN_MICRO_USB_MODE_BIT);
+	}
+
+	pr_debug("Connector type=%s\n", type ? "Micro USB" : "TypeC");
+
+	if (type) {
+		chg->connector_type = POWER_SUPPLY_CONNECTOR_MICRO_USB;
+		rc = smb5_configure_micro_usb(chg);
+	} else {
+		chg->connector_type = POWER_SUPPLY_CONNECTOR_TYPEC;
+		rc = smb5_configure_typec(chg);
+	}
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"Couldn't configure TypeC/micro-USB mode rc=%d\n", rc);
+		return rc;
+	}
+
+	/*
+	 * PMI632 based hw init:
+	 * - Rerun APSD to ensure proper charger detection if device
+	 *   boots with charger connected.
+	 * - Initialize flash module for PMI632
+	 */
+	if (chg->smb_version == PMI632_SUBTYPE) {
+		schgm_flash_init(chg);
+		smblib_rerun_apsd_if_required(chg);
+	}
+
+	return 0;
+
+}
+
 static int smb5_init_hw(struct smb5 *chip)
 {
 	struct smb_charger *chg = &chip->chg;
-	int rc, type = 0;
+	int rc;
 	u8 val = 0, mask = 0;
-	union power_supply_propval pval;
 
 	if (chip->dt.no_battery)
 		chg->fake_capacity = 50;
@@ -2174,58 +2353,11 @@ static int smb5_init_hw(struct smb5 *chip)
 		return rc;
 	}
 
-	/*
-	 * PMI632 can have the connector type defined by a dedicated register
-	 * PMI632_TYPEC_MICRO_USB_MODE_REG or by a common TYPEC_U_USB_CFG_REG.
-	 */
-	if (chg->smb_version == PMI632_SUBTYPE) {
-		rc = smblib_read(chg, PMI632_TYPEC_MICRO_USB_MODE_REG, &val);
-		if (rc < 0) {
-			dev_err(chg->dev, "Couldn't read USB mode rc=%d\n", rc);
-			return rc;
-		}
-		type = !!(val & MICRO_USB_MODE_ONLY_BIT);
-	}
-
-	/*
-	 * If PMI632_TYPEC_MICRO_USB_MODE_REG is not set and for all non-PMI632
-	 * check the connector type using TYPEC_U_USB_CFG_REG.
-	 */
-	if (!type) {
-		rc = smblib_read(chg, TYPEC_U_USB_CFG_REG, &val);
-		if (rc < 0) {
-			dev_err(chg->dev, "Couldn't read U_USB config rc=%d\n",
-					rc);
-			return rc;
-		}
-
-		type = !!(val & EN_MICRO_USB_MODE_BIT);
-	}
-
-	pr_debug("Connector type=%s\n", type ? "Micro USB" : "TypeC");
-
-	if (type) {
-		chg->connector_type = POWER_SUPPLY_CONNECTOR_MICRO_USB;
-		rc = smb5_configure_micro_usb(chg);
-	} else {
-		chg->connector_type = POWER_SUPPLY_CONNECTOR_TYPEC;
-		rc = smb5_configure_typec(chg);
-	}
+	rc = smb5_init_connector_type(chg);
 	if (rc < 0) {
-		dev_err(chg->dev,
-			"Couldn't configure TypeC/micro-USB mode rc=%d\n", rc);
+		dev_err(chg->dev, "Couldn't configure connector type rc=%d\n",
+				rc);
 		return rc;
-	}
-
-	/*
-	 * PMI632 based hw init:
-	 * - Rerun APSD to ensure proper charger detection if device
-	 *   boots with charger connected.
-	 * - Initialize flash module for PMI632
-	 */
-	if (chg->smb_version == PMI632_SUBTYPE) {
-		schgm_flash_init(chg);
-		smblib_rerun_apsd_if_required(chg);
 	}
 
 	/* Use ICL results from HW */
@@ -2341,41 +2473,9 @@ static int smb5_init_hw(struct smb5 *chip)
 		return rc;
 	}
 
-	/* configure float charger options */
-	switch (chip->dt.float_option) {
-	case FLOAT_DCP:
-		rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
-				FLOAT_OPTIONS_MASK, 0);
-		break;
-	case FLOAT_SDP:
-		rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
-				FLOAT_OPTIONS_MASK, FORCE_FLOAT_SDP_CFG_BIT);
-		break;
-	case DISABLE_CHARGING:
-		rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
-				FLOAT_OPTIONS_MASK, FLOAT_DIS_CHGING_CFG_BIT);
-		break;
-	case SUSPEND_INPUT:
-		rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
-				FLOAT_OPTIONS_MASK, SUSPEND_FLOAT_CFG_BIT);
-		break;
-	default:
-		rc = 0;
-		break;
-	}
-
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't configure float charger options rc=%d\n",
-			rc);
+	rc = smb5_configure_float_charger(chip);
+	if (rc < 0)
 		return rc;
-	}
-
-	rc = smblib_read(chg, USBIN_OPTIONS_2_CFG_REG, &chg->float_cfg);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't read float charger options rc=%d\n",
-			rc);
-		return rc;
-	}
 
 	switch (chip->dt.chg_inhibit_thr_mv) {
 	case 50:
@@ -2419,66 +2519,9 @@ static int smb5_init_hw(struct smb5 *chip)
 		return rc;
 	}
 
-	rc = smblib_masked_write(chg, CHGR_CFG2_REG, RECHG_MASK,
-				(chip->dt.auto_recharge_vbat_mv != -EINVAL) ?
-				VBAT_BASED_RECHG_BIT : 0);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't configure VBAT-rechg CHG_CFG2_REG rc=%d\n",
-			rc);
+	rc = smb5_configure_recharging(chip);
+	if (rc < 0)
 		return rc;
-	}
-
-	/* program the auto-recharge VBAT threshold */
-	if (chip->dt.auto_recharge_vbat_mv != -EINVAL) {
-		u32 temp = VBAT_TO_VRAW_ADC(chip->dt.auto_recharge_vbat_mv);
-
-		temp = ((temp & 0xFF00) >> 8) | ((temp & 0xFF) << 8);
-		rc = smblib_batch_write(chg,
-			CHGR_ADC_RECHARGE_THRESHOLD_MSB_REG, (u8 *)&temp, 2);
-		if (rc < 0) {
-			dev_err(chg->dev, "Couldn't configure ADC_RECHARGE_THRESHOLD REG rc=%d\n",
-				rc);
-			return rc;
-		}
-		/* Program the sample count for VBAT based recharge to 3 */
-		rc = smblib_masked_write(chg, CHGR_NO_SAMPLE_TERM_RCHG_CFG_REG,
-					NO_OF_SAMPLE_FOR_RCHG,
-					2 << NO_OF_SAMPLE_FOR_RCHG_SHIFT);
-		if (rc < 0) {
-			dev_err(chg->dev, "Couldn't configure CHGR_NO_SAMPLE_FOR_TERM_RCHG_CFG rc=%d\n",
-				rc);
-			return rc;
-		}
-	}
-
-	rc = smblib_masked_write(chg, CHGR_CFG2_REG, RECHG_MASK,
-				(chip->dt.auto_recharge_soc != -EINVAL) ?
-				SOC_BASED_RECHG_BIT : VBAT_BASED_RECHG_BIT);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't configure SOC-rechg CHG_CFG2_REG rc=%d\n",
-			rc);
-		return rc;
-	}
-
-	/* program the auto-recharge threshold */
-	if (chip->dt.auto_recharge_soc != -EINVAL) {
-		pval.intval = chip->dt.auto_recharge_soc;
-		rc = smblib_set_prop_rechg_soc_thresh(chg, &pval);
-		if (rc < 0) {
-			dev_err(chg->dev, "Couldn't configure CHG_RCHG_SOC_REG rc=%d\n",
-					rc);
-			return rc;
-		}
-
-		/* Program the sample count for SOC based recharge to 1 */
-		rc = smblib_masked_write(chg, CHGR_NO_SAMPLE_TERM_RCHG_CFG_REG,
-						NO_OF_SAMPLE_FOR_RCHG, 0);
-		if (rc < 0) {
-			dev_err(chg->dev, "Couldn't configure CHGR_NO_SAMPLE_FOR_TERM_RCHG_CFG rc=%d\n",
-				rc);
-			return rc;
-		}
-	}
 
 	rc = smblib_disable_hw_jeita(chg, true);
 	if (rc < 0) {
