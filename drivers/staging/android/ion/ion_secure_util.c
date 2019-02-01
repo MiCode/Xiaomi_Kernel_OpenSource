@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -253,7 +253,7 @@ int ion_hyp_assign_from_flags(u64 base, u64 size, unsigned long flags)
 
 	if ((flags & ~ION_FLAGS_CP_MASK) ||
 	    populate_vm_list(flags, vmids, nr)) {
-		pr_err("%s: Failed to parse secure flags 0x%x\n", __func__,
+		pr_err("%s: Failed to parse secure flags 0x%lx\n", __func__,
 		       flags);
 		goto out;
 	}
@@ -266,7 +266,8 @@ int ion_hyp_assign_from_flags(u64 base, u64 size, unsigned long flags)
 
 	ret = hyp_assign_phys(base, size, &src_vm, 1, vmids, modes, nr);
 	if (ret)
-		pr_err("%s: Assign call failed, flags 0x%x\n", __func__, flags);
+		pr_err("%s: Assign call failed, flags 0x%lx\n", __func__,
+		       flags);
 
 out:
 	kfree(modes);

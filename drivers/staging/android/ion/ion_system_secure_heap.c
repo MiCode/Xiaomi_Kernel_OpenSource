@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -104,7 +104,7 @@ static void process_one_prefetch(struct ion_heap *sys_heap,
 	ret = sys_heap->ops->allocate(sys_heap, &buffer, info->size,
 					buffer.flags);
 	if (ret) {
-		pr_debug("%s: Failed to prefetch 0x%zx, ret = %d\n",
+		pr_debug("%s: Failed to prefetch 0x%llx, ret = %d\n",
 			 __func__, info->size, ret);
 		return;
 	}
@@ -165,7 +165,7 @@ static void process_one_shrink(struct ion_heap *sys_heap,
 	size = min_t(size_t, pool_size, info->size);
 	ret = sys_heap->ops->allocate(sys_heap, &buffer, size, buffer.flags);
 	if (ret) {
-		pr_debug("%s: Failed to shrink 0x%zx, ret = %d\n",
+		pr_debug("%s: Failed to shrink 0x%llx, ret = %d\n",
 			 __func__, info->size, ret);
 		return;
 	}
