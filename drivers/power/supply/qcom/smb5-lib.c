@@ -4267,6 +4267,24 @@ irqreturn_t icl_change_irq_handler(int irq, void *data)
 	struct smb_charger *chg = irq_data->parent_data;
 
 	if (chg->mode == PARALLEL_MASTER) {
+		/*
+		 * Ignore if change in ICL is due to DIE temp mitigation.
+		 * This is to prevent any further ICL split.
+		 */
+		if (chg->hw_die_temp_mitigation) {
+			rc = smblib_read(chg, DIE_TEMP_STATUS_REG, &stat);
+			if (rc < 0) {
+				smblib_err(chg,
+					"Couldn't read DIE_TEMP rc=%d\n", rc);
+				return IRQ_HANDLED;
+			}
+			if (stat & (DIE_TEMP_UB_BIT | DIE_TEMP_LB_BIT)) {
+				smblib_dbg(chg, PR_PARALLEL,
+					"skip ICL change DIE_TEMP %x\n", stat);
+				return IRQ_HANDLED;
+			}
+		}
+
 		rc = smblib_read(chg, AICL_STATUS_REG, &stat);
 		if (rc < 0) {
 			smblib_err(chg, "Couldn't read AICL_STATUS rc=%d\n",
