@@ -36,8 +36,8 @@
 					"core_clk", "vcodec_clk";
 		/* Mask: Bit0: Clock Scaling, Bit1: Mem Retention*/
 		qcom,clock-configs = <0x0 0x0 0x0 0x1 0x1>;
-		qcom,allowed-clock-rates = <240000000 338000000 366000000
-						444000000 553000000>;
+		qcom,allowed-clock-rates = <240000000 338000000
+						366000000 444000000>;
 
 		/* Buses */
 		bus_cnoc {
