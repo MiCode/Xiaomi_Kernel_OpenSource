@@ -285,9 +285,9 @@ static int qti_haptics_write(struct qti_hap_chip *chip,
 			rc = regmap_write(chip->regmap,
 					chip->reg_base + addr, *val);
 
-			if (rc < 0)
-				dev_err(chip->dev, "write addr 0x%x failed, rc=%d\n",
-						addr, rc);
+		if (rc < 0)
+			dev_err(chip->dev, "write addr 0x%x failed, rc=%d\n",
+					addr, rc);
 	}
 
 	for (i = 0; i < len; i++)
