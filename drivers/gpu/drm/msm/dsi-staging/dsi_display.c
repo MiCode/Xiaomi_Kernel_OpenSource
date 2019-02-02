@@ -5703,6 +5703,9 @@ int dsi_display_drm_ext_bridge_init(struct dsi_display *display,
 		if (ext_bridge_info->bridge)
 			return 0;
 
+		if (!display->panel->host_config.ext_bridge_mode)
+			return 0;
+
 		ext_bridge = of_drm_find_bridge(ext_bridge_info->node_of);
 		if (IS_ERR_OR_NULL(ext_bridge)) {
 			rc = PTR_ERR(ext_bridge);

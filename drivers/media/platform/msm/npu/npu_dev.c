@@ -118,29 +118,6 @@ static uint32_t npu_notify_cdsprm_cxlimit_corner(struct npu_device *npu_dev,
  * File Scope Variables
  * -------------------------------------------------------------------------
  */
-static const char * const npu_clock_order[] = {
-	"qdss_clk",
-	"at_clk",
-	"trig_clk",
-	"armwic_core_clk",
-	"cal_dp_clk",
-	"cal_dp_cdc_clk",
-	"conf_noc_ahb_clk",
-	"comp_noc_axi_clk",
-	"npu_core_clk",
-	"npu_core_cti_clk",
-	"npu_core_apb_clk",
-	"npu_core_atb_clk",
-	"npu_cpc_clk",
-	"npu_cpc_timer_clk",
-	"qtimer_core_clk",
-	"sleep_clk",
-	"bwmon_clk",
-	"perf_cnt_clk",
-	"bto_core_clk",
-	"xo_clk"
-};
-
 static const char * const npu_post_clocks[] = {
 	"npu_cpc_clk",
 	"npu_cpc_timer_clk"
@@ -823,10 +800,7 @@ static int npu_enable_clocks(struct npu_device *npu_dev, bool post_pil)
 
 	pwrlevel_idx = npu_power_level_to_index(npu_dev, pwrlevel_to_set);
 	pwrlevel = &pwr->pwrlevels[pwrlevel_idx];
-	for (i = 0; i < ARRAY_SIZE(npu_clock_order); i++) {
-		if (!core_clks[i].clk)
-			continue;
-
+	for (i = 0; i < npu_dev->core_clk_num; i++) {
 		if (post_pil) {
 			if (!npu_is_post_clock(core_clks[i].clk_name))
 				continue;
@@ -863,9 +837,6 @@ static int npu_enable_clocks(struct npu_device *npu_dev, bool post_pil)
 
 	if (rc) {
 		for (i--; i >= 0; i--) {
-			if (!core_clks[i].clk)
-				continue;
-
 			if (post_pil) {
 				if (!npu_is_post_clock(core_clks[i].clk_name))
 					continue;
@@ -891,10 +862,7 @@ static void npu_disable_clocks(struct npu_device *npu_dev, bool post_pil)
 		pr_debug("Notify cdsprm clock off\n");
 	}
 
-	for (i = ARRAY_SIZE(npu_clock_order) - 1; i >= 0 ; i--) {
-		if (!core_clks[i].clk)
-			continue;
-
+	for (i = npu_dev->core_clk_num - 1; i >= 0 ; i--) {
 		if (post_pil) {
 			if (!npu_is_post_clock(core_clks[i].clk_name))
 				continue;
@@ -1568,7 +1536,7 @@ static unsigned int npu_poll(struct file *filp, struct poll_table_struct *p)
 static int npu_parse_dt_clock(struct npu_device *npu_dev)
 {
 	int rc = 0;
-	uint32_t i, j;
+	uint32_t i;
 	const char *clock_name;
 	int num_clk;
 	struct npu_clk *core_clks = npu_dev->core_clks;
@@ -1580,25 +1548,20 @@ static int npu_parse_dt_clock(struct npu_device *npu_dev)
 		pr_err("clocks are not defined\n");
 		rc = -EINVAL;
 		goto clk_err;
+	} else if (num_clk > NUM_MAX_CLK_NUM) {
+		pr_err("number of clocks %d exceeds limit\n", num_clk);
+		rc = -EINVAL;
+		goto clk_err;
 	}
 
 	npu_dev->core_clk_num = num_clk;
 	for (i = 0; i < num_clk; i++) {
 		of_property_read_string_index(pdev->dev.of_node, "clock-names",
 							i, &clock_name);
-		for (j = 0; j < ARRAY_SIZE(npu_clock_order); j++) {
-			if (!strcmp(npu_clock_order[j], clock_name))
-				break;
-		}
-		if (j == ARRAY_SIZE(npu_clock_order)) {
-			pr_err("clock is not in ordered list\n");
-			rc = -EINVAL;
-			goto clk_err;
-		}
-		strlcpy(core_clks[j].clk_name, clock_name,
-			sizeof(core_clks[j].clk_name));
-		core_clks[j].clk = devm_clk_get(&pdev->dev, clock_name);
-		if (IS_ERR(core_clks[j].clk)) {
+		strlcpy(core_clks[i].clk_name, clock_name,
+			sizeof(core_clks[i].clk_name));
+		core_clks[i].clk = devm_clk_get(&pdev->dev, clock_name);
+		if (IS_ERR(core_clks[i].clk)) {
 			pr_err("unable to get clk: %s\n", clock_name);
 			rc = -EINVAL;
 			break;
@@ -1656,8 +1619,6 @@ static int npu_of_parse_pwrlevels(struct npu_device *npu_dev,
 	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
 	struct device_node *child;
 	uint32_t init_level_index = 0, init_power_level;
-	const char *clock_name;
-	struct platform_device *pdev = npu_dev->pdev;
 	uint32_t fmax, fmax_pwrlvl;
 
 	pwr->num_pwrlevels = 0;
@@ -1666,7 +1627,6 @@ static int npu_of_parse_pwrlevels(struct npu_device *npu_dev,
 
 	for_each_available_child_of_node(node, child) {
 		uint32_t i = 0;
-		uint32_t j = 0;
 		uint32_t index;
 		uint32_t pwr_level;
 		uint32_t clk_array_values[NUM_MAX_CLK_NUM];
@@ -1699,7 +1659,6 @@ static int npu_of_parse_pwrlevels(struct npu_device *npu_dev,
 			return -EINVAL;
 		}
 
-		/* sort */
 		level = &pwr->pwrlevels[index];
 		level->pwr_level = pwr_level;
 		if (pwr->min_pwrlevel > pwr_level)
@@ -1708,28 +1667,16 @@ static int npu_of_parse_pwrlevels(struct npu_device *npu_dev,
 			pwr->max_pwrlevel = pwr_level;
 
 		for (i = 0; i < npu_dev->core_clk_num; i++) {
-			of_property_read_string_index(pdev->dev.of_node,
-				"clock-names", i, &clock_name);
-
-			if (npu_is_exclude_rate_clock(clock_name))
+			if (npu_is_exclude_rate_clock(
+				npu_dev->core_clks[i].clk_name))
 				continue;
 
-			for (j = 0; j < ARRAY_SIZE(npu_clock_order); j++) {
-				if (!strcmp(npu_clock_order[j],
-					clock_name))
-					break;
-			}
-
-			if (j == ARRAY_SIZE(npu_clock_order)) {
-				pr_err("pwrlevel clock is not in ordered list\n");
-				return -EINVAL;
-			}
-
-			clk_rate = clk_round_rate(npu_dev->core_clks[j].clk,
+			clk_rate = clk_round_rate(npu_dev->core_clks[i].clk,
 				clk_array_values[i]);
-			pr_debug("clk %s rate [%ld]:[%ld]\n", clock_name,
+			pr_debug("clk %s rate [%ld]:[%ld]\n",
+				npu_dev->core_clks[i].clk_name,
 				clk_array_values[i], clk_rate);
-			level->clk_freq[j] = clk_rate;
+			level->clk_freq[i] = clk_rate;
 		}
 	}
 

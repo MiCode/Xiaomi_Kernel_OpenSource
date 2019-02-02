@@ -1083,8 +1083,8 @@ static int ufsdbg_power_mode_show(struct seq_file *file, void *data)
 
 static bool ufsdbg_power_mode_validate(struct ufs_pa_layer_attr *pwr_mode)
 {
-	if (pwr_mode->gear_rx < UFS_HS_G1 || pwr_mode->gear_rx > UFS_HS_G3 ||
-	    pwr_mode->gear_tx < UFS_HS_G1 || pwr_mode->gear_tx > UFS_HS_G3 ||
+	if (pwr_mode->gear_rx < UFS_HS_G1 || pwr_mode->gear_rx > UFS_HS_G4 ||
+	    pwr_mode->gear_tx < UFS_HS_G1 || pwr_mode->gear_tx > UFS_HS_G4 ||
 	    pwr_mode->lane_rx < 1 || pwr_mode->lane_rx > 2 ||
 	    pwr_mode->lane_tx < 1 || pwr_mode->lane_tx > 2 ||
 	    (pwr_mode->pwr_rx != FAST_MODE &&
