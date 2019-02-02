@@ -18,6 +18,9 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
+		/* LLCC Cache */
+		cache-slice-names = "vidsc0";
+
 		/* Supply */
 		iris-ctl-supply = <&mvs0c_gdsc>;
 		vcodec-supply = <&mvs0_gdsc>;
