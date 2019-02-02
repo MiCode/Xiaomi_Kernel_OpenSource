@@ -87,7 +87,8 @@ struct dp_display {
 	struct dp_debug *(*get_debug)(struct dp_display *dp_display);
 	void (*post_open)(struct dp_display *dp_display);
 	int (*config_hdr)(struct dp_display *dp_display, void *panel,
-				struct drm_msm_ext_hdr_metadata *hdr_meta);
+				struct drm_msm_ext_hdr_metadata *hdr_meta,
+				bool dhdr_update);
 	int (*post_init)(struct dp_display *dp_display);
 	int (*mst_install)(struct dp_display *dp_display,
 			struct dp_mst_drm_install_info *mst_install_info);

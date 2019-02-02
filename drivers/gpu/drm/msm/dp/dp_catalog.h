@@ -217,7 +217,8 @@ struct dp_catalog_panel {
 	struct dp_dsc_cfg_data dsc;
 
 	int (*timing_cfg)(struct dp_catalog_panel *panel);
-	void (*config_hdr)(struct dp_catalog_panel *panel, bool en);
+	void (*config_hdr)(struct dp_catalog_panel *panel, bool en,
+			u32 dhdr_max_pkts);
 	void (*tpg_config)(struct dp_catalog_panel *panel, bool enable);
 	void (*config_spd)(struct dp_catalog_panel *panel);
 	void (*config_misc)(struct dp_catalog_panel *panel);
@@ -228,6 +229,8 @@ struct dp_catalog_panel {
 	void (*config_dto)(struct dp_catalog_panel *panel, bool ack);
 	void (*dsc_cfg)(struct dp_catalog_panel *panel);
 	void (*pps_flush)(struct dp_catalog_panel *panel);
+	void (*dhdr_flush)(struct dp_catalog_panel *panel);
+	bool (*dhdr_busy)(struct dp_catalog_panel *panel);
 };
 
 struct dp_catalog;

@@ -544,6 +544,44 @@ exit:
 	return rc;
 }
 
+static u64 dp_power_clk_get_rate(struct dp_power *dp_power, char *clk_name)
+{
+	size_t i;
+	enum dp_pm_type j;
+	struct dss_module_power *mp;
+	struct dp_power_private *power;
+	bool clk_found = false;
+	u64 rate = 0;
+
+	if (!clk_name) {
+		pr_err("invalid pointer for clk_name\n");
+		return 0;
+	}
+
+	power = container_of(dp_power, struct dp_power_private, dp_power);
+	mp = &power->phandle->mp;
+	for (i = 0; i < mp->num_clk; i++) {
+		if (!strcmp(mp->clk_config[i].clk_name, clk_name)) {
+			rate = clk_get_rate(mp->clk_config[i].clk);
+			clk_found = true;
+			break;
+		}
+	}
+
+	for (j = DP_CORE_PM; j < DP_MAX_PM && !clk_found; j++) {
+		mp = &power->parser->mp[j];
+		for (i = 0; i < mp->num_clk; i++) {
+			if (!strcmp(mp->clk_config[i].clk_name, clk_name)) {
+				rate = clk_get_rate(mp->clk_config[i].clk);
+				clk_found = true;
+				break;
+			}
+		}
+	}
+
+	return rate;
+}
+
 static int dp_power_init(struct dp_power *dp_power, bool flip)
 {
 	int rc = 0;
@@ -660,6 +698,7 @@ struct dp_power *dp_power_get(struct dp_parser *parser)
 	dp_power->deinit = dp_power_deinit;
 	dp_power->clk_enable = dp_power_clk_enable;
 	dp_power->set_pixel_clk_parent = dp_power_set_pixel_clk_parent;
+	dp_power->clk_get_rate = dp_power_clk_get_rate;
 	dp_power->power_client_init = dp_power_client_init;
 	dp_power->power_client_deinit = dp_power_client_deinit;
 

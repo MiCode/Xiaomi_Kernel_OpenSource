@@ -1279,7 +1279,7 @@ static ssize_t dp_debug_write_hdr(struct file *file,
 		len = -EINVAL;
 	}
 
-	debug->panel->setup_hdr(debug->panel, &c_state->hdr_meta);
+	debug->panel->setup_hdr(debug->panel, &c_state->hdr_meta, false, 0);
 end:
 	return len;
 }

@@ -101,6 +101,7 @@ struct dp_panel {
 
 	u32 vic;
 	u32 max_pclk_khz;
+	s64 mst_target_sc;
 
 	/* debug */
 	u32 max_bw_code;
@@ -145,7 +146,8 @@ struct dp_panel {
 	int (*set_edid)(struct dp_panel *dp_panel, u8 *edid);
 	int (*set_dpcd)(struct dp_panel *dp_panel, u8 *dpcd);
 	int (*setup_hdr)(struct dp_panel *dp_panel,
-		struct drm_msm_ext_hdr_metadata *hdr_meta);
+		struct drm_msm_ext_hdr_metadata *hdr_meta,
+		bool dhdr_update, u64 core_clk_rate);
 	void (*tpg_config)(struct dp_panel *dp_panel, bool enable);
 	int (*spd_config)(struct dp_panel *dp_panel);
 	bool (*hdr_supported)(struct dp_panel *dp_panel);

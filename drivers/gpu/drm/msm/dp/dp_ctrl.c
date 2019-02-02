@@ -944,6 +944,7 @@ static void dp_ctrl_mst_calculate_rg(struct dp_ctrl_private *ctrl,
 
 	y_frac_enum = (u32)((temp1 == temp2) ? temp1 : temp1 + 1);
 
+	panel->mst_target_sc = raw_target_sc;
 	*p_x_int = x_int;
 	*p_y_frac_enum = y_frac_enum;
 

@@ -64,6 +64,11 @@ static u8 const vm_voltage_swing[4][4] = {
 	{0xFF, 0xFF, 0xFF, 0xFF}  /* sw1, 1.2 v, optional */
 };
 
+enum dp_flush_bit {
+	DP_PPS_FLUSH,
+	DP_DHDR_FLUSH,
+};
+
 struct dp_catalog_io {
 	struct dp_io_data *dp_ahb;
 	struct dp_io_data *dp_aux;
@@ -572,14 +577,16 @@ static void dp_catalog_panel_setup_vsc_sdp(struct dp_catalog_panel *panel)
 			DUMP_PREFIX_NONE, 16, 4, buf, off, false);
 }
 
-static void dp_catalog_panel_config_hdr(struct dp_catalog_panel *panel, bool en)
+static void dp_catalog_panel_config_hdr(struct dp_catalog_panel *panel, bool en,
+		u32 dhdr_max_pkts)
 {
 	struct dp_catalog_private *catalog;
 	struct dp_io_data *io_data;
-	u32 cfg, cfg2, misc;
+	u32 cfg, cfg2, cfg4, misc;
 	u32 sdp_cfg_off = 0;
 	u32 sdp_cfg2_off = 0;
 	u32 sdp_cfg3_off = 0;
+	u32 sdp_cfg4_off = 0;
 	u32 misc1_misc0_off = 0;
 
 	if (!panel) {
@@ -599,6 +606,7 @@ static void dp_catalog_panel_config_hdr(struct dp_catalog_panel *panel, bool en)
 		sdp_cfg_off = MMSS_DP1_SDP_CFG - MMSS_DP_SDP_CFG;
 		sdp_cfg2_off = MMSS_DP1_SDP_CFG2 - MMSS_DP_SDP_CFG2;
 		sdp_cfg3_off = MMSS_DP1_SDP_CFG3 - MMSS_DP_SDP_CFG3;
+		sdp_cfg4_off = MMSS_DP1_SDP_CFG4 - MMSS_DP_SDP_CFG4;
 		misc1_misc0_off = DP1_MISC1_MISC0 - DP_MISC1_MISC0;
 	}
 
@@ -620,6 +628,13 @@ static void dp_catalog_panel_config_hdr(struct dp_catalog_panel *panel, bool en)
 		dp_write(catalog->exe_mode, io_data,
 				MMSS_DP_SDP_CFG2 + sdp_cfg2_off, cfg2);
 
+		/* DHDR_EN, DHDR_PACKET_LIMIT */
+		if (dhdr_max_pkts) {
+			cfg4 = (dhdr_max_pkts << 1) | BIT(0);
+			dp_write(catalog->exe_mode, io_data, MMSS_DP_SDP_CFG4
+					+ sdp_cfg4_off, cfg4);
+		}
+
 		dp_catalog_panel_setup_vsc_sdp(panel);
 		dp_catalog_panel_setup_infoframe_sdp(panel);
 
@@ -640,6 +655,11 @@ static void dp_catalog_panel_config_hdr(struct dp_catalog_panel *panel, bool en)
 		cfg2 &= ~BIT(15) & ~BIT(16);
 		dp_write(catalog->exe_mode, io_data,
 				MMSS_DP_SDP_CFG2 + sdp_cfg2_off, cfg2);
+
+		/* DHDR_EN, DHDR_PACKET_LIMIT */
+		cfg4 = 0;
+		dp_write(catalog->exe_mode, io_data, MMSS_DP_SDP_CFG4
+				+ sdp_cfg4_off, cfg4);
 
 		/* switch back to MSA */
 		misc &= ~BIT(14);
@@ -1192,7 +1212,8 @@ static void dp_catalog_panel_dsc_cfg(struct dp_catalog_panel *panel)
 			reg, panel->stream_id);
 }
 
-static void dp_catalog_panel_pps_flush(struct dp_catalog_panel *panel)
+static void dp_catalog_panel_dp_flush(struct dp_catalog_panel *panel,
+		enum dp_flush_bit flush_bit)
 {
 	struct dp_catalog_private *catalog;
 	struct dp_io_data *io_data;
@@ -1217,10 +1238,45 @@ static void dp_catalog_panel_pps_flush(struct dp_catalog_panel *panel)
 		offset = MMSS_DP1_FLUSH - MMSS_DP_FLUSH;
 
 	dp_flush = dp_read(catalog->exe_mode, io_data, MMSS_DP_FLUSH + offset);
-	dp_flush |= BIT(0);
+	dp_flush |= BIT(flush_bit);
 	dp_write(catalog->exe_mode, io_data, MMSS_DP_FLUSH + offset, dp_flush);
+}
 
+static void dp_catalog_panel_pps_flush(struct dp_catalog_panel *panel)
+{
+	dp_catalog_panel_dp_flush(panel, DP_PPS_FLUSH);
 	pr_debug("pps flush for stream:%d\n", panel->stream_id);
+}
+
+static void dp_catalog_panel_dhdr_flush(struct dp_catalog_panel *panel)
+{
+	dp_catalog_panel_dp_flush(panel, DP_DHDR_FLUSH);
+	pr_debug("dhdr flush for stream:%d\n", panel->stream_id);
+}
+
+
+static bool dp_catalog_panel_dhdr_busy(struct dp_catalog_panel *panel)
+{
+	struct dp_catalog_private *catalog;
+	struct dp_io_data *io_data;
+	u32 dp_flush, offset;
+
+	if (panel->stream_id >= DP_STREAM_MAX) {
+		pr_err("invalid stream_id:%d\n", panel->stream_id);
+		return false;
+	}
+
+	catalog = dp_catalog_get_priv(panel);
+	io_data = catalog->io.dp_link;
+
+	if (panel->stream_id == DP_STREAM_0)
+		offset = 0;
+	else
+		offset = MMSS_DP1_FLUSH - MMSS_DP_FLUSH;
+
+	dp_flush = dp_read(catalog->exe_mode, io_data, MMSS_DP_FLUSH + offset);
+
+	return dp_flush & BIT(DP_DHDR_FLUSH) ? true : false;
 }
 
 static void dp_catalog_ctrl_reset(struct dp_catalog_ctrl *ctrl)
@@ -2479,6 +2535,8 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_parser *parser)
 		.config_dto = dp_catalog_panel_config_dto,
 		.dsc_cfg = dp_catalog_panel_dsc_cfg,
 		.pps_flush = dp_catalog_panel_pps_flush,
+		.dhdr_flush = dp_catalog_panel_dhdr_flush,
+		.dhdr_busy = dp_catalog_panel_dhdr_busy,
 	};
 
 	if (!dev || !parser) {

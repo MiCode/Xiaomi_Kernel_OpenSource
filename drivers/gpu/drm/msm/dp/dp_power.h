@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _DP_POWER_H_
@@ -16,6 +16,7 @@
  * @deinit: turns off the regulators/core clocks/GPIOs/pinctrl
  * @clk_enable: enable/disable the DP clocks
  * @set_pixel_clk_parent: set the parent of DP pixel clock
+ * @clk_get_rate: get the current rate for provided clk_name
  */
 struct dp_power {
 	int (*init)(struct dp_power *power, bool flip);
@@ -23,6 +24,7 @@ struct dp_power {
 	int (*clk_enable)(struct dp_power *power, enum dp_pm_type pm_type,
 				bool enable);
 	int (*set_pixel_clk_parent)(struct dp_power *power, u32 stream_id);
+	u64 (*clk_get_rate)(struct dp_power *power, char *clk_name);
 	int (*power_client_init)(struct dp_power *power,
 				struct sde_power_handle *phandle);
 	void (*power_client_deinit)(struct dp_power *power);
