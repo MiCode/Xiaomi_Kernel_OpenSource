@@ -46,6 +46,7 @@
 		mhi_chan@104 {
 			label = "IP_HW0_RSC";
 			mhi,num-elements = <512>;
+			mhi,local-elements = <3078>;
 			mhi,event-ring = <5>;
 			mhi,chan-dir = <2>;
 			mhi,data-type = <5>;
