@@ -61,6 +61,8 @@ struct bluetooth_power_platform_data {
 	struct bt_power_vreg_data *bt_vdd_xtal;
 	/* VDD_CORE voltage regulator */
 	struct bt_power_vreg_data *bt_vdd_core;
+	/* VDD_AON digital voltage regulator */
+	struct bt_power_vreg_data *bt_vdd_aon;
 	/* VDD_DIG digital voltage regulator */
 	struct bt_power_vreg_data *bt_vdd_dig;
 	/* VDD RFA1 digital voltage regulator */

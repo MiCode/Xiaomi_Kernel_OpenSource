@@ -289,6 +289,13 @@ static int bluetooth_power(int on)
 				goto vdd_ldo_fail;
 			}
 		}
+		if (bt_power_pdata->bt_vdd_aon) {
+			rc = bt_configure_vreg(bt_power_pdata->bt_vdd_aon);
+			if (rc < 0) {
+				BT_PWR_ERR("bt_power vddaon config failed");
+				goto vdd_aon_fail;
+			}
+		}
 		if (bt_power_pdata->bt_vdd_dig) {
 			rc = bt_configure_vreg(bt_power_pdata->bt_vdd_dig);
 			if (rc < 0) {
@@ -306,7 +313,7 @@ static int bluetooth_power(int on)
 		if (bt_power_pdata->bt_vdd_rfa2) {
 			rc = bt_configure_vreg(bt_power_pdata->bt_vdd_rfa2);
 			if (rc < 0) {
-				BT_PWR_ERR("bt_power vddrfa1 config failed");
+				BT_PWR_ERR("bt_power vddrfa2 config failed");
 				goto vdd_rfa2_fail;
 			}
 		}
@@ -355,6 +362,9 @@ vdd_rfa1_fail:
 		if (bt_power_pdata->bt_vdd_dig)
 			bt_vreg_disable(bt_power_pdata->bt_vdd_dig);
 vdd_dig_fail:
+		if (bt_power_pdata->bt_vdd_aon)
+			bt_vreg_disable(bt_power_pdata->bt_vdd_aon);
+vdd_aon_fail:
 		if (bt_power_pdata->bt_vdd_ldo)
 			bt_vreg_disable(bt_power_pdata->bt_vdd_ldo);
 vdd_ldo_fail:
@@ -624,6 +634,12 @@ static int bt_power_populate_dt_pinfo(struct platform_device *pdev)
 					"qca,bt-chip-pwd");
 		if (rc < 0)
 			BT_PWR_ERR("bt-chip-pwd not provided in device tree");
+
+		rc = bt_dt_parse_vreg_info(&pdev->dev,
+					&bt_power_pdata->bt_vdd_aon,
+					"qca,bt-vdd-aon");
+		if (rc < 0)
+			BT_PWR_ERR("bt-vdd-aon not provided in device tree");
 
 		rc = bt_dt_parse_vreg_info(&pdev->dev,
 					&bt_power_pdata->bt_vdd_dig,

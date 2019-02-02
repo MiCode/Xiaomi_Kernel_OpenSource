@@ -58,12 +58,12 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&bt_en_active>;
 		qca,bt-reset-gpio = <&tlmm 21 0>; /* BT_EN */
-		qca,bt-vdd-ldo-supply = <&pm8150_s6>;
+		qca,bt-vdd-aon-supply = <&pm8150_s6>;
 		qca,bt-vdd-dig-supply = <&pm8009_s2>;
 		qca,bt-vdd-rfa1-supply = <&pm8150_s5>;
 		qca,bt-vdd-rfa2-supply = <&pm8150a_s8>;
 
-		qca,bt-vdd-ldo-voltage-level = <950000 950000>;
+		qca,bt-vdd-aon-voltage-level = <950000 950000>;
 		qca,bt-vdd-dig-voltage-level = <950000 950000>;
 		qca,bt-vdd-rfa1-voltage-level = <1900000 1900000>;
 		qca,bt-vdd-rfa2-voltage-level = <1350000 1350000>;
