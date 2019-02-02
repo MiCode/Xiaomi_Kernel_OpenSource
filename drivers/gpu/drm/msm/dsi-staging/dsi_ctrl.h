@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _DSI_CTRL_H_
@@ -29,6 +29,8 @@
  * @DSI_CTRL_CMD_LAST_COMMAND:     Trigger the DMA cmd transfer if this is last
  *				   command in the batch.
  * @DSI_CTRL_CMD_NON_EMBEDDED_MODE:Transfer cmd packets in non embedded mode.
+ * @DSI_CTRL_CMD_CUSTOM_DMA_SCHED: Use the dma scheduling line number defined in
+ *				   display panel dtsi file instead of default.
  */
 #define DSI_CTRL_CMD_READ             0x1
 #define DSI_CTRL_CMD_BROADCAST        0x2
@@ -38,6 +40,7 @@
 #define DSI_CTRL_CMD_FETCH_MEMORY     0x20
 #define DSI_CTRL_CMD_LAST_COMMAND     0x40
 #define DSI_CTRL_CMD_NON_EMBEDDED_MODE 0x80
+#define DSI_CTRL_CMD_CUSTOM_DMA_SCHED  0x100
 
 /* DSI embedded mode fifo size
  * If the command is greater than 256 bytes it is sent in non-embedded mode.

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
@@ -92,6 +92,12 @@ static int sde_backlight_device_update_status(struct backlight_device *bd)
 	if (!bl_lvl && brightness)
 		bl_lvl = 1;
 
+	if (display->panel->bl_config.bl_update ==
+		BL_UPDATE_DELAY_UNTIL_FIRST_FRAME && !c_conn->allow_bl_update) {
+		c_conn->unset_bl_level = bl_lvl;
+		return 0;
+	}
+
 	if (c_conn->ops.set_backlight) {
 		event.type = DRM_EVENT_SYS_BACKLIGHT;
 		event.length = sizeof(u32);
@@ -99,6 +105,7 @@ static int sde_backlight_device_update_status(struct backlight_device *bd)
 				c_conn->base.dev, &event, (u8 *)&brightness);
 		rc = c_conn->ops.set_backlight(&c_conn->base,
 				c_conn->display, bl_lvl);
+		c_conn->unset_bl_level = 0;
 	}
 
 	return rc;
@@ -543,6 +550,26 @@ static int _sde_connector_update_bl_scale(struct sde_connector *c_conn)
 	return rc;
 }
 
+void sde_connector_set_qsync_params(struct drm_connector *connector)
+{
+	struct sde_connector *c_conn = to_sde_connector(connector);
+	u32 qsync_propval;
+
+	if (!connector)
+		return;
+
+	c_conn->qsync_updated = false;
+	qsync_propval = sde_connector_get_property(c_conn->base.state,
+			CONNECTOR_PROP_QSYNC_MODE);
+
+	if (qsync_propval != c_conn->qsync_mode) {
+		SDE_DEBUG("updated qsync mode %d -> %d\n", c_conn->qsync_mode,
+				qsync_propval);
+		c_conn->qsync_updated = true;
+		c_conn->qsync_mode = qsync_propval;
+	}
+}
+
 static int _sde_connector_update_dirty_properties(
 				struct drm_connector *connector)
 {
@@ -557,7 +584,6 @@ static int _sde_connector_update_dirty_properties(
 
 	c_conn = to_sde_connector(connector);
 	c_state = to_sde_connector_state(connector->state);
-	c_conn->qsync_updated = false;
 
 	while ((idx = msm_property_pop_dirty(&c_conn->property_info,
 					&c_state->property_state)) >= 0) {
@@ -573,19 +599,17 @@ static int _sde_connector_update_dirty_properties(
 		case CONNECTOR_PROP_AD_BL_SCALE:
 			_sde_connector_update_bl_scale(c_conn);
 			break;
-		case CONNECTOR_PROP_QSYNC_MODE:
-			c_conn->qsync_updated = true;
-			c_conn->qsync_mode = sde_connector_get_property(
-				connector->state, CONNECTOR_PROP_QSYNC_MODE);
-			break;
 		default:
 			/* nothing to do for most properties */
 			break;
 		}
 	}
 
-	/* Special handling for postproc properties */
-	if (c_conn->bl_scale_dirty) {
+	/*
+	 * Special handling for postproc properties and
+	 * for updating backlight if any unset backlight level is present
+	 */
+	if (c_conn->bl_scale_dirty || c_conn->unset_bl_level) {
 		_sde_connector_update_bl_scale(c_conn);
 		c_conn->bl_scale_dirty = false;
 	}
@@ -658,29 +682,44 @@ void sde_connector_helper_bridge_disable(struct drm_connector *connector)
 	sde_connector_schedule_status_work(connector, false);
 
 	c_conn = to_sde_connector(connector);
-	if (c_conn->panel_dead) {
+	if (c_conn->bl_device) {
 		c_conn->bl_device->props.power = FB_BLANK_POWERDOWN;
 		c_conn->bl_device->props.state |= BL_CORE_FBBLANK;
 		backlight_update_status(c_conn->bl_device);
 	}
+
+	c_conn->allow_bl_update = false;
 }
 
 void sde_connector_helper_bridge_enable(struct drm_connector *connector)
 {
 	struct sde_connector *c_conn = NULL;
+	struct dsi_display *display;
 
 	if (!connector)
 		return;
 
 	c_conn = to_sde_connector(connector);
+	display = (struct dsi_display *) c_conn->display;
 
-	/* Special handling for ESD recovery case */
-	if (c_conn->panel_dead) {
+	/*
+	 * Special handling for some panels which need atleast
+	 * one frame to be transferred to GRAM before enabling backlight.
+	 * So delay backlight update to these panels until the
+	 * first frame commit is received from the HW.
+	 */
+	if (display->panel->bl_config.bl_update ==
+				BL_UPDATE_DELAY_UNTIL_FIRST_FRAME)
+		sde_encoder_wait_for_event(c_conn->encoder,
+				MSM_ENC_TX_COMPLETE);
+	c_conn->allow_bl_update = true;
+
+	if (c_conn->bl_device) {
 		c_conn->bl_device->props.power = FB_BLANK_UNBLANK;
 		c_conn->bl_device->props.state &= ~BL_CORE_FBBLANK;
 		backlight_update_status(c_conn->bl_device);
-		c_conn->panel_dead = false;
 	}
+	c_conn->panel_dead = false;
 }
 
 int sde_connector_clk_ctrl(struct drm_connector *connector, bool enable)
@@ -1273,24 +1312,17 @@ void sde_connector_commit_reset(struct drm_connector *connector, ktime_t ts)
 static void sde_connector_update_hdr_props(struct drm_connector *connector)
 {
 	struct sde_connector *c_conn = to_sde_connector(connector);
-	struct drm_msm_ext_hdr_properties hdr = {};
+	struct drm_msm_ext_hdr_properties hdr = {
+		connector->hdr_metadata_type_one,
+		connector->hdr_supported,
+		connector->hdr_eotf,
+		connector->hdr_max_luminance,
+		connector->hdr_avg_luminance,
+		connector->hdr_min_luminance,
+	};
 
-	hdr.hdr_supported = connector->hdr_supported;
-
-	if (hdr.hdr_supported) {
-		hdr.hdr_eotf = connector->hdr_eotf;
-		hdr.hdr_metadata_type_one = connector->hdr_metadata_type_one;
-		hdr.hdr_max_luminance = connector->hdr_max_luminance;
-		hdr.hdr_avg_luminance = connector->hdr_avg_luminance;
-		hdr.hdr_min_luminance = connector->hdr_min_luminance;
-
-		msm_property_set_blob(&c_conn->property_info,
-			      &c_conn->blob_ext_hdr,
-			      &hdr,
-			      sizeof(hdr),
-			      CONNECTOR_PROP_EXT_HDR_INFO);
-
-	}
+	msm_property_set_blob(&c_conn->property_info, &c_conn->blob_ext_hdr,
+			&hdr, sizeof(hdr), CONNECTOR_PROP_EXT_HDR_INFO);
 }
 
 static enum drm_connector_status
@@ -1690,7 +1722,8 @@ static int sde_connector_get_modes(struct drm_connector *connector)
 		return 0;
 	}
 
-	sde_connector_update_hdr_props(connector);
+	if (c_conn->hdr_capable)
+		sde_connector_update_hdr_props(connector);
 
 	return mode_count;
 }
@@ -1802,6 +1835,7 @@ static void _sde_connector_report_panel_dead(struct sde_connector *conn)
 int sde_connector_esd_status(struct drm_connector *conn)
 {
 	struct sde_connector *sde_conn = NULL;
+	struct dsi_display *display;
 	int ret = 0;
 
 	if (!conn)
@@ -1811,10 +1845,17 @@ int sde_connector_esd_status(struct drm_connector *conn)
 	if (!sde_conn || !sde_conn->ops.check_status)
 		return ret;
 
+	display = sde_conn->display;
+
 	/* protect this call with ESD status check call */
 	mutex_lock(&sde_conn->lock);
-	ret = sde_conn->ops.check_status(&sde_conn->base, sde_conn->display,
-								true);
+	if (atomic_read(&(display->panel->esd_recovery_pending))) {
+		SDE_ERROR("ESD recovery already pending\n");
+		mutex_unlock(&sde_conn->lock);
+		return -ETIMEDOUT;
+	}
+	ret = sde_conn->ops.check_status(&sde_conn->base,
+					 sde_conn->display, true);
 	mutex_unlock(&sde_conn->lock);
 
 	if (ret <= 0) {
@@ -1935,6 +1976,9 @@ static int sde_connector_populate_mode_info(struct drm_connector *conn,
 			SDE_ERROR_CONN(c_conn, "invalid topology\n");
 			continue;
 		}
+
+		sde_kms_info_add_keyint(info, "mdp_transfer_time_us",
+			mode_info.mdp_transfer_time_us);
 
 		if (!mode_info.roi_caps.num_roi)
 			continue;

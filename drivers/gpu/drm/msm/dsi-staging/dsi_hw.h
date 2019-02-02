@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _DSI_HW_H_
@@ -24,6 +24,14 @@
 		writel_relaxed((val), (dsi_hw)->mmss_misc_base + (off)); \
 	} while (0)
 
+#define DSI_MISC_R32(dsi_hw, off) \
+	readl_relaxed((dsi_hw)->phy_clamp_base + (off))
+#define DSI_MISC_W32(dsi_hw, off, val) \
+	do {\
+		pr_debug("[DSI_%d][%s] - [0x%08x]\n", \
+			(dsi_hw)->index, #off, val); \
+		writel_relaxed((val), (dsi_hw)->phy_clamp_base + (off)); \
+	} while (0)
 #define DSI_DISP_CC_R32(dsi_hw, off) \
 	readl_relaxed((dsi_hw)->disp_cc_base + (off))
 #define DSI_DISP_CC_W32(dsi_hw, off, val) \

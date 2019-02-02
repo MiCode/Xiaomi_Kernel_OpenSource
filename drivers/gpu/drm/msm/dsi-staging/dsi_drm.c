@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 
@@ -55,6 +55,11 @@ static void convert_to_dsi_mode(const struct drm_display_mode *drm_mode,
 
 	dsi_mode->priv_info =
 		(struct dsi_display_mode_priv_info *)drm_mode->private;
+
+	if (dsi_mode->priv_info) {
+		dsi_mode->timing.dsc_enabled = dsi_mode->priv_info->dsc_enabled;
+		dsi_mode->timing.dsc = &dsi_mode->priv_info->dsc;
+	}
 
 	if (msm_is_mode_seamless(drm_mode))
 		dsi_mode->dsi_mode_flags |= DSI_MODE_FLAG_SEAMLESS;
@@ -332,6 +337,8 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 	/* propagate the private info to the adjusted_mode derived dsi mode */
 	dsi_mode.priv_info = panel_dsi_mode->priv_info;
 	dsi_mode.dsi_mode_flags = panel_dsi_mode->dsi_mode_flags;
+	dsi_mode.timing.dsc_enabled = dsi_mode.priv_info->dsc_enabled;
+	dsi_mode.timing.dsc = &dsi_mode.priv_info->dsc;
 
 	rc = dsi_display_validate_mode(c_bridge->display, &dsi_mode,
 			DSI_VALIDATE_FLAG_ALLOW_ADJUST);
@@ -345,6 +352,9 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 
 		convert_to_dsi_mode(&crtc_state->crtc->state->mode,
 							&cur_dsi_mode);
+		cur_dsi_mode.timing.dsc_enabled =
+				dsi_mode.priv_info->dsc_enabled;
+		cur_dsi_mode.timing.dsc = &dsi_mode.priv_info->dsc;
 		rc = dsi_display_validate_mode_vrr(c_bridge->display,
 					&cur_dsi_mode, &dsi_mode);
 		if (rc)
@@ -392,6 +402,8 @@ int dsi_conn_get_mode_info(struct drm_connector *connector,
 	mode_info->jitter_numer = dsi_mode.priv_info->panel_jitter_numer;
 	mode_info->jitter_denom = dsi_mode.priv_info->panel_jitter_denom;
 	mode_info->clk_rate = dsi_mode.priv_info->clk_rate_hz;
+	mode_info->mdp_transfer_time_us =
+		dsi_mode.priv_info->mdp_transfer_time_us;
 
 	memcpy(&mode_info->topology, &dsi_mode.priv_info->topology,
 			sizeof(struct msm_display_topology));
@@ -477,7 +489,7 @@ int dsi_conn_set_info_blob(struct drm_connector *connector,
 	case DSI_OP_CMD_MODE:
 		sde_kms_info_add_keystr(info, "panel mode", "command");
 		sde_kms_info_add_keyint(info, "mdp_transfer_time_us",
-				panel->cmd_config.mdp_transfer_time_us);
+				mode_info->mdp_transfer_time_us);
 		sde_kms_info_add_keystr(info, "qsync support",
 				panel->qsync_min_fps ? "true" : "false");
 		break;
@@ -595,6 +607,7 @@ void dsi_connector_put_modes(struct drm_connector *connector,
 {
 	struct drm_display_mode *drm_mode;
 	struct dsi_display_mode dsi_mode;
+	struct dsi_display *dsi_display;
 
 	if (!connector || !display)
 		return;
@@ -603,6 +616,11 @@ void dsi_connector_put_modes(struct drm_connector *connector,
 		convert_to_dsi_mode(drm_mode, &dsi_mode);
 		dsi_display_put_mode(display, &dsi_mode);
 	}
+
+	/* free the display structure modes also */
+	dsi_display = display;
+	kfree(dsi_display->modes);
+	dsi_display->modes = NULL;
 }
 
 int dsi_connector_get_modes(struct drm_connector *connector,
@@ -740,7 +758,7 @@ int dsi_conn_post_kickoff(struct drm_connector *connector)
 		}
 
 		/* Update the rest of the controllers */
-		for (i = 0; i < display->ctrl_count; i++) {
+		display_for_each_ctrl(i, display) {
 			ctrl = &display->ctrl[i];
 			if (!ctrl->ctrl || (ctrl == m_ctrl))
 				continue;

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _SDE_CONNECTOR_H_
@@ -366,9 +366,12 @@ struct sde_connector_evt {
  * @bl_scale_dirty: Flag to indicate PP BL scale value(s) is changed
  * @bl_scale: BL scale value for ABA feature
  * @bl_scale_ad: BL scale value for AD feature
- * @qsync_mode: Qsync mode, where 0: disabled 1: continuous mode
+ * @unset_bl_level: BL level that needs to be set later
+ * @allow_bl_update: Flag to indicate if BL update is allowed currently or not
+ * @qsync_mode: Cached Qsync mode, 0=disabled, 1=continuous mode
  * @qsync_updated: Qsync settings were updated
  * last_cmd_tx_sts: status of the last command transfer
+ * @hdr_capable: external hdr support present
  */
 struct sde_connector {
 	struct drm_connector base;
@@ -413,11 +416,14 @@ struct sde_connector {
 	bool bl_scale_dirty;
 	u32 bl_scale;
 	u32 bl_scale_ad;
+	u32 unset_bl_level;
+	bool allow_bl_update;
 
 	u32 qsync_mode;
 	bool qsync_updated;
 
 	bool last_cmd_tx_sts;
+	bool hdr_capable;
 };
 
 /**
@@ -456,8 +462,16 @@ struct sde_connector {
  * @C: Pointer to drm connector structure
  * Returns: True if qsync is updated; false otherwise
  */
-#define sde_connector_qsync_updated(C) \
+#define sde_connector_is_qsync_updated(C) \
 	((C) ? to_sde_connector((C))->qsync_updated : 0)
+
+/**
+ * sde_connector_get_qsync_mode - get sde connector's qsync_mode
+ * @C: Pointer to drm connector structure
+ * Returns: Current cached qsync_mode for given connector
+ */
+#define sde_connector_get_qsync_mode(C) \
+	((C) ? to_sde_connector((C))->qsync_mode : 0)
 
 /**
  * sde_connector_get_propinfo - get sde connector's property info pointer
@@ -671,6 +685,17 @@ int sde_connector_clk_ctrl(struct drm_connector *connector, bool enable);
  * Returns: Current DPMS setting for connector
  */
 int sde_connector_get_dpms(struct drm_connector *connector);
+
+/**
+ * sde_connector_set_qsync_params - set status of qsync_updated for current
+ *                                  frame and update the cached qsync_mode
+ * @connector: pointer to drm connector
+ *
+ * This must be called after the connector set_property values are applied,
+ * and before sde_connector's qsync_updated or qsync_mode fields are accessed.
+ * It must only be called once per frame update for the given connector.
+ */
+void sde_connector_set_qsync_params(struct drm_connector *connector);
 
 /**
  * sde_connector_trigger_event - indicate that an event has occurred

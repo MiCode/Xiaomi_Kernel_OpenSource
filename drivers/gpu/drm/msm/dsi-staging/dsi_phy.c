@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"msm-dsi-phy:[%s] " fmt, __func__
@@ -111,6 +111,18 @@ static int dsi_phy_regmap_init(struct platform_device *pdev,
 
 	pr_debug("[%s] map dsi_phy registers to %pK\n",
 		phy->name, phy->hw.base);
+
+	switch (phy->ver_info->version) {
+	case DSI_PHY_VERSION_2_0:
+		ptr = msm_ioremap(pdev, "phy_clamp_base", phy->name);
+		if (IS_ERR(ptr))
+			phy->hw.phy_clamp_base = NULL;
+		else
+			phy->hw.phy_clamp_base = ptr;
+		break;
+	default:
+		break;
+	}
 
 	return rc;
 }
@@ -369,6 +381,8 @@ static int dsi_phy_driver_probe(struct platform_device *pdev)
 
 	pr_debug("Probing %s device\n", dsi_phy->name);
 
+	dsi_phy->ver_info = ver_info;
+
 	rc = dsi_phy_regmap_init(pdev, dsi_phy);
 	if (rc) {
 		pr_err("Failed to parse register information, rc=%d\n", rc);
@@ -389,7 +403,6 @@ static int dsi_phy_driver_probe(struct platform_device *pdev)
 		goto fail_supplies;
 	}
 
-	dsi_phy->ver_info = ver_info;
 	rc = dsi_phy_settings_init(pdev, dsi_phy);
 	if (rc) {
 		pr_err("Failed to parse phy setting, rc=%d\n", rc);
@@ -790,7 +803,7 @@ int dsi_phy_set_ulps(struct msm_dsi_phy *phy, struct dsi_host_config *config,
 
 	if (!phy) {
 		pr_err("Invalid params\n");
-		return -EINVAL;
+		return DSI_PHY_ULPS_ERROR;
 	}
 
 	if (!phy->hw.ops.ulps_ops.ulps_request ||
@@ -799,7 +812,7 @@ int dsi_phy_set_ulps(struct msm_dsi_phy *phy, struct dsi_host_config *config,
 			!phy->hw.ops.ulps_ops.is_lanes_in_ulps ||
 			!phy->hw.ops.ulps_ops.wait_for_lane_idle) {
 		pr_debug("DSI PHY ULPS ops not present\n");
-		return 0;
+		return DSI_PHY_ULPS_NOT_HANDLED;
 	}
 
 	mutex_lock(&phy->phy_lock);
@@ -812,6 +825,7 @@ int dsi_phy_set_ulps(struct msm_dsi_phy *phy, struct dsi_host_config *config,
 	if (rc) {
 		pr_err("[DSI_PHY%d] Ulps state change(%d) failed, rc=%d\n",
 			phy->index, enable, rc);
+		rc = DSI_PHY_ULPS_ERROR;
 		goto error;
 	}
 	pr_debug("[DSI_PHY%d] ULPS state = %d\n", phy->index, enable);
@@ -856,6 +870,7 @@ int dsi_phy_enable(struct msm_dsi_phy *phy,
 	phy->data_lanes = config->common_config.data_lanes;
 	phy->dst_format = config->common_config.dst_format;
 	phy->cfg.pll_source = pll_source;
+	phy->cfg.bit_clk_rate_hz = config->bit_clk_rate_hz;
 
 	/**
 	 * If PHY timing parameters are not present in panel dtsi file,

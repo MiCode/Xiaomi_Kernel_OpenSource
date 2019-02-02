@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -284,6 +284,15 @@ u32 sde_plane_get_ubwc_error(struct drm_plane *plane);
  * @plane: Pointer to DRM plane object
  */
 void sde_plane_clear_ubwc_error(struct drm_plane *plane);
+
+/*
+ * sde_plane_setup_src_split_order - enable/disable pipe's src_split_order
+ * @plane: Pointer to DRM plane object
+ * @rect_mode: multirect mode
+ * @enable: enable/disable flag
+ */
+void sde_plane_setup_src_split_order(struct drm_plane *plane,
+		enum sde_sspp_multirect_index rect_mode, bool enable);
 
 /* sde_plane_is_cache_required - indicates if the system cache is
  *	required for the plane.

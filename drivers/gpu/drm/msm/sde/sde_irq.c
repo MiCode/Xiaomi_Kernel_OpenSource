@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
@@ -12,7 +12,7 @@
 #include "sde_irq.h"
 #include "sde_core_irq.h"
 
-static uint32_t g_sde_irq_status;
+uint32_t g_sde_irq_status;
 
 void sde_irq_update(struct msm_kms *msm_kms, bool enable)
 {

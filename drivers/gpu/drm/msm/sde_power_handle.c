@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"[drm:%s:%d]: " fmt, __func__, __LINE__
@@ -1129,7 +1129,7 @@ int sde_power_clk_set_rate(struct sde_power_handle *phandle, char *clock_name,
 			sde_cx_ipeak_vote(phandle, &mp->clk_config[i],
 				requested_clk_rate, prev_clk_rate, true);
 			mp->clk_config[i].rate = rate;
-			rc = msm_dss_clk_set_rate(mp->clk_config, mp->num_clk);
+			rc = msm_dss_single_clk_set_rate(&mp->clk_config[i]);
 			if (!rc)
 				sde_cx_ipeak_vote(phandle, &mp->clk_config[i],
 				   requested_clk_rate, prev_clk_rate, false);
