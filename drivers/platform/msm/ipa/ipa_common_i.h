@@ -462,4 +462,8 @@ int ipa_enable_wigig_pipe_i(enum ipa_client_type client);
 
 int ipa_disable_wigig_pipe_i(enum ipa_client_type client);
 
+int ipa_wigig_send_msg(int msg_type,
+	const char *netdev_name, u8 *mac,
+	enum ipa_client_type client, bool to_wigig);
+
 #endif /* _IPA_COMMON_I_H_ */
