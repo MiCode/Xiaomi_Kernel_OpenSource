@@ -249,12 +249,15 @@ int diag_bridge_read(int id, char *data, int size)
 	}
 
 	usb_autopm_put_interface(dev->ifc);
+	usb_free_urb(urb);
+	mutex_unlock(&dev->ifc_mutex);
+	return ret;
 
 free_error:
 	usb_free_urb(urb);
 put_error:
-	if (ret) /* otherwise this is done in the completion handler */
-		kref_put(&dev->kref, diag_bridge_delete);
+	/* If URB submit successful, this is done in the completion handler */
+	kref_put(&dev->kref, diag_bridge_delete);
 error:
 	mutex_unlock(&dev->ifc_mutex);
 	return ret;
@@ -360,11 +363,15 @@ int diag_bridge_write(int id, char *data, int size)
 		goto free_error;
 	}
 
+	usb_free_urb(urb);
+	mutex_unlock(&dev->ifc_mutex);
+	return ret;
+
 free_error:
 	usb_free_urb(urb);
 put_error:
-	if (ret) /* otherwise this is done in the completion handler */
-		kref_put(&dev->kref, diag_bridge_delete);
+	/* If URB submit successful, this is done in the completion handler */
+	kref_put(&dev->kref, diag_bridge_delete);
 error:
 	mutex_unlock(&dev->ifc_mutex);
 	return ret;
