@@ -15,6 +15,7 @@
 #include <net/pkt_sched.h>
 #include <linux/soc/qcom/qmi.h>
 #include <soc/qcom/rmnet_qmi.h>
+#include <soc/qcom/qmi_rmnet.h>
 
 #include "qmi_rmnet_i.h"
 #define CREATE_TRACE_POINTS
@@ -890,6 +891,8 @@ static int dfc_all_bearer_flow_ctl(struct net_device *dev,
 		bearer_itm->seq = fc_info->seq_num;
 		bearer_itm->ack_req = ack_req;
 		bearer_itm->ancillary = ancillary;
+		bearer_itm->last_grant = fc_info->num_bytes;
+		bearer_itm->last_seq = fc_info->seq_num;
 	}
 
 	list_for_each_entry(flow_itm, &qos->flow_head, list) {
@@ -929,6 +932,8 @@ static int dfc_update_fc_map(struct net_device *dev, struct qos_info *qos,
 		itm->seq = fc_info->seq_num;
 		itm->ack_req = ack_req;
 		itm->ancillary = ancillary;
+		itm->last_grant = fc_info->num_bytes;
+		itm->last_seq = fc_info->seq_num;
 
 		if (action != -1)
 			rc = dfc_bearer_flow_ctl(dev, itm, qos);
@@ -1029,6 +1034,8 @@ static void dfc_qmi_ind_work(struct work_struct *work)
 	} while (svc_ind != NULL);
 
 	local_bh_enable();
+
+	qmi_rmnet_set_dl_msg_active(dfc->rmnet_port);
 }
 
 static void dfc_clnt_ind_cb(struct qmi_handle *qmi, struct sockaddr_qrtr *sq,
