@@ -5157,8 +5157,8 @@ void sde_dbg_init_dbg_buses(u32 hwversion)
 		dbg->dbgbus_vbif_rt.entries = vbif_dbg_bus_msm8998;
 		dbg->dbgbus_vbif_rt.cmn.entries_size =
 				ARRAY_SIZE(vbif_dbg_bus_msm8998);
-		dbg->dbgbus_dsi.entries = NULL;
-		dbg->dbgbus_dsi.size = 0;
+		dbg->dbgbus_dsi.entries = dsi_dbg_bus_sdm845;
+		dbg->dbgbus_dsi.size = ARRAY_SIZE(dsi_dbg_bus_sdm845);
 	} else {
 		pr_err("unsupported chipset id %X\n", hwversion);
 	}
