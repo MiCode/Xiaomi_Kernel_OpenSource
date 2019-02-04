@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,7 +32,7 @@
 
 #define TO_S15D16(_x_)	((_x_) << 7)
 
-static const u32 cwb_irq_tbl[PINGPONG_MAX] = {SDE_NONE, SDE_NONE,
+static const u32 cwb_irq_tbl[PINGPONG_MAX] = {SDE_NONE, INTR_IDX_PP1_OVFL,
 	INTR_IDX_PP2_OVFL, INTR_IDX_PP3_OVFL, INTR_IDX_PP4_OVFL,
 	INTR_IDX_PP5_OVFL, SDE_NONE, SDE_NONE};
 
@@ -1810,6 +1810,16 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 	irq->intr_idx = INTR_IDX_WB_DONE;
 	irq->cb.arg = wb_enc;
 	irq->cb.func = sde_encoder_phys_wb_done_irq;
+
+	irq = &phys_enc->irq[INTR_IDX_PP1_OVFL];
+	INIT_LIST_HEAD(&irq->cb.list);
+	irq->name = "pp1_overflow";
+	irq->hw_idx = CWB_1;
+	irq->irq_idx = -1;
+	irq->intr_type = SDE_IRQ_TYPE_CWB_OVERFLOW;
+	irq->intr_idx = INTR_IDX_PP1_OVFL;
+	irq->cb.arg = wb_enc;
+	irq->cb.func = sde_encoder_phys_cwb_ovflow;
 
 	irq = &phys_enc->irq[INTR_IDX_PP2_OVFL];
 	INIT_LIST_HEAD(&irq->cb.list);
