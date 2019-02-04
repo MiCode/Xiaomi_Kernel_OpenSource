@@ -1747,7 +1747,7 @@ int cam_req_mgr_process_sched_req(void *priv, void *data)
 
 	if (slot->status != CRM_SLOT_STATUS_NO_REQ &&
 		slot->status != CRM_SLOT_STATUS_REQ_APPLIED)
-		CAM_WARN(CAM_CRM, "in_q overwrite %d", slot->status);
+		CAM_INFO_RATE_LIMIT(CAM_CRM, "in_q overwrite %d", slot->status);
 
 	slot->status = CRM_SLOT_STATUS_REQ_ADDED;
 	slot->req_id = sched_req->req_id;
