@@ -195,10 +195,24 @@
 	qcom,host-poweroff-in-pm-suspend;
 };
 
+&qusb_phy0 {
+	qcom,usb-hs-ac-bitmask = <0x30>;
+	qcom,usb-hs-ac-value = <0x10>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&usb0_hs_ac_en_default>;
+};
+
 &usb1 {
 	status = "ok";
 	qcom,default-mode-host;
 	qcom,host-poweroff-in-pm-suspend;
+};
+
+&qusb_phy1 {
+	qcom,usb-hs-ac-bitmask = <0xc0>;
+	qcom,usb-hs-ac-value = <0x40>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&usb1_hs_ac_en_default>;
 };
 
 &qupv3_se0_2uart {
