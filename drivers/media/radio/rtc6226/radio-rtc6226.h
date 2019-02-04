@@ -318,6 +318,8 @@
 #define CH_SPACING_200 200
 #define CH_SPACING_100 100
 #define CH_SPACING_50 50
+#define TURNING_ON 1
+#define TURNING_OFF 0
 
 #define RW_PRIBASE	(V4L2_CID_USER_BASE | 0xf000)
 
@@ -441,6 +443,18 @@ struct rtc6226_af_info {
 	u32 af_list[MAX_NO_OF_AF];
 };
 
+struct fm_power_vreg_data {
+	/* voltage regulator handle */
+	struct regulator *reg;
+	/* regulator name */
+	const char *name;
+	/* voltage levels to be set */
+	unsigned int low_vol_level;
+	unsigned int high_vol_level;
+	/* is this regulator enabled? */
+	bool is_enabled;
+};
+
 /*
  * rtc6226_device - private data
  */
@@ -456,6 +470,8 @@ struct rtc6226_device {
 	struct pinctrl_state *gpio_state_active;
 	struct pinctrl_state *gpio_state_suspend;
 	struct v4l2_ctrl_handler ctrl_handler;
+	struct fm_power_vreg_data *vddreg;
+	struct fm_power_vreg_data *vioreg;
 	int band;
 	int space;
 	unsigned int users;

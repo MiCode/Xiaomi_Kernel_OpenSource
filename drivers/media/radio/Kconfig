@@ -508,7 +508,7 @@ endif # V4L_RADIO_ISA_DRIVERS
 
 config I2C_RTC6226_QCA
 	tristate "Richwave RTC6226 FM Radio Receiver support with I2C for QCA"
-	depends on I2C && RADIO_RTC6226_QCA
+	depends on I2C && VIDEO_V4L2
 	---help---
 	  This is a driver for I2C devices with the Richwave RTC6226
 	  chip.

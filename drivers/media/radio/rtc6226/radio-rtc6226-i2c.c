@@ -390,6 +390,133 @@ open_err_req_irq:
 	return retval;
 }
 
+static int rtc6226_fm_vio_reg_cfg(struct rtc6226_device *radio, bool on)
+{
+	int rc = 0;
+	struct fm_power_vreg_data *vreg;
+
+	vreg = radio->vioreg;
+	if (!vreg) {
+		pr_err("In %s, vio reg is NULL\n", __func__);
+		return rc;
+	}
+	if (on) {
+		pr_debug("vreg is : %s\n", vreg->name);
+		rc = regulator_set_voltage(vreg->reg,
+					vreg->low_vol_level,
+					vreg->high_vol_level);
+		if (rc < 0) {
+			pr_err("set_vol(%s) fail %d\n", vreg->name, rc);
+			return rc;
+		}
+		rc = regulator_enable(vreg->reg);
+		if (rc < 0) {
+			pr_err("reg enable(%s) failed.rc=%d\n", vreg->name, rc);
+				regulator_set_voltage(vreg->reg,
+						0,
+						vreg->high_vol_level);
+			return rc;
+		}
+		vreg->is_enabled = true;
+
+	} else {
+		rc = regulator_disable(vreg->reg);
+		if (rc < 0) {
+			pr_err("reg disable(%s) fail rc=%d\n", vreg->name, rc);
+			return rc;
+		}
+		vreg->is_enabled = false;
+
+		/* Set the min voltage to 0 */
+		rc = regulator_set_voltage(vreg->reg,
+					0,
+					vreg->high_vol_level);
+		if (rc < 0) {
+			pr_err("set_vol(%s) fail %d\n", vreg->name, rc);
+			return rc;
+		}
+	}
+	return rc;
+}
+
+static int rtc6226_fm_vdd_reg_cfg(struct rtc6226_device *radio, bool on)
+{
+	int rc = 0;
+	struct fm_power_vreg_data *vreg;
+
+	vreg = radio->vddreg;
+	if (!vreg) {
+		pr_err("In %s, vdd reg is NULL\n", __func__);
+		return rc;
+	}
+
+	if (on) {
+		pr_debug("vreg is : %s\n", vreg->name);
+		rc = regulator_set_voltage(vreg->reg,
+					vreg->low_vol_level,
+					vreg->high_vol_level);
+		if (rc < 0) {
+			pr_err("set_vol(%s) fail %d\n", vreg->name, rc);
+			return rc;
+		}
+
+		rc = regulator_enable(vreg->reg);
+		if (rc < 0) {
+			pr_err("reg enable(%s) failed.rc=%d\n", vreg->name, rc);
+			regulator_set_voltage(vreg->reg,
+					0,
+					vreg->high_vol_level);
+			return rc;
+		}
+		vreg->is_enabled = true;
+	} else {
+		rc = regulator_disable(vreg->reg);
+		if (rc < 0) {
+			pr_err("reg disable(%s) fail. rc=%d\n", vreg->name, rc);
+			return rc;
+		}
+		vreg->is_enabled = false;
+
+			/* Set the min voltage to 0 */
+		rc = regulator_set_voltage(vreg->reg,
+					0,
+					vreg->high_vol_level);
+		if (rc < 0) {
+			pr_err("set_vol(%s) fail %d\n", vreg->name, rc);
+			return rc;
+		}
+	}
+	return rc;
+}
+
+static int rtc6226_fm_power_cfg(struct rtc6226_device *radio, bool powerflag)
+{
+	int rc = 0;
+
+	if (powerflag) {
+		/* Turn ON sequence */
+		rc = rtc6226_fm_vdd_reg_cfg(radio, powerflag);
+		if (rc < 0) {
+			pr_err("In %s, vdd reg cfg failed %x\n", __func__, rc);
+			return rc;
+		}
+		rc = rtc6226_fm_vio_reg_cfg(radio, powerflag);
+		if (rc < 0) {
+			pr_err("In %s, vio reg cfg failed %x\n", __func__, rc);
+			rtc6226_fm_vdd_reg_cfg(radio, false);
+			return rc;
+		}
+	} else {
+		/* Turn OFF sequence */
+		rc = rtc6226_fm_vdd_reg_cfg(radio, powerflag);
+		if (rc < 0)
+			pr_err("In %s, vdd reg cfg failed %x\n", __func__, rc);
+		rc = rtc6226_fm_vio_reg_cfg(radio, powerflag);
+		if (rc < 0)
+			pr_err("In %s, vio reg cfg failed %x\n", __func__, rc);
+	}
+	return rc;
+}
 /*
  * rtc6226_fops_open - file open
  */
@@ -415,12 +542,29 @@ int rtc6226_fops_open(struct file *file)
 	INIT_DELAYED_WORK(&radio->work_scan, rtc6226_scan);
 	INIT_WORK(&radio->rds_worker, rtc6226_rds_handler);
 
+	/* Power up  Supply voltage to VDD and VIO */
+	retval = rtc6226_fm_power_cfg(radio, TURNING_ON);
+	if (retval) {
+		pr_err("%s: failed to supply voltage\n", __func__);
+		goto open_err_setup;
+	}
+
+	retval = rtc6226_enable_irq(radio);
 	/* Wait for the value to take effect on gpio. */
 	msleep(100);
-	rtc6226_enable_irq(radio);
+	if (retval) {
+		pr_err("%s:enable irq failed\n", __func__);
+		goto open_err_req_irq;
+	}
 
 	if (retval)
 		v4l2_fh_release(file);
+	return retval;
+
+open_err_req_irq:
+	rtc6226_fm_power_cfg(radio, TURNING_OFF);
+open_err_setup:
+	radio->users--;
 	return retval;
 }
 
@@ -430,6 +574,7 @@ int rtc6226_fops_open(struct file *file)
 int rtc6226_fops_release(struct file *file)
 {
 	struct rtc6226_device *radio = video_drvdata(file);
+	int retval = 0;
 
 	pr_info("%s : Exit\n", __func__);
 	if (v4l2_fh_is_singular_file(file)) {
@@ -440,6 +585,9 @@ int rtc6226_fops_release(struct file *file)
 	}
 	rtc6226_disable_irq(radio);
 	radio->users--;
+	retval = rtc6226_fm_power_cfg(radio, TURNING_OFF);
+	if (retval < 0)
+		pr_err("%s: failed to apply voltage\n", __func__);
 	return v4l2_fh_release(file);
 }
 
@@ -520,6 +668,23 @@ err_active_state:
 	return retval;
 }
 
+static int rtc6226_dt_parse_vreg_info(struct device *dev,
+			struct fm_power_vreg_data *vreg, const char *vreg_name)
+{
+	int ret = 0;
+	u32 vol_suply[2];
+	struct device_node *np = dev->of_node;
+
+	ret = of_property_read_u32_array(np, vreg_name, vol_suply, 2);
+	if (ret < 0) {
+		pr_err("Invalid property name\n");
+		ret =  -EINVAL;
+	} else {
+		vreg->low_vol_level = vol_suply[0];
+		vreg->high_vol_level = vol_suply[1];
+	}
+	return ret;
+}
 
 /*
  * rtc6226_i2c_probe - probe for the device
@@ -530,6 +695,8 @@ static int rtc6226_i2c_probe(struct i2c_client *client,
 	struct rtc6226_device *radio;
 	struct v4l2_device *v4l2_dev;
 	struct v4l2_ctrl_handler *hdl;
+	struct regulator *vddvreg = NULL;
+	struct regulator *viovreg = NULL;
 	int retval = 0;
 	int i = 0;
 	int kfifo_alloc_rc = 0;
@@ -540,21 +707,45 @@ static int rtc6226_i2c_probe(struct i2c_client *client,
 	pr_info("%s enter\n", __func__);
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		retval = -ENODEV;
-		goto err_initial;
+		return retval;
+	}
+
+	/*
+	 * if voltage regulator is not ready yet, return the error
+	 * if error is -EPROBE_DEFER to kernel then probe will be called at
+	 * later point of time.
+	 */
+	viovreg = regulator_get(&client->dev, "vio");
+	if (IS_ERR(viovreg)) {
+		retval = PTR_ERR(viovreg);
+		pr_err("%s: regulator_get(vio) failed. retval=%d\n",
+			__func__, retval);
+		return retval;
+	}
+
+	vddvreg = regulator_get(&client->dev, "vdd");
+	if (IS_ERR(vddvreg)) {
+		retval = PTR_ERR(vddvreg);
+		pr_err("%s: regulator_get(vdd) failed. retval=%d\n",
+			__func__, retval);
+		regulator_put(viovreg);
+		return retval;
 	}
 
 	/* private data allocation and initialization */
 	radio = kzalloc(sizeof(struct rtc6226_device), GFP_KERNEL);
 	if (!radio) {
 		retval = -ENOMEM;
-		goto err_initial;
+		regulator_put(viovreg);
+		regulator_put(vddvreg);
+		return retval;
 	}
 
 	v4l2_dev = &radio->v4l2_dev;
 	retval = v4l2_device_register(&client->dev, v4l2_dev);
 	if (retval < 0) {
 		pr_err("%s couldn't register v4l2_device\n", __func__);
-		goto err_radio;
+		goto err_vreg;
 	}
 
 	pr_info("v4l2_device_register successfully\n");
@@ -568,10 +759,47 @@ static int rtc6226_i2c_probe(struct i2c_client *client,
 	retval = rtc6226_parse_dt(&client->dev, radio);
 	if (retval) {
 		pr_err("%s: Parsing DT failed(%d)\n", __func__, retval);
-		kfree(radio);
-		return retval;
+		goto err_v4l2;
 	}
 
+	radio->vddreg = devm_kzalloc(&client->dev,
+				sizeof(struct fm_power_vreg_data),
+				GFP_KERNEL);
+	if (!radio->vddreg) {
+		pr_err("%s: allocating memory for vdd vreg failed\n",
+							__func__);
+		retval = -ENOMEM;
+		goto err_v4l2;
+	}
+
+	radio->vddreg->reg = vddvreg;
+	radio->vddreg->name = "vdd";
+	radio->vddreg->is_enabled = false;
+	retval = rtc6226_dt_parse_vreg_info(&client->dev,
+			radio->vddreg, "rtc6226,vdd-supply-voltage");
+	if (retval < 0) {
+		pr_err("%s: parsing vdd-supply failed\n", __func__);
+		goto err_v4l2;
+	}
+
+	radio->vioreg = devm_kzalloc(&client->dev,
+				sizeof(struct fm_power_vreg_data),
+				GFP_KERNEL);
+	if (!radio->vioreg) {
+		pr_err("%s: allocating memory for vio vreg failed\n",
+							__func__);
+		retval = -ENOMEM;
+		goto err_v4l2;
+	}
+	radio->vioreg->reg = viovreg;
+	radio->vioreg->name = "vio";
+	radio->vioreg->is_enabled = false;
+	retval = rtc6226_dt_parse_vreg_info(&client->dev,
+			radio->vioreg, "rtc6226,vio-supply-voltage");
+	if (retval < 0) {
+		pr_err("%s: parsing vio-supply failed\n", __func__);
+		goto err_v4l2;
+	}
 	/* Initialize pin control*/
 	retval = rtc6226_pinctrl_init(radio);
 	if (retval) {
@@ -582,15 +810,6 @@ static int rtc6226_i2c_probe(struct i2c_client *client,
 			retval = 0;
 	} else {
 		pr_info("%s rtc6226_pinctrl_init success\n", __func__);
-	}
-
-	if (radio->ext_ldo_gpio > 0) {
-		retval = gpio_direction_output(radio->ext_ldo_gpio, 1);
-		if (retval) {
-			pr_err("%s Unable to set direction(LDO)\n", __func__);
-			kfree(radio);
-			return retval;
-		}
 	}
 
 	memcpy(&radio->videodev, &rtc6226_viddev_template,
@@ -605,7 +824,7 @@ static int rtc6226_i2c_probe(struct i2c_client *client,
 	radio->buffer = kmalloc(radio->buf_size, GFP_KERNEL);
 	if (!radio->buffer) {
 		retval = -EIO;
-		goto err_radio;
+		goto err;
 	}
 
 	for (i = 0; i < RTC6226_FM_BUF_MAX; i++) {
@@ -618,7 +837,7 @@ static int rtc6226_i2c_probe(struct i2c_client *client,
 			pr_err("%s: failed allocating buffers %d\n",
 					__func__, kfifo_alloc_rc);
 			retval = -ENOMEM;
-			goto err;
+			goto err_rds;
 		}
 	}
 	radio->wqueue = NULL;
@@ -636,19 +855,19 @@ static int rtc6226_i2c_probe(struct i2c_client *client,
 	radio->wqueue  = create_singlethread_workqueue("fmradio");
 	if (!radio->wqueue) {
 		retval = -ENOMEM;
-		goto err_wqueue;
+		goto err_rds;
 	}
 
 	radio->wqueue_scan  = create_singlethread_workqueue("fmradioscan");
 	if (!radio->wqueue_scan) {
 		retval = -ENOMEM;
-		goto err_wqueue_scan;
+		goto err_wqueue;
 	}
 
 	radio->wqueue_rds  = create_singlethread_workqueue("fmradiords");
 	if (!radio->wqueue_rds) {
 		retval = -ENOMEM;
-		goto err_all;
+		goto err_wqueue_scan;
 	}
 
 	/* register video device */
@@ -656,7 +875,7 @@ static int rtc6226_i2c_probe(struct i2c_client *client,
 		radio_nr);
 	if (retval) {
 		dev_info(&client->dev, "Could not register video device\n");
-		goto err_rds;
+		goto err_all;
 	}
 
 	i2c_set_clientdata(client, radio);		/* move from below */
@@ -667,16 +886,28 @@ err_all:
 	destroy_workqueue(radio->wqueue_rds);
 err_wqueue_scan:
 	destroy_workqueue(radio->wqueue_scan);
-err_rds:
-	kfree(radio->buffer);
 err_wqueue:
 	destroy_workqueue(radio->wqueue);
+err_rds:
+	kfree(radio->buffer);
 err:
 	video_device_release(&radio->videodev);
+err_v4l2:
 	v4l2_device_unregister(v4l2_dev);
-err_radio:
+err_vreg:
+	if (radio && radio->vioreg && radio->vioreg->reg) {
+		regulator_put(radio->vioreg->reg);
+		devm_kfree(&client->dev, radio->vioreg);
+	} else {
+		regulator_put(viovreg);
+	}
+	if (radio && radio->vddreg && radio->vddreg->reg) {
+		regulator_put(radio->vddreg->reg);
+		devm_kfree(&client->dev, radio->vddreg);
+	} else {
+		regulator_put(vddvreg);
+	}
 	kfree(radio);
-err_initial:
 	return retval;
 }
 
