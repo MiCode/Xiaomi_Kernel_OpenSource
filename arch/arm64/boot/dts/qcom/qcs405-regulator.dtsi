@@ -366,3 +366,18 @@
 		qcom,cpr-enable;
 	};
 };
+
+&i2c_2 {
+	/* I2C based external buck for APC */
+	hl7503_vreg: hl7503-regulator@60 {
+		status = "disabled";
+		compatible = "halo,hl7503";
+		reg = <0x60>;
+		regulator-min-microvolt = <600000>;
+		regulator-max-microvolt = <1387500>;
+		regulator-ramp-delay = <500>;
+		regulator-always-on;
+		fcs,suspend-voltage-selector = <0>;
+		fcs,disable-suspend;
+	};
+};
