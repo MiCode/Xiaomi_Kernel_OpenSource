@@ -972,16 +972,20 @@ static int icnss_pd_restart_complete(struct icnss_priv *priv)
 
 	icnss_hw_power_on(priv);
 
+	icnss_block_shutdown(true);
+
 	ret = priv->ops->reinit(&priv->pdev->dev);
 	if (ret < 0) {
 		icnss_fatal_err("Driver reinit failed: %d, state: 0x%lx\n",
 				ret, priv->state);
 		if (!priv->allow_recursive_recovery)
 			ICNSS_ASSERT(false);
+		icnss_block_shutdown(false);
 		goto out_power_off;
 	}
 
 out:
+	icnss_block_shutdown(false);
 	clear_bit(ICNSS_SHUTDOWN_DONE, &penv->state);
 	return 0;
 
