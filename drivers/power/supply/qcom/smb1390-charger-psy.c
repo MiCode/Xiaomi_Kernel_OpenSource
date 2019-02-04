@@ -90,6 +90,8 @@
 #define SRC_VOTER		"SRC_VOTER"
 #define SWITCHER_TOGGLE_VOTER	"SWITCHER_TOGGLE_VOTER"
 
+#define THERMAL_SUSPEND_DECIDEGC	1400
+
 #define smb1390_dbg(chip, reason, fmt, ...)				\
 	do {								\
 		if (chip->debug_mask & (reason))			\
@@ -740,9 +742,24 @@ static int smb1390_get_prop(struct power_supply *psy,
 			else
 				rc = -ENODATA;
 		} else {
+			/*
+			 * Add a filter to the die temp value read:
+			 * If temp > THERMAL_SUSPEND_DECIDEGC then
+			 *	- treat it as an error and report last valid
+			 *	  cached temperature.
+			 *	- return -ENODATA if the cached value is
+			 *	  invalid.
+			 */
+
 			rc = smb1390_get_die_temp(chip, val);
-			if (rc >= 0)
-				chip->die_temp = val->intval;
+			if (rc >= 0) {
+				if (val->intval <= THERMAL_SUSPEND_DECIDEGC)
+					chip->die_temp = val->intval;
+				else if (chip->die_temp == -ENODATA)
+					rc = -ENODATA;
+				else
+					val->intval = chip->die_temp;
+			}
 		}
 		break;
 	case POWER_SUPPLY_PROP_CP_ISNS:
