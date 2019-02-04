@@ -128,6 +128,10 @@ Optional properties
 - qcom,rot-reg-bus:		Property to provide Bus scaling for register
 				access for rotator blocks.
 - power-domains:		A phandle to respective power domain node.
+- qcom,mdss-rot-parent:		A 2 cell property, with format of (mdp phandle,
+				instance id), of mdp device.
+- qcom,mdss-rot-xin-id:		An integer array of xin-ids when nrt path for rotation
+				is not available.
 
 Subnode properties:
 - compatible:		Compatible name used in smmu v2.
