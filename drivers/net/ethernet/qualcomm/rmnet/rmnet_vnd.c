@@ -25,6 +25,7 @@
 #include "rmnet_vnd.h"
 
 #include <soc/qcom/qmi_rmnet.h>
+#include <soc/qcom/rmnet_qmi.h>
 #define CREATE_TRACE_POINTS
 #include <trace/events/rmnet.h>
 
@@ -75,6 +76,7 @@ static netdev_tx_t rmnet_vnd_start_xmit(struct sk_buff *skb,
 		trace_rmnet_xmit_skb(skb);
 		rmnet_egress_handler(skb);
 		qmi_rmnet_burst_fc_check(dev, ip_type, mark, len);
+		qmi_rmnet_work_maybe_restart(rmnet_get_rmnet_port(dev));
 	} else {
 		this_cpu_inc(priv->pcpu_stats->stats.tx_drops);
 		kfree_skb(skb);
