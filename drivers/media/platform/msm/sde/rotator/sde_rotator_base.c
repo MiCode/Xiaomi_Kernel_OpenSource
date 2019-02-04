@@ -32,6 +32,7 @@
 #include "sde_rotator_trace.h"
 #include "sde_rotator_debug.h"
 #include "sde_rotator_dev.h"
+#include "sde_rotator_vbif.h"
 
 static inline u64 fudge_factor(u64 val, u32 numer, u32 denom)
 {
@@ -140,6 +141,22 @@ static bool force_on_xin_clk(u32 bit_off, u32 clk_ctl_reg_off, bool enable)
 	return clk_forced_on;
 }
 
+void vbif_lock(struct platform_device *parent_pdev)
+{
+	if (!parent_pdev)
+		return;
+
+	mdp_vbif_lock(parent_pdev, true);
+}
+
+void vbif_unlock(struct platform_device *parent_pdev)
+{
+	if (!parent_pdev)
+		return;
+
+	mdp_vbif_lock(parent_pdev, false);
+}
+
 void sde_mdp_halt_vbif_xin(struct sde_mdp_vbif_halt_params *params)
 {
 	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
@@ -152,13 +169,16 @@ void sde_mdp_halt_vbif_xin(struct sde_mdp_vbif_halt_params *params)
 		return;
 	}
 
-	if (params->xin_id > MMSS_VBIF_NRT_VBIF_CLK_FORCE_CTRL0_XIN1) {
+	if (!mdata->parent_pdev &&
+		params->xin_id > MMSS_VBIF_NRT_VBIF_CLK_FORCE_CTRL0_XIN1) {
 		SDEROT_ERR("xin_id:%d exceed max limit\n", params->xin_id);
 		return;
 	}
 
 	forced_on = force_on_xin_clk(params->bit_off_mdp_clk_ctrl,
 		params->reg_off_mdp_clk_ctrl, true);
+
+	vbif_lock(mdata->parent_pdev);
 
 	SDEROT_EVTLOG(forced_on, params->xin_id);
 
@@ -174,6 +194,8 @@ void sde_mdp_halt_vbif_xin(struct sde_mdp_vbif_halt_params *params)
 	reg_val = SDE_VBIF_READ(mdata, MMSS_VBIF_XIN_HALT_CTRL0);
 	SDE_VBIF_WRITE(mdata, MMSS_VBIF_XIN_HALT_CTRL0,
 		reg_val & ~BIT(params->xin_id));
+
+	vbif_unlock(mdata->parent_pdev);
 
 	if (forced_on)
 		force_on_xin_clk(params->bit_off_mdp_clk_ctrl,
@@ -285,6 +307,8 @@ void sde_mdp_set_ot_limit(struct sde_mdp_set_ot_params *params)
 	u32 sts;
 	bool forced_on;
 
+	vbif_lock(mdata->parent_pdev);
+
 	ot_lim = get_ot_limit(
 		reg_off_vbif_lim_conf,
 		bit_off_vbif_lim_conf,
@@ -330,6 +354,7 @@ void sde_mdp_set_ot_limit(struct sde_mdp_set_ot_params *params)
 
 	SDEROT_EVTLOG(params->num, params->xin_id, ot_lim);
 exit:
+	vbif_unlock(mdata->parent_pdev);
 	return;
 }
 
@@ -555,6 +580,16 @@ static void sde_mdp_parse_vbif_qos(struct platform_device *pdev,
 	}
 }
 
+static void sde_mdp_parse_vbif_xin_id(struct platform_device *pdev,
+		struct sde_rot_data_type *mdata)
+{
+	mdata->vbif_xin_id[XIN_SSPP] = XIN_SSPP;
+	mdata->vbif_xin_id[XIN_WRITEBACK] = XIN_WRITEBACK;
+
+	sde_mdp_parse_dt_handler(pdev, "qcom,mdss-rot-xin-id",
+					mdata->vbif_xin_id, MAX_XIN);
+}
+
 static void sde_mdp_parse_cdp_setting(struct platform_device *pdev,
 		struct sde_rot_data_type *mdata)
 {
@@ -685,6 +720,35 @@ static void sde_mdp_parse_inline_rot_lut_setting(struct platform_device *pdev,
 	}
 }
 
+static void sde_mdp_parse_rt_rotator(struct device_node *np)
+{
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+	struct platform_device *pdev;
+	struct of_phandle_args phargs;
+	int rc = 0;
+
+	rc = of_parse_phandle_with_args(np,
+			"qcom,mdss-rot-parent", "#list-cells", 0, &phargs);
+
+	if (rc)
+		return;
+
+	if (!phargs.np || !phargs.args_count) {
+		SDEROT_ERR("invalid args\n");
+		return;
+	}
+
+	pdev = of_find_device_by_node(phargs.np);
+	if (pdev) {
+		mdata->parent_pdev = pdev;
+	} else {
+		mdata->parent_pdev = NULL;
+		SDEROT_ERR("Parent mdp node not available\n");
+	}
+
+	of_node_put(phargs.np);
+}
+
 static int sde_mdp_parse_dt_misc(struct platform_device *pdev,
 		struct sde_rot_data_type *mdata)
 {
@@ -712,6 +776,8 @@ static int sde_mdp_parse_dt_misc(struct platform_device *pdev,
 	sde_mdp_parse_cdp_setting(pdev, mdata);
 
 	sde_mdp_parse_vbif_qos(pdev, mdata);
+
+	sde_mdp_parse_vbif_xin_id(pdev, mdata);
 
 	sde_mdp_parse_vbif_memtype(pdev, mdata);
 
@@ -853,8 +919,10 @@ int sde_rotator_base_init(struct sde_rot_data_type **pmdata,
 		SDEROT_ERR("unable to map SDE ROT VBIF base\n");
 		goto probe_done;
 	}
-	SDEROT_DBG("SDE ROT VBIF HW Base addr=%p len=0x%x\n",
+	SDEROT_DBG("SDE ROT VBIF HW Base addr=%pK len=0x%x\n",
 			mdata->vbif_nrt_io.base, mdata->vbif_nrt_io.len);
+
+	sde_mdp_parse_rt_rotator(pdev->dev.of_node);
 
 	rc = sde_mdp_parse_dt_misc(pdev, mdata);
 	if (rc) {
