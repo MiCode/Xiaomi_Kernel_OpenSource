@@ -1215,6 +1215,8 @@
 			<&clock_gcc GCC_SDCC2_APPS_CLK>;
 		clock-names = "iface_clk", "core_clk";
 
+		qcom,nonhotplug;
+
 		/* VDD is an external regulator eLDO5 */
 		vdd-io-supply = <&pms405_l11>;
 		qcom,vdd-io-voltage-level = <1800000 2950000>;
