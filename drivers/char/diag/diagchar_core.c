@@ -204,6 +204,7 @@ do {								\
 	if ((count < ret+length) || (copy_to_user(buf,		\
 			(void *)&data, length))) {		\
 		ret = -EFAULT;					\
+		break;							\
 	}							\
 	ret += length;						\
 } while (0)
