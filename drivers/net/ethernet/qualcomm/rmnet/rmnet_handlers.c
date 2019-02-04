@@ -163,7 +163,9 @@ __rmnet_map_ingress_handler(struct sk_buff *skb,
 	skb->dev = ep->egress_dev;
 
 	/* Handle QMAPv5 packet */
-	if (qmap->next_hdr) {
+	if (qmap->next_hdr &&
+	    (port->data_format & (RMNET_FLAGS_INGRESS_COALESCE |
+				  RMNET_FLAGS_INGRESS_MAP_CKSUMV5))) {
 		if (rmnet_map_process_next_hdr_packet(skb))
 			goto free_skb;
 	} else {
