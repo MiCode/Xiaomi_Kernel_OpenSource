@@ -1,0 +1,235 @@
+Introduction:
+=============
+Storage encryption has been one of the most required feature from security
+point of view. QTI based storage encryption solution uses general purpose
+crypto engine. While this kind of solution provide a decent amount of
+performance, it falls short as storage speed is improving significantly
+continuously. To overcome performance degradation, newer chips are going to
+have Inline Crypto Engine (ICE) embedded into storage device. ICE is supposed
+to meet the line speed of storage devices.
+
+Hardware Description
+====================
+ICE is a HW block that is embedded into storage device such as UFS/eMMC. By
+default, ICE works in bypass mode i.e. ICE HW does not perform any crypto
+operation on data to be processed by storage device. If required, ICE can be
+configured to perform crypto operation in one direction (i.e. either encryption
+or decryption) or in both direction(both encryption & decryption).
+
+When a switch between the operation modes(plain to crypto or crypto to plain)
+is desired for a particular partition, SW must complete all transactions for
+that particular partition before switching the crypto mode i.e. no crypto, one
+direction crypto or both direction crypto operation. Requests for other
+partitions are not impacted due to crypto mode switch.
+
+ICE HW currently supports AES128/256 bit ECB & XTS mode encryption algorithms.
+
+Keys for crypto operations are loaded from SW. Keys are stored in a lookup
+table(LUT) located inside ICE HW. Maximum of 32 keys can be loaded in ICE key
+LUT. A Key inside the LUT can be referred using a key index.
+
+SW Description
+==============
+ICE HW has catagorized ICE registers in 2 groups: those which can be accessed by
+only secure side i.e. TZ and those which can be accessed by non-secure side such
+as HLOS as well. This requires that ICE driver to be split in two pieces: one
+running from TZ space and another from HLOS space.
+
+ICE driver from TZ would configure keys as requested by HLOS side.
+
+ICE driver on HLOS side is responsible for initialization of ICE HW.
+
+SW Architecture Diagram
+=======================
+Following are all the components involved in the ICE driver for control path:
+
++++++++++++++++++++++++++++++++++++++++++
++               App layer               +
++++++++++++++++++++++++++++++++++++++++++
++             System layer              +
++   ++++++++         +++++++            +
++   + VOLD +         + PFM +            +
++   ++++++++         +++++++            +
++         ||         ||                 +
++         ||         ||                 +
++         \/         \/                 +
++        ++++++++++++++                 +
++        + LibQSEECom +                 +
++        ++++++++++++++                 +
++++++++++++++++++++++++++++++++++++++++++
++             Kernel                    +       +++++++++++++++++
++                                       +       +     KMS       +
++  +++++++  +++++++++++  +++++++++++    +       +++++++++++++++++
++  + ICE +  + Storage +  + QSEECom +    +       +   ICE Driver  +
++++++++++++++++++++++++++++++++++++++++++ <===> +++++++++++++++++
+               ||                                    ||
+               ||                                    ||
+               \/                                    \/
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
++                      Storage Device                           +
++                      ++++++++++++++                           +
++                      +   ICE HW   +                           +
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Use Cases:
+----------
+a) Device bootup
+ICE HW is detected during bootup time and corresponding probe function is
+called. ICE driver parses its data from device tree node. ICE HW and storage
+HW are tightly coupled. Storage device probing is dependent upon ICE device
+probing. ICE driver configures all the required registers to put the ICE HW
+in bypass mode.
+
+b) Configuring keys
+Currently, there are couple of use cases to configure the keys.
+
+1) Full Disk Encryption(FDE)
+System layer(VOLD) at invocation of apps layer would call libqseecom to create
+the encryption key. Libqseecom calls qseecom driver to communicate with KMS
+module on the secure side i.e. TZ. KMS would call ICE driver on the TZ side to
+create and set the keys in ICE HW. At the end of transaction, VOLD would have
+key index of key LUT where encryption key is present.
+
+2) Per File Encryption (PFE)
+Per File Manager(PFM) calls QSEECom api to create the key. PFM has a peer comp-
+onent(PFT) at kernel layer which gets the corresponding key index from PFM.
+
+Following are all the components involved in the ICE driver for data path:
+
++++++++++++++++++++++++++++++++++++++++++
++               App layer               +
++++++++++++++++++++++++++++++++++++++++++
++              VFS                      +
++---------------------------------------+
++         File System (EXT4)            +
++---------------------------------------+
++             Block Layer               +
++ --------------------------------------+
++                              +++++++  +
++              dm-req-crypt => + PFT +  +
++                              +++++++  +
++                                       +
++---------------------------------------+
++    +++++++++++           +++++++      +
++    + Storage +           + ICE +      +
++++++++++++++++++++++++++++++++++++++++++
++                  ||                   +
++                  || (Storage Req with +
++                  \/  ICE parameters ) +
++++++++++++++++++++++++++++++++++++++++++
++          Storage Device               +
++          ++++++++++++++               +
++          +   ICE HW   +               +
++++++++++++++++++++++++++++++++++++++++++
+
+c) Data transaction
+Once the crypto key has been configured, VOLD/PFM creates device mapping for
+data partition. As part of device mapping VOLD passes key index, crypto
+algorithm, mode and key length to dm layer. In case of PFE, keys are provided
+by PFT as and when request is processed by dm-req-crypt. When any application
+needs to read/write data, it would go through DM layer which would add crypto
+information, provided by VOLD/PFT, to Request. For each Request, Storage driver
+would ask ICE driver to configure crypto part of request. ICE driver extracts
+crypto data from Request structure and provide it to storage driver which would
+finally dispatch request to storage device.
+
+d) Error Handling
+Due to issue # 1 mentioned in "Known Issues", ICE driver does not register for
+any interrupt. However, it enables sources of interrupt for ICE HW. After each
+data transaction, Storage driver receives transaction completion event. As part
+of event handling, storage driver calls  ICE driver to check if any of ICE
+interrupt status is set. If yes, storage driver returns error to upper layer.
+
+Error handling would be changed in future chips.
+
+Interfaces
+==========
+ICE driver exposes interfaces for storage driver to :
+1. Get the global instance of ICE driver
+2. Get the implemented interfaces of the particular ice instance
+3. Initialize the ICE HW
+4. Reset the ICE HW
+5. Resume/Suspend the ICE HW
+6. Get the Crypto configuration for the data request for storage
+7. Check if current data transaction has generated any interrupt
+
+Driver Parameters
+=================
+This driver is built and statically linked into the kernel; therefore,
+there are no module parameters supported by this driver.
+
+There are no kernel command line parameters supported by this driver.
+
+Power Management
+================
+ICE driver does not do power management on its own as it is part of storage
+hardware. Whenever storage driver receives request for power collapse/suspend
+resume, it would call ICE driver which exposes APIs for Storage HW. ICE HW
+during power collapse or reset, wipes crypto configuration data. When ICE
+driver receives request to resume, it would ask ICE driver on TZ side to
+restore the configuration. ICE driver does not do anything as part of power
+collapse or suspend event.
+
+Interface:
+==========
+ICE driver exposes following APIs for storage driver to use:
+
+int (*init)(struct platform_device *, void *, ice_success_cb, ice_error_cb);
+	-- This function is invoked by storage controller during initialization of
+	storage controller. Storage controller would provide success and error call
+	backs which would be invoked asynchronously once ICE HW init is done.
+
+int (*reset)(struct platform_device *);
+	-- ICE HW reset as part of storage controller reset. When storage controller
+	received reset command, it would call reset on ICE HW. As of now, ICE HW
+	does not need to do anything as part of reset.
+
+int (*resume)(struct platform_device *);
+	-- ICE HW while going to reset, wipes all crypto keys and other data from ICE
+	HW. ICE driver would reconfigure those data as part of resume operation.
+
+int (*suspend)(struct platform_device *);
+	-- This API would be called by storage driver when storage device is going to
+	suspend mode. As of today, ICE driver does not do anything to handle suspend.
+
+int (*config)(struct platform_device *, struct request* , struct ice_data_setting*);
+	-- Storage driver would call this interface to get all crypto data required to
+	perform crypto operation.
+
+int (*status)(struct platform_device *);
+	-- Storage driver would call this interface to check if previous data transfer
+	generated any error.
+
+Config options
+==============
+This driver is enabled by the kernel config option CONFIG_CRYPTO_DEV_MSM_ICE.
+
+Dependencies
+============
+ICE driver depends upon corresponding ICE driver on TZ side to function
+appropriately.
+
+Known Issues
+============
+1. ICE HW emits 0s even if it has generated an interrupt
+This issue has significant impact on how ICE interrupts are handled. Currently,
+ICE driver does not register for any of the ICE interrupts but enables the
+sources of interrupt. Once storage driver asks to check the status of interrupt,
+it reads and clears the clear status and provide read status to storage driver.
+This mechanism though not optimal but prevents filesystem curruption.
+This issue has been fixed in newer chips.
+
+2. ICE HW wipes all crypto data during power collapse
+This issue necessiate that ICE driver on TZ side store the crypto material
+which is not required in the case of general purpose crypto engine.
+This issue has been fixed in newer chips.
+
+Further Improvements
+====================
+Currently, Due to PFE use case, ICE driver is dependent upon dm-req-crypt to
+provide the keys as part of request structure. This couples ICE driver with
+dm-req-crypt based solution. It is under discussion to expose an IOCTL based
+and registration based interface APIs from ICE driver. ICE driver would use
+these two interfaces to find out if any key exists for current request. If
+yes, choose the right key index received from IOCTL or registration based
+APIs. If not, dont set any crypto parameter in the request.
