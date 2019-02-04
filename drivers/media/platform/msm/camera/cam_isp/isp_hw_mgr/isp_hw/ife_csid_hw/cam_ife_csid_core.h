@@ -54,6 +54,7 @@
 #define CSID_PATH_ERROR_PIX_COUNT                 BIT(13)
 #define CSID_PATH_ERROR_LINE_COUNT                BIT(14)
 #define CSID_PATH_ERROR_CCIF_VIOLATION            BIT(15)
+#define CSID_PATH_OVERFLOW_RECOVERY               BIT(17)
 
 /*
  * Debug values enable the corresponding interrupts and debug logs provide
@@ -124,12 +125,17 @@ struct cam_ife_csid_pxl_reg_offset {
 	uint32_t csid_pxl_timestamp_curr1_eof_addr;
 	uint32_t csid_pxl_timestamp_perv0_eof_addr;
 	uint32_t csid_pxl_timestamp_perv1_eof_addr;
+	uint32_t csid_pxl_err_recovery_cfg0_addr;
+	uint32_t csid_pxl_err_recovery_cfg1_addr;
+	uint32_t csid_pxl_err_recovery_cfg2_addr;
+	uint32_t csid_pxl_multi_vcdt_cfg0_addr;
 
 	/* configuration */
-	uint32_t  pix_store_en_shift_val;
-	uint32_t  early_eof_en_shift_val;
-	uint32_t  quad_cfa_bin_en_shift_val;
-	uint32_t  ccif_violation_en;
+	uint32_t pix_store_en_shift_val;
+	uint32_t early_eof_en_shift_val;
+	uint32_t quad_cfa_bin_en_shift_val;
+	uint32_t ccif_violation_en;
+	uint32_t overflow_ctrl_en;
 };
 
 struct cam_ife_csid_rdi_reg_offset {
@@ -172,12 +178,17 @@ struct cam_ife_csid_rdi_reg_offset {
 	uint32_t csid_rdi_timestamp_curr1_eof_addr;
 	uint32_t csid_rdi_timestamp_prev0_eof_addr;
 	uint32_t csid_rdi_timestamp_prev1_eof_addr;
+	uint32_t csid_rdi_err_recovery_cfg0_addr;
+	uint32_t csid_rdi_err_recovery_cfg1_addr;
+	uint32_t csid_rdi_err_recovery_cfg2_addr;
+	uint32_t csid_rdi_multi_vcdt_cfg0_addr;
 	uint32_t csid_rdi_byte_cntr_ping_addr;
 	uint32_t csid_rdi_byte_cntr_pong_addr;
 
 	/* configuration */
 	uint32_t packing_format;
 	uint32_t ccif_violation_en;
+	uint32_t overflow_ctrl_en;
 };
 
 struct cam_ife_csid_csi2_rx_reg_offset {

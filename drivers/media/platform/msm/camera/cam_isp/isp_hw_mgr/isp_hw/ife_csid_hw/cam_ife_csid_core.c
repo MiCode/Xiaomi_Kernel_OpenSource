@@ -1604,6 +1604,15 @@ static int cam_ife_csid_init_config_pxl_path(
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 		pxl_reg->csid_pxl_cfg0_addr);
 
+	/* Enable Error Detection */
+	if (pxl_reg->overflow_ctrl_en) {
+		val = pxl_reg->overflow_ctrl_en;
+		/* Overflow ctrl mode: 2 -> Detect overflow */
+		val |= 0x8;
+		cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
+			pxl_reg->csid_pxl_err_recovery_cfg0_addr);
+	}
+
 	/* Enable the HBI/VBI counter */
 	if (csid_hw->csid_debug & CSID_DEBUG_ENABLE_HBI_VBI_INFO) {
 		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
@@ -1685,6 +1694,11 @@ static int cam_ife_csid_deinit_pxl_path(
 		rc = -EINVAL;
 		goto end;
 	}
+
+	/* Disable Error Recovery */
+	if (pxl_reg->overflow_ctrl_en)
+		cam_io_w_mb(0, soc_info->reg_map[0].mem_base +
+			pxl_reg->csid_pxl_err_recovery_cfg0_addr);
 
 	val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
 			pxl_reg->csid_pxl_cfg0_addr);
@@ -1778,6 +1792,9 @@ static int cam_ife_csid_enable_pxl_path(
 
 	if (pxl_reg->ccif_violation_en)
 		val |= CSID_PATH_ERROR_CCIF_VIOLATION;
+
+	if (pxl_reg->overflow_ctrl_en)
+		val |= CSID_PATH_OVERFLOW_RECOVERY;
 
 	if (csid_hw->csid_debug & CSID_DEBUG_ENABLE_SOF_IRQ)
 		val |= CSID_PATH_INFO_INPUT_SOF;
@@ -1948,6 +1965,16 @@ static int cam_ife_csid_init_config_rdi_path(
 		CAM_DBG(CAM_ISP, "CSID:%d Vertical Crop config val: 0x%x",
 			csid_hw->hw_intf->hw_idx, val);
 	}
+
+	/* Enable Error Detection */
+	if (csid_reg->rdi_reg[id]->overflow_ctrl_en) {
+		val = csid_reg->rdi_reg[id]->overflow_ctrl_en;
+		/* Overflow ctrl mode: 2 -> Detect overflow */
+		val |= 0x8;
+		cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
+			csid_reg->rdi_reg[id]->csid_rdi_err_recovery_cfg0_addr);
+	}
+
 	/* set frame drop pattern to 0 and period to 1 */
 	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
 		csid_reg->rdi_reg[id]->csid_rdi_frm_drop_period_addr);
@@ -2049,6 +2076,12 @@ static int cam_ife_csid_deinit_rdi_path(
 		return -EINVAL;
 	}
 
+	/* Disable Error Recovery */
+	if (csid_reg->rdi_reg[id]->overflow_ctrl_en) {
+		cam_io_w_mb(0, soc_info->reg_map[0].mem_base +
+			csid_reg->rdi_reg[id]->csid_rdi_err_recovery_cfg0_addr);
+	}
+
 	format_measure_addr =
 		csid_reg->rdi_reg[id]->csid_rdi_format_measure_cfg0_addr;
 
@@ -2103,6 +2136,9 @@ static int cam_ife_csid_enable_rdi_path(
 
 	if (csid_reg->rdi_reg[id]->ccif_violation_en)
 		val |= CSID_PATH_ERROR_CCIF_VIOLATION;
+
+	if (csid_reg->rdi_reg[id]->overflow_ctrl_en)
+		val |= CSID_PATH_OVERFLOW_RECOVERY;
 
 	if (csid_hw->csid_debug & CSID_DEBUG_ENABLE_SOF_IRQ)
 		val |= CSID_PATH_INFO_INPUT_SOF;
@@ -3279,6 +3315,11 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 				"CSID:%d IPP CCIF violation",
 				csid_hw->hw_intf->hw_idx);
 
+		if ((irq_status_ipp & CSID_PATH_OVERFLOW_RECOVERY))
+			CAM_INFO_RATE_LIMIT(CAM_ISP,
+				"CSID:%d IPP Overflow due to back pressure",
+				csid_hw->hw_intf->hw_idx);
+
 		if (irq_status_ipp & CSID_PATH_ERROR_FIFO_OVERFLOW) {
 			CAM_ERR_RATE_LIMIT(CAM_ISP,
 				"CSID:%d IPP fifo over flow",
@@ -3312,9 +3353,14 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 			CAM_INFO_RATE_LIMIT(CAM_ISP, "CSID:%d PPP EOF received",
 				csid_hw->hw_intf->hw_idx);
 
-		if ((irq_status_ipp & CSID_PATH_ERROR_CCIF_VIOLATION))
+		if ((irq_status_ppp & CSID_PATH_ERROR_CCIF_VIOLATION))
 			CAM_INFO_RATE_LIMIT(CAM_ISP,
 				"CSID:%d PPP CCIF violation",
+				csid_hw->hw_intf->hw_idx);
+
+		if ((irq_status_ppp & CSID_PATH_OVERFLOW_RECOVERY))
+			CAM_INFO_RATE_LIMIT(CAM_ISP,
+				"CSID:%d IPP Overflow due to back pressure",
 				csid_hw->hw_intf->hw_idx);
 
 		if (irq_status_ppp & CSID_PATH_ERROR_FIFO_OVERFLOW) {
@@ -3350,7 +3396,12 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 
 		if ((irq_status_rdi[i] & CSID_PATH_ERROR_CCIF_VIOLATION))
 			CAM_INFO_RATE_LIMIT(CAM_ISP,
-			"CSIDi RDI :%d CCIF violation", i);
+				"CSID RDI :%d CCIF violation", i);
+
+		if ((irq_status_rdi[i] & CSID_PATH_OVERFLOW_RECOVERY))
+			CAM_INFO_RATE_LIMIT(CAM_ISP,
+				"CSID RDI :%d Overflow due to back pressure",
+				i);
 
 		if (irq_status_rdi[i] & CSID_PATH_ERROR_FIFO_OVERFLOW) {
 			CAM_ERR_RATE_LIMIT(CAM_ISP,
