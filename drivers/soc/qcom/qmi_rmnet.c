@@ -590,7 +590,8 @@ void qmi_rmnet_enable_all_flows(struct net_device *dev)
 		bearer->grant_thresh = DEFAULT_GRANT;
 		bearer->seq = 0;
 		bearer->ack_req = 0;
-		bearer->ancillary = 0;
+		bearer->tcp_bidir = false;
+		bearer->rat_switch = false;
 	}
 
 	if (do_wake) {
