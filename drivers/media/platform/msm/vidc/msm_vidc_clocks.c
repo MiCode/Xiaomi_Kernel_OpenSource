@@ -43,7 +43,7 @@ struct msm_vidc_core_ops core_ops_iris2 = {
 static inline void msm_dcvs_print_dcvs_stats(struct clock_data *dcvs)
 {
 	dprintk(VIDC_PROF,
-		"DCVS: Load_Low %d, Load Norm %d, Load High %d\n",
+		"DCVS: Load_Low %lld, Load Norm %lld, Load High %lld\n",
 		dcvs->load_low,
 		dcvs->load_norm,
 		dcvs->load_high);
@@ -612,7 +612,7 @@ static unsigned long msm_vidc_calc_freq_ar50(struct msm_vidc_inst *inst,
 
 	msm_dcvs_print_dcvs_stats(dcvs);
 
-	dprintk(VIDC_PROF, "%s Inst %pK : Filled Len = %d Freq = %lu\n",
+	dprintk(VIDC_PROF, "%s Inst %pK : Filled Len = %d Freq = %llu\n",
 		__func__, inst, filled_len, freq);
 
 	return (unsigned long) freq;
@@ -704,7 +704,7 @@ static unsigned long msm_vidc_calc_freq_iris1(struct msm_vidc_inst *inst,
 		dcvs->load_norm;
 
 	dprintk(VIDC_PROF,
-		"%s: inst %pK: %x : filled len %d required freq %lu load_norm %lu\n",
+		"%s: inst %pK: %x : filled len %d required freq %llu load_norm %llu\n",
 		__func__, inst, hash32_ptr(inst->session),
 		filled_len, freq, dcvs->load_norm);
 
@@ -797,7 +797,7 @@ static unsigned long msm_vidc_calc_freq_iris2(struct msm_vidc_inst *inst,
 		dcvs->load_norm;
 
 	dprintk(VIDC_PROF,
-		"%s: inst %pK: %x : filled len %d required freq %lu load_norm %lu\n",
+		"%s: inst %pK: %x : filled len %d required freq %llu load_norm %llu\n",
 		__func__, inst, hash32_ptr(inst->session),
 		filled_len, freq, dcvs->load_norm);
 

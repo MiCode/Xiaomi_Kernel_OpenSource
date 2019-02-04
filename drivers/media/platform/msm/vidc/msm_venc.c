@@ -1953,7 +1953,7 @@ int msm_venc_set_secure_mode(struct msm_vidc_inst *inst)
 	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_SECURE);
 	enable.enable = !!ctrl->val;
 
-	dprintk(VIDC_DBG, "%s: %d\n", __func__, enable);
+	dprintk(VIDC_DBG, "%s: %d\n", __func__, enable.enable);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
 		HFI_PROPERTY_PARAM_SECURE_SESSION, &enable, sizeof(enable));
 	if (rc)
@@ -1978,7 +1978,7 @@ int msm_venc_set_priority(struct msm_vidc_inst *inst)
 	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_PRIORITY);
 	enable.enable = !!ctrl->val;
 
-	dprintk(VIDC_DBG, "%s: %d\n", __func__, enable);
+	dprintk(VIDC_DBG, "%s: %d\n", __func__, enable.enable);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
 		HFI_PROPERTY_CONFIG_REALTIME, &enable, sizeof(enable));
 	if (rc)
@@ -3040,7 +3040,7 @@ int msm_venc_set_ltr_mode(struct msm_vidc_inst *inst)
 		return 0;
 	if (ctrl->val > inst->capability.ltr_count.max) {
 		dprintk(VIDC_ERR, "%s: invalid ltr count %d, max %d\n",
-			__func__, ctrl->val > inst->capability.ltr_count.max);
+			__func__, ctrl->val, inst->capability.ltr_count.max);
 		return -EINVAL;
 	}
 	ltr.ltr_count =  ctrl->val;

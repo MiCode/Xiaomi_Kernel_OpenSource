@@ -963,7 +963,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		rc = msm_vidc_set_rotation(inst);
 		if (rc) {
 			dprintk(VIDC_ERR,
-				"Set rotation for encoder failed %pK\n");
+				"Set rotation for encoder failed %pK\n", inst);
 			goto fail_start;
 		}
 	} else if ((inst->session_type == MSM_VIDC_DECODER) &&
