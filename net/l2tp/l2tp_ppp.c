@@ -180,6 +180,12 @@ static int pppol2tp_recv_payload_hook(struct sk_buff *skb)
 	if ((skb->data[0] == PPP_ALLSTATIONS) && (skb->data[1] == PPP_UI))
 		skb_pull(skb, 2);
 
+	if (skb->len >= 1 && skb->data[0] & 1)
+		*(u8 *)skb_push(skb, 1) = 0;
+
+	if (skb->len < 2)
+		return 1;
+
 	return 0;
 }
 
