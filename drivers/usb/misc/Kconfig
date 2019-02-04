@@ -287,3 +287,14 @@ config USB_TYPEC_MUX_NXP5150A
 	help
 	  Say Y here if you want to use NXP CC Logic Type-C Chipset NXP5150A
 	  for CC detection and Mux control.
+
+config USB_QCOM_DIAG_BRIDGE
+	tristate "USB QTI diagnostic bridge driver"
+	depends on USB
+	help
+	  Say Y here if you have a QTI modem device connected via USB that
+	  will be bridged in kernel space. This driver communicates with the
+	  diagnostic interface and allows for bridging with the diag forwarding
+	  driver.
+	  To compile this driver as a module, choose M here: the
+	  module will be called diag_bridge.  If unsure, choose N.
