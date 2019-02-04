@@ -1985,21 +1985,57 @@ EXPORT_SYMBOL(drm_dp_update_payload_part2);
 #if 0 /* unused as of yet */
 static int drm_dp_send_dpcd_read(struct drm_dp_mst_topology_mgr *mgr,
 				 struct drm_dp_mst_port *port,
-				 int offset, int size)
+				 int offset, int size, u8 *bytes)
 {
 	int len;
+	int ret;
 	struct drm_dp_sideband_msg_tx *txmsg;
+	struct drm_dp_mst_branch *mstb;
+
+	memset(bytes, 0, size);
+
+	mstb = drm_dp_get_validated_mstb_ref(mgr, port->parent);
+	if (!mstb)
+		return -EINVAL;
 
 	txmsg = kzalloc(sizeof(*txmsg), GFP_KERNEL);
-	if (!txmsg)
-		return -ENOMEM;
+	if (!txmsg) {
+		ret = -ENOMEM;
+		goto fail_put;
+	}
 
-	len = build_dpcd_read(txmsg, port->port_num, 0, 8);
-	txmsg->dst = port->parent;
+	len = build_dpcd_read(txmsg, port->port_num, offset, size);
+	txmsg->dst = mstb;
 
 	drm_dp_queue_down_tx(mgr, txmsg);
+	ret = drm_dp_mst_wait_tx_reply(mstb, txmsg);
+	if (ret <= 0) {
+		DRM_ERROR("dpcd read failed\n");
+		goto fail_free_msg;
+	}
 
-	return 0;
+	if (txmsg->reply.reply_type == 1) {
+		DRM_ERROR("dpcd read nack received\n");
+		ret = -EINVAL;
+		goto fail_free_msg;
+	}
+
+	if (port->port_num != txmsg->reply.u.remote_dpcd_read_ack.port_number) {
+		DRM_ERROR("got incorrect port in response\n");
+		ret = -EINVAL;
+		goto fail_free_msg;
+	}
+
+	if (size > txmsg->reply.u.remote_dpcd_read_ack.num_bytes)
+		size = txmsg->reply.u.remote_dpcd_read_ack.num_bytes;
+
+	memcpy(bytes, txmsg->reply.u.remote_dpcd_read_ack.bytes, size);
+
+fail_free_msg:
+	kfree(txmsg);
+fail_put:
+	drm_dp_put_mst_branch_device(mstb);
+	return ret;
 }
 #endif
 
