@@ -675,17 +675,15 @@ config QTEE_SHM_BRIDGE
 	  memory sub-allocation and free from the default kernel bridge
 	  created by bridge driver.
 
-endmenu
-
 source "drivers/soc/qcom/memshare/Kconfig"
 
 config QMP_DEBUGFS_CLIENT
 	bool "Debugfs Client to communicate with AOP using QMP protocol"
 	depends on DEBUG_FS
-	default n
 	help
 	  This options enables a driver which allows clients to send messages
 	  to Alway On processor using QMP transport.
+endmenu
 
 config QCOM_HYP_CORE_CTL
 	bool "CPU reservation scheme for Hypervisor"

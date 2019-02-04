@@ -1296,6 +1296,13 @@
 		mbox-desc-offset = <0x0>;
 		#mbox-cells = <1>;
 	};
+
+	aop-msg-client {
+		compatible = "qcom,debugfs-qmp-client";
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "aop";
+	};
+
 };
 
 #include "lito-pinctrl.dtsi"
