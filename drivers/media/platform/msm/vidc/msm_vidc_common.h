@@ -19,7 +19,7 @@
 #define HEIC_GRID_DIMENSION 512
 #define CBR_MB_LIMIT                           (((1280+15)/16)*((720+15)/16)*30)
 #define CBR_VFR_MB_LIMIT                       (((640+15)/16)*((480+15)/16)*30)
-#define V4L2_CID_MPEG_VIDEO_UNKNOWN 0xFFFF
+#define V4L2_CID_MPEG_VIDEO_UNKNOWN (V4L2_CID_MPEG_MSM_VIDC_BASE + 0xFFF)
 
 struct vb2_buf_entry {
 	struct list_head list;
