@@ -103,6 +103,7 @@ struct cam_vfe_bus_ver2_common_data {
 	void                                       *bus_irq_controller;
 	void                                       *vfe_irq_controller;
 	struct cam_vfe_bus_ver2_reg_offset_common  *common_reg;
+	struct cam_vfe_bus_ver2_reg_data           *reg_data;
 	uint32_t                                    io_buf_update[
 		MAX_REG_VAL_PAIR_SIZE];
 
@@ -114,6 +115,7 @@ struct cam_vfe_bus_ver2_common_data {
 	uint32_t                                    secure_mode;
 	uint32_t                                    num_sec_out;
 	uint32_t                                    addr_no_sync;
+	uint32_t                                    camera_hw_version;
 };
 
 struct cam_vfe_bus_ver2_wm_resource_data {
@@ -304,10 +306,10 @@ static int cam_vfe_bus_put_evt_payload(void     *core_info,
 static int cam_vfe_bus_ver2_get_intra_client_mask(
 	enum cam_vfe_bus_ver2_vfe_core_id  dual_slave_core,
 	enum cam_vfe_bus_ver2_vfe_core_id  current_core,
-	uint32_t                          *intra_client_mask)
+	uint32_t                          *intra_client_mask,
+	uint32_t camera_hw_version)
 {
 	int rc = 0;
-	uint32_t camera_hw_version = 0;
 	uint32_t version_based_intra_client_mask = 0x1;
 
 	*intra_client_mask = 0;
@@ -318,10 +320,6 @@ static int cam_vfe_bus_ver2_get_intra_client_mask(
 			"Invalid params. Same core as Master and Slave");
 		return -EINVAL;
 	}
-
-	rc = cam_cpas_get_cpas_hw_version(&camera_hw_version);
-
-	CAM_DBG(CAM_ISP, "CPAS VERSION %d", camera_hw_version);
 
 	switch (camera_hw_version) {
 	case CAM_CPAS_TITAN_170_V100:
@@ -1145,7 +1143,7 @@ static int cam_vfe_bus_start_wm(struct cam_isp_resource_node *wm_res)
 	struct cam_vfe_bus_ver2_common_data        *common_data =
 		rsrc_data->common_data;
 	uint32_t                   bus_irq_reg_mask[CAM_VFE_BUS_IRQ_MAX] = {0};
-	uint32_t camera_hw_version;
+	uint32_t camera_hw_version = 0;
 
 	cam_io_w(0xf, common_data->mem_base + rsrc_data->hw_regs->burst_limit);
 
@@ -1181,12 +1179,7 @@ static int cam_vfe_bus_start_wm(struct cam_isp_resource_node *wm_res)
 
 	/* enable ubwc if needed*/
 	if (rsrc_data->en_ubwc) {
-		rc = cam_cpas_get_cpas_hw_version(&camera_hw_version);
-		if (rc) {
-			CAM_ERR(CAM_ISP, "Failed to get HW version:%d rc:%d",
-				camera_hw_version, rc);
-			return rc;
-		}
+		camera_hw_version = rsrc_data->common_data->camera_hw_version;
 		if ((camera_hw_version > CAM_CPAS_TITAN_NONE) &&
 			(camera_hw_version < CAM_CPAS_TITAN_175_V100)) {
 			struct cam_vfe_bus_ver2_reg_offset_ubwc_client
@@ -1565,7 +1558,8 @@ static int cam_vfe_bus_acquire_comp_grp(
 			rc = cam_vfe_bus_ver2_get_intra_client_mask(
 				dual_slave_core,
 				comp_grp_local->hw_intf->hw_idx,
-				&rsrc_data->intra_client_mask);
+				&rsrc_data->intra_client_mask,
+				rsrc_data->common_data->camera_hw_version);
 			if (rc)
 				return rc;
 		} else {
@@ -2520,9 +2514,9 @@ static void cam_vfe_bus_update_ubwc_meta_addr(
 	uint32_t *reg_val_pair,
 	uint32_t  *j,
 	void     *regs,
-	uint64_t  image_buf)
+	uint64_t  image_buf,
+	uint32_t  camera_hw_version)
 {
-	uint32_t  camera_hw_version;
 	struct cam_vfe_bus_ver2_reg_offset_ubwc_client *ubwc_regs;
 	struct cam_vfe_bus_ver2_reg_offset_ubwc_3_client *ubwc_3_regs;
 	int rc = 0;
@@ -2533,11 +2527,7 @@ static void cam_vfe_bus_update_ubwc_meta_addr(
 		goto end;
 	}
 
-	rc = cam_cpas_get_cpas_hw_version(&camera_hw_version);
-	if (rc) {
-		CAM_ERR(CAM_ISP, "Failed to get HW version rc: %d", rc);
-		goto end;
-	} else if ((camera_hw_version < CAM_CPAS_TITAN_170_V100) ||
+	if ((camera_hw_version < CAM_CPAS_TITAN_170_V100) ||
 		(camera_hw_version > CAM_CPAS_TITAN_175_V120)) {
 		CAM_ERR(CAM_ISP, "Invalid HW version: %d",
 			camera_hw_version);
@@ -2576,7 +2566,9 @@ static int cam_vfe_bus_update_ubwc_3_regs(
 	uint32_t *reg_val_pair,	uint32_t i, uint32_t *j)
 {
 	struct cam_vfe_bus_ver2_reg_offset_ubwc_3_client *ubwc_regs;
+	struct cam_vfe_bus_ver2_reg_data           *reg_data;
 	uint32_t ubwc_bw_limit = 0;
+	uint32_t camera_hw_version = 0;
 	int rc = 0;
 
 	if (!wm_data || !reg_val_pair || !j) {
@@ -2587,6 +2579,7 @@ static int cam_vfe_bus_update_ubwc_3_regs(
 
 	ubwc_regs = (struct cam_vfe_bus_ver2_reg_offset_ubwc_3_client *)
 		wm_data->hw_regs->ubwc_regs;
+	reg_data = wm_data->common_data->reg_data;
 
 	CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, *j,
 		wm_data->hw_regs->packer_cfg, wm_data->packer_cfg);
@@ -2655,6 +2648,39 @@ static int cam_vfe_bus_update_ubwc_3_regs(
 			ubwc_regs->bw_limit, ubwc_bw_limit);
 		CAM_DBG(CAM_ISP, "WM %d ubwc bw limit 0x%x",
 			wm_data->index, ubwc_bw_limit);
+	}
+
+	camera_hw_version = wm_data->common_data->camera_hw_version;
+	if (camera_hw_version == CAM_CPAS_TITAN_175_V120) {
+		switch (wm_data->format) {
+		case CAM_FORMAT_UBWC_TP10:
+		case CAM_FORMAT_UBWC_P010:
+			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, *j,
+				ubwc_regs->threshlod_lossy_0,
+				reg_data->ubwc_10bit_threshold_lossy_0);
+			CAM_DBG(CAM_ISP, "WM %d threshlod_lossy_0 0x%x",
+				wm_data->index, reg_val_pair[*j-1]);
+
+			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, *j,
+				ubwc_regs->threshlod_lossy_1,
+				reg_data->ubwc_10bit_threshold_lossy_1);
+			CAM_DBG(CAM_ISP, "WM %d threshlod_lossy_1 0x%x",
+				wm_data->index, reg_val_pair[*j-1]);
+			break;
+		default:
+			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, *j,
+				ubwc_regs->threshlod_lossy_0,
+				reg_data->ubwc_8bit_threshold_lossy_0);
+			CAM_DBG(CAM_ISP, "WM %d threshlod_lossy_0 0x%x",
+				wm_data->index, reg_val_pair[*j-1]);
+
+			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, *j,
+				ubwc_regs->threshlod_lossy_1,
+				reg_data->ubwc_8bit_threshold_lossy_1);
+			CAM_DBG(CAM_ISP, "WM %d threshlod_lossy_1 0x%x",
+				wm_data->index, reg_val_pair[*j-1]);
+			break;
+		}
 	}
 
 end:
@@ -2883,7 +2909,8 @@ static int cam_vfe_bus_update_wm(void *priv, void *cmd_args,
 			cam_vfe_bus_update_ubwc_meta_addr(
 				reg_val_pair, &j,
 				wm_data->hw_regs->ubwc_regs,
-				update_buf->wm_update->image_buf[i]);
+				update_buf->wm_update->image_buf[i],
+				wm_data->common_data->camera_hw_version);
 			CAM_DBG(CAM_ISP, "WM %d ubwc meta addr 0x%llx",
 				wm_data->index,
 				update_buf->wm_update->image_buf[i]);
@@ -3349,6 +3376,7 @@ int cam_vfe_bus_ver2_init(
 	struct cam_vfe_bus_ver2_priv    *bus_priv = NULL;
 	struct cam_vfe_bus              *vfe_bus_local;
 	struct cam_vfe_bus_ver2_hw_info *ver2_hw_info = bus_hw_info;
+	uint32_t camera_hw_version = 0;
 
 	CAM_DBG(CAM_ISP, "Enter");
 
@@ -3357,6 +3385,14 @@ int cam_vfe_bus_ver2_init(
 			"Inval_prms soc_info:%pK hw_intf:%pK hw_info%pK",
 			soc_info, hw_intf, bus_hw_info);
 		CAM_ERR(CAM_ISP, "controller: %pK", vfe_irq_controller);
+		rc = -EINVAL;
+		goto end;
+	}
+
+	rc = cam_cpas_get_cpas_hw_version(&camera_hw_version);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "Failed to get HW version:%d rc:%d",
+			camera_hw_version, rc);
 		rc = -EINVAL;
 		goto end;
 	}
@@ -3387,8 +3423,10 @@ int cam_vfe_bus_ver2_init(
 	bus_priv->common_data.hw_intf            = hw_intf;
 	bus_priv->common_data.vfe_irq_controller = vfe_irq_controller;
 	bus_priv->common_data.common_reg         = &ver2_hw_info->common_reg;
+	bus_priv->common_data.reg_data           = &ver2_hw_info->reg_data;
 	bus_priv->common_data.addr_no_sync       =
 		CAM_VFE_BUS_ADDR_NO_SYNC_DEFAULT_VAL;
+	bus_priv->common_data.camera_hw_version = camera_hw_version;
 
 	mutex_init(&bus_priv->common_data.bus_mutex);
 
