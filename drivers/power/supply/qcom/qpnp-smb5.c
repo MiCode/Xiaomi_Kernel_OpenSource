@@ -1,4 +1,4 @@
-/* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -252,18 +252,20 @@ static int smb5_chg_config_init(struct smb5 *chip)
 		chip->chg.smb_version = PM8150B_SUBTYPE;
 		chg->param = smb5_pm8150b_params;
 		chg->name = "pm8150b_charger";
+		chg->wa_flags |= CHG_TERMINATION_WA;
 		break;
 	case PM6150_SUBTYPE:
 		chip->chg.smb_version = PM6150_SUBTYPE;
 		chg->param = smb5_pm8150b_params;
 		chg->name = "pm6150_charger";
-		chg->wa_flags |= SW_THERM_REGULATION_WA;
+		chg->wa_flags |= SW_THERM_REGULATION_WA | CHG_TERMINATION_WA;
 		if (pmic_rev_id->rev4 >= 2)
 			chg->uusb_moisture_protection_enabled = true;
 		chg->main_fcc_max = PM6150_MAX_FCC_UA;
 		break;
 	case PMI632_SUBTYPE:
 		chip->chg.smb_version = PMI632_SUBTYPE;
+		chg->wa_flags |= CHG_TERMINATION_WA;
 		chg->param = smb5_pmi632_params;
 		chg->use_extcon = true;
 		chg->name = "pmi632_charger";
@@ -538,6 +540,7 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_SMB_EN_REASON,
 	POWER_SUPPLY_PROP_SCOPE,
 	POWER_SUPPLY_PROP_MOISTURE_DETECTED,
+	POWER_SUPPLY_PROP_VOLTAGE_VPH,
 };
 
 static int smb5_usb_get_prop(struct power_supply *psy,
@@ -681,6 +684,9 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_MOISTURE_DETECTED:
 		val->intval = chg->moisture_present;
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_VPH:
+		rc = smblib_get_prop_vph_voltage_now(chg, val);
 		break;
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);
@@ -1626,11 +1632,14 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		return rc;
 	}
 
+	/* enable try.snk and clear force sink for DRP mode */
 	rc = smblib_masked_write(chg, TYPE_C_MODE_CFG_REG,
-				EN_TRY_SNK_BIT, EN_TRY_SNK_BIT);
+				EN_TRY_SNK_BIT | EN_SNK_ONLY_BIT,
+				EN_TRY_SNK_BIT);
 	if (rc < 0) {
 		dev_err(chg->dev,
-			"Couldn't enable try.snk rc=%d\n", rc);
+			"Couldn't configure TYPE_C_MODE_CFG_REG rc=%d\n",
+				rc);
 		return rc;
 	} else {
 		chg->typec_try_mode |= EN_TRY_SNK_BIT;

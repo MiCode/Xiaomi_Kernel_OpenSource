@@ -6331,8 +6331,8 @@ int msm_comm_qbuf_cache_operations(struct msm_vidc_inst *inst,
 					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 				if (!i) { /* yuv */
 					skip = false;
-					offset = 0;
-					size = vb->planes[i].length;
+					offset = vb->planes[i].data_offset;
+					size = vb->planes[i].bytesused;
 					cache_op = SMEM_CACHE_INVALIDATE;
 				}
 			}
@@ -6348,8 +6348,8 @@ int msm_comm_qbuf_cache_operations(struct msm_vidc_inst *inst,
 					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 				if (!i) { /* bitstream */
 					skip = false;
-					offset = 0;
-					size = vb->planes[i].length;
+					offset = vb->planes[i].data_offset;
+					size = vb->planes[i].bytesused;
 					cache_op = SMEM_CACHE_INVALIDATE;
 				}
 			}

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,7 +18,7 @@
 
 static
 int ufs_qcom_phy_qmp_v3_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
-					bool is_rate_B)
+					bool is_rate_B, bool is_g4)
 {
 	/*
 	 * Writing PHY calibration in this order:

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019 The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -927,8 +927,9 @@ static bool sde_crtc_mode_fixup(struct drm_crtc *crtc,
 	SDE_DEBUG("\n");
 
 	if ((msm_is_mode_seamless(adjusted_mode) ||
-			msm_is_mode_seamless_vrr(adjusted_mode)) &&
-		(!crtc->enabled)) {
+	     (msm_is_mode_seamless_vrr(adjusted_mode) ||
+	      msm_is_mode_seamless_dyn_clk(adjusted_mode))) &&
+	    (!crtc->enabled)) {
 		SDE_ERROR("crtc state prevents seamless transition\n");
 		return false;
 	}
@@ -4804,7 +4805,9 @@ static void sde_crtc_enable(struct drm_crtc *crtc,
 
 	/* return early if crtc is already enabled */
 	if (sde_crtc->enabled) {
-		if (msm_is_mode_seamless_dms(&crtc->state->adjusted_mode))
+		if (msm_is_mode_seamless_dms(&crtc->state->adjusted_mode) ||
+		msm_is_mode_seamless_dyn_clk(&crtc->state->adjusted_mode))
+
 			SDE_DEBUG("%s extra crtc enable expected during DMS\n",
 					sde_crtc->name);
 		else

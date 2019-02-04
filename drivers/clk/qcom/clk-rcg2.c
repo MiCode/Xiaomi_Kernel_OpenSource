@@ -137,8 +137,7 @@ static int update_config(struct clk_rcg2 *rcg, u32 cfg)
 
 	WARN_CLK(hw->core, name, count == 0,
 			"rcg didn't update its configuration.");
-
-	return 0;
+	return -EBUSY;
 }
 
 static int clk_rcg2_set_parent(struct clk_hw *hw, u8 index)
@@ -392,6 +391,39 @@ static int clk_rcg2_determine_floor_rate(struct clk_hw *hw,
 	return _freq_tbl_determine_rate(hw, rcg->freq_tbl, req, FLOOR);
 }
 
+static bool clk_rcg2_current_config(struct clk_rcg2 *rcg,
+				    const struct freq_tbl *f)
+{
+	struct clk_hw *hw = &rcg->clkr.hw;
+	u32 cfg, mask, new_cfg;
+	int index;
+
+	if (rcg->mnd_width) {
+		mask = BIT(rcg->mnd_width) - 1;
+		regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + M_REG, &cfg);
+		if ((cfg & mask) != (f->m & mask))
+			return false;
+
+		regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + N_REG, &cfg);
+		if ((cfg & mask) != (~(f->n - f->m) & mask))
+			return false;
+	}
+
+	mask = (BIT(rcg->hid_width) - 1) | CFG_SRC_SEL_MASK;
+
+	index = qcom_find_src_index(hw, rcg->parent_map, f->src);
+
+	new_cfg = ((f->pre_div << CFG_SRC_DIV_SHIFT) |
+		(rcg->parent_map[index].cfg << CFG_SRC_SEL_SHIFT)) & mask;
+
+	regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + CFG_REG, &cfg);
+
+	if (new_cfg != (cfg & mask))
+		return false;
+
+	return true;
+}
+
 static int clk_rcg2_configure(struct clk_rcg2 *rcg, const struct freq_tbl *f)
 {
 	u32 cfg, mask, old_cfg;
@@ -436,6 +468,8 @@ static int clk_rcg2_configure(struct clk_rcg2 *rcg, const struct freq_tbl *f)
 	cfg |= rcg->parent_map[index].cfg << CFG_SRC_SEL_SHIFT;
 	if (rcg->mnd_width && f->n && (f->m != f->n))
 		cfg |= CFG_MODE_DUAL_EDGE;
+	if (rcg->flags & HW_CLK_CTRL_MODE)
+		cfg |= CFG_HW_CLK_CTRL_MASK;
 	ret = regmap_update_bits(rcg->clkr.regmap,
 			rcg->cmd_rcgr + rcg->cfg_off + CFG_REG, mask, cfg);
 	if (ret)
@@ -592,6 +626,9 @@ static int clk_rcg2_prepare(struct clk_hw *hw)
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
 	u32 cfg;
 	int ret;
+
+	if (rcg->flags & HW_CLK_CTRL_MODE)
+		return 0;
 
 	ret = regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + CFG_REG, &cfg);
 	if (ret)
@@ -1030,6 +1067,8 @@ static int clk_byte2_set_rate(struct clk_hw *hw, unsigned long rate,
 	for (i = 0; i < num_parents; i++) {
 		if (cfg == rcg->parent_map[i].cfg) {
 			f.src = rcg->parent_map[i].src;
+			if (clk_rcg2_current_config(rcg, &f))
+				return 0;
 			return clk_rcg2_configure(rcg, &f);
 		}
 	}
@@ -1126,6 +1165,8 @@ static int clk_pixel_set_rate(struct clk_hw *hw, unsigned long rate,
 		f.m = frac->num;
 		f.n = frac->den;
 
+		if (clk_rcg2_current_config(rcg, &f))
+			return 0;
 		return clk_rcg2_configure(rcg, &f);
 	}
 	return -EINVAL;

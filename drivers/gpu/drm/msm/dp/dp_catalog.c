@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -828,6 +828,30 @@ static void dp_catalog_ctrl_lane_mapping(struct dp_catalog_ctrl *ctrl,
 
 	dp_write(catalog->exe_mode, io_data, DP_LOGICAL2PHYSICAL_LANE_MAPPING,
 			0xe4);
+}
+
+static void dp_catalog_ctrl_lane_pnswap(struct dp_catalog_ctrl *ctrl,
+						u8 ln_pnswap)
+{
+	struct dp_catalog_private *catalog;
+	struct dp_io_data *io_data;
+	u32 cfg0, cfg1;
+
+	catalog = dp_catalog_get_priv(ctrl);
+
+	cfg0 = 0x0a;
+	cfg1 = 0x0a;
+
+	cfg0 |= ((ln_pnswap >> 0) & 0x1) << 0;
+	cfg0 |= ((ln_pnswap >> 1) & 0x1) << 2;
+	cfg1 |= ((ln_pnswap >> 2) & 0x1) << 0;
+	cfg1 |= ((ln_pnswap >> 3) & 0x1) << 2;
+
+	io_data = catalog->io.dp_ln_tx0;
+	dp_write(catalog->exe_mode, io_data, TXn_TX_POL_INV, cfg0);
+
+	io_data = catalog->io.dp_ln_tx1;
+	dp_write(catalog->exe_mode, io_data, TXn_TX_POL_INV, cfg1);
 }
 
 static void dp_catalog_ctrl_mainlink_ctrl(struct dp_catalog_ctrl *ctrl,
@@ -2441,6 +2465,7 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_parser *parser)
 		.state_ctrl     = dp_catalog_ctrl_state_ctrl,
 		.config_ctrl    = dp_catalog_ctrl_config_ctrl,
 		.lane_mapping   = dp_catalog_ctrl_lane_mapping,
+		.lane_pnswap    = dp_catalog_ctrl_lane_pnswap,
 		.mainlink_ctrl  = dp_catalog_ctrl_mainlink_ctrl,
 		.set_pattern    = dp_catalog_ctrl_set_pattern,
 		.reset          = dp_catalog_ctrl_reset,

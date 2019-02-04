@@ -2424,7 +2424,7 @@ static void __qseecom_reentrancy_check_if_this_app_blocked(
 	}
 }
 
-static int __qseecom_check_app_exists(struct qseecom_check_app_ireq req,
+static int __qseecom_check_app_exists(struct qseecom_check_app_ireq *req,
 					uint32_t *app_id)
 {
 	int32_t ret;
@@ -2443,7 +2443,7 @@ static int __qseecom_check_app_exists(struct qseecom_check_app_ireq req,
 	spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
 	list_for_each_entry(entry,
 			&qseecom.registered_app_list_head, list) {
-		if (!strcmp(entry->app_name, req.app_name)) {
+		if (!strcmp(entry->app_name, req->app_name)) {
 			found_app = true;
 			break;
 		}
@@ -2458,7 +2458,7 @@ static int __qseecom_check_app_exists(struct qseecom_check_app_ireq req,
 	memset((void *)&resp, 0, sizeof(resp));
 
 	/*  SCM_CALL  to check if app_id for the mentioned app exists */
-	ret = qseecom_scm_call(SCM_SVC_TZSCHEDULER, 1, &req,
+	ret = qseecom_scm_call(SCM_SVC_TZSCHEDULER, 1, req,
 				sizeof(struct qseecom_check_app_ireq),
 				&resp, sizeof(resp));
 	if (ret) {
@@ -2499,19 +2499,24 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 
 	size_t len;
 	struct qseecom_command_scm_resp resp;
-	struct qseecom_check_app_ireq req;
+	struct qseecom_check_app_ireq *req = NULL;
 	struct qseecom_load_app_ireq load_req;
 	struct qseecom_load_app_64bit_ireq load_req_64bit;
 	void *cmd_buf = NULL;
 	size_t cmd_len;
 	bool first_time = false;
 
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
 	/* Copy the relevant information needed for loading the image */
 	if (copy_from_user(&load_img_req,
 				(void __user *)argp,
 				sizeof(struct qseecom_load_img_req))) {
 		pr_err("copy_from_user failed\n");
-		return -EFAULT;
+		ret = -EFAULT;
+		goto req_free;
 	}
 
 	/* Check and load cmnlib */
@@ -2521,7 +2526,8 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 			ret = qseecom_load_commonlib_image(data, "cmnlib");
 			if (ret) {
 				pr_err("failed to load cmnlib\n");
-				return -EIO;
+				ret = -EIO;
+				goto req_free;
 			}
 			qseecom.commonlib_loaded = true;
 			pr_debug("cmnlib is loaded\n");
@@ -2532,7 +2538,8 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 			ret = qseecom_load_commonlib_image(data, "cmnlib64");
 			if (ret) {
 				pr_err("failed to load cmnlib64\n");
-				return -EIO;
+				ret = -EIO;
+				goto req_free;
 			}
 			qseecom.commonlib64_loaded = true;
 			pr_debug("cmnlib64 is loaded\n");
@@ -2544,7 +2551,7 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 		ret = __qseecom_register_bus_bandwidth_needs(data, MEDIUM);
 		mutex_unlock(&qsee_bw_mutex);
 		if (ret)
-			return ret;
+			goto req_free;
 	}
 
 	/* Vote for the SFPB clock */
@@ -2552,9 +2559,9 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 	if (ret)
 		goto enable_clk_err;
 
-	req.qsee_cmd_id = QSEOS_APP_LOOKUP_COMMAND;
+	req->qsee_cmd_id = QSEOS_APP_LOOKUP_COMMAND;
 	load_img_req.img_name[MAX_APP_NAME_SIZE-1] = '\0';
-	strlcpy(req.app_name, load_img_req.img_name, MAX_APP_NAME_SIZE);
+	strlcpy(req->app_name, load_img_req.img_name, MAX_APP_NAME_SIZE);
 
 	ret = __qseecom_check_app_exists(req, &app_id);
 	if (ret < 0)
@@ -2562,14 +2569,14 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 
 	if (app_id) {
 		pr_debug("App id %d (%s) already exists\n", app_id,
-			(char *)(req.app_name));
+			(char *)(req->app_name));
 		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
 		list_for_each_entry(entry,
 		&qseecom.registered_app_list_head, list){
 			if (entry->app_id == app_id) {
 				if (entry->ref_cnt == U32_MAX) {
 					pr_err("App %d (%s) ref_cnt overflow\n",
-						app_id, req.app_name);
+						app_id, req->app_name);
 					ret = -EINVAL;
 					goto loadapp_err;
 				}
@@ -2731,6 +2738,8 @@ enable_clk_err:
 		qseecom_unregister_bus_bandwidth_needs(data);
 		mutex_unlock(&qsee_bw_mutex);
 	}
+req_free:
+	kfree(req);
 	return ret;
 }
 
@@ -4565,7 +4574,7 @@ int qseecom_start_app(struct qseecom_handle **handle,
 	int32_t ret = 0;
 	unsigned long flags = 0;
 	struct qseecom_dev_handle *data = NULL;
-	struct qseecom_check_app_ireq app_ireq;
+	struct qseecom_check_app_ireq *app_ireq = NULL;
 	struct qseecom_registered_app_list *entry = NULL;
 	struct qseecom_registered_kclient_list *kclient_entry = NULL;
 	bool found_app = false;
@@ -4614,25 +4623,31 @@ int qseecom_start_app(struct qseecom_handle **handle,
 
 	mutex_lock(&app_access_lock);
 
-	app_ireq.qsee_cmd_id = QSEOS_APP_LOOKUP_COMMAND;
-	strlcpy(app_ireq.app_name, app_name, MAX_APP_NAME_SIZE);
+	app_ireq = kzalloc(sizeof(*app_ireq), GFP_KERNEL);
+	if (!app_ireq) {
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	app_ireq->qsee_cmd_id = QSEOS_APP_LOOKUP_COMMAND;
+	strlcpy(app_ireq->app_name, app_name, MAX_APP_NAME_SIZE);
 	ret = __qseecom_check_app_exists(app_ireq, &app_id);
 	if (ret)
-		goto err;
+		goto app_ireq_free;
 
 	strlcpy(data->client.app_name, app_name, MAX_APP_NAME_SIZE);
 	if (app_id) {
 		pr_warn("App id %d for [%s] app exists\n", app_id,
-			(char *)app_ireq.app_name);
+			(char *)app_ireq->app_name);
 		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
 		list_for_each_entry(entry,
 				&qseecom.registered_app_list_head, list){
 			if (entry->app_id == app_id) {
 				if (entry->ref_cnt == U32_MAX) {
 					pr_err("App %d (%s) ref_cnt overflow\n",
-						app_id, app_ireq.app_name);
+						app_id, app_ireq->app_name);
 					ret = -EINVAL;
-					goto err;
+					goto app_ireq_free;
 				}
 				entry->ref_cnt++;
 				found_app = true;
@@ -4643,15 +4658,16 @@ int qseecom_start_app(struct qseecom_handle **handle,
 				&qseecom.registered_app_list_lock, flags);
 		if (!found_app)
 			pr_warn("App_id %d [%s] was loaded but not registered\n",
-					ret, (char *)app_ireq.app_name);
+					ret, (char *)app_ireq->app_name);
 	} else {
 		/* load the app and get the app_id  */
 		pr_debug("%s: Loading app for the first time'\n",
 				qseecom.pdev->init_name);
 		ret = __qseecom_load_fw(data, app_name, &app_id);
 		if (ret < 0)
-			goto err;
+			goto app_ireq_free;
 	}
+	kfree(app_ireq);
 	data->client.app_id = app_id;
 	if (!found_app) {
 		entry = kmalloc(sizeof(*entry), GFP_KERNEL);
@@ -4708,6 +4724,8 @@ int qseecom_start_app(struct qseecom_handle **handle,
 	mutex_unlock(&app_access_lock);
 	return 0;
 
+app_ireq_free:
+	kfree(app_ireq);
 err:
 	if (va)
 		__qseecom_free_coherent_buf(size, va, pa);
@@ -5516,8 +5534,8 @@ static int qseecom_query_app_loaded(struct qseecom_dev_handle *data,
 {
 
 	int32_t ret = 0;
-	struct qseecom_qseos_app_load_query *query_req;
-	struct qseecom_check_app_ireq req;
+	struct qseecom_qseos_app_load_query *query_req = NULL;
+	struct qseecom_check_app_ireq *req = NULL;
 	struct qseecom_registered_app_list *entry = NULL;
 	unsigned long flags = 0;
 	uint32_t app_arch = 0, app_id = 0;
@@ -5528,6 +5546,12 @@ static int qseecom_query_app_loaded(struct qseecom_dev_handle *data,
 	if (!query_req)
 		return -ENOMEM;
 
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req) {
+		ret = -ENOMEM;
+		goto query_req_exit;
+	}
+
 	/* Copy the relevant information needed for loading the image */
 	if (copy_from_user(query_req, (void __user *)argp,
 				sizeof(struct qseecom_qseos_app_load_query))) {
@@ -5536,9 +5560,9 @@ static int qseecom_query_app_loaded(struct qseecom_dev_handle *data,
 		goto exit_free;
 	}
 
-	req.qsee_cmd_id = QSEOS_APP_LOOKUP_COMMAND;
+	req->qsee_cmd_id = QSEOS_APP_LOOKUP_COMMAND;
 	query_req->app_name[MAX_APP_NAME_SIZE-1] = '\0';
-	strlcpy(req.app_name, query_req->app_name, MAX_APP_NAME_SIZE);
+	strlcpy(req->app_name, query_req->app_name, MAX_APP_NAME_SIZE);
 
 	ret = __qseecom_check_app_exists(req, &app_id);
 	if (ret) {
@@ -5547,7 +5571,7 @@ static int qseecom_query_app_loaded(struct qseecom_dev_handle *data,
 	}
 	if (app_id) {
 		pr_debug("App id %d (%s) already exists\n", app_id,
-			(char *)(req.app_name));
+			(char *)(req->app_name));
 		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
 		list_for_each_entry(entry,
 				&qseecom.registered_app_list_head, list){
@@ -5555,7 +5579,7 @@ static int qseecom_query_app_loaded(struct qseecom_dev_handle *data,
 				app_arch = entry->app_arch;
 				if (entry->ref_cnt == U32_MAX) {
 					pr_err("App %d (%s) ref_cnt overflow\n",
-						app_id, req.app_name);
+						app_id, req->app_name);
 					ret = -EINVAL;
 					goto exit_free;
 				}
@@ -5615,6 +5639,8 @@ static int qseecom_query_app_loaded(struct qseecom_dev_handle *data,
 	}
 
 exit_free:
+	kfree(req);
+query_req_exit:
 	kfree(query_req);
 
 	return ret;	/* app not loaded */

@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -733,6 +733,14 @@
 			reusable;
 			alignment = <0x0 0x400000>;
 			size = <0x0 0x400000>;
+		};
+
+		user_contig_mem: user_contig_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x1000000>;
 		};
 
 		qseecom_ta_mem: qseecom_ta_region {
@@ -1661,6 +1669,8 @@
 		memory-region = <&pil_modem_mem>;
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,sysmon-id = <0>;
+		qcom,minidump-id = <3>;
+		qcom,aux-minidump-ids = <4>;
 		qcom,ssctl-instance-id = <0x12>;
 		qcom,pas-id = <4>;
 		qcom,smem-id = <421>;
@@ -2314,7 +2324,7 @@
 			<0 0>;
 
 		qcom,msm-bus,name = "ufshc_mem";
-		qcom,msm-bus,num-cases = <22>;
+		qcom,msm-bus,num-cases = <26>;
 		qcom,msm-bus,num-paths = <2>;
 		qcom,msm-bus,vectors-KBps =
 		/*
@@ -2339,12 +2349,15 @@
 		<123 512 127796 0>, <1 757 1000 0>,  /* HS G1 RA */
 		<123 512 255591 0>, <1 757 1000 0>,  /* HS G2 RA */
 		<123 512 2097152 0>, <1 757 102400 0>,  /* HS G3 RA */
+		<123 512 4194304 0>, <1 757 204800 0>,  /* HS G4 RA */
 		<123 512 255591 0>, <1 757 1000 0>,  /* HS G1 RA L2 */
 		<123 512 511181 0>, <1 757 1000 0>,  /* HS G2 RA L2 */
 		<123 512 4194304 0>, <1 757 204800 0>, /* HS G3 RA L2 */
+		<123 512 8388608 0>, <1 757 409600 0>, /* HS G4 RA L2 */
 		<123 512 149422 0>, <1 757 1000 0>,  /* HS G1 RB */
 		<123 512 298189 0>, <1 757 1000 0>,  /* HS G2 RB */
 		<123 512 2097152 0>, <1 757 102400 0>,  /* HS G3 RB */
+		<123 512 4194304 0>, <1 757 204800 0>,  /* HS G4 RB */
 		<123 512 298189 0>, <1 757 1000 0>,  /* HS G1 RB L2 */
 		<123 512 596378 0>, <1 757 1000 0>,  /* HS G2 RB L2 */
 		/* As UFS working in HS G3 RB L2 mode, aggregated
@@ -2354,15 +2367,16 @@
 		 * bindwidth (IB) needs to be given a proper value too.
 		 */
 		<123 512 4194304 0>, <1 757 204800 409600>, /* HS G3 RB L2 */
+		<123 512 8388608 0>, <1 757 409600 409600>, /* HS G4 RB L2 */
 		<123 512 7643136 0>, <1 757 307200 0>; /* Max. bandwidth */
 
 		qcom,bus-vector-names = "MIN",
 		"PWM_G1_L1", "PWM_G2_L1", "PWM_G3_L1", "PWM_G4_L1",
 		"PWM_G1_L2", "PWM_G2_L2", "PWM_G3_L2", "PWM_G4_L2",
-		"HS_RA_G1_L1", "HS_RA_G2_L1", "HS_RA_G3_L1",
-		"HS_RA_G1_L2", "HS_RA_G2_L2", "HS_RA_G3_L2",
-		"HS_RB_G1_L1", "HS_RB_G2_L1", "HS_RB_G3_L1",
-		"HS_RB_G1_L2", "HS_RB_G2_L2", "HS_RB_G3_L2",
+		"HS_RA_G1_L1", "HS_RA_G2_L1", "HS_RA_G3_L1", "HS_RA_G4_L1",
+		"HS_RA_G1_L2", "HS_RA_G2_L2", "HS_RA_G3_L2", "HS_RA_G4_L2",
+		"HS_RB_G1_L1", "HS_RB_G2_L1", "HS_RB_G3_L1", "HS_RB_G4_L1",
+		"HS_RB_G1_L2", "HS_RB_G2_L2", "HS_RB_G3_L2", "HS_RB_G4_L2",
 		"MAX";
 
 		/* PM QoS */
@@ -3345,7 +3359,7 @@
 				 <DCC_WRITE 0x06a0e01c 0x0013b6a0 1>,
 				 <DCC_WRITE 0x06a0e01c 0x00f1e000 1>,
 				 <DCC_WRITE 0x06a0e008 0x00000007 1>,
-				 <DCC_READ 0x906e7e00 124 0>,
+				 <DCC_READ 0x09067e00 124 0>,
 				 <DCC_WRITE 0x090c80f8 0x00000001 1>,
 				 <DCC_READ 0x091800c8 1 0>,
 				 <DCC_READ 0x09180740 1 0>,

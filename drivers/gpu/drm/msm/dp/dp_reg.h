@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -347,12 +347,14 @@
 
 #define TXn_TX_EMP_POST1_LVL			(0x000C)
 #define TXn_TX_DRV_LVL				(0x001C)
+#define TXn_TX_POL_INV				(0x0064)
 
 #define DP_PHY_AUX_INTERRUPT_MASK_V420		(0x0054)
 #define DP_PHY_AUX_INTERRUPT_CLEAR_V420		(0x0058)
 #define DP_PHY_AUX_INTERRUPT_STATUS_V420	(0x00D8)
 #define DP_PHY_SPARE0_V420			(0x00C8)
 #define TXn_TX_DRV_LVL_V420			(0x0014)
+#define TXn_TX_POL_INV_V420			(0x005C)
 
 #define QSERDES_COM_BIAS_EN_CLKBUFLR_EN		(0x004)
 
