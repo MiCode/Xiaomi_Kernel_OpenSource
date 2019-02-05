@@ -1010,7 +1010,7 @@ static int bg_spi_probe(struct spi_device *spi)
 
 	bg_irq = gpio_to_irq(irq_gpio);
 	ret = request_threaded_irq(bg_irq, NULL, bg_irq_tasklet_hndlr,
-		IRQF_TRIGGER_HIGH | IRQF_ONESHOT, "qcom,bg_spi", bg_spi);
+		IRQF_TRIGGER_HIGH | IRQF_ONESHOT, "qcom-bg_spi", bg_spi);
 
 	if (ret)
 		goto err_ret;
