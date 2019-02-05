@@ -102,9 +102,12 @@ EXPORT_SYMBOL(diag_bridge_open);
 static void diag_bridge_delete(struct kref *kref)
 {
 	struct diag_bridge *dev = container_of(kref, struct diag_bridge, kref);
+	struct usb_interface *ifc = dev->ifc;
 	int id = dev->id;
 
 	dev_dbg(&dev->ifc->dev, "%s\n", __func__);
+	usb_set_intfdata(ifc, NULL);
+	usb_put_intf(ifc);
 	usb_put_dev(dev->udev);
 	__dev[id] = 0;
 	kfree(dev);
@@ -500,7 +503,7 @@ diag_bridge_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	dev->id = devid;
 
 	dev->udev = usb_get_dev(interface_to_usbdev(ifc));
-	dev->ifc = ifc;
+	dev->ifc = usb_get_intf(ifc);
 	kref_init(&dev->kref);
 	mutex_init(&dev->ifc_mutex);
 	init_usb_anchor(&dev->submitted);
@@ -556,12 +559,9 @@ static void diag_bridge_disconnect(struct usb_interface *ifc)
 	dev_dbg(&dev->ifc->dev, "%s\n", __func__);
 
 	platform_device_unregister(dev->pdev);
-	mutex_lock(&dev->ifc_mutex);
-	dev->ifc = NULL;
-	mutex_unlock(&dev->ifc_mutex);
 	diag_bridge_debugfs_cleanup();
+	dev->err = -ENODEV;
 	kref_put(&dev->kref, diag_bridge_delete);
-	usb_set_intfdata(ifc, NULL);
 }
 
 static int diag_bridge_suspend(struct usb_interface *ifc, pm_message_t message)
