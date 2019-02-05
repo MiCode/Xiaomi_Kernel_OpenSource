@@ -521,11 +521,11 @@ void rmnet_map_checksum_uplink_packet(struct sk_buff *skb,
 static void rmnet_map_nonlinear_copy(struct sk_buff *coal_skb,
 				     u32 hdr_len,
 				     u32 start,
-				     u16 pkt_len,
+				     u16 pkt_len, u8 pkt_count,
 				     struct sk_buff *dest)
 {
 	unsigned char *data_start = rmnet_map_data_ptr(coal_skb) + hdr_len;
-	u32 copy_len = pkt_len;
+	u32 copy_len = pkt_len * pkt_count;
 
 	if (skb_is_nonlinear(coal_skb)) {
 		skb_frag_t *frag0 = skb_shinfo(coal_skb)->frags;
@@ -541,13 +541,67 @@ static void rmnet_map_nonlinear_copy(struct sk_buff *coal_skb,
 	}
 }
 
+/* Fill in GSO metadata to allow the SKB to be segmented by the NW stack
+ * if needed (i.e. forwarding, UDP GRO)
+ */
+static void rmnet_map_gso_stamp(struct sk_buff *skb, u16 gso_size, u8 gso_segs)
+{
+	struct skb_shared_info *shinfo = skb_shinfo(skb);
+	struct iphdr *iph = ip_hdr(skb);
+	void *addr;
+	__sum16 *check;
+	__wsum partial;
+	int csum_len;
+	u16 pkt_len = gso_size * gso_segs;
+	u8 protocol;
+	bool ipv4 = iph->version == 4;
+
+	if (ipv4) {
+		addr = &iph->saddr;
+		csum_len = sizeof(iph->saddr) * 2;
+		protocol = iph->protocol;
+	} else {
+		struct ipv6hdr *ip6h = ipv6_hdr(skb);
+
+		addr = &ip6h->saddr;
+		csum_len = sizeof(ip6h->saddr) * 2;
+		protocol = ip6h->nexthdr;
+	}
+
+	if (protocol == IPPROTO_TCP) {
+		struct tcphdr *tp = tcp_hdr(skb);
+
+		pkt_len += tp->doff * 4;
+		check = &tp->check;
+		shinfo->gso_type = (ipv4) ? SKB_GSO_TCPV4 : SKB_GSO_TCPV6;
+		skb->csum_offset = offsetof(struct tcphdr, check);
+	} else {
+		struct udphdr *up = udp_hdr(skb);
+
+		pkt_len += sizeof(*up);
+		check = &up->check;
+		shinfo->gso_type = SKB_GSO_UDP_L4;
+		skb->csum_offset = offsetof(struct udphdr, check);
+	}
+
+	partial = csum_partial(addr, csum_len, 0);
+	partial = csum16_add(partial, htons((u16)protocol));
+	partial = csum16_add(partial, htons(pkt_len));
+	*check = ~csum_fold(partial);
+
+	skb->ip_summed = CHECKSUM_PARTIAL;
+	skb->csum_start = skb_transport_header(skb) - skb->head;
+	shinfo->gso_size = gso_size;
+	shinfo->gso_segs = gso_segs;
+}
+
 /* Create a new UDP SKB from the coalesced SKB. Appropriate IP and UDP headers
  * will be added.
  */
 static struct sk_buff *rmnet_map_segment_udp_skb(struct sk_buff *coal_skb,
 						 u32 start,
 						 int start_pkt_num,
-						 u16 pkt_len)
+						 u16 pkt_len, u8 pkt_count)
 {
 	struct sk_buff *skbn;
 	struct iphdr *iph = (struct iphdr *)rmnet_map_data_ptr(coal_skb);
@@ -581,7 +635,7 @@ static struct sk_buff *rmnet_map_segment_udp_skb(struct sk_buff *coal_skb,
 
 	skb_reserve(skbn, ip_len + udp_len);
 	rmnet_map_nonlinear_copy(coal_skb, ip_len + udp_len,
-				 start, pkt_len, skbn);
+				 start, pkt_len, pkt_count, skbn);
 
 	/* Push UDP header and update length */
 	skb_push(skbn, udp_len);
@@ -608,6 +662,10 @@ static struct sk_buff *rmnet_map_segment_udp_skb(struct sk_buff *coal_skb,
 	skbn->dev = coal_skb->dev;
 	priv->stats.coal.coal_reconstruct++;
 
+	/* Stamp GSO information if necessary */
+	if (pkt_count > 1)
+		rmnet_map_gso_stamp(skbn, pkt_len, pkt_count);
+
 	return skbn;
 }
 
@@ -617,7 +675,7 @@ static struct sk_buff *rmnet_map_segment_udp_skb(struct sk_buff *coal_skb,
 static struct sk_buff *rmnet_map_segment_tcp_skb(struct sk_buff *coal_skb,
 						 u32 start,
 						 int start_pkt_num,
-						 u16 pkt_len)
+						 u16 pkt_len, u8 pkt_count)
 {
 	struct sk_buff *skbn;
 	struct iphdr *iph = (struct iphdr *)rmnet_map_data_ptr(coal_skb);
@@ -652,7 +710,7 @@ static struct sk_buff *rmnet_map_segment_tcp_skb(struct sk_buff *coal_skb,
 
 	skb_reserve(skbn, ip_len + tcp_len);
 	rmnet_map_nonlinear_copy(coal_skb, ip_len + tcp_len,
-				 start, pkt_len, skbn);
+				 start, pkt_len, pkt_count, skbn);
 
 	/* Push TCP header and update sequence number */
 	skb_push(skbn, tcp_len);
@@ -679,6 +737,10 @@ static struct sk_buff *rmnet_map_segment_tcp_skb(struct sk_buff *coal_skb,
 	skbn->dev = coal_skb->dev;
 	priv->stats.coal.coal_reconstruct++;
 
+	/* Stamp GSO information if necessary */
+	if (pkt_count > 1)
+		rmnet_map_gso_stamp(skbn, pkt_len, pkt_count);
+
 	return skbn;
 }
 
@@ -695,7 +757,7 @@ static void rmnet_map_segment_coal_data(struct sk_buff *coal_skb,
 	struct sk_buff *(*segment)(struct sk_buff *coal_skb,
 				   u32 start,
 				   int start_pkt_num,
-				   u16 pkt_len);
+				   u16 pkt_len, u8 pkt_count);
 	struct iphdr *iph;
 	struct rmnet_priv *priv = netdev_priv(coal_skb->dev);
 	struct rmnet_map_v5_coal_header *coal_hdr;
@@ -703,7 +765,8 @@ static void rmnet_map_segment_coal_data(struct sk_buff *coal_skb,
 	u16 pkt_len, ip_len, trans_len;
 	u8 protocol, start_pkt_num = 0;
 	u8 pkt, total_pkt = 0;
-	u8 nlo;
+	u8 nlo, gro_count = 0;
+	bool gro = coal_skb->dev->features & NETIF_F_GRO_HW;
 
 	/* Pull off the headers we no longer need */
 	pskb_pull(coal_skb, sizeof(struct rmnet_map_header));
@@ -745,20 +808,59 @@ static void rmnet_map_segment_coal_data(struct sk_buff *coal_skb,
 			nlo_err_mask <<= 1;
 			if (nlo_err_mask & (1ULL << 63)) {
 				priv->stats.coal.coal_csum_err++;
+
+				/* Segment out the good data */
+				if (gro && gro_count) {
+					new_skb = segment(coal_skb, start,
+							  start_pkt_num,
+							  pkt_len, gro_count);
+					if (!new_skb)
+						return;
+
+					__skb_queue_tail(list, new_skb);
+					gro_count = 0;
+				}
+
 				/* skip over bad packet */
 				start += pkt_len;
 				start_pkt_num = total_pkt + 1;
 			} else {
-				new_skb = segment(coal_skb, start,
-						  start_pkt_num, pkt_len);
-				if (!new_skb)
-					return;
+				gro_count++;
 
-				__skb_queue_tail(list, new_skb);
+				/* Segment the packet if we aren't sending the
+				 * larger packet up the stack.
+				 */
+				if (!gro) {
+					new_skb = segment(coal_skb, start,
+							  start_pkt_num,
+							  pkt_len, 1);
+					if (!new_skb)
+						return;
 
-				start += pkt_len;
-				start_pkt_num = total_pkt + 1;
+					__skb_queue_tail(list, new_skb);
+
+					start += pkt_len;
+					start_pkt_num = total_pkt + 1;
+					gro_count = 0;
+				}
 			}
+		}
+
+		/* If we're switching NLOs, we need to send out everything from
+		 * the previous one, if we haven't done so. NLOs only switch
+		 * when the packet length changes.
+		 */
+		if (gro && gro_count) {
+			new_skb = segment(coal_skb, start, start_pkt_num,
+					  pkt_len, gro_count);
+			if (!new_skb)
+				return;
+
+			__skb_queue_tail(list, new_skb);
+
+			start += pkt_len;
+			start_pkt_num = total_pkt + 1;
+			gro_count = 0;
 		}
 	}
 }
