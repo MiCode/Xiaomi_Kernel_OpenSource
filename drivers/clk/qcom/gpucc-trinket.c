@@ -67,7 +67,7 @@ static const char * const gpu_cc_parent_names_0[] = {
 	"bi_tcxo",
 	"gpu_cc_pll0_out_main",
 	"gpu_cc_pll1_out_main",
-	"gpll0_out_main",
+	"gcc_gpu_gpll0_clk_src",
 	"gpll0_out_main_div",
 	"core_bi_pll_test_se",
 };
@@ -88,7 +88,7 @@ static const char * const gpu_cc_parent_names_1[] = {
 	"gpu_cc_pll0_out_aux2",
 	"gpu_cc_pll1_out_aux",
 	"gpu_cc_pll1_out_aux2",
-	"gpll0_out_main",
+	"gcc_gpu_gpll0_clk_src",
 	"core_bi_pll_test_se",
 };
 
