@@ -1400,7 +1400,7 @@ int msm_vdec_set_output_stream_mode(struct msm_vidc_inst *inst)
 		if (rc) {
 			dprintk(VIDC_ERR,
 				"%s: set prop frame_size failed\n",
-				__func__, rc);
+				__func__);
 			return rc;
 		}
 	}
