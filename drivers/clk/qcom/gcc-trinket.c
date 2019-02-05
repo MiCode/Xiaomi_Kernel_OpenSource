@@ -4193,6 +4193,15 @@ static struct clk_dummy measure_only_mccc_clk = {
 	},
 };
 
+/* Measure-only clock for gcc_ipa_2x_clk. */
+static struct clk_dummy measure_only_ipa_2x_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_ipa_2x_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
 struct clk_hw *gcc_trinket_hws[] = {
 	[GPLL0_OUT_AUX2] = &gpll0_out_aux2.hw,
 	[GPLL0_OUT_MAIN] = &gpll0_out_main.hw,
@@ -4200,6 +4209,7 @@ struct clk_hw *gcc_trinket_hws[] = {
 	[GPLL8_OUT_MAIN] = &gpll8_out_main.hw,
 	[GPLL9_OUT_MAIN] = &gpll9_out_main.hw,
 	[MEASURE_ONLY_MMCC_CLK] = &measure_only_mccc_clk.hw,
+	[MEASURE_ONLY_IPA_2X_CLK] = &measure_only_ipa_2x_clk.hw,
 };
 
 static struct clk_regmap *gcc_trinket_clocks[] = {
