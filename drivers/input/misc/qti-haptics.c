@@ -1103,8 +1103,11 @@ static int qti_haptics_hw_init(struct qti_hap_chip *chip)
 	 * Skip configurations below for ERM actuator
 	 * as they're only for LRA actuators
 	 */
-	if (config->act_type == ACT_ERM)
-		return 0;
+	if (config->act_type == ACT_ERM) {
+		/* Disable AUTO_RES for ERM */
+		rc = qti_haptics_lra_auto_res_enable(chip, false);
+		return rc;
+	}
 
 	addr = REG_HAP_CFG2;
 	val = config->lra_shape;
