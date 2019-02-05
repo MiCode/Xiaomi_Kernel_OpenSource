@@ -327,8 +327,8 @@ struct mhi_meminfo {
 
 struct mhi_addr {
 	uint64_t	host_pa;
-	uintptr_t	device_pa;
-	uintptr_t	device_va;
+	size_t	device_pa;
+	size_t	device_va;
 	size_t		size;
 	dma_addr_t	phy_addr;
 	void		*virt_addr;
@@ -374,9 +374,9 @@ struct mhi_dev_ring {
 	struct mhi_dev				*mhi_dev;
 
 	uint32_t				id;
-	uint32_t				rd_offset;
-	uint32_t				wr_offset;
-	uint32_t				ring_size;
+	size_t				rd_offset;
+	size_t				wr_offset;
+	size_t				ring_size;
 
 	enum mhi_dev_ring_type			type;
 	enum mhi_dev_ring_state			state;
@@ -397,7 +397,7 @@ struct mhi_dev_ring {
 };
 
 static inline void mhi_dev_ring_inc_index(struct mhi_dev_ring *ring,
-						uint32_t rd_offset)
+						size_t rd_offset)
 {
 	ring->rd_offset++;
 	if (ring->rd_offset == ring->ring_size)
@@ -516,9 +516,9 @@ struct mhi_dev {
 	struct list_head		event_ring_list;
 	struct list_head		process_ring_list;
 
-	uint32_t			cmd_ring_idx;
-	uint32_t			ev_ring_start;
-	uint32_t			ch_ring_start;
+	size_t			cmd_ring_idx;
+	size_t			ev_ring_start;
+	size_t			ch_ring_start;
 
 	/* IPA Handles */
 	u32				ipa_clnt_hndl[4];
@@ -672,7 +672,7 @@ int mhi_ring_start(struct mhi_dev_ring *ring,
  * @ring:	Ring for the respective context - Channel/Event/Command.
  * @wr_offset:	Cache the TRE's upto the write offset value.
  */
-int mhi_dev_cache_ring(struct mhi_dev_ring *ring, uint32_t wr_offset);
+int mhi_dev_cache_ring(struct mhi_dev_ring *ring, size_t wr_offset);
 
 /**
  * mhi_dev_update_wr_offset() - Check for any updates in the write offset.
@@ -693,7 +693,7 @@ int mhi_dev_process_ring(struct mhi_dev_ring *ring);
  * @ring:	Ring for the respective context - Channel/Event/Command.
  * @offset:	Offset index into the respective ring's cache element.
  */
-int mhi_dev_process_ring_element(struct mhi_dev_ring *ring, uint32_t offset);
+int mhi_dev_process_ring_element(struct mhi_dev_ring *ring, size_t offset);
 
 /**
  * mhi_dev_add_element() - Copy the element to the respective transfer rings
