@@ -452,8 +452,15 @@ int cam_vfe_top_ver3_reset(void *device_priv,
 	reg_common = top_priv->common_data.common_reg;
 
 	/* Mask All the IRQs except RESET */
-	cam_io_w_mb((1 << 31),
-		CAM_SOC_GET_REG_MAP_START(soc_info, VFE_CORE_BASE_IDX) + 0x5C);
+	if (strnstr(soc_info->compatible, "lite",
+			strlen(soc_info->compatible)) == NULL)
+		cam_io_w_mb(0x00000001,
+			CAM_SOC_GET_REG_MAP_START(soc_info, VFE_CORE_BASE_IDX)
+			+ 0x3C);
+	else
+		cam_io_w_mb(0x00020000,
+			CAM_SOC_GET_REG_MAP_START(soc_info, VFE_CORE_BASE_IDX)
+			+ 0x28);
 
 	/* Reset HW */
 	cam_io_w_mb(reset_reg_val,

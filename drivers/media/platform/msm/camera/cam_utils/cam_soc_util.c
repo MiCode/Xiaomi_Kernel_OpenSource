@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/of.h>
@@ -1208,6 +1208,14 @@ int cam_soc_util_get_dt_properties(struct cam_hw_soc_info *soc_info)
 			rc = -ENODEV;
 			return rc;
 		}
+	}
+
+	rc = of_property_read_string_index(of_node, "compatible", 0,
+		(const char **)&soc_info->compatible);
+	if (rc) {
+		CAM_DBG(CAM_UTIL, "No compatible string present for: %s",
+			soc_info->dev_name);
+		rc = 0;
 	}
 
 	rc = cam_soc_util_get_dt_regulator_info(soc_info);

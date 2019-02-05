@@ -83,6 +83,7 @@ struct cam_vfe_bus_ver3_common_data {
 	uint32_t                                    secure_mode;
 	uint32_t                                    num_sec_out;
 	uint32_t                                    addr_no_sync;
+	bool                                        is_lite;
 };
 
 struct cam_vfe_bus_ver3_wm_resource_data {
@@ -538,7 +539,7 @@ static int cam_vfe_bus_ver3_get_num_wm(
 static int cam_vfe_bus_ver3_get_wm_idx(
 	enum cam_vfe_bus_ver3_vfe_out_type vfe_out_res_id,
 	enum cam_vfe_bus_plane_type plane,
-	uint32_t hw_idx)
+	bool is_lite)
 {
 	int wm_idx = -1;
 
@@ -546,7 +547,7 @@ static int cam_vfe_bus_ver3_get_wm_idx(
 	case CAM_VFE_BUS_VER3_VFE_OUT_RDI0:
 		switch (plane) {
 		case PLANE_Y:
-			if (hw_idx < 2)
+			if (is_lite)
 				wm_idx = 23;
 			else
 				wm_idx = 0;
@@ -558,7 +559,7 @@ static int cam_vfe_bus_ver3_get_wm_idx(
 	case CAM_VFE_BUS_VER3_VFE_OUT_RDI1:
 		switch (plane) {
 		case PLANE_Y:
-			if (hw_idx < 2)
+			if (is_lite)
 				wm_idx = 24;
 			else
 				wm_idx = 1;
@@ -570,7 +571,7 @@ static int cam_vfe_bus_ver3_get_wm_idx(
 	case CAM_VFE_BUS_VER3_VFE_OUT_RDI2:
 		switch (plane) {
 		case PLANE_Y:
-			if (hw_idx < 2)
+			if (is_lite)
 				wm_idx = 25;
 			else
 				wm_idx = 2;
@@ -909,8 +910,7 @@ static int cam_vfe_bus_ver3_acquire_wm(
 	enum cam_vfe_bus_plane_type            plane,
 	struct cam_isp_resource_node         **wm_res,
 	uint32_t                               is_dual,
-	enum cam_vfe_bus_ver3_comp_grp_type   *comp_grp_id,
-	uint32_t                               hw_idx)
+	enum cam_vfe_bus_ver3_comp_grp_type   *comp_grp_id)
 {
 	uint32_t wm_idx = 0;
 	struct cam_isp_resource_node              *wm_res_local = NULL;
@@ -919,7 +919,8 @@ static int cam_vfe_bus_ver3_acquire_wm(
 	*wm_res = NULL;
 
 	/* No need to allocate for BUS VER2. VFE OUT to WM is fixed. */
-	wm_idx = cam_vfe_bus_ver3_get_wm_idx(vfe_out_res_id, plane, hw_idx);
+	wm_idx = cam_vfe_bus_ver3_get_wm_idx(vfe_out_res_id, plane,
+		ver3_bus_priv->common_data.is_lite);
 	if (wm_idx < 0 || wm_idx >= ver3_bus_priv->num_client) {
 		CAM_ERR(CAM_ISP, "Unsupported VFE out %d plane %d",
 			vfe_out_res_id, plane);
@@ -949,7 +950,7 @@ static int cam_vfe_bus_ver3_acquire_wm(
 	CAM_DBG(CAM_ISP, "WM:%d width %d height %d", rsrc_data->index,
 		rsrc_data->width, rsrc_data->height);
 
-	if (hw_idx > 1)
+	if (ver3_bus_priv->common_data.is_lite)
 		goto rdi_config;
 
 	if (rsrc_data->index > 22) {
@@ -1210,12 +1211,12 @@ static int cam_vfe_bus_ver3_start_wm(struct cam_isp_resource_node *wm_res)
 		common_data->mem_base + rsrc_data->hw_regs->packer_cfg);
 
 	/* Configure stride for RDIs on full IFE */
-	if (wm_res->hw_intf->hw_idx < 2 && rsrc_data->index > 22)
+	if (!common_data->is_lite && rsrc_data->index > 22)
 		cam_io_w_mb(rsrc_data->stride, (common_data->mem_base +
 			rsrc_data->hw_regs->image_cfg_2));
 
 	/* Configure stride for RDIs on IFE lite */
-	if (wm_res->hw_intf->hw_idx >= 2)
+	if (common_data->is_lite)
 		cam_io_w_mb(rsrc_data->stride, (common_data->mem_base +
 			rsrc_data->hw_regs->image_cfg_2));
 
@@ -1846,8 +1847,7 @@ static int cam_vfe_bus_ver3_acquire_vfe_out(void *bus_priv, void *acquire_args,
 			i,
 			&rsrc_data->wm_res[i],
 			out_acquire_args->is_dual,
-			&comp_grp_id,
-			rsrc_node->hw_intf->hw_idx);
+			&comp_grp_id);
 		if (rc) {
 			CAM_ERR(CAM_ISP,
 				"VFE%d WM acquire failed for Out %d rc=%d",
@@ -2556,7 +2556,9 @@ static int cam_vfe_bus_ver3_update_wm(void *priv, void *cmd_args,
 				io_cfg->planes[i].plane_stride, val);
 
 		if ((wm_data->stride != val ||
-			!wm_data->init_cfg_done) && (wm_data->index < 23)) {
+			!wm_data->init_cfg_done) &&
+			((!bus_priv->common_data.is_lite && wm_data->index < 23)
+			|| bus_priv->common_data.is_lite)) {
 			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
 				wm_data->hw_regs->image_cfg_2,
 				io_cfg->planes[i].plane_stride);
@@ -2602,10 +2604,13 @@ static int cam_vfe_bus_ver3_update_wm(void *priv, void *cmd_args,
 				io_cfg->planes[i].slice_height;
 		}
 
-		if (wm_data->index < 3)
+		if ((!bus_priv->common_data.is_lite && wm_data->index > 22) ||
+			bus_priv->common_data.is_lite)
 			loop_size = wm_data->irq_subsample_period + 1;
 		else
 			loop_size = 1;
+
+
 
 		/* WM Image address */
 		for (k = 0; k < loop_size; k++) {
@@ -2694,7 +2699,9 @@ static int cam_vfe_bus_ver3_update_hfr(void *priv, void *cmd_args,
 
 		wm_data = vfe_out_data->wm_res[i]->res_priv;
 
-		if (wm_data->index > 22 && hfr_cfg->subsample_period > 3) {
+		if (((!bus_priv->common_data.is_lite && wm_data->index > 22) ||
+			bus_priv->common_data.is_lite) &&
+			hfr_cfg->subsample_period > 3) {
 			CAM_ERR(CAM_ISP,
 				"RDI doesn't support irq subsample period %d",
 				hfr_cfg->subsample_period);
@@ -3053,6 +3060,12 @@ int cam_vfe_bus_ver3_init(
 	bus_priv->common_data.hw_intf            = hw_intf;
 	bus_priv->common_data.vfe_irq_controller = vfe_irq_controller;
 	bus_priv->common_data.common_reg         = &ver3_hw_info->common_reg;
+
+	if (strnstr(soc_info->compatible, "lite",
+		strlen(soc_info->compatible)) != NULL)
+		bus_priv->common_data.is_lite = true;
+	else
+		bus_priv->common_data.is_lite = false;
 
 	mutex_init(&bus_priv->common_data.bus_mutex);
 

@@ -121,6 +121,7 @@ int cam_vfe_init_soc_resources(struct cam_hw_soc_info *soc_info,
 		CAM_ERR(CAM_ISP, "Error! Invalid cpas version rc=%d", rc);
 		goto free_soc_private;
 	}
+	soc_info->hw_version = soc_private->cpas_version;
 
 	switch (soc_private->cpas_version) {
 	case CAM_CPAS_TITAN_175_V120:
