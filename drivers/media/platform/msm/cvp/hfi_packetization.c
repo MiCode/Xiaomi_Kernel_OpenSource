@@ -638,99 +638,39 @@ static u32 get_hfi_work_mode(enum hal_work_mode work_mode)
 }
 
 int cvp_create_pkt_cmd_session_set_buffers(
-		struct hfi_cmd_session_set_buffers_packet *pkt,
+		struct hfi_cmd_session_cvp_set_buffers_packet *pkt,
 		struct hal_session *session,
 		struct cvp_buffer_addr_info *buffer_info)
 {
 	int rc = 0;
-	int i = 0;
 
 	if (!pkt || !session)
 		return -EINVAL;
 
-	pkt->packet_type = HFI_CMD_SESSION_SET_BUFFERS;
+	pkt->packet_type = HFI_CMD_SESSION_CVP_SET_BUFFERS;
 	pkt->session_id = hash32_ptr(session);
+	pkt->buffer_addr = buffer_info->align_device_addr;
 	pkt->buffer_size = buffer_info->buffer_size;
-	pkt->min_buffer_size = buffer_info->buffer_size;
-	pkt->num_buffers = buffer_info->num_buffers;
-
-	if (buffer_info->buffer_type == HAL_BUFFER_OUTPUT ||
-		buffer_info->buffer_type == HAL_BUFFER_OUTPUT2) {
-		struct hfi_buffer_info *buff;
-
-		pkt->extra_data_size = buffer_info->extradata_size;
-
-		pkt->size = sizeof(struct hfi_cmd_session_set_buffers_packet) -
-				sizeof(u32) + (buffer_info->num_buffers *
-				sizeof(struct hfi_buffer_info));
-		buff = (struct hfi_buffer_info *) pkt->rg_buffer_info;
-		for (i = 0; i < pkt->num_buffers; i++) {
-			buff->buffer_addr =
-				(u32)buffer_info->align_device_addr;
-			buff->extra_data_addr =
-				(u32)buffer_info->extradata_addr;
-		}
-	} else {
-		pkt->extra_data_size = 0;
-		pkt->size = sizeof(struct hfi_cmd_session_set_buffers_packet) +
-			((buffer_info->num_buffers - 1) * sizeof(u32));
-		for (i = 0; i < pkt->num_buffers; i++) {
-			pkt->rg_buffer_info[i] =
-				(u32)buffer_info->align_device_addr;
-		}
-	}
-
-	pkt->buffer_type = get_hfi_buffer(buffer_info->buffer_type);
-	if (!pkt->buffer_type)
-		return -EINVAL;
+	pkt->size = sizeof(struct hfi_cmd_session_cvp_set_buffers_packet);
 
 	return rc;
 }
 
 int cvp_create_pkt_cmd_session_release_buffers(
-		struct hfi_cmd_session_release_buffer_packet *pkt,
+		struct hfi_cmd_session_cvp_release_buffers_packet *pkt,
 		struct hal_session *session,
 		struct cvp_buffer_addr_info *buffer_info)
 {
-	int rc = 0;
-	int i = 0;
-
 	if (!pkt || !session)
 		return -EINVAL;
 
-	pkt->packet_type = HFI_CMD_SESSION_RELEASE_BUFFERS;
+	pkt->packet_type = HFI_CMD_SESSION_CVP_RELEASE_BUFFERS;
 	pkt->session_id = hash32_ptr(session);
-	pkt->buffer_size = buffer_info->buffer_size;
-	pkt->num_buffers = buffer_info->num_buffers;
+	pkt->buffer_type = 0xdeadbeef;
+	pkt->num_buffers = 0;
+	pkt->size = sizeof(struct hfi_cmd_session_cvp_release_buffers_packet);
 
-	if (buffer_info->buffer_type == HAL_BUFFER_OUTPUT ||
-		buffer_info->buffer_type == HAL_BUFFER_OUTPUT2) {
-		struct hfi_buffer_info *buff;
-
-		buff = (struct hfi_buffer_info *) pkt->rg_buffer_info;
-		for (i = 0; i < pkt->num_buffers; i++) {
-			buff->buffer_addr =
-				(u32)buffer_info->align_device_addr;
-			buff->extra_data_addr =
-				(u32)buffer_info->extradata_addr;
-		}
-		pkt->size = sizeof(struct hfi_cmd_session_set_buffers_packet) -
-				sizeof(u32) + (buffer_info->num_buffers *
-				sizeof(struct hfi_buffer_info));
-	} else {
-		for (i = 0; i < pkt->num_buffers; i++) {
-			pkt->rg_buffer_info[i] =
-				(u32)buffer_info->align_device_addr;
-		}
-		pkt->extra_data_size = 0;
-		pkt->size = sizeof(struct hfi_cmd_session_set_buffers_packet) +
-			((buffer_info->num_buffers - 1) * sizeof(u32));
-	}
-	pkt->response_req = buffer_info->response_required;
-	pkt->buffer_type = get_hfi_buffer(buffer_info->buffer_type);
-	if (!pkt->buffer_type)
-		return -EINVAL;
-	return rc;
+	return 0;
 }
 
 int cvp_create_pkt_cmd_session_register_buffer(

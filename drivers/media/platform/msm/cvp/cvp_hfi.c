@@ -2530,8 +2530,7 @@ static int venus_hfi_session_abort(void *sess)
 static int venus_hfi_session_set_buffers(void *sess,
 				struct cvp_buffer_addr_info *buffer_info)
 {
-	struct hfi_cmd_session_set_buffers_packet *pkt;
-	u8 packet[CVP_IFACEQ_VAR_LARGE_PKT_SIZE];
+	struct hfi_cmd_session_cvp_set_buffers_packet pkt;
 	int rc = 0;
 	struct hal_session *session = sess;
 	struct venus_hfi_device *device;
@@ -2548,26 +2547,16 @@ static int venus_hfi_session_set_buffers(void *sess,
 		rc = -EINVAL;
 		goto err_create_pkt;
 	}
-	if (buffer_info->buffer_type == HAL_BUFFER_INPUT) {
-		/*
-		 * Hardware doesn't care about input buffers being
-		 * published beforehand
-		 */
-		rc = 0;
-		goto err_create_pkt;
-	}
-
-	pkt = (struct hfi_cmd_session_set_buffers_packet *)packet;
 
 	rc = call_hfi_pkt_op(device, session_set_buffers,
-			pkt, session, buffer_info);
+			&pkt, session, buffer_info);
 	if (rc) {
 		dprintk(CVP_ERR, "set buffers: failed to create packet\n");
 		goto err_create_pkt;
 	}
 
 	dprintk(CVP_INFO, "set buffers: %#x\n", buffer_info->buffer_type);
-	if (__iface_cmdq_write(session->device, pkt))
+	if (__iface_cmdq_write(session->device, &pkt))
 		rc = -ENOTEMPTY;
 
 err_create_pkt:
@@ -2578,8 +2567,7 @@ err_create_pkt:
 static int venus_hfi_session_release_buffers(void *sess,
 				struct cvp_buffer_addr_info *buffer_info)
 {
-	struct hfi_cmd_session_release_buffer_packet *pkt;
-	u8 packet[CVP_IFACEQ_VAR_LARGE_PKT_SIZE];
+	struct hfi_cmd_session_cvp_release_buffers_packet pkt;
 	int rc = 0;
 	struct hal_session *session = sess;
 	struct venus_hfi_device *device;
@@ -2596,22 +2584,20 @@ static int venus_hfi_session_release_buffers(void *sess,
 		rc = -EINVAL;
 		goto err_create_pkt;
 	}
-	if (buffer_info->buffer_type == HAL_BUFFER_INPUT) {
-		rc = 0;
+	if (buffer_info->buffer_type != HAL_BUFFER_INTERNAL_PERSIST_1) {
+		dprintk(CVP_ERR, "INTERNAL_PERSIST_1 expected\n");
+		rc = -EINVAL;
 		goto err_create_pkt;
 	}
 
-	pkt = (struct hfi_cmd_session_release_buffer_packet *) packet;
-
 	rc = call_hfi_pkt_op(device, session_release_buffers,
-			pkt, session, buffer_info);
+			&pkt, session, buffer_info);
 	if (rc) {
 		dprintk(CVP_ERR, "release buffers: failed to create packet\n");
 		goto err_create_pkt;
 	}
 
-	dprintk(CVP_INFO, "Release buffers: %#x\n", buffer_info->buffer_type);
-	if (__iface_cmdq_write(session->device, pkt))
+	if (__iface_cmdq_write(session->device, &pkt))
 		rc = -ENOTEMPTY;
 
 err_create_pkt:
@@ -2691,23 +2677,8 @@ exit:
 
 static int venus_hfi_session_start(void *session)
 {
-	struct hal_session *sess;
-	struct venus_hfi_device *device;
-	int rc = 0;
-
-	if (!session) {
-		dprintk(CVP_ERR, "Invalid Params %s\n", __func__);
+	dprintk(CVP_ERR, "Deprecated function %s\n", __func__);
 		return -EINVAL;
-	}
-
-	sess = session;
-	device = sess->device;
-
-	mutex_lock(&device->lock);
-	rc = __send_session_cmd(sess, HFI_CMD_SESSION_START);
-	mutex_unlock(&device->lock);
-
-	return rc;
 }
 
 static int venus_hfi_session_continue(void *session)
@@ -3320,9 +3291,9 @@ static int __response_handler(struct venus_hfi_device *device)
 		case HAL_SESSION_INIT_DONE:
 		case HAL_SESSION_END_DONE:
 		case HAL_SESSION_ABORT_DONE:
-		case HAL_SESSION_START_DONE:
 		case HAL_SESSION_STOP_DONE:
 		case HAL_SESSION_FLUSH_DONE:
+		case HAL_SESSION_SET_BUFFER_DONE:
 		case HAL_SESSION_SUSPEND_DONE:
 		case HAL_SESSION_RESUME_DONE:
 		case HAL_SESSION_SET_PROP_DONE:
@@ -3890,7 +3861,6 @@ static int __protect_cp_mem(struct venus_hfi_device *device)
 	struct context_bank_info *cb;
 	struct scm_desc desc = {0};
 
-	return 0;
 	if (!device)
 		return -EINVAL;
 
@@ -3900,14 +3870,14 @@ static int __protect_cp_mem(struct venus_hfi_device *device)
 	memprot.cp_nonpixel_size = 0x0;
 
 	list_for_each_entry(cb, &device->res->context_banks, list) {
-		if (!strcmp(cb->name, "venus_ns")) {
+		if (!strcmp(cb->name, "cvp_hlos")) {
 			desc.args[1] = memprot.cp_size =
 				cb->addr_range.start;
 			dprintk(CVP_DBG, "%s memprot.cp_size: %#x\n",
 				__func__, memprot.cp_size);
 		}
 
-		if (!strcmp(cb->name, "venus_sec_non_pixel")) {
+		if (!strcmp(cb->name, "cvp_sec_nonpixel")) {
 			desc.args[2] = memprot.cp_nonpixel_start =
 				cb->addr_range.start;
 			desc.args[3] = memprot.cp_nonpixel_size =
@@ -3920,8 +3890,7 @@ static int __protect_cp_mem(struct venus_hfi_device *device)
 	}
 
 	desc.arginfo = SCM_ARGS(4);
-	rc = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
-			   TZBSP_MEM_PROTECT_VIDEO_VAR), &desc);
+	rc = 0;
 	resp = desc.ret[0];
 
 	if (rc) {
@@ -4322,8 +4291,7 @@ static int __load_fw(struct venus_hfi_device *device)
 		}
 	}
 
-	/* Not needed for FW boot */
-	if (!device->res->use_non_secure_pil && !device->res->firmware_base) {
+	if (!device->res->firmware_base) {
 		rc = __protect_cp_mem(device);
 		if (rc) {
 			dprintk(CVP_ERR, "Failed to protect memory\n");

@@ -616,6 +616,37 @@ static void cvp_handle_session_dfs_cmd_done(enum hal_command_response cmd,
 			"%s: Invalid inst cmd response: %d\n", __func__, cmd);
 }
 
+static void handle_session_set_buf_done(enum hal_command_response cmd,
+	void *data)
+{
+	struct msm_cvp_cb_cmd_done *response = data;
+	struct msm_cvp_inst *inst;
+
+	if (!response) {
+		dprintk(CVP_ERR, "Invalid set_buf_done response\n");
+		return;
+	}
+
+	inst = cvp_get_inst(get_cvp_core(response->device_id),
+			response->session_id);
+	if (!inst) {
+		dprintk(CVP_WARN, "set_buf_done has an inactive session\n");
+		return;
+	}
+
+	if (response->status) {
+		dprintk(CVP_ERR,
+			"set ARP buffer error from FW : %#x\n",
+			response->status);
+	}
+
+	if (IS_HAL_SESSION_CMD(cmd))
+		complete(&inst->completions[SESSION_MSG_INDEX(cmd)]);
+	else
+		dprintk(CVP_ERR, "set_buf_done: invalid cmd: %d\n", cmd);
+
+}
+
 static void handle_session_release_buf_done(enum hal_command_response cmd,
 	void *data)
 {
@@ -641,17 +672,6 @@ static void handle_session_release_buf_done(enum hal_command_response cmd,
 
 	buffer = &response->data.buffer_info;
 	address = buffer->buffer_addr;
-
-	mutex_lock(&inst->scratchbufs.lock);
-	list_for_each_safe(ptr, next, &inst->scratchbufs.list) {
-		buf = list_entry(ptr, struct internal_buf, list);
-		if (address == buf->smem.device_addr) {
-			dprintk(CVP_DBG, "releasing scratch: %x\n",
-					buf->smem.device_addr);
-			buf_found = true;
-		}
-	}
-	mutex_unlock(&inst->scratchbufs.lock);
 
 	mutex_lock(&inst->persistbufs.lock);
 	list_for_each_safe(ptr, next, &inst->persistbufs.list) {
@@ -1440,7 +1460,7 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 	struct msm_cvp_inst *inst = NULL;
 	int rc = 0;
 
-	subsystem_crashed("venus");
+	subsystem_crashed("cvpss");
 	if (!response) {
 		dprintk(CVP_ERR,
 			"Failed to get valid response for sys error\n");
@@ -1702,6 +1722,9 @@ void cvp_handle_cmd_response(enum hal_command_response cmd, void *data)
 		break;
 	case HAL_SESSION_ERROR:
 		handle_session_error(cmd, data);
+		break;
+	case HAL_SESSION_SET_BUFFER_DONE:
+		handle_session_set_buf_done(cmd, data);
 		break;
 	case HAL_SESSION_RELEASE_BUFFER_DONE:
 		handle_session_release_buf_done(cmd, data);
@@ -2390,39 +2413,6 @@ exit:
 	return rc;
 }
 
-static int msm_cvp_release_res(int flipped_state, struct msm_cvp_inst *inst)
-{
-	int rc = 0;
-	struct hfi_device *hdev;
-
-	if (!inst || !inst->core || !inst->core->device) {
-		dprintk(CVP_ERR, "%s invalid parameters\n", __func__);
-		return -EINVAL;
-	}
-	if (inst->state == MSM_CVP_CORE_INVALID) {
-		dprintk(CVP_ERR,
-			"%s: inst %pK is in invalid state\n", __func__, inst);
-		return -EINVAL;
-	}
-	if (IS_ALREADY_IN_STATE(flipped_state, MSM_CVP_RELEASE_RESOURCES)) {
-		dprintk(CVP_INFO,
-			"inst: %pK is already in state: %d\n",
-			inst, inst->state);
-		goto exit;
-	}
-	hdev = inst->core->device;
-	dprintk(CVP_DBG, "%s: inst %pK\n", __func__, inst);
-	rc = call_hfi_op(hdev, session_release_res, (void *) inst->session);
-	if (rc) {
-		dprintk(CVP_ERR,
-			"Failed to send release resources\n");
-		goto exit;
-	}
-	change_cvp_inst_state(inst, MSM_CVP_RELEASE_RESOURCES);
-exit:
-	return rc;
-}
-
 static int msm_comm_session_close(int flipped_state,
 			struct msm_cvp_inst *inst)
 {
@@ -2618,9 +2608,7 @@ int msm_cvp_comm_try_state(struct msm_cvp_inst *inst, int state)
 		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
 	case MSM_CVP_START_DONE:
-		rc = wait_for_state(inst, flipped_state, MSM_CVP_START_DONE,
-				HAL_SESSION_START_DONE);
-		if (rc || state <= get_flipped_state(inst->state, state))
+		dprintk(CVP_ERR, "Deprecated HFI packet: START_DONE\n");
 			break;
 	case MSM_CVP_STOP:
 		rc = msm_cvp_stop(flipped_state, inst);
@@ -2633,17 +2621,9 @@ int msm_cvp_comm_try_state(struct msm_cvp_inst *inst, int state)
 			break;
 		dprintk(CVP_DBG, "Moving to Stop Done state\n");
 	case MSM_CVP_RELEASE_RESOURCES:
-		rc = msm_cvp_release_res(flipped_state, inst);
-		if (rc || state <= get_flipped_state(inst->state, state))
-			break;
+		dprintk(CVP_ERR, "Deprecated state RELEASE_SOURCES\n");
 	case MSM_CVP_RELEASE_RESOURCES_DONE:
-		rc = wait_for_state(inst, flipped_state,
-			MSM_CVP_RELEASE_RESOURCES_DONE,
-			HAL_SESSION_RELEASE_RESOURCE_DONE);
-		if (rc || state <= get_flipped_state(inst->state, state))
-			break;
-		dprintk(CVP_DBG,
-				"Moving to release resources done state\n");
+		dprintk(CVP_ERR, "Deprecated state RELEASE_SOURCES_DONE\n");
 	case MSM_CVP_CLOSE:
 		rc = msm_comm_session_close(flipped_state, inst);
 		if (rc || state <= get_flipped_state(inst->state, state))
@@ -3253,67 +3233,6 @@ int msm_cvp_comm_release_recon_buffers(struct msm_cvp_inst *inst)
 	mutex_unlock(&inst->reconbufs.lock);
 
 	return 0;
-}
-
-int msm_cvp_comm_release_persist_buffers(struct msm_cvp_inst *inst)
-{
-	struct msm_smem *handle;
-	struct list_head *ptr, *next;
-	struct internal_buf *buf;
-	struct cvp_buffer_addr_info buffer_info;
-	int rc = 0;
-	struct msm_cvp_core *core;
-	struct hfi_device *hdev;
-
-	if (!inst) {
-		dprintk(CVP_ERR,
-				"Invalid instance pointer = %pK\n", inst);
-		return -EINVAL;
-	}
-	core = inst->core;
-	if (!core) {
-		dprintk(CVP_ERR,
-				"Invalid core pointer = %pK\n", core);
-		return -EINVAL;
-	}
-	hdev = core->device;
-	if (!hdev) {
-		dprintk(CVP_ERR, "Invalid device pointer = %pK\n", hdev);
-		return -EINVAL;
-	}
-
-	mutex_lock(&inst->persistbufs.lock);
-	list_for_each_safe(ptr, next, &inst->persistbufs.list) {
-		buf = list_entry(ptr, struct internal_buf, list);
-		handle = &buf->smem;
-		buffer_info.buffer_size = handle->size;
-		buffer_info.buffer_type = buf->buffer_type;
-		buffer_info.num_buffers = 1;
-		buffer_info.align_device_addr = handle->device_addr;
-		buffer_info.response_required = true;
-		rc = call_hfi_op(hdev, session_release_buffers,
-				(void *)inst->session, &buffer_info);
-		if (!rc) {
-			mutex_unlock(&inst->persistbufs.lock);
-			rc = wait_for_sess_signal_receipt(inst,
-				HAL_SESSION_RELEASE_BUFFER_DONE);
-			if (rc)
-				dprintk(CVP_WARN,
-					"%s: wait for signal failed, rc %d\n",
-					__func__, rc);
-			mutex_lock(&inst->persistbufs.lock);
-		} else {
-			dprintk(CVP_WARN,
-				"Rel prst buf fail:%x, %d\n",
-				buffer_info.align_device_addr,
-				buffer_info.buffer_size);
-		}
-		list_del(&buf->list);
-		msm_cvp_comm_smem_free(inst, handle);
-		kfree(buf);
-	}
-	mutex_unlock(&inst->persistbufs.lock);
-	return rc;
 }
 
 int msm_cvp_comm_try_set_prop(struct msm_cvp_inst *inst,
@@ -5025,5 +4944,194 @@ int msm_cvp_comm_set_color_format_constraints(struct msm_cvp_inst *inst,
 exit:
 	if (!pconstraint)
 		kfree(pconstraint);
+	return rc;
+}
+
+static int set_internal_buf_on_fw(struct msm_cvp_inst *inst,
+				enum hal_buffer buffer_type,
+				struct msm_smem *handle, bool reuse)
+{
+	struct cvp_buffer_addr_info buffer_info;
+	struct hfi_device *hdev;
+	int rc = 0;
+
+	if (!inst || !inst->core || !inst->core->device || !handle) {
+		dprintk(CVP_ERR, "%s - invalid params\n", __func__);
+		return -EINVAL;
+	}
+
+	hdev = inst->core->device;
+
+	buffer_info.buffer_size = handle->size;
+	buffer_info.buffer_type = buffer_type;
+	buffer_info.num_buffers = 1;
+	buffer_info.align_device_addr = handle->device_addr;
+	dprintk(CVP_DBG, "%s %s buffer : %x\n",
+			reuse ? "Reusing" : "Allocated",
+			"INTERNAL_PERSIST_1",
+			buffer_info.align_device_addr);
+
+	rc = call_hfi_op(hdev, session_set_buffers,
+			(void *) inst->session, &buffer_info);
+	if (rc) {
+		dprintk(CVP_ERR, "cvp_session_set_buffers failed\n");
+		return rc;
+	}
+	return 0;
+}
+
+static int allocate_and_set_internal_bufs(struct msm_cvp_inst *inst,
+			struct hal_buffer_requirements *internal_bufreq,
+			struct msm_cvp_list *buf_list)
+{
+	struct internal_buf *binfo;
+	u32 smem_flags = SMEM_UNCACHED;
+	int rc = 0;
+
+	if (!inst || !internal_bufreq || !buf_list) {
+		dprintk(CVP_ERR, "%s Invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!internal_bufreq->buffer_size)
+		return 0;
+
+	/* PERSIST buffer requires secure mapping */
+	smem_flags |= SMEM_SECURE;
+
+	binfo = kzalloc(sizeof(*binfo), GFP_KERNEL);
+	if (!binfo) {
+		dprintk(CVP_ERR, "%s Out of memory\n", __func__);
+		rc = -ENOMEM;
+		goto fail_kzalloc;
+	}
+
+	rc = msm_cvp_smem_alloc(internal_bufreq->buffer_size, 1, smem_flags,
+			internal_bufreq->buffer_type, 0,
+			&(inst->core->resources), inst->session_type,
+			&binfo->smem);
+	if (rc) {
+		dprintk(CVP_ERR, "Failed to allocate ARP memory\n");
+		goto err_no_mem;
+	}
+
+	binfo->buffer_type = internal_bufreq->buffer_type;
+
+	rc = set_internal_buf_on_fw(inst, internal_bufreq->buffer_type,
+			&binfo->smem, false);
+	if (rc)
+		goto fail_set_buffers;
+
+	mutex_lock(&buf_list->lock);
+	list_add_tail(&binfo->list, &buf_list->list);
+	mutex_unlock(&buf_list->lock);
+	return rc;
+
+fail_set_buffers:
+	msm_cvp_smem_free(&binfo->smem);
+err_no_mem:
+	kfree(binfo);
+fail_kzalloc:
+	return rc;
+}
+
+
+/* Set ARP buffer for CVP firmware to handle concurrency */
+int cvp_comm_set_persist_buffers(struct msm_cvp_inst *inst)
+{
+	int rc = 0, idx = 0;
+	struct hal_buffer_requirements *internal_buf = NULL;
+	struct msm_cvp_list *buf_list = &inst->persistbufs;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(CVP_ERR, "%s invalid parameters\n", __func__);
+		return -EINVAL;
+	}
+
+	idx = ffs(HAL_BUFFER_INTERNAL_PERSIST_1);
+	internal_buf = &inst->buff_req.buffer[idx];
+	internal_buf->buffer_type = HAL_BUFFER_INTERNAL_PERSIST_1;
+	internal_buf->buffer_size = ARP_BUF_SIZE;
+
+	rc = allocate_and_set_internal_bufs(inst, internal_buf, buf_list);
+	if (rc)
+		goto error;
+
+	rc = wait_for_sess_signal_receipt(inst, HAL_SESSION_SET_BUFFER_DONE);
+	if (rc) {
+		dprintk(CVP_WARN, "wait for set_buffer_done timeout %d\n", rc);
+		goto error;
+	}
+
+	return rc;
+
+error:
+	cvp_comm_release_persist_buffers(inst);
+	return rc;
+}
+
+int cvp_comm_release_persist_buffers(struct msm_cvp_inst *inst)
+{
+	struct msm_smem *handle;
+	struct list_head *ptr, *next;
+	struct internal_buf *buf;
+	struct cvp_buffer_addr_info buffer_info;
+	int rc = 0;
+	struct msm_cvp_core *core;
+	struct hfi_device *hdev;
+
+	if (!inst) {
+		dprintk(CVP_ERR, "Invalid instance pointer = %pK\n", inst);
+		return -EINVAL;
+	}
+
+	core = inst->core;
+	if (!core) {
+		dprintk(CVP_ERR, "Invalid core pointer = %pK\n", core);
+		return -EINVAL;
+	}
+	hdev = core->device;
+	if (!hdev) {
+		dprintk(CVP_ERR, "Invalid device pointer = %pK\n", hdev);
+		return -EINVAL;
+	}
+
+	dprintk(CVP_DBG, "release persist buffer!\n");
+	mutex_lock(&inst->persistbufs.lock);
+	list_for_each_safe(ptr, next, &inst->persistbufs.list) {
+		buf = list_entry(ptr, struct internal_buf, list);
+		handle = &buf->smem;
+		if (!handle) {
+			dprintk(CVP_ERR, "%s invalid smem\n", __func__);
+			mutex_unlock(&inst->persistbufs.lock);
+			return -EINVAL;
+		}
+		buffer_info.buffer_size = handle->size;
+		buffer_info.buffer_type = buf->buffer_type;
+		buffer_info.num_buffers = 1;
+		buffer_info.align_device_addr = handle->device_addr;
+		buffer_info.response_required = true;
+		rc = call_hfi_op(hdev, session_release_buffers,
+				(void *)inst->session, &buffer_info);
+		if (!rc) {
+			mutex_unlock(&inst->persistbufs.lock);
+			rc = wait_for_sess_signal_receipt(inst,
+					HAL_SESSION_RELEASE_BUFFER_DONE);
+			if (rc)
+				dprintk(CVP_WARN,
+					"%s: wait for signal failed, rc %d\n",
+						__func__, rc);
+			mutex_lock(&inst->persistbufs.lock);
+		} else {
+			dprintk(CVP_WARN,
+					"Rel prst buf fail:%x, %d\n",
+					buffer_info.align_device_addr,
+					buffer_info.buffer_size);
+		}
+		list_del(&buf->list);
+		msm_cvp_smem_free(handle);
+		kfree(buf);
+	}
+	mutex_unlock(&inst->persistbufs.lock);
 	return rc;
 }
