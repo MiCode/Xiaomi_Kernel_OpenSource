@@ -1779,6 +1779,8 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDEO_H264_VUI_EXT_SAR_HEIGHT:
 	case V4L2_CID_MPEG_VIDC_VIDEO_BLUR_DIMENSIONS:
 	case V4L2_CID_MPEG_VIDC_VIDEO_PRIORITY:
+	case V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_RANDOM:
+	case V4L2_CID_MPEG_VIDEO_CYCLIC_INTRA_REFRESH_MB:
 		dprintk(VIDC_DBG, "Control set: ID : %x Val : %d\n",
 			ctrl->id, ctrl->val);
 		break;
