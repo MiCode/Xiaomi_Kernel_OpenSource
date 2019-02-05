@@ -56,6 +56,10 @@
 	};
 };
 
+&clock_gcc {
+	compatible = "qcom,gcc-qm215";
+};
+
 /* GPU overrides */
 &msm_gpu {
 

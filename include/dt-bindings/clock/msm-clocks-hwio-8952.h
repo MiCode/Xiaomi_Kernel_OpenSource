@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -294,7 +294,8 @@
 #define dsi0_1phypll_source_val         3   /* byte1_clk & pclk1_clk */
 #define dsi1_0phypll_source_val         3   /* byte0_clk & pclk0_clk */
 #define dsi1_1phypll_source_val         1   /* byte1_clk & pclk1_clk */
-
+#define gpll0_gfx_source_val		5   /* GPLL0 GFX on QM215    */
+#define gpll6_gfx_source_val		6   /* GPLL6 GFX on QM215    */
 
 #define F(f, s, div, m, n) \
 	{ \

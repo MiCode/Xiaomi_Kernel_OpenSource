@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -371,6 +371,7 @@ DEFINE_EXT_CLK(gpll0_clk_src, NULL);
 DEFINE_EXT_CLK(gpll0_ao_clk_src, NULL);
 DEFINE_EXT_CLK(gpll0_out_aux_clk_src, &gpll0_clk_src.c);
 DEFINE_EXT_CLK(gpll0_out_main_clk_src, &gpll0_clk_src.c);
+DEFINE_EXT_CLK(gpll0_gfx_clk_src, &gpll0_clk_src.c);
 DEFINE_EXT_CLK(ext_pclk0_clk_src, NULL);
 DEFINE_EXT_CLK(ext_byte0_clk_src, NULL);
 DEFINE_EXT_CLK(ext_pclk1_clk_src, NULL);
@@ -428,6 +429,7 @@ static struct pll_vote_clk gpll6_clk_src = {
 
 DEFINE_EXT_CLK(gpll6_aux_clk_src, &gpll6_clk_src.c);
 DEFINE_EXT_CLK(gpll6_out_main_clk_src, &gpll6_clk_src.c);
+DEFINE_EXT_CLK(gpll6_gfx_clk_src, &gpll6_clk_src.c);
 
 static struct alpha_pll_masks pll_masks_p = {
 	.lock_mask = BIT(31),
@@ -870,6 +872,28 @@ static struct clk_freq_tbl ftbl_gcc_oxili_gfx3d_clk_8917_650MHz[] = {
 	F_SLEW( 550000000, 1100000000,	  gpll3,	1,	0,	0),
 	F_SLEW( 598000000, 1196000000,	  gpll3,	1,	0,	0),
 	F_SLEW( 650000000, 1300000000,	  gpll3,	1,	0,	0),
+	F_END
+};
+
+static struct clk_freq_tbl ftbl_gcc_oxili_gfx3d_clk_qm215[] = {
+	F_SLEW( 19200000,  FIXED_CLK_SRC, xo,		1,	0,	0),
+	F_SLEW( 50000000,  FIXED_CLK_SRC, gpll0_gfx,	16,	0,	0),
+	F_SLEW( 80000000,  FIXED_CLK_SRC, gpll0_gfx,	10,	0,	0),
+	F_SLEW( 100000000, FIXED_CLK_SRC, gpll0_gfx,	8,	0,	0),
+	F_SLEW( 160000000, FIXED_CLK_SRC, gpll0_gfx,	5,	0,	0),
+	F_SLEW( 200000000, FIXED_CLK_SRC, gpll0_gfx,	4,	0,	0),
+	F_SLEW( 228570000, FIXED_CLK_SRC, gpll0_gfx,	3.5,	0,	0),
+	F_SLEW( 240000000, FIXED_CLK_SRC, gpll6_gfx,	4.5,	0,	0),
+	F_SLEW( 266670000, FIXED_CLK_SRC, gpll0_gfx,	3,	0,	0),
+	F_SLEW( 270000000, FIXED_CLK_SRC, gpll6_gfx,	4,	0,	0),
+	F_SLEW( 320000000, FIXED_CLK_SRC, gpll0_gfx,	2.5,	0,	0),
+	F_SLEW( 400000000, FIXED_CLK_SRC, gpll0_gfx,	2,	0,	0),
+	F_SLEW( 465000000, 930000000,	  gpll3,	1,	0,	0),
+	F_SLEW( 484800000, 969600000,	  gpll3,	1,	0,	0),
+	F_SLEW( 500000000, 1000000000,	  gpll3,	1,	0,	0),
+	F_SLEW( 523200000, 1046400000,	  gpll3,	1,	0,	0),
+	F_SLEW( 550000000, 1100000000,	  gpll3,	1,	0,	0),
+	F_SLEW( 598000000, 1196000000,	  gpll3,	1,	0,	0),
 	F_END
 };
 
@@ -4388,6 +4412,7 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	bool compat_bin4 = false;
 	bool compat_bin5 = false;
 	bool compat_bin6 = false;
+	bool compat_bin7 = false;
 
 	compat_bin = of_device_is_compatible(pdev->dev.of_node,
 						"qcom,gcc-8937");
@@ -4407,11 +4432,14 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	compat_bin6 = of_device_is_compatible(pdev->dev.of_node,
 						"qcom,gcc-sdm439");
 
+	compat_bin7 = of_device_is_compatible(pdev->dev.of_node,
+						"qcom,gcc-qm215");
+
 	ret = vote_bimc(&bimc_clk, INT_MAX);
 	if (ret < 0)
 		return ret;
 
-	if (compat_bin2 || compat_bin4 || compat_bin5)
+	if (compat_bin2 || compat_bin4 || compat_bin5 || compat_bin7)
 		nbases = APCS_C0_PLL_BASE;
 
 	if (compat_bin5 || compat_bin6) {
@@ -4444,7 +4472,7 @@ static int msm_gcc_probe(struct platform_device *pdev)
 		return PTR_ERR(vdd_dig.regulator[0]);
 	}
 
-	if (!compat_bin2 && !compat_bin4 && !compat_bin5) {
+	if (!compat_bin2 && !compat_bin4 && !compat_bin5 && !compat_bin7) {
 		vdd_sr2_pll.regulator[0] = devm_regulator_get(&pdev->dev,
 							"vdd_sr2_pll");
 		if (IS_ERR(vdd_sr2_pll.regulator[0])) {
@@ -4538,7 +4566,7 @@ static int msm_gcc_probe(struct platform_device *pdev)
 								475000000;
 			}
 		}
-	} else if (compat_bin2 || compat_bin4) {
+	} else if (compat_bin2 || compat_bin4 || compat_bin7) {
 		gpll0_clk_src.c.parent = &gpll0_clk_src_8937.c;
 		gpll0_ao_clk_src.c.parent = &gpll0_ao_clk_src_8937.c;
 		vdd_dig.num_levels = VDD_DIG_NUM_8917;
@@ -4547,6 +4575,9 @@ static int msm_gcc_probe(struct platform_device *pdev)
 		vdd_hf_pll.cur_level = VDD_HF_PLL_NUM_8917;
 		get_speed_bin(pdev, &speed_bin);
 		override_for_8917(speed_bin);
+
+		if (compat_bin7)
+			OVERRIDE_FTABLE(gfx3d, ftbl_gcc_oxili_gfx3d_clk, qm215);
 
 		if (compat_bin2) {
 			blsp1_qup2_spi_apps_clk_src.freq_tbl =
@@ -4577,7 +4608,7 @@ static int msm_gcc_probe(struct platform_device *pdev)
 		ret = of_msm_clock_register(pdev->dev.of_node,
 					msm_clocks_lookup_8937,
 					ARRAY_SIZE(msm_clocks_lookup_8937));
-	else if (compat_bin2)
+	else if (compat_bin2 || compat_bin7)
 		ret = of_msm_clock_register(pdev->dev.of_node,
 					msm_clocks_lookup_8917,
 					ARRAY_SIZE(msm_clocks_lookup_8917));
@@ -4650,6 +4681,7 @@ static const struct of_device_id msm_clock_gcc_match_table[] = {
 	{ .compatible = "qcom,gcc-8920" },
 	{ .compatible = "qcom,gcc-sdm439" },
 	{ .compatible = "qcom,gcc-sdm429" },
+	{ .compatible = "qcom,gcc-qm215" },
 	{}
 };
 
