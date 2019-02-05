@@ -104,23 +104,27 @@ static void interrupt_init_vpu4(struct venus_hfi_device *device);
 static void interrupt_init_iris1(struct venus_hfi_device *device);
 static void setup_dsp_uc_memmap_iris1(struct venus_hfi_device *device);
 static void clock_config_on_enable_iris1(struct venus_hfi_device *device);
+static int prepare_ahb2axi_bridge(struct venus_hfi_device *device);
 
 struct venus_hfi_vpu_ops vpu4_ops = {
 	.interrupt_init = interrupt_init_vpu4,
 	.setup_dsp_uc_memmap = NULL,
 	.clock_config_on_enable = NULL,
+	.prepare_ahb2axi_bridge = NULL,
 };
 
 struct venus_hfi_vpu_ops iris1_ops = {
 	.interrupt_init = interrupt_init_iris1,
 	.setup_dsp_uc_memmap = setup_dsp_uc_memmap_iris1,
 	.clock_config_on_enable = clock_config_on_enable_iris1,
+	.prepare_ahb2axi_bridge = prepare_ahb2axi_bridge,
 };
 
 struct venus_hfi_vpu_ops iris2_ops = {
 	.interrupt_init = interrupt_init_iris1,
 	.setup_dsp_uc_memmap = NULL,
 	.clock_config_on_enable = NULL,
+	.prepare_ahb2axi_bridge = NULL,
 };
 
 /**
@@ -3810,7 +3814,7 @@ static inline void __disable_unprepare_clks(struct venus_hfi_device *device)
 	}
 }
 
-static inline int __prepare_ahb2axi_bridge(struct venus_hfi_device *device)
+static int prepare_ahb2axi_bridge(struct venus_hfi_device *device)
 {
 
 	u32 count = 0, axic_cbcr_status = 0, mvs_core_cbcr_status = 0;
@@ -3828,6 +3832,7 @@ static inline int __prepare_ahb2axi_bridge(struct venus_hfi_device *device)
 		goto skip_reset_ahb2axi_bridge;
 	}
 
+	dprintk(VIDC_DBG, "Resetting ahb2axi bridge\n");
 	/* read registers */
 	axic_cbcr_status = __read_gcc_register(device, VIDEO_GCC_AXIC_CBCR);
 	mvs_core_cbcr_status = __read_register(device, VIDEO_CC_MVSC_CORE_CBCR);
@@ -4565,7 +4570,7 @@ static int __venus_power_on(struct venus_hfi_device *device)
 		goto fail_enable_gdsc;
 	}
 
-	rc = __prepare_ahb2axi_bridge(device);
+	rc = call_venus_op(device, prepare_ahb2axi_bridge, device);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to enable ahb2axi: %d\n", rc);
 		goto fail_enable_clks;
