@@ -225,6 +225,8 @@ static const char *const debug_mux_parent_names[] = {
 	"video_cc_venus_ctl_axi_clk",
 	"video_cc_venus_ctl_core_clk",
 	"video_cc_xo_clk",
+	"pwrcl_clk",
+	"perfcl_clk",
 };
 
 static struct clk_debug_mux gcc_debug_mux = {
@@ -622,6 +624,10 @@ static struct clk_debug_mux gcc_debug_mux = {
 			0x1, 0x3F, 0, 0x7, 0, 5, 0xA4C, 0xA30, 0xA38 },
 		{ "video_cc_xo_clk", 0x42, 1, VIDEO_CC,
 			0xC, 0x3F, 0, 0x7, 0, 5, 0xA4C, 0xA30, 0xA38 },
+		{ "pwrcl_clk", 0xAB, 4, CPU_CC,
+			0x0, 0x3FF, 8, 0xF, 28, 1, 0x0, 0x0, U32_MAX, 8 },
+		{ "perfcl_clk", 0xAB, 4, CPU_CC,
+			0x1, 0x3FF, 8, 0xF, 28, 1, 0x0, 0x0, U32_MAX, 8 },
 	),
 	.hw.init = &(struct clk_init_data){
 		.name = "gcc_debug_mux",
@@ -692,6 +698,10 @@ static int clk_debug_trinket_probe(struct platform_device *pdev)
 		return ret;
 
 	ret = map_debug_bases(pdev, "qcom,mccc", MC_CC);
+	if (ret)
+		return ret;
+
+	ret = map_debug_bases(pdev, "qcom,cpucc", CPU_CC);
 	if (ret)
 		return ret;
 
