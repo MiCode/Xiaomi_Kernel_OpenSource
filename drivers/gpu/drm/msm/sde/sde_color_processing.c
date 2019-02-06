@@ -2620,7 +2620,6 @@ static void _sde_cp_crtc_set_ltm_buffer(struct sde_crtc *sde_crtc, void *cfg)
 	struct drm_msm_ltm_buffers_ctrl *buf_cfg;
 	struct drm_framebuffer *fb;
 	struct drm_crtc *crtc;
-	struct dma_buf *dmabuf;
 	u32 size = 0, expected_size = 0;
 	u32 i = 0, j = 0, num = 0, iova_aligned;
 	int ret = 0;
@@ -2648,7 +2647,7 @@ static void _sde_cp_crtc_set_ltm_buffer(struct sde_crtc *sde_crtc, void *cfg)
 	spin_lock_irqsave(&sde_crtc->ltm_lock, irq_flags);
 	if (sde_crtc->ltm_buffer_cnt) {
 		spin_unlock_irqrestore(&sde_crtc->ltm_lock, irq_flags);
-		DRM_ERROR("%d ltm_buffers already allocated\n",
+		DRM_DEBUG("%d ltm_buffers already allocated\n",
 			sde_crtc->ltm_buffer_cnt);
 		return;
 	}
@@ -2676,13 +2675,7 @@ static void _sde_cp_crtc_set_ltm_buffer(struct sde_crtc *sde_crtc, void *cfg)
 			goto exit;
 		}
 
-		dmabuf = sde_crtc->ltm_buffers[i]->gem->dma_buf;
-		if (!dmabuf) {
-			DRM_ERROR("failed to get dma_buf\n");
-			goto exit;
-		}
-
-		size = PAGE_ALIGN(dmabuf->size);
+		size = PAGE_ALIGN(sde_crtc->ltm_buffers[i]->gem->size);
 		if (size < expected_size) {
 			DRM_ERROR("Invalid buffer size\n");
 			goto exit;
