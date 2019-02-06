@@ -337,6 +337,11 @@ First Level Node - QGAUGE device
 		    for the shutdown SOC to be used. If the difference is
 		    beyond this value the PON SOC is used.
 
+- qcom,qg-use-s7-ocv
+	Usage:      optional
+	Value type: <bool>
+	Definition: Boolean property to use S7 for PON OCV.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by QGAUGE driver
 ==========================================================
