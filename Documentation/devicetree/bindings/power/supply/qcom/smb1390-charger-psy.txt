@@ -32,6 +32,12 @@ Charger specific properties:
   Definition: For details about IIO bindings see:
 	      Documentation/devicetree/bindings/iio/iio-bindings.txt
 
+- qcom,min-ilim-ua
+  Usage:      optional
+  Value type: <u32>
+  Definition: Minimum ILIM supported, if requested ILIM goes below this value
+	      disable SMB1390. If this values is not specified default minimum
+	      ILIM is 1A.
 ================================================
 Second Level Nodes - SMB1390 Charger Peripherals
 ================================================
