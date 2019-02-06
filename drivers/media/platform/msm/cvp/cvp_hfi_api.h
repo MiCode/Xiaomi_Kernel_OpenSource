@@ -904,24 +904,6 @@ struct cvp_resource_hdr {
 	void *resource_handle;
 };
 
-struct cvp_register_buffer {
-	enum hal_buffer type;
-	u32 index;
-	u32 size;
-	u32 device_addr;
-	u32 response_required;
-	u32 client_data;
-};
-
-struct cvp_unregister_buffer {
-	enum hal_buffer type;
-	u32 index;
-	u32 size;
-	u32 device_addr;
-	u32 response_required;
-	u32 client_data;
-};
-
 struct cvp_buffer_addr_info {
 	enum hal_buffer buffer_type;
 	u32 buffer_size;
@@ -1118,7 +1100,6 @@ enum hal_command_response {
 	HAL_SESSION_ABORT_DONE,
 	HAL_SESSION_STOP_DONE,
 	HAL_SESSION_CVP_OPERATION_CONFIG,
-	HAL_SESSION_CVP_DFS,
 	HAL_SESSION_FLUSH_DONE,
 	HAL_SESSION_SUSPEND_DONE,
 	HAL_SESSION_RESUME_DONE,
@@ -1130,6 +1111,9 @@ enum hal_command_response {
 	HAL_SESSION_RELEASE_RESOURCE_DONE,
 	HAL_SESSION_DFS_CONFIG_CMD_DONE,
 	HAL_SESSION_DFS_FRAME_CMD_DONE,
+	HAL_SESSION_DME_CONFIG_CMD_DONE,
+	HAL_SESSION_DME_FRAME_CMD_DONE,
+	HAL_SESSION_PERSIST_CMD_DONE,
 	HAL_SESSION_PROPERTY_INFO,
 	HAL_SESSION_ERROR,
 	HAL_RESPONSE_UNUSED = 0x10000000,
@@ -1278,8 +1262,6 @@ struct msm_cvp_cb_cmd_done {
 		struct cvp_hal_sys_init_done sys_init_done;
 		struct cvp_hal_session_init_done session_init_done;
 		struct hal_buffer_info buffer_info;
-		struct cvp_register_buffer regbuf;
-		struct cvp_unregister_buffer unregbuf;
 		union hal_get_property property;
 		enum hal_flush flush_type;
 	} data;
@@ -1428,6 +1410,76 @@ struct hal_vbv_hdr_buf_size {
 #define call_hfi_op(q, op, args...)			\
 	(((q) && (q)->op) ? ((q)->op(args)) : 0)
 
+/* DFS related structures */
+struct msm_cvp_internal_dfsconfig {
+	struct list_head list;
+	struct msm_smem smem;
+	struct msm_cvp_dfs_config dfs_config;
+};
+
+struct	buf_desc {
+	u32 fd;
+	u32 size;
+};
+
+/**
+ * struct msm_cvp_dfs_frame_kmd - argument passed with VIDIOC_CVP_CMD
+ * @cvp_dfs_frame:                parameters for DFS frame command
+ * @left_view_buffer_fd:          fd for left view buffer
+ * @left_view_buffer_size:        size for left view buffer
+ * @right_view_buffer_fd:         fd for right view buffer
+ * @right_view_buffer_size:       size for right view buffer
+ * @disparity_map_buffer_fd:      fd for disparity map buffer
+ * @disparity_map_buffer_size:    size for disparity map buffer
+ * @occlusion_mask_buffer_fd:     fd for occlusion mask buffer
+ * @occlusion_mask_buffer_size:   size for occlusion mask buffer
+ */
+
+struct msm_cvp_dfs_frame_kmd {
+	unsigned int cvp_dfs_frame[CVP_DFS_FRAME_BUFFERS_OFFSET];
+	unsigned int left_view_buffer_fd;
+	unsigned int left_view_buffer_size;
+	unsigned int right_view_buffer_fd;
+	unsigned int right_view_buffer_size;
+	unsigned int disparity_map_buffer_fd;
+	unsigned int disparity_map_buffer_size;
+	unsigned int occlusion_mask_buffer_fd;
+	unsigned int occlusion_mask_buffer_size;
+};
+
+
+struct msm_cvp_internal_dfsframe {
+	struct list_head list;
+	struct msm_cvp_dfs_frame_kmd dfs_frame;
+};
+
+/* DME related structures */
+struct msm_cvp_internal_dmeconfig {
+	struct list_head list;
+	struct msm_smem smem;
+	struct msm_cvp_dme_config dme_config;
+};
+
+struct msm_cvp_dme_frame_kmd {
+	unsigned int cvp_dme_frame[CVP_DME_FRAME_BUFFERS_OFFSET];
+	struct buf_desc bufs[CVP_DME_BUF_NUM];
+};
+
+struct msm_cvp_internal_dmeframe {
+	struct list_head list;
+	struct msm_cvp_dme_frame_kmd dme_frame;
+};
+
+struct msm_cvp_persist_kmd {
+	unsigned int cvp_pcmd[CVP_PERSIST_BUFFERS_OFFSET];
+	struct buf_desc bufs[CVP_PSRSIST_BUF_NUM];
+};
+
+struct msm_cvp_internal_persist_cmd {
+	struct list_head list;
+	struct msm_cvp_persist_kmd persist_cmd;
+};
+
 struct hfi_device {
 	void *hfi_device_data;
 
@@ -1445,10 +1497,6 @@ struct hfi_device {
 				struct cvp_buffer_addr_info *buffer_info);
 	int (*session_release_buffers)(void *sess,
 				struct cvp_buffer_addr_info *buffer_info);
-	int (*session_register_buffer)(void *sess,
-				struct cvp_register_buffer *buffer);
-	int (*session_unregister_buffer)(void *sess,
-				struct cvp_unregister_buffer *buffer);
 	int (*session_load_res)(void *sess);
 	int (*session_release_res)(void *sess);
 	int (*session_start)(void *sess);
@@ -1457,11 +1505,15 @@ struct hfi_device {
 	int (*session_cvp_operation_config)(void *sess,
 		struct cvp_frame_data *input_frame);
 	int (*session_cvp_dfs_config)(void *sess,
-		struct msm_cvp_dfsconfig *dfs_config);
+		struct msm_cvp_internal_dfsconfig *dfs_config);
 	int (*session_cvp_dfs_frame)(void *sess,
-		struct msm_cvp_dfsframe *dfs_frame);
-	int (*session_cvp_send_cmd)(void *sess,
-		struct cvp_frame_data *input_frame);
+		struct msm_cvp_internal_dfsframe *dfs_frame);
+	int (*session_cvp_dme_config)(void *sess,
+		struct msm_cvp_internal_dmeconfig *dme_config);
+	int (*session_cvp_dme_frame)(void *sess,
+		struct msm_cvp_internal_dmeframe *dme_frame);
+	int (*session_cvp_persist)(void *sess,
+		struct msm_cvp_internal_persist_cmd *pbuf_cmd);
 	int (*session_get_buf_req)(void *sess);
 	int (*session_flush)(void *sess, enum hal_flush flush_mode);
 	int (*session_set_property)(void *sess, enum hal_property ptype,

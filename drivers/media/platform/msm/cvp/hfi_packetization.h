@@ -51,14 +51,6 @@ struct hfi_packetization_ops {
 		struct hfi_cmd_session_cvp_release_buffers_packet *pkt,
 		struct hal_session *session,
 		struct cvp_buffer_addr_info *buffer_info);
-	int (*session_register_buffer)(
-		struct hfi_cmd_session_register_buffers_packet *pkt,
-		struct hal_session *session,
-		struct cvp_register_buffer *buffer);
-	int (*session_unregister_buffer)(
-		struct hfi_cmd_session_unregister_buffers_packet *pkt,
-		struct hal_session *session,
-		struct cvp_unregister_buffer *buffer);
 	int (*session_etb_decoder)(
 		struct hfi_cmd_session_empty_buffer_compressed_packet *pkt,
 		struct hal_session *session,
@@ -86,13 +78,25 @@ struct hfi_packetization_ops {
 		struct hfi_cmd_session_sync_process_packet *pkt,
 		struct hal_session *session);
 	int (*session_cvp_dfs_config)(
-			struct hfi_cmd_session_cvp_dfs_config *pkt,
+			struct hfi_cmd_session_cvp_dfs_config_packet *pkt,
 			struct hal_session *session,
-			struct msm_cvp_dfsconfig *dfs_config);
+			struct msm_cvp_internal_dfsconfig *dfs_config);
 	int (*session_cvp_dfs_frame)(
-			struct hfi_cmd_session_cvp_dfs_frame *pkt,
+			struct hfi_cmd_session_cvp_dfs_frame_packet *pkt,
 			struct hal_session *session,
-			struct msm_cvp_dfsframe *dfs_frame);
+			struct msm_cvp_internal_dfsframe *dfs_frame);
+	int (*session_cvp_dme_config)(
+			struct hfi_cmd_session_cvp_dme_config_packet *pkt,
+			struct hal_session *session,
+			struct msm_cvp_internal_dmeconfig *dme_config);
+	int (*session_cvp_dme_frame)(
+			struct hfi_cmd_session_cvp_dme_frame_packet *pkt,
+			struct hal_session *session,
+			struct msm_cvp_internal_dmeframe *dme_frame);
+	int (*session_cvp_persist)(
+			struct hfi_cmd_session_cvp_persist_packet *pkt,
+			struct hal_session *session,
+			struct msm_cvp_internal_persist_cmd *pbuf_cmd);
 };
 
 struct hfi_packetization_ops *cvp_hfi_get_pkt_ops_handle(

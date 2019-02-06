@@ -1036,26 +1036,6 @@ struct hfi_buffer_mapping_type {
 	u32 size;
 };
 
-struct hfi_cmd_session_register_buffers_packet {
-	u32 size;
-	u32 packet_type;
-	u32 session_id;
-	u32 client_data;
-	u32 response_req;
-	u32 num_buffers;
-	struct hfi_buffer_mapping_type buffer[1];
-};
-
-struct hfi_cmd_session_unregister_buffers_packet {
-	u32 size;
-	u32 packet_type;
-	u32 session_id;
-	u32 client_data;
-	u32 response_req;
-	u32 num_buffers;
-	struct hfi_buffer_mapping_type buffer[1];
-};
-
 struct hfi_cmd_session_sync_process_packet {
 	u32 size;
 	u32 packet_type;
@@ -1084,24 +1064,76 @@ struct hfi_msg_session_cvp_operation_config_done_packet_type {
 	u32 size;
 	u32 packet_type;
 	u32 session_id;
+	struct hfi_cvp_client_data  client_data;
 	u32 op_conf_id;
 	u32 error_type;
-	struct hfi_cvp_client_data  client_data;
 };
 
 struct hfi_msg_session_cvp_dfs_packet_type {
 	u32 size;
 	u32 packet_type;
 	u32 session_id;
+	struct hfi_cvp_client_data  client_data;
 	u32 error_type;
-	u32 left_view_buffer_index;
-	u32 right_view_buffer_index;
 	u32 width;
 	u32 height;
 	u32 occlusionmask_enable;
-	u32 disparitymap_buffer_idx;
-	u32 occlusionmask_buffer_idx;
+	u32 left_view_buf_addr;
+	u32 left_view_buf_size;
+	u32 right_view_buf_addr;
+	u32 right_view_buf_size;
+	u32 disparity_map_buf_addr;
+	u32 disparity_map_buf_size;
+	u32 occ_mask_buf_addr;
+	u32 occ_mask_buf_size;
+};
+
+struct hfi_msg_session_cvp_dme_packet_type {
+	u32 size;
+	u32 packet_type;
+	u32 session_id;
 	struct hfi_cvp_client_data  client_data;
+	u32 error_type;
+	u32 skip_mv_calc;
+	u32 src_buf_addr;
+	u32 src_buf_size;
+	u32 nSrcBuffer_size;
+	u32 src_frame_ctx_buf_addr;
+	u32 src_frame_ctx_buf_size;
+	u32 ref_buf_addr;
+	u32 ref_buf_size;
+	u32 ref_frame_ctxt_buf_addr;
+	u32 ref_frame_ctxt_buf_size;
+	u32 video_spatial_temp_status_buf_addr;
+	u32 video_spatial_temp_status_buf_size;
+	u32 full_res_height;
+	u32 full_res_width;
+	u32 proc_frame_width;
+	u32 proc_frame_height;
+	u32 transform_confidence;
+	u32 frame_sum_gradient;
+	u32 frame_sum_square_gradient1;
+	u32 frame_sum_square_gradient2;
+	u16 n_luma_hist[8];
+	s32 mvx_sum;
+	s32 mvy_Sum;
+	u32 num_mvs;
+	s32 final_transform[9];
+	s32 pad;
+	s64 transform[9];
+};
+
+struct hfi_msg_session_cvp_persist_packet_type {
+	u32 size;
+	u32 packet_type;
+	u32 session_id;
+	struct hfi_cvp_client_data  client_data;
+	u32 error_type;
+	u32 cvp_op;
+	u32 persist1_buffer_fd;
+	u32 persist1_size;
+	u32 persist2_fd;
+	u32 persist2_size;
 };
 
 struct hfi_msg_release_buffer_ref_event_packet {

@@ -8,6 +8,7 @@
 #include <linux/videodev2.h>
 
 #define MAX_DFS_HFI_PARAMS 20
+#define HFI_MAX_PLANES 4
 
 /* VIDIOC private cvp command */
 #define VIDIOC_CVP_CMD \
@@ -57,6 +58,16 @@
 #define MSM_CVP_HFI_DFS_FRAME_CMD  (MSM_CVP_CMD_START + 7)
 
 #define MSM_CVP_HFI_DFS_FRAME_CMD_RESPONSE  (MSM_CVP_CMD_START + 8)
+
+#define MSM_CVP_HFI_DME_CONFIG_CMD  (MSM_CVP_CMD_START + 9)
+
+#define MSM_CVP_HFI_DME_FRAME_CMD  (MSM_CVP_CMD_START + 10)
+
+#define MSM_CVP_HFI_DME_FRAME_CMD_RESPONSE  (MSM_CVP_CMD_START + 11)
+
+#define MSM_CVP_HFI_PERSIST_CMD  (MSM_CVP_CMD_START + 12)
+
+#define MSM_CVP_HFI_PERSIST_CMD_RESPONSE  (MSM_CVP_CMD_START + 13)
 
 /* flags */
 #define MSM_CVP_FLAG_UNSECURE			0x00000000
@@ -126,15 +137,6 @@ struct msm_cvp_send_cmd {
 };
 
 /**
- * enum HFI_COLOR_PLANE_TYPE - define the type of plane
- */
-enum HFI_COLOR_PLANE_TYPE {
-	HFI_COLOR_PLANE_METADATA,
-	HFI_COLOR_PLANE_PICDATA,
-	HFI_MAX_PLANES
-};
-
-/**
  * struct msm_cvp_color_plane_info - color plane info
  * @stride:      stride of plane
  * @buf_size:    size of plane
@@ -157,77 +159,40 @@ struct msm_cvp_client_data {
 	unsigned int client_data2;
 };
 
-/**
- * struct msm_cvp_dfsconfig - dfs config packet
- * @cmd_size:               command size in bytes
- * @cmd_address:            command address
- * @size:                   packet size in bytes
- * @packet_type:            HFI_CMD_SESSION_CVP_DFS
- * @session_id:             id value associated with a session
- * @srcbuffer_format:       buffer format of source imagesize
- * @left_plane_info:        left view buffer plane info
- * @right_plane_info:       right view buffer plane info
- * @width:                  image width
- * @height:                 image height
- * @occlusionmask_enable:   0: disable, 1: enable
- * @occlusioncost:          occlusion cost threshold
- * @occlusionbound:         occlusion bound
- * @occlusionshift:         occlusion shift
- * @maxdisparity:           max disparitymap in integer precision
- * @disparityoffset:        disparity offset
- * @medianfilter_enable:    enable median filter on disparity map
- * @occlusionfilling_enable:0: disable, 1: enable
- * @occlusionmaskdump:      0: disable, 1: enable
- * @clientdata:             client data for mapping command
- *                          and message pairs
- */
-struct msm_cvp_dfsconfig {
-	unsigned int cmd_size;
-	unsigned int cmd_address;
-	unsigned int size;
-	unsigned int packet_type;
-	unsigned int session_id;
-	unsigned int srcbuffer_format;
-	struct msm_cvp_color_plane_info left_plane_info;
-	struct msm_cvp_color_plane_info right_plane_info;
-	unsigned int width;
-	unsigned int height;
-	unsigned int occlusionmask_enable;
-	unsigned int occlusioncost;
-	unsigned int occlusionbound;
-	unsigned int occlusionshift;
-	unsigned int maxdisparity;
-	unsigned int disparityoffset;
-	unsigned int medianfilter_enable;
-	unsigned int occlusionfilling_enable;
-	unsigned int occlusionmaskdump;
-	struct msm_cvp_client_data clientdata;
-	unsigned int reserved[MAX_DFS_HFI_PARAMS];
+#define CVP_COLOR_PLANE_INFO_SIZE \
+	sizeof(struct msm_cvp_color_plane_info)
+#define CVP_CLIENT_DATA_SIZE	sizeof(struct msm_cvp_client_data)
+#define CVP_DFS_CONFIG_CMD_SIZE   38
+#define CVP_DFS_FRAME_CMD_SIZE 16
+#define CVP_DFS_FRAME_BUFFERS_OFFSET 8
+
+#define CVP_DME_CONFIG_CMD_SIZE   181
+#define CVP_DME_FRAME_CMD_SIZE 28
+#define CVP_DME_FRAME_BUFFERS_OFFSET 12
+#define CVP_DME_BUF_NUM	8
+
+#define CVP_PERSIST_CMD_SIZE 11
+#define CVP_PERSIST_BUFFERS_OFFSET 7
+#define CVP_PSRSIST_BUF_NUM	2
+
+struct msm_cvp_dfs_config {
+	unsigned int cvp_dfs_config[CVP_DFS_CONFIG_CMD_SIZE];
 };
 
-/**
- * struct msm_cvp_dfsframe - dfs frame packet
- * @cmd_size:                command size in bytes
- * @cmd_address:             command address
- * @size:                    packet size in bytes
- * @packet_type:             HFI_CMD_SESSION_CVP_DFS
- * @session_id:              id value associated with a session
- * @left_buffer_index:       left buffer index
- * @right_buffer_index:      right buffer index
- * @disparitymap_buffer_idx: disparity map buffer index
- * @occlusionmask_buffer_idx:occlusion mask buffer index
- */
-struct msm_cvp_dfsframe {
-	unsigned int cmd_size;
-	unsigned int cmd_address;
-	unsigned int size;
-	unsigned int packet_type;
-	unsigned int session_id;
-	unsigned int left_buffer_index;
-	unsigned int right_buffer_index;
-	unsigned int disparitymap_buffer_idx;
-	unsigned int occlusionmask_buffer_idx;
-	struct msm_cvp_client_data clientdata;
+struct msm_cvp_dfs_frame {
+	unsigned int frame_data[CVP_DFS_FRAME_CMD_SIZE];
+};
+
+struct msm_cvp_dme_config {
+	unsigned int cvp_dme_config[CVP_DME_CONFIG_CMD_SIZE];
+};
+
+struct msm_cvp_dme_frame {
+	unsigned int frame_data[CVP_DME_FRAME_CMD_SIZE];
+};
+
+struct msm_cvp_persist_buf {
+	unsigned int persist_data[CVP_PERSIST_CMD_SIZE];
 };
 
 /**
@@ -238,8 +203,8 @@ struct msm_cvp_dfsframe {
  * @regbuf:        buffer to be registered
  * @unregbuf:      buffer to be unregistered
  * @send_cmd:      sending generic HFI command
- * @dfsconfig:     sending DFS config command
- * @dfsframe:      sending DFS frame command
+ * @dfs_config:    sending DFS config command
+ * @dfs_frame:     sending DFS frame command
  */
 struct msm_cvp_arg {
 	unsigned int type;
@@ -249,8 +214,11 @@ struct msm_cvp_arg {
 		struct msm_cvp_buffer regbuf;
 		struct msm_cvp_buffer unregbuf;
 		struct msm_cvp_send_cmd send_cmd;
-		struct msm_cvp_dfsconfig dfsconfig;
-		struct msm_cvp_dfsframe dfsframe;
+		struct msm_cvp_dfs_config dfs_config;
+		struct msm_cvp_dfs_frame dfs_frame;
+		struct msm_cvp_dme_config dme_config;
+		struct msm_cvp_dme_frame dme_frame;
+		struct msm_cvp_persist_buf pbuf_cmd;
 	} data;
 	unsigned int reserved[12];
 };

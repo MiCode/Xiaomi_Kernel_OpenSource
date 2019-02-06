@@ -673,72 +673,6 @@ int cvp_create_pkt_cmd_session_release_buffers(
 	return 0;
 }
 
-int cvp_create_pkt_cmd_session_register_buffer(
-		struct hfi_cmd_session_register_buffers_packet *pkt,
-		struct hal_session *session,
-		struct cvp_register_buffer *buffer)
-{
-	int rc = 0, i;
-	struct hfi_buffer_mapping_type *buf;
-
-	if (!pkt || !session) {
-		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
-		return -EINVAL;
-	}
-
-	pkt->packet_type = HFI_CMD_SESSION_REGISTER_BUFFERS;
-	pkt->session_id = hash32_ptr(session);
-	pkt->client_data = buffer->client_data;
-	pkt->response_req = buffer->response_required;
-	pkt->num_buffers = 1;
-	pkt->size = sizeof(struct hfi_cmd_session_register_buffers_packet) -
-			sizeof(u32) + (pkt->num_buffers *
-			sizeof(struct hfi_buffer_mapping_type));
-
-	buf = (struct hfi_buffer_mapping_type *)pkt->buffer;
-	for (i = 0; i < pkt->num_buffers; i++) {
-		buf->index = buffer->index;
-		buf->device_addr = buffer->device_addr;
-		buf->size = buffer->size;
-		buf++;
-	}
-
-	return rc;
-}
-
-int cvp_create_pkt_cmd_session_unregister_buffer(
-		struct hfi_cmd_session_unregister_buffers_packet *pkt,
-		struct hal_session *session,
-		struct cvp_unregister_buffer *buffer)
-{
-	int rc = 0, i;
-	struct hfi_buffer_mapping_type *buf;
-
-	if (!pkt || !session) {
-		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
-		return -EINVAL;
-	}
-
-	pkt->packet_type = HFI_CMD_SESSION_UNREGISTER_BUFFERS;
-	pkt->session_id = hash32_ptr(session);
-	pkt->client_data = buffer->client_data;
-	pkt->response_req = buffer->response_required;
-	pkt->num_buffers = 1;
-	pkt->size = sizeof(struct hfi_cmd_session_unregister_buffers_packet) -
-			sizeof(u32) + (pkt->num_buffers *
-			sizeof(struct hfi_buffer_mapping_type));
-
-	buf = (struct hfi_buffer_mapping_type *)pkt->buffer;
-	for (i = 0; i < pkt->num_buffers; i++) {
-		buf->index = buffer->index;
-		buf->device_addr = buffer->device_addr;
-		buf->size = buffer->size;
-		buf++;
-	}
-
-	return rc;
-}
-
 int cvp_create_pkt_cmd_session_etb_decoder(
 	struct hfi_cmd_session_empty_buffer_compressed_packet *pkt,
 	struct hal_session *session, struct cvp_frame_data *input_frame)
@@ -865,131 +799,167 @@ int cvp_create_pkt_cmd_session_get_buf_req(
 }
 
 int cvp_create_pkt_cmd_session_cvp_dfs_config(
-		struct hfi_cmd_session_cvp_dfs_config *pkt,
+		struct hfi_cmd_session_cvp_dfs_config_packet *pkt,
 		struct hal_session *session,
-		struct msm_cvp_dfsconfig *dfs_config)
+		struct msm_cvp_internal_dfsconfig *dfs_config)
 {
-	int rc = 0, i = 0;
+	struct hfi_cmd_session_hdr *ptr =
+		(struct hfi_cmd_session_hdr *)pkt;
 
 	if (!pkt || !session)
 		return -EINVAL;
 
-	pkt->size = sizeof(struct hfi_cmd_session_cvp_dfs_config);
-	pkt->packet_type = HFI_CMD_SESSION_CVP_DFS_CONFIG;
-	pkt->session_id = hash32_ptr(session);
-	pkt->srcbuffer_format = dfs_config->srcbuffer_format;
-	for (i = 0; i < HFI_MAX_PLANES; i++) {
-		pkt->left_plane_info.stride[i] =
-			dfs_config->left_plane_info.stride[i];
-		pkt->left_plane_info.buf_size[i] =
-			dfs_config->left_plane_info.buf_size[i];
-		pkt->right_plane_info.stride[i] =
-			dfs_config->right_plane_info.stride[i];
-		pkt->right_plane_info.buf_size[i] =
-			dfs_config->right_plane_info.buf_size[i];
-	}
-	pkt->width = dfs_config->width;
-	pkt->height = dfs_config->height;
-	pkt->occlusionmask_enable = dfs_config->occlusionmask_enable;
-	pkt->occlusioncost = dfs_config->occlusioncost;
-	pkt->occlusionbound = dfs_config->occlusionbound;
-	pkt->occlusionshift = dfs_config->occlusionshift;
-	pkt->maxdisparity = dfs_config->maxdisparity;
-	pkt->disparityoffset = dfs_config->disparityoffset;
-	pkt->medianfilter_enable = dfs_config->medianfilter_enable;
-	pkt->occlusionfilling_enable = dfs_config->occlusionfilling_enable;
-	pkt->occlusionmaskdump = dfs_config->occlusionmaskdump;
-	pkt->clientdata.transactionid =
-		dfs_config->clientdata.transactionid;
-	pkt->clientdata.client_data1  =
-		dfs_config->clientdata.client_data1;
-	pkt->clientdata.client_data2  =
-		dfs_config->clientdata.client_data2;
+	memcpy(pkt, &dfs_config->dfs_config,
+		CVP_DFS_CONFIG_CMD_SIZE*sizeof(unsigned int));
 
-	dprintk(CVP_DBG,
-		"%s: size=%d packet_type=%d session_id=%d height=%d", __func__,
-		pkt->size, pkt->packet_type, pkt->session_id, pkt->height);
-	dprintk(CVP_DBG,
-		"occlusionmask_enable=%d occlusioncost=%d occlusionbound=%d",
-		pkt->occlusionmask_enable, pkt->occlusioncost,
-		pkt->occlusionbound);
-	dprintk(CVP_DBG,
-		"occlusionshift=%d maxdisparity=%d disparityoffset=%d",
-		pkt->occlusionshift, pkt->maxdisparity,
-		pkt->disparityoffset);
-	dprintk(CVP_DBG,
-		"medianfilter_enable=%d occlusionfilling_enable=%d occlusionmaskdump=%d",
-		pkt->medianfilter_enable, pkt->occlusionfilling_enable,
-		pkt->occlusionmaskdump);
-	dprintk(CVP_DBG,
-		"left_plane_info.ActualStride[HFI_COLOR_PLANE_PICDATA]:%u",
-		pkt->left_plane_info.stride[HFI_COLOR_PLANE_PICDATA]
-		);
-	dprintk(CVP_DBG,
-		"LeftViewColPlaneInfo.ActualStride[HFI_COLOR_PLANE_METADATA]:%u",
-		pkt->left_plane_info.stride[HFI_COLOR_PLANE_METADATA]
-		);
-	dprintk(CVP_DBG,
-		"LeftViewColPlaneInfo.ActualBufSize[HFI_COLOR_PLANE_PICDATA]:%u,",
-		pkt->left_plane_info.buf_size[HFI_COLOR_PLANE_PICDATA]
-		);
-	dprintk(CVP_DBG,
-		"LeftViewColPlaneInfo.ActualBufSize[HFI_COLOR_PLANE_METADATA]%u",
-		pkt->left_plane_info.buf_size[HFI_COLOR_PLANE_METADATA]
-		);
-	dprintk(CVP_DBG,
-		"RightViewColPlaneInfo:stride[HFI_COLOR_PLANE_PICDATA]:%u",
-		pkt->right_plane_info.stride[HFI_COLOR_PLANE_PICDATA]
-		);
-	dprintk(CVP_DBG,
-		"RightViewColPlaneInfo.stride[HFI_COLOR_PLANE_METADATA]:%u",
-		pkt->right_plane_info.stride[HFI_COLOR_PLANE_METADATA]
-		);
-	dprintk(CVP_DBG,
-		"RightViewColPlaneInfo.ActualBufSize[HFI_COLOR_PLANE_PICDATA] :%u",
-		pkt->right_plane_info.buf_size[HFI_COLOR_PLANE_PICDATA]
-		);
-	dprintk(CVP_DBG,
-	"RightViewColPlaneInfo.ActualBufSize[HFI_COLOR_PLANE_METADATA] %u",
-	pkt->right_plane_info.buf_size[HFI_COLOR_PLANE_METADATA]
-	);
+	if (ptr->size != CVP_DFS_CONFIG_CMD_SIZE*sizeof(unsigned int))
+		goto error_dfs_config;
 
-	return rc;
+	if (ptr->packet_type != HFI_CMD_SESSION_CVP_DFS_CONFIG)
+		goto error_dfs_config;
+
+	if (ptr->session_id != hash32_ptr(session))
+		goto error_dfs_config;
+
+	return 0;
+
+error_dfs_config:
+	dprintk(CVP_ERR, "%s: size=%d type=%d sessionid=%d\n",
+		__func__, ptr->size, ptr->packet_type, ptr->session_id);
+
+	return -EINVAL;
 }
 
 
 int cvp_create_pkt_cmd_session_cvp_dfs_frame(
-		struct hfi_cmd_session_cvp_dfs_frame *pkt,
+		struct hfi_cmd_session_cvp_dfs_frame_packet *pkt,
 		struct hal_session *session,
-		struct msm_cvp_dfsframe *dfs_frame)
+		struct msm_cvp_internal_dfsframe *dfs_frame)
 {
-	int rc = 0;
+	struct hfi_cmd_session_hdr *ptr =
+		(struct hfi_cmd_session_hdr *)pkt;
 
 	if (!pkt || !session)
 		return -EINVAL;
 
-	pkt->size = sizeof(struct hfi_cmd_session_cvp_dfs_frame);
-	pkt->packet_type = HFI_CMD_SESSION_CVP_DFS_FRAME;
-	pkt->session_id = hash32_ptr(session);
-	pkt->left_buffer_index = dfs_frame->left_buffer_index;
-	pkt->right_buffer_index = dfs_frame->right_buffer_index;
-	pkt->disparitymap_buffer_idx = dfs_frame->disparitymap_buffer_idx;
-	pkt->occlusionmask_buffer_idx = dfs_frame->occlusionmask_buffer_idx;
-	pkt->clientdata.transactionid = dfs_frame->clientdata.transactionid;
-	pkt->clientdata.client_data1 = dfs_frame->clientdata.client_data1;
+	memcpy(pkt, &dfs_frame->dfs_frame,
+		CVP_DFS_FRAME_CMD_SIZE*sizeof(unsigned int));
 
-	dprintk(CVP_DBG,
-		"%s: size=%d, packet_type=%d session_id=%d left_buffer_index=%d",
-		__func__, pkt->size, pkt->packet_type, pkt->session_id,
-		pkt->left_buffer_index);
-	dprintk(CVP_DBG,
-		"right_buffer_index=%d disparitymap_buffer_idx=%d",
-		pkt->right_buffer_index, pkt->disparitymap_buffer_idx);
-	dprintk(CVP_DBG,
-		"occlusionmask_buffer_idx=%d ",
-			pkt->occlusionmask_buffer_idx);
+	if (ptr->size != CVP_DFS_FRAME_CMD_SIZE*sizeof(unsigned int))
+		goto error_dfs_frame;
 
-	return rc;
+	if (ptr->packet_type != HFI_CMD_SESSION_CVP_DFS_FRAME)
+		goto error_dfs_frame;
+
+	if (ptr->session_id != hash32_ptr(session))
+		goto error_dfs_frame;
+
+
+	return 0;
+
+error_dfs_frame:
+	dprintk(CVP_ERR, "%s: size=%d type=%d sessionid=%d\n",
+		__func__, ptr->size, ptr->packet_type, ptr->session_id);
+
+	return -EINVAL;
+}
+
+int cvp_create_pkt_cmd_session_cvp_dme_config(
+		struct hfi_cmd_session_cvp_dme_config_packet *pkt,
+		struct hal_session *session,
+		struct msm_cvp_internal_dmeconfig *dme_config)
+{
+	struct hfi_cmd_session_hdr *ptr =
+		(struct hfi_cmd_session_hdr *)pkt;
+
+	if (!pkt || !session)
+		return -EINVAL;
+
+	memcpy(pkt, &dme_config->dme_config,
+		CVP_DME_CONFIG_CMD_SIZE*sizeof(unsigned int));
+
+	if (ptr->size != CVP_DME_CONFIG_CMD_SIZE*sizeof(unsigned int))
+		goto error_dme_config;
+
+	if (ptr->packet_type != HFI_CMD_SESSION_CVP_DME_CONFIG)
+		goto error_dme_config;
+
+	if (ptr->session_id != hash32_ptr(session))
+		goto error_dme_config;
+
+	return 0;
+
+error_dme_config:
+	dprintk(CVP_ERR, "%s: size=%d type=%d sessionid=%d\n",
+		__func__, ptr->size, ptr->packet_type, ptr->session_id);
+
+	return -EINVAL;
+}
+
+
+int cvp_create_pkt_cmd_session_cvp_dme_frame(
+		struct hfi_cmd_session_cvp_dme_frame_packet *pkt,
+		struct hal_session *session,
+		struct msm_cvp_internal_dmeframe *dme_frame)
+{
+	struct hfi_cmd_session_hdr *ptr =
+		(struct hfi_cmd_session_hdr *)pkt;
+
+	if (!pkt || !session)
+		return -EINVAL;
+
+	memcpy(pkt, &dme_frame->dme_frame,
+		CVP_DME_FRAME_CMD_SIZE*sizeof(unsigned int));
+
+	if (ptr->size != CVP_DME_FRAME_CMD_SIZE*sizeof(unsigned int))
+		goto error_dme_frame;
+
+	if (ptr->packet_type != HFI_CMD_SESSION_CVP_DME_FRAME)
+		goto error_dme_frame;
+
+	if (ptr->session_id != hash32_ptr(session))
+		goto error_dme_frame;
+
+	return 0;
+
+error_dme_frame:
+	dprintk(CVP_ERR, "%s: size=%d type=%d sessionid=%d\n",
+		__func__, ptr->size, ptr->packet_type, ptr->session_id);
+
+	return -EINVAL;
+}
+
+int cvp_create_pckt_cmd_session_cvp_persist(
+		struct hfi_cmd_session_cvp_persist_packet *pkt,
+		struct hal_session *session,
+		struct msm_cvp_internal_persist_cmd *pbuf_cmd)
+{
+	struct hfi_cmd_session_hdr *ptr =
+		(struct hfi_cmd_session_hdr *)pkt;
+
+	if (!pkt || !session)
+		return -EINVAL;
+
+	memcpy(pkt, &pbuf_cmd->persist_cmd,
+		CVP_PERSIST_CMD_SIZE*sizeof(unsigned int));
+
+	if (ptr->size != CVP_PERSIST_CMD_SIZE*sizeof(unsigned int))
+		goto error_persist;
+
+	if (ptr->packet_type != HFI_CMD_SESSION_CVP_SET_PERSIST_BUFFERS)
+		goto error_persist;
+
+	if (ptr->session_id != hash32_ptr(session))
+		goto error_persist;
+
+	return 0;
+
+error_persist:
+	dprintk(CVP_ERR, "%s: size=%d type=%d sessionid=%d\n",
+		__func__, ptr->size, ptr->packet_type, ptr->session_id);
+
+	return -EINVAL;
+
 }
 
 
@@ -2189,10 +2159,6 @@ static struct hfi_packetization_ops hfi_default = {
 		cvp_create_pkt_cmd_session_set_buffers,
 	.session_release_buffers =
 		cvp_create_pkt_cmd_session_release_buffers,
-	.session_register_buffer =
-		cvp_create_pkt_cmd_session_register_buffer,
-	.session_unregister_buffer =
-		cvp_create_pkt_cmd_session_unregister_buffer,
 	.session_etb_decoder = cvp_create_pkt_cmd_session_etb_decoder,
 	.session_etb_encoder = cvp_create_pkt_cmd_session_etb_encoder,
 	.session_ftb = cvp_create_pkt_cmd_session_ftb,
@@ -2204,6 +2170,12 @@ static struct hfi_packetization_ops hfi_default = {
 		cvp_create_pkt_cmd_session_cvp_dfs_config,
 	.session_cvp_dfs_frame =
 		cvp_create_pkt_cmd_session_cvp_dfs_frame,
+	.session_cvp_dme_config =
+		cvp_create_pkt_cmd_session_cvp_dme_config,
+	.session_cvp_dme_frame =
+		cvp_create_pkt_cmd_session_cvp_dme_frame,
+	.session_cvp_persist =
+		cvp_create_pckt_cmd_session_cvp_persist,
 };
 
 struct hfi_packetization_ops *cvp_hfi_get_pkt_ops_handle(

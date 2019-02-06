@@ -11,10 +11,6 @@
 #include "msm_cvp_clocks.h"
 #include "msm_cvp_debug.h"
 
-void cvp_handle_session_register_buffer_done(enum hal_command_response cmd,
-		void *resp);
-void cvp_handle_session_unregister_buffer_done(enum hal_command_response cmd,
-		void *resp);
 int msm_cvp_handle_syscall(struct msm_cvp_inst *inst, struct msm_cvp_arg *arg);
 int msm_cvp_session_init(struct msm_cvp_inst *inst);
 int msm_cvp_session_deinit(struct msm_cvp_inst *inst);

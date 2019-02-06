@@ -907,8 +907,17 @@ static int msm_cvp_setup_context_bank(struct msm_cvp_platform_resources *res,
 		goto remove_cb;
 	}
 
-	if (cb->is_secure)
+	if (cb->is_secure) {
 		secure_vmid = get_secure_vmid(cb);
+		rc = iommu_domain_set_attr(cb->mapping->domain,
+			DOMAIN_ATTR_SECURE_VMID, &secure_vmid);
+		if (rc) {
+			dprintk(CVP_ERR,
+				"%s - Couldn't arm_iommu_set_attr vmid\n",
+				__func__);
+			goto release_mapping;
+		}
+	}
 
 	if (res->cache_pagetables) {
 		int cache_pagetables = 1;
