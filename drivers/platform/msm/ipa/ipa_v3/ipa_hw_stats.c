@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -1505,27 +1505,14 @@ static char dbg_buff[IPA_MAX_MSG_LEN];
 static ssize_t ipa_debugfs_reset_quota_stats(struct file *file,
 	const char __user *ubuf, size_t count, loff_t *ppos)
 {
-	unsigned long missing;
 	s8 client = 0;
 	int ret;
 
 	mutex_lock(&ipa3_ctx->lock);
-	if (sizeof(dbg_buff) < count + 1) {
-		ret = -EFAULT;
-		goto bail;
-	}
 
-	missing = copy_from_user(dbg_buff, ubuf, count);
-	if (missing) {
-		ret = -EFAULT;
+	ret = kstrtos8_from_user(ubuf, count, 0, &client);
+	if (ret)
 		goto bail;
-	}
-
-	dbg_buff[count] = '\0';
-	if (kstrtos8(dbg_buff, 0, &client)) {
-		ret = -EFAULT;
-		goto bail;
-	}
 
 	if (client == -1)
 		ipa_reset_all_quota_stats();
@@ -1604,27 +1591,14 @@ static ssize_t ipa_debugfs_print_quota_stats(struct file *file,
 static ssize_t ipa_debugfs_reset_tethering_stats(struct file *file,
 	const char __user *ubuf, size_t count, loff_t *ppos)
 {
-	unsigned long missing;
 	s8 client = 0;
 	int ret;
 
 	mutex_lock(&ipa3_ctx->lock);
-	if (sizeof(dbg_buff) < count + 1) {
-		ret = -EFAULT;
-		goto bail;
-	}
 
-	missing = copy_from_user(dbg_buff, ubuf, count);
-	if (missing) {
-		ret = -EFAULT;
+	ret = kstrtos8_from_user(ubuf, count, 0, &client);
+	if (ret)
 		goto bail;
-	}
-
-	dbg_buff[count] = '\0';
-	if (kstrtos8(dbg_buff, 0, &client)) {
-		ret = -EFAULT;
-		goto bail;
-	}
 
 	if (client == -1)
 		ipa_reset_all_teth_stats();
@@ -1727,7 +1701,7 @@ static ssize_t ipa_debugfs_control_flt_rt_stats(enum ipa_ip_type ip,
 	int ret;
 
 	mutex_lock(&ipa3_ctx->lock);
-	if (sizeof(dbg_buff) < count + 1) {
+	if (count >= sizeof(dbg_buff)) {
 		ret = -EFAULT;
 		goto bail;
 	}
@@ -1815,27 +1789,14 @@ static ssize_t ipa_debugfs_print_flt_rt_stats(enum ipa_ip_type ip,
 static ssize_t ipa_debugfs_reset_drop_stats(struct file *file,
 	const char __user *ubuf, size_t count, loff_t *ppos)
 {
-	unsigned long missing;
 	s8 client = 0;
 	int ret;
 
 	mutex_lock(&ipa3_ctx->lock);
-	if (sizeof(dbg_buff) < count + 1) {
-		ret = -EFAULT;
-		goto bail;
-	}
 
-	missing = copy_from_user(dbg_buff, ubuf, count);
-	if (missing) {
-		ret = -EFAULT;
+	ret = kstrtos8_from_user(ubuf, count, 0, &client);
+	if (ret)
 		goto bail;
-	}
-
-	dbg_buff[count] = '\0';
-	if (kstrtos8(dbg_buff, 0, &client)) {
-		ret = -EFAULT;
-		goto bail;
-	}
 
 	if (client == -1)
 		ipa_reset_all_drop_stats();

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -1211,7 +1211,7 @@ static int ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
 		ctx->hdr_add.tlv.value = hdr_len;
 		ctx->hdr_add.hdr_addr = is_hdr_proc_ctx ? phys_base :
 			hdr_base_addr + offset_entry->offset;
-		IPAHAL_DBG("header address 0x%x\n",
+		IPAHAL_DBG("header address 0x%llx\n",
 			ctx->hdr_add.hdr_addr);
 		ctx->end.type = IPA_PROC_CTX_TLV_TYPE_END;
 		ctx->end.length = 0;
@@ -1226,7 +1226,7 @@ static int ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
 		ctx->hdr_add.tlv.value = hdr_len;
 		ctx->hdr_add.hdr_addr = is_hdr_proc_ctx ? phys_base :
 			hdr_base_addr + offset_entry->offset;
-		IPAHAL_DBG("header address 0x%x\n",
+		IPAHAL_DBG("header address 0x%llx\n",
 			ctx->hdr_add.hdr_addr);
 		ctx->l2tp_params.tlv.type = IPA_PROC_CTX_TLV_TYPE_PROC_CMD;
 		ctx->l2tp_params.tlv.length = 1;
@@ -1253,7 +1253,7 @@ static int ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
 		ctx->hdr_add.tlv.value = hdr_len;
 		ctx->hdr_add.hdr_addr = is_hdr_proc_ctx ? phys_base :
 			hdr_base_addr + offset_entry->offset;
-		IPAHAL_DBG("header address 0x%x length %d\n",
+		IPAHAL_DBG("header address 0x%llx length %d\n",
 			ctx->hdr_add.hdr_addr, ctx->hdr_add.tlv.value);
 		ctx->l2tp_params.tlv.type = IPA_PROC_CTX_TLV_TYPE_PROC_CMD;
 		ctx->l2tp_params.tlv.length = 1;
@@ -1289,7 +1289,7 @@ static int ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
 		ctx->hdr_add.tlv.value = hdr_len;
 		ctx->hdr_add.hdr_addr = is_hdr_proc_ctx ? phys_base :
 			hdr_base_addr + offset_entry->offset;
-		IPAHAL_DBG("header address 0x%x\n",
+		IPAHAL_DBG("header address 0x%llx\n",
 			ctx->hdr_add.hdr_addr);
 		ctx->cmd.type = IPA_PROC_CTX_TLV_TYPE_PROC_CMD;
 		ctx->cmd.length = 0;

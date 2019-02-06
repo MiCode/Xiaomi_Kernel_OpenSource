@@ -3060,7 +3060,7 @@ static int sde_cp_ltm_register_irq(struct sde_kms *kms,
 	} else if (irq == SDE_IRQ_TYPE_LTM_STATS_WB_PB) {
 		ltm_irq->func = sde_cp_ltm_wb_pb_interrupt_cb;
 	} else {
-		DRM_ERROR("invalid irq type %s\n", irq);
+		DRM_ERROR("invalid irq type %d\n", irq);
 		return -EINVAL;
 	}
 
@@ -3094,7 +3094,7 @@ static int sde_cp_ltm_unregister_irq(struct sde_kms *kms,
 
 	if (!(irq == SDE_IRQ_TYPE_LTM_STATS_DONE ||
 		irq == SDE_IRQ_TYPE_LTM_STATS_WB_PB)) {
-		DRM_ERROR("invalid irq type %s\n", irq);
+		DRM_ERROR("invalid irq type %d\n", irq);
 		return -EINVAL;
 	}
 

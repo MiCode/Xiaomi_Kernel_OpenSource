@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.*/
 
 #include <asm/dma-iommu.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
@@ -197,55 +197,57 @@
 #define PCIE_DBG(dev, fmt, arg...) do {			 \
 	if ((dev) && (dev)->ipc_log_long)   \
 		ipc_log_string((dev)->ipc_log_long, \
-			"DBG1:%s: " fmt, __func__, arg); \
+			"DBG1:%s: " fmt, __func__, ##arg); \
 	if ((dev) && (dev)->ipc_log)   \
-		ipc_log_string((dev)->ipc_log, "%s: " fmt, __func__, arg); \
+		ipc_log_string((dev)->ipc_log, "%s: " fmt, __func__, ##arg); \
 	if (msm_pcie_debug_mask)   \
-		pr_alert("%s: " fmt, __func__, arg);		  \
+		pr_alert("%s: " fmt, __func__, ##arg);		  \
 	} while (0)
 
 #define PCIE_DBG2(dev, fmt, arg...) do {			 \
 	if ((dev) && (dev)->ipc_log)   \
-		ipc_log_string((dev)->ipc_log, "DBG2:%s: " fmt, __func__, arg);\
+		ipc_log_string((dev)->ipc_log, "DBG2:%s: " fmt, \
+				__func__, ##arg);\
 	if (msm_pcie_debug_mask)   \
-		pr_alert("%s: " fmt, __func__, arg);              \
+		pr_alert("%s: " fmt, __func__, ##arg);              \
 	} while (0)
 
 #define PCIE_DBG3(dev, fmt, arg...) do {			 \
 	if ((dev) && (dev)->ipc_log)   \
-		ipc_log_string((dev)->ipc_log, "DBG3:%s: " fmt, __func__, arg);\
+		ipc_log_string((dev)->ipc_log, "DBG3:%s: " fmt, \
+				__func__, ##arg);\
 	if (msm_pcie_debug_mask)   \
-		pr_alert("%s: " fmt, __func__, arg);              \
+		pr_alert("%s: " fmt, __func__, ##arg);              \
 	} while (0)
 
 #define PCIE_DUMP(dev, fmt, arg...) do {			\
 	if ((dev) && (dev)->ipc_log_dump) \
 		ipc_log_string((dev)->ipc_log_dump, \
-			"DUMP:%s: " fmt, __func__, arg); \
+			"DUMP:%s: " fmt, __func__, ##arg); \
 	} while (0)
 
 #define PCIE_DBG_FS(dev, fmt, arg...) do {			\
 	if ((dev) && (dev)->ipc_log_dump) \
 		ipc_log_string((dev)->ipc_log_dump, \
-			"DBG_FS:%s: " fmt, __func__, arg); \
-	pr_alert("%s: " fmt, __func__, arg); \
+			"DBG_FS:%s: " fmt, __func__, ##arg); \
+	pr_alert("%s: " fmt, __func__, ##arg); \
 	} while (0)
 
 #define PCIE_INFO(dev, fmt, arg...) do {			 \
 	if ((dev) && (dev)->ipc_log_long)   \
 		ipc_log_string((dev)->ipc_log_long, \
-			"INFO:%s: " fmt, __func__, arg); \
+			"INFO:%s: " fmt, __func__, ##arg); \
 	if ((dev) && (dev)->ipc_log)   \
-		ipc_log_string((dev)->ipc_log, "%s: " fmt, __func__, arg); \
-	pr_info("%s: " fmt, __func__, arg);  \
+		ipc_log_string((dev)->ipc_log, "%s: " fmt, __func__, ##arg); \
+	pr_info("%s: " fmt, __func__, ##arg);  \
 	} while (0)
 
 #define PCIE_ERR(dev, fmt, arg...) do {			 \
 	if ((dev) && (dev)->ipc_log_long)   \
 		ipc_log_string((dev)->ipc_log_long, \
-			"ERR:%s: " fmt, __func__, arg); \
+			"ERR:%s: " fmt, __func__, ##arg); \
 	if ((dev) && (dev)->ipc_log)   \
-		ipc_log_string((dev)->ipc_log, "%s: " fmt, __func__, arg); \
+		ipc_log_string((dev)->ipc_log, "%s: " fmt, __func__, ##arg); \
 	pr_err("%s: " fmt, __func__, arg);  \
 	} while (0)
 
@@ -6046,7 +6048,7 @@ static int msm_pci_iommu_init(struct msm_root_dev_t *root_dev)
 	ret = __depr_arm_iommu_attach_device(&pci_dev->dev, mapping);
 	if (ret) {
 		PCIE_ERR(pcie_dev,
-			"failed to iommu attach device (%d)\n",
+			"RC%d: failed to iommu attach device (%d)\n",
 			pcie_dev->rc_idx, ret);
 		goto release_mapping;
 	}

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifdef CONFIG_DEBUG_FS
@@ -144,7 +144,7 @@ static ssize_t ipa3_write_ep_holb(struct file *file,
 	unsigned long missing;
 	char *sptr, *token;
 
-	if (sizeof(dbg_buff) < count + 1)
+	if (count >= sizeof(dbg_buff))
 		return -EFAULT;
 
 	missing = copy_from_user(dbg_buff, buf, count);
@@ -184,19 +184,12 @@ static ssize_t ipa3_write_ep_holb(struct file *file,
 static ssize_t ipa3_write_ep_reg(struct file *file, const char __user *buf,
 		size_t count, loff_t *ppos)
 {
-	unsigned long missing;
-	s8 option = 0;
+	s8 option;
+	int ret;
 
-	if (sizeof(dbg_buff) < count + 1)
-		return -EFAULT;
-
-	missing = copy_from_user(dbg_buff, buf, count);
-	if (missing)
-		return -EFAULT;
-
-	dbg_buff[count] = '\0';
-	if (kstrtos8(dbg_buff, 0, &option))
-		return -EFAULT;
+	ret = kstrtos8_from_user(buf, count, 0, &option);
+	if (ret)
+		return ret;
 
 	if (option >= ipa3_ctx->ipa_num_pipes) {
 		IPAERR("bad pipe specified %u\n", option);
@@ -322,19 +315,12 @@ static ssize_t ipa3_read_ep_reg(struct file *file, char __user *ubuf,
 static ssize_t ipa3_write_keep_awake(struct file *file, const char __user *buf,
 	size_t count, loff_t *ppos)
 {
-	unsigned long missing;
 	s8 option = 0;
+	int ret;
 
-	if (sizeof(dbg_buff) < count + 1)
-		return -EFAULT;
-
-	missing = copy_from_user(dbg_buff, buf, count);
-	if (missing)
-		return -EFAULT;
-
-	dbg_buff[count] = '\0';
-	if (kstrtos8(dbg_buff, 0, &option))
-		return -EFAULT;
+	ret = kstrtos8_from_user(buf, count, 0, &option);
+	if (ret)
+		return ret;
 
 	if (option == 1)
 		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
@@ -1511,25 +1497,18 @@ static ssize_t ipa3_read_wdi(struct file *file, char __user *ubuf,
 static ssize_t ipa3_write_dbg_cnt(struct file *file, const char __user *buf,
 		size_t count, loff_t *ppos)
 {
-	unsigned long missing;
 	u32 option = 0;
 	struct ipahal_reg_debug_cnt_ctrl dbg_cnt_ctrl;
+	int ret;
 
 	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
 		IPAERR("IPA_DEBUG_CNT_CTRL is not supported in IPA 4.0\n");
 		return -EPERM;
 	}
 
-	if (sizeof(dbg_buff) < count + 1)
-		return -EFAULT;
-
-	missing = copy_from_user(dbg_buff, buf, count);
-	if (missing)
-		return -EFAULT;
-
-	dbg_buff[count] = '\0';
-	if (kstrtou32(dbg_buff, 0, &option))
-		return -EFAULT;
+	ret = kstrtou32_from_user(buf, count, 0, &option);
+	if (ret)
+		return ret;
 
 	memset(&dbg_cnt_ctrl, 0, sizeof(dbg_cnt_ctrl));
 	dbg_cnt_ctrl.type = DBG_CNT_TYPE_GENERAL;
@@ -2075,20 +2054,6 @@ static ssize_t ipa3_print_active_clients_log(struct file *file,
 static ssize_t ipa3_clear_active_clients_log(struct file *file,
 		const char __user *ubuf, size_t count, loff_t *ppos)
 {
-	unsigned long missing;
-		s8 option = 0;
-
-	if (sizeof(dbg_buff) < count + 1)
-		return -EFAULT;
-
-	missing = copy_from_user(dbg_buff, ubuf, count);
-	if (missing)
-		return -EFAULT;
-
-	dbg_buff[count] = '\0';
-	if (kstrtos8(dbg_buff, 0, &option))
-		return -EFAULT;
-
 	ipa3_active_clients_log_clear();
 
 	return count;
@@ -2097,19 +2062,12 @@ static ssize_t ipa3_clear_active_clients_log(struct file *file,
 static ssize_t ipa3_enable_ipc_low(struct file *file,
 	const char __user *ubuf, size_t count, loff_t *ppos)
 {
-	unsigned long missing;
 	s8 option = 0;
+	int ret;
 
-	if (sizeof(dbg_buff) < count + 1)
-		return -EFAULT;
-
-	missing = copy_from_user(dbg_buff, ubuf, count);
-	if (missing)
-		return -EFAULT;
-
-	dbg_buff[count] = '\0';
-	if (kstrtos8(dbg_buff, 0, &option))
-		return -EFAULT;
+	ret = kstrtos8_from_user(ubuf, count, 0, &option);
+	if (ret)
+		return ret;
 
 	mutex_lock(&ipa3_ctx->lock);
 	if (option) {

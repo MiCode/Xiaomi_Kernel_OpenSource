@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -610,7 +610,7 @@ int ipa3_mhi_resume_channels_internal(enum ipa_client_type client,
 		res = gsi_read_channel_scratch(ep->gsi_chan_hdl,
 			&gsi_ch_scratch);
 		if (res) {
-			IPA_MHI_ERR("read ch scratch fail %d %d\n", res);
+			IPA_MHI_ERR("read ch scratch fail %d\n", res);
 			return res;
 		}
 

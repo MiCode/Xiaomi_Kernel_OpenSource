@@ -718,10 +718,10 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct drm_device *ddev;
 	struct msm_drm_private *priv;
-	struct msm_kms *kms;
+	struct msm_kms *kms = NULL;
 	struct sde_dbg_power_ctrl dbg_power_ctrl = { 0 };
 	int ret;
-	struct sched_param param;
+	struct sched_param param = { 0 };
 
 	ddev = drm_dev_alloc(drv, dev);
 	if (!ddev) {

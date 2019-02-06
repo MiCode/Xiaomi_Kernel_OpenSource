@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -56,7 +56,7 @@ static const struct sde_uidle_cfg *_top_offset(enum sde_uidle uidle,
 	}
 
 	SDE_ERROR("wrong uidle mapping params, will disable UIDLE!\n");
-	SDE_ERROR("base_off:0x%x id:%d base:0x%x len:%d mmio_len:%d\n",
+	SDE_ERROR("base_off:0x%pK id:%d base:0x%x len:%d mmio_len:%ld\n",
 		addr, m->uidle_cfg.id, m->uidle_cfg.base,
 		m->uidle_cfg.len, len);
 	m->uidle_cfg.uidle_rev = 0;
