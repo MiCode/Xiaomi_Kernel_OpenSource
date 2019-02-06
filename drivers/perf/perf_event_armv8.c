@@ -750,6 +750,7 @@ static struct platform_driver armv8_pmu_driver = {
 	.driver		= {
 		.name	= "armv8-pmu",
 		.of_match_table = armv8_pmu_of_device_ids,
+		.suppress_bind_attrs = true,
 	},
 	.probe		= armv8_pmu_device_probe,
 };
