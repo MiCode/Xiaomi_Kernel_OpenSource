@@ -537,10 +537,9 @@ static struct clk_rcg2 gcc_camss_cci_clk_src = {
 
 static const struct freq_tbl ftbl_gcc_camss_cpp_clk_src[] = {
 	F(120000000, P_GPLL8_OUT_MAIN, 4, 0, 0),
-	F(256000000, P_GPLL6_OUT_EARLY, 3, 0, 0),
-	F(384000000, P_GPLL6_OUT_EARLY, 2, 0, 0),
+	F(240000000, P_GPLL8_OUT_MAIN, 2, 0, 0),
+	F(320000000, P_GPLL8_OUT_MAIN, 1.5, 0, 0),
 	F(480000000, P_GPLL8_OUT_MAIN, 1, 0, 0),
-	F(533000000, P_GPLL3_OUT_EARLY, 2, 0, 0),
 	F(576000000, P_GPLL9_OUT_MAIN, 1, 0, 0),
 	{ }
 };
@@ -561,10 +560,9 @@ static struct clk_rcg2 gcc_camss_cpp_clk_src = {
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER] = 120000000,
-			[VDD_LOW] = 256000000,
-			[VDD_LOW_L1] = 384000000,
+			[VDD_LOW] = 240000000,
+			[VDD_LOW_L1] = 320000000,
 			[VDD_NOMINAL] = 480000000,
-			[VDD_NOMINAL_L1] = 533000000,
 			[VDD_HIGH] = 576000000},
 	},
 };
