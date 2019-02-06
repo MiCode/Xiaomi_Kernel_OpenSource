@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,6 +46,7 @@ int mhi_pci_probe(struct pci_dev *pci_dev,
 
 #ifdef CONFIG_ARCH_QCOM
 
+int mhi_arch_power_up(struct mhi_controller *mhi_cntrl);
 int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl);
 void mhi_arch_pcie_deinit(struct mhi_controller *mhi_cntrl);
 int mhi_arch_iommu_init(struct mhi_controller *mhi_cntrl);
@@ -84,6 +85,11 @@ static inline int mhi_arch_link_off(struct mhi_controller *mhi_cntrl,
 }
 
 static inline int mhi_arch_link_on(struct mhi_controller *mhi_cntrl)
+{
+	return 0;
+}
+
+static inline int mhi_arch_power_up(struct mhi_controller *mhi_cntrl)
 {
 	return 0;
 }
