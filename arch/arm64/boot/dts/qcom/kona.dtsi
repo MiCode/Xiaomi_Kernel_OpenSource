@@ -645,16 +645,12 @@
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
 		qcom,apps-ch-pipes = <0x700000>;
 		qcom,ea-pc = <0x2d0>;
+		iommus = <&apps_smmu 0x1826 0x0>,
+			 <&apps_smmu 0x182f 0x0>,
+			 <&apps_smmu 0x1830 0x1>;
+		qcom,iommu-dma-addr-pool = <0x40000000 0xc0000000>;
+		qcom,iommu-dma = "bypass";
 		status = "ok";
-		qcom,iommu-s1-bypass;
-
-		iommu_slim_aud_ctrl_cb: qcom,iommu_slim_ctrl_cb {
-			compatible = "qcom,iommu-slim-ctrl-cb";
-			iommus = <&apps_smmu 0x1826 0x0>,
-				 <&apps_smmu 0x182f 0x0>,
-				 <&apps_smmu 0x1830 0x1>;
-			status = "disabled";
-		};
 
 		/* Slimbus Slave DT for QCA6390 */
 		btfmslim_codec: qca6390 {
