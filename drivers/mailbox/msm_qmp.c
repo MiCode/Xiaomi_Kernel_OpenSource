@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/io.h>
@@ -337,12 +337,12 @@ static int qmp_startup(struct mbox_chan *chan)
 	if (!mbox)
 		return -EINVAL;
 
-	mutex_lock(&mbox->state_lock);
-	if (!completion_done(&mbox->link_complete)) {
-		mutex_unlock(&mbox->state_lock);
+	ret = wait_for_completion_timeout(&mbox->link_complete,
+					  msecs_to_jiffies(QMP_TOUT_MS));
+	if (!ret)
 		return -EAGAIN;
-	}
 
+	mutex_lock(&mbox->state_lock);
 	if (mbox->local_state == LINK_CONNECTED) {
 		set_mcore_ch(mbox, QMP_MBOX_CH_CONNECTED);
 		mbox->local_state = LOCAL_CONNECTING;
