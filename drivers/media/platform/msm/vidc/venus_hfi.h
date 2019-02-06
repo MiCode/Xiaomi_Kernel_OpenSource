@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __H_VENUS_HFI_H__
@@ -232,6 +232,7 @@ struct venus_hfi_vpu_ops {
 	void (*interrupt_init)(struct venus_hfi_device *ptr);
 	void (*setup_dsp_uc_memmap)(struct venus_hfi_device *device);
 	void (*clock_config_on_enable)(struct venus_hfi_device *device);
+	int (*prepare_ahb2axi_bridge)(struct venus_hfi_device *device);
 };
 
 struct venus_hfi_device {
