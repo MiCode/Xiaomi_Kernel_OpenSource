@@ -581,6 +581,13 @@
 			reusable;
 			size = <0 0x2400000>;
 		};
+		sp_mem: sp_region {  /* SPSS-HLOS ION shared mem */
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x800000>;
+		};
 
 		qseecom_mem: qseecom_region {
 			compatible = "shared-dma-pool";
