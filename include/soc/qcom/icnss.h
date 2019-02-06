@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -144,4 +144,5 @@ extern bool icnss_is_fw_ready(void);
 extern bool icnss_is_fw_down(void);
 extern bool icnss_is_rejuvenate(void);
 extern int icnss_trigger_recovery(struct device *dev);
+extern void icnss_block_shutdown(bool status);
 #endif /* _ICNSS_WLAN_H_ */
