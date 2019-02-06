@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -703,7 +703,7 @@ static ssize_t odu_debugfs_hw_bridge_mode_write(struct file *file,
 	unsigned long missing;
 	enum odu_bridge_mode mode;
 
-	if (sizeof(dbg_buff) < count + 1)
+	if (count >= sizeof(dbg_buff))
 		return -EFAULT;
 
 	missing = copy_from_user(dbg_buff, ubuf, count);

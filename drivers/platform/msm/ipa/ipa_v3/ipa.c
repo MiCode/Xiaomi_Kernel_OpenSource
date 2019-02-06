@@ -4980,7 +4980,7 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 
 	char dbg_buff[32] = { 0 };
 
-	if (sizeof(dbg_buff) < count + 1)
+	if (count >= sizeof(dbg_buff))
 		return -EFAULT;
 
 	missing = copy_from_user(dbg_buff, buf, count);
