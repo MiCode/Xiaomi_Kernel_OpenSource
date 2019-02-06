@@ -1308,6 +1308,7 @@
 #include "lito-pinctrl.dtsi"
 #include "lito-pm.dtsi"
 #include "lito-gdsc.dtsi"
+#include "msm-arm-smmu-lito.dtsi"
 #include "lito-regulators.dtsi"
 #include "lito-smp2p.dtsi"
 #include "lito-usb.dtsi"
