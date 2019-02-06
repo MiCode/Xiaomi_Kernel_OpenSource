@@ -61,8 +61,6 @@ struct kgsl_mmu_ops {
 	void (*mmu_clear_fsr)(struct kgsl_mmu *mmu);
 	void (*mmu_enable_clk)(struct kgsl_mmu *mmu);
 	void (*mmu_disable_clk)(struct kgsl_mmu *mmu);
-	unsigned int (*mmu_get_reg_ahbaddr)(struct kgsl_mmu *mmu,
-			int ctx_id, unsigned int reg);
 	bool (*mmu_pt_equal)(struct kgsl_mmu *mmu,
 			struct kgsl_pagetable *pt, u64 ttbr0);
 	int (*mmu_set_pf_policy)(struct kgsl_mmu *mmu, unsigned long pf_policy);
@@ -307,24 +305,6 @@ static inline void kgsl_mmu_disable_clk(struct kgsl_mmu *mmu)
 {
 	if (MMU_OP_VALID(mmu, mmu_disable_clk))
 		mmu->mmu_ops->mmu_disable_clk(mmu);
-}
-
-/*
- * kgsl_mmu_get_reg_ahbaddr() - Calls the mmu specific function pointer to
- * return the address that GPU can use to access register
- * @mmu:		Pointer to the device mmu
- * @ctx_id:		The MMU HW context ID
- * @reg:		Register whose address is to be returned
- *
- * Returns the ahb address of reg else 0
- */
-static inline unsigned int kgsl_mmu_get_reg_ahbaddr(struct kgsl_mmu *mmu,
-				int ctx_id, unsigned int reg)
-{
-	if (MMU_OP_VALID(mmu, mmu_get_reg_ahbaddr))
-		return mmu->mmu_ops->mmu_get_reg_ahbaddr(mmu, ctx_id, reg);
-
-	return 0;
 }
 
 static inline int kgsl_mmu_set_pagefault_policy(struct kgsl_mmu *mmu,

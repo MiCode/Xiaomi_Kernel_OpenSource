@@ -86,7 +86,6 @@ enum kgsl_iommu_context_id {
  * @kgsldev: The kgsl device that uses this context.
  * @fault: Flag when set indicates that this iommu device has caused a page
  * fault
- * @gpu_offset: Offset of this context bank in the GPU register space
  * @default_pt: The default pagetable for this context,
  *		it may be changed by self programming.
  */
@@ -98,7 +97,6 @@ struct kgsl_iommu_context {
 	struct kgsl_device *kgsldev;
 	int fault;
 	void __iomem *regbase;
-	unsigned int gpu_offset;
 	struct kgsl_pagetable *default_pt;
 };
 

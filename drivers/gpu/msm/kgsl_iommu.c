@@ -1446,23 +1446,6 @@ static struct kgsl_pagetable *kgsl_iommu_getpagetable(struct kgsl_mmu *mmu,
 	return pt;
 }
 
-/*
- * kgsl_iommu_get_reg_ahbaddr - Returns the ahb address of the register
- * @mmu - Pointer to mmu structure
- * @id - The context ID of the IOMMU ctx
- * @reg - The register for which address is required
- *
- * Return - The address of register which can be used in type0 packet
- */
-static unsigned int kgsl_iommu_get_reg_ahbaddr(struct kgsl_mmu *mmu,
-		int id, unsigned int reg)
-{
-	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
-	struct kgsl_iommu_context *ctx = &iommu->ctx[id];
-
-	return ctx->gpu_offset + kgsl_iommu_reg_list[reg];
-}
-
 static void _detach_context(struct kgsl_iommu_context *ctx)
 {
 	struct kgsl_iommu_pt *iommu_pt;
@@ -1549,13 +1532,6 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	status = _setstate_alloc(device, iommu);
 	if (status)
 		return status;
-
-	/* check requirements for per process pagetables */
-	if (ctx->gpu_offset == UINT_MAX) {
-		dev_err(device->dev,
-			"missing qcom,gpu-offset forces global pt\n");
-		mmu->features |= KGSL_MMU_GLOBAL_PAGETABLE;
-	}
 
 	/* Check to see if we need to do the IOMMU sync dance */
 	need_iommu_sync = of_property_read_bool(device->pdev->dev.of_node,
@@ -2621,10 +2597,6 @@ static int _kgsl_iommu_cb_probe(struct kgsl_device *device,
 	if (ctx->id == KGSL_IOMMU_CONTEXT_SECURE)
 		device->mmu.secured = true;
 
-	/* this property won't be found for all context banks */
-	if (of_property_read_u32(node, "qcom,gpu-offset", &ctx->gpu_offset))
-		ctx->gpu_offset = UINT_MAX;
-
 	ctx->kgsldev = device;
 
 	/* arm-smmu driver we'll have the right device pointer here. */
@@ -2758,7 +2730,6 @@ struct kgsl_mmu_ops kgsl_iommu_ops = {
 	.mmu_get_current_ttbr0 = kgsl_iommu_get_current_ttbr0,
 	.mmu_enable_clk = kgsl_iommu_enable_clk,
 	.mmu_disable_clk = kgsl_iommu_disable_clk,
-	.mmu_get_reg_ahbaddr = kgsl_iommu_get_reg_ahbaddr,
 	.mmu_pt_equal = kgsl_iommu_pt_equal,
 	.mmu_set_pf_policy = kgsl_iommu_set_pf_policy,
 	.mmu_pagefault_resume = kgsl_iommu_pagefault_resume,

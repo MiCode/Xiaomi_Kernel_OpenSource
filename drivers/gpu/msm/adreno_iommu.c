@@ -92,37 +92,30 @@ static unsigned int _vbif_unlock(struct adreno_device *adreno_dev,
 	return cmds - start;
 }
 
+#define A3XX_GPU_OFFSET 0xa000
+
+/* This function is only needed for A3xx targets */
 static unsigned int _cp_smmu_reg(struct adreno_device *adreno_dev,
 				unsigned int *cmds,
 				enum kgsl_iommu_reg_map reg,
 				unsigned int num)
 {
 	unsigned int *start = cmds;
-	unsigned int offset;
+	unsigned int offset = (A3XX_GPU_OFFSET + kgsl_iommu_reg_list[reg]) >> 2;
 
-	offset = kgsl_mmu_get_reg_ahbaddr(KGSL_MMU(adreno_dev),
-					  KGSL_IOMMU_CONTEXT_USER, reg) >> 2;
-
-	/* Required for a3x, a4x, a5x families */
-	if (adreno_is_a5xx(adreno_dev)) {
-		*cmds++ = cp_register(adreno_dev, offset, num);
-	} else if (adreno_is_a3xx(adreno_dev)) {
-		*cmds++ = cp_packet(adreno_dev, CP_REG_WR_NO_CTXT, num + 1);
-		*cmds++ = offset;
-	}
+	*cmds++ = cp_packet(adreno_dev, CP_REG_WR_NO_CTXT, num + 1);
+	*cmds++ = offset;
 
 	return cmds - start;
 }
 
+/* This function is only needed for A3xx targets */
 static unsigned int _tlbiall(struct adreno_device *adreno_dev,
 				unsigned int *cmds)
 {
 	unsigned int *start = cmds;
-	unsigned int tlbstatus;
-
-	tlbstatus = kgsl_mmu_get_reg_ahbaddr(KGSL_MMU(adreno_dev),
-			KGSL_IOMMU_CONTEXT_USER,
-			KGSL_IOMMU_CTX_TLBSTATUS) >> 2;
+	unsigned int tlbstatus = (A3XX_GPU_OFFSET +
+		kgsl_iommu_reg_list[KGSL_IOMMU_CTX_TLBSTATUS]) >> 2;
 
 	cmds += _cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_TLBIALL, 1);
 	*cmds++ = 1;
