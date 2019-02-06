@@ -9,6 +9,7 @@
 #include "cam_ife_csid170.h"
 #include "cam_ife_csid175.h"
 #include "cam_ife_csid175_200.h"
+#include "cam_ife_csid480.h"
 #include "cam_ife_csid_dev.h"
 
 #define CAM_CSID_DRV_NAME                    "csid_17x"
@@ -32,7 +33,7 @@ static struct cam_ife_csid_hw_info cam_ife_csid175_200_hw_info = {
 };
 
 static struct cam_ife_csid_hw_info cam_ife_csid480_hw_info = {
-	.csid_reg = &cam_ife_csid_175_reg_offset,
+	.csid_reg = &cam_ife_csid_480_reg_offset,
 	.hw_dts_version = CAM_CSID_VERSION_V480,
 };
 
