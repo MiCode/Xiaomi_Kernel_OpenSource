@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 &soc {
@@ -35,6 +35,12 @@
 			reg = <19>;
 			memory-region = <&qseecom_ta_mem>;
 			qcom,ion-heap-type = "DMA";
+		};
+
+		qcom,ion-heap@13 { /* SPSS HEAP */
+			reg = <13>;
+			memory-region = <&sp_mem>;
+			qcom,ion-heap-type = "HYP_CMA";
 		};
 	};
 };
