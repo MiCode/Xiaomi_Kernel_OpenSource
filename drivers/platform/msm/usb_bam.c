@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -288,7 +288,6 @@ static int usb_bam_alloc_buffer(struct usb_bam_pipe_connect *pipe_connect)
 	struct device *dev = &ctx->usb_bam_pdev->dev;
 	struct sg_table data_sgt, desc_sgt;
 	dma_addr_t data_iova, desc_iova;
-	u32 data_fifo_size;
 
 	pr_debug("%s: data_fifo size:%x desc_fifo_size:%x\n",
 				__func__, pipe_connect->data_fifo_size,
@@ -382,7 +381,8 @@ static int usb_bam_alloc_buffer(struct usb_bam_pipe_connect *pipe_connect)
 		}
 
 		/* BAM would use system memory, allocate FIFOs */
-		data_buf->base = dma_alloc_attrs(dev, data_fifo_size,
+		data_buf->base = dma_alloc_attrs(dev,
+						pipe_connect->data_fifo_size,
 						&data_iova, GFP_KERNEL,
 						DMA_ATTR_FORCE_CONTIGUOUS);
 		if (!data_buf->base) {
@@ -395,7 +395,7 @@ static int usb_bam_alloc_buffer(struct usb_bam_pipe_connect *pipe_connect)
 
 		data_buf->iova = data_iova;
 		dma_get_sgtable(dev, &data_sgt, data_buf->base, data_buf->iova,
-								data_fifo_size);
+						pipe_connect->data_fifo_size);
 		data_buf->phys_base = page_to_phys(sg_page(data_sgt.sgl));
 		sg_free_table(&data_sgt);
 		log_event_dbg("%s: data_buf:%s virt:%pK, phys:%lx, iova:%lx\n",
@@ -410,8 +410,9 @@ static int usb_bam_alloc_buffer(struct usb_bam_pipe_connect *pipe_connect)
 		if (!desc_buf->base) {
 			log_event_err("%s: desc_fifo: dma_alloc_attr failed\n",
 								__func__);
-			dma_free_attrs(dev, data_fifo_size, data_buf->base,
-				data_buf->iova, DMA_ATTR_FORCE_CONTIGUOUS);
+			dma_free_attrs(dev, pipe_connect->data_fifo_size,
+				data_buf->base, data_buf->iova,
+				DMA_ATTR_FORCE_CONTIGUOUS);
 			ret = -ENOMEM;
 			goto err_exit;
 		}
