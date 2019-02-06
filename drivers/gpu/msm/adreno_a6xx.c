@@ -944,6 +944,7 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		amsbc = 1; /* Only valid for A640 and A680 */
 		break;
 	case KGSL_UBWC_4_0:
+		mode = 0;
 		rgb565_predicator = 1;
 		amsbc = 1;
 		break;
@@ -983,6 +984,8 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	/* Set hang detection threshold to 0x3FFFFF * 16 cycles */
 	kgsl_regwrite(device, A6XX_RBBM_INTERFACE_HANG_INT_CNTL,
 					(1 << 30) | 0x3fffff);
+	if (adreno_is_a650(adreno_dev))
+		kgsl_regwrite(device, A6XX_RBBM_NC_MODE_CNTL, 1);
 
 	kgsl_regwrite(device, A6XX_UCHE_CLIENT_PF, 1);
 
