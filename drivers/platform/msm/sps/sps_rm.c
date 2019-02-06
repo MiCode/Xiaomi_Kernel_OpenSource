@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2011-2015, 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2015, 2017-2019, The Linux Foundation. All rights reserved.
  */
 /* Resource management for the SPS device driver. */
 
@@ -168,8 +168,8 @@ static int sps_rm_assign(struct sps_pipe *pipe,
 			 struct sps_connection *map)
 {
 	struct sps_connect *cfg = &pipe->connect;
-	unsigned long desc_iova;
-	unsigned long data_iova;
+	unsigned long desc_iova = 0;
+	unsigned long data_iova = 0;
 
 	/* Check ownership and BAM */
 	if ((cfg->mode == SPS_MODE_SRC && map->client_src != NULL) ||
