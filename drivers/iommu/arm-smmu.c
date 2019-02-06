@@ -1490,9 +1490,11 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 		ret = IRQ_HANDLED;
 		resume = RESUME_TERMINATE;
 	} else {
-		phys_addr_t phys_atos = arm_smmu_verify_fault(domain, iova,
-							      fsr);
 		if (__ratelimit(&_rs)) {
+			phys_addr_t phys_atos = arm_smmu_verify_fault(domain,
+								      iova,
+								      fsr);
+
 			dev_err(smmu->dev,
 				"Unhandled context fault: iova=0x%08lx, cb=%d, fsr=0x%x, fsynr0=0x%x, fsynr1=0x%x\n",
 				iova, cfg->cbndx, fsr, fsynr0, fsynr1);
