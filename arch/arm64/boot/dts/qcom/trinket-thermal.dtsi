@@ -80,9 +80,10 @@
 
 	cxip_cdev: cxip-cdev@3ed000 {
 		compatible = "qcom,cxip-lm-cooling-device";
-		reg = <0x3ed000 0xa008>;
+		reg = <0x3ed000 0xc00c>;
 		qcom,thermal-client-offset = <0x9000>;
-		qcom,bypass-client-list = <0xa004>;
+		/* 2nd and 3rd offsets to bypass VICTIM1 */
+		qcom,bypass-client-list = <0xa004 0xc004 0xc008>;
 		#cooling-cells = <2>;
 	};
 };
