@@ -375,3 +375,12 @@ config SM_CAMCC_LITO
 	  LITO devices.
 	  Say Y if you want to support camera devices and functionality such as
 	  capturing pictures.
+
+config SM_DISPCC_LITO
+	tristate "LITO Display Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the display clock controller on Qualcomm Technologies, Inc.
+	  LITO devices.
+	  Say Y if you want to support display devices and functionality such as
+	  splash screen.
