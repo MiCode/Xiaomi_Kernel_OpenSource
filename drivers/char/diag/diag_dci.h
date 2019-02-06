@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (c) 2012-2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019 The Linux Foundation. All rights reserved.
  */
 #ifndef DIAG_DCI_H
 #define DIAG_DCI_H
@@ -58,7 +58,8 @@ extern unsigned int dci_max_clients;
 #define DCI_LOCAL_PROC		0
 #define DCI_REMOTE_BASE		1
 #define DCI_MDM_PROC		DCI_REMOTE_BASE
-#define DCI_REMOTE_LAST		(DCI_REMOTE_BASE + 1)
+#define DCI_MDM_2_PROC		(DCI_REMOTE_BASE + 1)
+#define DCI_REMOTE_LAST		(DCI_REMOTE_BASE + 2)
 
 #ifndef CONFIG_DIAGFWD_BRIDGE_CODE
 #define NUM_DCI_PROC		1
