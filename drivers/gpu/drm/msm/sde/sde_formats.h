@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _SDE_FORMATS_H
@@ -148,7 +148,7 @@ uint32_t sde_format_get_framebuffer_size(
  *
  * Return: returns true if the format is tp10 ubwc, otherwise false.
  */
-inline bool sde_format_is_tp10_ubwc(const struct sde_format *fmt);
+bool sde_format_is_tp10_ubwc(const struct sde_format *fmt);
 
 /**
  * sde_format_validate_fmt - validates if the format "msm_fmt" is within

@@ -1949,7 +1949,7 @@ static int _sde_encoder_update_rsc_client(
 {
 	struct sde_encoder_virt *sde_enc;
 	struct drm_crtc *crtc;
-	enum sde_rsc_state rsc_state;
+	enum sde_rsc_state rsc_state = SDE_RSC_IDLE_STATE;
 	struct sde_rsc_cmd_config *rsc_config;
 	int ret, prefill_lines;
 	struct msm_display_info *disp_info;
@@ -2710,7 +2710,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 {
 	struct sde_encoder_virt *sde_enc;
 	struct msm_drm_private *priv;
-	int ret;
+	int ret = 0;
 	bool is_vid_mode = false;
 
 	if (!drm_enc || !drm_enc->dev || !drm_enc->dev->dev_private) {
@@ -3624,7 +3624,7 @@ static void sde_encoder_frame_done_callback(
 	enum sde_rm_topology_name topology = SDE_RM_TOPOLOGY_NONE;
 
 	if (!drm_enc || !sde_enc->cur_master) {
-		SDE_ERROR("invalid param: drm_enc %x, cur_master %x\n",
+		SDE_ERROR("invalid param: drm_enc %pK, cur_master %pK\n",
 				drm_enc, drm_enc ? sde_enc->cur_master : 0);
 		return;
 	}

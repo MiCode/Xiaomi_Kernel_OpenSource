@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
@@ -642,7 +642,7 @@ static const struct sde_format sde_format_map_tp10_ubwc[] = {
 		SDE_FETCH_UBWC, 4, SDE_TILE_HEIGHT_NV12),
 };
 
-inline bool sde_format_is_tp10_ubwc(const struct sde_format *fmt)
+bool sde_format_is_tp10_ubwc(const struct sde_format *fmt)
 {
 	if (SDE_FORMAT_IS_YUV(fmt) && SDE_FORMAT_IS_DX(fmt) &&
 			SDE_FORMAT_IS_UBWC(fmt) &&
@@ -1373,7 +1373,8 @@ int sde_format_validate_fmt(struct msm_kms *kms,
 	}
 
 	if (!valid_format) {
-		SDE_ERROR("fmt:%d not found within the list!\n", *msm_fmt);
+		SDE_ERROR("fmt:%d not found within the list!\n",
+			msm_fmt->pixel_format);
 		ret = -EINVAL;
 	}
 exit:

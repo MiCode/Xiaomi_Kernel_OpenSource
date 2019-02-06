@@ -2718,7 +2718,7 @@ static void _sde_plane_sspp_setup_sys_cache(struct sde_plane *psde,
 		return;
 
 	SDE_DEBUG("features:0x%x rotation:0x%x\n",
-		__func__, psde->features, pstate->rotation);
+		psde->features, pstate->rotation);
 
 	if ((pstate->rotation & DRM_MODE_ROTATE_90) &&
 			sde_format_is_tp10_ubwc(fmt)) {

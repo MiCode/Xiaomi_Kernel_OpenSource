@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/bitops.h>
@@ -1243,7 +1243,7 @@ static inline u32 _get_irq_map_size(int idx)
 		ret = ARRAY_SIZE(sde_irq_ltm_1_map);
 		break;
 	default:
-		pr_err("invalid idx:%d\n");
+		pr_err("invalid idx:%d\n", idx);
 	}
 
 	return ret;
@@ -1297,7 +1297,7 @@ static inline struct sde_irq_type *_get_irq_map_addr(int idx)
 		ret = sde_irq_ltm_1_map;
 		break;
 	default:
-		pr_err("invalid idx:%d\n");
+		pr_err("invalid idx:%d\n", idx);
 	}
 
 	return ret;
@@ -1441,7 +1441,7 @@ struct sde_hw_intr *sde_hw_intr_init(void __iomem *addr,
 
 	if (irq_regs_count == 0 || irq_regs_count > MDSS_INTR_MAX ||
 		irq_map_count == 0) {
-		pr_err("wrong mapping of supported irqs 0x%x\n",
+		pr_err("wrong mapping of supported irqs 0x%lx\n",
 			m->mdss_irqs[0]);
 		ret = -EINVAL;
 		goto exit;

@@ -388,7 +388,7 @@ static void _sde_core_perf_crtc_update_llcc(struct sde_kms *kms,
 			total_llcc_active |=
 			  sde_crtc->cur_perf.llcc_active;
 
-			SDE_DEBUG("crtc=%d llcc:%llu active:0x%x\n",
+			SDE_DEBUG("crtc=%d llcc:%u active:0x%x\n",
 				tmp_crtc->base.id,
 				sde_crtc->cur_perf.llcc_active,
 				total_llcc_active);

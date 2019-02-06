@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 #include <drm/msm_drm_pp.h>
 #include "sde_hw_color_proc_common_v4.h"
@@ -338,7 +338,7 @@ void sde_setup_dspp_ltm_hist_ctrlv1(struct sde_hw_dspp *ctx, void *cfg,
 		return;
 	}
 
-	if (ctx->idx >= LTM_MAX) {
+	if (ctx->idx >= DSPP_MAX) {
 		DRM_ERROR("Invalid idx %d\n", ctx->idx);
 		return;
 	}
