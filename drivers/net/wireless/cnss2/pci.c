@@ -2,6 +2,7 @@
 /* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved. */
 
 #include <linux/firmware.h>
+#include <linux/io.h>
 #include <linux/irq.h>
 #include <linux/module.h>
 #include <linux/msi.h>
@@ -52,6 +53,105 @@
 static DEFINE_SPINLOCK(pci_link_down_lock);
 
 #define MHI_TIMEOUT_OVERWRITE_MS	(plat_priv->ctrl_params.mhi_timeout)
+
+#define QCA6390_PCIE_REMAP_BAR_CTRL_OFFSET	0x310C
+
+#define QCA6390_CE_SRC_RING_REG_BASE		0xA00000
+#define QCA6390_CE_DST_RING_REG_BASE		0xA01000
+#define QCA6390_CE_COMMON_REG_BASE		0xA18000
+
+#define QCA6390_CE_SRC_RING_BASE_LSB_OFFSET	0x0
+#define QCA6390_CE_SRC_RING_MISC_OFFSET		0x10
+#define QCA6390_CE_SRC_CTRL_OFFSET		0x58
+#define QCA6390_CE_SRC_RING_HP_OFFSET		0x400
+#define QCA6390_CE_SRC_RING_TP_OFFSET		0x404
+
+#define QCA6390_CE_DEST_RING_BASE_LSB_OFFSET	0x0
+#define QCA6390_CE_DEST_RING_MISC_OFFSET	0x10
+#define QCA6390_CE_DEST_CTRL_OFFSET		0xB0
+#define QCA6390_CE_CH_DST_IS_OFFSET		0xB4
+#define QCA6390_CE_CH_DEST_CTRL2_OFFSET		0xB8
+#define QCA6390_CE_DEST_RING_HP_OFFSET		0x400
+#define QCA6390_CE_DEST_RING_TP_OFFSET		0x404
+
+#define QCA6390_CE_STATUS_RING_BASE_LSB_OFFSET	0x58
+#define QCA6390_CE_STATUS_RING_MISC_OFFSET	0x68
+#define QCA6390_CE_STATUS_RING_HP_OFFSET	0x408
+#define QCA6390_CE_STATUS_RING_TP_OFFSET	0x40C
+
+#define QCA6390_CE_COMMON_GXI_ERR_INTS		0x14
+#define QCA6390_CE_COMMON_GXI_ERR_STATS		0x18
+#define QCA6390_CE_COMMON_GXI_WDOG_STATUS	0x2C
+#define QCA6390_CE_COMMON_TARGET_IE_0		0x48
+#define QCA6390_CE_COMMON_TARGET_IE_1		0x4C
+
+#define QCA6390_CE_REG_INTERVAL			0x2000
+
+#define MAX_UNWINDOWED_ADDRESS			0x80000
+#define WINDOW_ENABLE_BIT			0x40000000
+#define WINDOW_SHIFT				19
+#define WINDOW_VALUE_MASK			0x3F
+#define WINDOW_START				MAX_UNWINDOWED_ADDRESS
+#define WINDOW_RANGE_MASK			0x7FFFF
+
+static struct cnss_pci_reg ce_src[] = {
+	{ "SRC_RING_BASE_LSB", QCA6390_CE_SRC_RING_BASE_LSB_OFFSET },
+	{ "SRC_RING_MISC", QCA6390_CE_SRC_RING_MISC_OFFSET },
+	{ "SRC_CTRL", QCA6390_CE_SRC_CTRL_OFFSET },
+	{ "SRC_RING_HP", QCA6390_CE_SRC_RING_HP_OFFSET },
+	{ "SRC_RING_TP", QCA6390_CE_SRC_RING_TP_OFFSET },
+	{ NULL },
+};
+
+static struct cnss_pci_reg ce_dst[] = {
+	{ "DEST_RING_BASE_LSB", QCA6390_CE_DEST_RING_BASE_LSB_OFFSET },
+	{ "DEST_RING_MISC", QCA6390_CE_DEST_RING_MISC_OFFSET },
+	{ "DEST_CTRL", QCA6390_CE_DEST_CTRL_OFFSET },
+	{ "CE_CH_DST_IS", QCA6390_CE_CH_DST_IS_OFFSET },
+	{ "CE_CH_DEST_CTRL2", QCA6390_CE_CH_DEST_CTRL2_OFFSET },
+	{ "DEST_RING_HP", QCA6390_CE_DEST_RING_HP_OFFSET },
+	{ "DEST_RING_TP", QCA6390_CE_DEST_RING_TP_OFFSET },
+	{ "STATUS_RING_BASE_LSB", QCA6390_CE_STATUS_RING_BASE_LSB_OFFSET },
+	{ "STATUS_RING_MISC", QCA6390_CE_STATUS_RING_MISC_OFFSET },
+	{ "STATUS_RING_HP", QCA6390_CE_STATUS_RING_HP_OFFSET },
+	{ "STATUS_RING_TP", QCA6390_CE_STATUS_RING_TP_OFFSET },
+	{ NULL },
+};
+
+static struct cnss_pci_reg ce_cmn[] = {
+	{ "GXI_ERR_INTS", QCA6390_CE_COMMON_GXI_ERR_INTS },
+	{ "GXI_ERR_STATS", QCA6390_CE_COMMON_GXI_ERR_STATS },
+	{ "GXI_WDOG_STATUS", QCA6390_CE_COMMON_GXI_WDOG_STATUS },
+	{ "TARGET_IE_0", QCA6390_CE_COMMON_TARGET_IE_0 },
+	{ "TARGET_IE_1", QCA6390_CE_COMMON_TARGET_IE_1 },
+	{ NULL },
+};
+
+static void cnss_pci_select_window(struct cnss_pci_data *pci_priv, u32 offset)
+{
+	u32 window = (offset >> WINDOW_SHIFT) & WINDOW_VALUE_MASK;
+
+	if (window != pci_priv->remap_window) {
+		writel_relaxed(WINDOW_ENABLE_BIT | window,
+			       QCA6390_PCIE_REMAP_BAR_CTRL_OFFSET +
+			       pci_priv->bar);
+		pci_priv->remap_window = window;
+		cnss_pr_dbg("Config PCIe remap window register to 0x%x\n",
+			    WINDOW_ENABLE_BIT | window);
+	}
+}
+
+static u32 cnss_pci_reg_read(struct cnss_pci_data *pci_priv, u32 offset)
+{
+	if (pci_priv->pci_dev->device == QCA6174_DEVICE_ID ||
+	    offset < MAX_UNWINDOWED_ADDRESS)
+		return readl_relaxed(pci_priv->bar + offset);
+
+	cnss_pci_select_window(pci_priv, offset);
+
+	return readl_relaxed(pci_priv->bar + WINDOW_START +
+			     (offset & WINDOW_RANGE_MASK));
+}
 
 static int cnss_set_pci_config_space(struct cnss_pci_data *pci_priv, bool save)
 {
@@ -1950,6 +2050,46 @@ static char *cnss_mhi_state_to_str(enum cnss_mhi_state mhi_state)
 	}
 };
 
+static void cnss_pci_dump_ce_reg(struct cnss_pci_data *pci_priv,
+				 enum cnss_ce_index ce)
+{
+	int i;
+	u32 ce_base = ce * QCA6390_CE_REG_INTERVAL;
+	u32 reg_offset;
+
+	switch (ce) {
+	case CNSS_CE_09:
+	case CNSS_CE_10:
+		for (i = 0; ce_src[i].name; i++) {
+			reg_offset = QCA6390_CE_SRC_RING_REG_BASE +
+				ce_base + ce_src[i].offset;
+			cnss_pr_dbg("CE_%02d_%s[0x%x] = 0x%x\n",
+				    ce, ce_src[i].name, reg_offset,
+				    cnss_pci_reg_read(pci_priv, reg_offset));
+		}
+
+		for (i = 0; ce_dst[i].name; i++) {
+			reg_offset = QCA6390_CE_DST_RING_REG_BASE +
+				ce_base + ce_dst[i].offset;
+			cnss_pr_dbg("CE_%02d_%s[0x%x] = 0x%x\n",
+				    ce, ce_dst[i].name, reg_offset,
+				    cnss_pci_reg_read(pci_priv, reg_offset));
+		}
+		break;
+	case CNSS_CE_COMMON:
+		for (i = 0; ce_cmn[i].name; i++) {
+			reg_offset = QCA6390_CE_COMMON_REG_BASE +
+				ce_cmn[i].offset;
+			cnss_pr_dbg("CE_COMMON_%s[0x%x] = 0x%x\n",
+				    ce_cmn[i].name, reg_offset,
+				    cnss_pci_reg_read(pci_priv, reg_offset));
+		}
+		break;
+	default:
+		cnss_pr_err("Unsupported CE[%d] registers dump\n", ce);
+	}
+}
+
 static void cnss_pci_dump_registers(struct cnss_pci_data *pci_priv)
 {
 	cnss_pr_dbg("Start to dump debug registers\n");
@@ -1958,6 +2098,9 @@ static void cnss_pci_dump_registers(struct cnss_pci_data *pci_priv)
 		return;
 
 	mhi_debug_reg_dump(pci_priv->mhi_ctrl);
+	cnss_pci_dump_ce_reg(pci_priv, CNSS_CE_COMMON);
+	cnss_pci_dump_ce_reg(pci_priv, CNSS_CE_09);
+	cnss_pci_dump_ce_reg(pci_priv, CNSS_CE_10);
 }
 
 void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
@@ -1975,8 +2118,6 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 		cnss_pr_dbg("RAM dump is already collected, skip\n");
 		return;
 	}
-
-	cnss_pci_dump_registers(pci_priv);
 
 	ret = mhi_download_rddm_img(pci_priv->mhi_ctrl, in_panic);
 	if (ret) {

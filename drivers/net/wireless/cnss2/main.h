@@ -216,6 +216,22 @@ struct cnss_control_params {
 	unsigned int bdf_type;
 };
 
+enum cnss_ce_index {
+	CNSS_CE_00,
+	CNSS_CE_01,
+	CNSS_CE_02,
+	CNSS_CE_03,
+	CNSS_CE_04,
+	CNSS_CE_05,
+	CNSS_CE_06,
+	CNSS_CE_07,
+	CNSS_CE_08,
+	CNSS_CE_09,
+	CNSS_CE_10,
+	CNSS_CE_11,
+	CNSS_CE_COMMON,
+};
+
 struct cnss_plat_data {
 	struct platform_device *plat_dev;
 	void *bus_priv;
