@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -510,9 +510,14 @@ static int kgsl_unlock_sgt(struct sg_table *sgt)
 
 	ret = hyp_assign_table(sgt, &source_vm, 1, &dest_vm, &dest_perms, 1);
 
+	if (ret) {
+		pr_err("kgsl: hyp_assign_table failed ret: %d\n", ret);
+		return ret;
+	}
+
 	for_each_sg_page(sgt->sgl, &sg_iter, sgt->nents, 0)
 		ClearPagePrivate(sg_page_iter_page(&sg_iter));
-	return ret;
+	return 0;
 }
 
 static void kgsl_page_alloc_free(struct kgsl_memdesc *memdesc)
@@ -527,23 +532,18 @@ static void kgsl_page_alloc_free(struct kgsl_memdesc *memdesc)
 
 		ret = kgsl_unlock_sgt(memdesc->sgt);
 		if (ret) {
-			pr_err("Secure buf unlock failed: gpuaddr: %llx size: %llx ret: %d\n",
-					memdesc->gpuaddr, memdesc->size, ret);
+			pr_err("Failure to unlock secure GPU memory 0x%llx. %llx bytes will not be recoverable\n",
+					memdesc->gpuaddr, memdesc->size);
+			return;
 		}
 
+		kgsl_pool_free_sgt(memdesc->sgt);
 		atomic_long_sub(memdesc->size, &kgsl_driver.stats.secure);
 	} else {
 		atomic_long_add(memdesc->size,
 			&kgsl_driver.stats.page_free_pending);
-	}
-
-	/* Free pages using the pages array for non secure paged memory */
-	if (memdesc->pages != NULL)
+		/* Free pages using pages array for non secure paged memory */
 		kgsl_pool_free_pages(memdesc->pages, memdesc->page_count);
-	else
-		kgsl_pool_free_sgt(memdesc->sgt);
-
-	if (!(memdesc->priv & KGSL_MEMDESC_TZ_LOCKED)) {
 		atomic_long_sub(memdesc->size, &kgsl_driver.stats.page_alloc);
 		atomic_long_sub(memdesc->size,
 			&kgsl_driver.stats.page_free_pending);
@@ -1043,8 +1043,8 @@ void kgsl_free_secure_page(struct page *page)
 	sg_init_table(&sgl, 1);
 	sg_set_page(&sgl, page, PAGE_SIZE, 0);
 
-	kgsl_unlock_sgt(&sgt);
-	__free_page(page);
+	if (!kgsl_unlock_sgt(&sgt))
+		__free_page(page);
 }
 
 struct page *kgsl_alloc_secure_page(void)
