@@ -2315,6 +2315,23 @@ static void ctx_resched(struct perf_cpu_context *cpuctx,
 	perf_pmu_enable(cpuctx->ctx.pmu);
 }
 
+#if defined CONFIG_HOTPLUG_CPU || defined CONFIG_KEXEC_CORE
+static LIST_HEAD(dormant_event_list);
+static DEFINE_SPINLOCK(dormant_event_list_lock);
+
+static void perf_prepare_install_in_context(struct perf_event *event)
+{
+	spin_lock(&dormant_event_list_lock);
+	if (event->state == PERF_EVENT_STATE_DORMANT)
+		goto out;
+
+	event->state = PERF_EVENT_STATE_DORMANT;
+	list_add_tail(&event->dormant_event_entry, &dormant_event_list);
+out:
+	spin_unlock(&dormant_event_list_lock);
+}
+#endif
+
 /*
  * Cross CPU call to install and enable a performance event
  *
@@ -2459,6 +2476,34 @@ again:
 	add_event_to_ctx(event, ctx);
 	raw_spin_unlock_irq(&ctx->lock);
 }
+
+#if defined CONFIG_HOTPLUG_CPU || defined CONFIG_KEXEC_CORE
+static void perf_deferred_install_in_context(int cpu)
+{
+	struct perf_event *event, *tmp;
+	struct perf_event_context *ctx;
+
+	spin_lock(&dormant_event_list_lock);
+	list_for_each_entry_safe(event, tmp, &dormant_event_list,
+						dormant_event_entry) {
+		if (cpu != event->cpu)
+			continue;
+
+		list_del(&event->dormant_event_entry);
+		event->state = PERF_EVENT_STATE_INACTIVE;
+		spin_unlock(&dormant_event_list_lock);
+
+		ctx = event->ctx;
+
+		mutex_lock(&ctx->mutex);
+		perf_install_in_context(ctx, event, cpu);
+		mutex_unlock(&ctx->mutex);
+
+		spin_lock(&dormant_event_list_lock);
+	}
+	spin_unlock(&dormant_event_list_lock);
+}
+#endif
 
 /*
  * Put a event into inactive state and update time fields.
@@ -4277,14 +4322,6 @@ static void put_event(struct perf_event *event)
 }
 
 /*
- * Maintain a zombie list to collect all the zombie events
- */
-#if defined CONFIG_HOTPLUG_CPU || defined CONFIG_KEXEC_CORE
-static LIST_HEAD(zombie_list);
-static DEFINE_SPINLOCK(zombie_list_lock);
-#endif
-
-/*
  * Kill an event dead; while event:refcount will preserve the event
  * object, it will not preserve its functionality. Once the last 'user'
  * gives up the object, we'll destroy the thing.
@@ -4294,23 +4331,12 @@ static int __perf_event_release_kernel(struct perf_event *event)
 	struct perf_event_context *ctx = event->ctx;
 	struct perf_event *child, *tmp;
 
-	/*
-	 * If the cpu associated to this event is offline, set the event as a
-	 *  zombie event. The cleanup of the cpu would be done if the CPU is
-	 *  back online.
-	 */
 #if defined CONFIG_HOTPLUG_CPU || defined CONFIG_KEXEC_CORE
-	if (event->cpu != -1 && per_cpu(is_hotplugging, event->cpu)) {
-		if (event->state == PERF_EVENT_STATE_ZOMBIE)
-			return 0;
-
-		event->state = PERF_EVENT_STATE_ZOMBIE;
-
-		spin_lock(&zombie_list_lock);
-		list_add_tail(&event->zombie_entry, &zombie_list);
-		spin_unlock(&zombie_list_lock);
-
-		return 0;
+	if (event->cpu != -1) {
+		spin_lock(&dormant_event_list_lock);
+		if (event->state == PERF_EVENT_STATE_DORMANT)
+			list_del(&event->dormant_event_entry);
+		spin_unlock(&dormant_event_list_lock);
 	}
 #endif
 
@@ -4626,6 +4652,15 @@ perf_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 	struct perf_event *event = file->private_data;
 	struct perf_event_context *ctx;
 	int ret;
+
+#if defined CONFIG_HOTPLUG_CPU || defined CONFIG_KEXEC_CORE
+	spin_lock(&dormant_event_list_lock);
+	if (event->state == PERF_EVENT_STATE_DORMANT) {
+		spin_unlock(&dormant_event_list_lock);
+		return 0;
+	}
+	spin_unlock(&dormant_event_list_lock);
+#endif
 
 	ctx = perf_event_ctx_lock(event);
 	ret = __perf_read(event, buf, count);
@@ -9455,13 +9490,13 @@ perf_event_alloc(struct perf_event_attr *attr, int cpu,
 	mutex_init(&event->child_mutex);
 	INIT_LIST_HEAD(&event->child_list);
 
+	INIT_LIST_HEAD(&event->dormant_event_entry);
 	INIT_LIST_HEAD(&event->group_entry);
 	INIT_LIST_HEAD(&event->event_entry);
 	INIT_LIST_HEAD(&event->sibling_list);
 	INIT_LIST_HEAD(&event->rb_entry);
 	INIT_LIST_HEAD(&event->active_entry);
 	INIT_LIST_HEAD(&event->addr_filters.list);
-	INIT_LIST_HEAD(&event->zombie_entry);
 	INIT_HLIST_NODE(&event->hlist_entry);
 
 
@@ -11114,100 +11149,14 @@ int perf_event_init_cpu(unsigned int cpu)
 }
 
 #if defined CONFIG_HOTPLUG_CPU || defined CONFIG_KEXEC_CORE
-static void
-check_hotplug_start_event(struct perf_event *event)
+int perf_event_restart_events(unsigned int cpu)
 {
-	if (event->pmu->events_across_hotplug &&
-	    event->attr.type == PERF_TYPE_SOFTWARE &&
-	    event->pmu->start)
-		event->pmu->start(event, 0);
-}
-
-static void perf_event_zombie_cleanup(unsigned int cpu)
-{
-	struct perf_event *event, *tmp;
-
-	spin_lock(&zombie_list_lock);
-
-	list_for_each_entry_safe(event, tmp, &zombie_list, zombie_entry) {
-		if (event->cpu != cpu)
-			continue;
-
-		list_del(&event->zombie_entry);
-		spin_unlock(&zombie_list_lock);
-
-		/*
-		 * The detachment of the event with the
-		 * PMU expects it to be in an active state
-		 */
-		event->state = PERF_EVENT_STATE_ACTIVE;
-		__perf_event_release_kernel(event);
-
-		spin_lock(&zombie_list_lock);
-	}
-
-	spin_unlock(&zombie_list_lock);
-}
-
-static int perf_event_start_swevents(unsigned int cpu)
-{
-	struct perf_event_context *ctx;
-	struct pmu *pmu;
-	struct perf_event *event;
-	int idx;
-
 	mutex_lock(&pmus_lock);
-	perf_event_zombie_cleanup(cpu);
-
-	idx = srcu_read_lock(&pmus_srcu);
-	list_for_each_entry_rcu(pmu, &pmus, entry) {
-		ctx = &per_cpu_ptr(pmu->pmu_cpu_context, cpu)->ctx;
-		mutex_lock(&ctx->mutex);
-		raw_spin_lock(&ctx->lock);
-		list_for_each_entry(event, &ctx->event_list, event_entry)
-			check_hotplug_start_event(event);
-		raw_spin_unlock(&ctx->lock);
-		mutex_unlock(&ctx->mutex);
-	}
-	srcu_read_unlock(&pmus_srcu, idx);
 	per_cpu(is_hotplugging, cpu) = false;
+	perf_deferred_install_in_context(cpu);
 	mutex_unlock(&pmus_lock);
 
 	return 0;
-}
-
-/*
- * If keeping events across hotplugging is supported, do not
- * remove the event list so event lives beyond CPU hotplug.
- * The context is exited via an fd close path when userspace
- * is done and the target CPU is online. If software clock
- * event is active, then stop hrtimer associated with it.
- * Start the timer when the CPU comes back online.
- */
-static void
-check_hotplug_remove_from_context(struct perf_event *event,
-			   struct perf_cpu_context *cpuctx,
-			   struct perf_event_context *ctx)
-{
-	if (event->pmu->events_across_hotplug &&
-	    event->attr.type == PERF_TYPE_SOFTWARE &&
-	    event->pmu->stop)
-		event->pmu->stop(event, PERF_EF_UPDATE);
-	else if (!event->pmu->events_across_hotplug)
-		__perf_remove_from_context(event, cpuctx,
-			ctx, (void *)DETACH_GROUP);
-}
-
-static void __perf_event_exit_context(void *__info)
-{
-	struct perf_event_context *ctx = __info;
-	struct perf_cpu_context *cpuctx = __get_cpu_context(ctx);
-	struct perf_event *event;
-
-	raw_spin_lock(&ctx->lock);
-	list_for_each_entry(event, &ctx->event_list, event_entry)
-		check_hotplug_remove_from_context(event, cpuctx, ctx);
-	raw_spin_unlock(&ctx->lock);
 }
 
 static void perf_event_exit_cpu_context(int cpu)
@@ -11215,10 +11164,12 @@ static void perf_event_exit_cpu_context(int cpu)
 	struct perf_cpu_context *cpuctx;
 	struct perf_event_context *ctx;
 	unsigned long flags;
+	struct perf_event *event, *event_tmp;
 	struct pmu *pmu;
 	int idx;
 
 	idx = srcu_read_lock(&pmus_srcu);
+	per_cpu(is_hotplugging, cpu) = true;
 	list_for_each_entry_rcu(pmu, &pmus, entry) {
 		cpuctx = per_cpu_ptr(pmu->pmu_cpu_context, cpu);
 		ctx = &cpuctx->ctx;
@@ -11233,7 +11184,12 @@ static void perf_event_exit_cpu_context(int cpu)
 		}
 
 		mutex_lock(&ctx->mutex);
-		smp_call_function_single(cpu, __perf_event_exit_context, ctx, 1);
+		list_for_each_entry_safe(event, event_tmp, &ctx->event_list,
+								event_entry) {
+			perf_remove_from_context(event, DETACH_GROUP);
+			if (event->pmu->events_across_hotplug)
+				perf_prepare_install_in_context(event);
+		}
 		mutex_unlock(&ctx->mutex);
 	}
 	srcu_read_unlock(&pmus_srcu, idx);
@@ -11246,8 +11202,8 @@ static void perf_event_exit_cpu_context(int cpu) { }
 
 int perf_event_exit_cpu(unsigned int cpu)
 {
+
 	mutex_lock(&pmus_lock);
-	per_cpu(is_hotplugging, cpu) = true;
 	perf_event_exit_cpu_context(cpu);
 	mutex_unlock(&pmus_lock);
 	return 0;
@@ -11292,25 +11248,6 @@ static struct notifier_block perf_event_idle_nb = {
 	.notifier_call = event_idle_notif,
 };
 
-#ifdef CONFIG_HOTPLUG_CPU
-static int perf_cpu_hp_init(void)
-{
-	int ret;
-
-	ret = cpuhp_setup_state_nocalls(CPUHP_AP_PERF_ONLINE,
-				"PERF/CORE/CPUHP_AP_PERF_ONLINE",
-				perf_event_start_swevents,
-				perf_event_exit_cpu);
-	if (ret)
-		pr_err("CPU hotplug notifier for perf core could not be registered: %d\n",
-		       ret);
-
-	return ret;
-}
-#else
-static int perf_cpu_hp_init(void) { return 0; }
-#endif
-
 void __init perf_event_init(void)
 {
 	int ret, cpu;
@@ -11337,8 +11274,6 @@ void __init perf_event_init(void)
 	perf_event_init_cpu(smp_processor_id());
 	idle_notifier_register(&perf_event_idle_nb);
 	register_reboot_notifier(&perf_reboot_notifier);
-	ret = perf_cpu_hp_init();
-	WARN(ret, "core perf_cpu_hp_init() failed with: %d", ret);
 
 	ret = init_hw_breakpoint();
 	WARN(ret, "hw_breakpoint initialization failed with: %d", ret);
