@@ -50,6 +50,7 @@ enum sde_hdcp_2x_wakeup_cmd {
  * @HDCP_TRANSPORT_CMD_STATUS_SUCCESS: successfully communicated with TrustZone
  * @HDCP_TRANSPORT_CMD_STATUS_FAILED:  failed to communicate with TrustZone
  * @HDCP_TRANSPORT_CMD_LINK_POLL:      poll the HDCP link
+ * @HDCP_TRANSPORT_CMD_LINK_CHECK:     check link status in response to cp_irq
  * @HDCP_TRANSPORT_CMD_AUTHENTICATE:   start authentication
  */
 enum hdcp_transport_wakeup_cmd {
@@ -59,7 +60,8 @@ enum hdcp_transport_wakeup_cmd {
 	HDCP_TRANSPORT_CMD_STATUS_SUCCESS,
 	HDCP_TRANSPORT_CMD_STATUS_FAILED,
 	HDCP_TRANSPORT_CMD_LINK_POLL,
-	HDCP_TRANSPORT_CMD_AUTHENTICATE
+	HDCP_TRANSPORT_CMD_LINK_CHECK,
+	HDCP_TRANSPORT_CMD_AUTHENTICATE,
 };
 
 enum sde_hdcp_2x_device_type {
