@@ -51,6 +51,8 @@
 
 		#power-domain-cells = <0>;
 
+		#list-cells = <1>;
+
 		/* hw blocks */
 		qcom,sde-off = <0x1000>;
 		qcom,sde-len = <0x45c>;
@@ -283,7 +285,12 @@
 
 		power-domains = <&mdss_mdp>;
 
+		/*Offline rotator RT setting */
+		qcom,mdss-rot-parent = <&mdss_mdp 0>;
+		qcom,mdss-rot-xin-id = <10 11>;
+
 		/* Offline rotator QoS setting */
+		qcom,mdss-rot-vbif-qos-setting = <3 3 4 4 5 5 6 6>;
 		qcom,mdss-rot-cdp-setting = <1 1>;
 		qcom,mdss-rot-qos-lut = <0x0 0x0 0x0 0x0>;
 		qcom,mdss-rot-danger-lut = <0x0 0x0>;
