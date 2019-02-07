@@ -253,6 +253,20 @@ First Level Node - FG Gen4 device
 		    capacity learning cycle. If this is not specified, then
 		    the default value is 0. Unit is in decipercentage.
 
+- qcom,cl-min-delta-batt-soc
+	Usage:      optional
+	Value type: <u32>
+	Definition: Minimum change in battery SOC to qualify for capacity
+		    learning. If this is not specified, then the default
+		    value is 10. Unit is in percentage.
+
+- qcom,cl-wt-enable
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property to enable weighted capacity learning
+		    based on change in battery SOC during a charging cycle.
+		    If this is specified "qcom,cl-start-capacity" is not used.
+
 - qcom,hold-soc-while-full
 	Usage:      optional
 	Value type: <empty>
