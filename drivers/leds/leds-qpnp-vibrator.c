@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -314,6 +314,13 @@ static ssize_t qpnp_vib_get_state(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%d\n", !!chip->reg_en_ctl);
 }
 
+static ssize_t qpnp_vib_set_state(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+		/* At present, nothing to do with setting state */
+		return count;
+}
+
 static ssize_t qpnp_vib_get_duration(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -399,7 +406,7 @@ static ssize_t qpnp_vib_set_activate(struct device *dev,
 }
 
 static struct device_attribute qpnp_vib_attrs[] = {
-	__ATTR(state, 0444, qpnp_vib_get_state, NULL),
+	__ATTR(state, 0664, qpnp_vib_get_state, qpnp_vib_set_state),
 	__ATTR(duration, 0664, qpnp_vib_get_duration, qpnp_vib_set_duration),
 	__ATTR(activate, 0664, qpnp_vib_get_activate, qpnp_vib_set_activate),
 };
