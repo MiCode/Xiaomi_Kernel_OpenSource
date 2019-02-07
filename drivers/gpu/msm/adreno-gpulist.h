@@ -512,5 +512,6 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gmem_size = (SZ_128K + SZ_4K),
 		.num_protected_regs = 0x20,
 		.busy_mask = 0xFFFFFFFE,
+		.cx_ipeak_gpu_freq = 900000000,
 	},
 };
