@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved. */
 
 #define pr_fmt(fmt) "clk: %s: " fmt, __func__
 
@@ -553,7 +553,8 @@ static struct clk_rcg2 disp_cc_mdss_dp_crypto1_clk_src = {
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_MIN] = 12800,
-			[VDD_LOWER] = 180000,
+			[VDD_LOWER] = 108000,
+			[VDD_LOW] = 180000,
 			[VDD_LOW_L1] = 360000,
 			[VDD_NOMINAL] = 540000},
 	},
@@ -575,7 +576,8 @@ static struct clk_rcg2 disp_cc_mdss_dp_crypto_clk_src = {
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_MIN] = 12800,
-			[VDD_LOWER] = 180000,
+			[VDD_LOWER] = 108000,
+			[VDD_LOW] = 180000,
 			[VDD_LOW_L1] = 360000,
 			[VDD_NOMINAL] = 540000},
 	},
@@ -605,7 +607,8 @@ static struct clk_rcg2 disp_cc_mdss_dp_link1_clk_src = {
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_MIN] = 19200,
-			[VDD_LOWER] = 270000,
+			[VDD_LOWER] = 162000,
+			[VDD_LOW] = 270000,
 			[VDD_LOW_L1] = 540000,
 			[VDD_NOMINAL] = 810000},
 	},
@@ -627,7 +630,8 @@ static struct clk_rcg2 disp_cc_mdss_dp_link_clk_src = {
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_MIN] = 19200,
-			[VDD_LOWER] = 270000,
+			[VDD_LOWER] = 162000,
+			[VDD_LOW] = 270000,
 			[VDD_LOW_L1] = 540000,
 			[VDD_NOMINAL] = 810000},
 	},
