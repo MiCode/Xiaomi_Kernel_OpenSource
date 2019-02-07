@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -64,6 +64,8 @@
 #define CSID_PATH_INFO_INPUT_SOF                  BIT(12)
 #define CSID_PATH_ERROR_PIX_COUNT                 BIT(13)
 #define CSID_PATH_ERROR_LINE_COUNT                BIT(14)
+
+#define CSID_TOP_IRQ_DONE                         BIT(0)
 
 /*
  * Debug values enable the corresponding interrupts and debug logs provide
@@ -273,6 +275,7 @@ struct cam_ife_csid_common_reg_offset {
 	uint32_t version_incr;
 	uint32_t no_rdis;
 	uint32_t no_pix;
+	uint32_t csid_reg_rst_stb;
 	uint32_t csid_rst_stb;
 	uint32_t csid_rst_stb_sw_all;
 	uint32_t path_rst_stb_all;
