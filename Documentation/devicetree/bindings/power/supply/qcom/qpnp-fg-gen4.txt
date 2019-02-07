@@ -29,6 +29,8 @@ First Level Node - FG Gen4 device
 	Definition: Should specify the phandle of PMIC revid module. This is
 		    used to identify the PMIC subtype.
 
+- #thermal-sensor-cells: Should be 0. See thermal.txt for the description.
+
 - qcom,fg-cutoff-voltage
 	Usage:      optional
 	Value type: <u32>
@@ -423,6 +425,7 @@ pm8150b_fg: qpnp,fg {
 	#address-cells = <1>;
 	#size-cells = <1>;
 	qcom,pmic-revid = <&pm8150b_revid>;
+	#thermal-sensor-cells = <0>;
 	status = "okay";
 
 	qcom,fg-batt-soc@4000 {
@@ -486,4 +489,33 @@ pm8150b_fg: qpnp,fg {
 				  "dma-grant",
 	};
 
+};
+
+======================================
+Example for thermal zone configuration
+======================================
+
+thermal_zones {
+	pm8150b_fg {
+		polling-delay-passive = <200>;
+		polling-delay = <200>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&pm8150b_fg>;
+
+		pm8150b_fg_trip1: pm8150b-fg-trip1 {
+			temperature = <40000>;
+			hysteresis = <0>;
+			type = "passive";
+		};
+		pm8150b_fg_trip2: pm8150b-fg-trip2 {
+			temperature = <45000>;
+			hysteresis = <0>;
+			type = "passive";
+		};
+		pm8150b_fg_trip3: pm8150b-fg-trip3 {
+			temperature = <55000>;
+			hysteresis = <0>;
+			type = "passive";
+		};
+	};
 };
