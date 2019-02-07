@@ -192,6 +192,51 @@
 			};
 		};
 
+		pmx_ts_active {
+			ts_active: ts_active {
+					mux {
+						pins = "gpio38", "gpio39";
+						function = "gpio";
+					};
+
+					config {
+						pins = "gpio38", "gpio39";
+						drive-strength = <8>;
+						bias-pull-up;
+					};
+			};
+		};
+
+		pmx_ts_int_suspend {
+			ts_int_suspend: ts_int_suspend {
+				mux {
+					pins = "gpio39";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio39";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
+
+		pmx_ts_reset_suspend {
+			ts_reset_suspend: ts_reset_suspend {
+				mux {
+					pins = "gpio38";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio38";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
+
 		ufs_dev_reset_assert: ufs_dev_reset_assert {
 			config {
 				pins = "ufs_reset";
