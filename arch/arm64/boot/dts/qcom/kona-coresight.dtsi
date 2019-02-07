@@ -2350,7 +2350,7 @@
 			};
 
 			port@2 {
-				reg = <1>;
+				reg = <3>;
 				funnel_apss_merg_in_tpda_apss: endpoint {
 					slave-mode;
 					remote-endpoint =
