@@ -277,7 +277,7 @@ static struct fg_mem_data fg_data[FG_DATA_MAX] = {
 
 static int fg_debug_mask;
 module_param_named(
-	debug_mask, fg_debug_mask, int, S_IRUSR | S_IWUSR
+	debug_mask, fg_debug_mask, int, 00600
 );
 
 static int fg_sense_type = -EINVAL;
@@ -285,17 +285,17 @@ static int fg_restart;
 
 static int fg_est_dump;
 module_param_named(
-	first_est_dump, fg_est_dump, int, S_IRUSR | S_IWUSR
+	first_est_dump, fg_est_dump, int, 00600
 );
 
 static char *fg_batt_type;
 module_param_named(
-	battery_type, fg_batt_type, charp, S_IRUSR | S_IWUSR
+	battery_type, fg_batt_type, charp, 00600
 );
 
 static int fg_sram_update_period_ms = 30000;
 module_param_named(
-	sram_update_period_ms, fg_sram_update_period_ms, int, S_IRUSR | S_IWUSR
+	sram_update_period_ms, fg_sram_update_period_ms, int, 00600
 );
 
 struct fg_irq {
@@ -528,7 +528,7 @@ struct fg_chip {
 #define MAX_REG_PER_TRANSACTION	(8)
 
 static const char *DFS_ROOT_NAME	= "fg_memif";
-static const mode_t DFS_MODE = S_IRUSR | S_IWUSR;
+static const mode_t DFS_MODE		= 00600;
 static const char *default_batt_type	= "Unknown Battery";
 static const char *loading_batt_type	= "Loading Battery Data";
 static const char *missing_batt_type	= "Disconnected Battery";
@@ -810,9 +810,8 @@ static int fg_release_access(struct fg_chip *chip)
 static void fg_release_access_if_necessary(struct fg_chip *chip)
 {
 	mutex_lock(&chip->rw_lock);
-	if (atomic_sub_return(1, &chip->memif_user_cnt) <= 0) {
+	if (atomic_sub_return(1, &chip->memif_user_cnt) <= 0)
 		fg_release_access(chip);
-	}
 	mutex_unlock(&chip->rw_lock);
 }
 
@@ -879,7 +878,7 @@ static int fg_sub_mem_read(struct fg_chip *chip, u8 *val, u16 address, int len,
 				MEM_INTF_RD_DATA0(chip) + offset,
 				min(len, BUF_LEN - offset));
 
-			/* manually set address to allow continous reads */
+			/* manually set address to allow continuous reads */
 			address += BUF_LEN;
 
 			rc = fg_set_ram_addr(chip, &address);
@@ -1102,8 +1101,8 @@ static int fg_check_ima_exception(struct fg_chip *chip)
 					IMA_IACS_CLR, 0, 1);
 		if (!ret)
 			return -EAGAIN;
-		else
-			pr_err("Error clearing IMA exception ret=%d\n", ret);
+
+		pr_err("Error clearing IMA exception ret=%d\n", ret);
 	}
 
 	return rc;
@@ -1123,14 +1122,13 @@ static int fg_check_iacs_ready(struct fg_chip *chip)
 	while (1) {
 		rc = fg_read(chip, &ima_opr_sts,
 			chip->mem_base + MEM_INTF_IMA_OPR_STS, 1);
-		if (!rc && (ima_opr_sts & IMA_IACS_RDY)) {
+		if (!rc && (ima_opr_sts & IMA_IACS_RDY))
 			break;
-		} else {
-			if (!(--timeout) || rc)
-				break;
-			/* delay for iacs_ready to be asserted */
-			usleep_range(5000, 7000);
-		}
+
+		if (!(--timeout) || rc)
+			break;
+		/* delay for iacs_ready to be asserted */
+		usleep_range(5000, 7000);
 	}
 
 	if (!timeout || rc) {
@@ -1155,19 +1153,18 @@ static int __fg_interleaved_mem_write(struct fg_chip *chip, u8 *val,
 					len, address, offset);
 
 	while (len > 0) {
-			num_bytes = (offset + len) > BUF_LEN ?
-				(BUF_LEN - offset) : len;
-			/* write to byte_enable */
-			for (i = offset; i < (offset + num_bytes); i++)
-				byte_enable |= BIT(i);
+		num_bytes = (offset + len) > BUF_LEN ?
+			(BUF_LEN - offset) : len;
+		/* write to byte_enable */
+		for (i = offset; i < (offset + num_bytes); i++)
+			byte_enable |= BIT(i);
 
-			rc = fg_write(chip, &byte_enable,
-				chip->mem_base + MEM_INTF_IMA_BYTE_EN, 1);
-			if (rc) {
-				pr_err("Unable to write to byte_en_reg rc=%d\n",
-								rc);
-				return rc;
-			}
+		rc = fg_write(chip, &byte_enable,
+			chip->mem_base + MEM_INTF_IMA_BYTE_EN, 1);
+		if (rc) {
+			pr_err("Unable to write to byte_en_reg rc=%d\n", rc);
+			return rc;
+		}
 			/* write data */
 		rc = fg_write(chip, word, MEM_INTF_WR_DATA0(chip) + offset,
 				num_bytes);
@@ -1184,6 +1181,7 @@ static int __fg_interleaved_mem_write(struct fg_chip *chip, u8 *val,
 		 */
 		if (!(byte_enable & BIT(3))) {
 			u8 dummy_byte = 0x0;
+
 			rc = fg_write(chip, &dummy_byte,
 				MEM_INTF_WR_DATA0(chip) + 3, 1);
 			if (rc) {
@@ -1552,7 +1550,6 @@ static void batt_to_setpoint_adc(int vbatt_mv, u8 *data)
 	val = DIV_ROUND_CLOSEST(vbatt_mv * 32768, 5000);
 	data[0] = val & 0xFF;
 	data[1] = val >> 8;
-	return;
 }
 
 static u8 batt_to_setpoint_8b(int vbatt_mv)
@@ -3239,6 +3236,7 @@ fail:
 static bool is_usb_present(struct fg_chip *chip)
 {
 	union power_supply_propval prop = {0,};
+
 	if (!chip->usb_psy)
 		chip->usb_psy = power_supply_get_by_name("usb");
 
@@ -3251,6 +3249,7 @@ static bool is_usb_present(struct fg_chip *chip)
 static bool is_dc_present(struct fg_chip *chip)
 {
 	union power_supply_propval prop = {0,};
+
 	if (!chip->dc_psy)
 		chip->dc_psy = power_supply_get_by_name("dc");
 
@@ -3634,10 +3633,8 @@ static void dump_sram(struct work_struct *work)
 				dump_sram);
 
 	buffer = devm_kzalloc(chip->dev, SRAM_DUMP_LEN, GFP_KERNEL);
-	if (buffer == NULL) {
-		pr_err("Can't allocate buffer\n");
+	if (buffer == NULL)
 		return;
-	}
 
 	rc = fg_read(chip, &rt_sts, INT_RT_STS(chip->soc_base), 1);
 	if (rc)
@@ -5697,10 +5694,8 @@ static int fg_memif_data_open(struct inode *inode, struct file *file)
 
 	/* Per file "transaction" data */
 	trans = kzalloc(sizeof(*trans), GFP_KERNEL);
-	if (!trans) {
-		pr_err("Unable to allocate memory for transaction data\n");
+	if (!trans)
 		return -ENOMEM;
-	}
 
 	/* Allocate log buffer */
 	log = kzalloc(logbufsize, GFP_KERNEL);
@@ -6043,7 +6038,7 @@ static struct dentry *fg_dfs_create_fs(void)
 
 	dbgfs_data.help_msg.size = strlen(dbgfs_data.help_msg.data);
 
-	file = debugfs_create_blob("help", S_IRUGO, root, &dbgfs_data.help_msg);
+	file = debugfs_create_blob("help", 0444, root, &dbgfs_data.help_msg);
 	if (!file) {
 		pr_err("error creating help entry\n");
 		goto err_remove_fs;
@@ -6650,10 +6645,9 @@ static int fg_probe(struct platform_device *pdev)
 	}
 
 	chip = devm_kzalloc(dev, sizeof(struct fg_chip), GFP_KERNEL);
-	if (chip == NULL) {
-		pr_err("Can't allocate fg_chip\n");
+	if (chip == NULL)
 		return -ENOMEM;
-	}
+
 	chip->regmap = dev_get_regmap(pdev->dev.parent, NULL);
 	if (!chip->regmap) {
 		dev_err(&pdev->dev, "Couldn't get parent's regmap\n");
