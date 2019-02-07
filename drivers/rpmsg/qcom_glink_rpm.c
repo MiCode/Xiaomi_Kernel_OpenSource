@@ -346,7 +346,7 @@ static int __init glink_rpm_init(void)
 {
 	return platform_driver_register(&glink_rpm_driver);
 }
-subsys_initcall(glink_rpm_init);
+postcore_initcall(glink_rpm_init);
 
 static void __exit glink_rpm_exit(void)
 {
