@@ -622,13 +622,35 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.qmenu = NULL,
 	},
 	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER,
+		.name = "Set Hier max layers",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 0,
+		.maximum = 6,
+		.default_value = 0,
+		.step = 1,
+		.menu_skip_mask = ~(
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER_0) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER_1) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER_2) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER_3) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER_4) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER_5) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER_6)
+		),
+	},
+	{
 		.id = V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_TYPE,
 		.name = "Set Hier coding type",
 		.type = V4L2_CTRL_TYPE_MENU,
-		.minimum = V4L2_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_B,
+		.minimum = V4L2_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_P,
 		.maximum = V4L2_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_P,
 		.default_value = V4L2_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_P,
-		.menu_skip_mask = 0,
+		.step = 1,
+		.menu_skip_mask = ~(
+		(1 << V4L2_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_P)
+		),
+		.qmenu = NULL,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L0_QP,
@@ -1738,11 +1760,21 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 					__func__);
 		}
 		break;
+	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_LAYER:
+		if (inst->state == MSM_VIDC_START_DONE) {
+			rc = msm_venc_set_hp_layer(inst);
+			if (rc)
+				dprintk(VIDC_ERR,
+					"%s: set dyn hp layer failed.\n",
+					__func__);
+		}
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER:
+	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_TYPE:
 	case V4L2_CID_MPEG_VIDEO_HEVC_P_FRAME_QP:
 	case V4L2_CID_MPEG_VIDEO_HEVC_B_FRAME_QP:
 	case V4L2_CID_MPEG_VIDEO_B_FRAMES:
 	case V4L2_CID_ROTATE:
-	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_LAYER:
 	case V4L2_CID_MPEG_VIDC_VIDEO_LTRCOUNT:
 	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:
 	case V4L2_CID_HFLIP:
@@ -2153,8 +2185,6 @@ int msm_venc_set_rate_control(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
-	struct v4l2_ctrl *hier_layers;
-	struct v4l2_ctrl *hier_type;
 	u32 hfi_rc;
 
 	if (!inst || !inst->core) {
@@ -2163,21 +2193,6 @@ int msm_venc_set_rate_control(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
-	if ((inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR) &&
-		(inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_H264)) {
-		hier_layers = get_ctrl(inst,
-			V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_LAYER);
-		hier_type = get_ctrl(inst,
-			V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_TYPE);
-		if (hier_layers->val &&
-			(hier_type->val ==
-			V4L2_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_P)){
-			dprintk(VIDC_ERR,
-				"%s: CBR_VFR not allowed with Hybrid HP\n",
-				__func__);
-			return -EINVAL;
-		}
-	}
 	switch (inst->rc_type) {
 	case RATE_CONTROL_OFF:
 		hfi_rc = HFI_RATE_CONTROL_OFF;
@@ -2653,27 +2668,10 @@ int msm_venc_set_au_delimiter_mode(struct msm_vidc_inst *inst)
 	return rc;
 }
 
-int msm_venc_hierp_check(struct msm_vidc_inst *inst, u32 value)
+int msm_venc_enable_hybrid_hp(struct msm_vidc_inst *inst)
 {
-	if (!inst) {
-		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
-		return -EINVAL;
-	}
-
-	if (value > inst->capability.hier_p.max) {
-		dprintk(VIDC_ERR,
-			"%s: hierp value (%d) > max supported (%d)\n",
-			__func__, value,
-			inst->capability.hier_p.max);
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-int msm_venc_hybrid_hp_check(struct msm_vidc_inst *inst, bool *hyb_hp)
-{
-	*hyb_hp = false;
+	struct v4l2_ctrl *ctrl = NULL;
+	struct v4l2_ctrl *layer = NULL;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -2683,8 +2681,32 @@ int msm_venc_hybrid_hp_check(struct msm_vidc_inst *inst, bool *hyb_hp)
 	if (inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_H264)
 		return 0;
 
-	if (inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_VBR)
-		*hyb_hp = true;
+	if (inst->rc_type != V4L2_MPEG_VIDEO_BITRATE_MODE_VBR)
+		return 0;
+
+	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_B_FRAMES);
+	if (ctrl->val)
+		return 0;
+
+	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_LTRCOUNT);
+	if (ctrl->val)
+		return 0;
+
+	ctrl = get_ctrl(inst,
+		V4L2_CID_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER);
+	layer = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_LAYER);
+	if (ctrl->val != layer->val)
+		return 0;
+
+	/*
+	 * Hybrid HP is enabled only for H264 when
+	 * LTR and B-frame are both disabled,
+	 * Rate control type is VBR and
+	 * Max layer equals layer count.
+	 */
+
+	inst->hybrid_hp = true;
+
 	return 0;
 }
 
@@ -2707,11 +2729,6 @@ int msm_venc_set_base_layer_id(struct msm_vidc_inst *inst)
 
 	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_BASELAYER_ID);
 	baselayerid = ctrl->val;
-	rc = msm_venc_hierp_check(inst, baselayerid);
-	if (rc) {
-		dprintk(VIDC_ERR, "%s: hierp check failed\n", __func__);
-		return rc;
-	}
 
 	dprintk(VIDC_DBG, "%s: %d\n", __func__, baselayerid);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
@@ -2723,14 +2740,12 @@ int msm_venc_set_base_layer_id(struct msm_vidc_inst *inst)
 	return rc;
 }
 
-int msm_venc_set_hierp_layers(struct msm_vidc_inst *inst)
+int msm_venc_set_hp_max_layer(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
-	u32 hierp_layers;
-	struct hfi_hybrid_hierp hyb_hierp;
-	bool hyb_hp;
+	u32 hp_layer = 0;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -2742,39 +2757,79 @@ int msm_venc_set_hierp_layers(struct msm_vidc_inst *inst)
 		inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_HEVC)
 		return 0;
 
-	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_TYPE);
+	ctrl = get_ctrl(inst,
+		V4L2_CID_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER);
 
-	rc = msm_venc_hierp_check(inst, ctrl->val);
+	rc = msm_venc_enable_hybrid_hp(inst);
 	if (rc) {
-		dprintk(VIDC_ERR, "%s: hierp check failed\n", __func__);
+		dprintk(VIDC_ERR, "%s: get hybrid hp decision failed\n",
+			__func__);
 		return rc;
 	}
 
-	rc = msm_venc_hybrid_hp_check(inst, &hyb_hp);
-	if (rc) {
-		dprintk(VIDC_ERR, "%s: hybrid hp check failed\n", __func__);
-		return rc;
-	}
+	/*
+	 * We send enhancement layer count to FW,
+	 * hence, input 0/1 indicates absence of layer encoding.
+	 */
+	if (ctrl->val)
+		hp_layer = ctrl->val - 1;
 
-	if (hyb_hp) {
-		hyb_hierp.layers = ctrl->val;
-		dprintk(VIDC_DBG, "%s: %d\n", __func__, hyb_hierp.layers);
+	if (inst->hybrid_hp) {
 		rc = call_hfi_op(hdev, session_set_property, inst->session,
 			HFI_PROPERTY_PARAM_VENC_HIER_P_HYBRID_MODE,
-			&hyb_hierp, sizeof(hyb_hierp));
-		if (rc)
-			dprintk(VIDC_ERR,
-				"%s: set property failed\n", __func__);
+			&hp_layer, sizeof(hp_layer));
 	} else {
-		hierp_layers = ctrl->val;
-		dprintk(VIDC_DBG, "%s: %d\n", __func__, hierp_layers);
 		rc = call_hfi_op(hdev, session_set_property, inst->session,
-			HFI_PROPERTY_CONFIG_VENC_HIER_P_ENH_LAYER,
-			&hierp_layers, sizeof(hierp_layers));
-		if (rc)
-			dprintk(VIDC_ERR,
-				"%s: set property failed\n", __func__);
+			HFI_PROPERTY_PARAM_VENC_HIER_P_MAX_NUM_ENH_LAYER,
+			&hp_layer, sizeof(hp_layer));
 	}
+	if (rc)
+		dprintk(VIDC_ERR,
+			"%s: set property failed\n", __func__);
+	return rc;
+}
+
+int msm_venc_set_hp_layer(struct msm_vidc_inst *inst)
+{
+	int rc = 0;
+	struct hfi_device *hdev;
+	struct v4l2_ctrl *ctrl = NULL;
+	u32 hp_layer = 0;
+
+	if (!inst || !inst->core) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+	hdev = inst->core->device;
+
+	if (inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_H264 &&
+		inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_HEVC)
+		return 0;
+
+	if (inst->hybrid_hp) {
+		dprintk(VIDC_WARN,
+			"%s: Setting layer isn't allowed with hybrid hp\n",
+			__func__);
+		return 0;
+	}
+
+	ctrl = get_ctrl(inst,
+		V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_LAYER);
+	/*
+	 * We send enhancement layer count to FW,
+	 * hence, input 0/1 indicates absence of layer encoding.
+	 */
+	if (ctrl->val)
+		hp_layer = ctrl->val - 1;
+
+	dprintk(VIDC_DBG, "%s: HP layer: %d\n", __func__, hp_layer);
+	rc = call_hfi_op(hdev, session_set_property, inst->session,
+		HFI_PROPERTY_CONFIG_VENC_HIER_P_ENH_LAYER,
+		&hp_layer, sizeof(hp_layer));
+	if (rc)
+		dprintk(VIDC_ERR,
+			"%s: set property failed\n", __func__);
+
 	return rc;
 }
 
@@ -3355,9 +3410,6 @@ int msm_venc_set_properties(struct msm_vidc_inst *inst)
 	rc = msm_venc_set_base_layer_id(inst);
 	if (rc)
 		goto exit;
-	rc = msm_venc_set_hierp_layers(inst);
-	if (rc)
-		goto exit;
 	rc = msm_venc_set_vpx_error_resilience(inst);
 	if (rc)
 		goto exit;
@@ -3377,6 +3429,12 @@ int msm_venc_set_properties(struct msm_vidc_inst *inst)
 	if (rc)
 		goto exit;
 	rc = msm_venc_set_ltr_mode(inst);
+	if (rc)
+		goto exit;
+	rc = msm_venc_set_hp_max_layer(inst);
+	if (rc)
+		goto exit;
+	rc = msm_venc_set_hp_layer(inst);
 	if (rc)
 		goto exit;
 	rc = msm_venc_set_aspect_ratio(inst);

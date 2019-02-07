@@ -473,6 +473,7 @@ struct msm_vidc_inst {
 	u32 grid_enable;
 	u32 frame_quality;
 	u32 rc_type;
+	u32 hybrid_hp;
 	struct internal_buf *dpb_extra_binfo;
 	struct msm_vidc_codec_data *codec_data;
 	struct hal_hdr10_pq_sei hdr10_sei_params;
