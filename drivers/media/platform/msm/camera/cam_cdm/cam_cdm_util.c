@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/types.h>
@@ -21,6 +21,7 @@
 #define CAM_CDM_REG_OFFSET_MASK 0x00FFFFFF
 
 #define CAM_CDM_DMI_DATA_HI_OFFSET   8
+#define CAM_CDM_DMI_DATA_OFFSET      8
 #define CAM_CDM_DMI_DATA_LO_OFFSET   12
 
 static unsigned int CDMCmdHeaderSizes[
@@ -434,6 +435,12 @@ static int cam_cdm_util_swd_dmi_write(uint32_t cdm_cmd_type,
 				swd_dmi->DMIAddr + CAM_CDM_DMI_DATA_HI_OFFSET);
 			data += 2;
 		}
+	} else if (cdm_cmd_type == CAM_CDM_CMD_DMI) {
+		for (i = 0; i < (swd_dmi->length + 1)/4; i++) {
+			cam_io_w_mb(data[0], base_addr +
+				swd_dmi->DMIAddr + CAM_CDM_DMI_DATA_OFFSET);
+			data += 1;
+		}
 	} else {
 		for (i = 0; i < (swd_dmi->length + 1)/4; i++) {
 			cam_io_w_mb(data[0], base_addr +
@@ -486,6 +493,7 @@ int cam_cdm_util_cmd_buf_write(void __iomem **current_device_base,
 			}
 			}
 			break;
+		case CAM_CDM_CMD_DMI:
 		case CAM_CDM_CMD_SWD_DMI_32:
 		case CAM_CDM_CMD_SWD_DMI_64: {
 			if (*current_device_base == 0) {
