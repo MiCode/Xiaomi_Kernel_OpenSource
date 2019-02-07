@@ -569,6 +569,7 @@ int ipa_wigig_conn_rx_pipe(struct ipa_wigig_conn_rx_in_params *in,
 		return ret;
 	}
 
+	memset(&pm_params, 0, sizeof(pm_params));
 	pm_params.name = "wigig";
 	pm_params.callback = ipa_wigig_pm_cb;
 	pm_params.user_data = NULL;
@@ -1070,6 +1071,7 @@ int ipa_wigig_conn_rx_pipe_smmu(
 		return ret;
 	}
 
+	memset(&pm_params, 0, sizeof(pm_params));
 	pm_params.name = "wigig";
 	pm_params.callback = ipa_wigig_pm_cb;
 	pm_params.user_data = NULL;
