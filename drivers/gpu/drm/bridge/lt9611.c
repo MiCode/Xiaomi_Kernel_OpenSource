@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1126,7 +1126,7 @@ static int lt9611_video_on(struct lt9611 *pdata, bool on)
 		lt9611_hdmi_tx_digital(pdata, cfg);
 		lt9611_hdmi_tx_phy(pdata, cfg);
 
-		msleep(500);
+		msleep(80);
 
 		lt9611_video_check(pdata);
 		lt9611_hdmi_output_enable(pdata);
