@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,6 +52,8 @@ extern struct diag_hsic_info diag_hsic[NUM_HSIC_DEV];
 
 int diag_hsic_init(void);
 void diag_hsic_exit(void);
+void diag_register_with_hsic(void);
+void diag_unregister_hsic(void);
 
 #endif
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, 2016-2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -533,6 +533,24 @@ void diag_hsic_exit(void)
 		if (ch->hsic_wq)
 			destroy_workqueue(ch->hsic_wq);
 	}
-	platform_driver_unregister(&msm_hsic_ch_driver);
 }
 
+void diag_register_with_hsic(void)
+{
+	int ret = 0;
+
+	ret = diag_remote_init();
+	if (ret)
+		return;
+
+	ret = diag_hsic_init();
+	if (ret)
+		diag_remote_exit();
+}
+
+void diag_unregister_hsic(void)
+{
+	platform_driver_unregister(&msm_hsic_ch_driver);
+	diag_hsic_exit();
+	diag_remote_exit();
+}
