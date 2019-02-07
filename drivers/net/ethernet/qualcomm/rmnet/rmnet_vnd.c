@@ -198,6 +198,27 @@ static const char rmnet_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"Checksum skipped",
 	"Checksum computed in software",
 	"Checksum computed in hardware",
+	"Coalescing packets received",
+	"Coalesced packets",
+	"Coalescing header NLO errors",
+	"Coalescing header pcount errors",
+	"Coalescing checksum errors",
+	"Coalescing packet reconstructs",
+	"Coalescing IP version invalid",
+	"Coalescing L4 header invalid",
+	"Coalescing close Non-coalescable",
+	"Coalescing close L3 mismatch",
+	"Coalescing close L4 mismatch",
+	"Coalescing close HW NLO limit",
+	"Coalescing close HW packet limit",
+	"Coalescing close HW byte limit",
+	"Coalescing close HW time limit",
+	"Coalescing close HW eviction",
+	"Coalescing close Coalescable",
+	"Coalescing packets over VEID0",
+	"Coalescing packets over VEID1",
+	"Coalescing packets over VEID2",
+	"Coalescing packets over VEID3",
 };
 
 static const char rmnet_port_gstrings_stats[][ETH_GSTRING_LEN] = {
@@ -319,6 +340,7 @@ int rmnet_vnd_newlink(u8 id, struct net_device *rmnet_dev,
 	rmnet_dev->hw_features = NETIF_F_RXCSUM;
 	rmnet_dev->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
 	rmnet_dev->hw_features |= NETIF_F_SG;
+	rmnet_dev->hw_features |= NETIF_F_GRO_HW;
 
 	priv->real_dev = real_dev;
 
