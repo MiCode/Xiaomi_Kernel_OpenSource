@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only */
 /* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
@@ -23,6 +23,7 @@ enum {
 	SOCKET_WCNSS,
 	SOCKET_SLPI,
 	SOCKET_CDSP,
+	SOCKET_NPU,
 	SOCKET_APPS,
 	NUM_SOCKET_SUBSYSTEMS,
 };

@@ -554,6 +554,89 @@ void diag_process_stm_mask(uint8_t cmd, uint8_t data_mask, int data_type)
 	}
 }
 
+static uint8_t diag_get_stm_peripheral_mask(void)
+{
+	uint8_t rsp_supported = 0;
+
+	if (driver->feature[PERIPHERAL_MODEM].stm_support)
+		rsp_supported |= DIAG_STM_MODEM;
+
+	if (driver->feature[PERIPHERAL_LPASS].stm_support)
+		rsp_supported |= DIAG_STM_LPASS;
+
+	if (driver->feature[PERIPHERAL_WCNSS].stm_support)
+		rsp_supported |= DIAG_STM_WCNSS;
+
+	if (driver->feature[PERIPHERAL_SENSORS].stm_support)
+		rsp_supported |= DIAG_STM_SENSORS;
+
+	if (driver->feature[PERIPHERAL_CDSP].stm_support)
+		rsp_supported |= DIAG_STM_CDSP;
+
+	if (driver->feature[PERIPHERAL_NPU].stm_support)
+		rsp_supported |= DIAG_STM_NPU;
+
+	rsp_supported |= DIAG_STM_APPS;
+
+	return rsp_supported;
+}
+
+static uint8_t diag_get_stm_state_for_peripherals(void)
+{
+	uint8_t rsp_status = 0;
+
+	if (driver->stm_state[PERIPHERAL_MODEM])
+		rsp_status |= DIAG_STM_MODEM;
+
+	if (driver->stm_state[PERIPHERAL_LPASS])
+		rsp_status |= DIAG_STM_LPASS;
+
+	if (driver->stm_state[PERIPHERAL_WCNSS])
+		rsp_status |= DIAG_STM_WCNSS;
+
+	if (driver->stm_state[PERIPHERAL_SENSORS])
+		rsp_status |= DIAG_STM_SENSORS;
+
+	if (driver->stm_state[PERIPHERAL_CDSP])
+		rsp_status |= DIAG_STM_CDSP;
+
+	if (driver->stm_state[PERIPHERAL_NPU])
+		rsp_status |= DIAG_STM_NPU;
+
+	if (driver->stm_state[APPS_DATA])
+		rsp_status |= DIAG_STM_APPS;
+
+	return rsp_status;
+}
+
+static void diag_process_stm_mask_for_peripherals(uint8_t cmd, uint8_t mask)
+{
+	if (mask & DIAG_STM_MODEM)
+		diag_process_stm_mask(cmd, DIAG_STM_MODEM,
+					      PERIPHERAL_MODEM);
+
+	if (mask & DIAG_STM_LPASS)
+		diag_process_stm_mask(cmd, DIAG_STM_LPASS,
+					      PERIPHERAL_LPASS);
+
+	if (mask & DIAG_STM_WCNSS)
+		diag_process_stm_mask(cmd, DIAG_STM_WCNSS,
+					      PERIPHERAL_WCNSS);
+
+	if (mask & DIAG_STM_SENSORS)
+		diag_process_stm_mask(cmd, DIAG_STM_SENSORS,
+						PERIPHERAL_SENSORS);
+	if (mask & DIAG_STM_CDSP)
+		diag_process_stm_mask(cmd, DIAG_STM_CDSP,
+						PERIPHERAL_CDSP);
+	if (mask & DIAG_STM_NPU)
+		diag_process_stm_mask(cmd, DIAG_STM_NPU,
+						PERIPHERAL_NPU);
+
+	if (mask & DIAG_STM_APPS)
+		diag_process_stm_mask(cmd, DIAG_STM_APPS, APPS_DATA);
+}
+
 int diag_process_stm_cmd(unsigned char *buf, unsigned char *dest_buf)
 {
 	uint8_t version, mask, cmd;
@@ -583,69 +666,17 @@ int diag_process_stm_cmd(unsigned char *buf, unsigned char *dest_buf)
 		for (i = 0; i < STM_CMD_NUM_BYTES; i++)
 			dest_buf[i+1] = *(buf + i);
 		return STM_CMD_NUM_BYTES+1;
-	} else if (cmd != STATUS_STM && cmd != STM_AUTO_QUERY) {
-		if (mask & DIAG_STM_MODEM)
-			diag_process_stm_mask(cmd, DIAG_STM_MODEM,
-					      PERIPHERAL_MODEM);
-
-		if (mask & DIAG_STM_LPASS)
-			diag_process_stm_mask(cmd, DIAG_STM_LPASS,
-					      PERIPHERAL_LPASS);
-
-		if (mask & DIAG_STM_WCNSS)
-			diag_process_stm_mask(cmd, DIAG_STM_WCNSS,
-					      PERIPHERAL_WCNSS);
-
-		if (mask & DIAG_STM_SENSORS)
-			diag_process_stm_mask(cmd, DIAG_STM_SENSORS,
-						PERIPHERAL_SENSORS);
-		if (mask & DIAG_STM_CDSP)
-			diag_process_stm_mask(cmd, DIAG_STM_CDSP,
-						PERIPHERAL_CDSP);
-
-		if (mask & DIAG_STM_APPS)
-			diag_process_stm_mask(cmd, DIAG_STM_APPS, APPS_DATA);
-	}
+	} else if (cmd != STATUS_STM && cmd != STM_AUTO_QUERY)
+		diag_process_stm_mask_for_peripherals(cmd, mask);
 
 	for (i = 0; i < STM_CMD_NUM_BYTES; i++)
 		dest_buf[i] = *(buf + i);
 
 	/* Set mask denoting which peripherals support STM */
-	if (driver->feature[PERIPHERAL_MODEM].stm_support)
-		rsp_supported |= DIAG_STM_MODEM;
-
-	if (driver->feature[PERIPHERAL_LPASS].stm_support)
-		rsp_supported |= DIAG_STM_LPASS;
-
-	if (driver->feature[PERIPHERAL_WCNSS].stm_support)
-		rsp_supported |= DIAG_STM_WCNSS;
-
-	if (driver->feature[PERIPHERAL_SENSORS].stm_support)
-		rsp_supported |= DIAG_STM_SENSORS;
-
-	if (driver->feature[PERIPHERAL_CDSP].stm_support)
-		rsp_supported |= DIAG_STM_CDSP;
-
-	rsp_supported |= DIAG_STM_APPS;
+	rsp_supported = diag_get_stm_peripheral_mask();
 
 	/* Set mask denoting STM state/status for each peripheral/APSS */
-	if (driver->stm_state[PERIPHERAL_MODEM])
-		rsp_status |= DIAG_STM_MODEM;
-
-	if (driver->stm_state[PERIPHERAL_LPASS])
-		rsp_status |= DIAG_STM_LPASS;
-
-	if (driver->stm_state[PERIPHERAL_WCNSS])
-		rsp_status |= DIAG_STM_WCNSS;
-
-	if (driver->stm_state[PERIPHERAL_SENSORS])
-		rsp_status |= DIAG_STM_SENSORS;
-
-	if (driver->stm_state[PERIPHERAL_CDSP])
-		rsp_status |= DIAG_STM_CDSP;
-
-	if (driver->stm_state[APPS_DATA])
-		rsp_status |= DIAG_STM_APPS;
+	rsp_status = diag_get_stm_state_for_peripherals();
 
 	dest_buf[STM_RSP_SUPPORTED_INDEX] = rsp_supported;
 	dest_buf[STM_RSP_STATUS_INDEX] = rsp_status;
