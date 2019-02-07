@@ -196,7 +196,7 @@ out:									\
 		mutex_lock(&opts->lock);				\
 		max = gether_get_ul_max_pkts_per_xfer(opts->net);	\
 		mutex_unlock(&opts->lock);				\
-		return scnprintf(page, "%d\n", max);			\
+		return scnprintf(page, PAGE_SIZE, "%d\n", max);		\
 	}								\
 									\
 	static ssize_t							\

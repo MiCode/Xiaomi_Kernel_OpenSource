@@ -1137,7 +1137,7 @@ int rndis_rm_hdr(struct gether *port,
 		}
 
 		if (skb->len < sizeof(*hdr)) {
-			pr_err("invalid rndis pkt: skblen:%u hdr_len:%u\n",
+			pr_err("invalid rndis pkt: skblen:%u hdr_len:%lu\n",
 					skb->len, sizeof(*hdr));
 			dev_kfree_skb_any(skb);
 			return -EINVAL;
