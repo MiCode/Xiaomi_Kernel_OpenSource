@@ -1,0 +1,96 @@
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+#include "trinket-audio-overlay.dtsi"
+
+&bolero {
+	status = "disabled";
+};
+
+&wcd937x_codec {
+	status = "disabled";
+};
+
+&wcd937x_rst_gpio{
+	status = "disabled";
+};
+
+&cdc_dmic01_gpios {
+	status = "disabled";
+};
+
+&cdc_dmic23_gpios {
+	status = "disabled";
+};
+
+&clock_audio_wsa_1 {
+	status = "disabled";
+};
+
+&clock_audio_wsa_2 {
+	status = "disabled";
+};
+
+&clock_audio_va {
+	status = "disabled";
+};
+
+&clock_audio_rx_1 {
+	status = "disabled";
+};
+
+&clock_audio_rx_2 {
+	status = "disabled";
+};
+
+&clock_audio_tx_1 {
+	status = "disabled";
+};
+
+&clock_audio_tx_2 {
+	status = "disabled";
+};
+
+&wsa_spkr_en1 {
+	status = "disabled";
+};
+
+&rx_swr_gpios {
+	status = "disabled";
+};
+
+&slim_aud {
+	status = "okay";
+};
+
+&dai_slim {
+	status = "okay";
+};
+
+&wcd9335 {
+	status = "okay";
+};
+
+&clock_audio {
+	status = "okay";
+};
+
+&clock_audio_native {
+	status = "okay";
+};
+
+&wcd_rst_gpio {
+	status = "okay";
+};
+
+&wcd9xxx_intc {
+	status = "okay";
+};

@@ -73,16 +73,6 @@ static struct freq_tbl cxo_f = {
 	.n = 0,
 };
 
-static void update_src_map(struct clk_hw *hw)
-{
-	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
-	int i, num_parents = clk_hw_get_num_parents(hw);
-
-	for (i = 0; i < num_parents; i++)
-		if (!rcg->parent_map[i].cfg)
-			cxo_f.src = rcg->parent_map[i].src;
-}
-
 static int clk_rcg2_is_enabled(struct clk_hw *hw)
 {
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
@@ -147,8 +137,7 @@ static int update_config(struct clk_rcg2 *rcg, u32 cfg)
 
 	WARN_CLK(hw->core, name, count == 0,
 			"rcg didn't update its configuration.");
-
-	return 0;
+	return -EBUSY;
 }
 
 static int clk_rcg2_set_parent(struct clk_hw *hw, u8 index)
@@ -479,6 +468,8 @@ static int clk_rcg2_configure(struct clk_rcg2 *rcg, const struct freq_tbl *f)
 	cfg |= rcg->parent_map[index].cfg << CFG_SRC_SEL_SHIFT;
 	if (rcg->mnd_width && f->n && (f->m != f->n))
 		cfg |= CFG_MODE_DUAL_EDGE;
+	if (rcg->flags & HW_CLK_CTRL_MODE)
+		cfg |= CFG_HW_CLK_CTRL_MASK;
 	ret = regmap_update_bits(rcg->clkr.regmap,
 			rcg->cmd_rcgr + rcg->cfg_off + CFG_REG, mask, cfg);
 	if (ret)
@@ -556,12 +547,6 @@ static int __clk_rcg2_set_rate(struct clk_hw *hw, unsigned long rate,
 	};
 	if (!f)
 		return -EINVAL;
-
-	/*
-	 * Set the correct source value for CXO as per
-	 * as per defined parent map.
-	 */
-	update_src_map(hw);
 
 	/*
 	 * Return if the RCG is currently disabled. This configuration update
@@ -642,6 +627,9 @@ static int clk_rcg2_prepare(struct clk_hw *hw)
 	u32 cfg;
 	int ret;
 
+	if (rcg->flags & HW_CLK_CTRL_MODE)
+		return 0;
+
 	ret = regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + CFG_REG, &cfg);
 	if (ret)
 		return ret;
@@ -663,12 +651,6 @@ static int clk_rcg2_enable(struct clk_hw *hw)
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
 	unsigned long rate;
 	const struct freq_tbl *f;
-
-	/*
-	 * Set the correct source value for CXO as per
-	 * as per defined parent map.
-	 */
-	update_src_map(hw);
 
 	if (rcg->flags & FORCE_ENABLE_RCG) {
 		clk_rcg2_set_force_enable(hw);
@@ -710,12 +692,6 @@ static int clk_rcg2_enable(struct clk_hw *hw)
 static void clk_rcg2_disable(struct clk_hw *hw)
 {
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
-
-	/*
-	 * Set the correct source value for CXO as per
-	 * as per defined parent map.
-	 */
-	update_src_map(hw);
 
 	if (rcg->flags & FORCE_ENABLE_RCG) {
 		clk_rcg2_clear_force_enable(hw);

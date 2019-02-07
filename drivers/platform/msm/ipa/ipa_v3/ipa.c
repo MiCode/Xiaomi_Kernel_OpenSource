@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -4489,8 +4489,10 @@ static int ipa3_panic_notifier(struct notifier_block *this,
 	if (res)
 		IPAERR("uC panic handler failed %d\n", res);
 
-	if (atomic_read(&ipa3_ctx->ipa3_active_clients.cnt) != 0)
+	if (atomic_read(&ipa3_ctx->ipa3_active_clients.cnt) != 0) {
 		ipahal_print_all_regs(false);
+		ipa_save_registers();
+	}
 
 	return NOTIFY_DONE;
 }
@@ -4901,7 +4903,7 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 
 	ipa3_register_panic_hdlr();
 
-	ipa3_debugfs_init();
+	ipa3_debugfs_post_init();
 
 	mutex_lock(&ipa3_ctx->lock);
 	ipa3_ctx->ipa_initialization_complete = true;
@@ -5025,13 +5027,14 @@ static void ipa3_load_ipa_fw(struct work_struct *work)
 
 	IPADBG("Entry\n");
 
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+
 	result = ipa3_attach_to_smmu();
 	if (result) {
 		IPAERR("IPA attach to smmu failed %d\n", result);
+		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 		return;
 	}
-
-	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_EMULATION &&
 	    ((ipa3_ctx->platform_type != IPA_PLAT_TYPE_MDM) ||
@@ -5068,7 +5071,6 @@ static void ipa3_load_ipa_fw(struct work_struct *work)
 		if (result) {
 			IPAERR("IPA uC loading process has failed result=%d\n",
 				result);
-			ipa3_proxy_clk_unvote();
 			return;
 		}
 		IPADBG("IPA uC PIL loading succeeded\n");
@@ -5338,6 +5340,13 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->mhi_evid_limits[1] = resource_p->mhi_evid_limits[1];
 	ipa3_ctx->uc_mailbox17_chk = 0;
 	ipa3_ctx->uc_mailbox17_mismatch = 0;
+	ipa3_ctx->entire_ipa_block_size = resource_p->entire_ipa_block_size;
+	ipa3_ctx->do_register_collection_on_crash =
+	    resource_p->do_register_collection_on_crash;
+	ipa3_ctx->do_testbus_collection_on_crash =
+	    resource_p->do_testbus_collection_on_crash;
+	ipa3_ctx->do_non_tn_collection_on_crash =
+	    resource_p->do_non_tn_collection_on_crash;
 
 	WARN(ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_NORMAL,
 		"Non NORMAL IPA HW mode, is this emulation platform ?");
@@ -5409,7 +5418,8 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 				ipa3_ctx->ctrl->msm_bus_data_ptr);
 		if (!ipa3_ctx->ipa_bus_hdl) {
 			IPAERR("fail to register with bus mgr!\n");
-			result = -ENODEV;
+			ipa3_ctx->ctrl->msm_bus_data_ptr = NULL;
+			result = -EPROBE_DEFER;
 			goto fail_bus_reg;
 		}
 	}
@@ -5454,6 +5464,14 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	    resource_p->ipa_mem_base + ipa3_ctx->ctrl->ipa_reg_base_ofst,
 	    ipa3_ctx->mmio,
 	    resource_p->ipa_mem_size);
+
+	/*
+	 * Setup access for register collection/dump on crash
+	 */
+	if (ipa_reg_save_init(0xFF) != 0) {
+		result = -EFAULT;
+		goto fail_gsi_map;
+	}
 
 	/*
 	 * Since we now know where the transport's registers live,
@@ -5648,6 +5666,8 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_device_create;
 	}
 
+	ipa3_debugfs_pre_init();
+
 	/* Create a wakeup source. */
 	wakeup_source_init(&ipa3_ctx->w_lock, "IPA_WS");
 	spin_lock_init(&ipa3_ctx->wakelock_ref_cnt.spinlock);
@@ -5793,6 +5813,8 @@ fail_init_hw:
 fail_ipahal_init:
 	gsi_unmap_base();
 fail_gsi_map:
+	if (ipa3_ctx->reg_collection_base)
+		iounmap(ipa3_ctx->reg_collection_base);
 	iounmap(ipa3_ctx->mmio);
 fail_remap:
 	ipa3_disable_clks();
@@ -6261,6 +6283,50 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 		       ipa_drv_res->emulator_intcntrlr_mem_size);
 	}
 
+	result = of_property_read_u32(pdev->dev.of_node,
+				      "qcom,entire-ipa-block-size",
+				      &ipa_drv_res->entire_ipa_block_size);
+	if (result || ipa_drv_res->entire_ipa_block_size == 0)
+		ipa_drv_res->entire_ipa_block_size = 0x100000;
+
+	IPADBG(": entire_ipa_block_size = %d\n",
+	       ipa_drv_res->entire_ipa_block_size);
+
+	/*
+	 * We'll read register-collection-on-crash here, but log it
+	 * later below because its value may change based on other
+	 * subsequent dtsi reads......
+	 */
+	ipa_drv_res->do_register_collection_on_crash =
+	    of_property_read_bool(pdev->dev.of_node,
+				  "qcom,register-collection-on-crash");
+	/*
+	 * We'll read testbus-collection-on-crash here...
+	 */
+	ipa_drv_res->do_testbus_collection_on_crash =
+	    of_property_read_bool(pdev->dev.of_node,
+				  "qcom,testbus-collection-on-crash");
+	IPADBG(": doing testbus collection on crash = %s\n",
+	       ipa_drv_res->do_testbus_collection_on_crash ? "True":"False");
+
+	if (ipa_drv_res->do_testbus_collection_on_crash)
+		ipa_drv_res->do_register_collection_on_crash = true;
+
+	/*
+	 * We'll read non-tn-collection-on-crash here...
+	 */
+	ipa_drv_res->do_non_tn_collection_on_crash =
+	    of_property_read_bool(pdev->dev.of_node,
+				  "qcom,non-tn-collection-on-crash");
+	IPADBG(": doing non-tn collection on crash = %s\n",
+	       ipa_drv_res->do_non_tn_collection_on_crash ? "True":"False");
+
+	if (ipa_drv_res->do_non_tn_collection_on_crash)
+		ipa_drv_res->do_register_collection_on_crash = true;
+
+	IPADBG(": doing register collection on crash = %s\n",
+	       ipa_drv_res->do_register_collection_on_crash ? "True":"False");
+
 	return 0;
 }
 
@@ -6514,6 +6580,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	const u32 *add_map;
 	void *smem_addr;
 	size_t smem_size;
+	u32 ipa_smem_size = 0;
 	int ret;
 	int i;
 	unsigned long iova_p;
@@ -6643,10 +6710,19 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 		}
 	}
 
+	ret = of_property_read_u32(dev->of_node, "qcom,ipa-q6-smem-size",
+					&ipa_smem_size);
+	if (ret) {
+		IPADBG("ipa q6 smem size (default) = %zu\n", IPA_SMEM_SIZE);
+		ipa_smem_size = IPA_SMEM_SIZE;
+	} else {
+		IPADBG("ipa q6 smem size = %zu\n", ipa_smem_size);
+	}
+
 	/* map SMEM memory for IPA table accesses */
 	ret = qcom_smem_alloc(SMEM_MODEM,
 		SMEM_IPA_FILTER_TABLE,
-		IPA_SMEM_SIZE);
+		ipa_smem_size);
 
 	if (ret < 0 && ret != -EEXIST) {
 		IPAERR("unable to allocate smem MODEM entry\n");
@@ -6661,11 +6737,14 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 		cb->valid = false;
 		return -EFAULT;
 	}
+	if (smem_size != ipa_smem_size)
+		IPAERR("unexpected read q6 smem size %zu %zu\n",
+			smem_size, ipa_smem_size);
 
 	iova = qcom_smem_virt_to_phys(smem_addr);
 	pa = iova;
 
-	IPA_SMMU_ROUND_TO_PAGE(iova, pa, IPA_SMEM_SIZE,
+	IPA_SMMU_ROUND_TO_PAGE(iova, pa, ipa_smem_size,
 				iova_p, pa_p, size_p);
 			IPADBG("mapping 0x%lx to 0x%pa size %d\n",
 				iova_p, &pa_p, size_p);
@@ -6783,6 +6862,10 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 	IPADBG("dev->of_node->name = %s\n", dev->of_node->name);
 
 	if (of_device_is_compatible(dev->of_node, "qcom,ipa-smmu-ap-cb")) {
+		if (ipa3_ctx == NULL) {
+			IPAERR("ipa3_ctx was not initialized\n");
+			return -EPROBE_DEFER;
+		}
 		cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_AP);
 		cb->dev = dev;
 		smmu_info.present[IPA_SMMU_CB_AP] = true;
@@ -6791,6 +6874,10 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 	}
 
 	if (of_device_is_compatible(dev->of_node, "qcom,ipa-smmu-wlan-cb")) {
+		if (ipa3_ctx == NULL) {
+			IPAERR("ipa3_ctx was not initialized\n");
+			return -EPROBE_DEFER;
+		}
 		cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_WLAN);
 		cb->dev = dev;
 		smmu_info.present[IPA_SMMU_CB_WLAN] = true;
@@ -6799,6 +6886,10 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 	}
 
 	if (of_device_is_compatible(dev->of_node, "qcom,ipa-smmu-uc-cb")) {
+		if (ipa3_ctx == NULL) {
+			IPAERR("ipa3_ctx was not initialized\n");
+			return -EPROBE_DEFER;
+		}
 		cb =  ipa3_get_smmu_ctx(IPA_SMMU_CB_UC);
 		cb->dev = dev;
 		smmu_info.present[IPA_SMMU_CB_UC] = true;

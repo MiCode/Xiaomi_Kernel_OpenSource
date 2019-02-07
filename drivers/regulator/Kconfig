@@ -337,6 +337,15 @@ config REGULATOR_ISL6271A
 	help
 	  This driver supports ISL6271A voltage regulator chip.
 
+config REGULATOR_PM8008
+	bool "Qualcomm Technologies Inc. PM8008 regulator driver"
+	depends on MFD_I2C_PMIC
+	help
+	  Say Y here to support the PM8008 PMIC chip.
+	  This driver controls PM8008 PMIC chip and the voltage
+	  regulators found in Qualcomm Technologies Inc. PM8008
+	  PMIC.
+
 config REGULATOR_LM363X
 	tristate "TI LM363X voltage regulators"
 	depends on MFD_TI_LMU

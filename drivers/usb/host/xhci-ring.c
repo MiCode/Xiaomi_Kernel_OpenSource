@@ -362,13 +362,13 @@ static int xhci_abort_cmd_ring(struct xhci_hcd *xhci, unsigned long flags)
 			&xhci->op_regs->cmd_ring);
 
 	/* Section 4.6.1.2 of xHCI 1.0 spec says software should also time the
-	 * completion of the Command Abort operation. If CRR is not negated in 5
-	 * seconds then driver handles it as if host died (-ENODEV).
+	 * completion of the Command Abort operation. If CRR is not negated in a
+	 * timely manner then driver handles it as if host died (-ENODEV).
 	 * In the future we should distinguish between -ENODEV and -ETIMEDOUT
 	 * and try to recover a -ETIMEDOUT with a host controller reset.
 	 */
-	ret = xhci_handshake(&xhci->op_regs->cmd_ring,
-			CMD_RING_RUNNING, 0, 5 * 1000 * 1000);
+	ret = xhci_handshake(xhci, &xhci->op_regs->cmd_ring,
+			CMD_RING_RUNNING, 0, 1000 * 1000);
 	if (ret < 0) {
 		xhci_err(xhci, "Abort failed to stop command ring: %d\n", ret);
 		xhci_halt(xhci);
@@ -1568,6 +1568,35 @@ static void handle_device_notification(struct xhci_hcd *xhci,
 		usb_wakeup_notification(udev->parent, udev->portnum);
 }
 
+/*
+ * Quirk hanlder for errata seen on Cavium ThunderX2 processor XHCI
+ * Controller.
+ * As per ThunderX2errata-129 USB 2 device may come up as USB 1
+ * If a connection to a USB 1 device is followed by another connection
+ * to a USB 2 device.
+ *
+ * Reset the PHY after the USB device is disconnected if device speed
+ * is less than HCD_USB3.
+ * Retry the reset sequence max of 4 times checking the PLL lock status.
+ *
+ */
+static void xhci_cavium_reset_phy_quirk(struct xhci_hcd *xhci)
+{
+	struct usb_hcd *hcd = xhci_to_hcd(xhci);
+	u32 pll_lock_check;
+	u32 retry_count = 4;
+
+	do {
+		/* Assert PHY reset */
+		writel(0x6F, hcd->regs + 0x1048);
+		udelay(10);
+		/* De-assert the PHY reset */
+		writel(0x7F, hcd->regs + 0x1048);
+		udelay(200);
+		pll_lock_check = readl(hcd->regs + 0x1070);
+	} while (!(pll_lock_check & 0x1) && --retry_count);
+}
+
 static void handle_port_status(struct xhci_hcd *xhci,
 		union xhci_trb *event)
 {
@@ -1717,7 +1746,7 @@ static void handle_port_status(struct xhci_hcd *xhci,
 	 * RExit to a disconnect state).  If so, let the the driver know it's
 	 * out of the RExit state.
 	 */
-	if (!DEV_SUPERSPEED_ANY(portsc) &&
+	if (!DEV_SUPERSPEED_ANY(portsc) && hcd->speed < HCD_USB3 &&
 			test_and_clear_bit(faked_port_index,
 				&bus_state->rexit_ports)) {
 		complete(&bus_state->rexit_done[faked_port_index]);
@@ -1725,9 +1754,13 @@ static void handle_port_status(struct xhci_hcd *xhci,
 		goto cleanup;
 	}
 
-	if (hcd->speed < HCD_USB3)
+	if (hcd->speed < HCD_USB3) {
 		xhci_test_and_clear_bit(xhci, port_array, faked_port_index,
 					PORT_PLC);
+		if ((xhci->quirks & XHCI_RESET_PLL_ON_DISCONNECT) &&
+		    (portsc & PORT_CSC) && !(portsc & PORT_CONNECT))
+			xhci_cavium_reset_phy_quirk(xhci);
+	}
 
 cleanup:
 	/* Update event ring dequeue pointer before dropping the lock */
@@ -2335,6 +2368,7 @@ static int handle_tx_event(struct xhci_hcd *xhci,
 			goto cleanup;
 		case COMP_RING_UNDERRUN:
 		case COMP_RING_OVERRUN:
+		case COMP_STOPPED_LENGTH_INVALID:
 			goto cleanup;
 		default:
 			xhci_err(xhci, "ERROR Transfer event for unknown stream ring slot %u ep %u\n",

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -158,6 +158,14 @@ struct vidc_input_cr_data {
 	u32 input_cr;
 };
 
+struct vidc_tag_data {
+	struct list_head list;
+	u32 index;
+	u32 type;
+	u32 input_tag;
+	u32 output_tag;
+};
+
 struct recon_buf {
 	struct list_head list;
 	u32 buffer_index;
@@ -241,6 +249,8 @@ struct msm_vidc_platform_data {
 	struct msm_vidc_csc_coeff csc_data;
 	struct msm_vidc_efuse_data *efuse_data;
 	unsigned int efuse_data_length;
+	struct msm_vidc_ubwc_config *ubwc_config;
+	unsigned int ubwc_config_length;
 	unsigned int sku_version;
 	phys_addr_t gcc_register_base;
 	uint32_t gcc_register_size;
@@ -431,6 +441,7 @@ struct msm_vidc_inst {
 	struct buf_queue bufq[MAX_PORT_NUM];
 	struct msm_vidc_list freqs;
 	struct msm_vidc_list input_crs;
+	struct msm_vidc_list buffer_tags;
 	struct msm_vidc_list scratchbufs;
 	struct msm_vidc_list persistbufs;
 	struct msm_vidc_list pending_getpropq;
@@ -517,6 +528,7 @@ struct msm_vidc_buffer {
 	struct msm_smem smem[VIDEO_MAX_PLANES];
 	struct vb2_v4l2_buffer vvb;
 	enum msm_vidc_flags flags;
+	u32 output_tag;
 };
 
 struct msm_vidc_cvp_buffer {

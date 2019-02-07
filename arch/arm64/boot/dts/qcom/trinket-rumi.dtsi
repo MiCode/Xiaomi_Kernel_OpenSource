@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,12 +45,7 @@
 	};
 };
 
-&qupv3_se4_2uart {
-	status = "ok";
-};
-
 &usb0 {
-	extcon = <0>;
 	dwc3@4e00000 {
 		usb-phy = <&usb_emu_phy>, <&usb_nop_phy>;
 		maximum-speed = "high-speed";
@@ -103,7 +98,7 @@
 	/delete-node/ camera-lowf;
 	/delete-node/ video-lowf;
 	/delete-node/ cpu-1-0-lowf;
-	/delete-node/ cpu-0-0-lowf;
+	/delete-node/ cpuss-2-lowf;
 	/delete-node/ mdm-core-lowf;
 	/delete-node/ display-lowf;
 	/delete-node/ gpu-lowf;
@@ -154,5 +149,39 @@
 
 	/delete-property/qcom,devfreq,freq-table;
 
+	status = "ok";
+};
+
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qrbtc-sdm845";
+
+	vdda-phy-supply = <&pm6125_l4>; /* 0.9v */
+	vdda-pll-supply = <&pm6125_l10>; /* 1.8v */
+	vdda-phy-max-microamp = <51400>;
+	vdda-pll-max-microamp = <14200>;
+
+	status = "ok";
+};
+
+&ufshc_mem {
+	limit-tx-hs-gear = <1>;
+	limit-rx-hs-gear = <1>;
+	scsi-cmd-timeout = <300000>;
+
+	vdd-hba-supply = <&ufs_phy_gdsc>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm6125_l24>;
+	vccq2-supply = <&pm6125_l11>;
+	vcc-max-microamp = <600000>;
+	vccq2-max-microamp = <600000>;
+
+	qcom,vddp-ref-clk-supply = <&pm6125_l18>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+	qcom,vddp-ref-clk-min-uV = <1232000>;
+	qcom,vddp-ref-clk-max-uV = <1232000>;
+
+	qcom,disable-lpm;
+	rpm-level = <0>;
+	spm-level = <0>;
 	status = "ok";
 };

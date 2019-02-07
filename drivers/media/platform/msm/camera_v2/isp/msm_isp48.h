@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016, 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,7 +22,7 @@ enum msm_vfe_clk_rates {
 	MSM_VFE_MAX_CLK_RATES = 3,
 };
 
-#define MSM_VFE48_HW_VERSION 0x8
+#define MSM_VFE48_HW_VERSION 0x9
 #define MSM_VFE48_HW_VERSION_SHIFT 28
 #define MSM_VFE48_HW_VERSION_MASK 0xF
 

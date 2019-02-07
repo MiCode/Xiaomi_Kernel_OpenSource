@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -205,6 +205,96 @@
 		};
 	};
 
+	mdss_rgb: qcom,mdss_rgb@0 {
+		compatible = "qcom,mdss-rgb";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		ranges = <0x1a94400 0x1a94400 0x280
+			0x1a94b80 0x1a94b80 0x30
+			0x193e000 0x193e000 0x30>;
+
+		reg = <0x1a94400 0x280>,
+			<0x1a94b80 0x30>,
+			<0x193e000 0x30>;
+		reg-names = "dsi_phy",
+		      "dsi_phy_regulator", "mmss_misc_phys";
+
+		gdsc-supply = <&gdsc_mdss>;
+		vdda-1p2-supply = <&pms405_l4>;
+		vdda-1p8-supply = <&pms405_l5>;
+		vddio-supply = <&pms405_l6>;
+
+		/* Bus Scale Settings */
+		qcom,msm-bus,name = "mdss_rgb";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<22 512 0 0>,
+			<22 512 0 1000>;
+
+		clocks = <&clock_gcc_mdss MDSS_MDP_VOTE_CLK>,
+			<&clock_gcc GCC_MDSS_AHB_CLK>,
+			<&clock_gcc GCC_MDSS_AXI_CLK>,
+			<&mdss_dsi0_pll BYTECLK_SRC_0_CLK>,
+			<&mdss_dsi0_pll PCLK_SRC_0_CLK>,
+			<&clock_gcc_mdss GCC_MDSS_BYTE0_CLK>,
+			<&clock_gcc_mdss GCC_MDSS_PCLK0_CLK>,
+			<&clock_gcc GCC_MDSS_ESC0_CLK>,
+			<&clock_gcc_mdss BYTE0_CLK_SRC>,
+			<&clock_gcc_mdss PCLK0_CLK_SRC>;
+		clock-names = "mdp_core_clk", "iface_clk", "bus_clk",
+			"ext_byte0_clk", "ext_pixel0_clk",
+			"byte_clk", "pixel_clk", "core_clk",
+			"byte_clk_rcg", "pixel_clk_rcg";
+
+		qcom,mdss-fb-map = <&mdss_fb0>;
+		qcom,mdss-mdp = <&mdss_mdp>;
+
+		qcom,core-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,core-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "gdsc";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+		};
+
+		qcom,ctrl-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,ctrl-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vdda-1p2";
+				qcom,supply-min-voltage = <1200000>;
+				qcom,supply-max-voltage = <1200000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+				qcom,supply-post-on-sleep = <20>;
+			};
+		};
+
+		qcom,phy-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,phy-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vdda-1p8";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+			};
+		};
+	};
+
 	mdss_dsi: qcom,mdss_dsi@0 {
 		compatible = "qcom,mdss-dsi";
 		hw-config = "single_dsi";
@@ -366,6 +456,7 @@
 	};
 
 	qcom,mdss_wb_panel {
+		status = "disabled";
 		compatible = "qcom,mdss_wb";
 		qcom,mdss_pan_res = <640 640>;
 		qcom,mdss_pan_bpp = <24>;

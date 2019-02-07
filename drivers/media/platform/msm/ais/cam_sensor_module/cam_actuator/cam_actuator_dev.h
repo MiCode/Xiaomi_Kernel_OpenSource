@@ -108,6 +108,7 @@ struct intf_params {
  * @act_info: Sensor query cap structure
  * @of_node: Node ptr
  * @device_name: Device name
+ * @last_flush_req: Last request to flush
  */
 struct cam_actuator_ctrl_t {
 	struct i2c_driver *i2c_driver;
@@ -125,6 +126,7 @@ struct cam_actuator_ctrl_t {
 	struct cam_actuator_query_cap act_info;
 	struct intf_params bridge_intf;
 	char device_name[20];
+	uint32_t last_flush_req;
 };
 
 #endif /* _CAM_ACTUATOR_DEV_H_ */

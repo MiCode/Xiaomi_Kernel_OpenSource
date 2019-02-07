@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -545,6 +545,10 @@
 			gpu-cx-cdev2 {
 				trip = <&gpu_cx_mon>;
 				cooling-device = <&modem_pa 3 3>;
+			};
+			gpu-cx-cdev3 {
+				trip = <&gpu_cx_mon>;
+				cooling-device = <&msm_cdsp_rm 5 5>;
 			};
 		};
 	};
@@ -1553,11 +1557,17 @@
 		thermal-sensors = <&tsens0 10>;
 		thermal-governor = "step_wise";
 		trips {
-			q6_hvx_config: q6-hvx-config {
+			q6_hvx_cxip: q6-hvx-config {
 				temperature = <95000>;
 				hysteresis = <20000>;
 				type = "passive";
 			};
+			q6_hvx_therm: q6-hvx-trip1 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
 			q6_hvx_cx_mon: q6-hvx-cx-mon {
 				temperature = <100000>;
 				hysteresis = <5000>;
@@ -1566,8 +1576,13 @@
 		};
 		cooling-maps {
 			cxip-cdev {
-				trip = <&q6_hvx_config>;
+				trip = <&q6_hvx_cxip>;
 				cooling-device = <&cxip_cdev 1 1>;
+			};
+			cdsp-cdev {
+				trip = <&q6_hvx_therm>;
+				cooling-device = <&msm_cdsp_rm
+						THERMAL_NO_LIMIT 5>;
 			};
 			hvx-cx-cdev0 {
 				trip = <&q6_hvx_cx_mon>;
@@ -1581,6 +1596,10 @@
 			hvx-cx-cdev2 {
 				trip = <&q6_hvx_cx_mon>;
 				cooling-device = <&modem_pa 3 3>;
+			};
+			hvx-cx-cdev3 {
+				trip = <&q6_hvx_cx_mon>;
+				cooling-device = <&msm_cdsp_rm 5 5>;
 			};
 		};
 	};
@@ -1611,6 +1630,10 @@
 				trip = <&mdm_core_cx_mon>;
 				cooling-device = <&modem_pa 3 3>;
 			};
+			mdm-cx-cdev3 {
+				trip = <&mdm_core_cx_mon>;
+				cooling-device = <&msm_cdsp_rm 5 5>;
+			};
 		};
 	};
 
@@ -1639,6 +1662,10 @@
 			camera-cx-cdev2 {
 				trip = <&camera_cx_mon>;
 				cooling-device = <&modem_pa 3 3>;
+			};
+			camera-cx-cdev3 {
+				trip = <&camera_cx_mon>;
+				cooling-device = <&msm_cdsp_rm 5 5>;
 			};
 		};
 	};
@@ -1669,6 +1696,10 @@
 				trip = <&wlan_cx_mon>;
 				cooling-device = <&modem_pa 3 3>;
 			};
+			wlan-cx-cdev3 {
+				trip = <&wlan_cx_mon>;
+				cooling-device = <&msm_cdsp_rm 5 5>;
+			};
 		};
 	};
 
@@ -1698,6 +1729,10 @@
 				trip = <&dispaly_cx_mon>;
 				cooling-device = <&modem_pa 3 3>;
 			};
+			display-cx-cdev3 {
+				trip = <&dispaly_cx_mon>;
+				cooling-device = <&msm_cdsp_rm 5 5>;
+			};
 		};
 	};
 
@@ -1726,6 +1761,10 @@
 			video-cx-cdev2 {
 				trip = <&video_cx_mon>;
 				cooling-device = <&modem_pa 3 3>;
+			};
+			video-cx-cdev3 {
+				trip = <&video_cx_mon>;
+				cooling-device = <&msm_cdsp_rm 5 5>;
 			};
 		};
 	};
@@ -1980,6 +2019,10 @@
 				trip = <&cx_emer_trip>;
 				cooling-device = <&msm_gpu THERMAL_MAX_LIMIT
 							THERMAL_MAX_LIMIT>;
+			};
+			cx-skin-cdsp {
+				trip = <&cx_emer_trip>;
+				cooling-device = <&msm_cdsp_rm 5 5>;
 			};
 		};
 	};

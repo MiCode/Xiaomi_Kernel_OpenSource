@@ -126,7 +126,8 @@ static int cam_isp_update_dual_config(
 			CAM_ERR(CAM_UTIL,
 				"failed update for i:%d > size_isp_out:%d",
 				i, size_isp_out);
-			return -EINVAL;
+			rc = -EINVAL;
+			goto put_buf;
 		}
 
 		hw_mgr_res = &res_list_isp_out[i];
@@ -161,9 +162,14 @@ static int cam_isp_update_dual_config(
 				&dual_isp_update_args,
 				sizeof(struct cam_isp_hw_dual_isp_update_args));
 			if (rc)
-				return rc;
+				goto put_buf;
 		}
 	}
+
+put_buf:
+	if (cam_mem_put_cpu_buf(cmd_desc->mem_handle))
+		CAM_WARN(CAM_UTIL, "Failed to put buf: 0x%x",
+			cmd_desc->mem_handle);
 
 	return rc;
 }
@@ -593,13 +599,6 @@ int cam_isp_add_io_buffers(
 						"no io addr for plane%d",
 						plane_id);
 					rc = -ENOMEM;
-					return rc;
-				}
-
-				if (io_addr[plane_id] >> 32) {
-					CAM_ERR(CAM_ISP,
-						"Invalid mapped address");
-					rc = -EINVAL;
 					return rc;
 				}
 

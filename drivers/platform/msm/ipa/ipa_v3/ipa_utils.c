@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -360,6 +360,19 @@ static const struct rsrc_min_max ipa3_rsrc_src_grp_config
 		[IPA_v4_0_RSRC_GRP_TYPE_SRC_ACK_ENTRIES] = {
 		{14, 14}, {20, 20}, {0, 0}, {14, 14}, {0, 0}, {0, 0} },
 	},
+	[IPA_4_1_APQ] = {
+		/* LWA_DL  UL_DL    unused  UC_RX_Q, other are invalid */
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_PKT_CONTEXTS] = {
+		{1, 63}, {1, 63}, {0, 0}, {1, 63}, {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRS_DESCRIPTOR_LISTS] = {
+		{10, 10}, {10, 10}, {0, 0}, {8, 8}, {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_DESCRIPTOR_BUFF] = {
+		{12, 12}, {14, 14}, {0, 0}, {8, 8}, {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_HPS_DMARS] = {
+		{0, 63}, {0, 63}, {0, 63}, {0, 63},  {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_ACK_ENTRIES] = {
+		{14, 14}, {20, 20}, {0, 0}, {14, 14}, {0, 0}, {0, 0} },
+	},
 	[IPA_4_2] = {
 		/* UL_DL   other are invalid */
 		[IPA_v4_0_RSRC_GRP_TYPE_SRC_PKT_CONTEXTS] = {
@@ -382,7 +395,7 @@ static const struct rsrc_min_max ipa3_rsrc_src_grp_config
 		[IPA_v4_0_RSRC_GRP_TYPE_SRC_DESCRIPTOR_BUFF] = {
 		{0, 0}, {18, 18}, {0, 0}, {0, 0}, {8, 8}, {0, 0} },
 		[IPA_v4_0_RSRC_GRP_TYPE_SRC_HPS_DMARS] = {
-		{0, 0}, {0, 63}, {0, 0}, {0, 0},  {0, 63}, {0, 0} },
+		{0, 63}, {0, 63}, {0, 63}, {0, 63},  {0, 63}, {0, 0} },
 		[IPA_v4_0_RSRC_GRP_TYPE_SRC_ACK_ENTRIES] = {
 		{0, 0}, {24, 24}, {0, 0}, {0, 0}, {8, 8}, {0, 0} },
 	},
@@ -395,7 +408,7 @@ static const struct rsrc_min_max ipa3_rsrc_src_grp_config
 		[IPA_v4_0_RSRC_GRP_TYPE_SRC_DESCRIPTOR_BUFF] = {
 		{9, 9}, {14, 14}, {4, 4}, {4, 4}, {0, 0}, {0, 0} },
 		[IPA_v4_0_RSRC_GRP_TYPE_SRC_HPS_DMARS] = {
-		{0, 63}, {0, 63}, {0, 63}, {0, 63},  {0, 0}, {0, 0} },
+		{0, 63}, {0, 63}, {0, 63}, {0, 63},  {0, 63}, {0, 0} },
 		[IPA_v4_0_RSRC_GRP_TYPE_SRC_ACK_ENTRIES] = {
 		{22, 22}, {16, 16}, {6, 6}, {2, 2}, {0, 0}, {0, 0} },
 	},
@@ -454,6 +467,13 @@ static const struct rsrc_min_max ipa3_rsrc_dst_grp_config
 		[IPA_v4_0_RSRC_GRP_TYPE_DST_DPS_DMARS] = {
 		{2, 63}, {1, 63}, {1, 2}, {0, 2}, {0, 0}, {0, 0} },
 	},
+	[IPA_4_1_APQ] = {
+		/* LWA_DL UL/DL/DPL uC, other are invalid */
+		[IPA_v4_0_RSRC_GRP_TYPE_DST_DATA_SECTORS] = {
+		{4, 4}, {4, 4}, {3, 3}, {2, 2}, {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_DST_DPS_DMARS] = {
+		{2, 63}, {1, 63}, {1, 2}, {0, 2}, {0, 0}, {0, 0} },
+	},
 	[IPA_4_2] = {
 		/* UL/DL/DPL, other are invalid */
 		[IPA_v4_0_RSRC_GRP_TYPE_DST_DATA_SECTORS] = {
@@ -464,9 +484,9 @@ static const struct rsrc_min_max ipa3_rsrc_dst_grp_config
 	[IPA_4_5] = {
 		/* UL/DL/DPL_DST unused unused unused uC N/A */
 		[IPA_v4_0_RSRC_GRP_TYPE_DST_DATA_SECTORS] = {
-		{16, 16}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
+		{16, 16}, {5, 5}, {2, 2}, {2, 2}, {0, 0}, {0, 0} },
 		[IPA_v4_0_RSRC_GRP_TYPE_DST_DPS_DMARS] = {
-		{2, 63}, {0, 0}, {0, 0}, {0, 0}, {0, 2}, {0, 0} },
+		{2, 63}, {1, 63}, {1, 2}, {1, 2}, {0, 2}, {0, 0} },
 	},
 	[IPA_4_5_MHI] = {
 		/* PCIE/DPL  DDR  DMA/CV2X  QDSS  uC  N/A */
@@ -510,6 +530,11 @@ static const struct rsrc_min_max ipa3_rsrc_rx_grp_config
 		{ 3, 3 }, { 7, 7 }, { 2, 2 }, { 0, 0 }, { 0, 0 }, { 0, 0 } },
 	},
 	[IPA_4_1] = {
+		/* LWA_DL UL_DL	unused UC_RX_Q, other are invalid */
+		[IPA_RSRC_GRP_TYPE_RX_HPS_CMDQ] = {
+		{3, 3}, {7, 7}, {0, 0}, {2, 2}, {0, 0}, {0, 0} },
+	},
+	[IPA_4_1_APQ] = {
 		/* LWA_DL UL_DL	unused UC_RX_Q, other are invalid */
 		[IPA_RSRC_GRP_TYPE_RX_HPS_CMDQ] = {
 		{3, 3}, {7, 7}, {0, 0}, {2, 2}, {0, 0}, {0, 0} },
@@ -562,6 +587,10 @@ static const u32 ipa3_rsrc_rx_grp_hps_weight_config
 		/* LWA_DL UL_DL	unused UC_RX_Q, other are invalid */
 		[IPA_RSRC_GRP_TYPE_RX_HPS_WEIGHT_CONFIG] = { 1, 1, 1, 1, 0, 0 },
 	},
+	[IPA_4_1_APQ] = {
+		/* LWA_DL UL_DL	unused UC_RX_Q, other are invalid */
+		[IPA_RSRC_GRP_TYPE_RX_HPS_WEIGHT_CONFIG] = { 1, 1, 1, 1, 0, 0 },
+	},
 };
 
 enum ipa_ees {
@@ -600,6 +629,8 @@ static const struct ipa_qmb_outstanding ipa3_qmb_outstanding
 	[IPA_4_0_MHI][IPA_QMB_INSTANCE_PCIE]	= {12, 4},
 	[IPA_4_1][IPA_QMB_INSTANCE_DDR]	= {12, 8},
 	[IPA_4_1][IPA_QMB_INSTANCE_PCIE]	= {12, 4},
+	[IPA_4_1_APQ][IPA_QMB_INSTANCE_DDR]	= {12, 8},
+	[IPA_4_1_APQ][IPA_QMB_INSTANCE_PCIE]	= {12, 4},
 	[IPA_4_2][IPA_QMB_INSTANCE_DDR]	= {12, 8},
 	[IPA_4_5][IPA_QMB_INSTANCE_DDR]	= {16, 8},
 	[IPA_4_5][IPA_QMB_INSTANCE_PCIE]	= {12, 8},
@@ -1626,6 +1657,18 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
 			{ 16, 5, 9, 9, IPA_EE_Q6 } },
+	[IPA_4_0_MHI][IPA_CLIENT_USB_DPL_CONS]        = {
+			true, IPA_v4_0_MHI_GROUP_DDR,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 15, 7, 5, 5, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_MHI][IPA_CLIENT_MHI_DPL_CONS]        = {
+			true, IPA_v4_0_MHI_GROUP_PCIE,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_PCIE,
+			{ 12, 2, 5, 5, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
 	/* Only for test purpose */
 	[IPA_4_0_MHI][IPA_CLIENT_TEST_CONS]           = {
 			true, IPA_v4_0_GROUP_UL_DL,
@@ -2216,6 +2259,12 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
 			{ 8, 2, 27, 32, IPA_EE_Q6, GSI_FREE_PRE_FETCH, 3 } },
+	[IPA_4_5][IPA_CLIENT_AQC_ETHERNET_PROD] = {
+			true, IPA_v4_5_GROUP_UL_DL_SRC,
+			true,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_DDR,
+			{ 10, 13, 8, 16, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY, 0 } },
 	/* Only for test purpose */
 	[IPA_4_5][IPA_CLIENT_TEST_PROD]           = {
 			true, IPA_v4_5_GROUP_UL_DL_SRC,
@@ -2332,6 +2381,12 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
 			{ 18, 4, 9, 9, IPA_EE_Q6, GSI_ESCAPE_BUF_ONLY, 0 } },
+	[IPA_4_5][IPA_CLIENT_AQC_ETHERNET_CONS] = {
+			true, IPA_v4_5_GROUP_UL_DL_DST,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 23, 8, 9, 9, IPA_EE_AP, GSI_SMART_PRE_FETCH, 4 } },
 	/* Only for test purpose */
 	/* MBIM aggregation test pipes should have the same QMB as USB_CONS */
 	[IPA_4_5][IPA_CLIENT_TEST_CONS]           = {
@@ -4961,7 +5016,8 @@ int ipa3_write_qmap_id(struct ipa_ioc_write_qmapid *param_in)
 	if (param_in->client == IPA_CLIENT_USB_PROD ||
 	    param_in->client == IPA_CLIENT_HSIC1_PROD ||
 	    param_in->client == IPA_CLIENT_ODU_PROD ||
-	    param_in->client == IPA_CLIENT_ETHERNET_PROD) {
+	    param_in->client == IPA_CLIENT_ETHERNET_PROD ||
+		param_in->client == IPA_CLIENT_WIGIG_PROD) {
 		result = ipa3_cfg_ep_metadata(ipa_ep_idx, &meta);
 	} else if (param_in->client == IPA_CLIENT_WLAN1_PROD ||
 			   param_in->client == IPA_CLIENT_WLAN2_PROD) {
@@ -6107,7 +6163,7 @@ int ipa3_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res)
 		return -EINVAL;
 	}
 
-	if (iface < 0 || iface > IPA_VLAN_IF_MAX) {
+	if (iface < 0 || iface >= IPA_VLAN_IF_MAX) {
 		IPAERR("invalid iface %d\n", iface);
 		return -EINVAL;
 	}
@@ -6464,6 +6520,7 @@ static void ipa3_write_rsrc_grp_type_reg(int group_index,
 	case IPA_4_0:
 	case IPA_4_0_MHI:
 	case IPA_4_1:
+	case IPA_4_1_APQ:
 		if (src) {
 			switch (group_index) {
 			case IPA_v4_0_GROUP_LWA_DL:
@@ -6721,6 +6778,7 @@ void ipa3_set_resorce_groups_min_max_limits(void)
 	case IPA_4_0:
 	case IPA_4_0_MHI:
 	case IPA_4_1:
+	case IPA_4_1_APQ:
 		src_rsrc_type_max = IPA_v4_0_RSRC_GRP_TYPE_SRC_MAX;
 		dst_rsrc_type_max = IPA_v4_0_RSRC_GRP_TYPE_DST_MAX;
 		src_grp_idx_max = IPA_v4_0_SRC_GROUP_MAX;

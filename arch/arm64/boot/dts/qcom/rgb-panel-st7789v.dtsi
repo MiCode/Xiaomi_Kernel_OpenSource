@@ -1,0 +1,30 @@
+/*
+ * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&mdss_mdp {
+	rgb_st7789v: qcom,mdss_rgb_st7789v {
+		qcom,mdss-rgb-panel-name = "st7789v LCD rgb panel";
+		qcom,mdss-rgb-panel-framerate = <60>;
+		qcom,mdss-rgb-panel-width = <240>;
+		qcom,mdss-rgb-panel-height = <320>;
+		qcom,mdss-rgb-h-front-porch = <38>;
+		qcom,mdss-rgb-h-back-porch = <10>;
+		qcom,mdss-rgb-h-pulse-width = <10>;
+		qcom,mdss-rgb-h-sync-skew = <0>;
+		qcom,mdss-rgb-v-back-porch = <4>;
+		qcom,mdss-rgb-v-front-porch = <8>;
+		qcom,mdss-rgb-v-pulse-width = <4>;
+		qcom,mdss-rgb-bpp = <18>;
+		qcom,mdss-rgb-panel-clockrate = <6000000>;
+	};
+};

@@ -32,7 +32,7 @@
 	rpm-regulator-smpa3 {
 		compatible = "qcom,rpm-smd-regulator-resource";
 		qcom,resource-name = "rwcx";
-		qcom,resource-id = <3>;
+		qcom,resource-id = <0>;
 		qcom,regulator-type = <1>;
 		qcom,hpm-min-load = <100000>;
 		status = "disabled";
@@ -49,7 +49,7 @@
 	rpm-regulator-smpa5 {
 		compatible = "qcom,rpm-smd-regulator-resource";
 		qcom,resource-name = "rwmx";
-		qcom,resource-id = <5>;
+		qcom,resource-id = <0>;
 		qcom,regulator-type = <1>;
 		qcom,hpm-min-load = <100000>;
 		status = "disabled";
@@ -225,8 +225,8 @@
 
 	rpm-regulator-ldoa9 {
 		compatible = "qcom,rpm-smd-regulator-resource";
-		qcom,resource-name = "rwlm";
-		qcom,resource-id = <0>;
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <9>;
 		qcom,regulator-type = <0>;
 		qcom,hpm-min-load = <10000>;
 		status = "disabled";

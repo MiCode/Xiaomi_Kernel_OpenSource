@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -442,6 +442,44 @@
 					drive-strength = <2>;
 					output-low;
 					bias-pull-down;
+				};
+			};
+		};
+
+		pcie_ep {
+			pcie_ep_clkreq_default: pcie_ep_clkreq_default {
+				mux {
+					pins = "gpio103";
+					function = "pci_e1";
+				};
+				config {
+					pins = "gpio103";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			pcie_ep_perst_default: pcie_ep_perst_default {
+				mux {
+					pins = "gpio102";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio102";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+
+			pcie_ep_wake_default: pcie_ep_wake_default {
+				mux {
+					pins = "gpio104";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio104";
+					drive-strength = <2>;
+					bias-disable;
 				};
 			};
 		};
@@ -1143,14 +1181,14 @@
 		qupv3_se9_spi_pins: qupv3_se9_spi_pins {
 			qupv3_se9_spi_active: qupv3_se9_spi_active {
 				mux {
-					pins = "gpio38", "gpio39", "gpio40",
-								"gpio41";
+					pins = "gpio39", "gpio40", "gpio41",
+								"gpio42";
 					function = "qup9";
 				};
 
 				config {
-					pins = "gpio38", "gpio39", "gpio40",
-								"gpio41";
+					pins = "gpio39", "gpio40", "gpio41",
+								"gpio42";
 					drive-strength = <6>;
 					bias-disable;
 				};
@@ -1158,14 +1196,14 @@
 
 			qupv3_se9_spi_sleep: qupv3_se9_spi_sleep {
 				mux {
-					pins = "gpio38", "gpio39", "gpio40",
-								"gpio41";
+					pins = "gpio39", "gpio40", "gpio41",
+								"gpio42";
 					function = "gpio";
 				};
 
 				config {
-					pins = "gpio38", "gpio39", "gpio40",
-								"gpio41";
+					pins = "gpio39", "gpio40", "gpio41",
+								"gpio42";
 					drive-strength = <6>;
 					bias-disable;
 				};

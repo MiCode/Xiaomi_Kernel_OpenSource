@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2012-2017 Qualcomm Atheros, Inc.
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -218,6 +218,8 @@ static void wil_print_sring(struct seq_file *s, struct wil6210_priv *wil,
 		seq_puts(s, "???\n");
 	}
 	seq_printf(s, "  desc_rdy_pol   = %d\n", sring->desc_rdy_pol);
+	seq_printf(s, "  invalid_buff_id_cnt   = %d\n",
+		   sring->invalid_buff_id_cnt);
 
 	if (sring->va && (sring->size <= (1 << WIL_RING_SIZE_ORDER_MAX))) {
 		uint i;
@@ -279,6 +281,11 @@ static void wil_print_mbox_ring(struct seq_file *s, const char *prefix,
 	uint i;
 
 	wil_halp_vote(wil);
+
+	if (wil_mem_access_lock(wil)) {
+		wil_halp_unvote(wil);
+		return;
+	}
 
 	wil_memcpy_fromio_32(&r, off, sizeof(r));
 	wil_mbox_ring_le2cpus(&r);
@@ -345,6 +352,7 @@ static void wil_print_mbox_ring(struct seq_file *s, const char *prefix,
 	}
  out:
 	seq_puts(s, "}\n");
+	wil_mem_access_unlock(wil);
 	wil_halp_unvote(wil);
 }
 
@@ -633,12 +641,20 @@ static int wil_memread_debugfs_show(struct seq_file *s, void *data)
 	if (ret < 0)
 		return ret;
 
+	ret = wil_mem_access_lock(wil);
+	if (ret) {
+		wil_pm_runtime_put(wil);
+		return ret;
+	}
+
 	a = wmi_buffer(wil, cpu_to_le32(mem_addr));
 
 	if (a)
 		seq_printf(s, "[0x%08x] = 0x%08x\n", mem_addr, readl(a));
 	else
 		seq_printf(s, "[0x%08x] = INVALID\n", mem_addr);
+
+	wil_mem_access_unlock(wil);
 
 	wil_pm_runtime_put(wil);
 
@@ -669,10 +685,6 @@ static ssize_t wil_read_file_ioblob(struct file *file, char __user *user_buf,
 	size_t unaligned_bytes, aligned_count, ret;
 	int rc;
 
-	if (test_bit(wil_status_suspending, wil_blob->wil->status) ||
-	    test_bit(wil_status_suspended, wil_blob->wil->status))
-		return 0;
-
 	if (pos < 0)
 		return -EINVAL;
 
@@ -699,11 +711,19 @@ static ssize_t wil_read_file_ioblob(struct file *file, char __user *user_buf,
 		return rc;
 	}
 
+	rc = wil_mem_access_lock(wil);
+	if (rc) {
+		kfree(buf);
+		wil_pm_runtime_put(wil);
+		return rc;
+	}
+
 	wil_memcpy_fromio_32(buf, (const void __iomem *)
 			     wil_blob->blob.data + aligned_pos, aligned_count);
 
 	ret = copy_to_user(user_buf, buf + unaligned_bytes, count);
 
+	wil_mem_access_unlock(wil);
 	wil_pm_runtime_put(wil);
 
 	kfree(buf);

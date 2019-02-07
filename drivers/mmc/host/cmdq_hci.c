@@ -1020,10 +1020,10 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 			else
 				mrq->cmd->error = err;
 			/*
-			 * Get ADMA descriptor memory in case of ADMA
+			 * Get ADMA descriptor memory in case of real ADMA
 			 * error for debug.
 			 */
-			if (err == -EIO)
+			if (err == -EIO && !err_inject)
 				cmdq_dump_adma_mem(cq_host);
 			goto skip_cqterri;
 		}

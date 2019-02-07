@@ -36,7 +36,7 @@ endif
 rtic_mp.dtb: vmlinux FORCE
 	$(RTIC_MPGEN) --objcopy="${OBJCOPY}" --objdump="${OBJDUMP}" \
 	--binpath="" --vmlinux="vmlinux" --config=${KCONFIG_CONFIG} \
-	--cc="${CC}" --dts=rtic_mp.dts && \
+	--cc="${CC} ${KBUILD_AFLAGS}" --dts=rtic_mp.dts && \
 	$(DTC) -O dtb -o rtic_mp.dtb -b 0 $(DTC_FLAGS) rtic_mp.dts
 
 $(obj)/Image: vmlinux FORCE

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -983,7 +983,8 @@ static void stop_tx_sequencer(struct uart_port *uport)
 		geni_write_reg_nolog(M_CMD_ABORT_EN, uport->membase,
 							SE_GENI_M_IRQ_CLEAR);
 	}
-	geni_write_reg_nolog(M_CMD_CANCEL_EN, uport, SE_GENI_M_IRQ_CLEAR);
+	geni_write_reg_nolog(M_CMD_CANCEL_EN, uport->membase,
+						SE_GENI_M_IRQ_CLEAR);
 	/*
 	 * If we end up having to cancel an on-going Tx for non-console usecase
 	 * then it means there was some unsent data in the Tx FIFO, consequently
@@ -1929,6 +1930,13 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 	geni_serial_write_term_regs(uport, port->loopback, tx_trans_cfg,
 		tx_parity_cfg, rx_trans_cfg, rx_parity_cfg, bits_per_char,
 		stop_bit_len, ser_clk_cfg);
+
+	if (termios->c_cflag & CRTSCTS) {
+		geni_write_reg_nolog(0x0, uport->membase, SE_UART_MANUAL_RFR);
+		IPC_LOG_MSG(port->ipc_log_misc, "%s: Manual flow off\n",
+				__func__);
+	}
+
 	IPC_LOG_MSG(port->ipc_log_misc, "%s: baud %d\n", __func__, baud);
 	IPC_LOG_MSG(port->ipc_log_misc, "Tx: trans_cfg%d parity %d\n",
 						tx_trans_cfg, tx_parity_cfg);

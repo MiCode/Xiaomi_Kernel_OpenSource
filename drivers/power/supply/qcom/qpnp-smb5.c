@@ -1,4 +1,4 @@
-/* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -285,24 +285,29 @@ static int smb5_chg_config_init(struct smb5 *chip)
 		chip->chg.smb_version = PM8150B_SUBTYPE;
 		chg->param = smb5_pm8150b_params;
 		chg->name = "pm8150b_charger";
+		chg->wa_flags |= CHG_TERMINATION_WA;
 		break;
 	case PM6150_SUBTYPE:
 		chip->chg.smb_version = PM6150_SUBTYPE;
 		chg->param = smb5_pm8150b_params;
 		chg->name = "pm6150_charger";
-		chg->wa_flags |= SW_THERM_REGULATION_WA;
+		chg->wa_flags |= SW_THERM_REGULATION_WA | CHG_TERMINATION_WA;
 		if (pmic_rev_id->rev4 >= 2)
 			chg->uusb_moisture_protection_enabled = true;
 		chg->main_fcc_max = PM6150_MAX_FCC_UA;
 		break;
 	case PMI632_SUBTYPE:
 		chip->chg.smb_version = PMI632_SUBTYPE;
-		chg->wa_flags |= WEAK_ADAPTER_WA | USBIN_OV_WA;
+		chg->wa_flags |= WEAK_ADAPTER_WA | USBIN_OV_WA
+				| CHG_TERMINATION_WA;
 		chg->param = smb5_pmi632_params;
 		chg->use_extcon = true;
 		chg->name = "pmi632_charger";
 		/* PMI632 does not support PD */
 		chg->pd_not_supported = true;
+		chg->lpd_disabled = true;
+		if (pmic_rev_id->rev4 >= 2)
+			chg->uusb_moisture_protection_enabled = true;
 		chg->hw_max_icl_ua =
 			(chip->dt.usb_icl_ua > 0) ? chip->dt.usb_icl_ua
 						: PMI632_MAX_ICL_UA;
@@ -402,8 +407,10 @@ static int smb5_parse_dt(struct smb5 *chip)
 	chg->sw_jeita_enabled = of_property_read_bool(node,
 				"qcom,sw-jeita-enable");
 
-	chg->pd_not_supported = of_property_read_bool(node,
-				"qcom,usb-pd-disable");
+	chg->pd_not_supported = chg->pd_not_supported ||
+			of_property_read_bool(node, "qcom,usb-pd-disable");
+
+	chg->lpd_disabled = of_property_read_bool(node, "qcom,lpd-disable");
 
 	rc = of_property_read_u32(node, "qcom,wd-bark-time-secs",
 					&chip->dt.wd_bark_time);
@@ -635,6 +642,7 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_MOISTURE_DETECTED,
 	POWER_SUPPLY_PROP_HVDCP_OPTI_ALLOWED,
 	POWER_SUPPLY_PROP_QC_OPTI_DISABLE,
+	POWER_SUPPLY_PROP_VOLTAGE_VPH,
 };
 
 static int smb5_usb_get_prop(struct power_supply *psy,
@@ -789,6 +797,9 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 					| POWER_SUPPLY_QC_INOV_THERMAL_DISABLE;
 		if (chg->hw_connector_mitigation)
 			val->intval |= POWER_SUPPLY_QC_CTM_DISABLE;
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_VPH:
+		rc = smblib_get_prop_vph_voltage_now(chg, val);
 		break;
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);
@@ -1789,10 +1800,10 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		return rc;
 	}
 
+	val = chg->lpd_disabled ? 0 : TYPEC_WATER_DETECTION_INT_EN_BIT;
 	/* Use simple write to enable only required interrupts */
 	rc = smblib_write(chg, TYPE_C_INTERRUPT_EN_CFG_2_REG,
-				TYPEC_SRC_BATT_HPWR_INT_EN_BIT |
-				TYPEC_WATER_DETECTION_INT_EN_BIT);
+				TYPEC_SRC_BATT_HPWR_INT_EN_BIT | val);
 	if (rc < 0) {
 		dev_err(chg->dev,
 			"Couldn't configure Type-C interrupts rc=%d\n", rc);
@@ -1885,7 +1896,9 @@ static int smb5_configure_micro_usb(struct smb_charger *chg)
 		}
 
 		/* Disable periodic monitoring of CC_ID pin */
-		rc = smblib_write(chg, TYPEC_U_USB_WATER_PROTECTION_CFG_REG, 0);
+		rc = smblib_write(chg, ((chg->smb_version == PMI632_SUBTYPE) ?
+			PMI632_TYPEC_U_USB_WATER_PROTECTION_CFG_REG :
+			TYPEC_U_USB_WATER_PROTECTION_CFG_REG), 0);
 		if (rc < 0) {
 			dev_err(chg->dev, "Couldn't disable periodic monitoring of CC_ID rc=%d\n",
 				rc);
@@ -2131,10 +2144,10 @@ static int smb5_init_hw(struct smb5 *chip)
 
 	/*
 	 * PMI632 can have the connector type defined by a dedicated register
-	 * TYPEC_MICRO_USB_MODE_REG or by a common TYPEC_U_USB_CFG_REG.
+	 * PMI632_TYPEC_MICRO_USB_MODE_REG or by a common TYPEC_U_USB_CFG_REG.
 	 */
 	if (chg->smb_version == PMI632_SUBTYPE) {
-		rc = smblib_read(chg, TYPEC_MICRO_USB_MODE_REG, &val);
+		rc = smblib_read(chg, PMI632_TYPEC_MICRO_USB_MODE_REG, &val);
 		if (rc < 0) {
 			dev_err(chg->dev, "Couldn't read USB mode rc=%d\n", rc);
 			return rc;
@@ -2143,7 +2156,7 @@ static int smb5_init_hw(struct smb5 *chip)
 	}
 
 	/*
-	 * If TYPEC_MICRO_USB_MODE_REG is not set and for all non-PMI632
+	 * If PMI632_TYPEC_MICRO_USB_MODE_REG is not set and for all non-PMI632
 	 * check the connector type using TYPEC_U_USB_CFG_REG.
 	 */
 	if (!type) {
@@ -3080,6 +3093,21 @@ static int smb5_probe(struct platform_device *pdev)
 	if (rc < 0) {
 		dev_err(chg->dev, "failed to register extcon device rc=%d\n",
 				rc);
+		goto cleanup;
+	}
+
+	/* Support reporting polarity and speed via properties */
+	rc = extcon_set_property_capability(chg->extcon,
+			EXTCON_USB, EXTCON_PROP_USB_TYPEC_POLARITY);
+	rc |= extcon_set_property_capability(chg->extcon,
+			EXTCON_USB, EXTCON_PROP_USB_SS);
+	rc |= extcon_set_property_capability(chg->extcon,
+			EXTCON_USB_HOST, EXTCON_PROP_USB_TYPEC_POLARITY);
+	rc |= extcon_set_property_capability(chg->extcon,
+			EXTCON_USB_HOST, EXTCON_PROP_USB_SS);
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"failed to configure extcon capabilities\n");
 		goto cleanup;
 	}
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -204,6 +204,8 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_SYS_COMMON_START + 0x006)
 #define  HFI_PROPERTY_SYS_CONFIG_COVERAGE    \
 	(HFI_PROPERTY_SYS_COMMON_START + 0x007)
+#define  HFI_PROPERTY_SYS_UBWC_CONFIG    \
+	(HFI_PROPERTY_SYS_COMMON_START + 0x008)
 
 #define HFI_PROPERTY_PARAM_COMMON_START	\
 	(HFI_DOMAIN_BASE_COMMON + HFI_ARCH_COMMON_OFFSET + 0x1000)
@@ -265,6 +267,8 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_PARAM_VDEC_COMMON_START + 0x009)
 #define  HFI_PROPERTY_PARAM_VDEC_COLOUR_SPACE				\
 	(HFI_PROPERTY_PARAM_VDEC_COMMON_START + 0x00A)
+#define  HFI_PROPERTY_PARAM_VDEC_DPB_COUNTS				\
+	(HFI_PROPERTY_PARAM_VDEC_COMMON_START + 0x00B)
 
 
 #define HFI_PROPERTY_CONFIG_VDEC_COMMON_START				\
@@ -575,6 +579,12 @@ struct hfi_nal_stream_format_select {
 struct hfi_profile_level {
 	u32 profile;
 	u32 level;
+};
+
+struct hfi_dpb_counts {
+	u32 max_dpb_count;
+	u32 max_ref_count;
+	u32 max_dec_buffering;
 };
 
 struct hfi_profile_level_supported {

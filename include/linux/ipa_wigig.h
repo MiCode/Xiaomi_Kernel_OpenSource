@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -84,22 +84,22 @@ struct ipa_wigig_reg_intf_in_params {
 /*
  * struct ipa_wigig_pipe_setup_info - WIGIG TX/Rx configuration
  * @desc_ring_base_pa: physical address of the base of the descriptor ring
- * @desc_ring_size: size of the descriptor ring
+ * @desc_ring_size: size of the descriptor ring in bytes
  * @desc_ring_HWHEAD_pa: physical address of the wigig descriptor ring HWHEAD
  * @desc_ring_HWTAIL_pa: physical address of the wigig descriptor ring HWTAIL
  * @status_ring_base_pa: physical address of the base of the status ring
- * @status_ring_size: status ring size
+ * @status_ring_size: status ring size in bytes
  * @desc_ring_HWHEAD_pa: physical address of the wigig descriptor ring HWHEAD
  * @desc_ring_HWTAIL_pa: physical address of the wigig descriptor ring HWTAIL
  */
 struct ipa_wigig_pipe_setup_info {
 	phys_addr_t desc_ring_base_pa;
-	u32 desc_ring_size;
+	u16 desc_ring_size;
 	phys_addr_t desc_ring_HWHEAD_pa;
 	phys_addr_t desc_ring_HWTAIL_pa;
 
 	phys_addr_t status_ring_base_pa;
-	u32 status_ring_size;
+	u16 status_ring_size;
 	phys_addr_t status_ring_HWHEAD_pa;
 	phys_addr_t status_ring_HWTAIL_pa;
 };
@@ -108,25 +108,25 @@ struct ipa_wigig_pipe_setup_info {
  * struct ipa_wigig_pipe_setup_info_smmu - WIGIG TX/Rx configuration smmu mode
  * @desc_ring_base: sg_table of the base of the descriptor ring
  * @desc_ring_base_iova: IO virtual address mapped to physical base address
- * @desc_ring_size: size of the descriptor ring
+ * @desc_ring_size: size of the descriptor ring in bytes
  * @desc_ring_HWHEAD_pa: physical address of the wigig descriptor ring HWHEAD
  * @desc_ring_HWTAIL_pa: physical address of the wigig descriptor ring HWTAIL
  * @status_ring_base: sg_table of the base of the status ring
  * @status_ring_base_iova: IO virtual address mapped to physical base address
- * @status_ring_size: status ring size
+ * @status_ring_size: status ring size in bytes
  * @desc_ring_HWHEAD_pa: physical address of the wigig descriptor ring HWHEAD
  * @desc_ring_HWTAIL_pa: physical address of the wigig descriptor ring HWTAIL
  */
 struct ipa_wigig_pipe_setup_info_smmu {
 	struct sg_table desc_ring_base;
 	u64 desc_ring_base_iova;
-	u32 desc_ring_size;
+	u16 desc_ring_size;
 	phys_addr_t desc_ring_HWHEAD_pa;
 	phys_addr_t desc_ring_HWTAIL_pa;
 
 	struct sg_table status_ring_base;
 	u64 status_ring_base_iova;
-	u32 status_ring_size;
+	u16 status_ring_size;
 	phys_addr_t status_ring_HWHEAD_pa;
 	phys_addr_t status_ring_HWTAIL_pa;
 };

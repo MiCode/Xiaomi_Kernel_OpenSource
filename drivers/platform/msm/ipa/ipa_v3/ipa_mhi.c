@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -61,7 +61,7 @@
 	IPA_MHI_DBG("EXIT\n")
 
 #define IPA_MHI_MAX_UL_CHANNELS 1
-#define IPA_MHI_MAX_DL_CHANNELS 1
+#define IPA_MHI_MAX_DL_CHANNELS 2
 
 /* bit #40 in address should be asserted for MHI transfers over pcie */
 #define IPA_MHI_HOST_ADDR_COND(addr) \
@@ -283,8 +283,10 @@ static int ipa_mhi_start_gsi_channel(enum ipa_client_type client,
 	ch_props.ring_base_addr = IPA_MHI_HOST_ADDR_COND(
 			params->ch_ctx_host->rbase);
 
-	if (params->ch_ctx_host->brstmode == IPA_MHI_BURST_MODE_DEFAULT ||
-		params->ch_ctx_host->brstmode == IPA_MHI_BURST_MODE_ENABLE) {
+	/* Burst mode is not supported on DPL pipes */
+	if ((client != IPA_CLIENT_MHI_DPL_CONS) &&
+		(params->ch_ctx_host->brstmode == IPA_MHI_BURST_MODE_DEFAULT ||
+		params->ch_ctx_host->brstmode == IPA_MHI_BURST_MODE_ENABLE)) {
 		burst_mode_enabled = true;
 	}
 

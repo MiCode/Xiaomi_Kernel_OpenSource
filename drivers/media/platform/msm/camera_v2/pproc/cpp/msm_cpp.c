@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1093,7 +1093,7 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 			goto clk_failed;
 		}
 	}
-
+	msm_cpp_update_bandwidth(cpp_dev, 0x1000, 0x1000);
 	rc = msm_camera_clk_enable(&cpp_dev->pdev->dev, cpp_dev->clk_info,
 			cpp_dev->cpp_clk, cpp_dev->num_clks, true);
 	if (rc < 0) {
@@ -1184,8 +1184,7 @@ ahb_vote_fail:
 	msm_camera_clk_enable(&cpp_dev->pdev->dev, cpp_dev->clk_info,
 		cpp_dev->cpp_clk, cpp_dev->num_clks, false);
 clk_failed:
-	msm_camera_regulator_enable(cpp_dev->cpp_vdd,
-		cpp_dev->num_reg, false);
+	msm_camera_regulator_disable(cpp_dev->cpp_vdd, cpp_dev->num_reg, true);
 reg_enable_failed:
 	return rc;
 }
@@ -1204,9 +1203,9 @@ static void cpp_release_hardware(struct cpp_device *cpp_dev)
 	if (cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CPP,
 		CAM_AHB_SUSPEND_VOTE) < 0)
 		pr_err("%s: failed to remove vote for AHB\n", __func__);
-	msm_camera_clk_enable(&cpp_dev->pdev->dev, cpp_dev->clk_info,
+	msm_camera_cpp_clk_disable(&cpp_dev->pdev->dev, cpp_dev->clk_info,
 		cpp_dev->cpp_clk, cpp_dev->num_clks, false);
-	msm_camera_regulator_enable(cpp_dev->cpp_vdd, cpp_dev->num_reg, false);
+	msm_camera_regulator_disable(cpp_dev->cpp_vdd, cpp_dev->num_reg, true);
 	if (cpp_dev->stream_cnt > 0) {
 		pr_warn("stream count active\n");
 		rc = msm_cpp_update_bandwidth_setting(cpp_dev, 0, 0);
@@ -4094,7 +4093,7 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 		status = compat_ptr(k32_frame_info.status);
 
 		if (copy_to_user(status, &rc,
-			sizeof(void *)))
+			sizeof(int32_t)))
 			pr_err("error cannot copy error\n");
 
 		if (copy_to_user((void __user *)kp_ioctl.ioctl_ptr,

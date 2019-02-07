@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 qcom,ascent_3450mah {
@@ -32,8 +32,8 @@ qcom,ascent_3450mah {
 	qcom,jeita-hard-thresholds = <0x4aa5 0x1bfb>;
 
 	/* COOL hys = 8 DegC, WARM hys = 37 DegC */
-	qcom,jeita-soft-hys-thresholds = <0x4f5e 0x2943>;
-	qcom,jeita-soft-fcc-ua = <2500000 2500000>;
+	qcom,jeita-soft-hys-thresholds = <0x4126 0x223e>;
+	qcom,jeita-soft-fcc-ua = <1725000 2760000>;
 	qcom,jeita-soft-fv-uv = <4250000 4250000>;
 
 	qcom,fcc1-temp-lut {

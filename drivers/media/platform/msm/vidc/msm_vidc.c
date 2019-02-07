@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -505,6 +505,7 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 	struct msm_vidc_inst *inst = instance;
 	int rc = 0, i = 0;
 	struct buf_queue *q = NULL;
+	struct vidc_tag_data tag_data;
 	u32 cr = 0;
 
 	if (!inst || !inst->core || !b || !valid_v4l2_buffer(b, inst)) {
@@ -531,6 +532,12 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 			b->m.planes[0].reserved[3], b->m.planes[0].reserved[4]);
 	}
 
+	tag_data.index = b->index;
+	tag_data.type = b->type;
+	tag_data.input_tag = b->m.planes[0].reserved[5];
+	tag_data.output_tag = b->m.planes[0].reserved[6];
+	msm_comm_store_tags(inst, &tag_data);
+
 	q = msm_comm_get_vb2q(inst, b->type);
 	if (!q) {
 		dprintk(VIDC_ERR,
@@ -553,6 +560,7 @@ int msm_vidc_dqbuf(void *instance, struct v4l2_buffer *b)
 	struct msm_vidc_inst *inst = instance;
 	int rc = 0, i = 0;
 	struct buf_queue *q = NULL;
+	struct vidc_tag_data tag_data;
 
 	if (!inst || !b || !valid_v4l2_buffer(b, inst)) {
 		dprintk(VIDC_ERR, "%s: invalid params, inst %pK\n",
@@ -588,6 +596,13 @@ int msm_vidc_dqbuf(void *instance, struct v4l2_buffer *b)
 			&b->m.planes[0].reserved[3],
 			&b->m.planes[0].reserved[4]);
 	}
+
+	tag_data.index = b->index;
+	tag_data.type = b->type;
+
+	msm_comm_fetch_tags(inst, &tag_data);
+	b->m.planes[0].reserved[5] = tag_data.input_tag;
+	b->m.planes[0].reserved[6] = tag_data.output_tag;
 
 	return rc;
 }
@@ -1608,31 +1623,6 @@ int msm_vidc_private(void *vidc_inst, unsigned int cmd,
 	return rc;
 }
 EXPORT_SYMBOL(msm_vidc_private);
-
-static bool msm_vidc_check_for_inst_overload(struct msm_vidc_core *core)
-{
-	u32 instance_count = 0;
-	u32 secure_instance_count = 0;
-	struct msm_vidc_inst *inst = NULL;
-	bool overload = false;
-
-	mutex_lock(&core->lock);
-	list_for_each_entry(inst, &core->instances, list) {
-		instance_count++;
-		/* This flag is not updated yet for the current instance */
-		if (inst->flags & VIDC_SECURE)
-			secure_instance_count++;
-	}
-	mutex_unlock(&core->lock);
-
-	/* Instance count includes current instance as well. */
-
-	if ((instance_count > core->resources.max_inst_count) ||
-		(secure_instance_count > core->resources.max_secure_inst_count))
-		overload = true;
-	return overload;
-}
-
 static int msm_vidc_try_set_ctrl(void *instance, struct v4l2_ctrl *ctrl)
 {
 	struct msm_vidc_inst *inst = instance;
@@ -1856,6 +1846,7 @@ void *msm_vidc_open(int core_id, int session_type)
 	INIT_MSM_VIDC_LIST(&inst->scratchbufs);
 	INIT_MSM_VIDC_LIST(&inst->freqs);
 	INIT_MSM_VIDC_LIST(&inst->input_crs);
+	INIT_MSM_VIDC_LIST(&inst->buffer_tags);
 	INIT_MSM_VIDC_LIST(&inst->persistbufs);
 	INIT_MSM_VIDC_LIST(&inst->pending_getpropq);
 	INIT_MSM_VIDC_LIST(&inst->outputbufs);
@@ -1933,7 +1924,7 @@ void *msm_vidc_open(int core_id, int session_type)
 	}
 
 	msm_dcvs_try_enable(inst);
-	if (msm_vidc_check_for_inst_overload(core)) {
+	if (msm_comm_check_for_inst_overload(core)) {
 		dprintk(VIDC_ERR,
 			"Instance count reached Max limit, rejecting session");
 		goto fail_init;
@@ -1981,6 +1972,7 @@ fail_bufq_capture:
 	DEINIT_MSM_VIDC_LIST(&inst->eosbufs);
 	DEINIT_MSM_VIDC_LIST(&inst->freqs);
 	DEINIT_MSM_VIDC_LIST(&inst->input_crs);
+	DEINIT_MSM_VIDC_LIST(&inst->buffer_tags);
 	DEINIT_MSM_VIDC_LIST(&inst->etb_data);
 	DEINIT_MSM_VIDC_LIST(&inst->fbd_data);
 

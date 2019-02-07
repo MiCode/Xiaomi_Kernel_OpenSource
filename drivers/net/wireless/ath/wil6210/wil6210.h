@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2012-2017 Qualcomm Atheros, Inc.
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -567,6 +567,7 @@ struct wil_status_ring {
 	bool is_rx;
 	u8 desc_rdy_pol; /* Expected descriptor ready bit polarity */
 	struct wil_ring_rx_data rx_data;
+	u32 invalid_buff_id_cnt; /* relevant only for RX */
 };
 
 #define WIL_STA_TID_NUM (16)
@@ -661,7 +662,7 @@ enum { /* for wil6210_priv.status */
 	wil_status_suspending, /* suspend in progress */
 	wil_status_suspended, /* suspend completed, device is suspended */
 	wil_status_resuming, /* resume in progress */
-	wil_status_collecting_dumps, /* crashdump collection in progress */
+	wil_status_pci_linkdown, /* pci linkdown occurred */
 	wil_status_last /* keep last */
 };
 
@@ -997,6 +998,8 @@ struct wil6210_priv {
 	struct wil_txrx_ops txrx_ops;
 
 	struct mutex mutex; /* for wil6210_priv access in wil_{up|down} */
+	/* for synchronizing device memory access while reset or suspend */
+	struct rw_semaphore mem_lock;
 	/* statistics */
 	atomic_t isr_count_rx, isr_count_tx;
 	/* debugfs */
@@ -1073,6 +1076,8 @@ struct wil6210_priv {
 	u32 max_ampdu_size;
 
 	struct wil_fw_stats_global fw_stats_global;
+
+	struct work_struct pci_linkdown_recovery_worker;
 };
 
 #define wil_to_wiphy(i) (i->wiphy)
@@ -1200,6 +1205,8 @@ void wil_memcpy_fromio_32(void *dst, const volatile void __iomem *src,
 			  size_t count);
 void wil_memcpy_toio_32(volatile void __iomem *dst, const void *src,
 			size_t count);
+int wil_mem_access_lock(struct wil6210_priv *wil);
+void wil_mem_access_unlock(struct wil6210_priv *wil);
 
 struct wil6210_vif *
 wil_vif_alloc(struct wil6210_priv *wil, const char *name,
@@ -1361,6 +1368,9 @@ void wil_probe_client_worker(struct work_struct *work);
 void wil_disconnect_worker(struct work_struct *work);
 
 void wil_init_txrx_ops(struct wil6210_priv *wil);
+
+void wil_fw_recovery(struct wil6210_priv *wil);
+void wil_pci_linkdown_recovery_worker(struct work_struct *work);
 
 /* TX API */
 int wil_ring_init_tx(struct wil6210_vif *vif, int cid);

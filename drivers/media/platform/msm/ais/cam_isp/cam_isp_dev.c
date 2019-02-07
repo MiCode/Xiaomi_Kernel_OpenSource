@@ -166,6 +166,8 @@ static int cam_isp_dev_probe(struct platform_device *pdev)
 	cam_smmu_set_client_page_fault_handler(iommu_hdl,
 		cam_isp_dev_iommu_fault_handler, node);
 
+	mutex_init(&g_isp_dev.isp_mutex);
+
 	CAM_INFO(CAM_ISP, "Camera ISP probe complete");
 
 	return 0;

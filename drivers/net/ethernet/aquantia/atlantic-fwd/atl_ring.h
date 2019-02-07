@@ -123,7 +123,7 @@ struct atl_desc_ring {
 	struct atl_ring_stats stats;
 };
 
-struct atl_queue_vec {
+struct ____cacheline_aligned atl_queue_vec {
 	struct atl_desc_ring tx;
 	struct atl_desc_ring rx;
 	struct device *dev;	/* pdev->dev for DMA */
@@ -131,9 +131,7 @@ struct atl_queue_vec {
 	struct atl_nic *nic;
 	unsigned idx;
 	char name[IFNAMSIZ + 10];
-#ifdef ATL_COMPAT_PCI_ALLOC_IRQ_VECTORS_AFFINITY
 	cpumask_t affinity_hint;
-#endif
 };
 
 #define atl_for_each_qvec(nic, qvec)				\

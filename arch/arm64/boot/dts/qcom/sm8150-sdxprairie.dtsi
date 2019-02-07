@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,27 +21,151 @@
 	qcom,proxy-reg-names = "vdd_cx";
 };
 
-&mhi_1 {
+&mhi_0 {
 	esoc-names = "mdm";
 	esoc-0 = <&mdm3>;
 	qcom,smmu-cfg = <0x1d>;
 	qcom,addr-win = <0x0 0x20000000 0x0 0x2fffffff>;
 
-	mhi_chan@25 {
-		status = "disabled";
+	mhi_channels {
+		mhi_chan@25 {
+			status = "disabled";
+		};
+
+		mhi_chan@80 {
+			reg = <80>;
+			label = "AUDIO_VOICE_0";
+			mhi,event-ring = <0>;
+			mhi,chan-dir = <0>;
+			mhi,ee = <0x4>;
+			mhi,data-type = <3>;
+			mhi,offload-chan;
+			status = "ok";
+		};
+
+		mhi_chan@104 {
+			label = "IP_HW0_RSC";
+			mhi,num-elements = <512>;
+			mhi,event-ring = <5>;
+			mhi,chan-dir = <2>;
+			mhi,data-type = <5>;
+			mhi,doorbell-mode = <3>;
+			mhi,chan-type = <3>;
+		};
+
+		mhi_chan@105 {
+			label = "IP_HW_MHIP_0";
+			mhi,event-ring = <8>;
+			mhi,chan-dir = <1>;
+			mhi,data-type = <3>;
+			mhi,ee = <0x4>;
+			mhi,offload-chan;
+		};
+
+		mhi_chan@106 {
+			reg = <106>;
+			label = "IP_HW_MHIP_0";
+			mhi,event-ring = <9>;
+			mhi,chan-dir = <2>;
+			mhi,data-type = <3>;
+			mhi,ee = <0x4>;
+			mhi,offload-chan;
+			mhi,lpm-notify;
+		};
 	};
 
-	mhi_chan@104 {
-		status = "disabled";
+	mhi_devices {
+		mhi_qrtr {
+			mhi,chan = "IPCR";
+			qcom,net-id = <3>;
+		};
 	};
+};
 
-	mhi_chan@105 {
-		status = "disabled";
+&glink_adsp {
+	qcom,adsp_qrtr {
+		qcom,net-id = <2>;
+	};
+};
+
+&glink_slpi {
+	qcom,slpi_qrtr {
+		qcom,net-id = <1>;
+	};
+};
+
+&glink_cdsp {
+	qcom,cdsp_qrtr {
+		qcom,net-id = <1>;
+	};
+};
+
+&glink_modem {
+	qcom,modem_qrtr {
+		qcom,net-id = <2>;
 	};
 };
 
 &soc {
 	ipa_hw: qcom,ipa@1e00000 {
 		qcom,platform-type = <2>; /* APQ platform */
+		qcom,entire-ipa-block-size = <0x100000>;
+		qcom,register-collection-on-crash;
+		qcom,testbus-collection-on-crash;
+		qcom,non-tn-collection-on-crash;
 	};
+};
+
+&reserved_memory {
+	mailbox_mem: mailbox_region {
+		compatible = "shared-dma-pool";
+		no-map;
+		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+		alignment = <0x0 0x400000>;
+		size = <0x0 0x20000>;
+	};
+};
+
+&pil_modem_mem {
+	reg = <0x0 0x8d800000 0x0 0x3200000>;
+};
+
+&pil_video_mem {
+	reg = <0x0 0x90a00000 0x0 0x500000>;
+};
+
+&pil_slpi_mem {
+	reg = <0x0 0x90f00000 0x0 0x1500000>;
+};
+
+&pil_ipa_fw_mem {
+	reg = <0x0 0x92400000 0x0 0x10000>;
+};
+
+&pil_ipa_gsi_mem {
+	reg = <0x0 0x92410000 0x0 0xa000>;
+};
+
+&pil_gpu_mem {
+	reg = <0x0 0x9241a000 0x0 0x2000>;
+};
+
+&pil_spss_mem {
+	reg = <0x0 0x92500000 0x0 0x100000>;
+};
+
+&pil_cdsp_mem {
+	reg = <0x0 0x92600000 0x0 0x1400000>;
+};
+
+&audio_apr {
+	voice_mhi_audio: qcom,voice-mhi-audio {
+		compatible = "qcom,voice-mhi-audio";
+		memory-region = <&mailbox_mem>;
+		voice_mhi_voting;
+	};
+};
+
+&wil6210 {
+	status = "disabled";
 };

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,27 +38,17 @@
 #define FW_ASSERT_TIMEOUT		5000
 #define CNSS_EVENT_PENDING		2989
 
+#ifdef CONFIG_CNSS_EMULATION
+#define CNSS_MHI_TIMEOUT_DEFAULT	90000
+#else
+#define CNSS_MHI_TIMEOUT_DEFAULT	0
+#endif
+#define CNSS_QMI_TIMEOUT_DEFAULT	10000
+#define CNSS_BDF_TYPE_DEFAULT		CNSS_BDF_ELF
+
 static struct cnss_plat_data *plat_env;
 
 static DECLARE_RWSEM(cnss_pm_sem);
-
-static bool qmi_bypass;
-#ifdef CONFIG_CNSS2_DEBUG
-module_param(qmi_bypass, bool, 0600);
-MODULE_PARM_DESC(qmi_bypass, "Bypass QMI from platform driver");
-#endif
-
-static bool enable_waltest;
-#ifdef CONFIG_CNSS2_DEBUG
-module_param(enable_waltest, bool, 0600);
-MODULE_PARM_DESC(enable_waltest, "Enable to handle firmware waltest");
-#endif
-
-unsigned long quirks;
-#ifdef CONFIG_CNSS2_DEBUG
-module_param(quirks, ulong, 0600);
-MODULE_PARM_DESC(quirks, "Debug quirks for the driver");
-#endif
 
 static struct cnss_fw_files FW_FILES_QCA6174_FW_3_0 = {
 	"qwlan30.bin", "bdwlan30.bin", "otp30.bin", "utf30.bin",
@@ -253,7 +243,7 @@ int cnss_wlan_enable(struct device *dev,
 	if (plat_priv->device_id == QCA6174_DEVICE_ID)
 		return 0;
 
-	if (qmi_bypass)
+	if (test_bit(QMI_BYPASS, &plat_priv->ctrl_params.quirks))
 		return 0;
 
 	if (!config || !host_version) {
@@ -285,14 +275,13 @@ int cnss_wlan_disable(struct device *dev, enum cnss_driver_mode mode)
 	if (plat_priv->device_id == QCA6174_DEVICE_ID)
 		return 0;
 
-	if (qmi_bypass)
+	if (test_bit(QMI_BYPASS, &plat_priv->ctrl_params.quirks))
 		return 0;
 
 	return cnss_wlfw_wlan_mode_send_sync(plat_priv, CNSS_OFF);
 }
 EXPORT_SYMBOL(cnss_wlan_disable);
 
-#ifdef CONFIG_CNSS2_DEBUG
 int cnss_athdiag_read(struct device *dev, u32 offset, u32 mem_type,
 		      u32 data_len, u8 *output)
 {
@@ -350,21 +339,6 @@ out:
 	return ret;
 }
 EXPORT_SYMBOL(cnss_athdiag_write);
-#else
-int cnss_athdiag_read(struct device *dev, u32 offset, u32 mem_type,
-		      u32 data_len, u8 *output)
-{
-	return -EPERM;
-}
-EXPORT_SYMBOL(cnss_athdiag_read);
-
-int cnss_athdiag_write(struct device *dev, u32 offset, u32 mem_type,
-		       u32 data_len, u8 *input)
-{
-	return -EPERM;
-}
-EXPORT_SYMBOL(cnss_athdiag_write);
-#endif
 
 int cnss_set_fw_log_mode(struct device *dev, u8 fw_log_mode)
 {
@@ -376,16 +350,6 @@ int cnss_set_fw_log_mode(struct device *dev, u8 fw_log_mode)
 	return cnss_wlfw_ini_send_sync(plat_priv, fw_log_mode);
 }
 EXPORT_SYMBOL(cnss_set_fw_log_mode);
-
-bool *cnss_get_qmi_bypass(void)
-{
-	return &qmi_bypass;
-}
-
-unsigned long *cnss_get_debug_quirks(void)
-{
-	return &quirks;
-}
 
 static int cnss_fw_mem_ready_hdlr(struct cnss_plat_data *plat_priv)
 {
@@ -433,7 +397,7 @@ static int cnss_fw_ready_hdlr(struct cnss_plat_data *plat_priv)
 		clear_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state);
 	}
 
-	if (enable_waltest) {
+	if (test_bit(ENABLE_WALTEST, &plat_priv->ctrl_params.quirks)) {
 		ret = cnss_wlfw_wlan_mode_send_sync(plat_priv,
 						    CNSS_WALTEST);
 	} else if (test_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state)) {
@@ -571,7 +535,14 @@ out:
 
 unsigned int cnss_get_boot_timeout(struct device *dev)
 {
-	return cnss_get_qmi_timeout();
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+
+	if (!plat_priv) {
+		cnss_pr_err("plat_priv is NULL\n");
+		return 0;
+	}
+
+	return cnss_get_qmi_timeout(plat_priv);
 }
 EXPORT_SYMBOL(cnss_get_boot_timeout);
 
@@ -655,6 +626,8 @@ out:
 
 static void cnss_put_resources(struct cnss_plat_data *plat_priv)
 {
+	cnss_put_pinctrl(plat_priv);
+	cnss_put_vreg(plat_priv);
 }
 
 static int cnss_modem_notifier_nb(struct notifier_block *nb,
@@ -772,7 +745,7 @@ static int cnss_subsys_powerup(const struct subsys_desc *subsys_desc)
 	}
 
 	if (!plat_priv->driver_state) {
-		cnss_pr_dbg("Powerup is ignored\n");
+		cnss_pr_dbg("subsys powerup is ignored\n");
 		return 0;
 	}
 
@@ -796,7 +769,7 @@ static int cnss_subsys_shutdown(const struct subsys_desc *subsys_desc,
 	}
 
 	if (!plat_priv->driver_state) {
-		cnss_pr_dbg("shutdown is ignored\n");
+		cnss_pr_dbg("subsys shutdown is ignored\n");
 		return 0;
 	}
 
@@ -890,14 +863,15 @@ static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 	if (plat_priv->device_id == QCA6174_DEVICE_ID)
 		goto self_recovery;
 
-	if (test_bit(SKIP_RECOVERY, &quirks)) {
+	if (test_bit(SKIP_RECOVERY, &plat_priv->ctrl_params.quirks)) {
 		cnss_pr_dbg("Skip device recovery\n");
 		return 0;
 	}
 
 	switch (reason) {
 	case CNSS_REASON_LINK_DOWN:
-		if (test_bit(LINK_DOWN_SELF_RECOVERY, &quirks))
+		if (test_bit(LINK_DOWN_SELF_RECOVERY,
+			     &plat_priv->ctrl_params.quirks))
 			goto self_recovery;
 		break;
 	case CNSS_REASON_RDDM:
@@ -995,6 +969,11 @@ void cnss_schedule_recovery(struct device *dev,
 	int gfp = GFP_KERNEL;
 
 	cnss_bus_update_status(plat_priv, CNSS_FW_DOWN);
+
+	if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) {
+		cnss_pr_dbg("Driver unload is in progress, ignore schedule recovery\n");
+		return;
+	}
 
 	if (in_interrupt() || irqs_disabled())
 		gfp = GFP_ATOMIC;
@@ -1300,7 +1279,8 @@ static int cnss_register_ramdump_v1(struct cnss_plat_data *plat_priv)
 	subsys_info = &plat_priv->subsys_info;
 	ramdump_info = &plat_priv->ramdump_info;
 
-	if (of_property_read_u32(dev->of_node, "qcom,wlan-ramdump-dynamic",
+	if (of_property_read_u32(plat_priv->dev_node,
+				 "qcom,wlan-ramdump-dynamic",
 				 &ramdump_size) == 0) {
 		ramdump_info->ramdump_va =
 			dma_alloc_coherent(dev, ramdump_size,
@@ -1365,14 +1345,14 @@ static int cnss_register_ramdump_v2(struct cnss_plat_data *plat_priv)
 	struct cnss_ramdump_info_v2 *info_v2;
 	struct cnss_dump_data *dump_data;
 	struct msm_dump_entry dump_entry;
-	struct device *dev = &plat_priv->plat_dev->dev;
 	u32 ramdump_size = 0;
 
 	subsys_info = &plat_priv->subsys_info;
 	info_v2 = &plat_priv->ramdump_info_v2;
 	dump_data = &info_v2->dump_data;
 
-	if (of_property_read_u32(dev->of_node, "qcom,wlan-ramdump-dynamic",
+	if (of_property_read_u32(plat_priv->dev_node,
+				 "qcom,wlan-ramdump-dynamic",
 				 &ramdump_size) == 0)
 		info_v2->ramdump_size = ramdump_size;
 
@@ -1513,7 +1493,7 @@ static ssize_t cnss_fs_ready_store(struct device *dev,
 	cnss_pr_dbg("File system is ready, fs_ready is %d, count is %zu\n",
 		    fs_ready, count);
 
-	if (qmi_bypass) {
+	if (test_bit(QMI_BYPASS, &plat_priv->ctrl_params.quirks)) {
 		cnss_pr_dbg("QMI is bypassed.\n");
 		return count;
 	}
@@ -1617,10 +1597,22 @@ static void cnss_misc_deinit(struct cnss_plat_data *plat_priv)
 	del_timer(&plat_priv->fw_boot_timer);
 }
 
+static void cnss_init_control_params(struct cnss_plat_data *plat_priv)
+{
+	if (of_property_read_bool(plat_priv->plat_dev->dev.of_node,
+				  "cnss-daemon-support"))
+		plat_priv->ctrl_params.quirks |= BIT(ENABLE_DAEMON_SUPPORT);
+
+	plat_priv->ctrl_params.mhi_timeout = CNSS_MHI_TIMEOUT_DEFAULT;
+	plat_priv->ctrl_params.qmi_timeout = CNSS_QMI_TIMEOUT_DEFAULT;
+	plat_priv->ctrl_params.bdf_type = CNSS_BDF_TYPE_DEFAULT;
+}
+
 static const struct platform_device_id cnss_platform_id_table[] = {
 	{ .name = "qca6174", .driver_data = QCA6174_DEVICE_ID, },
 	{ .name = "qca6290", .driver_data = QCA6290_DEVICE_ID, },
 	{ .name = "qca6390", .driver_data = QCA6390_DEVICE_ID, },
+	{ .name = "qcaconv", .driver_data = 0},
 };
 
 static const struct of_device_id cnss_of_match_table[] = {
@@ -1633,9 +1625,54 @@ static const struct of_device_id cnss_of_match_table[] = {
 	{
 		.compatible = "qcom,cnss-qca6390",
 		.data = (void *)&cnss_platform_id_table[2]},
+	{
+		.compatible = "qcom,cnss-qca-converged",
+		.data = (void *)&cnss_platform_id_table[3]},
 	{ },
 };
 MODULE_DEVICE_TABLE(of, cnss_of_match_table);
+
+struct cnss_fw_path {
+	unsigned long device_id;
+	const char path[CNSS_FW_PATH_MAX_LEN];
+};
+
+static const struct cnss_fw_path cnss_fw_path_table[] = {
+	{ QCA6174_DEVICE_ID, "qca6174/" },
+	{ QCA6290_DEVICE_ID, "qca6290/" },
+	{ QCA6390_DEVICE_ID, "qca6390/" },
+	{ 0, "" }
+};
+
+const char *cnss_get_fw_path(struct cnss_plat_data *plat_priv)
+{
+	const struct cnss_fw_path *fw_path;
+	const char *path;
+	int size = ARRAY_SIZE(cnss_fw_path_table);
+
+	if (!plat_priv->is_converged_dt) {
+		path = cnss_fw_path_table[size - 1].path;
+	} else {
+		fw_path = cnss_fw_path_table;
+		while (fw_path->device_id &&
+		       fw_path->device_id != plat_priv->device_id) {
+			fw_path++;
+		}
+
+		path = fw_path->path;
+	}
+
+	cnss_pr_dbg("get firmware path[%s] for device[0x%lx]\n",
+		    path, plat_priv->device_id);
+	return path;
+}
+
+static inline bool
+cnss_is_converged_dt(struct cnss_plat_data *plat_priv)
+{
+	return of_property_read_bool(plat_priv->plat_dev->dev.of_node,
+		"qcom,converged-dt");
+}
 
 static int cnss_probe(struct platform_device *plat_dev)
 {
@@ -1667,16 +1704,24 @@ static int cnss_probe(struct platform_device *plat_dev)
 	}
 
 	plat_priv->plat_dev = plat_dev;
+	plat_priv->dev_node = NULL;
 	plat_priv->device_id = device_id->driver_data;
-	plat_priv->bus_type = cnss_get_bus_type(plat_priv->device_id);
+	plat_priv->is_converged_dt = cnss_is_converged_dt(plat_priv);
+	cnss_pr_dbg("Probing platform driver from %s DT\n",
+		    plat_priv->is_converged_dt ? "converged" : "single");
+
+	plat_priv->bus_type = cnss_get_bus_type(plat_priv);
 	cnss_set_plat_priv(plat_dev, plat_priv);
 	platform_set_drvdata(plat_dev, plat_priv);
+	INIT_LIST_HEAD(&plat_priv->vreg_list);
+
+	cnss_init_control_params(plat_priv);
 
 	ret = cnss_get_resources(plat_priv);
 	if (ret)
 		goto reset_ctx;
 
-	if (!test_bit(SKIP_DEVICE_BOOT, &quirks)) {
+	if (!test_bit(SKIP_DEVICE_BOOT, &plat_priv->ctrl_params.quirks)) {
 		ret = cnss_power_on_device(plat_priv);
 		if (ret)
 			goto free_res;
@@ -1731,10 +1776,10 @@ unreg_bus_scale:
 unreg_esoc:
 	cnss_unregister_esoc(plat_priv);
 deinit_bus:
-	if (!test_bit(SKIP_DEVICE_BOOT, &quirks))
+	if (!test_bit(SKIP_DEVICE_BOOT, &plat_priv->ctrl_params.quirks))
 		cnss_bus_deinit(plat_priv);
 power_off:
-	if (!test_bit(SKIP_DEVICE_BOOT, &quirks))
+	if (!test_bit(SKIP_DEVICE_BOOT, &plat_priv->ctrl_params.quirks))
 		cnss_power_off_device(plat_priv);
 free_res:
 	cnss_put_resources(plat_priv);

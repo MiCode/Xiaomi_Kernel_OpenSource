@@ -1120,6 +1120,8 @@ static int __arm_smmu_tlb_sync(struct arm_smmu_device *smmu,
 	dev_err_ratelimited(smmu->dev,
 			    "TLB sync timed out -- SMMU may be deadlocked, ack 0x%x\n",
 			    sync_inv_ack);
+	BUG_ON(IS_ENABLED(CONFIG_IOMMU_TLBSYNC_DEBUG));
+
 	return -EINVAL;
 }
 
@@ -4328,7 +4330,7 @@ static int arm_smmu_init_bus_scaling(struct arm_smmu_power_resources *pwr)
 	pwr->bus_client = msm_bus_scale_register_client(pwr->bus_dt_data);
 	if (!pwr->bus_client) {
 		dev_err(dev, "Bus client registration failed\n");
-		return -EINVAL;
+		return -EPROBE_DEFER;
 	}
 
 	return 0;
@@ -5317,6 +5319,7 @@ static phys_addr_t qsmmuv500_iova_to_phys(
 redo:
 	/* Set address and stream-id */
 	val = readq_relaxed(tbu->base + DEBUG_SID_HALT_REG);
+	val &= ~DEBUG_SID_HALT_SID_MASK;
 	val |= sid & DEBUG_SID_HALT_SID_MASK;
 	writeq_relaxed(val, tbu->base + DEBUG_SID_HALT_REG);
 	writeq_relaxed(iova, tbu->base + DEBUG_VA_ADDR_REG);
@@ -5379,6 +5382,9 @@ redo:
 	/* Reset hardware */
 	writeq_relaxed(0, tbu->base + DEBUG_TXN_TRIGG_REG);
 	writeq_relaxed(0, tbu->base + DEBUG_VA_ADDR_REG);
+	val = readl_relaxed(tbu->base + DEBUG_SID_HALT_REG);
+	val &= ~DEBUG_SID_HALT_SID_MASK;
+	writel_relaxed(val, tbu->base + DEBUG_SID_HALT_REG);
 
 	/*
 	 * After a failed translation, the next successful translation will

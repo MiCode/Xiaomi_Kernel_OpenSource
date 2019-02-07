@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2377,17 +2377,20 @@ int gsi_alloc_channel(struct gsi_chan_props *props, unsigned long dev_hdl,
 	}
 	erindex = props->evt_ring_hdl != ~0 ? props->evt_ring_hdl :
 		GSI_NO_EVT_ERINDEX;
-	if (erindex == GSI_NO_EVT_ERINDEX || erindex >= GSI_EVT_RING_MAX) {
+	if (erindex != GSI_NO_EVT_ERINDEX && erindex >= GSI_EVT_RING_MAX) {
 		GSIERR("invalid erindex %u\n", erindex);
 		devm_kfree(gsi_ctx->dev, user_data);
 		return -GSI_STATUS_INVALID_PARAMS;
 	}
-	ctx->evtr = &gsi_ctx->evtr[erindex];
-	atomic_inc(&ctx->evtr->chan_ref_cnt);
-	if (props->prot != GSI_CHAN_PROT_GCI &&
-		ctx->evtr->props.exclusive &&
-		atomic_read(&ctx->evtr->chan_ref_cnt) == 1)
-		ctx->evtr->chan = ctx;
+
+	if (erindex < GSI_EVT_RING_MAX) {
+		ctx->evtr = &gsi_ctx->evtr[erindex];
+		atomic_inc(&ctx->evtr->chan_ref_cnt);
+		if (props->prot != GSI_CHAN_PROT_GCI &&
+			ctx->evtr->props.exclusive &&
+			atomic_read(&ctx->evtr->chan_ref_cnt) == 1)
+			ctx->evtr->chan = ctx;
+	}
 
 	gsi_program_chan_ctx(props, gsi_ctx->per.ee, erindex);
 
@@ -2503,6 +2506,7 @@ int gsi_write_channel_scratch3_reg(unsigned long chan_hdl,
 	mutex_unlock(&ctx->mlock);
 	return GSI_STATUS_SUCCESS;
 }
+EXPORT_SYMBOL(gsi_write_channel_scratch3_reg);
 
 static void __gsi_read_channel_scratch(unsigned long chan_hdl,
 		union __packed gsi_channel_scratch * val)
@@ -2959,7 +2963,13 @@ int gsi_reset_channel(unsigned long chan_hdl)
 
 	ctx = &gsi_ctx->chan[chan_hdl];
 
-	if (ctx->state != GSI_CHAN_STATE_STOPPED) {
+	/*
+	 * In WDI3 case, if SAP enabled but no client connected,
+	 * GSI will be in allocated state. When SAP disabled,
+	 * gsi_reset_channel will be called and reset is needed.
+	 */
+	if (ctx->state != GSI_CHAN_STATE_STOPPED &&
+		ctx->state != GSI_CHAN_STATE_ALLOCATED) {
 		GSIERR("bad state %d\n", ctx->state);
 		return -GSI_STATUS_UNSUPPORTED_OP;
 	}

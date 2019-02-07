@@ -14,7 +14,7 @@
 #include <linux/irq.h>
 #include <linux/module.h>
 #include <linux/msi.h>
-#include <linux/of.h>
+#include <linux/of_address.h>
 #include <linux/pm_runtime.h>
 #include <linux/memblock.h>
 #include <linux/completion.h>
@@ -43,13 +43,13 @@
 #define MHI_NODE_NAME			"qcom,mhi"
 #define MHI_MSI_NAME			"MHI"
 
-#define MAX_M3_FILE_NAME_LENGTH		13
 #define DEFAULT_M3_FILE_NAME		"m3.bin"
 #define DEFAULT_FW_FILE_NAME		"amss.bin"
 
 #define WAKE_MSI_NAME			"WAKE"
 
 #define FW_ASSERT_TIMEOUT		5000
+#define DEV_RDDM_TIMEOUT		5000
 
 #ifdef CONFIG_CNSS_EMULATION
 #define EMULATION_HW			1
@@ -59,32 +59,7 @@
 
 static DEFINE_SPINLOCK(pci_link_down_lock);
 
-static unsigned int pci_link_down_panic;
-module_param(pci_link_down_panic, uint, 0600);
-MODULE_PARM_DESC(pci_link_down_panic,
-		 "Trigger kernel panic when PCI link down is detected");
-
-static bool fbc_bypass;
-#ifdef CONFIG_CNSS2_DEBUG
-module_param(fbc_bypass, bool, 0600);
-MODULE_PARM_DESC(fbc_bypass,
-		 "Bypass firmware download when loading WLAN driver");
-#endif
-
-#ifdef CONFIG_CNSS2_DEBUG
-#ifdef CONFIG_CNSS_EMULATION
-static unsigned int mhi_timeout = 90000;
-#else
-static unsigned int mhi_timeout;
-#endif
-module_param(mhi_timeout, uint, 0600);
-MODULE_PARM_DESC(mhi_timeout,
-		 "Timeout for MHI operation in milliseconds");
-
-#define MHI_TIMEOUT_OVERWRITE_MS	mhi_timeout
-#else
-#define MHI_TIMEOUT_OVERWRITE_MS	0
-#endif
+#define MHI_TIMEOUT_OVERWRITE_MS	(plat_priv->ctrl_params.mhi_timeout)
 
 static int cnss_set_pci_config_space(struct cnss_pci_data *pci_priv, bool save)
 {
@@ -227,13 +202,16 @@ int cnss_pci_link_down(struct device *dev)
 	unsigned long flags;
 	struct pci_dev *pci_dev = to_pci_dev(dev);
 	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
+	struct cnss_plat_data *plat_priv;
 
 	if (!pci_priv) {
 		cnss_pr_err("pci_priv is NULL!\n");
 		return -EINVAL;
 	}
 
-	if (pci_link_down_panic)
+	plat_priv = pci_priv->plat_priv;
+	if (test_bit(ENABLE_PCI_LINK_DOWN_PANIC,
+		     &plat_priv->ctrl_params.quirks))
 		panic("cnss: PCI link is down!\n");
 
 	spin_lock_irqsave(&pci_link_down_lock, flags);
@@ -394,6 +372,18 @@ int cnss_pci_update_status(struct cnss_pci_data *pci_priv,
 	return 0;
 }
 
+#ifdef CONFIG_CNSS2_DEBUG
+static void cnss_pci_collect_dump(struct cnss_pci_data *pci_priv)
+{
+	cnss_pci_collect_dump_info(pci_priv, false);
+	CNSS_ASSERT(0);
+}
+#else
+static void cnss_pci_collect_dump(struct cnss_pci_data *pci_priv)
+{
+}
+#endif
+
 static int cnss_qca6174_powerup(struct cnss_pci_data *pci_priv)
 {
 	int ret = 0;
@@ -510,7 +500,7 @@ static int cnss_qca6290_powerup(struct cnss_pci_data *pci_priv)
 		return 0;
 	}
 
-	if (test_bit(USE_CORE_ONLY_FW, cnss_get_debug_quirks())) {
+	if (test_bit(USE_CORE_ONLY_FW, &plat_priv->ctrl_params.quirks)) {
 		clear_bit(CNSS_FW_BOOT_RECOVERY, &plat_priv->driver_state);
 		clear_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state);
 		return 0;
@@ -518,7 +508,7 @@ static int cnss_qca6290_powerup(struct cnss_pci_data *pci_priv)
 
 	cnss_set_pin_connect_status(plat_priv);
 
-	if (*cnss_get_qmi_bypass()) {
+	if (test_bit(QMI_BYPASS, &plat_priv->ctrl_params.quirks)) {
 		ret = cnss_pci_call_driver_probe(pci_priv);
 		if (ret)
 			goto stop_mhi;
@@ -551,6 +541,12 @@ static int cnss_qca6290_shutdown(struct cnss_pci_data *pci_priv)
 				   CNSS_BUS_WIDTH_NONE);
 	cnss_pci_set_monitor_wake_intr(pci_priv, false);
 	cnss_pci_set_auto_suspended(pci_priv, 0);
+
+	if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state) &&
+	    test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state)) {
+		del_timer(&pci_priv->dev_rddm_timer);
+		cnss_pci_collect_dump(pci_priv);
+	}
 
 	cnss_pci_stop_mhi(pci_priv);
 
@@ -821,13 +817,25 @@ int cnss_pci_unregister_driver_hdlr(struct cnss_pci_data *pci_priv)
 	return 0;
 }
 
+static int cnss_pci_smmu_fault_handler(struct iommu_domain *domain,
+				       struct device *dev, unsigned long iova,
+				       int flags, void *handler_token)
+{
+	cnss_pr_err("SMMU fault happened with IOVA 0x%lx\n", iova);
+
+	cnss_force_fw_assert(dev);
+
+	/* IOMMU driver requires non-zero return value to print debug info. */
+	return -EINVAL;
+}
+
 static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 {
 	int ret = 0;
 	struct device *dev;
 	struct dma_iommu_mapping *mapping;
 	int atomic_ctx = 1, s1_bypass = 1, fast = 1, cb_stall_disable = 1,
-		no_cfre = 1;
+		no_cfre = 1, non_fatal_faults = 1;
 
 	cnss_pr_dbg("Initializing SMMU\n");
 
@@ -849,8 +857,8 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 					    DOMAIN_ATTR_ATOMIC,
 					    &atomic_ctx);
 		if (ret) {
-			pr_err("Failed to set SMMU atomic_ctx attribute, err = %d\n",
-			       ret);
+			cnss_pr_err("Failed to set SMMU atomic_ctx attribute, err = %d\n",
+				    ret);
 			goto release_mapping;
 		}
 
@@ -858,8 +866,8 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 					    DOMAIN_ATTR_FAST,
 					    &fast);
 		if (ret) {
-			pr_err("Failed to set SMMU fast attribute, err = %d\n",
-			       ret);
+			cnss_pr_err("Failed to set SMMU fast attribute, err = %d\n",
+				    ret);
 			goto release_mapping;
 		}
 
@@ -867,8 +875,8 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 					    DOMAIN_ATTR_CB_STALL_DISABLE,
 					    &cb_stall_disable);
 		if (ret) {
-			pr_err("Failed to set SMMU cb_stall_disable attribute, err = %d\n",
-			       ret);
+			cnss_pr_err("Failed to set SMMU cb_stall_disable attribute, err = %d\n",
+				    ret);
 			goto release_mapping;
 		}
 
@@ -876,24 +884,36 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 					    DOMAIN_ATTR_NO_CFRE,
 					    &no_cfre);
 		if (ret) {
-			pr_err("Failed to set SMMU no_cfre attribute, err = %d\n",
-			       ret);
+			cnss_pr_err("Failed to set SMMU no_cfre attribute, err = %d\n",
+				    ret);
 			goto release_mapping;
 		}
+
+		ret = iommu_domain_set_attr(mapping->domain,
+					    DOMAIN_ATTR_NON_FATAL_FAULTS,
+					    &non_fatal_faults);
+		if (ret) {
+			cnss_pr_err("Failed to set SMMU non_fatal_faults attribute, err = %d\n",
+				    ret);
+			goto release_mapping;
+		}
+
+		iommu_set_fault_handler(mapping->domain,
+					cnss_pci_smmu_fault_handler, pci_priv);
 	} else {
 		ret = iommu_domain_set_attr(mapping->domain,
 					    DOMAIN_ATTR_S1_BYPASS,
 					    &s1_bypass);
 		if (ret) {
-			pr_err("Failed to set SMMU s1_bypass attribute, err = %d\n",
-			       ret);
+			cnss_pr_err("Failed to set SMMU s1_bypass attribute, err = %d\n",
+				    ret);
 			goto release_mapping;
 		}
 	}
 
 	ret = arm_iommu_attach_device(dev, mapping);
 	if (ret) {
-		pr_err("Failed to attach SMMU device, err = %d\n", ret);
+		cnss_pr_err("Failed to attach SMMU device, err = %d\n", ret);
 		goto release_mapping;
 	}
 
@@ -919,6 +939,7 @@ static void cnss_pci_event_cb(struct msm_pcie_notify *notify)
 	unsigned long flags;
 	struct pci_dev *pci_dev;
 	struct cnss_pci_data *pci_priv;
+	struct cnss_plat_data *plat_priv;
 
 	if (!notify)
 		return;
@@ -931,9 +952,11 @@ static void cnss_pci_event_cb(struct msm_pcie_notify *notify)
 	if (!pci_priv)
 		return;
 
+	plat_priv = pci_priv->plat_priv;
 	switch (notify->event) {
 	case MSM_PCIE_EVENT_LINKDOWN:
-		if (pci_link_down_panic)
+		if (test_bit(ENABLE_PCI_LINK_DOWN_PANIC,
+			     &plat_priv->ctrl_params.quirks))
 			panic("cnss: PCI link is down!\n");
 
 		spin_lock_irqsave(&pci_link_down_lock, flags);
@@ -1138,6 +1161,8 @@ static int cnss_pci_runtime_suspend(struct device *dev)
 	if (driver_ops && driver_ops->runtime_ops &&
 	    driver_ops->runtime_ops->runtime_suspend)
 		ret = driver_ops->runtime_ops->runtime_suspend(pci_dev);
+	else
+		ret = cnss_auto_suspend(dev);
 
 	cnss_pr_info("Runtime suspend status: %d\n", ret);
 
@@ -1165,6 +1190,8 @@ static int cnss_pci_runtime_resume(struct device *dev)
 	if (driver_ops && driver_ops->runtime_ops &&
 	    driver_ops->runtime_ops->runtime_resume)
 		ret = driver_ops->runtime_ops->runtime_resume(pci_dev);
+	else
+		ret = cnss_auto_resume(dev);
 
 	cnss_pr_info("Runtime resume status: %d\n", ret);
 
@@ -1491,12 +1518,14 @@ int cnss_pci_load_m3(struct cnss_pci_data *pci_priv)
 {
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
 	struct cnss_fw_mem *m3_mem = &plat_priv->m3_mem;
-	char filename[MAX_M3_FILE_NAME_LENGTH];
+	char filename[CNSS_FW_PATH_MAX_LEN];
 	const struct firmware *fw_entry;
 	int ret = 0;
 
 	if (!m3_mem->va && !m3_mem->size) {
-		snprintf(filename, sizeof(filename), DEFAULT_M3_FILE_NAME);
+		snprintf(filename, sizeof(filename),
+			 "%s" DEFAULT_M3_FILE_NAME,
+			 cnss_get_fw_path(plat_priv));
 
 		ret = request_firmware(&fw_entry, filename,
 				       &pci_priv->pci_dev->dev);
@@ -1552,9 +1581,8 @@ int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv)
 	if (!plat_priv)
 		return -ENODEV;
 
-	if (test_bit(CNSS_MHI_RDDM_DONE, &pci_priv->mhi_state)) {
-		cnss_pr_err("RDDM already collected 0x%x, return\n",
-			    pci_priv->mhi_state);
+	if (cnss_pci_is_device_down(&pci_priv->pci_dev->dev)) {
+		cnss_pr_info("Device is already in bad state, ignore force assert\n");
 		return 0;
 	}
 
@@ -1713,11 +1741,6 @@ static int cnss_pci_enable_msi(struct cnss_pci_data *pci_priv)
 	}
 
 	pci_priv->msi_ep_base_data = msi_desc->msg.data;
-	if (!pci_priv->msi_ep_base_data) {
-		cnss_pr_err("Got 0 MSI base data!\n");
-		CNSS_ASSERT(0);
-	}
-
 	cnss_pr_dbg("MSI base data is %d\n", pci_priv->msi_ep_base_data);
 
 	return 0;
@@ -2027,6 +2050,34 @@ void cnss_pci_clear_dump_info(struct cnss_pci_data *pci_priv)
 	plat_priv->ramdump_info_v2.dump_data_valid = false;
 }
 
+static char *cnss_mhi_notify_status_to_str(enum MHI_CB status)
+{
+	switch (status) {
+	case MHI_CB_IDLE:
+		return "IDLE";
+	case MHI_CB_EE_RDDM:
+		return "RDDM";
+	case MHI_CB_SYS_ERROR:
+		return "SYS_ERROR";
+	case MHI_CB_FATAL_ERROR:
+		return "FATAL_ERROR";
+	default:
+		return "UNKNOWN";
+	}
+};
+
+static void cnss_dev_rddm_timeout_hdlr(unsigned long data)
+{
+	struct cnss_pci_data *pci_priv = (struct cnss_pci_data *)data;
+
+	if (!pci_priv)
+		return;
+
+	cnss_pr_err("Timeout waiting for RDDM notification\n");
+
+	cnss_schedule_recovery(&pci_priv->pci_dev->dev, CNSS_REASON_TIMEOUT);
+}
+
 static int cnss_mhi_link_status(struct mhi_controller *mhi_ctrl, void *priv)
 {
 	struct cnss_pci_data *pci_priv = priv;
@@ -2061,24 +2112,33 @@ static void cnss_mhi_notify_status(struct mhi_controller *mhi_ctrl, void *priv,
 
 	plat_priv = pci_priv->plat_priv;
 
-	cnss_pr_dbg("MHI status cb is called with reason %d\n", reason);
-
-	if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) {
-		cnss_pr_dbg("Driver unload is in progress, ignore device error\n");
-		return;
-	}
+	cnss_pr_dbg("MHI status cb is called with reason %s(%d)\n",
+		    cnss_mhi_notify_status_to_str(reason), reason);
 
 	switch (reason) {
+	case MHI_CB_IDLE:
+		return;
+	case MHI_CB_FATAL_ERROR:
+		set_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state);
+		del_timer(&plat_priv->fw_boot_timer);
+		cnss_pci_update_status(pci_priv, CNSS_FW_DOWN);
+		cnss_reason = CNSS_REASON_DEFAULT;
+		break;
+	case MHI_CB_SYS_ERROR:
+		set_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state);
+		del_timer(&plat_priv->fw_boot_timer);
+		mod_timer(&pci_priv->dev_rddm_timer,
+			  jiffies + msecs_to_jiffies(DEV_RDDM_TIMEOUT));
+		cnss_pci_update_status(pci_priv, CNSS_FW_DOWN);
+		return;
 	case MHI_CB_EE_RDDM:
+		del_timer(&pci_priv->dev_rddm_timer);
 		cnss_reason = CNSS_REASON_RDDM;
 		break;
 	default:
 		cnss_pr_err("Unsupported MHI status cb reason: %d\n", reason);
 		return;
 	}
-
-	set_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state);
-	del_timer(&plat_priv->fw_boot_timer);
 
 	cnss_schedule_recovery(&pci_priv->pci_dev->dev, cnss_reason);
 }
@@ -2129,7 +2189,7 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 
 	mhi_ctrl->priv_data = pci_priv;
 	mhi_ctrl->dev = &pci_dev->dev;
-	mhi_ctrl->of_node = (&plat_priv->plat_dev->dev)->of_node;
+	mhi_ctrl->of_node = plat_priv->dev_node;
 	mhi_ctrl->dev_id = pci_priv->device_id;
 	mhi_ctrl->domain = pci_domain_nr(pci_dev->bus);
 	mhi_ctrl->bus = pci_dev->bus->number;
@@ -2252,6 +2312,7 @@ static void cnss_pci_set_mhi_state_bit(struct cnss_pci_data *pci_priv,
 	case CNSS_MHI_POWER_OFF:
 	case CNSS_MHI_FORCE_POWER_OFF:
 		clear_bit(CNSS_MHI_POWER_ON, &pci_priv->mhi_state);
+		clear_bit(CNSS_MHI_TRIGGER_RDDM, &pci_priv->mhi_state);
 		clear_bit(CNSS_MHI_RDDM_DONE, &pci_priv->mhi_state);
 		break;
 	case CNSS_MHI_SUSPEND:
@@ -2261,6 +2322,7 @@ static void cnss_pci_set_mhi_state_bit(struct cnss_pci_data *pci_priv,
 		clear_bit(CNSS_MHI_SUSPEND, &pci_priv->mhi_state);
 		break;
 	case CNSS_MHI_TRIGGER_RDDM:
+		set_bit(CNSS_MHI_TRIGGER_RDDM, &pci_priv->mhi_state);
 		break;
 	case CNSS_MHI_RDDM_DONE:
 		set_bit(CNSS_MHI_RDDM_DONE, &pci_priv->mhi_state);
@@ -2346,13 +2408,15 @@ out:
 int cnss_pci_start_mhi(struct cnss_pci_data *pci_priv)
 {
 	int ret = 0;
+	struct cnss_plat_data *plat_priv;
 
 	if (!pci_priv) {
 		cnss_pr_err("pci_priv is NULL!\n");
 		return -ENODEV;
 	}
 
-	if (fbc_bypass)
+	plat_priv = pci_priv->plat_priv;
+	if (test_bit(FBC_BYPASS, &plat_priv->ctrl_params.quirks))
 		return 0;
 
 	if (MHI_TIMEOUT_OVERWRITE_MS)
@@ -2381,10 +2445,9 @@ void cnss_pci_stop_mhi(struct cnss_pci_data *pci_priv)
 		return;
 	}
 
-	if (fbc_bypass)
-		return;
-
 	plat_priv = pci_priv->plat_priv;
+	if (test_bit(FBC_BYPASS, &plat_priv->ctrl_params.quirks))
+		return;
 
 	cnss_pci_set_mhi_state_bit(pci_priv, CNSS_MHI_RESUME);
 	if (!pci_priv->pci_link_down_ind)
@@ -2399,13 +2462,143 @@ void cnss_pci_stop_mhi(struct cnss_pci_data *pci_priv)
 	cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_DEINIT);
 }
 
+static int cnss_pci_get_dev_cfg_node(struct cnss_plat_data *plat_priv)
+{
+	struct device_node *child;
+	u32 id, i;
+	int id_n, ret;
+
+	if (!plat_priv->is_converged_dt) {
+		plat_priv->dev_node = plat_priv->plat_dev->dev.of_node;
+		return 0;
+	}
+
+	if (!plat_priv->device_id) {
+		cnss_pr_err("Invalid device id\n");
+		return -EINVAL;
+	}
+
+	for_each_available_child_of_node(plat_priv->plat_dev->dev.of_node,
+					 child) {
+		if (strcmp(child->name, "chip_cfg"))
+			continue;
+
+		id_n = of_property_count_u32_elems(child, "supported-ids");
+		if (id_n <= 0) {
+			cnss_pr_err("Device id is NOT set\n");
+			return -EINVAL;
+		}
+
+		for (i = 0; i < id_n; i++) {
+			ret = of_property_read_u32_index(child,
+							 "supported-ids",
+							 i, &id);
+			if (ret) {
+				cnss_pr_err("Failed to read supported ids\n");
+				return -EINVAL;
+			}
+
+			if (id == plat_priv->device_id) {
+				plat_priv->dev_node = child;
+				cnss_pr_dbg("got node[%s@%d] for device[0x%x]\n",
+					    child->name, i, id);
+				return 0;
+			}
+		}
+	}
+
+	return -EINVAL;
+}
+
+/* For converged dt, property 'reg' is declared in sub node,
+ * won't be parsed during probe.
+ */
+static int cnss_pci_get_smmu_cfg(struct cnss_plat_data *plat_priv)
+{
+	struct resource res_tmp;
+	struct cnss_pci_data *pci_priv;
+	struct resource *res;
+	int index;
+	int ret;
+	struct device_node *dev_node;
+
+	dev_node = (plat_priv->dev_node ?
+		    plat_priv->dev_node : plat_priv->plat_dev->dev.of_node);
+
+	if (plat_priv->is_converged_dt) {
+		index = of_property_match_string(dev_node, "reg-names",
+						 "smmu_iova_base");
+		if (index < 0) {
+			ret = -ENODATA;
+			goto out;
+		}
+		ret = of_address_to_resource(dev_node, index, &res_tmp);
+		if (ret)
+			goto out;
+
+		res = &res_tmp;
+	} else {
+		res = platform_get_resource_byname(plat_priv->plat_dev,
+						   IORESOURCE_MEM,
+						   "smmu_iova_base");
+		if (!res) {
+			ret = -ENODATA;
+			goto out;
+		}
+	}
+
+	pci_priv = plat_priv->bus_priv;
+	if (of_property_read_bool(dev_node, "qcom,smmu-s1-enable"))
+		pci_priv->smmu_s1_enable = true;
+
+	pci_priv->smmu_iova_start = res->start;
+	pci_priv->smmu_iova_len = resource_size(res);
+	cnss_pr_dbg("smmu_iova_start: %pa, smmu_iova_len: %zu\n",
+		    &pci_priv->smmu_iova_start,
+		    pci_priv->smmu_iova_len);
+
+	if (plat_priv->is_converged_dt) {
+		index = of_property_match_string(dev_node, "reg-names",
+						 "smmu_iova_ipa");
+		if (index < 0) {
+			ret = -ENODATA;
+			goto out;
+		}
+
+		ret = of_address_to_resource(dev_node, index, &res_tmp);
+		if (ret)
+			goto out;
+
+		res = &res_tmp;
+	} else {
+		res = platform_get_resource_byname(plat_priv->plat_dev,
+						   IORESOURCE_MEM,
+						   "smmu_iova_ipa");
+		if (!res) {
+			ret = -ENODATA;
+			goto out;
+		}
+	}
+
+	pci_priv->smmu_iova_ipa_start = res->start;
+	pci_priv->smmu_iova_ipa_len = resource_size(res);
+	cnss_pr_dbg("%s - smmu_iova_ipa_start: %pa, smmu_iova_ipa_len: %zu\n",
+		    (plat_priv->is_converged_dt ?
+		    "converged dt" : "single dt"),
+		    &pci_priv->smmu_iova_ipa_start,
+		    pci_priv->smmu_iova_ipa_len);
+	return 0;
+
+out:
+	return ret;
+}
+
 static int cnss_pci_probe(struct pci_dev *pci_dev,
 			  const struct pci_device_id *id)
 {
 	int ret = 0;
 	struct cnss_pci_data *pci_priv;
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(NULL);
-	struct resource *res;
 
 	cnss_pr_dbg("PCI is probing, vendor ID: 0x%x, device ID: 0x%x\n",
 		    id->vendor, pci_dev->device);
@@ -2425,8 +2618,19 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 	cnss_set_pci_priv(pci_dev, pci_priv);
 	plat_priv->device_id = pci_dev->device;
 	plat_priv->bus_priv = pci_priv;
+
 	snprintf(plat_priv->firmware_name, sizeof(plat_priv->firmware_name),
-		 DEFAULT_FW_FILE_NAME);
+		 "%s" DEFAULT_FW_FILE_NAME, cnss_get_fw_path(plat_priv));
+
+	ret = cnss_pci_get_dev_cfg_node(plat_priv);
+	if (ret) {
+		cnss_pr_err("Failed to get device cfg node, err = %d\n", ret);
+		goto reset_ctx;
+	}
+
+	ret = cnss_dev_specific_power_on(plat_priv);
+	if (ret)
+		goto reset_ctx;
 
 	ret = cnss_register_subsys(plat_priv);
 	if (ret)
@@ -2436,30 +2640,8 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 	if (ret)
 		goto unregister_subsys;
 
-	res = platform_get_resource_byname(plat_priv->plat_dev, IORESOURCE_MEM,
-					   "smmu_iova_base");
-	if (res) {
-		if (of_property_read_bool(plat_priv->plat_dev->dev.of_node,
-					  "qcom,smmu-s1-enable"))
-			pci_priv->smmu_s1_enable = true;
-
-		pci_priv->smmu_iova_start = res->start;
-		pci_priv->smmu_iova_len = resource_size(res);
-		cnss_pr_dbg("smmu_iova_start: %pa, smmu_iova_len: %zu\n",
-			    &pci_priv->smmu_iova_start,
-			    pci_priv->smmu_iova_len);
-
-		res = platform_get_resource_byname(plat_priv->plat_dev,
-						   IORESOURCE_MEM,
-						   "smmu_iova_ipa");
-		if (res) {
-			pci_priv->smmu_iova_ipa_start = res->start;
-			pci_priv->smmu_iova_ipa_len = resource_size(res);
-			cnss_pr_dbg("smmu_iova_ipa_start: %pa, smmu_iova_ipa_len: %zu\n",
-				    &pci_priv->smmu_iova_ipa_start,
-				    pci_priv->smmu_iova_ipa_len);
-		}
-
+	ret = cnss_pci_get_smmu_cfg(plat_priv);
+	if (!ret) {
 		ret = cnss_pci_init_smmu(pci_priv);
 		if (ret) {
 			cnss_pr_err("Failed to init SMMU, err = %d\n", ret);
@@ -2492,6 +2674,10 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 		break;
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
+		setup_timer(&pci_priv->dev_rddm_timer,
+			    cnss_dev_rddm_timeout_hdlr,
+			    (unsigned long)pci_priv);
+
 		ret = cnss_pci_enable_msi(pci_priv);
 		if (ret)
 			goto disable_bus;
@@ -2548,6 +2734,7 @@ static void cnss_pci_remove(struct pci_dev *pci_dev)
 	case QCA6390_DEVICE_ID:
 		cnss_pci_unregister_mhi(pci_priv);
 		cnss_pci_disable_msi(pci_priv);
+		del_timer(&pci_priv->dev_rddm_timer);
 		break;
 	default:
 		break;
@@ -2616,7 +2803,16 @@ int cnss_pci_init(struct cnss_plat_data *plat_priv)
 		goto out;
 	}
 
+	if (!plat_priv->bus_priv) {
+		cnss_pr_err("Failed to probe pci driver\n");
+		ret = -ENODEV;
+		goto deinit;
+	}
+
 	return 0;
+
+deinit:
+	pci_unregister_driver(&cnss_pci_driver);
 out:
 	return ret;
 }

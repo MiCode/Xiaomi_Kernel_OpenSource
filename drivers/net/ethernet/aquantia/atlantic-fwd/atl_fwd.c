@@ -193,7 +193,7 @@ static void atl_fwd_init_ring(struct atl_fwd_ring *fwd_ring)
 	int lxo_bit = !!(flags & ATL_FWR_LXO);
 
 	atl_write(hw, ATL_RING_BASE_LSW(ring), ring->daddr);
-	atl_write(hw, ATL_RING_BASE_MSW(ring), ring->daddr >> 32);
+	atl_write(hw, ATL_RING_BASE_MSW(ring), (u64)ring->daddr >> 32);
 
 	if (dir_tx) {
 		atl_write(hw, ATL_TX_RING_THRESH(ring),
@@ -511,7 +511,7 @@ int atl_fwd_request_event(struct atl_fwd_event *evt)
 		atl_write(hw, ATL_TX_RING_HEAD_WB_LSW(hwring),
 			evt->tx_head_wrb);
 		atl_write(hw, ATL_TX_RING_HEAD_WB_MSW(hwring),
-			evt->tx_head_wrb >> 32);
+			(u64)evt->tx_head_wrb >> 32);
 		return 0;
 	}
 

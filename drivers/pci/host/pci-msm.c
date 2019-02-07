@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,7 +41,6 @@
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
 #include <linux/io.h>
-#include <linux/msi.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/irqdomain.h>
@@ -192,8 +191,6 @@
 #define MAX_DEVICE_NUM 20
 #define MAX_SHORT_BDF_NUM 16
 #define PCIE_TLP_RD_SIZE 0x5
-#define PCIE_MSI_NR_IRQS 256
-#define MSM_PCIE_MAX_MSI 32
 #define PCIE_LOG_PAGES (50)
 #define PCIE_CONF_SPACE_DW			1024
 #define PCIE_CLEAR				0xDEADBEEF
@@ -201,14 +198,6 @@
 
 #define MSM_PCIE_MAX_RESET 5
 #define MSM_PCIE_MAX_PIPE_RESET 1
-
-#define MSM_PCIE_MSI_PHY 0xa0000000
-#define PCIE20_MSI_CTRL_ADDR		(0x820)
-#define PCIE20_MSI_CTRL_UPPER_ADDR	(0x824)
-#define PCIE20_MSI_CTRL_INTR_EN	   (0x828)
-#define PCIE20_MSI_CTRL_INTR_MASK	 (0x82C)
-#define PCIE20_MSI_CTRL_INTR_STATUS     (0x830)
-#define PCIE20_MSI_CTRL_MAX 8
 
 /* PM control options */
 #define PM_IRQ			 0x1
@@ -300,14 +289,11 @@ enum msm_pcie_res {
 	MSM_PCIE_RES_ELBI,
 	MSM_PCIE_RES_IATU,
 	MSM_PCIE_RES_CONF,
-	MSM_PCIE_RES_IO,
-	MSM_PCIE_RES_BARS,
 	MSM_PCIE_RES_TCSR,
 	MSM_PCIE_MAX_RES,
 };
 
 enum msm_pcie_irq {
-	MSM_PCIE_INT_MSI,
 	MSM_PCIE_INT_A,
 	MSM_PCIE_INT_B,
 	MSM_PCIE_INT_C,
@@ -550,14 +536,10 @@ struct msm_pcie_dev_t {
 	void __iomem		     *iatu;
 	void __iomem		     *dm_core;
 	void __iomem		     *conf;
-	void __iomem		     *bars;
 	void __iomem		     *tcsr;
 
 	uint32_t			    axi_bar_start;
 	uint32_t			    axi_bar_end;
-
-	struct resource		   *dev_mem_res;
-	struct resource		   *dev_io_res;
 
 	uint32_t			    wake_n;
 	uint32_t			    vreg_n;
@@ -572,8 +554,6 @@ struct msm_pcie_dev_t {
 	struct mutex		     setup_lock;
 
 	struct irq_domain		*irq_domain;
-	DECLARE_BITMAP(msi_irq_in_use, PCIE_MSI_NR_IRQS);
-	bool				 use_msi;
 
 	enum msm_pcie_link_status    link_status;
 	bool				 user_suspend;
@@ -604,6 +584,7 @@ struct msm_pcie_dev_t {
 	uint32_t			wr_halt_size;
 	uint32_t			slv_addr_space_size;
 	uint32_t			phy_status_offset;
+	uint32_t			phy_status_bit;
 	uint32_t			phy_power_down_offset;
 	uint32_t			cpl_timeout;
 	uint32_t			current_bdf;
@@ -865,14 +846,11 @@ static const struct msm_pcie_res_info_t msm_pcie_res_info[MSM_PCIE_MAX_RES] = {
 	{"elbi",	NULL, NULL},
 	{"iatu",	NULL, NULL},
 	{"conf",	NULL, NULL},
-	{"io",		NULL, NULL},
-	{"bars",	NULL, NULL},
 	{"tcsr",	NULL, NULL}
 };
 
 /* irqs */
 static const struct msm_pcie_irq_info_t msm_pcie_irq_info[MSM_PCIE_MAX_IRQ] = {
-	{"int_msi",	0},
 	{"int_a",	0},
 	{"int_b",	0},
 	{"int_c",	0},
@@ -901,17 +879,6 @@ static void msm_pcie_config_l1ss_enable_all(struct msm_pcie_dev_t *dev);
 static void msm_pcie_check_l1ss_support_all(struct msm_pcie_dev_t *dev);
 
 static void msm_pcie_config_link_pm(struct msm_pcie_dev_t *dev, bool enable);
-
-#ifdef CONFIG_ARM
-static inline void msm_pcie_fixup_irqs(struct msm_pcie_dev_t *dev)
-{
-	pci_fixup_irqs(pci_common_swizzle, of_irq_parse_and_map_pci);
-}
-#else
-static inline void msm_pcie_fixup_irqs(struct msm_pcie_dev_t *dev)
-{
-}
-#endif
 
 static inline void msm_pcie_write_reg(void __iomem *base, u32 offset, u32 value)
 {
@@ -1016,7 +983,8 @@ static void pcie_phy_init(struct msm_pcie_dev_t *dev)
 
 static bool pcie_phy_is_ready(struct msm_pcie_dev_t *dev)
 {
-	if (readl_relaxed(dev->phy + dev->phy_status_offset) & BIT(6))
+	if (readl_relaxed(dev->phy + dev->phy_status_offset) &
+		BIT(dev->phy_status_bit))
 		return false;
 	else
 		return true;
@@ -1186,8 +1154,6 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		? "enabled" : "disabled");
 	PCIE_DBG_FS(dev, "cfg_access is %s allowed\n",
 		dev->cfg_access ? "" : "not");
-	PCIE_DBG_FS(dev, "use_msi is %d\n",
-		dev->use_msi);
 	PCIE_DBG_FS(dev, "use_pinctrl is %d\n",
 		dev->use_pinctrl);
 	PCIE_DBG_FS(dev, "use_19p2mhz_aux_clk is %d\n",
@@ -1258,6 +1224,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->slv_addr_space_size);
 	PCIE_DBG_FS(dev, "phy_status_offset: 0x%x\n",
 		dev->phy_status_offset);
+	PCIE_DBG_FS(dev, "phy_status_bit: %u\n",
+		dev->phy_status_bit);
 	PCIE_DBG_FS(dev, "phy_power_down_offset: 0x%x\n",
 		dev->phy_power_down_offset);
 	PCIE_DBG_FS(dev, "cpl_timeout: 0x%x\n",
@@ -3367,24 +3335,6 @@ static void msm_pcie_config_controller(struct msm_pcie_dev_t *dev)
 	}
 }
 
-static void msm_pcie_config_msi_controller(struct msm_pcie_dev_t *dev)
-{
-	int i;
-
-	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
-
-	/* program MSI controller and enable all interrupts */
-	writel_relaxed(MSM_PCIE_MSI_PHY, dev->dm_core + PCIE20_MSI_CTRL_ADDR);
-	writel_relaxed(0, dev->dm_core + PCIE20_MSI_CTRL_UPPER_ADDR);
-
-	for (i = 0; i < PCIE20_MSI_CTRL_MAX; i++)
-		writel_relaxed(~0, dev->dm_core +
-			       PCIE20_MSI_CTRL_INTR_EN + (i * 12));
-
-	/* ensure that hardware is configured before proceeding */
-	wmb();
-}
-
 static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 					struct platform_device *pdev)
 {
@@ -3753,11 +3703,7 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 	dev->iatu = dev->res[MSM_PCIE_RES_IATU].base;
 	dev->dm_core = dev->res[MSM_PCIE_RES_DM_CORE].base;
 	dev->conf = dev->res[MSM_PCIE_RES_CONF].base;
-	dev->bars = dev->res[MSM_PCIE_RES_BARS].base;
 	dev->tcsr = dev->res[MSM_PCIE_RES_TCSR].base;
-	dev->dev_mem_res = dev->res[MSM_PCIE_RES_BARS].resource;
-	dev->dev_io_res = dev->res[MSM_PCIE_RES_IO].resource;
-	dev->dev_io_res->flags = IORESOURCE_IO;
 
 out:
 	kfree(clkfreq);
@@ -3774,10 +3720,7 @@ static void msm_pcie_release_resources(struct msm_pcie_dev_t *dev)
 	dev->iatu = NULL;
 	dev->dm_core = NULL;
 	dev->conf = NULL;
-	dev->bars = NULL;
 	dev->tcsr = NULL;
-	dev->dev_mem_res = NULL;
-	dev->dev_io_res = NULL;
 }
 
 static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
@@ -3868,22 +3811,10 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 	writel_relaxed(dev->slv_addr_space_size, dev->parf +
 		PCIE20_PARF_SLV_ADDR_SPACE_SIZE);
 
-	if (dev->use_msi) {
-		PCIE_DBG(dev, "RC%d: enable WR halt.\n", dev->rc_idx);
-		val = dev->wr_halt_size ? dev->wr_halt_size :
-			readl_relaxed(dev->parf +
-				PCIE20_PARF_AXI_MSTR_WR_ADDR_HALT);
-
-		msm_pcie_write_reg(dev->parf,
-			PCIE20_PARF_AXI_MSTR_WR_ADDR_HALT,
-			BIT(31) | val);
-
-		PCIE_DBG(dev,
-			"RC%d: PCIE20_PARF_AXI_MSTR_WR_ADDR_HALT: 0x%x.\n",
-			dev->rc_idx,
-			readl_relaxed(dev->parf +
-				PCIE20_PARF_AXI_MSTR_WR_ADDR_HALT));
-	}
+	val = dev->wr_halt_size ? dev->wr_halt_size :
+		readl_relaxed(dev->parf + PCIE20_PARF_AXI_MSTR_WR_ADDR_HALT);
+	msm_pcie_write_reg(dev->parf, PCIE20_PARF_AXI_MSTR_WR_ADDR_HALT,
+				BIT(31) | val);
 
 	/* init PCIe PHY */
 	pcie_phy_init(dev);
@@ -4044,11 +3975,10 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 		goto link_fail;
 	}
 
-	if (!IS_ENABLED(CONFIG_PCI_MSM_MSI))
-		msm_pcie_config_msi_controller(dev);
-
-	if (dev->enumerated)
+	if (dev->enumerated) {
+		msm_msi_config(dev_get_msi_domain(&dev->dev->dev));
 		msm_pcie_config_link_pm(dev, true);
+	}
 
 	goto out;
 
@@ -4427,7 +4357,6 @@ int msm_pcie_enumerate(u32 rc_idx)
 
 			bus = bridge->bus;
 
-			msm_pcie_fixup_irqs(dev);
 			pci_assign_unassigned_bus_resources(bus);
 			pci_bus_add_devices(bus);
 
@@ -4824,39 +4753,6 @@ static irqreturn_t handle_linkdown_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t handle_msi_irq(int irq, void *data)
-{
-	int i, j;
-	unsigned long val;
-	struct msm_pcie_dev_t *dev = data;
-	void __iomem *ctrl_status;
-
-	PCIE_DUMP(dev, "irq: %d\n", irq);
-
-	/*
-	 * check for set bits, clear it by setting that bit
-	 * and trigger corresponding irq
-	 */
-	for (i = 0; i < PCIE20_MSI_CTRL_MAX; i++) {
-		ctrl_status = dev->dm_core +
-				PCIE20_MSI_CTRL_INTR_STATUS + (i * 12);
-
-		val = readl_relaxed(ctrl_status);
-		while (val) {
-			j = find_first_bit(&val, 32);
-			writel_relaxed(BIT(j), ctrl_status);
-			/* ensure that interrupt is cleared (acked) */
-			wmb();
-			generic_handle_irq(
-			   irq_find_mapping(dev->irq_domain, (j + (32*i)))
-			   );
-			val = readl_relaxed(ctrl_status);
-		}
-	}
-
-	return IRQ_HANDLED;
-}
-
 static irqreturn_t handle_global_irq(int irq, void *data)
 {
 	int i;
@@ -4916,192 +4812,9 @@ static irqreturn_t handle_global_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static void msm_pcie_destroy_irq(struct msi_desc *entry, unsigned int irq)
-{
-	int pos;
-	struct msm_pcie_dev_t *dev;
-	struct pci_dev *pdev = msi_desc_to_pci_dev(entry);
-
-	if (!pdev) {
-		pr_err("PCIe: pci device is null. IRQ:%d\n", irq);
-		return;
-	}
-
-	dev = PCIE_BUS_PRIV_DATA(pdev->bus);
-	if (!dev) {
-		pr_err("PCIe: could not find RC. IRQ:%d\n", irq);
-		return;
-	}
-
-	PCIE_DBG(dev, "destroy default MSI irq %d\n", irq);
-	pos = irq - irq_find_mapping(dev->irq_domain, 0);
-
-	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
-
-	PCIE_DBG(dev, "Before clear_bit pos:%d msi_irq_in_use:%ld\n",
-		pos, *dev->msi_irq_in_use);
-	clear_bit(pos, dev->msi_irq_in_use);
-	PCIE_DBG(dev, "After clear_bit pos:%d msi_irq_in_use:%ld\n",
-		pos, *dev->msi_irq_in_use);
-}
-
-/* hookup to linux pci msi framework */
-void arch_teardown_msi_irq(unsigned int irq)
-{
-	struct msi_desc *entry = irq_get_msi_desc(irq);
-
-	PCIE_GEN_DBG("irq %d deallocated\n", irq);
-
-	if (entry)
-		msm_pcie_destroy_irq(entry, irq);
-}
-
-void arch_teardown_msi_irqs(struct pci_dev *dev)
-{
-	struct msi_desc *entry;
-	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev->bus);
-
-	PCIE_DBG(pcie_dev, "RC:%d EP: vendor_id:0x%x device_id:0x%x\n",
-		pcie_dev->rc_idx, dev->vendor, dev->device);
-
-	pcie_dev->use_msi = false;
-
-	list_for_each_entry(entry, &dev->dev.msi_list, list) {
-		int i, nvec;
-
-		if (entry->irq == 0)
-			continue;
-		nvec = 1 << entry->msi_attrib.multiple;
-		for (i = 0; i < nvec; i++)
-			msm_pcie_destroy_irq(entry, entry->irq + i);
-	}
-}
-
-static void msm_pcie_msi_nop(struct irq_data *d)
-{
-}
-
-static struct irq_chip pcie_msi_chip = {
-	.name = "msm-pcie-msi",
-	.irq_ack = msm_pcie_msi_nop,
-	.irq_enable = unmask_msi_irq,
-	.irq_disable = mask_msi_irq,
-	.irq_mask = mask_msi_irq,
-	.irq_unmask = unmask_msi_irq,
-};
-
-static int msm_pcie_create_irq(struct msm_pcie_dev_t *dev)
-{
-	int irq, pos;
-
-	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
-
-again:
-	pos = find_first_zero_bit(dev->msi_irq_in_use, PCIE_MSI_NR_IRQS);
-
-	if (pos >= PCIE_MSI_NR_IRQS)
-		return -ENOSPC;
-
-	PCIE_DBG(dev, "pos:%d msi_irq_in_use:%ld\n", pos, *dev->msi_irq_in_use);
-
-	if (test_and_set_bit(pos, dev->msi_irq_in_use))
-		goto again;
-	else
-		PCIE_DBG(dev, "test_and_set_bit is successful pos=%d\n", pos);
-
-	irq = irq_create_mapping(dev->irq_domain, pos);
-	if (!irq)
-		return -EINVAL;
-
-	return irq;
-}
-
-static int arch_setup_msi_irq_default(struct pci_dev *pdev,
-		struct msi_desc *desc, int nvec)
-{
-	int irq;
-	struct msi_msg msg;
-	struct msm_pcie_dev_t *dev = PCIE_BUS_PRIV_DATA(pdev->bus);
-
-	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
-
-	irq = msm_pcie_create_irq(dev);
-
-	PCIE_DBG(dev, "IRQ %d is allocated.\n", irq);
-
-	if (irq < 0)
-		return irq;
-
-	PCIE_DBG(dev, "irq %d allocated\n", irq);
-
-	irq_set_chip_data(irq, pdev);
-	irq_set_msi_desc(irq, desc);
-
-	/* write msi vector and data */
-	msg.address_hi = 0;
-	msg.address_lo = MSM_PCIE_MSI_PHY;
-	msg.data = irq - irq_find_mapping(dev->irq_domain, 0);
-	write_msi_msg(irq, &msg);
-
-	return 0;
-}
-
-int arch_setup_msi_irq(struct pci_dev *pdev, struct msi_desc *desc)
-{
-	struct msm_pcie_dev_t *dev = PCIE_BUS_PRIV_DATA(pdev->bus);
-
-	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
-
-	return arch_setup_msi_irq_default(pdev, desc, 1);
-}
-
-int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
-{
-	struct msi_desc *entry;
-	int ret;
-	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev->bus);
-
-	PCIE_DBG(pcie_dev, "RC%d\n", pcie_dev->rc_idx);
-
-	if (type != PCI_CAP_ID_MSI || nvec > 32)
-		return -ENOSPC;
-
-	PCIE_DBG(pcie_dev, "nvec = %d\n", nvec);
-
-	list_for_each_entry(entry, &dev->dev.msi_list, list) {
-		entry->msi_attrib.multiple =
-			__ilog2_u32(__roundup_pow_of_two(nvec));
-
-		ret = arch_setup_msi_irq_default(dev, entry, nvec);
-
-		PCIE_DBG(pcie_dev, "ret from msi_irq: %d\n", ret);
-
-		if (ret < 0)
-			return ret;
-		if (ret > 0)
-			return -ENOSPC;
-	}
-
-	pcie_dev->use_msi = true;
-
-	return 0;
-}
-
-static int msm_pcie_msi_map(struct irq_domain *domain, unsigned int irq,
-	   irq_hw_number_t hwirq)
-{
-	irq_set_chip_and_handler (irq, &pcie_msi_chip, handle_simple_irq);
-	return 0;
-}
-
-static const struct irq_domain_ops msm_pcie_msi_ops = {
-	.map = msm_pcie_msi_map,
-};
-
 static int32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 {
 	int rc;
-	int msi_start =  0;
 	struct device *pdev = &dev->pdev->dev;
 
 	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
@@ -5123,22 +4836,6 @@ static int32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 			PCIE_ERR(dev,
 				"PCIe: Unable to request linkdown interrupt:%d\n",
 				dev->irq[MSM_PCIE_INT_LINK_DOWN].num);
-			return rc;
-		}
-	}
-
-	/* register handler for physical MSI interrupt line */
-	if (dev->irq[MSM_PCIE_INT_MSI].num) {
-		rc = devm_request_irq(pdev,
-			dev->irq[MSM_PCIE_INT_MSI].num,
-			handle_msi_irq,
-			IRQF_TRIGGER_RISING,
-			dev->irq[MSM_PCIE_INT_MSI].name,
-			dev);
-		if (rc) {
-			PCIE_ERR(dev,
-				"PCIe: RC%d: Unable to request MSI interrupt\n",
-				dev->rc_idx);
 			return rc;
 		}
 	}
@@ -5214,25 +4911,6 @@ static int32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 				dev->rc_idx);
 			return rc;
 		}
-	}
-
-	/* Create a virtual domain of interrupts */
-	if (!IS_ENABLED(CONFIG_PCI_MSM_MSI)) {
-		dev->irq_domain = irq_domain_add_linear(dev->pdev->dev.of_node,
-			PCIE_MSI_NR_IRQS, &msm_pcie_msi_ops, dev);
-
-		if (!dev->irq_domain) {
-			PCIE_ERR(dev,
-				"PCIe: RC%d: Unable to initialize irq domain\n",
-				dev->rc_idx);
-
-			if (dev->wake_n)
-				disable_irq(dev->wake_n);
-
-			return PTR_ERR(dev->irq_domain);
-		}
-
-		msi_start = irq_create_mapping(dev->irq_domain, 0);
 	}
 
 	return 0;
@@ -5862,6 +5540,20 @@ static int msm_pcie_probe(struct platform_device *pdev)
 			rc_idx, msm_pcie_dev[rc_idx].phy_status_offset);
 	}
 
+	ret = of_property_read_u32(pdev->dev.of_node,
+				"qcom,phy-status-bit",
+				&msm_pcie_dev[rc_idx].phy_status_bit);
+	if (ret) {
+		PCIE_ERR(&msm_pcie_dev[rc_idx],
+			"RC%d: failed to get PCIe PHY status bit.\n",
+			rc_idx);
+		goto decrease_rc_num;
+	} else {
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+			"RC%d: phy-status-bit: 0x%x.\n",
+			rc_idx, msm_pcie_dev[rc_idx].phy_status_bit);
+	}
+
 	msm_pcie_dev[rc_idx].phy_power_down_offset = 0;
 	ret = of_property_read_u32(pdev->dev.of_node,
 				"qcom,phy-power-down-offset",
@@ -5959,7 +5651,6 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	if (msm_pcie_invert_aer_support)
 		msm_pcie_dev[rc_idx].aer_enable = false;
 	msm_pcie_dev[rc_idx].power_on = false;
-	msm_pcie_dev[rc_idx].use_msi = false;
 	msm_pcie_dev[rc_idx].use_pinctrl = false;
 	msm_pcie_dev[rc_idx].linkdown_panic = false;
 	msm_pcie_dev[rc_idx].bridge_found = false;

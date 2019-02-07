@@ -427,6 +427,7 @@ static int cam_fd_hw_util_processcmd_frame_done(struct cam_hw_info *fd_hw,
 	unsigned long flags;
 	int i;
 
+	mutex_lock(&fd_hw->hw_mutex);
 	spin_lock_irqsave(&fd_core->spin_lock, flags);
 	if ((fd_core->core_state != CAM_FD_CORE_STATE_IDLE) ||
 		(fd_core->results_valid == false) ||
@@ -436,6 +437,7 @@ static int cam_fd_hw_util_processcmd_frame_done(struct cam_hw_info *fd_hw,
 			fd_core->core_state, fd_core->results_valid,
 			fd_core->hw_req_private);
 		spin_unlock_irqrestore(&fd_core->spin_lock, flags);
+		mutex_unlock(&fd_hw->hw_mutex);
 		return -EINVAL;
 	}
 	fd_core->core_state = CAM_FD_CORE_STATE_READING_RESULTS;
@@ -516,6 +518,7 @@ static int cam_fd_hw_util_processcmd_frame_done(struct cam_hw_info *fd_hw,
 	fd_core->hw_req_private = NULL;
 	fd_core->core_state = CAM_FD_CORE_STATE_IDLE;
 	spin_unlock_irqrestore(&fd_core->spin_lock, flags);
+	mutex_unlock(&fd_hw->hw_mutex);
 
 	return 0;
 }
@@ -543,6 +546,10 @@ irqreturn_t cam_fd_hw_irq(int irq_num, void *data)
 		hw_static_info->wrapper_regs.irq_status);
 
 	CAM_DBG(CAM_FD, "FD IRQ status 0x%x", reg_value);
+
+	cam_fd_soc_register_write(soc_info, CAM_FD_REG_WRAPPER,
+		hw_static_info->wrapper_regs.irq_clear,
+		reg_value);
 
 	if (reg_value & CAM_FD_IRQ_TO_MASK(CAM_FD_IRQ_HALT_DONE)) {
 		complete_all(&fd_core->halt_complete);
@@ -574,10 +581,6 @@ irqreturn_t cam_fd_hw_irq(int irq_num, void *data)
 	}
 
 	trace_cam_irq_activated("FD", irq_type);
-
-	cam_fd_soc_register_write(soc_info, CAM_FD_REG_WRAPPER,
-		hw_static_info->wrapper_regs.irq_clear,
-		hw_static_info->irq_mask);
 
 	if (irq_type == CAM_FD_IRQ_HALT_DONE) {
 		/*
@@ -651,7 +654,7 @@ int cam_fd_hw_init(void *hw_priv, void *init_hw_args, uint32_t arg_size)
 	}
 
 	if (arg_size != sizeof(struct cam_fd_hw_init_args)) {
-		CAM_ERR(CAM_FD, "Invalid arg size %u, %lu", arg_size,
+		CAM_ERR(CAM_FD, "Invalid arg size %u, %zu", arg_size,
 			sizeof(struct cam_fd_hw_init_args));
 		return -EINVAL;
 	}
@@ -735,7 +738,7 @@ int cam_fd_hw_deinit(void *hw_priv, void *deinit_hw_args, uint32_t arg_size)
 	}
 
 	if (arg_size != sizeof(struct cam_fd_hw_deinit_args)) {
-		CAM_ERR(CAM_FD, "Invalid arg size %u, %lu", arg_size,
+		CAM_ERR(CAM_FD, "Invalid arg size %u, %zu", arg_size,
 			sizeof(struct cam_fd_hw_deinit_args));
 		return -EINVAL;
 	}
@@ -859,7 +862,7 @@ int cam_fd_hw_start(void *hw_priv, void *hw_start_args, uint32_t arg_size)
 	}
 
 	if (arg_size != sizeof(struct cam_fd_hw_cmd_start_args)) {
-		CAM_ERR(CAM_FD, "Invalid arg size %u, %lu", arg_size,
+		CAM_ERR(CAM_FD, "Invalid arg size %u, %zu", arg_size,
 			sizeof(struct cam_fd_hw_cmd_start_args));
 		return -EINVAL;
 	}
@@ -1010,7 +1013,7 @@ int cam_fd_hw_reserve(void *hw_priv, void *hw_reserve_args, uint32_t arg_size)
 	}
 
 	if (arg_size != sizeof(struct cam_fd_hw_reserve_args)) {
-		CAM_ERR(CAM_FD, "Invalid arg size %u, %lu", arg_size,
+		CAM_ERR(CAM_FD, "Invalid arg size %u, %zu", arg_size,
 			sizeof(struct cam_fd_hw_reserve_args));
 		return -EINVAL;
 	}
@@ -1079,7 +1082,7 @@ int cam_fd_hw_release(void *hw_priv, void *hw_release_args, uint32_t arg_size)
 	}
 
 	if (arg_size != sizeof(struct cam_fd_hw_release_args)) {
-		CAM_ERR(CAM_FD, "Invalid arg size %u, %lu", arg_size,
+		CAM_ERR(CAM_FD, "Invalid arg size %u, %zu", arg_size,
 			sizeof(struct cam_fd_hw_release_args));
 		return -EINVAL;
 	}

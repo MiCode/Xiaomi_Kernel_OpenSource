@@ -1,4 +1,4 @@
-/* Copyright (c)2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c)2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,7 @@
 #include <soc/qcom/subsystem_restart.h>
 #include <linux/pm_opp.h>
 #include <linux/jiffies.h>
+#include <linux/clk/qcom.h>
 
 #include "adreno.h"
 #include "a6xx_reg.h"
@@ -58,6 +59,7 @@ static const struct adreno_vbif_platform a6xx_vbif_platforms[] = {
 	{ adreno_is_a640, a640_gbif },
 	{ adreno_is_a680, a640_gbif },
 	{ adreno_is_a612, a640_gbif },
+	{ adreno_is_a610, a640_gbif },
 };
 
 struct kgsl_hwcg_reg {
@@ -349,6 +351,7 @@ static const struct {
 	{adreno_is_a640, a640_hwcg_regs, ARRAY_SIZE(a640_hwcg_regs)},
 	{adreno_is_a680, a640_hwcg_regs, ARRAY_SIZE(a640_hwcg_regs)},
 	{adreno_is_a612, a612_hwcg_regs, ARRAY_SIZE(a612_hwcg_regs)},
+	{adreno_is_a610, a612_hwcg_regs, ARRAY_SIZE(a612_hwcg_regs)},
 };
 
 static struct a6xx_protected_regs {
@@ -588,7 +591,7 @@ __get_rbbm_clock_cntl_on(struct adreno_device *adreno_dev)
 {
 	if (adreno_is_a630(adreno_dev))
 		return 0x8AA8AA02;
-	else if (adreno_is_a612(adreno_dev))
+	else if (adreno_is_a612(adreno_dev) || adreno_is_a610(adreno_dev))
 		return 0xAAA8AA82;
 	else
 		return 0x8AA8AA82;
@@ -666,11 +669,12 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 
 	/*
 	 * Disable SP clock before programming HWCG registers.
-	 * A612 GPU is not having the GX power domain. Hence
-	 * skip GMU_GX registers for A12.
+	 * A612 and A610 GPU is not having the GX power domain.
+	 * Hence skip GMU_GX registers for A612 and A610.
 	 */
 
-	if (gmu_core_isenabled(device) && !adreno_is_a612(adreno_dev))
+	if (gmu_core_isenabled(device) && !adreno_is_a612(adreno_dev) &&
+		!adreno_is_a610(adreno_dev))
 		gmu_core_regrmw(device,
 			A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 1, 0);
 
@@ -679,10 +683,11 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 
 	/*
 	 * Enable SP clock after programming HWCG registers.
-	 * A612 GPU is not having the GX power domain. Hence
-	 * skip GMU_GX registers for A612.
+	 * A612 and A610 GPU is not having the GX power domain.
+	 * Hence skip GMU_GX registers for A612 and A610.
 	 */
-	if (gmu_core_isenabled(device) && !adreno_is_a612(adreno_dev))
+	if (gmu_core_isenabled(device) && !adreno_is_a612(adreno_dev) &&
+		!adreno_is_a610(adreno_dev))
 		gmu_core_regrmw(device,
 			A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 0, 1);
 
@@ -827,7 +832,7 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	if (adreno_is_a640(adreno_dev) || adreno_is_a680(adreno_dev)) {
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_2, 0x02000140);
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_1, 0x8040362C);
-	} else if (adreno_is_a612(adreno_dev)) {
+	} else if (adreno_is_a612(adreno_dev) || adreno_is_a610(adreno_dev)) {
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_2, 0x00800060);
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_1, 0x40201b16);
 	} else {
@@ -835,8 +840,8 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_1, 0x8040362C);
 	}
 
-	if (adreno_is_a612(adreno_dev)) {
-		/* For A612 Mem pool size is reduced to 48 */
+	if (adreno_is_a612(adreno_dev) || adreno_is_a610(adreno_dev)) {
+		/* For A612 and A610 Mem pool size is reduced to 48 */
 		kgsl_regwrite(device, A6XX_CP_MEM_POOL_SIZE, 48);
 		kgsl_regwrite(device, A6XX_CP_MEM_POOL_DBG_ADDR, 47);
 	} else {
@@ -848,7 +853,7 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL, (0x400 << 11));
 	else if (adreno_is_a680(adreno_dev))
 		kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL, (0x800 << 11));
-	else if (adreno_is_a612(adreno_dev))
+	else if (adreno_is_a612(adreno_dev) || adreno_is_a610(adreno_dev))
 		kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL, (0x100 << 11));
 	else
 		kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL, (0x300 << 11));
@@ -913,9 +918,9 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_UCHE_MODE_CNTL, (glbl_inv << 29) |
 						(mal << 23) | (bit << 21));
 
-	/* Set hang detection threshold to 0x3FFFFF * 16 cycles */
+	/* Set hang detection threshold to 0xCFFFFF * 16 cycles */
 	kgsl_regwrite(device, A6XX_RBBM_INTERFACE_HANG_INT_CNTL,
-					(1 << 30) | 0x3fffff);
+					(1 << 30) | 0xcfffff);
 
 	kgsl_regwrite(device, A6XX_UCHE_CLIENT_PF, 1);
 
@@ -1243,7 +1248,7 @@ static int a6xx_rb_start(struct adreno_device *adreno_dev,
  */
 static int a6xx_sptprac_enable(struct adreno_device *adreno_dev)
 {
-	if (adreno_is_a612(adreno_dev))
+	if (adreno_is_a612(adreno_dev) || adreno_is_a610(adreno_dev))
 		return 0;
 
 	return a6xx_gmu_sptprac_enable(adreno_dev);
@@ -1255,7 +1260,7 @@ static int a6xx_sptprac_enable(struct adreno_device *adreno_dev)
  */
 static void a6xx_sptprac_disable(struct adreno_device *adreno_dev)
 {
-	if (adreno_is_a612(adreno_dev))
+	if (adreno_is_a612(adreno_dev) || adreno_is_a610(adreno_dev))
 		return;
 
 	a6xx_gmu_sptprac_disable(adreno_dev);
@@ -1622,7 +1627,8 @@ static void a6xx_llc_configure_gpu_scid(struct adreno_device *adreno_dev)
 		gpu_cntl1_val = (gpu_cntl1_val << A6XX_GPU_LLC_SCID_NUM_BITS)
 			| gpu_scid;
 
-	if (adreno_is_a640(adreno_dev) || adreno_is_a612(adreno_dev)) {
+	if (adreno_is_a640(adreno_dev) || adreno_is_a612(adreno_dev) ||
+		adreno_is_a610(adreno_dev)) {
 		kgsl_regrmw(KGSL_DEVICE(adreno_dev), A6XX_GBIF_SCACHE_CNTL1,
 			A6XX_GPU_LLC_SCID_MASK, gpu_cntl1_val);
 	} else {
@@ -1644,7 +1650,8 @@ static void a6xx_llc_configure_gpuhtw_scid(struct adreno_device *adreno_dev)
 	 * On A640, the GPUHTW SCID is configured via a NoC override in the
 	 * XBL image.
 	 */
-	if (adreno_is_a640(adreno_dev) || adreno_is_a612(adreno_dev))
+	if (adreno_is_a640(adreno_dev) || adreno_is_a612(adreno_dev) ||
+		adreno_is_a610(adreno_dev))
 		return;
 
 	gpuhtw_scid = adreno_llc_get_scid(adreno_dev->gpuhtw_llc_slice);
@@ -1665,7 +1672,8 @@ static void a6xx_llc_enable_overrides(struct adreno_device *adreno_dev)
 	 * Attributes override through GBIF is not supported with MMU-500.
 	 * Attributes are used as configured through SMMU pagetable entries.
 	 */
-	if (adreno_is_a640(adreno_dev) || adreno_is_a612(adreno_dev))
+	if (adreno_is_a640(adreno_dev) || adreno_is_a612(adreno_dev) ||
+		adreno_is_a610(adreno_dev))
 		return;
 
 	/*
@@ -1789,6 +1797,75 @@ static struct adreno_irq a6xx_irq = {
 	.mask = A6XX_INT_MASK,
 };
 
+static bool adreno_is_qdss_dbg_register(struct kgsl_device *device,
+		unsigned int offsetwords)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	return adreno_dev->qdss_gfx_virt &&
+		(offsetwords >= (adreno_dev->qdss_gfx_base >> 2)) &&
+		(offsetwords < (adreno_dev->qdss_gfx_base +
+				adreno_dev->qdss_gfx_len) >> 2);
+}
+
+
+static void adreno_qdss_gfx_dbg_regread(struct kgsl_device *device,
+	unsigned int offsetwords, unsigned int *value)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	unsigned int qdss_gfx_offset;
+
+	if (!adreno_is_qdss_dbg_register(device, offsetwords))
+		return;
+
+	qdss_gfx_offset = (offsetwords << 2) - adreno_dev->qdss_gfx_base;
+	*value = __raw_readl(adreno_dev->qdss_gfx_virt + qdss_gfx_offset);
+
+	/*
+	 * ensure this read finishes before the next one.
+	 * i.e. act like normal readl()
+	 */
+	rmb();
+}
+
+static void adreno_qdss_gfx_dbg_regwrite(struct kgsl_device *device,
+	unsigned int offsetwords, unsigned int value)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	unsigned int qdss_gfx_offset;
+
+	if (!adreno_is_qdss_dbg_register(device, offsetwords))
+		return;
+
+	qdss_gfx_offset = (offsetwords << 2) - adreno_dev->qdss_gfx_base;
+	trace_kgsl_regwrite(device, offsetwords, value);
+
+	/*
+	 * ensure previous writes post before this one,
+	 * i.e. act like normal writel()
+	 */
+	wmb();
+	__raw_writel(value, adreno_dev->qdss_gfx_virt + qdss_gfx_offset);
+}
+
+static void adreno_gx_regread(struct kgsl_device *device,
+	unsigned int offsetwords, unsigned int *value)
+{
+	if (adreno_is_qdss_dbg_register(device, offsetwords))
+		adreno_qdss_gfx_dbg_regread(device, offsetwords, value);
+	else
+		kgsl_regread(device, offsetwords, value);
+}
+
+static void adreno_gx_regwrite(struct kgsl_device *device,
+	unsigned int offsetwords, unsigned int value)
+{
+	if (adreno_is_qdss_dbg_register(device, offsetwords))
+		adreno_qdss_gfx_dbg_regwrite(device, offsetwords, value);
+	else
+		kgsl_regwrite(device, offsetwords, value);
+}
+
 static struct adreno_coresight_register a6xx_coresight_regs[] = {
 	{ A6XX_DBGC_CFG_DBGBUS_SEL_A },
 	{ A6XX_DBGC_CFG_DBGBUS_SEL_B },
@@ -1842,6 +1919,28 @@ static struct adreno_coresight_register a6xx_coresight_regs[] = {
 	{ A6XX_DBGC_PERF_ATB_DRAIN_CMD },
 	{ A6XX_DBGC_ECO_CNTL },
 	{ A6XX_DBGC_AHB_DBG_CNTL },
+	{ A6XX_SP0_ISDB_ISDB_EN },
+	{ A6XX_SP0_ISDB_ISDB_SAC_CFG },
+	{ A6XX_SP0_ISDB_ISDB_SAC_ADDR_0 },
+	{ A6XX_SP0_ISDB_ISDB_SAC_ADDR_1 },
+	{ A6XX_SP0_ISDB_ISDB_SAC_MASK_0 },
+	{ A6XX_SP0_ISDB_ISDB_SAC_MASK_1 },
+	{ A6XX_SP0_ISDB_ISDB_SHADER_ID_CFG },
+	{ A6XX_SP0_ISDB_ISDB_WAVE_ID_CFG },
+	{ A6XX_HLSQ_ISDB_ISDB_HLSQ_ISDB_CL_WGID_CTRL },
+	{ A6XX_HLSQ_ISDB_ISDB_HLSQ_ISDB_CL_WGID_X },
+	{ A6XX_HLSQ_ISDB_ISDB_HLSQ_ISDB_CL_WGID_Y },
+	{ A6XX_HLSQ_ISDB_ISDB_HLSQ_ISDB_CL_WGID_Z },
+	{ A6XX_SP0_ISDB_ISDB_BRKPT_CFG },
+	{ A6XX_SP1_ISDB_ISDB_EN },
+	{ A6XX_SP1_ISDB_ISDB_SAC_CFG },
+	{ A6XX_SP1_ISDB_ISDB_SAC_ADDR_0 },
+	{ A6XX_SP1_ISDB_ISDB_SAC_ADDR_1 },
+	{ A6XX_SP1_ISDB_ISDB_SAC_MASK_0 },
+	{ A6XX_SP1_ISDB_ISDB_SAC_MASK_1 },
+	{ A6XX_SP1_ISDB_ISDB_SHADER_ID_CFG },
+	{ A6XX_SP1_ISDB_ISDB_WAVE_ID_CFG },
+	{ A6XX_SP1_ISDB_ISDB_BRKPT_CFG },
 };
 
 static struct adreno_coresight_register a6xx_coresight_regs_cx[] = {
@@ -1953,6 +2052,46 @@ static ADRENO_CORESIGHT_ATTR(perf_atb_trig_intf_sel_1,
 static ADRENO_CORESIGHT_ATTR(perf_atb_drain_cmd, &a6xx_coresight_regs[49]);
 static ADRENO_CORESIGHT_ATTR(eco_cntl, &a6xx_coresight_regs[50]);
 static ADRENO_CORESIGHT_ATTR(ahb_dbg_cntl, &a6xx_coresight_regs[51]);
+static ADRENO_CORESIGHT_ATTR(sp0_isdb_isdb_en, &a6xx_coresight_regs[52]);
+static ADRENO_CORESIGHT_ATTR(sp0_isdb_isdb_sac_cfg, &a6xx_coresight_regs[53]);
+static ADRENO_CORESIGHT_ATTR(sp0_isdb_isdb_sac_addr_0,
+				&a6xx_coresight_regs[54]);
+static ADRENO_CORESIGHT_ATTR(sp0_isdb_isdb_sac_addr_1,
+				&a6xx_coresight_regs[55]);
+static ADRENO_CORESIGHT_ATTR(sp0_isdb_isdb_sac_mask_0,
+				&a6xx_coresight_regs[56]);
+static ADRENO_CORESIGHT_ATTR(sp0_isdb_isdb_sac_mask_1,
+				&a6xx_coresight_regs[57]);
+static ADRENO_CORESIGHT_ATTR(sp0_isdb_isdb_shader_id_cfg,
+				&a6xx_coresight_regs[58]);
+static ADRENO_CORESIGHT_ATTR(sp0_isdb_isdb_wave_id_cfg,
+				&a6xx_coresight_regs[59]);
+static ADRENO_CORESIGHT_ATTR(hlsq_isdb_isdb_hlsq_isdb_cl_wgid_ctrl,
+				&a6xx_coresight_regs[60]);
+static ADRENO_CORESIGHT_ATTR(hlsq_isdb_isdb_hlsq_isdb_cl_wgid_x,
+				&a6xx_coresight_regs[61]);
+static ADRENO_CORESIGHT_ATTR(hlsq_isdb_isdb_hlsq_isdb_cl_wgid_y,
+				&a6xx_coresight_regs[62]);
+static ADRENO_CORESIGHT_ATTR(hlsq_isdb_isdb_hlsq_isdb_cl_wgid_z,
+				&a6xx_coresight_regs[63]);
+static ADRENO_CORESIGHT_ATTR(sp0_isdb_isdb_brkpt_cfg, &a6xx_coresight_regs[64]);
+static ADRENO_CORESIGHT_ATTR(sp1_isdb_isdb_en, &a6xx_coresight_regs[65]);
+static ADRENO_CORESIGHT_ATTR(sp1_isdb_isdb_sac_cfg, &a6xx_coresight_regs[66]);
+static ADRENO_CORESIGHT_ATTR(sp1_isdb_isdb_sac_addr_0,
+				&a6xx_coresight_regs[67]);
+static ADRENO_CORESIGHT_ATTR(sp1_isdb_isdb_sac_addr_1,
+				&a6xx_coresight_regs[68]);
+static ADRENO_CORESIGHT_ATTR(sp1_isdb_isdb_sac_mask_0,
+				&a6xx_coresight_regs[69]);
+static ADRENO_CORESIGHT_ATTR(sp1_isdb_isdb_sac_mask_1,
+				&a6xx_coresight_regs[70]);
+static ADRENO_CORESIGHT_ATTR(sp1_isdb_isdb_shader_id_cfg,
+				&a6xx_coresight_regs[71]);
+static ADRENO_CORESIGHT_ATTR(sp1_isdb_isdb_wave_id_cfg,
+				&a6xx_coresight_regs[72]);
+static ADRENO_CORESIGHT_ATTR(sp1_isdb_isdb_brkpt_cfg,
+				&a6xx_coresight_regs[73]);
+
 
 /*CX debug registers*/
 static ADRENO_CORESIGHT_ATTR(cx_cfg_dbgbus_sel_a,
@@ -2113,6 +2252,28 @@ static struct attribute *a6xx_coresight_attrs[] = {
 	&coresight_attr_perf_atb_drain_cmd.attr.attr,
 	&coresight_attr_eco_cntl.attr.attr,
 	&coresight_attr_ahb_dbg_cntl.attr.attr,
+	&coresight_attr_sp0_isdb_isdb_en.attr.attr,
+	&coresight_attr_sp0_isdb_isdb_sac_cfg.attr.attr,
+	&coresight_attr_sp0_isdb_isdb_sac_addr_0.attr.attr,
+	&coresight_attr_sp0_isdb_isdb_sac_addr_1.attr.attr,
+	&coresight_attr_sp0_isdb_isdb_sac_mask_0.attr.attr,
+	&coresight_attr_sp0_isdb_isdb_sac_mask_1.attr.attr,
+	&coresight_attr_sp0_isdb_isdb_shader_id_cfg.attr.attr,
+	&coresight_attr_sp0_isdb_isdb_wave_id_cfg.attr.attr,
+	&coresight_attr_hlsq_isdb_isdb_hlsq_isdb_cl_wgid_ctrl.attr.attr,
+	&coresight_attr_hlsq_isdb_isdb_hlsq_isdb_cl_wgid_x.attr.attr,
+	&coresight_attr_hlsq_isdb_isdb_hlsq_isdb_cl_wgid_y.attr.attr,
+	&coresight_attr_hlsq_isdb_isdb_hlsq_isdb_cl_wgid_z.attr.attr,
+	&coresight_attr_sp0_isdb_isdb_brkpt_cfg.attr.attr,
+	&coresight_attr_sp1_isdb_isdb_en.attr.attr,
+	&coresight_attr_sp1_isdb_isdb_sac_cfg.attr.attr,
+	&coresight_attr_sp1_isdb_isdb_sac_addr_0.attr.attr,
+	&coresight_attr_sp1_isdb_isdb_sac_addr_1.attr.attr,
+	&coresight_attr_sp1_isdb_isdb_sac_mask_0.attr.attr,
+	&coresight_attr_sp1_isdb_isdb_sac_mask_1.attr.attr,
+	&coresight_attr_sp1_isdb_isdb_shader_id_cfg.attr.attr,
+	&coresight_attr_sp1_isdb_isdb_wave_id_cfg.attr.attr,
+	&coresight_attr_sp1_isdb_isdb_brkpt_cfg.attr.attr,
 	NULL,
 };
 
@@ -2195,12 +2356,16 @@ static struct adreno_coresight a6xx_coresight = {
 	.registers = a6xx_coresight_regs,
 	.count = ARRAY_SIZE(a6xx_coresight_regs),
 	.groups = a6xx_coresight_groups,
+	.read = adreno_gx_regread,
+	.write = adreno_gx_regwrite,
 };
 
 static struct adreno_coresight a6xx_coresight_cx = {
 	.registers = a6xx_coresight_regs_cx,
 	.count = ARRAY_SIZE(a6xx_coresight_regs_cx),
 	.groups = a6xx_coresight_groups_cx,
+	.read = adreno_cx_dbgc_regread,
+	.write = adreno_cx_dbgc_regwrite,
 };
 
 static struct adreno_perfcount_register a6xx_perfcounters_cp[] = {
@@ -2658,7 +2823,13 @@ static int a6xx_enable_pwr_counters(struct adreno_device *adreno_dev,
 		return -ENODEV;
 
 	kgsl_regwrite(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_MASK, 0xFF000000);
-	kgsl_regrmw(device,
+
+	/*
+	 * A610 GPU has only one power counter fixed to count GPU busy
+	 * cycles with no select register.
+	 */
+	if (!adreno_is_a610(adreno_dev))
+		kgsl_regrmw(device,
 			A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0, 0xFF, 0x20);
 	kgsl_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE, 0x1);
 
@@ -2686,6 +2857,7 @@ static const struct {
 } a6xx_efuse_funcs[] = {
 	{ adreno_is_a615_family, a6xx_efuse_speed_bin },
 	{ adreno_is_a612, a6xx_efuse_speed_bin },
+	{ adreno_is_a610, a6xx_efuse_speed_bin },
 };
 
 static void a6xx_check_features(struct adreno_device *adreno_dev)
@@ -2900,6 +3072,17 @@ static void a6xx_perfcounter_init(struct adreno_device *adreno_dev)
 	if (adreno_is_a612(adreno_dev)) {
 		a6xx_pwrcounters_gpmu[4].countable = KGSL_PERFCOUNTER_BROKEN;
 		a6xx_pwrcounters_gpmu[5].countable = KGSL_PERFCOUNTER_BROKEN;
+	} else if (adreno_is_a610(adreno_dev)) {
+		/*
+		 * A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_1 to 5 are not
+		 * present on A610. Mark them as broken so that they
+		 * can't be used.
+		 */
+		a6xx_pwrcounters_gpmu[1].countable = KGSL_PERFCOUNTER_BROKEN;
+		a6xx_pwrcounters_gpmu[2].countable = KGSL_PERFCOUNTER_BROKEN;
+		a6xx_pwrcounters_gpmu[3].countable = KGSL_PERFCOUNTER_BROKEN;
+		a6xx_pwrcounters_gpmu[4].countable = KGSL_PERFCOUNTER_BROKEN;
+		a6xx_pwrcounters_gpmu[5].countable = KGSL_PERFCOUNTER_BROKEN;
 	}
 }
 
@@ -2985,6 +3168,29 @@ unlock:
 	return ret;
 }
 
+static void a6xx_clk_set_options(struct adreno_device *adreno_dev,
+	const char *name, struct clk *clk, bool on)
+{
+	if (!adreno_is_a610(adreno_dev))
+		return;
+
+	/* Handle clock settings for GFX PSCBCs */
+	if (on) {
+		if (!strcmp(name, "mem_iface_clk")) {
+			clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
+			clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
+		} else if (!strcmp(name, "core_clk")) {
+			clk_set_flags(clk, CLKFLAG_RETAIN_PERIPH);
+			clk_set_flags(clk, CLKFLAG_RETAIN_MEM);
+		}
+	} else {
+		if (!strcmp(name, "core_clk")) {
+			clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
+			clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
+		}
+	}
+}
+
 struct adreno_gpudev adreno_a6xx_gpudev = {
 	.reg_offsets = &a6xx_reg_offsets,
 	.start = a6xx_start,
@@ -3023,4 +3229,5 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.perfcounter_init = a6xx_perfcounter_init,
 	.perfcounter_update = a6xx_perfcounter_update,
 	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
+	.clk_set_options = a6xx_clk_set_options,
 };

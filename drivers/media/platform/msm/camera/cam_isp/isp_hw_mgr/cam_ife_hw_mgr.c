@@ -2228,7 +2228,8 @@ static int cam_isp_blob_bw_update(
 			if (!hw_mgr_res->hw_res[i])
 				continue;
 
-			if (hw_mgr_res->res_id == CAM_ISP_HW_VFE_IN_CAMIF)
+			if ((hw_mgr_res->res_id == CAM_ISP_HW_VFE_IN_CAMIF)
+			|| (hw_mgr_res->res_id == CAM_ISP_HW_VFE_IN_RD))
 				if (i == CAM_ISP_HW_SPLIT_LEFT) {
 					if (camif_l_bw_updated)
 						continue;
@@ -2359,8 +2360,9 @@ static int cam_ife_mgr_config_hw(void *hw_mgr_priv,
 			}
 	}
 
-	CAM_DBG(CAM_ISP, "Enter ctx id:%d req_id:%lld num_hw_upd_entries %d",
-		ctx->ctx_index, cfg->request_id, cfg->num_hw_update_entries);
+	CAM_DBG(CAM_ISP,
+		"Enter ctx id:%d num_hw_upd_entries %d request id: %llu",
+		ctx->ctx_index, cfg->num_hw_update_entries, cfg->request_id);
 
 	if (cfg->num_hw_update_entries > 0) {
 		cdm_cmd = ctx->cdm_cmd;
@@ -2407,7 +2409,7 @@ static int cam_ife_mgr_config_hw(void *hw_mgr_priv,
 	} else {
 		CAM_ERR(CAM_ISP, "No commands to config");
 	}
-	CAM_DBG(CAM_ISP, "Exit");
+	CAM_DBG(CAM_ISP, "Exit: Config Done: %llu",  cfg->request_id);
 
 	return rc;
 }
@@ -2587,23 +2589,6 @@ static int cam_ife_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 
 	CAM_DBG(CAM_ISP, "Halting CSIDs");
 
-	CAM_DBG(CAM_ISP, "Going to stop IFE Mux");
-
-	/* IFE mux in resources */
-	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_src, list) {
-		cam_ife_hw_mgr_stop_hw_res(hw_mgr_res);
-	}
-
-	/* IFE bus rd resources */
-	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_in_rd, list) {
-		cam_ife_hw_mgr_stop_hw_res(hw_mgr_res);
-	}
-
-	CAM_DBG(CAM_ISP, "Going to stop IFE Out");
-
-	/* IFE out resources */
-	for (i = 0; i < CAM_IFE_HW_OUT_RES_MAX; i++)
-		cam_ife_hw_mgr_stop_hw_res(&ctx->res_list_ife_out[i]);
 	/* get master base index first */
 	for (i = 0; i < ctx->num_base; i++) {
 		if (ctx->base[i].split_id == CAM_ISP_HW_SPLIT_LEFT) {
@@ -2611,15 +2596,6 @@ static int cam_ife_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 			break;
 		}
 	}
-
-	CAM_DBG(CAM_ISP, "Going to stop IFE Mux");
-
-	/* IFE mux in resources */
-	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_src, list) {
-		cam_ife_hw_mgr_stop_hw_res(hw_mgr_res);
-	}
-
-	cam_tasklet_stop(ctx->common.tasklet_info);
 
 	/*
 	 * If Context does not have PIX resources and has only RDI resource
@@ -2659,6 +2635,26 @@ static int cam_ife_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 		cam_ife_mgr_csid_stop_hw(ctx, &ctx->res_list_ife_cid,
 			ctx->base[i].idx, csid_halt_type);
 	}
+
+	CAM_DBG(CAM_ISP, "Going to stop IFE Out");
+
+	/* IFE out resources */
+	for (i = 0; i < CAM_IFE_HW_OUT_RES_MAX; i++)
+		cam_ife_hw_mgr_stop_hw_res(&ctx->res_list_ife_out[i]);
+
+	/* IFE bus rd resources */
+	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_in_rd, list) {
+		cam_ife_hw_mgr_stop_hw_res(hw_mgr_res);
+	}
+
+	CAM_DBG(CAM_ISP, "Going to stop IFE Mux");
+
+	/* IFE mux in resources */
+	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_src, list) {
+		cam_ife_hw_mgr_stop_hw_res(hw_mgr_res);
+	}
+
+	cam_tasklet_stop(ctx->common.tasklet_info);
 
 	cam_ife_mgr_pause_hw(ctx);
 
@@ -2981,7 +2977,6 @@ safe_disable:
 
 deinit_hw:
 	cam_ife_hw_mgr_deinit_hw(ctx);
-	ctx->init_done = false;
 
 tasklet_stop:
 	cam_tasklet_stop(ctx->common.tasklet_info);
@@ -3599,6 +3594,7 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 			CAM_ERR(CAM_ISP, "FS Update Failed rc: %d", rc);
 	}
 		break;
+
 	default:
 		CAM_WARN(CAM_ISP, "Invalid blob type %d", blob_type);
 		break;
@@ -3634,7 +3630,8 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 	ctx = (struct cam_ife_hw_mgr_ctx *) prepare->ctxt_to_hw_map;
 	hw_mgr = (struct cam_ife_hw_mgr *)hw_mgr_priv;
 
-	rc = cam_packet_util_validate_packet(prepare->packet);
+	rc = cam_packet_util_validate_packet(prepare->packet,
+		prepare->remain_len);
 	if (rc)
 		return rc;
 
@@ -3825,7 +3822,8 @@ static void cam_ife_mgr_print_io_bufs(struct cam_packet *packet,
 			if (!io_cfg[i].mem_handle[j])
 				break;
 
-			if (GET_FD_FROM_HANDLE(io_cfg[i].mem_handle[j]) ==
+			if (pf_buf_info &&
+				GET_FD_FROM_HANDLE(io_cfg[i].mem_handle[j]) ==
 				GET_FD_FROM_HANDLE(pf_buf_info)) {
 				CAM_INFO(CAM_ISP,
 					"Found PF at port: 0x%x mem 0x%x fd: 0x%x",
@@ -3904,12 +3902,6 @@ static int cam_ife_mgr_cmd(void *hw_mgr_priv, void *cmd_args)
 			hw_cmd_args->u.internal_args;
 
 		switch (isp_hw_cmd_args->cmd_type) {
-		case CAM_ISP_HW_MGR_CMD_IS_RDI_ONLY_CONTEXT:
-			if (ctx->is_rdi_only_context)
-				isp_hw_cmd_args->u.is_rdi_only_context = 1;
-			else
-				isp_hw_cmd_args->u.is_rdi_only_context = 0;
-			break;
 		case CAM_ISP_HW_MGR_CMD_PAUSE_HW:
 			cam_ife_mgr_pause_hw(ctx);
 			break;
@@ -3919,6 +3911,14 @@ static int cam_ife_mgr_cmd(void *hw_mgr_priv, void *cmd_args)
 		case CAM_ISP_HW_MGR_CMD_SOF_DEBUG:
 			cam_ife_mgr_sof_irq_debug(ctx,
 				isp_hw_cmd_args->u.sof_irq_enable);
+			break;
+		case CAM_ISP_HW_MGR_CMD_CTX_TYPE:
+			if (ctx->is_fe_enable)
+				isp_hw_cmd_args->u.ctx_type = CAM_ISP_CTX_FS2;
+			else if (ctx->is_rdi_only_context)
+				isp_hw_cmd_args->u.ctx_type = CAM_ISP_CTX_RDI;
+			else
+				isp_hw_cmd_args->u.ctx_type = CAM_ISP_CTX_PIX;
 			break;
 		default:
 			CAM_ERR(CAM_ISP, "Invalid HW mgr command:0x%x",
@@ -4472,7 +4472,8 @@ static int cam_ife_hw_mgr_handle_reg_update(
 				rup_status = hw_res->bottom_half_handler(
 					hw_res, evt_payload);
 
-			if (!ife_hwr_mgr_ctx->is_rdi_only_context)
+			if (ife_hwr_mgr_ctx->is_rdi_only_context == 0 &&
+				ife_hwr_mgr_ctx->is_fe_enable == false)
 				continue;
 
 			if (atomic_read(&ife_hwr_mgr_ctx->overflow_pending))
@@ -4815,7 +4816,8 @@ static int cam_ife_hw_mgr_handle_sof(
 				hw_res, evt_payload);
 
 			/* check if it is rdi only context */
-			if (ife_hw_mgr_ctx->is_rdi_only_context) {
+			if (ife_hw_mgr_ctx->is_fe_enable ||
+				ife_hw_mgr_ctx->is_rdi_only_context) {
 				if (!sof_status && !sof_sent) {
 					cam_ife_mgr_cmd_get_sof_timestamp(
 						ife_hw_mgr_ctx,
@@ -4826,7 +4828,7 @@ static int cam_ife_hw_mgr_handle_sof(
 						ife_hw_mgr_ctx->common.cb_priv,
 						CAM_ISP_HW_EVENT_SOF,
 						&sof_done_event_data);
-					CAM_DBG(CAM_ISP, "sof_status = %d",
+					CAM_DBG(CAM_ISP, "RDI sof_status = %d",
 						sof_status);
 
 					sof_sent = true;

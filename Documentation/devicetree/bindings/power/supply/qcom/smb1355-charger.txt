@@ -63,6 +63,18 @@ Charger specific properties:
   Value type: bool
   Definition: Boolean property to enable h/w controlled die temp mitigation.
 
+- pinctrl-names
+  Usage:      optional
+  Value type: <string-list>
+  Definition: Should be "default".
+		Please refer to pinctrl-bindings.txt
+
+- pinctrl-0
+  Usage:      optional
+  Value type: <phandle-list>
+  Definition: phandle of the pin configuration.
+		Please refer to pinctrl-bindings.txt
+
 ================================================
 Second Level Nodes - SMB1355 Charger Peripherals
 ================================================

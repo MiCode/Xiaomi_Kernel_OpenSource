@@ -1,4 +1,4 @@
-/* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -72,6 +72,7 @@ enum print_reason {
 #define HVDCP2_ICL_VOTER		"HVDCP2_ICL_VOTER"
 #define AICL_THRESHOLD_VOTER		"AICL_THRESHOLD_VOTER"
 #define USBOV_DBC_VOTER			"USBOV_DBC_VOTER"
+#define CHG_TERMINATION_VOTER		"CHG_TERMINATION_VOTER"
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -114,6 +115,7 @@ enum {
 	SW_THERM_REGULATION_WA		= BIT(1),
 	WEAK_ADAPTER_WA			= BIT(2),
 	USBIN_OV_WA			= BIT(3),
+	CHG_TERMINATION_WA		= BIT(4),
 };
 
 enum jeita_cfg_stat {
@@ -402,6 +404,7 @@ struct smb_charger {
 	struct work_struct	pl_update_work;
 	struct work_struct	jeita_update_work;
 	struct work_struct	moisture_protection_work;
+	struct work_struct	chg_termination_work;
 	struct delayed_work	ps_change_timeout_work;
 	struct delayed_work	clear_hdc_work;
 	struct delayed_work	icl_change_work;
@@ -415,6 +418,7 @@ struct smb_charger {
 
 	struct alarm		lpd_recheck_timer;
 	struct alarm		moisture_protection_alarm;
+	struct alarm		chg_termination_alarm;
 
 	/* secondary charger config */
 	bool			sec_pl_present;
@@ -470,6 +474,7 @@ struct smb_charger {
 	int			smb_temp_max;
 	u8			typec_try_mode;
 	enum lpd_stage		lpd_stage;
+	bool			lpd_disabled;
 	enum lpd_reason		lpd_reason;
 	bool			fcc_stepper_enable;
 	int			die_temp;
@@ -493,6 +498,8 @@ struct smb_charger {
 	int			aicl_cont_threshold_mv;
 	int			default_aicl_cont_threshold_mv;
 	bool			aicl_max_reached;
+	int			charge_full_cc;
+	int			cc_soc_ref;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -659,6 +666,8 @@ int smblib_get_prop_charger_temp(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_die_health(struct smb_charger *chg);
 int smblib_get_prop_connector_health(struct smb_charger *chg);
+int smblib_get_prop_vph_voltage_now(struct smb_charger *chg,
+				union power_supply_propval *val);
 int smblib_set_prop_pd_current_max(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_set_prop_sdp_current_max(struct smb_charger *chg,

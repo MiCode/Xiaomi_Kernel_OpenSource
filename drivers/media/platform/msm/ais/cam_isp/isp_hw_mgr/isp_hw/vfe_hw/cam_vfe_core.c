@@ -279,6 +279,13 @@ int cam_vfe_init_hw(void *hw_priv, void *init_hw_args, uint32_t arg_size)
 		goto deinint_vfe_res;
 	}
 
+	rc = core_info->vfe_top->hw_ops.init(core_info->vfe_top->top_priv,
+		NULL, 0);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "Top HW init Failed rc=%d", rc);
+		goto deinint_vfe_res;
+	}
+
 	vfe_hw->hw_state = CAM_HW_STATE_POWER_UP;
 	return rc;
 

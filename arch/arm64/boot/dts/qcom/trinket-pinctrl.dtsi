@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,10 +17,11 @@
 		compatible = "qcom,trinket-pinctrl";
 		reg = <0x400000 0xc00000>;
 		reg-names = "pinctrl";
-		interrupts = <0 227 0>;
+		interrupts-extended = <&wakegic GIC_SPI 227 IRQ_TYPE_NONE>;
 		gpio-controller;
 		#gpio-cells = <2>;
 		interrupt-controller;
+		interrupt-parent = <&wakegpio>;
 		#interrupt-cells = <2>;
 
 		/* QUPv3_0 SE mappings */
@@ -76,6 +77,98 @@
 					pins = "gpio4", "gpio5";
 					drive-strength = <2>;
 					bias-pull-up;
+				};
+			};
+		};
+
+		nfc {
+			nfc_int_active: nfc_int_active {
+				/* active state */
+				mux {
+					/* GPIO 85 NFC Read Interrupt */
+					pins = "gpio85";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio85";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-up;
+				};
+			};
+
+			nfc_int_suspend: nfc_int_suspend {
+				/* sleep state */
+				mux {
+					/* GPIO 85 NFC Read Interrupt */
+					pins = "gpio85";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio85";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-up;
+				};
+			};
+
+			nfc_enable_active: nfc_enable_active {
+				/* active state */
+				mux {
+					/* 83: Enable 84: Firmware */
+					pins = "gpio83", "gpio84";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio83", "gpio84";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-up;
+				};
+			};
+
+			nfc_enable_suspend: nfc_enable_suspend {
+				/* sleep state */
+				mux {
+					/* 83: Enable 84: Firmware */
+					pins = "gpio83", "gpio84";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio83", "gpio84";
+					drive-strength = <2>; /* 2 MA */
+					bias-disable;
+				};
+			};
+
+			nfc_clk_req_active: nfc_clk_req_active {
+				/* active state */
+				mux {
+					/* GPIO 95: NFC CLOCK REQUEST */
+					pins = "gpio95";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio95";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-up;
+				};
+			};
+
+			nfc_clk_req_suspend: nfc_clk_req_suspend {
+				/* sleep state */
+				mux {
+					/* GPIO 95: NFC CLOCK REQUEST */
+					pins = "gpio95";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio95";
+					drive-strength = <2>; /* 2 MA */
+					bias-disable;
 				};
 			};
 		};
@@ -608,6 +701,560 @@
 			};
 		};
 
+		fsa_usbc_ana_en_n@124 {
+			fsa_usbc_ana_en: fsa_usbc_ana_en {
+				mux {
+					pins = "gpio124";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio124";
+					drive-strength = <2>;
+					bias-disable;
+					output-low;
+				};
+			};
+		};
+
+		wsa_swr_clk_pin {
+			wsa_swr_clk_sleep: wsa_swr_clk_sleep {
+				mux {
+					pins = "gpio18";
+					function = "WSA_CLK";
+				};
+
+				config {
+					pins = "gpio18";
+					drive-strength = <2>;
+					bias-bus-hold;
+				};
+			};
+
+			wsa_swr_clk_active: wsa_swr_clk_active {
+				mux {
+					pins = "gpio18";
+					function = "WSA_CLK";
+				};
+
+				config {
+					pins = "gpio18";
+					drive-strength = <2>;
+					bias-bus-hold;
+				};
+			};
+		};
+
+		wsa_swr_data_pin {
+			wsa_swr_data_sleep: wsa_swr_data_sleep {
+				mux {
+					pins = "gpio19";
+					function = "WSA_DATA";
+				};
+
+				config {
+					pins = "gpio19";
+					drive-strength = <4>;
+					bias-bus-hold;
+				};
+			};
+
+			wsa_swr_data_active: wsa_swr_data_active {
+				mux {
+					pins = "gpio19";
+					function = "WSA_DATA";
+				};
+
+				config {
+					pins = "gpio19";
+					drive-strength = <4>;
+					bias-bus-hold;
+				};
+			};
+		};
+
+		/* WSA speaker reset pins */
+		spkr_1_sd_n {
+			spkr_1_sd_n_sleep: spkr_1_sd_n_sleep {
+				mux {
+					pins = "gpio20";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio20";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;
+					input-enable;
+				};
+			};
+
+			spkr_1_sd_n_active: spkr_1_sd_n_active {
+				mux {
+					pins = "gpio20";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio20";
+					drive-strength = <16>;   /* 16 mA */
+					bias-disable;
+					output-high;
+				};
+			};
+		};
+
+		wcd9xxx_intr {
+			wcd_intr_default: wcd_intr_default{
+				mux {
+					pins = "gpio110";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio110";
+					drive-strength = <2>; /* 2 mA */
+					bias-pull-down; /* pull down */
+					input-enable;
+				};
+			};
+		};
+
+		tasha_cdc_reset_active: lpi_cdc_reset_active {
+			mux {
+				pins = "gpio120";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio120";
+				drive-strength = <16>;
+				output-high;
+			};
+		};
+
+		tasha_cdc_reset_sleep: lpi_cdc_reset_sleep {
+			mux {
+				pins = "gpio120";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio120";
+				drive-strength = <16>;
+				bias-disable;
+				output-low;
+			};
+		};
+
+		/* Tasha WSA speaker reset pins */
+		tasha_spkr_1_sd_n {
+			tasha_spkr_1_sd_n_sleep: tasha_spkr_1_sd_n_sleep {
+				mux {
+					pins = "gpio20";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio20";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;
+					input-enable;
+				};
+			};
+
+			tasha_spkr_1_sd_n_active: tasha_spkr_1_sd_n_active {
+				mux {
+					pins = "gpio20";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio20";
+					drive-strength = <16>;   /* 16 mA */
+					bias-disable;
+					output-high;
+				};
+			};
+		};
+
+		tasha_spkr_2_sd_n {
+			tasha_spkr_2_sd_n_sleep: tasha_spkr_2_sd_n_sleep {
+				mux {
+					pins = "gpio21";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio21";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;
+					input-enable;
+				};
+			};
+
+			tasha_spkr_2_sd_n_active: tasha_spkr_2_sd_n_active {
+				mux {
+					pins = "gpio21";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio21";
+					drive-strength = <16>;   /* 16 mA */
+					bias-disable;
+					output-high;
+				};
+			};
+		};
+
+		audio_ref_clk_active: audio_ref_clk_active {
+			mux {
+				pins = "gpio112";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio112";
+				drive-strength = <8>;
+				bias-disable;
+				output-low;
+			};
+		};
+
+		audio_ref_clk_sleep: audio_ref_clk_sleep {
+			mux {
+				pins = "gpio112";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio112";
+				drive-strength = <2>;
+				bias-disable;
+				bias-pull-down;
+			};
+		};
+
+		wcd937x_reset_active: wcd937x_reset_active {
+			mux {
+				pins = "gpio120";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio120";
+				drive-strength = <16>;
+				output-high;
+			};
+		};
+
+		wcd937x_reset_sleep: wcd937x_reset_sleep {
+			mux {
+				pins = "gpio120";
+				function = "gpio";
+			};
+
+			config {
+			pins = "gpio120";
+				drive-strength = <16>;
+				bias-disable;
+				output-low;
+			};
+		};
+
+		cdc_dmic01_clk_active: dmic01_clk_active {
+			mux {
+				pins = "gpio125";
+				function = "DMIC0_CLK";
+			};
+
+			config {
+				pins = "gpio125";
+				drive-strength = <8>;
+				output-high;
+			};
+		};
+
+		cdc_dmic01_clk_sleep: dmic01_clk_sleep {
+			mux {
+				pins = "gpio125";
+				function = "DMIC0_CLK";
+			};
+
+			config {
+				pins = "gpio125";
+				drive-strength = <2>;
+				bias-disable;
+				output-low;
+			};
+		};
+
+		cdc_dmic01_data_active: dmic01_data_active {
+			mux {
+				pins = "gpio126";
+				function = "DMIC0_DATA";
+			};
+
+			config {
+				pins = "gpio126";
+				drive-strength = <8>;
+				input-enable;
+			};
+		};
+
+		cdc_dmic01_data_sleep: dmic01_data_sleep {
+			mux {
+				pins = "gpio126";
+				function = "DMIC0_DATA";
+			};
+
+			config {
+				pins = "gpio126";
+				drive-strength = <2>;
+				pull-down;
+				input-enable;
+			};
+		};
+
+		cdc_dmic23_clk_active: dmic23_clk_active {
+			mux {
+				pins = "gpio127";
+				function = "DMIC1_CLK";
+			};
+
+			config {
+				pins = "gpio127";
+				drive-strength = <8>;
+				output-high;
+			};
+		};
+
+		cdc_dmic23_clk_sleep: dmic23_clk_sleep {
+			mux {
+				pins = "gpio127";
+				function = "DMIC1_CLK";
+			};
+
+			config {
+				pins = "gpio127";
+				drive-strength = <2>;
+				bias-disable;
+				output-low;
+			};
+		};
+
+		cdc_dmic23_data_active: dmic23_data_active {
+			mux {
+				pins = "gpio128";
+				function = "DMIC1_DATA";
+			};
+
+			config {
+				pins = "gpio128";
+				drive-strength = <8>;
+				input-enable;
+			};
+		};
+
+		cdc_dmic23_data_sleep: dmic23_data_sleep {
+			mux {
+				pins = "gpio128";
+				function = "DMIC1_DATA";
+			};
+
+			config {
+				pins = "gpio128";
+				drive-strength = <2>;
+				pull-down;
+				input-enable;
+			};
+		};
+
+		tx_swr_clk_sleep: tx_swr_clk_sleep {
+			mux {
+				pins = "gpio106";
+				function = "swr_tx";
+			};
+
+			config {
+				pins = "gpio106";
+				drive-strength = <2>;
+				bias-bus-hold;
+			};
+		};
+
+		tx_swr_clk_active: tx_swr_clk_active {
+			mux {
+				pins = "gpio106";
+				function = "swr_tx";
+			};
+
+			config {
+				pins = "gpio106";
+				drive-strength = <8>;
+				bias-bus-hold;
+			};
+		};
+
+		tx_swr_data1_sleep: tx_swr_data1_sleep {
+			mux {
+				pins = "gpio107";
+				function = "swr_tx";
+			};
+
+			config {
+				pins = "gpio107";
+				drive-strength = <2>;
+				bias-bus-hold;
+			};
+		};
+
+		tx_swr_data1_active: tx_swr_data1_active {
+			mux {
+				pins = "gpio107";
+				function = "swr_tx";
+			};
+
+			config {
+				pins = "gpio107";
+				drive-strength = <8>;
+				bias-bus-hold;
+			};
+		};
+
+		tx_swr_data2_sleep: tx_swr_data2_sleep {
+			mux {
+				pins = "gpio108";
+				function = "swr_tx";
+			};
+
+			config {
+				pins = "gpio108";
+				drive-strength = <2>;
+				bias-bus-hold;
+			};
+		};
+
+		tx_swr_data2_active: tx_swr_data2_active {
+			mux {
+				pins = "gpio108";
+				function = "swr_tx";
+			};
+
+			config {
+				pins = "gpio108";
+				drive-strength = <8>;
+				bias-bus-hold;
+			};
+		};
+
+		rx_swr_clk_sleep: rx_swr_clk_sleep {
+			mux {
+				pins = "gpio110";
+				function = "swr_rx";
+			};
+
+			config {
+				pins = "gpio110";
+				drive-strength = <2>;
+				bias-bus-hold;
+			};
+		};
+
+		rx_swr_clk_active: rx_swr_clk_active {
+			mux {
+				pins = "gpio110";
+				function = "swr_rx";
+			};
+
+			config {
+				pins = "gpio110";
+				drive-strength = <8>;
+				bias-bus-hold;
+			};
+		};
+
+		rx_swr_data_sleep: rx_swr_data_sleep {
+			mux {
+				pins = "gpio111", "gpio112";
+				function = "swr_rx";
+			};
+
+			config {
+				pins = "gpio111", "gpio112";
+				drive-strength = <2>;
+				bias-bus-hold;
+			};
+		};
+
+		rx_swr_data_active: rx_swr_data_active {
+			mux {
+				pins = "gpio111", "gpio112";
+				function = "swr_rx";
+			};
+
+			config {
+				pins = "gpio111", "gpio112";
+				drive-strength = <8>;
+				bias-bus-hold;
+			};
+		};
+
+		pmx_sde: pmx_sde {
+			sde_dsi_active: sde_dsi_active {
+				mux {
+					pins = "gpio90";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio90";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable = <0>;   /* no pull */
+				};
+			};
+
+			sde_dsi_suspend: sde_dsi_suspend {
+				mux {
+					pins = "gpio90";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio90";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+		};
+
+		pmx_sde_te {
+			sde_te_active: sde_te_active {
+				mux {
+					pins = "gpio89";
+					function = "mdp_vsync";
+				};
+
+				config {
+					pins = "gpio89";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+
+			sde_te_suspend: sde_te_suspend {
+				mux {
+					pins = "gpio89";
+					function = "mdp_vsync";
+				};
+
+				config {
+					pins = "gpio89";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+		};
+
 		/* SDC pin type */
 		sdc1_clk_on: sdc1_clk_on {
 			config {
@@ -744,6 +1391,366 @@
 				drive-strength = <2>;
 				bias-disable;
 			};
+		};
+
+		ufs_dev_reset_assert: ufs_dev_reset_assert {
+			config {
+				pins = "ufs_reset";
+				bias-pull-down;		/* default: pull down */
+				/*
+				 * UFS_RESET driver strengths are having
+				 * different values/steps compared to typical
+				 * GPIO drive strengths.
+				 *
+				 * Following table clarifies:
+				 *
+				 * HDRV value | UFS_RESET | Typical GPIO
+				 *   (dec)    |   (mA)    |    (mA)
+				 *     0      |   0.8     |    2
+				 *     1      |   1.55    |    4
+				 *     2      |   2.35    |    6
+				 *     3      |   3.1     |    8
+				 *     4      |   3.9     |    10
+				 *     5      |   4.65    |    12
+				 *     6      |   5.4     |    14
+				 *     7      |   6.15    |    16
+				 *
+				 * POR value for UFS_RESET HDRV is 3 which means
+				 * 3.1mA and we want to use that. Hence just
+				 * specify 8mA to "drive-strength" binding and
+				 * that should result into writing 3 to HDRV
+				 * field.
+				 */
+				drive-strength = <8>;	/* default: 3.1 mA */
+				output-low; /* active low reset */
+			};
+		};
+
+		ufs_dev_reset_deassert: ufs_dev_reset_deassert {
+			config {
+				pins = "ufs_reset";
+				bias-pull-down;		/* default: pull down */
+				/*
+				 * default: 3.1 mA
+				 * check comments under ufs_dev_reset_assert
+				 */
+				drive-strength = <8>;
+				output-high; /* active low reset */
+			};
+		};
+
+		pmx_ts_int_active {
+			ts_int_active: ts_int_active {
+				mux {
+					pins = "gpio88";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio88";
+					drive-strength = <8>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		pmx_ts_int_suspend {
+			ts_int_suspend: ts_int_suspend {
+				mux {
+					pins = "gpio88";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio88";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
+
+		pmx_ts_reset_active {
+			ts_reset_active: ts_reset_active {
+				mux {
+					pins = "gpio87";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio87";
+					drive-strength = <8>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		pmx_ts_reset_suspend {
+			ts_reset_suspend: ts_reset_suspend {
+				mux {
+					pins = "gpio87";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio87";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
+
+		pmx_ts_release {
+			ts_release: ts_release {
+				mux {
+					pins = "gpio88", "gpio87";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio88", "gpio87";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
+		cci0_active: cci0_active {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio37", "gpio38";
+				function = "cci_i2c";
+			};
+
+			config {
+				pins = "gpio37", "gpio38";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cci0_suspend: cci0_suspend {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio37", "gpio38";
+				function = "cci_i2c";
+			};
+
+			config {
+				pins = "gpio37", "gpio38";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cci1_active: cci1_active {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio39", "gpio40";
+				function = "cci_i2c";
+			};
+
+			config {
+				pins = "gpio39", "gpio40";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cci1_suspend: cci1_suspend {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio39", "gpio40";
+				function = "cci_i2c";
+			};
+
+			config {
+				pins = "gpio39", "gpio40";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_mclk0_active: cam_sensor_mclk0_active {
+			/* MCLK0 */
+			mux {
+				pins = "gpio34";
+				function = "cam_mclk";
+			};
+
+			config {
+				pins = "gpio34";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_mclk0_suspend: cam_sensor_mclk0_suspend {
+			/* MCLK0 */
+			mux {
+				pins = "gpio34";
+				function = "cam_mclk";
+			};
+
+			config {
+				pins = "gpio34";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_rear_active: cam_sensor_rear_active {
+			/* RESET */
+			mux {
+				pins = "gpio48";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio48";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_rear_suspend: cam_sensor_rear_suspend {
+			/* RESET */
+			mux {
+				pins = "gpio48";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio48";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+				output-low;
+			};
+		};
+
+		cam_sensor_front_active: cam_sensor_front_active {
+			/* RESET  */
+			mux {
+				pins = "gpio42";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio42";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_front_suspend: cam_sensor_front_suspend {
+			/* RESET */
+			mux {
+				pins = "gpio42";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio42";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+				output-low;
+			};
+		};
+
+		cam_sensor_rear2_active: cam_sensor_rear2_active {
+			/* RESET */
+			mux {
+				pins = "gpio45";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio45";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_rear2_suspend: cam_sensor_rear2_suspend {
+			/* RESET */
+			mux {
+				pins = "gpio45";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio45";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+				output-low;
+			};
+		};
+
+		cam_sensor_mclk1_active: cam_sensor_mclk1_active {
+			/* MCLK1 */
+			mux {
+				pins = "gpio35";
+				function = "cam_mclk";
+			};
+
+			config {
+				pins = "gpio35";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_mclk1_suspend: cam_sensor_mclk1_suspend {
+			/* MCLK1 */
+			mux {
+				pins = "gpio35";
+				function = "cam_mclk";
+			};
+
+			config {
+				pins = "gpio35";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_mclk2_active: cam_sensor_mclk2_active {
+			/* MCLK2 */
+			mux {
+				pins = "gpio36";
+				function = "cam_mclk";
+			};
+
+			config {
+				pins = "gpio36";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_mclk2_suspend: cam_sensor_mclk2_suspend {
+			/* MCLK2 */
+			mux {
+				pins = "gpio36";
+				function = "cam_mclk";
+			};
+
+			config {
+				pins = "gpio36";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+	};
+};
+
+&pm6125_gpios {
+	tasha_mclk {
+		tasha_mclk_default: tasha_mclk_default{
+			pins = "gpio1";
+			function = "func1";
+			qcom,drive-strength = <2>;
+			power-source = <0>;
+			bias-disable;
+			output-low;
 		};
 	};
 };

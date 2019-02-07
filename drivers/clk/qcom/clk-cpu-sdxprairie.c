@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -749,6 +749,8 @@ static int __init cpu_clock_init(void)
 		configure_lucid_pll(base);
 		l_val =  readl_relaxed(base + LUCID_PLL_OFF_L_VAL);
 	}
+
+	writel_relaxed(0xC05, base + LUCID_PLL_OFF_USER_CTL_U);
 
 	cpucc_clk_init_rate = l_val * XO_RATE;
 

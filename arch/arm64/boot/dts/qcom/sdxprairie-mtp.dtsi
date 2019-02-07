@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -200,6 +200,9 @@
 	qcom,suspend-input-on-debug-batt;
 	qcom,hvdcp-autonomous-enable;
 	qcom,usb-pd-disable;
+	qcom,hw-die-temp-mitigation;
+	qcom,hw-connector-mitigation;
+	qcom,hw-skin-temp-mitigation;
 };
 
 &pm8150b_fg {
@@ -214,4 +217,25 @@
 	qcom,fg-esr-timer-dischg-slow = <0 96>;
 	qcom,fg-esr-cal-soc-thresh = <26 230>;
 	qcom,fg-esr-cal-temp-thresh = <10 40>;
+};
+
+&sdhc_1 {
+	vdd-supply = <&vreg_sd_vdd>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <0 800000>;
+
+	vdd-io-supply = <&vreg_vddpx_2>;
+	qcom,vdd-io-voltage-level = <1800000 2850000>;
+	qcom,vdd-io-current-level = <0 10000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on &sdc1_cd_on>;
+	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off &sdc1_cd_off>;
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000
+								200000000>;
+	qcom,devfreq,freq-table = <50000000 200000000>;
+
+	cd-gpios = <&tlmm 99 GPIO_ACTIVE_LOW>;
+	status = "ok";
 };

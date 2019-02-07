@@ -31,6 +31,8 @@ Optional properties:
  - reg: Address and length of the register set for the device
    Optional regs are:
         "phy_rcal_reg": register address for efuse used for rext calibration
+ - qcom,no-rext-present: Set only if external REXT is not present. Default value
+   is present.
 
 Example:
 	hsphy@f9200000 {

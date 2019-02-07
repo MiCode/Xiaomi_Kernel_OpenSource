@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -59,14 +59,14 @@ rmnet_map_ipv4_dl_csum_trailer(struct sk_buff *skb,
 	void *txporthdr;
 	__be16 addend;
 
-	ip4h = (struct iphdr *)(skb->data);
+	ip4h = (struct iphdr *)rmnet_map_data_ptr(skb);
 	if ((ntohs(ip4h->frag_off) & IP_MF) ||
 	    ((ntohs(ip4h->frag_off) & IP_OFFSET) > 0)) {
 		priv->stats.csum_fragmented_pkt++;
 		return -EOPNOTSUPP;
 	}
 
-	txporthdr = skb->data + ip4h->ihl * 4;
+	txporthdr = rmnet_map_data_ptr(skb) + ip4h->ihl * 4;
 
 	csum_field = rmnet_map_get_csum_field(ip4h->protocol, txporthdr);
 
@@ -130,12 +130,12 @@ rmnet_map_ipv6_dl_csum_trailer(struct sk_buff *skb,
 	u16 csum_value, csum_value_final;
 	__be16 ip6_hdr_csum, addend;
 	struct ipv6hdr *ip6h;
-	void *txporthdr;
+	void *txporthdr, *data = rmnet_map_data_ptr(skb);
 	u32 length;
 
-	ip6h = (struct ipv6hdr *)(skb->data);
+	ip6h = data;
 
-	txporthdr = skb->data + sizeof(struct ipv6hdr);
+	txporthdr = data + sizeof(struct ipv6hdr);
 	csum_field = rmnet_map_get_csum_field(ip6h->nexthdr, txporthdr);
 
 	if (!csum_field) {
@@ -146,7 +146,7 @@ rmnet_map_ipv6_dl_csum_trailer(struct sk_buff *skb,
 	csum_value = ~ntohs(csum_trailer->csum_value);
 	ip6_hdr_csum = (__force __be16)
 			~ntohs((__force __be16)ip_compute_csum(ip6h,
-			       (int)(txporthdr - (void *)(skb->data))));
+			       (int)(txporthdr - data)));
 	ip6_payload_csum = csum16_sub((__force __sum16)csum_value,
 				      ip6_hdr_csum);
 
@@ -277,6 +277,7 @@ struct rmnet_map_header *rmnet_map_add_map_header(struct sk_buff *skb,
 						  int hdrlen, int pad)
 {
 	struct rmnet_map_header *map_header;
+	struct rmnet_port *port = rmnet_get_port(skb->dev);
 	u32 padding, map_datalen;
 	u8 *padbytes;
 
@@ -284,6 +285,10 @@ struct rmnet_map_header *rmnet_map_add_map_header(struct sk_buff *skb,
 	map_header = (struct rmnet_map_header *)
 			skb_push(skb, sizeof(struct rmnet_map_header));
 	memset(map_header, 0, sizeof(struct rmnet_map_header));
+
+	/* Set next_hdr bit for csum offload packets */
+	if (port->data_format & RMNET_FLAGS_EGRESS_MAP_CKSUMV5)
+		map_header->next_hdr = 1;
 
 	if (pad == RMNET_MAP_NO_PAD_BYTES) {
 		map_header->pkt_len = htons(map_datalen);
@@ -319,16 +324,19 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 {
 	struct rmnet_map_header *maph;
 	struct sk_buff *skbn;
+	unsigned char *data = rmnet_map_data_ptr(skb);
 	u32 packet_len;
 
 	if (skb->len == 0)
 		return NULL;
 
-	maph = (struct rmnet_map_header *)skb->data;
+	maph = (struct rmnet_map_header *)data;
 	packet_len = ntohs(maph->pkt_len) + sizeof(struct rmnet_map_header);
 
 	if (port->data_format & RMNET_FLAGS_INGRESS_MAP_CKSUMV4)
 		packet_len += sizeof(struct rmnet_map_dl_csum_trailer);
+	else if (port->data_format & RMNET_FLAGS_INGRESS_MAP_CKSUMV5)
+		packet_len += sizeof(struct rmnet_map_v5_csum_header);
 
 	if (((int)skb->len - (int)packet_len) < 0)
 		return NULL;
@@ -337,14 +345,30 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 	if (ntohs(maph->pkt_len) == 0)
 		return NULL;
 
-	skbn = alloc_skb(packet_len + RMNET_MAP_DEAGGR_SPACING, GFP_ATOMIC);
-	if (!skbn)
-		return NULL;
+	if (skb_is_nonlinear(skb)) {
+		skb_frag_t *frag0 = skb_shinfo(skb)->frags;
+		struct page *page = skb_frag_page(frag0);
 
-	skb_reserve(skbn, RMNET_MAP_DEAGGR_HEADROOM);
-	skb_put(skbn, packet_len);
-	memcpy(skbn->data, skb->data, packet_len);
-	skb_pull(skb, packet_len);
+		skbn = alloc_skb(RMNET_MAP_DEAGGR_HEADROOM, GFP_ATOMIC);
+		if (!skbn)
+			return NULL;
+
+		skb_append_pagefrags(skbn, page, frag0->page_offset,
+				     packet_len);
+		skbn->data_len += packet_len;
+		skbn->len += packet_len;
+	} else {
+		skbn = alloc_skb(packet_len + RMNET_MAP_DEAGGR_SPACING,
+				 GFP_ATOMIC);
+		if (!skbn)
+			return NULL;
+
+		skb_reserve(skbn, RMNET_MAP_DEAGGR_HEADROOM);
+		skb_put(skbn, packet_len);
+		memcpy(skbn->data, data, packet_len);
+	}
+
+	pskb_pull(skb, packet_len);
 
 	return skbn;
 }
@@ -365,7 +389,8 @@ int rmnet_map_checksum_downlink_packet(struct sk_buff *skb, u16 len)
 		return -EOPNOTSUPP;
 	}
 
-	csum_trailer = (struct rmnet_map_dl_csum_trailer *)(skb->data + len);
+	csum_trailer = (struct rmnet_map_dl_csum_trailer *)
+		       (rmnet_map_data_ptr(skb) + len);
 
 	if (!csum_trailer->valid) {
 		priv->stats.csum_valid_unset++;
@@ -390,11 +415,8 @@ int rmnet_map_checksum_downlink_packet(struct sk_buff *skb, u16 len)
 }
 EXPORT_SYMBOL(rmnet_map_checksum_downlink_packet);
 
-/* Generates UL checksum meta info header for IPv4 and IPv6 over TCP and UDP
- * packets that are supported for UL checksum offload.
- */
-void rmnet_map_checksum_uplink_packet(struct sk_buff *skb,
-				      struct net_device *orig_dev)
+void rmnet_map_v4_checksum_uplink_packet(struct sk_buff *skb,
+					 struct net_device *orig_dev)
 {
 	struct rmnet_priv *priv = netdev_priv(orig_dev);
 	struct rmnet_map_ul_csum_header *ul_header;
@@ -436,6 +458,99 @@ sw_csum:
 	ul_header->udp_ip4_ind = 0;
 
 	priv->stats.csum_sw++;
+}
+
+void rmnet_map_v5_checksum_uplink_packet(struct sk_buff *skb,
+					 struct net_device *orig_dev)
+{
+	struct rmnet_priv *priv = netdev_priv(orig_dev);
+	struct rmnet_map_v5_csum_header *ul_header;
+
+	ul_header = (struct rmnet_map_v5_csum_header *)
+		    skb_push(skb, sizeof(*ul_header));
+	memset(ul_header, 0, sizeof(*ul_header));
+	ul_header->header_type = RMNET_MAP_HEADER_TYPE_CSUM_OFFLOAD;
+
+	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+		void *iph = (char *)ul_header + sizeof(*ul_header);
+		void *trans;
+		__sum16 *check;
+		u8 proto;
+
+		if (skb->protocol == htons(ETH_P_IP)) {
+			u16 ip_len = ((struct iphdr *)iph)->ihl * 4;
+
+			proto = ((struct iphdr *)iph)->protocol;
+			trans = iph + ip_len;
+		} else if (skb->protocol == htons(ETH_P_IPV6)) {
+			u16 ip_len = sizeof(struct ipv6hdr);
+
+			proto = ((struct ipv6hdr *)iph)->nexthdr;
+			trans = iph + ip_len;
+		} else {
+			priv->stats.csum_err_invalid_ip_version++;
+			goto sw_csum;
+		}
+
+		check = rmnet_map_get_csum_field(proto, trans);
+		if (check) {
+			*check = 0;
+			skb->ip_summed = CHECKSUM_NONE;
+			/* Ask for checksum offloading */
+			ul_header->csum_valid_required = 1;
+			priv->stats.csum_hw++;
+			return;
+		}
+	}
+
+sw_csum:
+	priv->stats.csum_sw++;
+}
+
+/* Generates UL checksum meta info header for IPv4 and IPv6 over TCP and UDP
+ * packets that are supported for UL checksum offload.
+ */
+void rmnet_map_checksum_uplink_packet(struct sk_buff *skb,
+				      struct net_device *orig_dev,
+				      int csum_type)
+{
+	switch (csum_type) {
+	case RMNET_FLAGS_EGRESS_MAP_CKSUMV4:
+		rmnet_map_v4_checksum_uplink_packet(skb, orig_dev);
+		break;
+	case RMNET_FLAGS_EGRESS_MAP_CKSUMV5:
+		rmnet_map_v5_checksum_uplink_packet(skb, orig_dev);
+		break;
+	default:
+		break;
+	}
+}
+
+/* Process a QMAPv5 packet header */
+int rmnet_map_process_next_hdr_packet(struct sk_buff *skb)
+{
+	struct rmnet_priv *priv = netdev_priv(skb->dev);
+	int rc = 0;
+
+	switch (rmnet_map_get_next_hdr_type(skb)) {
+	case RMNET_MAP_HEADER_TYPE_CSUM_OFFLOAD:
+		if (rmnet_map_get_csum_valid(skb)) {
+			priv->stats.csum_ok++;
+			skb->ip_summed = CHECKSUM_UNNECESSARY;
+		} else {
+			priv->stats.csum_valid_unset++;
+		}
+
+		pskb_pull(skb,
+			  (sizeof(struct rmnet_map_header) +
+			   sizeof(struct rmnet_map_v5_csum_header)));
+		break;
+	default:
+		rc = -EINVAL;
+		break;
+	}
+
+	return rc;
 }
 
 long rmnet_agg_time_limit __read_mostly = 1000000L;

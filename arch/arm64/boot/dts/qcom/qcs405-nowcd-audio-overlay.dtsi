@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,8 +48,8 @@
 &q6core {
 	bolero: bolero-cdc {
 		compatible = "qcom,bolero-codec";
-		clock-names = "island_lpass_npa_rsc";
-		clocks = <&lpass_npa_rsc_island 0>;
+		clock-names = "lpass_core_hw_vote";
+		clocks = <&lpass_core_hw_vote 0>;
 		qcom,num-macros = <1>;
 	};
 };

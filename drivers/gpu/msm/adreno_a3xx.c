@@ -1467,6 +1467,8 @@ static struct adreno_coresight a3xx_coresight = {
 	.registers = a3xx_coresight_registers,
 	.count = ARRAY_SIZE(a3xx_coresight_registers),
 	.groups = a3xx_coresight_groups,
+	.read = kgsl_regread,
+	.write = kgsl_regwrite,
 };
 
 static unsigned int a3xx_int_bits[ADRENO_INT_BITS_MAX] = {

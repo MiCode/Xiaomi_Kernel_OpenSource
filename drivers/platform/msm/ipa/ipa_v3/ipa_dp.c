@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1674,6 +1674,8 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 	}
 
 	if (dst_ep_idx != -1) {
+		int skb_idx;
+
 		/* SW data path */
 		data_idx = 0;
 		if (sys->policy == IPA_POLICY_NOINTR_MODE) {
@@ -1705,6 +1707,8 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 			desc[data_idx].dma_address_valid = true;
 			desc[data_idx].dma_address = meta->dma_address;
 		}
+
+		skb_idx = data_idx;
 		data_idx++;
 
 		for (f = 0; f < num_frags; f++) {
@@ -1715,10 +1719,11 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		}
 		/* don't free skb till frag mappings are released */
 		if (num_frags) {
-			desc[data_idx + f - 1].callback = desc[2].callback;
-			desc[data_idx + f - 1].user1 = desc[2].user1;
-			desc[data_idx + f - 1].user2 = desc[2].user2;
-			desc[data_idx - 1].callback = NULL;
+			desc[data_idx + f - 1].callback =
+				desc[skb_idx].callback;
+			desc[data_idx + f - 1].user1 = desc[skb_idx].user1;
+			desc[data_idx + f - 1].user2 = desc[skb_idx].user2;
+			desc[skb_idx].callback = NULL;
 		}
 
 		if (ipa3_send(sys, num_frags + data_idx, desc, true)) {
@@ -3247,25 +3252,26 @@ static void ipa3_set_aggr_limit(struct ipa_sys_connect_params *in,
 	u32 *aggr_byte_limit = &in->ipa_ep_cfg.aggr.aggr_byte_limit;
 	u32 adjusted_sz = ipa_adjust_ra_buff_base_sz(*aggr_byte_limit);
 
-	IPAERR("get close-by %u\n", adjusted_sz);
-	IPAERR("set rx_buff_sz %lu\n", (unsigned long int)
+	IPADBG("get close-by %u\n", adjusted_sz);
+	IPADBG("set rx_buff_sz %lu\n", (unsigned long int)
 		IPA_GENERIC_RX_BUFF_SZ(adjusted_sz));
 
 	/* disable ipa_status */
 	sys->ep->status.status_en = false;
 	sys->rx_buff_sz = IPA_GENERIC_RX_BUFF_SZ(adjusted_sz);
 
-	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
-		*aggr_byte_limit = sys->rx_buff_sz < *aggr_byte_limit ?
-			IPA_ADJUST_AGGR_BYTE_LIMIT(sys->rx_buff_sz) :
-			IPA_ADJUST_AGGR_BYTE_LIMIT(*aggr_byte_limit);
-	} else {
+	if (in->client == IPA_CLIENT_APPS_WAN_COAL_CONS) {
 		*aggr_byte_limit = sys->rx_buff_sz < *aggr_byte_limit ?
 			IPA_ADJUST_AGGR_BYTE_HARD_LIMIT(sys->rx_buff_sz) :
 			IPA_ADJUST_AGGR_BYTE_HARD_LIMIT(*aggr_byte_limit);
 		in->ipa_ep_cfg.aggr.aggr_hard_byte_limit_en = 1;
+	} else {
+		*aggr_byte_limit = sys->rx_buff_sz < *aggr_byte_limit ?
+			IPA_ADJUST_AGGR_BYTE_LIMIT(sys->rx_buff_sz) :
+			IPA_ADJUST_AGGR_BYTE_LIMIT(*aggr_byte_limit);
 	}
-	IPAERR("set aggr_limit %lu\n", (unsigned long int) *aggr_byte_limit);
+
+	IPADBG("set aggr_limit %lu\n", (unsigned long int) *aggr_byte_limit);
 }
 
 static int ipa3_assign_policy(struct ipa_sys_connect_params *in,

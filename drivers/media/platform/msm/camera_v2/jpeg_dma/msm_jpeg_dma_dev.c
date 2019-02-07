@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,7 +24,7 @@
 #include <media/videobuf2-core.h>
 #include <media/v4l2-mem2mem.h>
 #include <media/msm_jpeg_dma.h>
-#include <linux/clk/msm-clk.h>
+#include <linux/clk/qcom.h>
 
 #include "msm_jpeg_dma_dev.h"
 #include "msm_jpeg_dma_hw.h"

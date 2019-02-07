@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,4 +26,6 @@ extern const struct mpm_pin mpm_msm8937_gpio_chip_data[];
 
 extern const struct mpm_pin mpm_qcs405_gic_chip_data[];
 extern const struct mpm_pin mpm_qcs405_gpio_chip_data[];
+extern const struct mpm_pin mpm_trinket_gic_chip_data[];
+extern const struct mpm_pin mpm_trinket_gpio_chip_data[];
 #endif /* __QCOM_MPM_H__ */

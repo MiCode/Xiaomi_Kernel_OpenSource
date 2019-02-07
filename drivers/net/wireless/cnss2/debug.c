@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -504,6 +504,142 @@ static const struct file_operations cnss_runtime_pm_debug_fops = {
 	.llseek		= seq_lseek,
 };
 
+static ssize_t cnss_control_params_debug_write(struct file *fp,
+					       const char __user *user_buf,
+					       size_t count, loff_t *off)
+{
+	struct cnss_plat_data *plat_priv =
+		((struct seq_file *)fp->private_data)->private;
+	char buf[64];
+	char *sptr, *token;
+	char *cmd;
+	u32 val;
+	unsigned int len = 0;
+	const char *delim = " ";
+
+	if (!plat_priv)
+		return -ENODEV;
+
+	len = min(count, sizeof(buf) - 1);
+	if (copy_from_user(buf, user_buf, len))
+		return -EFAULT;
+
+	buf[len] = '\0';
+	sptr = buf;
+
+	token = strsep(&sptr, delim);
+	if (!token)
+		return -EINVAL;
+	if (!sptr)
+		return -EINVAL;
+	cmd = token;
+
+	token = strsep(&sptr, delim);
+	if (!token)
+		return -EINVAL;
+	if (kstrtou32(token, 0, &val))
+		return -EINVAL;
+
+	if (strcmp(cmd, "quirks") == 0)
+		plat_priv->ctrl_params.quirks = val;
+	else if (strcmp(cmd, "mhi_timeout") == 0)
+		plat_priv->ctrl_params.mhi_timeout = val;
+	else if (strcmp(cmd, "qmi_timeout") == 0)
+		plat_priv->ctrl_params.qmi_timeout = val;
+	else if (strcmp(cmd, "bdf_type") == 0)
+		plat_priv->ctrl_params.bdf_type = val;
+	else
+		return -EINVAL;
+
+	return count;
+}
+
+static int cnss_show_quirks_state(struct seq_file *s,
+				  struct cnss_plat_data *plat_priv)
+{
+	enum cnss_debug_quirks i;
+	int skip = 0;
+	unsigned long state;
+
+	seq_printf(s, "quirks: 0x%lx (", plat_priv->ctrl_params.quirks);
+	for (i = 0, state = plat_priv->ctrl_params.quirks;
+	     state != 0; state >>= 1, i++) {
+		if (!(state & 0x1))
+			continue;
+		if (skip++)
+			seq_puts(s, " | ");
+
+		switch (i) {
+		case LINK_DOWN_SELF_RECOVERY:
+			seq_puts(s, "LINK_DOWN_SELF_RECOVERY");
+			continue;
+		case SKIP_DEVICE_BOOT:
+			seq_puts(s, "SKIP_DEVICE_BOOT");
+			continue;
+		case USE_CORE_ONLY_FW:
+			seq_puts(s, "USE_CORE_ONLY_FW");
+			continue;
+		case SKIP_RECOVERY:
+			seq_puts(s, "SKIP_RECOVERY");
+			continue;
+		case QMI_BYPASS:
+			seq_puts(s, "QMI_BYPASS");
+			continue;
+		case ENABLE_WALTEST:
+			seq_puts(s, "WALTEST");
+			continue;
+		case ENABLE_PCI_LINK_DOWN_PANIC:
+			seq_puts(s, "PCI_LINK_DOWN_PANIC");
+			continue;
+		case FBC_BYPASS:
+			seq_puts(s, "FBC_BYPASS");
+			continue;
+		case ENABLE_DAEMON_SUPPORT:
+			seq_puts(s, "DAEMON_SUPPORT");
+			continue;
+		}
+
+		seq_printf(s, "UNKNOWN-%d", i);
+	}
+	seq_puts(s, ")\n");
+	return 0;
+}
+
+static int cnss_control_params_debug_show(struct seq_file *s, void *data)
+{
+	struct cnss_plat_data *cnss_priv = s->private;
+
+	seq_puts(s, "\nUsage: echo <params_name> <value> > <debugfs_path>/cnss/control_params\n");
+	seq_puts(s, "<params_name> can be one of below:\n");
+	seq_puts(s, "quirks: Debug quirks for driver\n");
+	seq_puts(s, "mhi_timeout: Timeout for MHI operation in milliseconds\n");
+	seq_puts(s, "qmi_timeout: Timeout for QMI message in milliseconds\n");
+	seq_puts(s, "bdf_type: Type of board data file to be downloaded\n");
+
+	seq_puts(s, "\nCurrent value:\n");
+	cnss_show_quirks_state(s, cnss_priv);
+	seq_printf(s, "mhi_timeout: %u\n", cnss_priv->ctrl_params.mhi_timeout);
+	seq_printf(s, "qmi_timeout: %u\n", cnss_priv->ctrl_params.qmi_timeout);
+	seq_printf(s, "bdf_type: %u\n", cnss_priv->ctrl_params.bdf_type);
+
+	return 0;
+}
+
+static int cnss_control_params_debug_open(struct inode *inode,
+					  struct file *file)
+{
+	return single_open(file, cnss_control_params_debug_show,
+			   inode->i_private);
+}
+
+static const struct file_operations cnss_control_params_debug_fops = {
+	.read = seq_read,
+	.write = cnss_control_params_debug_write,
+	.open = cnss_control_params_debug_open,
+	.owner = THIS_MODULE,
+	.llseek = seq_lseek,
+};
+
 #ifdef CONFIG_CNSS2_DEBUG
 static int cnss_create_debug_only_node(struct cnss_plat_data *plat_priv)
 {
@@ -517,6 +653,8 @@ static int cnss_create_debug_only_node(struct cnss_plat_data *plat_priv)
 			    &cnss_reg_write_debug_fops);
 	debugfs_create_file("runtime_pm", 0600, root_dentry, plat_priv,
 			    &cnss_runtime_pm_debug_fops);
+	debugfs_create_file("control_params", 0600, root_dentry, plat_priv,
+			    &cnss_control_params_debug_fops);
 
 	return 0;
 }

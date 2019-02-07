@@ -455,7 +455,11 @@ static void atl_remove(struct pci_dev *pdev)
 	/* atl_hw_reset(&nic->hw); */
 	atl_free_link_intr(nic);
 	unregister_netdev(nic->ndev);
+
+#ifdef CONFIG_ATLFWD_FWD
 	atl_fwd_release_rings(nic);
+#endif
+
 	atl_clear_datapath(nic);
 	iounmap(nic->hw.regs);
 	disable_needed = test_and_clear_bit(ATL_ST_ENABLED, &nic->state);

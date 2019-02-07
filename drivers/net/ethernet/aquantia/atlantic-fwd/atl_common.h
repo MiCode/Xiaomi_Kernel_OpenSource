@@ -18,7 +18,7 @@
 #include <linux/netdevice.h>
 #include <linux/moduleparam.h>
 
-#define ATL_VERSION "1.0.15"
+#define ATL_VERSION "1.0.16"
 
 struct atl_nic;
 
@@ -92,6 +92,8 @@ enum {
 	ATL_RXF_ETYPE_MAX = ATL_ETYPE_FLT_NUM,
 	ATL_RXF_NTUPLE_BASE = ATL_RXF_ETYPE_BASE + ATL_RXF_ETYPE_MAX,
 	ATL_RXF_NTUPLE_MAX = ATL_NTUPLE_FLT_NUM,
+	ATL_RXF_FLEX_BASE = ATL_RXF_NTUPLE_BASE + ATL_RXF_NTUPLE_MAX,
+	ATL_RXF_FLEX_MAX = 1,
 };
 
 enum atl_rxf_common_cmd {
@@ -173,6 +175,19 @@ struct atl_rxf_etype {
 	int count;
 };
 
+enum atl_flex_cmd {
+	ATL_FLEX_EN = ATL_RXF_EN,
+	ATL_FLEX_RXQ = BIT(30),
+	ATL_FLEX_RXQ_SHIFT = 20,
+	ATL_FLEX_RXQ_MASK = ATL_RXF_RXQ_MSK << ATL_FLEX_RXQ_SHIFT,
+	ATL_FLEX_ACT_SHIFT = ATL_RXF_ACT_SHIFT,
+};
+
+struct atl_rxf_flex {
+	uint32_t cmd[ATL_RXF_FLEX_MAX];
+	int count;
+};
+
 struct atl_queue_vec;
 
 #define ATL_NUM_FWD_RINGS ATL_MAX_QUEUES
@@ -217,11 +232,14 @@ struct atl_nic {
 	spinlock_t stats_lock;
 	struct work_struct work;
 
+#ifdef CONFIG_ATLFWD_FWD
 	struct atl_fwd fwd;
+#endif
 
 	struct atl_rxf_ntuple rxf_ntuple;
 	struct atl_rxf_vlan rxf_vlan;
 	struct atl_rxf_etype rxf_etype;
+	struct atl_rxf_flex rxf_flex;
 };
 
 /* Flags only modified with RTNL lock held */
@@ -317,6 +335,17 @@ extern unsigned atl_min_intr_delay;
 
 #define atl_module_param(_name, _type, _mode)			\
 	module_param_named(_name, atl_ ## _name, _type, _mode)
+
+static inline void atl_intr_enable_non_ring(struct atl_nic *nic)
+{
+	struct atl_hw *hw = &nic->hw;
+	uint32_t mask = hw->intr_mask;
+
+#ifdef CONFIG_ATLFWD_FWD
+	mask |= (uint32_t)(nic->fwd.msi_map);
+#endif
+	atl_intr_enable(hw, mask);
+}
 
 netdev_tx_t atl_start_xmit(struct sk_buff *skb, struct net_device *ndev);
 int atl_vlan_rx_add_vid(struct net_device *ndev, __be16 proto, u16 vid);

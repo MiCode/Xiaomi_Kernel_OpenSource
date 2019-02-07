@@ -102,6 +102,8 @@ enum mcp_scratchpad {
 #define ATL_NTUPLE_SPORT(idx) ATL_REG_STRIDE(0x5400, 4, idx)
 #define ATL_NTUPLE_DPORT(idx) ATL_REG_STRIDE(0x5420, 4, idx)
 #define ATL_NTUPLE_FLT_NUM 8
+#define ATL_RX_FLEX_FLT_CTRL(idx) ATL_REG_STRIDE(0x5460, 0x20, idx)
+#define ATL_FLEX_FLT_NUM 2
 #define ATL_RX_RSS_CTRL 0x54c0
 #define ATL_RX_RSS_KEY_ADDR 0x54d0
 #define ATL_RX_RSS_KEY_WR_DATA 0x54d4

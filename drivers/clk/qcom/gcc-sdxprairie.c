@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -179,6 +179,7 @@ static struct clk_alpha_pll_postdiv gpll0_out_even = {
 	.post_div_table = post_div_table_lucid_even,
 	.num_post_div = ARRAY_SIZE(post_div_table_lucid_even),
 	.width = 4,
+	.type = LUCID_PLL,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gpll0_out_even",
 		.parent_names = (const char *[]){ "gpll0" },
@@ -217,6 +218,7 @@ static struct clk_alpha_pll_postdiv gpll4_out_even = {
 	.post_div_table = post_div_table_lucid_even,
 	.num_post_div = ARRAY_SIZE(post_div_table_lucid_even),
 	.width = 4,
+	.type = LUCID_PLL,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gpll4_out_even",
 		.parent_names = (const char *[]){ "gpll4" },

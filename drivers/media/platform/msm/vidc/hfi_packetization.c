@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -828,7 +828,7 @@ int create_pkt_cmd_session_etb_decoder(
 	pkt->offset = input_frame->offset;
 	pkt->alloc_len = input_frame->alloc_len;
 	pkt->filled_len = input_frame->filled_len;
-	pkt->input_tag = input_frame->clnt_data;
+	pkt->input_tag = input_frame->input_tag;
 	pkt->packet_buffer = (u32)input_frame->device_addr;
 
 	trace_msm_v4l2_vidc_buffer_event_start("ETB",
@@ -863,7 +863,7 @@ int create_pkt_cmd_session_etb_encoder(
 	pkt->offset = input_frame->offset;
 	pkt->alloc_len = input_frame->alloc_len;
 	pkt->filled_len = input_frame->filled_len;
-	pkt->input_tag = input_frame->clnt_data;
+	pkt->input_tag = input_frame->input_tag;
 	pkt->packet_buffer = (u32)input_frame->device_addr;
 	pkt->extra_data_buffer = (u32)input_frame->extradata_addr;
 
@@ -899,6 +899,7 @@ int create_pkt_cmd_session_ftb(struct hfi_cmd_session_fill_buffer_packet *pkt,
 		return -EINVAL;
 
 	pkt->packet_buffer = (u32)output_frame->device_addr;
+	pkt->output_tag = output_frame->output_tag;
 	pkt->extra_data_buffer = (u32)output_frame->extradata_addr;
 	pkt->alloc_len = output_frame->alloc_len;
 	pkt->filled_len = output_frame->filled_len;
@@ -2102,6 +2103,32 @@ int create_pkt_cmd_sys_image_version(
 	return 0;
 }
 
+int create_pkt_cmd_sys_ubwc_config(struct hfi_cmd_sys_set_property_packet *pkt,
+		struct msm_vidc_ubwc_config *config)
+{
+	struct msm_vidc_ubwc_config *hfi;
+
+	if (!pkt) {
+		dprintk(VIDC_ERR, "%s invalid param :%pK\n", __func__, pkt);
+		return -EINVAL;
+	}
+
+	pkt->size = sizeof(struct hfi_cmd_sys_set_property_packet) +
+		sizeof(struct msm_vidc_ubwc_config) + sizeof(u32);
+	pkt->packet_type = HFI_CMD_SYS_SET_PROPERTY;
+	pkt->num_properties = 1;
+	pkt->rg_property_data[0] = HFI_PROPERTY_SYS_UBWC_CONFIG;
+	hfi = (struct msm_vidc_ubwc_config *) &pkt->rg_property_data[1];
+	hfi->sOverrideBitInfo.bMalLengthOverride =
+			config->sOverrideBitInfo.bMalLengthOverride;
+	hfi->nMalLength = config->nMalLength;
+	dprintk(VIDC_DBG,
+			"UBWC settings Mal Length Override : %u MalLength: %u",
+			hfi->sOverrideBitInfo.bMalLengthOverride,
+			hfi->nMalLength);
+	return 0;
+}
+
 int create_pkt_cmd_session_sync_process(
 		struct hfi_cmd_session_sync_process_packet *pkt,
 		struct hal_session *session)
@@ -2129,6 +2156,7 @@ static struct hfi_packetization_ops hfi_default = {
 	.sys_ping = create_pkt_cmd_sys_ping,
 	.sys_image_version = create_pkt_cmd_sys_image_version,
 	.ssr_cmd = create_pkt_ssr_cmd,
+	.sys_ubwc_config = create_pkt_cmd_sys_ubwc_config,
 	.session_init = create_pkt_cmd_sys_session_init,
 	.session_cmd = create_pkt_cmd_session_cmd,
 	.session_set_buffers = create_pkt_cmd_session_set_buffers,

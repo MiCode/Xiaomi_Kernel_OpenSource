@@ -774,9 +774,9 @@ static void *__iommu_alloc_attrs(struct device *dev, size_t size,
 						   prot,
 						   __builtin_return_address(0));
 		if (addr) {
-			memset(addr, 0, size);
 			if (!coherent)
 				__dma_flush_area(page_to_virt(page), iosize);
+			memset(addr, 0, size);
 		} else {
 			iommu_dma_unmap_page(dev, *handle, iosize, 0, attrs);
 			dma_release_from_contiguous(dev, page,
@@ -1262,9 +1262,14 @@ static struct page **__iommu_alloc_buffer(struct device *dev, size_t size,
 	while (count) {
 		int j, order = __fls(count);
 
-		pages[i] = alloc_pages(gfp, order);
-		while (!pages[i] && order)
-			pages[i] = alloc_pages(gfp, --order);
+		pages[i] = alloc_pages(order ? (gfp | __GFP_NORETRY) &
+					~__GFP_RECLAIM : gfp, order);
+		while (!pages[i] && order) {
+			order--;
+			pages[i] = alloc_pages(order ? (gfp | __GFP_NORETRY) &
+					~__GFP_RECLAIM : gfp, order);
+		}
+
 		if (!pages[i])
 			goto error;
 

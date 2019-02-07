@@ -2,7 +2,7 @@
  * drivers/staging/android/ion/ion_system_heap.c
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -331,8 +331,10 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 		goto err;
 
 	table = kzalloc(sizeof(*table), GFP_KERNEL);
-	if (!table)
+	if (!table) {
+		ret = -ENOMEM;
 		goto err_free_data_pages;
+	}
 
 	ret = sg_alloc_table(table, i, GFP_KERNEL);
 	if (ret)

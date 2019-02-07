@@ -30,9 +30,50 @@
 #define HFI_IPEBPS_CMD_OPCODE_IPE_WAIT_FOR_BPS          0xb
 #define HFI_IPEBPS_CMD_OPCODE_IPE_WAIT_FOR_IPE          0xc
 
+#define HFI_IPEBPS_CMD_OPCODE_MEM_MAP                   0xe
+#define HFI_IPEBPS_CMD_OPCODE_MEM_UNMAP                 0xf
+
 #define HFI_IPEBPS_HANDLE_TYPE_BPS                      0x1
 #define HFI_IPEBPS_HANDLE_TYPE_IPE_RT                   0x2
 #define HFI_IPEBPS_HANDLE_TYPE_IPE_NON_RT               0x3
+
+/**
+ * struct mem_map_region_data
+ * @start_addr: cmd buffer region start addr
+ * @len       : length of the region
+ *
+ * create mem_map_region_data
+ */
+struct mem_map_region_data {
+	uint32_t               start_addr;
+	uint32_t               len;
+};
+
+/**
+ * struct hfi_cmd_ipe_bps_map
+ * @user_data          : user arg
+ * @mem_map_request_num: number of mappings
+ * @mem_map_region_sets: array of all map/unmap info
+ *
+ * create hfi_cmd_ipe_bps_map
+ */
+struct hfi_cmd_ipe_bps_map {
+	uint64_t                   user_data;
+	uint32_t                   mem_map_request_num;
+	struct mem_map_region_data mem_map_region_sets[1];
+} __packed;
+
+/**
+ * struct hfi_cmd_ipe_bps_map_ack
+ * @rc       : Async return code
+ * @user_data: user_arg
+ *
+ * create hfi_cmd_ipe_bps_map_ack
+ */
+struct hfi_cmd_ipe_bps_map_ack {
+	uint32_t            rc;
+	uint64_t            user_data;
+};
 
 /**
  * struct abort_data

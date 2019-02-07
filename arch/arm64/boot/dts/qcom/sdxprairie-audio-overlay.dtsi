@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,6 +43,7 @@
 	qcom,msm-mbhc-gnd-swh = <1>;
 	qcom,msm-mbhc-hs-mic-max-threshold-mv = <1700>;
 	qcom,msm-mbhc-hs-mic-min-threshold-mv = <50>;
+	qcom,cdc-ext-clk-rate = <19200000>;
 	qcom,tavil-mclk-clk-freq = <9600000>;
 
 	asoc-codec = <&stub_codec>;
@@ -62,24 +63,26 @@
 		interrupt-controller;
 		#interrupt-cells = <1>;
 		interrupt-parent = <&tlmm>;
-		qcom,gpio-connect = <&tlmm 90 0>;
+		qcom,gpio-connect = <&tlmm 96 0>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&wcd_intr_default>;
 	};
 
 	clock_audio_up: audio_ext_clk_up {
 		compatible = "qcom,audio-ref-clk";
-		qcom,audio-ref-clk-gpio = <&tlmm 62 0>;
-		qcom,codec-mclk-clk-freq = <9600000>;
+		qcom,codec-ext-clk-src = <AUDIO_LPASS_MCLK_3>;
+		qcom,codec-lpass-clk-id = <770>;
+		qcom,codec-lpass-ext-clk-freq = <9600000>;
+		qcom,use-pinctrl = <1>;
 		pinctrl-names = "sleep", "active";
 		pinctrl-0 = <&i2s_mclk_sleep>;
 		pinctrl-1 = <&i2s_mclk_active>;
 		#clock-cells = <1>;
 	};
 
-	wcd_rst_gpio: msm_cdc_pinctrl@86 {
+	wcd_rst_gpio: msm_cdc_pinctrl@92 {
 		compatible = "qcom,msm-cdc-pinctrl";
-		qcom,cdc-rst-n-gpio = <&tlmm 86 0>;
+		qcom,cdc-rst-n-gpio = <&tlmm 92 0>;
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&cdc_reset_active>;
 		pinctrl-1 = <&cdc_reset_sleep>;
@@ -99,7 +102,7 @@
 		qcom,wcd-rst-gpio-node = <&wcd_rst_gpio>;
 
 		clock-names = "wcd_clk";
-		clocks = <&clock_audio_up  AUDIO_LPASS_MCLK_1>;
+		clocks = <&clock_audio_up 0>;
 
 		cdc-vdd-buck-supply = <&pmxprairie_l6>;
 		qcom,cdc-vdd-buck-voltage = <1800000 1800000>;

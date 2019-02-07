@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,7 @@
 #include <linux/of_batterydata.h>
 #include <linux/platform_device.h>
 #include <linux/qpnp/qpnp-revid.h>
+#include <linux/thermal.h>
 #include "fg-core.h"
 #include "fg-reg.h"
 #include "fg-alg.h"
@@ -103,6 +104,7 @@
 #define VBATT_LOW_OFFSET		1
 #define SYS_CONFIG_WORD			60
 #define SYS_CONFIG_OFFSET		0
+#define SYS_CONFIG2_OFFSET		1
 #define PROFILE_LOAD_WORD		65
 #define PROFILE_LOAD_OFFSET		0
 #define RSLOW_COEFF_DISCHG_WORD		78
@@ -115,6 +117,8 @@
 #define RCONN_OFFSET			0
 #define ACT_BATT_CAP_WORD		285
 #define ACT_BATT_CAP_OFFSET		0
+#define BATT_AGE_LEVEL_WORD		288
+#define BATT_AGE_LEVEL_OFFSET		0
 #define CYCLE_COUNT_WORD		291
 #define CYCLE_COUNT_OFFSET		0
 #define PROFILE_INTEGRITY_WORD		299
@@ -189,6 +193,9 @@ struct fg_dt_props {
 	bool	linearize_soc;
 	bool	rapid_soc_dec_en;
 	bool	five_pin_battery;
+	bool	multi_profile_load;
+	bool	esr_calib_dischg;
+	bool	soc_hi_res;
 	int	cutoff_volt_mv;
 	int	empty_volt_mv;
 	int	cutoff_curr_ma;
@@ -248,6 +255,8 @@ struct fg_gen4_chip {
 	int			esr_nominal;
 	int			soh;
 	int			esr_soh_cycle_count;
+	int			batt_age_level;
+	int			last_batt_age_level;
 	bool			first_profile_load;
 	bool			ki_coeff_dischg_en;
 	bool			slope_limit_en;
@@ -659,6 +668,27 @@ static int fg_gen4_get_battery_temp(struct fg_dev *fg, int *val)
 	return 0;
 }
 
+static int fg_gen4_tz_get_temp(void *data, int *temperature)
+{
+	struct fg_dev *fg = (struct fg_dev *)data;
+	int rc, temp;
+
+	if (!temperature)
+		return -EINVAL;
+
+	rc = fg_gen4_get_battery_temp(fg, &temp);
+	if (rc < 0)
+		return rc;
+
+	/* Convert deciDegC to milliDegC */
+	*temperature = temp * 100;
+	return rc;
+}
+
+static struct thermal_zone_of_device_ops fg_gen4_tz_ops = {
+	.get_temp = fg_gen4_tz_get_temp,
+};
+
 static int fg_gen4_get_debug_batt_id(struct fg_dev *fg, int *batt_id)
 {
 	int rc;
@@ -796,6 +826,35 @@ static int fg_gen4_get_prop_capacity(struct fg_dev *fg, int *val)
 		*val = fg->maint_soc;
 	else
 		*val = msoc;
+
+	return 0;
+}
+
+static int fg_gen4_get_prop_capacity_raw(struct fg_gen4_chip *chip, int *val)
+{
+	struct fg_dev *fg = &chip->fg;
+	int rc;
+
+	if (!chip->dt.soc_hi_res) {
+		rc = fg_get_msoc_raw(fg, val);
+		return rc;
+	}
+
+	if (!is_input_present(fg)) {
+		rc = fg_gen4_get_prop_capacity(fg, val);
+		if (!rc)
+			*val = *val * 100;
+		return rc;
+	}
+
+	rc = fg_get_sram_prop(&chip->fg, FG_SRAM_MONOTONIC_SOC, val);
+	if (rc < 0) {
+		pr_err("Error in getting MONOTONIC_SOC, rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Show it in centi-percentage */
+	*val = (*val * 10000) / 0xFFFF;
 
 	return 0;
 }
@@ -1301,7 +1360,7 @@ static int fg_gen4_get_batt_profile(struct fg_dev *fg)
 	struct device_node *node = fg->dev->of_node;
 	struct device_node *batt_node, *profile_node;
 	const char *data;
-	int rc, len, i, tuple_len;
+	int rc, len, i, tuple_len, avail_age_level = 0;
 
 	batt_node = of_find_node_by_name(node, "qcom,battery-data");
 	if (!batt_node) {
@@ -1309,14 +1368,26 @@ static int fg_gen4_get_batt_profile(struct fg_dev *fg)
 		return -ENXIO;
 	}
 
-	profile_node = of_batterydata_get_best_profile(batt_node,
-				fg->batt_id_ohms / 1000, NULL);
+	if (chip->dt.multi_profile_load)
+		profile_node = of_batterydata_get_best_aged_profile(batt_node,
+					fg->batt_id_ohms / 1000,
+					chip->batt_age_level, &avail_age_level);
+	else
+		profile_node = of_batterydata_get_best_profile(batt_node,
+					fg->batt_id_ohms / 1000, NULL);
 	if (IS_ERR(profile_node))
 		return PTR_ERR(profile_node);
 
 	if (!profile_node) {
 		pr_err("couldn't find profile handle\n");
 		return -ENODATA;
+	}
+
+	if (chip->dt.multi_profile_load &&
+		chip->batt_age_level != avail_age_level) {
+		fg_dbg(fg, FG_STATUS, "Batt_age_level %d doesn't exist, using %d\n",
+			chip->batt_age_level, avail_age_level);
+		chip->batt_age_level = avail_age_level;
 	}
 
 	rc = of_property_read_string(profile_node, "qcom,battery-type",
@@ -1665,6 +1736,10 @@ static bool is_profile_load_required(struct fg_gen4_chip *chip)
 			FIRST_PROFILE_LOAD_BIT,
 	};
 
+	if (chip->dt.multi_profile_load &&
+		(chip->batt_age_level != chip->last_batt_age_level))
+		return true;
+
 	rc = fg_sram_read(fg, PROFILE_INTEGRITY_WORD,
 			PROFILE_INTEGRITY_OFFSET, &val, 1, FG_IMA_DEFAULT);
 	if (rc < 0) {
@@ -1734,6 +1809,103 @@ static bool is_profile_load_required(struct fg_gen4_chip *chip)
 }
 
 #define SOC_READY_WAIT_TIME_MS	1000
+static int qpnp_fg_gen4_load_profile(struct fg_gen4_chip *chip)
+{
+	struct fg_dev *fg = &chip->fg;
+	u8 val, mask, buf[2];
+	int rc;
+	bool normal_profile_load = false;
+
+	/*
+	 * This is used to determine if the profile is loaded normally i.e.
+	 * either multi profile loading is disabled OR if it is enabled, then
+	 * only loading the profile with battery age level 0 is considered.
+	 */
+	normal_profile_load = !chip->dt.multi_profile_load ||
+				(chip->dt.multi_profile_load &&
+					chip->batt_age_level == 0);
+	if (normal_profile_load) {
+		rc = fg_masked_write(fg, BATT_SOC_RESTART(fg), RESTART_GO_BIT,
+					0);
+		if (rc < 0) {
+			pr_err("Error in writing to %04x, rc=%d\n",
+				BATT_SOC_RESTART(fg), rc);
+			return rc;
+		}
+	}
+
+	/* load battery profile */
+	rc = fg_sram_write(fg, PROFILE_LOAD_WORD, PROFILE_LOAD_OFFSET,
+			chip->batt_profile, PROFILE_LEN, FG_IMA_ATOMIC);
+	if (rc < 0) {
+		pr_err("Error in writing battery profile, rc:%d\n", rc);
+		return rc;
+	}
+
+	if (normal_profile_load) {
+		/* Enable side loading for voltage and current */
+		val = mask = BIT(0);
+		rc = fg_sram_masked_write(fg, SYS_CONFIG_WORD,
+				SYS_CONFIG_OFFSET, mask, val, FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in setting SYS_CONFIG_WORD[0], rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		/* Clear first logged main current ADC values */
+		buf[0] = buf[1] = 0;
+		rc = fg_sram_write(fg, FIRST_LOG_CURRENT_v2_WORD,
+				FIRST_LOG_CURRENT_v2_OFFSET, buf, 2,
+				FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in clearing FIRST_LOG_CURRENT rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	/* Set the profile integrity bit */
+	val = HLOS_RESTART_BIT | PROFILE_LOAD_BIT;
+	rc = fg_sram_write(fg, PROFILE_INTEGRITY_WORD,
+			PROFILE_INTEGRITY_OFFSET, &val, 1, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("failed to write profile integrity rc=%d\n", rc);
+		return rc;
+	}
+
+	if (chip->dt.multi_profile_load && chip->batt_age_level >= 0) {
+		val = (u8)chip->batt_age_level;
+		rc = fg_sram_write(fg, BATT_AGE_LEVEL_WORD,
+				BATT_AGE_LEVEL_OFFSET, &val, 1, FG_IMA_ATOMIC);
+		if (rc < 0) {
+			pr_err("Error in writing batt_age_level, rc:%d\n", rc);
+			return rc;
+		}
+	}
+
+	if (normal_profile_load) {
+		rc = fg_restart(fg, SOC_READY_WAIT_TIME_MS);
+		if (rc < 0) {
+			pr_err("Error in restarting FG, rc=%d\n", rc);
+			return rc;
+		}
+
+		/* Clear side loading for voltage and current */
+		val = 0;
+		mask = BIT(0);
+		rc = fg_sram_masked_write(fg, SYS_CONFIG_WORD,
+				SYS_CONFIG_OFFSET, mask, val, FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in clearing SYS_CONFIG_WORD[0], rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	return 0;
+}
+
 static void profile_load_work(struct work_struct *work)
 {
 	struct fg_dev *fg = container_of(work,
@@ -1742,7 +1914,7 @@ static void profile_load_work(struct work_struct *work)
 	struct fg_gen4_chip *chip = container_of(fg,
 				struct fg_gen4_chip, fg);
 	int64_t nom_cap_uah;
-	u8 val, mask, buf[2];
+	u8 val, buf[2];
 	int rc;
 
 	vote(fg->awake_votable, PROFILE_LOAD, true, 0);
@@ -1767,66 +1939,14 @@ static void profile_load_work(struct work_struct *work)
 	if (!is_profile_load_required(chip))
 		goto done;
 
-	clear_cycle_count(chip->counter);
+	if (!chip->dt.multi_profile_load)
+		clear_cycle_count(chip->counter);
 
 	fg_dbg(fg, FG_STATUS, "profile loading started\n");
-	rc = fg_masked_write(fg, BATT_SOC_RESTART(fg), RESTART_GO_BIT, 0);
-	if (rc < 0) {
-		pr_err("Error in writing to %04x, rc=%d\n",
-			BATT_SOC_RESTART(fg), rc);
-		goto out;
-	}
 
-	/* load battery profile */
-	rc = fg_sram_write(fg, PROFILE_LOAD_WORD, PROFILE_LOAD_OFFSET,
-			chip->batt_profile, PROFILE_LEN, FG_IMA_ATOMIC);
-	if (rc < 0) {
-		pr_err("Error in writing battery profile, rc:%d\n", rc);
+	rc = qpnp_fg_gen4_load_profile(chip);
+	if (rc < 0)
 		goto out;
-	}
-
-	/* Enable side loading for voltage and current */
-	val = mask = BIT(0);
-	rc = fg_sram_masked_write(fg, SYS_CONFIG_WORD,
-			SYS_CONFIG_OFFSET, mask, val, FG_IMA_DEFAULT);
-	if (rc < 0) {
-		pr_err("Error in setting SYS_CONFIG_WORD[0], rc=%d\n", rc);
-		goto out;
-	}
-
-	/* Clear first logged main current ADC values */
-	buf[0] = buf[1] = 0;
-	rc = fg_sram_write(fg, FIRST_LOG_CURRENT_v2_WORD,
-			FIRST_LOG_CURRENT_v2_OFFSET, buf, 2, FG_IMA_DEFAULT);
-	if (rc < 0) {
-		pr_err("Error in clearing FIRST_LOG_CURRENT rc=%d\n", rc);
-		goto out;
-	}
-
-	/* Set the profile integrity bit */
-	val = HLOS_RESTART_BIT | PROFILE_LOAD_BIT;
-	rc = fg_sram_write(fg, PROFILE_INTEGRITY_WORD,
-			PROFILE_INTEGRITY_OFFSET, &val, 1, FG_IMA_DEFAULT);
-	if (rc < 0) {
-		pr_err("failed to write profile integrity rc=%d\n", rc);
-		goto out;
-	}
-
-	rc = fg_restart(fg, SOC_READY_WAIT_TIME_MS);
-	if (rc < 0) {
-		pr_err("Error in restarting FG, rc=%d\n", rc);
-		goto out;
-	}
-
-	/* Clear side loading for voltage and current */
-	val = 0;
-	mask = BIT(0);
-	rc = fg_sram_masked_write(fg, SYS_CONFIG_WORD,
-			SYS_CONFIG_OFFSET, mask, val, FG_IMA_DEFAULT);
-	if (rc < 0) {
-		pr_err("Error in clearing SYS_CONFIG_WORD[0], rc=%d\n", rc);
-		goto out;
-	}
 
 	fg_dbg(fg, FG_STATUS, "SOC is ready\n");
 	fg->profile_load_status = PROFILE_LOADED;
@@ -1878,6 +1998,8 @@ done:
 	schedule_delayed_work(&chip->ttf->ttf_work, msecs_to_jiffies(10000));
 	fg_dbg(fg, FG_STATUS, "profile loaded successfully");
 out:
+	if (chip->dt.multi_profile_load && rc < 0)
+		chip->batt_age_level = chip->last_batt_age_level;
 	fg->soc_reporting_ready = true;
 	vote(fg->awake_votable, ESR_FCC_VOTER, true, 0);
 	schedule_delayed_work(&chip->pl_enable_work, msecs_to_jiffies(5000));
@@ -3198,7 +3320,9 @@ static void status_change_work(struct work_struct *work)
 	if (rc < 0)
 		pr_err("Error in adjusting FCC for ESR, rc=%d\n", rc);
 
-	schedule_delayed_work(&chip->pl_current_en_work, 0);
+	if (is_parallel_charger_available(fg) &&
+		!delayed_work_pending(&chip->pl_current_en_work))
+		schedule_delayed_work(&chip->pl_current_en_work, 0);
 
 	ttf_update(chip->ttf, input_present);
 	fg->prev_charge_status = fg->charge_status;
@@ -3382,7 +3506,7 @@ static int fg_psy_get_property(struct power_supply *psy,
 {
 	struct fg_gen4_chip *chip = power_supply_get_drvdata(psy);
 	struct fg_dev *fg = &chip->fg;
-	int rc = 0;
+	int rc = 0, val;
 	int64_t temp;
 
 	switch (psp) {
@@ -3390,7 +3514,16 @@ static int fg_psy_get_property(struct power_supply *psy,
 		rc = fg_gen4_get_prop_capacity(fg, &pval->intval);
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY_RAW:
-		rc = fg_get_msoc_raw(fg, &pval->intval);
+		rc = fg_gen4_get_prop_capacity_raw(chip, &pval->intval);
+		break;
+	case POWER_SUPPLY_PROP_CC_SOC:
+		rc = fg_get_sram_prop(&chip->fg, FG_SRAM_CC_SOC, &val);
+		if (rc < 0) {
+			pr_err("Error in getting CC_SOC, rc=%d\n", rc);
+			return rc;
+		}
+		/* Show it in centi-percentage */
+		pval->intval = div_s64((int64_t)val * 10000,  CC_SOC_30BIT);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		if (fg->battery_missing)
@@ -3427,6 +3560,9 @@ static int fg_psy_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_NOW_RAW:
 		rc = fg_gen4_get_charge_raw(chip, &pval->intval);
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_NOW:
+		pval->intval = chip->cl->init_cap_uah;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
 		rc = fg_gen4_get_learned_capacity(chip, &temp);
@@ -3486,6 +3622,9 @@ static int fg_psy_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CC_STEP_SEL:
 		pval->intval = chip->ttf->cc_step.sel;
+		break;
+	case POWER_SUPPLY_PROP_BATT_AGE_LEVEL:
+		pval->intval = chip->batt_age_level;
 		break;
 	default:
 		pr_err("unsupported property %d\n", psp);
@@ -3568,6 +3707,14 @@ static int fg_psy_set_property(struct power_supply *psy,
 				chip->first_profile_load = false;
 		}
 		break;
+	case POWER_SUPPLY_PROP_BATT_AGE_LEVEL:
+		if (!chip->dt.multi_profile_load || pval->intval < 0 ||
+			chip->batt_age_level == pval->intval)
+			return -EINVAL;
+		chip->last_batt_age_level = chip->batt_age_level;
+		chip->batt_age_level = pval->intval;
+		schedule_delayed_work(&fg->profile_load_work, 0);
+		break;
 	default:
 		break;
 	}
@@ -3586,6 +3733,7 @@ static int fg_property_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ESR_NOMINAL:
 	case POWER_SUPPLY_PROP_SOH:
 	case POWER_SUPPLY_PROP_CLEAR_SOH:
+	case POWER_SUPPLY_PROP_BATT_AGE_LEVEL:
 		return 1;
 	default:
 		break;
@@ -3597,6 +3745,7 @@ static int fg_property_is_writeable(struct power_supply *psy,
 static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_CAPACITY_RAW,
+	POWER_SUPPLY_PROP_CC_SOC,
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_VOLTAGE_OCV,
@@ -3609,6 +3758,7 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
 	POWER_SUPPLY_PROP_CHARGE_NOW_RAW,
+	POWER_SUPPLY_PROP_CHARGE_NOW,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_SHADOW,
@@ -3622,6 +3772,7 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG,
 	POWER_SUPPLY_PROP_CC_STEP,
 	POWER_SUPPLY_PROP_CC_STEP_SEL,
+	POWER_SUPPLY_PROP_BATT_AGE_LEVEL,
 };
 
 static const struct power_supply_desc fg_psy_desc = {
@@ -3884,6 +4035,104 @@ static int fg_alg_init(struct fg_gen4_chip *chip)
 	return 0;
 }
 
+static int fg_gen4_esr_calib_config(struct fg_gen4_chip *chip)
+{
+	struct fg_dev *fg = &chip->fg;
+	u8 buf[2], val, mask;
+	int rc;
+
+	if (chip->esr_fast_calib) {
+		rc = fg_gen4_esr_fast_calib_config(chip, true);
+		if (rc < 0)
+			return rc;
+	} else {
+		if (chip->dt.esr_timer_chg_slow[TIMER_RETRY] >= 0 &&
+			chip->dt.esr_timer_chg_slow[TIMER_MAX] >= 0) {
+			rc = fg_set_esr_timer(fg,
+				chip->dt.esr_timer_chg_slow[TIMER_RETRY],
+				chip->dt.esr_timer_chg_slow[TIMER_MAX], true,
+				FG_IMA_DEFAULT);
+			if (rc < 0) {
+				pr_err("Error in setting ESR charge timer, rc=%d\n",
+					rc);
+				return rc;
+			}
+		}
+
+		if (chip->dt.esr_timer_dischg_slow[TIMER_RETRY] >= 0 &&
+			chip->dt.esr_timer_dischg_slow[TIMER_MAX] >= 0) {
+			rc = fg_set_esr_timer(fg,
+				chip->dt.esr_timer_dischg_slow[TIMER_RETRY],
+				chip->dt.esr_timer_dischg_slow[TIMER_MAX],
+				false, FG_IMA_DEFAULT);
+			if (rc < 0) {
+				pr_err("Error in setting ESR discharge timer, rc=%d\n",
+					rc);
+				return rc;
+			}
+		}
+
+		if (chip->dt.esr_calib_dischg) {
+			/* Allow ESR calibration only during discharging */
+			val = BIT(6) | BIT(7);
+			mask = BIT(1) | BIT(6) | BIT(7);
+			rc = fg_sram_masked_write(fg, SYS_CONFIG_WORD,
+					SYS_CONFIG_OFFSET, mask, val,
+					FG_IMA_DEFAULT);
+			if (rc < 0) {
+				pr_err("Error in writing SYS_CONFIG_WORD, rc=%d\n",
+					rc);
+				return rc;
+			}
+
+			/* Disable ESR charging timer */
+			val = 0;
+			mask = BIT(0);
+			rc = fg_sram_masked_write(fg, SYS_CONFIG_WORD,
+					SYS_CONFIG2_OFFSET, mask, val,
+					FG_IMA_DEFAULT);
+			if (rc < 0) {
+				pr_err("Error in writing SYS_CONFIG2_OFFSET, rc=%d\n",
+					rc);
+				return rc;
+			}
+		} else {
+			/*
+			 * Disable ESR discharging timer and ESR pulsing during
+			 * discharging when ESR fast calibration is disabled.
+			 */
+			val = 0;
+			mask = BIT(6) | BIT(7);
+			rc = fg_sram_masked_write(fg, SYS_CONFIG_WORD,
+					SYS_CONFIG_OFFSET, mask, val,
+					FG_IMA_DEFAULT);
+			if (rc < 0) {
+				pr_err("Error in writing SYS_CONFIG_WORD, rc=%d\n",
+					rc);
+				return rc;
+			}
+		}
+	}
+
+	/*
+	 * Delta ESR interrupt threshold should be configured as specified if
+	 * ESR fast calibration is disabled. Else, set it to max (4000 mOhms).
+	 */
+	fg_encode(fg->sp, FG_SRAM_DELTA_ESR_THR,
+		chip->esr_fast_calib ? 4000000 : chip->dt.delta_esr_thr_uohms,
+		buf);
+	rc = fg_sram_write(fg,
+			fg->sp[FG_SRAM_DELTA_ESR_THR].addr_word,
+			fg->sp[FG_SRAM_DELTA_ESR_THR].addr_byte, buf,
+			fg->sp[FG_SRAM_DELTA_ESR_THR].len, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing DELTA_ESR_THR, rc=%d\n", rc);
+		return rc;
+	}
+
+	return rc;
+}
+
 #define BATT_TEMP_HYST_MASK	GENMASK(3, 0)
 #define BATT_TEMP_DELTA_MASK	GENMASK(7, 4)
 #define BATT_TEMP_DELTA_SHIFT	4
@@ -4129,66 +4378,9 @@ static int fg_gen4_hw_init(struct fg_gen4_chip *chip)
 		}
 	}
 
-	if (chip->esr_fast_calib) {
-		rc = fg_gen4_esr_fast_calib_config(chip, true);
-		if (rc < 0)
-			return rc;
-	} else {
-		if (chip->dt.esr_timer_chg_slow[TIMER_RETRY] >= 0 &&
-			chip->dt.esr_timer_chg_slow[TIMER_MAX] >= 0) {
-			rc = fg_set_esr_timer(fg,
-				chip->dt.esr_timer_chg_slow[TIMER_RETRY],
-				chip->dt.esr_timer_chg_slow[TIMER_MAX], true,
-				FG_IMA_DEFAULT);
-			if (rc < 0) {
-				pr_err("Error in setting ESR charge timer, rc=%d\n",
-					rc);
-				return rc;
-			}
-		}
-
-		if (chip->dt.esr_timer_dischg_slow[TIMER_RETRY] >= 0 &&
-			chip->dt.esr_timer_dischg_slow[TIMER_MAX] >= 0) {
-			rc = fg_set_esr_timer(fg,
-				chip->dt.esr_timer_dischg_slow[TIMER_RETRY],
-				chip->dt.esr_timer_dischg_slow[TIMER_MAX],
-				false, FG_IMA_DEFAULT);
-			if (rc < 0) {
-				pr_err("Error in setting ESR discharge timer, rc=%d\n",
-					rc);
-				return rc;
-			}
-		}
-
-		/*
-		 * Disable ESR discharging timer and ESR pulsing during
-		 * discharging when ESR fast calibration is disabled.
-		 */
-		val = 0;
-		mask = BIT(6) | BIT(7);
-		rc = fg_sram_masked_write(fg, SYS_CONFIG_WORD,
-				SYS_CONFIG_OFFSET, mask, val, FG_IMA_DEFAULT);
-		if (rc < 0) {
-			pr_err("Error in writing SYS_CONFIG_WORD, rc=%d\n", rc);
-			return rc;
-		}
-	}
-
-	/*
-	 * Delta ESR interrupt threshold should be configured as specified if
-	 * ESR fast calibration is disabled. Else, set it to max (4000 mOhms).
-	 */
-	fg_encode(fg->sp, FG_SRAM_DELTA_ESR_THR,
-		chip->esr_fast_calib ? 4000000 : chip->dt.delta_esr_thr_uohms,
-		buf);
-	rc = fg_sram_write(fg,
-			fg->sp[FG_SRAM_DELTA_ESR_THR].addr_word,
-			fg->sp[FG_SRAM_DELTA_ESR_THR].addr_byte, buf,
-			fg->sp[FG_SRAM_DELTA_ESR_THR].len, FG_IMA_DEFAULT);
-	if (rc < 0) {
-		pr_err("Error in writing DELTA_ESR_THR, rc=%d\n", rc);
+	rc = fg_gen4_esr_calib_config(chip);
+	if (rc < 0)
 		return rc;
-	}
 
 	rc = restore_cycle_count(chip->counter);
 	if (rc < 0) {
@@ -4196,6 +4388,13 @@ static int fg_gen4_hw_init(struct fg_gen4_chip *chip)
 		return rc;
 	}
 
+	chip->batt_age_level = chip->last_batt_age_level = -EINVAL;
+	if (chip->dt.multi_profile_load) {
+		rc = fg_sram_read(fg, BATT_AGE_LEVEL_WORD,
+			BATT_AGE_LEVEL_OFFSET, &val, 1, FG_IMA_DEFAULT);
+		if (!rc)
+			chip->batt_age_level = chip->last_batt_age_level = val;
+	}
 	return 0;
 }
 
@@ -4327,6 +4526,15 @@ static int fg_parse_esr_cal_params(struct fg_dev *fg)
 	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
 	struct device_node *node = fg->dev->of_node;
 	int rc, i, temp;
+
+	if (chip->dt.esr_timer_dischg_slow[TIMER_RETRY] >= 0 &&
+			chip->dt.esr_timer_dischg_slow[TIMER_MAX] >= 0) {
+		/* ESR calibration only during discharging */
+		chip->dt.esr_calib_dischg = of_property_read_bool(node,
+						"qcom,fg-esr-calib-dischg");
+		if (chip->dt.esr_calib_dischg)
+			return 0;
+	}
 
 	if (!of_find_property(node, "qcom,fg-esr-cal-soc-thresh", NULL) ||
 		!of_find_property(node, "qcom,fg-esr-cal-temp-thresh", NULL))
@@ -4606,6 +4814,8 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 	else
 		chip->cl->dt.max_cap_limit = temp;
 
+	of_property_read_u32(node, "qcom,cl-skew", &chip->cl->dt.skew_decipct);
+
 	rc = of_property_read_u32(node, "qcom,fg-batt-temp-hot", &temp);
 	if (rc < 0)
 		chip->dt.batt_temp_hot_thresh = -EINVAL;
@@ -4677,6 +4887,9 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 
 	chip->dt.five_pin_battery = of_property_read_bool(node,
 					"qcom,five-pin-battery");
+	chip->dt.multi_profile_load = of_property_read_bool(node,
+					"qcom,multi-profile-load");
+	chip->dt.soc_hi_res = of_property_read_bool(node, "qcom,soc-hi-res");
 	return 0;
 }
 
@@ -4896,6 +5109,15 @@ static int fg_gen4_probe(struct platform_device *pdev)
 		fg->last_batt_temp = batt_temp;
 		pr_info("battery SOC:%d voltage: %duV temp: %d id: %d ohms\n",
 			msoc, volt_uv, batt_temp, fg->batt_id_ohms);
+	}
+
+	fg->tz_dev = thermal_zone_of_sensor_register(fg->dev, 0, fg,
+							&fg_gen4_tz_ops);
+	if (IS_ERR_OR_NULL(fg->tz_dev)) {
+		rc = PTR_ERR(fg->tz_dev);
+		fg->tz_dev = NULL;
+		dev_dbg(fg->dev, "Couldn't register with thermal framework rc:%d\n",
+			rc);
 	}
 
 	device_init_wakeup(fg->dev, true);

@@ -3596,6 +3596,8 @@ static struct adreno_coresight a5xx_coresight = {
 	.registers = a5xx_coresight_registers,
 	.count = ARRAY_SIZE(a5xx_coresight_registers),
 	.groups = a5xx_coresight_groups,
+	.read = kgsl_regread,
+	.write = kgsl_regwrite,
 };
 
 struct adreno_gpudev adreno_a5xx_gpudev = {

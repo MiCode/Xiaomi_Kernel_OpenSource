@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include "skeleton64.dtsi"
+#include <dt-bindings/clock/qcom,gcc-sm8150.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. SA8155 Virtual Machine";
@@ -67,6 +69,7 @@
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
+	virtual-interrupt-parent = "gic";
 	ranges = <0 0 0 0xffffffff>;
 	compatible = "simple-bus";
 
@@ -157,3 +160,5 @@
 		qcom,client-id = "7815";
 	};
 };
+
+#include "sa8155-vm-pinctrl.dtsi"

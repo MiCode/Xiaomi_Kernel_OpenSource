@@ -232,7 +232,6 @@ struct ffs_io_data {
 
 	struct mm_struct *mm;
 	struct work_struct work;
-	struct work_struct cancellation_work;
 
 	struct usb_ep *ep;
 	struct usb_request *req;
@@ -1163,20 +1162,11 @@ ffs_epfile_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static void ffs_aio_cancel_worker(struct work_struct *work)
-{
-	struct ffs_io_data *io_data = container_of(work, struct ffs_io_data,
-						   cancellation_work);
-
-	ENTER();
-
-	usb_ep_dequeue(io_data->ep, io_data->req);
-}
-
 static int ffs_aio_cancel(struct kiocb *kiocb)
 {
 	struct ffs_io_data *io_data = kiocb->private;
-	struct ffs_data *ffs = io_data->ffs;
+	struct ffs_epfile *epfile = kiocb->ki_filp->private_data;
+	struct ffs_data *ffs = epfile->ffs;
 	int value;
 
 	ENTER();
@@ -1184,13 +1174,14 @@ static int ffs_aio_cancel(struct kiocb *kiocb)
 	ffs_log("enter:state %d setup_state %d flag %lu", ffs->state,
 		ffs->setup_state, ffs->flags);
 
-	if (likely(io_data && io_data->ep && io_data->req)) {
-		INIT_WORK(&io_data->cancellation_work, ffs_aio_cancel_worker);
-		queue_work(ffs->io_completion_wq, &io_data->cancellation_work);
-		value = -EINPROGRESS;
-	} else {
+	spin_lock_irq(&epfile->ffs->eps_lock);
+
+	if (likely(io_data && io_data->ep && io_data->req))
+		value = usb_ep_dequeue(io_data->ep, io_data->req);
+	else
 		value = -EINVAL;
-	}
+
+	spin_unlock_irq(&epfile->ffs->eps_lock);
 
 	ffs_log("exit: value %d", value);
 
@@ -1811,9 +1802,17 @@ static void ffs_data_closed(struct ffs_data *ffs)
 static struct ffs_data *ffs_data_new(const char *dev_name)
 {
 	char ipcname[24] = "usb_ffs_";
+	struct ffs_dev *ffs_dev;
 	struct ffs_data *ffs = kzalloc(sizeof *ffs, GFP_KERNEL);
 	if (unlikely(!ffs))
 		return NULL;
+
+	ffs_dev = _ffs_find_dev(dev_name);
+	if (ffs_dev && ffs_dev->mounted) {
+		pr_info("%s(): %s Already mounted\n", __func__, dev_name);
+		kfree(ffs);
+		return ERR_PTR(-EBUSY);
+	}
 
 	ENTER();
 

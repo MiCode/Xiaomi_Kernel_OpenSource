@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1110,6 +1110,7 @@ struct ipa3_nat_ipv6ct_common_mem {
  * @index_table_expansion_addr: index expansion table address
  * @public_ip_addr: ip address of nat table
  * @pdn_mem: pdn config table SW cache memory structure
+ * @is_tmp_mem_allocated: indicate if tmp mem has been allocated
  */
 struct ipa3_nat_mem {
 	struct ipa3_nat_ipv6ct_common_mem dev;
@@ -1117,6 +1118,7 @@ struct ipa3_nat_mem {
 	char *index_table_expansion_addr;
 	u32 public_ip_addr;
 	struct ipa_mem_buffer pdn_mem;
+	bool is_tmp_mem_allocated;
 };
 
 /**
@@ -1686,6 +1688,11 @@ struct ipa3_context {
 	bool use_ipa_pm;
 	bool vlan_mode_iface[IPA_VLAN_IF_MAX];
 	bool wdi_over_pcie;
+	u32 entire_ipa_block_size;
+	bool do_register_collection_on_crash;
+	bool do_testbus_collection_on_crash;
+	bool do_non_tn_collection_on_crash;
+	void __iomem *reg_collection_base;
 	struct ipa3_wdi2_ctx wdi2_ctx;
 	struct mbox_client mbox_client;
 	struct mbox_chan *mbox;
@@ -1732,6 +1739,10 @@ struct ipa3_plat_drv_res {
 	bool use_ipa_pm;
 	struct ipa_pm_init_params pm_init;
 	bool wdi_over_pcie;
+	u32 entire_ipa_block_size;
+	bool do_register_collection_on_crash;
+	bool do_testbus_collection_on_crash;
+	bool do_non_tn_collection_on_crash;
 };
 
 /**
@@ -2432,7 +2443,8 @@ int ipa3_generate_hw_rule(enum ipa_ip_type ip,
 int ipa3_init_hw(void);
 struct ipa3_rt_tbl *__ipa3_find_rt_tbl(enum ipa_ip_type ip, const char *name);
 int ipa3_set_single_ndp_per_mbim(bool enable);
-void ipa3_debugfs_init(void);
+void ipa3_debugfs_pre_init(void);
+void ipa3_debugfs_post_init(void);
 void ipa3_debugfs_remove(void);
 
 void ipa3_dump_buff_internal(void *base, dma_addr_t phy_base, u32 size);
@@ -2730,4 +2742,11 @@ int ipa3_get_transport_info(
 	unsigned long *size_ptr);
 irq_handler_t ipa3_get_isr(void);
 void ipa_pc_qmp_enable(void);
+#if defined(CONFIG_IPA3_REGDUMP)
+int ipa_reg_save_init(uint8_t value);
+void ipa_save_registers(void);
+#else
+static inline int ipa_reg_save_init(uint8_t value) { return 0; }
+static inline void ipa_save_registers(void) {};
+#endif
 #endif /* _IPA3_I_H_ */
