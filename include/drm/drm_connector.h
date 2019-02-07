@@ -1052,6 +1052,7 @@ struct drm_connector {
 	 * @pt_scan_info: PT scan info obtained from the VCDB of EDID
 	 * @it_scan_info: IT scan info obtained from the VCDB of EDID
 	 * @ce_scan_info: CE scan info obtained from the VCDB of EDID
+	 * @color_enc_fmt: Colorimetry encoding formats of sink
 	 * @hdr_eotf: Electro optical transfer function obtained from HDR block
 	 * @hdr_metadata_type_one: Metadata type one obtained from HDR block
 	 * @hdr_max_luminance: desired max luminance obtained from HDR block
@@ -1070,6 +1071,7 @@ struct drm_connector {
 	u8 pt_scan_info;
 	u8 it_scan_info;
 	u8 ce_scan_info;
+	u32 color_enc_fmt;
 	u32 hdr_eotf;
 	bool hdr_metadata_type_one;
 	u32 hdr_max_luminance;
