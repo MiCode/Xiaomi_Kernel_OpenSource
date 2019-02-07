@@ -190,6 +190,13 @@ First Level Node - FG Gen4 device
 	Definition: Battery temperature hysteresis threshold. Possible values
 		    are: 0, 1, 2 and 3. Unit is in Kelvin or Celsius.
 
+- qcom,fg-batt-therm-freq
+	Usage:      optional
+	Value type: <u32>
+	Definition: Battery thermistor interval in seconds. Possible values
+		    are from 1-255. If not specified, then the default value
+		    configured is 8.
+
 - qcom,fg-force-load-profile
 	Usage:      optional
 	Value type: <empty>
