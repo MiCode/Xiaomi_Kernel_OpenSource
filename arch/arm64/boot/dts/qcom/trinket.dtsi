@@ -829,6 +829,19 @@
 		reg = <0x0447d200 0x100>;
 	};
 
+	cpucc_debug: syscon@f11101c {
+		compatible = "syscon";
+		reg = <0xf11101c 0x4>;
+	};
+
+	clock_cpucc: qcom,cpucc@f521000 {
+		compatible = "qcom,clk-cpu-osm-trinket";
+		reg = <0xf521000 0x1400>,
+			<0xf523000 0x1400>;
+		reg-names = "osm_pwrcl_base", "osm_perfcl_base";
+		#clock-cells = <1>;
+	};
+
 	clock_debugcc: qcom,cc-debug {
 		compatible = "qcom,debugcc-trinket";
 		qcom,gcc = <&clock_gcc>;
@@ -836,14 +849,9 @@
 		qcom,dispcc = <&clock_dispcc>;
 		qcom,gpucc = <&clock_gpucc>;
 		qcom,mccc = <&mccc_debug>;
+		qcom,cpucc = <&cpucc_debug>;
 		clock-names = "cxo";
 		clocks = <&clock_rpmcc RPM_SMD_XO_CLK_SRC>;
-		#clock-cells = <1>;
-	};
-
-	clock_cpucc: qcom,cpucc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "cpucc_clocks";
 		#clock-cells = <1>;
 	};
 
