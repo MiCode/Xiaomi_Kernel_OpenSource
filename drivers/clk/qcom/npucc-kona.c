@@ -95,7 +95,7 @@ static const char * const npu_cc_parent_names_1_ao[] = {
 
 static const struct parent_map npu_cc_parent_map_2[] = {
 	{ P_BI_TCXO, 0 },
-	{ P_NPU_Q6SS_PLL_OUT_MAIN, 1 },
+	{ P_NPU_Q6SS_PLL_OUT_MAIN, 2 },
 	{ P_CORE_BI_PLL_TEST_SE, 7 },
 };
 
