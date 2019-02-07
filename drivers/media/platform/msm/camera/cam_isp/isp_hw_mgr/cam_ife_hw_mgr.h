@@ -88,6 +88,7 @@ struct ctx_base_info {
  * @csid_debug:                csid debug information
  * @enable_recovery:           enable recovery
  * @enable_diag_sensor_status: enable sensor diagnosis status
+ * @enable_reg_dump:           enable register dump on error
  *
  */
 struct cam_ife_hw_mgr_debug {
@@ -95,6 +96,7 @@ struct cam_ife_hw_mgr_debug {
 	uint64_t       csid_debug;
 	uint32_t       enable_recovery;
 	uint32_t       camif_debug;
+	uint32_t       enable_reg_dump;
 };
 
 /**

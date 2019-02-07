@@ -4312,6 +4312,8 @@ static int cam_ife_hw_mgr_get_err_type(
 
 	core_idx = evt_payload->core_index;
 	evt_payload->evt_id = CAM_ISP_HW_EVENT_ERROR;
+	evt_payload->enable_reg_dump =
+		g_ife_hw_mgr.debug_cfg.enable_reg_dump;
 
 	list_for_each_entry(isp_ife_camif_res,
 		&ife_hwr_mgr_ctx->res_list_ife_src, list) {
@@ -4398,6 +4400,9 @@ static int  cam_ife_hw_mgr_handle_camif_error(
 
 		error_event_data.error_type =
 				CAM_ISP_HW_ERROR_OVERFLOW;
+
+		error_event_data.enable_reg_dump =
+			g_ife_hw_mgr.debug_cfg.enable_reg_dump;
 
 		cam_ife_hw_mgr_find_affected_ctx(ife_hwr_mgr_ctx,
 			&error_event_data,
@@ -5373,6 +5378,14 @@ static int cam_ife_hw_mgr_debug_register(void)
 		g_ife_hw_mgr.debug_cfg.dentry,
 		&g_ife_hw_mgr.debug_cfg.enable_recovery)) {
 		CAM_ERR(CAM_ISP, "failed to create enable_recovery");
+		goto err;
+	}
+
+	if (!debugfs_create_u32("enable_reg_dump",
+		0644,
+		g_ife_hw_mgr.debug_cfg.dentry,
+		&g_ife_hw_mgr.debug_cfg.enable_reg_dump)) {
+		CAM_ERR(CAM_ISP, "failed to create enable_reg_dump");
 		goto err;
 	}
 
