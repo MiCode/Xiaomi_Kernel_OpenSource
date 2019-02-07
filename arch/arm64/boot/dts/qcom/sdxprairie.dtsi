@@ -1215,10 +1215,6 @@
 		gdsc_emac-supply = <&gdsc_emac>;
 		mboxes = <&qmp_aop 0>;
 		mbox-names = "emac_aop";
-		pinctrl-names = "dev-emac_pin_pps_0",
-			"dev-emac_pin_pps_1";
-		pinctrl-0 = <&emac_pin_pps_0>;
-		pinctrl-1 = <&emac_pin_pps_1>;
 
 		io-macro-info {
 			io-macro-bypass-mode = <0>;
