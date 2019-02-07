@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -15,9 +15,15 @@
 #include <linux/types.h>
 #include <linux/version.h>
 #include <linux/io.h>
+#include <linux/of_fdt.h>
 #include "msm_vidc_internal.h"
 #include "msm_vidc_debug.h"
 
+
+#define DDR_TYPE_LPDDR4 0x6
+#define DDR_TYPE_LPDDR4X 0x7
+#define DDR_TYPE_LPDDR4Y 0x8
+#define DDR_TYPE_LPDDR5 0x9
 
 #define CODEC_ENTRY(n, p, vsp, vpp, lp) \
 {	\
@@ -35,6 +41,21 @@
 	.mask = m,	\
 	.shift = sh,	\
 	.purpose = p	\
+}
+
+#define UBWC_CONFIG(mco, mlo, hbo, bslo, bso, rs, mc, ml, hbb, bsl, bsp) \
+{	\
+	.override_bit_info.max_channel_override = mco,	\
+	.override_bit_info.mal_length_override = mlo,	\
+	.override_bit_info.hb_override = hbo,	\
+	.override_bit_info.bank_swzl_level_override = bslo,	\
+	.override_bit_info.bank_spreading_override = bso,	\
+	.override_bit_info.reserved = rs,	\
+	.max_channels = mc,	\
+	.mal_length = ml,	\
+	.highest_bank_bit = hbb,	\
+	.bank_swzl_level = bsl,	\
+	.bank_spreading = bsp,	\
 }
 
 #define GCC_VIDEO_AXI_REG_START_ADDR	0x10B024
@@ -514,6 +535,11 @@ static struct msm_vidc_efuse_data sdm670_efuse_data[] = {
 	EFUSE_ENTRY(0x007801A0, 4, 0x00008000, 0x0f, SKU_VERSION),
 };
 
+/* Default UBWC config for LPDDR5 */
+static struct msm_vidc_ubwc_config_data kona_ubwc_data[] = {
+	UBWC_CONFIG(1, 1, 1, 0, 0, 0, 8, 32, 15, 0, 0),
+};
+
 static struct msm_vidc_platform_data default_data = {
 	.codec_data = default_codec_data,
 	.codec_data_length =  ARRAY_SIZE(default_codec_data),
@@ -528,6 +554,7 @@ static struct msm_vidc_platform_data default_data = {
 	.gcc_register_base = 0,
 	.gcc_register_size = 0,
 	.vpu_ver = VPU_VERSION_IRIS2,
+	.ubwc_config = 0x0,
 };
 
 static struct msm_vidc_platform_data kona_data = {
@@ -544,6 +571,7 @@ static struct msm_vidc_platform_data kona_data = {
 	.gcc_register_base = 0x10B024,//GCC_VIDEO_AXI0_CBCR,
 	.gcc_register_size = 0x8,//GCC_VIDEO_AXI0_CBCR + GCC_VIDEO_AXI1_CBCR,
 	.vpu_ver = VPU_VERSION_IRIS2,
+	.ubwc_config = kona_ubwc_data,
 };
 
 static struct msm_vidc_platform_data sm6150_data = {
@@ -560,6 +588,7 @@ static struct msm_vidc_platform_data sm6150_data = {
 	.gcc_register_base = 0,
 	.gcc_register_size = 0,
 	.vpu_ver = VPU_VERSION_AR50,
+	.ubwc_config = 0x0,
 };
 
 static struct msm_vidc_platform_data sm8150_data = {
@@ -576,6 +605,7 @@ static struct msm_vidc_platform_data sm8150_data = {
 	.gcc_register_base = GCC_VIDEO_AXI_REG_START_ADDR,
 	.gcc_register_size = GCC_VIDEO_AXI_REG_SIZE,
 	.vpu_ver = VPU_VERSION_IRIS1,
+	.ubwc_config = 0x0,
 };
 
 static struct msm_vidc_platform_data sdm845_data = {
@@ -592,6 +622,7 @@ static struct msm_vidc_platform_data sdm845_data = {
 	.gcc_register_base = 0,
 	.gcc_register_size = 0,
 	.vpu_ver = VPU_VERSION_AR50,
+	.ubwc_config = 0x0,
 };
 
 static struct msm_vidc_platform_data sdm670_data = {
@@ -608,6 +639,7 @@ static struct msm_vidc_platform_data sdm670_data = {
 	.gcc_register_base = 0,
 	.gcc_register_size = 0,
 	.vpu_ver = VPU_VERSION_AR50,
+	.ubwc_config = 0x0,
 };
 
 static const struct of_device_id msm_vidc_dt_match[] = {
@@ -683,6 +715,7 @@ void *vidc_get_drv_data(struct device *dev)
 {
 	struct msm_vidc_platform_data *driver_data = NULL;
 	const struct of_device_id *match;
+	uint32_t ddr_type = DDR_TYPE_LPDDR5;
 	int rc = 0;
 
 	if (!IS_ENABLED(CONFIG_OF) || !dev->of_node) {
@@ -708,6 +741,19 @@ void *vidc_get_drv_data(struct device *dev)
 			driver_data->common_data_length =
 					ARRAY_SIZE(sdm670_common_data_v1);
 		}
+	}  else if (!strcmp(match->compatible, "qcom,kona-vidc")) {
+		ddr_type = of_fdt_get_ddrtype();
+		if (ddr_type == -ENOENT) {
+			dprintk(VIDC_ERR,
+				"Failed to get ddr type, use LPDDR5\n");
+		}
+		dprintk(VIDC_DBG, "DDR Type %x\n", ddr_type);
+
+		if (driver_data->ubwc_config &&
+			(ddr_type == DDR_TYPE_LPDDR4 ||
+			ddr_type == DDR_TYPE_LPDDR4X ||
+			ddr_type == DDR_TYPE_LPDDR4Y))
+			driver_data->ubwc_config->highest_bank_bit = 0xf;
 	}
 
 exit:

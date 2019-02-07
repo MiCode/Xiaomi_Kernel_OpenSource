@@ -36,6 +36,8 @@ struct hfi_packetization_ops {
 		struct vidc_resource_hdr *resource_hdr);
 	int (*sys_ping)(struct hfi_cmd_sys_ping_packet *pkt);
 	int (*sys_image_version)(struct hfi_cmd_sys_get_property_packet *pkt);
+	int (*sys_ubwc_config)(struct hfi_cmd_sys_set_property_packet *pkt,
+		struct msm_vidc_ubwc_config_data *ubwc_config);
 	int (*ssr_cmd)(enum hal_ssr_trigger_type type,
 		struct hfi_cmd_sys_test_ssr_packet *pkt);
 	int (*session_init)(

@@ -192,6 +192,7 @@ struct msm_vidc_platform_resources {
 	struct msm_vidc_mem_cdsp mem_cdsp;
 	uint32_t vpu_ver;
 	uint32_t fw_cycles;
+	struct msm_vidc_ubwc_config_data *ubwc_config;
 };
 
 static inline bool is_iommu_present(struct msm_vidc_platform_resources *res)
