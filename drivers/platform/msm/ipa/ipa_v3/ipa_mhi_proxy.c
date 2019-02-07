@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/dma-mapping.h>
@@ -902,6 +902,7 @@ static void imp_mhi_status_cb(struct mhi_device *mhi_dev, enum MHI_CB mhi_cb)
 
 	case MHI_CB_EE_RDDM:
 	case MHI_CB_PENDING_DATA:
+	default:
 		IMP_ERR("unexpected event %d\n", mhi_cb);
 		break;
 	}
