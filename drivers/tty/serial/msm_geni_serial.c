@@ -2520,9 +2520,11 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 		pm_runtime_enable(&pdev->dev);
 	}
 
+	se_geni_clks_on(&dev_port->serial_rsc);
 	geni_write_reg_nolog(0x21, uport->membase, GENI_SER_M_CLK_CFG);
 	geni_write_reg_nolog(0x21, uport->membase, GENI_SER_S_CLK_CFG);
 	geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
+	se_geni_clks_off(&dev_port->serial_rsc);
 
 	dev_info(&pdev->dev, "Serial port%d added.FifoSize %d is_console%d\n",
 				line, uport->fifosize, is_console);
