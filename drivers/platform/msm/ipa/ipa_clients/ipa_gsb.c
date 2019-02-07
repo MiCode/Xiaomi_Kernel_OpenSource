@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -675,9 +675,14 @@ static void ipa_gsb_cons_cb(void *priv, enum ipa_dp_evt_type evt,
 		return;
 	}
 
+	if (!data) {
+		IPA_GSB_ERR("Invalid data\n");
+		return;
+	}
+
 	skb = (struct sk_buff *)data;
 
-	while (skb && skb->len) {
+	while (skb->len) {
 		mux_hdr = (struct ipa_gsb_mux_hdr *)skb->data;
 		pkt_size = mux_hdr->pkt_size;
 		/* 4-byte padding */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -3290,6 +3290,13 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	rc = _sde_kms_get_splash_data(&sde_kms->splash_data);
 	if (rc)
 		SDE_DEBUG("sde splash data fetch failed: %d\n", rc);
+
+	for (i = 0; i < SDE_POWER_HANDLE_DBUS_ID_MAX; i++) {
+		priv->phandle.data_bus_handle[i].ab_rt =
+			SDE_POWER_HANDLE_CONT_SPLASH_BUS_AB_QUOTA;
+		priv->phandle.data_bus_handle[i].ib_rt =
+			SDE_POWER_HANDLE_CONT_SPLASH_BUS_IB_QUOTA;
+	}
 
 	rc = sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
 		true);

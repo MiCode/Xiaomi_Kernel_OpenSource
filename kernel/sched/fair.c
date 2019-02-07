@@ -7369,7 +7369,7 @@ bias_to_waker_cpu(struct task_struct *p, int cpu, struct cpumask *rtg_target)
 	return cpumask_test_cpu(cpu, tsk_cpus_allowed(p)) &&
 	       cpu_active(cpu) && !cpu_isolated(cpu) &&
 	       capacity_orig_of(cpu) >= capacity_orig_of(rtg_target_cpu) &&
-	       task_fits_max(p, cpu) && !__cpu_overutilized(cpu, task_util(p));
+	       task_fits_max(p, cpu);
 }
 
 #define SCHED_SELECT_PREV_CPU_NSEC	2000000
