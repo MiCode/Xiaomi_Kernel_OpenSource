@@ -818,6 +818,7 @@ static enum cam_vfe_bus_ver3_packer_format
 	case CAM_FORMAT_PLAIN16_16:
 		return PACKER_FMT_VER3_PLAIN_16_16BPP;
 	case CAM_FORMAT_PLAIN32:
+	case CAM_FORMAT_ARGB:
 		return PACKER_FMT_VER3_PLAIN_32;
 	case CAM_FORMAT_PLAIN64:
 	case CAM_FORMAT_ARGB_16:
@@ -974,8 +975,7 @@ rdi_config:
 		case CAM_FORMAT_PLAIN8:
 			rsrc_data->en_cfg = 0x1;
 			rsrc_data->pack_fmt = 0x1;
-			rsrc_data->width = rsrc_data->width * 2;
-			rsrc_data->stride = rsrc_data->width;
+			rsrc_data->stride = rsrc_data->width * 2;
 			break;
 		case CAM_FORMAT_PLAIN16_10:
 		case CAM_FORMAT_PLAIN16_12:
@@ -1007,7 +1007,6 @@ rdi_config:
 		switch (rsrc_data->format) {
 		case CAM_FORMAT_UBWC_NV12_4R:
 			rsrc_data->en_ubwc = 1;
-			rsrc_data->width = ALIGNUP(rsrc_data->width, 64);
 			switch (plane) {
 			case PLANE_C:
 				rsrc_data->height /= 2;
@@ -1038,8 +1037,6 @@ rdi_config:
 			break;
 		case CAM_FORMAT_UBWC_TP10:
 			rsrc_data->en_ubwc = 1;
-			rsrc_data->width =
-				ALIGNUP(rsrc_data->width, 48) * 4 / 3;
 			switch (plane) {
 			case PLANE_C:
 				rsrc_data->height /= 2;
@@ -1052,8 +1049,6 @@ rdi_config:
 			}
 			break;
 		case CAM_FORMAT_TP10:
-			rsrc_data->width =
-				ALIGNUP(rsrc_data->width, 3) * 4 / 3;
 			switch (plane) {
 			case PLANE_C:
 				rsrc_data->height /= 2;
@@ -1076,7 +1071,6 @@ rdi_config:
 				CAM_ERR(CAM_ISP, "Invalid plane %d", plane);
 				return -EINVAL;
 			}
-			rsrc_data->width *= 2;
 			break;
 		default:
 			CAM_ERR(CAM_ISP, "Invalid format %d",
@@ -1089,7 +1083,7 @@ rdi_config:
 		rsrc_data->width = 0;
 		rsrc_data->height = 0;
 		rsrc_data->stride = 1;
-		rsrc_data->en_cfg = (0x2 << 16) | 0x1;
+		rsrc_data->en_cfg = (0x1 << 16) | 0x1;
 	} else if (rsrc_data->index > 11 && rsrc_data->index < 20) {
 		/* WM 12-19 stats */
 		rsrc_data->width = 0;
@@ -1107,7 +1101,6 @@ rdi_config:
 			rsrc_data->pack_fmt |= 0x10;
 	} else if (rsrc_data->index == 10) {
 		/* WM 10 Raw dump */
-		rsrc_data->width = rsrc_data->width * 2;
 		rsrc_data->stride = rsrc_data->width;
 		rsrc_data->en_cfg = 0x1;
 		/* LSB aligned */
@@ -1129,19 +1122,10 @@ rdi_config:
 		}
 	} else {
 		/* Write master 2-3 and 6-7 DS ports */
-		uint32_t align_width;
 
-		rsrc_data->width = rsrc_data->width * 4;
 		rsrc_data->height = rsrc_data->height / 2;
+		rsrc_data->width  = rsrc_data->width / 2;
 		rsrc_data->en_cfg = 0x1;
-		CAM_DBG(CAM_ISP, "before width %d", rsrc_data->width);
-		align_width = ALIGNUP(rsrc_data->width, 16);
-		if (align_width != rsrc_data->width) {
-			CAM_WARN(CAM_ISP,
-				"override width %u with expected %u",
-				rsrc_data->width, align_width);
-			rsrc_data->width = align_width;
-		}
 	}
 
 	*wm_res = wm_res_local;
@@ -2780,6 +2764,47 @@ static int cam_vfe_bus_ver3_update_ubwc_config(void *cmd_args)
 	return 0;
 }
 
+static uint32_t cam_vfe_bus_ver3_convert_bytes_to_pixels(uint32_t packer_fmt,
+	uint32_t width)
+{
+	int pixels = 0;
+
+	switch (packer_fmt) {
+	case PACKER_FMT_VER3_PLAIN_128:
+		pixels = width / 16;
+		break;
+	case PACKER_FMT_VER3_PLAIN_8:
+	case PACKER_FMT_VER3_PLAIN_8_ODD_EVEN:
+		pixels = width;
+		break;
+	case PACKER_FMT_VER3_PLAIN_8_LSB_MSB_10:
+	case PACKER_FMT_VER3_PLAIN_8_LSB_MSB_10_ODD_EVEN:
+		pixels = width * 8 / 10;
+		break;
+	case PACKER_FMT_VER3_PLAIN_16_10BPP:
+	case PACKER_FMT_VER3_PLAIN_16_12BPP:
+	case PACKER_FMT_VER3_PLAIN_16_14BPP:
+	case PACKER_FMT_VER3_PLAIN_16_16BPP:
+		pixels = width / 2;
+		break;
+	case PACKER_FMT_VER3_PLAIN_32:
+		pixels = width / 4;
+		break;
+	case PACKER_FMT_VER3_PLAIN_64:
+		pixels = width / 8;
+		break;
+	case PACKER_FMT_VER3_TP_10:
+		pixels = width * 3 / 4;
+		break;
+	case PACKER_FMT_VER3_MAX:
+	default:
+		CAM_ERR(CAM_ISP, "Invalid packer cfg 0x%x", packer_fmt);
+		break;
+	}
+
+	return pixels;
+}
+
 static int cam_vfe_bus_ver3_update_stripe_cfg(void *priv, void *cmd_args,
 	uint32_t arg_size)
 {
@@ -2813,7 +2838,8 @@ static int cam_vfe_bus_ver3_update_stripe_cfg(void *priv, void *cmd_args,
 		wm_data = vfe_out_data->wm_res[i]->res_priv;
 		stripe_config = (struct cam_isp_dual_stripe_config  *)
 			&stripe_args->dual_cfg->stripes[ports_plane_idx + i];
-		wm_data->width = stripe_config->width;
+		wm_data->width = cam_vfe_bus_ver3_convert_bytes_to_pixels(
+			wm_data->pack_fmt, stripe_config->width);
 		wm_data->offset = stripe_config->offset;
 		CAM_DBG(CAM_ISP, "id:%x WM:%d width:0x%x offset:%x",
 			stripe_args->res->res_id, wm_data->index,
