@@ -20,6 +20,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/consumer.h>
 #include <linux/extcon.h>
+#include <linux/usb/class-dual-role.h>
 #include "storm-watch.h"
 
 enum print_reason {
@@ -75,6 +76,7 @@ enum print_reason {
 #define CHG_TERMINATION_VOTER		"CHG_TERMINATION_VOTER"
 #define THERMAL_THROTTLE_VOTER		"THERMAL_THROTTLE_VOTER"
 #define VOUT_VOTER			"VOUT_VOTER"
+#define DR_SWAP_VOTER			"DR_SWAP_VOTER"
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -93,6 +95,8 @@ enum print_reason {
 #define TYPEC_DEFAULT_CURRENT_UA	900000
 #define TYPEC_MEDIUM_CURRENT_UA		1500000
 #define TYPEC_HIGH_CURRENT_UA		3000000
+
+#define ROLE_REVERSAL_DELAY_MS		2000
 
 enum smb_mode {
 	PARALLEL_MASTER = 0,
@@ -366,6 +370,7 @@ struct smb_charger {
 	/* locks */
 	struct mutex		smb_lock;
 	struct mutex		ps_change_lock;
+	struct mutex		dr_lock;
 
 	/* power supplies */
 	struct power_supply		*batt_psy;
@@ -377,6 +382,9 @@ struct smb_charger {
 	struct power_supply		*wls_psy;
 	struct power_supply		*cp_psy;
 	enum power_supply_type		real_charger_type;
+
+	/* dual role class */
+	struct dual_role_phy_instance	*dual_role;
 
 	/* notifiers */
 	struct notifier_block	nb;
@@ -418,6 +426,7 @@ struct smb_charger {
 	struct delayed_work	lpd_detach_work;
 	struct delayed_work	thermal_regulation_work;
 	struct delayed_work	usbov_dbc_work;
+	struct delayed_work	role_reversal_check;
 
 	struct alarm		lpd_recheck_timer;
 	struct alarm		moisture_protection_alarm;
@@ -503,6 +512,7 @@ struct smb_charger {
 	bool			aicl_max_reached;
 	int			charge_full_cc;
 	int			cc_soc_ref;
+	int			dr_mode;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -707,6 +717,7 @@ int smblib_get_prop_pr_swap_in_progress(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_set_prop_pr_swap_in_progress(struct smb_charger *chg,
 				const union power_supply_propval *val);
+int smblib_force_dr_mode(struct smb_charger *chg, int mode);
 int smblib_get_prop_from_bms(struct smb_charger *chg,
 				enum power_supply_property psp,
 				union power_supply_propval *val);

@@ -4718,6 +4718,8 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 		smblib_micro_usb_plugin(chg, vbus_rising);
 
 	power_supply_changed(chg->usb_psy);
+	if (chg->dual_role)
+		dual_role_instance_changed(chg->dual_role);
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: usbin-plugin %s\n",
 					vbus_rising ? "attached" : "detached");
 }
@@ -4957,6 +4959,8 @@ irqreturn_t usb_source_change_irq_handler(int irq, void *data)
 	smblib_hvdcp_adaptive_voltage_change(chg);
 
 	power_supply_changed(chg->usb_psy);
+	if (chg->dual_role)
+		dual_role_instance_changed(chg->dual_role);
 
 	rc = smblib_read(chg, APSD_STATUS_REG, &stat);
 	if (rc < 0) {
@@ -5358,6 +5362,8 @@ irqreturn_t typec_state_change_irq_handler(int irq, void *data)
 				smblib_typec_mode_name[chg->typec_mode]);
 
 	power_supply_changed(chg->usb_psy);
+	if (chg->dual_role)
+		dual_role_instance_changed(chg->dual_role);
 
 	return IRQ_HANDLED;
 }
@@ -5434,6 +5440,15 @@ irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 			chg->sink_src_mode = UNATTACHED_MODE;
 			chg->early_usb_attach = false;
 			smblib_apsd_enable(chg, true);
+
+			/*
+			 * Restore DRP mode on type-C cable disconnect if role
+			 * swap is not in progress, to ensure forced sink or src
+			 * mode configuration is reset properly.
+			 */
+			if (chg->dual_role)
+				smblib_force_dr_mode(chg,
+						DUAL_ROLE_PROP_MODE_NONE);
 		}
 
 		if (chg->lpd_stage == LPD_STAGE_FLOAT_CANCEL)
@@ -5442,6 +5457,8 @@ irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 	}
 
 	power_supply_changed(chg->usb_psy);
+	if (chg->dual_role)
+		dual_role_instance_changed(chg->dual_role);
 
 	return IRQ_HANDLED;
 }
@@ -6331,6 +6348,97 @@ static void smblib_lpd_detach_work(struct work_struct *work)
 		chg->lpd_stage = LPD_STAGE_NONE;
 }
 
+static char *dr_mode_text[] = {
+	"ufp", "dfp", "none"
+};
+
+int smblib_force_dr_mode(struct smb_charger *chg, int mode)
+{
+	int rc = 0;
+
+	switch (mode) {
+	case DUAL_ROLE_PROP_MODE_UFP:
+		rc = smblib_masked_write(chg, TYPE_C_MODE_CFG_REG,
+				TYPEC_POWER_ROLE_CMD_MASK | EN_TRY_SNK_BIT,
+				EN_SNK_ONLY_BIT);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't enable snk, rc=%d\n", rc);
+			return rc;
+		}
+		break;
+	case DUAL_ROLE_PROP_MODE_DFP:
+		rc = smblib_masked_write(chg, TYPE_C_MODE_CFG_REG,
+				TYPEC_POWER_ROLE_CMD_MASK | EN_TRY_SNK_BIT,
+				EN_SRC_ONLY_BIT);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't enable src, rc=%d\n", rc);
+			return rc;
+		}
+		break;
+	case DUAL_ROLE_PROP_MODE_NONE:
+		rc = smblib_masked_write(chg, TYPE_C_MODE_CFG_REG,
+				TYPEC_POWER_ROLE_CMD_MASK | EN_TRY_SNK_BIT,
+				EN_TRY_SNK_BIT);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't enable try.snk, rc=%d\n", rc);
+			return rc;
+		}
+		break;
+	default:
+		smblib_err(chg, "Power role %d not supported\n", mode);
+		return -EINVAL;
+	}
+
+	if (chg->dr_mode != mode) {
+		chg->dr_mode = mode;
+		smblib_dbg(chg, PR_MISC, "Forced mode: %s\n",
+					dr_mode_text[chg->dr_mode]);
+	}
+
+	return rc;
+}
+
+static void smblib_dual_role_check_work(struct work_struct *work)
+{
+	struct smb_charger *chg = container_of(work, struct smb_charger,
+					role_reversal_check.work);
+	int rc = 0;
+
+	mutex_lock(&chg->dr_lock);
+
+	switch (chg->dr_mode) {
+	case DUAL_ROLE_PROP_MODE_UFP:
+		if (chg->typec_mode < POWER_SUPPLY_TYPEC_SOURCE_DEFAULT) {
+			smblib_dbg(chg, PR_MISC, "Role reversal not latched to UFP in %d msecs. Resetting to DRP mode\n",
+				ROLE_REVERSAL_DELAY_MS);
+			rc = smblib_force_dr_mode(chg,
+						DUAL_ROLE_PROP_MODE_NONE);
+			if (rc < 0)
+				pr_err("Failed to set DRP mode, rc=%d\n", rc);
+		}
+		chg->pr_swap_in_progress = false;
+		break;
+	case DUAL_ROLE_PROP_MODE_DFP:
+		if (chg->typec_mode >= POWER_SUPPLY_TYPEC_SOURCE_DEFAULT ||
+				chg->typec_mode == POWER_SUPPLY_TYPEC_NONE) {
+			smblib_dbg(chg, PR_MISC, "Role reversal not latched to DFP in %d msecs. Resetting to DRP mode\n",
+				ROLE_REVERSAL_DELAY_MS);
+			rc = smblib_force_dr_mode(chg,
+						DUAL_ROLE_PROP_MODE_NONE);
+			if (rc < 0)
+				pr_err("Failed to set DRP mode, rc=%d\n", rc);
+		}
+		chg->pr_swap_in_progress = false;
+		break;
+	default:
+		pr_debug("Already in DRP mode\n");
+		break;
+	}
+
+	mutex_unlock(&chg->dr_lock);
+	vote(chg->awake_votable, DR_SWAP_VOTER, false, 0);
+}
+
 static int smblib_create_votables(struct smb_charger *chg)
 {
 	int rc = 0;
@@ -6476,6 +6584,8 @@ int smblib_init(struct smb_charger *chg)
 	INIT_DELAYED_WORK(&chg->thermal_regulation_work,
 					smblib_thermal_regulation_work);
 	INIT_DELAYED_WORK(&chg->usbov_dbc_work, smblib_usbov_dbc_work);
+	INIT_DELAYED_WORK(&chg->role_reversal_check,
+					smblib_dual_role_check_work);
 
 	if (chg->wa_flags & CHG_TERMINATION_WA) {
 		INIT_WORK(&chg->chg_termination_work,
@@ -6511,6 +6621,7 @@ int smblib_init(struct smb_charger *chg)
 	chg->sec_chg_selected = POWER_SUPPLY_CHARGER_SEC_NONE;
 	chg->cp_reason = POWER_SUPPLY_CP_NONE;
 	chg->thermal_status = TEMP_BELOW_RANGE;
+	chg->dr_mode = DUAL_ROLE_PROP_MODE_NONE;
 
 	switch (chg->mode) {
 	case PARALLEL_MASTER:
@@ -6615,6 +6726,7 @@ int smblib_deinit(struct smb_charger *chg)
 		cancel_delayed_work_sync(&chg->lpd_detach_work);
 		cancel_delayed_work_sync(&chg->thermal_regulation_work);
 		cancel_delayed_work_sync(&chg->usbov_dbc_work);
+		cancel_delayed_work_sync(&chg->role_reversal_check);
 		power_supply_unreg_notifier(&chg->nb);
 		smblib_destroy_votables(chg);
 		qcom_step_chg_deinit();
