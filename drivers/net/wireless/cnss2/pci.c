@@ -223,6 +223,25 @@ int cnss_pci_link_down(struct device *dev)
 }
 EXPORT_SYMBOL(cnss_pci_link_down);
 
+static int cnss_pci_check_link_status(struct cnss_pci_data *pci_priv)
+{
+	u16 device_id;
+
+	if (pci_priv->pci_link_down_ind) {
+		cnss_pr_err("PCIe link is down\n");
+		return -EIO;
+	}
+
+	pci_read_config_word(pci_priv->pci_dev, PCI_DEVICE_ID, &device_id);
+	if (device_id != pci_priv->device_id)  {
+		cnss_pr_err("PCI device ID mismatch, link possibly down, current read ID: 0x%x, record ID: 0x%x\n",
+			    device_id, pci_priv->device_id);
+		return -EIO;
+	}
+
+	return 0;
+}
+
 int cnss_pci_is_device_down(struct device *dev)
 {
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
@@ -1936,6 +1955,16 @@ static char *cnss_mhi_state_to_str(enum cnss_mhi_state mhi_state)
 	}
 };
 
+static void cnss_pci_dump_registers(struct cnss_pci_data *pci_priv)
+{
+	cnss_pr_dbg("Start to dump debug registers\n");
+
+	if (cnss_pci_check_link_status(pci_priv))
+		return;
+
+	mhi_debug_reg_dump(pci_priv->mhi_ctrl);
+}
+
 void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 {
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
@@ -1947,9 +1976,12 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 	struct cnss_fw_mem *fw_mem = plat_priv->fw_mem;
 	int ret, i;
 
+	cnss_pci_dump_registers(pci_priv);
+
 	ret = mhi_download_rddm_img(pci_priv->mhi_ctrl, in_panic);
 	if (ret) {
 		cnss_pr_err("Failed to download RDDM image, err = %d\n", ret);
+		cnss_pci_dump_registers(pci_priv);
 		return;
 	}
 
@@ -2052,21 +2084,13 @@ static void cnss_dev_rddm_timeout_hdlr(struct timer_list *t)
 static int cnss_mhi_link_status(struct mhi_controller *mhi_ctrl, void *priv)
 {
 	struct cnss_pci_data *pci_priv = priv;
-	u16 device_id;
 
 	if (!pci_priv) {
 		cnss_pr_err("pci_priv is NULL\n");
 		return -EINVAL;
 	}
 
-	pci_read_config_word(pci_priv->pci_dev, PCI_DEVICE_ID, &device_id);
-	if (device_id != pci_priv->device_id)  {
-		cnss_pr_err("PCI device ID mismatch, link possibly down, current read ID: 0x%x, record ID: 0x%x\n",
-			    device_id, pci_priv->device_id);
-		return -EIO;
-	}
-
-	return 0;
+	return cnss_pci_check_link_status(pci_priv);
 }
 
 static void cnss_mhi_notify_status(struct mhi_controller *mhi_ctrl, void *priv,
