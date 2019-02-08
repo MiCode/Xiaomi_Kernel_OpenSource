@@ -1406,6 +1406,62 @@ static struct iommu_gather_ops msm_smmu_gather_ops = {
 	.free_pages_exact = arm_smmu_free_pages_exact,
 };
 
+static void print_ctx_regs(struct arm_smmu_device *smmu, struct arm_smmu_cfg
+			   *cfg, unsigned int fsr)
+{
+	u32 fsynr0;
+	void __iomem *cb_base = ARM_SMMU_CB(smmu, cfg->cbndx);
+	void __iomem *gr1_base = ARM_SMMU_GR1(smmu);
+	bool stage1 = cfg->cbar != CBAR_TYPE_S2_TRANS;
+
+	fsynr0 = readl_relaxed(cb_base + ARM_SMMU_CB_FSYNR0);
+
+	dev_err(smmu->dev, "FAR    = 0x%016llx\n",
+		readq_relaxed(cb_base + ARM_SMMU_CB_FAR));
+	dev_err(smmu->dev, "PAR    = 0x%pK\n",
+		readq_relaxed(cb_base + ARM_SMMU_CB_PAR));
+
+	dev_err(smmu->dev,
+		"FSR    = 0x%08x [%s%s%s%s%s%s%s%s%s%s]\n",
+		fsr,
+		(fsr & 0x02) ?  (fsynr0 & 0x10 ?
+				 "TF W " : "TF R ") : "",
+		(fsr & 0x04) ? "AFF " : "",
+		(fsr & 0x08) ? (fsynr0 & 0x10 ?
+				"PF W " : "PF R ") : "",
+		(fsr & 0x10) ? "EF " : "",
+		(fsr & 0x20) ? "TLBMCF " : "",
+		(fsr & 0x40) ? "TLBLKF " : "",
+		(fsr & 0x80) ? "MHF " : "",
+		(fsr & 0x100) ? "UUT " : "",
+		(fsr & 0x40000000) ? "SS " : "",
+		(fsr & 0x80000000) ? "MULTI " : "");
+
+	if (cfg->fmt == ARM_SMMU_CTX_FMT_AARCH32_S) {
+		dev_err(smmu->dev, "TTBR0  = 0x%pK\n",
+			readl_relaxed(cb_base + ARM_SMMU_CB_TTBR0));
+		dev_err(smmu->dev, "TTBR1  = 0x%pK\n",
+			readl_relaxed(cb_base + ARM_SMMU_CB_TTBR1));
+	} else {
+		dev_err(smmu->dev, "TTBR0  = 0x%pK\n",
+			readq_relaxed(cb_base + ARM_SMMU_CB_TTBR0));
+		if (stage1)
+			dev_err(smmu->dev, "TTBR1  = 0x%pK\n",
+				readq_relaxed(cb_base + ARM_SMMU_CB_TTBR1));
+	}
+
+
+	dev_err(smmu->dev, "SCTLR  = 0x%08x ACTLR  = 0x%08x\n",
+	       readl_relaxed(cb_base + ARM_SMMU_CB_SCTLR),
+	       readl_relaxed(cb_base + ARM_SMMU_CB_ACTLR));
+	dev_err(smmu->dev, "CBAR  = 0x%08x\n",
+	       readl_relaxed(gr1_base + ARM_SMMU_GR1_CBAR(cfg->cbndx)));
+	dev_err(smmu->dev, "MAIR0   = 0x%08x MAIR1   = 0x%08x\n",
+	       readl_relaxed(cb_base + ARM_SMMU_CB_S1_MAIR0),
+	       readl_relaxed(cb_base + ARM_SMMU_CB_S1_MAIR1));
+
+}
+
 static phys_addr_t arm_smmu_verify_fault(struct iommu_domain *domain,
 					 dma_addr_t iova, u32 fsr)
 {
@@ -1501,23 +1557,9 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 			dev_err(smmu->dev,
 				"Unhandled context fault: iova=0x%08lx, cb=%d, fsr=0x%x, fsynr0=0x%x, fsynr1=0x%x\n",
 				iova, cfg->cbndx, fsr, fsynr0, fsynr1);
-			dev_err(smmu->dev, "FAR    = %016lx\n",
-				(unsigned long)iova);
-			dev_err(smmu->dev,
-				"FSR    = %08x [%s%s%s%s%s%s%s%s%s%s]\n",
-				fsr,
-				(fsr & 0x02) ?  (fsynr0 & 0x10 ?
-						"TF W " : "TF R ") : "",
-				(fsr & 0x04) ? "AFF " : "",
-				(fsr & 0x08) ? (fsynr0 & 0x10 ?
-						"PF W " : "PF R ") : "",
-				(fsr & 0x10) ? "EF " : "",
-				(fsr & 0x20) ? "TLBMCF " : "",
-				(fsr & 0x40) ? "TLBLKF " : "",
-				(fsr & 0x80) ? "MHF " : "",
-				(fsr & 0x100) ? "UUT " : "",
-				(fsr & 0x40000000) ? "SS " : "",
-				(fsr & 0x80000000) ? "MULTI " : "");
+
+			print_ctx_regs(smmu, cfg, fsr);
+
 			dev_err(smmu->dev,
 				"soft iova-to-phys=%pa\n", &phys_soft);
 			if (!phys_soft)
