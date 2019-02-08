@@ -3,7 +3,7 @@
  *
  * FTS Capacitive touch screen controller (FingerTipS)
  *
- * Copyright (C) 2016-2019, STMicroelectronics Limited.
+ * Copyright (C) 2016-2018, STMicroelectronics Limited.
  * Authors: AMG(Analog Mems Group)
  *
  *		marco.cali@st.com
@@ -134,7 +134,6 @@ static int fts_init_afterProbe(struct fts_ts_info *info);
 static int fts_mode_handler(struct fts_ts_info *info, int force);
 static int fts_command(struct fts_ts_info *info, unsigned char cmd);
 static int fts_chip_initialization(struct fts_ts_info *info);
-static int fts_enable_reg(struct fts_ts_info *info, bool enable);
 
 active_tp_setup(st);
 
@@ -4023,11 +4022,6 @@ static void fts_resume_work(struct work_struct *work)
 
 	__pm_wakeup_event(&info->wakeup_source, HZ);
 
-	if (fts_enable_reg(info, true) < 0) {
-		logError(1, "%s %s: ERROR Failed to enable regulators\n",
-			tag, __func__);
-	}
-
 	if (info->ts_pinctrl) {
 		/*
 		 * Pinctrl handle is optional. If pinctrl handle is found
@@ -4090,8 +4084,6 @@ static void fts_suspend_work(struct work_struct *work)
 				__func__, PINCTRL_STATE_SUSPEND);
 		}
 	}
-
-	fts_enable_reg(info, false);
 }
 
 

@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2012-2017 Qualcomm Atheros, Inc.
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -1567,7 +1567,12 @@ int wil_cfg80211_mgmt_tx(struct wiphy *wiphy, struct wireless_dev *wdev,
 			     params->wait);
 
 out:
+	/* when the sent packet was not acked by receiver(ACK=0), rc will
+	 * be -EAGAIN. In this case this function needs to return success,
+	 * the ACK=0 will be reflected in tx_status.
+	 */
 	tx_status = (rc == 0);
+	rc = (rc == -EAGAIN) ? 0 : rc;
 	cfg80211_mgmt_tx_status(wdev, cookie ? *cookie : 0, buf, len,
 				tx_status, GFP_KERNEL);
 

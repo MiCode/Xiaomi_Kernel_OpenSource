@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,6 +65,8 @@
 
 #define ICNSS_QUIRKS_DEFAULT		BIT(FW_REJUVENATE_ENABLE)
 #define ICNSS_MAX_PROBE_CNT		2
+
+#define PROBE_TIMEOUT			5000
 
 static struct icnss_priv *penv;
 
@@ -883,6 +885,8 @@ static int icnss_call_driver_probe(struct icnss_priv *priv)
 
 	icnss_hw_power_on(priv);
 
+	set_bit(ICNSS_DRIVER_LOADING, &priv->state);
+	reinit_completion(&penv->driver_probed);
 	while (probe_cnt < ICNSS_MAX_PROBE_CNT) {
 		ret = priv->ops->probe(&priv->pdev->dev);
 		probe_cnt++;
@@ -892,9 +896,13 @@ static int icnss_call_driver_probe(struct icnss_priv *priv)
 	if (ret < 0) {
 		icnss_pr_err("Driver probe failed: %d, state: 0x%lx, probe_cnt: %d\n",
 			     ret, priv->state, probe_cnt);
+		complete(&penv->driver_probed);
+		clear_bit(ICNSS_DRIVER_LOADING, &penv->state);
 		goto out;
 	}
 
+	complete(&penv->driver_probed);
+	clear_bit(ICNSS_DRIVER_LOADING, &priv->state);
 	set_bit(ICNSS_DRIVER_PROBED, &priv->state);
 
 	return 0;
@@ -1033,6 +1041,8 @@ static int icnss_driver_event_register_driver(void *data)
 	if (ret)
 		goto out;
 
+	set_bit(ICNSS_DRIVER_LOADING, &penv->state);
+	reinit_completion(&penv->driver_probed);
 	while (probe_cnt < ICNSS_MAX_PROBE_CNT) {
 		ret = penv->ops->probe(&penv->pdev->dev);
 		probe_cnt++;
@@ -1042,9 +1052,13 @@ static int icnss_driver_event_register_driver(void *data)
 	if (ret) {
 		icnss_pr_err("Driver probe failed: %d, state: 0x%lx, probe_cnt: %d\n",
 			     ret, penv->state, probe_cnt);
+		clear_bit(ICNSS_DRIVER_LOADING, &penv->state);
+		complete(&penv->driver_probed);
 		goto power_off;
 	}
 
+	complete(&penv->driver_probed);
+	clear_bit(ICNSS_DRIVER_LOADING, &penv->state);
 	set_bit(ICNSS_DRIVER_PROBED, &penv->state);
 
 	return 0;
@@ -1268,6 +1282,13 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 
 	if (code != SUBSYS_BEFORE_SHUTDOWN)
 		return NOTIFY_OK;
+
+	if (code == SUBSYS_BEFORE_SHUTDOWN && !notif->crashed &&
+	    test_bit(ICNSS_DRIVER_LOADING, &priv->state)) {
+		if (!wait_for_completion_timeout(&priv->driver_probed,
+						 PROBE_TIMEOUT))
+			icnss_pr_err("wlan driver probe timeout\n");
+	}
 
 	if (code == SUBSYS_BEFORE_SHUTDOWN && !notif->crashed) {
 		ret = wlfw_send_modem_shutdown_msg(priv);
@@ -2579,6 +2600,9 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 			continue;
 		case ICNSS_MODE_ON:
 			seq_puts(s, "MODE ON DONE");
+			continue;
+		case ICNSS_DRIVER_LOADING:
+			seq_puts(s, "WLAN DRIVER LOADING");
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);
@@ -3202,6 +3226,8 @@ static int icnss_probe(struct platform_device *pdev)
 
 	penv = priv;
 
+	init_completion(&priv->driver_probed);
+
 	icnss_pr_info("Platform driver probed successfully\n");
 
 	return 0;
@@ -3223,6 +3249,8 @@ static int icnss_remove(struct platform_device *pdev)
 	device_init_wakeup(&penv->pdev->dev, false);
 
 	icnss_debugfs_destroy(penv);
+
+	complete_all(&penv->driver_probed);
 
 	icnss_modem_ssr_unregister_notifier(penv);
 

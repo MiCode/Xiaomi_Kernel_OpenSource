@@ -5317,6 +5317,7 @@ static phys_addr_t qsmmuv500_iova_to_phys(
 redo:
 	/* Set address and stream-id */
 	val = readq_relaxed(tbu->base + DEBUG_SID_HALT_REG);
+	val &= ~DEBUG_SID_HALT_SID_MASK;
 	val |= sid & DEBUG_SID_HALT_SID_MASK;
 	writeq_relaxed(val, tbu->base + DEBUG_SID_HALT_REG);
 	writeq_relaxed(iova, tbu->base + DEBUG_VA_ADDR_REG);
@@ -5379,6 +5380,9 @@ redo:
 	/* Reset hardware */
 	writeq_relaxed(0, tbu->base + DEBUG_TXN_TRIGG_REG);
 	writeq_relaxed(0, tbu->base + DEBUG_VA_ADDR_REG);
+	val = readl_relaxed(tbu->base + DEBUG_SID_HALT_REG);
+	val &= ~DEBUG_SID_HALT_SID_MASK;
+	writel_relaxed(val, tbu->base + DEBUG_SID_HALT_REG);
 
 	/*
 	 * After a failed translation, the next successful translation will

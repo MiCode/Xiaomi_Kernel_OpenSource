@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -511,13 +511,15 @@ void qmi_rmnet_change_link(struct net_device *dev, void *port, void *tcm_pt)
 			return;
 
 		if (qmi_rmnet_setup_client(port, qmi, tcm) < 0) {
-			if (!qmi_rmnet_has_client(qmi) &&
+			/* retrieve qmi again as it could have been changed */
+			qmi = (struct qmi_info *)rmnet_get_qmi_pt(port);
+			if (qmi &&
+			    !qmi_rmnet_has_client(qmi) &&
 			    !qmi_rmnet_has_pending(qmi)) {
-				kfree(qmi);
 				rmnet_reset_qmi_pt(port);
+				kfree(qmi);
 			}
-		}
-		if (tcm->tcm_ifindex & FLAG_POWERSAVE_MASK) {
+		} else if (tcm->tcm_ifindex & FLAG_POWERSAVE_MASK) {
 			qmi_rmnet_work_init(port);
 			rmnet_set_powersave_format(port);
 		}
@@ -525,7 +527,7 @@ void qmi_rmnet_change_link(struct net_device *dev, void *port, void *tcm_pt)
 	case NLMSG_CLIENT_DELETE:
 		if (!qmi)
 			return;
-		if (tcm->tcm_ifindex & FLAG_POWERSAVE_MASK) {
+		if (tcm->tcm_handle == 0) { /* instance 0 */
 			rmnet_clear_powersave_format(port);
 			qmi_rmnet_work_exit(port);
 		}
@@ -557,7 +559,7 @@ void qmi_rmnet_qmi_exit(void *qmi_pt, void *port)
 		data = qmi->wda_pending;
 
 	if (data) {
-		wda_qmi_client_exit(qmi->wda_client);
+		wda_qmi_client_exit(data);
 		qmi->wda_client = NULL;
 		qmi->wda_pending = NULL;
 	}

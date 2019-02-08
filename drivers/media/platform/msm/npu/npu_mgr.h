@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -78,6 +78,8 @@ struct npu_host_ctx {
 	int32_t fw_ref_cnt;
 	int32_t power_vote_num;
 	struct work_struct irq_work;
+	struct delayed_work fw_deinit_work;
+	atomic_t fw_deinit_work_cnt;
 	struct workqueue_struct *wq;
 	struct completion loopback_done;
 	struct completion fw_deinit_done;
@@ -86,6 +88,7 @@ struct npu_host_ctx {
 	bool sys_cache_disable;
 	uint32_t fw_dbg_mode;
 	uint32_t exec_flags_override;
+	uint32_t fw_unload_delay_ms;
 	atomic_t ipc_trans_id;
 	atomic_t network_exeute_cnt;
 
