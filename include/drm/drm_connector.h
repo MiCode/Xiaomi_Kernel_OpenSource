@@ -1035,6 +1035,7 @@ struct drm_connector {
 	u32 hdr_avg_luminance;
 	u32 hdr_min_luminance;
 	bool hdr_supported;
+	u8 hdr_plus_app_ver;
 
 	/* EDID bits HDMI 2.0
 	 * @max_tmds_char: indicates the maximum TMDS Character Rate supported

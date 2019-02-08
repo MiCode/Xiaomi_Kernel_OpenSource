@@ -83,6 +83,7 @@ struct drm_msm_timespec {
 #define HDR_EOTF_HLG		0x3
 
 #define DRM_MSM_EXT_HDR_METADATA
+#define DRM_MSM_EXT_HDR_PLUS_METADATA
 struct drm_msm_ext_hdr_metadata {
 	__u32 hdr_state;        /* HDR state */
 	__u32 eotf;             /* electro optical transfer function */
@@ -95,6 +96,9 @@ struct drm_msm_ext_hdr_metadata {
 	__u32 min_luminance;    /* Min Luminance */
 	__u32 max_content_light_level; /* max content light level */
 	__u32 max_average_light_level; /* max average light level */
+
+	__u64 hdr_plus_payload;     /* user pointer to dynamic HDR payload */
+	__u32 hdr_plus_payload_size;/* size of dynamic HDR payload data */
 };
 
 /**
@@ -103,6 +107,7 @@ struct drm_msm_ext_hdr_metadata {
  * to determine the HDR properties to be set to the sink.
  */
 #define DRM_MSM_EXT_HDR_PROPERTIES
+#define DRM_MSM_EXT_HDR_PLUS_PROPERTIES
 struct drm_msm_ext_hdr_properties {
 	__u8 hdr_metadata_type_one;   /* static metadata type one */
 	__u32 hdr_supported;          /* HDR supported */
@@ -110,6 +115,8 @@ struct drm_msm_ext_hdr_properties {
 	__u32 hdr_max_luminance;      /* Max luminance */
 	__u32 hdr_avg_luminance;      /* Avg luminance */
 	__u32 hdr_min_luminance;      /* Min Luminance */
+
+	__u32 hdr_plus_supported;     /* HDR10+ supported */
 };
 
 #define MSM_PARAM_GPU_ID     0x01
