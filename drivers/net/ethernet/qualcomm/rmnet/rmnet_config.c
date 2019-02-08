@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * RMNET configuration engine
  *
@@ -216,6 +216,10 @@ static void rmnet_dellink(struct net_device *dev, struct list_head *head)
 		synchronize_rcu();
 		kfree(ep);
 	}
+
+	if (!port->nr_rmnet_devs)
+		qmi_rmnet_qmi_exit(port->qmi_info, port);
+
 	rmnet_unregister_real_device(real_dev, port);
 
 	unregister_netdevice_queue(dev, head);
@@ -236,6 +240,7 @@ static void rmnet_force_unassociate_device(struct net_device *dev)
 	ASSERT_RTNL();
 
 	port = rmnet_get_port_rtnl(dev);
+	qmi_rmnet_qmi_exit(port->qmi_info, port);
 
 	rmnet_unregister_bridge(dev, port);
 
@@ -249,8 +254,6 @@ static void rmnet_force_unassociate_device(struct net_device *dev)
 	}
 
 	unregister_netdevice_many(&list);
-
-	qmi_rmnet_qmi_exit(port->qmi_info, port);
 
 	rmnet_unregister_real_device(real_dev, port);
 }
@@ -554,6 +557,7 @@ void rmnet_get_packets(void *port, u64 *rx, u64 *tx)
 
 	*tx = 0;
 	*rx = 0;
+	rcu_read_lock();
 	hash_for_each(((struct rmnet_port *)port)->muxed_ep, bkt, ep, hlnode) {
 		priv = netdev_priv(ep->egress_dev);
 		for_each_possible_cpu(cpu) {
@@ -565,6 +569,7 @@ void rmnet_get_packets(void *port, u64 *rx, u64 *tx)
 			} while (u64_stats_fetch_retry_irq(&ps->syncp, start));
 		}
 	}
+	rcu_read_unlock();
 }
 EXPORT_SYMBOL(rmnet_get_packets);
 
@@ -600,6 +605,30 @@ void rmnet_enable_all_flows(void *port)
 	rcu_read_unlock();
 }
 EXPORT_SYMBOL(rmnet_enable_all_flows);
+
+bool rmnet_all_flows_enabled(void *port)
+{
+	struct rmnet_endpoint *ep;
+	unsigned long bkt;
+	bool ret = true;
+
+	if (unlikely(!port))
+		return true;
+
+	rcu_read_lock();
+	hash_for_each_rcu(((struct rmnet_port *)port)->muxed_ep,
+			  bkt, ep, hlnode) {
+		if (!qmi_rmnet_all_flows_enabled(ep->egress_dev)) {
+			ret = false;
+			goto out;
+		}
+	}
+out:
+	rcu_read_unlock();
+
+	return ret;
+}
+EXPORT_SYMBOL(rmnet_all_flows_enabled);
 
 int rmnet_get_powersave_notif(void *port)
 {

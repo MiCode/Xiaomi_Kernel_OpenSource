@@ -28,8 +28,6 @@ struct rmnet_port_priv_stats {
 	u64 dl_hdr_count;
 	u64 dl_hdr_total_bytes;
 	u64 dl_hdr_total_pkts;
-	u64 dl_hdr_avg_bytes;
-	u64 dl_hdr_avg_pkts;
 	u64 dl_trl_last_seq;
 	u64 dl_trl_count;
 };
@@ -58,6 +56,7 @@ struct rmnet_port {
 	struct timespec agg_time;
 	struct timespec agg_last;
 	struct hrtimer hrtimer;
+	struct work_struct agg_wq;
 
 	void *qmi_info;
 
@@ -128,6 +127,11 @@ struct rmnet_priv {
 	struct gro_cells gro_cells;
 	struct rmnet_priv_stats stats;
 	void __rcu *qos_info;
+};
+
+enum rmnet_dl_marker_prio {
+	RMNET_PERF,
+	RMNET_SHS,
 };
 
 enum rmnet_trace_func {
