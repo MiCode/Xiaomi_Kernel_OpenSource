@@ -55,7 +55,7 @@ to CDM interface node.
   Usage: required
   Value type: <string>
   Definition: Should be "qcom,cam480-cpas-cdm0", "qcom,cam480-cpas-cdm1"
-              or "qcom,cam480-cpas-cdm2".
+              "qcom,cam170-cpas-cdm0" or "qcom,cam480-cpas-cdm2".
 
 - label
   Usage: required
