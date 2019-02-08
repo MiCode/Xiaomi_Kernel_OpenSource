@@ -546,6 +546,7 @@
 			"gcc_axi_sf_clk",
 			"slow_ahb_clk_src",
 			"cpas_ahb_clk",
+			"cpas_core_ahb_clk",
 			"camnoc_axi_clk_src",
 			"camnoc_axi_clk";
 		clocks =
@@ -554,17 +555,18 @@
 			<&clock_gcc GCC_CAMERA_SF_AXI_CLK>,
 			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
 			<&clock_camcc CAM_CC_CPAS_AHB_CLK>,
+			<&clock_camcc CAM_CC_CORE_AHB_CLK>,
 			<&clock_camcc CAM_CC_CAMNOC_AXI_CLK_SRC>,
 			<&clock_camcc CAM_CC_CAMNOC_AXI_CLK>;
 		src-clock-name = "camnoc_axi_clk_src";
 		clock-rates =
-			<0 0 0 0 0 0 0>,
-			<0 0 0 19200000 0  19200000 0>,
-			<0 0 0 80000000 0 300000000 0>,
-			<0 0 0 80000000 0 400000000 0>,
-			<0 0 0 80000000 0 400000000 0>,
-			<0 0 0 80000000 0 400000000 0>,
-			<0 0 0 80000000 0 480000000 0>;
+			<0 0 0 0 0 0 0 0>,
+			<0 0 0 19200000 0 0  19200000 0>,
+			<0 0 0 80000000 0 0 300000000 0>,
+			<0 0 0 80000000 0 0 400000000 0>,
+			<0 0 0 80000000 0 0 400000000 0>,
+			<0 0 0 80000000 0 0 400000000 0>,
+			<0 0 0 80000000 0 0 480000000 0>;
 		clock-cntl-level = "suspend", "minsvs", "lowsvs", "svs",
 			"svs_l1", "nominal", "turbo";
 		control-camnoc-axi-clk;
@@ -609,8 +611,7 @@
 			"csid0", "csid1", "csid2", "csid3",
 			"csid4", "csid5", "csid6", "ife0",
 			"ife1", "ife2", "ife3", "sbi0",
-			"ipe0", "cam-cdm-intf0", "cpas-cdm0", "cpas-cdm1",
-			"cpas-cdm2",
+			"ipe0", "cam-cdm-intf0", "cpas-cdm0",
 			"bps0", "icp0", "jpeg-dma0", "jpeg-enc0",
 			"fd0";
 		client-axi-port-names =
@@ -619,8 +620,7 @@
 			"cam_hf_0", "cam_hf_0", "cam_hf_0", "cam_hf_0",
 			"cam_hf_0", "cam_hf_0", "cam_hf_0", "cam_hf_0",
 			"cam_hf_0", "cam_hf_0", "cam_hf_0", "cam_hf_0",
-			"cam_sf_0", "cam_sf_0", "cam_sf_0", "cam_sf_0",
-			"cam_sf_0",
+			"cam_sf_0", "cam_sf_0", "cam_sf_0",
 			"cam_sf_0", "cam_sf_icp", "cam_sf_0", "cam_sf_0",
 			"cam_sf_0";
 		qcom,axi-port-list {
@@ -686,7 +686,7 @@
 
 	qcom,cpas-cdm0@ac4d000 {
 		cell-index = <0>;
-		compatible = "qcom,cam480-cpas-cdm0";
+		compatible = "qcom,cam170-cpas-cdm0";
 		label = "cpas-cdm";
 		reg = <0xac4d000 0x1000>;
 		reg-names = "cpas-cdm";
@@ -701,7 +701,7 @@
 			<&clock_camcc CAM_CC_CPAS_AHB_CLK>;
 		clock-rates = <0 0>;
 		clock-cntl-level = "svs";
-		cdm-client-names = "ife0", "ife1", "ife2", "ife3";
+		cdm-client-names = "ife";
 		status = "ok";
 	};
 
@@ -771,6 +771,8 @@
 			"ife_cphy_rx_clk",
 			"ife_clk_src",
 			"ife_clk",
+			"ife_0_areg",
+			"ife_0_ahb",
 			"ife_axi_clk";
 		clocks =
 			<&clock_camcc CAM_CC_IFE_0_CSID_CLK_SRC>,
@@ -779,12 +781,14 @@
 			<&clock_camcc CAM_CC_IFE_0_CPHY_RX_CLK>,
 			<&clock_camcc CAM_CC_IFE_0_CLK_SRC>,
 			<&clock_camcc CAM_CC_IFE_0_CLK>,
+			<&clock_camcc CAM_CC_IFE_0_AREG_CLK>,
+			<&clock_camcc CAM_CC_IFE_0_AHB_CLK>,
 			<&clock_camcc CAM_CC_IFE_0_AXI_CLK>;
 		clock-rates =
-			<400000000 0 0 0 350000000 0 0>,
-			<400000000 0 0 0 475000000 0 0>,
-			<400000000 0 0 0 576000000 0 0>,
-			<400000000 0 0 0 720000000 0 0>;
+			<400000000 0 400000000 0 350000000 0 100000000 0 0>,
+			<400000000 0 400000000 0 475000000 0 200000000 0 0>,
+			<400000000 0 400000000 0 576000000 0 300000000 0 0>,
+			<400000000 0 400000000 0 720000000 0 400000000 0 0>;
 		clock-cntl-level = "lowsvs", "svs", "svs_l1", "turbo";
 		src-clock-name = "ife_csid_clk_src";
 		clock-control-debugfs = "true";
@@ -804,18 +808,22 @@
 		camss-supply = <&titan_top_gdsc>;
 		ife0-supply = <&ife_0_gdsc>;
 		clock-names =
+			"ife_0_ahb",
+			"ife_0_areg",
 			"ife_clk_src",
 			"ife_clk",
 			"ife_axi_clk";
 		clocks =
+			<&clock_camcc CAM_CC_IFE_0_AHB_CLK>,
+			<&clock_camcc CAM_CC_IFE_0_AREG_CLK>,
 			<&clock_camcc CAM_CC_IFE_0_CLK_SRC>,
 			<&clock_camcc CAM_CC_IFE_0_CLK>,
 			<&clock_camcc CAM_CC_IFE_0_AXI_CLK>;
 		clock-rates =
-			<350000000 0 0>,
-			<475000000 0 0>,
-			<576000000 0 0>,
-			<720000000 0 0>;
+			<0 100000000 350000000 0 0>,
+			<0 200000000 475000000 0 0>,
+			<0 300000000 576000000 0 0>,
+			<0 400000000 720000000 0 0>;
 		clock-cntl-level = "lowsvs", "svs", "svs_l1", "turbo";
 		src-clock-name = "ife_clk_src";
 		clock-control-debugfs = "true";
@@ -843,6 +851,8 @@
 			"ife_cphy_rx_clk",
 			"ife_clk_src",
 			"ife_clk",
+			"ife_1_areg",
+			"ife_1_ahb",
 			"ife_axi_clk";
 		clocks =
 			<&clock_camcc CAM_CC_IFE_1_CSID_CLK_SRC>,
@@ -851,12 +861,14 @@
 			<&clock_camcc CAM_CC_IFE_1_CPHY_RX_CLK>,
 			<&clock_camcc CAM_CC_IFE_1_CLK_SRC>,
 			<&clock_camcc CAM_CC_IFE_1_CLK>,
+			<&clock_camcc CAM_CC_IFE_1_AREG_CLK>,
+			<&clock_camcc CAM_CC_IFE_1_AHB_CLK>,
 			<&clock_camcc CAM_CC_IFE_1_AXI_CLK>;
 		clock-rates =
-			<400000000 0 0 0 350000000 0 0>,
-			<400000000 0 0 0 475000000 0 0>,
-			<400000000 0 0 0 576000000 0 0>,
-			<400000000 0 0 0 720000000 0 0>;
+			<400000000 0 400000000 0 350000000 0 100000000 0 0>,
+			<400000000 0 400000000 0 475000000 0 200000000 0 0>,
+			<400000000 0 400000000 0 576000000 0 300000000 0 0>,
+			<400000000 0 400000000 0 720000000 0 400000000 0 0>;
 		clock-cntl-level = "lowsvs", "svs", "svs_l1", "turbo";
 		src-clock-name = "ife_csid_clk_src";
 		clock-control-debugfs = "true";
@@ -876,18 +888,22 @@
 		camss-supply = <&titan_top_gdsc>;
 		ife1-supply = <&ife_1_gdsc>;
 		clock-names =
+			"ife_1_ahb",
+			"ife_1_areg",
 			"ife_clk_src",
 			"ife_clk",
 			"ife_axi_clk";
 		clocks =
+			<&clock_camcc CAM_CC_IFE_1_AHB_CLK>,
+			<&clock_camcc CAM_CC_IFE_1_AREG_CLK>,
 			<&clock_camcc CAM_CC_IFE_1_CLK_SRC>,
 			<&clock_camcc CAM_CC_IFE_1_CLK>,
 			<&clock_camcc CAM_CC_IFE_1_AXI_CLK>;
 		clock-rates =
-			<350000000 0 0>,
-			<475000000 0 0>,
-			<576000000 0 0>,
-			<720000000 0 0>;
+			<0 100000000 350000000 0 0>,
+			<0 200000000 475000000 0 0>,
+			<0 300000000 576000000 0 0>,
+			<0 400000000 720000000 0 0>;
 		clock-cntl-level = "lowsvs", "svs", "svs_l1", "turbo";
 		src-clock-name = "ife_clk_src";
 		clock-control-debugfs = "true";
@@ -913,6 +929,7 @@
 			"cphy_rx_clk_src",
 			"ife_cphy_rx_clk",
 			"ife_clk_src",
+			"ife_lite_ahb",
 			"ife_clk";
 		clocks =
 			<&clock_camcc CAM_CC_IFE_LITE_CSID_CLK_SRC>,
@@ -920,12 +937,13 @@
 			<&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
 			<&clock_camcc CAM_CC_IFE_LITE_CPHY_RX_CLK>,
 			<&clock_camcc CAM_CC_IFE_LITE_CLK_SRC>,
+			<&clock_camcc CAM_CC_IFE_LITE_AHB_CLK>,
 			<&clock_camcc CAM_CC_IFE_LITE_CLK>;
 		clock-rates =
-			<400000000 0 0 0 400000000 0>,
-			<400000000 0 0 0 480000000 0>,
-			<400000000 0 0 0 480000000 0>,
-			<400000000 0 0 0 480000000 0>;
+			<400000000 0 0 0 400000000 0 0>,
+			<400000000 0 0 0 480000000 0 0>,
+			<400000000 0 0 0 480000000 0 0>,
+			<400000000 0 0 0 480000000 0 0>;
 		clock-cntl-level = "lowsvs", "svs", "svs_l1", "turbo";
 		src-clock-name = "ife_csid_clk_src";
 		clock-control-debugfs = "true";
@@ -943,16 +961,20 @@
 		regulator-names = "camss";
 		camss-supply = <&titan_top_gdsc>;
 		clock-names =
+			"ife_lite_ahb",
+			"ife_lite_axi",
 			"ife_clk_src",
 			"ife_clk";
 		clocks =
+			<&clock_camcc CAM_CC_IFE_LITE_AHB_CLK>,
+			<&clock_camcc CAM_CC_IFE_LITE_AXI_CLK>,
 			<&clock_camcc CAM_CC_IFE_LITE_CLK_SRC>,
 			<&clock_camcc CAM_CC_IFE_LITE_CLK>;
 		clock-rates =
-			<400000000 0>,
-			<480000000 0>,
-			<480000000 0>,
-			<480000000 0>;
+			<0 0 400000000 0>,
+			<0 0 480000000 0>,
+			<0 0 480000000 0>,
+			<0 0 480000000 0>;
 		clock-cntl-level = "lowsvs", "svs", "svs_l1", "turbo";
 		src-clock-name = "ife_clk_src";
 		clock-control-debugfs = "true";
@@ -971,6 +993,7 @@
 		camss-supply = <&titan_top_gdsc>;
 		clock-names =
 			"ife_csid_clk_src",
+			"ife_lite_ahb",
 			"ife_csid_clk",
 			"cphy_rx_clk_src",
 			"ife_cphy_rx_clk",
@@ -982,12 +1005,13 @@
 			<&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
 			<&clock_camcc CAM_CC_IFE_LITE_CPHY_RX_CLK>,
 			<&clock_camcc CAM_CC_IFE_LITE_CLK_SRC>,
+			<&clock_camcc CAM_CC_IFE_LITE_AHB_CLK>,
 			<&clock_camcc CAM_CC_IFE_LITE_CLK>;
 		clock-rates =
-			<400000000 0 0 0 400000000 0>,
-			<400000000 0 0 0 480000000 0>,
-			<400000000 0 0 0 480000000 0>,
-			<400000000 0 0 0 480000000 0>;
+			<400000000 0 0 0 400000000 0 0>,
+			<400000000 0 0 0 480000000 0 0>,
+			<400000000 0 0 0 480000000 0 0>,
+			<400000000 0 0 0 480000000 0 0>;
 		clock-cntl-level = "lowsvs", "svs", "svs_l1", "turbo";
 		src-clock-name = "ife_csid_clk_src";
 		clock-control-debugfs = "true";
@@ -1005,16 +1029,20 @@
 		regulator-names = "camss";
 		camss-supply = <&titan_top_gdsc>;
 		clock-names =
+			"ife_lite_ahb",
+			"ife_lite_axi",
 			"ife_clk_src",
 			"ife_clk";
 		clocks =
+			<&clock_camcc CAM_CC_IFE_LITE_AHB_CLK>,
+			<&clock_camcc CAM_CC_IFE_LITE_AXI_CLK>,
 			<&clock_camcc CAM_CC_IFE_LITE_CLK_SRC>,
 			<&clock_camcc CAM_CC_IFE_LITE_CLK>;
 		clock-rates =
-			<400000000 0>,
-			<480000000 0>,
-			<480000000 0>,
-			<480000000 0>;
+			<0 0 400000000 0>,
+			<0 0 480000000 0>,
+			<0 0 480000000 0>,
+			<0 0 480000000 0>;
 		clock-cntl-level = "lowsvs", "svs", "svs_l1", "turbo";
 		src-clock-name = "ife_clk_src";
 		clock-control-debugfs = "true";
