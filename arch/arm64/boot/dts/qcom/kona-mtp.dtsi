@@ -10,7 +10,7 @@
 #include "kona-audio-overlay.dtsi"
 
 &qupv3_se12_2uart {
-	status = "disabled";
+	status = "ok";
 };
 
 &pm8150a_amoled {
