@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -418,8 +418,8 @@ static int cam_ife_csid_global_reset(struct cam_ife_csid_hw *csid_hw)
 		cam_io_w_mb(0x2, soc_info->reg_map[0].mem_base +
 			csid_reg->rdi_reg[i]->csid_rdi_cfg0_addr);
 
-	/* perform the top CSID HW and SW registers reset */
-	cam_io_w_mb(csid_reg->cmn_reg->csid_rst_stb_sw_all,
+	/* perform the top CSID HW registers reset */
+	cam_io_w_mb(csid_reg->cmn_reg->csid_rst_stb,
 		soc_info->reg_map[0].mem_base +
 		csid_reg->cmn_reg->csid_rst_strobes_addr);
 
@@ -433,6 +433,22 @@ static int cam_ife_csid_global_reset(struct cam_ife_csid_hw *csid_hw)
 		rc = -ETIMEDOUT;
 	}
 
+	/* perform the SW registers reset */
+	cam_io_w_mb(csid_reg->cmn_reg->csid_reg_rst_stb,
+		soc_info->reg_map[0].mem_base +
+		csid_reg->cmn_reg->csid_rst_strobes_addr);
+
+	rc = readl_poll_timeout(soc_info->reg_map[0].mem_base +
+		csid_reg->cmn_reg->csid_top_irq_status_addr,
+			status, (status & 0x1) == 0x1,
+		CAM_IFE_CSID_TIMEOUT_SLEEP_US, CAM_IFE_CSID_TIMEOUT_ALL_US);
+	if (rc < 0) {
+		CAM_ERR(CAM_ISP, "CSID:%d csid_reset fail rc = %d",
+			  csid_hw->hw_intf->hw_idx, rc);
+		rc = -ETIMEDOUT;
+	}
+
+	usleep_range(3000, 3010);
 	val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
 		csid_reg->csi2_reg->csid_csi2_rx_irq_mask_addr);
 	if (val != 0)
@@ -1775,6 +1791,7 @@ static int cam_ife_csid_disable_pxl_path(
 	enum cam_ife_csid_halt_cmd       stop_cmd)
 {
 	int rc = 0;
+	uint32_t val = 0;
 	const struct cam_ife_csid_reg_offset       *csid_reg;
 	struct cam_hw_soc_info                     *soc_info;
 	struct cam_ife_csid_path_cfg               *path_data;
@@ -1834,6 +1851,17 @@ static int cam_ife_csid_disable_pxl_path(
 
 	cam_io_w_mb(0, soc_info->reg_map[0].mem_base +
 		pxl_reg->csid_pxl_irq_mask_addr);
+
+	if (path_data->sync_mode == CAM_ISP_HW_SYNC_MASTER ||
+		path_data->sync_mode == CAM_ISP_HW_SYNC_NONE) {
+		/* configure Halt */
+		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
+			pxl_reg->csid_pxl_ctrl_addr);
+		val &= ~0x3;
+		val |= stop_cmd;
+		cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
+			pxl_reg->csid_pxl_ctrl_addr);
+	}
 
 	return rc;
 }
@@ -2083,7 +2111,7 @@ static int cam_ife_csid_disable_rdi_path(
 	enum cam_ife_csid_halt_cmd                stop_cmd)
 {
 	int rc = 0;
-	uint32_t id;
+	uint32_t id, val = 0;
 	const struct cam_ife_csid_reg_offset       *csid_reg;
 	struct cam_hw_soc_info                     *soc_info;
 
@@ -2127,6 +2155,62 @@ static int cam_ife_csid_disable_rdi_path(
 
 	cam_io_w_mb(0, soc_info->reg_map[0].mem_base +
 		csid_reg->rdi_reg[id]->csid_rdi_irq_mask_addr);
+
+	/* Halt the RDI path */
+	val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
+		csid_reg->rdi_reg[id]->csid_rdi_ctrl_addr);
+	val &= ~0x3;
+	val |= stop_cmd;
+	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
+		csid_reg->rdi_reg[id]->csid_rdi_ctrl_addr);
+
+	return rc;
+}
+
+static int cam_ife_csid_poll_stop_status(
+	struct cam_ife_csid_hw          *csid_hw,
+	uint32_t                         res_mask)
+{
+	int rc = 0;
+	uint32_t csid_status_addr = 0, val = 0, res_id = 0;
+	const struct cam_ife_csid_reg_offset       *csid_reg;
+	struct cam_hw_soc_info                     *soc_info;
+
+	csid_reg = csid_hw->csid_info->csid_reg;
+	soc_info = &csid_hw->hw_info->soc_info;
+
+	for (; res_id < CAM_IFE_PIX_PATH_RES_MAX; res_id++, res_mask >>= 1) {
+		if ((res_mask & 0x1) == 0)
+			continue;
+		val = 0;
+
+		if (res_id == CAM_IFE_PIX_PATH_RES_IPP) {
+			csid_status_addr =
+				csid_reg->ipp_reg->csid_pxl_status_addr;
+		} else if (res_id == CAM_IFE_PIX_PATH_RES_PPP) {
+			csid_status_addr =
+				csid_reg->ppp_reg->csid_pxl_status_addr;
+		} else {
+			csid_status_addr =
+				csid_reg->rdi_reg[res_id]->csid_rdi_status_addr;
+		}
+
+		CAM_DBG(CAM_ISP, "start polling CSID:%d res_id:%d",
+			csid_hw->hw_intf->hw_idx, res_id);
+
+		rc = readl_poll_timeout(soc_info->reg_map[0].mem_base +
+			csid_status_addr, val, (val & 0x1) == 0x1,
+			CAM_IFE_CSID_TIMEOUT_SLEEP_US,
+			CAM_IFE_CSID_TIMEOUT_ALL_US);
+		if (rc < 0) {
+			CAM_ERR(CAM_ISP, "CSID:%d res:%d halt failed rc %d",
+				csid_hw->hw_intf->hw_idx, res_id, rc);
+			rc = -ETIMEDOUT;
+			break;
+		}
+		CAM_DBG(CAM_ISP, "End polling CSID:%d res_id:%d",
+			csid_hw->hw_intf->hw_idx, res_id);
+	}
 
 	return rc;
 }
@@ -2705,6 +2789,7 @@ static int cam_ife_csid_stop(void *hw_priv,
 	struct cam_isp_resource_node         *res;
 	struct cam_csid_hw_stop_args         *csid_stop;
 	uint32_t  i;
+	uint32_t  res_mask = 0;
 
 	if (!hw_priv || !stop_args ||
 		(arg_size != sizeof(struct cam_csid_hw_stop_args))) {
@@ -2736,6 +2821,7 @@ static int cam_ife_csid_stop(void *hw_priv,
 				rc = cam_ife_csid_tpg_stop(csid_hw, res);
 			break;
 		case CAM_ISP_RESOURCE_PIX_PATH:
+			res_mask |= (1 << res->res_id);
 			if (res->res_id == CAM_IFE_PIX_PATH_RES_IPP ||
 				res->res_id == CAM_IFE_PIX_PATH_RES_PPP)
 				rc = cam_ife_csid_disable_pxl_path(csid_hw,
@@ -2752,6 +2838,9 @@ static int cam_ife_csid_stop(void *hw_priv,
 			break;
 		}
 	}
+
+	if (res_mask)
+		rc = cam_ife_csid_poll_stop_status(csid_hw, res_mask);
 
 	for (i = 0; i < csid_stop->num_res; i++) {
 		res = csid_stop->node_res[i];
