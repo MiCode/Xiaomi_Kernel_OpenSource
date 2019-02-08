@@ -1782,8 +1782,8 @@ static int ufshcd_clock_scaling_prepare(struct ufs_hba *hba)
 	 * make sure that there are no outstanding requests when
 	 * clock scaling is in progress
 	 */
-	ufshcd_scsi_block_requests(hba);
 	down_write(&hba->lock);
+	ufshcd_scsi_block_requests(hba);
 	if (ufshcd_wait_for_doorbell_clr(hba, DOORBELL_CLR_TOUT_US)) {
 		ret = -EBUSY;
 		up_write(&hba->lock);
@@ -7446,8 +7446,10 @@ static void ufshcd_rls_handler(struct work_struct *work)
 		return;
 
 	pm_runtime_get_sync(hba->dev);
-	ufshcd_scsi_block_requests(hba);
 	down_write(&hba->lock);
+	ufshcd_scsi_block_requests(hba);
+	if (ufshcd_is_shutdown_ongoing(hba))
+		goto out;
 	ret = ufshcd_wait_for_doorbell_clr(hba, U64_MAX);
 	if (ret) {
 		dev_err(hba->dev,
