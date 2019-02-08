@@ -405,17 +405,28 @@ static struct clk_fixed_factor gpll6_out_main = {
 	},
 };
 
-static struct clk_alpha_pll gpll7_out_main = {
+static struct clk_alpha_pll gpll7_out_early = {
 	.offset = 0x7000,
 	.clkr = {
 		.enable_reg = 0x79000,
 		.enable_mask = BIT(7),
 		.hw.init = &(struct clk_init_data){
-			.name = "gpll7_out_main",
+			.name = "gpll7_out_early",
 			.parent_names = (const char *[]){ "bi_tcxo" },
 			.num_parents = 1,
 			.ops = &clk_alpha_pll_ops,
 		},
+	},
+};
+
+static struct clk_fixed_factor gpll7_out_main = {
+	.mult = 1,
+	.div = 2,
+	.hw.init = &(struct clk_init_data){
+		.name = "gpll7_out_main",
+		.parent_names = (const char *[]){ "gpll7_out_early" },
+		.num_parents = 1,
+		.ops = &clk_fixed_factor_ops,
 	},
 };
 
@@ -4206,6 +4217,7 @@ struct clk_hw *gcc_trinket_hws[] = {
 	[GPLL0_OUT_AUX2] = &gpll0_out_aux2.hw,
 	[GPLL0_OUT_MAIN] = &gpll0_out_main.hw,
 	[GPLL6_OUT_MAIN] = &gpll6_out_main.hw,
+	[GPLL7_OUT_MAIN] = &gpll7_out_main.hw,
 	[GPLL8_OUT_MAIN] = &gpll8_out_main.hw,
 	[GPLL9_OUT_MAIN] = &gpll9_out_main.hw,
 	[MEASURE_ONLY_MMCC_CLK] = &measure_only_mccc_clk.hw,
@@ -4420,7 +4432,7 @@ static struct clk_regmap *gcc_trinket_clocks[] = {
 	[GPLL4_OUT_MAIN] = &gpll4_out_main.clkr,
 	[GPLL5_OUT_MAIN] = &gpll5_out_main.clkr,
 	[GPLL6_OUT_EARLY] = &gpll6_out_early.clkr,
-	[GPLL7_OUT_MAIN] = &gpll7_out_main.clkr,
+	[GPLL7_OUT_EARLY] = &gpll7_out_early.clkr,
 	[GPLL8_OUT_EARLY] = &gpll8_out_early.clkr,
 	[GPLL9_OUT_EARLY] = &gpll9_out_early.clkr,
 	[GCC_USB3_PRIM_CLKREF_CLK] = &gcc_usb3_prim_clkref_clk.clkr,
