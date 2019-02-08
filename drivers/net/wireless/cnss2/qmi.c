@@ -312,6 +312,7 @@ int cnss_wlfw_tgt_cap_send_sync(struct cnss_plat_data *plat_priv)
 	struct wlfw_cap_req_msg_v01 *req;
 	struct wlfw_cap_resp_msg_v01 *resp;
 	struct qmi_txn txn;
+	char *fw_build_timestamp;
 	int ret = 0;
 
 	cnss_pr_dbg("Sending target capability message, state: 0x%lx\n",
@@ -373,6 +374,8 @@ int cnss_wlfw_tgt_cap_send_sync(struct cnss_plat_data *plat_priv)
 	if (resp->fw_version_info_valid) {
 		plat_priv->fw_version_info.fw_version =
 			resp->fw_version_info.fw_version;
+		fw_build_timestamp = resp->fw_version_info.fw_build_timestamp;
+		fw_build_timestamp[QMI_WLFW_MAX_TIMESTAMP_LEN] = '\0';
 		strlcpy(plat_priv->fw_version_info.fw_build_timestamp,
 			resp->fw_version_info.fw_build_timestamp,
 			QMI_WLFW_MAX_TIMESTAMP_LEN + 1);
