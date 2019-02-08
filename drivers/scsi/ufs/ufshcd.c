@@ -3,7 +3,7 @@
  *
  * This code is based on drivers/scsi/ufs/ufshcd.c
  * Copyright (C) 2011-2013 Samsung India Software Operations
- * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * Authors:
  *	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -245,6 +245,9 @@ static void ufshcd_update_uic_error_cnt(struct ufs_hba *hba, u32 reg, int type)
 /* default value of auto suspend is 3 seconds */
 #define UFSHCD_AUTO_SUSPEND_DELAY_MS 3000 /* millisecs */
 
+/* default value of ref clock gating wait time is 100 micro seconds */
+#define UFSHCD_REF_CLK_GATING_WAIT_US 100 /* microsecs */
+
 #define UFSHCD_CLK_GATING_DELAY_MS_PWR_SAVE	10
 #define UFSHCD_CLK_GATING_DELAY_MS_PERF		50
 
@@ -417,6 +420,8 @@ static struct ufs_dev_fix ufs_fixups[] = {
 	UFS_FIX(UFS_VENDOR_SKHYNIX, UFS_ANY_MODEL, UFS_DEVICE_NO_VCCQ),
 	UFS_FIX(UFS_VENDOR_SKHYNIX, UFS_ANY_MODEL,
 		UFS_DEVICE_QUIRK_HOST_PA_SAVECONFIGTIME),
+	UFS_FIX(UFS_VENDOR_SKHYNIX, UFS_ANY_MODEL,
+		UFS_DEVICE_QUIRK_WAIT_AFTER_REF_CLK_UNGATE),
 	UFS_FIX(UFS_VENDOR_SKHYNIX, "hB8aL1",
 		UFS_DEVICE_QUIRK_HS_G1_TO_HS_G3_SWITCH),
 	UFS_FIX(UFS_VENDOR_SKHYNIX, "hC8aL1",
@@ -446,7 +451,7 @@ static int ufshcd_probe_hba(struct ufs_hba *hba);
 static int ufshcd_enable_clocks(struct ufs_hba *hba);
 static int ufshcd_disable_clocks(struct ufs_hba *hba,
 				 bool is_gating_context);
-static int ufshcd_disable_clocks_skip_ref_clk(struct ufs_hba *hba,
+static int ufshcd_disable_clocks_keep_link_active(struct ufs_hba *hba,
 					      bool is_gating_context);
 static void ufshcd_hold_all(struct ufs_hba *hba);
 static void ufshcd_release_all(struct ufs_hba *hba);
@@ -457,7 +462,6 @@ static int ufshcd_host_reset_and_restore(struct ufs_hba *hba);
 static void ufshcd_resume_clkscaling(struct ufs_hba *hba);
 static void ufshcd_suspend_clkscaling(struct ufs_hba *hba);
 static void __ufshcd_suspend_clkscaling(struct ufs_hba *hba);
-static int ufshcd_scale_clks(struct ufs_hba *hba, bool scale_up);
 static void ufshcd_hold_all(struct ufs_hba *hba);
 static void ufshcd_release_all(struct ufs_hba *hba);
 static void ufshcd_hba_vreg_set_lpm(struct ufs_hba *hba);
@@ -1499,7 +1503,7 @@ out:
  * Returns 0 if successful
  * Returns < 0 for any other errors
  */
-static int ufshcd_scale_clks(struct ufs_hba *hba, bool scale_up)
+int ufshcd_scale_clks(struct ufs_hba *hba, bool scale_up)
 {
 	int ret = 0;
 
@@ -1762,7 +1766,8 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 	 * hibern8 manually, this is to avoid auto hibern8
 	 * racing during clock frequency scaling sequence.
 	 */
-	if (ufshcd_is_auto_hibern8_supported(hba)) {
+	if (ufshcd_is_auto_hibern8_supported(hba) &&
+	    hba->hibern8_on_idle.is_enabled) {
 		ret = ufshcd_uic_hibern8_enter(hba);
 		if (ret)
 			/* link will be bad state so no need to scale_up_gear */
@@ -1775,7 +1780,8 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 		goto scale_up_gear;
 	ufshcd_custom_cmd_log(hba, "Clk-freq-switched");
 
-	if (ufshcd_is_auto_hibern8_supported(hba)) {
+	if (ufshcd_is_auto_hibern8_supported(hba) &&
+	    hba->hibern8_on_idle.is_enabled) {
 		ret = ufshcd_uic_hibern8_exit(hba);
 		if (ret)
 			/* link will be bad state so no need to scale_up_gear */
@@ -2165,10 +2171,17 @@ start:
 		 */
 		if (ufshcd_can_hibern8_during_gating(hba) &&
 		    ufshcd_is_link_hibern8(hba)) {
+			if (async) {
+				rc = -EAGAIN;
+				hba->clk_gating.active_reqs--;
+				break;
+			}
+
 			spin_unlock_irqrestore(hba->host->host_lock, flags);
 			flush_work(&hba->clk_gating.ungate_work);
 			spin_lock_irqsave(hba->host->host_lock, flags);
-			goto start;
+			if (hba->ufshcd_state == UFSHCD_STATE_OPERATIONAL)
+				goto start;
 		}
 		break;
 	case REQ_CLKS_OFF:
@@ -2271,15 +2284,16 @@ static void ufshcd_gate_work(struct work_struct *work)
 	}
 
 	/*
-	 * If auto hibern8 is supported then the link will already
+	 * If auto hibern8 is supported and enabled then the link will already
 	 * be in hibern8 state and the ref clock can be gated.
 	 */
-	if ((ufshcd_is_auto_hibern8_supported(hba) ||
+	if ((((ufshcd_is_auto_hibern8_supported(hba) &&
+	       hba->hibern8_on_idle.is_enabled)) ||
 	     !ufshcd_is_link_active(hba)) && !hba->no_ref_clk_gating)
 		ufshcd_disable_clocks(hba, true);
 	else
 		/* If link is active, device ref_clk can't be switched off */
-		ufshcd_disable_clocks_skip_ref_clk(hba, true);
+		ufshcd_disable_clocks_keep_link_active(hba, true);
 
 	/* Put the host controller in low power mode if possible */
 	ufshcd_hba_vreg_set_lpm(hba);
@@ -2475,13 +2489,6 @@ static void ufshcd_init_clk_gating(struct ufs_hba *hba)
 
 	if (!ufshcd_is_clkgating_allowed(hba))
 		return;
-
-	/*
-	 * Disable hibern8 during clk gating if
-	 * auto hibern8 is supported
-	 */
-	if (ufshcd_is_auto_hibern8_supported(hba))
-		hba->caps &= ~UFSHCD_CAP_HIBERN8_WITH_CLK_GATING;
 
 	INIT_WORK(&gating->gate_work, ufshcd_gate_work);
 	INIT_WORK(&gating->ungate_work, ufshcd_ungate_work);
@@ -2761,6 +2768,7 @@ static void __ufshcd_set_auto_hibern8_timer(struct ufs_hba *hba,
 	/* wait for all the outstanding requests to finish */
 	ufshcd_wait_for_doorbell_clr(hba, U64_MAX);
 	ufshcd_set_auto_hibern8_timer(hba, delay_ms);
+	hba->hibern8_on_idle.is_enabled = !!delay_ms;
 	up_write(&hba->lock);
 	ufshcd_scsi_unblock_requests(hba);
 	ufshcd_release_all(hba);
@@ -2875,7 +2883,7 @@ static ssize_t ufshcd_hibern8_on_idle_enable_store(struct device *dev,
 	if (ufshcd_is_auto_hibern8_supported(hba)) {
 		__ufshcd_set_auto_hibern8_timer(hba,
 			value ? hba->hibern8_on_idle.delay_ms : value);
-		goto update;
+		goto out;
 	}
 
 	if (value) {
@@ -2891,7 +2899,6 @@ static ssize_t ufshcd_hibern8_on_idle_enable_store(struct device *dev,
 		spin_unlock_irqrestore(hba->host->host_lock, flags);
 	}
 
-update:
 	hba->hibern8_on_idle.is_enabled = value;
 out:
 	return count;
@@ -5159,6 +5166,7 @@ out:
 		ufshcd_print_pwr_info(hba);
 		ufshcd_print_host_regs(hba);
 		ufshcd_print_cmd_log(hba);
+		BUG_ON(hba->crash_on_err);
 	}
 
 	ufshcd_save_tstamp_of_last_dme_cmd(hba);
@@ -5834,16 +5842,7 @@ static int ufshcd_link_startup(struct ufs_hba *hba)
 {
 	int ret;
 	int retries = DME_LINKSTARTUP_RETRIES;
-	bool link_startup_again = false;
 
-	/*
-	 * If UFS device isn't active then we will have to issue link startup
-	 * 2 times to make sure the device state move to active.
-	 */
-	if (!ufshcd_is_ufs_dev_active(hba))
-		link_startup_again = true;
-
-link_startup:
 	do {
 		ufshcd_vops_link_startup_notify(hba, PRE_CHANGE);
 
@@ -5871,12 +5870,6 @@ link_startup:
 	if (ret)
 		/* failed to get the link up... retire */
 		goto out;
-
-	if (link_startup_again) {
-		link_startup_again = false;
-		retries = DME_LINKSTARTUP_RETRIES;
-		goto link_startup;
-	}
 
 	/* Mark that link is up in PWM-G1, 1-lane, SLOW-AUTO mode */
 	ufshcd_init_pwr_info(hba);
@@ -6352,7 +6345,8 @@ static irqreturn_t ufshcd_uic_cmd_compl(struct ufs_hba *hba, u32 intr_status)
 		if (hba->uic_async_done) {
 			complete(hba->uic_async_done);
 			retval = IRQ_HANDLED;
-		} else if (ufshcd_is_auto_hibern8_supported(hba)) {
+		} else if (ufshcd_is_auto_hibern8_supported(hba) &&
+			   hba->hibern8_on_idle.is_enabled) {
 			/*
 			 * If uic_async_done flag is not set then this
 			 * is an Auto hibern8 err interrupt.
@@ -7007,7 +7001,8 @@ static void ufshcd_err_handler(struct work_struct *work)
 	 * process of gating when the err handler runs.
 	 */
 	if (unlikely((hba->clk_gating.state != CLKS_ON) &&
-	    ufshcd_is_auto_hibern8_supported(hba))) {
+	    ufshcd_is_auto_hibern8_supported(hba) &&
+	    hba->hibern8_on_idle.is_enabled)) {
 		spin_unlock_irqrestore(hba->host->host_lock, flags);
 		hba->ufs_stats.clk_hold.ctx = ERR_HNDLR_WORK;
 		ufshcd_hold(hba, false);
@@ -7763,6 +7758,8 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 		ufshcd_print_host_state(hba);
 		ufshcd_print_pwr_info(hba);
 		ufshcd_print_trs(hba, 1 << tag, true);
+		/* crash the system upon setting this debugfs. */
+		BUG_ON(hba->crash_on_err);
 	} else {
 		ufshcd_print_trs(hba, 1 << tag, false);
 	}
@@ -7951,8 +7948,8 @@ static int ufshcd_reset_and_restore(struct ufs_hba *hba)
 	 * There is no point proceeding even after failing
 	 * to recover after multiple retries.
 	 */
-	if (err && ufshcd_is_embedded_dev(hba))
-		WARN_ON(1);
+	BUG_ON(err && ufshcd_is_embedded_dev(hba));
+
 	/*
 	 * After reset the door-bell might be cleared, complete
 	 * outstanding requests in s/w here.
@@ -8267,6 +8264,9 @@ static int ufs_get_device_desc(struct ufs_hba *hba,
 
 	/* Null terminate the model string */
 	dev_desc->model[MAX_MODEL_LEN] = '\0';
+
+	dev_desc->wspecversion = desc_buf[DEVICE_DESC_PARAM_SPEC_VER] << 8 |
+				  desc_buf[DEVICE_DESC_PARAM_SPEC_VER + 1];
 
 out:
 	kfree(desc_buf);
@@ -8597,6 +8597,32 @@ out:
 	return err;
 }
 
+static int ufshcd_get_dev_ref_clk_gating_wait(struct ufs_hba *hba,
+					struct ufs_dev_desc *dev_desc)
+{
+	int err = 0;
+	u32 gating_wait = UFSHCD_REF_CLK_GATING_WAIT_US;
+
+	if (dev_desc->wspecversion >= 0x300) {
+		err = ufshcd_query_attr_retry(hba, UPIU_QUERY_OPCODE_READ_ATTR,
+				QUERY_ATTR_IDN_REF_CLK_GATING_WAIT_TIME, 0, 0,
+				&gating_wait);
+
+		if (err)
+			dev_err(hba->dev, "failed reading bRefClkGatingWait. err = %d, use default %uus\n",
+					err, gating_wait);
+
+		if (gating_wait == 0) {
+			gating_wait = UFSHCD_REF_CLK_GATING_WAIT_US;
+			dev_err(hba->dev, "undefined ref clk gating wait time, use default %uus\n",
+					gating_wait);
+		}
+	}
+
+	hba->dev_ref_clk_gating_wait = gating_wait;
+	return err;
+}
+
 static int ufs_read_device_desc_data(struct ufs_hba *hba)
 {
 	int err;
@@ -8625,6 +8651,9 @@ static int ufs_read_device_desc_data(struct ufs_hba *hba)
 	hba->dev_info.b_device_sub_class =
 		desc_buf[DEVICE_DESC_PARAM_DEVICE_SUB_CLASS];
 	hba->dev_info.i_product_name = desc_buf[DEVICE_DESC_PARAM_PRDCT_NAME];
+	hba->dev_info.w_spec_version =
+		desc_buf[DEVICE_DESC_PARAM_SPEC_VER] << 8 |
+		desc_buf[DEVICE_DESC_PARAM_SPEC_VER + 1];
 
 	return 0;
 }
@@ -8701,6 +8730,8 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 			"%s: Failed getting max supported power mode\n",
 			__func__);
 	} else {
+		ufshcd_get_dev_ref_clk_gating_wait(hba, &card);
+
 		/*
 		 * Set the right value to bRefClkFreq before attempting to
 		 * switch to HS gears.
@@ -8763,7 +8794,8 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	 * Enable auto hibern8 if supported, after full host and
 	 * device initialization.
 	 */
-	if (ufshcd_is_auto_hibern8_supported(hba))
+	if (ufshcd_is_auto_hibern8_supported(hba) &&
+	    hba->hibern8_on_idle.is_enabled)
 		ufshcd_set_auto_hibern8_timer(hba,
 				      hba->hibern8_on_idle.delay_ms);
 out:
@@ -9295,6 +9327,11 @@ static int ufshcd_config_vreg(struct device *dev,
 	name = vreg->name;
 
 	if (regulator_count_voltages(reg) > 0) {
+		uA_load = on ? vreg->max_uA : 0;
+		ret = ufshcd_config_vreg_load(dev, vreg, uA_load);
+		if (ret)
+			goto out;
+
 		min_uV = on ? vreg->min_uV : 0;
 		ret = regulator_set_voltage(reg, min_uV, vreg->max_uV);
 		if (ret) {
@@ -9302,11 +9339,6 @@ static int ufshcd_config_vreg(struct device *dev,
 					__func__, name, ret);
 			goto out;
 		}
-
-		uA_load = on ? vreg->max_uA : 0;
-		ret = ufshcd_config_vreg_load(dev, vreg, uA_load);
-		if (ret)
-			goto out;
 	}
 out:
 	return ret;
@@ -9482,7 +9514,7 @@ out:
 }
 
 static int ufshcd_setup_clocks(struct ufs_hba *hba, bool on,
-			       bool skip_ref_clk, bool is_gating_context)
+			       bool keep_link_active, bool is_gating_context)
 {
 	int ret = 0;
 	struct ufs_clk_info *clki;
@@ -9514,7 +9546,13 @@ static int ufshcd_setup_clocks(struct ufs_hba *hba, bool on,
 
 	list_for_each_entry(clki, head, list) {
 		if (!IS_ERR_OR_NULL(clki->clk)) {
-			if (skip_ref_clk && !strcmp(clki->name, "ref_clk"))
+			/*
+			 * To keep link active, both device ref clock and unipro
+			 * clock should be kept ON.
+			 */
+			if (keep_link_active &&
+			    (!strcmp(clki->name, "ref_clk") ||
+			     !strcmp(clki->name, "core_clk_unipro")))
 				continue;
 
 			clk_state_changed = on ^ clki->enabled;
@@ -9589,7 +9627,7 @@ static int ufshcd_disable_clocks(struct ufs_hba *hba,
 	return  ufshcd_setup_clocks(hba, false, false, is_gating_context);
 }
 
-static int ufshcd_disable_clocks_skip_ref_clk(struct ufs_hba *hba,
+static int ufshcd_disable_clocks_keep_link_active(struct ufs_hba *hba,
 					      bool is_gating_context)
 {
 	return  ufshcd_setup_clocks(hba, false, true, is_gating_context);
@@ -10072,8 +10110,11 @@ disable_clks:
 	if (!ufshcd_is_link_active(hba))
 		ret = ufshcd_disable_clocks(hba, false);
 	else
-		/* If link is active, device ref_clk can't be switched off */
-		ret = ufshcd_disable_clocks_skip_ref_clk(hba, false);
+		/*
+		 * If link is active, device ref_clk and unipro clock can't be
+		 * switched off.
+		 */
+		ret = ufshcd_disable_clocks_keep_link_active(hba, false);
 	if (ret)
 		goto set_link_active;
 

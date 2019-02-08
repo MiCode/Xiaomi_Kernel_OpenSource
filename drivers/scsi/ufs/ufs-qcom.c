@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -764,6 +764,11 @@ static int ufs_qcom_config_vreg(struct device *dev,
 
 	reg = vreg->reg;
 	if (regulator_count_voltages(reg) > 0) {
+		uA_load = on ? vreg->max_uA : 0;
+		ret = regulator_set_load(vreg->reg, uA_load);
+		if (ret)
+			goto out;
+
 		min_uV = on ? vreg->min_uV : 0;
 		ret = regulator_set_voltage(reg, min_uV, vreg->max_uV);
 		if (ret) {
@@ -771,11 +776,6 @@ static int ufs_qcom_config_vreg(struct device *dev,
 					__func__, vreg->name, ret);
 			goto out;
 		}
-
-		uA_load = on ? vreg->max_uA : 0;
-		ret = regulator_set_load(vreg->reg, uA_load);
-		if (ret)
-			goto out;
 	}
 out:
 	return ret;
@@ -939,9 +939,15 @@ static int ufs_qcom_crypto_req_setup(struct ufs_hba *hba,
 		return 0;
 
 	/* Use request LBA as the DUN value */
-	if (req->bio)
-		*dun = (req->bio->bi_iter.bi_sector) >>
-				UFS_QCOM_ICE_TR_DATA_UNIT_4_KB;
+	if (req->bio) {
+		if (bio_dun(req->bio)) {
+			/* dun @bio can be split, so we have to adjust offset */
+			*dun = bio_dun(req->bio);
+		} else {
+			*dun = req->bio->bi_iter.bi_sector;
+			*dun >>= UFS_QCOM_ICE_TR_DATA_UNIT_4_KB;
+		}
+	}
 
 	ret = ufs_qcom_ice_req_setup(host, lrbp->cmd, cc_index, enable);
 
@@ -1337,11 +1343,11 @@ static void ufs_qcom_dev_ref_clk_ctrl(struct ufs_qcom_host *host, bool enable)
 		/*
 		 * If we are here to disable this clock it might be immediately
 		 * after entering into hibern8 in which case we need to make
-		 * sure that device ref_clk is active at least 1us after the
-		 * hibern8 enter.
+		 * sure that device ref_clk is active for a given time after
+		 * enter hibern8
 		 */
 		if (!enable)
-			udelay(1);
+			udelay(host->hba->dev_ref_clk_gating_wait);
 
 		writel_relaxed(temp, host->dev_ref_clk_ctrl_mmio);
 
@@ -1350,11 +1356,16 @@ static void ufs_qcom_dev_ref_clk_ctrl(struct ufs_qcom_host *host, bool enable)
 
 		/*
 		 * If we call hibern8 exit after this, we need to make sure that
-		 * device ref_clk is stable for at least 1us before the hibern8
+		 * device ref_clk is stable for a given time before the hibern8
 		 * exit command.
 		 */
-		if (enable)
-			udelay(1);
+		if (enable) {
+			if (host->hba->dev_info.quirks &
+			    UFS_DEVICE_QUIRK_WAIT_AFTER_REF_CLK_UNGATE)
+				usleep_range(50, 60);
+			else
+				udelay(1);
+		}
 
 		host->is_dev_ref_clk_enabled = enable;
 	}
@@ -1614,7 +1625,8 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 		 * If auto hibern8 is supported then the link will already
 		 * be in hibern8 state and the ref clock can be gated.
 		 */
-		if (ufshcd_is_auto_hibern8_supported(hba) ||
+		if ((ufshcd_is_auto_hibern8_supported(hba) &&
+		     hba->hibern8_on_idle.is_enabled) ||
 		    !ufs_qcom_is_link_active(hba)) {
 			/* disable device ref_clk */
 			ufs_qcom_dev_ref_clk_ctrl(host, false);

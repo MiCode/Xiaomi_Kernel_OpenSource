@@ -138,10 +138,19 @@ struct ufs_dev_fix {
  * HS-G1 to HS-G2 followed by HS-G2 to HS-G3. Enabling this quirk for such
  * device would apply this 2 steps gear switch workaround.
  */
-#define UFS_DEVICE_QUIRK_HS_G1_TO_HS_G3_SWITCH (1 << 8)
+#define UFS_DEVICE_QUIRK_HS_G1_TO_HS_G3_SWITCH	(1 << 9)
+
  /* Some UFS devices require VS_DebugSaveConfigTime is 0x10,
  * enabling this quirk ensure this.
  */
-#define UFS_DEVICE_QUIRK_HOST_VS_DEBUGSAVECONFIGTIME	(1 << 9)
+#define UFS_DEVICE_QUIRK_HOST_VS_DEBUGSAVECONFIGTIME	(1 << 10)
+
+/*
+ * Some UFS devices need more delay after device reference clk is turned on
+ * but before initiation of the state transition to STALL from a LS-MODE or
+ * from the HIBERN8 state. Enable this quirk to give UFS devices 50us delay
+ * instead of the default delay.
+ */
+#define UFS_DEVICE_QUIRK_WAIT_AFTER_REF_CLK_UNGATE	(1 << 11)
 
 #endif /* UFS_QUIRKS_H_ */

@@ -517,7 +517,7 @@ struct ufs_query_res {
 #define UFS_VREG_VCC_1P8_MAX_UV    1950000 /* uV */
 #define UFS_VREG_VCCQ_MIN_UV	   1100000 /* uV */
 #define UFS_VREG_VCCQ_MAX_UV	   1300000 /* uV */
-#define UFS_VREG_VCCQ2_MIN_UV	   1650000 /* uV */
+#define UFS_VREG_VCCQ2_MIN_UV	   1750000 /* uV */
 #define UFS_VREG_VCCQ2_MAX_UV	   1950000 /* uV */
 
 /*
@@ -557,6 +557,7 @@ struct ufs_dev_info {
 	u8	b_device_sub_class;
 	u16	w_manufacturer_id;
 	u8	i_product_name;
+	u16	w_spec_version;
 
 	/* query flags */
 	bool f_power_on_wp_en;
@@ -580,6 +581,7 @@ struct ufs_dev_info {
 struct ufs_dev_desc {
 	u16 wmanufacturerid;
 	char model[MAX_MODEL_LEN + 1];
+	u16 wspecversion;
 };
 
 /**
