@@ -1649,8 +1649,8 @@ static void android_device_destroy(struct gadget_info *gi)
 
 	attrs = android_usb_attributes;
 	while ((attr = *attrs++))
-		device_remove_file(dev, attr);
-	device_destroy(dev->class, dev->devt);
+		device_remove_file(gi->dev, attr);
+	device_destroy(gi->dev->class, gi->dev->devt);
 	gi->dev = NULL;
 }
 #else
