@@ -1212,8 +1212,8 @@ static int ufsdbg_config_pwr_mode(struct ufs_hba *hba,
 	/* let's not get into low power until clock scaling is completed */
 	hba->ufs_stats.clk_hold.ctx = DBGFS_CFG_PWR_MODE;
 	ufshcd_hold(hba, false);
-	ufshcd_scsi_block_requests(hba);
 	down_write(&hba->lock);
+	ufshcd_scsi_block_requests(hba);
 	if (ufshcd_wait_for_doorbell_clr(hba, DOORBELL_CLR_TOUT_US)) {
 		ret = -EBUSY;
 		goto out;
