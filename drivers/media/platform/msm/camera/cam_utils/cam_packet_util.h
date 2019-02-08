@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,6 +36,9 @@ struct cam_kmd_buf_info {
 /* Generic Cmd Buffer blob callback function type */
 typedef int (*cam_packet_generic_blob_handler)(void *user_data,
 	uint32_t blob_type, uint32_t blob_size, uint8_t *blob_data);
+
+/* set resource bitmap callback function type */
+typedef void (*cam_fill_res_bitmap)(uint32_t res_type, unsigned long *bitmap);
 
 /**
  * cam_packet_util_get_cmd_mem_addr()
