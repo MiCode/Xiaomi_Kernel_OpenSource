@@ -761,8 +761,8 @@ int read_platform_resources_from_drv_data(
 	res->max_hq_mbs_per_frame = find_key_value(platform_data,
 			"qcom,max-hq-mbs-per-frame");
 
-	res->max_hq_fps = find_key_value(platform_data,
-			"qcom,max-hq-frames-per-sec");
+	res->max_hq_mbs_per_sec = find_key_value(platform_data,
+			"qcom,max-hq-mbs-per-sec");
 
 	res->sw_power_collapsible = find_key_value(platform_data,
 			"qcom,sw-power-collapse");
