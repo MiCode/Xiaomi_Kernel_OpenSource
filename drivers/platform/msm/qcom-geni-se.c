@@ -862,6 +862,8 @@ int geni_se_resources_init(struct se_geni_rsc *rsc,
 			   unsigned long ab, unsigned long ib)
 {
 	struct geni_se_device *geni_se_dev;
+	int ret = 0;
+	const char *mode = NULL;
 
 	if (unlikely(!rsc || !rsc->wrapper_dev))
 		return -EINVAL;
@@ -887,7 +889,13 @@ int geni_se_resources_init(struct se_geni_rsc *rsc,
 	rsc->ib = ib;
 	INIT_LIST_HEAD(&rsc->ab_list);
 	INIT_LIST_HEAD(&rsc->ib_list);
-	geni_se_iommu_map_and_attach(geni_se_dev);
+
+	ret = of_property_read_string(geni_se_dev->dev->of_node,
+					"qcom,iommu-dma", &mode);
+
+	if ((ret == 0) && (strcmp(mode, "disabled") == 0))
+		geni_se_iommu_map_and_attach(geni_se_dev);
+
 	return 0;
 }
 EXPORT_SYMBOL(geni_se_resources_init);
@@ -1464,6 +1472,7 @@ static int geni_se_probe(struct platform_device *pdev)
 	}
 
 	geni_se_dev->dev = dev;
+	geni_se_dev->cb_dev = dev;
 	ret = of_property_read_u32(dev->of_node, "qcom,bus-mas-id",
 				   &geni_se_dev->bus_mas_id);
 	if (ret) {
