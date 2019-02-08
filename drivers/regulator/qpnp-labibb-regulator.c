@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"%s: " fmt, __func__
@@ -1533,7 +1533,7 @@ static int qpnp_lab_rdson_nfet_config(struct qpnp_labibb *labibb, u32 tmp)
 		return -EINVAL;
 	}
 
-	val |= (i << LAB_RDSON_MNGMNT_NFET_SHIFT) |
+	val = (i << LAB_RDSON_MNGMNT_NFET_SHIFT) |
 			LAB_RDSON_MNGMNT_NFET_SLEW_EN;
 	mask = LAB_RDSON_MNGMNT_NFET_MASK | LAB_RDSON_MNGMNT_NFET_SLEW_EN;
 	rc = qpnp_labibb_masked_write(labibb, labibb->lab_base +
@@ -3803,7 +3803,7 @@ static struct regulator_ops qpnp_ibb_ops = {
 	.get_voltage		= qpnp_ibb_regulator_get_voltage,
 };
 
-static qpnp_ibb_get_current_voltage(struct qpnp_labibb *labibb,
+static int qpnp_ibb_get_current_voltage(struct qpnp_labibb *labibb,
 				    struct device_node *of_node)
 {
 	int rc;

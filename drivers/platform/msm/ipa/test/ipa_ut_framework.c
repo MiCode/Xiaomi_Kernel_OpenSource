@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/mutex.h>
@@ -852,7 +852,7 @@ static ssize_t ipa_ut_dbgfs_enable_write(struct file *file,
 
 	IPA_UT_DBG("Entry\n");
 
-	if (sizeof(lcl_buf) < count + 1) {
+	if (count >= sizeof(lcl_buf)) {
 		IPA_UT_ERR("No enough space\n");
 		return -E2BIG;
 	}
