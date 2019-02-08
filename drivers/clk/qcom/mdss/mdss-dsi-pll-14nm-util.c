@@ -1145,7 +1145,7 @@ void pll_vco_unprepare_14nm(struct clk_hw *hw)
 		return;
 	}
 
-	pll->vco_cached_rate = clk_hw_get_rate(hw);
+	pll->vco_cached_rate = clk_get_rate(hw->clk);
 	dsi_pll_disable(hw);
 }
 
