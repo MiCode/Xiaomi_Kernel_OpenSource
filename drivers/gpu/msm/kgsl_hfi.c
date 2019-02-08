@@ -681,7 +681,8 @@ int hfi_start(struct kgsl_device *device,
 		}
 	}
 
-	if (!adreno_is_a640(adreno_dev) && !adreno_is_a680(adreno_dev)) {
+	if (!adreno_is_a640(adreno_dev) && !adreno_is_a680(adreno_dev) &&
+			!adreno_is_a650(adreno_dev)) {
 		result = hfi_send_gmu_init(gmu, boot_state);
 		if (result)
 			return result;

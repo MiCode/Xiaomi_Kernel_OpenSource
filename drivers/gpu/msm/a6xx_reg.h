@@ -392,6 +392,7 @@
 #define A6XX_RBBM_PERFCTR_GPU_BUSY_MASKED        0x50B
 
 #define A6XX_RBBM_ISDB_CNT                       0x533
+#define A6XX_RBBM_NC_MODE_CNTL                   0X534
 
 #define A6XX_RBBM_SECVID_TRUST_CNTL              0xF400
 #define A6XX_RBBM_SECVID_TSB_TRUSTED_BASE_LO     0xF800
