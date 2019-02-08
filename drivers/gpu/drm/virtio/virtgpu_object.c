@@ -30,6 +30,7 @@
 static int virtio_gpu_resource_id_get(struct virtio_gpu_device *vgdev,
 				       uint32_t *resid)
 {
+#if 0
 	int handle;
 
 	idr_preload(GFP_KERNEL);
@@ -40,6 +41,16 @@ static int virtio_gpu_resource_id_get(struct virtio_gpu_device *vgdev,
 
 	if (handle < 0)
 		return handle;
+#else
+	static int handle;
+
+	/*
+	 * FIXME: dirty hack to avoid re-using IDs, virglrenderer
+	 * can't deal with that.  Needs fixing in virglrenderer, also
+	 * should figure a better way to handle that in the guest.
+	 */
+	handle++;
+#endif
 
 	*resid = handle;
 	return 0;
@@ -47,9 +58,11 @@ static int virtio_gpu_resource_id_get(struct virtio_gpu_device *vgdev,
 
 static void virtio_gpu_resource_id_put(struct virtio_gpu_device *vgdev, uint32_t id)
 {
+#if 0
 	spin_lock(&vgdev->resource_idr_lock);
 	idr_remove(&vgdev->resource_idr, id);
 	spin_unlock(&vgdev->resource_idr_lock);
+#endif
 }
 
 static void virtio_gpu_ttm_bo_destroy(struct ttm_buffer_object *tbo)
