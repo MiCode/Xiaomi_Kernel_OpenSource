@@ -309,8 +309,8 @@
 			"cpp_core_clk", "camss_cpp_ahb_clk",
 			"camss_cpp_axi_clk", "micro_iface_clk",
 			"cpp_vbif_ahb_clk", "mmss_throttle_camss_nrt_axi_clk";
-		qcom,clock-rates = <0 0 256000000 256000000 0 0 0 0 0>;
-		qcom,min-clock-rate = <256000000>;
+		qcom,clock-rates = <0 0 240000000 240000000 0 0 0 0 0>;
+		qcom,min-clock-rate = <240000000>;
 		qcom,bus-master = <1>;
 		qcom,vbif-qos-setting = <0x550 0x33333333>,
 			<0x554 0x00333333>,
@@ -339,8 +339,8 @@
 		qcom,cpp-cx-ipeak = <&cx_ipeak_lm 7>;
 		resets = <&clock_gcc GCC_CAMSS_MICRO_BCR>;
 		reset-names = "micro_iface_reset";
-		qcom,src-clock-rates = <120000000 256000000 384000000
-					480000000 533000000 576000000>;
+		qcom,src-clock-rates = <120000000 240000000 320000000
+					480000000 576000000>;
 		qcom,micro-reset;
 		qcom,cpp-fw-payload-info {
 			qcom,stripe-base = <790>;
