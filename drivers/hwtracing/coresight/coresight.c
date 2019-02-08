@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2012, 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -1185,6 +1185,7 @@ struct coresight_device *coresight_register(struct coresight_desc *desc)
 			conns[i].outport = desc->pdata->outports[i];
 			conns[i].child_name = desc->pdata->child_names[i];
 			conns[i].child_port = desc->pdata->child_ports[i];
+			conns[i].source_name = desc->pdata->source_names[i];
 		}
 	}
 
