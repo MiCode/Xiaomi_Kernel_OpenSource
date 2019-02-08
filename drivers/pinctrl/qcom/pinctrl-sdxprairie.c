@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018,2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1311,7 +1311,11 @@ static struct msm_pdc_mux_output sdxprairie_mux_out[] = {
 	{0, 195},
 	{0, 196},
 	{0, 197},
-	{0, 198},
+	/*
+	 * PDC pin 198 is used by USB (gp_irq_hv[56]) and is configured
+	 * in the firmware. TLMM driver should not request a GPIO line
+	 * for this pin.
+	 */
 };
 
 static struct msm_dir_conn sdxprairie_dir_conn[] = {
