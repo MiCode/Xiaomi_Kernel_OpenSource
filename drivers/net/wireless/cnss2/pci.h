@@ -37,6 +37,11 @@ struct cnss_msi_config {
 	struct cnss_msi_user *users;
 };
 
+struct cnss_pci_reg {
+	char *name;
+	u32 offset;
+};
+
 struct cnss_pci_data {
 	struct pci_dev *pci_dev;
 	struct cnss_plat_data *plat_priv;
@@ -62,6 +67,7 @@ struct cnss_pci_data {
 	u32 msi_ep_base_data;
 	struct mhi_controller *mhi_ctrl;
 	unsigned long mhi_state;
+	u32 remap_window;
 	struct timer_list dev_rddm_timer;
 	u8 disable_pc;
 };
