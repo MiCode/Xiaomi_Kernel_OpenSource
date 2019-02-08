@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/io.h>
@@ -280,6 +280,10 @@ int hfi_cmd_ubwc_config(uint32_t *ubwc_cfg)
 	size = sizeof(struct hfi_cmd_prop) +
 		sizeof(struct hfi_cmd_ubwc_cfg);
 
+	CAM_DBG(CAM_HFI,
+		"size of ubwc %u, ubwc_cfg [rd-0x%x,wr-0x%x]",
+		size, ubwc_cfg[0],  ubwc_cfg[1]);
+
 	prop = kzalloc(size, GFP_KERNEL);
 	if (!prop)
 		return -ENOMEM;
@@ -297,6 +301,42 @@ int hfi_cmd_ubwc_config(uint32_t *ubwc_cfg)
 
 	return 0;
 }
+
+int hfi_cmd_ubwc_config_ext(uint32_t *ubwc_ipe_cfg,
+	uint32_t *ubwc_bps_cfg)
+{
+	uint8_t *prop;
+	struct hfi_cmd_prop *dbg_prop;
+	uint32_t size = 0;
+
+	size = sizeof(struct hfi_cmd_prop) +
+		sizeof(struct hfi_cmd_ubwc_cfg_ext);
+
+	CAM_DBG(CAM_HFI,
+		"size of ubwc %u, ubwc_ipe_cfg[rd-0x%x,wr-0x%x] ubwc_bps_cfg[rd-0x%x,wr-0x%x]",
+		size, ubwc_ipe_cfg[0], ubwc_ipe_cfg[1],
+		ubwc_bps_cfg[0], ubwc_bps_cfg[1]);
+
+	prop = kzalloc(size, GFP_KERNEL);
+	if (!prop)
+		return -ENOMEM;
+
+	dbg_prop = (struct hfi_cmd_prop *)prop;
+	dbg_prop->size = size;
+	dbg_prop->pkt_type = HFI_CMD_SYS_SET_PROPERTY;
+	dbg_prop->num_prop = 1;
+	dbg_prop->prop_data[0] = HFI_PROPERTY_SYS_UBWC_CONFIG_EX;
+	dbg_prop->prop_data[1] = ubwc_bps_cfg[0];
+	dbg_prop->prop_data[2] = ubwc_bps_cfg[1];
+	dbg_prop->prop_data[3] = ubwc_ipe_cfg[0];
+	dbg_prop->prop_data[4] = ubwc_ipe_cfg[1];
+
+	hfi_write_cmd(prop);
+	kfree(prop);
+
+	return 0;
+}
+
 
 int hfi_enable_ipe_bps_pc(bool enable, uint32_t core_info)
 {

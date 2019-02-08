@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/io.h>
@@ -17,9 +17,10 @@ static int cam_a5_get_dt_properties(struct cam_hw_soc_info *soc_info)
 {
 	int rc = 0, i;
 	const char *fw_name;
-	struct a5_soc_info *camp_a5_soc_info;
+	struct a5_soc_info *a5_soc_info;
 	struct device_node *of_node = NULL;
 	struct platform_device *pdev = NULL;
+	struct a5_ubwc_cfg_ext *ubwc_cfg_ext = NULL;
 	int num_ubwc_cfg;
 
 	pdev = soc_info->pdev;
@@ -31,8 +32,8 @@ static int cam_a5_get_dt_properties(struct cam_hw_soc_info *soc_info)
 		return rc;
 	}
 
-	camp_a5_soc_info = soc_info->soc_private;
-	fw_name = camp_a5_soc_info->fw_name;
+	a5_soc_info = soc_info->soc_private;
+	fw_name = a5_soc_info->fw_name;
 
 	rc = of_property_read_string(of_node, "fw_name", &fw_name);
 	if (rc < 0) {
@@ -40,6 +41,84 @@ static int cam_a5_get_dt_properties(struct cam_hw_soc_info *soc_info)
 		goto end;
 	}
 
+	ubwc_cfg_ext = &a5_soc_info->uconfig.ubwc_cfg_ext;
+	num_ubwc_cfg = of_property_count_u32_elems(of_node,
+		"ubwc-ipe-fetch-cfg");
+	if ((num_ubwc_cfg < 0) || (num_ubwc_cfg > ICP_UBWC_MAX)) {
+		CAM_DBG(CAM_ICP, "wrong ubwc_ipe_fetch_cfg: %d", num_ubwc_cfg);
+		rc = num_ubwc_cfg;
+		goto ubwc_ex_cfg;
+	}
+
+	for (i = 0; i < num_ubwc_cfg; i++) {
+		rc = of_property_read_u32_index(of_node, "ubwc-ipe-fetch-cfg",
+			i, &ubwc_cfg_ext->ubwc_ipe_fetch_cfg[i]);
+		if (rc < 0) {
+			CAM_ERR(CAM_ICP,
+				"unable to read ubwc_ipe_fetch_cfg values");
+			goto end;
+		}
+	}
+
+	num_ubwc_cfg = of_property_count_u32_elems(of_node,
+		"ubwc-ipe-write-cfg");
+	if ((num_ubwc_cfg < 0) || (num_ubwc_cfg > ICP_UBWC_MAX)) {
+		CAM_ERR(CAM_ICP, "wrong ubwc_ipe_write_cfg: %d", num_ubwc_cfg);
+		rc = num_ubwc_cfg;
+		goto end;
+	}
+
+	for (i = 0; i < num_ubwc_cfg; i++) {
+		rc = of_property_read_u32_index(of_node, "ubwc-ipe-write-cfg",
+				i, &ubwc_cfg_ext->ubwc_ipe_write_cfg[i]);
+		if (rc < 0) {
+			CAM_ERR(CAM_ICP,
+				"unable to read ubwc_ipe_write_cfg values");
+			goto end;
+		}
+	}
+
+	num_ubwc_cfg = of_property_count_u32_elems(of_node,
+		"ubwc-bps-fetch-cfg");
+	if ((num_ubwc_cfg < 0) || (num_ubwc_cfg > ICP_UBWC_MAX)) {
+		CAM_ERR(CAM_ICP, "wrong ubwc_bps_fetch_cfg: %d", num_ubwc_cfg);
+		rc = num_ubwc_cfg;
+		goto end;
+	}
+
+	for (i = 0; i < num_ubwc_cfg; i++) {
+		rc = of_property_read_u32_index(of_node, "ubwc-bps-fetch-cfg",
+			i, &ubwc_cfg_ext->ubwc_bps_fetch_cfg[i]);
+		if (rc < 0) {
+			CAM_ERR(CAM_ICP,
+				"unable to read ubwc_bps_fetch_cfg values");
+			goto end;
+		}
+	}
+
+	num_ubwc_cfg = of_property_count_u32_elems(of_node,
+		"ubwc-bps-write-cfg");
+	if ((num_ubwc_cfg < 0) || (num_ubwc_cfg > ICP_UBWC_MAX)) {
+		CAM_ERR(CAM_ICP, "wrong ubwc_bps_write_cfg: %d", num_ubwc_cfg);
+		rc = num_ubwc_cfg;
+		goto end;
+	}
+
+	for (i = 0; i < num_ubwc_cfg; i++) {
+		rc = of_property_read_u32_index(of_node, "ubwc-bps-write-cfg",
+			i, &ubwc_cfg_ext->ubwc_bps_write_cfg[i]);
+		if (rc < 0) {
+			CAM_ERR(CAM_ICP,
+				"unable to read ubwc_bps_write_cfg values");
+			goto end;
+		}
+	}
+
+	a5_soc_info->ubwc_config_ext = true;
+	CAM_DBG(CAM_ICP, "read ubwc_cfg_ext for ipe/bps");
+	return rc;
+
+ubwc_ex_cfg:
 	num_ubwc_cfg = of_property_count_u32_elems(of_node, "ubwc-cfg");
 	if ((num_ubwc_cfg < 0) || (num_ubwc_cfg > ICP_UBWC_MAX)) {
 		CAM_ERR(CAM_ICP, "wrong ubwc_cfg: %d", num_ubwc_cfg);
@@ -49,9 +128,9 @@ static int cam_a5_get_dt_properties(struct cam_hw_soc_info *soc_info)
 
 	for (i = 0; i < num_ubwc_cfg; i++) {
 		rc = of_property_read_u32_index(of_node, "ubwc-cfg",
-			i, &camp_a5_soc_info->ubwc_cfg[i]);
+			i, &a5_soc_info->uconfig.ubwc_cfg[i]);
 		if (rc < 0) {
-			CAM_ERR(CAM_ICP, "unable to read ubwc cfg values");
+			CAM_ERR(CAM_ICP, "unable to read ubwc_cfg values");
 			break;
 		}
 	}

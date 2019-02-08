@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -365,6 +365,9 @@ int cam_a5_process_cmd(void *device_priv, uint32_t cmd_type,
 	struct cam_a5_device_hw_info *hw_info = NULL;
 	struct a5_soc_info *a5_soc = NULL;
 	unsigned long flags;
+	uint32_t ubwc_ipe_cfg[ICP_UBWC_MAX] = {0};
+	uint32_t ubwc_bps_cfg[ICP_UBWC_MAX] = {0};
+	uint32_t index = 0;
 	int rc = 0;
 
 	if (!device_priv) {
@@ -460,14 +463,37 @@ int cam_a5_process_cmd(void *device_priv, uint32_t cmd_type,
 			core_info->cpas_start = false;
 		}
 		break;
-	case CAM_ICP_A5_CMD_UBWC_CFG:
+	case CAM_ICP_A5_CMD_UBWC_CFG: {
+		struct a5_ubwc_cfg_ext *ubwc_cfg_ext = NULL;
+
 		a5_soc = soc_info->soc_private;
 		if (!a5_soc) {
 			CAM_ERR(CAM_ICP, "A5 private soc info is NULL");
 			return -EINVAL;
 		}
-		rc = hfi_cmd_ubwc_config(a5_soc->ubwc_cfg);
+
+		if (a5_soc->ubwc_config_ext) {
+			/* Invoke kernel API to determine DDR type */
+			if (of_fdt_get_ddrtype() == DDR_TYPE_LPDDR5)
+				index = 1;
+
+			ubwc_cfg_ext = &a5_soc->uconfig.ubwc_cfg_ext;
+			ubwc_ipe_cfg[0] =
+				ubwc_cfg_ext->ubwc_ipe_fetch_cfg[index];
+			ubwc_ipe_cfg[1] =
+				ubwc_cfg_ext->ubwc_ipe_write_cfg[index];
+			ubwc_bps_cfg[0] =
+				ubwc_cfg_ext->ubwc_bps_fetch_cfg[index];
+			ubwc_bps_cfg[1] =
+				ubwc_cfg_ext->ubwc_bps_write_cfg[index];
+			rc = hfi_cmd_ubwc_config_ext(&ubwc_ipe_cfg[0],
+					&ubwc_bps_cfg[0]);
+		} else {
+			rc = hfi_cmd_ubwc_config(a5_soc->uconfig.ubwc_cfg);
+		}
+
 		break;
+	}
 	default:
 		break;
 	}
