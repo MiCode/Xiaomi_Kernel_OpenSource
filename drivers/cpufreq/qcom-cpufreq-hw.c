@@ -266,12 +266,6 @@ static int qcom_cpu_resources_init(struct platform_device *pdev,
 	for (i = REG_ENABLE; i < REG_ARRAY_SIZE; i++)
 		c->reg_bases[i] = base + offsets[i];
 
-	/* HW should be in enabled state to proceed */
-	if (!(readl_relaxed(c->reg_bases[REG_ENABLE]) & 0x1)) {
-		dev_err(dev, "Domain-%d cpufreq hardware not enabled\n", index);
-		return -ENODEV;
-	}
-
 	ret = qcom_get_related_cpus(index, &c->related_cpus);
 	if (ret) {
 		dev_err(dev, "Domain-%d failed to get related CPUs\n", index);
