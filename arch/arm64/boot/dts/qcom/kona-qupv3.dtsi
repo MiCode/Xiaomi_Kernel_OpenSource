@@ -56,7 +56,7 @@
 							<&qupv3_se6_tx>;
 		pinctrl-1 = <&qupv3_se6_ctsrx>, <&qupv3_se6_rts>,
 							<&qupv3_se6_tx>;
-		interrupts-extended = <&pdc 607 IRQ_TYPE_LEVEL_HIGH>,
+		interrupts-extended = <&intc GIC_SPI 607 IRQ_TYPE_LEVEL_HIGH>,
 					<&tlmm 19 0>;
 		status = "disabled";
 		qcom,wakeup-byte = <0xFD>;
@@ -734,7 +734,7 @@
 							<&qupv3_se17_tx>;
 		pinctrl-1 = <&qupv3_se17_ctsrx>, <&qupv3_se17_rts>,
 							<&qupv3_se17_tx>;
-		interrupts-extended = <&pdc 585 IRQ_TYPE_LEVEL_HIGH>,
+		interrupts-extended = <&intc GIC_SPI 585 IRQ_TYPE_LEVEL_HIGH>,
 					<&tlmm 55 0>;
 		status = "disabled";
 		qcom,wakeup-byte = <0xFD>;
@@ -755,7 +755,7 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se18_rx>, <&qupv3_se18_tx>;
 		pinctrl-1 = <&qupv3_se18_rx>, <&qupv3_se18_tx>;
-		interrupts-extended = <&pdc 586 IRQ_TYPE_LEVEL_HIGH>,
+		interrupts-extended = <&intc GIC_SPI 586 IRQ_TYPE_LEVEL_HIGH>,
 						<&tlmm 59 0>;
 		status = "disabled";
 		qcom,wakeup-byte = <0xFD>;
