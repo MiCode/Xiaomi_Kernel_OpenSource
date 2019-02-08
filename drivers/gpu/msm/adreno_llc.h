@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 #ifndef __ADRENO_LLC_H
 #define __ADRENO_LLC_H
 
-#ifdef CONFIG_QCOM_LLCC
 #include "adreno.h"
 #include <linux/soc/qcom/llcc-qcom.h>
+
+#ifdef CONFIG_QCOM_LLCC
 
 static inline bool adreno_llc_supported(void)
 {
@@ -69,8 +70,7 @@ static inline bool adreno_llc_supported(void)
 	return false;
 }
 
-static inline void *adreno_llc_getd(struct device *dev,
-		const char *name)
+static inline void *adreno_llc_getd(u32 uid)
 {
 	return NULL;
 }
