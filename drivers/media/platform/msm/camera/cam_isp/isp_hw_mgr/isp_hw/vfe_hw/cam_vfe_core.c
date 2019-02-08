@@ -418,8 +418,13 @@ int cam_vfe_reset(void *hw_priv, void *reset_core_args, uint32_t arg_size)
 
 	switch (vfe_hw->soc_info.hw_version) {
 	case CAM_CPAS_TITAN_480_V100:
-		top_reset_irq_reg_mask[CAM_IFE_IRQ_CAMIF_REG_STATUS0]
-			= 0x00000001;
+		if (strnstr(soc_info->compatible, "lite",
+			strlen(soc_info->compatible)) == NULL)
+			top_reset_irq_reg_mask[CAM_IFE_IRQ_CAMIF_REG_STATUS0]
+				= 0x00000001;
+		else
+			top_reset_irq_reg_mask[CAM_IFE_IRQ_CAMIF_REG_STATUS0]
+				= 0x00020000;
 		break;
 	default:
 		top_reset_irq_reg_mask[CAM_IFE_IRQ_CAMIF_REG_STATUS0]
@@ -880,7 +885,8 @@ int cam_vfe_core_init(struct cam_vfe_hw_core_info  *core_info,
 	}
 
 	/* Read Bus is not valid for vfe-lite */
-	if ((hw_intf->hw_idx == 0) || (hw_intf->hw_idx == 1)) {
+	if (strnstr(soc_info->compatible, "lite",
+		strlen(soc_info->compatible)) == NULL) {
 		rc = cam_vfe_bus_init(vfe_hw_info->bus_rd_version, BUS_TYPE_RD,
 			soc_info, hw_intf, vfe_hw_info->bus_rd_hw_info,
 			core_info->vfe_irq_controller, &core_info->vfe_rd_bus);
