@@ -593,6 +593,8 @@ static int rpmh_arc_cmds(struct gmu_device *gmu,
 {
 	unsigned int len;
 
+	memset(arc, 0, sizeof(*arc));
+
 	len = cmd_db_read_aux_data_len(res_id);
 	if (len == 0)
 		return -EINVAL;
