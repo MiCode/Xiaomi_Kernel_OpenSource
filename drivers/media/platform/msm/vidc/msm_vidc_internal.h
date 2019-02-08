@@ -420,6 +420,25 @@ struct msm_vidc_inst_smem_ops {
 		struct msm_smem *smem);
 };
 
+struct msm_vidc_dec_buff_size_calculators {
+	u32 (*calculate_scratch_size)(struct msm_vidc_inst *inst, u32 width,
+		u32 height, bool is_interlaced);
+	u32 (*calculate_scratch1_size)(struct msm_vidc_inst *inst, u32 width,
+		u32 height, u32 min_buf_count, bool split_mode_enabled);
+	u32 (*calculate_persist1_size)(void);
+};
+
+struct msm_vidc_enc_buff_size_calculators {
+	u32 (*calculate_scratch_size)(struct msm_vidc_inst *inst, u32 width,
+		u32 height, u32 work_mode);
+	u32 (*calculate_scratch1_size)(struct msm_vidc_inst *inst,
+		u32 width, u32 height, u32 num_ref, bool ten_bit,
+		u32 num_vpp_pipes);
+	u32 (*calculate_scratch2_size)(struct msm_vidc_inst *inst,
+		u32 width, u32 height, u32 num_ref, bool ten_bit);
+	u32 (*calculate_persist_size)(void);
+};
+
 struct msm_vidc_inst {
 	struct list_head list;
 	struct mutex sync_lock, lock, flush_lock;
@@ -479,6 +498,7 @@ struct msm_vidc_inst {
 	struct hal_hdr10_pq_sei hdr10_sei_params;
 	struct batch_mode batch;
 	struct msm_vidc_inst_smem_ops *smem_ops;
+	int (*buffer_size_calculators)(struct msm_vidc_inst *inst);
 };
 
 extern struct msm_vidc_drv *vidc_driver;
@@ -509,6 +529,7 @@ bool heic_encode_session_supported(struct msm_vidc_inst *inst);
 int msm_vidc_check_session_supported(struct msm_vidc_inst *inst);
 int msm_vidc_check_scaling_supported(struct msm_vidc_inst *inst);
 void msm_vidc_queue_v4l2_event(struct msm_vidc_inst *inst, int event_type);
+void msm_vidc_init_buffer_size_calculators(struct msm_vidc_inst *inst);
 
 enum msm_vidc_flags {
 	MSM_VIDC_FLAG_DEFERRED            = BIT(0),
