@@ -1900,9 +1900,18 @@ static int smb5_configure_typec(struct smb_charger *chg)
 	rc = smblib_masked_write(chg, USBIN_LOAD_CFG_REG,
 		USBIN_IN_COLLAPSE_GF_SEL_MASK | USBIN_AICL_STEP_TIMING_SEL_MASK,
 		0);
-	if (rc < 0)
+	if (rc < 0) {
 		dev_err(chg->dev,
 			"Couldn't set USBIN_LOAD_CFG_REG rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Set CC threshold to 1.6 V in source mode */
+	rc = smblib_masked_write(chg, TYPE_C_EXIT_STATE_CFG_REG,
+				SEL_SRC_UPPER_REF_BIT, SEL_SRC_UPPER_REF_BIT);
+	if (rc < 0)
+		dev_err(chg->dev,
+			"Couldn't configure CC threshold voltage rc=%d\n", rc);
 
 	return rc;
 }
