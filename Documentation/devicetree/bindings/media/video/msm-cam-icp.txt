@@ -136,10 +136,31 @@ and name of firmware image.
   Value type: <string>
   Definition: Name of firmware image.
 
-- ubwc-cfg
+- ubwc-ipe-fetch-cfg
   Usage: required
   Value type: <u32>
-  Definition: UBWC configuration.
+  Definition: UBWC IPE fetch configuration based on DDR device type.
+
+- ubwc-ipe-write-cfg
+  Usage: required
+  Value type: <u32>
+  Definition: UBWC IPE write configuration based on DDR device type.
+
+- ubwc-bps-fetch-cfg
+  Usage: required
+  Value type: <u32>
+  Definition: UBWC BPS fetch configuration based on DDR device type.
+
+- ubwc-bps-write-cfg
+  Usage: required
+  Value type: <u32>
+  Definition: UBWC BPS write configuration based on DDR device type.
+
+- ubwc-cfg
+  Usage: optional
+  Value type: <u32>
+  Definition: UBWC configuration, this is mandatory if above
+              ipe/bps ubwc properties are not used.
 
 Examples:
 a5: qcom,a5@ac00000 {
@@ -179,8 +200,13 @@ a5: qcom,a5@ac00000 {
 	clock-rates = <0 0 0 80000000 0 0 0 0 600000000 0 0>;
 	clock-cntl-level = "turbo";
 	fw_name = "CAMERA_ICP.elf";
-	ubwc-cfg = <0x7F 0x1FF>;
-};
+	/* "ubwc-cfg" is not used, even if defined the new property
+	tags will be priortized. If the new properties are not used
+	please specify "ubwc-cfg" in that case */
+	ubwc-ipe-fetch-cfg = <0x707b 0x7083>;
+	ubwc-ipe-write-cfg = <0x161ef 0x1620f>;
+	ubwc-bps-fetch-cfg = <0x707b 0x7083>
+	ubwc-bps-write-cfg = <0x161ef 0x1620f>;
 
 qcom,ipe0 {
 	cell-index = <0>;
