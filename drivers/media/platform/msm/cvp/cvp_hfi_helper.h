@@ -984,38 +984,38 @@ struct hfi_cmd_session_cvp_set_buffers_packet {
 	u32 size;
 	u32 packet_type;
 	u32 session_id;
+	struct hfi_cvp_client client_data;
 	u32 buffer_addr;
 	u32 buffer_size;
-	struct hfi_cvp_client client_data;
 };
 
 struct hfi_cmd_session_cvp_release_buffers_packet {
 	u32 size;
 	u32 packet_type;
 	u32 session_id;
+	struct hfi_cvp_client client_data;
 	u32 buffer_type;
 	u32 num_buffers;
 	u32 buffer_idx;
-	struct hfi_cvp_client client_data;
 };
 
 struct hfi_msg_session_cvp_release_buffers_done_packet {
 	u32 size;
 	u32 packet_type;
 	u32 session_id;
-	u32 error_type;
 	struct hfi_cvp_client client_data;
+	u32 error_type;
 };
 
 struct hfi_msg_session_cvp_set_buffers_done_packet {
 	u32 size;
 	u32 packet_type;
 	u32 session_id;
+	struct hfi_cvp_client client_data;
 	u32 error_type;
 	u32 buffer_type;
 	u32 buffer_addr;
 	u32 buffer_size;
-	struct hfi_cvp_client client_data;
 };
 
 struct hfi_cmd_session_set_buffers_packet {
