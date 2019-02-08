@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1204,8 +1204,8 @@ static int ufsdbg_config_pwr_mode(struct ufs_hba *hba,
 	/* let's not get into low power until clock scaling is completed */
 	hba->ufs_stats.clk_hold.ctx = DBGFS_CFG_PWR_MODE;
 	ufshcd_hold(hba, false);
-	ufshcd_scsi_block_requests(hba);
 	down_write(&hba->lock);
+	ufshcd_scsi_block_requests(hba);
 	if (ufshcd_wait_for_doorbell_clr(hba, DOORBELL_CLR_TOUT_US)) {
 		ret = -EBUSY;
 		goto out;
