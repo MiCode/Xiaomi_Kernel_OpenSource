@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -655,6 +655,7 @@ int sysmon_notifier_register(struct subsys_desc *desc)
 		kfree(data);
 		return rc;
 	}
+	qmi_set_sndtimeo(&data->clnt_handle, HZ);
 
 	qmi_add_lookup(&data->clnt_handle, SSCTL_SERVICE_ID,
 			SSCTL_VER_2, data->instance_id);
