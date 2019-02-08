@@ -31,6 +31,19 @@ First Level Node - FG Gen4 device
 
 - #thermal-sensor-cells: Should be 0. See thermal.txt for the description.
 
+- nvmem-names:
+	Usage: optional
+	Value type: <string>
+	Definition: Nvmem device name for SDAM to store parameters like cycle
+		    counters and learned capacity. It must be defined as
+		    "fg_sdam".
+
+- nvmem:
+	Usage: optional
+	Value type: <phandle>
+	Definition: Phandle of the nvmem device name to access SDAM to store
+		    parameters.
+
 - qcom,fg-cutoff-voltage
 	Usage:      optional
 	Value type: <u32>
@@ -487,6 +500,8 @@ pm8150b_fg: qpnp,fg {
 	#address-cells = <1>;
 	#size-cells = <1>;
 	qcom,pmic-revid = <&pm8150b_revid>;
+	nvmem-names = "fg_sdam";
+	nvmem = <&pm8150_sdam_2>;
 	#thermal-sensor-cells = <0>;
 	status = "okay";
 
