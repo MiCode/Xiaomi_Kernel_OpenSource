@@ -1251,9 +1251,9 @@ static void purge_configs_funcs(struct gadget_info *gi)
 
 		cfg = container_of(c, struct config_usb_cfg, c);
 
-		list_for_each_entry_safe(f, tmp, &c->functions, list) {
+		list_for_each_entry_safe_reverse(f, tmp, &c->functions, list) {
 
-			list_move_tail(&f->list, &cfg->func_list);
+			list_move(&f->list, &cfg->func_list);
 			if (f->unbind) {
 				dev_dbg(&gi->cdev.gadget->dev,
 					"unbind function '%s'/%pK\n",
@@ -1656,8 +1656,8 @@ static void android_device_destroy(struct gadget_info *gi)
 
 	attrs = android_usb_attributes;
 	while ((attr = *attrs++))
-		device_remove_file(dev, attr);
-	device_destroy(dev->class, dev->devt);
+		device_remove_file(gi->dev, attr);
+	device_destroy(gi->dev->class, gi->dev->devt);
 	gi->dev = NULL;
 }
 #else
