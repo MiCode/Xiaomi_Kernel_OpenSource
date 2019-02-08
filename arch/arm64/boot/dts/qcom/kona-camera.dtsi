@@ -607,9 +607,8 @@
 			"csiphy0", "csiphy1", "csiphy2", "csiphy3",
 			"csiphy4", "csiphy5", "cci0", "cci1",
 			"csid0", "csid1", "csid2", "csid3",
-			"csid4", "csid5", "csid6",
-			"ife0", "ife1", "ife2", "ife3",
-			"ife4", "ife5", "ife6", "sbi0",
+			"csid4", "csid5", "csid6", "ife0",
+			"ife1", "ife2", "ife3", "sbi0",
 			"ipe0", "cam-cdm-intf0", "cpas-cdm0", "cpas-cdm1",
 			"cpas-cdm2",
 			"bps0", "icp0", "jpeg-dma0", "jpeg-enc0",
@@ -618,7 +617,6 @@
 			"cam_hf_0", "cam_hf_0", "cam_hf_0", "cam_hf_0",
 			"cam_hf_0", "cam_hf_0", "cam_sf_0", "cam_sf_0",
 			"cam_hf_0", "cam_hf_0", "cam_hf_0", "cam_hf_0",
-			"cam_hf_0", "cam_hf_0", "cam_hf_0",
 			"cam_hf_0", "cam_hf_0", "cam_hf_0", "cam_hf_0",
 			"cam_hf_0", "cam_hf_0", "cam_hf_0", "cam_hf_0",
 			"cam_sf_0", "cam_sf_0", "cam_sf_0", "cam_sf_0",
@@ -703,8 +701,7 @@
 			<&clock_camcc CAM_CC_CPAS_AHB_CLK>;
 		clock-rates = <0 0>;
 		clock-cntl-level = "svs";
-		cdm-client-names = "ife0", "ife1","ife2", "ife3", "ife4",
-			"ife5", "ife6";
+		cdm-client-names = "ife0", "ife1", "ife2", "ife3";
 		status = "ok";
 	};
 
@@ -1005,192 +1002,6 @@
 		reg-cam-base = <0xdb200>;
 		interrupt-names = "ife-lite";
 		interrupts = <GIC_SPI 360 IRQ_TYPE_EDGE_RISING>;
-		regulator-names = "camss";
-		camss-supply = <&titan_top_gdsc>;
-		clock-names =
-			"ife_clk_src",
-			"ife_clk";
-		clocks =
-			<&clock_camcc CAM_CC_IFE_LITE_CLK_SRC>,
-			<&clock_camcc CAM_CC_IFE_LITE_CLK>;
-		clock-rates =
-			<400000000 0>,
-			<480000000 0>,
-			<480000000 0>,
-			<480000000 0>;
-		clock-cntl-level = "lowsvs", "svs", "svs_l1", "turbo";
-		src-clock-name = "ife_clk_src";
-		clock-control-debugfs = "true";
-		status = "ok";
-	};
-
-	cam_csid_lite2: qcom,csid-lite2@acdd600 {
-		cell-index = <4>;
-		compatible = "qcom,csid-lite480";
-		reg-names = "csid-lite";
-		reg = <0xacdd600 0x1000>;
-		reg-cam-base = <0xdd600>;
-		interrupt-names = "csid-lite";
-		interrupts = <GIC_SPI 449 IRQ_TYPE_EDGE_RISING>;
-		regulator-names = "camss";
-		camss-supply = <&titan_top_gdsc>;
-		clock-names =
-			"ife_csid_clk_src",
-			"ife_csid_clk",
-			"cphy_rx_clk_src",
-			"ife_cphy_rx_clk",
-			"ife_clk_src",
-			"ife_clk";
-		clocks =
-			<&clock_camcc CAM_CC_IFE_LITE_CSID_CLK_SRC>,
-			<&clock_camcc CAM_CC_IFE_LITE_CSID_CLK>,
-			<&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
-			<&clock_camcc CAM_CC_IFE_LITE_CPHY_RX_CLK>,
-			<&clock_camcc CAM_CC_IFE_LITE_CLK_SRC>,
-			<&clock_camcc CAM_CC_IFE_LITE_CLK>;
-		clock-rates =
-			<400000000 0 0 0 400000000 0>,
-			<400000000 0 0 0 480000000 0>,
-			<400000000 0 0 0 480000000 0>,
-			<400000000 0 0 0 480000000 0>;
-		clock-cntl-level = "lowsvs", "svs", "svs_l1", "turbo";
-		src-clock-name = "ife_csid_clk_src";
-		clock-control-debugfs = "true";
-		status = "ok";
-	};
-
-	cam_vfe_lite2: qcom,ife-lite2@acdd400 {
-		cell-index = <4>;
-		compatible = "qcom,vfe-lite480";
-		reg-names = "ife-lite";
-		reg = <0xacdd400 0x2200>;
-		reg-cam-base = <0xdd400>;
-		interrupt-names = "ife-lite";
-		interrupts = <GIC_SPI 266 IRQ_TYPE_EDGE_RISING>;
-		regulator-names = "camss";
-		camss-supply = <&titan_top_gdsc>;
-		clock-names =
-			"ife_clk_src",
-			"ife_clk";
-		clocks =
-			<&clock_camcc CAM_CC_IFE_LITE_CLK_SRC>,
-			<&clock_camcc CAM_CC_IFE_LITE_CLK>;
-		clock-rates =
-			<400000000 0>,
-			<480000000 0>,
-			<480000000 0>,
-			<480000000 0>;
-		clock-cntl-level = "lowsvs", "svs", "svs_l1", "turbo";
-		src-clock-name = "ife_clk_src";
-		clock-control-debugfs = "true";
-		status = "ok";
-	};
-
-	cam_csid_lite3: qcom,csid-lite3@acdf800 {
-		cell-index = <5>;
-		compatible = "qcom,csid-lite480";
-		reg-names = "csid-lite";
-		reg = <0xacdf800 0x1000>;
-		reg-cam-base = <0xdf800>;
-		interrupt-names = "csid-lite";
-		interrupts = <GIC_SPI 451 IRQ_TYPE_EDGE_RISING>;
-		regulator-names = "camss";
-		camss-supply = <&titan_top_gdsc>;
-		clock-names =
-			"ife_csid_clk_src",
-			"ife_csid_clk",
-			"cphy_rx_clk_src",
-			"ife_cphy_rx_clk",
-			"ife_clk_src",
-			"ife_clk";
-		clocks =
-			<&clock_camcc CAM_CC_IFE_LITE_CSID_CLK_SRC>,
-			<&clock_camcc CAM_CC_IFE_LITE_CSID_CLK>,
-			<&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
-			<&clock_camcc CAM_CC_IFE_LITE_CPHY_RX_CLK>,
-			<&clock_camcc CAM_CC_IFE_LITE_CLK_SRC>,
-			<&clock_camcc CAM_CC_IFE_LITE_CLK>;
-		clock-rates =
-			<400000000 0 0 0 400000000 0>,
-			<400000000 0 0 0 480000000 0>,
-			<400000000 0 0 0 480000000 0>,
-			<400000000 0 0 0 480000000 0>;
-		clock-cntl-level = "lowsvs", "svs", "svs_l1", "turbo";
-		src-clock-name = "ife_csid_clk_src";
-		clock-control-debugfs = "true";
-		status = "ok";
-	};
-
-	cam_vfe_lite3: qcom,ife-lite3@acdf600 {
-		cell-index = <5>;
-		compatible = "qcom,vfe-lite480";
-		reg-names = "ife-lite";
-		reg = <0xacdf600 0x2200>;
-		reg-cam-base = <0xdf600>;
-		interrupt-names = "ife-lite";
-		interrupts = <GIC_SPI 450 IRQ_TYPE_EDGE_RISING>;
-		regulator-names = "camss";
-		camss-supply = <&titan_top_gdsc>;
-		clock-names =
-			"ife_clk_src",
-			"ife_clk";
-		clocks =
-			<&clock_camcc CAM_CC_IFE_LITE_CLK_SRC>,
-			<&clock_camcc CAM_CC_IFE_LITE_CLK>;
-		clock-rates =
-			<400000000 0>,
-			<480000000 0>,
-			<480000000 0>,
-			<480000000 0>;
-		clock-cntl-level = "lowsvs", "svs", "svs_l1", "turbo";
-		src-clock-name = "ife_clk_src";
-		clock-control-debugfs = "true";
-		status = "ok";
-	};
-
-	cam_csid_lite4: qcom,csid-lite4@ace1a00 {
-		cell-index = <6>;
-		compatible = "qcom,csid-lite480";
-		reg-names = "csid-lite";
-		reg = <0xace1a00 0x1000>;
-		reg-cam-base = <0xe1a00>;
-		interrupt-names = "csid-lite";
-		interrupts = <GIC_SPI 453 IRQ_TYPE_EDGE_RISING>;
-		regulator-names = "camss";
-		camss-supply = <&titan_top_gdsc>;
-		clock-names =
-			"ife_csid_clk_src",
-			"ife_csid_clk",
-			"cphy_rx_clk_src",
-			"ife_cphy_rx_clk",
-			"ife_clk_src",
-			"ife_clk";
-		clocks =
-			<&clock_camcc CAM_CC_IFE_LITE_CSID_CLK_SRC>,
-			<&clock_camcc CAM_CC_IFE_LITE_CSID_CLK>,
-			<&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
-			<&clock_camcc CAM_CC_IFE_LITE_CPHY_RX_CLK>,
-			<&clock_camcc CAM_CC_IFE_LITE_CLK_SRC>,
-			<&clock_camcc CAM_CC_IFE_LITE_CLK>;
-		clock-rates =
-			<400000000 0 0 0 400000000 0>,
-			<400000000 0 0 0 480000000 0>,
-			<400000000 0 0 0 480000000 0>,
-			<400000000 0 0 0 480000000 0>;
-		clock-cntl-level = "lowsvs", "svs", "svs_l1", "turbo";
-		src-clock-name = "ife_csid_clk_src";
-		clock-control-debugfs = "true";
-		status = "ok";
-	};
-
-	cam_vfe_lite4: qcom,ife-lite4@ace1800 {
-		cell-index = <6>;
-		compatible = "qcom,vfe-lite480";
-		reg-names = "ife-lite";
-		reg = <0xace1800 0x2200>;
-		reg-cam-base = <0xe1800>;
-		interrupt-names = "ife-lite";
-		interrupts = <GIC_SPI 452 IRQ_TYPE_EDGE_RISING>;
 		regulator-names = "camss";
 		camss-supply = <&titan_top_gdsc>;
 		clock-names =
