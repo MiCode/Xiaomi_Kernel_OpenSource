@@ -1497,7 +1497,7 @@ static void dp_display_stream_post_enable(struct dp_display_private *dp,
 			struct dp_panel *dp_panel)
 {
 	dp_panel->spd_config(dp_panel);
-	dp_panel->setup_hdr(dp_panel, NULL);
+	dp_panel->setup_hdr(dp_panel, NULL, false, 0);
 }
 
 static int dp_display_post_enable(struct dp_display *dp_display, void *panel)
@@ -1903,23 +1903,27 @@ static void dp_display_convert_to_dp_mode(struct dp_display *dp_display,
 }
 
 static int dp_display_config_hdr(struct dp_display *dp_display, void *panel,
-			struct drm_msm_ext_hdr_metadata *hdr)
+			struct drm_msm_ext_hdr_metadata *hdr, bool dhdr_update)
 {
-	int rc = 0;
-	struct dp_display_private *dp;
 	struct dp_panel *dp_panel;
+	struct dp_display_private *dp;
+	u64 core_clk_rate;
 
 	if (!dp_display || !panel) {
 		pr_err("invalid input\n");
 		return -EINVAL;
 	}
 
-	dp = container_of(dp_display, struct dp_display_private, dp_display);
 	dp_panel = panel;
+	dp = container_of(dp_display, struct dp_display_private, dp_display);
 
-	rc = dp_panel->setup_hdr(dp_panel, hdr);
+	core_clk_rate = dp->power->clk_get_rate(dp->power, "core_clk");
+	if (!core_clk_rate) {
+		pr_err("invalid rate for core_clk\n");
+		return -EINVAL;
+	}
 
-	return rc;
+	return dp_panel->setup_hdr(dp_panel, hdr, dhdr_update, core_clk_rate);
 }
 
 static int dp_display_create_workqueue(struct dp_display_private *dp)

@@ -324,7 +324,8 @@ int dp_connector_config_hdr(struct drm_connector *connector, void *display,
 		return -EINVAL;
 	}
 
-	return dp->config_hdr(dp, sde_conn->drv_panel, &c_state->hdr_meta);
+	return dp->config_hdr(dp, sde_conn->drv_panel, &c_state->hdr_meta,
+			c_state->dyn_hdr_meta.dynamic_hdr_update);
 }
 
 int dp_connector_post_init(struct drm_connector *connector, void *display)

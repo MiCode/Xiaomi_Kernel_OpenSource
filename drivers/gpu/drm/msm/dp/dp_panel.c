@@ -17,6 +17,7 @@
 #define VSC_SDP_EXTENSION_FOR_COLORIMETRY_SUPPORTED BIT(3)
 #define VSC_EXT_VESA_SDP_SUPPORTED BIT(4)
 #define VSC_EXT_VESA_SDP_CHAINING_SUPPORTED BIT(5)
+#define SEQ_INCREMENT_FOR_CHAINED_PACKETS BIT(6)
 
 enum dp_panel_hdr_pixel_encoding {
 	RGB,
@@ -98,6 +99,17 @@ static const u8 vendor_name[8] = {81, 117, 97, 108, 99, 111, 109, 109};
 /* MODEL NAME */
 static const u8 product_desc[16] = {83, 110, 97, 112, 100, 114, 97, 103,
 	111, 110, 0, 0, 0, 0, 0, 0};
+
+struct dp_dhdr_maxpkt_calc_input {
+	u32 mdp_clk;
+	u32 lclk;
+	u32 pclk;
+	u32 h_active;
+	u32 nlanes;
+	s64 mst_target_sc;
+	bool mst_en;
+	bool fec_en;
+};
 
 struct tu_algo_data {
 	s64 lclk_fp;
@@ -2362,8 +2374,10 @@ static int dp_panel_deinit_panel_info(struct dp_panel *dp_panel, u32 flags)
 	connector->hdr_avg_luminance = 0;
 	connector->hdr_min_luminance = 0;
 	connector->hdr_supported = false;
+	connector->hdr_plus_app_ver = 0;
 
 	memset(&c_state->hdr_meta, 0, sizeof(c_state->hdr_meta));
+	memset(&c_state->dyn_hdr_meta, 0, sizeof(c_state->dyn_hdr_meta));
 
 	return rc;
 }
@@ -2409,12 +2423,97 @@ static bool dp_panel_hdr_supported(struct dp_panel *dp_panel)
 		(panel->minor >= 4 || panel->vscext_supported);
 }
 
-static int dp_panel_setup_hdr(struct dp_panel *dp_panel,
-		struct drm_msm_ext_hdr_metadata *hdr_meta)
+static u32 dp_panel_calc_dhdr_pkt_limit(struct dp_panel *dp_panel,
+		struct dp_dhdr_maxpkt_calc_input *input)
 {
-	int rc = 0;
+	s64 mdpclk_fp = drm_fixp_from_fraction(input->mdp_clk, 1000000);
+	s64 lclk_fp = drm_fixp_from_fraction(input->lclk, 1000);
+	s64 pclk_fp = drm_fixp_from_fraction(input->pclk, 1000);
+	s64 nlanes_fp = drm_int2fixp(input->nlanes);
+	s64 target_sc = input->mst_target_sc;
+	s64 hactive_fp = drm_int2fixp(input->h_active);
+	const s64 i1_fp = DRM_FIXED_ONE;
+	const s64 i2_fp = drm_int2fixp(2);
+	const s64 i10_fp = drm_int2fixp(10);
+	const s64 i56_fp = drm_int2fixp(56);
+	const s64 i64_fp = drm_int2fixp(64);
+	s64 mst_bw_fp = i1_fp;
+	s64 fec_factor_fp = i1_fp;
+	s64 mst_bw64_fp, mst_bw64_ceil_fp, nlanes56_fp;
+	u32 f1, f2, f3, f4, f5, deploy_period, target_period;
+	s64 f3_f5_slot_fp;
+	u32 calc_pkt_limit;
+	const u32 max_pkt_limit = 64;
+
+	if (input->fec_en && input->mst_en)
+		fec_factor_fp = drm_fixp_from_fraction(64000, 65537);
+
+	if (input->mst_en)
+		mst_bw_fp = drm_fixp_div(target_sc, i64_fp);
+
+	f1 = drm_fixp2int_ceil(drm_fixp_div(drm_fixp_mul(i10_fp, lclk_fp),
+			mdpclk_fp));
+	f2 = drm_fixp2int_ceil(drm_fixp_div(drm_fixp_mul(i2_fp, lclk_fp),
+			mdpclk_fp)) + drm_fixp2int_ceil(drm_fixp_div(
+			drm_fixp_mul(i1_fp, lclk_fp), mdpclk_fp));
+
+	mst_bw64_fp = drm_fixp_mul(mst_bw_fp, i64_fp);
+	if (drm_fixp2int(mst_bw64_fp) == 0)
+		f3_f5_slot_fp = drm_fixp_div(i1_fp, drm_int2fixp(
+				drm_fixp2int_ceil(drm_fixp_div(
+				i1_fp, mst_bw64_fp))));
+	else
+		f3_f5_slot_fp = drm_int2fixp(drm_fixp2int(mst_bw_fp));
+
+	mst_bw64_ceil_fp = drm_int2fixp(drm_fixp2int_ceil(mst_bw64_fp));
+	f3 = drm_fixp2int(drm_fixp_mul(drm_int2fixp(drm_fixp2int(
+				drm_fixp_div(i2_fp, f3_f5_slot_fp)) + 1),
+				(i64_fp - mst_bw64_ceil_fp))) + 2;
+
+	if (!input->mst_en) {
+		f4 = 1 + drm_fixp2int(drm_fixp_div(drm_int2fixp(50),
+				nlanes_fp)) + drm_fixp2int(drm_fixp_div(
+				nlanes_fp, i2_fp));
+		f5 = 0;
+	} else {
+		f4 = 0;
+		nlanes56_fp = drm_fixp_div(i56_fp, nlanes_fp);
+		f5 = drm_fixp2int(drm_fixp_mul(drm_int2fixp(drm_fixp2int(
+				drm_fixp_div(i1_fp + nlanes56_fp,
+				f3_f5_slot_fp)) + 1), (i64_fp -
+				mst_bw64_ceil_fp + i1_fp + nlanes56_fp)));
+	}
+
+	deploy_period = f1 + f2 + f3 + f4 + f5 + 19;
+	target_period = drm_fixp2int(drm_fixp_mul(fec_factor_fp, drm_fixp_mul(
+			hactive_fp, drm_fixp_div(lclk_fp, pclk_fp))));
+
+	calc_pkt_limit = target_period / deploy_period;
+
+	pr_debug("input: %d, %d, %d, %d, %d, 0x%llx, %d, %d\n",
+		input->mdp_clk, input->lclk, input->pclk, input->h_active,
+		input->nlanes, input->mst_target_sc, input->mst_en ? 1 : 0,
+		input->fec_en ? 1 : 0);
+	pr_debug("factors: %d, %d, %d, %d, %d\n", f1, f2, f3, f4, f5);
+	pr_debug("d_p: %d, t_p: %d, maxPkts: %d%s\n", deploy_period,
+		target_period, calc_pkt_limit, calc_pkt_limit > max_pkt_limit ?
+		" CAPPED" : "");
+
+	if (calc_pkt_limit > max_pkt_limit)
+		calc_pkt_limit = max_pkt_limit;
+
+	pr_debug("packet limit per line = %d\n", calc_pkt_limit);
+	return calc_pkt_limit;
+}
+
+static int dp_panel_setup_hdr(struct dp_panel *dp_panel,
+		struct drm_msm_ext_hdr_metadata *hdr_meta,
+		bool dhdr_update, u64 core_clk_rate)
+{
+	int rc = 0, max_pkts = 0;
 	struct dp_panel_private *panel;
 	struct dp_catalog_hdr_data *hdr;
+	struct dp_dhdr_maxpkt_calc_input input;
 
 	if (!dp_panel) {
 		pr_err("invalid input\n");
@@ -2470,9 +2569,29 @@ static int dp_panel_setup_hdr(struct dp_panel *dp_panel,
 	else
 		memset(&hdr->hdr_meta, 0, sizeof(hdr->hdr_meta));
 cached:
+	if (dhdr_update) {
+		hdr->vscext_header_byte2 |= SEQ_INCREMENT_FOR_CHAINED_PACKETS;
+
+		input.mdp_clk = core_clk_rate;
+		input.lclk = dp_panel->link_info.rate;
+		input.nlanes = dp_panel->link_info.num_lanes;
+		input.pclk = dp_panel->pinfo.pixel_clk_khz;
+		input.h_active = dp_panel->pinfo.h_active;
+		input.mst_target_sc = dp_panel->mst_target_sc;
+		input.mst_en = dp_panel->mst_state;
+		input.fec_en = dp_panel->fec_en;
+		max_pkts = dp_panel_calc_dhdr_pkt_limit(dp_panel, &input);
+	}
+
 	if (panel->panel_on) {
 		panel->catalog->stream_id = dp_panel->stream_id;
-		panel->catalog->config_hdr(panel->catalog, panel->hdr_state);
+		panel->catalog->config_hdr(panel->catalog, panel->hdr_state,
+				max_pkts);
+		if (dhdr_update) {
+			panel->catalog->dhdr_flush(panel->catalog);
+			hdr->vscext_header_byte2 &=
+					~SEQ_INCREMENT_FOR_CHAINED_PACKETS;
+		}
 	}
 end:
 	return rc;
