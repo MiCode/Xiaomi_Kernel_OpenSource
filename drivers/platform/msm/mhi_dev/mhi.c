@@ -64,6 +64,7 @@
 #define TR_RING_ELEMENT_SZ	sizeof(struct mhi_dev_transfer_ring_element)
 #define RING_ELEMENT_TYPE_SZ	sizeof(union mhi_dev_ring_element_type)
 
+uint32_t bhi_imgtxdb;
 enum mhi_msg_level mhi_msg_lvl = MHI_MSG_ERROR;
 enum mhi_msg_level mhi_ipc_msg_lvl = MHI_MSG_VERBOSE;
 void *mhi_ipc_log;
@@ -1499,7 +1500,6 @@ static void mhi_dev_scheduler(struct work_struct *work)
 	enum mhi_dev_state state;
 	enum mhi_dev_event event = 0;
 	u32 mhi_reset;
-	uint32_t bhi_imgtxdb = 0;
 
 	mutex_lock(&mhi_ctx->mhi_lock);
 	/* Check for interrupts */
@@ -1508,6 +1508,10 @@ static void mhi_dev_scheduler(struct work_struct *work)
 	if (int_value & MHI_MMIO_CTRL_INT_STATUS_A7_MSK) {
 		mhi_log(MHI_MSG_VERBOSE,
 			"processing ctrl interrupt with %d\n", int_value);
+
+		rc = mhi_dev_mmio_read(mhi, BHI_IMGTXDB, &bhi_imgtxdb);
+		mhi_log(MHI_MSG_DBG, "BHI_IMGTXDB = 0x%x\n", bhi_imgtxdb);
+
 		rc = mhi_dev_mmio_get_mhi_state(mhi, &state, &mhi_reset);
 		if (rc) {
 			pr_err("%s: get mhi state failed\n", __func__);
@@ -1537,10 +1541,6 @@ static void mhi_dev_scheduler(struct work_struct *work)
 			pr_err("error sending SM event\n");
 			goto fail;
 		}
-
-		rc = mhi_dev_mmio_read(mhi, BHI_IMGTXDB, &bhi_imgtxdb);
-		mhi_log(MHI_MSG_VERBOSE,
-			"BHI_IMGTXDB = 0x%x\n", bhi_imgtxdb);
 	}
 
 	if (int_value & MHI_MMIO_CTRL_CRDB_STATUS_MSK) {
