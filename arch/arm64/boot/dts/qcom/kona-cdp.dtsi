@@ -64,7 +64,7 @@
 		qca,bt-vdd-rfa2-supply = <&pm8150a_s8>;
 
 		qca,bt-vdd-aon-voltage-level = <950000 950000>;
-		qca,bt-vdd-dig-voltage-level = <950000 950000>;
+		qca,bt-vdd-dig-voltage-level = <950000 952000>;
 		qca,bt-vdd-rfa1-voltage-level = <1900000 1900000>;
 		qca,bt-vdd-rfa2-voltage-level = <1350000 1350000>;
 	};
