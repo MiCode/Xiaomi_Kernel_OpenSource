@@ -18,6 +18,7 @@
 #include "cam_vfe_bus.h"
 #include "cam_vfe_bus_ver3.h"
 #include "cam_vfe_core.h"
+#include "cam_vfe_soc.h"
 #include "cam_debug_util.h"
 #include "cam_cpas_api.h"
 
@@ -121,6 +122,11 @@ struct cam_vfe_bus_ver3_wm_resource_data {
 
 	uint32_t             en_cfg;
 	uint32_t             is_dual;
+
+	uint32_t             ubwc_lossy_threshold_0;
+	uint32_t             ubwc_lossy_threshold_1;
+	uint32_t             ubwc_offset_lossy_variance;
+	uint32_t             ubwc_bandwidth_limit;
 };
 
 struct cam_vfe_bus_ver3_comp_grp_data {
@@ -138,6 +144,7 @@ struct cam_vfe_bus_ver3_comp_grp_data {
 
 	uint32_t                                     acquire_dev_cnt;
 	uint32_t                                     irq_trigger_cnt;
+	uint32_t                                     ubwc_static_ctrl;
 
 	void                                        *ctx;
 };
@@ -1147,8 +1154,10 @@ rdi_config:
 	*wm_res = wm_res_local;
 	*comp_grp_id = rsrc_data->hw_regs->comp_group;
 
-	CAM_DBG(CAM_ISP, "WM:%d processed width %d, processed  height %d",
-		rsrc_data->index, rsrc_data->width, rsrc_data->height);
+	CAM_DBG(CAM_ISP,
+		"WM:%d processed width:%d height:%d format:0x%x en_ubwc:%d",
+		rsrc_data->index, rsrc_data->width, rsrc_data->height,
+		rsrc_data->format, rsrc_data->en_ubwc);
 	return 0;
 }
 
@@ -1183,6 +1192,10 @@ static int cam_vfe_bus_ver3_release_wm(void   *bus_priv,
 	rsrc_data->en_cfg = 0;
 	rsrc_data->is_dual = 0;
 
+	rsrc_data->ubwc_lossy_threshold_0 = 0;
+	rsrc_data->ubwc_lossy_threshold_1 = 0;
+	rsrc_data->ubwc_offset_lossy_variance = 0;
+	rsrc_data->ubwc_bandwidth_limit = 0;
 	wm_res->tasklet_info = NULL;
 	wm_res->res_state = CAM_ISP_RESOURCE_STATE_AVAILABLE;
 
@@ -1541,6 +1554,14 @@ static int cam_vfe_bus_ver3_start_comp_grp(
 		}
 	}
 
+	if (rsrc_data->ubwc_static_ctrl) {
+		val = cam_io_r_mb(common_data->mem_base +
+			common_data->common_reg->ubwc_static_ctrl);
+		val |= rsrc_data->ubwc_static_ctrl;
+		cam_io_w_mb(val, common_data->mem_base +
+			common_data->common_reg->ubwc_static_ctrl);
+	}
+
 	bus_irq_reg_mask[CAM_VFE_BUS_VER3_IRQ_REG0] =
 		(0x1 << (rsrc_data->comp_grp_type + 6));
 
@@ -1686,11 +1707,13 @@ static int cam_vfe_bus_ver3_handle_comp_done_bottom_half(
 }
 
 static int cam_vfe_bus_ver3_init_comp_grp(uint32_t index,
+	struct cam_hw_soc_info          *soc_info,
 	struct cam_vfe_bus_ver3_priv    *ver3_bus_priv,
 	struct cam_vfe_bus_ver3_hw_info *ver3_hw_info,
 	struct cam_isp_resource_node    *comp_grp)
 {
 	struct cam_vfe_bus_ver3_comp_grp_data *rsrc_data = NULL;
+	struct cam_vfe_soc_private *vfe_soc_private = soc_info->soc_private;
 
 	rsrc_data = kzalloc(sizeof(struct cam_vfe_bus_ver3_comp_grp_data),
 		GFP_KERNEL);
@@ -1705,6 +1728,18 @@ static int cam_vfe_bus_ver3_init_comp_grp(uint32_t index,
 	rsrc_data->comp_grp_type   = index;
 	rsrc_data->common_data     = &ver3_bus_priv->common_data;
 	rsrc_data->dual_slave_core = CAM_VFE_BUS_VER3_VFE_CORE_MAX;
+
+	if (rsrc_data->comp_grp_type != CAM_VFE_BUS_VER3_COMP_GRP_0 &&
+		rsrc_data->comp_grp_type != CAM_VFE_BUS_VER3_COMP_GRP_1)
+		rsrc_data->ubwc_static_ctrl = 0;
+	else {
+		if (of_fdt_get_ddrtype() == DDR_TYPE_LPDDR5)
+			rsrc_data->ubwc_static_ctrl =
+				vfe_soc_private->ubwc_static_ctrl[1];
+		else
+			rsrc_data->ubwc_static_ctrl =
+				vfe_soc_private->ubwc_static_ctrl[0];
+	}
 
 	list_add_tail(&comp_grp->list, &ver3_bus_priv->free_comp_grp);
 
@@ -2425,7 +2460,6 @@ static int cam_vfe_bus_ver3_update_ubwc_regs(
 	uint32_t *reg_val_pair,	uint32_t i, uint32_t *j)
 {
 	struct cam_vfe_bus_ver3_reg_offset_ubwc_client *ubwc_regs;
-	uint32_t ubwc_bw_limit = 0;
 	int rc = 0;
 
 	if (!wm_data || !reg_val_pair || !j) {
@@ -2467,23 +2501,26 @@ static int cam_vfe_bus_ver3_update_ubwc_regs(
 	CAM_DBG(CAM_ISP, "WM:%d ubwc_ctrl_2 0x%x",
 		wm_data->index, reg_val_pair[*j-1]);
 
-	switch (wm_data->format) {
-	case CAM_FORMAT_UBWC_TP10:
-		ubwc_bw_limit = (0x8 << 1) | BIT(0);
-		break;
-	case CAM_FORMAT_UBWC_NV12_4R:
-		ubwc_bw_limit = (0xB << 1) | BIT(0);
-		break;
-	default:
-		ubwc_bw_limit = 0;
-		break;
-	}
+	CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, *j,
+		ubwc_regs->lossy_thresh0, wm_data->ubwc_lossy_threshold_0);
+	CAM_DBG(CAM_ISP, "WM:%d lossy_thresh0 0x%x",
+		wm_data->index, reg_val_pair[*j-1]);
 
-	if (ubwc_bw_limit) {
+	CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, *j,
+		ubwc_regs->lossy_thresh1, wm_data->ubwc_lossy_threshold_1);
+	CAM_DBG(CAM_ISP, "WM:%d lossy_thresh1 0x%x",
+		wm_data->index, reg_val_pair[*j-1]);
+
+	CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, *j,
+		ubwc_regs->off_lossy_var, wm_data->ubwc_offset_lossy_variance);
+	CAM_DBG(CAM_ISP, "WM:%d off_lossy_var 0x%x",
+		wm_data->index, reg_val_pair[*j-1]);
+
+	if (wm_data->ubwc_bandwidth_limit) {
 		CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, *j,
-			ubwc_regs->bw_limit, ubwc_bw_limit);
+			ubwc_regs->bw_limit, wm_data->ubwc_bandwidth_limit);
 		CAM_DBG(CAM_ISP, "WM:%d ubwc bw limit 0x%x",
-			wm_data->index, ubwc_bw_limit);
+			wm_data->index,   wm_data->ubwc_bandwidth_limit);
 	}
 
 end:
@@ -2543,7 +2580,7 @@ static int cam_vfe_bus_ver3_update_wm(void *priv, void *cmd_args,
 		val |= wm_data->width;
 		CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
 			wm_data->hw_regs->image_cfg_0, val);
-		CAM_DBG(CAM_ISP, "WM %d image height and width 0x%x",
+		CAM_DBG(CAM_ISP, "WM:%d image height and width 0x%x",
 			wm_data->index, reg_val_pair[j-1]);
 
 		/* For initial configuration program all bus registers */
@@ -2775,9 +2812,130 @@ static int cam_vfe_bus_ver3_update_hfr(void *priv, void *cmd_args,
 	return 0;
 }
 
-static int cam_vfe_bus_ver3_update_ubwc_config(void *cmd_args)
+static int cam_vfe_bus_ver3_update_ubwc_config_v2(void *cmd_args)
 {
-	return 0;
+	struct cam_isp_hw_get_cmd_update         *update_ubwc;
+	struct cam_vfe_bus_ver3_vfe_out_data     *vfe_out_data = NULL;
+	struct cam_vfe_bus_ver3_wm_resource_data *wm_data = NULL;
+	struct cam_vfe_generic_ubwc_config       *ubwc_generic_cfg = NULL;
+	struct cam_vfe_generic_ubwc_plane_config *ubwc_generic_plane_cfg = NULL;
+	uint32_t                                  i;
+	int                                       rc = 0;
+
+	if (!cmd_args) {
+		CAM_ERR(CAM_ISP, "Invalid args");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	update_ubwc =  (struct cam_isp_hw_get_cmd_update *) cmd_args;
+
+	vfe_out_data = (struct cam_vfe_bus_ver3_vfe_out_data *)
+		update_ubwc->res->res_priv;
+
+	if (!vfe_out_data || !vfe_out_data->cdm_util_ops) {
+		CAM_ERR(CAM_ISP, "Invalid data");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	ubwc_generic_cfg = update_ubwc->ubwc_config;
+
+	for (i = 0; i < vfe_out_data->num_wm; i++) {
+
+		wm_data = vfe_out_data->wm_res[i]->res_priv;
+		ubwc_generic_plane_cfg = &ubwc_generic_cfg->ubwc_plane_cfg[i];
+
+		if (!wm_data->hw_regs->ubwc_regs) {
+			CAM_ERR(CAM_ISP,
+				"No UBWC register to configure.");
+			rc = -EINVAL;
+			goto end;
+		}
+
+		if (!wm_data->en_ubwc) {
+			CAM_ERR(CAM_ISP, "UBWC Disabled");
+			rc = -EINVAL;
+			goto end;
+		}
+
+		if (wm_data->packer_cfg !=
+			ubwc_generic_plane_cfg->packer_config ||
+			!wm_data->init_cfg_done) {
+			wm_data->packer_cfg =
+				ubwc_generic_plane_cfg->packer_config;
+			wm_data->ubwc_updated = true;
+		}
+
+		if ((!wm_data->is_dual) && ((wm_data->h_init !=
+			ubwc_generic_plane_cfg->h_init) ||
+			!wm_data->init_cfg_done)) {
+			wm_data->h_init = ubwc_generic_plane_cfg->h_init;
+			wm_data->ubwc_updated = true;
+		}
+
+		CAM_ERR(CAM_ISP, "num_wm %d h_init 0x%x",
+			vfe_out_data->num_wm,
+			ubwc_generic_plane_cfg->h_init);
+		if ((!wm_data->is_dual) && ((wm_data->ubwc_meta_cfg !=
+			ubwc_generic_plane_cfg->meta_stride) ||
+			!wm_data->init_cfg_done)) {
+			wm_data->ubwc_meta_cfg =
+				ubwc_generic_plane_cfg->meta_stride;
+			wm_data->ubwc_updated = true;
+		}
+
+		if (wm_data->ubwc_mode_cfg !=
+			ubwc_generic_plane_cfg->mode_config_0 ||
+			!wm_data->init_cfg_done) {
+			wm_data->ubwc_mode_cfg =
+				ubwc_generic_plane_cfg->mode_config_0;
+			wm_data->ubwc_updated = true;
+		}
+
+		if (wm_data->ubwc_ctrl_2 !=
+			ubwc_generic_plane_cfg->ctrl_2 ||
+			!wm_data->init_cfg_done) {
+			wm_data->ubwc_ctrl_2 =
+				ubwc_generic_plane_cfg->ctrl_2;
+			wm_data->ubwc_updated = true;
+		}
+
+		if (wm_data->ubwc_lossy_threshold_0 !=
+			ubwc_generic_plane_cfg->lossy_threshold_0 ||
+			!wm_data->init_cfg_done) {
+			wm_data->ubwc_lossy_threshold_0 =
+				ubwc_generic_plane_cfg->lossy_threshold_0;
+			wm_data->ubwc_updated = true;
+		}
+
+		if (wm_data->ubwc_lossy_threshold_1 !=
+			ubwc_generic_plane_cfg->lossy_threshold_1 ||
+			!wm_data->init_cfg_done) {
+			wm_data->ubwc_lossy_threshold_1 =
+				ubwc_generic_plane_cfg->lossy_threshold_1;
+			wm_data->ubwc_updated = true;
+		}
+
+		if (wm_data->ubwc_offset_lossy_variance !=
+			ubwc_generic_plane_cfg->lossy_var_offset ||
+			!wm_data->init_cfg_done) {
+			wm_data->ubwc_offset_lossy_variance =
+				ubwc_generic_plane_cfg->lossy_var_offset;
+			wm_data->ubwc_updated = true;
+		}
+
+		if (wm_data->ubwc_bandwidth_limit !=
+			ubwc_generic_plane_cfg->bandwidth_limit ||
+			!wm_data->init_cfg_done) {
+			wm_data->ubwc_bandwidth_limit =
+				ubwc_generic_plane_cfg->bandwidth_limit;
+			wm_data->ubwc_updated = true;
+		}
+	}
+
+end:
+	return rc;
 }
 
 static int cam_vfe_bus_ver3_update_stripe_cfg(void *priv, void *cmd_args,
@@ -2999,8 +3157,8 @@ static int cam_vfe_bus_ver3_process_cmd(
 			bus_priv->error_irq_handle = 0;
 		}
 		break;
-	case CAM_ISP_HW_CMD_UBWC_UPDATE:
-		rc = cam_vfe_bus_ver3_update_ubwc_config(cmd_args);
+	case CAM_ISP_HW_CMD_UBWC_UPDATE_V2:
+		rc = cam_vfe_bus_ver3_update_ubwc_config_v2(cmd_args);
 		break;
 	default:
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "Invalid camif process command:%d",
@@ -3090,7 +3248,8 @@ int cam_vfe_bus_ver3_init(
 	}
 
 	for (i = 0; i < CAM_VFE_BUS_VER3_COMP_GRP_MAX; i++) {
-		rc = cam_vfe_bus_ver3_init_comp_grp(i, bus_priv, bus_hw_info,
+		rc = cam_vfe_bus_ver3_init_comp_grp(i, soc_info,
+			bus_priv, bus_hw_info,
 			&bus_priv->comp_grp[i]);
 		if (rc < 0) {
 			CAM_ERR(CAM_ISP, "Init Comp Grp failed rc=%d", rc);

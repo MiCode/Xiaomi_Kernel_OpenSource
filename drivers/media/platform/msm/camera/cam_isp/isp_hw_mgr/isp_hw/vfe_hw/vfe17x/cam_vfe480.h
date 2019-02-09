@@ -305,6 +305,9 @@ static struct cam_vfe_bus_ver3_reg_offset_ubwc_client
 	.mode_cfg         = 0x0000AC48,
 	.stats_ctrl       = 0x0000AC4C,
 	.ctrl_2           = 0x0000AC50,
+	.lossy_thresh0    = 0x0000AC54,
+	.lossy_thresh1    = 0x0000AC58,
+	.off_lossy_var    = 0x0000AC5C,
 	.bw_limit         = 0x0000AC1C,
 };
 
@@ -315,6 +318,9 @@ static struct cam_vfe_bus_ver3_reg_offset_ubwc_client
 	.mode_cfg         = 0x0000AD48,
 	.stats_ctrl       = 0x0000AD4C,
 	.ctrl_2           = 0x0000AD50,
+	.lossy_thresh0    = 0x0000AD54,
+	.lossy_thresh1    = 0x0000AD58,
+	.off_lossy_var    = 0x0000AD5C,
 	.bw_limit         = 0x0000AD1C,
 };
 
@@ -325,6 +331,9 @@ static struct cam_vfe_bus_ver3_reg_offset_ubwc_client
 	.mode_cfg         = 0x0000B048,
 	.stats_ctrl       = 0x0000B04C,
 	.ctrl_2           = 0x0000B050,
+	.lossy_thresh0    = 0x0000B054,
+	.lossy_thresh1    = 0x0000B058,
+	.off_lossy_var    = 0x0000B05C,
 	.bw_limit         = 0x0000B01C,
 };
 
@@ -335,6 +344,9 @@ static struct cam_vfe_bus_ver3_reg_offset_ubwc_client
 	.mode_cfg         = 0x0000B148,
 	.stats_ctrl       = 0x0000B14C,
 	.ctrl_2           = 0x0000B150,
+	.lossy_thresh0    = 0x0000B154,
+	.lossy_thresh1    = 0x0000B158,
+	.off_lossy_var    = 0x0000B15C,
 	.bw_limit         = 0x0000B11C,
 };
 

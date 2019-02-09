@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_ISP_HW_H_
@@ -97,6 +97,7 @@ enum cam_isp_hw_cmd_type {
 	CAM_ISP_HW_CMD_CSID_CLOCK_UPDATE,
 	CAM_ISP_HW_CMD_FE_UPDATE_IN_RD,
 	CAM_ISP_HW_CMD_FE_UPDATE_BUS_RD,
+	CAM_ISP_HW_CMD_UBWC_UPDATE_V2,
 	CAM_ISP_HW_CMD_MAX,
 };
 
@@ -206,6 +207,7 @@ struct cam_isp_hw_get_cmd_update {
 		struct cam_isp_bw_config             *bw_update;
 		struct cam_ubwc_plane_cfg_v1         *ubwc_update;
 		struct cam_fe_config                 *fe_update;
+		struct cam_vfe_generic_ubwc_config   *ubwc_config;
 	};
 };
 

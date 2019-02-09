@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __UAPI_CAM_ISP_H__
@@ -95,6 +95,7 @@
 #define CAM_ISP_GENERIC_BLOB_TYPE_UBWC_CONFIG         3
 #define CAM_ISP_GENERIC_BLOB_TYPE_CSID_CLOCK_CONFIG   4
 #define CAM_ISP_GENERIC_BLOB_TYPE_FE_CONFIG           5
+#define CAM_ISP_GENERIC_BLOB_TYPE_UBWC_CONFIG_V2      6
 
 /* Query devices */
 /**

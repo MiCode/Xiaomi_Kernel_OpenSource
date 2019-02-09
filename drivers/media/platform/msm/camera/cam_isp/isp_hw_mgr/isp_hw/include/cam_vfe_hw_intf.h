@@ -299,6 +299,58 @@ struct cam_vfe_irq_handler_priv {
 	uint32_t                     hw_version;
 };
 
+/**
+ * struct cam_ubwc_generic_plane_config - UBWC Plane configuration info
+ *
+ * @port_type:                  Port Type
+ * @meta_stride:                UBWC metadata stride
+ * @meta_size:                  UBWC metadata plane size
+ * @meta_offset:                UBWC metadata offset
+ * @packer_config:              UBWC packer config
+ * @mode_config:                UBWC mode config
+ * @static ctrl:                UBWC static ctrl
+ * @ctrl_2:                     UBWC ctrl 2
+ * @tile_config:                UBWC tile config
+ * @h_init:                     UBWC horizontal initial coordinate in pixels
+ * @v_init:                     UBWC vertical initial coordinate in lines
+ * @stats_ctrl_2:               UBWC stats control
+ * @lossy_threshold0            UBWC lossy threshold 0
+ * @lossy_threshold1            UBWC lossy threshold 1
+ * @lossy_var_offset            UBWC offset variance threshold
+ * @bandwidth limit             UBWC bandwidth limit
+ */
+struct cam_vfe_generic_ubwc_plane_config {
+	uint32_t                port_type;
+	uint32_t                meta_stride;
+	uint32_t                meta_size;
+	uint32_t                meta_offset;
+	uint32_t                packer_config;
+	uint32_t                mode_config_0;
+	uint32_t                mode_config_1;
+	uint32_t                tile_config;
+	uint32_t                h_init;
+	uint32_t                v_init;
+	uint32_t                static_ctrl;
+	uint32_t                ctrl_2;
+	uint32_t                stats_ctrl_2;
+	uint32_t                lossy_threshold_0;
+	uint32_t                lossy_threshold_1;
+	uint32_t                lossy_var_offset;
+	uint32_t                bandwidth_limit;
+};
+
+/**
+ * struct cam_ubwc_generic_config - UBWC Configuration Payload
+ *
+ * @api_version:         UBWC config api version
+ * @ubwc_plane_config:   Array of UBWC configurations per plane
+ */
+struct cam_vfe_generic_ubwc_config {
+	uint32_t   api_version;
+	struct cam_vfe_generic_ubwc_plane_config
+		ubwc_plane_cfg[CAM_PACKET_MAX_PLANES - 1];
+};
+
 /*
  * cam_vfe_hw_init()
  *

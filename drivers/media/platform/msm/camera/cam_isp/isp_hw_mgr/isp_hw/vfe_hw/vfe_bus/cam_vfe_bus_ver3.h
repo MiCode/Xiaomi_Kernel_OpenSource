@@ -109,6 +109,9 @@ struct cam_vfe_bus_ver3_reg_offset_ubwc_client {
 	uint32_t mode_cfg;
 	uint32_t stats_ctrl;
 	uint32_t ctrl_2;
+	uint32_t lossy_thresh0;
+	uint32_t lossy_thresh1;
+	uint32_t off_lossy_var;
 	uint32_t bw_limit;
 };
 
