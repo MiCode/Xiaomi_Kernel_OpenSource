@@ -1029,6 +1029,11 @@ static u32 get_enc_input_extra_size(struct msm_vidc_inst *inst, u32 extra_types)
 	u32 size = 0;
 	u32 width = inst->prop.width[OUTPUT_PORT];
 	u32 height = inst->prop.height[OUTPUT_PORT];
+	u32 extradata_count = 0;
+
+	/* Add size for default extradata */
+	size += sizeof(struct msm_vidc_enc_cvp_metadata_payload);
+	extradata_count++;
 
 	if (extra_types & EXTRADATA_ENC_INPUT_ROI) {
 		u32 lcu_size = 16;
@@ -1037,14 +1042,18 @@ static u32 get_enc_input_extra_size(struct msm_vidc_inst *inst, u32 extra_types)
 			lcu_size = 32;
 
 		size += ROI_EXTRADATA_SIZE(width, height, lcu_size);
+		extradata_count++;
 	}
 
-	if (extra_types & EXTRADATA_ENC_INPUT_HDR10PLUS)
+	if (extra_types & EXTRADATA_ENC_INPUT_HDR10PLUS) {
 		size += sizeof(struct hfi_hdr10_pq_sei);
+		extradata_count++;
+	}
 
-	/* Add size for extradata none */
+	/* Add extradata header sizes including EXTRADATA_NONE */
 	if (size)
-		size += sizeof(struct msm_vidc_extradata_header);
+		size += sizeof(struct msm_vidc_extradata_header) *
+				(extradata_count + 1);
 
 	return ALIGN(size, SZ_4K);
 }
@@ -1170,6 +1179,7 @@ int msm_venc_inst_init(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct msm_vidc_format *fmt = NULL;
+	struct hal_buffer_requirements *buff_req_buffer = NULL;
 
 	if (!inst) {
 		dprintk(VIDC_ERR, "Invalid input = %pK\n", inst);
@@ -1189,8 +1199,8 @@ int msm_venc_inst_init(struct msm_vidc_inst *inst)
 	inst->buffer_mode_set[CAPTURE_PORT] = HAL_BUFFER_MODE_STATIC;
 	inst->clk_data.frame_rate = (DEFAULT_FPS << 16);
 	inst->capability.pixelprocess_capabilities = 0;
-	/* To start with, both ports are 1 plane each */
-	inst->bufq[OUTPUT_PORT].num_planes = 1;
+
+	inst->bufq[OUTPUT_PORT].num_planes = 2;
 	inst->bufq[CAPTURE_PORT].num_planes = 1;
 	inst->clk_data.operating_rate = (DEFAULT_FPS << 16);
 
@@ -1217,6 +1227,19 @@ int msm_venc_inst_init(struct msm_vidc_inst *inst)
 	inst->buff_req.buffer[12].buffer_type = HAL_BUFFER_INTERNAL_CMD_QUEUE;
 	inst->buff_req.buffer[13].buffer_type = HAL_BUFFER_INTERNAL_RECON;
 	msm_vidc_init_buffer_size_calculators(inst);
+
+	buff_req_buffer = get_buff_req_buffer(inst,
+		HAL_BUFFER_EXTRADATA_INPUT);
+	if (!buff_req_buffer) {
+		dprintk(VIDC_ERR,
+			"Failed to get extradata buff info\n");
+		return -EINVAL;
+	}
+
+	buff_req_buffer->buffer_size =
+		get_enc_input_extra_size(inst, EXTRADATA_DEFAULT);
+	inst->bufq[OUTPUT_PORT].plane_sizes[1] =
+		buff_req_buffer->buffer_size;
 
 	/* By default, initialize OUTPUT port to UBWC YUV format */
 	fmt = msm_comm_get_pixel_fmt_fourcc(venc_formats,
@@ -1669,13 +1692,8 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		}
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA:
-		inst->bufq[OUTPUT_PORT].num_planes = 1;
-		inst->bufq[CAPTURE_PORT].num_planes = 1;
-
 		if ((ctrl->val & EXTRADATA_ENC_INPUT_ROI) ||
 			(ctrl->val & EXTRADATA_ENC_INPUT_HDR10PLUS)) {
-			inst->bufq[OUTPUT_PORT].num_planes = 2;
-
 			buff_req_buffer = get_buff_req_buffer(inst,
 						HAL_BUFFER_EXTRADATA_INPUT);
 			if (!buff_req_buffer) {
@@ -3303,6 +3321,10 @@ int msm_venc_set_extradata(struct msm_vidc_inst *inst)
 			0x0);
 		}
 	}
+
+	/* Always enable default extradata */
+	rc = msm_comm_set_extradata(inst,
+			HFI_PROPERTY_PARAM_VENC_CVP_METADATA_EXTRADATA, 0x1);
 
 	if (ctrl->val & EXTRADATA_ADVANCED)
 		// Enable Advanced Extradata - LTR Info
