@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * Copyright(c) 2016, Analogix Semiconductor. All rights reserved.
  *
@@ -1253,10 +1253,14 @@ static void anx7625_bridge_disable(struct drm_bridge *bridge)
 
 	mutex_lock(&anx7625->lock);
 
-	anx7625_stop(anx7625);
-
 	anx7625->enabled = false;
 
+	if (!anx7625->powered)
+		goto out;
+
+	anx7625_stop(anx7625);
+
+out:
 	mutex_unlock(&anx7625->lock);
 
 	TRACE("anx7625 disabled\n");
@@ -1291,6 +1295,9 @@ static void anx7625_bridge_enable(struct drm_bridge *bridge)
 
 	anx7625->enabled = true;
 
+	if (!anx7625->powered)
+		goto out;
+
 	if (!anx7625->connected)
 		DRM_ERROR("cable is not connected\n");
 
@@ -1301,6 +1308,7 @@ static void anx7625_bridge_enable(struct drm_bridge *bridge)
 	if (err)
 		DRM_ERROR("Failed to start: %d\n", err);
 
+out:
 	mutex_unlock(&anx7625->lock);
 
 	TRACE("anx7625 enabled\n");
@@ -1512,10 +1520,48 @@ static const struct of_device_id anx7625_id_match_table[] = {
 MODULE_DEVICE_TABLE(of, anx7625_id_match_table);
 #endif
 
+#ifdef CONFIG_PM_SLEEP
+static int anx7625_suspend(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct anx7625 *anx7625 = i2c_get_clientdata(client);
+
+	mutex_lock(&anx7625->lock);
+
+	anx7625_poweroff(anx7625);
+
+	mutex_unlock(&anx7625->lock);
+
+	return 0;
+}
+
+static int anx7625_resume(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct anx7625 *anx7625 = i2c_get_clientdata(client);
+
+	mutex_lock(&anx7625->lock);
+
+	anx7625->last_read_DevAddr = 0;
+
+	anx7625_poweron(anx7625);
+
+	if (anx7625->enabled)
+		anx7625_start(anx7625);
+
+	mutex_unlock(&anx7625->lock);
+
+	return 0;
+}
+#endif
+
+static SIMPLE_DEV_PM_OPS(anx7625_pm, anx7625_suspend, anx7625_resume);
+
 static struct i2c_driver anx7625_driver = {
 	.driver = {
 		.name = "anx7625",
 		.owner = THIS_MODULE,
+		.pm = &anx7625_pm,
 #ifdef CONFIG_OF
 		.of_match_table = anx7625_id_match_table,
 #endif
