@@ -1203,7 +1203,7 @@ static inline int __boot_firmware(struct venus_hfi_device *device)
 		}
 
 		/* Reduce to 1/100th and x100 of max_tries */
-		usleep_range(50, 100);
+		usleep_range(500, 1000);
 		count++;
 	}
 
