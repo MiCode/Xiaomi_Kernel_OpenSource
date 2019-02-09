@@ -467,6 +467,13 @@ static int ufshcd_devfreq_target(struct device *dev,
 static int ufshcd_devfreq_get_dev_status(struct device *dev,
 		struct devfreq_dev_status *stat);
 static void __ufshcd_shutdown_clkscaling(struct ufs_hba *hba);
+static int ufshcd_set_dev_pwr_mode(struct ufs_hba *hba,
+				     enum ufs_dev_pwr_mode pwr_mode);
+static int ufshcd_config_vreg(struct device *dev,
+		struct ufs_vreg *vreg, bool on);
+static int ufshcd_enable_vreg(struct device *dev, struct ufs_vreg *vreg);
+static int ufshcd_disable_vreg(struct device *dev, struct ufs_vreg *vreg);
+static bool ufshcd_is_g4_supported(struct ufs_hba *hba);
 
 #if IS_ENABLED(CONFIG_DEVFREQ_GOV_SIMPLE_ONDEMAND)
 static struct devfreq_simple_ondemand_data ufshcd_ondemand_data = {
@@ -2174,7 +2181,8 @@ start:
 			spin_unlock_irqrestore(hba->host->host_lock, flags);
 			flush_work(&hba->clk_gating.ungate_work);
 			spin_lock_irqsave(hba->host->host_lock, flags);
-			goto start;
+			if (hba->ufshcd_state == UFSHCD_STATE_OPERATIONAL)
+				goto start;
 		}
 		break;
 	case REQ_CLKS_OFF:
@@ -8099,6 +8107,41 @@ static void ufshcd_set_active_icc_lvl(struct ufs_hba *hba)
 			__func__, icc_level, ret);
 }
 
+static int ufshcd_set_low_vcc_level(struct ufs_hba *hba,
+				  struct ufs_dev_desc *dev_desc)
+{
+	int ret;
+	struct ufs_vreg *vreg = hba->vreg_info.vcc;
+
+	/* Check if device supports the low voltage VCC feature */
+	if (dev_desc->wspecversion < 0x300 && !ufshcd_is_g4_supported(hba))
+		return 0;
+
+	/*
+	 * Check if host has support for low VCC voltage?
+	 * In addition, also check if we have already set the low VCC level
+	 * or not?
+	 */
+	if (!vreg->low_voltage_sup || vreg->low_voltage_active)
+		return 0;
+
+	/* Put the device in sleep before lowering VCC level */
+	ret = ufshcd_set_dev_pwr_mode(hba, UFS_SLEEP_PWR_MODE);
+
+	/* Switch off VCC before switching it ON at 2.5v */
+	ret = ufshcd_disable_vreg(hba->dev, vreg);
+	/* add ~2ms delay before renabling VCC at lower voltage */
+	usleep_range(2000, 2100);
+	/* Now turn back VCC ON at low voltage */
+	vreg->low_voltage_active = true;
+	ret = ufshcd_enable_vreg(hba->dev, vreg);
+
+	/* Bring the device in active now */
+	ret = ufshcd_set_dev_pwr_mode(hba, UFS_ACTIVE_PWR_MODE);
+
+	return ret;
+}
+
 /**
  * ufshcd_scsi_add_wlus - Adds required W-LUs
  * @hba: per-adapter instance
@@ -8792,6 +8835,9 @@ reinit:
 		if (ufshcd_scsi_add_wlus(hba))
 			goto out;
 
+		/* lower VCC voltage level */
+		ufshcd_set_low_vcc_level(hba, &card);
+
 		/* Initialize devfreq after UFS device is detected */
 		if (ufshcd_is_clkscaling_supported(hba)) {
 			memcpy(&hba->clk_scaling.saved_pwr_info.info,
@@ -9349,6 +9395,9 @@ static int ufshcd_config_vreg(struct device *dev,
 			goto out;
 
 		min_uV = on ? vreg->min_uV : 0;
+		if (vreg->low_voltage_sup && !vreg->low_voltage_active)
+			min_uV = vreg->max_uV;
+
 		ret = regulator_set_voltage(reg, min_uV, vreg->max_uV);
 		if (ret) {
 			dev_err(dev, "%s: %s set voltage failed, err=%d\n",

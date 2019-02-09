@@ -1,4 +1,4 @@
-/* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -540,6 +540,7 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_SMB_EN_REASON,
 	POWER_SUPPLY_PROP_SCOPE,
 	POWER_SUPPLY_PROP_MOISTURE_DETECTED,
+	POWER_SUPPLY_PROP_VOLTAGE_VPH,
 };
 
 static int smb5_usb_get_prop(struct power_supply *psy,
@@ -683,6 +684,9 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_MOISTURE_DETECTED:
 		val->intval = chg->moisture_present;
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_VPH:
+		rc = smblib_get_prop_vph_voltage_now(chg, val);
 		break;
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);

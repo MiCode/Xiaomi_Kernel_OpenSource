@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,7 @@
 #include <linux/of_batterydata.h>
 #include <linux/platform_device.h>
 #include <linux/qpnp/qpnp-revid.h>
+#include <linux/thermal.h>
 #include "fg-core.h"
 #include "fg-reg.h"
 #include "fg-alg.h"
@@ -208,6 +209,7 @@ struct fg_dt_props {
 	int	batt_temp_hot_thresh;
 	int	batt_temp_hyst;
 	int	batt_temp_delta;
+	u32	batt_therm_freq;
 	int	esr_pulse_thresh_ma;
 	int	esr_meas_curr_ma;
 	int	slope_limit_temp;
@@ -657,6 +659,27 @@ static int fg_gen4_get_battery_temp(struct fg_dev *fg, int *val)
 
 	return 0;
 }
+
+static int fg_gen4_tz_get_temp(void *data, int *temperature)
+{
+	struct fg_dev *fg = (struct fg_dev *)data;
+	int rc, temp;
+
+	if (!temperature)
+		return -EINVAL;
+
+	rc = fg_gen4_get_battery_temp(fg, &temp);
+	if (rc < 0)
+		return rc;
+
+	/* Convert deciDegC to milliDegC */
+	*temperature = temp * 100;
+	return rc;
+}
+
+static struct thermal_zone_of_device_ops fg_gen4_tz_ops = {
+	.get_temp = fg_gen4_tz_get_temp,
+};
 
 static int fg_gen4_get_debug_batt_id(struct fg_dev *fg, int *batt_id)
 {
@@ -3197,7 +3220,9 @@ static void status_change_work(struct work_struct *work)
 	if (rc < 0)
 		pr_err("Error in adjusting FCC for ESR, rc=%d\n", rc);
 
-	schedule_delayed_work(&chip->pl_current_en_work, 0);
+	if (is_parallel_charger_available(fg) &&
+		!delayed_work_pending(&chip->pl_current_en_work))
+		schedule_delayed_work(&chip->pl_current_en_work, 0);
 
 	ttf_update(chip->ttf, input_present);
 	fg->prev_charge_status = fg->charge_status;
@@ -4020,6 +4045,14 @@ static int fg_gen4_hw_init(struct fg_gen4_chip *chip)
 		}
 	}
 
+	val = (u8)chip->dt.batt_therm_freq;
+	rc = fg_write(fg, ADC_RR_BATT_THERM_FREQ(fg), &val, 1);
+	if (rc < 0) {
+		pr_err("failed to write to 0x%04X, rc=%d\n",
+			 ADC_RR_BATT_THERM_FREQ(fg), rc);
+		return rc;
+	}
+
 	fg_encode(fg->sp, FG_SRAM_ESR_PULSE_THRESH,
 		chip->dt.esr_pulse_thresh_ma, buf);
 	rc = fg_sram_write(fg, fg->sp[FG_SRAM_ESR_PULSE_THRESH].addr_word,
@@ -4597,6 +4630,8 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 	else
 		chip->cl->dt.max_cap_limit = temp;
 
+	of_property_read_u32(node, "qcom,cl-skew", &chip->cl->dt.skew_decipct);
+
 	rc = of_property_read_u32(node, "qcom,fg-batt-temp-hot", &temp);
 	if (rc < 0)
 		chip->dt.batt_temp_hot_thresh = -EINVAL;
@@ -4620,6 +4655,11 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 		chip->dt.batt_temp_delta = -EINVAL;
 	else if (temp >= BTEMP_DELTA_LOW && temp <= BTEMP_DELTA_HIGH)
 		chip->dt.batt_temp_delta = temp;
+
+	chip->dt.batt_therm_freq = 8;
+	rc = of_property_read_u32(node, "qcom,fg-batt-therm-freq", &temp);
+	if (temp > 0 && temp <= 255)
+		chip->dt.batt_therm_freq = temp;
 
 	chip->dt.hold_soc_while_full = of_property_read_bool(node,
 					"qcom,hold-soc-while-full");
@@ -4882,6 +4922,15 @@ static int fg_gen4_probe(struct platform_device *pdev)
 		fg->last_batt_temp = batt_temp;
 		pr_info("battery SOC:%d voltage: %duV temp: %d id: %d ohms\n",
 			msoc, volt_uv, batt_temp, fg->batt_id_ohms);
+	}
+
+	fg->tz_dev = thermal_zone_of_sensor_register(fg->dev, 0, fg,
+							&fg_gen4_tz_ops);
+	if (IS_ERR_OR_NULL(fg->tz_dev)) {
+		rc = PTR_ERR(fg->tz_dev);
+		fg->tz_dev = NULL;
+		dev_dbg(fg->dev, "Couldn't register with thermal framework rc:%d\n",
+			rc);
 	}
 
 	device_init_wakeup(fg->dev, true);

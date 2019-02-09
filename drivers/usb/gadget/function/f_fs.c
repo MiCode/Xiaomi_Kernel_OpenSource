@@ -1800,9 +1800,17 @@ static void ffs_data_closed(struct ffs_data *ffs)
 static struct ffs_data *ffs_data_new(const char *dev_name)
 {
 	char ipcname[24] = "usb_ffs_";
+	struct ffs_dev *ffs_dev;
 	struct ffs_data *ffs = kzalloc(sizeof *ffs, GFP_KERNEL);
 	if (unlikely(!ffs))
 		return NULL;
+
+	ffs_dev = _ffs_find_dev(dev_name);
+	if (ffs_dev && ffs_dev->mounted) {
+		pr_info("%s(): %s Already mounted\n", __func__, dev_name);
+		kfree(ffs);
+		return ERR_PTR(-EBUSY);
+	}
 
 	ENTER();
 

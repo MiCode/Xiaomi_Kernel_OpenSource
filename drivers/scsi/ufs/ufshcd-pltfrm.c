@@ -197,6 +197,9 @@ static int ufshcd_populate_vreg(struct device *dev, const char *name,
 				vreg->min_uV = be32_to_cpup(&prop[0]);
 				vreg->max_uV = be32_to_cpup(&prop[1]);
 			}
+
+			if (of_property_read_bool(np, "vcc-low-voltage-sup"))
+				vreg->low_voltage_sup = true;
 		}
 	} else if (!strcmp(name, "vccq")) {
 		vreg->min_uV = UFS_VREG_VCCQ_MIN_UV;
