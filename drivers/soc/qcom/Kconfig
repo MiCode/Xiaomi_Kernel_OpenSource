@@ -666,7 +666,14 @@ config QTEE_SHM_BRIDGE
 	  created by bridge driver.
 
 source "drivers/soc/qcom/memshare/Kconfig"
-
+config MSM_PERFORMANCE
+	tristate "msm performance driver to support userspace fmin/fmax request"
+	default n
+	help
+	This driver can restrict max freq or min freq of cpu cluster
+	when requested by the userspace by changing the cpufreq policy
+	fmin and fmax. The user space can request  the cpu freq change by
+	writing cpu#:freq values
 config QMP_DEBUGFS_CLIENT
 	bool "Debugfs Client to communicate with AOP using QMP protocol"
 	depends on DEBUG_FS
