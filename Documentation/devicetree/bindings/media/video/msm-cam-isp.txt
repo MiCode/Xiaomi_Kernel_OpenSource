@@ -22,6 +22,11 @@ First Level Node - CAM ISP device
   Value type: <string>
   Definition: Should be "vfe" or "ife".
 
+- ubwc-static-cfg
+  Usage: optional
+  Value type: <u32>
+  Definition: IFE UBWC static configuration based on DDR device type.
+
 Example:
 
 	qcom,cam-isp {
