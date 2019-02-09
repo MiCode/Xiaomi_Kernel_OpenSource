@@ -4726,7 +4726,7 @@ int cam_icp_hw_mgr_init(struct device_node *of_node, uint64_t *hw_mgr_hdl,
 	int i, rc = 0;
 	struct cam_hw_mgr_intf *hw_mgr_intf;
 	struct cam_cpas_query_cap query;
-	uint32_t cam_caps;
+	uint32_t cam_caps, camera_hw_version;
 
 	hw_mgr_intf = (struct cam_hw_mgr_intf *)hw_mgr_hdl;
 	if (!of_node || !hw_mgr_intf) {
@@ -4755,12 +4755,21 @@ int cam_icp_hw_mgr_init(struct device_node *of_node, uint64_t *hw_mgr_hdl,
 
 	cam_cpas_get_hw_info(&query.camera_family,
 		&query.camera_version, &query.cpas_version, &cam_caps);
-	if (cam_caps & CPAS_IPE0_BIT)
-		icp_hw_mgr.ipe0_enable = true;
-	if (cam_caps & CPAS_IPE1_BIT)
-		icp_hw_mgr.ipe1_enable = true;
-	if (cam_caps & CPAS_BPS_BIT)
-		icp_hw_mgr.bps_enable = true;
+	cam_cpas_get_cpas_hw_version(&camera_hw_version);
+
+	if (camera_hw_version == CAM_CPAS_TITAN_480_V100) {
+		if (cam_caps & CPAS_TITAN_480_IPE0_BIT)
+			icp_hw_mgr.ipe0_enable = true;
+		if (cam_caps & CPAS_BPS_BIT)
+			icp_hw_mgr.bps_enable = true;
+	} else {
+		if (cam_caps & CPAS_IPE0_BIT)
+			icp_hw_mgr.ipe0_enable = true;
+		if (cam_caps & CPAS_IPE1_BIT)
+			icp_hw_mgr.ipe1_enable = true;
+		if (cam_caps & CPAS_BPS_BIT)
+			icp_hw_mgr.bps_enable = true;
+	}
 
 	rc = cam_icp_mgr_init_devs(of_node);
 	if (rc)
