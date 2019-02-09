@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -73,6 +73,22 @@ struct sde_encoder_kickoff_params {
  */
 struct sde_encoder_rsc_config {
 	u32 inline_rotate_prefill;
+};
+
+/**
+ * struct sde_encoder_ops - callback functions for generic sde encoder
+ * Individual callbacks documented below.
+ */
+struct sde_encoder_ops {
+	/**
+	 * phys_init - phys initialization function
+	 * @type: controller type
+	 * @controller_id: controller id
+	 * @phys_init_params: Pointer of structure sde_enc_phys_init_params
+	 * Returns: Pointer of sde_encoder_phys, NULL if failed
+	 */
+	void *(*phys_init)(enum sde_intf_type type,
+			u32 controller_id, void *phys_init_params);
 };
 
 /**
@@ -218,6 +234,18 @@ bool sde_encoder_check_mode(struct drm_encoder *drm_enc, u32 mode);
 struct drm_encoder *sde_encoder_init(
 		struct drm_device *dev,
 		struct msm_display_info *disp_info);
+
+/**
+ * sde_encoder_init_with_ops - initialize virtual encoder object with init ops
+ * @dev:        Pointer to drm device structure
+ * @disp_info:  Pointer to display information structure
+ * @ops:        Pointer to encoder ops structure
+ * Returns:     Pointer to newly created drm encoder
+ */
+struct drm_encoder *sde_encoder_init_with_ops(
+		struct drm_device *dev,
+		struct msm_display_info *disp_info,
+		const struct sde_encoder_ops *ops);
 
 /**
  * sde_encoder_destroy - destroy previously initialized virtual encoder

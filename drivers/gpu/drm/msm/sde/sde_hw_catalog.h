@@ -165,6 +165,7 @@ enum {
  * @SDE_SSPP_BLOCK_SEC_UI    Blocks secure-ui layers
  * @SDE_SSPP_QOS_FL_NOCALC   Avoid fill level calculation for QoS/danger/safe
  * @SDE_SSPP_SCALER_QSEED3LITE Qseed3lite algorithm support
+ * @SDE_SSPP_LINE_INSERTION  Line insertion support
  * @SDE_SSPP_MAX             maximum value
  */
 enum {
@@ -199,6 +200,7 @@ enum {
 	SDE_SSPP_BLOCK_SEC_UI,
 	SDE_SSPP_QOS_FL_NOCALC,
 	SDE_SSPP_SCALER_QSEED3LITE,
+	SDE_SSPP_LINE_INSERTION,
 	SDE_SSPP_MAX
 };
 
@@ -1109,6 +1111,7 @@ struct sde_mdss_cfg {
 	bool delay_prg_fetch_start;
 	bool has_qsync;
 	bool has_3d_merge_reset;
+	bool has_line_insertion;
 
 	bool sui_misr_supported;
 	u32 sui_block_xin_mask;

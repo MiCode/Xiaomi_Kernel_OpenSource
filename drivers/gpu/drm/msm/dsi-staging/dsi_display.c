@@ -4854,6 +4854,15 @@ static int dsi_display_bind(struct device *dev,
 	if (!display->disp_node)
 		return 0;
 
+	/* defer bind if ext bridge driver is not loaded */
+	for (i = 0; i < display->ext_bridge_cnt; i++) {
+		if (!of_drm_find_bridge(display->ext_bridge[i].node_of)) {
+			pr_err("defer for bridge[%d] %s\n", i,
+				display->ext_bridge[i].node_of->full_name);
+			return -EPROBE_DEFER;
+		}
+	}
+
 	mutex_lock(&display->display_lock);
 
 	rc = dsi_display_validate_split_link(display);
