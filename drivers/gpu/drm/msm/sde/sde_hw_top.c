@@ -464,6 +464,43 @@ static void sde_hw_program_cwb_ppb_ctrl(struct sde_hw_mdp *mdp,
 	}
 }
 
+static void sde_hw_set_hdr_plus_metadata(struct sde_hw_mdp *mdp,
+		u8 *payload, u32 len, u32 stream_id)
+{
+	u32 num_dwords, rem, i, tmp;
+	u32 *payload_32;
+	u32 offset = 0, byte_idx = 0;
+	const u32 dword_size = sizeof(u32);
+
+	if (!payload || !len) {
+		SDE_ERROR("invalid payload with length: %d\n", len);
+		return;
+	}
+
+	if (stream_id)
+		offset = DP_DHDR_MEM_POOL_1_DATA - DP_DHDR_MEM_POOL_0_DATA;
+
+	num_dwords = len / dword_size;
+	rem = len % dword_size;
+
+	SDE_REG_WRITE(&mdp->hw, DP_DHDR_MEM_POOL_0_NUM_BYTES + offset, len);
+
+	for (i = 0; i < num_dwords; i++) {
+		payload_32 = (u32 *) &payload[byte_idx];
+		SDE_REG_WRITE(&mdp->hw, DP_DHDR_MEM_POOL_0_DATA + offset,
+				*payload_32);
+		byte_idx += dword_size;
+	}
+
+	if (rem) {
+		tmp = payload[byte_idx++];
+		for (i = 1; i < rem; i++)
+			tmp |= payload[byte_idx++] << (8 * i);
+
+		SDE_REG_WRITE(&mdp->hw, DP_DHDR_MEM_POOL_0_DATA + offset, tmp);
+	}
+}
+
 static void _setup_mdp_ops(struct sde_hw_mdp_ops *ops,
 		unsigned long cap)
 {
@@ -483,7 +520,8 @@ static void _setup_mdp_ops(struct sde_hw_mdp_ops *ops,
 		ops->setup_vsync_source = sde_hw_setup_vsync_source;
 	else
 		ops->setup_vsync_source = sde_hw_setup_vsync_source_v1;
-
+	if (cap & BIT(SDE_MDP_DHDR_MEMPOOL))
+		ops->set_hdr_plus_metadata = sde_hw_set_hdr_plus_metadata;
 }
 
 static const struct sde_mdp_cfg *_top_offset(enum sde_mdp mdp,

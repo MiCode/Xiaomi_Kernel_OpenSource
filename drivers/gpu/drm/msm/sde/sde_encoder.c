@@ -214,6 +214,7 @@ enum sde_enc_rc_states {
  * @idle_pc_restore:		flag to indicate idle_pc_restore happened
  * @frame_trigger_mode:		frame trigger mode indication for command
  *				mode display
+ * @dynamic_hdr_updated:	flag to indicate if mempool was programmed
  * @rsc_config:			rsc configuration for display vtotal, fps, etc.
  * @cur_conn_roi:		current connector roi
  * @prv_conn_roi:		previous connector roi to optimize if unchanged
@@ -271,6 +272,7 @@ struct sde_encoder_virt {
 	bool vblank_enabled;
 	bool idle_pc_restore;
 	enum frame_trigger_mode_type frame_trigger_mode;
+	bool dynamic_hdr_updated;
 
 	struct sde_rsc_cmd_config rsc_config;
 	struct sde_rect cur_conn_roi;
@@ -3775,13 +3777,20 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 
 	pend_ret_fence_cnt = atomic_read(&phys->pending_retire_fence_cnt);
 
-	/* perform peripheral flush on every frame update for dp dsc */
 	if (phys->hw_intf && phys->hw_intf->cap->type == INTF_DP &&
-			phys->comp_type == MSM_DISPLAY_COMPRESSION_DSC &&
-			phys->comp_ratio && ctl->ops.update_bitmask_periph &&
-			c_conn->ops.update_pps) {
-		c_conn->ops.update_pps(phys->connector, NULL, c_conn->display);
-		ctl->ops.update_bitmask_periph(ctl, phys->hw_intf->idx, 1);
+			ctl->ops.update_bitmask_periph) {
+		/* perform peripheral flush on every frame update for dp dsc */
+		if (phys->comp_type == MSM_DISPLAY_COMPRESSION_DSC &&
+				phys->comp_ratio && c_conn->ops.update_pps) {
+			c_conn->ops.update_pps(phys->connector, NULL,
+					c_conn->display);
+			ctl->ops.update_bitmask_periph(ctl,
+					phys->hw_intf->idx, 1);
+		}
+
+		if (sde_enc->dynamic_hdr_updated)
+			ctl->ops.update_bitmask_periph(ctl,
+					phys->hw_intf->idx, 1);
 	}
 
 	if ((extra_flush && extra_flush->pending_flush_mask)
@@ -4603,6 +4612,31 @@ static void _helper_flush_dsc(struct sde_encoder_virt *sde_enc)
 		sde_enc->dirty_dsc_ids[i] = DSC_NONE;
 	}
 }
+static void _sde_encoder_helper_hdr_plus_mempool_update(
+		struct sde_encoder_virt *sde_enc)
+{
+	struct sde_connector_dyn_hdr_metadata *dhdr_meta = NULL;
+	struct sde_hw_mdp *mdptop = NULL;
+
+	sde_enc->dynamic_hdr_updated = false;
+	if (sde_enc->cur_master) {
+		mdptop = sde_enc->cur_master->hw_mdptop;
+		dhdr_meta = sde_connector_get_dyn_hdr_meta(
+				sde_enc->cur_master->connector);
+	}
+
+	if (!mdptop || !dhdr_meta || !dhdr_meta->dynamic_hdr_update)
+		return;
+
+	if (mdptop->ops.set_hdr_plus_metadata) {
+		sde_enc->dynamic_hdr_updated = true;
+		mdptop->ops.set_hdr_plus_metadata(
+				mdptop, dhdr_meta->dynamic_hdr_payload,
+				dhdr_meta->dynamic_hdr_payload_size,
+				sde_enc->cur_master->intf_idx == INTF_0 ?
+				0 : 1);
+	}
+}
 
 static void _sde_encoder_needs_hw_reset(struct drm_encoder *drm_enc,
 	int ln_cnt1)
@@ -4667,6 +4701,8 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 		sde_enc->frame_trigger_mode = sde_connector_get_property(
 			sde_enc->cur_master->connector->state,
 			CONNECTOR_PROP_CMD_FRAME_TRIGGER_MODE);
+
+	_sde_encoder_helper_hdr_plus_mempool_update(sde_enc);
 
 	/* prepare for next kickoff, may include waiting on previous kickoff */
 	SDE_ATRACE_BEGIN("sde_encoder_prepare_for_kickoff");
