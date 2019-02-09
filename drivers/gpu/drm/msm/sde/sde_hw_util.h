@@ -12,7 +12,7 @@
 #include "sde_hw_catalog.h"
 
 #define REG_MASK(n)                     ((BIT(n)) - 1)
-#define LP_DDR4_TYPE			0x4
+#define LP_DDR4_TYPE			0x7
 
 struct sde_format_extended;
 
