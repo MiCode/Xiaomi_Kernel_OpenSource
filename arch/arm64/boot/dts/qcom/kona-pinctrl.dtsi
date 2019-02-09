@@ -528,7 +528,7 @@
 			pcie2_clkreq_default: pcie2_clkreq_default {
 				mux {
 					pins = "gpio86";
-					function = "pci_e1";
+					function = "pci_e2";
 				};
 
 				config {

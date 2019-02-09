@@ -153,7 +153,7 @@
 #define MAX_PROP_SIZE (32)
 #define MAX_RC_NAME_LEN (15)
 #define MSM_PCIE_MAX_VREG (4)
-#define MSM_PCIE_MAX_CLK (13)
+#define MSM_PCIE_MAX_CLK (14)
 #define MSM_PCIE_MAX_PIPE_CLK (1)
 #define MAX_RC_NUM (3)
 #define MAX_DEVICE_NUM (20)
@@ -757,6 +757,7 @@ static struct msm_pcie_clk_info_t
 	{NULL, "pcie_0_sleep_clk", 0, false, false},
 	{NULL, "pcie_phy_refgen_clk", 0, false, false},
 	{NULL, "pcie_tbu_clk", 0, false, false},
+	{NULL, "pcie_ddrss_sf_tbu_clk", 0, false, false},
 	{NULL, "pcie_phy_cfg_ahb_clk", 0, false, false},
 	{NULL, "pcie_phy_aux_clk", 0, false, false}
 	},
@@ -772,6 +773,7 @@ static struct msm_pcie_clk_info_t
 	{NULL, "pcie_1_sleep_clk", 0, false, false},
 	{NULL, "pcie_phy_refgen_clk", 0, false, false},
 	{NULL, "pcie_tbu_clk", 0, false, false},
+	{NULL, "pcie_ddrss_sf_tbu_clk", 0, false, false},
 	{NULL, "pcie_phy_cfg_ahb_clk", 0, false, false},
 	{NULL, "pcie_phy_aux_clk", 0, false, false}
 	},
@@ -787,6 +789,7 @@ static struct msm_pcie_clk_info_t
 	{NULL, "pcie_2_sleep_clk", 0, false, false},
 	{NULL, "pcie_phy_refgen_clk", 0, false, false},
 	{NULL, "pcie_tbu_clk", 0, false, false},
+	{NULL, "pcie_ddrss_sf_tbu_clk", 0, false, false},
 	{NULL, "pcie_phy_cfg_ahb_clk", 0, false, false},
 	{NULL, "pcie_phy_aux_clk", 0, false, false}
 	}
