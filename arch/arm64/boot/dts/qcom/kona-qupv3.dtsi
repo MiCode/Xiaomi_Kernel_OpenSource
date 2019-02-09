@@ -800,7 +800,7 @@
 		pinctrl-0 = <&qupv3_se15_i2c_active>;
 		pinctrl-1 = <&qupv3_se15_i2c_sleep>;
 		qcom,wrapper-core = <&qupv3_2>;
-		status = "disabled";
+		status = "ok";
 	};
 
 	qupv3_se16_i2c: i2c@888000 {
