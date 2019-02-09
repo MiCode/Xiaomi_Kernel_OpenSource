@@ -830,6 +830,7 @@
 		clock-names-option =  "ife_dsp_clk";
 		clocks-option = <&clock_camcc CAM_CC_IFE_0_DSP_CLK>;
 		clock-rates-option = <720000000>;
+		ubwc-static-cfg = <0x1026 0x1036>;
 		status = "ok";
 	};
 
@@ -910,6 +911,7 @@
 		clock-names-option =  "ife_dsp_clk";
 		clocks-option = <&clock_camcc CAM_CC_IFE_1_DSP_CLK>;
 		clock-rates-option = <720000000>;
+		ubwc-static-cfg = <0x1026 0x1036>;
 		status = "ok";
 	};
 
