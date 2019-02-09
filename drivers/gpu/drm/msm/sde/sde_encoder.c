@@ -1220,25 +1220,28 @@ static void _sde_encoder_dsc_pclk_param_calc(struct msm_display_dsc_info *dsc,
 static int _sde_encoder_dsc_initial_line_calc(struct msm_display_dsc_info *dsc,
 		int enc_ip_width)
 {
-	int ssm_delay, total_pixels, soft_slice_per_enc;
+	int max_ssm_delay, max_se_size, obuf_latency;
+	int input_ssm_out_latency, base_hs_latency;
+	int multi_hs_extra_latency,  mux_word_size;
 
-	soft_slice_per_enc = enc_ip_width / dsc->slice_width;
+	/* Hardent core config */
+	int max_muxword_size = 48;
+	int output_rate = 64;
+	int rtl_max_bpc = 10;
+	int pipeline_latency = 28;
 
-	/*
-	 * minimum number of initial line pixels is a sum of:
-	 * 1. sub-stream multiplexer delay (83 groups for 8bpc,
-	 *    91 for 10 bpc) * 3
-	 * 2. for two soft slice cases, add extra sub-stream multiplexer * 3
-	 * 3. the initial xmit delay
-	 * 4. total pipeline delay through the "lock step" of encoder (47)
-	 * 5. 6 additional pixels as the output of the rate buffer is
-	 *    48 bits wide
-	 */
-	ssm_delay = ((dsc->bpc < 10) ? 84 : 92);
-	total_pixels = ssm_delay * 3 + dsc->initial_xmit_delay + 47;
-	if (soft_slice_per_enc > 1)
-		total_pixels += (ssm_delay * 3);
-	dsc->initial_lines = DIV_ROUND_UP(total_pixels, dsc->slice_width);
+	max_se_size = 4 * (rtl_max_bpc + 1);
+	max_ssm_delay = max_se_size + max_muxword_size - 1;
+	mux_word_size = (dsc->bpc >= 12 ? 64 : 48);
+	input_ssm_out_latency = pipeline_latency + (3 * (max_ssm_delay + 2));
+	obuf_latency = DIV_ROUND_UP((9 * output_rate +
+				mux_word_size), dsc->bpp) + 1;
+	base_hs_latency = dsc->initial_xmit_delay + input_ssm_out_latency
+				+ obuf_latency;
+	multi_hs_extra_latency = DIV_ROUND_UP((8 * dsc->chunk_size), dsc->bpp);
+	dsc->initial_lines = DIV_ROUND_UP((base_hs_latency +
+				multi_hs_extra_latency), dsc->slice_width);
+
 	return 0;
 }
 
