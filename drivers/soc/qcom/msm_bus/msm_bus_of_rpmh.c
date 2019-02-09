@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "AXI: %s(): " fmt, __func__
@@ -586,17 +586,17 @@ static int msm_bus_of_get_ids(struct platform_device *pdev,
 			int *num_ids, char *prop_name)
 {
 	int ret = 0;
-	int size, i;
+	int i;
 	struct device_node *rule_node;
 	int *ids = NULL;
 
-	*num_ids = of_property_count_elems_of_size(dev_node, prop_name, size);
+	*num_ids = of_property_count_u32_elems(dev_node, prop_name);
 	if (!*num_ids) {
 		dev_err(&pdev->dev, "No rule nodes, skipping node\n");
 		ret = -ENXIO;
 	}
 
-	ids = devm_kzalloc(&pdev->dev, size, GFP_KERNEL);
+	ids = devm_kcalloc(&pdev->dev, *num_ids, sizeof(u32), GFP_KERNEL);
 	if (!ids)
 		return -ENOMEM;
 
