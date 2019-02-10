@@ -295,6 +295,7 @@ struct cnss_plat_data {
 	bool cal_done;
 	char firmware_name[CNSS_FW_PATH_MAX_LEN];
 	struct completion rddm_complete;
+	struct completion recovery_complete;
 	struct cnss_control_params ctrl_params;
 	u32 is_converged_dt;
 	struct device_node *dev_node;
