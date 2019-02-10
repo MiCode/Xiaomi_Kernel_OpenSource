@@ -2334,7 +2334,8 @@ static int smb5_init_hw(struct smb5 *chip)
 	 */
 	if (chg->wa_flags & SW_THERM_REGULATION_WA) {
 		rc = smblib_write(chg, MISC_THERMREG_SRC_CFG_REG,
-					THERMREG_DIE_CMP_SRC_EN_BIT);
+					THERMREG_SW_ICL_ADJUST_BIT
+					| THERMREG_DIE_CMP_SRC_EN_BIT);
 		if (rc < 0) {
 			dev_err(chg->dev, "Couldn't disable HW thermal regulation rc=%d\n",
 				rc);
