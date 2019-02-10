@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2017 Qualcomm Atheros, Inc.
+ * Copyright (c) 2019, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -323,14 +324,13 @@ static int wil_vring_alloc_skb(struct wil6210_priv *wil, struct vring *vring,
 		return -ENOMEM;
 	}
 
-	d->mac.pn_15_0 = 0;
-	d->mac.pn_47_16 = 0;
+	memset(d, 0, sizeof(*d));
 	d->dma.d0 = RX_DMA_D0_CMD_DMA_RT | RX_DMA_D0_CMD_DMA_IT;
 	wil_desc_addr_set(&d->dma.addr, pa);
 	/* ip_length don't care */
 	/* b11 don't care */
 	/* error don't care */
-	d->dma.status = 0; /* BIT(0) should be 0 for HW_OWNED */
+	/* BIT(0) of dma status should be 0 for HW_OWNED */
 	d->dma.length = cpu_to_le16(sz);
 	*_d = *d;
 	vring->ctx[i].skb = skb;
