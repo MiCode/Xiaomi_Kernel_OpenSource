@@ -595,116 +595,116 @@
 		#size-cells = <2>;
 		ranges;
 
-		hyp_mem: hyp_mem@85700000 {
+		hyp_mem: hyp_mem {
 			no-map;
 			reg = <0x0 0x85700000 0x0 0x600000>;
 		};
 
-		xbl_aop_mem: xbl_aop_mem@85e00000 {
+		xbl_aop_mem: xbl_aop_mem {
 			no-map;
 			reg = <0x0 0x85e00000 0x0 0x140000>;
 		};
 
-		smem_region: smem@86000000 {
+		smem_region: smem {
 			no-map;
 			reg = <0x0 0x86000000 0x0 0x200000>;
 		};
 
-		removed_regions: removed_regions@86200000 {
+		removed_regions: removed_regions {
 			no-map;
 			reg = <0x0 0x86200000 0x0 0x5500000>;
 		};
 
-		pil_camera_mem: camera_region@8b700000 {
+		pil_camera_mem: camera_region {
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x0 0x8b700000 0x0 0x500000>;
 		};
 
-		pil_wlan_fw_mem: pil_wlan_fw_region@8bc00000 {
+		pil_wlan_fw_mem: pil_wlan_fw_region {
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x0 0x8bc00000 0x0 0x180000>;
 		};
 
-		pil_npu_mem: pil_npu_region@8bd80000 {
+		pil_npu_mem: pil_npu_region {
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x0 0x8bd80000 0x0 0x80000>;
 		};
 
-		pil_adsp_mem: pil_adsp_region@8be00000 {
+		pil_adsp_mem: pil_adsp_region {
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x0 0x8be00000 0x0 0x1a00000>;
 		};
 
-		pil_modem_mem: modem_region@8d800000 {
+		pil_modem_mem: modem_region {
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x0 0x8d800000 0x0 0x9600000>;
 		};
 
-		pil_video_mem: pil_video_region@96e00000 {
+		pil_video_mem: pil_video_region {
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x0 0x96e00000 0x0 0x500000>;
 		};
 
-		pil_slpi_mem: pil_slpi_region@97300000 {
+		pil_slpi_mem: pil_slpi_region {
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x0 0x97300000 0x0 0x1400000>;
 		};
 
-		pil_ipa_fw_mem: pil_ipa_fw_region@98700000 {
+		pil_ipa_fw_mem: pil_ipa_fw_region {
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x0 0x98700000 0x0 0x10000>;
 		};
 
-		pil_ipa_gsi_mem: pil_ipa_gsi_region@98710000 {
+		pil_ipa_gsi_mem: pil_ipa_gsi_region {
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x0 0x98710000 0x0 0x5000>;
 		};
 
-		pil_gpu_mem: pil_gpu_region@98715000 {
+		pil_gpu_mem: pil_gpu_region {
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x0 0x98715000 0x0 0x2000>;
 		};
 
-		pil_spss_mem: pil_spss_region@98800000 {
+		pil_spss_mem: pil_spss_region {
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x0 0x98800000 0x0 0x100000>;
 		};
 
-		pil_cdsp_mem: cdsp_regions@98900000 {
+		pil_cdsp_mem: cdsp_regions {
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x0 0x98900000 0x0 0x1400000>;
 		};
 
-		qseecom_mem: qseecom_region@0x9e400000 {
+		qseecom_mem: qseecom_region {
 			compatible = "shared-dma-pool";
 			no-map;
 			reg = <0 0x9e400000 0 0x1400000>;
 		};
 
-		cdsp_sec_mem: cdsp_sec_regions@0xa4c00000 {
+		cdsp_sec_mem: cdsp_sec_regions {
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x0 0xa4c00000 0x0 0x3c00000>;
 		};
 
-		cont_splash_memory: cont_splash_region@9c000000 {
+		cont_splash_memory: cont_splash_region {
 			reg = <0x0 0x9c000000 0x0 0x02400000>;
 			label = "cont_splash_region";
 		};
 
-		disp_rdump_memory: disp_rdump_region@9c000000 {
+		disp_rdump_memory: disp_rdump_region {
 			reg = <0x0 0x9c000000 0x0 0x02400000>;
 			label = "disp_rdump_region";
 		};
@@ -2314,7 +2314,7 @@
 			<0 0>;
 
 		qcom,msm-bus,name = "ufshc_mem";
-		qcom,msm-bus,num-cases = <22>;
+		qcom,msm-bus,num-cases = <26>;
 		qcom,msm-bus,num-paths = <2>;
 		qcom,msm-bus,vectors-KBps =
 		/*
@@ -2339,12 +2339,15 @@
 		<123 512 127796 0>, <1 757 1000 0>,  /* HS G1 RA */
 		<123 512 255591 0>, <1 757 1000 0>,  /* HS G2 RA */
 		<123 512 2097152 0>, <1 757 102400 0>,  /* HS G3 RA */
+		<123 512 4194304 0>, <1 757 204800 0>,  /* HS G4 RA */
 		<123 512 255591 0>, <1 757 1000 0>,  /* HS G1 RA L2 */
 		<123 512 511181 0>, <1 757 1000 0>,  /* HS G2 RA L2 */
 		<123 512 4194304 0>, <1 757 204800 0>, /* HS G3 RA L2 */
+		<123 512 8388608 0>, <1 757 409600 0>, /* HS G4 RA L2 */
 		<123 512 149422 0>, <1 757 1000 0>,  /* HS G1 RB */
 		<123 512 298189 0>, <1 757 1000 0>,  /* HS G2 RB */
 		<123 512 2097152 0>, <1 757 102400 0>,  /* HS G3 RB */
+		<123 512 4194304 0>, <1 757 204800 0>,  /* HS G4 RB */
 		<123 512 298189 0>, <1 757 1000 0>,  /* HS G1 RB L2 */
 		<123 512 596378 0>, <1 757 1000 0>,  /* HS G2 RB L2 */
 		/* As UFS working in HS G3 RB L2 mode, aggregated
@@ -2354,15 +2357,16 @@
 		 * bindwidth (IB) needs to be given a proper value too.
 		 */
 		<123 512 4194304 0>, <1 757 204800 409600>, /* HS G3 RB L2 */
+		<123 512 8388608 0>, <1 757 409600 409600>, /* HS G4 RB L2 */
 		<123 512 7643136 0>, <1 757 307200 0>; /* Max. bandwidth */
 
 		qcom,bus-vector-names = "MIN",
 		"PWM_G1_L1", "PWM_G2_L1", "PWM_G3_L1", "PWM_G4_L1",
 		"PWM_G1_L2", "PWM_G2_L2", "PWM_G3_L2", "PWM_G4_L2",
-		"HS_RA_G1_L1", "HS_RA_G2_L1", "HS_RA_G3_L1",
-		"HS_RA_G1_L2", "HS_RA_G2_L2", "HS_RA_G3_L2",
-		"HS_RB_G1_L1", "HS_RB_G2_L1", "HS_RB_G3_L1",
-		"HS_RB_G1_L2", "HS_RB_G2_L2", "HS_RB_G3_L2",
+		"HS_RA_G1_L1", "HS_RA_G2_L1", "HS_RA_G3_L1", "HS_RA_G4_L1",
+		"HS_RA_G1_L2", "HS_RA_G2_L2", "HS_RA_G3_L2", "HS_RA_G4_L2",
+		"HS_RB_G1_L1", "HS_RB_G2_L1", "HS_RB_G3_L1", "HS_RB_G4_L1",
+		"HS_RB_G1_L2", "HS_RB_G2_L2", "HS_RB_G3_L2", "HS_RB_G4_L2",
 		"MAX";
 
 		/* PM QoS */
@@ -3678,6 +3682,7 @@
 		pinctrl-1 = <&cnss_wlan_en_sleep>;
 		qcom,wlan-rc-num = <0>;
 		qcom,wlan-ramdump-dynamic = <0x400000>;
+		qcom,smmu-s1-enable;
 
 		mhi,max-channels = <30>;
 		mhi,timeout = <10000>;

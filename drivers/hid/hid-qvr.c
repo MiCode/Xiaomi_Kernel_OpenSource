@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -123,8 +123,8 @@ int qvr_send_package_wrap(u8 *message, int msize, struct hid_device *hid)
 	data->gx = -imuData.gx0;
 	data->gy = imuData.gy0;
 	data->gz = -imuData.gz0;
-	data->mx = -imuData.mx0;
-	data->my = imuData.my0;
+	data->mx = -imuData.my0;
+	data->my = -imuData.mx0;
 	data->mz = -imuData.mz0;
 
 	trace_qvr_recv_sensor("gyro", data->gts, data->gx, data->gy, data->gz);

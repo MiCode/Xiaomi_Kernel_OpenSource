@@ -14,6 +14,7 @@
 /plugin/;
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/qcom,gcc-trinket.h>
 #include "trinket-idp.dtsi"
 #include "trinket-audio-overlay.dtsi"
 
@@ -24,6 +25,6 @@
 	qcom,board-id = <34 0>;
 };
 
-&dsi_td4330_truly_vid_display {
+&dsi_td4330_truly_cmd_display {
 	qcom,dsi-display-active;
 };

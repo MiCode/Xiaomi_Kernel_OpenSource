@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -837,7 +837,7 @@ void sde_encoder_helper_split_config(
 		enum sde_intf interface)
 {
 	struct sde_encoder_virt *sde_enc;
-	struct split_pipe_cfg cfg = { 0 };
+	struct split_pipe_cfg *cfg;
 	struct sde_hw_mdp *hw_mdptop;
 	enum sde_rm_topology_name topology;
 	struct msm_display_info *disp_info;
@@ -850,9 +850,14 @@ void sde_encoder_helper_split_config(
 	sde_enc = to_sde_encoder_virt(phys_enc->parent);
 	hw_mdptop = phys_enc->hw_mdptop;
 	disp_info = &sde_enc->disp_info;
+	cfg = &phys_enc->hw_intf->cfg;
+	memset(cfg, 0, sizeof(*cfg));
 
 	if (disp_info->intf_type != DRM_MODE_CONNECTOR_DSI)
 		return;
+
+	if (disp_info->capabilities & MSM_DISPLAY_SPLIT_LINK)
+		cfg->split_link_en = true;
 
 	/**
 	 * disable split modes since encoder will be operating in as the only
@@ -862,43 +867,43 @@ void sde_encoder_helper_split_config(
 	 */
 	if (phys_enc->split_role == ENC_ROLE_SOLO) {
 		if (hw_mdptop->ops.setup_split_pipe)
-			hw_mdptop->ops.setup_split_pipe(hw_mdptop, &cfg);
+			hw_mdptop->ops.setup_split_pipe(hw_mdptop, cfg);
 		if (hw_mdptop->ops.setup_pp_split)
-			hw_mdptop->ops.setup_pp_split(hw_mdptop, &cfg);
+			hw_mdptop->ops.setup_pp_split(hw_mdptop, cfg);
 		return;
 	}
 
-	cfg.en = true;
-	cfg.mode = phys_enc->intf_mode;
-	cfg.intf = interface;
+	cfg->en = true;
+	cfg->mode = phys_enc->intf_mode;
+	cfg->intf = interface;
 
-	if (cfg.en && phys_enc->ops.needs_single_flush &&
+	if (cfg->en && phys_enc->ops.needs_single_flush &&
 			phys_enc->ops.needs_single_flush(phys_enc))
-		cfg.split_flush_en = true;
+		cfg->split_flush_en = true;
 
 	topology = sde_connector_get_topology_name(phys_enc->connector);
 	if (topology == SDE_RM_TOPOLOGY_PPSPLIT)
-		cfg.pp_split_slave = cfg.intf;
+		cfg->pp_split_slave = cfg->intf;
 	else
-		cfg.pp_split_slave = INTF_MAX;
+		cfg->pp_split_slave = INTF_MAX;
 
 	if (phys_enc->split_role == ENC_ROLE_MASTER) {
-		SDE_DEBUG_ENC(sde_enc, "enable %d\n", cfg.en);
+		SDE_DEBUG_ENC(sde_enc, "enable %d\n", cfg->en);
 
 		if (hw_mdptop->ops.setup_split_pipe)
-			hw_mdptop->ops.setup_split_pipe(hw_mdptop, &cfg);
+			hw_mdptop->ops.setup_split_pipe(hw_mdptop, cfg);
 	} else if (sde_enc->hw_pp[0]) {
 		/*
 		 * slave encoder
 		 * - determine split index from master index,
 		 *   assume master is first pp
 		 */
-		cfg.pp_split_index = sde_enc->hw_pp[0]->idx - PINGPONG_0;
+		cfg->pp_split_index = sde_enc->hw_pp[0]->idx - PINGPONG_0;
 		SDE_DEBUG_ENC(sde_enc, "master using pp%d\n",
-				cfg.pp_split_index);
+				cfg->pp_split_index);
 
 		if (hw_mdptop->ops.setup_pp_split)
-			hw_mdptop->ops.setup_pp_split(hw_mdptop, &cfg);
+			hw_mdptop->ops.setup_pp_split(hw_mdptop, cfg);
 	}
 }
 
@@ -3095,7 +3100,8 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 	}
 
 	if (!(msm_is_mode_seamless_vrr(cur_mode)
-			|| msm_is_mode_seamless_dms(cur_mode)))
+			|| msm_is_mode_seamless_dms(cur_mode)
+			|| msm_is_mode_seamless_dyn_clk(cur_mode)))
 		kthread_init_delayed_work(&sde_enc->delayed_off_work,
 			sde_encoder_off_work);
 

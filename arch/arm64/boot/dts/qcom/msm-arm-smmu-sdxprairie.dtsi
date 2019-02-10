@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,7 @@
 			<0x15022000 0x20>;
 		reg-names = "base", "tcu-base";
 		#iommu-cells = <2>;
+		qcom,skip-init;
 		qcom,use-3-lvl-tables;
 		#global-interrupts = <1>;
 		#size-cells = <1>;

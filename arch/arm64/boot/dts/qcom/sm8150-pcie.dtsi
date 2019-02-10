@@ -36,15 +36,15 @@
 			<0x02000000 0x0 0x60300000 0x60300000 0x0 0x3d00000>;
 		interrupt-parent = <&pcie0>;
 		interrupts = <0 1 2 3 4>;
-		interrupt-names = "int_a", "int_b", "int_c", "int_d",
-				"int_global_int";
+		interrupt-names = "int_global_int", "int_a", "int_b", "int_c",
+				"int_d";
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0 0 0 0xffffffff>;
-		interrupt-map = <0 0 0 0 &intc 0 149 0
-				0 0 0 1 &intc 0 150 0
-				0 0 0 2 &intc 0 151 0
-				0 0 0 3 &intc 0 152 0
-				0 0 0 4 &intc 0 140 0>;
+		interrupt-map = < 0 0 0 0 &intc 0 140 0
+				0 0 0 1 &intc 0 149 0
+				0 0 0 2 &intc 0 150 0
+				0 0 0 3 &intc 0 151 0
+				0 0 0 4 &intc 0 152 0>;
 
 		qcom,phy-sequence = <0x0840 0x03 0x0
 				0x0094 0x08 0x0
@@ -303,15 +303,15 @@
 			<0x02000000 0x0 0x40300000 0x40300000 0x0 0x1fd00000>;
 		interrupt-parent = <&pcie1>;
 		interrupts = <0 1 2 3 4>;
-		interrupt-names = "int_a", "int_b", "int_c", "int_d",
-				"int_global_int";
+		interrupt-names = "int_global_int", "int_a", "int_b", "int_c",
+				"int_d";
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0 0 0 0xffffffff>;
-		interrupt-map = <0 0 0 0 &intc 0 434 0
-				0 0 0 1 &intc 0 435 0
-				0 0 0 2 &intc 0 438 0
-				0 0 0 3 &intc 0 439 0
-				0 0 0 4 &intc 0 306 0>;
+		interrupt-map = <0 0 0 0 &intc 0 306 0
+				0 0 0 1 &intc 0 434 0
+				0 0 0 2 &intc 0 435 0
+				0 0 0 3 &intc 0 438 0
+				0 0 0 4 &intc 0 439 0>;
 
 		qcom,phy-sequence = <0x0a40 0x03 0x0
 				0x0010 0x00 0x0
@@ -596,5 +596,14 @@
 			<GIC_SPI 829 IRQ_TYPE_EDGE_RISING>,
 			<GIC_SPI 830 IRQ_TYPE_EDGE_RISING>,
 			<GIC_SPI 831 IRQ_TYPE_EDGE_RISING>;
+	};
+
+	pcie1_edma: qcom,pcie1_edma@40002000 {
+		compatible = "qcom,pci-edma";
+		#dma-cells = <2>;
+		reg = <0x40002000 0x2000>;
+		interrupt-parent = <&intc>;
+		interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "pci-edma-int";
 	};
 };

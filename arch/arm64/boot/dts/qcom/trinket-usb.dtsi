@@ -26,7 +26,7 @@
 		#size-cells = <1>;
 		ranges;
 
-		interrupts = <0 302 0>, <0 422 0>, <0 254 0>;
+		interrupts = <0 302 0>, <0 422 0>, <0 260 0>;
 		interrupt-names = "pwr_event_irq", "ss_phy_irq", "hs_phy_irq";
 
 		USB3_GDSC-supply = <&usb30_prim_gdsc>;
@@ -175,7 +175,7 @@
 		reg = <0x01615000 0x1000>,
 			<0x03cb244 0x4>;
 		reg-names = "qmp_phy_base",
-			"vls_clamp-reg";
+			"vls_clamp_reg";
 
 		vdd-supply = <&pm6125_l7>;
 		core-supply = <&pm6125_l10>;

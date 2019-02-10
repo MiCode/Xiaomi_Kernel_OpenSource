@@ -26,6 +26,10 @@ ifdef CONFIG_QTI_GVM_QUIN
 msm_hab_hyp-objs = \
 	qvm_comm.o \
 	hab_qvm.o
+else
+msm_hab_hyp-objs = \
+	hab_comm.o \
+	hyp_stub.o
 endif
 endif
 

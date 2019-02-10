@@ -23,6 +23,14 @@
 	aliases {
 		pci-domain0 = &pcie0; /* PCIe0 domain */
 	};
+
+	qcom,rmnet-ipa {
+		status="disabled";
+	};
+};
+
+&ipa_hw {
+	status="disabled";
 };
 
 /* Delete second instance of pm6155 definitions for APQ version */
@@ -262,7 +270,7 @@
 
 		qcom,dsi-ctrl-num = <0>;
 		qcom,dsi-phy-num = <0>;
-		qcom,dsi-select-clocks = "src_byte_clk0", "src_pixel_clk0";
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
 
 		qcom,dsi-panel = <&dsi_ext_bridge_1080p>;
 	};
@@ -276,7 +284,7 @@
 
 		clocks = <&mdss_dsi0_pll BYTE0_MUX_CLK>,
 			 <&mdss_dsi0_pll PIX0_MUX_CLK>;
-		clock-names = "src_byte_clk0", "src_pixel_clk0";
+		clock-names = "mux_byte_clk0", "mux_pixel_clk0";
 
 
 		qcom,dsi-display-list =
@@ -337,6 +345,26 @@
 
 &clock_gpucc {
 	vdd_mx-supply = <&VDD_CX_LEVEL>;
+};
+
+&thermal_zones {
+	lmh-dcvs-00 {
+		trips {
+			active-config {
+				temperature = <105000>;
+				hysteresis = <40000>;
+			};
+		};
+	};
+
+	lmh-dcvs-01 {
+		trips {
+			active-config {
+				temperature = <105000>;
+				hysteresis = <40000>;
+			};
+		};
+	};
 };
 
 /* Audio device tree */

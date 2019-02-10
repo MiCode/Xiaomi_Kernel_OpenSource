@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -92,8 +92,8 @@ enum ipa_qmi_error_type_v01 {
 };
 
 struct ipa_qmi_response_type_v01 {
-	enum ipa_qmi_result_type_v01 result;
-	enum ipa_qmi_error_type_v01 error;
+	uint16_t result;
+	uint16_t error;
 };
 
 enum ipa_platform_type_enum_v01 {

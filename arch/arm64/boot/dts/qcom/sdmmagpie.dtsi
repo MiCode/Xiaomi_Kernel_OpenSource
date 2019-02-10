@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -650,8 +650,13 @@
 		};
 
 		cont_splash_memory: cont_splash_region@9c000000 {
-			reg = <0x0 0x9c000000 0x0 0x02400000>;
+			reg = <0x0 0x9c000000 0x0 0x02300000>;
 			label = "cont_splash_region";
+		};
+
+		dfps_data_memory: dfps_data_region@9e300000 {
+			reg = <0x0 0x9e300000 0x0 0x0100000>;
+			label = "dfps_data_region";
 		};
 
 		dump_mem: mem_dump_region {
@@ -2169,8 +2174,8 @@
 			<150 512 150000 250000>,
 			<1 806 80000 120000>,
 			/* 400 MB/s */
-			<150 512 261438 2800000>,
-			<1 806 1200000 2400000>,
+			<150 512 261438 2718822>,
+			<1 806 300000 1359411>,
 			/* Max. bandwidth */
 			<150 512 1338562 4096000>,
 			<1 806 1338562 4096000>;

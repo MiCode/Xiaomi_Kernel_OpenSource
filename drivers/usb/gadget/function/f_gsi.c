@@ -3669,8 +3669,9 @@ static int gsi_set_inst_name(struct usb_function_instance *fi,
 	}
 
 	if (prot_id == USB_PROT_RNDIS_IPA)
-		config_group_init_type_name(&opts->func_inst.group, "",
-					    &gsi_func_rndis_type);
+		config_group_init_type_name(&opts->func_inst.group,
+						fi->group.cg_item.ci_name,
+						&gsi_func_rndis_type);
 
 	gsi = opts->gsi = __gsi[prot_id];
 	opts->gsi->prot_id = prot_id;

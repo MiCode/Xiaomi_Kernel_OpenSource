@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -544,6 +544,15 @@ struct sde_hw_pingpong *sde_hw_pingpong_init(enum sde_pingpong idx,
 
 	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name, c->hw.blk_off,
 			c->hw.blk_off + c->hw.length, c->hw.xin_id);
+
+	if (cfg->sblk->dither.base && cfg->sblk->dither.len) {
+		sde_dbg_reg_register_dump_range(SDE_DBG_NAME,
+			cfg->sblk->dither.name,
+			c->hw.blk_off + cfg->sblk->dither.base,
+			c->hw.blk_off + cfg->sblk->dither.base +
+			cfg->sblk->dither.len,
+			c->hw.xin_id);
+	}
 
 	return c;
 

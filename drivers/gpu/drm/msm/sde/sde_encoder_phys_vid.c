@@ -470,8 +470,10 @@ static void sde_encoder_phys_vid_setup_timing_engine(
 	u32 qsync_min_fps = 0;
 	unsigned long lock_flags;
 	struct sde_hw_intf_cfg intf_cfg = { 0 };
+	bool is_split_link = false;
 
-	if (!phys_enc || !phys_enc->sde_kms || !phys_enc->hw_ctl) {
+	if (!phys_enc || !phys_enc->sde_kms || !phys_enc->hw_ctl ||
+					!phys_enc->hw_intf) {
 		SDE_ERROR("invalid encoder %d\n", phys_enc != 0);
 		return;
 	}
@@ -486,7 +488,8 @@ static void sde_encoder_phys_vid_setup_timing_engine(
 	SDE_DEBUG_VIDENC(vid_enc, "enabling mode:\n");
 	drm_mode_debug_printmodeline(&mode);
 
-	if (phys_enc->split_role != ENC_ROLE_SOLO) {
+	is_split_link = phys_enc->hw_intf->cfg.split_link_en;
+	if (phys_enc->split_role != ENC_ROLE_SOLO || is_split_link) {
 		mode.hdisplay >>= 1;
 		mode.htotal >>= 1;
 		mode.hsync_start >>= 1;

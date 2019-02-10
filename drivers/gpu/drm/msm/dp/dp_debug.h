@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,7 @@
 #define _DP_DEBUG_H_
 
 #include "dp_panel.h"
+#include "dp_ctrl.h"
 #include "dp_link.h"
 #include "dp_usbpd.h"
 #include "dp_aux.h"
@@ -72,6 +73,7 @@ struct dp_debug_in {
 	struct drm_connector **connector;
 	struct dp_catalog *catalog;
 	struct dp_parser *parser;
+	struct dp_ctrl *ctrl;
 };
 
 /**

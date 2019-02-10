@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -128,12 +128,16 @@ static void sde_hw_setup_pp_split(struct sde_hw_mdp *mdp,
 	if (!mdp || !cfg)
 		return;
 
-	if (cfg->en && cfg->pp_split_slave != INTF_MAX) {
+	if (cfg->split_link_en) {
+		ppb_config |= BIT(16); /* split enable */
+		ppb_control = BIT(5); /* horz split*/
+	} else if (cfg->en && cfg->pp_split_slave != INTF_MAX) {
 		ppb_config |= (cfg->pp_split_slave - INTF_0 + 1) << 20;
 		ppb_config |= BIT(16); /* split enable */
 		ppb_control = BIT(5); /* horz split*/
 	}
-	if (cfg->pp_split_index) {
+
+	if (cfg->pp_split_index && !cfg->split_link_en) {
 		SDE_REG_WRITE(&mdp->hw, PPB0_CONFIG, 0x0);
 		SDE_REG_WRITE(&mdp->hw, PPB0_CNTL, 0x0);
 		SDE_REG_WRITE(&mdp->hw, PPB1_CONFIG, ppb_config);
@@ -394,6 +398,8 @@ void sde_hw_reset_ubwc(struct sde_hw_mdp *mdp, struct sde_mdss_cfg *m)
 
 		if (IS_UBWC_30_SUPPORTED(m->ubwc_version))
 			reg |= BIT(10);
+		if (IS_UBWC_10_SUPPORTED(m->ubwc_version))
+			reg |= BIT(8);
 
 		SDE_REG_WRITE(&c, UBWC_STATIC, reg);
 	} else {

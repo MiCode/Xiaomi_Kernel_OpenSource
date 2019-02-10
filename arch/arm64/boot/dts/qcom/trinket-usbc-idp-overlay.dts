@@ -16,6 +16,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 #include "trinket-idp.dtsi"
+#include "trinket-usbc-idp.dtsi"
 
 / {
 	model = "USBC Audio IDP";
@@ -24,3 +25,6 @@
 	qcom,board-id = <34 2>;
 };
 
+&dsi_td4330_truly_cmd_display {
+	qcom,dsi-display-active;
+};

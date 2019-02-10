@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -81,6 +81,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdmmagpie")
 #define early_machine_is_sa6155p()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sa6155p")
+#define early_machine_is_sa4155p()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sa4155p")
 #define early_machine_is_sa6155()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sa6155")
 #define early_machine_is_trinket()	\
@@ -115,6 +117,7 @@
 #define early_machine_is_sdxprairie()	0
 #define early_machine_is_sdmmagpie()	0
 #define early_machine_is_sa6155p()	0
+#define early_machine_is_sa4155p()	0
 #define early_machine_is_sa6155()	0
 #define early_machine_is_trinket()	0
 #endif
@@ -149,6 +152,7 @@ enum msm_cpu {
 	SDX_CPU_SDXPRAIRIE,
 	MSM_CPU_SDMMAGPIE,
 	MSM_CPU_SA6155P,
+	MSM_CPU_SA4155P,
 	MSM_CPU_SA6155,
 	MSM_CPU_TRINKET,
 };

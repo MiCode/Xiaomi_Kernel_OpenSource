@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -123,8 +123,10 @@ static ssize_t enable_tgu(struct device *dev,
 
 	/* Enable clock */
 	ret = pm_runtime_get_sync(drvdata->dev);
-	if (ret)
+	if (ret < 0) {
+		pm_runtime_put(drvdata->dev);
 		return ret;
+	}
 
 	spin_lock(&drvdata->spinlock);
 	/* Unlock the TGU LAR */
@@ -176,7 +178,6 @@ static ssize_t enable_tgu(struct device *dev,
 		/* Disable TGU to program the triggers */
 		tgu_writel(drvdata, 0, TGU_CONTROL);
 		TGU_LOCK(drvdata);
-		spin_unlock(&drvdata->spinlock);
 
 		pm_runtime_put(drvdata->dev);
 		dev_dbg(dev, "Coresight-TGU disabled\n");
@@ -202,8 +203,10 @@ static ssize_t reset_tgu(struct device *dev,
 	if (!drvdata->enable) {
 		/* Enable clock */
 		ret = pm_runtime_get_sync(drvdata->dev);
-		if (ret)
+		if (ret < 0) {
+			pm_runtime_put(drvdata->dev);
 			return ret;
+		}
 	}
 
 	spin_lock(&drvdata->spinlock);

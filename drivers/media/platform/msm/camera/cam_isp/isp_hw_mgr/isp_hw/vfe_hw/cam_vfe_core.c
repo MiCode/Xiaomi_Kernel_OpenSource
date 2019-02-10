@@ -36,6 +36,11 @@ static uint32_t camif_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
 	0x00000000,
 };
 
+static uint32_t camif_fe_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
+	0x10000056,
+	0x00000000,
+};
+
 static uint32_t camif_irq_err_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
 	0x0003FC00,
 	0xEFFF7EBC,
@@ -606,7 +611,7 @@ int cam_vfe_start(void *hw_priv, void *start_args, uint32_t arg_size)
 				cam_irq_controller_subscribe_irq(
 					core_info->vfe_irq_controller,
 					CAM_IRQ_PRIORITY_1,
-					camif_irq_reg_mask,
+					camif_fe_irq_reg_mask,
 					&core_info->irq_payload,
 					cam_vfe_irq_top_half,
 					cam_ife_mgr_do_tasklet,

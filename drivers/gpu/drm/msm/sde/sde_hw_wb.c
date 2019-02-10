@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -168,6 +168,11 @@ static void sde_hw_wb_setup_format(struct sde_hw_wb *ctx,
 		if (IS_UBWC_20_SUPPORTED(ctx->catalog->ubwc_version))
 			SDE_REG_WRITE(c, WB_UBWC_STATIC_CTRL,
 					(ctx->mdp->ubwc_swizzle << 0) |
+					(ctx->mdp->highest_bank_bit << 4));
+		if (IS_UBWC_10_SUPPORTED(ctx->catalog->ubwc_version))
+			SDE_REG_WRITE(c, WB_UBWC_STATIC_CTRL,
+					(ctx->mdp->ubwc_swizzle << 0) |
+					BIT(8) |
 					(ctx->mdp->highest_bank_bit << 4));
 	}
 

@@ -158,14 +158,14 @@
 		};
 	};
 
-	emmc-ufs-therm-adc {
+	camera-ftherm-adc {
 		polling-delay-passive = <0>;
 		polling-delay = <5000>;
 		thermal-governor = "user_space";
 		thermal-sensors = <&pm6125_adc_tm_iio ADC_GPIO1_PU2>;
 	};
 
-	camera-ftherm-adc {
+	emmc-ufs-therm-adc {
 		polling-delay-passive = <0>;
 		polling-delay = <5000>;
 		thermal-governor = "user_space";

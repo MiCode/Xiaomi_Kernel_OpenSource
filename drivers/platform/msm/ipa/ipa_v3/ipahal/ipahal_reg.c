@@ -2390,8 +2390,8 @@ static void ipareg_parse_coal_qmap_cfg(enum ipahal_reg_name reg,
  * @parse - CB to parse register value to abstracted structure
  * @offset - register offset relative to base address
  * @n_ofst - N parameterized register sub-offset
- * @n_start - starting n for n_registers
- * @n_end - ending n for n_registers
+ * @n_start - starting n for n_registers used for printing
+ * @n_end - ending n for n_registers used for printing
  * @en_print - enable this register to be printed when the device crashes
  */
 struct ipahal_reg_obj {
@@ -2692,16 +2692,16 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	/* IPAv4.0 */
 	[IPA_HW_v4_0][IPA_SUSPEND_IRQ_INFO_EE_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
-		0x00003030, 0x1000, 0, 1, 1},
+		0x00003030, 0x1000, 0, 0, 1},
 	[IPA_HW_v4_0][IPA_SUSPEND_IRQ_EN_EE_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
-		0x00003034, 0x1000, 0, 1, 1},
+		0x00003034, 0x1000, 0, 0, 1},
 	[IPA_HW_v4_0][IPA_SUSPEND_IRQ_CLR_EE_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
-		0x00003038, 0x1000, 0, 1, 1},
+		0x00003038, 0x1000, 0, 0, 1},
 	[IPA_HW_v4_0][IPA_IRQ_EN_EE_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
-		0x0000300c, 0x1000, 0, 1, 1},
+		0x0000300c, 0x1000, 0, 0, 1},
 	[IPA_HW_v4_0][IPA_TAG_TIMER] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x00000060, 0, 0, 0, 1},
@@ -3177,7 +3177,7 @@ void ipahal_print_all_regs(bool print_to_dmesg)
 
 		j = reg->n_start;
 
-		if (j == reg->n_end) {
+		if (j == reg->n_end && (reg->n_ofst == 0)) {
 			if (print_to_dmesg)
 				IPAHAL_DBG_REG("%s=0x%x\n",
 					ipahal_reg_name_str(i),

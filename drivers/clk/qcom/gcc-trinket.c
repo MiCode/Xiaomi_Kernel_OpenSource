@@ -34,6 +34,10 @@
 #include "vdd-level-trinket.h"
 
 #define GCC_VIDEO_MISC		0x80258
+#define GCC_CAMSS_MCLK0_CFG_RCGR	0x51004
+#define GCC_CAMSS_MCLK1_CFG_RCGR	0x51020
+#define GCC_CAMSS_MCLK2_CFG_RCGR	0x5103c
+#define GCC_CAMSS_MCLK3_CFG_RCGR	0x51058
 
 #define F(f, s, h, m, n) { (f), (s), (2 * (h) - 1), (m), (n) }
 
@@ -827,7 +831,9 @@ static struct clk_rcg2 gcc_camss_jpeg_clk_src = {
 };
 
 static const struct freq_tbl ftbl_gcc_camss_mclk0_clk_src[] = {
-	F(64000000, P_GPLL9_OUT_MAIN, 9, 0, 0),
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(24000000, P_GPLL9_OUT_MAIN, 1, 1, 24),
+	F(64000000, P_GPLL9_OUT_MAIN, 1, 1, 9),
 	{ }
 };
 
@@ -3731,6 +3737,7 @@ static struct clk_branch gcc_sys_noc_compute_sf_axi_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_sys_noc_compute_sf_axi_clk",
+			.flags = CLK_IS_CRITICAL,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -4486,6 +4493,15 @@ static int gcc_trinket_probe(struct platform_device *pdev)
 	 * MISC registers.
 	 */
 	regmap_update_bits(regmap, GCC_VIDEO_MISC, 0x1, 0x1);
+
+	/*
+	 * Enable DUAL_EDGE mode for MCLK RCGs
+	 * This is requierd to enable MND divider mode
+	 */
+	regmap_update_bits(regmap, GCC_CAMSS_MCLK0_CFG_RCGR, 0x3000, 0x2000);
+	regmap_update_bits(regmap, GCC_CAMSS_MCLK1_CFG_RCGR, 0x3000, 0x2000);
+	regmap_update_bits(regmap, GCC_CAMSS_MCLK2_CFG_RCGR, 0x3000, 0x2000);
+	regmap_update_bits(regmap, GCC_CAMSS_MCLK3_CFG_RCGR, 0x3000, 0x2000);
 
 	ret = qcom_cc_really_probe(pdev, &gcc_trinket_desc, regmap);
 	if (ret) {

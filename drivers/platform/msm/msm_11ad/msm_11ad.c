@@ -96,6 +96,8 @@ struct msm11ad_ctx {
 	u32 rc_index; /* PCIE root complex index */
 	struct pci_dev *pcidev;
 	struct pci_saved_state *pristine_state;
+	struct pci_saved_state *golden_state;
+	struct msm_pcie_register_event pci_event;
 
 	/* SMMU */
 	bool use_smmu; /* have SMMU enabled? */
@@ -592,6 +594,72 @@ out:
 	return rc;
 }
 
+static int ops_pci_linkdown_recovery(void *handle)
+{
+	struct msm11ad_ctx *ctx = handle;
+	struct pci_dev *pcidev;
+	int rc;
+
+	if (!ctx) {
+		pr_err("11ad pci_linkdown_recovery: No context\n");
+		return -ENODEV;
+	}
+
+	pcidev = ctx->pcidev;
+
+	/* suspend */
+	dev_dbg(ctx->dev, "11ad pci_linkdown_recovery, suspend the device\n");
+	pci_disable_device(pcidev);
+	rc = msm_pcie_pm_control(MSM_PCIE_SUSPEND, pcidev->bus->number,
+				 pcidev, NULL, 0);
+	if (rc) {
+		dev_err(ctx->dev, "msm_pcie_pm_control(SUSPEND) failed: %d\n",
+			rc);
+		goto out;
+	}
+
+	rc = msm_11ad_turn_device_power_off(ctx);
+	if (rc) {
+		dev_err(ctx->dev, "failed to turn off device: %d\n",
+			rc);
+		goto out;
+	}
+
+	/* resume */
+	rc = msm_11ad_turn_device_power_on(ctx);
+	if (rc)
+		goto out;
+
+	rc = msm_pcie_pm_control(MSM_PCIE_RESUME, pcidev->bus->number,
+				 pcidev, NULL, 0);
+	if (rc) {
+		dev_err(ctx->dev, "msm_pcie_pm_control(RESUME) failed: %d\n",
+			rc);
+		goto err_disable_power;
+	}
+
+	pci_set_power_state(pcidev, PCI_D0);
+
+	if (ctx->golden_state)
+		pci_load_saved_state(pcidev, ctx->golden_state);
+	pci_restore_state(pcidev);
+
+	rc = pci_enable_device(pcidev);
+	if (rc) {
+		dev_err(ctx->dev, "pci_enable_device failed (%d)\n", rc);
+		goto err_disable_power;
+	}
+
+	pci_set_master(pcidev);
+
+out:
+	return rc;
+
+err_disable_power:
+	msm_11ad_turn_device_power_off(ctx);
+	return rc;
+}
+
 static int ops_suspend(void *handle, bool keep_device_power)
 {
 	struct msm11ad_ctx *ctx = handle;
@@ -997,6 +1065,32 @@ static void msm_11ad_init_cpu_boost(struct msm11ad_ctx *ctx)
 	}
 }
 
+static void msm_11ad_pci_event_cb(struct msm_pcie_notify *notify)
+{
+	struct pci_dev *pcidev = notify->user;
+	struct msm11ad_ctx *ctx = pcidev2ctx(pcidev);
+
+	if (!ctx)
+		return;
+
+	if (!ctx->rops.notify || !ctx->wil_handle) {
+		dev_info(ctx->dev,
+			 "no registered notif CB, cannot hadle pci notifications\n");
+		return;
+	}
+
+	switch (notify->event) {
+	case MSM_PCIE_EVENT_LINKDOWN:
+		dev_err(ctx->dev, "PCIe linkdown\n");
+		ctx->rops.notify(ctx->wil_handle,
+				 WIL_PLATFORM_NOTIF_PCI_LINKDOWN);
+		break;
+	default:
+		break;
+	}
+
+}
+
 static int msm_11ad_probe(struct platform_device *pdev)
 {
 	struct msm11ad_ctx *ctx;
@@ -1007,6 +1101,7 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	u32 smmu_mapping[2];
 	int rc, i;
 	bool pcidev_found = false;
+	struct msm_pcie_register_event *pci_event;
 
 	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
@@ -1230,6 +1325,29 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, ctx);
 	device_disable_async_suspend(&pcidev->dev);
 
+	/* Save golden config space for pci linkdown recovery */
+	rc = pci_save_state(pcidev);
+	if (rc) {
+		dev_err(ctx->dev, "pci_save_state failed :%d\n", rc);
+		goto out_suspend;
+	}
+	ctx->golden_state = pci_store_saved_state(pcidev);
+
+	pci_event = &ctx->pci_event;
+	pci_event->events = MSM_PCIE_EVENT_LINKDOWN;
+	pci_event->user = ctx->pcidev;
+	pci_event->mode = MSM_PCIE_TRIGGER_CALLBACK;
+	pci_event->options = MSM_PCIE_CONFIG_NO_RECOVERY;
+	pci_event->callback = msm_11ad_pci_event_cb;
+
+	rc = msm_pcie_register_event(pci_event);
+	if (rc) {
+		dev_err(ctx->dev, "failed to register msm pcie event: %d\n",
+			rc);
+		kfree(ctx->golden_state);
+		goto out_suspend;
+	}
+
 	list_add_tail(&ctx->list, &dev_list);
 	msm_11ad_suspend_power_off(ctx);
 
@@ -1265,11 +1383,13 @@ static int msm_11ad_remove(struct platform_device *pdev)
 {
 	struct msm11ad_ctx *ctx = platform_get_drvdata(pdev);
 
+	msm_pcie_deregister_event(&ctx->pci_event);
 	msm_11ad_ssr_deinit(ctx);
 	list_del(&ctx->list);
 	dev_info(ctx->dev, "%s: pdev %pK pcidev %pK\n", __func__, pdev,
 		 ctx->pcidev);
 	kfree(ctx->pristine_state);
+	kfree(ctx->golden_state);
 
 	pci_dev_put(ctx->pcidev);
 	if (ctx->gpio_en >= 0) {
@@ -1466,6 +1586,7 @@ static int ops_notify(void *handle, enum wil_platform_event evt)
 {
 	struct msm11ad_ctx *ctx = (struct msm11ad_ctx *)handle;
 	int rc = 0;
+	struct pci_dev *pcidev = ctx->pcidev;
 
 	switch (evt) {
 	case WIL_PLATFORM_EVT_FW_CRASH:
@@ -1494,6 +1615,19 @@ static int ops_notify(void *handle, enum wil_platform_event evt)
 		if (ctx->features &
 		    BIT(WIL_PLATFORM_FEATURE_FW_EXT_CLK_CONTROL))
 			msm_11ad_disable_clk(ctx, &ctx->rf_clk3);
+
+		/*
+		 * Save golden config space for pci linkdown recovery.
+		 * golden_state is also saved after enumeration, free the old
+		 * saved state before reallocating
+		 */
+		rc = pci_save_state(pcidev);
+		if (rc) {
+			dev_err(ctx->dev, "pci_save_state failed :%d\n", rc);
+			return rc;
+		}
+		kfree(ctx->golden_state);
+		ctx->golden_state = pci_store_saved_state(pcidev);
 		break;
 	default:
 		pr_debug("%s: Unhandled event %d\n", __func__, evt);
@@ -1568,6 +1702,7 @@ void *msm_11ad_dev_init(struct device *dev, struct wil_platform_ops *ops,
 	ops->notify = ops_notify;
 	ops->get_capa = ops_get_capa;
 	ops->set_features = ops_set_features;
+	ops->pci_linkdown_recovery = ops_pci_linkdown_recovery;
 
 	return ctx;
 }

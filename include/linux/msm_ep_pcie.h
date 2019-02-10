@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2017, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,6 +47,7 @@ enum ep_pcie_irq_event {
 	EP_PCIE_INT_EVT_CFG_WRITE,
 	EP_PCIE_INT_EVT_BRIDGE_FLUSH_N,
 	EP_PCIE_INT_EVT_LINK_UP,
+	EP_PCIE_INT_EVT_EDMA = 22,
 	EP_PCIE_INT_EVT_MAX = 13,
 };
 
