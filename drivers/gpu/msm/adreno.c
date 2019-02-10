@@ -2420,9 +2420,7 @@ static int adreno_prop_u32(struct kgsl_device *device,
 	u32 val = 0;
 
 	if (param->type == KGSL_PROP_HIGHEST_BANK_BIT) {
-		if (of_property_read_u32(device->pdev->dev.of_node,
-			"qcom,highest-bank-bit", &val))
-			return -EINVAL;
+		val = adreno_dev->highest_bank_bit;
 	} else if (param->type == KGSL_PROP_MIN_ACCESS_LENGTH)
 		of_property_read_u32(device->pdev->dev.of_node,
 			"qcom,min-access-length", &val);

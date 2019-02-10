@@ -443,6 +443,7 @@ enum gpu_coresight_sources {
  * @lm_threshold_cross: number of current peaks exceeding threshold
  * @ifpc_count: Number of times the GPU went into IFPC
  * @speed_bin: Indicate which power level set to use
+ * @highest_bank_bit: Value of the highest bank bit
  * @csdev: Pointer to a coresight device (if applicable)
  * @gpmu_throttle_counters - counteers for number of throttled clocks
  * @irq_storm_work: Worker to handle possible interrupt storms
@@ -517,6 +518,7 @@ struct adreno_device {
 	uint32_t ifpc_count;
 
 	unsigned int speed_bin;
+	unsigned int highest_bank_bit;
 	unsigned int quirks;
 
 	struct coresight_device *csdev[GPU_CORESIGHT_MAX];

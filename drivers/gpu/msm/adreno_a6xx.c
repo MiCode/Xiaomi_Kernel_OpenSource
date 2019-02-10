@@ -5,6 +5,7 @@
 
 #include <linux/firmware.h>
 #include <linux/of.h>
+#include <linux/of_fdt.h>
 #include <soc/qcom/subsystem_restart.h>
 
 #include "adreno.h"
@@ -14,10 +15,6 @@
 #include "adreno_trace.h"
 #include "kgsl_gmu.h"
 #include "kgsl_trace.h"
-
-#define MIN_HBB		13
-#define HBB_LOWER_MASK	0x3
-#define HBB_UPPER_SHIFT	0x2
 
 static struct a6xx_protected_regs {
 	unsigned int base;
@@ -166,6 +163,23 @@ static void a6xx_pwrup_reglist_init(struct adreno_device *adreno_dev)
 
 static void a6xx_init(struct adreno_device *adreno_dev)
 {
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	adreno_dev->highest_bank_bit = 13;
+	of_property_read_u32(device->pdev->dev.of_node,
+		"qcom,highest-bank-bit", &adreno_dev->highest_bank_bit);
+
+	if (WARN(adreno_dev->highest_bank_bit < 13 ||
+			adreno_dev->highest_bank_bit > 16,
+			"The highest-bank-bit property is invalid\n"))
+		adreno_dev->highest_bank_bit =
+			clamp_t(unsigned int, adreno_dev->highest_bank_bit,
+				13, 16);
+
+	/* LP DDR4 highest bank bit is different and needs to be overridden */
+	if (adreno_is_a650(adreno_dev) && of_fdt_get_ddrtype() == 0x7)
+		adreno_dev->highest_bank_bit = 15;
+
 	a6xx_crashdump_init(adreno_dev);
 
 	/*
@@ -537,10 +551,6 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	}
 
 	if (of_property_read_u32(device->pdev->dev.of_node,
-		"qcom,highest-bank-bit", &bit))
-		bit = MIN_HBB;
-
-	if (of_property_read_u32(device->pdev->dev.of_node,
 		"qcom,min-access-length", &mal))
 		mal = 32;
 
@@ -568,15 +578,10 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		break;
 	}
 
-	if (bit >= 13 && bit <= 17) {
-		bit = bit - MIN_HBB;
-		lower_bit = bit & HBB_LOWER_MASK;
-		upper_bit = (bit >> HBB_UPPER_SHIFT) & 1;
-	} else {
-		lower_bit = 0;
-		upper_bit = 0;
-	}
-
+	bit = adreno_dev->highest_bank_bit ?
+		adreno_dev->highest_bank_bit - 13 : 0;
+	lower_bit = bit & 0x3;
+	upper_bit = (bit >> 0x2) & 1;
 	mal = (mal == 64) ? 1 : 0;
 
 	uavflagprd_inv = (adreno_is_a650_family(adreno_dev)) ? 2 : 0;
