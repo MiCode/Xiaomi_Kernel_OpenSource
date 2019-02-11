@@ -31,6 +31,8 @@
 #define GENI_SE_DMA_PTR_H(ptr) 0
 #endif
 
+/* Convert BCM threshold to actual frequency x 4 */
+#define CONV_TO_BW(x) (x*20000*4)
 #define NUM_LOG_PAGES 2
 #define MAX_CLK_PERF_LEVEL 32
 static unsigned long default_bus_bw_set[] = {0, 19200000, 50000000,
@@ -724,9 +726,9 @@ static int geni_se_rmv_ab_ib(struct geni_se_device *geni_se_dev,
 
 	if (geni_se_dev->num_paths == 2) {
 		geni_se_dev->pdata->usecase[1].vectors[0].ab  =
-			geni_se_dev->cur_ab;
+			CONV_TO_BW(geni_se_dev->cur_ab);
 		geni_se_dev->pdata->usecase[1].vectors[0].ib  =
-			geni_se_dev->cur_ib;
+			CONV_TO_BW(geni_se_dev->cur_ib);
 	}
 
 	if (bus_bw_update && geni_se_dev->num_paths != 2)
@@ -871,9 +873,9 @@ static int geni_se_add_ab_ib(struct geni_se_device *geni_se_dev,
 
 	if (geni_se_dev->num_paths == 2) {
 		geni_se_dev->pdata->usecase[1].vectors[0].ab  =
-			geni_se_dev->cur_ab;
+			CONV_TO_BW(geni_se_dev->cur_ab);
 		geni_se_dev->pdata->usecase[1].vectors[0].ib  =
-			geni_se_dev->cur_ib;
+			CONV_TO_BW(geni_se_dev->cur_ib);
 	}
 
 	if (bus_bw_update && geni_se_dev->num_paths != 2)
