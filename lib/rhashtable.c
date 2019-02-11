@@ -250,8 +250,10 @@ static int rhashtable_rehash_table(struct rhashtable *ht)
 	if (!new_tbl)
 		return 0;
 
-	for (old_hash = 0; old_hash < old_tbl->size; old_hash++)
+	for (old_hash = 0; old_hash < old_tbl->size; old_hash++) {
 		rhashtable_rehash_chain(ht, old_hash);
+		cond_resched();
+	}
 
 	/* Publish the new table pointer. */
 	rcu_assign_pointer(ht->tbl, new_tbl);
@@ -441,7 +443,8 @@ EXPORT_SYMBOL_GPL(rhashtable_insert_rehash);
 struct bucket_table *rhashtable_insert_slow(struct rhashtable *ht,
 					    const void *key,
 					    struct rhash_head *obj,
-					    struct bucket_table *tbl)
+					    struct bucket_table *tbl,
+					    void **data)
 {
 	struct rhash_head *head;
 	unsigned int hash;
@@ -452,8 +455,11 @@ struct bucket_table *rhashtable_insert_slow(struct rhashtable *ht,
 	spin_lock_nested(rht_bucket_lock(tbl, hash), SINGLE_DEPTH_NESTING);
 
 	err = -EEXIST;
-	if (key && rhashtable_lookup_fast(ht, key, ht->p))
-		goto exit;
+	if (key) {
+		*data = rhashtable_lookup_fast(ht, key, ht->p);
+		if (*data)
+			goto exit;
+	}
 
 	err = -E2BIG;
 	if (unlikely(rht_grow_above_max(ht, tbl)))
@@ -838,6 +844,7 @@ void rhashtable_free_and_destroy(struct rhashtable *ht,
 		for (i = 0; i < tbl->size; i++) {
 			struct rhash_head *pos, *next;
 
+			cond_resched();
 			for (pos = rht_dereference(tbl->buckets[i], ht),
 			     next = !rht_is_a_nulls(pos) ?
 					rht_dereference(pos->next, ht) : NULL;
