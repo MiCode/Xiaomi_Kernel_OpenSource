@@ -41,17 +41,13 @@
 				<&clock_npucc NPU_CC_DPM_TEMP_CLK>,
 				<&clock_npucc NPU_CC_CAL_HM0_DPM_IP_CLK>,
 				<&clock_npucc NPU_CC_CAL_HM1_DPM_IP_CLK>,
-				<&clock_npucc NPU_CC_DSP_AHBS_CLK>,
-				<&clock_npucc NPU_CC_DSP_AHBM_CLK>,
-				<&clock_npucc NPU_CC_DSP_AXI_CLK>,
-				<&clock_npucc NPU_CC_DSP_BWMON_CLK>,
-				<&clock_npucc NPU_CC_DSP_BWMON_AHB_CLK>,
 				<&clock_npucc NPU_CC_ATB_CLK>,
 				<&clock_npucc NPU_CC_S2P_CLK>,
 				<&clock_npucc NPU_CC_BWMON_CLK>,
 				<&clock_npucc NPU_CC_CAL_HM0_PERF_CNT_CLK>,
 				<&clock_npucc NPU_CC_CAL_HM1_PERF_CNT_CLK>,
-				<&clock_npucc NPU_CC_BTO_CORE_CLK>;
+				<&clock_npucc NPU_CC_BTO_CORE_CLK>,
+				<&clock_npucc NPU_DSP_CORE_CLK_SRC>;
 		clock-names = "xo_clk",
 				"npu_core_clk",
 				"cal_hm0_clk",
@@ -74,17 +70,13 @@
 				"dpm_temp_clk",
 				"cal_hm0_dpm_ip_clk",
 				"cal_hm1_dpm_ip_clk",
-				"dsp_ahbs_clk",
-				"dsp_ahbm_clk",
-				"dsp_axi_clk",
-				"dsp_bwmon_clk",
-				"dsp_bwmon_ahb_clk",
 				"atb_clk",
 				"s2p_clk",
 				"bwmon_clk",
 				"cal_hm0_perf_cnt_clk",
 				"cal_hm1_perf_cnt_clk",
-				"bto_core_clk";
+				"bto_core_clk",
+				"dsp_core_clk_src";
 
 		vdd-supply = <&npu_core_gdsc>;
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
@@ -98,44 +90,6 @@
 			initial-pwrlevel = <4>;
 			qcom,npu-pwrlevel@0 {
 				reg = <0>;
-				vreg = <0>;
-				clk-freq = <19200000
-					60000000
-					200000000
-					200000000
-					200000000
-					200000000
-					120000000
-					20000000
-					200000000
-					60000000
-					19200000
-					50000000
-					50000000
-					60000000
-					60000000
-					60000000
-					19200000
-					60000000
-					19200000
-					50000000
-					200000000
-					200000000
-					60000000
-					60000000
-					120000000
-					19200000
-					60000000
-					30000000
-					50000000
-					19200000
-					200000000
-					200000000
-					19200000>;
-			};
-
-			qcom,npu-pwrlevel@1 {
-				reg = <1>;
 				vreg = <1>;
 				clk-freq = <19200000
 					100000000
@@ -159,21 +113,17 @@
 					50000000
 					200000000
 					200000000
-					100000000
-					100000000
-					200000000
-					19200000
-					100000000
 					60000000
 					50000000
 					19200000
 					300000000
 					300000000
-					19200000>;
+					19200000
+					300000000>;
 			};
 
-			qcom,npu-pwrlevel@2 {
-				reg = <2>;
+			qcom,npu-pwrlevel@1 {
+				reg = <1>;
 				vreg = <2>;
 				clk-freq = <19200000
 					200000000
@@ -197,21 +147,17 @@
 					50000000
 					466000000
 					466000000
-					200000000
-					200000000
-					267000000
-					19200000
-					200000000
 					120000000
 					50000000
 					19200000
 					466000000
 					466000000
-					19200000>;
+					19200000
+					400000000>;
 			};
 
-			qcom,npu-pwrlevel@3 {
-				reg = <3>;
+			qcom,npu-pwrlevel@2 {
+				reg = <2>;
 				vreg = <3>;
 				clk-freq = <19200000
 					333000000
@@ -235,21 +181,17 @@
 					50000000
 					533000000
 					533000000
-					333000000
-					333000000
-					403000000
-					19200000
-					333000000
 					240000000
 					50000000
 					19200000
 					533000000
 					533000000
-					19200000>;
+					19200000
+					500000000>;
 			};
 
-			qcom,npu-pwrlevel@4 {
-				reg = <4>;
+			qcom,npu-pwrlevel@3 {
+				reg = <3>;
 				vreg = <4>;
 				clk-freq = <19200000
 					428000000
@@ -273,21 +215,17 @@
 					100000000
 					850000000
 					850000000
-					428000000
-					428000000
-					533000000
-					19200000
-					428000000
 					240000000
 					100000000
 					19200000
 					850000000
 					850000000
-					19200000>;
+					19200000
+					660000000>;
 			};
 
-			qcom,npu-pwrlevel@5 {
-				reg = <5>;
+			qcom,npu-pwrlevel@4 {
+				reg = <4>;
 				vreg = <6>;
 				clk-freq = <19200000
 					500000000
@@ -311,17 +249,13 @@
 					100000000
 					1000000000
 					1000000000
-					500000000
-					500000000
-					700000000
-					19200000
-					500000000
 					30000000
 					100000000
 					19200000
 					1000000000
 					1000000000
-					19200000>;
+					19200000
+					800000000>;
 			};
 		};
 	};
