@@ -16,6 +16,7 @@
 #include "msm_vidc_debug.h"
 #include "msm_vidc_clocks.h"
 #include "msm_cvp.h"
+#include "msm_vidc_buffer_calculations.h"
 
 #define IS_ALREADY_IN_STATE(__p, __d) (\
 	(__p >= __d)\
@@ -3021,76 +3022,6 @@ static int msm_comm_session_init_done(int flipped_state,
 	return rc;
 }
 
-static int msm_comm_init_buffer_count(struct msm_vidc_inst *inst)
-{
-	int extra_buff_count = 0;
-	struct hal_buffer_requirements *bufreq;
-	int port;
-
-	if (!is_decode_session(inst) && !is_encode_session(inst))
-		return 0;
-
-	if (is_decode_session(inst))
-		port = OUTPUT_PORT;
-	else
-		port = CAPTURE_PORT;
-
-	/* Update input buff counts */
-	bufreq = get_buff_req_buffer(inst, HAL_BUFFER_INPUT);
-	if (!bufreq)
-		return -EINVAL;
-
-	extra_buff_count = msm_vidc_get_extra_buff_count(inst,
-				HAL_BUFFER_INPUT);
-	bufreq->buffer_count_min = inst->fmts[port].input_min_count;
-	/* batching needs minimum batch size count of input buffers */
-	if (inst->core->resources.decode_batching &&
-		is_decode_session(inst) &&
-		bufreq->buffer_count_min < inst->batch.size)
-		bufreq->buffer_count_min = inst->batch.size;
-	bufreq->buffer_count_min_host = bufreq->buffer_count_actual =
-				bufreq->buffer_count_min + extra_buff_count;
-
-	dprintk(VIDC_DBG, "%s: %x : input min %d min_host %d actual %d\n",
-		__func__, hash32_ptr(inst->session),
-		bufreq->buffer_count_min, bufreq->buffer_count_min_host,
-		bufreq->buffer_count_actual);
-
-	bufreq = get_buff_req_buffer(inst, HAL_BUFFER_EXTRADATA_INPUT);
-	if (!bufreq)
-		return -EINVAL;
-
-	bufreq->buffer_count_min = inst->fmts[port].input_min_count;
-	bufreq->buffer_count_min_host = bufreq->buffer_count_actual =
-				bufreq->buffer_count_min + extra_buff_count;
-
-	/* Update output buff count */
-	bufreq = get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
-	if (!bufreq)
-		return -EINVAL;
-
-	extra_buff_count = msm_vidc_get_extra_buff_count(inst,
-				HAL_BUFFER_OUTPUT);
-	bufreq->buffer_count_min = inst->fmts[port].output_min_count;
-	bufreq->buffer_count_min_host = bufreq->buffer_count_actual =
-		bufreq->buffer_count_min + extra_buff_count;
-
-	dprintk(VIDC_DBG, "%s: %x : output min %d min_host %d actual %d\n",
-		__func__, hash32_ptr(inst->session),
-		bufreq->buffer_count_min, bufreq->buffer_count_min_host,
-		bufreq->buffer_count_actual);
-
-	bufreq = get_buff_req_buffer(inst, HAL_BUFFER_EXTRADATA_OUTPUT);
-	if (!bufreq)
-		return -EINVAL;
-
-	bufreq->buffer_count_min = inst->fmts[port].output_min_count;
-	bufreq->buffer_count_min_host = bufreq->buffer_count_actual =
-		bufreq->buffer_count_min + extra_buff_count;
-
-	return 0;
-}
-
 static int msm_comm_session_init(int flipped_state,
 	struct msm_vidc_inst *inst)
 {
@@ -3141,7 +3072,7 @@ static int msm_comm_session_init(int flipped_state,
 		goto exit;
 	}
 
-	rc = msm_comm_init_buffer_count(inst);
+	rc = msm_vidc_init_buffer_count(inst);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to initialize buff counts\n");
 		goto exit;
