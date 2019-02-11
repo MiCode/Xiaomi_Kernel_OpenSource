@@ -184,6 +184,11 @@ struct msm_vidc_hdr10plus_metadata_payload {
 	__u32 data[1];
 };
 
+#define  MSM_VIDC_EXTRADATA_CVP_METADATA 0x0000001B
+struct msm_vidc_enc_cvp_metadata_payload {
+	__u32 data[256];
+};
+
 /* video_format */
 #define MSM_VIDC_COMPONENT 0
 #define MSM_VIDC_PAL 1
