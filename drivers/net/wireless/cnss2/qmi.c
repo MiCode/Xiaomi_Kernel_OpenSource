@@ -25,6 +25,7 @@
 #define MAX_BDF_FILE_NAME		11
 #define DEFAULT_BDF_FILE_NAME		"bdwlan.elf"
 #define BDF_FILE_NAME_PREFIX		"bdwlan.e"
+#define BIN_BDF_FILE_NAME_PREFIX	"bdwlan.b"
 #define DEFAULT_BIN_BDF_FILE_NAME       "bdwlan.bin"
 
 #ifdef CONFIG_CNSS2_DEBUG
@@ -534,10 +535,16 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv)
 		else
 			snprintf(filename, sizeof(filename),
 				 DEFAULT_BDF_FILE_NAME);
-	else
-		snprintf(filename, sizeof(filename),
-			 BDF_FILE_NAME_PREFIX "%02x",
-			 plat_priv->board_info.board_id);
+	else {
+		if (bdf_type == CNSS_BDF_BIN)
+			snprintf(filename, sizeof(filename),
+				 BIN_BDF_FILE_NAME_PREFIX "%02x",
+				 plat_priv->board_info.board_id);
+		else
+			snprintf(filename, sizeof(filename),
+				 BDF_FILE_NAME_PREFIX "%02x",
+				 plat_priv->board_info.board_id);
+	}
 
 	if (bdf_bypass) {
 		cnss_pr_info("bdf_bypass is enabled, sending dummy BDF\n");
