@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
- * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  */
 
 /*
@@ -85,8 +85,8 @@ enum ipa_qmi_error_type_v01 {
 };
 
 struct ipa_qmi_response_type_v01 {
-	enum ipa_qmi_result_type_v01 result;
-	enum ipa_qmi_error_type_v01 error;
+	uint16_t result;
+	uint16_t error;
 };
 
 enum ipa_platform_type_enum_v01 {
