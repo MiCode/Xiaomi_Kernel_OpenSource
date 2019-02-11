@@ -825,6 +825,19 @@ int bgcom_resume(void *handle)
 		return -ECANCELED;
 
 	cntx = (struct bg_context *)handle;
+
+	/* if client is outside bgcom scope and
+	 * handle is provided before BGCOM probed
+	 */
+	if (cntx->state == BGCOM_PROB_WAIT) {
+		pr_info("handle is provided before BGCOM probed\n");
+		if (!is_bgcom_ready())
+			return -EAGAIN;
+		cntx->bg_spi = container_of(bg_com_drv,
+						struct bg_spi_priv, lhandle);
+		cntx->state = BGCOM_PROB_SUCCESS;
+	}
+
 	bg_spi = cntx->bg_spi;
 
 	mutex_lock(&bg_resume_mutex);
