@@ -3088,18 +3088,12 @@ int smblib_get_prop_usb_voltage_now(struct smb_charger *chg,
 		return -ENODATA;
 	}
 
-	/* usb not present */
-	if (!pval.intval) {
-		val->intval = 0;
-		return 0;
-	}
-
 	/*
 	 * For PM8150B, use MID_CHG ADC channel because overvoltage is observed
 	 * to occur randomly in the USBIN channel, particularly at high
 	 * voltages.
 	 */
-	if (chg->smb_version == PM8150B_SUBTYPE)
+	if (chg->smb_version == PM8150B_SUBTYPE && pval.intval)
 		return smblib_read_mid_voltage_chan(chg, val);
 	else
 		return smblib_read_usbin_voltage_chan(chg, val);
