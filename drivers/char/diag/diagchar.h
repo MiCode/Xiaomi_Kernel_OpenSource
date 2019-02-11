@@ -134,6 +134,7 @@
 #define DIAG_GET_TIME_API	0x21B
 #define DIAG_SET_TIME_API	0x21C
 #define DIAG_GET_DIAG_ID	0x222
+#define DIAG_FEATURE_QUERY	0x225
 #define DIAG_SWITCH_COMMAND	0x081B
 #define DIAG_BUFFERING_MODE	0x080C
 
@@ -174,6 +175,10 @@
 #define PKT_RESET	2
 
 #define FEATURE_MASK_LEN	4
+
+#define F_DIAG_EVENT_REPORT	0
+#define F_DIAG_HW_ACCELERATION	1
+#define F_DIAG_MULTI_SIM_MASK	2
 
 #define DIAG_MD_NONE			0
 #define DIAG_MD_PERIPHERAL		1
@@ -457,6 +462,12 @@ struct diag_cmd_hdlc_disable_rsp_t {
 	uint8_t result;
 };
 
+struct diag_cmd_feature_query_rsp_t {
+	struct diag_pkt_header_t header;
+	uint8_t version;
+	uint8_t feature_len;
+};
+
 struct diag_pkt_frame_t {
 	uint8_t start;
 	uint8_t version;
@@ -628,6 +639,7 @@ struct diagchar_dev {
 	struct diagfwd_info *diagfwd_cmd[NUM_PERIPHERALS];
 	struct diagfwd_info *diagfwd_dci_cmd[NUM_PERIPHERALS];
 	struct diag_feature_t feature[NUM_PERIPHERALS];
+	uint32_t apps_feature;
 	struct diag_buffering_mode_t buffering_mode[NUM_MD_SESSIONS];
 	uint8_t buffering_flag[NUM_MD_SESSIONS];
 	struct mutex mode_lock;
