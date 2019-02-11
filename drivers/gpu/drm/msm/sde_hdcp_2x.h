@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,8 +22,9 @@
 /**
  * enum sde_hdcp_2x_wakeup_cmd - commands for interacting with HDCP driver
  * @HDCP_2X_CMD_INVALID:           initialization value
- * @HDCP_2X_CMD_START:             start authentication
- * @HDCP_2X_CMD_STOP:              stop authentication
+ * @HDCP_2X_CMD_START:             start HDCP driver
+ * @HDCP_2X_CMD_START_AUTH:        start authentication
+ * @HDCP_2X_CMD_STOP:              stop HDCP driver
  * @HDCP_2X_CMD_MSG_SEND_SUCCESS:  sending message to sink succeeded
  * @HDCP_2X_CMD_MSG_SEND_FAILED:   sending message to sink failed
  * @HDCP_2X_CMD_MSG_SEND_TIMEOUT:  sending message to sink timed out
@@ -33,10 +34,13 @@
  * @HDCP_2X_CMD_QUERY_STREAM_TYPE: start content stream processing
  * @HDCP_2X_CMD_LINK_FAILED:       link failure notification
  * @HDCP_2X_CMD_MIN_ENC_LEVEL:     trigger minimum encryption level change
+ * @HDCP_2X_CMD_OPEN_STREAMS:       open a virtual channel
+ * @HDCP_2X_CMD_CLOSE_STREAMS:      close a virtual channel
  */
 enum sde_hdcp_2x_wakeup_cmd {
 	HDCP_2X_CMD_INVALID,
 	HDCP_2X_CMD_START,
+	HDCP_2X_CMD_START_AUTH,
 	HDCP_2X_CMD_STOP,
 	HDCP_2X_CMD_MSG_SEND_SUCCESS,
 	HDCP_2X_CMD_MSG_SEND_FAILED,
@@ -47,6 +51,8 @@ enum sde_hdcp_2x_wakeup_cmd {
 	HDCP_2X_CMD_QUERY_STREAM_TYPE,
 	HDCP_2X_CMD_LINK_FAILED,
 	HDCP_2X_CMD_MIN_ENC_LEVEL,
+	HDCP_2X_CMD_OPEN_STREAMS,
+	HDCP_2X_CMD_CLOSE_STREAMS,
 };
 
 /**
@@ -71,16 +77,19 @@ enum hdcp_transport_wakeup_cmd {
 
 enum sde_hdcp_2x_device_type {
 	HDCP_TXMTR_HDMI = 0x8001,
-	HDCP_TXMTR_DP = 0x8002
+	HDCP_TXMTR_DP = 0x8002,
+	HDCP_TXMTR_DP_MST = 0x8003
 };
 
 /**
  * struct sde_hdcp_2x_lib_wakeup_data - command and data send to HDCP driver
- * @cmd:       command type
- * @context:   void pointer to the HDCP driver instance
- * @buf:       message received from the sink
- * @buf_len:   length of message received from the sink
- * @timeout:   time out value for timed transactions
+ * @cmd:                       command type
+ * @context:                   void pointer to the HDCP driver instance
+ * @buf:                       message received from the sink
+ * @buf_len:                   length of message received from the sink
+ * @timeout:                   time out value for timed transactions
+ * @streams:                   list indicating which streams need adjustment
+ * @num_streams:               number of entries in streams
  */
 struct sde_hdcp_2x_wakeup_data {
 	enum sde_hdcp_2x_wakeup_cmd cmd;
@@ -88,6 +97,8 @@ struct sde_hdcp_2x_wakeup_data {
 	uint32_t total_message_length;
 	uint32_t timeout;
 	u8 min_enc_level;
+	struct stream_info *streams;
+	u8 num_streams;
 };
 
 /**
@@ -156,6 +167,10 @@ static inline const char *sde_hdcp_2x_cmd_to_str(
 		return TO_STR(HDCP_2X_CMD_MSG_RECV_TIMEOUT);
 	case HDCP_2X_CMD_QUERY_STREAM_TYPE:
 		return TO_STR(HDCP_2X_CMD_QUERY_STREAM_TYPE);
+	case HDCP_2X_CMD_OPEN_STREAMS:
+		return TO_STR(HDCP_2X_CMD_OPEN_STREAMS);
+	case HDCP_2X_CMD_CLOSE_STREAMS:
+		return TO_STR(HDCP_2X_CMD_CLOSE_STREAMS);
 	default:
 		return "UNKNOWN";
 	}
@@ -195,12 +210,13 @@ struct hdcp_transport_ops {
 struct sde_hdcp_2x_register_data {
 	struct hdcp_transport_ops *client_ops;
 	struct sde_hdcp_2x_ops *ops;
-	enum sde_hdcp_2x_device_type device_type;
 	void *client_data;
 	void **hdcp_data;
 };
 
 /* functions for the HDCP 2.2 state machine module */
 int sde_hdcp_2x_register(struct sde_hdcp_2x_register_data *data);
+int sde_hdcp_2x_enable(void *data, enum sde_hdcp_2x_device_type device_type);
+void sde_hdcp_2x_disable(void *data);
 void sde_hdcp_2x_deregister(void *data);
 #endif
