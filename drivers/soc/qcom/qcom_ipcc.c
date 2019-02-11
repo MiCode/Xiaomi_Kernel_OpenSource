@@ -90,10 +90,10 @@ static irqreturn_t qcom_ipcc_irq_fn(int irq, void *data)
 			qcom_ipcc_get_client_id(packed_id),
 			qcom_ipcc_get_signal_id(packed_id), virq);
 
-		generic_handle_irq(virq);
-
 		writel_no_log(packed_id,
 				proto_data->base + IPCC_REG_RECV_SIGNAL_CLEAR);
+
+		generic_handle_irq(virq);
 	}
 
 	return IRQ_HANDLED;
