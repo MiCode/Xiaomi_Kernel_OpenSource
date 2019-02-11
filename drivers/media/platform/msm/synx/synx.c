@@ -217,7 +217,7 @@ int synx_deregister_callback(s32 synx_obj,
 
 int synx_signal(s32 synx_obj, u32 status)
 {
-	int rc;
+	int rc, ret;
 	u32 i = 0;
 	u32 idx = 0;
 	u32 type;
@@ -321,11 +321,25 @@ int synx_signal(s32 synx_obj, u32 status)
 			 * we are already signaled, so don't want to
 			 * recursively be signaled
 			 */
-			bind_ops->deregister_callback(synx_external_callback,
-				data, sync_id);
+			ret = bind_ops->deregister_callback(
+					synx_external_callback, data, sync_id);
+			if (ret < 0)
+				pr_err("de-registration fail on sync: %d, err: %d\n",
+					sync_id, ret);
 			pr_debug("signaling external sync: %d, status: %u\n",
 				sync_id, status);
-			bind_ops->signal(sync_id, status);
+			/* optional function to enable external signaling */
+			if (bind_ops->enable_signaling)
+				ret = bind_ops->enable_signaling(sync_id);
+				if (ret < 0) {
+					pr_err("enable signaling fail on sync: %d, err: %d\n",
+						sync_id, ret);
+					continue;
+				}
+			ret = bind_ops->signal(sync_id, status);
+			if (ret < 0)
+				pr_err("signaling fail on sync: %d, err: %d\n",
+					sync_id, ret);
 		} else {
 			pr_warn("unimplemented external type: %u\n", type);
 		}
@@ -1373,6 +1387,7 @@ static void synx_bind_ops_csl_type(struct bind_operations *vtbl)
 
 	vtbl->register_callback = cam_sync_register_callback;
 	vtbl->deregister_callback = cam_sync_deregister_callback;
+	vtbl->enable_signaling = cam_sync_get_obj_ref;
 	vtbl->signal = cam_sync_signal;
 
 	pr_debug("csl bind functionality set\n");
