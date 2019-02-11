@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
@@ -348,7 +348,7 @@ static int qmi_register_sensor_device(struct qmi_sensor *qmi_sens)
 	if (IS_ERR(qmi_sens->tz_dev)) {
 		ret = PTR_ERR(qmi_sens->tz_dev);
 		if (ret != -ENODEV)
-			pr_err("sensor register failed for %s, ret:%ld\n",
+			pr_err("sensor register failed for %s, ret:%d\n",
 				qmi_sens->qmi_name, ret);
 		qmi_sens->tz_dev = NULL;
 		return ret;
