@@ -545,6 +545,7 @@ gen_headers_out_arm = [
     "linux/synclink.h",
     "linux/sysctl.h",
     "linux/sysinfo.h",
+    "linux/sysstats.h",
     "linux/target_core_user.h",
     "linux/taskstats.h",
     "linux/tcp.h",
