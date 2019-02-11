@@ -249,7 +249,7 @@ static void store_acc_gyro_boot_sample(struct st_asm330lhh_sensor *sensor,
 static int st_asm330lhh_read_fifo(struct st_asm330lhh_hw *hw)
 {
 	u8 iio_buf[ALIGN(ST_ASM330LHH_SAMPLE_SIZE, sizeof(s64)) + sizeof(s64)];
-	u8 buf[6 * ST_ASM330LHH_FIFO_SAMPLE_SIZE], tag, *ptr;
+	u8 buf[30 * ST_ASM330LHH_FIFO_SAMPLE_SIZE], tag, *ptr;
 	s64 ts_delta_hw_ts = 0, ts_irq;
 	s64 ts_delta_offs;
 	int i, err, read_len, word_len, fifo_len;
@@ -374,7 +374,7 @@ ssize_t st_asm330lhh_set_watermark(struct device *dev,
 	int err, val;
 
 	if (asm330_check_acc_gyro_early_buff_enable_flag(sensor))
-		return 0;
+		return -EBUSY;
 
 	mutex_lock(&iio_dev->mlock);
 	if (iio_buffer_enabled(iio_dev)) {
@@ -504,10 +504,9 @@ static irqreturn_t st_asm330lhh_handler_thread(int irq, void *private)
 static int st_asm330lhh_buffer_preenable(struct iio_dev *iio_dev)
 {
 	struct st_asm330lhh_sensor *sensor = iio_priv(iio_dev);
-	int err = -1;
 
 	if (asm330_check_acc_gyro_early_buff_enable_flag(sensor))
-		return err;
+		return 0;
 	else
 		return st_asm330lhh_update_fifo(iio_dev, true);
 }
@@ -515,10 +514,9 @@ static int st_asm330lhh_buffer_preenable(struct iio_dev *iio_dev)
 static int st_asm330lhh_buffer_postdisable(struct iio_dev *iio_dev)
 {
 	struct st_asm330lhh_sensor *sensor = iio_priv(iio_dev);
-	int err = -1;
 
 	if (asm330_check_acc_gyro_early_buff_enable_flag(sensor))
-		return err;
+		return 0;
 	else
 		return st_asm330lhh_update_fifo(iio_dev, false);
 }
