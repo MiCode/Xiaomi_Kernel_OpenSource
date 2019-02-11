@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1255,9 +1255,7 @@ int dsi_clk_req_state(void *client, enum dsi_clk_type clk,
 	return rc;
 }
 
-DEFINE_MUTEX(dsi_mngr_clk_mutex);
-
-static int dsi_display_link_clk_force_update(void *client)
+int dsi_display_link_clk_force_update(void *client)
 {
 	int rc = 0;
 	struct dsi_clk_client_info *c = client;
@@ -1302,42 +1300,6 @@ error:
 	mutex_unlock(&mngr->clk_mutex);
 	return rc;
 
-}
-
-int dsi_display_link_clk_force_update_ctrl(void *handle)
-{
-	int rc = 0;
-
-	if (!handle) {
-		pr_err("%s: Invalid arg\n", __func__);
-		return -EINVAL;
-	}
-
-	mutex_lock(&dsi_mngr_clk_mutex);
-
-	rc = dsi_display_link_clk_force_update(handle);
-
-	mutex_unlock(&dsi_mngr_clk_mutex);
-
-	return rc;
-}
-
-int dsi_display_clk_ctrl(void *handle, u32 clk_type, u32 clk_state)
-{
-	int rc = 0;
-
-	if (!handle) {
-		pr_err("%s: Invalid arg\n", __func__);
-		return -EINVAL;
-	}
-
-	mutex_lock(&dsi_mngr_clk_mutex);
-	rc = dsi_clk_req_state(handle, clk_type, clk_state);
-	if (rc)
-		pr_err("%s: failed set clk state, rc = %d\n", __func__, rc);
-	mutex_unlock(&dsi_mngr_clk_mutex);
-
-	return rc;
 }
 
 void *dsi_register_clk_handle(void *clk_mngr, char *client)
