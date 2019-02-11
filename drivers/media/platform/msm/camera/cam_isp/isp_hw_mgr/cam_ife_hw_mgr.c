@@ -839,7 +839,8 @@ err:
 static int cam_ife_hw_mgr_acquire_res_ife_out_pixel(
 	struct cam_ife_hw_mgr_ctx       *ife_ctx,
 	struct cam_ife_hw_mgr_res       *ife_src_res,
-	struct cam_isp_in_port_info     *in_port)
+	struct cam_isp_in_port_info     *in_port,
+	bool                             acquire_lcr)
 {
 	int rc = -1;
 	uint32_t  i, j, k;
@@ -860,8 +861,13 @@ static int cam_ife_hw_mgr_acquire_res_ife_out_pixel(
 		if (cam_ife_hw_mgr_is_rdi_res(out_port->res_type))
 			continue;
 
-		CAM_DBG(CAM_ISP, "res_type 0x%x",
-			 out_port->res_type);
+		if ((acquire_lcr &&
+			out_port->res_type != CAM_ISP_IFE_OUT_RES_LCR) ||
+			(!acquire_lcr &&
+			out_port->res_type == CAM_ISP_IFE_OUT_RES_LCR))
+			continue;
+
+		CAM_DBG(CAM_ISP, "res_type 0x%x", out_port->res_type);
 
 		ife_out_res = &ife_ctx->res_list_ife_out[k];
 		ife_out_res->is_dual_vfe = in_port->usage_type;
@@ -948,9 +954,12 @@ static int cam_ife_hw_mgr_acquire_res_ife_out(
 		case CAM_ISP_HW_VFE_IN_CAMIF:
 		case CAM_ISP_HW_VFE_IN_PDLIB:
 		case CAM_ISP_HW_VFE_IN_RD:
+			rc = cam_ife_hw_mgr_acquire_res_ife_out_pixel(ife_ctx,
+				ife_src_res, in_port, false);
+			break;
 		case CAM_ISP_HW_VFE_IN_LCR:
 			rc = cam_ife_hw_mgr_acquire_res_ife_out_pixel(ife_ctx,
-				ife_src_res, in_port);
+				ife_src_res, in_port, true);
 			break;
 		case CAM_ISP_HW_VFE_IN_RDI0:
 		case CAM_ISP_HW_VFE_IN_RDI1:
@@ -1096,13 +1105,14 @@ acq:
 
 err:
 	/* release resource at the entry function */
-	CAM_DBG(CAM_ISP, "Exit rc(0x%x)", rc);
+	CAM_DBG(CAM_ISP, "Exit rc %d", rc);
 	return rc;
 }
 
 static int cam_ife_hw_mgr_acquire_res_ife_src(
 	struct cam_ife_hw_mgr_ctx     *ife_ctx,
-	struct cam_isp_in_port_info   *in_port)
+	struct cam_isp_in_port_info   *in_port,
+	bool                           acquire_lcr)
 {
 	int rc                = -1;
 	int i;
@@ -1115,7 +1125,10 @@ static int cam_ife_hw_mgr_acquire_res_ife_src(
 	ife_hw_mgr = ife_ctx->hw_mgr;
 
 	list_for_each_entry(csid_res, &ife_ctx->res_list_ife_csid, list) {
-		if (csid_res->num_children)
+		if (csid_res->num_children && !acquire_lcr)
+			continue;
+
+		if (acquire_lcr && csid_res->res_id != CAM_IFE_PIX_PATH_RES_IPP)
 			continue;
 
 		rc = cam_ife_hw_mgr_get_res(&ife_ctx->free_res_list,
@@ -1134,7 +1147,12 @@ static int cam_ife_hw_mgr_acquire_res_ife_src(
 
 		switch (csid_res->res_id) {
 		case CAM_IFE_PIX_PATH_RES_IPP:
-			vfe_acquire.vfe_in.res_id = CAM_ISP_HW_VFE_IN_CAMIF;
+			if (!acquire_lcr)
+				vfe_acquire.vfe_in.res_id =
+					CAM_ISP_HW_VFE_IN_CAMIF;
+			else
+				vfe_acquire.vfe_in.res_id =
+					CAM_ISP_HW_VFE_IN_LCR;
 			if (csid_res->is_dual_vfe)
 				vfe_acquire.vfe_in.sync_mode =
 				CAM_ISP_HW_SYNC_MASTER;
@@ -1206,10 +1224,6 @@ static int cam_ife_hw_mgr_acquire_res_ife_src(
 
 		}
 
-		/* It should be one to one mapping between
-		 * csid resource and ife source resource
-		 */
-		csid_res->child[0] = ife_src_res;
 		ife_src_res->parent = csid_res;
 		csid_res->child[csid_res->num_children++] = ife_src_res;
 		CAM_DBG(CAM_ISP,
@@ -1716,12 +1730,14 @@ static int cam_ife_hw_mgr_preprocess_port(
 	int                         *ipp_count,
 	int                         *rdi_count,
 	int                         *ppp_count,
-	int                         *ife_rd_count)
+	int                         *ife_rd_count,
+	int                         *lcr_count)
 {
 	int ipp_num        = 0;
 	int rdi_num        = 0;
 	int ppp_num        = 0;
 	int ife_rd_num     = 0;
+	int lcr_num        = 0;
 	uint32_t i;
 	struct cam_isp_out_port_info      *out_port;
 	struct cam_ife_hw_mgr             *ife_hw_mgr;
@@ -1737,6 +1753,8 @@ static int cam_ife_hw_mgr_preprocess_port(
 				rdi_num++;
 			else if (out_port->res_type == CAM_ISP_IFE_OUT_RES_2PD)
 				ppp_num++;
+			else if (out_port->res_type == CAM_ISP_IFE_OUT_RES_LCR)
+				lcr_num++;
 			else {
 				CAM_DBG(CAM_ISP, "out_res_type %d",
 				out_port->res_type);
@@ -1749,9 +1767,10 @@ static int cam_ife_hw_mgr_preprocess_port(
 	*rdi_count = rdi_num;
 	*ppp_count = ppp_num;
 	*ife_rd_count = ife_rd_num;
+	*lcr_count = lcr_num;
 
-	CAM_DBG(CAM_ISP, "rdi: %d ipp: %d ppp: %d ife_rd: %d",
-		rdi_num, ipp_num, ppp_num, ife_rd_num);
+	CAM_DBG(CAM_ISP, "rdi: %d ipp: %d ppp: %d ife_rd: %d lcr: %d",
+		rdi_num, ipp_num, ppp_num, ife_rd_num, lcr_num);
 
 	return 0;
 }
@@ -1767,6 +1786,7 @@ static int cam_ife_mgr_acquire_hw_for_ctx(
 	int rdi_count                             = 0;
 	int ppp_count                             = 0;
 	int ife_rd_count                          = 0;
+	int lcr_count                             = 0;
 
 	is_dual_vfe = in_port->usage_type;
 
@@ -1777,21 +1797,23 @@ static int cam_ife_mgr_acquire_hw_for_ctx(
 		goto err;
 	}
 
-	cam_ife_hw_mgr_preprocess_port(ife_ctx, in_port,
-		&ipp_count, &rdi_count, &ppp_count, &ife_rd_count);
+	cam_ife_hw_mgr_preprocess_port(ife_ctx, in_port, &ipp_count,
+		&rdi_count, &ppp_count, &ife_rd_count, &lcr_count);
 
-	if (!ipp_count && !rdi_count && !ppp_count && !ife_rd_count) {
-		CAM_ERR(CAM_ISP, "No PIX or RDI or PPP or IFE RD resource");
+	if (!ipp_count && !rdi_count && !ppp_count && !ife_rd_count
+		&& !lcr_count) {
+		CAM_ERR(CAM_ISP,
+			"No PIX or RDI or PPP or IFE RD or LCR resource");
 		return -EINVAL;
 	}
 
-	if (ipp_count) {
+	if (ipp_count || lcr_count) {
 		/* get ife csid IPP resource */
 		rc = cam_ife_hw_mgr_acquire_res_ife_csid_pxl(ife_ctx,
 			in_port, true);
 		if (rc) {
 			CAM_ERR(CAM_ISP,
-				"Acquire IFE CSID IPP resource Failed");
+				"Acquire IFE CSID IPP/LCR resource Failed");
 			goto err;
 		}
 	}
@@ -1822,13 +1844,29 @@ static int cam_ife_mgr_acquire_hw_for_ctx(
 	if (ife_rd_count) {
 		rc = cam_ife_hw_mgr_acquire_res_ife_rd_src(ife_ctx, in_port);
 		rc = cam_ife_hw_mgr_acquire_res_bus_rd(ife_ctx, in_port);
-	} else {
-		rc = cam_ife_hw_mgr_acquire_res_ife_src(ife_ctx, in_port);
+
+		if (rc) {
+			CAM_ERR(CAM_ISP, "Acquire IFE RD SRC resource Failed");
+			goto err;
+		}
+	} else if (ipp_count || ppp_count) {
+		rc = cam_ife_hw_mgr_acquire_res_ife_src(ife_ctx,
+			in_port, false);
+
+		if (rc) {
+			CAM_ERR(CAM_ISP,
+				"Acquire IFE IPP/PPP SRC resource Failed");
+			goto err;
+		}
 	}
 
-	if (rc) {
-		CAM_ERR(CAM_ISP, "Acquire IFE SRC resource Failed");
-		goto err;
+	if (lcr_count) {
+		rc = cam_ife_hw_mgr_acquire_res_ife_src(ife_ctx, in_port, true);
+
+		if (rc) {
+			CAM_ERR(CAM_ISP, "Acquire IFE LCR SRC resource Failed");
+			goto err;
+		}
 	}
 
 	CAM_DBG(CAM_ISP, "Acquiring IFE OUT resource...");
@@ -1838,7 +1876,7 @@ static int cam_ife_mgr_acquire_hw_for_ctx(
 		goto err;
 	}
 
-	*num_pix_port += ipp_count + ppp_count + ife_rd_count;
+	*num_pix_port += ipp_count + ppp_count + ife_rd_count + lcr_count;
 	*num_rdi_port += rdi_count;
 
 	return 0;
@@ -3625,7 +3663,8 @@ static int cam_isp_blob_clock_update(
 					clk_rate = max(clock_config->rdi_hz[j],
 						clk_rate);
 			else
-				if (hw_mgr_res->hw_res[i]) {
+				if (hw_mgr_res->res_id != CAM_ISP_HW_VFE_IN_LCR
+					&& hw_mgr_res->hw_res[i]) {
 					CAM_ERR(CAM_ISP, "Invalid res_id %u",
 						hw_mgr_res->res_id);
 					rc = -EINVAL;
