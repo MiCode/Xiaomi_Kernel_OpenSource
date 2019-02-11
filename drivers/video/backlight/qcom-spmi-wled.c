@@ -3,7 +3,7 @@
  * Copyright (c) 2015, Sony Mobile Communications, AB.
  */
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"WLED: %s: " fmt, __func__
@@ -1557,7 +1557,7 @@ static int wled_get_max_avail_current(struct led_classdev *led_cdev,
 
 	v_safe_mv = ocv_mv - V_DROOP_MV - ((i_bat_ma * r_bat_mohms) / 1000);
 	if (v_safe_mv <= 0) {
-		pr_err("V_safe_mv: %d, cannot support flash\n", v_safe_mv);
+		pr_err("V_safe_mv: %lld, cannot support flash\n", v_safe_mv);
 		*max_current = 0;
 		return 0;
 	}
