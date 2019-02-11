@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  */
 #include <linux/types.h>
 #include <linux/delay.h>
@@ -2295,6 +2295,7 @@ static int _insert_gpuaddr(struct kgsl_pagetable *pagetable,
 		else {
 			/* Duplicate entry */
 			WARN(1, "duplicate gpuaddr: 0x%llx\n", gpuaddr);
+			kmem_cache_free(addr_entry_cache, new);
 			return -EEXIST;
 		}
 	}
