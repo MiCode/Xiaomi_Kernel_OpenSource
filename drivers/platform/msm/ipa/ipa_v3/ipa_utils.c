@@ -2542,12 +2542,6 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
 			{ 13, 13, 9, 9, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY, 0 } },
-	[IPA_4_5_APQ][IPA_CLIENT_APPS_WAN_CONS]       = {
-			true, IPA_v4_5_GROUP_UL_DL_DST,
-			false,
-			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_DDR,
-			{ 15, 15, 9, 9, IPA_EE_AP, GSI_SMART_PRE_FETCH, 4 } },
 	[IPA_4_5_APQ][IPA_CLIENT_ODL_DPL_CONS]       = {
 			true, IPA_v4_5_GROUP_UL_DL_DST,
 			false,
