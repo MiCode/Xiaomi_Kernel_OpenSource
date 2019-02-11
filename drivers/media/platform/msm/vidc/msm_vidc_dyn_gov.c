@@ -274,7 +274,7 @@ static void __dump(struct dump dump[], int len)
 			}
 		}
 
-		dprintk(VIDC_DBG, "%s", formatted_line);
+		dprintk(VIDC_PROF, "%s", formatted_line);
 	}
 }
 
@@ -515,7 +515,7 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 			llc.line_buffer_write + ddr.total;
 
 	/* Dump all the variables for easier debugging */
-	if (msm_vidc_dyn_gov_debug) {
+	if (msm_vidc_debug & VIDC_PROF) {
 		struct dump dump[] = {
 		{"DECODER PARAMETERS", "", DUMP_HEADER_MAGIC},
 		{"lcu size", "%d", lcu_size},
@@ -810,7 +810,7 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 	ddr.total = fp_mult(ddr.total, qsmmu_bw_overhead_factor);
 	llc.total = llc.ref_read_crcb + llc.line_buffer + ddr.total;
 
-	if (msm_vidc_dyn_gov_debug) {
+	if (msm_vidc_debug & VIDC_PROF) {
 		struct dump dump[] = {
 		{"ENCODER PARAMETERS", "", DUMP_HEADER_MAGIC},
 		{"width", "%d", width},

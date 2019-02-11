@@ -690,16 +690,6 @@ static void __hal_sim_modify_msg_packet(u8 *packet,
 		pkt->packet_buffer += fw_bias;
 		break;
 	}
-	case HFI_MSG_SESSION_GET_SEQUENCE_HEADER_DONE:
-	{
-		struct
-		hfi_msg_session_get_sequence_header_done_packet
-		*pkt =
-		(struct hfi_msg_session_get_sequence_header_done_packet *)
-		packet;
-		pkt->sequence_header += fw_bias;
-		break;
-	}
 	default:
 		break;
 	}
@@ -2274,34 +2264,6 @@ static void __core_clear_interrupt(struct venus_hfi_device *device)
 	__write_register(device, VIDC_CPU_CS_A2HSOFTINTCLR, 1);
 }
 
-static int venus_hfi_core_ping(void *device)
-{
-	struct hfi_cmd_sys_ping_packet pkt;
-	int rc = 0;
-	struct venus_hfi_device *dev;
-
-	if (!device) {
-		dprintk(VIDC_ERR, "invalid device\n");
-		return -ENODEV;
-	}
-
-	dev = device;
-	mutex_lock(&dev->lock);
-
-	rc = call_hfi_pkt_op(dev, sys_ping, &pkt);
-	if (rc) {
-		dprintk(VIDC_ERR, "core_ping: failed to create packet\n");
-		goto err_create_pkt;
-	}
-
-	if (__iface_cmdq_write(dev, &pkt))
-		rc = -ENOTEMPTY;
-
-err_create_pkt:
-	mutex_unlock(&dev->lock);
-	return rc;
-}
-
 static int venus_hfi_core_trigger_ssr(void *device,
 		enum hal_ssr_trigger_type type)
 {
@@ -2383,7 +2345,7 @@ static void __set_default_sys_properties(struct venus_hfi_device *device)
 {
 	if (__sys_set_debug(device, msm_vidc_fw_debug))
 		dprintk(VIDC_WARN, "Setting fw_debug msg ON failed\n");
-	if (__sys_set_power_control(device, msm_vidc_fw_low_power_mode))
+	if (__sys_set_power_control(device, true))
 		dprintk(VIDC_WARN, "Setting h/w power collapse ON failed\n");
 }
 
@@ -4285,11 +4247,6 @@ static int __enable_hw_power_collapse(struct venus_hfi_device *device)
 {
 	int rc = 0;
 
-	if (!msm_vidc_fw_low_power_mode) {
-		dprintk(VIDC_DBG, "Not enabling hardware power collapse\n");
-		return 0;
-	}
-
 	rc = __hand_off_regulators(device);
 	if (rc)
 		dprintk(VIDC_WARN,
@@ -5132,7 +5089,6 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 {
 	hdev->core_init = venus_hfi_core_init;
 	hdev->core_release = venus_hfi_core_release;
-	hdev->core_ping = venus_hfi_core_ping;
 	hdev->core_trigger_ssr = venus_hfi_core_trigger_ssr;
 	hdev->session_init = venus_hfi_session_init;
 	hdev->session_end = venus_hfi_session_end;

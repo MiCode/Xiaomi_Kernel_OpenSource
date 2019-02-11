@@ -304,19 +304,6 @@ int create_pkt_cmd_sys_release_resource(
 	return rc;
 }
 
-int create_pkt_cmd_sys_ping(struct hfi_cmd_sys_ping_packet *pkt)
-{
-	int rc = 0;
-
-	if (!pkt)
-		return -EINVAL;
-
-	pkt->size = sizeof(struct hfi_cmd_sys_ping_packet);
-	pkt->packet_type = HFI_CMD_SYS_PING;
-
-	return rc;
-}
-
 inline int create_pkt_cmd_sys_session_init(
 		struct hfi_cmd_sys_session_init_packet *pkt,
 		struct hal_session *session,
@@ -829,7 +816,6 @@ static struct hfi_packetization_ops hfi_default = {
 	.sys_debug_config = create_pkt_cmd_sys_debug_config,
 	.sys_coverage_config = create_pkt_cmd_sys_coverage_config,
 	.sys_release_resource = create_pkt_cmd_sys_release_resource,
-	.sys_ping = create_pkt_cmd_sys_ping,
 	.sys_image_version = create_pkt_cmd_sys_image_version,
 	.ssr_cmd = create_pkt_ssr_cmd,
 	.session_init = create_pkt_cmd_sys_session_init,

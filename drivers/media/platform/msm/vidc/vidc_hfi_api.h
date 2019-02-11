@@ -471,7 +471,6 @@ enum hal_command_response {
 	HAL_SYS_INIT_DONE,
 	HAL_SYS_SET_RESOURCE_DONE,
 	HAL_SYS_RELEASE_RESOURCE_DONE,
-	HAL_SYS_PING_ACK_DONE,
 	HAL_SYS_PC_PREP_DONE,
 	HAL_SYS_IDLE,
 	HAL_SYS_DEBUG,
@@ -801,7 +800,6 @@ struct hfi_device {
 	/*Add function pointers for all the hfi functions below*/
 	int (*core_init)(void *device);
 	int (*core_release)(void *device);
-	int (*core_ping)(void *device);
 	int (*core_trigger_ssr)(void *device, enum hal_ssr_trigger_type);
 	int (*session_init)(void *device, void *session_id,
 		enum hal_domain session_type, enum hal_video_codec codec_type,

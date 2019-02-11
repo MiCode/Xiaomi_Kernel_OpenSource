@@ -6632,8 +6632,7 @@ int msm_comm_set_color_format_constraints(struct msm_vidc_inst *inst,
 
 	hdev = inst->core->device;
 
-	size = sizeof(buffer_type)
-			+ sizeof(u32)
+	size = 2 * sizeof(u32)
 			+ num_planes
 			* sizeof(struct hfi_uncompressed_plane_constraints);
 
@@ -6644,7 +6643,7 @@ int msm_comm_set_color_format_constraints(struct msm_vidc_inst *inst,
 		goto exit;
 	}
 
-	pconstraint->buffer_type = buffer_type;
+	pconstraint->buffer_type = get_hfi_buffer(buffer_type);
 	pconstraint->num_planes = pix_constraint->num_planes;
 	//set Y plan constraints
 	dprintk(VIDC_INFO, "Set Y plan constraints.\n");
