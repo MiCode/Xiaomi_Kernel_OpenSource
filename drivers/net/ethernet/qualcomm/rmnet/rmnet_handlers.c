@@ -190,6 +190,18 @@ rmnet_deliver_skb_wq(struct sk_buff *skb, struct rmnet_port *port,
 }
 EXPORT_SYMBOL(rmnet_deliver_skb_wq);
 
+/* Deliver a list of skbs after undoing coalescing */
+static void rmnet_deliver_skb_list(struct sk_buff_head *head,
+				   struct rmnet_port *port)
+{
+	struct sk_buff *skb;
+
+	while ((skb = __skb_dequeue(head))) {
+		rmnet_set_skb_proto(skb);
+		rmnet_deliver_skb(skb, port);
+	}
+}
+
 /* MAP handler */
 
 static void
@@ -198,8 +210,12 @@ __rmnet_map_ingress_handler(struct sk_buff *skb,
 {
 	struct rmnet_map_header *qmap;
 	struct rmnet_endpoint *ep;
+	struct sk_buff_head list;
 	u16 len, pad;
 	u8 mux_id;
+
+	/* We don't need the spinlock since only we touch this */
+	__skb_queue_head_init(&list);
 
 	qmap = (struct rmnet_map_header *)rmnet_map_data_ptr(skb);
 	if (qmap->cd_bit) {
@@ -228,26 +244,30 @@ __rmnet_map_ingress_handler(struct sk_buff *skb,
 	skb->dev = ep->egress_dev;
 
 	/* Handle QMAPv5 packet */
-	if (qmap->next_hdr) {
-		if (rmnet_map_process_next_hdr_packet(skb))
+	if (qmap->next_hdr &&
+	    (port->data_format & (RMNET_FLAGS_INGRESS_COALESCE |
+				  RMNET_FLAGS_INGRESS_MAP_CKSUMV5))) {
+		if (rmnet_map_process_next_hdr_packet(skb, &list))
 			goto free_skb;
 	} else {
 		/* We only have the main QMAP header to worry about */
 		pskb_pull(skb, sizeof(*qmap));
-	}
 
-	rmnet_set_skb_proto(skb);
+		if (port->data_format & RMNET_FLAGS_INGRESS_MAP_CKSUMV4) {
+			if (!rmnet_map_checksum_downlink_packet(skb, len + pad))
+				skb->ip_summed = CHECKSUM_UNNECESSARY;
+		}
 
-	if (port->data_format & RMNET_FLAGS_INGRESS_MAP_CKSUMV4) {
-		if (!rmnet_map_checksum_downlink_packet(skb, len + pad))
-			skb->ip_summed = CHECKSUM_UNNECESSARY;
+		pskb_trim(skb, len);
+
+		/* Push the single packet onto the list */
+		__skb_queue_tail(&list, skb);
 	}
 
 	if (port->data_format & RMNET_INGRESS_FORMAT_PS)
 		qmi_rmnet_work_maybe_restart(port);
 
-	pskb_trim(skb, len);
-	rmnet_deliver_skb(skb, port);
+	rmnet_deliver_skb_list(&list, port);
 	return;
 
 free_skb:
@@ -262,6 +282,9 @@ static void
 rmnet_map_ingress_handler(struct sk_buff *skb,
 			  struct rmnet_port *port)
 {
+	struct sk_buff *skbn;
+	int (*rmnet_perf_core_deaggregate)(struct sk_buff *skb,
+					   struct rmnet_port *port);
 
 	if (skb->dev->type == ARPHRD_ETHER) {
 		if (pskb_expand_head(skb, ETH_HLEN, 0, GFP_KERNEL)) {
@@ -272,33 +295,31 @@ rmnet_map_ingress_handler(struct sk_buff *skb,
 		skb_push(skb, ETH_HLEN);
 	}
 
-	if (port->data_format & RMNET_FLAGS_INGRESS_DEAGGREGATION) {
-		int (*rmnet_perf_core_deaggregate)(struct sk_buff *skb,
-						   struct rmnet_port *port);
-		/* Deaggregation and freeing of HW originating
-		 * buffers is done within here
-		 */
-		rmnet_perf_core_deaggregate =
-					rcu_dereference(rmnet_perf_deag_entry);
-		if (rmnet_perf_core_deaggregate) {
-			rmnet_perf_core_deaggregate(skb, port);
-		} else {
-			struct sk_buff *skbn;
-
-			while (skb) {
-				struct sk_buff *skb_frag =
-						skb_shinfo(skb)->frag_list;
-
-				skb_shinfo(skb)->frag_list = NULL;
-				while ((skbn = rmnet_map_deaggregate(skb, port))
-					!= NULL)
-					__rmnet_map_ingress_handler(skbn, port);
-				consume_skb(skb);
-				skb = skb_frag;
-			}
-		}
-	} else {
+	/* No aggregation. Pass the frame on as is */
+	if (!(port->data_format & RMNET_FLAGS_INGRESS_DEAGGREGATION)) {
 		__rmnet_map_ingress_handler(skb, port);
+		return;
+	}
+
+	/* Pass off handling to rmnet_perf module, if present */
+	rmnet_perf_core_deaggregate = rcu_dereference(rmnet_perf_deag_entry);
+	if (rmnet_perf_core_deaggregate) {
+		rmnet_perf_core_deaggregate(skb, port);
+		return;
+	}
+
+	/* Deaggregation and freeing of HW originating
+	 * buffers is done within here
+	 */
+	while (skb) {
+		struct sk_buff *skb_frag = skb_shinfo(skb)->frag_list;
+
+		skb_shinfo(skb)->frag_list = NULL;
+		while ((skbn = rmnet_map_deaggregate(skb, port)) != NULL)
+			__rmnet_map_ingress_handler(skbn, port);
+
+		consume_skb(skb);
+		skb = skb_frag;
 	}
 }
 

@@ -100,6 +100,9 @@ struct msm_watchdog_data {
 	unsigned long long ping_start[NR_CPUS];
 	unsigned long long ping_end[NR_CPUS];
 	unsigned int cpu_scandump_sizes[NR_CPUS];
+
+	/* When single buffer is used to collect Scandump */
+	unsigned int scandump_size;
 };
 
 /*
@@ -590,6 +593,38 @@ out0:
 	return;
 }
 
+static void register_scan_dump(struct msm_watchdog_data *wdog_dd)
+{
+	static void *dump_addr;
+	int ret;
+	struct msm_dump_entry dump_entry;
+	struct msm_dump_data *dump_data;
+
+	dump_data = kzalloc(sizeof(struct msm_dump_data), GFP_KERNEL);
+	if (!dump_data)
+		return;
+	dump_addr = kzalloc(wdog_dd->scandump_size, GFP_KERNEL);
+	if (!dump_addr)
+		goto err0;
+
+	dump_data->addr = virt_to_phys(dump_addr);
+	dump_data->len = wdog_dd->scandump_size;
+	strlcpy(dump_data->name, "KSCANDUMP", sizeof(dump_data->name));
+
+	dump_entry.id = MSM_DUMP_DATA_SCANDUMP;
+	dump_entry.addr = virt_to_phys(dump_data);
+	ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
+	if (ret) {
+		pr_err("Registering scandump region failed\n");
+		goto err1;
+	}
+	return;
+err1:
+	kfree(dump_addr);
+err0:
+	kfree(dump_data);
+}
+
 static void configure_scandump(struct msm_watchdog_data *wdog_dd)
 {
 	int ret;
@@ -599,6 +634,11 @@ static void configure_scandump(struct msm_watchdog_data *wdog_dd)
 	static dma_addr_t dump_addr;
 	static void *dump_vaddr;
 	unsigned int scandump_size;
+
+	if (wdog_dd->scandump_size) {
+		register_scan_dump(wdog_dd);
+		return;
+	}
 
 	for_each_cpu(cpu, cpu_present_mask) {
 		scandump_size = wdog_dd->cpu_scandump_sizes[cpu];
@@ -819,14 +859,22 @@ static int msm_wdog_dt_to_pdata(struct platform_device *pdev,
 	num_scandump_sizes = of_property_count_elems_of_size(node,
 							"qcom,scandump-sizes",
 							sizeof(u32));
-	if (num_scandump_sizes < 0 || num_scandump_sizes != NR_CPUS)
+	if ((num_scandump_sizes < 0) || ((num_scandump_sizes != 1) &&
+				(num_scandump_sizes != NR_CPUS))) {
 		dev_info(&pdev->dev, "%s scandump sizes property not correct\n",
 			__func__);
-	else
+	} else if (num_scandump_sizes == 1) {
+		if (of_property_read_u32(node, "qcom,scandump-sizes",
+					 &pdata->scandump_size))
+			dev_info(&pdev->dev,
+				 "No need to allocate memory for scandumps\n");
+	} else {
 		for_each_cpu(cpu, cpu_present_mask)
 			of_property_read_u32_index(node, "qcom,scandump-sizes",
 						   cpu,
 					&pdata->cpu_scandump_sizes[cpu]);
+	}
+
 	pdata->irq_ppi = irq_is_percpu(pdata->bark_irq);
 	dump_pdata(pdata);
 	return 0;

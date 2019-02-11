@@ -376,12 +376,12 @@
 		wcd9xxx_intr {
 			wcd_intr_default: wcd_intr_default{
 				mux {
-					pins = "gpio78";
+					pins = "gpio96";
 					function = "gpio";
 				};
 
 				config {
-					pins = "gpio78";
+					pins = "gpio96";
 					drive-strength = <2>; /* 2 mA */
 					bias-pull-down; /* pull down */
 					input-enable;
@@ -392,11 +392,11 @@
 		cdc_reset_ctrl {
 			cdc_reset_sleep: cdc_reset_sleep {
 				mux {
-					pins = "gpio79";
+					pins = "gpio92";
 					function = "gpio";
 				};
 				config {
-					pins = "gpio79";
+					pins = "gpio92";
 					drive-strength = <2>;
 					bias-disable;
 					output-low;
@@ -405,11 +405,11 @@
 
 			cdc_reset_active:cdc_reset_active {
 				mux {
-					pins = "gpio79";
+					pins = "gpio92";
 					function = "gpio";
 				};
 				config {
-					pins = "gpio79";
+					pins = "gpio92";
 					drive-strength = <8>;
 					bias-pull-down;
 					output-high;
@@ -1358,5 +1358,82 @@
 				};
 			};
 		};
+
+		/* SDC pin type */
+		sdc1_clk_on: sdc1_clk_on {
+			config {
+				pins = "sdc1_clk";
+				bias-disable;           /* NO pull */
+				drive-strength = <16>;  /* 16 MA */
+			};
+		};
+
+		sdc1_clk_off: sdc1_clk_off {
+			config {
+				pins = "sdc1_clk";
+				bias-disable;           /* NO pull */
+				drive-strength = <2>;   /* 2 MA */
+			};
+		};
+
+		sdc1_cmd_on: sdc1_cmd_on {
+			config {
+				pins = "sdc1_cmd";
+				bias-pull-up;           /* pull up */
+				drive-strength = <10>;  /* 10 MA */
+			};
+		};
+
+		sdc1_cmd_off: sdc1_cmd_off {
+			config {
+				pins = "sdc1_cmd";
+				num-grp-pins = <1>;
+				bias-pull-up;           /* pull up */
+				drive-strength = <2>;   /* 2 MA */
+			};
+		};
+
+		sdc1_data_on: sdc1_data_on {
+			config {
+				pins = "sdc1_data";
+				bias-pull-up;           /* pull up */
+				drive-strength = <10>;  /* 10 MA */
+			};
+		};
+
+		sdc1_data_off: sdc1_data_off {
+			config {
+				pins = "sdc1_data";
+				bias-pull-up;           /* pull up */
+				drive-strength = <2>;   /* 2 MA */
+			};
+		};
+
+		sdc1_cd_on: cd_on {
+			mux {
+				pins = "gpio99";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio99";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		sdc1_cd_off: cd_off {
+			mux {
+				pins = "gpio99";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio99";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
 	};
 };

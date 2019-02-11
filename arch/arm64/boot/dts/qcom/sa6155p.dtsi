@@ -23,14 +23,6 @@
 	aliases {
 		pci-domain0 = &pcie0; /* PCIe0 domain */
 	};
-
-	qcom,rmnet-ipa {
-		status="disabled";
-	};
-};
-
-&ipa_hw {
-	status="disabled";
 };
 
 /* Delete second instance of pm6155 definitions for APQ version */
@@ -93,6 +85,14 @@
 				/* Upto 800 Mbps */
 				<45 512 207108 1146880>, <1 512 207108 3124992>;
 	};
+
+	qcom,rmnet-ipa {
+		status="disabled";
+	};
+};
+
+&ipa_hw {
+	status="disabled";
 };
 
 &pil_modem {
@@ -345,6 +345,26 @@
 
 &clock_gpucc {
 	vdd_mx-supply = <&VDD_CX_LEVEL>;
+};
+
+&thermal_zones {
+	lmh-dcvs-00 {
+		trips {
+			active-config {
+				temperature = <105000>;
+				hysteresis = <40000>;
+			};
+		};
+	};
+
+	lmh-dcvs-01 {
+		trips {
+			active-config {
+				temperature = <105000>;
+				hysteresis = <40000>;
+			};
+		};
+	};
 };
 
 /* Audio device tree */

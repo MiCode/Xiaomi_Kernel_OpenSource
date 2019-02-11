@@ -647,6 +647,12 @@ static inline bool mhi_is_active(struct mhi_device *mhi_dev)
 		mhi_cntrl->dev_state <= MHI_STATE_M3);
 }
 
+/**
+ * mhi_debug_reg_dump - dump MHI registers for debug purpose
+ * @mhi_cntrl: MHI controller
+ */
+void mhi_debug_reg_dump(struct mhi_controller *mhi_cntrl);
+
 #ifndef CONFIG_ARCH_QCOM
 
 #ifdef CONFIG_MHI_DEBUG

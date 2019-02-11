@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,7 +53,7 @@ static struct csiphy_reg_3ph_parms_t csiphy_v3_5_3ph = {
 	{0x154, 0x0},
 	{0x15C, 0x33},
 	{0x160, ULPM_WAKE_UP_TIMER_MODE},
-	{0x164, 0x48},
+	{0x164, 0x50},
 	{0x168, 0xA0},
 	{0x16C, 0x17},
 	{0x170, 0x41},

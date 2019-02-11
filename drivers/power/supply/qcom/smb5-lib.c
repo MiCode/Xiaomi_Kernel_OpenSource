@@ -3345,7 +3345,7 @@ int smblib_get_prop_usb_current_now(struct smb_charger *chg,
 				    union power_supply_propval *val)
 {
 	union power_supply_propval pval = {0, };
-	int rc = 0;
+	int rc = 0, buck_scale = 1, boost_scale = 1;
 
 	if (chg->iio.usbin_i_chan) {
 		rc = iio_read_channel_processed(chg->iio.usbin_i_chan,
@@ -3358,10 +3358,24 @@ int smblib_get_prop_usb_current_now(struct smb_charger *chg,
 		/*
 		 * For PM8150B, scaling factor = reciprocal of
 		 * 0.2V/A in Buck mode, 0.4V/A in Boost mode.
+		 * For PMI632, scaling factor = reciprocal of
+		 * 0.4V/A in Buck mode, 0.8V/A in Boost mode.
 		 */
+		switch (chg->smb_version) {
+		case PMI632_SUBTYPE:
+			buck_scale = 40;
+			boost_scale = 80;
+			break;
+		default:
+			buck_scale = 20;
+			boost_scale = 40;
+			break;
+		}
+
 		if (chg->otg_present || smblib_get_prop_dfp_mode(chg) !=
 				POWER_SUPPLY_TYPEC_NONE) {
-			val->intval = DIV_ROUND_CLOSEST(val->intval * 100, 40);
+			val->intval = DIV_ROUND_CLOSEST(val->intval * 100,
+								boost_scale);
 			return rc;
 		}
 
@@ -3376,7 +3390,8 @@ int smblib_get_prop_usb_current_now(struct smb_charger *chg,
 		if (!pval.intval)
 			val->intval = 0;
 		else
-			val->intval *= 5;
+			val->intval = DIV_ROUND_CLOSEST(val->intval * 100,
+								buck_scale);
 	} else {
 		val->intval = 0;
 		rc = -ENODATA;
@@ -3991,17 +4006,9 @@ static int smblib_soft_jeita_arb_wa(struct smb_charger *chg)
 	if (!chg->jeita_arb_flag && !soft_jeita)
 		return 0;
 
-	if (!chg->cp_disable_votable)
-		chg->cp_disable_votable = find_votable("CP_DISABLE");
-
 	/* Entering soft JEITA from normal state */
 	if (!chg->jeita_arb_flag && soft_jeita) {
 		vote(chg->chg_disable_votable, JEITA_ARB_VOTER, true, 0);
-		/* Disable parallel charging */
-		if (chg->pl_disable_votable)
-			vote(chg->pl_disable_votable, JEITA_ARB_VOTER, true, 0);
-		if (chg->cp_disable_votable)
-			vote(chg->cp_disable_votable, JEITA_ARB_VOTER, true, 0);
 
 		rc = smblib_charge_inhibit_en(chg, true);
 		if (rc < 0)
@@ -4047,12 +4054,6 @@ static int smblib_soft_jeita_arb_wa(struct smb_charger *chg)
 
 		vote(chg->fcc_votable, JEITA_ARB_VOTER, false, 0);
 		vote(chg->fv_votable, JEITA_ARB_VOTER, false, 0);
-		if (chg->pl_disable_votable)
-			vote(chg->pl_disable_votable, JEITA_ARB_VOTER, false,
-				0);
-		if (chg->cp_disable_votable)
-			vote(chg->cp_disable_votable, JEITA_ARB_VOTER, false,
-				0);
 		vote(chg->chg_disable_votable, JEITA_ARB_VOTER, false, 0);
 		chg->jeita_arb_flag = false;
 	}
@@ -5489,6 +5490,9 @@ irqreturn_t wdog_snarl_irq_handler(int irq, void *data)
 		vote(chg->awake_votable, SW_THERM_REGULATION_VOTER, true, 0);
 		schedule_delayed_work(&chg->thermal_regulation_work, 0);
 	}
+
+	if (chg->step_chg_enabled)
+		power_supply_changed(chg->batt_psy);
 
 	return IRQ_HANDLED;
 }

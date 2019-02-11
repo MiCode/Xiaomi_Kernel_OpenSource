@@ -1,4 +1,4 @@
-/* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -70,6 +70,7 @@ struct ipa_wigig_context {
 	struct ipa_wigig_rx_pipe_data_buffer_info_smmu rx_buff_smmu;
 	struct ipa_wigig_tx_pipe_data_buffer_info_smmu
 		tx_buff_smmu[IPA_WIGIG_TX_PIPE_NUM];
+	char clients_mac[IPA_WIGIG_TX_PIPE_NUM][IPA_MAC_ADDR_SIZE];
 };
 
 static struct ipa_wigig_context *ipa_wigig_ctx;
@@ -103,6 +104,14 @@ int ipa_wigig_init(struct ipa_wigig_init_in_params *in,
 	ipa_wigig_ctx->dma_ep_misc_pa = in->dma_ep_misc_pa;
 	ipa_wigig_ctx->periph_baddr_pa = in->periph_baddr_pa;
 
+	IPA_WIGIG_DBG(
+		"periph_baddr_pa 0x%pa pseudo_cause_pa 0x%pa, int_gen_tx_pa 0x%pa, int_gen_rx_pa 0x%pa, dma_ep_misc_pa 0x%pa"
+		, &ipa_wigig_ctx->periph_baddr_pa,
+		&ipa_wigig_ctx->pseudo_cause_pa,
+		&ipa_wigig_ctx->int_gen_tx_pa,
+		&ipa_wigig_ctx->int_gen_rx_pa,
+		&ipa_wigig_ctx->dma_ep_misc_pa);
+
 	inout.notify = in->notify;
 	inout.priv = in->priv;
 	if (ipa_wigig_uc_init(&inout, in->int_notify, &out->uc_db_pa)) {
@@ -110,6 +119,8 @@ int ipa_wigig_init(struct ipa_wigig_init_in_params *in,
 		ipa_wigig_ctx = NULL;
 		return -EFAULT;
 	}
+
+	IPA_WIGIG_DBG("uc_db_pa 0x%pa\n", &out->uc_db_pa);
 
 	out->is_uc_ready = inout.is_uC_ready;
 
@@ -156,7 +167,7 @@ bool ipa_wigig_is_smmu_enabled(void)
 
 	ipa_get_smmu_params(&in, &out);
 
-	IPA_WIGIG_DBG("exit\n");
+	IPA_WIGIG_DBG("exit (%d)\n", out.smmu_enable);
 
 	return out.smmu_enable;
 }
@@ -175,6 +186,11 @@ static int ipa_wigig_commit_partial_hdr(
 		IPA_WIGIG_ERR("Invalid input\n");
 		return -EINVAL;
 	}
+
+	IPA_WIGIG_DBG("dst_mac_addr_offset %d hdr_len %d hdr_type %d\n",
+		hdr_info->dst_mac_addr_offset,
+		hdr_info->hdr_len,
+		hdr_info->hdr_type);
 
 	hdr->commit = 1;
 	hdr->num_hdrs = 2;
@@ -209,33 +225,83 @@ static void ipa_wigig_free_msg(void *msg, uint32_t len, uint32_t type)
 	IPA_WIGIG_DBG("exit\n");
 }
 
-static int ipa_wigig_send_msg(uint8_t msg_type,
-	const char *netdev_name,
-	u8 *netdev_mac)
+static int ipa_wigig_send_wlan_msg(enum ipa_wlan_event msg_type,
+	const char *netdev_name, u8 *mac)
 {
 	struct ipa_msg_meta msg_meta;
-	struct ipa_wlan_msg *msg;
+	struct ipa_wlan_msg *wlan_msg;
 	int ret;
 
-	IPA_WIGIG_DBG("\n");
+	IPA_WIGIG_DBG("%d\n", msg_type);
 
-	msg_meta.msg_type = msg_type;
-	msg_meta.msg_len = sizeof(struct ipa_wlan_msg);
-
-	msg = kzalloc(sizeof(*msg), GFP_KERNEL);
-	if (msg == NULL)
+	wlan_msg = kzalloc(sizeof(*wlan_msg), GFP_KERNEL);
+	if (wlan_msg == NULL)
 		return -ENOMEM;
-
-	strlcpy(msg->name, netdev_name, IPA_RESOURCE_NAME_MAX);
-	memcpy(msg->mac_addr, netdev_mac, IPA_MAC_ADDR_SIZE);
+	strlcpy(wlan_msg->name, netdev_name, IPA_RESOURCE_NAME_MAX);
+	memcpy(wlan_msg->mac_addr, mac, IPA_MAC_ADDR_SIZE);
+	msg_meta.msg_len = sizeof(struct ipa_wlan_msg);
+	msg_meta.msg_type = msg_type;
 
 	IPA_WIGIG_DBG("send msg type:%d, len:%d, buff %pK", msg_meta.msg_type,
-		msg_meta.msg_len, msg);
-	ret = ipa_send_msg(&msg_meta, msg, ipa_wigig_free_msg);
+		msg_meta.msg_len, wlan_msg);
+	ret = ipa_send_msg(&msg_meta, wlan_msg, ipa_wigig_free_msg);
 
 	IPA_WIGIG_DBG("exit\n");
 
 	return ret;
+}
+
+int ipa_wigig_send_msg(int msg_type,
+	const char *netdev_name, u8 *mac,
+	enum ipa_client_type client, bool to_wigig)
+{
+	struct ipa_msg_meta msg_meta;
+	struct ipa_wigig_msg *wigig_msg;
+	int ret;
+
+	IPA_WIGIG_DBG("\n");
+
+	wigig_msg = kzalloc(sizeof(struct ipa_wigig_msg), GFP_KERNEL);
+	if (wigig_msg == NULL)
+		return -ENOMEM;
+	strlcpy(wigig_msg->name, netdev_name, IPA_RESOURCE_NAME_MAX);
+	memcpy(wigig_msg->client_mac_addr, mac, IPA_MAC_ADDR_SIZE);
+	if (msg_type == WIGIG_CLIENT_CONNECT)
+		wigig_msg->u.ipa_client = client;
+	else
+		wigig_msg->u.to_wigig = to_wigig;
+
+	msg_meta.msg_type = msg_type;
+	msg_meta.msg_len = sizeof(struct ipa_wigig_msg);
+
+	IPA_WIGIG_DBG("send msg type:%d, len:%d, buff %pK", msg_meta.msg_type,
+		msg_meta.msg_len, wigig_msg);
+	ret = ipa_send_msg(&msg_meta, wigig_msg, ipa_wigig_free_msg);
+
+	IPA_WIGIG_DBG("exit\n");
+
+	return ret;
+}
+
+static int ipa_wigig_get_devname(char *netdev_name)
+{
+	struct ipa_wigig_intf_info *entry;
+
+	mutex_lock(&ipa_wigig_ctx->lock);
+
+	if (!list_is_singular(&ipa_wigig_ctx->head_intf_list)) {
+		IPA_WIGIG_DBG("list is not singular, was an IF registered?\n");
+		mutex_unlock(&ipa_wigig_ctx->lock);
+		return -EFAULT;
+	}
+	entry = list_first_entry(&ipa_wigig_ctx->head_intf_list,
+		struct ipa_wigig_intf_info,
+		link);
+	strlcpy(netdev_name, entry->netdev_name, IPA_RESOURCE_NAME_MAX);
+
+	mutex_unlock(&ipa_wigig_ctx->lock);
+
+	return 0;
 }
 
 int ipa_wigig_reg_intf(
@@ -264,8 +330,11 @@ int ipa_wigig_reg_intf(
 		return -EPERM;
 	}
 
-	IPA_WIGIG_DBG("register interface for netdev %s\n",
-		in->netdev_name);
+	IPA_WIGIG_DBG(
+		"register interface for netdev %s, MAC 0x[%X][%X][%X][%X][%X][%X]\n"
+		, in->netdev_name,
+		in->netdev_mac[0], in->netdev_mac[1], in->netdev_mac[2],
+		in->netdev_mac[3], in->netdev_mac[4], in->netdev_mac[5]);
 
 	mutex_lock(&ipa_wigig_ctx->lock);
 	list_for_each_entry(entry, &ipa_wigig_ctx->head_intf_list, link)
@@ -349,7 +418,7 @@ int ipa_wigig_reg_intf(
 		goto fail_register;
 	}
 
-	if (ipa_wigig_send_msg(WLAN_AP_CONNECT,
+	if (ipa_wigig_send_wlan_msg(WLAN_AP_CONNECT,
 		in->netdev_name,
 		in->netdev_mac)) {
 		IPA_WIGIG_ERR("couldn't send msg to IPACM\n");
@@ -396,12 +465,12 @@ int ipa_wigig_dereg_intf(const char *netdev_name)
 	struct ipa_wigig_intf_info *entry;
 	struct ipa_wigig_intf_info *next;
 
-	IPA_WIGIG_DBG("\n");
-
 	if (!netdev_name) {
 		IPA_WIGIG_ERR("no netdev name\n");
 		return -EINVAL;
 	}
+
+	IPA_WIGIG_DBG("netdev %s\n", netdev_name);
 
 	if (!ipa_wigig_ctx) {
 		IPA_WIGIG_ERR("wigig ctx is not initialized\n");
@@ -443,7 +512,7 @@ int ipa_wigig_dereg_intf(const char *netdev_name)
 				goto fail;
 			}
 
-			if (ipa_wigig_send_msg(WLAN_AP_DISCONNECT,
+			if (ipa_wigig_send_wlan_msg(WLAN_AP_DISCONNECT,
 				entry->netdev_name,
 				entry->netdev_mac)) {
 				IPA_WIGIG_ERR("couldn't send msg to IPACM\n");
@@ -500,6 +569,7 @@ int ipa_wigig_conn_rx_pipe(struct ipa_wigig_conn_rx_in_params *in,
 		return ret;
 	}
 
+	memset(&pm_params, 0, sizeof(pm_params));
 	pm_params.name = "wigig";
 	pm_params.callback = ipa_wigig_pm_cb;
 	pm_params.user_data = NULL;
@@ -1001,6 +1071,7 @@ int ipa_wigig_conn_rx_pipe_smmu(
 		return ret;
 	}
 
+	memset(&pm_params, 0, sizeof(pm_params));
 	pm_params.name = "wigig";
 	pm_params.callback = ipa_wigig_pm_cb;
 	pm_params.user_data = NULL;
@@ -1078,9 +1149,43 @@ int ipa_wigig_set_perf_profile(u32 max_supported_bw_mbps)
 }
 EXPORT_SYMBOL(ipa_wigig_set_perf_profile);
 
+static int ipa_wigig_store_client_mac(enum ipa_client_type client,
+	const char *mac)
+{
+	unsigned int idx;
+
+	if (ipa_wigig_client_to_idx(client, &idx)) {
+		IPA_WIGIG_ERR("couldn't acquire idx\n");
+		return -EFAULT;
+	}
+	memcpy(ipa_wigig_ctx->clients_mac[idx - 1], mac, IPA_MAC_ADDR_SIZE);
+	return 0;
+}
+
+static int ipa_wigig_get_client_mac(enum ipa_client_type client, char *mac)
+{
+	unsigned int idx;
+
+	if (ipa_wigig_client_to_idx(client, &idx)) {
+		IPA_WIGIG_ERR("couldn't acquire idx\n");
+		return -EFAULT;
+	}
+	memcpy(mac, ipa_wigig_ctx->clients_mac[idx - 1], IPA_MAC_ADDR_SIZE);
+	return 0;
+}
+
+static int ipa_wigig_clean_client_mac(enum ipa_client_type client)
+{
+	char zero_mac[IPA_MAC_ADDR_SIZE] = { 0 };
+
+	return ipa_wigig_store_client_mac(client, zero_mac);
+}
+
 int ipa_wigig_conn_client(struct ipa_wigig_conn_tx_in_params *in,
 	struct ipa_wigig_conn_out_params *out)
 {
+	char dev_name[IPA_RESOURCE_NAME_MAX];
+
 	IPA_WIGIG_DBG("\n");
 
 	if (!in || !out) {
@@ -1103,6 +1208,11 @@ int ipa_wigig_conn_client(struct ipa_wigig_conn_tx_in_params *in,
 		return -EFAULT;
 	}
 
+	if (ipa_wigig_get_devname(dev_name)) {
+		IPA_WIGIG_ERR("couldn't get dev name\n");
+		return -EFAULT;
+	}
+
 	if (ipa_conn_wigig_client_i(in, out)) {
 		IPA_WIGIG_ERR(
 			"fail to connect client. MAC [%X][%X][%X][%X][%X][%X]\n"
@@ -1111,8 +1221,20 @@ int ipa_wigig_conn_client(struct ipa_wigig_conn_tx_in_params *in,
 		return -EFAULT;
 	}
 
+	if (ipa_wigig_send_msg(WIGIG_CLIENT_CONNECT,
+		dev_name,
+		in->client_mac, out->client, false)) {
+		IPA_WIGIG_ERR("couldn't send msg to IPACM\n");
+		goto fail_sendmsg;
+	}
+
+	ipa_wigig_store_client_mac(out->client, in->client_mac);
+
 	IPA_WIGIG_DBG("exit\n");
 	return 0;
+fail_sendmsg:
+	ipa_disconn_wigig_pipe_i(out->client, NULL, NULL);
+	return -EFAULT;
 }
 EXPORT_SYMBOL(ipa_wigig_conn_client);
 
@@ -1120,6 +1242,7 @@ int ipa_wigig_conn_client_smmu(
 	struct ipa_wigig_conn_tx_in_params_smmu *in,
 	struct ipa_wigig_conn_out_params *out)
 {
+	char netdev_name[IPA_RESOURCE_NAME_MAX];
 	int ret;
 
 	IPA_WIGIG_DBG("\n");
@@ -1145,6 +1268,11 @@ int ipa_wigig_conn_client_smmu(
 		return ret;
 	}
 
+	if (ipa_wigig_get_devname(netdev_name)) {
+		IPA_WIGIG_ERR("couldn't get dev name\n");
+		return -EFAULT;
+	}
+
 	if (ipa_conn_wigig_client_i(in, out)) {
 		IPA_WIGIG_ERR(
 			"fail to connect client. MAC [%X][%X][%X][%X][%X][%X]\n"
@@ -1154,14 +1282,31 @@ int ipa_wigig_conn_client_smmu(
 		return -EFAULT;
 	}
 
+	if (ipa_wigig_send_msg(WIGIG_CLIENT_CONNECT,
+		netdev_name,
+		in->client_mac, out->client, false)) {
+		IPA_WIGIG_ERR("couldn't send msg to IPACM\n");
+		ret = -EFAULT;
+		goto fail_sendmsg;
+	}
+
 	ret = ipa_wigig_store_client_smmu_info(in, out->client);
 	if (ret)
 		goto fail_smmu;
+
+	ipa_wigig_store_client_mac(out->client, in->client_mac);
 
 	IPA_WIGIG_DBG("exit\n");
 	return 0;
 
 fail_smmu:
+	/*
+	 * wigig clients are disconnected with legacy message since there is
+	 * no need to send ep, client MAC is sufficient for disconnect
+	 */
+	ipa_wigig_send_wlan_msg(WLAN_CLIENT_DISCONNECT, netdev_name,
+		in->client_mac);
+fail_sendmsg:
 	ipa_disconn_wigig_pipe_i(out->client, &in->pipe_smmu, &in->dbuff_smmu);
 	return ret;
 }
@@ -1187,12 +1332,26 @@ static inline int ipa_wigig_validate_client_type(enum ipa_client_type client)
 int ipa_wigig_disconn_pipe(enum ipa_client_type client)
 {
 	int ret;
+	char dev_name[IPA_RESOURCE_NAME_MAX];
+	char client_mac[IPA_MAC_ADDR_SIZE];
 
 	IPA_WIGIG_DBG("\n");
 
 	ret = ipa_wigig_validate_client_type(client);
 	if (ret)
 		return ret;
+
+	if (client != IPA_CLIENT_WIGIG_PROD) {
+		if (ipa_wigig_get_devname(dev_name)) {
+			IPA_WIGIG_ERR("couldn't get dev name\n");
+			return -EFAULT;
+		}
+
+		if (ipa_wigig_get_client_mac(client, client_mac)) {
+			IPA_WIGIG_ERR("couldn't get client mac\n");
+			return -EFAULT;
+		}
+	}
 
 	IPA_WIGIG_DBG("disconnecting ipa_client_type %d\n", client);
 
@@ -1232,6 +1391,7 @@ int ipa_wigig_disconn_pipe(enum ipa_client_type client)
 
 	/* RX will be disconnected last, deinit uC msi config */
 	if (client == IPA_CLIENT_WIGIG_PROD) {
+		IPA_WIGIG_DBG("Rx pipe disconnected, deIniting uc\n");
 		ret = ipa_wigig_uc_msi_init(false,
 			ipa_wigig_ctx->periph_baddr_pa,
 			ipa_wigig_ctx->pseudo_cause_pa,
@@ -1242,6 +1402,21 @@ int ipa_wigig_disconn_pipe(enum ipa_client_type client)
 			IPA_WIGIG_ERR("failed unmapping msi regs\n");
 			WARN_ON(1);
 		}
+
+		ret = ipa_pm_deregister(ipa_wigig_ctx->ipa_pm_hdl);
+		if (ret) {
+			IPA_WIGIG_ERR("failed dereg pm\n");
+			WARN_ON(1);
+		}
+	} else {
+		/*
+		 * wigig clients are disconnected with legacy message since
+		 * there is no need to send ep, client MAC is sufficient for
+		 * disconnect.
+		 */
+		ipa_wigig_send_wlan_msg(WLAN_CLIENT_DISCONNECT, dev_name,
+			client_mac);
+		ipa_wigig_clean_client_mac(client);
 	}
 	if (ipa_wigig_is_smmu_enabled())
 		ipa_wigig_clean_smmu_info(client);

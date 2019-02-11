@@ -49,6 +49,10 @@
 
 #define MAX_SSID_PER_RANGE	200
 
+#define NUM_CHANNEL_BUFFERS		2
+#define BUF_1_INDEX		0
+#define BUF_2_INDEX		1
+
 #define ALL_PROC		-1
 
 #define REMOTE_DATA		4
@@ -613,6 +617,7 @@ struct diagchar_dev {
 	unsigned int poolsize_hdlc;
 	unsigned int poolsize_dci;
 	unsigned int poolsize_user;
+	spinlock_t diagmem_lock;
 	/* Buffers for masks */
 	struct mutex diag_cntl_mutex;
 	/* Members for Sending response */

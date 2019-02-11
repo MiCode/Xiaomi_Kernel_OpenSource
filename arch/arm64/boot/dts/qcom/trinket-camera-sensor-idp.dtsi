@@ -45,8 +45,8 @@
 		cam_vaf-supply = <&L5P>;
 		qcom,cam-vreg-name = "cam_vio", "cam_vana", "cam_vdig",
 				"cam_clk", "cam_vaf";
-		qcom,cam-vreg-min-voltage = <1800000 2800000 1100000 0 2800000>;
-		qcom,cam-vreg-max-voltage = <1800000 2800000 1100000 0 2800000>;
+		qcom,cam-vreg-min-voltage = <1800000 2800000 1104000 0 2800000>;
+		qcom,cam-vreg-max-voltage = <1800000 2800000 1104000 0 2800000>;
 		qcom,cam-vreg-op-mode = <0 80000 105000 0 100000>;
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
@@ -123,8 +123,8 @@
 		cam_vaf-supply = <&L5P>;
 		qcom,cam-vreg-name = "cam_vio", "cam_vana", "cam_vdig",
 				"cam_clk", "cam_vaf";
-		qcom,cam-vreg-min-voltage = <1800000 2800000 1100000 0 2800000>;
-		qcom,cam-vreg-max-voltage = <1800000 2800000 1100000 0 2800000>;
+		qcom,cam-vreg-min-voltage = <1800000 2800000 1104000 0 2800000>;
+		qcom,cam-vreg-max-voltage = <1800000 2800000 1104000 0 2800000>;
 		qcom,cam-vreg-op-mode = <0 80000 105000 0 100000>;
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
@@ -154,7 +154,7 @@
 		compatible = "qcom,camera";
 		reg = <0x1>;
 		qcom,csiphy-sd-index = <1>;
-		qcom,csid-sd-index = <2>;
+		qcom,csid-sd-index = <1>;
 		qcom,mount-angle = <90>;
 		cam_vio-supply = <&L12A>;
 		cam_vana-supply = <&L4P>;
@@ -172,7 +172,7 @@
 		pinctrl-1 = <&cam_sensor_mclk1_suspend
 				 &cam_sensor_rear2_suspend>;
 		gpios = <&tlmm 35 0>,
-			<&tlmm 45 0>;
+			<&tlmm 46 0>;
 		qcom,gpio-reset = <1>;
 		qcom,gpio-req-tbl-num = <0 1>;
 		qcom,gpio-req-tbl-flags = <1 0>;
@@ -192,8 +192,8 @@
 		cell-index = <2>;
 		compatible = "qcom,camera";
 		reg = <0x02>;
-		qcom,csiphy-sd-index = <1>;
-		qcom,csid-sd-index = <1>;
+		qcom,csiphy-sd-index = <2>;
+		qcom,csid-sd-index = <2>;
 		qcom,mount-angle = <90>;
 		qcom,eeprom-src = <&eeprom1>;
 		cam_vio-supply = <&L12A>;

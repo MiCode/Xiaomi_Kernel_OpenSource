@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -224,6 +224,10 @@ static void rmnet_dellink(struct net_device *dev, struct list_head *head)
 		synchronize_rcu();
 		kfree(ep);
 	}
+
+	if (!port->nr_rmnet_devs)
+		qmi_rmnet_qmi_exit(port->qmi_info, port);
+
 	rmnet_unregister_real_device(real_dev, port);
 
 	unregister_netdevice_queue(dev, head);
@@ -557,6 +561,7 @@ void rmnet_get_packets(void *port, u64 *rx, u64 *tx)
 
 	*tx = 0;
 	*rx = 0;
+	rcu_read_lock();
 	hash_for_each(((struct rmnet_port *)port)->muxed_ep, bkt, ep, hlnode) {
 		priv = netdev_priv(ep->egress_dev);
 		for_each_possible_cpu(cpu) {
@@ -568,6 +573,7 @@ void rmnet_get_packets(void *port, u64 *rx, u64 *tx)
 			} while (u64_stats_fetch_retry_irq(&ps->syncp, start));
 		}
 	}
+	rcu_read_unlock();
 }
 EXPORT_SYMBOL(rmnet_get_packets);
 

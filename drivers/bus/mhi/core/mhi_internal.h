@@ -134,6 +134,10 @@ extern struct bus_type mhi_bus_type;
 #define MHIDATALIMIT_HIGHER_MHIDATALIMIT_HIGHER_MASK (0xFFFFFFFF)
 #define MHIDATALIMIT_HIGHER_MHIDATALIMIT_HIGHER_SHIFT (0)
 
+/* Host request register */
+#define MHI_SOC_RESET_REQ_OFFSET (0xB0)
+#define MHI_SOC_RESET_REQ BIT(0)
+
 /* MHI misc capability registers */
 #define MISC_OFFSET (0x24)
 #define MISC_CAP_MASK (0xFFFFFFFF)

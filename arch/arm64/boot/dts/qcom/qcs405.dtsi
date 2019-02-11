@@ -15,6 +15,7 @@
 #include "skeleton64.dtsi"
 #include <dt-bindings/clock/qcom,gcc-qcs405.h>
 #include <dt-bindings/clock/qcom,cpu-qcs405.h>
+#include <dt-bindings/clock/qcom,cmn-blk-pll.h>
 #include <dt-bindings/clock/qcom,rpmcc.h>
 #include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
@@ -59,25 +60,25 @@
 		wlan_fw_mem: wlan_fw_mem@86400000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x86400000 0x0 0x1100000>;
+			reg = <0x0 0x86400000 0x0 0xf00000>;
 		};
 
 		adsp_fw_mem: adsp_fw_mem@87500000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x87500000 0x0 0x1a00000>;
+			reg = <0x0 0x87300000 0x0 0x1a00000>;
 		};
 
 		cdsp_fw_mem: cdsp_fw_mem@88f00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x88f00000 0x0 0x600000>;
+			reg = <0x0 0x88d00000 0x0 0x600000>;
 		};
 
 		wlan_msa_mem: wlan_msa_region@89500000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x89500000 0x0 0x100000>;
+			reg = <0x0 0x89300000 0x0 0x100000>;
 		};
 
 		secure_mem: secure_region {
@@ -313,6 +314,19 @@
 		clock-names = "cxo";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+	};
+
+	clock_cmn_blk_pll: qcom,cmn_blk_pll@2f780 {
+		compatible = "qcom,cmn_blk_pll";
+		reg = <0x2f780 0x4>;
+		reg-names = "cmn_blk";
+		clocks = <&clock_gcc GCC_BIAS_PLL_MISC_RESET_CLK>,
+			<&clock_gcc GCC_BIAS_PLL_AHB_CLK>,
+			<&clock_gcc GCC_BIAS_PLL_AON_CLK>;
+		clock-names = "misc_reset_clk", "ahb_clk", "aon_clk";
+		resets = <&clock_gcc GCC_BIAS_PLL_BCR>;
+		reset-names = "cmn_blk_pll_reset";
+		#clock-cells = <1>;
 	};
 
 	clock_gcc_mdss: qcom,gcc-mdss@1800000 {
@@ -1214,6 +1228,8 @@
 		clocks = <&clock_gcc GCC_SDCC2_AHB_CLK>,
 			<&clock_gcc GCC_SDCC2_APPS_CLK>;
 		clock-names = "iface_clk", "core_clk";
+
+		qcom,nonhotplug;
 
 		/* VDD is an external regulator eLDO5 */
 		vdd-io-supply = <&pms405_l11>;

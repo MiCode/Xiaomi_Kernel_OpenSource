@@ -21,7 +21,6 @@
 		reg = <0x4e00000 0x100000>;
 		reg-names = "core_base";
 
-		iommus = <&apps_smmu 0x100 0x0>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
@@ -175,7 +174,7 @@
 		reg = <0x01615000 0x1000>,
 			<0x03cb244 0x4>;
 		reg-names = "qmp_phy_base",
-			"vls_clamp-reg";
+			"vls_clamp_reg";
 
 		vdd-supply = <&pm6125_l7>;
 		core-supply = <&pm6125_l10>;

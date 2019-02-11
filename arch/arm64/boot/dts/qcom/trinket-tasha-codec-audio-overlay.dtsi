@@ -19,11 +19,51 @@
 	status = "disabled";
 };
 
+&wcd937x_rst_gpio{
+	status = "disabled";
+};
+
 &cdc_dmic01_gpios {
 	status = "disabled";
 };
 
 &cdc_dmic23_gpios {
+	status = "disabled";
+};
+
+&clock_audio_wsa_1 {
+	status = "disabled";
+};
+
+&clock_audio_wsa_2 {
+	status = "disabled";
+};
+
+&clock_audio_va {
+	status = "disabled";
+};
+
+&clock_audio_rx_1 {
+	status = "disabled";
+};
+
+&clock_audio_rx_2 {
+	status = "disabled";
+};
+
+&clock_audio_tx_1 {
+	status = "disabled";
+};
+
+&clock_audio_tx_2 {
+	status = "disabled";
+};
+
+&wsa_spkr_en1 {
+	status = "disabled";
+};
+
+&rx_swr_gpios {
 	status = "disabled";
 };
 

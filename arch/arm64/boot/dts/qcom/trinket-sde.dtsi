@@ -25,16 +25,18 @@
 		clocks =
 			<&clock_gcc GCC_DISP_AHB_CLK>,
 			<&clock_gcc GCC_DISP_HF_AXI_CLK>,
+			<&clock_gcc GCC_DISP_THROTTLE_CORE_CLK>,
+			<&clock_gcc GCC_DISP_GPLL0_DIV_CLK_SRC>,
 			<&clock_dispcc DISP_CC_MDSS_AHB_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_MDP_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_VSYNC_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_MDP_LUT_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_ROT_CLK>;
-		clock-names = "gcc_iface", "gcc_bus",
+		clock-names = "gcc_iface", "gcc_bus", "throttle_clk", "div_clk",
 				"iface_clk", "core_clk", "vsync_clk",
 				"lut_clk", "rot_clk";
-		clock-rate = <0 0 0 256000000 19200000 192000000>;
-		clock-max-rate = <0 0 0 307000000 19200000 307000000>;
+		clock-rate = <0 0 0 0 0 256000000 19200000 192000000>;
+		clock-max-rate = <0 0 0 0 0 307000000 19200000 307000000>;
 
 		sde-vdd-supply = <&mdss_core_gdsc>;
 
@@ -48,6 +50,8 @@
 		#size-cells = <0>;
 
 		#power-domain-cells = <0>;
+
+		#list-cells = <1>;
 
 		/* hw blocks */
 		qcom,sde-off = <0x1000>;
@@ -254,6 +258,8 @@
 
 		qcom,mdss-rot-mode = <1>;
 		qcom,mdss-highest-bank-bit = <0x1>;
+		qcom,sde-ubwc-malsize = <0x1>;
+		qcom,sde-ubwc_swizzle = <0x1>;
 
 		/* Bus Scale Settings */
 		qcom,msm-bus,name = "mdss_rotator";
@@ -279,7 +285,12 @@
 
 		power-domains = <&mdss_mdp>;
 
+		/*Offline rotator RT setting */
+		qcom,mdss-rot-parent = <&mdss_mdp 0>;
+		qcom,mdss-rot-xin-id = <10 11>;
+
 		/* Offline rotator QoS setting */
+		qcom,mdss-rot-vbif-qos-setting = <3 3 4 4 5 5 6 6>;
 		qcom,mdss-rot-cdp-setting = <1 1>;
 		qcom,mdss-rot-qos-lut = <0x0 0x0 0x0 0x0>;
 		qcom,mdss-rot-danger-lut = <0x0 0x0>;
@@ -366,7 +377,7 @@
 		reg = <0x5e94400 0x588>,
 			<0x5e01400 0x100>;
 		reg-names = "dsi_phy", "phy_clamp_base";
-		vdda-0p9-supply = <&L4A>;
+		vdda-0p9-supply = <&VDD_MX_LEVEL>;
 		qcom,platform-strength-ctrl = [ff 06
 						ff 06
 						ff 06
@@ -378,15 +389,18 @@
 						00 00 10 0f
 						00 00 10 8f];
 		qcom,platform-regulator-settings = [1d 1d 1d 1d 1d];
+		qcom,panel-allow-phy-poweroff;
 		qcom,phy-supply-entries {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			qcom,phy-supply-entry@0 {
 				reg = <0>;
 				qcom,supply-name = "vdda-0p9";
-				qcom,supply-min-voltage = <880000>;
-				qcom,supply-max-voltage = <975000>;
-				qcom,supply-enable-load = <36000>;
+				qcom,supply-min-voltage =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+				qcom,supply-max-voltage =
+					<RPM_SMD_REGULATOR_LEVEL_NOM>;
+				qcom,supply-enable-load = <0>;
 				qcom,supply-disable-load = <0>;
 			};
 		};

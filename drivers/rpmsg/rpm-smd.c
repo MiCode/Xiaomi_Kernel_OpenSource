@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1647,4 +1647,4 @@ int __init msm_rpm_driver_init(void)
 
 	return ret;
 }
-postcore_initcall(msm_rpm_driver_init);
+postcore_initcall_sync(msm_rpm_driver_init);

@@ -33,6 +33,8 @@ Optional properties:
         "phy_rcal_reg": register address for efuse used for rext calibration
  - qcom,no-rext-present: Set only if external REXT is not present. Default value
    is present.
+ - pinctrl-names/pinctrl-0: The GPIO configured as usb2phy_ac function. Name represents
+   "active" state.
 
 Example:
 	hsphy@f9200000 {

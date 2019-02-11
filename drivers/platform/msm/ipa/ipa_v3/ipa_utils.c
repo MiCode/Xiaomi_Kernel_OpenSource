@@ -1657,6 +1657,18 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
 			{ 16, 5, 9, 9, IPA_EE_Q6 } },
+	[IPA_4_0_MHI][IPA_CLIENT_USB_DPL_CONS]        = {
+			true, IPA_v4_0_MHI_GROUP_DDR,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 15, 7, 5, 5, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
+	[IPA_4_0_MHI][IPA_CLIENT_MHI_DPL_CONS]        = {
+			true, IPA_v4_0_MHI_GROUP_PCIE,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_PCIE,
+			{ 12, 2, 5, 5, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
 	/* Only for test purpose */
 	[IPA_4_0_MHI][IPA_CLIENT_TEST_CONS]           = {
 			true, IPA_v4_0_GROUP_UL_DL,
@@ -2187,7 +2199,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			{ 31, 31, 8, 8, IPA_EE_AP, GSI_USE_PREFETCH_BUFS} },
 
 	/* IPA_4_5 */
-	[IPA_4_5][IPA_CLIENT_WLAN1_PROD]          = {
+	[IPA_4_5][IPA_CLIENT_WLAN2_PROD]          = {
 			true, IPA_v4_5_GROUP_UL_DL_SRC,
 			true,
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
@@ -2285,7 +2297,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			QMB_MASTER_SELECT_DDR,
 			{ 11, 14, 8, 16, IPA_EE_AP } },
 
-	[IPA_4_5][IPA_CLIENT_WLAN1_CONS]          = {
+	[IPA_4_5][IPA_CLIENT_WLAN2_CONS]          = {
 			true, IPA_v4_5_GROUP_UL_DL_DST,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
@@ -5004,7 +5016,8 @@ int ipa3_write_qmap_id(struct ipa_ioc_write_qmapid *param_in)
 	if (param_in->client == IPA_CLIENT_USB_PROD ||
 	    param_in->client == IPA_CLIENT_HSIC1_PROD ||
 	    param_in->client == IPA_CLIENT_ODU_PROD ||
-	    param_in->client == IPA_CLIENT_ETHERNET_PROD) {
+	    param_in->client == IPA_CLIENT_ETHERNET_PROD ||
+		param_in->client == IPA_CLIENT_WIGIG_PROD) {
 		result = ipa3_cfg_ep_metadata(ipa_ep_idx, &meta);
 	} else if (param_in->client == IPA_CLIENT_WLAN1_PROD ||
 			   param_in->client == IPA_CLIENT_WLAN2_PROD) {

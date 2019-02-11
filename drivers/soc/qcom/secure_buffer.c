@@ -20,6 +20,7 @@
 #include <linux/scatterlist.h>
 #include <linux/slab.h>
 #include <linux/dma-mapping.h>
+#include <linux/cma.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/secure_buffer.h>
 
@@ -412,6 +413,33 @@ int hyp_assign_phys(phys_addr_t addr, u64 size, u32 *source_vm_list,
 	return ret;
 }
 EXPORT_SYMBOL(hyp_assign_phys);
+
+int cma_hyp_assign_phys(struct device *dev, u32 *source_vm_list,
+				int source_nelems, int *dest_vmids,
+					int *dest_perms, int dest_nelems)
+{
+	phys_addr_t addr;
+	u64 size;
+	struct cma *cma = NULL;
+	int ret;
+
+	if (dev && dev->cma_area)
+		cma = dev->cma_area;
+
+	if (cma) {
+		addr = cma_get_base(cma);
+		size = (size_t)cma_get_size(cma);
+	} else {
+		return -ENOMEM;
+	}
+
+	ret = hyp_assign_phys(addr, size, source_vm_list,
+				source_nelems, dest_vmids,
+					dest_perms, dest_nelems);
+
+	return ret;
+}
+EXPORT_SYMBOL(cma_hyp_assign_phys);
 
 const char *msm_secure_vmid_to_string(int secure_vmid)
 {

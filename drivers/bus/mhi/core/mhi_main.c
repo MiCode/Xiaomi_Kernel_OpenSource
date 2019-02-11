@@ -1389,11 +1389,19 @@ void mhi_ctrl_ev_task(unsigned long data)
 {
 	struct mhi_event *mhi_event = (struct mhi_event *)data;
 	struct mhi_controller *mhi_cntrl = mhi_event->mhi_cntrl;
-	enum mhi_dev_state state = MHI_STATE_MAX;
+	enum mhi_dev_state state;
 	enum MHI_PM_STATE pm_state = 0;
 	int ret;
 
 	MHI_VERB("Enter for ev_index:%d\n", mhi_event->er_index);
+
+	/*
+	 * we can check pm_state w/o a lock here because there is no way
+	 * pm_state can change from reg access valid to no access while this
+	 * therad being executed.
+	 */
+	if (!MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
+		return;
 
 	/* process ctrl events events */
 	ret = mhi_event->process_event(mhi_cntrl, mhi_event, U32_MAX);
@@ -1404,8 +1412,7 @@ void mhi_ctrl_ev_task(unsigned long data)
 	 */
 	if (!ret) {
 		write_lock_irq(&mhi_cntrl->pm_lock);
-		if (MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
-			state = mhi_get_mhi_state(mhi_cntrl);
+		state = mhi_get_mhi_state(mhi_cntrl);
 		if (state == MHI_STATE_SYS_ERR) {
 			MHI_ERR("MHI system error detected\n");
 			pm_state = mhi_tryset_pm_state(mhi_cntrl,
@@ -1457,6 +1464,8 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 	if (MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state)) {
 		state = mhi_get_mhi_state(mhi_cntrl);
 		ee = mhi_get_exec_env(mhi_cntrl);
+		MHI_LOG("device ee:%s dev_state:%s\n", TO_MHI_EXEC_STR(ee),
+			TO_MHI_STATE_STR(state));
 	}
 
 	if (state == MHI_STATE_SYS_ERR) {
@@ -2215,3 +2224,54 @@ error_no_mem:
 	return ret;
 }
 EXPORT_SYMBOL(mhi_get_remote_time);
+
+void mhi_debug_reg_dump(struct mhi_controller *mhi_cntrl)
+{
+	enum mhi_dev_state state;
+	enum mhi_ee ee;
+	int i, ret;
+	u32 val;
+	void __iomem *mhi_base = mhi_cntrl->regs;
+	void __iomem *bhi_base = mhi_cntrl->bhi;
+	void __iomem *bhie_base = mhi_cntrl->bhie;
+	void __iomem *wake_db = mhi_cntrl->wake_db;
+	struct {
+		const char *name;
+		int offset;
+		void *base;
+	} debug_reg[] = {
+		{ "MHI_CNTRL", MHICTRL, mhi_base},
+		{ "MHI_STATUS", MHISTATUS, mhi_base},
+		{ "MHI_WAKE_DB", 0, wake_db},
+		{ "BHI_EXECENV", BHI_EXECENV, bhi_base},
+		{ "BHI_STATUS", BHI_STATUS, bhi_base},
+		{ "BHI_ERRCODE", BHI_ERRCODE, bhi_base},
+		{ "BHI_ERRDBG1", BHI_ERRDBG1, bhi_base},
+		{ "BHI_ERRDBG2", BHI_ERRDBG2, bhi_base},
+		{ "BHI_ERRDBG3", BHI_ERRDBG3, bhi_base},
+		{ "BHIE_TXVEC_DB", BHIE_TXVECDB_OFFS, bhie_base},
+		{ "BHIE_TXVEC_STATUS", BHIE_TXVECSTATUS_OFFS, bhie_base},
+		{ "BHIE_RXVEC_DB", BHIE_RXVECDB_OFFS, bhie_base},
+		{ "BHIE_RXVEC_STATUS", BHIE_RXVECSTATUS_OFFS, bhie_base},
+		{ NULL },
+	};
+
+	MHI_LOG("host pm_state:%s dev_state:%s ee:%s\n",
+		to_mhi_pm_state_str(mhi_cntrl->pm_state),
+		TO_MHI_STATE_STR(mhi_cntrl->dev_state),
+		TO_MHI_EXEC_STR(mhi_cntrl->ee));
+
+	state = mhi_get_mhi_state(mhi_cntrl);
+	ee = mhi_get_exec_env(mhi_cntrl);
+
+	MHI_LOG("device ee:%s dev_state:%s\n", TO_MHI_EXEC_STR(ee),
+		TO_MHI_STATE_STR(state));
+
+	for (i = 0; debug_reg[i].name; i++) {
+		ret = mhi_read_reg(mhi_cntrl, debug_reg[i].base,
+				   debug_reg[i].offset, &val);
+		MHI_LOG("reg:%s val:0x%x, ret:%d\n", debug_reg[i].name, val,
+			ret);
+	}
+}
+EXPORT_SYMBOL(mhi_debug_reg_dump);

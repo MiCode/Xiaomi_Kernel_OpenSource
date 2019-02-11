@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +23,7 @@
 #include <linux/uaccess.h>
 #include <linux/delay.h>
 #include <linux/msm_ep_pcie.h>
+#include <linux/iommu.h>
 
 #define PCIE20_PARF_SYS_CTRL           0x00
 #define PCIE20_PARF_DB_CTRL            0x10
@@ -56,6 +57,8 @@
 #define PCIE20_PARF_ATU_BASE_ADDR      0x634
 #define PCIE20_PARF_ATU_BASE_ADDR_HI   0x638
 #define PCIE20_PARF_DEVICE_TYPE        0x1000
+#define PCIE20_PARF_EDMA_BASE_ADDR      0x64C
+#define PCIE20_PARF_EDMA_BASE_ADDR_HI   0x650
 
 #define PCIE20_ELBI_VERSION            0x00
 #define PCIE20_ELBI_SYS_CTRL           0x04
@@ -154,7 +157,7 @@
 #define MAX_IATU_ENTRY_NUM 2
 
 #define EP_PCIE_LOG_PAGES 50
-#define EP_PCIE_MAX_VREG 2
+#define EP_PCIE_MAX_VREG 3
 #define EP_PCIE_MAX_CLK 7
 #define EP_PCIE_MAX_PIPE_CLK 1
 #define EP_PCIE_MAX_RESET 2
@@ -229,6 +232,7 @@ enum ep_pcie_res {
 	EP_PCIE_RES_DM_CORE,
 	EP_PCIE_RES_ELBI,
 	EP_PCIE_RES_IATU,
+	EP_PCIE_RES_EDMA,
 	EP_PCIE_MAX_RES,
 };
 
@@ -318,6 +322,7 @@ struct ep_pcie_dev_t {
 	void __iomem                 *mmio;
 	void __iomem                 *msi;
 	void __iomem                 *dm_core;
+	void __iomem                 *edma;
 	void __iomem                 *elbi;
 	void __iomem                 *iatu;
 
@@ -327,6 +332,7 @@ struct ep_pcie_dev_t {
 	bool                         active_config;
 	bool                         aggregated_irq;
 	bool                         mhi_a7_irq;
+	bool                         pcie_edma;
 	u32                          dbi_base_reg;
 	u32                          slv_space_reg;
 	u32                          phy_status_reg;
@@ -418,5 +424,6 @@ extern bool ep_pcie_phy_is_ready(struct ep_pcie_dev_t *dev);
 extern void ep_pcie_reg_dump(struct ep_pcie_dev_t *dev, u32 sel, bool linkdown);
 extern void ep_pcie_debugfs_init(struct ep_pcie_dev_t *ep_dev);
 extern void ep_pcie_debugfs_exit(void);
+extern int qcom_edma_init(struct device *dev);
 
 #endif

@@ -100,6 +100,12 @@
 	};
 };
 
+&glink_modem {
+	qcom,modem_qrtr {
+		qcom,net-id = <2>;
+	};
+};
+
 &soc {
 	ipa_hw: qcom,ipa@1e00000 {
 		qcom,platform-type = <2>; /* APQ platform */
@@ -107,6 +113,18 @@
 		qcom,register-collection-on-crash;
 		qcom,testbus-collection-on-crash;
 		qcom,non-tn-collection-on-crash;
+	};
+
+	qcom,ipa_fws {
+		memory-region = <&pil_ipa_gsi_mem>;
+	};
+
+	qcom,ipa_uc {
+		compatible = "qcom,pil-tz-generic";
+		qcom,pas-id = <0x1B>;
+		qcom,firmware-name = "ipa_uc";
+		qcom,pil-force-shutdown;
+		memory-region = <&pil_ipa_fw_mem>;
 	};
 };
 
@@ -118,6 +136,38 @@
 		alignment = <0x0 0x400000>;
 		size = <0x0 0x20000>;
 	};
+};
+
+&pil_modem_mem {
+	reg = <0x0 0x8d800000 0x0 0x3200000>;
+};
+
+&pil_video_mem {
+	reg = <0x0 0x90a00000 0x0 0x500000>;
+};
+
+&pil_slpi_mem {
+	reg = <0x0 0x90f00000 0x0 0x1500000>;
+};
+
+&pil_ipa_fw_mem {
+	reg = <0x0 0x92400000 0x0 0x10000>;
+};
+
+&pil_ipa_gsi_mem {
+	reg = <0x0 0x92410000 0x0 0xa000>;
+};
+
+&pil_gpu_mem {
+	reg = <0x0 0x9241a000 0x0 0x2000>;
+};
+
+&pil_spss_mem {
+	reg = <0x0 0x92500000 0x0 0x100000>;
+};
+
+&pil_cdsp_mem {
+	reg = <0x0 0x92600000 0x0 0x1400000>;
 };
 
 &audio_apr {

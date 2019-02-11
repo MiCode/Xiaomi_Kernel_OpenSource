@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,6 +35,9 @@
 #include <linux/irq.h>
 
 #include "ep_pcie_com.h"
+#include <asm/dma-iommu.h>
+#include <linux/dma-mapping.h>
+#include <linux/platform_device.h>
 
 /* debug mask sys interface */
 static int ep_pcie_debug_mask;
@@ -52,6 +55,7 @@ struct ep_pcie_dev_t ep_pcie_dev = {0};
 static struct ep_pcie_vreg_info_t ep_pcie_vreg_info[EP_PCIE_MAX_VREG] = {
 	{NULL, "vreg-1.8", 1800000, 1800000, 14000, true},
 	{NULL, "vreg-0.9", 1000000, 1000000, 40000, true},
+	{NULL, "vreg-cx", 0, 0, 0, false}
 };
 
 static struct ep_pcie_gpio_info_t ep_pcie_gpio_info[EP_PCIE_MAX_GPIO] = {
@@ -63,24 +67,24 @@ static struct ep_pcie_gpio_info_t ep_pcie_gpio_info[EP_PCIE_MAX_GPIO] = {
 
 static struct ep_pcie_clk_info_t
 	ep_pcie_clk_info[EP_PCIE_MAX_CLK] = {
-	{NULL, "pcie_0_cfg_ahb_clk", 0, true},
-	{NULL, "pcie_0_mstr_axi_clk", 0, true},
-	{NULL, "pcie_0_slv_axi_clk", 0, true},
-	{NULL, "pcie_0_aux_clk", 1000000, true},
-	{NULL, "pcie_0_ldo", 0, true},
-	{NULL, "pcie_0_sleep_clk", 0, false},
-	{NULL, "pcie_0_slv_q2a_axi_clk", 0, false},
+	{NULL, "pcie_cfg_ahb_clk", 0, true},
+	{NULL, "pcie_mstr_axi_clk", 0, true},
+	{NULL, "pcie_slv_axi_clk", 0, true},
+	{NULL, "pcie_aux_clk", 1000000, true},
+	{NULL, "pcie_ldo", 0, true},
+	{NULL, "pcie_sleep_clk", 0, false},
+	{NULL, "pcie_slv_q2a_axi_clk", 0, false},
 };
 
 static struct ep_pcie_clk_info_t
 	ep_pcie_pipe_clk_info[EP_PCIE_MAX_PIPE_CLK] = {
-	{NULL, "pcie_0_pipe_clk", 62500000, true},
+	{NULL, "pcie_pipe_clk", 62500000, true},
 };
 
 static struct ep_pcie_reset_info_t
 	ep_pcie_reset_info[EP_PCIE_MAX_RESET] = {
-	{NULL, "pcie_0_core_reset", false},
-	{NULL, "pcie_0_phy_reset", false},
+	{NULL, "pcie_core_reset", false},
+	{NULL, "pcie_phy_reset", false},
 };
 
 static const struct ep_pcie_res_info_t ep_pcie_res_info[EP_PCIE_MAX_RES] = {
@@ -91,6 +95,7 @@ static const struct ep_pcie_res_info_t ep_pcie_res_info[EP_PCIE_MAX_RES] = {
 	{"dm_core",	NULL, NULL},
 	{"elbi",	NULL, NULL},
 	{"iatu",	NULL, NULL},
+	{"edma",	NULL, NULL},
 };
 
 static const struct ep_pcie_irq_info_t ep_pcie_irq_info[EP_PCIE_MAX_IRQ] = {
@@ -596,6 +601,25 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 				"PCIe V%d: LSB of ATU base:0x%x\n",
 				dev->rev, readl_relaxed(dev->parf
 						+ PCIE20_PARF_ATU_BASE_ADDR));
+			if (dev->pcie_edma) {
+				struct resource *edma =
+					dev->res[EP_PCIE_RES_EDMA].resource;
+				u32 edma_lo = edma->start;
+
+				ep_pcie_write_reg(dev->parf,
+					PCIE20_PARF_EDMA_BASE_ADDR_HI, 0x100);
+				EP_PCIE_DBG(dev,
+					"PCIe V%d: EDMA base HI :0x%x\n",
+					dev->rev, readl_relaxed(dev->parf +
+					PCIE20_PARF_EDMA_BASE_ADDR_HI));
+
+				ep_pcie_write_reg(dev->parf,
+					PCIE20_PARF_EDMA_BASE_ADDR, edma_lo);
+				EP_PCIE_DBG(dev,
+					"PCIe V%d: EDMA base:0x%x\n", dev->rev,
+						readl_relaxed(dev->parf +
+						PCIE20_PARF_EDMA_BASE_ADDR));
+			}
 		}
 	}
 
@@ -709,6 +733,10 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 			ep_pcie_write_mask(dev->parf +
 				PCIE20_PARF_INT_ALL_MASK, 0,
 				BIT(EP_PCIE_INT_EVT_MHI_A7));
+		if (dev->pcie_edma)
+			ep_pcie_write_mask(dev->parf +
+				PCIE20_PARF_INT_ALL_MASK, 0,
+				BIT(EP_PCIE_INT_EVT_EDMA));
 
 		EP_PCIE_DBG(dev, "PCIe V%d: PCIE20_PARF_INT_ALL_MASK:0x%x\n",
 			dev->rev,
@@ -805,8 +833,15 @@ static void ep_pcie_config_outbound_iatu_entry(struct ep_pcie_dev_t *dev,
 					tgt_lower);
 		ep_pcie_write_reg(dev->iatu, PCIE20_IATU_O_UTAR(region),
 					tgt_upper);
-		ep_pcie_write_mask(dev->iatu + PCIE20_IATU_O_CTRL2(region),
-					0, BIT(31));
+		/* Set DMA Bypass bit for eDMA */
+		if (dev->pcie_edma)
+			ep_pcie_write_mask(dev->iatu +
+				PCIE20_IATU_O_CTRL2(region), 0,
+				BIT(31)|BIT(27));
+		else
+			ep_pcie_write_mask(dev->iatu +
+				PCIE20_IATU_O_CTRL2(region), 0,
+				BIT(31));
 
 		EP_PCIE_DBG(dev,
 			"PCIe V%d: Outbound iATU configuration\n", dev->rev);
@@ -1165,6 +1200,7 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 	dev->mmio = dev->res[EP_PCIE_RES_MMIO].base;
 	dev->msi = dev->res[EP_PCIE_RES_MSI].base;
 	dev->dm_core = dev->res[EP_PCIE_RES_DM_CORE].base;
+	dev->edma = dev->res[EP_PCIE_RES_EDMA].base;
 	dev->elbi = dev->res[EP_PCIE_RES_ELBI].base;
 	dev->iatu = dev->res[EP_PCIE_RES_IATU].base;
 
@@ -1178,6 +1214,7 @@ static void ep_pcie_release_resources(struct ep_pcie_dev_t *dev)
 	dev->parf = NULL;
 	dev->elbi = NULL;
 	dev->dm_core = NULL;
+	dev->edma = NULL;
 	dev->phy = NULL;
 	dev->mmio = NULL;
 	dev->msi = NULL;
@@ -1280,15 +1317,6 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 			goto clk_fail;
 		}
 
-		/* enable pipe clock */
-		ret = ep_pcie_pipe_clk_init(dev);
-		if (ret) {
-			EP_PCIE_ERR(dev,
-				"PCIe V%d: failed to enable pipe clock\n",
-				dev->rev);
-			goto pipe_clk_fail;
-		}
-
 		dev->power_on = true;
 	}
 
@@ -1381,7 +1409,16 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 	/* init PCIe PHY */
 	ep_pcie_phy_init(dev);
 
-	EP_PCIE_DBG(dev, "PCIe V%d: waiting for phy ready\n", dev->rev);
+	/* enable pipe clock */
+	ret = ep_pcie_pipe_clk_init(dev);
+	if (ret) {
+		EP_PCIE_ERR(dev,
+			"PCIe V%d: failed to enable pipe clock\n",
+			dev->rev);
+		goto pipe_clk_fail;
+	}
+
+	EP_PCIE_DBG(dev, "PCIe V%d: waiting for phy ready...\n", dev->rev);
 	retries = 0;
 	do {
 		if (ep_pcie_phy_is_ready(dev))
@@ -1966,7 +2003,6 @@ int32_t ep_pcie_irq_init(struct ep_pcie_dev_t *dev)
 			EP_PCIE_ERR(dev,
 				"PCIe V%d: Unable to enable wake for Global interrupt\n",
 				dev->rev);
-			return ret;
 		}
 
 		EP_PCIE_DBG(dev,
@@ -2459,6 +2495,8 @@ struct ep_pcie_hw hw_drv = {
 static int ep_pcie_probe(struct platform_device *pdev)
 {
 	int ret;
+	struct dma_iommu_mapping *mapping;
+	int bypass_en = 1;
 
 	pr_debug("%s\n", __func__);
 
@@ -2518,6 +2556,12 @@ static int ep_pcie_probe(struct platform_device *pdev)
 	else
 		EP_PCIE_DBG(&ep_pcie_dev, "PCIe V%d: pcie-phy-ver:%d\n",
 			ep_pcie_dev.rev, ep_pcie_dev.phy_rev);
+
+	ep_pcie_dev.pcie_edma = of_property_read_bool((&pdev->dev)->of_node,
+				"qcom,pcie-edma");
+	EP_PCIE_DBG(&ep_pcie_dev,
+		"PCIe V%d: pcie edma is %s enabled\n",
+		ep_pcie_dev.rev, ep_pcie_dev.pcie_edma ? "" : "not");
 
 	ep_pcie_dev.active_config = of_property_read_bool((&pdev->dev)->of_node,
 				"qcom,pcie-active-config");
@@ -2602,7 +2646,37 @@ static int ep_pcie_probe(struct platform_device *pdev)
 		"PCIe V%d: %s got resources successfully; start turning on the link\n",
 		ep_pcie_dev.rev, dev_name(&(pdev->dev)));
 
+	if (ep_pcie_dev.pcie_edma) {
+		mapping = arm_iommu_create_mapping
+					(&platform_bus_type, 0, SZ_4K);
+		if (IS_ERR_OR_NULL(mapping)) {
+			EP_PCIE_ERR(&ep_pcie_dev,
+				"PCIe V%d: Failed to create_mapping\n",
+					ep_pcie_dev.rev);
+			goto skip_mapping;
+		}
+
+		ret = iommu_domain_set_attr(mapping->domain,
+				DOMAIN_ATTR_S1_BYPASS, &bypass_en);
+		if (ret < 0)
+			EP_PCIE_ERR(&ep_pcie_dev,
+				"PCIe V%d: Failed to set bypass\n",
+					ep_pcie_dev.rev);
+
+		ret = arm_iommu_attach_device(&pdev->dev, mapping);
+		if (ret)
+			EP_PCIE_ERR(&ep_pcie_dev,
+				"PCIe V%d: arm_iommu_attach_device failed %d\n",
+					ep_pcie_dev.rev, ret);
+		else
+			EP_PCIE_ERR(&ep_pcie_dev,
+				"PCIe V%d: arm_iommu_attach_device successful\n",
+					ep_pcie_dev.rev);
+	}
+skip_mapping:
 	ret = ep_pcie_enumeration(&ep_pcie_dev);
+	if (IS_ENABLED(CONFIG_QCOM_PCI_EDMA))
+		qcom_edma_init(&pdev->dev);
 
 	if (!ret || ep_pcie_debug_keep_resource)
 		return 0;

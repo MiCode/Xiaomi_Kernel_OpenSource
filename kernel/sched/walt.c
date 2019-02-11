@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -421,7 +421,6 @@ void clear_walt_request(int cpu)
 	struct rq *rq = cpu_rq(cpu);
 	unsigned long flags;
 
-	clear_boost_kick(cpu);
 	clear_reserved(cpu);
 	if (rq->push_task) {
 		struct task_struct *push_task = NULL;
@@ -3130,7 +3129,7 @@ static void walt_update_coloc_boost_load(void)
 	struct sched_cluster *cluster;
 
 	if (!sysctl_sched_little_cluster_coloc_fmin_khz ||
-			sysctl_sched_boost == CONSERVATIVE_BOOST)
+			sched_boost() == CONSERVATIVE_BOOST)
 		return;
 
 	grp = lookup_related_thread_group(DEFAULT_CGROUP_COLOC_ID);

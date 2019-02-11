@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -335,10 +335,8 @@ int kgsl_snapshot_get_object(struct kgsl_snapshot *snapshot,
 
 	entry = kgsl_sharedmem_find(process, gpuaddr);
 
-	if (entry == NULL) {
-		KGSL_CORE_ERR("Unable to find GPU buffer 0x%016llX\n", gpuaddr);
+	if (entry == NULL)
 		return -EINVAL;
-	}
 
 	/* We can't freeze external memory, because we don't own it */
 	if (entry->memdesc.flags & KGSL_MEMFLAGS_USERMEM_MASK)

@@ -18,6 +18,7 @@ dtb-$(CONFIG_ARCH_QCS405) += qcs405-rumi.dtb \
 		qcs405-iot-sku8.dtb \
 		qcs405-iot-sku9.dtb \
 		qcs405-iot-sku10.dtb \
+		qcs405-iot-sku11.dtb \
 		qcs405-iot-sku12.dtb
 else
 dtb-$(CONFIG_ARCH_QCS405) += qcs403-iot-sku1.dtb \
@@ -220,6 +221,7 @@ endif
 dtb-$(CONFIG_ARCH_SDXPRAIRIE) += sdxprairie-rumi.dtb \
 	sdxprairie-cdp.dtb \
 	sdxprairie-mtp.dtb \
+	sdxprairie-pcie-ep-mtp.dtb \
 	sdxprairie-cdp-256.dtb \
 	sdxprairie-mtp-256.dtb \
 	sdxprairie-mtp-aqc.dtb

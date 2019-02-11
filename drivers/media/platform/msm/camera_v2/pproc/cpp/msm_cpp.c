@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,6 +35,7 @@
 #include "msm_camera_io_util.h"
 #include <linux/debugfs.h>
 #include "cam_smmu_api.h"
+#include "msm_cam_cx_ipeak.h"
 
 #define MSM_CPP_DRV_NAME "msm_cpp"
 
@@ -1093,7 +1094,7 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 			goto clk_failed;
 		}
 	}
-
+	msm_cpp_update_bandwidth(cpp_dev, 0x1000, 0x1000);
 	rc = msm_camera_clk_enable(&cpp_dev->pdev->dev, cpp_dev->clk_info,
 			cpp_dev->cpp_clk, cpp_dev->num_clks, true);
 	if (rc < 0) {
@@ -1184,8 +1185,7 @@ ahb_vote_fail:
 	msm_camera_clk_enable(&cpp_dev->pdev->dev, cpp_dev->clk_info,
 		cpp_dev->cpp_clk, cpp_dev->num_clks, false);
 clk_failed:
-	msm_camera_regulator_enable(cpp_dev->cpp_vdd,
-		cpp_dev->num_reg, false);
+	msm_camera_regulator_disable(cpp_dev->cpp_vdd, cpp_dev->num_reg, true);
 reg_enable_failed:
 	return rc;
 }
@@ -1204,9 +1204,9 @@ static void cpp_release_hardware(struct cpp_device *cpp_dev)
 	if (cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CPP,
 		CAM_AHB_SUSPEND_VOTE) < 0)
 		pr_err("%s: failed to remove vote for AHB\n", __func__);
-	msm_camera_clk_enable(&cpp_dev->pdev->dev, cpp_dev->clk_info,
+	msm_camera_cpp_clk_disable(&cpp_dev->pdev->dev, cpp_dev->clk_info,
 		cpp_dev->cpp_clk, cpp_dev->num_clks, false);
-	msm_camera_regulator_enable(cpp_dev->cpp_vdd, cpp_dev->num_reg, false);
+	msm_camera_regulator_disable(cpp_dev->cpp_vdd, cpp_dev->num_reg, true);
 	if (cpp_dev->stream_cnt > 0) {
 		pr_warn("stream count active\n");
 		rc = msm_cpp_update_bandwidth_setting(cpp_dev, 0, 0);
@@ -1524,7 +1524,9 @@ static int cpp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	}
 
 	if (cpp_dev->turbo_vote == 1) {
-		rc = cx_ipeak_update(cpp_dev->cpp_cx_ipeak, false);
+		pr_debug("%s:cx_ipeak_update unvote. ipeak bit %d\n",
+			__func__, cpp_dev->cx_ipeak_bit);
+		rc = cam_cx_ipeak_unvote_cx_ipeak(cpp_dev->cx_ipeak_bit);
 			if (rc)
 				pr_err("cx_ipeak_update failed");
 			else
@@ -3096,7 +3098,9 @@ static unsigned long cpp_cx_ipeak_update(struct cpp_device *cpp_dev,
 	if ((clock >= cpp_dev->hw_info.freq_tbl
 		[(cpp_dev->hw_info.freq_tbl_count) - 1]) &&
 		(cpp_dev->turbo_vote == 0)) {
-		ret = cx_ipeak_update(cpp_dev->cpp_cx_ipeak, true);
+		pr_debug("%s: clk is more than Nominal cpp, ipeak bit %d\n",
+			__func__, cpp_dev->cx_ipeak_bit);
+		ret = cam_cx_ipeak_update_vote_cx_ipeak(cpp_dev->cx_ipeak_bit);
 		if (ret) {
 			pr_err("cx_ipeak voting failed setting clock below turbo");
 			clock = cpp_dev->hw_info.freq_tbl
@@ -3109,7 +3113,10 @@ static unsigned long cpp_cx_ipeak_update(struct cpp_device *cpp_dev,
 		[(cpp_dev->hw_info.freq_tbl_count) - 1]) {
 		clock_rate = msm_cpp_set_core_clk(cpp_dev, clock, idx);
 		if (cpp_dev->turbo_vote == 1) {
-			ret = cx_ipeak_update(cpp_dev->cpp_cx_ipeak, false);
+			pr_debug("%s:clk is less than Nominal, ipeak bit %d\n",
+				__func__, cpp_dev->cx_ipeak_bit);
+			ret = cam_cx_ipeak_unvote_cx_ipeak(
+				cpp_dev->cx_ipeak_bit);
 			if (ret)
 				pr_err("cx_ipeak unvoting failed");
 			else
@@ -4094,7 +4101,7 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 		status = compat_ptr(k32_frame_info.status);
 
 		if (copy_to_user(status, &rc,
-			sizeof(void *)))
+			sizeof(int32_t)))
 			pr_err("error cannot copy error\n");
 
 		if (copy_to_user((void __user *)kp_ioctl.ioctl_ptr,
@@ -4582,6 +4589,18 @@ static int cpp_probe(struct platform_device *pdev)
 			msm_camera_set_clk_flags(cpp_dev->cpp_clk[i],
 				CLKFLAG_NORETAIN_PERIPH);
 		}
+	}
+
+	if (of_find_property(pdev->dev.of_node, "qcom,cpp-cx-ipeak", NULL)) {
+		cpp_dev->cpp_cx_ipeak = cx_ipeak_register(
+			pdev->dev.of_node, "qcom,cpp-cx-ipeak");
+		if (cpp_dev->cpp_cx_ipeak) {
+			cam_cx_ipeak_register_cx_ipeak(cpp_dev->cpp_cx_ipeak,
+				&cpp_dev->cx_ipeak_bit);
+			pr_debug("%s register cx_ipeak received bit %d\n",
+				__func__, cpp_dev->cx_ipeak_bit);
+		} else
+			pr_err("Cx ipeak Registration Unsuccessful");
 	}
 
 	rc = msm_camera_get_reset_info(pdev,

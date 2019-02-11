@@ -70,6 +70,27 @@
 	};
 };
 
+&qupv3_se1_i2c {
+	status = "ok";
+	qcom,clk-freq-out = <1000000>;
+	nq@28 {
+		compatible = "qcom,nq-nci";
+		reg = <0x28>;
+		qcom,nq-irq = <&tlmm 85 0x00>;
+		qcom,nq-ven = <&tlmm 83 0x00>;
+		qcom,nq-firm = <&tlmm 84 0x00>;
+		qcom,nq-clkreq = <&tlmm 95 0x00>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <85 0>;
+		interrupt-names = "nfc_irq";
+		pinctrl-names = "nfc_active", "nfc_suspend";
+		pinctrl-0 = <&nfc_int_active &nfc_enable_active
+				&nfc_clk_req_active>;
+		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend
+				&nfc_clk_req_suspend>;
+	};
+};
+
 &sdhc_1 {
 	vdd-supply = <&pm6125_l24>;
 	qcom,vdd-voltage-level = <2950000 2950000>;
@@ -251,6 +272,8 @@
 
 	qcom,vddp-ref-clk-supply = <&pm6125_l18>;
 	qcom,vddp-ref-clk-max-microamp = <100>;
+	qcom,vddp-ref-clk-min-uV = <1200000>;
+	qcom,vddp-ref-clk-max-uV = <1232000>;
 
 	status = "ok";
 };
@@ -290,15 +313,11 @@
 		reg = <0x20>;
 		interrupt-parent = <&tlmm>;
 		interrupts = <88 0x2008>;
-		vdd-supply = <&pm6125_l9>;
-		avdd-supply = <&pm6125_l21>;
 		pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
 					"pmx_ts_release";
 		pinctrl-0 = <&ts_int_active &ts_reset_active>;
 		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
 		pinctrl-2 = <&ts_release>;
-		synaptics,bus-reg-name = "vdd";
-		synaptics,pwr-reg-name = "avdd";
 		synaptics,irq-gpio = <&tlmm 88 0x2008>;
 		synaptics,irq-on-state = <0>;
 		synaptics,reset-gpio = <&tlmm 87 0x00>;

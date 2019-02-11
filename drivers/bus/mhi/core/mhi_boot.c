@@ -52,8 +52,10 @@ static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
 	u32 rx_status;
 	enum mhi_ee ee;
 	struct image_info *rddm_image = mhi_cntrl->rddm_image;
-	const u32 delayus = 100;
+	const u32 delayus = 2000;
 	u32 retry = (mhi_cntrl->timeout_ms * 1000) / delayus;
+	const u32 rddm_timeout_us = 200000;
+	int rddm_retry = rddm_timeout_us / delayus; /* time to enter rddm */
 	void __iomem *base = mhi_cntrl->bhie;
 
 	MHI_LOG("Entered with pm_state:%s dev_state:%s ee:%s\n",
@@ -67,14 +69,8 @@ static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
 	 * returning from this function, we expect device to reset.
 	 *
 	 * Normaly, we would read/write pm_state only after grabbing
-	 * pm_lock, since we're in a panic, skipping it.
-	 */
-
-	if (!MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
-		return -EIO;
-
-	/*
-	 * There is no gurantee this state change would take effect since
+	 * pm_lock, since we're in a panic, skipping it. Also there is no
+	 * gurantee this state change would take effect since
 	 * we're setting it w/o grabbing pmlock, it's best effort
 	 */
 	mhi_cntrl->pm_state = MHI_PM_LD_ERR_FATAL_DETECT;
@@ -107,7 +103,27 @@ static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
 	MHI_LOG("Trigger device into RDDM mode\n");
 	mhi_set_mhi_state(mhi_cntrl, MHI_STATE_SYS_ERR);
 
-	MHI_LOG("Waiting for image download completion\n");
+	MHI_LOG("Waiting for device to enter RDDM\n");
+	while (rddm_retry--) {
+		ee = mhi_get_exec_env(mhi_cntrl);
+		if (ee == MHI_EE_RDDM)
+			break;
+
+		udelay(delayus);
+	}
+
+	if (rddm_retry <= 0) {
+		/* This is a hardware reset, will force device to enter rddm */
+		MHI_LOG(
+			"Did not enter RDDM triggering host req. reset to force rddm\n");
+		mhi_write_reg(mhi_cntrl, mhi_cntrl->regs,
+			      MHI_SOC_RESET_REQ_OFFSET, MHI_SOC_RESET_REQ);
+		udelay(delayus);
+	}
+
+	ee = mhi_get_exec_env(mhi_cntrl);
+	MHI_LOG("Waiting for image download completion, current EE:%s\n",
+		TO_MHI_EXEC_STR(ee));
 	while (retry--) {
 		ret = mhi_read_reg_field(mhi_cntrl, base, BHIE_RXVECSTATUS_OFFS,
 					 BHIE_RXVECSTATUS_STATUS_BMSK,

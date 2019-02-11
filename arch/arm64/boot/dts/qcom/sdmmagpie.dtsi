@@ -606,7 +606,7 @@
 		cdsp_sec_mem: cdsp_sec_regions@0x9f800000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x9f800000 0x0 0xc00000>;
+			reg = <0x0 0x9f800000 0x0 0x1e00000>;
 		};
 
 		adsp_mem: adsp_region {
@@ -1160,9 +1160,8 @@
 
 		iommu_slim_aud_ctrl_cb: qcom,iommu_slim_ctrl_cb {
 			compatible = "qcom,iommu-slim-ctrl-cb";
-			iommus = <&apps_smmu 0x1be6 0x0>,
-				 <&apps_smmu 0x1bed 0x0>,
-				 <&apps_smmu 0x1bee 0x1>,
+			iommus = <&apps_smmu 0x1be6 0x8>,
+				 <&apps_smmu 0x1bed 0x2>,
 				 <&apps_smmu 0x1bf0 0x1>;
 		};
 
@@ -2174,8 +2173,8 @@
 			<150 512 150000 250000>,
 			<1 806 80000 120000>,
 			/* 400 MB/s */
-			<150 512 261438 2800000>,
-			<1 806 1200000 2400000>,
+			<150 512 261438 2718822>,
+			<1 806 300000 1359411>,
 			/* Max. bandwidth */
 			<150 512 1338562 4096000>,
 			<1 806 1338562 4096000>;
@@ -2197,6 +2196,9 @@
 		qcom,ice-clk-rates = <300000000 75000000>;
 
 		qcom,scaling-lower-bus-speed-mode = "DDR52";
+
+		/* DLL HSR settings. Refer go/hsr - <Target> DLL settings */
+		qcom,dll-hsr-list = <0x000F642C 0x0 0x0 0x00010800 0x80040868>;
 
 		qcom,nonremovable;
 		status = "disabled";
@@ -2260,6 +2262,9 @@
 		clocks = <&clock_gcc GCC_SDCC2_AHB_CLK>,
 			<&clock_gcc GCC_SDCC2_APPS_CLK>;
 		clock-names = "iface_clk", "core_clk";
+
+		/* DLL HSR settings. Refer go/hsr - <Target> DLL settings */
+		qcom,dll-hsr-list = <0x0007642C 0x0 0x0 0x00010800 0x80040868>;
 
 		status = "disabled";
 	};

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -292,6 +292,7 @@ struct cpp_device {
 	struct msm_cpp_vbif_data *vbif_data;
 	bool turbo_vote;
 	struct cx_ipeak_client *cpp_cx_ipeak;
+	int cx_ipeak_bit;
 	enum cpp_iommu_fault_state fault_status;
 };
 

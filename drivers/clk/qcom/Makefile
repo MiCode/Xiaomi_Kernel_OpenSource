@@ -70,6 +70,7 @@ obj-$(CONFIG_MSM_VIDEOCC_SM6150) += videocc-sm6150.o
 obj-$(CONFIG_MSM_VIDEOCC_SM8150) += videocc-sm8150.o
 obj-$(CONFIG_QCOM_CLK_RPM) += clk-rpm.o
 obj-$(CONFIG_QCOM_CLK_SMD_RPM) += clk-smd-rpm.o
+obj-$(CONFIG_QCS_CMN_BLK_PLL) += cmn-blk-pll.o
 obj-$(CONFIG_SM_DEBUGCC_TRINKET) += debugcc-trinket.o
 obj-$(CONFIG_SM_DISPCC_TRINKET) += dispcc-trinket.o
 obj-$(CONFIG_SM_GCC_TRINKET) += gcc-trinket.o

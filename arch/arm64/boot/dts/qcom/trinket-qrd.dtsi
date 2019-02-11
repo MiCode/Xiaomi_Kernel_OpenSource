@@ -13,7 +13,9 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/iio/qcom,spmi-vadc.h>
 #include <dt-bindings/input/input.h>
+#include "trinket-thermal-overlay.dtsi"
 #include "trinket-sde-display.dtsi"
+#include "trinket-audio-overlay.dtsi"
 #include <dt-bindings/clock/qcom,gcc-trinket.h>
 
 &qupv3_se1_i2c {
@@ -62,15 +64,11 @@
 		reg = <0x20>;
 		interrupt-parent = <&tlmm>;
 		interrupts = <88 0x2008>;
-		vdd-supply = <&pm6125_l9>;
-		avdd-supply = <&pm6125_l21>;
 		pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
 					"pmx_ts_release";
 		pinctrl-0 = <&ts_int_active &ts_reset_active>;
 		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
 		pinctrl-2 = <&ts_release>;
-		synaptics,bus-reg-name = "vdd";
-		synaptics,pwr-reg-name = "avdd";
 		synaptics,irq-gpio = <&tlmm 88 0x2008>;
 		synaptics,irq-on-state = <0>;
 		synaptics,reset-gpio = <&tlmm 87 0x00>;
@@ -80,6 +78,27 @@
 		synaptics,power-delay-ms = <200>;
 		synaptics,ubl-i2c-addr = <0x20>;
 		synaptics,y-flip;
+	};
+};
+
+&qupv3_se1_i2c {
+	status = "ok";
+	qcom,clk-freq-out = <1000000>;
+	nq@28 {
+		compatible = "qcom,nq-nci";
+		reg = <0x28>;
+		qcom,nq-irq = <&tlmm 85 0x00>;
+		qcom,nq-ven = <&tlmm 83 0x00>;
+		qcom,nq-firm = <&tlmm 84 0x00>;
+		qcom,nq-clkreq = <&tlmm 95 0x00>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <85 0>;
+		interrupt-names = "nfc_irq";
+		pinctrl-names = "nfc_active", "nfc_suspend";
+		pinctrl-0 = <&nfc_int_active &nfc_enable_active
+				&nfc_clk_req_active>;
+		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend
+				&nfc_clk_req_suspend>;
 	};
 };
 
@@ -234,6 +253,8 @@
 
 	qcom,vddp-ref-clk-supply = <&pm6125_l18>;
 	qcom,vddp-ref-clk-max-microamp = <100>;
+	qcom,vddp-ref-clk-min-uV = <1200000>;
+	qcom,vddp-ref-clk-max-uV = <1232000>;
 
 	status = "ok";
 };
@@ -283,4 +304,44 @@
 
 &pm6125_pwm {
 	status = "ok";
+};
+
+&sm6150_snd {
+	status = "okay";
+	qcom,model = "trinket-qrd-snd-card";
+	qcom,audio-routing =
+		"AMIC1", "MIC BIAS1",
+		"MIC BIAS1", "Analog Mic1",
+		"AMIC2", "MIC BIAS2",
+		"MIC BIAS2", "Analog Mic2",
+		"AMIC3", "MIC BIAS3",
+		"MIC BIAS3", "Analog Mic3",
+		"TX_AIF1 CAP", "VA_MCLK",
+		"TX_AIF2 CAP", "VA_MCLK",
+		"RX AIF1 PB", "VA_MCLK",
+		"RX AIF2 PB", "VA_MCLK",
+		"RX AIF3 PB", "VA_MCLK",
+		"RX AIF4 PB", "VA_MCLK",
+		"HPHL_OUT", "VA_MCLK",
+		"HPHR_OUT", "VA_MCLK",
+		"AUX_OUT", "VA_MCLK",
+		"IN1_HPHL", "HPHL_OUT",
+		"IN2_HPHR", "HPHR_OUT",
+		"IN3_AUX", "AUX_OUT",
+		"TX SWR_ADC0", "ADC1_OUTPUT",
+		"TX SWR_ADC2", "ADC2_OUTPUT",
+		"TX SWR_ADC3", "ADC3_OUTPUT",
+		"SpkrLeft IN", "WSA_SPK1 OUT",
+		"WSA_SPK1 OUT", "VA_MCLK";
+		qcom,wsa-max-devs = <1>;
+		qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0213>;
+		qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrLeft";
+		qcom,msm-mbhc-hphl-swh = <1>;
+		qcom,msm-mbhc-gnd-swh = <1>;
+		asoc-codec  = <&stub_codec>, <&bolero>;
+		asoc-codec-names = "msm-stub-codec.1", "bolero_codec";
+		qcom,codec-max-aux-devs = <1>;
+		qcom,codec-aux-devs = <&wcd937x_codec>;
+		qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>,
+				<&bolero>;
 };

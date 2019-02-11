@@ -685,6 +685,7 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	struct ipa_ioc_rm_dependency rm_depend;
 	struct ipa_ioc_nat_dma_cmd *table_dma_cmd;
 	struct ipa_ioc_get_vlan_mode vlan_mode;
+	struct ipa_ioc_wigig_fst_switch fst_switch;
 	size_t sz;
 	int pre_entry;
 
@@ -1874,6 +1875,19 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 		break;
 
+	case IPA_IOC_WIGIG_FST_SWITCH:
+		IPADBG("Got IPA_IOCTL_WIGIG_FST_SWITCH\n");
+		if (copy_from_user(&fst_switch, (const void __user *)arg,
+			sizeof(struct ipa_ioc_wigig_fst_switch))) {
+			retval = -EFAULT;
+			break;
+		}
+		retval = ipa_wigig_send_msg(WIGIG_FST_SWITCH,
+			fst_switch.netdev_name,
+			fst_switch.client_mac_addr,
+			IPA_CLIENT_MAX,
+			fst_switch.to_wigig);
+		break;
 	default:
 		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 		return -ENOTTY;
@@ -5418,7 +5432,8 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 				ipa3_ctx->ctrl->msm_bus_data_ptr);
 		if (!ipa3_ctx->ipa_bus_hdl) {
 			IPAERR("fail to register with bus mgr!\n");
-			result = -ENODEV;
+			ipa3_ctx->ctrl->msm_bus_data_ptr = NULL;
+			result = -EPROBE_DEFER;
 			goto fail_bus_reg;
 		}
 	}
@@ -6861,6 +6876,10 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 	IPADBG("dev->of_node->name = %s\n", dev->of_node->name);
 
 	if (of_device_is_compatible(dev->of_node, "qcom,ipa-smmu-ap-cb")) {
+		if (ipa3_ctx == NULL) {
+			IPAERR("ipa3_ctx was not initialized\n");
+			return -EPROBE_DEFER;
+		}
 		cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_AP);
 		cb->dev = dev;
 		smmu_info.present[IPA_SMMU_CB_AP] = true;
@@ -6869,6 +6888,10 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 	}
 
 	if (of_device_is_compatible(dev->of_node, "qcom,ipa-smmu-wlan-cb")) {
+		if (ipa3_ctx == NULL) {
+			IPAERR("ipa3_ctx was not initialized\n");
+			return -EPROBE_DEFER;
+		}
 		cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_WLAN);
 		cb->dev = dev;
 		smmu_info.present[IPA_SMMU_CB_WLAN] = true;
@@ -6877,6 +6900,10 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 	}
 
 	if (of_device_is_compatible(dev->of_node, "qcom,ipa-smmu-uc-cb")) {
+		if (ipa3_ctx == NULL) {
+			IPAERR("ipa3_ctx was not initialized\n");
+			return -EPROBE_DEFER;
+		}
 		cb =  ipa3_get_smmu_ctx(IPA_SMMU_CB_UC);
 		cb->dev = dev;
 		smmu_info.present[IPA_SMMU_CB_UC] = true;

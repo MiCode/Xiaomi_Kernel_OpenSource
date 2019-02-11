@@ -351,7 +351,7 @@
 		interrupt-controller;
 		#interrupt-cells = <1>;
 		interrupt-parent = <&tlmm>;
-		qcom,gpio-connect = <&tlmm 118 0>;
+		qcom,gpio-connect = <&tlmm 110 0>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&wcd_intr_default>;
 	};
@@ -368,6 +368,8 @@
 		status = "disabled";
 		compatible = "qcom,audio-ref-clk";
 		#clock-cells = <1>;
+		qcom,codec-ext-clk-src = <AUDIO_LPASS_MCLK_1>;
+		clock-names = "osr_clk";
 		qcom,lpass-mclk-id = <0x116>;
 		qcom,codec-mclk-clk-freq = <11289600>;
 		qcom,audio-ref-clk-gpio = <&tlmm 112 0>;
@@ -379,12 +381,15 @@
 	clock_audio: audio_ext_clk {
 		status = "disabled";
 		compatible = "qcom,audio-ref-clk";
+		qcom,codec-ext-clk-src = <0>;
+		qcom,use-pinctrl = <1>;
 		pinctrl-names = "active", "sleep";
 		pinctrl-0 = <&tasha_mclk_default>;
 		pinctrl-1 = <&tasha_mclk_default>;
 		qcom,audio-ref-clk-gpio = <&pm6125_gpios 1 0>;
 		clock-names = "osr_clk";
 		clocks = <&pm6125_clkdiv>;
+		pmic-clock-names = "pm6125_div_clk1";
 		qcom,node_has_rpm_clock;
 		#clock-cells = <1>;
 	};
@@ -411,8 +416,8 @@
 		qcom,wcd-rst-gpio-node = <&wcd_rst_gpio>;
 
 		clock-names = "wcd_clk", "wcd_native_clk";
-		clocks = <&clock_audio AUDIO_PMI_CLK>,
-			 <&clock_audio_native AUDIO_LPASS_MCLK_1>;
+		clocks = <&clock_audio 0>,
+			 <&clock_audio_native 0>;
 
 		qcom,cdc-micbias1-mv = <1800>;
 		qcom,cdc-micbias2-mv = <1800>;
@@ -443,7 +448,7 @@
 					   "cdc-buck-sido",
 					   "cdc-vdd-tx-h",
 					   "cdc-vdd-rx-h",
-					   "cdc-vddpx-1";
+					   "cdc-vddio-1";
 
 		qcom,cdc-mclk-clk-rate = <9600000>;
 		qcom,cdc-slim-ifd = "tasha-slim-ifd";

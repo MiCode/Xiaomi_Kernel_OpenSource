@@ -1837,17 +1837,8 @@ void scheduler_ipi(void)
 	 */
 	preempt_fold_need_resched();
 
-	if (llist_empty(&this_rq()->wake_list) && !got_nohz_idle_kick()
-		&& !got_boost_kick())
+	if (llist_empty(&this_rq()->wake_list) && !got_nohz_idle_kick())
 		return;
-
-	if (got_boost_kick()) {
-		struct rq *rq = cpu_rq(cpu);
-
-		if (rq->curr->sched_class == &fair_sched_class)
-			check_for_migration(rq, rq->curr);
-		clear_boost_kick(cpu);
-	}
 
 	/*
 	 * Not all reschedule IPI handlers call irq_enter/irq_exit, since
@@ -6181,15 +6172,10 @@ int sched_cpu_activate(unsigned int cpu)
 
 #ifdef CONFIG_SCHED_SMT
 	/*
-	 * The sched_smt_present static key needs to be evaluated on every
-	 * hotplug event because at boot time SMT might be disabled when
-	 * the number of booted CPUs is limited.
-	 *
-	 * If then later a sibling gets hotplugged, then the key would stay
-	 * off and SMT scheduling would never be functional.
+	 * When going up, increment the number of cores with SMT present.
 	 */
-	if (cpumask_weight(cpu_smt_mask(cpu)) > 1)
-		static_branch_enable_cpuslocked(&sched_smt_present);
+	if (cpumask_weight(cpu_smt_mask(cpu)) == 2)
+		static_branch_inc_cpuslocked(&sched_smt_present);
 #endif
 	set_cpu_active(cpu, true);
 
@@ -6233,6 +6219,14 @@ int sched_cpu_deactivate(unsigned int cpu)
 	 * Do sync before park smpboot threads to take care the rcu boost case.
 	 */
 	synchronize_rcu_mult(call_rcu, call_rcu_sched);
+
+#ifdef CONFIG_SCHED_SMT
+	/*
+	 * When going down, decrement the number of cores with SMT present.
+	 */
+	if (cpumask_weight(cpu_smt_mask(cpu)) == 2)
+		static_branch_dec_cpuslocked(&sched_smt_present);
+#endif
 
 	if (!sched_smp_initialized)
 		return 0;
@@ -6908,8 +6902,8 @@ static void sched_update_down_migrate_values(int cap_margin_levels,
 	}
 }
 
-static int sched_update_updown_migrate_values(unsigned int *data,
-					int cap_margin_levels, int ret)
+static void sched_update_updown_migrate_values(unsigned int *data,
+					      int cap_margin_levels)
 {
 	int i, cpu;
 	static const struct cpumask *cluster_cpus[MAX_CLUSTERS];
@@ -6921,15 +6915,10 @@ static int sched_update_updown_migrate_values(unsigned int *data,
 	}
 
 	if (data == &sysctl_sched_capacity_margin_up[0])
-		sched_update_up_migrate_values(cap_margin_levels,
-							cluster_cpus);
-	else if (data == &sysctl_sched_capacity_margin_down[0])
-		sched_update_down_migrate_values(cap_margin_levels,
-							cluster_cpus);
+		sched_update_up_migrate_values(cap_margin_levels, cluster_cpus);
 	else
-		ret = -EINVAL;
-
-	return ret;
+		sched_update_down_migrate_values(cap_margin_levels,
+						 cluster_cpus);
 }
 
 int sched_updown_migrate_handler(struct ctl_table *table, int write,
@@ -6955,6 +6944,16 @@ int sched_updown_migrate_handler(struct ctl_table *table, int write,
 		goto unlock_mutex;
 	}
 
+	if (!write) {
+		ret = proc_douintvec_capacity(table, write, buffer, lenp, ppos);
+		goto unlock_mutex;
+	}
+
+	/*
+	 * Cache the old values so that they can be restored
+	 * if either the write fails (for example out of range values)
+	 * or the downmigrate and upmigrate are not in sync.
+	 */
 	old_val = kzalloc(table->maxlen, GFP_KERNEL);
 	if (!old_val) {
 		ret = -ENOMEM;
@@ -6965,19 +6964,22 @@ int sched_updown_migrate_handler(struct ctl_table *table, int write,
 
 	ret = proc_douintvec_capacity(table, write, buffer, lenp, ppos);
 
-	if (!ret && write) {
-		for (i = 0; i < cap_margin_levels; i++) {
-			if (sysctl_sched_capacity_margin_up[i] >
-					sysctl_sched_capacity_margin_down[i]) {
-				memcpy(data, old_val, table->maxlen);
-				ret = -EINVAL;
-				goto free_old_val;
-			}
-		}
-
-		ret = sched_update_updown_migrate_values(data,
-						cap_margin_levels, ret);
+	if (ret) {
+		memcpy(data, old_val, table->maxlen);
+		goto free_old_val;
 	}
+
+	for (i = 0; i < cap_margin_levels; i++) {
+		if (sysctl_sched_capacity_margin_up[i] >
+				sysctl_sched_capacity_margin_down[i]) {
+			memcpy(data, old_val, table->maxlen);
+			ret = -EINVAL;
+			goto free_old_val;
+		}
+	}
+
+	sched_update_updown_migrate_values(data, cap_margin_levels);
+
 free_old_val:
 	kfree(old_val);
 unlock_mutex:

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -577,15 +577,16 @@ static int32_t msm_sensor_get_power_down_settings(void *setting,
 				kfree(pd);
 				return -EFAULT;
 			}
-		}
+		} else
 #endif
-		if (copy_from_user(
-			pd, (void __user *)slave_info->power_setting_array
-			.power_down_setting, sizeof(*pd) * size_down)) {
-			pr_err("failed: copy_from_user");
-			kfree(pd);
-			return -EFAULT;
-		}
+			if (copy_from_user(pd,
+				(void __user *)slave_info->power_setting_array
+				.power_down_setting,
+				sizeof(*pd) * size_down)) {
+				pr_err("failed: copy_from_user");
+				kfree(pd);
+				return -EFAULT;
+			}
 	} else {
 
 		rc = msm_sensor_create_pd_settings(setting, pd, size_down,

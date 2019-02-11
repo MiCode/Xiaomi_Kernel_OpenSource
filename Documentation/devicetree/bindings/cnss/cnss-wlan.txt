@@ -14,6 +14,7 @@ Required properties:
   - compatible: "qcom,cnss" for QCA6174 device
                 "qcom,cnss-qca6290" for QCA6290 device
                 "qcom,cnss-qca6390" for QCA6390 device
+                "qcom,cnss-qca-converged" for converged QCA devices
   - wlan-en-gpio: WLAN_EN GPIO signal specified by the chip specifications
   - vdd-wlan-supply: phandle to the regulator device tree node
   - pinctrl-names: Names corresponding to the numbered pinctrl states
@@ -63,6 +64,24 @@ Optional properties:
                        specifications, should be drived depending on products.
   - cnss-daemon-support: Boolean property to decide whether cnss_daemon
                          userspace QMI client is supported.
+  - qcom,converged-dt: Boolean property to decide whether it supports multiple
+                       chips.
+  - qcom,bus-type: U32 property to specify the bus type, is required when
+                   'qcom,converged-dt' being present.
+  - wlan_vregs: String array to decide which vregs are required, is required
+                when 'qcom,converged-dt' being present.
+  - <supply-name>-supply: phandle to the regulator device tree node.
+                          optional "supply-name" is "vdd-wlan-rfa".
+  - qcom,<supply-name>-info: Specifies configuration for supply. Should be
+                             specified in <min_uV max_uV load_uA delay_us>.
+
+List of chip specific sub nodes:
+  - chip_cfg@X: represent chip specific configurations
+    Each sub node has the following required properties:
+       - wlan_vregs: String array to decide which vregs are required, property
+                     being present but no values means no additional vregs.
+       - supported-ids: U32 array to decide which device ids are supported by
+                        sub node.
 
 Example:
 
@@ -81,4 +100,28 @@ Example:
         qcom,wlan-smmu-iova-address = <0 0x10000000>;
         qcom,mhi = <&mhi_wlan>;
         qcom,cap-tsf-gpio = <&tlmm 126 1>;
+    };
+
+    qcom,cnss-qca-converged {
+        compatible = "qcom,cnss-qca-converged";
+        qcom,converged-dt;
+        qcom,bus-type=<0>;
+
+        vdd-wlan-ctrl1-supply = <&vreg_conn_pa>;
+        vdd-wlan-ctrl2-supply = <&vreg_conn_1p8>;
+        vdd-wlan-supply = <&vreg_wlan>;
+        wlan_vregs = "vdd-wlan-ctrl1", "vdd-wlan-ctrl2";
+        qcom,vdd-wlan-ctrl1-info = <0 0 0 0>;
+        qcom,vdd-wlan-ctrl2-info = <0 0 0 0>;
+        wlan-en-gpio = <&tlmm 169 0>;
+        pinctrl-names = "wlan_en_active", "wlan_en_sleep";
+        pinctrl-0 = <&cnss_wlan_en_active>;
+        pinctrl-1 = <&cnss_wlan_en_sleep>;
+        qcom,wlan-rc-num = <0>;
+
+        chip_cfg@1 {
+                supported-ids = <0x003e>;
+                wlan_vregs = "vdd-wlan";
+                qcom,vdd-wlan-info = <0 0 0 10>;
+        };
     };
