@@ -42,7 +42,7 @@ bool rx_large_buf;
 module_param(rx_large_buf, bool, 0444);
 MODULE_PARM_DESC(rx_large_buf, " allocate 8KB RX buffers, default - no");
 
-static bool drop_if_ring_full;
+bool drop_if_ring_full;
 module_param(drop_if_ring_full, bool, 0444);
 MODULE_PARM_DESC(drop_if_ring_full,
 		 " drop Tx packets in case tx ring is full");

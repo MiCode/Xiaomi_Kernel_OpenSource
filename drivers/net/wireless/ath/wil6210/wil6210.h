@@ -36,6 +36,7 @@ extern bool rx_align_2;
 extern bool rx_large_buf;
 extern bool debug_fw;
 extern bool disable_ap_sme;
+extern bool drop_if_ring_full;
 
 #define WIL_NAME "wil6210"
 
@@ -813,6 +814,9 @@ struct wil6210_priv {
 		short direct;
 	} snr_thresh;
 
+	/* VR profile, VR is disabled on profile 0 */
+	u8 vr_profile;
+
 	int fw_calib_result;
 	/* current reg domain configured in kernel */
 	char regdomain[3]; /* alpha2 */
@@ -958,6 +962,7 @@ void wil_refresh_fw_capabilities(struct wil6210_priv *wil);
 void wil_mbox_ring_le2cpus(struct wil6210_mbox_ring *r);
 int wil_find_cid(struct wil6210_priv *wil, const u8 *mac);
 void wil_set_ethtoolops(struct net_device *ndev);
+int wil_vr_update_profile(struct wil6210_priv *wil, u8 profile);
 
 struct fw_map *wil_find_fw_mapping(const char *section);
 void __iomem *wmi_buffer_block(struct wil6210_priv *wil, __le32 ptr, u32 size);
@@ -1124,6 +1129,10 @@ void wil_halp_vote(struct wil6210_priv *wil);
 void wil_halp_unvote(struct wil6210_priv *wil);
 void wil6210_set_halp(struct wil6210_priv *wil);
 void wil6210_clear_halp(struct wil6210_priv *wil);
+
+int wmi_set_vr_profile(struct wil6210_priv *wil, u8 profile);
+const char *
+wil_get_vr_profile_name(enum wmi_vr_profile profile);
 
 void wil_ftm_init(struct wil6210_priv *wil);
 void wil_ftm_deinit(struct wil6210_priv *wil);
