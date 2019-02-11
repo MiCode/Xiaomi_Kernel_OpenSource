@@ -199,6 +199,10 @@ struct msm_vidc_platform_resources {
 	bool dcvs;
 	struct msm_vidc_codec_data *codec_data;
 	int codec_data_count;
+	struct msm_vidc_codec *codecs;
+	uint32_t codecs_count;
+	struct msm_vidc_codec_capability *codec_caps;
+	uint32_t codec_caps_count;
 	struct msm_vidc_csc_coeff *csc_coeff_data;
 	struct msm_vidc_mem_cdsp mem_cdsp;
 	uint32_t vpu_ver;

@@ -766,6 +766,10 @@ int read_platform_resources_from_drv_data(
 	platform_data = core->platform_data;
 	res = &core->resources;
 
+	res->codecs = platform_data->codecs;
+	res->codecs_count = platform_data->codecs_count;
+	res->codec_caps = platform_data->codec_caps;
+	res->codec_caps_count = platform_data->codec_caps_count;
 	res->codec_data_count = platform_data->codec_data_length;
 	res->codec_data = platform_data->codec_data;
 

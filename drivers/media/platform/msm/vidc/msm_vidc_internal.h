@@ -202,6 +202,21 @@ struct msm_vidc_codec_data {
 	int low_power_cycles;
 };
 
+struct msm_vidc_codec_capability {
+	enum hal_capability capability_type;
+	enum hal_domain domains;
+	enum hal_video_codec codecs;
+	u32 min;
+	u32 max;
+	u32 step_size;
+	u32 default_value;
+};
+
+struct msm_vidc_codec {
+	enum hal_domain domain;
+	enum hal_video_codec codec;
+};
+
 enum efuse_purpose {
 	SKU_VERSION = 0,
 };
@@ -248,6 +263,10 @@ struct msm_vidc_platform_data {
 	unsigned int common_data_length;
 	struct msm_vidc_codec_data *codec_data;
 	unsigned int codec_data_length;
+	struct msm_vidc_codec *codecs;
+	uint32_t codecs_count;
+	struct msm_vidc_codec_capability *codec_caps;
+	uint32_t codec_caps_count;
 	struct msm_vidc_csc_coeff csc_data;
 	struct msm_vidc_efuse_data *efuse_data;
 	unsigned int efuse_data_length;
@@ -412,9 +431,6 @@ struct msm_vidc_core {
 	struct completion completions[SYS_MSG_END - SYS_MSG_START + 1];
 	enum msm_vidc_hfi_type hfi_type;
 	struct msm_vidc_platform_resources resources;
-	u32 enc_codec_supported;
-	u32 dec_codec_supported;
-	u32 codec_count;
 	struct msm_vidc_capability *capabilities;
 	struct delayed_work fw_unload_work;
 	struct work_struct ssr_work;

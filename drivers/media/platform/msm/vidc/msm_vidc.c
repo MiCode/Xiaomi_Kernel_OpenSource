@@ -122,94 +122,37 @@ int msm_vidc_enum_fmt(void *instance, struct v4l2_fmtdesc *f)
 }
 EXPORT_SYMBOL(msm_vidc_enum_fmt);
 
-static void msm_vidc_ctrl_get_range(struct v4l2_queryctrl *ctrl,
-	struct hal_capability_supported *capability)
-
+int msm_vidc_query_ctrl(void *instance, struct v4l2_queryctrl *q_ctrl)
 {
-	ctrl->maximum = capability->max;
-	ctrl->minimum = capability->min;
-}
-
-int msm_vidc_query_ctrl(void *instance, struct v4l2_queryctrl *ctrl)
-{
+	int rc = 0;
 	struct msm_vidc_inst *inst = instance;
-	struct hal_profile_level_supported *prof_lev_supp;
-	struct hal_profile_level *prof_lev;
-	int rc = 0, profile_mask = 0, v4l2_prof_value = 0;
-	unsigned int i = 0, max_level = 0;
+	struct v4l2_ctrl *ctrl;
 
-	if (!inst || !ctrl)
+	if (!inst || !q_ctrl) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
 		return -EINVAL;
-
-	switch (ctrl->id) {
-	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L0_BR:
-	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L1_BR:
-	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L2_BR:
-	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L3_BR:
-	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L4_BR:
-	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L5_BR:
-	case  V4L2_CID_MPEG_VIDEO_BITRATE:
-		msm_vidc_ctrl_get_range(ctrl, &inst->capability.bitrate);
-		break;
-	case V4L2_CID_MPEG_VIDEO_B_FRAMES:
-		msm_vidc_ctrl_get_range(ctrl, &inst->capability.bframe);
-		break;
-	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB:
-		msm_vidc_ctrl_get_range(ctrl, &inst->capability.slice_mbs);
-		break;
-	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES:
-		msm_vidc_ctrl_get_range(ctrl, &inst->capability.slice_bytes);
-		break;
-	case V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE:
-		msm_vidc_ctrl_get_range(ctrl, &inst->capability.frame_rate);
-		break;
-	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
-	case V4L2_CID_MPEG_VIDEO_HEVC_PROFILE:
-	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_PROFILE:
-	case V4L2_CID_MPEG_VIDEO_VP9_PROFILE:
-	{
-		prof_lev_supp = &inst->capability.profile_level;
-		for (i = 0; i < prof_lev_supp->profile_count; i++) {
-			v4l2_prof_value = msm_comm_hfi_to_v4l2(ctrl->id,
-				prof_lev_supp->profile_level[i].profile);
-			if (v4l2_prof_value == -EINVAL) {
-				dprintk(VIDC_WARN, "Invalid profile");
-				rc = -EINVAL;
-			}
-			profile_mask |= (1 << v4l2_prof_value);
-		}
-		ctrl->flags = profile_mask;
-		break;
 	}
-	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
-	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
-	case V4L2_CID_MPEG_VIDEO_HEVC_LEVEL:
-	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_LEVEL:
-	case V4L2_CID_MPEG_VIDC_VIDEO_VP9_LEVEL:
-	{
-		prof_lev_supp = &inst->capability.profile_level;
-		for (i = 0; i < prof_lev_supp->profile_count; i++) {
-			prof_lev = &prof_lev_supp->profile_level[i];
-			if (max_level < prof_lev->level)
-				max_level = prof_lev->level;
-		}
 
-		if (ctrl->id == V4L2_CID_MPEG_VIDEO_HEVC_LEVEL)
-			max_level &= ~(0xF << 28);
+	ctrl = v4l2_ctrl_find(&inst->ctrl_handler, q_ctrl->id);
+	if (!ctrl) {
+		dprintk(VIDC_ERR, "%s: get_ctrl failed for id %d\n",
+			__func__, q_ctrl->id);
+		return -EINVAL;
+	}
+	q_ctrl->minimum = ctrl->minimum;
+	q_ctrl->maximum = ctrl->maximum;
+	/* remove tier info for HEVC level */
+	if (q_ctrl->id == V4L2_CID_MPEG_VIDEO_HEVC_LEVEL) {
+		q_ctrl->minimum &= ~(0xF << 28);
+		q_ctrl->maximum &= ~(0xF << 28);
+	}
+	if (ctrl->type == V4L2_CTRL_TYPE_MENU)
+		q_ctrl->flags = ~(ctrl->menu_skip_mask);
+	else
+		q_ctrl->flags = 0;
 
-		ctrl->maximum = msm_comm_hfi_to_v4l2(ctrl->id, max_level);
-		if (ctrl->maximum == -EINVAL) {
-			dprintk(VIDC_WARN, "Invalid max level");
-			rc = -EINVAL;
-		}
-		break;
-	}
-	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_LAYER:
-		msm_vidc_ctrl_get_range(ctrl, &inst->capability.hier_p);
-		break;
-	default:
-		rc = -EINVAL;
-	}
+	dprintk(VIDC_DBG, "query ctrl: %s: min %d, max %d, flags %#x\n",
+		ctrl->name, q_ctrl->minimum, q_ctrl->maximum, q_ctrl->flags);
 	return rc;
 }
 EXPORT_SYMBOL(msm_vidc_query_ctrl);
@@ -599,12 +542,14 @@ int msm_vidc_enum_framesizes(void *instance, struct v4l2_frmsizeenum *fsize)
 
 	capability = &inst->capability;
 	fsize->type = V4L2_FRMSIZE_TYPE_STEPWISE;
-	fsize->stepwise.min_width = capability->width.min;
-	fsize->stepwise.max_width = capability->width.max;
-	fsize->stepwise.step_width = capability->width.step_size;
-	fsize->stepwise.min_height = capability->height.min;
-	fsize->stepwise.max_height = capability->height.max;
-	fsize->stepwise.step_height = capability->height.step_size;
+	fsize->stepwise.min_width = capability->cap[CAP_FRAME_WIDTH].min;
+	fsize->stepwise.max_width = capability->cap[CAP_FRAME_WIDTH].max;
+	fsize->stepwise.step_width =
+		capability->cap[CAP_FRAME_WIDTH].step_size;
+	fsize->stepwise.min_height = capability->cap[CAP_FRAME_HEIGHT].min;
+	fsize->stepwise.max_height = capability->cap[CAP_FRAME_HEIGHT].max;
+	fsize->stepwise.step_height =
+		capability->cap[CAP_FRAME_HEIGHT].step_size;
 	return 0;
 }
 EXPORT_SYMBOL(msm_vidc_enum_framesizes);
@@ -1550,10 +1495,6 @@ static int try_get_ctrl_for_instance(struct msm_vidc_inst *inst,
 		ctrl->val = bufreq->buffer_count_min_host;
 		dprintk(VIDC_DBG, "g_min: %x : hal_buffer %d min buffers %d\n",
 			hash32_ptr(inst->session), HAL_BUFFER_INPUT, ctrl->val);
-		break;
-	case V4L2_CID_MPEG_VIDEO_HEVC_SIZE_OF_LENGTH_FIELD:
-		ctrl->val =
-		inst->capability.nal_stream_format.nal_stream_format_supported;
 		break;
 	default:
 		/*

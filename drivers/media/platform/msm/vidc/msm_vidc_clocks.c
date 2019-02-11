@@ -1696,7 +1696,7 @@ int msm_vidc_decide_core_and_power_mode(struct msm_vidc_inst *inst)
 	 * with min load. This ensures that this core is selected and
 	 * video session is set to run on the enabled core.
 	 */
-	if (inst->capability.max_video_cores.max <= VIDC_CORE_ID_1) {
+	if (inst->capability.cap[CAP_MAX_VIDEOCORES].max <= VIDC_CORE_ID_1) {
 		min_core_id = min_lp_core_id = VIDC_CORE_ID_1;
 		min_load = core0_load;
 		min_lp_load = core0_lp_load;
@@ -1723,7 +1723,8 @@ int msm_vidc_decide_core_and_power_mode(struct msm_vidc_inst *inst)
 
 	/* Try for preferred core based on settings. */
 	if (inst->session_type == MSM_VIDC_ENCODER && hier_mode &&
-		inst->capability.max_video_cores.max >= VIDC_CORE_ID_3) {
+		inst->capability.cap[CAP_MAX_VIDEOCORES].max >=
+			VIDC_CORE_ID_3) {
 		if (current_inst_load / 2 + core0_load <= max_freq &&
 			current_inst_load / 2 + core1_load <= max_freq) {
 			if (inst->clk_data.work_mode == HFI_WORKMODE_2) {
@@ -1735,7 +1736,8 @@ int msm_vidc_decide_core_and_power_mode(struct msm_vidc_inst *inst)
 	}
 
 	if (inst->session_type == MSM_VIDC_ENCODER && hier_mode &&
-		inst->capability.max_video_cores.max >= VIDC_CORE_ID_3) {
+		inst->capability.cap[CAP_MAX_VIDEOCORES].max >=
+			VIDC_CORE_ID_3) {
 		if (current_inst_lp_load / 2 +
 				core0_lp_load <= max_freq &&
 			current_inst_lp_load / 2 +

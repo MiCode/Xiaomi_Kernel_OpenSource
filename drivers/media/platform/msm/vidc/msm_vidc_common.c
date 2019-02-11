@@ -998,20 +998,69 @@ struct buf_queue *msm_comm_get_vb2q(
 	return NULL;
 }
 
+static void update_capability(struct msm_vidc_codec_capability *in,
+		struct msm_vidc_capability *capability)
+{
+	if (!in || !capability) {
+		dprintk(VIDC_ERR, "%s Invalid params\n", __func__);
+		return;
+	}
+
+	if (in->capability_type < CAP_MAX) {
+		capability->cap[in->capability_type].capability_type =
+				in->capability_type;
+		capability->cap[in->capability_type].min = in->min;
+		capability->cap[in->capability_type].max = in->max;
+		capability->cap[in->capability_type].step_size = in->step_size;
+		capability->cap[in->capability_type].default_value =
+				in->default_value;
+	} else {
+		dprintk(VIDC_ERR, "%s: invalid capability_type %d\n",
+			__func__, in->capability_type);
+	}
+}
+
+static int msm_vidc_capabilities(struct msm_vidc_core *core)
+{
+	int rc = 0;
+	struct msm_vidc_codec_capability *platform_caps;
+	int i, j, num_platform_caps;
+
+	if (!core || !core->capabilities) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+	platform_caps = core->resources.codec_caps;
+	num_platform_caps = core->resources.codec_caps_count;
+
+	dprintk(VIDC_DBG, "%s: num caps %d\n", __func__, num_platform_caps);
+	/* loop over each platform capability */
+	for (i = 0; i < num_platform_caps; i++) {
+		/* select matching core codec and update it */
+		for (j = 0; j < core->resources.codecs_count; j++) {
+			if ((platform_caps[i].domains &
+				core->capabilities[j].domain) &&
+				(platform_caps[i].codecs &
+				core->capabilities[j].codec)) {
+				/* update core capability */
+				update_capability(&platform_caps[i],
+					&core->capabilities[j]);
+			}
+		}
+	}
+
+	return rc;
+}
+
 static void handle_sys_init_done(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_core *core;
-	struct vidc_hal_sys_init_done *sys_init_msg;
-	u32 index;
 
 	if (!IS_HAL_SYS_CMD(cmd)) {
 		dprintk(VIDC_ERR, "%s - invalid cmd\n", __func__);
 		return;
 	}
-
-	index = SYS_MSG_INDEX(cmd);
-
 	if (!response) {
 		dprintk(VIDC_ERR,
 			"Failed to get valid response for sys init\n");
@@ -1022,41 +1071,8 @@ static void handle_sys_init_done(enum hal_command_response cmd, void *data)
 		dprintk(VIDC_ERR, "Wrong device_id received\n");
 		return;
 	}
-	sys_init_msg = &response->data.sys_init_done;
-	if (!sys_init_msg) {
-		dprintk(VIDC_ERR, "sys_init_done message not proper\n");
-		return;
-	}
-
-	core->enc_codec_supported = sys_init_msg->enc_codec_supported;
-	core->dec_codec_supported = sys_init_msg->dec_codec_supported;
-
-	/* This should come from sys_init_done */
-	core->resources.max_inst_count =
-		sys_init_msg->max_sessions_supported ?
-		min_t(u32, sys_init_msg->max_sessions_supported,
-		MAX_SUPPORTED_INSTANCES) : MAX_SUPPORTED_INSTANCES;
-
-	core->resources.max_secure_inst_count =
-		core->resources.max_secure_inst_count ?
-		core->resources.max_secure_inst_count :
-		core->resources.max_inst_count;
-
-	if (core->id == MSM_VIDC_CORE_VENUS &&
-		(core->dec_codec_supported & HAL_VIDEO_CODEC_H264))
-		core->dec_codec_supported |=
-			HAL_VIDEO_CODEC_MVC;
-
-	core->codec_count = sys_init_msg->codec_count;
-	memcpy(core->capabilities, sys_init_msg->capabilities,
-		sys_init_msg->codec_count * sizeof(struct msm_vidc_capability));
-
-	dprintk(VIDC_DBG,
-		"%s: supported_codecs[%d]: enc = %#x, dec = %#x\n",
-		__func__, core->codec_count, core->enc_codec_supported,
-		core->dec_codec_supported);
-
-	complete(&(core->completions[index]));
+	dprintk(VIDC_DBG, "%s: core %pK\n", __func__, core);
+	complete(&(core->completions[SYS_MSG_INDEX(cmd)]));
 }
 
 static void put_inst_helper(struct kref *kref)
@@ -1300,33 +1316,51 @@ static void print_cap(const char *type,
 		struct hal_capability_supported *cap)
 {
 	dprintk(VIDC_DBG,
-		"%-24s: %-8d %-8d %-8d\n",
-		type, cap->min, cap->max, cap->step_size);
+		"%-24s: %-10d %-10d %-10d %-10d\n",
+		type, cap->min, cap->max, cap->step_size, cap->default_value);
 }
 
 static int msm_vidc_comm_update_ctrl(struct msm_vidc_inst *inst,
-	u32 id, struct hal_capability_supported *capability)
+	u32 id, struct hal_capability_supported *cap)
 {
 	struct v4l2_ctrl *ctrl = NULL;
 	int rc = 0;
 
 	ctrl = v4l2_ctrl_find(&inst->ctrl_handler, id);
-	if (ctrl) {
-		v4l2_ctrl_modify_range(ctrl, capability->min,
-				capability->max, ctrl->step,
-				ctrl->default_value);
-		dprintk(VIDC_DBG,
-			"%s: Updated Range = %lld --> %lld Def value = %lld\n",
-			ctrl->name, ctrl->minimum, ctrl->maximum,
-			ctrl->default_value);
-	} else {
+	if (!ctrl) {
 		dprintk(VIDC_ERR,
-			"Failed to find Conrol %d\n", id);
-		rc = -EINVAL;
+			"%s: Conrol id %d not found\n", __func__, id);
+		return -EINVAL;
 	}
 
-	return rc;
+	rc = v4l2_ctrl_modify_range(ctrl, cap->min, cap->max,
+			cap->step_size, cap->default_value);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"%s: failed: control name %s, min %d, max %d, step %d, default_value %d\n",
+			__func__, ctrl->name, cap->min, cap->max,
+			cap->step_size, cap->default_value);
+		goto error;
 	}
+	/*
+	 * v4l2_ctrl_modify_range() is not updating default_value,
+	 * so use v4l2_ctrl_s_ctrl() to update it.
+	 */
+	rc = v4l2_ctrl_s_ctrl(ctrl, cap->default_value);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"%s: failed s_ctrl: %s with value %d\n",
+			__func__, ctrl->name, cap->default_value);
+		goto error;
+	}
+	dprintk(VIDC_DBG,
+		"Updated control: %s: min %lld, max %lld, step %lld, default value = %lld\n",
+		ctrl->name, ctrl->minimum, ctrl->maximum,
+		ctrl->step, ctrl->default_value);
+
+error:
+	return rc;
+}
 
 static void msm_vidc_comm_update_ctrl_limits(struct msm_vidc_inst *inst)
 {
@@ -1335,52 +1369,28 @@ static void msm_vidc_comm_update_ctrl_limits(struct msm_vidc_inst *inst)
 			HAL_VIDEO_CODEC_TME)
 			return;
 		msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDEO_BITRATE,
-				&inst->capability.bitrate);
-		msm_vidc_comm_update_ctrl(inst,
-				V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L0_BR,
-				&inst->capability.bitrate);
-		msm_vidc_comm_update_ctrl(inst,
-				V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L1_BR,
-				&inst->capability.bitrate);
-		msm_vidc_comm_update_ctrl(inst,
-				V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L2_BR,
-				&inst->capability.bitrate);
-		msm_vidc_comm_update_ctrl(inst,
-				V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L3_BR,
-				&inst->capability.bitrate);
-		msm_vidc_comm_update_ctrl(inst,
-				V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L4_BR,
-				&inst->capability.bitrate);
-		msm_vidc_comm_update_ctrl(inst,
-				V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L5_BR,
-				&inst->capability.bitrate);
+				&inst->capability.cap[CAP_BITRATE]);
 		msm_vidc_comm_update_ctrl(inst,
 				V4L2_CID_MPEG_VIDEO_HEVC_I_FRAME_QP,
-				&inst->capability.i_qp);
+				&inst->capability.cap[CAP_I_FRAME_QP]);
 		msm_vidc_comm_update_ctrl(inst,
 				V4L2_CID_MPEG_VIDEO_HEVC_P_FRAME_QP,
-				&inst->capability.p_qp);
+				&inst->capability.cap[CAP_P_FRAME_QP]);
 		msm_vidc_comm_update_ctrl(inst,
 				V4L2_CID_MPEG_VIDEO_HEVC_B_FRAME_QP,
-				&inst->capability.b_qp);
-		msm_vidc_comm_update_ctrl(inst,
-				V4L2_CID_MPEG_VIDEO_HEVC_MIN_QP,
-				&inst->capability.i_qp);
-		msm_vidc_comm_update_ctrl(inst,
-				V4L2_CID_MPEG_VIDEO_HEVC_MAX_QP,
-				&inst->capability.i_qp);
+				&inst->capability.cap[CAP_B_FRAME_QP]);
 		msm_vidc_comm_update_ctrl(inst,
 				V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES,
-				&inst->capability.slice_bytes);
+				&inst->capability.cap[CAP_SLICE_BYTE]);
 		msm_vidc_comm_update_ctrl(inst,
 				V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB,
-				&inst->capability.slice_mbs);
+				&inst->capability.cap[CAP_SLICE_MB]);
 		msm_vidc_comm_update_ctrl(inst,
 				V4L2_CID_MPEG_VIDC_VIDEO_LTRCOUNT,
-				&inst->capability.ltr_count);
+				&inst->capability.cap[CAP_LTR_COUNT]);
 		msm_vidc_comm_update_ctrl(inst,
 				V4L2_CID_MPEG_VIDEO_B_FRAMES,
-				&inst->capability.bframe);
+				&inst->capability.cap[CAP_BFRAME]);
 	}
 }
 
@@ -1389,9 +1399,7 @@ static void handle_session_init_done(enum hal_command_response cmd, void *data)
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst = NULL;
 	struct msm_vidc_capability *capability = NULL;
-	struct hfi_device *hdev;
 	struct msm_vidc_core *core;
-	struct hal_profile_level *profile_level;
 	u32 i, codec;
 
 	if (!response) {
@@ -1412,14 +1420,7 @@ static void handle_session_init_done(enum hal_command_response cmd, void *data)
 		dprintk(VIDC_ERR,
 			"Session init response from FW : %#x\n",
 			response->status);
-		if (response->status == VIDC_ERR_MAX_CLIENTS)
-			msm_comm_generate_max_clients_error(inst);
-		else
-			msm_comm_generate_session_error(inst);
-
-		signal_session_msg_receipt(cmd, inst);
-		put_inst(inst);
-		return;
+		goto error;
 	}
 
 	if (inst->session_type == MSM_VIDC_CVP) {
@@ -1431,13 +1432,11 @@ static void handle_session_init_done(enum hal_command_response cmd, void *data)
 	}
 
 	core = inst->core;
-	hdev = inst->core->device;
 	codec = inst->session_type == MSM_VIDC_DECODER ?
 			inst->fmts[OUTPUT_PORT].fourcc :
 			inst->fmts[CAPTURE_PORT].fourcc;
 
-	/* check if capabilities are available for this session */
-	for (i = 0; i < VIDC_MAX_SESSIONS; i++) {
+	for (i = 0; i < core->resources.codecs_count; i++) {
 		if (core->capabilities[i].codec ==
 				get_hal_codec(codec) &&
 			core->capabilities[i].domain ==
@@ -1446,77 +1445,54 @@ static void handle_session_init_done(enum hal_command_response cmd, void *data)
 			break;
 		}
 	}
-
-	if (capability) {
-		dprintk(VIDC_DBG,
-			"%s: capabilities for codec 0x%x, domain %#x\n",
-			__func__, capability->codec, capability->domain);
-		memcpy(&inst->capability, capability,
-			sizeof(struct msm_vidc_capability));
-	} else {
+	if (!capability) {
 		dprintk(VIDC_ERR,
-			"Watch out : Some property may fail inst %pK\n", inst);
-		dprintk(VIDC_ERR,
-			"Caps N/A for codec 0x%x, domain %#x\n",
-			inst->capability.codec, inst->capability.domain);
+			"%s: capabilities not found for domain %#x codec %#x\n",
+			__func__, get_hal_domain(inst->session_type),
+			get_hal_codec(codec));
+		goto error;
 	}
-	inst->capability.pixelprocess_capabilities =
-		call_hfi_op(hdev, get_core_capabilities, hdev->hfi_device_data);
 
 	dprintk(VIDC_DBG,
-		"Capability type : min      max      step size\n");
-	print_cap("width", &inst->capability.width);
-	print_cap("height", &inst->capability.height);
-	print_cap("mbs_per_frame", &inst->capability.mbs_per_frame);
-	print_cap("mbs_per_sec", &inst->capability.mbs_per_sec);
-	print_cap("frame_rate", &inst->capability.frame_rate);
-	print_cap("bitrate", &inst->capability.bitrate);
-	print_cap("scale_x", &inst->capability.scale_x);
-	print_cap("scale_y", &inst->capability.scale_y);
-	print_cap("hier_p", &inst->capability.hier_p);
-	print_cap("ltr_count", &inst->capability.ltr_count);
-	print_cap("bframe", &inst->capability.bframe);
-	print_cap("secure_output2_threshold",
-		&inst->capability.secure_output2_threshold);
-	print_cap("hier_b", &inst->capability.hier_b);
-	print_cap("lcu_size", &inst->capability.lcu_size);
-	print_cap("hier_p_hybrid", &inst->capability.hier_p_hybrid);
+		"%s: capabilities for domain %#x codec %#x\n",
+		__func__, capability->domain, capability->codec);
+	memcpy(&inst->capability, capability,
+			sizeof(struct msm_vidc_capability));
+
+	dprintk(VIDC_DBG,
+		"Capability type :         min        max        step_size  default_value\n");
+	print_cap("width", &inst->capability.cap[CAP_FRAME_WIDTH]);
+	print_cap("height", &inst->capability.cap[CAP_FRAME_HEIGHT]);
+	print_cap("mbs_per_frame", &inst->capability.cap[CAP_MBS_PER_FRAME]);
+	print_cap("mbs_per_sec", &inst->capability.cap[CAP_MBS_PER_SECOND]);
+	print_cap("frame_rate", &inst->capability.cap[CAP_FRAMERATE]);
+	print_cap("bitrate", &inst->capability.cap[CAP_BITRATE]);
+	print_cap("scale_x", &inst->capability.cap[CAP_SCALE_X]);
+	print_cap("scale_y", &inst->capability.cap[CAP_SCALE_Y]);
+	print_cap("hier_p", &inst->capability.cap[CAP_HIER_P_NUM_ENH_LAYERS]);
+	print_cap("ltr_count", &inst->capability.cap[CAP_LTR_COUNT]);
+	print_cap("bframe", &inst->capability.cap[CAP_BFRAME]);
 	print_cap("mbs_per_sec_low_power",
-		&inst->capability.mbs_per_sec_power_save);
-	print_cap("extradata", &inst->capability.extradata);
-	print_cap("profile", &inst->capability.profile);
-	print_cap("level", &inst->capability.level);
-	print_cap("i_qp", &inst->capability.i_qp);
-	print_cap("p_qp", &inst->capability.p_qp);
-	print_cap("b_qp", &inst->capability.b_qp);
-	print_cap("rc_modes", &inst->capability.rc_modes);
-	print_cap("blur_width", &inst->capability.blur_width);
-	print_cap("blur_height", &inst->capability.blur_height);
-	print_cap("slice_bytes", &inst->capability.slice_bytes);
-	print_cap("slice_mbs", &inst->capability.slice_mbs);
-	print_cap("secure", &inst->capability.secure);
-	print_cap("max_num_b_frames", &inst->capability.max_num_b_frames);
-	print_cap("max_video_cores", &inst->capability.max_video_cores);
-	print_cap("max_work_modes", &inst->capability.max_work_modes);
-	print_cap("ubwc_cr_stats", &inst->capability.ubwc_cr_stats);
-
-	dprintk(VIDC_DBG, "profile count : %u\n",
-		inst->capability.profile_level.profile_count);
-	for (i = 0; i < inst->capability.profile_level.profile_count; i++) {
-		profile_level =
-			&inst->capability.profile_level.profile_level[i];
-		dprintk(VIDC_DBG, "profile : %u\n", profile_level->profile);
-		dprintk(VIDC_DBG, "level   : %u\n", profile_level->level);
-	}
-
-	signal_session_msg_receipt(cmd, inst);
-
-	/*
-	 * Update controls after informing session_init_done to avoid
-	 * timeouts.
-	 */
+		&inst->capability.cap[CAP_MBS_PER_SECOND_POWER_SAVE]);
+	print_cap("i_qp", &inst->capability.cap[CAP_I_FRAME_QP]);
+	print_cap("p_qp", &inst->capability.cap[CAP_P_FRAME_QP]);
+	print_cap("b_qp", &inst->capability.cap[CAP_B_FRAME_QP]);
+	print_cap("slice_bytes", &inst->capability.cap[CAP_SLICE_BYTE]);
+	print_cap("slice_mbs", &inst->capability.cap[CAP_SLICE_MB]);
 
 	msm_vidc_comm_update_ctrl_limits(inst);
+
+	signal_session_msg_receipt(cmd, inst);
+	put_inst(inst);
+	return;
+
+error:
+	if (response->status == VIDC_ERR_MAX_CLIENTS)
+		msm_comm_generate_max_clients_error(inst);
+	else
+		msm_comm_generate_session_error(inst);
+
+	signal_session_msg_receipt(cmd, inst);
 	put_inst(inst);
 }
 
@@ -2893,7 +2869,7 @@ static int msm_comm_init_core_done(struct msm_vidc_inst *inst)
 
 static int msm_comm_init_core(struct msm_vidc_inst *inst)
 {
-	int rc = 0;
+	int rc, i;
 	struct hfi_device *hdev;
 	struct msm_vidc_core *core;
 
@@ -2908,21 +2884,6 @@ static int msm_comm_init_core(struct msm_vidc_inst *inst)
 				core->id, core->state);
 		goto core_already_inited;
 	}
-	if (!core->capabilities) {
-		core->capabilities = kcalloc(VIDC_MAX_SESSIONS,
-				sizeof(struct msm_vidc_capability), GFP_KERNEL);
-		if (!core->capabilities) {
-			dprintk(VIDC_ERR,
-				"%s: failed to allocate capabilities\n",
-				__func__);
-			rc = -ENOMEM;
-			goto fail_cap_alloc;
-		}
-	} else {
-		dprintk(VIDC_WARN,
-			"%s: capabilities memory is expected to be freed\n",
-			__func__);
-	}
 	dprintk(VIDC_DBG, "%s: core %pK\n", __func__, core);
 	rc = call_hfi_op(hdev, core_init, hdev->hfi_device_data);
 	if (rc) {
@@ -2930,10 +2891,54 @@ static int msm_comm_init_core(struct msm_vidc_inst *inst)
 				core->id);
 		goto fail_core_init;
 	}
+
+	/* initialize core while firmware processing SYS_INIT cmd */
 	core->state = VIDC_CORE_INIT;
 	core->smmu_fault_handled = false;
 	core->trigger_ssr = false;
-
+	core->resources.max_inst_count = MAX_SUPPORTED_INSTANCES;
+	core->resources.max_secure_inst_count =
+		core->resources.max_secure_inst_count ?
+		core->resources.max_secure_inst_count :
+		core->resources.max_inst_count;
+	dprintk(VIDC_DBG, "%s: codecs count %d, max inst count %d\n",
+		__func__, core->resources.codecs_count,
+		core->resources.max_inst_count);
+	if (!core->resources.codecs || !core->resources.codecs_count) {
+		dprintk(VIDC_ERR, "%s: invalid codecs\n", __func__);
+		rc = -EINVAL;
+		goto fail_core_init;
+	}
+	if (!core->capabilities) {
+		core->capabilities = kcalloc(core->resources.codecs_count,
+			sizeof(struct msm_vidc_capability), GFP_KERNEL);
+		if (!core->capabilities) {
+			dprintk(VIDC_ERR,
+				"%s: failed to allocate capabilities\n",
+				__func__);
+			rc = -ENOMEM;
+			goto fail_core_init;
+		}
+	} else {
+		dprintk(VIDC_WARN,
+			"%s: capabilities memory is expected to be freed\n",
+			__func__);
+	}
+	for (i = 0; i < core->resources.codecs_count; i++) {
+		core->capabilities[i].domain =
+				core->resources.codecs[i].domain;
+		core->capabilities[i].codec =
+				core->resources.codecs[i].codec;
+	}
+	rc = msm_vidc_capabilities(core);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			 "%s: default capabilities failed\n", __func__);
+		kfree(core->capabilities);
+		core->capabilities = NULL;
+		goto fail_core_init;
+	}
+	dprintk(VIDC_DBG, "%s: done\n", __func__);
 core_already_inited:
 	change_inst_state(inst, MSM_VIDC_CORE_INIT);
 	mutex_unlock(&core->lock);
@@ -2942,9 +2947,6 @@ core_already_inited:
 	return rc;
 
 fail_core_init:
-	kfree(core->capabilities);
-fail_cap_alloc:
-	core->capabilities = NULL;
 	core->state = VIDC_CORE_UNINIT;
 	mutex_unlock(&core->lock);
 	return rc;
@@ -3157,7 +3159,7 @@ static int msm_vidc_load_resources(int flipped_state,
 		msm_comm_get_load(core, MSM_VIDC_ENCODER, quirks);
 
 	max_load_adj = core->resources.max_load +
-		inst->capability.mbs_per_frame.max;
+		inst->capability.cap[CAP_MBS_PER_FRAME].max;
 
 	if (num_mbs_per_sec > max_load_adj) {
 		dprintk(VIDC_ERR, "HW is overloaded, needed: %d max: %d\n",
@@ -5250,10 +5252,10 @@ int msm_vidc_check_scaling_supported(struct msm_vidc_inst *inst)
 		return -ENOTSUPP;
 	}
 
-	if (!inst->capability.scale_x.min ||
-		!inst->capability.scale_x.max ||
-		!inst->capability.scale_y.min ||
-		!inst->capability.scale_y.max) {
+	if (!inst->capability.cap[CAP_SCALE_X].min ||
+		!inst->capability.cap[CAP_SCALE_X].max ||
+		!inst->capability.cap[CAP_SCALE_Y].min ||
+		!inst->capability.cap[CAP_SCALE_Y].max) {
 
 		if (input_width * input_height !=
 			output_width * output_height) {
@@ -5269,10 +5271,10 @@ int msm_vidc_check_scaling_supported(struct msm_vidc_inst *inst)
 		return 0;
 	}
 
-	x_min = (1<<16)/inst->capability.scale_x.min;
-	y_min = (1<<16)/inst->capability.scale_y.min;
-	x_max = inst->capability.scale_x.max >> 16;
-	y_max = inst->capability.scale_y.max >> 16;
+	x_min = (1<<16)/inst->capability.cap[CAP_SCALE_X].min;
+	y_min = (1<<16)/inst->capability.cap[CAP_SCALE_Y].min;
+	x_max = inst->capability.cap[CAP_SCALE_X].max >> 16;
+	y_max = inst->capability.cap[CAP_SCALE_Y].max >> 16;
 
 	if (input_height > output_height) {
 		if (input_height > x_min * output_height) {
@@ -5314,6 +5316,7 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 	struct hfi_device *hdev;
 	struct msm_vidc_core *core;
 	u32 output_height, output_width, input_height, input_width;
+	u32 width_min, width_max, height_min, height_max;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_WARN, "%s: Invalid parameter\n", __func__);
@@ -5334,6 +5337,11 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 			"Thermal level critical, stop all active sessions!\n");
 		return -ENOTSUPP;
 	}
+
+	width_min = capability->cap[CAP_FRAME_WIDTH].min;
+	width_max = capability->cap[CAP_FRAME_WIDTH].max;
+	height_min = capability->cap[CAP_FRAME_HEIGHT].min;
+	height_max = capability->cap[CAP_FRAME_HEIGHT].max;
 
 	output_height = inst->prop.height[CAPTURE_PORT];
 	output_width = inst->prop.width[CAPTURE_PORT];
@@ -5356,30 +5364,27 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 	output_width = ALIGN(inst->prop.width[CAPTURE_PORT], 16);
 
 	if (!rc) {
-		if (output_width < capability->width.min ||
-			output_height < capability->height.min) {
+		if (output_width < width_min ||
+			output_height < height_min) {
 			dprintk(VIDC_ERR,
 				"Unsupported WxH = (%u)x(%u), min supported is - (%u)x(%u)\n",
-				output_width,
-				output_height,
-				capability->width.min,
-				capability->height.min);
+				output_width, output_height,
+				width_min, height_min);
 			rc = -ENOTSUPP;
 		}
-		if (!rc && output_width > capability->width.max) {
+		if (!rc && output_width > width_max) {
 			dprintk(VIDC_ERR,
 				"Unsupported width = %u supported max width = %u\n",
-				output_width,
-				capability->width.max);
+				output_width, width_max);
 				rc = -ENOTSUPP;
 		}
 
 		if (!rc && output_height * output_width >
-			capability->width.max * capability->height.max) {
+			width_max * height_max) {
 			dprintk(VIDC_ERR,
 			"Unsupported WxH = (%u)x(%u), max supported is - (%u)x(%u)\n",
 			output_width, output_height,
-			capability->width.max, capability->height.max);
+			width_max, height_max);
 			rc = -ENOTSUPP;
 		}
 	}

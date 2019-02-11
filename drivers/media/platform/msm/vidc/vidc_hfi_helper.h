@@ -444,17 +444,6 @@ struct hfi_colour_space {
 #define HFI_CAPABILITY_MAX_WORKROUTES			(HFI_COMMON_BASE + 0X31)
 #define HFI_CAPABILITY_CQ_QUALITY_LEVEL			(HFI_COMMON_BASE + 0X32)
 
-struct hfi_capability_supported {
-	u32 capability_type;
-	u32 min;
-	u32 max;
-	u32 step_size;
-};
-
-struct hfi_capability_supported_info {
-	u32 num_capabilities;
-	struct hfi_capability_supported rg_data[1];
-};
 
 #define HFI_DEBUG_MSG_LOW					0x00000001
 #define HFI_DEBUG_MSG_MEDIUM					0x00000002
@@ -730,20 +719,6 @@ struct hfi_uncompressed_plane_info {
 	u32 format;
 	u32 num_planes;
 	struct hfi_uncompressed_plane_constraints rg_plane_format[1];
-};
-
-struct hfi_codec_supported {
-	u32 decoder_codec_supported;
-	u32 encoder_codec_supported;
-};
-
-struct hfi_properties_supported {
-	u32 num_properties;
-	u32 rg_properties[1];
-};
-
-struct hfi_max_sessions_supported {
-	u32 max_sessions;
 };
 
 struct hfi_vpe_color_space_conversion {

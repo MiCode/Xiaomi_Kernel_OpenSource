@@ -3386,7 +3386,6 @@ static int __response_handler(struct venus_hfi_device *device)
 	while (!__iface_msgq_read(device, raw_packet)) {
 		void **session_id = NULL;
 		struct msm_vidc_cb_info *info = &packets[packet_count++];
-		struct vidc_hal_sys_init_done sys_init_done = {0};
 		int rc = 0;
 
 		rc = hfi_process_msg_packet(device->device_id,
@@ -3408,13 +3407,6 @@ static int __response_handler(struct venus_hfi_device *device)
 			break;
 		case HAL_SYS_INIT_DONE:
 			dprintk(VIDC_DBG, "Received SYS_INIT_DONE\n");
-
-			sys_init_done.capabilities =
-				device->sys_init_capabilities;
-			hfi_process_sys_init_done_prop_read(
-				(struct hfi_msg_sys_init_done_packet *)
-					raw_packet, &sys_init_done);
-			info->response.cmd.data.sys_init_done = sys_init_done;
 			break;
 		case HAL_SESSION_LOAD_RESOURCE_DONE:
 			/*
@@ -4127,10 +4119,6 @@ static int __init_resources(struct venus_hfi_device *device,
 	if (rc)
 		dprintk(VIDC_WARN, "Failed to init subcaches: %d\n", rc);
 
-	device->sys_init_capabilities =
-		kzalloc(sizeof(struct msm_vidc_capability)
-		* VIDC_MAX_SESSIONS, GFP_KERNEL);
-
 	return rc;
 
 err_init_reset_clk:
@@ -4147,8 +4135,6 @@ static void __deinit_resources(struct venus_hfi_device *device)
 	__deinit_bus(device);
 	__deinit_clocks(device);
 	__deinit_regulators(device);
-	kfree(device->sys_init_capabilities);
-	device->sys_init_capabilities = NULL;
 }
 
 static int __protect_cp_mem(struct venus_hfi_device *device)

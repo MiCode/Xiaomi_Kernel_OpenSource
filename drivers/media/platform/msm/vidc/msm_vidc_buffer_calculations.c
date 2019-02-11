@@ -759,7 +759,7 @@ u32 msm_vidc_calculate_dec_input_frame_size(struct msm_vidc_inst *inst)
 	num_mbs = ((width + 15) >> 4) * ((height + 15) >> 4);
 	if (num_mbs > NUM_MBS_4k) {
 		div_factor = 4;
-		base_res_mbs = inst->capability.mbs_per_frame.max;
+		base_res_mbs = inst->capability.cap[CAP_MBS_PER_FRAME].max;
 	} else {
 		base_res_mbs = NUM_MBS_4k;
 		if (inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_VP9)

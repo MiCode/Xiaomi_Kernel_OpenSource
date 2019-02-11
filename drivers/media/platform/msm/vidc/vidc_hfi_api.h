@@ -87,10 +87,10 @@ enum vidc_status {
 };
 
 enum hal_domain {
-	HAL_VIDEO_DOMAIN_VPE,
-	HAL_VIDEO_DOMAIN_ENCODER,
-	HAL_VIDEO_DOMAIN_DECODER,
-	HAL_VIDEO_DOMAIN_CVP,
+	HAL_VIDEO_DOMAIN_VPE        = BIT(0),
+	HAL_VIDEO_DOMAIN_ENCODER    = BIT(1),
+	HAL_VIDEO_DOMAIN_DECODER    = BIT(2),
+	HAL_VIDEO_DOMAIN_CVP        = BIT(3),
 	HAL_UNUSED_DOMAIN = 0x10000000,
 };
 
@@ -238,46 +238,41 @@ enum hal_chroma_site {
 	HAL_UNUSED_CHROMA = 0x10000000,
 };
 
-struct hal_properties_supported {
-	u32 num_properties;
-	u32 rg_properties[1];
-};
-
 enum hal_capability {
-	HAL_CAPABILITY_FRAME_WIDTH = 0x1,
-	HAL_CAPABILITY_FRAME_HEIGHT,
-	HAL_CAPABILITY_MBS_PER_FRAME,
-	HAL_CAPABILITY_MBS_PER_SECOND,
-	HAL_CAPABILITY_FRAMERATE,
-	HAL_CAPABILITY_SCALE_X,
-	HAL_CAPABILITY_SCALE_Y,
-	HAL_CAPABILITY_BITRATE,
-	HAL_CAPABILITY_BFRAME,
-	HAL_CAPABILITY_PEAKBITRATE,
-	HAL_CAPABILITY_HIER_P_NUM_ENH_LAYERS,
-	HAL_CAPABILITY_ENC_LTR_COUNT,
-	HAL_CAPABILITY_SECURE_OUTPUT2_THRESHOLD,
-	HAL_CAPABILITY_HIER_B_NUM_ENH_LAYERS,
-	HAL_CAPABILITY_LCU_SIZE,
-	HAL_CAPABILITY_HIER_P_HYBRID_NUM_ENH_LAYERS,
-	HAL_CAPABILITY_MBS_PER_SECOND_POWER_SAVE,
-	HAL_CAPABILITY_EXTRADATA,
-	HAL_CAPABILITY_PROFILE,
-	HAL_CAPABILITY_LEVEL,
-	HAL_CAPABILITY_I_FRAME_QP,
-	HAL_CAPABILITY_P_FRAME_QP,
-	HAL_CAPABILITY_B_FRAME_QP,
-	HAL_CAPABILITY_RATE_CONTROL_MODES,
-	HAL_CAPABILITY_BLUR_WIDTH,
-	HAL_CAPABILITY_BLUR_HEIGHT,
-	HAL_CAPABILITY_SLICE_BYTE,
-	HAL_CAPABILITY_SLICE_MB,
-	HAL_CAPABILITY_SECURE,
-	HAL_CAPABILITY_MAX_NUM_B_FRAMES,
-	HAL_CAPABILITY_MAX_VIDEOCORES,
-	HAL_CAPABILITY_MAX_WORKMODES,
-	HAL_CAPABILITY_UBWC_CR_STATS,
-	HAL_UNUSED_CAPABILITY = 0x10000000,
+	CAP_FRAME_WIDTH = 0x1,
+	CAP_FRAME_HEIGHT,
+	CAP_MBS_PER_FRAME,
+	CAP_MBS_PER_SECOND,
+	CAP_FRAMERATE,
+	CAP_SCALE_X,
+	CAP_SCALE_Y,
+	CAP_BITRATE,
+	CAP_BFRAME,
+	CAP_PEAKBITRATE,
+	CAP_HIER_P_NUM_ENH_LAYERS,
+	CAP_LTR_COUNT,
+	CAP_SECURE_OUTPUT2_THRESHOLD,
+	CAP_HIER_B_NUM_ENH_LAYERS,
+	CAP_LCU_SIZE,
+	CAP_HIER_P_HYBRID_NUM_ENH_LAYERS,
+	CAP_MBS_PER_SECOND_POWER_SAVE,
+	CAP_EXTRADATA,
+	CAP_PROFILE,
+	CAP_LEVEL,
+	CAP_I_FRAME_QP,
+	CAP_P_FRAME_QP,
+	CAP_B_FRAME_QP,
+	CAP_RATE_CONTROL_MODES,
+	CAP_BLUR_WIDTH,
+	CAP_BLUR_HEIGHT,
+	CAP_SLICE_BYTE,
+	CAP_SLICE_MB,
+	CAP_SECURE,
+	CAP_MAX_NUM_B_FRAMES,
+	CAP_MAX_VIDEOCORES,
+	CAP_MAX_WORKMODES,
+	CAP_UBWC_CR_STATS,
+	CAP_MAX,
 };
 
 struct hal_capability_supported {
@@ -285,11 +280,7 @@ struct hal_capability_supported {
 	u32 min;
 	u32 max;
 	u32 step_size;
-};
-
-struct hal_capability_supported_info {
-	u32 num_capabilities;
-	struct hal_capability_supported rg_data[1];
+	u32 default_value;
 };
 
 struct hal_nal_stream_format_supported {
@@ -448,13 +439,9 @@ union hal_get_property {
 	struct hal_batch_info batch_info;
 	struct hal_uncompressed_format_supported uncompressed_format_supported;
 	struct hal_interlace_format_supported interlace_format_supported;
-	struct hal_properties_supported properties_supported;
-	struct hal_capability_supported capability_supported;
-	struct hal_capability_supported_info capability_supported_info;
 	struct hal_nal_stream_format_supported nal_stream_format_supported;
 	struct hal_nal_stream_format_select nal_stream_format_select;
 	struct hal_multi_view_format multi_view_format;
-	struct hal_codec_supported codec_supported;
 	struct hal_buffer_info buffer_info;
 	struct hal_buffer_alloc_mode buffer_alloc_mode;
 	struct buffer_requirements buf_req;
@@ -570,54 +557,12 @@ struct vidc_hal_fbd {
 struct msm_vidc_capability {
 	enum hal_domain domain;
 	enum hal_video_codec codec;
-	struct hal_capability_supported width;
-	struct hal_capability_supported height;
-	struct hal_capability_supported mbs_per_frame;
-	struct hal_capability_supported mbs_per_sec;
-	struct hal_capability_supported frame_rate;
-	struct hal_capability_supported scale_x;
-	struct hal_capability_supported scale_y;
-	struct hal_capability_supported bitrate;
-	struct hal_capability_supported bframe;
-	struct hal_capability_supported hier_p;
-	struct hal_capability_supported ltr_count;
-	struct hal_capability_supported secure_output2_threshold;
-	struct hal_capability_supported hier_b;
-	struct hal_capability_supported lcu_size;
-	struct hal_capability_supported hier_p_hybrid;
-	struct hal_capability_supported mbs_per_sec_power_save;
-	struct hal_capability_supported extradata;
-	struct hal_capability_supported profile;
-	struct hal_capability_supported level;
-	struct hal_capability_supported i_qp;
-	struct hal_capability_supported p_qp;
-	struct hal_capability_supported b_qp;
-	struct hal_capability_supported rc_modes;
-	struct hal_capability_supported blur_width;
-	struct hal_capability_supported blur_height;
-	struct hal_capability_supported slice_bytes;
-	struct hal_capability_supported slice_mbs;
-	struct hal_capability_supported secure;
-	struct hal_capability_supported max_num_b_frames;
-	struct hal_capability_supported max_video_cores;
-	struct hal_capability_supported max_work_modes;
-	struct hal_capability_supported ubwc_cr_stats;
-	struct hal_profile_level_supported profile_level;
-	struct hal_uncompressed_format_supported uncomp_format;
-	struct hal_interlace_format_supported HAL_format;
-	struct hal_nal_stream_format_supported nal_stream_format;
-	struct hal_intra_refresh intra_refresh;
-	enum buffer_mode_type alloc_mode_out;
-	enum buffer_mode_type alloc_mode_in;
-	u32 pixelprocess_capabilities;
-	u32 tme_version;
+	struct hal_capability_supported cap[CAP_MAX];
 };
 
 struct vidc_hal_sys_init_done {
 	u32 dec_codec_supported;
 	u32 enc_codec_supported;
-	u32 codec_count;
-	struct msm_vidc_capability *capabilities;
 	u32 max_sessions_supported;
 };
 
@@ -709,32 +654,6 @@ enum msm_vidc_thermal_level {
 	VIDC_THERMAL_CRITICAL
 };
 
-enum vidc_vote_data_session {
-	VIDC_BUS_VOTE_DATA_SESSION_INVALID = 0,
-	/*
-	 * No declarations exist. Values generated by VIDC_VOTE_DATA_SESSION_VAL
-	 * describe the enumerations e.g.:
-	 *
-	 * enum vidc_bus_vote_data_session_type h264_decoder_session =
-	 *        VIDC_VOTE_DATA_SESSION_VAL(HAL_VIDEO_CODEC_H264,
-	 *                 HAL_VIDEO_DOMAIN_DECODER);
-	 */
-};
-
-/*
- * Careful modifying VIDC_VOTE_DATA_SESSION_VAL().
- *
- * This macro assigns two bits to each codec: the lower bit denoting the codec
- * type, and the higher bit denoting session type.
- */
-static inline enum vidc_vote_data_session VIDC_VOTE_DATA_SESSION_VAL(
-		enum hal_video_codec c, enum hal_domain d) {
-	if (d != HAL_VIDEO_DOMAIN_ENCODER && d != HAL_VIDEO_DOMAIN_DECODER)
-		return VIDC_BUS_VOTE_DATA_SESSION_INVALID;
-
-	return (1 << ilog2(c) * 2) | ((d - 1) << (ilog2(c) * 2 + 1));
-}
-
 struct msm_vidc_gov_data {
 	struct vidc_bus_vote_data *data;
 	u32 data_count;
@@ -766,13 +685,6 @@ struct vidc_bus_vote_data {
 	u32 work_mode;
 	bool use_sys_cache;
 	bool b_frames_enabled;
-};
-
-struct vidc_clk_scale_data {
-	enum vidc_vote_data_session session[VIDC_MAX_SESSIONS];
-	enum msm_vidc_power_mode power_mode[VIDC_MAX_SESSIONS];
-	u32 load[VIDC_MAX_SESSIONS];
-	int num_sessions;
 };
 
 struct hal_cmd_sys_get_property_packet {

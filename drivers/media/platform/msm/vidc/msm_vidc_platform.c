@@ -126,6 +126,76 @@ static struct msm_vidc_codec_data sdm670_codec_data[] =  {
 	CODEC_ENTRY(V4L2_PIX_FMT_VP9, MSM_VIDC_DECODER, 50, 200, 200),
 };
 
+#define ENC     HAL_VIDEO_DOMAIN_ENCODER
+#define DEC     HAL_VIDEO_DOMAIN_DECODER
+#define H264    HAL_VIDEO_CODEC_H264
+#define HEVC    HAL_VIDEO_CODEC_HEVC
+#define VP8     HAL_VIDEO_CODEC_VP8
+#define VP9     HAL_VIDEO_CODEC_VP9
+#define MPEG2   HAL_VIDEO_CODEC_MPEG2
+#define DOMAINS_ALL    (HAL_VIDEO_DOMAIN_ENCODER | HAL_VIDEO_DOMAIN_DECODER)
+#define CODECS_ALL     (HAL_VIDEO_CODEC_H264 | HAL_VIDEO_CODEC_HEVC | \
+			HAL_VIDEO_CODEC_VP8 | HAL_VIDEO_CODEC_VP9 | \
+			HAL_VIDEO_CODEC_MPEG2)
+
+static struct msm_vidc_codec default_codecs[] = {
+	/* {domain, codec} */
+	{DEC, H264}, {DEC, HEVC}, {DEC, VP8}, {DEC, VP9}, {DEC, MPEG2},
+	{ENC, H264}, {ENC, HEVC}, {ENC, VP8},
+};
+
+static struct msm_vidc_codec_capability kona_capabilities[] = {
+	/* {cap_type, min, max, step_size, default_value, domains, codecs} */
+	{CAP_FRAME_WIDTH, DOMAINS_ALL, CODECS_ALL, 128, 8192, 1, 1920},
+	{CAP_FRAME_HEIGHT, DOMAINS_ALL, CODECS_ALL, 128, 8192, 1, 1080},
+	/* (8192 * 4320) / 256 */
+	{CAP_MBS_PER_FRAME, DOMAINS_ALL, CODECS_ALL, 1, 138240, 1, 138240},
+	/* ((1920 * 1088) / 256) * 960 fps */
+	{CAP_MBS_PER_SECOND, DOMAINS_ALL, CODECS_ALL, 1, 7833600, 1, 7833600},
+	{CAP_FRAMERATE, DOMAINS_ALL, CODECS_ALL, 1, 960, 1, 30},
+	{CAP_BITRATE, DOMAINS_ALL, CODECS_ALL, 1, 220000000, 1, 20000000},
+	{CAP_SCALE_X, DOMAINS_ALL, CODECS_ALL, 4096, 65536, 1, 4096},
+	{CAP_SCALE_Y, DOMAINS_ALL, CODECS_ALL, 4096, 65536, 1, 4096},
+	{CAP_BFRAME, ENC, H264|HEVC, 0, 1, 1, 0},
+	{CAP_HIER_P_NUM_ENH_LAYERS, ENC, H264|HEVC, 0, 6, 1, 0},
+	{CAP_LTR_COUNT, ENC, H264|HEVC, 0, 6, 1, 0},
+	/* ((4096 * 2304) / 256) * 60 fps */
+	{CAP_MBS_PER_SECOND_POWER_SAVE, ENC, CODECS_ALL,
+		0, 2211840, 1, 2211840},
+	{CAP_I_FRAME_QP, ENC, H264|HEVC, 0, 51, 1, 10},
+	{CAP_P_FRAME_QP, ENC, H264|HEVC, 0, 51, 1, 20},
+	{CAP_B_FRAME_QP, ENC, H264|HEVC, 0, 51, 1, 20},
+	{CAP_I_FRAME_QP, ENC, VP8|VP9, 0, 127, 1, 20},
+	{CAP_P_FRAME_QP, ENC, VP8|VP9, 0, 127, 1, 40},
+	{CAP_B_FRAME_QP, ENC, VP8|VP9, 0, 127, 1, 40},
+	/* (CAP_BITRATE / 8) / 10 slices */
+	{CAP_SLICE_BYTE, ENC, H264|HEVC, 0, 2750000, 1, 2750000},
+	/* CAP_MBS_PER_FRAME / 10 slices */
+	{CAP_SLICE_MB, ENC, H264|HEVC, 0, 13824, 1, 13824},
+	{CAP_MAX_VIDEOCORES, DOMAINS_ALL, CODECS_ALL, 0, 1, 1, 1},
+
+	/* VP8 specific */
+	{CAP_FRAME_WIDTH, ENC|DEC, VP8, 128, 4096, 1, 1920},
+	{CAP_FRAME_HEIGHT, ENC|DEC, VP8, 128, 4096, 1, 1080},
+	/* (4096 * 2304) / 256 */
+	{CAP_MBS_PER_FRAME, ENC|DEC, VP8, 1, 36864, 1, 8160},
+	/* ((4096 * 2304) / 256) * 120 */
+	{CAP_MBS_PER_SECOND, ENC|DEC, VP8, 1, 4423680, 1, 244800},
+	{CAP_FRAMERATE, ENC|DEC, VP8, 1, 120, 1, 30},
+	{CAP_BITRATE, ENC, VP8, 1, 74000000, 1, 20000000},
+	{CAP_BITRATE, DEC, VP8, 1, 220000000, 1, 20000000},
+
+	/* Mpeg2 decoder specific */
+	{CAP_FRAME_WIDTH, DEC, MPEG2, 128, 1920, 1, 1920},
+	{CAP_FRAME_HEIGHT, DEC, MPEG2, 128, 1920, 1, 1080},
+	/* (1920 * 1088) / 256 */
+	{CAP_MBS_PER_FRAME, DEC, MPEG2, 1, 8160, 1, 8160},
+	/* ((1920 * 1088) / 256) * 30*/
+	{CAP_MBS_PER_SECOND, DEC, MPEG2, 1, 244800, 1, 244800},
+	{CAP_FRAMERATE, DEC, MPEG2, 1, 30, 1, 30},
+	{CAP_BITRATE, DEC, MPEG2, 1, 40000000, 1, 20000000},
+};
+
 /*
  * Custom conversion coefficients for resolution: 176x144 negative
  * coeffs are converted to s4.9 format
@@ -577,6 +647,10 @@ static struct msm_vidc_platform_data kona_data = {
 	.sku_version = 0,
 	.vpu_ver = VPU_VERSION_IRIS2,
 	.ubwc_config = kona_ubwc_data,
+	.codecs = default_codecs,
+	.codecs_count = ARRAY_SIZE(default_codecs),
+	.codec_caps = kona_capabilities,
+	.codec_caps_count = ARRAY_SIZE(kona_capabilities),
 };
 
 static struct msm_vidc_platform_data sm6150_data = {
