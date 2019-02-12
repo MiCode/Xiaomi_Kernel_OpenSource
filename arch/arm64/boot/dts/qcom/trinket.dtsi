@@ -513,7 +513,7 @@
 		cdsp_sec_mem: cdsp_sec_regions@5f800000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x5f800000 0 0x800000>;
+			reg = <0 0x5f800000 0 0x1e00000>;
 		};
 
 		qseecom_mem: qseecom_region@5e400000 {
