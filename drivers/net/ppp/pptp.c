@@ -326,11 +326,6 @@ allow_packet:
 			skb_pull(skb, 2);
 		}
 
-		if ((*skb->data) & 1) {
-			/* protocol is compressed */
-			skb_push(skb, 1)[0] = 0;
-		}
-
 		skb->ip_summed = CHECKSUM_NONE;
 		skb_set_network_header(skb, skb->head-skb->data);
 		ppp_input(&po->chan, skb);

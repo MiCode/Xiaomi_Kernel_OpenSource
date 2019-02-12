@@ -101,9 +101,9 @@ int __fsnotify_parent(struct path *path, struct dentry *dentry, __u32 mask)
 	parent = dget_parent(dentry);
 	p_inode = parent->d_inode;
 
-	if (unlikely(!fsnotify_inode_watches_children(p_inode)))
+	if (unlikely(!fsnotify_inode_watches_children(p_inode))) {
 		__fsnotify_update_child_dentry_flags(p_inode);
-	else if (p_inode->i_fsnotify_mask & mask) {
+	} else if (p_inode->i_fsnotify_mask & mask & ~FS_EVENT_ON_CHILD) {
 		struct name_snapshot name;
 
 		/* we are notifying a parent so come up with the new mask which
@@ -205,6 +205,10 @@ int fsnotify(struct inode *to_tell, __u32 mask, void *data, int data_is,
 	if (data_is == FSNOTIFY_EVENT_PATH)
 		mnt = real_mount(((struct path *)data)->mnt);
 	else
+		mnt = NULL;
+
+	/* An event "on child" is not intended for a mount mark */
+	if (mask & FS_EVENT_ON_CHILD)
 		mnt = NULL;
 
 	/*
