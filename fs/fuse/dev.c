@@ -1689,7 +1689,6 @@ static int fuse_retrieve(struct fuse_conn *fc, struct inode *inode,
 	req->in.h.nodeid = outarg->nodeid;
 	req->in.numargs = 2;
 	req->in.argpages = 1;
-	req->page_descs[0].offset = offset;
 	req->end = fuse_retrieve_end;
 
 	index = outarg->offset >> PAGE_SHIFT;
@@ -1704,6 +1703,7 @@ static int fuse_retrieve(struct fuse_conn *fc, struct inode *inode,
 
 		this_num = min_t(unsigned, num, PAGE_SIZE - offset);
 		req->pages[req->num_pages] = page;
+		req->page_descs[req->num_pages].offset = offset;
 		req->page_descs[req->num_pages].length = this_num;
 		req->num_pages++;
 
@@ -2028,8 +2028,10 @@ static ssize_t fuse_dev_splice_write(struct pipe_inode_info *pipe,
 
 	ret = fuse_dev_do_write(fud, &cs, len);
 
+	pipe_lock(pipe);
 	for (idx = 0; idx < nbuf; idx++)
 		pipe_buf_release(pipe, &bufs[idx]);
+	pipe_unlock(pipe);
 
 out:
 	kfree(bufs);
