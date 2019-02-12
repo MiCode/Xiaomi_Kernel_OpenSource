@@ -1222,7 +1222,7 @@ static int __tzbsp_set_video_state(enum tzbsp_video_state state)
 static inline int __boot_firmware(struct venus_hfi_device *device)
 {
 	int rc = 0;
-	u32 ctrl_init_val = 0, ctrl_status = 0, count = 0, max_tries = 1000;
+	u32 ctrl_init_val = 0, ctrl_status = 0, count = 0, max_tries = 10000;
 
 	ctrl_init_val = BIT(0);
 	if (device->res->domain_cvp)
