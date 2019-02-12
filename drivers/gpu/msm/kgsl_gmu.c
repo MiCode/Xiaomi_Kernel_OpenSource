@@ -705,6 +705,8 @@ static int rpmh_arc_votes_init(struct kgsl_device *device,
 	int i, ret;
 	struct dev_pm_opp *opp;
 
+	uint16_t cx_vlvl[MAX_GX_LEVELS] = { 64, 128, 192, 256, 384, 416 };
+
 	if (type == GPU_ARC_VOTE) {
 		num_freqs = gmu->num_gpupwrlevels;
 		votes = gmu->rpmh_votes.gx_votes;
@@ -731,6 +733,13 @@ static int rpmh_arc_votes_init(struct kgsl_device *device,
 		/* Hardcode VLVL for 0 because it is not registered in OPP */
 		if (freq_tbl[i] == 0) {
 			vlvl_tbl[i] = 0;
+			continue;
+		}
+
+		/* Hardcode GMU ARC Vote levels for A650 */
+		if (adreno_is_a650(ADRENO_DEVICE(device)) &&
+				type == GMU_ARC_VOTE) {
+			vlvl_tbl[i] = cx_vlvl[i];
 			continue;
 		}
 
