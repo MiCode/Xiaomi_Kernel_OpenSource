@@ -1870,6 +1870,17 @@
 			#interrupt-cells = <2>;
 		};
 
+		smp2p_rdbg2_out: qcom,smp2p-rdbg2-out {
+			qcom,entry-name = "rdbg";
+			#qcom,smem-state-cells = <1>;
+		};
+
+		smp2p_rdbg2_in: qcom,smp2p-rdbg2-in {
+			qcom,entry-name = "rdbg";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+
 		sleepstate_smp2p_out: sleepstate-out {
 			qcom,entry-name = "sleepstate";
 			#qcom,smem-state-cells = <1>;
@@ -1900,6 +1911,18 @@
 			interrupt-controller;
 			#interrupt-cells = <2>;
 		};
+
+		smp2p_rdbg5_out: qcom,smp2p-rdbg5-out {
+			qcom,entry-name = "rdbg";
+			#qcom,smem-state-cells = <1>;
+		};
+
+		smp2p_rdbg5_in: qcom,smp2p-rdbg5-in {
+			qcom,entry-name = "rdbg";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+
 	};
 
 	qcom_seecom: qseecom@46d00000 {
@@ -2507,6 +2530,7 @@
 #include "trinket-bus.dtsi"
 #include "trinket-sde-pll.dtsi"
 #include "trinket-sde.dtsi"
+#include "msm-rdbg.dtsi"
 
 &pm6125_vadc {
 	pinctrl-names = "default";
