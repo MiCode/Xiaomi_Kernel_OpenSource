@@ -744,13 +744,29 @@ int npu_enable_sys_cache(struct npu_device *npu_dev)
 		}
 
 		/* set npu side regs - program SCID */
-		reg_val = NPU_CACHE_ATTR_IDn___POR | SYS_CACHE_SCID;
+		reg_val = REGR(npu_dev, NPU_CACHEMAP0_ATTR_IDn(0));
+		reg_val = (reg_val & ~NPU_CACHEMAP_SCID_MASK) | SYS_CACHE_SCID;
 
-		REGW(npu_dev, NPU_CACHE_ATTR_IDn(0), reg_val);
-		REGW(npu_dev, NPU_CACHE_ATTR_IDn(1), reg_val);
-		REGW(npu_dev, NPU_CACHE_ATTR_IDn(2), reg_val);
-		REGW(npu_dev, NPU_CACHE_ATTR_IDn(3), reg_val);
-		REGW(npu_dev, NPU_CACHE_ATTR_IDn(4), reg_val);
+		REGW(npu_dev, NPU_CACHEMAP0_ATTR_IDn(0), reg_val);
+		REGW(npu_dev, NPU_CACHEMAP0_ATTR_IDn(1), reg_val);
+		REGW(npu_dev, NPU_CACHEMAP0_ATTR_IDn(2), reg_val);
+		REGW(npu_dev, NPU_CACHEMAP0_ATTR_IDn(3), reg_val);
+		REGW(npu_dev, NPU_CACHEMAP0_ATTR_IDn(4), reg_val);
+		REGW(npu_dev, NPU_CACHEMAP0_ATTR_METADATA_IDn(0), reg_val);
+		REGW(npu_dev, NPU_CACHEMAP0_ATTR_METADATA_IDn(1), reg_val);
+		REGW(npu_dev, NPU_CACHEMAP0_ATTR_METADATA_IDn(2), reg_val);
+		REGW(npu_dev, NPU_CACHEMAP0_ATTR_METADATA_IDn(3), reg_val);
+		REGW(npu_dev, NPU_CACHEMAP0_ATTR_METADATA_IDn(4), reg_val);
+		REGW(npu_dev, NPU_CACHEMAP1_ATTR_IDn(0), reg_val);
+		REGW(npu_dev, NPU_CACHEMAP1_ATTR_IDn(1), reg_val);
+		REGW(npu_dev, NPU_CACHEMAP1_ATTR_IDn(2), reg_val);
+		REGW(npu_dev, NPU_CACHEMAP1_ATTR_IDn(3), reg_val);
+		REGW(npu_dev, NPU_CACHEMAP1_ATTR_IDn(4), reg_val);
+		REGW(npu_dev, NPU_CACHEMAP1_ATTR_METADATA_IDn(0), reg_val);
+		REGW(npu_dev, NPU_CACHEMAP1_ATTR_METADATA_IDn(1), reg_val);
+		REGW(npu_dev, NPU_CACHEMAP1_ATTR_METADATA_IDn(2), reg_val);
+		REGW(npu_dev, NPU_CACHEMAP1_ATTR_METADATA_IDn(3), reg_val);
+		REGW(npu_dev, NPU_CACHEMAP1_ATTR_METADATA_IDn(4), reg_val);
 
 		pr_debug("prior to activate sys cache\n");
 		rc = llcc_slice_activate(npu_dev->sys_cache);

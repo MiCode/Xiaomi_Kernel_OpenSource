@@ -277,7 +277,6 @@ int npu_host_init(struct npu_device *npu_dev)
 	mutex_init(&host_ctx->lock);
 	atomic_set(&host_ctx->ipc_trans_id, 1);
 
-	host_ctx->sys_cache_disable = true;
 	host_ctx->wq = npu_create_wq(host_ctx, "irq_hdl", host_irq_wq,
 		&host_ctx->irq_work);
 	if (!host_ctx->wq)
