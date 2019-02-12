@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -1928,7 +1928,7 @@ static int msm_bus_rsc_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	for (i = 0; i < MSM_BUS_RSC_COUNT - 1; i++) {
+	for (i = 0; i < MSM_BUS_RSC_COUNT; i++) {
 		if (!rsc_clients[i].rsc_id) {
 			rsc_clients[i].rsc_id = rsc_id;
 			rsc_clients[i].client = &pdev->dev;
@@ -1936,6 +1936,7 @@ static int msm_bus_rsc_probe(struct platform_device *pdev)
 				rsc_clients[i].rsc_id = 0;
 				rsc_clients[i].client = NULL;
 			}
+			break;
 		}
 	}
 	return 0;
@@ -1945,7 +1946,7 @@ int msm_bus_rsc_remove(struct platform_device *pdev)
 {
 	int i;
 
-	for (i = 0; i < MSM_BUS_RSC_COUNT - 1; i++) {
+	for (i = 0; i < MSM_BUS_RSC_COUNT; i++) {
 		rsc_clients[i].rsc_id = 0;
 		rsc_clients[i].client = NULL;
 	}
