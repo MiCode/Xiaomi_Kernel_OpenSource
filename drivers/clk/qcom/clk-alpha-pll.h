@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2015-2016, 2018, The Linux Foundation. All rights reserved. */
+/*
+ * Copyright (c) 2015-2016, 2018-2019, The Linux Foundation.
+ * All rights reserved.
+ */
 
 #ifndef __QCOM_CLK_ALPHA_PLL_H__
 #define __QCOM_CLK_ALPHA_PLL_H__
@@ -114,6 +117,9 @@ struct alpha_pll_config {
 	u32 post_div_mask;
 	u32 vco_val;
 	u32 vco_mask;
+	const u32 *custom_reg_offset;
+	const u32 *custom_reg_val;
+	size_t num_custom_reg;
 };
 
 extern const struct clk_ops clk_alpha_pll_ops;
