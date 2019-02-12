@@ -109,7 +109,17 @@ static struct pll_vco lucid_vco[] = {
 	{ 249600000, 2000000000, 0 },
 };
 
-static const struct alpha_pll_config npu_cc_pll0_config = {
+static const u32 crc_reg_offset[] = {
+	HM0_CRC_MND_CFG, HM0_CRC_SID_FSM_CTRL,
+	HM1_CRC_MND_CFG, HM1_CRC_SID_FSM_CTRL,
+};
+
+static const u32 crc_reg_val[] = {
+	CRC_MND_CFG_SETTING, CRC_SID_FSM_CTRL_SETTING,
+	CRC_MND_CFG_SETTING, CRC_SID_FSM_CTRL_SETTING,
+};
+
+static struct alpha_pll_config npu_cc_pll0_config = {
 	.l = 0x14,
 	.cal_l = 0x44,
 	.alpha = 0xD555,
@@ -119,6 +129,9 @@ static const struct alpha_pll_config npu_cc_pll0_config = {
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
+	.custom_reg_offset = crc_reg_offset,
+	.custom_reg_val = crc_reg_val,
+	.num_custom_reg = ARRAY_SIZE(crc_reg_offset),
 };
 
 static struct clk_alpha_pll npu_cc_pll0 = {
@@ -126,6 +139,7 @@ static struct clk_alpha_pll npu_cc_pll0 = {
 	.vco_table = lucid_vco,
 	.num_vco = ARRAY_SIZE(lucid_vco),
 	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID],
+	.config = &npu_cc_pll0_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "npu_cc_pll0",
@@ -164,7 +178,7 @@ static struct clk_alpha_pll_postdiv npu_cc_pll0_out_even = {
 	},
 };
 
-static const struct alpha_pll_config npu_cc_pll1_config = {
+static struct alpha_pll_config npu_cc_pll1_config = {
 	.l = 0x4E,
 	.cal_l = 0x44,
 	.alpha = 0x2000,
@@ -181,6 +195,7 @@ static struct clk_alpha_pll npu_cc_pll1 = {
 	.vco_table = lucid_vco,
 	.num_vco = ARRAY_SIZE(lucid_vco),
 	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID],
+	.config = &npu_cc_pll1_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "npu_cc_pll1",
@@ -219,7 +234,7 @@ static struct clk_alpha_pll_postdiv npu_cc_pll1_out_even = {
 	},
 };
 
-static const struct alpha_pll_config npu_q6ss_pll_config = {
+static struct alpha_pll_config npu_q6ss_pll_config = {
 	.l = 0xD,
 	.cal_l = 0x44,
 	.alpha = 0x555,
@@ -236,6 +251,7 @@ static struct clk_alpha_pll npu_q6ss_pll = {
 	.vco_table = lucid_vco,
 	.num_vco = ARRAY_SIZE(lucid_vco),
 	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID],
+	.config = &npu_q6ss_pll_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "npu_q6ss_pll",
@@ -1145,14 +1161,6 @@ static const struct of_device_id npu_cc_kona_match_table[] = {
 };
 MODULE_DEVICE_TABLE(of, npu_cc_kona_match_table);
 
-static void enable_npu_crc(struct regmap *regmap)
-{
-	regmap_write(regmap, HM0_CRC_MND_CFG, CRC_MND_CFG_SETTING);
-	regmap_write(regmap, HM0_CRC_SID_FSM_CTRL, CRC_SID_FSM_CTRL_SETTING);
-	regmap_write(regmap, HM1_CRC_MND_CFG, CRC_MND_CFG_SETTING);
-	regmap_write(regmap, HM1_CRC_SID_FSM_CTRL, CRC_SID_FSM_CTRL_SETTING);
-}
-
 static int npu_clocks_kona_probe(struct platform_device *pdev,
 				 const struct qcom_cc_desc *desc)
 {
@@ -1176,7 +1184,6 @@ static int npu_clocks_kona_probe(struct platform_device *pdev,
 					&npu_cc_pll0_config);
 		clk_lucid_pll_configure(&npu_cc_pll1, regmap,
 					&npu_cc_pll1_config);
-		enable_npu_crc(regmap);
 
 		/* Register the fixed factor clock for CRC divider */
 		ret = devm_clk_hw_register(&pdev->dev, &npu_cc_crc_div.hw);
