@@ -12,6 +12,8 @@
 
 #include "dsi-panel-td4330-truly-singlemipi-fhd-cmd.dtsi"
 #include "dsi-panel-td4330-truly-singlemipi-fhd-video.dtsi"
+#include "dsi-panel-sim-video.dtsi"
+#include "dsi-panel-hx83112a-truly-singlemipi-fhd-video.dtsi"
 #include <dt-bindings/clock/mdss-14nm-pll-clk.h>
 
 &soc {
@@ -110,6 +112,28 @@
 		qcom,dsi-panel = <&dsi_td4330_truly_cmd>;
 	};
 
+	dsi_sim_vid_display: qcom,dsi-display@2 {
+		label = "dsi_sim_vid_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_sim_vid>;
+	};
+
+	dsi_hx83112a_truly_vid_display: qcom,dsi-display@3 {
+		label = "dsi_hx83112a_truly_vid_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_hx83112a_truly_video>;
+	};
+
 	sde_dsi: qcom,dsi-display {
 		compatible = "qcom,dsi-display";
 
@@ -131,7 +155,9 @@
 
 		qcom,dsi-display-list =
 			<&dsi_td4330_truly_vid_display
-			&dsi_td4330_truly_cmd_display>;
+			&dsi_td4330_truly_cmd_display
+			&dsi_sim_vid_display
+			&dsi_hx83112a_truly_vid_display>;
 	};
 
 	sde_wb: qcom,wb-display@0 {
@@ -196,6 +222,53 @@
 				26 20 09 0B 06 02 04 a0
 				26 20 09 0B 06 02 04 a0
 				26 1F 09 0B 06 02 04 a0];
+
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_sim_vid {
+	qcom,mdss-dsi-display-timings {
+		qcom,mdss-dsi-t-clk-post = <0x0e>;
+		qcom,mdss-dsi-t-clk-pre = <0x31>;
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings =
+				[24 1f 08 09 05 02 04 a0
+				24 1f 08 09 05 02 04 a0
+				24 1f 08 09 05 02 04 a0
+				24 1f 08 09 05 02 04 a0
+				24 1c 08 09 05 02 04 a0];
+
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_hx83112a_truly_video {
+	qcom,mdss-dsi-t-clk-post = <0x0e>;
+	qcom,mdss-dsi-t-clk-pre = <0x31>;
+	qcom,dsi-supported-dfps-list = <60 55 53 43>;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update =
+		"dfps_immediate_porch_mode_vfp";
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_hs_mode";
+	qcom,mdss-dsi-panel-status-value = <0x9d 0x9d 0x9d 0x9d>;
+	qcom,mdss-dsi-panel-on-check-value = <0x9d 0x9d 0x9d 0x9d>;
+	qcom,mdss-dsi-panel-status-read-length = <4>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings =
+				[24 1f 08 09 05 02 04 a0
+				24 1f 08 09 05 02 04 a0
+				24 1f 08 09 05 02 04 a0
+				24 1f 08 09 05 02 04 a0
+				24 1c 08 09 05 02 04 a0];
 
 			qcom,display-topology = <1 0 1>;
 			qcom,default-topology-index = <0>;
