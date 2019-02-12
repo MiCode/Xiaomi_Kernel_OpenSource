@@ -1614,6 +1614,7 @@ struct ipa3_context {
 	bool modem_cfg_emb_pipe_flt;
 	bool ipa_wdi2;
 	bool ipa_wdi2_over_gsi;
+	bool ipa_endp_delay_wa;
 	bool ipa_fltrt_not_hashable;
 	bool use_64_bit_dma_mask;
 	/* featurize if memory footprint becomes a concern */
@@ -1721,6 +1722,7 @@ struct ipa3_plat_drv_res {
 	bool use_ipa_pm;
 	struct ipa_pm_init_params pm_init;
 	bool wdi_over_pcie;
+	bool ipa_endp_delay_wa;
 };
 
 /**
@@ -2002,6 +2004,11 @@ void ipa3_register_lock_unlock_callback(int (*client_cb)(bool), u32 ipa_ep_idx);
 void ipa3_deregister_lock_unlock_callback(u32 ipa_ep_idx);
 int ipa3_set_reset_client_prod_pipe_delay(bool set_reset,
 		enum ipa_client_type client);
+int ipa3_start_stop_client_prod_gsi_chnl(enum ipa_client_type client,
+		bool start_chnl);
+void ipa3_client_prod_post_shutdown_cleanup(void);
+
+
 int ipa3_set_reset_client_cons_pipe_sus_holb(bool set_reset,
 		enum ipa_client_type client);
 

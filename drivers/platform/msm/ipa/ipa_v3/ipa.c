@@ -2630,7 +2630,8 @@ void ipa3_q6_pre_shutdown_cleanup(void)
 
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
-	ipa3_q6_pipe_delay(true);
+	if (!ipa3_ctx->ipa_endp_delay_wa)
+		ipa3_q6_pipe_delay(true);
 	ipa3_q6_avoid_holb();
 	if (ipa3_ctx->ipa_config_is_mhi)
 		ipa3_set_reset_client_cons_pipe_sus_holb(true,
@@ -2654,12 +2655,20 @@ void ipa3_q6_pre_shutdown_cleanup(void)
 	/* Remove delay from Q6 PRODs to avoid pending descriptors
 	 * on pipe reset procedure
 	 */
-	ipa3_q6_pipe_delay(false);
-	ipa3_set_reset_client_prod_pipe_delay(true,
-		IPA_CLIENT_USB_PROD);
-	if (ipa3_ctx->ipa_config_is_mhi)
+	if (!ipa3_ctx->ipa_endp_delay_wa) {
+		ipa3_q6_pipe_delay(false);
 		ipa3_set_reset_client_prod_pipe_delay(true,
-		IPA_CLIENT_MHI_PROD);
+			IPA_CLIENT_USB_PROD);
+		if (ipa3_ctx->ipa_config_is_mhi)
+			ipa3_set_reset_client_prod_pipe_delay(true,
+				IPA_CLIENT_MHI_PROD);
+	} else {
+		ipa3_start_stop_client_prod_gsi_chnl(IPA_CLIENT_USB_PROD,
+						false);
+		if (ipa3_ctx->ipa_config_is_mhi)
+			ipa3_start_stop_client_prod_gsi_chnl(
+					IPA_CLIENT_MHI_PROD, false);
+	}
 
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	IPADBG_LOW("Exit with success\n");
@@ -2717,6 +2726,32 @@ void ipa3_q6_post_shutdown_cleanup(void)
 				 */
 			}
 		}
+
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPADBG_LOW("Exit with success\n");
+}
+
+/*
+ * ipa3_client_prod_post_shutdown_cleanup () - As part of this function
+ * set end point delay client producer pipes and starting corresponding
+ * gsi channels
+ */
+
+void ipa3_client_prod_post_shutdown_cleanup(void)
+{
+	IPADBG_LOW("ENTER\n");
+
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+
+	ipa3_set_reset_client_prod_pipe_delay(true,
+				IPA_CLIENT_USB_PROD);
+	ipa3_start_stop_client_prod_gsi_chnl(IPA_CLIENT_USB_PROD, true);
+
+	if (ipa3_ctx->ipa_config_is_mhi) {
+		ipa3_set_reset_client_prod_pipe_delay(true,
+						IPA_CLIENT_MHI_PROD);
+		ipa3_start_stop_client_prod_gsi_chnl(IPA_CLIENT_MHI_PROD, true);
+	}
 
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	IPADBG_LOW("Exit with success\n");
@@ -5300,6 +5335,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->mhi_evid_limits[1] = resource_p->mhi_evid_limits[1];
 	ipa3_ctx->uc_mailbox17_chk = 0;
 	ipa3_ctx->uc_mailbox17_mismatch = 0;
+	ipa3_ctx->ipa_endp_delay_wa = resource_p->ipa_endp_delay_wa;
 
 	WARN(ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_NORMAL,
 		"Non NORMAL IPA HW mode, is this emulation platform ?");
@@ -5902,6 +5938,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->mhi_evid_limits[0] = IPA_MHI_GSI_EVENT_RING_ID_START;
 	ipa_drv_res->mhi_evid_limits[1] = IPA_MHI_GSI_EVENT_RING_ID_END;
 	ipa_drv_res->ipa_fltrt_not_hashable = false;
+	ipa_drv_res->ipa_endp_delay_wa = false;
 
 	/* Get IPA HW Version */
 	result = of_property_read_u32(pdev->dev.of_node, "qcom,ipa-hw-ver",
@@ -5977,6 +6014,12 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 			"qcom,ipa-wdi2_over_gsi");
 	IPADBG(": WDI-2.0 over gsi= %s\n",
 			ipa_drv_res->ipa_wdi2_over_gsi
+			? "True" : "False");
+	ipa_drv_res->ipa_endp_delay_wa =
+			of_property_read_bool(pdev->dev.of_node,
+			"qcom,ipa-endp-delay-wa");
+	IPADBG(": endppoint delay wa = %s\n",
+			ipa_drv_res->ipa_endp_delay_wa
 			? "True" : "False");
 
 	ipa_drv_res->ipa_wdi2 =
