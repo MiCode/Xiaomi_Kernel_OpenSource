@@ -153,3 +153,7 @@
 
 	status = "disabled";
 };
+
+&wdog {
+	status = "disabled";
+};

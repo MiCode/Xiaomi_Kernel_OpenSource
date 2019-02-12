@@ -714,9 +714,9 @@
 		qcom,bark-time = <11000>;
 		qcom,pet-time = <9360>;
 		qcom,wakeup-enable;
+		qcom,ipi-ping;
 		qcom,scandump-sizes = <0x10100 0x10100 0x10100 0x10100
 		0x18100 0x18100 0x18100 0x18100>;
-		status = "disabled";
 	};
 
 	arch_timer: timer {
