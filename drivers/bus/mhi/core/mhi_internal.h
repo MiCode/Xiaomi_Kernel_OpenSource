@@ -457,7 +457,8 @@ enum MHI_PM_STATE {
 		MHI_PM_SHUTDOWN_PROCESS | MHI_PM_FW_DL_ERR)))
 #define MHI_PM_IN_ERROR_STATE(pm_state) (pm_state >= MHI_PM_FW_DL_ERR)
 #define MHI_PM_IN_FATAL_STATE(pm_state) (pm_state == MHI_PM_LD_ERR_FATAL_DETECT)
-#define MHI_DB_ACCESS_VALID(pm_state) (pm_state & MHI_PM_M0)
+#define MHI_DB_ACCESS_VALID(mhi_cntrl) (mhi_cntrl->pm_state & \
+					mhi_cntrl->db_access)
 #define MHI_WAKE_DB_CLEAR_VALID(pm_state) (pm_state & (MHI_PM_M0 | \
 						MHI_PM_M2 | MHI_PM_M3_EXIT))
 #define MHI_WAKE_DB_SET_VALID(pm_state) (pm_state & MHI_PM_M2)

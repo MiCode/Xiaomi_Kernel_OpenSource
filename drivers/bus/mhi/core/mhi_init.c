@@ -278,6 +278,7 @@ int mhi_init_dev_ctxt(struct mhi_controller *mhi_cntrl)
 
 	atomic_set(&mhi_cntrl->dev_wake, 0);
 	atomic_set(&mhi_cntrl->alloc_size, 0);
+	atomic_set(&mhi_cntrl->pending_pkts, 0);
 
 	mhi_ctxt = kzalloc(sizeof(*mhi_ctxt), GFP_KERNEL);
 	if (!mhi_ctxt)
@@ -1082,6 +1083,11 @@ static int of_parse_dt(struct mhi_controller *mhi_cntrl,
 				   (u32 *)&mhi_cntrl->buffer_len);
 	if (ret)
 		mhi_cntrl->buffer_len = MHI_MAX_MTU;
+
+	/* by default host allowed to ring DB both M0 and M2 state */
+	mhi_cntrl->db_access = MHI_PM_M0 | MHI_PM_M2;
+	if (of_property_read_bool(of_node, "mhi,m2-no-db-access"))
+		mhi_cntrl->db_access &= ~MHI_PM_M2;
 
 	return 0;
 

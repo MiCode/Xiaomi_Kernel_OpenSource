@@ -238,11 +238,13 @@ struct mhi_controller {
 	bool pre_init;
 	rwlock_t pm_lock;
 	u32 pm_state;
+	u32 db_access; /* db access only on these states */
 	enum mhi_ee ee;
 	enum mhi_dev_state dev_state;
 	bool wake_set;
 	atomic_t dev_wake;
 	atomic_t alloc_size;
+	atomic_t pending_pkts;
 	struct list_head transition_list;
 	spinlock_t transition_lock;
 	spinlock_t wlock;
@@ -261,6 +263,7 @@ struct mhi_controller {
 	int (*link_status)(struct mhi_controller *, void *);
 	void (*wake_get)(struct mhi_controller *, bool);
 	void (*wake_put)(struct mhi_controller *, bool);
+	void (*wake_toggle)(struct mhi_controller *mhi_cntrl);
 	int (*runtime_get)(struct mhi_controller *, void *);
 	void (*runtime_put)(struct mhi_controller *, void *);
 	u64 (*time_get)(struct mhi_controller *mhi_cntrl, void *priv);
