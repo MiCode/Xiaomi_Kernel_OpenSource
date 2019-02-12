@@ -42,6 +42,11 @@ bool rx_large_buf;
 module_param(rx_large_buf, bool, 0444);
 MODULE_PARM_DESC(rx_large_buf, " allocate 8KB RX buffers, default - no");
 
+static bool drop_if_ring_full;
+module_param(drop_if_ring_full, bool, 0444);
+MODULE_PARM_DESC(drop_if_ring_full,
+		 " drop Tx packets in case tx ring is full");
+
 static inline uint wil_rx_snaplen(void)
 {
 	return rx_align_2 ? 6 : 0;
@@ -1918,6 +1923,10 @@ static inline void __wil_update_net_queues(struct wil6210_priv *wil,
 		wil_dbg_txrx(wil, "check_stop=%d, stopped=%d",
 			     check_stop, wil->net_queue_stopped);
 
+	if (vring && drop_if_ring_full)
+		/* no need to stop/wake net queues */
+		return;
+
 	if (check_stop == wil->net_queue_stopped)
 		/* net queues already in desired state */
 		return;
@@ -2040,6 +2049,8 @@ netdev_tx_t wil_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		dev_kfree_skb_any(skb);
 		return NETDEV_TX_OK;
 	case -ENOMEM:
+		if (drop_if_ring_full)
+			goto drop;
 		return NETDEV_TX_BUSY;
 	default:
 		break; /* goto drop; */
