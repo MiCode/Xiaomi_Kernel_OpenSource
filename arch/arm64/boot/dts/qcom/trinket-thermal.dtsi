@@ -22,6 +22,7 @@
 		qcom,affinity = <0>;
 		reg = <0xf550800 0x1000>,
 			<0xf521000 0x1000>;
+		qcom,plat-mitigation-disable;
 		#thermal-sensor-cells = <0>;
 	};
 };
