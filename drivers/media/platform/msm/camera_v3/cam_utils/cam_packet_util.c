@@ -68,6 +68,7 @@ int cam_packet_util_validate_packet(struct cam_packet *packet,
 		return -EINVAL;
 	}
 
+
 	CAM_DBG(CAM_UTIL, "num cmd buf:%d num of io config:%d kmd buf index:%d",
 		packet->num_cmd_buf, packet->num_io_configs,
 		packet->kmd_cmd_buf_index);
@@ -184,7 +185,6 @@ int cam_packet_util_process_patches(struct cam_packet *packet,
 			sizeof(struct cam_patch_desc));
 
 	for (i = 0; i < packet->num_patches; i++) {
-
 		hdl = cam_mem_is_secure_buf(patch_desc[i].src_buf_hdl) ?
 			sec_mmu_hdl : iommu_hdl;
 		rc = cam_mem_get_io_buf(patch_desc[i].src_buf_hdl,

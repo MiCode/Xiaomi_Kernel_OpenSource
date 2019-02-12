@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -166,10 +166,7 @@ static int cam_vfe_camif_lite_resource_start(
 static int cam_vfe_camif_lite_resource_stop(
 	struct cam_isp_resource_node             *camif_lite_res)
 {
-	struct cam_vfe_mux_camif_lite_data       *camif_lite_priv;
-	struct cam_vfe_camif_lite_ver2_reg       *camif_lite_reg;
 	int                                       rc = 0;
-	uint32_t                                  val = 0;
 
 	if (!camif_lite_res) {
 		CAM_ERR(CAM_ISP, "Error! Invalid input arguments");
@@ -179,16 +176,6 @@ static int cam_vfe_camif_lite_resource_stop(
 	if ((camif_lite_res->res_state == CAM_ISP_RESOURCE_STATE_RESERVED) ||
 		(camif_lite_res->res_state == CAM_ISP_RESOURCE_STATE_AVAILABLE))
 		return 0;
-
-	camif_lite_priv = (struct cam_vfe_mux_camif_lite_data *)
-		camif_lite_res->res_priv;
-	camif_lite_reg = camif_lite_priv->camif_lite_reg;
-
-	val = cam_io_r_mb(camif_lite_priv->mem_base +
-		camif_lite_priv->common_reg->core_cfg);
-	val &= (~(1 << camif_lite_priv->reg_data->dual_pd_path_sel_shift));
-	cam_io_w_mb(val, camif_lite_priv->mem_base +
-		camif_lite_priv->common_reg->core_cfg);
 
 	if (camif_lite_res->res_state == CAM_ISP_RESOURCE_STATE_STREAMING)
 		camif_lite_res->res_state = CAM_ISP_RESOURCE_STATE_RESERVED;

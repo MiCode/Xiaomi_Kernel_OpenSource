@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -409,11 +409,6 @@ static int cam_mem_util_ion_alloc(struct cam_mem_mgr_alloc_cmd *cmd,
 
 static int cam_mem_util_check_flags(struct cam_mem_mgr_alloc_cmd *cmd)
 {
-	if (!cmd->flags) {
-		CAM_ERR(CAM_MEM, "Invalid flags");
-		return -EINVAL;
-	}
-
 	if (cmd->num_hdl > CAM_MEM_MMU_MAX_HANDLE) {
 		CAM_ERR(CAM_MEM, "Num of mmu hdl exceeded maximum(%d)",
 			CAM_MEM_MMU_MAX_HANDLE);

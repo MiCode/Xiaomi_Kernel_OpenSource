@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,7 +26,8 @@
 /* Flag to create a high priority workq */
 #define CAM_WORKQ_FLAG_HIGH_PRIORITY             (1 << 0)
 
-/* This flag ensures only one task from a given
+/*
+ * This flag ensures only one task from a given
  * workq will execute at any given point on any
  * given CPU.
  */

@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,10 @@ static struct cam_ife_csid_hw_info cam_ife_csid_lite_hw_info = {
 static const struct of_device_id cam_ife_csid_lite_dt_match[] = {
 	{
 		.compatible = "qcom,csid-lite170",
+		.data = &cam_ife_csid_lite_hw_info,
+	},
+	{
+		.compatible = "qcom,csid-lite175",
 		.data = &cam_ife_csid_lite_hw_info,
 	},
 	{}
