@@ -31,6 +31,8 @@
 
 static DEFINE_VDD_REGULATORS(vdd_mm, VDD_NUM, 1, vdd_corner);
 
+#define DISP_CC_MISC_CMD	0x8000
+
 enum {
 	P_BI_TCXO,
 	P_CHIP_SLEEP_CLK,
@@ -1606,6 +1608,9 @@ static int disp_cc_kona_probe(struct platform_device *pdev)
 
 	clk_lucid_pll_configure(&disp_cc_pll0, regmap, &disp_cc_pll0_config);
 	clk_lucid_pll_configure(&disp_cc_pll1, regmap, &disp_cc_pll1_config);
+
+	/* Enable clock gating for MDP clocks */
+	regmap_update_bits(regmap, DISP_CC_MISC_CMD, 0x10, 0x10);
 
 	ret = qcom_cc_really_probe(pdev, &disp_cc_kona_desc, regmap);
 	if (ret) {
