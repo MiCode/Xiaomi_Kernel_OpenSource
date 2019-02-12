@@ -25,7 +25,7 @@
 #define FG_MEM_IF_PM8150B		0x0D
 #define FG_ADC_RR_PM8150B		0x13
 
-#define FG_SRAM_LEN			960
+#define FG_SRAM_LEN			972
 #define PROFILE_LEN			416
 #define PROFILE_COMP_LEN		24
 #define KI_COEFF_SOC_LEVELS		3
@@ -2767,13 +2767,14 @@ static irqreturn_t fg_delta_msoc_irq_handler(int irq, void *data)
 		pr_err("Error in adjusting ki_coeff_dischg, rc=%d\n", rc);
 
 	/*
-	 * If ESR fast calibration is done without a delta ESR interrupt, then
-	 * it is possibly a failed attempt. In such cases, retry ESR fast
-	 * calibration once again. This will get restored to normal config once
-	 * a delta ESR interrupt fires or the timer expires.
+	 * If ESR fast calibration is done even before 3 delta ESR interrupts
+	 * had fired, then it is possibly a failed attempt. In such cases,
+	 * retry ESR fast calibration once again. This will get restored to
+	 * normal config once the timer expires or delta ESR interrupt count
+	 * reaches the threshold.
 	 */
 	if (chip->esr_fast_calib && chip->esr_fast_calib_done &&
-		!chip->delta_esr_count && !chip->esr_fast_calib_retry) {
+		(chip->delta_esr_count < 3) && !chip->esr_fast_calib_retry) {
 		rc = fg_gen4_esr_fast_calib_config(chip, true);
 		if (rc < 0)
 			pr_err("Error in configuring esr_fast_calib, rc=%d\n",
