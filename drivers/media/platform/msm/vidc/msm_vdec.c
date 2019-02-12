@@ -21,31 +21,8 @@
 #define MIN_NUM_DEC_CAPTURE_BUFFERS 4
 /* Y=16(0-9bits), Cb(10-19bits)=Cr(20-29bits)=128, black by default */
 #define DEFAULT_VIDEO_CONCEAL_COLOR_BLACK 0x8020010
-#define MB_SIZE_IN_PIXEL (16 * 16)
 #define MAX_VP9D_INST_COUNT 6
 #define MAX_4K_MBPF 38736 /* (4096 * 2304 / 256) */
-
-static const char *const mpeg_video_stream_format[] = {
-	"NAL Format Start Codes",
-	"NAL Format One NAL Per Buffer",
-	"NAL Format One Byte Length",
-	"NAL Format Two Byte Length",
-	"NAL Format Four Byte Length",
-	NULL
-};
-
-static const char *const mpeg_vidc_video_alloc_mode_type[] = {
-	"Buffer Allocation Static",
-	"Buffer Allocation Dynamic Buffer",
-	NULL
-};
-
-static const char *const perf_level[] = {
-	"Nominal",
-	"Performance",
-	"Turbo",
-	NULL
-};
 
 static const char *const vp8_profile_level[] = {
 	"Unused",

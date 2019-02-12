@@ -30,9 +30,6 @@
 #define MAX_NUM_B_FRAMES 1
 
 #define L_MODE V4L2_MPEG_VIDEO_H264_LOOP_FILTER_MODE_DISABLED_AT_SLICE_BOUNDARY
-#define MIN_TIME_RESOLUTION 1
-#define MAX_TIME_RESOLUTION 0xFFFFFF
-#define DEFAULT_TIME_RESOLUTION 0x7530
 #define MIN_NUM_ENC_OUTPUT_BUFFERS 4
 #define MIN_NUM_ENC_CAPTURE_BUFFERS 5
 
@@ -46,40 +43,12 @@ static const char *const mpeg_video_rate_control[] = {
 	NULL
 };
 
-static const char *const h264_video_entropy_cabac_model[] = {
-	"Model 0",
-	"Model 1",
-	"Model 2",
-	NULL
-};
-
 static const char *const vp8_profile_level[] = {
 	"Unused",
 	"0.0",
 	"1.0",
 	"2.0",
 	"3.0",
-	NULL
-};
-
-static const char *const perf_level[] = {
-	"Nominal",
-	"Performance",
-	"Turbo",
-	NULL
-};
-
-static const char *const mbi_statistics[] = {
-	"Camcorder Default",
-	"Mode 1",
-	"Mode 2",
-	"Mode 3",
-	NULL
-};
-
-static const char *const timestamp_mode[] = {
-	"Honor",
-	"Ignore",
 	NULL
 };
 

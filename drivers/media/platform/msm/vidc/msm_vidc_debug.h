@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __MSM_VIDC_DEBUG__
@@ -56,12 +56,10 @@ extern int msm_vidc_debug;
 extern int msm_vidc_debug_out;
 extern int msm_vidc_fw_debug;
 extern int msm_vidc_fw_debug_mode;
-extern int msm_vidc_fw_low_power_mode;
 extern bool msm_vidc_fw_coverage;
 extern bool msm_vidc_thermal_mitigation_disabled;
 extern int msm_vidc_clock_voting;
 extern bool msm_vidc_syscache_disable;
-extern bool msm_vidc_dyn_gov_debug;
 
 #define dprintk(__level, __fmt, ...)	\
 	do { \

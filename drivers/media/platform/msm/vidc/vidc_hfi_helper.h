@@ -547,11 +547,6 @@ struct hfi_multi_stream {
 	u32 enable;
 };
 
-struct hfi_multi_view_format {
-	u32 views;
-	u32 rg_view_order[1];
-};
-
 #define HFI_MULTI_SLICE_OFF				(HFI_COMMON_BASE + 0x1)
 #define HFI_MULTI_SLICE_BY_MB_COUNT		(HFI_COMMON_BASE + 0x2)
 #define HFI_MULTI_SLICE_BY_BYTE_COUNT	(HFI_COMMON_BASE + 0x3)
@@ -678,20 +673,8 @@ struct hfi_picture_type {
 /* Base Offset for 10-bit color formats */
 #define HFI_COLOR_FORMAT_10_BIT_BASE      (0x4000)
 
-#define HFI_COLOR_FORMAT_MONOCHROME			(HFI_COMMON_BASE + 0x1)
 #define HFI_COLOR_FORMAT_NV12				(HFI_COMMON_BASE + 0x2)
 #define HFI_COLOR_FORMAT_NV21				(HFI_COMMON_BASE + 0x3)
-#define HFI_COLOR_FORMAT_NV12_4x4TILE		(HFI_COMMON_BASE + 0x4)
-#define HFI_COLOR_FORMAT_NV21_4x4TILE		(HFI_COMMON_BASE + 0x5)
-#define HFI_COLOR_FORMAT_YUYV				(HFI_COMMON_BASE + 0x6)
-#define HFI_COLOR_FORMAT_YVYU				(HFI_COMMON_BASE + 0x7)
-#define HFI_COLOR_FORMAT_UYVY				(HFI_COMMON_BASE + 0x8)
-#define HFI_COLOR_FORMAT_VYUY				(HFI_COMMON_BASE + 0x9)
-#define HFI_COLOR_FORMAT_RGB565				(HFI_COMMON_BASE + 0xA)
-#define HFI_COLOR_FORMAT_BGR565				(HFI_COMMON_BASE + 0xB)
-#define HFI_COLOR_FORMAT_RGB888				(HFI_COMMON_BASE + 0xC)
-#define HFI_COLOR_FORMAT_BGR888				(HFI_COMMON_BASE + 0xD)
-#define HFI_COLOR_FORMAT_YUV444				(HFI_COMMON_BASE + 0xE)
 #define HFI_COLOR_FORMAT_RGBA8888			(HFI_COMMON_BASE + 0x10)
 
 #define HFI_COLOR_FORMAT_YUV420_TP10					\
@@ -711,11 +694,6 @@ struct hfi_picture_type {
 #define HFI_MAX_MATRIX_COEFFS 9
 #define HFI_MAX_BIAS_COEFFS 3
 #define HFI_MAX_LIMIT_COEFFS 6
-
-#define HFI_STATISTICS_MODE_DEFAULT 0x10
-#define HFI_STATISTICS_MODE_1 0x11
-#define HFI_STATISTICS_MODE_2 0x12
-#define HFI_STATISTICS_MODE_3 0x13
 
 struct hfi_uncompressed_format_select {
 	u32 buffer_type;
@@ -800,33 +778,6 @@ struct hfi_property_sys_image_version_info_type {
 	u8  str_image_version[1];
 };
 
-struct hfi_venc_config_advanced {
-	u8 pipe2d;
-	u8 hw_mode;
-	u8 low_delay_enforce;
-	u8 worker_vppsg_delay;
-	u32 close_gop;
-	u32 h264_constrain_intra_pred;
-	u32 h264_transform_8x8_flag;
-	u32 multi_refp_en;
-	u32 qmatrix_en;
-	u8 vpp_info_packet_mode;
-	u8 ref_tile_mode;
-	u8 bitstream_flush_mode;
-	u32 vppsg_vspap_fb_sync_delay;
-	u32 rc_initial_delay;
-	u32 peak_bitrate_constraint;
-	u32 ds_display_frame_width;
-	u32 ds_display_frame_height;
-	u32 perf_tune_param_ptr;
-	u32 input_x_offset;
-	u32 input_y_offset;
-	u32 input_roi_width;
-	u32 input_roi_height;
-	u32 vsp_fifo_dma_sel;
-	u32 h264_num_ref_frames;
-};
-
 struct hfi_vbv_hrd_bufsize {
 	u32 buffer_size;
 };
@@ -840,15 +791,6 @@ struct hfi_aspect_ratio {
 	u32 aspect_width;
 	u32 aspect_height;
 };
-
-#define HFI_IFRAME_SIZE_DEFAULT			(HFI_COMMON_BASE + 0x1)
-#define HFI_IFRAME_SIZE_MEDIUM			(HFI_COMMON_BASE + 0x2)
-#define HFI_IFRAME_SIZE_HIGH			(HFI_COMMON_BASE + 0x3)
-#define HFI_IFRAME_SIZE_UNLIMITED		(HFI_COMMON_BASE + 0x4)
-struct hfi_iframe_size {
-	u32 type;
-};
-
 
 #define HFI_CMD_SYS_COMMON_START			\
 (HFI_DOMAIN_BASE_COMMON + HFI_ARCH_COMMON_OFFSET + HFI_CMD_START_OFFSET \
@@ -1084,15 +1026,6 @@ struct hfi_msg_sys_session_end_done_packet {
 	u32 packet_type;
 	u32 session_id;
 	u32 error_type;
-};
-
-struct hfi_msg_session_get_sequence_header_done_packet {
-	u32 size;
-	u32 packet_type;
-	u32 session_id;
-	u32 error_type;
-	u32 header_len;
-	u32 sequence_header;
 };
 
 struct hfi_msg_sys_debug_packet {

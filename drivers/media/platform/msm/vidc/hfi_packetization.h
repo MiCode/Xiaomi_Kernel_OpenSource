@@ -34,7 +34,6 @@ struct hfi_packetization_ops {
 	int (*sys_release_resource)(
 		struct hfi_cmd_sys_release_resource_packet *pkt,
 		struct vidc_resource_hdr *resource_hdr);
-	int (*sys_ping)(struct hfi_cmd_sys_ping_packet *pkt);
 	int (*sys_image_version)(struct hfi_cmd_sys_get_property_packet *pkt);
 	int (*ssr_cmd)(enum hal_ssr_trigger_type type,
 		struct hfi_cmd_sys_test_ssr_packet *pkt);
