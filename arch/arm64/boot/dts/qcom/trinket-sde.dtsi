@@ -397,9 +397,11 @@
 				reg = <0>;
 				qcom,supply-name = "vdda-0p9";
 				qcom,supply-min-voltage =
-					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
-				qcom,supply-max-voltage =
 					<RPM_SMD_REGULATOR_LEVEL_NOM>;
+				qcom,supply-max-voltage =
+					<RPM_SMD_REGULATOR_LEVEL_TURBO_NO_CPR>;
+				qcom,supply-off-min-voltage =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
 				qcom,supply-enable-load = <0>;
 				qcom,supply-disable-load = <0>;
 			};
