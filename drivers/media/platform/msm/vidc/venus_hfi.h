@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -215,9 +215,7 @@ struct hal_data {
 	u32 irq;
 	phys_addr_t firmware_base;
 	u8 __iomem *register_base;
-	u8 __iomem *gcc_reg_base;
 	u32 register_size;
-	u32 gcc_reg_size;
 };
 
 struct venus_resources {
@@ -232,6 +230,12 @@ enum dsp_flag {
 enum venus_hfi_state {
 	VENUS_STATE_DEINIT = 1,
 	VENUS_STATE_INIT,
+};
+
+enum reset_state {
+	INIT = 1,
+	ASSERT,
+	DEASSERT,
 };
 
 struct venus_hfi_device;
