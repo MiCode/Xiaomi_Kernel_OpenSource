@@ -1313,7 +1313,7 @@ static int msm_vidc_comm_update_ctrl(struct msm_vidc_inst *inst,
 	if (ctrl) {
 		v4l2_ctrl_modify_range(ctrl, capability->min,
 				capability->max, ctrl->step,
-				capability->max);
+				ctrl->default_value);
 		dprintk(VIDC_DBG,
 			"%s: Updated Range = %lld --> %lld Def value = %lld\n",
 			ctrl->name, ctrl->minimum, ctrl->maximum,

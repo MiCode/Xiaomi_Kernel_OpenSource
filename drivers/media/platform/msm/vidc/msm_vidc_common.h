@@ -38,6 +38,14 @@ enum load_calc_quirks {
 	LOAD_CALC_IGNORE_NON_REALTIME_LOAD = 1 << 2,
 };
 
+enum client_set_controls {
+	CLIENT_SET_I_QP = 0x1,
+	CLIENT_SET_P_QP = 0x2,
+	CLIENT_SET_B_QP = 0x4,
+	CLIENT_SET_MIN_QP = 0x8,
+	CLIENT_SET_MAX_QP = 0x10,
+};
+
 static inline bool is_turbo_session(struct msm_vidc_inst *inst)
 {
 	return !!(inst->flags & VIDC_TURBO);
