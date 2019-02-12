@@ -1661,8 +1661,8 @@
 &msm_kms_edrm {
 	qcom,edrm-assigned-display {
 		qcom,edrm-display-id@0 {
-			qcom,label = "dsi_adv_7533_1";
-			qcom,intf-type = "dsi";
+			qcom,label = "sde_hdmi";
+			qcom,intf-type = "hdmi";
 			qcom,assigned_plane = <&reserved_plane1>;
 		};
 	};
