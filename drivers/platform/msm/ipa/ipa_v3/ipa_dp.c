@@ -3130,7 +3130,6 @@ static void ipa3_wq_rx_napi_chain(struct ipa3_sys_context *sys,
 		if (prev_skb) {
 			skb_shinfo(prev_skb)->frag_list = NULL;
 			sys->pyld_hdlr(first_skb, sys);
-			sys->repl_hdlr(sys);
 		}
 
 	/* TODO: add chaining for coal case */
@@ -3153,7 +3152,6 @@ static void ipa3_wq_rx_napi_chain(struct ipa3_sys_context *sys,
 				}
 				wan_def_sys = ipa3_ctx->ep[ipa_ep_idx].sys;
 				wan_def_sys->repl_hdlr(wan_def_sys);
-				sys->repl_hdlr(sys);
 			}
 		}
 	}
@@ -4470,6 +4468,9 @@ start_poll:
 		}
 	}
 	cnt += weight - remain_aggr_weight * IPA_WAN_AGGR_PKT_CNT;
+	/* call repl_hdlr before napi_reschedule / napi_complete */
+	if (cnt)
+		ep->sys->repl_hdlr(ep->sys);
 	if (cnt < weight) {
 		napi_complete(ep->sys->napi_obj);
 		ret = ipa3_rx_switch_to_intr_mode(ep->sys);
