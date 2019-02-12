@@ -1543,6 +1543,10 @@ int cam_flash_pmic_pkt_parser(struct cam_flash_ctrl *fctrl, void *arg)
 		case CAMERA_SENSOR_FLASH_CMD_TYPE_QUERYCURR: {
 			int query_curr_ma = 0;
 
+			if (remain_len < sizeof(struct cam_flash_query_curr)) {
+				CAM_ERR(CAM_FLASH, "Not enough buffer");
+				return -EINVAL;
+		}
 			flash_query_info =
 				(struct cam_flash_query_curr *)cmd_buf;
 

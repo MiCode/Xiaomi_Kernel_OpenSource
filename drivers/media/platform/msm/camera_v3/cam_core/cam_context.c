@@ -43,7 +43,6 @@ int cam_context_shutdown(struct cam_context *ctx)
 	int rc = 0;
 	struct cam_release_dev_cmd cmd;
 
-	mutex_lock(&ctx->ctx_mutex);
 	if (ctx->state > CAM_CTX_AVAILABLE && ctx->state < CAM_CTX_STATE_MAX) {
 		cmd.session_handle = ctx->session_hdl;
 		cmd.dev_handle = ctx->dev_hdl;
@@ -60,7 +59,6 @@ int cam_context_shutdown(struct cam_context *ctx)
 			ctx->dev_name, ctx->ctx_id, ctx->state);
 		rc = -EINVAL;
 	}
-	mutex_unlock(&ctx->ctx_mutex);
 
 	rc = cam_destroy_device_hdl(ctx->dev_hdl);
 	if (rc)
@@ -458,7 +456,6 @@ int cam_context_handle_start_dev(struct cam_context *ctx,
 	}
 
 	mutex_lock(&ctx->ctx_mutex);
-	ctx->last_flush_req = 0;
 	if (ctx->state_machine[ctx->state].ioctl_ops.start_dev)
 		rc = ctx->state_machine[ctx->state].ioctl_ops.start_dev(
 			ctx, cmd);
@@ -531,6 +528,7 @@ int cam_context_init(struct cam_context *ctx,
 	ctx->dev_name = dev_name;
 	ctx->dev_id = dev_id;
 	ctx->ctx_id = ctx_id;
+	ctx->last_flush_req = 0;
 	ctx->ctx_crm_intf = NULL;
 	ctx->crm_ctx_intf = crm_node_intf;
 	ctx->hw_mgr_intf = hw_mgr_intf;

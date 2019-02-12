@@ -181,7 +181,9 @@ static int32_t cam_flash_driver_cmd(struct cam_flash_ctrl *fctrl,
 			goto release_mutex;
 		}
 
+		cam_flash_off(fctrl);
 		fctrl->func_tbl.flush_req(fctrl, FLUSH_ALL, 0);
+		fctrl->last_flush_req = 0;
 		fctrl->flash_state = CAM_FLASH_STATE_ACQUIRE;
 		break;
 	}
@@ -318,7 +320,6 @@ static int cam_flash_platform_remove(struct platform_device *pdev)
 		return 0;
 	}
 
-	devm_kfree(&pdev->dev, fctrl);
 	CAM_INFO(CAM_FLASH, "Platform remove invoked");
 	mutex_lock(&fctrl->flash_mutex);
 	cam_flash_shutdown(fctrl);

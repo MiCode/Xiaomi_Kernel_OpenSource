@@ -130,7 +130,7 @@ struct cam_ife_hw_mgr_debug {
  * @is_rdi_only_context     flag to specify the context has only rdi resource
  * @config_done_complete    indicator for configuration complete
  * @init_done               indicate whether init hw is done
-* @is_fe_enable            indicate whether fetch engine\read path is enabled
+ * @is_fe_enable            indicate whether fetch engine\read path is enabled
  */
 struct cam_ife_hw_mgr_ctx {
 	struct list_head                list;

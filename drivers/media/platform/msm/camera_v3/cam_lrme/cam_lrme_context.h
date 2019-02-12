@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,7 +19,7 @@
 #include "cam_req_mgr_interface.h"
 #include "cam_sync_api.h"
 
-#define CAM_LRME_CTX_INDEX_SHIFT 16
+#define CAM_LRME_CTX_INDEX_SHIFT 32
 
 /**
  * struct cam_lrme_context

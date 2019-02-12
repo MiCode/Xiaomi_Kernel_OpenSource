@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -111,6 +111,7 @@ static int __cam_node_handle_acquire_dev(struct cam_node *node,
 		goto err;
 	}
 
+	ctx->last_flush_req = 0;
 	rc = cam_context_handle_acquire_dev(ctx, acquire);
 	if (rc) {
 		CAM_ERR(CAM_CORE, "Acquire device failed for node %s",
@@ -657,6 +658,7 @@ int cam_node_handle_ioctl(struct cam_node *node, struct cam_control *cmd)
 					"acquire device failed(rc = %d)", rc);
 				goto acquire_kfree;
 			}
+			CAM_INFO(CAM_CORE, "Acquire HW successful");
 		}
 
 		if (copy_to_user((void __user *)cmd->handle, acquire_ptr,
@@ -762,6 +764,8 @@ acquire_kfree:
 				CAM_ERR(CAM_CORE,
 					"release device failed(rc = %d)", rc);
 		}
+
+		CAM_INFO(CAM_CORE, "Release HW done(rc = %d)", rc);
 
 release_kfree:
 		kfree(release_ptr);
