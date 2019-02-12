@@ -1,0 +1,164 @@
+/*
+ * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "skeleton64.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SA6155P Virtual Machine";
+	qcom,msm-name = "SA6155P";
+	qcom,msm-id = <377 0x0>;
+
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+
+	chosen {
+		bootargs = "rcupdate.rcu_expedited=1
+			rcu_nocbs=0-7 cgroup.memory=nokmem,nosocket";
+	};
+
+	soc: soc { };
+
+	reserved_memory: reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		/* global autoconfigured region for contiguous allocations */
+		linux,cma {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x2000000>;
+			linux,cma-default;
+		};
+
+		pmem_shared: pmem_shared_region@a0000000 {
+			reg = <0x0 0xa0000000 0x0 0x20000000>;
+			label = "pmem_shared_mem";
+		};
+	};
+
+	firmware: firmware {
+		android {
+			compatible = "android,firmware";
+			vbmeta {
+				compatible = "android,vbmeta";
+				parts = "vbmeta,boot,system,vendor,dtbo";
+			};
+			fstab {
+				compatible = "android,fstab";
+				vendor {
+					compatible = "android,vendor";
+					dev="/dev/block/platform/vdevs
+						/1c0f0000.virtio_blk/vdc";
+					type = "ext4";
+					mnt_flags = "ro,barrier=1,discard";
+					fsmgr_flags = "wait";
+					status = "ok";
+				};
+			};
+		};
+	};
+};
+
+&soc {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	ranges = <0 0 0 0xffffffff>;
+	compatible = "simple-bus";
+
+	clock_gcc: qcom,gcc {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	qcom,ion {
+		compatible = "qcom,msm-ion";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		system_heap: qcom,ion-heap@25 {
+			reg = <25>;
+			qcom,ion-heap-type = "SYSTEM";
+		};
+	};
+
+	qcom,hab {
+		compatible = "qcom,hab";
+		vmid = <2>;
+
+		mmidgrp100: mmidgrp100 {
+			grp-start-id = <100>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmidgrp200: mmidgrp200 {
+			grp-start-id = <200>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmidgrp300: mmidgrp300 {
+			grp-start-id = <300>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmidgrp400: mmidgrp400 {
+			grp-start-id = <400>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmidgrp500: mmidgrp500 {
+			grp-start-id = <500>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmidgrp600: mmidgrp600 {
+			grp-start-id = <600>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmidgrp700: mmidgrp700 {
+			grp-start-id = <700>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmidgrp800: mmidgrp800 {
+			grp-start-id = <800>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmidgrp900: mmidgrp900 {
+			grp-start-id = <900>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmidgrp1000: mmidgrp1000 {
+			grp-start-id = <1000>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+	};
+};
