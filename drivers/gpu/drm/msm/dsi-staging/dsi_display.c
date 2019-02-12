@@ -4702,7 +4702,7 @@ static ssize_t sysfs_dynamic_dsi_clk_read(struct device *dev,
 static ssize_t sysfs_dynamic_dsi_clk_write(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
-	int rc = count;
+	int rc = 0;
 	int clk_rate;
 	struct dsi_display *display;
 
@@ -4731,6 +4731,8 @@ static ssize_t sysfs_dynamic_dsi_clk_write(struct device *dev,
 	rc = dsi_display_dynamic_clk_configure_cmd(display, clk_rate);
 	if (rc)
 		pr_err("Failed to configure dynamic clk\n");
+	else
+		rc = count;
 
 	mutex_unlock(&dsi_display_clk_mutex);
 	mutex_unlock(&display->display_lock);
