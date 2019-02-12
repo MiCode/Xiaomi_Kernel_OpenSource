@@ -402,3 +402,7 @@
 		};
 	};
 };
+
+&apps_smmu {
+	/delete-property/ qcom,actlr;
+};
