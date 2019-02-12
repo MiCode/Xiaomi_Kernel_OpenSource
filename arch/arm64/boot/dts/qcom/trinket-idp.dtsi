@@ -134,6 +134,7 @@
 	qcom,qg-iterm-ma = <100>;
 	qcom,hold-soc-while-full;
 	qcom,linearize-soc;
+	qcom,qg-use-s7-ocv;
 };
 
 &pmi632_charger {
