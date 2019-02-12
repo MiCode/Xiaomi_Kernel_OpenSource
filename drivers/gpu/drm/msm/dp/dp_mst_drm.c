@@ -139,6 +139,13 @@ struct dp_mst_encoder_info_cache {
 struct dp_mst_private dp_mst;
 struct dp_mst_encoder_info_cache dp_mst_enc_cache;
 
+static void dp_mst_sim_destroy_port(struct kref *ref)
+{
+	struct drm_dp_mst_port *port = container_of(ref,
+			struct drm_dp_mst_port, kref);
+	kfree(port);
+}
+
 /* DRM DP MST Framework simulator OPs */
 static void dp_mst_sim_add_port(struct dp_mst_private *mst,
 			struct dp_mst_sim_port_data *port_msg)
@@ -183,13 +190,14 @@ static void dp_mst_sim_add_port(struct dp_mst_private *mst,
 			mutex_lock(&mstb->mgr->lock);
 			list_del(&port->next);
 			mutex_unlock(&mstb->mgr->lock);
+			kref_put(&port->kref, dp_mst_sim_destroy_port);
 			goto put_port;
 		}
 		(*mstb->mgr->cbs->register_connector)(port->connector);
 	}
 
 put_port:
-	kref_put(&port->kref, NULL);
+	kref_put(&port->kref, dp_mst_sim_destroy_port);
 }
 
 static void dp_mst_sim_link_probe_work(struct work_struct *work)
