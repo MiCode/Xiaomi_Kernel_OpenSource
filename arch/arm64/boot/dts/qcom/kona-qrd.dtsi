@@ -134,6 +134,47 @@
 	};
 };
 
+&pm8150b_haptics {
+	qcom,vmax-mv = <1697>;
+	qcom,play-rate-us = <5882>;
+
+	wf_0 {
+		/* CLICK */
+		qcom,wf-play-rate-us = <5882>;
+		qcom,wf-vmax-mv = <1697>;
+	};
+
+	wf_1 {
+		/* DOUBLE CLICK */
+		qcom,wf-play-rate-us = <5882>;
+		qcom,wf-vmax-mv = <1697>;
+	};
+
+	wf_2 {
+		/* TICK */
+		qcom,wf-play-rate-us = <5882>;
+		qcom,wf-vmax-mv = <1697>;
+	};
+
+	wf_3 {
+		/* THUD */
+		qcom,wf-play-rate-us = <5882>;
+		qcom,wf-vmax-mv = <1697>;
+	};
+
+	wf_4 {
+		/* POP */
+		qcom,wf-play-rate-us = <5882>;
+		qcom,wf-vmax-mv = <1697>;
+	};
+
+	wf_5 {
+		/* HEAVY CLICK */
+		qcom,wf-play-rate-us = <5882>;
+		qcom,wf-vmax-mv = <1697>;
+	};
+};
+
 &pm8150b_vadc {
 	#address-cells = <1>;
 	#size-cells = <0>;
