@@ -45,6 +45,25 @@
 &i2c_4 {
 	status = "okay";
 
+	smi130_gyro@68 {
+		compatible = "smi130_gyro";
+		reg = <0x68>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&sensor_int1_default>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <78 IRQ_TYPE_EDGE_RISING>;
+		smi130_gyro,gpio_irq = <&tlmm 78 IRQ_TYPE_EDGE_RISING>;
+	};
+
+	smi130_acc@18 {
+		compatible = "smi130_acc";
+		reg = <0x18>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&sensor_int2_default>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <79 IRQ_TYPE_EDGE_RISING>;
+	};
+
 	iam20680@69 {
 	       compatible = "inven,iam20680";
 	       reg = <0x69>;
