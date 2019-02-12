@@ -534,6 +534,11 @@
 			size = <0 0x400000>;
 		};
 
+		cont_splash_memory: cont_splash_region@5c000000 {
+			reg = <0x0 0x5c000000 0x0 0x01000000>;
+			label = "cont_splash_region";
+		};
+
 		/* global autoconfigured region for contiguous allocations */
 		linux,cma {
 			compatible = "shared-dma-pool";
