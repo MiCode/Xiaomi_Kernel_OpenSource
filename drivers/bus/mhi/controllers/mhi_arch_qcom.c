@@ -355,25 +355,6 @@ static struct dma_iommu_mapping *mhi_arch_create_iommu_mapping(
 	return __depr_arm_iommu_create_mapping(&pci_bus_type, base, size);
 }
 
-static int mhi_arch_dma_mask(struct mhi_controller *mhi_cntrl)
-{
-	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
-	u32 smmu_cfg = mhi_dev->smmu_cfg;
-	int mask = 0;
-
-	if (!smmu_cfg) {
-		mask = 64;
-	} else {
-		unsigned long size = mhi_dev->iova_stop + 1;
-
-		/* for S1 bypass, iova not used set to max */
-		mask = (smmu_cfg & MHI_SMMU_S1_BYPASS) ?
-			64 : find_last_bit(&size, 64);
-	}
-
-	return dma_set_mask_and_coherent(mhi_cntrl->dev, DMA_BIT_MASK(mask));
-}
-
 int mhi_arch_iommu_init(struct mhi_controller *mhi_cntrl)
 {
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
@@ -447,7 +428,7 @@ int mhi_arch_iommu_init(struct mhi_controller *mhi_cntrl)
 
 	mhi_cntrl->dev = &mhi_dev->pci_dev->dev;
 
-	ret = mhi_arch_dma_mask(mhi_cntrl);
+	ret = dma_set_mask_and_coherent(mhi_cntrl->dev, DMA_BIT_MASK(64));
 	if (ret) {
 		MHI_ERR("Error setting dma mask, ret:%d\n", ret);
 		goto release_device;
