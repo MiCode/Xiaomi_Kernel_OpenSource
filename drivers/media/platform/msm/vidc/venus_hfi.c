@@ -4047,7 +4047,16 @@ static int __init_subcaches(struct venus_hfi_device *device)
 		return 0;
 
 	venus_hfi_for_each_subcache(device, sinfo) {
-		sinfo->subcache = llcc_slice_getd(LLCC_VIDSC0);
+		if (!strcmp("vidsc0", sinfo->name)) {
+			sinfo->subcache = llcc_slice_getd(LLCC_VIDSC0);
+		} else if (!strcmp("vidsc1", sinfo->name)) {
+			sinfo->subcache = llcc_slice_getd(LLCC_VIDSC1);
+		} else if (!strcmp("vidscfw", sinfo->name)) {
+			sinfo->subcache = llcc_slice_getd(LLCC_VIDFW);
+		} else {
+			dprintk(VIDC_ERR, "Invalid subcache name %s\n",
+					sinfo->name);
+		}
 		if (IS_ERR_OR_NULL(sinfo->subcache)) {
 			rc = PTR_ERR(sinfo->subcache) ?
 				PTR_ERR(sinfo->subcache) : -EBADHANDLE;
