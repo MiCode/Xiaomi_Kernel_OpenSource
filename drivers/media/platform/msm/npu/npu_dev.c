@@ -586,7 +586,7 @@ static int npu_enable_clocks(struct npu_device *npu_dev, bool post_pil)
 
 static void npu_disable_clocks(struct npu_device *npu_dev, bool post_pil)
 {
-	int i = 0;
+	int i, rc = 0;
 	struct npu_clk *core_clks = npu_dev->core_clks;
 
 	for (i = npu_dev->core_clk_num - 1; i >= 0 ; i--) {
@@ -596,6 +596,18 @@ static void npu_disable_clocks(struct npu_device *npu_dev, bool post_pil)
 		} else {
 			if (npu_is_post_clock(core_clks[i].clk_name))
 				continue;
+		}
+
+		/* set clock rate to 0 before disabling it */
+		if (!npu_is_exclude_rate_clock(core_clks[i].clk_name)) {
+			pr_debug("setting rate of clock %s to 0\n",
+				core_clks[i].clk_name);
+
+			rc = clk_set_rate(core_clks[i].clk, 0);
+			if (rc) {
+				pr_err("clk_set_rate %s to 0 failed\n",
+					core_clks[i].clk_name);
+			}
 		}
 
 		pr_debug("disabling clock %s\n", core_clks[i].clk_name);

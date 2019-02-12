@@ -170,11 +170,12 @@ int fw_init(struct npu_device *npu_dev)
 wait_fw_ready_fail:
 	npu_disable_post_pil_clocks(npu_dev);
 enable_post_clk_fail:
-	subsystem_put_local(host_ctx->subsystem_handle);
 subsystem_get_fail:
-	npu_disable_sys_cache(npu_dev);
 enable_sys_cache_fail:
+	npu_disable_sys_cache(npu_dev);
 	npu_disable_core_power(npu_dev);
+	if (!IS_ERR(host_ctx->subsystem_handle))
+		subsystem_put_local(host_ctx->subsystem_handle);
 enable_pw_fail:
 	host_ctx->fw_state = FW_DISABLED;
 	mutex_unlock(&host_ctx->lock);
@@ -236,8 +237,6 @@ void fw_deinit(struct npu_device *npu_dev, bool ssr, bool fw_alive)
 
 	npu_disable_post_pil_clocks(npu_dev);
 	npu_disable_sys_cache(npu_dev);
-	subsystem_put_local(host_ctx->subsystem_handle);
-	host_ctx->fw_state = FW_DISABLED;
 
 	/*
 	 * if fw is still alive, notify dsp before power off
@@ -250,6 +249,9 @@ void fw_deinit(struct npu_device *npu_dev, bool ssr, bool fw_alive)
 		msleep(500);
 
 	npu_disable_core_power(npu_dev);
+
+	subsystem_put_local(host_ctx->subsystem_handle);
+	host_ctx->fw_state = FW_DISABLED;
 
 	if (ssr) {
 		/* mark all existing network to error state */
