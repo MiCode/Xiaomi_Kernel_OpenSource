@@ -6,6 +6,9 @@
 #ifndef __QTEE_SHMBRIDGE_H__
 #define __QTEE_SHMBRIDGE_H__
 
+/* VMID and permission definitions */
+#include <soc/qcom/secure_buffer.h>
+
 /**
  * struct qtee_shm - info of shared memory allocated from the default bridge
  * @ paddr: physical address of the shm allocated from the default bridge
@@ -28,27 +31,29 @@ bool qtee_shmbridge_is_enabled(void);
 /**
  * Register paddr & size as a bridge, get bridge handle
  *
- * @ paddr: paddr of buffer to be turned into bridge
- * @ size: size of the bridge
- * @ ns_vmid: non-secure vmid, like VMID_HLOS
- * @ ns_vm_perm: NS VM permission, like PERM_READ, PERM_WRITE
- * @ tz_perm: TZ permission
- * @ *handle: output shmbridge handle
+ * @ [IN] addr: paddr of buffer to be turned into bridge
+ * @ [IN] size: size of the bridge
+ * @ [IN] ns_vmid_list: non-secure vmids array
+ * @ [IN] ns_vm_perm_list: NS VM permission array
+ * @ [IN] ns_vmid_num: number of NS VMIDs (at most 4)
+ * @ [IN] tz_perm: TZ permission
+ * @ [OUT] *handle: output shmbridge handle
  *
  * return success or error
  */
 int32_t qtee_shmbridge_register(
 		phys_addr_t paddr,
 		size_t size,
-		uint32_t ns_vmid,
-		uint32_t ns_vm_perm,
+		uint32_t *ns_vmid_list,
+		uint32_t *ns_vm_perm_list,
+		uint32_t ns_vmid_num,
 		uint32_t tz_perm,
 		uint64_t *handle);
 
 /**
  * Deregister bridge
  *
- * @ handle: shmbridge handle
+ * @ [IN] handle: shmbridge handle
  *
  * return success or error
  */
@@ -57,8 +62,8 @@ int32_t qtee_shmbridge_deregister(uint64_t handle);
 /**
  * Sub-allocate from default kernel bridge created by shmb driver
  *
- * @ size: size of the buffer to be sub-allocated from the bridge
- * @ *shm: output qtee_shm structure with buffer paddr, vaddr and
+ * @ [IN] size: size of the buffer to be sub-allocated from the bridge
+ * @ [OUT] *shm: output qtee_shm structure with buffer paddr, vaddr and
  *         size; returns ERR_PTR or NULL otherwise
  *
  * return success or error
@@ -68,7 +73,7 @@ int32_t qtee_shmbridge_allocate_shm(size_t size, struct qtee_shm *shm);
 /*
  * Free buffer that is sub-allocated from default kernel bridge
  *
- * @ shm: qtee_shm structure to be freed
+ * @ [IN] shm: qtee_shm structure to be freed
  *
  */
 void qtee_shmbridge_free_shm(struct qtee_shm *shm);
