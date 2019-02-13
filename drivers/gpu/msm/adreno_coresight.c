@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/platform_device.h>
@@ -317,7 +317,7 @@ static int adreno_coresight_enable(struct coresight_device *csdev,
 }
 
 /**
- * adreno_coresight_start() - Reprogram coresight registers after power collapse
+ * adreno_coresight_stop() - Reprogram coresight registers after power collapse
  * @adreno_dev: Pointer to the adreno device structure
  *
  * Cache the current coresight register values so they can be restored after
@@ -326,6 +326,9 @@ static int adreno_coresight_enable(struct coresight_device *csdev,
 void adreno_coresight_stop(struct adreno_device *adreno_dev)
 {
 	int i, adreno_dev_flag = -EINVAL;
+
+	if (adreno_is_a650(adreno_dev))
+		return;
 
 	for (i = 0; i < GPU_CORESIGHT_MAX; ++i) {
 		if (i == GPU_CORESIGHT_GX)
@@ -349,6 +352,9 @@ void adreno_coresight_stop(struct adreno_device *adreno_dev)
 void adreno_coresight_start(struct adreno_device *adreno_dev)
 {
 	int i, adreno_dev_flag = -EINVAL;
+
+	if (adreno_is_a650(adreno_dev))
+		return;
 
 	for (i = 0; i < GPU_CORESIGHT_MAX; ++i) {
 		if (i == GPU_CORESIGHT_GX)
@@ -391,6 +397,9 @@ void adreno_coresight_remove(struct adreno_device *adreno_dev)
 {
 	int i, adreno_dev_flag = -EINVAL;
 
+	if (adreno_is_a650(adreno_dev))
+		return;
+
 	for (i = 0; i < GPU_CORESIGHT_MAX; ++i) {
 		if (i == GPU_CORESIGHT_GX)
 			adreno_dev_flag = ADRENO_DEVICE_CORESIGHT;
@@ -414,6 +423,9 @@ int adreno_coresight_init(struct adreno_device *adreno_dev)
 	struct coresight_desc desc;
 	int i = 0;
 	struct device_node *node, *child;
+
+	if (adreno_is_a650(adreno_dev))
+		return 0;
 
 	node = of_find_compatible_node(device->pdev->dev.of_node,
 					NULL, "qcom,gpu-coresight");
