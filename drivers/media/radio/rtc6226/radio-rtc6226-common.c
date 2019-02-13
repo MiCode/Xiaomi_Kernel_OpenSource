@@ -120,63 +120,11 @@
 /* 0: 87.5 - 108 MHz (USA, Europe)*/
 /* 1: 76   - 108 MHz (Japan wide band) */
 /* 2: 76   -  90 MHz (Japan) */
-static unsigned short band;
 
 /* De-emphasis */
 /* 0: 75 us (USA) */
 /* 1: 50 us (Europe, Australia, Japan) */
 static unsigned short de;
-
-static const struct v4l2_frequency_band bands[] = {
-	{
-		.type = V4L2_TUNER_RADIO,
-		.index = 0,
-		.capability = V4L2_TUNER_CAP_LOW | V4L2_TUNER_CAP_STEREO |
-			    V4L2_TUNER_CAP_RDS | V4L2_TUNER_CAP_RDS_BLOCK_IO |
-			    V4L2_TUNER_CAP_FREQ_BANDS |
-			    V4L2_TUNER_CAP_HWSEEK_BOUNDED |
-			    V4L2_TUNER_CAP_HWSEEK_WRAP,
-		.rangelow   =  87500,
-		.rangehigh  = 108000,
-		.modulation = V4L2_BAND_MODULATION_FM,
-	},
-	{
-		.type = V4L2_TUNER_RADIO,
-		.index = 1,
-		.capability = V4L2_TUNER_CAP_LOW | V4L2_TUNER_CAP_STEREO |
-			    V4L2_TUNER_CAP_RDS | V4L2_TUNER_CAP_RDS_BLOCK_IO |
-			    V4L2_TUNER_CAP_FREQ_BANDS |
-			    V4L2_TUNER_CAP_HWSEEK_BOUNDED |
-			    V4L2_TUNER_CAP_HWSEEK_WRAP,
-		.rangelow   =  76000,
-		.rangehigh  = 108000,
-		.modulation = V4L2_BAND_MODULATION_FM,
-	},
-	{
-		.type = V4L2_TUNER_RADIO,
-		.index = 2,
-		.capability = V4L2_TUNER_CAP_LOW | V4L2_TUNER_CAP_STEREO |
-			    V4L2_TUNER_CAP_RDS | V4L2_TUNER_CAP_RDS_BLOCK_IO |
-			    V4L2_TUNER_CAP_FREQ_BANDS |
-			    V4L2_TUNER_CAP_HWSEEK_BOUNDED |
-			    V4L2_TUNER_CAP_HWSEEK_WRAP,
-		.rangelow   =  76000,
-		.rangehigh  =  91000,
-		.modulation = V4L2_BAND_MODULATION_FM,
-	},
-	{
-		.type = V4L2_TUNER_RADIO,
-		.index = 3,
-		.capability = V4L2_TUNER_CAP_LOW | V4L2_TUNER_CAP_STEREO |
-			    V4L2_TUNER_CAP_RDS | V4L2_TUNER_CAP_RDS_BLOCK_IO |
-			    V4L2_TUNER_CAP_FREQ_BANDS |
-			    V4L2_TUNER_CAP_HWSEEK_BOUNDED |
-			    V4L2_TUNER_CAP_HWSEEK_WRAP,
-		.rangelow   =  64000,
-		.rangehigh  =  76000,
-		.modulation = V4L2_BAND_MODULATION_FM,
-	},
-};
 
 wait_queue_head_t rtc6226_wq;
 int rtc6226_wq_flag = NO_WAIT;
@@ -753,8 +701,8 @@ static bool is_valid_freq(struct rtc6226_device *radio, u32 freq)
 	u32 band_high_limit;
 	u8 spacing = 0;
 
-	band_low_limit = bands[radio->band].rangelow;
-	band_high_limit = bands[radio->band].rangehigh;
+	band_low_limit = radio->recv_conf.band_low_limit * TUNE_STEP_SIZE;
+	band_high_limit = radio->recv_conf.band_high_limit * TUNE_STEP_SIZE;
 
 	if (radio->space == 0)
 		spacing = CH_SPACING_200;
@@ -2197,6 +2145,8 @@ static int rtc6226_vidioc_s_tuner(struct file *file, void *priv,
 {
 	struct rtc6226_device *radio = video_drvdata(file);
 	int retval = 0;
+	u16 bottom_freq;
+	u16 top_freq;
 
 	pr_info("%s entry\n", __func__);
 
@@ -2214,33 +2164,34 @@ static int rtc6226_vidioc_s_tuner(struct file *file, void *priv,
 		radio->registers[MPXCFG] &= ~MPXCFG_CSR0_MONO; /* try stereo */
 		break;
 	default:
-		goto done;
+		pr_debug("%s audmode is not set\n", __func__);
 	}
 
 	retval = rtc6226_set_register(radio, MPXCFG);
 
-	pr_info("%s low:%d high:%d\n", __func__,
-		tuner->rangelow, tuner->rangehigh);
+	/*  unit is 10kHz */
+	top_freq = (u16)((tuner->rangehigh / TUNE_PARAM) / TUNE_STEP_SIZE);
+	bottom_freq = (u16)((tuner->rangelow / TUNE_PARAM) / TUNE_STEP_SIZE);
 
-	/* set band */
-	if (tuner->rangelow || tuner->rangehigh) {
-		for (band = 0; band < ARRAY_SIZE(bands); band++) {
-			if (bands[band].rangelow  == tuner->rangelow &&
-				bands[band].rangehigh == tuner->rangehigh)
-				break;
-		}
-		if (band == ARRAY_SIZE(bands)) {
-			pr_err("%s err\n", __func__);
-			band = 0;
-		}
-	} else
-		band = 0; /* If nothing is specified seek 87.5 - 108 Mhz */
+	pr_debug("%s low:%d high:%d\n", __func__,
+		bottom_freq, top_freq);
 
-	if (radio->band != band) {
-		radio->registers[CHANNEL] |= (band  << 12);
-		rtc6226_set_register(radio, MPXCFG);
-		radio->band = band;
-	}
+	radio->registers[RADIOSEEKCFG1] = top_freq;
+	radio->registers[RADIOSEEKCFG2] = bottom_freq;
+
+	retval = rtc6226_set_register(radio, RADIOSEEKCFG1);
+	if (retval < 0)
+		pr_err("In %s, error %d setting higher limit freq\n",
+			__func__, retval);
+	else
+		radio->recv_conf.band_high_limit = top_freq;
+
+	retval = rtc6226_set_register(radio, RADIOSEEKCFG2);
+	if (retval < 0)
+		pr_err("In %s, error %d setting lower limit freq\n",
+			__func__, retval);
+	else
+		radio->recv_conf.band_low_limit = bottom_freq;
 done:
 	pr_info("%s exit %d\n", __func__, retval);
 	return retval;
