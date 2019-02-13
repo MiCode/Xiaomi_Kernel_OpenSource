@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- *  Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *  Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _HFI_DEFS_H_
@@ -148,12 +148,13 @@
 /* System  level property base offset */
 #define HFI_PROPERTY_ICP_COMMON_START  (HFI_DOMAIN_BASE_ICP + 0x0)
 
-#define HFI_PROP_SYS_DEBUG_CFG         (HFI_PROPERTY_ICP_COMMON_START + 0x1)
-#define HFI_PROP_SYS_UBWC_CFG          (HFI_PROPERTY_ICP_COMMON_START + 0x2)
-#define HFI_PROP_SYS_IMAGE_VER         (HFI_PROPERTY_ICP_COMMON_START + 0x3)
-#define HFI_PROP_SYS_SUPPORTED         (HFI_PROPERTY_ICP_COMMON_START + 0x4)
-#define HFI_PROP_SYS_IPEBPS_PC         (HFI_PROPERTY_ICP_COMMON_START + 0x5)
-#define HFI_PROP_SYS_FW_DUMP_CFG       (HFI_PROPERTY_ICP_COMMON_START + 0x8)
+#define HFI_PROP_SYS_DEBUG_CFG           (HFI_PROPERTY_ICP_COMMON_START + 0x1)
+#define HFI_PROP_SYS_UBWC_CFG            (HFI_PROPERTY_ICP_COMMON_START + 0x2)
+#define HFI_PROP_SYS_IMAGE_VER           (HFI_PROPERTY_ICP_COMMON_START + 0x3)
+#define HFI_PROP_SYS_SUPPORTED           (HFI_PROPERTY_ICP_COMMON_START + 0x4)
+#define HFI_PROP_SYS_IPEBPS_PC           (HFI_PROPERTY_ICP_COMMON_START + 0x5)
+#define HFI_PROP_SYS_FW_DUMP_CFG         (HFI_PROPERTY_ICP_COMMON_START + 0x8)
+#define HFI_PROPERTY_SYS_UBWC_CONFIG_EX  (HFI_PROPERTY_ICP_COMMON_START + 0x9)
 
 /* Capabilities reported at sys init */
 #define HFI_CAPS_PLACEHOLDER_1         (HFI_COMMON_BASE + 0x1)
@@ -274,7 +275,18 @@ struct hfi_ipe_bps_pc {
 struct hfi_cmd_ubwc_cfg {
 	uint32_t ubwc_fetch_cfg;
 	uint32_t ubwc_write_cfg;
-};
+} __packed;
+
+/**
+ * struct hfi_cmd_ubwc_cfg_ext
+ * Payload structure to configure HFI_UBWC_CFG_TYPE_EXT
+ * @bps: UBWC configuration for bps
+ * @ipe: UBWC configuration for ipe
+ */
+struct hfi_cmd_ubwc_cfg_ext {
+	struct hfi_cmd_ubwc_cfg bps;
+	struct hfi_cmd_ubwc_cfg ipe;
+} __packed;
 
 /**
  * struct hfi_cmd_sys_init
