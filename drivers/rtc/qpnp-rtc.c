@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -689,6 +689,53 @@ fail_alarm_disable:
 	}
 }
 
+static int qpnp_rtc_restore(struct device *dev)
+{
+	int rc = 0;
+	struct qpnp_rtc *rtc_dd = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "%s\n", __func__);
+
+	if (rtc_dd->rtc_alarm_irq > 0) {
+		/* Enable abort enable feature */
+		rtc_dd->alarm_ctrl_reg1 |= BIT_RTC_ABORT_ENABLE;
+		rc = qpnp_write_wrapper(rtc_dd, &rtc_dd->alarm_ctrl_reg1,
+				rtc_dd->alarm_base + REG_OFFSET_ALARM_CTRL1, 1);
+		if (rc) {
+			dev_err(dev, "SPMI write failed!\n");
+			return rc;
+		}
+
+		/* Re-register for alarm Interrupt */
+		rc = request_any_context_irq(rtc_dd->rtc_alarm_irq,
+				 qpnp_alarm_trigger, IRQF_TRIGGER_RISING,
+				 "qpnp_rtc_alarm", rtc_dd);
+		if (rc)
+			pr_err("Request IRQ failed (%d)\n", rc);
+		else
+			enable_irq_wake(rtc_dd->rtc_alarm_irq);
+	}
+
+	return rc;
+}
+
+static int qpnp_rtc_freeze(struct device *dev)
+{
+	struct qpnp_rtc *rtc_dd = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "%s\n", __func__);
+
+	if (rtc_dd->rtc_alarm_irq > 0)
+		free_irq(rtc_dd->rtc_alarm_irq, rtc_dd);
+
+	return 0;
+}
+
+static const struct dev_pm_ops qpnp_rtc_pm_ops = {
+	.freeze = qpnp_rtc_freeze,
+	.restore = qpnp_rtc_restore,
+};
+
 static const struct of_device_id spmi_match_table[] = {
 	{
 		.compatible = "qcom,qpnp-rtc",
@@ -704,6 +751,7 @@ static struct platform_driver qpnp_rtc_driver = {
 		.name		= "qcom,qpnp-rtc",
 		.owner		= THIS_MODULE,
 		.of_match_table	= spmi_match_table,
+		.pm		= &qpnp_rtc_pm_ops,
 	},
 };
 
