@@ -133,23 +133,23 @@ struct rhashtable_params {
 /**
  * struct rhashtable - Hash table handle
  * @tbl: Bucket table
- * @nelems: Number of elements in table
  * @key_len: Key length for hashfn
  * @elasticity: Maximum chain length before rehash
  * @p: Configuration parameters
  * @run_work: Deferred worker to expand/shrink asynchronously
  * @mutex: Mutex to protect current/future table swapping
  * @lock: Spin lock to protect walker list
+ * @nelems: Number of elements in table
  */
 struct rhashtable {
 	struct bucket_table __rcu	*tbl;
-	atomic_t			nelems;
 	unsigned int			key_len;
 	unsigned int			elasticity;
 	struct rhashtable_params	p;
 	struct work_struct		run_work;
 	struct mutex                    mutex;
 	spinlock_t			lock;
+	atomic_t			nelems;
 };
 
 /**
@@ -343,7 +343,8 @@ int rhashtable_init(struct rhashtable *ht,
 struct bucket_table *rhashtable_insert_slow(struct rhashtable *ht,
 					    const void *key,
 					    struct rhash_head *obj,
-					    struct bucket_table *old_tbl);
+					    struct bucket_table *old_tbl,
+					    void **data);
 int rhashtable_insert_rehash(struct rhashtable *ht, struct bucket_table *tbl);
 
 int rhashtable_walk_init(struct rhashtable *ht, struct rhashtable_iter *iter);
@@ -514,18 +515,8 @@ static inline int rhashtable_compare(struct rhashtable_compare_arg *arg,
 	return memcmp(ptr + ht->p.key_offset, arg->key, ht->p.key_len);
 }
 
-/**
- * rhashtable_lookup_fast - search hash table, inlined version
- * @ht:		hash table
- * @key:	the pointer to the key
- * @params:	hash table parameters
- *
- * Computes the hash value for the key and traverses the bucket chain looking
- * for a entry with an identical key. The first matching entry is returned.
- *
- * Returns the first entry on which the compare function returned true.
- */
-static inline void *rhashtable_lookup_fast(
+/* Internal function, do not use. */
+static inline struct rhash_head *__rhashtable_lookup(
 	struct rhashtable *ht, const void *key,
 	const struct rhashtable_params params)
 {
@@ -537,8 +528,6 @@ static inline void *rhashtable_lookup_fast(
 	struct rhash_head *he;
 	unsigned int hash;
 
-	rcu_read_lock();
-
 	tbl = rht_dereference_rcu(ht->tbl, ht);
 restart:
 	hash = rht_key_hashfn(ht, tbl, key, params);
@@ -547,8 +536,7 @@ restart:
 		    params.obj_cmpfn(&arg, rht_obj(ht, he)) :
 		    rhashtable_compare(&arg, rht_obj(ht, he)))
 			continue;
-		rcu_read_unlock();
-		return rht_obj(ht, he);
+		return he;
 	}
 
 	/* Ensure we see any new tables. */
@@ -557,13 +545,64 @@ restart:
 	tbl = rht_dereference_rcu(tbl->future_tbl, ht);
 	if (unlikely(tbl))
 		goto restart;
-	rcu_read_unlock();
 
 	return NULL;
 }
 
-/* Internal function, please use rhashtable_insert_fast() instead */
-static inline int __rhashtable_insert_fast(
+/**
+ * rhashtable_lookup - search hash table
+ * @ht:		hash table
+ * @key:	the pointer to the key
+ * @params:	hash table parameters
+ *
+ * Computes the hash value for the key and traverses the bucket chain looking
+ * for a entry with an identical key. The first matching entry is returned.
+ *
+ * This must only be called under the RCU read lock.
+ *
+ * Returns the first entry on which the compare function returned true.
+ */
+static inline void *rhashtable_lookup(
+	struct rhashtable *ht, const void *key,
+	const struct rhashtable_params params)
+{
+	struct rhash_head *he = __rhashtable_lookup(ht, key, params);
+
+	return he ? rht_obj(ht, he) : NULL;
+}
+
+/**
+ * rhashtable_lookup_fast - search hash table, without RCU read lock
+ * @ht:		hash table
+ * @key:	the pointer to the key
+ * @params:	hash table parameters
+ *
+ * Computes the hash value for the key and traverses the bucket chain looking
+ * for a entry with an identical key. The first matching entry is returned.
+ *
+ * Only use this function when you have other mechanisms guaranteeing
+ * that the object won't go away after the RCU read lock is released.
+ *
+ * Returns the first entry on which the compare function returned true.
+ */
+static inline void *rhashtable_lookup_fast(
+	struct rhashtable *ht, const void *key,
+	const struct rhashtable_params params)
+{
+	void *obj;
+
+	rcu_read_lock();
+	obj = rhashtable_lookup(ht, key, params);
+	rcu_read_unlock();
+
+	return obj;
+}
+
+/* Internal function, please use rhashtable_insert_fast() instead. This
+ * function returns the existing element already in hashes in there is a clash,
+ * otherwise it returns an error via ERR_PTR().
+ */
+static inline void *__rhashtable_insert_fast(
 	struct rhashtable *ht, const void *key, struct rhash_head *obj,
 	const struct rhashtable_params params)
 {
@@ -576,6 +615,7 @@ static inline int __rhashtable_insert_fast(
 	spinlock_t *lock;
 	unsigned int elasticity;
 	unsigned int hash;
+	void *data = NULL;
 	int err;
 
 restart:
@@ -600,11 +640,14 @@ restart:
 
 	new_tbl = rht_dereference_rcu(tbl->future_tbl, ht);
 	if (unlikely(new_tbl)) {
-		tbl = rhashtable_insert_slow(ht, key, obj, new_tbl);
+		tbl = rhashtable_insert_slow(ht, key, obj, new_tbl, &data);
 		if (!IS_ERR_OR_NULL(tbl))
 			goto slow_path;
 
 		err = PTR_ERR(tbl);
+		if (err == -EEXIST)
+			err = 0;
+
 		goto out;
 	}
 
@@ -618,24 +661,24 @@ slow_path:
 		err = rhashtable_insert_rehash(ht, tbl);
 		rcu_read_unlock();
 		if (err)
-			return err;
+			return ERR_PTR(err);
 
 		goto restart;
 	}
 
-	err = -EEXIST;
+	err = 0;
 	elasticity = ht->elasticity;
 	rht_for_each(head, tbl, hash) {
 		if (key &&
 		    unlikely(!(params.obj_cmpfn ?
 			       params.obj_cmpfn(&arg, rht_obj(ht, head)) :
-			       rhashtable_compare(&arg, rht_obj(ht, head)))))
+			       rhashtable_compare(&arg, rht_obj(ht, head))))) {
+			data = rht_obj(ht, head);
 			goto out;
+		}
 		if (!--elasticity)
 			goto slow_path;
 	}
-
-	err = 0;
 
 	head = rht_dereference_bucket(tbl->buckets[hash], tbl, hash);
 
@@ -651,7 +694,7 @@ out:
 	spin_unlock_bh(lock);
 	rcu_read_unlock();
 
-	return err;
+	return err ? ERR_PTR(err) : data;
 }
 
 /**
@@ -674,7 +717,13 @@ static inline int rhashtable_insert_fast(
 	struct rhashtable *ht, struct rhash_head *obj,
 	const struct rhashtable_params params)
 {
-	return __rhashtable_insert_fast(ht, NULL, obj, params);
+	void *ret;
+
+	ret = __rhashtable_insert_fast(ht, NULL, obj, params);
+	if (IS_ERR(ret))
+		return PTR_ERR(ret);
+
+	return ret == NULL ? 0 : -EEXIST;
 }
 
 /**
@@ -703,11 +752,15 @@ static inline int rhashtable_lookup_insert_fast(
 	const struct rhashtable_params params)
 {
 	const char *key = rht_obj(ht, obj);
+	void *ret;
 
 	BUG_ON(ht->p.obj_hashfn);
 
-	return __rhashtable_insert_fast(ht, key + ht->p.key_offset, obj,
-					params);
+	ret = __rhashtable_insert_fast(ht, key + ht->p.key_offset, obj, params);
+	if (IS_ERR(ret))
+		return PTR_ERR(ret);
+
+	return ret == NULL ? 0 : -EEXIST;
 }
 
 /**
@@ -733,6 +786,32 @@ static inline int rhashtable_lookup_insert_fast(
  * Returns zero on success.
  */
 static inline int rhashtable_lookup_insert_key(
+	struct rhashtable *ht, const void *key, struct rhash_head *obj,
+	const struct rhashtable_params params)
+{
+	void *ret;
+
+	BUG_ON(!ht->p.obj_hashfn || !key);
+
+	ret = __rhashtable_insert_fast(ht, key, obj, params);
+	if (IS_ERR(ret))
+		return PTR_ERR(ret);
+
+	return ret == NULL ? 0 : -EEXIST;
+}
+
+/**
+ * rhashtable_lookup_get_insert_key - lookup and insert object into hash table
+ * @ht:		hash table
+ * @obj:	pointer to hash head inside object
+ * @params:	hash table parameters
+ * @data:	pointer to element data already in hashes
+ *
+ * Just like rhashtable_lookup_insert_key(), but this function returns the
+ * object if it exists, NULL if it does not and the insertion was successful,
+ * and an ERR_PTR otherwise.
+ */
+static inline void *rhashtable_lookup_get_insert_key(
 	struct rhashtable *ht, const void *key, struct rhash_head *obj,
 	const struct rhashtable_params params)
 {
