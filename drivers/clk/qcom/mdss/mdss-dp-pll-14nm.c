@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 /*
@@ -58,7 +58,7 @@ v----------+----------v	  |	divsel_two	|    |	   divsel_four	   |
 #include "mdss-dp-pll-14nm.h"
 
 static struct dp_pll_db dp_pdb;
-static const struct clk_ops mux_clk_ops;
+static struct clk_ops mux_clk_ops;
 
 static struct regmap_config dp_pll_14nm_cfg = {
 	.reg_bits	= 32,

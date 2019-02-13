@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 /*
@@ -66,7 +66,7 @@
 #include "mdss-dp-pll-7nm.h"
 
 static struct dp_pll_db_7nm dp_pdb_7nm;
-static const struct clk_ops mux_clk_ops;
+static struct clk_ops mux_clk_ops;
 
 static struct regmap_config dp_pll_7nm_cfg = {
 	.reg_bits	= 32,
