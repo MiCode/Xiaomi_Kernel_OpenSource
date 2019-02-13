@@ -605,7 +605,7 @@ static void cvp_handle_session_dfs_cmd_done(enum hal_command_response cmd,
 		return;
 	}
 
-	dprintk(CVP_DBG, "%s: inst=%d\n", __func__, inst);
+	dprintk(CVP_DBG, "%s: inst=%pK\n", __func__, inst);
 
 	if (IS_HAL_SESSION_CMD(cmd)) {
 		dprintk(CVP_INFO, "%s: calling completion for id=%d",
@@ -2179,7 +2179,7 @@ static int msm_comm_init_buffer_count(struct msm_cvp_inst *inst)
 		bufreq->buffer_count_actual, HAL_BUFFER_OUTPUT);
 	if (rc) {
 		dprintk(CVP_ERR,
-			"%s: Failed to set out buffer count to FW\n");
+			"Failed to set out buffer count to FW\n");
 		return -EINVAL;
 	}
 
@@ -2790,7 +2790,7 @@ static int msm_comm_qbuf_to_hfi(struct msm_cvp_inst *inst,
 {
 	int rc = 0;
 	struct hfi_device *hdev;
-	enum msm_cvp_debugfs_event e;
+	enum msm_cvp_debugfs_event e = { 0 };
 	struct cvp_frame_data frame_data = {0};
 
 	if (!inst || !inst->core || !inst->core->device || !mbuf) {
