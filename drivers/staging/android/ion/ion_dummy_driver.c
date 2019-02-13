@@ -114,8 +114,10 @@ static int __init ion_dummy_init(void)
 	}
 	return 0;
 err:
-	for (i = 0; i < dummy_ion_pdata.nr; ++i)
-		ion_heap_destroy(heaps[i]);
+	for (i = 0; i < dummy_ion_pdata.nr; ++i) {
+		if (!IS_ERR_OR_NULL(heaps[i]))
+			ion_heap_destroy(heaps[i]);
+	}
 	kfree(heaps);
 
 	if (carveout_ptr) {
@@ -138,8 +140,10 @@ static void __exit ion_dummy_exit(void)
 
 	ion_device_destroy(idev);
 
-	for (i = 0; i < dummy_ion_pdata.nr; i++)
-		ion_heap_destroy(heaps[i]);
+	for (i = 0; i < dummy_ion_pdata.nr; i++) {
+		if (!IS_ERR_OR_NULL(heaps[i]))
+			ion_heap_destroy(heaps[i]);
+	}
 	kfree(heaps);
 
 	if (carveout_ptr) {
