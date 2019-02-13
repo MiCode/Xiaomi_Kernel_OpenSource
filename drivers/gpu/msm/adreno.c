@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  */
 #include <linux/module.h>
 #include <linux/uaccess.h>
@@ -2377,7 +2377,10 @@ static int adreno_prop_uche_gmem_addr(struct kgsl_device *device,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	u64 vaddr;
 
-	vaddr = (ADRENO_GPUREV(adreno_dev) >= 500) ? ADRENO_UCHE_GMEM_BASE : 0;
+	if (ADRENO_GPUREV(adreno_dev) >= 500 && !(adreno_is_a650(adreno_dev)))
+		vaddr = ADRENO_UCHE_GMEM_BASE;
+	else
+		vaddr = 0;
 
 	return copy_prop(value, count, &vaddr, sizeof(vaddr));
 }
