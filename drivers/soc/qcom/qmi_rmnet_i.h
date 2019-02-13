@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,9 +41,10 @@ struct rmnet_bearer_map {
 	u32 grant_thresh;
 	u16 seq;
 	u8  ack_req;
-	u32 grant_before_ps;
-	u16 seq_before_ps;
-	u32 ancillary;
+	u32 last_grant;
+	u16 last_seq;
+	bool tcp_bidir;
+	bool rat_switch;
 };
 
 struct svc_info {
@@ -74,7 +75,8 @@ struct qmi_info {
 	void *dfc_clients[MAX_CLIENT_NUM];
 	void *dfc_pending[MAX_CLIENT_NUM];
 	unsigned long ps_work_active;
-	int ps_enabled;
+	bool ps_enabled;
+	bool dl_msg_active;
 };
 
 enum data_ep_type_enum_v01 {
