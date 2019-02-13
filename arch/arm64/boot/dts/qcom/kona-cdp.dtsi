@@ -121,6 +121,21 @@
 	};
 };
 
+&pm8150b_charger {
+	status = "ok";
+	qcom,batteryless-platform;
+	io-channels = <&pm8150b_vadc ADC_USB_IN_V_16>,
+		      <&pm8150b_vadc ADC_USB_IN_I>,
+		      <&pm8150b_vadc ADC_CHG_TEMP>;
+	io-channel-names = "usb_in_voltage",
+			   "usb_in_current",
+			   "chg_temp";
+};
+
+&pm8150b_fg {
+	status = "ok";
+};
+
 &pm8150_vadc {
 	#address-cells = <1>;
 	#size-cells = <0>;
