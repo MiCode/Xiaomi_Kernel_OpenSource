@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef CAM_ICP_HW_MGR_H
@@ -51,6 +51,7 @@
 #define CPAS_IPE0_BIT           0x1000
 #define CPAS_IPE1_BIT           0x2000
 #define CPAS_BPS_BIT            0x400
+#define CPAS_TITAN_480_IPE0_BIT 0x800
 
 #define ICP_PWR_CLP_BPS         0x00000001
 #define ICP_PWR_CLP_IPE0        0x00010000
