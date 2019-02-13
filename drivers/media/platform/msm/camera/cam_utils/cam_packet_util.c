@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -131,7 +131,7 @@ int cam_packet_util_get_kmd_buffer(struct cam_packet *packet,
 
 	remain_len = len;
 	if (((size_t)cmd_desc->offset >= len) ||
-		((size_t)cmd_desc->size >= (len - (size_t)cmd_desc->offset))) {
+		((size_t)cmd_desc->size > (len - (size_t)cmd_desc->offset))) {
 		CAM_ERR(CAM_UTIL, "invalid memory len:%zd and cmd desc size:%d",
 			len, cmd_desc->size);
 		rc = -EINVAL;
