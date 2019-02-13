@@ -18,6 +18,9 @@
 #include "trinket-audio-overlay.dtsi"
 #include <dt-bindings/clock/qcom,gcc-trinket.h>
 
+#include <dt-bindings/clock/qcom,gcc-trinket.h>
+#include "trinket-camera-sensor-qrd.dtsi"
+
 &qupv3_se1_i2c {
 	status = "ok";
 	#include "smb1355.dtsi"
