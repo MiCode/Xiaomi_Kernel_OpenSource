@@ -6,6 +6,7 @@
 #define pr_fmt(fmt)	"FG: %s: " fmt, __func__
 
 #include <linux/alarmtimer.h>
+#include <linux/irq.h>
 #include <linux/ktime.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
@@ -237,7 +238,7 @@ struct fg_gen4_chip {
 	struct work_struct	esr_calib_work;
 	struct alarm		esr_fast_cal_timer;
 	struct delayed_work	pl_enable_work;
-	struct delayed_work	pl_current_en_work;
+	struct work_struct	pl_current_en_work;
 	struct completion	mem_attn;
 	char			batt_profile[PROFILE_LEN];
 	enum slope_limit_status	slope_limit_sts;
@@ -3288,31 +3289,16 @@ static void pl_current_en_work(struct work_struct *work)
 {
 	struct fg_gen4_chip *chip = container_of(work,
 				struct fg_gen4_chip,
-				pl_current_en_work.work);
+				pl_current_en_work);
 	struct fg_dev *fg = &chip->fg;
 	bool input_present = is_input_present(fg), en;
 
 	en = fg->charge_done ? false : input_present;
 
-	/*
-	 * If mem_attn_irq is disabled and parallel summing current
-	 * configuration needs to be modified, then enable mem_attn_irq and
-	 * wait for 1 second before doing it.
-	 */
-	if (get_effective_result(chip->parallel_current_en_votable) != en &&
-		!get_effective_result(chip->mem_attn_irq_en_votable)) {
-		vote(chip->mem_attn_irq_en_votable, MEM_ATTN_IRQ_VOTER,
-			true, 0);
-		schedule_delayed_work(&chip->pl_current_en_work,
-			msecs_to_jiffies(1000));
-		return;
-	}
-
-	if (!get_effective_result(chip->mem_attn_irq_en_votable))
+	if (get_effective_result(chip->parallel_current_en_votable) == en)
 		return;
 
 	vote(chip->parallel_current_en_votable, FG_PARALLEL_EN_VOTER, en, 0);
-	vote(chip->mem_attn_irq_en_votable, MEM_ATTN_IRQ_VOTER, false, 0);
 }
 
 static void pl_enable_work(struct work_struct *work)
@@ -3406,9 +3392,10 @@ static void status_change_work(struct work_struct *work)
 	if (rc < 0)
 		pr_err("Error in adjusting FCC for ESR, rc=%d\n", rc);
 
-	if (is_parallel_charger_available(fg) &&
-		!delayed_work_pending(&chip->pl_current_en_work))
-		schedule_delayed_work(&chip->pl_current_en_work, 0);
+	if (is_parallel_charger_available(fg)) {
+		cancel_work_sync(&chip->pl_current_en_work);
+		schedule_work(&chip->pl_current_en_work);
+	}
 
 	ttf_update(chip->ttf, input_present);
 	fg->prev_charge_status = fg->charge_status;
@@ -3998,6 +3985,8 @@ static int fg_parallel_current_en_cb(struct votable *votable, void *data,
 	int rc;
 	u8 val, mask;
 
+	vote(chip->mem_attn_irq_en_votable, MEM_ATTN_IRQ_VOTER, true, 0);
+
 	/* Wait for MEM_ATTN interrupt */
 	rc = fg_wait_for_mem_attn(chip);
 	if (rc < 0)
@@ -4010,6 +3999,7 @@ static int fg_parallel_current_en_cb(struct votable *votable, void *data,
 		pr_err("Error in writing to 0x%04x, rc=%d\n",
 			BATT_INFO_FG_CNV_CHAR_CFG(fg), rc);
 
+	vote(chip->mem_attn_irq_en_votable, MEM_ATTN_IRQ_VOTER, false, 0);
 	fg_dbg(fg, FG_STATUS, "Parallel current summing: %d\n", enable);
 
 	return rc;
@@ -5044,7 +5034,7 @@ static void fg_gen4_cleanup(struct fg_gen4_chip *chip)
 	cancel_work_sync(&fg->status_change_work);
 	cancel_delayed_work_sync(&fg->profile_load_work);
 	cancel_delayed_work_sync(&fg->sram_dump_work);
-	cancel_delayed_work_sync(&chip->pl_current_en_work);
+	cancel_work_sync(&chip->pl_current_en_work);
 
 	power_supply_unreg_notifier(&fg->nb);
 	debugfs_remove_recursive(fg->dfs_root);
@@ -5107,7 +5097,7 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&fg->profile_load_work, profile_load_work);
 	INIT_DELAYED_WORK(&fg->sram_dump_work, sram_dump_work);
 	INIT_DELAYED_WORK(&chip->pl_enable_work, pl_enable_work);
-	INIT_DELAYED_WORK(&chip->pl_current_en_work, pl_current_en_work);
+	INIT_WORK(&chip->pl_current_en_work, pl_current_en_work);
 
 	fg->awake_votable = create_votable("FG_WS", VOTE_SET_ANY,
 					fg_awake_cb, fg);
@@ -5220,6 +5210,10 @@ static int fg_gen4_probe(struct platform_device *pdev)
 			rc);
 		goto exit;
 	}
+
+	if (fg->irqs[MEM_ATTN_IRQ].irq)
+		irq_set_status_flags(fg->irqs[MEM_ATTN_IRQ].irq,
+					IRQ_DISABLE_UNLAZY);
 
 	/* Keep SOC_UPDATE irq disabled until we require it */
 	if (fg->irqs[SOC_UPDATE_IRQ].irq)
