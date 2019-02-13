@@ -445,6 +445,9 @@ enum gpu_coresight_sources {
  * @rscc_base: Base physical address of the RSCC
  * @rscc_len: Length of the RSCC register block
  * @rscc_virt: Pointer where RSCC block is mapped
+ * @isense_base: Base physical address of isense block
+ * @isense_len: Length of the isense register block
+ * @isense_virt: Pointer where isense block is mapped
  * @gpucore: Pointer to the adreno_gpu_core structure
  * @pfp_fw: Buffer which holds the pfp ucode
  * @pfp_fw_size: Size of pfp ucode buffer
@@ -530,6 +533,9 @@ struct adreno_device {
 	unsigned long rscc_base;
 	unsigned int rscc_len;
 	void __iomem *rscc_virt;
+	unsigned long isense_base;
+	unsigned int isense_len;
+	void __iomem *isense_virt;
 	const struct adreno_gpu_core *gpucore;
 	struct adreno_firmware fw[2];
 	size_t gpmu_cmds_size;
@@ -1190,6 +1196,8 @@ void adreno_cx_misc_regrmw(struct adreno_device *adreno_dev,
 		unsigned int offsetwords,
 		unsigned int mask, unsigned int bits);
 void adreno_rscc_regread(struct adreno_device *adreno_dev,
+		unsigned int offsetwords, unsigned int *value);
+void adreno_isense_regread(struct adreno_device *adreno_dev,
 		unsigned int offsetwords, unsigned int *value);
 
 

@@ -116,6 +116,17 @@ static const unsigned int a650_rscc_registers[] = {
 	0x3915B, 0x3915B,
 };
 
+static const unsigned int a650_isense_registers[] = {
+	0x22C00, 0x22C19, 0x22C26, 0x22C2D, 0x22C2F, 0x22C36, 0x22C40, 0x22C44,
+	0x22C50, 0x22C57, 0x22C60, 0x22C67, 0x22C80, 0x22C87, 0x22D25, 0x22D2A,
+	0x22D2C, 0x22D32, 0x22D3E, 0x22D3F, 0x22D4E, 0x22D55, 0x22D58, 0x22D60,
+	0x22D64, 0x22D64, 0x22D66, 0x22D66, 0x22D68, 0x22D6B, 0x22D6E, 0x22D76,
+	0x22D78, 0x22D78, 0x22D80, 0x22D87, 0x22D90, 0x22D97, 0x22DA0, 0x22DA0,
+	0x22DB0, 0x22DB7, 0x22DC0, 0x22DC2, 0x22DC4, 0x22DE3, 0x2301A, 0x2301A,
+	0x2301D, 0x2302A, 0x23120, 0x23121, 0x23133, 0x23133, 0x23156, 0x23157,
+	0x23165, 0x23165, 0x2316D, 0x2316D, 0x23180, 0x23191,
+};
+
 static const struct sel_reg {
 	unsigned int host_reg;
 	unsigned int cd_reg;
@@ -1581,6 +1592,49 @@ size_t a6xx_snapshot_rscc_registers(struct kgsl_device *device, u8 *buf,
 	return (count * 8) + sizeof(*header);
 }
 
+size_t a6xx_snapshot_isense_registers(struct kgsl_device *device, u8 *buf,
+	size_t remain, void *priv)
+{
+	struct kgsl_snapshot_regs *header = (struct kgsl_snapshot_regs *)buf;
+	struct kgsl_snapshot_registers *regs = priv;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
+	int count = 0, j, k;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	/* Figure out how many registers we are going to dump */
+
+	for (j = 0; j < regs->count; j++) {
+		int start = regs->regs[j * 2];
+		int end = regs->regs[j * 2 + 1];
+
+		count += (end - start + 1);
+	}
+
+	if (remain < (count * 8) + sizeof(*header)) {
+		SNAPSHOT_ERR_NOMEM(device, "ISENSE REGISTERS");
+		return 0;
+	}
+
+	for (j = 0; j < regs->count; j++) {
+		unsigned int start = regs->regs[j * 2];
+		unsigned int end = regs->regs[j * 2 + 1];
+
+		for (k = start; k <= end; k++) {
+			unsigned int val;
+
+			adreno_isense_regread(adreno_dev,
+				k - (adreno_dev->isense_base >> 2), &val);
+			*data++ = k;
+			*data++ = val;
+		}
+	}
+
+	header->count = count;
+
+	/* Return the size of the section */
+	return (count * 8) + sizeof(*header);
+}
+
 /*
  * a6xx_snapshot() - A6XX GPU snapshot function
  * @adreno_dev: Device being snapshotted
@@ -1618,6 +1672,12 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 
 		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
 			snapshot, a6xx_snapshot_rscc_registers, &r);
+
+		r.regs = a650_isense_registers;
+		r.count = ARRAY_SIZE(a650_isense_registers) / 2;
+
+		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
+			snapshot, a6xx_snapshot_isense_registers, &r);
 	} else if (adreno_is_a615_family(adreno_dev) ||
 			adreno_is_a630(adreno_dev)) {
 		adreno_snapshot_registers(device, snapshot,
