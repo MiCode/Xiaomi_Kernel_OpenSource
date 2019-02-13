@@ -1649,7 +1649,7 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	bool sptprac_on;
-	unsigned int i, roq_size;
+	unsigned int i, roq_size, ucode_dbg_size;
 
 	/* GMU TCM data dumped through AHB */
 	gmu_core_dev_snapshot(device, snapshot);
@@ -1726,10 +1726,12 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 		A6XX_CP_DRAW_STATE_ADDR, A6XX_CP_DRAW_STATE_DATA,
 		0, 0x100);
 
+	ucode_dbg_size = adreno_is_a650(adreno_dev) ? 0x7000 : 0x6000;
+
 	 /* SQE_UCODE Cache */
 	kgsl_snapshot_indexed_registers(device, snapshot,
 		A6XX_CP_SQE_UCODE_DBG_ADDR, A6XX_CP_SQE_UCODE_DBG_DATA,
-		0, 0x6000);
+		0, ucode_dbg_size);
 
 	/*
 	 * CP ROQ dump units is 4dwords. The number of units is stored
