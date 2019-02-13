@@ -321,11 +321,12 @@ irqret:
 				       SE_DMA_RX_IRQ_CLR);
 		/* Ensure all writes are done before returning from ISR. */
 		wmb();
+		if ((dm_tx_st & TX_DMA_DONE) || (dm_rx_st & RX_DMA_DONE))
+			complete(&gi2c->xfer);
+
 	}
 	/* if this is err with done-bit not set, handle that thr' timeout. */
-	if (m_stat & M_CMD_DONE_EN)
-		complete(&gi2c->xfer);
-	else if ((dm_tx_st & TX_DMA_DONE) || (dm_rx_st & RX_DMA_DONE))
+	else if (m_stat & M_CMD_DONE_EN)
 		complete(&gi2c->xfer);
 
 	return IRQ_HANDLED;
@@ -665,6 +666,7 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 		dma_addr_t tx_dma = 0;
 		dma_addr_t rx_dma = 0;
 		enum se_xfer_mode mode = FIFO_MODE;
+		reinit_completion(&gi2c->xfer);
 
 		m_param |= (stretch ? STOP_STRETCH : 0);
 		m_param |= ((msgs[i].addr & 0x7F) << SLV_ADDR_SHFT);
@@ -724,6 +726,7 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 						gi2c->xfer_timeout);
 		if (!timeout) {
 			geni_i2c_err(gi2c, GENI_TIMEOUT);
+			reinit_completion(&gi2c->xfer);
 			gi2c->cur = NULL;
 			geni_abort_m_cmd(gi2c->base);
 			timeout = wait_for_completion_timeout(&gi2c->xfer, HZ);
@@ -732,6 +735,7 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 		gi2c->cur_rd = 0;
 		if (mode == SE_DMA) {
 			if (gi2c->err) {
+				reinit_completion(&gi2c->xfer);
 				if (msgs[i].flags != I2C_M_RD)
 					writel_relaxed(1, gi2c->base +
 							SE_DMA_TX_FSM_RST);
