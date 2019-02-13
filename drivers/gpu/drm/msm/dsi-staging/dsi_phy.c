@@ -79,6 +79,14 @@ static const struct dsi_ver_spec_info dsi_phy_v4_0 = {
 	.timing_cfg_count = 14,
 };
 
+static const struct dsi_ver_spec_info dsi_phy_v4_1 = {
+	.version = DSI_PHY_VERSION_4_1,
+	.lane_cfg_count = 4,
+	.strength_cfg_count = 2,
+	.regulator_cfg_count = 0,
+	.timing_cfg_count = 14,
+};
+
 static const struct of_device_id msm_dsi_phy_of_match[] = {
 	{ .compatible = "qcom,dsi-phy-v0.0-hpm",
 	  .data = &dsi_phy_v0_0_hpm,},
@@ -92,6 +100,8 @@ static const struct of_device_id msm_dsi_phy_of_match[] = {
 	  .data = &dsi_phy_v3_0,},
 	{ .compatible = "qcom,dsi-phy-v4.0",
 	  .data = &dsi_phy_v4_0,},
+	{ .compatible = "qcom,dsi-phy-v4.1",
+	  .data = &dsi_phy_v4_1,},
 	{}
 };
 
