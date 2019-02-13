@@ -35,7 +35,7 @@ static const unsigned int a6xx_ps_cluster_rbp[] = {
 	0x8C02, 0x8C07, 0x8C11, 0x8C16, 0x8C20, 0x8C25,
 };
 
-static const unsigned int a6xx_ps_cluster[] = {
+static const unsigned int a6xx_vpc_ps_cluster[] = {
 	0x9200, 0x9216, 0x9218, 0x9236, 0x9300, 0x9306,
 };
 
@@ -156,7 +156,7 @@ static struct a6xx_cluster_registers {
 		&_a6xx_rb_rac_aperture },
 	{ CP_CLUSTER_PS, a6xx_ps_cluster_rbp, ARRAY_SIZE(a6xx_ps_cluster_rbp)/2,
 		&_a6xx_rb_rbp_aperture },
-	{ CP_CLUSTER_PS, a6xx_ps_cluster, ARRAY_SIZE(a6xx_ps_cluster)/2,
+	{ CP_CLUSTER_PS, a6xx_vpc_ps_cluster, ARRAY_SIZE(a6xx_vpc_ps_cluster)/2,
 		NULL },
 	{ CP_CLUSTER_FE, a6xx_fe_cluster, ARRAY_SIZE(a6xx_fe_cluster)/2,
 		NULL },
@@ -205,7 +205,7 @@ static const unsigned int a6xx_sp_ps_hlsq_2d_cluster[] = {
 
 static const unsigned int a6xx_sp_ps_sp_cluster[] = {
 	0xA980, 0xA9A8, 0xA9B0, 0xA9BC, 0xA9D0, 0xA9D3, 0xA9E0, 0xA9F3,
-	0xAA00, 0xAA00, 0xAA30, 0xAA31,
+	0xAA00, 0xAA00, 0xAA30, 0xAA31, 0xAAF2, 0xAAF2,
 };
 
 static const unsigned int a6xx_sp_ps_sp_2d_cluster[] = {
@@ -415,19 +415,32 @@ enum a6xx_debugbus_id {
 	A6XX_DBGBUS_HLSQ_SPTP    = 0x1f,
 	A6XX_DBGBUS_RB_0         = 0x20,
 	A6XX_DBGBUS_RB_1         = 0x21,
+	A6XX_DBGBUS_RB_2         = 0x22,
 	A6XX_DBGBUS_UCHE_WRAPPER = 0x24,
 	A6XX_DBGBUS_CCU_0        = 0x28,
 	A6XX_DBGBUS_CCU_1        = 0x29,
+	A6XX_DBGBUS_CCU_2        = 0x2a,
 	A6XX_DBGBUS_VFD_0        = 0x38,
 	A6XX_DBGBUS_VFD_1        = 0x39,
 	A6XX_DBGBUS_VFD_2        = 0x3a,
 	A6XX_DBGBUS_VFD_3        = 0x3b,
+	A6XX_DBGBUS_VFD_4        = 0x3c,
+	A6XX_DBGBUS_VFD_5        = 0x3d,
 	A6XX_DBGBUS_SP_0         = 0x40,
 	A6XX_DBGBUS_SP_1         = 0x41,
+	A6XX_DBGBUS_SP_2         = 0x42,
 	A6XX_DBGBUS_TPL1_0       = 0x48,
 	A6XX_DBGBUS_TPL1_1       = 0x49,
 	A6XX_DBGBUS_TPL1_2       = 0x4a,
 	A6XX_DBGBUS_TPL1_3       = 0x4b,
+	A6XX_DBGBUS_TPL1_4       = 0x4c,
+	A6XX_DBGBUS_TPL1_5       = 0x4d,
+	A6XX_DBGBUS_SPTP_0       = 0x58,
+	A6XX_DBGBUS_SPTP_1       = 0x59,
+	A6XX_DBGBUS_SPTP_2       = 0x5a,
+	A6XX_DBGBUS_SPTP_3       = 0x5b,
+	A6XX_DBGBUS_SPTP_4       = 0x5c,
+	A6XX_DBGBUS_SPTP_5       = 0x5d,
 };
 
 static const struct adreno_debugbus_block a6xx_dbgc_debugbus_blocks[] = {
@@ -479,6 +492,22 @@ static const struct adreno_debugbus_block a6xx_vbif_debugbus_blocks = {
 static const struct adreno_debugbus_block a6xx_cx_dbgc_debugbus_blocks[] = {
 	{ A6XX_DBGBUS_GMU_CX, 0x100, },
 	{ A6XX_DBGBUS_CX, 0x100, },
+};
+
+static const struct adreno_debugbus_block a650_dbgc_debugbus_blocks[] = {
+	{ A6XX_DBGBUS_RB_2, 0x100, },
+	{ A6XX_DBGBUS_CCU_2, 0x100, },
+	{ A6XX_DBGBUS_VFD_4, 0x100, },
+	{ A6XX_DBGBUS_VFD_5, 0x100, },
+	{ A6XX_DBGBUS_SP_2, 0x100, },
+	{ A6XX_DBGBUS_TPL1_4, 0x100, },
+	{ A6XX_DBGBUS_TPL1_5, 0x100, },
+	{ A6XX_DBGBUS_SPTP_0, 0x100, },
+	{ A6XX_DBGBUS_SPTP_1, 0x100, },
+	{ A6XX_DBGBUS_SPTP_2, 0x100, },
+	{ A6XX_DBGBUS_SPTP_3, 0x100, },
+	{ A6XX_DBGBUS_SPTP_4, 0x100, },
+	{ A6XX_DBGBUS_SPTP_5, 0x100, },
 };
 
 #define A6XX_NUM_SHADER_BANKS 3
@@ -1442,6 +1471,16 @@ static void a6xx_snapshot_debugbus(struct adreno_device *adreno_dev,
 			snapshot, a6xx_snapshot_dbgc_debugbus_block,
 			(void *) &a6xx_dbgc_debugbus_blocks[i]);
 	}
+
+	if (adreno_is_a650(adreno_dev)) {
+		for (i = 0; i < ARRAY_SIZE(a650_dbgc_debugbus_blocks); i++) {
+			kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_DEBUGBUS,
+				snapshot, a6xx_snapshot_dbgc_debugbus_block,
+				(void *) &a650_dbgc_debugbus_blocks[i]);
+		}
+	}
+
 	/*
 	 * GBIF has same debugbus as of other GPU blocks hence fall back to
 	 * default path if GPU uses GBIF.
@@ -1763,7 +1802,8 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 
 }
 
-static int _a6xx_crashdump_init_mvc(uint64_t *ptr, uint64_t *offset)
+static int _a6xx_crashdump_init_mvc(struct adreno_device *adreno_dev,
+	uint64_t *ptr, uint64_t *offset)
 {
 	int qwords = 0;
 	unsigned int i, j, k;
@@ -1771,6 +1811,11 @@ static int _a6xx_crashdump_init_mvc(uint64_t *ptr, uint64_t *offset)
 
 	for (i = 0; i < ARRAY_SIZE(a6xx_clusters); i++) {
 		struct a6xx_cluster_registers *cluster = &a6xx_clusters[i];
+
+		/* The VPC registers are driven by VPC_PS cluster on a650 */
+		if (adreno_is_a650(adreno_dev) &&
+			(cluster->regs == a6xx_vpc_ps_cluster))
+			cluster->id = CP_CLUSTER_VPC_PS;
 
 		if (cluster->sel) {
 			ptr[qwords++] = cluster->sel->val;
@@ -2067,7 +2112,7 @@ void a6xx_crashdump_init(struct adreno_device *adreno_dev)
 	}
 
 	/* Program the capturescript for the MVC regsiters */
-	ptr += _a6xx_crashdump_init_mvc(ptr, &offset);
+	ptr += _a6xx_crashdump_init_mvc(adreno_dev, ptr, &offset);
 
 	ptr += _a6xx_crashdump_init_ctx_dbgahb(ptr, &offset);
 

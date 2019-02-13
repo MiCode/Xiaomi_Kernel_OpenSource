@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _ADRENO_A6XX_H_
@@ -14,6 +14,7 @@
 #define CP_CLUSTER_GRAS		0x3
 #define CP_CLUSTER_SP_PS	0x4
 #define CP_CLUSTER_PS		0x5
+#define CP_CLUSTER_VPC_PS	0x6
 
 /**
  * struct a6xx_cp_preemption_record - CP context record for
