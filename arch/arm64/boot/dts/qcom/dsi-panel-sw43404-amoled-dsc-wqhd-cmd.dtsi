@@ -15,6 +15,10 @@
 		qcom,mdss-dsi-underflow-color = <0xff>;
 		qcom,mdss-dsi-border-color = <0>;
 
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "src_byte_clk0", "src_pixel_clk0";
+
 		qcom,mdss-dsi-traffic-mode = "non_burst_sync_event";
 		qcom,mdss-dsi-lane-map = "lane_map_0123";
 		qcom,mdss-dsi-bllp-eof-power-mode;

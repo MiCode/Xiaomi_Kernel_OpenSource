@@ -149,7 +149,7 @@ struct dsi_display_ext_bridge {
  * @ctrl_count:       Number of DSI interfaces required by panel.
  * @ctrl:             Controller information for DSI display.
  * @panel:            Handle to DSI panel.
- * @panel_of:         pHandle to DSI panel.
+ * @panel_node:       pHandle to DSI panel actually in use.
  * @ext_bridge:       External bridge information for DSI display.
  * @ext_bridge_cnt:   Number of external bridges
  * @modes:            Array of probed DSI modes
@@ -202,8 +202,7 @@ struct dsi_display {
 
 	/* panel info */
 	struct dsi_panel *panel;
-	struct device_node *disp_node;
-	struct device_node *panel_of;
+	struct device_node *panel_node;
 	struct device_node *parser_node;
 
 	/* external bridge */

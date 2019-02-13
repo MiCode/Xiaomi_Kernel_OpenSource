@@ -7,6 +7,11 @@
 	dsi_sim_cmd: qcom,mdss_dsi_sim_cmd {
 		qcom,mdss-dsi-panel-name = "Simulator cmd mode dsi panel";
 		qcom,mdss-dsi-panel-type = "dsi_cmd_mode";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "src_byte_clk0", "src_pixel_clk0";
+
 		qcom,mdss-dsi-virtual-channel-id = <0>;
 		qcom,mdss-dsi-stream = <0>;
 		qcom,mdss-dsi-bpp = <24>;
