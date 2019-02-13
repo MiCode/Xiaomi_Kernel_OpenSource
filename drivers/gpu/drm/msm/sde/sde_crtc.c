@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019 The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -1642,8 +1642,8 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 		"input_fence_timeout", 0x0, 0, SDE_CRTC_MAX_INPUT_FENCE_TIMEOUT,
 		SDE_CRTC_INPUT_FENCE_TIMEOUT, CRTC_PROP_INPUT_FENCE_TIMEOUT);
 
-	msm_property_install_range(&sde_crtc->property_info, "output_fence",
-			0x0, 0, INR_OPEN_MAX, 0x0, CRTC_PROP_OUTPUT_FENCE);
+	msm_property_install_volatile_range(&sde_crtc->property_info,
+		"output_fence", 0x0, 0, ~0, 0, CRTC_PROP_OUTPUT_FENCE);
 
 	msm_property_install_range(&sde_crtc->property_info,
 			"output_fence_offset", 0x0, 0, 1, 0,
@@ -1708,6 +1708,28 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 	kfree(info);
 }
 
+static int _sde_crtc_get_output_fence(struct drm_crtc *crtc,
+	const struct drm_crtc_state *state, uint64_t *val)
+{
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *cstate;
+	uint32_t offset;
+
+	sde_crtc = to_sde_crtc(crtc);
+	cstate = to_sde_crtc_state(state);
+
+	offset = sde_crtc_get_property(cstate, CRTC_PROP_OUTPUT_FENCE_OFFSET);
+
+	/*
+	 * Hwcomposer now queries the fences using the commit list in atomic
+	 * commit ioctl. The offset should be set to next timeline
+	 * which will be incremented during the prepare commit phase
+	 */
+	offset++;
+
+	return sde_fence_create(&sde_crtc->output_fence, val, offset);
+}
+
 /**
  * sde_crtc_atomic_set_property - atomically set a crtc drm property
  * @crtc: Pointer to drm crtc structure
@@ -1724,27 +1746,60 @@ static int sde_crtc_atomic_set_property(struct drm_crtc *crtc,
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *cstate;
 	int idx, ret = -EINVAL;
+	 uint64_t fence_fd = 0;
 
 	if (!crtc || !state || !property) {
 		SDE_ERROR("invalid argument(s)\n");
-	} else {
-		sde_crtc = to_sde_crtc(crtc);
-		cstate = to_sde_crtc_state(state);
-		ret = msm_property_atomic_set(&sde_crtc->property_info,
-				cstate->property_values, cstate->property_blobs,
-				property, val);
-		if (!ret) {
-			idx = msm_property_index(&sde_crtc->property_info,
-					property);
-			if (idx == CRTC_PROP_INPUT_FENCE_TIMEOUT)
-				_sde_crtc_set_input_fence_timeout(cstate);
-		} else {
-			ret = sde_cp_crtc_set_property(crtc,
-					property, val);
-		}
-		if (ret)
-			DRM_ERROR("failed to set the property\n");
+		return -EINVAL;
 	}
+
+	sde_crtc = to_sde_crtc(crtc);
+	cstate = to_sde_crtc_state(state);
+
+	ret = msm_property_atomic_set(&sde_crtc->property_info,
+			cstate->property_values, cstate->property_blobs,
+			property, val);
+
+	if (!ret) {
+		idx = msm_property_index(&sde_crtc->property_info,
+				property);
+		switch (idx) {
+		case CRTC_PROP_INPUT_FENCE_TIMEOUT:
+			_sde_crtc_set_input_fence_timeout(cstate);
+			break;
+		case CRTC_PROP_OUTPUT_FENCE:
+			if (!val)
+				goto exit;
+
+			ret = _sde_crtc_get_output_fence(crtc,
+						state, &fence_fd);
+			if (ret) {
+				SDE_ERROR("fence create failed rc:%d\n", ret);
+				goto exit;
+			}
+
+			ret  = copy_to_user((uint64_t __user *)val, &fence_fd,
+					sizeof(uint64_t));
+
+			if (ret) {
+				SDE_ERROR("copy to user failed rc:%d\n", ret);
+				put_unused_fd(fence_fd);
+				ret = -EFAULT;
+				goto exit;
+			}
+			break;
+		default:
+			/* nothing to do */
+			break;
+		}
+	} else {
+		ret = sde_cp_crtc_set_property(crtc,
+				property, val);
+	}
+
+exit:
+	if (ret)
+		DRM_ERROR("failed to set the property\n");
 
 	return ret;
 }
@@ -1783,30 +1838,27 @@ static int sde_crtc_atomic_get_property(struct drm_crtc *crtc,
 
 	if (!crtc || !state) {
 		SDE_ERROR("invalid argument(s)\n");
-	} else {
-		sde_crtc = to_sde_crtc(crtc);
-		cstate = to_sde_crtc_state(state);
-
-		i = msm_property_index(&sde_crtc->property_info, property);
-		if (i == CRTC_PROP_OUTPUT_FENCE) {
-			int offset = sde_crtc_get_property(cstate,
-					CRTC_PROP_OUTPUT_FENCE_OFFSET);
-
-			ret = sde_fence_create(&sde_crtc->output_fence, val,
-							offset);
-			if (ret)
-				SDE_ERROR("fence create failed\n");
-		} else {
-			ret = msm_property_atomic_get(&sde_crtc->property_info,
-					cstate->property_values,
-					cstate->property_blobs, property, val);
-			if (ret)
-				ret = sde_cp_crtc_get_property(crtc,
-					property, val);
-		}
-		if (ret)
-			DRM_ERROR("get property failed\n");
+		return -EINVAL;
 	}
+
+	sde_crtc = to_sde_crtc(crtc);
+	cstate = to_sde_crtc_state(state);
+
+	i = msm_property_index(&sde_crtc->property_info, property);
+	if (i == CRTC_PROP_OUTPUT_FENCE) {
+		*val = ~0;
+		ret = 0;
+	} else {
+		ret = msm_property_atomic_get(&sde_crtc->property_info,
+				cstate->property_values,
+				cstate->property_blobs, property, val);
+		if (ret)
+			ret = sde_cp_crtc_get_property(crtc,
+				property, val);
+	}
+	if (ret)
+		DRM_ERROR("get property failed\n");
+
 	return ret;
 }
 

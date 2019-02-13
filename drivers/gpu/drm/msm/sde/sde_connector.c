@@ -428,6 +428,7 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 	struct sde_connector *c_conn;
 	struct sde_connector_state *c_state;
 	int idx, rc;
+	uint64_t fence_fd = 0;
 
 	if (!connector || !state || !property) {
 		SDE_ERROR("invalid argument(s), conn %pK, state %pK, prp %pK\n",
@@ -470,6 +471,29 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 					c_state->aspace);
 			if (rc)
 				SDE_ERROR("prep fb failed, %d\n", rc);
+		}
+		break;
+	case CONNECTOR_PROP_RETIRE_FENCE:
+		if (!val)
+			goto end;
+
+		/*
+		 * update the the offset to a timeline for commit completion
+		 */
+		rc = sde_fence_create(&c_conn->retire_fence, &fence_fd, 1);
+		if (rc) {
+			SDE_ERROR("fence create failed rc:%d\n", rc);
+			goto end;
+		}
+
+		rc = copy_to_user((uint64_t __user *)val, &fence_fd,
+			sizeof(uint64_t));
+		if (rc) {
+			SDE_ERROR("copy to user failed rc:%d\n", rc);
+			/* fence will be released with timeline update */
+			put_unused_fd(fence_fd);
+			rc = -EFAULT;
+			goto end;
 		}
 		break;
 	case CONNECTOR_PROP_TOPOLOGY_CONTROL:
@@ -544,12 +568,14 @@ static int sde_connector_atomic_get_property(struct drm_connector *connector,
 	c_state = to_sde_connector_state(state);
 
 	idx = msm_property_index(&c_conn->property_info, property);
-	if (idx == CONNECTOR_PROP_RETIRE_FENCE)
-		rc = sde_fence_create(&c_conn->retire_fence, val, 0);
-	else
+	if (idx == CONNECTOR_PROP_RETIRE_FENCE) {
+		*val = ~0;
+		rc = 0;
+	} else {
 		/* get cached property value */
 		rc = msm_property_atomic_get(&c_conn->property_info,
 				c_state->property_values, 0, property, val);
+	}
 
 	/* allow for custom override */
 	if (c_conn->ops.get_property)
@@ -931,8 +957,8 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 		"hdr_control", 0x0, 0, ~0, 0,
 		CONNECTOR_PROP_HDR_CONTROL);
 
-	msm_property_install_range(&c_conn->property_info, "RETIRE_FENCE",
-			0x0, 0, INR_OPEN_MAX, 0, CONNECTOR_PROP_RETIRE_FENCE);
+	msm_property_install_volatile_range(&c_conn->property_info,
+		"RETIRE_FENCE", 0x0, 0, ~0, 0, CONNECTOR_PROP_RETIRE_FENCE);
 
 	msm_property_install_volatile_signed_range(&c_conn->property_info,
 			"PLL_DELTA", 0x0, INT_MIN, INT_MAX, 0,
