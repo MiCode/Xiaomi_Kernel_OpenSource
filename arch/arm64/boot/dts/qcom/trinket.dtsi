@@ -539,6 +539,11 @@
 			label = "cont_splash_region";
 		};
 
+		disp_rdump_memory: disp_rdump_region@5c000000 {
+			reg = <0x0 0x5c000000 0x0 0x01000000>;
+			label = "disp_rdump_region";
+		};
+
 		/* global autoconfigured region for contiguous allocations */
 		linux,cma {
 			compatible = "shared-dma-pool";
