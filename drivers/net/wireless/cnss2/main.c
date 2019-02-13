@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1689,6 +1689,30 @@ static ssize_t cnss_fs_ready_store(struct device *dev,
 
 static DEVICE_ATTR(fs_ready, 0220, NULL, cnss_fs_ready_store);
 
+static ssize_t cnss_wl_pwr_on(struct device *dev,
+			      struct device_attribute *attr,
+			      const char *buf,
+			      size_t count)
+{
+	int pwr_state = 0;
+	struct cnss_plat_data *plat_priv = dev_get_drvdata(dev);
+
+	if (sscanf(buf, "%du", &pwr_state) != 1)
+		return -EINVAL;
+
+	cnss_pr_dbg("vreg-wlan-en state change %d, count %zu", pwr_state,
+		    count);
+
+	if (pwr_state)
+		cnss_power_on_device(plat_priv);
+	else
+		cnss_power_off_device(plat_priv);
+
+	return count;
+}
+
+static DEVICE_ATTR(wl_pwr_on, 0220, NULL, cnss_wl_pwr_on);
+
 static int cnss_create_sysfs(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
@@ -1707,6 +1731,27 @@ out:
 static void cnss_remove_sysfs(struct cnss_plat_data *plat_priv)
 {
 	device_remove_file(&plat_priv->plat_dev->dev, &dev_attr_fs_ready);
+}
+
+static int cnss_create_sysfs_wl_pwr(struct cnss_plat_data *plat_priv)
+{
+	int ret = 0;
+
+	ret = device_create_file(&plat_priv->plat_dev->dev,
+				 &dev_attr_wl_pwr_on);
+	if (ret) {
+		cnss_pr_err("Failed to create device file, err = %d\n", ret);
+		goto out;
+	}
+	cnss_pr_dbg("created sysfs for vreg-wlan-en control\n");
+	return 0;
+out:
+	return ret;
+}
+
+static void cnss_remove_sysfs_wl_pwr(struct cnss_plat_data *plat_priv)
+{
+	device_remove_file(&plat_priv->plat_dev->dev, &dev_attr_wl_pwr_on);
 }
 
 static int cnss_event_work_init(struct cnss_plat_data *plat_priv)
@@ -1798,6 +1843,7 @@ static int cnss_probe(struct platform_device *plat_dev)
 	plat_priv->plat_dev = plat_dev;
 	plat_priv->device_id = device_id->driver_data;
 	plat_priv->bus_type = cnss_get_bus_type(plat_priv->device_id);
+	cnss_pr_dbg("bus type selected  %d\n", plat_priv->bus_type);
 	cnss_set_plat_priv(plat_dev, plat_priv);
 	platform_set_drvdata(plat_dev, plat_priv);
 
@@ -1827,9 +1873,13 @@ static int cnss_probe(struct platform_device *plat_dev)
 	if (ret)
 		goto unreg_bus_scale;
 
-	ret = cnss_event_work_init(plat_priv);
+	ret = cnss_create_sysfs_wl_pwr(plat_priv);
 	if (ret)
 		goto remove_sysfs;
+
+	ret = cnss_event_work_init(plat_priv);
+	if (ret)
+		goto remove_sysfs_pwr;
 
 	ret = cnss_qmi_init(plat_priv);
 	if (ret)
@@ -1870,6 +1920,8 @@ deinit_event_work:
 	cnss_event_work_deinit(plat_priv);
 remove_sysfs:
 	cnss_remove_sysfs(plat_priv);
+remove_sysfs_pwr:
+	cnss_remove_sysfs_wl_pwr(plat_priv);
 unreg_bus_scale:
 	cnss_unregister_bus_scale(plat_priv);
 unreg_esoc:
