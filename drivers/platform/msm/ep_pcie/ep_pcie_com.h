@@ -338,6 +338,7 @@ struct ep_pcie_dev_t {
 	u32                          bus_client;
 	u16                          vendor_id;
 	u16                          device_id;
+	u32                          subsystem_id;
 	u32                          link_speed;
 	bool                         active_config;
 	bool                         aggregated_irq;
