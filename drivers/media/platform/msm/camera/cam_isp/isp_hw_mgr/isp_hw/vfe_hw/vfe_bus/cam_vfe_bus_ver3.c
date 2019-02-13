@@ -548,9 +548,9 @@ static int cam_vfe_bus_ver3_get_wm_idx(
 		switch (plane) {
 		case PLANE_Y:
 			if (is_lite)
-				wm_idx = 23;
-			else
 				wm_idx = 0;
+			else
+				wm_idx = 23;
 			break;
 		default:
 			break;
@@ -560,9 +560,9 @@ static int cam_vfe_bus_ver3_get_wm_idx(
 		switch (plane) {
 		case PLANE_Y:
 			if (is_lite)
-				wm_idx = 24;
-			else
 				wm_idx = 1;
+			else
+				wm_idx = 24;
 			break;
 		default:
 			break;
@@ -572,9 +572,9 @@ static int cam_vfe_bus_ver3_get_wm_idx(
 		switch (plane) {
 		case PLANE_Y:
 			if (is_lite)
-				wm_idx = 25;
-			else
 				wm_idx = 2;
+			else
+				wm_idx = 25;
 			break;
 		default:
 			break;
@@ -2541,8 +2541,8 @@ static int cam_vfe_bus_ver3_update_wm(void *priv, void *cmd_args,
 
 		if ((wm_data->stride != val ||
 			!wm_data->init_cfg_done) &&
-			((!bus_priv->common_data.is_lite && wm_data->index < 23)
-			|| bus_priv->common_data.is_lite)) {
+			(!bus_priv->common_data.is_lite &&
+			wm_data->index < 23)) {
 			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
 				wm_data->hw_regs->image_cfg_2,
 				io_cfg->planes[i].plane_stride);
