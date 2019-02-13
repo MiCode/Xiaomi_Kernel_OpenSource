@@ -129,6 +129,8 @@ struct synx_table_row {
  *
  * @register_callback   : Function to register with external sync object
  * @deregister_callback : Function to deregister with external sync object
+ * @enable_signaling    : Function to enable the signaling on the external
+ *                        sync object (optional)
  * @signal              : Function to signal the external sync object
  */
 struct bind_operations {
@@ -136,6 +138,7 @@ struct bind_operations {
 		void *userdata, s32 sync_obj);
 	int (*deregister_callback)(synx_callback cb_func,
 		void *userdata, s32 sync_obj);
+	int (*enable_signaling)(s32 sync_obj);
 	int (*signal)(s32 sync_obj, u32 status);
 };
 
