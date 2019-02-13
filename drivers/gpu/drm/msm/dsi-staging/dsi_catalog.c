@@ -271,6 +271,7 @@ int dsi_catalog_phy_setup(struct dsi_phy_hw *phy,
 	}
 
 	phy->index = index;
+	phy->version = version;
 	set_bit(DSI_PHY_DPHY, phy->feature_map);
 
 	dsi_phy_timing_calc_init(phy, version);

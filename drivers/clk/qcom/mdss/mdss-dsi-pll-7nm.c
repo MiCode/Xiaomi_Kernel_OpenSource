@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"%s: " fmt, __func__
@@ -1417,7 +1417,7 @@ static struct regmap_bus mdss_mux_regmap_bus = {
 
 static struct dsi_pll_vco_clk dsi0pll_vco_clk = {
 	.ref_clk_rate = 19200000UL,
-	.min_rate = 1000000000UL,
+	.min_rate = 1500000000UL,
 	.max_rate = 3500000000UL,
 	.hw.init = &(struct clk_init_data){
 			.name = "dsi0pll_vco_clk",
@@ -1430,7 +1430,7 @@ static struct dsi_pll_vco_clk dsi0pll_vco_clk = {
 
 static struct dsi_pll_vco_clk dsi1pll_vco_clk = {
 	.ref_clk_rate = 19200000UL,
-	.min_rate = 1000000000UL,
+	.min_rate = 1500000000UL,
 	.max_rate = 3500000000UL,
 	.hw.init = &(struct clk_init_data){
 			.name = "dsi1pll_vco_clk",
