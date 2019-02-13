@@ -1622,7 +1622,8 @@ static unsigned int spcom_device_poll(struct file *filp,
 			pr_debug("ch [%s] poll CH_CONNECT signaled\n", name);
 		}
 		mutex_lock(&ch->lock);
-		done = completion_done(&ch->connect);
+		done = (ch->rpdev != NULL);
+		pr_debug("ch [%s] reported done=%d\n", name, done);
 		mutex_unlock(&ch->lock);
 		break;
 	default:
