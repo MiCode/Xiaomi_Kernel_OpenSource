@@ -1553,14 +1553,10 @@ static int __interface_dsp_queues_init(struct venus_hfi_device *dev)
 	dma_addr_t iova;
 	struct context_bank_info *cb;
 
-	dev->dsp_iface_q_table.align_device_addr =
-		dev->iface_q_table.align_device_addr;
-	dev->dsp_iface_q_table.mem_data.size = SHARED_QSIZE;
-	return 0;
 	q_size = ALIGN(QUEUE_SIZE, SZ_1M);
 	mem_data = &dev->dsp_iface_q_table.mem_data;
 
-	/* Allocate dsp queues from ADSP device memory */
+	/* Allocate dsp queues from CDSP device memory */
 	kvaddr = dma_alloc_coherent(dev->res->mem_cdsp.dev, q_size,
 				&dma_handle, GFP_KERNEL);
 	if (IS_ERR_OR_NULL(kvaddr)) {
