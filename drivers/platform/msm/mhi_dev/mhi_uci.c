@@ -1182,8 +1182,8 @@ void mhi_uci_chan_state_notify(struct mhi_dev *mhi,
 	}
 
 	uci_handle = &uci_ctxt.client_handles[CHAN_TO_CLIENT(ch_id)];
-	if (!uci_handle->in_chan_attr ||
-		!uci_handle->in_chan_attr->state_bcast) {
+	if (!uci_handle->out_chan_attr ||
+		!uci_handle->out_chan_attr->state_bcast) {
 		uci_log(UCI_DBG_VERBOSE, "Uevents not enabled for chan %d\n",
 				ch_id);
 		return;
