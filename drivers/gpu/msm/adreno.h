@@ -1326,6 +1326,14 @@ static inline int adreno_is_a615_family(struct adreno_device *adreno_dev)
 			rev == ADRENO_REV_A618);
 }
 
+static inline int adreno_is_a640_family(struct adreno_device *adreno_dev)
+{
+	unsigned int rev = ADRENO_GPUREV(adreno_dev);
+
+	return (rev == ADRENO_REV_A640 || rev == ADRENO_REV_A650 ||
+			rev == ADRENO_REV_A680);
+}
+
 static inline int adreno_is_a630v1(struct adreno_device *adreno_dev)
 {
 	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A630) &&
