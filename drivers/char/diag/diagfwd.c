@@ -1972,6 +1972,7 @@ int diagfwd_init(void)
 		driver->feature[i].sent_feature_mask = 0;
 		driver->feature[i].diag_id_support = 0;
 		driver->feature[i].diagid_v2_feature_mask = 0;
+		driver->feature[i].multi_sim_support = 0;
 	}
 
 	diag_init_apps_feature();

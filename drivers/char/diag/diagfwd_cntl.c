@@ -417,7 +417,10 @@ static void process_incoming_feature_mask(uint8_t *buf, uint32_t len,
 			driver->feature[peripheral].pd_buffering = 1;
 		if (FEATURE_SUPPORTED(F_DIAGID_FEATURE_MASK))
 			driver->feature[peripheral].diagid_v2_feature_mask = 1;
-
+		if (FEATURE_SUPPORTED(F_DIAG_MULTI_SIM_SUPPORT)) {
+			driver->feature[peripheral].multi_sim_support = 1;
+			driver->multisim_feature_rcvd = 1;
+		}
 	}
 
 	process_socket_feature(peripheral);
@@ -593,7 +596,8 @@ static void process_ssid_range_report(uint8_t *buf, uint32_t len,
 		}
 		msg_mask.ptr = temp;
 		mask_ptr = (struct diag_msg_mask_t *)msg_mask.ptr;
-		err = diag_create_msg_mask_table_entry(mask_ptr, ssid_range);
+		err = diag_create_msg_mask_table_entry(mask_ptr,
+				ssid_range, INVALID_INDEX);
 		if (err) {
 			pr_err("diag: In %s, Unable to create a new msg mask table entry, first: %d last: %d err: %d\n",
 			       __func__, ssid_range->ssid_first,
@@ -669,7 +673,8 @@ static void diag_build_time_mask_update(uint8_t *buf,
 	}
 	driver->build_time_mask->ptr = temp;
 	build_mask = (struct diag_msg_mask_t *)driver->build_time_mask->ptr;
-	err = diag_create_msg_mask_table_entry(build_mask, range);
+	err = diag_create_msg_mask_table_entry(build_mask, range,
+		INVALID_INDEX);
 	if (err) {
 		pr_err("diag: In %s, Unable to create a new msg mask table entry, err: %d\n",
 		       __func__, err);
