@@ -30,5 +30,6 @@
 #define GPU_CC_GX_GFX3D_CLK			12
 #define GPU_CC_GX_GFX3D_CLK_SRC			13
 #define GPU_CC_AHB_CLK			14
+#define GPU_CC_HLOS1_VOTE_GPU_SMMU_CLK		15
 
 #endif
