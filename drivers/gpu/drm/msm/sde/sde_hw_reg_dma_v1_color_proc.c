@@ -385,7 +385,9 @@ static int reg_dmav1_get_dspp_blk(struct sde_hw_cp_cfg *hw_cfg,
 		DRM_DEBUG_DRIVER("Slave DSPP instance %d\n", dspp->idx);
 		rc = -EALREADY;
 	} else {
-		for (u32 i = 0 ; i < hw_cfg->num_of_mixers; i++) {
+		u32 i;
+
+		for (i = 0 ; i < hw_cfg->num_of_mixers; i++) {
 			dspp = hw_cfg->dspp[i];
 			if (dspp->idx >= DSPP_MAX) {
 				DRM_ERROR("Invalid dspp idx %d", dspp->idx);
@@ -1220,7 +1222,7 @@ void reg_dmav1_setup_dspp_pa_hsicv17(struct sde_hw_dspp *ctx, void *cfg)
 	struct drm_msm_pa_hsic *hsic_cfg;
 	struct sde_hw_dspp *dspp_list[DSPP_MAX];
 	u32 reg = 0, opcode = 0, local_opcode = 0;
-	int rc;
+	int rc, i;
 	u32 num_of_mixers, blk = 0;
 
 
@@ -1336,7 +1338,7 @@ void reg_dmav1_setup_dspp_pa_hsicv17(struct sde_hw_dspp *ctx, void *cfg)
 		return;
 	}
 
-	for (int i = 0; i < num_of_mixers; i++) {
+	for (i = 0; i < num_of_mixers; i++) {
 		blk = dspp_mapping[dspp_list[i]->idx];
 		REG_DMA_INIT_OPS(dma_write_cfg, blk, HSIC,
 			dspp_buf[HSIC][ctx->idx]);
@@ -1378,7 +1380,7 @@ void reg_dmav1_setup_dspp_sixzonev17(struct sde_hw_dspp *ctx, void *cfg)
 	u32 reg = 0, local_hold = 0;
 	u32 opcode = 0, local_opcode = 0;
 	u32 num_of_mixers, blk = 0;
-	int rc;
+	int rc, i;
 
 	opcode = SDE_REG_READ(&ctx->hw, ctx->cap->sblk->hsic.base);
 
@@ -1491,7 +1493,7 @@ void reg_dmav1_setup_dspp_sixzonev17(struct sde_hw_dspp *ctx, void *cfg)
 		return;
 	}
 
-	for (int i = 0; i < num_of_mixers; i++) {
+	for (i = 0; i < num_of_mixers; i++) {
 		blk = dspp_mapping[dspp_list[i]->idx];
 		REG_DMA_INIT_OPS(dma_write_cfg, blk, SIX_ZONE,
 			dspp_buf[SIX_ZONE][ctx->idx]);
@@ -1554,7 +1556,7 @@ static void __setup_dspp_memcol(struct sde_hw_dspp *ctx,
 	struct sde_reg_dma_kickoff_cfg kick_off;
 	struct drm_msm_memcol *memcolor;
 	struct sde_hw_dspp *dspp_list[DSPP_MAX];
-	int rc;
+	int rc, i;
 	u32 addr = 0, idx = 0;
 	u32 hold = 0, hold_shift = 0, mask = 0xFFFF;
 	u32 opcode = 0, opcode_mask = 0xFFFFFFFF;
@@ -1650,7 +1652,7 @@ static void __setup_dspp_memcol(struct sde_hw_dspp *ctx,
 	opcode_mask &= ~(opcode);
 
 	/* write sat_hold and val_hold in PA_PWL_HOLD */
-	for (int i = 0; i < num_of_mixers; i++) {
+	for (i = 0; i < num_of_mixers; i++) {
 		blk = dspp_mapping[dspp_list[i]->idx];
 		REG_DMA_INIT_OPS(dma_write_cfg, blk, type,
 			dspp_buf[type][ctx->idx]);
