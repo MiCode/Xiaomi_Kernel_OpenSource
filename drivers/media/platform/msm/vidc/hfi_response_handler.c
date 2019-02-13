@@ -701,10 +701,6 @@ static inline void copy_cap_prop(
 		out->capability_type = get_hal_cap_type(in->capability_type);
 		out->min = in->min;
 		out->max = in->max;
-		if (in->capability_type == HFI_CAPABILITY_I_FRAME_QP ||
-			in->capability_type == HFI_CAPABILITY_P_FRAME_QP ||
-			in->capability_type == HFI_CAPABILITY_B_FRAME_QP)
-			++out->max;
 		out->step_size = in->step_size;
 	}
 }
