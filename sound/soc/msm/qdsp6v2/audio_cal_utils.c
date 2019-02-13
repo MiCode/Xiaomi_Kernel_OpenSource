@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, 2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, 2018-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,9 +18,7 @@
 #include <linux/mutex.h>
 #include <sound/audio_cal_utils.h>
 
-static int destroy_cal_lock_init;
-
-static struct mutex destroy_cal_lock;
+static DEFINE_MUTEX(destroy_cal_lock);
 
 static int unmap_memory(struct cal_type_data *cal_type,
 			struct cal_block_data *cal_block);
@@ -829,11 +827,6 @@ int cal_utils_alloc_cal(size_t data_size, void *data,
 err:
 	mutex_unlock(&cal_type->lock);
 done:
-	if (destroy_cal_lock_init == 0) {
-		pr_debug("%s:destroy_cal_lock lock init\n", __func__);
-		mutex_init(&destroy_cal_lock);
-		destroy_cal_lock_init = 1;
-	}
 	return ret;
 }
 
