@@ -36,9 +36,10 @@ struct pdc_pin_region {
 };
 
 static DEFINE_RAW_SPINLOCK(pdc_lock);
-static void __iomem *pdc_base;
+static void __iomem *pdc_base, *pdc_cfg_base;
 static struct pdc_pin_region *pdc_region;
 static int pdc_region_cnt;
+static resource_size_t pdc_cfg_size;
 
 static void pdc_reg_write(int reg, u32 i, u32 val)
 {
@@ -84,6 +85,30 @@ static void qcom_pdc_gic_unmask(struct irq_data *d)
 	irq_chip_unmask_parent(d);
 }
 
+static int spi_configure_type(irq_hw_number_t hwirq, unsigned int type)
+{
+	int spi = hwirq - 32;
+	unsigned int pin = spi / 32;
+	unsigned int mask = BIT(spi % 32);
+	void __iomem *cfg_reg = pdc_cfg_base + pin * 4;
+	unsigned int val;
+	unsigned long flags;
+
+	if (pin * 4 > pdc_cfg_size)
+		return -EFAULT;
+
+	raw_spin_lock_irqsave(&pdc_lock, flags);
+	val = readl_relaxed(cfg_reg);
+	rmb(); /* Ensure the read is complete before modifying */
+	val &= ~mask;
+	if (type & IRQ_TYPE_LEVEL_MASK)
+		val |= mask;
+	writel_relaxed(val, cfg_reg);
+	raw_spin_unlock_irqrestore(&pdc_lock, flags);
+
+	return 0;
+}
+
 /*
  * GIC does not handle falling edge or active low. To allow falling edge and
  * active low interrupts to be handled at GIC, PDC has an inverter that inverts
@@ -121,7 +146,9 @@ enum pdc_irq_config_bits {
 static int qcom_pdc_gic_set_type(struct irq_data *d, unsigned int type)
 {
 	int pin_out = d->hwirq;
+	int parent_hwirq = d->parent_data->hwirq;
 	enum pdc_irq_config_bits pdc_type;
+	int ret;
 
 	if (pin_out == GPIO_NO_WAKE_IRQ)
 		return 0;
@@ -151,6 +178,13 @@ static int qcom_pdc_gic_set_type(struct irq_data *d, unsigned int type)
 	}
 
 	pdc_reg_write(IRQ_i_CFG, pin_out, pdc_type);
+
+	/* Additionally, configure (only) the GPIO in the f/w */
+	if (d->domain->host_data) {
+		ret = spi_configure_type(parent_hwirq, type);
+		if (ret)
+			return ret;
+	}
 
 	return irq_chip_set_type_parent(d, type);
 }
@@ -271,6 +305,13 @@ static int qcom_pdc_gpio_alloc(struct irq_domain *domain, unsigned int virq,
 
 	qcom_fwspec->mask = true;
 
+	/* Additionally, configure GPIO PDC in the f/w */
+	if (domain->host_data) {
+		ret = spi_configure_type(parent_hwirq, type);
+		if (ret)
+			return ret;
+	}
+
 	if (type & IRQ_TYPE_EDGE_BOTH)
 		type = IRQ_TYPE_EDGE_RISING;
 
@@ -339,6 +380,7 @@ static int pdc_setup_pin_mapping(struct device_node *np)
 static int qcom_pdc_init(struct device_node *node, struct device_node *parent)
 {
 	struct irq_domain *parent_domain, *pdc_domain, *pdc_gpio_domain;
+	struct resource res;
 	int ret;
 
 	pdc_base = of_iomap(node, 0);
@@ -369,10 +411,17 @@ static int qcom_pdc_init(struct device_node *node, struct device_node *parent)
 		goto fail;
 	}
 
+	ret = of_address_to_resource(node, 1, &res);
+	if (!ret) {
+		pdc_cfg_size = resource_size(&res);
+		pdc_cfg_base = ioremap(res.start, pdc_cfg_size);
+	}
+
 	pdc_gpio_domain = irq_domain_create_hierarchy(parent_domain, 0,
 						      PDC_MAX_GPIO_IRQS,
 						      of_fwnode_handle(node),
-						      &qcom_pdc_gpio_ops, NULL);
+						      &qcom_pdc_gpio_ops,
+						      pdc_cfg_base);
 	if (!pdc_gpio_domain) {
 		pr_err("GIC domain add failed for GPIO domain\n");
 		ret = -ENOMEM;
