@@ -31,7 +31,7 @@ struct cpu_status {
 	unsigned int min;
 	unsigned int max;
 };
-static DEFINE_PER_CPU(struct cpu_status, cpu_stats);
+static DEFINE_PER_CPU(struct cpu_status, msm_perf_cpu_stats);
 
 struct events {
 	spinlock_t cpu_hotplug_lock;
@@ -69,7 +69,7 @@ static int set_cpu_min_freq(const char *buf, const struct kernel_param *kp)
 		if (cpu > (num_present_cpus() - 1))
 			return -EINVAL;
 
-		i_cpu_stats = &per_cpu(cpu_stats, cpu);
+		i_cpu_stats = &per_cpu(msm_perf_cpu_stats, cpu);
 
 		i_cpu_stats->min = val;
 		cpumask_set_cpu(cpu, limit_mask);
@@ -87,7 +87,7 @@ static int set_cpu_min_freq(const char *buf, const struct kernel_param *kp)
 	 */
 	get_online_cpus();
 	for_each_cpu(i, limit_mask) {
-		i_cpu_stats = &per_cpu(cpu_stats, i);
+		i_cpu_stats = &per_cpu(msm_perf_cpu_stats, i);
 
 		if (cpufreq_get_policy(&policy, i))
 			continue;
@@ -109,7 +109,8 @@ static int get_cpu_min_freq(char *buf, const struct kernel_param *kp)
 
 	for_each_present_cpu(cpu) {
 		cnt += snprintf(buf + cnt, PAGE_SIZE - cnt,
-				"%d:%u ", cpu, per_cpu(cpu_stats, cpu).min);
+				"%d:%u ", cpu,
+				per_cpu(msm_perf_cpu_stats, cpu).min);
 	}
 	cnt += snprintf(buf + cnt, PAGE_SIZE - cnt, "\n");
 	return cnt;
@@ -145,7 +146,7 @@ static int set_cpu_max_freq(const char *buf, const struct kernel_param *kp)
 		if (cpu > (num_present_cpus() - 1))
 			return -EINVAL;
 
-		i_cpu_stats = &per_cpu(cpu_stats, cpu);
+		i_cpu_stats = &per_cpu(msm_perf_cpu_stats, cpu);
 
 		i_cpu_stats->max = val;
 		cpumask_set_cpu(cpu, limit_mask);
@@ -156,7 +157,7 @@ static int set_cpu_max_freq(const char *buf, const struct kernel_param *kp)
 
 	get_online_cpus();
 	for_each_cpu(i, limit_mask) {
-		i_cpu_stats = &per_cpu(cpu_stats, i);
+		i_cpu_stats = &per_cpu(msm_perf_cpu_stats, i);
 		if (cpufreq_get_policy(&policy, i))
 			continue;
 
@@ -177,7 +178,8 @@ static int get_cpu_max_freq(char *buf, const struct kernel_param *kp)
 
 	for_each_present_cpu(cpu) {
 		cnt += snprintf(buf + cnt, PAGE_SIZE - cnt,
-				"%d:%u ", cpu, per_cpu(cpu_stats, cpu).max);
+				"%d:%u ", cpu,
+				per_cpu(msm_perf_cpu_stats, cpu).max);
 	}
 	cnt += snprintf(buf + cnt, PAGE_SIZE - cnt, "\n");
 	return cnt;
@@ -245,7 +247,7 @@ static int perf_adjust_notify(struct notifier_block *nb, unsigned long val,
 {
 	struct cpufreq_policy *policy = data;
 	unsigned int cpu = policy->cpu;
-	struct cpu_status *cpu_st = &per_cpu(cpu_stats, cpu);
+	struct cpu_status *cpu_st = &per_cpu(msm_perf_cpu_stats, cpu);
 	unsigned int min = cpu_st->min, max = cpu_st->max;
 
 
@@ -444,7 +446,7 @@ static int __init msm_performance_init(void)
 	cpufreq_register_notifier(&perf_cpufreq_nb, CPUFREQ_POLICY_NOTIFIER);
 
 	for_each_present_cpu(cpu)
-		per_cpu(cpu_stats, cpu).max = UINT_MAX;
+		per_cpu(msm_perf_cpu_stats, cpu).max = UINT_MAX;
 
 	rc = cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE,
 		"msm_performance_cpu_hotplug",
