@@ -179,7 +179,7 @@ int rtc6226_get_all_registers(struct rtc6226_device *radio)
 	int i;
 	int err;
 	u8 reg[1] = {0x00};
-	u8 buf[RADIO_REGISTER_NUM * 2];
+	u8 buf[RADIO_REGISTER_NUM];
 	struct i2c_msg msgs1[1] = {
 		{ radio->client->addr, 0, 1, reg},
 	};
