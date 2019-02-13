@@ -26,6 +26,7 @@
 #include "sde_connector.h"
 #include "sde_hw_dsc.h"
 #include "sde_hw_rot.h"
+#include "sde_crtc.h"
 
 #define RESERVED_BY_OTHER(h, r) \
 	((h)->rsvp && ((h)->rsvp->enc_id != (r)->enc_id))
@@ -1508,8 +1509,22 @@ static int _sde_rm_populate_requirements(
 	 * Set the requirement for LM which has CWB support if CWB is
 	 * found enabled.
 	 */
-	if (!RM_RQ_CWB(reqs) && sde_encoder_in_clone_mode(enc))
+	if (!RM_RQ_CWB(reqs) && sde_encoder_in_clone_mode(enc)) {
 		reqs->top_ctrl |= BIT(SDE_RM_TOPCTL_CWB);
+
+		/*
+		 * topology selection based on conn mode is not valid for CWB
+		 * as WB conn populates modes based on max_mixer_width check
+		 * but primary can be using dual LMs. This topology override for
+		 * CWB is to check number of datapath active in primary and
+		 * allocate same number of LM/PP blocks reserved for CWB
+		 */
+		reqs->topology =
+			&rm->topology_tbl[SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE];
+		if (sde_crtc_get_num_datapath(crtc_state->crtc) == 1)
+			reqs->topology =
+				&rm->topology_tbl[SDE_RM_TOPOLOGY_SINGLEPIPE];
+	}
 
 	SDE_DEBUG("top_ctrl: 0x%llX num_h_tiles: %d\n", reqs->top_ctrl,
 			reqs->hw_res.display_num_of_h_tiles);
