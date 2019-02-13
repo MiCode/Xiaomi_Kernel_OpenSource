@@ -887,7 +887,7 @@ static int cam_vfe_bus_ver3_handle_rup_bottom_half(void *handler_priv,
 	payload = evt_payload_priv;
 	irq_status0 = payload->irq_reg_val[CAM_IFE_IRQ_BUS_VER3_REG_STATUS0];
 
-	if (irq_status0 & 0x01) {
+	if (irq_status0 & 0x3F) {
 		CAM_DBG(CAM_ISP, "Received REG_UPDATE_ACK");
 		ret = CAM_VFE_IRQ_STATUS_SUCCESS;
 	}
