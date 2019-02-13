@@ -362,10 +362,6 @@ static int qcom_llcc_edac_probe(struct platform_device *pdev)
 	int ecc_irq;
 	int rc;
 
-	rc = qcom_llcc_core_setup(llcc_driv_data->bcast_regmap);
-	if (rc)
-		return rc;
-
 	/* Allocate edac control info */
 	edev_ctl = edac_device_alloc_ctl_info(0, "qcom-llcc", 1, "bank",
 					      llcc_driv_data->num_banks, 1,
@@ -390,7 +386,17 @@ static int qcom_llcc_edac_probe(struct platform_device *pdev)
 		edev_ctl->poll_msec = poll_msec;
 		edev_ctl->edac_check = qcom_llcc_poll_cache_errors;
 		edev_ctl->defer_work = 1;
-	} else {
+	}
+
+	rc = edac_device_add_device(edev_ctl);
+	if (rc)
+		goto out_mem;
+
+	if (ecc_irq >= 0) {
+		rc = qcom_llcc_core_setup(llcc_driv_data->bcast_regmap);
+		if (rc)
+			goto out_dev;
+
 		rc = devm_request_irq(dev, ecc_irq, llcc_ecc_irq_handler,
 			      IRQF_SHARED | IRQF_ONESHOT | IRQF_TRIGGER_HIGH,
 			      "llcc_ecc", edev_ctl);
@@ -398,19 +404,13 @@ static int qcom_llcc_edac_probe(struct platform_device *pdev)
 			goto out_dev;
 	}
 
-	rc = edac_device_add_device(edev_ctl);
-	if (rc)
-		goto out_mem;
-
 	platform_set_drvdata(pdev, edev_ctl);
-
 	return rc;
 
 out_dev:
 	edac_device_del_device(edev_ctl->dev);
 out_mem:
 	edac_device_free_ctl_info(edev_ctl);
-
 	return rc;
 }
 
