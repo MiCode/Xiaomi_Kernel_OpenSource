@@ -527,7 +527,8 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.type = V4L2_CTRL_TYPE_BITMASK,
 		.minimum = EXTRADATA_NONE,
 		.maximum = EXTRADATA_ADVANCED | EXTRADATA_ENC_INPUT_ROI |
-			EXTRADATA_ENC_INPUT_HDR10PLUS,
+			EXTRADATA_ENC_INPUT_HDR10PLUS |
+			EXTRADATA_ENC_INPUT_CVP,
 		.default_value = EXTRADATA_NONE,
 		.menu_skip_mask = 0,
 		.qmenu = NULL,
@@ -933,6 +934,15 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		(1 << V4L2_MPEG_VIDEO_HEVC_SIZE_4)
 		),
 		.qmenu = mpeg_video_stream_format,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VENC_CVP_DISABLE,
+		.name = "CVP Disable",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum = V4L2_MPEG_MSM_VIDC_DISABLE,
+		.maximum = V4L2_MPEG_MSM_VIDC_ENABLE,
+		.default_value = V4L2_MPEG_MSM_VIDC_DISABLE,
+		.step = 1,
 	},
 };
 
@@ -1801,6 +1811,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_PRIORITY:
 	case V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_RANDOM:
 	case V4L2_CID_MPEG_VIDEO_CYCLIC_INTRA_REFRESH_MB:
+	case V4L2_CID_MPEG_VIDC_VENC_CVP_DISABLE:
 		dprintk(VIDC_DBG, "Control set: ID : %x Val : %d\n",
 			ctrl->id, ctrl->val);
 		break;
@@ -3274,6 +3285,7 @@ int msm_venc_set_extradata(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct v4l2_ctrl *ctrl;
+	struct v4l2_ctrl *cvp_ctrl;
 
 	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA);
 	if (ctrl->val == EXTRADATA_NONE) {
@@ -3290,10 +3302,6 @@ int msm_venc_set_extradata(struct msm_vidc_inst *inst)
 			0x0);
 		}
 	}
-
-	/* Always enable default extradata */
-	rc = msm_comm_set_extradata(inst,
-			HFI_PROPERTY_PARAM_VENC_CVP_METADATA_EXTRADATA, 0x1);
 
 	if (ctrl->val & EXTRADATA_ADVANCED)
 		// Enable Advanced Extradata - LTR Info
@@ -3312,6 +3320,21 @@ int msm_venc_set_extradata(struct msm_vidc_inst *inst)
 			HFI_PROPERTY_PARAM_VENC_HDR10PLUS_METADATA_EXTRADATA,
 			0x1);
 		}
+	}
+
+	cvp_ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VENC_CVP_DISABLE);
+	if (cvp_ctrl->val == V4L2_MPEG_MSM_VIDC_ENABLE) {
+		if (ctrl->val & EXTRADATA_ENC_INPUT_CVP) {
+			dprintk(VIDC_ERR,
+				"%s: invalid params\n", __func__);
+			return -EINVAL;
+		}
+
+		rc = msm_comm_set_extradata(inst,
+			HFI_PROPERTY_PARAM_VENC_CVP_METADATA_EXTRADATA, 0x0);
+	} else {
+		rc = msm_comm_set_extradata(inst,
+			HFI_PROPERTY_PARAM_VENC_CVP_METADATA_EXTRADATA, 0x1);
 	}
 
 	return rc;
