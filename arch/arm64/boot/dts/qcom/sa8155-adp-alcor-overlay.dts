@@ -13,8 +13,7 @@
 /dts-v1/;
 /plugin/;
 
-#include "sa8155-adp-common.dtsi"
-#include "sa8155-adp-alcor-display.dtsi"
+#include "sa8155-adp-alcor.dtsi"
 
 / {
 	model = "ADP-ALCOR";
