@@ -3201,6 +3201,17 @@
 #include "kona-ion.dtsi"
 #include "kona-pcie.dtsi"
 #include "kona-mhi.dtsi"
+
+&pcie0_rp {
+	#address-cells = <5>;
+	#size-cells = <0>;
+
+	cnss_pci: cnss_pci {
+		reg = <0 0 0 0 0>;
+		qcom,iommu-dma = "disabled";
+	};
+};
+
 #include "msm-arm-smmu-kona.dtsi"
 #include "kona-pinctrl.dtsi"
 #include "kona-smp2p.dtsi"
