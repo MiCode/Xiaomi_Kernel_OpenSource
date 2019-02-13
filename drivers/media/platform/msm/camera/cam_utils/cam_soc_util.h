@@ -16,6 +16,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/clk/qcom.h>
 #include <linux/debugfs.h>
+#include <linux/of_fdt.h>
 
 #include "cam_io_util.h"
 
@@ -33,6 +34,10 @@
 
 /* maximum number of device clock */
 #define CAM_SOC_MAX_CLK             32
+
+/* DDR device types */
+#define DDR_TYPE_LPDDR4       6
+#define DDR_TYPE_LPDDR5       9
 
 /**
  * enum cam_vote_level - Enum for voting level
