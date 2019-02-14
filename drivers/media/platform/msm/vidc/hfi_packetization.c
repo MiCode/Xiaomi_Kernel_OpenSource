@@ -325,6 +325,51 @@ inline int create_pkt_cmd_sys_session_init(
 	return rc;
 }
 
+
+int create_pkt_cmd_sys_ubwc_config(
+		struct hfi_cmd_sys_set_property_packet *pkt,
+		struct msm_vidc_ubwc_config_data *ubwc_config)
+{
+	int rc = 0;
+	struct hfi_cmd_sys_set_ubwc_config_packet_type *hfi;
+
+	if (!pkt)
+		return -EINVAL;
+
+	pkt->size = sizeof(struct hfi_cmd_sys_set_property_packet) +
+		sizeof(struct hfi_cmd_sys_set_ubwc_config_packet_type)
+		+ sizeof(u32);
+
+	pkt->packet_type = HFI_CMD_SYS_SET_PROPERTY;
+	pkt->num_properties = 1;
+	pkt->rg_property_data[0] = HFI_PROPERTY_SYS_UBWC_CONFIG;
+	hfi = (struct hfi_cmd_sys_set_ubwc_config_packet_type *)
+		&pkt->rg_property_data[1];
+
+	hfi->max_channels = ubwc_config->max_channels;
+	hfi->override_bit_info.max_channel_override =
+		ubwc_config->override_bit_info.max_channel_override;
+
+	hfi->mal_length = ubwc_config->mal_length;
+	hfi->override_bit_info.mal_length_override =
+		ubwc_config->override_bit_info.mal_length_override;
+
+	hfi->highest_bank_bit = ubwc_config->highest_bank_bit;
+	hfi->override_bit_info.hb_override =
+		ubwc_config->override_bit_info.hb_override;
+
+	hfi->bank_swzl_level = ubwc_config->bank_swzl_level;
+	hfi->override_bit_info.bank_swzl_level_override =
+		ubwc_config->override_bit_info.bank_swzl_level_override;
+
+	hfi->bank_spreading = ubwc_config->bank_spreading;
+	hfi->override_bit_info.bank_spreading_override =
+		ubwc_config->override_bit_info.bank_spreading_override;
+
+	return rc;
+}
+
+
 int create_pkt_cmd_session_cmd(struct vidc_hal_session_cmd_pkt *pkt,
 			int pkt_type, struct hal_session *session)
 {
@@ -817,6 +862,7 @@ static struct hfi_packetization_ops hfi_default = {
 	.sys_coverage_config = create_pkt_cmd_sys_coverage_config,
 	.sys_release_resource = create_pkt_cmd_sys_release_resource,
 	.sys_image_version = create_pkt_cmd_sys_image_version,
+	.sys_ubwc_config = create_pkt_cmd_sys_ubwc_config,
 	.ssr_cmd = create_pkt_ssr_cmd,
 	.session_init = create_pkt_cmd_sys_session_init,
 	.session_cmd = create_pkt_cmd_session_cmd,

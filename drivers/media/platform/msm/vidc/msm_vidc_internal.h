@@ -226,6 +226,23 @@ enum vpu_version {
 	VPU_VERSION_IRIS2,
 };
 
+struct msm_vidc_ubwc_config_data {
+	struct {
+		u32 max_channel_override : 1;
+		u32 mal_length_override : 1;
+		u32 hb_override : 1;
+		u32 bank_swzl_level_override : 1;
+		u32 bank_spreading_override : 1;
+		u32 reserved : 27;
+	} override_bit_info;
+
+	u32 max_channels;
+	u32 mal_length;
+	u32 highest_bank_bit;
+	u32 bank_swzl_level;
+	u32 bank_spreading;
+};
+
 struct msm_vidc_platform_data {
 	struct msm_vidc_common_data *common_data;
 	unsigned int common_data_length;
@@ -235,9 +252,8 @@ struct msm_vidc_platform_data {
 	struct msm_vidc_efuse_data *efuse_data;
 	unsigned int efuse_data_length;
 	unsigned int sku_version;
-	phys_addr_t gcc_register_base;
-	uint32_t gcc_register_size;
 	uint32_t vpu_ver;
+	struct msm_vidc_ubwc_config_data *ubwc_config;
 };
 
 struct msm_vidc_format {
