@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -97,6 +97,34 @@
 
 &qupv3_se4_i2c {
 	status = "ok";
+};
+
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qmp-v4";
+	vdda-phy-supply = <&pm8150_2_l5>;
+	vdda-pll-supply = <&pm8150c_l3>;
+	vdda-phy-max-microamp = <138000>;
+	vdda-pll-max-microamp = <65100>;
+
+	status = "ok";
+};
+
+&ufshc_mem {
+	vdd-hba-supply = <&ufs_phy_gdsc>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm8150_2_l10>;
+	vcc-voltage-level = <2504000 2960000>;
+	vcc-low-voltage-sup;
+	vccq-supply = <&pm8150_1_l6>;
+	vccq2-supply = <&pm8150_2_l7>;
+	vcc-max-microamp = <750000>;
+	vccq-max-microamp = <750000>;
+	vccq2-max-microamp = <750000>;
+
+	qcom,vddp-ref-clk-supply = <&pm8150c_l2>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+
+	status= "ok";
 };
 
 &sdhc_2 {
