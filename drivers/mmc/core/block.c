@@ -3166,6 +3166,7 @@ out:
 	if (err_rwsem && !(err || err_resp)) {
 		mmc_host_clk_release(host);
 		wake_up(&ctx_info->wait);
+		host->last_completed_rq_time = ktime_get();
 		mmc_put_card(host->card);
 	}
 
