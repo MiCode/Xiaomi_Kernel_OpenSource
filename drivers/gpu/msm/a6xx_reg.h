@@ -58,6 +58,7 @@
 #define A6XX_CP_SQE_INSTR_BASE_LO        0x830
 #define A6XX_CP_SQE_INSTR_BASE_HI        0x831
 #define A6XX_CP_MISC_CNTL                0x840
+#define A6XX_CP_APRIV_CNTL               0X844
 #define A6XX_CP_ROQ_THRESHOLDS_1         0x8C1
 #define A6XX_CP_ROQ_THRESHOLDS_2         0x8C2
 #define A6XX_CP_MEM_POOL_SIZE            0x8C3

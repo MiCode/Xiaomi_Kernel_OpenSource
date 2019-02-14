@@ -1287,6 +1287,15 @@ static int a6xx_rb_start(struct adreno_device *adreno_dev,
 	if (ret)
 		return ret;
 
+	/*
+	 * Set the RBPRIVLEVEL bit in this register to determine
+	 * the privilege level of ucode executing packets in the RB,
+	 * so we can come out of secure mode and CP does not drop
+	 * the packet.
+	 */
+	if (adreno_is_a650(adreno_dev))
+		kgsl_regwrite(device, A6XX_CP_APRIV_CNTL, (1 << 2));
+
 	/* Clear the SQE_HALT to start the CP engine */
 	kgsl_regwrite(device, A6XX_CP_SQE_CNTL, 1);
 
