@@ -175,7 +175,7 @@
 			d-cache-size = <0x10000>;
 			i-cache-size = <0x10000>;
 			next-level-cache = <&L2_1>;
-			qcom,lmh-dcvs = <&lmh_dcvs0>;
+			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			#cooling-cells = <2>;
 			L2_1: l2-cache {
 			      compatible = "arm,arch-cache";
@@ -208,7 +208,7 @@
 			d-cache-size = <0x10000>;
 			i-cache-size = <0x10000>;
 			next-level-cache = <&L2_1>;
-			qcom,lmh-dcvs = <&lmh_dcvs0>;
+			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			#cooling-cells = <2>;
 
 			L1_I_101: l1-icache {
@@ -236,7 +236,7 @@
 			d-cache-size = <0x10000>;
 			i-cache-size = <0x10000>;
 			next-level-cache = <&L2_1>;
-			qcom,lmh-dcvs = <&lmh_dcvs0>;
+			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			#cooling-cells = <2>;
 
 			L1_I_102: l1-icache {
@@ -264,7 +264,7 @@
 			d-cache-size = <0x10000>;
 			i-cache-size = <0x10000>;
 			next-level-cache = <&L2_1>;
-			qcom,lmh-dcvs = <&lmh_dcvs0>;
+			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			#cooling-cells = <2>;
 
 			L1_I_103: l1-icache {
