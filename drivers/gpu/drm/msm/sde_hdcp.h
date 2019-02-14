@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,11 +20,14 @@
 #include <linux/debugfs.h>
 #include <linux/of_device.h>
 #include <linux/i2c.h>
+#include <linux/list.h>
 #include <drm/drmP.h>
 #include <drm/drm_crtc.h>
 #include <drm/drm_edid.h>
 #include <linux/hdcp_qseecom.h>
 #include "sde_kms.h"
+
+#define MAX_STREAM_COUNT 2
 
 enum sde_hdcp_client_id {
 	HDCP_CLIENT_HDMI,
@@ -43,6 +46,18 @@ enum sde_hdcp_version {
 	HDCP_VERSION_1X = BIT(0),
 	HDCP_VERSION_2P2 = BIT(1),
 	HDCP_VERSION_MAX = BIT(2),
+};
+
+struct stream_info {
+	u8 stream_id;
+	u8 virtual_channel;
+};
+
+struct sde_hdcp_stream {
+	struct list_head list;
+	u8 stream_id;
+	u8 virtual_channel;
+	u32 stream_handle;
 };
 
 struct sde_hdcp_init_data {
@@ -74,7 +89,13 @@ struct sde_hdcp_ops {
 	bool (*feature_supported)(void *input);
 	void (*force_encryption)(void *input, bool enable);
 	bool (*sink_support)(void *input);
+	int (*set_mode)(void *input, bool mst_enabled);
+	int (*on)(void *input);
 	void (*off)(void *hdcp_ctrl);
+	int (*register_streams)(void *input, u8 num_streams,
+			struct stream_info *streams);
+	int (*deregister_streams)(void *input, u8 num_streams,
+			struct stream_info *streams);
 };
 
 static inline const char *sde_hdcp_state_name(enum sde_hdcp_state hdcp_state)
