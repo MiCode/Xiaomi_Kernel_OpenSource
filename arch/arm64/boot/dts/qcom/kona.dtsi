@@ -3227,7 +3227,6 @@
 #include "kona-sde-pll.dtsi"
 
 #include "kona-pm.dtsi"
-
 #include "kona-camera.dtsi"
 #include "kona-qupv3.dtsi"
 #include "kona-audio.dtsi"
@@ -3235,3 +3234,4 @@
 #include "kona-vidc.dtsi"
 #include "kona-cvp.dtsi"
 #include "kona-npu.dtsi"
+#include "kona-gpu.dtsi"
