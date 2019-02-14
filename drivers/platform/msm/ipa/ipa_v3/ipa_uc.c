@@ -479,6 +479,7 @@ static void ipa3_uc_response_hdlr(enum ipa_irq_type interrupt,
 
 		if (ipa3_ctx->uc_ctx.uc_loaded) {
 			IPADBG("uC resp op INIT_COMPLETED is unexpected\n");
+			IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 			return;
 		}
 
