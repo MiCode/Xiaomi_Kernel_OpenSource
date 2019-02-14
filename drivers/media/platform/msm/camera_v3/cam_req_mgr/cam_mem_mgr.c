@@ -241,6 +241,13 @@ exit_func:
 }
 EXPORT_SYMBOL(cam_mem_get_cpu_buf);
 
+int cam_mem_put_cpu_buf(int32_t buf_handle)
+{
+	int rc = 0;
+	return rc;
+}
+EXPORT_SYMBOL(cam_mem_put_cpu_buf);
+
 int cam_mem_mgr_cache_ops(struct cam_mem_cache_ops_cmd *cmd)
 {
 	int rc = 0, idx;
