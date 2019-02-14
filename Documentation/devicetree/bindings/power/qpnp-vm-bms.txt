@@ -57,9 +57,6 @@ Parent node required properties:
 - qcom,calculate-soc-ms : The time period between subsequent SoC
 			recalculations when the current SoC is above or equal
 			qcom,low-soc-calculate-soc-threshold.
-- qcom,volatge-soc-timeout-ms : The timeout period after which the module starts
-			reporting volage based SOC and does not use the VMBMS
-			algorithm for SOC calculation.
 - qcom,bms-vadc: Corresponding VADC device's phandle.
 - qcom,bms-adc_tm: Corresponding ADC_TM device's phandle to set recurring
                         measurements and receive notifications for vbatt.
@@ -148,7 +145,6 @@ pm8916_bms: qcom,qpnp-vm-bms {
 	qcom,low-soc-fifo-length = <2>;
 	qcom,calculate-soc-ms = <20000>;
 	qcom,s3-ocv-tolerence-uv = <1200>;
-	qcom,volatge-soc-timeout-ms = <60000>;
 	qcom,battery-data = <&mtp_batterydata>;
 	qcom,bms-vadc = <&pm8916_vadc>;
 	qcom,bms-adc_tm = <&pm8916_adc_tm>;
