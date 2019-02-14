@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved. */
 
 #ifndef _DT_BINDINGS_CLK_QCOM_DISP_CC_LITO_H
 #define _DT_BINDINGS_CLK_QCOM_DISP_CC_LITO_H
@@ -44,5 +44,10 @@
 #define DISP_CC_MDSS_AHB_CLK					37
 #define DISP_CC_XO_CLK						38
 #define DISP_CC_XO_CLK_SRC					39
+#define DISP_CC_MDSS_BYTE0_DIV_CLK_SRC				40
+#define DISP_CC_MDSS_DP_LINK_DIV_CLK_SRC			41
+#define DISP_CC_SLEEP_CLK_SRC					42
+#define DISP_CC_SLEEP_CLK					43
+#define DISP_CC_MDSS_BYTE1_DIV_CLK_SRC				44
 
 #endif

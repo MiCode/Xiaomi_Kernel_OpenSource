@@ -6,6 +6,7 @@ Required properties :
 - compatible : Shall contain one of the following:
 		"qcom,kona-dispcc",
 		"qcom,sdm845-dispcc"
+		"qcom,lito-dispcc"
 - reg : shall contain base register location and length.
 - vdd_mm-supply: phandle to the MM_CX rail that needs to be voted on behalf
 of the clocks.
