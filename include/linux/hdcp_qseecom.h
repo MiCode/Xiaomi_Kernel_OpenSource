@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,7 @@
 
 enum hdcp2_app_cmd {
 	HDCP2_CMD_START,
+	HDCP2_CMD_START_AUTH,
 	HDCP2_CMD_STOP,
 	HDCP2_CMD_PROCESS_MSG,
 	HDCP2_CMD_TIMEOUT,
@@ -42,6 +43,8 @@ static inline const char *hdcp2_app_cmd_str(enum hdcp2_app_cmd cmd)
 	switch (cmd) {
 	case HDCP2_CMD_START:
 		return HDCP_QSEECOM_ENUM_STR(HDCP2_CMD_START);
+	case HDCP2_CMD_START_AUTH:
+		return HDCP_QSEECOM_ENUM_STR(HDCP2_CMD_START_AUTH);
 	case HDCP2_CMD_STOP:
 		return HDCP_QSEECOM_ENUM_STR(HDCP2_CMD_STOP);
 	case HDCP2_CMD_PROCESS_MSG:
