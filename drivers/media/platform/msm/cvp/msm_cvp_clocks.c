@@ -650,7 +650,7 @@ static unsigned long msm_cvp_calc_freq(struct msm_cvp_inst *inst,
 		dcvs->load_norm;
 
 	dprintk(CVP_PROF,
-		"%s: inst %pK: %x : filled len %d required freq %lu load_norm %lu\n",
+		"%s: inst %pK: %x : filled len %d required freq %ld load_norm %u\n",
 		__func__, inst, hash32_ptr(inst->session),
 		filled_len, freq, dcvs->load_norm);
 

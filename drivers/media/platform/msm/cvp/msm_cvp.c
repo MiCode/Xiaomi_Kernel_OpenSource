@@ -275,7 +275,7 @@ static int msm_cvp_session_cvp_dfs_config(
 	struct hfi_device *hdev;
 	struct msm_cvp_dfsconfig vdfs_config;
 
-	dprintk(CVP_DBG, "%s:: Enter inst = %d", __func__, inst);
+	dprintk(CVP_DBG, "%s:: Enter inst = %pK\n", __func__, inst);
 
 	if (!inst || !inst->core || !dfs_config) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
@@ -295,7 +295,7 @@ static int msm_cvp_session_cvp_dfs_config(
 				__func__, rc);
 	} else {
 		dprintk(CVP_ERR,
-			"Failed in call_hfi_op for session_cvp_dfs_config\n",
+			"%s: Failed in call_hfi_op for session_cvp_dfs_config\n",
 			__func__);
 	}
 	return rc;
@@ -309,21 +309,21 @@ static int msm_cvp_session_cvp_dfs_frame(
 	struct hfi_device *hdev;
 	struct msm_cvp_dfsframe vdfs_frame;
 
-	dprintk(CVP_DBG, "%s:: Enter inst = %d", __func__, inst);
+	dprintk(CVP_DBG, "%s:: Enter inst = %pK\n", __func__, inst);
 
 	if (!inst || !inst->core || !dfs_frame) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
 		return -EINVAL;
 	}
 	hdev = inst->core->device;
-	memcpy(&vdfs_frame, dfs_frame, sizeof(struct msm_cvp_dfsconfig));
+	memcpy(&vdfs_frame, dfs_frame, sizeof(vdfs_frame));
 
 	rc = call_hfi_op(hdev, session_cvp_dfs_frame,
 			(void *)inst->session, &vdfs_frame);
 
 	if (rc) {
 		dprintk(CVP_ERR,
-			"Failed in call_hfi_op for session_cvp_dfs_frame\n",
+			"%s: Failed in call_hfi_op for session_cvp_dfs_frame\n",
 			__func__);
 	}
 
@@ -336,7 +336,7 @@ static int msm_cvp_session_cvp_dfs_frame_response(
 {
 	int rc = 0;
 
-	dprintk(CVP_DBG, "%s:: Enter inst = %d", __func__, inst);
+	dprintk(CVP_DBG, "%s:: Enter inst = %pK\n", __func__, inst);
 
 	if (!inst || !inst->core || !dfs_frame) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);

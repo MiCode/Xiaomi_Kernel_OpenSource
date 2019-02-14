@@ -143,21 +143,22 @@ static inline bool is_sys_cache_present(struct venus_hfi_device *device)
 	return device->res->sys_cache_present;
 }
 
+#define ROW_SIZE 32
+
 static void __dump_packet(u8 *packet, enum cvp_msg_prio log_level)
 {
 	u32 c = 0, packet_size = *(u32 *)packet;
-	const int row_size = 32;
 	/*
 	 * row must contain enough for 0xdeadbaad * 8 to be converted into
 	 * "de ad ba ab " * 8 + '\0'
 	 */
-	char row[3 * row_size];
+	char row[3 * ROW_SIZE];
 
-	for (c = 0; c * row_size < packet_size; ++c) {
-		int bytes_to_read = ((c + 1) * row_size > packet_size) ?
-			packet_size % row_size : row_size;
-		hex_dump_to_buffer(packet + c * row_size, bytes_to_read,
-				row_size, 4, row, sizeof(row), false);
+	for (c = 0; c * ROW_SIZE < packet_size; ++c) {
+		int bytes_to_read = ((c + 1) * ROW_SIZE > packet_size) ?
+			packet_size % ROW_SIZE : ROW_SIZE;
+		hex_dump_to_buffer(packet + c * ROW_SIZE, bytes_to_read,
+				ROW_SIZE, 4, row, sizeof(row), false);
 		dprintk(log_level, "%s\n", row);
 	}
 }
@@ -276,11 +277,11 @@ static int __dsp_send_hfi_queue(struct venus_hfi_device *device)
 	}
 
 	if (device->dsp_flags & DSP_INIT) {
-		dprintk(CVP_DBG, "%s: dsp already inited\n");
+		dprintk(CVP_DBG, "%s: dsp already inited\n", __func__);
 		return 0;
 	}
 
-	dprintk(CVP_DBG, "%s: hfi queue %#x size %d\n",
+	dprintk(CVP_DBG, "%s: hfi queue %#llx size %d\n",
 		__func__, device->dsp_iface_q_table.mem_data.dma_handle,
 		device->dsp_iface_q_table.mem_data.size);
 	rc = fastcvpd_video_send_cmd_hfi_queue(
@@ -1130,7 +1131,7 @@ no_data_count:
 				bus->range[1]*1000, 0);
 			if (rc)
 				dprintk(CVP_ERR,
-				"Failed voting bus %s to ab %llu\n",
+				"Failed voting bus %s to ab %u\n",
 				bus->name, bus->range[1]*1000);
 #endif
 		}
@@ -1581,7 +1582,7 @@ static int __interface_dsp_queues_init(struct venus_hfi_device *dev)
 		goto fail_dma_map;
 	}
 	dprintk(CVP_DBG,
-		"%s: kvaddr %pK dma_handle %#lx iova %#lx size %d\n",
+		"%s: kvaddr %pK dma_handle %#llx iova %#llx size %zd\n",
 		__func__, kvaddr, dma_handle, iova, q_size);
 
 	memset(mem_data, 0, sizeof(struct msm_smem));
