@@ -2351,6 +2351,12 @@
 		#mbox-cells = <1>;
 	};
 
+	aop-msg-client {
+		compatible = "qcom,debugfs-qmp-client";
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "aop";
+	};
+
 	qcom,lpass@17300000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x17300000 0x00100>;
