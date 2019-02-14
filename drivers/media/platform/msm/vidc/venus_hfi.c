@@ -1212,7 +1212,7 @@ static int __tzbsp_set_video_state(enum tzbsp_video_state state)
 static inline int __boot_firmware(struct venus_hfi_device *device)
 {
 	int rc = 0;
-	u32 ctrl_init_val = 0, ctrl_status = 0, count = 0, max_tries = 1000;
+	u32 ctrl_init_val = 0, ctrl_status = 0, count = 0, max_tries = 10000;
 
 	ctrl_init_val = BIT(0);
 	if (device->res->domain_cvp)
@@ -3159,9 +3159,9 @@ static int __power_collapse(struct venus_hfi_device *device, bool force)
 		wfi_status = BIT(0) &
 				__read_register(device,
 					VIDC_WRAPPER_TZ_CPU_STATUS);
-		if (!wfi_status) {
+		if (!wfi_status || !idle_status) {
 			dprintk(VIDC_WARN,
-				"Skipping PC, wfi_status not set.\n");
+				"Skipping PC, wfi or idle status not set.\n");
 			goto skip_power_off;
 		}
 
@@ -4009,7 +4009,16 @@ static int __init_subcaches(struct venus_hfi_device *device)
 		return 0;
 
 	venus_hfi_for_each_subcache(device, sinfo) {
-		sinfo->subcache = llcc_slice_getd(LLCC_VIDSC0);
+		if (!strcmp("vidsc0", sinfo->name)) {
+			sinfo->subcache = llcc_slice_getd(LLCC_VIDSC0);
+		} else if (!strcmp("vidsc1", sinfo->name)) {
+			sinfo->subcache = llcc_slice_getd(LLCC_VIDSC1);
+		} else if (!strcmp("vidscfw", sinfo->name)) {
+			sinfo->subcache = llcc_slice_getd(LLCC_VIDFW);
+		} else {
+			dprintk(VIDC_ERR, "Invalid subcache name %s\n",
+					sinfo->name);
+		}
 		if (IS_ERR_OR_NULL(sinfo->subcache)) {
 			rc = PTR_ERR(sinfo->subcache) ?
 				PTR_ERR(sinfo->subcache) : -EBADHANDLE;

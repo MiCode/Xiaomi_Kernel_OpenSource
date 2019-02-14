@@ -161,7 +161,7 @@ static struct msm_vidc_common_data kona_common_data[] = {
 	},
 	{
 		.key = "qcom,sw-power-collapse",
-		.value = 1,
+		.value = 0,
 	},
 	{
 		.key = "qcom,domain-attr-non-fatal-faults",
@@ -205,11 +205,11 @@ static struct msm_vidc_common_data kona_common_data[] = {
 	},
 	{
 		.key = "qcom,power-collapse-delay",
-		.value = 1500,
+		.value = 15000,
 	},
 	{
 		.key = "qcom,hw-resp-timeout",
-		.value = 1000,
+		.value = 10000,
 	},
 	{
 		.key = "qcom,debug-timeout",
