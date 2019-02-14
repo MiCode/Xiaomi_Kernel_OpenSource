@@ -2012,8 +2012,9 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 	if (rc < 0 || prop.intval < 0) {
 		pr_debug("Failed to get recharge-soc\n");
 		recharge_soc = DEFAULT_RECHARGE_SOC;
+	} else {
+		recharge_soc = prop.intval;
 	}
-	recharge_soc = prop.intval;
 	chip->recharge_soc = recharge_soc;
 
 	qg_dbg(chip, QG_DEBUG_STATUS, "msoc=%d health=%d charge_full=%d charge_done=%d\n",
