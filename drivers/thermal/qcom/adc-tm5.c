@@ -260,7 +260,7 @@ static int32_t adc_tm5_thr_update(struct adc_tm_sensor *sensor,
 	uint16_t reg_low_thr_lsb, reg_high_thr_lsb;
 	uint32_t scale_type = 0, mask = 0, btm_chan_idx = 0;
 	struct adc_tm_config tm_config;
-	struct adc_tm_chip *chip;
+	struct adc_tm_chip *chip = NULL;
 
 	ret = adc_tm5_get_btm_idx(chip,
 		sensor->btm_ch, &btm_chan_idx);
