@@ -581,6 +581,14 @@ config MSM_CDSP_LOADER
 config QTI_SYSTEM_PM
 	bool
 
+config QCOM_SMCINVOKE
+	bool "Secure QSEE Support"
+	help
+	 Enable SMCInvoke driver which supports capability based secure
+	 communication between QTI Secure Execution Environment (QSEE)
+	 and high level operating system. It exposes APIs for both
+	 userspace and kernel clients.
+
 config MSM_EVENT_TIMER
 	bool "Event timer"
         help
