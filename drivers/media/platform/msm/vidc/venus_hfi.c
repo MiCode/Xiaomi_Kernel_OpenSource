@@ -1244,6 +1244,10 @@ static inline int __boot_firmware(struct venus_hfi_device *device)
 		dprintk(VIDC_ERR, "Error booting up vidc firmware\n");
 		rc = -ETIME;
 	}
+
+	/* Enable interrupt before sending commands to venus */
+	__write_register(device, VIDC_CPU_CS_H2XSOFTINTEN, 0x1);
+
 	return rc;
 }
 
