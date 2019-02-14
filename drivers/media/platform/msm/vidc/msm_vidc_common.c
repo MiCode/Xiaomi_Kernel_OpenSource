@@ -6624,6 +6624,7 @@ int msm_comm_set_color_format_constraints(struct msm_vidc_inst *inst,
 	u32 size = 0;
 	int rc = 0;
 	struct hfi_device *hdev;
+	u32 hfi_fmt;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s - invalid param\n", __func__);
@@ -6643,27 +6644,28 @@ int msm_comm_set_color_format_constraints(struct msm_vidc_inst *inst,
 		goto exit;
 	}
 
+	hfi_fmt = msm_comm_convert_color_fmt(pix_constraint->fourcc);
 	pconstraint->buffer_type = get_hfi_buffer(buffer_type);
 	pconstraint->num_planes = pix_constraint->num_planes;
 	//set Y plan constraints
 	dprintk(VIDC_INFO, "Set Y plan constraints.\n");
 	pconstraint->rg_plane_format[0].stride_multiples =
-			pix_constraint->y_stride_multiples;
+			VENUS_Y_STRIDE(hfi_fmt, 1);
 	pconstraint->rg_plane_format[0].max_stride =
 			pix_constraint->y_max_stride;
 	pconstraint->rg_plane_format[0].min_plane_buffer_height_multiple =
-			pix_constraint->y_min_plane_buffer_height_multiple;
+			VENUS_Y_SCANLINES(hfi_fmt, 1);
 	pconstraint->rg_plane_format[0].buffer_alignment =
 			pix_constraint->y_buffer_alignment;
 
 	//set UV plan constraints
 	dprintk(VIDC_INFO, "Set UV plan constraints.\n");
 	pconstraint->rg_plane_format[1].stride_multiples =
-			pix_constraint->uv_stride_multiples;
+			VENUS_UV_STRIDE(hfi_fmt, 1);
 	pconstraint->rg_plane_format[1].max_stride =
 			pix_constraint->uv_max_stride;
 	pconstraint->rg_plane_format[1].min_plane_buffer_height_multiple =
-			pix_constraint->uv_min_plane_buffer_height_multiple;
+			VENUS_UV_SCANLINES(hfi_fmt, 1);
 	pconstraint->rg_plane_format[1].buffer_alignment =
 			pix_constraint->uv_buffer_alignment;
 

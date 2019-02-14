@@ -269,13 +269,9 @@ struct msm_vidc_format {
 struct msm_vidc_format_constraint {
 	u32 fourcc;
 	u32 num_planes;
-	u32 y_stride_multiples;
 	u32 y_max_stride;
-	u32 y_min_plane_buffer_height_multiple;
 	u32 y_buffer_alignment;
-	u32 uv_stride_multiples;
 	u32 uv_max_stride;
-	u32 uv_min_plane_buffer_height_multiple;
 	u32 uv_buffer_alignment;
 };
 
