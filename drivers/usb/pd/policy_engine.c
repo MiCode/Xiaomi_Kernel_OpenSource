@@ -4266,7 +4266,7 @@ static int trigger_tx_msg(struct usbpd *pd, bool *msg_tx_flag)
 
 	/* Only allowed if we are already in explicit sink contract */
 	if (pd->current_state != PE_SNK_READY || !is_sink_tx_ok(pd)) {
-		usbpd_err(&pd->dev, "%s: Cannot send msg\n");
+		usbpd_err(&pd->dev, "Cannot send msg\n");
 		ret = -EBUSY;
 		goto out;
 	}
@@ -4278,7 +4278,7 @@ static int trigger_tx_msg(struct usbpd *pd, bool *msg_tx_flag)
 	/* wait for operation to complete */
 	if (!wait_for_completion_timeout(&pd->is_ready,
 			msecs_to_jiffies(1000))) {
-		usbpd_err(&pd->dev, "%s: request timed out\n");
+		usbpd_err(&pd->dev, "request timed out\n");
 		ret = -ETIMEDOUT;
 	}
 
