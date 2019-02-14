@@ -114,7 +114,7 @@ int synx_create(s32 *synx_obj, const char *name)
 
 	*synx_obj = row->synx_obj;
 
-	pr_debug("row: synx id: 0x%x, index: %ld\n",
+	pr_debug("row: synx id: 0x%x, index: %d\n",
 		row->synx_obj, row->index);
 	pr_debug("Exit %s\n", __func__);
 
@@ -327,13 +327,15 @@ int synx_signal_core(struct synx_table_row *row, u32 status)
 			pr_debug("signaling external sync: %d, status: %u\n",
 				sync_id, status);
 			/* optional function to enable external signaling */
-			if (bind_ops->enable_signaling)
+			if (bind_ops->enable_signaling) {
 				ret = bind_ops->enable_signaling(sync_id);
 				if (ret < 0) {
 					pr_err("enable signaling fail on sync: %d, err: %d\n",
 						sync_id, ret);
 					continue;
 				}
+			}
+
 			ret = bind_ops->signal(sync_id, status);
 			if (ret < 0)
 				pr_err("signaling fail on sync: %d, err: %d\n",
@@ -420,7 +422,7 @@ int synx_merge(s32 *synx_objs, u32 num_objs, s32 *synx_merged)
 
 	*synx_merged = row->synx_obj;
 
-	pr_debug("row (merged): synx 0x%x, index: %ld\n",
+	pr_debug("row (merged): synx 0x%x, index: %d\n",
 		row->synx_obj, row->index);
 	pr_debug("Exit %s\n", __func__);
 
@@ -1081,8 +1083,7 @@ static int synx_handle_bind(struct synx_private_ioctl_arg *k_ioctl)
 		k_ioctl->size))
 		return -EFAULT;
 
-	pr_debug("calling synx_bind: 0x%x, %d\n", synx_bind_info.synx_obj,
-		synx_bind_info.ext_sync_desc);
+	pr_debug("calling synx_bind: 0x%x\n", synx_bind_info.synx_obj);
 	k_ioctl->result = synx_bind(synx_bind_info.synx_obj,
 		synx_bind_info.ext_sync_desc);
 
