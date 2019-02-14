@@ -624,6 +624,17 @@ struct ipa_mhi_clk_vote_resp_msg_v01
 	resp->resp.error = IPA_QMI_ERR_INCOMPATIBLE_STATE_V01;
 
 	mutex_lock(&imp_ctx->mutex);
+
+	/*
+	 * returning success for clock unvote request - since it could
+	 * be 5G modem SSR scenario where clocks are already OFF.
+	 */
+	if (!vote && imp_ctx->state == IMP_INVALID) {
+		IMP_DBG("Unvote in Invalid state, no op for clock unvote\n");
+		mutex_unlock(&imp_ctx->mutex);
+		return 0;
+	}
+
 	if (imp_ctx->state != IMP_STARTED) {
 		IMP_ERR("unexpected vote when in state %d\n", imp_ctx->state);
 		mutex_unlock(&imp_ctx->mutex);
