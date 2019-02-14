@@ -6731,17 +6731,13 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 
 	/* Find start CPU based on boost value */
 	start_cpu = get_start_cpu(p, boosted, fbt_env->rtg_target);
-	if (start_cpu < 0) {
-		target_cpu = -1;
-		goto target;
-	}
+	if (start_cpu < 0)
+		goto out;
 
 	/* Find SD for the start CPU */
 	start_sd = rcu_dereference(per_cpu(sd_asym_packing, start_cpu));
-	if (!start_sd) {
-		target_cpu = -1;
-		goto target;
-	}
+	if (!start_sd)
+		goto out;
 
 	/* fast path for prev_cpu */
 	if ((capacity_orig_of(prev_cpu) == capacity_orig_of(start_cpu)) &&
@@ -7128,6 +7124,7 @@ target:
 		cpumask_set_cpu(target_cpu, cpus);
 	}
 
+out:
 	trace_sched_find_best_target(p, prefer_idle, min_util, start_cpu,
 				     best_idle_cpu, best_active_cpu,
 				     most_spare_cap_cpu,
