@@ -1117,14 +1117,14 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 		if (rc) {
 			dev_err(&pdev->dev, "Failed to find the pas_id(rc:%d)\n",
 									rc);
-			return rc;
+			goto err_deregister_bus;
 		}
 		scm_pas_init(MSM_BUS_MASTER_CRYPTO_CORE_0);
 	}
 
 	rc = pil_desc_init(&d->desc);
 	if (rc)
-		return rc;
+		goto err_deregister_bus;
 
 	init_completion(&d->stop_ack);
 
@@ -1240,6 +1240,9 @@ err_subsys:
 err_ramdump:
 	pil_desc_release(&d->desc);
 	platform_set_drvdata(pdev, NULL);
+err_deregister_bus:
+	if (d->bus_client)
+		msm_bus_scale_unregister_client(d->bus_client);
 
 	return rc;
 }
