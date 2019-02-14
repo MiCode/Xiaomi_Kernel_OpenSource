@@ -1969,6 +1969,12 @@
 				  <CONTROL_TCS 0>;
 		status = "disabled";
 
+		msm_bus_disp_rsc {
+			compatible = "qcom,msm-bus-rsc";
+			qcom,msm-bus-id = <MSM_BUS_RSC_DISP>;
+			status = "disabled";
+		};
+
 		sde_rsc_rpmh {
 			compatible = "qcom,sde-rsc-rpmh";
 			cell-index = <0>;
