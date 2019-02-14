@@ -1578,7 +1578,6 @@ static int dp_panel_read_dpcd(struct dp_panel *dp_panel, bool multi_func)
 	struct drm_dp_aux *drm_aux;
 	u8 *dpcd, rx_feature, temp;
 	u32 dfp_count = 0, offset = DP_DPCD_REV;
-	unsigned long caps = DP_LINK_CAP_ENHANCED_FRAMING;
 
 	if (!dp_panel) {
 		pr_err("invalid input\n");
@@ -1647,27 +1646,19 @@ static int dp_panel_read_dpcd(struct dp_panel *dp_panel, bool multi_func)
 		panel->vscext_chaining_supported);
 
 skip_dpcd_read:
-	link_info->revision = dp_panel->dpcd[DP_DPCD_REV];
-
 	panel->major = (link_info->revision >> 4) & 0x0f;
 	panel->minor = link_info->revision & 0x0f;
-	pr_debug("version: %d.%d\n", panel->major, panel->minor);
 
+	/* override link params updated in dp_panel_init_panel_info */
 	link_info->rate = min_t(unsigned long, panel->parser->max_lclk_khz,
-		drm_dp_bw_code_to_link_rate(dp_panel->dpcd[DP_MAX_LINK_RATE]));
-	pr_debug("link_rate=%d\n", link_info->rate);
-
-	link_info->num_lanes = dp_panel->dpcd[DP_MAX_LANE_COUNT] &
-				DP_MAX_LANE_COUNT_MASK;
+				link_info->rate);
 
 	if (multi_func)
 		link_info->num_lanes = min_t(unsigned int,
 			link_info->num_lanes, 2);
 
-	pr_debug("lane_count=%d\n", link_info->num_lanes);
-
-	if (drm_dp_enhanced_frame_cap(dpcd))
-		link_info->capabilities |= caps;
+	pr_debug("version:%d.%d, rate:%d, lanes:%d\n", panel->major,
+		panel->minor, link_info->rate, link_info->num_lanes);
 
 	dfp_count = dpcd[DP_DOWN_STREAM_PORT_COUNT] &
 						DP_DOWN_STREAM_PORT_COUNT;
@@ -2332,19 +2323,16 @@ static int dp_panel_init_panel_info(struct dp_panel *dp_panel)
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 	pinfo = &dp_panel->pinfo;
 
+	drm_dp_dpcd_writeb(panel->aux->drm_aux, DP_SET_POWER, DP_SET_POWER_D0);
+
 	/*
-	 * print resolution info as this is a result
-	 * of user initiated action of cable connection
-	 */
-	pr_info("DP RESOLUTION: active(back|front|width|low)\n");
-	pr_info("%d(%d|%d|%d|%d)x%d(%d|%d|%d|%d)@%dfps %dbpp %dKhz %dLR %dLn\n",
-		pinfo->h_active, pinfo->h_back_porch, pinfo->h_front_porch,
-		pinfo->h_sync_width, pinfo->h_active_low,
-		pinfo->v_active, pinfo->v_back_porch, pinfo->v_front_porch,
-		pinfo->v_sync_width, pinfo->v_active_low,
-		pinfo->refresh_rate, pinfo->bpp, pinfo->pixel_clk_khz,
-		panel->link->link_params.bw_code,
-		panel->link->link_params.lane_count);
+	* According to the DP 1.1 specification, a "Sink Device must exit the
+	* power saving state within 1 ms" (Section 2.5.3.1, Table 5-52, "Sink
+	* Control Field" (register 0x600).
+	*/
+	usleep_range(1000, 2000);
+
+	drm_dp_link_probe(panel->aux->drm_aux, &dp_panel->link_info);
 end:
 	return rc;
 }
@@ -2634,6 +2622,25 @@ static void dp_panel_config_msa(struct dp_panel *dp_panel)
 	catalog->config_msa(catalog, rate, stream_rate_khz, fixed_nvid);
 }
 
+static void dp_panel_resolution_info(struct dp_panel_private *panel)
+{
+	struct dp_panel_info *pinfo = &panel->dp_panel.pinfo;
+
+	/*
+	 * print resolution info as this is a result
+	 * of user initiated action of cable connection
+	 */
+	pr_info("DP RESOLUTION: active(back|front|width|low)\n");
+	pr_info("%d(%d|%d|%d|%d)x%d(%d|%d|%d|%d)@%dfps %dbpp %dKhz %dLR %dLn\n",
+		pinfo->h_active, pinfo->h_back_porch, pinfo->h_front_porch,
+		pinfo->h_sync_width, pinfo->h_active_low,
+		pinfo->v_active, pinfo->v_back_porch, pinfo->v_front_porch,
+		pinfo->v_sync_width, pinfo->v_active_low,
+		pinfo->refresh_rate, pinfo->bpp, pinfo->pixel_clk_khz,
+		panel->link->link_params.bw_code,
+		panel->link->link_params.lane_count);
+}
+
 static int dp_panel_hw_cfg(struct dp_panel *dp_panel, bool enable)
 {
 	struct dp_panel_private *panel;
@@ -2658,6 +2665,7 @@ static int dp_panel_hw_cfg(struct dp_panel *dp_panel, bool enable)
 		dp_panel_config_dsc(dp_panel, enable);
 		dp_panel_config_tr_unit(dp_panel);
 		dp_panel_config_timing(dp_panel);
+		dp_panel_resolution_info(panel);
 	}
 
 	panel->catalog->config_dto(panel->catalog, !enable);

@@ -609,6 +609,7 @@ static void dp_display_host_init(struct dp_display_private *dp)
 	dp->ctrl->init(dp->ctrl, flip, reset);
 	dp->aux->init(dp->aux, dp->parser->aux_cfg);
 	enable_irq(dp->irq);
+	dp->panel->init(dp->panel);
 	dp->core_initialized = true;
 
 	/* log this as it results from user action of cable connection */
@@ -657,10 +658,8 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 
 	dp_display_host_init(dp);
 
-	if (dp->debug->psm_enabled) {
-		dp->link->psm_config(dp->link, &dp->panel->link_info, false);
-		dp->debug->psm_enabled = false;
-	}
+	dp->link->psm_config(dp->link, &dp->panel->link_info, false);
+	dp->debug->psm_enabled = false;
 
 	if (!dp->dp_display.base_connector)
 		goto end;
@@ -1367,7 +1366,6 @@ static int dp_display_set_mode(struct dp_display *dp_display, void *panel,
 			mode->timing.bpp, mode->timing.pixel_clk_khz);
 
 	dp_panel->pinfo = mode->timing;
-	dp_panel->init(dp_panel);
 	mutex_unlock(&dp->session_lock);
 
 	return 0;
