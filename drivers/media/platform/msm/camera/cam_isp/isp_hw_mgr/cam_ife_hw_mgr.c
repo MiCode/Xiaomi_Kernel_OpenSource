@@ -2572,6 +2572,11 @@ static int cam_ife_mgr_pause_hw(struct cam_ife_hw_mgr_ctx *ctx)
 	return cam_ife_mgr_bw_control(ctx, CAM_VFE_BW_CONTROL_EXCLUDE);
 }
 
+static int cam_ife_mgr_resume_hw(struct cam_ife_hw_mgr_ctx *ctx)
+{
+	return cam_ife_mgr_bw_control(ctx, CAM_VFE_BW_CONTROL_INCLUDE);
+}
+
 /* entry function: stop_hw */
 static int cam_ife_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 {
@@ -2925,6 +2930,9 @@ start_only:
 
 	CAM_DBG(CAM_ISP, "START IFE OUT ... in ctx id:%d",
 		ctx->ctx_index);
+	if (start_isp->start_only)
+		cam_ife_mgr_resume_hw(ctx);
+
 	/* start the IFE out devices */
 	for (i = 0; i < CAM_IFE_HW_OUT_RES_MAX; i++) {
 		rc = cam_ife_hw_mgr_start_hw_res(
@@ -3023,6 +3031,44 @@ static int cam_ife_mgr_read(void *hw_mgr_priv, void *read_args)
 static int cam_ife_mgr_write(void *hw_mgr_priv, void *write_args)
 {
 	return -EPERM;
+}
+
+static int cam_ife_mgr_reset(void *hw_mgr_priv, void *hw_reset_args)
+{
+	struct cam_ife_hw_mgr            *hw_mgr       = hw_mgr_priv;
+	struct cam_hw_reset_args         *reset_args = hw_reset_args;
+	struct cam_ife_hw_mgr_ctx        *ctx;
+	struct cam_ife_hw_mgr_res        *hw_mgr_res;
+	uint32_t                          i;
+	int                               rc = 0;
+
+	if (!hw_mgr_priv || !hw_reset_args) {
+		CAM_ERR(CAM_ISP, "Invalid arguments");
+		return -EINVAL;
+	}
+
+	ctx = (struct cam_ife_hw_mgr_ctx *)reset_args->ctxt_to_hw_map;
+	if (!ctx || !ctx->ctx_in_use) {
+		CAM_ERR(CAM_ISP, "Invalid context is used");
+		return -EPERM;
+	}
+
+	CAM_DBG(CAM_ISP, "reset csid and vfe hw");
+	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_csid,
+		list) {
+		rc = cam_ife_hw_mgr_reset_csid_res(hw_mgr_res);
+		if (rc) {
+			CAM_ERR(CAM_ISP, "Failed RESET (%d) rc:%d",
+				hw_mgr_res->res_id, rc);
+			goto end;
+		}
+	}
+
+	for (i = 0; i < ctx->num_base; i++)
+		rc = cam_ife_mgr_reset_vfe_hw(hw_mgr, ctx->base[i].idx);
+
+end:
+	return rc;
 }
 
 static int cam_ife_mgr_release_hw(void *hw_mgr_priv,
@@ -4025,10 +4071,6 @@ end:
 	return rc;
 }
 
-static int cam_ife_mgr_resume_hw(struct cam_ife_hw_mgr_ctx *ctx)
-{
-	return cam_ife_mgr_bw_control(ctx, CAM_VFE_BW_CONTROL_INCLUDE);
-}
 
 static int cam_ife_mgr_sof_irq_debug(
 	struct cam_ife_hw_mgr_ctx *ctx,
@@ -5852,6 +5894,7 @@ int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf, int *iommu_hdl)
 	hw_mgr_intf->hw_prepare_update = cam_ife_mgr_prepare_hw_update;
 	hw_mgr_intf->hw_config = cam_ife_mgr_config_hw;
 	hw_mgr_intf->hw_cmd = cam_ife_mgr_cmd;
+	hw_mgr_intf->hw_reset = cam_ife_mgr_reset;
 
 	if (iommu_hdl)
 		*iommu_hdl = g_ife_hw_mgr.mgr_common.img_iommu_hdl;
