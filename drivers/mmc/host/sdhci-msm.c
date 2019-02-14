@@ -3737,9 +3737,9 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 			 * DLL input clock
 			 */
 			writel_relaxed(((readl_relaxed(host->ioaddr +
-				msm_host_offset->CORE_DDR_CONFIG))
+				msm_host_offset->CORE_DLL_CONFIG_3))
 				| RCLK_TOGGLE), host->ioaddr +
-				msm_host_offset->CORE_DDR_CONFIG);
+				msm_host_offset->CORE_DLL_CONFIG_3);
 			/* ensure above write as toggling same bit quickly */
 			wmb();
 			udelay(2);
@@ -3748,9 +3748,9 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 			 * DLL input clock
 			 */
 			writel_relaxed(((readl_relaxed(host->ioaddr +
-				msm_host_offset->CORE_DDR_CONFIG))
+				msm_host_offset->CORE_DLL_CONFIG_3))
 				& ~RCLK_TOGGLE), host->ioaddr +
-				msm_host_offset->CORE_DDR_CONFIG);
+				msm_host_offset->CORE_DLL_CONFIG_3);
 		}
 		if (!host->mmc->ios.old_rate && !msm_host->use_cdclp533) {
 			/*
