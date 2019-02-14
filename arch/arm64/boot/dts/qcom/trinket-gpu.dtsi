@@ -86,7 +86,7 @@
 			<&clock_gpucc GPU_CC_HLOS1_VOTE_GPU_SMMU_CLK>;
 
 		clock-names = "core_clk", "rbbmtimer_clk", "mem_clk",
-				"iface_clock", "mem_iface_clk",
+				"iface_clk", "mem_iface_clk",
 				"alt_mem_iface_clk", "gmu_clk",
 				"smmu_vote";
 
