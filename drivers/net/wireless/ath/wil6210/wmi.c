@@ -1,18 +1,7 @@
+// SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2012-2017 Qualcomm Atheros, Inc.
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
- *
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/moduleparam.h>
@@ -23,6 +12,7 @@
 #include "txrx.h"
 #include "wmi.h"
 #include "trace.h"
+#include "ftm.h"
 
 static uint max_assoc_sta = WIL6210_MAX_CID;
 module_param(max_assoc_sta, uint, 0644);
@@ -1267,6 +1257,29 @@ __acquires(&sta->tid_rx_lock) __releases(&sta->tid_rx_lock)
 	spin_unlock_bh(&sta->tid_rx_lock);
 }
 
+static void wmi_evt_aoa_meas(struct wil6210_vif *vif, int id, void *d, int len)
+{
+	struct wmi_aoa_meas_event *evt = d;
+
+	wil_aoa_evt_meas(vif, evt, len);
+}
+
+static void wmi_evt_ftm_session_ended(struct wil6210_vif *vif, int id,
+				      void *d, int len)
+{
+	struct wmi_tof_session_end_event *evt = d;
+
+	wil_ftm_evt_session_ended(vif, evt);
+}
+
+static void wmi_evt_per_dest_res(struct wil6210_vif *vif, int id,
+				 void *d, int len)
+{
+	struct wmi_tof_ftm_per_dest_res_event *evt = d;
+
+	wil_ftm_evt_per_dest_res(vif, evt);
+}
+
 static void
 wmi_evt_sched_scan_result(struct wil6210_vif *vif, int id, void *d, int len)
 {
@@ -1490,6 +1503,13 @@ static const struct {
 	{WMI_DELBA_EVENTID,		wmi_evt_delba},
 	{WMI_RING_EN_EVENTID,		wmi_evt_ring_en},
 	{WMI_DATA_PORT_OPEN_EVENTID,		wmi_evt_ignore},
+	{WMI_AOA_MEAS_EVENTID,			wmi_evt_aoa_meas},
+	{WMI_TOF_SESSION_END_EVENTID,		wmi_evt_ftm_session_ended},
+	{WMI_TOF_GET_CAPABILITIES_EVENTID,	wmi_evt_ignore},
+	{WMI_TOF_SET_LCR_EVENTID,		wmi_evt_ignore},
+	{WMI_TOF_SET_LCI_EVENTID,		wmi_evt_ignore},
+	{WMI_TOF_FTM_PER_DEST_RES_EVENTID,	wmi_evt_per_dest_res},
+	{WMI_TOF_CHANNEL_INFO_EVENTID,		wmi_evt_ignore},
 	{WMI_SCHED_SCAN_RESULT_EVENTID,		wmi_evt_sched_scan_result},
 	{WMI_LINK_STATS_EVENTID,		wmi_evt_link_stats},
 };
@@ -2538,6 +2558,71 @@ int wmi_new_sta(struct wil6210_vif *vif, const u8 *mac, u8 aid)
 		wil_err(wil, "Failed to send new sta (%d)\n", rc);
 
 	return rc;
+}
+
+int wmi_set_tt_cfg(struct wil6210_priv *wil, struct wmi_tt_data *tt_data)
+{
+	struct wil6210_vif *vif = ndev_to_vif(wil->main_ndev);
+	int rc;
+	struct wmi_set_thermal_throttling_cfg_cmd cmd = {
+		.tt_data = *tt_data,
+	};
+	struct {
+		struct wmi_cmd_hdr wmi;
+		struct wmi_set_thermal_throttling_cfg_event evt;
+	} __packed reply;
+
+	if (!test_bit(WMI_FW_CAPABILITY_THERMAL_THROTTLING,
+		      wil->fw_capabilities))
+		return -EOPNOTSUPP;
+
+	memset(&reply, 0, sizeof(reply));
+
+	rc = wmi_call(wil, WMI_SET_THERMAL_THROTTLING_CFG_CMDID, vif->mid,
+		      &cmd, sizeof(cmd),
+		      WMI_SET_THERMAL_THROTTLING_CFG_EVENTID,
+		      &reply, sizeof(reply), 100);
+	if (rc) {
+		wil_err(wil, "failed to set thermal throttling\n");
+		return rc;
+	}
+	if (reply.evt.status) {
+		wil_err(wil, "set thermal throttling failed, error %d\n",
+			reply.evt.status);
+		return -EIO;
+	}
+
+	wil->tt_data = *tt_data;
+	wil->tt_data_set = true;
+
+	return 0;
+}
+
+int wmi_get_tt_cfg(struct wil6210_priv *wil, struct wmi_tt_data *tt_data)
+{
+	struct wil6210_vif *vif = ndev_to_vif(wil->main_ndev);
+	int rc;
+	struct {
+		struct wmi_cmd_hdr wmi;
+		struct wmi_get_thermal_throttling_cfg_event evt;
+	} __packed reply;
+
+	if (!test_bit(WMI_FW_CAPABILITY_THERMAL_THROTTLING,
+		      wil->fw_capabilities))
+		return -EOPNOTSUPP;
+
+	rc = wmi_call(wil, WMI_GET_THERMAL_THROTTLING_CFG_CMDID, vif->mid,
+		      NULL, 0, WMI_GET_THERMAL_THROTTLING_CFG_EVENTID, &reply,
+		      sizeof(reply), 100);
+	if (rc) {
+		wil_err(wil, "failed to get thermal throttling\n");
+		return rc;
+	}
+
+	if (tt_data)
+		*tt_data = reply.evt.tt_data;
+
+	return 0;
 }
 
 void wmi_event_flush(struct wil6210_priv *wil)

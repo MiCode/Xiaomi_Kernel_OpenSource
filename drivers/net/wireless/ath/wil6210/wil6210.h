@@ -1,18 +1,7 @@
+/* SPDX-License-Identifier: ISC */
 /*
  * Copyright (c) 2012-2017 Qualcomm Atheros, Inc.
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
- *
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __WIL6210_H__
@@ -27,6 +16,7 @@
 #include <linux/irqreturn.h>
 #include "wmi.h"
 #include "wil_platform.h"
+#include "ftm.h"
 #include "fw.h"
 
 extern bool no_fw_recovery;
@@ -844,6 +834,8 @@ struct wil6210_vif {
 	struct cfg80211_scan_request *scan_request;
 	struct timer_list scan_timer; /* detect scan timeout */
 	struct wil_p2p_info p2p;
+	/* fine timing measurement */
+	struct wil_ftm_priv ftm;
 	/* keep alive */
 	struct list_head probe_client_pending;
 	struct mutex probe_client_mutex; /* protect @probe_client_pending */
@@ -996,6 +988,8 @@ struct wil6210_priv {
 	enum wmi_ps_profile_type ps_profile;
 
 	int fw_calib_result;
+	u8 tt_data_set;
+	struct wmi_tt_data tt_data;
 
 	struct notifier_block pm_notify;
 
@@ -1220,6 +1214,8 @@ int wmi_ps_dev_profile_cfg(struct wil6210_priv *wil,
 int wmi_set_mgmt_retry(struct wil6210_priv *wil, u8 retry_short);
 int wmi_get_mgmt_retry(struct wil6210_priv *wil, u8 *retry_short);
 int wmi_new_sta(struct wil6210_vif *vif, const u8 *mac, u8 aid);
+int wmi_set_tt_cfg(struct wil6210_priv *wil, struct wmi_tt_data *tt_data);
+int wmi_get_tt_cfg(struct wil6210_priv *wil, struct wmi_tt_data *tt_data);
 int wmi_port_allocate(struct wil6210_priv *wil, u8 mid,
 		      const u8 *mac, enum nl80211_iftype iftype);
 int wmi_port_delete(struct wil6210_priv *wil, u8 mid);
@@ -1275,6 +1271,8 @@ static inline int wil6210_debugfs_init(struct wil6210_priv *wil) { return 0; }
 static inline void wil6210_debugfs_remove(struct wil6210_priv *wil) {}
 #endif
 
+int wil6210_sysfs_init(struct wil6210_priv *wil);
+void wil6210_sysfs_remove(struct wil6210_priv *wil);
 int wil_cid_fill_sinfo(struct wil6210_vif *vif, int cid,
 		       struct station_info *sinfo);
 
@@ -1291,6 +1289,8 @@ int wmi_abort_scan(struct wil6210_vif *vif);
 void wil_abort_scan(struct wil6210_vif *vif, bool sync);
 void wil_abort_scan_all_vifs(struct wil6210_priv *wil, bool sync);
 void wil6210_bus_request(struct wil6210_priv *wil, u32 kbps);
+int wmi_aoa_meas(struct wil6210_priv *wil, const void *mac_addr, u8 chan,
+		 u8 type);
 void wil6210_disconnect(struct wil6210_vif *vif, const u8 *bssid,
 			u16 reason_code, bool from_event);
 void wil_probe_client_flush(struct wil6210_vif *vif);
@@ -1347,6 +1347,20 @@ void wil_halp_vote(struct wil6210_priv *wil);
 void wil_halp_unvote(struct wil6210_priv *wil);
 void wil6210_set_halp(struct wil6210_priv *wil);
 void wil6210_clear_halp(struct wil6210_priv *wil);
+
+void wil_ftm_init(struct wil6210_vif *vif);
+void wil_ftm_deinit(struct wil6210_vif *vif);
+void wil_ftm_stop_operations(struct wil6210_priv *wil);
+void wil_aoa_cfg80211_meas_result(struct wil6210_vif *vif,
+				  struct wil_aoa_meas_result *result);
+
+void wil_ftm_evt_session_ended(struct wil6210_vif *vif,
+			       struct wmi_tof_session_end_event *evt);
+void wil_ftm_evt_per_dest_res(struct wil6210_vif *vif,
+			      struct wmi_tof_ftm_per_dest_res_event *evt);
+void wil_aoa_evt_meas(struct wil6210_vif *vif,
+		      struct wmi_aoa_meas_event *evt,
+		      int len);
 
 int wmi_start_sched_scan(struct wil6210_priv *wil,
 			 struct cfg80211_sched_scan_request *request);
