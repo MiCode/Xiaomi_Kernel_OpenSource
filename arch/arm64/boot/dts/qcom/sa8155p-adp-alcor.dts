@@ -13,8 +13,7 @@
 /dts-v1/;
 
 #include "sa8155p-v2.dtsi"
-#include "sa8155-adp-common.dtsi"
-#include "sa8155-adp-alcor-display.dtsi"
+#include "sa8155-adp-alcor.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SA8155P ADP ALCOR";
