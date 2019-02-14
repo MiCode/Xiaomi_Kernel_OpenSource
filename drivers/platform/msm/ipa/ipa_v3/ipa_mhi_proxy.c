@@ -1091,7 +1091,6 @@ void imp_handle_modem_shutdown(void)
 		}
 	}
 
-	imp_ctx->state = IMP_PROBED;
 	mutex_unlock(&imp_ctx->mutex);
 
 	IMP_FUNC_EXIT();
