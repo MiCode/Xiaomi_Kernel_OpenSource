@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 /*
@@ -66,7 +66,7 @@
 #include "mdss-dp-pll-10nm.h"
 
 static struct dp_pll_db dp_pdb;
-static const struct clk_ops mux_clk_ops;
+static struct clk_ops mux_clk_ops;
 
 static struct regmap_config dp_pll_10nm_cfg = {
 	.reg_bits	= 32,
@@ -236,7 +236,7 @@ int dp_pll_clock_register_10nm(struct platform_device *pdev,
 	struct regmap *regmap;
 	int num_clks = ARRAY_SIZE(mdss_dp_pllcc_10nm);
 
-	clk_data = devm_kzalloc(&pdev->dev, sizeof(*clk__data), GFP_KERNEL);
+	clk_data = devm_kzalloc(&pdev->dev, sizeof(*clk_data), GFP_KERNEL);
 	if (!clk_data)
 		return -ENOMEM;
 

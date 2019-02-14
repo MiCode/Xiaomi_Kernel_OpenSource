@@ -99,6 +99,7 @@ static void dsi_catalog_cmn_init(struct dsi_ctrl_hw *ctrl,
 		break;
 	case DSI_CTRL_VERSION_2_2:
 	case DSI_CTRL_VERSION_2_3:
+	case DSI_CTRL_VERSION_2_4:
 		ctrl->ops.phy_reset_config = dsi_ctrl_hw_22_phy_reset_config;
 		ctrl->ops.config_clk_gating = dsi_ctrl_hw_22_config_clk_gating;
 		ctrl->ops.get_cont_splash_status =
@@ -163,6 +164,7 @@ int dsi_catalog_ctrl_setup(struct dsi_ctrl_hw *ctrl,
 	case DSI_CTRL_VERSION_2_0:
 	case DSI_CTRL_VERSION_2_2:
 	case DSI_CTRL_VERSION_2_3:
+	case DSI_CTRL_VERSION_2_4:
 		ctrl->phy_isolation_enabled = phy_isolation_enabled;
 		dsi_catalog_cmn_init(ctrl, version);
 		break;
@@ -269,6 +271,7 @@ int dsi_catalog_phy_setup(struct dsi_phy_hw *phy,
 	}
 
 	phy->index = index;
+	phy->version = version;
 	set_bit(DSI_PHY_DPHY, phy->feature_map);
 
 	dsi_phy_timing_calc_init(phy, version);
@@ -281,6 +284,7 @@ int dsi_catalog_phy_setup(struct dsi_phy_hw *phy,
 		dsi_catalog_phy_3_0_init(phy);
 		break;
 	case DSI_PHY_VERSION_4_0:
+	case DSI_PHY_VERSION_4_1:
 		dsi_catalog_phy_4_0_init(phy);
 		break;
 	case DSI_PHY_VERSION_0_0_HPM:

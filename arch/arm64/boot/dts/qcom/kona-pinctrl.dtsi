@@ -664,6 +664,114 @@
 			};
 		};
 
+		pmx_sde: pmx_sde {
+			sde_dsi_active: sde_dsi_active {
+				mux {
+					pins = "gpio75";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio75";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable = <0>;   /* no pull */
+				};
+			};
+
+			sde_dsi_suspend: sde_dsi_suspend {
+				mux {
+					pins = "gpio75";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio75";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+
+			sde_dsi1_active: sde_dsi1_active {
+				mux {
+					pins = "gpio128";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio128";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable = <0>;   /* no pull */
+				};
+			};
+
+			sde_dsi1_suspend: sde_dsi1_suspend {
+				mux {
+					pins = "gpio128";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio128";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+		};
+
+		pmx_sde_te {
+			sde_te_active: sde_te_active {
+				mux {
+					pins = "gpio66";
+					function = "mdp_vsync";
+				};
+
+				config {
+					pins = "gpio66";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+
+			sde_te_suspend: sde_te_suspend {
+				mux {
+					pins = "gpio66";
+					function = "mdp_vsync";
+				};
+
+				config {
+					pins = "gpio66";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+
+			sde_te1_active: sde_te1_active {
+				mux {
+					pins = "gpio67";
+					function = "mdp_vsync";
+				};
+
+				config {
+					pins = "gpio67";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+
+			sde_te1_suspend: sde_te1_suspend {
+				mux {
+					pins = "gpio67";
+					function = "mdp_vsync";
+				};
+
+				config {
+					pins = "gpio67";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+		};
+
 		wsa_swr_clk_pin {
 			wsa_swr_clk_sleep: wsa_swr_clk_sleep {
 				mux {

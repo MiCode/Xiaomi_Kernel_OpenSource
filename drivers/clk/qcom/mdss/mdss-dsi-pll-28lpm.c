@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"%s: " fmt, __func__
@@ -435,7 +435,7 @@ int dsi_pll_clock_register_28lpm(struct platform_device *pdev,
 	if (!clk_data)
 		return -ENOMEM;
 
-	clk_data->clks = devm_kcalloc(&pdev->dev, num_clks
+	clk_data->clks = devm_kcalloc(&pdev->dev, num_clks,
 				sizeof(struct clk *), GFP_KERNEL);
 	if (!clk_data->clks)
 		return -ENOMEM;

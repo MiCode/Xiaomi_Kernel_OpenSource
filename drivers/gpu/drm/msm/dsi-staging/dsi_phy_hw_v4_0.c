@@ -174,12 +174,18 @@ void dsi_phy_hw_v4_0_enable(struct dsi_phy_hw *phy,
 		return;
 	}
 
-	/* Alter PHY configurations if data rate less than 1.5GHZ*/
-	if (cfg->bit_clk_rate_hz < 1500000000)
-		less_than_1500_mhz = true;
-	vreg_ctrl_0 = less_than_1500_mhz ? 0x5B : 0x59;
-	glbl_str_swi_cal_sel_ctrl = less_than_1500_mhz ? 0x03 : 0x00;
-	glbl_hstx_str_ctrl_0 = less_than_1500_mhz ? 0x66 : 0x88;
+	if (phy->version == DSI_PHY_VERSION_4_1) {
+		vreg_ctrl_0 = 0x58;
+		glbl_str_swi_cal_sel_ctrl = 0x00;
+		glbl_hstx_str_ctrl_0 = 0x88;
+	} else {
+		/* Alter PHY configurations if data rate less than 1.5GHZ*/
+		if (cfg->bit_clk_rate_hz < 1500000000)
+			less_than_1500_mhz = true;
+		vreg_ctrl_0 = less_than_1500_mhz ? 0x5B : 0x59;
+		glbl_str_swi_cal_sel_ctrl = less_than_1500_mhz ? 0x03 : 0x00;
+		glbl_hstx_str_ctrl_0 = less_than_1500_mhz ? 0x66 : 0x88;
+	}
 
 	/* de-assert digital and pll power down */
 	data = BIT(6) | BIT(5);

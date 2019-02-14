@@ -3,6 +3,9 @@
  * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
+#include "dsi-panel-sw43404-amoled-dsc-wqhd-cmd.dtsi"
+#include <dt-bindings/clock/mdss-7nm-pll-clk.h>
+
 &soc {
 	ext_disp: qcom,msm-ext-disp {
 		compatible = "qcom,msm-ext-disp";
@@ -10,6 +13,59 @@
 		ext_disp_audio_codec: qcom,msm-ext-disp-audio-codec-rx {
 			compatible = "qcom,msm-ext-disp-audio-codec-rx";
 		};
+	};
+
+	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,panel-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
+			qcom,supply-enable-load = <62000>;
+			qcom,supply-disable-load = <80>;
+			qcom,supply-post-on-sleep = <20>;
+		};
+
+		qcom,panel-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "vdd";
+			qcom,supply-min-voltage = <3300000>;
+			qcom,supply-max-voltage = <3300000>;
+			qcom,supply-enable-load = <857000>;
+			qcom,supply-disable-load = <0>;
+			qcom,supply-post-on-sleep = <0>;
+		};
+	};
+
+	sde_dsi: qcom,dsi-display-primary {
+		compatible = "qcom,dsi-display";
+		label = "primary";
+
+		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
+		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
+
+		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
+			 <&mdss_dsi0_pll PCLK_MUX_0_CLK>,
+			 <&mdss_dsi1_pll BYTECLK_MUX_1_CLK>,
+			 <&mdss_dsi1_pll PCLK_MUX_1_CLK>;
+		clock-names = "src_byte_clk0", "src_pixel_clk0",
+			      "src_byte_clk1", "src_pixel_clk1";
+
+		pinctrl-names = "panel_active", "panel_suspend";
+		pinctrl-0 = <&sde_dsi_active &sde_te_active>;
+		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
+
+		qcom,platform-te-gpio = <&tlmm 66 0>;
+		qcom,panel-te-source = <0>;
+
+		vddio-supply = <&pm8150_l14>;
+		vdd-supply = <&pm8150a_l11>;
+
+		qcom,mdp = <&mdss_mdp>;
+		qcom,dsi-default-panel = <&dsi_sw43404_amoled_cmd>;
 	};
 
 	sde_wb: qcom,wb-display@0 {
@@ -32,5 +88,16 @@
 };
 
 &mdss_mdp {
-	connectors = <&sde_dp &sde_wb>;
+	connectors = <&sde_dp &sde_wb &sde_dsi>;
+};
+
+&dsi_sw43404_amoled_cmd {
+	qcom,mdss-dsi-display-timings {
+		timing@0 {
+			qcom,mdss-dsi-panel-phy-timings = [00 14 05 05 1f 1e 05
+				05 03 02 04 00 12 15];
+			qcom,display-topology = <2 2 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
 };

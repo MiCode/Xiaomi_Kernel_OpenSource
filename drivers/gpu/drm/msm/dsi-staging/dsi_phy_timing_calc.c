@@ -783,6 +783,7 @@ int dsi_phy_timing_calc_init(struct dsi_phy_hw *phy,
 			dsi_phy_hw_v3_0_update_timing_params;
 		break;
 	case DSI_PHY_VERSION_4_0:
+	case DSI_PHY_VERSION_4_1:
 		ops->get_default_phy_params =
 			dsi_phy_hw_v4_0_get_default_phy_params;
 		ops->calc_clk_zero =

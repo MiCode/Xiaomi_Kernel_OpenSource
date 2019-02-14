@@ -21,6 +21,7 @@
  * @DSI_PHY_VERSION_2_0:        14nm
  * @DSI_PHY_VERSION_3_0:        10nm
  * @DSI_PHY_VERSION_4_0:        7nm
+ * @DSI_PHY_VERSION_4_1:	7nm
  * @DSI_PHY_VERSION_MAX:
  */
 enum dsi_phy_version {
@@ -31,6 +32,7 @@ enum dsi_phy_version {
 	DSI_PHY_VERSION_2_0, /* 14nm */
 	DSI_PHY_VERSION_3_0, /* 10nm */
 	DSI_PHY_VERSION_4_0, /* 7nm  */
+	DSI_PHY_VERSION_4_1, /* 7nm */
 	DSI_PHY_VERSION_MAX
 };
 
