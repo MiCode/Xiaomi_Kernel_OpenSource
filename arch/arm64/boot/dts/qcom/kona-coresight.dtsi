@@ -1238,8 +1238,8 @@
 
 		qcom,tpda-atid = <66>;
 		qcom,dsb-elem-size = <3 32>;
-		qcom,cmb-elem-size = <0 64>,
-				     <1 64>,
+		qcom,cmb-elem-size = <0 32>,
+				     <1 32>,
 				     <2 64>;
 
 		clocks = <&clock_aop QDSS_CLK>;
