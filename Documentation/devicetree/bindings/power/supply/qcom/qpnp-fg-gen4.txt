@@ -478,6 +478,12 @@ First Level Node - FG Gen4 device
 		    specified. If this is not specified, then the
 		    default value is 10000. Unit is in ms.
 
+- qcom,sw-esr-control
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property that when specified enables SW ESR
+		    control depending on input presence and user request.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by FG Gen4 driver
 ==========================================================
