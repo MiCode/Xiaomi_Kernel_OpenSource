@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
@@ -389,9 +389,12 @@ void sde_vbif_set_qos_remap(struct sde_kms *sde_kms,
 		return;
 	}
 
-	qos_tbl = params->is_rt ? &vbif->cap->qos_rt_tbl :
-			&vbif->cap->qos_nrt_tbl;
+	if (params->client_type > VBIF_MAX_CLIENT) {
+		SDE_ERROR("invalid client type:%d\n", params->client_type);
+		return;
+	}
 
+	qos_tbl = &vbif->cap->qos_tbl[params->client_type];
 	if (!qos_tbl->npriority_lvl || !qos_tbl->priority_lvl) {
 		SDE_DEBUG("qos tbl not defined\n");
 		return;
