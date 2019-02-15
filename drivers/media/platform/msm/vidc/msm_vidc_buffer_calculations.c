@@ -238,6 +238,7 @@
 #define CCE_TILE_OFFSET_SIZE ALIGN(32 * 4 * 4, BUFFER_ALIGNMENT_SIZE(32))
 
 #define QMATRIX_SIZE (sizeof(u32) * 128 + 256)
+#define MP2D_QPDUMP_SIZE 115200
 
 #define HFI_IRIS2_ENC_PERSIST_SIZE 102400
 
@@ -584,8 +585,9 @@ void msm_vidc_init_buffer_size_calculators(struct msm_vidc_inst *inst)
 	inst->buffer_size_calculators = NULL;
 	core = inst->core;
 
-	/* Change this to IRIS2 once firmware is ready with changes */
-	if (core->platform_data->vpu_ver == VPU_VERSION_AR50)
+	/* Only decoder is enabled for now */
+	if ((core->platform_data->vpu_ver == VPU_VERSION_IRIS2) &&
+		(inst->session_type == MSM_VIDC_DECODER))
 		inst->buffer_size_calculators =
 			msm_vidc_calculate_internal_buffer_sizes;
 }
@@ -1717,5 +1719,5 @@ static inline u32 calculate_vp9d_persist1_size(void)
 
 static inline u32 calculate_mpeg2d_persist1_size(void)
 {
-	return QMATRIX_SIZE;
+	return QMATRIX_SIZE + MP2D_QPDUMP_SIZE;
 }
