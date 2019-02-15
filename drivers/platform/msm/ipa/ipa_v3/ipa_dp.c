@@ -78,6 +78,7 @@
 
 #define IPA_DEFAULT_SYS_YELLOW_WM 32
 #define IPA_REPL_XFER_THRESH 20
+#define IPA_REPL_XFER_MAX 36
 
 #define IPA_TX_SEND_COMPL_NOP_DELAY_NS (2 * 1000 * 1000)
 
@@ -2058,7 +2059,7 @@ static void ipa3_replenish_rx_cache(struct ipa3_sys_context *sys)
 	int ret;
 	int idx = 0;
 	int rx_len_cached = 0;
-	struct gsi_xfer_elem gsi_xfer_elem_array[IPA_REPL_XFER_THRESH];
+	struct gsi_xfer_elem gsi_xfer_elem_array[IPA_REPL_XFER_MAX];
 	gfp_t flag = GFP_NOWAIT | __GFP_NOWARN;
 
 	rx_len_cached = sys->len;
@@ -2102,15 +2103,13 @@ static void ipa3_replenish_rx_cache(struct ipa3_sys_context *sys)
 		idx++;
 		rx_len_cached++;
 		/*
-		 * gsi_xfer_elem_buffer has a size of IPA_REPL_XFER_THRESH.
+		 * gsi_xfer_elem_buffer has a size of IPA_REPL_XFER_MAX.
 		 * If this size is reached we need to queue the xfers.
 		 */
-		if (idx == IPA_REPL_XFER_THRESH) {
+		if (idx == IPA_REPL_XFER_MAX) {
 			ret = gsi_queue_xfer(sys->ep->gsi_chan_hdl, idx,
-				gsi_xfer_elem_array, true);
-			if (ret == GSI_STATUS_SUCCESS) {
-				sys->len = rx_len_cached;
-			} else {
+				gsi_xfer_elem_array, false);
+			if (ret != GSI_STATUS_SUCCESS) {
 				/* we don't expect this will happen */
 				IPAERR("failed to provide buffer: %d\n", ret);
 				WARN_ON(1);
@@ -2130,16 +2129,15 @@ fail_kmem_cache_alloc:
 		queue_delayed_work(sys->wq, &sys->replenish_rx_work,
 				msecs_to_jiffies(1));
 done:
-	if (idx) {
-		ret = gsi_queue_xfer(sys->ep->gsi_chan_hdl, idx,
-			gsi_xfer_elem_array, true);
-		if (ret == GSI_STATUS_SUCCESS) {
-			sys->len = rx_len_cached;
-		} else {
-			/* we don't expect this will happen */
-			IPAERR("failed to provide buffer: %d\n", ret);
-			WARN_ON(1);
-		}
+	/* only ring doorbell once here */
+	ret = gsi_queue_xfer(sys->ep->gsi_chan_hdl, idx,
+		gsi_xfer_elem_array, true);
+	if (ret == GSI_STATUS_SUCCESS) {
+		sys->len = rx_len_cached;
+	} else {
+		/* we don't expect this will happen */
+		IPAERR("failed to provide buffer: %d\n", ret);
+		WARN_ON(1);
 	}
 }
 
@@ -2150,7 +2148,7 @@ static void ipa3_replenish_rx_cache_recycle(struct ipa3_sys_context *sys)
 	int ret;
 	int idx = 0;
 	int rx_len_cached = 0;
-	struct gsi_xfer_elem gsi_xfer_elem_array[IPA_REPL_XFER_THRESH];
+	struct gsi_xfer_elem gsi_xfer_elem_array[IPA_REPL_XFER_MAX];
 	gfp_t flag = GFP_NOWAIT | __GFP_NOWARN;
 
 	/* start replenish only when buffers go lower than the threshold */
@@ -2212,15 +2210,13 @@ static void ipa3_replenish_rx_cache_recycle(struct ipa3_sys_context *sys)
 		idx++;
 		rx_len_cached++;
 		/*
-		* gsi_xfer_elem_buffer has a size of IPA_REPL_XFER_THRESH.
+		* gsi_xfer_elem_buffer has a size of IPA_REPL_XFER_MAX.
 		* If this size is reached we need to queue the xfers.
 		*/
-		if (idx == IPA_REPL_XFER_THRESH) {
+		if (idx == IPA_REPL_XFER_MAX) {
 			ret = gsi_queue_xfer(sys->ep->gsi_chan_hdl, idx,
-				gsi_xfer_elem_array, true);
-			if (ret == GSI_STATUS_SUCCESS) {
-				sys->len = rx_len_cached;
-			} else {
+				gsi_xfer_elem_array, false);
+			if (ret != GSI_STATUS_SUCCESS) {
 				/* we don't expect this will happen */
 				IPAERR("failed to provide buffer: %d\n", ret);
 				WARN_ON(1);
@@ -2240,16 +2236,15 @@ fail_kmem_cache_alloc:
 		queue_delayed_work(sys->wq, &sys->replenish_rx_work,
 		msecs_to_jiffies(1));
 done:
-	if (idx) {
-		ret = gsi_queue_xfer(sys->ep->gsi_chan_hdl, idx,
-			gsi_xfer_elem_array, true);
-		if (ret == GSI_STATUS_SUCCESS) {
-			sys->len = rx_len_cached;
-		} else {
-			/* we don't expect this will happen */
-			IPAERR("failed to provide buffer: %d\n", ret);
-			WARN_ON(1);
-		}
+	/* only ring doorbell once here */
+	ret = gsi_queue_xfer(sys->ep->gsi_chan_hdl, idx,
+		gsi_xfer_elem_array, true);
+	if (ret == GSI_STATUS_SUCCESS) {
+		sys->len = rx_len_cached;
+	} else {
+		/* we don't expect this will happen */
+		IPAERR("failed to provide buffer: %d\n", ret);
+		WARN_ON(1);
 	}
 }
 
@@ -2275,7 +2270,7 @@ static void ipa3_fast_replenish_rx_cache(struct ipa3_sys_context *sys)
 	struct ipa3_rx_pkt_wrapper *rx_pkt;
 	int ret;
 	int rx_len_cached = 0;
-	struct gsi_xfer_elem gsi_xfer_elem_array[IPA_REPL_XFER_THRESH];
+	struct gsi_xfer_elem gsi_xfer_elem_array[IPA_REPL_XFER_MAX];
 	u32 curr;
 	int idx = 0;
 
@@ -2305,15 +2300,10 @@ static void ipa3_fast_replenish_rx_cache(struct ipa3_sys_context *sys)
 		 * gsi_xfer_elem_buffer has a size of IPA_REPL_XFER_THRESH.
 		 * If this size is reached we need to queue the xfers.
 		 */
-		if (idx == IPA_REPL_XFER_THRESH) {
+		if (idx == IPA_REPL_XFER_MAX) {
 			ret = gsi_queue_xfer(sys->ep->gsi_chan_hdl, idx,
-				gsi_xfer_elem_array, true);
-			if (ret == GSI_STATUS_SUCCESS) {
-				/* ensure write is done before setting head */
-				mb();
-				atomic_set(&sys->repl->head_idx, curr);
-				sys->len = rx_len_cached;
-			} else {
+				gsi_xfer_elem_array, false);
+			if (ret != GSI_STATUS_SUCCESS) {
 				/* we don't expect this will happen */
 				IPAERR("failed to provide buffer: %d\n", ret);
 				WARN_ON(1);
@@ -2322,21 +2312,20 @@ static void ipa3_fast_replenish_rx_cache(struct ipa3_sys_context *sys)
 			idx = 0;
 		}
 	}
-	/* There can still be something left which has not been xfer yet */
-	if (idx) {
-		ret = gsi_queue_xfer(sys->ep->gsi_chan_hdl, idx,
-				gsi_xfer_elem_array, true);
-		if (ret == GSI_STATUS_SUCCESS) {
-			/* ensure write is done before setting head index */
-			mb();
-			atomic_set(&sys->repl->head_idx, curr);
-			sys->len = rx_len_cached;
-		} else {
-			/* we don't expect this will happen */
-			IPAERR("failed to provide buffer: %d\n", ret);
-			WARN_ON(1);
-		}
+	/* only ring doorbell once here */
+	ret = gsi_queue_xfer(sys->ep->gsi_chan_hdl, idx,
+			gsi_xfer_elem_array, true);
+	if (ret == GSI_STATUS_SUCCESS) {
+		/* ensure write is done before setting head index */
+		mb();
+		atomic_set(&sys->repl->head_idx, curr);
+		sys->len = rx_len_cached;
+	} else {
+		/* we don't expect this will happen */
+		IPAERR("failed to provide buffer: %d\n", ret);
+		WARN_ON(1);
 	}
+
 	spin_unlock_bh(&sys->spinlock);
 
 	__trigger_repl_work(sys);
