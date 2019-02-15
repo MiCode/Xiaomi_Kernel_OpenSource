@@ -116,7 +116,7 @@ ipfrag_high_thresh - LONG INTEGER
 	Maximum memory used to reassemble IP fragments.
 
 ipfrag_low_thresh - LONG INTEGER
-	(Obsolete since linux-4.17)
+	(Obsolete since linux-4.4.174, backported from linux-4.17)
 	Maximum memory used to reassemble IP fragments before the kernel
 	begins to remove incomplete fragment queues to free up resources.
 	The kernel still accepts new fragments for defragmentation.
