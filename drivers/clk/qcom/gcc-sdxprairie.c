@@ -550,9 +550,6 @@ static struct clk_rcg2 gcc_blsp1_uart4_apps_clk_src = {
 
 static const struct freq_tbl ftbl_gcc_cpuss_ahb_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
-	F(50000000, P_GPLL0_OUT_EVEN, 6, 0, 0),
-	F(100000000, P_GPLL0_OUT_MAIN, 6, 0, 0),
-	F(133333333, P_GPLL0_OUT_MAIN, 4.5, 0, 0),
 	{ }
 };
 
@@ -570,10 +567,7 @@ static struct clk_rcg2 gcc_cpuss_ahb_clk_src = {
 		.vdd_class = &vdd_cx_ao,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_MIN] = 19200000,
-			[VDD_LOWER] = 50000000,
-			[VDD_NOMINAL] = 100000000,
-			[VDD_HIGH] = 133333333},
+			[VDD_MIN] = 19200000},
 	},
 };
 
