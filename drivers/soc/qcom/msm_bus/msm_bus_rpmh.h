@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -242,6 +242,7 @@ static inline struct msm_bus_node_device_type *to_msm_bus_node(struct device *d)
 int msm_bus_enable_limiter(struct msm_bus_node_device_type *nodedev,
 				int throttle_en, uint64_t lim_bw);
 int msm_bus_commit_data(struct list_head *clist);
+void msm_bus_commit_single(struct device *dev);
 int bcm_remove_handoff_req(struct device *dev, void *data);
 int commit_late_init_data(bool lock);
 int msm_bus_query_gen(struct list_head *qlist,
