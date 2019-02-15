@@ -908,7 +908,7 @@ static int smblib_notifier_call(struct notifier_block *nb,
 			schedule_work(&chg->bms_update_work);
 	}
 
-	if (!chg->jeita_configured)
+	if (chg->jeita_configured == JEITA_CFG_NONE)
 		schedule_work(&chg->jeita_update_work);
 
 	if (chg->sec_pl_present && !chg->pl.psy
@@ -1873,6 +1873,19 @@ int smblib_get_prop_batt_charge_done(struct smb_charger *chg,
 	return 0;
 }
 
+int smblib_get_batt_current_now(struct smb_charger *chg,
+					union power_supply_propval *val)
+{
+	int rc;
+
+	rc = smblib_get_prop_from_bms(chg,
+			POWER_SUPPLY_PROP_CURRENT_NOW, val);
+	if (!rc)
+		val->intval *= (-1);
+
+	return rc;
+}
+
 /***********************
  * BATTERY PSY SETTERS *
  ***********************/
@@ -2263,6 +2276,7 @@ int smblib_disable_hw_jeita(struct smb_charger *chg, bool disable)
 				rc);
 		return rc;
 	}
+
 	return 0;
 }
 
@@ -3271,6 +3285,17 @@ int smblib_get_prop_die_health(struct smb_charger *chg)
 	return POWER_SUPPLY_HEALTH_COOL;
 }
 
+int smblib_get_die_health(struct smb_charger *chg,
+			union power_supply_propval *val)
+{
+	if (chg->die_health == -EINVAL)
+		val->intval = smblib_get_prop_die_health(chg);
+	else
+		val->intval = chg->die_health;
+
+	return 0;
+}
+
 int smblib_get_prop_connector_health(struct smb_charger *chg)
 {
 	int rc;
@@ -3682,49 +3707,153 @@ int smblib_set_prop_pd_in_hard_reset(struct smb_charger *chg,
 	return rc;
 }
 
-static int smblib_recover_from_soft_jeita(struct smb_charger *chg)
+#define JEITA_SOFT			0
+#define JEITA_HARD			1
+static int smblib_update_jeita(struct smb_charger *chg, u32 *thresholds,
+								int type)
 {
-	u8 stat1, stat7;
 	int rc;
+	u16 temp, base;
 
-	rc = smblib_read(chg, BATTERY_CHARGER_STATUS_1_REG, &stat1);
+	base = CHGR_JEITA_THRESHOLD_BASE_REG(type);
+
+	temp = thresholds[1] & 0xFFFF;
+	temp = ((temp & 0xFF00) >> 8) | ((temp & 0xFF) << 8);
+	rc = smblib_batch_write(chg, base, (u8 *)&temp, 2);
 	if (rc < 0) {
-		smblib_err(chg, "Couldn't read BATTERY_CHARGER_STATUS_1 rc=%d\n",
-				rc);
+		smblib_err(chg,
+			"Couldn't configure Jeita %s hot threshold rc=%d\n",
+			(type == JEITA_SOFT) ? "Soft" : "Hard", rc);
 		return rc;
 	}
 
-	rc = smblib_read(chg, BATTERY_CHARGER_STATUS_7_REG, &stat7);
+	temp = thresholds[0] & 0xFFFF;
+	temp = ((temp & 0xFF00) >> 8) | ((temp & 0xFF) << 8);
+	rc = smblib_batch_write(chg, base + 2, (u8 *)&temp, 2);
 	if (rc < 0) {
-		smblib_err(chg, "Couldn't read BATTERY_CHARGER_STATUS_2 rc=%d\n",
-				rc);
+		smblib_err(chg,
+			"Couldn't configure Jeita %s cold threshold rc=%d\n",
+			(type == JEITA_SOFT) ? "Soft" : "Hard", rc);
 		return rc;
 	}
 
-	if ((chg->jeita_status && !(stat7 & BAT_TEMP_STATUS_SOFT_LIMIT_MASK) &&
-		((stat1 & BATTERY_CHARGER_STATUS_MASK) == TERMINATE_CHARGE))) {
-		/*
-		 * We are moving from JEITA soft -> Normal and charging
-		 * is terminated
-		 */
-		rc = smblib_write(chg, CHARGING_ENABLE_CMD_REG, 0);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't disable charging rc=%d\n",
-						rc);
-			return rc;
-		}
-		rc = smblib_write(chg, CHARGING_ENABLE_CMD_REG,
-						CHARGING_ENABLE_CMD_BIT);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't enable charging rc=%d\n",
-						rc);
-			return rc;
-		}
-	}
-
-	chg->jeita_status = stat7 & BAT_TEMP_STATUS_SOFT_LIMIT_MASK;
+	smblib_dbg(chg, PR_MISC, "%s Jeita threshold configured\n",
+				(type == JEITA_SOFT) ? "Soft" : "Hard");
 
 	return 0;
+}
+
+static int smblib_charge_inhibit_en(struct smb_charger *chg, bool enable)
+{
+	int rc;
+
+	rc = smblib_masked_write(chg, CHGR_CFG2_REG,
+					CHARGER_INHIBIT_BIT,
+					enable ? CHARGER_INHIBIT_BIT : 0);
+	return rc;
+}
+
+static int smblib_soft_jeita_arb_wa(struct smb_charger *chg)
+{
+	union power_supply_propval pval;
+	int rc = 0;
+	bool soft_jeita;
+
+	rc = smblib_get_prop_batt_health(chg, &pval);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't get battery health rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Do nothing on entering hard JEITA condition */
+	if (pval.intval == POWER_SUPPLY_HEALTH_COLD ||
+		pval.intval == POWER_SUPPLY_HEALTH_HOT)
+		return 0;
+
+	if (chg->jeita_soft_fcc[0] < 0 || chg->jeita_soft_fcc[1] < 0 ||
+		chg->jeita_soft_fv[0] < 0 || chg->jeita_soft_fv[1] < 0)
+		return 0;
+
+	soft_jeita = (pval.intval == POWER_SUPPLY_HEALTH_COOL) ||
+			(pval.intval == POWER_SUPPLY_HEALTH_WARM);
+
+	/* Do nothing on entering soft JEITA from hard JEITA */
+	if (chg->jeita_arb_flag && soft_jeita)
+		return 0;
+
+	/* Do nothing, initial to health condition */
+	if (!chg->jeita_arb_flag && !soft_jeita)
+		return 0;
+
+	if (!chg->cp_disable_votable)
+		chg->cp_disable_votable = find_votable("CP_DISABLE");
+
+	/* Entering soft JEITA from normal state */
+	if (!chg->jeita_arb_flag && soft_jeita) {
+		vote(chg->chg_disable_votable, JEITA_ARB_VOTER, true, 0);
+		/* Disable parallel charging */
+		if (chg->pl_disable_votable)
+			vote(chg->pl_disable_votable, JEITA_ARB_VOTER, true, 0);
+		if (chg->cp_disable_votable)
+			vote(chg->cp_disable_votable, JEITA_ARB_VOTER, true, 0);
+
+		rc = smblib_charge_inhibit_en(chg, true);
+		if (rc < 0)
+			smblib_err(chg, "Couldn't enable charge inhibit rc=%d\n",
+					rc);
+
+		rc = smblib_update_jeita(chg, chg->jeita_soft_hys_thlds,
+					JEITA_SOFT);
+		if (rc < 0)
+			smblib_err(chg,
+				"Couldn't configure Jeita soft threshold rc=%d\n",
+				rc);
+
+		if (pval.intval == POWER_SUPPLY_HEALTH_COOL) {
+			vote(chg->fcc_votable, JEITA_ARB_VOTER, true,
+						chg->jeita_soft_fcc[0]);
+			vote(chg->fv_votable, JEITA_ARB_VOTER, true,
+						chg->jeita_soft_fv[0]);
+		} else {
+			vote(chg->fcc_votable, JEITA_ARB_VOTER, true,
+						chg->jeita_soft_fcc[1]);
+			vote(chg->fv_votable, JEITA_ARB_VOTER, true,
+						chg->jeita_soft_fv[1]);
+		}
+
+		vote(chg->chg_disable_votable, JEITA_ARB_VOTER, false, 0);
+		chg->jeita_arb_flag = true;
+	} else if (chg->jeita_arb_flag && !soft_jeita) {
+		/* Exit to health state from soft JEITA */
+
+		vote(chg->chg_disable_votable, JEITA_ARB_VOTER, true, 0);
+
+		rc = smblib_charge_inhibit_en(chg, false);
+		if (rc < 0)
+			smblib_err(chg, "Couldn't disable charge inhibit rc=%d\n",
+					rc);
+
+		rc = smblib_update_jeita(chg, chg->jeita_soft_thlds,
+							JEITA_SOFT);
+		if (rc < 0)
+			smblib_err(chg, "Couldn't configure Jeita soft threshold rc=%d\n",
+				rc);
+
+		vote(chg->fcc_votable, JEITA_ARB_VOTER, false, 0);
+		vote(chg->fv_votable, JEITA_ARB_VOTER, false, 0);
+		if (chg->pl_disable_votable)
+			vote(chg->pl_disable_votable, JEITA_ARB_VOTER, false,
+				0);
+		if (chg->cp_disable_votable)
+			vote(chg->cp_disable_votable, JEITA_ARB_VOTER, false,
+				0);
+		vote(chg->chg_disable_votable, JEITA_ARB_VOTER, false, 0);
+		chg->jeita_arb_flag = false;
+	}
+
+	smblib_dbg(chg, PR_MISC, "JEITA ARB status %d, soft JEITA status %d\n",
+			chg->jeita_arb_flag, soft_jeita);
+	return rc;
 }
 
 /************************
@@ -3882,15 +4011,18 @@ irqreturn_t batt_temp_changed_irq_handler(int irq, void *data)
 	struct smb_charger *chg = irq_data->parent_data;
 	int rc;
 
-	rc = smblib_recover_from_soft_jeita(chg);
+	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
+
+	if (chg->jeita_configured != JEITA_CFG_COMPLETE)
+		return IRQ_HANDLED;
+
+	rc = smblib_soft_jeita_arb_wa(chg);
 	if (rc < 0) {
-		smblib_err(chg, "Couldn't recover chg from soft jeita rc=%d\n",
+		smblib_err(chg, "Couldn't fix soft jeita arb rc=%d\n",
 				rc);
 		return IRQ_HANDLED;
 	}
 
-	rerun_election(chg->fcc_votable);
-	power_supply_changed(chg->batt_psy);
 	return IRQ_HANDLED;
 }
 
@@ -4968,7 +5100,7 @@ irqreturn_t wdog_bark_irq_handler(int irq, void *data)
 	if (rc < 0)
 		smblib_err(chg, "Couldn't pet the dog rc=%d\n", rc);
 
-	if (chg->step_chg_enabled || chg->sw_jeita_enabled)
+	if (chg->step_chg_enabled)
 		power_supply_changed(chg->batt_psy);
 
 	return IRQ_HANDLED;
@@ -5182,42 +5314,6 @@ static void smblib_thermal_regulation_work(struct work_struct *work)
 					rc);
 }
 
-#define JEITA_SOFT			0
-#define JEITA_HARD			1
-static int smblib_update_jeita(struct smb_charger *chg, u32 *thresholds,
-								int type)
-{
-	int rc;
-	u16 temp, base;
-
-	base = CHGR_JEITA_THRESHOLD_BASE_REG(type);
-
-	temp = thresholds[1] & 0xFFFF;
-	temp = ((temp & 0xFF00) >> 8) | ((temp & 0xFF) << 8);
-	rc = smblib_batch_write(chg, base, (u8 *)&temp, 2);
-	if (rc < 0) {
-		smblib_err(chg,
-			"Couldn't configure Jeita %s hot threshold rc=%d\n",
-			(type == JEITA_SOFT) ? "Soft" : "Hard", rc);
-		return rc;
-	}
-
-	temp = thresholds[0] & 0xFFFF;
-	temp = ((temp & 0xFF00) >> 8) | ((temp & 0xFF) << 8);
-	rc = smblib_batch_write(chg, base + 2, (u8 *)&temp, 2);
-	if (rc < 0) {
-		smblib_err(chg,
-			"Couldn't configure Jeita %s cold threshold rc=%d\n",
-			(type == JEITA_SOFT) ? "Soft" : "Hard", rc);
-		return rc;
-	}
-
-	smblib_dbg(chg, PR_MISC, "%s Jeita threshold configured\n",
-				(type == JEITA_SOFT) ? "Soft" : "Hard");
-
-	return 0;
-}
-
 static void jeita_update_work(struct work_struct *work)
 {
 	struct smb_charger *chg = container_of(work, struct smb_charger,
@@ -5225,8 +5321,8 @@ static void jeita_update_work(struct work_struct *work)
 	struct device_node *node = chg->dev->of_node;
 	struct device_node *batt_node, *pnode;
 	union power_supply_propval val;
-	int rc;
-	u32 jeita_thresholds[2];
+	int rc, tmp[2], max_fcc_ma, max_fv_uv;
+	u32 jeita_hard_thresholds[2];
 
 	batt_node = of_find_node_by_name(node, "qcom,battery-data");
 	if (!batt_node) {
@@ -5259,9 +5355,10 @@ static void jeita_update_work(struct work_struct *work)
 	}
 
 	rc = of_property_read_u32_array(pnode, "qcom,jeita-hard-thresholds",
-				jeita_thresholds, 2);
+				jeita_hard_thresholds, 2);
 	if (!rc) {
-		rc = smblib_update_jeita(chg, jeita_thresholds, JEITA_HARD);
+		rc = smblib_update_jeita(chg, jeita_hard_thresholds,
+					JEITA_HARD);
 		if (rc < 0) {
 			smblib_err(chg, "Couldn't configure Hard Jeita rc=%d\n",
 					rc);
@@ -5270,18 +5367,83 @@ static void jeita_update_work(struct work_struct *work)
 	}
 
 	rc = of_property_read_u32_array(pnode, "qcom,jeita-soft-thresholds",
-				jeita_thresholds, 2);
+				chg->jeita_soft_thlds, 2);
 	if (!rc) {
-		rc = smblib_update_jeita(chg, jeita_thresholds, JEITA_SOFT);
+		rc = smblib_update_jeita(chg, chg->jeita_soft_thlds,
+					JEITA_SOFT);
 		if (rc < 0) {
 			smblib_err(chg, "Couldn't configure Soft Jeita rc=%d\n",
 					rc);
 			goto out;
 		}
+
+		rc = of_property_read_u32_array(pnode,
+					"qcom,jeita-soft-hys-thresholds",
+					chg->jeita_soft_hys_thlds, 2);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't get Soft Jeita hysteresis thresholds rc=%d\n",
+					rc);
+			goto out;
+		}
 	}
 
+	chg->jeita_soft_fcc[0] = chg->jeita_soft_fcc[1] = -EINVAL;
+	chg->jeita_soft_fv[0] = chg->jeita_soft_fv[1] = -EINVAL;
+	max_fcc_ma = max_fv_uv = -EINVAL;
+
+	of_property_read_u32(pnode, "qcom,fastchg-current-ma", &max_fcc_ma);
+	of_property_read_u32(pnode, "qcom,max-voltage-uv", &max_fv_uv);
+
+	if (max_fcc_ma <= 0 || max_fv_uv <= 0) {
+		smblib_err(chg, "Incorrect fastchg-current-ma or max-voltage-uv\n");
+		goto out;
+	}
+
+	rc = of_property_read_u32_array(pnode, "qcom,jeita-soft-fcc-ua",
+					tmp, 2);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't get fcc values for soft JEITA rc=%d\n",
+				rc);
+		goto out;
+	}
+
+	max_fcc_ma *= 1000;
+	if (tmp[0] > max_fcc_ma || tmp[1] > max_fcc_ma) {
+		smblib_err(chg, "Incorrect FCC value [%d %d] max: %d\n", tmp[0],
+			tmp[1], max_fcc_ma);
+		goto out;
+	}
+	chg->jeita_soft_fcc[0] = tmp[0];
+	chg->jeita_soft_fcc[1] = tmp[1];
+
+	rc = of_property_read_u32_array(pnode, "qcom,jeita-soft-fv-uv", tmp,
+					2);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't get fv values for soft JEITA rc=%d\n",
+				rc);
+		goto out;
+	}
+
+	if (tmp[0] > max_fv_uv || tmp[1] > max_fv_uv) {
+		smblib_err(chg, "Incorrect FV value [%d %d] max: %d\n", tmp[0],
+			tmp[1], max_fv_uv);
+		goto out;
+	}
+	chg->jeita_soft_fv[0] = tmp[0];
+	chg->jeita_soft_fv[1] = tmp[1];
+
+	rc = smblib_soft_jeita_arb_wa(chg);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't fix soft jeita arb rc=%d\n",
+				rc);
+		goto out;
+	}
+
+	chg->jeita_configured = JEITA_CFG_COMPLETE;
+	return;
+
 out:
-	chg->jeita_configured = true;
+	chg->jeita_configured = JEITA_CFG_FAILURE;
 }
 
 static void smblib_lpd_ra_open_work(struct work_struct *work)

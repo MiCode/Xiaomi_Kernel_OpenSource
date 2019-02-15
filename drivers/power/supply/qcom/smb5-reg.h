@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  */
 
 #ifndef __SMB5_CHARGER_REG_H
@@ -50,6 +50,7 @@ enum {
 #define BAT_TEMP_STATUS_SOFT_LIMIT_MASK		GENMASK(5, 4)
 #define BAT_TEMP_STATUS_HOT_SOFT_BIT		BIT(5)
 #define BAT_TEMP_STATUS_COLD_SOFT_BIT		BIT(4)
+#define BAT_TEMP_STATUS_HARD_LIMIT_MASK		GENMASK(3, 2)
 #define BAT_TEMP_STATUS_TOO_HOT_BIT		BIT(3)
 #define BAT_TEMP_STATUS_TOO_COLD_BIT		BIT(2)
 #define BAT_TEMP_STATUS_TOO_HOT_AFP_BIT		BIT(1)
@@ -103,6 +104,7 @@ enum {
 #define JEITA_CCCOMP_CFG_COLD_REG		(CHGR_BASE + 0x93)
 
 #define CHGR_JEITA_THRESHOLD_BASE_REG(i)	(CHGR_BASE + 0x94 + (i * 4))
+#define CHGR_JEITA_HOT_THRESHOLD_MSB_REG	CHGR_JEITA_THRESHOLD_BASE_REG(0)
 
 #define CHGR_FAST_CHARGE_SAFETY_TIMER_CFG_REG	(CHGR_BASE + 0xA2)
 #define FAST_CHARGE_SAFETY_TIMER_192_MIN	0x0

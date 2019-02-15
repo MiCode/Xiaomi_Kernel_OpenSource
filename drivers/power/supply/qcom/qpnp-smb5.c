@@ -1301,10 +1301,7 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 				QNOVO_VOTER);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
-		rc = smblib_get_prop_from_bms(chg,
-				POWER_SUPPLY_PROP_CURRENT_NOW, val);
-		if (!rc)
-			val->intval *= (-1);
+		rc = smblib_get_batt_current_now(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_QNOVO:
 		val->intval = get_client_vote_locked(chg->fcc_votable,
@@ -1335,10 +1332,7 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_DIE_HEALTH:
-		if (chg->die_health == -EINVAL)
-			val->intval = smblib_get_prop_die_health(chg);
-		else
-			val->intval = chg->die_health;
+		rc = smblib_get_die_health(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_DP_DM:
 		val->intval = chg->pulse_cnt;
@@ -1417,13 +1411,6 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_STEP_CHARGING_ENABLED:
 		chg->step_chg_enabled = !!val->intval;
 		break;
-	case POWER_SUPPLY_PROP_SW_JEITA_ENABLED:
-		if (chg->sw_jeita_enabled != (!!val->intval)) {
-			rc = smblib_disable_hw_jeita(chg, !!val->intval);
-			if (rc == 0)
-				chg->sw_jeita_enabled = !!val->intval;
-		}
-		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		chg->batt_profile_fcc_ua = val->intval;
 		vote(chg->fcc_votable, BATT_PROFILE_VOTER, true, val->intval);
@@ -1497,7 +1484,6 @@ static int smb5_batt_prop_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_RERUN_AICL:
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED:
 	case POWER_SUPPLY_PROP_STEP_CHARGING_ENABLED:
-	case POWER_SUPPLY_PROP_SW_JEITA_ENABLED:
 	case POWER_SUPPLY_PROP_DIE_HEALTH:
 		return 1;
 	default:
@@ -2157,12 +2143,10 @@ static int smb5_init_hw(struct smb5 *chip)
 		}
 	}
 
-	if (chg->sw_jeita_enabled) {
-		rc = smblib_disable_hw_jeita(chg, true);
-		if (rc < 0) {
-			dev_err(chg->dev, "Couldn't set hw jeita rc=%d\n", rc);
-			return rc;
-		}
+	rc = smblib_disable_hw_jeita(chg, true);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't set hw jeita rc=%d\n", rc);
+		return rc;
 	}
 
 	rc = smblib_masked_write(chg, DCDC_ENG_SDCDC_CFG5_REG,
