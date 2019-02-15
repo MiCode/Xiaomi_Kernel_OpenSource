@@ -4958,9 +4958,7 @@ static int cam_ife_hw_mgr_handle_eof_for_camif_hw_res(
 	list_for_each_entry(isp_ife_camif_res,
 		&ife_hwr_mgr_ctx->res_list_ife_src, list) {
 
-		if ((isp_ife_camif_res->res_type ==
-			CAM_IFE_HW_MGR_RES_UNINIT) ||
-			(isp_ife_camif_res->res_id != CAM_ISP_HW_VFE_IN_CAMIF))
+		if (isp_ife_camif_res->res_type == CAM_IFE_HW_MGR_RES_UNINIT)
 			continue;
 
 		hw_res_left = isp_ife_camif_res->hw_res[0];
