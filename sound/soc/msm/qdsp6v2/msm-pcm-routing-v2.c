@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1241,7 +1241,7 @@ static int msm_pcm_routing_channel_mixer(int fe_id, bool perf_mode,
 				fe_id, be_id, msm_bedais[be_id].channel,
 				copp_idx);
 			ret = adm_programable_channel_mixer(
-					msm_bedais[be_id].port_id,
+					get_port_id(msm_bedais[be_id].port_id),
 					copp_idx, dspst_id, sess_type,
 					channel_mixer + fe_id, i,
 					use_default_chmap, ch_map);
