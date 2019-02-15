@@ -271,12 +271,12 @@
 
 		msm_cam_smmu_cb4 {
 			compatible = "qcom,msm-cam-smmu-cb";
-			iommus = <&apps_smmu 0x820 0x0001>;
+			iommus = <&apps_smmu 0x820 0x0000>;
 			label = "jpeg_enc0";
 		};
 		msm_cam_smmu_cb5 {
 			compatible = "qcom,msm-cam-smmu-cb";
-			iommus = <&apps_smmu 0x821 0x0001>;
+			iommus = <&apps_smmu 0x821 0x0000>;
 			label = "jpeg_dma";
 		};
 
@@ -664,7 +664,7 @@
 		clock-names = "mmss_camss_ahb_clk",
 			"mmss_camss_top_ahb_clk",
 			"core_src_clk",
-			"core_src",
+			"core_clk",
 			"mmss_camss_jpeg_ahb_clk",
 			"mmss_camss_jpeg_axi_clk";
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>,
