@@ -3868,14 +3868,14 @@ err_clk_get:
 static int __handle_reset_clk(struct msm_vidc_platform_resources *res,
 			enum reset_state state)
 {
-	int rc = 0;
+	int i, rc = 0;
 	struct reset_control *rst;
 	struct reset_set *rst_set = &res->reset_set;
 
 	if (!rst_set->reset_tbl)
 		return 0;
 
-	for (int i = 0; i < rst_set->count; i++) {
+	for (i = 0; i < rst_set->count; i++) {
 		rst = rst_set->reset_tbl[i].rst;
 		switch (state) {
 		case INIT:
