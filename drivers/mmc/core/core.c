@@ -455,12 +455,16 @@ int mmc_clk_update_freq(struct mmc_host *host,
 		goto invalid_state;
 	}
 
+	MMC_TRACE(host, "clock scale state %d freq %lu\n",
+			state, freq);
 	err = host->bus_ops->change_bus_speed(host, &freq);
 	if (!err)
 		host->clk_scaling.curr_freq = freq;
 	else
 		pr_err("%s: %s: failed (%d) at freq=%lu\n",
 			mmc_hostname(host), __func__, err, freq);
+	MMC_TRACE(host, "clock scale state %d freq %lu done with err %d\n",
+			state, freq, err);
 
 invalid_state:
 	if (cmdq_mode) {
