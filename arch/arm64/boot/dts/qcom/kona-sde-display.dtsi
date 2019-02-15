@@ -7,6 +7,8 @@
 #include "dsi-panel-sw43404-amoled-dsc-wqhd-video.dtsi"
 #include "dsi-panel-sharp-dsc-4k-cmd.dtsi"
 #include "dsi-panel-sharp-dsc-4k-video.dtsi"
+#include "dsi-panel-nt35597-truly-dualmipi-wqxga-cmd.dtsi"
+#include "dsi-panel-nt35597-truly-dualmipi-wqxga-video.dtsi"
 #include <dt-bindings/clock/mdss-7nm-pll-clk.h>
 
 &tlmm {
@@ -148,6 +150,7 @@
 	connectors = <&sde_dp &sde_wb &sde_dsi>;
 };
 
+/* PHY TIMINGS REVISION W */
 &dsi_sw43404_amoled_cmd {
 	qcom,mdss-dsi-display-timings {
 		timing@0 {
@@ -186,6 +189,28 @@
 		timing@0 {
 			qcom,mdss-dsi-panel-phy-timings = [00 1e 08 07 24 22 08
 				08 05 02 04 00 19 18];
+			qcom,display-topology = <2 2 2>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_dual_nt35597_truly_cmd {
+	qcom,mdss-dsi-display-timings {
+		timing@0 {
+			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
+				07 05 02 04 00 18 17];
+			qcom,display-topology = <2 2 2>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_dual_nt35597_truly_video {
+	qcom,mdss-dsi-display-timings {
+		timing@0 {
+			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
+				07 05 02 04 00 18 17];
 			qcom,display-topology = <2 2 2>;
 			qcom,default-topology-index = <0>;
 		};

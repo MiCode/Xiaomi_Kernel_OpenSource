@@ -108,6 +108,23 @@
 	qcom,platform-en-gpio = <&tlmm 60 0>;
 };
 
+&dsi_dual_nt35597_truly_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_avdd>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_external";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-te-gpio = <&tlmm 66 0>;
+	qcom,platform-reset-gpio = <&tlmm 75 0>;
+};
+
+&dsi_dual_nt35597_truly_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_avdd>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_external";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-reset-gpio = <&tlmm 75 0>;
+};
+
 &sde_dsi {
 	qcom,dsi-default-panel = <&dsi_sw43404_amoled_cmd>;
 };
