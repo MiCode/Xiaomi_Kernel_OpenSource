@@ -733,6 +733,7 @@ struct wil_sta_info {
 	struct wil_tid_crypto_rx tid_crypto_rx[WIL_STA_TID_NUM];
 	struct wil_tid_crypto_rx group_crypto_rx;
 	u8 aid; /* 1-254; 0 if unknown/not reported */
+	u8 fst_link_loss;
 };
 
 enum {
@@ -1361,6 +1362,10 @@ void wil_ftm_evt_per_dest_res(struct wil6210_vif *vif,
 void wil_aoa_evt_meas(struct wil6210_vif *vif,
 		      struct wmi_aoa_meas_event *evt,
 		      int len);
+/* link loss */
+int wmi_link_maintain_cfg_write(struct wil6210_priv *wil,
+				const u8 *addr,
+				bool fst_link_loss);
 
 int wmi_start_sched_scan(struct wil6210_priv *wil,
 			 struct cfg80211_sched_scan_request *request);
