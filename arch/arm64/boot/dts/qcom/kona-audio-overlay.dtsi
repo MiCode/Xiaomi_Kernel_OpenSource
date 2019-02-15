@@ -132,6 +132,7 @@
 
 	wcd938x_codec: wcd938x-codec {
 		compatible = "qcom,wcd938x-codec";
+		qcom,split-codec = <1>;
 		qcom,rx_swr_ch_map = <0 HPH_L 0x1 0 HPH_L>,
 			<0 HPH_R 0x2 0 HPH_R>, <1 CLSH 0x3 0 CLSH>,
 			<2 COMP_L 0x1 0 COMP_L>, <2 COMP_R 0x2 0 COMP_R>,
