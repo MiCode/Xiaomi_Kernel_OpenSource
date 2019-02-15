@@ -109,19 +109,13 @@
 int ufshcd_dump_regs(struct ufs_hba *hba, size_t offset, size_t len,
 		     const char *prefix)
 {
-	u32 *regs;
-	size_t pos;
-
-	if (offset % 4 != 0 || len % 4 != 0) /* keep readl happy */
-		return -EINVAL;
+	u8 *regs;
 
 	regs = kzalloc(len, GFP_KERNEL);
 	if (!regs)
 		return -ENOMEM;
 
-	for (pos = 0; pos < len; pos += 4)
-		regs[pos / 4] = ufshcd_readl(hba, offset + pos);
-
+	memcpy_fromio(regs, hba->mmio_base + offset, len);
 	ufshcd_hex_dump(prefix, regs, len);
 	kfree(regs);
 
