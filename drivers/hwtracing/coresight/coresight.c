@@ -18,6 +18,7 @@
 #include <linux/of_platform.h>
 #include <linux/delay.h>
 #include <linux/pm_runtime.h>
+#include <linux/regulator/consumer.h>
 
 #include "coresight-priv.h"
 
@@ -111,6 +112,53 @@ static void coresight_reset_all_sink(void)
 	bus_for_each_dev(&coresight_bustype, NULL, NULL, coresight_reset_sink);
 }
 
+void coresight_enable_reg_clk(struct coresight_device *csdev)
+{
+	struct coresight_reg_clk *reg_clk = csdev->reg_clk;
+	int ret;
+	int i, j;
+
+	if (IS_ERR_OR_NULL(reg_clk))
+		return;
+
+	for (i = 0; i < reg_clk->nr_reg; i++) {
+		ret = regulator_enable(reg_clk->reg[i]);
+		if (ret)
+			goto err_regs;
+	}
+
+	for (j = 0; j < reg_clk->nr_clk; j++) {
+		ret = clk_prepare_enable(reg_clk->clk[j]);
+		if (ret)
+			goto err_clks;
+	}
+
+	return;
+
+err_clks:
+	for (j--; j >= 0; j--)
+		clk_disable_unprepare(reg_clk->clk[j]);
+err_regs:
+	for (i--; i >= 0; i--)
+		regulator_disable(reg_clk->reg[i]);
+}
+EXPORT_SYMBOL(coresight_enable_reg_clk);
+
+void coresight_disable_reg_clk(struct coresight_device *csdev)
+{
+	struct coresight_reg_clk *reg_clk = csdev->reg_clk;
+	int i;
+
+	if (IS_ERR_OR_NULL(reg_clk))
+		return;
+
+	for (i = 0; i < reg_clk->nr_clk; i++)
+		clk_disable_unprepare(reg_clk->clk[i]);
+	for (i = 0; i < reg_clk->nr_reg; i++)
+		regulator_disable(reg_clk->reg[i]);
+}
+EXPORT_SYMBOL(coresight_disable_reg_clk);
+
 static int coresight_find_link_inport(struct coresight_device *csdev,
 				      struct coresight_device *parent,
 				      struct list_head *path)
@@ -159,9 +207,12 @@ static int coresight_enable_sink(struct coresight_device *csdev, u32 mode)
 
 	if (!csdev->enable) {
 		if (sink_ops(csdev)->enable) {
+			coresight_enable_reg_clk(csdev);
 			ret = sink_ops(csdev)->enable(csdev, mode);
-			if (ret)
+			if (ret) {
+				coresight_disable_reg_clk(csdev);
 				return ret;
+			}
 		}
 		csdev->enable = true;
 	}
@@ -176,6 +227,7 @@ static void coresight_disable_sink(struct coresight_device *csdev)
 	if (atomic_dec_return(csdev->refcnt) == 0) {
 		if (sink_ops(csdev)->disable) {
 			sink_ops(csdev)->disable(csdev);
+			coresight_disable_reg_clk(csdev);
 			csdev->enable = false;
 			csdev->activated = false;
 		}
@@ -210,8 +262,10 @@ static int coresight_enable_link(struct coresight_device *csdev,
 
 	if (atomic_inc_return(&csdev->refcnt[refport]) == 1) {
 		if (link_ops(csdev)->enable) {
+			coresight_enable_reg_clk(csdev);
 			ret = link_ops(csdev)->enable(csdev, inport, outport);
 			if (ret) {
+				coresight_disable_reg_clk(csdev);
 				atomic_dec(&csdev->refcnt[refport]);
 				return ret;
 			}
@@ -251,8 +305,10 @@ static void coresight_disable_link(struct coresight_device *csdev,
 	}
 
 	if (atomic_dec_return(&csdev->refcnt[refport]) == 0) {
-		if (link_ops(csdev)->disable)
+		if (link_ops(csdev)->disable) {
 			link_ops(csdev)->disable(csdev, inport, outport);
+			coresight_disable_reg_clk(csdev);
+		}
 	}
 
 	for (i = 0; i < nr_conns; i++)
@@ -274,9 +330,12 @@ static int coresight_enable_source(struct coresight_device *csdev, u32 mode)
 
 	if (!csdev->enable) {
 		if (source_ops(csdev)->enable) {
+			coresight_enable_reg_clk(csdev);
 			ret = source_ops(csdev)->enable(csdev, NULL, mode);
-			if (ret)
+			if (ret) {
+				coresight_disable_reg_clk(csdev);
 				return ret;
+			}
 		}
 		csdev->enable = true;
 	}
@@ -297,8 +356,10 @@ static int coresight_enable_source(struct coresight_device *csdev, u32 mode)
 static bool coresight_disable_source(struct coresight_device *csdev)
 {
 	if (atomic_dec_return(csdev->refcnt) == 0) {
-		if (source_ops(csdev)->disable)
+		if (source_ops(csdev)->disable) {
 			source_ops(csdev)->disable(csdev, NULL);
+			coresight_disable_reg_clk(csdev);
+		}
 		csdev->enable = false;
 	}
 	return !csdev->enable;
@@ -1195,6 +1256,7 @@ struct coresight_device *coresight_register(struct coresight_desc *desc)
 	csdev->subtype = desc->subtype;
 	csdev->ops = desc->ops;
 	csdev->orphan = false;
+	csdev->reg_clk = desc->pdata->reg_clk;
 
 	csdev->dev.type = &coresight_dev_type[desc->type];
 	csdev->dev.groups = desc->groups;
