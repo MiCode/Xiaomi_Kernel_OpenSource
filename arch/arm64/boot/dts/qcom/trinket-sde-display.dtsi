@@ -96,7 +96,9 @@
 
 		qcom,dsi-ctrl-num = <0>;
 		qcom,dsi-phy-num = <0>;
-		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0",
+			"src_byte_clk0", "src_pixel_clk0",
+			"shadow_byte_clk0", "shadow_pixel_clk0";
 
 		qcom,dsi-panel = <&dsi_td4330_truly_video>;
 	};
@@ -141,8 +143,14 @@
 		qcom,dsi-phy = <&mdss_dsi_phy0>;
 
 		clocks = <&mdss_dsi0_pll BYTE0_MUX_CLK>,
-			 <&mdss_dsi0_pll PIX0_MUX_CLK>;
-		clock-names = "mux_byte_clk0", "mux_pixel_clk0";
+			 <&mdss_dsi0_pll PIX0_MUX_CLK>,
+			 <&mdss_dsi0_pll BYTE0_SRC_CLK>,
+			 <&mdss_dsi0_pll PIX0_SRC_CLK>,
+			 <&mdss_dsi0_pll SHADOW_BYTE0_SRC_CLK>,
+			 <&mdss_dsi0_pll SHADOW_PIX0_SRC_CLK>;
+		clock-names = "mux_byte_clk0", "mux_pixel_clk0",
+			"src_byte_clk0", "src_pixel_clk0",
+			"shadow_byte_clk0", "shadow_pixel_clk0";
 		pinctrl-names = "panel_active", "panel_suspend";
 		pinctrl-0 = <&sde_dsi_active &sde_te_active>;
 		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
@@ -183,6 +191,9 @@
 	qcom,mdss-dsi-panel-status-value = <0x1c>;
 	qcom,mdss-dsi-panel-on-check-value = <0x1c>;
 	qcom,mdss-dsi-panel-status-read-length = <1>;
+	qcom,dsi-dyn-clk-enable;
+	qcom,dsi-dyn-clk-list =
+		<1048269600 1030798440 1035166232 1039534024 1043901816>;
 	qcom,mdss-dsi-display-timings {
 		timing@0{
 			qcom,mdss-dsi-panel-phy-timings =
@@ -214,6 +225,9 @@
 	qcom,mdss-dsi-panel-status-value = <0x1c>;
 	qcom,mdss-dsi-panel-on-check-value = <0x1c>;
 	qcom,mdss-dsi-panel-status-read-length = <1>;
+	qcom,dsi-dyn-clk-enable;
+	qcom,dsi-dyn-clk-list =
+		<1048269600 1030798440 1035166232 1039534024 1043901816>;
 	qcom,mdss-dsi-display-timings {
 		timing@0{
 			qcom,mdss-dsi-panel-phy-timings =
