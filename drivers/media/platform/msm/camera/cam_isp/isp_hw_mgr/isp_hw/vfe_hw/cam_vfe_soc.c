@@ -36,7 +36,14 @@ static bool cam_vfe_cpas_cb(uint32_t client_handle, void *userdata,
 
 static int cam_vfe_get_dt_properties(struct cam_hw_soc_info *soc_info)
 {
-	int rc = 0;
+	int rc = 0, num_ubwc_cfg = 0, i = 0;
+	struct device_node *of_node = NULL;
+	struct platform_device *pdev = NULL;
+	struct cam_vfe_soc_private *vfe_soc_private;
+
+	pdev = soc_info->pdev;
+	of_node = pdev->dev.of_node;
+	vfe_soc_private = soc_info->soc_private;
 
 	rc = cam_soc_util_get_dt_properties(soc_info);
 	if (rc) {
@@ -44,6 +51,34 @@ static int cam_vfe_get_dt_properties(struct cam_hw_soc_info *soc_info)
 		return rc;
 	}
 
+	switch (soc_info->hw_version) {
+	case CAM_CPAS_TITAN_480_V100:
+		num_ubwc_cfg = of_property_count_u32_elems(of_node,
+			"ubwc-static-cfg");
+
+		if (num_ubwc_cfg < 0 || num_ubwc_cfg > UBWC_STATIC_CONFIG_MAX) {
+			CAM_ERR(CAM_ISP, "wrong num_ubwc_cfg: %d",
+				num_ubwc_cfg);
+			rc = num_ubwc_cfg;
+			goto end;
+		}
+
+		for (i = 0; i < num_ubwc_cfg; i++) {
+			rc = of_property_read_u32_index(of_node,
+				"ubwc-static-cfg", i,
+				&vfe_soc_private->ubwc_static_ctrl[i]);
+			if (rc < 0) {
+				CAM_ERR(CAM_ISP,
+					"unable to read ubwc static config");
+				break;
+			}
+		}
+		break;
+	default:
+		break;
+	}
+
+end:
 	return rc;
 }
 
@@ -89,6 +124,13 @@ int cam_vfe_init_soc_resources(struct cam_hw_soc_info *soc_info,
 	}
 	soc_info->soc_private = soc_private;
 
+	rc = cam_cpas_get_cpas_hw_version(&soc_private->cpas_version);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "Error! Invalid cpas version rc=%d", rc);
+		goto free_soc_private;
+	}
+	soc_info->hw_version = soc_private->cpas_version;
+
 	rc = cam_vfe_get_dt_properties(soc_info);
 	if (rc < 0) {
 		CAM_ERR(CAM_ISP, "Error! Get DT properties failed rc=%d", rc);
@@ -115,13 +157,6 @@ int cam_vfe_init_soc_resources(struct cam_hw_soc_info *soc_info,
 	cpas_register_param.dev = soc_info->dev;
 	cpas_register_param.cam_cpas_client_cb = cam_vfe_cpas_cb;
 	cpas_register_param.userdata = soc_info;
-
-	rc = cam_cpas_get_cpas_hw_version(&soc_private->cpas_version);
-	if (rc) {
-		CAM_ERR(CAM_ISP, "Error! Invalid cpas version rc=%d", rc);
-		goto free_soc_private;
-	}
-	soc_info->hw_version = soc_private->cpas_version;
 
 	switch (soc_private->cpas_version) {
 	case CAM_CPAS_TITAN_175_V120:

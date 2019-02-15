@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_VFE_SOC_H_
@@ -10,6 +10,8 @@
 #include "cam_isp_hw.h"
 
 #define CAM_VFE_DSP_CLK_NAME "ife_dsp_clk"
+
+#define UBWC_STATIC_CONFIG_MAX 2
 
 enum cam_cpas_handle_id {
 	CAM_CPAS_HANDLE_CAMIF,
@@ -26,6 +28,7 @@ enum cam_cpas_handle_id {
  *                           This handle is used for all further interface
  *                           with CPAS.
  * @cpas_version:            Has cpas version read from Hardware
+ * @ubwc_static_ctrl:        UBWC static control configuration
  */
 struct cam_vfe_soc_private {
 	uint32_t    cpas_handle[CAM_CPAS_HANDLE_MAX];
@@ -33,6 +36,7 @@ struct cam_vfe_soc_private {
 	struct clk *dsp_clk;
 	int32_t     dsp_clk_index;
 	int32_t     dsp_clk_rate;
+	uint32_t    ubwc_static_ctrl[UBWC_STATIC_CONFIG_MAX];
 };
 
 /*
