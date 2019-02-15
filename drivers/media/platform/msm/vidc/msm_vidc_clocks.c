@@ -7,6 +7,7 @@
 #include "vidc_hfi_api.h"
 #include "msm_vidc_debug.h"
 #include "msm_vidc_clocks.h"
+#include "msm_vidc_buffer_calculations.h"
 
 #define MSM_VIDC_MIN_UBWC_COMPLEXITY_FACTOR (1 << 16)
 #define MSM_VIDC_MAX_UBWC_COMPLEXITY_FACTOR (4 << 16)
@@ -1180,47 +1181,6 @@ void msm_clock_data_reset(struct msm_vidc_inst *inst)
 	if (rc)
 		dprintk(VIDC_ERR, "%s Failed to scale Clocks and Bus\n",
 			__func__);
-}
-
-int msm_vidc_get_extra_buff_count(struct msm_vidc_inst *inst,
-	enum hal_buffer buffer_type)
-{
-	unsigned int count = 0;
-
-	if (!inst || !inst->core) {
-		dprintk(VIDC_ERR, "%s Invalid args\n", __func__);
-		return 0;
-	}
-	/*
-	 * no extra buffers for thumbnail session because
-	 * neither dcvs nor batching will be enabled
-	 */
-	if (is_thumbnail_session(inst))
-		return 0;
-
-	/* Add DCVS extra buffer count */
-	if (inst->core->resources.dcvs) {
-		if (is_decode_session(inst) &&
-			buffer_type == HAL_BUFFER_OUTPUT) {
-			count += DCVS_DEC_EXTRA_OUTPUT_BUFFERS;
-		} else if ((is_encode_session(inst) &&
-			buffer_type == HAL_BUFFER_INPUT)) {
-			count += DCVS_ENC_EXTRA_INPUT_BUFFERS;
-		}
-	}
-
-	/*
-	 * if platform supports decode batching ensure minimum
-	 * batch size count of extra buffers added on output port
-	 */
-	if (buffer_type == HAL_BUFFER_OUTPUT) {
-		if (inst->core->resources.decode_batching &&
-			is_decode_session(inst) &&
-			count < inst->batch.size)
-			count = inst->batch.size;
-	}
-
-	return count;
 }
 
 int msm_vidc_decide_work_route_iris1(struct msm_vidc_inst *inst)
