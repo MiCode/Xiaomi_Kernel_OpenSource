@@ -1076,6 +1076,13 @@ static bool drm_dp_port_setup_pdt(struct drm_dp_mst_port *port)
 		ret = drm_dp_mst_register_i2c_bus(&port->aux);
 		break;
 	case DP_PEER_DEVICE_MST_BRANCHING:
+		/* SST-only branch should be treated as SST sink */
+		if (!port->input && !port->mcs) {
+			port->pdt = DP_PEER_DEVICE_SST_SINK;
+			ret = drm_dp_mst_register_i2c_bus(&port->aux);
+			break;
+		}
+
 		lct = drm_dp_calculate_rad(port, rad);
 
 		port->mstb = drm_dp_add_mst_branch_device(lct, rad);
