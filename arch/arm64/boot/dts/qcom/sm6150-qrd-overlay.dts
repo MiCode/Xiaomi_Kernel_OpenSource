@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,7 +52,13 @@
 		"IN3_AUX", "AUX_OUT",
 		"TX SWR_ADC0", "ADC1_OUTPUT",
 		"TX SWR_ADC2", "ADC2_OUTPUT",
-		"TX SWR_ADC3", "ADC3_OUTPUT",
+		"WSA SRC0_INP", "SRC0",
+		"WSA_TX DEC0_INP", "TX DEC0 MUX",
+		"WSA_TX DEC1_INP", "TX DEC1 MUX",
+		"RX_TX DEC0_INP", "TX DEC0 MUX",
+		"RX_TX DEC1_INP", "TX DEC1 MUX",
+		"RX_TX DEC2_INP", "TX DEC2 MUX",
+		"RX_TX DEC3_INP", "TX DEC3 MUX",
 		"SpkrLeft IN", "WSA_SPK1 OUT",
 		"WSA_SPK1 OUT", "VA_MCLK";
 	qcom,wsa-max-devs = <1>;
