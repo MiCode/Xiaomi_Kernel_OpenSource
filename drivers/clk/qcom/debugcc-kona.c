@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved. */
 
 #define pr_fmt(fmt) "clk: %s: " fmt, __func__
 
@@ -191,8 +191,6 @@ static const char *const debug_mux_parent_names[] = {
 	"gcc_qmip_disp_ahb_clk",
 	"gcc_qmip_video_cvp_ahb_clk",
 	"gcc_qmip_video_vcodec_ahb_clk",
-	"gcc_qspi_cnoc_periph_ahb_clk",
-	"gcc_qspi_core_clk",
 	"gcc_qupv3_wrap0_s0_clk",
 	"gcc_qupv3_wrap0_s1_clk",
 	"gcc_qupv3_wrap0_s2_clk",
@@ -657,10 +655,6 @@ static struct clk_debug_mux gcc_debug_mux = {
 			0x46, 0x3FF, 0, 0xF, 0, 1, 0x62000, 0x62004, 0x62008 },
 		{ "gcc_qmip_video_vcodec_ahb_clk", 0x47, 1, GCC,
 			0x47, 0x3FF, 0, 0xF, 0, 1, 0x62000, 0x62004, 0x62008 },
-		{ "gcc_qspi_cnoc_periph_ahb_clk", 0x177, 1, GCC,
-			0x177, 0x3FF, 0, 0xF, 0, 1, 0x62000, 0x62004, 0x62008 },
-		{ "gcc_qspi_core_clk", 0x178, 1, GCC,
-			0x178, 0x3FF, 0, 0xF, 0, 1, 0x62000, 0x62004, 0x62008 },
 		{ "gcc_qupv3_wrap0_s0_clk", 0x89, 1, GCC,
 			0x89, 0x3FF, 0, 0xF, 0, 1, 0x62000, 0x62004, 0x62008 },
 		{ "gcc_qupv3_wrap0_s1_clk", 0x8A, 1, GCC,
