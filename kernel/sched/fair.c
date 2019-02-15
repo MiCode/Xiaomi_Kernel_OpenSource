@@ -3474,12 +3474,6 @@ int update_rt_rq_load_avg(u64 now, int cpu, struct rt_rq *rt_rq, int running)
 	return ret;
 }
 
-unsigned long sched_get_rt_rq_util(int cpu)
-{
-	struct rt_rq *rt_rq = &(cpu_rq(cpu)->rt);
-	return rt_rq->avg.util_avg;
-}
-
 /*
  * Optional action to be done while updating the load average
  */
@@ -5189,11 +5183,11 @@ static inline void update_overutilized_status(struct rq *rq)
 	rcu_read_unlock();
 }
 
-unsigned long boosted_cpu_util(int cpu, unsigned long other_util);
+unsigned long boosted_cpu_util(int cpu);
 #else
 
 #define update_overutilized_status(rq) do {} while (0)
-#define boosted_cpu_util(cpu, other_util) cpu_util_freq(cpu)
+#define boosted_cpu_util(cpu) cpu_util_freq(cpu)
 
 #endif /* CONFIG_SMP */
 
@@ -5924,13 +5918,22 @@ static inline unsigned long cpu_util(int cpu)
 	return min_t(unsigned long, util, capacity_orig_of(cpu));
 }
 
+static inline unsigned long cpu_util_rt(int cpu)
+{
+	struct rt_rq *rt_rq = &(cpu_rq(cpu)->rt);
+
+	return rt_rq->avg.util_avg;
+}
+
 static inline unsigned long cpu_util_freq(int cpu)
 {
 #ifdef CONFIG_SCHED_WALT
 	u64 walt_cpu_util;
 
-	if (unlikely(walt_disabled || !sysctl_sched_use_walt_cpu_util))
-		return cpu_util(cpu);
+	if (unlikely(walt_disabled || !sysctl_sched_use_walt_cpu_util)) {
+		return min(cpu_util(cpu) + cpu_util_rt(cpu),
+			   capacity_orig_of(cpu));
+	}
 
 	walt_cpu_util = cpu_rq(cpu)->prev_runnable_sum;
 	walt_cpu_util <<= SCHED_CAPACITY_SHIFT;
@@ -5938,7 +5941,7 @@ static inline unsigned long cpu_util_freq(int cpu)
 
 	return min_t(unsigned long, walt_cpu_util, capacity_orig_of(cpu));
 #else
-	return cpu_util(cpu);
+	return min(cpu_util(cpu) + cpu_util_rt(cpu), capacity_orig_of(cpu));
 #endif
 }
 
@@ -6723,9 +6726,9 @@ schedtune_task_margin(struct task_struct *task)
 #endif /* CONFIG_SCHED_TUNE */
 
 unsigned long
-boosted_cpu_util(int cpu, unsigned long other_util)
+boosted_cpu_util(int cpu)
 {
-	unsigned long util = cpu_util_freq(cpu) + other_util;
+	unsigned long util = cpu_util_freq(cpu);
 	long margin = schedtune_cpu_margin(util, cpu);
 
 	trace_sched_boost_cpu(cpu, util, margin);
