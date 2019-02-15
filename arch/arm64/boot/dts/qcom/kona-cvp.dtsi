@@ -16,6 +16,7 @@
 
 		/* Supply */
 		cvp-supply = <&mvs1c_gdsc>;
+		cvp-core-supply = <&mvs1_gdsc>;
 
 		/* Clocks */
 		clock-names =  "gcc_video_axi0",
