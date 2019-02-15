@@ -27,6 +27,8 @@ Optional properties:
 			   uS.
   - qcom,icnss-vadc: VADC handle for vph_pwr read APIs.
   - qcom,icnss-adc_tm: VADC handle for vph_pwr notification APIs.
+  - io-channels: IIO channel to monitor for vph_pwr power.
+  - io-channel-names: IIO channel name as per the client name.
   - qcom,smmu-s1-bypass: Boolean context flag to set SMMU to S1 bypass
   - qcom,wlan-msa-fixed-region: phandle, specifier pairs to children of /reserved-memory
   - qcom,hyp_disabled: Boolean context flag to disable hyperviser
