@@ -397,6 +397,16 @@ static struct platform_driver qcom_ipcc_driver = {
 		.of_match_table = qcom_ipcc_of_match,
 	},
 };
-module_platform_driver(qcom_ipcc_driver);
+
+static int __init qcom_ipcc_init(void)
+{
+	int ret;
+
+	ret = platform_driver_register(&qcom_ipcc_driver);
+	if (ret)
+		pr_err("%s: qcom_ipcc register failed %d\n", __func__, ret);
+	return ret;
+}
+arch_initcall(qcom_ipcc_init);
 
 MODULE_LICENSE("GPL v2");
