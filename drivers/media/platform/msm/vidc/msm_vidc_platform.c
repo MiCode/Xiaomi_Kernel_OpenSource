@@ -231,6 +231,10 @@ static struct msm_vidc_common_data kona_common_data[] = {
 		.key = "qcom,fw-cycles",
 		.value = 760000,
 	},
+	{
+		.key = "qcom,fw-vpp-cycles",
+		.value = 166667,
+	},
 };
 
 static struct msm_vidc_common_data sm6150_common_data[] = {
@@ -285,6 +289,10 @@ static struct msm_vidc_common_data sm6150_common_data[] = {
 	{
 		.key = "qcom,fw-cycles",
 		.value = 733003,
+	},
+	{
+		.key = "qcom,fw-vpp-cycles",
+		.value = 225975,
 	},
 };
 
@@ -364,6 +372,10 @@ static struct msm_vidc_common_data sm8150_common_data[] = {
 	{
 		.key = "qcom,fw-cycles",
 		.value = 760000,
+	},
+	{
+		.key = "qcom,fw-vpp-cycles",
+		.value = 166667,
 	},
 };
 
