@@ -1000,6 +1000,7 @@
 
 		resets = <&gcc GCC_UFS_PHY_BCR>;
 		reset-names = "core_reset";
+		non-removable;
 
 		status = "disabled";
 	};
