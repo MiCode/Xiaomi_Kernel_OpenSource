@@ -521,7 +521,8 @@ int msm_cvp_smem_cache_operations(struct dma_buf *dbuf,
 	/* Return if buffer doesn't support caching */
 	rc = dma_buf_get_flags(dbuf, &flags);
 	if (rc) {
-		dprintk(CVP_ERR, "%s: dma_buf_get_flags failed, err %d\n", rc);
+		dprintk(CVP_ERR, "%s: dma_buf_get_flags failed, err %d\n",
+			__func__, rc);
 		return rc;
 	} else if (!(flags & ION_FLAG_CACHED)) {
 		return rc;
