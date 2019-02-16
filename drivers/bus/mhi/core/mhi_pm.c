@@ -492,6 +492,9 @@ static int mhi_pm_mission_mode_transition(struct mhi_controller *mhi_cntrl)
 	/* add supported devices */
 	mhi_create_devices(mhi_cntrl);
 
+	/* setup sysfs nodes for userspace votes */
+	mhi_create_vote_sysfs(mhi_cntrl);
+
 	ret = 0;
 
 	read_lock_bh(&mhi_cntrl->pm_lock);
@@ -589,6 +592,9 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 	device_for_each_child(mhi_cntrl->dev, NULL, mhi_destroy_device);
 
 	MHI_LOG("Finish resetting channels\n");
+
+	/* remove support for userspace votes */
+	mhi_destroy_vote_sysfs(mhi_cntrl);
 
 	MHI_LOG("Waiting for all pending threads to complete\n");
 	wake_up_all(&mhi_cntrl->state_event);
@@ -925,6 +931,7 @@ int mhi_pm_suspend(struct mhi_controller *mhi_cntrl)
 	int ret;
 	enum MHI_PM_STATE new_state;
 	struct mhi_chan *itr, *tmp;
+	struct mhi_device *mhi_dev = mhi_cntrl->mhi_dev;
 
 	if (mhi_cntrl->pm_state == MHI_PM_DISABLE)
 		return -EINVAL;
@@ -932,9 +939,10 @@ int mhi_pm_suspend(struct mhi_controller *mhi_cntrl)
 	if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state))
 		return -EIO;
 
-	/* do a quick check to see if any pending data, then exit */
+	/* do a quick check to see if any pending votes to keep us busy */
 	if (atomic_read(&mhi_cntrl->dev_wake) ||
-	    atomic_read(&mhi_cntrl->pending_pkts)) {
+	    atomic_read(&mhi_cntrl->pending_pkts) ||
+	    atomic_read(&mhi_dev->bus_vote)) {
 		MHI_VERB("Busy, aborting M3\n");
 		return -EBUSY;
 	}
@@ -961,9 +969,13 @@ int mhi_pm_suspend(struct mhi_controller *mhi_cntrl)
 
 	write_lock_irq(&mhi_cntrl->pm_lock);
 
-	/* we're asserting wake so count would be @ least 1 */
+	/*
+	 * Check the votes once more to see if we should abort
+	 * suepend. We're asserting wake so count would be @ least 1
+	 */
 	if (atomic_read(&mhi_cntrl->dev_wake) > 1 ||
-		atomic_read(&mhi_cntrl->pending_pkts)) {
+	    atomic_read(&mhi_cntrl->pending_pkts) ||
+	    atomic_read(&mhi_dev->bus_vote)) {
 		MHI_VERB("Busy, aborting M3\n");
 		write_unlock_irq(&mhi_cntrl->pm_lock);
 		ret = -EBUSY;
@@ -1117,38 +1129,78 @@ int __mhi_device_get_sync(struct mhi_controller *mhi_cntrl)
 	return 0;
 }
 
-void mhi_device_get(struct mhi_device *mhi_dev)
+void mhi_device_get(struct mhi_device *mhi_dev, int vote)
 {
 	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
 
-	atomic_inc(&mhi_dev->dev_wake);
-	read_lock_bh(&mhi_cntrl->pm_lock);
-	mhi_cntrl->wake_get(mhi_cntrl, true);
-	read_unlock_bh(&mhi_cntrl->pm_lock);
+	if (vote & MHI_VOTE_DEVICE) {
+		read_lock_bh(&mhi_cntrl->pm_lock);
+		mhi_cntrl->wake_get(mhi_cntrl, true);
+		read_unlock_bh(&mhi_cntrl->pm_lock);
+		atomic_inc(&mhi_dev->dev_vote);
+	}
+
+	if (vote & MHI_VOTE_BUS) {
+		mhi_cntrl->runtime_get(mhi_cntrl, mhi_cntrl->priv_data);
+		atomic_inc(&mhi_dev->bus_vote);
+	}
 }
 EXPORT_SYMBOL(mhi_device_get);
 
-int mhi_device_get_sync(struct mhi_device *mhi_dev)
+int mhi_device_get_sync(struct mhi_device *mhi_dev, int vote)
 {
 	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
 	int ret;
 
+	/*
+	 * regardless of any vote we will bring device out lpm and assert
+	 * device wake
+	 */
 	ret = __mhi_device_get_sync(mhi_cntrl);
-	if (!ret)
-		atomic_inc(&mhi_dev->dev_wake);
+	if (ret)
+		return ret;
 
-	return ret;
+	if (vote & MHI_VOTE_DEVICE) {
+		atomic_inc(&mhi_dev->dev_vote);
+	} else {
+		/* client did not requested device vote so de-assert dev_wake */
+		read_lock_bh(&mhi_cntrl->pm_lock);
+		mhi_cntrl->wake_put(mhi_cntrl, false);
+		read_unlock_bh(&mhi_cntrl->pm_lock);
+	}
+
+	if (vote & MHI_VOTE_BUS) {
+		mhi_cntrl->runtime_get(mhi_cntrl, mhi_cntrl->priv_data);
+		atomic_inc(&mhi_dev->bus_vote);
+	}
+
+	return 0;
 }
 EXPORT_SYMBOL(mhi_device_get_sync);
 
-void mhi_device_put(struct mhi_device *mhi_dev)
+void mhi_device_put(struct mhi_device *mhi_dev, int vote)
 {
 	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
 
-	atomic_dec(&mhi_dev->dev_wake);
-	read_lock_bh(&mhi_cntrl->pm_lock);
-	mhi_cntrl->wake_put(mhi_cntrl, false);
-	read_unlock_bh(&mhi_cntrl->pm_lock);
+	if (vote & MHI_VOTE_DEVICE) {
+		atomic_dec(&mhi_dev->dev_vote);
+		read_lock_bh(&mhi_cntrl->pm_lock);
+		mhi_cntrl->wake_put(mhi_cntrl, false);
+		read_unlock_bh(&mhi_cntrl->pm_lock);
+	}
+
+	if (vote & MHI_VOTE_BUS) {
+		atomic_dec(&mhi_dev->bus_vote);
+		mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
+
+		/*
+		 * if counts reach 0, clients release all votes
+		 * send idle cb to to attempt suspend
+		 */
+		if (!atomic_read(&mhi_dev->bus_vote))
+			mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
+					     MHI_CB_IDLE);
+	}
 }
 EXPORT_SYMBOL(mhi_device_put);
 
