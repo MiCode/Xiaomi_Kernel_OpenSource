@@ -116,6 +116,8 @@
 #define IBAT_FINAL_OFFSET		0
 #define VBAT_FINAL_WORD			321
 #define VBAT_FINAL_OFFSET		0
+#define BATT_TEMP_WORD			328
+#define BATT_TEMP_OFFSET		0
 #define ESR_WORD			331
 #define ESR_OFFSET			0
 #define ESR_MDL_WORD			335
@@ -656,20 +658,20 @@ static int fg_gen4_get_charge_counter_shadow(struct fg_gen4_chip *chip,
 static int fg_gen4_get_battery_temp(struct fg_dev *fg, int *val)
 {
 	int rc = 0;
-	u8 buf;
+	u16 buf;
 
-	rc = fg_read(fg, ADC_RR_BATT_TEMP_LSB(fg), &buf, 1);
+	rc = fg_sram_read(fg, BATT_TEMP_WORD, BATT_TEMP_OFFSET, (u8 *)&buf,
+			2, FG_IMA_DEFAULT);
 	if (rc < 0) {
-		pr_err("failed to read addr=0x%04x, rc=%d\n",
-			ADC_RR_BATT_TEMP_LSB(fg), rc);
+		pr_err("Failed to read BATT_TEMP_WORD rc=%d\n", rc);
 		return rc;
 	}
 
-	/* Only 8 bits are used. Bit 7 is sign bit */
-	*val = sign_extend32(buf, 7);
-
-	/* Value is in Celsius; Convert it to deciDegC */
-	*val *= 10;
+	/*
+	 * 10 bits representing temperature from -128 to 127 and each LSB is
+	 * 0.25 C. Multiply by 10 to convert it to deci degrees C.
+	 */
+	*val = sign_extend32(buf, 9) * 100 / 40;
 
 	return 0;
 }
@@ -2109,6 +2111,16 @@ static int fg_gen4_adjust_recharge_soc(struct fg_gen4_chip *chip)
 				fg->recharge_soc_adjusted = true;
 			} else {
 				/* adjusted already, do nothing */
+				if (fg->health != POWER_SUPPLY_HEALTH_GOOD)
+					return 0;
+
+				/*
+				 * Device is out of JEITA. Restore back default
+				 * threshold.
+				 */
+
+				new_recharge_soc = recharge_soc;
+				fg->recharge_soc_adjusted = false;
 				return 0;
 			}
 		} else {
@@ -2258,21 +2270,8 @@ static int fg_gen4_esr_fcc_config(struct fg_gen4_chip *chip)
 			parallel_en = prop.intval;
 	}
 
-	if (usb_psy_initialized(fg)) {
-		rc = power_supply_get_property(fg->usb_psy,
-			POWER_SUPPLY_PROP_SMB_EN_MODE, &prop);
-		if (rc < 0) {
-			pr_err("Couldn't read usb SMB_EN_MODE rc=%d\n", rc);
-			return rc;
-		}
-
-		/*
-		 * If SMB_EN_MODE is 1, then charge pump can get enabled for
-		 * the charger inserted. However, whether the charge pump
-		 * switching happens only if the conditions are met.
-		 */
-		cp_en = (prop.intval == 1);
-	}
+	if (chip->cp_disable_votable)
+		cp_en = !get_effective_result(chip->cp_disable_votable);
 
 	qnovo_en = is_qnovo_en(fg);
 
@@ -3989,18 +3988,14 @@ static int fg_gen4_hw_init(struct fg_gen4_chip *chip)
 	}
 
 	if (chip->dt.batt_temp_hyst != -EINVAL) {
-		if (chip->dt.batt_temp_cold_thresh != -EINVAL &&
-			chip->dt.batt_temp_hot_thresh != -EINVAL) {
-			val = chip->dt.batt_temp_hyst & BATT_TEMP_HYST_MASK;
-			mask = BATT_TEMP_HYST_MASK;
-			rc = fg_sram_masked_write(fg, BATT_TEMP_CONFIG2_WORD,
-					BATT_TEMP_HYST_DELTA_OFFSET, mask, val,
-					FG_IMA_DEFAULT);
-			if (rc < 0) {
-				pr_err("Error in writing batt_temp_hyst, rc=%d\n",
-					rc);
-				return rc;
-			}
+		val = chip->dt.batt_temp_hyst & BATT_TEMP_HYST_MASK;
+		mask = BATT_TEMP_HYST_MASK;
+		rc = fg_sram_masked_write(fg, BATT_TEMP_CONFIG2_WORD,
+				BATT_TEMP_HYST_DELTA_OFFSET, mask, val,
+				FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing batt_temp_hyst, rc=%d\n", rc);
+			return rc;
 		}
 	}
 
@@ -4371,6 +4366,40 @@ static int fg_parse_esr_cal_params(struct fg_dev *fg)
 	return 0;
 }
 
+#define BTEMP_DELTA_LOW			0
+#define BTEMP_DELTA_HIGH		3
+
+static void fg_gen4_parse_batt_temp_dt(struct fg_gen4_chip *chip)
+{
+	struct fg_dev *fg = &chip->fg;
+	struct device_node *node = fg->dev->of_node;
+	int rc, temp;
+
+	rc = of_property_read_u32(node, "qcom,fg-batt-temp-hot", &temp);
+	if (rc < 0)
+		chip->dt.batt_temp_hot_thresh = -EINVAL;
+	else
+		chip->dt.batt_temp_hot_thresh = temp;
+
+	rc = of_property_read_u32(node, "qcom,fg-batt-temp-cold", &temp);
+	if (rc < 0)
+		chip->dt.batt_temp_cold_thresh = -EINVAL;
+	else
+		chip->dt.batt_temp_cold_thresh = temp;
+
+	rc = of_property_read_u32(node, "qcom,fg-batt-temp-hyst", &temp);
+	if (rc < 0)
+		chip->dt.batt_temp_hyst = -EINVAL;
+	else if (temp >= BTEMP_DELTA_LOW && temp <= BTEMP_DELTA_HIGH)
+		chip->dt.batt_temp_hyst = temp;
+
+	rc = of_property_read_u32(node, "qcom,fg-batt-temp-delta", &temp);
+	if (rc < 0)
+		chip->dt.batt_temp_delta = -EINVAL;
+	else if (temp >= BTEMP_DELTA_LOW && temp <= BTEMP_DELTA_HIGH)
+		chip->dt.batt_temp_delta = temp;
+}
+
 #define DEFAULT_CUTOFF_VOLT_MV		3100
 #define DEFAULT_EMPTY_VOLT_MV		2812
 #define DEFAULT_SYS_TERM_CURR_MA	-125
@@ -4383,10 +4412,9 @@ static int fg_parse_esr_cal_params(struct fg_dev *fg)
 #define DEFAULT_CL_MAX_DEC_DECIPERC	100
 #define DEFAULT_CL_MIN_LIM_DECIPERC	0
 #define DEFAULT_CL_MAX_LIM_DECIPERC	0
-#define BTEMP_DELTA_LOW			2
-#define BTEMP_DELTA_HIGH		10
 #define DEFAULT_ESR_PULSE_THRESH_MA	47
 #define DEFAULT_ESR_MEAS_CURR_MA	120
+
 static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 {
 	struct fg_dev *fg = &chip->fg;
@@ -4585,29 +4613,7 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 	else
 		chip->cl->dt.max_cap_limit = temp;
 
-	rc = of_property_read_u32(node, "qcom,fg-batt-temp-hot", &temp);
-	if (rc < 0)
-		chip->dt.batt_temp_hot_thresh = -EINVAL;
-	else
-		chip->dt.batt_temp_hot_thresh = temp;
-
-	rc = of_property_read_u32(node, "qcom,fg-batt-temp-cold", &temp);
-	if (rc < 0)
-		chip->dt.batt_temp_cold_thresh = -EINVAL;
-	else
-		chip->dt.batt_temp_cold_thresh = temp;
-
-	rc = of_property_read_u32(node, "qcom,fg-batt-temp-hyst", &temp);
-	if (rc < 0)
-		chip->dt.batt_temp_hyst = -EINVAL;
-	else
-		chip->dt.batt_temp_hyst = temp;
-
-	rc = of_property_read_u32(node, "qcom,fg-batt-temp-delta", &temp);
-	if (rc < 0)
-		chip->dt.batt_temp_delta = -EINVAL;
-	else if (temp > BTEMP_DELTA_LOW && temp <= BTEMP_DELTA_HIGH)
-		chip->dt.batt_temp_delta = temp;
+	fg_gen4_parse_batt_temp_dt(chip);
 
 	chip->dt.hold_soc_while_full = of_property_read_bool(node,
 					"qcom,hold-soc-while-full");
