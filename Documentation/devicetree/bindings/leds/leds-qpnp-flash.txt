@@ -1,10 +1,10 @@
-Qualcomm Technologies PNP Flash LED
+Qualcomm Technologies Inc. PNP Flash LED
 
-QPNP (Qualcomm Technologies Plug N Play) Flash LED (Light
+QPNP (Qualcomm Technologies Inc. Plug N Play) Flash LED (Light
 Emitting Diode) driver is used to provide illumination to
 camera sensor when background light is dim to capture good
 picture. It can also be used for flashlight/torch application.
-It is part of PMIC on Qualcomm Technologies reference platforms.
+It is part of PMIC on Qualcomm Technologies Inc. reference platforms.
 The PMIC is connected to the host processor via SPMI bus.
 
 Required properties:

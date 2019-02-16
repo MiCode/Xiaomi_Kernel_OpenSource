@@ -598,7 +598,7 @@ config LEDS_QPNP
 
 config LEDS_QPNP_FLASH
 	tristate "Support for QPNP Flash LEDs"
-	depends on LEDS_CLASS && SPMI
+	depends on LEDS_CLASS && MFD_SPMI_PMIC
 	help
 	  This driver supports the flash LED functionality of Qualcomm
 	  Technologies, Inc. QPNP PMICs.  This driver supports PMICs up through
@@ -641,6 +641,16 @@ config LEDS_VERSATILE
 	help
 	  This option enabled support for the LEDs on the ARM Versatile
 	  and RealView boards. Say Y to enabled these.
+
+config LEDS_QPNP_HAPTICS
+	tristate "Haptics support for QPNP PMIC"
+	depends on LEDS_CLASS && MFD_SPMI_PMIC
+	help
+	  This option enables device driver support for the haptics peripheral
+	  found on Qualcomm Technologies, Inc. QPNP PMICs.  The haptic
+	  peripheral is capable of driving both LRA and ERM vibrators.  This
+	  module provides haptic feedback for user actions such as a long press
+	  on the touch screen.
 
 comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"
