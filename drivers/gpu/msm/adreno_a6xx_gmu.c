@@ -1630,7 +1630,7 @@ static size_t a6xx_snapshot_gmu_version(struct kgsl_device *device,
 	}
 
 	header->type = ver->type;
-	header->size = sizeof(uint32_t);
+	header->size = 1;
 
 	*data = ver->value;
 
