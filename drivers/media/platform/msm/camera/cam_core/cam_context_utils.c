@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -398,7 +398,7 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 		(uint32_t)cmd->offset);
 
 	if (packet->header.request_id <= ctx->last_flush_req) {
-		CAM_DBG(CAM_CORE,
+		CAM_ERR(CAM_CORE,
 			"request %lld has been flushed, reject packet",
 			packet->header.request_id);
 		rc = -EINVAL;
