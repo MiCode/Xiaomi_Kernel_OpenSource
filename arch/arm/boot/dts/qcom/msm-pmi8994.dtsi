@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -210,6 +210,7 @@
 			qcom,pmic-revid = <&pmi8994_revid>;
 			qcom,force-aicl-rerun;
 			qcom,aicl-rerun-period-s = <180>;
+			dpdm-supply = <&qusb_phy0>;
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
@@ -397,6 +398,7 @@
 			reg = <0xb100 0x100>,
 			      <0xb042 0x7e>;
 			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+			qcom,lpg-lut-size = <0x7e>;
 			qcom,channel-id = <0>;
 			qcom,supported-sizes = <6>, <9>;
 			qcom,ramp-index = <0>;
@@ -408,6 +410,7 @@
 			reg = <0xb200 0x100>,
 			      <0xb042 0x7e>;
 			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+			qcom,lpg-lut-size = <0x7e>;
 			qcom,channel-id = <1>;
 			qcom,supported-sizes = <6>, <9>;
 			qcom,ramp-index = <1>;
@@ -419,6 +422,7 @@
 			reg = <0xb300 0x100>,
 			      <0xb042 0x7e>;
 			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+			qcom,lpg-lut-size = <0x7e>;
 			qcom,channel-id = <2>;
 			qcom,supported-sizes = <6>, <9>;
 			qcom,ramp-index = <2>;
@@ -430,6 +434,7 @@
 			reg = <0xb400 0x100>,
 			      <0xb042 0x7e>;
 			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+			qcom,lpg-lut-size = <0x7e>;
 			qcom,channel-id = <3>;
 			qcom,supported-sizes = <6>, <9>;
 			qcom,ramp-index = <3>;
@@ -442,6 +447,7 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			qcom,pmic-revid = <&pmi8994_revid>;
+			qcom,qpnp-labibb-mode = "lcd";
 
 			ibb_regulator: qcom,ibb@dc00 {
 				reg = <0xdc00 0x100>;
@@ -510,13 +516,9 @@
 		pmi8994_wled: qcom,leds@d800 {
 			compatible = "qcom,qpnp-wled";
 			reg = <0xd800 0x100>,
-				<0xd900 0x100>,
-				<0xdc00 0x100>,
-				<0xde00 0x100>;
+				<0xd900 0x100>;
 			reg-names = "qpnp-wled-ctrl-base",
-					"qpnp-wled-sink-base",
-					"qpnp-wled-ibb-base",
-					"qpnp-wled-lab-base";
+					"qpnp-wled-sink-base";
 			interrupts = <0x3 0xd8 0x2 IRQ_TYPE_EDGE_RISING>;
 			interrupt-names = "sc-irq";
 			status = "okay";
@@ -540,30 +542,28 @@
 			qcom,pmic-revid = <&pmi8994_revid>;
 		};
 
-		pmi8994_haptics: qcom,haptic@c000 {
-			status = "disabled";
-			compatible = "qcom,qpnp-haptic";
+		pmi8994_haptics: qcom,haptics@c000 {
+			compatible = "qcom,qpnp-haptics";
 			reg = <0xc000 0x100>;
 			interrupts = <0x3 0xc0 0x0 IRQ_TYPE_EDGE_BOTH>,
 				     <0x3 0xc0 0x1 IRQ_TYPE_EDGE_BOTH>;
-			interrupt-names = "sc-irq", "play-irq";
+			interrupt-names = "hap-sc-irq", "hap-play-irq";
+			qcom,pmic-revid = <&pmi8994_revid>;
 			vcc_pon-supply = <&pon_perph_reg>;
+			qcom,int-pwm-freq-khz = <505>;
 			qcom,play-mode = "direct";
 			qcom,wave-play-rate-us = <5263>;
-			qcom,actuator-type = "lra";
+			qcom,actuator-type = <0>;
 			qcom,wave-shape = "square";
 			qcom,vmax-mv = <2000>;
 			qcom,ilim-ma = <800>;
 			qcom,sc-deb-cycles = <8>;
-			qcom,int-pwm-freq-khz = <505>;
 			qcom,en-brake;
-			qcom,brake-pattern = [03 03 00 00];
-			qcom,wave-samples = [3e 3e 3e 3e 3e 3e 3e 3e];
+			qcom,brake-pattern = <0x3 0x3 0x0 0x0>;
+			qcom,wave-samples = <0x3e 0x3e 0x3e 0x3e 0x3e
+							 0x3e 0x3e 0x3e>;
 			qcom,wave-rep-cnt = <1>;
 			qcom,wave-samp-rep-cnt = <1>;
-			qcom,lra-high-z = "opt1";
-			qcom,lra-auto-res-mode = "qwd";
-			qcom,lra-res-cal-period = <4>;
 		};
 
 		qcom,leds@d000 {
