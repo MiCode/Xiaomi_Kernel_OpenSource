@@ -259,6 +259,7 @@ static void dp_display_check_source_hdcp_caps(struct dp_display_private *dp)
 static void dp_display_hdcp_register_streams(struct dp_display_private *dp)
 {
 	int rc;
+	size_t i;
 	struct sde_hdcp_ops *ops = dp->hdcp.ops;
 	void *data = dp->hdcp.data;
 
@@ -268,7 +269,7 @@ static void dp_display_hdcp_register_streams(struct dp_display_private *dp)
 		int index = 0;
 
 		pr_debug("Registering all active panel streams with HDCP\n");
-		for (size_t i = DP_STREAM_0; i < DP_STREAM_MAX; i++) {
+		for (i = DP_STREAM_0; i < DP_STREAM_MAX; i++) {
 			if (!dp->active_panels[i])
 				continue;
 			streams[index].stream_id = i;
@@ -1653,7 +1654,7 @@ static int dp_display_pre_disable(struct dp_display *dp_display, void *panel)
 	struct dp_display_private *dp;
 	struct dp_panel *dp_panel = panel;
 	struct dp_link_hdcp_status *status;
-	int rc = 0;
+	int i, rc = 0;
 
 	if (!dp_display || !panel) {
 		pr_err("invalid input\n");
@@ -1677,7 +1678,7 @@ static int dp_display_pre_disable(struct dp_display *dp_display, void *panel)
 		if (dp->mst.mst_active) {
 			dp_display_hdcp_deregister_stream(dp,
 				dp_panel->stream_id);
-			for (int i = DP_STREAM_0; i < DP_STREAM_MAX; i++) {
+			for (i = DP_STREAM_0; i < DP_STREAM_MAX; i++) {
 				if (i != dp_panel->stream_id)
 					continue;
 				if (dp->active_panels[i]) {
