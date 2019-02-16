@@ -36,7 +36,7 @@ void synx_external_callback(s32 sync_obj, int status, void *data)
 
 		pr_debug("signaling synx 0x%x from external callback %d\n",
 			row->synx_obj, sync_obj);
-		synx_signal(row->synx_obj, status);
+		synx_signal_core(row, status);
 	} else {
 		pr_err("invalid callback from sync external obj %d\n",
 			sync_obj);
@@ -215,23 +215,21 @@ int synx_deregister_callback(s32 synx_obj,
 	return 0;
 }
 
-int synx_signal(s32 synx_obj, u32 status)
+int synx_signal_core(struct synx_table_row *row, u32 status)
 {
 	int rc, ret;
 	u32 i = 0;
 	u32 idx = 0;
 	u32 type;
 	s32 sync_id;
-	struct synx_table_row *row = NULL;
 	struct synx_external_data *data = NULL;
 	struct synx_bind_desc bind_descs[SYNX_MAX_NUM_BINDINGS];
 	struct bind_operations *bind_ops = NULL;
 
 	pr_debug("Enter %s\n", __func__);
 
-	row = synx_from_handle(synx_obj);
 	if (!row) {
-		pr_err("invalid synx: 0x%x\n", synx_obj);
+		pr_err("invalid synx row\n");
 		return -EINVAL;
 	}
 
@@ -244,7 +242,7 @@ int synx_signal(s32 synx_obj, u32 status)
 
 	if (is_merged_synx(row)) {
 		pr_err("signaling a composite synx object 0x%x\n",
-			synx_obj);
+			row->synx_obj);
 		return -EINVAL;
 	}
 
@@ -253,7 +251,7 @@ int synx_signal(s32 synx_obj, u32 status)
 	if (synx_status_locked(row) != SYNX_STATE_ACTIVE) {
 		spin_unlock_bh(&synx_dev->row_spinlocks[row->index]);
 		pr_err("object already signaled synx = 0x%x\n",
-			synx_obj);
+			row->synx_obj);
 		return -EALREADY;
 	}
 
@@ -354,6 +352,19 @@ int synx_signal(s32 synx_obj, u32 status)
 
 	pr_debug("Exit %s\n", __func__);
 	return rc;
+}
+
+int synx_signal(s32 synx_obj, u32 status)
+{
+	struct synx_table_row *row = NULL;
+
+	row = synx_from_handle(synx_obj);
+	if (!row) {
+		pr_err("invalid synx: 0x%x\n", synx_obj);
+		return -EINVAL;
+	}
+
+	return synx_signal_core(row, status);
 }
 
 int synx_merge(s32 *synx_objs, u32 num_objs, s32 *synx_merged)
@@ -1320,8 +1331,8 @@ static int synx_close(struct file *filep, fl_owner_t id)
 				(synx_status(row) == SYNX_STATE_ACTIVE)) {
 				pr_debug("synx 0x%x still active at shutdown\n",
 					row->synx_obj);
-				rc = synx_signal(row->synx_obj,
-					SYNX_STATE_SIGNALED_ERROR);
+				rc = synx_signal_core(row,
+						SYNX_STATE_SIGNALED_ERROR);
 				if (rc < 0)
 					pr_err("cleanup signal fail idx:0x%x\n",
 						row->synx_obj);

@@ -195,4 +195,14 @@ struct synx_client {
 	struct list_head list;
 };
 
+/**
+ * @brief: Function to signal the synx object
+ *
+ * @param row    : Pointer to the synx object row
+ * @param status : Signaling status
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int synx_signal_core(struct synx_table_row *row, u32 status);
+
 #endif /* __SYNX_PRIVATE_H__ */
