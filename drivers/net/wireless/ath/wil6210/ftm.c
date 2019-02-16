@@ -25,6 +25,9 @@
 /* initial token to use on non-secure FTM measurement */
 #define WIL_TOF_FTM_DEFAULT_INITIAL_TOKEN	2
 
+/* maximum AOA burst period, limited by FW */
+#define WIL_AOA_MAX_BURST_PERIOD	255
+
 #define WIL_TOF_FTM_MAX_LCI_LENGTH		(240)
 #define WIL_TOF_FTM_MAX_LCR_LENGTH		(240)
 
@@ -53,6 +56,7 @@ nla_policy wil_nl80211_ftm_peer_policy[QCA_ATTR_FTM_PEER_MAX + 1] = {
 	[QCA_ATTR_FTM_PEER_MEAS_FLAGS] = { .type = NLA_U32 },
 	[QCA_ATTR_FTM_PEER_MEAS_PARAMS] = { .type = NLA_NESTED },
 	[QCA_ATTR_FTM_PEER_SEC_TOK_ID] = { .type = NLA_U8 },
+	[QCA_ATTR_FTM_PEER_AOA_BURST_PERIOD] = { .type = NLA_U16 },
 	[QCA_ATTR_FTM_PEER_FREQ] = { .type = NLA_U32 },
 };
 
@@ -351,6 +355,7 @@ wil_ftm_cfg80211_start_session(struct wil6210_vif *vif,
 	}
 
 	cmd->session_id = cpu_to_le32(WIL_FTM_FW_SESSION_ID);
+	cmd->aoa_type = request->aoa_type;
 	cmd->num_of_dest = cpu_to_le16(request->n_peers);
 	for (i = 0; i < request->n_peers; i++) {
 		ether_addr_copy(cmd->ftm_dest_info[i].dst_mac,
@@ -393,6 +398,8 @@ wil_ftm_cfg80211_start_session(struct wil6210_vif *vif,
 			request->peers[i].params.burst_duration;
 		cmd->ftm_dest_info[i].burst_period =
 			cpu_to_le16(request->peers[i].params.burst_period);
+		cmd->ftm_dest_info[i].num_burst_per_aoa_meas =
+			request->peers[i].aoa_burst_period;
 	}
 
 	rc = wmi_send(wil, WMI_TOF_SESSION_START_CMDID, vif->mid,
@@ -482,8 +489,8 @@ wil_aoa_cfg80211_start_measurement(struct wil6210_vif *vif,
 
 	mutex_lock(&vif->ftm.lock);
 
-	if (vif->ftm.aoa_started) {
-		wil_err(wil, "AOA measurement already running\n");
+	if (vif->ftm.aoa_started || vif->ftm.session_started) {
+		wil_err(wil, "AOA or FTM measurement already running\n");
 		rc = -EAGAIN;
 		goto out;
 	}
@@ -525,8 +532,8 @@ void wil_aoa_cfg80211_meas_result(struct wil6210_vif *vif,
 
 	mutex_lock(&vif->ftm.lock);
 
-	if (!vif->ftm.aoa_started) {
-		wil_info(wil, "AOA not started, not sending result\n");
+	if (!vif->ftm.aoa_started && !vif->ftm.session_started) {
+		wil_info(wil, "AOA/FTM not started, not sending result\n");
 		goto out;
 	}
 
@@ -757,6 +764,7 @@ int wil_ftm_start_session(struct wiphy *wiphy, struct wireless_dev *wdev,
 	struct nlattr *tb2[QCA_ATTR_FTM_PEER_MAX + 1];
 	struct nlattr *peer;
 	int rc, n_peers = 0, index = 0, tmp;
+	u32 aoa_type = 0;
 
 	if (!test_bit(WMI_FW_CAPABILITY_FTM, wil->fw_capabilities))
 		return -ENOTSUPP;
@@ -776,6 +784,14 @@ int wil_ftm_start_session(struct wiphy *wiphy, struct wireless_dev *wdev,
 	if (!tb[QCA_ATTR_FTM_SESSION_COOKIE]) {
 		wil_err(wil, "session cookie not specified\n");
 		return -EINVAL;
+	}
+
+	if (tb[QCA_ATTR_AOA_TYPE]) {
+		aoa_type = nla_get_u32(tb[QCA_ATTR_AOA_TYPE]);
+		if (aoa_type >= QCA_ATTR_AOA_TYPE_MAX) {
+			wil_err(wil, "invalid AOA type: %d\n", aoa_type);
+			return -EINVAL;
+		}
 	}
 
 	nla_for_each_nested(peer, tb[QCA_ATTR_FTM_MEAS_PEERS],
@@ -801,6 +817,7 @@ int wil_ftm_start_session(struct wiphy *wiphy, struct wireless_dev *wdev,
 
 	request->session_cookie =
 		nla_get_u64(tb[QCA_ATTR_FTM_SESSION_COOKIE]);
+	request->aoa_type = aoa_type;
 	request->n_peers = n_peers;
 	nla_for_each_nested(peer, tb[QCA_ATTR_FTM_MEAS_PEERS],
 			    tmp) {
@@ -829,6 +846,18 @@ int wil_ftm_start_session(struct wiphy *wiphy, struct wireless_dev *wdev,
 		if (tb2[QCA_ATTR_FTM_PEER_SEC_TOK_ID])
 			request->peers[index].secure_token_id =
 				nla_get_u8(tb2[QCA_ATTR_FTM_PEER_SEC_TOK_ID]);
+		if (tb2[QCA_ATTR_FTM_PEER_AOA_BURST_PERIOD]) {
+			request->peers[index].aoa_burst_period = nla_get_u16(
+			    tb2[QCA_ATTR_FTM_PEER_AOA_BURST_PERIOD]);
+			if (request->peers[index].aoa_burst_period >
+			    WIL_AOA_MAX_BURST_PERIOD) {
+				wil_err(wil, "Invalid AOA burst period at index: %d\n",
+					index);
+				rc = -EINVAL;
+				goto out;
+			}
+		}
+
 		rc = wil_ftm_parse_meas_params(
 			wil, tb2[QCA_ATTR_FTM_PEER_MEAS_PARAMS],
 			&request->peers[index].params);
