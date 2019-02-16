@@ -753,6 +753,8 @@ int mhi_get_capability_offset(struct mhi_controller *mhi_cntrl, u32 capability,
 int mhi_init_timesync(struct mhi_controller *mhi_cntrl);
 int mhi_create_timesync_sysfs(struct mhi_controller *mhi_cntrl);
 void mhi_destroy_timesync(struct mhi_controller *mhi_cntrl);
+int mhi_create_vote_sysfs(struct mhi_controller *mhi_cntrl);
+void mhi_destroy_vote_sysfs(struct mhi_controller *mhi_cntrl);
 
 /* memory allocation methods */
 static inline void *mhi_alloc_coherent(struct mhi_controller *mhi_cntrl,
