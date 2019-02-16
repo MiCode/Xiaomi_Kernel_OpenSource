@@ -855,7 +855,7 @@ static struct list_head *sde_hdcp_2x_stream_present(
 static void sde_hdcp_2x_open_stream(struct sde_hdcp_2x_ctrl *hdcp)
 {
 	int rc;
-	size_t iterations;
+	size_t i, iterations;
 	u8 stream_id;
 	u8 virtual_channel;
 	u32 stream_handle = 0;
@@ -868,7 +868,7 @@ static void sde_hdcp_2x_open_stream(struct sde_hdcp_2x_ctrl *hdcp)
 
 	iterations = min(hdcp->num_streams, (u8)(MAX_STREAM_COUNT));
 
-	for (size_t i  = 0; i < iterations; i++) {
+	for (i  = 0; i < iterations; i++) {
 		if (hdcp->stream_count == MAX_STREAM_COUNT) {
 			pr_debug("Registered the maximum amount of streams\n");
 			break;
@@ -926,7 +926,7 @@ static void sde_hdcp_2x_open_stream_work(struct kthread_work *work)
 static void sde_hdcp_2x_close_stream(struct sde_hdcp_2x_ctrl *hdcp)
 {
 	int rc;
-	size_t iterations;
+	size_t i, iterations;
 	u8 stream_id;
 	u8 virtual_channel;
 	struct list_head *entry;
@@ -940,7 +940,7 @@ static void sde_hdcp_2x_close_stream(struct sde_hdcp_2x_ctrl *hdcp)
 
 	iterations = min(hdcp->num_streams, (u8)(MAX_STREAM_COUNT));
 
-	for (size_t i = 0; i < iterations; i++) {
+	for (i = 0; i < iterations; i++) {
 		if (hdcp->stream_count == 0) {
 			pr_debug("No streams are currently registered\n");
 			return;
