@@ -991,6 +991,11 @@ struct wil6210_priv {
 	int fw_calib_result;
 	u8 tt_data_set;
 	struct wmi_tt_data tt_data;
+	struct {
+		u8 enabled;
+		short omni;
+		short direct;
+	} snr_thresh;
 
 	struct notifier_block pm_notify;
 
@@ -1366,6 +1371,8 @@ void wil_aoa_evt_meas(struct wil6210_vif *vif,
 int wmi_link_maintain_cfg_write(struct wil6210_priv *wil,
 				const u8 *addr,
 				bool fst_link_loss);
+
+int wmi_set_snr_thresh(struct wil6210_priv *wil, short omni, short direct);
 
 int wmi_start_sched_scan(struct wil6210_priv *wil,
 			 struct cfg80211_sched_scan_request *request);
