@@ -43,6 +43,7 @@
 
 #define FW_ASSERT_TIMEOUT		5000
 #define DEV_RDDM_TIMEOUT		5000
+#define RECOVERY_TIMEOUT		60000
 
 #ifdef CONFIG_CNSS_EMULATION
 #define EMULATION_HW			1
@@ -395,6 +396,7 @@ int cnss_pci_call_driver_probe(struct cnss_pci_data *pci_priv)
 			goto out;
 		}
 		clear_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state);
+		complete(&plat_priv->recovery_complete);
 	} else if (test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state)) {
 		ret = pci_priv->driver_ops->probe(pci_priv->pci_dev,
 						  pci_priv->pci_device_id);
@@ -441,6 +443,7 @@ int cnss_pci_call_driver_remove(struct cnss_pci_data *pci_priv)
 	} else if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) {
 		pci_priv->driver_ops->remove(pci_priv->pci_dev);
 		clear_bit(CNSS_DRIVER_PROBED, &plat_priv->driver_state);
+		clear_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state);
 	}
 
 	return 0;
@@ -881,12 +884,26 @@ EXPORT_SYMBOL(cnss_wlan_register_driver);
 void cnss_wlan_unregister_driver(struct cnss_wlan_driver *driver_ops)
 {
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(NULL);
+	int ret = 0;
 
 	if (!plat_priv) {
 		cnss_pr_err("plat_priv is NULL\n");
 		return;
 	}
 
+	if (!test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state) &&
+	    !test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state))
+		goto skip_wait;
+
+	reinit_completion(&plat_priv->recovery_complete);
+	ret = wait_for_completion_timeout(&plat_priv->recovery_complete,
+					  RECOVERY_TIMEOUT);
+	if (!ret) {
+		cnss_pr_err("Timeout waiting for recovery to complete\n");
+		CNSS_ASSERT(0);
+	}
+
+skip_wait:
 	cnss_driver_event_post(plat_priv,
 			       CNSS_DRIVER_EVENT_UNREGISTER_DRIVER,
 			       CNSS_EVENT_SYNC_UNINTERRUPTIBLE, NULL);
