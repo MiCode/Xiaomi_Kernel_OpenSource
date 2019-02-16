@@ -91,8 +91,9 @@ static struct sde_crtc_custom_events custom_events[] = {
 #define MAX_FRAME_COUNT			1000
 #define MILI_TO_MICRO			1000
 
-/* Line padding ratio limit */
-#define MAX_VPADDING_RATIO		3
+/* default line padding ratio limitation */
+#define MAX_VPADDING_RATIO_M		63
+#define MAX_VPADDING_RATIO_N		15
 
 static inline struct sde_kms *_sde_crtc_get_kms(struct drm_crtc *crtc)
 {
@@ -1681,7 +1682,7 @@ static int _sde_crtc_check_panel_stacking(struct drm_crtc *crtc,
 	m = state->mode.vdisplay / gcd;
 	n = mode_info.vpadding / gcd - m;
 
-	if (m > MAX_VPADDING_RATIO || n > MAX_VPADDING_RATIO) {
+	if (m > MAX_VPADDING_RATIO_M || n > MAX_VPADDING_RATIO_N) {
 		SDE_ERROR("unsupported panel stacking pattern %d:%d", m, n);
 		return -EINVAL;
 	}
