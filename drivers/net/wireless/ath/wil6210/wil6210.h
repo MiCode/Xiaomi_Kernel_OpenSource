@@ -891,6 +891,7 @@ struct wil6210_priv {
 	const char *hw_name;
 	const char *wil_fw_name;
 	char *board_file;
+	char board_file_country[3]; /* alpha2 */
 	u32 brd_file_addr;
 	u32 brd_file_max_size;
 	DECLARE_BITMAP(hw_capa, hw_capa_last);
@@ -996,6 +997,9 @@ struct wil6210_priv {
 		short omni;
 		short direct;
 	} snr_thresh;
+
+	/* current reg domain configured in kernel */
+	char regdomain[3]; /* alpha2 */
 
 	struct notifier_block pm_notify;
 
