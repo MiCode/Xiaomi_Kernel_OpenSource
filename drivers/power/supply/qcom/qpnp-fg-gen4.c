@@ -201,6 +201,7 @@ struct fg_dt_props {
 	int	batt_temp_hot_thresh;
 	int	batt_temp_hyst;
 	int	batt_temp_delta;
+	u32	batt_therm_freq;
 	int	esr_pulse_thresh_ma;
 	int	esr_meas_curr_ma;
 	int	slope_limit_temp;
@@ -3931,6 +3932,76 @@ static int fg_alg_init(struct fg_gen4_chip *chip)
 #define BATT_TEMP_HYST_MASK	GENMASK(3, 0)
 #define BATT_TEMP_DELTA_MASK	GENMASK(7, 4)
 #define BATT_TEMP_DELTA_SHIFT	4
+static int fg_gen4_batt_temp_config(struct fg_gen4_chip *chip)
+{
+	struct fg_dev *fg = &chip->fg;
+	int rc;
+	u8 buf, val, mask;
+
+	if (chip->dt.batt_temp_cold_thresh != -EINVAL) {
+		fg_encode(fg->sp, FG_SRAM_BATT_TEMP_COLD,
+			chip->dt.batt_temp_cold_thresh, &buf);
+		rc = fg_sram_write(fg, fg->sp[FG_SRAM_BATT_TEMP_COLD].addr_word,
+				fg->sp[FG_SRAM_BATT_TEMP_COLD].addr_byte, &buf,
+				fg->sp[FG_SRAM_BATT_TEMP_COLD].len,
+				FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing batt_temp_cold_thresh, rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	if (chip->dt.batt_temp_hot_thresh != -EINVAL) {
+		fg_encode(fg->sp, FG_SRAM_BATT_TEMP_HOT,
+			chip->dt.batt_temp_hot_thresh, &buf);
+		rc = fg_sram_write(fg, fg->sp[FG_SRAM_BATT_TEMP_HOT].addr_word,
+				fg->sp[FG_SRAM_BATT_TEMP_HOT].addr_byte, &buf,
+				fg->sp[FG_SRAM_BATT_TEMP_HOT].len,
+				FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing batt_temp_hot_thresh, rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	if (chip->dt.batt_temp_hyst != -EINVAL) {
+		val = chip->dt.batt_temp_hyst & BATT_TEMP_HYST_MASK;
+		mask = BATT_TEMP_HYST_MASK;
+		rc = fg_sram_masked_write(fg, BATT_TEMP_CONFIG2_WORD,
+				BATT_TEMP_HYST_DELTA_OFFSET, mask, val,
+				FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing batt_temp_hyst, rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	if (chip->dt.batt_temp_delta != -EINVAL) {
+		val = (chip->dt.batt_temp_delta << BATT_TEMP_DELTA_SHIFT)
+				& BATT_TEMP_DELTA_MASK;
+		mask = BATT_TEMP_DELTA_MASK;
+		rc = fg_sram_masked_write(fg, BATT_TEMP_CONFIG2_WORD,
+				BATT_TEMP_HYST_DELTA_OFFSET, mask, val,
+				FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing batt_temp_delta, rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	val = (u8)chip->dt.batt_therm_freq;
+	rc = fg_write(fg, ADC_RR_BATT_THERM_FREQ(fg), &val, 1);
+	if (rc < 0) {
+		pr_err("failed to write to 0x%04X, rc=%d\n",
+			 ADC_RR_BATT_THERM_FREQ(fg), rc);
+		return rc;
+	}
+
+	return rc;
+}
+
 static int fg_gen4_hw_init(struct fg_gen4_chip *chip)
 {
 	struct fg_dev *fg = &chip->fg;
@@ -4012,58 +4083,9 @@ static int fg_gen4_hw_init(struct fg_gen4_chip *chip)
 		}
 	}
 
-	if (chip->dt.batt_temp_cold_thresh != -EINVAL) {
-		fg_encode(fg->sp, FG_SRAM_BATT_TEMP_COLD,
-			chip->dt.batt_temp_cold_thresh, buf);
-		rc = fg_sram_write(fg, fg->sp[FG_SRAM_BATT_TEMP_COLD].addr_word,
-				fg->sp[FG_SRAM_BATT_TEMP_COLD].addr_byte, buf,
-				fg->sp[FG_SRAM_BATT_TEMP_COLD].len,
-				FG_IMA_DEFAULT);
-		if (rc < 0) {
-			pr_err("Error in writing batt_temp_cold_thresh, rc=%d\n",
-				rc);
-			return rc;
-		}
-	}
-
-	if (chip->dt.batt_temp_hot_thresh != -EINVAL) {
-		fg_encode(fg->sp, FG_SRAM_BATT_TEMP_HOT,
-			chip->dt.batt_temp_hot_thresh, buf);
-		rc = fg_sram_write(fg, fg->sp[FG_SRAM_BATT_TEMP_HOT].addr_word,
-				fg->sp[FG_SRAM_BATT_TEMP_HOT].addr_byte, buf,
-				fg->sp[FG_SRAM_BATT_TEMP_HOT].len,
-				FG_IMA_DEFAULT);
-		if (rc < 0) {
-			pr_err("Error in writing batt_temp_hot_thresh, rc=%d\n",
-				rc);
-			return rc;
-		}
-	}
-
-	if (chip->dt.batt_temp_hyst != -EINVAL) {
-		val = chip->dt.batt_temp_hyst & BATT_TEMP_HYST_MASK;
-		mask = BATT_TEMP_HYST_MASK;
-		rc = fg_sram_masked_write(fg, BATT_TEMP_CONFIG2_WORD,
-				BATT_TEMP_HYST_DELTA_OFFSET, mask, val,
-				FG_IMA_DEFAULT);
-		if (rc < 0) {
-			pr_err("Error in writing batt_temp_hyst, rc=%d\n", rc);
-			return rc;
-		}
-	}
-
-	if (chip->dt.batt_temp_delta != -EINVAL) {
-		val = (chip->dt.batt_temp_delta << BATT_TEMP_DELTA_SHIFT)
-				& BATT_TEMP_DELTA_MASK;
-		mask = BATT_TEMP_DELTA_MASK;
-		rc = fg_sram_masked_write(fg, BATT_TEMP_CONFIG2_WORD,
-				BATT_TEMP_HYST_DELTA_OFFSET, mask, val,
-				FG_IMA_DEFAULT);
-		if (rc < 0) {
-			pr_err("Error in writing batt_temp_delta, rc=%d\n", rc);
-			return rc;
-		}
-	}
+	rc = fg_gen4_batt_temp_config(chip);
+	if (rc < 0)
+		return rc;
 
 	fg_encode(fg->sp, FG_SRAM_ESR_PULSE_THRESH,
 		chip->dt.esr_pulse_thresh_ma, buf);
@@ -4451,6 +4473,12 @@ static void fg_gen4_parse_batt_temp_dt(struct fg_gen4_chip *chip)
 		chip->dt.batt_temp_delta = -EINVAL;
 	else if (temp >= BTEMP_DELTA_LOW && temp <= BTEMP_DELTA_HIGH)
 		chip->dt.batt_temp_delta = temp;
+
+	chip->dt.batt_therm_freq = 8;
+	rc = of_property_read_u32(node, "qcom,fg-batt-therm-freq", &temp);
+	if (temp > 0 && temp <= 255)
+		chip->dt.batt_therm_freq = temp;
+
 }
 
 #define DEFAULT_CUTOFF_VOLT_MV		3100
