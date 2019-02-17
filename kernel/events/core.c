@@ -4073,7 +4073,7 @@ static int perf_event_read(struct perf_event *event, bool group)
 	 * value in the event structure:
 	 */
 	preempt_disable();
-again:
+
 	if (state == PERF_EVENT_STATE_ACTIVE) {
 
 		/*
@@ -4126,11 +4126,6 @@ again:
 		unsigned long flags;
 
 		raw_spin_lock_irqsave(&ctx->lock, flags);
-		if (state != PERF_EVENT_STATE_INACTIVE) {
-			raw_spin_unlock_irqrestore(&ctx->lock, flags);
-			goto again;
-		}
-
 		/*
 		 * May read while context is not active (e.g., thread is
 		 * blocked), in that case we cannot update context time
