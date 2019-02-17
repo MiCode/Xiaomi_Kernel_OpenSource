@@ -32,6 +32,7 @@
 #include "cvp_core_hfi.h"
 #include "cvp_hfi_helper.h"
 #include "cvp_hfi_io.h"
+#include "msm_cvp_dsp.h"
 
 #define FIRMWARE_SIZE			0X00A00000
 #define REG_ADDR_OFFSET_BITMASK	0x000FFFFF
@@ -284,7 +285,7 @@ static int __dsp_send_hfi_queue(struct venus_hfi_device *device)
 	dprintk(CVP_DBG, "%s: hfi queue %#llx size %d\n",
 		__func__, device->dsp_iface_q_table.mem_data.dma_handle,
 		device->dsp_iface_q_table.mem_data.size);
-	rc = fastcvpd_video_send_cmd_hfi_queue(
+	rc = cvp_dsp_send_cmd_hfi_queue(
 		(phys_addr_t *)device->dsp_iface_q_table.mem_data.dma_handle,
 		device->dsp_iface_q_table.mem_data.size);
 	if (rc) {
@@ -2076,8 +2077,7 @@ static int venus_hfi_core_init(void *device)
 	__enable_subcaches(device);
 	__set_subcaches(device);
 
-	if (0)
-		__dsp_send_hfi_queue(device);
+	__dsp_send_hfi_queue(device);
 
 	if (dev->res->pm_qos_latency_us) {
 #ifdef CONFIG_SMP
