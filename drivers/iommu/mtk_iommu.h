@@ -47,6 +47,8 @@ struct mtk_iommu_plat_data {
 
 	/* HW will use the EMI clock if there isn't the "bclk". */
 	bool                has_bclk;
+
+	unsigned char       larbid_remap[MTK_LARB_NR_MAX];
 };
 
 struct mtk_iommu_domain;
