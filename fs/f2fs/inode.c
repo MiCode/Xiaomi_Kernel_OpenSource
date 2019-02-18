@@ -604,6 +604,7 @@ void handle_failed_inode(struct inode *inode)
 {
 	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
 	struct node_info ni;
+	int err;
 
 	/*
 	 * clear nlink of inode in order to release resource of inode
@@ -626,10 +627,16 @@ void handle_failed_inode(struct inode *inode)
 	 * so we can prevent losing this orphan when encoutering checkpoint
 	 * and following suddenly power-off.
 	 */
-	get_node_info(sbi, inode->i_ino, &ni);
+	err = get_node_info(sbi, inode->i_ino, &ni);
+	if (err) {
+		set_sbi_flag(sbi, SBI_NEED_FSCK);
+		f2fs_msg(sbi->sb, KERN_WARNING,
+			"May loss orphan inode, run fsck to fix.");
+		goto out;
+	}
 
 	if (ni.blk_addr != NULL_ADDR) {
-		int err = acquire_orphan_inode(sbi);
+		err = acquire_orphan_inode(sbi);
 		if (err) {
 			set_sbi_flag(sbi, SBI_NEED_FSCK);
 			f2fs_msg(sbi->sb, KERN_WARNING,
@@ -641,7 +648,7 @@ void handle_failed_inode(struct inode *inode)
 	} else {
 		set_inode_flag(inode, FI_FREE_NID);
 	}
-
+out:
 	f2fs_unlock_op(sbi);
 
 	/* iput will drop the inode object */

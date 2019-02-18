@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016-2017, Linaro Ltd
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1505,6 +1505,7 @@ static int __qcom_glink_send(struct glink_channel *channel,
 	}
 
 	while (left_size > 0) {
+		data = (void *)((char *)data + chunk_size);
 		chunk_size = left_size;
 		if (chunk_size > SZ_8K)
 			chunk_size = SZ_8K;

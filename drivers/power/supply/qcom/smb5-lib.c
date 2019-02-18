@@ -746,6 +746,23 @@ static int smblib_set_adapter_allowance(struct smb_charger *chg,
 {
 	int rc = 0;
 
+	/* PMI632 only support max. 9V */
+	if (chg->smb_version == PMI632_SUBTYPE) {
+		switch (allowed_voltage) {
+		case USBIN_ADAPTER_ALLOW_12V:
+		case USBIN_ADAPTER_ALLOW_9V_TO_12V:
+			allowed_voltage = USBIN_ADAPTER_ALLOW_9V;
+			break;
+		case USBIN_ADAPTER_ALLOW_5V_OR_12V:
+		case USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V:
+			allowed_voltage = USBIN_ADAPTER_ALLOW_5V_OR_9V;
+			break;
+		case USBIN_ADAPTER_ALLOW_5V_TO_12V:
+			allowed_voltage = USBIN_ADAPTER_ALLOW_5V_TO_9V;
+			break;
+		}
+	}
+
 	rc = smblib_write(chg, USBIN_ADAPTER_ALLOW_CFG_REG, allowed_voltage);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't write 0x%02x to USBIN_ADAPTER_ALLOW_CFG rc=%d\n",
@@ -3878,17 +3895,9 @@ static int smblib_soft_jeita_arb_wa(struct smb_charger *chg)
 	if (!chg->jeita_arb_flag && !soft_jeita)
 		return 0;
 
-	if (!chg->cp_disable_votable)
-		chg->cp_disable_votable = find_votable("CP_DISABLE");
-
 	/* Entering soft JEITA from normal state */
 	if (!chg->jeita_arb_flag && soft_jeita) {
 		vote(chg->chg_disable_votable, JEITA_ARB_VOTER, true, 0);
-		/* Disable parallel charging */
-		if (chg->pl_disable_votable)
-			vote(chg->pl_disable_votable, JEITA_ARB_VOTER, true, 0);
-		if (chg->cp_disable_votable)
-			vote(chg->cp_disable_votable, JEITA_ARB_VOTER, true, 0);
 
 		rc = smblib_charge_inhibit_en(chg, true);
 		if (rc < 0)
@@ -3934,12 +3943,6 @@ static int smblib_soft_jeita_arb_wa(struct smb_charger *chg)
 
 		vote(chg->fcc_votable, JEITA_ARB_VOTER, false, 0);
 		vote(chg->fv_votable, JEITA_ARB_VOTER, false, 0);
-		if (chg->pl_disable_votable)
-			vote(chg->pl_disable_votable, JEITA_ARB_VOTER, false,
-				0);
-		if (chg->cp_disable_votable)
-			vote(chg->cp_disable_votable, JEITA_ARB_VOTER, false,
-				0);
 		vote(chg->chg_disable_votable, JEITA_ARB_VOTER, false, 0);
 		chg->jeita_arb_flag = false;
 	}
@@ -5024,6 +5027,7 @@ irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 	}
 
 	if (stat & TYPEC_ATTACH_DETACH_STATE_BIT) {
+		cancel_delayed_work_sync(&chg->lpd_detach_work);
 		chg->lpd_stage = LPD_STAGE_FLOAT_CANCEL;
 		cancel_delayed_work_sync(&chg->lpd_ra_open_work);
 		vote(chg->awake_votable, LPD_VOTER, false, 0);
@@ -5068,7 +5072,7 @@ irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 
 		if (chg->lpd_stage == LPD_STAGE_FLOAT_CANCEL)
 			schedule_delayed_work(&chg->lpd_detach_work,
-					msecs_to_jiffies(100));
+					msecs_to_jiffies(1000));
 	}
 
 	power_supply_changed(chg->usb_psy);
@@ -5235,6 +5239,9 @@ irqreturn_t wdog_snarl_irq_handler(int irq, void *data)
 		vote(chg->awake_votable, SW_THERM_REGULATION_VOTER, true, 0);
 		schedule_delayed_work(&chg->thermal_regulation_work, 0);
 	}
+
+	if (chg->step_chg_enabled)
+		power_supply_changed(chg->batt_psy);
 
 	return IRQ_HANDLED;
 }
@@ -5847,15 +5854,8 @@ static void smblib_lpd_ra_open_work(struct work_struct *work)
 		goto out;
 	}
 
-	/* Wait 1.5ms to read src status */
+	/* Wait 1.5ms to get SBUx ready */
 	usleep_range(1500, 1510);
-
-	rc = smblib_read(chg, TYPE_C_SRC_STATUS_REG, &stat);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't read TYPE_C_SRC_STATUS_REG rc=%d\n",
-				rc);
-		goto out;
-	}
 
 	if (smblib_rsbux_low(chg, RSBU_K_300K_UV)) {
 		/* Moisture detected, enable sink only mode */

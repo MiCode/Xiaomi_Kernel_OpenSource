@@ -73,13 +73,6 @@ static struct smb_params smb5_pmi632_params = {
 		.max_u	= 1000000,
 		.step_u	= 250000,
 	},
-	.dc_icl		= {
-		.name   = "DC input current limit",
-		.reg    = DCDC_CFG_REF_MAX_PSNS_REG,
-		.min_u  = 0,
-		.max_u  = 1500000,
-		.step_u = 50000,
-	},
 	.jeita_cc_comp_hot	= {
 		.name	= "jeita fcc reduction",
 		.reg	= JEITA_CCCOMP_CFG_HOT_REG,
@@ -187,10 +180,12 @@ struct smb_dt_props {
 	int			chg_inhibit_thr_mv;
 	bool			no_battery;
 	bool			hvdcp_disable;
+	bool			hvdcp_autonomous;
 	int			sec_charger_config;
 	int			auto_recharge_soc;
 	int			auto_recharge_vbat_mv;
 	int			wd_bark_time;
+	int			wd_snarl_time_cfg;
 	int			batt_profile_fcc_ua;
 	int			batt_profile_fv_uv;
 	int			term_current_src;
@@ -333,6 +328,11 @@ static int smb5_parse_dt(struct smb5 *chip)
 	if (rc < 0 || chip->dt.wd_bark_time < MIN_WD_BARK_TIME)
 		chip->dt.wd_bark_time = DEFAULT_WD_BARK_TIME;
 
+	rc = of_property_read_u32(node, "qcom,wd-snarl-time-config",
+					&chip->dt.wd_snarl_time_cfg);
+	if (rc < 0)
+		chip->dt.wd_snarl_time_cfg = -EINVAL;
+
 	chip->dt.no_battery = of_property_read_bool(node,
 						"qcom,batteryless-platform");
 
@@ -408,6 +408,9 @@ static int smb5_parse_dt(struct smb5 *chip)
 	chip->dt.hvdcp_disable = of_property_read_bool(node,
 						"qcom,hvdcp-disable");
 	chg->hvdcp_disable = chip->dt.hvdcp_disable;
+
+	chip->dt.hvdcp_autonomous = of_property_read_bool(node,
+						"qcom,hvdcp-autonomous-enable");
 
 	rc = of_property_read_u32(node, "qcom,chg-inhibit-threshold-mv",
 				&chip->dt.chg_inhibit_thr_mv);
@@ -1600,7 +1603,42 @@ static int smb5_init_vconn_regulator(struct smb5 *chip)
  ***************************/
 static int smb5_configure_typec(struct smb_charger *chg)
 {
+	union power_supply_propval pval = {0, };
 	int rc;
+	u8 val = 0;
+
+	rc = smblib_read(chg, LEGACY_CABLE_STATUS_REG, &val);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't read Legacy status rc=%d\n", rc);
+		return rc;
+	}
+
+	/*
+	 * Across reboot, standard typeC cables get detected as legacy cables
+	 * due to VBUS attachment prior to CC attach/dettach. To handle this,
+	 * "early_usb_attach" flag is used, which assumes that across reboot,
+	 * the cable connected can be standard typeC. However, its jurisdiction
+	 * is limited to PD capable designs only. Hence, for non-PD type designs
+	 * reset legacy cable detection by disabling/enabling typeC mode.
+	 */
+	if (chg->pd_not_supported && (val & TYPEC_LEGACY_CABLE_STATUS_BIT)) {
+		pval.intval = POWER_SUPPLY_TYPEC_PR_NONE;
+		smblib_set_prop_typec_power_role(chg, &pval);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't disable TYPEC rc=%d\n", rc);
+			return rc;
+		}
+
+		/* delay before enabling typeC */
+		msleep(50);
+
+		pval.intval = POWER_SUPPLY_TYPEC_PR_DUAL;
+		smblib_set_prop_typec_power_role(chg, &pval);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't enable TYPEC rc=%d\n", rc);
+			return rc;
+		}
+	}
 
 	smblib_apsd_enable(chg, true);
 	smblib_hvdcp_detect_enable(chg, false);
@@ -1645,14 +1683,17 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		chg->typec_try_mode |= EN_TRY_SNK_BIT;
 	}
 
-	/* configure VCONN for software control */
-	rc = smblib_masked_write(chg, TYPE_C_VCONN_CONTROL_REG,
+	/* For PD capable targets configure VCONN for software control */
+	if (!chg->pd_not_supported) {
+		rc = smblib_masked_write(chg, TYPE_C_VCONN_CONTROL_REG,
 				 VCONN_EN_SRC_BIT | VCONN_EN_VALUE_BIT,
 				 VCONN_EN_SRC_BIT);
-	if (rc < 0) {
-		dev_err(chg->dev,
-			"Couldn't configure VCONN for SW control rc=%d\n", rc);
-		return rc;
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't configure VCONN for SW control rc=%d\n",
+				rc);
+			return rc;
+		}
 	}
 
 	/* Enable detection of unoriented debug accessory in source mode */
@@ -1797,6 +1838,33 @@ static int smb5_configure_iterm_thresholds(struct smb5 *chip)
 	return rc;
 }
 
+static int smb5_init_dc_peripheral(struct smb_charger *chg)
+{
+	int rc = 0;
+
+	/* PMI632 does not have DC peripheral */
+	if (chg->smb_version == PMI632_SUBTYPE)
+		return 0;
+
+	/* set DC icl_max 1A */
+	rc = smblib_set_charge_param(chg, &chg->param.dc_icl, 1000000);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't set dc_icl rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Disable DC Input missing poller function */
+	rc = smblib_masked_write(chg, DCIN_LOAD_CFG_REG,
+					INPUT_MISS_POLL_EN_BIT, 0);
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"Couldn't disable DC Input missing poller rc=%d\n", rc);
+		return rc;
+	}
+
+	return rc;
+}
+
 static int smb5_init_hw(struct smb5 *chip)
 {
 	struct smb_charger *chg = &chip->chg;
@@ -1854,11 +1922,15 @@ static int smb5_init_hw(struct smb5 *chip)
 	}
 
 	/*
-	 * Disable HVDCP autonomous mode operation by default. Additionally, if
-	 * specified in DT: disable HVDCP and HVDCP authentication algorithm.
+	 * Disable HVDCP autonomous mode operation by default, providing a DT
+	 * knob to turn it on if required. Additionally, if specified in DT,
+	 * disable HVDCP and HVDCP authentication algorithm.
 	 */
 	val = (chg->hvdcp_disable) ? 0 :
 		(HVDCP_AUTH_ALG_EN_CFG_BIT | HVDCP_EN_BIT);
+	if (chip->dt.hvdcp_autonomous)
+		val |= HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT;
+
 	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
 			(HVDCP_AUTH_ALG_EN_CFG_BIT | HVDCP_EN_BIT |
 			 HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT),
@@ -1956,22 +2028,10 @@ static int smb5_init_hw(struct smb5 *chip)
 	vote(chg->usb_icl_votable, HW_LIMIT_VOTER,
 			chg->hw_max_icl_ua > 0, chg->hw_max_icl_ua);
 
-	/* set DC icl_max 1A */
-	rc = smblib_set_charge_param(chg, &chg->param.dc_icl, 1000000);
-	if (rc < 0) {
-		dev_err(chg->dev,
-			"Couldn't set dc_icl rc=%d\n", rc);
+	/* Initialize DC peripheral configurations */
+	rc = smb5_init_dc_peripheral(chg);
+	if (rc < 0)
 		return rc;
-	}
-
-	/* Disable DC Input missing poller function */
-	rc = smblib_masked_write(chg, DCIN_LOAD_CFG_REG,
-					INPUT_MISS_POLL_EN_BIT, 0);
-	if (rc < 0) {
-		dev_err(chg->dev,
-			"Couldn't disable DC Input missing poller rc=%d\n", rc);
-		return rc;
-	}
 
 	/*
 	 * AICL configuration:
@@ -2018,9 +2078,17 @@ static int smb5_init_hw(struct smb5 *chip)
 	val = (ilog2(chip->dt.wd_bark_time / 16) << BARK_WDOG_TIMEOUT_SHIFT)
 			& BARK_WDOG_TIMEOUT_MASK;
 	val |= BITE_WDOG_TIMEOUT_8S;
+
+	if (chip->dt.wd_snarl_time_cfg == -EINVAL)
+		val |= SNARL_WDOG_TMOUT_8S;
+	else
+		val |= (chip->dt.wd_snarl_time_cfg << SNARL_WDOG_TIMEOUT_SHIFT)
+			& SNARL_WDOG_TIMEOUT_MASK;
+
 	rc = smblib_masked_write(chg, SNARL_BARK_BITE_WD_CFG_REG,
 			BITE_WDOG_DISABLE_CHARGING_CFG_BIT |
-			BARK_WDOG_TIMEOUT_MASK | BITE_WDOG_TIMEOUT_MASK,
+			SNARL_WDOG_TIMEOUT_MASK | BARK_WDOG_TIMEOUT_MASK |
+			BITE_WDOG_TIMEOUT_MASK,
 			val);
 	if (rc < 0) {
 		pr_err("Couldn't configue WD config rc=%d\n", rc);
@@ -2600,13 +2668,14 @@ static int smb5_request_interrupts(struct smb5 *chip)
 		chg->usb_icl_change_irq_enabled = true;
 
 	/*
-	 * WDOG_SNARL_IRQ is required for SW Thermal Regulation WA only. In
-	 * case the WA is not required, disable the WDOG_SNARL_IRQ to prevent
-	 * interrupt storm.
+	 * WDOG_SNARL_IRQ is required for SW Thermal Regulation WA. In case
+	 * the WA is not required and neither is the snarl timer configuration
+	 * defined, disable the WDOG_SNARL_IRQ to prevent interrupt storm.
 	 */
 
-	if (chg->irq_info[WDOG_SNARL_IRQ].irq && !(chg->wa_flags &
-						SW_THERM_REGULATION_WA)) {
+	if (chg->irq_info[WDOG_SNARL_IRQ].irq && (!(chg->wa_flags &
+				SW_THERM_REGULATION_WA) &&
+				chip->dt.wd_snarl_time_cfg == -EINVAL)) {
 		disable_irq_wake(chg->irq_info[WDOG_SNARL_IRQ].irq);
 		disable_irq_nosync(chg->irq_info[WDOG_SNARL_IRQ].irq);
 	}
@@ -2818,6 +2887,21 @@ static int smb5_probe(struct platform_device *pdev)
 	if (rc < 0) {
 		dev_err(chg->dev, "failed to register extcon device rc=%d\n",
 				rc);
+		goto cleanup;
+	}
+
+	/* Support reporting polarity and speed via properties */
+	rc = extcon_set_property_capability(chg->extcon,
+			EXTCON_USB, EXTCON_PROP_USB_TYPEC_POLARITY);
+	rc |= extcon_set_property_capability(chg->extcon,
+			EXTCON_USB, EXTCON_PROP_USB_SS);
+	rc |= extcon_set_property_capability(chg->extcon,
+			EXTCON_USB_HOST, EXTCON_PROP_USB_TYPEC_POLARITY);
+	rc |= extcon_set_property_capability(chg->extcon,
+			EXTCON_USB_HOST, EXTCON_PROP_USB_SS);
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"failed to configure extcon capabilities\n");
 		goto cleanup;
 	}
 
