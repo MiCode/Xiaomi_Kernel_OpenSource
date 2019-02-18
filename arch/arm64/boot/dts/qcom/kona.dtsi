@@ -2126,6 +2126,7 @@
 		qcom,use-ipa-tethering-bridge;
 		qcom,mhi-event-ring-id-limits = <9 11>; /* start and end */
 		qcom,modem-cfg-emb-pipe-flt;
+		qcom,ipa-wdi3-over-gsi;
 		qcom,use-ipa-pm;
 		qcom,bandwidth-vote-for-ipa;
 		qcom,use-64-bit-dma-mask;
