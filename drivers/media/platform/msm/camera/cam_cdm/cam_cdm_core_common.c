@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -49,6 +49,7 @@ bool cam_cdm_set_cam_hw_version(
 	switch (ver) {
 	case CAM_CDM170_VERSION:
 	case CAM_CDM175_VERSION:
+	case CAM_CDM480_VERSION:
 		cam_version->major    = (ver & 0xF0000000);
 		cam_version->minor    = (ver & 0xFFF0000);
 		cam_version->incr     = (ver & 0xFFFF);
@@ -79,6 +80,7 @@ struct cam_cdm_utils_ops *cam_cdm_get_ops(
 		switch (ver) {
 		case CAM_CDM170_VERSION:
 		case CAM_CDM175_VERSION:
+		case CAM_CDM480_VERSION:
 			return &CDM170_ops;
 		default:
 			CAM_ERR(CAM_CDM, "CDM Version=%x not supported in util",
@@ -90,6 +92,9 @@ struct cam_cdm_utils_ops *cam_cdm_get_ops(
 			(cam_version->incr == 0)) ||
 			((cam_version->major == 1) &&
 			(cam_version->minor == 1) &&
+			(cam_version->incr == 0)) ||
+			((cam_version->major == 1) &&
+			(cam_version->minor == 2) &&
 			(cam_version->incr == 0))) {
 
 			CAM_DBG(CAM_CDM,

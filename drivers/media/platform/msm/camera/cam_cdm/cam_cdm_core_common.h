@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_CDM_CORE_COMMON_H_
@@ -10,6 +10,7 @@
 
 #define CAM_CDM170_VERSION 0x10000000
 #define CAM_CDM175_VERSION 0x10010000
+#define CAM_CDM480_VERSION 0x10020000
 
 extern struct cam_cdm_utils_ops CDM170_ops;
 
