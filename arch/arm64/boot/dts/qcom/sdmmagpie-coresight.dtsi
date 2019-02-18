@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1619,6 +1619,34 @@
 						<&tpdm_center_out_tpda>;
 				};
 			};
+
+			port@14 {
+				reg = <17>;
+				tpda_in_tpdm_qdss: endpoint {
+					slave-mode;
+					remote-endpoint =
+						<&tpdm_qdss_out_tpda>;
+				};
+			};
+		};
+	};
+
+	tpdm_qdss: tpdm@6006000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b968>;
+		reg = <0x6006000 0x1000>;
+		reg-names = "tpdm-base";
+
+		coresight-name = "coresight-tpdm-qdss";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+
+		port {
+			tpdm_qdss_out_tpda: endpoint {
+				remote-endpoint =
+					<&tpda_in_tpdm_qdss>;
+			};
 		};
 	};
 
@@ -1919,10 +1947,17 @@
 
 		coresight-name = "coresight-funnel-gfx";
 
-		clocks = <&clock_aop QDSS_CLK>;
-		clock-names = "apb_pclk";
+		clocks = <&clock_aop QDSS_CLK>,
+			<&clock_gpucc GPU_CC_CX_APB_CLK>;
+		clock-names = "apb_pclk", "gpu_apb_clk";
+		qcom,proxy-clks = "gpu_apb_clk";
 
-		status = "disabled";
+		/* GDSC regulator names */
+		regulator-names = "vddcx", "vdd";
+		/* GDSC oxili regulators */
+		vddcx-supply = <&gpu_cx_gdsc>;
+		vdd-supply = <&gpu_gx_gdsc>;
+		qcom,proxy-regs = "vddcx", "vdd";
 
 		ports {
 			#address-cells = <1>;
@@ -1953,10 +1988,19 @@
 		reg = <0x6940000 0x1000>;
 		reg-names = "tpdm-base";
 
-		coresight-name = "coresight-tpdm-gfx";
+		coresight-name = "coresight-tpdm-gpu";
 
-		clocks = <&clock_aop QDSS_CLK>;
-		clock-names = "apb_pclk";
+		clocks = <&clock_aop QDSS_CLK>,
+			<&clock_gpucc GPU_CC_CX_APB_CLK>;
+		clock-names = "apb_pclk", "gpu_apb_clk";
+		qcom,tpdm-clks = "gpu_apb_clk";
+
+		/* GDSC regulator names */
+		regulator-names = "vddcx", "vdd";
+		/* GDSC oxili regulators */
+		vddcx-supply = <&gpu_cx_gdsc>;
+		vdd-supply = <&gpu_gx_gdsc>;
+		qcom,tpdm-regs = "vddcx", "vdd";
 
 		qcom,msr-fix-req;
 
@@ -2058,10 +2102,10 @@
 		};
 	};
 
-	tpdm_center: tpdm@6c28000 {
+	tpdm_center: tpdm@6b44000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b968>;
-		reg = <0x6c28000 0x1000>;
+		reg = <0x6b44000 0x1000>;
 		reg-names = "tpdm-base";
 
 		coresight-name = "coresight-tpdm-center";
