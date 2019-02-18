@@ -626,3 +626,4 @@
 };
 
 #include "sa8155-audio.dtsi"
+#include "sa8155-camera-sensor.dtsi"
