@@ -52,6 +52,8 @@ extern bool disable_ap_sme;
 
 #define WIL_BRD_SUFFIX_LEN 4 /* max 3 letters + terminating null */
 
+#define WIL_NUM_LATENCY_BINS 200
+
 /**
  * extract bits [@b0:@b1] (inclusive) from the value @x
  * it should be @b0 <= @b1, or result is incorrect
@@ -569,6 +571,9 @@ struct wil_net_stats {
 	unsigned long	rx_bytes;
 	unsigned long	tx_bytes;
 	unsigned long	tx_errors;
+	u32 tx_latency_min_us;
+	u32 tx_latency_max_us;
+	u64 tx_latency_total_us;
 	unsigned long	rx_dropped;
 	unsigned long	rx_non_data_frame;
 	unsigned long	rx_short_frame;
@@ -590,6 +595,13 @@ struct wil_sta_info {
 	u8 addr[ETH_ALEN];
 	enum wil_sta_status status;
 	struct wil_net_stats stats;
+	/**
+	 * 20 latency bins. 1st bin counts packets with latency
+	 * of 0..tx_latency_res, last bin counts packets with latency
+	 * of 19*tx_latency_res and above.
+	 * tx_latency_res is configured from "tx_latency" debug-fs.
+	 */
+	u64 *tx_latency_bins;
 	/* Rx BACK */
 	struct wil_tid_ampdu_rx *tid_rx[WIL_STA_TID_NUM];
 	spinlock_t tid_rx_lock; /* guarding tid_rx array */
@@ -769,6 +781,8 @@ struct wil6210_priv {
 	u8 wakeup_trigger;
 	struct wil_suspend_stats suspend_stats;
 	struct wil_debugfs_data dbg_data;
+	bool tx_latency; /* collect TX latency measurements */
+	size_t tx_latency_res; /* bin resolution in usec */
 
 	void *platform_handle;
 	struct wil_platform_ops platform_ops;
