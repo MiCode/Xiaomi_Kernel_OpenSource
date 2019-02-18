@@ -1694,6 +1694,7 @@
 		clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
 		parent-supply = <&VDD_MMCX_LEVEL>;
 		vdd_parent-supply = <&VDD_MMCX_LEVEL>;
+		qcom,support-hw-trigger;
 	};
 
 	mvs1c_gdsc: qcom,gdsc@abf0c98 {
