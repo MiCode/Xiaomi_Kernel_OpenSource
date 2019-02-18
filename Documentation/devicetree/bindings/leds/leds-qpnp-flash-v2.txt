@@ -119,6 +119,8 @@ Optional properties:
 			  2: Flash strobe is used for LED1; GPIO9 is used for LED2; GPIO10 is used for LED3
 - switchX-supply		: phandle of the regulator that needs to be used
 				  as a supply for flash switch_X device.
+- qcom,bst-pwm-ovrhd-uv		: Charger flash VPH overhead. Applicable for PMI632 only.
+				  Supported values (in mV) are: 300, 400, 500, 600. Default is 300.
 
 Child node: Contains settings for each individual LED. Each LED channel needs a flash node and
 torch node for itself, and an individual switch node to serve as an overall switch.

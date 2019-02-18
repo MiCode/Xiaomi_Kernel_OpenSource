@@ -156,7 +156,7 @@ enum icnss_driver_state {
 	ICNSS_DRIVER_UNLOADING,
 	ICNSS_REJUVENATE,
 	ICNSS_MODE_ON,
-	ICNSS_DRIVER_LOADING,
+	ICNSS_BLOCK_SHUTDOWN,
 };
 
 struct ce_irq_list {
@@ -355,7 +355,7 @@ struct icnss_priv {
 	bool is_hyp_disabled;
 	uint32_t fw_error_fatal_irq;
 	uint32_t fw_early_crash_irq;
-	struct completion driver_probed;
+	struct completion unblock_shutdown;
 	char function_name[WLFW_FUNCTION_NAME_LEN + 1];
 };
 

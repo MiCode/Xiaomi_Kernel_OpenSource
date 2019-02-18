@@ -2772,7 +2772,7 @@ static void fts_enter_pointer_event_handler(struct fts_ts_info *info,
 			unsigned char *event)
 {
 	unsigned char touchId, touchcount;
-	int x, y, z;
+	int x, y;
 	int minor;
 	int major, distance;
 	u8 touchsize;
@@ -2791,9 +2791,6 @@ static void fts_enter_pointer_event_handler(struct fts_ts_info *info,
 
 	x = (event[2] << 4) | (event[4] & 0xF0) >> 4;
 	y = (event[3] << 4) | (event[4] & 0x0F);
-	z = (event[5] & 0x3F);
-	if (z == 0)
-		z = 10;
 
 	if (info->bdata->x_flip)
 		x = X_AXIS_MAX - x;
@@ -2820,7 +2817,6 @@ static void fts_enter_pointer_event_handler(struct fts_ts_info *info,
 	input_report_abs(info->input_dev, ABS_MT_POSITION_Y, y);
 	input_report_abs(info->input_dev, ABS_MT_TOUCH_MAJOR, major);
 	input_report_abs(info->input_dev, ABS_MT_TOUCH_MINOR, minor);
-	input_report_abs(info->input_dev, ABS_MT_PRESSURE, z);
 	input_report_abs(info->input_dev, ABS_MT_DISTANCE, distance);
 no_report:
 	return;
@@ -4599,8 +4595,6 @@ static int fts_probe(struct i2c_client *client,
 			AREA_MIN, AREA_MAX, 0, 0);
 	input_set_abs_params(info->input_dev, ABS_MT_TOUCH_MINOR,
 			AREA_MIN, AREA_MAX, 0, 0);
-	input_set_abs_params(info->input_dev, ABS_MT_PRESSURE,
-			PRESSURE_MIN, PRESSURE_MAX, 0, 0);
 
 #ifdef PHONE_GESTURE
 	input_set_capability(info->input_dev, EV_KEY, KEY_WAKEUP);

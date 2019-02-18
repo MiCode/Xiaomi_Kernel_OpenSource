@@ -19,10 +19,12 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
+#include <linux/nvmem-consumer.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/pwm.h>
+#include <linux/qpnp/qpnp-pbs.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
 #include <linux/types.h>
@@ -105,6 +107,34 @@
 #define LPG_LUT_VALUE_MSB_MASK		BIT(0)
 #define LPG_LUT_COUNT_MAX		47
 
+/* LPG config settings in SDAM */
+#define SDAM_REG_PBS_SEQ_EN			0x42
+#define PBS_SW_TRG_BIT				BIT(0)
+
+#define SDAM_REG_RAMP_STEP_DURATION		0x47
+
+#define SDAM_LUT_EN_OFFSET			0x0
+#define SDAM_PATTERN_CONFIG_OFFSET		0x1
+#define SDAM_END_INDEX_OFFSET			0x3
+#define SDAM_START_INDEX_OFFSET			0x4
+#define SDAM_PBS_SCRATCH_LUT_COUNTER_OFFSET	0x6
+
+/* SDAM_REG_LUT_EN */
+#define SDAM_LUT_EN_BIT				BIT(0)
+
+/* SDAM_REG_PATTERN_CONFIG */
+#define SDAM_PATTERN_LOOP_ENABLE		BIT(3)
+#define SDAM_PATTERN_RAMP_TOGGLE		BIT(2)
+#define SDAM_PATTERN_EN_PAUSE_END		BIT(1)
+#define SDAM_PATTERN_EN_PAUSE_START		BIT(0)
+
+/* SDAM_REG_PAUSE_MULTIPLIER */
+#define SDAM_PAUSE_START_SHIFT			4
+#define SDAM_PAUSE_START_MASK			GENMASK(7, 4)
+#define SDAM_PAUSE_END_MASK			GENMASK(3, 0)
+
+#define SDAM_LUT_COUNT_MAX			64
+
 enum lpg_src {
 	LUT_PATTERN = 0,
 	PWM_VALUE,
@@ -151,6 +181,7 @@ struct qpnp_lpg_channel {
 	u32				lpg_idx;
 	u32				reg_base;
 	u32				max_pattern_length;
+	u32				lpg_sdam_base;
 	u8				src_sel;
 	u8				subtype;
 	bool				lut_written;
@@ -166,7 +197,11 @@ struct qpnp_lpg_chip {
 	struct qpnp_lpg_lut	*lut;
 	struct mutex		bus_lock;
 	u32			*lpg_group;
+	struct nvmem_device	*sdam_nvmem;
+	struct device_node	*pbs_dev_node;
 	u32			num_lpgs;
+	unsigned long		pbs_en_bitmap;
+	bool			use_sdam;
 };
 
 static int qpnp_lpg_read(struct qpnp_lpg_channel *lpg, u16 addr, u8 *val)
@@ -193,7 +228,7 @@ static int qpnp_lpg_write(struct qpnp_lpg_channel *lpg, u16 addr, u8 val)
 	mutex_lock(&lpg->chip->bus_lock);
 	rc = regmap_write(lpg->chip->regmap, lpg->reg_base + addr, val);
 	if (rc < 0)
-		dev_err(lpg->chip->dev, "Write addr 0x%x with value %d failed, rc=%d\n",
+		dev_err(lpg->chip->dev, "Write addr 0x%x with value 0x%x failed, rc=%d\n",
 				lpg->reg_base + addr, val, rc);
 	mutex_unlock(&lpg->chip->bus_lock);
 
@@ -244,6 +279,90 @@ static int qpnp_lut_masked_write(struct qpnp_lpg_lut *lut,
 	mutex_unlock(&lut->chip->bus_lock);
 
 	return rc;
+}
+
+static int qpnp_sdam_write(struct qpnp_lpg_chip *chip, u16 addr, u8 val)
+{
+	int rc;
+
+	mutex_lock(&chip->bus_lock);
+	rc = nvmem_device_write(chip->sdam_nvmem, addr, 1, &val);
+	if (rc < 0)
+		dev_err(chip->dev, "write SDAM add 0x%x failed, rc=%d\n",
+				addr, rc);
+
+	mutex_unlock(&chip->bus_lock);
+
+	return rc > 0 ? 0 : rc;
+}
+
+static int qpnp_lpg_sdam_write(struct qpnp_lpg_channel *lpg, u16 addr, u8 val)
+{
+	struct qpnp_lpg_chip *chip = lpg->chip;
+	int rc;
+
+	mutex_lock(&chip->bus_lock);
+	rc = nvmem_device_write(chip->sdam_nvmem,
+			lpg->lpg_sdam_base + addr, 1, &val);
+	if (rc < 0)
+		dev_err(chip->dev, "write SDAM add 0x%x failed, rc=%d\n",
+				lpg->lpg_sdam_base + addr, rc);
+
+	mutex_unlock(&chip->bus_lock);
+
+	return rc > 0 ? 0 : rc;
+}
+
+static int qpnp_lpg_sdam_masked_write(struct qpnp_lpg_channel *lpg,
+					u16 addr, u8 mask, u8 val)
+{
+	int rc;
+	u8 tmp;
+	struct qpnp_lpg_chip *chip = lpg->chip;
+
+	mutex_lock(&chip->bus_lock);
+
+	rc = nvmem_device_read(chip->sdam_nvmem,
+			lpg->lpg_sdam_base + addr, 1, &tmp);
+	if (rc < 0) {
+		dev_err(chip->dev, "Read SDAM addr %d failed, rc=%d\n",
+				lpg->lpg_sdam_base + addr, rc);
+		goto unlock;
+	}
+
+	tmp = tmp & ~mask;
+	tmp |= val & mask;
+	rc = nvmem_device_write(chip->sdam_nvmem,
+			lpg->lpg_sdam_base + addr, 1, &tmp);
+	if (rc < 0)
+		dev_err(chip->dev, "write SDAM addr %d failed, rc=%d\n",
+				lpg->lpg_sdam_base + addr, rc);
+
+unlock:
+	mutex_unlock(&chip->bus_lock);
+
+	return rc > 0 ? 0 : rc;
+}
+
+static int qpnp_lut_sdam_write(struct qpnp_lpg_lut *lut,
+		u16 addr, u8 *val, size_t length)
+{
+	struct qpnp_lpg_chip *chip = lut->chip;
+	int rc;
+
+	if (addr >= SDAM_LUT_COUNT_MAX)
+		return -EINVAL;
+
+	mutex_lock(&chip->bus_lock);
+	rc = nvmem_device_write(chip->sdam_nvmem,
+			lut->reg_base + addr, length, val);
+	if (rc < 0)
+		dev_err(chip->dev, "write SDAM addr %d failed, rc=%d\n",
+				lut->reg_base + addr, rc);
+
+	mutex_unlock(&chip->bus_lock);
+
+	return rc > 0 ? 0 : rc;
 }
 
 static struct qpnp_lpg_channel *pwm_dev_to_qpnp_lpg(struct pwm_chip *pwm_chip,
@@ -367,13 +486,110 @@ static int qpnp_lpg_set_pwm_config(struct qpnp_lpg_channel *lpg)
 	return rc;
 }
 
-static int qpnp_lpg_set_lut_pattern(struct qpnp_lpg_channel *lpg,
+static int qpnp_lpg_set_sdam_lut_pattern(struct qpnp_lpg_channel *lpg,
 		unsigned int *pattern, unsigned int length)
 {
 	struct qpnp_lpg_lut *lut = lpg->chip->lut;
 	int i, rc = 0;
-	u16 full_duty_value, pwm_values[LPG_LUT_COUNT_MAX + 1] = {0};
+	u8 val[SDAM_LUT_COUNT_MAX + 1], addr;
+
+	if (length > lpg->max_pattern_length) {
+		dev_err(lpg->chip->dev, "new pattern length (%d) larger than predefined (%d)\n",
+				length, lpg->max_pattern_length);
+		return -EINVAL;
+	}
+
+	/* Program LUT pattern */
+	mutex_lock(&lut->lock);
+	addr = lpg->ramp_config.lo_idx;
+	for (i = 0; i < length; i++)
+		val[i] = pattern[i] * 255 / 100;
+
+	rc = qpnp_lut_sdam_write(lut, addr, val, length);
+	if (rc < 0) {
+		dev_err(lpg->chip->dev, "Write pattern in SDAM failed, rc=%d",
+				rc);
+		goto unlock;
+	}
+
+	lpg->ramp_config.pattern_length = length;
+unlock:
+	mutex_unlock(&lut->lock);
+
+	return rc;
+}
+
+static int qpnp_lpg_set_sdam_ramp_config(struct qpnp_lpg_channel *lpg)
+{
+	struct lpg_ramp_config *ramp = &lpg->ramp_config;
+	u8 addr, mask, val;
+	int rc = 0;
+
+	/* clear PBS scatchpad register */
+	val = 0;
+	rc = qpnp_lpg_sdam_write(lpg,
+			SDAM_PBS_SCRATCH_LUT_COUNTER_OFFSET, val);
+	if (rc < 0) {
+		dev_err(lpg->chip->dev, "Write SDAM_PBS_SCRATCH_LUT_COUNTER_OFFSET failed, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	/* Set ramp step duration, one WAIT_TICK is 7.8ms */
+	val = (ramp->step_ms * 1000 / 7800) & 0xff;
+	if (val > 0)
+		val--;
+	addr = SDAM_REG_RAMP_STEP_DURATION;
+	rc = qpnp_sdam_write(lpg->chip, addr, val);
+	if (rc < 0) {
+		dev_err(lpg->chip->dev, "Write SDAM_REG_RAMP_STEP_DURATION failed, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	/* Set hi_idx and lo_idx */
+	rc = qpnp_lpg_sdam_write(lpg, SDAM_END_INDEX_OFFSET, ramp->hi_idx);
+	if (rc < 0) {
+		dev_err(lpg->chip->dev, "Write SDAM_REG_END_INDEX failed, rc=%d\n",
+					rc);
+		return rc;
+	}
+
+	rc = qpnp_lpg_sdam_write(lpg, SDAM_START_INDEX_OFFSET,
+						ramp->lo_idx);
+	if (rc < 0) {
+		dev_err(lpg->chip->dev, "Write SDAM_REG_START_INDEX failed, rc=%d\n",
+					rc);
+		return rc;
+	}
+
+	/* Set LPG_PATTERN_CONFIG */
+	addr = SDAM_PATTERN_CONFIG_OFFSET;
+	mask = SDAM_PATTERN_LOOP_ENABLE;
+	val = 0;
+	if (ramp->pattern_repeat)
+		val |= SDAM_PATTERN_LOOP_ENABLE;
+
+	rc = qpnp_lpg_sdam_masked_write(lpg, addr, mask, val);
+	if (rc < 0) {
+		dev_err(lpg->chip->dev, "Write SDAM_REG_PATTERN_CONFIG failed, rc=%d\n",
+					rc);
+		return rc;
+	}
+
+	return rc;
+}
+
+static int qpnp_lpg_set_lut_pattern(struct qpnp_lpg_channel *lpg,
+		unsigned int *pattern, unsigned int length)
+{
+	struct qpnp_lpg_lut *lut = lpg->chip->lut;
+	u16 full_duty_value, pwm_values[SDAM_LUT_COUNT_MAX + 1] = {0};
+	int i, rc = 0;
 	u8 lsb, msb, addr;
+
+	if (lpg->chip->use_sdam)
+		return qpnp_lpg_set_sdam_lut_pattern(lpg, pattern, length);
 
 	if (length > lpg->max_pattern_length) {
 		dev_err(lpg->chip->dev, "new pattern length (%d) larger than predefined (%d)\n",
@@ -427,6 +643,9 @@ static int qpnp_lpg_set_ramp_config(struct qpnp_lpg_channel *lpg)
 	struct lpg_ramp_config *ramp = &lpg->ramp_config;
 	u8 lsb, msb, addr, mask, val;
 	int rc = 0;
+
+	if (lpg->chip->use_sdam)
+		return qpnp_lpg_set_sdam_ramp_config(lpg);
 
 	/* Set ramp step duration */
 	lsb = ramp->step_ms & 0xff;
@@ -509,6 +728,8 @@ static int qpnp_lpg_set_ramp_config(struct qpnp_lpg_channel *lpg)
 static void __qpnp_lpg_calc_pwm_period(u64 period_ns,
 			struct lpg_pwm_config *pwm_config)
 {
+	struct qpnp_lpg_channel *lpg = container_of(pwm_config,
+			struct qpnp_lpg_channel, pwm_config);
 	struct lpg_pwm_config configs[NUM_PWM_SIZE];
 	int i, j, m, n;
 	u64 tmp1, tmp2;
@@ -524,7 +745,12 @@ static void __qpnp_lpg_calc_pwm_period(u64 period_ns,
 	 *
 	 * Searching the closest settings for the requested PWM period.
 	 */
-	for (n = 0; n < ARRAY_SIZE(pwm_size); n++) {
+	if (lpg->chip->use_sdam)
+		/* SDAM pattern control can only use 9 bit resolution */
+		n = 1;
+	else
+		n = 0;
+	for (; n < ARRAY_SIZE(pwm_size); n++) {
 		pwm_clk_period_ns = period_ns >> pwm_size[n];
 		for (i = ARRAY_SIZE(clk_freq_hz) - 1; i >= 0; i--) {
 			for (j = 0; j < ARRAY_SIZE(clk_prediv); j++) {
@@ -672,6 +898,45 @@ static int qpnp_lpg_pwm_config_extend(struct pwm_chip *pwm_chip,
 	}
 
 	return qpnp_lpg_config(lpg, duty_ns, period_ns);
+};
+
+static int qpnp_lpg_pbs_trigger_enable(struct qpnp_lpg_channel *lpg, bool en)
+{
+	struct qpnp_lpg_chip *chip = lpg->chip;
+	int rc = 0;
+
+	if (en) {
+		if (chip->pbs_en_bitmap == 0) {
+			rc = qpnp_sdam_write(chip, SDAM_REG_PBS_SEQ_EN,
+					PBS_SW_TRG_BIT);
+			if (rc < 0) {
+				dev_err(chip->dev, "Write SDAM_REG_PBS_SEQ_EN failed, rc=%d\n",
+						rc);
+				return rc;
+			}
+
+			rc = qpnp_pbs_trigger_event(chip->pbs_dev_node,
+					PBS_SW_TRG_BIT);
+			if (rc < 0) {
+				dev_err(chip->dev, "Failed to trigger PBS, rc=%d\n",
+						rc);
+				return rc;
+			}
+		}
+		set_bit(lpg->lpg_idx, &chip->pbs_en_bitmap);
+	} else {
+		clear_bit(lpg->lpg_idx, &chip->pbs_en_bitmap);
+		if (chip->pbs_en_bitmap == 0) {
+			rc = qpnp_sdam_write(chip, SDAM_REG_PBS_SEQ_EN, 0);
+			if (rc < 0) {
+				dev_err(chip->dev, "Write SDAM_REG_PBS_SEQ_EN failed, rc=%d\n",
+						rc);
+				return rc;
+			}
+		}
+	}
+
+	return rc;
 }
 
 static int qpnp_lpg_pwm_src_enable(struct qpnp_lpg_channel *lpg, bool en)
@@ -686,7 +951,7 @@ static int qpnp_lpg_pwm_src_enable(struct qpnp_lpg_channel *lpg, bool en)
 					LPG_EN_RAMP_GEN_MASK;
 	val = lpg->src_sel << LPG_PWM_SRC_SELECT_SHIFT;
 
-	if (lpg->src_sel == LUT_PATTERN)
+	if (lpg->src_sel == LUT_PATTERN && !chip->use_sdam)
 		val |= 1 << LPG_EN_RAMP_GEN_SHIFT;
 
 	if (en)
@@ -696,6 +961,27 @@ static int qpnp_lpg_pwm_src_enable(struct qpnp_lpg_channel *lpg, bool en)
 	if (rc < 0) {
 		dev_err(chip->dev, "Write LPG_ENABLE_CONTROL failed, rc=%d\n",
 				rc);
+		return rc;
+	}
+
+	if (chip->use_sdam) {
+		if (lpg->src_sel == LUT_PATTERN && en) {
+			val = SDAM_LUT_EN_BIT;
+			en = true;
+		} else {
+			val = 0;
+			en = false;
+		}
+
+		rc = qpnp_lpg_sdam_write(lpg, SDAM_LUT_EN_OFFSET, val);
+		if (rc < 0) {
+			dev_err(chip->dev, "Write SDAM_REG_LUT_EN failed, rc=%d\n",
+					rc);
+			return rc;
+		}
+
+		qpnp_lpg_pbs_trigger_enable(lpg, en);
+
 		return rc;
 	}
 
@@ -741,6 +1027,7 @@ static int qpnp_lpg_pwm_set_output_type(struct pwm_chip *pwm_chip,
 	struct qpnp_lpg_channel *lpg;
 	enum lpg_src src_sel;
 	int rc;
+	bool is_enabled;
 
 	lpg = pwm_dev_to_qpnp_lpg(pwm_chip, pwm);
 	if (lpg == NULL) {
@@ -757,6 +1044,23 @@ static int qpnp_lpg_pwm_set_output_type(struct pwm_chip *pwm_chip,
 				LUT_PATTERN : PWM_VALUE;
 	if (src_sel == lpg->src_sel)
 		return 0;
+
+	is_enabled = pwm_is_enabled(pwm);
+	if (is_enabled) {
+		/*
+		 * Disable the channel first then enable it later to make
+		 * sure the output type is changed successfully. This is
+		 * especially useful in SDAM use case to stop the PBS
+		 * sequence when changing the PWM output type from
+		 * MODULATED to FIXED.
+		 */
+		rc = qpnp_lpg_pwm_src_enable(lpg, false);
+		if (rc < 0) {
+			dev_err(pwm_chip->dev, "Enable PWM output failed for channel %d, rc=%d\n",
+					lpg->lpg_idx, rc);
+			return rc;
+		}
+	}
 
 	if (src_sel == LUT_PATTERN) {
 		/* program LUT if it's never been programmed */
@@ -782,7 +1086,14 @@ static int qpnp_lpg_pwm_set_output_type(struct pwm_chip *pwm_chip,
 
 	lpg->src_sel = src_sel;
 
-	if (pwm_is_enabled(pwm)) {
+	if (is_enabled) {
+		rc = qpnp_lpg_set_pwm_config(lpg);
+		if (rc < 0) {
+			dev_err(pwm_chip->dev, "Config PWM failed for channel %d, rc=%d\n",
+							lpg->lpg_idx, rc);
+			return rc;
+		}
+
 		rc = qpnp_lpg_pwm_src_enable(lpg, true);
 		if (rc < 0) {
 			dev_err(pwm_chip->dev, "Enable PWM output failed for channel %d, rc=%d\n",
@@ -1034,7 +1345,7 @@ static int qpnp_lpg_parse_dt(struct qpnp_lpg_chip *chip)
 	struct qpnp_lpg_channel *lpg;
 	struct lpg_ramp_config *ramp;
 	int rc = 0, i;
-	u32 base, length, lpg_chan_id, tmp;
+	u32 base, length, lpg_chan_id, tmp, max_count;
 	const __be32 *addr;
 
 	addr = of_get_address(chip->dev->of_node, 0, NULL, NULL);
@@ -1075,18 +1386,47 @@ static int qpnp_lpg_parse_dt(struct qpnp_lpg_chip *chip)
 		}
 	}
 
-	addr = of_get_address(chip->dev->of_node, 1, NULL, NULL);
-	if (!addr) {
-		pr_debug("NO LUT address assigned\n");
-		return 0;
-	}
-
 	chip->lut = devm_kmalloc(chip->dev, sizeof(*chip->lut), GFP_KERNEL);
 	if (!chip->lut)
 		return -ENOMEM;
 
+	chip->sdam_nvmem = devm_nvmem_device_get(chip->dev, "ppg_sdam");
+	if (IS_ERR_OR_NULL(chip->sdam_nvmem)) {
+		if (PTR_ERR(chip->sdam_nvmem) == -EPROBE_DEFER)
+			return -EPROBE_DEFER;
+
+		addr = of_get_address(chip->dev->of_node, 1, NULL, NULL);
+		if (!addr) {
+			pr_debug("NO LUT address assigned\n");
+			devm_kfree(chip->dev, chip->lut);
+			chip->lut = NULL;
+			return 0;
+		}
+
+		chip->lut->reg_base = be32_to_cpu(*addr);
+		max_count = LPG_LUT_COUNT_MAX;
+	} else {
+		chip->use_sdam = true;
+		chip->pbs_dev_node = of_parse_phandle(chip->dev->of_node,
+				"qcom,pbs-client", 0);
+		if (!chip->pbs_dev_node) {
+			dev_err(chip->dev, "Missing qcom,pbs-client property\n");
+			return -EINVAL;
+		}
+
+		rc = of_property_read_u32(chip->dev->of_node,
+				"qcom,lut-sdam-base",
+				&chip->lut->reg_base);
+		if (rc < 0) {
+			dev_err(chip->dev, "Read qcom,lut-sdam-base failed, rc=%d\n",
+					rc);
+			return rc;
+		}
+
+		max_count = SDAM_LUT_COUNT_MAX;
+	}
+
 	chip->lut->chip = chip;
-	chip->lut->reg_base = be32_to_cpu(*addr);
 	mutex_init(&chip->lut->lock);
 
 	rc = of_property_count_elems_of_size(chip->dev->of_node,
@@ -1098,13 +1438,13 @@ static int qpnp_lpg_parse_dt(struct qpnp_lpg_chip *chip)
 	}
 
 	length = rc;
-	if (length > LPG_LUT_COUNT_MAX) {
+	if (length > max_count) {
 		dev_err(chip->dev, "qcom,lut-patterns length %d exceed max %d\n",
-				length, LPG_LUT_COUNT_MAX);
+				length, max_count);
 		return -EINVAL;
 	}
 
-	chip->lut->pattern = devm_kcalloc(chip->dev, LPG_LUT_COUNT_MAX,
+	chip->lut->pattern = devm_kcalloc(chip->dev, max_count,
 			sizeof(*chip->lut->pattern), GFP_KERNEL);
 	if (!chip->lut->pattern)
 		return -ENOMEM;
@@ -1131,10 +1471,22 @@ static int qpnp_lpg_parse_dt(struct qpnp_lpg_chip *chip)
 			return rc;
 		}
 
-		if (lpg_chan_id > chip->num_lpgs) {
+		if (lpg_chan_id < 1 || lpg_chan_id > chip->num_lpgs) {
 			dev_err(chip->dev, "lpg-chann-id %d is out of range 1~%d\n",
 					lpg_chan_id, chip->num_lpgs);
 			return -EINVAL;
+		}
+
+		if (chip->use_sdam) {
+			rc = of_property_read_u32(child,
+					"qcom,lpg-sdam-base",
+					&tmp);
+			if (rc < 0) {
+				dev_err(chip->dev, "get qcom,lpg-sdam-base failed for lpg%d, rc=%d\n",
+						lpg_chan_id, rc);
+				return rc;
+			}
+			chip->lpgs[lpg_chan_id - 1].lpg_sdam_base = tmp;
 		}
 
 		/* lpg channel id is indexed from 1 in hardware */
@@ -1156,9 +1508,9 @@ static int qpnp_lpg_parse_dt(struct qpnp_lpg_chip *chip)
 			return rc;
 		}
 		ramp->lo_idx = (u8)tmp;
-		if (ramp->lo_idx >= LPG_LUT_COUNT_MAX) {
+		if (ramp->lo_idx >= max_count) {
 			dev_err(chip->dev, "qcom,ramp-low-index should less than max %d\n",
-					LPG_LUT_COUNT_MAX);
+						max_count);
 			return -EINVAL;
 		}
 
@@ -1170,14 +1522,14 @@ static int qpnp_lpg_parse_dt(struct qpnp_lpg_chip *chip)
 		}
 		ramp->hi_idx = (u8)tmp;
 
-		if (ramp->hi_idx > LPG_LUT_COUNT_MAX) {
+		if (ramp->hi_idx > max_count) {
 			dev_err(chip->dev, "qcom,ramp-high-index shouldn't exceed max %d\n",
-						LPG_LUT_COUNT_MAX);
+						max_count);
 			return -EINVAL;
 		}
 
-		if (ramp->hi_idx <= ramp->lo_idx) {
-			dev_err(chip->dev, "high-index(%d) should be larger than low-index(%d)\n",
+		if (chip->use_sdam && ramp->hi_idx <= ramp->lo_idx) {
+			dev_err(chip->dev, "high-index(%d) should be larger than low-index(%d) when SDAM used\n",
 						ramp->hi_idx, ramp->lo_idx);
 			return -EINVAL;
 		}
@@ -1185,6 +1537,12 @@ static int qpnp_lpg_parse_dt(struct qpnp_lpg_chip *chip)
 		ramp->pattern_length = ramp->hi_idx - ramp->lo_idx + 1;
 		ramp->pattern = &chip->lut->pattern[ramp->lo_idx];
 		lpg->max_pattern_length = ramp->pattern_length;
+
+		ramp->pattern_repeat = of_property_read_bool(child,
+				"qcom,ramp-pattern-repeat");
+
+		if (chip->use_sdam)
+			continue;
 
 		rc = of_property_read_u32(child,
 				"qcom,ramp-pause-hi-count", &tmp);
@@ -1202,9 +1560,6 @@ static int qpnp_lpg_parse_dt(struct qpnp_lpg_chip *chip)
 
 		ramp->ramp_dir_low_to_hi = of_property_read_bool(child,
 				"qcom,ramp-from-low-to-high");
-
-		ramp->pattern_repeat = of_property_read_bool(child,
-				"qcom,ramp-pattern-repeat");
 
 		ramp->toggle =  of_property_read_bool(child,
 				"qcom,ramp-toggle");
@@ -1260,6 +1615,36 @@ static int qpnp_lpg_parse_dt(struct qpnp_lpg_chip *chip)
 	return 0;
 }
 
+static int qpnp_lpg_sdam_hw_init(struct qpnp_lpg_chip *chip)
+{
+	struct qpnp_lpg_channel *lpg;
+	int i, rc = 0;
+
+	if (!chip->use_sdam)
+		return 0;
+
+	for (i = 0; i < chip->num_lpgs; i++) {
+		lpg = &chip->lpgs[i];
+		if (lpg->lpg_sdam_base != 0) {
+			rc = qpnp_lpg_sdam_write(lpg, SDAM_LUT_EN_OFFSET, 0);
+			if (rc < 0) {
+				dev_err(chip->dev, "Write SDAM_REG_LUT_EN failed, rc=%d\n",
+						rc);
+				return rc;
+			}
+			rc = qpnp_lpg_sdam_write(lpg,
+					SDAM_PBS_SCRATCH_LUT_COUNTER_OFFSET, 0);
+			if (rc < 0) {
+				dev_err(lpg->chip->dev, "Write SDAM_REG_PBS_SCRATCH_LUT_COUNTER failed, rc=%d\n",
+						rc);
+				return rc;
+			}
+		}
+	}
+
+	return rc;
+}
+
 static int qpnp_lpg_probe(struct platform_device *pdev)
 {
 	int rc;
@@ -1280,6 +1665,13 @@ static int qpnp_lpg_probe(struct platform_device *pdev)
 	rc = qpnp_lpg_parse_dt(chip);
 	if (rc < 0) {
 		dev_err(chip->dev, "Devicetree properties parsing failed, rc=%d\n",
+				rc);
+		goto err_out;
+	}
+
+	rc = qpnp_lpg_sdam_hw_init(chip);
+	if (rc < 0) {
+		dev_err(chip->dev, "SDAM HW init failed, rc=%d\n",
 				rc);
 		goto err_out;
 	}

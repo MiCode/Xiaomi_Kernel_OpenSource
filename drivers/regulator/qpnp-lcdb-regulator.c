@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -114,6 +114,10 @@
 #define PFM_CURRENT_SHIFT		2
 
 #define LCDB_PWRUP_PWRDN_CTL_REG	0x66
+#define PWRUP_DELAY_MASK		GENAMSK(3, 2)
+#define PWRDN_DELAY_MASK		GENMASK(1, 0)
+#define PWRDN_DELAY_MIN_MS		0
+#define PWRDN_DELAY_MAX_MS		8
 
 /* LDO */
 #define LCDB_LDO_OUTPUT_VOLTAGE_REG	0x71
@@ -125,6 +129,10 @@
 #define LCDB_LDO_PD_CTL_REG		0x77
 #define LDO_DIS_PULLDOWN_BIT		BIT(1)
 #define LDO_PD_STRENGTH_BIT		BIT(0)
+
+#define LCDB_LDO_FORCE_PD_CTL_REG	0x79
+#define LDO_FORCE_PD_EN_BIT		BIT(0)
+#define LDO_FORCE_PD_MODE		BIT(7)
 
 #define LCDB_LDO_ILIM_CTL1_REG		0x7B
 #define EN_LDO_ILIM_BIT			BIT(7)
@@ -220,7 +228,9 @@ struct qpnp_lcdb {
 	struct regmap			*regmap;
 	struct pmic_revid_data		*pmic_rev_id;
 	u32				base;
+	u32				wa_flags;
 	int				sc_irq;
+	int				pwrdn_delay_ms;
 
 	/* TTW params */
 	bool				ttw_enable;
@@ -292,6 +302,11 @@ enum lcdb_settings_index {
 	LCDB_SETTING_MAX,
 };
 
+enum lcdb_wa_flags {
+	NCP_SCP_DISABLE_WA = BIT(0),
+	FORCE_PD_ENABLE_WA = BIT(1),
+};
+
 static u32 soft_start_us[] = {
 	0,
 	500,
@@ -311,6 +326,13 @@ static u32 ncp_ilim_ma[] = {
 	460,
 	640,
 	810,
+};
+
+static const u32 pwrup_pwrdn_ms[] = {
+	0,
+	1,
+	4,
+	8,
 };
 
 #define SETTING(_id, _sec_access, _valid)	\
@@ -545,23 +567,9 @@ static int qpnp_lcdb_ttw_enter(struct qpnp_lcdb *lcdb)
 		lcdb->settings_saved = true;
 	}
 
-	val = HWEN_RDY_BIT;
-	rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_ENABLE_CTL1_REG,
-			     &val, 1);
-	if (rc < 0) {
-		pr_err("Failed to hw_enable lcdb rc= %d\n", rc);
-		return rc;
-	}
-
 	val = (BST_SS_TIME_OVERRIDE_1MS << BST_SS_TIME_OVERRIDE_SHIFT) |
 	      (DIS_BST_PRECHG_SHORT_ALARM << BST_PRECHG_SHORT_ALARM_SHIFT);
 	rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_BST_SS_CTL_REG, &val, 1);
-	if (rc < 0)
-		return rc;
-
-	val = 0;
-	rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_LDO_SOFT_START_CTL_REG,
-			     &val, 1);
 	if (rc < 0)
 		return rc;
 
@@ -571,20 +579,8 @@ static int qpnp_lcdb_ttw_enter(struct qpnp_lcdb *lcdb)
 	if (rc < 0)
 		return rc;
 
-	val = BOOST_DIS_PULLDOWN_BIT | BOOST_PD_STRENGTH_BIT;
-	rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_BST_PD_CTL_REG,
-			     &val, 1);
-	if (rc < 0)
-		return rc;
-
-	val = LDO_DIS_PULLDOWN_BIT | LDO_PD_STRENGTH_BIT;
-	rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_LDO_PD_CTL_REG,
-							&val, 1);
-	if (rc < 0)
-		return rc;
-
-	val = NCP_DIS_PULLDOWN_BIT | NCP_PD_STRENGTH_BIT;
-	rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_NCP_PD_CTL_REG,
+	val = 0;
+	rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_LDO_SOFT_START_CTL_REG,
 			     &val, 1);
 	if (rc < 0)
 		return rc;
@@ -597,6 +593,30 @@ static int qpnp_lcdb_ttw_enter(struct qpnp_lcdb *lcdb)
 
 	val = 0;
 	rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_BST_VREG_OK_CTL_REG,
+			     &val, 1);
+	if (rc < 0)
+		return rc;
+
+	val = BOOST_DIS_PULLDOWN_BIT;
+	rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_BST_PD_CTL_REG,
+			     &val, 1);
+	if (rc < 0)
+		return rc;
+
+	val = LDO_DIS_PULLDOWN_BIT;
+	rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_LDO_PD_CTL_REG,
+							&val, 1);
+	if (rc < 0)
+		return rc;
+
+	val = NCP_DIS_PULLDOWN_BIT;
+	rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_NCP_PD_CTL_REG,
+			     &val, 1);
+	if (rc < 0)
+		return rc;
+
+	val = HWEN_RDY_BIT;
+	rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_ENABLE_CTL1_REG,
 			     &val, 1);
 
 	return rc;
@@ -917,6 +937,18 @@ static int qpnp_lcdb_disable(struct qpnp_lcdb *lcdb)
 		return 0;
 	}
 
+	if (lcdb->wa_flags & FORCE_PD_ENABLE_WA) {
+		/*
+		 * force pull-down to enable quick discharge after
+		 * turning off
+		 */
+		val = LDO_FORCE_PD_EN_BIT | LDO_FORCE_PD_MODE;
+		rc = qpnp_lcdb_write(lcdb, lcdb->base +
+				     LCDB_LDO_FORCE_PD_CTL_REG, &val, 1);
+		if (rc < 0)
+			return rc;
+	}
+
 	val = 0;
 	rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_ENABLE_CTL1_REG,
 							&val, 1);
@@ -924,6 +956,17 @@ static int qpnp_lcdb_disable(struct qpnp_lcdb *lcdb)
 		pr_err("Failed to disable lcdb rc= %d\n", rc);
 	else
 		lcdb->lcdb_enabled = false;
+
+	if (lcdb->wa_flags & FORCE_PD_ENABLE_WA) {
+		/* wait for 10 msec after module disable for LDO to discharge */
+		usleep_range(10000, 11000);
+
+		val = 0;
+		rc = qpnp_lcdb_write(lcdb, lcdb->base +
+				     LCDB_LDO_FORCE_PD_CTL_REG, &val, 1);
+		if (rc < 0)
+			return rc;
+	}
 
 	return rc;
 }
@@ -2022,10 +2065,39 @@ static int qpnp_lcdb_init_bst(struct qpnp_lcdb *lcdb)
 	return 0;
 }
 
+static void qpnp_lcdb_pmic_config(struct qpnp_lcdb *lcdb)
+{
+	switch (lcdb->pmic_rev_id->pmic_subtype) {
+	case PM660L_SUBTYPE:
+		if (lcdb->pmic_rev_id->rev4 < PM660L_V2P0_REV4)
+			lcdb->wa_flags |= NCP_SCP_DISABLE_WA;
+		break;
+	case PMI632_SUBTYPE:
+	case PM6150L_SUBTYPE:
+		lcdb->wa_flags |= FORCE_PD_ENABLE_WA;
+		break;
+	default:
+		break;
+	}
+
+	pr_debug("LCDB wa_flags = 0x%2x\n", lcdb->wa_flags);
+}
+
 static int qpnp_lcdb_hw_init(struct qpnp_lcdb *lcdb)
 {
 	int rc = 0;
 	u8 val = 0;
+
+	qpnp_lcdb_pmic_config(lcdb);
+
+	if (lcdb->pwrdn_delay_ms != -EINVAL) {
+		rc = qpnp_lcdb_masked_write(lcdb, lcdb->base +
+					    LCDB_PWRUP_PWRDN_CTL_REG,
+					    PWRDN_DELAY_MASK,
+					    lcdb->pwrdn_delay_ms);
+		if (rc < 0)
+			return rc;
+	}
 
 	rc = qpnp_lcdb_init_bst(lcdb);
 	if (rc < 0) {
@@ -2084,7 +2156,8 @@ static int qpnp_lcdb_hw_init(struct qpnp_lcdb *lcdb)
 
 static int qpnp_lcdb_parse_dt(struct qpnp_lcdb *lcdb)
 {
-	int rc = 0;
+	int rc = 0, i = 0;
+	u32 tmp;
 	const char *label;
 	struct device_node *revid_dev_node, *temp, *node = lcdb->dev->of_node;
 
@@ -2148,7 +2221,24 @@ static int qpnp_lcdb_parse_dt(struct qpnp_lcdb *lcdb)
 	lcdb->voltage_step_ramp =
 			of_property_read_bool(node, "qcom,voltage-step-ramp");
 
-	return rc;
+	lcdb->pwrdn_delay_ms = -EINVAL;
+	rc = of_property_read_u32(node, "qcom,pwrdn-delay-ms", &tmp);
+	if (!rc) {
+		if (!is_between(tmp, PWRDN_DELAY_MIN_MS, PWRDN_DELAY_MAX_MS)) {
+			pr_err("Invalid PWRDN_DLY val %d (min=%d max=%d)\n",
+				tmp, PWRDN_DELAY_MIN_MS, PWRDN_DELAY_MAX_MS);
+			return -EINVAL;
+		}
+
+		for (i = 0; i < ARRAY_SIZE(pwrup_pwrdn_ms); i++) {
+			if (tmp == pwrup_pwrdn_ms[i]) {
+				lcdb->pwrdn_delay_ms = i;
+				break;
+			}
+		}
+	}
+
+	return 0;
 }
 
 static int qpnp_lcdb_regulator_probe(struct platform_device *pdev)

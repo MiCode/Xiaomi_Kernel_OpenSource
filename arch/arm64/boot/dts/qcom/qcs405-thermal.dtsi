@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -196,7 +196,7 @@
 		thermal-governor = "step_wise";
 		trips {
 			cpu_trip:cpu-trip {
-				temperature = <85000>;
+				temperature = <105000>;
 				hysteresis = <0>;
 				type = "passive";
 			};
@@ -236,7 +236,7 @@
 		thermal-governor = "step_wise";
 		trips {
 			gpu_step_trip: gpu-step-trip {
-				temperature = <95000>;
+				temperature = <105000>;
 				hysteresis = <0>;
 				type = "passive";
 			};
@@ -258,8 +258,8 @@
 		thermal-governor = "step_wise";
 		trips {
 			cpuss_0_step_trip: cpuss-0-step-trip {
-				temperature = <105000>;
-				hysteresis = <15000>;
+				temperature = <118000>;
+				hysteresis = <10000>;
 				type = "passive";
 			};
 		};
@@ -280,8 +280,8 @@
 		thermal-governor = "step_wise";
 		trips {
 			cpuss_1_step_trip: cpuss-1-step-trip {
-				temperature = <105000>;
-				hysteresis = <15000>;
+				temperature = <118000>;
+				hysteresis = <10000>;
 				type = "passive";
 			};
 		};
@@ -302,8 +302,8 @@
 		thermal-governor = "step_wise";
 		trips {
 			cpuss_2_step_trip: cpuss-2-step-trip {
-				temperature = <105000>;
-				hysteresis = <15000>;
+				temperature = <118000>;
+				hysteresis = <10000>;
 				type = "passive";
 			};
 		};
@@ -324,8 +324,8 @@
 		thermal-governor = "step_wise";
 		trips {
 			cpuss_3_step_trip: cpuss-3-step-trip {
-				temperature = <105000>;
-				hysteresis = <15000>;
+				temperature = <118000>;
+				hysteresis = <10000>;
 				type = "passive";
 			};
 		};

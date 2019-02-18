@@ -7,6 +7,7 @@ Required properties:
 	- compatible: Should be set to one of the following:
 		qca,ar3002
 		qca,qca6174
+		qca,qca6390
 		qca,wcn3990
 	- qca,bt-reset-gpio: GPIO pin to bring BT Controller out of reset
 

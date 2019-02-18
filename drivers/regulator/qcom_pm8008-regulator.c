@@ -556,6 +556,7 @@ static int pm8008_register_ldo(struct pm8008_regulator *pm8008_reg,
 	pm8008_reg->rdesc.type = REGULATOR_VOLTAGE;
 	pm8008_reg->rdesc.ops = &pm8008_regulator_ops;
 	pm8008_reg->rdesc.name = init_data->constraints.name;
+	pm8008_reg->rdesc.n_voltages = 1;
 
 	pm8008_reg->rdev = devm_regulator_register(dev, &pm8008_reg->rdesc,
 						&reg_config);

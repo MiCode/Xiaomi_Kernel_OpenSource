@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -142,6 +142,7 @@ enum sde_plane_sclcheck_state {
  * @pixel_ext: configuration data for pixel extensions
  * @scaler_check_state: indicates status of user provided pixel extension data
  * @cdp_cfg:	CDP configuration
+ * @line_insertion_cfg: line insertion configuration
  */
 struct sde_plane_state {
 	struct drm_plane_state base;
@@ -169,6 +170,7 @@ struct sde_plane_state {
 	struct sde_plane_rot_state rot;
 
 	struct sde_hw_pipe_cdp_cfg cdp_cfg;
+	struct sde_hw_pipe_line_insertion_cfg line_insertion_cfg;
 };
 
 /**

@@ -1,4 +1,4 @@
-/* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -394,6 +394,7 @@ enum {
 
 #define TYPE_C_EXIT_STATE_CFG_REG		(TYPEC_BASE + 0x50)
 #define BYPASS_VSAFE0V_DURING_ROLE_SWAP_BIT	BIT(3)
+#define SEL_SRC_UPPER_REF_BIT			BIT(2)
 #define EXIT_SNK_BASED_ON_CC_BIT		BIT(0)
 
 #define TYPE_C_CURRSRC_CFG_REG			(TYPEC_BASE + 0x52)
@@ -491,6 +492,7 @@ enum {
 #define SNARL_BARK_BITE_WD_CFG_REG		(MISC_BASE + 0x53)
 #define BITE_WDOG_DISABLE_CHARGING_CFG_BIT	BIT(7)
 #define SNARL_WDOG_TIMEOUT_MASK                 GENMASK(6, 4)
+#define SNARL_WDOG_TIMEOUT_SHIFT		4
 #define SNARL_WDOG_TMOUT_62P5MS			0x00
 #define SNARL_WDOG_TMOUT_1S			0x40
 #define SNARL_WDOG_TMOUT_8S			0x70

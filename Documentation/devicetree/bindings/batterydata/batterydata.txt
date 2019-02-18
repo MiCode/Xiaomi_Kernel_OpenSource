@@ -87,6 +87,11 @@ Profile data node optional properties:
 			If yes, the low and high thresholds defined in
 			"qcom,step-chg-ranges" tuples should be assigned as
 			OCV values in microvolts.
+- qcom,vbat-avg-based-step-chg: A bool property to indicate if the battery will
+			perform average VBAT (Battery Voltage) based step charging.
+			If yes, the low and high thresholds defined in
+			"qcom,step-chg-ranges" tuples should be assigned as
+			VBAT values in microvolts.
 - qcom,step-chg-ranges: Array of tuples in which a tuple describes a range
 			data of step charging setting.
 			A range contains following 3 integer elements:
@@ -141,6 +146,9 @@ Profile data node optional properties:
 			Element 1 - FV value for soft warm.
 - qcom,batt-age-level:  Battery age level. This is used only when multiple
 			profile loading is supported.
+- qcom,taper-fcc: A bool property to enable gradual reduction in FCC in steps
+			of pre-configured value, whenever step charging
+			thresholds are crossed-over.
 Profile data node required subnodes:
 - qcom,fcc-temp-lut : An 1-dimensional lookup table node that encodes
 			temperature to fcc lookup. The units for this lookup

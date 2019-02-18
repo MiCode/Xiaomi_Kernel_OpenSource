@@ -6,6 +6,7 @@ ccflags-$(CONFIG_DRM_MSM_DSI_PLL) += -Idrivers/gpu/drm/msm/dsi
 ccflags-y += -Idrivers/gpu/drm/msm/sde
 ccflags-y += -Idrivers/media/platform/msm/sde/rotator
 ccflags-y += -Idrivers/gpu/drm/msm/hdmi
+ccflags-$(CONFIG_DRM_SDE_SHD) += -Idrivers/gpu/drm/msm/shd
 
 msm_drm-y := \
 	dp/dp_usbpd.o \
@@ -185,6 +186,10 @@ msm_drm-$(CONFIG_DRM_MSM) += \
 
 msm_drm-$(CONFIG_DRM_SDE_WB) += sde/sde_wb.o \
 	sde/sde_encoder_phys_wb.o
+
+msm_drm-$(CONFIG_DRM_SDE_SHD) += shd/shd_drm.o \
+	shd/shd_hw.o \
+	shd/sde_encoder_phys_shd.o
 
 msm_drm-$(CONFIG_DRM_MSM) += \
 	msm_atomic.o \

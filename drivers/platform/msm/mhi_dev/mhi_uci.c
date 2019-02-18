@@ -1,4 +1,4 @@
-/* Copyright (c) 2015,2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015,2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -396,7 +396,7 @@ static int mhi_uci_send_sync(struct uci_client *uci_handle,
 	ureq.buf = data_loc;
 	ureq.len = size;
 	ureq.chan = uci_handle->out_chan;
-	ureq.mode = IPA_DMA_SYNC;
+	ureq.mode = DMA_SYNC;
 
 	ret_val = mhi_dev_write_channel(&ureq);
 
@@ -430,7 +430,7 @@ static int mhi_uci_send_async(struct uci_client *uci_handle,
 	ureq->buf = data_loc;
 	ureq->len = size;
 	ureq->chan = uci_handle->out_chan;
-	ureq->mode = IPA_DMA_ASYNC;
+	ureq->mode = DMA_ASYNC;
 	ureq->client_cb = mhi_uci_write_completion_cb;
 	ureq->snd_cmpl = 1;
 
@@ -572,7 +572,7 @@ static int mhi_uci_read_async(struct uci_client *uci_handle,
 	uci_log(UCI_DBG_ERROR,
 		"Async read for ch %d\n", uci_handle->in_chan);
 
-	ureq->mode = IPA_DMA_ASYNC;
+	ureq->mode = DMA_ASYNC;
 	ureq->client_cb = mhi_uci_read_completion_cb;
 	ureq->snd_cmpl = 1;
 	ureq->context = uci_handle;
@@ -627,7 +627,7 @@ static int mhi_uci_read_sync(struct uci_client *uci_handle,
 {
 	int ret_val = 0;
 
-	ureq->mode = IPA_DMA_SYNC;
+	ureq->mode = DMA_SYNC;
 	*bytes_avail = mhi_dev_read_channel(ureq);
 
 	uci_log(UCI_DBG_VERBOSE, "buf_size = 0x%x bytes_read = 0x%x\n",

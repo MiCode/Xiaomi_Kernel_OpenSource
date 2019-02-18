@@ -34,6 +34,7 @@
 #include "sde_rotator_r3_debug.h"
 #include "sde_rotator_trace.h"
 #include "sde_rotator_debug.h"
+#include "sde_rotator_vbif.h"
 
 #define RES_UHD              (3840*2160)
 #define MS_TO_US(t) ((t) * USEC_PER_MSEC)
@@ -42,10 +43,6 @@
 #define TRAFFIC_SHAPE_CLKTICK_14MS   268800
 #define TRAFFIC_SHAPE_CLKTICK_12MS   230400
 #define TRAFFIC_SHAPE_VSYNC_CLK      19200000
-
-/* XIN mapping */
-#define XIN_SSPP		0
-#define XIN_WRITEBACK		1
 
 /* wait for at most 2 vsync for lowest refresh rate (24hz) */
 #define KOFF_TIMEOUT		(42 * 8)
@@ -977,9 +974,10 @@ static int sde_hw_rotator_halt_vbif_xin_client(void)
 {
 	struct sde_mdp_vbif_halt_params halt_params;
 	int rc = 0;
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
 
 	memset(&halt_params, 0, sizeof(struct sde_mdp_vbif_halt_params));
-	halt_params.xin_id = XIN_SSPP;
+	halt_params.xin_id = mdata->vbif_xin_id[XIN_SSPP];
 	halt_params.reg_off_mdp_clk_ctrl = MMSS_VBIF_NRT_VBIF_CLK_FORCE_CTRL0;
 	halt_params.bit_off_mdp_clk_ctrl =
 		MMSS_VBIF_NRT_VBIF_CLK_FORCE_CTRL0_XIN0;
@@ -987,7 +985,7 @@ static int sde_hw_rotator_halt_vbif_xin_client(void)
 	rc |=  halt_params.xin_timeout;
 
 	memset(&halt_params, 0, sizeof(struct sde_mdp_vbif_halt_params));
-	halt_params.xin_id = XIN_WRITEBACK;
+	halt_params.xin_id = mdata->vbif_xin_id[XIN_WRITEBACK];
 	halt_params.reg_off_mdp_clk_ctrl = MMSS_VBIF_NRT_VBIF_CLK_FORCE_CTRL0;
 	halt_params.bit_off_mdp_clk_ctrl =
 		MMSS_VBIF_NRT_VBIF_CLK_FORCE_CTRL0_XIN1;
@@ -1253,6 +1251,47 @@ static void sde_hw_rotator_unmap_vaddr(struct sde_dbg_buf *dbgbuf)
 	dbgbuf->buflen = 0;
 	dbgbuf->width  = 0;
 	dbgbuf->height = 0;
+}
+
+static void sde_hw_rotator_vbif_rt_setting(void)
+{
+	u32 reg_high, reg_shift, reg_val, reg_val_lvl, mask, vbif_qos;
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+	int i, j;
+
+	vbif_lock(mdata->parent_pdev);
+
+	for (i = 0; i < mdata->npriority_lvl; i++) {
+		for (j = 0; j < MAX_XIN; j++) {
+			reg_high = ((mdata->vbif_xin_id[j]
+						& 0x8) >> 3) * 4 + (i * 8);
+			reg_shift = mdata->vbif_xin_id[j] * 4;
+
+			reg_val = SDE_VBIF_READ(mdata,
+			MMSS_VBIF_NRT_VBIF_QOS_RP_REMAP_000 + reg_high);
+			reg_val_lvl = SDE_VBIF_READ(mdata,
+			MMSS_VBIF_NRT_VBIF_QOS_LVL_REMAP_000 + reg_high);
+
+			mask = 0x7 << (mdata->vbif_xin_id[j] * 4);
+
+			vbif_qos = mdata->vbif_nrt_qos[i];
+
+			reg_val &= ~mask;
+			reg_val |= (vbif_qos << reg_shift) & mask;
+
+			reg_val_lvl &= ~mask;
+			reg_val_lvl |= (vbif_qos << reg_shift) & mask;
+
+			SDE_VBIF_WRITE(mdata,
+				MMSS_VBIF_NRT_VBIF_QOS_RP_REMAP_000 + reg_high,
+					reg_val);
+			SDE_VBIF_WRITE(mdata,
+				MMSS_VBIF_NRT_VBIF_QOS_LVL_REMAP_000 + reg_high,
+					reg_val_lvl);
+		}
+	}
+
+	vbif_unlock(mdata->parent_pdev);
 }
 
 /*
@@ -3045,7 +3084,7 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 		struct sde_mdp_set_ot_params ot_params;
 
 		memset(&ot_params, 0, sizeof(struct sde_mdp_set_ot_params));
-		ot_params.xin_id = XIN_SSPP;
+		ot_params.xin_id = mdata->vbif_xin_id[XIN_SSPP];
 		ot_params.num = 0; /* not used */
 		ot_params.width = entry->perf->config.input.width;
 		ot_params.height = entry->perf->config.input.height;
@@ -3067,7 +3106,7 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 		struct sde_mdp_set_ot_params ot_params;
 
 		memset(&ot_params, 0, sizeof(struct sde_mdp_set_ot_params));
-		ot_params.xin_id = XIN_WRITEBACK;
+		ot_params.xin_id = mdata->vbif_xin_id[XIN_WRITEBACK];
 		ot_params.num = 0; /* not used */
 		ot_params.width = entry->perf->config.input.width;
 		ot_params.height = entry->perf->config.input.height;
@@ -3088,15 +3127,20 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 	if (test_bit(SDE_QOS_PER_PIPE_LUT, mdata->sde_qos_map))	{
 		u32 qos_lut = 0; /* low priority for nrt read client */
 
-		trace_rot_perf_set_qos_luts(XIN_SSPP, sspp_cfg.fmt->format,
-			qos_lut, sde_mdp_is_linear_format(sspp_cfg.fmt));
+		trace_rot_perf_set_qos_luts(mdata->vbif_xin_id[XIN_SSPP],
+			sspp_cfg.fmt->format, qos_lut,
+			sde_mdp_is_linear_format(sspp_cfg.fmt));
 
 		SDE_ROTREG_WRITE(rot->mdss_base, ROT_SSPP_CREQ_LUT, qos_lut);
 	}
 
 	/* VBIF QoS and other settings */
-	if (!ctx->sbuf_mode)
-		sde_hw_rotator_vbif_setting(rot);
+	if (!ctx->sbuf_mode) {
+		if (mdata->parent_pdev)
+			sde_hw_rotator_vbif_rt_setting();
+		else
+			sde_hw_rotator_vbif_setting(rot);
+	}
 
 	return 0;
 

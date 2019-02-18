@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -175,7 +175,7 @@ static void mhi_dev_net_process_queue_packets(struct work_struct *work)
 		wreq->buf = skb->data;
 		wreq->len = skb->len;
 		wreq->chan = client->in_chan;
-		wreq->mode = IPA_DMA_ASYNC;
+		wreq->mode = DMA_ASYNC;
 		if (skb_queue_empty(&client->tx_buffers) ||
 				list_empty(&client->wr_req_buffers)) {
 			wreq->snd_cmpl = 1;
@@ -298,7 +298,7 @@ static ssize_t mhi_dev_net_client_read(struct mhi_dev_net_client *mhi_handle)
 		req->buf = skb->data;
 		req->len = MHI_NET_DEFAULT_MTU;
 		req->context = skb;
-		req->mode = IPA_DMA_ASYNC;
+		req->mode = DMA_ASYNC;
 		bytes_avail = mhi_dev_read_channel(req);
 
 		if (bytes_avail < 0) {

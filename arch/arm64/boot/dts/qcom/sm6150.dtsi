@@ -1,4 +1,4 @@
- /* Copyright (c) 2018, The Linux Foundation.All rights reserved.
+ /* Copyright (c) 2018-2019, The Linux Foundation.All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -596,7 +596,7 @@
 		cdsp_sec_mem: cdsp_sec_regions@0x9f800000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x9f800000 0x0 0xc00000>;
+			reg = <0x0 0x9f800000 0x0 0x1e00000>;
 		};
 
 		adsp_mem: adsp_region {
@@ -640,8 +640,13 @@
 		};
 
 		cont_splash_memory: cont_splash_region@9c000000 {
-			reg = <0x0 0x9c000000 0x0 0x02400000>;
+			reg = <0x0 0x9c000000 0x0 0x02300000>;
 			label = "cont_splash_region";
+		};
+
+		dfps_data_memory: dfps_data_region@9e300000 {
+			reg = <0x0 0x9e300000 0x0 0x0100000>;
+			label = "dfps_data_region";
 		};
 
 		dump_mem: mem_dump_region {
@@ -1454,6 +1459,9 @@
 
 		qcom,ice-clk-rates = <300000000 75000000>;
 
+		/* DLL HSR settings. Refer go/hsr - <Target> DLL settings */
+		qcom,dll-hsr-list = <0x000F642C 0x0 0x0 0x00010800 0x80040868>;
+
 		qcom,nonremovable;
 		status = "disabled";
 	};
@@ -1515,6 +1523,9 @@
 		clocks = <&clock_gcc GCC_SDCC2_AHB_CLK>,
 			<&clock_gcc GCC_SDCC2_APPS_CLK>;
 		clock-names = "iface_clk", "core_clk";
+
+		/* DLL HSR settings. Refer go/hsr - <Target> DLL settings */
+		qcom,dll-hsr-list = <0x0007642C 0x0 0x0 0x00010800 0x80040868>;
 
 		status = "disabled";
 	};

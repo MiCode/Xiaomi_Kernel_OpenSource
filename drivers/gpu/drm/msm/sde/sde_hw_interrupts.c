@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -128,6 +128,7 @@
 /**
  * Concurrent WB overflow interrupt status bit definitions
  */
+#define SDE_INTR_CWB_1_OVERFLOW BIT(8)
 #define SDE_INTR_CWB_2_OVERFLOW BIT(14)
 #define SDE_INTR_CWB_3_OVERFLOW BIT(15)
 #define SDE_INTR_CWB_4_OVERFLOW BIT(20)
@@ -358,12 +359,13 @@ static const struct sde_irq_type sde_irq_map[] = {
 	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 1},
 	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 1},
 	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 1},
-	/* irq_idx: 36-39 */
+	/* irq_idx: 36-38 */
 	{ SDE_IRQ_TYPE_PING_PONG_WR_PTR, PINGPONG_S0,
 		SDE_INTR_PING_PONG_S0_WR_PTR, 1},
 	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 1},
 	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 1},
-	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 1},
+	/* irq_idx: 39 */
+	{ SDE_IRQ_TYPE_CWB_OVERFLOW, CWB_1, SDE_INTR_CWB_1_OVERFLOW, 1},
 	/* irq_idx: 40 */
 	{ SDE_IRQ_TYPE_PING_PONG_RD_PTR, PINGPONG_S0,
 		SDE_INTR_PING_PONG_S0_RD_PTR, 1},

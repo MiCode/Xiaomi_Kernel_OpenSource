@@ -309,9 +309,25 @@
 			"cpp_core_clk", "camss_cpp_ahb_clk",
 			"camss_cpp_axi_clk", "micro_iface_clk",
 			"cpp_vbif_ahb_clk", "mmss_throttle_camss_nrt_axi_clk";
-		qcom,clock-rates = <0 0 256000000 256000000 0 0 0 0 0>;
-		qcom,min-clock-rate = <256000000>;
+		qcom,clock-rates = <0 0 240000000 240000000 0 0 0 0 0>;
+		qcom,min-clock-rate = <240000000>;
 		qcom,bus-master = <1>;
+		qcom,vbif-qos-setting = <0x550 0x33333333>,
+			<0x554 0x00333333>,
+			<0x558 0x33333333>,
+			<0x55c 0x00333333>,
+			<0x560 0x33333333>,
+			<0x564 0x00333333>,
+			<0x568 0x33333333>,
+			<0x56c 0x00333333>,
+			<0x570 0x33333333>,
+			<0x574 0x00333333>,
+			<0x578 0x33333333>,
+			<0x57c 0x00333333>,
+			<0x580 0x33333333>,
+			<0x584 0x00333333>,
+			<0x588 0x33333333>,
+			<0x58c 0x00333333>;
 		status = "ok";
 		qcom,msm-bus,name = "msm_camera_cpp";
 		qcom,msm-bus,num-cases = <2>;
@@ -320,11 +336,11 @@
 			<106 512 0 0>,
 			<106 512 0 0>;
 		qcom,msm-bus-vector-dyn-vote;
-		/*qcom,cpp-cx-ipeak = <&cx_ipeak_lm 7>;*/
+		qcom,cpp-cx-ipeak = <&cx_ipeak_lm 7>;
 		resets = <&clock_gcc GCC_CAMSS_MICRO_BCR>;
 		reset-names = "micro_iface_reset";
-		qcom,src-clock-rates = <120000000 256000000 384000000
-					480000000 533000000 576000000>;
+		qcom,src-clock-rates = <120000000 240000000 320000000
+					480000000 576000000>;
 		qcom,micro-reset;
 		qcom,cpp-fw-payload-info {
 			qcom,stripe-base = <790>;
@@ -477,7 +493,7 @@
 		ds-regs = <0x424 0x428 0x42c 0x430 0x434
 			0x438 0x43c 0x440 0x444 0x448 0x44c
 			0x450 0x454 0x458 0x45c 0x460 0x464>;
-		ds-settings = <0xcccc1111
+		ds-settings = <0xcccc0011
 			0xcccc0011
 			0xcccc0011
 			0xcccc0011
@@ -501,7 +517,7 @@
 			<29 512 0 0>,
 			<29 512 100000000 100000000>;
 		qcom,msm-bus-vector-dyn-vote;
-	/*	qcom,vfe-cx-ipeak = <&cx_ipeak_lm 7>;*/
+		qcom,vfe-cx-ipeak = <&cx_ipeak_lm 7>;
 	};
 
 	vfe1: qcom,vfe1@5c14000 {
@@ -555,7 +571,7 @@
 		ds-regs = <0x424 0x428 0x42c 0x430 0x434
 			0x438 0x43c 0x440 0x444 0x448 0x44c
 			0x450 0x454 0x458 0x45c 0x460 0x464>;
-		ds-settings = <0xcccc1111
+		ds-settings = <0xcccc0011
 			0xcccc0011
 			0xcccc0011
 			0xcccc0011
@@ -579,7 +595,7 @@
 			<29 512 0 0>,
 			<29 512 100000000 100000000>;
 		qcom,msm-bus-vector-dyn-vote;
-	/*	qcom,vfe-cx-ipeak = <&cx_ipeak_lm 7>;*/
+		qcom,vfe-cx-ipeak = <&cx_ipeak_lm 7>;
 	};
 
 	qcom,vfe {
@@ -659,7 +675,14 @@
 			<&clock_gcc GCC_CAMSS_JPEG_AXI_CLK>;
 		qcom,clock-rates = <0 0 480000000 0 0 0>;
 		qcom,vbif-reg-settings = <0x4 0x1>;
-		qcom,vbif-qos-setting = <0x550 0x1111>;
+		qcom,vbif-qos-setting = <0x550 0x00001111>,
+			<0x558 0x00001111>,
+			<0x560 0x00001111>,
+			<0x568 0x00001111>,
+			<0x570 0x00001111>,
+			<0x578 0x00001111>,
+			<0x580 0x00001111>,
+			<0x588 0x00001111>;
 		qcom,prefetch-reg-settings = <0x30c 0x1111>,
 			<0x318 0x31>,
 			<0x324 0x31>,
@@ -697,7 +720,14 @@
 			<&clock_gcc GCC_CAMSS_JPEG_AXI_CLK>;
 		qcom,clock-rates = <0 0 480000000 0 0 0>;
 		qcom,vbif-reg-settings = <0x4 0x1>;
-		qcom,vbif-qos-setting = <0x550 0x1111>;
+		qcom,vbif-qos-setting = <0x550 0x00001111>,
+			<0x558 0x00001111>,
+			<0x560 0x00001111>,
+			<0x568 0x00001111>,
+			<0x570 0x00001111>,
+			<0x578 0x00001111>,
+			<0x580 0x00001111>,
+			<0x588 0x00001111>;
 		qcom,prefetch-reg-settings = <0x18c 0x11>,
 			<0x1a0 0x31>,
 			<0x1b0 0x31>;

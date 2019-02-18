@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, 2016-2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, 2016-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,7 @@
 #define _RMNET_CONFIG_H_
 
 #define RMNET_MAX_LOGICAL_EP 255
+#define RMNET_MAX_VEID 4
 
 struct rmnet_endpoint {
 	u8 mux_id;
@@ -88,6 +89,31 @@ struct rmnet_pcpu_stats {
 	struct u64_stats_sync syncp;
 };
 
+struct rmnet_coal_close_stats {
+	u64 non_coal;
+	u64 ip_miss;
+	u64 trans_miss;
+	u64 hw_nl;
+	u64 hw_pkt;
+	u64 hw_byte;
+	u64 hw_time;
+	u64 hw_evict;
+	u64 coal;
+};
+
+struct rmnet_coal_stats {
+	u64 coal_rx;
+	u64 coal_pkts;
+	u64 coal_hdr_nlo_err;
+	u64 coal_hdr_pkt_err;
+	u64 coal_csum_err;
+	u64 coal_reconstruct;
+	u64 coal_ip_invalid;
+	u64 coal_trans_invalid;
+	struct rmnet_coal_close_stats close;
+	u64 coal_veid[RMNET_MAX_VEID];
+};
+
 struct rmnet_priv_stats {
 	u64 csum_ok;
 	u64 csum_valid_unset;
@@ -99,6 +125,7 @@ struct rmnet_priv_stats {
 	u64 csum_skipped;
 	u64 csum_sw;
 	u64 csum_hw;
+	struct rmnet_coal_stats coal;
 };
 
 struct rmnet_priv {

@@ -152,6 +152,16 @@ config DRM_SDE_WB
 	  the output image is written back to memory in the format
 	  selected by the connector's mode and property settings.
 
+config DRM_SDE_SHD
+	bool "Enable Shared display support in SDE DRM"
+	depends on DRM_MSM
+	help
+	  Choose this option for shared display support.
+	  This option enables multiple logical displays
+	  to share one base physical encoder/connector.
+	  Each logical display will appear as different
+	  connectors and report back to user.
+
 config DRM_MSM_DSI_14NM_PHY
 	bool "Enable DSI 14nm PHY driver in MSM DRM (used by MSM8996/APQ8096)"
 	depends on DRM_MSM_DSI

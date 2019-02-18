@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -73,6 +73,14 @@ static int dsi_pwr_parse_supply_node(struct dsi_parser_utils *utils,
 		regs->vregs[i].disable_load = tmp;
 
 		/* Optional values */
+		rc = utils->read_u32(node, "qcom,supply-off-min-voltage", &tmp);
+		if (rc) {
+			pr_debug("off-min-voltage not specified\n");
+			rc = 0;
+		} else {
+			regs->vregs[i].off_min_voltage = tmp;
+		}
+
 		rc = utils->read_u32(node, "qcom,supply-pre-on-sleep", &tmp);
 		if (rc) {
 			pr_debug("pre-on-sleep not specified\n");
@@ -166,6 +174,11 @@ static int dsi_pwr_enable_vregs(struct dsi_regulator_info *regs, bool enable)
 		for (i = (regs->count - 1); i >= 0; i--) {
 			if (regs->vregs[i].pre_off_sleep)
 				msleep(regs->vregs[i].pre_off_sleep);
+
+			if (regs->vregs[i].off_min_voltage)
+				(void)regulator_set_voltage(regs->vregs[i].vreg,
+						regs->vregs[i].off_min_voltage,
+						regs->vregs[i].max_voltage);
 
 			(void)regulator_set_load(regs->vregs[i].vreg,
 						regs->vregs[i].disable_load);

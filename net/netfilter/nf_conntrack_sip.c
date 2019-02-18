@@ -1,6 +1,6 @@
 /* SIP extension for IP connection tracking.
  *
- * Copyright (c) 2015,2017,2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015,2017-2019 The Linux Foundation. All rights reserved.
  * (C) 2005 by Christian Hentschel <chentschel@arnet.com.ar>
  * based on RR's ip_conntrack_ftp.c and other modules.
  * (C) 2007 United Security Providers
@@ -392,8 +392,14 @@ static int nf_sip_enqueue_packet(struct nf_queue_entry *entry,
 	return 0;
 }
 
+static unsigned int nf_hook_drop_sip(struct net *net)
+{
+	return 0;
+}
+
 static const struct nf_queue_handler nf_sip_qh = {
 	.outfn	= &nf_sip_enqueue_packet,
+	.nf_hook_drop	= &nf_hook_drop_sip,
 };
 
 static

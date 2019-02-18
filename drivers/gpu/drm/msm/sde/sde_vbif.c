@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,7 @@
 #include "sde_vbif.h"
 #include "sde_hw_vbif.h"
 #include "sde_trace.h"
+#include "sde_rotator_vbif.h"
 
 #define MAX_XIN_CLIENT	16
 
@@ -292,6 +293,41 @@ void sde_vbif_set_ot_limit(struct sde_kms *sde_kms,
 exit:
 	mutex_unlock(&vbif->mutex);
 	return;
+}
+
+void mdp_vbif_lock(struct platform_device *parent_pdev, bool enable)
+{
+	struct drm_device *ddev;
+	struct sde_kms *sde_kms;
+	struct sde_hw_vbif *vbif = NULL;
+	int i;
+
+	ddev = platform_get_drvdata(parent_pdev);
+	if (!ddev || !ddev_to_msm_kms(ddev)) {
+		SDE_ERROR("invalid drm device\n");
+		return;
+	}
+
+	sde_kms = to_sde_kms(ddev_to_msm_kms(ddev));
+
+	for (i = 0; i < ARRAY_SIZE(sde_kms->hw_vbif); i++) {
+		if (sde_kms->hw_vbif[i] &&
+				sde_kms->hw_vbif[i]->idx == VBIF_RT) {
+			vbif = sde_kms->hw_vbif[i];
+			break;
+		}
+	}
+
+	if (!vbif) {
+		SDE_DEBUG("invalid vbif structure\n");
+		return;
+	}
+
+	if (enable)
+		mutex_lock(&vbif->mutex);
+	else
+		mutex_unlock(&vbif->mutex);
+
 }
 
 bool sde_vbif_set_xin_halt(struct sde_kms *sde_kms,

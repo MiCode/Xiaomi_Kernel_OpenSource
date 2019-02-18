@@ -13,9 +13,13 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/iio/qcom,spmi-vadc.h>
 #include <dt-bindings/input/input.h>
+#include "trinket-thermal-overlay.dtsi"
 #include "trinket-sde-display.dtsi"
 #include "trinket-audio-overlay.dtsi"
 #include <dt-bindings/clock/qcom,gcc-trinket.h>
+
+#include <dt-bindings/clock/qcom,gcc-trinket.h>
+#include "trinket-camera-sensor-qrd.dtsi"
 
 &qupv3_se1_i2c {
 	status = "ok";
@@ -35,6 +39,7 @@
 	qcom,qg-iterm-ma = <100>;
 	qcom,hold-soc-while-full;
 	qcom,linearize-soc;
+	qcom,qg-use-s7-ocv;
 };
 
 &pmi632_charger {
@@ -63,15 +68,11 @@
 		reg = <0x20>;
 		interrupt-parent = <&tlmm>;
 		interrupts = <88 0x2008>;
-		vdd-supply = <&pm6125_l9>;
-		avdd-supply = <&pm6125_l21>;
 		pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
 					"pmx_ts_release";
 		pinctrl-0 = <&ts_int_active &ts_reset_active>;
 		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
 		pinctrl-2 = <&ts_release>;
-		synaptics,bus-reg-name = "vdd";
-		synaptics,pwr-reg-name = "avdd";
 		synaptics,irq-gpio = <&tlmm 88 0x2008>;
 		synaptics,irq-on-state = <0>;
 		synaptics,reset-gpio = <&tlmm 87 0x00>;

@@ -610,6 +610,30 @@ void rmnet_enable_all_flows(void *port)
 }
 EXPORT_SYMBOL(rmnet_enable_all_flows);
 
+bool rmnet_all_flows_enabled(void *port)
+{
+	struct rmnet_endpoint *ep;
+	unsigned long bkt;
+	bool ret = true;
+
+	if (unlikely(!port))
+		return true;
+
+	rcu_read_lock();
+	hash_for_each_rcu(((struct rmnet_port *)port)->muxed_ep,
+			  bkt, ep, hlnode) {
+		if (!qmi_rmnet_all_flows_enabled(ep->egress_dev)) {
+			ret = false;
+			goto out;
+		}
+	}
+out:
+	rcu_read_unlock();
+
+	return ret;
+}
+EXPORT_SYMBOL(rmnet_all_flows_enabled);
+
 int rmnet_get_powersave_notif(void *port)
 {
 	if (!port)

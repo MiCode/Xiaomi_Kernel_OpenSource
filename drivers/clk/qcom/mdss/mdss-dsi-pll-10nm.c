@@ -1171,7 +1171,7 @@ static int vco_10nm_prepare(struct clk_hw *hw)
 	}
 
 	if ((pll->vco_cached_rate != 0) &&
-	    (pll->vco_cached_rate == clk_get_rate(hw->clk))) {
+	    (pll->vco_cached_rate == clk_hw_get_rate(hw))) {
 		rc = hw->init->ops->set_rate(hw, pll->vco_cached_rate,
 				pll->vco_cached_rate);
 		if (rc) {

@@ -134,6 +134,7 @@
 	qcom,qg-iterm-ma = <100>;
 	qcom,hold-soc-while-full;
 	qcom,linearize-soc;
+	qcom,qg-use-s7-ocv;
 };
 
 &pmi632_charger {
@@ -305,6 +306,23 @@
 	qcom,platform-bklight-en-gpio = <&pmi632_gpios 6 0>;
 };
 
+&dsi_sim_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,platform-reset-gpio = <&tlmm 90 0>;
+};
+
+&dsi_hx83112a_truly_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	pwms = <&pm6125_pwm 0 0>;
+	qcom,bl-pmic-pwm-period-usecs = <100>;
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-reset-gpio = <&tlmm 90 0>;
+	qcom,platform-bklight-en-gpio = <&pmi632_gpios 6 0>;
+};
+
 &qupv3_se2_i2c {
 	status = "okay";
 
@@ -313,15 +331,11 @@
 		reg = <0x20>;
 		interrupt-parent = <&tlmm>;
 		interrupts = <88 0x2008>;
-		vdd-supply = <&pm6125_l9>;
-		avdd-supply = <&pm6125_l21>;
 		pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
 					"pmx_ts_release";
 		pinctrl-0 = <&ts_int_active &ts_reset_active>;
 		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
 		pinctrl-2 = <&ts_release>;
-		synaptics,bus-reg-name = "vdd";
-		synaptics,pwr-reg-name = "avdd";
 		synaptics,irq-gpio = <&tlmm 88 0x2008>;
 		synaptics,irq-on-state = <0>;
 		synaptics,reset-gpio = <&tlmm 87 0x00>;

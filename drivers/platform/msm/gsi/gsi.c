@@ -3433,7 +3433,7 @@ int gsi_queue_xfer(unsigned long chan_hdl, uint16_t num_xfers,
 		return -GSI_STATUS_NODEV;
 	}
 
-	if (chan_hdl >= gsi_ctx->max_ch || !num_xfers || !xfer) {
+	if (chan_hdl >= gsi_ctx->max_ch || (num_xfers && !xfer)) {
 		GSIERR("bad params chan_hdl=%lu num_xfers=%u xfer=%pK\n",
 				chan_hdl, num_xfers, xfer);
 		return -GSI_STATUS_INVALID_PARAMS;
@@ -3453,6 +3453,11 @@ int gsi_queue_xfer(unsigned long chan_hdl, uint16_t num_xfers,
 		slock = &ctx->ring.slock;
 
 	spin_lock_irqsave(slock, flags);
+
+	/* allow only ring doorbell */
+	if (!num_xfers)
+		goto ring_doorbell;
+
 	/*
 	 * for GCI channels the responsibility is on the caller to make sure
 	 * there is enough room in the TRE.
@@ -3488,11 +3493,12 @@ int gsi_queue_xfer(unsigned long chan_hdl, uint16_t num_xfers,
 
 	ctx->stats.queued += num_xfers;
 
-	/* ensure TRE is set before ringing doorbell */
-	wmb();
-
-	if (ring_db)
+ring_doorbell:
+	if (ring_db) {
+		/* ensure TRE is set before ringing doorbell */
+		wmb();
 		gsi_ring_chan_doorbell(ctx);
+	}
 
 	spin_unlock_irqrestore(slock, flags);
 

@@ -215,6 +215,8 @@ static const char *const debug_mux_parent_names[] = {
 	"gpu_cc_gx_cxo_clk",
 	"gpu_cc_gx_gfx3d_clk",
 	"gpu_cc_sleep_clk",
+	"measure_only_mccc_clk",
+	"measure_only_ipa_2x_clk",
 	"video_cc_apb_clk",
 	"video_cc_at_clk",
 	"video_cc_sleep_clk",
@@ -224,6 +226,8 @@ static const char *const debug_mux_parent_names[] = {
 	"video_cc_venus_ctl_axi_clk",
 	"video_cc_venus_ctl_core_clk",
 	"video_cc_xo_clk",
+	"pwrcl_clk",
+	"perfcl_clk",
 };
 
 static struct clk_debug_mux gcc_debug_mux = {
@@ -231,6 +235,7 @@ static struct clk_debug_mux gcc_debug_mux = {
 	.debug_offset = 0x62000,
 	.post_div_offset = 0x30000,
 	.cbcr_offset = 0x30004,
+	.period_offset = 0x20,
 	.src_sel_mask = 0x3FF,
 	.src_sel_shift = 0,
 	.post_div_mask = 0xF,
@@ -600,6 +605,10 @@ static struct clk_debug_mux gcc_debug_mux = {
 			0xB, 0xFF, 0, 0x3, 0, 2, 0x1568, 0x10FC, 0x1100 },
 		{ "gpu_cc_sleep_clk", 0xDD, 1, GPU_CC,
 			0x16, 0xFF, 0, 0x3, 0, 2, 0x1568, 0x10FC, 0x1100 },
+		{ "measure_only_mccc_clk", 0x97, 1, MC_CC,
+			0x97, 0x3FF, 0, 0xF, 0, 1, 0x62000, 0x30000, 0x30004 },
+		{ "measure_only_ipa_2x_clk", 0xC2, 1, GCC,
+			0xC2, 0x3FF, 0, 0xF, 0, 1, 0x62000, 0x30000, 0x30004 },
 		{ "video_cc_apb_clk", 0x42, 1, VIDEO_CC,
 			0x8, 0x3F, 0, 0x7, 0, 5, 0xA4C, 0xA30, 0xA38 },
 		{ "video_cc_at_clk", 0x42, 1, VIDEO_CC,
@@ -618,6 +627,10 @@ static struct clk_debug_mux gcc_debug_mux = {
 			0x1, 0x3F, 0, 0x7, 0, 5, 0xA4C, 0xA30, 0xA38 },
 		{ "video_cc_xo_clk", 0x42, 1, VIDEO_CC,
 			0xC, 0x3F, 0, 0x7, 0, 5, 0xA4C, 0xA30, 0xA38 },
+		{ "pwrcl_clk", 0xAB, 4, CPU_CC,
+			0x0, 0x3FF, 8, 0xF, 28, 1, 0x0, 0x0, U32_MAX, 8 },
+		{ "perfcl_clk", 0xAB, 4, CPU_CC,
+			0x1, 0x3FF, 8, 0xF, 28, 1, 0x0, 0x0, U32_MAX, 8 },
 	),
 	.hw.init = &(struct clk_init_data){
 		.name = "gcc_debug_mux",
@@ -684,6 +697,14 @@ static int clk_debug_trinket_probe(struct platform_device *pdev)
 		return ret;
 
 	ret = map_debug_bases(pdev, "qcom,dispcc", DISP_CC);
+	if (ret)
+		return ret;
+
+	ret = map_debug_bases(pdev, "qcom,mccc", MC_CC);
+	if (ret)
+		return ret;
+
+	ret = map_debug_bases(pdev, "qcom,cpucc", CPU_CC);
 	if (ret)
 		return ret;
 

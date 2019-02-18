@@ -1071,5 +1071,5 @@ int qcom_edma_init(struct device *dev)
 }
 EXPORT_SYMBOL(qcom_edma_init);
 
-MODULE_DESCRIPTION("QCOM PCIe eDMA driver");
+MODULE_DESCRIPTION("QTI PCIe eDMA driver");
 MODULE_LICENSE("GPL v2");

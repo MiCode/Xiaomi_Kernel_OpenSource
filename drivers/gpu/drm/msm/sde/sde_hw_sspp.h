@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -287,6 +287,22 @@ struct sde_hw_pipe_ts_cfg {
 struct sde_hw_pipe_sbuf_status {
 	bool empty[SDE_PIPE_SBUF_PLANE_NUM];
 	u32 rd_ptr[SDE_PIPE_SBUF_PLANE_NUM];
+};
+
+/**
+ * struct sde_hw_pipe_line_insertion_cfg - line insertion config
+ * @enable: line insertion is enabled
+ * @dummy_lines: dummy lines before active lines
+ * @first_active_lines: number of active lines before first dummy lines
+ * @active_lines: active lines
+ * @dst_h: total active lines plus dummy lines
+ */
+struct sde_hw_pipe_line_insertion_cfg {
+	bool enable;
+	u32 dummy_lines;
+	u32 first_active_lines;
+	u32 active_lines;
+	u32 dst_h;
 };
 
 /**
@@ -605,6 +621,15 @@ struct sde_hw_sspp_ops {
 	 * @ctx: Pointer to pipe context
 	 */
 	u32 (*get_ubwc_error)(struct sde_hw_pipe *ctx);
+
+	/**
+	 * setup_line_insertion - setup line insertion
+	 * @ctx: Pointer to pipe context
+	 * @cfg: Pointer to line insertion configuration
+	 */
+	void (*setup_line_insertion)(struct sde_hw_pipe *ctx,
+		enum sde_sspp_multirect_index index,
+		struct sde_hw_pipe_line_insertion_cfg *cfg);
 };
 
 /**

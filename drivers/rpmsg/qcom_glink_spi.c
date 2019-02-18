@@ -192,7 +192,7 @@ struct glink_spi {
 
 	struct mutex tx_lock;
 
-	spinlock_t idr_lock;
+	struct mutex idr_lock;
 	struct idr lcids;
 	struct idr rcids;
 	u32 features;
@@ -360,6 +360,9 @@ static void glink_spi_channel_release(struct kref *ref)
 
 	channel = container_of(ref, struct glink_spi_channel, refcount);
 	CH_INFO(channel, "\n");
+
+	channel->intent_req_result = 0;
+	complete(&channel->intent_req_comp);
 
 	mutex_lock(&channel->intent_lock);
 	idr_for_each_entry(&channel->liids, tmp, iid) {
@@ -783,15 +786,14 @@ static int glink_spi_send_open_req(struct glink_spi *glink,
 	int name_len = strlen(channel->name) + 1;
 	int req_len = ALIGN(sizeof(req.msg) + name_len, SPI_ALIGNMENT);
 	int ret;
-	unsigned long flags;
 
 	kref_get(&channel->refcount);
 
-	spin_lock_irqsave(&glink->idr_lock, flags);
+	mutex_lock(&glink->idr_lock);
 	ret = idr_alloc_cyclic(&glink->lcids, channel,
 			       SPI_GLINK_CID_MIN, SPI_GLINK_CID_MAX,
 			       GFP_ATOMIC);
-	spin_unlock_irqrestore(&glink->idr_lock, flags);
+	mutex_unlock(&glink->idr_lock);
 	if (ret < 0)
 		return ret;
 
@@ -813,10 +815,10 @@ static int glink_spi_send_open_req(struct glink_spi *glink,
 remove_idr:
 	CH_INFO(channel, "remove_idr\n");
 
-	spin_lock_irqsave(&glink->idr_lock, flags);
+	mutex_lock(&glink->idr_lock);
 	idr_remove(&glink->lcids, channel->lcid);
 	channel->lcid = 0;
-	spin_unlock_irqrestore(&glink->idr_lock, flags);
+	mutex_unlock(&glink->idr_lock);
 
 	return ret;
 }
@@ -837,9 +839,9 @@ static int glink_spi_rx_open_ack(struct glink_spi *glink, unsigned int lcid)
 {
 	struct glink_spi_channel *channel;
 
-	spin_lock(&glink->idr_lock);
+	mutex_lock(&glink->idr_lock);
 	channel = idr_find(&glink->lcids, lcid);
-	spin_unlock(&glink->idr_lock);
+	mutex_unlock(&glink->idr_lock);
 	if (!channel) {
 		GLINK_ERR(glink, "Invalid open ack packet %d\n", lcid);
 		return -EINVAL;
@@ -926,16 +928,15 @@ static int glink_spi_handle_intent(struct glink_spi *glink,
 	const size_t msglen = sizeof(struct intent_pair) * count;
 	int ret;
 	int i;
-	unsigned long flags;
 
 	if (avail < msglen) {
 		dev_err(&glink->dev, "Not enough data in buf\n");
 		return avail;
 	}
 
-	spin_lock_irqsave(&glink->idr_lock, flags);
+	mutex_lock(&glink->idr_lock);
 	channel = idr_find(&glink->rcids, cid);
-	spin_unlock_irqrestore(&glink->idr_lock, flags);
+	mutex_unlock(&glink->idr_lock);
 	if (!channel) {
 		dev_err(&glink->dev, "intents for non-existing channel\n");
 		return msglen;
@@ -970,11 +971,10 @@ static void glink_spi_handle_intent_req_ack(struct glink_spi *glink,
 					    unsigned int cid, bool granted)
 {
 	struct glink_spi_channel *channel;
-	unsigned long flags;
 
-	spin_lock_irqsave(&glink->idr_lock, flags);
+	mutex_lock(&glink->idr_lock);
 	channel = idr_find(&glink->rcids, cid);
-	spin_unlock_irqrestore(&glink->idr_lock, flags);
+	mutex_unlock(&glink->idr_lock);
 	if (!channel) {
 		dev_err(&glink->dev, "unable to find channel\n");
 		return;
@@ -1099,11 +1099,10 @@ static void glink_spi_handle_intent_req(struct glink_spi *glink,
 {
 	struct glink_spi_rx_intent *intent;
 	struct glink_spi_channel *channel;
-	unsigned long flags;
 
-	spin_lock_irqsave(&glink->idr_lock, flags);
+	mutex_lock(&glink->idr_lock);
 	channel = idr_find(&glink->rcids, cid);
-	spin_unlock_irqrestore(&glink->idr_lock, flags);
+	mutex_unlock(&glink->idr_lock);
 
 	if (!channel) {
 		pr_err("%s channel not found for cid %d\n", __func__, cid);
@@ -1289,11 +1288,10 @@ static void glink_spi_handle_rx_done(struct glink_spi *glink,
 {
 	struct glink_spi_rx_intent *intent;
 	struct glink_spi_channel *channel;
-	unsigned long flags;
 
-	spin_lock_irqsave(&glink->idr_lock, flags);
+	mutex_lock(&glink->idr_lock);
 	channel = idr_find(&glink->rcids, cid);
-	spin_unlock_irqrestore(&glink->idr_lock, flags);
+	mutex_unlock(&glink->idr_lock);
 	if (!channel) {
 		dev_err(&glink->dev, "invalid channel id received\n");
 		return;
@@ -1374,7 +1372,6 @@ static struct glink_spi_channel *glink_spi_create_local(struct glink_spi *glink,
 {
 	struct glink_spi_channel *channel;
 	int ret;
-	unsigned long flags;
 
 	channel = glink_spi_alloc_channel(glink, name);
 	if (IS_ERR(channel))
@@ -1401,9 +1398,9 @@ err_timeout:
 	CH_INFO(channel, "err_timeout\n");
 
 	/* glink_spi_send_open_req() did register the channel in lcids*/
-	spin_lock_irqsave(&glink->idr_lock, flags);
+	mutex_lock(&glink->idr_lock);
 	idr_remove(&glink->lcids, channel->lcid);
-	spin_unlock_irqrestore(&glink->idr_lock, flags);
+	mutex_unlock(&glink->idr_lock);
 
 release_channel:
 	CH_INFO(channel, "release_channel\n");
@@ -1462,14 +1459,13 @@ glink_spi_create_ept(struct rpmsg_device *rpdev, rpmsg_rx_cb_t cb, void *priv,
 	const char *name = chinfo.name;
 	int cid;
 	int ret;
-	unsigned long flags;
 
-	spin_lock_irqsave(&glink->idr_lock, flags);
+	mutex_lock(&glink->idr_lock);
 	idr_for_each_entry(&glink->rcids, channel, cid) {
 		if (!strcmp(channel->name, name))
 			break;
 	}
-	spin_unlock_irqrestore(&glink->idr_lock, flags);
+	mutex_unlock(&glink->idr_lock);
 
 	if (!channel) {
 		channel = glink_spi_create_local(glink, name);
@@ -1548,11 +1544,10 @@ static void glink_spi_rx_close(struct glink_spi *glink, unsigned int rcid)
 {
 	struct rpmsg_channel_info chinfo;
 	struct glink_spi_channel *channel;
-	unsigned long flags;
 
-	spin_lock_irqsave(&glink->idr_lock, flags);
+	mutex_lock(&glink->idr_lock);
 	channel = idr_find(&glink->rcids, rcid);
-	spin_unlock_irqrestore(&glink->idr_lock, flags);
+	mutex_unlock(&glink->idr_lock);
 	if (WARN(!channel, "close request on unknown channel\n"))
 		return;
 	CH_INFO(channel, "\n");
@@ -1567,10 +1562,10 @@ static void glink_spi_rx_close(struct glink_spi *glink, unsigned int rcid)
 
 	glink_spi_send_close_ack(glink, channel->rcid);
 
-	spin_lock_irqsave(&glink->idr_lock, flags);
+	mutex_lock(&glink->idr_lock);
 	idr_remove(&glink->rcids, channel->rcid);
 	channel->rcid = 0;
-	spin_unlock_irqrestore(&glink->idr_lock, flags);
+	mutex_unlock(&glink->idr_lock);
 
 	kref_put(&channel->refcount, glink_spi_channel_release);
 }
@@ -1578,19 +1573,18 @@ static void glink_spi_rx_close(struct glink_spi *glink, unsigned int rcid)
 static void glink_spi_rx_close_ack(struct glink_spi *glink, unsigned int lcid)
 {
 	struct glink_spi_channel *channel;
-	unsigned long flags;
 
-	spin_lock_irqsave(&glink->idr_lock, flags);
+	mutex_lock(&glink->idr_lock);
 	channel = idr_find(&glink->lcids, lcid);
 	if (WARN(!channel, "close ack on unknown channel\n")) {
-		spin_unlock_irqrestore(&glink->idr_lock, flags);
+		mutex_unlock(&glink->idr_lock);
 		return;
 	}
 	CH_INFO(channel, "\n");
 
 	idr_remove(&glink->lcids, channel->lcid);
 	channel->lcid = 0;
-	spin_unlock_irqrestore(&glink->idr_lock, flags);
+	mutex_unlock(&glink->idr_lock);
 
 	kref_put(&channel->refcount, glink_spi_channel_release);
 }
@@ -1635,12 +1629,11 @@ static int glink_spi_handle_signals(struct glink_spi *glink,
 				    unsigned int rcid, unsigned int signals)
 {
 	struct glink_spi_channel *channel;
-	unsigned long flags;
 	u32 old;
 
-	spin_lock_irqsave(&glink->idr_lock, flags);
+	mutex_lock(&glink->idr_lock);
 	channel = idr_find(&glink->rcids, rcid);
-	spin_unlock_irqrestore(&glink->idr_lock, flags);
+	mutex_unlock(&glink->idr_lock);
 	if (!channel) {
 		dev_err(&glink->dev, "signal for non-existing channel\n");
 		return -EINVAL;
@@ -1733,14 +1726,13 @@ static int glink_spi_rx_open(struct glink_spi *glink, unsigned int rcid,
 	struct device_node *node;
 	int lcid;
 	int ret;
-	unsigned long flags;
 
-	spin_lock_irqsave(&glink->idr_lock, flags);
+	mutex_lock(&glink->idr_lock);
 	idr_for_each_entry(&glink->lcids, channel, lcid) {
 		if (!strcmp(channel->name, name))
 			break;
 	}
-	spin_unlock_irqrestore(&glink->idr_lock, flags);
+	mutex_unlock(&glink->idr_lock);
 
 	if (!channel) {
 		channel = glink_spi_alloc_channel(glink, name);
@@ -1751,15 +1743,15 @@ static int glink_spi_rx_open(struct glink_spi *glink, unsigned int rcid,
 		create_device = true;
 	}
 
-	spin_lock_irqsave(&glink->idr_lock, flags);
+	mutex_lock(&glink->idr_lock);
 	ret = idr_alloc(&glink->rcids, channel, rcid, rcid + 1, GFP_ATOMIC);
 	if (ret < 0) {
 		dev_err(&glink->dev, "Unable to insert channel into rcid list\n");
-		spin_unlock_irqrestore(&glink->idr_lock, flags);
+		mutex_unlock(&glink->idr_lock);
 		goto free_channel;
 	}
 	channel->rcid = ret;
-	spin_unlock_irqrestore(&glink->idr_lock, flags);
+	mutex_unlock(&glink->idr_lock);
 
 	complete_all(&channel->open_req);
 
@@ -1796,10 +1788,10 @@ free_rpdev:
 	kfree(rpdev);
 rcid_remove:
 	CH_INFO(channel, "rcid_remove\n");
-	spin_lock_irqsave(&glink->idr_lock, flags);
+	mutex_lock(&glink->idr_lock);
 	idr_remove(&glink->rcids, channel->rcid);
 	channel->rcid = 0;
-	spin_unlock_irqrestore(&glink->idr_lock, flags);
+	mutex_unlock(&glink->idr_lock);
 free_channel:
 	CH_INFO(channel, "free_channel\n");
 	/* Release the reference, iff we took it */
@@ -1838,9 +1830,9 @@ static int glink_spi_rx_data(struct glink_spi *glink,
 	left_size = le32_to_cpu(hdr->left_size);
 	addr = (u32)le64_to_cpu(hdr->addr);
 
-	spin_lock_irqsave(&glink->idr_lock, flags);
+	mutex_lock(&glink->idr_lock);
 	channel = idr_find(&glink->rcids, rcid);
-	spin_unlock_irqrestore(&glink->idr_lock, flags);
+	mutex_unlock(&glink->idr_lock);
 	if (!channel) {
 		dev_dbg(&glink->dev, "Data on non-existing channel\n");
 		return msglen;
@@ -1907,9 +1899,9 @@ static int glink_spi_rx_short_data(struct glink_spi *glink,
 		dev_dbg(&glink->dev, "Not enough data in fifo\n");
 		return avail;
 	}
-	spin_lock_irqsave(&glink->idr_lock, flags);
+	mutex_lock(&glink->idr_lock);
 	channel = idr_find(&glink->rcids, rcid);
-	spin_unlock_irqrestore(&glink->idr_lock, flags);
+	mutex_unlock(&glink->idr_lock);
 	if (!channel) {
 		dev_dbg(&glink->dev, "Data on non-existing channel\n");
 		return msglen;
@@ -2344,7 +2336,7 @@ struct glink_spi *qcom_glink_spi_register(struct device *parent,
 	kthread_init_work(&glink->rx_work, glink_spi_work);
 	kthread_init_worker(&glink->rx_worker);
 
-	spin_lock_init(&glink->idr_lock);
+	mutex_init(&glink->idr_lock);
 	idr_init(&glink->lcids);
 	idr_init(&glink->rcids);
 
@@ -2399,7 +2391,6 @@ static void glink_spi_remove(struct glink_spi *glink)
 	struct glink_spi_channel *channel;
 	int cid;
 	int ret;
-	unsigned long flags;
 
 	GLINK_INFO(glink, "\n");
 
@@ -2411,7 +2402,7 @@ static void glink_spi_remove(struct glink_spi *glink)
 	if (ret)
 		dev_warn(&glink->dev, "Can't remove GLINK devices: %d\n", ret);
 
-	spin_lock_irqsave(&glink->idr_lock, flags);
+	mutex_lock(&glink->idr_lock);
 	/* Release any defunct local channels, waiting for close-ack */
 	idr_for_each_entry(&glink->lcids, channel, cid) {
 		kref_put(&channel->refcount, glink_spi_channel_release);
@@ -2426,7 +2417,7 @@ static void glink_spi_remove(struct glink_spi *glink)
 
 	idr_destroy(&glink->lcids);
 	idr_destroy(&glink->rcids);
-	spin_unlock_irqrestore(&glink->idr_lock, flags);
+	mutex_unlock(&glink->idr_lock);
 
 	tx_pipe->fifo_base = 0;
 	tx_pipe->local_addr = 0;
