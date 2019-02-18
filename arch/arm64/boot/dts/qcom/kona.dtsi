@@ -2801,6 +2801,12 @@
 		qcom,firmware-name = "slpi";
 	};
 
+	qcom_smcinvoke: smcinvoke@87900000 {
+		compatible = "qcom,smcinvoke";
+		reg = <0x87900000 0x2200000>;
+		reg-names = "secapp-region";
+	};
+
 	tsens0: tsens@c222000 {
 		compatible = "qcom,tsens24xx";
 		reg = <0xc222000 0x4>,
