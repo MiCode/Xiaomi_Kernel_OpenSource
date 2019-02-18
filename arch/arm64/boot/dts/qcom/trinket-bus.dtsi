@@ -19,9 +19,10 @@
 		reg = <0x1880000 0x60200>,
 			<0x4480000 0x80000>,
 			<0x1900000 0x8200>,
+			<0x1880000 0x60200>,
 			<0x1880000 0x60200>;
 		reg-names = "sys_noc-base", "bimc-base", "config_noc-base",
-				"qup_virt-base";
+				"qup_virt-base", "fab-gpu_vert-base";
 
 		/*Buses*/
 
@@ -72,6 +73,15 @@
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_rpmcc SNOC_MSMBUS_CLK>,
 				<&clock_rpmcc SNOC_MSMBUS_A_CLK>;
+		};
+
+		fab_gpu_vert: fab-gpu_vert {
+			cell-id = <MSM_BUS_FAB_GPU_VIRT>;
+			label = "fab-gpu_vert";
+			qcom,vert-dev;
+			qcom,base-name = "fab-gpu_vert-base";
+			qcom,bypass-qos-prg;
+			qcom,bus-type = <3>;
 		};
 
 		/*Masters*/
@@ -551,18 +561,27 @@
 			qcom,mas-rpm-id = <ICBID_MASTER_USB3_0>;
 		};
 
+		mas_qnm_gpu_qos: mas-qnm-gpu-qos {
+			cell-id = <MSM_BUS_MASTER_GRAPHICS_3D_PORT1>;
+			label = "mas-qnm-gpu-qos";
+			qcom,buswidth = <32>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,qport = <16>;
+			qcom,qos-mode = "fixed";
+			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,prio = <0>;
+			qcom,mas-rpm-id = <ICBID_MASTER_GFX3D>;
+		};
+
 		mas_qnm_gpu: mas-qnm-gpu {
 			cell-id = <MSM_BUS_MASTER_GRAPHICS_3D>;
 			label = "mas-qnm-gpu";
 			qcom,buswidth = <32>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
-			qcom,qport = <16>;
-			qcom,qos-mode = "fixed";
 			qcom,connections = <&slv_gpu_cdsp_bimc>;
-			qcom,prio = <0>;
-			qcom,util-fact = <153>;
-			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,bus-dev = <&fab_gpu_vert>;
 			qcom,mas-rpm-id = <ICBID_MASTER_GFX3D>;
 
 		};
@@ -1082,8 +1101,7 @@
 			label = "slv-gpu-cdsp-bimc";
 			qcom,buswidth = <32>;
 			qcom,agg-ports = <1>;
-			qcom,util-fact = <153>;
-			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,bus-dev = <&fab_gpu_vert>;
 			qcom,connections = <&mas_gpu_cdsp_bimc>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_GPU_CDSP_BIMC>;
 		};
