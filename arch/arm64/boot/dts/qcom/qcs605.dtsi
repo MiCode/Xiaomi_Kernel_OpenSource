@@ -422,3 +422,7 @@
 &apps_smmu {
 	/delete-property/ qcom,actlr;
 };
+
+&kgsl_smmu {
+	/delete-property/qcom,deferred-regulator-disable-delay;
+};
