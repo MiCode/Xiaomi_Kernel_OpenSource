@@ -44,15 +44,6 @@
 		"MIC BIAS1", "Digital Mic3",
 		"TX DMIC5", "MIC BIAS4",
 		"MIC BIAS4", "Digital Mic5",
-		"TX_AIF1 CAP", "VA_MCLK",
-		"TX_AIF2 CAP", "VA_MCLK",
-		"RX AIF1 PB", "VA_MCLK",
-		"RX AIF2 PB", "VA_MCLK",
-		"RX AIF3 PB", "VA_MCLK",
-		"RX AIF4 PB", "VA_MCLK",
-		"HPHL_OUT", "VA_MCLK",
-		"HPHR_OUT", "VA_MCLK",
-		"AUX_OUT", "VA_MCLK",
 		"IN1_HPHL", "HPHL_OUT",
 		"IN2_HPHR", "HPHR_OUT",
 		"IN3_AUX", "AUX_OUT",
@@ -65,8 +56,7 @@
 		"RX_TX DEC1_INP", "TX DEC1 MUX",
 		"RX_TX DEC2_INP", "TX DEC2 MUX",
 		"RX_TX DEC3_INP", "TX DEC3 MUX",
-		"SpkrRight IN", "WSA_SPK2 OUT",
-		"WSA_SPK2 OUT", "VA_MCLK";
+		"SpkrRight IN", "WSA_SPK2 OUT";
 	qcom,wsa-max-devs = <1>;
 	qcom,wsa-devs = <&wsa881x_0212>, <&wsa881x_0214>;
 	qcom,wsa-aux-dev-prefix = "SpkrRight", "SpkrRight";
