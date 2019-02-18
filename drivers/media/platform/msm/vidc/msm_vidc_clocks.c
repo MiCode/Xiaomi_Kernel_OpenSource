@@ -850,7 +850,9 @@ int msm_vidc_set_clocks(struct msm_vidc_core *core)
 	struct hfi_device *hdev;
 	unsigned long freq_core_1 = 0, freq_core_2 = 0, rate = 0;
 	unsigned long freq_core_max = 0;
-	struct msm_vidc_inst *temp = NULL;
+	struct msm_vidc_inst *inst = NULL;
+	struct msm_vidc_buffer *temp, *next;
+	u32 device_addr, filled_len;
 	int rc = 0, i = 0;
 	struct allowed_clock_rates_table *allowed_clks_tbl = NULL;
 	bool increment, decrement;
@@ -866,15 +868,34 @@ int msm_vidc_set_clocks(struct msm_vidc_core *core)
 	mutex_lock(&core->lock);
 	increment = false;
 	decrement = true;
-	list_for_each_entry(temp, &core->instances, list) {
+	list_for_each_entry(inst, &core->instances, list) {
+		device_addr = 0;
+		filled_len = 0;
+		mutex_lock(&inst->registeredbufs.lock);
+		list_for_each_entry_safe(temp, next,
+				&inst->registeredbufs.list, list) {
+			if (temp->vvb.vb2_buf.type ==
+				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+				filled_len = max(filled_len,
+					temp->vvb.vb2_buf.planes[0].bytesused);
+				device_addr = temp->smem[0].device_addr;
+			}
+		}
+		mutex_unlock(&inst->registeredbufs.lock);
 
-		if (temp->clk_data.core_id == VIDC_CORE_ID_1)
-			freq_core_1 += temp->clk_data.min_freq;
-		else if (temp->clk_data.core_id == VIDC_CORE_ID_2)
-			freq_core_2 += temp->clk_data.min_freq;
-		else if (temp->clk_data.core_id == VIDC_CORE_ID_3) {
-			freq_core_1 += temp->clk_data.min_freq;
-			freq_core_2 += temp->clk_data.min_freq;
+		if (!filled_len || !device_addr) {
+			dprintk(VIDC_DBG, "%s no input for session %x\n",
+				__func__, hash32_ptr(inst->session));
+			continue;
+		}
+
+		if (inst->clk_data.core_id == VIDC_CORE_ID_1)
+			freq_core_1 += inst->clk_data.min_freq;
+		else if (inst->clk_data.core_id == VIDC_CORE_ID_2)
+			freq_core_2 += inst->clk_data.min_freq;
+		else if (inst->clk_data.core_id == VIDC_CORE_ID_3) {
+			freq_core_1 += inst->clk_data.min_freq;
+			freq_core_2 += inst->clk_data.min_freq;
 		}
 
 		freq_core_max = max_t(unsigned long, freq_core_1, freq_core_2);
@@ -889,10 +910,10 @@ int msm_vidc_set_clocks(struct msm_vidc_core *core)
 		}
 
 		/* increment even if one session requested for it */
-		if (temp->clk_data.dcvs_flags & MSM_VIDC_DCVS_INCR)
+		if (inst->clk_data.dcvs_flags & MSM_VIDC_DCVS_INCR)
 			increment = true;
 		/* decrement only if all sessions requested for it */
-		if (!(temp->clk_data.dcvs_flags & MSM_VIDC_DCVS_DECR))
+		if (!(inst->clk_data.dcvs_flags & MSM_VIDC_DCVS_DECR))
 			decrement = false;
 	}
 
@@ -960,7 +981,7 @@ int msm_comm_scale_clocks(struct msm_vidc_inst *inst)
 	if (!filled_len || !device_addr) {
 		dprintk(VIDC_DBG, "%s no input for session %x\n",
 			__func__, hash32_ptr(inst->session));
-		goto no_clock_change;
+		return 0;
 	}
 
 	freq = call_core_op(inst->core, calc_freq, inst, filled_len);
@@ -978,7 +999,6 @@ int msm_comm_scale_clocks(struct msm_vidc_inst *inst)
 
 	msm_vidc_set_clocks(inst->core);
 
-no_clock_change:
 	return 0;
 }
 
