@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -135,6 +135,8 @@ int cnss_suspend_pci_link(struct cnss_pci_data *pci_priv)
 		goto out;
 	}
 
+	pci_clear_master(pci_priv->pci_dev);
+
 	ret = cnss_set_pci_config_space(pci_priv, SAVE_PCI_CONFIG_SPACE);
 	if (ret)
 		goto out;
@@ -176,6 +178,14 @@ int cnss_resume_pci_link(struct cnss_pci_data *pci_priv)
 		goto out;
 
 	pci_priv->pci_link_state = PCI_LINK_UP;
+
+	if (pci_priv->pci_dev->device != QCA6174_DEVICE_ID) {
+		ret = pci_set_power_state(pci_priv->pci_dev, PCI_D0);
+		if (ret) {
+			cnss_pr_err("Failed to set D0, err = %d\n", ret);
+			goto out;
+		}
+	}
 
 	ret = cnss_set_pci_config_space(pci_priv, RESTORE_PCI_CONFIG_SPACE);
 	if (ret)
@@ -959,6 +969,7 @@ static int cnss_pci_suspend(struct device *dev)
 			goto out;
 		}
 
+		pci_clear_master(pci_dev);
 		cnss_set_pci_config_space(pci_priv,
 					  SAVE_PCI_CONFIG_SPACE);
 		pci_disable_device(pci_dev);
@@ -1201,6 +1212,7 @@ int cnss_auto_suspend(struct device *dev)
 			goto out;
 		}
 
+		pci_clear_master(pci_dev);
 		cnss_set_pci_config_space(pci_priv, SAVE_PCI_CONFIG_SPACE);
 		pci_disable_device(pci_dev);
 
