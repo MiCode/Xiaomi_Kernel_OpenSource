@@ -372,6 +372,30 @@ static void __cam_req_mgr_reset_req_slot(struct cam_req_mgr_core_link *link,
 }
 
 /**
+ * __cam_req_mgr_check_for_lower_pd_devices()
+ *
+ * @brief    : Checks if there are any devices on the link having a lesser
+ *             pd than the max pd of the link
+ * @link     : Pointer to link which needs to be checked
+ *
+ * @return   : 0 if a lower pd device is found negative otherwise
+ */
+static int __cam_req_mgr_check_for_lower_pd_devices(
+	struct cam_req_mgr_core_link *link)
+{
+	int i = 0;
+	struct cam_req_mgr_connected_device *dev = NULL;
+
+	for (i = 0; i < link->num_devs; i++) {
+		dev = &link->l_dev[i];
+		if (dev->dev_info.p_delay < link->max_delay)
+			return 0;
+	}
+
+	return -EAGAIN;
+}
+
+/**
  * __cam_req_mgr_check_next_req_slot()
  *
  * @brief    : While streaming if input queue does not contain any pending
@@ -379,11 +403,14 @@ static void __cam_req_mgr_reset_req_slot(struct cam_req_mgr_core_link *link,
  *             devices with lower pipeline delay value.
  * @in_q     : Pointer to input queue where req mgr wil peep into
  *
+ * @return   : 0 for success, negative for failure
  */
-static void __cam_req_mgr_check_next_req_slot(
-	struct cam_req_mgr_req_queue *in_q)
+static int __cam_req_mgr_check_next_req_slot(
+	struct cam_req_mgr_core_link *link)
 {
-	int32_t                  idx = in_q->rd_idx;
+	int rc = 0;
+	struct cam_req_mgr_req_queue *in_q = link->req.in_q;
+	int32_t idx = in_q->rd_idx;
 	struct cam_req_mgr_slot *slot;
 
 	__cam_req_mgr_inc_idx(&idx, 1, in_q->num_slots);
@@ -393,12 +420,20 @@ static void __cam_req_mgr_check_next_req_slot(
 
 	/* Check if there is new req from CSL, if not complete req */
 	if (slot->status == CRM_SLOT_STATUS_NO_REQ) {
+		rc = __cam_req_mgr_check_for_lower_pd_devices(link);
+		if (rc) {
+			CAM_DBG(CAM_CRM, "No lower pd devices on link 0x%x",
+				link->link_hdl);
+			return rc;
+		}
 		__cam_req_mgr_in_q_skip_idx(in_q, idx);
 		if (in_q->wr_idx != idx)
 			CAM_WARN(CAM_CRM,
 				"CHECK here wr %d, rd %d", in_q->wr_idx, idx);
 		__cam_req_mgr_inc_idx(&in_q->wr_idx, 1, in_q->num_slots);
 	}
+
+	return rc;
 }
 
 /**
@@ -499,8 +534,6 @@ static int __cam_req_mgr_send_req(struct cam_req_mgr_core_link *link,
 				continue;
 			}
 
-			trace_cam_req_mgr_apply_request(link, &apply_req, dev);
-
 			apply_req.trigger_point = trigger;
 			CAM_DBG(CAM_REQ,
 				"SEND: link_hdl: %x pd %d req_id %lld",
@@ -513,6 +546,7 @@ static int __cam_req_mgr_send_req(struct cam_req_mgr_core_link *link,
 				if (pd == link->max_delay)
 					link->open_req_cnt--;
 			}
+			trace_cam_req_mgr_apply_request(link, &apply_req, dev);
 		}
 	}
 	if (rc < 0) {
@@ -644,7 +678,7 @@ static int __cam_req_mgr_check_sync_for_mslave(
 {
 	struct cam_req_mgr_core_link *sync_link = NULL;
 	struct cam_req_mgr_slot      *sync_slot = NULL;
-	int sync_slot_idx = 0, prev_idx, next_idx, rd_idx, rc = 0;
+	int sync_slot_idx = 0, prev_idx, next_idx, rd_idx, sync_rd_idx, rc = 0;
 	int64_t req_id = 0, sync_req_id = 0;
 
 	if (!link->sync_link) {
@@ -654,6 +688,7 @@ static int __cam_req_mgr_check_sync_for_mslave(
 
 	sync_link = link->sync_link;
 	req_id = slot->req_id;
+	sync_rd_idx = sync_link->req.in_q->rd_idx;
 
 	CAM_DBG(CAM_CRM,
 		"link_hdl %x req %lld frame_skip_flag %d open_req_cnt:%d initial_sync_req [%lld,%lld] is_master:%d",
@@ -668,6 +703,19 @@ static int __cam_req_mgr_check_sync_for_mslave(
 		sync_link->sync_link_sof_skip = false;
 		__cam_req_mgr_inject_delay(link->req.l_tbl, slot->idx);
 		return -EAGAIN;
+	}
+
+	if (link->in_msync_mode &&
+		sync_link->in_msync_mode &&
+		(req_id - sync_link->req.in_q->slot[sync_rd_idx].req_id >
+		link->max_delay - sync_link->max_delay)) {
+		CAM_DBG(CAM_CRM,
+			"Req: %lld on link:%x need to hold for link: %x req:%d",
+			req_id,
+			link->link_hdl,
+			sync_link->link_hdl,
+			sync_link->req.in_q->slot[sync_rd_idx].req_id);
+		return -EINVAL;
 	}
 
 	if (link->is_master) {
@@ -1008,8 +1056,10 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 					link->link_hdl);
 				link->in_msync_mode = false;
 				link->initial_sync_req = -1;
-				if (link->sync_link)
+				if (link->sync_link) {
 					link->sync_link->initial_sync_req = -1;
+					link->sync_link->in_msync_mode = false;
+				}
 			}
 
 			rc = __cam_req_mgr_inject_delay(link->req.l_tbl,
@@ -1762,6 +1812,8 @@ int cam_req_mgr_process_sched_req(void *priv, void *data)
 			link->initial_sync_req = slot->req_id;
 	} else {
 		link->initial_sync_req = -1;
+		if (link->sync_link)
+			link->sync_link->initial_sync_req = -1;
 	}
 
 	mutex_unlock(&link->req.lock);
@@ -2022,12 +2074,20 @@ static int cam_req_mgr_process_trigger(void *priv, void *data)
 		 */
 		CAM_DBG(CAM_CRM, "link[%x] Req[%lld] invalidating slot",
 			link->link_hdl, in_q->slot[in_q->rd_idx].req_id);
-		__cam_req_mgr_check_next_req_slot(in_q);
+		rc = __cam_req_mgr_check_next_req_slot(link);
+		if (rc) {
+			CAM_DBG(CAM_REQ,
+				"No pending req to apply to lower pd devices");
+			rc = 0;
+			goto release_lock;
+		}
 		__cam_req_mgr_inc_idx(&in_q->rd_idx, 1, in_q->num_slots);
 	}
-	rc = __cam_req_mgr_process_req(link, trigger_data->trigger);
-	mutex_unlock(&link->req.lock);
 
+	rc = __cam_req_mgr_process_req(link, trigger_data->trigger);
+
+release_lock:
+	mutex_unlock(&link->req.lock);
 end:
 	return rc;
 }
