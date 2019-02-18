@@ -494,9 +494,16 @@ static int msm_cvp_register_buffer(struct msm_cvp_inst *inst,
 	bool found;
 	struct hfi_device *hdev;
 	struct msm_cvp_internal_buffer *cbuf;
+	struct hal_session *session;
 
 	if (!inst || !inst->core || !buf) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+
+	session = (struct hal_session *)inst->session;
+	if (!session) {
+		dprintk(CVP_ERR, "%s: invalid session\n", __func__);
 		return -EINVAL;
 	}
 	hdev = inst->core->device;
@@ -538,6 +545,17 @@ static int msm_cvp_register_buffer(struct msm_cvp_inst *inst,
 		goto exit;
 	}
 
+	if (buf->index) {
+		rc = cvp_dsp_register_buffer((uint32_t)cbuf->smem.device_addr,
+			buf->index, buf->size, hash32_ptr(session));
+		if (rc) {
+			dprintk(CVP_ERR,
+				"%s: failed dsp registration for fd=%d rc=%d",
+				__func__, buf->fd, rc);
+			goto exit;
+		}
+	}
+
 	return rc;
 
 exit:
@@ -559,9 +577,16 @@ static int msm_cvp_unregister_buffer(struct msm_cvp_inst *inst,
 	bool found;
 	struct hfi_device *hdev;
 	struct msm_cvp_internal_buffer *cbuf;
+	struct hal_session *session;
 
 	if (!inst || !inst->core || !buf) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+
+	session = (struct hal_session *)inst->session;
+	if (!session) {
+		dprintk(CVP_ERR, "%s: invalid session\n", __func__);
 		return -EINVAL;
 	}
 	hdev = inst->core->device;
@@ -573,10 +598,6 @@ static int msm_cvp_unregister_buffer(struct msm_cvp_inst *inst,
 		if (cbuf->buf.fd == buf->fd &&
 			cbuf->buf.offset == buf->offset) {
 			found = true;
-			if (cbuf->smem.device_addr)
-				msm_cvp_smem_unmap_dma_buf(inst, &cbuf->smem);
-			list_del(&cbuf->list);
-			kfree(cbuf);
 			break;
 		}
 	}
@@ -585,6 +606,22 @@ static int msm_cvp_unregister_buffer(struct msm_cvp_inst *inst,
 		print_client_buffer(CVP_ERR, "invalid", inst, buf);
 		return -EINVAL;
 	}
+
+	if (buf->index) {
+		rc = cvp_dsp_deregister_buffer((uint32_t)cbuf->smem.device_addr,
+			buf->index, buf->size, hash32_ptr(session));
+		if (rc) {
+			dprintk(CVP_ERR,
+				"%s: failed dsp registration for fd = %d rc=%d",
+				__func__, buf->fd, rc);
+		}
+	}
+
+	if (cbuf->smem.device_addr)
+		msm_cvp_smem_unmap_dma_buf(inst, &cbuf->smem);
+
+	list_del(&cbuf->list);
+	kfree(cbuf);
 
 	return rc;
 }
