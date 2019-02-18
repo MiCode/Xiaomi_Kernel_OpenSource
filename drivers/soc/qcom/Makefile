@@ -48,6 +48,7 @@ obj-$(CONFIG_MSM_PIL)   +=      peripheral-loader.o
 obj-$(CONFIG_MSM_SPCOM) += spcom.o
 obj-$(CONFIG_MSM_CDSP_LOADER) += qdsp6v2/
 obj-$(CONFIG_MSM_JTAGV8) += jtagv8.o jtagv8-etm.o
+obj-$(CONFIG_QCOM_SMCINVOKE) += smcinvoke.o
 
 ifdef CONFIG_MSM_SUBSYSTEM_RESTART
 	obj-y += subsystem_notif.o
