@@ -2661,6 +2661,7 @@ static int dwc3_gadget_init_endpoints(struct dwc3 *dwc, u8 total)
 
 	for (epnum = 0; epnum < total; epnum++) {
 		int			ret;
+		u8			num = epnum >> 1;
 
 		ret = dwc3_gadget_init_endpoint(dwc, epnum);
 		if (ret)
@@ -2668,11 +2669,11 @@ static int dwc3_gadget_init_endpoints(struct dwc3 *dwc, u8 total)
 
 		dep = dwc->eps[epnum];
 		/* Reserve EPs at the end for GSI */
-		if (!dep->direction && dep->number >
+		if (!dep->direction && num >
 				out_count - NUM_GSI_OUT_EPS - 1) {
 			snprintf(dep->name, sizeof(dep->name), "gsi-epout");
 			dep->endpoint.ep_type = EP_TYPE_GSI;
-		} else if (dep->direction && dep->number >
+		} else if (dep->direction && num >
 				in_count - NUM_GSI_IN_EPS - 1) {
 			snprintf(dep->name, sizeof(dep->name), "gsi-epin");
 			dep->endpoint.ep_type = EP_TYPE_GSI;
