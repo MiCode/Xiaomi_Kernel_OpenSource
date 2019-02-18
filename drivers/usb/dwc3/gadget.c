@@ -1360,6 +1360,11 @@ static int __dwc3_gadget_kick_transfer(struct dwc3_ep *dep, u16 cmd_param)
 	int				ret;
 	u32				cmd;
 
+	if (dep->flags & DWC3_EP_END_TRANSFER_PENDING) {
+		dbg_event(dep->number, "ENDXFER Pending", dep->flags);
+		return -EBUSY;
+	}
+
 	starting = !(dep->flags & DWC3_EP_BUSY);
 
 	dwc3_prepare_trbs(dep);
