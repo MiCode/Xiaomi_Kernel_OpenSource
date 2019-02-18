@@ -733,7 +733,7 @@ void msm_vfe47_reg_update(struct vfe_device *vfe_dev,
 		update_mask = 0xF;
 	else
 		update_mask = BIT((uint32_t)frame_src);
-	ISP_DBG("%s update_mask %x\n", __func__, update_mask);
+	trace_printk("%s update_mask %x vfe %d\n", __func__, update_mask, vfe_dev->pdev->id);
 
 	spin_lock_irqsave(&vfe_dev->reg_update_lock, flags);
 	vfe_dev->axi_data.src_info[VFE_PIX_0].reg_update_frame_id =
