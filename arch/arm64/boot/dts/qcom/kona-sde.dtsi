@@ -531,6 +531,7 @@
 		interrupt-parent = <&mdss_mdp>;
 		interrupts = <4 0>;
 		vdda-1p2-supply = <&pm8150_l9>;
+		refgen-supply = <&refgen>;
 		clocks = <&clock_dispcc DISP_CC_MDSS_BYTE0_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_BYTE0_CLK_SRC>,
 			<&clock_dispcc DISP_CC_MDSS_BYTE0_INTF_CLK>,
@@ -553,6 +554,20 @@
 				qcom,supply-disable-load = <0>;
 			};
 		};
+
+		qcom,core-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,core-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "refgen";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+		};
 	};
 
 	mdss_dsi1: qcom,mdss_dsi_ctrl1@ae96000 {
@@ -565,6 +580,7 @@
 		interrupt-parent = <&mdss_mdp>;
 		interrupts = <5 0>;
 		vdda-1p2-supply = <&pm8150_l9>;
+		refgen-supply = <&refgen>;
 		clocks = <&clock_dispcc DISP_CC_MDSS_BYTE1_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_BYTE1_CLK_SRC>,
 			<&clock_dispcc DISP_CC_MDSS_BYTE1_INTF_CLK>,
@@ -583,6 +599,20 @@
 				qcom,supply-min-voltage = <1200000>;
 				qcom,supply-max-voltage = <1200000>;
 				qcom,supply-enable-load = <21800>;
+				qcom,supply-disable-load = <0>;
+			};
+		};
+
+		qcom,core-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,core-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "refgen";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
 				qcom,supply-disable-load = <0>;
 			};
 		};
