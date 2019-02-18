@@ -494,6 +494,8 @@ struct cam_ife_csid_hw {
 	bool                             sof_irq_triggered;
 	uint32_t                         irq_debug_cnt;
 	uint32_t                         error_irq_count;
+	uint32_t                         device_enabled;
+	spinlock_t                       lock_state;
 };
 
 int cam_ife_csid_hw_probe_init(struct cam_hw_intf  *csid_hw_intf,

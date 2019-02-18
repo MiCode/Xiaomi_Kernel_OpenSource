@@ -400,7 +400,7 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 		(uint32_t)cmd->offset);
 
 	if (packet->header.request_id <= ctx->last_flush_req) {
-		CAM_DBG(CAM_CORE,
+		CAM_ERR(CAM_CORE,
 			"request %lld has been flushed, reject packet",
 			packet->header.request_id);
 		rc = -EINVAL;

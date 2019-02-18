@@ -1072,7 +1072,9 @@ static int __cam_isp_ctx_handle_error(struct cam_isp_context *ctx_isp,
 	}
 
 	req_isp = (struct cam_isp_ctx_req *) req_to_dump->req_priv;
-	cam_isp_ctx_dump_req(req_isp);
+
+	if (error_event_data->enable_reg_dump)
+		cam_isp_ctx_dump_req(req_isp);
 
 	__cam_isp_ctx_update_state_monitor_array(ctx_isp,
 		CAM_ISP_STATE_CHANGE_TRIGGER_ERROR, req_to_dump->request_id);

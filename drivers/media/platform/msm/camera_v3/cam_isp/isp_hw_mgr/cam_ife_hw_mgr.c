@@ -3496,6 +3496,53 @@ static int cam_isp_blob_clock_update(
 	return rc;
 }
 
+void fill_res_bitmap(uint32_t resource_type, unsigned long *res_bitmap)
+{
+
+	switch (resource_type) {
+	case CAM_ISP_IFE_OUT_RES_FULL:
+	case CAM_ISP_IFE_OUT_RES_DS4:
+	case CAM_ISP_IFE_OUT_RES_DS16:
+	case CAM_ISP_IFE_OUT_RES_RAW_DUMP:
+	case CAM_ISP_IFE_OUT_RES_FD:
+	case CAM_ISP_IFE_OUT_RES_PDAF:
+	case CAM_ISP_IFE_OUT_RES_STATS_HDR_BE:
+	case CAM_ISP_IFE_OUT_RES_STATS_HDR_BHIST:
+	case CAM_ISP_IFE_OUT_RES_STATS_TL_BG:
+	case CAM_ISP_IFE_OUT_RES_STATS_BF:
+	case CAM_ISP_IFE_OUT_RES_STATS_AWB_BG:
+	case CAM_ISP_IFE_OUT_RES_STATS_BHIST:
+	case CAM_ISP_IFE_OUT_RES_STATS_RS:
+	case CAM_ISP_IFE_OUT_RES_STATS_CS:
+	case CAM_ISP_IFE_OUT_RES_STATS_IHIST:
+	case CAM_ISP_IFE_OUT_RES_FULL_DISP:
+	case CAM_ISP_IFE_OUT_RES_DS4_DISP:
+	case CAM_ISP_IFE_OUT_RES_DS16_DISP:
+	case CAM_ISP_IFE_IN_RES_RD:
+		set_bit(CAM_IFE_REG_UPD_CMD_PIX_BIT, res_bitmap);
+		break;
+	case CAM_ISP_IFE_OUT_RES_RDI_0:
+		set_bit(CAM_IFE_REG_UPD_CMD_RDI0_BIT, res_bitmap);
+		break;
+	case CAM_ISP_IFE_OUT_RES_RDI_1:
+		set_bit(CAM_IFE_REG_UPD_CMD_RDI1_BIT, res_bitmap);
+		break;
+	case CAM_ISP_IFE_OUT_RES_RDI_2:
+		set_bit(CAM_IFE_REG_UPD_CMD_RDI2_BIT, res_bitmap);
+		break;
+	case CAM_ISP_IFE_OUT_RES_RDI_3:
+		set_bit(CAM_IFE_REG_UPD_CMD_RDI3_BIT, res_bitmap);
+		break;
+	case CAM_ISP_IFE_OUT_RES_2PD:
+		set_bit(CAM_IFE_REG_UPD_CMD_DUAL_PD_BIT,
+			res_bitmap);
+		break;
+	default:
+		CAM_ERR(CAM_ISP, "Invalid resource");
+		break;
+	}
+}
+
 static int cam_isp_packet_generic_blob_handler(void *user_data,
 	uint32_t blob_type, uint32_t blob_size, uint8_t *blob_data)
 {
@@ -3693,7 +3740,9 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 			prepare, ctx->base[i].idx,
 			&kmd_buf, ctx->res_list_ife_out,
 			&ctx->res_list_ife_in_rd,
-			CAM_IFE_HW_OUT_RES_MAX, fill_fence);
+			CAM_IFE_HW_OUT_RES_MAX, fill_fence,
+			&ctx->res_bitmap,
+			fill_res_bitmap);
 
 		if (rc) {
 			CAM_ERR(CAM_ISP,
@@ -3734,7 +3783,8 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 
 		/*Add reg update */
 		rc = cam_isp_add_reg_update(prepare, &ctx->res_list_ife_src,
-			ctx->base[i].idx, &kmd_buf);
+				ctx->base[i].idx, &kmd_buf, ctx->is_fe_enable,
+				ctx->res_bitmap);
 		if (rc) {
 			CAM_ERR(CAM_ISP,
 				"Add Reg_update cmd Failed i=%d, idx=%d, rc=%d",
@@ -3742,6 +3792,7 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 			goto end;
 		}
 	}
+	ctx->res_bitmap = 0;
 
 end:
 	return rc;
@@ -4261,6 +4312,8 @@ static int cam_ife_hw_mgr_get_err_type(
 
 	core_idx = evt_payload->core_index;
 	evt_payload->evt_id = CAM_ISP_HW_EVENT_ERROR;
+	evt_payload->enable_reg_dump =
+		g_ife_hw_mgr.debug_cfg.enable_reg_dump;
 
 	list_for_each_entry(isp_ife_camif_res,
 		&ife_hwr_mgr_ctx->res_list_ife_src, list) {
@@ -4347,6 +4400,9 @@ static int  cam_ife_hw_mgr_handle_camif_error(
 
 		error_event_data.error_type =
 				CAM_ISP_HW_ERROR_OVERFLOW;
+
+		error_event_data.enable_reg_dump =
+			g_ife_hw_mgr.debug_cfg.enable_reg_dump;
 
 		cam_ife_hw_mgr_find_affected_ctx(ife_hwr_mgr_ctx,
 			&error_event_data,
@@ -5307,6 +5363,14 @@ static int cam_ife_hw_mgr_debug_register(void)
 	if (!g_ife_hw_mgr.debug_cfg.dentry) {
 		CAM_ERR(CAM_ISP, "failed to create dentry");
 		return -ENOMEM;
+	}
+
+	if (!debugfs_create_u32("enable_reg_dump",
+		0644,
+		g_ife_hw_mgr.debug_cfg.dentry,
+		&g_ife_hw_mgr.debug_cfg.enable_reg_dump)) {
+		CAM_ERR(CAM_ISP, "failed to create enable_reg_dump");
+		goto err;
 	}
 
 	if (!debugfs_create_file("ife_csid_debug",

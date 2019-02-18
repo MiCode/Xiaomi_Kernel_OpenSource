@@ -588,7 +588,8 @@ static int cam_vfe_camif_handle_irq_bottom_half(void *handler_priv,
 		}
 		break;
 	case CAM_ISP_HW_EVENT_ERROR:
-		if (irq_status1 & camif_priv->reg_data->error_irq_mask1) {
+		if (irq_status1 & camif_priv->reg_data->error_irq_mask1 &&
+			payload->enable_reg_dump) {
 			CAM_DBG(CAM_ISP, "Received ERROR\n");
 			ret = CAM_ISP_HW_ERROR_OVERFLOW;
 			cam_vfe_camif_reg_dump(camif_node->res_priv);
