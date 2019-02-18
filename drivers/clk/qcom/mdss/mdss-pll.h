@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __MDSS_PLL_H
@@ -37,10 +37,12 @@ enum {
 	MDSS_DSI_PLL_10NM,
 	MDSS_DP_PLL_10NM,
 	MDSS_DSI_PLL_7NM,
+	MDSS_DSI_PLL_7NM_V2,
 	MDSS_DP_PLL_7NM,
 	MDSS_DSI_PLL_28LPM,
 	MDSS_DSI_PLL_14NM,
 	MDSS_DP_PLL_14NM,
+	MDSS_HDMI_PLL_28LPM,
 	MDSS_UNKNOWN_PLL,
 };
 

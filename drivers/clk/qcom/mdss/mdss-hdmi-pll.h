@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __MDSS_HDMI_PLL_H
@@ -12,6 +12,7 @@ struct hdmi_pll_cfg {
 };
 
 struct hdmi_pll_vco_clk {
+	struct clk_hw	hw;
 	unsigned long	rate;	/* current vco rate */
 	unsigned long	min_rate;	/* min vco rate */
 	unsigned long	max_rate;	/* max vco rate */
@@ -23,13 +24,15 @@ struct hdmi_pll_vco_clk {
 	struct hdmi_pll_cfg *crctrl;
 	void		*priv;
 
-	struct clk	c;
 };
 
-static inline struct hdmi_pll_vco_clk *to_hdmi_vco_clk(struct clk *clk)
+static inline struct hdmi_pll_vco_clk *to_hdmi_vco_clk_hw(struct clk_hw *hw)
 {
-	return container_of(clk, struct hdmi_pll_vco_clk, c);
+	return container_of(hw, struct hdmi_pll_vco_clk, hw);
 }
+
+int hdmi_pll_clock_register_28lpm(struct platform_device *pdev,
+				struct mdss_pll_resources *pll_res);
 
 int hdmi_pll_clock_register(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res);
