@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/fs.h>
@@ -392,6 +392,8 @@ static int wlan_msg_process(struct ipa_msg_meta *meta, void *buff)
 	uint8_t mac[IPA_MAC_ADDR_SIZE];
 	uint8_t mac2[IPA_MAC_ADDR_SIZE];
 
+	if (!buff)
+		return -EINVAL;
 	if (meta->msg_type == WLAN_CLIENT_CONNECT_EX) {
 		/* debug print */
 		event_ex_cur_con = buff;
