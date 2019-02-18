@@ -1677,6 +1677,20 @@ static int alpha_pll_lucid_prepare(struct clk_hw *hw)
 	if (regval & LUCID_PCAL_DONE)
 		return 0;
 
+	if (pll->config) {
+		/*
+		 * Reconfigure the PLL if CAL_L_VAL is 0 (which implies that all
+		 * clock controller registers have been reset).
+		 */
+		regmap_read(pll->clkr.regmap, PLL_CAL_L_VAL(pll), &regval);
+		if (!regval) {
+			pr_debug("reconfiguring %s after it was reset\n",
+				clk_hw_get_name(hw));
+			clk_lucid_pll_configure(pll, pll->clkr.regmap,
+						pll->config);
+		}
+	}
+
 	p = clk_hw_get_parent(hw);
 	if (!p)
 		return -EINVAL;
