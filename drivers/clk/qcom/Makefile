@@ -56,6 +56,7 @@ obj-$(CONFIG_SM_CAMCC_LITO) += camcc-lito.o
 obj-$(CONFIG_SM_DISPCC_LITO) += dispcc-lito.o
 obj-$(CONFIG_SM_GCC_LITO) += gcc-lito.o
 obj-$(CONFIG_SM_VIDEOCC_LITO) += videocc-lito.o
+obj-$(CONFIG_SM_GPUCC_LITO) += gpucc-lito.o
 obj-$(CONFIG_SPMI_PMIC_CLKDIV) += clk-spmi-pmic-div.o
 
 obj-y += mdss/
