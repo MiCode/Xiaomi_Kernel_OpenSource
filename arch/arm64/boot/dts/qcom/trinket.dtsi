@@ -2514,6 +2514,10 @@
 			< 1804800 MHZ_TO_MBPS(1017, 8) >,
 			< 2016000 MHZ_TO_MBPS(1804, 8) >;
 	};
+
+	demux {
+		compatible = "qcom,demux";
+	};
 };
 
 #include "pmi632.dtsi"
