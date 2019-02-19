@@ -283,7 +283,8 @@ static void dp_display_hdcp_deregister_stream(struct dp_display_private *dp,
 		enum dp_stream_id stream_id)
 {
 	if (dp->hdcp.ops->deregister_streams) {
-		struct stream_info stream = {stream_id, 0};
+		struct stream_info stream = {stream_id,
+				dp->active_panels[stream_id]->vcpi};
 
 		pr_debug("Deregistering stream within HDCP library\n");
 		dp->hdcp.ops->deregister_streams(dp->hdcp.data, 1, &stream);
@@ -1655,9 +1656,8 @@ static int dp_display_pre_disable(struct dp_display *dp_display, void *panel)
 			dp_display_hdcp_deregister_stream(dp,
 				dp_panel->stream_id);
 			for (i = DP_STREAM_0; i < DP_STREAM_MAX; i++) {
-				if (i != dp_panel->stream_id)
-					continue;
-				if (dp->active_panels[i]) {
+				if (i != dp_panel->stream_id &&
+						dp->active_panels[i]) {
 					pr_debug("Streams are still active. Skip disabling HDCP\n");
 					goto stream;
 				}
