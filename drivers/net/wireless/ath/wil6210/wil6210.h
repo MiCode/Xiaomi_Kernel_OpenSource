@@ -969,6 +969,7 @@ struct wil6210_priv {
 	u8 wakeup_trigger;
 	struct wil_suspend_stats suspend_stats;
 	struct wil_debugfs_data dbg_data;
+	u8 force_edmg_channel;
 	bool tx_latency; /* collect TX latency measurements */
 	size_t tx_latency_res; /* bin resolution in usec */
 
@@ -1011,6 +1012,9 @@ struct wil6210_priv {
 	u32 rgf_fw_assert_code_addr;
 	u32 rgf_ucode_assert_code_addr;
 	u32 iccm_base;
+
+	u8 publish_nl_evt; /* deliver WMI events to user space */
+	u8 force_wmi_send; /* allow WMI command while FW in sysassert */
 
 	/* relevant only for eDMA */
 	bool use_compressed_rx_status;
@@ -1191,6 +1195,8 @@ void __iomem *wmi_addr(struct wil6210_priv *wil, u32 ptr);
 int wmi_read_hdr(struct wil6210_priv *wil, __le32 ptr,
 		 struct wil6210_mbox_hdr *hdr);
 int wmi_send(struct wil6210_priv *wil, u16 cmdid, u8 mid, void *buf, u16 len);
+int wmi_force_send(struct wil6210_priv *wil, u16 cmdid, u8 mid, void *buf,
+		   u16 len);
 void wmi_recv_cmd(struct wil6210_priv *wil);
 int wmi_call(struct wil6210_priv *wil, u16 cmdid, u8 mid, void *buf, u16 len,
 	     u16 reply_id, void *reply, u16 reply_size, int to_msec);
@@ -1371,6 +1377,7 @@ void wil_ftm_evt_per_dest_res(struct wil6210_vif *vif,
 void wil_aoa_evt_meas(struct wil6210_vif *vif,
 		      struct wmi_aoa_meas_event *evt,
 		      int len);
+void wil_nl_60g_receive_wmi_evt(struct wil6210_priv *wil, u8 *cmd, int len);
 /* link loss */
 int wmi_link_maintain_cfg_write(struct wil6210_priv *wil,
 				const u8 *addr,
@@ -1384,6 +1391,9 @@ int wmi_stop_sched_scan(struct wil6210_priv *wil);
 int wmi_mgmt_tx(struct wil6210_vif *vif, const u8 *buf, size_t len);
 int wmi_mgmt_tx_ext(struct wil6210_vif *vif, const u8 *buf, size_t len,
 		    u8 channel, u16 duration_ms);
+
+int wil_wmi2spec_ch(u8 wmi_ch, u8 *spec_ch);
+int wil_spec2wmi_ch(u8 spec_ch, u8 *wmi_ch);
 
 int reverse_memcmp(const void *cs, const void *ct, size_t count);
 

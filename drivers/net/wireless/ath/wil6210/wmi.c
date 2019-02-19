@@ -602,7 +602,7 @@ static const char *eventid2name(u16 eventid)
 }
 
 static int __wmi_send(struct wil6210_priv *wil, u16 cmdid, u8 mid,
-		      void *buf, u16 len)
+		      void *buf, u16 len, bool force_send)
 {
 	struct {
 		struct wil6210_mbox_hdr hdr;
@@ -634,7 +634,7 @@ static int __wmi_send(struct wil6210_priv *wil, u16 cmdid, u8 mid,
 
 	might_sleep();
 
-	if (!test_bit(wil_status_fwready, wil->status)) {
+	if (!test_bit(wil_status_fwready, wil->status) && !force_send) {
 		wil_err(wil, "WMI: cannot send command while FW not ready\n");
 		return -EAGAIN;
 	}
@@ -673,7 +673,7 @@ static int __wmi_send(struct wil6210_priv *wil, u16 cmdid, u8 mid,
 	wil_dbg_wmi(wil, "Head 0x%08x -> 0x%08x\n", r->head, next_head);
 	/* wait till FW finish with previous command */
 	for (retry = 5; retry > 0; retry--) {
-		if (!test_bit(wil_status_fwready, wil->status)) {
+		if (!test_bit(wil_status_fwready, wil->status) && !force_send) {
 			wil_err(wil, "WMI: cannot send command while FW not ready\n");
 			rc = -EAGAIN;
 			goto out;
@@ -728,7 +728,19 @@ int wmi_send(struct wil6210_priv *wil, u16 cmdid, u8 mid, void *buf, u16 len)
 	int rc;
 
 	mutex_lock(&wil->wmi_mutex);
-	rc = __wmi_send(wil, cmdid, mid, buf, len);
+	rc = __wmi_send(wil, cmdid, mid, buf, len, false);
+	mutex_unlock(&wil->wmi_mutex);
+
+	return rc;
+}
+
+int wmi_force_send(struct wil6210_priv *wil, u16 cmdid, u8 mid, void *buf,
+		   u16 len)
+{
+	int rc;
+
+	mutex_lock(&wil->wmi_mutex);
+	rc = __wmi_send(wil, cmdid, mid, buf, len, true);
 	mutex_unlock(&wil->wmi_mutex);
 
 	return rc;
@@ -906,6 +918,7 @@ static void wmi_evt_connect(struct wil6210_vif *vif, int id, void *d, int len)
 	struct wireless_dev *wdev = vif_to_wdev(vif);
 	struct wmi_connect_event *evt = d;
 	int ch; /* channel number */
+	u8 spec_ch = 0; /* spec channel number */
 	struct station_info *sinfo;
 	u8 *assoc_req_ie, *assoc_resp_ie;
 	size_t assoc_req_ielen, assoc_resp_ielen;
@@ -933,8 +946,16 @@ static void wmi_evt_connect(struct wil6210_vif *vif, int id, void *d, int len)
 	}
 
 	ch = evt->channel + 1;
-	wil_info(wil, "Connect %pM channel [%d] cid %d aid %d\n",
-		 evt->bssid, ch, evt->cid, evt->aid);
+	if (evt->edmg_channel &&
+	    test_bit(WMI_FW_CAPABILITY_CHANNEL_BONDING, wil->fw_capabilities))
+		wil_wmi2spec_ch(evt->edmg_channel, &spec_ch);
+	if (spec_ch)
+		wil_info(wil, "Connect %pM EDMG channel [%d] primary channel [%d] cid %d aid %d\n",
+			 evt->bssid, spec_ch, ch, evt->cid, evt->aid);
+	else
+		wil_info(wil, "Connect %pM channel [%d] cid %d aid %d\n",
+			 evt->bssid, ch, evt->cid, evt->aid);
+
 	wil_hex_dump_wmi("connect AI : ", DUMP_PREFIX_OFFSET, 16, 1,
 			 evt->assoc_info, len - sizeof(*evt), true);
 
@@ -1600,6 +1621,7 @@ void wmi_recv_cmd(struct wil6210_priv *wil)
 			u16 id = le16_to_cpu(wmi->command_id);
 			u8 mid = wmi->mid;
 			u32 tstamp = le32_to_cpu(wmi->fw_timestamp);
+			wil_nl_60g_receive_wmi_evt(wil, cmd, len);
 			if (test_bit(wil_status_resuming, wil->status)) {
 				if (id == WMI_TRAFFIC_RESUME_EVENTID)
 					clear_bit(wil_status_resuming,
@@ -1675,7 +1697,7 @@ int wmi_call(struct wil6210_priv *wil, u16 cmdid, u8 mid, void *buf, u16 len,
 	reinit_completion(&wil->wmi_call);
 	spin_unlock(&wil->wmi_ev_lock);
 
-	rc = __wmi_send(wil, cmdid, mid, buf, len);
+	rc = __wmi_send(wil, cmdid, mid, buf, len, false);
 	if (rc)
 		goto out;
 
@@ -1811,6 +1833,16 @@ int wmi_pcp_start(struct wil6210_vif *vif,
 	} __packed reply = {
 		.evt = {.status = WMI_FW_STATUS_FAILURE},
 	};
+
+	if (test_bit(WMI_FW_CAPABILITY_CHANNEL_BONDING, wil->fw_capabilities))
+		if (wil->force_edmg_channel) {
+			rc = wil_spec2wmi_ch(wil->force_edmg_channel,
+					     &cmd.edmg_channel);
+			if (rc)
+				wil_err(wil,
+					"wmi channel for channel %d not found",
+					wil->force_edmg_channel);
+		}
 
 	if (!vif->privacy)
 		cmd.disable_sec = 1;
