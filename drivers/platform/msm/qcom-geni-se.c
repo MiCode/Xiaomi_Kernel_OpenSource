@@ -1030,6 +1030,7 @@ EXPORT_SYMBOL(se_geni_resources_on);
 int geni_se_resources_init(struct se_geni_rsc *rsc,
 			   unsigned long ab, unsigned long ib)
 {
+	int ret = 0;
 	struct geni_se_device *geni_se_dev;
 
 	if (unlikely(!rsc || !rsc->wrapper_dev))
@@ -1077,8 +1078,11 @@ int geni_se_resources_init(struct se_geni_rsc *rsc,
 
 	INIT_LIST_HEAD(&rsc->ab_list);
 	INIT_LIST_HEAD(&rsc->ib_list);
-	geni_se_iommu_map_and_attach(geni_se_dev);
-	return 0;
+	ret = geni_se_iommu_map_and_attach(geni_se_dev);
+	if (ret)
+		GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
+			"%s: Error %d iommu_map_and_attach\n", __func__, ret);
+	return ret;
 }
 EXPORT_SYMBOL(geni_se_resources_init);
 
