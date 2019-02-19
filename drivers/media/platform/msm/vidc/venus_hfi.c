@@ -3687,7 +3687,7 @@ err_clk_get:
 static int __handle_reset_clk(struct msm_vidc_platform_resources *res,
 			enum reset_state state)
 {
-	int rc = 0;
+	int rc = 0, i;
 	struct reset_control *rst;
 	struct reset_set *rst_set = &res->reset_set;
 
@@ -3695,7 +3695,7 @@ static int __handle_reset_clk(struct msm_vidc_platform_resources *res,
 		return 0;
 
 	dprintk(VIDC_DBG, "%s reset_state %d\n", __func__, state);
-	for (int i = 0; i < rst_set->count; i++) {
+	for (i = 0; i < rst_set->count; i++) {
 		rst = rst_set->reset_tbl[i].rst;
 		switch (state) {
 		case INIT:
