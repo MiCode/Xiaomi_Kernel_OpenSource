@@ -1475,6 +1475,9 @@ static int __qcom_glink_send(struct glink_channel *channel,
 			if (intent)
 				break;
 
+			if (atomic_read(&glink->in_reset))
+				return -ECONNRESET;
+
 			if (!wait)
 				return -EBUSY;
 
