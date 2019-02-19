@@ -1151,9 +1151,28 @@ static int mmc_select_hs400(struct mmc_card *card)
 	/*
 	 * HS400 mode requires 8-bit bus width
 	 */
-	if (!(card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS400 &&
-	      host->ios.bus_width == MMC_BUS_WIDTH_8))
-		return 0;
+	if (card->ext_csd.strobe_support) {
+		if (!(card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS400 &&
+		    host->caps & MMC_CAP_8_BIT_DATA))
+			return 0;
+
+		/* For Enhance Strobe flow. For non Enhance Strobe, signal
+		 * voltage will not be set.
+		 */
+		if (card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS200_1_2V)
+			err = mmc_set_signal_voltage(host,
+					MMC_SIGNAL_VOLTAGE_120);
+
+		if (err && card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS200_1_8V)
+			err = mmc_set_signal_voltage(host,
+					MMC_SIGNAL_VOLTAGE_180);
+		if (err)
+			return err;
+	} else {
+		if (!(card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS400 &&
+		    host->ios.bus_width == MMC_BUS_WIDTH_8))
+			return 0;
+	}
 
 	/* Switch card to HS mode */
 	val = EXT_CSD_TIMING_HS;
@@ -1170,10 +1189,6 @@ static int mmc_select_hs400(struct mmc_card *card)
 	/* Set host controller to HS timing */
 	mmc_set_timing(card->host, MMC_TIMING_MMC_HS);
 
-	/* Prepare host to downgrade to HS timing */
-	if (host->ops->hs400_downgrade)
-		host->ops->hs400_downgrade(host);
-
 	/* Reduce frequency to HS frequency */
 	max_dtr = card->ext_csd.hs_max_dtr;
 	mmc_set_clock(host, max_dtr);
@@ -1182,10 +1197,18 @@ static int mmc_select_hs400(struct mmc_card *card)
 	if (err)
 		goto out_err;
 
+	val = EXT_CSD_DDR_BUS_WIDTH_8;
+	if (card->ext_csd.strobe_support) {
+		err = mmc_select_bus_width(card);
+		if (IS_ERR_VALUE((unsigned long)err))
+			return err;
+		val |= EXT_CSD_BUS_WIDTH_STROBE;
+	}
+
 	/* Switch card to DDR */
 	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 			 EXT_CSD_BUS_WIDTH,
-			 EXT_CSD_DDR_BUS_WIDTH_8,
+			 val,
 			 card->ext_csd.generic_cmd6_time);
 	if (err) {
 		pr_err("%s: switch to bus width for hs400 failed, err:%d\n",
@@ -1210,12 +1233,32 @@ static int mmc_select_hs400(struct mmc_card *card)
 	mmc_set_timing(host, MMC_TIMING_MMC_HS400);
 	mmc_set_bus_speed(card);
 
+	if (card->ext_csd.strobe_support && host->ops->enhanced_strobe) {
+		mmc_host_clk_hold(host);
+		err = host->ops->enhanced_strobe(host);
+		if (!err)
+			host->ios.enhanced_strobe = true;
+		mmc_host_clk_release(host);
+	} else if ((host->caps2 & MMC_CAP2_HS400_POST_TUNING) &&
+			host->ops->execute_tuning) {
+		mmc_host_clk_hold(host);
+		err = host->ops->execute_tuning(host,
+				MMC_SEND_TUNING_BLOCK_HS200);
+		mmc_host_clk_release(host);
+
+		if (err)
+			pr_warn("%s: tuning execution failed\n",
+				mmc_hostname(host));
+	}
+
+	/*
+	 * Sending of CMD13 should be done after the host calibration
+	 * for enhanced_strobe or HS400 mode is completed.
+	 * Otherwise may see CMD13 timeouts or CRC errors.
+	 */
 	err = mmc_switch_status(card);
 	if (err)
 		goto out_err;
-
-	if (host->ops->hs400_complete)
-		host->ops->hs400_complete(host);
 
 	return 0;
 
@@ -1501,12 +1544,22 @@ static int mmc_select_timing(struct mmc_card *card)
 	if (!mmc_can_ext_csd(card))
 		goto bus_speed;
 
-	if (card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS400ES)
-		err = mmc_select_hs400es(card);
-	else if (card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS200)
+	/* For Enhance Strobe HS400 flow */
+	if (card->ext_csd.strobe_support &&
+	    card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS400 &&
+	    card->host->caps & MMC_CAP_8_BIT_DATA) {
+		err = mmc_select_hs400(card);
+		if (err) {
+			pr_err("%s: %s: mmc_select_hs400 failed : %d\n",
+					mmc_hostname(card->host), __func__,
+					err);
+			err = mmc_select_hs400es(card);
+		}
+	} else if (card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS200) {
 		err = mmc_select_hs200(card);
-	else if (card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS)
+	} else if (card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS) {
 		err = mmc_select_hs(card);
+	}
 
 	if (err && err != -EBADMSG)
 		return err;
@@ -1611,6 +1664,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		card->type = MMC_TYPE_MMC;
 		card->rca = 1;
 		memcpy(card->raw_cid, cid, sizeof(card->raw_cid));
+		host->card = card;
 	}
 
 	/*

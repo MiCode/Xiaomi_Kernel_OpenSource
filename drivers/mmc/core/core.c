@@ -933,6 +933,19 @@ static inline void mmc_set_ios(struct mmc_host *host)
 		 1 << ios->bus_width, ios->timing);
 
 	host->ops->set_ios(host, ios);
+	if (ios->old_rate != ios->clock) {
+		if (likely(ios->clk_ts)) {
+			char trace_info[80];
+
+			snprintf(trace_info, 80,
+				"%s: freq_KHz %d --> %d | t = %d",
+				mmc_hostname(host), ios->old_rate / 1000,
+				ios->clock / 1000, jiffies_to_msecs(
+					(long)jiffies - (long)ios->clk_ts));
+		}
+		ios->old_rate = ios->clock;
+		ios->clk_ts = jiffies;
+	}
 }
 
 /*
@@ -1499,17 +1512,21 @@ int mmc_host_set_uhs_voltage(struct mmc_host *host)
 	 * During a signal voltage level switch, the clock must be gated
 	 * for 5 ms according to the SD spec
 	 */
+	host->card_clock_off = true;
 	clock = host->ios.clock;
 	host->ios.clock = 0;
 	mmc_set_ios(host);
 
-	if (mmc_set_signal_voltage(host, MMC_SIGNAL_VOLTAGE_180))
+	if (mmc_set_signal_voltage(host, MMC_SIGNAL_VOLTAGE_180)) {
+		host->card_clock_off = false;
 		return -EAGAIN;
+	}
 
 	/* Keep clock gated for at least 10 ms, though spec only says 5 ms */
 	mmc_delay(10);
 	host->ios.clock = clock;
 	mmc_set_ios(host);
+	host->card_clock_off = false;
 
 	return 0;
 }
@@ -2595,6 +2612,18 @@ int mmc_detect_card_removed(struct mmc_host *host)
 	return ret;
 }
 EXPORT_SYMBOL(mmc_detect_card_removed);
+
+/*
+ * This should be called to make sure that detect work(mmc_rescan)
+ * is completed.Drivers may use this function from async schedule/probe
+ * contexts to make sure that the bootdevice detection is completed on
+ * completion of async_schedule.
+ */
+void mmc_flush_detect_work(struct mmc_host *host)
+{
+	flush_delayed_work(&host->detect);
+}
+EXPORT_SYMBOL(mmc_flush_detect_work);
 
 void mmc_rescan(struct work_struct *work)
 {
