@@ -1876,6 +1876,26 @@ static void adreno_set_active_ctxs_null(struct adreno_device *adreno_dev)
 	}
 }
 
+static int adreno_program_smmu_aperture(struct kgsl_device *device)
+{
+	unsigned long start = jiffies;
+	int ret;
+
+	if (!scm_is_call_available(SCM_SVC_MP, CP_SMMU_APERTURE_ID))
+		return 0;
+
+	ret = kgsl_program_smmu_aperture();
+	if (ret)
+		dev_err(device->dev,
+		    "SMMU aperture programming call failed error %d\n",
+		    ret);
+	else if (jiffies_to_msecs(jiffies - start) > 2000)
+		dev_err(device->dev,
+		    "scm call took a long time to finish: %u ms\n",
+		    jiffies_to_msecs(jiffies - start));
+
+	return ret;
+}
 /**
  * _adreno_start - Power up the GPU and prepare to accept commands
  * @adreno_dev: Pointer to an adreno_device structure
@@ -1926,20 +1946,9 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 
 
 	if (adreno_is_a640v1(adreno_dev)) {
-		unsigned long start = jiffies;
-
-		if (scm_is_call_available(SCM_SVC_MP, CP_SMMU_APERTURE_ID)) {
-			ret = kgsl_program_smmu_aperture();
-			/* Log it if it takes more than 2 seconds */
-			if (((jiffies - start) / HZ) > 2)
-				dev_err(device->dev, "scm call took too long to finish on a640v1: %lu seconds\n",
-					((jiffies - start) / HZ));
-			if (ret) {
-				dev_err(device->dev, "SMMU aperture programming call failed with error %d\n",
-					ret);
-				goto error_pwr_off;
-			}
-		}
+		ret = adreno_program_smmu_aperture(device);
+		if (ret)
+			goto error_pwr_off;
 	}
 
 	adreno_ringbuffer_set_global(adreno_dev, 0);
@@ -4047,6 +4056,18 @@ static void adreno_suspend_device(struct kgsl_device *device,
 static int adreno_resume_device(struct kgsl_device *device,
 				pm_message_t pm_state)
 {
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	int pm_event = pm_state.event;
+	int ret;
+
+	if ((pm_event != PM_EVENT_RESUME) &&
+		!adreno_is_a640v1(adreno_dev) &&
+		kgsl_mmu_is_perprocess(&device->mmu)) {
+		ret = adreno_program_smmu_aperture(device);
+		if (ret)
+			return ret;
+	}
+
 	if (device->state == KGSL_STATE_SUSPEND)
 		adreno_dispatcher_unhalt(device);
 
