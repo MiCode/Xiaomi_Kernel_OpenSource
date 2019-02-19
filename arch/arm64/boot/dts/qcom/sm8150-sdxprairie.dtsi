@@ -113,6 +113,7 @@
 		qcom,register-collection-on-crash;
 		qcom,testbus-collection-on-crash;
 		qcom,non-tn-collection-on-crash;
+		qcom,secure-debug-check-action = <0>;
 	};
 
 	qcom,ipa_fws {
