@@ -162,6 +162,7 @@ static struct clk_regmap_div video_cc_mvs0_div_clk_src = {
 		.name = "video_cc_mvs0_div_clk_src",
 		.parent_names = (const char *[]){ "video_cc_mvs0_clk_src" },
 		.num_parents = 1,
+		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_regmap_div_ro_ops,
 	},
 };
@@ -174,6 +175,7 @@ static struct clk_regmap_div video_cc_mvs0c_div2_div_clk_src = {
 		.name = "video_cc_mvs0c_div2_div_clk_src",
 		.parent_names = (const char *[]){ "video_cc_mvs0_clk_src" },
 		.num_parents = 1,
+		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_regmap_div_ro_ops,
 	},
 };
@@ -186,6 +188,7 @@ static struct clk_regmap_div video_cc_mvs1_div_clk_src = {
 		.name = "video_cc_mvs1_div_clk_src",
 		.parent_names = (const char *[]){ "video_cc_mvs1_clk_src" },
 		.num_parents = 1,
+		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_regmap_div_ro_ops,
 	},
 };
@@ -198,6 +201,7 @@ static struct clk_regmap_div video_cc_mvs1c_div2_div_clk_src = {
 		.name = "video_cc_mvs1c_div2_div_clk_src",
 		.parent_names = (const char *[]){ "video_cc_mvs1_clk_src" },
 		.num_parents = 1,
+		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_regmap_div_ro_ops,
 	},
 };

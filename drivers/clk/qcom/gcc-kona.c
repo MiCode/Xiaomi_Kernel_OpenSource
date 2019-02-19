@@ -219,6 +219,7 @@ static struct clk_regmap_div gcc_cpuss_ahb_postdiv_clk_src = {
 		.name = "gcc_cpuss_ahb_postdiv_clk_src",
 		.parent_names = (const char *[]){ "gcc_cpuss_ahb_clk_src" },
 		.num_parents = 1,
+		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_regmap_div_ro_ops,
 	},
 };
@@ -232,6 +233,7 @@ static struct clk_regmap_div gcc_usb30_prim_mock_utmi_postdiv_clk_src = {
 		.parent_names =
 			(const char *[]){ "gcc_usb30_prim_mock_utmi_clk_src" },
 		.num_parents = 1,
+		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_regmap_div_ro_ops,
 	},
 };
@@ -245,6 +247,7 @@ static struct clk_regmap_div gcc_usb30_sec_mock_utmi_postdiv_clk_src = {
 		.parent_names =
 			(const char *[]){ "gcc_usb30_sec_mock_utmi_clk_src" },
 		.num_parents = 1,
+		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_regmap_div_ro_ops,
 	},
 };
