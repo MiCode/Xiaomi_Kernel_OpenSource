@@ -22,6 +22,7 @@ int msm_venc_set_properties(struct msm_vidc_inst *inst);
 int msm_venc_set_extradata(struct msm_vidc_inst *inst);
 int msm_venc_set_frame_rate(struct msm_vidc_inst *inst);
 int msm_venc_set_bitrate(struct msm_vidc_inst *inst);
+int msm_venc_set_layer_bitrate(struct msm_vidc_inst *inst);
 int msm_venc_set_operating_rate(struct msm_vidc_inst *inst);
 int msm_venc_set_idr_period(struct msm_vidc_inst *inst);
 int msm_venc_set_intra_period(struct msm_vidc_inst *inst);

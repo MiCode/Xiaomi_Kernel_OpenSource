@@ -16,6 +16,9 @@
 #define MIN_BIT_RATE 32000
 #define MAX_BIT_RATE 1200000000
 #define DEFAULT_BIT_RATE 64000
+#define MIN_BIT_RATE_RATIO 0
+#define MAX_BIT_RATE_RATIO 100
+#define MAX_HIER_CODING_LAYER 6
 #define BIT_RATE_STEP 1
 #define MAX_BASE_LAYER_PRIORITY_ID 63
 #define MAX_SLICE_BYTE_SIZE ((MAX_BIT_RATE)>>3)
@@ -591,7 +594,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "Set Hier layers",
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.minimum = 0,
-		.maximum = 6,
+		.maximum = MAX_HIER_CODING_LAYER,
 		.default_value = 0,
 		.step = 1,
 		.qmenu = NULL,
@@ -691,9 +694,9 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.id = V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L0_BR,
 		.name = "Set layer0 BR",
 		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = MIN_BIT_RATE,
-		.maximum = MAX_BIT_RATE,
-		.default_value = DEFAULT_BIT_RATE,
+		.minimum = MIN_BIT_RATE_RATIO,
+		.maximum = MAX_BIT_RATE_RATIO,
+		.default_value = MIN_BIT_RATE_RATIO,
 		.step = 1,
 		.qmenu = NULL,
 	},
@@ -701,9 +704,9 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.id = V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L1_BR,
 		.name = "Set layer1 BR",
 		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = MIN_BIT_RATE,
-		.maximum = MAX_BIT_RATE,
-		.default_value = DEFAULT_BIT_RATE,
+		.minimum = MIN_BIT_RATE_RATIO,
+		.maximum = MAX_BIT_RATE_RATIO,
+		.default_value = MIN_BIT_RATE_RATIO,
 		.step = 1,
 		.qmenu = NULL,
 	},
@@ -711,9 +714,9 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.id = V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L2_BR,
 		.name = "Set layer2 BR",
 		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = MIN_BIT_RATE,
-		.maximum = MAX_BIT_RATE,
-		.default_value = DEFAULT_BIT_RATE,
+		.minimum = MIN_BIT_RATE_RATIO,
+		.maximum = MAX_BIT_RATE_RATIO,
+		.default_value = MIN_BIT_RATE_RATIO,
 		.step = 1,
 		.qmenu = NULL,
 	},
@@ -721,9 +724,9 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.id = V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L3_BR,
 		.name = "Set layer3 BR",
 		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = MIN_BIT_RATE,
-		.maximum = MAX_BIT_RATE,
-		.default_value = DEFAULT_BIT_RATE,
+		.minimum = MIN_BIT_RATE_RATIO,
+		.maximum = MAX_BIT_RATE_RATIO,
+		.default_value = MIN_BIT_RATE_RATIO,
 		.step = 1,
 		.qmenu = NULL,
 	},
@@ -731,9 +734,9 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.id = V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L4_BR,
 		.name = "Set layer4 BR",
 		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = MIN_BIT_RATE,
-		.maximum = MAX_BIT_RATE,
-		.default_value = DEFAULT_BIT_RATE,
+		.minimum = MIN_BIT_RATE_RATIO,
+		.maximum = MAX_BIT_RATE_RATIO,
+		.default_value = MIN_BIT_RATE_RATIO,
 		.step = 1,
 		.qmenu = NULL,
 	},
@@ -741,9 +744,9 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.id = V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L5_BR,
 		.name = "Set layer5 BR",
 		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = MIN_BIT_RATE,
-		.maximum = MAX_BIT_RATE,
-		.default_value = DEFAULT_BIT_RATE,
+		.minimum = MIN_BIT_RATE_RATIO,
+		.maximum = MAX_BIT_RATE_RATIO,
+		.default_value = MIN_BIT_RATE_RATIO,
 		.step = 1,
 		.qmenu = NULL,
 	},
@@ -1714,6 +1717,20 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 					__func__);
 		}
 		break;
+	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L0_BR:
+	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L1_BR:
+	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L2_BR:
+	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L3_BR:
+	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L4_BR:
+	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L5_BR:
+		if (inst->state == MSM_VIDC_START_DONE) {
+			rc = msm_venc_set_layer_bitrate(inst);
+			if (rc)
+				dprintk(VIDC_ERR,
+				"%s: set layer bitrate failed\n",
+				__func__);
+		}
+		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER:
 	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_TYPE:
 	case V4L2_CID_MPEG_VIDEO_B_FRAMES:
@@ -1734,12 +1751,6 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L3_QP:
 	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L4_QP:
 	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L5_QP:
-	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L0_BR:
-	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L1_BR:
-	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L2_BR:
-	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L3_BR:
-	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L4_BR:
-	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L5_BR:
 	case V4L2_CID_MPEG_VIDC_VIDEO_COLOR_SPACE:
 	case V4L2_CID_MPEG_VIDC_VIDEO_FULL_RANGE:
 	case V4L2_CID_MPEG_VIDC_VIDEO_TRANSFER_CHARS:
@@ -2213,12 +2224,29 @@ int msm_venc_set_bitrate(struct msm_vidc_inst *inst)
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
 	struct hfi_bitrate bitrate;
+	struct hfi_enable enable;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
 		return -EINVAL;
 	}
 	hdev = inst->core->device;
+
+	if (inst->layer_bitrate) {
+		dprintk(VIDC_DBG, "%s: Layer bitrate is enabled\n", __func__);
+		return 0;
+	}
+
+	enable.enable = 0;
+	dprintk(VIDC_DBG, "%s: bitrate type: %d\n",
+		__func__, enable.enable);
+	rc = call_hfi_op(hdev, session_set_property, inst->session,
+		HFI_PROPERTY_PARAM_VENC_BITRATE_TYPE, &enable,
+		sizeof(enable));
+	if (rc) {
+		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
+		return rc;
+	}
 
 	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_BITRATE);
 	bitrate.bit_rate = ctrl->val;
@@ -2230,6 +2258,105 @@ int msm_venc_set_bitrate(struct msm_vidc_inst *inst)
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
+	return rc;
+}
+
+int msm_venc_set_layer_bitrate(struct msm_vidc_inst *inst)
+{
+	int rc = 0, i = 0;
+	struct hfi_device *hdev;
+	struct v4l2_ctrl *bitrate = NULL;
+	struct v4l2_ctrl *layer = NULL;
+	struct v4l2_ctrl *max_layer = NULL;
+	struct v4l2_ctrl *layer_br_ratios[MAX_HIER_CODING_LAYER] = {NULL};
+	struct hfi_bitrate layer_br;
+	struct hfi_enable enable;
+
+	if (!inst || !inst->core) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+	hdev = inst->core->device;
+
+	max_layer = get_ctrl(inst,
+		V4L2_CID_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER);
+	layer = get_ctrl(inst,
+		V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_LAYER);
+
+	if (max_layer->val < layer->val) {
+		dprintk(VIDC_DBG,
+			"%s: Hierp layer greater than max isn't allowed\n",
+			__func__);
+		goto error;
+	}
+
+	layer_br_ratios[0] = get_ctrl(inst,
+		V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L0_BR);
+	layer_br_ratios[1] = get_ctrl(inst,
+		V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L1_BR);
+	layer_br_ratios[2] = get_ctrl(inst,
+		V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L2_BR);
+	layer_br_ratios[3] = get_ctrl(inst,
+		V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L3_BR);
+	layer_br_ratios[4] = get_ctrl(inst,
+		V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L4_BR);
+	layer_br_ratios[5] = get_ctrl(inst,
+		V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L5_BR);
+
+	/* Set layer bitrates only when highest layer br ratio is 100. */
+	if (layer_br_ratios[layer->val-1]->val != MAX_BIT_RATE_RATIO ||
+		layer_br_ratios[0]->val == 0) {
+		dprintk(VIDC_DBG,
+			"%s: Improper layer bitrate ratio\n",
+			__func__);
+		goto error;
+	}
+
+	for (i = layer->val - 1; i > 0; --i) {
+		if (layer_br_ratios[i]->val == 0) {
+			dprintk(VIDC_DBG,
+				"%s: Layer ratio must be non-zero\n",
+				__func__);
+			goto error;
+		}
+		layer_br_ratios[i]->val -= layer_br_ratios[i-1]->val;
+	}
+
+	enable.enable = 1;
+	dprintk(VIDC_DBG, "%s: %d\n", __func__, enable.enable);
+	rc = call_hfi_op(hdev, session_set_property, inst->session,
+		HFI_PROPERTY_PARAM_VENC_BITRATE_TYPE, &enable,
+		sizeof(enable));
+	if (rc) {
+		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
+		goto error;
+	}
+
+	bitrate = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_BITRATE);
+	for (i = 0; i < layer->val; ++i) {
+		layer_br.bit_rate =
+			bitrate->val * layer_br_ratios[i]->val / 100;
+		layer_br.layer_id = i;
+		dprintk(VIDC_DBG,
+			"%s: Bitrate for Layer[%u]: [%u]\n",
+			__func__, layer_br.layer_id, layer_br.bit_rate);
+
+		rc = call_hfi_op(hdev, session_set_property, inst->session,
+			HFI_PROPERTY_CONFIG_VENC_TARGET_BITRATE, &layer_br,
+			sizeof(layer_br));
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"%s: set property failed for layer: %u\n",
+				__func__, layer_br.layer_id);
+			goto error;
+		}
+	}
+
+	inst->layer_bitrate = true;
+	return rc;
+
+error:
+	inst->layer_bitrate = false;
 	return rc;
 }
 
@@ -2733,10 +2860,14 @@ int msm_venc_set_hp_max_layer(struct msm_vidc_inst *inst)
 		hp_layer = ctrl->val - 1;
 
 	if (inst->hybrid_hp) {
+		dprintk(VIDC_DBG, "%s: Hybrid hierp layer: %d\n",
+			__func__, hp_layer);
 		rc = call_hfi_op(hdev, session_set_property, inst->session,
 			HFI_PROPERTY_PARAM_VENC_HIER_P_HYBRID_MODE,
 			&hp_layer, sizeof(hp_layer));
 	} else {
+		dprintk(VIDC_DBG, "%s: Hierp max layer: %d\n",
+			__func__, hp_layer);
 		rc = call_hfi_op(hdev, session_set_property, inst->session,
 			HFI_PROPERTY_PARAM_VENC_HIER_P_MAX_NUM_ENH_LAYER,
 			&hp_layer, sizeof(hp_layer));
@@ -2752,6 +2883,7 @@ int msm_venc_set_hp_layer(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl = NULL;
+	struct v4l2_ctrl *max_layer = NULL;
 	u32 hp_layer = 0;
 
 	if (!inst || !inst->core) {
@@ -2771,8 +2903,18 @@ int msm_venc_set_hp_layer(struct msm_vidc_inst *inst)
 		return 0;
 	}
 
+	max_layer = get_ctrl(inst,
+		V4L2_CID_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER);
 	ctrl = get_ctrl(inst,
 		V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_LAYER);
+
+	if (max_layer->val < ctrl->val) {
+		dprintk(VIDC_WARN,
+			"%s: HP layer count greater than max isn't allowed\n",
+			__func__);
+		return 0;
+	}
+
 	/*
 	 * We send enhancement layer count to FW,
 	 * hence, input 0/1 indicates absence of layer encoding.
@@ -2780,7 +2922,8 @@ int msm_venc_set_hp_layer(struct msm_vidc_inst *inst)
 	if (ctrl->val)
 		hp_layer = ctrl->val - 1;
 
-	dprintk(VIDC_DBG, "%s: HP layer: %d\n", __func__, hp_layer);
+	dprintk(VIDC_DBG, "%s: Hierp enhancement layer: %d\n",
+		__func__, hp_layer);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
 		HFI_PROPERTY_CONFIG_VENC_HIER_P_ENH_LAYER,
 		&hp_layer, sizeof(hp_layer));
@@ -3352,9 +3495,6 @@ int msm_venc_set_properties(struct msm_vidc_inst *inst)
 	rc = msm_venc_set_input_timestamp_rc(inst);
 	if (rc)
 		goto exit;
-	rc = msm_venc_set_bitrate(inst);
-	if (rc)
-		goto exit;
 	rc = msm_venc_set_frame_qp(inst);
 	if (rc)
 		goto exit;
@@ -3410,6 +3550,16 @@ int msm_venc_set_properties(struct msm_vidc_inst *inst)
 	if (rc)
 		goto exit;
 	rc = msm_venc_set_hp_layer(inst);
+	if (rc)
+		goto exit;
+	/*
+	 * Layer bitrate is preferred over cumulative bitrate.
+	 * Cumulative bitrate is set only when we fall back.
+	 */
+	rc = msm_venc_set_layer_bitrate(inst);
+	if (rc)
+		goto exit;
+	rc = msm_venc_set_bitrate(inst);
 	if (rc)
 		goto exit;
 	rc = msm_venc_set_base_layer_priority_id(inst);
