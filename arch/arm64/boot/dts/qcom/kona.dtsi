@@ -2366,6 +2366,20 @@
 		mbox-names = "aop";
 	};
 
+	qcom,msm-eud@ff0000 {
+		compatible = "qcom,msm-eud";
+		interrupt-names = "eud_irq";
+		interrupts = <GIC_SPI 491 IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0x088E0000 0x2000>,
+			<0x088E2000 0x1000>;
+		reg-names = "eud_base", "eud_mode_mgr2";
+		qcom,secure-eud-en;
+		qcom,eud-clock-vote-req;
+		clocks = <&clock_gcc GCC_USB_PHY_CFG_AHB2PHY_BCR>;
+		clock-names = "eud_ahb2phy_clk";
+		status = "ok";
+	};
+
 	qcom,lpass@17300000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x17300000 0x00100>;
