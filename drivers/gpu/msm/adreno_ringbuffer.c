@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  */
 #include <linux/slab.h>
 #include <linux/sched.h>
@@ -441,7 +441,6 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	struct kgsl_context *context = NULL;
 	bool secured_ctxt = false;
 	static unsigned int _seq_cnt;
-	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
 
 	if (drawctxt != NULL && kgsl_context_detached(&drawctxt->base) &&
 		!is_internal_cmds(flags))
@@ -574,13 +573,8 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 		ringcmds += cp_identifier(adreno_dev, ringcmds,
 			CMD_INTERNAL_IDENTIFIER);
 
-	if (gpudev->set_marker) {
-		/* Firmware versions before 1.49 do not support IFPC markers */
-		if (adreno_is_a6xx(adreno_dev) && (fw->version & 0xFFF) < 0x149)
-			ringcmds += gpudev->set_marker(ringcmds, IB1LIST_START);
-		else
-			ringcmds += gpudev->set_marker(ringcmds, IFPC_DISABLE);
-	}
+	if (gpudev->set_marker)
+		ringcmds += gpudev->set_marker(ringcmds, IFPC_DISABLE);
 
 	if (flags & KGSL_CMD_FLAGS_PWRON_FIXUP) {
 		/* Disable protected mode for the fixup */
@@ -694,12 +688,8 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 		*ringcmds++ = timestamp;
 	}
 
-	if (gpudev->set_marker) {
-		if (adreno_is_a6xx(adreno_dev) && (fw->version & 0xFFF) < 0x149)
-			ringcmds += gpudev->set_marker(ringcmds, IB1LIST_END);
-		else
-			ringcmds += gpudev->set_marker(ringcmds, IFPC_ENABLE);
-	}
+	if (gpudev->set_marker)
+		ringcmds += gpudev->set_marker(ringcmds, IFPC_ENABLE);
 
 	if (adreno_is_a3xx(adreno_dev)) {
 		/* Dummy set-constant to trigger context rollover */
@@ -856,7 +846,6 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	struct adreno_ringbuffer *rb;
 	unsigned int dwords = 0;
 	struct adreno_submit_time local;
-	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
 	bool set_ib1list_marker = false;
 
 	memset(&local, 0x0, sizeof(local));
@@ -967,13 +956,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 		if (gpudev->preemption_yield_enable)
 			dwords += 8;
 
-	/*
-	 * Prior to SQE FW version 1.49, there was only one marker for
-	 * both preemption and IFPC. Only include the IB1LIST markers if
-	 * we are using a firmware that supports them.
-	 */
-	if (gpudev->set_marker && numibs && adreno_is_a6xx(adreno_dev) &&
-			((fw->version & 0xFFF) >= 0x149)) {
+	if (gpudev->set_marker && numibs) {
 		set_ib1list_marker = true;
 		dwords += 4;
 	}
