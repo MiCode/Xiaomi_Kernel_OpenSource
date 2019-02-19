@@ -379,7 +379,8 @@ static int wil_debugfs_iomem_x32_set(void *data, u64 val)
 	if (ret < 0)
 		return ret;
 
-	writel(val, (void __iomem *)d->offset);
+	writel_relaxed(val, (void __iomem *)d->offset);
+
 	wmb(); /* make sure write propagated to HW */
 
 	wil_pm_runtime_put(wil);
@@ -398,7 +399,7 @@ static int wil_debugfs_iomem_x32_get(void *data, u64 *val)
 	if (ret < 0)
 		return ret;
 
-	*val = readl((void __iomem *)d->offset);
+	*val = readl_relaxed((void __iomem *)d->offset);
 
 	wil_pm_runtime_put(wil);
 

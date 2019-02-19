@@ -32,6 +32,32 @@ bool rx_large_buf;
 module_param(rx_large_buf, bool, 0444);
 MODULE_PARM_DESC(rx_large_buf, " allocate 8KB RX buffers, default - no");
 
+#define WIL6210_MAX_HEADROOM_SIZE	(256)
+
+ushort headroom_size; /* = 0; */
+static int headroom_size_set(const char *val, const struct kernel_param *kp)
+{
+	int ret;
+
+	ret = param_set_uint(val, kp);
+	if (ret)
+		return ret;
+
+	if (headroom_size > WIL6210_MAX_HEADROOM_SIZE)
+		return -EINVAL;
+
+	return 0;
+}
+
+static const struct kernel_param_ops headroom_ops = {
+	.set = headroom_size_set,
+	.get = param_get_ushort,
+};
+
+module_param_cb(headroom_size, &headroom_ops, &headroom_size, 0644);
+MODULE_PARM_DESC(headroom_size,
+		 " headroom size for rx skb allocation, default - 0");
+
 static inline uint wil_rx_snaplen(void)
 {
 	return rx_align_2 ? 6 : 0;
@@ -599,7 +625,7 @@ static int wil_rx_refill(struct wil6210_priv *wil, int count)
 	u32 next_tail;
 	int rc = 0;
 	int headroom = ndev->type == ARPHRD_IEEE80211_RADIOTAP ?
-			WIL6210_RTAP_SIZE : 0;
+			WIL6210_RTAP_SIZE : headroom_size;
 
 	for (; next_tail = wil_ring_next_tail(v),
 	     (next_tail != v->swhead) && (count-- > 0);
