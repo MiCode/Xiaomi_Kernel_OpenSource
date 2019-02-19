@@ -4029,17 +4029,26 @@ static void adreno_suspend_device(struct kgsl_device *device,
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int pm_event = pm_state.event;
 
-	adreno_dispatcher_halt(device);
+	if (device->state == KGSL_STATE_SUSPEND)
+		adreno_dispatcher_halt(device);
 
-	if ((pm_event != PM_EVENT_SUSPEND) &&
-		(gpudev->zap_shader_unload != NULL))
-		gpudev->zap_shader_unload(adreno_dev);
+	if (pm_event != PM_EVENT_SUSPEND) {
+		if (gpudev->zap_shader_unload != NULL)
+			gpudev->zap_shader_unload(adreno_dev);
+
+		if (gmu_core_isenabled(device)) {
+			clear_bit(GMU_BOOT_INIT_DONE, &device->gmu_core.flags);
+			clear_bit(GMU_RSCC_SLEEP_SEQ_DONE,
+						&device->gmu_core.flags);
+		}
+	}
 }
 
 static int adreno_resume_device(struct kgsl_device *device,
 				pm_message_t pm_state)
 {
-	adreno_dispatcher_unhalt(device);
+	if (device->state == KGSL_STATE_SUSPEND)
+		adreno_dispatcher_unhalt(device);
 
 	return 0;
 }
