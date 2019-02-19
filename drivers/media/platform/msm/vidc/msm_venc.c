@@ -197,7 +197,6 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.minimum = V4L2_MPEG_VIDEO_BITRATE_MODE_VBR,
 		.maximum = V4L2_MPEG_VIDEO_BITRATE_MODE_CQ,
 		.default_value = V4L2_MPEG_VIDEO_BITRATE_MODE_VBR,
-		.step = 0,
 		.menu_skip_mask = ~(
 		(1 << V4L2_MPEG_VIDEO_BITRATE_MODE_VBR) |
 		(1 << V4L2_MPEG_VIDEO_BITRATE_MODE_CBR) |
@@ -280,7 +279,6 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		),
 		.flags = V4L2_CTRL_FLAG_VOLATILE,
 		.qmenu = NULL,
-		.step = 1,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDEO_H264_LEVEL,
@@ -314,7 +312,6 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		),
 		.flags = V4L2_CTRL_FLAG_VOLATILE,
 		.qmenu = NULL,
-		.step = 1,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDEO_VP8_PROFILE,
@@ -326,7 +323,6 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.menu_skip_mask = ~(1 << V4L2_MPEG_VIDEO_VP8_PROFILE_0),
 		.flags = V4L2_CTRL_FLAG_VOLATILE,
 		.qmenu = NULL,
-		.step = 1,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL,
@@ -344,7 +340,6 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		),
 		.qmenu = vp8_profile_level,
 		.flags = V4L2_CTRL_FLAG_VOLATILE,
-		.step = 1,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDEO_HEVC_PROFILE,
@@ -360,7 +355,6 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		),
 		.flags = V4L2_CTRL_FLAG_VOLATILE,
 		.qmenu = NULL,
-		.step = 1,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDEO_HEVC_LEVEL,
@@ -388,7 +382,6 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		),
 		.flags = V4L2_CTRL_FLAG_VOLATILE,
 		.qmenu = NULL,
-		.step = 1,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDEO_HEVC_TIER,
@@ -403,7 +396,6 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		),
 		.flags = V4L2_CTRL_FLAG_VOLATILE,
 		.qmenu = NULL,
-		.step = 1,
 	},
 	{
 		.id = V4L2_CID_ROTATE,
@@ -599,19 +591,12 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER,
 		.name = "Set Hier max layers",
 		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = 0,
-		.maximum = 6,
-		.default_value = 0,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER_0,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER_6,
+		.default_value =
+			V4L2_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER_0,
 		.step = 1,
-		.menu_skip_mask = ~(
-		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER_0) |
-		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER_1) |
-		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER_2) |
-		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER_3) |
-		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER_4) |
-		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER_5) |
-		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER_6)
-		),
+		.menu_skip_mask = 0,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_TYPE,
@@ -620,7 +605,6 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.minimum = V4L2_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_P,
 		.maximum = V4L2_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_P,
 		.default_value = V4L2_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_P,
-		.step = 1,
 		.menu_skip_mask = ~(
 		(1 << V4L2_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_P)
 		),
