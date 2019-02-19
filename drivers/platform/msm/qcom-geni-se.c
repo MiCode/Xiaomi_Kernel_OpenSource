@@ -1077,10 +1077,15 @@ int geni_se_resources_init(struct se_geni_rsc *rsc,
 	ret = of_property_read_string(geni_se_dev->dev->of_node,
 					"qcom,iommu-dma", &mode);
 
-	if ((ret == 0) && (strcmp(mode, "disabled") == 0))
-		geni_se_iommu_map_and_attach(geni_se_dev);
+	if ((ret == 0) && (strcmp(mode, "disabled") == 0)) {
+		ret = geni_se_iommu_map_and_attach(geni_se_dev);
+		if (ret)
+			GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
+				"%s: Error %d iommu_map_and_attach\n",
+					 __func__, ret);
+	}
 
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL(geni_se_resources_init);
 
