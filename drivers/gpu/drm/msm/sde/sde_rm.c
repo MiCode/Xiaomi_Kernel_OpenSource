@@ -1368,7 +1368,7 @@ static int _sde_rm_get_pp_dsc_for_cont_splash(struct sde_rm *rm,
 /**
  * _sde_rm_get_ctl_lm_for_cont_splash - retrieve the current LM blocks
  * @ctl: Pointer to CTL hardware block
- * @max_lm_cnt: number of LM blocks supported in the hw
+ * @max_lm_cnt: max mixer index supported in the hw
  * @lm_cnt: number of LM blocks already active
  * @lm_ids: pointer to store the active LM block IDs
  * @top: pointer to the current "ctl_top" structure
@@ -1449,6 +1449,7 @@ int sde_rm_cont_splash_res_init(struct msm_drm_private *priv,
 	int index = 0, ctl_top_cnt;
 	struct sde_kms *sde_kms = NULL;
 	struct sde_hw_mdp *hw_mdp;
+	int max_mixer_idx = 0;
 
 	if (!priv || !rm || !cat || !splash_data) {
 		SDE_ERROR("invalid input parameters\n");
@@ -1473,6 +1474,16 @@ int sde_rm_cont_splash_res_init(struct msm_drm_private *priv,
 		return -EINVAL;
 	}
 
+	/*
+	 * max_mixer_idx is used to loop through all available mixers
+	 * to check mixers programmed in splash. For some targets
+	 * max_mixer_idx value might be more than mixer count, hence
+	 * use mixer index instead of mixer count to loop through all
+	 * the mixers.
+	 */
+	if (cat->mixer_count > 0)
+		max_mixer_idx =  cat->mixer[cat->mixer_count-1].id;
+
 	sde_rm_init_hw_iter(&iter_c, 0, SDE_HW_BLK_CTL);
 	while (_sde_rm_get_hw_locked(rm, &iter_c)) {
 		struct sde_hw_ctl *ctl = to_sde_hw_ctl(iter_c.blk->hw);
@@ -1483,7 +1494,7 @@ int sde_rm_cont_splash_res_init(struct msm_drm_private *priv,
 			splash_data->lm_cnt +=
 				_sde_rm_get_ctl_lm_for_cont_splash
 					(ctl,
-					cat->mixer_count,
+					max_mixer_idx,
 					splash_data->lm_cnt,
 					splash_data->lm_ids,
 					&splash_data->top[index], index);
