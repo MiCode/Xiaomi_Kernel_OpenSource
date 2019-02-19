@@ -39,6 +39,7 @@
 #include "../pinconf.h"
 #include "pinctrl-msm.h"
 #include "../pinctrl-utils.h"
+#include <soc/qcom/socinfo.h>
 
 #define MAX_NR_GPIO 300
 #define PS_HOLD_OFFSET 0x820
@@ -570,7 +571,7 @@ static void msm_gpio_dbg_show_one(struct seq_file *s,
 	int is_out;
 	int drive;
 	int pull;
-	u32 ctl_reg;
+	u32 ctl_reg, io_reg, value;
 
 	static const char * const pulls[] = {
 		"no pull",
@@ -588,9 +589,12 @@ static void msm_gpio_dbg_show_one(struct seq_file *s,
 	drive = (ctl_reg >> g->drv_bit) & 7;
 	pull = (ctl_reg >> g->pull_bit) & 3;
 
+	io_reg = readl(pctrl->regs + g->io_reg);
+	value = (is_out ? io_reg >> g->out_bit : io_reg >> g->in_bit) & 0x1;
 	seq_printf(s, " %-8s: %-3s %d", g->name, is_out ? "out" : "in", func);
 	seq_printf(s, " %dmA", msm_regval_to_drive(drive));
 	seq_printf(s, " %s", pulls[pull]);
+	seq_printf(s, " %s", value ? "high":"low");
 }
 
 static void msm_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
@@ -599,6 +603,17 @@ static void msm_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 	unsigned i;
 
 	for (i = 0; i < chip->ngpio; i++, gpio++) {
+		/* gpio 0~3 is NFC spi, gpio 126~129 is FP spi */
+		if (i < 4 || (i > 125 && i < 130))
+			continue;
+
+		/*only for E5G*/
+		if (HARDWARE_PLATFORM_ANDROMEDA == get_hw_version_platform()){
+		  /*skip 5G related gpio: 5G IPC HS-UART, 5G RF HS-UART*/
+		  if ((i >= 4 && i <= 7) || (i >= 83 && i <= 86))
+			continue;
+		}
+
 		msm_gpio_dbg_show_one(s, NULL, chip, i, gpio);
 		seq_puts(s, "\n");
 	}

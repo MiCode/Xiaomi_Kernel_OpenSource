@@ -2,6 +2,7 @@
  *  linux/kernel/fork.c
  *
  *  Copyright (C) 1991, 1992  Linus Torvalds
+ *  Copyright (C) 2019 XiaoMi, Inc.
  */
 
 /*
@@ -517,6 +518,7 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
 	unsigned long *stack;
 	struct vm_struct *stack_vm_area;
 	int err;
+	int index;
 
 	if (node == NUMA_NO_NODE)
 		node = tsk_fork_get_node(orig);
@@ -582,6 +584,16 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
 	account_kernel_stack(tsk, 1);
 
 	kcov_task_init(tsk);
+
+	memset(tsk->debug_info_rwsem, 0, sizeof(tsk->debug_info_rwsem));
+
+	for (index=0; index<NUM_DEBUG_ENTRIES; index++) {
+		tsk->debug_info_rwsem[index].rwsem = NULL;
+		tsk->debug_info_rwsem[index].task = NULL;
+		tsk->debug_info_rwsem[index].operation = -1;
+		tsk->debug_info_rwsem[index].timestamp = 0;
+	}
+	tsk->fill_count = 0;
 
 #ifdef CONFIG_FAULT_INJECTION
 	tsk->fail_nth = 0;

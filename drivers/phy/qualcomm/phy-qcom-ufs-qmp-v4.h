@@ -1,4 +1,5 @@
 /* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +20,8 @@
 /* QCOM UFS PHY control registers */
 #define COM_BASE	0x000
 #define COM_SIZE	0x1C0
+#define PHY_PCS2_BASE	0x200
+#define PHY_PCS2_SIZE	0x040
 #define PHY_BASE	0xC00
 #define PHY_SIZE	0x200
 #define TX_BASE(n)	(0x400 + (0x400 * n))
@@ -273,6 +276,7 @@ static struct ufs_qcom_phy_calibration phy_cal_table_rate_A_v2[] = {
 	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_RX0_RX_MODE_00_HIGH4, 0x3C),
 };
 
+
 static struct ufs_qcom_phy_calibration phy_cal_table_2nd_lane[] = {
 	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_TX1_PWM_GEAR_1_DIVIDER_BAND0_1, 0x06),
 	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_TX1_PWM_GEAR_2_DIVIDER_BAND0_1, 0x03),
@@ -326,6 +330,7 @@ static struct ufs_qcom_phy_calibration phy_cal_table_2nd_lane_v2[] = {
 	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_RX1_RX_MODE_00_HIGH2, 0xED),
 	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_RX1_RX_MODE_00_HIGH4, 0x3C),
 };
+
 
 static struct ufs_qcom_phy_calibration phy_cal_table_rate_B[] = {
 	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_COM_VCO_TUNE_MAP, 0x06),

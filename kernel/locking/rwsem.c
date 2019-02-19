@@ -12,8 +12,137 @@
 #include <linux/export.h>
 #include <linux/rwsem.h>
 #include <linux/atomic.h>
+#include <linux/jiffies.h>
+#include <linux/sched/clock.h>
 
 #include "rwsem.h"
+
+static void rwsem_read_acquire_debug(struct rw_semaphore *sem)
+{
+	struct task_struct *task = current;
+	int index = 0;
+	int found = 0;
+	unsigned long nanosec_rem;
+	unsigned long timestamp;
+
+	//pr_err("prateek read acquire: free index :%d sem:%p task:%p\n",task->fill_count, sem, task);
+	for (index=0; index<NUM_DEBUG_ENTRIES; index++) {
+		if (task->debug_info_rwsem[index].rwsem == sem
+				&& rwsem_read_down == task->debug_info_rwsem[index].operation) {
+			timestamp = task->debug_info_rwsem[index].timestamp;
+			nanosec_rem = do_div(timestamp,1000000000);
+			printk("sem:%p task:%p op:%d time: %lu.%06lu index:%d sem->count:%ld\n", sem, task, task->debug_info_rwsem[index].operation, timestamp, nanosec_rem, index, sem->count);
+			//BUG_ON(1);
+		}
+	}
+
+	for (index=0; index<NUM_DEBUG_ENTRIES; index++) {
+		if (task->debug_info_rwsem[index].rwsem == NULL) {
+			found = 1;
+			break;
+		}
+	}
+
+	if (index >= NUM_DEBUG_ENTRIES)
+		BUG_ON(1);
+
+	if (found) {
+		task->debug_info_rwsem[index].operation = rwsem_read_down;
+		task->debug_info_rwsem[index].rwsem = sem;
+		task->debug_info_rwsem[index].task = task;
+		task->debug_info_rwsem[index].timestamp = sched_clock();
+		task->fill_count++;
+	}
+
+	return;
+}
+
+static void rwsem_read_release_debug(struct rw_semaphore *sem)
+{
+	struct task_struct *task = current;
+	int index = 0;
+
+	for (index=0; index<NUM_DEBUG_ENTRIES; index++) {
+		if ((task->debug_info_rwsem[index].rwsem == sem) &&
+				(task->debug_info_rwsem[index].operation == rwsem_read_down)) {
+			//pr_err("prateek read release: free index :%d sem:%p task:%p fromdebugsem:%p  op:%d\n",task->fill_count, sem, task, task->debug_info_rwsem[index].rwsem, task->debug_info_rwsem[index].operation);
+			task->debug_info_rwsem[index].operation = -1;
+			task->debug_info_rwsem[index].rwsem = NULL;
+			task->debug_info_rwsem[index].task = NULL;
+			task->debug_info_rwsem[index].timestamp = 0;
+			task->fill_count--;
+			break;
+		}
+	}
+
+	if (index >= NUM_DEBUG_ENTRIES)
+		WARN_ON(1);
+
+	return;
+}
+
+static void rwsem_write_acquire_debug(struct rw_semaphore *sem)
+{
+	struct task_struct *task = current;
+	int index = 0;
+	int found = 0;
+	unsigned long nanosec_rem;
+	unsigned long timestamp;
+
+	//pr_err("prateek write acquire: free index :%d sem:%p task:%p\n",task->fill_count, sem, task);
+	for (index=0; index<NUM_DEBUG_ENTRIES; index++) {
+		if (task->debug_info_rwsem[index].rwsem == sem
+				&& rwsem_write_down == task->debug_info_rwsem[index].operation) {
+			timestamp = task->debug_info_rwsem[index].timestamp;
+			nanosec_rem = do_div(timestamp,1000000000);
+			printk("sem:%p task:%p  op:%d time: %lu.%06lu index:%d sem->count:%ld\n",sem, task, task->debug_info_rwsem[index].operation,timestamp,nanosec_rem, index, sem->count);
+			BUG_ON(1);
+		}
+	}
+	for (index=0; index<NUM_DEBUG_ENTRIES; index++) {
+		if (task->debug_info_rwsem[index].rwsem == NULL) {
+			found = 1;
+			break;
+		}
+	}
+
+	if (index >= NUM_DEBUG_ENTRIES)
+		BUG_ON(1);
+
+	if (found) {
+		task->debug_info_rwsem[index].operation = rwsem_write_down;
+		task->debug_info_rwsem[index].rwsem = sem;
+		task->debug_info_rwsem[index].task = task;
+		task->debug_info_rwsem[index].timestamp = sched_clock();
+		task->fill_count++;
+	}
+
+	return;
+}
+
+static void rwsem_write_release_debug(struct rw_semaphore *sem)
+{
+	struct task_struct *task = current;
+	int index = 0;
+
+	for (index=0; index<NUM_DEBUG_ENTRIES; index++) {
+		if ((task->debug_info_rwsem[index].rwsem == sem) &&
+				(task->debug_info_rwsem[index].operation == rwsem_write_down)) {
+			//pr_err("prateek write release: free index :%d sem:%p task:%p fromdebugsem:%p  op:%d\n",task->fill_count, sem, task, task->debug_info_rwsem[index].rwsem, task->debug_info_rwsem[index].operation);
+			task->debug_info_rwsem[index].operation = -1;
+			task->debug_info_rwsem[index].rwsem = NULL;
+			task->debug_info_rwsem[index].task = NULL;
+			task->debug_info_rwsem[index].timestamp = 0;
+			task->fill_count--;
+			break;
+		}
+	}
+
+	if (index >= NUM_DEBUG_ENTRIES)
+		WARN_ON(1);
+
+	return;
+}
 
 /*
  * lock for reading
@@ -25,6 +154,7 @@ void __sched down_read(struct rw_semaphore *sem)
 
 	LOCK_CONTENDED(sem, __down_read_trylock, __down_read);
 	rwsem_set_reader_owned(sem);
+	rwsem_read_acquire_debug(sem);
 }
 
 EXPORT_SYMBOL(down_read);
@@ -39,6 +169,7 @@ int down_read_trylock(struct rw_semaphore *sem)
 	if (ret == 1) {
 		rwsem_acquire_read(&sem->dep_map, 0, 1, _RET_IP_);
 		rwsem_set_reader_owned(sem);
+		rwsem_read_acquire_debug(sem);
 	}
 	return ret;
 }
@@ -55,6 +186,7 @@ void __sched down_write(struct rw_semaphore *sem)
 
 	LOCK_CONTENDED(sem, __down_write_trylock, __down_write);
 	rwsem_set_owner(sem);
+	rwsem_write_acquire_debug(sem);
 }
 
 EXPORT_SYMBOL(down_write);
@@ -66,9 +198,11 @@ int __sched down_write_killable(struct rw_semaphore *sem)
 {
 	might_sleep();
 	rwsem_acquire(&sem->dep_map, 0, 0, _RET_IP_);
+	rwsem_write_acquire_debug(sem);
 
 	if (LOCK_CONTENDED_RETURN(sem, __down_write_trylock, __down_write_killable)) {
 		rwsem_release(&sem->dep_map, 1, _RET_IP_);
+		rwsem_write_release_debug(sem);
 		return -EINTR;
 	}
 
@@ -88,6 +222,7 @@ int down_write_trylock(struct rw_semaphore *sem)
 	if (ret == 1) {
 		rwsem_acquire(&sem->dep_map, 0, 1, _RET_IP_);
 		rwsem_set_owner(sem);
+		rwsem_write_acquire_debug(sem);
 	}
 
 	return ret;
@@ -103,6 +238,7 @@ void up_read(struct rw_semaphore *sem)
 	rwsem_release(&sem->dep_map, 1, _RET_IP_);
 
 	__up_read(sem);
+	rwsem_read_release_debug(sem);
 }
 
 EXPORT_SYMBOL(up_read);
@@ -116,6 +252,7 @@ void up_write(struct rw_semaphore *sem)
 
 	rwsem_clear_owner(sem);
 	__up_write(sem);
+	rwsem_write_release_debug(sem);
 }
 
 EXPORT_SYMBOL(up_write);

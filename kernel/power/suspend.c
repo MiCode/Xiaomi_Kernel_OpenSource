@@ -437,7 +437,6 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 		log_suspend_abort_reason("Disabling non-boot cpus failed");
 		goto Enable_cpus;
 	}
-
 	arch_suspend_disable_irqs();
 	BUG_ON(!irqs_disabled());
 

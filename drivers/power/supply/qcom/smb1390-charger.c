@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -86,6 +87,7 @@
 #define ILIM_VOTER		"ILIM_VOTER"
 #define FCC_VOTER		"FCC_VOTER"
 #define ICL_VOTER		"ICL_VOTER"
+#define ICL_CHANGE_VOTER	"ICL_CHANGE_VOTER"
 #define WIRELESS_VOTER		"WIRELESS_VOTER"
 #define SRC_VOTER		"SRC_VOTER"
 #define SWITCHER_TOGGLE_VOTER	"SWITCHER_TOGGLE_VOTER"
@@ -135,6 +137,7 @@ struct smb1390 {
 	int			irqs[NUM_IRQS];
 	bool			status_change_running;
 	bool			taper_work_running;
+	bool			taper_early_trigger;
 	struct smb1390_iio	iio;
 	int			irq_status;
 };
@@ -288,7 +291,6 @@ static ssize_t stat1_show(struct class *c, struct class_attribute *attr,
 	rc = smb1390_read(chip, CORE_STATUS1_REG, &val);
 	if (rc < 0)
 		return -EINVAL;
-
 	return snprintf(buf, PAGE_SIZE, "%x\n", val);
 }
 static CLASS_ATTR_RO(stat1);
@@ -302,10 +304,23 @@ static ssize_t stat2_show(struct class *c, struct class_attribute *attr,
 	rc = smb1390_read(chip, CORE_STATUS2_REG, &val);
 	if (rc < 0)
 		return -EINVAL;
-
 	return snprintf(buf, PAGE_SIZE, "%x\n", val);
 }
 static CLASS_ATTR_RO(stat2);
+
+static ssize_t model_name_show(struct class *c, struct class_attribute *attr,
+			 char *buf)
+{
+	struct smb1390 *chip = container_of(c, struct smb1390, cp_class);
+	int rc, val;
+
+	rc = smb1390_read(chip, CORE_STATUS1_REG, &val);
+	if (rc < 0)
+		return snprintf(buf, PAGE_SIZE, "%s\n", "unknown");
+	else
+		return snprintf(buf, PAGE_SIZE, "%s\n", "smb1390");
+}
+static CLASS_ATTR_RO(model_name);
 
 static ssize_t enable_show(struct class *c, struct class_attribute *attr,
 			   char *buf)
@@ -433,6 +448,7 @@ static struct attribute *cp_class_attrs[] = {
 	&class_attr_toggle_switcher.attr,
 	&class_attr_die_temp.attr,
 	&class_attr_isns.attr,
+	&class_attr_model_name.attr,
 	NULL,
 };
 ATTRIBUTE_GROUPS(cp_class);
@@ -483,11 +499,11 @@ static int smb1390_ilim_vote_cb(struct votable *votable, void *data,
 	}
 
 	/* ILIM less than 1A is not accurate; disable charging */
-	if (ilim_uA < 1000000) {
-		pr_debug("ILIM %duA is too low to allow charging\n", ilim_uA);
+	if (ilim_uA < 900000) {
+		pr_info("ILIM %duA is too low to allow charging\n", ilim_uA);
 		vote(chip->disable_votable, ILIM_VOTER, true, 0);
 	} else {
-		pr_debug("setting ILIM to %duA\n", ilim_uA);
+		pr_info("setting ILIM to %duA\n", ilim_uA);
 		rc = smb1390_masked_write(chip, CORE_FTRIM_ILIM_REG,
 				CFG_ILIM_MASK,
 				DIV_ROUND_CLOSEST(ilim_uA - 500000, 100000));
@@ -539,12 +555,17 @@ static int smb1390_notifier_cb(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
+
+#define TAPER_CAPACITY_THR		55
+#define TAPER_CAPCITY_DELTA		1
+#define BATT_COOL_THR		220
 static void smb1390_status_change_work(struct work_struct *work)
 {
 	struct smb1390 *chip = container_of(work, struct smb1390,
 					    status_change_work);
 	union power_supply_propval pval = {0, };
 	int rc;
+	int capacity, batt_temp, charge_type;
 
 	if (!is_psy_voter_available(chip))
 		goto out;
@@ -573,6 +594,7 @@ static void smb1390_status_change_work(struct work_struct *work)
 		 */
 		if (pval.intval == POWER_SUPPLY_CP_WIRELESS) {
 			vote(chip->ilim_votable, ICL_VOTER, false, 0);
+			vote(chip->ilim_votable, ICL_CHANGE_VOTER, false, 0);
 			rc = power_supply_get_property(chip->dc_psy,
 					POWER_SUPPLY_PROP_CURRENT_MAX, &pval);
 			if (rc < 0)
@@ -603,6 +625,49 @@ static void smb1390_status_change_work(struct work_struct *work)
 		if (get_effective_result(chip->disable_votable))
 			goto out;
 
+
+		rc = power_supply_get_property(chip->batt_psy,
+			       POWER_SUPPLY_PROP_CAPACITY, &pval);
+		if (rc < 0) {
+			pr_err("Couldn't get batt capacity rc=%d\n", rc);
+			goto out;
+		}
+		capacity = pval.intval;
+
+		rc = power_supply_get_property(chip->batt_psy,
+			       POWER_SUPPLY_PROP_TEMP, &pval);
+		if (rc < 0) {
+			pr_err("Couldn't get batt temp rc=%d\n", rc);
+			goto out;
+		}
+		batt_temp = pval.intval;
+
+		rc = power_supply_get_property(chip->batt_psy,
+					POWER_SUPPLY_PROP_CHARGE_TYPE, &pval);
+		if (rc < 0) {
+			pr_err("Couldn't get charge type rc=%d\n", rc);
+			goto out;
+		}
+		charge_type = pval.intval;
+
+		pr_info("capacity:%d, batt_temp:%d, charge_type:%d\n",
+				capacity, batt_temp, charge_type);
+
+		if ((capacity < TAPER_CAPACITY_THR)
+			&& (batt_temp >= BATT_COOL_THR)
+			&& (charge_type == POWER_SUPPLY_CHARGE_TYPE_FAST)
+			&& chip->taper_early_trigger) {
+			if (is_client_vote_enabled(chip->fcc_votable,
+							CP_VOTER)) {
+				/* reset cp_voter here */
+				vote(chip->fcc_votable, CP_VOTER, false, 0);
+				/* input current is always half the charge current */
+				vote(chip->ilim_votable, FCC_VOTER, true,
+						get_effective_result(chip->fcc_votable) / 2);
+				chip->taper_early_trigger = false;
+			}
+		}
+
 		rc = power_supply_get_property(chip->batt_psy,
 				POWER_SUPPLY_PROP_CHARGE_TYPE, &pval);
 		if (rc < 0) {
@@ -622,6 +687,7 @@ static void smb1390_status_change_work(struct work_struct *work)
 	} else {
 		vote(chip->disable_votable, SRC_VOTER, true, 0);
 		vote(chip->fcc_votable, CP_VOTER, false, 0);
+		chip->taper_early_trigger = false;
 	}
 
 out:
@@ -634,14 +700,26 @@ static void smb1390_taper_work(struct work_struct *work)
 	struct smb1390 *chip = container_of(work, struct smb1390, taper_work);
 	union power_supply_propval pval = {0, };
 	int rc, fcc_uA;
+	int capacity;
 
 	if (!is_psy_voter_available(chip))
 		goto out;
 
 	do {
 		fcc_uA = get_effective_result(chip->fcc_votable) - 100000;
-		pr_debug("taper work reducing FCC to %duA\n", fcc_uA);
+		pr_info("taper work reducing FCC to %duA\n", fcc_uA);
 		vote(chip->fcc_votable, CP_VOTER, true, fcc_uA);
+
+		rc = power_supply_get_property(chip->batt_psy,
+			       POWER_SUPPLY_PROP_CAPACITY, &pval);
+		if (rc < 0) {
+			pr_err("Couldn't get batt capacity rc=%d\n", rc);
+			goto out;
+		}
+		capacity = pval.intval;
+		if ((capacity < (TAPER_CAPACITY_THR - TAPER_CAPCITY_DELTA))
+				&& !chip->taper_early_trigger)
+			chip->taper_early_trigger = true;
 
 		rc = power_supply_get_property(chip->batt_psy,
 					POWER_SUPPLY_PROP_CHARGE_TYPE, &pval);
