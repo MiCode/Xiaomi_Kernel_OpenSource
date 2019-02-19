@@ -467,11 +467,18 @@ static void ipa3_del_dflt_wan_rt_tables(void)
 
 static void ipa3_copy_qmi_flt_rule_ex(
 	struct ipa_ioc_ext_intf_prop *q6_ul_flt_rule_ptr,
-	struct ipa_filter_spec_ex_type_v01 *flt_spec_ptr)
+	void *flt_spec_ptr_void)
 {
 	int j;
+	struct ipa_filter_spec_ex_type_v01 *flt_spec_ptr;
 	struct ipa_ipfltr_range_eq_16 *q6_ul_filter_nat_ptr;
 	struct ipa_ipfltr_range_eq_16_type_v01 *filter_spec_nat_ptr;
+
+	/*
+	 * pure_ack and tos has the same size and type and we will treat tos
+	 * field as pure_ack in ipa4.5 version
+	 */
+	flt_spec_ptr = (struct ipa_filter_spec_ex_type_v01 *) flt_spec_ptr_void;
 
 	q6_ul_flt_rule_ptr->ip = flt_spec_ptr->ip_type;
 	q6_ul_flt_rule_ptr->action = flt_spec_ptr->filter_action;
@@ -584,7 +591,6 @@ static void ipa3_copy_qmi_flt_rule_ex(
 		flt_spec_ptr->filter_rule.ipv4_frag_eq_present;
 }
 
-
 int ipa3_copy_ul_filter_rule_to_ipa(struct ipa_install_fltr_rule_req_msg_v01
 		*rule_req)
 {
@@ -615,8 +621,14 @@ int ipa3_copy_ul_filter_rule_to_ipa(struct ipa_install_fltr_rule_req_msg_v01
 				rmnet_ipa3_ctx->num_q6_rules);
 			goto failure;
 		}
-		ipa3_copy_qmi_flt_rule_ex(&ipa3_qmi_ctx->q6_ul_filter_rule[i],
-			&rule_req->filter_spec_ex_list[i]);
+		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
+			ipa3_copy_qmi_flt_rule_ex(
+				&ipa3_qmi_ctx->q6_ul_filter_rule[i],
+				&rule_req->filter_spec_ex2_list[i]);
+		else
+			ipa3_copy_qmi_flt_rule_ex(
+				&ipa3_qmi_ctx->q6_ul_filter_rule[i],
+				&rule_req->filter_spec_ex_list[i]);
 	}
 
 	if (rule_req->xlat_filter_indices_list_valid) {
