@@ -12,6 +12,7 @@ compatible: Must contain one of
    "mediatek,mt6592"
    "mediatek,mt6755"
    "mediatek,mt6765"
+   "mediatek,mt6779"
    "mediatek,mt6795"
    "mediatek,mt6797"
    "mediatek,mt7622"
@@ -45,6 +46,9 @@ Supported boards:
 - Evaluation board for MT6765(Helio P22):
     Required root node properties:
       - compatible = "mediatek,mt6765-evb", "mediatek,mt6765";
+- Evaluation board for MT6779(Helio P90):
+    Required root node properties:
+      - compatible = "mediatek,mt6779-evb", "mediatek,mt6779";
 - Evaluation board for MT6795(Helio X10):
     Required root node properties:
       - compatible = "mediatek,mt6795-evb", "mediatek,mt6795";
