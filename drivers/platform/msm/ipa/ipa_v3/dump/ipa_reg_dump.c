@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 #include "ipa_reg_dump.h"
+#include "ipa_access_control.h"
 
 /* Total size required for test bus */
 #define IPA_MEM_OVERLAY_SIZE     0x66000
@@ -338,13 +339,13 @@ static struct map_src_dst_addr_s ipa_regs_to_save_array[] = {
 					    ipa_dst_rsrc_grp_23_rsrc_type_n),
 
 	/* Source Resource Group Count Registers */
-	IPA_REG_SAVE_CFG_ENTRY_SRC_RSRC_CNT_GRP
-		(IPA_SRC_RSRC_GRP_0123_RSRC_TYPE_CNT_n,
+	IPA_REG_SAVE_CFG_ENTRY_SRC_RSRC_CNT_GRP(
+		IPA_SRC_RSRC_GRP_0123_RSRC_TYPE_CNT_n,
 		ipa_src_rsrc_grp_0123_rsrc_type_cnt_n),
 
 	/* Destination Resource Group Count Registers */
-	IPA_REG_SAVE_CFG_ENTRY_DST_RSRC_CNT_GRP
-		(IPA_DST_RSRC_GRP_0123_RSRC_TYPE_CNT_n,
+	IPA_REG_SAVE_CFG_ENTRY_DST_RSRC_CNT_GRP(
+		IPA_DST_RSRC_GRP_0123_RSRC_TYPE_CNT_n,
 		ipa_dst_rsrc_grp_0123_rsrc_type_cnt_n),
 
 	/*
@@ -360,6 +361,9 @@ static struct map_src_dst_addr_s ipa_regs_to_save_array[] = {
 	GEN_SRC_DST_ADDR_MAP(GSI_REE_CFG,
 			     gsi.gen,
 			     gsi_ree_cfg),
+	IPA_REG_SAVE_GSI_VER(
+			     IPA_GSI_TOP_GSI_INST_RAM_n,
+			     ipa_gsi_top_gsi_inst_ram_n),
 
 	/* GSI Debug Registers */
 	GEN_SRC_DST_ADDR_MAP(IPA_GSI_TOP_GSI_DEBUG_BUSY_REG,
@@ -651,6 +655,73 @@ static void ipa_hal_save_regs_ipa_cmdq(void);
 static void ipa_hal_save_regs_rsrc_db(void);
 static void ipa_reg_save_anomaly_check(void);
 
+static struct reg_access_funcs_s *get_access_funcs(u32 addr)
+{
+	u32 i, asub = ipa3_ctx->sd_state;
+
+	for (i = 0; i < ARRAY_SIZE(mem_access_map); i++) {
+		if (addr >= mem_access_map[i].addr_range_begin &&
+		    addr <= mem_access_map[i].addr_range_end) {
+			return mem_access_map[i].access[asub];
+		}
+	}
+
+	IPAERR("Unknown register offset(0x%08X). Using dflt access methods\n",
+		   addr);
+
+	return &io_matrix[AA_COMBO];
+}
+
+static u32 in_dword(
+	u32 addr)
+{
+	struct reg_access_funcs_s *io = get_access_funcs(addr);
+
+	return io->read(ipa3_ctx->reg_collection_base + addr);
+}
+
+static u32 in_dword_masked(
+	u32 addr,
+	u32 mask)
+{
+	struct reg_access_funcs_s *io = get_access_funcs(addr);
+	u32 val;
+
+	val = io->read(ipa3_ctx->reg_collection_base + addr);
+
+	if (io->read == act_read)
+		return val & mask;
+
+	return val;
+}
+
+static void out_dword(
+	u32 addr,
+	u32 val)
+{
+	struct reg_access_funcs_s *io = get_access_funcs(addr);
+
+	io->write(ipa3_ctx->reg_collection_base + addr, val);
+}
+
+/*
+ * FUNCTION:  ipa_save_gsi_ver
+ *
+ * Saves the gsi version
+ *
+ * @return
+ * None
+ */
+void ipa_save_gsi_ver(void)
+{
+	if (!ipa3_ctx->do_register_collection_on_crash)
+		return;
+
+	ipa_reg_save.gsi.fw_ver =
+		IPA_READ_1xVECTOR_REG(IPA_GSI_TOP_GSI_INST_RAM_n, 0) &
+		0x0000FFFF;
+}
+
 /*
  * FUNCTION:  ipa_save_registers
  *
@@ -669,7 +740,7 @@ void ipa_save_registers(void)
 	union ipa_hwio_def_ipa_rsrc_mngr_db_rsrc_read_u
 	    ipa_rsrc_mngr_db_rsrc_read;
 
-	if (ipa3_ctx->do_register_collection_on_crash == false)
+	if (!ipa3_ctx->do_register_collection_on_crash)
 		return;
 
 	IPAERR("Commencing\n");
@@ -831,35 +902,48 @@ void ipa_save_registers(void)
 	 * true, via dtsi, and the collection will be done.
 	 */
 	if (ipa3_ctx->do_non_tn_collection_on_crash == true) {
-		/* Copy Pkt context directly from IPA_CTX_ID register space */
-		memcpy((void *)ipa_reg_save.pkt_ctntx,
-		       (void *)((u8 *) ipa3_ctx->reg_collection_base +
-				GEN_2xVECTOR_REG_OFST(
-				    IPA_CTX_ID_m_CTX_NUM_n, 0, 0)),
-		       sizeof(ipa_reg_save.pkt_ctntx));
+		u32 ofst = GEN_2xVECTOR_REG_OFST(IPA_CTX_ID_m_CTX_NUM_n, 0, 0);
+		struct reg_access_funcs_s *io = get_access_funcs(ofst);
+		/*
+		 * If the memory is accessible, copy pkt context directly from
+		 * IPA_CTX_ID register space
+		 */
+		if (io->read == act_read) {
+			memcpy((void *)ipa_reg_save.pkt_ctntx,
+				   (const void *)
+				   (ipa3_ctx->reg_collection_base + ofst),
+				   sizeof(ipa_reg_save.pkt_ctntx));
 
-		ipa_rsrc_mngr_db_cfg.value =
-			IPA_READ_SCALER_REG(IPA_RSRC_MNGR_DB_CFG);
+			ipa_rsrc_mngr_db_cfg.value =
+				IPA_READ_SCALER_REG(IPA_RSRC_MNGR_DB_CFG);
 
-		ipa_rsrc_mngr_db_cfg.def.rsrc_type_sel = 0;
-		IPA_WRITE_SCALER_REG(IPA_RSRC_MNGR_DB_CFG,
-				     ipa_rsrc_mngr_db_cfg.value);
+			ipa_rsrc_mngr_db_cfg.def.rsrc_type_sel = 0;
 
-		for (i = 0; i < IPA_HW_PKT_CTNTX_MAX; i++) {
-			ipa_rsrc_mngr_db_cfg.def.rsrc_id_sel = i;
-			IPA_WRITE_SCALER_REG(IPA_RSRC_MNGR_DB_CFG,
-					     ipa_rsrc_mngr_db_cfg.value);
+			IPA_WRITE_SCALER_REG(
+				IPA_RSRC_MNGR_DB_CFG,
+				ipa_rsrc_mngr_db_cfg.value);
 
-			ipa_rsrc_mngr_db_rsrc_read.value =
-				IPA_READ_SCALER_REG(IPA_RSRC_MNGR_DB_RSRC_READ);
+			for (i = 0; i < IPA_HW_PKT_CTNTX_MAX; i++) {
+				ipa_rsrc_mngr_db_cfg.def.rsrc_id_sel = i;
 
-			if (ipa_rsrc_mngr_db_rsrc_read.def.rsrc_occupied ==
-			    true) {
-				ipa_reg_save.pkt_ctntx_active[i] = true;
-				ipa_reg_save.pkt_cntxt_state[i] =
-					(enum ipa_hw_pkt_cntxt_state_e)
-					ipa_reg_save.pkt_ctntx[i].state;
+				IPA_WRITE_SCALER_REG(
+					IPA_RSRC_MNGR_DB_CFG,
+					ipa_rsrc_mngr_db_cfg.value);
+
+				ipa_rsrc_mngr_db_rsrc_read.value =
+					IPA_READ_SCALER_REG(
+						IPA_RSRC_MNGR_DB_RSRC_READ);
+
+				if (ipa_rsrc_mngr_db_rsrc_read.def.rsrc_occupied
+					== true) {
+					ipa_reg_save.pkt_ctntx_active[i] = true;
+					ipa_reg_save.pkt_cntxt_state[i] =
+						(enum ipa_hw_pkt_cntxt_state_e)
+						ipa_reg_save.pkt_ctntx[i].state;
+				}
 			}
+		} else {
+			IPAERR("IPA_CTX_ID is not currently accessible\n");
 		}
 	}
 
@@ -1316,11 +1400,11 @@ static void ipa_hal_save_regs_save_ipa_testbus(void)
  *
  * @return
  */
-int ipa_reg_save_init(u8 value)
+int ipa_reg_save_init(u32 value)
 {
 	u32 i, num_regs = ARRAY_SIZE(ipa_regs_to_save_array);
 
-	if (ipa3_ctx->do_register_collection_on_crash == false)
+	if (!ipa3_ctx->do_register_collection_on_crash)
 		return 0;
 
 	memset(&ipa_reg_save, value, sizeof(ipa_reg_save));

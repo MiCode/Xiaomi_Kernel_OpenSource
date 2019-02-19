@@ -306,6 +306,19 @@ enum {
 #define IPA_FWS_PATH_3_5_1   "ipa/3.5.1/ipa_fws.elf"
 #define IPA_FWS_PATH_4_5     "ipa/4.5/ipa_fws.elf"
 
+/*
+ * The following will be used for determining/using access control
+ * policy.
+ */
+#define USE_SCM            0 /* use scm call to determine policy */
+#define OVERRIDE_SCM_TRUE  1 /* override scm call with true */
+#define OVERRIDE_SCM_FALSE 2 /* override scm call with false */
+
+#define SD_ENABLED  0 /* secure debug enabled. */
+#define SD_DISABLED 1 /* secure debug disabled. */
+
+#define IPA_MEM_INIT_VAL 0xFFFFFFFF
+
 #ifdef CONFIG_COMPAT
 #define IPA_IOC_ADD_HDR32 _IOWR(IPA_IOC_MAGIC, \
 					IPA_IOCTL_ADD_HDR, \
@@ -1693,6 +1706,8 @@ struct ipa3_context {
 	bool do_register_collection_on_crash;
 	bool do_testbus_collection_on_crash;
 	bool do_non_tn_collection_on_crash;
+	u32 secure_debug_check_action;
+	u32 sd_state;
 	void __iomem *reg_collection_base;
 	struct ipa3_wdi2_ctx wdi2_ctx;
 	struct mbox_client mbox_client;
@@ -1745,6 +1760,7 @@ struct ipa3_plat_drv_res {
 	bool do_testbus_collection_on_crash;
 	bool do_non_tn_collection_on_crash;
 	bool ipa_endp_delay_wa;
+	u32 secure_debug_check_action;
 };
 
 /**
@@ -2750,11 +2766,13 @@ int ipa3_get_transport_info(
 irq_handler_t ipa3_get_isr(void);
 void ipa_pc_qmp_enable(void);
 #if defined(CONFIG_IPA3_REGDUMP)
-int ipa_reg_save_init(uint8_t value);
+int ipa_reg_save_init(u32 value);
 void ipa_save_registers(void);
+void ipa_save_gsi_ver(void);
 #else
-static inline int ipa_reg_save_init(uint8_t value) { return 0; }
+static inline int ipa_reg_save_init(u32 value) { return 0; }
 static inline void ipa_save_registers(void) {};
+static inline void ipa_save_gsi_ver(void) {};
 #endif
 
 #ifdef CONFIG_IPA_ETH
