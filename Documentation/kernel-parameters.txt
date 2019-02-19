@@ -2082,7 +2082,7 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
 
 			Default is 'flush'.
 
-			For details see: Documentation/admin-guide/l1tf.rst
+			For details see: Documentation/hw-vuln/l1tf.rst
 
 	l2cr=		[PPC]
 
