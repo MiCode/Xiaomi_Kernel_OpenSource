@@ -63,6 +63,19 @@ static struct msm_vidc_codec_data default_codec_data[] =  {
 	CODEC_ENTRY(V4L2_PIX_FMT_H264, MSM_VIDC_DECODER, 125, 675, 320),
 };
 
+/* Update with lito data */
+static struct msm_vidc_codec_data lito_codec_data[] =  {
+	CODEC_ENTRY(V4L2_PIX_FMT_H264, MSM_VIDC_ENCODER, 10, 675, 320),
+	CODEC_ENTRY(V4L2_PIX_FMT_HEVC, MSM_VIDC_ENCODER, 10, 675, 320),
+	CODEC_ENTRY(V4L2_PIX_FMT_VP8, MSM_VIDC_ENCODER, 10, 675, 320),
+	CODEC_ENTRY(V4L2_PIX_FMT_TME, MSM_VIDC_ENCODER, 0, 540, 540),
+	CODEC_ENTRY(V4L2_PIX_FMT_MPEG2, MSM_VIDC_DECODER, 10, 200, 200),
+	CODEC_ENTRY(V4L2_PIX_FMT_H264, MSM_VIDC_DECODER, 10, 200, 200),
+	CODEC_ENTRY(V4L2_PIX_FMT_HEVC, MSM_VIDC_DECODER, 10, 200, 200),
+	CODEC_ENTRY(V4L2_PIX_FMT_VP8, MSM_VIDC_DECODER, 10, 200, 200),
+	CODEC_ENTRY(V4L2_PIX_FMT_VP9, MSM_VIDC_DECODER, 10, 200, 200),
+};
+
 /* Update with Kona data */
 static struct msm_vidc_codec_data kona_codec_data[] =  {
 	CODEC_ENTRY(V4L2_PIX_FMT_H264, MSM_VIDC_ENCODER, 10, 675, 320),
@@ -229,6 +242,150 @@ static struct msm_vidc_common_data default_common_data[] = {
 	},
 };
 
+/* Update with lito */
+static struct msm_vidc_common_data lito_common_data_v0[] = {
+	{
+		.key = "qcom,never-unload-fw",
+		.value = 1,
+	},
+	{
+		.key = "qcom,sw-power-collapse",
+		.value = 1,
+	},
+	{
+		.key = "qcom,domain-attr-non-fatal-faults",
+		.value = 1,
+	},
+	{
+		.key = "qcom,max-secure-instances",
+		.value = 5,
+	},
+	{
+		.key = "qcom,max-hw-load",
+		.value = 3110400,/* 4096x2160@90 */
+	},
+	{
+		.key = "qcom,max-hq-mbs-per-frame",
+		.value = 8160,
+	},
+	{
+		.key = "qcom,max-hq-frames-per-sec",
+		.value = 60,
+	},
+	{
+		.key = "qcom,max-b-frame-size",
+		.value = 8160,
+	},
+	{
+		.key = "qcom,max-b-frames-per-sec",
+		.value = 60,
+	},
+	{
+		.key = "qcom,power-collapse-delay",
+		.value = 1500,
+	},
+	{
+		.key = "qcom,hw-resp-timeout",
+		.value = 1000,
+	},
+	{
+		.key = "qcom,debug-timeout",
+		.value = 0,
+	},
+	{
+		.key = "qcom,domain-cvp",
+		.value = 1,
+	},
+	{
+		.key = "qcom,decode-batching",
+		.value = 1,
+	},
+	{
+		.key = "qcom,dcvs",
+		.value = 1,
+	},
+	{
+		.key = "qcom,fw-cycles",
+		.value = 760000,
+	},
+	{
+		.key = "qcom,fw-vpp-cycles",
+		.value = 166667,
+	},
+};
+
+static struct msm_vidc_common_data lito_common_data_v1[] = {
+	{
+		.key = "qcom,never-unload-fw",
+		.value = 1,
+	},
+	{
+		.key = "qcom,sw-power-collapse",
+		.value = 1,
+	},
+	{
+		.key = "qcom,domain-attr-non-fatal-faults",
+		.value = 1,
+	},
+	{
+		.key = "qcom,max-secure-instances",
+		.value = 5,
+	},
+	{
+		.key = "qcom,max-hw-load",
+		.value = 1281600,/* 4k@30 Decode + 1080p@30 Encode */
+	},
+	{
+		.key = "qcom,max-hq-mbs-per-frame",
+		.value = 8160,
+	},
+	{
+		.key = "qcom,max-hq-frames-per-sec",
+		.value = 60,
+	},
+	{
+		.key = "qcom,max-b-frame-size",
+		.value = 8160,
+	},
+	{
+		.key = "qcom,max-b-frames-per-sec",
+		.value = 60,
+	},
+	{
+		.key = "qcom,power-collapse-delay",
+		.value = 1500,
+	},
+	{
+		.key = "qcom,hw-resp-timeout",
+		.value = 1000,
+	},
+	{
+		.key = "qcom,debug-timeout",
+		.value = 0,
+	},
+	{
+		.key = "qcom,domain-cvp",
+		.value = 1,
+	},
+	{
+		.key = "qcom,decode-batching",
+		.value = 1,
+	},
+	{
+		.key = "qcom,dcvs",
+		.value = 1,
+	},
+	{
+		.key = "qcom,fw-cycles",
+		.value = 760000,
+	},
+	{
+		.key = "qcom,fw-vpp-cycles",
+		.value = 166667,
+	},
+};
+
+/* Update with kona */
 static struct msm_vidc_common_data kona_common_data[] = {
 	{
 		.key = "qcom,never-unload-fw",
@@ -615,6 +772,10 @@ static struct msm_vidc_common_data sdm670_common_data_v1[] = {
 	},
 };
 
+static struct msm_vidc_efuse_data lito_efuse_data[] = {
+	EFUSE_ENTRY(0x00786018, 4, 0x00000400, 0x0a, SKU_VERSION),
+};
+
 static struct msm_vidc_efuse_data sdm670_efuse_data[] = {
 	EFUSE_ENTRY(0x007801A0, 4, 0x00008000, 0x0f, SKU_VERSION),
 };
@@ -636,6 +797,21 @@ static struct msm_vidc_platform_data default_data = {
 	.efuse_data_length = 0,
 	.sku_version = 0,
 	.vpu_ver = VPU_VERSION_IRIS2,
+	.ubwc_config = 0x0,
+};
+
+static struct msm_vidc_platform_data lito_data = {
+	.codec_data = lito_codec_data,
+	.codec_data_length =  ARRAY_SIZE(lito_codec_data),
+	.common_data = lito_common_data_v0,
+	.common_data_length =  ARRAY_SIZE(lito_common_data_v0),
+	.csc_data.vpe_csc_custom_bias_coeff = vpe_csc_custom_bias_coeff,
+	.csc_data.vpe_csc_custom_matrix_coeff = vpe_csc_custom_matrix_coeff,
+	.csc_data.vpe_csc_custom_limit_coeff = vpe_csc_custom_limit_coeff,
+	.efuse_data = lito_efuse_data,
+	.efuse_data_length = ARRAY_SIZE(lito_efuse_data),
+	.sku_version = 0,
+	.vpu_ver = VPU_VERSION_IRIS1,
 	.ubwc_config = 0x0,
 };
 
@@ -719,6 +895,10 @@ static struct msm_vidc_platform_data sdm670_data = {
 };
 
 static const struct of_device_id msm_vidc_dt_match[] = {
+	{
+		.compatible = "qcom,lito-vidc",
+		.data = &lito_data,
+	},
 	{
 		.compatible = "qcom,kona-vidc",
 		.data = &kona_data,
@@ -830,6 +1010,16 @@ void *vidc_get_drv_data(struct device *dev)
 			ddr_type == DDR_TYPE_LPDDR4X ||
 			ddr_type == DDR_TYPE_LPDDR4Y))
 			driver_data->ubwc_config->highest_bank_bit = 0xf;
+	} else if (!strcmp(match->compatible, "qcom,lito-vidc")) {
+		rc = msm_vidc_read_efuse(driver_data, dev);
+		if (rc)
+			goto exit;
+
+		if (driver_data->sku_version == SKU_VERSION_1) {
+			driver_data->common_data = lito_common_data_v1;
+			driver_data->common_data_length =
+					ARRAY_SIZE(lito_common_data_v1);
+		}
 	}
 
 exit:
