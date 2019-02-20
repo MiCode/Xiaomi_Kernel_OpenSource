@@ -129,13 +129,13 @@ static void show_data(unsigned long addr, int nbytes, const char *name)
 		for (j = 0; j < 8; j++) {
 			u32	data;
 			if (probe_kernel_address(p, data)) {
-				pr_cont(" ********");
+				printk(" ********");
 			} else {
-				pr_cont(" %08x", data);
+				printk(" %08x", data);
 			}
 			++p;
 		}
-		pr_cont("\n");
+		printk("\n");
 	}
 }
 
