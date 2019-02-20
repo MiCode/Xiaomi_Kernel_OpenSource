@@ -1367,6 +1367,31 @@ static int msm_venc_resolve_rate_control(struct msm_vidc_inst *inst,
 	return 0;
 }
 
+void msm_venc_adjust_gop_size(struct msm_vidc_inst *inst)
+{
+	struct v4l2_ctrl *hier_ctrl;
+
+	/*
+	 * Layer encoding needs GOP size to be multiple of subgop size
+	 * And subgop size is 2 ^ number of enhancement layers
+	 */
+	hier_ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_LAYER);
+	if (hier_ctrl->val > 1) {
+		struct v4l2_ctrl *gop_size_ctrl;
+		u32 min_gop_size;
+		u32 num_subgops;
+
+		gop_size_ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_GOP_SIZE);
+		min_gop_size = (1 << (hier_ctrl->val - 1));
+		num_subgops = (gop_size_ctrl->val + (min_gop_size >> 1)) /
+				min_gop_size;
+		if (num_subgops)
+			gop_size_ctrl->val = num_subgops * min_gop_size;
+		else
+			gop_size_ctrl->val = min_gop_size;
+	}
+}
+
 int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 {
 	int rc = 0;
@@ -2010,6 +2035,7 @@ int msm_venc_set_intra_period(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
+	msm_venc_adjust_gop_size(inst);
 	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_GOP_SIZE);
 	intra_period.pframes = ctrl->val;
 
