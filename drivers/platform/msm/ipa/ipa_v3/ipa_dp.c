@@ -3073,6 +3073,10 @@ static void ipa3_wq_rx_common(struct ipa3_sys_context *sys,
 	struct ipa3_sys_context *coal_sys;
 	int ipa_ep_idx;
 
+	if (!notify) {
+		IPAERR_RL("gsi_chan_xfer_notify is null\n");
+		return;
+	}
 	rx_skb = handle_skb_completion(notify, true);
 
 	if (rx_skb) {
