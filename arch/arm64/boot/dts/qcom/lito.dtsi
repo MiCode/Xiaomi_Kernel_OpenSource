@@ -1792,6 +1792,7 @@
 #include "lito-ion.dtsi"
 #include "lito-vidc.dtsi"
 #include "lito-audio.dtsi"
+#include "lito-bus.dtsi"
 
 &ufs_phy_gdsc {
 	status = "ok";
