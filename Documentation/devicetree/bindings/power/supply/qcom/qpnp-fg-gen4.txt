@@ -435,6 +435,30 @@ First Level Node - FG Gen4 device
 		    resolution of monotonic SOC under CAPACITY_RAW property
 		    during charging in the scale of 0-10000.
 
+- qcom,soc-scale-mode-en
+	Usage:      optional
+	Value type: <boolean>
+	Definition: A boolean property that when specified will enable scaling
+		    of the SOC linearly, based on the filtered battery voltage
+		    after crossing below a Vbatt threshold.
+
+- qcom,soc-scale-vbatt-mv
+	Usage:      optional
+	Value type: <u32>
+	Definition: Threshold voltage to decide when SOC should
+		    be scaled based on filtered voltage when
+		    qcom,soc-scale-mode-en is specified. If this
+		    is not specified, then the default value is 3400.
+		    Unit is in mV.
+
+- qcom,soc-scale-time-ms
+	Usage:      optional
+	Value type: <u32>
+	Definition: Timer value for doing SOC calculation based on
+		    filtered voltage when qcom,soc-scale-mode-en is
+		    specified. If this is not specified, then the
+		    default value is 10000. Unit is in ms.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by FG Gen4 driver
 ==========================================================
