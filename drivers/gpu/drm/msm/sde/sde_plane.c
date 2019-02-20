@@ -1670,7 +1670,7 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 
 		/* check for valid formats supported by inline rot */
 		sde_kms = to_sde_kms(priv->kms);
-		ret = sde_format_validate_fmt(&sde_kms->base, msm_fmt,
+		ret = sde_format_validate_fmt(&sde_kms->base, fmt,
 			psde->pipe_sblk->in_rot_format_list);
 
 	}

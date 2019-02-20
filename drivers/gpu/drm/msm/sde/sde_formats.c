@@ -1346,26 +1346,26 @@ uint32_t sde_populate_formats(
 }
 
 int sde_format_validate_fmt(struct msm_kms *kms,
-	const struct msm_format *msm_fmt,
+	const struct sde_format *sde_fmt,
 	const struct sde_format_extended *fmt_list)
 {
-	const struct msm_format *fmt_tmp;
+	const struct sde_format *fmt_tmp;
 	bool valid_format = false;
 	int ret = 0;
 
-	if (!msm_fmt || !fmt_list) {
+	if (!sde_fmt || !fmt_list) {
 		SDE_ERROR("invalid fmt:%d list:%d\n",
-			!msm_fmt, !fmt_list);
+			!sde_fmt, !fmt_list);
 		ret = -EINVAL;
 		goto exit;
 	}
 
 	while (fmt_list->fourcc_format) {
-		fmt_tmp = sde_get_msm_format(kms,
-				fmt_list->fourcc_format,
-				fmt_list->modifier);
-		if (fmt_tmp &&
-			(fmt_tmp->pixel_format == msm_fmt->pixel_format)) {
+		fmt_tmp = sde_get_sde_format_ext(fmt_list->fourcc_format,
+					fmt_list->modifier);
+		if (fmt_tmp
+		  && (fmt_tmp->base.pixel_format == sde_fmt->base.pixel_format)
+		  && (fmt_tmp->fetch_mode == sde_fmt->fetch_mode)) {
 			valid_format = true;
 			break;
 		}
@@ -1373,8 +1373,8 @@ int sde_format_validate_fmt(struct msm_kms *kms,
 	}
 
 	if (!valid_format) {
-		SDE_ERROR("fmt:%d not found within the list!\n",
-			msm_fmt->pixel_format);
+		SDE_ERROR("fmt:%d mode:%d not found within the list!\n",
+			sde_fmt->base.pixel_format, sde_fmt->fetch_mode);
 		ret = -EINVAL;
 	}
 exit:
