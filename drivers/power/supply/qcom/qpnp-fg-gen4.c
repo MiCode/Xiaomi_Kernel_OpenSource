@@ -192,6 +192,7 @@ struct fg_dt_props {
 	bool	soc_hi_res;
 	int	cutoff_volt_mv;
 	int	empty_volt_mv;
+	int	sys_min_volt_mv;
 	int	cutoff_curr_ma;
 	int	sys_term_curr_ma;
 	int	delta_soc_thr;
@@ -915,7 +916,7 @@ static int fg_gen4_get_power(struct fg_gen4_chip *chip, int *val, bool average)
 	if (rc < 0)
 		return rc;
 
-	v_min = chip->dt.cutoff_volt_mv * 1000;
+	v_min = chip->dt.sys_min_volt_mv * 1000;
 	power = (s64)v_min * (v_pred - v_min);
 
 	rc = fg_get_sram_prop(fg, FG_SRAM_ESR, &esr_uohms);
@@ -4753,6 +4754,7 @@ static void fg_gen4_parse_batt_temp_dt(struct fg_gen4_chip *chip)
 
 #define DEFAULT_CUTOFF_VOLT_MV		3100
 #define DEFAULT_EMPTY_VOLT_MV		2812
+#define DEFAULT_SYS_MIN_VOLT_MV		2800
 #define DEFAULT_SYS_TERM_CURR_MA	-125
 #define DEFAULT_CUTOFF_CURR_MA		200
 #define DEFAULT_DELTA_SOC_THR		5	/* 0.5 % */
@@ -5022,6 +5024,10 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 	chip->dt.multi_profile_load = of_property_read_bool(node,
 					"qcom,multi-profile-load");
 	chip->dt.soc_hi_res = of_property_read_bool(node, "qcom,soc-hi-res");
+
+	chip->dt.sys_min_volt_mv = DEFAULT_SYS_MIN_VOLT_MV;
+	of_property_read_u32(node, "qcom,fg-sys-min-voltage",
+				&chip->dt.sys_min_volt_mv);
 	return 0;
 }
 
