@@ -160,6 +160,7 @@ extern int cnss_get_fw_files_for_target(struct device *dev,
 extern int cnss_get_platform_cap(struct device *dev,
 				 struct cnss_platform_cap *cap);
 extern struct dma_iommu_mapping *cnss_smmu_get_mapping(struct device *dev);
+extern struct iommu_domain *cnss_smmu_get_domain(struct device *dev);
 extern int cnss_smmu_map(struct device *dev,
 			 phys_addr_t paddr, uint32_t *iova_addr, size_t size);
 extern int cnss_get_soc_info(struct device *dev, struct cnss_soc_info *info);

@@ -56,7 +56,8 @@ struct cnss_pci_data {
 	struct msm_pcie_register_event msm_pci_event;
 	atomic_t auto_suspended;
 	u8 monitor_wake_intr;
-	struct dma_iommu_mapping *smmu_mapping;
+	struct dma_iommu_mapping smmu_mapping;
+	struct iommu_domain *iommu_domain;
 	u8 smmu_s1_enable;
 	dma_addr_t smmu_iova_start;
 	size_t smmu_iova_len;
