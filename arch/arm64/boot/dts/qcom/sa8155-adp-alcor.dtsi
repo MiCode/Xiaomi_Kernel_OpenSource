@@ -12,9 +12,3 @@
 
 #include "sa8155-adp-common.dtsi"
 #include "sa8155-adp-alcor-display.dtsi"
-
-&usb0 {
-	dwc3@a600000 {
-		maximum-speed = "high-speed";
-	};
-};
