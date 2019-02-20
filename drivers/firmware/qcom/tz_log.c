@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 #include <linux/debugfs.h>
 #include <linux/errno.h>
@@ -877,7 +877,7 @@ static void tzdbg_register_qsee_log_buf(struct platform_device *pdev)
 
 	if (desc.ret[0] != QSEOS_RESULT_SUCCESS) {
 		pr_err(
-		"%s: scm_call to register log buf failed, resp result =%d\n",
+		"%s: scm_call to register log buf failed, resp result =%lld\n",
 		__func__, desc.ret[0]);
 		goto err;
 	}
