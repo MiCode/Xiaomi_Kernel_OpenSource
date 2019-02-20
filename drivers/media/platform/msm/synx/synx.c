@@ -533,7 +533,7 @@ int synx_bind(s32 synx_obj, struct synx_external_desc external_sync)
 		return -EINVAL;
 	}
 
-	if (is_valid_type(external_sync.type)) {
+	if (!is_valid_type(external_sync.type)) {
 		pr_err("invalid external sync object\n");
 		return -EINVAL;
 	}
@@ -656,7 +656,7 @@ int synx_import(s32 synx_obj, u32 secure_key, s32 *new_synx_obj)
 
 	pr_debug("Enter %s\n", __func__);
 
-	if (!synx_obj)
+	if (!new_synx_obj)
 		return -EINVAL;
 
 	row = synx_from_key(synx_obj, secure_key);
