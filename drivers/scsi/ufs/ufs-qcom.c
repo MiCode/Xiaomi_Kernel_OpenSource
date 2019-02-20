@@ -1308,11 +1308,11 @@ static void ufs_qcom_dev_ref_clk_ctrl(struct ufs_qcom_host *host, bool enable)
 		/*
 		 * If we are here to disable this clock it might be immediately
 		 * after entering into hibern8 in which case we need to make
-		 * sure that device ref_clk is active at least 1us after the
-		 * hibern8 enter.
+		 * sure that device ref_clk is active for a given time after the
+		 * hibern8 enter for pre UFS3.0 devices
 		 */
 		if (!enable)
-			udelay(1);
+			udelay(host->hba->dev_ref_clk_gating_wait);
 
 		writel_relaxed(temp, host->dev_ref_clk_ctrl_mmio);
 
