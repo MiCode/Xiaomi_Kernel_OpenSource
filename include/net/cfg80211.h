@@ -27,6 +27,9 @@
 /* Indicate backport support for external authentication*/
 #define CFG80211_EXTERNAL_AUTH_SUPPORT 1
 
+/* Indicate backport support for external authentication in AP mode */
+#define CFG80211_EXTERNAL_AUTH_AP_SUPPORT 1
+
 /**
  * DOC: Introduction
  *
