@@ -4183,7 +4183,7 @@ static ssize_t select_pdo_store(struct device *dev,
 	if (pd->selected_pdo != pd->requested_pdo ||
 			pd->current_voltage != pd->requested_voltage) {
 		usbpd_err(&pd->dev, "request rejected\n");
-		ret = -EINVAL;
+		ret = -ECONNREFUSED;
 	}
 
 out:
