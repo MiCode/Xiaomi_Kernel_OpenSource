@@ -440,8 +440,8 @@ static u32 get_frame_size(struct msm_vidc_inst *inst,
 		if (inst->flags & VIDC_SECURE) {
 			dprintk(VIDC_DBG,
 				"Change secure input buffer size from %u to %u\n",
-				frame_size, frame_size / 2);
-			frame_size = frame_size / 2;
+				frame_size, ALIGN(frame_size/2, SZ_4K));
+			frame_size = ALIGN(frame_size/2, SZ_4K);
 		}
 
 		if (inst->buffer_size_limit &&
