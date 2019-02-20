@@ -3443,19 +3443,21 @@ void reg_dmav1_setup_ltm_roiv1(struct sde_hw_dspp *ctx, void *cfg)
 	/* input param exceeds the display width */
 	if (cfg_param->cfg_param_01 + cfg_param->cfg_param_03 >
 			hw_cfg->displayh) {
-		DRM_ERROR("invalid input param = [%u,%u], displayh = %u\n",
+		DRM_DEBUG_DRIVER("invalid input = [%u,%u], displayh = %u\n",
 			cfg_param->cfg_param_01, cfg_param->cfg_param_03,
 			hw_cfg->displayh);
-		return;
+		/* set the roi width to max register value */
+		cfg_param->cfg_param_03 = 0xFFFF;
 	}
 
 	/* input param exceeds the display height */
 	if (cfg_param->cfg_param_02 + cfg_param->cfg_param_04 >
 			hw_cfg->displayv) {
-		DRM_ERROR("invalid input param = [%u,%u], displayv = %u\n",
+		DRM_DEBUG_DRIVER("invalid input = [%u,%u], displayv = %u\n",
 			cfg_param->cfg_param_02, cfg_param->cfg_param_04,
 			hw_cfg->displayv);
-		return;
+		/* set the roi height to max register value */
+		cfg_param->cfg_param_04 = 0xFFFF;
 	}
 
 	roi_data[0] = ((cfg_param->cfg_param_02 & 0xFFFF) << 16) |

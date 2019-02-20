@@ -339,6 +339,7 @@ struct sde_crtc {
 	struct list_head ltm_buf_free;
 	struct list_head ltm_buf_busy;
 	bool ltm_hist_en;
+	struct drm_msm_ltm_cfg_param ltm_cfg;
 	struct mutex ltm_buffer_lock;
 	spinlock_t ltm_lock;
 };

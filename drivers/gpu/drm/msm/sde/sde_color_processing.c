@@ -16,6 +16,7 @@
 #include "sde_hw_interrupts.h"
 #include "sde_core_irq.h"
 #include "dsi_panel.h"
+#include "sde_hw_color_proc_common_v4.h"
 
 struct sde_cp_node {
 	u32 property_id;
@@ -93,6 +94,8 @@ static void _sde_cp_crtc_disable_ltm_hist(struct sde_crtc *sde_crtc,
 		struct sde_hw_dspp *hw_dspp, struct sde_hw_cp_cfg *hw_cfg);
 static void sde_cp_notify_ltm_hist(struct drm_crtc *crtc_drm, void *arg);
 static void sde_cp_notify_ltm_wb_pb(struct drm_crtc *crtc_drm, void *arg);
+static void _sde_cp_crtc_update_ltm_roi(struct sde_crtc *sde_crtc,
+		struct sde_hw_cp_cfg *hw_cfg);
 
 #define setup_dspp_prop_install_funcs(func) \
 do { \
@@ -539,10 +542,12 @@ static int set_ltm_roi_feature(struct sde_hw_dspp *hw_dspp,
 {
 	int ret = 0;
 
-	if (!hw_dspp || !hw_dspp->ops.setup_ltm_roi)
+	if (!hw_dspp || !hw_dspp->ops.setup_ltm_roi) {
 		ret = -EINVAL;
-	else
+	} else {
 		hw_dspp->ops.setup_ltm_roi(hw_dspp, hw_cfg);
+		_sde_cp_crtc_update_ltm_roi(hw_crtc, hw_cfg);
+	}
 
 	return ret;
 }
@@ -2852,6 +2857,7 @@ static void _sde_cp_crtc_disable_ltm_hist(struct sde_crtc *sde_crtc,
 {
 	unsigned long irq_flags;
 	struct sde_hw_mixer *hw_lm = hw_cfg->mixer_info;
+	u32 i = 0;
 
 	spin_lock_irqsave(&sde_crtc->ltm_lock, irq_flags);
 	if (!hw_lm->cfg.right_mixer && !sde_crtc->ltm_hist_en) {
@@ -2860,6 +2866,11 @@ static void _sde_cp_crtc_disable_ltm_hist(struct sde_crtc *sde_crtc,
 		return;
 	}
 	sde_crtc->ltm_hist_en = false;
+	INIT_LIST_HEAD(&sde_crtc->ltm_buf_free);
+	INIT_LIST_HEAD(&sde_crtc->ltm_buf_busy);
+	for (i = 0; i < sde_crtc->ltm_buffer_cnt; i++)
+		list_add(&sde_crtc->ltm_buffers[i]->node,
+			&sde_crtc->ltm_buf_free);
 	spin_unlock_irqrestore(&sde_crtc->ltm_lock, irq_flags);
 }
 
@@ -2873,6 +2884,9 @@ static void sde_cp_ltm_hist_interrupt_cb(void *arg, int irq_idx)
 	u64 addr = 0;
 	int idx = -1;
 	unsigned long irq_flags;
+	struct sde_ltm_phase_info phase;
+	struct sde_hw_cp_cfg hw_cfg;
+	struct sde_hw_mixer *hw_lm;
 
 	if (!sde_crtc) {
 		DRM_ERROR("invalid sde_crtc %pK\n", sde_crtc);
@@ -2913,11 +2927,6 @@ static void sde_cp_ltm_hist_interrupt_cb(void *arg, int irq_idx)
 				0);
 		}
 
-		INIT_LIST_HEAD(&sde_crtc->ltm_buf_free);
-		INIT_LIST_HEAD(&sde_crtc->ltm_buf_busy);
-		for (i = 0; i < sde_crtc->ltm_buffer_cnt; i++)
-			list_add(&sde_crtc->ltm_buffers[i]->node,
-				&sde_crtc->ltm_buf_free);
 		spin_unlock_irqrestore(&sde_crtc->ltm_lock, irq_flags);
 		return;
 	}
@@ -2965,6 +2974,30 @@ static void sde_cp_ltm_hist_interrupt_cb(void *arg, int irq_idx)
 		((u8 *)sde_crtc->ltm_buffers[idx]->kva +
 		sde_crtc->ltm_buffers[idx]->offset);
 	ltm_data->status_flag = ltm_hist_status;
+
+	hw_lm = sde_crtc->mixers[0].hw_lm;
+	if (!hw_lm) {
+		DRM_ERROR("invalid layer mixer\n");
+		return;
+	}
+	hw_cfg.num_of_mixers = num_mixers;
+	hw_cfg.displayh = num_mixers * hw_lm->cfg.out_width;
+	hw_cfg.displayv = hw_lm->cfg.out_height;
+
+	sde_ltm_get_phase_info(&hw_cfg, &phase);
+	ltm_data->display_h = hw_cfg.displayh;
+	ltm_data->display_v = hw_cfg.displayv;
+	ltm_data->init_h[0] = phase.init_h[LTM_0];
+	ltm_data->init_h[1] = phase.init_h[LTM_1];
+	ltm_data->init_v = phase.init_v;
+	ltm_data->inc_v = phase.inc_v;
+	ltm_data->inc_h = phase.inc_h;
+	ltm_data->portrait_en = phase.portrait_en;
+	ltm_data->merge_en = phase.merge_en;
+	ltm_data->cfg_param_01 = sde_crtc->ltm_cfg.cfg_param_01;
+	ltm_data->cfg_param_02 = sde_crtc->ltm_cfg.cfg_param_02;
+	ltm_data->cfg_param_03 = sde_crtc->ltm_cfg.cfg_param_03;
+	ltm_data->cfg_param_04 = sde_crtc->ltm_cfg.cfg_param_04;
 	sde_crtc_event_queue(&sde_crtc->base, sde_cp_notify_ltm_hist,
 				sde_crtc->ltm_buffers[idx], true);
 	spin_unlock_irqrestore(&sde_crtc->ltm_lock, irq_flags);
@@ -3187,4 +3220,46 @@ int sde_cp_ltm_wb_pb_interrupt(struct drm_crtc *crtc, bool en,
 			DRM_ERROR("failed to unregister WB_PB irq\n");
 	}
 	return ret;
+}
+
+static void _sde_cp_crtc_update_ltm_roi(struct sde_crtc *sde_crtc,
+		struct sde_hw_cp_cfg *hw_cfg)
+{
+	struct drm_msm_ltm_cfg_param *cfg_param = NULL;
+
+	/* disable case */
+	if (!hw_cfg->payload) {
+		memset(&sde_crtc->ltm_cfg, 0,
+			sizeof(struct drm_msm_ltm_cfg_param));
+		return;
+	}
+
+	if (hw_cfg->len != sizeof(struct drm_msm_ltm_cfg_param)) {
+		DRM_ERROR("invalid size of payload len %d exp %zd\n",
+			hw_cfg->len, sizeof(struct drm_msm_ltm_cfg_param));
+		return;
+	}
+
+	cfg_param = hw_cfg->payload;
+	/* input param exceeds the display width */
+	if (cfg_param->cfg_param_01 + cfg_param->cfg_param_03 >
+			hw_cfg->displayh) {
+		DRM_DEBUG_DRIVER("invalid input = [%u,%u], displayh = %u\n",
+			cfg_param->cfg_param_01, cfg_param->cfg_param_03,
+			hw_cfg->displayh);
+		/* set the roi width to max register value */
+		cfg_param->cfg_param_03 = 0xFFFF;
+	}
+
+	/* input param exceeds the display height */
+	if (cfg_param->cfg_param_02 + cfg_param->cfg_param_04 >
+			hw_cfg->displayv) {
+		DRM_DEBUG_DRIVER("invalid input = [%u,%u], displayv = %u\n",
+			cfg_param->cfg_param_02, cfg_param->cfg_param_04,
+			hw_cfg->displayv);
+		/* set the roi height to max register value */
+		cfg_param->cfg_param_04 = 0xFFFF;
+	}
+
+	sde_crtc->ltm_cfg = *cfg_param;
 }
