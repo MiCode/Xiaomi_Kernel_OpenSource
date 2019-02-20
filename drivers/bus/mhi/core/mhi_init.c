@@ -48,6 +48,7 @@ const char * const mhi_state_str[MHI_STATE_MAX] = {
 	[MHI_STATE_M1] = "M1",
 	[MHI_STATE_M2] = "M2",
 	[MHI_STATE_M3] = "M3",
+	[MHI_STATE_M3_FAST] = "M3_FAST",
 	[MHI_STATE_BHI] = "BHI",
 	[MHI_STATE_SYS_ERR] = "SYS_ERR",
 };

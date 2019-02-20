@@ -39,6 +39,7 @@
  *     POR -> M0 -> M2 --> M0
  *     POR -> FW_DL_ERR
  *     FW_DL_ERR <--> FW_DL_ERR
+ *     M0 <--> M0
  *     M0 -> FW_DL_ERR
  *     M0 -> M3_ENTER -> M3 -> M3_EXIT --> M0
  * L1: SYS_ERR_DETECT -> SYS_ERR_PROCESS --> POR
@@ -60,9 +61,9 @@ static struct mhi_pm_transitions const mhi_state_transitions[] = {
 	},
 	{
 		MHI_PM_M0,
-		MHI_PM_M2 | MHI_PM_M3_ENTER | MHI_PM_SYS_ERR_DETECT |
-		MHI_PM_SHUTDOWN_PROCESS | MHI_PM_LD_ERR_FATAL_DETECT |
-		MHI_PM_FW_DL_ERR
+		MHI_PM_M0 | MHI_PM_M2 | MHI_PM_M3_ENTER |
+		MHI_PM_SYS_ERR_DETECT | MHI_PM_SHUTDOWN_PROCESS |
+		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_FW_DL_ERR
 	},
 	{
 		MHI_PM_M2,
@@ -328,7 +329,7 @@ int mhi_pm_m0_transition(struct mhi_controller *mhi_cntrl)
 	}
 	mhi_cntrl->M0++;
 	read_lock_bh(&mhi_cntrl->pm_lock);
-	mhi_cntrl->wake_get(mhi_cntrl, false);
+	mhi_cntrl->wake_get(mhi_cntrl, true);
 
 	/* ring all event rings and CMD ring only if we're in mission mode */
 	if (MHI_IN_MISSION_MODE(mhi_cntrl->ee)) {
@@ -1032,6 +1033,114 @@ error_m0_entry:
 }
 EXPORT_SYMBOL(mhi_pm_suspend);
 
+/**
+ * mhi_pm_fast_suspend - Faster suspend path where we transition host to
+ * inactive state w/o suspending device.  Useful for cases where we want apps to
+ * go into power collapse but keep the physical link in active state.
+ */
+int mhi_pm_fast_suspend(struct mhi_controller *mhi_cntrl, bool notify_client)
+{
+	int ret;
+	enum MHI_PM_STATE new_state;
+	struct mhi_chan *itr, *tmp;
+
+	if (mhi_cntrl->pm_state == MHI_PM_DISABLE)
+		return -EINVAL;
+
+	if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state))
+		return -EIO;
+
+	/* do a quick check to see if any pending votes to keep us busy */
+	if (atomic_read(&mhi_cntrl->pending_pkts)) {
+		MHI_VERB("Busy, aborting M3\n");
+		return -EBUSY;
+	}
+
+	/* disable ctrl event processing */
+	tasklet_disable(&mhi_cntrl->mhi_event->task);
+
+	write_lock_irq(&mhi_cntrl->pm_lock);
+
+	/*
+	 * Check the votes once more to see if we should abort
+	 * suspend.
+	 */
+	if (atomic_read(&mhi_cntrl->pending_pkts)) {
+		MHI_VERB("Busy, aborting M3\n");
+		ret = -EBUSY;
+		goto error_suspend;
+	}
+
+	/* anytime after this, we will resume thru runtime pm framework */
+	MHI_LOG("Allowing Fast M3 transition\n");
+
+	/* save the current states */
+	mhi_cntrl->saved_pm_state = mhi_cntrl->pm_state;
+	mhi_cntrl->saved_dev_state = mhi_cntrl->dev_state;
+
+	/* If we're in M2, we need to switch back to M0 first */
+	if (mhi_cntrl->pm_state == MHI_PM_M2) {
+		new_state = mhi_tryset_pm_state(mhi_cntrl, MHI_PM_M0);
+		if (new_state != MHI_PM_M0) {
+			MHI_ERR("Error set pm_state to:%s from pm_state:%s\n",
+				to_mhi_pm_state_str(MHI_PM_M0),
+				to_mhi_pm_state_str(mhi_cntrl->pm_state));
+			ret = -EIO;
+			goto error_suspend;
+		}
+	}
+
+	new_state = mhi_tryset_pm_state(mhi_cntrl, MHI_PM_M3_ENTER);
+	if (new_state != MHI_PM_M3_ENTER) {
+		MHI_ERR("Error setting to pm_state:%s from pm_state:%s\n",
+			to_mhi_pm_state_str(MHI_PM_M3_ENTER),
+			to_mhi_pm_state_str(mhi_cntrl->pm_state));
+		ret = -EIO;
+		goto error_suspend;
+	}
+
+	/* set dev to M3_FAST and host to M3 */
+	new_state = mhi_tryset_pm_state(mhi_cntrl, MHI_PM_M3);
+	if (new_state != MHI_PM_M3) {
+		MHI_ERR("Error setting to pm_state:%s from pm_state:%s\n",
+			to_mhi_pm_state_str(MHI_PM_M3),
+			to_mhi_pm_state_str(mhi_cntrl->pm_state));
+		ret = -EIO;
+		goto error_suspend;
+	}
+
+	mhi_cntrl->dev_state = MHI_STATE_M3_FAST;
+	mhi_cntrl->M3_FAST++;
+	write_unlock_irq(&mhi_cntrl->pm_lock);
+
+	/* now safe to check ctrl event ring */
+	tasklet_enable(&mhi_cntrl->mhi_event->task);
+	mhi_msi_handlr(0, mhi_cntrl->mhi_event);
+
+	if (!notify_client)
+		return 0;
+
+	/* notify any clients we enter lpm */
+	list_for_each_entry_safe(itr, tmp, &mhi_cntrl->lpm_chans, node) {
+		mutex_lock(&itr->mutex);
+		if (itr->mhi_dev)
+			mhi_notify(itr->mhi_dev, MHI_CB_LPM_ENTER);
+		mutex_unlock(&itr->mutex);
+	}
+
+	return 0;
+
+error_suspend:
+	write_unlock_irq(&mhi_cntrl->pm_lock);
+
+	/* check ctrl event ring for pending work */
+	tasklet_enable(&mhi_cntrl->mhi_event->task);
+	mhi_msi_handlr(0, mhi_cntrl->mhi_event);
+
+	return ret;
+}
+EXPORT_SYMBOL(mhi_pm_fast_suspend);
+
 int mhi_pm_resume(struct mhi_controller *mhi_cntrl)
 {
 	enum MHI_PM_STATE cur_state;
@@ -1094,6 +1203,80 @@ int mhi_pm_resume(struct mhi_controller *mhi_cntrl)
 		mhi_intvec_threaded_handlr(0, mhi_cntrl);
 		return -EIO;
 	}
+
+	return 0;
+}
+
+int mhi_pm_fast_resume(struct mhi_controller *mhi_cntrl, bool notify_client)
+{
+	struct mhi_chan *itr, *tmp;
+	struct mhi_event *mhi_event;
+	int i;
+
+	MHI_LOG("Entered with pm_state:%s dev_state:%s\n",
+		to_mhi_pm_state_str(mhi_cntrl->pm_state),
+		TO_MHI_STATE_STR(mhi_cntrl->dev_state));
+
+	if (mhi_cntrl->pm_state == MHI_PM_DISABLE)
+		return 0;
+
+	if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state))
+		return -EIO;
+
+	MHI_ASSERT(mhi_cntrl->pm_state != MHI_PM_M3, "mhi_pm_state != M3");
+
+	/* notify any clients we're about to exit lpm */
+	if (notify_client) {
+		list_for_each_entry_safe(itr, tmp, &mhi_cntrl->lpm_chans,
+					 node) {
+			mutex_lock(&itr->mutex);
+			if (itr->mhi_dev)
+				mhi_notify(itr->mhi_dev, MHI_CB_LPM_EXIT);
+			mutex_unlock(&itr->mutex);
+		}
+	}
+
+	write_lock_irq(&mhi_cntrl->pm_lock);
+	/* restore the states */
+	mhi_cntrl->pm_state = mhi_cntrl->saved_pm_state;
+	mhi_cntrl->dev_state = mhi_cntrl->saved_dev_state;
+	write_unlock_irq(&mhi_cntrl->pm_lock);
+
+	switch (mhi_cntrl->pm_state) {
+	case MHI_PM_M0:
+		mhi_pm_m0_transition(mhi_cntrl);
+	case MHI_PM_M2:
+		read_lock_bh(&mhi_cntrl->pm_lock);
+		/*
+		 * we're doing a double check of pm_state because by the time we
+		 * grab the pm_lock, device may have already initiate a M0 on
+		 * its own. If that's the case we should not be toggling device
+		 * wake.
+		 */
+		if (mhi_cntrl->pm_state == MHI_PM_M2) {
+			mhi_cntrl->wake_get(mhi_cntrl, true);
+			mhi_cntrl->wake_put(mhi_cntrl, true);
+		}
+		read_unlock_bh(&mhi_cntrl->pm_lock);
+	}
+
+	/*
+	 * In fast suspend/resume case device is not aware host transition
+	 * to suspend state. So, device could be triggering a interrupt while
+	 * host not accepting MSI. We have to manually check each event ring
+	 * upon resume.
+	 */
+	mhi_event = mhi_cntrl->mhi_event;
+	for (i = 0; i < mhi_cntrl->total_ev_rings; i++, mhi_event++) {
+		if (mhi_event->offload_ev)
+			continue;
+
+		mhi_msi_handlr(0, mhi_event);
+	}
+
+	MHI_LOG("Exit with pm_state:%s dev_state:%s\n",
+		to_mhi_pm_state_str(mhi_cntrl->pm_state),
+		TO_MHI_STATE_STR(mhi_cntrl->dev_state));
 
 	return 0;
 }
@@ -1185,6 +1368,10 @@ void mhi_device_put(struct mhi_device *mhi_dev, int vote)
 	if (vote & MHI_VOTE_DEVICE) {
 		atomic_dec(&mhi_dev->dev_vote);
 		read_lock_bh(&mhi_cntrl->pm_lock);
+		if (MHI_PM_IN_SUSPEND_STATE(mhi_cntrl->pm_state)) {
+			mhi_cntrl->runtime_get(mhi_cntrl, mhi_cntrl->priv_data);
+			mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
+		}
 		mhi_cntrl->wake_put(mhi_cntrl, false);
 		read_unlock_bh(&mhi_cntrl->pm_lock);
 	}
