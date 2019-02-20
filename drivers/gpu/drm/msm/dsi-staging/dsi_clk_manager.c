@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/of.h>
@@ -837,6 +837,41 @@ error:
 	return rc;
 }
 
+static int dsi_update_core_clks(struct dsi_clk_mngr *mngr,
+		struct dsi_core_clks *c_clks)
+{
+	int rc = 0;
+
+	if (mngr->core_clk_state == DSI_CLK_OFF) {
+		rc = mngr->pre_clkon_cb(mngr->priv_data,
+					DSI_CORE_CLK,
+					DSI_LINK_NONE,
+					DSI_CLK_ON);
+		if (rc) {
+			pr_err("failed to turn on MDP FS rc= %d\n", rc);
+			goto error;
+		}
+	}
+	rc = dsi_display_core_clk_enable(c_clks, mngr->dsi_ctrl_count,
+			mngr->master_ndx);
+	if (rc) {
+		pr_err("failed to turn on core clks rc = %d\n", rc);
+		goto error;
+	}
+
+	if (mngr->post_clkon_cb) {
+		rc = mngr->post_clkon_cb(mngr->priv_data,
+					 DSI_CORE_CLK,
+					 DSI_LINK_NONE,
+					 DSI_CLK_ON);
+		if (rc)
+			pr_err("post clk on cb failed, rc = %d\n", rc);
+	}
+	mngr->core_clk_state = DSI_CLK_ON;
+error:
+	return rc;
+}
+
 static int dsi_update_clk_state(struct dsi_clk_mngr *mngr,
 	struct dsi_core_clks *c_clks, u32 c_state,
 	struct dsi_link_clks *l_clks, u32 l_state)
@@ -854,34 +889,11 @@ static int dsi_update_clk_state(struct dsi_clk_mngr *mngr,
 	 *	1. For ON sequence, Core clocks before link clocks
 	 *	2. For OFF sequence, Link clocks before core clocks.
 	 */
-	if (c_clks && (c_state == DSI_CLK_ON)) {
-		if (mngr->core_clk_state == DSI_CLK_OFF) {
-			rc = mngr->pre_clkon_cb(mngr->priv_data,
-						DSI_CORE_CLK,
-						DSI_LINK_NONE,
-						DSI_CLK_ON);
-			if (rc) {
-				pr_err("failed to turn on MDP FS rc= %d\n", rc);
-				goto error;
-			}
-		}
-		rc = dsi_display_core_clk_enable(c_clks, mngr->dsi_ctrl_count,
-				mngr->master_ndx);
-		if (rc) {
-			pr_err("failed to turn on core clks rc = %d\n", rc);
-			goto error;
-		}
+	if (c_clks && (c_state == DSI_CLK_ON))
+		rc = dsi_update_core_clks(mngr, c_clks);
 
-		if (mngr->post_clkon_cb) {
-			rc = mngr->post_clkon_cb(mngr->priv_data,
-						 DSI_CORE_CLK,
-						 DSI_LINK_NONE,
-						 DSI_CLK_ON);
-			if (rc)
-				pr_err("post clk on cb failed, rc = %d\n", rc);
-		}
-		mngr->core_clk_state = DSI_CLK_ON;
-	}
+	if (rc)
+		goto error;
 
 	if (l_clks) {
 		if (l_state == DSI_CLK_ON) {

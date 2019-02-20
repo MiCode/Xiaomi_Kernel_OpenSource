@@ -543,6 +543,87 @@ static void _tu_valid_boundary_calc(struct tu_algo_data *tu)
 	}
 }
 
+static void _dp_calc_boundary(struct tu_algo_data *tu)
+{
+
+	s64 temp1_fp = 0, temp2_fp = 0;
+
+	do {
+		tu->err_fp = drm_fixp_from_fraction(1000, 1);
+
+		temp1_fp = drm_fixp_div(tu->lclk_fp, tu->pclk_fp);
+		temp2_fp = drm_fixp_from_fraction(
+				tu->delay_start_link_extra_pixclk, 1);
+		temp1_fp = drm_fixp_mul(temp2_fp, temp1_fp);
+
+		if (temp1_fp)
+			tu->extra_buffer_margin =
+				drm_fixp2int_ceil(temp1_fp);
+		else
+			tu->extra_buffer_margin = 0;
+
+		temp1_fp = drm_fixp_from_fraction(tu->bpp, 8);
+		temp1_fp = drm_fixp_mul(tu->lwidth_fp, temp1_fp);
+
+		if (temp1_fp)
+			tu->n_symbols = drm_fixp2int_ceil(temp1_fp);
+		else
+			tu->n_symbols = 0;
+
+		for (tu->tu_size = 32; tu->tu_size <= 64; tu->tu_size++) {
+			for (tu->i_upper_boundary_count = 1;
+				tu->i_upper_boundary_count <= 15;
+				tu->i_upper_boundary_count++) {
+				for (tu->i_lower_boundary_count = 1;
+					tu->i_lower_boundary_count <= 15;
+					tu->i_lower_boundary_count++) {
+					_tu_valid_boundary_calc(tu);
+				}
+			}
+		}
+		tu->delay_start_link_extra_pixclk--;
+	} while (!tu->boundary_moderation_en &&
+		tu->boundary_mod_lower_err == 1 &&
+		tu->delay_start_link_extra_pixclk != 0);
+}
+
+static void _dp_calc_extra_bytes(struct tu_algo_data *tu)
+{
+	u64 temp = 0;
+	s64 temp1_fp = 0, temp2_fp = 0;
+
+	temp1_fp = drm_fixp_from_fraction(tu->tu_size_desired, 1);
+	temp2_fp = drm_fixp_mul(tu->original_ratio_fp, temp1_fp);
+	temp1_fp = drm_fixp_from_fraction(tu->valid_boundary_link, 1);
+	temp2_fp = temp1_fp - temp2_fp;
+	temp1_fp = drm_fixp_from_fraction(tu->n_tus + 1, 1);
+	temp2_fp = drm_fixp_mul(temp1_fp, temp2_fp);
+
+	temp = drm_fixp2int(temp2_fp);
+	if (temp && temp2_fp)
+		tu->extra_bytes = drm_fixp2int_ceil(temp2_fp);
+	else
+		tu->extra_bytes = 0;
+
+	temp1_fp = drm_fixp_from_fraction(tu->extra_bytes, 1);
+	temp2_fp = drm_fixp_from_fraction(8, tu->bpp);
+	temp1_fp = drm_fixp_mul(temp1_fp, temp2_fp);
+
+	if (temp1_fp)
+		tu->extra_pclk_cycles = drm_fixp2int_ceil(temp1_fp);
+	else
+		tu->extra_pclk_cycles = drm_fixp2int(temp1_fp);
+
+	temp1_fp = drm_fixp_div(tu->lclk_fp, tu->pclk_fp);
+	temp2_fp = drm_fixp_from_fraction(tu->extra_pclk_cycles, 1);
+	temp1_fp = drm_fixp_mul(temp2_fp, temp1_fp);
+
+	if (temp1_fp)
+		tu->extra_pclk_cycles_in_link_clk = drm_fixp2int_ceil(temp1_fp);
+	else
+		tu->extra_pclk_cycles_in_link_clk = drm_fixp2int(temp1_fp);
+}
+
 static void _dp_panel_calc_tu(struct dp_tu_calc_input *in,
 				   struct dp_vc_tu_mapping_table *tu_table)
 {
@@ -662,36 +743,7 @@ tu_size_calc:
 	pr_info("Info: n_sym = %d, num_of_tus = %d\n",
 		tu.valid_boundary_link, tu.n_tus);
 
-	temp1_fp = drm_fixp_from_fraction(tu.tu_size_desired, 1);
-	temp2_fp = drm_fixp_mul(tu.original_ratio_fp, temp1_fp);
-	temp1_fp = drm_fixp_from_fraction(tu.valid_boundary_link, 1);
-	temp2_fp = temp1_fp - temp2_fp;
-	temp1_fp = drm_fixp_from_fraction(tu.n_tus + 1, 1);
-	temp2_fp = drm_fixp_mul(temp1_fp, temp2_fp);
-
-	temp = drm_fixp2int(temp2_fp);
-	if (temp && temp2_fp)
-		tu.extra_bytes = drm_fixp2int_ceil(temp2_fp);
-	else
-		tu.extra_bytes = 0;
-
-	temp1_fp = drm_fixp_from_fraction(tu.extra_bytes, 1);
-	temp2_fp = drm_fixp_from_fraction(8, tu.bpp);
-	temp1_fp = drm_fixp_mul(temp1_fp, temp2_fp);
-
-	if (temp1_fp)
-		tu.extra_pclk_cycles = drm_fixp2int_ceil(temp1_fp);
-	else
-		tu.extra_pclk_cycles = drm_fixp2int(temp1_fp);
-
-	temp1_fp = drm_fixp_div(tu.lclk_fp, tu.pclk_fp);
-	temp2_fp = drm_fixp_from_fraction(tu.extra_pclk_cycles, 1);
-	temp1_fp = drm_fixp_mul(temp2_fp, temp1_fp);
-
-	if (temp1_fp)
-		tu.extra_pclk_cycles_in_link_clk = drm_fixp2int_ceil(temp1_fp);
-	else
-		tu.extra_pclk_cycles_in_link_clk = drm_fixp2int(temp1_fp);
+	_dp_calc_extra_bytes(&tu);
 
 	tu.filler_size = tu.tu_size_desired - tu.valid_boundary_link;
 
@@ -748,44 +800,8 @@ tu_size_calc:
 			 (tu.even_distribution_legacy == 0) ||
 			 (DP_BRUTE_FORCE == 1))) ||
 			(tu.min_hblank_violated == 1)) {
-		do {
-			tu.err_fp = drm_fixp_from_fraction(1000, 1);
 
-			temp1_fp = drm_fixp_div(tu.lclk_fp, tu.pclk_fp);
-			temp2_fp = drm_fixp_from_fraction(
-					tu.delay_start_link_extra_pixclk, 1);
-			temp1_fp = drm_fixp_mul(temp2_fp, temp1_fp);
-
-			if (temp1_fp)
-				tu.extra_buffer_margin =
-					drm_fixp2int_ceil(temp1_fp);
-			else
-				tu.extra_buffer_margin = 0;
-
-			temp1_fp = drm_fixp_from_fraction(tu.bpp, 8);
-			temp1_fp = drm_fixp_mul(tu.lwidth_fp, temp1_fp);
-
-
-			if (temp1_fp)
-				tu.n_symbols = drm_fixp2int_ceil(temp1_fp);
-			else
-				tu.n_symbols = 0;
-
-			for (tu.tu_size = 32; tu.tu_size <= 64; tu.tu_size++) {
-				for (tu.i_upper_boundary_count = 1;
-					tu.i_upper_boundary_count <= 15;
-					tu.i_upper_boundary_count++) {
-					for (tu.i_lower_boundary_count = 1;
-						tu.i_lower_boundary_count <= 15;
-						tu.i_lower_boundary_count++) {
-						_tu_valid_boundary_calc(&tu);
-					}
-				}
-			}
-			tu.delay_start_link_extra_pixclk--;
-		} while (!tu.boundary_moderation_en &&
-			tu.boundary_mod_lower_err == 1 &&
-			tu.delay_start_link_extra_pixclk != 0);
+		_dp_calc_boundary(&tu);
 
 		if (tu.boundary_moderation_en) {
 			temp1_fp = drm_fixp_from_fraction(

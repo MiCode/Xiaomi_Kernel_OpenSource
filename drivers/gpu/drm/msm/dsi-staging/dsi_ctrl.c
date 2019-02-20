@@ -1100,21 +1100,144 @@ int dsi_message_validate_tx_mode(struct dsi_ctrl *dsi_ctrl,
 	return rc;
 }
 
+static void dsi_kickoff_msg_tx(struct dsi_ctrl *dsi_ctrl,
+				const struct mipi_dsi_msg *msg,
+				struct dsi_ctrl_cmd_dma_fifo_info *cmd,
+				struct dsi_ctrl_cmd_dma_info *cmd_mem,
+				u32 flags)
+{
+	int rc = 0, ret = 0;
+	u32 hw_flags = 0;
+	u32 line_no = 0x1;
+	struct dsi_mode_info *timing;
+	struct dsi_ctrl_hw_ops dsi_hw_ops = dsi_ctrl->hw.ops;
+
+	/* check if custom dma scheduling line needed */
+	if ((dsi_ctrl->host_config.panel_mode == DSI_OP_VIDEO_MODE) &&
+		(flags & DSI_CTRL_CMD_CUSTOM_DMA_SCHED))
+		line_no = dsi_ctrl->host_config.u.video_engine.dma_sched_line;
+
+	timing = &(dsi_ctrl->host_config.video_timing);
+	if (timing)
+		line_no += timing->v_back_porch + timing->v_sync_width +
+				timing->v_active;
+	if ((dsi_ctrl->host_config.panel_mode == DSI_OP_VIDEO_MODE) &&
+		dsi_hw_ops.schedule_dma_cmd &&
+		(dsi_ctrl->current_state.vid_engine_state ==
+					DSI_CTRL_ENGINE_ON))
+		dsi_hw_ops.schedule_dma_cmd(&dsi_ctrl->hw,
+				line_no);
+
+	hw_flags |= (flags & DSI_CTRL_CMD_DEFER_TRIGGER) ?
+			DSI_CTRL_HW_CMD_WAIT_FOR_TRIGGER : 0;
+
+	if ((msg->flags & MIPI_DSI_MSG_LASTCOMMAND))
+		hw_flags |= DSI_CTRL_CMD_LAST_COMMAND;
+
+	if (flags & DSI_CTRL_CMD_DEFER_TRIGGER) {
+		if (flags & DSI_CTRL_CMD_FETCH_MEMORY) {
+			if (flags & DSI_CTRL_CMD_NON_EMBEDDED_MODE) {
+				dsi_hw_ops.kickoff_command_non_embedded_mode(
+							&dsi_ctrl->hw,
+							cmd_mem,
+							hw_flags);
+			} else {
+				dsi_hw_ops.kickoff_command(
+						&dsi_ctrl->hw,
+						cmd_mem,
+						hw_flags);
+			}
+		} else if (flags & DSI_CTRL_CMD_FIFO_STORE) {
+			dsi_hw_ops.kickoff_fifo_command(&dsi_ctrl->hw,
+							      cmd,
+							      hw_flags);
+		}
+	}
+
+	if (!(flags & DSI_CTRL_CMD_DEFER_TRIGGER)) {
+		dsi_ctrl_wait_for_video_done(dsi_ctrl);
+		dsi_ctrl_enable_status_interrupt(dsi_ctrl,
+					DSI_SINT_CMD_MODE_DMA_DONE, NULL);
+		if (dsi_hw_ops.mask_error_intr)
+			dsi_hw_ops.mask_error_intr(&dsi_ctrl->hw,
+					BIT(DSI_FIFO_OVERFLOW), true);
+		reinit_completion(&dsi_ctrl->irq_info.cmd_dma_done);
+
+		if (flags & DSI_CTRL_CMD_FETCH_MEMORY) {
+			if (flags & DSI_CTRL_CMD_NON_EMBEDDED_MODE) {
+				dsi_hw_ops.kickoff_command_non_embedded_mode(
+							&dsi_ctrl->hw,
+							cmd_mem,
+							hw_flags);
+			} else {
+				dsi_hw_ops.kickoff_command(
+						&dsi_ctrl->hw,
+						cmd_mem,
+						hw_flags);
+			}
+		} else if (flags & DSI_CTRL_CMD_FIFO_STORE) {
+			dsi_hw_ops.kickoff_fifo_command(&dsi_ctrl->hw,
+							      cmd,
+							      hw_flags);
+		}
+
+		ret = wait_for_completion_timeout(
+				&dsi_ctrl->irq_info.cmd_dma_done,
+				msecs_to_jiffies(DSI_CTRL_TX_TO_MS));
+
+		if (ret == 0) {
+			u32 status = dsi_hw_ops.get_interrupt_status(
+								&dsi_ctrl->hw);
+			u32 mask = DSI_CMD_MODE_DMA_DONE;
+
+			if (status & mask) {
+				status |= (DSI_CMD_MODE_DMA_DONE |
+						DSI_BTA_DONE);
+				dsi_hw_ops.clear_interrupt_status(
+								&dsi_ctrl->hw,
+								status);
+				dsi_ctrl_disable_status_interrupt(dsi_ctrl,
+						DSI_SINT_CMD_MODE_DMA_DONE);
+				complete_all(&dsi_ctrl->irq_info.cmd_dma_done);
+				pr_warn("dma_tx done but irq not triggered\n");
+			} else {
+				rc = -ETIMEDOUT;
+				dsi_ctrl_disable_status_interrupt(dsi_ctrl,
+						DSI_SINT_CMD_MODE_DMA_DONE);
+				pr_err("[DSI_%d]Command transfer failed\n",
+						dsi_ctrl->cell_index);
+			}
+		}
+
+		if (dsi_hw_ops.mask_error_intr && !dsi_ctrl->esd_check_underway)
+			dsi_hw_ops.mask_error_intr(&dsi_ctrl->hw,
+					BIT(DSI_FIFO_OVERFLOW), false);
+		dsi_hw_ops.reset_cmd_fifo(&dsi_ctrl->hw);
+
+		/*
+		 * DSI 2.2 needs a soft reset whenever we send non-embedded
+		 * mode command followed by embedded mode. Otherwise it will
+		 * result in smmu write faults with DSI as client.
+		 */
+		if (flags & DSI_CTRL_CMD_NON_EMBEDDED_MODE) {
+			dsi_hw_ops.soft_reset(&dsi_ctrl->hw);
+			dsi_ctrl->cmd_len = 0;
+		}
+	}
+}
+
 static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 			  const struct mipi_dsi_msg *msg,
 			  u32 flags)
 {
-	int rc = 0, ret = 0;
+	int rc = 0;
 	struct mipi_dsi_packet packet;
 	struct dsi_ctrl_cmd_dma_fifo_info cmd;
 	struct dsi_ctrl_cmd_dma_info cmd_mem;
-	u32 hw_flags = 0;
 	u32 length = 0;
 	u8 *buffer = NULL;
-	u32 cnt = 0, line_no = 0x1;
+	u32 cnt = 0;
 	u8 *cmdbuf;
-	struct dsi_mode_info *timing;
-	struct dsi_ctrl_hw_ops dsi_hw_ops = dsi_ctrl->hw.ops;
 
 	/* Select the tx mode to transfer the command */
 	dsi_message_setup_tx_mode(dsi_ctrl, msg->tx_len, &flags);
@@ -1202,118 +1325,7 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 	}
 
 kickoff:
-	/* check if custom dma scheduling line needed */
-	if ((dsi_ctrl->host_config.panel_mode == DSI_OP_VIDEO_MODE) &&
-		(flags & DSI_CTRL_CMD_CUSTOM_DMA_SCHED))
-		line_no = dsi_ctrl->host_config.u.video_engine.dma_sched_line;
-
-	timing = &(dsi_ctrl->host_config.video_timing);
-	if (timing)
-		line_no += timing->v_back_porch + timing->v_sync_width +
-				timing->v_active;
-	if ((dsi_ctrl->host_config.panel_mode == DSI_OP_VIDEO_MODE) &&
-		dsi_hw_ops.schedule_dma_cmd &&
-		(dsi_ctrl->current_state.vid_engine_state ==
-					DSI_CTRL_ENGINE_ON))
-		dsi_hw_ops.schedule_dma_cmd(&dsi_ctrl->hw,
-				line_no);
-
-	hw_flags |= (flags & DSI_CTRL_CMD_DEFER_TRIGGER) ?
-			DSI_CTRL_HW_CMD_WAIT_FOR_TRIGGER : 0;
-
-	if ((msg->flags & MIPI_DSI_MSG_LASTCOMMAND))
-		hw_flags |= DSI_CTRL_CMD_LAST_COMMAND;
-
-	if (flags & DSI_CTRL_CMD_DEFER_TRIGGER) {
-		if (flags & DSI_CTRL_CMD_FETCH_MEMORY) {
-			if (flags & DSI_CTRL_CMD_NON_EMBEDDED_MODE) {
-				dsi_hw_ops.kickoff_command_non_embedded_mode(
-							&dsi_ctrl->hw,
-							&cmd_mem,
-							hw_flags);
-			} else {
-				dsi_hw_ops.kickoff_command(
-						&dsi_ctrl->hw,
-						&cmd_mem,
-						hw_flags);
-			}
-		} else if (flags & DSI_CTRL_CMD_FIFO_STORE) {
-			dsi_hw_ops.kickoff_fifo_command(&dsi_ctrl->hw,
-							      &cmd,
-							      hw_flags);
-		}
-	}
-
-	if (!(flags & DSI_CTRL_CMD_DEFER_TRIGGER)) {
-		dsi_ctrl_wait_for_video_done(dsi_ctrl);
-		dsi_ctrl_enable_status_interrupt(dsi_ctrl,
-					DSI_SINT_CMD_MODE_DMA_DONE, NULL);
-		if (dsi_hw_ops.mask_error_intr)
-			dsi_hw_ops.mask_error_intr(&dsi_ctrl->hw,
-					BIT(DSI_FIFO_OVERFLOW), true);
-		reinit_completion(&dsi_ctrl->irq_info.cmd_dma_done);
-
-		if (flags & DSI_CTRL_CMD_FETCH_MEMORY) {
-			if (flags & DSI_CTRL_CMD_NON_EMBEDDED_MODE) {
-				dsi_hw_ops.kickoff_command_non_embedded_mode(
-							&dsi_ctrl->hw,
-							&cmd_mem,
-							hw_flags);
-			} else {
-				dsi_hw_ops.kickoff_command(
-						&dsi_ctrl->hw,
-						&cmd_mem,
-						hw_flags);
-			}
-		} else if (flags & DSI_CTRL_CMD_FIFO_STORE) {
-			dsi_hw_ops.kickoff_fifo_command(&dsi_ctrl->hw,
-							      &cmd,
-							      hw_flags);
-		}
-
-		ret = wait_for_completion_timeout(
-				&dsi_ctrl->irq_info.cmd_dma_done,
-				msecs_to_jiffies(DSI_CTRL_TX_TO_MS));
-
-		if (ret == 0) {
-			u32 status = dsi_hw_ops.get_interrupt_status(
-								&dsi_ctrl->hw);
-			u32 mask = DSI_CMD_MODE_DMA_DONE;
-
-			if (status & mask) {
-				status |= (DSI_CMD_MODE_DMA_DONE |
-						DSI_BTA_DONE);
-				dsi_hw_ops.clear_interrupt_status(
-								&dsi_ctrl->hw,
-								status);
-				dsi_ctrl_disable_status_interrupt(dsi_ctrl,
-						DSI_SINT_CMD_MODE_DMA_DONE);
-				complete_all(&dsi_ctrl->irq_info.cmd_dma_done);
-				pr_warn("dma_tx done but irq not triggered\n");
-			} else {
-				rc = -ETIMEDOUT;
-				dsi_ctrl_disable_status_interrupt(dsi_ctrl,
-						DSI_SINT_CMD_MODE_DMA_DONE);
-				pr_err("[DSI_%d]Command transfer failed\n",
-						dsi_ctrl->cell_index);
-			}
-		}
-
-		if (dsi_hw_ops.mask_error_intr && !dsi_ctrl->esd_check_underway)
-			dsi_hw_ops.mask_error_intr(&dsi_ctrl->hw,
-					BIT(DSI_FIFO_OVERFLOW), false);
-		dsi_hw_ops.reset_cmd_fifo(&dsi_ctrl->hw);
-
-		/*
-		 * DSI 2.2 needs a soft reset whenever we send non-embedded
-		 * mode command followed by embedded mode. Otherwise it will
-		 * result in smmu write faults with DSI as client.
-		 */
-		if (flags & DSI_CTRL_CMD_NON_EMBEDDED_MODE) {
-			dsi_hw_ops.soft_reset(&dsi_ctrl->hw);
-			dsi_ctrl->cmd_len = 0;
-		}
-	}
+	dsi_kickoff_msg_tx(dsi_ctrl, msg, &cmd, &cmd_mem, flags);
 error:
 	if (buffer)
 		devm_kfree(&dsi_ctrl->pdev->dev, buffer);
