@@ -1106,7 +1106,7 @@ int msm_venc_inst_init(struct msm_vidc_inst *inst)
 	}
 
 	buff_req_buffer->buffer_size =
-		msm_vidc_calculate_enc_input_extra_size(inst);
+		msm_vidc_calculate_enc_input_extra_size(inst, 0);
 	inst->bufq[OUTPUT_PORT].plane_sizes[1] =
 		buff_req_buffer->buffer_size;
 
@@ -1222,6 +1222,7 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	int rc = 0;
 	int i = 0;
 	struct msm_vidc_format *fmt = NULL;
+	struct v4l2_ctrl *extradata_ctrl;
 
 	if (!inst || !f) {
 		dprintk(VIDC_ERR,
@@ -1304,8 +1305,11 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		 */
 		inst->bufq[fmt->type].plane_sizes[0] =
 			msm_vidc_calculate_enc_input_frame_size(inst);
+		extradata_ctrl = get_ctrl(inst,
+			V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA);
 		inst->bufq[fmt->type].plane_sizes[1] =
-			msm_vidc_calculate_enc_input_extra_size(inst);
+			msm_vidc_calculate_enc_input_extra_size(inst,
+				extradata_ctrl->val);
 		f->fmt.pix_mp.num_planes = inst->bufq[fmt->type].num_planes;
 		for (i = 0; i < inst->bufq[fmt->type].num_planes; i++) {
 			f->fmt.pix_mp.plane_fmt[i].sizeimage =
@@ -1576,7 +1580,8 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			}
 
 			buff_req_buffer->buffer_size =
-				msm_vidc_calculate_enc_input_extra_size(inst);
+				msm_vidc_calculate_enc_input_extra_size(inst,
+					ctrl->val);
 			inst->bufq[OUTPUT_PORT].plane_sizes[1] =
 					buff_req_buffer->buffer_size;
 		}

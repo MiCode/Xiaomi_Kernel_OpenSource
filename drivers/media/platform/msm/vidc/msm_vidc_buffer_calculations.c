@@ -854,18 +854,14 @@ static inline u32 ROI_EXTRADATA_SIZE(
 	return (((lcu_width + 7) >> 3) << 3) * lcu_height * 2;
 }
 
-u32 msm_vidc_calculate_enc_input_extra_size(struct msm_vidc_inst *inst)
+u32 msm_vidc_calculate_enc_input_extra_size(struct msm_vidc_inst *inst,
+	u32 extra_types)
 {
 	u32 size = 0;
 	u32 width = inst->prop.width[OUTPUT_PORT];
 	u32 height = inst->prop.height[OUTPUT_PORT];
 	u32 extradata_count = 0;
-	u32 extra_types;
-	struct v4l2_ctrl *extradata_ctrl;
 
-	extradata_ctrl = get_ctrl(inst,
-			V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA);
-	extra_types = extradata_ctrl->val;
 	/* Add size for default extradata */
 	size += sizeof(struct msm_vidc_enc_cvp_metadata_payload);
 	extradata_count++;
