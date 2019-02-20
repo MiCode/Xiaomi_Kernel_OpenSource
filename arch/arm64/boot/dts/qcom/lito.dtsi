@@ -913,6 +913,17 @@
 		#reset-cells = <1>;
 	};
 
+	npucc: qcom,npucc {
+		compatible = "qcom,lito-npucc", "syscon";
+		reg = <0x9980000 0x10000>,
+			<0x9800000 0x10000>,
+			<0x9810000 0x10000>;
+		reg-names = "cc", "qdsp6ss", "qdsp6ss_pll";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
 	ufsphy_mem: ufsphy_mem@1d87000 {
 		reg = <0x1d87000 0xe00>; /* PHY regs */
 		reg-names = "phy_mem";
@@ -1037,13 +1048,6 @@
 		non-removable;
 
 		status = "disabled";
-	};
-
-	npucc: qcom,npucc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "npucc_clocks";
-		#clock-cells = <1>;
-		#reset-cells = <1>;
 	};
 
 	apps_rsc: rsc@18200000 {
