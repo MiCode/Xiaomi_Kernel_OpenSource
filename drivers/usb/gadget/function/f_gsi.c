@@ -1415,7 +1415,7 @@ static long gsi_ctrl_dev_ioctl(struct file *fp, unsigned int cmd,
 						cdev);
 	struct f_gsi *gsi;
 	struct gsi_ctrl_pkt *cpkt;
-	struct ep_info info;
+	struct ep_info info = { {0}, {0} };
 	struct data_buf_info data_info = {0};
 	int val, ret = 0;
 	unsigned long flags;
