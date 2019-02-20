@@ -2,7 +2,8 @@ Qualcomm Technologies, Inc. NPU Clock & Reset Controller Bindings
 -----------------------------------------------------------------
 
 Required properties :
-- compatible:		Should be "qcom,npucc-kona".
+- compatible:		Should be "qcom,npucc-kona"
+				  "qcom,lito-npucc".
 - reg:			Shall contain base register addresses and sizes.
 - reg-names:		Names of the register bases listed in the same order as
 			in the reg property.  Shall include: "cc", "qdsp6ss",
