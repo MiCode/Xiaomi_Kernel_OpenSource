@@ -551,13 +551,21 @@ config MSM_FASTCVPD
 	  subsystems crash.
 
 config MSM_ADSPRPC
-        tristate "QTI ADSP RPC driver"
-        depends on QCOM_GLINK
-        help
-          Provides a communication mechanism that allows clients to
-          make remote method invocations across processor boundary to
-          applications/compute DSP processor.
-		  Say M if you want to enable this module.
+	tristate "QTI FastRPC driver"
+	depends on QCOM_GLINK
+	help
+		Provides a communication mechanism that allows clients to
+		make remote method invocations across processor boundary to
+		applications/compute DSP processor.
+		Say M if you want to enable this module.
+
+config ADSPRPC_DEBUG
+	bool "Debug logs in FastRPC driver"
+	help
+		Enable debug logs in the fastrpc driver. Flag will be
+		disabled by default to maximize RPC performance as debug
+		logging will impact RPC overhead.
+		Say Y here if you want to enable the logs.
 
 config MSM_RDBG
 	tristate "QTI Remote debug driver"
