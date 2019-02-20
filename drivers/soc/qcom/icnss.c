@@ -680,14 +680,15 @@ static irqreturn_t fw_crash_indication_handler(int irq, void *ctx)
 	icnss_pr_err("Received early crash indication from FW\n");
 
 	if (priv) {
+		set_bit(ICNSS_FW_DOWN, &priv->state);
+		icnss_ignore_fw_timeout(true);
+
 		if (test_bit(ICNSS_FW_READY, &priv->state) &&
 		    !test_bit(ICNSS_DRIVER_UNLOADING, &priv->state)) {
 			fw_down_data.crashed = true;
 			icnss_call_driver_uevent(priv, ICNSS_UEVENT_FW_DOWN,
 						 &fw_down_data);
 		}
-		set_bit(ICNSS_FW_DOWN, &priv->state);
-		icnss_ignore_fw_timeout(true);
 	}
 
 	icnss_driver_event_post(ICNSS_DRIVER_EVENT_FW_EARLY_CRASH_IND,
