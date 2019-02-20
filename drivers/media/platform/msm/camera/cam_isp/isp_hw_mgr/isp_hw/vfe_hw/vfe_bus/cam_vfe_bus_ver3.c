@@ -1545,9 +1545,13 @@ static int cam_vfe_bus_ver3_start_comp_grp(
 		cam_io_w_mb(val, common_data->mem_base +
 			common_data->common_reg->ubwc_static_ctrl);
 	}
-
-	bus_irq_reg_mask[CAM_VFE_BUS_VER3_IRQ_REG0] =
-		(0x1 << (rsrc_data->comp_grp_type + 6));
+	if (common_data->is_lite) {
+		bus_irq_reg_mask[CAM_VFE_BUS_VER3_IRQ_REG0] =
+			(0x1 << (rsrc_data->comp_grp_type + 4));
+	} else {
+		bus_irq_reg_mask[CAM_VFE_BUS_VER3_IRQ_REG0] =
+			(0x1 << (rsrc_data->comp_grp_type + 6));
+	}
 
 	/*
 	 * For Dual composite subscribe IRQ only for master
@@ -1669,12 +1673,25 @@ static int cam_vfe_bus_ver3_handle_comp_done_bottom_half(
 	cam_ife_irq_regs = evt_payload->irq_reg_val;
 	status0_reg = cam_ife_irq_regs[CAM_IFE_IRQ_BUS_VER3_REG_STATUS0];
 
-	if (status0_reg & BIT(rsrc_data->comp_grp_type + 6)) {
+	if (status0_reg & BIT(rsrc_data->comp_grp_type + 6) &&
+		!rsrc_data->common_data->is_lite) {
 		rsrc_data->irq_trigger_cnt++;
 		if (rsrc_data->irq_trigger_cnt ==
 			rsrc_data->acquire_dev_cnt) {
 			cam_ife_irq_regs[CAM_IFE_IRQ_BUS_VER3_REG_STATUS0] &=
 					~BIT(rsrc_data->comp_grp_type + 6);
+			rsrc_data->irq_trigger_cnt = 0;
+		}
+		rc = CAM_VFE_IRQ_STATUS_SUCCESS;
+	}
+
+	if (status0_reg & BIT(rsrc_data->comp_grp_type + 4) &&
+		rsrc_data->common_data->is_lite) {
+		rsrc_data->irq_trigger_cnt++;
+		if (rsrc_data->irq_trigger_cnt ==
+			rsrc_data->acquire_dev_cnt) {
+			cam_ife_irq_regs[CAM_IFE_IRQ_BUS_VER3_REG_STATUS0] &=
+					~BIT(rsrc_data->comp_grp_type + 4);
 			rsrc_data->irq_trigger_cnt = 0;
 		}
 		rc = CAM_VFE_IRQ_STATUS_SUCCESS;
@@ -3030,7 +3047,10 @@ static int cam_vfe_bus_ver3_init_hw(void *hw_priv,
 		return -EINVAL;
 	}
 
-	top_irq_reg_mask[0] = (1 << 7);
+	if (bus_priv->common_data.is_lite)
+		top_irq_reg_mask[0] = (1 << 4);
+	else
+		top_irq_reg_mask[0] = (1 << 7);
 
 	bus_priv->irq_handle = cam_irq_controller_subscribe_irq(
 		bus_priv->common_data.vfe_irq_controller,
@@ -3063,6 +3083,9 @@ static int cam_vfe_bus_ver3_init_hw(void *hw_priv,
 			return -EFAULT;
 		}
 	}
+
+	if (bus_priv->common_data.is_lite)
+		rup_irq_mask[CAM_VFE_BUS_VER3_IRQ_REG0] = 0xF;
 
 	if (bus_priv->tasklet_info != NULL) {
 		bus_priv->rup_irq_handle = cam_irq_controller_subscribe_irq(

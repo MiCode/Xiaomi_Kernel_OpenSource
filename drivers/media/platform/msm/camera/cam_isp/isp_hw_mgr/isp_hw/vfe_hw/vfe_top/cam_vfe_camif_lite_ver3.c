@@ -125,6 +125,10 @@ static int cam_vfe_camif_lite_resource_start(
 	rsrc_data = (struct cam_vfe_mux_camif_lite_data *)
 		camif_lite_res->res_priv;
 
+	if (strnstr(rsrc_data->soc_info->compatible, "lite",
+		strlen(rsrc_data->soc_info->compatible)) != NULL)
+		goto skip_core_cfg;
+
 	/* vfe core config */
 	val = cam_io_r_mb(rsrc_data->mem_base +
 		rsrc_data->common_reg->core_cfg_0);
@@ -140,11 +144,12 @@ static int cam_vfe_camif_lite_resource_start(
 	CAM_DBG(CAM_ISP, "hw id:%d core_cfg val:%d",
 		camif_lite_res->hw_intf->hw_idx, val);
 
-	/* epoch config with 20 line */
+	/* epoch config */
 	cam_io_w_mb(rsrc_data->reg_data->epoch_line_cfg,
 		rsrc_data->mem_base +
 		rsrc_data->camif_lite_reg->lite_epoch_irq);
 
+skip_core_cfg:
 	/* Enable Camif */
 	cam_io_w_mb(0x1,
 		rsrc_data->mem_base +
