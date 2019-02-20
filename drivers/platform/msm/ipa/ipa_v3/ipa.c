@@ -3895,7 +3895,7 @@ void ipa3_inc_client_enable_clks(struct ipa_active_client_logging_info *id)
 		atomic_read(&ipa3_ctx->ipa3_active_clients.cnt));
 	ipa3_suspend_apps_pipes(false);
 	if (!ipa3_uc_state_check() &&
-		(ipa3_ctx->ipa_hw_type >= IPA_HW_v4_1)) {
+		(ipa3_ctx->ipa_hw_type == IPA_HW_v4_1)) {
 		ipa3_read_mailbox_17(IPA_PC_RESTORE_CONTEXT_STATUS_SUCCESS);
 		/* assert if intset = 0 */
 		if (ipa3_ctx->gsi_chk_intset_value == 0) {
