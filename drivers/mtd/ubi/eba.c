@@ -1083,7 +1083,6 @@ retry:
 		goto write_error;
 	}
 
-	down_read(&ubi->fm_eba_sem);
 	old_pnum = vol->eba_tbl[lnum];
 	vol->eba_tbl[lnum] = pnum;
 	up_read(&ubi->fm_eba_sem);
