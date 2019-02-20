@@ -4715,6 +4715,11 @@ static void update_sw_icl_max(struct smb_charger *chg, int pst)
 	if (chg->pd_active)
 		return;
 
+	if (chg->typec_mode == POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER) {
+		vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true, 500000);
+		return;
+	}
+
 	/*
 	 * HVDCP 2/3, handled separately
 	 */
@@ -4985,6 +4990,14 @@ static void typec_src_insertion(struct smb_charger *chg)
 	/* allow apsd proceed to detect QC2/3 */
 	if (!chg->ok_to_pd)
 		smblib_hvdcp_detect_enable(chg, true);
+}
+
+static void typec_ra_ra_insertion(struct smb_charger *chg)
+{
+	vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true, 500000);
+	vote(chg->usb_icl_votable, USB_PSY_VOTER, false, 0);
+	chg->ok_to_pd = false;
+	smblib_hvdcp_detect_enable(chg, true);
 }
 
 static void typec_sink_removal(struct smb_charger *chg)
@@ -5286,7 +5299,11 @@ irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 			return IRQ_HANDLED;
 		}
 
-		if (stat & SNK_SRC_MODE_BIT) {
+		if (smblib_get_prop_dfp_mode(chg) ==
+				POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER) {
+			chg->sink_src_mode = AUDIO_ACCESS_MODE;
+			typec_ra_ra_insertion(chg);
+		} else if (stat & SNK_SRC_MODE_BIT) {
 			if (smblib_src_lpd(chg))
 				return IRQ_HANDLED;
 			chg->sink_src_mode = SRC_MODE;
@@ -5302,6 +5319,7 @@ irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 			typec_sink_removal(chg);
 			break;
 		case SINK_MODE:
+		case AUDIO_ACCESS_MODE:
 			typec_src_removal(chg);
 			break;
 		case UNATTACHED_MODE:

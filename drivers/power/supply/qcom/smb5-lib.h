@@ -102,6 +102,7 @@ enum smb_mode {
 enum sink_src_mode {
 	SINK_MODE,
 	SRC_MODE,
+	AUDIO_ACCESS_MODE,
 	UNATTACHED_MODE,
 };
 
