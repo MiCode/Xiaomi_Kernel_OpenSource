@@ -345,6 +345,8 @@ static int spss_probe(struct platform_device *pdev)
 		firmware_name = none_firmware_name;
 		break;
 	default:
+		pr_err("invalid firmware type %d, sysfs entry not created\n",
+			firmware_type);
 		return -EINVAL;
 	}
 
