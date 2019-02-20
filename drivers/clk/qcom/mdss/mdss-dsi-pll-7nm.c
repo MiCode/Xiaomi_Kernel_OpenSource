@@ -175,6 +175,7 @@
 #define PLL_CMODE_2				0x0254
 #define PLL_ANALOG_CONTROLS_FIVE_1		0x0258
 #define PLL_ANALOG_CONTROLS_FIVE_2		0x025C
+#define PLL_PERF_OPTIMIZE			0x0260
 
 /* Register Offsets from PHY base address */
 #define PHY_CMN_CLK_CFG0	0x010
@@ -252,6 +253,13 @@ static inline bool dsi_pll_7nm_is_hw_revision_v2(
 		struct mdss_pll_resources *rsc)
 {
 	return (rsc->pll_interface_type == MDSS_DSI_PLL_7NM_V2) ? true : false;
+}
+
+static inline bool dsi_pll_7nm_is_hw_revision_v4_1(
+		struct mdss_pll_resources *rsc)
+{
+	return (rsc->pll_interface_type == MDSS_DSI_PLL_7NM_V4_1) ?
+		true : false;
 }
 
 static inline int pll_reg_read(void *context, unsigned int reg,
@@ -521,10 +529,25 @@ static void dsi_pll_calc_dec_frac(struct dsi_pll_7nm *pll,
 
 	dec = div_u64(dec_multiple, multiplier);
 
-	if (dsi_pll_7nm_is_hw_revision_v1(rsc))
+	switch (rsc->pll_interface_type) {
+	case MDSS_DSI_PLL_7NM:
 		regs->pll_clock_inverters = 0x0;
-	else
+		break;
+	case MDSS_DSI_PLL_7NM_V2:
 		regs->pll_clock_inverters = 0x28;
+		break;
+	case MDSS_DSI_PLL_7NM_V4_1:
+	default:
+		if (pll_freq <= 1000000000)
+			regs->pll_clock_inverters = 0xA0;
+		else if (pll_freq <= 2500000000)
+			regs->pll_clock_inverters = 0x20;
+		else if (pll_freq <= 3020000000)
+			regs->pll_clock_inverters = 0x00;
+		else
+			regs->pll_clock_inverters = 0x40;
+		break;
+	}
 
 	regs->pll_lockdet_rate = config->lock_timer;
 	regs->decimal_div_start = dec;
@@ -608,14 +631,35 @@ static void dsi_pll_config_hzindep_reg(struct dsi_pll_7nm *pll,
 				  struct mdss_pll_resources *rsc)
 {
 	void __iomem *pll_base = rsc->pll_base;
+	u64 vco_rate = rsc->vco_current_rate;
 
-	MDSS_PLL_REG_W(pll_base, PLL_ANALOG_CONTROLS_FIVE_1, 0x01);
-	MDSS_PLL_REG_W(pll_base, PLL_VCO_CONFIG_1, 0x00);
+	switch (rsc->pll_interface_type) {
+	case MDSS_DSI_PLL_7NM:
+	case MDSS_DSI_PLL_7NM_V2:
+		MDSS_PLL_REG_W(pll_base, PLL_ANALOG_CONTROLS_FIVE_1, 0x01);
+		MDSS_PLL_REG_W(pll_base, PLL_VCO_CONFIG_1, 0x00);
+		break;
+	case MDSS_DSI_PLL_7NM_V4_1:
+	default:
+		if (vco_rate < 3100000000)
+			MDSS_PLL_REG_W(pll_base,
+					PLL_ANALOG_CONTROLS_FIVE_1, 0x01);
+		else
+			MDSS_PLL_REG_W(pll_base,
+					PLL_ANALOG_CONTROLS_FIVE_1, 0x03);
+
+		if (vco_rate < 1520000000)
+			MDSS_PLL_REG_W(pll_base, PLL_VCO_CONFIG_1, 0x08);
+		else if (vco_rate < 2990000000)
+			MDSS_PLL_REG_W(pll_base, PLL_VCO_CONFIG_1, 0x01);
+		else
+			MDSS_PLL_REG_W(pll_base, PLL_VCO_CONFIG_1, 0x00);
+
+		break;
+	}
 
 	if (dsi_pll_7nm_is_hw_revision_v1(rsc))
 		MDSS_PLL_REG_W(pll_base, PLL_GEAR_BAND_SELECT_CONTROLS, 0x21);
-	else
-		MDSS_PLL_REG_W(pll_base, PLL_GEAR_BAND_SELECT_CONTROLS, 0x22);
 
 	MDSS_PLL_REG_W(pll_base, PLL_ANALOG_CONTROLS_FIVE, 0x01);
 	MDSS_PLL_REG_W(pll_base, PLL_ANALOG_CONTROLS_TWO, 0x03);
@@ -638,10 +682,21 @@ static void dsi_pll_config_hzindep_reg(struct dsi_pll_7nm *pll,
 	MDSS_PLL_REG_W(pll_base, PLL_PFILT, 0x2f);
 	MDSS_PLL_REG_W(pll_base, PLL_IFILT, 0x2a);
 
-	if (dsi_pll_7nm_is_hw_revision_v1(rsc))
+	switch (rsc->pll_interface_type) {
+	case MDSS_DSI_PLL_7NM:
 		MDSS_PLL_REG_W(pll_base, PLL_IFILT, 0x30);
-	else
+		break;
+	case MDSS_DSI_PLL_7NM_V2:
 		MDSS_PLL_REG_W(pll_base, PLL_IFILT, 0x22);
+		break;
+	case MDSS_DSI_PLL_7NM_V4_1:
+	default:
+		MDSS_PLL_REG_W(pll_base, PLL_IFILT, 0x3F);
+		break;
+	}
+
+	if (dsi_pll_7nm_is_hw_revision_v4_1(rsc))
+		MDSS_PLL_REG_W(pll_base, PLL_PERF_OPTIMIZE, 0x22);
 }
 
 static void dsi_pll_init_val(struct mdss_pll_resources *rsc)
@@ -1447,7 +1502,7 @@ static struct regmap_bus mdss_mux_regmap_bus = {
 
 static struct dsi_pll_vco_clk dsi0pll_vco_clk = {
 	.ref_clk_rate = 19200000UL,
-	.min_rate = 1500000000UL,
+	.min_rate = 1000000000UL,
 	.max_rate = 3500000000UL,
 	.hw.init = &(struct clk_init_data){
 			.name = "dsi0pll_vco_clk",
@@ -1460,7 +1515,7 @@ static struct dsi_pll_vco_clk dsi0pll_vco_clk = {
 
 static struct dsi_pll_vco_clk dsi1pll_vco_clk = {
 	.ref_clk_rate = 19200000UL,
-	.min_rate = 1500000000UL,
+	.min_rate = 1000000000UL,
 	.max_rate = 3500000000UL,
 	.hw.init = &(struct clk_init_data){
 			.name = "dsi1pll_vco_clk",
@@ -1807,6 +1862,12 @@ int dsi_pll_clock_register_7nm(struct platform_device *pdev,
 		dsi0pll_byteclk_mux.clkr.regmap = rmap;
 
 		dsi0pll_vco_clk.priv = pll_res;
+
+		if (dsi_pll_7nm_is_hw_revision_v4_1(pll_res)) {
+			dsi0pll_vco_clk.min_rate = 600000000;
+			dsi0pll_vco_clk.max_rate = 5000000000;
+		}
+
 		for (i = VCO_CLK_0; i <= PCLK_MUX_0_CLK; i++) {
 			clk = devm_clk_register(&pdev->dev,
 						mdss_dsi_pllcc_7nm[i]);
@@ -1848,6 +1909,11 @@ int dsi_pll_clock_register_7nm(struct platform_device *pdev,
 				pll_res, &dsi_pll_7nm_config);
 		dsi1pll_byteclk_mux.clkr.regmap = rmap;
 		dsi1pll_vco_clk.priv = pll_res;
+
+		if (dsi_pll_7nm_is_hw_revision_v4_1(pll_res)) {
+			dsi1pll_vco_clk.min_rate = 600000000;
+			dsi1pll_vco_clk.max_rate = 5000000000;
+		}
 
 		for (i = VCO_CLK_1; i <= PCLK_MUX_1_CLK; i++) {
 			clk = devm_clk_register(&pdev->dev,
