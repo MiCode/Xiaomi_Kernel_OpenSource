@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2015, Sony Mobile Communications Inc.
- * Copyright (c) 2013, 2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2018-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -505,8 +505,10 @@ static int qrtr_node_enqueue(struct qrtr_node *node, struct sk_buff *skb,
 	size_t len = skb->len;
 	int rc = -ENODEV;
 
-	if (!atomic_read(&node->hello_sent) && type != QRTR_TYPE_HELLO)
+	if (!atomic_read(&node->hello_sent) && type != QRTR_TYPE_HELLO) {
+		kfree_skb(skb);
 		return rc;
+	}
 
 	/* If sk is null, this is a forwarded packet and should not wait */
 	if (!skb->sk) {
