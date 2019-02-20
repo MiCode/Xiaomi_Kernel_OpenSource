@@ -11,17 +11,20 @@
 #include <linux/of_platform.h>
 #include <linux/pm_opp.h>
 #include <linux/energy_model.h>
+#include <linux/sched.h>
 
 #define LUT_MAX_ENTRIES			40U
 #define CORE_COUNT_VAL(val)		(((val) & (GENMASK(18, 16))) >> 16)
 #define LUT_ROW_SIZE			4
 #define CLK_HW_DIV			2
+#define CYCLE_CNTR_OFFSET(c, m)		((c - cpumask_first(m) + 1) * 4)
 
 enum {
 	REG_ENABLE,
 	REG_FREQ_LUT_TABLE,
 	REG_VOLT_LUT_TABLE,
 	REG_PERF_STATE,
+	REG_CYCLE_CNTR,
 
 	REG_ARRAY_SIZE,
 };
@@ -35,14 +38,55 @@ struct cpufreq_qcom {
 	unsigned long cpu_hw_rate;
 };
 
+struct cpufreq_counter {
+	u64 total_cycle_counter;
+	u32 prev_cycle_counter;
+	spinlock_t lock;
+};
+
 static const u16 cpufreq_qcom_std_offsets[REG_ARRAY_SIZE] = {
 	[REG_ENABLE]		= 0x0,
 	[REG_FREQ_LUT_TABLE]	= 0x100,
 	[REG_VOLT_LUT_TABLE]	= 0x200,
 	[REG_PERF_STATE]	= 0x320,
+	[REG_CYCLE_CNTR]	= 0x3c4,
 };
 
+
+static struct cpufreq_counter qcom_cpufreq_counter[NR_CPUS];
 static struct cpufreq_qcom *qcom_freq_domain_map[NR_CPUS];
+
+static u64 qcom_cpufreq_get_cpu_cycle_counter(int cpu)
+{
+	struct cpufreq_counter *cpu_counter;
+	struct cpufreq_qcom *cpu_domain;
+	u64 cycle_counter_ret;
+	unsigned long flags;
+	u16 offset;
+	u32 val;
+
+	cpu_domain = qcom_freq_domain_map[cpu];
+	cpu_counter = &qcom_cpufreq_counter[cpu];
+	spin_lock_irqsave(&cpu_counter->lock, flags);
+
+	offset = CYCLE_CNTR_OFFSET(cpu, &cpu_domain->related_cpus);
+	val = readl_relaxed(cpu_domain->reg_bases[REG_CYCLE_CNTR] + offset);
+
+	if (val < cpu_counter->prev_cycle_counter) {
+		/* Handle counter overflow */
+		cpu_counter->total_cycle_counter += UINT_MAX -
+			cpu_counter->prev_cycle_counter + val;
+		cpu_counter->prev_cycle_counter = val;
+	} else {
+		cpu_counter->total_cycle_counter += val -
+			cpu_counter->prev_cycle_counter;
+		cpu_counter->prev_cycle_counter = val;
+	}
+	cycle_counter_ret = cpu_counter->total_cycle_counter;
+	spin_unlock_irqrestore(&cpu_counter->lock, flags);
+
+	return cycle_counter_ret;
+}
 
 static int
 qcom_cpufreq_hw_target_index(struct cpufreq_policy *policy,
@@ -342,6 +386,9 @@ static int qcom_resources_init(struct platform_device *pdev)
 static int qcom_cpufreq_hw_driver_probe(struct platform_device *pdev)
 {
 	int rc;
+	struct cpu_cycle_counter_cb cycle_counter_cb = {
+		.get_cpu_cycle_counter = qcom_cpufreq_get_cpu_cycle_counter,
+	};
 
 	/* Get the bases of cpufreq for domains */
 	rc = qcom_resources_init(pdev);
@@ -353,6 +400,12 @@ static int qcom_cpufreq_hw_driver_probe(struct platform_device *pdev)
 	rc = cpufreq_register_driver(&cpufreq_qcom_hw_driver);
 	if (rc) {
 		dev_err(&pdev->dev, "CPUFreq HW driver failed to register\n");
+		return rc;
+	}
+
+	rc = register_cpu_cycle_counter_cb(&cycle_counter_cb);
+	if (rc) {
+		dev_err(&pdev->dev, "cycle counter cb failed to register\n");
 		return rc;
 	}
 
