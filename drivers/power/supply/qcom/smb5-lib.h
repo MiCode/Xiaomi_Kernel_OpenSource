@@ -632,6 +632,8 @@ int smblib_icl_override(struct smb_charger *chg, bool override);
 enum alarmtimer_restart smblib_lpd_recheck_timer(struct alarm *alarm,
 				ktime_t time);
 int smblib_toggle_smb_en(struct smb_charger *chg, int toggle);
+void smblib_hvdcp_detect_enable(struct smb_charger *chg, bool enable);
+void smblib_apsd_enable(struct smb_charger *chg, bool enable);
 
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);

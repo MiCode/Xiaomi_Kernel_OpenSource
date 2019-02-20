@@ -254,7 +254,7 @@ enum {
 
 static bool is_secure(struct smb1355 *chip, int addr)
 {
-	if (addr == CLOCK_REQUEST_REG)
+	if (addr == CLOCK_REQUEST_REG || addr == I2C_SS_DIG_PMIC_SID_REG)
 		return true;
 
 	/* assume everything above 0xA0 is secure */
