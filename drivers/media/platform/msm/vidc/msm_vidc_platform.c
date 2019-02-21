@@ -229,11 +229,11 @@ static struct msm_vidc_common_data kona_common_data[] = {
 	},
 	{
 		.key = "qcom,fw-cycles",
-		.value = 760000,
+		.value = 326389,
 	},
 	{
 		.key = "qcom,fw-vpp-cycles",
-		.value = 166667,
+		.value = 44156,
 	},
 };
 
