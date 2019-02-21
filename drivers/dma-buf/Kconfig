@@ -41,6 +41,21 @@ config DEBUG_DMA_BUF_REF
 	  matching the get/put call stacks.  This feature consumes extra memory
 	  in order to save the stack traces using STACKDEPOT.
 
+config DMABUF_DESTRUCTOR_SUPPORT
+	bool "dmabuf destructor support"
+	default n
+	depends on DMA_SHARED_BUFFER
+	depends on QGKI
+	help
+	  dma-buf destructor support is useful as it allows clients an
+	  opportunity to undo any attributes, such as security attributes,
+	  they have applied to the dma-buf's memory.
+
+	  The destructor is called when the dma-buf is freed, if the destructor
+	  returns an error the dma-buf's exporter release function is not
+	  called in order to ensure that memory which has not been properly
+	  cleaned up isn't returned to the system
+
 config UDMABUF
 	bool "userspace dmabuf misc driver"
 	default n

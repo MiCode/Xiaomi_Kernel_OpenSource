@@ -54,10 +54,33 @@ static char *dmabuffs_dname(struct dentry *dentry, char *buffer, int buflen)
 			     dentry->d_name.name, ret > 0 ? name : "");
 }
 
+#ifdef CONFIG_DMABUF_DESTRUCTOR_SUPPORT
+static int dma_buf_invoke_dtor(struct dma_buf *dmabuf)
+{
+	int ret = 0;
+
+	if (dmabuf->dtor) {
+		ret = dmabuf->dtor(dmabuf, dmabuf->dtor_data);
+		if (ret < 0)
+			pr_warn_ratelimited("Leaking dmabuf ino: %ld because destructor failed error: %d\n",
+					    file_inode(dmabuf->file)->i_ino,
+					    ret);
+	}
+
+	return ret;
+}
+#else
+static inline int dma_buf_invoke_dtor(struct dma_buf *dmabuf)
+{
+	return 0;
+}
+#endif
+
 static void dma_buf_release(struct dentry *dentry)
 {
 	struct msm_dma_buf *msm_dma_buf;
 	struct dma_buf *dmabuf;
+	int dtor_ret = 0;
 
 	dmabuf = dentry->d_fsdata;
 	msm_dma_buf = to_msm_dma_buf(dmabuf);
@@ -78,7 +101,11 @@ static void dma_buf_release(struct dentry *dentry)
 	list_del(&dmabuf->list_node);
 	mutex_unlock(&db_list.lock);
 
-	dmabuf->ops->release(dmabuf);
+	dtor_ret = dma_buf_invoke_dtor(dmabuf);
+
+	if (!dtor_ret)
+		dmabuf->ops->release(dmabuf);
+
 	dma_buf_ref_destroy(msm_dma_buf);
 
 	if (dmabuf->resv == (struct dma_resv *)&dmabuf[1])
