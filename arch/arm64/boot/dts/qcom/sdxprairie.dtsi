@@ -1358,6 +1358,7 @@
 &pcie0_rp {
 	cnss: qcom,qca6390@0 {
 		reg = <0 0 0 0 0>;
+		pci-ids = "1101:17cb";
 
 		memory-region = <&cnss_wlan_mem>;
 	};
