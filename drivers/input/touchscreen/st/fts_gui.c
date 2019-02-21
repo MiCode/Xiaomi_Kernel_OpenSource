@@ -122,8 +122,7 @@ ssize_t fts_i2c_wr_store(struct device *dev, struct device_attribute *attr,
 	ret = sscanf(buf, "%x %x %x %x %x %x %x %x %x ",
 		(data + 8), (data), (data + 1), (data + 2), (data + 3),
 		(data + 4), (data + 5), (data + 6), (data + 7));
-	if (ret != 9)
-		return -EINVAL;
+
 	byte_count = data[8];
 
 	/**
@@ -251,8 +250,7 @@ ssize_t fts_i2c_read_store(struct device *dev, struct device_attribute *attr,
 	ret = sscanf(buf, "%x %x %x %x %x %x %x %x %x ",
 		(data + 8), (data), (data + 1), (data + 2), (data + 3),
 		(data + 4), (data + 5), (data + 6), (data + 7));
-	if (ret != 9)
-		return -EINVAL;
+
 	byte_count = data[8];
 
 	if (byte_count > 8) {
