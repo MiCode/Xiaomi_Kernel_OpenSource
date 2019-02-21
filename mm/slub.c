@@ -317,7 +317,7 @@ static inline void set_freepointer(struct kmem_cache *s, void *object, void *fp)
 /* Determine object index from a given position */
 static inline int slab_index(void *p, struct kmem_cache *s, void *addr)
 {
-	return (p - addr) / s->size;
+	return (kasan_reset_tag(p) - addr) / s->size;
 }
 
 static inline int order_objects(int order, unsigned long size, int reserved)
