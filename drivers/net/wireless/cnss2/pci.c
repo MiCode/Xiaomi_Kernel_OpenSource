@@ -683,11 +683,6 @@ static void cnss_qca6290_crash_shutdown(struct cnss_pci_data *pci_priv)
 	cnss_pr_dbg("Crash shutdown with driver_state 0x%lx\n",
 		    plat_priv->driver_state);
 
-	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state)) {
-		cnss_pr_dbg("Ignore crash shutdown\n");
-		return;
-	}
-
 	cnss_pci_collect_dump_info(pci_priv, true);
 }
 
