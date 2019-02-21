@@ -36,6 +36,28 @@
 	};
 };
 
+&pm8150_gpios {
+	key_home {
+		key_home_default: key_home_default {
+			pins = "gpio1";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			power-source = <0>;
+		};
+	};
+
+	key_vol_up {
+		key_vol_up_default: key_vol_up_default {
+			pins = "gpio6";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			power-source = <1>;
+		};
+	};
+};
+
 &pm8150b_charger {
 	smb5_vconn: qcom,smb5-vconn {
 		regulator-name = "smb5-vconn";
