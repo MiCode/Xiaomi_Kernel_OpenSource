@@ -467,6 +467,10 @@ static const struct usb_device_id ksb_usb_ids[] = {
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x900E, 0), },
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9900, 0), },
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9901, 0), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9902, 3),
+	.driver_info = (unsigned long)&ksb_fboot_dev, },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9903, 5),
+	.driver_info = (unsigned long)&ksb_fboot_dev, },
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9048, 2),
 	.driver_info = (unsigned long)&ksb_efs_hsic_dev, },
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x904C, 2),
@@ -724,6 +728,8 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 		mdev->name = ksb->name;
 		break;
 	case 0x9008:
+	case 0x9902:
+	case 0x9903:
 		ksb = __ksb[bus_id];
 		mdev = &fbdev[bus_id];
 		break;
