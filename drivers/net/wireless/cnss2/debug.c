@@ -91,6 +91,9 @@ static int cnss_stats_show_state(struct seq_file *s,
 		case CNSS_DRIVER_DEBUG:
 			seq_puts(s, "DRIVER_DEBUG");
 			continue;
+		case CNSS_COEX_CONNECTED:
+			seq_puts(s, "COEX_CONNECTED");
+			continue;
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);

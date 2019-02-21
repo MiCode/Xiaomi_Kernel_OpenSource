@@ -21,6 +21,7 @@
 
 #define QMI_WLFW_TIMEOUT_MS		(plat_priv->ctrl_params.qmi_timeout)
 #define QMI_WLFW_TIMEOUT_JF		msecs_to_jiffies(QMI_WLFW_TIMEOUT_MS)
+#define COEX_TIMEOUT			QMI_WLFW_TIMEOUT_JF
 
 #define QMI_WLFW_MAX_RECV_BUF_SIZE	SZ_8K
 
@@ -1514,4 +1515,202 @@ out:
 void cnss_qmi_deinit(struct cnss_plat_data *plat_priv)
 {
 	qmi_handle_release(&plat_priv->qmi_wlfw);
+}
+
+int coex_antenna_switch_to_wlan_send_sync_msg(struct cnss_plat_data *plat_priv)
+{
+	int ret;
+	struct coex_antenna_switch_to_wlan_req_msg_v01 *req;
+	struct coex_antenna_switch_to_wlan_resp_msg_v01 *resp;
+	struct qmi_txn txn;
+
+	if (!plat_priv)
+		return -ENODEV;
+
+	cnss_pr_dbg("Sending coex antenna switch_to_wlan\n");
+
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
+	if (!resp) {
+		kfree(req);
+		return -ENOMEM;
+	}
+
+	req->antenna = plat_priv->antenna;
+
+	ret = qmi_txn_init(&plat_priv->coex_qmi, &txn,
+			   coex_antenna_switch_to_wlan_resp_msg_v01_ei, resp);
+	if (ret < 0) {
+		cnss_pr_err("Fail to init txn for coex antenna switch_to_wlan resp %d\n",
+			    ret);
+		goto out;
+	}
+
+	ret = qmi_send_request
+		(&plat_priv->coex_qmi, NULL, &txn,
+		 QMI_COEX_SWITCH_ANTENNA_TO_WLAN_REQ_V01,
+		 COEX_ANTENNA_SWITCH_TO_WLAN_REQ_MSG_V01_MAX_MSG_LEN,
+		 coex_antenna_switch_to_wlan_req_msg_v01_ei, req);
+	if (ret < 0) {
+		qmi_txn_cancel(&txn);
+		cnss_pr_err("Fail to send coex antenna switch_to_wlan req %d\n",
+			    ret);
+		goto out;
+	}
+
+	ret = qmi_txn_wait(&txn, COEX_TIMEOUT);
+	if (ret < 0) {
+		cnss_pr_err("Coex antenna switch_to_wlan resp wait failed with ret %d\n",
+			    ret);
+		goto out;
+	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+		cnss_pr_err("Coex antenna switch_to_wlan request rejected, result:%d error:%d\n",
+			    resp->resp.result, resp->resp.error);
+		ret = -resp->resp.result;
+		goto out;
+	}
+
+	if (resp->grant_valid)
+		plat_priv->grant = resp->grant;
+
+	cnss_pr_dbg("Coex antenna grant: 0x%llx\n", resp->grant);
+
+	kfree(resp);
+	kfree(req);
+	return 0;
+
+out:
+	kfree(resp);
+	kfree(req);
+	return ret;
+}
+
+int coex_antenna_switch_to_mdm_send_sync_msg(struct cnss_plat_data *plat_priv)
+{
+	int ret;
+	struct coex_antenna_switch_to_mdm_req_msg_v01 *req;
+	struct coex_antenna_switch_to_mdm_resp_msg_v01 *resp;
+	struct qmi_txn txn;
+
+	if (!plat_priv)
+		return -ENODEV;
+
+	cnss_pr_dbg("Sending coex antenna switch_to_mdm\n");
+
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
+	if (!resp) {
+		kfree(req);
+		return -ENOMEM;
+	}
+
+	req->antenna = plat_priv->antenna;
+
+	ret = qmi_txn_init(&plat_priv->coex_qmi, &txn,
+			   coex_antenna_switch_to_mdm_resp_msg_v01_ei, resp);
+	if (ret < 0) {
+		cnss_pr_err("Fail to init txn for coex antenna switch_to_mdm resp %d\n",
+			    ret);
+		goto out;
+	}
+
+	ret = qmi_send_request
+		(&plat_priv->coex_qmi, NULL, &txn,
+		 QMI_COEX_SWITCH_ANTENNA_TO_MDM_REQ_V01,
+		 COEX_ANTENNA_SWITCH_TO_MDM_REQ_MSG_V01_MAX_MSG_LEN,
+		 coex_antenna_switch_to_mdm_req_msg_v01_ei, req);
+	if (ret < 0) {
+		qmi_txn_cancel(&txn);
+		cnss_pr_err("Fail to send coex antenna switch_to_mdm req %d\n",
+			    ret);
+		goto out;
+	}
+
+	ret = qmi_txn_wait(&txn, COEX_TIMEOUT);
+	if (ret < 0) {
+		cnss_pr_err("Coex antenna switch_to_mdm resp wait failed with ret %d\n",
+			    ret);
+		goto out;
+	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+		cnss_pr_err("Coex antenna switch_to_mdm request rejected, result:%d error:%d\n",
+			    resp->resp.result, resp->resp.error);
+		ret = -resp->resp.result;
+		goto out;
+	}
+
+	kfree(resp);
+	kfree(req);
+	return 0;
+
+out:
+	kfree(resp);
+	kfree(req);
+	return ret;
+}
+
+static int coex_new_server(struct qmi_handle *qmi,
+			   struct qmi_service *service)
+{
+	struct cnss_plat_data *plat_priv =
+		container_of(qmi, struct cnss_plat_data, coex_qmi);
+	struct sockaddr_qrtr sq = { 0 };
+	int ret = 0;
+
+	cnss_pr_dbg("COEX server arrive: node %u port %u\n",
+		    service->node, service->port);
+
+	sq.sq_family = AF_QIPCRTR;
+	sq.sq_node = service->node;
+	sq.sq_port = service->port;
+	ret = kernel_connect(qmi->sock, (struct sockaddr *)&sq, sizeof(sq), 0);
+	if (ret < 0) {
+		cnss_pr_err("Fail to connect to remote service port\n");
+		return ret;
+	}
+
+	set_bit(CNSS_COEX_CONNECTED, &plat_priv->driver_state);
+	cnss_pr_dbg("COEX Server Connected: 0x%llx\n",
+		    plat_priv->driver_state);
+	return 0;
+}
+
+static void coex_del_server(struct qmi_handle *qmi,
+			    struct qmi_service *service)
+{
+	struct cnss_plat_data *plat_priv =
+		container_of(qmi, struct cnss_plat_data, coex_qmi);
+
+	cnss_pr_dbg("COEX server exit\n");
+
+	clear_bit(CNSS_COEX_CONNECTED, &plat_priv->driver_state);
+}
+
+static struct qmi_ops coex_qmi_ops = {
+	.new_server = coex_new_server,
+	.del_server = coex_del_server,
+};
+
+int cnss_register_coex_service(struct cnss_plat_data *plat_priv)
+{	int ret;
+
+	ret = qmi_handle_init(&plat_priv->coex_qmi,
+			      COEX_SERVICE_MAX_MSG_LEN,
+			      &coex_qmi_ops, NULL);
+	if (ret < 0)
+		return ret;
+
+	ret = qmi_add_lookup(&plat_priv->coex_qmi, COEX_SERVICE_ID_V01,
+			     COEX_SERVICE_VERS_V01, 0);
+	return ret;
+}
+
+void cnss_unregister_coex_service(struct cnss_plat_data *plat_priv)
+{
+	qmi_handle_release(&plat_priv->coex_qmi);
 }
