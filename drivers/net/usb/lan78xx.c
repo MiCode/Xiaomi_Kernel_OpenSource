@@ -1,18 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (C) 2015 Microchip Technology
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 #include <linux/version.h>
 #include <linux/module.h>
@@ -1027,7 +1015,7 @@ done:
 static void lan78xx_set_addr_filter(struct lan78xx_priv *pdata,
 				    int index, u8 addr[ETH_ALEN])
 {
-	u32	temp;
+	u32 temp;
 
 	if ((pdata) && (index > 0) && (index < NUM_OF_MAF)) {
 		temp = addr[3];
@@ -1838,8 +1826,7 @@ static int lan78xx_mdio_init(struct lan78xx_net *dev)
 
 	node = of_get_child_by_name(dev->udev->dev.of_node, "mdio");
 	ret = of_mdiobus_register(dev->mdiobus, node);
-	if (node)
-		of_node_put(node);
+	of_node_put(node);
 	if (ret) {
 		netdev_err(dev->net, "can't register MDIO bus\n");
 		goto exit1;
@@ -2693,7 +2680,7 @@ static void lan78xx_terminate_urbs(struct lan78xx_net *dev)
 
 static int lan78xx_stop(struct net_device *net)
 {
-	struct lan78xx_net		*dev = netdev_priv(net);
+	struct lan78xx_net *dev = netdev_priv(net);
 
 	if (timer_pending(&dev->stat_monitor))
 		del_timer_sync(&dev->stat_monitor);
@@ -3076,7 +3063,7 @@ static void lan78xx_rx_vlan_offload(struct lan78xx_net *dev,
 
 static void lan78xx_skb_return(struct lan78xx_net *dev, struct sk_buff *skb)
 {
-	int		status;
+	int status;
 
 	if (test_bit(EVENT_RX_PAUSED, &dev->flags)) {
 		skb_queue_tail(&dev->rxq_pause, skb);
@@ -3343,9 +3330,9 @@ static void lan78xx_tx_bh(struct lan78xx_net *dev)
 	count = 0;
 	length = 0;
 	spin_lock_irqsave(&tqp->lock, flags);
-	for (skb = tqp->next; pkt_cnt < tqp->qlen; skb = skb->next) {
+	skb_queue_walk(tqp, skb) {
 		if (skb_is_gso(skb)) {
-			if (pkt_cnt) {
+			if (!skb_queue_is_first(tqp, skb)) {
 				/* handle previous packets first */
 				break;
 			}
@@ -3636,10 +3623,10 @@ static void intr_complete(struct urb *urb)
 
 static void lan78xx_disconnect(struct usb_interface *intf)
 {
-	struct lan78xx_net		*dev;
-	struct usb_device		*udev;
-	struct net_device		*net;
-	struct phy_device		*phydev;
+	struct lan78xx_net *dev;
+	struct usb_device *udev;
+	struct net_device *net;
+	struct phy_device *phydev;
 
 	dev = usb_get_intfdata(intf);
 	usb_set_intfdata(intf, NULL);
