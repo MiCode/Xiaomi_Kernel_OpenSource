@@ -421,7 +421,7 @@ int ovl_copy_up(struct dentry *dentry)
 		dput(parent);
 		dput(next);
 	}
-	revert_creds(old_cred);
+	ovl_revert_creds(old_cred);
 
 	return err;
 }
