@@ -1237,6 +1237,7 @@ static inline int __boot_firmware(struct venus_hfi_device *device)
 
 	/* Enable interrupt before sending commands to venus */
 	__write_register(device, VIDC_CPU_CS_H2XSOFTINTEN, 0x1);
+	__write_register(device, VIDC_CPU_CS_X2RPMh, 0x0);
 
 	return rc;
 }
