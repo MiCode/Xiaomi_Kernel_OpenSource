@@ -919,9 +919,9 @@ static int fg_gen4_get_power(struct fg_gen4_chip *chip, int *val, bool average)
 	v_min = chip->dt.sys_min_volt_mv * 1000;
 	power = (s64)v_min * (v_pred - v_min);
 
-	rc = fg_get_sram_prop(fg, FG_SRAM_ESR, &esr_uohms);
+	rc = fg_get_sram_prop(fg, FG_SRAM_ESR_ACT, &esr_uohms);
 	if (rc < 0) {
-		pr_err("failed to get ESR, rc=%d\n", rc);
+		pr_err("failed to get ESR_ACT, rc=%d\n", rc);
 		return rc;
 	}
 
