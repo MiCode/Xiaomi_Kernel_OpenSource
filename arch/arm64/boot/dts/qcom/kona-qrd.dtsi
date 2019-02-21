@@ -62,6 +62,29 @@
 	qcom,wsa-aux-dev-prefix = "SpkrRight", "SpkrRight";
 };
 
+&qupv3_se1_i2c {
+	status = "ok";
+	qcom,clk-freq-out = <1000000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	nq@28 {
+		compatible = "qcom,nq-nci";
+		reg = <0x28>;
+		qcom,nq-irq = <&tlmm 111 0x00>;
+		qcom,nq-ven = <&tlmm 6 0x00>;
+		qcom,nq-firm = <&tlmm 110 0x00>;
+		qcom,nq-clkreq = <&tlmm 7 0x00>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <111 0>;
+		interrupt-names = "nfc_irq";
+		pinctrl-names = "nfc_active", "nfc_suspend";
+		pinctrl-0 = <&nfc_int_active &nfc_enable_active
+				&nfc_clk_req_active>;
+		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend
+				&nfc_clk_req_suspend>;
+	};
+};
+
 &ufsphy_mem {
 	compatible = "qcom,ufs-phy-qmp-v4";
 
