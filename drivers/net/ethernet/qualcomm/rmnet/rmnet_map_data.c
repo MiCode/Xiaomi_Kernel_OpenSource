@@ -826,6 +826,7 @@ static void rmnet_map_segment_coal_data(struct sk_buff *coal_skb,
 						return;
 
 					__skb_queue_tail(list, new_skb);
+					start += pkt_len * gro_count;
 					gro_count = 0;
 				}
 
@@ -866,7 +867,7 @@ static void rmnet_map_segment_coal_data(struct sk_buff *coal_skb,
 
 			__skb_queue_tail(list, new_skb);
 
-			start += pkt_len;
+			start += pkt_len * gro_count;
 			start_pkt_num = total_pkt + 1;
 			gro_count = 0;
 		}
