@@ -52,5 +52,11 @@
 				token = <0x20000000>;
 			};
 		};
+
+		qcom,ion-heap@22 { /* ADSP HEAP */
+			reg = <22>;
+			memory-region = <&sdsp_mem>;
+			qcom,ion-heap-type = "DMA";
+		};
 	};
 };
