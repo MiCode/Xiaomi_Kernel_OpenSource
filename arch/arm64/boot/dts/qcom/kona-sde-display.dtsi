@@ -4,6 +4,7 @@
  */
 
 #include "dsi-panel-sw43404-amoled-dsc-wqhd-cmd.dtsi"
+#include "dsi-panel-sw43404-amoled-dsc-wqhd-video.dtsi"
 #include <dt-bindings/clock/mdss-7nm-pll-clk.h>
 
 &soc {
@@ -92,6 +93,17 @@
 };
 
 &dsi_sw43404_amoled_cmd {
+	qcom,mdss-dsi-display-timings {
+		timing@0 {
+			qcom,mdss-dsi-panel-phy-timings = [00 14 05 05 1f 1e 05
+				05 03 02 04 00 12 15];
+			qcom,display-topology = <2 2 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_sw43404_amoled_video {
 	qcom,mdss-dsi-display-timings {
 		timing@0 {
 			qcom,mdss-dsi-panel-phy-timings = [00 14 05 05 1f 1e 05

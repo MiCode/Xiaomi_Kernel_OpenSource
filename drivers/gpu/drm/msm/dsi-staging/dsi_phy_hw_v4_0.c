@@ -113,7 +113,14 @@ static void dsi_phy_hw_v4_0_lane_settings(struct dsi_phy_hw *phy,
 			    struct dsi_phy_cfg *cfg)
 {
 	int i;
-	u8 tx_dctrl[] = {0x00, 0x00, 0x00, 0x04, 0x01};
+	u8 tx_dctrl_v4[] = {0x00, 0x00, 0x00, 0x04, 0x01};
+	u8 tx_dctrl_v4_1[] = {0x40, 0x40, 0x40, 0x46, 0x41};
+	u8 *tx_dctrl;
+
+	if (phy->version == DSI_PHY_VERSION_4_1)
+		tx_dctrl = &tx_dctrl_v4_1[0];
+	else
+		tx_dctrl = &tx_dctrl_v4[0];
 
 	/* Strength ctrl settings */
 	for (i = DSI_LOGICAL_LANE_0; i < DSI_LANE_MAX; i++) {
