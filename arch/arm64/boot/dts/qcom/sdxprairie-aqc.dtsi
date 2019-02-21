@@ -16,6 +16,8 @@
 
 		compatible = "aquantia,aqc-107";
 
+		pci-ids = "1d6a:d107";
+
 		qcom,smmu;
 		qcom,smmu-iova-base = /bits/ 64 <0x0>;
 		qcom,smmu-iova-size = /bits/ 64 <0x80000000>;
