@@ -821,6 +821,7 @@ enum v4l2_mpeg_vidc_extradata {
 	EXTRADATA_ADVANCED = 2,
 	EXTRADATA_ENC_INPUT_ROI = 4,
 	EXTRADATA_ENC_INPUT_HDR10PLUS = 8,
+	EXTRADATA_ENC_INPUT_CVP = 16,
 };
 enum v4l2_mpeg_cvp_extradata {
 	V4L2_MPEG_CVP_EXTRADATA_NONE = 0,
@@ -972,6 +973,9 @@ enum v4l2_mpeg_vidc_video_hevc_max_hier_coding_layer {
 	V4L2_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER_5 = 5,
 	V4L2_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER_6 = 6,
 };
+
+#define V4L2_CID_MPEG_VIDC_VENC_CVP_DISABLE \
+	(V4L2_CID_MPEG_MSM_VIDC_BASE + 121)
 
 /*  Camera class control IDs */
 
