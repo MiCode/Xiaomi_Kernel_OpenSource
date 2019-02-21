@@ -53,10 +53,10 @@ endif
 
 ifeq ($(KERNEL_LLVM_SUPPORT), true)
   ifeq ($(KERNEL_SD_LLVM_SUPPORT), true)  #Using sd-llvm compiler
-    ifeq ($(shell echo $(SDCLANG_PATH_2) | head -c 1),/)
-       KERNEL_LLVM_BIN := $(shell pwd)/$(SDCLANG_PATH_2)/clang
+    ifeq ($(shell echo $(SDCLANG_PATH) | head -c 1),/)
+       KERNEL_LLVM_BIN := $(SDCLANG_PATH)/clang
     else
-       KERNEL_LLVM_BIN := $(shell pwd)/$(SDCLANG_PATH_2)/clang
+       KERNEL_LLVM_BIN := $(shell pwd)/$(SDCLANG_PATH)/clang
     endif
     $(warning "Using sdllvm" $(KERNEL_LLVM_BIN))
   else
