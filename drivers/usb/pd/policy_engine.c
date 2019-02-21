@@ -509,6 +509,21 @@ enum plug_orientation usbpd_get_plug_orientation(struct usbpd *pd)
 }
 EXPORT_SYMBOL(usbpd_get_plug_orientation);
 
+static unsigned int get_connector_type(struct usbpd *pd)
+{
+	int ret;
+	union power_supply_propval val;
+
+	ret = power_supply_get_property(pd->usb_psy,
+		POWER_SUPPLY_PROP_CONNECTOR_TYPE, &val);
+
+	if (ret) {
+		dev_err(&pd->dev, "Unable to read CONNECTOR TYPE: %d\n", ret);
+		return ret;
+	}
+	return val.intval;
+}
+
 static inline void stop_usb_host(struct usbpd *pd)
 {
 	extcon_set_state_sync(pd->extcon, EXTCON_USB_HOST, 0);
@@ -4555,12 +4570,19 @@ struct usbpd *usbpd_create(struct device *parent)
 	pd->dr_desc.set_property = usbpd_dr_set_property;
 	pd->dr_desc.property_is_writeable = usbpd_dr_prop_writeable;
 
-	pd->dual_role = devm_dual_role_instance_register(&pd->dev,
-			&pd->dr_desc);
-	if (IS_ERR(pd->dual_role)) {
-		usbpd_err(&pd->dev, "could not register dual_role instance\n");
+	ret = get_connector_type(pd);
+
+	if (ret < 0)
 		goto put_psy;
-	} else {
+
+	/* For non-TypeC connector, it will be handled elsewhere */
+	if (ret != POWER_SUPPLY_CONNECTOR_MICRO_USB) {
+		pd->dual_role = devm_dual_role_instance_register(&pd->dev,
+				&pd->dr_desc);
+		if (IS_ERR(pd->dual_role)) {
+			usbpd_err(&pd->dev, "could not register dual_role instance\n");
+			goto put_psy;
+		}
 		pd->dual_role->drv_data = pd;
 	}
 
