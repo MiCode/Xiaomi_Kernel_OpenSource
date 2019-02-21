@@ -28,6 +28,7 @@
 #include <linux/cpu_pm.h>
 #include <linux/cpuhotplug.h>
 #include <linux/sched/clock.h>
+#include <linux/sched/stat.h>
 #include <soc/qcom/pm.h>
 #include <soc/qcom/event_timer.h>
 #include <soc/qcom/lpm_levels.h>
@@ -573,7 +574,13 @@ static void update_history(struct cpuidle_device *dev, int idx);
 
 static inline bool is_cpu_biased(int cpu)
 {
-	return false;
+	u64 now = sched_clock();
+	u64 last = sched_get_cpu_last_busy_time(cpu);
+
+	if (!last)
+		return false;
+
+	return (now - last) < BIAS_HYST;
 }
 
 static inline bool lpm_disallowed(s64 sleep_us, int cpu)
@@ -631,7 +638,7 @@ static int cpu_power_select(struct cpuidle_device *dev,
 				next_wakeup_us = next_event_us - lvl_latency_us;
 		}
 
-		if (!i) {
+		if (!i && !cpu_isolated(dev->cpu)) {
 			/*
 			 * If the next_wake_us itself is not sufficient for
 			 * deeper low power modes than clock gating do not
