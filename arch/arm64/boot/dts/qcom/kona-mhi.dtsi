@@ -623,6 +623,15 @@
 				mhi,rsc-parent = <&mhi_netdev_0>;
 			};
 
+			mhi_qdss_dev_0 {
+				mhi,chan = "QDSS";
+				mhi,default-channel;
+			};
+
+			mhi_qdss_dev_1 {
+				mhi,chan = "IP_HW_QDSS";
+			};
+
 			mhi_qrtr {
 				mhi,chan = "IPCR";
 				qcom,net-id = <3>;
