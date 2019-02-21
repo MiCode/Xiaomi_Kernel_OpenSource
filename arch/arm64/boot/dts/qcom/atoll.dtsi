@@ -668,3 +668,5 @@
 	};
 
 };
+
+#include "atoll-pinctrl.dtsi"
