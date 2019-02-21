@@ -18,7 +18,8 @@
 		interrupts = <GIC_SPI 477 IRQ_TYPE_EDGE_RISING>;
 		interrupt-names = "csiphy";
 		gdscr-supply = <&titan_top_gdsc>;
-		regulator-names = "gdscr";
+		refgen-supply = <&refgen>;
+		regulator-names = "gdscr", "refgen";
 		csi-vdd-voltage = <1200000>;
 		mipi-csi-vdd-supply = <&pm8150_l9>;
 		clocks = <&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
@@ -45,7 +46,8 @@
 		interrupts = <GIC_SPI 478 IRQ_TYPE_EDGE_RISING>;
 		interrupt-names = "csiphy";
 		gdscr-supply = <&titan_top_gdsc>;
-		regulator-names = "gdscr";
+		refgen-supply = <&refgen>;
+		regulator-names = "gdscr", "refgen";
 		csi-vdd-voltage = <1200000>;
 		mipi-csi-vdd-supply = <&pm8150_l9>;
 		clocks = <&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
@@ -73,7 +75,8 @@
 		interrupts = <GIC_SPI 479 IRQ_TYPE_EDGE_RISING>;
 		interrupt-names = "csiphy";
 		gdscr-supply = <&titan_top_gdsc>;
-		regulator-names = "gdscr";
+		refgen-supply = <&refgen>;
+		regulator-names = "gdscr", "refgen";
 		csi-vdd-voltage = <1200000>;
 		mipi-csi-vdd-supply = <&pm8150_l9>;
 		clocks = <&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
@@ -100,7 +103,8 @@
 		interrupts = <GIC_SPI 448 IRQ_TYPE_EDGE_RISING>;
 		interrupt-names = "csiphy";
 		gdscr-supply = <&titan_top_gdsc>;
-		regulator-names = "gdscr";
+		refgen-supply = <&refgen>;
+		regulator-names = "gdscr", "refgen";
 		csi-vdd-voltage = <1200000>;
 		mipi-csi-vdd-supply = <&pm8150_l9>;
 		clocks = <&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
@@ -127,7 +131,8 @@
 		interrupts = <GIC_SPI 86 IRQ_TYPE_EDGE_RISING>;
 		interrupt-names = "csiphy";
 		gdscr-supply = <&titan_top_gdsc>;
-		regulator-names = "gdscr";
+		refgen-supply = <&refgen>;
+		regulator-names = "gdscr", "refgen";
 		csi-vdd-voltage = <1200000>;
 		mipi-csi-vdd-supply = <&pm8150_l9>;
 		clocks = <&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
@@ -154,7 +159,8 @@
 		interrupts = <GIC_SPI 89 IRQ_TYPE_EDGE_RISING>;
 		interrupt-names = "csiphy";
 		gdscr-supply = <&titan_top_gdsc>;
-		regulator-names = "gdscr";
+		refgen-supply = <&refgen>;
+		regulator-names = "gdscr", "refgen";
 		csi-vdd-voltage = <1200000>;
 		mipi-csi-vdd-supply = <&pm8150_l9>;
 		clocks = <&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
