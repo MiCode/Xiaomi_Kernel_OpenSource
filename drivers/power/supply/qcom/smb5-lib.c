@@ -1161,6 +1161,7 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 
 	chg->voltage_min_uv = MICRO_5V;
 	chg->voltage_max_uv = MICRO_5V;
+	chg->usbin_forced_max_uv = 0;
 	chg->usb_icl_delta_ua = 0;
 	chg->pulse_cnt = 0;
 	chg->uusb_apsd_rerun_done = false;
@@ -3093,7 +3094,7 @@ exit:
 	return rc;
 }
 
-int smblib_get_prop_usb_voltage_max(struct smb_charger *chg,
+int smblib_get_prop_usb_voltage_max_design(struct smb_charger *chg,
 				    union power_supply_propval *val)
 {
 	switch (chg->real_charger_type) {
@@ -3113,6 +3114,37 @@ int smblib_get_prop_usb_voltage_max(struct smb_charger *chg,
 			val->intval = MICRO_9V;
 		else
 			val->intval = MICRO_12V;
+		break;
+	default:
+		val->intval = MICRO_5V;
+		break;
+	}
+
+	return 0;
+}
+
+int smblib_get_prop_usb_voltage_max(struct smb_charger *chg,
+					union power_supply_propval *val)
+{
+	switch (chg->real_charger_type) {
+	case POWER_SUPPLY_TYPE_USB_HVDCP:
+		if (chg->qc2_unsupported_voltage == QC2_NON_COMPLIANT_9V) {
+			val->intval = MICRO_5V;
+			break;
+		} else if (chg->qc2_unsupported_voltage ==
+				QC2_NON_COMPLIANT_12V) {
+			val->intval = MICRO_9V;
+			break;
+		}
+		/* else, fallthrough */
+	case POWER_SUPPLY_TYPE_USB_HVDCP_3:
+		if (chg->smb_version == PMI632_SUBTYPE)
+			val->intval = MICRO_9V;
+		else
+			val->intval = MICRO_12V;
+		break;
+	case POWER_SUPPLY_TYPE_USB_PD:
+		val->intval = chg->voltage_max_uv;
 		break;
 	default:
 		val->intval = MICRO_5V;
@@ -3996,6 +4028,32 @@ int smblib_set_prop_boost_current(struct smb_charger *chg,
 
 	chg->boost_current_ua = val->intval;
 	return rc;
+}
+
+int smblib_set_prop_usb_voltage_max_limit(struct smb_charger *chg,
+					const union power_supply_propval *val)
+{
+	union power_supply_propval pval = {0, };
+
+	/* Exit if same value is re-configured */
+	if (val->intval == chg->usbin_forced_max_uv)
+		return 0;
+
+	smblib_get_prop_usb_voltage_max_design(chg, &pval);
+
+	if (val->intval >= MICRO_5V && val->intval <= pval.intval) {
+		chg->usbin_forced_max_uv = val->intval;
+		smblib_dbg(chg, PR_MISC, "Max VBUS limit changed to: %d\n",
+				val->intval);
+	} else if (chg->usbin_forced_max_uv) {
+		chg->usbin_forced_max_uv = 0;
+	} else {
+		return 0;
+	}
+
+	power_supply_changed(chg->usb_psy);
+
+	return 0;
 }
 
 int smblib_set_prop_typec_power_role(struct smb_charger *chg,
@@ -5405,6 +5463,7 @@ static void typec_src_removal(struct smb_charger *chg)
 	chg->usb_icl_delta_ua = 0;
 	chg->voltage_min_uv = MICRO_5V;
 	chg->voltage_max_uv = MICRO_5V;
+	chg->usbin_forced_max_uv = 0;
 
 	/* write back the default FLOAT charger configuration */
 	rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
