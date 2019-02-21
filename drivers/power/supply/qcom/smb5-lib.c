@@ -917,6 +917,27 @@ void smblib_hvdcp_detect_enable(struct smb_charger *chg, bool enable)
 	return;
 }
 
+void smblib_hvdcp_exit_config(struct smb_charger *chg)
+{
+	u8 stat;
+	int rc;
+
+	rc = smblib_read(chg, APSD_RESULT_STATUS_REG, &stat);
+	if (rc < 0)
+		return;
+
+	if (stat & (QC_3P0_BIT | QC_2P0_BIT)) {
+		/* force HVDCP to 5V */
+		smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
+				HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT, 0);
+		smblib_write(chg, CMD_HVDCP_2_REG, FORCE_5V_BIT);
+
+		/* rerun APSD */
+		smblib_masked_write(chg, CMD_APSD_REG, APSD_RERUN_BIT,
+				APSD_RERUN_BIT);
+	}
+}
+
 static int smblib_request_dpdm(struct smb_charger *chg, bool enable)
 {
 	int rc = 0;
