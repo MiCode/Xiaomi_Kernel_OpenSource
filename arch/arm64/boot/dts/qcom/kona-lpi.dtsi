@@ -7,6 +7,7 @@
 	lpi_tlmm: lpi_pinctrl@33c0000 {
 		compatible = "qcom,lpi-pinctrl";
 		reg = <0x33c0000 0x0>;
+		qcom,slew-reg = <0x355a000 0x0>;
 		qcom,num-gpios = <14>;
 		gpio-controller;
 		#gpio-cells = <2>;
@@ -17,6 +18,13 @@
 				      <0x00008000>, <0x00009000>,
 				      <0x0000A000>, <0x0000B000>,
 				      <0x0000C000>, <0x0000D000>;
+		qcom,lpi-slew-offset-tbl = <0x00000000>, <0x00000002>,
+					   <0x00000004>, <0x00000008>,
+					   <0x0000000A>, <0x0000000C>,
+					   <0x00000000>, <0x00000000>,
+					   <0x00000000>, <0x00000000>,
+					   <0x00000010>, <0x00000012>,
+					   <0x00000000>, <0x00000000>;
 
 		quat_mi2s_sck {
 			quat_mi2s_sck_sleep: quat_mi2s_sck_sleep {
@@ -1288,7 +1296,8 @@
 				config {
 					pins = "gpio10";
 					drive-strength = <2>;
-					bias-bus-hold;
+					input-enable;
+					bias-pull-down;
 				};
 			};
 
@@ -1301,7 +1310,8 @@
 				config {
 					pins = "gpio10";
 					drive-strength = <2>;
-					bias-bus-hold;
+					slew-rate = <1>;
+					bias-disable;
 				};
 			};
 		};
@@ -1315,8 +1325,9 @@
 
 				config {
 					pins = "gpio11";
-					drive-strength = <4>;
-					bias-bus-hold;
+					drive-strength = <2>;
+					input-enable;
+					bias-pull-down;
 				};
 			};
 
@@ -1328,7 +1339,8 @@
 
 				config {
 					pins = "gpio11";
-					drive-strength = <4>;
+					drive-strength = <2>;
+					slew-rate = <1>;
 					bias-bus-hold;
 				};
 			};
@@ -1338,12 +1350,13 @@
 			mux {
 				pins = "gpio0";
 				function = "func1";
+				input-enable;
+				bias-pull-down;
 			};
 
 			config {
 				pins = "gpio0";
 				drive-strength = <2>;
-				bias-bus-hold;
 			};
 		};
 
@@ -1355,8 +1368,9 @@
 
 			config {
 				pins = "gpio0";
-				drive-strength = <8>;
-				bias-bus-hold;
+				drive-strength = <2>;
+				slew-rate = <1>;
+				bias-disable;
 			};
 		};
 
@@ -1369,7 +1383,8 @@
 			config {
 				pins = "gpio1";
 				drive-strength = <2>;
-				bias-bus-hold;
+				input-enable;
+				bias-pull-down;
 			};
 		};
 
@@ -1381,7 +1396,8 @@
 
 			config {
 				pins = "gpio1";
-				drive-strength = <8>;
+				drive-strength = <2>;
+				slew-rate = <1>;
 				bias-bus-hold;
 			};
 		};
@@ -1395,7 +1411,8 @@
 			config {
 				pins = "gpio2";
 				drive-strength = <2>;
-				bias-bus-hold;
+				input-enable;
+				bias-pull-down;
 			};
 		};
 
@@ -1407,7 +1424,8 @@
 
 			config {
 				pins = "gpio2";
-				drive-strength = <8>;
+				drive-strength = <2>;
+				slew-rate = <1>;
 				bias-bus-hold;
 			};
 		};
@@ -1421,7 +1439,8 @@
 			config {
 				pins = "gpio3";
 				drive-strength = <2>;
-				bias-bus-hold;
+				input-enable;
+				bias-pull-down;
 			};
 		};
 
@@ -1433,8 +1452,9 @@
 
 			config {
 				pins = "gpio3";
-				drive-strength = <8>;
-				bias-bus-hold;
+				drive-strength = <2>;
+				slew-rate = <1>;
+				bias-disable;
 			};
 		};
 
@@ -1447,7 +1467,8 @@
 			config {
 				pins = "gpio4";
 				drive-strength = <2>;
-				bias-bus-hold;
+				input-enable;
+				bias-pull-down;
 			};
 		};
 
@@ -1459,7 +1480,8 @@
 
 			config {
 				pins = "gpio4";
-				drive-strength = <8>;
+				drive-strength = <2>;
+				slew-rate = <1>;
 				bias-bus-hold;
 			};
 		};
@@ -1473,7 +1495,8 @@
 			config {
 				pins = "gpio5";
 				drive-strength = <2>;
-				bias-bus-hold;
+				input-enable;
+				bias-pull-down;
 			};
 		};
 
@@ -1485,7 +1508,8 @@
 
 			config {
 				pins = "gpio5";
-				drive-strength = <8>;
+				drive-strength = <2>;
+				slew-rate = <1>;
 				bias-bus-hold;
 			};
 		};
