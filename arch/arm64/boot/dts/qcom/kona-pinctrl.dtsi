@@ -2479,7 +2479,7 @@
 			};
 		};
 
-		bt_en_active: bt_en_active {
+		bt_en_sleep: bt_en_sleep {
 			mux {
 			pins = "gpio21";
 			function = "gpio";
@@ -2488,7 +2488,8 @@
 			config {
 			pins = "gpio21";
 			drive-strength = <2>;
-			bias-pull-up;
+			output-low;
+			bias-pull-down;
 			};
 		};
 
