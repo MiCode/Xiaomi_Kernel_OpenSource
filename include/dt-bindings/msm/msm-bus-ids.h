@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,6 +47,7 @@
 #define	MSM_BUS_FAB_COMP_NOC 6155
 #define	MSM_BUS_FAB_GEM_NOC 6156
 #define	MSM_BUS_FAB_QUP_VIRT 6157
+#define	MSM_BUS_FAB_GPU_VIRT 6158
 
 #define	MSM_BUS_FAB_MC_VIRT_DISPLAY 26000
 #define	MSM_BUS_FAB_MEM_NOC_DISPLAY 26001
