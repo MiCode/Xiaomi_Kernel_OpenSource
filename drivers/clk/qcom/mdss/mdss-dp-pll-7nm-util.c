@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"[dp-pll] %s: " fmt, __func__
@@ -143,6 +143,9 @@ int dp_mux_get_parent_7nm(void *context, unsigned int reg, unsigned int *val)
 		pr_err("invalid input parameters\n");
 		return -EINVAL;
 	}
+
+	if (is_gdsc_disabled(dp_res))
+		return 0;
 
 	rc = mdss_pll_resource_enable(dp_res, true);
 	if (rc) {
@@ -635,6 +638,9 @@ unsigned long dp_vco_recalc_rate_7nm(struct clk_hw *hw,
 
 	vco = to_dp_vco_hw(hw);
 	dp_res = vco->priv;
+
+	if (is_gdsc_disabled(dp_res))
+		return 0;
 
 	rc = mdss_pll_resource_enable(dp_res, true);
 	if (rc) {
