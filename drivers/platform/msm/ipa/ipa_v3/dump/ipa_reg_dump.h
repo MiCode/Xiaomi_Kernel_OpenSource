@@ -25,7 +25,7 @@
  * are required by some of the macros and include files that follow...
  */
 #define my_in_dword(addr) \
-	({ u32 __v = readl_relaxed((addr)); __iormb(); __v; })
+	(readl(addr))
 #define in_dword(addr) \
 	my_in_dword((u8 *) ipa3_ctx->reg_collection_base + \
 		    (u32)(addr))
