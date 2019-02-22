@@ -550,7 +550,7 @@ static int mhi_netdev_enable_iface(struct mhi_netdev *mhi_netdev)
 	struct device_node *of_node = mhi_dev->dev.of_node;
 	struct mhi_netdev_priv *mhi_netdev_priv;
 
-	mhi_netdev->alias = of_alias_get_id(of_node, "mhi_netdev");
+	mhi_netdev->alias = of_alias_get_id(of_node, "mhi-netdev");
 	if (mhi_netdev->alias < 0)
 		return -ENODEV;
 
