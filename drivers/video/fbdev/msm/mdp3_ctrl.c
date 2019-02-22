@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -261,7 +261,8 @@ static void mdp3_vsync_retire_handle_vsync(void *arg)
 		return;
 	}
 
-	schedule_work(&mdp3_session->retire_work);
+	kthread_queue_work(&mdp3_session->retire_worker,
+		&mdp3_session->retire_work);
 }
 
 void mdp3_vsync_retire_signal(struct msm_fb_data_type *mfd, int val)
@@ -282,7 +283,7 @@ void mdp3_vsync_retire_signal(struct msm_fb_data_type *mfd, int val)
 	mutex_unlock(&mfd->mdp_sync_pt_data.sync_mutex);
 }
 
-static void mdp3_vsync_retire_work_handler(struct work_struct *work)
+static void mdp3_vsync_retire_work_handler(struct kthread_work *work)
 {
 	struct mdp3_session_data *mdp3_session =
 		container_of(work, struct mdp3_session_data, retire_work);
@@ -2981,6 +2982,7 @@ static int mdp3_vsync_retire_setup(struct msm_fb_data_type *mfd)
 	struct mdp3_session_data *mdp3_session;
 	struct mdp3_notification retire_client;
 	char name[24];
+	struct sched_param param = { .sched_priority = 16 };
 
 	mdp3_session = (struct mdp3_session_data *)mfd->mdp.private1;
 
@@ -2998,7 +3000,20 @@ static int mdp3_vsync_retire_setup(struct msm_fb_data_type *mfd)
 	if (mdp3_session->dma)
 		mdp3_session->dma->retire_client = retire_client;
 
-	INIT_WORK(&mdp3_session->retire_work, mdp3_vsync_retire_work_handler);
+	kthread_init_worker(&mdp3_session->retire_worker);
+	kthread_init_work(&mdp3_session->retire_work,
+			mdp3_vsync_retire_work_handler);
+
+	mdp3_session->retire_thread = kthread_run(kthread_worker_fn,
+					&mdp3_session->retire_worker,
+					"vsync_retire_work");
+	if (IS_ERR(mdp3_session->retire_thread)) {
+		pr_err("unable to start vsync thread\n");
+		mdp3_session->retire_thread = NULL;
+		return -ENOMEM;
+	}
+
+	sched_setscheduler(mdp3_session->retire_thread, SCHED_FIFO, &param);
 
 	return 0;
 }

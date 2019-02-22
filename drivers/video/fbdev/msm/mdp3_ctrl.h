@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -61,6 +61,10 @@ struct mdp3_session_data {
 	struct kthread_worker worker;
 	struct task_struct *thread;
 
+	struct kthread_work retire_work;
+	struct kthread_worker retire_worker;
+	struct task_struct *retire_thread;
+
 	atomic_t dma_done_cnt;
 	int histo_status;
 	struct mutex histo_lock;
@@ -84,7 +88,6 @@ struct mdp3_session_data {
 	/* For retire fence */
 	struct mdss_timeline *vsync_timeline;
 	int retire_cnt;
-	struct work_struct retire_work;
 };
 
 void mdp3_bufq_deinit(struct mdp3_buffer_queue *bufq, int client);
