@@ -626,6 +626,8 @@ struct mmc_host {
 #endif
 	enum dev_state dev_status;
 	bool inlinecrypt_support;  /* Inline encryption support */
+	bool inlinecrypt_reset_needed;  /* Inline crypto reset */
+
 	bool crash_on_err;	/* crash the system on error */
 	atomic_t active_reqs;
 	unsigned long		private[0] ____cacheline_aligned;
