@@ -710,6 +710,7 @@ struct mmc_host {
 	struct mmc_request	*err_mrq;
 
 	bool inlinecrypt_support;  /* Inline encryption support */
+	bool inlinecrypt_reset_needed;  /* Inline crypto reset */
 
 	atomic_t rpmb_req_pending;
 	struct mutex		rpmb_req_mutex;
