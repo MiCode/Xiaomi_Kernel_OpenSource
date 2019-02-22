@@ -57,7 +57,7 @@ static inline unsigned long int get_ubwc_compression_ratio(
 	struct ubwc_cr_stats_info_type ubwc_stats_info)
 {
 	unsigned long int sum = 0, weighted_sum = 0;
-	unsigned long int compression_ratio = 1 << 16;
+	unsigned long int compression_ratio = 0;
 
 	weighted_sum =
 		32  * ubwc_stats_info.cr_stats_info0 +
