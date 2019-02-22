@@ -1031,6 +1031,8 @@
 		pinctrl-1 = <&cnss_wlan_en_sleep>;
 		qcom,wlan-rc-num = <0>;
 		qcom,wlan-ramdump-dynamic = <0x400000>;
+		pcie-disable-l1;
+		pcie-disable-l1ss;
 
 		mhi,max-channels = <30>;
 		mhi,timeout = <10000>;
