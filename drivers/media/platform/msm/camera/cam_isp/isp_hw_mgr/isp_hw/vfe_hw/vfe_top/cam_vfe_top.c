@@ -12,18 +12,19 @@ int cam_vfe_top_init(uint32_t          top_version,
 	struct cam_hw_soc_info        *soc_info,
 	struct cam_hw_intf            *hw_intf,
 	void                          *top_hw_info,
-	struct cam_vfe_top            **vfe_top)
+	void                          *vfe_irq_controller,
+	struct cam_vfe_top           **vfe_top)
 {
 	int rc = -EINVAL;
 
 	switch (top_version) {
 	case CAM_VFE_TOP_VER_2_0:
 		rc = cam_vfe_top_ver2_init(soc_info, hw_intf, top_hw_info,
-			vfe_top);
+			vfe_irq_controller, vfe_top);
 		break;
 	case CAM_VFE_TOP_VER_3_0:
 		rc = cam_vfe_top_ver3_init(soc_info, hw_intf, top_hw_info,
-			vfe_top);
+			vfe_irq_controller, vfe_top);
 		break;
 	default:
 		CAM_ERR(CAM_ISP, "Error! Unsupported Version %x", top_version);

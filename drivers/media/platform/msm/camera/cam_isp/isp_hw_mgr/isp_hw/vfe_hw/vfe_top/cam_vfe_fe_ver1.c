@@ -488,8 +488,9 @@ static int cam_vfe_fe_handle_irq_bottom_half(void *handler_priv,
 {
 	int                                   ret = CAM_VFE_IRQ_STATUS_ERR;
 	struct cam_isp_resource_node         *fe_node;
-	struct cam_vfe_mux_fe_data        *fe_priv;
+	struct cam_vfe_mux_fe_data           *fe_priv;
 	struct cam_vfe_top_irq_evt_payload   *payload;
+	struct cam_isp_hw_event_info          evt_info;
 	uint32_t                              irq_status0;
 	uint32_t                              irq_status1;
 
@@ -504,59 +505,53 @@ static int cam_vfe_fe_handle_irq_bottom_half(void *handler_priv,
 	irq_status0 = payload->irq_reg_val[CAM_IFE_IRQ_CAMIF_REG_STATUS0];
 	irq_status1 = payload->irq_reg_val[CAM_IFE_IRQ_CAMIF_REG_STATUS1];
 
-	CAM_DBG(CAM_ISP, "event ID:%d, irq_status_0 = 0x%x",
-			payload->evt_id, irq_status0);
+	evt_info.hw_idx = fe_node->hw_intf->hw_idx;
+	evt_info.res_id = fe_node->res_id;
+	evt_info.res_type = fe_node->res_type;
 
-	switch (payload->evt_id) {
-	case CAM_ISP_HW_EVENT_SOF:
-		if (irq_status0 & fe_priv->reg_data->sof_irq_mask) {
-			if ((fe_priv->enable_sof_irq_debug) &&
-				(fe_priv->irq_debug_cnt <=
-				CAM_VFE_CAMIF_IRQ_SOF_DEBUG_CNT_MAX)) {
-				CAM_INFO_RATE_LIMIT(CAM_ISP, "Received SOF");
+	CAM_DBG(CAM_ISP, "event ID, irq_status_0 = 0x%x", irq_status0);
 
-				fe_priv->irq_debug_cnt++;
-				if (fe_priv->irq_debug_cnt ==
-					CAM_VFE_CAMIF_IRQ_SOF_DEBUG_CNT_MAX) {
-					fe_priv->enable_sof_irq_debug =
-						false;
-					fe_priv->irq_debug_cnt = 0;
-				}
-			} else {
-				CAM_DBG(CAM_ISP, "Received SOF");
+	if (irq_status0 & fe_priv->reg_data->sof_irq_mask) {
+		if ((fe_priv->enable_sof_irq_debug) &&
+			(fe_priv->irq_debug_cnt <=
+			CAM_VFE_CAMIF_IRQ_SOF_DEBUG_CNT_MAX)) {
+			CAM_INFO_RATE_LIMIT(CAM_ISP, "Received SOF");
+
+			fe_priv->irq_debug_cnt++;
+			if (fe_priv->irq_debug_cnt ==
+				CAM_VFE_CAMIF_IRQ_SOF_DEBUG_CNT_MAX) {
+				fe_priv->enable_sof_irq_debug =
+					false;
+				fe_priv->irq_debug_cnt = 0;
 			}
-			ret = CAM_VFE_IRQ_STATUS_SUCCESS;
-		}
-		break;
-	case CAM_ISP_HW_EVENT_EPOCH:
-		if (irq_status0 & fe_priv->reg_data->epoch0_irq_mask) {
-			CAM_DBG(CAM_ISP, "Received EPOCH");
-			ret = CAM_VFE_IRQ_STATUS_SUCCESS;
-		}
-		break;
-	case CAM_ISP_HW_EVENT_REG_UPDATE:
-		if (irq_status0 & fe_priv->reg_data->reg_update_irq_mask) {
-			CAM_DBG(CAM_ISP, "Received REG_UPDATE_ACK");
-			ret = CAM_VFE_IRQ_STATUS_SUCCESS;
-		}
-		break;
-	case CAM_ISP_HW_EVENT_EOF:
-		if (irq_status0 & fe_priv->reg_data->eof_irq_mask) {
-			CAM_DBG(CAM_ISP, "Received EOF\n");
-			ret = CAM_VFE_IRQ_STATUS_SUCCESS;
-		}
-		break;
-	case CAM_ISP_HW_EVENT_ERROR:
-		if (irq_status1 & fe_priv->reg_data->error_irq_mask1) {
-			CAM_DBG(CAM_ISP, "Received ERROR\n");
-			ret = CAM_ISP_HW_ERROR_OVERFLOW;
-			cam_vfe_fe_reg_dump(fe_node);
 		} else {
-			ret = CAM_ISP_HW_ERROR_NONE;
+			CAM_DBG(CAM_ISP, "Received SOF");
 		}
-		break;
-	default:
-		break;
+		ret = CAM_VFE_IRQ_STATUS_SUCCESS;
+	}
+
+	if (irq_status0 & fe_priv->reg_data->epoch0_irq_mask) {
+		CAM_DBG(CAM_ISP, "Received EPOCH");
+		ret = CAM_VFE_IRQ_STATUS_SUCCESS;
+	}
+
+	if (irq_status0 & fe_priv->reg_data->reg_update_irq_mask) {
+		CAM_DBG(CAM_ISP, "Received REG_UPDATE_ACK");
+		ret = CAM_VFE_IRQ_STATUS_SUCCESS;
+	}
+
+	if (irq_status0 & fe_priv->reg_data->eof_irq_mask) {
+		CAM_DBG(CAM_ISP, "Received EOF\n");
+		ret = CAM_VFE_IRQ_STATUS_SUCCESS;
+	}
+
+	if (irq_status1 & fe_priv->reg_data->error_irq_mask1) {
+		CAM_DBG(CAM_ISP, "Received ERROR\n");
+		ret = CAM_ISP_HW_ERROR_OVERFLOW;
+		evt_info.err_type = CAM_VFE_IRQ_STATUS_OVERFLOW;
+		cam_vfe_fe_reg_dump(fe_node);
+	} else {
+		ret = CAM_ISP_HW_ERROR_NONE;
 	}
 
 	CAM_DBG(CAM_ISP, "returing status = %d", ret);

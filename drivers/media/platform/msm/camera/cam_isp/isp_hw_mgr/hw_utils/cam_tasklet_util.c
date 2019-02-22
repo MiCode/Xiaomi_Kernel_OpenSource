@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -24,6 +24,7 @@ static void cam_tasklet_action(unsigned long data);
  * @list:                   list_head member for each entry in queue
  * @payload:                Payload structure for the event. This will be
  *                          passed to the handler function
+ * @handler_priv:           Private data passed at event subscribe
  * @bottom_half_handler:    Function pointer for event handler in bottom
  *                          half context
  *
@@ -31,6 +32,7 @@ static void cam_tasklet_action(unsigned long data);
 struct cam_tasklet_queue_cmd {
 	struct list_head                   list;
 	void                              *payload;
+	void                              *handler_priv;
 	CAM_IRQ_HANDLER_BOTTOM_HALF        bottom_half_handler;
 };
 
@@ -203,6 +205,7 @@ void cam_tasklet_enqueue_cmd(
 	CAM_DBG(CAM_ISP, "Enqueue tasklet cmd");
 	tasklet_cmd->bottom_half_handler = bottom_half_handler;
 	tasklet_cmd->payload = evt_payload_priv;
+	tasklet_cmd->handler_priv = handler_priv;
 	spin_lock_irqsave(&tasklet->tasklet_lock, flags);
 	list_add_tail(&tasklet_cmd->list,
 		&tasklet->used_cmd_list);
@@ -317,7 +320,7 @@ static void cam_tasklet_action(unsigned long data)
 	tasklet_info = (struct cam_tasklet_info *)data;
 
 	while (!cam_tasklet_dequeue_cmd(tasklet_info, &tasklet_cmd)) {
-		tasklet_cmd->bottom_half_handler(tasklet_info->ctx_priv,
+		tasklet_cmd->bottom_half_handler(tasklet_cmd->handler_priv,
 			tasklet_cmd->payload);
 		cam_tasklet_put_cmd(tasklet_info, (void **)(&tasklet_cmd));
 	}

@@ -72,10 +72,10 @@ static struct cam_vfe_camif_ver3_reg_data vfe_480_camif_reg_data = {
 	.sof_irq_mask                    = 0x00000001,
 	.epoch0_irq_mask                 = 0x00000004,
 	.epoch1_irq_mask                 = 0x00000008,
-	.reg_update_irq_mask             = 0x00000001,
 	.eof_irq_mask                    = 0x00000002,
-	.error_irq_mask0                 = 0x0003FC00,
-	.error_irq_mask2                 = 0xEFFF7E80,
+	.error_irq_mask0                 = 0x82000200,
+	.error_irq_mask2                 = 0x30301F80,
+	.subscribe_irq_mask1             = 0x00000007,
 	.enable_diagnostic_hw            = 0x1,
 	.pp_camif_cfg_en_shift           = 0,
 	.pp_camif_cfg_ife_out_en_shift   = 8,
@@ -159,6 +159,7 @@ static struct cam_vfe_camif_lite_ver3_reg_data vfe480_camif_rdi_reg_data[3] = {
 		.eof_irq_mask                    = 0x20,
 		.error_irq_mask0                 = 0x20000000,
 		.error_irq_mask2                 = 0x20000,
+		.subscribe_irq_mask1             = 0x30,
 		.enable_diagnostic_hw            = 0x1,
 	},
 	{
@@ -171,6 +172,7 @@ static struct cam_vfe_camif_lite_ver3_reg_data vfe480_camif_rdi_reg_data[3] = {
 		.eof_irq_mask                    = 0x200,
 		.error_irq_mask0                 = 0x10000000,
 		.error_irq_mask2                 = 0x40000,
+		.subscribe_irq_mask1             = 0x300,
 		.enable_diagnostic_hw            = 0x1,
 	},
 	{
@@ -183,6 +185,7 @@ static struct cam_vfe_camif_lite_ver3_reg_data vfe480_camif_rdi_reg_data[3] = {
 		.eof_irq_mask                    = 0x2000,
 		.error_irq_mask0                 = 0x8000000,
 		.error_irq_mask2                 = 0x80000,
+		.subscribe_irq_mask1             = 0x3000,
 		.enable_diagnostic_hw            = 0x1,
 	},
 };
@@ -208,7 +211,9 @@ static struct cam_vfe_camif_lite_ver3_reg_data vfe480_camif_lcr_reg_data = {
 	.epoch0_irq_mask            = 0x400000,
 	.epoch1_irq_mask            = 0x800000,
 	.eof_irq_mask               = 0x200000,
-	.error_irq_mask0            = 0x18000,
+	.error_irq_mask0            = 0x0,
+	.error_irq_mask2            = 0x18000,
+	.subscribe_irq_mask1        = 0x300000,
 	.enable_diagnostic_hw       = 0x1,
 };
 
@@ -233,7 +238,9 @@ static struct cam_vfe_camif_lite_ver3_reg_data vfe480_camif_pd_reg_data = {
 	.epoch0_irq_mask            = 0x40000,
 	.epoch1_irq_mask            = 0x80000,
 	.eof_irq_mask               = 0x20000,
-	.error_irq_mask0            = 0x6000,
+	.error_irq_mask0            = 0x40000000,
+	.error_irq_mask2            = 0x6000,
+	.subscribe_irq_mask1        = 0x30000,
 	.enable_diagnostic_hw       = 0x1,
 };
 
@@ -1143,127 +1150,145 @@ static struct cam_vfe_bus_ver3_hw_info vfe480_bus_hw_info = {
 			.vfe_out_type  = CAM_VFE_BUS_VER3_VFE_OUT_RDI0,
 			.max_width     = -1,
 			.max_height    = -1,
+			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_3,
 		},
 		{
 			.vfe_out_type  = CAM_VFE_BUS_VER3_VFE_OUT_RDI1,
 			.max_width     = -1,
 			.max_height    = -1,
+			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_4,
 		},
 		{
 			.vfe_out_type  = CAM_VFE_BUS_VER3_VFE_OUT_RDI2,
 			.max_width     = -1,
 			.max_height    = -1,
+			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_5,
 		},
 		{
 			.vfe_out_type  = CAM_VFE_BUS_VER3_VFE_OUT_FULL,
 			.max_width     = 4096,
 			.max_height    = 4096,
+			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_0,
 		},
 		{
 			.vfe_out_type  = CAM_VFE_BUS_VER3_VFE_OUT_DS4,
 			.max_width     = 1920,
 			.max_height    = 1080,
+			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_0,
 		},
 		{
 			.vfe_out_type  = CAM_VFE_BUS_VER3_VFE_OUT_DS16,
 			.max_width     = 1920,
 			.max_height    = 1080,
+			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_0,
 		},
 		{
 			.vfe_out_type  = CAM_VFE_BUS_VER3_VFE_OUT_RAW_DUMP,
 			.max_width     = -1,
 			.max_height    = -1,
+			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_0,
 		},
 		{
 			.vfe_out_type  = CAM_VFE_BUS_VER3_VFE_OUT_FD,
 			.max_width     = 1920,
 			.max_height    = 1080,
+			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_0,
 		},
 		{
 			.vfe_out_type  = CAM_VFE_BUS_VER3_VFE_OUT_PDAF,
 			.max_width     = -1,
 			.max_height    = -1,
+			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_0,
 		},
 		{
-			.vfe_out_type  =
-				CAM_VFE_BUS_VER3_VFE_OUT_STATS_HDR_BE,
+			.vfe_out_type  = CAM_VFE_BUS_VER3_VFE_OUT_STATS_HDR_BE,
 			.max_width     = -1,
 			.max_height    = -1,
+			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_0,
 		},
 		{
 			.vfe_out_type  =
 				CAM_VFE_BUS_VER3_VFE_OUT_STATS_HDR_BHIST,
 			.max_width     = 1920,
 			.max_height    = 1080,
+			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_0,
 		},
 		{
 			.vfe_out_type  =
 				CAM_VFE_BUS_VER3_VFE_OUT_STATS_TL_BG,
 			.max_width     = -1,
 			.max_height    = -1,
+			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_0,
 		},
 		{
-			.vfe_out_type  =
-				CAM_VFE_BUS_VER3_VFE_OUT_STATS_BF,
+			.vfe_out_type  = CAM_VFE_BUS_VER3_VFE_OUT_STATS_BF,
 			.max_width     = -1,
 			.max_height    = -1,
+			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_0,
 		},
 		{
-			.vfe_out_type  =
-				CAM_VFE_BUS_VER3_VFE_OUT_STATS_AWB_BG,
+			.vfe_out_type  = CAM_VFE_BUS_VER3_VFE_OUT_STATS_AWB_BG,
 			.max_width     = -1,
 			.max_height    = -1,
+			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_0,
 		},
 		{
-			.vfe_out_type  =
-				CAM_VFE_BUS_VER3_VFE_OUT_STATS_BHIST,
+			.vfe_out_type  = CAM_VFE_BUS_VER3_VFE_OUT_STATS_BHIST,
 			.max_width     = -1,
 			.max_height    = -1,
+			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_0,
 		},
 		{
-			.vfe_out_type  =
-				CAM_VFE_BUS_VER3_VFE_OUT_STATS_RS,
+			.vfe_out_type  = CAM_VFE_BUS_VER3_VFE_OUT_STATS_RS,
 			.max_width     = -1,
 			.max_height    = -1,
+			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_0,
 		},
 		{
-			.vfe_out_type  =
-				CAM_VFE_BUS_VER3_VFE_OUT_STATS_CS,
+			.vfe_out_type  = CAM_VFE_BUS_VER3_VFE_OUT_STATS_CS,
 			.max_width     = -1,
 			.max_height    = -1,
+			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_0,
 		},
 		{
-			.vfe_out_type  =
-				CAM_VFE_BUS_VER3_VFE_OUT_STATS_IHIST,
+			.vfe_out_type  = CAM_VFE_BUS_VER3_VFE_OUT_STATS_IHIST,
 			.max_width     = -1,
 			.max_height    = -1,
+			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_0,
 		},
 		{
 			.vfe_out_type  = CAM_VFE_BUS_VER3_VFE_OUT_FULL_DISP,
 			.max_width     = 4096,
 			.max_height    = 4096,
+			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_0,
 		},
 		{
 			.vfe_out_type  = CAM_VFE_BUS_VER3_VFE_OUT_DS4_DISP,
 			.max_width     = 1920,
 			.max_height    = 1080,
+			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_0,
 		},
 		{
 			.vfe_out_type  = CAM_VFE_BUS_VER3_VFE_OUT_DS16_DISP,
 			.max_width     = 1920,
 			.max_height    = 1080,
+			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_0,
 		},
 		{
 			.vfe_out_type  = CAM_VFE_BUS_VER3_VFE_OUT_2PD,
 			.max_width     = 1920,
 			.max_height    = 1080,
+			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_1,
 		},
 		{
 			.vfe_out_type  = CAM_VFE_BUS_VER3_VFE_OUT_LCR,
 			.max_width     = -1,
 			.max_height    = -1,
+			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_2,
 		},
 	},
+	.comp_done_shift = 6,
+	.top_irq_shift   = 7,
 };
 
 static struct cam_irq_register_set vfe480_bus_rd_irq_reg[1] = {

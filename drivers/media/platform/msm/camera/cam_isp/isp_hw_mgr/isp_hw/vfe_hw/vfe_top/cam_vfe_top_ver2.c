@@ -703,6 +703,7 @@ int cam_vfe_top_ver2_init(
 	struct cam_hw_soc_info                 *soc_info,
 	struct cam_hw_intf                     *hw_intf,
 	void                                   *top_hw_info,
+	void                                   *vfe_irq_controller,
 	struct cam_vfe_top                    **vfe_top_ptr)
 {
 	int i, j, rc = 0;
@@ -760,7 +761,7 @@ int cam_vfe_top_ver2_init(
 
 			rc = cam_vfe_camif_ver2_init(hw_intf, soc_info,
 				&ver2_hw_info->camif_hw_info,
-				&top_priv->mux_rsrc[i]);
+				&top_priv->mux_rsrc[i], vfe_irq_controller);
 			if (rc)
 				goto deinit_resources;
 		} else if (ver2_hw_info->mux_type[i] ==
@@ -777,7 +778,7 @@ int cam_vfe_top_ver2_init(
 
 			rc = cam_vfe_camif_lite_ver2_init(hw_intf, soc_info,
 				&ver2_hw_info->camif_lite_hw_info,
-				&top_priv->mux_rsrc[i]);
+				&top_priv->mux_rsrc[i], vfe_irq_controller);
 
 			if (rc)
 				goto deinit_resources;
@@ -796,7 +797,7 @@ int cam_vfe_top_ver2_init(
 
 			rc = cam_vfe_rdi_ver2_init(hw_intf, soc_info,
 				&ver2_hw_info->rdi_hw_info,
-				&top_priv->mux_rsrc[i]);
+				&top_priv->mux_rsrc[i], vfe_irq_controller);
 			if (rc)
 				goto deinit_resources;
 		} else if (ver2_hw_info->mux_type[i] ==
@@ -845,11 +846,9 @@ deinit_resources:
 				&top_priv->mux_rsrc[i]))
 				CAM_ERR(CAM_ISP, "Camif lite deinit failed");
 		} else if (ver2_hw_info->mux_type[i] ==
-			CAM_ISP_HW_VFE_IN_RDI0) {
-			if (cam_vfe_rdi_ver2_init(hw_intf, soc_info,
-				&ver2_hw_info->rdi_hw_info,
-				&top_priv->mux_rsrc[i]))
-				CAM_ERR(CAM_ISP, "RDI deinit failed");
+			CAM_VFE_IN_RD_VER_1_0) {
+			if (cam_vfe_fe_ver1_deinit(&top_priv->mux_rsrc[i]))
+				CAM_ERR(CAM_ISP, "VFE FE deinit failed");
 		} else {
 			if (cam_vfe_rdi_ver2_deinit(&top_priv->mux_rsrc[i]))
 				CAM_ERR(CAM_ISP, "RDI Deinit failed");

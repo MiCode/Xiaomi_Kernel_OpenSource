@@ -82,7 +82,6 @@ struct cam_vfe_bus_rd_ver1_rm_resource_data {
 	struct cam_vfe_bus_rd_ver1_reg_offset_bus_client  *hw_regs;
 	void                *ctx;
 
-	uint32_t             irq_enabled;
 	bool                 init_cfg_done;
 	bool                 hfr_cfg_done;
 
@@ -138,8 +137,8 @@ struct cam_vfe_bus_rd_ver1_priv {
 	struct cam_isp_resource_node  vfe_bus_rd[
 		CAM_VFE_BUS_RD_VER1_VFE_BUSRD_MAX];
 
-	uint32_t                            irq_handle;
-	uint32_t                            error_irq_handle;
+	int                                 irq_handle;
+	int                                 error_irq_handle;
 };
 
 static int cam_vfe_bus_process_cmd(
@@ -254,7 +253,6 @@ static int cam_vfe_bus_acquire_rm(
 	rm_res_local->tasklet_info = tasklet;
 
 	rsrc_data = rm_res_local->res_priv;
-	rsrc_data->irq_enabled = subscribe_irq;
 	rsrc_data->ctx = ctx;
 	rsrc_data->is_dual = is_dual;
 	/* Set RM offset value to default */
@@ -273,7 +271,6 @@ static int cam_vfe_bus_release_rm(void   *bus_priv,
 	struct cam_vfe_bus_rd_ver1_rm_resource_data *rsrc_data =
 		rm_res->res_priv;
 
-	rsrc_data->irq_enabled = 0;
 	rsrc_data->offset = 0;
 	rsrc_data->width = 0;
 	rsrc_data->height = 0;
@@ -507,7 +504,7 @@ static int cam_vfe_bus_acquire_vfe_bus_rd(void *bus_priv, void *acquire_args,
 		rc = cam_vfe_bus_acquire_rm(ver1_bus_rd_priv,
 			bus_rd_acquire_args->out_port_info,
 			acq_args->tasklet,
-			bus_rd_acquire_args->ctx,
+			acq_args->priv,
 			bus_rd_res_id,
 			i,
 			subscribe_irq,
@@ -964,8 +961,9 @@ static int cam_vfe_bus_init_hw(void *hw_priv,
 		NULL,
 		NULL);
 
-	if (bus_priv->irq_handle <= 0) {
+	if (bus_priv->irq_handle < 1) {
 		CAM_ERR(CAM_ISP, "Failed to subscribe BUS IRQ");
+		bus_priv->irq_handle = 0;
 		return -EFAULT;
 	}
 	/* no clock gating at bus input */
@@ -1003,10 +1001,6 @@ static int cam_vfe_bus_deinit_hw(void *hw_priv,
 		rc = cam_irq_controller_unsubscribe_irq(
 			bus_priv->common_data.bus_irq_controller,
 			bus_priv->error_irq_handle);
-		if (rc)
-			CAM_ERR(CAM_ISP,
-				"Failed to unsubscribe error irq rc=%d", rc);
-
 		bus_priv->error_irq_handle = 0;
 	}
 
@@ -1014,10 +1008,6 @@ static int cam_vfe_bus_deinit_hw(void *hw_priv,
 		rc = cam_irq_controller_unsubscribe_irq(
 			bus_priv->common_data.vfe_irq_controller,
 			bus_priv->irq_handle);
-		if (rc)
-			CAM_ERR(CAM_ISP,
-				"Failed to unsubscribe irq rc=%d", rc);
-
 		bus_priv->irq_handle = 0;
 	}
 
