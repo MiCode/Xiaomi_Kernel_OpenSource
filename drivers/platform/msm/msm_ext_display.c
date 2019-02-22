@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"%s: " fmt, __func__
@@ -14,6 +14,7 @@
 #include <linux/types.h>
 #include <linux/of_platform.h>
 #include <linux/msm_ext_display.h>
+#include <linux/extcon-provider.h>
 
 struct msm_ext_disp_list {
 	struct msm_ext_disp_init_data *data;

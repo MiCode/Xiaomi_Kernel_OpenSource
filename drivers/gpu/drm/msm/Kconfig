@@ -15,6 +15,7 @@ config DRM_MSM
 	select WANT_DEV_COREDUMP
 	select SND_SOC_HDMI_CODEC if SND_SOC
 	select SYNC_FILE
+	select MSM_EXT_DISPLAY
 	select PM_OPP
 	default y
 	help
