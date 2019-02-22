@@ -21,3 +21,9 @@ config IIO_ST_ASM330LHH_SPI
 	tristate
 	depends on IIO_ST_ASM330LHH
 
+config ENABLE_ASM_ACC_GYRO_BUFFERING
+        bool "Enable accel & gyro  boot time sensor sample buffering"
+        depends on IIO_ST_ASM330LHH
+        help
+         Say Y here if you want to buffer boot time sensor
+         samples for ASM330 accelerometer and gyroscope

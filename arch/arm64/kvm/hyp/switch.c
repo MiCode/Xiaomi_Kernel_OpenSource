@@ -112,7 +112,7 @@ static void __hyp_text __deactivate_traps_vhe(void)
 
 static void __hyp_text __deactivate_traps_nvhe(void)
 {
-	write_sysreg(HCR_RW, hcr_el2);
+	write_sysreg(HCR_HOST_NVHE_FLAGS, hcr_el2);
 	write_sysreg(CPTR_EL2_DEFAULT, cptr_el2);
 }
 

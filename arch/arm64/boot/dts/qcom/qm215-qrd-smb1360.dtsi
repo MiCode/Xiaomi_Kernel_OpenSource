@@ -37,26 +37,48 @@
 		};
 };
 
+&pm8916_gpios {
+	usb_id {
+		usb_id_default: usb_id_default {
+			pins = "gpio4";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			power-source = <0>;
+		};
+	};
+};
+
 &i2c_2 {
 	status ="ok";
 	smb1360_otg_supply: smb1360-chg-fg@14 {
 		compatible = "qcom,smb1360-chg-fg";
 		reg = <0x14>;
-		interrupt-parent = <&tlmm>;
-		interrupts = <13 8>;
+		interrupts-extended = <&tlmm 13 8>,
+				<&spmi_bus 0 0xc3 0 3>;
+		interrupt-names = "smb1360_stat_irq",
+				"smb1360_usb_id_irq";
 		pinctrl-names = "default";
-		pinctrl-0 = <&smb_int_default>;
+		pinctrl-0 = <&smb_int_default>,
+			<&usb_id_default>;
 		qcom,empty-soc-disabled;
 		qcom,chg-inhibit-disabled;
 		qcom,float-voltage-mv = <4400>;
 		qcom,iterm-ma = <100>;
 		qcom,recharge-thresh-mv = <100>;
 		qcom,thermal-mitigation = <1500 700 600 0>;
-		regulator-name = "smb1360_otg_vreg";
 		qcom,fg-batt-capacity-mah = <2800>;
 		qcom,fg-cutoff-voltage-mv = <3400>;
 		qcom,fg-iterm-ma = <130>;
 		qcom,fg-delta-soc = <1>;
+		qcom,usb-id-gpio = <&pm8916_gpios 4 0>;
+		qcom,soft-jeita-supported;
+		qcom,warm-bat-decidegc = <450>;
+		qcom,cool-bat-decidegc = <150>;
+		qcom,warm-bat-mv = <4200>;
+		qcom,cool-bat-mv = <4200>;
+		qcom,warm-bat-ma = <1000>;
+		qcom,cool-bat-ma = <1000>;
 		status= "okay";
 	};
 };

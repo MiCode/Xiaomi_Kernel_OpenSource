@@ -60,4 +60,11 @@ config INV_MPU_IIO_SPI
 	  This driver can be built as a module. The module will be called
 	  inv-mpu-iio-spi.
 
+config ENABLE_IAM_ACC_GYRO_BUFFERING
+	bool "Enable accel & gyro  boot time sensor sample buffering"
+	depends on INV_MPU_IIO
+	help
+	  Say Y here if you want to buffer boot time sensor
+	  samples for IAM20680 accelerometer and gyroscope
+
 source "drivers/iio/imu/inv_mpu/inv_test/Kconfig"

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2017 Qualcomm Atheros, Inc.
+ * Copyright (c) 2019, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -40,6 +41,11 @@ MODULE_PARM_DESC(rx_align_2, " align Rx buffers on 4*n+2, default - no");
 bool rx_large_buf;
 module_param(rx_large_buf, bool, 0444);
 MODULE_PARM_DESC(rx_large_buf, " allocate 8KB RX buffers, default - no");
+
+bool drop_if_ring_full;
+module_param(drop_if_ring_full, bool, 0444);
+MODULE_PARM_DESC(drop_if_ring_full,
+		 " drop Tx packets in case tx ring is full");
 
 static inline uint wil_rx_snaplen(void)
 {
@@ -323,14 +329,13 @@ static int wil_vring_alloc_skb(struct wil6210_priv *wil, struct vring *vring,
 		return -ENOMEM;
 	}
 
-	d->mac.pn_15_0 = 0;
-	d->mac.pn_47_16 = 0;
+	memset(d, 0, sizeof(*d));
 	d->dma.d0 = RX_DMA_D0_CMD_DMA_RT | RX_DMA_D0_CMD_DMA_IT;
 	wil_desc_addr_set(&d->dma.addr, pa);
 	/* ip_length don't care */
 	/* b11 don't care */
 	/* error don't care */
-	d->dma.status = 0; /* BIT(0) should be 0 for HW_OWNED */
+	/* BIT(0) of dma status should be 0 for HW_OWNED */
 	d->dma.length = cpu_to_le16(sz);
 	*_d = *d;
 	vring->ctx[i].skb = skb;
@@ -1691,6 +1696,11 @@ static int __wil_tx_vring_tso(struct wil6210_priv *wil, struct vring *vring,
 	 */
 	wmb();
 
+	if (wil->tx_latency)
+		*(ktime_t *)&skb->cb = ktime_get();
+	else
+		memset(skb->cb, 0, sizeof(ktime_t));
+
 	wil_w(wil, vring->hwtail, vring->swhead);
 	return 0;
 
@@ -1840,6 +1850,10 @@ static int __wil_tx_vring(struct wil6210_priv *wil, struct vring *vring,
 	 */
 	wmb();
 
+	if (wil->tx_latency)
+		*(ktime_t *)&skb->cb = ktime_get();
+	else
+		memset(skb->cb, 0, sizeof(ktime_t));
 	wil_w(wil, vring->hwtail, vring->swhead);
 
 	return 0;
@@ -1917,6 +1931,10 @@ static inline void __wil_update_net_queues(struct wil6210_priv *wil,
 	else
 		wil_dbg_txrx(wil, "check_stop=%d, stopped=%d",
 			     check_stop, wil->net_queue_stopped);
+
+	if (vring && drop_if_ring_full)
+		/* no need to stop/wake net queues */
+		return;
 
 	if (check_stop == wil->net_queue_stopped)
 		/* net queues already in desired state */
@@ -2040,6 +2058,8 @@ netdev_tx_t wil_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		dev_kfree_skb_any(skb);
 		return NETDEV_TX_OK;
 	case -ENOMEM:
+		if (drop_if_ring_full)
+			goto drop;
 		return NETDEV_TX_BUSY;
 	default:
 		break; /* goto drop; */
@@ -2065,6 +2085,31 @@ static inline void wil_consume_skb(struct sk_buff *skb, bool acked)
 		skb_complete_wifi_ack(skb, acked);
 	else
 		acked ? dev_consume_skb_any(skb) : dev_kfree_skb_any(skb);
+}
+
+void wil_tx_latency_calc(struct wil6210_priv *wil, struct sk_buff *skb,
+			 struct wil_sta_info *sta)
+{
+	int skb_time_us;
+	int bin;
+
+	if (!wil->tx_latency)
+		return;
+
+	if (ktime_to_ms(*(ktime_t *)&skb->cb) == 0)
+		return;
+
+	skb_time_us = ktime_us_delta(ktime_get(), *(ktime_t *)&skb->cb);
+	bin = skb_time_us / wil->tx_latency_res;
+	bin = min_t(int, bin, WIL_NUM_LATENCY_BINS - 1);
+
+	wil_dbg_txrx(wil, "skb time %dus => bin %d\n", skb_time_us, bin);
+	sta->tx_latency_bins[bin]++;
+	sta->stats.tx_latency_total_us += skb_time_us;
+	if (skb_time_us < sta->stats.tx_latency_min_us)
+		sta->stats.tx_latency_min_us = skb_time_us;
+	if (skb_time_us > sta->stats.tx_latency_max_us)
+		sta->stats.tx_latency_max_us = skb_time_us;
 }
 
 /**
@@ -2150,6 +2195,9 @@ int wil_tx_complete(struct wil6210_priv *wil, int ringid)
 					if (stats) {
 						stats->tx_packets++;
 						stats->tx_bytes += skb->len;
+
+						wil_tx_latency_calc(wil, skb,
+							&wil->sta[cid]);
 					}
 				} else {
 					ndev->stats.tx_errors++;

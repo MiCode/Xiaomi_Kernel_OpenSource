@@ -372,6 +372,34 @@ config CRYPTO_KEYWRAP
 	  Support for key wrapping (NIST SP800-38F / RFC3394) without
 	  padding.
 
+config CRYPTO_NHPOLY1305
+	tristate
+	select CRYPTO_HASH
+	select CRYPTO_POLY1305
+
+config CRYPTO_ADIANTUM
+	tristate "Adiantum support"
+	select CRYPTO_CHACHA20
+	select CRYPTO_POLY1305
+	select CRYPTO_NHPOLY1305
+	help
+	  Adiantum is a tweakable, length-preserving encryption mode
+	  designed for fast and secure disk encryption, especially on
+	  CPUs without dedicated crypto instructions.  It encrypts
+	  each sector using the XChaCha12 stream cipher, two passes of
+	  an ε-almost-∆-universal hash function, and an invocation of
+	  the AES-256 block cipher on a single 16-byte block.  On CPUs
+	  without AES instructions, Adiantum is much faster than
+	  AES-XTS.
+
+	  Adiantum's security is provably reducible to that of its
+	  underlying stream and block ciphers, subject to a security
+	  bound.  Unlike XTS, Adiantum is a true wide-block encryption
+	  mode, so it actually provides an even stronger notion of
+	  security than XTS, subject to the security bound.
+
+	  If unsure, say N.
+
 comment "Hash modes"
 
 config CRYPTO_CMAC
@@ -1301,17 +1329,25 @@ config CRYPTO_SALSA20_X86_64
 	  Bernstein <djb@cr.yp.to>. See <http://cr.yp.to/snuffle.html>
 
 config CRYPTO_CHACHA20
-	tristate "ChaCha20 cipher algorithm"
+	tristate "ChaCha stream cipher algorithms"
 	select CRYPTO_BLKCIPHER
 	help
-	  ChaCha20 cipher algorithm, RFC7539.
+	  The ChaCha20, XChaCha20, and XChaCha12 stream cipher algorithms.
 
 	  ChaCha20 is a 256-bit high-speed stream cipher designed by Daniel J.
 	  Bernstein and further specified in RFC7539 for use in IETF protocols.
-	  This is the portable C implementation of ChaCha20.
-
-	  See also:
+	  This is the portable C implementation of ChaCha20.  See also:
 	  <http://cr.yp.to/chacha/chacha-20080128.pdf>
+
+	  XChaCha20 is the application of the XSalsa20 construction to ChaCha20
+	  rather than to Salsa20.  XChaCha20 extends ChaCha20's nonce length
+	  from 64 bits (or 96 bits using the RFC7539 convention) to 192 bits,
+	  while provably retaining ChaCha20's security.  See also:
+	  <https://cr.yp.to/snuffle/xsalsa-20081128.pdf>
+
+	  XChaCha12 is XChaCha20 reduced to 12 rounds, with correspondingly
+	  reduced security margin but increased performance.  It can be needed
+	  in some performance-sensitive scenarios.
 
 config CRYPTO_CHACHA20_X86_64
 	tristate "ChaCha20 cipher algorithm (x86_64/SSSE3/AVX2)"

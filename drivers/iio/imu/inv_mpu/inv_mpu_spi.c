@@ -177,7 +177,7 @@ static int inv_mpu_probe(struct spi_device *spi)
 	&& !defined(CONFIG_INV_MPU_IIO_IAM20680)
 	st->i2c_dis = BIT_I2C_IF_DIS;
 #endif
-	st->bus_type = BUS_SPI;
+	st->bus_type = BUS_IIO_SPI;
 	spi_set_drvdata(spi, indio_dev);
 	indio_dev->dev.parent = &spi->dev;
 	indio_dev->name = id->name;

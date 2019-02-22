@@ -804,7 +804,7 @@ static int calc_signature(struct ceph_x_authorizer *au, struct ceph_msg *msg,
 	void *enc_buf = au->enc_buf;
 	int ret;
 
-	if (msg->con->peer_features & CEPH_FEATURE_CEPHX_V2) {
+	if (!(msg->con->peer_features & CEPH_FEATURE_CEPHX_V2)) {
 		struct {
 			__le32 len;
 			__le32 header_crc;

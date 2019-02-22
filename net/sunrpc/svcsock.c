@@ -572,7 +572,7 @@ static int svc_udp_recvfrom(struct svc_rqst *rqstp)
 		/* Don't enable netstamp, sunrpc doesn't
 		   need that much accuracy */
 	}
-	svsk->sk_sk->sk_stamp = skb->tstamp;
+	sock_write_timestamp(svsk->sk_sk, skb->tstamp);
 	set_bit(XPT_DATA, &svsk->sk_xprt.xpt_flags); /* there may be more data... */
 
 	len  = skb->len;
@@ -1195,7 +1195,7 @@ static int svc_tcp_sendto(struct svc_rqst *rqstp)
 /*
  * Setup response header. TCP has a 4B record length field.
  */
-static void svc_tcp_prep_reply_hdr(struct svc_rqst *rqstp)
+void svc_tcp_prep_reply_hdr(struct svc_rqst *rqstp)
 {
 	struct kvec *resv = &rqstp->rq_res.head[0];
 
