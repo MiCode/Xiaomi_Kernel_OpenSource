@@ -1057,6 +1057,11 @@ static int fg_gen4_get_ttf_param(void *data, enum ttf_param param, int *val)
 	case TTF_VBAT:
 		rc = fg_get_battery_voltage(fg, val);
 		break;
+	case TTF_OCV:
+		rc = fg_get_sram_prop(fg, FG_SRAM_OCV, val);
+		if (rc < 0)
+			pr_err("Failed to get battery OCV, rc=%d\n", rc);
+		break;
 	case TTF_IBAT:
 		rc = fg_get_battery_current(fg, val);
 		break;
@@ -1090,6 +1095,8 @@ static int fg_gen4_get_ttf_param(void *data, enum ttf_param param, int *val)
 			*val = TTF_MODE_QNOVO;
 		else if (chip->ttf->step_chg_cfg_valid)
 			*val = TTF_MODE_V_STEP_CHG;
+		else if (chip->ttf->ocv_step_chg_cfg_valid)
+			*val = TTF_MODE_OCV_STEP_CHG;
 		else
 			*val = TTF_MODE_NORMAL;
 		break;
@@ -1595,6 +1602,12 @@ static int qpnp_fg_gen4_get_step_charging_params(struct fg_gen4_chip *chip,
 
 		chip->ttf->step_chg_num_params = tuple_len;
 		chip->ttf->step_chg_cfg_valid = true;
+		if (of_property_read_bool(profile_node,
+					   "qcom,ocv-based-step-chg")) {
+			chip->ttf->step_chg_cfg_valid = false;
+			chip->ttf->ocv_step_chg_cfg_valid = true;
+		}
+
 		mutex_unlock(&chip->ttf->lock);
 
 		if (chip->ttf->step_chg_cfg_valid) {
