@@ -20,3 +20,19 @@
 &restart_pshold {
 	qcom,force-warm-reboot;
 };
+
+&cnss_qca6390 {
+	status = "disabled";
+};
+
+&pcie0 {
+	status = "disabled";
+};
+
+&pcie_ep {
+	status = "ok";
+};
+
+&mhi_device {
+	status = "ok";
+};
