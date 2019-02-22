@@ -1894,7 +1894,8 @@ static void dp_display_convert_to_dp_mode(struct dp_display *dp_display,
 	if (free_dsc_blks >= required_dsc_blks)
 		dp_mode->capabilities |= DP_PANEL_CAPS_DSC;
 
-	pr_debug("in_use:%d, max:%d, free:%d, req:%d, caps:0x%x, width:%d\n",
+	if (dp_mode->capabilities & DP_PANEL_CAPS_DSC)
+		pr_debug("in_use:%d, max:%d, free:%d, req:%d, caps:0x%x, width:%d\n",
 			dp->tot_dsc_blks_in_use, dp->parser->max_dp_dsc_blks,
 			free_dsc_blks, required_dsc_blks, dp_mode->capabilities,
 			dp->parser->max_dp_dsc_input_width_pixs);
