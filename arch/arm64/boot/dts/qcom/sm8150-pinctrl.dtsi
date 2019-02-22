@@ -253,6 +253,20 @@
 		};
 
 		qupv3_se13_4uart_pins: qupv3_se13_4uart_pins {
+			qupv3_se13_pins_default: qupv3_se13_pins_default {
+				mux {
+					pins = "gpio43", "gpio44", "gpio45",
+								"gpio46";
+					function = "gpio";
+					};
+
+				config {
+					pins = "gpio43", "gpio44", "gpio45",
+								"gpio46";
+					drive-strength = <2>;
+					bias-disable;
+					};
+			};
 			qupv3_se13_ctsrx: qupv3_se13_ctsrx {
 				mux {
 					pins = "gpio43", "gpio46";
