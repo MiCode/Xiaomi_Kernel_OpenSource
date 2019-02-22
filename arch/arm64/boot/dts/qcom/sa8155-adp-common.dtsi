@@ -183,6 +183,10 @@
 
 &usb0 {
 	qcom,host-poweroff-in-pm-suspend;
+	dwc3@a600000 {
+		usb-phy = <&usb2_phy0>, <&usb_nop_phy>;
+		maximum-speed = "high-speed";
+	};
 };
 
 &usb2_phy0 {
@@ -191,6 +195,10 @@
 		 0x01 0xb0>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&usb2phy_ac_en1_default>;
+};
+
+&usb_qmp_dp_phy {
+	status = "disabled";
 };
 
 &usb1 {
