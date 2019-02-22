@@ -6398,7 +6398,7 @@ void voc_config_vocoder(uint32_t media_type,
 
 static int32_t qdsp_mvm_callback(struct apr_client_data *data, void *priv)
 {
-	uint32_t *ptr = NULL;
+	uint32_t *ptr = NULL, min_payload_size = 0;
 	struct common_data *c = NULL;
 	struct voice_data *v = NULL;
 	int i = 0;
@@ -6468,7 +6468,7 @@ static int32_t qdsp_mvm_callback(struct apr_client_data *data, void *priv)
 	}
 
 	if (data->opcode == APR_BASIC_RSP_RESULT) {
-		if (data->payload_size) {
+		if (data->payload_size >= sizeof(ptr[0]) * 2) {
 			ptr = data->payload;
 
 			pr_debug("%x %x\n", ptr[0], ptr[1]);
@@ -6534,6 +6534,12 @@ static int32_t qdsp_mvm_callback(struct apr_client_data *data, void *priv)
 		}
 	} else if (data->opcode == VSS_IMEMORY_RSP_MAP) {
 		pr_debug("%s, Revd VSS_IMEMORY_RSP_MAP response\n", __func__);
+
+		if (data->payload_size < sizeof(ptr[0])) {
+			pr_err("%s: payload has invalid size[%d]\n", __func__,
+			       data->payload_size);
+			return -EINVAL;
+		}
 
 		if (data->payload_size && data->token == VOIP_MEM_MAP_TOKEN) {
 			ptr = data->payload;
@@ -6602,10 +6608,15 @@ static int32_t qdsp_mvm_callback(struct apr_client_data *data, void *priv)
 		pr_debug("%s: Received VSS_IVERSION_RSP_GET\n", __func__);
 
 		if (data->payload_size) {
+			min_payload_size = (data->payload_size >
+					    CVD_VERSION_STRING_MAX_SIZE)
+					    ? CVD_VERSION_STRING_MAX_SIZE :
+					    data->payload_size;
 			version_rsp =
 				(struct vss_iversion_rsp_get_t *)data->payload;
 			memcpy(common.cvd_version, version_rsp->version,
-			       CVD_VERSION_STRING_MAX_SIZE);
+			       min_payload_size);
+			common.cvd_version[min_payload_size - 1] = '\0';
 			pr_debug("%s: CVD Version = %s\n",
 				 __func__, common.cvd_version);
 
