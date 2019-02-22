@@ -1499,6 +1499,8 @@ static int cpp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	uint32_t i;
 	int rc = -1;
+	int counter = 0;
+	u32 result = 0;
 	struct cpp_device *cpp_dev = NULL;
 	struct msm_device_queue *processing_q = NULL;
 	struct msm_device_queue *eventData_q = NULL;
@@ -1579,6 +1581,26 @@ static int cpp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x88));
 		pr_debug("DEBUG_R1: 0x%x\n",
 			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x8C));
+		/* mask IRQ status */
+		msm_camera_io_w(0xB, cpp_dev->cpp_hw_base + 0xC);
+
+		while (counter < MSM_CPP_AXI_RESET_RETRIES) {
+			/* MMSS_A_CPP_AXI_CMD = 0x16C, reset 0x1*/
+			msm_camera_io_w(0x1, cpp_dev->cpp_hw_base + 0x16C);
+			usleep_range(100, 200);
+			result = msm_camera_io_r(cpp_dev->cpp_hw_base + 0x16C);
+			if (result & 0x1) {
+				pr_debug("CPP AXI reset successful result %d",
+					 result);
+				break;
+			}
+			counter++;
+		}
+
+		if (!(result & 0x1))
+			pr_err("CPP AXI reset un-successful result %d",
+				 result);
+
 		msm_camera_io_w(0x0, cpp_dev->base + MSM_CPP_MICRO_CLKEN_CTL);
 		msm_cpp_clear_timer(cpp_dev);
 		cpp_release_hardware(cpp_dev);
