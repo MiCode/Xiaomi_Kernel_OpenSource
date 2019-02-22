@@ -252,6 +252,7 @@
 #define SYSTEM_LAL_TILE10 192
 #define NUM_MBS_720P (((1280 + 15) >> 4) * ((720 + 15) >> 4))
 #define NUM_MBS_4k (((4096 + 15) >> 4) * ((2304 + 15) >> 4))
+#define MB_SIZE_IN_PIXEL (16 * 16)
 
 static inline u32 calculate_h264d_scratch_size(struct msm_vidc_inst *inst,
 	u32 width, u32 height, bool is_interlaced);
@@ -765,7 +766,7 @@ u32 msm_vidc_calculate_dec_input_frame_size(struct msm_vidc_inst *inst)
 			div_factor = 2;
 	}
 
-	frame_size = base_res_mbs * 3 / 2 / div_factor;
+	frame_size = base_res_mbs * MB_SIZE_IN_PIXEL * 3 / 2 / div_factor;
 	 /* multiply by 10/8 (1.25) to get size for 10 bit case */
 	if ((inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_VP9) ||
 		(inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_HEVC))
