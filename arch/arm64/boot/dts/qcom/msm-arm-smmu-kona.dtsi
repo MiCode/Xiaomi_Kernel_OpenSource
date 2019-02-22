@@ -41,6 +41,14 @@
 				<GIC_SPI 684 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 685 IRQ_TYPE_LEVEL_HIGH>;
 
+		qcom,actlr =
+			/* All CBs of GFX: +15 deep PF */
+			<0x2 0x400 0x303>,
+			<0x4 0x400 0x303>,
+			<0x5 0x400 0x303>,
+			<0x7 0x400 0x303>,
+			<0x0 0x401 0x303>;
+
 		gfx_0_tbu: gfx_0_tbu@3dc5000 {
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x3DC5000 0x1000>,
@@ -179,6 +187,23 @@
 			<MSM_BUS_MASTER_GEM_NOC_SNOC>,
 			<MSM_BUS_SLAVE_IMEM_CFG>,
 			<0 1000>;
+
+		qcom,actlr =
+			/* For HF-0 TBU +3 deep PF */
+			<0x800 0x3ff 0x103>,
+			/* For HF-1 TBU +3 deep PF */
+			<0xC00 0x3ff 0x103>,
+			/* For SF-0 TBU +3 deep PF */
+			<0x2000 0x3ff 0x103>,
+			/* For SF-1 TBU +3 deep PF */
+			<0x2400 0x3ff 0x103>,
+			/* For NPU +3 deep PF */
+			<0x1081 0x400 0x103>,
+			<0x1082 0x400 0x103>,
+			<0x1085 0x400 0x103>,
+			<0x10a1 0x400 0x103>,
+			<0x10a2 0x400 0x103>,
+			<0x10a5 0x400 0x103>;
 
 		anoc_1_tbu: anoc_1_tbu@15185000 {
 			compatible = "qcom,qsmmuv500-tbu";
