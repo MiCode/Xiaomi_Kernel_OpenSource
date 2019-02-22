@@ -182,6 +182,7 @@
 };
 
 &usb0 {
+	qcom,default-mode-none;
 	qcom,host-poweroff-in-pm-suspend;
 	dwc3@a600000 {
 		usb-phy = <&usb2_phy0>, <&usb_nop_phy>;
