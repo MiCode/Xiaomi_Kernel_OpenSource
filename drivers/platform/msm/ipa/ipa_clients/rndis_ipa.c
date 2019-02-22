@@ -183,6 +183,7 @@ enum rndis_ipa_operation {
  * @state_lock: used to protect the state variable.
  * @pm_hdl: handle for IPA PM framework
  * @is_vlan_mode: should driver work in vlan mode?
+ * @netif_rx_function: holds the correct network stack API, needed for NAPI
  */
 struct rndis_ipa_dev {
 	struct net_device *net;
@@ -212,6 +213,7 @@ struct rndis_ipa_dev {
 	spinlock_t state_lock; /* Spinlock for the state variable.*/
 	u32 pm_hdl;
 	bool is_vlan_mode;
+	int (*netif_rx_function)(struct sk_buff *skb);
 };
 
 /**
@@ -622,6 +624,14 @@ int rndis_ipa_init(struct ipa_usb_init_params *params)
 	RNDIS_IPA_DEBUG
 		("netdev:%s registration succeeded, index=%d\n",
 		net->name, net->ifindex);
+
+	if (ipa_get_lan_rx_napi()) {
+		rndis_ipa_ctx->netif_rx_function = netif_receive_skb;
+		RNDIS_IPA_DEBUG("LAN RX NAPI enabled = True");
+	} else {
+		rndis_ipa_ctx->netif_rx_function = netif_rx_ni;
+		RNDIS_IPA_DEBUG("LAN RX NAPI enabled = False");
+	}
 
 	rndis_ipa = rndis_ipa_ctx;
 	params->ipa_rx_notify = rndis_ipa_packet_receive_notify;
@@ -1139,9 +1149,9 @@ static void rndis_ipa_packet_receive_notify(
 	}
 
 	trace_rndis_netif_ni(skb->protocol);
-	result = netif_rx_ni(skb);
+	result = rndis_ipa_ctx->netif_rx_function(skb);
 	if (unlikely(result))
-		RNDIS_IPA_ERROR("fail on netif_rx_ni\n");
+		RNDIS_IPA_ERROR("fail on netif_rx_function\n");
 	rndis_ipa_ctx->net->stats.rx_packets++;
 	rndis_ipa_ctx->net->stats.rx_bytes += packet_len;
 }
