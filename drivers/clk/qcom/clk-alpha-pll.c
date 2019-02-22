@@ -1512,6 +1512,9 @@ static void clk_alpha_pll_custom_configure(struct clk_alpha_pll *pll,
 void clk_lucid_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 				const struct alpha_pll_config *config)
 {
+	if (lucid_pll_is_enabled(pll, regmap))
+		return;
+
 	if (config->l)
 		regmap_write(regmap, PLL_L_VAL(pll), config->l);
 
