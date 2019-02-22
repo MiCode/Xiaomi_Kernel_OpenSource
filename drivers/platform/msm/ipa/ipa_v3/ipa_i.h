@@ -16,6 +16,7 @@
 #include <linux/slab.h>
 #include <linux/notifier.h>
 #include <linux/interrupt.h>
+#include <linux/netdevice.h>
 #include <linux/ipa.h>
 #include <linux/ipa_usb.h>
 #include <linux/iommu.h>
@@ -1763,6 +1764,9 @@ struct ipa3_pc_mbox_data {
  * @wdi3_ctx: IPA wdi3 context
  * @gsi_info: channel/protocol info for GSI offloading uC stats
  * IPA context - holds all relevant info about IPA driver and its state
+ * @lan_rx_napi_enable: flag if NAPI is enabled on the LAN dp
+ * @lan_ndev: dummy netdev for LAN rx NAPI
+ * @napi_lan_rx: NAPI object for LAN rx
  */
 struct ipa3_context {
 	struct ipa3_char_device_context cdev;
@@ -1932,6 +1936,10 @@ struct ipa3_context {
 		gsi_info[IPA_HW_PROTOCOL_MAX];
 	bool ipa_wan_skb_page;
 	struct ipacm_fnr_info fnr_info;
+	/* dummy netdev for lan RX NAPI */
+	bool lan_rx_napi_enable;
+	struct net_device lan_ndev;
+	struct napi_struct napi_lan_rx;
 };
 
 struct ipa3_plat_drv_res {
@@ -1964,6 +1972,7 @@ struct ipa3_plat_drv_res {
 	bool apply_rg10_wa;
 	bool gsi_ch20_wa;
 	bool tethered_flow_control;
+	bool lan_rx_napi_enable;
 	u32 mhi_evid_limits[2]; /* start and end values */
 	bool ipa_mhi_dynamic_config;
 	u32 ipa_tz_unlock_reg_num;
@@ -2703,6 +2712,8 @@ u8 ipa3_get_qmb_master_sel(enum ipa_client_type client);
 int ipa3_get_smmu_params(struct ipa_smmu_in_params *in,
 	struct ipa_smmu_out_params *out);
 
+bool ipa3_get_lan_rx_napi(void);
+
 /* internal functions */
 
 int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
@@ -2996,6 +3007,7 @@ int ipa3_register_ipa_ready_cb(void (*ipa_ready_cb)(void *), void *user_data);
 const char *ipa_hw_error_str(enum ipa3_hw_errors err_type);
 int ipa_gsi_ch20_wa(void);
 int ipa3_rx_poll(u32 clnt_hdl, int budget);
+int ipa3_lan_rx_poll(u32 clnt_hdl, int weight);
 int ipa3_smmu_map_peer_reg(phys_addr_t phys_addr, bool map,
 	enum ipa_smmu_cb_type cb_type);
 int ipa3_smmu_map_peer_buff(u64 iova, u32 size, bool map, struct sg_table *sgt,

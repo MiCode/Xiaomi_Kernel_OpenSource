@@ -7316,6 +7316,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 		ipa3_register_client_callback;
 	api_ctrl->ipa_deregister_client_callback =
 		ipa3_deregister_client_callback;
+	api_ctrl->ipa_get_lan_rx_napi = ipa3_get_lan_rx_napi;
 	return 0;
 }
 
