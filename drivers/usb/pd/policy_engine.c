@@ -900,10 +900,12 @@ static void kick_sm(struct usbpd *pd, int ms)
 	pm_stay_awake(&pd->dev);
 	pd->sm_queued = true;
 
-	if (ms)
+	if (ms) {
+		usbpd_dbg(&pd->dev, "delay %d ms", ms);
 		hrtimer_start(&pd->timer, ms_to_ktime(ms), HRTIMER_MODE_REL);
-	else
+	} else {
 		queue_work(pd->wq, &pd->sm_work);
+	}
 }
 
 static void phy_sig_received(struct usbpd *pd, enum pd_sig_type sig)
@@ -1170,7 +1172,6 @@ static enum hrtimer_restart pd_timeout(struct hrtimer *timer)
 {
 	struct usbpd *pd = container_of(timer, struct usbpd, timer);
 
-	usbpd_dbg(&pd->dev, "timeout");
 	queue_work(pd->wq, &pd->sm_work);
 
 	return HRTIMER_NORESTART;
