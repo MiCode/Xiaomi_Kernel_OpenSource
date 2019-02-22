@@ -215,6 +215,7 @@
 
 		pcie0_rp: pcie0_rp {
 			reg = <0 0 0 0 0>;
+			pci-ids = "17cb:010c";
 		};
 	};
 

@@ -22,8 +22,7 @@ void pci_set_of_node(struct pci_dev *dev)
 {
 	if (!dev->bus->dev.of_node)
 		return;
-	dev->dev.of_node = of_pci_find_child_device(dev->bus->dev.of_node,
-						    dev->devfn);
+	dev->dev.of_node = of_pci_find_child_device(dev);
 
 	if (dev->dev.of_node)
 		of_reserved_mem_device_init_by_idx(&dev->dev, dev->dev.of_node,
