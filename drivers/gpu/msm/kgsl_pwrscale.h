@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -71,6 +71,7 @@ struct kgsl_pwr_history {
 /**
  * struct kgsl_pwrscale - Power scaling settings for a KGSL device
  * @devfreqptr - Pointer to the devfreq device
+ * @bus_devfreq - Pointer to the bus devfreq device
  * @gpu_profile - GPU profile data for the devfreq device
  * @bus_profile - Bus specific data for the bus devfreq device
  * @freq_table - GPU frequencies for the DCVS algorithm
@@ -99,6 +100,7 @@ struct kgsl_pwr_history {
  */
 struct kgsl_pwrscale {
 	struct devfreq *devfreqptr;
+	struct devfreq *bus_devfreq;
 	struct msm_adreno_extended_profile gpu_profile;
 	struct msm_busmon_extended_profile bus_profile;
 	unsigned long freq_table[KGSL_MAX_PWRLEVELS];
