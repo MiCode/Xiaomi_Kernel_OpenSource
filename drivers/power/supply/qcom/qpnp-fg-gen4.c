@@ -3251,9 +3251,15 @@ static void esr_calib_work(struct work_struct *work)
 	fg_dbg(fg, FG_STATUS, "esr_raw: 0x%x esr_char_raw: 0x%x esr_meas_diff: 0x%x esr_delta: 0x%x\n",
 		esr_raw, esr_char_raw, esr_meas_diff, esr_delta);
 
-	fg_esr_meas_diff = esr_delta - esr_meas_diff;
-	esr_filtered = fg_esr_meas_diff >> chip->dt.esr_filter_factor;
-	esr_delta = esr_delta - esr_filtered;
+	fg_esr_meas_diff = esr_meas_diff - (esr_delta / 32);
+
+	/* Don't filter for the first attempt so that ESR can converge faster */
+	if (!chip->delta_esr_count)
+		esr_filtered = fg_esr_meas_diff;
+	else
+		esr_filtered = fg_esr_meas_diff >> chip->dt.esr_filter_factor;
+
+	esr_delta = esr_delta + (esr_filtered * 32);
 
 	/* Bound the limits */
 	if (esr_delta > SHRT_MAX)
