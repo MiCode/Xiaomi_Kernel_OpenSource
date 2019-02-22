@@ -268,6 +268,11 @@ struct msm_vidc_vui_display_info_payload {
 	__u32 chroma_sample_loc_type_bottom_field;
 };
 
+#define  MSM_VIDC_EXTRADATA_HDR_HIST 0x7F100008
+struct msm_vidc_extradata_hdr_hist_payload {
+	__u32 value_count[1024];
+};
+
 #define MSM_VIDC_EXTRADATA_MPEG2_SEQDISP 0x0000000D
 struct msm_vidc_mpeg2_seqdisp_payload {
 	__u32 video_format;
