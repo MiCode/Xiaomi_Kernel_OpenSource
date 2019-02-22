@@ -60,6 +60,8 @@
 	qcom,wsa-max-devs = <1>;
 	qcom,wsa-devs = <&wsa881x_0212>, <&wsa881x_0214>;
 	qcom,wsa-aux-dev-prefix = "SpkrRight", "SpkrRight";
+
+	qcom,msm-mbhc-usbc-audio-supported = <1>;
 };
 
 &qupv3_se1_i2c {
