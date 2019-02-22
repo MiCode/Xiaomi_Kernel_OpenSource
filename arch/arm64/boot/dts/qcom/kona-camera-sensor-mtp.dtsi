@@ -304,14 +304,12 @@
 		pinctrl-1 = <&cam_sensor_mclk3_suspend
 				 &cam_sensor_suspend_3>;
 		gpios = <&tlmm 97 0>,
-			<&tlmm 109 0>,
-			<&pm8009_gpios 1 0>;
+			<&tlmm 109 0>;
 		gpio-reset = <1>;
-		gpio-req-tbl-num = <0 1 2>;
-		gpio-req-tbl-flags = <1 0 0>;
+		gpio-req-tbl-num = <0 1>;
+		gpio-req-tbl-flags = <1 0>;
 		gpio-req-tbl-label = "CAMIF_MCLK3",
-					"CAM_RESET3",
-					"TOF_VDD_EN";
+					"CAM_RESET3";
 		sensor-mode = <0>;
 		cci-master = <1>;
 		status = "ok";
