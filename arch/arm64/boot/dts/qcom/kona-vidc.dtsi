@@ -51,17 +51,17 @@
 			qcom,bus-master = <MSM_BUS_MASTER_AMPSS_M0>;
 			qcom,bus-slave = <MSM_BUS_SLAVE_VENUS_CFG>;
 			qcom,bus-governor = "performance";
-			qcom,bus-range-kbps = <1000 1000>;
+			qcom,bus-range-kbps = <762 762>;
 			operating-points-v2 = <&venus_bus_cnoc_bw_table>;
 		};
 
 		venus_bus_ddr {
 			compatible = "qcom,msm-vidc,bus";
 			label = "venus-ddr";
-			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
+			qcom,bus-master = <MSM_BUS_MASTER_LLCC>;
 			qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
 			qcom,bus-governor = "msm-vidc-ddr";
-			qcom,bus-range-kbps = <1000 6533000>;
+			qcom,bus-range-kbps = <762 6533000>;
 			operating-points-v2 = <&ddr_bw_opp_table>;
 		};
 
@@ -71,7 +71,7 @@
 			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
 			qcom,bus-slave = <MSM_BUS_SLAVE_LLCC>;
 			qcom,bus-governor = "msm-vidc-llcc";
-			qcom,bus-range-kbps = <1000 6533000>;
+			qcom,bus-range-kbps = <2288 6533000>;
 			operating-points-v2 = <&llcc_bw_opp_table>;
 		};
 
