@@ -2830,6 +2830,63 @@ out:
 	return ret;
 }
 
+static void cnss_pci_disable_l1(struct cnss_pci_data *pci_priv)
+{
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+	struct pci_dev *pdev = pci_priv->pci_dev;
+	bool disable_l1 = false;
+	u32 lnkctl_offset;
+	u32 val;
+
+	if (of_property_read_bool(plat_priv->dev_node, "pcie-disable-l1"))
+		disable_l1 = true;
+
+	cnss_pr_dbg("disable_l1 %d\n", disable_l1);
+
+	if (!disable_l1)
+		return;
+
+	lnkctl_offset = pdev->pcie_cap + PCI_EXP_LNKCTL;
+	pci_read_config_dword(pdev, lnkctl_offset, &val);
+	cnss_pr_dbg("lnkctl 0x%x\n", val);
+
+	val &= ~PCI_EXP_LNKCTL_ASPM_L1;
+	pci_write_config_dword(pdev, lnkctl_offset, val);
+}
+
+static void cnss_pci_disable_l1ss(struct cnss_pci_data *pci_priv)
+{
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+	struct pci_dev *pdev = pci_priv->pci_dev;
+	bool disable_l1ss = false;
+	u32 l1ss_cap_id_offset;
+	u32 l1ss_ctl1_offset;
+	u32 val;
+
+	if (of_property_read_bool(plat_priv->dev_node, "pcie-disable-l1ss"))
+		disable_l1ss = true;
+
+	cnss_pr_dbg("disable_l1ss %d\n", disable_l1ss);
+
+	if (!disable_l1ss)
+		return;
+
+	l1ss_cap_id_offset = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_L1SS);
+	if (!l1ss_cap_id_offset) {
+		cnss_pr_dbg("could not find L1ss capability register\n");
+		return;
+	}
+
+	l1ss_ctl1_offset = l1ss_cap_id_offset + PCI_L1SS_CTL1;
+
+	pci_read_config_dword(pdev, l1ss_ctl1_offset, &val);
+	cnss_pr_dbg("l1ss_ctl1 0x%x\n", val);
+
+	val &= ~(PCI_L1SS_CTL1_PCIPM_L1_1 | PCI_L1SS_CTL1_PCIPM_L1_2 |
+		 PCI_L1SS_CTL1_ASPM_L1_1 | PCI_L1SS_CTL1_ASPM_L1_2);
+	pci_write_config_dword(pdev, l1ss_ctl1_offset, val);
+}
+
 static int cnss_pci_probe(struct pci_dev *pci_dev,
 			  const struct pci_device_id *id)
 {
@@ -2898,6 +2955,9 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 
 	pci_save_state(pci_dev);
 	pci_priv->default_state = pci_store_saved_state(pci_dev);
+
+	cnss_pci_disable_l1(pci_priv);
+	cnss_pci_disable_l1ss(pci_priv);
 
 	switch (pci_dev->device) {
 	case QCA6174_DEVICE_ID:

@@ -74,6 +74,8 @@ Optional properties:
                           optional "supply-name" is "vdd-wlan-rfa".
   - qcom,<supply-name>-info: Specifies configuration for supply. Should be
                              specified in <min_uV max_uV load_uA delay_us>.
+  - pcie-disable-l1: Boolean property to decide whether to disable PCIe L1 PM.
+  - pcie-disable-l1ss: Boolean property to decide whether to disable PCIe L1ss.
 
 List of chip specific sub nodes:
   - chip_cfg@X: represent chip specific configurations
