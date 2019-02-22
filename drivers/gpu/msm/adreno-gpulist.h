@@ -454,7 +454,6 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.patchid = 0,
 		.features = ADRENO_64BIT | ADRENO_RPMH | ADRENO_GPMU,
 		.sqefw_name = "a650_sqe.fw",
-		.zap_name = "a650_zap",
 		.gpudev = &adreno_a6xx_gpudev,
 		.gmem_size = SZ_1M + SZ_128K, /* verified 1152kB */
 		.num_protected_regs = 0x30,
