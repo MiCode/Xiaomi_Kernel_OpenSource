@@ -1126,9 +1126,9 @@ static int gmu_clocks_probe(struct gmu_device *gmu, struct device_node *node)
 
 static int gmu_gpu_bw_probe(struct kgsl_device *device, struct gmu_device *gmu)
 {
-	struct msm_bus_scale_pdata *bus_scale_table;
+	struct msm_bus_scale_pdata *bus_scale_table =
+		kgsl_get_bus_scale_table(device);
 
-	bus_scale_table = msm_bus_cl_get_pdata(device->pdev);
 	if (bus_scale_table == NULL) {
 		dev_err(&gmu->pdev->dev, "dt: cannot get bus table\n");
 		return -ENODEV;

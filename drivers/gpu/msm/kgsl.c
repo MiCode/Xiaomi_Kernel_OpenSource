@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2008-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
  */
 #include <linux/module.h>
 #include <linux/fb.h>
@@ -26,6 +26,8 @@
 #include <linux/ion.h>
 #include <asm/cacheflush.h>
 #include <uapi/linux/sched/types.h>
+#include <linux/of_fdt.h>
+#include <linux/msm-bus.h>
 
 #include "kgsl.h"
 #include "kgsl_debugfs.h"
@@ -1352,6 +1354,33 @@ static inline void kgsl_mem_entry_unset_pend(struct kgsl_mem_entry *entry)
 	spin_lock(&entry->priv->mem_lock);
 	entry->pending_free = 0;
 	spin_unlock(&entry->priv->mem_lock);
+}
+
+struct msm_bus_scale_pdata *kgsl_get_bus_scale_table(struct kgsl_device *device)
+{
+	struct device_node *child = NULL, *parent;
+	char str[24];
+
+	parent = device->pdev->dev.of_node;
+
+	snprintf(str, sizeof(str), "qcom,gpu-bus-table-ddr%d",
+		of_fdt_get_ddrtype());
+
+	child = of_find_compatible_node(parent, NULL, str);
+
+	/* Go with the first bus table node */
+	if (child == NULL)
+		child = of_find_compatible_node(parent, NULL,
+			"qcom,gpu-bus-table");
+
+	if (child) {
+		struct msm_bus_scale_pdata *data = msm_bus_pdata_from_node(
+					device->pdev, child);
+		of_node_put(child);
+		return data;
+	}
+
+	return msm_bus_cl_get_pdata(device->pdev);
 }
 
 /**
