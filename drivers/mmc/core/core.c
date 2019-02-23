@@ -543,6 +543,7 @@ out:
 int mmc_init_clk_scaling(struct mmc_host *host)
 {
 	int err;
+	struct devfreq *devfreq;
 
 	if (!host || !host->card) {
 		pr_err("%s: unexpected host/card parameters\n",
@@ -593,22 +594,34 @@ int mmc_init_clk_scaling(struct mmc_host *host)
 		return err;
 	}
 
+	dev_pm_opp_add(mmc_classdev(host),
+		host->clk_scaling.devfreq_profile.freq_table[0], 0);
+	dev_pm_opp_add(mmc_classdev(host),
+		host->clk_scaling.devfreq_profile.freq_table[1], 0);
+
 	pr_debug("%s: adding devfreq with: upthreshold=%u downthreshold=%u polling=%u\n",
 		mmc_hostname(host),
 		host->clk_scaling.ondemand_gov_data.upthreshold,
 		host->clk_scaling.ondemand_gov_data.downdifferential,
 		host->clk_scaling.devfreq_profile.polling_ms);
-	host->clk_scaling.devfreq = devfreq_add_device(
+
+	devfreq = devfreq_add_device(
 		mmc_classdev(host),
 		&host->clk_scaling.devfreq_profile,
 		"simple_ondemand",
 		&host->clk_scaling.ondemand_gov_data);
-	if (!host->clk_scaling.devfreq) {
+
+	if (IS_ERR(devfreq)) {
 		pr_err("%s: unable to register with devfreq\n",
 			mmc_hostname(host));
-		return -EPERM;
+		dev_pm_opp_remove(mmc_classdev(host),
+			host->clk_scaling.devfreq_profile.freq_table[0]);
+		dev_pm_opp_remove(mmc_classdev(host),
+			host->clk_scaling.devfreq_profile.freq_table[1]);
+		return PTR_ERR(devfreq);
 	}
 
+	host->clk_scaling.devfreq = devfreq;
 	pr_debug("%s: clk scaling is enabled for device %s (%pK) with devfreq %pK (clock = %uHz)\n",
 		mmc_hostname(host),
 		dev_name(mmc_classdev(host)),
@@ -764,6 +777,11 @@ int mmc_exit_clk_scaling(struct mmc_host *host)
 			mmc_hostname(host), err);
 		return err;
 	}
+
+	dev_pm_opp_remove(mmc_classdev(host),
+		host->clk_scaling.devfreq_profile.freq_table[0]);
+	dev_pm_opp_remove(mmc_classdev(host),
+		host->clk_scaling.devfreq_profile.freq_table[1]);
 
 	kfree(host->clk_scaling.devfreq_profile.freq_table);
 
