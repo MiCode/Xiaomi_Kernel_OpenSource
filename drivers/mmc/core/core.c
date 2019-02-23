@@ -1787,12 +1787,13 @@ int mmc_try_claim_host(struct mmc_host *host, unsigned int delay_ms)
 	unsigned long flags;
 	int retry_cnt = delay_ms/10;
 	bool pm = false;
+	struct task_struct *task = current;
 
 	do {
 		spin_lock_irqsave(&host->lock, flags);
-		if (!host->claimed || host->claimer->task == current) {
+		if (!host->claimed || mmc_ctx_matches(host, NULL, task)) {
 			host->claimed = 1;
-			host->claimer->task = current;
+			mmc_ctx_set_claimer(host, NULL, task);
 			host->claim_cnt += 1;
 			claimed_host = 1;
 			if (host->claim_cnt == 1)
