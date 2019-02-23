@@ -1600,7 +1600,7 @@ static void mhi_dev_queue_channel_db(struct mhi_dev *mhi,
 			ring = &mhi->ring[ch_num + mhi->ch_ring_start];
 			if (ring->state == RING_STATE_UINT) {
 				pr_debug("Channel not opened for %d\n", ch_num);
-				break;
+				continue;
 			}
 			mhi_ring_set_state(ring, RING_STATE_PENDING);
 			list_add(&ring->list, &mhi->process_ring_list);
@@ -1751,7 +1751,7 @@ static void mhi_dev_transfer_completion_cb(void *mreq)
 	ch = client->channel;
 	mhi = ch->ring->mhi_dev;
 	el = req->el;
-	transfer_len = req->len;
+	transfer_len = req->transfer_len;
 	snd_cmpl = req->snd_cmpl;
 	rd_offset = req->rd_offset;
 	ch->curr_ereq->context = ch;
@@ -2448,7 +2448,7 @@ int mhi_dev_read_channel(struct mhi_req *mreq)
 			(mreq->len - usr_buf_remaining);
 		ch->tre_bytes_left -= bytes_to_read;
 		mreq->el = el;
-		mreq->actual_len = bytes_read;
+		mreq->transfer_len = bytes_to_read;
 		mreq->rd_offset = ring->rd_offset;
 		mhi_log(MHI_MSG_VERBOSE, "reading %d bytes from chan %d\n",
 				bytes_to_read, mreq->chan);
@@ -2612,6 +2612,7 @@ int mhi_dev_write_channel(struct mhi_req *wreq)
 		write_to_loc = el->tre.data_buf_ptr;
 		wreq->rd_offset = ring->rd_offset;
 		wreq->el = el;
+		wreq->transfer_len = bytes_to_write;
 		rc = mhi_ctx->device_to_host(write_to_loc,
 						(void *) read_from_loc,
 						bytes_to_write,
@@ -3457,7 +3458,7 @@ static int __init mhi_dev_init(void)
 {
 	return platform_driver_register(&mhi_dev_driver);
 }
-module_init(mhi_dev_init);
+subsys_initcall(mhi_dev_init);
 
 static void __exit mhi_dev_exit(void)
 {
