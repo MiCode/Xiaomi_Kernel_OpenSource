@@ -1893,12 +1893,6 @@ static void __migrate_hrtimers(unsigned int scpu, bool remove_pinned)
 	unsigned long flags;
 	int i;
 
-	/*
-	 * this BH disable ensures that raise_softirq_irqoff() does
-	 * not wakeup ksoftirqd (and acquire the pi-lock) while
-	 * holding the cpu_base lock
-	 */
-	local_bh_disable();
 	local_irq_save(flags);
 	old_base = &per_cpu(hrtimer_bases, scpu);
 	new_base = this_cpu_ptr(&hrtimer_bases);
@@ -1926,7 +1920,6 @@ static void __migrate_hrtimers(unsigned int scpu, bool remove_pinned)
 	/* Check, if we got expired work to do */
 	__hrtimer_peek_ahead_timers();
 	local_irq_restore(flags);
-	local_bh_enable();
 }
 
 int hrtimers_dead_cpu(unsigned int scpu)
@@ -1934,7 +1927,14 @@ int hrtimers_dead_cpu(unsigned int scpu)
 	BUG_ON(cpu_online(scpu));
 	tick_cancel_sched_timer(scpu);
 
+	/*
+	 * this BH disable ensures that raise_softirq_irqoff() does
+	 * not wakeup ksoftirqd (and acquire the pi-lock) while
+	 * holding the cpu_base lock
+	 */
+	local_bh_disable();
 	__migrate_hrtimers(scpu, true);
+	local_bh_enable();
 	return 0;
 }
 
