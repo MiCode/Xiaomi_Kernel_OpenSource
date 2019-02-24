@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.*/
 
 #include <linux/interrupt.h>
 #include <linux/iommu.h>
@@ -55,10 +55,40 @@ static void msm_msi_handler(struct irq_desc *desc)
 	chained_irq_exit(chip, desc);
 }
 
+static void msm_msi_mask_irq(struct irq_data *data)
+{
+	struct irq_data *parent_data;
+
+	if (!data->parent_data)
+		return;
+
+	parent_data = irq_get_irq_data(data->parent_data->hwirq);
+	if (!parent_data || !parent_data->chip)
+		return;
+
+	pci_msi_mask_irq(data);
+	parent_data->chip->irq_mask(parent_data);
+}
+
+static void msm_msi_unmask_irq(struct irq_data *data)
+{
+	struct irq_data *parent_data;
+
+	if (!data->parent_data)
+		return;
+
+	parent_data = irq_get_irq_data(data->parent_data->hwirq);
+	if (!parent_data || !parent_data->chip)
+		return;
+
+	parent_data->chip->irq_unmask(parent_data);
+	pci_msi_unmask_irq(data);
+}
+
 static struct irq_chip msm_msi_irq_chip = {
 	.name = "msm_pci_msi",
-	.irq_mask = pci_msi_mask_irq,
-	.irq_unmask = pci_msi_unmask_irq,
+	.irq_mask = msm_msi_mask_irq,
+	.irq_unmask = msm_msi_unmask_irq,
 };
 
 static int msm_msi_domain_prepare(struct irq_domain *domain, struct device *dev,
@@ -207,6 +237,7 @@ static int msm_msi_irq_domain_alloc(struct irq_domain *domain,
 				msi->irqs[pos].hwirq,
 				&msm_msi_bottom_irq_chip, client,
 				handle_simple_irq, NULL, NULL);
+		irq_set_status_flags(msi->irqs[pos].virq, IRQ_DISABLE_UNLAZY);
 		client->nr_irqs++;
 		pos++;
 	}
