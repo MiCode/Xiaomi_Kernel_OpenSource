@@ -3277,7 +3277,7 @@ void sde_encoder_helper_phys_disable(struct sde_encoder_phys *phys_enc,
 
 	if (wb_enc) {
 		if (sde_encoder_helper_reset_mixers(phys_enc,
-				wb_enc->fb_disable))
+				NULL))
 			return;
 
 		if (wb_enc->hw_wb->ops.bind_pingpong_blk) {
