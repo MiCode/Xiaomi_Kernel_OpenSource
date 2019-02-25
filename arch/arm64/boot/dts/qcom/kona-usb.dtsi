@@ -19,10 +19,10 @@
 		#size-cells = <1>;
 		ranges;
 
-		interrupts = <GIC_SPI 494 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 130 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 497 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 495 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts-extended = <&pdc 14 IRQ_TYPE_LEVEL_HIGH>,
+			     <&intc GIC_SPI 130 IRQ_TYPE_LEVEL_HIGH>,
+			     <&pdc 17 IRQ_TYPE_LEVEL_HIGH>,
+			     <&pdc 15 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "dp_hs_phy_irq", "pwr_event_irq",
 				"ss_phy_irq", "dm_hs_phy_irq";
 		qcom,use-pdc-interrupts;
