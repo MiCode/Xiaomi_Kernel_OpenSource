@@ -519,13 +519,11 @@ void watchdog_enable(unsigned int cpu)
 
 void watchdog_disable(unsigned int cpu)
 {
-	struct hrtimer *hrtimer = this_cpu_ptr(&watchdog_hrtimer);
-	unsigned int *enabled = this_cpu_ptr(&watchdog_en);
+	struct hrtimer *hrtimer = per_cpu_ptr(&watchdog_hrtimer, cpu);
+	unsigned int *enabled = per_cpu_ptr(&watchdog_en, cpu);
 
 	if (!*enabled)
 		return;
-
-	WARN_ON_ONCE(cpu != smp_processor_id());
 
 	/*
 	 * Disable the perf event first. That prevents that a large delay
@@ -534,7 +532,7 @@ void watchdog_disable(unsigned int cpu)
 	 */
 	watchdog_nmi_disable(cpu);
 	hrtimer_cancel(hrtimer);
-	wait_for_completion(this_cpu_ptr(&softlockup_completion));
+	wait_for_completion(per_cpu_ptr(&softlockup_completion, cpu));
 
 	/*
 	 * No need for barrier here since disabling the watchdog is
