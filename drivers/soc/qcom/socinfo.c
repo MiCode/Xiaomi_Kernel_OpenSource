@@ -344,6 +344,9 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* sm6150 ID */
 	[355] = {MSM_CPU_SM6150, "SM6150"},
 
+	/* sm6150p ID */
+	[369] = {MSM_CPU_SM6150P, "SM6150P"},
+
 	/* qcs405 ID */
 	[352] = {MSM_CPU_QCS405, "QCS405"},
 
@@ -1248,6 +1251,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_sm6150()) {
 		dummy_socinfo.id = 355;
 		strlcpy(dummy_socinfo.build_id, "sm6150 - ",
+		sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_sm6150p()) {
+		dummy_socinfo.id = 369;
+		strlcpy(dummy_socinfo.build_id, "sm6150p - ",
 		sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_qcs405()) {
 		dummy_socinfo.id = 352;
