@@ -884,6 +884,7 @@ static int glink_spi_request_intent(struct glink_spi *glink,
 	struct glink_spi_msg req = { 0 };
 	int ret;
 
+	kref_get(&channel->refcount);
 	mutex_lock(&channel->intent_req_lock);
 
 	reinit_completion(&channel->intent_req_comp);
@@ -908,6 +909,7 @@ static int glink_spi_request_intent(struct glink_spi *glink,
 
 unlock:
 	mutex_unlock(&channel->intent_req_lock);
+	kref_put(&channel->refcount, glink_spi_channel_release);
 	return ret;
 }
 
@@ -2405,6 +2407,8 @@ static void glink_spi_remove(struct glink_spi *glink)
 	mutex_lock(&glink->idr_lock);
 	/* Release any defunct local channels, waiting for close-ack */
 	idr_for_each_entry(&glink->lcids, channel, cid) {
+		/* Wakeup threads waiting for intent*/
+		complete(&channel->intent_req_comp);
 		kref_put(&channel->refcount, glink_spi_channel_release);
 		idr_remove(&glink->lcids, cid);
 	}
