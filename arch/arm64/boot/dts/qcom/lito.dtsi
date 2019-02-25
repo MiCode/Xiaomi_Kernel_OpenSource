@@ -911,6 +911,17 @@
 		#reset-cells = <1>;
 	};
 
+	dispcc: qcom,dispcc {
+		compatible = "qcom,lito-dispcc";
+		reg = <0xaf00000 0x20000>;
+		reg-names = "cc_base";
+		clock-names = "cfg_ahb_clk";
+		clocks = <&gcc GCC_DISP_AHB_CLK>;
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
 	ufsphy_mem: ufsphy_mem@1d87000 {
 		reg = <0x1d87000 0xe00>; /* PHY regs */
 		reg-names = "phy_mem";
@@ -1040,13 +1051,6 @@
 	npucc: qcom,npucc {
 		compatible = "qcom,dummycc";
 		clock-output-names = "npucc_clocks";
-		#clock-cells = <1>;
-		#reset-cells = <1>;
-	};
-
-	dispcc: qcom,dispcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "dispcc_clocks";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -1485,6 +1489,8 @@
 };
 
 &mdss_core_gdsc {
+	clock-names = "ahb_clk";
+	clocks = <&gcc GCC_DISP_AHB_CLK>;
 	status = "ok";
 };
 
