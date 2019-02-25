@@ -6174,7 +6174,7 @@ int sched_unisolate_cpu_unlocked(int cpu)
 		stop_cpus(cpumask_of(cpu), do_unisolation_work_cpu_stop, 0);
 
 		/* Kick CPU to immediately do load balancing */
-		if (!atomic_fetch_or(NOHZ_BALANCE_KICK, nohz_flags(cpu)))
+		if (!atomic_fetch_or(NOHZ_KICK_MASK, nohz_flags(cpu)))
 			smp_send_reschedule(cpu);
 	}
 
