@@ -1693,7 +1693,6 @@
 		clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
 		parent-supply = <&VDD_MMCX_LEVEL>;
 		vdd_parent-supply = <&VDD_MMCX_LEVEL>;
-		qcom,support-hw-trigger;
 		qcom,retain-regs;
 	};
 
@@ -1705,7 +1704,6 @@
 		clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
 		parent-supply = <&VDD_MMCX_LEVEL>;
 		vdd_parent-supply = <&VDD_MMCX_LEVEL>;
-		qcom,support-hw-trigger;
 		qcom,retain-regs;
 	};
 
