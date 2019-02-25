@@ -201,18 +201,18 @@ static int ipa3_setup_a7_qmap_hdr(void)
 	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5) {
 		hdr_entry->hdr_len = IPA_DL_CHECKSUM_LENGTH; /* 8 bytes */
 		/* new DL QMAP header format */
-		hdr->hdr[0].hdr[0] = 0x40;
-		hdr->hdr[0].hdr[1] = 0;
-		hdr->hdr[0].hdr[2] = 0;
-		hdr->hdr[0].hdr[3] = 0;
-		hdr->hdr[0].hdr[4] = 0x4;
+		hdr_entry->hdr[0] = 0x40;
+		hdr_entry->hdr[1] = 0;
+		hdr_entry->hdr[2] = 0;
+		hdr_entry->hdr[3] = 0;
+		hdr_entry->hdr[4] = 0x4;
 		/*
 		 * Need to set csum required/valid bit on which will be replaced
 		 * by HW if checksum is incorrect after validation
 		 */
-		hdr->hdr[0].hdr[5] = 0x80;
-		hdr->hdr[0].hdr[6] = 0;
-		hdr->hdr[0].hdr[7] = 0;
+		hdr_entry->hdr[5] = 0x80;
+		hdr_entry->hdr[6] = 0;
+		hdr_entry->hdr[7] = 0;
 	} else
 		hdr_entry->hdr_len = IPA_QMAP_HEADER_LENGTH; /* 4 bytes */
 
@@ -334,8 +334,27 @@ static int ipa3_add_qmap_hdr(uint32_t mux_id, uint32_t *hdr_hdl)
 	 strlcpy(hdr_entry->name, hdr_name,
 				IPA_RESOURCE_NAME_MAX);
 
-	hdr_entry->hdr_len = IPA_QMAP_HEADER_LENGTH; /* 4 bytes */
-	hdr_entry->hdr[1] = (uint8_t) mux_id;
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5 &&
+		ipa3_ctx->dl_csum_offload_enabled) {
+		hdr_entry->hdr_len = IPA_DL_CHECKSUM_LENGTH; /* 8 bytes */
+		/* new DL QMAP header format */
+		hdr_entry->hdr[0] = 0x40;
+		hdr_entry->hdr[1] = (uint8_t) mux_id;
+		hdr_entry->hdr[2] = 0;
+		hdr_entry->hdr[3] = 0;
+		hdr_entry->hdr[4] = 0x4;
+		/*
+		 * Need to set csum required/valid bit on which will be replaced
+		 * by HW if checksum is incorrect after validation
+		 */
+		hdr_entry->hdr[5] = 0x80;
+		hdr_entry->hdr[6] = 0;
+		hdr_entry->hdr[7] = 0;
+	} else {
+		hdr_entry->hdr_len = IPA_QMAP_HEADER_LENGTH; /* 4 bytes */
+		hdr_entry->hdr[1] = (uint8_t) mux_id;
+	}
+
 	IPAWANDBG("header (%s) with mux-id: (%d)\n",
 		hdr_name,
 		hdr_entry->hdr[1]);
@@ -1369,9 +1388,10 @@ static int handle3_ingress_format(struct net_device *dev,
 	}
 
 	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5 &&
-		(in->u.data) & RMNET_IOCTL_INGRESS_FORMAT_CHECKSUM)
+		(in->u.data) & RMNET_IOCTL_INGRESS_FORMAT_CHECKSUM) {
 		ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_len = 8;
-	else
+		ipa3_ctx->dl_csum_offload_enabled = true;
+	} else
 		ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_len = 4;
 	ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_ofst_metadata_valid = 1;
 	ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_ofst_metadata = 1;
