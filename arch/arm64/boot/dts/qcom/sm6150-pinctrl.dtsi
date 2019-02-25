@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1750,6 +1750,32 @@
 				pins = "gpio85";
 				drive-strength = <2>;
 				bias-pull-down;
+			};
+		};
+
+		usb0_hs_ac_en_default: usb0_hs_ac_en_default {
+			mux {
+				pins = "gpio88";
+				function = "usb0_hs_ac";
+			};
+
+			config {
+				pins = "gpio88";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		usb1_hs_ac_en_default: usb1_hs_ac_en_default {
+			mux {
+				pins = "gpio89";
+				function = "usb1_hs_ac";
+			};
+
+			config {
+				pins = "gpio89";
+				drive-strength = <2>;
+				bias-disable;
 			};
 		};
 	};
