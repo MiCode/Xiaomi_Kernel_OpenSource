@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -394,7 +394,6 @@
 		qcom,mdss-default-ot-wr-limit = <32>;
 
 		qcom,mdss-sbuf-headroom = <20>;
-		qcom,mdss-rot-linewidth = <8192>;
 
 		cache-slice-names = "rotator";
 		cache-slices = <&llcc 4>;
