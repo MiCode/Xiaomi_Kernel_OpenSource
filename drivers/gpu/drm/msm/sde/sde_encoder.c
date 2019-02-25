@@ -37,6 +37,8 @@
 #include "sde_crtc.h"
 #include "sde_trace.h"
 #include "sde_core_irq.h"
+#include "sde_hw_top.h"
+#include "sde_hw_qdss.h"
 
 #define SDE_DEBUG_ENC(e, fmt, ...) SDE_DEBUG("enc%d " fmt,\
 		(e) ? (e)->base.base.id : -1, ##__VA_ARGS__)
@@ -180,6 +182,7 @@ enum sde_enc_rc_states {
  * @intfs_swapped	Whether or not the phys_enc interfaces have been swapped
  *			for partial update right-only cases, such as pingpong
  *			split where virtual pingpong does not generate IRQs
+ * @qdss_status:		indicate if qdss is modified since last update
  * @crtc_vblank_cb:	Callback into the upper layer / CRTC for
  *			notification of the VBLANK
  * @crtc_vblank_cb_data:	Data from upper layer for VBLANK notification
@@ -243,6 +246,7 @@ struct sde_encoder_virt {
 	enum sde_dsc dirty_dsc_ids[MAX_CHANNELS_PER_ENC];
 
 	bool intfs_swapped;
+	bool qdss_status;
 
 	void (*crtc_vblank_cb)(void *);
 	void *crtc_vblank_cb_data;
@@ -386,6 +390,20 @@ static bool _sde_encoder_is_dsc_enabled(struct drm_encoder *drm_enc)
 	comp_info = &mode_info.comp_info;
 
 	return (comp_info->comp_type == MSM_DISPLAY_COMPRESSION_DSC);
+}
+
+static void sde_configure_qdss(struct sde_encoder_virt *sde_enc,
+				struct sde_hw_qdss *hw_qdss,
+				struct sde_encoder_phys *phys, bool enable)
+{
+	if (sde_enc->qdss_status == enable)
+		return;
+
+	sde_enc->qdss_status = enable;
+
+	phys->hw_mdptop->ops.set_mdp_hw_events(phys->hw_mdptop,
+						sde_enc->qdss_status);
+	hw_qdss->ops.enable_qdss_events(hw_qdss, sde_enc->qdss_status);
 }
 
 static int _sde_encoder_wait_timeout(int32_t drm_id, int32_t hw_id,
@@ -2675,7 +2693,7 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	struct drm_connector *conn = NULL, *conn_iter;
 	struct sde_connector_state *sde_conn_state = NULL;
 	struct sde_connector *sde_conn = NULL;
-	struct sde_rm_hw_iter dsc_iter, pp_iter;
+	struct sde_rm_hw_iter dsc_iter, pp_iter, qdss_iter;
 	struct sde_rm_hw_request request_hw;
 	bool is_cmd_mode = false;
 	int i = 0, ret;
@@ -2773,6 +2791,22 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 		if (!sde_rm_get_hw(&sde_kms->rm, &pp_iter))
 			break;
 		sde_enc->hw_pp[i] = (struct sde_hw_pingpong *) pp_iter.hw;
+	}
+
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+
+		if (phys) {
+			sde_rm_init_hw_iter(&qdss_iter, drm_enc->base.id,
+						SDE_HW_BLK_QDSS);
+			for (i = 0; i < QDSS_MAX; i++) {
+				if (sde_rm_get_hw(&sde_kms->rm, &qdss_iter)) {
+					phys->hw_qdss =
+					(struct sde_hw_qdss *)qdss_iter.hw;
+					break;
+				}
+			}
+		}
 	}
 
 	sde_rm_init_hw_iter(&dsc_iter, drm_enc->base.id, SDE_HW_BLK_DSC);
@@ -4453,6 +4487,7 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 	struct sde_encoder_virt *sde_enc;
 	struct sde_encoder_phys *phys;
 	struct sde_kms *sde_kms = NULL;
+	struct sde_crtc *sde_crtc;
 	struct msm_drm_private *priv = NULL;
 	bool needs_hw_reset = false;
 	uint32_t ln_cnt1, ln_cnt2;
@@ -4469,6 +4504,7 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 	priv = drm_enc->dev->dev_private;
 	sde_kms = to_sde_kms(priv->kms);
 	disp_info = &sde_enc->disp_info;
+	sde_crtc = to_sde_crtc(sde_enc->crtc);
 
 	SDE_DEBUG_ENC(sde_enc, "\n");
 	SDE_EVT32(DRMID(drm_enc));
@@ -4559,6 +4595,10 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 	} else if (_sde_encoder_dsc_is_dirty(sde_enc)) {
 		_helper_flush_dsc(sde_enc);
 	}
+
+	if (sde_enc->cur_master && !sde_enc->cur_master->cont_splash_enabled)
+		sde_configure_qdss(sde_enc, sde_enc->cur_master->hw_qdss,
+				sde_enc->cur_master, sde_kms->qdss_enabled);
 
 end:
 	SDE_ATRACE_END("sde_encoder_prepare_for_kickoff");
@@ -5278,6 +5318,7 @@ struct drm_encoder *sde_encoder_init_with_ops(
 	kthread_init_delayed_work(&sde_enc->delayed_off_work,
 			sde_encoder_off_work);
 	sde_enc->vblank_enabled = false;
+	sde_enc->qdss_status = false;
 
 	kthread_init_work(&sde_enc->vsync_event_work,
 			sde_encoder_vsync_event_work_handler);

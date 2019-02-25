@@ -336,6 +336,10 @@ static int _sde_debugfs_init(struct sde_kms *sde_kms)
 		return rc;
 	}
 
+	if (sde_kms->catalog->qdss_count)
+		debugfs_create_u32("qdss", 0600, debugfs_root,
+				(u32 *)&sde_kms->qdss_enabled);
+
 	return 0;
 }
 

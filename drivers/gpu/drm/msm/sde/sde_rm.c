@@ -27,6 +27,7 @@
 #include "sde_hw_dsc.h"
 #include "sde_hw_rot.h"
 #include "sde_crtc.h"
+#include "sde_hw_qdss.h"
 
 #define RESERVED_BY_OTHER(h, r) \
 	((h)->rsvp && ((h)->rsvp->enc_id != (r)->enc_id))
@@ -334,6 +335,9 @@ static void _sde_rm_hw_destroy(enum sde_hw_blk_type type, void *hw)
 	case SDE_HW_BLK_ROT:
 		sde_hw_rot_destroy(hw);
 		break;
+	case SDE_HW_BLK_QDSS:
+		sde_hw_qdss_destroy(hw);
+		break;
 	case SDE_HW_BLK_SSPP:
 		/* SSPPs are not managed by the resource manager */
 	case SDE_HW_BLK_TOP:
@@ -424,6 +428,9 @@ static int _sde_rm_hw_blk_create(
 		break;
 	case SDE_HW_BLK_ROT:
 		hw = sde_hw_rot_init(id, mmio, cat);
+		break;
+	case SDE_HW_BLK_QDSS:
+		hw = sde_hw_qdss_init(id, mmio, cat);
 		break;
 	case SDE_HW_BLK_SSPP:
 		/* SSPPs are not managed by the resource manager */
@@ -606,6 +613,15 @@ int sde_rm_init(struct sde_rm *rm,
 				cat->cdm[i].id, &cat->cdm[i]);
 		if (rc) {
 			SDE_ERROR("failed: cdm hw not available\n");
+			goto fail;
+		}
+	}
+
+	for (i = 0; i < cat->qdss_count; i++) {
+		rc = _sde_rm_hw_blk_create(rm, cat, mmio, SDE_HW_BLK_QDSS,
+				cat->qdss[i].id, &cat->qdss[i]);
+		if (rc) {
+			SDE_ERROR("failed: qdss hw not available\n");
 			goto fail;
 		}
 	}
@@ -1039,6 +1055,44 @@ static int _sde_rm_reserve_dsc(
 	return -ENAVAIL;
 }
 
+static int _sde_rm_reserve_qdss(
+		struct sde_rm *rm,
+		struct sde_rm_rsvp *rsvp,
+		const struct sde_rm_topology_def *top,
+		u8 *_qdss_ids)
+{
+	struct sde_rm_hw_iter iter;
+	struct msm_drm_private *priv = rm->dev->dev_private;
+	struct sde_kms *sde_kms;
+
+	if (!priv->kms) {
+		SDE_ERROR("invalid kms\n");
+		return -EINVAL;
+	}
+	sde_kms = to_sde_kms(priv->kms);
+
+	sde_rm_init_hw_iter(&iter, 0, SDE_HW_BLK_QDSS);
+
+	while (_sde_rm_get_hw_locked(rm, &iter)) {
+		if (RESERVED_BY_OTHER(iter.blk, rsvp))
+			continue;
+
+		SDE_DEBUG("blk id = %d\n", iter.blk->id);
+
+		iter.blk->rsvp_nxt = rsvp;
+		SDE_EVT32(iter.blk->type, rsvp->enc_id, iter.blk->id);
+		return 0;
+	}
+
+	if (!iter.hw && sde_kms->catalog->qdss_count) {
+		SDE_DEBUG("couldn't reserve qdss for type %d id %d\n",
+						SDE_HW_BLK_QDSS, iter.blk->id);
+		return -ENAVAIL;
+	}
+
+	return 0;
+}
+
 static int _sde_rm_reserve_cdm(
 		struct sde_rm *rm,
 		struct sde_rm_rsvp *rsvp,
@@ -1208,6 +1262,10 @@ static int _sde_rm_make_next_rsvp(
 		return ret;
 
 	ret = _sde_rm_reserve_dsc(rm, rsvp, reqs->topology, NULL);
+	if (ret)
+		return ret;
+
+	ret = _sde_rm_reserve_qdss(rm, rsvp, reqs->topology, NULL);
 	if (ret)
 		return ret;
 
@@ -1457,6 +1515,10 @@ static int _sde_rm_make_next_rsvp_for_cont_splash(
 
 	ret = _sde_rm_reserve_dsc(rm, rsvp, reqs->topology,
 				splash_display->dsc_ids);
+	if (ret)
+		return ret;
+
+	ret = _sde_rm_reserve_qdss(rm, rsvp, reqs->topology, NULL);
 	if (ret)
 		return ret;
 
