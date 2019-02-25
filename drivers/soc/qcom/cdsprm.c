@@ -1,7 +1,7 @@
 /*
  * CDSP Request Manager
  *
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -398,20 +398,21 @@ static int cdsprm_thermal_cdsp_clk_limit(unsigned int level)
 	struct sysmon_msg_tx rpmsg_msg_tx;
 
 	mutex_lock(&gcdsprm.thermal_lock);
-	gcdsprm.thermal_cdsp_level = level;
 
 	if (gcdsprm.rpmsgdev && gcdsprm.cdsp_version) {
 		rpmsg_msg_tx.feature_id =
 			SYSMON_CDSP_FEATURE_THERMAL_LIMIT_TX;
 		rpmsg_msg_tx.fs.thermal.hvx_level =
 			gcdsprm.thermal_hvx_level;
-		rpmsg_msg_tx.fs.thermal.cdsp_level =
-			gcdsprm.thermal_cdsp_level;
+		rpmsg_msg_tx.fs.thermal.cdsp_level = level;
 		rpmsg_msg_tx.size = sizeof(rpmsg_msg_tx);
 		result = rpmsg_send(gcdsprm.rpmsgdev->ept,
 					&rpmsg_msg_tx,
 					sizeof(rpmsg_msg_tx));
 	}
+
+	if (result == 0)
+		gcdsprm.thermal_cdsp_level = level;
 
 	mutex_unlock(&gcdsprm.thermal_lock);
 
@@ -424,20 +425,21 @@ static int cdsprm_thermal_hvx_instruction_limit(unsigned int level)
 	struct sysmon_msg_tx rpmsg_msg_tx;
 
 	mutex_lock(&gcdsprm.thermal_lock);
-	gcdsprm.thermal_hvx_level = level;
 
 	if (gcdsprm.rpmsgdev && gcdsprm.cdsp_version) {
 		rpmsg_msg_tx.feature_id =
 			SYSMON_CDSP_FEATURE_THERMAL_LIMIT_TX;
-		rpmsg_msg_tx.fs.thermal.hvx_level =
-			gcdsprm.thermal_hvx_level;
+		rpmsg_msg_tx.fs.thermal.hvx_level = level;
 		rpmsg_msg_tx.fs.thermal.cdsp_level =
-			gcdsprm.thermal_cdsp_level;
+				gcdsprm.thermal_cdsp_level;
 		rpmsg_msg_tx.size = sizeof(rpmsg_msg_tx);
 		result = rpmsg_send(gcdsprm.rpmsgdev->ept,
 				&rpmsg_msg_tx,
 				sizeof(rpmsg_msg_tx));
 	}
+
+	if (result == 0)
+		gcdsprm.thermal_hvx_level = level;
 
 	mutex_unlock(&gcdsprm.thermal_lock);
 
@@ -857,6 +859,9 @@ static int cdsp_get_cur_state(struct thermal_cooling_device *cdev,
 static int cdsp_set_cur_state(struct thermal_cooling_device *cdev,
 				unsigned long state)
 {
+	if (gcdsprm.thermal_cdsp_level == state)
+		return 0;
+
 	cdsprm_thermal_cdsp_clk_limit(state);
 
 	return 0;
@@ -887,6 +892,9 @@ static int hvx_get_cur_state(struct thermal_cooling_device *cdev,
 static int hvx_set_cur_state(struct thermal_cooling_device *cdev,
 				unsigned long state)
 {
+	if (gcdsprm.thermal_hvx_level == state)
+		return 0;
+
 	cdsprm_thermal_hvx_instruction_limit(state);
 
 	return 0;

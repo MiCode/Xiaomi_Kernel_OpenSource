@@ -325,6 +325,7 @@
 
 &qupv3_se2_i2c {
 	status = "okay";
+	qcom,i2c-touch-active="synaptics,tcm-i2c";
 
 	synaptics_tcm@20 {
 		compatible = "synaptics,tcm-i2c";
@@ -345,5 +346,22 @@
 		synaptics,power-delay-ms = <200>;
 		synaptics,ubl-i2c-addr = <0x20>;
 		synaptics,y-flip;
+	};
+
+	himax_ts@48 {
+		compatible = "himax,hxcommon";
+		reg = <0x48>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <88 0x2008>;
+		pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
+			"pmx_ts_release";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+		himax,panel-coords = <0 1080 0 2160>;
+		himax,display-coords = <0 1080 0 2160>;
+		himax,irq-gpio = <&tlmm 88 0x00>;
+		himax,rst-gpio = <&tlmm 87 0x00>;
+		report_type = <1>;
 	};
 };

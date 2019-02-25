@@ -649,6 +649,7 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_HVDCP_OPTI_ALLOWED,
 	POWER_SUPPLY_PROP_QC_OPTI_DISABLE,
 	POWER_SUPPLY_PROP_VOLTAGE_VPH,
+	POWER_SUPPLY_PROP_THERM_ICL_LIMIT,
 };
 
 static int smb5_usb_get_prop(struct power_supply *psy,
@@ -807,6 +808,10 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_VPH:
 		rc = smblib_get_prop_vph_voltage_now(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_THERM_ICL_LIMIT:
+		val->intval = get_client_vote(chg->usb_icl_votable,
+					THERMAL_THROTTLE_VOTER);
+		break;
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);
 		rc = -EINVAL;
@@ -827,7 +832,7 @@ static int smb5_usb_set_prop(struct power_supply *psy,
 {
 	struct smb5 *chip = power_supply_get_drvdata(psy);
 	struct smb_charger *chg = &chip->chg;
-	int rc = 0;
+	int icl, rc = 0;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_PD_CURRENT_MAX:
@@ -871,6 +876,14 @@ static int smb5_usb_set_prop(struct power_supply *psy,
 		chg->connector_health = val->intval;
 		power_supply_changed(chg->usb_psy);
 		break;
+	case POWER_SUPPLY_PROP_THERM_ICL_LIMIT:
+		icl = get_effective_result(chg->usb_icl_votable);
+		if ((icl + val->intval) > 0)
+			rc = vote(chg->usb_icl_votable, THERMAL_THROTTLE_VOTER,
+					true, icl + val->intval);
+		else
+			rc = -EINVAL;
+		break;
 	default:
 		pr_err("set prop %d is not supported\n", psp);
 		rc = -EINVAL;
@@ -886,6 +899,7 @@ static int smb5_usb_prop_is_writeable(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CTM_CURRENT_MAX:
 	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
+	case POWER_SUPPLY_PROP_THERM_ICL_LIMIT:
 		return 1;
 	default:
 		break;

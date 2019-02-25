@@ -11,6 +11,5 @@
  */
 
 #include "sa8155-adp-common.dtsi"
-#include "sm8150-camera-sensor-adp-star.dtsi"
 #include "sa8155-adp-star-display.dtsi"
 
