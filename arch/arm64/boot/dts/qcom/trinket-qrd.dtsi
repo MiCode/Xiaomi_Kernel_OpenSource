@@ -302,7 +302,7 @@
 	qcom,platform-reset-gpio = <&tlmm 90 0>;
 };
 
-&dsi_td4330_truly_cmd_display {
+&dsi_td4330_truly_vid_display {
 	qcom,dsi-display-active;
 };
 
