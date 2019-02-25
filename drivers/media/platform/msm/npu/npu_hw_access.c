@@ -65,21 +65,6 @@ void npu_apss_shared_reg_write(struct npu_device *npu_dev, uint32_t off,
 	__iowmb();
 }
 
-uint32_t npu_bwmon_reg_read(struct npu_device *npu_dev, uint32_t off)
-{
-	uint32_t ret = 0;
-
-	ret = readl(npu_dev->bwmon_io.base + off);
-	return ret;
-}
-
-void npu_bwmon_reg_write(struct npu_device *npu_dev, uint32_t off,
-	uint32_t val)
-{
-	writel_relaxed(val, npu_dev->bwmon_io.base + off);
-	__iowmb();
-}
-
 uint32_t npu_qfprom_reg_read(struct npu_device *npu_dev, uint32_t off)
 {
 	uint32_t ret = 0;

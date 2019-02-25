@@ -159,7 +159,6 @@ struct npu_pwrctrl {
 	uint32_t num_pwrlevels;
 
 	struct device *devbw;
-	uint32_t bwmon_enabled;
 	uint32_t uc_pwrlevel;
 	uint32_t cdsprm_pwrlevel;
 	uint32_t fmax_pwrlevel;
@@ -206,7 +205,6 @@ struct npu_device {
 	struct npu_io_data tcm_io;
 	struct npu_io_data qdsp_io;
 	struct npu_io_data apss_shared_io;
-	struct npu_io_data bwmon_io;
 	struct npu_io_data qfprom_io;
 
 	uint32_t core_clk_num;

@@ -1474,8 +1474,6 @@ static int npu_pwrctrl_init(struct npu_device *npu_dev)
 	struct platform_device *pdev = npu_dev->pdev;
 	struct device_node *node;
 	int ret = 0;
-	struct platform_device *p2dev;
-	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
 
 	/* Power levels */
 	node = of_find_node_by_name(pdev->dev.of_node, "qcom,npu-pwrlevels");
@@ -1488,26 +1486,6 @@ static int npu_pwrctrl_init(struct npu_device *npu_dev)
 	ret = npu_of_parse_pwrlevels(npu_dev, node);
 	if (ret)
 		return ret;
-
-	/* Parse Bandwidth */
-	node = of_parse_phandle(pdev->dev.of_node,
-				"qcom,npubw-dev", 0);
-
-	if (node) {
-		/* Set to 1 initially - we assume bwmon is on */
-		pwr->bwmon_enabled = 1;
-		p2dev = of_find_device_by_node(node);
-		if (p2dev) {
-			pwr->devbw = &p2dev->dev;
-		} else {
-			pr_err("parser power level failed\n");
-			ret = -EINVAL;
-			return ret;
-		}
-	} else {
-		pr_warn("bwdev is not defined in dts\n");
-		pwr->devbw = NULL;
-	}
 
 	return ret;
 }
@@ -1681,24 +1659,6 @@ static int npu_probe(struct platform_device *pdev)
 	}
 	pr_debug("apss_shared phy address=0x%llx virt=%pK\n",
 		res->start, npu_dev->apss_shared_io.base);
-
-	res = platform_get_resource_byname(pdev,
-		IORESOURCE_MEM, "bwmon");
-	if (!res) {
-		pr_info("unable to get bwmon resource\n");
-	} else {
-		npu_dev->bwmon_io.size = resource_size(res);
-		npu_dev->bwmon_io.phy_addr = res->start;
-		npu_dev->bwmon_io.base = devm_ioremap(&pdev->dev, res->start,
-						npu_dev->bwmon_io.size);
-		if (unlikely(!npu_dev->bwmon_io.base)) {
-			pr_err("unable to map bwmon\n");
-			rc = -ENOMEM;
-			goto error_get_dev_num;
-		}
-		pr_debug("bwmon phy address=0x%llx virt=%pK\n",
-			res->start, npu_dev->bwmon_io.base);
-	}
 
 	res = platform_get_resource_byname(pdev,
 		IORESOURCE_MEM, "qfprom_physical");
