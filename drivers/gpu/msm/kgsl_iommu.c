@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2288,6 +2288,7 @@ static int _insert_gpuaddr(struct kgsl_pagetable *pagetable,
 		else {
 			/* Duplicate entry */
 			WARN(1, "duplicate gpuaddr: 0x%llx\n", gpuaddr);
+			kmem_cache_free(addr_entry_cache, new);
 			return -EEXIST;
 		}
 	}

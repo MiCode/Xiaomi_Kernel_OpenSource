@@ -530,6 +530,14 @@ const struct arm64_cpu_capabilities arm64_errata[] = {
 			   MIDR_CPU_VAR_REV(12, 14),
 			   MIDR_CPU_VAR_REV(13, 14)),
 	},
+	{
+	/* Cortex-A76 r0p0 to r3p0 */
+		.desc = "ARM erratum 1286807",
+		.capability = ARM64_WORKAROUND_REPEAT_TLBI,
+		MIDR_RANGE(MIDR_CORTEX_A76,
+			   MIDR_CPU_VAR_REV(0, 0),
+			   MIDR_CPU_VAR_REV(3, 0)),
+	},
 #endif
 #ifdef CONFIG_ARM64_ERRATUM_858921
 	{

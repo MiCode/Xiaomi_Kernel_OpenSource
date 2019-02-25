@@ -164,6 +164,9 @@ static struct page_info *alloc_from_pool_preferred(
 	struct page_info *info;
 	int i;
 
+	if (buffer->flags & ION_FLAG_POOL_FORCE_ALLOC)
+		goto force_alloc;
+
 	info = kmalloc(sizeof(*info), GFP_KERNEL);
 	if (!info)
 		return ERR_PTR(-ENOMEM);
@@ -195,6 +198,7 @@ static struct page_info *alloc_from_pool_preferred(
 	}
 
 	kfree(info);
+force_alloc:
 	return alloc_largest_available(heap, buffer, size, max_order);
 }
 

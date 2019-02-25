@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -394,6 +394,83 @@ struct device_node *of_batterydata_get_best_profile(
 		pr_info("%s found\n", battery_type);
 	else
 		pr_info("%s found\n", best_node->name);
+
+	return best_node;
+}
+
+struct device_node *of_batterydata_get_best_aged_profile(
+		const struct device_node *batterydata_container_node,
+		int batt_id_kohm, int batt_age_level, int *avail_age_level)
+{
+	struct batt_ids batt_ids;
+	struct device_node *node, *best_node = NULL;
+	const char *battery_type = NULL;
+	int delta = 0, best_id_kohm = 0, id_range_pct, i = 0, rc = 0, limit = 0;
+	u32 val;
+	bool in_range = false;
+
+	/* read battery id range percentage for best profile */
+	rc = of_property_read_u32(batterydata_container_node,
+			"qcom,batt-id-range-pct", &id_range_pct);
+
+	if (rc) {
+		if (rc == -EINVAL) {
+			id_range_pct = 0;
+		} else {
+			pr_err("failed to read battery id range\n");
+			return ERR_PTR(-ENXIO);
+		}
+	}
+
+	/*
+	 * Find the battery data with a battery id resistor closest to this one
+	 */
+	for_each_available_child_of_node(batterydata_container_node, node) {
+		val = 0;
+		of_property_read_u32(node, "qcom,batt-age-level", &val);
+		rc = of_batterydata_read_batt_id_kohm(node,
+						"qcom,batt-id-kohm", &batt_ids);
+		if (rc)
+			continue;
+		for (i = 0; i < batt_ids.num; i++) {
+			delta = abs(batt_ids.kohm[i] - batt_id_kohm);
+			limit = (batt_ids.kohm[i] * id_range_pct) / 100;
+			in_range = (delta <= limit);
+
+			/*
+			 * Check if the battery aging level matches and the
+			 * limits are in range before selecting the best node.
+			 */
+			if ((batt_age_level == val || !best_node) && in_range) {
+				best_node = node;
+				best_id_kohm = batt_ids.kohm[i];
+				*avail_age_level = val;
+				break;
+			}
+		}
+	}
+
+	if (best_node == NULL) {
+		pr_err("No battery data found\n");
+		return best_node;
+	}
+
+	/* check that profile id is in range of the measured batt_id */
+	if (abs(best_id_kohm - batt_id_kohm) >
+			((best_id_kohm * id_range_pct) / 100)) {
+		pr_err("out of range: profile id %d batt id %d pct %d",
+			best_id_kohm, batt_id_kohm, id_range_pct);
+		return NULL;
+	}
+
+	rc = of_property_read_string(best_node, "qcom,battery-type",
+							&battery_type);
+	if (!rc)
+		pr_info("%s age level %d found\n", battery_type,
+			*avail_age_level);
+	else
+		pr_info("%s age level %d found\n", best_node->name,
+			*avail_age_level);
 
 	return best_node;
 }

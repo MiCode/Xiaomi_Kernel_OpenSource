@@ -361,6 +361,9 @@ static void glink_spi_channel_release(struct kref *ref)
 	channel = container_of(ref, struct glink_spi_channel, refcount);
 	CH_INFO(channel, "\n");
 
+	channel->intent_req_result = 0;
+	complete(&channel->intent_req_comp);
+
 	mutex_lock(&channel->intent_lock);
 	idr_for_each_entry(&channel->liids, tmp, iid) {
 		kfree(tmp->data);
