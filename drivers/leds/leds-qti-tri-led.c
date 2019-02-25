@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -377,6 +377,8 @@ static ssize_t breath_store(struct device *dev, struct device_attribute *attr,
 	rc = kstrtobool(buf, &breath);
 	if (rc < 0)
 		return rc;
+
+	cancel_work_sync(&led_cdev->set_brightness_work);
 
 	mutex_lock(&led->lock);
 	if (led->breathing == breath)
