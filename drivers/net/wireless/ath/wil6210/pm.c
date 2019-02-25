@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014,2017 Qualcomm Atheros, Inc.
+ * Copyright (c) 2019, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -64,6 +65,13 @@ int wil_can_suspend(struct wil6210_priv *wil, bool is_runtime)
 		goto out;
 	/* for STA-like interface, don't runtime suspend */
 	case NL80211_IFTYPE_STATION:
+		if (test_bit(wil_status_fwconnected, wil->status) &&
+		    wil->vr_profile != WMI_VR_PROFILE_DISABLED) {
+			wil_dbg_pm(wil,
+				   "Reject suspend in VR mode when connected\n");
+			return false;
+		}
+		/* fallthrough */
 	case NL80211_IFTYPE_P2P_CLIENT:
 		if (test_bit(wil_status_fwconnecting, wil->status)) {
 			wil_dbg_pm(wil, "Delay suspend when connecting\n");

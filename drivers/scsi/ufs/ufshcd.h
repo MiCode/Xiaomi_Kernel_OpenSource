@@ -3,7 +3,7 @@
  *
  * This code is based on drivers/scsi/ufs/ufshcd.h
  * Copyright (C) 2011-2013 Samsung India Software Operations
- * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * Authors:
  *	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -808,6 +808,7 @@ struct ufs_hba {
 	unsigned int irq;
 	bool is_irq_enabled;
 
+	u32 dev_ref_clk_gating_wait;
 	u32 dev_ref_clk_freq;
 
 	/* Interrupt aggregation support is broken */

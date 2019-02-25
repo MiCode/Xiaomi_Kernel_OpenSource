@@ -825,6 +825,19 @@ int bgcom_resume(void *handle)
 		return -ECANCELED;
 
 	cntx = (struct bg_context *)handle;
+
+	/* if client is outside bgcom scope and
+	 * handle is provided before BGCOM probed
+	 */
+	if (cntx->state == BGCOM_PROB_WAIT) {
+		pr_info("handle is provided before BGCOM probed\n");
+		if (!is_bgcom_ready())
+			return -EAGAIN;
+		cntx->bg_spi = container_of(bg_com_drv,
+						struct bg_spi_priv, lhandle);
+		cntx->state = BGCOM_PROB_SUCCESS;
+	}
+
 	bg_spi = cntx->bg_spi;
 
 	mutex_lock(&bg_resume_mutex);
@@ -1010,7 +1023,7 @@ static int bg_spi_probe(struct spi_device *spi)
 
 	bg_irq = gpio_to_irq(irq_gpio);
 	ret = request_threaded_irq(bg_irq, NULL, bg_irq_tasklet_hndlr,
-		IRQF_TRIGGER_HIGH | IRQF_ONESHOT, "qcom,bg_spi", bg_spi);
+		IRQF_TRIGGER_HIGH | IRQF_ONESHOT, "qcom-bg_spi", bg_spi);
 
 	if (ret)
 		goto err_ret;

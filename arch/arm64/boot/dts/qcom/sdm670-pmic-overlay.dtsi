@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -429,6 +429,49 @@
 			battery_lvl4 {
 				trip = <&batt_trip4>;
 				cooling-device = <&pm660_charger 5 5>;
+			};
+		};
+	};
+
+	xo-therm-605-step {
+		trips {
+			qcs605_batt_trip1: qcs605-batt-trip1 {
+				temperature = <42000>;
+				hysteresis = <4000>;
+				type = "passive";
+			};
+			qcs605_batt_trip2: qcs605-batt-trip2 {
+				temperature = <44000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+			qcs605_batt_trip3: qcs605-batt-trip3 {
+				temperature = <46000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+			qcs605_batt_trip4: qcs605-batt-trip4 {
+				temperature = <48000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			battery_lvl1 {
+				trip = <&qcs605_batt_trip1>;
+				cooling-device = <&pm660_charger 1 1>;
+			};
+			battery_lvl2 {
+				trip = <&qcs605_batt_trip2>;
+				cooling-device = <&pm660_charger 2 2>;
+			};
+			battery_lvl3 {
+				trip = <&qcs605_batt_trip3>;
+				cooling-device = <&pm660_charger 3 3>;
+			};
+			battery_lvl4 {
+				trip = <&qcs605_batt_trip4>;
+				cooling-device = <&pm660_charger 4 4>;
 			};
 		};
 	};
