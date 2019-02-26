@@ -3,6 +3,7 @@
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
+#include <dt-bindings/gpio/gpio.h>
 #include "kona-pmic-overlay.dtsi"
 #include "kona-sde-display.dtsi"
 #include "kona-audio-overlay.dtsi"
@@ -438,3 +439,22 @@
 		};
 	};
 };
+
+&sdhc_2 {
+	vdd-supply = <&pm8150a_l9>;
+	qcom,vdd-voltage-level = <2950000 2960000>;
+	qcom,vdd-current-level = <200 800000>;
+
+	vdd-io-supply = <&pm8150a_l6>;
+	qcom,vdd-io-voltage-level = <1808000 2960000>;
+	qcom,vdd-io-current-level = <200 22000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on &storage_cd>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off &storage_cd>;
+
+	cd-gpios = <&tlmm 77 GPIO_ACTIVE_LOW>;
+
+	status = "ok";
+};
+
