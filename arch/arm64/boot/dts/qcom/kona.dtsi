@@ -3298,7 +3298,7 @@
 		reg = <0x64>;
 		fmint-gpio = <&tlmm 51 0>;
 		vdd-supply = <&pm8150a_bob>;
-		rtc6226,vdd-supply-voltage = <3300000 3300000>;
+		rtc6226,vdd-supply-voltage = <3296000 3296000>;
 		vio-supply = <&pm8150_s4>;
 		rtc6226,vio-supply-voltage = <1800000 1800000 >;
 	};
