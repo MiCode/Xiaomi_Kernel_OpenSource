@@ -103,6 +103,14 @@
 			linux,can-disable;
 		};
 	};
+
+	qcom,qbt_handler {
+		compatible = "qcom,qbt-handler";
+		qcom,ipc-gpio = <&tlmm 23 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&key_home_default>;
+		qcom,finger-detect-gpio = <&pm8150_gpios 1 0>;
+	};
 };
 
 &qupv3_se13_i2c {
