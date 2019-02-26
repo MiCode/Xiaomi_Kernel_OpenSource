@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -594,8 +594,8 @@ static const char *const tdm_slot_width_text[] = {"16", "24", "32"};
 
 static struct afe_clk_set sec_mi2s_tx_clk = {
 	AFE_API_VERSION_I2S_CONFIG,
-	Q6AFE_LPASS_CLK_ID_SEC_MI2S_EBIT,
-	Q6AFE_LPASS_IBIT_CLK_DISABLE,
+	Q6AFE_LPASS_CLK_ID_SEC_MI2S_IBIT,
+	Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ,
 	Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_NO,
 	Q6AFE_LPASS_CLK_ROOT_DEFAULT,
 	0,
@@ -3775,7 +3775,7 @@ static int apq8096_mi2s_snd_startup(struct snd_pcm_substream *substream)
 				__func__, ret);
 			goto err;
 		}
-		ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBM_CFM);
+		ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBS_CFS);
 		if (ret < 0)
 			pr_err("%s: set fmt cpu dai failed, err:%d\n",
 				__func__, ret);
@@ -7255,6 +7255,20 @@ static struct snd_soc_dai_link apq8096_auto_be_dai_links[] = {
 		.be_id = MSM_BACKEND_DAI_QUATERNARY_MI2S_RX_4,
 		.be_hw_params_fixup = msm_group_mi2s_be_hw_params_fixup,
 		.ops = &apq8096_group_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_QUAT_MI2S_TX,
+		.stream_name = "Quaternary MI2S Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.3",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.be_id = MSM_BACKEND_DAI_QUATERNARY_MI2S_TX,
+		.be_hw_params_fixup = msm_mi2s_rx_be_hw_params_fixup,
+		.ops = &apq8096_mi2s_be_ops,
 		.ignore_suspend = 1,
 	}
 };
