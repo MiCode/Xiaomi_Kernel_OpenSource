@@ -204,6 +204,9 @@ int msm_vidc_query_ctrl(void *instance, struct v4l2_queryctrl *ctrl)
 		}
 		break;
 	}
+	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_LAYER:
+		msm_vidc_ctrl_get_range(ctrl, &inst->capability.hier_p);
+		break;
 	default:
 		rc = -EINVAL;
 	}
