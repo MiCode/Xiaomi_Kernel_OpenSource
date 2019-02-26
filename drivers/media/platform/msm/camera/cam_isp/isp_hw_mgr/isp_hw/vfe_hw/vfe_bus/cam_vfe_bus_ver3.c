@@ -1698,6 +1698,7 @@ static int cam_vfe_bus_ver3_init_comp_grp(uint32_t index,
 {
 	struct cam_vfe_bus_ver3_comp_grp_data *rsrc_data = NULL;
 	struct cam_vfe_soc_private *vfe_soc_private = soc_info->soc_private;
+	int ddr_type = 0;
 
 	rsrc_data = kzalloc(sizeof(struct cam_vfe_bus_ver3_comp_grp_data),
 		GFP_KERNEL);
@@ -1717,7 +1718,9 @@ static int cam_vfe_bus_ver3_init_comp_grp(uint32_t index,
 		rsrc_data->comp_grp_type != CAM_VFE_BUS_VER3_COMP_GRP_1)
 		rsrc_data->ubwc_static_ctrl = 0;
 	else {
-		if (of_fdt_get_ddrtype() == DDR_TYPE_LPDDR5)
+		ddr_type = of_fdt_get_ddrtype();
+		if ((ddr_type == DDR_TYPE_LPDDR5) ||
+			(ddr_type == DDR_TYPE_LPDDR5X))
 			rsrc_data->ubwc_static_ctrl =
 				vfe_soc_private->ubwc_static_ctrl[1];
 		else
