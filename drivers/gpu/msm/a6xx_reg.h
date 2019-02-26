@@ -825,6 +825,7 @@
 
 #define A6XX_GBIF_PERF_PWR_CNT_EN         0x3cc0
 #define A6XX_GBIF_PERF_CNT_SEL            0x3cc2
+#define A6XX_GBIF_PERF_PWR_CNT_SEL        0x3cc3
 #define A6XX_GBIF_PERF_CNT_LOW0           0x3cc4
 #define A6XX_GBIF_PERF_CNT_LOW1           0x3cc5
 #define A6XX_GBIF_PERF_CNT_LOW2           0x3cc6
