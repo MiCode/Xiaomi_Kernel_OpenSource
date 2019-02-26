@@ -623,6 +623,14 @@
 			};
 		};
 	};
+
+	qcom,rmnet-ipa {
+		status="disabled";
+	};
+};
+
+&ipa_hw {
+	status="disabled";
 };
 
 #include "sa8155-audio.dtsi"
