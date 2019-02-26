@@ -186,27 +186,6 @@ static u8 cpucc_clk_get_parent(struct clk_hw *hw)
 	return clk_regmap_mux_div_ops.get_parent(hw);
 }
 
-/*
- * We use the notifier function for switching to a temporary safe configuration
- * (mux and divider), while the APSS pll is reconfigured.
- */
-static int cpucc_notifier_cb(struct notifier_block *nb, unsigned long event,
-			     void *data)
-{
-	struct clk_regmap_mux_div *cpuclk = container_of(nb,
-					struct clk_regmap_mux_div, clk_nb);
-	int ret = 0;
-
-	if (event == PRE_RATE_CHANGE)
-		/* set the mux to safe source(gpll0) & div */
-		ret = __mux_div_set_src_div(cpuclk,  cpuclk->safe_src, 1);
-
-	if (event == ABORT_RATE_CHANGE)
-		pr_err("Error in configuring PLL - stay at safe src only\n");
-
-	return notifier_from_errno(ret);
-}
-
 static const struct clk_ops cpucc_clk_ops = {
 	.enable = cpucc_clk_enable,
 	.disable = cpucc_clk_disable,
@@ -241,7 +220,7 @@ static struct clk_alpha_pll apcs_cpu_pll = {
 	.type = LUCID_PLL,
 	.vco_table = lucid_vco,
 	.num_vco = ARRAY_SIZE(lucid_vco),
-	.flags = SUPPORTS_NO_SLEW,
+	.flags = SUPPORTS_NO_PLL_LATCH,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "apcs_cpu_pll",
 		.parent_names = (const char *[]){ "bi_tcxo_ao" },
@@ -263,10 +242,7 @@ static struct clk_regmap_mux_div apcs_mux_clk = {
 	.hid_shift  = 0,
 	.src_width  = 3,
 	.src_shift  = 8,
-	.safe_src = 1,
-	.safe_div = 1,
 	.parent_map = apcs_mux_clk_parent_map,
-	.clk_nb.notifier_call = cpucc_notifier_cb,
 	.clkr.hw.init = &(struct clk_init_data) {
 		.name = "apcs_mux_clk",
 		.parent_names = apcs_mux_clk_parent_name,
@@ -508,14 +484,7 @@ static int cpucc_driver_probe(struct platform_device *pdev)
 		return PTR_ERR(clk);
 	}
 
-	clk = devm_clk_get(dev, "gpll0");
-	if (IS_ERR(clk)) {
-		if (PTR_ERR(clk) != -EPROBE_DEFER)
-			dev_err(dev, "Unable to get GPLL0 clock\n");
-		return PTR_ERR(clk);
-	}
-
-	 /* Rail Regulator for apcs_cpu_pll & cpuss mux*/
+	/* Rail Regulator for apcs_cpu_pll & cpuss mux*/
 	vdd_lucid_pll.regulator[0] = devm_regulator_get(&pdev->dev,
 							"vdd-lucid-pll");
 	if (IS_ERR(vdd_lucid_pll.regulator[0])) {
@@ -610,13 +579,6 @@ static int cpucc_driver_probe(struct platform_device *pdev)
 	ret = of_clk_add_hw_provider(dev->of_node, of_clk_hw_onecell_get, data);
 	if (ret) {
 		dev_err(&pdev->dev, "CPU clock driver registeration failed\n");
-		return ret;
-	}
-
-	ret = clk_notifier_register(apcs_mux_clk.clkr.hw.clk,
-							&apcs_mux_clk.clk_nb);
-	if (ret) {
-		dev_err(dev, "failed to register clock notifier: %d\n", ret);
 		return ret;
 	}
 
@@ -749,8 +711,6 @@ static int __init cpu_clock_init(void)
 		configure_lucid_pll(base);
 		l_val =  readl_relaxed(base + LUCID_PLL_OFF_L_VAL);
 	}
-
-	writel_relaxed(0xC05, base + LUCID_PLL_OFF_USER_CTL_U);
 
 	cpucc_clk_init_rate = l_val * XO_RATE;
 

@@ -326,9 +326,9 @@
 
 	clock_debugcc: qcom,cc-debug {
 		compatible = "qcom,debugcc-sdxprairie";
-		qcom,cc-count = <2>;
 		qcom,gcc = <&clock_gcc>;
 		qcom,cpucc = <&cpucc_debug>;
+		qcom,mccc = <&mccc_debug>;
 		clock-names = "xo_clk_src";
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		#clock-cells = <1>;
@@ -336,9 +336,8 @@
 
 	clock_cpu: qcom,clock-cpu@17808100 {
 		compatible = "qcom,cpu-sdxprairie";
-		clocks = <&clock_rpmh RPMH_CXO_CLK>,
-			 <&clock_gcc GPLL0>;
-		clock-names = "bi_tcxo", "gpll0";
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		clock-names = "bi_tcxo";
 		reg = <0x17810008 0x8>,
 			<0x17808100 0x44>;
 		reg-names = "apcs_cmd" , "apcs_pll";
@@ -349,13 +348,18 @@
 			<  345600000 RPMH_REGULATOR_LEVEL_LOW_SVS>,
 			<  576000000 RPMH_REGULATOR_LEVEL_SVS>,
 			< 1094400000 RPMH_REGULATOR_LEVEL_NOM>,
-			< 1497600000 RPMH_REGULATOR_LEVEL_TURBO>;
+			< 1555200000 RPMH_REGULATOR_LEVEL_TURBO>;
 		#clock-cells = <1>;
 	};
 
 	cpucc_debug: syscon@1781101c {
 		compatible = "syscon";
 		reg = <0x1781101c 0x4>;
+	};
+
+	mccc_debug: syscon@90b0000 {
+		compatible = "syscon";
+		reg = <0x90b0000 0x800>;
 	};
 
 	spmi_bus: qcom,spmi@c440000 {
