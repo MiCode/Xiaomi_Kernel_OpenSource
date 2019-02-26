@@ -2700,35 +2700,88 @@ int msm_venc_set_slice_control_mode(struct msm_vidc_inst *inst)
 	struct v4l2_ctrl *ctrl_t;
 	struct hfi_multi_slice_control multi_slice_control;
 	int temp = 0;
+	u32 mb_per_frame, fps, mbps, bitrate;
+	u32 slice_val, slice_mode, max_avg_slicesize;
+	u32 rc_mode, output_width, output_height;
+	struct v4l2_ctrl *rc_enable;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
 		return -EINVAL;
 	}
-	hdev = inst->core->device;
 
 	if (inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_HEVC &&
 		inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_H264)
 		return 0;
 
+	slice_mode = HFI_MULTI_SLICE_OFF;
+	slice_val = 0;
+
+	bitrate = inst->clk_data.bitrate;
+	fps = inst->clk_data.frame_rate;
+	rc_mode = inst->rc_type;
+	rc_enable = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE);
+	if (fps > 60 ||
+		(rc_enable->val &&
+		 rc_mode != V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR &&
+		 rc_mode != V4L2_MPEG_VIDEO_BITRATE_MODE_CBR)) {
+		goto set_and_exit;
+	}
+
+	output_width = inst->prop.width[OUTPUT_PORT];
+	output_height = inst->prop.height[OUTPUT_PORT];
+
+	if (output_height < 128 ||
+		(inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_HEVC &&
+		 output_width < 384) ||
+		(inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_H264 &&
+		 output_width < 192)) {
+		goto set_and_exit;
+	}
+
 	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE);
-	multi_slice_control.multi_slice = HFI_MULTI_SLICE_OFF;
-	temp = 0;
 	if (ctrl->val == V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_MB) {
 		temp = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB;
-		multi_slice_control.multi_slice = HFI_MULTI_SLICE_BY_MB_COUNT;
+		slice_mode = HFI_MULTI_SLICE_BY_MB_COUNT;
 	} else if (ctrl->val == V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_BYTES) {
 		temp = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES;
-		multi_slice_control.multi_slice =
-			HFI_MULTI_SLICE_BY_BYTE_COUNT;
+		slice_mode = HFI_MULTI_SLICE_BY_BYTE_COUNT;
+	} else {
+		goto set_and_exit;
 	}
 
-	multi_slice_control.slice_size = 0;
-	if (temp) {
-		ctrl_t = get_ctrl(inst, temp);
-		multi_slice_control.slice_size = ctrl_t->val;
+	ctrl_t = get_ctrl(inst, temp);
+	slice_val = ctrl_t->val;
+
+	/* Update Slice Config */
+	mb_per_frame = NUM_MBS_PER_FRAME(output_height, output_width);
+	mbps = NUM_MBS_PER_SEC(output_height, output_width, fps);
+
+	if (slice_mode == HFI_MULTI_SLICE_BY_MB_COUNT) {
+		if (output_width <= 4096 || output_height <= 4096 ||
+			mb_per_frame <= NUM_MBS_PER_FRAME(4096, 2160) ||
+			mbps <= NUM_MBS_PER_SEC(4096, 2160, 60)) {
+			slice_val = max(slice_val, mb_per_frame / 10);
+		}
+	} else {
+		if (output_width <= 1920 || output_height <= 1920 ||
+			mb_per_frame <= NUM_MBS_PER_FRAME(1088, 1920) ||
+			mbps <= NUM_MBS_PER_SEC(1088, 1920, 60)) {
+			max_avg_slicesize = ((bitrate / fps) / 8) / 10;
+			slice_val = max(slice_val, max_avg_slicesize);
+		}
 	}
 
+	if (slice_mode == HFI_MULTI_SLICE_OFF) {
+		ctrl->val = V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE;
+		ctrl_t->val = 0;
+	}
+
+set_and_exit:
+	multi_slice_control.multi_slice = slice_mode;
+	multi_slice_control.slice_size = slice_val;
+
+	hdev = inst->core->device;
 	dprintk(VIDC_DBG, "%s: %d %d\n", __func__,
 			multi_slice_control.multi_slice,
 			multi_slice_control.slice_size);
