@@ -46,7 +46,7 @@
 #define MHI_RING_PRIMARY_EVT_ID		1
 #define MHI_1K_SIZE			0x1000
 /* Updated Specification for event start is NER - 2 and end - NER -1 */
-#define MHI_HW_ACC_EVT_RING_START	2
+#define MHI_HW_ACC_EVT_RING_START	3
 #define MHI_HW_ACC_EVT_RING_END		1
 
 #define MHI_HOST_REGION_NUM             2
@@ -843,7 +843,9 @@ static int mhi_hwc_chcmd(struct mhi_dev *mhi, uint chid,
 	case MHI_DEV_RING_EL_START:
 		connect_params.channel_id = chid;
 		connect_params.sys.skip_ep_cfg = true;
-		if ((chid % 2) == 0x0)
+		if (chid == MHI_CLIENT_ADPL_IN)
+			connect_params.sys.client = IPA_CLIENT_MHI_DPL_CONS;
+		else if ((chid % 2) == 0x0)
 			connect_params.sys.client = IPA_CLIENT_MHI_PROD;
 		else
 			connect_params.sys.client = IPA_CLIENT_MHI_CONS;
@@ -2290,6 +2292,8 @@ int mhi_dev_channel_isempty(struct mhi_dev_client *handle)
 	int rc;
 
 	ch = handle->channel;
+	if (!ch)
+		return -EINVAL;
 
 	rc = ch->ring->rd_offset == ch->ring->wr_offset;
 
@@ -2669,6 +2673,64 @@ exit:
 }
 EXPORT_SYMBOL(mhi_dev_write_channel);
 
+static int mhi_dev_recover(struct mhi_dev *mhi)
+{
+	int rc = 0;
+	uint32_t syserr, max_cnt = 0, bhi_intvec = 0;
+	bool mhi_reset;
+	enum mhi_dev_state state;
+
+	/* Check if MHI is in syserr */
+	mhi_dev_mmio_masked_read(mhi, MHISTATUS,
+				MHISTATUS_SYSERR_MASK,
+				MHISTATUS_SYSERR_SHIFT, &syserr);
+
+	mhi_log(MHI_MSG_VERBOSE, "mhi_syserr = 0x%X\n", syserr);
+	if (syserr) {
+		rc = mhi_dev_mmio_read(mhi, BHI_INTVEC, &bhi_intvec);
+		if (rc)
+			return rc;
+
+		if (bhi_intvec != 0xffffffff) {
+			/* Indicate the host that the device is ready */
+			rc = ep_pcie_trigger_msi(mhi->phandle, bhi_intvec);
+			if (rc) {
+				pr_err("%s: error sending msi\n", __func__);
+				return rc;
+			}
+		}
+
+		/* Poll for the host to set the reset bit */
+		rc = mhi_dev_mmio_get_mhi_state(mhi, &state, &mhi_reset);
+		if (rc) {
+			pr_err("%s: get mhi state failed\n", __func__);
+			return rc;
+		}
+		while (mhi_reset != true && max_cnt < MHI_SUSPEND_TIMEOUT) {
+			/* Wait for Host to set the reset */
+			msleep(MHI_SUSPEND_MIN);
+			rc = mhi_dev_mmio_get_mhi_state(mhi, &state,
+								&mhi_reset);
+			if (rc) {
+				pr_err("%s: get mhi state failed\n", __func__);
+				return rc;
+			}
+			max_cnt++;
+		}
+
+		if (!mhi_reset) {
+			mhi_log(MHI_MSG_VERBOSE, "Host failed to set reset\n");
+			return -EINVAL;
+		}
+	}
+	/*
+	 * Now mask the interrupts so that the state machine moves
+	 * only after IPA is ready
+	 */
+	mhi_dev_mmio_mask_interrupts(mhi);
+	return 0;
+}
+
 static void mhi_dev_enable(struct work_struct *work)
 {
 	int rc = 0;
@@ -3000,11 +3062,7 @@ static int mhi_deinit(struct mhi_dev *mhi)
 			ring->ring_cache_dma_handle);
 	}
 
-	for (i = 0; i < mhi->cfg.channels; i++)
-		mutex_destroy(&mhi->ch[i].ch_lock);
-
 	devm_kfree(&pdev->dev, mhi->mmio_backup);
-	devm_kfree(&pdev->dev, mhi->ch);
 	devm_kfree(&pdev->dev, mhi->ring);
 
 	mhi_dev_sm_exit(mhi);
@@ -3032,14 +3090,20 @@ static int mhi_init(struct mhi_dev *mhi)
 	if (!mhi->ring)
 		return -ENOMEM;
 
-	mhi->ch = devm_kzalloc(&pdev->dev,
+	/*
+	 * mhi_init is also called during device reset, in
+	 * which case channel mem will already be allocated.
+	 */
+	if (!mhi->ch) {
+		mhi->ch = devm_kzalloc(&pdev->dev,
 			(sizeof(struct mhi_dev_channel) *
 			(mhi->cfg.channels)), GFP_KERNEL);
-	if (!mhi->ch)
-		return -ENOMEM;
+		if (!mhi->ch)
+			return -ENOMEM;
 
-	for (i = 0; i < mhi->cfg.channels; i++)
-		mutex_init(&mhi->ch[i].ch_lock);
+		for (i = 0; i < mhi->cfg.channels; i++)
+			mutex_init(&mhi->ch[i].ch_lock);
+	}
 
 	spin_lock_init(&mhi->lock);
 	mhi->mmio_backup = devm_kzalloc(&pdev->dev,
@@ -3180,6 +3244,18 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 	mutex_init(&mhi_ctx->mhi_event_lock);
 	mutex_init(&mhi_ctx->mhi_write_test);
 
+	mhi_ctx->phandle = ep_pcie_get_phandle(mhi_ctx->ifc_id);
+	if (!mhi_ctx->phandle) {
+		pr_err("PCIe driver get handle failed.\n");
+		return -EINVAL;
+	}
+
+	rc = mhi_dev_recover(mhi_ctx);
+	if (rc) {
+		pr_err("%s: get mhi state failed\n", __func__);
+		return rc;
+	}
+
 	rc = mhi_init(mhi_ctx);
 	if (rc)
 		return rc;
@@ -3209,13 +3285,6 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 		pr_err("Failed to update the MHI version\n");
 		return rc;
 	}
-
-	mhi_ctx->phandle = ep_pcie_get_phandle(mhi_ctx->ifc_id);
-	if (!mhi_ctx->phandle) {
-		pr_err("PCIe driver get handle failed.\n");
-		return -EINVAL;
-	}
-
 	mhi_ctx->event_reg.events = EP_PCIE_EVENT_PM_D3_HOT |
 		EP_PCIE_EVENT_PM_D3_COLD |
 		EP_PCIE_EVENT_PM_D0 |
