@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1020,6 +1020,13 @@ int msm_adsp_inform_mixer_ctl(struct snd_soc_pcm_runtime *rtd,
 	}
 
 	event_data = (struct msm_adsp_event_data *)payload;
+	if (event_data->payload_len < sizeof(struct msm_adsp_event_data)) {
+		pr_err("%s: event_data size of %x is less than expected.\n",
+			 __func__, event_data->payload_len);
+		ret = -EINVAL;
+		goto done;
+	}
+
 	kctl->info(kctl, &kctl_info);
 
 	if (event_data->payload_len >
