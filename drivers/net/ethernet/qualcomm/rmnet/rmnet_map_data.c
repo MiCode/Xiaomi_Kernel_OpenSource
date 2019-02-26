@@ -327,8 +327,10 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 
 	if (port->data_format & RMNET_FLAGS_INGRESS_MAP_CKSUMV4)
 		packet_len += sizeof(struct rmnet_map_dl_csum_trailer);
-	else if (port->data_format & RMNET_FLAGS_INGRESS_MAP_CKSUMV5)
-		packet_len += sizeof(struct rmnet_map_v5_csum_header);
+	else if (port->data_format & RMNET_FLAGS_INGRESS_MAP_CKSUMV5) {
+		if (!maph->cd_bit)
+			packet_len += sizeof(struct rmnet_map_v5_csum_header);
+	}
 
 	if (((int)skb->len - (int)packet_len) < 0)
 		return NULL;
