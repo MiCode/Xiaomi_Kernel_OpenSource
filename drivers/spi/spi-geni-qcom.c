@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -152,6 +152,7 @@ struct spi_geni_master {
 	struct completion tx_cb;
 	struct completion rx_cb;
 	bool qn_err;
+	bool disable_dma_mode;
 	int cur_xfer_mode;
 	int num_tx_eot;
 	int num_rx_eot;
@@ -1063,17 +1064,30 @@ static void setup_fifo_xfer(struct spi_transfer *xfer,
 		mas->rx_rem_bytes = xfer->len;
 	}
 
-	fifo_size =
-		(mas->tx_fifo_depth * mas->tx_fifo_width / mas->cur_word_len);
-	if (trans_len > fifo_size) {
-		if (mas->cur_xfer_mode != SE_DMA) {
-			mas->cur_xfer_mode = SE_DMA;
-			geni_se_select_mode(mas->base, mas->cur_xfer_mode);
-		}
+	/*
+	 * Controller has support to transfer data either in FIFO mode
+	 * or in SE_DMA mode. Either force the controller to choose FIFO
+	 * mode for transfers or select the mode dynamically based on
+	 * size of data.
+	 */
+	if (mas->disable_dma_mode) {
+		mas->cur_xfer_mode = FIFO_MODE;
+		geni_se_select_mode(mas->base, mas->cur_xfer_mode);
 	} else {
-		if (mas->cur_xfer_mode != FIFO_MODE) {
-			mas->cur_xfer_mode = FIFO_MODE;
-			geni_se_select_mode(mas->base, mas->cur_xfer_mode);
+		fifo_size = (mas->tx_fifo_depth *
+				mas->tx_fifo_width / mas->cur_word_len);
+		if (trans_len > fifo_size) {
+			if (mas->cur_xfer_mode != SE_DMA) {
+				mas->cur_xfer_mode = SE_DMA;
+				geni_se_select_mode(mas->base,
+						mas->cur_xfer_mode);
+			}
+		} else {
+			if (mas->cur_xfer_mode != FIFO_MODE) {
+				mas->cur_xfer_mode = FIFO_MODE;
+				geni_se_select_mode(mas->base,
+						mas->cur_xfer_mode);
+			}
 		}
 	}
 
@@ -1579,6 +1593,9 @@ static int spi_geni_probe(struct platform_device *pdev)
 		spi->slave = true;
 		spi->slave_abort = spi_slv_abort;
 	}
+
+	geni_mas->disable_dma_mode = of_property_read_bool(pdev->dev.of_node,
+			"qcom,disable-dma");
 
 	spi->mode_bits = (SPI_CPOL | SPI_CPHA | SPI_LOOP | SPI_CS_HIGH);
 	spi->bits_per_word_mask = SPI_BPW_RANGE_MASK(4, 32);
