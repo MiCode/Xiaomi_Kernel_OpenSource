@@ -4756,7 +4756,7 @@ int __sdhci_add_host(struct sdhci_host *host)
 	mmc_hostname(mmc), host->hw_name, dev_name(mmc_dev(mmc)),
 		(host->flags & SDHCI_USE_ADMA) ?
 		((host->flags & SDHCI_USE_64_BIT_DMA) ?
-		"64-bit ADMA" : "32-bit ADMA") :
+		"64-bit ADMA" : "32-bit ADMA") : "",
 		((host->flags & SDHCI_USE_SDMA) ? "DMA" : "PIO"));
 
 	sdhci_enable_card_detection(host);
