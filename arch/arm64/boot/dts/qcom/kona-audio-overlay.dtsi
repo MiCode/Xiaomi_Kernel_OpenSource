@@ -181,6 +181,7 @@
 &kona_snd {
 	qcom,model = "kona-mtp-snd-card";
 	qcom,msm-mi2s-master = <1>, <1>, <1>;
+	qcom,wcn-bt = <1>;
 	qcom,ext-disp-audio-rx = <1>;
 	qcom,audio-routing =
 		"AMIC1", "MIC BIAS1",
