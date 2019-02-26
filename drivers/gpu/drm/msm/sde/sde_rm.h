@@ -120,6 +120,12 @@ struct sde_rm_hw_iter {
 enum sde_rm_topology_name sde_rm_get_topology_name(
 	struct msm_display_topology topology);
 
+/**
+ * sde_rm_get_topology_num_encoders - get number of encoders in given topology
+ * @topology: topology name
+ * @Return: number of encoders in given topology
+ */
+int sde_rm_get_topology_num_encoders(enum sde_rm_topology_name topology);
 
 /**
  * sde_rm_init - Read hardware catalog and create reservation tracking objects

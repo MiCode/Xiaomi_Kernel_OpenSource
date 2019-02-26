@@ -1406,6 +1406,9 @@ static int _sde_encoder_dsc_setup(struct sde_encoder_virt *sde_enc,
 		return -EINVAL;
 	}
 
+	params->num_channels =
+		sde_rm_get_topology_num_encoders(topology);
+
 	SDE_DEBUG_ENC(sde_enc, "topology:%d\n", topology);
 	SDE_EVT32(DRMID(&sde_enc->base), topology,
 			sde_enc->cur_conn_roi.x,

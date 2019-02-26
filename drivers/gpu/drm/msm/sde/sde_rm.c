@@ -216,6 +216,18 @@ exit:
 	mutex_unlock(&rm->rm_lock);
 	return count;
 }
+
+int sde_rm_get_topology_num_encoders(enum sde_rm_topology_name topology)
+{
+	int i;
+
+	for (i = 0; i < SDE_RM_TOPOLOGY_MAX; i++)
+		if (g_top_table[i].top_name == topology)
+			return g_top_table[i].num_comp_enc;
+
+	return 0;
+}
+
 static bool _sde_rm_get_hw_locked(struct sde_rm *rm, struct sde_rm_hw_iter *i)
 {
 	struct list_head *blk_list;
