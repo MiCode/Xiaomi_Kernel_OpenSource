@@ -197,12 +197,15 @@ static int _sde_encoder_phys_shd_unregister_irq(
 }
 
 static void _sde_shd_hw_ctl_clear_blendstages_in_range(
-	struct sde_shd_hw_ctl *hw_ctl, enum sde_lm lm)
+	struct sde_shd_hw_ctl *hw_ctl, enum sde_lm lm,
+	bool handoff, const struct splash_reserved_pipe_info *resv_pipes,
+	u32 resv_pipes_length)
 {
 	struct sde_hw_blk_reg_map *c = &hw_ctl->base.hw;
 	u32 mixercfg, mixercfg_ext;
 	u32 mixercfg_ext2;
 	u32 mask = 0, ext_mask = 0, ext2_mask = 0;
+	u32 splash_mask = 0, splash_ext_mask = 0;
 	u32 start = hw_ctl->range.start + SDE_STAGE_0;
 	u32 end = start + hw_ctl->range.size;
 	u32 i;
@@ -213,6 +216,13 @@ static void _sde_shd_hw_ctl_clear_blendstages_in_range(
 
 	if (!mixercfg && !mixercfg_ext && !mixercfg_ext2)
 		goto end;
+
+	if (handoff) {
+		sde_splash_get_mixer_mask(resv_pipes,
+			resv_pipes_length, &splash_mask, &splash_ext_mask);
+		mask |= splash_mask;
+		ext_mask |= splash_ext_mask;
+	}
 
 	/* SSPP_VIG0 */
 	i = (mixercfg & 0x7) | ((mixercfg_ext & 1) << 3);
@@ -325,7 +335,9 @@ static void _sde_shd_hw_ctl_clear_all_blendstages(struct sde_hw_ctl *ctx,
 	for (i = 0; i < ctx->mixer_count; i++) {
 		int mixer_id = ctx->mixer_hw_caps[i].id;
 
-		_sde_shd_hw_ctl_clear_blendstages_in_range(hw_ctl, mixer_id);
+		_sde_shd_hw_ctl_clear_blendstages_in_range(hw_ctl, mixer_id,
+							handoff, resv_pipes,
+							resv_pipes_length);
 	}
 }
 
@@ -351,11 +363,13 @@ static void _sde_shd_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 {
 	struct sde_shd_hw_ctl *hw_ctl;
 	u32 mixercfg = 0, mixercfg_ext = 0, mix, ext, full, mixercfg_ext2;
+	u32 splash_mask = 0, splash_ext_mask = 0;
 	u32 mask = 0, ext_mask = 0, ext2_mask = 0;
 	int i, j;
 	int stages;
 	int stage_offset = 0;
 	int pipes_per_stage;
+	struct sde_hw_blk_reg_map *c;
 
 	if (!ctx)
 		return;
@@ -368,7 +382,8 @@ static void _sde_shd_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 	else
 		pipes_per_stage = 1;
 
-	_sde_shd_hw_ctl_clear_blendstages_in_range(hw_ctl, lm);
+	_sde_shd_hw_ctl_clear_blendstages_in_range(hw_ctl, lm, handoff,
+			resv_pipes, resv_pipes_length);
 
 	if (!stage_cfg)
 		goto exit;
@@ -376,6 +391,21 @@ static void _sde_shd_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 	mixercfg = CTL_MIXER_BORDER_OUT;
 	stage_offset = hw_ctl->range.start;
 	stages = hw_ctl->range.size;
+
+	c = &hw_ctl->base.hw;
+	if (handoff) {
+		mixercfg = SDE_REG_READ(c, CTL_LAYER(lm));
+		mixercfg_ext = SDE_REG_READ(c, CTL_LAYER_EXT(lm));
+		sde_splash_get_mixer_mask(resv_pipes,
+			resv_pipes_length, &splash_mask, &splash_ext_mask);
+
+		mixercfg &= splash_mask;
+		mixercfg_ext &= splash_ext_mask;
+
+		mask |= splash_mask;
+		ext_mask |= splash_ext_mask;
+		mixercfg |= CTL_MIXER_BORDER_OUT;
+	}
 
 	for (i = SDE_STAGE_0; i <= stages; i++) {
 		/* overflow to ext register if 'i + 1 > 7' */
